@@ -7,13 +7,13 @@ pub trait GetBufferHelper<T: Std430> {
   fn get_gpu_buffer(&self) -> StorageBufferReadonlyDataView<[T]>;
 }
 
-impl<T: Std430> GetBufferHelper<T> for CommonStorageBufferImpl<T> {
+impl<T: Std430 + ShaderSizedValueNodeType> GetBufferHelper<T> for CommonStorageBufferImpl<T> {
   fn get_gpu_buffer(&self) -> StorageBufferReadonlyDataView<[T]> {
     self.inner.gpu().clone()
   }
 }
 
-pub fn create_common_storage_buffer_container<T: Std430>(
+pub fn create_common_storage_buffer_container<T: Std430 + ShaderSizedValueNodeType>(
   label: &str,
   init_capacity_item_count: u32,
   max_item_count: u32,
@@ -27,7 +27,9 @@ pub fn create_common_storage_buffer_container<T: Std430>(
 pub type CommonStorageBufferImplWithHostBackup<T> =
   VecWithStorageBuffer<CommonStorageBufferImpl<T>>;
 
-pub fn create_common_storage_buffer_with_host_backup_container<T: Std430 + Default>(
+pub fn create_common_storage_buffer_with_host_backup_container<
+  T: Std430 + ShaderSizedValueNodeType + Default,
+>(
   init_capacity_item_count: u32,
   max_item_count: u32,
   gpu_ctx: &GPU,

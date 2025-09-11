@@ -83,16 +83,10 @@ impl<T: LinearStorageViewAccess> LinearStorageViewAccess for CustomGrowBehaviorM
 
 impl<T: GPULinearStorage> GPULinearStorage for CustomGrowBehaviorMaintainer<T> {
   type GPUType = T::GPUType;
-
-  fn update_gpu(&mut self, encoder: &mut GPUCommandEncoder) {
-    self.inner.update_gpu(encoder)
-  }
-
   fn gpu(&self) -> &Self::GPUType {
     self.inner.gpu()
   }
-
-  fn raw_gpu(&self) -> &GPUBufferResourceView {
-    self.inner.raw_gpu()
+  fn abstract_gpu(&mut self) -> &mut dyn AbstractBuffer {
+    self.inner.abstract_gpu()
   }
 }

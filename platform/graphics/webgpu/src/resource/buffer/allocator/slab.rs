@@ -80,21 +80,19 @@ impl<T: LinearStorageDirectAccess> LinearStorageDirectAccess for GPUSlatAllocate
 impl<T: GPULinearStorage> GPULinearStorage for GPUSlatAllocateMaintainer<T> {
   type GPUType = T::GPUType;
 
-  fn update_gpu(&mut self, encoder: &mut GPUCommandEncoder) {
-    self.buffer.update_gpu(encoder)
-  }
   fn gpu(&self) -> &Self::GPUType {
     self.buffer.gpu()
   }
-  fn raw_gpu(&self) -> &GPUBufferResourceView {
-    self.buffer.raw_gpu()
+
+  fn abstract_gpu(&mut self) -> &mut dyn AbstractBuffer {
+    self.buffer.abstract_gpu()
   }
 }
 
 pub type StorageBufferSlabAllocatePool<T> = SlabAllocatePool<StorageBufferReadonlyDataView<[T]>>;
 pub type SlabAllocatePool<T> = GPUSlatAllocateMaintainer<GrowableDirectQueueUpdateBuffer<T>>;
 
-pub fn create_storage_buffer_slab_allocate_pool<T: Std430>(
+pub fn create_storage_buffer_slab_allocate_pool<T: Std430 + ShaderSizedValueNodeType>(
   gpu: &GPU,
   init_item_count: u32,
   max_item_count: u32,

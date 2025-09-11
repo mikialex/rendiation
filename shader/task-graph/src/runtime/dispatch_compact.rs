@@ -13,7 +13,7 @@ impl DeviceParallelCompute<Node<u32>> for ParallelComputeFromAbstractStorageBuff
   }
 
   fn result_size(&self) -> u32 {
-    let byte_size = self.0.get_gpu_buffer_view().view_byte_size();
+    let byte_size = self.0.byte_size();
     u64::from(byte_size) as u32 / 4
   }
 }
@@ -61,7 +61,7 @@ impl DeviceParallelCompute<Node<bool>> for ActiveTaskCompact {
   }
 
   fn result_size(&self) -> u32 {
-    let byte_size = self.active_tasks.get_gpu_buffer_view().view_byte_size();
+    let byte_size = self.active_tasks.byte_size();
     u64::from(byte_size) as u32 / 4
   }
 }

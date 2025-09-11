@@ -218,7 +218,7 @@ impl MeshLODGraphRenderer {
     max_meshlet_count: u32,
   ) -> Box<dyn IndirectDrawProvider> {
     let meshlet_metadata =
-      StorageBufferReadonlyDataView::try_from_raw(self.meshlet_metadata.raw_gpu().clone()).unwrap();
+      StorageBufferReadonlyDataView::try_from_raw(self.meshlet_metadata.gpu().gpu.clone()).unwrap();
 
     let expander = MeshLODExpander {
       meshlet_metadata,
@@ -232,13 +232,13 @@ impl MeshLODGraphRenderer {
 
   pub fn create_mesh_accessor(&self) -> Box<dyn RenderComponent> {
     let meshlet_metadata =
-      StorageBufferReadonlyDataView::try_from_raw(self.meshlet_metadata.raw_gpu().clone()).unwrap();
+      StorageBufferReadonlyDataView::try_from_raw(self.meshlet_metadata.gpu().gpu.clone()).unwrap();
 
     let position_buffer =
-      StorageBufferReadonlyDataView::try_from_raw(self.position_buffer.raw_gpu().clone()).unwrap();
+      StorageBufferReadonlyDataView::try_from_raw(self.position_buffer.gpu().gpu.clone()).unwrap();
 
     let index_buffer =
-      StorageBufferReadonlyDataView::try_from_raw(self.index_buffer.raw_gpu().clone()).unwrap();
+      StorageBufferReadonlyDataView::try_from_raw(self.index_buffer.gpu().gpu.clone()).unwrap();
 
     let draw_data = MeshletGPURenderData {
       meshlet_metadata,

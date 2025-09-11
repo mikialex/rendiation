@@ -8,14 +8,12 @@ mod vec_backup;
 pub use vec_backup::*;
 mod queue_direct_update;
 pub use queue_direct_update::*;
-mod defer_mutation;
-pub use defer_mutation::*;
 
-pub trait GPULinearStorage: Sized {
+pub trait GPULinearStorage: LinearStorageBase + Sized {
   type GPUType;
-  fn update_gpu(&mut self, encoder: &mut GPUCommandEncoder);
   fn gpu(&self) -> &Self::GPUType;
-  fn raw_gpu(&self) -> &GPUBufferResourceView;
+
+  fn abstract_gpu(&mut self) -> &mut dyn AbstractBuffer;
 
   fn with_queue_direct_update(self, queue: &GPUQueue) -> GPUStorageDirectQueueUpdate<Self> {
     GPUStorageDirectQueueUpdate {
@@ -58,14 +56,6 @@ pub trait LinearStorageDirectAccess: LinearStorageBase {
     v: &[u8],
   ) -> Option<()>;
 
-  fn with_defer_update(self) -> DeferMutationToGPUUpdate<Self> {
-    DeferMutationToGPUUpdate {
-      inner: self,
-      updates: Default::default(),
-      bump_bytes: Default::default(),
-    }
-  }
-
   fn with_vec_backup(self, none_default: Self::Item, diff: bool) -> VecWithStorageBuffer<Self> {
     VecWithStorageBuffer {
       vec: vec![none_default; self.max_size() as usize],
@@ -101,7 +91,7 @@ pub trait LinearStorageViewAccess: LinearStorageBase {
 pub type GrowableDirectQueueUpdateBuffer<T> =
   CustomGrowBehaviorMaintainer<GPUStorageDirectQueueUpdate<ResizableGPUBuffer<T>>>;
 
-pub fn create_growable_buffer<T: GPULinearStorageImpl>(
+pub fn create_growable_buffer<T: GPULinearStorage + AbstractBuffer>(
   gpu: &GPU,
   buffer: T,
   max_size: u32,
@@ -129,7 +119,7 @@ pub type GrowableHostedDirectQueueUpdateBuffer<T> = CustomGrowBehaviorMaintainer
   VecWithStorageBuffer<GPUStorageDirectQueueUpdate<ResizableGPUBuffer<T>>>,
 >;
 
-pub fn create_growable_buffer_with_host_back<T: GPULinearStorageImpl>(
+pub fn create_growable_buffer_with_host_back<T: GPULinearStorage + AbstractBuffer>(
   gpu: &GPU,
   buffer: T,
   max_size: u32,

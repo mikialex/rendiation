@@ -346,13 +346,13 @@ pub struct MeshGPUBindlessImpl {
 impl MeshGPUBindlessImpl {
   pub fn make_bindless_dispatcher(&self) -> BindlessMeshDispatcher {
     let position =
-      StorageBufferReadonlyDataView::try_from_raw(self.position.read().raw_gpu().clone()).unwrap();
+      StorageBufferReadonlyDataView::try_from_raw(self.position.read().gpu().gpu.clone()).unwrap();
     let normal =
-      StorageBufferReadonlyDataView::try_from_raw(self.normal.read().raw_gpu().clone()).unwrap();
-    let uv = StorageBufferReadonlyDataView::try_from_raw(self.uv.read().raw_gpu().clone()).unwrap();
+      StorageBufferReadonlyDataView::try_from_raw(self.normal.read().gpu().gpu.clone()).unwrap();
+    let uv = StorageBufferReadonlyDataView::try_from_raw(self.uv.read().gpu().gpu.clone()).unwrap();
 
     let index_pool =
-      StorageBufferReadonlyDataView::try_from_raw(self.indices.read().raw_gpu().clone()).unwrap();
+      StorageBufferReadonlyDataView::try_from_raw(self.indices.read().gpu().gpu.clone()).unwrap();
 
     BindlessMeshDispatcher {
       sm_to_mesh: self.sm_to_mesh_device.clone(),

@@ -11,14 +11,14 @@ pub trait DataChangeGPUExt<K: LinearIdentified + CKey> {
     gpu: &GPU,
   );
 
-  fn update_uniform_array<U: Std140 + Default, const N: usize>(
+  fn update_uniform_array<U: Std140 + ShaderSizedValueNodeType + Default, const N: usize>(
     &self,
     uniforms: &UniformArray<U, N>,
     offset: usize,
     gpu: &GPU,
   );
 
-  fn update_storage_array<U: Std430 + Default>(
+  fn update_storage_array<U: Std430 + ShaderSizedValueNodeType + Default>(
     &self,
     storage: &mut CommonStorageBufferImpl<U>,
     field_offset: usize,
@@ -33,13 +33,13 @@ pub trait DataChangeGPUExtForUseResult<K: LinearIdentified + CKey> {
     offset: usize,
     gpu: &GPU,
   );
-  fn update_uniform_array<U: Std140 + Default, const N: usize>(
+  fn update_uniform_array<U: Std140 + ShaderSizedValueNodeType + Default, const N: usize>(
     &self,
     uniforms: &UniformArray<U, N>,
     field_offset: usize,
     gpu: &GPU,
   );
-  fn update_storage_array<U: Std430 + Default>(
+  fn update_storage_array<U: Std430 + ShaderSizedValueNodeType + Default>(
     &self,
     storage: &mut CommonStorageBufferImpl<U>,
     field_offset: usize,
@@ -63,7 +63,7 @@ impl<K: LinearIdentified + CKey, T: DataChangeGPUExt<K>> DataChangeGPUExtForUseR
     r.update_uniforms(uniforms, offset, gpu);
   }
 
-  fn update_uniform_array<U: Std140 + Default, const N: usize>(
+  fn update_uniform_array<U: Std140 + ShaderSizedValueNodeType + Default, const N: usize>(
     &self,
     uniforms: &UniformArray<U, N>,
     field_offset: usize,
@@ -77,7 +77,7 @@ impl<K: LinearIdentified + CKey, T: DataChangeGPUExt<K>> DataChangeGPUExtForUseR
     r.update_uniform_array(uniforms, field_offset, gpu);
   }
 
-  fn update_storage_array<U: Std430 + Default>(
+  fn update_storage_array<U: Std430 + ShaderSizedValueNodeType + Default>(
     &self,
     storage: &mut CommonStorageBufferImpl<U>,
     field_offset: usize,
@@ -135,7 +135,7 @@ where
     }
   }
 
-  fn update_storage_array<U: Std430 + Default>(
+  fn update_storage_array<U: Std430 + ShaderSizedValueNodeType + Default>(
     &self,
     storage: &mut CommonStorageBufferImpl<U>,
     field_offset: usize,

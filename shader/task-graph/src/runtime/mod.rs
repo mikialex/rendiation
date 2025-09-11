@@ -328,7 +328,8 @@ impl DeviceTaskGraphExecutor {
         .resource
         .active_task_idx
         .current_size
-        .get_gpu_buffer_view();
+        .get_gpu_buffer_view()
+        .unwrap();
       cx.encoder.copy_buffer_to_buffer(
         src.buffer.gpu(),
         src.range.offset,
@@ -340,7 +341,8 @@ impl DeviceTaskGraphExecutor {
         .resource
         .empty_index_pool
         .current_size
-        .get_gpu_buffer_view();
+        .get_gpu_buffer_view()
+        .unwrap();
       cx.encoder.copy_buffer_to_buffer(
         src.buffer.gpu(),
         src.range.offset,
@@ -391,7 +393,8 @@ impl DeviceTaskGraphExecutor {
       let active_idx = task.resource.active_task_idx.debug_execution(cx).await;
       let empty_idx = task.resource.empty_index_pool.debug_execution(cx).await;
 
-      let task_states = cx.read_buffer_bytes(&task.resource.task_pool.tasks.get_gpu_buffer_view());
+      let task_states =
+        cx.read_buffer_bytes(&task.resource.task_pool.tasks.get_gpu_buffer_view().unwrap());
 
       cx.submit_recorded_work_and_continue();
       let task_states = task_states.await.unwrap();

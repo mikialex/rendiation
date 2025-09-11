@@ -22,8 +22,7 @@ impl AtomicImageDowngrade {
   pub fn clear(&self, device: &GPUDevice, encoder: &mut GPUCommandEncoder, value: u32) {
     let clear_value = create_uniform(Vec4::new(value, 0, 0, 0), device);
     // cast to common buffer, as we not required atomic write in clear
-    let buffer =
-      StorageBufferDataView::<[u32]>::try_from_raw(self.buffer.raw_gpu().clone()).unwrap();
+    let buffer = StorageBufferDataView::<[u32]>::try_from_raw(self.buffer.gpu.clone()).unwrap();
     let workgroup_size = 256;
     encoder.compute_pass_scoped(|mut pass| {
       let hasher = shader_hasher_from_marker_ty!(BufferClear);

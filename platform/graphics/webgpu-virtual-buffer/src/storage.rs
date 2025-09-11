@@ -131,9 +131,9 @@ impl SubCombinedStorageBufferDynTyped {
   }
 }
 impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
-  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
+  fn get_gpu_buffer_view(&self) -> Option<GPUBufferResourceView> {
     let mut internal = self.internal.write();
-    internal.get_sub_gpu_buffer_view(self.buffer_index)
+    internal.get_sub_gpu_buffer_view(self.buffer_index).into()
   }
 
   fn write(&self, content: &[u8], offset: u64, _queue: &GPUQueue) {
@@ -153,5 +153,46 @@ impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
     let mut internal = self.internal.write();
     internal.bind_pass(bind_builder, self.buffer_index);
+  }
+
+  fn byte_size(&self) -> u64 {
+    self.get_gpu_buffer_view().unwrap().view_byte_size().into()
+  }
+
+  fn copy_buffer_to_buffer(
+    &self,
+    target: &dyn AbstractBuffer,
+    self_offset: u64,
+    target_offset: u64,
+    count: u64,
+    encoder: &mut GPUCommandEncoder,
+  ) {
+    let source = self.get_gpu_buffer_view().unwrap(); // this won't fail
+    let target = target.get_gpu_buffer_view().unwrap(); // this may fail
+    encoder.copy_buffer_to_buffer(
+      source.resource.gpu(),
+      self_offset + source.desc.offset,
+      target.resource.gpu(),
+      target_offset + target.desc.offset,
+      count,
+    );
+  }
+
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+
+  fn ref_clone(&self) -> Box<dyn AbstractBuffer> {
+    Box::new(self.clone())
+  }
+
+  fn resize_gpu(
+    &mut self,
+    _encoder: &mut GPUCommandEncoder,
+    _device: &GPUDevice,
+    new_byte_size: u64,
+  ) {
+    assert!(new_byte_size % 4 == 0);
+    self.resize(new_byte_size as u32 / 4);
   }
 }

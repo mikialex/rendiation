@@ -1,11 +1,5 @@
 use crate::*;
 
-pub trait GPULinearStorageImpl: LinearStorageBase {
-  fn resize_gpu(&mut self, encoder: &mut GPUCommandEncoder, device: &GPUDevice, new_size: u32);
-  fn update_gpu(&mut self, encoder: &mut GPUCommandEncoder);
-  fn raw_gpu(&self) -> &GPUBufferResourceView;
-}
-
 pub struct ResizableGPUBuffer<T> {
   pub gpu: T,
   pub ctx: GPU,
@@ -19,30 +13,44 @@ impl<T: LinearStorageBase> LinearStorageBase for ResizableGPUBuffer<T> {
   }
 }
 
-impl<T: GPULinearStorageImpl + LinearStorageBase> ResizableLinearStorage for ResizableGPUBuffer<T> {
+impl<T: GPULinearStorage> ResizableLinearStorage for ResizableGPUBuffer<T> {
   fn resize(&mut self, new_size: u32) -> bool {
+    let device = self.ctx.device.clone();
     let mut encoder = self.ctx.create_encoder();
-    self
-      .gpu
-      .resize_gpu(&mut encoder, &self.ctx.device, new_size);
+    self.abstract_gpu().resize_gpu(
+      &mut encoder,
+      &device,
+      (new_size * std::mem::size_of::<T::Item>() as u32) as u64,
+    );
     self.ctx.queue.submit_encoder(encoder);
     true
   }
 }
 
-impl<T: GPULinearStorageImpl> GPULinearStorage for ResizableGPUBuffer<T> {
+impl<T: GPULinearStorage> GPULinearStorage for ResizableGPUBuffer<T> {
   type GPUType = T;
-
-  fn update_gpu(&mut self, encoder: &mut GPUCommandEncoder) {
-    self.gpu.update_gpu(encoder);
-  }
-
   fn gpu(&self) -> &Self::GPUType {
     &self.gpu
   }
 
-  fn raw_gpu(&self) -> &GPUBufferResourceView {
-    self.gpu.raw_gpu()
+  fn abstract_gpu(&mut self) -> &mut dyn AbstractBuffer {
+    self.gpu.abstract_gpu()
+  }
+}
+
+impl<T: Std430> LinearStorageBase for AbstractStorageBuffer<[T]> {
+  type Item = T;
+
+  fn max_size(&self) -> u32 {
+    (self.byte_size() as usize / std::mem::size_of::<T>()) as u32
+  }
+}
+
+impl<T: Std430> LinearStorageBase for AbstractReadonlyStorageBuffer<[T]> {
+  type Item = T;
+
+  fn max_size(&self) -> u32 {
+    (self.byte_size() as usize / std::mem::size_of::<T>()) as u32
   }
 }
 
@@ -53,19 +61,13 @@ impl<T: Std430> LinearStorageBase for StorageBufferDataView<[T]> {
   }
 }
 
-impl<T: Std430> GPULinearStorageImpl for StorageBufferDataView<[T]> {
-  fn resize_gpu(&mut self, encoder: &mut GPUCommandEncoder, device: &GPUDevice, new_size: u32) {
-    self.gpu = resize_impl(
-      &self.gpu,
-      encoder,
-      device,
-      new_size * std::mem::size_of::<T>() as u32,
-    );
+impl<T: Std430 + ShaderSizedValueNodeType> GPULinearStorage for StorageBufferDataView<[T]> {
+  type GPUType = Self;
+  fn gpu(&self) -> &Self::GPUType {
+    self
   }
-  fn update_gpu(&mut self, _: &mut GPUCommandEncoder) {}
-
-  fn raw_gpu(&self) -> &GPUBufferResourceView {
-    &self.gpu
+  fn abstract_gpu(&mut self) -> &mut dyn AbstractBuffer {
+    self
   }
 }
 
@@ -76,39 +78,12 @@ impl<T: Std430> LinearStorageBase for StorageBufferReadonlyDataView<[T]> {
   }
 }
 
-impl<T: Std430> GPULinearStorageImpl for StorageBufferReadonlyDataView<[T]> {
-  fn resize_gpu(&mut self, encoder: &mut GPUCommandEncoder, device: &GPUDevice, new_size: u32) {
-    self.gpu = resize_impl(
-      &self.gpu,
-      encoder,
-      device,
-      new_size * std::mem::size_of::<T>() as u32,
-    );
+impl<T: Std430 + ShaderSizedValueNodeType> GPULinearStorage for StorageBufferReadonlyDataView<[T]> {
+  type GPUType = Self;
+  fn gpu(&self) -> &Self::GPUType {
+    self
   }
-  fn update_gpu(&mut self, _: &mut GPUCommandEncoder) {}
-
-  fn raw_gpu(&self) -> &GPUBufferResourceView {
-    &self.gpu
+  fn abstract_gpu(&mut self) -> &mut dyn AbstractBuffer {
+    self
   }
-}
-
-fn resize_impl(
-  buffer: &GPUBufferResourceView,
-  encoder: &mut GPUCommandEncoder,
-  device: &GPUDevice,
-  byte_new_size: u32,
-) -> GPUBufferResourceView {
-  let usage = buffer.resource.desc.usage;
-  let new_buffer =
-    create_gpu_buffer_zeroed(byte_new_size as u64, usage, device).create_default_view();
-
-  encoder.copy_buffer_to_buffer(
-    &buffer.resource.gpu,
-    0,
-    &new_buffer.resource.gpu,
-    0,
-    buffer.resource.desc.size.into(),
-  );
-
-  new_buffer
 }

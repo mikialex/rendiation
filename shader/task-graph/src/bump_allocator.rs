@@ -44,11 +44,11 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   }
 
   pub async fn debug_execution(&self, cx: &mut DeviceParallelComputeCtx<'_>) -> Vec<T> {
-    let current_size = self.current_size.get_gpu_buffer_view();
+    let current_size = self.current_size.get_gpu_buffer_view().unwrap();
     let current_size = StorageBufferDataView::<u32>::try_from_raw(current_size).unwrap();
     let size = cx.read_sized_storage_array(&current_size);
 
-    let storage = self.storage.get_gpu_buffer_view();
+    let storage = self.storage.get_gpu_buffer_view().unwrap();
     let storage = StorageBufferDataView::try_from_raw(storage).unwrap();
     let storage = cx.read_storage_array(&storage);
 

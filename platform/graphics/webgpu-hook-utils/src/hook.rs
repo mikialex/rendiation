@@ -122,7 +122,7 @@ impl<'a> QueryGPUHookCx<'a> {
     self.use_gpu_init(|gpu| UniformBufferDataView::create_default(&gpu.device))
   }
 
-  pub fn use_storage_buffer<V: Std430>(
+  pub fn use_storage_buffer<V: Std430 + ShaderSizedValueNodeType>(
     &mut self,
     label: &str,
     init_capacity_item_count: u32,

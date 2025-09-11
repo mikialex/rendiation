@@ -274,7 +274,7 @@ pub type StorageBufferSlabAllocatePoolWithHost<T> =
 pub type SlabAllocatePoolWithHost<T> =
   GPUSlatAllocateMaintainer<GrowableHostedDirectQueueUpdateBuffer<T>>;
 
-pub fn create_storage_buffer_slab_allocate_pool_with_host<T: Std430>(
+pub fn create_storage_buffer_slab_allocate_pool_with_host<T: Std430 + ShaderSizedValueNodeType>(
   gpu: &GPU,
   label: &str,
   init_size: u32,

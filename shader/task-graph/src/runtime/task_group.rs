@@ -227,7 +227,10 @@ impl TaskGroupExecutor {
       ParallelComputeFromAbstractStorageBuffer(imp.active_task_idx.storage.clone());
 
     // the input and output shares one single binding so it can be aliased
-    let active_task_idx_back_buffer = imp.active_task_idx_back_buffer.get_gpu_buffer_view();
+    let active_task_idx_back_buffer = imp
+      .active_task_idx_back_buffer
+      .get_gpu_buffer_view()
+      .unwrap();
     let active_tasks_back_buffer =
       StorageBufferDataView::try_from_raw(active_task_idx_back_buffer).unwrap();
 

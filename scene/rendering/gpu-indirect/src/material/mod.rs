@@ -58,7 +58,7 @@ pub fn use_tex_watcher<T, TexStorage>(
   storage: &mut CommonStorageBufferImpl<TexStorage>,
   offset: usize,
 ) where
-  TexStorage: Std430 + Default,
+  TexStorage: Std430 + ShaderSizedValueNodeType + Default,
   T: TextureWithSamplingForeignKeys,
 {
   let tex_offset = std::mem::offset_of!(TextureSamplerHandlePair, texture_handle);

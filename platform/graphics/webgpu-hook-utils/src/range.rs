@@ -69,7 +69,7 @@ impl<K: CKey> ReactiveRangeAllocatePool<K> {
         .unwrap();
       assert!(override_offsets.is_empty());
 
-      let gpu_buffer = buffer.raw_gpu();
+      let gpu_buffer = buffer.gpu();
       gpu.queue.write_buffer(
         gpu_buffer.resource.gpu(),
         (offset * 4) as u64,

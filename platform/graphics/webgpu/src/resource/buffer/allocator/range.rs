@@ -43,20 +43,16 @@ where
     relocation_handler: &mut dyn FnMut(RelocationMessage),
   ) -> bool {
     // resize the underlayer buffer
-    let origin_gpu_buffer = self.buffer.raw_gpu().clone();
+    let origin_gpu_buffer = self.buffer.abstract_gpu().ref_clone();
     if !self.buffer.resize(new_size) {
       return false;
     }
     assert!(self.buffer.max_size() >= new_size);
-    let new_gpu_buffer = self.buffer.raw_gpu().clone();
+    let new_gpu_buffer = self.buffer.abstract_gpu();
 
     // move the data
-
     let mut encoder = self.gpu.device.create_encoder();
     let mut new_allocator = xalloc::SysTlsf::new(new_size);
-
-    // make sure any pending mutation is applied
-    self.buffer.update_gpu(&mut encoder);
 
     let item_byte_width = std::mem::size_of::<T::Item>() as u32;
     let mut new_ranges = FastHashMap::default();
@@ -65,12 +61,12 @@ where
         .alloc(*size)
         .expect("allocation after grow should success");
 
-      encoder.copy_buffer_to_buffer(
-        origin_gpu_buffer.resource.gpu(),
+      origin_gpu_buffer.copy_buffer_to_buffer(
+        new_gpu_buffer,
         *old_offset as u64 * item_byte_width as u64,
-        new_gpu_buffer.resource.gpu(),
         new_offset as u64 * item_byte_width as u64,
         *size as u64 * item_byte_width as u64,
+        &mut encoder,
       );
 
       new_ranges.insert(new_offset, (*size, new_token));
@@ -146,14 +142,12 @@ impl<T: LinearStorageDirectAccess> LinearStorageDirectAccess for GPURangeAllocat
 impl<T: GPULinearStorage> GPULinearStorage for GPURangeAllocateMaintainer<T> {
   type GPUType = T::GPUType;
 
-  fn update_gpu(&mut self, encoder: &mut GPUCommandEncoder) {
-    self.buffer.update_gpu(encoder)
-  }
   fn gpu(&self) -> &Self::GPUType {
     self.buffer.gpu()
   }
-  fn raw_gpu(&self) -> &GPUBufferResourceView {
-    self.buffer.raw_gpu()
+
+  fn abstract_gpu(&mut self) -> &mut dyn AbstractBuffer {
+    self.buffer.abstract_gpu()
   }
 }
 
@@ -203,7 +197,7 @@ where
 pub type StorageBufferRangeAllocatePool<T> = RangeAllocatePool<StorageBufferReadonlyDataView<[T]>>;
 pub type RangeAllocatePool<T> = GPURangeAllocateMaintainer<GrowableDirectQueueUpdateBuffer<T>>;
 
-pub fn create_storage_buffer_range_allocate_pool<T: Std430>(
+pub fn create_storage_buffer_range_allocate_pool<T: Std430 + ShaderSizedValueNodeType>(
   gpu: &GPU,
   label: &str,
   init_item_count: u32,
