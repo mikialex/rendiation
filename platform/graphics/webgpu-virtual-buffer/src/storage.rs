@@ -143,15 +143,11 @@ impl AbstractBufferDynTyped for SubCombinedStorageBufferDynTyped {
       .write_content(self.buffer_index, content, offset);
   }
 
-  fn bind_shader(
-    &self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    reg: &mut SemanticRegistry,
-  ) -> BoxedShaderPtr {
+  fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr {
     self
       .internal
       .write()
-      .bind_shader_impl(bind_builder, reg, self.ty.clone())
+      .bind_shader_impl(bind_builder, self.ty.clone())
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {

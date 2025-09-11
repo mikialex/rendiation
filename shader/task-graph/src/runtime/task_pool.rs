@@ -63,14 +63,14 @@ impl TaskPool {
 
   pub fn build_shader(&self, cx: &mut ShaderComputePipelineBuilder) -> TaskPoolInvocationInstance {
     TaskPoolInvocationInstance {
-      pool: cx.bind_abstract_storage_dyn_typed(&self.tasks),
+      pool: cx.bind_by(&self.tasks),
       state_desc: self.state_desc.clone(),
       payload_ty: self.task_ty_desc.fields[1].ty.clone(),
     }
   }
 
   pub fn bind(&self, cx: &mut BindingBuilder) {
-    cx.bind_abstract_storage_dyn_typed(&self.tasks);
+    cx.bind(&self.tasks);
   }
 }
 

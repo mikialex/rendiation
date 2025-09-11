@@ -207,7 +207,6 @@ impl CombinedBufferAllocatorInternal {
   pub fn bind_shader_impl(
     &mut self,
     bind_builder: &mut ShaderBindGroupBuilder,
-    registry: &mut SemanticRegistry,
     ty_desc: MaybeUnsizedValueType,
   ) -> BoxedShaderPtr {
     let label = &self.label;
@@ -219,56 +218,57 @@ impl CombinedBufferAllocatorInternal {
       pub bind_index_array: ShaderPtrOf<[u32]>,
     }
 
-    let (_, array) = registry
-      .dynamic_anything
-      .raw_entry_mut()
-      .from_key(label)
-      .or_insert_with(|| {
-        if self.enable_debug_log {
-          println!("bind shader <{}>", self.label);
+    let array = if let Some(r) = bind_builder.custom_states.get(label) {
+      r
+    } else {
+      if self.enable_debug_log {
+        println!("bind shader <{}>", self.label);
+      }
+
+      let heap_ty = if let Some(a_ty) = self.atomic {
+        match a_ty {
+          ShaderAtomicValueType::I32 => <[DeviceAtomic<i32>]>::ty(),
+          ShaderAtomicValueType::U32 => <[DeviceAtomic<u32>]>::ty(),
         }
+      } else {
+        <[u32]>::ty()
+      };
 
-        let heap_ty = if let Some(a_ty) = self.atomic {
-          match a_ty {
-            ShaderAtomicValueType::I32 => <[DeviceAtomic<i32>]>::ty(),
-            ShaderAtomicValueType::U32 => <[DeviceAtomic<u32>]>::ty(),
+      let handle = bind_builder
+        .binding_dyn(ShaderBindingDescriptor {
+          should_as_storage_buffer_if_is_buffer_like: true,
+          ty: heap_ty,
+          // todo, if configured not readonly and all binding is readonly, this should be readonly for better performance
+          writeable_if_storage: !self.readonly,
+        })
+        .using();
+
+      let ptr = Box::new(handle);
+      let array = if let Some(a_ty) = self.atomic {
+        match a_ty {
+          ShaderAtomicValueType::I32 => {
+            U32HeapHeapSource::AtomicI32(<[DeviceAtomic<i32>]>::create_view_from_raw_ptr(ptr))
           }
-        } else {
-          <[u32]>::ty()
-        };
-
-        let handle = bind_builder
-          .binding_dyn(ShaderBindingDescriptor {
-            should_as_storage_buffer_if_is_buffer_like: true,
-            ty: heap_ty,
-            // todo, if configured not readonly and all binding is readonly, this should be readonly for better performance
-            writeable_if_storage: !self.readonly,
-          })
-          .using();
-
-        let ptr = Box::new(handle);
-        let array = if let Some(a_ty) = self.atomic {
-          match a_ty {
-            ShaderAtomicValueType::I32 => {
-              U32HeapHeapSource::AtomicI32(<[DeviceAtomic<i32>]>::create_view_from_raw_ptr(ptr))
-            }
-            ShaderAtomicValueType::U32 => {
-              U32HeapHeapSource::AtomicU32(<[DeviceAtomic<u32>]>::create_view_from_raw_ptr(ptr))
-            }
+          ShaderAtomicValueType::U32 => {
+            U32HeapHeapSource::AtomicU32(<[DeviceAtomic<u32>]>::create_view_from_raw_ptr(ptr))
           }
-        } else {
-          U32HeapHeapSource::Common(<[u32]>::create_view_from_raw_ptr(ptr))
-        };
+        }
+      } else {
+        U32HeapHeapSource::Common(<[u32]>::create_view_from_raw_ptr(ptr))
+      };
 
-        let meta = ShaderMeta {
-          meta: Arc::new(RwLock::new(ShaderU32StructMetaData::new(self.layout))),
-          array,
-          bind_index_array: bind_builder.bind_by(&self.recording_bind_index_buffer),
-        };
-        self.current_shader_recording_count = 0;
+      let meta = ShaderMeta {
+        meta: Arc::new(RwLock::new(ShaderU32StructMetaData::new(self.layout))),
+        array,
+        bind_index_array: bind_builder.bind_by(&self.recording_bind_index_buffer),
+      };
+      self.current_shader_recording_count = 0;
 
-        (label.to_string(), Arc::new(meta))
-      });
+      bind_builder
+        .custom_states
+        .insert(label.to_string(), Arc::new(meta));
+      bind_builder.custom_states.get(label).unwrap()
+    };
 
     let ShaderMeta {
       meta,

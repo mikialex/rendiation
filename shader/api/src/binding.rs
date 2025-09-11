@@ -3,6 +3,7 @@ use crate::*;
 pub struct ShaderBindGroupBuilder {
   pub bindings: Vec<ShaderBindGroup>,
   pub current_index: usize,
+  pub custom_states: FastHashMap<String, Arc<dyn Any>>,
 }
 
 impl Default for ShaderBindGroupBuilder {
@@ -10,6 +11,7 @@ impl Default for ShaderBindGroupBuilder {
     Self {
       bindings: vec![Default::default(); 5],
       current_index: 0,
+      custom_states: Default::default(),
     }
   }
 }

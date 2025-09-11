@@ -136,7 +136,7 @@ impl BindingBuilder {
 
   pub fn with_bind<T>(mut self, item: &T) -> Self
   where
-    T: CacheAbleBindingSource + ShaderBindingProvider,
+    T: AbstractBindingSource,
   {
     self.bind(item);
     self
