@@ -9,7 +9,7 @@ pub struct TaskPool {
   ///   parent_task_type_id: u32,
   ///   parent_task_index: u32,
   /// }
-  pub(crate) tasks: BoxedAbstractBufferDynTyped,
+  pub(crate) tasks: BoxedAbstractBuffer,
   state_desc: DynamicTypeMetaInfo,
   pub(crate) task_ty_desc: ShaderStructMetaInfo,
 }

@@ -83,11 +83,11 @@ where
     T: Std430 + ShaderSizedValueNodeType,
   {
     cx.encoder.copy_buffer_to_buffer(
-      self.raw_gpu().buffer.gpu(),
+      self.resource.gpu(),
       0,
-      target.raw_gpu().buffer.gpu(),
+      target.resource.gpu(),
       0,
-      self.raw_gpu().view_byte_size().into(),
+      self.gpu.view_byte_size().into(),
     );
     DeviceMaterializeResult::full_buffer(target.into_readonly_view())
   }

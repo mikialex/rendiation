@@ -13,7 +13,7 @@ impl AbstractStorageAllocator for CombinedStorageBufferAllocator {
     _device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
     readonly: bool,
-  ) -> BoxedAbstractBufferDynTyped {
+  ) -> BoxedAbstractBuffer {
     if !readonly && self.is_readonly() {
       panic!("readonly allocator can not allocate writeable buffer");
     }
@@ -130,7 +130,7 @@ impl SubCombinedStorageBufferDynTyped {
       .resize(self.buffer_index, new_u32_size);
   }
 }
-impl AbstractBufferDynTyped for SubCombinedStorageBufferDynTyped {
+impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     let mut internal = self.internal.write();
     internal.get_sub_gpu_buffer_view(self.buffer_index)

@@ -7,7 +7,7 @@ pub trait AbstractStorageAllocator: DynClone {
     device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
     readonly: bool,
-  ) -> BoxedAbstractBufferDynTyped;
+  ) -> BoxedAbstractBuffer;
   fn get_layout(&self) -> StructLayoutTarget;
   fn is_readonly(&self) -> bool;
 }
@@ -19,7 +19,7 @@ impl AbstractStorageAllocator for Box<dyn AbstractStorageAllocator> {
     device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
     readonly: bool,
-  ) -> BoxedAbstractBufferDynTyped {
+  ) -> BoxedAbstractBuffer {
     (**self).allocate_dyn_ty(byte_size, device, ty_desc, readonly)
   }
 
@@ -38,7 +38,7 @@ impl AbstractStorageAllocator for &'_ dyn AbstractStorageAllocator {
     device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
     readonly: bool,
-  ) -> BoxedAbstractBufferDynTyped {
+  ) -> BoxedAbstractBuffer {
     (**self).allocate_dyn_ty(byte_size, device, ty_desc, readonly)
   }
 
@@ -102,7 +102,7 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
     device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
     _readonly: bool,
-  ) -> BoxedAbstractBufferDynTyped {
+  ) -> BoxedAbstractBuffer {
     // this ty mark and read_write mark is useless actually
     let buffer = create_gpu_read_write_storage::<[u32]>(
       StorageBufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
@@ -125,15 +125,15 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
   }
 }
 
-pub type BoxedAbstractBufferDynTyped = Box<dyn AbstractBufferDynTyped>;
-pub trait AbstractBufferDynTyped: DynClone {
+pub type BoxedAbstractBuffer = Box<dyn AbstractBuffer>;
+pub trait AbstractBuffer: DynClone {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView;
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue);
   fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr;
   fn bind_pass(&self, bind_builder: &mut BindingBuilder);
 }
-dyn_clone::clone_trait_object!(AbstractBufferDynTyped);
-impl AbstractBufferDynTyped for BoxedAbstractBufferDynTyped {
+dyn_clone::clone_trait_object!(AbstractBuffer);
+impl AbstractBuffer for BoxedAbstractBuffer {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     (**self).get_gpu_buffer_view()
   }
@@ -156,7 +156,7 @@ pub struct DynTypedStorageBuffer {
   pub buffer: GPUBufferResourceView,
   pub ty: MaybeUnsizedValueType,
 }
-impl AbstractBufferDynTyped for DynTypedStorageBuffer {
+impl AbstractBuffer for DynTypedStorageBuffer {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     self.buffer.clone()
   }
@@ -181,22 +181,22 @@ impl AbstractBufferDynTyped for DynTypedStorageBuffer {
   }
 }
 
-impl AbstractShaderBindingSource for BoxedAbstractBufferDynTyped {
+impl AbstractShaderBindingSource for BoxedAbstractBuffer {
   type ShaderBindResult = BoxedShaderPtr;
 
   fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
-    AbstractBufferDynTyped::bind_shader(self, ctx)
+    AbstractBuffer::bind_shader(self, ctx)
   }
 }
-impl AbstractBindingSource for BoxedAbstractBufferDynTyped {
+impl AbstractBindingSource for BoxedAbstractBuffer {
   fn bind_pass(&self, ctx: &mut BindingBuilder) {
-    AbstractBufferDynTyped::bind_pass(self, ctx)
+    AbstractBuffer::bind_pass(self, ctx)
   }
 }
 
 pub struct AbstractStorageBuffer<T: ?Sized> {
   phantom: PhantomData<T>,
-  buffer: BoxedAbstractBufferDynTyped,
+  buffer: BoxedAbstractBuffer,
 }
 
 impl<T: ?Sized> AbstractStorageBuffer<T> {
@@ -209,13 +209,13 @@ impl<T: ?Sized + ShaderAbstractPtrAccess> AbstractShaderBindingSource for Abstra
   type ShaderBindResult = ShaderPtrOf<T>;
 
   fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
-    let ptr = AbstractBufferDynTyped::bind_shader(&self.buffer, ctx);
+    let ptr = AbstractBuffer::bind_shader(&self.buffer, ctx);
     T::create_view_from_raw_ptr(ptr)
   }
 }
 impl<T: ?Sized + ShaderAbstractPtrAccess> AbstractBindingSource for AbstractStorageBuffer<T> {
   fn bind_pass(&self, ctx: &mut BindingBuilder) {
-    AbstractBufferDynTyped::bind_pass(&self.buffer, ctx);
+    AbstractBuffer::bind_pass(&self.buffer, ctx);
   }
 }
 
@@ -230,7 +230,7 @@ impl<T: ?Sized> Clone for AbstractStorageBuffer<T> {
 
 pub struct AbstractReadonlyStorageBuffer<T: ?Sized> {
   phantom: PhantomData<T>,
-  buffer: BoxedAbstractBufferDynTyped,
+  buffer: BoxedAbstractBuffer,
 }
 
 impl<T: ?Sized> Clone for AbstractReadonlyStorageBuffer<T> {
@@ -248,7 +248,7 @@ impl<T: ?Sized + ShaderAbstractPtrAccess> AbstractShaderBindingSource
   type ShaderBindResult = ShaderReadonlyPtrOf<T>;
 
   fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
-    let ptr = AbstractBufferDynTyped::bind_shader(&self.buffer, ctx);
+    let ptr = AbstractBuffer::bind_shader(&self.buffer, ctx);
     T::create_readonly_view_from_raw_ptr(ptr)
   }
 }
@@ -256,6 +256,6 @@ impl<T: ?Sized + ShaderAbstractPtrAccess> AbstractBindingSource
   for AbstractReadonlyStorageBuffer<T>
 {
   fn bind_pass(&self, ctx: &mut BindingBuilder) {
-    AbstractBufferDynTyped::bind_pass(&self.buffer, ctx);
+    AbstractBuffer::bind_pass(&self.buffer, ctx);
   }
 }
