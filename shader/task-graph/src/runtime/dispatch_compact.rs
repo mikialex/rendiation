@@ -13,8 +13,7 @@ impl DeviceParallelCompute<Node<u32>> for ParallelComputeFromAbstractStorageBuff
   }
 
   fn result_size(&self) -> u32 {
-    let byte_size = self.0.byte_size();
-    u64::from(byte_size) as u32 / 4
+    self.0.byte_size() as u32 / 4
   }
 }
 impl DeviceParallelComputeIO<u32> for ParallelComputeFromAbstractStorageBuffer {}
@@ -61,8 +60,7 @@ impl DeviceParallelCompute<Node<bool>> for ActiveTaskCompact {
   }
 
   fn result_size(&self) -> u32 {
-    let byte_size = self.active_tasks.byte_size();
-    u64::from(byte_size) as u32 / 4
+    self.active_tasks.byte_size() as u32 / 4
   }
 }
 impl DeviceParallelComputeIO<bool> for ActiveTaskCompact {}

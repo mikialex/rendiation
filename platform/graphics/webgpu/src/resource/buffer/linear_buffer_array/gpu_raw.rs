@@ -87,3 +87,23 @@ impl<T: Std430 + ShaderSizedValueNodeType> GPULinearStorage for StorageBufferRea
     self
   }
 }
+
+impl<T: Std430 + ShaderSizedValueNodeType> GPULinearStorage for AbstractStorageBuffer<[T]> {
+  type GPUType = Self;
+  fn gpu(&self) -> &Self::GPUType {
+    self
+  }
+  fn abstract_gpu(&mut self) -> &mut dyn AbstractBuffer {
+    &mut self.buffer
+  }
+}
+
+impl<T: Std430 + ShaderSizedValueNodeType> GPULinearStorage for AbstractReadonlyStorageBuffer<[T]> {
+  type GPUType = Self;
+  fn gpu(&self) -> &Self::GPUType {
+    self
+  }
+  fn abstract_gpu(&mut self) -> &mut dyn AbstractBuffer {
+    &mut self.buffer
+  }
+}

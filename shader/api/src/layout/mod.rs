@@ -9,7 +9,7 @@ mod typed;
 /// # Safety
 ///
 ///  should only be impl for std140 layout type
-pub unsafe trait Std140: Copy + Zeroable + Pod + 'static {
+pub unsafe trait Std140: Send + Sync + Copy + Zeroable + Pod + 'static {
   /// The required alignment of the type. Must be a power of two.
   ///
   /// This is distinct from the value returned by `std::mem::align_of` because
@@ -200,7 +200,7 @@ unsafe impl<T: Std140, const U: usize> Std140 for Shader140Array<T, U> {
 /// # Safety
 ///
 ///  should only be impl for std430 layout type
-pub unsafe trait Std430: Copy + Zeroable + Pod {
+pub unsafe trait Std430: Send + Sync + Copy + Zeroable + Pod {
   /// The required alignment of the type. Must be a power of two.
   ///
   /// This is distinct from the value returned by `std::mem::align_of` because
@@ -291,12 +291,12 @@ where
 
 /// # Safety
 /// should only be impl on std430 layout type
-pub unsafe trait Std430MaybeUnsized {
+pub unsafe trait Std430MaybeUnsized: Send + Sync {
   fn bytes(&self) -> &[u8];
   fn from_bytes_into_boxed(bytes: &[u8]) -> Box<Self>;
 }
 
-unsafe impl<T: Std430> Std430MaybeUnsized for T {
+unsafe impl<T: Std430 + Send + Sync> Std430MaybeUnsized for T {
   fn bytes(&self) -> &[u8] {
     self.as_bytes()
   }
@@ -304,7 +304,7 @@ unsafe impl<T: Std430> Std430MaybeUnsized for T {
     Box::new(Self::from_bytes(bytes))
   }
 }
-unsafe impl<T: Std430> Std430MaybeUnsized for [T] {
+unsafe impl<T: Std430 + Send + Sync> Std430MaybeUnsized for [T] {
   fn bytes(&self) -> &[u8] {
     bytemuck::cast_slice(self)
   }

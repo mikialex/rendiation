@@ -281,7 +281,7 @@ impl AbstractBindingSource for BoxedAbstractBuffer {
 
 pub struct AbstractStorageBuffer<T: ?Sized> {
   phantom: PhantomData<T>,
-  buffer: BoxedAbstractBuffer,
+  pub(crate) buffer: BoxedAbstractBuffer,
 }
 
 impl<T: ?Sized> Deref for AbstractStorageBuffer<T> {
@@ -317,7 +317,7 @@ impl<T: ?Sized> Clone for AbstractStorageBuffer<T> {
 
 pub struct AbstractReadonlyStorageBuffer<T: ?Sized> {
   phantom: PhantomData<T>,
-  buffer: BoxedAbstractBuffer,
+  pub(crate) buffer: BoxedAbstractBuffer,
 }
 
 impl<T: ?Sized> Deref for AbstractReadonlyStorageBuffer<T> {
