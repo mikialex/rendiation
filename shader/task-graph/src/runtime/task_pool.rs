@@ -52,6 +52,7 @@ impl TaskPool {
         ShaderSizedValueType::Struct(task_ty_desc.clone()),
       ))),
       false,
+      "task_state".into(),
     );
 
     Self {

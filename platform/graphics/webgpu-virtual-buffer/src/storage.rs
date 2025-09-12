@@ -13,6 +13,7 @@ impl AbstractStorageAllocator for CombinedStorageBufferAllocator {
     _device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
     readonly: bool,
+    _label: Option<&str>,
   ) -> BoxedAbstractBuffer {
     if !readonly && self.is_readonly() {
       panic!("readonly allocator can not allocate writeable buffer");

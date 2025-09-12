@@ -320,7 +320,11 @@ impl TaskGroupExecutorResource {
   ) -> Self {
     let device = &cx.gpu.device;
     Self {
-      active_task_idx_back_buffer: allocator.allocate((size * 4) as u64, device),
+      active_task_idx_back_buffer: allocator.allocate(
+        (size * 4) as u64,
+        device,
+        "active_task_idx".into(),
+      ),
       active_task_idx: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),
       empty_index_pool: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),

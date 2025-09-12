@@ -16,8 +16,8 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   ) -> Self {
     let storage_byte_size = std::mem::size_of::<T>() * size;
     Self {
-      storage: allocator.allocate(storage_byte_size as u64, device),
-      current_size: allocator.allocate(4, device),
+      storage: allocator.allocate(storage_byte_size as u64, device, None),
+      current_size: allocator.allocate(4, device, None),
       bump_size: atomic_allocator.allocate_single(device),
     }
   }
