@@ -168,14 +168,14 @@ impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
     count: u64,
     encoder: &mut GPUCommandEncoder,
   ) {
-    let source = self.get_gpu_buffer_view().unwrap(); // this won't fail
     let target = target.get_gpu_buffer_view().unwrap(); // this may fail
-    encoder.copy_buffer_to_buffer(
-      source.resource.gpu(),
-      self_offset + source.desc.offset,
-      target.resource.gpu(),
-      target_offset + target.desc.offset,
+    self.internal.write().copy_buffer_to_buffer(
+      self.buffer_index,
+      &target,
+      self_offset,
+      target_offset,
       count,
+      encoder,
     );
   }
 

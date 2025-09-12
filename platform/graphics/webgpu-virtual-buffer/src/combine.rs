@@ -61,6 +61,47 @@ impl CombinedBufferAllocatorInternal {
     }
   }
 
+  pub fn copy_buffer_to_buffer(
+    &mut self,
+    src_index: usize,
+    target: &GPUBufferResourceView,
+    self_offset: u64,
+    target_offset: u64,
+    count: u64,
+    encoder: &mut GPUCommandEncoder,
+  ) {
+    let end = count as u32 + self_offset as u32;
+    let bound = self.sub_buffer_u32_size_requirements[src_index] * 4;
+    assert!(end <= bound);
+
+    // webgpu spec don't allow copy buffer to buffer is same buffer, so we have to do a extra copy.
+    // it's unsure if using compute shader do copy will faster than this approach.
+    // todo, try compute shader
+    let source = self.get_sub_gpu_buffer_view(src_index);
+
+    let temp_buffer = create_gpu_buffer_zeroed(
+      count,
+      BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
+      &self.gpu.device,
+    );
+
+    encoder.copy_buffer_to_buffer(
+      source.resource.gpu(),
+      self_offset + source.desc.offset,
+      temp_buffer.gpu(),
+      0,
+      count,
+    );
+
+    encoder.copy_buffer_to_buffer(
+      temp_buffer.gpu(),
+      0,
+      target.resource.gpu(),
+      target_offset + target.desc.offset,
+      count,
+    );
+  }
+
   pub fn allocate(&mut self, sub_buffer_u32_size: u32) -> usize {
     self.buffer_need_rebuild = true;
     let buffer_index = self.sub_buffer_u32_size_requirements.len();
@@ -172,7 +213,11 @@ impl CombinedBufferAllocatorInternal {
   pub fn write_content(&mut self, index: usize, content: &[u8], offset: u64) {
     if self.buffer_need_rebuild {
       let pending = self.pending_writes.entry(index).or_default();
-      assert!(content.len() as u32 + offset as u32 <= self.sub_buffer_u32_size_requirements[index]);
+
+      let end = content.len() as u32 + offset as u32;
+      let bound = self.sub_buffer_u32_size_requirements[index] * 4;
+      assert!(end <= bound);
+
       pending
         .offset_sizes
         .push((pending.data.len(), content.len(), offset));
