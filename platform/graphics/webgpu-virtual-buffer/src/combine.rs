@@ -11,6 +11,7 @@ pub struct CombinedBufferAllocatorInternal {
   usage: BufferUsages,
   buffer_need_rebuild: bool,
   sub_buffer_u32_size_requirements: Vec<u32>,
+  previous_sub_buffer_size: FastHashMap<usize, u32>,
   sub_buffer_allocation_u32_offset: Vec<u32>,
   pub(crate) layout: StructLayoutTarget,
   // use none for none atomic heap
@@ -45,6 +46,7 @@ impl CombinedBufferAllocatorInternal {
       buffer_need_rebuild: true,
       sub_buffer_u32_size_requirements: Default::default(),
       sub_buffer_allocation_u32_offset: Default::default(),
+      previous_sub_buffer_size: Default::default(),
       recording_bind_index_buffer: create_gpu_read_write_storage::<[u32]>(
         ZeroedArrayByArrayLength(MAX_BINDING_COUNT),
         &gpu.device,
@@ -118,7 +120,7 @@ impl CombinedBufferAllocatorInternal {
       return;
     }
 
-    // the sub buffer must be aligned to device limitation because use may directly
+    // the sub buffer must be aligned to device limitation because user may directly
     // use the sub buffer as the storage/uniform binding
     let limits = &gpu.info.supported_limits;
     // for simplicity we use the maximum alignment, they are same on my machine.
@@ -176,7 +178,11 @@ impl CombinedBufferAllocatorInternal {
     if let Some(old_buffer) = &self.buffer {
       let mut encoder = gpu.create_encoder();
       for (i, source_offset) in self.sub_buffer_allocation_u32_offset.iter().enumerate() {
-        let size = self.sub_buffer_u32_size_requirements[i];
+        let size = if let Some(size) = self.previous_sub_buffer_size.get(&i) {
+          *size
+        } else {
+          self.sub_buffer_u32_size_requirements[i]
+        };
         let new_offset = sub_buffer_allocation_u32_offset[i];
         encoder.copy_buffer_to_buffer(
           old_buffer.resource.gpu(),
@@ -199,6 +205,7 @@ impl CombinedBufferAllocatorInternal {
           .write_buffer(new_buffer, write_offset, data_to_write);
       }
     }
+    self.previous_sub_buffer_size.clear();
 
     self.buffer = Some(buffer);
     self.sub_buffer_allocation_u32_offset = sub_buffer_allocation_u32_offset;
@@ -206,6 +213,13 @@ impl CombinedBufferAllocatorInternal {
   }
 
   pub fn resize(&mut self, index: usize, new_u32_size: u32) {
+    // only key the first size, if resize invoke multiple times
+    if !self.previous_sub_buffer_size.contains(&index) {
+      self
+        .previous_sub_buffer_size
+        .insert(index, self.sub_buffer_u32_size_requirements[index]);
+    }
+
     self.sub_buffer_u32_size_requirements[index] = new_u32_size;
     self.buffer_need_rebuild = true;
   }
