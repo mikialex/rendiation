@@ -42,12 +42,12 @@ impl AbstractIndirectGPUTextureSystem for BindlessTextureSystem {
     builder
       .bind_by_and_prepare(&self.texture_binding_array)
       .using_graphics_pair(|r, textures| {
-        r.register_typed_both_stage::<BindlessTexturesInShader>(textures);
+        r.register_typed_both_stage::<BindlessTexturesInShader>(*textures);
       });
     builder
       .bind_by_and_prepare(&self.sampler_binding_array)
       .using_graphics_pair(|r, samplers| {
-        r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
+        r.register_typed_both_stage::<BindlessSamplersInShader>(*samplers);
       });
   }
   fn register_system_self_for_compute(

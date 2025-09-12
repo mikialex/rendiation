@@ -4,6 +4,13 @@ pub struct ShaderBindGroupBuilder {
   pub bindings: Vec<ShaderBindGroup>,
   pub current_index: usize,
   pub custom_states: FastHashMap<String, Arc<dyn Any>>,
+  binding_re_enter: BindingReEnter,
+}
+
+enum BindingReEnter {
+  None,
+  Recording(Vec<(usize, usize)>),
+  ReEnter(Vec<(usize, usize)>, usize),
 }
 
 impl Default for ShaderBindGroupBuilder {
@@ -12,6 +19,7 @@ impl Default for ShaderBindGroupBuilder {
       bindings: vec![Default::default(); 5],
       current_index: 0,
       custom_states: Default::default(),
+      binding_re_enter: BindingReEnter::None,
     }
   }
 }
@@ -19,22 +27,30 @@ impl Default for ShaderBindGroupBuilder {
 pub struct BindingPreparer<'a, T> {
   source: &'a T,
   builder: &'a mut ShaderRenderPipelineBuilder,
-  bindgroup_index: usize,
+  bind_info: Option<Vec<(usize, usize)>>,
 }
 
-impl<T: ShaderBindingProvider> BindingPreparer<'_, T> {
-  pub fn using(&mut self) -> T::ShaderInstance {
-    let entry = self.builder.bindings[self.bindgroup_index]
-      .bindings
-      .last_mut()
-      .unwrap();
-    let node = entry.using();
-    self.source.create_instance(unsafe { node.into_node() })
+impl<T: AbstractShaderBindingSource> BindingPreparer<'_, T> {
+  pub fn using(&mut self) -> T::ShaderBindResult {
+    self.builder.binding_re_enter = if let Some(bind_info) = &self.bind_info {
+      BindingReEnter::ReEnter(bind_info.clone(), 0)
+    } else {
+      BindingReEnter::Recording(Default::default())
+    };
+    let r = self.source.bind_shader(self.builder);
+
+    if let BindingReEnter::Recording(info) = &mut self.builder.binding_re_enter {
+      self.bind_info = Some(info.clone());
+    }
+
+    self.builder.binding_re_enter = BindingReEnter::None;
+
+    r
   }
 
   pub fn using_graphics_pair(
     mut self,
-    register: impl Fn(&mut SemanticRegistry, T::ShaderInstance),
+    register: impl Fn(&mut SemanticRegistry, &T::ShaderBindResult),
   ) -> GraphicsPairInputNodeAccessor<T> {
     assert!(
       get_current_stage().is_none(),
@@ -42,18 +58,18 @@ impl<T: ShaderBindingProvider> BindingPreparer<'_, T> {
     );
     set_current_building(ShaderStage::Vertex.into());
     let vertex = self.using();
-    register(&mut self.builder.vertex.registry, vertex.clone());
+    register(&mut self.builder.vertex.registry, &vertex);
     set_current_building(ShaderStage::Fragment.into());
     let fragment = self.using();
-    register(&mut self.builder.fragment.registry, fragment.clone());
+    register(&mut self.builder.fragment.registry, &fragment);
     set_current_building(None);
     GraphicsPairInputNodeAccessor { vertex, fragment }
   }
 }
 
-pub struct GraphicsPairInputNodeAccessor<T: ShaderBindingProvider> {
-  pub vertex: T::ShaderInstance,
-  pub fragment: T::ShaderInstance,
+pub struct GraphicsPairInputNodeAccessor<T: AbstractShaderBindingSource> {
+  pub vertex: T::ShaderBindResult,
+  pub fragment: T::ShaderBindResult,
 }
 
 impl<T: ShaderBindingProvider> GraphicsPairInputNodeAccessor<T> {
@@ -93,39 +109,47 @@ impl ShaderBindGroupBuilder {
   }
 
   pub fn binding_dyn(&mut self, desc: ShaderBindingDescriptor) -> &mut ShaderBindEntry {
-    let bindgroup_index = self.current_index;
+    if let BindingReEnter::ReEnter(info, counter) = &mut self.binding_re_enter {
+      let (bindgroup_index, entry_index) = info[*counter];
+      *counter += 1;
+      let bindgroup = &mut self.bindings[bindgroup_index];
+      &mut bindgroup.bindings[entry_index]
+    } else {
+      let bindgroup_index = self.current_index;
 
-    let bindgroup = &mut self.bindings[bindgroup_index];
-    let entry_index = bindgroup.bindings.len();
+      let bindgroup = &mut self.bindings[bindgroup_index];
+      let entry_index = bindgroup.bindings.len();
 
-    let entry = ShaderBindEntry {
-      desc,
-      vertex_node: None,
-      fragment_node: None,
-      compute_node: None,
-      visibility: ShaderStages::empty(),
-      entry_index,
-      bindgroup_index,
-    };
+      let entry = ShaderBindEntry {
+        desc,
+        vertex_node: None,
+        fragment_node: None,
+        compute_node: None,
+        visibility: ShaderStages::empty(),
+        entry_index,
+        bindgroup_index,
+      };
 
-    bindgroup.bindings.push(entry.clone());
+      if let BindingReEnter::Recording(info) = &mut self.binding_re_enter {
+        info.push((bindgroup_index, entry_index));
+      }
 
-    bindgroup.bindings.last_mut().unwrap()
+      bindgroup.bindings.push(entry.clone());
+
+      bindgroup.bindings.last_mut().unwrap()
+    }
   }
 }
 
 impl ShaderRenderPipelineBuilder {
-  pub fn bind_by_and_prepare<'a, T: ShaderBindingProvider>(
+  pub fn bind_by_and_prepare<'a, T: AbstractShaderBindingSource>(
     &'a mut self,
     instance: &'a T,
   ) -> BindingPreparer<'a, T> {
-    let desc = instance.binding_desc();
-    self.binding_dyn(desc);
-
     BindingPreparer {
       source: instance,
-      bindgroup_index: self.current_index,
       builder: self,
+      bind_info: None,
     }
   }
 
