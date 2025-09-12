@@ -87,8 +87,8 @@ impl DevicePathTracingSurfacePointInvocation for TestingMirrorSurfaceInvocationP
 #[derive(Clone)]
 pub struct SceneSurfaceSupport {
   pub textures: GPUTextureBindingSystem,
-  pub sm_to_material_type: StorageBufferReadonlyDataView<[u32]>,
-  pub sm_to_material_id: StorageBufferReadonlyDataView<[u32]>,
+  pub sm_to_material_type: AbstractReadonlyStorageBuffer<[u32]>,
+  pub sm_to_material_id: AbstractReadonlyStorageBuffer<[u32]>,
   pub material_accessor: Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>,
 }
 

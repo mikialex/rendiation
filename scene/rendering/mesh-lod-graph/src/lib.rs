@@ -35,7 +35,8 @@ pub fn register_mesh_lod_graph_data_model() {
 }
 
 pub fn use_mesh_lod_graph_renderer(cx: &mut QueryGPUHookCx) -> MeshLODGraphRendererShared {
-  let (cx, renderer) = cx.use_gpu_init(|gpu| Arc::new(RwLock::new(MeshLODGraphRenderer::new(gpu))));
+  let (cx, renderer) =
+    cx.use_gpu_init(|gpu, alloc| Arc::new(RwLock::new(MeshLODGraphRenderer::new(gpu, alloc))));
 
   if let Some(change) = cx.use_query_change::<LODGraphData>().if_ready() {
     renderer.write().batch_update(change.mark_entity_type());
@@ -51,12 +52,12 @@ pub struct MeshLODGraphRenderer {
   pub meshlet_metadata: StorageBufferRangeAllocatePool<MeshletMetaData>,
   pub scene_model_meshlet_range: CommonStorageBufferImplWithHostBackup<Vec2<u32>>,
   pub position_buffer: StorageBufferRangeAllocatePool<u32>,
-  pub index_buffer: StorageBufferRangeAllocatePool<u32>,
+  pub index_buffer: StorageBufferRangeAllocatePoolStandalone<u32>,
   pub enable_midc_downgrade: bool,
 }
 
 impl MeshLODGraphRenderer {
-  pub fn new(gpu: &GPU) -> Self {
+  pub fn new(gpu: &GPU, alloc: &dyn AbstractStorageAllocator) -> Self {
     let max_indices_count = 1_000_000_u32;
     let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
       &gpu.device,
@@ -72,15 +73,21 @@ impl MeshLODGraphRenderer {
       scene_model_meshlet_index_vertex_offset: vec![Default::default(); 100],
       meshlet_metadata: create_storage_buffer_range_allocate_pool(
         gpu,
+        alloc,
         "mesh lod graph meshlet metadata pool",
         10000,
         10000,
       ),
       scene_model_meshlet_range: create_common_storage_buffer_with_host_backup_container(
-        100, 100, gpu,
+        100,
+        100,
+        alloc,
+        gpu,
+        "mesh lod graph meshlet meshlet ranges",
       ),
       position_buffer: create_storage_buffer_range_allocate_pool(
         gpu,
+        alloc,
         "mesh lod graph meshlet vertex pool: position",
         1_000_000,
         1_000_000,
@@ -217,11 +224,8 @@ impl MeshLODGraphRenderer {
     scene_model_matrix: &dyn DrawUnitWorldTransformProvider,
     max_meshlet_count: u32,
   ) -> Box<dyn IndirectDrawProvider> {
-    let meshlet_metadata =
-      StorageBufferReadonlyDataView::try_from_raw(self.meshlet_metadata.gpu().gpu.clone()).unwrap();
-
     let expander = MeshLODExpander {
-      meshlet_metadata,
+      meshlet_metadata: self.meshlet_metadata.gpu().clone(),
       scene_model_meshlet_range: self.scene_model_meshlet_range.gpu().clone(),
       lod_decider,
     };
@@ -231,19 +235,10 @@ impl MeshLODGraphRenderer {
   }
 
   pub fn create_mesh_accessor(&self) -> Box<dyn RenderComponent> {
-    let meshlet_metadata =
-      StorageBufferReadonlyDataView::try_from_raw(self.meshlet_metadata.gpu().gpu.clone()).unwrap();
-
-    let position_buffer =
-      StorageBufferReadonlyDataView::try_from_raw(self.position_buffer.gpu().gpu.clone()).unwrap();
-
-    let index_buffer =
-      StorageBufferReadonlyDataView::try_from_raw(self.index_buffer.gpu().gpu.clone()).unwrap();
-
     let draw_data = MeshletGPURenderData {
-      meshlet_metadata,
-      position_buffer,
-      index_buffer,
+      meshlet_metadata: self.meshlet_metadata.gpu().clone(),
+      position_buffer: self.position_buffer.gpu().clone(),
+      index_buffer: self.index_buffer.gpu().clone(),
     };
 
     Box::new(MidcDowngradeWrapperForIndirectMeshSystem {

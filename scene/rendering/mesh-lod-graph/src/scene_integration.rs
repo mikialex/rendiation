@@ -19,7 +19,8 @@ pub fn use_mesh_lod_graph_scene_renderer(
   let internal = use_mesh_lod_graph_renderer(cx);
   let world_transform = use_scene_model_device_world_transform(cx);
 
-  let (cx, lod_decider) = cx.use_gpu_init(|gpu| create_uniform(LODDecider::zeroed(), &gpu.device));
+  let (cx, lod_decider) =
+    cx.use_gpu_init(|gpu, _| create_uniform(LODDecider::zeroed(), &gpu.device));
 
   cx.when_render(|| MeshLODGraphSceneRenderer {
     mesh_ty_checker: global_database().read_foreign_key::<StandardModelRefLodGraphMeshEntity>(),

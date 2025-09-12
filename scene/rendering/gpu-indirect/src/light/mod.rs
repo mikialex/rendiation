@@ -7,7 +7,7 @@ pub use spot::*;
 
 use crate::*;
 
-pub type LightGPUStorage<T> = (StorageBufferReadonlyDataView<[T]>, MultiAccessGPUData);
+pub type LightGPUStorage<T> = (AbstractReadonlyStorageBuffer<[T]>, MultiAccessGPUData);
 
 pub fn light_multi_access_config() -> MultiAccessGPUDataBuilderInit {
   MultiAccessGPUDataBuilderInit {
@@ -23,7 +23,7 @@ where
   T: Std430 + ShaderSizedValueNodeType,
 {
   pub light_accessor: MultiAccessGPUData,
-  pub light_data: StorageBufferReadonlyDataView<[T]>,
+  pub light_data: AbstractReadonlyStorageBuffer<[T]>,
   pub create_per_light_compute:
     std::sync::Arc<dyn Fn(ShaderReadonlyPtrOf<T>) -> Box<dyn LightingComputeInvocation>>,
 }
@@ -34,7 +34,7 @@ where
 {
   pub fn new<X: LightingComputeInvocation + 'static>(
     light_accessor: MultiAccessGPUData,
-    light_data: StorageBufferReadonlyDataView<[T]>,
+    light_data: AbstractReadonlyStorageBuffer<[T]>,
     create_per_light_compute: impl Fn(ShaderReadonlyPtrOf<T>) -> X + 'static,
   ) -> Self {
     Self {

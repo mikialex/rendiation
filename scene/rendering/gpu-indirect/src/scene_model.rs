@@ -255,7 +255,7 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
 }
 
 #[derive(Clone)]
-pub struct DefaultSceneModelIdInject(StorageBufferReadonlyDataView<[SceneModelStorage]>);
+pub struct DefaultSceneModelIdInject(AbstractReadonlyStorageBuffer<[SceneModelStorage]>);
 
 impl ShaderHashProvider for DefaultSceneModelIdInject {
   shader_hash_type_id! {}

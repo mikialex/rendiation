@@ -282,7 +282,7 @@ impl GraphicsShaderProvider for DefaultDisplayWriter {
 fn use_area_light_uniform(cx: &mut QueryGPUHookCx) -> Option<SceneAreaLightingProvider> {
   let uniform = use_area_light_uniform_array(cx);
 
-  let (cx, lut) = cx.use_gpu_init(|gpu| {
+  let (cx, lut) = cx.use_gpu_init(|gpu, _| {
     let ltc_1 = include_bytes!("./ltc_1.bin");
     let ltc_1 = create_gpu_texture2d(
       gpu,

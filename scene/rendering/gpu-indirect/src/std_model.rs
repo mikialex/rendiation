@@ -170,7 +170,7 @@ pub fn use_std_model_renderer(
 
 pub struct SceneStdModelIndirectRenderer {
   model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
-  std_model: StorageBufferReadonlyDataView<[SceneStdModelStorage]>,
+  std_model: AbstractReadonlyStorageBuffer<[SceneStdModelStorage]>,
   materials: Box<dyn IndirectModelMaterialRenderImpl>,
   shapes: Box<dyn IndirectModelShapeRenderImpl>,
 }
@@ -199,7 +199,7 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
     _: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     struct SceneStdModelIdInjector {
-      std_model: StorageBufferReadonlyDataView<[SceneStdModelStorage]>,
+      std_model: AbstractReadonlyStorageBuffer<[SceneStdModelStorage]>,
     }
 
     impl ShaderHashProvider for SceneStdModelIdInjector {

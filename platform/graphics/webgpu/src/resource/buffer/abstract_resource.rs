@@ -132,7 +132,7 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
 }
 
 pub type BoxedAbstractBuffer = Box<dyn AbstractBuffer>;
-pub trait AbstractBuffer: DynClone {
+pub trait AbstractBuffer: DynClone + Send + Sync {
   fn byte_size(&self) -> u64;
   fn resize_gpu(&mut self, encoder: &mut GPUCommandEncoder, device: &GPUDevice, new_byte_size: u64);
   fn ref_clone(&self) -> Box<dyn AbstractBuffer>;
@@ -360,8 +360,9 @@ impl<T: ?Sized + ShaderAbstractPtrAccess> AbstractBindingSource
   }
 }
 
-impl<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized + 'static> AbstractBuffer
-  for StorageBufferDataView<T>
+impl<T> AbstractBuffer for StorageBufferDataView<T>
+where
+  T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized + 'static,
 {
   fn byte_size(&self) -> u64 {
     self.view_byte_size().into()
@@ -425,8 +426,9 @@ impl<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized + 'static>
   }
 }
 
-impl<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized + 'static> AbstractBuffer
-  for StorageBufferReadonlyDataView<T>
+impl<T> AbstractBuffer for StorageBufferReadonlyDataView<T>
+where
+  T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized + 'static,
 {
   fn byte_size(&self) -> u64 {
     self.view_byte_size().into()
@@ -510,4 +512,59 @@ fn resize_impl(
   );
 
   new_buffer
+}
+
+impl<T> AbstractBuffer for AbstractReadonlyStorageBuffer<T>
+where
+  T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized + 'static,
+{
+  fn byte_size(&self) -> u64 {
+    self.buffer.byte_size()
+  }
+
+  fn resize_gpu(
+    &mut self,
+    encoder: &mut GPUCommandEncoder,
+    device: &GPUDevice,
+    new_byte_size: u64,
+  ) {
+    self.buffer.resize_gpu(encoder, device, new_byte_size);
+  }
+
+  fn ref_clone(&self) -> Box<dyn AbstractBuffer> {
+    Box::new(self.clone())
+  }
+
+  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
+    self.buffer.write(content, offset, queue);
+  }
+
+  fn copy_buffer_to_buffer(
+    &self,
+    target: &dyn AbstractBuffer,
+    self_offset: u64,
+    target_offset: u64,
+    count: u64,
+    encoder: &mut GPUCommandEncoder,
+  ) {
+    self
+      .buffer
+      .copy_buffer_to_buffer(target, self_offset, target_offset, count, encoder);
+  }
+
+  fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr {
+    AbstractBuffer::bind_shader(&self.buffer, bind_builder)
+  }
+
+  fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
+    AbstractBuffer::bind_pass(&self.buffer, bind_builder)
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+
+  fn get_gpu_buffer_view(&self) -> Option<GPUBufferResourceView> {
+    self.buffer.get_gpu_buffer_view()
+  }
 }

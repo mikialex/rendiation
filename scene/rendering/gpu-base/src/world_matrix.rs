@@ -48,7 +48,7 @@ pub struct WorldMatrixStorage {
 
 #[derive(Clone)]
 pub struct DrawUnitWorldTransformProviderDefaultImpl {
-  bounding_storage: StorageBufferReadonlyDataView<[WorldMatrixStorage]>,
+  bounding_storage: AbstractReadonlyStorageBuffer<[WorldMatrixStorage]>,
 }
 
 impl ShaderHashProvider for DrawUnitWorldTransformProviderDefaultImpl {

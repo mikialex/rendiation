@@ -21,7 +21,10 @@ pub fn use_texture_system(
   }
 }
 
-fn create_default_tex_and_sampler(gpu: &GPU) -> (GPU2DTextureView, GPUSamplerView) {
+fn create_default_tex_and_sampler(
+  gpu: &GPU,
+  _: &dyn AbstractStorageAllocator,
+) -> (GPU2DTextureView, GPUSamplerView) {
   let default_2d: GPU2DTextureView = create_fallback_empty_texture(&gpu.device)
     .create_default_view()
     .try_into()

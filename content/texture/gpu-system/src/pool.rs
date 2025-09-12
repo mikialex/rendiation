@@ -262,8 +262,8 @@ fn copy_tex_level(
 #[derive(Clone)]
 pub struct TexturePool {
   pub texture: GPU2DArrayTextureView,
-  pub address: StorageBufferReadonlyDataView<[TexturePoolTextureMeta]>,
-  pub samplers: StorageBufferReadonlyDataView<[TextureSamplerShaderInfo]>,
+  pub address: AbstractReadonlyStorageBuffer<[TexturePoolTextureMeta]>,
+  pub samplers: AbstractReadonlyStorageBuffer<[TextureSamplerShaderInfo]>,
 }
 
 both!(TexturePoolInShader, ShaderBinding<ShaderTexture2DArray>);

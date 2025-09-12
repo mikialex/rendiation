@@ -90,28 +90,32 @@ const SCENE_RAY_TYPE_INIT_SIZE: u32 = 4;
 const SCENE_MAX_GROW_RATIO: u32 = 128;
 
 impl ShaderBindingTableDeviceInfo {
-  pub fn new(gpu: &GPU) -> Self {
+  pub fn new(gpu: &GPU, alloc: &dyn AbstractStorageAllocator) -> Self {
     let inner = ShaderBindingTableDeviceInfoImpl {
       meta: create_storage_buffer_slab_allocate_pool_with_host(
         gpu,
+        alloc,
         "sbt metadata",
         32,
         32 * SCENE_MAX_GROW_RATIO,
       ),
       ray_hit: create_storage_buffer_range_allocate_pool(
         gpu,
+        alloc,
         "sbt_ray_hit pool",
         SCENE_MESH_INIT_SIZE * SCENE_RAY_TYPE_INIT_SIZE,
         SCENE_MESH_INIT_SIZE * SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
       ),
       ray_miss: create_storage_buffer_range_allocate_pool(
         gpu,
+        alloc,
         "sbt_ray_miss pool",
         SCENE_RAY_TYPE_INIT_SIZE,
         SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
       ),
       ray_gen: create_storage_buffer_range_allocate_pool(
         gpu,
+        alloc,
         "sbt_ray_gen pool",
         SCENE_RAY_TYPE_INIT_SIZE,
         SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
@@ -212,10 +216,10 @@ impl ShaderBindingTableDeviceInfo {
   ) -> ShaderBindingTableDeviceInfoInvocation {
     let inner = self.inner.read();
     ShaderBindingTableDeviceInfoInvocation {
-      meta: cx.bind_by(&inner.meta.gpu()),
-      ray_hit: cx.bind_by(&inner.ray_hit.gpu()),
-      ray_miss: cx.bind_by(&inner.ray_miss.gpu()),
-      ray_gen: cx.bind_by(&inner.ray_gen.gpu()),
+      meta: cx.bind_by(inner.meta.gpu()),
+      ray_hit: cx.bind_by(inner.ray_hit.gpu()),
+      ray_miss: cx.bind_by(inner.ray_miss.gpu()),
+      ray_gen: cx.bind_by(inner.ray_gen.gpu()),
     }
   }
   pub fn bind(&self, cx: &mut BindingBuilder) {
@@ -270,21 +274,19 @@ impl ShaderBindingTableDeviceInfoInvocation {
 }
 
 pub type StorageBufferSlabAllocatePoolWithHost<T> =
-  SlabAllocatePoolWithHost<StorageBufferReadonlyDataView<[T]>>;
+  SlabAllocatePoolWithHost<AbstractReadonlyStorageBuffer<[T]>>;
 pub type SlabAllocatePoolWithHost<T> =
   GPUSlatAllocateMaintainer<GrowableHostedDirectQueueUpdateBuffer<T>>;
 
 pub fn create_storage_buffer_slab_allocate_pool_with_host<T: Std430 + ShaderSizedValueNodeType>(
   gpu: &GPU,
+  alloc: &dyn AbstractStorageAllocator,
   label: &str,
   init_size: u32,
   max_size: u32,
 ) -> StorageBufferSlabAllocatePoolWithHost<T> {
-  let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
-    &gpu.device,
-    label.into(),
-    ZeroedArrayByArrayLength(init_size as usize).into(),
-  );
+  let byte_size = init_size as usize * std::mem::size_of::<T>();
+  let buffer = alloc.allocate_readonly(byte_size as u64, &gpu.device, Some(label));
 
   let buffer = create_growable_buffer_with_host_back(gpu, buffer, max_size, true);
   GPUSlatAllocateMaintainer::new(buffer)

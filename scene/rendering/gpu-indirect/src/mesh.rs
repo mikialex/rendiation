@@ -15,7 +15,8 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   let init_vertex_count = 100_000;
   let max_vertex_count = init_vertex_count * 100;
 
-  let (cx, indices) = cx.use_gpu_init(|gpu| {
+  let (cx, indices) = cx.use_gpu_init(|gpu, _| {
+    // this should not be allocate from allocator, because it has extra usage.
     let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
       &gpu.device,
       Some("bindless mesh index pool"),
@@ -31,25 +32,28 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
     )))
   });
 
-  let (cx, position) = cx.use_gpu_init(|gpu| {
+  let (cx, position) = cx.use_gpu_init(|gpu, alloc| {
     Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
       gpu,
+      alloc,
       "bindless mesh vertex pool: position",
       init_vertex_count,
       max_vertex_count,
     )))
   });
-  let (cx, normal) = cx.use_gpu_init(|gpu| {
+  let (cx, normal) = cx.use_gpu_init(|gpu, alloc| {
     Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
       gpu,
+      alloc,
       "bindless mesh vertex pool: normal",
       init_vertex_count,
       max_vertex_count,
     )))
   });
-  let (cx, uv) = cx.use_gpu_init(|gpu| {
+  let (cx, uv) = cx.use_gpu_init(|gpu, alloc| {
     Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
       gpu,
+      alloc,
       "bindless mesh vertex pool: uv",
       init_vertex_count,
       max_vertex_count,
@@ -57,19 +61,19 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   });
 
   if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
-    let buffer_size: u64 = indices.read().gpu().resource.desc.size.into();
+    let buffer_size = indices.read().gpu().byte_size();
     let buffer_size = buffer_size as f32 / 1024.;
     inspector.label(&format!("bindless index, size: {:.2} kb", buffer_size));
 
-    let buffer_size: u64 = position.read().gpu().resource.desc.size.into();
+    let buffer_size = position.read().gpu().byte_size();
     let buffer_size = buffer_size as f32 / 1024.;
     inspector.label(&format!("bindless position, size: {:.2} kb", buffer_size));
 
-    let buffer_size: u64 = normal.read().gpu().resource.desc.size.into();
+    let buffer_size = normal.read().gpu().byte_size();
     let buffer_size = buffer_size as f32 / 1024.;
     inspector.label(&format!("bindless normal, size: {:.2} kb", buffer_size));
 
-    let buffer_size: u64 = uv.read().gpu().resource.desc.size.into();
+    let buffer_size = uv.read().gpu().byte_size();
     let buffer_size = buffer_size as f32 / 1024.;
     inspector.label(&format!("bindless uv, size: {:.2} kb", buffer_size));
   }
@@ -116,7 +120,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
 
 fn use_attribute_indices(
   cx: &mut QueryGPUHookCx,
-  index_pool: &UntypedU32Pool,
+  index_pool: &IndicesPool,
 ) -> UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]>> {
   let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
   let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
@@ -273,13 +277,19 @@ pub struct AttributeMeshMeta {
 
 fn use_attribute_buffer_metadata(
   cx: &mut QueryGPUHookCx,
-  index_pool: &UntypedU32Pool,
+  index_pool: &IndicesPool,
   position_pool: &UntypedU32Pool,
   normal_pool: &UntypedU32Pool,
   uv_pool: &UntypedU32Pool,
 ) -> Arc<RwLock<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>> {
-  let (cx, data) = cx.use_gpu_init(|gpu| {
-    let data = create_common_storage_buffer_with_host_backup_container(128, u32::MAX, gpu);
+  let (cx, data) = cx.use_gpu_init(|gpu, alloc| {
+    let data = create_common_storage_buffer_with_host_backup_container(
+      128,
+      u32::MAX,
+      alloc,
+      gpu,
+      "mesh buffer indirect range",
+    );
     Arc::new(RwLock::new(data))
   });
 
@@ -325,17 +335,19 @@ fn use_attribute_buffer_metadata(
   data.clone()
 }
 
+pub type IndicesPool = Arc<RwLock<StorageBufferRangeAllocatePoolStandalone<u32>>>;
+
 #[derive(Clone)]
 pub struct MeshGPUBindlessImpl {
-  indices: UntypedU32Pool,
+  indices: IndicesPool,
   position: UntypedU32Pool,
   normal: UntypedU32Pool,
   uv: UntypedU32Pool,
-  vertex_address_buffer: StorageBufferReadonlyDataView<[AttributeMeshMeta]>,
+  vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   /// we keep the host metadata to support creating draw commands from host
   vertex_address_buffer_host:
     LockReadGuardHolder<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
-  sm_to_mesh_device: StorageBufferReadonlyDataView<[u32]>,
+  sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
   sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
   checker: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
   indices_checker: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
@@ -345,14 +357,11 @@ pub struct MeshGPUBindlessImpl {
 
 impl MeshGPUBindlessImpl {
   pub fn make_bindless_dispatcher(&self) -> BindlessMeshDispatcher {
-    let position =
-      StorageBufferReadonlyDataView::try_from_raw(self.position.read().gpu().gpu.clone()).unwrap();
-    let normal =
-      StorageBufferReadonlyDataView::try_from_raw(self.normal.read().gpu().gpu.clone()).unwrap();
-    let uv = StorageBufferReadonlyDataView::try_from_raw(self.uv.read().gpu().gpu.clone()).unwrap();
+    let position = self.position.read().gpu().clone();
+    let normal = self.normal.read().gpu().clone();
+    let uv = self.uv.read().gpu().clone();
 
-    let index_pool =
-      StorageBufferReadonlyDataView::try_from_raw(self.indices.read().gpu().gpu.clone()).unwrap();
+    let index_pool = self.indices.read().gpu().clone();
 
     BindlessMeshDispatcher {
       sm_to_mesh: self.sm_to_mesh_device.clone(),
@@ -451,12 +460,12 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
 
 #[derive(Clone)]
 pub struct BindlessMeshDispatcher {
-  pub sm_to_mesh: StorageBufferReadonlyDataView<[u32]>,
-  pub vertex_address_buffer: StorageBufferReadonlyDataView<[AttributeMeshMeta]>,
+  pub sm_to_mesh: AbstractReadonlyStorageBuffer<[u32]>,
+  pub vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   pub index_pool: StorageBufferReadonlyDataView<[u32]>,
-  pub position: StorageBufferReadonlyDataView<[u32]>,
-  pub normal: StorageBufferReadonlyDataView<[u32]>,
-  pub uv: StorageBufferReadonlyDataView<[u32]>,
+  pub position: AbstractReadonlyStorageBuffer<[u32]>,
+  pub normal: AbstractReadonlyStorageBuffer<[u32]>,
+  pub uv: AbstractReadonlyStorageBuffer<[u32]>,
 }
 
 impl ShaderHashProvider for BindlessMeshDispatcher {
@@ -483,9 +492,10 @@ impl ShaderPassBuilder for BindlessMeshRasterDispatcher {
     let mesh = &self.internal;
 
     if self.is_indexed {
+      let index = mesh.index_pool.get_gpu_buffer_view().unwrap();
       ctx
         .pass
-        .set_index_buffer_by_buffer_resource_view(&mesh.index_pool, IndexFormat::Uint32);
+        .set_index_buffer_by_buffer_resource_view(&index, IndexFormat::Uint32);
     }
 
     mesh.bind_base_invocation(&mut ctx.binding);
@@ -600,9 +610,9 @@ impl BindlessMeshDispatcher {
 
 #[derive(Clone)]
 pub struct BindlessDrawCreator {
-  metadata: StorageBufferReadonlyDataView<[AttributeMeshMeta]>,
+  metadata: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
-  sm_to_mesh_device: StorageBufferReadonlyDataView<[u32]>,
+  sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
   vertex_address_buffer_host:
     LockReadGuardHolder<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
 }

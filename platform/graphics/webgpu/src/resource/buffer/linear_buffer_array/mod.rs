@@ -23,7 +23,7 @@ pub trait GPULinearStorage: LinearStorageBase + Sized {
   }
 }
 
-pub trait LinearStorageBase: Sized {
+pub trait LinearStorageBase {
   type Item: Pod;
   fn max_size(&self) -> u32;
 }
@@ -56,7 +56,10 @@ pub trait LinearStorageDirectAccess: LinearStorageBase {
     v: &[u8],
   ) -> Option<()>;
 
-  fn with_vec_backup(self, none_default: Self::Item, diff: bool) -> VecWithStorageBuffer<Self> {
+  fn with_vec_backup(self, none_default: Self::Item, diff: bool) -> VecWithStorageBuffer<Self>
+  where
+    Self: Sized,
+  {
     VecWithStorageBuffer {
       vec: vec![none_default; self.max_size() as usize],
       inner: self,
@@ -73,7 +76,10 @@ pub trait ResizableLinearStorage: LinearStorageBase {
   fn with_grow_behavior(
     self,
     resizer: impl Fn(ResizeInput) -> Option<u32> + 'static + Send + Sync,
-  ) -> CustomGrowBehaviorMaintainer<Self> {
+  ) -> CustomGrowBehaviorMaintainer<Self>
+  where
+    Self: Sized,
+  {
     CustomGrowBehaviorMaintainer {
       inner: self,
       size_adjust: Box::new(resizer),

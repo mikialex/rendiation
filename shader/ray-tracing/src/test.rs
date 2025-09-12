@@ -21,7 +21,7 @@ async fn test_wavefront_compute() {
 
   texture_io_system.install_output_target::<RayTracingDebugOutput>(debug_output);
 
-  let system = GPUWaveFrontComputeRaytracingSystem::new(&gpu);
+  let system = GPUWaveFrontComputeRaytracingSystem::new(&gpu, &DefaultStorageAllocator);
   let shader_base_builder = system.create_tracer_base_builder();
   let as_sys = system.create_acceleration_structure_system();
 

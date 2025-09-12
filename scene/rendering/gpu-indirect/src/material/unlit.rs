@@ -32,8 +32,8 @@ pub fn use_unlit_material_storage(
 #[derive(Clone)]
 pub struct UnlitMaterialIndirectRenderer {
   material_access: ForeignKeyReadView<StandardModelRefUnlitMaterial>,
-  storages: StorageBufferReadonlyDataView<[UnlitMaterialStorage]>,
-  texture_handles: StorageBufferReadonlyDataView<[UnlitMaterialTextureHandlesStorage]>,
+  storages: AbstractReadonlyStorageBuffer<[UnlitMaterialStorage]>,
+  texture_handles: AbstractReadonlyStorageBuffer<[UnlitMaterialTextureHandlesStorage]>,
   alpha_mode: ComponentReadView<AlphaModeOf<UnlitMaterialAlphaConfig>>,
 }
 
@@ -84,8 +84,8 @@ struct UnlitMaterialTextureHandlesStorage {
 
 #[derive(Clone)]
 struct UnlitMaterialStorageGPU<'a> {
-  pub buffer: StorageBufferReadonlyDataView<[UnlitMaterialStorage]>,
-  pub texture_handles: StorageBufferReadonlyDataView<[UnlitMaterialTextureHandlesStorage]>,
+  pub buffer: AbstractReadonlyStorageBuffer<[UnlitMaterialStorage]>,
+  pub texture_handles: AbstractReadonlyStorageBuffer<[UnlitMaterialTextureHandlesStorage]>,
   pub alpha_mode: AlphaMode,
   pub binding_sys: &'a GPUTextureBindingSystem,
 }

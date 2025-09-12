@@ -47,9 +47,9 @@ pub fn use_pbr_sg_material_storage(
 #[derive(Clone)]
 pub struct PbrSGMaterialIndirectRenderer {
   material_access: ForeignKeyReadView<StandardModelRefPbrSGMaterial>,
-  pub storages: StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
+  pub storages: AbstractReadonlyStorageBuffer<[PhysicalSpecularGlossinessMaterialStorage]>,
   pub tex_storages:
-    StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
+    AbstractReadonlyStorageBuffer<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
   alpha_mode: ComponentReadView<AlphaModeOf<PbrSGMaterialAlphaConfig>>,
 }
 
@@ -111,10 +111,10 @@ pub struct PhysicalSpecularGlossinessMaterialTextureHandlesStorage {
 type TexStorage = PhysicalSpecularGlossinessMaterialTextureHandlesStorage;
 
 pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {
-  storage: &'a StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
+  storage: &'a AbstractReadonlyStorageBuffer<[PhysicalSpecularGlossinessMaterialStorage]>,
   alpha_mode: AlphaMode,
   texture_storages:
-    &'a StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
+    &'a AbstractReadonlyStorageBuffer<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
   binding_sys: &'a GPUTextureBindingSystem,
 }
 
@@ -136,9 +136,9 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let id = builder.query::<IndirectAbstractMaterialId>();
-      let storage = binding.bind_by(&self.storage).index(id).load().expand();
+      let storage = binding.bind_by(self.storage).index(id).load().expand();
       let tex_storage = binding
-        .bind_by(&self.texture_storages)
+        .bind_by(self.texture_storages)
         .index(id)
         .load()
         .expand();

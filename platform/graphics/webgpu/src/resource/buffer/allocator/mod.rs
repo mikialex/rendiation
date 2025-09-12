@@ -48,13 +48,10 @@ pub trait RangeAllocatorStorage: AllocatorStorageBase {
     relocation_handler: &mut dyn FnMut(RelocationMessage),
   ) -> Option<u32>;
 
-  /// LinearStorageDirectAccess bound is required or this method will be useless
   #[must_use]
   fn allocate_range(
     &mut self,
     count: u32,
     relocation_handler: &mut dyn FnMut(RelocationMessage),
-  ) -> Option<u32>
-  where
-    Self: LinearStorageDirectAccess;
+  ) -> Option<u32>;
 }

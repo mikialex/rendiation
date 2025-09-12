@@ -33,7 +33,7 @@ pub fn use_rtx_pt_renderer(
 ) -> Option<DeviceReferencePathTracingRenderer> {
   let (cx, end) = cx.use_begin_change_set_collect();
 
-  let (cx, system) = cx.use_gpu_init(|gpu| DeviceReferencePathTracingSystem {
+  let (cx, system) = cx.use_gpu_init(|gpu, _| DeviceReferencePathTracingSystem {
     executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
     shader_handles: Default::default(),
     state: Default::default(),

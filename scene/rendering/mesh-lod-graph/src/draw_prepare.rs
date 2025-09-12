@@ -2,8 +2,8 @@ use crate::*;
 
 pub struct MeshLODExpander {
   pub lod_decider: UniformBufferDataView<LODDecider>,
-  pub meshlet_metadata: StorageBufferReadonlyDataView<[MeshletMetaData]>,
-  pub scene_model_meshlet_range: StorageBufferReadonlyDataView<[Vec2<u32>]>,
+  pub meshlet_metadata: AbstractReadonlyStorageBuffer<[MeshletMetaData]>,
+  pub scene_model_meshlet_range: AbstractReadonlyStorageBuffer<[Vec2<u32>]>,
 }
 
 impl MeshLODExpander {

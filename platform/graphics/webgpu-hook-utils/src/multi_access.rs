@@ -13,18 +13,25 @@ pub struct MultiAccessGPUDataBuilderInit {
 }
 
 impl MultiAccessGPUStates {
-  pub fn new(gpu: &GPU, init: MultiAccessGPUDataBuilderInit) -> Self {
+  pub fn new(
+    gpu: &GPU,
+    init: MultiAccessGPUDataBuilderInit,
+    allocator: &dyn AbstractStorageAllocator,
+  ) -> Self {
     Self {
       allocator: create_storage_buffer_range_allocate_pool(
         gpu,
-        "device multi access allocator",
+        allocator,
+        "device multi access allocator range",
         init.init_many_count_capacity,
         init.max_possible_many_count,
       ),
       meta: create_common_storage_buffer_with_host_backup_container(
         init.init_one_count_capacity,
         init.max_possible_one_count,
+        allocator,
         gpu,
+        "device multi access allocator data",
       ),
     }
   }
@@ -100,8 +107,8 @@ impl MultiAccessGPUStates {
 
 #[derive(Clone)]
 pub struct MultiAccessGPUData {
-  meta: StorageBufferReadonlyDataView<[GPURangeInfo]>,
-  indices: StorageBufferReadonlyDataView<[u32]>,
+  meta: AbstractReadonlyStorageBuffer<[GPURangeInfo]>,
+  indices: AbstractReadonlyStorageBuffer<[u32]>,
 }
 
 impl MultiAccessGPUData {

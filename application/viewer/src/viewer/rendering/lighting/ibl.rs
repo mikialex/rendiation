@@ -8,7 +8,7 @@ use rendiation_webgpu_hook_utils::*;
 use crate::*;
 
 pub fn use_ibl(cx: &mut QueryGPUHookCx) -> Option<IBLLightingComponentProvider> {
-  let (cx, brdf_lut) = cx.use_gpu_init(|cx| {
+  let (cx, brdf_lut) = cx.use_gpu_init(|cx, _| {
     let brdf_lut_bitmap_png = include_bytes!("./brdf_lut.png");
 
     // todo, use two channel 16 bit

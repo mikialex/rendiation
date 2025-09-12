@@ -30,7 +30,7 @@ pub struct ScenePTLightingSceneDataGroup {
 
 #[derive(Clone)]
 pub struct ScenePTLightingSceneData<T: Std430> {
-  lights: StorageBufferReadonlyDataView<[T]>,
+  lights: AbstractReadonlyStorageBuffer<[T]>,
   lights_accessor: MultiAccessGPUData,
 }
 

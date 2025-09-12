@@ -186,29 +186,27 @@ where
     &mut self,
     count: u32,
     relocation_handler: &mut dyn FnMut(RelocationMessage),
-  ) -> Option<u32>
-  where
-    Self: LinearStorageDirectAccess,
-  {
+  ) -> Option<u32> {
     self.allocate_range_impl(count, relocation_handler)
   }
 }
 
-pub type StorageBufferRangeAllocatePool<T> = RangeAllocatePool<StorageBufferReadonlyDataView<[T]>>;
+pub type StorageBufferRangeAllocatePool<T> = RangeAllocatePool<AbstractReadonlyStorageBuffer<[T]>>;
+pub type StorageBufferRangeAllocatePoolStandalone<T> =
+  RangeAllocatePool<StorageBufferReadonlyDataView<[T]>>;
 pub type RangeAllocatePool<T> = GPURangeAllocateMaintainer<GrowableDirectQueueUpdateBuffer<T>>;
 
 pub fn create_storage_buffer_range_allocate_pool<T: Std430 + ShaderSizedValueNodeType>(
   gpu: &GPU,
+  allocator: &dyn AbstractStorageAllocator,
   label: &str,
   init_item_count: u32,
   max_item_count: u32,
 ) -> StorageBufferRangeAllocatePool<T> {
   assert!(max_item_count >= init_item_count);
-  let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
-    &gpu.device,
-    Some(label),
-    ZeroedArrayByArrayLength(init_item_count as usize).into(),
-  );
+
+  let byte_size = init_item_count as usize * std::mem::size_of::<T>();
+  let buffer = allocator.allocate_readonly(byte_size as u64, &gpu.device, Some(label));
 
   let buffer = create_growable_buffer(gpu, buffer, max_item_count);
   GPURangeAllocateMaintainer::new(gpu, buffer, max_item_count)

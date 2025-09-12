@@ -50,9 +50,9 @@ pub fn use_pbr_mr_material_storage(
 #[derive(Clone)]
 pub struct PbrMRMaterialIndirectRenderer {
   material_access: ForeignKeyReadView<StandardModelRefPbrMRMaterial>,
-  pub storages: StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
+  pub storages: AbstractReadonlyStorageBuffer<[PhysicalMetallicRoughnessMaterialStorage]>,
   pub tex_storages:
-    StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
+    AbstractReadonlyStorageBuffer<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
   alpha_mode: ComponentReadView<AlphaModeOf<PbrMRMaterialAlphaConfig>>,
 }
 
@@ -115,10 +115,10 @@ pub struct PhysicalMetallicRoughnessMaterialTextureHandlesStorage {
 type TexStorage = PhysicalMetallicRoughnessMaterialTextureHandlesStorage;
 
 pub struct PhysicalMetallicRoughnessMaterialIndirectGPU<'a> {
-  storage: &'a StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
+  storage: &'a AbstractReadonlyStorageBuffer<[PhysicalMetallicRoughnessMaterialStorage]>,
   alpha_mode: AlphaMode,
   texture_storages:
-    &'a StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
+    &'a AbstractReadonlyStorageBuffer<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
   binding_sys: &'a GPUTextureBindingSystem,
 }
 
@@ -140,9 +140,9 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let id = builder.query::<IndirectAbstractMaterialId>();
-      let storage = binding.bind_by(&self.storage).index(id).load().expand();
+      let storage = binding.bind_by(self.storage).index(id).load().expand();
       let tex_storage = binding
-        .bind_by(&self.texture_storages)
+        .bind_by(self.texture_storages)
         .index(id)
         .load()
         .expand();

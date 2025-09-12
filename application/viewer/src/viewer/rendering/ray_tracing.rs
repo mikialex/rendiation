@@ -21,8 +21,8 @@ pub fn use_viewer_rtx(
   tex: Option<GPUTextureBindingSystem>,
   request_reset_sample: bool,
 ) -> Option<(RayTracingRendererGroup, RtxSystemCore)> {
-  let (cx, core) = cx.use_gpu_init(|gpu| {
-    let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(gpu);
+  let (cx, core) = cx.use_gpu_init(|gpu, alloc| {
+    let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(gpu, alloc);
     RtxSystemCore::new(Box::new(rtx_backend_system))
   });
 

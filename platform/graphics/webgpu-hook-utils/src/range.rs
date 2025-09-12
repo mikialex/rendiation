@@ -6,15 +6,24 @@ use crate::*;
 
 pub type UntypedU32Pool = Arc<RwLock<StorageBufferRangeAllocatePool<u32>>>;
 
-#[derive(Clone)]
-pub struct ReactiveRangeAllocatePool<K> {
-  buffer: UntypedU32Pool,
+pub struct ReactiveRangeAllocatePool<T, K> {
+  buffer: Arc<RwLock<T>>,
   record: Arc<RwLock<FastHashMap<K, [u32; 2]>>>,
   rev_map: Arc<RwLock<FastHashMap<u32, K>>>,
 }
 
-impl<K> ReactiveRangeAllocatePool<K> {
-  pub fn new(buffer: &UntypedU32Pool) -> Self {
+impl<T, K> Clone for ReactiveRangeAllocatePool<T, K> {
+  fn clone(&self) -> Self {
+    Self {
+      buffer: self.buffer.clone(),
+      record: self.record.clone(),
+      rev_map: self.rev_map.clone(),
+    }
+  }
+}
+
+impl<T: RangeAllocatorStorage<Item = u32>, K> ReactiveRangeAllocatePool<T, K> {
+  pub fn new(buffer: &Arc<RwLock<T>>) -> Self {
     Self {
       buffer: buffer.clone(),
       record: Default::default(),
@@ -23,7 +32,9 @@ impl<K> ReactiveRangeAllocatePool<K> {
   }
 }
 
-impl<K: CKey> ReactiveRangeAllocatePool<K> {
+impl<T: RangeAllocatorStorage<Item = u32> + GPULinearStorage, K: CKey>
+  ReactiveRangeAllocatePool<T, K>
+{
   pub fn update<'a>(
     &self,
     removed_and_changed_keys: impl Iterator<Item = K>,
@@ -69,12 +80,8 @@ impl<K: CKey> ReactiveRangeAllocatePool<K> {
         .unwrap();
       assert!(override_offsets.is_empty());
 
-      let gpu_buffer = buffer.gpu();
-      gpu.queue.write_buffer(
-        gpu_buffer.resource.gpu(),
-        (offset * 4) as u64,
-        data_to_write,
-      );
+      let gpu_buffer = buffer.abstract_gpu();
+      gpu_buffer.write(data_to_write, (offset * 4) as u64, &gpu.queue);
 
       mutator.set_value(k.clone(), [offset, count_u32]);
       rev.insert(offset, k);

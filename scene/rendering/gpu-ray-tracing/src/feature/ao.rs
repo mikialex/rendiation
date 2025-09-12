@@ -13,7 +13,7 @@ pub fn use_rtx_ao_renderer(
 ) -> Option<SceneRayTracingAORenderer> {
   let (cx, end) = cx.use_begin_change_set_collect();
 
-  let (cx, system) = cx.use_gpu_init(|gpu| RayTracingAORenderSystem {
+  let (cx, system) = cx.use_gpu_init(|gpu, _| RayTracingAORenderSystem {
     executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
     shader_handles: Default::default(),
     ao_state: Default::default(),

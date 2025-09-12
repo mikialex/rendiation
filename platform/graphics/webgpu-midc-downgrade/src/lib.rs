@@ -295,7 +295,7 @@ where
       if self.enable_downgrade {
         let vertex_real_index = vertex.query::<VertexIndexForMIDCDowngrade>();
         if let Some(index) = &self.index {
-          let index_pool = binding.bind_by(&index);
+          let index_pool = binding.bind_by(index);
           let index = index_pool.index(vertex_real_index).load();
           // here we override the builtin
           vertex.register::<VertexIndex>(index);
@@ -316,9 +316,10 @@ impl<T: ShaderPassBuilder> ShaderPassBuilder for MidcDowngradeWrapperForIndirect
       if self.enable_downgrade {
         ctx.binding.bind(index);
       } else {
+        let index = index.get_gpu_buffer_view().unwrap();
         ctx
           .pass
-          .set_index_buffer_by_buffer_resource_view(index, IndexFormat::Uint32);
+          .set_index_buffer_by_buffer_resource_view(&index, IndexFormat::Uint32);
       }
     }
     self.mesh_system.setup_pass(ctx);

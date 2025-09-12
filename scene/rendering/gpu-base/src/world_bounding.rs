@@ -43,7 +43,7 @@ pub fn use_scene_model_device_world_bounding(
 
 #[derive(Clone)]
 pub struct DrawUnitWorldBoundingProviderDefaultImpl {
-  bounding_storage: StorageBufferReadonlyDataView<[[f32; 12]]>,
+  bounding_storage: AbstractReadonlyStorageBuffer<[[f32; 12]]>,
 }
 
 impl ShaderHashProvider for DrawUnitWorldBoundingProviderDefaultImpl {

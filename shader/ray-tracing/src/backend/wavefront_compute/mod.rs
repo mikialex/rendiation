@@ -23,7 +23,7 @@ pub const INLINE_RAY_TRACING_REQUIRED_FEATURES: Features = Features::EXPERIMENTA
   .union(Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN);
 
 impl GPUWaveFrontComputeRaytracingSystem {
-  pub fn new(gpu: &GPU) -> Self {
+  pub fn new(gpu: &GPU, alloc: &dyn AbstractStorageAllocator) -> Self {
     let device_support_ray_query = gpu
       .info
       .supported_features
@@ -35,7 +35,7 @@ impl GPUWaveFrontComputeRaytracingSystem {
       } else {
         Box::new(NaiveSahBVHSystem::new(gpu.clone()))
       },
-      sbt_sys: ShaderBindingTableDeviceInfo::new(gpu),
+      sbt_sys: ShaderBindingTableDeviceInfo::new(gpu, alloc),
     }
   }
 }

@@ -5,12 +5,13 @@ use crate::*;
 pub struct QueryGPUHookFeatureCx<'a> {
   pub gpu: &'a GPU,
   pub shared_ctx: &'a mut SharedHooksCtx,
+  pub storage_allocator: &'a dyn AbstractStorageAllocator,
 }
 
 pub struct QueryGPUHookCx<'a> {
   pub memory: &'a mut FunctionMemory,
   pub gpu: &'a GPU,
-  pub storage_allocator: Option<Box<dyn AbstractStorageAllocator>>,
+  pub storage_allocator: Box<dyn AbstractStorageAllocator>,
   pub shared_ctx: &'a mut SharedHooksCtx,
   pub stage: GPUQueryHookStage<'a>,
 }
@@ -73,6 +74,7 @@ impl<'a> QueryGPUHookCx<'a> {
         init(QueryGPUHookFeatureCx {
           gpu: self.gpu,
           shared_ctx: self.shared_ctx,
+          storage_allocator: &self.storage_allocator,
         })
       },
       |state: &mut T, dcx: &mut ()| {
@@ -98,8 +100,12 @@ impl<'a> QueryGPUHookCx<'a> {
     (cx, state)
   }
 
-  pub fn use_gpu_init<T: 'static>(&mut self, init: impl FnOnce(&GPU) -> T) -> (&mut Self, &mut T) {
-    let (cx, state) = self.use_state_with_features(|cx| NothingToDrop(init(cx.gpu)));
+  pub fn use_gpu_init<T: 'static>(
+    &mut self,
+    init: impl FnOnce(&GPU, &dyn AbstractStorageAllocator) -> T,
+  ) -> (&mut Self, &mut T) {
+    let (cx, state) =
+      self.use_state_with_features(|cx| NothingToDrop(init(cx.gpu, cx.storage_allocator)));
     (cx, &mut state.0)
   }
 
@@ -107,7 +113,7 @@ impl<'a> QueryGPUHookCx<'a> {
     &mut self,
     init: MultiAccessGPUDataBuilderInit,
   ) -> (&mut Self, &mut MultiAccessGPUStates) {
-    self.use_gpu_init(|gpu| MultiAccessGPUStates::new(gpu, init))
+    self.use_gpu_init(|gpu, alloc| MultiAccessGPUStates::new(gpu, init, alloc))
   }
 
   pub fn use_uniform_buffers<K: 'static, V: Std140 + 'static>(
@@ -119,7 +125,7 @@ impl<'a> QueryGPUHookCx<'a> {
   pub fn use_uniform_array_buffers<V: Std140 + Default, const N: usize>(
     &mut self,
   ) -> (&mut Self, &mut UniformBufferDataView<Shader140Array<V, N>>) {
-    self.use_gpu_init(|gpu| UniformBufferDataView::create_default(&gpu.device))
+    self.use_gpu_init(|gpu, _| UniformBufferDataView::create_default(&gpu.device))
   }
 
   pub fn use_storage_buffer<V: Std430 + ShaderSizedValueNodeType>(
@@ -128,12 +134,18 @@ impl<'a> QueryGPUHookCx<'a> {
     init_capacity_item_count: u32,
     max_item_count: u32,
   ) -> (&mut Self, &mut CommonStorageBufferImpl<V>) {
-    let (cx, storage) = self.use_gpu_init(|gpu| {
-      create_common_storage_buffer_container(label, init_capacity_item_count, max_item_count, gpu)
+    let (cx, storage) = self.use_gpu_init(|gpu, alloc| {
+      create_common_storage_buffer_container(
+        label,
+        init_capacity_item_count,
+        max_item_count,
+        alloc,
+        gpu,
+      )
     });
 
     if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
-      let buffer_size: u64 = storage.get_gpu_buffer().resource.desc.size.into();
+      let buffer_size: u64 = storage.get_gpu_buffer().byte_size();
       let buffer_size = buffer_size as f32 / 1024.;
       inspector.label(&format!("storage: {}, size: {:.2} kb", label, buffer_size));
     }

@@ -55,8 +55,8 @@ impl IndirectDrawProvider for MeshletBatchDrawData {
 
 /// The implementation of Logical Mesh [RenderComponent]
 pub struct MeshletGPURenderData {
-  pub meshlet_metadata: StorageBufferReadonlyDataView<[MeshletMetaData]>,
-  pub position_buffer: StorageBufferReadonlyDataView<[u32]>,
+  pub meshlet_metadata: AbstractReadonlyStorageBuffer<[MeshletMetaData]>,
+  pub position_buffer: AbstractReadonlyStorageBuffer<[u32]>,
   pub index_buffer: StorageBufferReadonlyDataView<[u32]>,
 }
 

@@ -36,7 +36,7 @@ pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<IndirectNodeRenderer>
   cx.when_render(|| IndirectNodeRenderer(nodes.get_gpu_buffer()))
 }
 
-pub struct IndirectNodeRenderer(StorageBufferReadonlyDataView<[NodeStorage]>);
+pub struct IndirectNodeRenderer(AbstractReadonlyStorageBuffer<[NodeStorage]>);
 
 impl IndirectNodeRenderImpl for IndirectNodeRenderer {
   fn make_component_indirect(
@@ -61,7 +61,7 @@ impl IndirectNodeRenderImpl for IndirectNodeRenderer {
 
 only_vertex!(IndirectSceneNodeId, u32);
 
-pub struct NodeGPUStorage<'a>(&'a StorageBufferReadonlyDataView<[NodeStorage]>);
+pub struct NodeGPUStorage<'a>(&'a AbstractReadonlyStorageBuffer<[NodeStorage]>);
 
 #[repr(C)]
 #[std430_layout]

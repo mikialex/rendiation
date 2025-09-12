@@ -298,7 +298,7 @@ impl Viewer3dRenderingCtx {
         ViewerTransparentRenderer::NaiveAlphaBlend
       }
       ViewerTransparentContentRenderStyle::Loop32OIT => cx.scope(|cx| {
-        let (_, r) = cx.use_gpu_init(|_| Arc::new(RwLock::new(OitLoop32Renderer::new(4))));
+        let (_, r) = cx.use_gpu_init(|_, _| Arc::new(RwLock::new(OitLoop32Renderer::new(4))));
         ViewerTransparentRenderer::Loop32OIT(r.clone())
       }),
       ViewerTransparentContentRenderStyle::WeightedOIT => ViewerTransparentRenderer::WeightedOIT,
@@ -366,7 +366,7 @@ impl Viewer3dRenderingCtx {
         change_collector: &mut Default::default(),
       },
       shared_ctx,
-      storage_allocator: None,
+      storage_allocator: Box::new(DefaultStorageAllocator),
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx), true);
     pool
@@ -389,7 +389,7 @@ impl Viewer3dRenderingCtx {
       gpu: &gpu,
       stage: GPUQueryHookStage::Inspect(inspector),
       shared_ctx,
-      storage_allocator: None,
+      storage_allocator: Box::new(DefaultStorageAllocator),
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx), true);
   }
@@ -412,7 +412,7 @@ impl Viewer3dRenderingCtx {
         task: task_pool_result,
       },
       shared_ctx,
-      storage_allocator: None,
+      storage_allocator: Box::new(DefaultStorageAllocator),
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx).unwrap(), true);
 

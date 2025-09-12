@@ -5,7 +5,7 @@
 use crate::*;
 
 pub struct StorageBufferCombineGuard {
-  backup: Option<Box<dyn AbstractStorageAllocator>>,
+  backup: Box<dyn AbstractStorageAllocator>,
 }
 
 impl StorageBufferCombineGuard {
@@ -20,13 +20,13 @@ pub fn use_readonly_storage_buffer_combine(
   label: impl Into<String>,
   enable_combine: bool,
 ) -> StorageBufferCombineGuard {
-  let (cx, allocator) = cx.use_gpu_init(|gpu| {
+  let (cx, allocator) = cx.use_gpu_init(|gpu, _| {
     create_maybe_combined_storage_allocator(gpu, label, enable_combine, false, true)
   });
 
   // we could build storage allocator above existing allocator
-  let backup = cx.storage_allocator.take();
-  cx.storage_allocator = Some(allocator.clone());
+  let backup = cx.storage_allocator.clone();
+  cx.storage_allocator = allocator.clone();
 
   StorageBufferCombineGuard { backup }
 }

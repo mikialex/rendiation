@@ -41,7 +41,7 @@ pub struct WideLineMeshDataView {
 pub type WideLineMeshInternal = NoneIndexedMesh<LineList, Vec<WideLineVertex>>;
 
 pub fn use_widen_line(cx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer> {
-  let (cx, quad) = cx.use_gpu_init(create_wide_line_quad_gpu);
+  let (cx, quad) = cx.use_gpu_init(|g, _| create_wide_line_quad_gpu(g));
 
   let uniform = cx.use_uniform_buffers();
 
