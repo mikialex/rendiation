@@ -5,6 +5,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct TaskSpawner {
+  num_threads: Option<usize>,
   pool: Arc<rayon::ThreadPool>,
 }
 
@@ -23,8 +24,13 @@ impl TaskSpawner {
       .unwrap();
 
     Self {
+      num_threads,
       pool: Arc::new(pool),
     }
+  }
+
+  pub fn num_threads_config(&self) -> Option<usize> {
+    self.num_threads
   }
 
   pub fn spawn_task<R: Send + 'static>(

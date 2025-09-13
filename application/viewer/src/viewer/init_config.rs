@@ -14,6 +14,8 @@ pub struct ViewerInitConfig {
   pub enable_indirect_occlusion_culling: bool,
   pub transparent_config: ViewerTransparentContentRenderStyle,
   pub texture_pool_source_init_config: TexturePoolSourceInit,
+  /// None means use available parallelism, 1 means no parallelism
+  pub thread_pool_thread_count: Option<usize>,
 }
 
 const INIT_FILE_NAME: &str = "viewer_init_config.json";
@@ -63,6 +65,7 @@ impl Default for ViewerInitConfig {
       enable_indirect_occlusion_culling: false,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       texture_pool_source_init_config: init,
+      thread_pool_thread_count: None,
     }
   }
 }
