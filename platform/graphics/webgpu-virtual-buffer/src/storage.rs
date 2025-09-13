@@ -157,7 +157,8 @@ impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
   }
 
   fn byte_size(&self) -> u64 {
-    self.get_gpu_buffer_view().unwrap().view_byte_size().into()
+    let internal = self.internal.read();
+    internal.sub_buffer_u32_size_requirements[self.buffer_index] as u64 * 4
   }
 
   fn copy_buffer_to_buffer(

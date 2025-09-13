@@ -10,7 +10,7 @@ pub struct CombinedBufferAllocatorInternal {
   pending_writes: FastHashMap<usize, PendingWrites>,
   usage: BufferUsages,
   buffer_need_rebuild: bool,
-  sub_buffer_u32_size_requirements: Vec<u32>,
+  pub(crate) sub_buffer_u32_size_requirements: Vec<u32>,
   previous_sub_buffer_size: FastHashMap<usize, u32>,
   sub_buffer_allocation_u32_offset: Vec<u32>,
   pub(crate) layout: StructLayoutTarget,
