@@ -83,12 +83,10 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   let (cx, sm_to_mesh_device) =
     cx.use_storage_buffer::<u32>("scene_model to mesh mapping", 128, u32::MAX);
 
+  let relation = cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>();
   let fanout = cx
     .use_dual_query::<StandardModelRefAttributesMeshEntity>()
-    .fanout(
-      cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>(),
-      cx,
-    )
+    .fanout(relation, cx)
     .use_assure_result(cx);
 
   fanout
@@ -142,7 +140,7 @@ fn use_attribute_indices(
   let meta_generator = meta_generator.clone();
 
   source_info
-    .map_only_spawn_stage_in_thread(cx, move |change| {
+    .map_only_spawn_stage(move |change| {
       let removed_and_changed_keys = change
         .iter_removed()
         .chain(change.iter_update_or_insert().map(|(k, _)| k));
@@ -222,7 +220,7 @@ fn use_attribute_vertex(
   let gpu = cx.gpu.clone();
   let meta_generator = meta_generator.clone();
 
-  let allocation_info = source_info.map_only_spawn_stage_in_thread(cx, move |change| {
+  let allocation_info = source_info.map_only_spawn_stage(move |change| {
     let removed_and_changed_keys = change
       .iter_removed()
       .chain(change.iter_update_or_insert().map(|(k, _)| k));

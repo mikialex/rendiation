@@ -31,22 +31,18 @@ pub fn use_rtx_scene_material(
 ) -> Option<SceneSurfaceSupport> {
   let (cx, material_id) = cx.use_storage_buffer("scene model ref material id", 128, u32::MAX);
 
+  let relation = cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>();
   cx.use_dual_query::<StandardModelRefPbrMRMaterial>()
     .map(|q| q.filter_map(|id| id.map(|v| v.index())))
-    .fanout(
-      cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>(),
-      cx,
-    )
+    .fanout(relation, cx)
     .use_assure_result(cx)
     .into_delta_change()
     .update_storage_array(material_id, 0);
 
+  let relation = cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>();
   cx.use_dual_query::<StandardModelRefPbrSGMaterial>()
     .map(|q| q.filter_map(|id| id.map(|v| v.index())))
-    .fanout(
-      cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>(),
-      cx,
-    )
+    .fanout(relation, cx)
     .use_assure_result(cx)
     .into_delta_change()
     .update_storage_array(material_id, 0);
@@ -54,21 +50,17 @@ pub fn use_rtx_scene_material(
   let (cx, material_ty_gpu) =
     cx.use_storage_buffer("scene model ref material type id", 128, u32::MAX);
 
+  let relation = cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>();
   let mr_material_ty = cx
     .use_dual_query::<StandardModelRefPbrMRMaterial>()
     .dual_query_filter_map(|v| v.map(|_| 0))
-    .fanout(
-      cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>(),
-      cx,
-    );
+    .fanout(relation, cx);
 
+  let relation = cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>();
   let sg_material_ty = cx
     .use_dual_query::<StandardModelRefPbrSGMaterial>()
     .dual_query_filter_map(|v| v.map(|_| 1))
-    .fanout(
-      cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>(),
-      cx,
-    );
+    .fanout(relation, cx);
 
   let material_ty = mr_material_ty.dual_query_select(sg_material_ty);
 

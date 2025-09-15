@@ -264,13 +264,15 @@ pub fn use_attribute_mesh_position_query(
   // we not using intersect here because range may not exist
   let (ranged_index_buffer1, ranged_index_buffer2) = index_buffer_ref
     .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
+    .dual_query_boxed()
     .fork();
 
   let index_count = cx.use_dual_query::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
 
   let indexed_meshes_and_its_range = ranged_index_buffer1
     .dual_query_zip(index_count)
-    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())));
+    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())))
+    .dual_query_boxed();
 
   let none_indexed_mesh_set =
     ranged_index_buffer2.dual_query_filter_map(|(b, _)| b.is_none().then_some(()));
@@ -285,11 +287,13 @@ pub fn use_attribute_mesh_position_query(
 
   let vertex_buffer_ref = cx
     .use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>()
-    .dual_query_filter_by_set(positions_scope1);
+    .dual_query_filter_by_set(positions_scope1)
+    .dual_query_boxed();
 
   let vertex_buffer_range = cx
     .use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>()
-    .dual_query_filter_by_set(positions_scope2);
+    .dual_query_filter_by_set(positions_scope2)
+    .dual_query_boxed();
 
   let ranged_position_buffer = vertex_buffer_ref
     .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
@@ -298,6 +302,7 @@ pub fn use_attribute_mesh_position_query(
   let ab_ref_mesh = cx
     .use_dual_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
     .dual_query_filter_map(|v| v)
+    .dual_query_boxed()
     .dual_query_filter_by_set(positions_scope3)
     .use_dual_query_hash_reverse_assume_one_one(cx)
     .dual_query_boxed();
