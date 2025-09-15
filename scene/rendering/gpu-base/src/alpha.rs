@@ -75,7 +75,8 @@ impl TransparentHostOrderer {
         (distance, sm)
       })
       .collect::<Vec<_>>();
-    content.sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    content.sort_unstable_by(|a, b| b.0.total_cmp(&a.0));
 
     Box::new(DistanceReorderedHostRenderBatch {
       internal: Arc::new(content),

@@ -63,7 +63,7 @@ impl<K: CKey, S: ScheduleSource<K>> Scheduler<K, S> {
   pub fn schedule(&mut self, weights: impl Query<Key = K, Value = f32>) {
     let mut weights_list = weights.iter_key_value().collect::<Vec<_>>();
 
-    weights_list.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    weights_list.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).expect("unexpected bad weight"));
 
     let mut budget = self.retain_capacity_limitation;
     let mut fit_count = 0;

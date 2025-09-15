@@ -213,7 +213,7 @@ impl CombinedBufferAllocatorInternal {
   }
 
   pub fn resize(&mut self, index: usize, new_u32_size: u32) {
-    // only key the first size, if resize invoke multiple times
+    // only keep the first size, if resize invoke multiple times
     if !self.previous_sub_buffer_size.contains(&index) {
       self
         .previous_sub_buffer_size
