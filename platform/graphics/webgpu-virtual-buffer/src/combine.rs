@@ -16,7 +16,8 @@ pub struct CombinedBufferAllocatorInternal {
   pub(crate) layout: StructLayoutTarget,
   // use none for none atomic heap
   atomic: Option<ShaderAtomicValueType>,
-  enable_debug_log: bool,
+  enable_debug_log_for_binding: bool,
+  enable_debug_log_for_updating: bool,
   /// if this allocator allow allocate writeable buffer
   pub(crate) readonly: bool,
 }
@@ -58,7 +59,8 @@ impl CombinedBufferAllocatorInternal {
       usage,
       layout,
       atomic,
-      enable_debug_log: false,
+      enable_debug_log_for_binding: false,
+      enable_debug_log_for_updating: false,
       readonly,
     }
   }
@@ -76,28 +78,19 @@ impl CombinedBufferAllocatorInternal {
     let bound = self.sub_buffer_u32_size_requirements[src_index] * 4;
     assert!(end <= bound);
 
-    // webgpu spec don't allow copy buffer to buffer is same buffer, so we have to do a extra copy.
-    // it's unsure if using compute shader do copy will faster than this approach.
-    // todo, try compute shader
+    // webgpu spec don't allow copy buffer to buffer is same buffer.
+    // here we do **not** do extra temp buffer copy to workaround this, because
+    // in this case, it super error prone if the copy range overlaps(combined with the use of resize).
+    // we recommended that the out side should get buffer view and use that view do copy manually
     let source = self.get_sub_gpu_buffer_view(src_index);
 
-    let temp_buffer = create_gpu_buffer_zeroed(
-      count,
-      BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
-      &self.gpu.device,
-    );
+    if self.enable_debug_log_for_updating {
+      println!("combined copy buffer");
+    }
 
     encoder.copy_buffer_to_buffer(
       source.resource.gpu(),
       self_offset + source.desc.offset,
-      temp_buffer.gpu(),
-      0,
-      count,
-    );
-
-    encoder.copy_buffer_to_buffer(
-      temp_buffer.gpu(),
-      0,
       target.resource.gpu(),
       target_offset + target.desc.offset,
       count,
@@ -118,6 +111,14 @@ impl CombinedBufferAllocatorInternal {
     let gpu = &self.gpu;
     if !self.buffer_need_rebuild && self.buffer.is_some() {
       return;
+    }
+
+    if self.enable_debug_log_for_updating {
+      println!(
+        "combined buffer rebuild buffer <{}>, buffer exist:{}",
+        self.label,
+        self.buffer.is_some()
+      );
     }
 
     // the sub buffer must be aligned to device limitation because user may directly
@@ -213,6 +214,10 @@ impl CombinedBufferAllocatorInternal {
   }
 
   pub fn resize(&mut self, index: usize, new_u32_size: u32) {
+    if self.enable_debug_log_for_updating {
+      println!("combined buffer resize <{}>", self.label);
+    }
+
     // only keep the first size, if resize invoke multiple times
     if !self.previous_sub_buffer_size.contains(&index) {
       self
@@ -226,6 +231,9 @@ impl CombinedBufferAllocatorInternal {
 
   pub fn write_content(&mut self, index: usize, content: &[u8], offset: u64) {
     if self.buffer_need_rebuild {
+      if self.enable_debug_log_for_updating {
+        println!("pend write");
+      }
       let pending = self.pending_writes.entry(index).or_default();
 
       let end = content.len() as u32 + offset as u32;
@@ -237,6 +245,10 @@ impl CombinedBufferAllocatorInternal {
         .push((pending.data.len(), content.len(), offset));
       pending.data.extend_from_slice(content);
     } else {
+      assert!(self.pending_writes.is_empty());
+      if self.enable_debug_log_for_updating {
+        println!("direct write");
+      }
       let buffer = self.buffer.as_ref().unwrap();
       let b_offset = self.sub_buffer_allocation_u32_offset[index];
       let offset = (b_offset * 4) as u64 + offset;
@@ -280,7 +292,7 @@ impl CombinedBufferAllocatorInternal {
     let array = if let Some(r) = bind_builder.custom_states.get(label) {
       r
     } else {
-      if self.enable_debug_log {
+      if self.enable_debug_log_for_binding {
         println!("bind shader <{}>", self.label);
       }
 
@@ -363,7 +375,7 @@ impl CombinedBufferAllocatorInternal {
       .any(|res| res.view_id == buffer.guid);
 
     if !bounded {
-      if self.enable_debug_log {
+      if self.enable_debug_log_for_binding {
         println!("bind res <{}>", self.label);
       }
       bind_builder.bind_dyn(buffer.get_binding_build_source());

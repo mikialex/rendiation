@@ -43,12 +43,13 @@ where
     relocation_handler: &mut dyn FnMut(RelocationMessage),
   ) -> bool {
     // resize the underlayer buffer
-    let origin_gpu_buffer = self.buffer.abstract_gpu().ref_clone();
+    // do this before the resize, make sure we hold the old buffer reference here.
+    let src = self.buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
     if !self.buffer.resize(new_size) {
       return false;
     }
     assert!(self.buffer.max_size() >= new_size);
-    let new_gpu_buffer = self.buffer.abstract_gpu();
+    let target = self.buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
 
     // move the data
     let mut encoder = self.gpu.device.create_encoder();
@@ -61,12 +62,19 @@ where
         .alloc(*size)
         .expect("allocation after grow should success");
 
-      origin_gpu_buffer.copy_buffer_to_buffer(
-        new_gpu_buffer,
-        *old_offset as u64 * item_byte_width as u64,
-        new_offset as u64 * item_byte_width as u64,
+      // we currently do not use the abstract buffer's copy buffer to buffer
+      // because the abstract buffer's resize maybe has lazy implementation, that will not guaranteed
+      // to create new buffer and may cause copy buffer to buffer fail due to same buffer reference
+      //
+      // using temp buffer to work around is not an option, because the copy range may overlap
+
+      // todo: abstract buffer's copy buffer to buffer
+      encoder.copy_buffer_to_buffer(
+        src.resource.gpu(),
+        src.desc.offset + *old_offset as u64 * item_byte_width as u64,
+        target.resource.gpu(),
+        target.desc.offset + new_offset as u64 * item_byte_width as u64,
         *size as u64 * item_byte_width as u64,
-        &mut encoder,
       );
 
       new_ranges.insert(new_offset, (*size, new_token));
