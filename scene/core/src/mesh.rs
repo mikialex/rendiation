@@ -67,6 +67,8 @@ impl AttributesMeshEntities {
   }
 }
 
+const CHECK_NORMAL: bool = false;
+
 impl AttributesMeshWriter for AttributesMesh {
   fn create_writer() -> AttributesMeshEntityFromAttributesMeshWriter {
     AttributesMeshEntityFromAttributesMeshWriter {
@@ -97,6 +99,15 @@ impl AttributesMeshWriter for AttributesMesh {
     let mut vertices = Vec::with_capacity(self.attributes.len());
 
     for (semantic, vertex) in self.attributes {
+      if CHECK_NORMAL && semantic == AttributeSemantic::Normals {
+        let vertex = vertex.read();
+        for normal in vertex.visit_slice::<Vec3<f32>>().unwrap() {
+          if (normal.length() - 1.0).abs() > 0.01 {
+            println!("normal length error: {}", normal.length());
+          }
+        }
+      }
+
       let count = vertex.count;
       let vertex_data = vertex.write(buffer);
 

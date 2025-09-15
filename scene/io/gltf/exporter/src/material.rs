@@ -37,6 +37,10 @@ pub fn build_material(
     SceneMaterialDataView::PbrSGMaterial(material) => materials.append(*m, {
       let material = reader.read_pbr_sg_material(*material);
       gltf_json::Material {
+        alpha_cutoff: gltf_json::material::AlphaCutoff(material.alpha.alpha_cutoff).into(),
+        alpha_mode: gltf_json::validation::Checked::Valid(map_alpha_mode(
+          material.alpha.alpha_mode,
+        )),
         extensions: Some(gltf_json::extensions::material::Material {
           pbr_specular_glossiness: Some(gltf_json::extensions::material::PbrSpecularGlossiness {
             diffuse_factor: gltf_json::extensions::material::PbrDiffuseFactor(

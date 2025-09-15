@@ -57,6 +57,13 @@ impl<'a> BufferResourceInliner<'a> {
         extras: Default::default(),
       }),
     });
+
+    // padding to 4, and here we assume the buffer has correct internal padding if required.
+    // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#data-alignment
+    while binary.binary_data.len() % 4 != 0 {
+      binary.binary_data.push(0);
+    }
+
     let byte_len = buffer.len();
     let byte_offset = binary.binary_data.len();
     binary.binary_data.extend_from_slice(buffer);

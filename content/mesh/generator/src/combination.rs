@@ -9,14 +9,14 @@ impl<T: ParametricCurve3D> ParametricCurve3D for ParametricRangeMapping<T> {
     let mapped = self.range.start.lerp(self.range.end, position);
     self.inner.position(mapped)
   }
-  fn normal(&self, position: f32) -> Vec3<f32> {
+  fn normal_dir(&self, position: f32) -> Vec3<f32> {
     let mapped = self.range.start.lerp(self.range.end, position);
-    self.inner.normal(mapped)
+    self.inner.normal_dir(mapped)
   }
 
-  fn tangent(&self, position: f32) -> Vec3<f32> {
+  fn tangent_dir(&self, position: f32) -> Vec3<f32> {
     let mapped = self.range.start.lerp(self.range.end, position);
-    self.inner.tangent(mapped)
+    self.inner.tangent_dir(mapped)
   }
 }
 pub trait IntoParametricRangeMapping: ParametricCurve3D + Sized {
@@ -37,10 +37,10 @@ impl<T: ParametricSurface> ParametricSurface for ParametricSurfaceRangeMapping<T
     let mapped_v = self.u.start.lerp(self.u.end, position.y);
     self.inner.position(Vec2::new(mapped_u, mapped_v))
   }
-  fn normal(&self, position: Vec2<f32>) -> Vec3<f32> {
+  fn normal_dir(&self, position: Vec2<f32>) -> Vec3<f32> {
     let mapped_u = self.u.start.lerp(self.u.end, position.x);
     let mapped_v = self.u.start.lerp(self.u.end, position.y);
-    self.inner.normal(Vec2::new(mapped_u, mapped_v))
+    self.inner.normal_dir(Vec2::new(mapped_u, mapped_v))
   }
 }
 pub trait IntoParametricSurfaceRangeMapping: ParametricSurface + Sized {
@@ -84,9 +84,9 @@ where
     self.surface.position(curve_space)
   }
 
-  fn normal(&self, position: f32) -> Vec3<f32> {
+  fn normal_dir(&self, position: f32) -> Vec3<f32> {
     let curve_space = self.curve.position(position);
-    self.surface.normal(curve_space)
+    self.surface.normal_dir(curve_space)
   }
 }
 
@@ -103,8 +103,8 @@ impl<T: ParametricSurface> ParametricSurface for ReverseSurfaceNormal<T> {
   fn position(&self, position: Vec2<f32>) -> Vec3<f32> {
     self.surface.position(position)
   }
-  fn normal(&self, position: Vec2<f32>) -> Vec3<f32> {
-    self.surface.normal(position).reverse()
+  fn normal_dir(&self, position: Vec2<f32>) -> Vec3<f32> {
+    self.surface.normal_dir(position).reverse()
   }
 }
 
@@ -170,8 +170,8 @@ where
     let cross_section_point = Vec3::new(cross_section_point.x, cross_section_point.y, 0.);
 
     let cross_section_origin = self.path.position(path_dimension);
-    let cross_section_normal = self.path.normal(path_dimension);
-    let cross_section_tangent = self.path.tangent(path_dimension);
+    let cross_section_normal = self.path.normal_dir(path_dimension).normalize();
+    let cross_section_tangent = self.path.tangent_dir(path_dimension).normalize();
 
     // should be cheaper?
     Mat4::from_orth_basis_and_position(
@@ -222,8 +222,8 @@ impl<T: ParametricSurface> ParametricSurface for Transformed3D<T> {
     self.mat * self.surface.position(position)
   }
 
-  fn normal(&self, position: Vec2<f32>) -> Vec3<f32> {
-    self.normal_mat * self.surface.normal(position)
+  fn normal_dir(&self, position: Vec2<f32>) -> Vec3<f32> {
+    self.normal_mat * self.surface.normal_dir(position)
   }
 }
 
@@ -232,8 +232,8 @@ impl<T: ParametricCurve3D> ParametricCurve3D for Transformed3D<T> {
     self.mat * self.surface.position(position)
   }
 
-  fn normal(&self, position: f32) -> Vec3<f32> {
-    self.normal_mat * self.surface.normal(position)
+  fn normal_dir(&self, position: f32) -> Vec3<f32> {
+    self.normal_mat * self.surface.normal_dir(position)
   }
 }
 

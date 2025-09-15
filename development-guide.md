@@ -23,7 +23,6 @@ important issue is in bold style.
 - support material emissive larger than one
   - fix defer channel encode decode
   - fix gltf loader support
-- gltf export not respect data alignment <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#data-alignment>
 - fix parallel compute hash issue(disable the clear cache in test runner to reproduce this issue)
 - fix scene gpu lighting is globally shared in gles mode
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)

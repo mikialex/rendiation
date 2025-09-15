@@ -52,9 +52,15 @@ pub trait GroupBuildingContainer {
 
 impl VertexBuilding for CommonVertex {
   fn from_surface(surface: &impl ParametricSurface, uv: Vec2<f32>) -> Self {
+    let normal = surface.normal_dir(uv).normalize();
+
+    if normal == Vec3::zero() {
+      println!("warning: zero length normal for uv: {}", uv);
+    }
+
     Self {
       position: surface.position(uv),
-      normal: surface.normal(uv),
+      normal,
       uv,
     }
   }

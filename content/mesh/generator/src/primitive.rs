@@ -28,6 +28,10 @@ impl ParametricSurface for UVSphere {
     let (v_sin, v_cos) = (position.y * f32::PI()).sin_cos();
     Vec3::new(u_cos * v_sin, v_cos, u_sin * v_sin)
   }
+
+  fn normal_dir(&self, position: Vec2<f32>) -> Vec3<f32> {
+    self.position(position)
+  }
 }
 
 #[derive(Copy, Clone)]
@@ -53,7 +57,7 @@ impl ParametricCurve3D for LineSegment3D {
     self.start.lerp(self.end, position)
   }
 
-  fn normal(&self, _: f32) -> Vec3<f32> {
+  fn normal_dir(&self, _: f32) -> Vec3<f32> {
     Vec3::new(0., 1., 0.)
   }
 }

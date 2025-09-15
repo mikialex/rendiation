@@ -97,6 +97,8 @@ pub fn build_scene_to_gltf(
 
   let mut all_material_to_write = FastHashSet::default();
 
+  let mut has_sg_material = false;
+
   for model in reader.models() {
     let model_info = reader.read_scene_model(model);
     let std_model = reader.read_std_model(model_info.model);
@@ -111,6 +113,7 @@ pub fn build_scene_to_gltf(
         }
       }
       SceneMaterialDataView::PbrSGMaterial(m) => {
+        has_sg_material = true;
         all_material_to_write.insert(std_model.material);
         let m = reader.read_pbr_sg_material(m);
         if let Some(t) = m.albedo_texture {
@@ -229,9 +232,14 @@ pub fn build_scene_to_gltf(
     extensions: Default::default(),
     extras: Default::default(),
     generator: String::from("rendiation_scene_gltf_exporter").into(),
-    min_version: String::from("2").into(),
-    version: String::from("2"),
+    min_version: String::from("2.0").into(),
+    version: String::from("2.0"),
   };
+
+  let mut extensions_used = Vec::new();
+  if has_sg_material {
+    extensions_used.push(String::from("KHR_materials_pbrSpecularGlossiness"));
+  }
 
   let json = gltf_json::Root {
     accessors: accessors.collected,
@@ -242,7 +250,7 @@ pub fn build_scene_to_gltf(
     scene: Default::default(),
     extensions: Default::default(),
     extras: Default::default(),
-    extensions_used: Default::default(),
+    extensions_used,
     extensions_required: Default::default(),
     cameras: Default::default(),
     materials: materials.collected,
