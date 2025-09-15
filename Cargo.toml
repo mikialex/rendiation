@@ -81,6 +81,7 @@ members = [
   "extension/area-lighting",
   "application/viewer",
   "xtask",
+  "application/pdb-check",
 ]
 
 # https://doc.rust-lang.org/nightly/cargo/reference/features.html#feature-resolver-version-2

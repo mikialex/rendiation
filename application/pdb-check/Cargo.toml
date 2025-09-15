@@ -1,0 +1,13 @@
+[package]
+authors = ["MikiAlex <miikiialexx@gmail.com>"]
+edition = "2021"
+name = "pdb-check"
+version = "0.1.0"
+
+[dependencies]
+pdb = "0.8.0"
+
+[features]
+
+[lints]
+workspace = true
