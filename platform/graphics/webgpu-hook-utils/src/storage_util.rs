@@ -29,7 +29,7 @@ pub fn create_common_storage_buffer_container<T: Std430 + ShaderSizedValueNodeTy
 }
 
 pub type CommonStorageBufferImplWithHostBackup<T> =
-  VecWithStorageBuffer<CommonStorageBufferImpl<T>>;
+  GrowableHostedDirectQueueUpdateBuffer<AbstractReadonlyStorageBuffer<[T]>>;
 
 pub fn create_common_storage_buffer_with_host_backup_container<T>(
   init_capacity_item_count: u32,
@@ -46,7 +46,7 @@ where
     &gpu_ctx.device,
     Some(label),
   );
-  create_growable_buffer(gpu_ctx, data, max_item_count).with_vec_backup(T::default(), false)
+  create_growable_buffer_with_host_back(gpu_ctx, data, max_item_count, false)
 }
 
 fn make_init_size<T: Std430>(size: u32) -> u64 {

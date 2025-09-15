@@ -621,8 +621,7 @@ impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
     let mesh_id = self.sm_to_mesh.access(&id.into_raw()).unwrap();
     let address_info = self
       .vertex_address_buffer_host
-      .vec
-      .get(mesh_id.alloc_index() as usize)
+      .get(mesh_id.alloc_index())
       .unwrap();
 
     // assert_eq!(address_info.index_offset, u32::MAX); we currently not write u32 for none index mesh
@@ -656,8 +655,7 @@ impl IndexedDrawCommandBuilder for BindlessDrawCreator {
     let mesh_id = self.sm_to_mesh.access(&id.into_raw()).unwrap();
     let address_info = self
       .vertex_address_buffer_host
-      .vec
-      .get(mesh_id.alloc_index() as usize)
+      .get(mesh_id.alloc_index())
       .unwrap();
 
     let start = address_info.index_offset;
