@@ -48,7 +48,7 @@ fn use_cube_face_update<FK>(
   let change = cx
     .use_dual_query::<SceneTexture2dEntityDirectContent>()
     .map(|v| v.filter_map(|v| v))
-    .fanout(cx.use_db_rev_ref_tri_view::<FK>())
+    .fanout(cx.use_db_rev_ref_tri_view::<FK>(), cx)
     .use_assure_result(cx)
     .into_delta_change();
 

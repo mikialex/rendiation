@@ -34,7 +34,7 @@ pub fn use_indexed_joints_offset_mats(
 ) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = (Mat4<f32>, u32)>> {
   // todo , impl chain query operator, this is actually one to one
   let node_many_to_one_joint = cx.use_db_rev_ref_tri_view::<SceneJointRefNode>();
-  let joint_world_mats = use_global_node_world_mat(cx).fanout(node_many_to_one_joint);
+  let joint_world_mats = use_global_node_world_mat(cx).fanout(node_many_to_one_joint, cx);
   joint_world_mats
     .dual_query_zip(cx.use_dual_query::<SceneJointInverseBindMatrix>())
     .dual_query_map(|(world_mat, bind_inv_mat)| (world_mat * bind_inv_mat.into_f64()).into_f32()) // todo fix precision

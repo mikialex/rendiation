@@ -23,7 +23,7 @@ pub fn use_scene_spotlight_helper(cx: &mut ViewerCx) {
     cx.scope(|cx| {
       let world_mat = use_global_node_world_mat_view(cx);
 
-      let helper_mesh_lines = world_mat.map_only_spawn_stage(|world_mat| {
+      let helper_mesh_lines = world_mat.map_only_spawn_stage_in_thread(cx, |world_mat| {
         let radius = get_db_view::<PointLightCutOffDistance>();
         let light_ref_node = get_db_view::<PointLightRefNode>();
 
@@ -48,7 +48,7 @@ pub fn use_scene_spotlight_helper(cx: &mut ViewerCx) {
     cx.scope(|cx| {
       let world_mat = use_global_node_world_mat_view(cx);
 
-      let helper_mesh_lines = world_mat.map_only_spawn_stage(|world_mat| {
+      let helper_mesh_lines = world_mat.map_only_spawn_stage_in_thread(cx, |world_mat| {
         let half_cone_angle = get_db_view::<SpotLightHalfConeAngle>();
         let half_penumbra_angle = get_db_view::<SpotLightHalfPenumbraAngle>();
         let cutoff = get_db_view::<SpotLightCutOffDistance>();

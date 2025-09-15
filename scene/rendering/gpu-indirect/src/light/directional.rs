@@ -18,7 +18,7 @@ pub fn use_directional_light_storage(
     .update_storage_array(light, offset_of!(DirectionalLightStorage, illuminance));
 
   use_global_node_world_mat(cx)
-    .fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>())
+    .fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>(), cx)
     .into_delta_change()
     .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()))
     .use_assure_result(cx)

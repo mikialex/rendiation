@@ -149,9 +149,12 @@ pub fn use_scene_model_to_blas_instance(
 ) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = (BlasInstance, Mat4<f64>)>> {
   let scene_model_world_matrix = cx.use_shared_dual_query(GlobalSceneModelWorldMatrix);
 
+  let std_model_ref_mesh = cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>();
+  let std_model_render_payload = cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>();
+
   use_attribute_mesh_to_blas(cx, acc_sys)
-    .fanout(cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>())
-    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>())
+    .fanout(std_model_ref_mesh, cx)
+    .fanout(std_model_render_payload, cx)
     .dual_query_intersect(scene_model_world_matrix)
 }
 

@@ -85,7 +85,10 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
 
   let fanout = cx
     .use_dual_query::<StandardModelRefAttributesMeshEntity>()
-    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>())
+    .fanout(
+      cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>(),
+      cx,
+    )
     .use_assure_result(cx);
 
   fanout
@@ -139,7 +142,7 @@ fn use_attribute_indices(
   let meta_generator = meta_generator.clone();
 
   source_info
-    .map_only_spawn_stage(move |change| {
+    .map_only_spawn_stage_in_thread(cx, move |change| {
       let removed_and_changed_keys = change
         .iter_removed()
         .chain(change.iter_update_or_insert().map(|(k, _)| k));
@@ -219,7 +222,7 @@ fn use_attribute_vertex(
   let gpu = cx.gpu.clone();
   let meta_generator = meta_generator.clone();
 
-  let allocation_info = source_info.map_only_spawn_stage(move |change| {
+  let allocation_info = source_info.map_only_spawn_stage_in_thread(cx, move |change| {
     let removed_and_changed_keys = change
       .iter_removed()
       .chain(change.iter_update_or_insert().map(|(k, _)| k));
@@ -255,7 +258,7 @@ fn use_attribute_vertex(
     .use_dual_query_hash_many_to_one(cx);
 
   allocation_info
-    .fanout(ab_ref_mesh)
+    .fanout(ab_ref_mesh, cx)
     .dual_query_boxed()
     .into_delta_change()
 }

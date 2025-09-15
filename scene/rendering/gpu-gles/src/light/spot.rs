@@ -34,7 +34,7 @@ pub fn use_spot_uniform_array(cx: &mut QueryGPUHookCx) -> UniformArray<SpotLight
     .update_uniform_array(uniform, offset, cx.gpu);
 
   let fanout = use_global_node_world_mat(cx)
-    .fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>())
+    .fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>(), cx)
     .use_assure_result(cx);
 
   fanout

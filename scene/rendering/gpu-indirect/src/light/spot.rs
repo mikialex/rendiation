@@ -32,7 +32,7 @@ pub fn use_spot_light_storage(
     .update_storage_array(light, offset_of!(SpotLightStorage, half_penumbra_cos));
 
   let fanout = use_global_node_world_mat(cx)
-    .fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>())
+    .fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>(), cx)
     .use_assure_result(cx);
 
   fanout

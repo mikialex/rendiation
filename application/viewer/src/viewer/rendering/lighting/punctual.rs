@@ -10,7 +10,7 @@ pub fn use_directional_light_uniform(
   ndc: ViewerNDC,
 ) -> Option<SceneDirectionalLightingPreparer> {
   let source_world =
-    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>());
+    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>(), cx);
 
   let source_proj = cx
     .use_dual_query::<DirectionLightShadowBound>()
@@ -155,7 +155,7 @@ pub fn use_scene_spot_light_uniform(
   ndc: ViewerNDC,
 ) -> Option<SceneSpotLightingPreparer> {
   let source_world =
-    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>());
+    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>(), cx);
 
   let source_proj = cx
     .use_dual_query::<SpotLightHalfConeAngle>()

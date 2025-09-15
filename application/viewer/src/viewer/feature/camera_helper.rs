@@ -23,7 +23,7 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
         cx.use_shared_dual_query(GlobalCameraTransformShare(cx.viewer.rendering.ndc));
 
       let main_camera = cx.viewer.scene.main_camera.into_raw();
-      let helper_mesh_lines = camera_transforms.map(move |camera_transforms| {
+      let helper_mesh_lines = camera_transforms.map_in_thread(cx, move |camera_transforms| {
         let (view, delta) = camera_transforms.view_delta();
         delta.iter_key_value().next()?; // skip if nothing changed
         let mats = view.iter_key_value().filter_map(|(camera, transform)| {

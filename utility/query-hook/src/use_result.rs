@@ -8,6 +8,28 @@ pub enum UseResult<T> {
 }
 
 impl<T: Send + Sync + 'static> UseResult<T> {
+  pub fn map_only_spawn_stage_in_thread<U: Send + 'static>(
+    self,
+    cx: &mut impl QueryHookCxLike,
+    f: impl FnOnce(T) -> U + Send + Sync + 'static,
+  ) -> UseResult<U> {
+    use futures::FutureExt;
+    match self {
+      UseResult::SpawnStageFuture(fut) => {
+        if let QueryHookStage::SpawnTask { spawner, .. } = cx.stage() {
+          let spawner = spawner.clone();
+          let fut = fut.then(move |r| spawner.spawn_task(move || f(r)));
+          UseResult::SpawnStageFuture(Box::new(fut))
+        } else {
+          unreachable!()
+        }
+      }
+      UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
+      UseResult::ResolveStageReady(_) => UseResult::NotInStage,
+      UseResult::NotInStage => UseResult::NotInStage,
+    }
+  }
+
   pub fn map_only_spawn_stage<U>(
     self,
     f: impl FnOnce(T) -> U + Send + Sync + 'static,
@@ -25,6 +47,28 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     use futures::FutureExt;
     match self {
       UseResult::SpawnStageFuture(fut) => UseResult::SpawnStageFuture(Box::new(fut.map(f))),
+      UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
+      UseResult::ResolveStageReady(t) => UseResult::ResolveStageReady(f(t)),
+      UseResult::NotInStage => UseResult::NotInStage,
+    }
+  }
+
+  pub fn map_in_thread<U: Send + 'static>(
+    self,
+    cx: &mut impl QueryHookCxLike,
+    f: impl FnOnce(T) -> U + Send + Sync + 'static,
+  ) -> UseResult<U> {
+    use futures::FutureExt;
+    match self {
+      UseResult::SpawnStageFuture(fut) => {
+        if let QueryHookStage::SpawnTask { spawner, .. } = cx.stage() {
+          let spawner = spawner.clone();
+          let fut = fut.then(move |r| spawner.spawn_task(move || f(r)));
+          UseResult::SpawnStageFuture(Box::new(fut))
+        } else {
+          unreachable!()
+        }
+      }
       UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
       UseResult::ResolveStageReady(t) => UseResult::ResolveStageReady(f(t)),
       UseResult::NotInStage => UseResult::NotInStage,
@@ -278,8 +322,11 @@ where
   pub fn fanout<U: TriQueryLike<Value = T::Key>>(
     self,
     other: UseResult<U>,
-  ) -> UseResult<impl DualQueryLike<Key = U::Key, Value = T::Value>> {
-    self.join(other).map(|(a, b)| a.fanout(b))
+    cx: &mut impl QueryHookCxLike,
+  ) -> UseResult<
+    DualQuery<ChainQuery<U::View, T::View>, Arc<FastHashMap<U::Key, ValueChange<T::Value>>>>,
+  > {
+    self.join(other).map_in_thread(cx, |(a, b)| a.fanout(b))
   }
 
   pub fn dual_query_zip<Q>(
@@ -412,7 +459,7 @@ where
   {
     let cache = cx.use_shared_hash_map();
 
-    self.map_only_spawn_stage(move |t| {
+    self.map_only_spawn_stage_in_thread(cx, move |t| {
       let d = t.delta();
       let materialized = d.iter_key_value().collect::<Vec<_>>();
 

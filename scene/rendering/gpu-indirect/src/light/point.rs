@@ -22,7 +22,7 @@ pub fn use_point_light_storage(
     .update_storage_array(light, offset_of!(PointLightStorage, cutoff_distance));
 
   use_global_node_world_mat(cx)
-    .fanout(cx.use_db_rev_ref_tri_view::<PointLightRefNode>())
+    .fanout(cx.use_db_rev_ref_tri_view::<PointLightRefNode>(), cx)
     .into_delta_change()
     .map(|change| change.collective_map(|mat| into_hpt(mat.position()).into_storage()))
     .use_assure_result(cx)

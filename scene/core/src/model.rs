@@ -103,7 +103,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSceneModelWorldMatrix 
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Mat4<f64>>;
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>())
+    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>(), cx)
   }
 }
 
@@ -115,13 +115,17 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let mesh_local_bounding = cx.use_shared_dual_query(AttributeMeshLocalBounding);
 
-    let std_mesh_local_bounding = mesh_local_bounding
-      .fanout(cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>());
+    let std_mesh_local_bounding = mesh_local_bounding.fanout(
+      cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>(),
+      cx,
+    );
 
     let scene_model_world_mat = cx.use_shared_dual_query(GlobalSceneModelWorldMatrix);
 
-    let scene_model_local_bounding = std_mesh_local_bounding
-      .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
+    let scene_model_local_bounding = std_mesh_local_bounding.fanout(
+      cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>(),
+      cx,
+    );
 
     scene_model_world_mat
       .dual_query_intersect(scene_model_local_bounding)

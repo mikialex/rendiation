@@ -103,7 +103,7 @@ impl<T: NDCSpaceMapper + Copy + std::hash::Hash, Cx: DBHookCxLike> SharedResultP
     let projections = use_camera_project_matrix(cx, self.0);
     let node_mats = use_global_node_world_mat(cx);
 
-    let camera_world_mat = node_mats.fanout(cx.use_db_rev_ref_tri_view::<SceneCameraNode>());
+    let camera_world_mat = node_mats.fanout(cx.use_db_rev_ref_tri_view::<SceneCameraNode>(), cx);
 
     camera_world_mat
       .dual_query_zip(projections)

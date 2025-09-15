@@ -34,7 +34,7 @@ pub fn use_area_light_uniform_array(
     .update_uniform_array(uniform, offset, cx.gpu);
 
   use_global_node_world_mat(cx)
-    .fanout(cx.use_db_rev_ref_tri_view::<AreaLightRefNode>())
+    .fanout(cx.use_db_rev_ref_tri_view::<AreaLightRefNode>(), cx)
     .dual_query_zip(cx.use_dual_query::<AreaLightSize>())
     .dual_query_map(|(world_mat, size)| {
       let width = size.x as f64 / 2.;

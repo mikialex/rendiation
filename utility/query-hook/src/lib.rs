@@ -293,7 +293,7 @@ pub trait QueryHookCxLike: HooksCxLike {
       .or_insert_with(|| Arc::new(SharedQueryChangeReconciler::<K, V>::default()))
       .clone();
 
-    result.map_only_spawn_stage(move |r| {
+    result.map_only_spawn_stage_in_thread(self, move |r| {
       let (view, delta) = r.view_delta();
       if let Some(new_delta) = reconciler.reconcile(consumer_id, Box::new(delta.into_boxed())) {
         DualQuery {
@@ -431,10 +431,14 @@ pub trait QueryHookCxLike: HooksCxLike {
     changes: UseResult<C>,
   ) -> UseResult<RevRefContainerRead<V, C::Key>> {
     let (_, mapping) = self.use_plain_state_default_cloned::<RevRefContainer<V, C::Key>>();
-    self.use_task_result(move |_| async move {
-      let changes = changes.expect_spawn_stage_future().await;
-      bookkeeping_hash_relation(&mut mapping.write(), changes);
-      mapping.make_read_holder()
+    self.use_task_result(move |spawner| {
+      let spawner = spawner.clone();
+      changes.expect_spawn_stage_future().then(move |changes| {
+        spawner.spawn_task(move || {
+          bookkeeping_hash_relation(&mut mapping.write(), changes);
+          mapping.make_read_holder()
+        })
+      })
     })
   }
 }
