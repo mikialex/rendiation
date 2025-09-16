@@ -114,29 +114,41 @@ where
     let connectivity_rev_view = cx.use_shared_compute(GlobalNodeConnectivity);
     let connectivity_change = use_connectivity_change(cx);
     let connectivity_view = get_db_view::<SceneNodeParentIdx>().filter_map(|v| v);
-    let visible_change = cx.use_query_change::<C>();
-    let visible_source = get_db_view::<C>();
+    let payload_change = cx.use_query_change::<C>();
+    let payload_source = get_db_view::<C>();
 
     let derived = cx.use_shared_hash_map::<RawEntityHandle, C::Data>();
 
+    let spawner = cx.spawner();
+
     cx.use_global_shared_future(connectivity_rev_view.into_spawn_stage_future().map(
       |connectivity_rev_view| {
-        let visible_change = visible_change.expect_spawn_stage_future();
+        let visible_change = payload_change.expect_spawn_stage_future();
         let connectivity_change = connectivity_change.expect_spawn_stage_future();
+        let spawner = spawner.unwrap();
         let f = self.0;
         async move {
           let (connectivity_rev_view, visible_change, connectivity_change) =
             futures::join!(connectivity_rev_view, visible_change, connectivity_change);
 
-          let changes = compute_tree_derive(
-            &mut derived.write(),
-            f,
-            visible_source,
-            visible_change,
-            connectivity_view,
-            connectivity_rev_view,
-            connectivity_change,
-          );
+          let changes = if !visible_change.is_empty() || !connectivity_change.is_empty() {
+            let derived = derived.clone();
+            spawner
+              .spawn_task(move || {
+                compute_tree_derive(
+                  &mut derived.write(),
+                  f,
+                  payload_source,
+                  visible_change,
+                  connectivity_view,
+                  connectivity_rev_view,
+                  connectivity_change,
+                )
+              })
+              .await
+          } else {
+            FastHashMap::default()
+          };
 
           DualQuery {
             view: derived.make_read_holder(),

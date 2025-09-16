@@ -27,20 +27,17 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   ) -> UseResult<U> {
     match self {
       UseResult::SpawnStageFuture(fut) => {
-        if let QueryHookStage::SpawnTask { spawner, .. } = cx.stage() {
-          let spawner = spawner.clone();
-          let fut = async move {
-            let r = fut.await;
-            if should_do_work_in_main_thread(&r) {
-              f(r)
-            } else {
-              spawner.spawn_task(move || f(r)).await
-            }
-          };
-          UseResult::SpawnStageFuture(Box::new(Box::pin(fut)))
-        } else {
-          unreachable!()
-        }
+        let spawner = cx.spawner().unwrap();
+        let spawner = spawner.clone();
+        let fut = async move {
+          let r = fut.await;
+          if should_do_work_in_main_thread(&r) {
+            f(r)
+          } else {
+            spawner.spawn_task(move || f(r)).await
+          }
+        };
+        UseResult::SpawnStageFuture(Box::new(Box::pin(fut)))
       }
       UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
       UseResult::ResolveStageReady(_) => UseResult::NotInStage,
@@ -371,7 +368,7 @@ where
   {
     let map = cx.use_shared_hash_map();
 
-    self.map(move |t| {
+    self.map_only_spawn_stage_in_thread_dual_query(cx, move |t| {
       let (view, delta) = t.view_delta();
       bookkeeping_hash_relation(&mut map.write(), &delta);
 
@@ -391,7 +388,7 @@ where
   {
     let map = cx.use_shared_hash_map();
 
-    self.map(move |t| {
+    self.map_only_spawn_stage_in_thread_dual_query(cx, move |t| {
       let mut mapping = map.write();
       let mut mutations = FastHashMap::<T::Value, ValueChange<T::Key>>::default();
       use std::ops::DerefMut;

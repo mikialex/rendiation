@@ -124,6 +124,14 @@ pub trait QueryHookCxLike: HooksCxLike {
   fn is_resolve_stage(&self) -> bool;
   fn stage(&mut self) -> QueryHookStage;
 
+  fn spawner(&mut self) -> Option<TaskSpawner> {
+    if let QueryHookStage::SpawnTask { spawner, .. } = self.stage() {
+      Some(spawner.clone())
+    } else {
+      None
+    }
+  }
+
   fn when_spawning_stage(&self, f: impl FnOnce()) {
     if self.is_spawning_stage() {
       f();
