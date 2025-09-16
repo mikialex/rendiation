@@ -9,7 +9,7 @@ pub struct SparseUpdateStorageBuffer<T> {
   collector: Option<SparseUpdateCollector>,
 }
 
-impl<T> SparseUpdateStorageBuffer<T> {
+impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
   pub fn get_gpu_buffer(&self) -> AbstractReadonlyStorageBuffer<[T]> {
     todo!()
   }
@@ -27,8 +27,14 @@ impl<T> SparseUpdateStorageBuffer<T> {
       }
       GPUQueryHookStage::CreateRender { task } => {
         // do update in main thread
-        task.expect_result_by_id::<Arc<SparseBufferWritesSource>>(*token);
-        todo!()
+        let updates = task.expect_result_by_id::<Arc<SparseBufferWritesSource>>(*token);
+
+        // let required_item_count =
+        //   updates.max_target_write_offset_in_u32 * 4 / std::mem::size_of::<T>() as u32;
+        // self.buffer.check_resize(required_item_count);
+
+        let target_buffer = self.buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
+        // updates.write(&cx.gpu.device, todo!(), target_buffer);
       }
       _ => {}
     }

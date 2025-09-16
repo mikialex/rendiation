@@ -23,7 +23,7 @@ impl<T> CustomGrowBehaviorMaintainer<T>
 where
   T: LinearStorageBase + ResizableLinearStorage,
 {
-  fn check_resize(&mut self, required: u32) -> Option<()> {
+  pub fn check_resize(&mut self, required: u32) -> Option<()> {
     if self.max_size() < required {
       let new_size = (self.size_adjust)(ResizeInput {
         current_size: self.max_size(),

@@ -4,8 +4,11 @@ use crate::*;
 pub struct SparseBufferWritesSource {
   pub data_to_write: Vec<u8>,
   /// note, the offset size pair must not overlapping with each other
+  ///
   /// addressed by u32 unit, not byte!
-  /// (copy src offset, copy src size, copy target offset)
+  ///
+  /// packed:(copy src offset, copy src size, copy target offset)
+  ///
   /// todo, we should try vec4 vectorized load if has better performance
   pub offset_size: Vec<u32>,
 }
@@ -17,39 +20,38 @@ impl SparseBufferWritesSource {
     assert_eq!(write_offset_in_bytes % 4, 0);
 
     let src_offset = self.data_to_write.len();
-    let copy_size = data_to_write.len() / 4;
     self.data_to_write.extend_from_slice(data_to_write);
+
     self.offset_size.push(src_offset as u32);
-    self.offset_size.push(copy_size as u32);
-    self.offset_size.push(write_offset_in_bytes as u32);
+    let write_size = data_to_write.len() as u32 / 4;
+    self.offset_size.push(write_size);
+
+    let write_offset = write_offset_in_bytes as u32 / 4;
+    self.offset_size.push(write_offset);
   }
-}
 
-pub struct SparseBufferWrites {
-  /// the target buffer must has storage usage.
-  pub target_buffer: GPUBufferResourceView,
-  pub source: SparseBufferWritesSource,
-}
-
-impl SparseBufferWrites {
   pub fn is_empty(&self) -> bool {
-    self.source.offset_size.is_empty()
+    self.offset_size.is_empty()
   }
 
-  pub fn write(self, device: &GPUDevice, pass: &mut GPUComputePass) {
+  pub fn write(
+    self,
+    device: &GPUDevice,
+    pass: &mut GPUComputePass,
+    target_buffer: GPUBufferResourceView,
+  ) {
     if self.is_empty() {
       return;
     }
 
-    let source = self.source;
+    assert_eq!(self.offset_size.len() % 3, 0);
 
-    assert_eq!(source.offset_size.len() % 3, 0);
-    let data_to_write = cast_slice(&source.data_to_write); // todo, this may panic because unnecessary alignment check
+    let data_to_write = cast_slice(&self.data_to_write); // todo, this may panic because unnecessary alignment check
     let data_to_write = create_gpu_readonly_storage::<[u32]>(data_to_write, device);
-    let offset_size = create_gpu_readonly_storage::<[u32]>(&source.offset_size, device);
+    let offset_size = create_gpu_readonly_storage::<[u32]>(&self.offset_size, device);
 
-    let target_buffer = StorageBufferDataView::<[u32]>::try_from_raw(self.target_buffer).unwrap();
-    let workgroup_width = 1024; // todo, go wider if device limits support(1024 is spec safe)?
+    let target_buffer = StorageBufferDataView::<[u32]>::try_from_raw(target_buffer).unwrap();
+    let workgroup_width = 1024; // todo, go wider if device limits support(1024 is min requirement in spec)?
 
     let hasher = shader_hasher_from_marker_ty!(SparseBufferWrite);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
@@ -91,7 +93,7 @@ impl SparseBufferWrites {
       .with_bind(&target_buffer)
       .setup_compute_pass(pass, device, &pipeline);
 
-    let copy_count = source.offset_size.len() as u32 / 3;
+    let copy_count = self.offset_size.len() as u32 / 3;
     let wg_count = copy_count.div_ceil(workgroup_width);
     pass.dispatch_workgroups(wg_count, 1, 1);
   }
