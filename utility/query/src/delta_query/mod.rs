@@ -42,6 +42,13 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     self.view_delta().1
   }
 
+  // todo, this is possibly wrong, because filter's iter next has O(n) complexity
+  // which is costly to check in main thread.
+  // we should add a new is_maybe_empty() method in query trait that allows false positive
+  fn is_change_possible_empty(&self) -> bool {
+    self.view_delta_ref().1.is_empty()
+  }
+
   /// sometimes materialize delta is necessary, because delta may contains view in some
   /// combinator, and view will be retained, which will cause deadlock in some case
   fn materialize_delta(

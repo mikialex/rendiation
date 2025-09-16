@@ -8,18 +8,36 @@ pub enum UseResult<T> {
 }
 
 impl<T: Send + Sync + 'static> UseResult<T> {
-  pub fn map_only_spawn_stage_in_thread<U: Send + 'static>(
+  pub fn map_only_spawn_stage_in_thread_dual_query<U: Send + 'static>(
     self,
     cx: &mut impl QueryHookCxLike,
     f: impl FnOnce(T) -> U + Send + Sync + 'static,
+  ) -> UseResult<U>
+  where
+    T: DualQueryLike,
+  {
+    self.map_only_spawn_stage_in_thread(cx, |q| q.is_change_possible_empty(), f)
+  }
+
+  pub fn map_only_spawn_stage_in_thread<U: Send + 'static>(
+    self,
+    cx: &mut impl QueryHookCxLike,
+    should_do_work_in_main_thread: impl FnOnce(&T) -> bool + Send + Sync + 'static,
+    f: impl FnOnce(T) -> U + Send + Sync + 'static,
   ) -> UseResult<U> {
-    use futures::FutureExt;
     match self {
       UseResult::SpawnStageFuture(fut) => {
         if let QueryHookStage::SpawnTask { spawner, .. } = cx.stage() {
           let spawner = spawner.clone();
-          let fut = fut.then(move |r| spawner.spawn_task(move || f(r)));
-          UseResult::SpawnStageFuture(Box::new(fut))
+          let fut = async move {
+            let r = fut.await;
+            if should_do_work_in_main_thread(&r) {
+              f(r)
+            } else {
+              spawner.spawn_task(move || f(r)).await
+            }
+          };
+          UseResult::SpawnStageFuture(Box::new(Box::pin(fut)))
         } else {
           unreachable!()
         }
@@ -53,18 +71,36 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     }
   }
 
-  pub fn map_in_thread<U: Send + 'static>(
+  pub fn map_in_thread_dual_query<U: Send + 'static>(
     self,
     cx: &mut impl QueryHookCxLike,
     f: impl FnOnce(T) -> U + Send + Sync + 'static,
+  ) -> UseResult<U>
+  where
+    T: DualQueryLike,
+  {
+    self.map_in_thread(cx, |q| q.is_change_possible_empty(), f)
+  }
+
+  pub fn map_in_thread<U: Send + 'static>(
+    self,
+    cx: &mut impl QueryHookCxLike,
+    should_do_work_in_main_thread: impl FnOnce(&T) -> bool + Send + Sync + 'static,
+    f: impl FnOnce(T) -> U + Send + Sync + 'static,
   ) -> UseResult<U> {
-    use futures::FutureExt;
     match self {
       UseResult::SpawnStageFuture(fut) => {
         if let QueryHookStage::SpawnTask { spawner, .. } = cx.stage() {
           let spawner = spawner.clone();
-          let fut = fut.then(move |r| spawner.spawn_task(move || f(r)));
-          UseResult::SpawnStageFuture(Box::new(fut))
+          let fut = async move {
+            let r = fut.await;
+            if should_do_work_in_main_thread(&r) {
+              f(r)
+            } else {
+              spawner.spawn_task(move || f(r)).await
+            }
+          };
+          UseResult::SpawnStageFuture(Box::new(Box::pin(fut)))
         } else {
           unreachable!()
         }
@@ -326,7 +362,11 @@ where
   ) -> UseResult<
     DualQuery<ChainQuery<U::View, T::View>, Arc<FastHashMap<U::Key, ValueChange<T::Value>>>>,
   > {
-    self.join(other).map_in_thread(cx, |(a, b)| a.fanout(b))
+    self.join(other).map_in_thread(
+      cx,
+      |(a, b)| a.is_change_possible_empty() && b.is_change_possible_empty(),
+      |(a, b)| a.fanout(b),
+    )
   }
 
   pub fn dual_query_zip<Q>(
@@ -459,7 +499,7 @@ where
   {
     let cache = cx.use_shared_hash_map();
 
-    self.map_only_spawn_stage_in_thread(cx, move |t| {
+    self.map_only_spawn_stage_in_thread_dual_query(cx, move |t| {
       let d = t.delta();
       let materialized = d.iter_key_value().collect::<Vec<_>>();
 

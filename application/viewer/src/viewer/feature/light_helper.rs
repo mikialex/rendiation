@@ -23,22 +23,26 @@ pub fn use_scene_spotlight_helper(cx: &mut ViewerCx) {
     cx.scope(|cx| {
       let world_mat = use_global_node_world_mat_view(cx);
 
-      let helper_mesh_lines = world_mat.map_only_spawn_stage_in_thread(cx, |world_mat| {
-        let radius = get_db_view::<PointLightCutOffDistance>();
-        let light_ref_node = get_db_view::<PointLightRefNode>();
+      let helper_mesh_lines = world_mat.map_only_spawn_stage_in_thread(
+        cx,
+        |_| false,
+        |world_mat| {
+          let radius = get_db_view::<PointLightCutOffDistance>();
+          let light_ref_node = get_db_view::<PointLightRefNode>();
 
-        let mut line_buffer = Vec::new();
+          let mut line_buffer = Vec::new();
 
-        radius.iter_key_value().for_each(|(id, radius)| {
-          let node_id = light_ref_node.access(&id).unwrap().unwrap();
-          create_debug_line_mesh_point_light(
-            &mut line_buffer,
-            radius,
-            world_mat.access(&node_id).unwrap().into_f32(),
-          )
-        });
-        line_buffer.into()
-      });
+          radius.iter_key_value().for_each(|(id, radius)| {
+            let node_id = light_ref_node.access(&id).unwrap().unwrap();
+            create_debug_line_mesh_point_light(
+              &mut line_buffer,
+              radius,
+              world_mat.access(&node_id).unwrap().into_f32(),
+            )
+          });
+          line_buffer.into()
+        },
+      );
 
       use_immediate_helper_model(cx, helper_mesh_lines);
     })
@@ -48,28 +52,32 @@ pub fn use_scene_spotlight_helper(cx: &mut ViewerCx) {
     cx.scope(|cx| {
       let world_mat = use_global_node_world_mat_view(cx);
 
-      let helper_mesh_lines = world_mat.map_only_spawn_stage_in_thread(cx, |world_mat| {
-        let half_cone_angle = get_db_view::<SpotLightHalfConeAngle>();
-        let half_penumbra_angle = get_db_view::<SpotLightHalfPenumbraAngle>();
-        let cutoff = get_db_view::<SpotLightCutOffDistance>();
-        let light_ref_node = get_db_view::<SpotLightRefNode>();
+      let helper_mesh_lines = world_mat.map_only_spawn_stage_in_thread(
+        cx,
+        |_| false,
+        |world_mat| {
+          let half_cone_angle = get_db_view::<SpotLightHalfConeAngle>();
+          let half_penumbra_angle = get_db_view::<SpotLightHalfPenumbraAngle>();
+          let cutoff = get_db_view::<SpotLightCutOffDistance>();
+          let light_ref_node = get_db_view::<SpotLightRefNode>();
 
-        let mut line_buffer = Vec::new();
+          let mut line_buffer = Vec::new();
 
-        half_cone_angle
-          .iter_key_value()
-          .for_each(|(id, half_cone_angle)| {
-            let node_id = light_ref_node.access(&id).unwrap().unwrap();
-            create_debug_line_mesh_spot_light(
-              &mut line_buffer,
-              half_cone_angle,
-              half_penumbra_angle.access(&id).unwrap(),
-              cutoff.access(&id).unwrap(),
-              world_mat.access(&node_id).unwrap().into_f32(),
-            )
-          });
-        line_buffer.into()
-      });
+          half_cone_angle
+            .iter_key_value()
+            .for_each(|(id, half_cone_angle)| {
+              let node_id = light_ref_node.access(&id).unwrap().unwrap();
+              create_debug_line_mesh_spot_light(
+                &mut line_buffer,
+                half_cone_angle,
+                half_penumbra_angle.access(&id).unwrap(),
+                cutoff.access(&id).unwrap(),
+                world_mat.access(&node_id).unwrap().into_f32(),
+              )
+            });
+          line_buffer.into()
+        },
+      );
 
       use_immediate_helper_model(cx, helper_mesh_lines);
     })

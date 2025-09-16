@@ -293,7 +293,7 @@ pub trait QueryHookCxLike: HooksCxLike {
       .or_insert_with(|| Arc::new(SharedQueryChangeReconciler::<K, V>::default()))
       .clone();
 
-    result.map_only_spawn_stage_in_thread(self, move |r| {
+    result.map_only_spawn_stage_in_thread_dual_query(self, move |r| {
       let (view, delta) = r.view_delta();
       if let Some(new_delta) = reconciler.reconcile(consumer_id, Box::new(delta.into_boxed())) {
         DualQuery {
