@@ -20,6 +20,8 @@ mod binding_array;
 pub use binding_array::*;
 mod sparse_buffer_writes;
 pub use sparse_buffer_writes::*;
+mod sparse_update_storage_buffer;
+pub use sparse_update_storage_buffer::*;
 mod range;
 pub use range::*;
 
