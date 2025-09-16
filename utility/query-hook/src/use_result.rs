@@ -61,50 +61,13 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     }
   }
 
+  /// note, this mapping is map both spawn stage and resolve stage,
+  /// so if the T contains changes, the change consuming should not using this method
+  /// or the change will be consumed twice and cause logic error
   pub fn map<U>(self, f: impl FnOnce(T) -> U + Send + Sync + 'static) -> UseResult<U> {
     use futures::FutureExt;
     match self {
       UseResult::SpawnStageFuture(fut) => UseResult::SpawnStageFuture(Box::new(fut.map(f))),
-      UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
-      UseResult::ResolveStageReady(t) => UseResult::ResolveStageReady(f(t)),
-      UseResult::NotInStage => UseResult::NotInStage,
-    }
-  }
-
-  pub fn map_in_thread_dual_query<U: Send + 'static>(
-    self,
-    cx: &mut impl QueryHookCxLike,
-    f: impl FnOnce(T) -> U + Send + Sync + 'static,
-  ) -> UseResult<U>
-  where
-    T: DualQueryLike,
-  {
-    self.map_in_thread(cx, |q| q.is_change_possible_empty(), f)
-  }
-
-  pub fn map_in_thread<U: Send + 'static>(
-    self,
-    cx: &mut impl QueryHookCxLike,
-    should_do_work_in_main_thread: impl FnOnce(&T) -> bool + Send + Sync + 'static,
-    f: impl FnOnce(T) -> U + Send + Sync + 'static,
-  ) -> UseResult<U> {
-    match self {
-      UseResult::SpawnStageFuture(fut) => {
-        if let QueryHookStage::SpawnTask { spawner, .. } = cx.stage() {
-          let spawner = spawner.clone();
-          let fut = async move {
-            let r = fut.await;
-            if should_do_work_in_main_thread(&r) {
-              f(r)
-            } else {
-              spawner.spawn_task(move || f(r)).await
-            }
-          };
-          UseResult::SpawnStageFuture(Box::new(Box::pin(fut)))
-        } else {
-          unreachable!()
-        }
-      }
       UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
       UseResult::ResolveStageReady(t) => UseResult::ResolveStageReady(f(t)),
       UseResult::NotInStage => UseResult::NotInStage,
@@ -362,7 +325,7 @@ where
   ) -> UseResult<
     DualQuery<ChainQuery<U::View, T::View>, Arc<FastHashMap<U::Key, ValueChange<T::Value>>>>,
   > {
-    self.join(other).map_in_thread(
+    self.join(other).map_only_spawn_stage_in_thread(
       cx,
       |(a, b)| a.is_change_possible_empty() && b.is_change_possible_empty(),
       |(a, b)| a.fanout(b),
