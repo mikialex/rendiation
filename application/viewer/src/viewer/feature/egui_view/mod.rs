@@ -109,7 +109,28 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
         viewer.rendering.egui(ui);
 
+        viewer.background.egui(ui, viewer.scene.scene);
+
         ui.separator();
+
+        ui.collapsing("Init config(not dynamic configurable)", |ui| {
+          ui.label(format!(
+            "enable_indirect_storage_combine: {}",
+            viewer.rendering.enable_indirect_storage_combine
+          ));
+          ui.label(format!(
+            "reverse z: {}",
+            viewer.rendering.ndc.enable_reverse_z
+          ));
+
+          if ui
+            .button("export current viewer init and current config")
+            .clicked()
+          {
+            let config = viewer.export_init_config();
+            config.export_to_current_dir();
+          }
+        });
 
         ui.collapsing("Rendering Resources Detail", |ui| {
           struct EguiInspector<'a>(&'a mut egui::Ui);
@@ -126,17 +147,6 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             &mut inspector as &mut dyn Inspector,
           );
         });
-
-        ui.separator();
-
-        viewer.background.egui(ui, viewer.scene.scene);
-
-        ui.separator();
-
-        if ui.button("export current viewer init config").clicked() {
-          let config = viewer.export_init_config();
-          config.export_to_current_dir();
-        }
       });
 
     egui::Window::new("Frame Rendering Info")

@@ -99,6 +99,9 @@ impl DevicePathTracingLighting for ScenePTLighting {
     // cx.bind(&self.scene_data.point_lights.lights);
     // self.scene_data.point_lights.lights_accessor.bind(cx);
 
+    // cx.bind(&self.scene_data.spot_lights.lights);
+    // self.scene_data.spot_lights.lights_accessor.bind(cx);
+
     cx.bind(&self.scene_data.directional_lights.lights);
     self.scene_data.directional_lights.lights_accessor.bind(cx);
   }

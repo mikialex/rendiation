@@ -92,6 +92,7 @@ pub struct Viewer3dRenderingCtx {
   pub statistics: FramePassStatistics,
   pub enable_statistic_collect: bool,
   prefer_bindless_for_indirect_texture_system: bool,
+  pub(crate) enable_indirect_storage_combine: bool,
 
   stat_frame_time_in_ms: StatisticStore<f32>,
   last_render_timestamp: Option<Instant>,
@@ -107,6 +108,7 @@ impl Viewer3dRenderingCtx {
     init_config.texture_pool_source_init_config = self.init_pool_config;
     init_config.prefer_bindless_for_indirect_texture_system =
       self.prefer_bindless_for_indirect_texture_system;
+    init_config.enable_indirect_storage_combine = self.enable_indirect_storage_combine;
   }
 
   pub fn gpu(&self) -> &GPU {
@@ -148,6 +150,7 @@ impl Viewer3dRenderingCtx {
       stat_frame_time_in_ms: StatisticStore::new(200),
       last_render_timestamp: Default::default(),
       init_pool_config: init_config.texture_pool_source_init_config,
+      enable_indirect_storage_combine: init_config.enable_indirect_storage_combine,
     }
   }
 
@@ -195,13 +198,15 @@ impl Viewer3dRenderingCtx {
       RasterizationRenderBackendType::Indirect => cx.scope(|cx| {
         let (cx, change_scope) = cx.use_begin_change_set_collect();
 
-        let scope = use_readonly_storage_buffer_combine(cx, "indirect materials", true);
+        let enable_combine = self.enable_indirect_storage_combine;
+
+        let scope = use_readonly_storage_buffer_combine(cx, "indirect materials", enable_combine);
         let unlit_material = use_unlit_material_storage(cx);
         let pbr_mr_material = use_pbr_mr_material_storage(cx);
         let pbr_sg_material = use_pbr_sg_material_storage(cx);
         scope.end(cx);
 
-        let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", true);
+        let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
         let mesh = use_bindless_mesh(cx);
         scope.end(cx);
 
@@ -251,7 +256,10 @@ impl Viewer3dRenderingCtx {
           cx.scope(|cx| {
             let (cx, change_scope) = cx.use_begin_change_set_collect();
 
-            let scope = use_readonly_storage_buffer_combine(cx, "rtx materials", true);
+            let limits = &cx.gpu.info.supported_limits;
+            let enable_combine = limits.max_storage_buffers_per_shader_stage <= 128;
+
+            let scope = use_readonly_storage_buffer_combine(cx, "rtx materials", enable_combine);
             let pbr_mr_material = use_pbr_mr_material_storage(cx);
             let pbr_sg_material = use_pbr_sg_material_storage(cx);
             scope.end(cx);
