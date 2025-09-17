@@ -49,6 +49,6 @@ where
   create_growable_buffer_with_host_back(gpu_ctx, data, max_item_count, false)
 }
 
-fn make_init_size<T: Std430>(size: u32) -> u64 {
+pub(crate) fn make_init_size<T: Std430>(size: u32) -> u64 {
   ((size as usize) * std::mem::size_of::<T>()) as u64
 }

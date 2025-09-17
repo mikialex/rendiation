@@ -66,10 +66,12 @@ impl EntityComponentGroup {
     Some(RawEntityHandle(handle))
   }
 
-  pub fn entity_count(&self) -> usize {
+  // todo, add real max entity count and max entity address
+  pub fn max_entity_count_in_history(&self) -> usize {
     self.inner.allocator.read().len()
   }
 
+  /// memory consumption
   pub fn entity_allocation_count(&self) -> usize {
     self.inner.allocator.read().capacity()
   }
