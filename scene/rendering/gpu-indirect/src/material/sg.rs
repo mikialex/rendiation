@@ -9,19 +9,22 @@ pub fn use_pbr_sg_material_storage(
   let (cx, storages) = cx.use_storage_buffer("pbr sg materials parameter data", 128, u32::MAX);
 
   cx.use_changes::<PbrSGMaterialAlbedoComponent>()
-    .update_storage_array(storages, offset_of!(Storage, albedo));
+    .update_storage_array(cx, storages, offset_of!(Storage, albedo));
 
   cx.use_changes::<PbrSGMaterialEmissiveComponent>()
-    .update_storage_array(storages, offset_of!(Storage, emissive));
+    .update_storage_array(cx, storages, offset_of!(Storage, emissive));
 
   cx.use_changes::<NormalScaleOf<PbrSGMaterialNormalInfo>>()
-    .update_storage_array(storages, offset_of!(Storage, normal_mapping_scale));
+    .update_storage_array(cx, storages, offset_of!(Storage, normal_mapping_scale));
 
   cx.use_changes::<PbrSGMaterialGlossinessComponent>()
-    .update_storage_array(storages, offset_of!(Storage, glossiness));
+    .update_storage_array(cx, storages, offset_of!(Storage, glossiness));
 
   cx.use_changes::<AlphaOf<PbrSGMaterialAlphaConfig>>()
-    .update_storage_array(storages, offset_of!(Storage, alpha));
+    .update_storage_array(cx, storages, offset_of!(Storage, alpha));
+
+  storages.use_max_item_count_by_db_entity::<PbrSGMaterialEntity>(cx);
+  storages.use_update(cx);
 
   let (cx, tex_storages) = cx.use_storage_buffer("pbr sg materials texture data", 128, u32::MAX);
 
@@ -34,6 +37,9 @@ pub fn use_pbr_sg_material_storage(
   use_tex_watcher::<PbrSGMaterialEmissiveTex, _>(cx, tex_storages, emissive);
   use_tex_watcher::<PbrSGMaterialSpecularGlossinessTex, _>(cx, tex_storages, specular_glossiness);
   use_tex_watcher::<NormalTexSamplerOf<PbrSGMaterialNormalInfo>, _>(cx, tex_storages, normal);
+
+  tex_storages.use_max_item_count_by_db_entity::<PbrSGMaterialEntity>(cx);
+  tex_storages.use_update(cx);
 
   cx.when_render(|| PbrSGMaterialIndirectRenderer {
     material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()

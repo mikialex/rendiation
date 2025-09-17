@@ -15,8 +15,31 @@ pub struct SparseBufferWritesSource {
 
 /// enable this to debug <potential forget to resize target> bug
 const ENABLE_TARGET_SIZE_CHECK: bool = true;
+// todo add this check
+// enable this to debug <update has overlap> bug
+// const ENABLE_NO_OVERLAP_CHECK: bool = true;
 
 impl SparseBufferWritesSource {
+  pub fn with_capacity(data_capacity: usize, offset_size_capacity: usize) -> Self {
+    Self {
+      data_to_write: Vec::with_capacity(data_capacity),
+      offset_size: Vec::with_capacity(offset_size_capacity),
+    }
+  }
+
+  pub fn merge(&mut self, other: SparseBufferWritesSource) {
+    let base_offset = self.data_to_write.len() as u32 / 4;
+
+    self.data_to_write.extend_from_slice(&other.data_to_write);
+    other.offset_size.into_iter().array_chunks::<3>().for_each(
+      |[src_offset, write_size, target_offset]| {
+        self.offset_size.push(src_offset + base_offset);
+        self.offset_size.push(write_size);
+        self.offset_size.push(target_offset);
+      },
+    );
+  }
+
   // todo, split large write into average size for better load balance?
   pub fn collect_write(&mut self, data_to_write: &[u8], write_offset_in_bytes: u64) {
     assert_eq!(data_to_write.len() % 4, 0);
@@ -25,7 +48,7 @@ impl SparseBufferWritesSource {
     let src_offset = self.data_to_write.len();
     self.data_to_write.extend_from_slice(data_to_write);
 
-    self.offset_size.push(src_offset as u32);
+    self.offset_size.push(src_offset as u32 / 4);
     let write_size = data_to_write.len() as u32 / 4;
     self.offset_size.push(write_size);
 
@@ -56,6 +79,7 @@ impl SparseBufferWritesSource {
     }
 
     assert_eq!(self.offset_size.len() % 3, 0);
+    assert_eq!(target_buffer.desc.offset, 0);
 
     let data_to_write = cast_slice(&self.data_to_write); // todo, this may panic because unnecessary alignment check
     let data_to_write = create_gpu_readonly_storage::<[u32]>(data_to_write, device);

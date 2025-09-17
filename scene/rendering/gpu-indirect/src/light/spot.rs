@@ -17,34 +17,37 @@ pub fn use_spot_light_storage(
 ) -> Option<LightGPUStorage<SpotLightStorage>> {
   let (cx, light) = cx.use_storage_buffer("spot lights", 128, u32::MAX);
 
+  let offset = offset_of!(SpotLightStorage, luminance_intensity);
   cx.use_changes::<SpotLightIntensity>()
-    .update_storage_array(light, offset_of!(SpotLightStorage, luminance_intensity));
+    .update_storage_array(cx, light, offset);
 
   cx.use_changes::<SpotLightCutOffDistance>()
-    .update_storage_array(light, offset_of!(SpotLightStorage, cutoff_distance));
+    .update_storage_array(cx, light, offset_of!(SpotLightStorage, cutoff_distance));
 
   cx.use_changes::<SpotLightHalfConeAngle>()
     .map_changes(|rad| rad.cos())
-    .update_storage_array(light, offset_of!(SpotLightStorage, half_cone_cos));
+    .update_storage_array(cx, light, offset_of!(SpotLightStorage, half_cone_cos));
 
   cx.use_changes::<SpotLightHalfPenumbraAngle>()
     .map_changes(|rad| rad.cos())
-    .update_storage_array(light, offset_of!(SpotLightStorage, half_penumbra_cos));
+    .update_storage_array(cx, light, offset_of!(SpotLightStorage, half_penumbra_cos));
 
-  let fanout = use_global_node_world_mat(cx)
+  let (fanout, fanout_) = use_global_node_world_mat(cx)
     .fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>(), cx)
-    .use_assure_result(cx);
+    .fork();
 
   fanout
-    .clone_except_future()
     .into_delta_change()
     .map(|change| change.collective_map(|mat| into_hpt(mat.position()).into_storage()))
-    .update_storage_array(light, offset_of!(SpotLightStorage, position));
+    .update_storage_array(cx, light, offset_of!(SpotLightStorage, position));
 
-  fanout
+  fanout_
     .into_delta_change()
     .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()))
-    .update_storage_array(light, offset_of!(SpotLightStorage, direction));
+    .update_storage_array(cx, light, offset_of!(SpotLightStorage, direction));
+
+  light.use_max_item_count_by_db_entity::<SpotLightEntity>(cx);
+  light.use_update(cx);
 
   let (cx, multi_acc) = cx.use_gpu_multi_access_states(light_multi_access_config());
 

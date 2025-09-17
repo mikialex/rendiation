@@ -135,18 +135,18 @@ pub fn use_std_model_renderer(
 
   cx.use_changes::<StandardModelRefAttributesMeshEntity>()
     .map(|mesh| mesh.map_u32_index_or_u32_max())
-    .update_storage_array(std_model, offset_of!(SceneStdModelStorage, mesh));
+    .update_storage_array(cx, std_model, offset_of!(SceneStdModelStorage, mesh));
 
   cx.use_changes::<StandardModelRefSkin>()
     .map(|mesh| mesh.map_u32_index_or_u32_max())
-    .update_storage_array(std_model, offset_of!(SceneStdModelStorage, skin));
+    .update_storage_array(cx, std_model, offset_of!(SceneStdModelStorage, skin));
 
   let material_flat = cx.use_changes::<StandardModelRefUnlitMaterial>();
   let material_pbr_mr = cx.use_changes::<StandardModelRefPbrMRMaterial>();
   let material_pbr_sg = cx.use_changes::<StandardModelRefPbrSGMaterial>();
 
-  cx.when_spawning_stage(|| {
-    SelectChanges([
+  let changes = if cx.is_spawning_stage() {
+    UseResult::SpawnStageReady(SelectChanges([
       material_flat
         .expect_spawn_stage_ready()
         .map_some_u32_index(),
@@ -156,9 +156,15 @@ pub fn use_std_model_renderer(
       material_pbr_sg
         .expect_spawn_stage_ready()
         .map_some_u32_index(),
-    ])
-    .update_storage_array(std_model, offset_of!(SceneStdModelStorage, material));
-  });
+    ]))
+  } else {
+    UseResult::NotInStage
+  };
+
+  changes.update_storage_array(cx, std_model, offset_of!(SceneStdModelStorage, material));
+
+  std_model.use_update(cx);
+  std_model.use_max_item_count_by_db_entity::<StandardModelEntity>(cx);
 
   cx.when_render(|| SceneStdModelIndirectRenderer {
     model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),

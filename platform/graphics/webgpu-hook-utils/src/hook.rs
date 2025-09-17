@@ -133,16 +133,14 @@ impl<'a> QueryGPUHookCx<'a> {
     label: &str,
     init_capacity_item_count: u32,
     max_item_count: u32,
-  ) -> (&mut Self, &mut CommonStorageBufferImpl<V>) {
+  ) -> (&mut Self, &mut SparseUpdateStorageBuffer<V>) {
     let (cx, storage) = self.use_gpu_init(|gpu, alloc| {
-      create_common_storage_buffer_container(
-        label,
-        init_capacity_item_count,
-        max_item_count,
-        alloc,
-        gpu,
-      )
+      SparseUpdateStorageBuffer::new(label, init_capacity_item_count, max_item_count, alloc, gpu)
     });
+
+    if let GPUQueryHookStage::Update { .. } = &mut cx.stage {
+      storage.collector = Some(Default::default());
+    }
 
     if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
       let buffer_size: u64 = storage.get_gpu_buffer().byte_size();

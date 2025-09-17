@@ -13,6 +13,8 @@ pub struct SparseUpdateStorageBuffer<T> {
   pub(crate) collector: Option<SparseUpdateCollector>,
 }
 
+type SparseUpdateCollector = Vec<Pin<Box<dyn Future<Output = SparseBufferWritesSource> + Send>>>;
+
 impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
   pub fn new(
     label: &str,
@@ -83,22 +85,17 @@ fn use_update_impl(
         } else {
           spawner
             .spawn_task(move || {
-              // todo, remove this possible allocation using small vec?
-              let (data_to_write, offset_size): (Vec<_>, Vec<_>) = all_writes
-                .into_iter()
-                .map(|v| (v.data_to_write, v.offset_size))
-                .unzip();
+              let data_to_write_len = all_writes.iter().map(|v| v.data_to_write.len()).sum();
+              let offset_size_len = all_writes.iter().map(|v| v.offset_size.len()).sum();
 
-              SparseBufferWritesSource {
-                data_to_write: concat_iter_of_vec(
-                  data_to_write.iter().map(|v| v.len()).sum(),
-                  data_to_write.into_iter(),
-                ),
-                offset_size: concat_iter_of_vec(
-                  offset_size.iter().map(|v| v.len()).sum(),
-                  offset_size.into_iter(),
-                ),
-              }
+              let mut target =
+                SparseBufferWritesSource::with_capacity(data_to_write_len, offset_size_len);
+
+              all_writes.into_iter().for_each(|w| {
+                target.merge(w);
+              });
+
+              target
             })
             .await
         };
@@ -121,15 +118,4 @@ fn use_update_impl(
     }
     _ => {}
   }
-}
-
-type SparseUpdateCollector = Vec<Pin<Box<dyn Future<Output = SparseBufferWritesSource> + Send>>>;
-
-fn concat_iter_of_vec<'a, T: 'a>(size_all: usize, iter: impl Iterator<Item = Vec<T>>) -> Vec<T> {
-  // we don't use iter flat_map then collect, because flat map can not avoid resize
-  let mut target = Vec::with_capacity(size_all);
-  for v in iter {
-    target.extend(v);
-  }
-  target
 }
