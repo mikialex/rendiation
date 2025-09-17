@@ -338,7 +338,7 @@ fn all_tables(ui: &mut egui::Ui, state: &mut DBInspector) {
             }
           });
           row.col(|ui| {
-            ui.label(db_table.entity_count().to_string());
+            ui.label(db_table.max_entity_count_in_history().to_string());
           });
         })
       }

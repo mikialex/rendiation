@@ -1,5 +1,6 @@
 use std::{future::Future, pin::Pin};
 
+use database::EntitySemantic;
 use futures::future::join_all;
 
 use crate::*;
@@ -9,7 +10,34 @@ type SparseStorageBufferRaw<T> =
 
 pub struct SparseUpdateStorageBuffer<T> {
   buffer: SparseStorageBufferRaw<T>,
-  collector: Option<SparseUpdateCollector>,
+  pub(crate) collector: Option<SparseUpdateCollector>,
+}
+
+impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
+  pub fn new(
+    label: &str,
+    init_capacity_item_count: u32,
+    max_item_count: u32,
+    allocator: &dyn AbstractStorageAllocator,
+    gpu: &GPU,
+  ) -> Self {
+    let buffer = allocator.allocate_readonly(
+      make_init_size::<T>(init_capacity_item_count),
+      &gpu.device,
+      Some(label),
+    );
+
+    let buffer = ResizableGPUBuffer {
+      gpu: buffer,
+      ctx: gpu.clone(),
+    }
+    .with_default_grow_behavior(max_item_count);
+
+    SparseUpdateStorageBuffer {
+      buffer,
+      collector: None,
+    }
+  }
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
@@ -17,8 +45,11 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
     self.buffer.gpu().clone()
   }
 
-  pub fn sync_max_item_count(&mut self, item_count: u32) {
-    self.buffer.check_resize(item_count);
+  // todo, use reactive impl(watch db change)
+  pub fn use_max_item_count_by_db_entity<E: EntitySemantic>(&mut self, _cx: &mut QueryGPUHookCx) {
+    let size_require = database::global_database()
+      .access_ecg_dyn(E::entity_id(), |ecg| ecg.max_entity_count_in_history());
+    self.buffer.check_resize(size_require as u32);
   }
 
   pub fn use_update(&mut self, cx: &mut QueryGPUHookCx) {
@@ -43,7 +74,7 @@ fn use_update_impl(
 
       let spawner = spawner.clone();
       let fut = async move {
-        let mut all_writes = join_all(collector.waiter).await;
+        let mut all_writes = join_all(collector).await;
 
         let r = if all_writes.iter().all(|v| v.is_empty()) {
           SparseBufferWritesSource::default()
@@ -92,9 +123,7 @@ fn use_update_impl(
   }
 }
 
-struct SparseUpdateCollector {
-  waiter: Vec<Pin<Box<dyn Future<Output = SparseBufferWritesSource> + Send>>>,
-}
+type SparseUpdateCollector = Vec<Pin<Box<dyn Future<Output = SparseBufferWritesSource> + Send>>>;
 
 fn concat_iter_of_vec<'a, T: 'a>(size_all: usize, iter: impl Iterator<Item = Vec<T>>) -> Vec<T> {
   // we don't use iter flat_map then collect, because flat map can not avoid resize
