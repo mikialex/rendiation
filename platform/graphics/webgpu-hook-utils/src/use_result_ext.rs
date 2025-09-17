@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use crate::*;
 
 pub type UniformBufferCollectionRaw<K, T> = FastHashMap<K, UniformBufferDataView<T>>;
@@ -17,12 +19,6 @@ pub trait DataChangeGPUExt<K: LinearIdentified + CKey> {
     offset: usize,
     gpu: &GPU,
   );
-
-  fn update_storage_array<U: Std430 + ShaderSizedValueNodeType + Default>(
-    &self,
-    storage: &mut CommonStorageBufferImpl<U>,
-    field_offset: usize,
-  );
 }
 
 // I'm so sad
@@ -39,15 +35,22 @@ pub trait DataChangeGPUExtForUseResult<K: LinearIdentified + CKey> {
     field_offset: usize,
     gpu: &GPU,
   );
-  fn update_storage_array<U: Std430 + ShaderSizedValueNodeType + Default>(
-    &self,
-    storage: &mut CommonStorageBufferImpl<U>,
+  fn update_storage_array<U>(
+    self,
+    cx: &mut QueryGPUHookCx,
+    storage: &mut SparseUpdateStorageBuffer<U>,
     field_offset: usize,
-  );
+  ) where
+    U: Std430 + ShaderSizedValueNodeType + Default;
 }
 
-impl<K: LinearIdentified + CKey, T: DataChangeGPUExt<K>> DataChangeGPUExtForUseResult<K>
-  for UseResult<T>
+impl<K, T> DataChangeGPUExtForUseResult<K> for UseResult<T>
+where
+  K: LinearIdentified + CKey,
+  T: DataChangeGPUExt<K>,
+  T: DataChanges<Key = K>,
+  T: 'static,
+  T::Value: Pod,
 {
   fn update_uniforms<U: Std140 + Default>(
     &self,
@@ -77,17 +80,62 @@ impl<K: LinearIdentified + CKey, T: DataChangeGPUExt<K>> DataChangeGPUExtForUseR
     r.update_uniform_array(uniforms, field_offset, gpu);
   }
 
-  fn update_storage_array<U: Std430 + ShaderSizedValueNodeType + Default>(
-    &self,
-    storage: &mut CommonStorageBufferImpl<U>,
+  fn update_storage_array<U>(
+    self,
+    cx: &mut QueryGPUHookCx,
+    storage: &mut SparseUpdateStorageBuffer<U>,
     field_offset: usize,
-  ) {
+  ) where
+    U: Std430 + ShaderSizedValueNodeType + Default,
+    K: LinearIdentified + CKey,
+  {
+    // todo, disable this check in release
+    let (cx, has_change) = cx.use_plain_state_default::<bool>();
     let r = match self {
-      UseResult::SpawnStageReady(r) => r,
-      UseResult::ResolveStageReady(r) => r,
+      UseResult::SpawnStageReady(r) => {
+        *has_change = true;
+        Box::new(futures::future::ready(r)) as Box<dyn Future<Output = T> + Unpin + Send>
+      }
+      UseResult::SpawnStageFuture(f) => {
+        *has_change = true;
+        f
+      }
+      UseResult::ResolveStageReady(_) => {
+        if !*has_change {
+          panic!("storage array update must prepared in spawn stage")
+        }
+        *has_change = false;
+        return;
+      }
       _ => return,
     };
-    r.update_storage_array(storage, field_offset);
+
+    if let GPUQueryHookStage::Update { spawner, .. } = cx.stage {
+      let spawner = spawner.clone();
+      let collector = storage.collector.as_mut().unwrap();
+
+      let f = async move {
+        let r = r.await;
+        if r.has_change() {
+          spawner
+            .spawn_task(move || {
+              let mut write_src = SparseBufferWritesSource::default();
+              let item_size = std::mem::size_of::<U>() as u32;
+              // todo, avoid resize
+              r.iter_update_or_insert().for_each(|(id, value)| {
+                let offset = item_size * id.alloc_index() + field_offset as u32;
+                write_src.collect_write(bytes_of(&value), offset as u64);
+              });
+              write_src
+            })
+            .await
+        } else {
+          SparseBufferWritesSource::default()
+        }
+      };
+
+      collector.push(Box::pin(f));
+    }
   }
 }
 
@@ -131,22 +179,6 @@ where
 
         // here we should do sophisticated optimization to merge the adjacent writes.
         uniforms.write_at(&gpu.queue, &value, offset as u64);
-      }
-    }
-  }
-
-  fn update_storage_array<U: Std430 + ShaderSizedValueNodeType + Default>(
-    &self,
-    storage: &mut CommonStorageBufferImpl<U>,
-    field_offset: usize,
-  ) {
-    if self.has_change() {
-      for (id, value) in self.iter_update_or_insert() {
-        unsafe {
-          storage
-            .set_value_sub_bytes(id.alloc_index(), field_offset, bytes_of(&value))
-            .unwrap();
-        }
       }
     }
   }

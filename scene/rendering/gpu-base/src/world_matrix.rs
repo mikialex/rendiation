@@ -29,8 +29,10 @@ pub fn use_scene_model_device_world_transform(
         }
       })
     })
-    .use_assure_result(cx)
-    .update_storage_array(storage, 0);
+    .update_storage_array(cx, storage, 0);
+
+  storage.use_max_item_count_by_db_entity::<SceneModelEntity>(cx);
+  storage.use_update(cx);
 
   cx.when_render(|| DrawUnitWorldTransformProviderDefaultImpl {
     bounding_storage: storage.get_gpu_buffer(),

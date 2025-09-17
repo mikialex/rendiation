@@ -7,18 +7,24 @@ pub fn use_unlit_material_storage(
 
   cx.use_changes::<UnlitMaterialColorComponent>()
     .map_changes(srgb4_to_linear4)
-    .update_storage_array(storages, offset_of!(UnlitMaterialStorage, color));
+    .update_storage_array(cx, storages, offset_of!(UnlitMaterialStorage, color));
 
   cx.use_changes::<AlphaOf<UnlitMaterialAlphaConfig>>()
-    .update_storage_array(storages, offset_of!(UnlitMaterialStorage, alpha));
+    .update_storage_array(cx, storages, offset_of!(UnlitMaterialStorage, alpha));
 
   cx.use_changes::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>()
-    .update_storage_array(storages, offset_of!(UnlitMaterialStorage, alpha_cutoff));
+    .update_storage_array(cx, storages, offset_of!(UnlitMaterialStorage, alpha_cutoff));
+
+  storages.use_max_item_count_by_db_entity::<UnlitMaterialEntity>(cx);
+  storages.use_update(cx);
 
   let (cx, tex_storages) = cx.use_storage_buffer("unlit materials texture data", 128, u32::MAX);
 
   let base_color_alpha = offset_of!(TexStorage, color_alpha_texture);
   use_tex_watcher::<UnlitMaterialColorAlphaTex, _>(cx, tex_storages, base_color_alpha);
+
+  tex_storages.use_max_item_count_by_db_entity::<UnlitMaterialEntity>(cx);
+  tex_storages.use_update(cx);
 
   cx.when_render(|| UnlitMaterialIndirectRenderer {
     material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()

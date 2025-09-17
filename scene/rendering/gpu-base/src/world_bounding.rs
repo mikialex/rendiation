@@ -33,8 +33,10 @@ pub fn use_scene_model_device_world_bounding(
       let max = into_hpt(b.max);
       [min.f1, min.f2, max.f1, max.f2]
     })
-    .use_assure_result(cx)
-    .update_storage_array(storage, 0);
+    .update_storage_array(cx, storage, 0);
+
+  storage.use_max_item_count_by_db_entity::<SceneModelEntity>(cx);
+  storage.use_update(cx);
 
   cx.when_render(|| DrawUnitWorldBoundingProviderDefaultImpl {
     bounding_storage: storage.get_gpu_buffer(),

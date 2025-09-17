@@ -84,19 +84,21 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
     cx.use_storage_buffer::<u32>("scene_model to mesh mapping", 128, u32::MAX);
 
   let relation = cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>();
-  let fanout = cx
+  let (fanout, fanout_) = cx
     .use_dual_query::<StandardModelRefAttributesMeshEntity>()
     .fanout(relation, cx)
-    .use_assure_result(cx);
+    .fork();
 
   fanout
-    .clone_except_future()
     .map_raw_handle_or_u32_max_changes()
-    .update_storage_array(sm_to_mesh_device, 0);
+    .update_storage_array(cx, sm_to_mesh_device, 0);
 
-  let sm_to_mesh = fanout
-    .if_resolve_stage()
-    .map(|v| v.view().filter_map(|v| v).into_boxed());
+  let sm_to_mesh = fanout_
+    .map(|v| v.view().filter_map(|v| v).into_boxed())
+    .use_assure_result(cx);
+
+  sm_to_mesh_device.use_max_item_count_by_db_entity::<SceneModelEntity>(cx);
+  sm_to_mesh_device.use_update(cx);
 
   cx.when_render(|| {
     let vertex_address_buffer = attribute_buffer_metadata.read().gpu().clone();
@@ -113,7 +115,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
       vertex_address_buffer,
       vertex_address_buffer_host: attribute_buffer_metadata.make_read_holder(),
       sm_to_mesh_device: sm_to_mesh_device.get_gpu_buffer(),
-      sm_to_mesh: sm_to_mesh.unwrap(),
+      sm_to_mesh: sm_to_mesh.expect_resolve_stage(),
       used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info),
     }
   })

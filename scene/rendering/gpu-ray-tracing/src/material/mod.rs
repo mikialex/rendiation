@@ -35,17 +35,18 @@ pub fn use_rtx_scene_material(
   cx.use_dual_query::<StandardModelRefPbrMRMaterial>()
     .map(|q| q.filter_map(|id| id.map(|v| v.index())))
     .fanout(relation, cx)
-    .use_assure_result(cx)
     .into_delta_change()
-    .update_storage_array(material_id, 0);
+    .update_storage_array(cx, material_id, 0);
 
   let relation = cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>();
   cx.use_dual_query::<StandardModelRefPbrSGMaterial>()
     .map(|q| q.filter_map(|id| id.map(|v| v.index())))
     .fanout(relation, cx)
-    .use_assure_result(cx)
     .into_delta_change()
-    .update_storage_array(material_id, 0);
+    .update_storage_array(cx, material_id, 0);
+
+  material_id.use_update(cx);
+  material_id.use_max_item_count_by_db_entity::<SceneModelEntity>(cx);
 
   let (cx, material_ty_gpu) =
     cx.use_storage_buffer("scene model ref material type id", 128, u32::MAX);
@@ -67,9 +68,11 @@ pub fn use_rtx_scene_material(
   // todo, this query maybe overkill
   cx.use_dual_query_set::<SceneModelEntity>()
     .dual_query_union(material_ty, |(a, b)| a.map(|_| b.unwrap_or(u32::MAX)))
-    .use_assure_result(cx)
     .into_delta_change()
-    .update_storage_array(material_ty_gpu, 0);
+    .update_storage_array(cx, material_ty_gpu, 0);
+
+  material_ty_gpu.use_update(cx);
+  material_ty_gpu.use_max_item_count_by_db_entity::<SceneModelEntity>(cx);
 
   cx.when_render(|| SceneSurfaceSupport {
     textures: tex.unwrap().clone(),

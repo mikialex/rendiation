@@ -9,22 +9,25 @@ pub fn use_pbr_mr_material_storage(
   let (cx, storages) = cx.use_storage_buffer("pbr mr materials parameter data", 128, u32::MAX);
 
   cx.use_changes::<PbrMRMaterialBaseColorComponent>()
-    .update_storage_array(storages, offset_of!(Storage, base_color));
+    .update_storage_array(cx, storages, offset_of!(Storage, base_color));
 
   cx.use_changes::<PbrMRMaterialEmissiveComponent>()
-    .update_storage_array(storages, offset_of!(Storage, emissive));
+    .update_storage_array(cx, storages, offset_of!(Storage, emissive));
 
   cx.use_changes::<NormalScaleOf<PbrMRMaterialNormalInfo>>()
-    .update_storage_array(storages, offset_of!(Storage, normal_mapping_scale));
+    .update_storage_array(cx, storages, offset_of!(Storage, normal_mapping_scale));
 
   cx.use_changes::<PbrMRMaterialRoughnessComponent>()
-    .update_storage_array(storages, offset_of!(Storage, roughness));
+    .update_storage_array(cx, storages, offset_of!(Storage, roughness));
 
   cx.use_changes::<PbrMRMaterialMetallicComponent>()
-    .update_storage_array(storages, offset_of!(Storage, metallic));
+    .update_storage_array(cx, storages, offset_of!(Storage, metallic));
 
   cx.use_changes::<AlphaOf<PbrMRMaterialAlphaConfig>>()
-    .update_storage_array(storages, offset_of!(Storage, alpha));
+    .update_storage_array(cx, storages, offset_of!(Storage, alpha));
+
+  storages.use_max_item_count_by_db_entity::<PbrMRMaterialEntity>(cx);
+  storages.use_update(cx);
 
   let (cx, tex_storages) = cx.use_storage_buffer("pbr mr materials texture data", 128, u32::MAX);
 
@@ -37,6 +40,9 @@ pub fn use_pbr_mr_material_storage(
   use_tex_watcher::<PbrMRMaterialEmissiveTex, _>(cx, tex_storages, emissive);
   use_tex_watcher::<PbrMRMaterialMetallicRoughnessTex, _>(cx, tex_storages, metallic_roughness);
   use_tex_watcher::<NormalTexSamplerOf<PbrMRMaterialNormalInfo>, _>(cx, tex_storages, normal);
+
+  tex_storages.use_max_item_count_by_db_entity::<PbrMRMaterialEntity>(cx);
+  tex_storages.use_update(cx);
 
   cx.when_render(|| PbrMRMaterialIndirectRenderer {
     material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
