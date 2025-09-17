@@ -13,6 +13,9 @@ pub struct SparseBufferWritesSource {
   pub offset_size: Vec<u32>,
 }
 
+/// enable this to debug <potential forget to resize target> bug
+const ENABLE_TARGET_SIZE_CHECK: bool = true;
+
 impl SparseBufferWritesSource {
   // todo, split large write into average size for better load balance?
   pub fn collect_write(&mut self, data_to_write: &[u8], write_offset_in_bytes: u64) {
@@ -35,13 +38,21 @@ impl SparseBufferWritesSource {
   }
 
   pub fn write(
-    self,
+    &self,
     device: &GPUDevice,
     pass: &mut GPUComputePass,
     target_buffer: GPUBufferResourceView,
   ) {
     if self.is_empty() {
       return;
+    }
+
+    if ENABLE_TARGET_SIZE_CHECK {
+      let mut max_write_size = 0;
+      for [_, write_size, target_offset] in self.offset_size.array_chunks::<3>() {
+        max_write_size = max_write_size.max(write_size + target_offset);
+      }
+      assert!(max_write_size <= u64::from(target_buffer.view_byte_size()) as u32 / 4);
     }
 
     assert_eq!(self.offset_size.len() % 3, 0);
