@@ -306,7 +306,7 @@ impl Viewer3dRenderingCtx {
         ViewerTransparentRenderer::NaiveAlphaBlend
       }
       ViewerTransparentContentRenderStyle::Loop32OIT => cx.scope(|cx| {
-        let (_, r) = cx.use_gpu_init(|_, _| Arc::new(RwLock::new(OitLoop32Renderer::new(4))));
+        let (_, r) = cx.use_sharable_plain_state(|| OitLoop32Renderer::new(4));
         ViewerTransparentRenderer::Loop32OIT(r.clone())
       }),
       ViewerTransparentContentRenderStyle::WeightedOIT => ViewerTransparentRenderer::WeightedOIT,

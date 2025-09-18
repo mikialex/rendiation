@@ -133,8 +133,7 @@ fn use_attribute_indices(
     .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
     .dual_query_zip(index_item_count)
     .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())))
-    .dual_query_boxed()
-    .into_delta_change();
+    .dual_query_boxed();
 
   let (cx, meta_generator) = cx.use_plain_state(|| ReactiveRangeAllocatePool::new(index_pool));
 
@@ -142,7 +141,8 @@ fn use_attribute_indices(
   let meta_generator = meta_generator.clone();
 
   source_info
-    .map_only_spawn_stage(move |change| {
+    .map_only_spawn_stage_in_thread_dual_query(cx, move |dual| {
+      let change = dual.delta().into_change();
       let removed_and_changed_keys = change
         .iter_removed()
         .chain(change.iter_update_or_insert().map(|(k, _)| k));

@@ -66,8 +66,7 @@ pub fn use_basic_shadow_map_uniform(
   );
 
   // todo, spawn a task to pack
-  let (cx, packer) =
-    cx.use_plain_state(|| Arc::new(RwLock::new(RemappedGrowablePacker::new(atlas_config))));
+  let (cx, packer) = cx.use_sharable_plain_state(|| RemappedGrowablePacker::new(atlas_config));
 
   if let Some(size_changes) = size.use_assure_result(cx).if_ready() {
     let mut new_size = None;

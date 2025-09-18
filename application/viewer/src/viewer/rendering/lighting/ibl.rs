@@ -69,7 +69,7 @@ type CubeMapResults = FastHashMap<RawEntityHandle, PreFilterMapGenerationResult>
 pub fn use_prefilter_cube_maps(cx: &mut QueryGPUHookCx) -> Arc<RwLock<CubeMapResults>> {
   let (env_background_map_gpu, changes) = use_gpu_texture_cubes(cx, false);
 
-  let (cx, _cube_map) = cx.use_plain_state(|| Arc::new(RwLock::new(CubeMapResults::default())));
+  let (cx, _cube_map) = cx.use_sharable_plain_state(|| CubeMapResults::default());
 
   let mut cube_map = _cube_map.write();
   for k in changes.removed_keys {
