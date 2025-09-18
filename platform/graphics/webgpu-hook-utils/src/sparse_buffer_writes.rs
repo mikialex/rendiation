@@ -79,7 +79,6 @@ impl SparseBufferWritesSource {
     }
 
     assert_eq!(self.offset_size.len() % 3, 0);
-    assert_eq!(target_buffer.desc.offset, 0);
 
     let data_to_write = cast_slice(&self.data_to_write); // todo, this may panic because unnecessary alignment check
     let data_to_write = create_gpu_readonly_storage::<[u32]>(data_to_write, device);
