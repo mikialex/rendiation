@@ -11,10 +11,8 @@ pub fn use_viewer_culling(
 ) -> Option<ViewerCulling> {
   let oc = if enable_oc_support {
     cx.scope(|cx| {
-      let (_, oc) = cx.use_gpu_init(|_, _| {
-        let oc = GPUTwoPassOcclusionCulling::new(u16::MAX as usize);
-        Arc::new(RwLock::new(oc))
-      });
+      let (_, oc) =
+        cx.use_sharable_plain_state(|| GPUTwoPassOcclusionCulling::new(u16::MAX as usize));
       Some(oc.clone())
     })
   } else {

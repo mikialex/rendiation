@@ -1,10 +1,12 @@
 use std::{
   any::{Any, TypeId},
   panic::Location,
+  sync::Arc,
 };
 
 use bumpalo::Bump;
 use fast_hash_collection::FastHashMap;
+use parking_lot::RwLock;
 
 #[allow(clippy::missing_safety_doc)]
 pub unsafe trait HooksCxLike: Sized {
@@ -66,6 +68,13 @@ pub unsafe trait HooksCxLike: Sized {
   fn use_plain_state_default_cloned<T: 'static + Default + Clone>(&mut self) -> (&mut Self, T) {
     let (cx, r) = self.use_plain_state::<T>(Default::default);
     (cx, r.clone())
+  }
+
+  fn use_sharable_plain_state<T: 'static>(
+    &mut self,
+    f: impl FnOnce() -> T,
+  ) -> (&mut Self, &mut Arc<RwLock<T>>) {
+    self.use_plain_state(|| Arc::new(RwLock::new(f())))
   }
 }
 

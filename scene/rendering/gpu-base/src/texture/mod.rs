@@ -115,8 +115,7 @@ pub fn use_pool_texture_system(
   let (cx, atlas) = cx.use_plain_state_default::<Arc<RwLock<Option<GPU2DArrayTextureView>>>>();
 
   // todo, spawn a task to pack
-  let (cx, packer) =
-    cx.use_plain_state(|| Arc::new(RwLock::new(RemappedGrowablePacker::new(init.atlas_config))));
+  let (cx, packer) = cx.use_sharable_plain_state(|| RemappedGrowablePacker::new(init.atlas_config));
 
   let content_changes = cx
     .use_changes::<SceneTexture2dEntityDirectContent>()
