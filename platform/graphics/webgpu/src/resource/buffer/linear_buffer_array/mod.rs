@@ -21,6 +21,13 @@ pub trait GPULinearStorage: LinearStorageBase + Sized {
       inner: self,
     }
   }
+
+  fn with_direct_resize(self, gpu: &GPU) -> ResizableGPUBuffer<Self> {
+    ResizableGPUBuffer {
+      gpu: self,
+      ctx: gpu.clone(),
+    }
+  }
 }
 
 pub trait LinearStorageBase {
@@ -120,12 +127,10 @@ pub fn create_growable_buffer<T: GPULinearStorage + AbstractBuffer>(
   buffer: T,
   max_size: u32,
 ) -> GrowableDirectQueueUpdateBuffer<T> {
-  ResizableGPUBuffer {
-    gpu: buffer,
-    ctx: gpu.clone(),
-  }
-  .with_queue_direct_update(&gpu.queue)
-  .with_default_grow_behavior(max_size)
+  buffer
+    .with_direct_resize(gpu)
+    .with_queue_direct_update(&gpu.queue)
+    .with_default_grow_behavior(max_size)
 }
 
 pub type GrowableHostedDirectQueueUpdateBuffer<T> = CustomGrowBehaviorMaintainer<
@@ -138,11 +143,9 @@ pub fn create_growable_buffer_with_host_back<T: GPULinearStorage + AbstractBuffe
   max_size: u32,
   diff_update: bool,
 ) -> GrowableHostedDirectQueueUpdateBuffer<T> {
-  ResizableGPUBuffer {
-    gpu: buffer,
-    ctx: gpu.clone(),
-  }
-  .with_queue_direct_update(&gpu.queue)
-  .with_vec_backup(T::Item::zeroed(), diff_update)
-  .with_default_grow_behavior(max_size)
+  buffer
+    .with_direct_resize(gpu)
+    .with_queue_direct_update(&gpu.queue)
+    .with_vec_backup(T::Item::zeroed(), diff_update)
+    .with_default_grow_behavior(max_size)
 }

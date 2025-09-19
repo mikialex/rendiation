@@ -29,11 +29,9 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
       Some(label),
     );
 
-    let buffer = ResizableGPUBuffer {
-      gpu: buffer,
-      ctx: gpu.clone(),
-    }
-    .with_default_grow_behavior(max_item_count);
+    let buffer = buffer
+      .with_direct_resize(gpu)
+      .with_default_grow_behavior(max_item_count);
 
     SparseUpdateStorageBuffer {
       buffer,
