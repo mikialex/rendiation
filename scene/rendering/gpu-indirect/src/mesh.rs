@@ -253,7 +253,7 @@ fn use_attribute_vertex(
     .use_dual_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
     .dual_query_filter_map(|v| v)
     .dual_query_filter_by_set(scope_)
-    .use_dual_query_hash_reverse_assume_one_one(cx)
+    .use_dual_query_hash_reverse_checked_one_one(cx)
     .dual_query_boxed()
     .use_dual_query_hash_many_to_one(cx);
 

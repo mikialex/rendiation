@@ -379,7 +379,7 @@ where
     })
   }
 
-  pub fn use_dual_query_hash_reverse_assume_one_one(
+  pub fn use_dual_query_hash_reverse_checked_one_one(
     self,
     cx: &mut impl QueryHookCxLike,
   ) -> UseResult<impl DualQueryLike<Key = T::Value, Value = T::Key>>
@@ -404,8 +404,10 @@ where
               mutator.remove(pv.clone());
             }
 
-            let _check = mutator.set_value(v.clone(), k.clone());
-            // todo, optional check the relation is valid one to one
+            if let Some(previous) = mutator.set_value(v.clone(), k.clone()) {
+              panic!("one to one relation assertion failed, value: {:?} checked has previous mapping key {:?}, when receive new mapping key {:?}", v, previous, k);
+            }
+
           }
           ValueChange::Remove(pv) => {
             mutator.remove(pv);

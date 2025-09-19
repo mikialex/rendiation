@@ -304,7 +304,7 @@ pub fn use_attribute_mesh_position_query(
     .dual_query_filter_map(|v| v)
     .dual_query_boxed()
     .dual_query_filter_by_set(positions_scope3)
-    .use_dual_query_hash_reverse_assume_one_one(cx)
+    .use_dual_query_hash_reverse_checked_one_one(cx)
     .dual_query_boxed();
 
   // todo, impl chain instead of using one to many fanout
