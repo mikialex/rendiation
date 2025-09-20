@@ -48,7 +48,7 @@ impl AttributeReadSchema for AttributeSemantic {
       AttributeSemantic::Tangents => 4 * 4,
       AttributeSemantic::Colors(_) => 4 * 4,
       AttributeSemantic::TexCoords(_) => 2 * 4,
-      AttributeSemantic::Joints(_) => 4 * 2,
+      AttributeSemantic::Joints(_) => 4 * 4,
       AttributeSemantic::Weights(_) => 4 * 4,
       AttributeSemantic::Foreign { item_byte_size, .. } => *item_byte_size as usize,
     }
