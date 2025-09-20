@@ -45,6 +45,42 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     }
   }
 
+  pub fn use_change_to_dual_query_in_spawn_stage(
+    self,
+    cx: &mut impl QueryHookCxLike,
+  ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = T::Value>>
+  where
+    T: DataChanges,
+  {
+    let map = cx.use_shared_hash_map::<T::Key, T::Value>();
+    self.map_only_spawn_stage_in_thread(
+      cx,
+      |change| change.has_change(),
+      move |change| {
+        let mut mapping = map.write();
+        let mut mutations = FastHashMap::<T::Key, ValueChange<T::Value>>::default();
+        use std::ops::DerefMut;
+        let mut mutator = QueryMutationCollector {
+          delta: &mut mutations,
+          target: mapping.deref_mut(),
+        };
+
+        for k in change.iter_removed() {
+          mutator.remove(k);
+        }
+        for (k, v) in change.iter_update_or_insert() {
+          mutator.set_value(k, v);
+        }
+        drop(mapping);
+
+        DualQuery {
+          view: map.make_read_holder(),
+          delta: Arc::new(mutations),
+        }
+      },
+    )
+  }
+
   pub fn map_only_spawn_stage<U>(
     self,
     f: impl FnOnce(T) -> U + Send + Sync + 'static,
@@ -303,13 +339,14 @@ where
   pub fn use_validation(
     self,
     cx: &mut impl QueryHookCxLike,
-    label: &'static str,
+    label: impl Into<String>,
     log_change: bool,
   ) -> UseResult<T> {
+    let label = label.into();
     let validator = cx.use_shared_hash_map();
     self.map(move |dual| {
       let (_, d) = dual.view_delta_ref();
-      validate_delta(&mut validator.write(), log_change, label, d);
+      validate_delta(&mut validator.write(), log_change, &label, d);
 
       dual
     })

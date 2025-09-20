@@ -1,7 +1,8 @@
-use std::{mem::offset_of, ops::Deref, sync::Arc};
+use std::{mem::offset_of, ops::Range, sync::Arc};
 
+use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
-use rendiation_mesh_core::AttributeSemantic;
+use rendiation_mesh_core::{AttributeReadSchema, AttributeSemantic};
 use rendiation_shader_api::*;
 use rendiation_webgpu_midc_downgrade::*;
 
@@ -15,70 +16,25 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   let init_vertex_count = 100_000;
   let max_vertex_count = init_vertex_count * 100;
 
-  let (cx, indices) = cx.use_gpu_init(|gpu, _| {
-    // this should not be allocate from allocator, because it has extra usage.
-    let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
-      &gpu.device,
-      Some("bindless mesh index pool"),
-      ZeroedArrayByArrayLength(init_index_count).into(),
-      BufferUsages::INDEX,
-    );
+  let (indices_range_change, indices) =
+    use_attribute_indices_updates(cx, max_index_count as u32, init_index_count as u32);
 
-    let indices = create_growable_buffer(gpu, indices, max_index_count as u32);
-    Arc::new(RwLock::new(GPURangeAllocateMaintainer::new(
-      gpu,
-      indices,
-      max_index_count as u32,
-    )))
-  });
+  let max = max_vertex_count as u32;
+  let init = init_vertex_count as u32;
+  let (position_range_change, position) =
+    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Positions);
+  let (normal_range_change, normal) =
+    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Normals);
+  let (uv_range_change, uv) =
+    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::TexCoords(0));
 
-  let (cx, position) = cx.use_gpu_init(|gpu, alloc| {
-    Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
-      gpu,
-      alloc,
-      "bindless mesh vertex pool: position",
-      init_vertex_count,
-      max_vertex_count,
-    )))
-  });
-  let (cx, normal) = cx.use_gpu_init(|gpu, alloc| {
-    Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
-      gpu,
-      alloc,
-      "bindless mesh vertex pool: normal",
-      init_vertex_count,
-      max_vertex_count,
-    )))
-  });
-  let (cx, uv) = cx.use_gpu_init(|gpu, alloc| {
-    Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
-      gpu,
-      alloc,
-      "bindless mesh vertex pool: uv",
-      init_vertex_count,
-      max_vertex_count,
-    )))
-  });
-
-  if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
-    let buffer_size = indices.read().gpu().byte_size();
-    let buffer_size = buffer_size as f32 / 1024.;
-    inspector.label(&format!("bindless index, size: {:.2} kb", buffer_size));
-
-    let buffer_size = position.read().gpu().byte_size();
-    let buffer_size = buffer_size as f32 / 1024.;
-    inspector.label(&format!("bindless position, size: {:.2} kb", buffer_size));
-
-    let buffer_size = normal.read().gpu().byte_size();
-    let buffer_size = buffer_size as f32 / 1024.;
-    inspector.label(&format!("bindless normal, size: {:.2} kb", buffer_size));
-
-    let buffer_size = uv.read().gpu().byte_size();
-    let buffer_size = buffer_size as f32 / 1024.;
-    inspector.label(&format!("bindless uv, size: {:.2} kb", buffer_size));
-  }
-
-  let attribute_buffer_metadata = use_attribute_buffer_metadata(cx, indices, position, normal, uv);
+  let attribute_buffer_metadata = use_attribute_buffer_metadata(
+    cx,
+    indices_range_change,
+    position_range_change,
+    normal_range_change,
+    uv_range_change,
+  );
 
   let (cx, sm_to_mesh_device) =
     cx.use_storage_buffer::<u32>("scene_model to mesh mapping", 128, u32::MAX);
@@ -103,10 +59,10 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   cx.when_render(|| {
     let vertex_address_buffer = attribute_buffer_metadata.read().gpu().clone();
     MeshGPUBindlessImpl {
-      indices: indices.clone(),
-      position: position.clone(),
-      normal: normal.clone(),
-      uv: uv.clone(),
+      indices,
+      position,
+      normal,
+      uv,
       checker: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
         .read_foreign_key(),
       indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
@@ -121,10 +77,33 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   })
 }
 
-fn use_attribute_indices(
+fn use_attribute_indices_updates(
   cx: &mut QueryGPUHookCx,
-  index_pool: &IndicesPool,
-) -> UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]>> {
+  max_item_count: u32,
+  init_item_count: u32,
+) -> (
+  UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
+  StorageBufferReadonlyDataView<[u32]>,
+) {
+  let (cx, gpu_buffer) = cx.use_gpu_init(|gpu, _| {
+    let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
+      &gpu.device,
+      Some("bindless mesh index pool"),
+      ZeroedArrayByArrayLength(init_item_count as usize).into(),
+      BufferUsages::INDEX,
+    );
+
+    let indices = indices.with_direct_resize(gpu);
+
+    Arc::new(RwLock::new(indices))
+  });
+
+  if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
+    let buffer_size = gpu_buffer.read().gpu().byte_size();
+    let buffer_size = buffer_size as f32 / 1024.;
+    inspector.label(&format!("bindless index, size: {:.2} kb", buffer_size));
+  }
+
   let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
   let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
   let index_item_count = cx.use_dual_query::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
@@ -135,72 +114,131 @@ fn use_attribute_indices(
     .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())))
     .dual_query_boxed();
 
-  let (cx, meta_generator) = cx.use_plain_state(|| ReactiveRangeAllocatePool::new(index_pool));
+  let (cx, allocator) =
+    cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_item_count, init_item_count));
 
-  let gpu = cx.gpu.clone();
-  let meta_generator = meta_generator.clone();
+  let allocator = allocator.clone();
+  let gpu_buffer_ = gpu_buffer.clone();
 
-  source_info
-    .map_only_spawn_stage_in_thread_dual_query(cx, move |dual| {
-      let change = dual.delta().into_change();
-      let removed_and_changed_keys = change
-        .iter_removed()
-        .chain(change.iter_update_or_insert().map(|(k, _)| k));
+  let allocation_info = source_info.map_only_spawn_stage_in_thread_dual_query(cx, move |dual| {
+    let change = dual.delta().into_change();
+    let removed_and_changed_keys = change
+      .iter_removed()
+      .chain(change.iter_update_or_insert().map(|(k, _)| k));
 
-      let data = get_db_view::<BufferEntityData>();
+    let data = get_db_view::<BufferEntityData>();
 
-      enum MaybeConverted<'a> {
-        U32(Vec<u32>),
-        Original(&'a [u8]),
-      }
+    let buffers_to_write = change
+      .iter_update_or_insert()
+      .map(|(k, (buffer_id, range, count))| {
+        let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
 
-      let changed_keys = change
-        .iter_update_or_insert()
-        .map(|(k, (buffer_id, range, count))| {
-          let buffer = data.read_ref(buffer_id).unwrap().ptr.deref();
+        let range = range.map(|range| {
+          let end = range
+            .size
+            .map(|v| (u64::from(v) + range.offset) as usize)
+            .unwrap_or(buffer.len());
+          range.offset as usize..end
+        });
 
-          let buffer = if let Some(range) = range {
-            let end = range
-              .size
-              .map(|v| u64::from(v) as usize)
-              .unwrap_or(buffer.len());
-            buffer.get(range.offset as usize..end).unwrap()
-          } else {
-            buffer
-          };
+        let byte_per_item = buffer.len() / count as usize;
+        if byte_per_item != 4 && byte_per_item != 2 {
+          unreachable!("index count must be multiple of 2(u16) or 4(u32)")
+        }
 
-          let byte_per_item = buffer.len() / count as usize;
-          if byte_per_item != 4 && byte_per_item != 2 {
-            unreachable!("index count must be multiple of 2(u16) or 4(u32)")
+        let buffer = if byte_per_item == 2 {
+          let mut buffer = buffer.as_slice();
+          if let Some(range) = range {
+            buffer = &buffer[range];
           }
+          let buffer = bytemuck::cast_slice::<_, u16>(buffer);
+          let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
+          let buffer = bytemuck::cast_slice(&buffer).to_vec();
+          (Arc::new(buffer), None)
+        } else {
+          (buffer, range)
+        };
 
-          let buffer = if byte_per_item == 2 {
-            let buffer = bytemuck::cast_slice::<_, u16>(buffer);
-            let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
-            MaybeConverted::U32(buffer)
-          } else {
-            MaybeConverted::Original(buffer)
-          };
+        (k, buffer)
+      })
+      .collect::<FastHashMap<_, _>>();
 
-          (k, buffer)
-        })
-        .collect::<Vec<_>>();
+    let new_sizes = buffers_to_write.iter().map(|(k, v)| {
+      (
+        *k,
+        v.1.clone().map(|v| v.len()).unwrap_or(v.0.len()) as u32 / 4,
+      )
+    });
 
-      let changed_keys = changed_keys.iter().map(|(k, v)| match v {
-        MaybeConverted::U32(v) => (*k, bytemuck::cast_slice(v)),
-        MaybeConverted::Original(v) => (*k, *v),
-      });
+    let changes = allocator
+      .write()
+      .update(removed_and_changed_keys, new_sizes);
 
-      meta_generator.update(removed_and_changed_keys, changed_keys, &gpu)
+    let source_buffer = changes.resize_to.map(|new_size| {
+      let mut gpu_buffer = gpu_buffer_.write();
+      let buffer = gpu_buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
+      // here we do(request) resize at spawn stage to avoid resize again and again
+      gpu_buffer.resize(new_size);
+      buffer
+    });
+
+    Arc::new(BufferUpdates {
+      buffers_to_write,
+      allocation_changes: BatchAllocateResultShared(Arc::new(changes), 1),
+      source_buffer,
     })
-    .into_delta_change()
+  });
+
+  let (allocation_info, allocation_info_) = allocation_info.fork();
+
+  let allocation_info_ = allocation_info_.use_assure_result(cx);
+  if cx.is_resolve_stage() {
+    let gpu_buffer = gpu_buffer
+      .write()
+      .abstract_gpu()
+      .get_gpu_buffer_view()
+      .unwrap();
+    allocation_info_
+      .expect_resolve_stage()
+      .write(cx.gpu, &gpu_buffer, 4);
+  }
+
+  let changes = allocation_info.map(|v| v.allocation_changes.clone());
+  let buffer = gpu_buffer.read().gpu().clone();
+  (changes, buffer)
 }
 
-fn use_attribute_vertex(
+fn use_attribute_vertex_updates(
   cx: &mut QueryGPUHookCx,
-  pool: &UntypedU32Pool,
+  max_item_count: u32,
+  init_item_count: u32,
   semantic: AttributeSemantic,
-) -> UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]>> {
+) -> (
+  UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
+  AbstractReadonlyStorageBuffer<[u32]>,
+) {
+  let item_byte_size = semantic.item_byte_size() as u32;
+  let (cx, vertex_buffer) = cx.use_gpu_init(|gpu, alloc| {
+    let buffer = alloc.allocate_readonly::<[u32]>(
+      (item_byte_size * init_item_count) as u64,
+      &gpu.device,
+      Some(&format!("bindless mesh vertex pool: {:?}", semantic)),
+    );
+
+    let buffer = buffer.with_direct_resize(gpu);
+
+    Arc::new(RwLock::new(buffer))
+  });
+
+  if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
+    let buffer_size = vertex_buffer.read().gpu().byte_size();
+    let buffer_size = buffer_size as f32 / 1024.;
+    inspector.label(&format!(
+      "bindless {:?}, size: {:.2} kb",
+      semantic, buffer_size
+    ));
+  }
+
   let attribute_scope = cx
     .use_dual_query::<AttributesMeshEntityVertexBufferSemantic>()
     .dual_query_filter_map(move |s| (semantic == s).then_some(()));
@@ -214,40 +252,77 @@ fn use_attribute_vertex(
     .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
     .dual_query_filter_map(|(index, range)| index.map(|i| (i, range)))
     .dual_query_boxed()
-    .dual_query_filter_by_set(scope)
-    .into_delta_change();
+    .dual_query_filter_by_set(scope);
 
-  let (cx, meta_generator) = cx.use_plain_state(|| ReactiveRangeAllocatePool::new(pool));
+  // todo, share one allocator among all vertex buffer
+  let (cx, allocator) =
+    cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_item_count, init_item_count));
 
-  let gpu = cx.gpu.clone();
-  let meta_generator = meta_generator.clone();
+  let allocator = allocator.clone();
+  let gpu_buffer = vertex_buffer.clone();
 
-  let allocation_info = source_info.map_only_spawn_stage(move |change| {
-    let removed_and_changed_keys = change
-      .iter_removed()
-      .chain(change.iter_update_or_insert().map(|(k, _)| k));
+  let allocation_info =
+    source_info.map_only_spawn_stage_in_thread_dual_query(cx, move |source_info| {
+      let change = source_info.delta().into_change();
+      let removed_and_changed_keys = change
+        .iter_removed()
+        .chain(change.iter_update_or_insert().map(|(k, _)| k));
 
-    let data = get_db_view::<BufferEntityData>();
-    let changed_keys = change
-      .iter_update_or_insert()
-      .map(|(k, (buffer_id, range))| {
-        let buffer = data.read_ref(buffer_id).unwrap().ptr.deref();
+      let data = get_db_view::<BufferEntityData>();
+      let buffers_to_write = change
+        .iter_update_or_insert()
+        .map(|(k, (buffer_id, range))| {
+          let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
 
-        let buffer = if let Some(range) = range {
-          let end = range
-            .size
-            .map(|v| u64::from(v) as usize)
-            .unwrap_or(buffer.len());
-          buffer.get(range.offset as usize..end).unwrap()
-        } else {
-          buffer
-        };
+          let range = range.map(|range| {
+            let end = range
+              .size
+              .map(|v| (u64::from(v) + range.offset) as usize)
+              .unwrap_or(buffer.len());
+            range.offset as usize..end
+          });
 
-        (k, buffer)
+          (k, (buffer, range))
+        })
+        .collect::<FastHashMap<_, _>>();
+
+      let sizes = buffers_to_write.iter().map(|(k, (buffer, range))| {
+        let len = range
+          .clone()
+          .map(|range| range.len() as u32)
+          .unwrap_or(buffer.len() as u32);
+        (*k, len / item_byte_size)
       });
 
-    meta_generator.update(removed_and_changed_keys, changed_keys, &gpu)
-  });
+      let changes = allocator.write().update(removed_and_changed_keys, sizes);
+
+      let source_buffer = changes.resize_to.map(|new_size| {
+        let mut gpu_buffer = gpu_buffer.write();
+        let buffer = gpu_buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
+        gpu_buffer.resize(new_size * item_byte_size / 4);
+        buffer
+      });
+
+      Arc::new(BufferUpdates {
+        buffers_to_write,
+        allocation_changes: BatchAllocateResultShared(Arc::new(changes), item_byte_size / 4),
+        source_buffer,
+      })
+    });
+
+  let (allocation_info, allocation_info_) = allocation_info.fork();
+
+  let allocation_info_ = allocation_info_.use_assure_result(cx);
+  if cx.is_resolve_stage() {
+    let gpu_buffer = vertex_buffer
+      .write()
+      .abstract_gpu()
+      .get_gpu_buffer_view()
+      .unwrap();
+    allocation_info_
+      .expect_resolve_stage()
+      .write(cx.gpu, &gpu_buffer, item_byte_size);
+  }
 
   let ab_ref_mesh = cx
     .use_dual_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
@@ -257,10 +332,58 @@ fn use_attribute_vertex(
     .dual_query_boxed()
     .use_dual_query_hash_many_to_one(cx);
 
-  allocation_info
+  let allocation_info = allocation_info
+    .map(move |allocation_info| allocation_info.allocation_changes.clone())
+    .use_change_to_dual_query_in_spawn_stage(cx);
+
+  let change = allocation_info
     .fanout(ab_ref_mesh, cx)
     .dual_query_boxed()
-    .into_delta_change()
+    .into_delta_change();
+
+  let buffer = vertex_buffer.read().gpu().clone();
+
+  (change, buffer)
+}
+
+struct BufferUpdates {
+  pub buffers_to_write: FastHashMap<RawEntityHandle, (Arc<Vec<u8>>, Option<Range<usize>>)>,
+  pub allocation_changes: BatchAllocateResultShared,
+  pub source_buffer: Option<GPUBufferResourceView>,
+}
+
+impl BufferUpdates {
+  pub fn write(&self, gpu: &GPU, gpu_buffer: &GPUBufferResourceView, item_byte_size: u32) {
+    if let Some(source) = &self.source_buffer {
+      let mut encoder = gpu.create_encoder();
+      for (_, movement) in &self.allocation_changes.0.data_movements {
+        encoder.copy_buffer_to_buffer(
+          source.resource.gpu(),
+          source.desc.offset + (movement.old_offset * item_byte_size) as u64,
+          gpu_buffer.resource.gpu(),
+          gpu_buffer.desc.offset + (movement.new_offset * item_byte_size) as u64,
+          (movement.count * item_byte_size) as u64,
+        );
+      }
+      gpu.queue.submit_encoder(encoder);
+    }
+
+    for (k, (write_offset, size)) in &self.allocation_changes.0.new_data_to_write {
+      let (buffer, range) = self.buffers_to_write.get(k).unwrap();
+      let buffer = if let Some(range) = range {
+        &buffer[range.clone()]
+      } else {
+        buffer
+      };
+      assert_eq!(buffer.len(), (*size * item_byte_size) as usize);
+      println!("write mesh {k} {write_offset} {size}");
+      gpu.queue.write_buffer(
+        gpu_buffer.resource.gpu(),
+        (write_offset * item_byte_size) as u64 + gpu_buffer.desc.offset,
+        buffer,
+      );
+    }
+  }
 }
 
 ///  note the attribute's count should be same for one mesh, will keep it here for simplicity
@@ -280,10 +403,10 @@ pub struct AttributeMeshMeta {
 
 fn use_attribute_buffer_metadata(
   cx: &mut QueryGPUHookCx,
-  index_pool: &IndicesPool,
-  position_pool: &UntypedU32Pool,
-  normal_pool: &UntypedU32Pool,
-  uv_pool: &UntypedU32Pool,
+  index: UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
+  position: UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
+  normal: UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
+  uv: UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
 ) -> Arc<RwLock<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>> {
   let (cx, data) = cx.use_gpu_init(|gpu, alloc| {
     let data = create_common_storage_buffer_with_host_backup_container(
@@ -296,14 +419,8 @@ fn use_attribute_buffer_metadata(
     Arc::new(RwLock::new(data))
   });
 
-  let indices = use_attribute_indices(cx, index_pool);
-
-  let position = use_attribute_vertex(cx, position_pool, AttributeSemantic::Positions);
-  let normal = use_attribute_vertex(cx, normal_pool, AttributeSemantic::Normals);
-  let uv = use_attribute_vertex(cx, uv_pool, AttributeSemantic::TexCoords(0));
-
   let offset = offset_of!(AttributeMeshMeta, index_offset);
-  use_update(cx, data, indices, offset);
+  use_update(cx, data, index, offset);
   let offset = offset_of!(AttributeMeshMeta, position_offset);
   use_update(cx, data, position, offset);
   let offset = offset_of!(AttributeMeshMeta, normal_offset);
@@ -311,10 +428,10 @@ fn use_attribute_buffer_metadata(
   let offset = offset_of!(AttributeMeshMeta, uv_offset);
   use_update(cx, data, uv, offset);
 
-  fn use_update<T: Pod>(
+  fn use_update(
     cx: &mut QueryGPUHookCx,
     storage: &Arc<RwLock<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>>,
-    change: UseResult<impl DataChanges<Key = RawEntityHandle, Value = T> + 'static>,
+    change: UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
     field_offset: usize,
   ) {
     let change = change.use_assure_result(cx);
@@ -326,6 +443,7 @@ fn use_attribute_buffer_metadata(
     if r.has_change() {
       let mut storage = storage.write();
       for (id, value) in r.iter_update_or_insert() {
+        println!("update mesh {id} {value:?}");
         unsafe {
           storage
             .set_value_sub_bytes(id.alloc_index(), field_offset, bytes_of(&value))
@@ -338,14 +456,12 @@ fn use_attribute_buffer_metadata(
   data.clone()
 }
 
-pub type IndicesPool = Arc<RwLock<StorageBufferRangeAllocatePoolStandalone<u32>>>;
-
 #[derive(Clone)]
 pub struct MeshGPUBindlessImpl {
-  indices: IndicesPool,
-  position: UntypedU32Pool,
-  normal: UntypedU32Pool,
-  uv: UntypedU32Pool,
+  indices: StorageBufferReadonlyDataView<[u32]>,
+  position: AbstractReadonlyStorageBuffer<[u32]>,
+  normal: AbstractReadonlyStorageBuffer<[u32]>,
+  uv: AbstractReadonlyStorageBuffer<[u32]>,
   vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   /// we keep the host metadata to support creating draw commands from host
   vertex_address_buffer_host:
@@ -360,11 +476,11 @@ pub struct MeshGPUBindlessImpl {
 
 impl MeshGPUBindlessImpl {
   pub fn make_bindless_dispatcher(&self) -> BindlessMeshDispatcher {
-    let position = self.position.read().gpu().clone();
-    let normal = self.normal.read().gpu().clone();
-    let uv = self.uv.read().gpu().clone();
+    let position = self.position.clone();
+    let normal = self.normal.clone();
+    let uv = self.uv.clone();
 
-    let index_pool = self.indices.read().gpu().clone();
+    let index_pool = self.indices.clone();
 
     BindlessMeshDispatcher {
       sm_to_mesh: self.sm_to_mesh_device.clone(),
