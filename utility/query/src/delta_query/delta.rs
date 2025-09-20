@@ -162,7 +162,7 @@ pub fn integrate_change<K: CKey, T: CValue>(
 pub fn validate_delta<K: CKey, V: CValue>(
   state: &mut FastHashMap<K, V>,
   log_change: bool,
-  label: &'static str,
+  label: &str,
   d: &impl Query<Key = K, Value = ValueChange<V>>,
 ) {
   let changes = d.materialize();

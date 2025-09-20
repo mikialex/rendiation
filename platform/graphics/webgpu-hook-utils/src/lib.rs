@@ -16,6 +16,8 @@ mod use_result_ext;
 pub use use_result_ext::*;
 mod storage_util;
 pub use storage_util::*;
+mod allocator;
+pub use allocator::*;
 mod multi_access;
 pub use multi_access::*;
 mod binding_array;
@@ -24,7 +26,5 @@ mod sparse_buffer_writes;
 pub use sparse_buffer_writes::*;
 mod sparse_update_storage_buffer;
 pub use sparse_update_storage_buffer::*;
-mod range;
-pub use range::*;
 
 pub type UniformArray<T, const N: usize> = UniformBufferDataView<Shader140Array<T, N>>;

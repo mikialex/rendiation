@@ -16,6 +16,7 @@ hook = { path = "../../../utility/hook" }
 query-hook = { path = "../../../utility/query-hook" }
 database = { path = "../../../utility/database" }
 futures = { workspace = true }
+xalloc = "0.2.7"
 
 [lints]
 workspace = true
