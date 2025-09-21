@@ -109,13 +109,6 @@ impl<'a> QueryGPUHookCx<'a> {
     (cx, &mut state.0)
   }
 
-  pub fn use_gpu_multi_access_states(
-    &mut self,
-    init: MultiAccessGPUDataBuilderInit,
-  ) -> (&mut Self, &mut MultiAccessGPUStates) {
-    self.use_gpu_init(|gpu, alloc| MultiAccessGPUStates::new(gpu, init, alloc))
-  }
-
   pub fn use_uniform_buffers<K: 'static, V: Std140 + 'static>(
     &mut self,
   ) -> UniformBufferCollection<K, V> {

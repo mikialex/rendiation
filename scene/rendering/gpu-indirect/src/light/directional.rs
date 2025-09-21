@@ -23,19 +23,20 @@ pub fn use_directional_light_storage(
     .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()))
     .update_storage_array(cx, light, offset_of!(DirectionalLightStorage, direction));
 
-  let (cx, multi_acc) = cx.use_gpu_multi_access_states(light_multi_access_config());
-
-  let updates = cx
-    .use_db_rev_ref_tri_view::<DirectionalRefScene>()
-    .use_assure_result(cx);
+  let updates = cx.use_db_rev_ref_tri_view::<DirectionalRefScene>();
+  let multi_access = use_multi_access_gpu(
+    cx,
+    &light_multi_access_config(),
+    updates,
+    "directional light",
+  );
 
   light.use_max_item_count_by_db_entity::<DirectionalLightEntity>(cx);
   light.use_update(cx);
 
   cx.when_render(|| {
     let light = light.get_gpu_buffer();
-    let multi_access = multi_acc.update(updates.expect_resolve_stage());
-    (light, multi_access)
+    (light, multi_access.unwrap())
   })
 }
 
