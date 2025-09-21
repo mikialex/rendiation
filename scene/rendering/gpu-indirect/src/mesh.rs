@@ -1,4 +1,4 @@
-use std::{mem::offset_of, ops::Range, sync::Arc};
+use std::{mem::offset_of, sync::Arc};
 
 use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
@@ -182,7 +182,7 @@ fn use_attribute_indices_updates(
       buffer
     });
 
-    Arc::new(BufferUpdates {
+    Arc::new(RangeAllocateBufferUpdates {
       buffers_to_write,
       allocation_changes: BatchAllocateResultShared(Arc::new(changes), 1),
       source_buffer,
@@ -303,7 +303,7 @@ fn use_attribute_vertex_updates(
         buffer
       });
 
-      Arc::new(BufferUpdates {
+      Arc::new(RangeAllocateBufferUpdates {
         buffers_to_write,
         allocation_changes: BatchAllocateResultShared(Arc::new(changes), item_byte_size / 4),
         source_buffer,
@@ -344,46 +344,6 @@ fn use_attribute_vertex_updates(
   let buffer = vertex_buffer.read().gpu().clone();
 
   (change, buffer)
-}
-
-struct BufferUpdates {
-  pub buffers_to_write: FastHashMap<RawEntityHandle, (Arc<Vec<u8>>, Option<Range<usize>>)>,
-  pub allocation_changes: BatchAllocateResultShared,
-  pub source_buffer: Option<GPUBufferResourceView>,
-}
-
-impl BufferUpdates {
-  pub fn write(&self, gpu: &GPU, gpu_buffer: &GPUBufferResourceView, item_byte_size: u32) {
-    if let Some(source) = &self.source_buffer {
-      let mut encoder = gpu.create_encoder();
-      for (_, movement) in &self.allocation_changes.0.data_movements {
-        encoder.copy_buffer_to_buffer(
-          source.resource.gpu(),
-          source.desc.offset + (movement.old_offset * item_byte_size) as u64,
-          gpu_buffer.resource.gpu(),
-          gpu_buffer.desc.offset + (movement.new_offset * item_byte_size) as u64,
-          (movement.count * item_byte_size) as u64,
-        );
-      }
-      gpu.queue.submit_encoder(encoder);
-    }
-
-    for (k, (write_offset, size)) in &self.allocation_changes.0.new_data_to_write {
-      let (buffer, range) = self.buffers_to_write.get(k).unwrap();
-      let buffer = if let Some(range) = range {
-        &buffer[range.clone()]
-      } else {
-        buffer
-      };
-      assert_eq!(buffer.len(), (*size * item_byte_size) as usize);
-      println!("write mesh {k} {write_offset} {size}");
-      gpu.queue.write_buffer(
-        gpu_buffer.resource.gpu(),
-        (write_offset * item_byte_size) as u64 + gpu_buffer.desc.offset,
-        buffer,
-      );
-    }
-  }
 }
 
 ///  note the attribute's count should be same for one mesh, will keep it here for simplicity

@@ -1,9 +1,6 @@
-use crate::*;
+use database::RawEntityHandle;
 
-pub struct MultiAccessGPUStates {
-  allocator: StorageBufferRangeAllocatePool<u32>,
-  meta: CommonStorageBufferImplWithHostBackup<GPURangeInfo>,
-}
+use crate::*;
 
 pub struct MultiAccessGPUDataBuilderInit {
   pub max_possible_many_count: u32,
@@ -12,97 +9,157 @@ pub struct MultiAccessGPUDataBuilderInit {
   pub init_one_count_capacity: u32,
 }
 
-impl MultiAccessGPUStates {
-  pub fn new(
-    gpu: &GPU,
-    init: MultiAccessGPUDataBuilderInit,
-    allocator: &dyn AbstractStorageAllocator,
-  ) -> Self {
-    Self {
-      allocator: create_storage_buffer_range_allocate_pool(
-        gpu,
-        allocator,
-        "device multi access allocator range",
-        init.init_many_count_capacity,
-        init.max_possible_many_count,
-      ),
-      meta: create_common_storage_buffer_with_host_backup_container(
-        init.init_one_count_capacity,
-        init.max_possible_one_count,
-        allocator,
-        gpu,
-        "device multi access allocator data",
-      ),
-    }
-  }
+pub fn use_multi_access_gpu(
+  cx: &mut QueryGPUHookCx,
+  init: &MultiAccessGPUDataBuilderInit,
+  source: UseResult<impl TriQueryLike<Key = RawEntityHandle, Value = RawEntityHandle>>,
+  label: &str,
+) -> Option<MultiAccessGPUData> {
+  let (cx, allocator) = cx.use_sharable_plain_state(|| {
+    GrowableRangeAllocator::new(init.max_possible_many_count, init.init_many_count_capacity)
+  });
 
-  pub fn update<S>(&mut self, source: S) -> MultiAccessGPUData
-  where
-    S: TriQueryLike<Key: LinearIdentified, Value: LinearIdentified>,
-  {
-    let (multi_access, _, changes) = source.inv_view_view_delta();
+  let (cx, many_side_buffer) = cx.use_gpu_init(|gpu, alloc| {
+    let buffer = alloc
+      .allocate_readonly::<[u32]>(
+        (init.init_many_count_capacity * 4) as u64,
+        &gpu.device,
+        Some(&format!("multi-access-many-side: {}", label)),
+      )
+      .with_direct_resize(gpu);
+    Arc::new(RwLock::new(buffer))
+  });
 
-    // collect all changed one.
-    // for simplicity, we do full update for each "one"s data
-    let mut dirtied_one = FastHashSet::default();
-    for (_, change) in changes.iter_key_value() {
-      match change {
-        ValueChange::Delta(n, p) => {
-          dirtied_one.insert(n);
-          if let Some(p) = p {
-            dirtied_one.insert(p);
+  let many_side_buffer_ = many_side_buffer.clone();
+  let allocator = allocator.clone();
+  let changes = source.map_only_spawn_stage_in_thread(
+    cx,
+    |source| !source.view_delta_ref().1.is_empty(),
+    move |source| {
+      let (multi_access, _, changes) = source.inv_view_view_delta();
+
+      // collect all changed one.
+      // for simplicity, we do full update for each "one"s data
+      let mut dirtied_one = FastHashSet::default();
+      for (_, change) in changes.iter_key_value() {
+        match change {
+          ValueChange::Delta(n, p) => {
+            dirtied_one.insert(n);
+            if let Some(p) = p {
+              dirtied_one.insert(p);
+            }
+          }
+          ValueChange::Remove(one) => {
+            dirtied_one.insert(one);
           }
         }
-        ValueChange::Remove(one) => {
-          dirtied_one.insert(one);
-        }
-      }
-    }
-
-    // do all cleanup first to release empty space
-    for changed_one in dirtied_one.iter() {
-      let meta = self.meta.get(changed_one.alloc_index()).unwrap();
-      if meta.start != u32::MAX {
-        self.allocator.deallocate(meta.start);
       }
 
-      self
-        .meta
-        .set_value(changed_one.alloc_index(), Default::default())
-        .unwrap();
-    }
-
-    // write new data
-    for changed_one in dirtied_one.iter() {
-      if let Some(many_iter) = multi_access.access_multi(changed_one) {
-        let many_idx = many_iter.map(|v| v.alloc_index()).collect::<Vec<_>>();
-        let offset = self
-          .allocator
-          .allocate_values(&many_idx, &mut |relocation| {
-            let mut meta = *self.meta.get(changed_one.alloc_index()).unwrap();
-            meta.start = relocation.new_offset;
-            self
-              .meta
-              .set_value(changed_one.alloc_index(), meta)
-              .unwrap();
+      // todo, optimize!
+      let buffers_to_write = dirtied_one
+        .iter()
+        .filter_map(|one| {
+          multi_access.access_multi(one).map(|many_iter| {
+            let buffer = many_iter.map(|v| v.alloc_index()).collect::<Vec<_>>();
+            let buffer: &[u8] = cast_slice(&buffer);
+            let buffer = buffer.to_vec();
+            (*one, (Arc::new(buffer), None))
           })
-          .unwrap();
+        })
+        .collect::<FastHashMap<_, _>>();
 
-        let mut meta = *self.meta.get(changed_one.alloc_index()).unwrap();
-        meta.start = offset;
-        meta.len = many_idx.len() as u32;
-        self
-          .meta
-          .set_value(changed_one.alloc_index(), meta)
-          .unwrap();
-      }
+      let allocation_changes = allocator.write().update(
+        dirtied_one.iter().copied(),
+        buffers_to_write
+          .iter()
+          .map(|(k, v)| (*k, v.0.len() as u32 / 4)),
+      );
+
+      let source_buffer = allocation_changes.resize_to.map(|new_size| {
+        let mut gpu_buffer = many_side_buffer_.write();
+        let buffer = gpu_buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
+        // here we do(request) resize at spawn stage to avoid resize again and again
+        gpu_buffer.resize(new_size);
+        buffer
+      });
+
+      Arc::new(RangeAllocateBufferUpdates {
+        buffers_to_write,
+        allocation_changes: BatchAllocateResultShared(Arc::new(allocation_changes), 4),
+        source_buffer,
+      })
+    },
+  );
+
+  let (changes, changes_) = changes.fork();
+
+  let updates = changes
+    .map_only_spawn_stage_in_thread(
+      cx,
+      |changes| !changes.allocation_changes.has_change(),
+      |changes| {
+        let mut write_src = SparseBufferWritesSource::default();
+        let item_size = std::mem::size_of::<GPURangeInfo>() as u32;
+        // todo, avoid resize
+        changes
+          .allocation_changes
+          .iter_update_or_insert()
+          .for_each(|(id, value)| {
+            let w_offset = item_size * id.alloc_index();
+            let [offset, count] = value;
+
+            let value = GPURangeInfo {
+              start: offset / 4,
+              len: count / 4,
+              ..Default::default()
+            };
+            write_src.collect_write(bytes_of(&value), w_offset as u64);
+          });
+        Arc::new(write_src)
+      },
+    )
+    .use_assure_result(cx);
+
+  let changes_ = changes_.use_assure_result(cx);
+
+  let (cx, one_side_buffer) = cx.use_gpu_init(|gpu, alloc| {
+    let buffer = alloc.allocate_readonly::<[GPURangeInfo]>(
+      (init.init_one_count_capacity * std::mem::size_of::<GPURangeInfo>() as u32) as u64,
+      &gpu.device,
+      Some(&format!("multi-access-one-side: {}", label)),
+    );
+    Arc::new(RwLock::new(buffer))
+  });
+
+  cx.when_render(|| {
+    {
+      let updates = updates.expect_resolve_stage();
+      let buffer = one_side_buffer.write();
+      // todo, this may failed if we support texture as storage buffer
+      let target_buffer = buffer.get_gpu_buffer_view().unwrap();
+      let mut encoder = cx.gpu.create_encoder(); // todo, reuse encoder and pass
+      encoder.compute_pass_scoped(|mut pass| {
+        updates.write(&cx.gpu.device, &mut pass, target_buffer);
+      });
+      cx.gpu.queue.submit_encoder(encoder);
+    }
+
+    {
+      let buffer = many_side_buffer
+        .write()
+        .abstract_gpu()
+        .get_gpu_buffer_view()
+        .unwrap();
+      let changes_ = changes_.expect_resolve_stage();
+      changes_.write(cx.gpu, &buffer, 4);
+      //
     }
 
     MultiAccessGPUData {
-      meta: self.meta.gpu().clone(),
-      indices: self.allocator.gpu().clone(),
+      meta: one_side_buffer.read().gpu().clone(),
+      indices: many_side_buffer.read().gpu().clone(),
     }
-  }
+  })
 }
 
 #[derive(Clone)]
@@ -127,7 +184,7 @@ impl MultiAccessGPUData {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, PartialEq)]
+#[derive(Copy, Clone, ShaderStruct, PartialEq, Debug)]
 pub struct GPURangeInfo {
   pub start: u32,
   pub len: u32,

@@ -31,16 +31,12 @@ pub fn use_point_light_storage(
   light.use_max_item_count_by_db_entity::<PointLightEntity>(cx);
   light.use_update(cx);
 
-  let (cx, multi_acc) = cx.use_gpu_multi_access_states(light_multi_access_config());
-
-  let updates = cx
-    .use_db_rev_ref_tri_view::<PointLightRefScene>()
-    .use_assure_result(cx);
+  let updates = cx.use_db_rev_ref_tri_view::<PointLightRefScene>();
+  let multi_access = use_multi_access_gpu(cx, &light_multi_access_config(), updates, "point light");
 
   cx.when_render(|| {
     let light = light.get_gpu_buffer();
-    let multi_access = multi_acc.update(updates.expect_resolve_stage());
-    (light, multi_access)
+    (light, multi_access.unwrap())
   })
 }
 

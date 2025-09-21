@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use database::RawEntityHandle;
 
 use crate::*;
@@ -233,6 +235,45 @@ impl GrowableRangeAllocator {
       } else {
         results.notify_failed_to_allocate(*k);
       }
+    }
+  }
+}
+
+pub struct RangeAllocateBufferUpdates {
+  pub buffers_to_write: FastHashMap<RawEntityHandle, (Arc<Vec<u8>>, Option<Range<usize>>)>,
+  pub allocation_changes: BatchAllocateResultShared,
+  pub source_buffer: Option<GPUBufferResourceView>,
+}
+
+impl RangeAllocateBufferUpdates {
+  pub fn write(&self, gpu: &GPU, gpu_buffer: &GPUBufferResourceView, item_byte_size: u32) {
+    if let Some(source) = &self.source_buffer {
+      let mut encoder = gpu.create_encoder();
+      for (_, movement) in &self.allocation_changes.0.data_movements {
+        encoder.copy_buffer_to_buffer(
+          source.resource.gpu(),
+          source.desc.offset + (movement.old_offset * item_byte_size) as u64,
+          gpu_buffer.resource.gpu(),
+          gpu_buffer.desc.offset + (movement.new_offset * item_byte_size) as u64,
+          (movement.count * item_byte_size) as u64,
+        );
+      }
+      gpu.queue.submit_encoder(encoder);
+    }
+
+    for (k, (write_offset, size)) in &self.allocation_changes.0.new_data_to_write {
+      let (buffer, range) = self.buffers_to_write.get(k).unwrap();
+      let buffer = if let Some(range) = range {
+        &buffer[range.clone()]
+      } else {
+        buffer
+      };
+      assert_eq!(buffer.len(), (*size * item_byte_size) as usize);
+      gpu.queue.write_buffer(
+        gpu_buffer.resource.gpu(),
+        (write_offset * item_byte_size) as u64 + gpu_buffer.desc.offset,
+        buffer,
+      );
     }
   }
 }
