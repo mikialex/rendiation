@@ -50,7 +50,7 @@ pub fn build_ray_hit_shader(
           light_sample.radiance / light_sample.pdf.splat(),
           zeroed_val(),
         ),
-        light_sample_dir: out_ray_origin,
+        light_sample_dir: light_sample.sampling_dir,
       }
       .construct();
 
