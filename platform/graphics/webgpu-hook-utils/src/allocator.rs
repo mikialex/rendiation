@@ -44,6 +44,13 @@ pub struct BatchAllocateResult {
   pub resize_to: Option<u32>,
 }
 
+impl BatchAllocateResult {
+  /// these three set should be exclusive
+  pub fn change_count(&self) -> usize {
+    self.removed.len() + self.failed_to_allocate.len() + self.data_movements.len()
+  }
+}
+
 #[derive(Clone)]
 pub struct BatchAllocateResultShared(pub Arc<BatchAllocateResult>, pub u32); // (_, u32_per_item)
 

@@ -228,6 +228,7 @@ pub trait QueryHookCxLike: HooksCxLike {
   ) -> UseResult<<Provider::Result as DualQueryLike>::View> {
     let key = provider.compute_share_key();
     let consumer_id = self.use_shared_consumer(key);
+    // todo, reuse compute of use_shared_dual_query
     let result = self.use_shared_compute_internal(
       &|cx| provider.use_logic(cx).map(|r| r.materialize_delta()),
       key,
@@ -237,6 +238,7 @@ pub trait QueryHookCxLike: HooksCxLike {
     result.map(|r| r.view()) // here we don't care to sync the change
   }
 
+  // todo, materialize_delta should in worker
   fn use_shared_dual_query<Provider, K: CKey, V: CValue>(
     &mut self,
     provider: Provider,
