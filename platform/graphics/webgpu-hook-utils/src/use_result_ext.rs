@@ -42,6 +42,24 @@ pub trait DataChangeGPUExtForUseResult<K: LinearIdentified + CKey> {
     field_offset: usize,
   ) where
     U: Std430 + ShaderSizedValueNodeType + Default;
+
+  fn update_storage_array_with_host<U>(
+    self,
+    cx: &mut QueryGPUHookCx,
+    storage: &mut SparseUpdateStorageWithHostBuffer<U>,
+    field_offset: usize,
+  ) where
+    U: Std430 + ShaderSizedValueNodeType + Default,
+    K: LinearIdentified + CKey;
+
+  fn update_storage_array_raw<U>(
+    self,
+    cx: &mut QueryGPUHookCx,
+    collector: Option<&mut SparseUpdateCollector>,
+    field_offset: usize,
+  ) where
+    U: Std430 + ShaderSizedValueNodeType + Default,
+    K: LinearIdentified + CKey;
 }
 
 impl<K, T> DataChangeGPUExtForUseResult<K> for UseResult<T>
@@ -89,6 +107,30 @@ where
     U: Std430 + ShaderSizedValueNodeType + Default,
     K: LinearIdentified + CKey,
   {
+    self.update_storage_array_raw::<U>(cx, storage.collector.as_mut(), field_offset);
+  }
+
+  fn update_storage_array_with_host<U>(
+    self,
+    cx: &mut QueryGPUHookCx,
+    storage: &mut SparseUpdateStorageWithHostBuffer<U>,
+    field_offset: usize,
+  ) where
+    U: Std430 + ShaderSizedValueNodeType + Default,
+    K: LinearIdentified + CKey,
+  {
+    self.update_storage_array_raw::<U>(cx, storage.collector.as_mut(), field_offset);
+  }
+
+  fn update_storage_array_raw<U>(
+    self,
+    cx: &mut QueryGPUHookCx,
+    collector: Option<&mut SparseUpdateCollector>,
+    field_offset: usize,
+  ) where
+    U: Std430 + ShaderSizedValueNodeType + Default,
+    K: LinearIdentified + CKey,
+  {
     // todo, disable this check in release
     let (cx, has_change) = cx.use_plain_state_default::<bool>();
     let r = match self {
@@ -112,7 +154,7 @@ where
 
     if let GPUQueryHookStage::Update { spawner, .. } = cx.stage {
       let spawner = spawner.clone();
-      let collector = storage.collector.as_mut().unwrap();
+      let collector = collector.unwrap();
 
       let f = async move {
         let r = r.await;

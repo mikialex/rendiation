@@ -52,13 +52,26 @@ pub fn use_bindless_mesh(
   let (uv_range_change, uv) =
     use_attribute_vertex_updates(cx, max, init, AttributeSemantic::TexCoords(0), defer_resize);
 
-  let attribute_buffer_metadata = use_attribute_buffer_metadata(
-    cx,
-    indices_range_change,
-    position_range_change,
-    normal_range_change,
-    uv_range_change,
+  let (cx, metadata) = cx.use_storage_buffer_with_host_backup::<AttributeMeshMeta>(
+    "mesh buffer indirect range",
+    128,
+    u32::MAX,
   );
+
+  let offset = offset_of!(AttributeMeshMeta, index_offset);
+  indices_range_change.update_storage_array_with_host(cx, metadata, offset);
+
+  let offset = offset_of!(AttributeMeshMeta, position_offset);
+  position_range_change.update_storage_array_with_host(cx, metadata, offset);
+
+  let offset = offset_of!(AttributeMeshMeta, normal_offset);
+  normal_range_change.update_storage_array_with_host(cx, metadata, offset);
+
+  let offset = offset_of!(AttributeMeshMeta, uv_offset);
+  uv_range_change.update_storage_array_with_host(cx, metadata, offset);
+
+  metadata.use_max_item_count_by_db_entity::<AttributesMeshEntity>(cx);
+  metadata.use_update(cx);
 
   let (cx, sm_to_mesh_device) =
     cx.use_storage_buffer::<u32>("scene_model to mesh mapping", 128, u32::MAX);
@@ -81,7 +94,7 @@ pub fn use_bindless_mesh(
   sm_to_mesh_device.use_update(cx);
 
   cx.when_render(|| {
-    let vertex_address_buffer = attribute_buffer_metadata.read().gpu().clone();
+    let vertex_address_buffer = metadata.get_gpu_buffer();
     MeshGPUBindlessImpl {
       indices,
       position,
@@ -93,7 +106,7 @@ pub fn use_bindless_mesh(
         .read_foreign_key(),
       topology_checker: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
       vertex_address_buffer,
-      vertex_address_buffer_host: attribute_buffer_metadata.make_read_holder(),
+      vertex_address_buffer_host: metadata.buffer.make_read_holder(),
       sm_to_mesh_device: sm_to_mesh_device.get_gpu_buffer(),
       sm_to_mesh: sm_to_mesh.expect_resolve_stage(),
       used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info),
@@ -399,61 +412,6 @@ pub struct AttributeMeshMeta {
   pub uv_count: u32,
 }
 
-fn use_attribute_buffer_metadata(
-  cx: &mut QueryGPUHookCx,
-  index: UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
-  position: UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
-  normal: UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
-  uv: UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
-) -> Arc<RwLock<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>> {
-  let (cx, data) = cx.use_gpu_init(|gpu, alloc| {
-    let data = create_common_storage_buffer_with_host_backup_container(
-      128,
-      u32::MAX,
-      alloc,
-      gpu,
-      "mesh buffer indirect range",
-    );
-    Arc::new(RwLock::new(data))
-  });
-
-  let offset = offset_of!(AttributeMeshMeta, index_offset);
-  use_update(cx, data, index, offset);
-  let offset = offset_of!(AttributeMeshMeta, position_offset);
-  use_update(cx, data, position, offset);
-  let offset = offset_of!(AttributeMeshMeta, normal_offset);
-  use_update(cx, data, normal, offset);
-  let offset = offset_of!(AttributeMeshMeta, uv_offset);
-  use_update(cx, data, uv, offset);
-
-  fn use_update(
-    cx: &mut QueryGPUHookCx,
-    storage: &Arc<RwLock<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>>,
-    change: UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
-    field_offset: usize,
-  ) {
-    let change = change.use_assure_result(cx);
-    let r = match change {
-      UseResult::SpawnStageReady(r) => r,
-      UseResult::ResolveStageReady(r) => r,
-      _ => return,
-    };
-    if r.has_change() {
-      let mut storage = storage.write();
-      for (id, value) in r.iter_update_or_insert() {
-        println!("update mesh {id} {value:?}");
-        unsafe {
-          storage
-            .set_value_sub_bytes(id.alloc_index(), field_offset, bytes_of(&value))
-            .unwrap();
-        }
-      }
-    }
-  }
-
-  data.clone()
-}
-
 #[derive(Clone)]
 pub struct MeshGPUBindlessImpl {
   indices: StorageBufferReadonlyDataView<[u32]>,
@@ -463,7 +421,7 @@ pub struct MeshGPUBindlessImpl {
   vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   /// we keep the host metadata to support creating draw commands from host
   vertex_address_buffer_host:
-    LockReadGuardHolder<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
+    LockReadGuardHolder<SparseStorageBufferWithHostRaw<AttributeMeshMeta>>,
   sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
   sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
   checker: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
@@ -731,7 +689,7 @@ pub struct BindlessDrawCreator {
   sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
   sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
   vertex_address_buffer_host:
-    LockReadGuardHolder<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
+    LockReadGuardHolder<SparseStorageBufferWithHostRaw<AttributeMeshMeta>>,
 }
 impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand {
