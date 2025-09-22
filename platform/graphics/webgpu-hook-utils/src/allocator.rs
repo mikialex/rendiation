@@ -13,11 +13,6 @@ pub struct GrowableRangeAllocator {
   // user_handle => (size, offset, handle)
   ranges: FastHashMap<UserHandle, (u32, u32, AllocationHandle)>,
   // todo, try other allocator that support relocate and shrink??
-  //
-  // In the rust ecosystem, there are many allocator implementations but it's rare to find one for
-  // our use case, because what we want is an allocator to manage the external memory not the
-  // internal, which means the allocate does not own the memory and is unable to store internal
-  // allocation states and data structures into the requested but not allocated memory space.
   allocator: xalloc::SysTlsf<u32>,
 }
 
@@ -247,8 +242,88 @@ impl GrowableRangeAllocator {
   }
 }
 
+#[derive(Default)]
+pub struct RangeAllocateBufferCollector {
+  small_buffer_writes: Vec<u8>,
+  ///  handle -> small_buffer_writes offset
+  small_buffer_mapping: FastHashMap<UserHandle, (usize, usize)>,
+  large_buffer_writes: FastHashMap<UserHandle, (Arc<Vec<u8>>, Option<Range<usize>>)>,
+}
+
+const SMALL_BUFFER_THRESHOLD_BYTE_COUNT: usize = 256;
+
+impl RangeAllocateBufferCollector {
+  pub fn collect_shared(
+    &mut self,
+    handle: UserHandle,
+    (buffer, range): (Arc<Vec<u8>>, Option<Range<usize>>),
+  ) {
+    let buffer_slice = if let Some(range) = range.clone() {
+      buffer.get(range).unwrap()
+    } else {
+      buffer.as_slice()
+    };
+
+    if buffer_slice.len() < SMALL_BUFFER_THRESHOLD_BYTE_COUNT {
+      self.collect_small(handle, buffer_slice);
+    } else {
+      self.large_buffer_writes.insert(handle, (buffer, range));
+    }
+  }
+  pub fn collect_direct(&mut self, handle: UserHandle, bytes: &[u8]) {
+    if bytes.len() < SMALL_BUFFER_THRESHOLD_BYTE_COUNT {
+      self.collect_small(handle, bytes);
+    } else {
+      self
+        .large_buffer_writes
+        .insert(handle, (Arc::new(bytes.to_vec()), None));
+    }
+  }
+
+  fn collect_small(&mut self, handle: UserHandle, bytes: &[u8]) {
+    assert_eq!(bytes.len() % 4, 0);
+    let offset = self.small_buffer_writes.len();
+    self.small_buffer_writes.extend_from_slice(bytes);
+    self
+      .small_buffer_mapping
+      .insert(handle, (offset / 4, bytes.len() / 4));
+  }
+
+  pub fn prepare(
+    self,
+    allocation_changes: &BatchAllocateResult,
+    alloc_unit_item_byte_size: u32,
+  ) -> RangeAllocateBufferPrepared {
+    let mut offset_size = Vec::with_capacity(self.small_buffer_mapping.len() * 3);
+
+    for (k, (offset, size)) in self.small_buffer_mapping {
+      offset_size.push(offset as u32);
+      offset_size.push(size as u32);
+      let write_offset = allocation_changes.new_data_to_write.get(&k).unwrap().0;
+      assert_eq!(write_offset * alloc_unit_item_byte_size % 4, 0);
+      let write_offset = write_offset * alloc_unit_item_byte_size / 4;
+      offset_size.push(write_offset);
+    }
+
+    let small_buffer_writes = SparseBufferWritesSource {
+      data_to_write: self.small_buffer_writes,
+      offset_size,
+    };
+
+    RangeAllocateBufferPrepared {
+      small_buffer_writes,
+      large_buffer_writes: self.large_buffer_writes,
+    }
+  }
+}
+
+pub struct RangeAllocateBufferPrepared {
+  small_buffer_writes: SparseBufferWritesSource,
+  large_buffer_writes: FastHashMap<UserHandle, (Arc<Vec<u8>>, Option<Range<usize>>)>,
+}
+
 pub struct RangeAllocateBufferUpdates {
-  pub buffers_to_write: FastHashMap<RawEntityHandle, (Arc<Vec<u8>>, Option<Range<usize>>)>,
+  pub buffers_to_write: RangeAllocateBufferPrepared,
   pub allocation_changes: BatchAllocateResultShared,
   pub source_buffer: Option<GPUBufferResourceView>,
 }
@@ -269,19 +344,32 @@ impl RangeAllocateBufferUpdates {
       gpu.queue.submit_encoder(encoder);
     }
 
+    {
+      let mut encoder = gpu.create_encoder();
+      encoder.compute_pass_scoped(|mut pass| {
+        self
+          .buffers_to_write
+          .small_buffer_writes
+          .write(&gpu.device, &mut pass, gpu_buffer.clone());
+      });
+      gpu.queue.submit_encoder(encoder);
+    }
+
     for (k, (write_offset, size)) in &self.allocation_changes.0.new_data_to_write {
-      let (buffer, range) = self.buffers_to_write.get(k).unwrap();
-      let buffer = if let Some(range) = range {
-        &buffer[range.clone()]
-      } else {
-        buffer
-      };
-      assert_eq!(buffer.len(), (*size * item_byte_size) as usize);
-      gpu.queue.write_buffer(
-        gpu_buffer.resource.gpu(),
-        (write_offset * item_byte_size) as u64 + gpu_buffer.desc.offset,
-        buffer,
-      );
+      let large = &self.buffers_to_write.large_buffer_writes;
+      if let Some((buffer, range)) = large.get(k) {
+        let buffer = if let Some(range) = range {
+          &buffer[range.clone()]
+        } else {
+          buffer
+        };
+        assert_eq!(buffer.len(), (*size * item_byte_size) as usize);
+        gpu.queue.write_buffer(
+          gpu_buffer.resource.gpu(),
+          (write_offset * item_byte_size) as u64 + gpu_buffer.desc.offset,
+          buffer,
+        );
+      }
     }
   }
 }

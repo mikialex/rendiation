@@ -1,6 +1,5 @@
 use std::{mem::offset_of, sync::Arc};
 
-use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
 use rendiation_mesh_core::{AttributeReadSchema, AttributeSemantic};
 use rendiation_shader_api::*;
@@ -155,51 +154,49 @@ fn use_attribute_indices_updates(
 
     let data = get_db_view::<BufferEntityData>();
 
-    let buffers_to_write = change
-      .iter_update_or_insert()
-      .map(|(k, (buffer_id, range, count))| {
-        let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
+    // todo, avoid resize
+    let mut buffers_to_write = RangeAllocateBufferCollector::default();
+    let mut new_sizes = Vec::new();
 
-        let range = range.map(|range| {
-          let end = range
-            .size
-            .map(|v| (u64::from(v) + range.offset) as usize)
-            .unwrap_or(buffer.len());
-          range.offset as usize..end
-        });
+    for (k, (buffer_id, range, count)) in change.iter_update_or_insert() {
+      let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
 
-        let byte_per_item = buffer.len() / count as usize;
-        if byte_per_item != 4 && byte_per_item != 2 {
-          unreachable!("index count must be multiple of 2(u16) or 4(u32)")
+      let range = range.map(|range| {
+        let end = range
+          .size
+          .map(|v| (u64::from(v) + range.offset) as usize)
+          .unwrap_or(buffer.len());
+        range.offset as usize..end
+      });
+
+      let byte_per_item = buffer.len() / count as usize;
+      if byte_per_item != 4 && byte_per_item != 2 {
+        unreachable!("index count must be multiple of 2(u16) or 4(u32)")
+      }
+
+      let buffer = if byte_per_item == 2 {
+        let mut buffer = buffer.as_slice();
+        if let Some(range) = range {
+          buffer = &buffer[range];
         }
+        let buffer = bytemuck::cast_slice::<_, u16>(buffer);
+        let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
+        let buffer = bytemuck::cast_slice(&buffer).to_vec();
+        (Arc::new(buffer), None)
+      } else {
+        (buffer, range)
+      };
 
-        let buffer = if byte_per_item == 2 {
-          let mut buffer = buffer.as_slice();
-          if let Some(range) = range {
-            buffer = &buffer[range];
-          }
-          let buffer = bytemuck::cast_slice::<_, u16>(buffer);
-          let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
-          let buffer = bytemuck::cast_slice(&buffer).to_vec();
-          (Arc::new(buffer), None)
-        } else {
-          (buffer, range)
-        };
-
-        (k, buffer)
-      })
-      .collect::<FastHashMap<_, _>>();
-
-    let new_sizes = buffers_to_write.iter().map(|(k, v)| {
-      (
-        *k,
-        v.1.clone().map(|v| v.len()).unwrap_or(v.0.len()) as u32 / 4,
-      )
-    });
+      let size = buffer.1.clone().map(|v| v.len()).unwrap_or(buffer.0.len()) as u32 / 4;
+      buffers_to_write.collect_shared(k, buffer);
+      new_sizes.push((k, size));
+    }
 
     let changes = allocator
       .write()
       .update(removed_and_changed_keys, new_sizes);
+
+    let buffers_to_write = buffers_to_write.prepare(&changes, 4);
 
     let source_buffer = changes.resize_to.map(|new_size| {
       let mut gpu_buffer = gpu_buffer_.write();
@@ -303,32 +300,33 @@ fn use_attribute_vertex_updates(
         .chain(change.iter_update_or_insert().map(|(k, _)| k));
 
       let data = get_db_view::<BufferEntityData>();
-      let buffers_to_write = change
-        .iter_update_or_insert()
-        .map(|(k, (buffer_id, range))| {
-          let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
 
-          let range = range.map(|range| {
-            let end = range
-              .size
-              .map(|v| (u64::from(v) + range.offset) as usize)
-              .unwrap_or(buffer.len());
-            range.offset as usize..end
-          });
+      // todo, avoid resize
+      let mut buffers_to_write = RangeAllocateBufferCollector::default();
+      let mut sizes = Vec::new();
 
-          (k, (buffer, range))
-        })
-        .collect::<FastHashMap<_, _>>();
+      for (k, (buffer_id, range)) in change.iter_update_or_insert() {
+        let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
 
-      let sizes = buffers_to_write.iter().map(|(k, (buffer, range))| {
+        let range = range.map(|range| {
+          let end = range
+            .size
+            .map(|v| (u64::from(v) + range.offset) as usize)
+            .unwrap_or(buffer.len());
+          range.offset as usize..end
+        });
+
         let len = range
           .clone()
           .map(|range| range.len() as u32)
           .unwrap_or(buffer.len() as u32);
-        (*k, len / item_byte_size)
-      });
+        buffers_to_write.collect_shared(k, (buffer, range));
+        sizes.push((k, len / item_byte_size));
+      }
 
       let changes = allocator.write().update(removed_and_changed_keys, sizes);
+
+      let buffers_to_write = buffers_to_write.prepare(&changes, item_byte_size);
 
       let source_buffer = changes.resize_to.map(|new_size| {
         let mut gpu_buffer_ = gpu_buffer.write();
