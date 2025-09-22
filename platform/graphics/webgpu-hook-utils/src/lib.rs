@@ -14,8 +14,6 @@ mod hook;
 pub use hook::*;
 mod use_result_ext;
 pub use use_result_ext::*;
-mod storage_util;
-pub use storage_util::*;
 mod allocator;
 pub use allocator::*;
 mod multi_access;

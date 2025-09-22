@@ -268,3 +268,29 @@ impl Default for MeshletMetaData {
     }
   }
 }
+
+// this is legacy code, and will be reworked in future
+pub type CommonStorageBufferImplWithHostBackup<T> =
+  GrowableHostedDirectQueueUpdateBuffer<AbstractReadonlyStorageBuffer<[T]>>;
+
+pub fn create_common_storage_buffer_with_host_backup_container<T>(
+  init_capacity_item_count: u32,
+  max_item_count: u32,
+  allocator: &dyn AbstractStorageAllocator,
+  gpu_ctx: &GPU,
+  label: &str,
+) -> CommonStorageBufferImplWithHostBackup<T>
+where
+  T: Std430 + ShaderSizedValueNodeType + Default,
+{
+  let data = allocator.allocate_readonly(
+    make_init_size::<T>(init_capacity_item_count),
+    &gpu_ctx.device,
+    Some(label),
+  );
+  create_growable_buffer_with_host_back(gpu_ctx, data, max_item_count, false)
+}
+
+pub(crate) fn make_init_size<T: Std430>(size: u32) -> u64 {
+  ((size as usize) * std::mem::size_of::<T>()) as u64
+}

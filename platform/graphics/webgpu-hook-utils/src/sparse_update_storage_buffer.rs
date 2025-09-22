@@ -13,7 +13,8 @@ pub struct SparseUpdateStorageBuffer<T> {
   pub(crate) collector: Option<SparseUpdateCollector>,
 }
 
-type SparseUpdateCollector = Vec<Pin<Box<dyn Future<Output = SparseBufferWritesSource> + Send>>>;
+pub type SparseUpdateCollector =
+  Vec<Pin<Box<dyn Future<Output = SparseBufferWritesSource> + Send>>>;
 
 impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
   pub fn new(
@@ -54,6 +55,58 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
 
   pub fn use_update(&mut self, cx: &mut QueryGPUHookCx) {
     use_update_impl(cx, &mut self.collector, self.buffer.abstract_gpu());
+  }
+}
+
+pub type SparseStorageBufferWithHostRaw<T> = CustomGrowBehaviorMaintainer<
+  VecWithStorageBuffer<ResizableGPUBuffer<AbstractReadonlyStorageBuffer<[T]>>>,
+>;
+
+pub struct SparseUpdateStorageWithHostBuffer<T: Std430> {
+  pub buffer: Arc<RwLock<SparseStorageBufferWithHostRaw<T>>>,
+  pub(crate) collector: Option<SparseUpdateCollector>,
+}
+
+impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageWithHostBuffer<T> {
+  pub fn new(
+    label: &str,
+    init_capacity_item_count: u32,
+    max_item_count: u32,
+    allocator: &dyn AbstractStorageAllocator,
+    gpu: &GPU,
+  ) -> Self {
+    let buffer = allocator.allocate_readonly(
+      make_init_size::<T>(init_capacity_item_count),
+      &gpu.device,
+      Some(label),
+    );
+
+    let buffer = buffer
+      .with_direct_resize(gpu)
+      .with_vec_backup(T::zeroed(), false)
+      .with_default_grow_behavior(max_item_count);
+
+    SparseUpdateStorageWithHostBuffer {
+      buffer: Arc::new(RwLock::new(buffer)),
+      collector: None,
+    }
+  }
+}
+
+impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageWithHostBuffer<T> {
+  pub fn get_gpu_buffer(&self) -> AbstractReadonlyStorageBuffer<[T]> {
+    self.buffer.read().gpu().clone()
+  }
+
+  // todo, use reactive impl(watch db change)
+  pub fn use_max_item_count_by_db_entity<E: EntitySemantic>(&mut self, _cx: &mut QueryGPUHookCx) {
+    let size_require = database::global_database()
+      .access_ecg_dyn(E::entity_id(), |ecg| ecg.max_entity_count_in_history());
+    self.buffer.write().check_resize(size_require as u32);
+  }
+
+  pub fn use_update(&mut self, cx: &mut QueryGPUHookCx) {
+    use_update_impl(cx, &mut self.collector, self.buffer.write().abstract_gpu());
   }
 }
 
@@ -116,4 +169,8 @@ fn use_update_impl(
     }
     _ => {}
   }
+}
+
+fn make_init_size<T: Std430>(size: u32) -> u64 {
+  ((size as usize) * std::mem::size_of::<T>()) as u64
 }

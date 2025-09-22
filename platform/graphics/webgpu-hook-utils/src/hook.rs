@@ -144,6 +144,38 @@ impl<'a> QueryGPUHookCx<'a> {
     (cx, storage)
   }
 
+  pub fn use_storage_buffer_with_host_backup<V: Std430 + ShaderSizedValueNodeType>(
+    &mut self,
+    label: &str,
+    init_capacity_item_count: u32,
+    max_item_count: u32,
+  ) -> (&mut Self, &mut SparseUpdateStorageWithHostBuffer<V>) {
+    let (cx, storage) = self.use_gpu_init(|gpu, alloc| {
+      SparseUpdateStorageWithHostBuffer::new(
+        label,
+        init_capacity_item_count,
+        max_item_count,
+        alloc,
+        gpu,
+      )
+    });
+
+    if let GPUQueryHookStage::Update { .. } = &mut cx.stage {
+      storage.collector = Some(Default::default());
+    }
+
+    if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
+      let buffer_size: u64 = storage.get_gpu_buffer().byte_size();
+      let buffer_size = buffer_size as f32 / 1024.;
+      inspector.label(&format!(
+        "storage(with host backup): {}, size: {:.2} kb",
+        label, buffer_size
+      ));
+    }
+
+    (cx, storage)
+  }
+
   pub fn when_render<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
     self.is_in_render().then(f)
   }
