@@ -28,3 +28,17 @@ mod sparse_update_storage_buffer;
 pub use sparse_update_storage_buffer::*;
 
 pub type UniformArray<T, const N: usize> = UniformBufferDataView<Shader140Array<T, N>>;
+
+#[derive(Default, Clone)]
+pub struct DeferredOperations {
+  operations: Arc<RwLock<Vec<Box<dyn FnOnce() + Send + Sync>>>>,
+}
+
+impl DeferredOperations {
+  pub fn defer(&self, f: impl FnOnce() + Send + Sync + 'static) {
+    self.operations.write().push(Box::new(f));
+  }
+  pub fn flush(&self) {
+    self.operations.write().drain(..).for_each(|f| f());
+  }
+}

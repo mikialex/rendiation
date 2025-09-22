@@ -98,6 +98,7 @@ pub struct Viewer3dRenderingCtx {
   last_render_timestamp: Option<Instant>,
 
   init_pool_config: TexturePoolSourceInit,
+  bindless_mesh_init: BindlessMeshInit,
 }
 
 impl Viewer3dRenderingCtx {
@@ -109,6 +110,7 @@ impl Viewer3dRenderingCtx {
     init_config.prefer_bindless_for_indirect_texture_system =
       self.prefer_bindless_for_indirect_texture_system;
     init_config.enable_indirect_storage_combine = self.enable_indirect_storage_combine;
+    init_config.bindless_mesh_init = self.bindless_mesh_init;
   }
 
   pub fn gpu(&self) -> &GPU {
@@ -151,6 +153,7 @@ impl Viewer3dRenderingCtx {
       last_render_timestamp: Default::default(),
       init_pool_config: init_config.texture_pool_source_init_config,
       enable_indirect_storage_combine: init_config.enable_indirect_storage_combine,
+      bindless_mesh_init: init_config.bindless_mesh_init,
     }
   }
 
@@ -206,8 +209,10 @@ impl Viewer3dRenderingCtx {
         let pbr_sg_material = use_pbr_sg_material_storage(cx);
         scope.end(cx);
 
+        let (cx, defer_resizer) = cx.use_plain_state(DeferredOperations::default);
+        defer_resizer.flush(); // collect in spawn stage, flush at the beginning of update stage
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
-        let mesh = use_bindless_mesh(cx);
+        let mesh = use_bindless_mesh(cx, &self.bindless_mesh_init, defer_resizer);
         scope.end(cx);
 
         any_indirect_resource_changed = change_scope(cx);
@@ -264,7 +269,12 @@ impl Viewer3dRenderingCtx {
             let pbr_sg_material = use_pbr_sg_material_storage(cx);
             scope.end(cx);
 
-            let mesh = use_bindless_mesh(cx);
+            let (cx, defer_resizer) = cx.use_plain_state(DeferredOperations::default);
+            defer_resizer.flush(); // collect in spawn stage, flush at the beginning of update stage
+            let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
+            let mesh = use_bindless_mesh(cx, &self.bindless_mesh_init, defer_resizer);
+            scope.end(cx);
+
             any_indirect_resource_changed = change_scope(cx);
 
             rtx_materials_support = cx.when_render(|| {

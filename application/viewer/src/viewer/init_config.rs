@@ -1,6 +1,7 @@
 use std::{num::NonZeroU32, path::Path};
 
 use rendiation_lighting_shadow_map::MultiLayerTexturePackerConfig;
+use rendiation_scene_rendering_gpu_indirect::BindlessMeshInit;
 
 use crate::*;
 
@@ -17,6 +18,7 @@ pub struct ViewerInitConfig {
   pub texture_pool_source_init_config: TexturePoolSourceInit,
   /// None means use available parallelism, 1 means no parallelism
   pub thread_pool_thread_count: Option<usize>,
+  pub bindless_mesh_init: BindlessMeshInit,
 }
 
 const INIT_FILE_NAME: &str = "viewer_init_config.json";
@@ -68,6 +70,7 @@ impl Default for ViewerInitConfig {
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       texture_pool_source_init_config: init,
       thread_pool_thread_count: None,
+      bindless_mesh_init: Default::default(),
     }
   }
 }

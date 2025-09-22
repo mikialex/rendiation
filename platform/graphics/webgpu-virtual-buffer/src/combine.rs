@@ -113,13 +113,11 @@ impl CombinedBufferAllocatorInternal {
       return;
     }
 
-    if self.enable_debug_log_for_updating {
-      println!(
-        "combined buffer rebuild buffer <{}>, buffer exist:{}",
-        self.label,
-        self.buffer.is_some()
-      );
-    }
+    println!(
+      "combined buffer rebuild buffer <{}>, buffer exist:{}",
+      self.label,
+      self.buffer.is_some()
+    );
 
     // the sub buffer must be aligned to device limitation because user may directly
     // use the sub buffer as the storage/uniform binding

@@ -10,23 +10,48 @@ only_vertex!(IndirectAbstractMeshId, u32);
 
 use crate::*;
 
-pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl> {
-  let init_index_count = 200_000;
-  let max_index_count = init_index_count * 100;
-  let init_vertex_count = 100_000;
-  let max_vertex_count = init_vertex_count * 100;
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub struct BindlessMeshInit {
+  pub init_index_count: u32,
+  pub max_index_count: u32,
+  pub init_vertex_count: u32,
+  pub max_vertex_count: u32,
+}
+
+impl Default for BindlessMeshInit {
+  fn default() -> Self {
+    Self {
+      init_index_count: 200_000,
+      max_index_count: 200_000 * 100,
+      init_vertex_count: 100_000,
+      max_vertex_count: 100_000 * 100,
+    }
+  }
+}
+
+pub fn use_bindless_mesh(
+  cx: &mut QueryGPUHookCx,
+  init: &BindlessMeshInit,
+  defer_resize: &mut DeferredOperations,
+) -> Option<MeshGPUBindlessImpl> {
+  let BindlessMeshInit {
+    init_index_count,
+    max_index_count,
+    init_vertex_count,
+    max_vertex_count,
+  } = *init;
 
   let (indices_range_change, indices) =
-    use_attribute_indices_updates(cx, max_index_count as u32, init_index_count as u32);
+    use_attribute_indices_updates(cx, max_index_count, init_index_count, defer_resize);
 
-  let max = max_vertex_count as u32;
-  let init = init_vertex_count as u32;
+  let max = max_vertex_count;
+  let init = init_vertex_count;
   let (position_range_change, position) =
-    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Positions);
+    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Positions, defer_resize);
   let (normal_range_change, normal) =
-    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Normals);
+    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Normals, defer_resize);
   let (uv_range_change, uv) =
-    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::TexCoords(0));
+    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::TexCoords(0), defer_resize);
 
   let attribute_buffer_metadata = use_attribute_buffer_metadata(
     cx,
@@ -81,6 +106,7 @@ fn use_attribute_indices_updates(
   cx: &mut QueryGPUHookCx,
   max_item_count: u32,
   init_item_count: u32,
+  defer_resize: &mut DeferredOperations,
 ) -> (
   UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
   StorageBufferReadonlyDataView<[u32]>,
@@ -119,6 +145,7 @@ fn use_attribute_indices_updates(
 
   let allocator = allocator.clone();
   let gpu_buffer_ = gpu_buffer.clone();
+  let defer_resize = defer_resize.clone();
 
   let allocation_info = source_info.map_only_spawn_stage_in_thread_dual_query(cx, move |dual| {
     let change = dual.delta().into_change();
@@ -177,8 +204,13 @@ fn use_attribute_indices_updates(
     let source_buffer = changes.resize_to.map(|new_size| {
       let mut gpu_buffer = gpu_buffer_.write();
       let buffer = gpu_buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
-      // here we do(request) resize at spawn stage to avoid resize again and again
-      gpu_buffer.resize(new_size);
+
+      let gpu_buffer_ = gpu_buffer_.clone();
+      defer_resize.defer(move || {
+        // defer the resize, because when using combined storage allocator
+        // get_gpu_buffer_view call will do real buffer rebuild, which is costly
+        gpu_buffer_.write().resize(new_size);
+      });
       buffer
     });
 
@@ -213,6 +245,7 @@ fn use_attribute_vertex_updates(
   max_item_count: u32,
   init_item_count: u32,
   semantic: AttributeSemantic,
+  defer_resize: &mut DeferredOperations,
 ) -> (
   UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
   AbstractReadonlyStorageBuffer<[u32]>,
@@ -260,6 +293,7 @@ fn use_attribute_vertex_updates(
 
   let allocator = allocator.clone();
   let gpu_buffer = vertex_buffer.clone();
+  let defer_resize = defer_resize.clone();
 
   let allocation_info =
     source_info.map_only_spawn_stage_in_thread_dual_query(cx, move |source_info| {
@@ -297,9 +331,15 @@ fn use_attribute_vertex_updates(
       let changes = allocator.write().update(removed_and_changed_keys, sizes);
 
       let source_buffer = changes.resize_to.map(|new_size| {
-        let mut gpu_buffer = gpu_buffer.write();
-        let buffer = gpu_buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
-        gpu_buffer.resize(new_size * item_byte_size / 4);
+        let mut gpu_buffer_ = gpu_buffer.write();
+        let buffer = gpu_buffer_.abstract_gpu().get_gpu_buffer_view().unwrap();
+        let gpu_buffer = gpu_buffer.clone();
+        defer_resize.defer(move || {
+          // defer the resize, because when using combined storage allocator
+          // get_gpu_buffer_view call will do real buffer rebuild, which is costly
+          gpu_buffer.write().resize(new_size * item_byte_size / 4);
+        });
+
         buffer
       });
 
