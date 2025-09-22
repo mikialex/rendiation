@@ -55,25 +55,23 @@ pub fn use_multi_access_gpu(
         }
       }
 
-      // todo, optimize!
-      let buffers_to_write = dirtied_one
-        .iter()
-        .filter_map(|one| {
-          multi_access.access_multi(one).map(|many_iter| {
-            let buffer = many_iter.map(|v| v.alloc_index()).collect::<Vec<_>>();
-            let buffer: &[u8] = cast_slice(&buffer);
-            let buffer = buffer.to_vec();
-            (*one, (Arc::new(buffer), None))
-          })
-        })
-        .collect::<FastHashMap<_, _>>();
+      // todo, avoid resize
+      let mut buffers_to_write = RangeAllocateBufferCollector::default();
+      let mut sizes = Vec::new();
+      for one in &dirtied_one {
+        if let Some(many_iter) = multi_access.access_multi(one) {
+          let buffer = many_iter.map(|v| v.alloc_index()).collect::<Vec<_>>(); // todo, reuse allocation
+          let buffer: &[u8] = cast_slice(&buffer);
+          buffers_to_write.collect_direct(*one, buffer);
+          sizes.push((*one, buffer.len() as u32 / 4));
+        }
+      }
 
-      let allocation_changes = allocator.write().update(
-        dirtied_one.iter().copied(),
-        buffers_to_write
-          .iter()
-          .map(|(k, v)| (*k, v.0.len() as u32 / 4)),
-      );
+      let allocation_changes = allocator
+        .write()
+        .update(dirtied_one.iter().copied(), sizes.iter().copied());
+
+      let buffers_to_write = buffers_to_write.prepare(&allocation_changes, 4);
 
       let source_buffer = allocation_changes.resize_to.map(|new_size| {
         let mut gpu_buffer = many_side_buffer_.write();
