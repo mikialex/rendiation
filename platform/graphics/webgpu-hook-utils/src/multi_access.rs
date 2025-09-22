@@ -98,14 +98,15 @@ pub fn use_multi_access_gpu(
       cx,
       |changes| !changes.allocation_changes.has_change(),
       |changes| {
-        let mut write_src = SparseBufferWritesSource::default();
-        let item_size = std::mem::size_of::<GPURangeInfo>() as u32;
-        // todo, avoid resize
+        let item_size = std::mem::size_of::<GPURangeInfo>();
+        let change_count = changes.allocation_changes.0.change_count();
+        let mut write_src =
+          SparseBufferWritesSource::with_capacity(change_count * item_size, change_count);
         changes
           .allocation_changes
           .iter_update_or_insert()
           .for_each(|(id, value)| {
-            let w_offset = item_size * id.alloc_index();
+            let w_offset = item_size as u32 * id.alloc_index();
             let [offset, count] = value;
 
             let value = GPURangeInfo {

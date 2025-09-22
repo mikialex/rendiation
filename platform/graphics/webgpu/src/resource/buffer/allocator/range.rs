@@ -9,11 +9,6 @@ pub struct GPURangeAllocateMaintainer<T> {
   // offset => (size, handle)
   ranges: FastHashMap<u32, (u32, AllocationHandle)>,
   // todo, try other allocator that support relocate and shrink??
-  //
-  // In the rust ecosystem, there are many allocator implementations but it's rare to find one for
-  // our use case, because what we want is an allocator to manage the external memory not the
-  // internal, which means the allocate does not own the memory and is unable to store internal
-  // allocation states and data structures into the requested but not allocated memory space.
   allocator: xalloc::SysTlsf<u32>,
   buffer: T,
   gpu: GPU,
