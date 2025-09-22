@@ -96,6 +96,7 @@ impl BatchAllocateResult {
 
 impl GrowableRangeAllocator {
   pub fn new(max_item_count: u32, init_count: u32) -> Self {
+    assert!(init_count <= max_item_count);
     Self {
       max_item_count,
       current_count: init_count,

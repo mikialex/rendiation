@@ -9,6 +9,7 @@ fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 database = { path = "../../../utility/database" }
 log = { workspace = true }
 parking_lot = { workspace = true }
+serde = { workspace = true }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-mesh-core = { path = "../../../content/mesh/core" }
