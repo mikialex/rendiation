@@ -31,6 +31,7 @@ pub enum ScopedMessage<T> {
   Start,
   End,
   Message(T),
+  ReserveSpace(usize),
 }
 
 pub type ScopedValueChange<T> = ScopedMessage<IndexValueChange<T>>;

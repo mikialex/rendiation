@@ -30,6 +30,14 @@ pub struct AttributesMeshEntityFromAttributesMeshWriter {
   mesh: EntityWriter<AttributesMeshEntity>,
 }
 
+impl AttributesMeshEntityFromAttributesMeshWriter {
+  pub fn notify_reserve_changes(&mut self, size: usize, buffer: &mut EntityWriter<BufferEntity>) {
+    self.relation.notify_reserve_changes(size * 3); // assume 3 attributes
+    buffer.notify_reserve_changes(size * 3);
+    self.mesh.notify_reserve_changes(size);
+  }
+}
+
 pub trait AttributesMeshWriter {
   fn create_writer() -> AttributesMeshEntityFromAttributesMeshWriter;
   fn write(

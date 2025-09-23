@@ -134,6 +134,10 @@ pub(crate) fn add_listen<T: CValue>(
         sender.unlock();
         sender.is_closed()
       }
+      ScopedMessage::ReserveSpace(size) => {
+        sender.reserve_space(*size);
+        false
+      }
       ScopedMessage::Message(write) => {
         let change = write.change.map(|v| (*(v.0 as *const T)).clone());
         sender.send(write.idx, change);

@@ -52,6 +52,14 @@ impl<K: CKey, T: CValue> CollectiveMutationSender<K, T> {
     let mutations = &mut *self.inner.0.data_ptr();
     merge_change(mutations, (idx, change));
   }
+  /// # Safety
+  ///
+  /// this should be called when locked
+  pub unsafe fn reserve_space(&self, size: usize) {
+    let mutations = &mut *self.inner.0.data_ptr();
+    mutations.reserve(size);
+  }
+
   pub fn is_closed(&self) -> bool {
     // self inner is shared between sender and receiver, if not shared anymore it must be
     // receiver not exist anymore, so the channel is closed.

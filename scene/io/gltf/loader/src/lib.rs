@@ -101,14 +101,37 @@ pub fn write_gltf_at_node(
     }
   }
 
+  ctx
+    .io
+    .skin_writer
+    .notify_reserve_changes(document.skins().len());
   for skin in document.skins() {
     build_skin(skin, &mut ctx);
   }
 
+  ctx
+    .io
+    .animation
+    .notify_reserve_changes(document.animations().len());
   for animation in document.animations() {
     build_animation(animation, &mut ctx);
   }
 
+  ctx.io.tex_writer.notify_reserve_changes(ctx.images.len());
+  ctx
+    .io
+    .sampler_writer
+    .notify_reserve_changes(ctx.images.len());
+
+  let node_count = document.nodes().len();
+  ctx.io.node_writer.notify_reserve_changes(node_count);
+  // todo, count specific element count and do reserve
+  ctx.io.std_model_writer.notify_reserve_changes(node_count);
+  ctx.io.model_writer.notify_reserve_changes(node_count);
+  ctx
+    .io
+    .mesh_writer
+    .notify_reserve_changes(node_count, &mut ctx.io.buffer_writer);
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
       create_node_content_recursive(&node, &mut ctx);

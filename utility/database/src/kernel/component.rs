@@ -93,6 +93,10 @@ impl ComponentWriteViewUntyped {
     unsafe { self.data.get(idx.alloc_index()) }
   }
 
+  pub fn notify_reserve_changes(&mut self, count: usize) {
+    self.events.emit(&ScopedValueChange::ReserveSpace(count));
+  }
+
   /// # Safety
   ///
   /// idx must point to living data, data ptr must valid

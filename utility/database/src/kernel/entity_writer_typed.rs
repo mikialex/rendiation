@@ -31,6 +31,10 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self.inner
   }
 
+  pub fn notify_reserve_changes(&mut self, count: usize) {
+    self.inner.notify_reserve_changes(count);
+  }
+
   pub fn with_component_value_writer<C>(mut self, value: C::Data) -> Self
   where
     C: ComponentSemantic<Entity = E>,

@@ -21,6 +21,9 @@ pub fn use_db_scope<Cx: HooksCxLike>(cx: &mut Cx, scope: impl FnOnce(&mut Cx, &m
           ScopedMessage::End => {
             set.raw().unlock_exclusive();
           }
+          ScopedMessage::ReserveSpace(_size) => {
+            // todo, optimize
+          }
           ScopedMessage::Message(change) => {
             let set = &mut *set.data_ptr() as &mut EntityScopeSingle;
             match change.change {
@@ -351,6 +354,9 @@ pub fn watch_db_components_in_scope(
                   entity_scope.raw().unlock_shared()
                 }
                 change_collector.end_change();
+              }
+              ScopedMessage::ReserveSpace(_size) => {
+                // todo, optimize
               }
               ScopedMessage::Message(change) => {
                 let entity_scope = &*entity_scope.data_ptr() as &EntityScopeSingle;

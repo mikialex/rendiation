@@ -64,6 +64,16 @@ impl EntityWriterUntyped {
       .map(|(_, v)| v)
   }
 
+  pub fn notify_reserve_changes(&mut self, count: usize) {
+    self
+      .entity_watchers
+      .emit(&ScopedValueChange::ReserveSpace(count));
+
+    for (_, com) in &mut self.components {
+      com.component.notify_reserve_changes(count);
+    }
+  }
+
   pub fn new_entity(&mut self) -> RawEntityHandle {
     let handle = self.allocator.insert(());
     let handle = RawEntityHandle(handle);
