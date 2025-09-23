@@ -55,7 +55,7 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     let map = cx.use_shared_hash_map::<T::Key, T::Value>();
     self.map_only_spawn_stage_in_thread(
       cx,
-      |change| change.has_change(),
+      |change| !change.has_change(),
       move |change| {
         let mut mapping = map.write();
         let mut mutations = FastHashMap::<T::Key, ValueChange<T::Value>>::default();

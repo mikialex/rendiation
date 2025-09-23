@@ -34,7 +34,7 @@ pub fn use_multi_access_gpu(
   let allocator = allocator.clone();
   let changes = source.map_only_spawn_stage_in_thread(
     cx,
-    |source| !source.view_delta_ref().1.is_empty(),
+    |source| source.view_delta_ref().1.is_empty(),
     move |source| {
       let (multi_access, _, changes) = source.inv_view_view_delta();
 
