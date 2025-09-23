@@ -77,13 +77,18 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   register_sky_env_data_model();
   register_scene_mesh_lod_graph_data_model();
 
-  run_application(move |cx| {
-    use_egui_cx(cx, |cx, egui_cx| {
-      use_viewer(cx, egui_cx, |cx| {
-        content_logic(cx);
+  let init_config = ViewerInitConfig::from_default_json_or_default();
+
+  run_application(
+    init_config.init_only.wgpu_backend_select_override,
+    move |cx| {
+      use_egui_cx(cx, |cx, egui_cx| {
+        use_viewer(cx, egui_cx, &init_config, |cx| {
+          content_logic(cx);
+        });
       });
-    });
-  });
+    },
+  );
 }
 
 fn main() {

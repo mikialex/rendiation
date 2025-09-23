@@ -114,15 +114,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         ui.separator();
 
         ui.collapsing("Init config(not dynamic configurable)", |ui| {
-          ui.label(format!(
-            "enable_indirect_storage_combine: {}",
-            viewer.rendering.enable_indirect_storage_combine
-          ));
-          ui.label(format!(
-            "reverse z: {}",
-            viewer.rendering.ndc.enable_reverse_z
-          ));
-
+          ui.label(format!("{:#?}", viewer.rendering.init_config));
           if ui
             .button("export current viewer init and current config")
             .clicked()

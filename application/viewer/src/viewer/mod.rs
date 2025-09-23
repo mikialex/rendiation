@@ -291,13 +291,14 @@ pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(
 pub fn use_viewer<'a>(
   acx: &'a mut ApplicationCx,
   egui_ctx: &mut egui::Context,
+  init_config: &ViewerInitConfig,
   f: impl Fn(&mut ViewerCx),
 ) -> &'a mut Viewer {
-  // this state is only used once for the following object's initialization
-  let (acx, init_config) = acx.use_plain_state(ViewerInitConfig::from_default_json_or_default);
-
   let (acx, worker_thread_pool) = acx.use_plain_state(|| {
-    TaskSpawner::new("viewer_task_worker", init_config.thread_pool_thread_count)
+    TaskSpawner::new(
+      "viewer_task_worker",
+      init_config.init_only.thread_pool_thread_count,
+    )
   });
 
   let (acx, viewer) = acx.use_plain_state(|| {
@@ -442,7 +443,7 @@ impl Viewer {
     };
 
     let viewer_ndc = ViewerNDC {
-      enable_reverse_z: init_config.enable_reverse_z,
+      enable_reverse_z: init_config.init_only.enable_reverse_z,
     };
 
     Self {
@@ -458,11 +459,7 @@ impl Viewer {
   }
 
   pub fn export_init_config(&self) -> ViewerInitConfig {
-    let mut config = ViewerInitConfig {
-      enable_reverse_z: self.rendering.ndc.enable_reverse_z,
-      thread_pool_thread_count: self.terminal.ctx.worker.num_threads_config(),
-      ..Default::default()
-    };
+    let mut config = ViewerInitConfig::default();
     self.rendering.setup_init_config(&mut config);
     config
   }

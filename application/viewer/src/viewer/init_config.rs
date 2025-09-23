@@ -9,16 +9,56 @@ use crate::*;
 #[derive(Serialize, Deserialize)]
 #[serde(default)] // any missing field will be set to the struct's default
 pub struct ViewerInitConfig {
-  pub enable_reverse_z: bool,
   pub raster_backend_type: RasterizationRenderBackendType,
   pub prefer_bindless_for_indirect_texture_system: bool,
-  pub enable_indirect_storage_combine: bool,
   pub enable_indirect_occlusion_culling: bool,
   pub transparent_config: ViewerTransparentContentRenderStyle,
+  pub present_mode: PresentMode,
+  pub init_only: ViewerStaticInitConfig,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(default)] // any missing field will be set to the struct's default
+/// configs that can not be changed dynamically in runtime
+pub struct ViewerStaticInitConfig {
   pub texture_pool_source_init_config: TexturePoolSourceInit,
   /// None means use available parallelism, 1 means no parallelism
   pub thread_pool_thread_count: Option<usize>,
   pub bindless_mesh_init: BindlessMeshInit,
+  pub enable_indirect_storage_combine: bool,
+  pub enable_reverse_z: bool,
+  /// if not provided, the backend select will be automatically based on platform available
+  pub wgpu_backend_select_override: Option<Backends>,
+}
+
+impl Default for ViewerStaticInitConfig {
+  fn default() -> Self {
+    // this should passed in by user
+    let size = Size::from_u32_pair_min_one((4096, 4096));
+    let init = TexturePoolSourceInit {
+      init_texture_count_capacity: 128,
+      init_sampler_count_capacity: 128,
+      format: TextureFormat::Rgba8Unorm,
+      atlas_config: MultiLayerTexturePackerConfig {
+        max_size: SizeWithDepth {
+          depth: NonZeroU32::new(16).unwrap(),
+          size,
+        },
+        init_size: SizeWithDepth {
+          depth: NonZeroU32::new(1).unwrap(),
+          size,
+        },
+      },
+    };
+    Self {
+      enable_reverse_z: true,
+      texture_pool_source_init_config: init,
+      thread_pool_thread_count: None,
+      bindless_mesh_init: Default::default(),
+      wgpu_backend_select_override: None,
+      enable_indirect_storage_combine: true,
+    }
+  }
 }
 
 const INIT_FILE_NAME: &str = "viewer_init_config.json";
@@ -43,34 +83,13 @@ impl ViewerInitConfig {
 
 impl Default for ViewerInitConfig {
   fn default() -> Self {
-    // this should passed in by user
-    let size = Size::from_u32_pair_min_one((4096, 4096));
-    let init = TexturePoolSourceInit {
-      init_texture_count_capacity: 128,
-      init_sampler_count_capacity: 128,
-      format: TextureFormat::Rgba8Unorm,
-      atlas_config: MultiLayerTexturePackerConfig {
-        max_size: SizeWithDepth {
-          depth: NonZeroU32::new(16).unwrap(),
-          size,
-        },
-        init_size: SizeWithDepth {
-          depth: NonZeroU32::new(1).unwrap(),
-          size,
-        },
-      },
-    };
-
     Self {
-      enable_reverse_z: true,
+      present_mode: PresentMode::AutoVsync,
       raster_backend_type: RasterizationRenderBackendType::Indirect,
       prefer_bindless_for_indirect_texture_system: false,
       enable_indirect_occlusion_culling: false,
-      enable_indirect_storage_combine: true,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
-      texture_pool_source_init_config: init,
-      thread_pool_thread_count: None,
-      bindless_mesh_init: Default::default(),
+      init_only: ViewerStaticInitConfig::default(),
     }
   }
 }

@@ -9,7 +9,7 @@ only_vertex!(IndirectAbstractMeshId, u32);
 
 use crate::*;
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct BindlessMeshInit {
   pub init_index_count: u32,
   pub max_index_count: u32,

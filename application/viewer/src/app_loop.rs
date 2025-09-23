@@ -23,9 +23,9 @@ impl ApplicationWindowSurface {
     }
   }
 
-  pub fn internal(&self, v: impl FnOnce(&mut GPUSurface)) {
+  pub fn internal<R>(&self, v: impl FnOnce(&mut GPUSurface) -> R) -> R {
     let mut s = self.surface.write();
-    v(&mut s);
+    v(&mut s)
   }
 
   pub fn set_size(&mut self, size: Size) {
@@ -116,6 +116,7 @@ struct WinitAppImpl {
   app_logic: Box<dyn Fn(&mut ApplicationCx)>,
   title: String,
   has_existed: bool,
+  preferred_backends: Option<Backends>,
 }
 
 impl winit::application::ApplicationHandler for WinitAppImpl {
@@ -136,6 +137,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
           window_ref,
           Size::from_u32_pair_min_one((width, height)),
         )),
+        backends: self.preferred_backends.unwrap_or(Backends::all()),
         ..Default::default()
       };
 
@@ -240,7 +242,10 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
   }
 }
 
-pub fn run_application(app_logic: impl Fn(&mut ApplicationCx) + 'static) {
+pub fn run_application(
+  preferred_backends: Option<Backends>,
+  app_logic: impl Fn(&mut ApplicationCx) + 'static,
+) {
   let event_loop = EventLoop::new().unwrap();
 
   // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
@@ -253,6 +258,7 @@ pub fn run_application(app_logic: impl Fn(&mut ApplicationCx) + 'static) {
     app_logic: Box::new(app_logic),
     title: "Rendiation Viewer".to_string(),
     has_existed: false,
+    preferred_backends,
   };
 
   event_loop.run_app(&mut app).unwrap();
