@@ -299,20 +299,12 @@ pub trait QueryHookCxLike: HooksCxLike {
     {
       let shared = self.shared_hook_ctx().shared.entry(key).or_default();
       let mut shared = shared.write();
-      shared.consumer.insert(consumer_id);
+      shared.consumer.entry(consumer_id).or_insert_with(|| true);
     }
 
-    if let Some(&task_id) = self.shared_hook_ctx().task_id_mapping.get(&key) {
-      let changed = self.shared_hook_ctx().changed.contains(&key);
+    let r = if let Some(&task_id) = self.shared_hook_ctx().task_id_mapping.get(&key) {
       match self.stage() {
-        QueryHookStage::SpawnTask {
-          pool,
-          change_collector,
-          ..
-        } => {
-          if changed {
-            change_collector.notify_change();
-          }
+        QueryHookStage::SpawnTask { pool, .. } => {
           UseResult::SpawnStageFuture(pool.share_task_by_id(task_id))
         }
         QueryHookStage::ResolveTask { task, .. } => {
@@ -342,7 +334,25 @@ pub trait QueryHookCxLike: HooksCxLike {
           _ => UseResult::NotInStage,
         }
       })
+    };
+
+    if self.is_spawning_stage() {
+      let changed = {
+        let mut shared = self.shared_hook_ctx().shared.get(&key).unwrap().write();
+        shared.consumer.insert(consumer_id, false).unwrap()
+      };
+
+      if let QueryHookStage::SpawnTask {
+        change_collector, ..
+      } = self.stage()
+      {
+        if changed {
+          change_collector.notify_change();
+        }
+      }
     }
+
+    r
   }
 
   fn use_shared_consumer(&mut self, key: ShareKey) -> u32;
@@ -376,20 +386,19 @@ pub trait QueryHookCxLike: HooksCxLike {
       r
     };
 
-    let mut changed = false;
     if let QueryHookStage::SpawnTask {
       change_collector, ..
     } = self.stage()
     {
-      changed = change_collector.changed;
+      let changed = change_collector.changed;
       std::mem::swap(&mut old, change_collector);
       if changed {
         change_collector.notify_change();
       }
-    }
 
-    if changed {
-      self.shared_hook_ctx().changed.insert(key);
+      if changed {
+        shared.consumer.values_mut().for_each(|v| *v = true);
+      }
     }
 
     r
@@ -420,14 +429,12 @@ pub struct SharedHooksCtx {
   shared: FastHashMap<ShareKey, Arc<RwLock<SharedHookObject>>>,
   task_id_mapping: FastHashMap<ShareKey, u32>,
   pub reconciler: FastHashMap<ShareKey, Arc<dyn ChangeReconciler>>,
-  changed: FastHashSet<ShareKey>,
   next_consumer: u32,
 }
 
 impl SharedHooksCtx {
   pub fn reset_visiting(&mut self) {
     self.task_id_mapping.clear();
-    self.changed.clear();
     for r in self.reconciler.values() {
       r.reset();
     }
@@ -453,7 +460,7 @@ impl SharedHooksCtx {
     }
 
     let mut target = self.shared.get_mut(&key).unwrap().write();
-    assert!(target.consumer.remove(&id));
+    assert!(target.consumer.remove(&id).is_some());
     if target.consumer.is_empty() {
       drop(target);
       self.shared.remove(&key).unwrap().into()
@@ -469,7 +476,8 @@ pub struct SharedConsumerToken(pub u32, pub ShareKey);
 #[derive(Default)]
 pub struct SharedHookObject {
   pub memory: FunctionMemory,
-  pub consumer: FastHashSet<u32>,
+  /// map id to changed state
+  pub consumer: FastHashMap<u32, bool>,
 }
 
 pub trait ChangeReconciler: Send + Sync {
