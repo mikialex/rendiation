@@ -78,6 +78,12 @@ impl AbstractIndirectGPUTextureSystem for BindlessTextureSystem {
 
     let texture = textures.index(shader_texture_handle);
     let sampler = samplers.index(shader_sampler_handle);
-    texture.sample(sampler, uv)
+
+    if get_current_stage() == Some(ShaderStage::Fragment) {
+      texture.sample(sampler, uv)
+    } else {
+      // force disable mipmap compute(because using dpdx stuff is not supported in none fragment stage)
+      texture.sample_zero_level(sampler, uv)
+    }
   }
 }

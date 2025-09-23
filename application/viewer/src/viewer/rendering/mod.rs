@@ -215,8 +215,6 @@ impl Viewer3dRenderingCtx {
         let mesh = use_bindless_mesh(cx, &self.bindless_mesh_init, defer_resizer);
         scope.end(cx);
 
-        any_indirect_resource_changed = change_scope(cx);
-
         if self.rtx_renderer_enabled {
           rtx_materials_support = cx.when_render(|| {
             Arc::new(vec![
@@ -247,8 +245,13 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn IndirectModelShapeRenderImpl>
         });
 
-        use_indirect_renderer(cx, self.ndc.enable_reverse_z, materials, mesh, t_clone)
-          .map(|r| Box::new(r) as Box<dyn SceneRenderer>)
+        let renderer =
+          use_indirect_renderer(cx, self.ndc.enable_reverse_z, materials, mesh, t_clone)
+            .map(|r| Box::new(r) as Box<dyn SceneRenderer>);
+
+        any_indirect_resource_changed = change_scope(cx);
+
+        renderer
       }),
     };
 
