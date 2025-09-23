@@ -1,5 +1,6 @@
 #![feature(fn_traits)]
 #![feature(unboxed_closures)]
+#![feature(lazy_type_alias)]
 
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, Ordering};

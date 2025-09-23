@@ -26,6 +26,9 @@ pub struct DualQuery<T, U> {
 
 pub type BoxedDynDualQuery<K, V> = DualQuery<BoxedDynQuery<K, V>, BoxedDynQuery<K, ValueChange<V>>>;
 
+pub type MaterializedDeltaDualQuery<Q: DualQueryLike> =
+  DualQuery<Q::View, Arc<QueryMaterialized<Q::Key, ValueChange<Q::Value>>>>;
+
 pub trait DualQueryLike: Send + Sync + Clone + 'static {
   type Key: CKey;
   type Value: CValue;

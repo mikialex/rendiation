@@ -95,6 +95,8 @@ pub fn write_gltf_at_node(
     }
   }
 
+  let node_count = document.nodes().len();
+  ctx.io.node_writer.notify_reserve_changes(node_count);
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
       create_node_recursive(target, &node, &mut ctx);
@@ -123,8 +125,6 @@ pub fn write_gltf_at_node(
     .sampler_writer
     .notify_reserve_changes(ctx.images.len());
 
-  let node_count = document.nodes().len();
-  ctx.io.node_writer.notify_reserve_changes(node_count);
   // todo, count specific element count and do reserve
   ctx.io.std_model_writer.notify_reserve_changes(node_count);
   ctx.io.model_writer.notify_reserve_changes(node_count);

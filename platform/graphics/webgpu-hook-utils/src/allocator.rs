@@ -250,7 +250,7 @@ pub struct RangeAllocateBufferCollector {
   large_buffer_writes: FastHashMap<UserHandle, (Arc<Vec<u8>>, Option<Range<usize>>)>,
 }
 
-const SMALL_BUFFER_THRESHOLD_BYTE_COUNT: usize = 256;
+const SMALL_BUFFER_THRESHOLD_BYTE_COUNT: usize = 1024 * 5;
 
 impl RangeAllocateBufferCollector {
   pub fn collect_shared(
