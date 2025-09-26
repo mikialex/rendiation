@@ -67,6 +67,7 @@ pub struct BindingBuilder {
   checking_layouts: Option<Vec<Vec<ShaderBindingDescriptor>>>,
   current_index: usize,
   pub device: Option<GPUDevice>,
+  pub any_states: FastHashMap<u64, Box<dyn Any>>,
 }
 
 impl Default for BindingBuilder {
@@ -74,6 +75,7 @@ impl Default for BindingBuilder {
     Self {
       groups: std::array::from_fn(|_| BindGroupBuilder::default()),
       checking_layouts: Default::default(),
+      any_states: Default::default(),
       current_index: 0,
       device: None,
     }
@@ -88,10 +90,8 @@ pub trait AbstractPassBinding {
 impl BindingBuilder {
   pub fn new_with_device(device: GPUDevice) -> Self {
     Self {
-      groups: std::array::from_fn(|_| BindGroupBuilder::default()),
-      checking_layouts: Default::default(),
-      current_index: 0,
       device: device.into(),
+      ..Default::default()
     }
   }
 
@@ -132,6 +132,7 @@ impl BindingBuilder {
   pub fn reset(&mut self) {
     self.groups.iter_mut().for_each(|item| item.reset());
     self.checking_layouts = None;
+    self.any_states.clear();
   }
 
   pub fn with_bind<T>(mut self, item: &T) -> Self

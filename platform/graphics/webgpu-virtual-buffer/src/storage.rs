@@ -62,7 +62,6 @@ impl CombinedStorageBufferAllocator {
       internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
         gpu,
         label,
-        BufferUsages::STORAGE,
         if use_packed_layout {
           StructLayoutTarget::Packed
         } else {
@@ -81,7 +80,6 @@ impl CombinedStorageBufferAllocator {
       internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
         gpu,
         label,
-        BufferUsages::STORAGE,
         StructLayoutTarget::Packed,
         Some(T::ATOM),
         false,
