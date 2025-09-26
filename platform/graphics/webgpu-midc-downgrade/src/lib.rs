@@ -4,6 +4,9 @@ use rendiation_device_parallel_compute::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
+mod host_driven;
+pub use host_driven::*;
+
 only_vertex!(VertexIndexForMIDCDowngrade, u32);
 
 pub fn require_midc_downgrade(info: &GPUInfo) -> bool {
@@ -28,11 +31,15 @@ pub fn downgrade_multi_indirect_draw_count(
   {
     let draw_commands = if indexed {
       StorageDrawCommands::Indexed(
-        StorageBufferReadonlyDataView::try_from_raw(indirect_buffer).unwrap(),
+        StorageBufferReadonlyDataView::try_from_raw(indirect_buffer)
+          .unwrap()
+          .into(),
       )
     } else {
       StorageDrawCommands::NoneIndexed(
-        StorageBufferReadonlyDataView::try_from_raw(indirect_buffer).unwrap(),
+        StorageBufferReadonlyDataView::try_from_raw(indirect_buffer)
+          .unwrap()
+          .into(),
       )
     };
     assert!(draw_commands.cmd_count() > 0);
@@ -95,7 +102,7 @@ pub fn downgrade_multi_indirect_draw_count(
 
     (
       DowngradeMultiIndirectDrawCountHelper {
-        sub_draw_range_start_prefix_sum,
+        sub_draw_range_start_prefix_sum: sub_draw_range_start_prefix_sum.into(),
         draw_commands,
       },
       DrawCommand::Indirect {
@@ -109,8 +116,8 @@ pub fn downgrade_multi_indirect_draw_count(
 }
 
 pub struct DowngradeMultiIndirectDrawCountHelper {
-  sub_draw_range_start_prefix_sum: StorageBufferReadonlyDataView<[u32]>,
-  draw_commands: StorageDrawCommands,
+  pub(crate) sub_draw_range_start_prefix_sum: AbstractReadonlyStorageBuffer<[u32]>,
+  pub(crate) draw_commands: StorageDrawCommands,
 }
 
 impl ShaderHashProvider for DowngradeMultiIndirectDrawCountHelper {
