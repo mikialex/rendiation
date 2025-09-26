@@ -72,6 +72,7 @@ pub fn render_lighting_scene_content(
           let all_transparent_object = TransparentHostOrderer {
             world_bounding: renderer.sm_world_bounding.clone(),
           }
+          // todo, avoid this if not necessary
           .reorder_content(all_transparent_object.as_ref(), camera_position);
 
           SceneModelRenderBatch::Host(all_transparent_object)

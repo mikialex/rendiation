@@ -3,8 +3,10 @@
 
 use std::any::Any;
 use std::hash::Hash;
+use std::hash::Hasher;
 
 use database::*;
+use fast_hash_collection::FastHashMap;
 use rendiation_device_parallel_compute::*;
 use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_punctual::*;
@@ -14,6 +16,8 @@ use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 use serde::*;
+
+mod host_driven;
 
 mod node;
 pub use node::*;

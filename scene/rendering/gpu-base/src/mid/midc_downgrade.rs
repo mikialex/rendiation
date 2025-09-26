@@ -66,22 +66,7 @@ struct DowngradeMultiIndirectDrawCountHelperInvocationWithBaseImpl {
 
 impl IndirectBatchInvocationSource for DowngradeMultiIndirectDrawCountHelperInvocationWithBaseImpl {
   fn current_invocation_scene_model_id(&self, builder: &mut ShaderVertexBuilder) -> Node<u32> {
-    let vertex_index = builder.query::<VertexIndex>();
-
-    let MultiDrawDowngradeVertexInfo {
-      sub_draw_command_idx: _,
-      vertex_index_inside_sub_draw,
-      base_vertex_or_index_offset_for_sub_draw,
-      base_instance,
-    } = self.helper.get_current_vertex_draw_info(vertex_index);
-
-    builder.register::<VertexIndexForMIDCDowngrade>(
-      vertex_index_inside_sub_draw + base_vertex_or_index_offset_for_sub_draw,
-    );
-
-    builder.register::<VertexInstanceIndex>(base_instance);
-
-    base_instance
+    self.helper.current_invocation_scene_model_id(builder)
   }
 
   fn extra_register(&self, builder: &mut ShaderVertexBuilder) {

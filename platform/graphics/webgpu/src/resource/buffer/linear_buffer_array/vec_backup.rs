@@ -18,6 +18,7 @@ where
   }
 }
 
+// consider remove this entirely because it's useless
 // todo, not panic when out bound
 impl<T> LinearStorageDirectAccess for VecWithStorageBuffer<T>
 where
@@ -52,7 +53,8 @@ where
   ) -> Option<()> {
     let view = self.vec.get_mut(idx as usize)?;
     let view = bytes_of_mut(view);
-    let view = view.get_mut(field_byte_offset..(field_byte_offset + v.len()))?;
+    let offset = idx as usize * std::mem::size_of::<T::Item>() + field_byte_offset;
+    let view = view.get_mut(offset..(offset + v.len()))?;
     if self.diff && view == v {
       return Some(());
     }

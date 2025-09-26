@@ -156,7 +156,26 @@ pub struct MultiDrawDowngradeVertexInfo {
 }
 
 impl DowngradeMultiIndirectDrawCountHelperInvocation {
-  pub fn get_current_vertex_draw_info(&self, vertex_id: Node<u32>) -> MultiDrawDowngradeVertexInfo {
+  pub fn current_invocation_scene_model_id(&self, builder: &mut ShaderVertexBuilder) -> Node<u32> {
+    let vertex_index = builder.query::<VertexIndex>();
+
+    let MultiDrawDowngradeVertexInfo {
+      sub_draw_command_idx: _,
+      vertex_index_inside_sub_draw,
+      base_vertex_or_index_offset_for_sub_draw,
+      base_instance,
+    } = self.get_current_vertex_draw_info(vertex_index);
+
+    builder.register::<VertexIndexForMIDCDowngrade>(
+      vertex_index_inside_sub_draw + base_vertex_or_index_offset_for_sub_draw,
+    );
+
+    builder.register::<VertexInstanceIndex>(base_instance);
+
+    base_instance
+  }
+
+  fn get_current_vertex_draw_info(&self, vertex_id: Node<u32>) -> MultiDrawDowngradeVertexInfo {
     // binary search for current draw command
     let start = val(0_u32).make_local_var();
     let end = (self.sub_draw_range_start_prefix_sum.array_length() - val(2)).make_local_var();
