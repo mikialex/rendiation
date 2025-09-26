@@ -12,6 +12,7 @@ pub struct ViewerInitConfig {
   pub raster_backend_type: RasterizationRenderBackendType,
   pub prefer_bindless_for_indirect_texture_system: bool,
   pub enable_indirect_occlusion_culling: bool,
+  pub using_host_driven_indirect_draw: bool,
   pub transparent_config: ViewerTransparentContentRenderStyle,
   pub present_mode: PresentMode,
   pub init_only: ViewerStaticInitConfig,
@@ -88,6 +89,7 @@ impl Default for ViewerInitConfig {
       raster_backend_type: RasterizationRenderBackendType::Indirect,
       prefer_bindless_for_indirect_texture_system: false,
       enable_indirect_occlusion_culling: false,
+      using_host_driven_indirect_draw: false,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       init_only: ViewerStaticInitConfig::default(),
     }
