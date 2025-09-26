@@ -21,7 +21,8 @@ pub fn use_readonly_storage_buffer_combine(
   enable_combine: bool,
 ) -> StorageBufferCombineGuard {
   let (cx, allocator) = cx.use_gpu_init(|gpu, _| {
-    create_maybe_combined_storage_allocator(gpu, label, enable_combine, false, true)
+    let alloc = Box::new(DefaultStorageAllocator);
+    create_maybe_combined_storage_allocator(gpu, label, enable_combine, false, true, alloc)
   });
 
   // we could build storage allocator above existing allocator
@@ -49,6 +50,7 @@ pub fn create_maybe_combined_storage_allocator(
   enable_combine: bool,
   use_packed_layout: bool,
   readonly: bool,
+  internal_allocator: Box<dyn AbstractStorageAllocator>,
 ) -> Box<dyn AbstractStorageAllocator> {
   if enable_combine {
     Box::new(CombinedStorageBufferAllocator::new(
@@ -56,6 +58,7 @@ pub fn create_maybe_combined_storage_allocator(
       label,
       use_packed_layout,
       readonly,
+      internal_allocator,
     ))
   } else {
     Box::new(DefaultStorageAllocator)
@@ -68,7 +71,6 @@ pub enum MaybeCombinedAtomicU32StorageAllocator {
 }
 
 impl MaybeCombinedAtomicU32StorageAllocator {
-  /// label must unique across binding
   pub fn new(gpu: &GPU, label: impl Into<String>, enable_combine: bool) -> Self {
     if enable_combine {
       Self::Combined(CombinedAtomicArrayStorageBufferAllocator::new(gpu, label))

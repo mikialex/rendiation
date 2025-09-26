@@ -8,6 +8,7 @@ pub struct CombinedBufferAllocatorInternal {
   gpu: GPU,
   guid: u64,
   buffer: Option<Box<dyn AbstractBuffer>>,
+  alloc: Box<dyn AbstractStorageAllocator>,
   pending_writes: FastHashMap<usize, PendingWrites>,
   buffer_need_rebuild: bool,
   pub(crate) sub_buffer_u32_size_requirements: Vec<u32>,
@@ -31,18 +32,18 @@ struct PendingWrites {
 const MAX_BINDING_COUNT: usize = 1024;
 
 impl CombinedBufferAllocatorInternal {
-  /// label must unique across binding
-  /// todo, add check
   pub fn new(
     gpu: &GPU,
     label: impl Into<String>,
     layout: StructLayoutTarget,
     atomic: Option<ShaderAtomicValueType>,
     readonly: bool,
+    alloc: Box<dyn AbstractStorageAllocator>,
   ) -> Self {
     Self {
       label: label.into(),
       buffer: None,
+      alloc,
       guid: get_new_resource_guid() as u64,
       buffer_need_rebuild: true,
       sub_buffer_u32_size_requirements: Default::default(),
@@ -157,7 +158,7 @@ impl CombinedBufferAllocatorInternal {
         <[u32]>::maybe_unsized_ty()
       };
 
-      DefaultStorageAllocator.allocate_dyn_ty(
+      self.alloc.allocate_dyn_ty(
         byte_size,
         &self.gpu.device,
         heap_ty,
@@ -290,7 +291,7 @@ impl CombinedBufferAllocatorInternal {
       pub bind_index_array: ShaderPtrOf<[u32]>,
     }
 
-    let array = if let Some(r) = bind_builder.custom_states.get(label) {
+    let array = if let Some(r) = bind_builder.custom_states.get(&self.guid) {
       r
     } else {
       if self.enable_debug_log_for_binding {
@@ -319,10 +320,8 @@ impl CombinedBufferAllocatorInternal {
       };
       self.current_shader_recording_count = 0;
 
-      bind_builder
-        .custom_states
-        .insert(label.to_string(), Arc::new(meta));
-      bind_builder.custom_states.get(label).unwrap()
+      bind_builder.custom_states.insert(self.guid, Arc::new(meta));
+      bind_builder.custom_states.get(&self.guid).unwrap()
     };
 
     let ShaderMeta {

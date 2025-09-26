@@ -3,7 +3,7 @@ use crate::*;
 pub struct ShaderBindGroupBuilder {
   pub bindings: Vec<ShaderBindGroup>,
   pub current_index: usize,
-  pub custom_states: FastHashMap<String, Arc<dyn Any>>,
+  pub custom_states: FastHashMap<u64, Arc<dyn Any>>,
   binding_re_enter: BindingReEnter,
 }
 

@@ -109,6 +109,7 @@ impl DeviceTaskGraphBuildSource {
       enable_buffer_combine,
       true,
       false,
+      Box::new(DefaultStorageAllocator),
     );
     let atomic_allocator = MaybeCombinedAtomicU32StorageAllocator::new(
       &cx.gpu,

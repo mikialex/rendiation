@@ -120,6 +120,7 @@ fn create_task_graph<'a>(
       false,
       true,
       false,
+      Box::new(DefaultStorageAllocator),
     );
     let a_a = MaybeCombinedAtomicU32StorageAllocator::new(
       gpu,

@@ -54,10 +54,14 @@ fn rule_out_atomic_types(ty: &MaybeUnsizedValueType) {
 }
 
 impl CombinedStorageBufferAllocator {
-  /// label must unique across binding
-  ///
   /// using compact_layout could reduce memory usage but unable to share the data with host or other shader easily
-  pub fn new(gpu: &GPU, label: impl Into<String>, use_packed_layout: bool, readonly: bool) -> Self {
+  pub fn new(
+    gpu: &GPU,
+    label: impl Into<String>,
+    use_packed_layout: bool,
+    readonly: bool,
+    internal_allocator: Box<dyn AbstractStorageAllocator>,
+  ) -> Self {
     Self {
       internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
         gpu,
@@ -69,12 +73,12 @@ impl CombinedStorageBufferAllocator {
         },
         None,
         readonly,
+        internal_allocator,
       ))),
       for_atomic: false,
     }
   }
 
-  /// label must unique across binding
   pub fn new_atomic<T: AtomicityShaderNodeType>(gpu: &GPU, label: impl Into<String>) -> Self {
     Self {
       internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
@@ -83,6 +87,7 @@ impl CombinedStorageBufferAllocator {
         StructLayoutTarget::Packed,
         Some(T::ATOM),
         false,
+        Box::new(DefaultStorageAllocator),
       ))),
       for_atomic: true,
     }

@@ -1,6 +1,6 @@
 use crate::*;
 
-pub trait AbstractStorageAllocator: DynClone {
+pub trait AbstractStorageAllocator: DynClone + Send + Sync {
   fn allocate_dyn_ty(
     &self,
     byte_size: u64,
