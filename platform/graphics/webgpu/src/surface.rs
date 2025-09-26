@@ -70,12 +70,7 @@ impl<'a> GPUSurface<'a> {
       view_formats: vec![],
       width: Into::<usize>::into(init_resolution.width) as u32,
       height: Into::<usize>::into(init_resolution.height) as u32,
-      present_mode: if std::env::consts::OS == "windows" {
-        // disable vsync on windows in default config due to unreasonable high latency
-        gpu::PresentMode::AutoNoVsync
-      } else {
-        gpu::PresentMode::AutoVsync
-      },
+      present_mode: gpu::PresentMode::AutoVsync,
       alpha_mode: gpu::CompositeAlphaMode::Auto,
       desired_maximum_frame_latency: 2,
     };

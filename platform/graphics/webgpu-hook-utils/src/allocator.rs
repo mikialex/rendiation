@@ -350,7 +350,7 @@ impl RangeAllocateBufferUpdates {
         self
           .buffers_to_write
           .small_buffer_writes
-          .write(&gpu.device, &mut pass, gpu_buffer.clone());
+          .write(gpu, &mut pass, gpu_buffer.clone());
       });
       gpu.queue.submit_encoder(encoder);
     }

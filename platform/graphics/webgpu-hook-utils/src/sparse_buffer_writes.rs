@@ -60,12 +60,7 @@ impl SparseBufferWritesSource {
     self.offset_size.is_empty()
   }
 
-  pub fn write(
-    &self,
-    device: &GPUDevice,
-    pass: &mut GPUComputePass,
-    target_buffer: GPUBufferResourceView,
-  ) {
+  pub fn write(&self, gpu: &GPU, pass: &mut GPUComputePass, target_buffer: GPUBufferResourceView) {
     if self.is_empty() {
       return;
     }
@@ -79,13 +74,17 @@ impl SparseBufferWritesSource {
     }
 
     assert_eq!(self.offset_size.len() % 3, 0);
+    let device = &gpu.device;
 
     let data_to_write = cast_slice(&self.data_to_write); // todo, this may panic because unnecessary alignment check
     let data_to_write = create_gpu_readonly_storage::<[u32]>(data_to_write, device);
     let offset_size = create_gpu_readonly_storage::<[u32]>(&self.offset_size, device);
 
     let target_buffer = StorageBufferDataView::<[u32]>::try_from_raw(target_buffer).unwrap();
-    let workgroup_width = 1024; // todo, go wider if device limits support(1024 is min requirement in spec)?
+    let workgroup_width = gpu
+      .info()
+      .supported_limits
+      .max_compute_invocations_per_workgroup;
 
     let hasher = shader_hasher_from_marker_ty!(SparseBufferWrite);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {

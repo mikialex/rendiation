@@ -138,7 +138,7 @@ pub fn use_multi_access_gpu(
       let target_buffer = buffer.get_gpu_buffer_view().unwrap();
       let mut encoder = cx.gpu.create_encoder(); // todo, reuse encoder and pass
       encoder.compute_pass_scoped(|mut pass| {
-        updates.write(&cx.gpu.device, &mut pass, target_buffer);
+        updates.write(cx.gpu, &mut pass, target_buffer);
       });
       cx.gpu.queue.submit_encoder(encoder);
     }
