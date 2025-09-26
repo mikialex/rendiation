@@ -85,7 +85,7 @@ impl DeviceSceneModelRenderSubBatch {
         );
 
         let r = generator.materialize_storage_buffer_into(draw_command_buffer, cx);
-        let draw_command_buffer = StorageDrawCommands::Indexed(r.buffer);
+        let draw_command_buffer = StorageDrawCommands::Indexed(r.buffer.into());
         let draw_count = r.size.unwrap_or_else(|| {
           StorageBufferReadonlyDataView::create_by_with_extra_usage(
             &cx.gpu.device,
@@ -111,7 +111,7 @@ impl DeviceSceneModelRenderSubBatch {
         );
 
         let r = generator.materialize_storage_buffer_into(draw_command_buffer, cx);
-        let draw_command_buffer = StorageDrawCommands::NoneIndexed(r.buffer);
+        let draw_command_buffer = StorageDrawCommands::NoneIndexed(r.buffer.into());
         let draw_count = r.size.unwrap_or_else(|| {
           StorageBufferReadonlyDataView::create_by_with_extra_usage(
             &cx.gpu.device,
@@ -158,7 +158,7 @@ impl IndirectDrawProvider for MultiIndirectDrawBatch {
   fn draw_command(&self) -> DrawCommand {
     DrawCommand::MultiIndirectCount {
       indexed: matches!(&self.draw_command_buffer, StorageDrawCommands::Indexed(_)),
-      indirect_buffer: self.draw_command_buffer.indirect_buffer().clone(),
+      indirect_buffer: self.draw_command_buffer.indirect_buffer(),
       indirect_count: self.draw_count.gpu.clone(),
       max_count: self.draw_command_buffer.cmd_count(),
     }

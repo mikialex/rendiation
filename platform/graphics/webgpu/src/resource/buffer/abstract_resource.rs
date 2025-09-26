@@ -70,6 +70,13 @@ pub trait AbstractStorageAllocatorExt {
     device: &GPUDevice,
     label: Option<&str>,
   ) -> AbstractReadonlyStorageBuffer<T>;
+
+  fn allocate_readonly_init<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &self,
+    value: &T,
+    gpu: &GPU,
+    label: Option<&str>,
+  ) -> AbstractReadonlyStorageBuffer<T>;
 }
 impl<X> AbstractStorageAllocatorExt for X
 where
@@ -95,6 +102,30 @@ where
   ) -> AbstractReadonlyStorageBuffer<T> {
     AbstractReadonlyStorageBuffer {
       buffer: self.allocate_dyn_ty(byte_size, device, T::maybe_unsized_ty(), true, label),
+      phantom: Default::default(),
+    }
+  }
+
+  fn allocate_readonly_init<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &self,
+    value: &T,
+    gpu: &GPU,
+    label: Option<&str>,
+  ) -> AbstractReadonlyStorageBuffer<T> {
+    let value = value.bytes();
+
+    let buffer = self.allocate_dyn_ty(
+      value.len() as u64,
+      &gpu.device,
+      T::maybe_unsized_ty(),
+      true,
+      label,
+    );
+
+    buffer.write(value, 0, &gpu.queue);
+
+    AbstractReadonlyStorageBuffer {
+      buffer,
       phantom: Default::default(),
     }
   }
@@ -323,6 +354,12 @@ impl<T: ?Sized> Clone for AbstractStorageBuffer<T> {
 pub struct AbstractReadonlyStorageBuffer<T: ?Sized> {
   phantom: PhantomData<T>,
   pub(crate) buffer: BoxedAbstractBuffer,
+}
+
+impl<T: Std430> AbstractReadonlyStorageBuffer<[T]> {
+  pub fn item_count(&self) -> u32 {
+    (self.buffer.byte_size() / std::mem::size_of::<T>() as u64) as u32
+  }
 }
 
 impl<T: ?Sized + Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType>

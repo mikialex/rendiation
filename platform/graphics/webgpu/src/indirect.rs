@@ -78,8 +78,8 @@ pub struct DispatchIndirectArgsStorage {
 
 #[derive(Clone)]
 pub enum StorageDrawCommands {
-  Indexed(StorageBufferReadonlyDataView<[DrawIndexedIndirectArgsStorage]>),
-  NoneIndexed(StorageBufferReadonlyDataView<[DrawIndirectArgsStorage]>),
+  Indexed(AbstractReadonlyStorageBuffer<[DrawIndexedIndirectArgsStorage]>),
+  NoneIndexed(AbstractReadonlyStorageBuffer<[DrawIndirectArgsStorage]>),
 }
 
 impl StorageDrawCommands {
@@ -97,10 +97,10 @@ impl StorageDrawCommands {
     }
   }
 
-  pub fn indirect_buffer(&self) -> &GPUBufferResourceView {
+  pub fn indirect_buffer(&self) -> GPUBufferResourceView {
     match self {
-      Self::Indexed(buffer) => &buffer.gpu,
-      Self::NoneIndexed(buffer) => &buffer.gpu,
+      Self::Indexed(buffer) => buffer.get_gpu_buffer_view().unwrap(),
+      Self::NoneIndexed(buffer) => buffer.get_gpu_buffer_view().unwrap(),
     }
   }
 
