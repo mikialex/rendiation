@@ -15,7 +15,7 @@ pub fn downgrade_multi_indirect_draw_count_host_driven(
 ) -> (DowngradeMultiIndirectDrawCountHelper, DrawCommand) {
   let alloc = DefaultStorageAllocator;
 
-  let sub_draw_range_start_prefix_sum = match &draw {
+  let mut sub_draw_range_start_prefix_sum = match &draw {
     HostDrawCommands::Indexed(cmds) => cmds
       .iter()
       .map(|v| v.vertex_count)
@@ -39,9 +39,12 @@ pub fn downgrade_multi_indirect_draw_count_host_driven(
   let last = match &draw {
     HostDrawCommands::Indexed(cmds) => cmds.last().map(|v| v.vertex_count).unwrap_or(0),
     HostDrawCommands::NoneIndexed(cmds) => cmds.last().map(|v| v.vertex_count).unwrap_or(0),
-  };
+  } + sub_draw_range_start_prefix_sum.last().copied().unwrap_or(0);
 
-  let draw_call_sum = sub_draw_range_start_prefix_sum.last().unwrap_or(&0) + last;
+  sub_draw_range_start_prefix_sum.push(last);
+
+  let draw_call_sum = sub_draw_range_start_prefix_sum.last().copied().unwrap_or(0);
+
   let cmd = DrawCommand::Array {
     vertices: 0..draw_call_sum,
     instances: 0..1,

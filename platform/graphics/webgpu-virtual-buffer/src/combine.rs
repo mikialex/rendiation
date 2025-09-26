@@ -282,7 +282,6 @@ impl CombinedBufferAllocatorInternal {
     ty_desc: MaybeUnsizedValueType,
   ) -> BoxedShaderPtr {
     self.check_rebuild();
-    let label = &self.label;
 
     #[derive(Clone)]
     struct ShaderMeta {

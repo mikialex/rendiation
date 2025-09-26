@@ -1,7 +1,3 @@
-use std::hash::Hasher;
-
-use fast_hash_collection::FastHashMap;
-
 use crate::*;
 
 pub struct IndirectSceneRenderer {
@@ -9,6 +5,28 @@ pub struct IndirectSceneRenderer {
   pub renderer: Box<dyn IndirectBatchSceneModelRenderer>,
   pub reversed_depth: bool,
   pub using_host_driven_indirect_draw: bool,
+}
+
+impl IndirectSceneRenderer {
+  pub fn classify_draws(
+    &self,
+    iter: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+  ) -> FastHashMap<u64, Vec<EntityHandle<SceneModelEntity>>> {
+    let mut classifier = FastHashMap::default();
+
+    for sm in iter {
+      let mut hasher = PipelineHasher::default();
+      self
+        .renderer
+        .hash_shader_group_key_with_self_type_info(sm, &mut hasher)
+        .expect("unable to find indirect group key for scene_model");
+      let shader_hash = hasher.finish();
+      let list = classifier.entry(shader_hash).or_insert_with(Vec::new);
+      list.push(sm);
+    }
+
+    classifier
+  }
 }
 
 impl SceneModelRenderer for IndirectSceneRenderer {
@@ -29,21 +47,10 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
     &self,
     iter: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
   ) -> DeviceSceneModelRenderBatch {
-    let mut classifier = FastHashMap::default();
-
-    for sm in iter {
-      let mut hasher = PipelineHasher::default();
-      self
-        .renderer
-        .hash_shader_group_key_with_self_type_info(sm, &mut hasher)
-        .expect("unable to find indirect group key for scene_model");
-      let shader_hash = hasher.finish();
-      let list = classifier.entry(shader_hash).or_insert_with(Vec::new);
-      list.push(sm);
-    }
+    let classifier = self.classify_draws(iter);
 
     let sub_batches = classifier
-      .drain()
+      .iter()
       .map(|(_, list)| {
         let scene_models: Vec<_> = list.iter().map(|sm| sm.alloc_index()).collect();
         let scene_models = Box::new(scene_models);
@@ -81,7 +88,7 @@ impl SceneRenderer for IndirectSceneRenderer {
       SceneModelRenderBatch::Device(batch) => batch,
       SceneModelRenderBatch::Host(batch) => {
         if self.using_host_driven_indirect_draw {
-          return todo!();
+          return self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass);
         }
         self.create_batch_from_iter(&mut batch.iter_scene_models())
       }
@@ -108,16 +115,16 @@ impl SceneRenderer for IndirectSceneRenderer {
   }
 }
 
-struct IndirectScenePassContent<'a> {
-  renderer: &'a IndirectSceneRenderer,
-  content: Vec<(
+pub struct IndirectScenePassContent<'a> {
+  pub renderer: &'a IndirectSceneRenderer,
+  pub content: Vec<(
     Box<dyn IndirectDrawProvider>,
     EntityHandle<SceneModelEntity>,
   )>,
 
-  pass: &'a dyn RenderComponent,
-  camera: &'a dyn RenderComponent,
-  reversed_depth: bool,
+  pub pass: &'a dyn RenderComponent,
+  pub camera: &'a dyn RenderComponent,
+  pub reversed_depth: bool,
 }
 
 impl PassContent for IndirectScenePassContent<'_> {

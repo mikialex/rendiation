@@ -27,6 +27,22 @@ impl SparseBufferWritesSource {
     }
   }
 
+  pub fn iter_updates(&self) -> impl Iterator<Item = (usize, &[u8])> {
+    self
+      .offset_size
+      .iter()
+      .array_chunks::<3>()
+      .map(|[src_offset, write_size, target_offset]| {
+        let src_offset = src_offset * 4;
+        let write_size = write_size * 4;
+        let target_offset = target_offset * 4;
+        (
+          target_offset as usize,
+          &self.data_to_write[src_offset as usize..(src_offset + write_size) as usize],
+        )
+      })
+  }
+
   pub fn merge(&mut self, other: SparseBufferWritesSource) {
     let base_offset = self.data_to_write.len() as u32 / 4;
 
