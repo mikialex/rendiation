@@ -76,6 +76,7 @@ pub struct Viewer3dRenderingCtx {
   pub(crate) ndc: ViewerNDC,
   frame_logic: ViewerFrameLogic,
   enable_indirect_occlusion_culling: bool,
+  using_host_driven_indirect_draw: bool,
   current_renderer_impl_ty: RasterizationRenderBackendType,
   rtx_effect_mode: RayTracingEffectMode,
   rtx_renderer_enabled: bool,
@@ -128,6 +129,7 @@ impl Viewer3dRenderingCtx {
       prefer_bindless_for_indirect_texture_system: init_config
         .prefer_bindless_for_indirect_texture_system,
       enable_statistic_collect: false,
+      using_host_driven_indirect_draw: init_config.using_host_driven_indirect_draw,
       frame_index: 0,
       ndc,
       swap_chain,
@@ -240,9 +242,17 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn IndirectModelShapeRenderImpl>
         });
 
-        let renderer =
-          use_indirect_renderer(cx, self.ndc.enable_reverse_z, materials, mesh, t_clone)
-            .map(|r| Box::new(r) as Box<dyn SceneRenderer>);
+        let std_model = use_std_model_renderer(cx, materials, mesh);
+        let scene_model = use_indirect_scene_model(cx, std_model.map(|v| Box::new(v) as Box<_>));
+
+        let renderer = cx
+          .when_render(|| IndirectSceneRenderer {
+            texture_system: t_clone.unwrap(),
+            renderer: scene_model.map(|v| Box::new(v) as Box<_>).unwrap(),
+            reversed_depth: self.ndc.enable_reverse_z,
+            using_host_driven_indirect_draw: self.using_host_driven_indirect_draw,
+          })
+          .map(|r| Box::new(r) as Box<dyn SceneRenderer>);
 
         any_indirect_resource_changed = change_scope(cx);
 

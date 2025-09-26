@@ -325,6 +325,21 @@ pub struct AbstractReadonlyStorageBuffer<T: ?Sized> {
   pub(crate) buffer: BoxedAbstractBuffer,
 }
 
+impl<T: ?Sized + Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType>
+  From<StorageBufferReadonlyDataView<T>> for AbstractReadonlyStorageBuffer<T>
+{
+  fn from(value: StorageBufferReadonlyDataView<T>) -> Self {
+    Self {
+      phantom: Default::default(),
+      buffer: Box::new(DynTypedStorageBuffer {
+        buffer: value.gpu,
+        ty: T::maybe_unsized_ty(),
+        readonly: true,
+      }),
+    }
+  }
+}
+
 impl<T: ?Sized> Deref for AbstractReadonlyStorageBuffer<T> {
   type Target = BoxedAbstractBuffer;
 

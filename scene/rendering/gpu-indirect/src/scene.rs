@@ -4,28 +4,11 @@ use fast_hash_collection::FastHashMap;
 
 use crate::*;
 
-pub fn use_indirect_renderer(
-  cx: &mut QueryGPUHookCx,
-  reversed_depth: bool,
-  materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
-  mesh: Option<Box<dyn IndirectModelShapeRenderImpl>>,
-  texture_system: Option<GPUTextureBindingSystem>,
-) -> Option<IndirectSceneRenderer> {
-  let std_model = use_std_model_renderer(cx, materials, mesh);
-
-  let scene_model = use_indirect_scene_model(cx, std_model.map(|v| Box::new(v) as Box<_>));
-
-  cx.when_render(|| IndirectSceneRenderer {
-    texture_system: texture_system.unwrap(),
-    renderer: scene_model.map(|v| Box::new(v) as Box<_>).unwrap(),
-    reversed_depth,
-  })
-}
-
 pub struct IndirectSceneRenderer {
-  texture_system: GPUTextureBindingSystem,
-  renderer: Box<dyn IndirectBatchSceneModelRenderer>,
-  reversed_depth: bool,
+  pub texture_system: GPUTextureBindingSystem,
+  pub renderer: Box<dyn IndirectBatchSceneModelRenderer>,
+  pub reversed_depth: bool,
+  pub using_host_driven_indirect_draw: bool,
 }
 
 impl SceneModelRenderer for IndirectSceneRenderer {
@@ -81,7 +64,11 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
 
 impl SceneRenderer for IndirectSceneRenderer {
   fn indirect_batch_direct_creator(&self) -> Option<&dyn SceneDeviceBatchDirectCreator> {
-    Some(self)
+    if self.using_host_driven_indirect_draw {
+      None
+    } else {
+      Some(self)
+    }
   }
   fn make_scene_batch_pass_content<'a>(
     &'a self,
@@ -93,6 +80,9 @@ impl SceneRenderer for IndirectSceneRenderer {
     let batch = match batch {
       SceneModelRenderBatch::Device(batch) => batch,
       SceneModelRenderBatch::Host(batch) => {
+        if self.using_host_driven_indirect_draw {
+          return todo!();
+        }
         self.create_batch_from_iter(&mut batch.iter_scene_models())
       }
     };
