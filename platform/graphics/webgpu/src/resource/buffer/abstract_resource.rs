@@ -170,6 +170,9 @@ pub trait AbstractBuffer: DynClone + Send + Sync {
   fn resize_gpu(&mut self, encoder: &mut GPUCommandEncoder, device: &GPUDevice, new_byte_size: u64);
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue);
 
+  /// the target must be a different buffer(not ref cloned self)
+  ///
+  /// The target must be the same type of self
   fn copy_buffer_to_buffer(
     &self,
     target: &dyn AbstractBuffer,

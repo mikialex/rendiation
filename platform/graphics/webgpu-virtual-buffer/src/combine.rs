@@ -7,13 +7,13 @@ pub struct CombinedBufferAllocatorInternal {
   current_shader_recording_count: u32,
   gpu: GPU,
   guid: u64,
-  buffer: Option<Box<dyn AbstractBuffer>>,
+  pub(crate) buffer: Option<Box<dyn AbstractBuffer>>,
   alloc: Box<dyn AbstractStorageAllocator>,
   pending_writes: FastHashMap<usize, PendingWrites>,
   buffer_need_rebuild: bool,
   pub(crate) sub_buffer_u32_size_requirements: Vec<u32>,
   previous_sub_buffer_size: FastHashMap<usize, u32>,
-  sub_buffer_allocation_u32_offset: Vec<u32>,
+  pub(crate) sub_buffer_allocation_u32_offset: Vec<u32>,
   pub(crate) layout: StructLayoutTarget,
   // use none for none atomic heap
   atomic: Option<ShaderAtomicValueType>,
@@ -68,7 +68,7 @@ impl CombinedBufferAllocatorInternal {
   pub fn copy_buffer_to_buffer(
     &mut self,
     src_index: usize,
-    target: &GPUBufferResourceView,
+    target_underlayer: &dyn AbstractBuffer,
     self_offset: u64,
     target_offset: u64,
     count: u64,
@@ -78,22 +78,21 @@ impl CombinedBufferAllocatorInternal {
     let bound = self.sub_buffer_u32_size_requirements[src_index] * 4;
     assert!(end <= bound);
 
-    // webgpu spec don't allow copy buffer to buffer is same buffer.
-    // here we do **not** do extra temp buffer copy to workaround this, because
-    // in this case, it super error prone if the copy range overlaps(combined with the use of resize).
-    // we recommended that the out side should get buffer view and use that view do copy manually
-    let source = self.get_sub_gpu_buffer_view(src_index);
+    self.check_rebuild();
+    let buffer = self.buffer.as_ref().unwrap();
+
+    let self_offset = self.sub_buffer_allocation_u32_offset[src_index] as u64 * 4 + self_offset;
 
     if self.enable_debug_log_for_updating {
-      println!("combined copy buffer");
+      println!("combined copy buffer to buffer");
     }
 
-    encoder.copy_buffer_to_buffer(
-      source.resource.gpu(),
-      self_offset + source.desc.offset,
-      target.resource.gpu(),
-      target_offset + target.desc.offset,
+    buffer.copy_buffer_to_buffer(
+      target_underlayer,
+      self_offset,
+      target_offset,
       count,
+      encoder,
     );
   }
 
@@ -107,7 +106,7 @@ impl CombinedBufferAllocatorInternal {
     buffer_index
   }
 
-  fn check_rebuild(&mut self) {
+  pub(crate) fn check_rebuild(&mut self) {
     let gpu = &self.gpu;
     if !self.buffer_need_rebuild && self.buffer.is_some() {
       return;
@@ -178,8 +177,6 @@ impl CombinedBufferAllocatorInternal {
 
     // old data movement
     if let Some(old_buffer) = &self.buffer {
-      let old_buffer = old_buffer.get_gpu_buffer_view().unwrap();
-      let new_buffer = new_buffer.get_gpu_buffer_view().unwrap();
       let mut encoder = gpu.create_encoder();
       for (i, source_offset) in self.sub_buffer_allocation_u32_offset.iter().enumerate() {
         let size = if let Some(size) = self.previous_sub_buffer_size.get(&i) {
@@ -188,12 +185,13 @@ impl CombinedBufferAllocatorInternal {
           self.sub_buffer_u32_size_requirements[i]
         };
         let new_offset = sub_buffer_allocation_u32_offset[i];
-        encoder.copy_buffer_to_buffer(
-          old_buffer.resource.gpu(),
+
+        old_buffer.copy_buffer_to_buffer(
+          &new_buffer,
           (source_offset * 4) as u64,
-          new_buffer.resource.gpu(),
           (new_offset * 4) as u64,
           (size * 4) as u64,
+          &mut encoder,
         );
       }
       gpu.submit_encoder(encoder);
@@ -258,10 +256,10 @@ impl CombinedBufferAllocatorInternal {
     }
   }
 
-  pub fn get_sub_gpu_buffer_view(&mut self, index: usize) -> GPUBufferResourceView {
+  pub fn get_sub_gpu_buffer_view(&mut self, index: usize) -> Option<GPUBufferResourceView> {
     self.check_rebuild();
     let buffer = self.buffer.clone().unwrap();
-    let buffer = buffer.get_gpu_buffer_view().unwrap(); // todo optional
+    let buffer = buffer.get_gpu_buffer_view()?;
     let base_offset = buffer.desc.offset;
 
     let offset = self.sub_buffer_allocation_u32_offset[index] as u64;
@@ -272,7 +270,7 @@ impl CombinedBufferAllocatorInternal {
       size: Some(NonZeroU64::new(size).unwrap()),
     };
 
-    buffer.resource.create_view(range)
+    Some(buffer.resource.create_view(range))
   }
 
   #[inline(never)]

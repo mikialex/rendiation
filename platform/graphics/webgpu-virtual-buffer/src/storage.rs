@@ -137,7 +137,7 @@ impl SubCombinedStorageBufferDynTyped {
 impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
   fn get_gpu_buffer_view(&self) -> Option<GPUBufferResourceView> {
     let mut internal = self.internal.write();
-    internal.get_sub_gpu_buffer_view(self.buffer_index).into()
+    internal.get_sub_gpu_buffer_view(self.buffer_index)
   }
 
   fn write(&self, content: &[u8], offset: u64, _queue: &GPUQueue) {
@@ -172,10 +172,16 @@ impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
     count: u64,
     encoder: &mut GPUCommandEncoder,
   ) {
-    let target = target.get_gpu_buffer_view().unwrap(); // this may fail
+    let _target = target.as_any().downcast_ref::<Self>().unwrap();
+    let mut target = _target.internal.write();
+    target.check_rebuild();
+    let target_under_layer = target.buffer.as_ref().unwrap();
+    let target_offset =
+      target.sub_buffer_allocation_u32_offset[_target.buffer_index] as u64 * 4 + target_offset;
+
     self.internal.write().copy_buffer_to_buffer(
       self.buffer_index,
-      &target,
+      target_under_layer,
       self_offset,
       target_offset,
       count,
