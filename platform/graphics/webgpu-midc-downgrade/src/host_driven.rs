@@ -12,9 +12,8 @@ pub enum HostDrawCommands {
 pub fn downgrade_multi_indirect_draw_count_host_driven(
   draw: HostDrawCommands,
   gpu: &GPU,
+  alloc: &dyn AbstractStorageAllocator,
 ) -> (DowngradeMultiIndirectDrawCountHelper, DrawCommand) {
-  let alloc = DefaultStorageAllocator;
-
   let mut sub_draw_range_start_prefix_sum = match &draw {
     HostDrawCommands::Indexed(cmds) => cmds
       .iter()

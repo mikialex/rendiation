@@ -75,9 +75,10 @@ impl IndirectSceneRenderer {
           _ => unreachable!(),
         };
 
+        let alloc = rendiation_webgpu_texture_as_buffer::TextureAsStorageAllocator(ctx.gpu.clone());
         let (helper, cmd) =
           rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count_host_driven(
-            batch, ctx.gpu,
+            batch, ctx.gpu, &alloc,
           );
 
         let provider = HostDrivenIndirectProvider { helper, cmd };

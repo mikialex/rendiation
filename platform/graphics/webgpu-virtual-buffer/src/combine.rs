@@ -337,10 +337,25 @@ impl CombinedBufferAllocatorInternal {
 
     self.current_shader_recording_count += 1;
 
+    let ptr = U32HeapPtr { array, offset };
+    let ty = ty_desc.into_shader_single_ty();
+
+    let array_length =
+      if let ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &ty {
+        // we assume the host side will always write length in u32, so we get it from i32 by bitcast if needed
+        let sub_buffer_count = ptr.array.bitcast_read_u32_at(0);
+        let size_info_position = val(1) + sub_buffer_count + buffer_bind_index;
+        let sub_buffer_u32_length = ptr.array.bitcast_read_u32_at(size_info_position);
+        let width = ty.u32_size_count(meta.read().layout);
+        Some(sub_buffer_u32_length / val(width))
+      } else {
+        None
+      };
+
     let ptr = U32HeapPtrWithType {
-      ptr: U32HeapPtr { array, offset },
-      ty: ty_desc.into_shader_single_ty(),
-      bind_index: buffer_bind_index,
+      ptr,
+      ty,
+      array_length,
       meta,
     };
     Box::new(ptr)

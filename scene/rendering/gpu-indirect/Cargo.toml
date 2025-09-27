@@ -25,6 +25,7 @@ rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute"
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-webgpu-hook-utils = { path = "../../../platform/graphics/webgpu-hook-utils" }
 rendiation-webgpu-midc-downgrade = { path = "../../../platform/graphics/webgpu-midc-downgrade" }
+rendiation-webgpu-texture-as-buffer = { path = "../../../platform/graphics/webgpu-texture-as-buffer" }
 rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
 bytemuck = { workspace = true }
 [lints]

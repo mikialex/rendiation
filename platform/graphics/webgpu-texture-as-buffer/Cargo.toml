@@ -2,7 +2,7 @@
 [package]
 authors = ["MikiAlex <miikiialexx@gmail.com>"]
 edition = "2021"
-name = "rendiation-texture-as-buffer"
+name = "rendiation-webgpu-texture-as-buffer"
 version = "0.1.0"
 
 [dependencies]

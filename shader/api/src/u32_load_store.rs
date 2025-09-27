@@ -61,13 +61,13 @@ where
 pub struct U32HeapPtrWithType {
   pub ptr: U32HeapPtr,
   pub ty: ShaderValueSingleType,
-  pub bind_index: Node<u32>, // todo, consider move to other place
+  pub array_length: Option<Node<u32>>, // only Some when it is a runtime-size array
   pub meta: Arc<RwLock<ShaderU32StructMetaData>>,
 }
 
 pub struct ShaderU32StructMetaData {
   ty_mapping: FastHashMap<String, StructPrecomputeOffsetMetaData>,
-  layout: StructLayoutTarget,
+  pub layout: StructLayoutTarget,
 }
 
 struct StructPrecomputeOffsetMetaData {
@@ -176,7 +176,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
             ptr: self.ptr.advance(offset),
             ty: ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(fty)),
             meta: self.meta.clone(),
-            bind_index: self.bind_index,
+            array_length: None,
           }
         }
         ShaderSizedValueType::Struct(ty) => {
@@ -185,7 +185,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
             ptr: self.ptr.advance(offset),
             ty: ShaderValueSingleType::Sized(ty.fields[field_index].ty.clone()),
             meta: self.meta.clone(),
-            bind_index: self.bind_index,
+            array_length: None,
           }
         }
         ShaderSizedValueType::FixedSizeArray(ty, _) => {
@@ -194,7 +194,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
             ptr: self.ptr.advance(val(size) * val(field_index as u32)),
             ty: ShaderValueSingleType::Sized((**ty).clone()),
             meta: self.meta.clone(),
-            bind_index: self.bind_index,
+            array_length: None,
           }
         }
         _ => unreachable!("{err}"),
@@ -214,7 +214,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
             ptr: self.ptr.advance(offset),
             ty,
             meta: self.meta.clone(),
-            bind_index: self.bind_index,
+            array_length: None,
           }
         }
       },
@@ -232,7 +232,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
         ptr: self.ptr.advance(val(size) * index),
         ty: ShaderValueSingleType::Sized((**ty).clone()),
         meta: self.meta.clone(),
-        bind_index: self.bind_index,
+        array_length: None,
       })
     } else {
       unreachable!("not an runtime-size array type")
@@ -240,17 +240,9 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
   }
 
   fn array_length(&self) -> Node<u32> {
-    let meta = self.meta.read();
-    if let ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &self.ty {
-      // we assume the host side will always write length in u32, so we get it from i32 by bitcast if needed
-      let sub_buffer_count = self.ptr.array.bitcast_read_u32_at(0);
-      let size_info_position = val(1) + sub_buffer_count + self.bind_index;
-      let sub_buffer_u32_length = self.ptr.array.bitcast_read_u32_at(size_info_position);
-      let width = ty.u32_size_count(meta.layout);
-      sub_buffer_u32_length / val(width)
-    } else {
-      unreachable!("not an runtime-size array type or unsupported unsized struct")
-    }
+    self
+      .array_length
+      .expect("not an runtime-size array type or unsupported unsized struct")
   }
 
   fn load(&self) -> ShaderNodeRawHandle {

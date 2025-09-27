@@ -4134,6 +4134,7 @@ dependencies = [
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
+ "rendiation-webgpu-texture-as-buffer",
  "serde",
 ]
 
@@ -4244,18 +4245,6 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.5",
  "rendiation-algebra",
-]
-
-[[package]]
-name = "rendiation-texture-as-buffer"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "dyn-clone",
- "fast-hash-collection",
- "parking_lot",
- "rendiation-shader-api",
- "rendiation-webgpu",
 ]
 
 [[package]]
@@ -4410,6 +4399,18 @@ name = "rendiation-webgpu-midc-downgrade"
 version = "0.1.0"
 dependencies = [
  "rendiation-device-parallel-compute",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+]
+
+[[package]]
+name = "rendiation-webgpu-texture-as-buffer"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "dyn-clone",
+ "fast-hash-collection",
+ "parking_lot",
  "rendiation-shader-api",
  "rendiation-webgpu",
 ]
