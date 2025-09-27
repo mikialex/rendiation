@@ -107,7 +107,16 @@ impl BatchAllocateResult {
   }
   fn notify_data_move(&mut self, handle: UserHandle, movement: DataMoveMent) {
     self.failed_to_allocate.remove(&handle);
-    self.data_movements.insert(handle, movement);
+    if let Some(previous_movement) = self.data_movements.remove(&handle) {
+      let movement = DataMoveMent {
+        old_offset: previous_movement.old_offset,
+        new_offset: movement.new_offset,
+        count: movement.count,
+      };
+      self.data_movements.insert(handle, movement);
+    } else {
+      self.data_movements.insert(handle, movement);
+    }
   }
 }
 
