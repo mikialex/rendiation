@@ -206,10 +206,8 @@ impl Viewer3dRenderingCtx {
         let pbr_sg_material = use_pbr_sg_material_storage(cx);
         scope.end(cx);
 
-        let (cx, defer_resizer) = cx.use_plain_state(DeferredOperations::default);
-        defer_resizer.flush(); // collect in spawn stage, flush at the beginning of update stage
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
-        let mesh = use_bindless_mesh(cx, &self.init_config.bindless_mesh_init, defer_resizer);
+        let mesh = use_bindless_mesh(cx, &self.init_config.bindless_mesh_init);
         scope.end(cx);
 
         if self.rtx_renderer_enabled {
@@ -277,10 +275,8 @@ impl Viewer3dRenderingCtx {
             let pbr_sg_material = use_pbr_sg_material_storage(cx);
             scope.end(cx);
 
-            let (cx, defer_resizer) = cx.use_plain_state(DeferredOperations::default);
-            defer_resizer.flush(); // collect in spawn stage, flush at the beginning of update stage
             let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
-            let mesh = use_bindless_mesh(cx, &self.init_config.bindless_mesh_init, defer_resizer);
+            let mesh = use_bindless_mesh(cx, &self.init_config.bindless_mesh_init);
             scope.end(cx);
 
             any_indirect_resource_changed = change_scope(cx);

@@ -164,11 +164,26 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
 
 pub type BoxedAbstractBuffer = Box<dyn AbstractBuffer>;
 
+pub struct BufferRelocate {
+  pub self_offset: u64,
+  pub target_offset: u64,
+  pub count: u64,
+}
+
 /// the clone trait implements ref clone semantic
 pub trait AbstractBuffer: DynClone + Send + Sync {
   fn byte_size(&self) -> u64;
   fn resize_gpu(&mut self, encoder: &mut GPUCommandEncoder, device: &GPUDevice, new_byte_size: u64);
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue);
+
+  /// as the abstract buffer not able to deep clone it self.
+  /// we use this api to express the self may overlapping batch relocate logic.
+  fn batch_self_relocate(
+    &self,
+    iter: &mut dyn Iterator<Item = BufferRelocate>,
+    encoder: &mut GPUCommandEncoder,
+    device: &GPUDevice,
+  );
 
   /// the target must be a different buffer(not ref cloned self)
   ///
@@ -224,6 +239,15 @@ impl AbstractBuffer for BoxedAbstractBuffer {
     (**self).copy_buffer_to_buffer(target, self_offset, target_offset, count, encoder)
   }
 
+  fn batch_self_relocate(
+    &self,
+    iter: &mut dyn Iterator<Item = BufferRelocate>,
+    encoder: &mut GPUCommandEncoder,
+    device: &GPUDevice,
+  ) {
+    (**self).batch_self_relocate(iter, encoder, device)
+  }
+
   fn get_gpu_buffer_view(&self) -> Option<GPUBufferResourceView> {
     (**self).get_gpu_buffer_view()
   }
@@ -231,6 +255,38 @@ impl AbstractBuffer for BoxedAbstractBuffer {
   fn as_any(&self) -> &dyn Any {
     (**self).as_any()
   }
+}
+
+fn batch_relocate_impl(
+  self_buffer: &GPUBufferResourceView,
+  encoder: &mut GPUCommandEncoder,
+  device: &GPUDevice,
+  iter: &mut dyn Iterator<Item = BufferRelocate>,
+) {
+  let byte_size_self: u64 = self_buffer.view_byte_size().into();
+  // todo, we could reduce the copy size by checking relocation bound
+  let buffer_source = create_gpu_buffer_zeroed(
+    byte_size_self,
+    BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
+    device,
+  );
+  encoder.copy_buffer_to_buffer(
+    self_buffer.resource.gpu(),
+    self_buffer.desc.offset,
+    buffer_source.resource.gpu(),
+    0,
+    byte_size_self,
+  );
+
+  iter.for_each(|relocate| {
+    encoder.copy_buffer_to_buffer(
+      buffer_source.resource.gpu(),
+      relocate.self_offset,
+      self_buffer.resource.gpu(),
+      self_buffer.desc.offset + relocate.target_offset,
+      relocate.count,
+    );
+  });
 }
 
 #[derive(Clone)]
@@ -283,15 +339,23 @@ impl AbstractBuffer for DynTypedStorageBuffer {
     count: u64,
     encoder: &mut GPUCommandEncoder,
   ) {
-    assert_eq!(self.buffer.desc.offset, 0);
     let target = target.get_gpu_buffer_view().unwrap();
     encoder.copy_buffer_to_buffer(
       &self.buffer.buffer.gpu,
-      self_offset,
+      self_offset + self.buffer.desc.offset,
       target.resource.gpu(),
       target_offset + target.desc.offset,
       count,
     );
+  }
+
+  fn batch_self_relocate(
+    &self,
+    iter: &mut dyn Iterator<Item = BufferRelocate>,
+    encoder: &mut GPUCommandEncoder,
+    device: &GPUDevice,
+  ) {
+    batch_relocate_impl(&self.buffer, encoder, device, iter);
   }
 
   fn as_any(&self) -> &dyn Any {
@@ -447,6 +511,15 @@ where
     );
   }
 
+  fn batch_self_relocate(
+    &self,
+    iter: &mut dyn Iterator<Item = BufferRelocate>,
+    encoder: &mut GPUCommandEncoder,
+    device: &GPUDevice,
+  ) {
+    batch_relocate_impl(self, encoder, device, iter);
+  }
+
   // todo, code reuse
   fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr {
     let ty = T::maybe_unsized_ty().into_shader_single_ty();
@@ -508,6 +581,15 @@ where
       target_offset + target.desc.offset,
       count,
     );
+  }
+
+  fn batch_self_relocate(
+    &self,
+    iter: &mut dyn Iterator<Item = BufferRelocate>,
+    encoder: &mut GPUCommandEncoder,
+    device: &GPUDevice,
+  ) {
+    batch_relocate_impl(self, encoder, device, iter);
   }
 
   // todo, code reuse
@@ -589,6 +671,15 @@ where
     self
       .buffer
       .copy_buffer_to_buffer(target, self_offset, target_offset, count, encoder);
+  }
+
+  fn batch_self_relocate(
+    &self,
+    iter: &mut dyn Iterator<Item = BufferRelocate>,
+    encoder: &mut GPUCommandEncoder,
+    device: &GPUDevice,
+  ) {
+    self.buffer.batch_self_relocate(iter, encoder, device);
   }
 
   fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr {
