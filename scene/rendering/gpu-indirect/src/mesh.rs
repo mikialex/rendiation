@@ -239,7 +239,7 @@ fn use_attribute_indices_updates(
     let gpu_buffer = gpu_buffer.abstract_gpu();
     allocation_info_
       .expect_resolve_stage()
-      .write(cx.gpu, gpu_buffer, 4);
+      .write(cx.gpu, gpu_buffer);
   }
 
   let changes = allocation_info.map(|v| v.allocation_changes.clone());
@@ -366,7 +366,7 @@ fn use_attribute_vertex_updates(
     let gpu_buffer = gpu_buffer.abstract_gpu();
     allocation_info_
       .expect_resolve_stage()
-      .write(cx.gpu, gpu_buffer, item_byte_size);
+      .write(cx.gpu, gpu_buffer);
   }
 
   let ab_ref_mesh = cx

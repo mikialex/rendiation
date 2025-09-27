@@ -83,7 +83,7 @@ pub fn use_multi_access_gpu(
 
       Arc::new(RangeAllocateBufferUpdates {
         buffers_to_write,
-        allocation_changes: BatchAllocateResultShared(Arc::new(allocation_changes), 4),
+        allocation_changes: BatchAllocateResultShared(Arc::new(allocation_changes), 1),
         source_buffer,
       })
     },
@@ -141,8 +141,7 @@ pub fn use_multi_access_gpu(
       let mut many_side_buffer = many_side_buffer.write();
       let buffer = many_side_buffer.abstract_gpu();
       let changes_ = changes_.expect_resolve_stage();
-      changes_.write(cx.gpu, buffer, 4);
-      //
+      changes_.write(cx.gpu, buffer);
     }
 
     MultiAccessGPUData {
