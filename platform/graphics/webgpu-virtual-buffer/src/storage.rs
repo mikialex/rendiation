@@ -189,6 +189,26 @@ impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
     );
   }
 
+  fn batch_self_relocate(
+    &self,
+    iter: &mut dyn Iterator<Item = BufferRelocate>,
+    encoder: &mut GPUCommandEncoder,
+    device: &GPUDevice,
+  ) {
+    let mut internal = self.internal.write();
+    internal.check_rebuild();
+    let target_under_layer = internal.buffer.as_ref().unwrap();
+    let base_offset = internal.sub_buffer_allocation_u32_offset[self.buffer_index] as u64 * 4;
+
+    let mut iter = iter.map(|relocation| BufferRelocate {
+      self_offset: relocation.self_offset + base_offset,
+      target_offset: relocation.target_offset + base_offset,
+      count: relocation.count,
+    });
+
+    target_under_layer.batch_self_relocate(&mut iter, encoder, device);
+  }
+
   fn as_any(&self) -> &dyn std::any::Any {
     self
   }

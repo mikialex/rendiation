@@ -73,18 +73,14 @@ pub fn use_multi_access_gpu(
 
       let buffers_to_write = buffers_to_write.prepare(&allocation_changes, 4);
 
-      let source_buffer = allocation_changes.resize_to.map(|new_size| {
-        let mut gpu_buffer = many_side_buffer_.write();
-        let buffer = gpu_buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
+      if let Some(new_size) = allocation_changes.resize_to {
         // here we do(request) resize at spawn stage to avoid resize again and again
-        gpu_buffer.resize(new_size);
-        buffer
-      });
+        many_side_buffer_.write().resize(new_size);
+      }
 
       Arc::new(RangeAllocateBufferUpdates {
         buffers_to_write,
         allocation_changes: BatchAllocateResultShared(Arc::new(allocation_changes), 1),
-        source_buffer,
       })
     },
   );

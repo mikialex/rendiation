@@ -49,6 +49,21 @@ impl BatchAllocateResult {
 #[derive(Clone)]
 pub struct BatchAllocateResultShared(pub Arc<BatchAllocateResult>, pub u32); // (_, u32_per_item)
 
+impl BatchAllocateResultShared {
+  pub fn has_data_movements(&self) -> bool {
+    !self.0.data_movements.is_empty()
+  }
+
+  pub fn iter_data_movements(&self) -> impl Iterator<Item = BufferRelocate> + '_ {
+    let u32_per_item = self.1 as u64;
+    self.0.data_movements.values().map(move |v| BufferRelocate {
+      self_offset: v.old_offset as u64 * u32_per_item * 4,
+      target_offset: v.new_offset as u64 * u32_per_item * 4,
+      count: v.count as u64 * u32_per_item * 4,
+    })
+  }
+}
+
 impl DataChanges for BatchAllocateResultShared {
   type Key = UserHandle;
   type Value = [u32; 2];
@@ -325,27 +340,18 @@ pub struct RangeAllocateBufferPrepared {
 pub struct RangeAllocateBufferUpdates {
   pub buffers_to_write: RangeAllocateBufferPrepared,
   pub allocation_changes: BatchAllocateResultShared,
-  pub source_buffer: Option<GPUBufferResourceView>,
 }
 
 impl RangeAllocateBufferUpdates {
   pub fn write(&self, gpu: &GPU, target: &dyn AbstractBuffer) {
-    let gpu_buffer = target.get_gpu_buffer_view().unwrap();
-    let item_byte_size = self.allocation_changes.1 * 4;
-
-    if let Some(source) = &self.source_buffer {
+    if self.allocation_changes.has_data_movements() {
+      let mut iter = self.allocation_changes.iter_data_movements();
       let mut encoder = gpu.create_encoder();
-      for (_, movement) in &self.allocation_changes.0.data_movements {
-        encoder.copy_buffer_to_buffer(
-          source.resource.gpu(),
-          source.desc.offset + (movement.old_offset * item_byte_size) as u64,
-          gpu_buffer.resource.gpu(),
-          gpu_buffer.desc.offset + (movement.new_offset * item_byte_size) as u64,
-          (movement.count * item_byte_size) as u64,
-        );
-      }
+      target.batch_self_relocate(&mut iter, &mut encoder, &gpu.device);
       gpu.queue.submit_encoder(encoder);
     }
+
+    let item_byte_size = self.allocation_changes.1 * 4;
 
     self
       .buffers_to_write

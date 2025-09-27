@@ -31,7 +31,6 @@ impl Default for BindlessMeshInit {
 pub fn use_bindless_mesh(
   cx: &mut QueryGPUHookCx,
   init: &BindlessMeshInit,
-  defer_resize: &mut DeferredOperations,
 ) -> Option<MeshGPUBindlessImpl> {
   let BindlessMeshInit {
     init_index_count,
@@ -41,16 +40,16 @@ pub fn use_bindless_mesh(
   } = *init;
 
   let (indices_range_change, indices) =
-    use_attribute_indices_updates(cx, max_index_count, init_index_count, defer_resize);
+    use_attribute_indices_updates(cx, max_index_count, init_index_count);
 
   let max = max_vertex_count;
   let init = init_vertex_count;
   let (position_range_change, position) =
-    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Positions, defer_resize);
+    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Positions);
   let (normal_range_change, normal) =
-    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Normals, defer_resize);
+    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Normals);
   let (uv_range_change, uv) =
-    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::TexCoords(0), defer_resize);
+    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::TexCoords(0));
 
   let (cx, metadata) = cx.use_storage_buffer_with_host_backup::<AttributeMeshMeta>(
     "mesh buffer indirect range",
@@ -118,7 +117,6 @@ fn use_attribute_indices_updates(
   cx: &mut QueryGPUHookCx,
   max_item_count: u32,
   init_item_count: u32,
-  defer_resize: &mut DeferredOperations,
 ) -> (
   UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
   StorageBufferReadonlyDataView<[u32]>,
@@ -157,7 +155,6 @@ fn use_attribute_indices_updates(
 
   let allocator = allocator.clone();
   let gpu_buffer_ = gpu_buffer.clone();
-  let defer_resize = defer_resize.clone();
 
   let allocation_info = source_info.map_only_spawn_stage_in_thread_dual_query(cx, move |dual| {
     let change = dual.delta().into_change();
@@ -211,23 +208,14 @@ fn use_attribute_indices_updates(
 
     let buffers_to_write = buffers_to_write.prepare(&changes, 4);
 
-    let source_buffer = changes.resize_to.map(|new_size| {
-      let mut gpu_buffer = gpu_buffer_.write();
-      let buffer = gpu_buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
-
-      let gpu_buffer_ = gpu_buffer_.clone();
-      defer_resize.defer(move || {
-        // defer the resize, because when using combined storage allocator
-        // get_gpu_buffer_view call will do real buffer rebuild, which is costly
-        gpu_buffer_.write().resize(new_size);
-      });
-      buffer
-    });
+    if let Some(new_size) = changes.resize_to {
+      // here we do(request) resize at spawn stage to avoid resize again and again
+      gpu_buffer_.write().resize(new_size);
+    }
 
     Arc::new(RangeAllocateBufferUpdates {
       buffers_to_write,
       allocation_changes: BatchAllocateResultShared(Arc::new(changes), 1),
-      source_buffer,
     })
   });
 
@@ -252,7 +240,6 @@ fn use_attribute_vertex_updates(
   max_item_count: u32,
   init_item_count: u32,
   semantic: AttributeSemantic,
-  defer_resize: &mut DeferredOperations,
 ) -> (
   UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
   AbstractReadonlyStorageBuffer<[u32]>,
@@ -300,7 +287,6 @@ fn use_attribute_vertex_updates(
 
   let allocator = allocator.clone();
   let gpu_buffer = vertex_buffer.clone();
-  let defer_resize = defer_resize.clone();
 
   let allocation_info =
     source_info.map_only_spawn_stage_in_thread_dual_query(cx, move |source_info| {
@@ -338,23 +324,14 @@ fn use_attribute_vertex_updates(
 
       let buffers_to_write = buffers_to_write.prepare(&changes, item_byte_size);
 
-      let source_buffer = changes.resize_to.map(|new_size| {
-        let mut gpu_buffer_ = gpu_buffer.write();
-        let buffer = gpu_buffer_.abstract_gpu().get_gpu_buffer_view().unwrap();
-        let gpu_buffer = gpu_buffer.clone();
-        defer_resize.defer(move || {
-          // defer the resize, because when using combined storage allocator
-          // get_gpu_buffer_view call will do real buffer rebuild, which is costly
-          gpu_buffer.write().resize(new_size * item_byte_size / 4);
-        });
-
-        buffer
-      });
+      if let Some(new_size) = changes.resize_to {
+        // here we do(request) resize at spawn stage to avoid resize again and again
+        gpu_buffer.write().resize(new_size * item_byte_size / 4);
+      }
 
       Arc::new(RangeAllocateBufferUpdates {
         buffers_to_write,
         allocation_changes: BatchAllocateResultShared(Arc::new(changes), item_byte_size / 4),
-        source_buffer,
       })
     });
 
