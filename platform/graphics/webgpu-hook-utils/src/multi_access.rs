@@ -134,23 +134,14 @@ pub fn use_multi_access_gpu(
     {
       let updates = updates.expect_resolve_stage();
       let buffer = one_side_buffer.write();
-      // todo, this may failed if we support texture as storage buffer
-      let target_buffer = buffer.get_gpu_buffer_view().unwrap();
-      let mut encoder = cx.gpu.create_encoder(); // todo, reuse encoder and pass
-      encoder.compute_pass_scoped(|mut pass| {
-        updates.write(cx.gpu, &mut pass, target_buffer);
-      });
-      cx.gpu.queue.submit_encoder(encoder);
+      updates.write_abstract(cx.gpu, &*buffer);
     }
 
     {
-      let buffer = many_side_buffer
-        .write()
-        .abstract_gpu()
-        .get_gpu_buffer_view()
-        .unwrap();
+      let mut many_side_buffer = many_side_buffer.write();
+      let buffer = many_side_buffer.abstract_gpu();
       let changes_ = changes_.expect_resolve_stage();
-      changes_.write(cx.gpu, &buffer, 4);
+      changes_.write(cx.gpu, buffer, 4);
       //
     }
 

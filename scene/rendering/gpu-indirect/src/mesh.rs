@@ -235,14 +235,11 @@ fn use_attribute_indices_updates(
 
   let allocation_info_ = allocation_info_.use_assure_result(cx);
   if cx.is_resolve_stage() {
-    let gpu_buffer = gpu_buffer
-      .write()
-      .abstract_gpu()
-      .get_gpu_buffer_view()
-      .unwrap();
+    let mut gpu_buffer = gpu_buffer.write();
+    let gpu_buffer = gpu_buffer.abstract_gpu();
     allocation_info_
       .expect_resolve_stage()
-      .write(cx.gpu, &gpu_buffer, 4);
+      .write(cx.gpu, gpu_buffer, 4);
   }
 
   let changes = allocation_info.map(|v| v.allocation_changes.clone());
@@ -365,14 +362,11 @@ fn use_attribute_vertex_updates(
 
   let allocation_info_ = allocation_info_.use_assure_result(cx);
   if cx.is_resolve_stage() {
-    let gpu_buffer = vertex_buffer
-      .write()
-      .abstract_gpu()
-      .get_gpu_buffer_view()
-      .unwrap();
+    let mut gpu_buffer = vertex_buffer.write();
+    let gpu_buffer = gpu_buffer.abstract_gpu();
     allocation_info_
       .expect_resolve_stage()
-      .write(cx.gpu, &gpu_buffer, item_byte_size);
+      .write(cx.gpu, gpu_buffer, item_byte_size);
   }
 
   let ab_ref_mesh = cx
