@@ -163,11 +163,13 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
 }
 
 pub type BoxedAbstractBuffer = Box<dyn AbstractBuffer>;
+
+/// the clone trait implements ref clone semantic
 pub trait AbstractBuffer: DynClone + Send + Sync {
   fn byte_size(&self) -> u64;
   fn resize_gpu(&mut self, encoder: &mut GPUCommandEncoder, device: &GPUDevice, new_byte_size: u64);
-  fn ref_clone(&self) -> Box<dyn AbstractBuffer>;
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue);
+
   fn copy_buffer_to_buffer(
     &self,
     target: &dyn AbstractBuffer,
@@ -184,10 +186,6 @@ pub trait AbstractBuffer: DynClone + Send + Sync {
 }
 dyn_clone::clone_trait_object!(AbstractBuffer);
 impl AbstractBuffer for BoxedAbstractBuffer {
-  fn ref_clone(&self) -> Box<dyn AbstractBuffer> {
-    (**self).ref_clone()
-  }
-
   fn resize_gpu(
     &mut self,
     encoder: &mut GPUCommandEncoder,
@@ -239,10 +237,6 @@ pub struct DynTypedStorageBuffer {
   pub readonly: bool,
 }
 impl AbstractBuffer for DynTypedStorageBuffer {
-  fn ref_clone(&self) -> Box<dyn AbstractBuffer> {
-    Box::new(self.clone())
-  }
-
   fn resize_gpu(
     &mut self,
     encoder: &mut GPUCommandEncoder,
@@ -427,9 +421,6 @@ where
   ) {
     self.gpu = resize_impl(&self.gpu, encoder, device, new_byte_size as u32);
   }
-  fn ref_clone(&self) -> Box<dyn AbstractBuffer> {
-    Box::new(self.clone())
-  }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
     queue.write_buffer(self.resource.gpu(), offset + self.desc.offset, content);
@@ -492,9 +483,6 @@ where
     new_byte_size: u64,
   ) {
     self.gpu = resize_impl(&self.gpu, encoder, device, new_byte_size as u32);
-  }
-  fn ref_clone(&self) -> Box<dyn AbstractBuffer> {
-    Box::new(self.clone())
   }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
@@ -581,10 +569,6 @@ where
     new_byte_size: u64,
   ) {
     self.buffer.resize_gpu(encoder, device, new_byte_size);
-  }
-
-  fn ref_clone(&self) -> Box<dyn AbstractBuffer> {
-    Box::new(self.clone())
   }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {

@@ -187,10 +187,6 @@ impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
     self
   }
 
-  fn ref_clone(&self) -> Box<dyn AbstractBuffer> {
-    Box::new(self.clone())
-  }
-
   fn resize_gpu(
     &mut self,
     _encoder: &mut GPUCommandEncoder,
