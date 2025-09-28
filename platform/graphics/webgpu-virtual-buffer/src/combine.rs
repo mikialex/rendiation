@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct CombinedBufferAllocatorInternal {
   label: String,
-  recording_bind_index_buffer: StorageBufferDataView<[u32]>,
+  recording_bind_index_buffer: BindingRecordBuffer,
   current_recording_count: u32,
   current_shader_recording_count: u32,
   gpu: GPU,
@@ -29,8 +29,6 @@ struct PendingWrites {
   offset_sizes: Vec<(usize, usize, u64)>,
 }
 
-const MAX_BINDING_COUNT: usize = 1024;
-
 impl CombinedBufferAllocatorInternal {
   pub fn new(
     gpu: &GPU,
@@ -49,10 +47,7 @@ impl CombinedBufferAllocatorInternal {
       sub_buffer_u32_size_requirements: Default::default(),
       sub_buffer_allocation_u32_offset: Default::default(),
       previous_sub_buffer_size: Default::default(),
-      recording_bind_index_buffer: create_gpu_read_write_storage::<[u32]>(
-        ZeroedArrayByArrayLength(MAX_BINDING_COUNT),
-        &gpu.device,
-      ),
+      recording_bind_index_buffer: BindingRecordBuffer::new(gpu, USE_UNIFORM_RECORD_BUFFER),
       pending_writes: Default::default(),
       current_recording_count: 0,
       current_shader_recording_count: 0,
@@ -285,7 +280,7 @@ impl CombinedBufferAllocatorInternal {
     struct ShaderMeta {
       pub meta: Arc<RwLock<ShaderU32StructMetaData>>,
       pub array: U32HeapHeapSource,
-      pub bind_index_array: ShaderPtrOf<[u32]>,
+      pub bind_index_array: BindingRecordBufferInvocationInstance,
     }
 
     let array = if let Some(r) = bind_builder.custom_states.get(&self.guid) {
@@ -313,7 +308,7 @@ impl CombinedBufferAllocatorInternal {
       let meta = ShaderMeta {
         meta: Arc::new(RwLock::new(ShaderU32StructMetaData::new(self.layout))),
         array,
-        bind_index_array: bind_builder.bind_by(&self.recording_bind_index_buffer),
+        bind_index_array: self.recording_bind_index_buffer.build_shader(bind_builder),
       };
       self.current_shader_recording_count = 0;
 
@@ -330,9 +325,7 @@ impl CombinedBufferAllocatorInternal {
     // todo, should we put it at allocation time?
     meta.write().register_ty(&ty_desc);
 
-    let buffer_bind_index = bind_index_array
-      .index(self.current_shader_recording_count)
-      .load();
+    let buffer_bind_index = bind_index_array.index(self.current_shader_recording_count);
     let offset = array.bitcast_read_u32_at(buffer_bind_index + val(1));
 
     self.current_shader_recording_count += 1;
@@ -373,20 +366,97 @@ impl CombinedBufferAllocatorInternal {
 
       AbstractBuffer::bind_pass(buffer, bind_builder);
       // new binding occurs, refresh binding index buffer
-      self.recording_bind_index_buffer = create_gpu_read_write_storage::<[u32]>(
-        ZeroedArrayByArrayLength(MAX_BINDING_COUNT),
-        &self.gpu.device,
-      );
+      self.recording_bind_index_buffer =
+        BindingRecordBuffer::new(&self.gpu, USE_UNIFORM_RECORD_BUFFER);
       self.current_recording_count = 0;
-      bind_builder.bind(&self.recording_bind_index_buffer);
+      self.recording_bind_index_buffer.bind(bind_builder);
       bind_builder.any_states.insert(self.guid, Box::new(()));
     }
-    self.gpu.queue.write_buffer(
-      self.recording_bind_index_buffer.buffer.gpu(),
-      self.current_recording_count as u64 * 4,
-      bytes_of(&(index as u32)),
+
+    self.recording_bind_index_buffer.write(
+      self.current_recording_count,
+      index as u32,
+      &self.gpu.queue,
     );
 
     self.current_recording_count += 1;
+  }
+}
+
+// todo, expose config, add shader hash
+const USE_UNIFORM_RECORD_BUFFER: bool = true;
+const MAX_BINDING_COUNT: usize = 128;
+
+/// just a software bindgroup!
+enum BindingRecordBuffer {
+  /// using storage if we want bindless to work(bindless resource can not share uniform in one bindgroup)
+  Storage(StorageBufferReadonlyDataView<[Vec4<u32>]>),
+  /// using uniform when to avoid storage
+  // todo, how to directly use u32??
+  Uniform(UniformBufferDataView<Shader140Array<Vec4<u32>, MAX_BINDING_COUNT>>),
+}
+
+impl BindingRecordBuffer {
+  pub fn new(gpu: &GPU, use_uniform: bool) -> Self {
+    if use_uniform {
+      Self::Uniform(create_uniform(Default::default(), &gpu.device))
+    } else {
+      Self::Storage(
+        create_gpu_read_write_storage::<[Vec4<u32>]>(
+          ZeroedArrayByArrayLength(MAX_BINDING_COUNT),
+          &gpu.device,
+        )
+        .into_readonly_view(),
+      )
+    }
+  }
+
+  pub fn write(&self, index: u32, value: u32, queue: &GPUQueue) {
+    let buffer = match self {
+      BindingRecordBuffer::Storage(b) => b.buffer.gpu(),
+      BindingRecordBuffer::Uniform(b) => b.gpu.resource.gpu(),
+    };
+    queue.write_buffer(buffer, index as u64 * 4 * 4, bytes_of(&value));
+  }
+
+  pub fn bind(&self, builder: &mut BindingBuilder) {
+    match self {
+      BindingRecordBuffer::Storage(d) => {
+        builder.bind(d);
+      }
+      BindingRecordBuffer::Uniform(d) => {
+        builder.bind(d);
+      }
+    }
+  }
+
+  pub fn build_shader(
+    &self,
+    bind_builder: &mut ShaderBindGroupBuilder,
+  ) -> BindingRecordBufferInvocationInstance {
+    match self {
+      BindingRecordBuffer::Uniform(b) => {
+        BindingRecordBufferInvocationInstance::Uniform(bind_builder.bind_by(b))
+      }
+      BindingRecordBuffer::Storage(b) => {
+        BindingRecordBufferInvocationInstance::Storage(bind_builder.bind_by(b))
+      }
+    }
+  }
+}
+
+#[derive(Clone)]
+enum BindingRecordBufferInvocationInstance {
+  Storage(ShaderReadonlyPtrOf<[Vec4<u32>]>),
+  Uniform(ShaderReadonlyPtrOf<Shader140Array<Vec4<u32>, MAX_BINDING_COUNT>>),
+}
+
+impl BindingRecordBufferInvocationInstance {
+  fn index(&self, index: impl Into<Node<u32>>) -> Node<u32> {
+    let index = index.into();
+    match self {
+      BindingRecordBufferInvocationInstance::Storage(b) => b.index(index).load().x(),
+      BindingRecordBufferInvocationInstance::Uniform(b) => b.index(index).load().x(),
+    }
   }
 }
