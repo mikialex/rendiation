@@ -68,8 +68,14 @@ const INIT_FILE_NAME: &str = "viewer_init_config.json";
 
 impl ViewerInitConfig {
   pub fn from_default_json_or_default() -> Self {
-    let path = std::env::current_dir().unwrap().join(INIT_FILE_NAME);
-    Self::from_json_or_default(path).unwrap_or_default()
+    #[cfg(not(target_family = "wasm"))]
+    return {
+      let path = std::env::current_dir().unwrap().join(INIT_FILE_NAME);
+      Self::from_json_or_default(path).unwrap_or_default()
+    };
+
+    #[cfg(target_family = "wasm")]
+    Self::default()
   }
 
   pub fn export_to_current_dir(&self) {

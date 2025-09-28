@@ -121,10 +121,27 @@ struct WinitAppImpl {
 
 impl winit::application::ApplicationHandler for WinitAppImpl {
   fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-    self.window.get_or_insert_with(|| {
-      let window = event_loop
-        .create_window(Window::default_attributes().with_title(&self.title))
+    #[allow(unused_mut)]
+    let mut window_att = Window::default_attributes().with_title(&self.title);
+
+    #[cfg(target_family = "wasm")]
+    {
+      use wasm_bindgen::JsCast;
+      use winit::platform::web::WindowAttributesExtWebSys;
+      let canvas = web_sys::window()
+        .unwrap()
+        .document()
+        .unwrap()
+        .get_element_by_id("canvas")
+        .unwrap()
+        .dyn_into::<web_sys::HtmlCanvasElement>()
         .unwrap();
+      window_att = window_att.with_canvas(Some(canvas));
+    }
+
+    self.window.get_or_insert_with(|| {
+      let window = event_loop.create_window(window_att).unwrap();
+      log::info!("window created");
       window.request_redraw();
       let window = Box::pin(window);
 

@@ -1,34 +1,58 @@
-use std::collections::VecDeque;
+use std::{any::TypeId, collections::VecDeque};
 
 use fast_hash_collection::FastHashMap;
-use futures::{executor::ThreadPool, Future};
+use futures::{executor::LocalPool, task::LocalSpawnExt, Future};
 
 use crate::*;
 
 pub struct Terminal {
   console: Console,
   pub command_registry: FastHashMap<String, TerminalCommandCb>,
-  pub executor: ThreadPool,
+  pub executor: LocalPool,
   /// some task may only run on main thread, for example acquire db write lock
-  pub main_thread_tasks: futures::channel::mpsc::UnboundedReceiver<Box<dyn FnOnce() + Send + Sync>>,
+  pub main_thread_tasks: futures::channel::mpsc::UnboundedReceiver<Box<dyn FnOnce()>>,
   pub ctx: TerminalCtx,
   pub buffered_requests: VecDeque<String>,
 }
 
 #[derive(Clone)]
 pub struct TerminalCtx {
-  channel: futures::channel::mpsc::UnboundedSender<Box<dyn FnOnce() + Send + Sync>>,
+  channel: futures::channel::mpsc::UnboundedSender<Box<dyn FnOnce()>>,
   pub(crate) store: TerminalTaskStore,
   pub worker: TaskSpawner,
 }
 
-pub trait TerminalTask: 'static + Send + Sync {
-  type Result: 'static + Send + Sync;
+pub trait TerminalTask: 'static {
+  type Result: 'static;
 }
 
 #[derive(Default, Clone)]
 pub struct TerminalTaskStore {
-  store: Arc<RwLock<MessageStore>>,
+  store: Arc<RwLock<MessageStoreNoSendSync>>,
+}
+
+#[derive(Default)]
+pub struct MessageStoreNoSendSync {
+  messages: FastHashMap<TypeId, Box<dyn Any>>,
+}
+
+impl MessageStoreNoSendSync {
+  pub fn put(&mut self, msg: impl Any) {
+    self.messages.insert(msg.type_id(), Box::new(msg));
+  }
+  pub fn get<T: Any>(&self) -> Option<&T> {
+    self
+      .messages
+      .get(&TypeId::of::<T>())
+      .as_ref()
+      .map(|v| v.downcast_ref::<T>().unwrap())
+  }
+  pub fn take<T: Any>(&mut self) -> Option<T> {
+    self
+      .messages
+      .remove(&TypeId::of::<T>())
+      .map(|v| *v.downcast::<T>().unwrap())
+  }
 }
 
 pub struct TerminalTaskObject<T: TerminalTask> {
@@ -59,9 +83,9 @@ impl TerminalCtx {
     r.map(|v| v.ok())
   }
 
-  pub fn spawn_main_thread<R: 'static + Send + Sync>(
+  pub fn spawn_main_thread<R: 'static>(
     &self,
-    task: impl FnOnce() -> R + Send + Sync + 'static,
+    task: impl FnOnce() -> R + 'static,
   ) -> impl Future<Output = Option<R>> {
     let (s, r) = futures::channel::oneshot::channel();
     self
@@ -87,11 +111,7 @@ impl Terminal {
     Self {
       console: Console::new(),
       command_registry: Default::default(),
-      executor: futures::executor::ThreadPool::builder()
-        .name_prefix("viewer_terminal_task_thread")
-        .pool_size(1)
-        .create()
-        .unwrap(),
+      executor: futures::executor::LocalPool::new(),
       main_thread_tasks: r,
       buffered_requests: Default::default(),
       ctx,
@@ -99,9 +119,8 @@ impl Terminal {
   }
 }
 
-type TerminalCommandCb = Box<
-  dyn Fn(&mut TerminalInitExecuteCx, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>,
->;
+type TerminalCommandCb =
+  Box<dyn Fn(&mut TerminalInitExecuteCx, &Vec<String>) -> Box<dyn Future<Output = ()> + Unpin>>;
 
 pub struct TerminalInitExecuteCx<'a> {
   pub scene: &'a Viewer3dContent,
@@ -121,6 +140,8 @@ impl Terminal {
       self.execute_current(command, cx);
     }
 
+    self.executor.run_until_stalled();
+
     noop_ctx!(ctx);
     while let Poll::Ready(Some(task)) = self.main_thread_tasks.poll_next_unpin(ctx) {
       task()
@@ -133,7 +154,7 @@ impl Terminal {
 
   pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
   where
-    FR: Future<Output = ()> + Send + 'static,
+    FR: Future<Output = ()> + 'static,
     F: Fn(&mut TerminalInitExecuteCx, &Vec<String>, &TerminalCtx) -> FR + 'static,
   {
     let cx = self.ctx.clone();
@@ -164,7 +185,7 @@ impl Terminal {
     if let Some(command_name) = parameters.first() {
       if let Some(exe) = self.command_registry.get(command_name) {
         let task = exe(ctx, &parameters);
-        self.executor.spawn_ok(task);
+        self.executor.spawner().spawn_local(task).unwrap();
       } else {
         self
           .console

@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
 use database::*;
@@ -33,6 +34,8 @@ use rendiation_texture_gpu_base::SamplerConvertExt;
 use rendiation_webgpu_hook_utils::*;
 use serde::{Deserialize, Serialize};
 use tracing::*;
+#[cfg(target_arch = "wasm32")]
+use web_time::Instant;
 use winit::{
   event::{Event, WindowEvent},
   event_loop::EventLoop,
@@ -65,8 +68,6 @@ static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<System> =
   PreciseAllocationStatistics::new(System);
 
 pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
-  env_logger::builder().init();
-
   setup_global_database(Default::default());
   global_database().enable_label_for_all_entity();
 
@@ -99,6 +100,20 @@ fn main() {
       tracing_subscriber::registry().with(tracing_tracy::TracyLayer::default()),
     )
     .expect("setting tracing default failed");
+  }
+
+  #[cfg(target_family = "wasm")]
+  {
+    console_error_panic_hook::set_once();
+    console_log::init_with_level(log::Level::Info).unwrap();
+    log::info!("init wasm");
+  }
+
+  #[cfg(not(target_family = "wasm"))]
+  {
+    env_logger::builder()
+      .filter_level(log::LevelFilter::Info)
+      .init();
   }
 
   run_viewer_app(|cx| {

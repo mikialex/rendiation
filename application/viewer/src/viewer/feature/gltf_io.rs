@@ -38,58 +38,73 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
   let (cx, GltfViewerIO(rev)) = cx.use_state_init(|cx| {
     let (sender, rev) = futures::channel::mpsc::unbounded::<GltfLoadResult>();
 
-    cx.terminal.register_command(CMD_LOAD_GLTF, move |ctx, _parameters, tcx| {
-    let load_target_node = ctx.scene.root;
-    let load_target_scene = ctx.scene.scene;
-    let tcx = tcx.clone();
-    let sender = sender.clone();
+    cx.terminal
+      .register_command(CMD_LOAD_GLTF, move |ctx, _parameters, tcx| {
+        let load_target_node = ctx.scene.root;
+        let load_target_scene = ctx.scene.scene;
+        let tcx = tcx.clone();
+        let sender = sender.clone();
 
-    async move {
-      use rfd::AsyncFileDialog;
+        async move {
+          use rfd::AsyncFileDialog;
 
-      let file_handle = AsyncFileDialog::new()
-        .add_filter("gltf", &["gltf", "glb"])
-        .pick_file()
-        .await;
+          let file_handle = AsyncFileDialog::new()
+            .add_filter("gltf", &["gltf", "glb"])
+            .pick_file()
+            .await;
 
-      if let Some(file_handle) = file_handle {
-        let gltf = tcx.worker.spawn_task(move || {
-          let _ = trace_span!("parse gltf").entered();
-          parse_gltf(file_handle.path())
-        }).await.unwrap();
+          if let Some(file_handle) = file_handle {
 
-        tcx
-          .spawn_main_thread(move || {
-            let _ = trace_span!("write gltf into scene").entered();
-            let mut writer = SceneWriter::from_global(load_target_scene);
+            #[cfg(target_family = "wasm")]
+            let file_content = file_handle.read().await;
 
-            let load_result = write_gltf_at_node(
-              load_target_node,
-              &mut writer,
-              gltf
-            );
-            if !load_result.used_but_not_supported_extensions.is_empty() {
-              println!(
-                "warning: gltf load finished but some used(but not required) extensions are not supported: {:#?}",
-                &load_result.used_but_not_supported_extensions
-              );
-            }
+            #[cfg(target_family = "wasm")]
+            let gltf = tcx.worker.spawn_task(move || {
+              let _ = trace_span!("parse gltf").entered();
+              parse_gltf_from_buffer(&file_content)
+            }).await.unwrap();
 
-            sender.unbounded_send(load_result).ok();
-          })
-          .await;
-      }
-    }
-  });
 
-  cx.terminal.register_command(CMD_EXPORT_GLTF, |_ctx, _parameters, tcx| {
-    let task =  tcx.spawn_event_task::<ExportGltfTerminalTask>();
-    async move{
-      task.await;
-    }
-  });
+            #[cfg(not(target_family = "wasm"))]
+            let gltf = tcx.worker.spawn_task(move || {
+              let _ = trace_span!("parse gltf").entered();
+              parse_gltf(file_handle.path())
+            }).await.unwrap();
 
-  GltfViewerIO(rev)
+
+            tcx
+              .spawn_main_thread(move || {
+                let _ = trace_span!("write gltf into scene").entered();
+                let mut writer = SceneWriter::from_global(load_target_scene);
+
+                let load_result = write_gltf_at_node(
+                  load_target_node,
+                  &mut writer,
+                  gltf
+                );
+                if !load_result.used_but_not_supported_extensions.is_empty() {
+                  println!(
+                    "warning: gltf load finished but some used(but not required) extensions are not supported: {:#?}",
+                    &load_result.used_but_not_supported_extensions
+                  );
+                }
+
+                sender.unbounded_send(load_result).ok();
+              })
+              .await;
+          }
+        }
+      });
+
+    cx.terminal
+      .register_command(CMD_EXPORT_GLTF, |_ctx, _parameters, tcx| {
+        let task = tcx.spawn_event_task::<ExportGltfTerminalTask>();
+        async move {
+          task.await;
+        }
+      });
+
+    GltfViewerIO(rev)
   });
 
   let (cx, current_loaded) = cx.use_plain_state::<Vec<GltfLoadResult>>();

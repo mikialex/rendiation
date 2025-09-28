@@ -8,7 +8,7 @@ pub enum UseResult<T> {
 }
 
 impl<T: Send + Sync + 'static> UseResult<T> {
-  pub fn map_only_spawn_stage_in_thread_dual_query<U: Send + 'static>(
+  pub fn map_only_spawn_stage_in_thread_dual_query<U: Send + Sync + 'static>(
     self,
     cx: &mut impl QueryHookCxLike,
     f: impl FnOnce(T) -> U + Send + Sync + 'static,
@@ -19,7 +19,7 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     self.map_only_spawn_stage_in_thread(cx, |q| q.is_change_possible_empty(), f)
   }
 
-  pub fn map_only_spawn_stage_in_thread<U: Send + 'static>(
+  pub fn map_only_spawn_stage_in_thread<U: Send + Sync + 'static>(
     self,
     cx: &mut impl QueryHookCxLike,
     should_do_work_in_main_thread: impl FnOnce(&T) -> bool + Send + Sync + 'static,

@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use crate::*;
 
 pub fn use_enable_obj_io(cx: &mut ViewerCx) {
@@ -38,6 +40,7 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
                 let mut writer = SceneWriter::from_global(load_target_scene);
                 let default_mat = writer.pbr_sg_mat_writer.new_entity();
 
+                #[cfg(not(target_family = "wasm"))]
                 rendiation_scene_obj_loader::load_obj(
                   file_handle.path(),
                   load_target_node,
@@ -45,6 +48,9 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
                   &mut writer,
                 )
                 .unwrap();
+
+                #[cfg(target_family = "wasm")]
+                todo!()
               })
               .await;
           }

@@ -6,11 +6,14 @@ use crate::*;
 #[derive(Clone)]
 pub struct TaskSpawner {
   num_threads: Option<usize>,
+  #[cfg(not(target_family = "wasm"))]
   pool: Arc<rayon::ThreadPool>,
 }
 
 impl TaskSpawner {
+  #[allow(unused_variables)]
   pub fn new(name: &'static str, num_threads: Option<usize>) -> Self {
+    #[cfg(not(target_family = "wasm"))]
     let pool = rayon::ThreadPoolBuilder::new()
       .thread_name(move |i| format!("{}-{}", name, i))
       .num_threads(
@@ -25,6 +28,7 @@ impl TaskSpawner {
 
     Self {
       num_threads,
+      #[cfg(not(target_family = "wasm"))]
       pool: Arc::new(pool),
     }
   }
@@ -33,15 +37,23 @@ impl TaskSpawner {
     self.num_threads
   }
 
-  pub fn spawn_task<R: Send + 'static>(
+  pub fn spawn_task<R: Send + Sync + 'static>(
     &self,
     f: impl FnOnce() -> R + Send + 'static,
-  ) -> impl Future<Output = R> + 'static {
-    let (sender, receiver) = futures::channel::oneshot::channel();
-    self.pool.spawn(move || {
-      sender.send(f()).ok();
-    });
-    receiver.map(|v| v.expect("task unexpect cancelled"))
+  ) -> impl Future<Output = R> + Send + Sync + 'static {
+    #[cfg(not(target_family = "wasm"))]
+    {
+      let (sender, receiver) = futures::channel::oneshot::channel();
+      self.pool.spawn(move || {
+        sender.send(f()).ok();
+      });
+      receiver.map(|v| v.expect("task unexpect cancelled"))
+    }
+
+    #[cfg(target_family = "wasm")]
+    {
+      std::future::ready(f())
+    }
   }
 }
 

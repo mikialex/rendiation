@@ -47,7 +47,26 @@ pub fn parse_gltf(path: impl AsRef<Path>) -> Result<GltfParseResult, GLTFLoaderE
   }
 
   Ok(GltfParseResult {
-    path,
+    path: Some(path),
+    document,
+    buffers,
+    images,
+  })
+}
+
+/// this call should be spawned to work thread
+pub fn parse_gltf_from_buffer(buffer: &[u8]) -> Result<GltfParseResult, GLTFLoaderError> {
+  let (document, buffers, images) =
+    gltf::import_slice(buffer).map_err(GLTFLoaderError::GltfFileLoadError)?;
+
+  for ext in document.extensions_required() {
+    if !SUPPORTED_GLTF_EXTENSIONS.contains(&ext) {
+      return Err(GLTFLoaderError::UnsupportedGLTFExtension(ext.to_string()));
+    }
+  }
+
+  Ok(GltfParseResult {
+    path: None,
     document,
     buffers,
     images,
@@ -55,7 +74,7 @@ pub fn parse_gltf(path: impl AsRef<Path>) -> Result<GltfParseResult, GLTFLoaderE
 }
 
 pub struct GltfParseResult {
-  path: PathBuf,
+  path: Option<PathBuf>,
   document: gltf::Document,
   buffers: Vec<gltf::buffer::Data>,
   images: Vec<gltf::image::Data>,
@@ -152,7 +171,7 @@ struct Context<'a> {
 
 #[derive(Default)]
 pub struct GltfLoadResult {
-  pub path: PathBuf,
+  pub path: Option<PathBuf>,
   pub primitive_map: FastHashMap<usize, EntityHandle<SceneModelEntity>>,
   pub node_map: FastHashMap<usize, EntityHandle<SceneNodeEntity>>,
   pub view_map: FastHashMap<usize, UnTypedBufferView>,

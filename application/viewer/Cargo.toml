@@ -82,6 +82,11 @@ winit = { workspace = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.3", features = ["wasm_js"] }
+console_error_panic_hook = "0.1.7"
+web-sys = { version = "0.3.77" }
+console_log = "1"
+wasm-bindgen = "0.2"
+web-time = "1.1.0"
 
 
 [features]
