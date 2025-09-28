@@ -9,7 +9,11 @@ pub use host_driven::*;
 
 only_vertex!(VertexIndexForMIDCDowngrade, u32);
 
-pub fn require_midc_downgrade(info: &GPUInfo) -> bool {
+pub fn require_midc_downgrade(info: &GPUInfo, force_downgrade: bool) -> bool {
+  if force_downgrade {
+    return true;
+  }
+
   !info
     .supported_features
     .contains(Features::MULTI_DRAW_INDIRECT_COUNT)

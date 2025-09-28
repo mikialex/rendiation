@@ -94,7 +94,7 @@ impl MeshLODGraphRenderer {
         1_000_000,
       ),
       index_buffer,
-      enable_midc_downgrade: require_midc_downgrade(&gpu.info),
+      enable_midc_downgrade: require_midc_downgrade(&gpu.info, false),
     }
   }
 
@@ -232,7 +232,7 @@ impl MeshLODGraphRenderer {
     };
 
     let batch = expander.expand(batch, scene_model_matrix, cx, max_meshlet_count);
-    into_maybe_downgrade_batch_assume_standard_midc_style(batch, cx)
+    into_maybe_downgrade_batch_assume_standard_midc_style(batch, cx, self.enable_midc_downgrade)
   }
 
   pub fn create_mesh_accessor(&self) -> Box<dyn RenderComponent> {

@@ -6,8 +6,9 @@ use crate::*;
 pub fn into_maybe_downgrade_batch_assume_standard_midc_style<T: IndirectDrawProvider + 'static>(
   batch: T,
   cx: &mut DeviceParallelComputeCtx,
+  enable_midc_downgrade: bool,
 ) -> Box<dyn IndirectDrawProvider> {
-  if require_midc_downgrade(&cx.gpu.info) {
+  if enable_midc_downgrade {
     let (helper, cmd) = rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count(
       batch.draw_command(),
       cx,

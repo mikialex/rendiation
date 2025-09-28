@@ -68,6 +68,7 @@ impl DeviceSceneModelRenderSubBatch {
     &self,
     draw_command_builder: DrawCommandBuilder,
     cx: &mut DeviceParallelComputeCtx,
+    enable_midc_downgrade: bool,
   ) -> Box<dyn IndirectDrawProvider> {
     let (draw_command_buffer, draw_count) = match draw_command_builder {
       DrawCommandBuilder::Indexed(generator) => {
@@ -130,6 +131,7 @@ impl DeviceSceneModelRenderSubBatch {
         draw_count,
       },
       cx,
+      enable_midc_downgrade,
     )
   }
 }

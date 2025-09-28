@@ -33,6 +33,9 @@ pub fn use_bindless_mesh(
   init: &BindlessMeshInit,
   merge_with_vertex_allocator: bool,
 ) -> Option<MeshGPUBindlessImpl> {
+  // todo, consider expose this as config
+  let force_midc_downgrade = merge_with_vertex_allocator;
+
   let BindlessMeshInit {
     init_index_count,
     max_index_count,
@@ -113,7 +116,7 @@ pub fn use_bindless_mesh(
       vertex_address_buffer_host: metadata.buffer.make_read_holder(),
       sm_to_mesh_device: sm_to_mesh_device.get_gpu_buffer(),
       sm_to_mesh: sm_to_mesh.expect_resolve_stage(),
-      used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info),
+      used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
     }
   })
 }
@@ -513,7 +516,11 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
 
     ctx
       .access_parallel_compute(|cx| {
-        batch.create_default_indirect_draw_provider(draw_command_builder, cx)
+        batch.create_default_indirect_draw_provider(
+          draw_command_builder,
+          cx,
+          self.used_in_midc_downgrade,
+        )
       })
       .into()
   }
