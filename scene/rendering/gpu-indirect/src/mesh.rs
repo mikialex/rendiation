@@ -31,6 +31,7 @@ impl Default for BindlessMeshInit {
 pub fn use_bindless_mesh(
   cx: &mut QueryGPUHookCx,
   init: &BindlessMeshInit,
+  merge_with_vertex_allocator: bool,
 ) -> Option<MeshGPUBindlessImpl> {
   let BindlessMeshInit {
     init_index_count,
@@ -39,8 +40,12 @@ pub fn use_bindless_mesh(
     max_vertex_count,
   } = *init;
 
-  let (indices_range_change, indices) =
-    use_attribute_indices_updates(cx, max_index_count, init_index_count);
+  let (indices_range_change, indices) = use_attribute_indices_updates(
+    cx,
+    max_index_count,
+    init_index_count,
+    merge_with_vertex_allocator,
+  );
 
   let max = max_vertex_count;
   let init = init_vertex_count;
@@ -117,17 +122,27 @@ fn use_attribute_indices_updates(
   cx: &mut QueryGPUHookCx,
   max_item_count: u32,
   init_item_count: u32,
+  merge_with_vertex_allocator: bool,
 ) -> (
   UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
-  StorageBufferReadonlyDataView<[u32]>,
+  AbstractReadonlyStorageBuffer<[u32]>,
 ) {
-  let (cx, gpu_buffer) = cx.use_gpu_init(|gpu, _| {
-    let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
-      &gpu.device,
-      Some("bindless mesh index pool"),
-      ZeroedArrayByArrayLength(init_item_count as usize).into(),
-      BufferUsages::INDEX,
-    );
+  let (cx, gpu_buffer) = cx.use_gpu_init(|gpu, alloc| {
+    let indices = if merge_with_vertex_allocator {
+      alloc.allocate_readonly::<[u32]>(
+        (4 * init_item_count) as u64,
+        &gpu.device,
+        Some("bindless mesh index pool"),
+      )
+    } else {
+      StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
+        &gpu.device,
+        Some("bindless mesh index pool"),
+        ZeroedArrayByArrayLength(init_item_count as usize).into(),
+        BufferUsages::INDEX,
+      )
+      .into()
+    };
 
     let indices = indices.with_direct_resize(gpu);
 
@@ -385,7 +400,7 @@ pub struct AttributeMeshMeta {
 
 #[derive(Clone)]
 pub struct MeshGPUBindlessImpl {
-  indices: StorageBufferReadonlyDataView<[u32]>,
+  indices: AbstractReadonlyStorageBuffer<[u32]>,
   position: AbstractReadonlyStorageBuffer<[u32]>,
   normal: AbstractReadonlyStorageBuffer<[u32]>,
   uv: AbstractReadonlyStorageBuffer<[u32]>,
@@ -508,7 +523,7 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
 pub struct BindlessMeshDispatcher {
   pub sm_to_mesh: AbstractReadonlyStorageBuffer<[u32]>,
   pub vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
-  pub index_pool: StorageBufferReadonlyDataView<[u32]>,
+  pub index_pool: AbstractReadonlyStorageBuffer<[u32]>,
   pub position: AbstractReadonlyStorageBuffer<[u32]>,
   pub normal: AbstractReadonlyStorageBuffer<[u32]>,
   pub uv: AbstractReadonlyStorageBuffer<[u32]>,
@@ -538,10 +553,12 @@ impl ShaderPassBuilder for BindlessMeshRasterDispatcher {
     let mesh = &self.internal;
 
     if self.is_indexed {
-      let index = mesh.index_pool.get_gpu_buffer_view().unwrap();
-      ctx
-        .pass
-        .set_index_buffer_by_buffer_resource_view(&index, IndexFormat::Uint32);
+      // may be failed if we using texture as storage
+      if let Some(index) = mesh.index_pool.get_gpu_buffer_view() {
+        ctx
+          .pass
+          .set_index_buffer_by_buffer_resource_view(&index, IndexFormat::Uint32);
+      }
     }
 
     mesh.bind_base_invocation(&mut ctx.binding);

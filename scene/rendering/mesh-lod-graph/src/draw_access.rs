@@ -57,7 +57,7 @@ impl IndirectDrawProvider for MeshletBatchDrawData {
 pub struct MeshletGPURenderData {
   pub meshlet_metadata: AbstractReadonlyStorageBuffer<[MeshletMetaData]>,
   pub position_buffer: AbstractReadonlyStorageBuffer<[u32]>,
-  pub index_buffer: StorageBufferReadonlyDataView<[u32]>,
+  pub index_buffer: AbstractReadonlyStorageBuffer<[u32]>,
 }
 
 impl ShaderHashProvider for MeshletGPURenderData {
@@ -91,9 +91,10 @@ impl GraphicsShaderProvider for MeshletGPURenderData {
 
 impl ShaderPassBuilder for MeshletGPURenderData {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx
-      .pass
-      .set_index_buffer_by_buffer_resource_view(&self.index_buffer, IndexFormat::Uint32);
+    ctx.pass.set_index_buffer_by_buffer_resource_view(
+      &self.index_buffer.get_gpu_buffer_view().unwrap(),
+      IndexFormat::Uint32,
+    );
 
     ctx.binding.bind(&self.position_buffer);
     ctx.binding.bind(&self.meshlet_metadata);

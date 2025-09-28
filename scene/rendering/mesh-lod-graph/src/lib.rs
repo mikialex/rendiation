@@ -52,7 +52,7 @@ pub struct MeshLODGraphRenderer {
   pub meshlet_metadata: StorageBufferRangeAllocatePool<MeshletMetaData>,
   pub scene_model_meshlet_range: CommonStorageBufferImplWithHostBackup<Vec2<u32>>,
   pub position_buffer: StorageBufferRangeAllocatePool<u32>,
-  pub index_buffer: StorageBufferRangeAllocatePoolStandalone<u32>,
+  pub index_buffer: StorageBufferRangeAllocatePool<u32>,
   pub enable_midc_downgrade: bool,
 }
 
@@ -65,6 +65,7 @@ impl MeshLODGraphRenderer {
       ZeroedArrayByArrayLength(max_indices_count as usize).into(),
       BufferUsages::INDEX,
     );
+    let indices = indices.into();
 
     let indices = create_growable_buffer(gpu, indices, max_indices_count);
     let index_buffer = GPURangeAllocateMaintainer::new(gpu, indices, max_indices_count);
@@ -242,7 +243,7 @@ impl MeshLODGraphRenderer {
     };
 
     Box::new(MidcDowngradeWrapperForIndirectMeshSystem {
-      index: draw_data.index_buffer.clone().into(),
+      index: Some(draw_data.index_buffer.clone()),
       mesh_system: draw_data,
       enable_downgrade: self.enable_midc_downgrade,
     })

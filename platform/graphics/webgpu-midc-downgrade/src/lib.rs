@@ -299,7 +299,7 @@ impl DeviceInvocationComponent<Node<u32>> for MultiIndirectCountDowngradeSource 
 pub struct MidcDowngradeWrapperForIndirectMeshSystem<T> {
   pub mesh_system: T,
   pub enable_downgrade: bool,
-  pub index: Option<StorageBufferReadonlyDataView<[u32]>>,
+  pub index: Option<AbstractReadonlyStorageBuffer<[u32]>>,
 }
 
 impl<T: ShaderHashProvider + 'static> ShaderHashProvider

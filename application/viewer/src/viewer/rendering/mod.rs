@@ -207,7 +207,17 @@ impl Viewer3dRenderingCtx {
         scope.end(cx);
 
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
-        let mesh = use_bindless_mesh(cx, &self.init_config.bindless_mesh_init);
+
+        let merge_with_vertex_allocator = self
+          .init_config
+          .using_texture_as_storage_buffer_for_indirect_rendering;
+
+        let mesh = use_bindless_mesh(
+          cx,
+          &self.init_config.bindless_mesh_init,
+          merge_with_vertex_allocator,
+        );
+
         scope.end(cx);
 
         if self.rtx_renderer_enabled {
@@ -276,7 +286,7 @@ impl Viewer3dRenderingCtx {
             scope.end(cx);
 
             let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
-            let mesh = use_bindless_mesh(cx, &self.init_config.bindless_mesh_init);
+            let mesh = use_bindless_mesh(cx, &self.init_config.bindless_mesh_init, false);
             scope.end(cx);
 
             any_indirect_resource_changed = change_scope(cx);

@@ -195,8 +195,6 @@ where
 }
 
 pub type StorageBufferRangeAllocatePool<T> = RangeAllocatePool<AbstractReadonlyStorageBuffer<[T]>>;
-pub type StorageBufferRangeAllocatePoolStandalone<T> =
-  RangeAllocatePool<StorageBufferReadonlyDataView<[T]>>;
 pub type RangeAllocatePool<T> = GPURangeAllocateMaintainer<GrowableDirectQueueUpdateBuffer<T>>;
 
 pub fn create_storage_buffer_range_allocate_pool<T: Std430 + ShaderSizedValueNodeType>(
