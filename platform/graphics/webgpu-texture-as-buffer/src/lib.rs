@@ -40,7 +40,7 @@ impl AbstractStorageAllocator for TextureAsStorageAllocator {
 
 #[derive(Clone)]
 pub struct TextureAsReadonlyStorageBuffer {
-  texture: GPUTypedTextureView<TextureDimension2, u32>,
+  texture: Arc<RwLock<GPUTypedTextureView<TextureDimension2, u32>>>,
   ty_desc: Arc<MaybeUnsizedValueType>,
   /// this backup is to avoid excessive fragmented texture update call
   ///
@@ -51,6 +51,7 @@ pub struct TextureAsReadonlyStorageBuffer {
 
 struct TextureAsReadonlyStorageBufferHostBackup {
   data: Vec<u8>,
+  real_data_byte_len: usize,
   dirty_ranges: Vec<Range<usize>>,
   row_byte_len: usize,
 }
@@ -62,6 +63,7 @@ impl TextureAsReadonlyStorageBufferHostBackup {
     let new_size = _new_size.div_ceil(row_byte_len) * row_byte_len;
 
     let mut r = Self {
+      real_data_byte_len: data_byte_size,
       data: vec![0; new_size],
       dirty_ranges: Vec::new(),
       row_byte_len,
@@ -76,9 +78,13 @@ impl TextureAsReadonlyStorageBufferHostBackup {
     let _new_size = data_byte_size + 4; // array len;
     assert!(_new_size % 4 == 0);
     let new_size = _new_size.div_ceil(self.row_byte_len) * self.row_byte_len;
-    assert!(new_size > self.data.len());
+    assert!(new_size >= self.data.len());
+    if new_size == self.data.len() {
+      return;
+    }
     self.dirty_ranges.push(self.data.len()..new_size);
     self.data.resize(new_size, 0);
+    self.real_data_byte_len = data_byte_size;
 
     if let Some(array_size) = array_size {
       self.write(bytes_of(&array_size), 0, true);
@@ -139,7 +145,7 @@ impl TextureAsReadonlyStorageBuffer {
       };
 
     let r = Self {
-      texture: create_tex(max_width, height, gpu),
+      texture: Arc::new(RwLock::new(create_tex(max_width, height, gpu))),
       ty_desc: Arc::new(ty_desc),
       host_backup: Arc::new(RwLock::new(TextureAsReadonlyStorageBufferHostBackup::new(
         init_u32_size as usize * 4,
@@ -170,18 +176,23 @@ impl TextureAsReadonlyStorageBuffer {
       let start_row = range.start / texture_row_byte_len;
       let end_row = range.end / texture_row_byte_len;
       for row in start_row..=end_row {
+        if end_row == total_row {
+          // this happens for last pixel
+          continue;
+        }
         dirtied_row[row] = true;
       }
     }
 
-    if self.texture.resource.desc.size.height != total_row as u32 {
+    let current_height = self.texture.read().resource.desc.size.height;
+    if current_height != total_row as u32 {
       println!("resize texture");
       let new_texture = create_tex(tex_width, total_row as u32, &self.gpu);
 
       let mut encoder = self.gpu.create_encoder();
       encoder.copy_texture_to_texture(
         TexelCopyTextureInfo {
-          texture: self.texture.resource.gpu_resource(),
+          texture: self.texture.read().resource.gpu_resource(),
           mip_level: 0,
           origin: Origin3d::ZERO,
           aspect: TextureAspect::All,
@@ -194,14 +205,15 @@ impl TextureAsReadonlyStorageBuffer {
         },
         Extent3d {
           width: tex_width,
-          height: self.texture.resource.desc.size.height,
+          height: current_height,
           depth_or_array_layers: 1,
         },
       );
       self.gpu.queue.submit_encoder(encoder);
+      *self.texture.write() = new_texture;
     }
 
-    let texture = self.texture.resource.gpu_resource();
+    let texture = self.texture.read().resource.gpu_resource().clone();
 
     for (i, dirty) in dirtied_row.iter().enumerate() {
       if !*dirty {
@@ -215,7 +227,7 @@ impl TextureAsReadonlyStorageBuffer {
 
       self.gpu.queue.write_texture(
         TexelCopyTextureInfo {
-          texture,
+          texture: &texture,
           mip_level: 0,
           origin: Origin3d {
             x: 0,
@@ -251,12 +263,13 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
     _encoder: &mut GPUCommandEncoder,
     _device: &GPUDevice,
   ) {
+    println!("TextureAsReadonlyStorageBuffer relocate");
     let relocations: Vec<_> = iter.collect();
 
-    let min = relocations.iter().map(|v| v.self_offset).min().unwrap();
+    let min = relocations.iter().map(|v| v.self_offset + 4).min().unwrap();
     let max = relocations
       .iter()
-      .map(|v| v.self_offset + v.count)
+      .map(|v| v.self_offset + v.count + 4)
       .max()
       .unwrap();
     let mut host_backup = self.host_backup.write();
@@ -268,7 +281,7 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
       .to_vec();
 
     for r in relocations {
-      let old_offset = r.self_offset - min + 4;
+      let old_offset = r.self_offset + 4 - min;
       let data = source_data
         .get(old_offset as usize..(old_offset + r.count) as usize)
         .unwrap();
@@ -277,7 +290,7 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
   }
 
   fn byte_size(&self) -> u64 {
-    self.host_backup.read().data.len() as u64
+    self.host_backup.read().real_data_byte_len as u64
   }
 
   fn resize_gpu(
@@ -326,11 +339,11 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
     self.check_update_texture();
-    bind_builder.bind(&self.texture);
+    bind_builder.bind(&*self.texture.read());
   }
 
   fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr {
-    let texture = bind_builder.bind_by(&self.texture);
+    let texture = bind_builder.bind_by(&*self.texture.read());
 
     let mut meta = ShaderU32StructMetaData::new(StructLayoutTarget::Std430);
     meta.register_ty(&self.ty_desc);

@@ -30,6 +30,7 @@ pub struct ViewerStaticInitConfig {
   pub enable_reverse_z: bool,
   /// if not provided, the backend select will be automatically based on platform available
   pub wgpu_backend_select_override: Option<Backends>,
+  pub using_texture_as_storage_buffer_for_indirect_rendering: bool,
 }
 
 impl Default for ViewerStaticInitConfig {
@@ -58,6 +59,7 @@ impl Default for ViewerStaticInitConfig {
       bindless_mesh_init: Default::default(),
       wgpu_backend_select_override: None,
       enable_indirect_storage_combine: true,
+      using_texture_as_storage_buffer_for_indirect_rendering: false,
     }
   }
 }

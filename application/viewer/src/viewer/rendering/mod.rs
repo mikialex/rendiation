@@ -369,6 +369,17 @@ impl Viewer3dRenderingCtx {
       .flatten()
   }
 
+  fn storage_allocator(&self) -> Box<dyn AbstractStorageAllocator> {
+    if self
+      .init_config
+      .using_texture_as_storage_buffer_for_indirect_rendering
+    {
+      Box::new(rendiation_webgpu_texture_as_buffer::TextureAsStorageAllocator(self.gpu.clone()))
+    } else {
+      Box::new(DefaultStorageAllocator)
+    }
+  }
+
   pub fn update_registry(
     &mut self,
     memory: &mut FunctionMemory,
@@ -388,7 +399,7 @@ impl Viewer3dRenderingCtx {
         change_collector: &mut Default::default(),
       },
       shared_ctx,
-      storage_allocator: Box::new(DefaultStorageAllocator),
+      storage_allocator: self.storage_allocator(),
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx), true);
     pool
@@ -411,7 +422,7 @@ impl Viewer3dRenderingCtx {
       gpu: &gpu,
       stage: GPUQueryHookStage::Inspect(inspector),
       shared_ctx,
-      storage_allocator: Box::new(DefaultStorageAllocator),
+      storage_allocator: self.storage_allocator(),
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx), true);
   }
@@ -434,7 +445,7 @@ impl Viewer3dRenderingCtx {
         task: task_pool_result,
       },
       shared_ctx,
-      storage_allocator: Box::new(DefaultStorageAllocator),
+      storage_allocator: self.storage_allocator(),
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx).unwrap(), true);
 

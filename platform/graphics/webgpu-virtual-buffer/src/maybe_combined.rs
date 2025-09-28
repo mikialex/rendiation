@@ -5,12 +5,12 @@
 use crate::*;
 
 pub struct StorageBufferCombineGuard {
-  backup: Box<dyn AbstractStorageAllocator>,
+  outside_allocator: Box<dyn AbstractStorageAllocator>,
 }
 
 impl StorageBufferCombineGuard {
   pub fn end(self, cx: &mut QueryGPUHookCx) {
-    cx.storage_allocator = self.backup;
+    cx.storage_allocator = self.outside_allocator;
   }
 }
 
@@ -20,16 +20,22 @@ pub fn use_readonly_storage_buffer_combine(
   label: impl Into<String>,
   enable_combine: bool,
 ) -> StorageBufferCombineGuard {
+  let outside_allocator = cx.storage_allocator.clone();
+
   let (cx, allocator) = cx.use_gpu_init(|gpu, _| {
-    let alloc = Box::new(DefaultStorageAllocator);
-    create_maybe_combined_storage_allocator(gpu, label, enable_combine, false, true, alloc)
+    create_maybe_combined_storage_allocator(
+      gpu,
+      label,
+      enable_combine,
+      false,
+      true,
+      outside_allocator.clone(),
+    )
   });
 
-  // we could build storage allocator above existing allocator
-  let backup = cx.storage_allocator.clone();
   cx.storage_allocator = allocator.clone();
 
-  StorageBufferCombineGuard { backup }
+  StorageBufferCombineGuard { outside_allocator }
 }
 
 /// enable config only take effect in first pass
@@ -50,7 +56,7 @@ pub fn create_maybe_combined_storage_allocator(
   enable_combine: bool,
   use_packed_layout: bool,
   readonly: bool,
-  internal_allocator: Box<dyn AbstractStorageAllocator>,
+  outside_allocator: Box<dyn AbstractStorageAllocator>,
 ) -> Box<dyn AbstractStorageAllocator> {
   if enable_combine {
     Box::new(CombinedStorageBufferAllocator::new(
@@ -58,10 +64,10 @@ pub fn create_maybe_combined_storage_allocator(
       label,
       use_packed_layout,
       readonly,
-      internal_allocator,
+      outside_allocator,
     ))
   } else {
-    Box::new(DefaultStorageAllocator)
+    outside_allocator
   }
 }
 
