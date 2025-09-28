@@ -5,7 +5,7 @@ name = "rendiation-scene-obj-loader"
 version = "0.1.0"
 
 [dependencies]
-image = "*"
+image = { workspace = true }
 database = { path = "../../../../utility/database" }
 rendiation-algebra = { path = "../../../../math/algebra" }
 rendiation-mesh-core = { path = "../../../../content/mesh/core" }

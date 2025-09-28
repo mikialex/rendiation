@@ -11,9 +11,12 @@ rendiation-mesh-core = { path = "../core" }
 rendiation-mesh-segmentation = { path = "../segmentation" }
 rendiation-mesh-simplification = { path = "../simplification" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
-metis = { version = "0.2" }
 facet = { workspace = true }
 serde = { workspace = true }
+
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+metis = { version = "0.2" }
 
 [lints]
 workspace = true

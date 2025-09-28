@@ -5,7 +5,7 @@ name = "rendiation-texture-loader"
 version = "0.1.0"
 
 [dependencies]
-image = "*"
+image = { workspace = true }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-texture-core = { path = "../core" }
 thiserror = { workspace = true }

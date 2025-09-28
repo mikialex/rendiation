@@ -18,7 +18,7 @@ rendiation-lighting-gpu-system = { path = "../gpu-system/lighting-system" }
 bytemuck = { workspace = true }
 pollster = { workspace = true }
 rendiation-texture-loader = { path = "../../texture/loader" }
-image = "*"
+image = { workspace = true }
 
 [lints]
 workspace = true

@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use fast_hash_collection::FastHashMap;
 use rendiation_mesh_segmentation::{build_meshlets, build_meshlets_bound, ClusteringConfig};
 use rendiation_mesh_simplification::{
@@ -148,6 +149,13 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
     (meshlets, indices)
   }
 
+  /// we have compile issue one metis in wasm target. disable it for now
+  #[cfg(target_family = "wasm")]
+  fn segment_meshlets(&self, _input: &[Meshlet], _adj: &MeshletAdjacencyInfo) -> SegmentResult {
+    unimplemented!()
+  }
+
+  #[cfg(not(target_family = "wasm"))]
   fn segment_meshlets(&self, input: &[Meshlet], adj: &MeshletAdjacencyInfo) -> SegmentResult {
     let mut xadj = Vec::with_capacity(input.len() + 1);
     let mut adjncy = Vec::new();

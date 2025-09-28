@@ -9,10 +9,10 @@ pub struct SobolSamplingGenerator {
 
 impl Default for SobolSamplingGenerator {
   fn default() -> Self {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     Self {
-      scramble_1d: rng.gen_range(0..u32::MAX),
-      scramble_2d: (rng.gen_range(0..u32::MAX), rng.gen_range(0..u32::MAX)),
+      scramble_1d: rng.random_range(0..u32::MAX),
+      scramble_2d: (rng.random_range(0..u32::MAX), rng.random_range(0..u32::MAX)),
     }
   }
 }

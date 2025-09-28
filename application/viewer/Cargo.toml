@@ -69,16 +69,19 @@ rendiation-area-lighting = { path = "../../extension/area-lighting" }
 rendiation-webgpu-virtual-buffer = { path = "../../platform/graphics/webgpu-virtual-buffer" }
 rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
 rendiation-webgpu-texture-as-buffer = { path = "../../platform/graphics/webgpu-texture-as-buffer" }
-rfd = "0.14.0"
+rfd = "0.15.4"
 tracing = { workspace = true }
 tracing-subscriber = "0.3.20"
 tracing-tracy = { version = "0.11.4", optional = true }
 egui = { version = "0.32" }
 egui-wgpu = { version = "0.32" }
-egui-winit = { version = "0.32" }
+egui-winit = { version = "0.32", default-features = false }
 egui_extras = { version = "0.32" }
-
 winit = { workspace = true }
+
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 
 [features]

@@ -19,7 +19,9 @@ mod types;
 use core::fmt::Debug;
 use core::num::NonZeroUsize;
 use core::{marker::PhantomData, num::NonZeroU64};
+#[allow(unused_imports)]
 use std::sync::atomic::AtomicBool;
+#[allow(unused_imports)]
 use std::sync::atomic::AtomicU32;
 use std::{
   any::*,

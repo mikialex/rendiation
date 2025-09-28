@@ -32,7 +32,9 @@ impl GPUInstance {
   #[cfg(target_family = "wasm")]
   pub fn new(instance: gpu::Instance) -> Self {
     Self {
-      instance: Arc::new(GPUInstanceInner { instance }),
+      instance: Arc::new(GPUInstanceInner {
+        instance: Arc::new(instance),
+      }),
     }
   }
 
@@ -81,6 +83,7 @@ pub struct GPUInstanceInner {
 
 impl Drop for GPUInstanceInner {
   fn drop(&mut self) {
+    #[cfg(not(target_family = "wasm"))]
     self.is_dropped.store(true, Ordering::Relaxed);
   }
 }

@@ -87,11 +87,11 @@ pub struct RngSampler {
 
 impl Sampler for RngSampler {
   fn next(&mut self) -> f32 {
-    self.rng.gen()
+    self.rng.random()
   }
 
   fn next_2d(&mut self) -> (f32, f32) {
-    (self.rng.gen(), self.rng.gen())
+    (self.rng.random(), self.rng.random())
   }
 
   fn reset(&mut self, _next_sampling_index: usize) {}
