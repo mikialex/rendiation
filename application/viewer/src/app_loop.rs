@@ -121,32 +121,55 @@ struct WinitAppImpl {
 
 impl winit::application::ApplicationHandler for WinitAppImpl {
   fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-    #[allow(unused_mut)]
-    let mut window_att = Window::default_attributes().with_title(&self.title);
-
-    #[cfg(target_family = "wasm")]
-    {
-      use wasm_bindgen::JsCast;
-      use winit::platform::web::WindowAttributesExtWebSys;
-      let canvas = web_sys::window()
-        .unwrap()
-        .document()
-        .unwrap()
-        .get_element_by_id("canvas")
-        .unwrap()
-        .dyn_into::<web_sys::HtmlCanvasElement>()
-        .unwrap();
-      window_att = window_att.with_canvas(Some(canvas));
-    }
-
     self.window.get_or_insert_with(|| {
+      #[allow(unused_mut)]
+      let mut window_att = Window::default_attributes().with_title(&self.title);
+      #[allow(unused_assignments)]
+      let mut width = 0;
+      #[allow(unused_assignments)]
+      let mut height = 0;
+
+      #[cfg(target_family = "wasm")]
+      {
+        use wasm_bindgen::JsCast;
+        use winit::platform::web::WindowAttributesExtWebSys;
+        let canvas = web_sys::window()
+          .unwrap()
+          .document()
+          .unwrap()
+          .get_element_by_id("canvas")
+          .unwrap()
+          .dyn_into::<web_sys::HtmlCanvasElement>()
+          .unwrap();
+        window_att = window_att.with_canvas(Some(canvas.clone()));
+
+        width = canvas.get_bounding_client_rect().width() as u32;
+        height = canvas.get_bounding_client_rect().height() as u32;
+      }
+
       let window = event_loop.create_window(window_att).unwrap();
       log::info!("window created");
       window.request_redraw();
       let window = Box::pin(window);
 
-      let width = window.inner_size().width;
-      let height = window.inner_size().height;
+      #[cfg(not(target_family = "wasm"))]
+      {
+        width = window.inner_size().width; // in wasm build, it's zero, so we have to fix
+        height = window.inner_size().height;
+      }
+
+      log::info!("window size: {}x{}", width, height);
+      #[allow(unused_mut)]
+      let mut platform_states = PlatformEventInput::default();
+
+      #[cfg(target_family = "wasm")]
+      {
+        let device = web_sys::window().unwrap().device_pixel_ratio() as f32;
+
+        platform_states.window_state.device_pixel_ratio = device;
+        platform_states.window_state.physical_size =
+          (width as f32 * device, height as f32 * device);
+      }
 
       let window_ref: &'static Window = unsafe { std::mem::transmute(window.as_ref()) };
       let config = GPUCreateConfig {
@@ -168,7 +191,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
       WindowWithWGPUSurface {
         window,
         gpu,
-        platform_states: Default::default(),
+        platform_states,
       }
     });
   }
@@ -215,7 +238,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
           event: event.clone(),
           window_id: window.id(),
         });
-        match event {
+        match &event {
           WindowEvent::CloseRequested => {
             let mut cx = DynCx::default();
             self.memory.cleanup(&mut cx as *mut _ as *mut ());
@@ -249,11 +272,15 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
 
               output.present();
             }
-
-            window.request_redraw();
           }
           _ => {}
         };
+      }
+
+      // put the redraw request out of wgpu instance check
+      // make sure it always requested
+      if let WindowEvent::RedrawRequested = &event {
+        window.request_redraw();
       }
     }
   }
@@ -265,9 +292,9 @@ pub fn run_application(
 ) {
   let event_loop = EventLoop::new().unwrap();
 
-  // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
-  // dispatched any events. This is ideal for games and similar applications.
-  event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+  // ControlFlow::Poll is unnecessary, and we have to specify wait on web target to avoid
+  // excessive polling behavior
+  event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
 
   let mut app = WinitAppImpl {
     window: None,

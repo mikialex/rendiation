@@ -94,7 +94,7 @@ impl Default for ViewerInitConfig {
   fn default() -> Self {
     Self {
       present_mode: PresentMode::AutoVsync,
-      raster_backend_type: RasterizationRenderBackendType::Indirect,
+      raster_backend_type: RasterizationRenderBackendType::Gles,
       prefer_bindless_for_indirect_texture_system: false,
       enable_indirect_occlusion_culling: false,
       using_host_driven_indirect_draw: false,
