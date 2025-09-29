@@ -80,6 +80,7 @@ members = [
   "extension/gizmo",
   "extension/area-lighting",
   "application/viewer",
+  "xtask",
 ]
 
 # https://doc.rust-lang.org/nightly/cargo/reference/features.html#feature-resolver-version-2

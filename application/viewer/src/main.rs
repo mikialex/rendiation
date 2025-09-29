@@ -132,33 +132,8 @@ fn main() {
       sync_camera_view(cx);
       use_animation_player(cx);
 
-      // demo of how persistent scope api works
-      cx.suppress_scene_writer();
-      use_persistent_db_scope(cx, |cx, persist_api| {
-        cx.re_enable_scene_writer();
-
-        // demo of how hydration works
-        cx.use_state_init(|_| {
-          let label = "root_scene";
-          if let Some(handle) = persist_api.get_hydration_label(label) {
-            println!("retrieve root persistent scene");
-            unsafe { EntityHandle::from_raw(handle) }
-          } else {
-            println!("create new root persistent scene");
-            let node = global_entity_of::<SceneEntity>()
-              .entity_writer()
-              .new_entity();
-
-            persist_api.setup_hydration_label(label, node.into_raw());
-            node
-          }
-        });
-
-        core::hint::black_box(());
-
-        cx.suppress_scene_writer();
-      });
-      cx.re_enable_scene_writer();
+      #[cfg(not(target_family = "wasm"))]
+      test_persist_scope(cx);
 
       use_smooth_camera_motion(cx, |cx| {
         use_fit_camera_view(cx);
@@ -172,4 +147,35 @@ fn main() {
       use_mesh_tools(cx);
     });
   });
+}
+
+#[allow(dead_code)]
+/// demo of how persistent scope api works
+fn test_persist_scope(cx: &mut ViewerCx) {
+  cx.suppress_scene_writer();
+  use_persistent_db_scope(cx, |cx, persist_api| {
+    cx.re_enable_scene_writer();
+
+    // demo of how hydration works
+    cx.use_state_init(|_| {
+      let label = "root_scene";
+      if let Some(handle) = persist_api.get_hydration_label(label) {
+        println!("retrieve root persistent scene");
+        unsafe { EntityHandle::from_raw(handle) }
+      } else {
+        println!("create new root persistent scene");
+        let node = global_entity_of::<SceneEntity>()
+          .entity_writer()
+          .new_entity();
+
+        persist_api.setup_hydration_label(label, node.into_raw());
+        node
+      }
+    });
+
+    core::hint::black_box(());
+
+    cx.suppress_scene_writer();
+  });
+  cx.re_enable_scene_writer();
 }

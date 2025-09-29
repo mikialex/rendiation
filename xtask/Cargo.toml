@@ -1,0 +1,10 @@
+[package]
+name = "rendiation-xtask"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+xshell = "0.2.7"
+pico-args = "0.5.0"
+anyhow = { workspace = true }

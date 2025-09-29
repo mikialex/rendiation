@@ -224,6 +224,7 @@
         "workgroups",
         "Worley",
         "writeonly",
+        "xtask",
         "ycocg",
         "Zeroable",
         "zerocopy"
