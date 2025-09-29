@@ -222,7 +222,7 @@ impl GPUxEntityIdMapPicker {
   pub fn pick_ids(
     &mut self,
     range: ReadRange,
-  ) -> Option<Box<dyn Future<Output = Option<Vec<u32>>> + Unpin>> {
+  ) -> Option<Pin<Box<dyn Future<Output = Option<Vec<u32>>>>>> {
     if self.unresolved_counter.load(Ordering::Relaxed) > 100 {
       return None;
     }
@@ -233,7 +233,7 @@ impl GPUxEntityIdMapPicker {
     let (sender, receiver) = futures::channel::oneshot::channel();
     self.wait_to_read_tasks.push((sender, range));
 
-    Some(Box::new(Box::pin(
+    Some(Box::pin(
       async {
         let texture_read_future = receiver.await.ok()?;
         let texture_read_buffer = texture_read_future.await.ok()?;
@@ -245,6 +245,6 @@ impl GPUxEntityIdMapPicker {
         counter.fetch_sub(1, Ordering::Relaxed);
         r
       }),
-    )))
+    ))
   }
 }

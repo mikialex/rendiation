@@ -120,7 +120,7 @@ impl Terminal {
 }
 
 type TerminalCommandCb =
-  Box<dyn Fn(&mut TerminalInitExecuteCx, &Vec<String>) -> Box<dyn Future<Output = ()> + Unpin>>;
+  Box<dyn Fn(&mut TerminalInitExecuteCx, &Vec<String>) -> Pin<Box<dyn Future<Output = ()>>>>;
 
 pub struct TerminalInitExecuteCx<'a> {
   pub scene: &'a Viewer3dContent,
@@ -160,7 +160,7 @@ impl Terminal {
     let cx = self.ctx.clone();
     self.command_registry.insert(
       name.as_ref().to_owned(),
-      Box::new(move |c, p| Box::new(Box::pin(f(c, p, &cx)))),
+      Box::new(move |c, p| Box::pin(f(c, p, &cx))),
     );
     self
   }

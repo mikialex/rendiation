@@ -123,6 +123,8 @@ wgpu = { version = "25", features = [
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "25", features = ["wgsl-out"] }
+web-time = "1.1.0"
+
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 

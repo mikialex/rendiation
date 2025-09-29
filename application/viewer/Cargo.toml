@@ -88,7 +88,7 @@ console_error_panic_hook = "0.1.7"
 web-sys = { version = "0.3.77" }
 console_log = "1"
 wasm-bindgen = "0.2"
-web-time = "1.1.0"
+web-time = { workspace = true }
 
 
 [features]

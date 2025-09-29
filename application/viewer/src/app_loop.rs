@@ -51,7 +51,7 @@ impl ApplicationWindowSurface {
 #[allow(clippy::large_enum_variant)]
 enum GPUOrGPUCreateFuture {
   Created(WGPUAndSurface),
-  Creating(Box<dyn Future<Output = WGPUAndSurface> + Unpin>),
+  Creating(Pin<Box<dyn Future<Output = WGPUAndSurface>>>),
 }
 
 impl GPUOrGPUCreateFuture {
@@ -181,12 +181,12 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         ..Default::default()
       };
 
-      let gpu = GPUOrGPUCreateFuture::Creating(Box::new(Box::pin(async {
+      let gpu = GPUOrGPUCreateFuture::Creating(Box::pin(async {
         let (gpu, surface) = GPU::new(config).await.unwrap();
         let surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
         let surface = ApplicationWindowSurface::new(surface);
         WGPUAndSurface { gpu, surface }
-      })));
+      }));
 
       WindowWithWGPUSurface {
         window,

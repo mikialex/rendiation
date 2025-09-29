@@ -136,7 +136,7 @@ where
     let r = match self {
       UseResult::SpawnStageReady(r) => {
         *has_change = true;
-        Box::new(futures::future::ready(r)) as Box<dyn Future<Output = T> + Unpin + Send>
+        Box::pin(futures::future::ready(r)) as std::pin::Pin<Box<dyn Future<Output = T> + Send>>
       }
       UseResult::SpawnStageFuture(f) => {
         *has_change = true;

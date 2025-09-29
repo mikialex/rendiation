@@ -9,6 +9,9 @@ winit = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 log = { workspace = true }
 
+[target.'cfg(target_family = "wasm")'.dependencies]
+web-time = { workspace = true }
+
 
 [lints]
 workspace = true
