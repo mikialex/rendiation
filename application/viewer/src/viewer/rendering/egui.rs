@@ -1,7 +1,7 @@
 use crate::*;
 
 impl Viewer3dRenderingCtx {
-  pub fn egui(&mut self, ui: &mut egui::Ui) {
+  pub fn egui(&mut self, ui: &mut egui::Ui, last_frame_cpu_time: f32) {
     let mut is_hdr = false;
     self.swap_chain.internal(|surface| {
       is_hdr = surface.config.format == TextureFormat::Rgba16Float;
@@ -190,6 +190,10 @@ impl Viewer3dRenderingCtx {
     ui.separator();
 
     ui.collapsing("time graph", |ui| {
+      ui.label(format!(
+        "last frame cpu time: {:.2} ms",
+        last_frame_cpu_time
+      ));
       if let Some((t, _)) = self.stat_frame_time_in_ms.get_latest() {
         ui.label(format!(
           "last frame time: {:.2} ms, fps: {:.2}",

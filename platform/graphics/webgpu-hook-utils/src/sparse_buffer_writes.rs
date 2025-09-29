@@ -77,6 +77,10 @@ impl SparseBufferWritesSource {
   }
 
   pub fn write_abstract(&self, gpu: &GPU, target_buffer: &dyn AbstractBuffer) {
+    if self.is_empty() {
+      return;
+    }
+
     // this may failed if we support texture as storage buffer
     if let Some(target_buffer) = target_buffer.get_gpu_buffer_view() {
       let mut encoder = gpu.create_encoder(); // todo, reuse encoder and pass

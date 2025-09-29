@@ -107,7 +107,9 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
         ui.separator();
 
-        viewer.rendering.egui(ui);
+        viewer
+          .rendering
+          .egui(ui, cx.input.last_frame_cpu_time_in_ms);
 
         viewer.background.egui(ui, viewer.scene.scene);
 

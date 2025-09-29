@@ -1,3 +1,5 @@
+#![feature(duration_millis_float)]
+
 use fast_hash_collection::*;
 use winit::{
   event::*,
@@ -10,6 +12,8 @@ pub struct PlatformEventInput {
   pub previous_frame_window_state: WindowState,
   pub window_state: WindowState,
   pub state_delta: WindowStateChange,
+  pub last_frame_cpu_time_in_ms: f32,
+  pub current_frame_time_start: Option<std::time::Instant>,
 }
 
 impl PlatformEventInput {
@@ -21,12 +25,25 @@ impl PlatformEventInput {
       self.window_state.event(e);
     }
     self.state_delta = self.window_state.compare(&self.previous_frame_window_state);
+    self.current_frame_time_start = Some(std::time::Instant::now());
   }
 
   pub fn end_frame(&mut self) {
     self.accumulate_events.clear();
     self.previous_frame_window_state = self.window_state.clone();
     self.window_state.reset_in_frame_states();
+    self.last_frame_cpu_time_in_ms = self
+      .current_frame_time_start
+      .take()
+      .unwrap()
+      .elapsed()
+      .as_millis_f32();
+    if self.last_frame_cpu_time_in_ms > 100. {
+      log::warn!(
+        "long frame cpu time: {:2?} ms",
+        self.last_frame_cpu_time_in_ms
+      );
+    }
   }
 }
 
