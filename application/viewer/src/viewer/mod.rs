@@ -126,7 +126,7 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
     matches!(&self.stage, ViewerCxStage::EventHandling { .. })
   }
 
-  fn stage(&mut self) -> QueryHookStage {
+  fn stage(&mut self) -> QueryHookStage<'_> {
     match &mut self.stage {
       ViewerCxStage::SpawnTask { pool, .. } => QueryHookStage::SpawnTask {
         spawner: self.task_spawner,

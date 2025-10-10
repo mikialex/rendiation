@@ -1,5 +1,3 @@
-#![feature(let_chains)]
-
 use std::any::Any;
 use std::any::TypeId;
 use std::future::Future;
@@ -8,8 +6,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use fast_hash_collection::*;
-use futures::stream::*;
 use futures::FutureExt;
+use futures::stream::*;
 use parking_lot::RwLock;
 pub use query::*;
 
@@ -105,16 +103,16 @@ pub fn maintain_shared_map_avoid_unnecessary_creator_init<K, V, D, F>(
   D: DataChanges<Key = K>,
   F: FnMut(D::Value) -> V,
 {
-  if let Some(changes) = change.if_ready() {
-    if changes.has_change() {
-      let mut f = f();
-      let mut map = map.write();
-      for k in changes.iter_removed() {
-        map.remove(&k);
-      }
-      for (k, v) in changes.iter_update_or_insert() {
-        map.insert(k, f(v));
-      }
+  if let Some(changes) = change.if_ready()
+    && changes.has_change()
+  {
+    let mut f = f();
+    let mut map = map.write();
+    for k in changes.iter_removed() {
+      map.remove(&k);
+    }
+    for (k, v) in changes.iter_update_or_insert() {
+      map.insert(k, f(v));
     }
   }
 }
@@ -122,7 +120,7 @@ pub fn maintain_shared_map_avoid_unnecessary_creator_init<K, V, D, F>(
 pub trait QueryHookCxLike: HooksCxLike {
   fn is_spawning_stage(&self) -> bool;
   fn is_resolve_stage(&self) -> bool;
-  fn stage(&mut self) -> QueryHookStage;
+  fn stage(&mut self) -> QueryHookStage<'_>;
 
   fn spawner(&mut self) -> Option<TaskSpawner> {
     if let QueryHookStage::SpawnTask { spawner, .. } = self.stage() {
@@ -353,10 +351,9 @@ pub trait QueryHookCxLike: HooksCxLike {
       if let QueryHookStage::SpawnTask {
         change_collector, ..
       } = self.stage()
+        && changed
       {
-        if changed {
-          change_collector.notify_change();
-        }
+        change_collector.notify_change();
       }
     }
 
@@ -461,10 +458,10 @@ impl SharedHooksCtx {
     let SharedConsumerToken(id, key) = token;
 
     // this check is necessary because not all key need reconcile change
-    if let Some(reconciler) = self.reconciler.get_mut(&key) {
-      if reconciler.remove_consumer(id) {
-        self.reconciler.remove(&key);
-      }
+    if let Some(reconciler) = self.reconciler.get_mut(&key)
+      && reconciler.remove_consumer(id)
+    {
+      self.reconciler.remove(&key);
     }
 
     let mut target = self.shared.get_mut(&key).unwrap().write();

@@ -7,16 +7,18 @@ pub struct TriangleAdjacency {
 impl TriangleAdjacency {
   pub fn new(indices: &[u32], vertex_count: usize) -> Self {
     let vertices_iter = indices.iter().copied();
-    let face_vertices_iter = indices
-      .array_chunks::<3>()
-      .enumerate()
-      .flat_map(|(i, [a, b, c])| {
-        // we must reject the degenerate triangle here, because when we remove triangle from self, we early exist
-        // for first triangle.
-        assert!(triangle_is_not_degenerated(&[a, b, c]));
-        let i = i as u32;
-        [(i, *a), (i, *b), (i, *c)]
-      });
+    let face_vertices_iter =
+      indices
+        .iter()
+        .array_chunks::<3>()
+        .enumerate()
+        .flat_map(|(i, [a, b, c])| {
+          // we must reject the degenerate triangle here, because when we remove triangle from self, we early exist
+          // for first triangle.
+          assert!(triangle_is_not_degenerated(&[a, b, c]));
+          let i = i as u32;
+          [(i, *a), (i, *b), (i, *c)]
+        });
 
     Self {
       internal: Adjacency::from_iter(vertex_count, vertices_iter, face_vertices_iter),

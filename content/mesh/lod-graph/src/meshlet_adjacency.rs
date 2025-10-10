@@ -84,7 +84,7 @@ pub fn compute_meshlet_boundary_edges(meshlet: &Meshlet, indices: &[u32]) -> Edg
   let indices_range = meshlet.index_range.into_range();
   let indices = indices.get(indices_range).unwrap();
 
-  for [a, b, c] in indices.array_chunks::<3>() {
+  for [a, b, c] in indices.iter().array_chunks::<3>() {
     boundary_edges.add_edge(*a, *b);
     boundary_edges.add_edge(*b, *c);
     boundary_edges.add_edge(*c, *a);

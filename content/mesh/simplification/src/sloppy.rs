@@ -18,7 +18,7 @@ pub fn simplify_sloppy<V: Positioned<Position = Vec3<f32>>>(
   target_error: f32,
   use_absolute_error: bool,
 ) -> SimplificationResult {
-  assert!(indices.len() % 3 == 0);
+  assert!(indices.len().is_multiple_of(3));
   assert!(target_index_count <= indices.len() as u32);
 
   // we expect to get ~2 triangles/vertex in the output
@@ -192,7 +192,7 @@ pub fn fill_cell_quadrics(
   vertex_positions: &[Vec3<f32>],
   vertex_cells: &[u32],
 ) {
-  for [i0, i1, i2] in indices.array_chunks::<3>() {
+  for [i0, i1, i2] in indices.iter().array_chunks::<3>() {
     let c0 = vertex_cells[*i0 as usize];
     let c1 = vertex_cells[*i1 as usize];
     let c2 = vertex_cells[*i2 as usize];
@@ -261,8 +261,8 @@ fn filter_triangles(
 ) -> usize {
   let mut filter = HashSet::<(u32, u32, u32)>::new();
   let mut result = 0;
-  for [a, b, c] in indices.array_chunks::<3>() {
-    let [c0, c1, c2] = [a, b, c].map(|i| vertex_cells[*i as usize]);
+  for [a, b, c] in indices.iter().copied().array_chunks::<3>() {
+    let [c0, c1, c2] = [a, b, c].map(|i| vertex_cells[i as usize]);
 
     if triangle_is_not_degenerated(&[c0, c1, c2]) {
       let mut a = cell_remap[c0 as usize];

@@ -1,7 +1,7 @@
 use crate::*;
 
 impl BindableResourceView for gpu::Sampler {
-  fn as_bindable(&self) -> gpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource<'_> {
     gpu::BindingResource::Sampler(self)
   }
 }
@@ -10,7 +10,7 @@ impl BindableResourceView for gpu::Sampler {
 pub struct RawSampler(pub Arc<gpu::Sampler>);
 
 impl BindableResourceView for RawSampler {
-  fn as_bindable(&self) -> gpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource<'_> {
     gpu::BindingResource::Sampler(self.0.as_ref())
   }
 }

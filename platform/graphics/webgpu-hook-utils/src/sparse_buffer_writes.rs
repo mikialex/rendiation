@@ -102,7 +102,7 @@ impl SparseBufferWritesSource {
 
     if ENABLE_TARGET_SIZE_CHECK {
       let mut max_write_size = 0;
-      for [_, write_size, target_offset] in self.offset_size.array_chunks::<3>() {
+      for [_, write_size, target_offset] in self.offset_size.iter().array_chunks::<3>() {
         max_write_size = max_write_size.max(write_size + target_offset);
       }
       assert!(max_write_size <= u64::from(target_buffer.view_byte_size()) as u32 / 4);

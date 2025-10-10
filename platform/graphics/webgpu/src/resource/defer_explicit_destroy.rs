@@ -30,7 +30,7 @@ impl ExplicitGPUResourceDestroy for RawSampler {
     // no op
   }
 }
-impl ExplicitGPUResourceDestroy for gpu::TlasPackage {
+impl ExplicitGPUResourceDestroy for GPUTlasRaw {
   fn destroy(&self) {
     // no op
   }

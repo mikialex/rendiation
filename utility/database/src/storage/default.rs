@@ -29,7 +29,7 @@ impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBLinearStorage<T>>> {
   fn type_id(&self) -> TypeId {
     TypeId::of::<T>()
   }
-  fn data_shape(&self) -> &'static Shape {
+  fn data_shape(&self) -> &'static Shape<'_> {
     T::shape()
   }
 }

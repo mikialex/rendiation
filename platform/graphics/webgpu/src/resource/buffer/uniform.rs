@@ -58,7 +58,7 @@ impl<T: Std140> CacheAbleBindingSource for UniformBufferDataView<T> {
   }
 }
 impl<T: Std140> BindableResourceView for UniformBufferDataView<T> {
-  fn as_bindable(&self) -> gpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource<'_> {
     self.gpu.as_bindable()
   }
 }
@@ -103,7 +103,7 @@ impl<T: Std140> CacheAbleBindingSource for UniformBufferCachedDataView<T> {
   }
 }
 impl<T: Std140> BindableResourceView for UniformBufferCachedDataView<T> {
-  fn as_bindable(&self) -> gpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource<'_> {
     self.gpu.as_bindable()
   }
 }

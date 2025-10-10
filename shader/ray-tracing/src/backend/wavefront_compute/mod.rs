@@ -18,9 +18,8 @@ pub struct GPUWaveFrontComputeRaytracingSystem {
   sbt_sys: ShaderBindingTableDeviceInfo,
 }
 
-pub const INLINE_RAY_TRACING_REQUIRED_FEATURES: Features = Features::EXPERIMENTAL_RAY_QUERY
-  .union(Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE)
-  .union(Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN);
+pub const INLINE_RAY_TRACING_REQUIRED_FEATURES: Features =
+  Features::EXPERIMENTAL_RAY_QUERY.union(Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN);
 
 impl GPUWaveFrontComputeRaytracingSystem {
   pub fn new(gpu: &GPU, alloc: &dyn AbstractStorageAllocator) -> Self {

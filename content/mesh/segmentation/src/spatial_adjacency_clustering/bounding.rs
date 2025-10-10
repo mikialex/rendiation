@@ -37,7 +37,7 @@ pub fn compute_triangle_cones<V: Positioned<Position = Vec3<f32>>>(
 
   let mut cones = Vec::with_capacity(indices.len() / 3);
 
-  for [a, b, c] in indices.array_chunks::<3>() {
+  for [a, b, c] in indices.iter().array_chunks::<3>() {
     let p0 = vertex[*a as usize].position();
     let p1 = vertex[*b as usize].position();
     let p2 = vertex[*c as usize].position();

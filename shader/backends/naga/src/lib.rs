@@ -347,7 +347,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
       BarrierScope::WorkGroup => naga::Barrier::WORK_GROUP,
       BarrierScope::SubGroup => naga::Barrier::SUB_GROUP,
     };
-    self.push_top_statement(naga::Statement::Barrier(b));
+    self.push_top_statement(naga::Statement::ControlBarrier(b));
   }
 
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle {
@@ -922,6 +922,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             },
           },
           depth_ref: reference.map(|r| self.get_expression(r)),
+          clamp_to_edge: false,
         },
         ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
           texture,

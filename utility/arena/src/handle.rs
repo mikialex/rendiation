@@ -97,7 +97,7 @@ impl<T> PartialEq for Handle<T> {
 
 impl<T> PartialOrd for Handle<T> {
   fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-    Some(self.handle.cmp(&other.handle))
+    Some(self.cmp(other))
   }
 }
 

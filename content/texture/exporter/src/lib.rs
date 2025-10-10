@@ -1,4 +1,4 @@
-#![feature(array_chunks)]
+#![feature(iter_array_chunks)]
 
 use std::io::Write;
 
@@ -53,7 +53,7 @@ pub fn write_raw_gpu_buffer_image_as_png(
     }
     TextureFormat::Bgra8UnormSrgb => {
       for chunk in data.chunks(padded_bytes_per_row) {
-        for [b, g, r, a] in chunk[..unpadded_bytes_per_row].array_chunks::<4>() {
+        for [b, g, r, a] in chunk[..unpadded_bytes_per_row].iter().array_chunks::<4>() {
           png_writer.write_all(&[*r, *g, *b, *a]).unwrap();
         }
       }

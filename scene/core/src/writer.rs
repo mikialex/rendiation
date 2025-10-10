@@ -150,14 +150,14 @@ impl SceneWriter {
     mesh.write(&mut self.mesh_writer, &mut self.buffer_writer)
   }
 
-  pub fn texture_sample_pair_writer(&mut self) -> TexSamplerWriter {
+  pub fn texture_sample_pair_writer(&mut self) -> TexSamplerWriter<'_> {
     TexSamplerWriter {
       tex_writer: &mut self.tex_writer,
       sampler_writer: &mut self.sampler_writer,
     }
   }
 
-  pub fn cube_texture_writer(&mut self) -> TexCubeWriter {
+  pub fn cube_texture_writer(&mut self) -> TexCubeWriter<'_> {
     TexCubeWriter {
       tex_writer: &mut self.tex_writer,
       cube_writer: &mut self.cube_writer,

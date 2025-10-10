@@ -99,7 +99,7 @@ pub trait ComponentStorage: Send + Sync + DynClone {
   fn create_read_view(&self) -> Box<dyn ComponentStorageReadView>;
   fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView>;
   fn type_id(&self) -> TypeId;
-  fn data_shape(&self) -> &'static facet::Shape;
+  fn data_shape(&self) -> &'static facet::Shape<'_>;
 }
 dyn_clone::clone_trait_object!(ComponentStorage);
 

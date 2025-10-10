@@ -184,7 +184,7 @@ pub fn fill_edge_quadrics(
   borders: &BorderLoops,
 ) {
   // for each triangle
-  for i in indices.array_chunks::<3>().copied() {
+  for i in indices.iter().copied().array_chunks::<3>() {
     let [i0, i1, i2] = i;
     let (i0, i1, i2) = (i0 as usize, i1 as usize, i2 as usize);
 
@@ -276,7 +276,7 @@ pub fn fill_face_quadrics(
   vertex_positions: &[Vec3<f32>],
   remap: &[u32],
 ) {
-  for i in indices.array_chunks::<3>().copied() {
+  for i in indices.iter().copied().array_chunks::<3>() {
     let [i0, i1, i2] = i;
     let (i0, i1, i2) = (i0 as usize, i1 as usize, i2 as usize);
 

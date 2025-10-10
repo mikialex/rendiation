@@ -187,8 +187,8 @@ fn pick_edge_collapses(
 ) -> usize {
   let mut collapse_count = 0;
 
-  for triangle in indices.array_chunks::<3>() {
-    for (i0, i1) in iter_triangle_edges(*triangle) {
+  for triangle in indices.iter().copied().array_chunks::<3>() {
+    for (i0, i1) in iter_triangle_edges(triangle) {
       let i0 = i0 as usize;
       let i1 = i1 as usize;
 

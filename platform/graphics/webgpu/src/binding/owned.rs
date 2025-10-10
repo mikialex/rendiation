@@ -9,11 +9,11 @@ pub enum BindingResourceOwned {
   RawTextureView(Arc<gpu::TextureView>, usize), // for example surface texture
   TextureView(GPUTextureView),
   TextureViewArray(Arc<Vec<GPUTextureView>>),
-  AccelerationStructure(GPUTlasView),
+  AccelerationStructure(GPUTlasRaw),
 }
 
 impl BindingResourceOwned {
-  pub fn prepare_ref(&self) -> BindingResourceOwnedRef {
+  pub fn prepare_ref(&self) -> BindingResourceOwnedRef<'_> {
     match self {
       BindingResourceOwned::Buffer(buffer) => {
         BindingResourceOwnedRef::Buffer(buffer.as_buffer_binding())
@@ -38,7 +38,7 @@ impl BindingResourceOwned {
         BindingResourceOwnedRef::TextureViewArray(textures.iter().map(|s| &s.view).collect())
       }
       BindingResourceOwned::AccelerationStructure(tlas) => {
-        BindingResourceOwnedRef::AccelerationStructure(tlas.resource.tlas())
+        BindingResourceOwnedRef::AccelerationStructure(tlas.gpu())
       }
     }
   }

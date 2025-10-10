@@ -83,7 +83,7 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTreeBuilder<T,
   fn new(size: usize) -> Self {
     Self {
       partitions: (0..size).map(|_| Vec::new()).collect(),
-      ranges: (0..size).map(|_| (0..0)).collect(),
+      ranges: (0..size).map(|_| 0..0).collect(),
       crossed: Vec::new(),
       bounding: (0..size).map(|_| T::Bounding::default()).collect(),
     }
@@ -176,7 +176,7 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTree<T, N, D> 
     }
   }
 
-  fn create_node_ref(&self, index: usize) -> BSTTreeNodeRef<T, N, D> {
+  fn create_node_ref(&self, index: usize) -> BSTTreeNodeRef<'_, T, N, D> {
     BSTTreeNodeRef {
       tree: self,
       node: &self.nodes[index],

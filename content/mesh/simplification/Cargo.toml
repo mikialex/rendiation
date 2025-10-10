@@ -1,6 +1,6 @@
 [package]
 authors = ["mikialex <miikiialexx@gmail.com>"]
-edition = "2021"
+edition = "2024"
 name = "rendiation-mesh-simplification"
 version = "0.1.0"
 

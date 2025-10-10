@@ -633,7 +633,7 @@ fn resize_impl(
     0,
     &new_buffer.resource.gpu,
     0,
-    buffer.resource.desc.size.into(),
+    Some(buffer.resource.desc.size.into()),
   );
 
   new_buffer

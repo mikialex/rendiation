@@ -12,18 +12,13 @@ pub struct Euler<T> {
 
 #[repr(C)]
 #[derive(Serialize, Deserialize)]
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Facet)]
+#[derive(Default, Debug, Copy, Clone, Hash, Eq, PartialEq, Facet)]
 pub enum EulerOrder {
+  #[default]
   XYZ,
   YXZ,
   ZXY,
   ZYX,
   YZX,
   XZY,
-}
-
-impl Default for EulerOrder {
-  fn default() -> Self {
-    Self::XYZ
-  }
 }

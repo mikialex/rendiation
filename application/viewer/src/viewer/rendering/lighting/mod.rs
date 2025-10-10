@@ -72,7 +72,7 @@ impl LightSystem {
     renderer: &dyn SceneRenderer,
     extractor: &DefaultSceneBatchExtractor,
     target_scene: EntityHandle<SceneEntity>,
-  ) -> LightingRenderingCx {
+  ) -> LightingRenderingCx<'_> {
     self.tonemap.update(frame_ctx.gpu);
 
     let key = SceneContentKey {

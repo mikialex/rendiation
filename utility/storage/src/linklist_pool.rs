@@ -93,7 +93,7 @@ impl<T> LinkListPool<T> {
   }
 
   /// visitor (data, index) return should continue
-  pub fn iter_list(&self, list: &ListHandle) -> LinkListPoolIter<T> {
+  pub fn iter_list(&self, list: &ListHandle) -> LinkListPoolIter<'_, T> {
     let next_to_visit = IndexPtr::new((list.head != u32::MAX).then_some(list.head as usize));
     LinkListPoolIter {
       list: self,

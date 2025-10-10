@@ -54,7 +54,7 @@ where
     &self,
     sampler: &mut impl Sampler,
     region: impl SampleRegionType<Value = D::Sample>,
-  ) -> SamplingImportanceResamplingResult<D, PD> {
+  ) -> SamplingImportanceResamplingResult<'_, D, PD> {
     let mut pre_sample_samples = Vec::with_capacity(self.proposed_count);
     let mut weights = Vec::with_capacity(self.proposed_count);
     let mut weight_sum = 0.;

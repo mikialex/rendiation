@@ -93,7 +93,7 @@ impl<T: 'static> DeviceParallelComputeIO<T> for DeviceParallelComputeStrideRead<
 
 #[pollster::test]
 async fn test_reduce() {
-  let input: Vec<_> = (0..6).flat_map(|_| (0..6)).collect();
+  let input: Vec<_> = (0..6).flat_map(|_| 0..6).collect();
   let expect = vec![0; 6];
 
   input.stride_reduce_result(6).run_test(&expect).await

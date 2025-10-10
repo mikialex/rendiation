@@ -87,7 +87,7 @@ where
       0,
       target.resource.gpu(),
       0,
-      self.gpu.view_byte_size().into(),
+      Some(self.gpu.view_byte_size().into()),
     );
     DeviceMaterializeResult::full_buffer(target.into_readonly_view())
   }

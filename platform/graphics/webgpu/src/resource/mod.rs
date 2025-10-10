@@ -182,7 +182,7 @@ where
   T::View: BindableResourceView,
   T: Resource,
 {
-  fn as_bindable(&self) -> gpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource<'_> {
     self.inner.as_bindable()
   }
 }

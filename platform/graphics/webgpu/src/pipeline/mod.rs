@@ -310,7 +310,7 @@ fn convert_module_by_wgsl(module: &naga::Module, v: naga::valid::ValidationFlags
   wgsl::write_string(module, &info, wgsl::WriterFlags::empty()).unwrap()
 }
 
-pub fn convert_vertex_layout(layout: &ShaderVertexBufferLayout) -> gpu::VertexBufferLayout {
+pub fn convert_vertex_layout(layout: &ShaderVertexBufferLayout) -> gpu::VertexBufferLayout<'_> {
   gpu::VertexBufferLayout {
     array_stride: layout.array_stride,
     step_mode: layout.step_mode,

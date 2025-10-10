@@ -94,7 +94,7 @@ impl GPUBuffer {
 }
 
 impl BindableResourceView for GPUBufferView {
-  fn as_bindable(&self) -> gpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource<'_> {
     gpu::BindingResource::Buffer(self.as_buffer_binding())
   }
 }
@@ -128,7 +128,7 @@ impl GPUBufferResourceView {
 }
 
 impl GPUBufferView {
-  pub fn as_buffer_binding(&self) -> gpu::BufferBinding {
+  pub fn as_buffer_binding(&self) -> gpu::BufferBinding<'_> {
     gpu::BufferBinding {
       buffer: &self.buffer.gpu,
       offset: self.range.offset,

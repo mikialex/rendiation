@@ -108,8 +108,8 @@ struct TlasBuilder {
   tlas: GPUTlas,
 }
 impl TlasBuilder {
-  fn make_build_entry(&self) -> &TlasPackage {
-    self.tlas.gpu_resource()
+  fn make_build_entry(&self) -> &Tlas {
+    self.tlas.gpu()
   }
 }
 

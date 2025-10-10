@@ -72,8 +72,9 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
 
     // todo, improve
     let simplified_indices = simplified_indices
-      .array_chunks::<3>()
+      .iter()
       .copied()
+      .array_chunks::<3>()
       .filter(triangle_is_not_degenerated)
       .flatten()
       .collect::<Vec<_>>();
@@ -119,6 +120,7 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
       let tri = meshlet_triangles
         .get(tri_range)
         .unwrap()
+        .iter()
         .array_chunks::<3>();
       for [a, b, c] in tri {
         indices.push(meshlet_vertices[meshlet.vertex_offset as usize + *a as usize]);

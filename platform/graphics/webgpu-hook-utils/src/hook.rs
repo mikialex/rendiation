@@ -220,7 +220,7 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
   fn is_resolve_stage(&self) -> bool {
     matches!(&self.stage, GPUQueryHookStage::CreateRender { .. })
   }
-  fn stage(&mut self) -> QueryHookStage {
+  fn stage(&mut self) -> QueryHookStage<'_> {
     match &mut self.stage {
       GPUQueryHookStage::Update {
         spawner,

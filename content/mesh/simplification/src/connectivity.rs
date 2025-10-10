@@ -31,11 +31,11 @@ impl EdgeAdjacency {
           *index
         }
       }),
-      indices.array_chunks::<3>().flat_map(|arr| {
+      indices.iter().copied().array_chunks::<3>().flat_map(|arr| {
         let [a, b, c] = if let Some(remap) = remap {
           arr.map(|index| remap[index as usize])
         } else {
-          *arr
+          arr
         };
 
         [

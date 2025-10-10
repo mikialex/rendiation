@@ -1,5 +1,4 @@
 #![feature(impl_trait_in_assoc_type)]
-#![feature(array_chunks)]
 #![feature(file_buffered)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]

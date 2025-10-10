@@ -23,12 +23,16 @@ where
 {
   fn build<'b>(indices: &'b [u32], vertices: &'b [V]) -> Self {
     let bvh = FlattenBVH::new(
-      indices.array_chunks::<3>().copied().map(|[a, b, c]| {
-        let va = vertices[a as usize].position();
-        let vb = vertices[b as usize].position();
-        let vc = vertices[c as usize].position();
-        Triangle::new(va, vb, vc).to_bounding()
-      }),
+      indices
+        .iter()
+        .copied()
+        .array_chunks::<3>()
+        .map(|[a, b, c]| {
+          let va = vertices[a as usize].position();
+          let vb = vertices[b as usize].position();
+          let vc = vertices[c as usize].position();
+          Triangle::new(va, vb, vc).to_bounding()
+        }),
       &mut SAH::new(4),
       &Default::default(),
     );

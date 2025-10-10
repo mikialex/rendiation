@@ -218,7 +218,7 @@ impl<T, U, IU> IndexedMesh<T, U, IU> {
     }
   }
 
-  pub fn as_index_view(&self) -> IndexView<Self> {
+  pub fn as_index_view(&self) -> IndexView<'_, Self> {
     IndexView { mesh: self }
   }
 }

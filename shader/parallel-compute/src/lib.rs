@@ -1,5 +1,3 @@
-#![feature(let_chains)]
-
 use std::fmt::Debug;
 use std::future::Future;
 use std::hash::Hash;
@@ -163,11 +161,10 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Option<StorageBufferReadonlyDataView<Vec4<u32>>> {
-    if !cx.force_indirect_dispatch
-      && let Some(work_size) = self.work_size()
-    {
+    if !cx.force_indirect_dispatch && self.work_size().is_some() {
       let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
       self.prepare_main_pass(cx);
+      let work_size = self.work_size().unwrap();
       cx.record_pass(|pass, _| {
         pass.dispatch_workgroups(compute_dispatch_size(work_size, workgroup_size), 1, 1);
       });

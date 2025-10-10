@@ -1,5 +1,4 @@
 #![feature(impl_trait_in_assoc_type)]
-#![feature(array_chunks)]
 #![feature(iter_array_chunks)]
 
 use std::sync::Arc;

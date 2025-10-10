@@ -1,5 +1,6 @@
 use egui::epaint::Shadow;
 use egui::{Theme, ThemePreference, Visuals};
+use egui_wgpu::RendererOptions;
 use rendiation_texture_gpu_process::copy_frame;
 use winit::window::Window;
 
@@ -80,14 +81,15 @@ impl EguiContext {
 
     let (renderer, fmt) = self.renderer.get_or_insert_with(|| {
       let output_color_format = target.format();
-      let output_depth_format = None;
-      let msaa_samples = 1;
       let renderer = egui_wgpu::Renderer::new(
         &gpu.device,
         output_color_format,
-        output_depth_format,
-        msaa_samples,
-        false,
+        RendererOptions {
+          msaa_samples: 1,
+          depth_stencil_format: None,
+          dithering: false,
+          predictable_texture_filtering: false,
+        },
       );
       (renderer, output_color_format)
     });

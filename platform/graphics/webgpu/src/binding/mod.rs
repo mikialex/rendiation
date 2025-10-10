@@ -16,7 +16,7 @@ pub trait BindableResourceProvider {
 }
 
 pub trait BindableResourceView {
-  fn as_bindable(&self) -> gpu::BindingResource;
+  fn as_bindable(&self) -> gpu::BindingResource<'_>;
 }
 
 #[derive(Clone)]

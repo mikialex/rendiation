@@ -54,8 +54,7 @@ pub use gpu::{
   RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
   RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor,
   ShaderSource, ShaderStages, StoreOp, SurfaceError, SurfaceTexture, TextureView,
-  TextureViewDescriptor, Tlas, TlasBuildEntry, TlasInstance, TlasPackage, VertexBufferLayout,
-  VertexState,
+  TextureViewDescriptor, Tlas, TlasInstance, VertexBufferLayout, VertexState,
 };
 use heap_tools::*;
 pub use indirect::*;
@@ -138,11 +137,12 @@ impl GPU {
   /// return the init surface with the gpu itself
   pub async fn new(
     config: GPUCreateConfig<'_>,
-  ) -> Result<(Self, Option<GPUSurface>), GPUCreateFailure> {
+  ) -> Result<(Self, Option<GPUSurface<'_>>), GPUCreateFailure> {
     let instance = gpu::Instance::new(&gpu::InstanceDescriptor {
       backends: config.backends,
       flags: Default::default(),
       backend_options: Default::default(),
+      memory_budget_thresholds: Default::default(),
     });
     let power_preference = gpu::PowerPreference::HighPerformance;
 
@@ -184,6 +184,7 @@ impl GPU {
         required_limits: supported_limits.clone(),
         memory_hints: MemoryHints::Performance,
         trace: wgpu_types::Trace::Off,
+        experimental_features: unsafe { ExperimentalFeatures::enabled() },
       })
       .await?;
 

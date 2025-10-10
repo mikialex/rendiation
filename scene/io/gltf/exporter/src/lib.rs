@@ -1,5 +1,3 @@
-#![feature(path_add_extension)]
-
 use std::borrow::Cow;
 use std::fs::{self, File};
 use std::io::BufWriter;

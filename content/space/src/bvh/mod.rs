@@ -82,7 +82,7 @@ impl<B: BVHBounding> FlattenBVH<B> {
     }
   }
 
-  fn create_node_ref(&self, index: usize) -> BVHTreeNodeRef<B> {
+  fn create_node_ref(&self, index: usize) -> BVHTreeNodeRef<'_, B> {
     BVHTreeNodeRef {
       tree: self,
       node: &self.nodes[index],

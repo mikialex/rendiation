@@ -1,7 +1,7 @@
 use crate::*;
 
 impl UnTypedBufferView {
-  pub fn read(&self) -> UnTypedBufferViewReadView {
+  pub fn read(&self) -> UnTypedBufferViewReadView<'_> {
     UnTypedBufferViewReadView {
       buffer: &self.buffer,
       view: self,
@@ -87,7 +87,7 @@ impl AttributeAccessorReadView<'_> {
 }
 
 impl AttributeAccessor {
-  pub fn read(&self) -> AttributeAccessorReadView {
+  pub fn read(&self) -> AttributeAccessorReadView<'_> {
     AttributeAccessorReadView {
       view: self.view.read(),
       acc: self,
@@ -122,7 +122,7 @@ impl AttributesMeshEntityReadView<'_> {
     (count + self.mode.step() - self.mode.stride()) / self.mode.step()
   }
 
-  pub fn get_attribute(&self, s: &AttributeSemantic) -> Option<&AttributeAccessorReadView> {
+  pub fn get_attribute(&self, s: &AttributeSemantic) -> Option<&AttributeAccessorReadView<'_>> {
     self.attributes.iter().find(|(k, _)| *k == s).map(|r| &r.1)
   }
   pub fn get_position(&self) -> &[Vec3<f32>] {
@@ -133,7 +133,7 @@ impl AttributesMeshEntityReadView<'_> {
       .expect("position type is maybe not correct")
   }
 
-  pub fn create_full_read_view_base(&self) -> FullReaderBase {
+  pub fn create_full_read_view_base(&self) -> FullReaderBase<'_> {
     FullReaderBase {
       keys: self.attributes.iter().map(|(k, _)| (*k).clone()).collect(),
       bytes: self
@@ -224,7 +224,7 @@ impl<'a> IndexGet for FullReaderBase<'a> {
 }
 
 impl AttributesMesh {
-  pub fn read(&self) -> AttributesMeshEntityReadView {
+  pub fn read(&self) -> AttributesMeshEntityReadView<'_> {
     let attributes = self.attributes.iter().map(|(k, a)| (k, a.read())).collect();
     let indices = self.indices.as_ref().map(|(f, a)| (*f, a.read()));
 
@@ -235,7 +235,7 @@ impl AttributesMesh {
     }
   }
 
-  pub fn read_full(&self) -> AttributesMeshEntityFullReadView {
+  pub fn read_full(&self) -> AttributesMeshEntityFullReadView<'_> {
     let inner = self.read();
     let reader = inner.create_full_read_view_base();
     // safety: the returned reference is origin from the buffer itself, no cyclic reference exists
@@ -244,7 +244,7 @@ impl AttributesMesh {
     AttributesMeshEntityFullReadView { inner, reader }
   }
 
-  pub fn read_shape(&self) -> AttributesMeshEntityShapeReadView {
+  pub fn read_shape(&self) -> AttributesMeshEntityShapeReadView<'_> {
     let inner = self.read();
     let position = inner.get_position();
     // safety: the returned reference is origin from the buffer itself, no cyclic reference exists

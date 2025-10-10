@@ -61,7 +61,7 @@ impl<T: Std430MaybeUnsized + ?Sized> CacheAbleBindingSource for StorageBufferRea
   }
 }
 impl<T: Std430MaybeUnsized + ?Sized> BindableResourceView for StorageBufferReadonlyDataView<T> {
-  fn as_bindable(&self) -> gpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource<'_> {
     self.gpu.as_bindable()
   }
 }
@@ -204,7 +204,7 @@ impl<T: Std430MaybeUnsized + ?Sized> CacheAbleBindingSource for StorageBufferDat
   }
 }
 impl<T: Std430MaybeUnsized + ?Sized> BindableResourceView for StorageBufferDataView<T> {
-  fn as_bindable(&self) -> gpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource<'_> {
     self.gpu.as_bindable()
   }
 }

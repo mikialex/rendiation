@@ -35,7 +35,7 @@ impl BindableResourceProvider for GPUTextureView {
   }
 }
 impl BindableResourceView for gpu::TextureView {
-  fn as_bindable(&self) -> gpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource<'_> {
     gpu::BindingResource::TextureView(self)
   }
 }
