@@ -304,7 +304,7 @@ pub struct DebugHasher<T> {
 
 impl<T> DebugHasher<T> {
   pub fn debug_print_previous_hash_stacks(&self) {
-    println!("{:#?}", self.hash_history);
+    log::info!("{:#?}", self.hash_history);
   }
 }
 

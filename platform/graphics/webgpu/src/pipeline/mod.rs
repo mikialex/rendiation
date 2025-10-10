@@ -186,13 +186,13 @@ impl GPUDevice {
     log_result: bool,
   ) -> wgpu::ShaderModule {
     if log_result {
-      println!();
-      println!("=== rendiation_shader_api build result ===");
+      log::info!("");
+      log::info!("=== rendiation_shader_api build result ===");
 
       let shader_str = convert_module_by_wgsl(&naga_module, naga::valid::ValidationFlags::all());
-      println!("{shader_str}",);
+      log::info!("{shader_str}",);
 
-      println!("=== result output finished ===");
+      log::info!("=== result output finished ===");
     }
 
     self.create_shader_module(gpu::ShaderModuleDescriptor {

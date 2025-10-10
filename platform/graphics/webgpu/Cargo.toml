@@ -25,6 +25,7 @@ wgpu-types = { workspace = true }
 winit = { workspace = true }
 xalloc = "0.2.7"
 slab = "0.4.11"
+log = { workspace = true }
 pollster = { workspace = true }                                             # used in examples
 
 [features]

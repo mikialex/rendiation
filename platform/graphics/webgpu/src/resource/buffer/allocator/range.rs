@@ -105,7 +105,7 @@ where
       } else {
         let current_size = self.buffer.max_size();
         let next_allocate = (current_size * 2).max(count).min(self.max_item_count);
-        println!(
+        log::info!(
           "range allocator try grow from {current_size} to {next_allocate}, max {}",
           self.max_item_count
         );

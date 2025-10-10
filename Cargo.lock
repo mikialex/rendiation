@@ -4317,6 +4317,7 @@ dependencies = [
  "fast-hash-collection",
  "futures",
  "heap-tools",
+ "log",
  "naga",
  "parking_lot",
  "pollster 0.3.0",

@@ -45,8 +45,10 @@ pub(super) fn indirect_sample_enabled(
 
   let has_texture = device_pair.0.not_equals(val(u32::MAX));
 
+  let base_level = binding.compute_base_level(reg, uv, device_pair.0, device_pair.1);
+
   let r = has_texture.select_branched(
-    || binding.sample_texture2d_indirect(reg, device_pair.0, device_pair.1, uv),
+    || binding.sample_texture2d_indirect(reg, device_pair.0, device_pair.1, uv, base_level),
     zeroed_val,
   );
 

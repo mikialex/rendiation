@@ -118,15 +118,15 @@ impl GraphicsShaderProvider for AOComputer<'_> {
         depth.equals(val(1.))
       };
 
+      let render_position =
+        shader_uv_space_to_render_space(reproject.current_camera_view_projection_inv, uv, depth);
+
+      let normal = compute_normal_by_dxdy(render_position); // wrong, but i do not want pay cost to use normal texture input
+
       if_by(is_background, || {
         builder.store_fragment_out_vec4f(0, Vec4::one());
       })
       .else_by(|| {
-        let render_position =
-          shader_uv_space_to_render_space(reproject.current_camera_view_projection_inv, uv, depth);
-
-        let normal = compute_normal_by_dxdy(render_position); // wrong, but i do not want pay cost to use normal texture input
-
         let random = random3_fn(uv + parameter.noise_jit.splat()) * val(2.) - val(Vec3::one());
         let tangent = (random - normal * random.dot(normal)).normalize();
         let binormal = normal.cross(tangent);

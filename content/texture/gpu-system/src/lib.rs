@@ -27,6 +27,16 @@ pub trait AbstractIndirectGPUTextureSystem {
     builder: &mut ShaderBindGroupBuilder,
     reg: &mut SemanticRegistry,
   );
+  /// this fn must be called in uniform cfg
+  fn compute_base_level(
+    &self,
+    reg: &SemanticRegistry,
+    uv: Node<Vec2<f32>>,
+    shader_texture_handle: Node<Texture2DHandle>,
+    shader_sampler_handle: Node<SamplerHandle>,
+  ) -> Node<f32>;
+
+  /// this fn can be called in none uniform cfg
   /// caller must ensure the texture and sample handle are valid
   fn sample_texture2d_indirect(
     &self,
@@ -34,6 +44,7 @@ pub trait AbstractIndirectGPUTextureSystem {
     shader_texture_handle: Node<Texture2DHandle>,
     shader_sampler_handle: Node<SamplerHandle>,
     uv: Node<Vec2<f32>>,
+    base_level: Node<f32>,
   ) -> Node<Vec4<f32>>;
 }
 
@@ -136,7 +147,8 @@ impl<T: AbstractIndirectGPUTextureSystem + Clone> AbstractGPUTextureSystem for T
     shader_sampler_handle: Self::RegisteredShaderSampler,
     uv: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    self.sample_texture2d_indirect(reg, shader_texture_handle, shader_sampler_handle, uv)
+    let level = self.compute_base_level(reg, uv, shader_texture_handle, shader_sampler_handle);
+    self.sample_texture2d_indirect(reg, shader_texture_handle, shader_sampler_handle, uv, level)
   }
 
   fn as_indirect_system(&self) -> Option<&dyn AbstractIndirectGPUTextureSystem> {

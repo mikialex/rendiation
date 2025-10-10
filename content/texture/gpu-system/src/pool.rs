@@ -310,12 +310,26 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     reg.any_map.register(SamplerPoolInShader(samplers));
   }
 
+  fn compute_base_level(
+    &self,
+    reg: &SemanticRegistry,
+    uv: Node<Vec2<f32>>,
+    shader_texture_handle: Node<Texture2DHandle>,
+    _shader_sampler_handle: Node<SamplerHandle>,
+  ) -> Node<f32> {
+    let textures_meta = reg.any_map.get::<TexturePoolTextureMetaInShader>().unwrap();
+    let texture_meta = textures_meta.0.index(shader_texture_handle);
+    let size = texture_meta.layout().size().load();
+    calculate_mip_level_fn(uv, size)
+  }
+
   fn sample_texture2d_indirect(
     &self,
     reg: &SemanticRegistry,
     shader_texture_handle: Node<Texture2DHandle>,
     shader_sampler_handle: Node<SamplerHandle>,
     uv: Node<Vec2<f32>>,
+    base_level: Node<f32>,
   ) -> Node<Vec4<f32>> {
     let texture = reg
       .try_query_typed_both_stage::<TexturePoolInShader>()
@@ -333,7 +347,7 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
         || val(Vec4::zero()),
         || {
           let sampler = samplers.0.index(shader_sampler_handle).load();
-          texture_pool_sample_impl_fn(texture, sampler, texture_layout, uv)
+          texture_pool_sample_impl_fn(texture, sampler, texture_layout, uv, base_level)
         },
       );
 
@@ -358,6 +372,7 @@ fn texture_pool_sample_impl(
   sampler: Node<TextureSamplerShaderInfo>,
   texture_meta: Node<TexturePoolTextureMetaLayoutInfo>,
   uv: Node<Vec2<f32>>,
+  base_sample_level: Node<f32>,
 ) -> Node<Vec4<f32>> {
   let texture_meta = texture_meta.expand();
   let sampler = sampler.expand();
@@ -371,7 +386,6 @@ fn texture_pool_sample_impl(
   let max_load_position = texture_meta.offset + (texture_meta.size - val(Vec2::one()));
 
   let base_sample_level = if get_current_stage() == Some(ShaderStage::Fragment) {
-    let base_sample_level = calculate_mip_level_fn(uv, texture_meta.size);
     let max_mip_level = texture_meta.size.x().min(texture_meta.size.y()).log2();
     base_sample_level.min(max_mip_level)
   } else {

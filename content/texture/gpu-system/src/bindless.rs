@@ -61,12 +61,24 @@ impl AbstractIndirectGPUTextureSystem for BindlessTextureSystem {
     reg.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
   }
 
+  /// fake impl, as we don't need it
+  fn compute_base_level(
+    &self,
+    _reg: &SemanticRegistry,
+    _uv: Node<Vec2<f32>>,
+    _shader_texture_handle: Node<Texture2DHandle>,
+    _shader_sampler_handle: Node<SamplerHandle>,
+  ) -> Node<f32> {
+    val(0.)
+  }
+
   fn sample_texture2d_indirect(
     &self,
     reg: &SemanticRegistry,
     shader_texture_handle: Node<Texture2DHandle>,
     shader_sampler_handle: Node<SamplerHandle>,
     uv: Node<Vec2<f32>>,
+    _base_level: Node<f32>,
   ) -> Node<Vec4<f32>> {
     let textures = reg
       .try_query_typed_both_stage::<BindlessTexturesInShader>()

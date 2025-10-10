@@ -1,5 +1,5 @@
 use rendiation_lighting_transport::{EmissiveChannel, GlossinessChannel, SpecularChannel};
-use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
+use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional_uniform_cfg;
 
 use crate::*;
 
@@ -192,7 +192,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
         uv,
       );
 
-      apply_normal_mapping_conditional(
+      apply_normal_mapping_conditional_uniform_cfg(
         builder,
         normal_sample.xyz(),
         uv,
