@@ -87,7 +87,7 @@ unsafe impl Std140 for Mat4<f32> {
 
 /// Gives the number of bytes needed to make `offset` be aligned to `alignment`.
 pub const fn align_offset(offset: usize, alignment: usize) -> usize {
-  if alignment == 0 || offset % alignment == 0 {
+  if alignment == 0 || offset.is_multiple_of(alignment) {
     0
   } else {
     alignment - offset % alignment

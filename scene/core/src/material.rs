@@ -440,8 +440,10 @@ pub fn register_alpha_config<T: AlphaInfoSemantic>(
 #[repr(C)]
 #[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Facet)]
+#[derive(Default)]
 pub enum AlphaMode {
   /// The alpha value is ignored and the rendered output is fully opaque.
+  #[default]
   Opaque,
 
   /// The rendered output is either fully opaque or fully transparent depending on
@@ -453,8 +455,3 @@ pub enum AlphaMode {
   Blend,
 }
 
-impl Default for AlphaMode {
-  fn default() -> Self {
-    Self::Opaque
-  }
-}

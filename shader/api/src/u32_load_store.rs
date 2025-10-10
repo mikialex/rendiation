@@ -116,7 +116,7 @@ impl ShaderU32StructMetaData {
         sub_field_u32_offsets.push(byte_offset as u32 / 4);
       });
       let struct_size = size_of_struct_sized_fields(fields, self.layout);
-      assert!(struct_size % 4 == 0);
+      assert!(struct_size.is_multiple_of(4));
       assert!(tail.is_none());
       StructPrecomputeOffsetMetaData {
         u32_count: struct_size as u32 / 4,

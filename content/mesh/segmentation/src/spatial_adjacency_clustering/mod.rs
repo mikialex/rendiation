@@ -42,14 +42,14 @@ impl ClusteringConfig {
       && self.max_vertices >= 1
       && self.max_triangles <= MESHLET_MAX_TRIANGLES
       // ensures the caller will compute output space properly as index data is 4b aligned
-      && self.max_triangles % 4 == 0
+      && self.max_triangles.is_multiple_of(4)
       && self.cone_weight >= 0.
       && self.cone_weight <= 1.
   }
 }
 
 pub fn build_meshlets_bound(index_count: usize, config: &ClusteringConfig) -> usize {
-  assert!(index_count % 3 == 0);
+  assert!(index_count.is_multiple_of(3));
   assert!(index_count > 0);
   assert!(config.validate());
 
@@ -78,7 +78,7 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
   meshlet_triangles: &mut [u8],
 ) -> usize {
   config.validate();
-  assert!(indices.len() % 3 == 0);
+  assert!(indices.len().is_multiple_of(3));
   assert!(indices.len() >= 3);
 
   if indices.is_empty() {

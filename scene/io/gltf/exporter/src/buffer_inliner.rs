@@ -60,7 +60,7 @@ impl<'a> BufferResourceInliner<'a> {
 
     // padding to 4, and here we assume the buffer has correct internal padding if required.
     // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#data-alignment
-    while binary.binary_data.len() % 4 != 0 {
+    while !binary.binary_data.len().is_multiple_of(4) {
       binary.binary_data.push(0);
     }
 

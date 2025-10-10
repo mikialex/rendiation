@@ -58,7 +58,7 @@ struct TextureAsReadonlyStorageBufferHostBackup {
 
 impl TextureAsReadonlyStorageBufferHostBackup {
   pub fn new(data_byte_size: usize, row_byte_len: usize, array_size: Option<u32>) -> Self {
-    assert!(data_byte_size % 4 == 0);
+    assert!(data_byte_size.is_multiple_of(4));
     let _new_size = data_byte_size + 4; // array len;
     let new_size = _new_size.div_ceil(row_byte_len) * row_byte_len;
 
@@ -76,7 +76,7 @@ impl TextureAsReadonlyStorageBufferHostBackup {
   }
   pub fn resize(&mut self, data_byte_size: usize, array_size: Option<u32>) {
     let _new_size = data_byte_size + 4; // array len;
-    assert!(_new_size % 4 == 0);
+    assert!(_new_size.is_multiple_of(4));
     let new_size = _new_size.div_ceil(self.row_byte_len) * self.row_byte_len;
     assert!(new_size >= self.data.len());
     if new_size == self.data.len() {

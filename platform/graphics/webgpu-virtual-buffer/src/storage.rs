@@ -104,7 +104,7 @@ impl CombinedStorageBufferAllocator {
       // todo, check ty is pure atomic
     }
 
-    assert!(byte_size % 4 == 0);
+    assert!(byte_size.is_multiple_of(4));
     let sub_buffer_u32_size = byte_size / 4;
     let buffer_index = self.internal.write().allocate(sub_buffer_u32_size as u32);
 
@@ -219,7 +219,7 @@ impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
     _device: &GPUDevice,
     new_byte_size: u64,
   ) {
-    assert!(new_byte_size % 4 == 0);
+    assert!(new_byte_size.is_multiple_of(4));
     self.resize(new_byte_size as u32 / 4);
   }
 }
