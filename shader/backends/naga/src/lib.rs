@@ -1091,7 +1091,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
               let components = arr
                 .iter()
                 .map(|v| {
-                  self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::F32(*v)))
+                  self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::F32(
+                    workaround_f32_max(*v),
+                  )))
                 })
                 .collect();
               let ty = self.register_ty_impl(
@@ -1105,6 +1107,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             };
           }
 
+          // workaround chrome bug
           fn workaround_f32_max(f: f32) -> f32 {
             if f == f32::MAX {
               f.next_down()
