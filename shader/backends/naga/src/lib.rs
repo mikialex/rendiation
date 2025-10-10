@@ -1085,12 +1085,41 @@ impl ShaderAPI for ShaderAPINagaImpl {
               return self.make_expression_inner(expr);
             };
           }
+          macro_rules! impl_p_f {
+            ( $input: ident, $r_ty: ty, $array_size: tt) => {
+              let arr: [$r_ty; $array_size] = $input.into();
+              let components = arr
+                .iter()
+                .map(|v| {
+                  self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::F32(*v)))
+                })
+                .collect();
+              let ty = self.register_ty_impl(
+                ShaderValueType::Single(ShaderValueSingleType::Sized(
+                  ShaderSizedValueType::Primitive(data.into()),
+                )),
+                None,
+              );
+              let expr = naga::Expression::Compose { ty, components };
+              return self.make_expression_inner(expr);
+            };
+          }
+
+          fn workaround_f32_max(f: f32) -> f32 {
+            if f == f32::MAX {
+              f.next_down()
+            } else {
+              f
+            }
+          }
 
           match data {
             PrimitiveShaderValue::Bool(v) => naga::Expression::Literal(naga::Literal::Bool(v)),
             PrimitiveShaderValue::Uint32(v) => naga::Expression::Literal(naga::Literal::U32(v)),
             PrimitiveShaderValue::Int32(v) => naga::Expression::Literal(naga::Literal::I32(v)),
-            PrimitiveShaderValue::Float32(v) => naga::Expression::Literal(naga::Literal::F32(v)),
+            PrimitiveShaderValue::Float32(v) => {
+              naga::Expression::Literal(naga::Literal::F32(workaround_f32_max(v)))
+            }
             PrimitiveShaderValue::Vec2Bool(v) => {
               impl_p!(v, bool, 2, Bool);
             }
@@ -1101,13 +1130,13 @@ impl ShaderAPI for ShaderAPINagaImpl {
               impl_p!(v, bool, 4, Bool);
             }
             PrimitiveShaderValue::Vec2Float32(v) => {
-              impl_p!(v, f32, 2, F32);
+              impl_p_f!(v, f32, 2);
             }
             PrimitiveShaderValue::Vec3Float32(v) => {
-              impl_p!(v, f32, 3, F32);
+              impl_p_f!(v, f32, 3);
             }
             PrimitiveShaderValue::Vec4Float32(v) => {
-              impl_p!(v, f32, 4, F32);
+              impl_p_f!(v, f32, 4);
             }
             PrimitiveShaderValue::Vec2Uint32(v) => {
               impl_p!(v, u32, 2, U32);
@@ -1128,16 +1157,16 @@ impl ShaderAPI for ShaderAPINagaImpl {
               impl_p!(v, i32, 4, I32);
             }
             PrimitiveShaderValue::Mat2Float32(v) => {
-              impl_p!(v, f32, 4, F32);
+              impl_p_f!(v, f32, 4);
             }
             PrimitiveShaderValue::Mat3Float32(v) => {
-              impl_p!(v, f32, 9, F32);
+              impl_p_f!(v, f32, 9);
             }
             PrimitiveShaderValue::Mat4Float32(v) => {
-              impl_p!(v, f32, 16, F32);
+              impl_p_f!(v, f32, 16);
             }
             PrimitiveShaderValue::Mat4x3Float32(v) => {
-              impl_p!(v, f32, 12, F32);
+              impl_p_f!(v, f32, 12);
             }
           }
         }

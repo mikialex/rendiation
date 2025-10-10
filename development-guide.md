@@ -87,6 +87,7 @@ important issue is in bold style.
 - not reported or further investigate
   - naga metal backend has layout bug, (buffer combine with rtao shader breaks on Metal, workaound by adding manual padding in struct end).
   - draw on TextureFormat::R8Unorm when enable blend cause strange effect
+  - chrome wgsl not accept f32::MAX float literal
 - known but not fixed yet
   - correct hdr rendering, see <https://github.com/gfx-rs/wgpu/issues/2920>;
   - fxaa crashes on vulkan and dx12 see <https://github.com/gfx-rs/wgpu/issues/7713>
