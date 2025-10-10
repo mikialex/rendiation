@@ -1,0 +1,14 @@
+[general]
+
+#### Address & Root dir
+host = "127.0.0.1"
+port = 6789
+root = "."
+
+# we add this to enable testing shared memory wasm worker
+[advanced]
+[[advanced.headers]]
+source = "**/*.{html, js, css}"
+[advanced.headers.headers]
+Cross-Origin-Embedder-Policy = "require-corp"
+Cross-Origin-Opener-Policy = "same-origin"

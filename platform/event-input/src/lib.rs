@@ -1,6 +1,11 @@
 #![feature(duration_millis_float)]
 
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Instant;
+
 use fast_hash_collection::*;
+#[cfg(target_arch = "wasm32")]
+use web_time::Instant;
 use winit::{
   event::*,
   keyboard::{KeyCode, PhysicalKey},
@@ -13,7 +18,7 @@ pub struct PlatformEventInput {
   pub window_state: WindowState,
   pub state_delta: WindowStateChange,
   pub last_frame_cpu_time_in_ms: f32,
-  pub current_frame_time_start: Option<std::time::Instant>,
+  pub current_frame_time_start: Option<Instant>,
 }
 
 impl PlatformEventInput {
@@ -25,7 +30,7 @@ impl PlatformEventInput {
       self.window_state.event(e);
     }
     self.state_delta = self.window_state.compare(&self.previous_frame_window_state);
-    self.current_frame_time_start = Some(std::time::Instant::now());
+    self.current_frame_time_start = Some(Instant::now());
   }
 
   pub fn end_frame(&mut self) {
