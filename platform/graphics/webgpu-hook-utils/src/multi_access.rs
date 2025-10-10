@@ -104,8 +104,8 @@ pub fn use_multi_access_gpu(
             let [offset, count] = value;
 
             let value = GPURangeInfo {
-              start: offset / 4,
-              len: count / 4,
+              start: offset,
+              len: count,
               ..Default::default()
             };
             write_src.collect_write(bytes_of(&value), w_offset as u64);
