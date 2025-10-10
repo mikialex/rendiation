@@ -317,10 +317,15 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     shader_texture_handle: Node<Texture2DHandle>,
     _shader_sampler_handle: Node<SamplerHandle>,
   ) -> Node<f32> {
-    let textures_meta = reg.any_map.get::<TexturePoolTextureMetaInShader>().unwrap();
-    let texture_meta = textures_meta.0.index(shader_texture_handle);
-    let size = texture_meta.layout().size().load();
-    calculate_mip_level_fn(uv, size)
+    if get_current_stage() == Some(ShaderStage::Fragment) {
+      let textures_meta = reg.any_map.get::<TexturePoolTextureMetaInShader>().unwrap();
+      let texture_meta = textures_meta.0.index(shader_texture_handle);
+      let size = texture_meta.layout().size().load();
+      calculate_mip_level_fn(uv, size)
+    } else {
+      // force disable mipmap compute(because using dpdx stuff is not supported in none fragment stage)
+      val(0.)
+    }
   }
 
   fn sample_texture2d_indirect(
@@ -385,13 +390,8 @@ fn texture_pool_sample_impl(
   let load_position = texture_meta.offset + texture_meta.size * uv;
   let max_load_position = texture_meta.offset + (texture_meta.size - val(Vec2::one()));
 
-  let base_sample_level = if get_current_stage() == Some(ShaderStage::Fragment) {
-    let max_mip_level = texture_meta.size.x().min(texture_meta.size.y()).log2();
-    base_sample_level.min(max_mip_level)
-  } else {
-    // force disable mipmap compute(because using dpdx stuff is not supported in none fragment stage)
-    val(0.)
-  };
+  let max_mip_level = texture_meta.size.x().min(texture_meta.size.y()).log2();
+  let base_sample_level = base_sample_level.min(max_mip_level);
 
   let use_mag_filter = base_sample_level.less_equal_than(val(0.));
   let use_min_filter = use_mag_filter.not();
