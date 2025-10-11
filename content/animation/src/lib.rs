@@ -44,7 +44,17 @@ where
     let k_1 = z / (S::PI() * f);
     let k_2 = S::one() / (two_pi_f * two_pi_f);
     let k_3 = r * z / two_pi_f;
-    Self { k_1, k_2, k_3 }
+
+    let max_safe_time_delta =
+      (S::eval::<{ scalar_transmute(4.0) }>() * k_2 + k_1 * k_1).sqrt() - k_1;
+    let max_safe_time_delta = // todo, this still not works in some cases, need further check
+      (max_safe_time_delta - S::eval::<{ scalar_transmute(0.01) }>()).max(S::zero());
+    Self {
+      k_1,
+      k_2,
+      k_3,
+      max_safe_time_delta,
+    }
   }
 }
 
@@ -52,6 +62,7 @@ struct SpringParameters<T> {
   k_1: T,
   k_2: T,
   k_3: T,
+  max_safe_time_delta: T,
 }
 
 struct SpringState<T> {
@@ -98,7 +109,7 @@ where
   /// If the `time_delta` is too large to safely use without losing stability, it will be clamped to a safe maximum value
   pub fn step_clamped(&mut self, time_delta: S, target: T) -> T {
     let estimated_velocity = target - self.state.position;
-    let clamped_delta = partial_min(time_delta, S::one());
+    let clamped_delta = partial_min(time_delta, self.parameters.max_safe_time_delta);
 
     self.step_with_target_velocity(clamped_delta, target, estimated_velocity);
 
