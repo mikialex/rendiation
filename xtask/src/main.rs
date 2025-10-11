@@ -93,6 +93,7 @@ fn build_wasm_and_deploy_github_pages(
   build_wasm(shell, args, passthrough_args)?;
   cmd!(shell, "rm -r ./docs/viewer-web").run()?;
   cmd!(shell, "cp -r ./application/viewer-web ./docs/viewer-web").run()?;
+  cmd!(shell, "rm ./docs/viewer-web/.gitignore").run()?;
 
   cmd!(shell, "git add *").run()?;
   cmd!(shell, "git commit -m \"pages\"").run()?;
