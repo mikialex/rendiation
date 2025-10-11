@@ -3,8 +3,8 @@ use crate::*;
 pub struct PickSceneBlocked;
 
 pub fn use_pick_scene(cx: &mut ViewerCx) {
-  let enable_hit_debug_log = false;
-  let prefer_gpu_pick = true;
+  let (cx, enable_hit_debug_log) = cx.use_plain_state_init(|_| false);
+  let (cx, prefer_gpu_pick) = cx.use_plain_state_init(|_| true);
 
   let (cx, gpu_pick_future) =
     cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
@@ -14,12 +14,25 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     .use_db_rev_ref::<SceneModelBelongsToScene>()
     .use_assure_result(cx);
 
+  if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
+    let opened = global.features.entry("scene picking").or_insert(false);
+
+    egui::Window::new("Scene picking")
+      .open(opened)
+      .default_size((100., 100.))
+      .vscroll(true)
+      .show(egui_ctx, |ui| {
+        ui.checkbox(prefer_gpu_pick, "prefer gpu pick");
+        ui.checkbox(enable_hit_debug_log, "enable pick log");
+      });
+  }
+
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     if let Some(f) = gpu_pick_future {
       noop_ctx!(ctx);
       if let Poll::Ready(r) = f.poll_unpin(ctx) {
-        if enable_hit_debug_log {
-          println!("gpu pick resolved {:?}", r);
+        if *enable_hit_debug_log {
+          log::info!("gpu pick resolved {:?}", r);
         }
 
         if let Some(hit_entity_idx) = r {
@@ -50,7 +63,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     let picker = picker.unwrap();
     let mut hit = None;
     let mut fallback_to_cpu = false;
-    if prefer_gpu_pick && gpu_pick_future.is_none() {
+    if *prefer_gpu_pick && gpu_pick_future.is_none() {
       if let Some(render_size) = cx.viewer.rendering.picker.last_id_buffer_size() {
         let point = picker.normalized_position() * Vec2::from(render_size.into_f32());
         let point = point.map(|v| v.floor() as usize);
@@ -74,8 +87,8 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       drop(main_scene_models);
 
       hit = if let Some(hit) = _hit {
-        if enable_hit_debug_log {
-          dbg!(hit);
+        if *enable_hit_debug_log {
+          log::info!("cpu picked{:?}", hit);
         }
         hit.1.into()
       } else {

@@ -73,8 +73,10 @@ impl ShaderPassBuilder for FrameGeometryBufferPassEncoder {}
 impl GraphicsShaderProvider for FrameGeometryBufferPassEncoder {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      let id = builder.query_or_interpolate_by::<LogicalRenderEntityId, LogicalRenderEntityId>();
-      builder.frag_output[self.entity_id].store(id);
+      if self.entity_id != usize::MAX {
+        let id = builder.query_or_interpolate_by::<LogicalRenderEntityId, LogicalRenderEntityId>();
+        builder.frag_output[self.entity_id].store(id);
+      }
 
       let normal = builder
         .query_or_interpolate_by::<FragmentRenderNormal, VertexRenderNormal>()

@@ -27,11 +27,11 @@ pub fn use_lighting(
   let size = Size::from_u32_pair_min_one((2048, 2048));
   let config = MultiLayerTexturePackerConfig {
     max_size: SizeWithDepth {
-      depth: NonZeroU32::new(2).unwrap(),
+      depth: NonZeroU32::new(3).unwrap(),
       size,
     },
     init_size: SizeWithDepth {
-      depth: NonZeroU32::new(1).unwrap(),
+      depth: NonZeroU32::new(2).unwrap(), // start with 2 layers to support webgl
       size,
     },
   };

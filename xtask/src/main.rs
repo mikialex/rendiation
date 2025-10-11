@@ -63,15 +63,13 @@ fn build_wasm_internal(shell: &Shell, enable_profiling: bool) -> anyhow::Result<
   .run()
   .context("Failed to build webgpu examples for wasm")?;
 
-  let extra = if enable_profiling {
-    "--keep-debug --debug"
-  } else {
-    ""
-  };
+  let mut cmd = cmd!(shell, "wasm-bindgen ./target/wasm32-unknown-unknown/{profile}/viewer.wasm --target web --out-dir ./application/viewer-web/generated");
 
-  cmd!(shell, "wasm-bindgen ./target/wasm32-unknown-unknown/{profile}/viewer.wasm --target web --out-dir ./application/viewer-web/generated {extra}")
-  .run()
-  .context("Failed to run wasm-bindgen for wasm")?;
+  if enable_profiling {
+    cmd = cmd.args(["--keep-debug", "--debug"])
+  }
+
+  cmd.run().context("Failed to run wasm-bindgen for wasm")?;
 
   Ok(())
 }

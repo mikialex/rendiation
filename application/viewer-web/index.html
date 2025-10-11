@@ -46,7 +46,11 @@
         </div>
     </div>
     <script type="module">
-        import(`./generated/viewer.js`).then((module) => module.default())
+        import(`./generated/viewer.js`).then((module) => module.default()).catch((error) => {
+            if (!error.message.startsWith("Using exceptions for control flow,")) {
+                throw error;
+            }
+        });
     </script>
 </body>
 

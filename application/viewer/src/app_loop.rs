@@ -170,8 +170,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         let device = web_sys::window().unwrap().device_pixel_ratio() as f32;
 
         platform_states.window_state.device_pixel_ratio = device;
-        platform_states.window_state.physical_size =
-          (width as f32 * device, height as f32 * device);
+        platform_states.window_state.physical_size = (width as f32, height as f32);
       }
 
       let window_ref: &'static Window = unsafe { std::mem::transmute(window.as_ref()) };
