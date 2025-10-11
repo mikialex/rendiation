@@ -143,8 +143,11 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
           .unwrap();
         window_att = window_att.with_canvas(Some(canvas.clone()));
 
-        width = canvas.get_bounding_client_rect().width() as u32;
-        height = canvas.get_bounding_client_rect().height() as u32;
+        let ratio = web_sys::window().unwrap().device_pixel_ratio();
+
+        // in wasm build, window.inner_size() is zero, so we have to fix
+        width = (canvas.get_bounding_client_rect().width() * ratio).ceil() as u32;
+        height = (canvas.get_bounding_client_rect().height() * ratio).ceil() as u32;
       }
 
       let window = event_loop.create_window(window_att).unwrap();
@@ -154,11 +157,11 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
 
       #[cfg(not(target_family = "wasm"))]
       {
-        width = window.inner_size().width; // in wasm build, it's zero, so we have to fix
+        width = window.inner_size().width;
         height = window.inner_size().height;
       }
 
-      log::info!("window size: {}x{}", width, height);
+      log::info!("window physical size: {}x{}", width, height);
       #[allow(unused_mut)]
       let mut platform_states = PlatformEventInput::default();
 
