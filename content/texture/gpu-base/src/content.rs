@@ -8,7 +8,7 @@ pub fn create_gpu_sampler(cx: &GPU, s: &TextureSampler) -> GPUSamplerView {
 pub fn create_gpu_texture2d(cx: &GPU, texture: &GPUBufferImage) -> GPU2DTextureView {
   let texture = GPUBufferImageForeignImpl { inner: texture };
 
-  let desc = texture.create_tex2d_desc(MipLevelCount::BySize);
+  let desc = texture.create_tex2d_desc(MipLevelCount::BySize, cx.info().downgrade_info.flags);
   let gpu_texture = GPUTexture::create(desc, &cx.device);
   let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
   let gpu_texture = gpu_texture.upload_into(&cx.queue, &texture, 0);
@@ -23,7 +23,7 @@ pub fn create_gpu_texture2d_with_mipmap(
 ) -> GPU2DTextureView {
   let texture = GPUBufferImageForeignImpl { inner: texture };
 
-  let desc = texture.create_tex2d_desc(MipLevelCount::BySize);
+  let desc = texture.create_tex2d_desc(MipLevelCount::BySize, cx.info().downgrade_info.flags);
   let gpu_texture = GPUTexture::create(desc, &cx.device);
   let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
   let gpu_texture = gpu_texture.upload_into(&cx.queue, &texture, 0);

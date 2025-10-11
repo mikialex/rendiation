@@ -139,8 +139,8 @@ file is not guarrenteed. This config can be exported in viewer UI.
 [tracy](https://github.com/wolfpld/tracy) is a useful tool to investigate memory and performance issues. Tracy has already integrated into viewer application. It is disabled by default behind the `tracy` feature flag because it will using and buffering a lot of memory when enabled. The current integration should use tracy 0.11.1 client to connect.
 
 ```bash
-cargo run --bin viewer --features "tracy" # run viewer enable tracy
-cargo run --bin viewer --features "tracy-heap-debug" # run viewer enable tracy and tracy-heap-debug
+cargo run --bin viewer --features tracy # run viewer enable tracy
+cargo run --bin viewer --features tracy-heap-debug # run viewer enable tracy and tracy-heap-debug
 ```
 
 ## Testing

@@ -52,6 +52,8 @@ fn use_cube_face_update<FK>(
     .use_assure_result(cx)
     .into_delta_change();
 
+  let flags = cx.gpu.info().downgrade_info.flags;
+
   if let Some(change) = change.if_ready() {
     for k in change.iter_removed() {
       target.remove(&k);
@@ -70,7 +72,7 @@ fn use_cube_face_update<FK>(
       } else {
         MipLevelCount::EmptyMipMap
       };
-      let desc = source.create_cube_desc(mip);
+      let desc = source.create_cube_desc(mip, flags);
 
       // todo, check desc is matched and recreated texture!
       if target.get_current(k).is_none() {

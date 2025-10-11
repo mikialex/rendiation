@@ -8,8 +8,9 @@ pub fn use_viewer_culling(
   cx: &mut QueryGPUHookCx,
   ndc: impl NDCSpaceMapper + Copy + Hash,
   enable_oc_support: bool,
+  is_indirect: bool,
 ) -> Option<ViewerCulling> {
-  let oc = if enable_oc_support {
+  let oc = if enable_oc_support && is_indirect {
     cx.scope(|cx| {
       let (_, oc) =
         cx.use_sharable_plain_state(|| GPUTwoPassOcclusionCulling::new(u16::MAX as usize));
@@ -19,19 +20,23 @@ pub fn use_viewer_culling(
     None
   };
 
-  let bounding_provider = use_scene_model_device_world_bounding(cx).map(|b| Box::new(b) as Box<_>);
+  let bounding_provider = if is_indirect {
+    use_scene_model_device_world_bounding(cx).map(|b| Box::new(b) as Box<_>)
+  } else {
+    None
+  };
   let camera_frustums = use_camera_gpu_frustum(cx, ndc);
 
   cx.when_render(|| ViewerCulling {
     oc,
-    bounding_provider: bounding_provider.unwrap(),
+    bounding_provider,
     frustums: camera_frustums.unwrap(),
   })
 }
 
 pub struct ViewerCulling {
   oc: Option<Arc<RwLock<GPUTwoPassOcclusionCulling>>>,
-  bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
+  bounding_provider: Option<Box<dyn DrawUnitWorldBoundingProvider>>,
   frustums: CameraGPUFrustums,
 }
 
@@ -44,7 +49,7 @@ impl ViewerCulling {
   ) {
     if let SceneModelRenderBatch::Device(batch) = batch {
       let culler = GPUFrustumCuller {
-        bounding_provider: self.bounding_provider.clone(),
+        bounding_provider: self.bounding_provider.clone().unwrap(),
         frustum: self.frustums.get_gpu_frustum(camera),
         camera: camera_gpu.clone(),
       };
@@ -76,7 +81,7 @@ impl ViewerCulling {
         renderer.scene,
         camera_gpu,
         scene_pass_dispatcher,
-        self.bounding_provider.clone(),
+        self.bounding_provider.clone().unwrap(),
         renderer.reversed_depth,
       )
     } else {

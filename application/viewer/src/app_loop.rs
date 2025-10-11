@@ -184,6 +184,14 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         ..Default::default()
       };
 
+      #[cfg(feature = "webgl")]
+      let config = {
+        let mut config = config;
+        config.backends = Backends::GL;
+        config.minimal_required_limits = Limits::downlevel_webgl2_defaults();
+        config
+      };
+
       let gpu = GPUOrGPUCreateFuture::Creating(Box::pin(async {
         let (gpu, surface) = GPU::new(config).await.unwrap();
         let surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };

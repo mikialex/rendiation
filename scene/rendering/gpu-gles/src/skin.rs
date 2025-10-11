@@ -136,7 +136,7 @@ fn create_data_texture(cx: &GPU, bind_matrixes: &[Mat4<f32>]) -> GPU2DTextureVie
   };
   let texture = GPUBufferImageForeignImpl { inner: &image };
 
-  let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap);
+  let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap, cx.info().downgrade_info.flags);
   let gpu_texture = GPUTexture::create(desc, &cx.device);
   let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
   let gpu_texture = gpu_texture.upload_into(&cx.queue, &texture, 0);

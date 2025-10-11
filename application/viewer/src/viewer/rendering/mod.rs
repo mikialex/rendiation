@@ -181,7 +181,13 @@ impl Viewer3dRenderingCtx {
     let t_clone = texture_sys.clone();
     let attributes_custom_key = Arc::new(|_: u32, _: &mut _| {}) as Arc<_>;
 
-    let culling = use_viewer_culling(cx, self.ndc, self.enable_indirect_occlusion_culling);
+    let is_indirect = self.current_renderer_impl_ty == RasterizationRenderBackendType::Indirect;
+    let culling = use_viewer_culling(
+      cx,
+      self.ndc,
+      self.enable_indirect_occlusion_culling,
+      is_indirect,
+    );
 
     let mut mesh_lod_graph_renderer = None;
 

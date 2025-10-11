@@ -167,7 +167,11 @@ pub trait WebGPU2DTextureSource: Send + Sync {
     (buffer, size)
   }
 
-  fn create_tex2d_desc(&self, level_count: MipLevelCount) -> gpu::TextureDescriptor<'static> {
+  fn create_tex2d_desc(
+    &self,
+    level_count: MipLevelCount,
+    flags: DownlevelFlags,
+  ) -> gpu::TextureDescriptor<'static> {
     gpu::TextureDescriptor {
       label: None,
       size: self.gpu_size(),
@@ -175,7 +179,7 @@ pub trait WebGPU2DTextureSource: Send + Sync {
       sample_count: 1,
       dimension: gpu::TextureDimension::D2,
       format: self.format(),
-      view_formats: get_view_format(self.format()),
+      view_formats: get_view_format(self.format(), flags),
       usage: gpu::TextureUsages::TEXTURE_BINDING
         | gpu::TextureUsages::RENDER_ATTACHMENT
         // | gpu::TextureUsages::STORAGE_BINDING // used to generate mipmap in compute shader
@@ -184,11 +188,15 @@ pub trait WebGPU2DTextureSource: Send + Sync {
     }
   }
 
-  fn create_cube_desc(&self, level_count: MipLevelCount) -> gpu::TextureDescriptor<'static> {
+  fn create_cube_desc(
+    &self,
+    level_count: MipLevelCount,
+    flags: DownlevelFlags,
+  ) -> gpu::TextureDescriptor<'static> {
     gpu::TextureDescriptor {
       label: None,
       size: self.gpu_cube_size(),
-      view_formats: get_view_format(self.format()),
+      view_formats: get_view_format(self.format(), flags),
       mip_level_count: level_count.get_level_count_wgpu(self.size()),
       sample_count: 1,
       dimension: gpu::TextureDimension::D2,
@@ -218,7 +226,11 @@ impl MipLevelCount {
   }
 }
 
-fn get_view_format(format: TextureFormat) -> &'static [TextureFormat] {
+fn get_view_format(format: TextureFormat, flags: DownlevelFlags) -> &'static [TextureFormat] {
+  if !flags.contains(DownlevelFlags::VIEW_FORMATS) {
+    return &[];
+  }
+
   match format {
     TextureFormat::Rgba8UnormSrgb => &[TextureFormat::Rgba8UnormSrgb, TextureFormat::Rgba8Unorm],
     TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb, TextureFormat::Rgba8Unorm],
