@@ -87,7 +87,16 @@ pub fn render_lighting_scene_content(
           let mut pass_base = pass("scene forward all");
           let color_writer =
             DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, color_ops);
-          let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
+
+          let skip_entity_id = !ctx
+            .gpu
+            .info()
+            .downgrade_info
+            .flags
+            .contains(DownlevelFlags::INDEPENDENT_BLEND); // to support webgl!
+
+          let g_buffer_base_writer =
+            g_buffer.extend_pass_desc(&mut pass_base, depth_ops, skip_entity_id);
 
           let scene_pass_dispatcher = &RenderArray([
             &color_writer as &dyn RenderComponent,
@@ -119,7 +128,7 @@ pub fn render_lighting_scene_content(
           let mut pass_base_for_opaque = pass("scene forward opaque");
 
           let g_buffer_base_writer =
-            g_buffer.extend_pass_desc(&mut pass_base_for_opaque, depth_ops);
+            g_buffer.extend_pass_desc(&mut pass_base_for_opaque, depth_ops, false);
           let color_writer = DefaultDisplayWriter::extend_pass_desc(
             &mut pass_base_for_opaque,
             scene_result,
@@ -169,7 +178,7 @@ pub fn render_lighting_scene_content(
           let mut pass_base_for_opaque = pass("scene forward opaque");
 
           let g_buffer_base_writer =
-            g_buffer.extend_pass_desc(&mut pass_base_for_opaque, depth_ops);
+            g_buffer.extend_pass_desc(&mut pass_base_for_opaque, depth_ops, false);
 
           let color_writer = DefaultDisplayWriter::extend_pass_desc(
             &mut pass_base_for_opaque,
@@ -219,7 +228,7 @@ pub fn render_lighting_scene_content(
     LightingTechniqueKind::DeferLighting => {
       let mut pass_base = pass("scene defer encode");
 
-      let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
+      let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops, false);
       let mut m_buffer = FrameGeneralMaterialBuffer::new(ctx);
 
       let indices = m_buffer.extend_pass_desc(&mut pass_base);

@@ -146,8 +146,8 @@ strip = "symbols" # see https://github.com/rust-lang/rust/issues/139950
 
 # used when you are profiling in release but want debug symbol enabled
 [profile.profiling]
-debug = true
-inherits = "release"
+opt-level = 3
+inherits = "dev"
 
 [patch.crates-io]
 # wgpu = { path = "../references/wgpu/wgpu" }

@@ -1,15 +1,11 @@
-use std::{ffi::OsString, process::ExitCode};
+use std::process::ExitCode;
 
 use anyhow::*;
 use pico_args::Arguments;
 use xshell::{cmd, Shell};
 
 fn main() -> anyhow::Result<ExitCode> {
-  let mut args = std::env::args_os().skip(1).collect::<Vec<_>>();
-  let passthrough_args = args
-    .iter()
-    .position(|arg| arg == "--")
-    .map(|pos| args.drain(pos..).skip(1).collect());
+  let args = std::env::args_os().skip(1).collect::<Vec<_>>();
   let mut args = Arguments::from_vec(args);
 
   if args.contains(["-h", "--help"]) {
@@ -25,10 +21,8 @@ fn main() -> anyhow::Result<ExitCode> {
   shell.change_dir(String::from(env!("CARGO_MANIFEST_DIR")) + "/..");
 
   match subcommand.as_deref() {
-    Some("build-wasm") => build_wasm(&shell, args, passthrough_args)?,
-    Some("build-deploy-wasm-github") => {
-      build_wasm_and_deploy_github_pages(&shell, args, passthrough_args)?
-    }
+    Some("build-wasm") => build_wasm(&shell, args)?,
+    Some("build-deploy-wasm-github") => build_wasm_and_deploy_github_pages(&shell, args)?,
     Some(subcommand) => {
       bad_arguments!("Unknown subcommand: {}", subcommand)
     }
@@ -48,32 +42,41 @@ macro_rules! bad_arguments {
     }};
 }
 
-fn build_wasm(
-  shell: &Shell,
-  _args: Arguments,
-  _passthrough_args: Option<Vec<OsString>>,
-) -> anyhow::Result<()> {
+fn build_wasm(shell: &Shell, mut args: Arguments) -> anyhow::Result<()> {
+  let profiling = args.contains("--profiling");
+
+  build_wasm_internal(shell, profiling)
+}
+
+fn build_wasm_internal(shell: &Shell, enable_profiling: bool) -> anyhow::Result<()> {
+  let profile = if enable_profiling {
+    println!("profiling mode enabled");
+    "profiling"
+  } else {
+    "release"
+  };
+
   cmd!(
     shell,
-    "cargo build --target wasm32-unknown-unknown -p viewer --release"
+    "cargo build --target wasm32-unknown-unknown -p viewer --profile {profile}"
   )
-  .quiet()
   .run()
   .context("Failed to build webgpu examples for wasm")?;
 
-  cmd!(shell, "wasm-bindgen ./target/wasm32-unknown-unknown/release/viewer.wasm --target web --out-dir ./application/viewer-web/generated")
-  .quiet()
+  let extra = if enable_profiling {
+    "--keep-debug --debug"
+  } else {
+    ""
+  };
+
+  cmd!(shell, "wasm-bindgen ./target/wasm32-unknown-unknown/{profile}/viewer.wasm --target web --out-dir ./application/viewer-web/generated {extra}")
   .run()
   .context("Failed to run wasm-bindgen for wasm")?;
 
   Ok(())
 }
 
-fn build_wasm_and_deploy_github_pages(
-  shell: &Shell,
-  args: Arguments,
-  passthrough_args: Option<Vec<OsString>>,
-) -> anyhow::Result<()> {
+fn build_wasm_and_deploy_github_pages(shell: &Shell, _args: Arguments) -> anyhow::Result<()> {
   let result = cmd!(shell, "git status --porcelain").quiet().read()?;
   if !result.is_empty() {
     return anyhow::Result::Err(anyhow::anyhow!("git status not empty"));
@@ -90,7 +93,7 @@ fn build_wasm_and_deploy_github_pages(
     .run()
     .context("Failed to squash pages history")?;
 
-  build_wasm(shell, args, passthrough_args)?;
+  build_wasm_internal(shell, true)?;
   cmd!(shell, "rm -r ./docs/viewer-web").run()?;
   cmd!(shell, "cp -r ./application/viewer-web ./docs/viewer-web").run()?;
   cmd!(shell, "rm ./docs/viewer-web/.gitignore").run()?;

@@ -3,23 +3,23 @@ use crate::*;
 #[derive(Clone)]
 pub struct ToneMap {
   pub ty: ToneMapType,
-  exposure: UniformBufferCachedDataView<f32>,
+  exposure: UniformBufferCachedDataView<Vec4<f32>>, // vec4 for webgl compatibility
 }
 
 impl ToneMap {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       ty: ToneMapType::ACESFilmic,
-      exposure: create_uniform_with_cache(1., gpu),
+      exposure: create_uniform_with_cache(Vec4::splat(1.), gpu),
     }
   }
 
   pub fn set_exposure(&self, exposure: f32) {
-    self.exposure.set(exposure);
+    self.exposure.set(Vec4::splat(exposure));
   }
 
   pub fn mutate_exposure(&self, f: impl FnOnce(&mut f32)) {
-    self.exposure.mutate(f);
+    self.exposure.mutate(|v| f(&mut v.x));
   }
 
   pub fn update(&self, gpu: &GPU) {
@@ -44,13 +44,13 @@ impl ShaderHashProvider for ToneMap {
 
 #[derive(Clone)]
 pub struct ToneMapInvocation {
-  exposure: ShaderReadonlyPtrOf<f32>,
+  exposure: Node<f32>,
   ty: ToneMapType,
 }
 
 impl ToneMapInvocation {
   pub fn compute_ldr(&self, hdr: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-    let exposure = self.exposure.load();
+    let exposure = self.exposure;
     match self.ty {
       ToneMapType::None => hdr,
       ToneMapType::Linear => linear_tone_mapping(hdr, exposure),
@@ -64,7 +64,7 @@ impl ToneMapInvocation {
 impl ToneMap {
   pub fn build(&self, builder: &mut ShaderBindGroupBuilder) -> ToneMapInvocation {
     ToneMapInvocation {
-      exposure: builder.bind_by(&self.exposure),
+      exposure: builder.bind_by(&self.exposure).load().x(),
       ty: self.ty,
     }
   }

@@ -13,7 +13,7 @@ pub struct ShaderSamplingWeights {
   /// this array is just used as a fixed size container.
   pub weights: UniformBufferCachedDataView<Shader140Array<Vec4<f32>, 32>>,
   /// the actually sample count we used.
-  pub weight_count: UniformBufferCachedDataView<u32>,
+  pub weight_count: UniformBufferCachedDataView<Vec4<u32>>, // vec4 for webgl compatibility
 }
 
 /// radius: 0-16
@@ -69,6 +69,8 @@ impl GraphicsShaderProvider for LinearBlurTask<'_> {
 
       let sample_offset = size * config.direction;
 
+      let weight_count = weight_count.x();
+
       let sum = weights
         .into_shader_iter()
         .clamp_by(weight_count)
@@ -123,7 +125,7 @@ impl CrossBlurData {
 
     let (weights, count) = gaussian(32);
     let weights = create_uniform_with_cache(weights, gpu);
-    let weight_count = create_uniform_with_cache(count, gpu);
+    let weight_count = create_uniform_with_cache(Vec4::splat(count), gpu);
 
     Self {
       x,

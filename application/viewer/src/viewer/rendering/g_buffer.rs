@@ -28,12 +28,17 @@ impl FrameGeometryBuffer {
     &self,
     desc: &mut RenderPassDescription,
     depth_op: impl Into<Operations<f32>>,
+    skip_entity_id: bool,
   ) -> FrameGeometryBufferPassEncoder {
     desc.set_depth(&self.depth, depth_op);
 
     FrameGeometryBufferPassEncoder {
       normal: desc.push_color(&self.normal, clear_and_store(all_zero())),
-      entity_id: desc.push_color(&self.entity_id, clear_and_store(MAX_U32_ID_BACKGROUND)),
+      entity_id: if skip_entity_id {
+        usize::MAX
+      } else {
+        desc.push_color(&self.entity_id, clear_and_store(MAX_U32_ID_BACKGROUND))
+      },
     }
   }
 
