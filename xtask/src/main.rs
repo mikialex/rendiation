@@ -25,7 +25,10 @@ fn main() -> anyhow::Result<ExitCode> {
   shell.change_dir(String::from(env!("CARGO_MANIFEST_DIR")) + "/..");
 
   match subcommand.as_deref() {
-    Some("build-wasm") => build_wasm(shell, args, passthrough_args)?,
+    Some("build-wasm") => build_wasm(&shell, args, passthrough_args)?,
+    Some("build-deploy-wasm-github") => {
+      build_wasm_and_deploy_github_pages(&shell, args, passthrough_args)?
+    }
     Some(subcommand) => {
       bad_arguments!("Unknown subcommand: {}", subcommand)
     }
@@ -46,7 +49,7 @@ macro_rules! bad_arguments {
 }
 
 fn build_wasm(
-  shell: Shell,
+  shell: &Shell,
   _args: Arguments,
   _passthrough_args: Option<Vec<OsString>>,
 ) -> anyhow::Result<()> {
@@ -62,6 +65,39 @@ fn build_wasm(
   .quiet()
   .run()
   .context("Failed to run wasm-bindgen for wasm")?;
+
+  Ok(())
+}
+
+fn build_wasm_and_deploy_github_pages(
+  shell: &Shell,
+  args: Arguments,
+  passthrough_args: Option<Vec<OsString>>,
+) -> anyhow::Result<()> {
+  let result = cmd!(shell, "git status --porcelain").quiet().read()?;
+  if !result.is_empty() {
+    return anyhow::Result::Err(anyhow::anyhow!("git status not empty"));
+  }
+
+  cmd!(shell, "git checkout pages").run()?;
+  cmd!(shell, "git rebase master")
+    .run()
+    .context("Failed to rebase pages branch on master")?;
+
+  let squash_target = cmd!(shell, "git merge-base master HEAD").quiet().read()?;
+
+  cmd!(shell, "git reset --soft {squash_target}")
+    .run()
+    .context("Failed to squash pages history")?;
+
+  build_wasm(shell, args, passthrough_args)?;
+  cmd!(shell, "rm -r ./docs/viewer-web").run()?;
+  cmd!(shell, "cp -r ./application/viewer-web ./docs/viewer-web").run()?;
+
+  cmd!(shell, "git add *").run()?;
+  cmd!(shell, "git commit -m \"pages\"").run()?;
+  cmd!(shell, "git push -f").run()?;
+  cmd!(shell, "git checkout master").run()?;
 
   Ok(())
 }
