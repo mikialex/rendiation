@@ -99,5 +99,7 @@ fn build_wasm_and_deploy_github_pages(
   cmd!(shell, "git push -f").run()?;
   cmd!(shell, "git checkout master").run()?;
 
+  cmd!(shell, "rm -r ./docs").run()?;
+
   Ok(())
 }
