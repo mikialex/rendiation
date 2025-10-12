@@ -21,7 +21,7 @@ pub fn use_viewer_culling(
   };
 
   let bounding_provider = if is_indirect {
-    use_scene_model_device_world_bounding(cx).map(|b| Box::new(b) as Box<_>)
+    cx.scope(|cx| use_scene_model_device_world_bounding(cx).map(|b| Box::new(b) as Box<_>))
   } else {
     None
   };
