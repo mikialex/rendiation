@@ -319,3 +319,10 @@ impl<T: Clone> StatisticStore<T> {
     }
   }
 }
+
+impl StatisticStore<f32> {
+  pub fn history_average(&self) -> f32 {
+    let iter = self.history.iter().filter_map(|v| v.as_ref().map(|v| v.0));
+    iter.clone().sum::<f32>() / iter.count() as f32
+  }
+}

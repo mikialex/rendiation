@@ -201,6 +201,12 @@ impl Viewer3dRenderingCtx {
           1000. / t
         ));
       }
+      let t = self.stat_frame_time_in_ms.history_average();
+      ui.label(format!(
+        "average frame time: {:.2} ms, fps: {:.2}",
+        t,
+        1000. / t
+      ));
       if let Some(times) = self.stat_frame_time_in_ms.iter_history_from_oldest_latest() {
         let graph_height = 200.;
         let graph_width = 300.;

@@ -89,6 +89,17 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
     init_config.init_only.wgpu_backend_select_override =
       Some(Backends::GL | Backends::BROWSER_WEBGPU);
 
+    if let Some(value) = params.get("host_driven_draw") {
+      if value == "true" {
+        init_config.init_only.enable_indirect_storage_combine = true;
+        init_config
+          .init_only
+          .using_texture_as_storage_buffer_for_indirect_rendering = true;
+        init_config.using_host_driven_indirect_draw = true;
+        init_config.raster_backend_type = RasterizationRenderBackendType::Indirect
+      }
+    }
+
     if let Some(value) = params.get("force_webgl2") {
       if value == "true" {
         #[cfg(feature = "support-webgl")]

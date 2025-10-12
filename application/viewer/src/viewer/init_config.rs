@@ -47,7 +47,7 @@ impl Default for ViewerStaticInitConfig {
           size,
         },
         init_size: SizeWithDepth {
-          depth: NonZeroU32::new(1).unwrap(),
+          depth: NonZeroU32::new(2).unwrap(),
           size,
         },
       },
