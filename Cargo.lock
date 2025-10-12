@@ -4291,6 +4291,7 @@ version = "0.1.0"
 dependencies = [
  "dyn-clone",
  "fast-hash-collection",
+ "log",
  "query",
  "rendiation-shader-api",
  "rendiation-texture-core",

@@ -101,10 +101,17 @@ pub fn use_pool_texture_system(
     u32::MAX,
   );
 
+  let require_convert = cx.gpu.info().adaptor_info.backend != Backend::Gl;
   cx.use_changes::<SceneTexture2dEntityDirectContent>()
-    .map_changes(|v| {
-      v.map(|v| Bool::from(v.format.is_srgb()))
-        .unwrap_or_default()
+    .map_changes(move |v| {
+      v.map(|v| {
+        if require_convert {
+          Bool::from(v.format.is_srgb())
+        } else {
+          Bool::from(false)
+        }
+      })
+      .unwrap_or_default()
     })
     .update_storage_array(
       cx,
@@ -124,7 +131,6 @@ pub fn use_pool_texture_system(
   let gpu = cx.gpu.clone();
   let packer = packer.clone();
   let _atlas = atlas.clone();
-  let fmt = init.format;
 
   cx.use_changes::<SceneTexture2dEntityDirectContent>()
     .filter_map_changes(|tex| tex.map(|tex| tex.size))
@@ -146,7 +152,7 @@ pub fn use_pool_texture_system(
       update_atlas(
         &gpu,
         &mut _atlas.write(),
-        fmt,
+        TEXTURE_POOL_FORMAT,
         |id| packer.access(&id).unwrap(),
         buff_changes.clone().into_iter(),
         |id| content_view.access(&id).unwrap().unwrap().ptr,

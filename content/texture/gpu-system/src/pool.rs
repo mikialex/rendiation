@@ -1,9 +1,13 @@
+use std::borrow::Cow;
+
 use fast_hash_collection::FastHashSet;
 use rendiation_texture_core::*;
 pub use rendiation_texture_packer::pack_2d_to_3d::MultiLayerTexturePackerConfig;
 use rendiation_texture_packer::pack_2d_to_3d::*;
 
 use crate::*;
+
+pub const TEXTURE_POOL_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
 
 #[repr(C)]
 #[std430_layout]
@@ -119,7 +123,6 @@ use serde::*;
 pub struct TexturePoolSourceInit {
   pub init_sampler_count_capacity: u32,
   pub init_texture_count_capacity: u32,
-  pub format: TextureFormat,
   pub atlas_config: MultiLayerTexturePackerConfig,
 }
 
@@ -168,12 +171,16 @@ pub fn update_atlas(
 
   let mut changed_set = FastHashSet::default();
 
+  let should_normalize_srgb = gpu.info().adaptor_info.backend == Backend::Gl;
+
   for (id, new_tex) in tex_source_change {
     changed_set.insert(id);
     if let Some(current_pack) = current_pack(id) {
       // pack may failed, in this case we do nothing
-      let tex = create_gpu_texture2d_with_mipmap(gpu, &mut encoder, &new_tex);
-      copy_tex(&mut encoder, &tex, &target.resource, &current_pack);
+      if let Some(tex) = normalize_format(&new_tex, should_normalize_srgb) {
+        let tex = create_gpu_texture2d_with_mipmap(gpu, &mut encoder, &tex);
+        copy_tex(&mut encoder, &tex, &target.resource, &current_pack);
+      }
     }
   }
 
@@ -190,8 +197,10 @@ pub fn update_atlas(
           let tex = tex_input_current(id);
           // tex maybe removed
           if let Some(new_pack) = new_pack {
-            let tex = create_gpu_texture2d_with_mipmap(gpu, &mut encoder, &tex);
-            copy_tex(&mut encoder, &tex, &target.resource, &new_pack);
+            if let Some(tex) = normalize_format(&tex, should_normalize_srgb) {
+              let tex = create_gpu_texture2d_with_mipmap(gpu, &mut encoder, &tex);
+              copy_tex(&mut encoder, &tex, &target.resource, &new_pack);
+            }
           }
         }
       }
@@ -200,6 +209,58 @@ pub fn update_atlas(
   }
 
   gpu.queue.submit_encoder(encoder);
+}
+
+fn srgb_to_linear_convert_per_channel(c: f32) -> f32 {
+  if c <= 0.04045 {
+    c * 0.0773993808
+  } else {
+    (c * 0.9478672986 + 0.0521327014).powf(2.4)
+  }
+}
+
+fn normalize_format(tex: &GPUBufferImage, normalize_srgb: bool) -> Option<Cow<'_, GPUBufferImage>> {
+  if tex.format == TEXTURE_POOL_FORMAT {
+    return Cow::Borrowed(tex).into();
+  }
+
+  if !normalize_srgb && tex.format.remove_srgb_suffix() == TEXTURE_POOL_FORMAT.remove_srgb_suffix()
+  {
+    return Cow::Borrowed(tex).into();
+  }
+
+  log::warn!("texture pool try normalize texture");
+
+  let data = match tex.format {
+    TextureFormat::Rgba8UnormSrgb => {
+      let data: &[u8] = cast_slice(&tex.data);
+      data
+        .iter()
+        .map(|v| *v as f32 / 255.)
+        .map(srgb_to_linear_convert_per_channel)
+        .map(|v| (v * 255.) as u8)
+        .collect()
+    }
+    TextureFormat::R8Unorm => {
+      let data: &[u8] = cast_slice(&tex.data);
+      data.iter().flat_map(|v| [*v, 0, 0, 0]).collect()
+    }
+    _ => {
+      log::warn!(
+        "texture pool not support normalize format {:?} to pool format {:?}",
+        tex.format,
+        TEXTURE_POOL_FORMAT
+      );
+      return None;
+    }
+  };
+
+  Cow::<'_, GPUBufferImage>::Owned(GPUBufferImage {
+    data,
+    format: TEXTURE_POOL_FORMAT,
+    size: tex.size,
+  })
+  .into()
 }
 
 fn copy_tex(

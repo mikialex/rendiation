@@ -40,7 +40,6 @@ impl Default for ViewerStaticInitConfig {
     let init = TexturePoolSourceInit {
       init_texture_count_capacity: 128,
       init_sampler_count_capacity: 128,
-      format: TextureFormat::Rgba8Unorm,
       atlas_config: MultiLayerTexturePackerConfig {
         max_size: SizeWithDepth {
           depth: NonZeroU32::new(16).unwrap(),
