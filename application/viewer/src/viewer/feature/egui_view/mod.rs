@@ -116,7 +116,6 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         ui.separator();
 
         ui.collapsing("Init config(not dynamic configurable)", |ui| {
-          ui.label(format!("{:#?}", viewer.rendering.init_config));
           if ui
             .button("export current viewer init and current config")
             .clicked()
@@ -124,6 +123,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             let config = viewer.export_init_config();
             config.export_to_current_dir();
           }
+          ui.label(format!("{:#?}", viewer.rendering.init_config));
         });
 
         ui.collapsing("Rendering Resources Detail", |ui| {

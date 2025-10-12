@@ -79,6 +79,14 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
 
   let init_config = ViewerInitConfig::from_default_json_or_default();
 
+  // we do config override instead of gpu init override to reflect change in the init config
+  #[cfg(feature = "webgl")]
+  let init_config = {
+    let mut init_config = init_config;
+    init_config.init_only.wgpu_backend_select_override = Some(Backends::GL);
+    init_config
+  };
+
   run_application(
     init_config.init_only.wgpu_backend_select_override,
     move |cx| {

@@ -44,11 +44,16 @@ macro_rules! bad_arguments {
 
 fn build_wasm(shell: &Shell, mut args: Arguments) -> anyhow::Result<()> {
   let profiling = args.contains("--profiling");
+  let use_webgl = args.contains("--webgl");
 
-  build_wasm_internal(shell, profiling)
+  build_wasm_internal(shell, profiling, use_webgl)
 }
 
-fn build_wasm_internal(shell: &Shell, enable_profiling: bool) -> anyhow::Result<()> {
+fn build_wasm_internal(
+  shell: &Shell,
+  enable_profiling: bool,
+  use_webgl: bool,
+) -> anyhow::Result<()> {
   let profile = if enable_profiling {
     println!("profiling mode enabled");
     "profiling"
@@ -56,12 +61,18 @@ fn build_wasm_internal(shell: &Shell, enable_profiling: bool) -> anyhow::Result<
     "release"
   };
 
-  cmd!(
+  let mut cmd = cmd!(
     shell,
     "cargo build --target wasm32-unknown-unknown -p viewer --profile {profile}"
-  )
-  .run()
-  .context("Failed to build webgpu examples for wasm")?;
+  );
+
+  if use_webgl {
+    cmd = cmd.args(["--features", "webgl"])
+  }
+
+  cmd
+    .run()
+    .context("Failed to build webgpu examples for wasm")?;
 
   let mut cmd = cmd!(shell, "wasm-bindgen ./target/wasm32-unknown-unknown/{profile}/viewer.wasm --target web --out-dir ./application/viewer-web/generated");
 
@@ -91,7 +102,7 @@ fn build_wasm_and_deploy_github_pages(shell: &Shell, _args: Arguments) -> anyhow
     .run()
     .context("Failed to squash pages history")?;
 
-  build_wasm_internal(shell, true)?;
+  build_wasm_internal(shell, true, false)?;
   cmd!(shell, "rm -r ./docs/viewer-web").run()?;
   cmd!(shell, "cp -r ./application/viewer-web ./docs/viewer-web").run()?;
   cmd!(shell, "rm ./docs/viewer-web/.gitignore").run()?;
