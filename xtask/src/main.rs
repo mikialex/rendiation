@@ -102,7 +102,7 @@ fn build_wasm_and_deploy_github_pages(shell: &Shell, _args: Arguments) -> anyhow
     .run()
     .context("Failed to squash pages history")?;
 
-  build_wasm_internal(shell, true, true)?;
+  build_wasm_internal(shell, false, true)?;
   cmd!(shell, "rm -r ./docs/viewer-web").run()?;
   cmd!(shell, "cp -r ./application/viewer-web ./docs/viewer-web").run()?;
   cmd!(shell, "rm ./docs/viewer-web/.gitignore").run()?;
