@@ -4,7 +4,18 @@ pub struct PickSceneBlocked;
 
 pub fn use_pick_scene(cx: &mut ViewerCx) {
   let (cx, enable_hit_debug_log) = cx.use_plain_state_init(|_| false);
-  let (cx, prefer_gpu_pick) = cx.use_plain_state_init(|_| true);
+  #[allow(unused_variables)]
+  let is_gl = cx.viewer.rendering.gpu().info().adaptor_info.backend == Backend::Gl;
+  let (cx, prefer_gpu_pick) = cx.use_plain_state_init(|_| {
+    #[cfg(target_family = "wasm")]
+    {
+      !is_gl
+    }
+    #[cfg(not(target_family = "wasm"))]
+    {
+      true
+    }
+  });
 
   let (cx, gpu_pick_future) =
     cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();

@@ -35,7 +35,12 @@ pub fn create_gpu_texture2d_with_mipmap(
   //     rendiation_fast_down_sampling_2d::fast_down_sampling_generate_mipmap(&mut pass, &cx.device, &gpu_texture);
   //   });
   // } else {
-  DefaultMipmapReducer.generate(cx, encoder, &gpu_texture);
+  if gpu_texture.desc.format.remove_srgb_suffix() == TextureFormat::Rgba8Unorm {
+    DefaultMipmapReducer.generate(cx, encoder, &gpu_texture);
+  } else {
+    log::warn!("mipmap skip for none Rgba8Unorm or Rgba8UnormSrgb format, this should be fixed!");
+  }
+
   // }
 
   gpu_texture.create_default_view().try_into().unwrap()

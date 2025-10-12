@@ -49,7 +49,12 @@ impl Viewer3dRenderingCtx {
       });
     });
 
-    let is_target_support_indirect_draw = self.gpu.info.downgrade_info.is_webgpu_compliant();
+    let is_target_support_indirect_draw = self.gpu.info.downgrade_info.is_webgpu_compliant()
+      || (self
+        .init_config
+        .using_texture_as_storage_buffer_for_indirect_rendering
+        && self.init_config.enable_indirect_storage_combine
+        && self.using_host_driven_indirect_draw);
 
     egui::ComboBox::from_label("RasterizationRender Backend")
       .selected_text(format!("{:?}", &self.current_renderer_impl_ty))
@@ -66,7 +71,9 @@ impl Viewer3dRenderingCtx {
             RasterizationRenderBackendType::Indirect,
             "Indirect",
           )
-          .on_disabled_hover_text("current platform/gpu does not support indirect rendering");
+          .on_disabled_hover_text(
+            "current platform/gpu or config combination does not support indirect rendering",
+          );
         });
       });
 

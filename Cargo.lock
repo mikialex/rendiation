@@ -4265,6 +4265,7 @@ dependencies = [
 name = "rendiation-texture-gpu-base"
 version = "0.1.0"
 dependencies = [
+ "log",
  "rendiation-algebra",
  "rendiation-fast-down-sampling-2d",
  "rendiation-shader-api",
