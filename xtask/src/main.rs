@@ -44,7 +44,7 @@ macro_rules! bad_arguments {
 
 fn build_wasm(shell: &Shell, mut args: Arguments) -> anyhow::Result<()> {
   let profiling = args.contains("--profiling");
-  let use_webgl = args.contains("--webgl");
+  let use_webgl = args.contains("--support-webgl");
 
   build_wasm_internal(shell, profiling, use_webgl)
 }
@@ -52,7 +52,7 @@ fn build_wasm(shell: &Shell, mut args: Arguments) -> anyhow::Result<()> {
 fn build_wasm_internal(
   shell: &Shell,
   enable_profiling: bool,
-  use_webgl: bool,
+  enable_webgl_support: bool,
 ) -> anyhow::Result<()> {
   let profile = if enable_profiling {
     println!("profiling mode enabled");
@@ -66,8 +66,8 @@ fn build_wasm_internal(
     "cargo build --target wasm32-unknown-unknown -p viewer --profile {profile}"
   );
 
-  if use_webgl {
-    cmd = cmd.args(["--features", "webgl"])
+  if enable_webgl_support {
+    cmd = cmd.args(["--features", "support-webgl"])
   }
 
   cmd
@@ -102,7 +102,7 @@ fn build_wasm_and_deploy_github_pages(shell: &Shell, _args: Arguments) -> anyhow
     .run()
     .context("Failed to squash pages history")?;
 
-  build_wasm_internal(shell, true, false)?;
+  build_wasm_internal(shell, true, true)?;
   cmd!(shell, "rm -r ./docs/viewer-web").run()?;
   cmd!(shell, "cp -r ./application/viewer-web ./docs/viewer-web").run()?;
   cmd!(shell, "rm ./docs/viewer-web/.gitignore").run()?;

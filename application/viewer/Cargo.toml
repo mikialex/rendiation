@@ -85,7 +85,7 @@ winit = { workspace = true }
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.3", features = ["wasm_js"] }
 console_error_panic_hook = "0.1.7"
-web-sys = { version = "0.3.77" }
+web-sys = { version = "0.3.77", features = ["Location", "UrlSearchParams"] }
 console_log = "1"
 wasm-bindgen = "0.2"
 web-time = { workspace = true }
@@ -94,7 +94,7 @@ web-time = { workspace = true }
 [features]
 default = ["heap-debug"]
 heap-debug = ["heap-tools/enabled"]
-webgl = ["rendiation-webgpu/webgl"]
+support-webgl = ["rendiation-webgpu/support-webgl"]
 tracy = ["dep:tracing-tracy"]
 tracy-heap-debug = ["tracy"]
 

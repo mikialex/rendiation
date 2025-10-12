@@ -183,7 +183,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         ..Default::default()
       };
 
-      #[cfg(feature = "webgl")]
+      #[cfg(feature = "support-webgl")]
       let config = if config.backends == Backends::GL {
         let mut config = config;
         config.minimal_required_limits = Limits::downlevel_webgl2_defaults();

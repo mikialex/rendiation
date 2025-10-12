@@ -80,10 +80,18 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   let init_config = ViewerInitConfig::from_default_json_or_default();
 
   // we do config override instead of gpu init override to reflect change in the init config
-  #[cfg(feature = "webgl")]
+  #[cfg(target_family = "wasm")]
   let init_config = {
+    let search = web_sys::window().unwrap().location().search();
+    let params = web_sys::UrlSearchParams::new_with_str(&search.unwrap()).unwrap();
+
     let mut init_config = init_config;
-    init_config.init_only.wgpu_backend_select_override = Some(Backends::GL);
+    if let Some(value) = params.get("force_webgl2") {
+      if value == "true" {
+        init_config.init_only.wgpu_backend_select_override = Some(Backends::GL);
+        log::warn!("force using webgl2 by url param");
+      }
+    }
     init_config
   };
 

@@ -30,12 +30,20 @@ pub fn draw_widgets(
     ctx,
   );
 
-  #[cfg(not(feature = "webgl"))]
-  let enable_msaa = true;
-
   // msaa can be enable in webgl, if we restrict the texture usage to attachment only
-  #[cfg(feature = "webgl")]
-  let enable_msaa = false;
+  #[allow(clippy::needless_bool)]
+  let enable_msaa = if ctx.gpu.info().adaptor_info.backend == Backend::Gl {
+    #[cfg(feature = "support-webgl")]
+    {
+      false
+    }
+    #[cfg(not(feature = "support-webgl"))]
+    {
+      true
+    }
+  } else {
+    true
+  };
 
   if enable_msaa {
     let widgets_result = attachment().request(ctx);
