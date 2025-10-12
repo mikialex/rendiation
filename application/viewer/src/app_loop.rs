@@ -61,7 +61,13 @@ impl GPUOrGPUCreateFuture {
       GPUOrGPUCreateFuture::Creating(future) => {
         noop_ctx!(ctx);
         if let Poll::Ready(gpu) = future.poll_unpin(ctx) {
+          #[cfg(target_family = "wasm")]
+          if gpu.gpu.info().adaptor_info.backend == Backend::Gl {
+            log::warn!("selected backend is webgl, major performance issue may happen and features may missing");
+          }
+
           *self = GPUOrGPUCreateFuture::Created(gpu);
+
           self.poll_gpu()
         } else {
           None
@@ -184,7 +190,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
       };
 
       #[cfg(feature = "support-webgl")]
-      let config = if config.backends == Backends::GL {
+      let config = if config.backends.contains(Backends::GL) {
         let mut config = config;
         config.minimal_required_limits = Limits::downlevel_webgl2_defaults();
         config
