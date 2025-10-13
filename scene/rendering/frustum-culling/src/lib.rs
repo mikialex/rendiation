@@ -21,7 +21,7 @@ pub fn use_camera_gpu_frustum(
   cx.use_shared_dual_query(GlobalCameraTransformShare(ndc))
     .into_delta_change()
     .map_changes(|transform| {
-      let arr = Frustum::new_from_matrix(transform.view_projection)
+      let arr = Frustum::new_from_matrix(transform.view_projection, true)
         .planes
         .map(|p| Vec4::new(p.normal.x, p.normal.y, p.normal.z, p.constant).into_f32());
 
