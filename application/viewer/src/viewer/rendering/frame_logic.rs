@@ -221,6 +221,7 @@ impl ViewerFrameLogic {
         &mut PostProcess {
           input: maybe_aa_result.clone(),
           config: &self.post,
+          target_is_srgb: final_target.format().is_srgb(),
         }
         .draw_quad(),
       )

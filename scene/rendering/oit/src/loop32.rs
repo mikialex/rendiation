@@ -1,3 +1,5 @@
+use rendiation_shader_library::color::shader_linear_to_srgb_convert;
+
 use crate::*;
 
 pub struct OitLoop32Renderer {
@@ -331,24 +333,6 @@ impl ShaderPassBuilder for OitColorPass {
     self.oit_depth_layers.bind(&mut ctx.binding);
     self.oit_color_layers.bind(&mut ctx.binding);
   }
-}
-
-#[shader_fn]
-fn shader_linear_to_srgb_convert(srgb: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-  (
-    shader_linear_to_srgb_convert_per_channel(srgb.x()),
-    shader_linear_to_srgb_convert_per_channel(srgb.y()),
-    shader_linear_to_srgb_convert_per_channel(srgb.z()),
-  )
-    .into()
-}
-
-#[shader_fn]
-fn shader_linear_to_srgb_convert_per_channel(c: Node<f32>) -> Node<f32> {
-  c.less_than(0.0031308).select_branched(
-    || c * val(12.92),
-    || c.pow(1. / 2.4) * val(1.055) - val(0.055),
-  )
 }
 
 struct OitResolvePass {

@@ -1,3 +1,4 @@
+use rendiation_shader_library::color::shader_linear_to_srgb_convert_fn;
 use rendiation_texture_gpu_base::*;
 use rendiation_texture_gpu_process::*;
 
@@ -16,6 +17,7 @@ pub struct PostEffects {
 pub struct PostProcess<'a> {
   pub input: RenderTargetView,
   pub config: &'a UniformBufferCachedDataView<PostEffects>,
+  pub target_is_srgb: bool,
 }
 
 impl ShaderPassBuilder for PostProcess<'_> {
@@ -28,6 +30,9 @@ impl ShaderPassBuilder for PostProcess<'_> {
 
 impl ShaderHashProvider for PostProcess<'_> {
   shader_hash_type_id! {PostProcess< 'static>}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.target_is_srgb.hash(hasher);
+  }
 }
 
 impl GraphicsShaderProvider for PostProcess<'_> {
@@ -52,7 +57,13 @@ impl GraphicsShaderProvider for PostProcess<'_> {
         input.store(compute_vignette_fn(uv, config.vignette, input.load()));
       });
 
-      builder.store_fragment_out_vec4f(0, (input.load(), val(1.0)))
+      let output = if self.target_is_srgb {
+        input.load()
+      } else {
+        shader_linear_to_srgb_convert_fn(input.load())
+      };
+
+      builder.store_fragment_out_vec4f(0, (output, val(1.0)))
     });
   }
 }

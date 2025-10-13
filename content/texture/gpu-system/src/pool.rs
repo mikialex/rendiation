@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use fast_hash_collection::FastHashSet;
+use rendiation_shader_library::color::shader_srgb_to_linear_convert_fn;
 use rendiation_texture_core::*;
 pub use rendiation_texture_packer::pack_2d_to_3d::MultiLayerTexturePackerConfig;
 use rendiation_texture_packer::pack_2d_to_3d::*;
@@ -539,24 +540,6 @@ fn sample_texture_impl(
   let x = load_position_f32.x().floor().into_u32();
   let y = load_position_f32.y().floor().into_u32();
   texture.load_texel_layer((x >> level, y >> level).into(), layer, level)
-}
-
-#[shader_fn]
-fn shader_srgb_to_linear_convert(srgb: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-  (
-    shader_srgb_to_linear_convert_per_channel_fn(srgb.x()),
-    shader_srgb_to_linear_convert_per_channel_fn(srgb.y()),
-    shader_srgb_to_linear_convert_per_channel_fn(srgb.z()),
-  )
-    .into()
-}
-
-#[shader_fn]
-fn shader_srgb_to_linear_convert_per_channel(c: Node<f32>) -> Node<f32> {
-  c.less_than(0.04045).select_branched(
-    || c * val(0.0773993808),
-    || (c * val(0.9478672986) + val(0.0521327014)).pow(2.4),
-  )
 }
 
 #[shader_fn]

@@ -1,5 +1,6 @@
 use rendiation_shader_api::*;
 
+pub mod color;
 pub mod cube;
 pub mod normal_mapping;
 pub mod plane;
