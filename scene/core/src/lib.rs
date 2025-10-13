@@ -69,7 +69,18 @@ declare_entity!(SceneEntity);
 
 declare_component!(SceneSolidBackground, SceneEntity, Option<Vec3<f32>>);
 
-declare_component!(SceneHDRxEnvBackgroundIntensity, SceneEntity, Option<f32>);
+declare_component!(
+  SceneHDRxEnvBackgroundInfo,
+  SceneEntity,
+  Option<SceneHDRxEnvBackgroundParameter>
+);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Facet)]
+pub struct SceneHDRxEnvBackgroundParameter {
+  pub transform: Mat4<f32>,
+  pub intensity: f32,
+}
+
 declare_foreign_key!(
   SceneHDRxEnvBackgroundCubeMap,
   SceneEntity,
@@ -80,6 +91,20 @@ pub fn register_scene_self_data_model() {
   global_database()
     .declare_entity::<SceneEntity>()
     .declare_component::<SceneSolidBackground>()
-    .declare_component::<SceneHDRxEnvBackgroundIntensity>()
+    .declare_component::<SceneGradientBackgroundInfo>()
+    .declare_component::<SceneHDRxEnvBackgroundInfo>()
     .declare_foreign_key::<SceneHDRxEnvBackgroundCubeMap>();
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Facet)]
+pub struct SceneGradientBackgroundParam {
+  pub transform: Mat4<f32>,
+  /// color is srgb space
+  pub color_and_stops: Vec<Vec4<f32>>,
+}
+
+declare_component!(
+  SceneGradientBackgroundInfo,
+  SceneEntity,
+  Option<SceneGradientBackgroundParam>
+);

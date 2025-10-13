@@ -7,6 +7,12 @@ pub mod sampling;
 pub mod sky;
 pub mod z_order;
 
+#[shader_fn]
+pub fn transform_dir(transform: Node<Mat4<f32>>, dir: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+  let dir = transform * vec4_node((dir, val(1.)));
+  dir.xyz() / dir.w().splat()
+}
+
 pub fn shader_uv_space_to_render_space(
   ndc_space_to_render_space: Node<Mat4<f32>>,
   uv: Node<Vec2<f32>>,

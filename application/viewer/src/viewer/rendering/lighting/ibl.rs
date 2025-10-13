@@ -16,16 +16,20 @@ pub fn use_ibl(cx: &mut QueryGPUHookCx) -> Option<IBLLightingComponentProvider> 
   });
 
   let intensity = cx.use_uniform_buffers();
-  cx.use_changes::<SceneHDRxEnvBackgroundIntensity>()
-    .filter_map_changes(|v| v)
+  cx.use_changes::<SceneHDRxEnvBackgroundInfo>()
+    .filter_map_changes(|v| v.map(|v| v.intensity))
     .update_uniforms(
       &intensity,
       offset_of!(IblShaderInfo, diffuse_illuminance),
       cx.gpu,
     );
 
-  cx.use_changes::<SceneHDRxEnvBackgroundIntensity>()
-    .filter_map_changes(|v| v)
+  cx.use_changes::<SceneHDRxEnvBackgroundInfo>()
+    .filter_map_changes(|v| v.map(|v| v.transform))
+    .update_uniforms(&intensity, offset_of!(IblShaderInfo, transform), cx.gpu);
+
+  cx.use_changes::<SceneHDRxEnvBackgroundInfo>()
+    .filter_map_changes(|v| v.map(|v| v.intensity))
     .update_uniforms(
       &intensity,
       offset_of!(IblShaderInfo, specular_illuminance),

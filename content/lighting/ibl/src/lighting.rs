@@ -1,4 +1,5 @@
 use rendiation_lighting_gpu_system::{LightingComputeComponent, LightingComputeInvocation};
+use rendiation_shader_library::transform_dir_fn;
 use rendiation_texture_core::TextureSampler;
 use rendiation_texture_gpu_base::SamplerConvertExt;
 
@@ -42,6 +43,7 @@ impl LightingComputeComponent for IBLLightingComponent {
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]
 pub struct IblShaderInfo {
+  pub transform: Mat4<f32>,
   pub diffuse_illuminance: f32,
   pub specular_illuminance: f32,
 }
@@ -77,23 +79,27 @@ impl LightingComputeInvocation for IBLLighting {
 
     let uniform = self.uniform.load().expand();
 
-    let diffuse = self
-      .diffuse
-      .sample_zero_level(self.sampler, geom_ctx.normal);
+    let n_dot_v = geom_ctx.normal.dot(geom_ctx.view_dir);
+    let reflect = val(2.) * n_dot_v * geom_ctx.normal - geom_ctx.view_dir;
+
+    let sample_normal = transform_dir_fn(uniform.transform, geom_ctx.normal);
+    let sample_reflect = transform_dir_fn(uniform.transform, reflect);
+
+    let diffuse = self.diffuse.sample_zero_level(self.sampler, sample_normal);
 
     let diffuse = diffuse.xyz() * uniform.diffuse_illuminance * albedo + emissive;
 
     let lod = linear_roughness * (self.specular.texture_number_levels() - val(1)).into_f32();
     let specular = self
       .specular
-      .build_sample_call(self.sampler, geom_ctx.normal)
+      .build_sample_call(self.sampler, sample_reflect)
       .with_level(lod)
       .sample();
 
-    let n_dot_v = geom_ctx.normal.dot(geom_ctx.view_dir);
     let brdf_lut = self
       .brdf_lut
       .sample_zero_level(self.sampler, (n_dot_v, linear_roughness));
+
     let specular =
       (f0 * brdf_lut.x() + brdf_lut.y().splat()) * specular.xyz() * uniform.specular_illuminance;
 

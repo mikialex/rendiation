@@ -50,7 +50,10 @@ impl SceneWriter {
       .write_foreign_key::<SceneHDRxEnvBackgroundCubeMap>(self.scene, None);
     self
       .scene_writer
-      .write::<SceneHDRxEnvBackgroundIntensity>(self.scene, None);
+      .write::<SceneHDRxEnvBackgroundInfo>(self.scene, None);
+    self
+      .scene_writer
+      .write::<SceneGradientBackgroundInfo>(self.scene, None);
   }
 
   pub fn set_solid_background(&mut self, solid: Vec3<f32>) {
@@ -60,18 +63,30 @@ impl SceneWriter {
       .write::<SceneSolidBackground>(self.scene, Some(solid));
   }
 
+  pub fn set_gradient_background(&mut self, gradient: SceneGradientBackgroundParam) {
+    self.reset_background_to_solid();
+    self
+      .scene_writer
+      .write::<SceneGradientBackgroundInfo>(self.scene, Some(gradient));
+  }
+
   pub fn set_hdr_env_background(
     &mut self,
     cube_map: EntityHandle<SceneTextureCubeEntity>,
     intensity: f32,
+    transform: Mat4<f32>,
   ) {
     self.reset_background_to_solid();
     self
       .scene_writer
       .write_foreign_key::<SceneHDRxEnvBackgroundCubeMap>(self.scene, Some(cube_map));
-    self
-      .scene_writer
-      .write::<SceneHDRxEnvBackgroundIntensity>(self.scene, Some(intensity));
+    self.scene_writer.write::<SceneHDRxEnvBackgroundInfo>(
+      self.scene,
+      Some(SceneHDRxEnvBackgroundParameter {
+        transform,
+        intensity,
+      }),
+    );
   }
 
   pub fn create_root_child(&mut self) -> EntityHandle<SceneNodeEntity> {

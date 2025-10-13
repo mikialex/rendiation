@@ -4,10 +4,17 @@ use rendiation_shader_api::{Shader140Array, ShaderSizedValueNodeType, Std140};
 
 use crate::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct UniformBufferDataView<T: Std140> {
   pub gpu: GPUBufferResourceView,
   phantom: PhantomData<T>,
+}
+
+/// manual impl to avoid Debug bound on T
+impl<T: Std140> Debug for UniformBufferDataView<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("UniformBufferDataView(gpu)").finish()
+  }
 }
 
 impl<T: Std140> PartialEq for UniformBufferDataView<T> {

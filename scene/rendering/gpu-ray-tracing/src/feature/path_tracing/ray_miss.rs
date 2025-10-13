@@ -1,5 +1,6 @@
 use std::hash::Hash;
 
+use rendiation_shader_library::transform_dir_fn;
 use rendiation_texture_core::TextureSampler;
 use rendiation_texture_gpu_base::SamplerConvertExt;
 
@@ -33,7 +34,7 @@ pub enum PTRayMissCtx {
   EnvCube {
     map: GPUCubeTextureView,
     sampler: GPUSamplerView,
-    intensity: UniformBufferDataView<Vec4<f32>>,
+    params: UniformBufferDataView<IblShaderInfoForBackground>,
   },
   Solid {
     color: UniformBufferDataView<Vec4<f32>>,
@@ -58,8 +59,8 @@ impl PTRayMissCtx {
           .access(&env.into_raw())
           .unwrap()
           .clone(),
-        intensity: renderer
-          .env_background_intensity
+        params: renderer
+          .env_background_param
           .access(&scene.alloc_index())
           .unwrap(),
         sampler,
@@ -89,11 +90,11 @@ impl RayTracingCustomCtxProvider for PTRayMissCtx {
     match self {
       Self::EnvCube {
         map,
-        intensity,
+        params,
         sampler,
       } => PTRayMissCtxInvocation::EnvCube {
         map: cx.bind_by(map),
-        intensity: cx.bind_by(intensity),
+        params: cx.bind_by(params),
         sampler: cx.bind_by(sampler),
       },
       Self::Solid { color } => PTRayMissCtxInvocation::Solid(cx.bind_by(color)),
@@ -105,11 +106,11 @@ impl RayTracingCustomCtxProvider for PTRayMissCtx {
     match self {
       Self::EnvCube {
         map,
-        intensity,
+        params,
         sampler,
       } => {
         builder.bind(map);
-        builder.bind(intensity);
+        builder.bind(params);
         builder.bind(sampler);
       }
       Self::Solid { color } => {
@@ -125,7 +126,7 @@ pub enum PTRayMissCtxInvocation {
   Solid(ShaderReadonlyPtrOf<Vec4<f32>>),
   EnvCube {
     map: BindingNode<ShaderTextureCube>,
-    intensity: ShaderReadonlyPtrOf<Vec4<f32>>,
+    params: ShaderReadonlyPtrOf<IblShaderInfoForBackground>,
     sampler: BindingNode<ShaderSampler>,
   },
   Test,
@@ -137,9 +138,13 @@ impl PTRayMissCtxInvocation {
       Self::Solid(color) => color.load().xyz(),
       Self::EnvCube {
         map,
-        intensity,
+        params,
         sampler,
-      } => map.sample_zero_level(*sampler, world_ray_direction).xyz() * intensity.load().x(),
+      } => {
+        let params = params.load().expand();
+        let direction = transform_dir_fn(params.transform, world_ray_direction);
+        map.sample_zero_level(*sampler, direction).xyz() * params.intensity
+      }
       Self::Test => world_ray_direction
         .y()
         .greater_than(0.)
