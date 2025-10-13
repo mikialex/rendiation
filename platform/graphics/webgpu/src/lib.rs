@@ -105,15 +105,6 @@ impl Default for GPUCreateConfig<'_> {
   }
 }
 
-#[derive(Clone, Debug)]
-pub struct GPUInfo {
-  pub adaptor_info: AdapterInfo,
-  pub power_preference: PowerPreference,
-  pub supported_features: Features,
-  pub supported_limits: Limits,
-  pub downgrade_info: DownlevelCapabilities,
-}
-
 #[derive(thiserror::Error, Debug)]
 pub enum GPUCreateFailure {
   #[error("Failed to request adapter")]

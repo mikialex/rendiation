@@ -226,7 +226,9 @@ impl GraphicsShaderProvider for CubeEnvComponent<'_> {
       let ldr = builder.query::<LDRLightResult>();
       let ldr: Node<Vec4<_>> = (ldr, val(1.)).into();
       builder.store_fragment_out(0, ldr);
-    })
+    });
+
+    mask_out_none_color_write(builder);
   }
 }
 
@@ -276,6 +278,8 @@ impl GraphicsShaderProvider for GradientBackgroundComponent<'_> {
 
       builder.store_fragment_out(0, color);
     });
+
+    mask_out_none_color_write(builder);
   }
 }
 
@@ -332,4 +336,29 @@ fn direction_to_uv(dir: Node<Vec3<f32>>) -> Node<Vec2<f32>> {
   let s = theta / (val(2.0) * pi);
   let t = phi / pi;
   (s + val(0.5), t).into()
+}
+
+/// the write target may contains other channel for example entity id, which
+/// should not be written. we also check if platform support this case(webgl)
+fn mask_out_none_color_write(builder: &mut ShaderRenderPipelineBuilder) {
+  if !builder
+    .info
+    .downgrade_info
+    .flags
+    .contains(DownlevelFlags::INDEPENDENT_BLEND)
+  {
+    return;
+  }
+
+  builder.fragment(|builder, _| {
+    builder
+      .frag_output
+      .iter_mut()
+      .enumerate()
+      .for_each(|(i, p)| {
+        if i != 0 {
+          p.states.write_mask = ColorWrites::empty();
+        }
+      });
+  });
 }

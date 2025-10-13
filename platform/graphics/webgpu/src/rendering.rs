@@ -17,7 +17,10 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
         device
           .build_pipeline_by_shader_api(
             self
-              .build_self(&|stage| Box::new(ShaderAPINagaImpl::new(stage)))
+              .build_self(
+                &|stage| Box::new(ShaderAPINagaImpl::new(stage)),
+                ctx.gpu.info.clone(),
+              )
               .unwrap(),
           )
           .unwrap()
