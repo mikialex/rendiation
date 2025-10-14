@@ -5,16 +5,16 @@ use crate::*;
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct ShaderPlaneUniform {
   pub normal: Vec3<f32>,
-  // todo, consider using a single HighPrecisionFloat
+  // todo, consider using one single HighPrecisionFloat
   pub position: HighPrecisionTranslationUniform,
 }
 
 impl ShaderPlaneUniform {
-  pub fn new(normal: Vec3<f32>, constant: f64) -> Self {
-    let position = normal.into_f64() * constant;
+  pub fn new(normal: Vec3<f64>, constant: f64) -> Self {
+    let position = normal * constant;
     let position = into_hpt(position).into_uniform();
     Self {
-      normal,
+      normal: normal.into_f32(),
       position,
       ..Zeroable::zeroed()
     }
@@ -53,7 +53,7 @@ pub fn ray_plane_intersect(
     .select((origin + direction * t, val(1.0)), Vec4::zero())
 }
 
-pub fn aabb_plane_intersect(
+pub fn aabb_half_space_intersect(
   min: Node<Vec3<f32>>,
   max: Node<Vec3<f32>>,
   plane: ENode<ShaderPlane>,
@@ -64,5 +64,5 @@ pub fn aabb_plane_intersect(
   let z = normal.z().greater_than(0.).select(max.z(), min.z());
   let point: Node<Vec3<_>> = (x, y, z).into();
   let distance = normal.dot(point) + plane.constant;
-  distance.less_than(0.)
+  distance.greater_equal_than(0.)
 }

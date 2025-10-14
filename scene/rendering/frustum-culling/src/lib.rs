@@ -23,9 +23,9 @@ pub fn use_camera_gpu_frustum(
     .map_changes(|transform| {
       let arr = Frustum::new_from_matrix(transform.view_projection, true)
         .planes
-        .map(|p| Vec4::new(p.normal.x, p.normal.y, p.normal.z, p.constant).into_f32());
+        .map(|p| ShaderPlaneUniform::new(p.normal.value, p.constant));
 
-      Shader140Array::<Vec4<f32>, 6>::from_slice_clamp_or_default(&arr);
+      GPUFrustumDataType::from_slice_clamp_or_default(&arr);
     })
     .use_assure_result(cx)
     .update_uniforms(&uniforms, 0, cx.gpu);
@@ -96,16 +96,15 @@ struct GPUFrustumCullingInvocation {
 impl AbstractCullerInvocation for GPUFrustumCullingInvocation {
   fn cull(&self, id: Node<u32>) -> Node<bool> {
     let bounding = self.bounding_provider.get_world_bounding(id);
+    let min = hpt_sub_hpt(bounding.min, self.camera_world);
+    let max = hpt_sub_hpt(bounding.max, self.camera_world);
 
     let should_cull = val(false).make_local_var();
 
     for plane in self.frustum.iter() {
-      // todo use a real loop to avoid per plane visible check
       if_by(should_cull.load().not(), || {
-        let min = hpt_sub_hpt(bounding.min, self.camera_world);
-        let max = hpt_sub_hpt(bounding.max, self.camera_world);
-        let intersect = aabb_plane_intersect(min, max, *plane);
-        if_by(intersect, || {
+        let intersect = aabb_half_space_intersect(min, max, *plane);
+        if_by(intersect.not(), || {
           should_cull.store(true);
         });
       });
