@@ -242,14 +242,16 @@ pub trait QueryHookCxLike: HooksCxLike {
     (r, key, consumer_id)
   }
 
-  fn use_shared_dual_query_view<Provider: SharedResultProvider<Self, Result: DualQueryLike>>(
+  // todo, improve: the view only consumer not need reconcile, but still rely on
+  // use_shared_dual_query to fanout changes
+  fn use_shared_dual_query_view<Provider, K: CKey, V: CValue>(
     &mut self,
     provider: Provider,
-  ) -> UseResult<<Provider::Result as DualQueryLike>::View> {
-    self
-      .use_shared_dual_query_internal(provider)
-      .0
-      .map(|r| r.view()) // here we don't care to sync the change
+  ) -> UseResult<BoxedDynQuery<K, V>>
+  where
+    Provider: SharedResultProvider<Self, Result: DualQueryLike<Key = K, Value = V>>,
+  {
+    self.use_shared_dual_query(provider).map(|r| r.view())
   }
 
   fn use_shared_dual_query<Provider, K: CKey, V: CValue>(

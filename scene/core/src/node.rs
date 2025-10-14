@@ -85,14 +85,14 @@ pub fn use_global_node_net_visible(
 
 pub fn use_global_node_world_mat_view(
   cx: &mut impl DBHookCxLike,
-) -> UseResult<LockReadGuardHolder<FastHashMap<RawEntityHandle, Mat4<f64>>>> {
+) -> UseResult<BoxedDynQuery<RawEntityHandle, Mat4<f64>>> {
   let c = global_node_derive_of::<SceneNodeLocalMatrixComponent, _>(node_world_mat);
   cx.use_shared_dual_query_view(c)
 }
 
 pub fn use_global_node_net_visible_view(
   cx: &mut impl DBHookCxLike,
-) -> UseResult<LockReadGuardHolder<FastHashMap<RawEntityHandle, bool>>> {
+) -> UseResult<BoxedDynQuery<RawEntityHandle, bool>> {
   let c = global_node_derive_of::<SceneNodeVisibleComponent, _>(node_net_visible);
   cx.use_shared_dual_query_view(c)
 }

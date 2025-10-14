@@ -348,7 +348,9 @@ impl Viewer3dRenderingCtx {
       .use_shared_dual_query_view(GlobalCameraTransformShare(self.ndc))
       .use_assure_result(cx);
 
-    let sm_world_bounding = cx.use_shared_dual_query_view(SceneModelWorldBounding);
+    let sm_world_bounding = cx
+      .use_shared_dual_query_view(SceneModelWorldBounding)
+      .use_assure_result(cx);
 
     cx.when_render(|| ViewerRendererInstance {
       camera: camera.unwrap(),

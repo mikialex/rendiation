@@ -8,7 +8,7 @@ pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
     cx.use_plain_state::<Option<(EntityHandle<SceneNodeEntity>, GizmoUpdateTargetLocal)>>();
 
   let reader = use_scene_reader(cx);
-  let world_mat = use_global_node_world_mat_view(cx);
+  let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
   let mut node = None;
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
