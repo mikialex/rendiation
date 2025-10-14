@@ -76,10 +76,16 @@ fn fit_camera_view_for_viewer(
     let camera_world = world_mat.access(&scene_info.camera_node).unwrap();
     let camera_reader = global_entity_component_of::<SceneCameraPerspective>().read();
 
-    let target_world_aabb = sm_world_bounding.access(selected).unwrap();
-    let proj = camera_reader.get(scene_info.main_camera).unwrap().unwrap();
+    if let Some(target_world_aabb) = sm_world_bounding.access(selected) {
+      let proj = camera_reader.get(scene_info.main_camera).unwrap().unwrap();
 
-    fit_camera_view(&proj, camera_world, target_world_aabb).into()
+      fit_camera_view(&proj, camera_world, target_world_aabb).into()
+    } else {
+      log::warn!(
+        "fit_camera unable to access selected target bounding box, it's a bug or missing implementation"
+      );
+      None
+    }
   } else {
     None
   }

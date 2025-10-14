@@ -30,7 +30,7 @@ declare_component!(WideLineWidth, WideLineModelEntity, f32, 1.0);
 declare_component!(
   WideLineMeshBuffer,
   WideLineModelEntity,
-  ExternalRefPtr<Vec<Vec3<f32>>>
+  ExternalRefPtr<Vec<u8>> // Vec<WideLineVertex>
 );
 
 pub struct WideLineMeshDataView {
@@ -54,7 +54,7 @@ pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineM
   let mesh = cx.use_shared_hash_map();
 
   maintain_shared_map(&mesh, cx.use_changes::<WideLineMeshBuffer>(), |buffer| {
-    let buffer = create_gpu_buffer(cast_slice(&buffer), BufferUsages::VERTEX, &cx.gpu.device);
+    let buffer = create_gpu_buffer(&buffer, BufferUsages::VERTEX, &cx.gpu.device);
     buffer.create_default_view()
   });
 
@@ -87,9 +87,9 @@ impl GLESModelRenderImpl for WideLineModelRenderer {
       .access_ref(&model_idx.alloc_index())
       .unwrap();
 
-    let instance_count = u64::from(instance_buffer.view_byte_size()) as usize
-      / std::mem::size_of::<WideLineVertex>()
-      / 2;
+    let instance_count =
+      u64::from(instance_buffer.view_byte_size()) as usize / std::mem::size_of::<WideLineVertex>();
+
     let draw_command = DrawCommand::Indexed {
       instances: 0..instance_count as u32,
       base_vertex: 0,

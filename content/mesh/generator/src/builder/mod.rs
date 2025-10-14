@@ -159,8 +159,8 @@ impl<T> IndexedMeshBuilder<T> {
     let index_start = self.vertex_count;
     let u_step = 1. / config.u as f32;
     let v_step = 1. / config.v as f32;
-    for u in 0..config.u {
-      for v in 0..config.v {
+    for u in 0..=config.u {
+      for v in 0..=config.v {
         let u = u as f32 * u_step;
         let v = v as f32 * v_step;
         let vertex = T::Vertex::from_surface(surface, (u, v).into());
@@ -169,7 +169,7 @@ impl<T> IndexedMeshBuilder<T> {
       }
     }
 
-    let uv_to_index = |u: usize, v: usize| -> usize { index_start + u + config.u * v };
+    let uv_to_index = |u: usize, v: usize| -> usize { index_start + v + (config.v + 1) * u };
 
     for u in 0..config.u {
       for v in 0..config.v {

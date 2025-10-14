@@ -8,7 +8,7 @@ The following things is the current project development direction.
 
 important issue is in bold style.
 
-- fix oc
+- fix oc and frustum culling
 - fix mesh lod graph
 - spd not support none pot target, and small target(the current impl will access out of boundary of image).
 - multi format support in texture pool system
@@ -35,7 +35,6 @@ important issue is in bold style.
 
 ### Implemented but not yet integrated(tested) features
 
-- widen line
 - sky shading
 - ssr(super naive)
 - lod graph generation and rendering

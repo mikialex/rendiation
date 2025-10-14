@@ -27,19 +27,25 @@ impl ShaderPassBuilder for WideLineGPU<'_> {
       .set_index_buffer_by_buffer_resource_view(self.index_buffer, IndexFormat::Uint16);
     ctx.set_vertex_buffer_by_buffer_resource_view_next(self.vertex_buffer);
     ctx.set_vertex_buffer_by_buffer_resource_view_next(self.instance_buffer);
+  }
 
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.uniform);
   }
 }
 
 impl GraphicsShaderProvider for WideLineGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.vertex(|builder, binding| {
+    builder.vertex(|builder, _| {
       builder.register_vertex::<CommonVertex>(VertexStepMode::Vertex);
       builder.register_vertex::<WideLineVertex>(VertexStepMode::Instance);
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
+    });
+  }
 
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.vertex(|builder, binding| {
       let uv = builder.query::<GeometryUV>();
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>();
       let material = binding.bind_by(&self.uniform).load().expand();
@@ -118,8 +124,8 @@ fn wide_line_vertex(
 
   // adjust for width
   offset *= width.splat();
-  // adjust for clip-space to screen-space conversion // maybe resolution should be based on
-  // viewport ...
+  // adjust for clip-space to screen-space conversion
+  // maybe resolution should be based on viewport ...
   offset /= view_size.y().splat();
 
   // select end

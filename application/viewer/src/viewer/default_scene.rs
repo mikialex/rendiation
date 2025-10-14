@@ -5,6 +5,7 @@ use crate::*;
 
 pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dContent) {
   // test_mesh_lod_graph(writer);
+  load_widen_line_test(writer);
 
   // test_ltc_lighting(writer);
   let transparent_test_root = writer.create_root_child();
