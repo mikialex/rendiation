@@ -30,7 +30,7 @@ declare_component!(WideLineWidth, WideLineModelEntity, f32, 1.0);
 declare_component!(
   WideLineMeshBuffer,
   WideLineModelEntity,
-  ExternalRefPtr<Vec<u8>>
+  ExternalRefPtr<Vec<Vec3<f32>>>
 );
 
 pub struct WideLineMeshDataView {
@@ -40,7 +40,7 @@ pub struct WideLineMeshDataView {
 
 pub type WideLineMeshInternal = NoneIndexedMesh<LineList, Vec<WideLineVertex>>;
 
-pub fn use_widen_line(cx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer> {
+pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer> {
   let (cx, quad) = cx.use_gpu_init(|g, _| create_wide_line_quad_gpu(g));
 
   let uniform = cx.use_uniform_buffers();
@@ -54,7 +54,7 @@ pub fn use_widen_line(cx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer> 
   let mesh = cx.use_shared_hash_map();
 
   maintain_shared_map(&mesh, cx.use_changes::<WideLineMeshBuffer>(), |buffer| {
-    let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &cx.gpu.device);
+    let buffer = create_gpu_buffer(cast_slice(&buffer), BufferUsages::VERTEX, &cx.gpu.device);
     buffer.create_default_view()
   });
 

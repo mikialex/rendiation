@@ -4,18 +4,13 @@ use crate::*;
 
 mod container;
 
+/// We don't not provide none indexed version because the parametric mesh
+/// will mostly share the vertex, and the index builder will reduce the compute vertex
+/// cost greatly. For none indexed mesh, using conversion utility is enough
+#[derive(Default)]
 pub struct IndexedMeshBuilder<T> {
   mesh: T,
   vertex_count: usize,
-}
-
-impl<T: Default> Default for IndexedMeshBuilder<T> {
-  fn default() -> Self {
-    Self {
-      mesh: Default::default(),
-      vertex_count: 0,
-    }
-  }
 }
 
 impl<T> IndexedMeshBuilder<T> {

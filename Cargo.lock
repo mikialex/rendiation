@@ -5347,6 +5347,7 @@ dependencies = [
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-texture-as-buffer",
  "rendiation-webgpu-virtual-buffer",
+ "rendiation-wide-line",
  "rfd",
  "serde",
  "serde_json",

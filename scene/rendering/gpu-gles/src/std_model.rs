@@ -43,21 +43,19 @@ pub fn std_model_renderer(
   cx: &mut QueryGPUHookCx,
   materials: Option<Box<dyn GLESModelMaterialRenderImpl>>,
   shapes: Option<Box<dyn GLESModelShapeRenderImpl>>,
-) -> Option<Box<dyn GLESModelRenderImpl>> {
+) -> Option<SceneStdModelRenderer> {
   let skin_gpu = use_skin(cx);
 
-  cx.when_render(|| {
-    Box::new(SceneStdModelRenderer {
-      model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
-      materials: materials.unwrap(),
-      shapes: shapes.unwrap(),
-      skin_gpu: skin_gpu.unwrap(),
-      skin: global_entity_component_of::<StandardModelRefSkin>().read_foreign_key(),
-    }) as Box<dyn GLESModelRenderImpl>
+  cx.when_render(|| SceneStdModelRenderer {
+    model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
+    materials: materials.unwrap(),
+    shapes: shapes.unwrap(),
+    skin_gpu: skin_gpu.unwrap(),
+    skin: global_entity_component_of::<StandardModelRefSkin>().read_foreign_key(),
   })
 }
 
-struct SceneStdModelRenderer {
+pub struct SceneStdModelRenderer {
   model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   materials: Box<dyn GLESModelMaterialRenderImpl>,
   shapes: Box<dyn GLESModelShapeRenderImpl>,

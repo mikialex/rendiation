@@ -16,9 +16,10 @@ mod primitive;
 pub use primitive::*;
 use rendiation_mesh_core::*;
 
-// todo, directly implement this
 pub type AttributesMeshBuilder =
   IndexedMeshBuilder<GroupedMesh<IndexedMesh<TriangleList, Vec<CommonVertex>, DynIndexContainer>>>;
+pub type AttributesLineMeshBuilder =
+  IndexedMeshBuilder<GroupedMesh<IndexedMesh<LineList, Vec<CommonVertex>, DynIndexContainer>>>;
 
 /// helper fn to quick build attribute mesh
 pub fn build_attributes_mesh(f: impl FnOnce(&mut AttributesMeshBuilder)) -> AttributesMeshData {

@@ -28,6 +28,7 @@ use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
 use rendiation_webgpu_virtual_buffer::*;
+use rendiation_wide_line::use_widen_line_gles_renderer;
 use widget::*;
 
 #[derive(Serialize, Deserialize)]
@@ -193,12 +194,38 @@ impl Viewer3dRenderingCtx {
 
     let raster_scene_renderer = match self.current_renderer_impl_ty {
       RasterizationRenderBackendType::Gles => cx.scope(|cx| {
-        use_gles_scene_renderer(
-          cx,
-          self.ndc.enable_reverse_z,
-          attributes_custom_key,
-          t_clone,
-        )
+        let wide_line_renderer_gles = use_widen_line_gles_renderer(cx);
+
+        let mesh =
+          use_attribute_mesh_renderer(cx, attributes_custom_key).map(|v| Box::new(v) as Box<_>);
+
+        let unlit_mat = use_unlit_material_uniforms(cx);
+        let pbr_mr_mat = use_pbr_mr_material_uniforms(cx);
+        let pbr_sg_mat = use_pbr_sg_material_uniforms(cx);
+
+        let materials = cx.when_render(|| {
+          Box::new(vec![
+            Box::new(unlit_mat.unwrap()) as Box<dyn GLESModelMaterialRenderImpl>,
+            Box::new(pbr_mr_mat.unwrap()),
+            Box::new(pbr_sg_mat.unwrap()),
+          ]) as Box<dyn GLESModelMaterialRenderImpl>
+        });
+
+        let std_model = std_model_renderer(cx, materials, mesh);
+
+        let model_renderer = cx.when_render(|| {
+          Box::new(vec![
+            Box::new(std_model.unwrap()) as Box<dyn GLESModelRenderImpl>,
+            Box::new(wide_line_renderer_gles.unwrap()),
+          ]) as Box<dyn GLESModelRenderImpl>
+        });
+
+        let scene_model_renderer = use_gles_scene_model_renderer(cx, model_renderer);
+        cx.when_render(|| GLESSceneRenderer {
+          texture_system: texture_sys.clone().unwrap(),
+          reversed_depth: self.ndc.enable_reverse_z,
+          scene_model_renderer: scene_model_renderer.unwrap(),
+        })
         .map(|r| Box::new(r) as Box<dyn SceneRenderer>)
       }),
       RasterizationRenderBackendType::Indirect => cx.scope(|cx| {
