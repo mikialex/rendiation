@@ -14,6 +14,7 @@ mod re_export;
 mod serialization;
 mod u32_load_store;
 
+use std::panic::Location;
 use std::sync::Arc;
 use std::{
   any::{Any, TypeId},

@@ -17,6 +17,7 @@ impl SemanticRegistry {
     self.dynamic_tag.insert(TypeId::of::<T>());
   }
 
+  #[track_caller]
   pub fn try_query_typed_both_stage<T: SemanticFragmentShaderValue + SemanticVertexShaderValue>(
     &self,
   ) -> Result<Node<<T as SemanticFragmentShaderValue>::ValueType>, ShaderBuildError> {
@@ -25,6 +26,7 @@ impl SemanticRegistry {
       .map(|n| unsafe { n.cast_type() })
   }
 
+  #[track_caller]
   pub fn try_query_fragment_stage<T: SemanticFragmentShaderValue>(
     &self,
   ) -> Result<Node<T::ValueType>, ShaderBuildError> {
@@ -33,6 +35,7 @@ impl SemanticRegistry {
       .map(|n| unsafe { n.cast_type() })
   }
 
+  #[track_caller]
   pub fn try_query_vertex_stage<T: SemanticVertexShaderValue>(
     &self,
   ) -> Result<Node<T::ValueType>, ShaderBuildError> {
@@ -62,6 +65,7 @@ impl SemanticRegistry {
     self.register_raw(TypeId::of::<T>(), node.into().cast_untyped_node());
   }
 
+  #[track_caller]
   pub fn try_query_raw(
     &self,
     id: TypeId,
@@ -71,7 +75,10 @@ impl SemanticRegistry {
       .static_semantic
       .get(&id)
       .copied()
-      .ok_or(ShaderBuildError::MissingRequiredDependency(name))
+      .ok_or(ShaderBuildError::MissingRequiredDependency(
+        name,
+        *Location::caller(),
+      ))
   }
 
   pub fn register_raw(&mut self, id: TypeId, node: NodeUntyped) {

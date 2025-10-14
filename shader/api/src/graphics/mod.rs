@@ -15,7 +15,7 @@ pub use high_precision_translation::*;
 
 #[derive(Debug, Clone)]
 pub enum ShaderBuildError {
-  MissingRequiredDependency(&'static str),
+  MissingRequiredDependency(&'static str, Location<'static>),
   FragmentOutputSlotNotDeclared,
   FailedDowncastShaderValueFromInput,
   SemanticNotSupported,

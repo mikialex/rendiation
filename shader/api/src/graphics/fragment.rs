@@ -18,6 +18,7 @@ impl ShaderFragmentBuilderView<'_> {
     r
   }
 
+  #[track_caller]
   pub fn query_or_interpolate_by<T, V>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticFragmentShaderValue,
@@ -47,7 +48,10 @@ impl ShaderFragmentBuilderView<'_> {
     if is_ok {
       self.query::<T>()
     } else {
-      self.error(ShaderBuildError::MissingRequiredDependency(V::NAME));
+      self.error(ShaderBuildError::MissingRequiredDependency(
+        V::NAME,
+        *Location::caller(),
+      ));
       self.query_or_insert_default::<T>()
     }
   }
@@ -168,11 +172,16 @@ impl ShaderFragmentBuilder {
     call_shader_api(|g| g.discard())
   }
 
+  #[track_caller]
   pub fn query<T: SemanticFragmentShaderValue>(&mut self) -> Node<T::ValueType> {
+    let location = *Location::caller();
     self.try_query::<T>().unwrap_or_else(|| unsafe {
       self
         .errors
-        .push(ShaderBuildError::MissingRequiredDependency(T::NAME));
+        .push(ShaderBuildError::MissingRequiredDependency(
+          T::NAME,
+          location,
+        ));
       fake_val()
     })
   }
@@ -231,6 +240,7 @@ impl ShaderFragmentBuilder {
     self.registry.register_fragment_stage::<T>(node);
   }
 
+  #[track_caller]
   pub fn get_fragment_in<T>(
     &mut self,
   ) -> Result<Node<<T as SemanticVertexShaderValue>::ValueType>, ShaderBuildError>
@@ -246,6 +256,7 @@ impl ShaderFragmentBuilder {
       .map(|(n, _, _, _)| unsafe { (*n).cast_type() })
       .ok_or(ShaderBuildError::MissingRequiredDependency(
         <T as SemanticVertexShaderValue>::NAME,
+        *Location::caller(),
       ))
   }
 

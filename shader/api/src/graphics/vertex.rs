@@ -87,11 +87,16 @@ impl ShaderVertexBuilder {
     &mut self.registry.any_map
   }
 
+  #[track_caller]
   pub fn query<T: SemanticVertexShaderValue>(&mut self) -> Node<T::ValueType> {
+    let location = *Location::caller();
     self.try_query::<T>().unwrap_or_else(|| unsafe {
       self
         .errors
-        .push(ShaderBuildError::MissingRequiredDependency(T::NAME));
+        .push(ShaderBuildError::MissingRequiredDependency(
+          T::NAME,
+          location,
+        ));
       fake_val()
     })
   }
