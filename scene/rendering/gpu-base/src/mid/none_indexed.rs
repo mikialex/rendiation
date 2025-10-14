@@ -1,6 +1,6 @@
 use crate::*;
 
-pub trait NoneIndexedDrawCommandBuilder: ShaderHashProvider + ShaderPassBuilder + DynClone {
+pub trait NoneIndexedDrawCommandBuilder: ShaderHashProvider + DynClone {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand;
   fn build_invocation(
     &self,

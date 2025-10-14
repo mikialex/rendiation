@@ -5,7 +5,11 @@ pub struct IndirectSceneRenderer {
   pub renderer: Box<dyn IndirectBatchSceneModelRenderer>,
   pub reversed_depth: bool,
   pub using_host_driven_indirect_draw: bool,
+  pub model_error_state: SceneModelErrorRecorder,
 }
+
+#[derive(Debug)]
+struct MissingIndirectGroupKeyError;
 
 impl IndirectSceneRenderer {
   pub fn classify_draws(
@@ -16,13 +20,18 @@ impl IndirectSceneRenderer {
 
     for sm in iter {
       let mut hasher = PipelineHasher::default();
-      self
+      let re = self
         .renderer
         .hash_shader_group_key_with_self_type_info(sm, &mut hasher)
-        .expect("unable to find indirect group key for scene_model");
-      let shader_hash = hasher.finish();
-      let list = classifier.entry(shader_hash).or_insert_with(Vec::new);
-      list.push(sm);
+        .ok_or(MissingIndirectGroupKeyError);
+
+      self.model_error_state.report_and_filter_error(sm, &re);
+
+      if re.is_ok() {
+        let shader_hash = hasher.finish();
+        let list = classifier.entry(shader_hash).or_insert_with(Vec::new);
+        list.push(sm);
+      }
     }
 
     classifier

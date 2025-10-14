@@ -4,6 +4,7 @@ pub struct GLESSceneRenderer {
   pub texture_system: GPUTextureBindingSystem,
   pub scene_model_renderer: Box<dyn SceneModelRenderer>,
   pub reversed_depth: bool,
+  pub model_error_state: SceneModelErrorRecorder,
 }
 
 impl SceneModelRenderer for GLESSceneRenderer {
@@ -15,9 +16,11 @@ impl SceneModelRenderer for GLESSceneRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) -> Result<(), UnableToRenderSceneModelError> {
-    self
+    let r = self
       .scene_model_renderer
-      .render_scene_model(idx, camera, pass, cx, tex)
+      .render_scene_model(idx, camera, pass, cx, tex);
+    self.model_error_state.report_and_filter_error(idx, &r);
+    r
   }
 }
 
@@ -53,16 +56,13 @@ impl PassContent for GLESScenePassContent<'_> {
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
     for sm in self.batch.iter_scene_models() {
-      let r = self.renderer.render_scene_model(
+      let _ = self.renderer.render_scene_model(
         sm,
         &self.camera,
         &p,
         &mut pass.ctx,
         &self.renderer.texture_system,
       );
-      if let Err(e) = r {
-        println!("Failed to render scene model: {}", e);
-      }
     }
   }
 }

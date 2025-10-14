@@ -192,6 +192,8 @@ impl Viewer3dRenderingCtx {
 
     let mut mesh_lod_graph_renderer = None;
 
+    let (cx, model_error_state) = cx.use_plain_state_default::<SceneModelErrorRecorder>();
+
     let raster_scene_renderer = match self.current_renderer_impl_ty {
       RasterizationRenderBackendType::Gles => cx.scope(|cx| {
         let wide_line_renderer_gles = use_widen_line_gles_renderer(cx);
@@ -225,6 +227,7 @@ impl Viewer3dRenderingCtx {
           texture_system: texture_sys.clone().unwrap(),
           reversed_depth: self.ndc.enable_reverse_z,
           scene_model_renderer: scene_model_renderer.unwrap(),
+          model_error_state: model_error_state.clone(),
         })
         .map(|r| Box::new(r) as Box<dyn SceneRenderer>)
       }),
@@ -292,6 +295,7 @@ impl Viewer3dRenderingCtx {
             renderer: scene_model.map(|v| Box::new(v) as Box<_>).unwrap(),
             reversed_depth: self.ndc.enable_reverse_z,
             using_host_driven_indirect_draw: self.using_host_driven_indirect_draw,
+            model_error_state: model_error_state.clone(),
           })
           .map(|r| Box::new(r) as Box<dyn SceneRenderer>);
 

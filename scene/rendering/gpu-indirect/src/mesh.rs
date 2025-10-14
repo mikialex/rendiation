@@ -706,10 +706,10 @@ impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
     &self,
     cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn NoneIndexedDrawCommandBuilderInvocation> {
-    let node = cx.bind_by(&self.metadata);
+    let metadata = cx.bind_by(&self.metadata);
     let sm_to_mesh_device = cx.bind_by(&self.sm_to_mesh_device);
     Box::new(BindlessDrawCreatorInDevice {
-      node,
+      metadata,
       sm_to_mesh_device,
     })
   }
@@ -744,7 +744,7 @@ impl IndexedDrawCommandBuilder for BindlessDrawCreator {
     let node = cx.bind_by(&self.metadata);
     let sm_to_mesh_device = cx.bind_by(&self.sm_to_mesh_device);
     Box::new(BindlessDrawCreatorInDevice {
-      node,
+      metadata: node,
       sm_to_mesh_device,
     })
   }
@@ -755,18 +755,12 @@ impl IndexedDrawCommandBuilder for BindlessDrawCreator {
   }
 }
 
-impl ShaderPassBuilder for BindlessDrawCreator {
-  fn setup_pass(&self, cx: &mut GPURenderPassCtx) {
-    cx.binding.bind(&self.metadata);
-  }
-}
-
 impl ShaderHashProvider for BindlessDrawCreator {
   shader_hash_type_id! {}
 }
 
 pub struct BindlessDrawCreatorInDevice {
-  node: ShaderReadonlyPtrOf<[AttributeMeshMeta]>,
+  metadata: ShaderReadonlyPtrOf<[AttributeMeshMeta]>,
   sm_to_mesh_device: ShaderReadonlyPtrOf<[u32]>,
 }
 
@@ -779,7 +773,7 @@ impl IndexedDrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
     // shader_assert(mesh_handle.not_equals(val(u32::MAX)));
     // shader_assert(meta.index_offset.not_equals(val(u32::MAX)));
 
-    let meta = self.node.index(mesh_handle).load().expand();
+    let meta = self.metadata.index(mesh_handle).load().expand();
     ENode::<DrawIndexedIndirectArgsStorage> {
       vertex_count: meta.count,
       instance_count: val(1),
@@ -800,7 +794,7 @@ impl NoneIndexedDrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
     // shader_assert(mesh_handle.not_equals(val(u32::MAX)));
     // shader_assert(meta.index_offset.equals(val(u32::MAX)));
 
-    let meta = self.node.index(mesh_handle).load().expand();
+    let meta = self.metadata.index(mesh_handle).load().expand();
     ENode::<DrawIndirectArgsStorage> {
       vertex_count: meta.position_count / val(3),
       instance_count: val(1),
