@@ -15,7 +15,11 @@ bytemuck = { workspace = true }
 rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
 rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
 rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
+rendiation-scene-rendering-gpu-indirect = { path = "../../scene/rendering/gpu-indirect" }
 rendiation-scene-core = { path = "../../scene/core" }
+rendiation-device-parallel-compute = { path = "../../shader/parallel-compute" }
+rendiation-webgpu-midc-downgrade = { path = "../../platform/graphics/webgpu-midc-downgrade" }
+parking_lot = { workspace = true }
 
 [lints]
 workspace = true

@@ -4427,15 +4427,19 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
+ "parking_lot",
  "rendiation-algebra",
+ "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-scene-rendering-gpu-gles",
+ "rendiation-scene-rendering-gpu-indirect",
  "rendiation-shader-api",
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
+ "rendiation-webgpu-midc-downgrade",
 ]
 
 [[package]]

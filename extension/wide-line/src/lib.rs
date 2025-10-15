@@ -2,12 +2,19 @@ use database::*;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_gles::*;
+use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
+mod draw;
+use draw::*;
+
 mod gles_draw;
 pub use gles_draw::*;
+
+mod indirect_draw;
+pub use indirect_draw::*;
 
 pub fn register_wide_line_data_model() {
   global_entity_of::<SceneModelEntity>()

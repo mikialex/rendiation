@@ -93,12 +93,12 @@ pub fn use_bindless_mesh(
     .map_raw_handle_or_u32_max_changes()
     .update_storage_array(cx, sm_to_mesh_device, 0);
 
+  sm_to_mesh_device.use_max_item_count_by_db_entity::<SceneModelEntity>(cx);
+  sm_to_mesh_device.use_update(cx);
+
   let sm_to_mesh = fanout_
     .map(|v| v.view().filter_map(|v| v).into_boxed())
     .use_assure_result(cx);
-
-  sm_to_mesh_device.use_max_item_count_by_db_entity::<SceneModelEntity>(cx);
-  sm_to_mesh_device.use_update(cx);
 
   cx.when_render(|| {
     let vertex_address_buffer = metadata.get_gpu_buffer();

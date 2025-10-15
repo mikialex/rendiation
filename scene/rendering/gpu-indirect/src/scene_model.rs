@@ -303,10 +303,13 @@ impl GraphicsShaderProvider for SceneModelGPUStorage<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       let models = binding.bind_by(self.buffer);
-      let current_model_id = builder.query::<LogicalRenderEntityId>();
-      let model = models.index(current_model_id).load().expand();
+      let sm_id = builder.query::<LogicalRenderEntityId>();
+      let model = models.index(sm_id).load().expand();
 
       builder.register::<IndirectSceneNodeId>(model.node);
+
+      // note, even if some implementation is not std model, it's safe because the id
+      // here will not be used
       builder.register::<IndirectSceneStdModelId>(model.std_model);
     })
   }
