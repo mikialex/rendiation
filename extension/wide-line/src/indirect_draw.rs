@@ -57,8 +57,20 @@ pub fn use_widen_line_indirect_renderer(
       for (k, buffer) in change.iter_update_or_insert() {
         let buffer = buffer.ptr.clone();
 
+        let buffer: &[WideLineVertex] = cast_slice(&buffer); // todo, this cast may fail due to alignment
+        let buffer: Vec<_> = buffer
+          .iter()
+          .map(|v| WideLineVertexStorage {
+            start: v.start,
+            end: v.end,
+            color: v.color,
+            ..Default::default()
+          })
+          .collect();
+        let buffer: &[u8] = cast_slice(&buffer);
         let len = buffer.len() as u32;
-        buffers_to_write.collect_shared(k, (buffer, None));
+        println!("buffer len: {}", len);
+        buffers_to_write.collect_direct(k, buffer);
         sizes.push((k, len / item_byte_size));
       }
 
@@ -95,8 +107,9 @@ pub fn use_widen_line_indirect_renderer(
   );
 
   let range_change = allocation_info
-    .map(move |allocation_info| allocation_info.allocation_changes.clone())
+    .map(|allocation_info| allocation_info.allocation_changes.clone())
     .use_change_to_dual_query_in_spawn_stage(cx)
+    .use_validation(cx, "range", true)
     .into_delta_change();
 
   let offset = std::mem::offset_of!(WideLineParameters, data_range);
@@ -149,7 +162,7 @@ struct WideLineParameters {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Copy, Clone, ShaderStruct)]
+#[derive(Copy, Clone, ShaderStruct, Default)]
 struct WideLineVertexStorage {
   pub start: Vec3<f32>,
   pub end: Vec3<f32>,
@@ -290,13 +303,17 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
       builder.register::<GeometryUV>(vertex);
 
       let seg = segments
-        .index(instance_index + line_param.data_range.x())
+        .index(
+          instance_index
+            + line_param.data_range.x()
+              / val(std::mem::size_of::<WideLineVertexStorage>() as u32 / 4),
+        )
         .load()
         .expand();
 
       builder.register::<WideLineStart>(seg.start);
       builder.register::<WideLineEnd>(seg.end);
-      builder.register::<DefaultDisplay>(seg.color);
+      builder.register::<GeometryColorWithAlpha>(seg.color);
 
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;

@@ -373,7 +373,7 @@ fn use_attribute_vertex_updates(
     .use_dual_query_hash_many_to_one(cx);
 
   let allocation_info = allocation_info
-    .map(move |allocation_info| allocation_info.allocation_changes.clone())
+    .map(|allocation_info| allocation_info.allocation_changes.clone())
     .use_change_to_dual_query_in_spawn_stage(cx);
 
   let change = allocation_info

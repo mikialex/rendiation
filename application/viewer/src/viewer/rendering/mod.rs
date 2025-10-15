@@ -28,7 +28,7 @@ use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
 use rendiation_webgpu_virtual_buffer::*;
-use rendiation_wide_line::use_widen_line_gles_renderer;
+use rendiation_wide_line::*;
 use widget::*;
 
 #[derive(Serialize, Deserialize)]
@@ -287,7 +287,16 @@ impl Viewer3dRenderingCtx {
         });
 
         let std_model = use_std_model_renderer(cx, materials, mesh);
-        let scene_model = use_indirect_scene_model(cx, std_model.map(|v| Box::new(v) as Box<_>));
+        let wide_line = use_widen_line_indirect_renderer(cx, false);
+
+        let model_support = cx.when_render(|| {
+          Box::new(vec![
+            Box::new(std_model.unwrap()) as Box<dyn IndirectModelRenderImpl>,
+            Box::new(wide_line.unwrap()),
+          ]) as Box<dyn IndirectModelRenderImpl>
+        });
+
+        let scene_model = use_indirect_scene_model(cx, model_support);
 
         let renderer = cx
           .when_render(|| IndirectSceneRenderer {
