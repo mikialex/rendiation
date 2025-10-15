@@ -123,6 +123,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
     let relation = cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>();
     let scene_model_local_bounding = std_mesh_local_bounding.fanout(relation, cx);
 
+    // todo, materialize
     scene_model_world_mat
       .dual_query_intersect(scene_model_local_bounding)
       .dual_query_map(|(mat, local)| {

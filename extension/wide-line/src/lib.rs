@@ -1,3 +1,5 @@
+#![feature(impl_trait_in_assoc_type)]
+
 use database::*;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
@@ -9,6 +11,9 @@ use rendiation_webgpu_hook_utils::*;
 
 mod draw;
 use draw::*;
+
+mod pick;
+pub use pick::*;
 
 mod gles_draw;
 pub use gles_draw::*;

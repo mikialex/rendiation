@@ -8,6 +8,7 @@ use futures::{channel::oneshot::Sender, FutureExt};
 use rendiation_gui_3d::*;
 use rendiation_mesh_core::MeshBufferIntersectConfig;
 use rendiation_scene_geometry_query::*;
+use rendiation_wide_line::*;
 
 use crate::*;
 
@@ -17,7 +18,7 @@ pub struct ViewerPicker {
   normalized_position_ndc: Vec2<f32>,
   conf: MeshBufferIntersectConfig,
   camera_view_size: Size,
-  scene_model_picker: SceneModelPickerImpl,
+  scene_model_picker: Box<dyn SceneModelPicker>,
 }
 
 pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
@@ -36,6 +37,10 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
     .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.rendering.ndc))
     .use_assure_result(cx);
 
+  let wide_line_sm_bounding = cx
+    .use_shared_dual_query_view(WideLineWorldBounding)
+    .use_assure_result(cx);
+
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     let camera_view_projection_inv = camera_transforms
       .expect_resolve_stage()
@@ -43,12 +48,11 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
       .unwrap()
       .view_projection_inv;
 
-    let scene_model_picker = SceneModelPickerImpl {
+    let att_mesh_picker = AttributeMeshPicker {
       sm_bounding: sm_bounding
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
-      scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
         .read_foreign_key(),
       std_model_access_mesh: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
@@ -63,6 +67,23 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
       vertex_buffer_ref: global_entity_component_of::<SceneBufferViewBufferId<AttributeVertexRef>>(
       )
       .read_foreign_key(),
+    };
+
+    let wide_line_picker = WideLinePicker {
+      lines: global_entity_component_of::<WideLineMeshBuffer>().read(),
+      relation: global_entity_component_of::<SceneModelWideLineRenderPayload>().read_foreign_key(),
+      sm_bounding: wide_line_sm_bounding
+        .expect_resolve_stage()
+        .mark_entity_type()
+        .into_boxed(),
+    };
+
+    let local_model_pickers: Vec<Box<dyn LocalModelPicker>> =
+      vec![Box::new(att_mesh_picker), Box::new(wide_line_picker)];
+
+    let scene_model_picker = SceneModelPickerBaseImpl {
+      internal: local_model_pickers,
+      scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       node_world: node_world
         .expect_resolve_stage()
         .mark_entity_type()
@@ -73,7 +94,12 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
         .into_boxed(),
     };
 
-    ViewerPicker::new(scene_model_picker, cx.input, camera_view_projection_inv).into()
+    ViewerPicker::new(
+      Box::new(scene_model_picker),
+      cx.input,
+      camera_view_projection_inv,
+    )
+    .into()
   } else {
     None
   }
@@ -81,7 +107,7 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
 
 impl ViewerPicker {
   pub fn new(
-    scene_model_picker: SceneModelPickerImpl,
+    scene_model_picker: Box<dyn SceneModelPicker>,
     input: &PlatformEventInput,
     camera_view_projection_inv: Mat4<f64>,
   ) -> Self {

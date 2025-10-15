@@ -35,24 +35,14 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
   }
 }
 
-pub struct SceneModelPickerImpl {
-  // we could use and cache sm bounding
-  pub sm_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
-  pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
-  pub model_access_std_model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
-  pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
-  pub mesh_vertex_refs: BoxedDynMultiQuery<RawEntityHandle, RawEntityHandle>,
-  pub vertex_buffer_ref: ForeignKeyReadView<SceneBufferViewBufferId<AttributeVertexRef>>,
-  pub semantic: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
-  pub mesh_index_attribute: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
-  pub mesh_topology: ComponentReadView<AttributesMeshEntityTopology>,
-  pub buffer: ComponentReadView<BufferEntityData>,
-
+pub struct SceneModelPickerBaseImpl<T> {
   pub node_world: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
+  pub internal: T,
 }
 
-impl SceneModelPicker for SceneModelPickerImpl {
+impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
   fn query(
     &self,
     idx: EntityHandle<SceneModelEntity>,
@@ -63,6 +53,105 @@ impl SceneModelPicker for SceneModelPickerImpl {
       return None;
     }
 
+    if !self.internal.bounding_pre_test(idx, ctx)? {
+      return None;
+    }
+
+    let mat = self.node_world.access(&node)?;
+    let local_ray = ctx
+      .world_ray
+      .apply_matrix_into(mat.inverse_or_identity())
+      .into_f32();
+
+    let hit = self.internal.query_local(idx, ctx, local_ray)?;
+
+    let position = hit.hit.position.into_f64();
+    let world_hit_position = position.apply_matrix_into(mat);
+
+    MeshBufferHitPoint {
+      hit: HitPoint {
+        position: world_hit_position,
+        distance: ctx.world_ray.origin.distance_to(world_hit_position),
+      },
+      primitive_index: hit.primitive_index,
+    }
+    .into()
+  }
+}
+
+pub trait LocalModelPicker {
+  /// return if intersect with bounding
+  fn bounding_pre_test(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    ctx: &SceneRayQuery,
+  ) -> Option<bool>;
+
+  fn query_local(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    ctx: &SceneRayQuery,
+    local_ray: Ray3<f32>,
+  ) -> Option<MeshBufferHitPoint>;
+}
+
+impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
+  fn bounding_pre_test(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    ctx: &SceneRayQuery,
+  ) -> Option<bool> {
+    for provider in self {
+      if let Some(hit) = provider.bounding_pre_test(idx, ctx) {
+        return Some(hit);
+      }
+    }
+    None
+  }
+
+  fn query_local(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    ctx: &SceneRayQuery,
+    local_ray: Ray3<f32>,
+  ) -> Option<MeshBufferHitPoint> {
+    for provider in self {
+      if let Some(hit) = provider.query_local(idx, ctx, local_ray) {
+        return Some(hit);
+      }
+    }
+    None
+  }
+}
+
+pub struct AttributeMeshPicker {
+  pub sm_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  pub model_access_std_model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
+  pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
+  pub mesh_vertex_refs: BoxedDynMultiQuery<RawEntityHandle, RawEntityHandle>,
+  pub vertex_buffer_ref: ForeignKeyReadView<SceneBufferViewBufferId<AttributeVertexRef>>,
+  pub semantic: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
+  pub mesh_index_attribute: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
+  pub mesh_topology: ComponentReadView<AttributesMeshEntityTopology>,
+  pub buffer: ComponentReadView<BufferEntityData>,
+}
+
+impl LocalModelPicker for AttributeMeshPicker {
+  fn bounding_pre_test(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    ctx: &SceneRayQuery,
+  ) -> Option<bool> {
+    let mesh_world_bounding = self.sm_bounding.access(&idx)?;
+    IntersectAble::<_, bool, _>::intersect(&ctx.world_ray, &mesh_world_bounding, &()).into()
+  }
+
+  fn query_local(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    ctx: &SceneRayQuery,
+    local_ray: Ray3<f32>,
+  ) -> Option<MeshBufferHitPoint> {
     struct PositionBuffer<'a> {
       buffer: &'a [Vec3<f32>],
     }
@@ -77,18 +166,6 @@ impl SceneModelPicker for SceneModelPickerImpl {
 
     let model = self.model_access_std_model.get(idx)?;
     let mesh = self.std_model_access_mesh.get(model)?;
-    let mesh_world_bounding = self.sm_bounding.access(&idx)?;
-
-    let mat = self.node_world.access(&node)?;
-
-    if !IntersectAble::<_, bool, _>::intersect(&ctx.world_ray, &mesh_world_bounding, &()) {
-      return None;
-    }
-
-    let local_ray = ctx
-      .world_ray
-      .apply_matrix_into(mat.inverse_or_identity())
-      .into_f32();
 
     let mode = self.mesh_topology.get_value(mesh)?;
 
@@ -121,25 +198,12 @@ impl SceneModelPicker for SceneModelPickerImpl {
       .into()
     });
 
-    AttributesMeshEntityAbstractMeshReadView {
+    *AttributesMeshEntityAbstractMeshReadView {
       mode,
       vertices: position,
       indices: index,
       count: count / mode.stride(),
     }
     .intersect_nearest(local_ray, &ctx.conf)
-    .0
-    .map(|hit| {
-      let position = hit.hit.position.into_f64();
-      let world_hit_position = position.apply_matrix_into(mat);
-
-      MeshBufferHitPoint {
-        hit: HitPoint {
-          position: world_hit_position,
-          distance: ctx.world_ray.origin.distance_to(world_hit_position),
-        },
-        primitive_index: hit.primitive_index,
-      }
-    })
   }
 }

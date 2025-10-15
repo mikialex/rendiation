@@ -53,7 +53,7 @@ pub trait AbstractMesh {
   where
     Self: Sized,
   {
-    self.primitive_iter().count == self.primitive_count()
+    self.primitive_iter().count() == self.primitive_count()
   }
 
   /// ## Safety

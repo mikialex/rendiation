@@ -57,7 +57,8 @@ pub fn use_widen_line_indirect_renderer(
       for (k, buffer) in change.iter_update_or_insert() {
         let buffer = buffer.ptr.clone();
 
-        let buffer: &[WideLineVertex] = cast_slice(&buffer); // todo, this cast may fail due to alignment
+        // here we assume the buffer is correctly aligned
+        let buffer: &[WideLineVertex] = cast_slice(&buffer);
         let buffer: Vec<_> = buffer
           .iter()
           .map(|v| WideLineVertexStorage {

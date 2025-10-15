@@ -3990,6 +3990,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
+ "log",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
@@ -4433,6 +4434,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-mesh-core",
  "rendiation-scene-core",
+ "rendiation-scene-geometry-query",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-scene-rendering-gpu-indirect",

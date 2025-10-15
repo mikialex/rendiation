@@ -76,6 +76,7 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   register_area_lighting_data_model();
   register_sky_env_data_model();
   register_scene_mesh_lod_graph_data_model();
+  register_clipping_data_model();
 
   let init_config = ViewerInitConfig::from_default_json_or_default();
 

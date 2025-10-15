@@ -17,6 +17,7 @@ rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" 
 rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
 rendiation-scene-rendering-gpu-indirect = { path = "../../scene/rendering/gpu-indirect" }
 rendiation-scene-core = { path = "../../scene/core" }
+rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
 rendiation-device-parallel-compute = { path = "../../shader/parallel-compute" }
 rendiation-webgpu-midc-downgrade = { path = "../../platform/graphics/webgpu-midc-downgrade" }
 parking_lot = { workspace = true }

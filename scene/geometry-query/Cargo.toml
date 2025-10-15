@@ -12,6 +12,7 @@ rendiation-texture-core = { path = "../../content/texture/core" }
 rendiation-scene-core = { path = "../core" }
 database = { path = "../../utility/database" }
 bytemuck = { workspace = true }
+log = { workspace = true }
 
 [lints]
 workspace = true
