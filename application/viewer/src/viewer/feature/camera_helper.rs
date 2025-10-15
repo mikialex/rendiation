@@ -64,7 +64,6 @@ pub fn use_immediate_helper_model(cx: &mut ViewerCx, line: UseResult<Option<Line
             attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
             indices: None,
             mode: rendiation_mesh_core::PrimitiveTopology::LineList,
-            groups: Default::default(),
           };
 
           if let Some(model) = &mut helper_mesh.internal {

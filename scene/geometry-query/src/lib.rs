@@ -126,9 +126,8 @@ impl SceneModelPicker for SceneModelPickerImpl {
       vertices: position,
       indices: index,
       count: count / mode.stride(),
-      draw_count: count,
     }
-    .intersect_nearest(local_ray, &ctx.conf, MeshGroup { start: 0, count })
+    .intersect_nearest(local_ray, &ctx.conf)
     .0
     .map(|hit| {
       let position = hit.hit.position.into_f64();

@@ -49,10 +49,3 @@ where
     T::Primitive::from_data_unchecked(&self.data, index)
   }
 }
-
-impl<T, U: CollectionSize> GPUConsumableMeshBuffer for NoneIndexedMesh<T, U> {
-  #[inline(always)]
-  fn draw_count(&self) -> usize {
-    self.data.len()
-  }
-}

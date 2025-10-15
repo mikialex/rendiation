@@ -190,25 +190,10 @@ fn merge_assume_all_suitable_and_fit(
     })
     .transpose()?;
 
-  let new_groups = vertex_prefix_offset
-    .iter()
-    .zip(inputs.iter().map(|g| &g.groups))
-    .flat_map(|(&previous_summed, group)| {
-      group.groups.iter().map(move |g| MeshGroup {
-        start: g.start + previous_summed,
-        count: g.count,
-      })
-    });
-
-  let merged_groups = MeshGroupsInfo {
-    groups: new_groups.collect(),
-  };
-
   Ok(AttributesMeshData {
     attributes: merged_attributes,
     indices: merged_indices,
     mode: first.mode,
-    groups: merged_groups,
   })
 }
 

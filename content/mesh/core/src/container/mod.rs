@@ -69,60 +69,6 @@ pub trait AbstractMesh {
       count: self.primitive_count(),
     }
   }
-
-  /// if the group outside the bound, will be clamped
-  fn primitive_iter_group(&self, group: MeshGroup) -> AbstractMeshIter<'_, Self>
-  where
-    Self: Sized + GPUConsumableMeshBuffer,
-  {
-    let draw_count = self.draw_count();
-    let step = draw_count / self.primitive_count();
-
-    let clamped_start = group.start.min(draw_count);
-
-    AbstractMeshIter {
-      mesh: self,
-      current: clamped_start,
-      count: group.count.min(draw_count - clamped_start) / step,
-    }
-  }
-
-  /// ## Safety
-  ///
-  /// bound checking is skipped
-  ///
-  /// if the group outside the bound, will be clamped
-  unsafe fn primitive_iter_group_unchecked(
-    &self,
-    group: MeshGroup,
-  ) -> AbstractMeshUncheckIter<'_, Self>
-  where
-    Self: Sized + GPUConsumableMeshBuffer,
-  {
-    let draw_count = self.draw_count();
-    let step = draw_count / self.primitive_count();
-
-    let clamped_start = group.start.min(draw_count);
-
-    AbstractMeshUncheckIter {
-      mesh: self,
-      current: clamped_start,
-      count: group.count.min(draw_count - clamped_start) / step,
-    }
-  }
-}
-
-/// Provide basic count and grouping info in gpu rendering ctx.
-/// Indicate this type could be used in gpu rendering (contains well specified vertex/index buffer)
-pub trait GPUConsumableMeshBuffer {
-  fn draw_count(&self) -> usize;
-
-  fn get_full_group(&self) -> MeshGroup {
-    MeshGroup {
-      start: 0,
-      count: self.draw_count(),
-    }
-  }
 }
 
 pub struct AbstractMeshIter<'a, G> {

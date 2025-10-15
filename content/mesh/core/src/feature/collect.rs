@@ -108,7 +108,6 @@ where
       attributes,
       indices: Some((AttributeIndexFormat::Uint32, indices)),
       mode: P::TOPOLOGY,
-      groups: Default::default(),
     }
   }
 }

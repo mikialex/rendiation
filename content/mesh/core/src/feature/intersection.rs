@@ -3,19 +3,8 @@ use std::cell::Cell;
 use crate::*;
 
 pub trait IntersectAbleAbstractMesh {
-  fn intersect_list(
-    &self,
-    ray: Ray3,
-    conf: &Config,
-    group: MeshGroup,
-    result: &mut MeshBufferHitList,
-  );
-  fn intersect_nearest(
-    &self,
-    ray: Ray3,
-    conf: &Config,
-    group: MeshGroup,
-  ) -> OptionalNearest<MeshBufferHitPoint>;
+  fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut MeshBufferHitList);
+  fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> OptionalNearest<MeshBufferHitPoint>;
 }
 
 #[derive(Copy, Clone)]
@@ -44,18 +33,12 @@ impl Default for MeshBufferHitList {
 
 impl<G> IntersectAbleAbstractMesh for G
 where
-  G: AbstractMesh + GPUConsumableMeshBuffer,
+  G: AbstractMesh,
   G::Primitive: IntersectAble<Ray3, OptionalNearest<HitPoint3D>, Config>,
 {
-  fn intersect_list(
-    &self,
-    ray: Ray3,
-    conf: &Config,
-    group: MeshGroup,
-    result: &mut MeshBufferHitList,
-  ) {
+  fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut MeshBufferHitList) {
     self
-      .primitive_iter_group(group)
+      .primitive_iter()
       .enumerate()
       .filter_map(|(primitive_index, p)| {
         p.intersect(&ray, conf)
@@ -67,15 +50,10 @@ where
       })
       .for_each(|h| result.0.push(h))
   }
-  fn intersect_nearest(
-    &self,
-    ray: Ray3,
-    conf: &Config,
-    group: MeshGroup,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
+  fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> OptionalNearest<MeshBufferHitPoint> {
     let mut nearest = OptionalNearest::none();
     self
-      .primitive_iter_group(group)
+      .primitive_iter()
       .enumerate()
       .for_each(|(primitive_index, p)| {
         nearest.refresh_nearest(p.intersect(&ray, conf).map(|hit| MeshBufferHitPoint {
@@ -84,48 +62,6 @@ where
         }));
       });
     nearest
-  }
-}
-
-pub trait IntersectAbleGroupedMesh {
-  fn intersect_list_by_group(
-    &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    result: &mut MeshBufferHitList,
-    group: MeshDrawGroup,
-  );
-  fn intersect_nearest_by_group(
-    &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    group: MeshDrawGroup,
-  ) -> OptionalNearest<MeshBufferHitPoint>;
-}
-
-impl<T> IntersectAbleGroupedMesh for GroupedMesh<T>
-where
-  T: IntersectAbleAbstractMesh + AbstractMesh + GPUConsumableMeshBuffer,
-{
-  fn intersect_list_by_group(
-    &self,
-    ray: Ray3,
-    conf: &Config,
-    result: &mut MeshBufferHitList,
-    group: MeshDrawGroup,
-  ) {
-    let group = self.get_group(group);
-    self.mesh.intersect_list(ray, conf, group, result)
-  }
-
-  fn intersect_nearest_by_group(
-    &self,
-    ray: Ray3,
-    conf: &Config,
-    group: MeshDrawGroup,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    let group = self.get_group(group);
-    self.mesh.intersect_nearest(ray, conf, group)
   }
 }
 

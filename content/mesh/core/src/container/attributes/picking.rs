@@ -51,23 +51,6 @@ impl SpaceBounding<f32, Box3, 3> for AttributeDynPrimitive {
   }
 }
 
-impl GPUConsumableMeshBuffer for AttributesMeshEntityReadView<'_> {
-  fn draw_count(&self) -> usize {
-    self.mesh.draw_count()
-  }
-}
-
-impl GPUConsumableMeshBuffer for AttributesMesh {
-  fn draw_count(&self) -> usize {
-    if let Some((_, index)) = &self.indices {
-      index.count
-    } else {
-      let position = self.get_position();
-      position.count
-    }
-  }
-}
-
 pub struct AttributesMeshEntityCustomReadView<'a, F> {
   pub inner: AttributesMeshEntityReadView<'a>,
   pub reader: F,
@@ -102,7 +85,6 @@ impl<'a, F: Clone> AttributesMeshEntityCustomReadView<'a, F> {
         buffer: index.1,
       }),
       count: self.inner.primitive_count(),
-      draw_count: self.inner.draw_count(),
     }
   }
 }
@@ -114,24 +96,11 @@ impl<'a, F> Deref for AttributesMeshEntityCustomReadView<'a, F> {
   }
 }
 
-impl<F> GPUConsumableMeshBuffer for AttributesMeshEntityCustomReadView<'_, F> {
-  fn draw_count(&self) -> usize {
-    self.mesh.draw_count()
-  }
-}
-
 pub struct AttributesMeshEntityAbstractMeshReadView<T, I> {
   pub mode: PrimitiveTopology,
   pub vertices: T,
   pub indices: Option<I>,
   pub count: usize,
-  pub draw_count: usize,
-}
-
-impl<T, I> GPUConsumableMeshBuffer for AttributesMeshEntityAbstractMeshReadView<T, I> {
-  fn draw_count(&self) -> usize {
-    self.draw_count
-  }
 }
 
 /// we can not impl AbstractMesh for AttributesMeshEntity because it contains interior mutability.
@@ -170,32 +139,5 @@ where
         PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&self.vertices, read_index)?),
       }.into()
     }
-  }
-}
-
-impl IntersectAbleGroupedMesh for AttributesMeshEntityShapeReadView<'_> {
-  fn intersect_list_by_group(
-    &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    result: &mut MeshBufferHitList,
-    group: MeshDrawGroup,
-  ) {
-    let group = self.groups.get_group(group, self);
-    self
-      .as_abstract_mesh_read_view()
-      .intersect_list(ray, conf, group, result);
-  }
-
-  fn intersect_nearest_by_group(
-    &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    group: MeshDrawGroup,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    let group = self.groups.get_group(group, self);
-    self
-      .as_abstract_mesh_read_view()
-      .intersect_nearest(ray, conf, group)
   }
 }

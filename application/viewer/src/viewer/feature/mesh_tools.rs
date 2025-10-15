@@ -291,7 +291,6 @@ fn create_mesh(
         .collect(),
     )),
     mode: rendiation_mesh_core::PrimitiveTopology::TriangleList,
-    groups: Default::default(),
   }
   .build();
 

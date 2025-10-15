@@ -3,6 +3,8 @@ use rendiation_mesh_core::CommonVertex;
 use crate::*;
 
 mod container;
+mod group;
+pub use group::*;
 
 /// We don't not provide none indexed version because the parametric mesh
 /// will mostly share the vertex, and the index builder will reduce the compute vertex
@@ -125,9 +127,7 @@ impl<T> IndexedMeshBuilder<T> {
 
 #[test]
 fn triangulate() {
-  use rendiation_mesh_core::{
-    CollectionSize, DynIndexContainer, GroupedMesh, IndexedMesh, TriangleList,
-  };
+  use rendiation_mesh_core::{CollectionSize, DynIndexContainer, IndexedMesh, TriangleList};
   let mut builder = IndexedMeshBuilder::<
     GroupedMesh<IndexedMesh<TriangleList, Vec<CommonVertex>, DynIndexContainer>>,
   >::default();

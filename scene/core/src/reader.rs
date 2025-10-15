@@ -299,7 +299,6 @@ impl AttributesMeshReader {
       attributes,
       indices,
       mode,
-      groups: MeshGroupsInfo::default(),
     }
     .into()
   }

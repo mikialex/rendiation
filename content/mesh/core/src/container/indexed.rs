@@ -292,10 +292,3 @@ where
     T::Primitive::<IU::Output>::from_data_unchecked(&self.index, index)
   }
 }
-
-impl<T, U, IU: CollectionSize> GPUConsumableMeshBuffer for IndexedMesh<T, U, IU> {
-  #[inline(always)]
-  fn draw_count(&self) -> usize {
-    self.index.len()
-  }
-}

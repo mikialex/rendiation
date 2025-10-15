@@ -1,6 +1,6 @@
-use rendiation_mesh_core::{DynIndexContainer, GroupedMesh, IndexedMesh};
+use rendiation_mesh_core::{DynIndexContainer, IndexedMesh};
 
-use crate::*;
+use crate::{builder::group::GroupedMesh, *};
 
 impl<T> VertexBuildingContainer for Vec<T> {
   type Vertex = T;

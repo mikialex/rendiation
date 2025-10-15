@@ -351,7 +351,6 @@ fn build_model(
     attributes,
     indices,
     mode,
-    groups: Default::default(),
   };
   let mesh = ctx.io.write_attribute_mesh(mesh).mesh;
 

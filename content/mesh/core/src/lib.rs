@@ -5,7 +5,6 @@
 mod common_vertex;
 mod container;
 mod feature;
-mod group;
 mod primitive;
 mod utils;
 
@@ -14,7 +13,7 @@ use std::{
   hash::Hash,
   marker::PhantomData,
   num::NonZeroU64,
-  ops::{Deref, Range},
+  ops::Deref,
   sync::Arc,
 };
 
@@ -23,7 +22,6 @@ pub use container::*;
 use facet::*;
 use fast_hash_collection::*;
 pub use feature::*;
-pub use group::*;
 pub use primitive::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;

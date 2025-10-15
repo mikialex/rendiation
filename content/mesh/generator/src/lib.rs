@@ -26,7 +26,5 @@ pub fn build_attributes_mesh(f: impl FnOnce(&mut AttributesMeshBuilder)) -> Attr
   let mut builder = AttributesMeshBuilder::default();
   f(&mut builder);
   let mesh = builder.finish();
-  let mut attribute: AttributesMeshData = mesh.mesh.primitive_iter().collect();
-  attribute.groups = mesh.groups;
-  attribute
+  mesh.mesh.primitive_iter().collect()
 }
