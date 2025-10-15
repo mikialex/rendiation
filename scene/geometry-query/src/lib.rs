@@ -8,8 +8,34 @@ use rendiation_texture_core::Size;
 
 pub struct SceneRayQuery {
   pub world_ray: Ray3<f64>,
-  pub conf: MeshBufferIntersectConfig,
-  pub camera_view_size: Size,
+  pub camera_view_size_in_logic_pixel: Size,
+  pub camera_proj: Box<dyn Projection<f32>>,
+  pub camera_world: Mat4<f64>,
+}
+
+impl SceneRayQuery {
+  pub fn compute_local_tolerance(
+    &self,
+    tolerance: IntersectTolerance,
+    target_world_mat: Mat4<f64>,
+    target_object_center_in_world: Vec3<f64>,
+  ) -> f32 {
+    let target_scale = target_world_mat.max_scale();
+    // todo, should we considering camera scale??
+    let mut local_tolerance = tolerance.value / target_scale as f32;
+
+    if let ToleranceType::ScreenSpace = tolerance.ty {
+      let camera_to_target = target_object_center_in_world - self.world_ray.origin;
+      let projected_distance = camera_to_target.dot(target_world_mat.forward());
+      let pixel_per_unit = self.camera_proj.pixels_per_unit(
+        projected_distance as f32,
+        self.camera_view_size_in_logic_pixel.height_usize() as f32,
+      );
+      local_tolerance /= pixel_per_unit;
+    }
+
+    local_tolerance
+  }
 }
 
 pub trait SceneModelPicker {
@@ -63,7 +89,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       .apply_matrix_into(mat.inverse_or_identity())
       .into_f32();
 
-    let hit = self.internal.query_local(idx, ctx, local_ray)?;
+    let hit = self.internal.query_local(idx, ctx, local_ray, mat)?;
 
     let position = hit.hit.position.into_f64();
     let world_hit_position = position.apply_matrix_into(mat);
@@ -87,11 +113,13 @@ pub trait LocalModelPicker {
     ctx: &SceneRayQuery,
   ) -> Option<bool>;
 
+  /// should return hit result in local space
   fn query_local(
     &self,
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
     local_ray: Ray3<f32>,
+    target_world: Mat4<f64>,
   ) -> Option<MeshBufferHitPoint>;
 }
 
@@ -114,9 +142,10 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
     local_ray: Ray3<f32>,
+    target_world: Mat4<f64>,
   ) -> Option<MeshBufferHitPoint> {
     for provider in self {
-      if let Some(hit) = provider.query_local(idx, ctx, local_ray) {
+      if let Some(hit) = provider.query_local(idx, ctx, local_ray, target_world) {
         return Some(hit);
       }
     }
@@ -134,6 +163,8 @@ pub struct AttributeMeshPicker {
   pub mesh_index_attribute: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
   pub mesh_topology: ComponentReadView<AttributesMeshEntityTopology>,
   pub buffer: ComponentReadView<BufferEntityData>,
+  pub pick_line_tolerance: IntersectTolerance,
+  pub pick_point_tolerance: IntersectTolerance,
 }
 
 impl LocalModelPicker for AttributeMeshPicker {
@@ -151,6 +182,7 @@ impl LocalModelPicker for AttributeMeshPicker {
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
     local_ray: Ray3<f32>,
+    target_world: Mat4<f64>,
   ) -> Option<MeshBufferHitPoint> {
     struct PositionBuffer<'a> {
       buffer: &'a [Vec3<f32>],
@@ -198,12 +230,28 @@ impl LocalModelPicker for AttributeMeshPicker {
       .into()
     });
 
+    let target_world_center = self.sm_bounding.access(&idx)?.center();
+
+    let config = MeshBufferIntersectConfig {
+      line_tolerance_local: ctx.compute_local_tolerance(
+        self.pick_line_tolerance,
+        target_world,
+        target_world_center,
+      ),
+      point_tolerance_local: ctx.compute_local_tolerance(
+        self.pick_line_tolerance,
+        target_world,
+        target_world_center,
+      ),
+      triangle_face: FaceSide::Double,
+    };
+
     *AttributesMeshEntityAbstractMeshReadView {
       mode,
       vertices: position,
       indices: index,
       count: count / mode.stride(),
     }
-    .intersect_nearest(local_ray, &ctx.conf)
+    .intersect_nearest(local_ray, &config)
   }
 }

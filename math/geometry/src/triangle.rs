@@ -1,7 +1,7 @@
 use crate::*;
 
 #[repr(C)]
-#[derive(Serialize, Deserialize, Facet)]
+#[derive(Serialize, Deserialize, Facet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum FaceSide {
   Front,
   Back,

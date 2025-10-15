@@ -1,5 +1,3 @@
-use std::cell::Cell;
-
 use crate::*;
 
 pub trait IntersectAbleAbstractMesh {
@@ -84,17 +82,17 @@ impl IntersectTolerance {
 
 #[derive(Clone)]
 pub struct MeshBufferIntersectConfig {
-  pub line_tolerance: IntersectTolerance,
-  pub point_tolerance: IntersectTolerance,
-  pub current_item_scale_estimate: Cell<f32>,
+  pub line_tolerance_local: f32,
+  pub point_tolerance_local: f32,
+  pub triangle_face: FaceSide,
 }
 
 impl Default for MeshBufferIntersectConfig {
   fn default() -> Self {
     Self {
-      line_tolerance: IntersectTolerance::new(1.0, ToleranceType::LocalSpace),
-      point_tolerance: IntersectTolerance::new(1.0, ToleranceType::LocalSpace),
-      current_item_scale_estimate: Cell::new(1.0),
+      triangle_face: FaceSide::Double,
+      line_tolerance_local: 0.05,
+      point_tolerance_local: 0.05,
     }
   }
 }
@@ -106,8 +104,8 @@ where
   T: Positioned<Position = Vec3<f32>> + Copy,
 {
   #[inline]
-  fn intersect(&self, ray: &Ray3, _: &Config) -> OptionalNearest<HitPoint3D> {
-    ray.intersect(self, &FaceSide::Double)
+  fn intersect(&self, ray: &Ray3, c: &Config) -> OptionalNearest<HitPoint3D> {
+    ray.intersect(self, &c.triangle_face)
   }
 }
 
@@ -117,9 +115,7 @@ where
 {
   #[inline]
   fn intersect(&self, ray: &Ray3, conf: &Config) -> OptionalNearest<HitPoint3D> {
-    let local_tolerance_adjusted =
-      conf.line_tolerance.value / conf.current_item_scale_estimate.get();
-    ray.intersect(self, &local_tolerance_adjusted)
+    ray.intersect(self, &conf.line_tolerance_local)
   }
 }
 
@@ -129,6 +125,6 @@ where
 {
   #[inline]
   fn intersect(&self, ray: &Ray3, conf: &Config) -> OptionalNearest<HitPoint3D> {
-    ray.intersect(self, &conf.point_tolerance.value)
+    ray.intersect(self, &conf.point_tolerance_local)
   }
 }

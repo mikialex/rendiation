@@ -55,6 +55,7 @@ impl LocalModelPicker for WideLinePicker {
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
     local_ray: Ray3<f32>,
+    target_world: Mat4<f64>,
   ) -> Option<MeshBufferHitPoint> {
     let line = self.relation.get(idx)?;
     let lines = self.lines.get(line)?;
@@ -62,7 +63,20 @@ impl LocalModelPicker for WideLinePicker {
     // here we assume the buffer is correctly aligned
     let lines = cast_slice(lines);
 
-    *WideLinePickView { lines }.intersect_nearest(local_ray, &ctx.conf)
+    let target_world_center = self.sm_bounding.access(&idx)?.center();
+
+    // todo, use line width
+    let pick_line_tolerance = IntersectTolerance::new(5., ToleranceType::ScreenSpace);
+
+    let line_tolerance_local =
+      ctx.compute_local_tolerance(pick_line_tolerance, target_world, target_world_center);
+
+    let config = MeshBufferIntersectConfig {
+      line_tolerance_local,
+      ..Default::default()
+    };
+
+    *WideLinePickView { lines }.intersect_nearest(local_ray, &config)
   }
 }
 

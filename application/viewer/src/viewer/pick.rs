@@ -6,7 +6,6 @@ use std::sync::{
 use database::global_entity_component_of;
 use futures::{channel::oneshot::Sender, FutureExt};
 use rendiation_gui_3d::*;
-use rendiation_mesh_core::MeshBufferIntersectConfig;
 use rendiation_scene_geometry_query::*;
 use rendiation_wide_line::*;
 
@@ -16,8 +15,9 @@ pub struct ViewerPicker {
   current_mouse_ray_in_world: Ray3<f64>,
   normalized_position: Vec2<f32>,
   normalized_position_ndc: Vec2<f32>,
-  conf: MeshBufferIntersectConfig,
   camera_view_size: Size,
+  camera_world: Mat4<f64>,
+  camera_proj: Box<dyn Projection<f32>>,
   scene_model_picker: Box<dyn SceneModelPicker>,
 }
 
@@ -42,11 +42,20 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
     .use_assure_result(cx);
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
-    let camera_view_projection_inv = camera_transforms
+    let camera = cx.viewer.scene.main_camera;
+    let cam_trans = camera_transforms
       .expect_resolve_stage()
-      .access(&cx.viewer.scene.main_camera.into_raw())
+      .access(&camera.into_raw())
+      .unwrap();
+    let camera_view_projection_inv = cam_trans.view_projection_inv;
+    let camera_world = cam_trans.world;
+
+    let camera_proj = global_entity_component_of::<SceneCameraPerspective>()
+      .read()
+      .get_value(camera)
       .unwrap()
-      .view_projection_inv;
+      .unwrap();
+    let camera_proj = Box::new(camera_proj);
 
     let att_mesh_picker = AttributeMeshPicker {
       sm_bounding: sm_bounding
@@ -67,6 +76,8 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
       vertex_buffer_ref: global_entity_component_of::<SceneBufferViewBufferId<AttributeVertexRef>>(
       )
       .read_foreign_key(),
+      pick_line_tolerance: IntersectTolerance::new(1.0, ToleranceType::ScreenSpace),
+      pick_point_tolerance: IntersectTolerance::new(1.0, ToleranceType::ScreenSpace),
     };
 
     let wide_line_picker = WideLinePicker {
@@ -97,7 +108,9 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
     ViewerPicker::new(
       Box::new(scene_model_picker),
       cx.input,
+      camera_world,
       camera_view_projection_inv,
+      camera_proj,
     )
     .into()
   } else {
@@ -109,7 +122,9 @@ impl ViewerPicker {
   pub fn new(
     scene_model_picker: Box<dyn SceneModelPicker>,
     input: &PlatformEventInput,
+    camera_world: Mat4<f64>,
     camera_view_projection_inv: Mat4<f64>,
+    camera_proj: Box<dyn Projection<f32>>,
   ) -> Self {
     let mouse_position = &input.window_state.mouse_position;
     let window_size = &input.window_state.physical_size;
@@ -125,13 +140,14 @@ impl ViewerPicker {
     ViewerPicker {
       scene_model_picker,
       current_mouse_ray_in_world,
-      conf: Default::default(),
       normalized_position: Vec2::from((
         mouse_position.0 / window_size.0,
         mouse_position.1 / window_size.1,
       )),
       normalized_position_ndc,
+      camera_world,
       camera_view_size: Size::from_f32_pair_min_one(input.window_state.physical_size),
+      camera_proj,
     }
   }
 
@@ -160,8 +176,9 @@ impl Picker3d for ViewerPicker {
         model,
         &SceneRayQuery {
           world_ray,
-          conf: self.conf.clone(),
-          camera_view_size: self.camera_view_size,
+          camera_view_size_in_logic_pixel: self.camera_view_size, // todo, use logic size
+          camera_proj: self.camera_proj.clone(),
+          camera_world: self.camera_world,
         },
       )
       .map(|v| v.hit)

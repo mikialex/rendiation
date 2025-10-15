@@ -1,11 +1,12 @@
 use crate::*;
 
 mod perspective;
+use dyn_clone::DynClone;
 pub use perspective::*;
 mod orth;
 pub use orth::*;
 
-pub trait Projection<T: Scalar>: Send + Sync {
+pub trait Projection<T: Scalar>: Send + Sync + DynClone {
   fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T>;
 
   /// Calculate how many screen pixel match one world unit at given distance.
@@ -16,6 +17,11 @@ pub trait Projection<T: Scalar>: Send + Sync {
   }
   fn un_project(&self, point: Vec3<T>, mapper: &dyn NDCSpaceMapper<T>) -> Vec3<T> {
     (self.compute_projection_mat(mapper).inverse_or_identity() * point.expand_with_one()).xyz()
+  }
+}
+impl<T: Scalar> Clone for Box<dyn Projection<T>> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
   }
 }
 
