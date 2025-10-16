@@ -7,7 +7,6 @@ use database::global_entity_component_of;
 use futures::{channel::oneshot::Sender, FutureExt};
 use rendiation_gui_3d::*;
 use rendiation_scene_geometry_query::*;
-use rendiation_wide_line::*;
 
 use crate::*;
 
@@ -38,7 +37,7 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
     .use_assure_result(cx);
 
   let wide_line_sm_bounding = cx
-    .use_shared_dual_query_view(WideLineWorldBounding)
+    .use_shared_dual_query_view(WideLineSceneModelWorldBounding)
     .use_assure_result(cx);
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {

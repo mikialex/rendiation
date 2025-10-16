@@ -23,10 +23,11 @@ pub struct TargetWorldBounding {
 
 pub fn use_scene_model_device_world_bounding(
   cx: &mut QueryGPUHookCx,
+  world_bounding: UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f64>>>,
 ) -> Option<DrawUnitWorldBoundingProviderDefaultImpl> {
   let (cx, storage) = cx.use_storage_buffer("scene model world bounding", 128, u32::MAX);
 
-  cx.use_shared_dual_query(SceneModelWorldBounding)
+  world_bounding
     .into_delta_change()
     .map_changes(|b| {
       let min = into_hpt(b.min);

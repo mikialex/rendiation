@@ -3,9 +3,9 @@ use rendiation_scene_geometry_query::*;
 
 use crate::*;
 
-pub struct WideLineWorldBounding;
+pub struct WideLineSceneModelWorldBounding;
 
-impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideLineWorldBounding {
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideLineSceneModelWorldBounding {
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f64>>;
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {

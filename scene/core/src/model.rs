@@ -107,9 +107,11 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSceneModelWorldMatrix 
   }
 }
 
-pub struct SceneModelWorldBounding;
+pub struct SceneModelByAttributesMeshStdModelWorldBounding;
 
-impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx>
+  for SceneModelByAttributesMeshStdModelWorldBounding
+{
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f64>>;
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {

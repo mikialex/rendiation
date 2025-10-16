@@ -1,5 +1,4 @@
 use rendiation_mesh_generator::*;
-use rendiation_wide_line::*;
 
 use crate::*;
 

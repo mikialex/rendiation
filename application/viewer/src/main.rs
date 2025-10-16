@@ -31,6 +31,7 @@ use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_shader_api::*;
 use rendiation_texture_gpu_base::SamplerConvertExt;
 use rendiation_webgpu_hook_utils::*;
+use rendiation_wide_line::*;
 use serde::{Deserialize, Serialize};
 use tracing::*;
 #[cfg(target_arch = "wasm32")]

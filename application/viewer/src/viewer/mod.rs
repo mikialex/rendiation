@@ -9,6 +9,9 @@ pub use default_scene::*;
 mod pick;
 pub use pick::*;
 
+mod bounding;
+pub use bounding::*;
+
 mod terminal;
 pub use terminal::*;
 
