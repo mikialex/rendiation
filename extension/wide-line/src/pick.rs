@@ -58,21 +58,39 @@ pub struct WideLinePicker {
 }
 
 impl LocalModelPicker for WideLinePicker {
+  /// the local tolerance is totally optional(return 0)
+  fn compute_local_tolerance(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    ctx: &SceneRayQuery,
+    target_world: Mat4<f64>,
+  ) -> Option<f32> {
+    let line = self.relation.get(idx)?;
+    let target_world_center = self.sm_bounding.access(&idx)?.center();
+    let line_width = self.line_width.get_value(line)?;
+    let pick_line_tolerance = IntersectTolerance::new(line_width / 2., ToleranceType::ScreenSpace);
+
+    ctx
+      .compute_local_tolerance(pick_line_tolerance, target_world, target_world_center)
+      .into()
+  }
+
   fn bounding_pre_test(
     &self,
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
+    local_tolerance: f32,
   ) -> Option<bool> {
     let mesh_world_bounding = self.sm_bounding.access(&idx)?;
+    let mesh_world_bounding = mesh_world_bounding.enlarge(local_tolerance as f64);
     IntersectAble::<_, bool, _>::intersect(&ctx.world_ray, &mesh_world_bounding, &()).into()
   }
 
   fn ray_query_local_nearest(
     &self,
     idx: EntityHandle<SceneModelEntity>,
-    ctx: &SceneRayQuery,
     local_ray: Ray3<f32>,
-    target_world: Mat4<f64>,
+    local_tolerance: f32,
   ) -> Option<MeshBufferHitPoint> {
     let line = self.relation.get(idx)?;
     let lines = self.lines.get(line)?;
@@ -80,15 +98,7 @@ impl LocalModelPicker for WideLinePicker {
     // here we assume the buffer is correctly aligned
     let lines = cast_slice(lines);
 
-    let target_world_center = self.sm_bounding.access(&idx)?.center();
-
-    let line_width = self.line_width.get_value(line)?;
-    let pick_line_tolerance = IntersectTolerance::new(line_width / 2., ToleranceType::ScreenSpace);
-
-    let line_tolerance_local =
-      ctx.compute_local_tolerance(pick_line_tolerance, target_world, target_world_center);
-
-    *WideLinePickView { lines }.ray_intersect_nearest(local_ray, &line_tolerance_local)
+    *WideLinePickView { lines }.ray_intersect_nearest(local_ray, &local_tolerance)
   }
 }
 

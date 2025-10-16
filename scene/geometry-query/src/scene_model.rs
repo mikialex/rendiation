@@ -41,11 +41,13 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       return None;
     }
 
-    if !self.internal.bounding_pre_test(idx, ctx)? {
+    let mat = self.node_world.access(&node)?;
+    let local_tolerance = self.internal.compute_local_tolerance(idx, ctx, mat)?;
+
+    if !self.internal.bounding_pre_test(idx, ctx, local_tolerance)? {
       return None;
     }
 
-    let mat = self.node_world.access(&node)?;
     let local_ray = ctx
       .world_ray
       .apply_matrix_into(mat.inverse_or_identity())
@@ -53,7 +55,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
 
     let hit = self
       .internal
-      .ray_query_local_nearest(idx, ctx, local_ray, mat)?;
+      .ray_query_local_nearest(idx, local_ray, local_tolerance)?;
 
     let position = hit.hit.position.into_f64();
     let world_hit_position = position.apply_matrix_into(mat);

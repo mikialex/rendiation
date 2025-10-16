@@ -1,3 +1,5 @@
+use std::ops::{Add, Sub};
+
 use crate::*;
 
 #[derive(Serialize, Deserialize)]
@@ -63,6 +65,19 @@ impl<V> HyperAABB<V> {
   {
     self.expand_by_other(other);
     self
+  }
+
+  #[inline(always)]
+  pub fn enlarge<T>(self, size: T) -> Self
+  where
+    T: Scalar,
+    V: RealVector<T>,
+    V: Sub<Output = V> + Add<Output = V>,
+  {
+    Self {
+      min: self.min - V::splat(size),
+      max: self.max + V::splat(size),
+    }
   }
 }
 
