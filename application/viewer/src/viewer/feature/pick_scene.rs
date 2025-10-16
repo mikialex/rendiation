@@ -1,21 +1,8 @@
 use crate::*;
 
-pub struct PickSceneBlocked;
-
 pub fn use_pick_scene(cx: &mut ViewerCx) {
-  let (cx, enable_hit_debug_log) = cx.use_plain_state_init(|_| false);
-  #[allow(unused_variables)]
-  let is_gl = cx.viewer.rendering.gpu().info().adaptor_info.backend == Backend::Gl;
-  let (cx, prefer_gpu_pick) = cx.use_plain_state_init(|_| {
-    #[cfg(target_family = "wasm")]
-    {
-      !is_gl
-    }
-    #[cfg(not(target_family = "wasm"))]
-    {
-      true
-    }
-  });
+  let is_webgl = cx.viewer.rendering.gpu().info().is_webgl();
+  let use_gpu_pick = !is_webgl && cx.viewer.features_config.pick_scene.prefer_gpu_picking;
 
   let (cx, gpu_pick_future) =
     cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
@@ -33,16 +20,24 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       .default_size((100., 100.))
       .vscroll(true)
       .show(egui_ctx, |ui| {
-        ui.checkbox(prefer_gpu_pick, "prefer gpu pick");
-        ui.checkbox(enable_hit_debug_log, "enable pick log");
+        ui.checkbox(
+          &mut cx.viewer.features_config.pick_scene.prefer_gpu_picking,
+          "prefer gpu pick",
+        );
+        ui.checkbox(
+          &mut cx.viewer.features_config.pick_scene.enable_hit_debug_log,
+          "enable pick log",
+        );
       });
   }
+
+  let enable_hit_debug_log = cx.viewer.features_config.pick_scene.enable_hit_debug_log;
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     if let Some(f) = gpu_pick_future {
       noop_ctx!(ctx);
       if let Poll::Ready(r) = f.poll_unpin(ctx) {
-        if *enable_hit_debug_log {
+        if enable_hit_debug_log {
           log::info!("gpu pick resolved {:?}", r);
         }
 
@@ -74,7 +69,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     let picker = picker.unwrap();
     let mut hit = None;
     let mut fallback_to_cpu = false;
-    if *prefer_gpu_pick && gpu_pick_future.is_none() {
+    if use_gpu_pick && gpu_pick_future.is_none() {
       if let Some(render_size) = cx.viewer.rendering.picker.last_id_buffer_size() {
         let point = picker.normalized_position() * Vec2::from(render_size.into_f32());
         let point = point.map(|v| v.floor() as usize);
@@ -98,7 +93,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       drop(main_scene_models);
 
       hit = if let Some(hit) = _hit {
-        if *enable_hit_debug_log {
+        if enable_hit_debug_log {
           log::info!("cpu picked{:?}", hit);
         }
         hit.1.into()
@@ -108,5 +103,23 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     }
 
     cx.viewer.scene.selected_target = hit;
+  }
+}
+
+pub struct PickSceneBlocked;
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PickScenePersistConfig {
+  /// prefer gpu picking for nearest hit query if target platform has correct support
+  pub prefer_gpu_picking: bool,
+  pub enable_hit_debug_log: bool,
+}
+
+impl Default for PickScenePersistConfig {
+  fn default() -> Self {
+    Self {
+      prefer_gpu_picking: true,
+      enable_hit_debug_log: false,
+    }
   }
 }

@@ -44,6 +44,19 @@ pub struct GPUInfo {
   pub downgrade_info: wgpu_types::DownlevelCapabilities,
 }
 
+impl GPUInfo {
+  pub fn is_webgl(&self) -> bool {
+    #[cfg(target_family = "wasm")]
+    {
+      self.adaptor_info.backend == wgpu_types::Backend::Gl
+    }
+    #[cfg(not(target_family = "wasm"))]
+    {
+      false
+    }
+  }
+}
+
 impl ShaderRenderPipelineBuilder {
   fn new(api: &dyn Fn(ShaderStage) -> DynamicShaderAPI, info: GPUInfo) -> Self {
     set_build_api_by(api);

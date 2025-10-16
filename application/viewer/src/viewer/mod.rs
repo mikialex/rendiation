@@ -367,6 +367,7 @@ pub struct Viewer {
   memory: FunctionMemory,
   render_memory: FunctionMemory,
   shared_ctx: SharedHooksCtx,
+  features_config: ViewerFeaturesInitConfig,
 }
 
 impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
@@ -456,12 +457,14 @@ impl Viewer {
       memory: Default::default(),
       render_memory: Default::default(),
       shared_ctx: Default::default(),
+      features_config: init_config.features.clone(),
     }
   }
 
   pub fn export_init_config(&self) -> ViewerInitConfig {
     let mut config = ViewerInitConfig::default();
     self.rendering.setup_init_config(&mut config);
+    config.features = self.features_config.clone();
     config
   }
 

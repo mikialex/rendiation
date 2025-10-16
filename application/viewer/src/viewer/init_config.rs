@@ -16,6 +16,12 @@ pub struct ViewerInitConfig {
   pub transparent_config: ViewerTransparentContentRenderStyle,
   pub present_mode: PresentMode,
   pub init_only: ViewerStaticInitConfig,
+  pub features: ViewerFeaturesInitConfig,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone)]
+pub struct ViewerFeaturesInitConfig {
+  pub pick_scene: PickScenePersistConfig,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -106,6 +112,7 @@ impl Default for ViewerInitConfig {
       using_host_driven_indirect_draw: false,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       init_only: ViewerStaticInitConfig::default(),
+      features: Default::default(),
     }
   }
 }
