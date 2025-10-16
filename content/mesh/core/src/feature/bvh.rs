@@ -68,7 +68,7 @@ where
 {
   let mut nearest = OptionalNearest::none();
   bvh.traverse_branch_leaf_visitor(
-    |branch| branch.bounding.intersect(&ray, &()),
+    |branch| branch.bounding.intersect(&ray, &()), // todo, get bounding hit distance to early exit
     |leaf| {
       leaf
         .iter_primitive(bvh)

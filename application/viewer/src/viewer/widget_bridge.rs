@@ -23,7 +23,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
   #[allow(unused_assignments)] // false positive?
   let mut interaction = None;
 
-  let picker = use_viewer_picker(viewer_cx);
+  let picker = use_viewer_scene_model_picker(viewer_cx);
   let reader = use_scene_reader(viewer_cx);
   let world_mat = use_global_node_world_mat_view(viewer_cx).use_assure_result(viewer_cx);
 
@@ -33,20 +33,10 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
       let reader = reader.unwrap();
       let world_mat = world_mat.expect_resolve_stage().mark_entity_type();
 
-      // todo, fix , this should use actual render resolution instead of full window size
-      let canvas_resolution = Vec2::new(
-        viewer_cx.input.window_state.physical_size.0
-          / viewer_cx.input.window_state.device_pixel_ratio,
-        viewer_cx.input.window_state.physical_size.1
-          / viewer_cx.input.window_state.device_pixel_ratio,
-      )
-      .map(|v| v.ceil() as u32);
-
       let widget_env = create_widget_cx(
         &reader,
         &viewer_cx.viewer.scene,
         &picker,
-        canvas_resolution,
         world_mat.into_boxed(),
       );
       let picker = &picker;
@@ -106,8 +96,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
 pub fn create_widget_cx(
   scene_reader: &SceneReader,
   viewer_scene: &Viewer3dContent,
-  picker: &ViewerPicker,
-  canvas_resolution: Vec2<u32>,
+  picker: &ViewerSceneModelPicker,
   world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
 ) -> Box<dyn WidgetEnvAccess> {
   Box::new(WidgetEnvAccessImpl {
@@ -117,7 +106,7 @@ pub fn create_widget_cx(
       .camera
       .read::<SceneCameraPerspective>(viewer_scene.main_camera)
       .unwrap(),
-    canvas_resolution,
+    view_logic_pixel_size: picker.camera_view_size_in_logic_pixel.into_u32().into(),
     camera_world_ray: picker.current_mouse_ray_in_world(),
     normalized_canvas_position: picker.normalized_position_ndc(),
   }) as Box<dyn WidgetEnvAccess>
@@ -127,7 +116,7 @@ struct WidgetEnvAccessImpl {
   world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   camera_node: EntityHandle<SceneNodeEntity>,
   camera_proj: PerspectiveProjection<f32>,
-  canvas_resolution: Vec2<u32>,
+  view_logic_pixel_size: Vec2<u32>,
   camera_world_ray: Ray3<f64>,
   // xy -1 to 1
   normalized_canvas_position: Vec2<f32>,
@@ -154,7 +143,7 @@ impl WidgetEnvAccess for WidgetEnvAccessImpl {
     self.normalized_canvas_position
   }
 
-  fn get_view_resolution(&self) -> Vec2<u32> {
-    self.canvas_resolution
+  fn get_view_logic_pixel_size(&self) -> Vec2<u32> {
+    self.view_logic_pixel_size
   }
 }

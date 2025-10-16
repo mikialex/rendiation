@@ -34,10 +34,27 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideLineSceneModelWorldBound
   }
 }
 
+pub fn use_wide_line_picker(cx: &mut impl DBHookCxLike) -> Option<WideLinePicker> {
+  let wide_line_sm_bounding = cx
+    .use_shared_dual_query_view(WideLineSceneModelWorldBounding)
+    .use_assure_result(cx);
+
+  cx.when_resolve_stage(|| WideLinePicker {
+    lines: global_entity_component_of::<WideLineMeshBuffer>().read(),
+    line_width: global_entity_component_of::<WideLineWidth>().read(),
+    relation: global_entity_component_of::<SceneModelWideLineRenderPayload>().read_foreign_key(),
+    sm_bounding: wide_line_sm_bounding
+      .expect_resolve_stage()
+      .mark_entity_type()
+      .into_boxed(),
+  })
+}
+
 pub struct WideLinePicker {
   pub lines: ComponentReadView<WideLineMeshBuffer>,
   pub relation: ForeignKeyReadView<SceneModelWideLineRenderPayload>,
   pub sm_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  pub line_width: ComponentReadView<WideLineWidth>,
 }
 
 impl LocalModelPicker for WideLinePicker {
@@ -50,7 +67,7 @@ impl LocalModelPicker for WideLinePicker {
     IntersectAble::<_, bool, _>::intersect(&ctx.world_ray, &mesh_world_bounding, &()).into()
   }
 
-  fn query_local(
+  fn ray_query_local_nearest(
     &self,
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
@@ -65,8 +82,8 @@ impl LocalModelPicker for WideLinePicker {
 
     let target_world_center = self.sm_bounding.access(&idx)?.center();
 
-    // todo, use line width
-    let pick_line_tolerance = IntersectTolerance::new(5., ToleranceType::ScreenSpace);
+    let line_width = self.line_width.get_value(line)?;
+    let pick_line_tolerance = IntersectTolerance::new(line_width / 2., ToleranceType::ScreenSpace);
 
     let line_tolerance_local =
       ctx.compute_local_tolerance(pick_line_tolerance, target_world, target_world_center);

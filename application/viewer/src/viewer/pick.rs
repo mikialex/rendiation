@@ -10,25 +10,17 @@ use rendiation_scene_geometry_query::*;
 
 use crate::*;
 
-pub struct ViewerPicker {
+pub struct ViewerSceneModelPicker {
   current_mouse_ray_in_world: Ray3<f64>,
   normalized_position: Vec2<f32>,
   normalized_position_ndc: Vec2<f32>,
-  camera_view_size: Size,
   camera_world: Mat4<f64>,
   camera_proj: Box<dyn Projection<f32>>,
   scene_model_picker: Box<dyn SceneModelPicker>,
+  pub camera_view_size_in_logic_pixel: Size,
 }
 
-pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
-  let sm_bounding = cx
-    .use_shared_dual_query_view(SceneModelWorldBounding)
-    .use_assure_result(cx);
-
-  let mesh_vertex_refs = cx
-    .use_db_rev_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
-    .use_assure_result(cx);
-
+pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneModelPicker> {
   let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
   let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
 
@@ -36,9 +28,8 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
     .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.rendering.ndc))
     .use_assure_result(cx);
 
-  let wide_line_sm_bounding = cx
-    .use_shared_dual_query_view(WideLineSceneModelWorldBounding)
-    .use_assure_result(cx);
+  let use_attribute_mesh_picker = use_attribute_mesh_picker(cx);
+  let wide_line_picker = use_wide_line_picker(cx);
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     let camera = cx.viewer.scene.main_camera;
@@ -56,37 +47,8 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
       .unwrap();
     let camera_proj = Box::new(camera_proj);
 
-    let att_mesh_picker = AttributeMeshPicker {
-      sm_bounding: sm_bounding
-        .expect_resolve_stage()
-        .mark_entity_type()
-        .into_boxed(),
-      model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
-        .read_foreign_key(),
-      std_model_access_mesh: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
-        .read_foreign_key(),
-      mesh_vertex_refs: mesh_vertex_refs.expect_resolve_stage().into_boxed_multi(),
-      semantic: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
-      mesh_index_attribute:
-        global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
-          .read_foreign_key(),
-      mesh_topology: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
-      buffer: global_entity_component_of::<BufferEntityData>().read(),
-      vertex_buffer_ref: global_entity_component_of::<SceneBufferViewBufferId<AttributeVertexRef>>(
-      )
-      .read_foreign_key(),
-      pick_line_tolerance: IntersectTolerance::new(1.0, ToleranceType::ScreenSpace),
-      pick_point_tolerance: IntersectTolerance::new(1.0, ToleranceType::ScreenSpace),
-    };
-
-    let wide_line_picker = WideLinePicker {
-      lines: global_entity_component_of::<WideLineMeshBuffer>().read(),
-      relation: global_entity_component_of::<SceneModelWideLineRenderPayload>().read_foreign_key(),
-      sm_bounding: wide_line_sm_bounding
-        .expect_resolve_stage()
-        .mark_entity_type()
-        .into_boxed(),
-    };
+    let att_mesh_picker = use_attribute_mesh_picker.unwrap();
+    let wide_line_picker = wide_line_picker.unwrap();
 
     let local_model_pickers: Vec<Box<dyn LocalModelPicker>> =
       vec![Box::new(att_mesh_picker), Box::new(wide_line_picker)];
@@ -104,12 +66,21 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
         .into_boxed(),
     };
 
-    ViewerPicker::new(
+    // todo, fix , this should use actual view resolution instead of full window size
+    let view_logic_pixel_size = Vec2::new(
+      cx.input.window_state.physical_size.0 / cx.input.window_state.device_pixel_ratio,
+      cx.input.window_state.physical_size.1 / cx.input.window_state.device_pixel_ratio,
+    )
+    .map(|v| v.ceil() as u32);
+    let view_logic_pixel_size = Size::from_u32_pair_min_one(view_logic_pixel_size.into());
+
+    ViewerSceneModelPicker::new(
       Box::new(scene_model_picker),
       cx.input,
       camera_world,
       camera_view_projection_inv,
       camera_proj,
+      view_logic_pixel_size,
     )
     .into()
   } else {
@@ -117,13 +88,14 @@ pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
   }
 }
 
-impl ViewerPicker {
+impl ViewerSceneModelPicker {
   pub fn new(
     scene_model_picker: Box<dyn SceneModelPicker>,
     input: &PlatformEventInput,
     camera_world: Mat4<f64>,
     camera_view_projection_inv: Mat4<f64>,
     camera_proj: Box<dyn Projection<f32>>,
+    camera_view_size_in_logic_pixel: Size,
   ) -> Self {
     let mouse_position = &input.window_state.mouse_position;
     let window_size = &input.window_state.physical_size;
@@ -136,7 +108,7 @@ impl ViewerPicker {
     let current_mouse_ray_in_world =
       cast_world_ray(camera_view_projection_inv, normalized_position_ndc_f64);
 
-    ViewerPicker {
+    ViewerSceneModelPicker {
       scene_model_picker,
       current_mouse_ray_in_world,
       normalized_position: Vec2::from((
@@ -145,7 +117,7 @@ impl ViewerPicker {
       )),
       normalized_position_ndc,
       camera_world,
-      camera_view_size: Size::from_f32_pair_min_one(input.window_state.physical_size),
+      camera_view_size_in_logic_pixel,
       camera_proj,
     }
   }
@@ -163,7 +135,7 @@ impl ViewerPicker {
   }
 }
 
-impl Picker3d for ViewerPicker {
+impl Picker3d for ViewerSceneModelPicker {
   fn pick_model_nearest(
     &self,
     model: EntityHandle<SceneModelEntity>,
@@ -171,11 +143,11 @@ impl Picker3d for ViewerPicker {
   ) -> Option<HitPoint3D<f64>> {
     self
       .scene_model_picker
-      .query(
+      .ray_query_nearest(
         model,
         &SceneRayQuery {
           world_ray,
-          camera_view_size_in_logic_pixel: self.camera_view_size, // todo, use logic size
+          camera_view_size_in_logic_pixel: self.camera_view_size_in_logic_pixel,
           camera_proj: self.camera_proj.clone(),
           camera_world: self.camera_world,
         },
@@ -185,7 +157,7 @@ impl Picker3d for ViewerPicker {
 }
 
 pub fn prepare_picking_state<'a>(
-  picker: &'a ViewerPicker,
+  picker: &'a ViewerSceneModelPicker,
   g: &WidgetSceneModelIntersectionGroupConfig,
 ) -> Interaction3dCtx<'a> {
   let world_ray_intersected_nearest = picker.pick_models_nearest(

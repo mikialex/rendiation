@@ -7,7 +7,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
   let (cx, gpu_pick_future) =
     cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
 
-  let picker = use_viewer_picker(cx);
+  let picker = use_viewer_scene_model_picker(cx);
   let sms = cx
     .use_db_rev_ref::<SceneModelBelongsToScene>()
     .use_assure_result(cx);

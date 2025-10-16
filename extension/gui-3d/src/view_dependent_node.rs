@@ -46,7 +46,7 @@ pub fn use_view_independent_scale_node(
       origin_world,
       config.override_position,
       e.get_camera_world_mat(),
-      e.get_view_resolution().y as f32,
+      e.get_view_logic_pixel_size().y as f32,
       e.get_camera_perspective_proj(),
     )
   });

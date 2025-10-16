@@ -39,7 +39,7 @@ pub trait WidgetEnvAccess {
       .get_camera_perspective_proj()
       .compute_projection_mat(&OpenGLxNDC)
   }
-  fn get_view_resolution(&self) -> Vec2<u32>;
+  fn get_view_logic_pixel_size(&self) -> Vec2<u32>;
 }
 
 pub fn register_gui3d_extension_data_model() {
