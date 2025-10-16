@@ -2,139 +2,87 @@ use rendiation_space_algorithm::{bvh::*, utils::TreeBuildOption};
 
 use crate::*;
 
-pub trait BVHExtendedBuildAbstractMesh<B: BVHBounding, S: BVHBuildStrategy<B>> {
-  fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B>;
-}
-
-impl<G, B, S> BVHExtendedBuildAbstractMesh<B, S> for G
+pub fn build_bvh_for_abstract_mesh<G, B, S>(
+  mesh: &G,
+  strategy: &mut S,
+  option: &TreeBuildOption,
+) -> FlattenBVH<B>
 where
   B: BVHBounding,
   S: BVHBuildStrategy<B>,
   G: AbstractMesh,
   G::Primitive: SpaceBounding<f32, B, 3>,
 {
-  fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B> {
-    FlattenBVH::new(
-      self.primitive_iter().map(|p| p.to_bounding()),
-      strategy,
-      option,
-    )
-  }
+  FlattenBVH::new(
+    mesh.primitive_iter().map(|p| p.to_bounding()),
+    strategy,
+    option,
+  )
 }
 
-pub struct PrimitiveIntersectionStatistic {
-  pub bound: usize,
-  pub primitive: usize,
-}
-
-pub trait BVHIntersectAbleExtendedAbstractMesh<B>
-where
-  B: BVHBounding + IntersectAble<Ray3, bool, ()>,
-{
-  fn intersect_list_bvh(
-    &self,
-    ray: Ray3,
-    bvh: &FlattenBVH<B>,
-    conf: &MeshBufferIntersectConfig,
-  ) -> MeshBufferHitList;
-
-  fn intersect_nearest_bvh(
-    &self,
-    ray: Ray3,
-    bvh: &FlattenBVH<B>,
-    conf: &MeshBufferIntersectConfig,
-  ) -> OptionalNearest<MeshBufferHitPoint>;
-
-  fn intersect_nearest_bvh_statistic(
-    &self,
-    ray: Ray3,
-    bvh: &FlattenBVH<B>,
-  ) -> PrimitiveIntersectionStatistic;
-}
-
-impl<G, B> BVHIntersectAbleExtendedAbstractMesh<B> for G
+pub fn intersect_list_bvh<G, B, C>(
+  mesh: &G,
+  ray: Ray3,
+  bvh: &FlattenBVH<B>,
+  conf: &C,
+) -> MeshBufferHitList
 where
   B: BVHBounding + IntersectAble<Ray3, bool, ()>,
   G: AbstractMesh,
   G::Primitive: SpaceBounding<f32, B, 3>,
-  G::Primitive: IntersectAble<Ray3, OptionalNearest<HitPoint3D>, MeshBufferIntersectConfig>,
+  G::Primitive: IntersectAble<Ray3, OptionalNearest<HitPoint3D>, C>,
 {
-  fn intersect_list_bvh(
-    &self,
-    ray: Ray3,
-    bvh: &FlattenBVH<B>,
-    conf: &MeshBufferIntersectConfig,
-  ) -> MeshBufferHitList {
-    let mut result = MeshBufferHitList::new();
-    bvh.traverse_branch_leaf_visitor(
-      |branch| branch.bounding.intersect(&ray, &()),
-      |leaf| {
-        leaf
-          .iter_primitive(bvh)
-          .filter_map(|&i| (self.primitive_at(i)?, i).into())
-          .filter_map(|(p, primitive_index)| {
-            p.intersect(&ray, conf)
-              .map(|hit| MeshBufferHitPoint {
-                hit,
-                primitive_index,
-              })
-              .0
-          })
-          .for_each(|h| result.0.push(h));
-        true
-      },
-    );
-    result
-  }
-
-  fn intersect_nearest_bvh(
-    &self,
-    ray: Ray3,
-    bvh: &FlattenBVH<B>,
-    conf: &MeshBufferIntersectConfig,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    let mut nearest = OptionalNearest::none();
-    bvh.traverse_branch_leaf_visitor(
-      |branch| branch.bounding.intersect(&ray, &()),
-      |leaf| {
-        leaf
-          .iter_primitive(bvh)
-          .filter_map(|&i| (self.primitive_at(i)?, i).into())
-          .for_each(|(p, primitive_index)| {
-            nearest.refresh_nearest(p.intersect(&ray, conf).map(|hit| MeshBufferHitPoint {
+  let mut result = MeshBufferHitList::new();
+  bvh.traverse_branch_leaf_visitor(
+    |branch| branch.bounding.intersect(&ray, &()),
+    |leaf| {
+      leaf
+        .iter_primitive(bvh)
+        .filter_map(|&i| (mesh.primitive_at(i)?, i).into())
+        .filter_map(|(p, primitive_index)| {
+          p.intersect(&ray, conf)
+            .map(|hit| MeshBufferHitPoint {
               hit,
               primitive_index,
-            }));
-          });
-        true
-      },
-    );
-    nearest
-  }
-
-  fn intersect_nearest_bvh_statistic(
-    &self,
-    ray: Ray3,
-    bvh: &FlattenBVH<B>,
-  ) -> PrimitiveIntersectionStatistic {
-    let mut bound = 0;
-    let mut primitive = 0;
-    bvh.traverse_branch_leaf_visitor(
-      |branch| {
-        bound += 1;
-        branch.bounding.intersect(&ray, &())
-      },
-      |leaf| {
-        primitive += leaf.iter_primitive(bvh).count();
-        true
-      },
-    );
-    PrimitiveIntersectionStatistic { bound, primitive }
-  }
+            })
+            .0
+        })
+        .for_each(|h| result.0.push(h));
+      true
+    },
+  );
+  result
 }
 
-pub trait BVHLineBufferDebugAble {
-  fn generate_debug_line_buffer(&self) -> NoneIndexedMesh<LineList, Vec<Vec3<f32>>>;
+pub fn intersect_nearest_bvh<G, B, C>(
+  mesh: &G,
+  ray: Ray3,
+  bvh: &FlattenBVH<B>,
+  conf: &C,
+) -> OptionalNearest<MeshBufferHitPoint>
+where
+  B: BVHBounding + IntersectAble<Ray3, bool, ()>,
+  G: AbstractMesh,
+  G::Primitive: SpaceBounding<f32, B, 3>,
+  G::Primitive: IntersectAble<Ray3, OptionalNearest<HitPoint3D>, C>,
+{
+  let mut nearest = OptionalNearest::none();
+  bvh.traverse_branch_leaf_visitor(
+    |branch| branch.bounding.intersect(&ray, &()),
+    |leaf| {
+      leaf
+        .iter_primitive(bvh)
+        .filter_map(|&i| (mesh.primitive_at(i)?, i).into())
+        .for_each(|(p, primitive_index)| {
+          nearest.refresh_nearest(p.intersect(&ray, conf).map(|hit| MeshBufferHitPoint {
+            hit,
+            primitive_index,
+          }));
+        });
+      true
+    },
+  );
+  nearest
 }
 
 pub trait EntityLineDebugAble {
@@ -168,7 +116,11 @@ impl EntityLineDebugAble for Box3 {
   }
 }
 
-impl<B: BVHBounding + EntityLineDebugAble> BVHLineBufferDebugAble for FlattenBVH<B> {
+pub trait BVHLineBufferDebugAbleExt {
+  fn generate_debug_line_buffer(&self) -> NoneIndexedMesh<LineList, Vec<Vec3<f32>>>;
+}
+
+impl<B: BVHBounding + EntityLineDebugAble> BVHLineBufferDebugAbleExt for FlattenBVH<B> {
   fn generate_debug_line_buffer(&self) -> NoneIndexedMesh<LineList, Vec<Vec3<f32>>> {
     let mut position = Vec::new();
     self.nodes.iter().for_each(|b| {

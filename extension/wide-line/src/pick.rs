@@ -71,12 +71,7 @@ impl LocalModelPicker for WideLinePicker {
     let line_tolerance_local =
       ctx.compute_local_tolerance(pick_line_tolerance, target_world, target_world_center);
 
-    let config = MeshBufferIntersectConfig {
-      line_tolerance_local,
-      ..Default::default()
-    };
-
-    *WideLinePickView { lines }.intersect_nearest(local_ray, &config)
+    *WideLinePickView { lines }.ray_intersect_nearest(local_ray, &line_tolerance_local)
   }
 }
 

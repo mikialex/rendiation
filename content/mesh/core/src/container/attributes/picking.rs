@@ -25,18 +25,25 @@ impl SpaceEntity<f32, 3> for AttributeDynPrimitive {
   }
 }
 
-impl IntersectAble<Ray3, OptionalNearest<HitPoint3D>, MeshBufferIntersectConfig>
-  for AttributeDynPrimitive
+#[derive(Clone)]
+pub struct MeshBufferIntersectConfig {
+  pub line_tolerance_local: f32,
+  pub point_tolerance_local: f32,
+  pub triangle_face: FaceSide,
+}
+
+impl IntersectAble<AttributeDynPrimitive, OptionalNearest<HitPoint3D>, MeshBufferIntersectConfig>
+  for Ray3
 {
   fn intersect(
     &self,
-    other: &Ray3,
+    pri: &AttributeDynPrimitive,
     param: &MeshBufferIntersectConfig,
   ) -> OptionalNearest<HitPoint3D> {
-    match self {
-      AttributeDynPrimitive::Points(v) => v.intersect(other, param),
-      AttributeDynPrimitive::LineSegment(v) => v.intersect(other, param),
-      AttributeDynPrimitive::Triangle(v) => v.intersect(other, param),
+    match pri {
+      AttributeDynPrimitive::Points(v) => self.intersect(v, &param.point_tolerance_local),
+      AttributeDynPrimitive::LineSegment(v) => self.intersect(v, &param.line_tolerance_local),
+      AttributeDynPrimitive::Triangle(v) => self.intersect(v, &param.triangle_face),
     }
   }
 }

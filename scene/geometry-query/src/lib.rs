@@ -252,6 +252,6 @@ impl LocalModelPicker for AttributeMeshPicker {
       indices: index,
       count: count / mode.stride(),
     }
-    .intersect_nearest(local_ray, &config)
+    .ray_intersect_nearest(local_ray, &config)
   }
 }
