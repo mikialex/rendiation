@@ -27,6 +27,7 @@ impl SceneRayQuery {
     &self,
     tolerance: IntersectTolerance,
     target_world_mat: Mat4<f64>,
+    camera_world_mat: Mat4<f64>,
     target_object_center_in_world: Vec3<f64>,
   ) -> f32 {
     let target_scale = target_world_mat.max_scale();
@@ -35,7 +36,7 @@ impl SceneRayQuery {
 
     if let ToleranceType::ScreenSpace = tolerance.ty {
       let camera_to_target = target_object_center_in_world - self.world_ray.origin;
-      let projected_distance = camera_to_target.dot(target_world_mat.forward());
+      let projected_distance = camera_to_target.dot(camera_world_mat.forward().reverse());
       let pixel_per_unit = self.camera_proj.pixels_per_unit(
         projected_distance as f32,
         self.camera_view_size_in_logic_pixel.height_usize() as f32,

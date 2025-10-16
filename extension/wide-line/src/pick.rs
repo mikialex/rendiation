@@ -71,7 +71,12 @@ impl LocalModelPicker for WideLinePicker {
     let pick_line_tolerance = IntersectTolerance::new(line_width / 2., ToleranceType::ScreenSpace);
 
     ctx
-      .compute_local_tolerance(pick_line_tolerance, target_world, target_world_center)
+      .compute_local_tolerance(
+        pick_line_tolerance,
+        target_world,
+        ctx.camera_world,
+        target_world_center,
+      )
       .into()
   }
 

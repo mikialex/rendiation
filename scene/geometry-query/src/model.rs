@@ -125,7 +125,12 @@ impl LocalModelPicker for AttributeMeshPicker {
   ) -> Option<f32> {
     let target_world_center = self.sm_bounding.access(&idx)?.center();
     ctx
-      .compute_local_tolerance(self.pick_line_tolerance, target_world, target_world_center)
+      .compute_local_tolerance(
+        self.pick_line_tolerance,
+        target_world,
+        ctx.camera_world,
+        target_world_center,
+      )
       .into()
   }
 

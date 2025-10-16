@@ -15,6 +15,22 @@ pub struct ViewerBackgroundState {
   gradient: SceneGradientBackgroundParam,
 }
 
+impl ViewerBackgroundState {
+  pub fn setup_background(&self, writer: &mut SceneWriter) {
+    match self.current {
+      ViewerBackgroundType::Color => {
+        writer.set_solid_background(Vec3::from(self.solid_background_color));
+      }
+      ViewerBackgroundType::Environment => {
+        writer.set_hdr_env_background(self.default_env_background, 1., Mat4::identity());
+      }
+      ViewerBackgroundType::Gradient => {
+        writer.set_gradient_background(self.gradient.clone());
+      }
+    }
+  }
+}
+
 const DEFAULT_BACKGROUND: Vec3<f32> = Vec3::new(0.8, 0.8, 0.8);
 
 const SKY_BLUE: Vec3<f32> = Vec3::new(0.373, 0.753, 0.922);
@@ -22,9 +38,8 @@ const GROUND_GREEN: Vec3<f32> = Vec3::new(0.667, 0.761, 0.608);
 
 impl ViewerBackgroundState {
   pub fn init(writer: &mut SceneWriter) -> Self {
-    writer.set_solid_background(DEFAULT_BACKGROUND);
     let default_env_background = load_example_cube_tex(writer);
-    Self {
+    let s = Self {
       current: ViewerBackgroundType::Color,
       default_env_background,
       solid_background_color: DEFAULT_BACKGROUND.into(),
@@ -38,7 +53,9 @@ impl ViewerBackgroundState {
           GROUND_GREEN.expand_with(1.0),
         ],
       },
-    }
+    };
+    s.setup_background(writer);
+    s
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui, scene: EntityHandle<SceneEntity>) {
@@ -75,17 +92,7 @@ impl ViewerBackgroundState {
           ViewerBackgroundType::Gradient => {}    // not editable for now
         }
         if self.current != previous {
-          match self.current {
-            ViewerBackgroundType::Color => {
-              writer.set_solid_background(Vec3::from(self.solid_background_color));
-            }
-            ViewerBackgroundType::Environment => {
-              writer.set_hdr_env_background(self.default_env_background, 1., Mat4::identity());
-            }
-            ViewerBackgroundType::Gradient => {
-              writer.set_gradient_background(self.gradient.clone());
-            }
-          }
+          self.setup_background(&mut writer);
         }
       }
     });
