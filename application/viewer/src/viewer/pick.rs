@@ -20,6 +20,17 @@ pub struct ViewerSceneModelPicker {
   pub camera_view_size_in_logic_pixel: Size,
 }
 
+impl ViewerSceneModelPicker {
+  fn create_ray_ctx(&self, world_ray: Ray3<f64>) -> SceneRayQuery {
+    SceneRayQuery {
+      world_ray,
+      camera_view_size_in_logic_pixel: self.camera_view_size_in_logic_pixel,
+      camera_proj: self.camera_proj.clone(),
+      camera_world: self.camera_world,
+    }
+  }
+}
+
 pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneModelPicker> {
   let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
   let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
@@ -140,19 +151,25 @@ impl Picker3d for ViewerSceneModelPicker {
     &self,
     model: EntityHandle<SceneModelEntity>,
     world_ray: Ray3<f64>,
-  ) -> Option<HitPoint3D<f64>> {
+  ) -> Option<MeshBufferHitPoint<f64>> {
     self
       .scene_model_picker
-      .ray_query_nearest(
-        model,
-        &SceneRayQuery {
-          world_ray,
-          camera_view_size_in_logic_pixel: self.camera_view_size_in_logic_pixel,
-          camera_proj: self.camera_proj.clone(),
-          camera_world: self.camera_world,
-        },
-      )
-      .map(|v| v.hit)
+      .ray_query_nearest(model, &self.create_ray_ctx(world_ray))
+  }
+
+  fn pick_model_all(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    world_ray: Ray3<f64>,
+    results: &mut Vec<MeshBufferHitPoint<f64>>,
+    local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
+  ) -> Option<()> {
+    self.scene_model_picker.ray_query_all(
+      idx,
+      &self.create_ray_ctx(world_ray),
+      results,
+      local_result_scratch,
+    )
   }
 }
 

@@ -2,7 +2,7 @@ use crate::*;
 
 pub fn use_pick_scene(cx: &mut ViewerCx) {
   let is_webgl = cx.viewer.rendering.gpu().info().is_webgl();
-  let use_gpu_pick = !is_webgl && cx.viewer.features_config.pick_scene.prefer_gpu_picking;
+  let prefer_gpu_pick = !is_webgl && cx.viewer.features_config.pick_scene.prefer_gpu_picking;
 
   let (cx, gpu_pick_future) =
     cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
@@ -66,10 +66,16 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
     let scene = cx.viewer.scene.scene;
 
+    let is_request_list_pick = cx
+      .input
+      .window_state
+      .pressed_keys
+      .contains(&winit::keyboard::KeyCode::KeyA);
+
     let picker = picker.unwrap();
-    let mut hit = None;
-    let mut fallback_to_cpu = false;
-    if use_gpu_pick && gpu_pick_future.is_none() {
+    let mut select_target_result = None;
+    let mut use_cpu_pick = false;
+    if prefer_gpu_pick && gpu_pick_future.is_none() && !is_request_list_pick {
       if let Some(render_size) = cx.viewer.rendering.picker.last_id_buffer_size() {
         let point = picker.normalized_position() * Vec2::from(render_size.into_f32());
         let point = point.map(|v| v.floor() as usize);
@@ -77,32 +83,41 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
           *gpu_pick_future = Some(f);
         }
       } else {
-        fallback_to_cpu = true;
+        use_cpu_pick = true;
       }
     } else {
-      fallback_to_cpu = true;
+      use_cpu_pick = true;
     }
 
-    if fallback_to_cpu {
+    if use_cpu_pick {
       let sms = sms
         .expect_resolve_stage()
         .mark_foreign_key::<SceneModelBelongsToScene>();
       let mut main_scene_models = sms.access_multi(&scene).unwrap();
-      let _hit =
-        picker.pick_models_nearest(&mut main_scene_models, picker.current_mouse_ray_in_world());
-      drop(main_scene_models);
 
-      hit = if let Some(hit) = _hit {
+      if is_request_list_pick {
+        let (results, result_ids) =
+          picker.pick_models_all(&mut main_scene_models, picker.current_mouse_ray_in_world());
         if enable_hit_debug_log {
-          log::info!("cpu picked{:?}", hit);
+          log::info!("cpu picked list {:#?}, ids: {:#?}", results, result_ids);
         }
-        hit.1.into()
       } else {
-        None
+        let _hit =
+          picker.pick_models_nearest(&mut main_scene_models, picker.current_mouse_ray_in_world());
+        drop(main_scene_models);
+
+        select_target_result = if let Some(hit) = _hit {
+          if enable_hit_debug_log {
+            log::info!("cpu picked {:#?}", hit);
+          }
+          hit.1.into()
+        } else {
+          None
+        }
       }
     }
 
-    cx.viewer.scene.selected_target = hit;
+    cx.viewer.scene.selected_target = select_target_result;
   }
 }
 
@@ -119,7 +134,7 @@ impl Default for PickScenePersistConfig {
   fn default() -> Self {
     Self {
       prefer_gpu_picking: true,
-      enable_hit_debug_log: false,
+      enable_hit_debug_log: true,
     }
   }
 }

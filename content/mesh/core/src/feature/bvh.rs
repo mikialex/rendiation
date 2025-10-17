@@ -25,14 +25,14 @@ pub fn intersect_list_bvh<G, B, C>(
   ray: Ray3,
   bvh: &FlattenBVH<B>,
   conf: &C,
-) -> MeshBufferHitList
+) -> Vec<MeshBufferHitPoint>
 where
   B: BVHBounding + IntersectAble<Ray3, bool, ()>,
   G: AbstractMesh,
   G::Primitive: SpaceBounding<f32, B, 3>,
   G::Primitive: IntersectAble<Ray3, OptionalNearest<HitPoint3D>, C>,
 {
-  let mut result = MeshBufferHitList::new();
+  let mut result = Vec::default();
   bvh.traverse_branch_leaf_visitor(
     |branch| branch.bounding.intersect(&ray, &()),
     |leaf| {
@@ -47,7 +47,7 @@ where
             })
             .0
         })
-        .for_each(|h| result.0.push(h));
+        .for_each(|h| result.push(h));
       true
     },
   );

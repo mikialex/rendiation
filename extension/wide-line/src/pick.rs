@@ -105,6 +105,23 @@ impl LocalModelPicker for WideLinePicker {
 
     *WideLinePickView { lines }.ray_intersect_nearest(local_ray, &local_tolerance)
   }
+
+  fn ray_query_local_all(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    local_ray: Ray3<f32>,
+    local_tolerance: f32,
+    results: &mut Vec<MeshBufferHitPoint>,
+  ) -> Option<()> {
+    let line = self.relation.get(idx)?;
+    let lines = self.lines.get(line)?;
+
+    // here we assume the buffer is correctly aligned
+    let lines = cast_slice(lines);
+
+    WideLinePickView { lines }.ray_intersect_all(local_ray, &local_tolerance, results);
+    Some(())
+  }
 }
 
 struct WideLinePickView<'a> {

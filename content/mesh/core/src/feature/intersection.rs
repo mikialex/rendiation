@@ -3,10 +3,10 @@ use crate::*;
 pub trait AbstractMeshIntersectionExt<C> {
   fn ray_intersect_iter(&self, ray: Ray3, conf: &C) -> impl Iterator<Item = MeshBufferHitPoint>;
 
-  fn ray_intersect_all(&self, ray: Ray3, conf: &C, result: &mut MeshBufferHitList) {
+  fn ray_intersect_all(&self, ray: Ray3, conf: &C, result: &mut Vec<MeshBufferHitPoint>) {
     self
       .ray_intersect_iter(ray, conf)
-      .for_each(|h| result.0.push(h));
+      .for_each(|h| result.push(h));
   }
   fn ray_intersect_nearest(&self, ray: Ray3, conf: &C) -> OptionalNearest<MeshBufferHitPoint> {
     let mut nearest = OptionalNearest::none();
@@ -38,7 +38,7 @@ where
   }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct MeshBufferHitPoint<T: Scalar = f32> {
   pub hit: HitPoint3D<T>,
   pub primitive_index: usize,
@@ -46,19 +46,6 @@ pub struct MeshBufferHitPoint<T: Scalar = f32> {
 impl HitDistanceCompareAble for MeshBufferHitPoint {
   fn is_near_than(&self, other: &Self) -> bool {
     self.hit.is_near_than(&other.hit)
-  }
-}
-
-pub struct MeshBufferHitList(pub Vec<MeshBufferHitPoint>);
-impl MeshBufferHitList {
-  pub fn new() -> Self {
-    Self(Vec::new())
-  }
-}
-
-impl Default for MeshBufferHitList {
-  fn default() -> Self {
-    Self::new()
   }
 }
 

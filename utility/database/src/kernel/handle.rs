@@ -59,12 +59,14 @@ impl<T> Hash for EntityHandle<T> {
     self.handle.hash(state);
   }
 }
-impl<T> std::fmt::Debug for EntityHandle<T> {
+impl<T: EntitySemantic> std::fmt::Debug for EntityHandle<T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("EntityHandle")
-      .field("ty", &self.ty)
-      .field("handle", &self.handle)
-      .finish()
+    write!(
+      f,
+      "({}, {})",
+      &disqualified::ShortName(T::unique_name()),
+      self.handle
+    )
   }
 }
 
@@ -85,11 +87,7 @@ impl Display for RawEntityHandle {
 
 impl std::fmt::Debug for RawEntityHandle {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let inner = self.0.into_raw_parts();
-    f.debug_struct("RawEntityHandle")
-      .field("index", &inner.0)
-      .field("gen", &inner.1)
-      .finish()
+    write!(f, "{}", self.0)
   }
 }
 
