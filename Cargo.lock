@@ -1784,6 +1784,7 @@ name = "heap-tools"
 version = "0.0.1"
 dependencies = [
  "fast-hash-collection",
+ "humansize",
  "once_cell",
  "parking_lot",
 ]
@@ -1829,6 +1830,15 @@ dependencies = [
  "fast-hash-collection",
  "parking_lot",
  "smallvec",
+]
+
+[[package]]
+name = "humansize"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6cb51c9a029ddc91b07a787f1d86b53ccfa49b0e86688c946ebe8d3555685dd7"
+dependencies = [
+ "libm",
 ]
 
 [[package]]
@@ -4382,6 +4392,7 @@ dependencies = [
  "fast-hash-collection",
  "futures",
  "hook",
+ "humansize",
  "parking_lot",
  "query-hook",
  "rendiation-shader-api",
@@ -4450,6 +4461,7 @@ name = "rendiation-xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "humansize",
  "pico-args",
  "xshell",
 ]

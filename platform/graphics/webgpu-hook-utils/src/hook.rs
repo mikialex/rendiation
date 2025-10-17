@@ -31,6 +31,9 @@ pub enum GPUQueryHookStage<'a> {
 
 pub trait Inspector {
   fn label(&mut self, label: &str);
+  fn format_readable_data_size(&self, size: u64) -> String {
+    humansize::format_size(size, humansize::BINARY)
+  }
 }
 
 unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
@@ -137,8 +140,8 @@ impl<'a> QueryGPUHookCx<'a> {
 
     if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
       let buffer_size: u64 = storage.get_gpu_buffer().byte_size();
-      let buffer_size = buffer_size as f32 / 1024.;
-      inspector.label(&format!("storage: {}, size: {:.2} kb", label, buffer_size));
+      let buffer_size = inspector.format_readable_data_size(buffer_size);
+      inspector.label(&format!("storage: {}, size: {}", label, buffer_size));
     }
 
     (cx, storage)
@@ -166,9 +169,9 @@ impl<'a> QueryGPUHookCx<'a> {
 
     if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
       let buffer_size: u64 = storage.get_gpu_buffer().byte_size();
-      let buffer_size = buffer_size as f32 / 1024.;
+      let buffer_size = inspector.format_readable_data_size(buffer_size);
       inspector.label(&format!(
-        "storage(with host backup): {}, size: {:.2} kb",
+        "storage(with host backup): {}, size: {}",
         label, buffer_size
       ));
     }

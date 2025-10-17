@@ -6,12 +6,8 @@ use crate::*;
 pub struct ReadableByteDisplay(pub u64);
 impl std::fmt::Debug for ReadableByteDisplay {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.write_fmt(format_args!(
-      "bytes:{}, kb: {:.2}, mb: {:.2}",
-      self.0,
-      self.0 as f64 / 1024.,
-      self.0 as f64 / 1024. / 1024.
-    ))
+    let size = humansize::format_size(self.0, humansize::BINARY);
+    f.write_str(&size)
   }
 }
 

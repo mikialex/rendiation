@@ -154,8 +154,8 @@ fn use_attribute_indices_updates(
 
   if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
     let buffer_size = gpu_buffer.read().gpu().byte_size();
-    let buffer_size = buffer_size as f32 / 1024.;
-    inspector.label(&format!("bindless index, size: {:.2} kb", buffer_size));
+    let buffer_size = inspector.format_readable_data_size(buffer_size);
+    inspector.label(&format!("bindless index, size: {}", buffer_size));
   }
 
   let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
@@ -271,11 +271,8 @@ fn use_attribute_vertex_updates(
 
   if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
     let buffer_size = vertex_buffer.read().gpu().byte_size();
-    let buffer_size = buffer_size as f32 / 1024.;
-    inspector.label(&format!(
-      "bindless {:?}, size: {:.2} kb",
-      semantic, buffer_size
-    ));
+    let buffer_size = inspector.format_readable_data_size(buffer_size);
+    inspector.label(&format!("bindless {:?}, size: {}", semantic, buffer_size));
   }
 
   let attribute_scope = cx

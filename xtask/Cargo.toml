@@ -8,3 +8,4 @@ publish = false
 xshell = "0.2.7"
 pico-args = "0.5.0"
 anyhow = { workspace = true }
+humansize = { workspace = true }

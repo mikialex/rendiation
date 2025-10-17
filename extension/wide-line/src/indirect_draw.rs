@@ -28,9 +28,9 @@ pub fn use_widen_line_indirect_renderer(
 
   if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
     let buffer_size = line_seg_buffer.read().gpu().byte_size();
-    let buffer_size = buffer_size as f32 / 1024.;
+    let buffer_size = inspector.format_readable_data_size(buffer_size);
     inspector.label(&format!(
-      "wide line segment buffer pool, size: {:.2} kb",
+      "wide line segment buffer pool, size: {}",
       buffer_size
     ));
   }

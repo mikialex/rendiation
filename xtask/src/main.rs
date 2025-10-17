@@ -80,7 +80,58 @@ fn build_wasm_internal(
     cmd = cmd.args(["--keep-debug", "--debug"])
   }
 
+  let previous_wasm_size = read_wasm_binary_size().ok();
+
   cmd.run().context("Failed to run wasm-bindgen for wasm")?;
+
+  log_wasm_binary_size_change(previous_wasm_size)?;
+
+  Ok(())
+}
+
+fn read_wasm_binary_size() -> anyhow::Result<u64> {
+  let file_path = "./application/viewer-web/generated/viewer_bg.wasm";
+  let size = std::fs::metadata(file_path)?.len();
+  Ok(size)
+}
+
+fn log_wasm_binary_size_change(previous_size: Option<u64>) -> anyhow::Result<()> {
+  use humansize::*;
+  let current_size = read_wasm_binary_size().context("Failed to get new built wasm binary size")?;
+
+  if let Some(previous) = previous_size {
+    if previous > current_size {
+      let diff = previous - current_size;
+      println!(
+        "binary size reduced {}, from {} to {}",
+        format_size(diff, BINARY),
+        format_size(previous, BINARY),
+        format_size(current_size, BINARY)
+      );
+    }
+
+    if previous < current_size {
+      let diff = current_size - previous;
+      println!(
+        "binary size increased {}, from {} to {}",
+        format_size(diff, BINARY),
+        format_size(previous, BINARY),
+        format_size(current_size, BINARY)
+      );
+    }
+
+    if previous == current_size {
+      println!(
+        "binary size not changed, current size {}",
+        format_size(current_size, BINARY)
+      );
+    }
+  } else {
+    println!(
+      "wasm binary built new, current size {}",
+      format_size(current_size, BINARY)
+    );
+  }
 
   Ok(())
 }
