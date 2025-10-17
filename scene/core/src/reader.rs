@@ -220,6 +220,38 @@ impl<T: SceneBufferView> SceneBufferViewReadView<T> {
     }
     .into()
   }
+
+  /// return (data, count)
+  pub fn read_view_bytes<'a>(
+    &self,
+    id: EntityHandle<T::Entity>,
+    buffer_reader: &'a ComponentReadView<BufferEntityData>,
+  ) -> Option<(&'a [u8], u32)> {
+    let range = self.range.get_value(id)?;
+    let count = self.count.get_value(id)?;
+    let data = self.buffer.get(id)?;
+    let data = buffer_reader.get(data)?.ptr.as_slice();
+
+    if let Some(range) = range {
+      let range = range.into_range(data.len());
+      let data = data.get(range)?;
+      (data, count)
+    } else {
+      (data, count)
+    }
+    .into()
+  }
+
+  pub fn read_view_slice<'a, V: Pod>(
+    &self,
+    id: EntityHandle<T::Entity>,
+    buffer_reader: &'a ComponentReadView<BufferEntityData>,
+  ) -> Option<&'a [V]> {
+    let (bytes, count) = self.read_view_bytes(id, buffer_reader)?;
+    let byte_per_item = bytes.len() / count as usize;
+    assert_eq!(byte_per_item, std::mem::size_of::<V>());
+    bytemuck::try_cast_slice(bytes).ok()
+  }
 }
 
 pub fn scene_buffer_view_into_attribute(
@@ -228,7 +260,7 @@ pub fn scene_buffer_view_into_attribute(
 ) -> Option<AttributeAccessor> {
   let buffer = buffer.get_value(view.data?)?.ptr.clone();
   let range = view.range.unwrap_or_default();
-  let count = view.count.unwrap() as usize;
+  let count = view.count as usize;
 
   let byte_size = range
     .size

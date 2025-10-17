@@ -95,13 +95,13 @@ impl AnimationChannelDataView {
     let input = SceneBufferViewDataView {
       data: Some(data),
       range: None,
-      count: Some(self.sampler.input.count as u32),
+      count: self.sampler.input.count as u32,
     };
     let data = self.sampler.output.clone().write(&mut writer.buffer_writer);
     let output = SceneBufferViewDataView {
       data: Some(data),
       range: None,
-      count: Some(self.sampler.output.count as u32),
+      count: self.sampler.output.count as u32,
     };
 
     input.write::<SceneAnimationChannelInput>(&mut writer.animation_channel);

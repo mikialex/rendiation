@@ -44,7 +44,7 @@ pub trait SceneBufferView: EntityAssociateSemantic {}
 pub struct SceneBufferViewDataView {
   pub data: Option<EntityHandle<BufferEntity>>,
   pub range: Option<BufferViewRange>,
-  pub count: Option<u32>,
+  pub count: u32,
 }
 
 impl SceneBufferViewDataView {
@@ -93,5 +93,5 @@ impl<T: SceneBufferView> EntityAssociateSemantic for SceneBufferViewBufferItemCo
   type Entity = T::Entity;
 }
 impl<T: SceneBufferView> ComponentSemantic for SceneBufferViewBufferItemCount<T> {
-  type Data = Option<u32>;
+  type Data = u32;
 }

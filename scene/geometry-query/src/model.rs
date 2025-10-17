@@ -1,7 +1,6 @@
 use crate::*;
 
 pub trait LocalModelPicker {
-  /// the local tolerance is totally optional(return 0)
   fn compute_local_tolerance(
     &self,
     idx: EntityHandle<SceneModelEntity>,
@@ -90,13 +89,10 @@ pub fn use_attribute_mesh_picker(cx: &mut impl DBHookCxLike) -> Option<Attribute
       .read_foreign_key(),
     mesh_vertex_refs: mesh_vertex_refs.expect_resolve_stage().into_boxed_multi(),
     semantic: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
-    mesh_index_attribute: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>(
-    )
-    .read_foreign_key(),
+    vertex_buffer: SceneBufferViewReadView::new_from_global(),
+    index_buffer: SceneBufferViewReadView::new_from_global(),
     mesh_topology: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
     buffer: global_entity_component_of::<BufferEntityData>().read(),
-    vertex_buffer_ref: global_entity_component_of::<SceneBufferViewBufferId<AttributeVertexRef>>()
-      .read_foreign_key(),
     pick_line_tolerance: IntersectTolerance::new(1.0, ToleranceType::ScreenSpace),
     pick_point_tolerance: IntersectTolerance::new(1.0, ToleranceType::ScreenSpace),
   })
@@ -107,9 +103,9 @@ pub struct AttributeMeshPicker {
   pub model_access_std_model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
   pub mesh_vertex_refs: BoxedDynMultiQuery<RawEntityHandle, RawEntityHandle>,
-  pub vertex_buffer_ref: ForeignKeyReadView<SceneBufferViewBufferId<AttributeVertexRef>>,
+  pub vertex_buffer: SceneBufferViewReadView<AttributeVertexRef>,
+  pub index_buffer: SceneBufferViewReadView<AttributeIndexRef>,
   pub semantic: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
-  pub mesh_index_attribute: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
   pub mesh_topology: ComponentReadView<AttributesMeshEntityTopology>,
   pub buffer: ComponentReadView<BufferEntityData>,
   pub pick_line_tolerance: IntersectTolerance,
@@ -151,11 +147,11 @@ impl LocalModelPicker for AttributeMeshPicker {
     local_ray: Ray3<f32>,
     local_tolerance: f32,
   ) -> Option<MeshBufferHitPoint> {
-    struct PositionBuffer<'a> {
+    struct AttributeFastPickView<'a> {
       buffer: &'a [Vec3<f32>],
     }
 
-    impl IndexGet for PositionBuffer<'_> {
+    impl IndexGet for AttributeFastPickView<'_> {
       type Output = Vec3<f32>;
 
       fn index_get(&self, key: usize) -> Option<Self::Output> {
@@ -168,46 +164,47 @@ impl LocalModelPicker for AttributeMeshPicker {
 
     let mode = self.mesh_topology.get_value(mesh)?;
 
-    let mut position: Option<&ExternalRefPtr<Vec<u8>>> = None;
+    let mut position: Option<&[Vec3<f32>]> = None;
+    let mut count = 0;
     for att in self.mesh_vertex_refs.access_multi(&mesh.into_raw())? {
       let att = unsafe { EntityHandle::from_raw(att) };
-      if let AttributeSemantic::Positions = self.semantic.get_value(att).unwrap() {
-        let p = self.vertex_buffer_ref.get(att).unwrap();
-        position = Some(self.buffer.get(p).unwrap());
+      if let AttributeSemantic::Positions = self.semantic.get_value(att)? {
+        let p = self
+          .vertex_buffer
+          .read_view_slice::<Vec3<f32>>(att, &self.buffer)?;
+        position = p.into();
+        count = p.len();
+        break;
       }
     }
-    let position = position.unwrap();
-    let position = PositionBuffer {
-      buffer: bytemuck::cast_slice(position.as_slice()),
-    };
-    let mut count = position.buffer.len();
+    let position = AttributeFastPickView { buffer: position? };
 
-    let index = self.mesh_index_attribute.get(mesh).and_then(|v| {
-      let buffer = self.buffer.get(v)?;
-
-      if buffer.len() % 4 != 0 {
-        let index: &[u16] = cast_slice(buffer);
-        count = buffer.len() / 2;
-        DynIndexRef::Uint16(index)
-      } else {
-        let index: &[u32] = cast_slice(buffer);
-        count = buffer.len() / 4;
-        DynIndexRef::Uint32(index)
-      }
-      .into()
-    });
+    let index = self
+      .index_buffer
+      .read_view_bytes(mesh, &self.buffer)
+      .map(|(buffer, count)| {
+        let byte_per_item = buffer.len() / count as usize;
+        if byte_per_item == 4 {
+          let index: &[u32] = cast_slice(buffer);
+          DynIndexRef::Uint32(index)
+        } else {
+          let index: &[u16] = cast_slice(buffer);
+          DynIndexRef::Uint16(index)
+        }
+      });
 
     let config = MeshBufferIntersectConfig {
       tolerance_local: local_tolerance,
       triangle_face: FaceSide::Double,
     };
 
-    *AttributesMeshEntityAbstractMeshReadView {
+    let mesh = AttributesMeshEntityAbstractMeshReadView {
       mode,
       vertices: position,
       indices: index,
       count: count / mode.stride(),
-    }
-    .ray_intersect_nearest(local_ray, &config)
+    };
+
+    *mesh.ray_intersect_nearest(local_ray, &config)
   }
 }

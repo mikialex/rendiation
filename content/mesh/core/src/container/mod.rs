@@ -49,6 +49,7 @@ pub trait AbstractMesh {
   }
 
   /// check the mesh has no out of bound error.
+  #[must_use]
   fn validate_access(&self) -> bool
   where
     Self: Sized,

@@ -169,6 +169,7 @@ impl CollectionSize for DynIndexContainer {
   }
 }
 
+#[derive(Debug)]
 pub enum DynIndexRef<'a> {
   Uint16(&'a [u16]),
   Uint32(&'a [u32]),

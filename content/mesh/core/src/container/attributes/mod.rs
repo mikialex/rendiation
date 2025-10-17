@@ -23,7 +23,7 @@ impl BufferViewRange {
   pub fn into_range(self, len: usize) -> std::ops::Range<usize> {
     let start = self.offset as usize;
     let end = match self.size {
-      None => len,
+      None => start + len,
       Some(size) => start + u64::from(size) as usize,
     };
     start..end

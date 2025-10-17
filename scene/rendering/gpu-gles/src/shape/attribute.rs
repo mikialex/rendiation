@@ -47,7 +47,7 @@ impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
     let mesh_id = self.mesh_access.get(idx)?;
 
     let index = if let Some(index_buffer) = self.index.access_ref(&mesh_id.into_raw()) {
-      let count = self.count.get_value(mesh_id).unwrap().unwrap() as u64;
+      let count = self.count.get_value(mesh_id).unwrap() as u64;
       let stride = u64::from(index_buffer.view_byte_size()) / count;
       let fmt = match stride {
         4 => AttributeIndexFormat::Uint32,
@@ -224,7 +224,7 @@ impl AttributesMeshGPU<'_> {
       let count = *self.vertex.count.get(first_vertex).unwrap();
 
       DrawCommand::Array {
-        vertices: 0..count.unwrap(),
+        vertices: 0..count,
         instances: 0..1,
       }
     }

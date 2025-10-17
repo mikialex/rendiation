@@ -90,7 +90,11 @@ impl AttributesMeshWriter for AttributesMesh {
     writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
     buffer: &mut EntityWriter<BufferEntity>,
   ) -> AttributesMeshEntities {
-    let count = self.indices.as_ref().map(|(_, data)| data.count as u32);
+    let count = self
+      .indices
+      .as_ref()
+      .map(|(_, data)| data.count as u32)
+      .unwrap_or(0);
     let index_data = self.indices.map(|(_, data)| data.write(buffer));
 
     let index = SceneBufferViewDataView {
@@ -122,7 +126,7 @@ impl AttributesMeshWriter for AttributesMesh {
       let vertex = SceneBufferViewDataView {
         data: Some(vertex_data),
         range: None,
-        count: Some(count as u32),
+        count: count as u32,
       };
 
       let relation_writer = &mut writer.relation;
@@ -279,7 +283,7 @@ pub fn use_attribute_mesh_position_query(
 
   let indexed_meshes_and_its_range = ranged_index_buffer1
     .dual_query_zip(index_count)
-    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())))
+    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count)))
     .dual_query_boxed();
 
   let none_indexed_mesh_set =

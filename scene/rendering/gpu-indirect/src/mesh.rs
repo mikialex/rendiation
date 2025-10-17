@@ -165,7 +165,7 @@ fn use_attribute_indices_updates(
   let source_info = index_buffer_ref
     .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
     .dual_query_zip(index_item_count)
-    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())))
+    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count)))
     .dual_query_boxed();
 
   let (cx, allocator) =
@@ -189,13 +189,7 @@ fn use_attribute_indices_updates(
     for (k, (buffer_id, range, count)) in change.iter_update_or_insert() {
       let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
 
-      let range = range.map(|range| {
-        let end = range
-          .size
-          .map(|v| (u64::from(v) + range.offset) as usize)
-          .unwrap_or(buffer.len());
-        range.offset as usize..end
-      });
+      let range = range.map(|range| range.into_range(buffer.len()));
 
       let byte_per_item = buffer.len() / count as usize;
       if byte_per_item != 4 && byte_per_item != 2 {
@@ -322,13 +316,7 @@ fn use_attribute_vertex_updates(
       for (k, (buffer_id, range)) in change.iter_update_or_insert() {
         let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
 
-        let range = range.map(|range| {
-          let end = range
-            .size
-            .map(|v| (u64::from(v) + range.offset) as usize)
-            .unwrap_or(buffer.len());
-          range.offset as usize..end
-        });
+        let range = range.map(|range| range.into_range(buffer.len()));
 
         let len = range
           .clone()

@@ -70,7 +70,6 @@ pub fn use_widen_line_indirect_renderer(
           .collect();
         let buffer: &[u8] = cast_slice(&buffer);
         let len = buffer.len() as u32;
-        println!("buffer len: {}", len);
         buffers_to_write.collect_direct(k, buffer);
         sizes.push((k, len / item_byte_size));
       }
