@@ -179,19 +179,21 @@ impl LocalModelPicker for AttributeMeshPicker {
     }
     let position = AttributeFastPickView { buffer: position? };
 
-    let index = self
-      .index_buffer
-      .read_view_bytes(mesh, &self.buffer)
-      .map(|(buffer, count)| {
-        let byte_per_item = buffer.len() / count as usize;
-        if byte_per_item == 4 {
-          let index: &[u32] = cast_slice(buffer);
-          DynIndexRef::Uint32(index)
-        } else {
-          let index: &[u16] = cast_slice(buffer);
-          DynIndexRef::Uint16(index)
-        }
-      });
+    let index =
+      self
+        .index_buffer
+        .read_view_bytes(mesh, &self.buffer)
+        .map(|(buffer, index_count)| {
+          count = index_count as usize;
+          let byte_per_item = buffer.len() / index_count as usize;
+          if byte_per_item == 4 {
+            let index: &[u32] = cast_slice(buffer);
+            DynIndexRef::Uint32(index)
+          } else {
+            let index: &[u16] = cast_slice(buffer);
+            DynIndexRef::Uint16(index)
+          }
+        });
 
     let config = MeshBufferIntersectConfig {
       tolerance_local: local_tolerance,
