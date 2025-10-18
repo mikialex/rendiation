@@ -403,7 +403,13 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
   }
 }
 
-fn modify_color(ui: &mut egui::Ui, c: &mut Vec3<f32>) {
+pub fn modify_color4(ui: &mut egui::Ui, c: &mut Vec4<f32>) {
+  let mut color: [f32; 4] = (*c).into();
+  ui.color_edit_button_rgba_unmultiplied(&mut color);
+  *c = color.into();
+}
+
+pub fn modify_color(ui: &mut egui::Ui, c: &mut Vec3<f32>) {
   let mut color: [f32; 3] = (*c).into();
   ui.color_edit_button_rgb(&mut color);
   *c = color.into();

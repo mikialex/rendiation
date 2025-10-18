@@ -6,6 +6,7 @@ use crate::*;
 pub struct ViewerOutlineSourceProvider<'a> {
   pub g_buffer: &'a FrameGeometryBuffer,
   pub reproject: &'a UniformBufferCachedDataView<ReprojectInfo>,
+  pub outline_color: &'a UniformBufferCachedDataView<Vec4<f32>>,
 }
 
 impl ShaderHashProvider for ViewerOutlineSourceProvider<'_> {
@@ -16,21 +17,25 @@ impl OutlineComputeSourceProvider for ViewerOutlineSourceProvider<'_> {
   fn build(&self, binding: &mut ShaderBindGroupBuilder) -> Box<dyn OutlineComputeSourceInvocation> {
     let g_buffer = self.g_buffer.build_read_invocation(binding);
     let reproject = binding.bind_by(self.reproject).load().expand();
+    let outline_color = binding.bind_by(self.outline_color).load();
     Box::new(ViewerOutlineSourceInvocation {
       g_buffer,
       reproject,
+      outline_color,
     })
   }
 
   fn bind(&self, cx: &mut GPURenderPassCtx) {
     self.g_buffer.setup_pass(cx);
     cx.binding.bind(self.reproject);
+    cx.binding.bind(self.outline_color);
   }
 }
 
 struct ViewerOutlineSourceInvocation {
   g_buffer: FrameGeometryBufferReadInvocation,
   reproject: ReprojectInfoShaderAPIInstance,
+  outline_color: Node<Vec4<f32>>,
 }
 
 impl OutlineComputeSourceInvocation for ViewerOutlineSourceInvocation {
@@ -45,6 +50,7 @@ impl OutlineComputeSourceInvocation for ViewerOutlineSourceInvocation {
       position: render_position,
       normal,
       entity_id: id,
+      outline_color: self.outline_color,
     }
   }
 }

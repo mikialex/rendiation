@@ -179,14 +179,6 @@ impl PassContent for Box<dyn PassContent + '_> {
   }
 }
 
-impl<T: PassContent> PassContent for Option<T> {
-  fn render(&mut self, pass: &mut FrameRenderPass) {
-    if let Some(content) = self {
-      content.render(pass);
-    }
-  }
-}
-
 pub struct ActiveRenderPass {
   pub pass: ManuallyDrop<FrameRenderPass>,
   pub desc: RenderPassDescription,
@@ -207,6 +199,13 @@ impl Drop for ActiveRenderPass {
 }
 
 impl ActiveRenderPass {
+  pub fn by_if(self, renderable: &mut Option<impl PassContent>) -> Self {
+    if let Some(renderable) = renderable {
+      return self.by(renderable);
+    }
+    self
+  }
+
   pub fn by(mut self, renderable: &mut impl PassContent) -> Self {
     // when we are debug build, enable label scope writing
     #[cfg(debug_assertions)]

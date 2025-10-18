@@ -18,6 +18,9 @@ pub struct ViewerFrameLogic {
   enable_ground: bool,
   enable_ssao: bool,
   enable_outline: bool,
+  outline_color: UniformBufferCachedDataView<Vec4<f32>>,
+  outline_background_color: Vec3<f32>,
+  show_outline_only: bool,
   ssao: SSAO,
   _blur: CrossBlurData,
   ground: UniformBufferCachedDataView<ShaderPlaneUniform>,
@@ -50,6 +53,9 @@ impl ViewerFrameLogic {
       enable_ssao: false,
       enable_outline: false,
       ssao: SSAO::new(gpu),
+      outline_color: UniformBufferCachedDataView::create(&gpu.device, vec4(0., 0., 0., 1.)),
+      outline_background_color: vec3(1., 1., 1.),
+      show_outline_only: false,
       ground: UniformBufferCachedDataView::create(&gpu.device, ground_like_shader_plane()),
       grid: UniformBufferCachedDataView::create_default(&gpu.device),
       post: UniformBufferCachedDataView::create_default(&gpu.device),
@@ -65,8 +71,21 @@ impl ViewerFrameLogic {
     }
     ui.checkbox(&mut self.enable_ground, "enable ground");
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
-    ui.checkbox(&mut self.enable_outline, "enable outline");
+
+    ui.collapsing("outline", |ui| {
+      ui.checkbox(&mut self.enable_outline, "enable outline");
+      ui.checkbox(&mut self.show_outline_only, "show_outline_only");
+      self.outline_color.mutate(|color| {
+        modify_color4(ui, color);
+      });
+      modify_color(ui, &mut self.outline_background_color);
+    });
+
     post_egui(ui, &self.post);
+  }
+
+  fn is_outline_only_mode(&self) -> bool {
+    self.enable_outline && self.show_outline_only
   }
 
   #[must_use]
@@ -91,6 +110,8 @@ impl ViewerFrameLogic {
       .update(ctx, current_camera_view_projection_inv);
 
     self.post.upload_with_diff(&ctx.gpu.queue);
+    self.outline_color.upload_with_diff(&ctx.gpu.queue);
+    let is_outline_only_mode = self.is_outline_only_mode();
 
     let camera_gpu = renderer.cameras.make_component(camera).unwrap();
 
@@ -113,9 +134,10 @@ impl ViewerFrameLogic {
           camera,
           &scene_result,
           &g_buffer,
+          !is_outline_only_mode,
         );
 
-        if self.enable_ground {
+        if self.enable_ground && !is_outline_only_mode {
           // this must a separate pass, because the id buffer should not be written.
           pass("grid_ground")
             .with_color(&scene_result, load_and_store())
@@ -202,6 +224,15 @@ impl ViewerFrameLogic {
       entity_id: id_buffer,
     };
 
+    let mut post_process = (!is_outline_only_mode).then(|| {
+      PostProcess {
+        input: maybe_aa_result.clone(),
+        config: &self.post,
+        target_is_srgb: final_target.format().is_srgb(),
+      }
+      .draw_quad()
+    });
+
     let mut highlight_compose = (content.selected_target.is_some()).then(|| {
       let batch = Box::new(IteratorAsHostRenderBatch(content.selected_target));
       let batch = SceneModelRenderBatch::Host(batch);
@@ -214,29 +245,30 @@ impl ViewerFrameLogic {
       self.highlight.draw(ctx, masked_content)
     });
 
-    let compose = pass("compose-all")
-      .with_color(final_target, store_full_frame())
-      .render_ctx(ctx)
-      .by(
-        &mut PostProcess {
-          input: maybe_aa_result.clone(),
-          config: &self.post,
-          target_is_srgb: final_target.format().is_srgb(),
-        }
-        .draw_quad(),
-      )
-      .by(&mut highlight_compose);
+    let pass_init = if is_outline_only_mode {
+      let c = self.outline_background_color;
+      clear_and_store(color(c.x as f64, c.y as f64, c.z as f64, 1.0))
+    } else {
+      store_full_frame()
+    };
 
+    let compose = pass("compose-all")
+      .with_color(final_target, pass_init)
+      .render_ctx(ctx)
+      .by_if(&mut post_process)
+      .by_if(&mut highlight_compose);
+
+    // the outline will not draw on taa frame, because the effect is screen space
     if self.enable_outline {
-      // should we draw outline on taa buffer?
       compose.by(
         &mut OutlineComputer {
           source: &ViewerOutlineSourceProvider {
             g_buffer: &g_buffer,
             reproject: &self.reproject.reproject,
+            outline_color: &self.outline_color,
           },
         }
-        .draw_quad(),
+        .draw_quad_with_alpha_blending(),
       );
     }
 

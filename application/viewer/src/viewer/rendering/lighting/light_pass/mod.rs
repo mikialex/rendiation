@@ -29,6 +29,7 @@ pub fn render_lighting_scene_content(
   camera: EntityHandle<SceneCameraEntity>,
   scene_result: &RenderTargetView,
   g_buffer: &FrameGeometryBuffer,
+  only_draw_g_buffer: bool,
 ) {
   let camera_gpu = renderer.cameras.make_component(camera).unwrap();
   let camera_gpu = &camera_gpu;
@@ -260,32 +261,34 @@ pub fn render_lighting_scene_content(
         main_scene_content,
       );
 
-      let geometry_from_g_buffer = Box::new(FrameGeometryBufferReconstructGeometryCtx {
-        camera: &camera_gpu,
-        g_buffer,
-      }) as Box<dyn GeometryCtxProvider>;
-      let surface_from_m_buffer = Box::new(FrameGeneralMaterialBufferReconstructSurface {
-        m_buffer: &m_buffer,
-        registry: lighting_cx.deferred_mat_supports,
-      });
-      let lighting = lighting_cx.lighting.get_scene_lighting_component(
-        scene,
-        geometry_from_g_buffer,
-        surface_from_m_buffer,
-      );
+      if !only_draw_g_buffer {
+        let geometry_from_g_buffer = Box::new(FrameGeometryBufferReconstructGeometryCtx {
+          camera: &camera_gpu,
+          g_buffer,
+        }) as Box<dyn GeometryCtxProvider>;
+        let surface_from_m_buffer = Box::new(FrameGeneralMaterialBufferReconstructSurface {
+          m_buffer: &m_buffer,
+          registry: lighting_cx.deferred_mat_supports,
+        });
+        let lighting = lighting_cx.lighting.get_scene_lighting_component(
+          scene,
+          geometry_from_g_buffer,
+          surface_from_m_buffer,
+        );
 
-      let lighting = RenderArray([
-        &DefaultDisplayWriter {
-          write_channel_index: 0,
-        } as &dyn RenderComponent,
-        lighting.as_ref(),
-      ]);
+        let lighting = RenderArray([
+          &DefaultDisplayWriter {
+            write_channel_index: 0,
+          } as &dyn RenderComponent,
+          lighting.as_ref(),
+        ]);
 
-      let _ = pass("deferred lighting compute")
-        .with_color(scene_result, color_ops)
-        .render_ctx(ctx)
-        .by(&mut background)
-        .by(&mut lighting.draw_quad());
+        let _ = pass("deferred lighting compute")
+          .with_color(scene_result, color_ops)
+          .render_ctx(ctx)
+          .by(&mut background)
+          .by(&mut lighting.draw_quad());
+      }
     }
   }
 }

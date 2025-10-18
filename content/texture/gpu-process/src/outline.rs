@@ -4,6 +4,7 @@ pub struct OutlineSource {
   pub position: Node<Vec3<f32>>,
   pub normal: Node<Vec3<f32>>,
   pub entity_id: Node<u32>,
+  pub outline_color: Node<Vec4<f32>>,
 }
 
 pub trait OutlineComputeSourceInvocation {
@@ -93,13 +94,9 @@ impl GraphicsShaderProvider for OutlineComputer<'_> {
       let normal_edge_ratio = (normal_diff - normal_bias).saturate();
       let edge = edge.max(normal_edge_ratio);
 
-      if_by(center.entity_id.equals(val(u32::MAX)), || {
-        builder.store_fragment_out_vec4f(0, (val(0.).splat(), val(0.)));
-      })
-      .else_by(|| {
-        // builder.store_fragment_out_vec4f(0, (val(0.).splat(), edge));
-        builder.store_fragment_out_vec4f(0, (edge.splat(), val(1.))); // keep this for debugging
-      });
+      let color = center.outline_color;
+
+      builder.store_fragment_out_vec4f(0, (color.xyz(), edge * color.w()));
     })
   }
 }
