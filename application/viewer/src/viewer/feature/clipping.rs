@@ -81,7 +81,40 @@ impl CSGExpressionNodeDevice {
   }
 }
 
-struct TreeTraverseStack;
+struct CSGExpressionClippingComponent {
+  expressions: AbstractStorageBuffer<[u32]>,
+}
+
+impl ShaderHashProvider for CSGExpressionClippingComponent {
+  shader_hash_type_id! {}
+}
+
+impl ShaderPassBuilder for CSGExpressionClippingComponent {}
+
+only_fragment!(SceneModelClippingId, u32);
+
+impl GraphicsShaderProvider for CSGExpressionClippingComponent {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, b| {
+      if let Some(root) = builder.try_query::<SceneModelClippingId>() {
+        //
+      }
+    })
+  }
+}
+
+struct TreeTraverseStack {
+  result_stack: ShaderPtrOf<[bool]>,
+  last_result_index: ShaderPtrOf<u32>,
+  expr_stack: ShaderPtrOf<[u32]>, // each expr is 5 u32.
+  last_expr_index: ShaderPtrOf<u32>,
+}
+
+impl Default for TreeTraverseStack {
+  fn default() -> Self {
+    todo!();
+  }
+}
 
 impl TreeTraverseStack {
   pub fn push(&self, idx: Node<u32>) {
@@ -92,13 +125,30 @@ impl TreeTraverseStack {
     //
   }
 
-  pub fn push_value(&self, item: Node<bool>) {}
+  pub fn push_value(&self, item: Node<bool>) {
+    let idx = self.last_result_index.load();
+    self.last_result_index.store(idx + val(1));
+    self.result_stack.index(idx).store(item)
+  }
 
   pub fn pop_value(&self) -> Node<bool> {
-    todo!()
+    let idx = self.last_result_index.load();
+    self.last_result_index.store(idx - val(1));
+    self.result_stack.index(idx).load()
   }
 
   pub fn pop(&self) -> (Node<bool>, CSGExpressionNodeDevice) {
+    // let idx = self.last_expr_index.load();
+    // let valid = idx.not_equals(val(0));
+    // let clamped_idx = valid.select(idx, val(0));
+    // self.last_result_index.store(idx - val(5));
+    // let expr = self.read_expr(clamped_idx);
+    // (valid, todo!())
+
+    todo!()
+  }
+
+  fn read_expr(&self, raw_idx: Node<u32>) -> CSGExpressionNodeDevice {
     todo!()
   }
 }
@@ -108,8 +158,7 @@ fn eval_clipping(
   root: Node<u32>,
   expression_nodes: &ShaderPtrOf<[u32]>,
 ) -> Node<bool> {
-  // let stack = val([0_u32; 32]).make_local_var();
-  let stack = TreeTraverseStack;
+  let stack = TreeTraverseStack::default();
   stack.push(root);
 
   loop_by(|cx| {
@@ -124,7 +173,6 @@ fn eval_clipping(
         stack.push_raw(CSGExpressionNodeDeviceVariant::ExecuteAnd.into_node());
         stack.push(left);
         stack.push(right);
-        //
       }
       CSGExpressionNodeDeviceVariant::InputOr(left, right) => {
         stack.push_raw(CSGExpressionNodeDeviceVariant::ExecuteOr.into_node());
@@ -140,8 +188,6 @@ fn eval_clipping(
         stack.push_value(or);
       }
     });
-
-    //
   });
 
   stack.pop_value()
