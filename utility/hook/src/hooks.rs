@@ -1,5 +1,6 @@
 use std::{
   any::{Any, TypeId},
+  io::Write,
   panic::Location,
   sync::Arc,
 };
@@ -45,7 +46,41 @@ pub unsafe trait HooksCxLike: Sized {
   #[track_caller]
   fn raw_scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
     let is_dynamic_stage = self.is_dynamic_stage();
-    let sub_memory = self.memory_mut().sub_function(is_dynamic_stage) as *mut _;
+
+    let location = FastLocation(Location::caller());
+    let key = SubFunctionKeyType::CallSite(location);
+    let sub_memory = self.memory_mut().sub_function(is_dynamic_stage, key) as *mut _;
+
+    unsafe {
+      core::ptr::swap(self.memory_mut(), sub_memory);
+      let r = f(self);
+      core::ptr::swap(self.memory_mut(), sub_memory);
+      r
+    }
+  }
+
+  fn keyed_scope<K: std::hash::Hash, R>(&mut self, key: &K, f: impl FnOnce(&mut Self) -> R) -> R {
+    let is_dynamic_stage = self.is_dynamic_stage();
+
+    /// this is hack
+    #[derive(Default)]
+    struct HashByteCollector(smallvec::SmallVec<[u8; 32]>);
+    impl std::hash::Hasher for HashByteCollector {
+      fn finish(&self) -> u64 {
+        0 // i don't care the hash
+      }
+
+      fn write(&mut self, bytes: &[u8]) {
+        let _ = self.0.write(bytes);
+      }
+    }
+
+    let mut hasher = HashByteCollector::default();
+    key.hash(&mut hasher);
+    let key = hasher.0;
+
+    let key = SubFunctionKeyType::UserDefined(key);
+    let sub_memory = self.memory_mut().sub_function(is_dynamic_stage, key) as *mut _;
 
     unsafe {
       core::ptr::swap(self.memory_mut(), sub_memory);
@@ -113,21 +148,29 @@ pub struct FunctionMemory {
   sub_functions_next: FastHashMap<SubFunctionKey, Self>,
 }
 
-#[derive(Eq)]
+#[derive(Eq, PartialEq, Hash)]
 struct SubFunctionKey {
   position: usize,
-  call_site: &'static Location<'static>,
+  key: SubFunctionKeyType,
 }
 
-impl PartialEq for SubFunctionKey {
+#[derive(Eq, PartialEq, Hash)]
+pub enum SubFunctionKeyType {
+  CallSite(FastLocation),
+  UserDefined(smallvec::SmallVec<[u8; 32]>),
+}
+
+#[derive(Eq)]
+pub struct FastLocation(pub &'static Location<'static>);
+
+impl PartialEq for FastLocation {
   fn eq(&self, other: &Self) -> bool {
-    self.position == other.position && std::ptr::eq(self.call_site, other.call_site)
+    std::ptr::eq(self.0, other.0)
   }
 }
-impl std::hash::Hash for SubFunctionKey {
+impl std::hash::Hash for FastLocation {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.position.hash(state);
-    (self.call_site as *const _ as usize).hash(state);
+    (self.0 as *const _ as usize).hash(state);
   }
 }
 
@@ -189,11 +232,11 @@ impl FunctionMemory {
   }
 
   #[track_caller]
-  pub fn sub_function(&mut self, is_dynamic_stage: bool) -> &mut Self {
+  pub fn sub_function(&mut self, is_dynamic_stage: bool, key: SubFunctionKeyType) -> &mut Self {
     let location = Location::caller();
     let key = SubFunctionKey {
       position: self.current_cursor,
-      call_site: location,
+      key,
     };
     if is_dynamic_stage {
       if let Some(previous_memory) = self.sub_functions.remove(&key) {
