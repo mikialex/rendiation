@@ -83,6 +83,14 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     }
   }
 
+  fn dual_query_map_kv<V2: CValue>(
+    self,
+    f: impl Fn(&Self::Key, Self::Value) -> V2 + Clone + Sync + Send + 'static,
+  ) -> impl DualQueryLike<Key = Self::Key, Value = V2> {
+    let (view, delta) = self.view_delta();
+    DualQuery { view, delta }.map(f)
+  }
+
   fn dual_query_filter(
     self,
     f: impl Fn(Self::Value) -> bool + Clone + Sync + Send + 'static,

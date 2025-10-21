@@ -109,7 +109,6 @@ pub fn use_widen_line_indirect_renderer(
   let range_change = allocation_info
     .map(|allocation_info| allocation_info.allocation_changes.clone())
     .use_change_to_dual_query_in_spawn_stage(cx)
-    .use_validation(cx, "range", true)
     .into_delta_change();
 
   let offset = std::mem::offset_of!(WideLineParameters, data_range);

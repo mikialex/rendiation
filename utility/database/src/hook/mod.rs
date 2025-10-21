@@ -208,6 +208,13 @@ pub trait DBHookCxLike: QueryHookCxLike {
   fn use_dual_query_set<E: EntitySemantic>(
     &mut self,
   ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, ()>> {
+    self.use_dual_query_set_raw(E::entity_id())
+  }
+
+  fn use_dual_query_set_raw(
+    &mut self,
+    entity_id: EntityId,
+  ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, ()>> {
     struct DBDualQuerySetProvider(EntityId);
 
     impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for DBDualQuerySetProvider {
@@ -230,7 +237,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
       }
     }
 
-    self.use_shared_dual_query(DBDualQuerySetProvider(E::entity_id()))
+    self.use_shared_dual_query(DBDualQuerySetProvider(entity_id))
   }
 
   fn use_db_rev_ref_tri_view<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignTriQuery> {

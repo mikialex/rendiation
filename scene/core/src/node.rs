@@ -17,7 +17,7 @@ declare_component!(SceneNodeVisibleComponent, SceneNodeEntity, bool, true);
 pub fn register_scene_node_data_model() {
   global_database()
     .declare_entity::<SceneNodeEntity>()
-    .declare_component::<SceneNodeParentIdx>()
+    .declare_foreign_key::<SceneNodeParentIdx>()
     .declare_component::<SceneNodeLocalMatrixComponent>()
     .declare_component::<SceneNodeVisibleComponent>();
 }

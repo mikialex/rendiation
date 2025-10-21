@@ -5,12 +5,15 @@ use futures::future::join_all;
 use crate::*;
 
 type ForeignKeyChange = BoxedDynQuery<RawEntityHandle, ValueChange<RawEntityHandle>>;
-pub type DBAllForeignKeyChange = FastHashMap<(ComponentId, EntityId), UseResult<ForeignKeyChange>>;
+pub type DBAllForeignKeyChange = FastHashMap<(EntityId, ComponentId), UseResult<ForeignKeyChange>>;
 
 type ForeignKeyChangeFut = Pin<Box<dyn Future<Output = ForeignKeyChange> + Send + Sync>>;
 
+type RevOwnershipForeignKeysConfig = FastHashSet<ComponentId>;
+
 pub fn use_db_all_foreign_key_change(
   cx: &mut impl DBHookCxLike,
+  config: &RevOwnershipForeignKeysConfig,
 ) -> UseResult<DBAllForeignKeyChange> {
   let mut changes = DBAllForeignKeyChange::default();
 
@@ -18,12 +21,26 @@ pub fn use_db_all_foreign_key_change(
     cx.keyed_scope(e_id, |cx| {
       for (c_id, ref_e_id) in ecg.inner.foreign_keys.read().iter() {
         cx.keyed_scope(c_id, |cx| {
-          let change = cx
-            .use_dual_query_impl::<Option<RawEntityHandle>>(*c_id, *e_id)
-            .dual_query_filter_map(|v| v)
-            .map(|v| v.delta().into_boxed());
+          if !config.contains(c_id) {
+            cx.scope(|cx| {
+              let change = cx
+                .use_dual_query_impl::<Option<RawEntityHandle>>(*c_id, *e_id)
+                .dual_query_filter_map(|v| v)
+                .map(|v| v.delta().into_boxed());
 
-          changes.insert((*c_id, *ref_e_id), change);
+              changes.insert((*ref_e_id, *c_id), change);
+            });
+          } else {
+            cx.scope(|cx| {
+              let relation = cx.use_db_rev_ref_tri_view_impl(*c_id, *e_id);
+              let change = cx
+                .use_dual_query_set_raw(*ref_e_id)
+                .fanout(relation, cx)
+                .map(|v| v.delta().delta_key_as_value().into_boxed());
+
+              changes.insert((*e_id, *c_id), change);
+            });
+          }
         });
       }
     });
@@ -39,10 +56,13 @@ pub fn use_db_all_foreign_key_change(
 type RefCountChange = FastHashMap<RawEntityHandle, ValueChange<u32>>;
 pub type DBAllEntityRefCountChange = FastHashMap<EntityId, RefCountChange>;
 
+pub const DEBUG: bool = true;
+
 pub fn use_db_all_entity_ref_count_change(
   cx: &mut impl DBHookCxLike,
+  config: &RevOwnershipForeignKeysConfig,
 ) -> UseResult<DBAllEntityRefCountChange> {
-  let fk_change = use_db_all_foreign_key_change(cx);
+  let fk_change = use_db_all_foreign_key_change(cx, config);
 
   let (cx, rc) = cx.use_plain_state(DBRefCounting::default);
 
@@ -50,8 +70,8 @@ pub fn use_db_all_entity_ref_count_change(
     let changes = fk_change.expect_spawn_stage_ready();
 
     let mut update_groups = FastHashMap::<EntityId, Vec<ForeignKeyChangeFut>>::default();
-    for ((_, e_id), change) in changes {
-      let updates = update_groups.entry(e_id).or_default();
+    for ((refed_e_id, _), change) in changes {
+      let updates = update_groups.entry(refed_e_id).or_default();
       updates.push(change.expect_spawn_stage_future())
     }
 
@@ -73,6 +93,17 @@ pub fn use_db_all_entity_ref_count_change(
             };
             for update in updates {
               update_ref_count(&mut collector, update)
+            }
+
+            if DEBUG && !ref_count_changes.is_empty() {
+              let names = global_database().name_mapping.clone();
+              let names = names.read();
+              let name = names.entities.get(&e_id).unwrap();
+
+              println!(
+                "ref count changes for entity {}: {:#?}",
+                name, ref_count_changes
+              );
             }
 
             (e_id, ref_count_changes)
@@ -113,7 +144,7 @@ fn update_ref_count(
 
     if let Some(v) = change.new_value() {
       if collector.get_current(*v).is_none() {
-        collector.set_value(*v, 0);
+        collector.set_value(*v, 1);
       } else {
         collector.mutate(*v, &|rc| {
           *rc += 1;

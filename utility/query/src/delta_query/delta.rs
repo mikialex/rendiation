@@ -1,12 +1,27 @@
 use crate::*;
 
 #[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
+#[derive(Clone, Copy, PartialEq, Hash, Eq)]
 pub enum ValueChange<V> {
   // k, new_v, pre_v
   Delta(V, Option<V>),
   // k, pre_v
   Remove(V),
+}
+
+impl<V: std::fmt::Debug> std::fmt::Debug for ValueChange<V> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Delta(arg0, arg1) => {
+        if let Some(arg1) = arg1 {
+          write!(f, "change(from {:?} to {:?})", arg1, arg0)
+        } else {
+          write!(f, "new({:?})", arg0)
+        }
+      }
+      Self::Remove(arg0) => write!(f, "removed({:?})", arg0),
+    }
+  }
 }
 
 impl<V> ValueChange<V> {
