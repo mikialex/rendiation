@@ -164,6 +164,11 @@ fn main() {
     });
 
     stage_of_update(cx, 1, |cx| {
+      // let change = use_db_all_entity_ref_count_change(cx).use_assure_result(cx);
+      // if let Some(change) = change.if_resolve_stage() {
+      //   println!("ref count change: {:#?}", change.len());
+      // }
+
       use_enable_gltf_io(cx);
       use_enable_obj_io(cx);
 

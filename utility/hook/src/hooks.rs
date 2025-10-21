@@ -59,10 +59,16 @@ pub unsafe trait HooksCxLike: Sized {
     }
   }
 
-  fn keyed_scope<K: std::hash::Hash, R>(&mut self, key: &K, f: impl FnOnce(&mut Self) -> R) -> R {
+  fn raw_keyed_scope<K: std::hash::Hash, R>(
+    &mut self,
+    key: &K,
+    f: impl FnOnce(&mut Self) -> R,
+  ) -> R {
     let is_dynamic_stage = self.is_dynamic_stage();
 
-    /// this is hack
+    /// this is hack, and has the possibility of hash collision
+    /// because the hash impl can hash only part of the data.
+    /// todo, improve
     #[derive(Default)]
     struct HashByteCollector(smallvec::SmallVec<[u8; 32]>);
     impl std::hash::Hasher for HashByteCollector {
@@ -71,7 +77,8 @@ pub unsafe trait HooksCxLike: Sized {
       }
 
       fn write(&mut self, bytes: &[u8]) {
-        let _ = self.0.write(bytes);
+        let r = self.0.write_all(bytes);
+        assert!(r.is_ok());
       }
     }
 
@@ -93,6 +100,9 @@ pub unsafe trait HooksCxLike: Sized {
   #[track_caller]
   fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
     self.raw_scope(|cx| cx.execute(|cx| f(cx), true))
+  }
+  fn keyed_scope<K: std::hash::Hash, R>(&mut self, key: &K, f: impl FnOnce(&mut Self) -> R) -> R {
+    self.raw_keyed_scope(key, |cx| cx.execute(|cx| f(cx), true))
   }
 
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T);
@@ -148,19 +158,19 @@ pub struct FunctionMemory {
   sub_functions_next: FastHashMap<SubFunctionKey, Self>,
 }
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash, Debug)]
 struct SubFunctionKey {
   position: usize,
   key: SubFunctionKeyType,
 }
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash, Debug)]
 pub enum SubFunctionKeyType {
   CallSite(FastLocation),
   UserDefined(smallvec::SmallVec<[u8; 32]>),
 }
 
-#[derive(Eq)]
+#[derive(Eq, Debug)]
 pub struct FastLocation(pub &'static Location<'static>);
 
 impl PartialEq for FastLocation {
@@ -231,9 +241,7 @@ impl FunctionMemory {
     }
   }
 
-  #[track_caller]
   pub fn sub_function(&mut self, is_dynamic_stage: bool, key: SubFunctionKeyType) -> &mut Self {
-    let location = Location::caller();
     let key = SubFunctionKey {
       position: self.current_cursor,
       key,
@@ -242,8 +250,8 @@ impl FunctionMemory {
       if let Some(previous_memory) = self.sub_functions.remove(&key) {
         assert!(
           !self.sub_functions_next.contains_key(&key),
-          "sub function already been used in static stage: {}",
-          location
+          "sub function already been used in dynamic stage: {:?}",
+          key
         );
         self
           .sub_functions_next
@@ -252,14 +260,18 @@ impl FunctionMemory {
       } else {
         assert!(
           !self.sub_functions_next.contains_key(&key),
-          "sub function already been used in static stage: {}",
-          location
+          "sub function already been used in dynamic stage: {:?}",
+          key
         );
         self.sub_functions_next.entry(key).or_default()
       }
     } else {
       // todo, validate all function are used
-      self.sub_functions.get_mut(&key).unwrap()
+      if let Some(f) = self.sub_functions.get_mut(&key) {
+        f
+      } else {
+        panic!("expect sub function: {:?} not found in static stage", key)
+      }
     }
   }
 
