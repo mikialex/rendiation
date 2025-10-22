@@ -66,27 +66,7 @@ pub unsafe trait HooksCxLike: Sized {
   ) -> R {
     let is_dynamic_stage = self.is_dynamic_stage();
 
-    /// this is hack, and has the possibility of hash collision
-    /// because the hash impl can hash only part of the data.
-    /// todo, improve
-    #[derive(Default)]
-    struct HashByteCollector(smallvec::SmallVec<[u8; 32]>);
-    impl std::hash::Hasher for HashByteCollector {
-      fn finish(&self) -> u64 {
-        0 // i don't care the hash
-      }
-
-      fn write(&mut self, bytes: &[u8]) {
-        let r = self.0.write_all(bytes);
-        assert!(r.is_ok());
-      }
-    }
-
-    let mut hasher = HashByteCollector::default();
-    key.hash(&mut hasher);
-    let key = hasher.0;
-
-    let key = SubFunctionKeyType::UserDefined(key);
+    let key = create_key_from_hash_impl(key);
     let sub_memory = self.memory_mut().sub_function(is_dynamic_stage, key) as *mut _;
 
     unsafe {
@@ -95,6 +75,19 @@ pub unsafe trait HooksCxLike: Sized {
       core::ptr::swap(self.memory_mut(), sub_memory);
       r
     }
+  }
+
+  #[track_caller]
+  fn skip_call_site_scope(&mut self) {
+    let key = SubFunctionKeyType::CallSite(FastLocation(Location::caller()));
+    let is_dynamic_stage = self.is_dynamic_stage();
+    self.memory_mut().sub_function(is_dynamic_stage, key);
+  }
+
+  fn skip_keyed_scope<K: std::hash::Hash>(&mut self, key: &K) {
+    let key = create_key_from_hash_impl(key);
+    let is_dynamic_stage = self.is_dynamic_stage();
+    self.memory_mut().sub_function(is_dynamic_stage, key);
   }
 
   #[track_caller]
@@ -309,4 +302,28 @@ impl FunctionMemory {
       f.cleanup_assume_only_plain_states();
     })
   }
+}
+
+fn create_key_from_hash_impl<K: std::hash::Hash>(key: &K) -> SubFunctionKeyType {
+  /// this is hack, and has the possibility of hash collision
+  /// because the hash impl can hash only part of the data.
+  /// todo, improve
+  #[derive(Default)]
+  struct HashByteCollector(smallvec::SmallVec<[u8; 32]>);
+  impl std::hash::Hasher for HashByteCollector {
+    fn finish(&self) -> u64 {
+      0 // i don't care the hash
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+      let r = self.0.write_all(bytes);
+      assert!(r.is_ok());
+    }
+  }
+
+  let mut hasher = HashByteCollector::default();
+  key.hash(&mut hasher);
+  let key = hasher.0;
+
+  SubFunctionKeyType::UserDefined(key)
 }

@@ -4,6 +4,7 @@ use std::future::Future;
 use std::ops::Deref;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::task::Context;
 
 use fast_hash_collection::*;
@@ -339,7 +340,13 @@ pub trait QueryHookCxLike: HooksCxLike {
             UseResult::SpawnStageFuture(pool.share_task_by_id(*self_id))
           }
           QueryHookStage::ResolveTask { task, .. } => {
-            UseResult::ResolveStageReady(task.expect_result_by_id(*self_id))
+            if let Some(result) = task.try_get_result_by_id(*self_id) {
+              *self_id = u32::MAX;
+              UseResult::ResolveStageReady(result)
+            } else {
+              // it's possible because spawn stage can be skipped
+              UseResult::NotInStage
+            }
           }
           _ => UseResult::NotInStage,
         }
@@ -427,6 +434,94 @@ pub trait QueryHookCxLike: HooksCxLike {
         mapping.make_read_holder()
       },
     )
+  }
+
+  #[track_caller]
+  fn skip_if_not_spawn_update_stages<R: Default>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+    let should_execute = !matches!(self.stage(), QueryHookStage::Other);
+    self.skip_if(should_execute, f)
+  }
+
+  #[track_caller]
+  fn skip_if<R: Default>(&mut self, should_execute: bool, f: impl FnOnce(&mut Self) -> R) -> R {
+    let is_dyn = self.is_dynamic_stage();
+    // let is_creating = self.is_creating(); todo, the partial execute break this!
+    let (cx, is_creating_) = self.use_plain_state(|| true);
+    let is_creating = *is_creating_;
+    *is_creating_ = false;
+    let must_execute = is_dyn && is_creating;
+    if should_execute || must_execute {
+      cx.scope(f)
+    } else {
+      cx.skip_call_site_scope();
+      R::default()
+    }
+  }
+
+  /// If the current stage is spawn, it will be skipped if the scope never be waked.
+  /// the stage's polling ctx will replaced by related waker.
+  ///
+  /// The user's implementation must correctly handle the scope waking and optional
+  /// spawn stage, and must return correct resolved result in resolve stage.
+  fn waked_only_spawn_and_keyed_scope<K: std::hash::Hash, R: Default>(
+    &mut self,
+    key: &K,
+    f: impl FnOnce(&mut Self) -> R,
+  ) -> R {
+    struct ChangeNotifier {
+      changed: AtomicBool,
+      waker: futures::task::AtomicWaker,
+    }
+
+    impl Default for ChangeNotifier {
+      fn default() -> Self {
+        Self {
+          changed: AtomicBool::new(true),
+          waker: Default::default(),
+        }
+      }
+    }
+
+    impl futures::task::ArcWake for ChangeNotifier {
+      fn wake_by_ref(arc_self: &Arc<Self>) {
+        arc_self
+          .changed
+          .store(true, std::sync::atomic::Ordering::SeqCst);
+        arc_self.waker.wake();
+      }
+    }
+
+    let (cx, notifier) = self.use_plain_state(|| Arc::new(ChangeNotifier::default()));
+
+    if let QueryHookStage::SpawnTask { ctx, .. } = cx.stage() {
+      let should_execute = notifier.changed.load(std::sync::atomic::Ordering::SeqCst);
+      notifier
+        .changed
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+      if should_execute {
+        notifier.waker.register(ctx.waker());
+        let waker = futures::task::waker_ref(notifier);
+        let mut new_ctx = Context::from_waker(&waker);
+        let new_ctx_mut = &mut new_ctx;
+
+        let new_ctx_mut: &'static mut Context<'static> =
+          unsafe { std::mem::transmute(new_ctx_mut) };
+        let ctx: &'static mut Context<'static> = unsafe { std::mem::transmute(ctx) };
+
+        std::mem::swap(ctx, new_ctx_mut);
+
+        let r = cx.keyed_scope(key, f);
+
+        std::mem::swap(ctx, new_ctx_mut);
+
+        r
+      } else {
+        cx.skip_keyed_scope(key);
+        R::default()
+      }
+    } else {
+      cx.keyed_scope(key, f)
+    }
   }
 }
 

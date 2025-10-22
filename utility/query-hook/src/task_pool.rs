@@ -86,12 +86,14 @@ pub struct TaskPoolResultCx {
 }
 
 impl TaskPoolResultCx {
-  pub fn expect_result_by_id<T: Clone + Any>(&self, id: u32) -> T {
+  pub fn try_get_result_by_id<T: Clone + Any>(&self, id: u32) -> Option<T> {
     self
       .token_based_result
       .get(&id)
       .map(|v| v.deref().as_any().downcast_ref::<T>().unwrap().clone()) // todo, bad
-      .unwrap()
+  }
+  pub fn expect_result_by_id<T: Clone + Any>(&self, id: u32) -> T {
+    self.try_get_result_by_id(id).unwrap()
   }
 }
 
