@@ -447,15 +447,14 @@ impl Viewer3dRenderingCtx {
     let gpu = self.gpu.clone();
 
     shared_ctx.reset_visiting();
-    noop_ctx!(ctx);
     QueryGPUHookCx {
       memory,
       gpu: &gpu,
+      waker: futures::task::noop_waker(),
       stage: GPUQueryHookStage::Update {
         spawner: task_spawner,
         task_pool: &mut pool,
         change_collector: &mut Default::default(),
-        ctx,
       },
       shared_ctx,
       storage_allocator: self.storage_allocator(),
@@ -482,6 +481,7 @@ impl Viewer3dRenderingCtx {
       stage: GPUQueryHookStage::Inspect(inspector),
       shared_ctx,
       storage_allocator: self.storage_allocator(),
+      waker: futures::task::noop_waker(),
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx), true);
   }
@@ -504,6 +504,7 @@ impl Viewer3dRenderingCtx {
         task: task_pool_result,
       },
       shared_ctx,
+      waker: futures::task::noop_waker(),
       storage_allocator: self.storage_allocator(),
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx).unwrap(), true);

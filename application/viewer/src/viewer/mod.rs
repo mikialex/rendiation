@@ -42,6 +42,7 @@ pub struct ViewerCx<'a> {
   pub task_spawner: &'a TaskSpawner,
   pub change_collector: ChangeCollector,
   stage: ViewerCxStage<'a>,
+  waker: Waker,
 }
 
 impl<'a> ViewerCx<'a> {
@@ -129,13 +130,16 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
     matches!(&self.stage, ViewerCxStage::EventHandling { .. })
   }
 
+  fn waker(&mut self) -> &mut Waker {
+    &mut self.waker
+  }
+
   fn stage(&mut self) -> QueryHookStage<'_> {
     match &mut self.stage {
-      ViewerCxStage::SpawnTask { pool, ctx, .. } => QueryHookStage::SpawnTask {
+      ViewerCxStage::SpawnTask { pool, .. } => QueryHookStage::SpawnTask {
         spawner: self.task_spawner,
         change_collector: &mut self.change_collector,
         pool,
-        ctx: unsafe { std::mem::transmute::<&mut Context, _>(ctx) },
       },
       ViewerCxStage::EventHandling { task, .. } => QueryHookStage::ResolveTask { task },
       _ => QueryHookStage::Other,
@@ -223,7 +227,6 @@ pub enum ViewerCxStage<'a> {
   SpawnTask {
     pool: &'a mut AsyncTaskPool,
     shared_ctx: &'a mut SharedHooksCtx,
-    ctx: &'a mut Context<'a>,
   },
   EventHandling {
     task: &'a mut TaskPoolResultCx,
@@ -256,12 +259,10 @@ pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(
       let mut pool = AsyncTaskPool::default();
       {
         cx.viewer.shared_ctx.reset_visiting();
-        noop_ctx!(ctx);
         cx.stage = unsafe {
           std::mem::transmute(ViewerCxStage::SpawnTask {
             pool: &mut pool,
             shared_ctx: &mut cx.viewer.shared_ctx,
-            ctx,
           })
         };
 
@@ -342,6 +343,7 @@ pub fn use_viewer<'a>(
       egui_ctx,
       global: gui_feature_global_states,
     },
+    waker: futures::task::noop_waker(),
   }
   .execute(|viewer| f(viewer), true);
 
@@ -354,6 +356,7 @@ pub fn use_viewer<'a>(
     stage: ViewerCxStage::BaseStage,
     task_spawner: worker_thread_pool,
     change_collector: Default::default(),
+    waker: futures::task::noop_waker(),
   }
   .execute(|viewer| f(viewer), true);
 

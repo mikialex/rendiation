@@ -11,8 +11,8 @@ use std::future::Future;
 use std::hash::Hash;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
 use std::task::Poll;
+use std::task::Waker;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
@@ -174,7 +174,7 @@ fn main() {
       });
 
       let change = use_db_all_entity_ref_count_change(cx, config).use_assure_result(cx);
-      if let Some(change) = change.if_resolve_stage() {
+      if let Some(_change) = change.if_resolve_stage() {
         // println!("ref count change: {:#?}", change.len());
       }
 

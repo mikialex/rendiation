@@ -94,6 +94,10 @@ impl<K: CKey, T: CValue> CollectiveMutationReceiver<K, T> {
       Poll::Pending
     }
   }
+  pub fn has_change(&self) -> bool {
+    let changes = self.inner.0.read();
+    !changes.is_empty()
+  }
 }
 
 impl<K: CKey, T: CValue> Stream for CollectiveMutationReceiver<K, T> {

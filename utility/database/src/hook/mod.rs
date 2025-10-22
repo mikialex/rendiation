@@ -43,13 +43,13 @@ pub trait DBHookCxLike: QueryHookCxLike {
       })
     });
 
+    let waker = cx.waker().clone();
     if let QueryHookStage::SpawnTask {
-      change_collector,
-      ctx,
-      ..
+      change_collector, ..
     } = cx.stage()
     {
-      let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(ctx) {
+      let mut ctx = Context::from_waker(&waker);
+      let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(&mut ctx) {
         let removed = r
           .iter()
           .filter_map(|v| v.1.is_removed().then_some(v.0.index()))
@@ -73,6 +73,9 @@ pub trait DBHookCxLike: QueryHookCxLike {
       }
       UseResult::SpawnStageReady(Arc::new(changes))
     } else {
+      if rev.has_change() {
+        cx.waker().wake_by_ref();
+      }
       UseResult::NotInStage
     }
   }
@@ -99,13 +102,13 @@ pub trait DBHookCxLike: QueryHookCxLike {
       })
     });
 
+    let waker = cx.waker().clone();
     if let QueryHookStage::SpawnTask {
-      change_collector,
-      ctx,
-      ..
+      change_collector, ..
     } = cx.stage()
     {
-      let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(ctx) {
+      let mut ctx = Context::from_waker(&waker);
+      let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
         changes
       } else {
         Default::default()
@@ -117,6 +120,9 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
       UseResult::SpawnStageReady(Arc::new(changes))
     } else {
+      if rev.has_change() {
+        cx.waker().wake_by_ref();
+      }
       UseResult::NotInStage
     }
   }
@@ -145,13 +151,13 @@ pub trait DBHookCxLike: QueryHookCxLike {
       })
     });
 
+    let waker = cx.waker().clone();
     if let QueryHookStage::SpawnTask {
-      change_collector,
-      ctx,
-      ..
+      change_collector, ..
     } = cx.stage()
     {
-      let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(ctx) {
+      let mut ctx = Context::from_waker(&waker);
+      let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
         changes
       } else {
         Default::default()
@@ -162,6 +168,9 @@ pub trait DBHookCxLike: QueryHookCxLike {
       }
       UseResult::SpawnStageReady(Arc::new(changes))
     } else {
+      if rev.has_change() {
+        cx.waker().wake_by_ref();
+      }
       UseResult::NotInStage
     }
   }

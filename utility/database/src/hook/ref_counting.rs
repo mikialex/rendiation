@@ -17,11 +17,11 @@ pub fn use_db_all_foreign_key_change(
 ) -> UseResult<DBAllForeignKeyChange> {
   let mut changes = DBAllForeignKeyChange::default();
 
-  cx.skip_if_not_spawn_update_stages(|cx| {
+  cx.skip_if_not_waked(|cx| {
     for (e_id, ecg) in global_database().ecg_tables.read().iter() {
       cx.keyed_scope(e_id, |cx| {
         for (c_id, ref_e_id) in ecg.inner.foreign_keys.read().iter() {
-          cx.waked_only_spawn_and_keyed_scope(c_id, |cx| {
+          cx.keyed_scope(c_id, |cx| {
             if !config.contains(c_id) {
               cx.scope(|cx| {
                 let change = cx

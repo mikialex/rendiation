@@ -14,6 +14,7 @@ pub struct QueryGPUHookCx<'a> {
   pub storage_allocator: Box<dyn AbstractStorageAllocator>,
   pub shared_ctx: &'a mut SharedHooksCtx,
   pub stage: GPUQueryHookStage<'a>,
+  pub waker: Waker,
 }
 
 #[non_exhaustive]
@@ -21,7 +22,6 @@ pub enum GPUQueryHookStage<'a> {
   Update {
     task_pool: &'a mut AsyncTaskPool,
     spawner: &'a TaskSpawner,
-    ctx: &'a mut Context<'a>,
     change_collector: &'a mut ChangeCollector,
   },
   CreateRender {
@@ -209,6 +209,10 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
     self.shared_ctx
   }
 
+  fn waker(&mut self) -> &mut Waker {
+    &mut self.waker
+  }
+
   fn use_shared_consumer(&mut self, key: ShareKey) -> u32 {
     let (_, tk) = self.use_state_with_features(|fcx| {
       let id = fcx.shared_ctx.next_consumer_id();
@@ -230,13 +234,11 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
         spawner,
         task_pool,
         change_collector,
-        ctx,
         ..
       } => QueryHookStage::SpawnTask {
         spawner,
         pool: task_pool,
         change_collector,
-        ctx: unsafe { std::mem::transmute::<&mut Context, _>(ctx) },
       },
       GPUQueryHookStage::CreateRender { task, .. } => QueryHookStage::ResolveTask { task },
       _ => QueryHookStage::Other,

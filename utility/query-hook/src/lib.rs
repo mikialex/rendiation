@@ -5,7 +5,7 @@ use std::ops::Deref;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use std::task::Context;
+use std::task::Waker;
 
 use fast_hash_collection::*;
 use futures::FutureExt;
@@ -39,7 +39,6 @@ pub enum QueryHookStage<'a> {
     spawner: &'a TaskSpawner,
     pool: &'a mut AsyncTaskPool,
     change_collector: &'a mut ChangeCollector,
-    ctx: &'a mut Context<'a>,
   },
   ResolveTask {
     task: &'a mut TaskPoolResultCx,
@@ -124,6 +123,7 @@ pub trait QueryHookCxLike: HooksCxLike {
   fn is_spawning_stage(&self) -> bool;
   fn is_resolve_stage(&self) -> bool;
   fn stage(&mut self) -> QueryHookStage<'_>;
+  fn waker(&mut self) -> &mut Waker;
 
   fn spawner(&mut self) -> Option<TaskSpawner> {
     if let QueryHookStage::SpawnTask { spawner, .. } = self.stage() {
@@ -437,12 +437,6 @@ pub trait QueryHookCxLike: HooksCxLike {
   }
 
   #[track_caller]
-  fn skip_if_not_spawn_update_stages<R: Default>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-    let should_execute = !matches!(self.stage(), QueryHookStage::Other);
-    self.skip_if(should_execute, f)
-  }
-
-  #[track_caller]
   fn skip_if<R: Default>(&mut self, should_execute: bool, f: impl FnOnce(&mut Self) -> R) -> R {
     let is_dyn = self.is_dynamic_stage();
     // let is_creating = self.is_creating(); todo, the partial execute break this!
@@ -458,16 +452,8 @@ pub trait QueryHookCxLike: HooksCxLike {
     }
   }
 
-  /// If the current stage is spawn, it will be skipped if the scope never be waked.
-  /// the stage's polling ctx will replaced by related waker.
-  ///
-  /// The user's implementation must correctly handle the scope waking and optional
-  /// spawn stage, and must return correct resolved result in resolve stage.
-  fn waked_only_spawn_and_keyed_scope<K: std::hash::Hash, R: Default>(
-    &mut self,
-    key: &K,
-    f: impl FnOnce(&mut Self) -> R,
-  ) -> R {
+  #[track_caller]
+  fn skip_if_not_waked<R: Default>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
     struct ChangeNotifier {
       changed: AtomicBool,
       waker: futures::task::AtomicWaker,
@@ -492,36 +478,25 @@ pub trait QueryHookCxLike: HooksCxLike {
     }
 
     let (cx, notifier) = self.use_plain_state(|| Arc::new(ChangeNotifier::default()));
-
-    if let QueryHookStage::SpawnTask { ctx, .. } = cx.stage() {
-      let should_execute = notifier.changed.load(std::sync::atomic::Ordering::SeqCst);
+    let should_execute = notifier.changed.load(std::sync::atomic::Ordering::SeqCst);
+    let mut waker_backup = None;
+    if should_execute {
       notifier
         .changed
         .store(false, std::sync::atomic::Ordering::SeqCst);
-      if should_execute {
-        notifier.waker.register(ctx.waker());
-        let waker = futures::task::waker_ref(notifier);
-        let mut new_ctx = Context::from_waker(&waker);
-        let new_ctx_mut = &mut new_ctx;
-
-        let new_ctx_mut: &'static mut Context<'static> =
-          unsafe { std::mem::transmute(new_ctx_mut) };
-        let ctx: &'static mut Context<'static> = unsafe { std::mem::transmute(ctx) };
-
-        std::mem::swap(ctx, new_ctx_mut);
-
-        let r = cx.keyed_scope(key, f);
-
-        std::mem::swap(ctx, new_ctx_mut);
-
-        r
-      } else {
-        cx.skip_keyed_scope(key);
-        R::default()
-      }
-    } else {
-      cx.keyed_scope(key, f)
+      notifier.waker.register(cx.waker());
+      let waker = futures::task::waker(notifier.clone());
+      waker_backup = cx.waker().clone().into();
+      *cx.waker() = waker
     }
+
+    let r = cx.skip_if(should_execute, f);
+
+    if let Some(waker) = waker_backup {
+      *cx.waker() = waker
+    }
+
+    r
   }
 }
 
