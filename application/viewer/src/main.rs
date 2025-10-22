@@ -11,6 +11,7 @@ use std::future::Future;
 use std::hash::Hash;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::task::Context;
 use std::task::Poll;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;

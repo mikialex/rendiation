@@ -2,6 +2,7 @@
 #![feature(iter_array_chunks)]
 
 use std::sync::Arc;
+use std::task::Context;
 
 use fast_hash_collection::*;
 use parking_lot::RwLock;

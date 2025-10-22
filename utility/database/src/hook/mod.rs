@@ -44,10 +44,11 @@ pub trait DBHookCxLike: QueryHookCxLike {
     });
 
     if let QueryHookStage::SpawnTask {
-      change_collector, ..
+      change_collector,
+      ctx,
+      ..
     } = cx.stage()
     {
-      noop_ctx!(ctx);
       let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(ctx) {
         let removed = r
           .iter()
@@ -99,10 +100,11 @@ pub trait DBHookCxLike: QueryHookCxLike {
     });
 
     if let QueryHookStage::SpawnTask {
-      change_collector, ..
+      change_collector,
+      ctx,
+      ..
     } = cx.stage()
     {
-      noop_ctx!(ctx);
       let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(ctx) {
         changes
       } else {
@@ -144,10 +146,11 @@ pub trait DBHookCxLike: QueryHookCxLike {
     });
 
     if let QueryHookStage::SpawnTask {
-      change_collector, ..
+      change_collector,
+      ctx,
+      ..
     } = cx.stage()
     {
-      noop_ctx!(ctx);
       let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(ctx) {
         changes
       } else {

@@ -21,6 +21,7 @@ pub enum GPUQueryHookStage<'a> {
   Update {
     task_pool: &'a mut AsyncTaskPool,
     spawner: &'a TaskSpawner,
+    ctx: &'a mut Context<'a>,
     change_collector: &'a mut ChangeCollector,
   },
   CreateRender {
@@ -229,11 +230,13 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
         spawner,
         task_pool,
         change_collector,
+        ctx,
         ..
       } => QueryHookStage::SpawnTask {
         spawner,
         pool: task_pool,
         change_collector,
+        ctx: unsafe { std::mem::transmute::<&mut Context, _>(ctx) },
       },
       GPUQueryHookStage::CreateRender { task, .. } => QueryHookStage::ResolveTask { task },
       _ => QueryHookStage::Other,

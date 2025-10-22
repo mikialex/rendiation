@@ -131,10 +131,11 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
 
   fn stage(&mut self) -> QueryHookStage<'_> {
     match &mut self.stage {
-      ViewerCxStage::SpawnTask { pool, .. } => QueryHookStage::SpawnTask {
+      ViewerCxStage::SpawnTask { pool, ctx, .. } => QueryHookStage::SpawnTask {
         spawner: self.task_spawner,
         change_collector: &mut self.change_collector,
         pool,
+        ctx: unsafe { std::mem::transmute::<&mut Context, _>(ctx) },
       },
       ViewerCxStage::EventHandling { task, .. } => QueryHookStage::ResolveTask { task },
       _ => QueryHookStage::Other,
@@ -222,6 +223,7 @@ pub enum ViewerCxStage<'a> {
   SpawnTask {
     pool: &'a mut AsyncTaskPool,
     shared_ctx: &'a mut SharedHooksCtx,
+    ctx: &'a mut Context<'a>,
   },
   EventHandling {
     task: &'a mut TaskPoolResultCx,
@@ -254,10 +256,12 @@ pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(
       let mut pool = AsyncTaskPool::default();
       {
         cx.viewer.shared_ctx.reset_visiting();
+        noop_ctx!(ctx);
         cx.stage = unsafe {
           std::mem::transmute(ViewerCxStage::SpawnTask {
             pool: &mut pool,
             shared_ctx: &mut cx.viewer.shared_ctx,
+            ctx,
           })
         };
 

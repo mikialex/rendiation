@@ -447,6 +447,7 @@ impl Viewer3dRenderingCtx {
     let gpu = self.gpu.clone();
 
     shared_ctx.reset_visiting();
+    noop_ctx!(ctx);
     QueryGPUHookCx {
       memory,
       gpu: &gpu,
@@ -454,6 +455,7 @@ impl Viewer3dRenderingCtx {
         spawner: task_spawner,
         task_pool: &mut pool,
         change_collector: &mut Default::default(),
+        ctx,
       },
       shared_ctx,
       storage_allocator: self.storage_allocator(),

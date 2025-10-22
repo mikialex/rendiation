@@ -4,6 +4,7 @@ use std::future::Future;
 use std::ops::Deref;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::task::Context;
 
 use fast_hash_collection::*;
 use futures::FutureExt;
@@ -37,6 +38,7 @@ pub enum QueryHookStage<'a> {
     spawner: &'a TaskSpawner,
     pool: &'a mut AsyncTaskPool,
     change_collector: &'a mut ChangeCollector,
+    ctx: &'a mut Context<'a>,
   },
   ResolveTask {
     task: &'a mut TaskPoolResultCx,
