@@ -68,7 +68,7 @@ impl GraphicsShaderProvider for PostProcess<'_> {
   }
 }
 
-pub fn post_egui(ui: &mut egui::Ui, post: &UniformBufferCachedDataView<PostEffects>) {
+pub fn post_egui(ui: &mut UiWithChangeInfo, post: &UniformBufferCachedDataView<PostEffects>) {
   ui.collapsing("vignette", |ui| {
     post.mutate(|post| {
       let mut enabled: bool = post.enable_vignette.into();

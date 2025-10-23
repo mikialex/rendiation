@@ -83,6 +83,7 @@ pub struct Viewer3dRenderingCtx {
   rtx_rendering_enabled: bool,
   request_reset_rtx_sample: bool,
   enable_on_demand_rendering: bool,
+  on_demand_rendering_cached_frame: Option<RenderTargetView>,
   any_render_change: ChangeNotifier,
   lighting: LightSystem,
   transparent_config: ViewerTransparentContentRenderStyle,
@@ -111,6 +112,7 @@ impl Viewer3dRenderingCtx {
       self.prefer_bindless_for_indirect_texture_system;
     init_config.init_only = self.init_config.clone();
     init_config.present_mode = self.swap_chain.internal(|v| v.config.present_mode);
+    init_config.enable_on_demand_rendering = self.enable_on_demand_rendering;
   }
 
   pub fn gpu(&self) -> &GPU {
@@ -142,7 +144,8 @@ impl Viewer3dRenderingCtx {
       rtx_rendering_enabled: false,
       rtx_renderer_enabled: false,
       request_reset_rtx_sample: false,
-      enable_on_demand_rendering: false,
+      enable_on_demand_rendering: init_config.enable_on_demand_rendering,
+      on_demand_rendering_cached_frame: None,
       any_render_change: Default::default(),
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting: LightSystem::new(&gpu),

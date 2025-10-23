@@ -18,6 +18,13 @@ impl ChangeNotifierInternal {
     self.waker.register(waker);
     waked
   }
+
+  pub fn do_wake(&self) {
+    self
+      .changed
+      .store(true, std::sync::atomic::Ordering::SeqCst);
+    self.waker.wake();
+  }
 }
 
 impl Default for ChangeNotifierInternal {
@@ -31,10 +38,7 @@ impl Default for ChangeNotifierInternal {
 
 impl futures::task::ArcWake for ChangeNotifierInternal {
   fn wake_by_ref(arc_self: &Arc<Self>) {
-    arc_self
-      .changed
-      .store(true, std::sync::atomic::Ordering::SeqCst);
-    arc_self.waker.wake();
+    arc_self.do_wake()
   }
 }
 

@@ -63,7 +63,7 @@ impl ViewerFrameLogic {
     }
   }
 
-  pub fn egui(&mut self, ui: &mut egui::Ui) {
+  pub fn egui(&mut self, ui: &mut UiWithChangeInfo) {
     ui.checkbox(&mut self.enable_taa, "enable taa");
     ui.checkbox(&mut self.enable_fxaa, "enable fxaa");
     if self.enable_fxaa && self.enable_taa {
@@ -76,9 +76,9 @@ impl ViewerFrameLogic {
       ui.checkbox(&mut self.enable_outline, "enable outline");
       ui.checkbox(&mut self.show_outline_only, "show_outline_only");
       self.outline_color.mutate(|color| {
-        modify_color4(ui, color);
+        modify_color4_change(ui, color);
       });
-      modify_color(ui, &mut self.outline_background_color);
+      modify_color_change(ui, &mut self.outline_background_color);
     });
 
     post_egui(ui, &self.post);

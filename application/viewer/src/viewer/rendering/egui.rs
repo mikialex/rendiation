@@ -2,6 +2,9 @@ use crate::*;
 
 impl Viewer3dRenderingCtx {
   pub fn egui(&mut self, ui: &mut egui::Ui, last_frame_cpu_time: f32) {
+    let mut ui = UiWithChangeInfo(ui, false);
+    let ui = &mut ui;
+
     let mut is_hdr = false;
     self.swap_chain.internal(|surface| {
       is_hdr = surface.config.format == TextureFormat::Rgba16Float;
@@ -25,7 +28,7 @@ impl Viewer3dRenderingCtx {
         let cap = surface.capabilities().present_modes.clone();
 
         let present_mode_ui =
-          |ui: &mut egui::Ui, mode: PresentMode, name: &str, config: &mut PresentMode| {
+          |ui: &mut UiWithChangeInfo, mode: PresentMode, name: &str, config: &mut PresentMode| {
             let supported = cap.contains(&mode)
               || mode == PresentMode::AutoVsync
               || mode == PresentMode::AutoNoVsync;
@@ -37,7 +40,7 @@ impl Viewer3dRenderingCtx {
 
         egui::ComboBox::from_label("present mode")
           .selected_text(format!("{:?}", current))
-          .show_ui(ui, |ui| {
+          .show_ui_changed(ui, |ui| {
             let target = &mut surface.config.present_mode;
             present_mode_ui(ui, PresentMode::AutoVsync, "AutoVsync", target);
             present_mode_ui(ui, PresentMode::AutoNoVsync, "AutoNoVsync", target);
@@ -63,7 +66,7 @@ impl Viewer3dRenderingCtx {
 
     egui::ComboBox::from_label("RasterizationRender Backend")
       .selected_text(format!("{:?}", &self.current_renderer_impl_ty))
-      .show_ui(ui, |ui| {
+      .show_ui_changed(ui, |ui| {
         ui.selectable_value(
           &mut self.current_renderer_impl_ty,
           RasterizationRenderBackendType::Gles,
@@ -111,7 +114,7 @@ impl Viewer3dRenderingCtx {
         "{:?}",
         &self.lighting.opaque_scene_content_lighting_technique
       ))
-      .show_ui(ui, |ui| {
+      .show_ui_changed(ui, |ui| {
         ui.selectable_value(
           &mut self.lighting.opaque_scene_content_lighting_technique,
           LightingTechniqueKind::Forward,
@@ -129,7 +132,7 @@ impl Viewer3dRenderingCtx {
 
     egui::ComboBox::from_label("how to render transparent objects?")
       .selected_text(format!("{:?}", &self.transparent_config,))
-      .show_ui(ui, |ui| {
+      .show_ui_changed(ui, |ui| {
         ui.selectable_value(
           &mut self.transparent_config,
           ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
@@ -180,7 +183,7 @@ impl Viewer3dRenderingCtx {
         ui.checkbox(&mut self.rtx_rendering_enabled, "enable ray tracing");
         egui::ComboBox::from_label("ray tracing mode")
           .selected_text(format!("{:?}", &self.rtx_effect_mode))
-          .show_ui(ui, |ui| {
+          .show_ui_changed(ui, |ui| {
             ui.selectable_value(
               &mut self.rtx_effect_mode,
               RayTracingEffectMode::ReferenceTracing,
@@ -202,6 +205,7 @@ impl Viewer3dRenderingCtx {
     ui.separator();
 
     ui.collapsing("time graph", |ui| {
+      let ui = &mut ui.0;
       ui.label(format!(
         "last frame cpu time: {:.2} ms",
         last_frame_cpu_time
@@ -272,5 +276,9 @@ impl Viewer3dRenderingCtx {
 
     self.lighting.egui(ui, is_hdr);
     self.frame_logic.egui(ui);
+
+    if ui.1 {
+      self.any_render_change.do_wake();
+    }
   }
 }

@@ -148,7 +148,7 @@ impl LightSystem {
     }
   }
 
-  pub fn egui(&mut self, ui: &mut egui::Ui, is_hdr_rendering: bool) {
+  pub fn egui(&mut self, ui: &mut UiWithChangeInfo, is_hdr_rendering: bool) {
     ui.checkbox(&mut self.enable_channel_debugger, "enable channel debug");
 
     if is_hdr_rendering {
@@ -160,7 +160,7 @@ impl LightSystem {
       }
       egui::ComboBox::from_label("Tone mapping type")
         .selected_text(format!("{:?}", &self.tonemap.ty))
-        .show_ui(ui, |ui| {
+        .show_ui_changed(ui, |ui| {
           ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Linear, "Linear");
           ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Cineon, "Cineon");
           ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Reinhard, "Reinhard");

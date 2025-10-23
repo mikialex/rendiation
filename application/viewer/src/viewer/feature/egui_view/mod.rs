@@ -1,8 +1,10 @@
 use crate::*;
 
+mod change;
 mod console;
 mod db_view;
 
+pub use change::*;
 pub use console::*;
 use db_view::*;
 

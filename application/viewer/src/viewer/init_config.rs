@@ -15,6 +15,7 @@ pub struct ViewerInitConfig {
   pub using_host_driven_indirect_draw: bool,
   pub transparent_config: ViewerTransparentContentRenderStyle,
   pub present_mode: PresentMode,
+  pub enable_on_demand_rendering: bool,
   pub init_only: ViewerStaticInitConfig,
   pub features: ViewerFeaturesInitConfig,
 }
@@ -110,6 +111,7 @@ impl Default for ViewerInitConfig {
       prefer_bindless_for_indirect_texture_system: false,
       enable_indirect_occlusion_culling: false,
       using_host_driven_indirect_draw: false,
+      enable_on_demand_rendering: true,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       init_only: ViewerStaticInitConfig::default(),
       features: Default::default(),
