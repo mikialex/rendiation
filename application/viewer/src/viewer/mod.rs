@@ -476,7 +476,8 @@ impl Viewer {
   }
 
   pub fn draw_canvas(&mut self, canvas: &RenderTargetView, task_spawner: &TaskSpawner) {
-    if self.rendering.check_should_render() {
+    self.rendering.init_frame();
+    if self.rendering.check_should_render_and_copy_cached(canvas) {
       let tasks =
         self
           .rendering
@@ -492,8 +493,6 @@ impl Viewer {
         &mut self.shared_ctx,
       );
     }
-
-    self.rendering.tick_frame();
   }
 }
 

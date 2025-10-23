@@ -119,10 +119,6 @@ impl Viewer3dRenderingCtx {
     &self.gpu
   }
 
-  pub fn tick_frame(&mut self) {
-    self.pool.tick();
-  }
-
   pub fn new(
     gpu: GPU,
     swap_chain: ApplicationWindowSurface,
@@ -444,9 +440,42 @@ impl Viewer3dRenderingCtx {
     }
   }
 
-  pub fn check_should_render(&self) -> bool {
+  pub fn check_should_render_and_copy_cached(&mut self, target: &RenderTargetView) -> bool {
+    if !self.enable_on_demand_rendering {
+      self.on_demand_rendering_cached_frame = None;
+    }
+
     let upstream = futures::task::noop_waker();
-    self.any_render_change.update(&upstream) || !self.enable_on_demand_rendering
+    let any_changed = self.any_render_change.update(&upstream);
+
+    if any_changed {
+      self.on_demand_rendering_cached_frame = None;
+    }
+
+    if let Some(cached_frame) = &self.on_demand_rendering_cached_frame {
+      if cached_frame.size() != target.size() {
+        self.on_demand_rendering_cached_frame = None;
+      }
+    }
+
+    if let Some(cached_frame) = &self.on_demand_rendering_cached_frame {
+      let statistics = self
+        .enable_statistic_collect
+        .then(|| self.statistics.create_resolver(self.frame_index));
+
+      let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, statistics);
+      pass("on demand rendering copy cached frame")
+        .with_color(target, store_full_frame())
+        .render_ctx(&mut ctx)
+        .by(&mut rendiation_texture_gpu_process::copy_frame(
+          cached_frame.clone(),
+          None,
+        ));
+
+      false
+    } else {
+      true
+    }
   }
 
   pub fn update_registry(
@@ -498,10 +527,23 @@ impl Viewer3dRenderingCtx {
     .execute(|cx| self.use_viewer_scene_renderer(cx), true);
   }
 
+  pub fn init_frame(&mut self) {
+    self.frame_index += 1;
+    let now = Instant::now();
+    if let Some(last_frame_time) = self.last_render_timestamp.take() {
+      self.stat_frame_time_in_ms.insert(
+        now.duration_since(last_frame_time).as_secs_f32() * 1000.,
+        self.frame_index,
+      );
+    }
+    self.last_render_timestamp = Some(now);
+    self.pool.tick();
+  }
+
   #[instrument(name = "frame rendering", skip_all)]
   pub fn render(
     &mut self,
-    target: &RenderTargetView,
+    final_target: &RenderTargetView,
     content: &Viewer3dContent,
     memory: &mut FunctionMemory,
     task_pool_result: TaskPoolResultCx,
@@ -521,21 +563,11 @@ impl Viewer3dRenderingCtx {
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx).unwrap(), true);
 
-    self.frame_index += 1;
-    let now = Instant::now();
-    if let Some(last_frame_time) = self.last_render_timestamp.take() {
-      self.stat_frame_time_in_ms.insert(
-        now.duration_since(last_frame_time).as_secs_f32() * 1000.,
-        self.frame_index,
-      );
-    }
-    self.last_render_timestamp = Some(now);
-
     let statistics = self
       .enable_statistic_collect
       .then(|| self.statistics.create_resolver(self.frame_index));
 
-    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, statistics);
+    let mut ctx = FrameCtx::new(&self.gpu, final_target.size(), &self.pool, statistics);
 
     let lighting_cx = self.lighting.prepare(
       renderer.lighting,
@@ -546,15 +578,16 @@ impl Viewer3dRenderingCtx {
       content.scene,
     );
 
-    let render_target = if self.expect_read_back_for_next_render_result
-      && matches!(target, RenderTargetView::SurfaceTexture { .. })
+    let render_target = if (self.expect_read_back_for_next_render_result
+      && matches!(final_target, RenderTargetView::SurfaceTexture { .. }))
+      || self.enable_on_demand_rendering
     {
       // we do extra copy in this case, so we have to make sure the copy source has correct usage
-      let mut key = target.create_attachment_key();
+      let mut key = final_target.create_attachment_key();
       key.usage |= TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC;
       key.request(&ctx)
     } else {
-      target.clone()
+      final_target.clone()
     };
 
     if self.rtx_rendering_enabled {
@@ -570,7 +603,7 @@ impl Viewer3dRenderingCtx {
             );
 
             pass("copy rtx ao into final target")
-              .with_color(target, store_full_frame())
+              .with_color(final_target, store_full_frame())
               .render_ctx(&mut ctx)
               .by(&mut copy_frame(RenderTargetView::from(ao_result), None));
           }
@@ -585,7 +618,7 @@ impl Viewer3dRenderingCtx {
               &renderer.background,
             );
             pass("copy pt result into final target")
-              .with_color(target, store_full_frame())
+              .with_color(final_target, store_full_frame())
               .render_ctx(&mut ctx)
               .by(&mut copy_frame(RenderTargetView::from(result), None));
           }
@@ -668,11 +701,12 @@ impl Viewer3dRenderingCtx {
     }
 
     // do extra copy to surface texture
-    if self.expect_read_back_for_next_render_result
-      && matches!(target, RenderTargetView::SurfaceTexture { .. })
+    if (self.expect_read_back_for_next_render_result
+      && matches!(final_target, RenderTargetView::SurfaceTexture { .. }))
+      || self.enable_on_demand_rendering
     {
       pass("extra final copy to surface")
-        .with_color(target, store_full_frame())
+        .with_color(final_target, store_full_frame())
         .render_ctx(&mut ctx)
         .by(&mut rendiation_texture_gpu_process::copy_frame(
           render_target.clone(),
@@ -680,6 +714,18 @@ impl Viewer3dRenderingCtx {
         ));
     }
     self.expect_read_back_for_next_render_result = false;
+
+    if self.enable_on_demand_rendering {
+      let mut key = final_target.create_attachment_key();
+      key.usage |= TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC;
+      let frame_cache = key.request(&ctx);
+      pass("copy rendered result to cached frame")
+        .with_color(&frame_cache, store_full_frame())
+        .render_ctx(&mut ctx)
+        .by(&mut copy_frame(render_target.clone(), None));
+      self.on_demand_rendering_cached_frame = Some(frame_cache);
+    }
+
     drop(ctx);
 
     noop_ctx!(cx);

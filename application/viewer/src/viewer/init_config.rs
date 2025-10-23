@@ -111,7 +111,7 @@ impl Default for ViewerInitConfig {
       prefer_bindless_for_indirect_texture_system: false,
       enable_indirect_occlusion_culling: false,
       using_host_driven_indirect_draw: false,
-      enable_on_demand_rendering: true,
+      enable_on_demand_rendering: false,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       init_only: ViewerStaticInitConfig::default(),
       features: Default::default(),
