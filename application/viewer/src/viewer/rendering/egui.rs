@@ -49,6 +49,11 @@ impl Viewer3dRenderingCtx {
       });
     });
 
+    ui.checkbox(
+      &mut self.enable_on_demand_rendering,
+      "enable_on_demand_rendering",
+    );
+
     let is_target_support_indirect_draw = self.gpu.info.downgrade_info.is_webgpu_compliant()
       || (self
         .init_config

@@ -82,6 +82,8 @@ pub struct Viewer3dRenderingCtx {
   rtx_renderer_enabled: bool,
   rtx_rendering_enabled: bool,
   request_reset_rtx_sample: bool,
+  enable_on_demand_rendering: bool,
+  any_render_change: ChangeNotifier,
   lighting: LightSystem,
   transparent_config: ViewerTransparentContentRenderStyle,
   pool: AttachmentPool,
@@ -140,6 +142,8 @@ impl Viewer3dRenderingCtx {
       rtx_rendering_enabled: false,
       rtx_renderer_enabled: false,
       request_reset_rtx_sample: false,
+      enable_on_demand_rendering: false,
+      any_render_change: Default::default(),
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting: LightSystem::new(&gpu),
       pool: init_attachment_pool(&gpu),
@@ -437,6 +441,11 @@ impl Viewer3dRenderingCtx {
     }
   }
 
+  pub fn check_should_render(&self) -> bool {
+    let upstream = futures::task::noop_waker();
+    self.any_render_change.update(&upstream) || !self.enable_on_demand_rendering
+  }
+
   pub fn update_registry(
     &mut self,
     memory: &mut FunctionMemory,
@@ -450,7 +459,7 @@ impl Viewer3dRenderingCtx {
     QueryGPUHookCx {
       memory,
       gpu: &gpu,
-      waker: futures::task::noop_waker(),
+      waker: futures::task::waker(self.any_render_change.clone()),
       stage: GPUQueryHookStage::Update {
         spawner: task_spawner,
         task_pool: &mut pool,
@@ -481,7 +490,7 @@ impl Viewer3dRenderingCtx {
       stage: GPUQueryHookStage::Inspect(inspector),
       shared_ctx,
       storage_allocator: self.storage_allocator(),
-      waker: futures::task::noop_waker(),
+      waker: futures::task::waker(self.any_render_change.clone()),
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx), true);
   }
@@ -504,7 +513,7 @@ impl Viewer3dRenderingCtx {
         task: task_pool_result,
       },
       shared_ctx,
-      waker: futures::task::noop_waker(),
+      waker: futures::task::waker(self.any_render_change.clone()),
       storage_allocator: self.storage_allocator(),
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx).unwrap(), true);

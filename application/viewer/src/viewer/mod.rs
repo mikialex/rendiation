@@ -476,20 +476,22 @@ impl Viewer {
   }
 
   pub fn draw_canvas(&mut self, canvas: &RenderTargetView, task_spawner: &TaskSpawner) {
-    let tasks =
-      self
-        .rendering
-        .update_registry(&mut self.render_memory, task_spawner, &mut self.shared_ctx);
+    if self.rendering.check_should_render() {
+      let tasks =
+        self
+          .rendering
+          .update_registry(&mut self.render_memory, task_spawner, &mut self.shared_ctx);
 
-    let task_pool_result = pollster::block_on(tasks.all_async_task_done());
+      let task_pool_result = pollster::block_on(tasks.all_async_task_done());
 
-    self.rendering.render(
-      canvas,
-      &self.scene,
-      &mut self.render_memory,
-      task_pool_result,
-      &mut self.shared_ctx,
-    );
+      self.rendering.render(
+        canvas,
+        &self.scene,
+        &mut self.render_memory,
+        task_pool_result,
+        &mut self.shared_ctx,
+      );
+    }
 
     self.rendering.tick_frame();
   }

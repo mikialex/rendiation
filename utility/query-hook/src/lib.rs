@@ -15,10 +15,12 @@ pub use query::*;
 
 mod task_pool;
 mod use_result;
+mod wake_util;
 
 pub use hook::*;
 pub use task_pool::*;
 pub use use_result::*;
+pub use wake_util::*;
 
 #[derive(Default)]
 pub struct ChangeCollector {
@@ -307,11 +309,17 @@ pub trait QueryHookCxLike: HooksCxLike {
   where
     T: Clone + Send + Sync + 'static,
   {
-    {
+    let shared_waker = {
+      let waker = self.waker().clone();
       let shared = self.shared_hook_ctx().shared.entry(key).or_default();
       let mut shared = shared.write();
       shared.consumer.entry(consumer_id).or_insert_with(|| true);
-    }
+      shared.consumer_wakers.setup(consumer_id, waker);
+      shared.consumer_wakers.clone()
+    };
+
+    let waker_backup = self.waker().clone();
+    *self.waker() = futures::task::waker(shared_waker);
 
     let r = if let Some(&task_id) = self.shared_hook_ctx().task_id_mapping.get(&key) {
       match self.stage() {
@@ -352,6 +360,8 @@ pub trait QueryHookCxLike: HooksCxLike {
         }
       })
     };
+
+    *self.waker() = waker_backup;
 
     if self.is_spawning_stage() {
       let changed = {
@@ -454,37 +464,10 @@ pub trait QueryHookCxLike: HooksCxLike {
 
   #[track_caller]
   fn skip_if_not_waked<R: Default>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-    struct ChangeNotifier {
-      changed: AtomicBool,
-      waker: futures::task::AtomicWaker,
-    }
-
-    impl Default for ChangeNotifier {
-      fn default() -> Self {
-        Self {
-          changed: AtomicBool::new(true),
-          waker: Default::default(),
-        }
-      }
-    }
-
-    impl futures::task::ArcWake for ChangeNotifier {
-      fn wake_by_ref(arc_self: &Arc<Self>) {
-        arc_self
-          .changed
-          .store(true, std::sync::atomic::Ordering::SeqCst);
-        arc_self.waker.wake();
-      }
-    }
-
-    let (cx, notifier) = self.use_plain_state(|| Arc::new(ChangeNotifier::default()));
-    let should_execute = notifier.changed.load(std::sync::atomic::Ordering::SeqCst);
+    let (cx, notifier) = self.use_plain_state(|| Arc::new(ChangeNotifierInternal::default()));
+    let should_execute = notifier.update(cx.waker());
     let mut waker_backup = None;
     if should_execute {
-      notifier
-        .changed
-        .store(false, std::sync::atomic::Ordering::SeqCst);
-      notifier.waker.register(cx.waker());
       let waker = futures::task::waker(notifier.clone());
       waker_backup = cx.waker().clone().into();
       *cx.waker() = waker
@@ -540,6 +523,7 @@ impl SharedHooksCtx {
 
     let mut target = self.shared.get_mut(&key).unwrap().write();
     assert!(target.consumer.remove(&id).is_some());
+    assert!(target.consumer_wakers.remove(id));
     if target.consumer.is_empty() {
       drop(target);
       self.shared.remove(&key).unwrap().into()
@@ -557,6 +541,7 @@ pub struct SharedHookObject {
   pub memory: FunctionMemory,
   /// map id to changed state
   pub consumer: FastHashMap<u32, bool>,
+  pub consumer_wakers: Arc<BroadcastWaker>,
 }
 
 pub trait ChangeReconciler: Send + Sync {
