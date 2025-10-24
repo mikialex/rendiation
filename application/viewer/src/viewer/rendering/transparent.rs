@@ -16,3 +16,9 @@ pub enum ViewerTransparentRenderer {
   Loop32OIT(Arc<RwLock<OitLoop32Renderer>>),
   WeightedOIT,
 }
+
+impl ViewerTransparentRenderer {
+  pub fn should_reorder_draw_list(&self) -> bool {
+    matches!(self, ViewerTransparentRenderer::NaiveAlphaBlend)
+  }
+}

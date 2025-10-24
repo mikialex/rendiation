@@ -38,7 +38,6 @@ important issue is in bold style.
 
 - sky shading
 - ssr(super naive)
-- lod graph generation and rendering
 
 ### New features planed
 
@@ -52,9 +51,8 @@ important issue is in bold style.
 - fft bloom
 - gtao
 - contact shadow
-- skin animation
+- skin animation(indirect)
 - good ssr
-- on_demand_draw
 - visibility rendering
 - cluster lighting optimization
 - ray tracing

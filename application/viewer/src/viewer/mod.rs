@@ -392,11 +392,11 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
     };
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
 
-    todo!();
-    // todo, cleanup
-    // self
-    //   .render_memory
-    //   .cleanup(&mut self.render_resource as *mut _ as *mut ());
+    let mut dcx = QueryGPUHookDropCx {
+      share_cx: &mut self.shared_ctx,
+    };
+
+    self.render_memory.cleanup(&mut dcx as *mut _ as *mut ());
   }
 }
 

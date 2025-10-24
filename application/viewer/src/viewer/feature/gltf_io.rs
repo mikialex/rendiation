@@ -109,10 +109,11 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
 
   let (cx, current_loaded) = cx.use_plain_state::<Vec<GltfLoadResult>>();
 
-  noop_ctx!(ctx); // todo, avoid unnecessary polling
-  while let Poll::Ready(Some(result)) = rev.poll_next_unpin(ctx) {
-    current_loaded.push(result)
-  }
+  cx.poll_ctx(|ctx| {
+    while let Poll::Ready(Some(result)) = rev.poll_next_unpin(ctx) {
+      current_loaded.push(result)
+    }
+  });
 
   if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
     let opened = global.features.entry("gltf-io").or_insert(false);

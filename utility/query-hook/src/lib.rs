@@ -5,6 +5,7 @@ use std::ops::Deref;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::task::Context;
 use std::task::Waker;
 
 use fast_hash_collection::*;
@@ -126,6 +127,10 @@ pub trait QueryHookCxLike: HooksCxLike {
   fn is_resolve_stage(&self) -> bool;
   fn stage(&mut self) -> QueryHookStage<'_>;
   fn waker(&mut self) -> &mut Waker;
+  fn poll_ctx<R>(&mut self, f: impl FnOnce(&mut Context) -> R) -> R {
+    let mut ctx = futures::task::Context::from_waker(self.waker());
+    f(&mut ctx)
+  }
 
   fn spawner(&mut self) -> Option<TaskSpawner> {
     if let QueryHookStage::SpawnTask { spawner, .. } = self.stage() {

@@ -63,20 +63,22 @@ pub fn render_lighting_scene_content(
       );
 
       let mut all_transparent_object =
-        if let SceneModelRenderBatch::Host(all_transparent_object) = &all_transparent_object {
-          let camera_position = renderer
-            .camera_transforms
-            .access(&camera)
-            .unwrap()
-            .world
-            .position();
-          let all_transparent_object = TransparentHostOrderer {
-            world_bounding: renderer.sm_world_bounding.clone(),
+        if let SceneModelRenderBatch::Host(all_transparent_object) = all_transparent_object {
+          if renderer.oit.should_reorder_draw_list() {
+            let camera_position = renderer
+              .camera_transforms
+              .access(&camera)
+              .unwrap()
+              .world
+              .position();
+            let all_transparent_object = TransparentHostOrderer {
+              world_bounding: renderer.sm_world_bounding.clone(),
+            }
+            .reorder_content(all_transparent_object.as_ref(), camera_position);
+            SceneModelRenderBatch::Host(all_transparent_object)
+          } else {
+            SceneModelRenderBatch::Host(all_transparent_object)
           }
-          // todo, avoid this if not necessary
-          .reorder_content(all_transparent_object.as_ref(), camera_position);
-
-          SceneModelRenderBatch::Host(all_transparent_object)
         } else {
           all_transparent_object
         };
