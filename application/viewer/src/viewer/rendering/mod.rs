@@ -72,7 +72,7 @@ struct ViewerRendererInstance {
 }
 
 pub struct Viewer3dRenderingCtx {
-  frame_index: u64,
+  pub(crate) frame_index: u64,
   pub(crate) ndc: ViewerNDC,
   frame_logic: ViewerFrameLogic,
   enable_indirect_occlusion_culling: bool,

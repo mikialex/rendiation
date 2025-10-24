@@ -1,7 +1,7 @@
 use crate::*;
 
 impl Viewer3dRenderingCtx {
-  pub fn egui(&mut self, ui: &mut egui::Ui, last_frame_cpu_time: f32) {
+  pub fn egui(&mut self, ui: &mut egui::Ui, last_frame_cpu_time: f32, average_frame_cpu_time: f32) {
     let mut ui = UiWithChangeInfo(ui, false);
     let ui = &mut ui;
 
@@ -209,6 +209,11 @@ impl Viewer3dRenderingCtx {
       ui.label(format!(
         "last frame cpu time: {:.2} ms",
         last_frame_cpu_time
+      ));
+
+      ui.label(format!(
+        "average cpu time: {:.2} ms",
+        average_frame_cpu_time
       ));
       if let Some((t, _)) = self.stat_frame_time_in_ms.get_latest() {
         ui.label(format!(

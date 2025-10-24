@@ -37,6 +37,13 @@ impl Default for ViewerUIState {
 pub fn use_viewer_egui(cx: &mut ViewerCx) {
   let (cx, ui_state) = cx.use_plain_state::<ViewerUIState>();
 
+  let (cx, frame_cpu_time_stat) = cx.use_plain_state_init(|_| StatisticStore::<f32>::new(200));
+
+  frame_cpu_time_stat.insert(
+    cx.input.last_frame_cpu_time_in_ms,
+    cx.viewer.rendering.frame_index,
+  );
+
   if let ViewerCxStage::Gui {
     egui_ctx: ui,
     global,
@@ -89,7 +96,6 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           ui.label("heap stat is not enabled in this build");
         }
       });
-
     egui::Window::new("Viewer")
       .vscroll(true)
       .open(&mut ui_state.show_viewer_config_panel)
@@ -109,9 +115,10 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
         ui.separator();
 
+        let avg = frame_cpu_time_stat.history_average();
         viewer
           .rendering
-          .egui(ui, cx.input.last_frame_cpu_time_in_ms);
+          .egui(ui, cx.input.last_frame_cpu_time_in_ms, avg);
 
         viewer.background.egui(ui, viewer.scene.scene);
 
