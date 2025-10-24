@@ -20,26 +20,13 @@ pub unsafe trait HooksCxLike: Sized {
     !self.memory_ref().created
   }
 
-  fn execute<R>(&mut self, f: impl FnOnce(&mut Self) -> R, rollback: bool) -> R {
+  fn execute<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
     let start_cursor = self.memory_ref().current_cursor;
     let r = f(self);
-    if rollback {
-      self.memory_mut().current_cursor = start_cursor;
-    }
+    self.memory_mut().current_cursor = start_cursor;
 
     self.memory_mut().created = true;
     self.flush();
-    r
-  }
-
-  fn execute_partial<R>(&mut self, f: impl FnOnce(&mut Self) -> R, rollback: bool) -> R {
-    let start_cursor = self.memory_ref().current_cursor;
-    let r = f(self);
-    if rollback {
-      self.memory_mut().current_cursor = start_cursor;
-    }
-
-    self.memory_mut().created = true;
     r
   }
 
@@ -92,10 +79,10 @@ pub unsafe trait HooksCxLike: Sized {
 
   #[track_caller]
   fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-    self.raw_scope(|cx| cx.execute(|cx| f(cx), true))
+    self.raw_scope(|cx| cx.execute(|cx| f(cx)))
   }
   fn keyed_scope<K: std::hash::Hash, R>(&mut self, key: &K, f: impl FnOnce(&mut Self) -> R) -> R {
-    self.raw_keyed_scope(key, |cx| cx.execute(|cx| f(cx), true))
+    self.raw_keyed_scope(key, |cx| cx.execute(|cx| f(cx)))
   }
 
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T);

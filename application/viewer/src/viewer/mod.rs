@@ -253,45 +253,48 @@ pub struct FeaturesGlobalUIStates {
 
 /// expand the viewer cx base stage to a series of stages, and call them multiple times
 /// because some logic may have cyclic dependency for example something depend on world matrix
+#[track_caller]
 pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(&mut ViewerCx)) {
-  if let ViewerCxStage::BaseStage = cx.stage {
-    for i in 0..cycle_count {
-      let mut pool = AsyncTaskPool::default();
-      {
-        cx.viewer.shared_ctx.reset_visiting();
-        cx.stage = unsafe {
-          std::mem::transmute(ViewerCxStage::SpawnTask {
-            pool: &mut pool,
-            shared_ctx: &mut cx.viewer.shared_ctx,
-          })
-        };
+  cx.raw_scope(|cx| {
+    if let ViewerCxStage::BaseStage = cx.stage {
+      for _ in 0..cycle_count {
+        let mut pool = AsyncTaskPool::default();
+        {
+          cx.viewer.shared_ctx.reset_visiting();
+          cx.stage = unsafe {
+            std::mem::transmute(ViewerCxStage::SpawnTask {
+              pool: &mut pool,
+              shared_ctx: &mut cx.viewer.shared_ctx,
+            })
+          };
 
-        cx.execute_partial(&internal, true);
+          cx.execute(&internal);
+        }
+
+        {
+          let mut task_pool_result = pollster::block_on(pool.all_async_task_done());
+
+          cx.viewer.shared_ctx.reset_visiting();
+          cx.stage = unsafe {
+            std::mem::transmute(ViewerCxStage::EventHandling {
+              task: &mut task_pool_result,
+              shared_ctx: &mut cx.viewer.shared_ctx,
+              terminal_request: cx.viewer.terminal.ctx.store.clone(),
+            })
+          };
+
+          cx.execute(&internal);
+        }
+
+        cx.active_scene_writer();
+        cx.execute(&internal);
       }
 
-      {
-        let mut task_pool_result = pollster::block_on(pool.all_async_task_done());
-
-        cx.viewer.shared_ctx.reset_visiting();
-        cx.stage = unsafe {
-          std::mem::transmute(ViewerCxStage::EventHandling {
-            task: &mut task_pool_result,
-            shared_ctx: &mut cx.viewer.shared_ctx,
-            terminal_request: cx.viewer.terminal.ctx.store.clone(),
-          })
-        };
-
-        cx.execute_partial(&internal, true);
-      }
-
-      cx.active_scene_writer();
-      cx.execute_partial(&internal, i != cycle_count - 1);
+      cx.stage = ViewerCxStage::BaseStage;
+    } else {
+      cx.execute(internal);
     }
-
-    cx.stage = ViewerCxStage::BaseStage;
-  } else {
-    cx.execute_partial(&internal, false);
-  }
+  })
 }
 
 pub fn use_viewer<'a>(
@@ -345,7 +348,7 @@ pub fn use_viewer<'a>(
     },
     waker: futures::task::noop_waker(),
   }
-  .execute(|viewer| f(viewer), true);
+  .execute(|viewer| f(viewer));
 
   ViewerCx {
     viewer,
@@ -358,7 +361,7 @@ pub fn use_viewer<'a>(
     change_collector: Default::default(),
     waker: futures::task::noop_waker(),
   }
-  .execute(|viewer| f(viewer), true);
+  .execute(|viewer| f(viewer));
 
   viewer.draw_canvas(&acx.draw_target_canvas, worker_thread_pool);
 

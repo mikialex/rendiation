@@ -284,7 +284,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
                 draw_target_canvas: canvas,
                 gpu_and_surface,
               }
-              .execute(|cx| (self.app_logic)(cx), true);
+              .execute(|cx| (self.app_logic)(cx));
               event_state.end_frame();
 
               output.present();

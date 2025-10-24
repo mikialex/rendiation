@@ -514,7 +514,7 @@ impl Viewer3dRenderingCtx {
       shared_ctx,
       storage_allocator: self.storage_allocator(),
     }
-    .execute(|cx| self.use_viewer_scene_renderer(cx), true);
+    .execute(|cx| self.use_viewer_scene_renderer(cx));
     pool
   }
 
@@ -538,7 +538,7 @@ impl Viewer3dRenderingCtx {
       storage_allocator: self.storage_allocator(),
       waker: futures::task::waker(self.any_render_change.clone()),
     }
-    .execute(|cx| self.use_viewer_scene_renderer(cx), true);
+    .execute(|cx| self.use_viewer_scene_renderer(cx));
   }
 
   pub fn init_frame(&mut self) {
@@ -576,7 +576,7 @@ impl Viewer3dRenderingCtx {
       waker: futures::task::waker(self.any_render_change.clone()),
       storage_allocator: self.storage_allocator(),
     }
-    .execute(|cx| self.use_viewer_scene_renderer(cx).unwrap(), true);
+    .execute(|cx| self.use_viewer_scene_renderer(cx).unwrap());
 
     let statistics = self
       .enable_statistic_collect

@@ -61,7 +61,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
         return;
       }
 
-      cx.execute(f, true)
+      cx.execute(f)
     }
     ViewerCxStage::SceneContentUpdate { writer, .. } => {
       let mut cx = UI3dCx::new_update_stage(
@@ -72,22 +72,19 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
       );
 
       let mut scene_old = None;
-      cx.execute(
-        |cx| {
-          cx.on_update(|w, _| {
-            scene_old = w.replace_target_scene(widget_scene).into();
-          });
+      cx.execute(|cx| {
+        cx.on_update(|w, _| {
+          scene_old = w.replace_target_scene(widget_scene).into();
+        });
 
-          f(cx);
+        f(cx);
 
-          cx.on_update(|w, _| {
-            if let Some(scene) = scene_old.take() {
-              w.scene = scene
-            }
-          });
-        },
-        true,
-      );
+        cx.on_update(|w, _| {
+          if let Some(scene) = scene_old.take() {
+            w.scene = scene
+          }
+        });
+      });
     }
     _ => {}
   };
