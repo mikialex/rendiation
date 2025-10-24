@@ -85,6 +85,7 @@ pub struct Viewer3dRenderingCtx {
   enable_on_demand_rendering: bool,
   on_demand_rendering_cached_frame: Option<RenderTargetView>,
   any_render_change: ChangeNotifier,
+  not_any_changed_frame_count: u32,
   lighting: LightSystem,
   transparent_config: ViewerTransparentContentRenderStyle,
   pool: AttachmentPool,
@@ -143,6 +144,7 @@ impl Viewer3dRenderingCtx {
       enable_on_demand_rendering: init_config.enable_on_demand_rendering,
       on_demand_rendering_cached_frame: None,
       any_render_change: Default::default(),
+      not_any_changed_frame_count: 0,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting: LightSystem::new(&gpu),
       pool: init_attachment_pool(&gpu),
@@ -441,6 +443,11 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn check_should_render_and_copy_cached(&mut self, target: &RenderTargetView) -> bool {
+    // currently the rtx mode is offline style, so we need continually rendering
+    if self.rtx_rendering_enabled {
+      self.on_demand_rendering_cached_frame = None;
+    }
+
     if !self.enable_on_demand_rendering {
       self.on_demand_rendering_cached_frame = None;
     }
@@ -449,6 +456,13 @@ impl Viewer3dRenderingCtx {
     let any_changed = self.any_render_change.update(&upstream);
 
     if any_changed {
+      self.on_demand_rendering_cached_frame = None;
+      self.not_any_changed_frame_count = 0;
+    } else {
+      self.not_any_changed_frame_count += 1;
+    }
+
+    if self.frame_logic.enable_taa && self.not_any_changed_frame_count <= 32 {
       self.on_demand_rendering_cached_frame = None;
     }
 
@@ -549,6 +563,7 @@ impl Viewer3dRenderingCtx {
     task_pool_result: TaskPoolResultCx,
     shared_ctx: &mut SharedHooksCtx,
   ) {
+    let should_do_extra_copy = self.should_do_extra_copy(final_target);
     let gpu = self.gpu.clone();
     shared_ctx.reset_visiting();
     let renderer = QueryGPUHookCx {
@@ -578,10 +593,7 @@ impl Viewer3dRenderingCtx {
       content.scene,
     );
 
-    let render_target = if (self.expect_read_back_for_next_render_result
-      && matches!(final_target, RenderTargetView::SurfaceTexture { .. }))
-      || self.enable_on_demand_rendering
-    {
+    let render_target = if should_do_extra_copy {
       // we do extra copy in this case, so we have to make sure the copy source has correct usage
       let mut key = final_target.create_attachment_key();
       key.usage |= TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC;
@@ -701,10 +713,7 @@ impl Viewer3dRenderingCtx {
     }
 
     // do extra copy to surface texture
-    if (self.expect_read_back_for_next_render_result
-      && matches!(final_target, RenderTargetView::SurfaceTexture { .. }))
-      || self.enable_on_demand_rendering
-    {
+    if should_do_extra_copy {
       pass("extra final copy to surface")
         .with_color(final_target, store_full_frame())
         .render_ctx(&mut ctx)
@@ -715,7 +724,7 @@ impl Viewer3dRenderingCtx {
     }
     self.expect_read_back_for_next_render_result = false;
 
-    if self.enable_on_demand_rendering {
+    if self.should_do_frame_caching() {
       let mut key = final_target.create_attachment_key();
       key.usage |= TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC;
       let frame_cache = key.request(&ctx);
@@ -736,6 +745,15 @@ impl Viewer3dRenderingCtx {
       device: self.gpu.device.clone(),
       queue: self.gpu.queue.clone(),
     });
+  }
+
+  fn should_do_frame_caching(&self) -> bool {
+    self.enable_on_demand_rendering && !self.rtx_rendering_enabled
+  }
+
+  fn should_do_extra_copy(&self, final_target: &RenderTargetView) -> bool {
+    (self.expect_read_back_for_next_render_result || self.should_do_frame_caching())
+      && matches!(final_target, RenderTargetView::SurfaceTexture { .. })
   }
 }
 

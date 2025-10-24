@@ -13,7 +13,7 @@ pub struct ViewerFrameLogic {
   highlight: HighLighter,
   reproject: GPUReprojectInfo,
   taa: TAA,
-  enable_taa: bool,
+  pub enable_taa: bool,
   enable_fxaa: bool,
   enable_ground: bool,
   enable_ssao: bool,
