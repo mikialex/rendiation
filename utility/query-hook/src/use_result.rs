@@ -295,7 +295,7 @@ impl<T: Clone + Send + Sync + 'static> UseResult<T> {
         UseResult::SpawnStageFuture(future) => Some(future),
         UseResult::SpawnStageReady(result) => Some(Box::pin(futures::future::ready(result))
           as Pin<Box<dyn Future<Output = T> + Send + Sync>>),
-        UseResult::ResolveStageReady(_) => return TaskUseResult::NotInStage,
+        UseResult::ResolveStageReady(r) => return TaskUseResult::Result(r),
         UseResult::NotInStage => return TaskUseResult::NotInStage,
       };
     cx.use_global_shared_future(future)

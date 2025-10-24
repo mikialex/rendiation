@@ -322,9 +322,16 @@ pub trait QueryHookCxLike: HooksCxLike {
     *self.waker() = futures::task::waker(shared_waker);
 
     let r = if let Some(&task_id) = self.shared_hook_ctx().task_id_mapping.get(&key) {
+      // if we enter this, the logic has already been executed in this stage before, so
+      // we just share the task or clone the result.
       match self.stage() {
         QueryHookStage::SpawnTask { pool, .. } => {
-          UseResult::SpawnStageFuture(pool.share_task_by_id(task_id))
+          if let Some(f) = pool.try_share_task_by_id(task_id) {
+            UseResult::SpawnStageFuture(f)
+          } else {
+            // this is possible if upstream not spawn anything in spawn stage
+            UseResult::NotInStage
+          }
         }
         QueryHookStage::ResolveTask { task, .. } => {
           UseResult::ResolveStageReady(task.expect_result_by_id(task_id))
@@ -334,13 +341,36 @@ pub trait QueryHookCxLike: HooksCxLike {
     } else {
       self.enter_shared_ctx(key, |cx| {
         let result = logic(cx);
-        let result = result.use_global_shared(cx);
+
         let (cx, self_id) = cx.use_plain_state(|| u32::MAX);
-        if let TaskUseResult::SpawnId(task_id) = result {
-          *self_id = task_id;
-          cx.shared_hook_ctx().task_id_mapping.insert(key, task_id);
-        } else {
-          cx.shared_hook_ctx().task_id_mapping.insert(key, *self_id);
+
+        let result = result.use_global_shared(cx);
+        match result {
+          TaskUseResult::SpawnId(task_id) => {
+            *self_id = task_id;
+            cx.shared_hook_ctx().task_id_mapping.insert(key, task_id);
+          }
+          TaskUseResult::Result(r) => {
+            // in this case, we have result in resolve stage directly in upstream
+            // here we get an unique task id.
+            *self_id = u32::MAX - cx.shared_hook_ctx().task_id_mapping.len() as u32 - 1;
+            cx.shared_hook_ctx().task_id_mapping.insert(key, *self_id);
+            if let QueryHookStage::ResolveTask { task, .. } = cx.stage() {
+              task.token_based_result.insert(*self_id, Box::new(r));
+            } else {
+              panic!("unable to share direct upstream result in none resolve stage");
+            }
+          }
+          TaskUseResult::NotInStage => {
+            // in this case the self_id is u32::MAX, here we set it to mark we have already check the
+            // upstream
+            cx.shared_hook_ctx().task_id_mapping.insert(key, *self_id);
+          }
+        }
+
+        // it's possible because spawn stage can be skipped
+        if *self_id == u32::MAX {
+          return UseResult::NotInStage;
         }
 
         match &cx.stage() {
@@ -348,13 +378,9 @@ pub trait QueryHookCxLike: HooksCxLike {
             UseResult::SpawnStageFuture(pool.share_task_by_id(*self_id))
           }
           QueryHookStage::ResolveTask { task, .. } => {
-            if let Some(result) = task.try_get_result_by_id(*self_id) {
-              *self_id = u32::MAX;
-              UseResult::ResolveStageReady(result)
-            } else {
-              // it's possible because spawn stage can be skipped
-              UseResult::NotInStage
-            }
+            let result = task.expect_result_by_id(*self_id);
+            *self_id = u32::MAX;
+            UseResult::ResolveStageReady(result)
           }
           _ => UseResult::NotInStage,
         }

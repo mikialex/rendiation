@@ -10,6 +10,7 @@ important issue is in bold style.
 
 - fix oc and frustum culling
 - fix mesh lod graph
+- oit loop32 flicks in metal backend
 - spd not support none pot target, and small target(the current impl will access out of boundary of image).
 - multi format support in texture pool system
 - optimize frame ctx "make_submit" call, use copy buffer to buffer to update.

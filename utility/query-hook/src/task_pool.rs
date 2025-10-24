@@ -82,7 +82,7 @@ pub struct AsyncTaskPool {
 
 #[derive(Default)]
 pub struct TaskPoolResultCx {
-  token_based_result: FastHashMap<u32, Box<dyn AnyClone>>,
+  pub token_based_result: FastHashMap<u32, Box<dyn AnyClone>>,
 }
 
 impl TaskPoolResultCx {
@@ -98,17 +98,22 @@ impl TaskPoolResultCx {
 }
 
 impl AsyncTaskPool {
+  pub fn try_share_task_by_id<T: Clone + Any>(
+    &self,
+    id: u32,
+  ) -> Option<Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>>> {
+    let f = self
+      .registry
+      .get(&id)?
+      .clone()
+      .map(|v| v.deref().as_any().downcast_ref::<T>().unwrap().clone()); // todo bad
+    Some(Box::pin(f))
+  }
   pub fn share_task_by_id<T: Clone + Any>(
     &self,
     id: u32,
   ) -> Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>> {
-    let f = self
-      .registry
-      .get(&id)
-      .unwrap()
-      .clone()
-      .map(|v| v.deref().as_any().downcast_ref::<T>().unwrap().clone()); // todo bad
-    Box::pin(f)
+    self.try_share_task_by_id(id).unwrap()
   }
 
   pub fn install_task<T: 'static + Clone + Sync + Send>(

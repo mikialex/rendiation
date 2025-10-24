@@ -505,15 +505,31 @@ pub struct Viewer3dContent {
   pub widget_scene: EntityHandle<SceneEntity>,
 }
 
-// todo share
-fn use_scene_reader(cx: &mut ViewerCx) -> Option<SceneReader> {
-  use_scene_reader_internal(cx, cx.viewer.scene.scene)
+struct QuerySceneReader(EntityHandle<SceneEntity>);
+
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for QuerySceneReader {
+  type Result = Arc<SceneReader>;
+  fn compute_share_key(&self) -> ShareKey {
+    let mut hasher = fast_hash_collection::FastHasher::default();
+    std::any::TypeId::of::<Self>().hash(&mut hasher);
+    self.0.hash(&mut hasher);
+    ShareKey::Hash(std::hash::Hasher::finish(&hasher))
+  }
+
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+    use_scene_reader_internal(cx, self.0)
+  }
+}
+
+fn use_scene_reader(cx: &mut ViewerCx) -> Option<Arc<SceneReader>> {
+  cx.use_shared_compute(QuerySceneReader(cx.viewer.scene.scene))
+    .into_resolve_stage()
 }
 
 fn use_scene_reader_internal(
   cx: &mut impl DBHookCxLike,
   scene_id: EntityHandle<SceneEntity>,
-) -> Option<SceneReader> {
+) -> UseResult<Arc<SceneReader>> {
   let mesh_ref_vertex = cx
     .use_db_rev_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
     .use_assure_result(cx);
@@ -526,8 +542,8 @@ fn use_scene_reader_internal(
     .use_db_rev_ref::<SceneModelBelongsToScene>()
     .use_assure_result(cx);
 
-  cx.when_resolve_stage(|| {
-    SceneReader::new_from_global(
+  let r = cx.when_resolve_stage(|| {
+    let reader = SceneReader::new_from_global(
       scene_id,
       mesh_ref_vertex
         .expect_resolve_stage()
@@ -542,6 +558,13 @@ fn use_scene_reader_internal(
         .expect_resolve_stage()
         .mark_foreign_key::<SceneModelBelongsToScene>()
         .into_boxed_multi(),
-    )
-  })
+    );
+    Arc::new(reader)
+  });
+
+  if let Some(r) = r {
+    UseResult::ResolveStageReady(r)
+  } else {
+    UseResult::NotInStage
+  }
 }
