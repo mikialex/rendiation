@@ -58,7 +58,7 @@ pub fn use_db_all_foreign_key_change(
 type RefCountChange = FastHashMap<RawEntityHandle, ValueChange<u32>>;
 pub type DBAllEntityRefCountChange = FastHashMap<EntityId, RefCountChange>;
 
-pub const DEBUG: bool = true;
+pub const DEBUG: bool = false;
 
 pub fn use_db_all_entity_ref_count_change(
   cx: &mut impl DBHookCxLike,

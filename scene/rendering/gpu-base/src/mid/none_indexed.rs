@@ -50,8 +50,8 @@ impl ShaderHashProvider for DrawCommandGeneratorComponent {
   shader_hash_type_id! {}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.scene_models.hash_pipeline(hasher);
-    self.generator.hash_pipeline(hasher);
+    self.scene_models.hash_pipeline_with_type_info(hasher);
+    self.generator.hash_pipeline_with_type_info(hasher);
   }
 }
 
