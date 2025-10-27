@@ -58,6 +58,7 @@ pub struct WindowState {
   pub physical_size: (f32, f32),
   pub device_pixel_ratio: f32,
   pub has_any_mouse_event: bool,
+  /// in physical pixel unit
   pub mouse_position: (f32, f32),
   pub left_mouse_state: ElementState,
   pub right_mouse_state: ElementState,

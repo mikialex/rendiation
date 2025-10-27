@@ -8,7 +8,11 @@ pub struct CameraMoveAction {
   pub look_at: Vec3<f64>,
 }
 
-pub fn use_smooth_camera_motion(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)) {
+pub fn use_smooth_camera_motion(
+  cx: &mut ViewerCx,
+  camera_node: EntityHandle<SceneNodeEntity>,
+  f: impl FnOnce(&mut ViewerCx),
+) {
   f(cx);
 
   let config = SpringConfig {
@@ -37,12 +41,15 @@ pub fn use_smooth_camera_motion(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)
     let look_at = springed_target.step_clamped(time_delta_seconds, *target_target);
 
     let mat = Mat4::lookat(position, look_at, Vec3::new(0., 1., 0.));
-    let node = cx.viewer.scene.camera_node;
-    writer.set_local_matrix(node, mat);
+    writer.set_local_matrix(camera_node, mat);
   }
 }
 
-pub fn use_fit_camera_view(cx: &mut ViewerCx) {
+pub fn use_fit_camera_view(
+  cx: &mut ViewerCx,
+  camera: EntityHandle<SceneCameraEntity>,
+  camera_node: EntityHandle<SceneNodeEntity>,
+) {
   let sm_world_bounding = cx
     .use_shared_dual_query_view(SceneModelWorldBounding)
     .use_assure_result(cx);
@@ -58,9 +65,13 @@ pub fn use_fit_camera_view(cx: &mut ViewerCx) {
     {
       let world_mat = world_mat.expect_resolve_stage().mark_entity_type();
       let sm_world_bounding = sm_world_bounding.expect_resolve_stage().mark_entity_type();
-      if let Some(action) =
-        fit_camera_view_for_viewer(&cx.viewer.scene, world_mat, sm_world_bounding)
-      {
+      if let Some(action) = fit_camera_view_for_viewer(
+        camera,
+        camera_node,
+        cx.viewer.scene.selected_target,
+        world_mat,
+        sm_world_bounding,
+      ) {
         cx.dyn_cx.message.put(action);
       }
     }
@@ -68,16 +79,18 @@ pub fn use_fit_camera_view(cx: &mut ViewerCx) {
 }
 
 fn fit_camera_view_for_viewer(
-  scene_info: &Viewer3dContent,
+  camera: EntityHandle<SceneCameraEntity>,
+  camera_node: EntityHandle<SceneNodeEntity>,
+  selected_sm: Option<EntityHandle<SceneModelEntity>>,
   world_mat: impl Query<Key = EntityHandle<SceneNodeEntity>, Value = Mat4<f64>>,
   sm_world_bounding: impl Query<Key = EntityHandle<SceneModelEntity>, Value = Box3<f64>>,
 ) -> Option<CameraMoveAction> {
-  if let Some(selected) = &scene_info.selected_target {
-    let camera_world = world_mat.access(&scene_info.camera_node).unwrap();
+  if let Some(selected) = &selected_sm {
+    let camera_world = world_mat.access(&camera_node).unwrap();
     let camera_reader = global_entity_component_of::<SceneCameraPerspective>().read();
 
     if let Some(target_world_aabb) = sm_world_bounding.access(selected) {
-      let proj = camera_reader.get(scene_info.main_camera).unwrap().unwrap();
+      let proj = camera_reader.get(camera).unwrap().unwrap();
 
       fit_camera_view(&proj, camera_world, target_world_aabb).into()
     } else {

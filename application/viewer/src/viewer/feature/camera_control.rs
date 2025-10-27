@@ -11,7 +11,7 @@ pub struct ViewerCameraControl {
 
 pub struct CameraControlBlocked;
 
-pub fn use_camera_control(cx: &mut ViewerCx) {
+pub fn use_camera_control(cx: &mut ViewerCx, camera_with_viewports: &CameraViewportAccess) {
   let (cx, controller) = cx.use_plain_state::<ViewerCameraControl>();
 
   // if inner logic want change camera, then we adapt to  it
@@ -29,7 +29,7 @@ pub fn use_camera_control(cx: &mut ViewerCx) {
       let camera_local = reader
         .unwrap()
         .node_reader
-        .read::<SceneNodeLocalMatrixComponent>(cx.viewer.scene.camera_node);
+        .read::<SceneNodeLocalMatrixComponent>(camera_with_viewports.camera_node);
       let lookat_target_init = camera_local * Vec3::new(0., 0., -1.);
       controller
         .controller
@@ -39,7 +39,9 @@ pub fn use_camera_control(cx: &mut ViewerCx) {
 
     let pause = cx.dyn_cx.message.take::<CameraControlBlocked>().is_some();
 
+    todo!();
     let bound = InputBound {
+      // todo, use viewport bound
       origin: Vec2::zero(),
       size: cx.input.window_state.physical_size.into(),
     };

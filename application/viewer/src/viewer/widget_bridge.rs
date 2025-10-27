@@ -96,12 +96,14 @@ pub fn create_widget_cx(
   picker: &ViewerSceneModelPicker,
   world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
 ) -> Box<dyn WidgetEnvAccess> {
+  // todo, this is wrong
+  let first = viewer_scene.viewports.first().unwrap();
   Box::new(WidgetEnvAccessImpl {
     world_mat,
-    camera_node: viewer_scene.camera_node,
+    camera_node: first.camera_node,
     camera_proj: scene_reader
       .camera
-      .read::<SceneCameraPerspective>(viewer_scene.main_camera)
+      .read::<SceneCameraPerspective>(first.camera)
       .unwrap(),
     view_logic_pixel_size: picker.camera_view_size_in_logic_pixel.into_u32().into(),
     camera_world_ray: picker.current_mouse_ray_in_world(),

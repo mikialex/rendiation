@@ -4,23 +4,27 @@ use crate::*;
 
 pub fn use_enable_screenshot(cx: &mut ViewerCx) {
   cx.use_state_init(|cx| {
-  cx.terminal.register_command("screenshot", |ctx, _parameters, _| {
-    let result = ctx.renderer.read_next_render_result();
+    cx.terminal.register_command("screenshot", |ctx, parameters, _| {
+      let viewport_id = parameters.first().and_then(|v|v.parse::<u64>().ok()).unwrap_or_else(||{
+        log::warn!("viewport not specified, using the any viewport in current viewer");
+        *ctx.renderer.views.iter().next().unwrap().0
+      });
+      let result = ctx.renderer.views.get_mut(&viewport_id).unwrap().read_next_render_result();
 
-    async {
-      match result.await {
-          Ok(r) =>{
-            if let Some(mut dir) = dirs::download_dir() {
-              dir.push("screenshot.png"); // will override old but ok
-              write_screenshot(&r, dir);
-            }else {
-              log::error!("failed to locate the system's default download directory to write viewer screenshot image")
-            }
-          },
-          Err(e) => log::error!("{e:?}"),
+      async {
+        match result.await {
+            Ok(r) =>{
+              if let Some(mut dir) = dirs::download_dir() {
+                dir.push("screenshot.png"); // will override old but ok
+                write_screenshot(&r, dir);
+              }else {
+                log::error!("failed to locate the system's default download directory to write viewer screenshot image")
+              }
+            },
+            Err(e) => log::error!("{e:?}"),
+        }
       }
-    }
-  });
+    });
 
     ViewerScreenshot
   });

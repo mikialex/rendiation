@@ -22,16 +22,22 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
       let camera_transforms =
         cx.use_shared_dual_query(GlobalCameraTransformShare(cx.viewer.rendering.ndc));
 
-      let main_camera = cx.viewer.scene.main_camera.into_raw();
+      // due to multi view support, we disabled the filter for now
+      // let main_camera = cx.viewer.scene.main_camera.into_raw();
+      let main_camera = None;
       let helper_mesh_lines =
         camera_transforms.map_only_spawn_stage_in_thread_dual_query(cx, move |camera_transforms| {
           let (view, delta) = camera_transforms.view_delta();
           delta.iter_key_value().next()?; // skip if nothing changed
           let mats = view.iter_key_value().filter_map(|(camera, transform)| {
-            if camera == main_camera {
-              None // skip current viewing camera
+            if let Some(main_camera) = main_camera {
+              if camera == main_camera {
+                None // skip current viewing camera
+              } else {
+                // we lost precision here, but for helpers it's ok(i don't care)
+                Some(transform.view_projection_inv.into_f32())
+              }
             } else {
-              // we lost precision here, but for helpers it's ok(i don't care)
               Some(transform.view_projection_inv.into_f32())
             }
           });

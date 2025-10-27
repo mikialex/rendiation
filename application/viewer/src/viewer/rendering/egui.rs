@@ -52,11 +52,6 @@ impl Viewer3dRenderingCtx {
       });
     });
 
-    ui.checkbox(
-      &mut self.enable_on_demand_rendering,
-      "enable_on_demand_rendering",
-    );
-
     let is_target_support_indirect_draw = self.gpu.info.downgrade_info.is_webgpu_compliant()
       || (self
         .init_config
@@ -130,30 +125,6 @@ impl Viewer3dRenderingCtx {
 
     ui.separator();
 
-    egui::ComboBox::from_label("how to render transparent objects?")
-      .selected_text(format!("{:?}", &self.transparent_config,))
-      .show_ui_changed(ui, |ui| {
-        ui.selectable_value(
-          &mut self.transparent_config,
-          ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
-          "naive alpha blend",
-        );
-
-        ui.selectable_value(
-          &mut self.transparent_config,
-          ViewerTransparentContentRenderStyle::WeightedOIT,
-          "oit weighted style",
-        );
-
-        ui.selectable_value(
-          &mut self.transparent_config,
-          ViewerTransparentContentRenderStyle::Loop32OIT,
-          "oit loop32 style",
-        )
-      });
-
-    ui.separator();
-
     let message = if !is_target_support_indirect_draw {
       "current platform/gpu does not support gpu driven occlusion culling"
     } else if is_target_support_indirect_draw
@@ -176,114 +147,112 @@ impl Viewer3dRenderingCtx {
       },
     );
 
-    ui.add_enabled_ui(true, |ui| {
-      ui.checkbox(&mut self.rtx_renderer_enabled, "rtx_renderer_is_ready");
+    ui.separator();
 
-      if self.rtx_renderer_enabled {
-        ui.checkbox(&mut self.rtx_rendering_enabled, "enable ray tracing");
-        egui::ComboBox::from_label("ray tracing mode")
-          .selected_text(format!("{:?}", &self.rtx_effect_mode))
-          .show_ui_changed(ui, |ui| {
-            ui.selectable_value(
-              &mut self.rtx_effect_mode,
-              RayTracingEffectMode::ReferenceTracing,
-              "Path tracing",
-            );
-            ui.selectable_value(
-              &mut self.rtx_effect_mode,
-              RayTracingEffectMode::AO,
-              "AO only",
-            );
-          });
+    time_graph(
+      ui,
+      &self.stat_frame_time_in_ms,
+      last_frame_cpu_time,
+      average_frame_cpu_time,
+    );
 
-        if ui.button("reset  sample").clicked() {
-          self.request_reset_rtx_sample = true;
-        }
-      }
-    });
+    self.lighting.egui(ui, is_hdr);
 
     ui.separator();
 
-    ui.collapsing("time graph", |ui| {
-      let ui = &mut ui.0;
-      ui.label(format!(
-        "last frame cpu time: {:.2} ms",
-        last_frame_cpu_time
-      ));
-
-      ui.label(format!(
-        "average cpu time: {:.2} ms",
-        average_frame_cpu_time
-      ));
-      if let Some((t, _)) = self.stat_frame_time_in_ms.get_latest() {
-        ui.label(format!(
-          "last frame time: {:.2} ms, fps: {:.2}",
-          t,
-          1000. / t
-        ));
-      }
-      let t = self.stat_frame_time_in_ms.history_average();
-      ui.label(format!(
-        "average frame time: {:.2} ms, fps: {:.2}",
-        t,
-        1000. / t
-      ));
-      if let Some(times) = self.stat_frame_time_in_ms.iter_history_from_oldest_latest() {
-        let graph_height = 200.;
-        let graph_width = 300.;
-        let (res, painter) = ui.allocate_painter(
-          egui::Vec2 {
-            x: graph_width,
-            y: graph_height,
-          },
-          egui::Sense::empty(),
-        );
-        let x_start = res.rect.left();
-        let y_start = res.rect.top();
-        let x_step = graph_width / self.stat_frame_time_in_ms.history_size() as f32;
-
-        let warning_time_threshold = 1000. / 60.;
-        let serious_warning_time_threshold = 1000. / 15.;
-        let max_time = self
-          .stat_frame_time_in_ms
-          .history_max()
-          .copied()
-          .unwrap_or(warning_time_threshold);
-        for (idx, t) in times.enumerate() {
-          if let Some(&t) = t {
-            let height = t / max_time * graph_height;
-            let color = if t >= serious_warning_time_threshold {
-              egui::Color32::RED
-            } else if t >= warning_time_threshold {
-              egui::Color32::ORANGE
-            } else if ui.visuals().dark_mode {
-              egui::Color32::WHITE
-            } else {
-              egui::Color32::BLACK
-            };
-            painter.rect_filled(
-              egui::Rect {
-                min: egui::pos2(
-                  x_start + idx as f32 * x_step,
-                  y_start + (graph_height - height),
-                ),
-                max: egui::pos2(x_start + (idx + 1) as f32 * x_step, y_start + graph_height),
-              },
-              0.,
-              color,
-            );
-          }
-        }
-      } else {
-        ui.label("frame time graph not available");
-      }
+    ui.add_enabled_ui(true, |ui| {
+      ui.checkbox(&mut self.rtx_renderer_enabled, "rtx_renderer_is_ready");
     });
 
-    self.lighting.egui(ui, is_hdr);
-    self.frame_logic.egui(ui);
+    for (id, view) in self.views.iter_mut() {
+      ui.collapsing(format!("view config {}", id), |ui| {
+        view.egui(ui, self.rtx_renderer_enabled);
+      });
+    }
 
     if ui.1 {
       self.any_render_change.do_wake();
     }
   }
+}
+
+fn time_graph(
+  ui: &mut UiWithChangeInfo,
+  stat_frame_time_in_ms: &StatisticStore<f32>,
+  last_frame_cpu_time: f32,
+  average_frame_cpu_time: f32,
+) {
+  ui.collapsing("time graph", |ui| {
+    let ui = &mut ui.0;
+    ui.label(format!(
+      "last frame cpu time: {:.2} ms",
+      last_frame_cpu_time
+    ));
+
+    ui.label(format!(
+      "average cpu time: {:.2} ms",
+      average_frame_cpu_time
+    ));
+    if let Some((t, _)) = stat_frame_time_in_ms.get_latest() {
+      ui.label(format!(
+        "last frame time: {:.2} ms, fps: {:.2}",
+        t,
+        1000. / t
+      ));
+    }
+    let t = stat_frame_time_in_ms.history_average();
+    ui.label(format!(
+      "average frame time: {:.2} ms, fps: {:.2}",
+      t,
+      1000. / t
+    ));
+    if let Some(times) = stat_frame_time_in_ms.iter_history_from_oldest_latest() {
+      let graph_height = 200.;
+      let graph_width = 300.;
+      let (res, painter) = ui.allocate_painter(
+        egui::Vec2 {
+          x: graph_width,
+          y: graph_height,
+        },
+        egui::Sense::empty(),
+      );
+      let x_start = res.rect.left();
+      let y_start = res.rect.top();
+      let x_step = graph_width / stat_frame_time_in_ms.history_size() as f32;
+
+      let warning_time_threshold = 1000. / 60.;
+      let serious_warning_time_threshold = 1000. / 15.;
+      let max_time = stat_frame_time_in_ms
+        .history_max()
+        .copied()
+        .unwrap_or(warning_time_threshold);
+      for (idx, t) in times.enumerate() {
+        if let Some(&t) = t {
+          let height = t / max_time * graph_height;
+          let color = if t >= serious_warning_time_threshold {
+            egui::Color32::RED
+          } else if t >= warning_time_threshold {
+            egui::Color32::ORANGE
+          } else if ui.visuals().dark_mode {
+            egui::Color32::WHITE
+          } else {
+            egui::Color32::BLACK
+          };
+          painter.rect_filled(
+            egui::Rect {
+              min: egui::pos2(
+                x_start + idx as f32 * x_step,
+                y_start + (graph_height - height),
+              ),
+              max: egui::pos2(x_start + (idx + 1) as f32 * x_step, y_start + graph_height),
+            },
+            0.,
+            color,
+          );
+        }
+      }
+    } else {
+      ui.label("frame time graph not available");
+    }
+  });
 }

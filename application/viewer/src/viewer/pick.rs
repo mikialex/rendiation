@@ -12,7 +12,6 @@ use crate::*;
 
 pub struct ViewerSceneModelPicker {
   current_mouse_ray_in_world: Ray3<f64>,
-  normalized_position: Vec2<f32>,
   normalized_position_ndc: Vec2<f32>,
   camera_world: Mat4<f64>,
   camera_proj: Box<dyn Projection<f32>>,
@@ -43,21 +42,6 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
   let wide_line_picker = use_wide_line_picker(cx);
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
-    let camera = cx.viewer.scene.main_camera;
-    let cam_trans = camera_transforms
-      .expect_resolve_stage()
-      .access(&camera.into_raw())
-      .unwrap();
-    let camera_view_projection_inv = cam_trans.view_projection_inv;
-    let camera_world = cam_trans.world;
-
-    let camera_proj = global_entity_component_of::<SceneCameraPerspective>()
-      .read()
-      .get_value(camera)
-      .unwrap()
-      .unwrap();
-    let camera_proj = Box::new(camera_proj);
-
     let att_mesh_picker = use_attribute_mesh_picker.unwrap();
     let wide_line_picker = wide_line_picker.unwrap();
 
@@ -77,7 +61,6 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
         .into_boxed(),
     };
 
-    // todo, fix , this should use actual view resolution instead of full window size
     let view_logic_pixel_size = Vec2::new(
       cx.input.window_state.physical_size.0 / cx.input.window_state.device_pixel_ratio,
       cx.input.window_state.physical_size.1 / cx.input.window_state.device_pixel_ratio,
@@ -85,14 +68,65 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
     .map(|v| v.ceil() as u32);
     let view_logic_pixel_size = Size::from_u32_pair_min_one(view_logic_pixel_size.into());
 
-    ViewerSceneModelPicker::new(
-      Box::new(scene_model_picker),
-      cx.input,
+    let scene_model_picker: Box<dyn SceneModelPicker> = Box::new(scene_model_picker);
+    let input = cx.input;
+    let mouse_position = &input.window_state.mouse_position; // todo, use surface relative position
+
+    let viewports = &cx.viewer.scene.viewports;
+    // find the top hit
+    let mut iter = viewports.iter().enumerate().rev();
+    let (idx, normalized_position_ndc) = iter
+      .find_map(|(idx, viewport)| {
+        let mouse_position_relative_to_viewport = Vec2::new(
+          mouse_position.0 - viewport.viewport.x,
+          mouse_position.1 - viewport.viewport.y,
+        );
+
+        let normalized_position_ndc = compute_normalized_position_in_canvas_coordinate(
+          mouse_position_relative_to_viewport.into(),
+          (viewport.viewport.z, viewport.viewport.w),
+        );
+        if normalized_position_ndc.0 >= 0.
+          && normalized_position_ndc.1 >= 0.
+          && normalized_position_ndc.0 < 1.0
+          && normalized_position_ndc.1 < 1.0
+        {
+          return Some((idx, normalized_position_ndc));
+        } else {
+          None
+        }
+      })
+      .unwrap();
+    let viewport = &viewports[idx];
+
+    let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
+    let normalized_position_ndc_f64 = normalized_position_ndc.into_f64();
+
+    let cam_trans = camera_transforms
+      .expect_resolve_stage()
+      .access(&viewport.camera.into_raw())
+      .unwrap();
+    let camera_view_projection_inv = cam_trans.view_projection_inv;
+    let camera_world = cam_trans.world;
+
+    let camera_proj = global_entity_component_of::<SceneCameraPerspective>()
+      .read()
+      .get_value(viewport.camera)
+      .unwrap()
+      .unwrap();
+    let camera_proj = Box::new(camera_proj);
+
+    let current_mouse_ray_in_world =
+      cast_world_ray(camera_view_projection_inv, normalized_position_ndc_f64);
+
+    ViewerSceneModelPicker {
+      scene_model_picker,
+      current_mouse_ray_in_world,
+      normalized_position_ndc,
       camera_world,
-      camera_view_projection_inv,
+      camera_view_size_in_logic_pixel: view_logic_pixel_size,
       camera_proj,
-      view_logic_pixel_size,
-    )
+    }
     .into()
   } else {
     None
@@ -100,39 +134,6 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
 }
 
 impl ViewerSceneModelPicker {
-  pub fn new(
-    scene_model_picker: Box<dyn SceneModelPicker>,
-    input: &PlatformEventInput,
-    camera_world: Mat4<f64>,
-    camera_view_projection_inv: Mat4<f64>,
-    camera_proj: Box<dyn Projection<f32>>,
-    camera_view_size_in_logic_pixel: Size,
-  ) -> Self {
-    let mouse_position = &input.window_state.mouse_position;
-    let window_size = &input.window_state.physical_size;
-
-    let normalized_position_ndc =
-      compute_normalized_position_in_canvas_coordinate(*mouse_position, *window_size);
-
-    let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
-    let normalized_position_ndc_f64 = normalized_position_ndc.into_f64();
-    let current_mouse_ray_in_world =
-      cast_world_ray(camera_view_projection_inv, normalized_position_ndc_f64);
-
-    ViewerSceneModelPicker {
-      scene_model_picker,
-      current_mouse_ray_in_world,
-      normalized_position: Vec2::from((
-        mouse_position.0 / window_size.0,
-        mouse_position.1 / window_size.1,
-      )),
-      normalized_position_ndc,
-      camera_world,
-      camera_view_size_in_logic_pixel,
-      camera_proj,
-    }
-  }
-
   pub fn current_mouse_ray_in_world(&self) -> Ray3<f64> {
     self.current_mouse_ray_in_world
   }
@@ -142,7 +143,7 @@ impl ViewerSceneModelPicker {
   }
 
   pub fn normalized_position(&self) -> Vec2<f32> {
-    self.normalized_position
+    self.normalized_position_ndc * Vec2::new(1., -1.)
   }
 }
 
@@ -183,7 +184,6 @@ pub fn prepare_picking_state<'a>(
   );
 
   Interaction3dCtx {
-    normalized_mouse_position: picker.normalized_position,
     mouse_world_ray: picker.current_mouse_ray_in_world,
     picker: picker as &dyn Picker3d,
     world_ray_intersected_nearest,

@@ -126,7 +126,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
         ui.collapsing("Init config(not dynamic configurable)", |ui| {
           if ui
-            .button("export current viewer init and current config")
+            .button("export first viewport init and current config")
             .clicked()
           {
             let config = viewer.export_init_config();

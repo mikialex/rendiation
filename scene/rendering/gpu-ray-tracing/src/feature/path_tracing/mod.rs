@@ -26,19 +26,8 @@ use ray_miss::*;
 mod frame_state;
 use frame_state::*;
 
-pub fn use_rtx_pt_renderer(
-  cx: &mut QueryGPUHookCx,
-  rtx: &RtxSystemCore,
-  request_reset_sample: bool,
-) -> Option<DeviceReferencePathTracingRenderer> {
+pub fn use_rtx_pt_sbt(cx: &mut QueryGPUHookCx, rtx: &RtxSystemCore) -> Option<(GPUSbt, bool)> {
   let (cx, end) = cx.use_begin_change_set_collect();
-
-  let (cx, system) = cx.use_gpu_init(|gpu, _| DeviceReferencePathTracingSystem {
-    executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
-    shader_handles: Default::default(),
-    state: Default::default(),
-    gpu: gpu.clone(),
-  });
 
   let (cx, sbt) = cx.use_plain_state(|| {
     let handles = PathTracingShaderHandles::default();
@@ -52,8 +41,8 @@ pub fn use_rtx_pt_renderer(
     GPUSbt::new(sbt)
   });
 
-  let core_closest_hit = system.shader_handles.closest_hit;
-  let shadow_closest_hit = system.shader_handles.shadow_test_hit;
+  let core_closest_hit = PathTracingShaderHandles::default().closest_hit;
+  let shadow_closest_hit = PathTracingShaderHandles::default().shadow_test_hit;
 
   let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
     v.into_change()
@@ -79,40 +68,12 @@ pub fn use_rtx_pt_renderer(
     sbt.update(updates, PTRayType::ShadowTest as u32);
   }
 
-  if let Some(true) = end(cx) {
-    system.reset_sample();
-  }
+  let changed = end(cx);
 
-  if request_reset_sample {
-    system.reset_sample();
-  }
-  cx.when_render(|| DeviceReferencePathTracingRenderer {
-    executor: system.executor.clone(),
-    shader_handles: system.shader_handles.clone(),
-    frame_state: system.state.clone(),
-    max_ray_depth: MAX_RAY_DEPTH,
-    sbt: sbt.clone(),
-    gpu: system.gpu.clone(),
-  })
-}
-
-/// the main physical correct gpu ray tracing implementation
-pub struct DeviceReferencePathTracingSystem {
-  executor: GPURaytracingPipelineExecutor,
-  shader_handles: PathTracingShaderHandles,
-  state: Arc<RwLock<Option<PTRenderState>>>,
-  gpu: GPU,
+  cx.when_resolve_stage(|| (sbt.clone(), changed.unwrap()))
 }
 
 const MAX_RAY_DEPTH: u32 = 3;
-
-impl DeviceReferencePathTracingSystem {
-  pub fn reset_sample(&self) {
-    if let Some(state) = self.state.write().as_mut() {
-      state.reset(&self.gpu);
-    }
-  }
-}
 
 #[derive(Clone, PartialEq, Debug)]
 struct PathTracingShaderHandles {
@@ -139,11 +100,20 @@ pub struct DeviceReferencePathTracingRenderer {
   shader_handles: PathTracingShaderHandles,
   frame_state: Arc<RwLock<Option<PTRenderState>>>,
   max_ray_depth: u32,
-  sbt: GPUSbt,
   gpu: GPU,
 }
 
 impl DeviceReferencePathTracingRenderer {
+  pub fn new(rtx: &RtxSystemCore, gpu: &GPU) -> Self {
+    Self {
+      executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
+      shader_handles: Default::default(),
+      frame_state: Default::default(),
+      max_ray_depth: MAX_RAY_DEPTH,
+      gpu: gpu.clone(),
+    }
+  }
+
   pub fn reset_sample(&self) {
     if let Some(state) = self.frame_state.write().as_mut() {
       state.reset(&self.gpu);
@@ -159,6 +129,7 @@ impl DeviceReferencePathTracingRenderer {
     camera: EntityHandle<SceneCameraEntity>,
     tonemap: &ToneMap,
     background: &SceneBackgroundRenderer,
+    sbt: &GPUSbt,
   ) -> GPU2DTextureView {
     let scene_tlas = base.scene_tlas.access(&scene.into_raw()).unwrap().clone();
     // bind tlas, see ShaderRayTraceCall::tlas_idx.
@@ -247,7 +218,7 @@ impl DeviceReferencePathTracingRenderer {
     // this is 2 because when previous ray is reading back, their is no empty space for allocate new ray
     source.max_in_flight_trace_ray = 2;
 
-    let sbt = self.sbt.inner.read();
+    let sbt = sbt.inner.read();
     rtx_encoder.trace_ray(
       &source,
       &self.executor,

@@ -6,19 +6,8 @@ use crate::*;
 
 const MAX_SAMPLE: u32 = 256;
 
-pub fn use_rtx_ao_renderer(
-  cx: &mut QueryGPUHookCx,
-  rtx: &RtxSystemCore,
-  request_reset_sample: bool,
-) -> Option<SceneRayTracingAORenderer> {
+pub fn use_scene_ao_sbt(cx: &mut QueryGPUHookCx, rtx: &RtxSystemCore) -> Option<(GPUSbt, bool)> {
   let (cx, end) = cx.use_begin_change_set_collect();
-
-  let (cx, system) = cx.use_gpu_init(|gpu, _| RayTracingAORenderSystem {
-    executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
-    shader_handles: Default::default(),
-    ao_state: Default::default(),
-    gpu: gpu.clone(),
-  });
 
   let (cx, sbt) = cx.use_plain_state(|| {
     let handles = AOShaderHandles::default();
@@ -32,8 +21,8 @@ pub fn use_rtx_ao_renderer(
     GPUSbt::new(sbt)
   });
 
-  let closest_hit = system.shader_handles.closest_hit;
-  let secondary_closest = system.shader_handles.secondary_closest;
+  let closest_hit = AOShaderHandles::default().closest_hit;
+  let secondary_closest = AOShaderHandles::default().secondary_closest;
 
   let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
     v.into_change()
@@ -59,35 +48,9 @@ pub fn use_rtx_ao_renderer(
     sbt.update(updates, AORayType::AOTest as u32);
   }
 
-  if let Some(true) = end(cx) {
-    system.reset_sample();
-  }
-  if request_reset_sample {
-    system.reset_sample();
-  }
+  let changed = end(cx);
 
-  cx.when_render(|| SceneRayTracingAORenderer {
-    executor: system.executor.clone(),
-    shader_handles: system.shader_handles.clone(),
-    ao_state: system.ao_state.clone(),
-    sbt: sbt.clone(),
-    gpu: system.gpu.clone(),
-  })
-}
-
-pub struct RayTracingAORenderSystem {
-  executor: GPURaytracingPipelineExecutor,
-  shader_handles: AOShaderHandles,
-  ao_state: Arc<RwLock<Option<AORenderState>>>,
-  gpu: GPU,
-}
-
-impl RayTracingAORenderSystem {
-  pub fn reset_sample(&self) {
-    if let Some(state) = self.ao_state.write().as_mut() {
-      state.reset(&self.gpu);
-    }
-  }
+  cx.when_resolve_stage(|| (sbt.clone(), changed.unwrap()))
 }
 
 #[derive(Clone)]
@@ -143,7 +106,6 @@ impl Default for AOShaderHandles {
 
 pub struct SceneRayTracingAORenderer {
   executor: GPURaytracingPipelineExecutor,
-  sbt: GPUSbt,
   ao_state: Arc<RwLock<Option<AORenderState>>>,
   shader_handles: AOShaderHandles,
   gpu: GPU,
@@ -166,6 +128,15 @@ impl AORayType {
 }
 
 impl SceneRayTracingAORenderer {
+  pub fn new(rtx: &RtxSystemCore, gpu: &GPU) -> Self {
+    Self {
+      executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
+      shader_handles: Default::default(),
+      ao_state: Default::default(),
+      gpu: gpu.clone(),
+    }
+  }
+
   pub fn reset_sample(&self) {
     if let Some(state) = self.ao_state.write().as_mut() {
       state.reset(&self.gpu);
@@ -180,6 +151,7 @@ impl SceneRayTracingAORenderer {
     base: &SceneRayTracingRendererBase,
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
+    sbt: &GPUSbt,
   ) -> GPU2DTextureView {
     let scene_tlas = base.scene_tlas.access(&scene.into_raw()).unwrap().clone();
     let render_size = clamp_size_by_area(frame.frame_size(), 512 * 512);
@@ -330,7 +302,7 @@ impl SceneRayTracingAORenderer {
     assert_eq!(handles, self.shader_handles);
     source.set_execution_round_hint(8);
 
-    let sbt = self.sbt.inner.read();
+    let sbt = sbt.inner.read();
     rtx_encoder.trace_ray(
       &source,
       &self.executor,

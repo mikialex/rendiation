@@ -18,6 +18,7 @@ use std::time::Instant;
 
 use database::*;
 use event_source::*;
+use fast_hash_collection::FastHashMap;
 use futures::FutureExt;
 use futures::StreamExt;
 use parking_lot::RwLock;
@@ -164,6 +165,14 @@ fn main() {
       use_viewer_gizmo(cx);
     });
 
+    per_camera_per_viewport(cx, |cx, camera_with_viewports| {
+      let cv = camera_with_viewports;
+      use_smooth_camera_motion(cx, cv.camera_node, |cx| {
+        use_fit_camera_view(cx, cv.camera, cv.camera_node);
+        use_camera_control(cx, cv);
+      });
+    });
+
     stage_of_update(cx, 1, |cx| {
       let (cx, config) = cx.use_plain_state_init(|_| {
         let mut set = fast_hash_collection::FastHashSet::default();
@@ -186,11 +195,6 @@ fn main() {
 
       #[cfg(not(target_family = "wasm"))]
       test_persist_scope(cx);
-
-      use_smooth_camera_motion(cx, |cx| {
-        use_fit_camera_view(cx);
-        use_camera_control(cx);
-      });
 
       use_pick_scene(cx);
       use_scene_camera_helper(cx);

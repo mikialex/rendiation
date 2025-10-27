@@ -3,6 +3,9 @@ use crate::*;
 mod feature;
 pub use feature::*;
 
+mod viewport;
+pub use viewport::*;
+
 mod default_scene;
 pub use default_scene::*;
 
@@ -438,9 +441,15 @@ impl Viewer {
       .with_component_value_writer::<SceneCameraNode>(Some(camera_node.into_raw()))
       .new_entity();
 
-    let scene = Viewer3dContent {
-      main_camera,
+    let viewport = ViewerViewPort {
+      id: alloc_global_res_id(),
+      viewport: Default::default(),
+      camera: main_camera,
       camera_node,
+    };
+
+    let scene = Viewer3dContent {
+      viewports: vec![viewport],
       scene,
       root,
       selected_target: None,
@@ -480,7 +489,12 @@ impl Viewer {
 
   pub fn draw_canvas(&mut self, canvas: &RenderTargetView, task_spawner: &TaskSpawner) {
     self.rendering.init_frame();
-    if self.rendering.check_should_render_and_copy_cached(canvas) {
+
+    let requested_render_views = self
+      .rendering
+      .check_should_render_and_copy_cached(canvas, &self.scene.viewports);
+
+    if !requested_render_views.is_empty() {
       let tasks =
         self
           .rendering
@@ -489,6 +503,7 @@ impl Viewer {
       let task_pool_result = pollster::block_on(tasks.all_async_task_done());
 
       self.rendering.render(
+        &requested_render_views,
         canvas,
         &self.scene,
         &mut self.render_memory,
@@ -500,8 +515,7 @@ impl Viewer {
 }
 
 pub struct Viewer3dContent {
-  pub main_camera: EntityHandle<SceneCameraEntity>,
-  pub camera_node: EntityHandle<SceneNodeEntity>,
+  pub viewports: Vec<ViewerViewPort>,
   pub root: EntityHandle<SceneNodeEntity>,
   pub scene: EntityHandle<SceneEntity>,
   pub selected_target: Option<EntityHandle<SceneModelEntity>>,
