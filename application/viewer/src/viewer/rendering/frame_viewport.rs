@@ -31,10 +31,9 @@ pub struct Viewer3dViewportRenderingCtx {
   rtx_rendering_enabled: bool,
   rtx_effect_mode: RayTracingEffectMode,
   pub transparent_config: ViewerTransparentContentRenderStyle,
-  on_encoding_finished: EventSource<ViewRenderedState>,
+  on_encoding_finished: EventSource<ViewportRenderedResult>,
   expect_read_back_for_next_render_result: bool,
   pub picker: GPUxEntityIdMapPicker,
-  rtx_renderer: Option<RayTracingRendererGroup>,
   request_reset_rtx_sample: bool,
   pub oit: ViewerTransparentRenderer,
   pub rtx_ao: Option<SceneRayTracingAORenderer>,
@@ -73,7 +72,6 @@ impl Viewer3dViewportRenderingCtx {
       transparent_config: init_config.transparent_config,
       rtx_effect_mode: RayTracingEffectMode::ReferenceTracing,
       rtx_rendering_enabled: false,
-      rtx_renderer: None,
       request_reset_rtx_sample: true,
       enable_on_demand_rendering: init_config.enable_on_demand_rendering,
       on_demand_rendering_cached_frame: None,
@@ -182,12 +180,12 @@ impl Viewer3dViewportRenderingCtx {
   pub fn check_should_render_and_copy_cached(
     &mut self,
     target: &RenderTargetView,
-    content: &ViewerViewPort,
+    viewport: &ViewerViewPort,
     any_changed: bool,
     ctx: &mut FrameCtx,
   ) -> bool {
     if let Some(camera) = self.rendered_camera {
-      if camera != content.camera {
+      if camera != viewport.camera {
         self.on_demand_rendering_cached_frame = None;
       }
     }
@@ -249,8 +247,11 @@ impl Viewer3dViewportRenderingCtx {
       // we do extra copy in this case, so we have to make sure the copy source has correct usage
       let mut key = final_target.create_attachment_key();
       key.usage |= TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC;
-      key.size = todo!();
-      key.request(&ctx)
+
+      let viewport_size =
+        Size::from_u32_pair_min_one(viewport.viewport.zw().map(|v| v as u32).into());
+      key.size = viewport_size;
+      key.request(ctx)
     } else {
       final_target.clone()
     };
@@ -262,7 +263,7 @@ impl Viewer3dViewportRenderingCtx {
         content,
         &render_target,
         camera,
-        &renderer.lighting.tonemap,
+        renderer.lighting.tonemap,
       );
     } else {
       self.render_raster(ctx, renderer, content, &render_target, camera);
@@ -292,6 +293,7 @@ impl Viewer3dViewportRenderingCtx {
 
     // do extra copy to surface texture
     if should_do_extra_copy {
+      // todo, fixme,  this copy is not consider viewport
       pass("extra final copy to surface")
         .with_color(final_target, store_full_frame())
         .render_ctx(ctx)
@@ -313,7 +315,7 @@ impl Viewer3dViewportRenderingCtx {
       self.on_demand_rendering_cached_frame = Some(frame_cache);
     }
 
-    self.on_encoding_finished.emit(&ViewRenderedState {
+    self.on_encoding_finished.emit(&ViewportRenderedResult {
       target: render_target,
       device: ctx.gpu.device.clone(),
       queue: ctx.gpu.queue.clone(),
@@ -336,7 +338,7 @@ impl Viewer3dViewportRenderingCtx {
         RayTracingEffectMode::AO => {
           let ao = self
             .rtx_ao
-            .get_or_insert_with(|| SceneRayTracingAORenderer::new(core, &ctx.gpu));
+            .get_or_insert_with(|| SceneRayTracingAORenderer::new(core, ctx.gpu));
           if self.request_reset_rtx_sample || rtx_renderer.base.1 || rtx_renderer.ao.1 {
             ao.reset_sample();
           }
@@ -358,7 +360,7 @@ impl Viewer3dViewportRenderingCtx {
         RayTracingEffectMode::ReferenceTracing => {
           let pt = self
             .rtx_pt
-            .get_or_insert_with(|| DeviceReferencePathTracingRenderer::new(core, &ctx.gpu));
+            .get_or_insert_with(|| DeviceReferencePathTracingRenderer::new(core, ctx.gpu));
           if self.request_reset_rtx_sample || rtx_renderer.base.1 || rtx_renderer.pt.1 {
             pt.reset_sample();
           }
@@ -402,7 +404,7 @@ impl Viewer3dViewportRenderingCtx {
         .check_is_perspective_matrix_assume_common_projection()
       {
         mesh_lod_graph_renderer.setup_lod_decider(
-          &ctx.gpu,
+          ctx.gpu,
           camera_transform.projection,
           camera_transform.world,
           render_target.size().into_f32().into(),
@@ -590,7 +592,7 @@ impl Viewer3dViewportRenderingCtx {
 
     self.picker.read_new_frame_id_buffer(
       &GPUTypedTextureView::<TextureDimension2, u32>::try_from(entity_id).unwrap(),
-      &ctx.gpu,
+      ctx.gpu,
       &mut ctx.encoder,
     );
   }
@@ -653,7 +655,7 @@ where
 }
 
 #[derive(Clone)]
-struct ViewRenderedState {
+struct ViewportRenderedResult {
   target: RenderTargetView,
   device: GPUDevice,
   queue: GPUQueue,
@@ -665,7 +667,7 @@ pub enum ViewerRenderResultReadBackErr {
   UnableToReadSurfaceTexture,
 }
 
-impl ViewRenderedState {
+impl ViewportRenderedResult {
   async fn read(self) -> Result<ReadableTextureBuffer, ViewerRenderResultReadBackErr> {
     let tex = match self.target {
       RenderTargetView::Texture(tex) => tex.clone(),

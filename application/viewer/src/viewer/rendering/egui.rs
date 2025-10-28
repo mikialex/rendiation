@@ -55,8 +55,9 @@ impl Viewer3dRenderingCtx {
     let is_target_support_indirect_draw = self.gpu.info.downgrade_info.is_webgpu_compliant()
       || (self
         .init_config
+        .init_only
         .using_texture_as_storage_buffer_for_indirect_rendering
-        && self.init_config.enable_indirect_storage_combine
+        && self.init_config.init_only.enable_indirect_storage_combine
         && self.using_host_driven_indirect_draw);
 
     egui::ComboBox::from_label("RasterizationRender Backend")

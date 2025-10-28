@@ -37,28 +37,33 @@ pub fn use_camera_control(cx: &mut ViewerCx, camera_with_viewports: &CameraViewp
       controller.have_synced_for_viewer_init_camera_state = true;
     }
 
-    let pause = cx.dyn_cx.message.take::<CameraControlBlocked>().is_some();
+    if cx.dyn_cx.message.take::<CameraControlBlocked>().is_some() {
+      controller.winit_state.pause();
+      return;
+    }
 
     let mouse_position = &cx.input.window_state.mouse_position; // todo, use surface relative position
     let viewports = camera_with_viewports
       .viewports_index
       .iter()
       .map(|(index, _)| &cx.viewer.scene.viewports[*index]);
-    let (viewport, _) = find_top_hit(viewports, *mouse_position).unwrap(); // todo, this unwrap may failed
+    if let Some((viewport, _)) = find_top_hit(viewports, *mouse_position) {
+      let bound = viewport_to_input_bound(viewport.viewport);
 
-    let bound = viewport_to_input_bound(viewport.viewport);
+      for e in &cx.input.accumulate_events {
+        controller
+          .controller
+          .event(&mut controller.winit_state, e, bound);
+      }
 
-    for e in &cx.input.accumulate_events {
-      controller
-        .controller
-        .event(&mut controller.winit_state, e, bound, pause);
-    }
-
-    if let Some((eye, target)) = controller.controller.update() {
-      cx.dyn_cx.message.put(CameraMoveAction {
-        position: eye,
-        look_at: target,
-      });
+      if let Some((eye, target)) = controller.controller.update() {
+        cx.dyn_cx.message.put(CameraMoveAction {
+          position: eye,
+          look_at: target,
+        });
+      }
+    } else {
+      controller.winit_state.pause();
     }
   }
 }

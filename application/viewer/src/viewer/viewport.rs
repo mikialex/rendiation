@@ -26,12 +26,12 @@ pub fn find_top_hit<'a>(
       mouse_position_relative_to_viewport.into(),
       (viewport.viewport.z, viewport.viewport.w),
     );
-    if normalized_position_ndc.0 >= 0.
-      && normalized_position_ndc.1 >= 0.
-      && normalized_position_ndc.0 < 1.0
-      && normalized_position_ndc.1 < 1.0
+    if normalized_position_ndc.0 >= -1.
+      && normalized_position_ndc.1 >= -1.
+      && normalized_position_ndc.0 <= 1.0
+      && normalized_position_ndc.1 <= 1.0
     {
-      return Some((viewport, normalized_position_ndc));
+      Some((viewport, normalized_position_ndc))
     } else {
       None
     }

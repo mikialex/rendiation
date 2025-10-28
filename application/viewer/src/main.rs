@@ -165,14 +165,6 @@ fn main() {
       use_viewer_gizmo(cx);
     });
 
-    per_camera_per_viewport(cx, |cx, camera_with_viewports| {
-      let cv = camera_with_viewports;
-      use_smooth_camera_motion(cx, cv.camera_node, |cx| {
-        use_fit_camera_view(cx, cv.camera, cv.camera_node);
-        use_camera_control(cx, cv);
-      });
-    });
-
     stage_of_update(cx, 1, |cx| {
       let (cx, config) = cx.use_plain_state_init(|_| {
         let mut set = fast_hash_collection::FastHashSet::default();
@@ -191,6 +183,15 @@ fn main() {
       use_enable_obj_io(cx);
 
       sync_camera_view(cx);
+
+      per_camera_per_viewport(cx, |cx, camera_with_viewports| {
+        let cv = camera_with_viewports;
+        use_smooth_camera_motion(cx, cv.camera_node, |cx| {
+          use_fit_camera_view(cx, cv.camera, cv.camera_node);
+          use_camera_control(cx, cv);
+        });
+      });
+
       use_animation_player(cx);
 
       #[cfg(not(target_family = "wasm"))]

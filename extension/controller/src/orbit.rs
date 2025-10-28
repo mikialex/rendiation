@@ -144,6 +144,13 @@ pub struct OrbitWinitWindowState {
   mouse_position: Vec2<f32>,
 }
 
+impl OrbitWinitWindowState {
+  pub fn pause(&mut self) {
+    self.is_left_mouse_down = false;
+    self.is_right_mouse_down = false;
+  }
+}
+
 use winit::event::*;
 impl OrbitController {
   pub fn event<T>(
@@ -151,13 +158,7 @@ impl OrbitController {
     s: &mut OrbitWinitWindowState,
     event: &winit::event::Event<T>,
     bound: InputBound,
-    pause: bool,
   ) {
-    if pause {
-      s.is_left_mouse_down = false;
-      s.is_right_mouse_down = false;
-      return;
-    }
     match event {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::MouseInput { button, state, .. } => {

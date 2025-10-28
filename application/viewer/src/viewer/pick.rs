@@ -74,7 +74,8 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
     let mouse_position = &input.window_state.mouse_position; // todo, use surface relative position
 
     let viewports = cx.viewer.scene.viewports.iter();
-    let (viewport, normalized_position_ndc) = find_top_hit(viewports, *mouse_position).unwrap(); // todo, this unwrap may failed
+    let (viewport, normalized_position_ndc) = find_top_hit(viewports, *mouse_position)
+      .unwrap_or((cx.viewer.scene.viewports.last().unwrap(), (-99., -99.))); // this is hack, but keep it for now
 
     let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
     let normalized_position_ndc_f64 = normalized_position_ndc.into_f64();

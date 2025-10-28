@@ -34,7 +34,7 @@ pub struct Viewer3dRenderingCtx {
 
   pub views: FastHashMap<u64, Viewer3dViewportRenderingCtx>,
 
-  pub(crate) init_config: ViewerStaticInitConfig,
+  pub(crate) init_config: ViewerInitConfig,
 }
 
 impl Viewer3dRenderingCtx {
@@ -43,7 +43,7 @@ impl Viewer3dRenderingCtx {
     init_config.enable_indirect_occlusion_culling = self.enable_indirect_occlusion_culling;
     init_config.prefer_bindless_for_indirect_texture_system =
       self.prefer_bindless_for_indirect_texture_system;
-    init_config.init_only = self.init_config.clone();
+    init_config.init_only = self.init_config.init_only.clone();
     init_config.present_mode = self.swap_chain.internal(|v| v.config.present_mode);
 
     let first_view = self.views.values().next().unwrap();
@@ -80,7 +80,7 @@ impl Viewer3dRenderingCtx {
       views: FastHashMap::default(),
       stat_frame_time_in_ms: StatisticStore::new(200),
       last_render_timestamp: Default::default(),
-      init_config: init_config.init_only.clone(),
+      init_config: init_config.clone(),
     }
   }
 
@@ -92,6 +92,7 @@ impl Viewer3dRenderingCtx {
 
     let camera = use_camera_uniforms(cx, self.ndc);
     let background = use_background(cx);
+    let init_config = &self.init_config.init_only;
 
     let ty = get_suitable_texture_system_ty(
       cx.gpu,
@@ -101,7 +102,7 @@ impl Viewer3dRenderingCtx {
       ) || self.rtx_renderer_enabled,
       self.prefer_bindless_for_indirect_texture_system,
     );
-    let texture_sys = use_texture_system(cx, ty, &self.init_config.texture_pool_source_init_config);
+    let texture_sys = use_texture_system(cx, ty, &init_config.texture_pool_source_init_config);
 
     let any_base_resource_changed = change_scope(cx);
     let mut any_indirect_resource_changed = None;
@@ -163,7 +164,7 @@ impl Viewer3dRenderingCtx {
       RasterizationRenderBackendType::Indirect => cx.scope(|cx| {
         let (cx, change_scope) = cx.use_begin_change_set_collect();
 
-        let enable_combine = self.init_config.enable_indirect_storage_combine;
+        let enable_combine = init_config.enable_indirect_storage_combine;
 
         let scope = use_readonly_storage_buffer_combine(cx, "indirect materials", enable_combine);
         let unlit_material = use_unlit_material_storage(cx);
@@ -173,13 +174,12 @@ impl Viewer3dRenderingCtx {
 
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
 
-        let merge_with_vertex_allocator = self
-          .init_config
-          .using_texture_as_storage_buffer_for_indirect_rendering;
+        let merge_with_vertex_allocator =
+          init_config.using_texture_as_storage_buffer_for_indirect_rendering;
 
         let mesh = use_bindless_mesh(
           cx,
-          &self.init_config.bindless_mesh_init,
+          &init_config.bindless_mesh_init,
           merge_with_vertex_allocator,
         );
 
@@ -261,7 +261,7 @@ impl Viewer3dRenderingCtx {
             scope.end(cx);
 
             let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
-            let mesh = use_bindless_mesh(cx, &self.init_config.bindless_mesh_init, false);
+            let mesh = use_bindless_mesh(cx, &init_config.bindless_mesh_init, false);
             scope.end(cx);
 
             any_indirect_resource_changed = change_scope(cx);
@@ -331,6 +331,7 @@ impl Viewer3dRenderingCtx {
   fn storage_allocator(&self) -> Box<dyn AbstractStorageAllocator> {
     if self
       .init_config
+      .init_only
       .using_texture_as_storage_buffer_for_indirect_rendering
     {
       Box::new(rendiation_webgpu_texture_as_buffer::TextureAsStorageAllocator(self.gpu.clone()))
@@ -406,7 +407,7 @@ impl Viewer3dRenderingCtx {
     &mut self,
     target: &RenderTargetView,
     views: &[ViewerViewPort],
-  ) -> FastHashSet<u64> {
+  ) -> FastHashSet<(u64, usize)> {
     let upstream = futures::task::noop_waker();
     let any_changed = self.any_render_change.update(&upstream);
 
@@ -416,18 +417,26 @@ impl Viewer3dRenderingCtx {
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, statistics);
 
+    let mut new_views = FastHashMap::default();
     for v in views {
-      if self.views.contains_key(v.id) {
-        //
+      if let Some(view) = self.views.remove(&v.id) {
+        new_views.insert(v.id, view);
+      } else {
+        new_views.insert(
+          v.id,
+          Viewer3dViewportRenderingCtx::new(&self.gpu, &self.init_config),
+        );
       }
     }
+    self.views = new_views;
 
-    self
-      .views
-      .iter_mut()
-      .filter_map(|(k, v)| {
-        if v.check_should_render_and_copy_cached(target, todo!(), any_changed, &mut ctx) {
-          Some(*k)
+    views
+      .iter()
+      .enumerate()
+      .filter_map(|(i, v)| {
+        let view_renderer = self.views.get_mut(&v.id).unwrap();
+        if view_renderer.check_should_render_and_copy_cached(target, v, any_changed, &mut ctx) {
+          Some((v.id, i))
         } else {
           None
         }
@@ -438,7 +447,7 @@ impl Viewer3dRenderingCtx {
   #[instrument(name = "frame rendering", skip_all)]
   pub fn render(
     &mut self,
-    requested_render_views: &FastHashSet<u64>,
+    requested_render_views: &FastHashSet<(u64, usize)>,
     final_target: &RenderTargetView,
     content: &Viewer3dContent,
     memory: &mut FunctionMemory,
@@ -488,9 +497,9 @@ impl Viewer3dRenderingCtx {
       lighting: lighting_cx,
     };
 
-    for viewport_id in requested_render_views {
+    for (viewport_id, idx) in requested_render_views {
       let view_renderer = self.views.get_mut(viewport_id).unwrap();
-      view_renderer.render(&mut ctx, &renderer, content, todo!(), &final_target);
+      view_renderer.render(&mut ctx, &renderer, content, *idx, final_target);
     }
 
     drop(ctx);

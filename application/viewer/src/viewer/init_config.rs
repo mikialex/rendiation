@@ -6,7 +6,7 @@ use rendiation_scene_rendering_gpu_indirect::BindlessMeshInit;
 use crate::*;
 
 /// The helper struct to quickly config the default viewer behavior.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(default)] // any missing field will be set to the struct's default
 pub struct ViewerInitConfig {
   pub raster_backend_type: RasterizationRenderBackendType,

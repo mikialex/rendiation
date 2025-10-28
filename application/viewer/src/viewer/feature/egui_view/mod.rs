@@ -132,7 +132,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             let config = viewer.export_init_config();
             config.export_to_current_dir();
           }
-          ui.label(format!("{:#?}", viewer.rendering.init_config));
+          ui.label(format!("{:#?}", viewer.rendering.init_config.init_only));
         });
 
         ui.collapsing("Rendering Resources Detail", |ui| {
