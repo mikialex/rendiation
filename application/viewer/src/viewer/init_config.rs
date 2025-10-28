@@ -98,8 +98,16 @@ impl ViewerInitConfig {
   }
 
   pub fn from_json_or_default(path: impl AsRef<Path>) -> Option<Self> {
-    let json_file = std::fs::File::open_buffered(path).ok()?;
-    serde_json::from_reader(json_file).ok()
+    let path = path.as_ref();
+
+    let json_file = std::fs::File::open_buffered(path)
+      .inspect_err(|e| log::warn!("failed to read config from {:?}, error: {e:?}", path))
+      .ok()?;
+
+    serde_json::from_reader(json_file)
+      .inspect(|_| log::info!("successfully load config from {:?}", path))
+      .inspect_err(|e| log::warn!("failed to parse config from {:?}, error: {e:?}", path))
+      .ok()
   }
 }
 
