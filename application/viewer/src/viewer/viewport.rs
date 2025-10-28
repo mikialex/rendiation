@@ -11,7 +11,34 @@ pub struct ViewerViewPort {
   pub camera_node: EntityHandle<SceneNodeEntity>,
 }
 
-fn viewport_to_input_bound(viewport: Vec4<f32>) -> InputBound {
+pub fn find_top_hit<'a>(
+  viewports: impl DoubleEndedIterator<Item = &'a ViewerViewPort>,
+  mouse_position: (f32, f32),
+) -> Option<(&'a ViewerViewPort, (f32, f32))> {
+  let mut iter = viewports.rev();
+  iter.find_map(|viewport| {
+    let mouse_position_relative_to_viewport = Vec2::new(
+      mouse_position.0 - viewport.viewport.x,
+      mouse_position.1 - viewport.viewport.y,
+    );
+
+    let normalized_position_ndc = compute_normalized_position_in_canvas_coordinate(
+      mouse_position_relative_to_viewport.into(),
+      (viewport.viewport.z, viewport.viewport.w),
+    );
+    if normalized_position_ndc.0 >= 0.
+      && normalized_position_ndc.1 >= 0.
+      && normalized_position_ndc.0 < 1.0
+      && normalized_position_ndc.1 < 1.0
+    {
+      return Some((viewport, normalized_position_ndc));
+    } else {
+      None
+    }
+  })
+}
+
+pub fn viewport_to_input_bound(viewport: Vec4<f32>) -> InputBound {
   InputBound {
     origin: viewport.xy(),
     size: viewport.zw(),
@@ -21,6 +48,7 @@ fn viewport_to_input_bound(viewport: Vec4<f32>) -> InputBound {
 pub struct CameraViewportAccess {
   pub camera: EntityHandle<SceneCameraEntity>,
   pub camera_node: EntityHandle<SceneNodeEntity>,
+  /// the order is preserved
   pub viewports_index: Vec<(usize, u64)>,
 }
 

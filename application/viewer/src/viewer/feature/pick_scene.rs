@@ -76,11 +76,15 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     let mut select_target_result = None;
     let mut use_cpu_pick = false;
     if prefer_gpu_pick && gpu_pick_future.is_none() && !is_request_list_pick {
-      if let Some(render_size) = cx.viewer.rendering.picker.last_id_buffer_size() {
-        let point = picker.normalized_position() * Vec2::from(render_size.into_f32());
-        let point = point.map(|v| v.floor() as usize);
-        if let Some(f) = cx.viewer.rendering.picker.pick_point_at((point.x, point.y)) {
-          *gpu_pick_future = Some(f);
+      if let Some(view_renderer) = cx.viewer.rendering.views.get_mut(&picker.viewport_id()) {
+        if let Some(render_size) = view_renderer.picker.last_id_buffer_size() {
+          let point = picker.normalized_position() * Vec2::from(render_size.into_f32());
+          let point = point.map(|v| v.floor() as usize);
+          if let Some(f) = view_renderer.picker.pick_point_at((point.x, point.y)) {
+            *gpu_pick_future = Some(f);
+          }
+        } else {
+          use_cpu_pick = true;
         }
       } else {
         use_cpu_pick = true;

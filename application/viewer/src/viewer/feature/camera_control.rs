@@ -39,12 +39,14 @@ pub fn use_camera_control(cx: &mut ViewerCx, camera_with_viewports: &CameraViewp
 
     let pause = cx.dyn_cx.message.take::<CameraControlBlocked>().is_some();
 
-    todo!();
-    let bound = InputBound {
-      // todo, use viewport bound
-      origin: Vec2::zero(),
-      size: cx.input.window_state.physical_size.into(),
-    };
+    let mouse_position = &cx.input.window_state.mouse_position; // todo, use surface relative position
+    let viewports = camera_with_viewports
+      .viewports_index
+      .iter()
+      .map(|(index, _)| &cx.viewer.scene.viewports[*index]);
+    let (viewport, _) = find_top_hit(viewports, *mouse_position).unwrap(); // todo, this unwrap may failed
+
+    let bound = viewport_to_input_bound(viewport.viewport);
 
     for e in &cx.input.accumulate_events {
       controller

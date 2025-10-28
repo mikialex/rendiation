@@ -241,18 +241,19 @@ impl Viewer3dViewportRenderingCtx {
     viewport_idx: usize,
     final_target: &RenderTargetView,
   ) {
-    let should_do_extra_copy = self.should_do_extra_copy(final_target);
+    let viewport = &content.viewports[viewport_idx];
+    let camera = viewport.camera;
+
+    let should_do_extra_copy = self.should_do_extra_copy(final_target, viewport);
     let render_target = if should_do_extra_copy {
       // we do extra copy in this case, so we have to make sure the copy source has correct usage
       let mut key = final_target.create_attachment_key();
       key.usage |= TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC;
+      key.size = todo!();
       key.request(&ctx)
     } else {
       final_target.clone()
     };
-
-    let viewport = &content.viewports[viewport_idx];
-    let camera = viewport.camera;
 
     if self.rtx_rendering_enabled {
       self.render_ray_tracing(
@@ -598,9 +599,18 @@ impl Viewer3dViewportRenderingCtx {
     self.enable_on_demand_rendering && !self.rtx_rendering_enabled
   }
 
-  fn should_do_extra_copy(&self, final_target: &RenderTargetView) -> bool {
-    (self.expect_read_back_for_next_render_result || self.should_do_frame_caching())
-      && matches!(final_target, RenderTargetView::SurfaceTexture { .. })
+  fn should_do_extra_copy(
+    &self,
+    final_target: &RenderTargetView,
+    viewport: &ViewerViewPort,
+  ) -> bool {
+    let viewport_size =
+      Size::from_u32_pair_min_one(viewport.viewport.zw().map(|v| v as u32).into());
+    let is_full_covered = viewport_size == final_target.size(); // todo，should check if in bound, not size
+
+    !is_full_covered
+      || (self.expect_read_back_for_next_render_result || self.should_do_frame_caching())
+        && matches!(final_target, RenderTargetView::SurfaceTexture { .. })
   }
 
   fn is_outline_only_mode(&self) -> bool {

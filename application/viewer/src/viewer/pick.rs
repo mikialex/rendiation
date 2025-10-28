@@ -16,6 +16,7 @@ pub struct ViewerSceneModelPicker {
   camera_world: Mat4<f64>,
   camera_proj: Box<dyn Projection<f32>>,
   scene_model_picker: Box<dyn SceneModelPicker>,
+  viewport_id: u64,
   pub camera_view_size_in_logic_pixel: Size,
 }
 
@@ -72,32 +73,8 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
     let input = cx.input;
     let mouse_position = &input.window_state.mouse_position; // todo, use surface relative position
 
-    let viewports = &cx.viewer.scene.viewports;
-    // find the top hit
-    let mut iter = viewports.iter().enumerate().rev();
-    let (idx, normalized_position_ndc) = iter
-      .find_map(|(idx, viewport)| {
-        let mouse_position_relative_to_viewport = Vec2::new(
-          mouse_position.0 - viewport.viewport.x,
-          mouse_position.1 - viewport.viewport.y,
-        );
-
-        let normalized_position_ndc = compute_normalized_position_in_canvas_coordinate(
-          mouse_position_relative_to_viewport.into(),
-          (viewport.viewport.z, viewport.viewport.w),
-        );
-        if normalized_position_ndc.0 >= 0.
-          && normalized_position_ndc.1 >= 0.
-          && normalized_position_ndc.0 < 1.0
-          && normalized_position_ndc.1 < 1.0
-        {
-          return Some((idx, normalized_position_ndc));
-        } else {
-          None
-        }
-      })
-      .unwrap();
-    let viewport = &viewports[idx];
+    let viewports = cx.viewer.scene.viewports.iter();
+    let (viewport, normalized_position_ndc) = find_top_hit(viewports, *mouse_position).unwrap(); // todo, this unwrap may failed
 
     let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
     let normalized_position_ndc_f64 = normalized_position_ndc.into_f64();
@@ -126,6 +103,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
       camera_world,
       camera_view_size_in_logic_pixel: view_logic_pixel_size,
       camera_proj,
+      viewport_id: viewport.id,
     }
     .into()
   } else {
@@ -144,6 +122,10 @@ impl ViewerSceneModelPicker {
 
   pub fn normalized_position(&self) -> Vec2<f32> {
     self.normalized_position_ndc * Vec2::new(1., -1.)
+  }
+
+  pub fn viewport_id(&self) -> u64 {
+    self.viewport_id
   }
 }
 
