@@ -13,6 +13,7 @@ use crate::*;
 pub struct ViewerSceneModelPicker {
   current_mouse_ray_in_world: Ray3<f64>,
   normalized_position_ndc: Vec2<f32>,
+  normalized_position: Vec2<f32>,
   camera_world: Mat4<f64>,
   camera_proj: Box<dyn Projection<f32>>,
   scene_model_picker: Box<dyn SceneModelPicker>,
@@ -101,6 +102,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
       scene_model_picker,
       current_mouse_ray_in_world,
       normalized_position_ndc,
+      normalized_position: normalized_position_ndc * Vec2::new(0.5, -0.5) + Vec2::new(0.5, 0.5),
       camera_world,
       camera_view_size_in_logic_pixel: view_logic_pixel_size,
       camera_proj,
@@ -122,7 +124,7 @@ impl ViewerSceneModelPicker {
   }
 
   pub fn normalized_position(&self) -> Vec2<f32> {
-    self.normalized_position_ndc * Vec2::new(1., -1.)
+    self.normalized_position
   }
 
   pub fn viewport_id(&self) -> u64 {

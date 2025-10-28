@@ -565,7 +565,7 @@ impl Viewer3dViewportRenderingCtx {
       store_full_frame()
     };
 
-    let compose = pass("compose-all")
+    let mut compose = pass("compose-all")
       .with_color(render_target, pass_init)
       .render_ctx(ctx)
       .by_if(&mut post_process)
@@ -573,7 +573,7 @@ impl Viewer3dViewportRenderingCtx {
 
     // the outline will not draw on taa frame, because the effect is screen space
     if self.enable_outline {
-      compose.by(
+      compose = compose.by(
         &mut OutlineComputer {
           source: &ViewerOutlineSourceProvider {
             g_buffer: &g_buffer,
@@ -584,6 +584,8 @@ impl Viewer3dViewportRenderingCtx {
         .draw_quad_with_alpha_blending(),
       );
     }
+
+    drop(compose);
 
     let entity_id = g_buffer
       .entity_id
