@@ -187,6 +187,9 @@ pub struct GPUxEntityIdMapPicker {
   last_id_buffer_size: Option<Size>,
   wait_to_read_tasks: Vec<(Sender<ReadTextureFromStagingBuffer>, ReadRange)>,
   unresolved_counter: Arc<AtomicI32>,
+  // this is to trigger the render when on demand rendering is enabled
+  // another way or optimization is to keep a id buffer locally for any time to pick
+  waker: Option<Waker>,
 }
 
 impl GPUxEntityIdMapPicker {
@@ -198,6 +201,7 @@ impl GPUxEntityIdMapPicker {
     texture: &GPUTypedTextureView<TextureDimension2, u32>,
     gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
+    waker: &Waker,
   ) {
     let full_size = texture.size();
     self.last_id_buffer_size = Some(full_size);
@@ -208,6 +212,7 @@ impl GPUxEntityIdMapPicker {
           .ok();
       } // else the sender will drop, and receiver will resolved
     }
+    self.waker = Some(waker.clone());
   }
 
   pub fn notify_frame_id_buffer_not_available(&mut self) {
@@ -226,6 +231,10 @@ impl GPUxEntityIdMapPicker {
     };
     let f = self.pick_ids(range)?;
     let f = f.map(|result| result.map(|ids| ids.first().copied().unwrap_or(0)));
+
+    if let Some(w) = self.waker.take() {
+      w.wake();
+    }
 
     Some(Box::new(f))
   }

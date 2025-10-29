@@ -238,6 +238,7 @@ impl Viewer3dViewportRenderingCtx {
     content: &Viewer3dContent,
     viewport_idx: usize,
     final_target: &RenderTargetView,
+    waker: &Waker,
   ) {
     let viewport = &content.viewports[viewport_idx];
     let camera = viewport.camera;
@@ -266,7 +267,7 @@ impl Viewer3dViewportRenderingCtx {
         renderer.lighting.tonemap,
       );
     } else {
-      self.render_raster(ctx, renderer, content, &render_target, camera);
+      self.render_raster(ctx, renderer, content, &render_target, camera, waker);
     }
 
     {
@@ -394,6 +395,7 @@ impl Viewer3dViewportRenderingCtx {
     content: &Viewer3dContent,
     render_target: &RenderTargetView,
     camera: EntityHandle<SceneCameraEntity>,
+    waker: &Waker,
   ) {
     let camera_transform = renderer.camera_transforms.access(&camera).unwrap();
     let current_view_projection_inv = camera_transform.view_projection_inv;
@@ -596,6 +598,7 @@ impl Viewer3dViewportRenderingCtx {
       &GPUTypedTextureView::<TextureDimension2, u32>::try_from(entity_id).unwrap(),
       ctx.gpu,
       &mut ctx.encoder,
+      waker,
     );
   }
 

@@ -497,9 +497,10 @@ impl Viewer3dRenderingCtx {
       lighting: lighting_cx,
     };
 
+    let waker = futures::task::waker(self.any_render_change.clone());
     for (viewport_id, idx) in requested_render_views {
       let view_renderer = self.views.get_mut(viewport_id).unwrap();
-      view_renderer.render(&mut ctx, &renderer, content, *idx, final_target);
+      view_renderer.render(&mut ctx, &renderer, content, *idx, final_target, &waker);
     }
 
     drop(ctx);
