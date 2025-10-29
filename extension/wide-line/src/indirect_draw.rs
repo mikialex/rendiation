@@ -168,6 +168,12 @@ struct WideLineVertexStorage {
   pub color: Vec4<f32>,
 }
 
+impl WideLineVertexStorage {
+  fn u32_size() -> u32 {
+    std::mem::size_of::<Self>() as u32 / 4
+  }
+}
+
 impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
   fn hash_shader_group_key(
     &self,
@@ -364,10 +370,11 @@ impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand {
     let model = self.sm_to_wide.get(id).unwrap();
     let param = self.params_host.get(model.alloc_index()).unwrap();
+    let seg_count = param.data_range.y / WideLineVertexStorage::u32_size();
 
     DrawCommand::Array {
       instances: 0..1,
-      vertices: 0..18 * param.data_range.y,
+      vertices: 0..18 * seg_count,
     }
   }
 
@@ -400,7 +407,8 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
     draw_id: Node<u32>, // aka sm id
   ) -> Node<DrawIndirectArgsStorage> {
     let line_id = self.sm_to_wide_line_device.index(draw_id).load();
-    let seg_count = self.params.index(line_id).data_range().load().y();
+    let seg_count =
+      self.params.index(line_id).data_range().load().y() / val(WideLineVertexStorage::u32_size());
 
     ENode::<DrawIndirectArgsStorage> {
       vertex_count: val(18) * seg_count,
