@@ -91,6 +91,7 @@ pub struct GPUCreateConfig<'a> {
   pub surface_for_compatible_check_init: Option<(&'a (dyn SurfaceProvider + 'a), Size)>,
   pub minimal_required_features: Features,
   pub minimal_required_limits: Limits,
+  pub default_shader_checks: ShaderRuntimeChecks,
 }
 
 impl Default for GPUCreateConfig<'_> {
@@ -101,6 +102,7 @@ impl Default for GPUCreateConfig<'_> {
       surface_for_compatible_check_init: None,
       minimal_required_features: Features::empty(),
       minimal_required_limits: Default::default(),
+      default_shader_checks: ShaderRuntimeChecks::checked(),
     }
   }
 }
@@ -179,7 +181,7 @@ impl GPU {
       })
       .await?;
 
-    let device = GPUDevice::new(device);
+    let device = GPUDevice::new(device, config.default_shader_checks);
     let queue = GPUQueue::new(queue);
 
     let info = GPUInfo {

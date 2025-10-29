@@ -507,6 +507,11 @@ pub trait QueryHookCxLike: HooksCxLike {
       *cx.waker() = waker
     }
 
+    // if spawn stage not skipped, we keep the resolve stage exist
+    if waked && cx.is_spawning_stage() {
+      notifier.do_wake();
+    }
+
     (waked, r)
   }
 }

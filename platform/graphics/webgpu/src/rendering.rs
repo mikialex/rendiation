@@ -20,6 +20,7 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
               .build_self(
                 &|stage| Box::new(ShaderAPINagaImpl::new(stage)),
                 ctx.gpu.info.clone(),
+                device.inner.default_shader_checks,
               )
               .unwrap(),
           )

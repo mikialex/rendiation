@@ -36,6 +36,7 @@ pub(super) struct TaskGroupPreBuild {
 
 impl TaskGroupExecutor {
   pub(super) fn pre_build(
+    device: &GPUDevice,
     internal: &TaskGroupBuildSource,
     task_type: usize,
     task_group_shared_info: &mut Vec<(
@@ -43,7 +44,7 @@ impl TaskGroupExecutor {
       FastHashSet<usize>,
     )>,
   ) -> TaskGroupPreBuild {
-    let mut cx = compute_shader_builder();
+    let mut cx = compute_shader_builder(device);
 
     let mut build_ctx = DeviceTaskSystemBuildCtx {
       compute_cx: &mut cx,

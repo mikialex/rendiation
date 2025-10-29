@@ -11,7 +11,7 @@ pub async fn main() {
   let output = create_gpu_read_write_storage::<[u32]>(init, &gpu);
 
   let pipeline = {
-    let mut cx = compute_shader_builder().with_config_work_group_size(workgroup_size);
+    let mut cx = compute_shader_builder(&gpu).with_config_work_group_size(workgroup_size);
 
     let output = cx.bind_by(&output);
     let global_id = cx.global_invocation_id().x();

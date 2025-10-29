@@ -184,6 +184,7 @@ impl GPUDevice {
     &self,
     naga_module: naga::Module,
     log_result: bool,
+    checks: ShaderRuntimeChecks,
   ) -> wgpu::ShaderModule {
     if log_result {
       log::info!("");
@@ -195,10 +196,15 @@ impl GPUDevice {
       log::info!("=== result output finished ===");
     }
 
-    self.create_shader_module(gpu::ShaderModuleDescriptor {
-      label: None,
-      source: gpu::ShaderSource::Naga(Cow::Owned(naga_module)),
-    })
+    unsafe {
+      self.create_shader_module_trusted(
+        gpu::ShaderModuleDescriptor {
+          label: None,
+          source: gpu::ShaderSource::Naga(Cow::Owned(naga_module)),
+        },
+        checks,
+      )
+    }
   }
 
   pub fn build_pipeline_by_shader_api(
@@ -206,6 +212,7 @@ impl GPUDevice {
     builder: ShaderRenderPipelineBuilder,
   ) -> Result<GPURenderPipeline, ShaderBuildError> {
     let log_result = builder.log_result;
+    let checks = builder.checks;
     let compile_result = builder.build()?;
 
     let GraphicsShaderCompileResult {
@@ -222,8 +229,8 @@ impl GPUDevice {
     let naga_vertex = *vertex_shader.downcast::<naga::Module>().unwrap();
     let naga_fragment = *frag_shader.downcast::<naga::Module>().unwrap();
 
-    let vertex = self.create_shader_module_by_shader_api(naga_vertex, log_result);
-    let fragment = self.create_shader_module_by_shader_api(naga_fragment, log_result);
+    let vertex = self.create_shader_module_by_shader_api(naga_vertex, log_result, checks);
+    let fragment = self.create_shader_module_by_shader_api(naga_fragment, log_result, checks);
 
     let (raw_layouts, layouts, pipeline_layout) = create_layouts(self, &bindings);
 
@@ -236,7 +243,10 @@ impl GPUDevice {
         module: &vertex,
         entry_point: Some(&vertex_entry),
         buffers: vertex_buffers.as_slice(),
-        compilation_options: Default::default(),
+        compilation_options: wgpu::PipelineCompilationOptions {
+          constants: &[],
+          zero_initialize_workgroup_memory: false,
+        },
       },
       fragment: Some(gpu::FragmentState {
         module: &fragment,
@@ -246,7 +256,10 @@ impl GPUDevice {
           .map(|s| Some(s.clone()))
           .collect::<Vec<_>>()
           .as_slice(),
-        compilation_options: Default::default(),
+        compilation_options: wgpu::PipelineCompilationOptions {
+          constants: &[],
+          zero_initialize_workgroup_memory: false,
+        },
       }),
       primitive: primitive_state,
       depth_stencil,
@@ -318,8 +331,11 @@ pub fn convert_vertex_layout(layout: &ShaderVertexBufferLayout) -> gpu::VertexBu
   }
 }
 
-pub fn compute_shader_builder() -> ShaderComputePipelineBuilder {
-  ShaderComputePipelineBuilder::new(&|stage| Box::new(ShaderAPINagaImpl::new(stage)))
+pub fn compute_shader_builder(device: impl AsRef<GPUDevice>) -> ShaderComputePipelineBuilder {
+  ShaderComputePipelineBuilder::new(
+    &|stage| Box::new(ShaderAPINagaImpl::new(stage)),
+    device.as_ref().inner.default_shader_checks,
+  )
 }
 
 pub trait ComputeIntoPipelineExt {
@@ -335,6 +351,7 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
     device: impl AsRef<GPUDevice>,
   ) -> Result<GPUComputePipeline, ShaderBuildError> {
     let log_result = self.log_result;
+    let checks = self.checks;
     let result = self.build()?;
 
     let device = device.as_ref();
@@ -342,7 +359,7 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
     let (entry, shader) = result.shader;
 
     let naga_compute = shader.downcast::<naga::Module>().unwrap();
-    let module = device.create_shader_module_by_shader_api(*naga_compute, log_result);
+    let module = device.create_shader_module_by_shader_api(*naga_compute, log_result, checks);
 
     let (raw_layouts, layouts, pipeline_layout) = create_layouts(device, &result.bindings);
 
@@ -351,7 +368,10 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
       layout: Some(&pipeline_layout),
       module: &module,
       entry_point: Some(&entry),
-      compilation_options: Default::default(),
+      compilation_options: wgpu::PipelineCompilationOptions {
+        constants: &[],
+        zero_initialize_workgroup_memory: false,
+      },
       cache: None,
     });
 

@@ -123,6 +123,7 @@ struct WinitAppImpl {
   title: String,
   has_existed: bool,
   preferred_backends: Option<Backends>,
+  checks: ShaderRuntimeChecks,
 }
 
 impl winit::application::ApplicationHandler for WinitAppImpl {
@@ -186,6 +187,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
           Size::from_u32_pair_min_one((width, height)),
         )),
         backends: self.preferred_backends.unwrap_or(Backends::all()),
+        default_shader_checks: self.checks,
         ..Default::default()
       };
 
@@ -305,6 +307,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
 
 pub fn run_application(
   preferred_backends: Option<Backends>,
+  checks: ShaderRuntimeProtection,
   app_logic: impl Fn(&mut ApplicationCx) + 'static,
 ) {
   let event_loop = EventLoop::new().unwrap();
@@ -320,6 +323,10 @@ pub fn run_application(
     title: "Rendiation Viewer".to_string(),
     has_existed: false,
     preferred_backends,
+    checks: ShaderRuntimeChecks {
+      bounds_checks: checks.bounds_checks,
+      force_loop_bounding: checks.force_loop_bounding,
+    },
   };
 
   event_loop.run_app(&mut app).unwrap();

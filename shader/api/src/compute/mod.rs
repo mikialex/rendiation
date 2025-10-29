@@ -18,6 +18,7 @@ pub struct ShaderComputePipelineBuilder {
   subgroup_invocation_id: RwLock<Option<Node<u32>>>,
   subgroup_size: RwLock<Option<Node<u32>>>,
   pub log_result: bool,
+  pub checks: ShaderRuntimeChecks,
 }
 
 pub trait IntoWorkgroupSize {
@@ -77,13 +78,14 @@ pub fn workgroup_uniform_load<T: ShaderSizedValueNodeType>(p: ShaderPtrOf<T>) ->
 }
 
 impl ShaderComputePipelineBuilder {
-  pub fn new(api: &dyn Fn(ShaderStage) -> DynamicShaderAPI) -> Self {
+  pub fn new(api: &dyn Fn(ShaderStage) -> DynamicShaderAPI, checks: ShaderRuntimeChecks) -> Self {
     set_build_api_by(api);
 
     set_current_building(ShaderStage::Compute.into());
 
     use ShaderBuiltInDecorator::*;
     let r = Self {
+      checks,
       bindgroups: Default::default(),
       registry: Default::default(),
       global_invocation_id: ShaderInputNode::BuiltIn(CompGlobalInvocationId).insert_api(),

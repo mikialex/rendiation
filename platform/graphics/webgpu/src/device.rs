@@ -11,7 +11,7 @@ impl AsRef<Self> for GPUDevice {
 }
 
 impl GPUDevice {
-  pub(crate) fn new(device: gpu::Device) -> Self {
+  pub(crate) fn new(device: gpu::Device, default_shader_checks: ShaderRuntimeChecks) -> Self {
     let placeholder_bg = device.create_bind_group(&gpu::BindGroupDescriptor {
       layout: &device.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
         label: "PlaceholderBindgroup".into(),
@@ -31,6 +31,7 @@ impl GPUDevice {
       placeholder_bg: Arc::new(placeholder_bg),
       deferred_explicit_destroy: Default::default(),
       enable_binding_ty_check: Arc::new(RwLock::new(false)),
+      default_shader_checks,
     };
 
     Self {
@@ -107,7 +108,7 @@ impl GPUDevice {
     creator: impl FnOnce(ShaderComputePipelineBuilder) -> ShaderComputePipelineBuilder,
   ) -> GPUComputePipeline {
     self.get_or_cache_create_compute_pipeline(hasher, |device| {
-      let builder = compute_shader_builder();
+      let builder = compute_shader_builder(self);
       let builder = creator(builder);
       builder.create_compute_pipeline(device).unwrap()
     })
@@ -187,6 +188,7 @@ pub(crate) struct GPUDeviceImpl {
   pub(crate) deferred_explicit_destroy: DeferExplicitDestroy,
   pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
   pub(crate) enable_binding_ty_check: Arc<RwLock<bool>>,
+  pub(crate) default_shader_checks: ShaderRuntimeChecks,
 }
 
 impl Deref for GPUDevice {

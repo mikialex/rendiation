@@ -118,8 +118,12 @@ impl DeviceTaskGraphBuildSource {
     );
 
     for (i, task_build_source) in self.tasks.iter().enumerate() {
-      let pre_build =
-        TaskGroupExecutor::pre_build(task_build_source, i, &mut task_group_shared_info);
+      let pre_build = TaskGroupExecutor::pre_build(
+        &cx.gpu.device,
+        task_build_source,
+        i,
+        &mut task_group_shared_info,
+      );
 
       let init_size = task_build_source.max_in_flight * self.capacity;
       let resource = TaskGroupExecutorResource::create_with_size(

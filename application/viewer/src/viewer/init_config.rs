@@ -38,6 +38,13 @@ pub struct ViewerStaticInitConfig {
   /// if not provided, the backend select will be automatically based on platform available
   pub wgpu_backend_select_override: Option<Backends>,
   pub using_texture_as_storage_buffer_for_indirect_rendering: bool,
+  pub default_shader_protections: ShaderRuntimeProtection,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub struct ShaderRuntimeProtection {
+  pub bounds_checks: bool,
+  pub force_loop_bounding: bool,
 }
 
 impl Default for ViewerStaticInitConfig {
@@ -66,6 +73,10 @@ impl Default for ViewerStaticInitConfig {
       wgpu_backend_select_override: None,
       enable_indirect_storage_combine: true,
       using_texture_as_storage_buffer_for_indirect_rendering: false,
+      default_shader_protections: ShaderRuntimeProtection {
+        bounds_checks: true,
+        force_loop_bounding: true,
+      },
     }
   }
 }

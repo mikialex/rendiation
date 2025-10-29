@@ -23,6 +23,7 @@ pub enum ShaderBuildError {
 
 pub struct ShaderRenderPipelineBuilder {
   bindgroups: ShaderBindGroupBuilder,
+  pub checks: ShaderRuntimeChecks,
 
   pub(crate) vertex: ShaderVertexBuilder,
   pub(crate) fragment: ShaderFragmentBuilder,
@@ -58,7 +59,11 @@ impl GPUInfo {
 }
 
 impl ShaderRenderPipelineBuilder {
-  fn new(api: &dyn Fn(ShaderStage) -> DynamicShaderAPI, info: GPUInfo) -> Self {
+  fn new(
+    api: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
+    info: GPUInfo,
+    checks: ShaderRuntimeChecks,
+  ) -> Self {
     set_build_api_by(api);
     let errors = ErrorSink::new(true);
     Self {
@@ -69,6 +74,7 @@ impl ShaderRenderPipelineBuilder {
       debugger: Default::default(),
       errors,
       info,
+      checks,
     }
   }
 }
@@ -164,8 +170,9 @@ pub trait GraphicsShaderProvider {
     &self,
     api_builder: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
     info: GPUInfo,
+    checks: ShaderRuntimeChecks,
   ) -> Result<ShaderRenderPipelineBuilder, Vec<ShaderBuildError>> {
-    let mut builder = ShaderRenderPipelineBuilder::new(api_builder, info);
+    let mut builder = ShaderRenderPipelineBuilder::new(api_builder, info, checks);
     self.build(&mut builder);
     self.post_build(&mut builder);
     let errors = builder.errors.finish();
