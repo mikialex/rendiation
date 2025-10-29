@@ -19,31 +19,33 @@ pub fn use_db_all_foreign_key_change(
 
   cx.skip_if_not_waked(|cx| {
     for (e_id, ecg) in global_database().ecg_tables.read().iter() {
-      cx.keyed_scope(e_id, |cx| {
-        for (c_id, ref_e_id) in ecg.inner.foreign_keys.read().iter() {
-          cx.keyed_scope(c_id, |cx| {
-            if !config.contains(c_id) {
-              cx.scope(|cx| {
-                let change = cx
-                  .use_dual_query_impl::<Option<RawEntityHandle>>(*c_id, *e_id)
-                  .dual_query_filter_map(|v| v)
-                  .map(|v| v.delta().into_boxed());
+      cx.skip_if_not_waked(|cx| {
+        cx.keyed_scope(e_id, |cx| {
+          for (c_id, ref_e_id) in ecg.inner.foreign_keys.read().iter() {
+            cx.keyed_scope(c_id, |cx| {
+              if !config.contains(c_id) {
+                cx.scope(|cx| {
+                  let change = cx
+                    .use_dual_query_impl::<Option<RawEntityHandle>>(*c_id, *e_id)
+                    .dual_query_filter_map(|v| v)
+                    .map(|v| v.delta().into_boxed());
 
-                changes.insert((*ref_e_id, *c_id), change);
-              });
-            } else {
-              cx.scope(|cx| {
-                let relation = cx.use_db_rev_ref_tri_view_impl(*c_id, *e_id);
-                let change = cx
-                  .use_dual_query_set_raw(*ref_e_id)
-                  .fanout(relation, cx)
-                  .map(|v| v.delta().delta_key_as_value().into_boxed());
+                  changes.insert((*ref_e_id, *c_id), change);
+                });
+              } else {
+                cx.scope(|cx| {
+                  let relation = cx.use_db_rev_ref_tri_view_impl(*c_id, *e_id);
+                  let change = cx
+                    .use_dual_query_set_raw(*ref_e_id)
+                    .fanout(relation, cx)
+                    .map(|v| v.delta().delta_key_as_value().into_boxed());
 
-                changes.insert((*e_id, *c_id), change);
-              });
-            }
-          });
-        }
+                  changes.insert((*e_id, *c_id), change);
+                });
+              }
+            });
+          }
+        });
       });
     }
   });

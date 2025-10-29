@@ -294,14 +294,16 @@ impl Viewer3dViewportRenderingCtx {
 
     // do extra copy to surface texture
     if should_do_extra_copy {
-      // todo, fixme,  this copy is not consider viewport
-      pass("extra final copy to surface")
+      pass("copy frame renderer local to surface")
         .with_color(final_target, store_full_frame())
         .render_ctx(ctx)
-        .by(&mut rendiation_texture_gpu_process::copy_frame(
-          render_target.clone(),
-          None,
-        ));
+        .by(
+          &mut CopyFrame {
+            source: render_target.clone(),
+            viewport: viewport.viewport.into(),
+          }
+          .draw_quad(),
+        );
     }
     self.expect_read_back_for_next_render_result = false;
 
