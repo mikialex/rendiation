@@ -32,9 +32,9 @@ pub fn use_bindless_mesh(
   cx: &mut QueryGPUHookCx,
   init: &BindlessMeshInit,
   merge_with_vertex_allocator: bool,
+  use_midc_downgrade: bool,
 ) -> Option<MeshGPUBindlessImpl> {
-  // todo, consider expose this as config
-  let force_midc_downgrade = merge_with_vertex_allocator;
+  let force_midc_downgrade = use_midc_downgrade || merge_with_vertex_allocator;
 
   let BindlessMeshInit {
     init_index_count,

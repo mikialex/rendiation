@@ -90,6 +90,14 @@ impl GraphicsShaderProvider for FullScreenQuad {
 pub struct QuadDraw<T> {
   pub quad: FullScreenQuad,
   pub content: T,
+  pub viewport: Option<Vec4<f32>>,
+}
+
+impl<T> QuadDraw<T> {
+  pub fn with_viewport(mut self, viewport: Vec4<f32>) -> Self {
+    self.viewport = Some(viewport);
+    self
+  }
 }
 
 pub trait UseQuadDraw: Sized {
@@ -102,6 +110,7 @@ pub trait UseQuadDraw: Sized {
     QuadDraw {
       content: self,
       quad: Default::default(),
+      viewport: None,
     }
   }
 
@@ -109,6 +118,7 @@ pub trait UseQuadDraw: Sized {
     QuadDraw {
       content: self,
       quad: FullScreenQuad { blend },
+      viewport: None,
     }
   }
 }
@@ -125,9 +135,19 @@ where
   T: RenderComponent,
 {
   fn render(&mut self, pass: &mut FrameRenderPass) {
+    if let Some(viewport) = self.viewport {
+      let [x, y, w, h] = viewport.into();
+      pass.set_viewport(x, y, w, h, 0., 1.);
+    }
+
     let mut base = default_dispatcher(pass, false);
     base.auto_write = false;
     let components: [&dyn RenderComponent; 3] = [&base, &self.quad, &self.content];
     RenderArray(components).render(&mut pass.ctx, QUAD_DRAW_CMD);
+
+    if self.viewport.is_some() {
+      let (w, h) = pass.size().into_f32();
+      pass.set_viewport(0., 0., w, h, 0., 1.);
+    }
   }
 }

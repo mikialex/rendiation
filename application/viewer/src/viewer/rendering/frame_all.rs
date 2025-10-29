@@ -174,13 +174,11 @@ impl Viewer3dRenderingCtx {
 
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
 
-        let merge_with_vertex_allocator =
-          init_config.using_texture_as_storage_buffer_for_indirect_rendering;
-
         let mesh = use_bindless_mesh(
           cx,
           &init_config.bindless_mesh_init,
-          merge_with_vertex_allocator,
+          init_config.using_texture_as_storage_buffer_for_indirect_rendering,
+          self.init_config.using_host_driven_indirect_draw,
         );
 
         scope.end(cx);
@@ -216,7 +214,7 @@ impl Viewer3dRenderingCtx {
         });
 
         let std_model = use_std_model_renderer(cx, materials, mesh);
-        let wide_line = use_widen_line_indirect_renderer(cx, false);
+        let wide_line = use_widen_line_indirect_renderer(cx, self.using_host_driven_indirect_draw);
 
         let model_support = cx.when_render(|| {
           Box::new(vec![
@@ -261,7 +259,7 @@ impl Viewer3dRenderingCtx {
             scope.end(cx);
 
             let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
-            let mesh = use_bindless_mesh(cx, &init_config.bindless_mesh_init, false);
+            let mesh = use_bindless_mesh(cx, &init_config.bindless_mesh_init, false, false);
             scope.end(cx);
 
             any_indirect_resource_changed = change_scope(cx);

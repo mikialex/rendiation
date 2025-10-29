@@ -231,10 +231,11 @@ impl Viewer3dViewportRenderingCtx {
       pass("on demand rendering copy cached frame")
         .with_color(target, store_full_frame())
         .render_ctx(ctx)
-        .by(&mut rendiation_texture_gpu_process::copy_frame(
-          cached_frame.clone(),
-          None,
-        ));
+        .by(
+          &mut CopyFrame(cached_frame.clone())
+            .draw_quad()
+            .with_viewport(viewport.viewport),
+        );
 
       false
     } else {
@@ -309,11 +310,9 @@ impl Viewer3dViewportRenderingCtx {
         .with_color(final_target, store_full_frame())
         .render_ctx(ctx)
         .by(
-          &mut CopyFrame {
-            source: render_target.clone(),
-            viewport: viewport.viewport.into(),
-          }
-          .draw_quad(),
+          &mut CopyFrame(render_target.clone())
+            .draw_quad()
+            .with_viewport(viewport.viewport),
         );
     }
     self.expect_read_back_for_next_render_result = false;
