@@ -27,8 +27,6 @@ mod frame_state;
 use frame_state::*;
 
 pub fn use_rtx_pt_sbt(cx: &mut QueryGPUHookCx, rtx: &RtxSystemCore) -> Option<(GPUSbt, bool)> {
-  let (cx, end) = cx.use_begin_change_set_collect();
-
   let (cx, sbt) = cx.use_plain_state(|| {
     let handles = PathTracingShaderHandles::default();
     let mut sbt = rtx
@@ -41,36 +39,39 @@ pub fn use_rtx_pt_sbt(cx: &mut QueryGPUHookCx, rtx: &RtxSystemCore) -> Option<(G
     GPUSbt::new(sbt)
   });
 
-  let core_closest_hit = PathTracingShaderHandles::default().closest_hit;
-  let shadow_closest_hit = PathTracingShaderHandles::default().shadow_test_hit;
+  let (changed, _) = cx.skip_if_not_waked(|cx| {
+    let core_closest_hit = PathTracingShaderHandles::default().closest_hit;
+    let shadow_closest_hit = PathTracingShaderHandles::default().shadow_test_hit;
 
-  let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
-    v.into_change()
-      .collective_map(move |_| HitGroupShaderRecord {
-        closest_hit: Some(core_closest_hit),
-        any_hit: None,
-        intersection: None,
-      })
+    let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+      v.into_change()
+        .collective_map(move |_| HitGroupShaderRecord {
+          closest_hit: Some(core_closest_hit),
+          any_hit: None,
+          intersection: None,
+        })
+    });
+    if let Some(updates) = updates.use_assure_result(cx).if_ready() {
+      sbt.update(updates, PTRayType::Core as u32);
+    }
+
+    let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+      v.into_change()
+        .collective_map(move |_| HitGroupShaderRecord {
+          closest_hit: Some(shadow_closest_hit),
+          any_hit: None,
+          intersection: None,
+        })
+    });
+    if let Some(updates) = updates.use_assure_result(cx).if_ready() {
+      sbt.update(updates, PTRayType::ShadowTest as u32);
+    }
   });
-  if let Some(updates) = updates.use_assure_result(cx).if_ready() {
-    sbt.update(updates, PTRayType::Core as u32);
-  }
 
-  let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
-    v.into_change()
-      .collective_map(move |_| HitGroupShaderRecord {
-        closest_hit: Some(shadow_closest_hit),
-        any_hit: None,
-        intersection: None,
-      })
-  });
-  if let Some(updates) = updates.use_assure_result(cx).if_ready() {
-    sbt.update(updates, PTRayType::ShadowTest as u32);
-  }
+  let (cx, changed_s) = cx.use_plain_state(|| false);
+  *changed_s |= changed;
 
-  let changed = end(cx);
-
-  cx.when_resolve_stage(|| (sbt.clone(), changed.unwrap()))
+  cx.when_resolve_stage(|| (sbt.clone(), std::mem::take(changed_s)))
 }
 
 const MAX_RAY_DEPTH: u32 = 3;

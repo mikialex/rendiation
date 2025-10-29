@@ -7,8 +7,6 @@ use crate::*;
 const MAX_SAMPLE: u32 = 256;
 
 pub fn use_scene_ao_sbt(cx: &mut QueryGPUHookCx, rtx: &RtxSystemCore) -> Option<(GPUSbt, bool)> {
-  let (cx, end) = cx.use_begin_change_set_collect();
-
   let (cx, sbt) = cx.use_plain_state(|| {
     let handles = AOShaderHandles::default();
     let mut sbt = rtx
@@ -21,36 +19,39 @@ pub fn use_scene_ao_sbt(cx: &mut QueryGPUHookCx, rtx: &RtxSystemCore) -> Option<
     GPUSbt::new(sbt)
   });
 
-  let closest_hit = AOShaderHandles::default().closest_hit;
-  let secondary_closest = AOShaderHandles::default().secondary_closest;
+  let (changed, _) = cx.skip_if_not_waked(|cx| {
+    let closest_hit = AOShaderHandles::default().closest_hit;
+    let secondary_closest = AOShaderHandles::default().secondary_closest;
 
-  let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
-    v.into_change()
-      .collective_map(move |_| HitGroupShaderRecord {
-        closest_hit: Some(closest_hit),
-        any_hit: None,
-        intersection: None,
-      })
+    let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+      v.into_change()
+        .collective_map(move |_| HitGroupShaderRecord {
+          closest_hit: Some(closest_hit),
+          any_hit: None,
+          intersection: None,
+        })
+    });
+    if let Some(updates) = updates.use_assure_result(cx).if_ready() {
+      sbt.update(updates, AORayType::Primary as u32);
+    }
+
+    let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+      v.into_change()
+        .collective_map(move |_| HitGroupShaderRecord {
+          closest_hit: Some(secondary_closest),
+          any_hit: None,
+          intersection: None,
+        })
+    });
+    if let Some(updates) = updates.use_assure_result(cx).if_ready() {
+      sbt.update(updates, AORayType::AOTest as u32);
+    }
   });
-  if let Some(updates) = updates.use_assure_result(cx).if_ready() {
-    sbt.update(updates, AORayType::Primary as u32);
-  }
 
-  let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
-    v.into_change()
-      .collective_map(move |_| HitGroupShaderRecord {
-        closest_hit: Some(secondary_closest),
-        any_hit: None,
-        intersection: None,
-      })
-  });
-  if let Some(updates) = updates.use_assure_result(cx).if_ready() {
-    sbt.update(updates, AORayType::AOTest as u32);
-  }
+  let (cx, changed_s) = cx.use_plain_state(|| false);
+  *changed_s |= changed;
 
-  let changed = end(cx);
-
-  cx.when_resolve_stage(|| (sbt.clone(), changed.unwrap()))
+  cx.when_resolve_stage(|| (sbt.clone(), std::mem::take(changed_s)))
 }
 
 #[derive(Clone)]

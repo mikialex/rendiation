@@ -478,39 +478,36 @@ pub trait QueryHookCxLike: HooksCxLike {
   }
 
   #[track_caller]
-  fn skip_if<R: Default>(&mut self, should_execute: bool, f: impl FnOnce(&mut Self) -> R) -> R {
+  fn skip_if_not<R: Default>(&mut self, should_execute: bool, f: impl FnOnce(&mut Self) -> R) -> R {
     let is_dyn = self.is_dynamic_stage();
-    // let is_creating = self.is_creating(); todo, the partial execute break this!
-    let (cx, is_creating_) = self.use_plain_state(|| true);
-    let is_creating = *is_creating_;
-    *is_creating_ = false;
+    let is_creating = self.is_creating();
     let must_execute = is_dyn && is_creating;
     if should_execute || must_execute {
-      cx.scope(f)
+      self.scope(f)
     } else {
-      cx.skip_call_site_scope();
+      self.skip_call_site_scope();
       R::default()
     }
   }
 
   #[track_caller]
-  fn skip_if_not_waked<R: Default>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+  fn skip_if_not_waked<R: Default>(&mut self, f: impl FnOnce(&mut Self) -> R) -> (bool, R) {
     let (cx, notifier) = self.use_plain_state(|| Arc::new(ChangeNotifierInternal::default()));
-    let should_execute = notifier.update(cx.waker());
+    let waked = notifier.update(cx.waker());
     let mut waker_backup = None;
-    if should_execute {
+    if waked {
       let waker = futures::task::waker(notifier.clone());
       waker_backup = cx.waker().clone().into();
       *cx.waker() = waker
     }
 
-    let r = cx.skip_if(should_execute, f);
+    let r = cx.skip_if_not(waked, f);
 
     if let Some(waker) = waker_backup {
       *cx.waker() = waker
     }
 
-    r
+    (waked, r)
   }
 }
 

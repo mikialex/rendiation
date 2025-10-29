@@ -26,20 +26,17 @@ pub fn use_viewer_rtx(
     RtxSystemCore::new(Box::new(rtx_backend_system))
   });
 
-  let (cx, scope) = cx.use_begin_change_set_collect();
   let base = use_scene_rtx_renderer_base(cx, core, camera, mesh, materials, tex);
-  let base_extra_changed = scope(cx);
 
   let ao = use_scene_ao_sbt(cx, core);
   let pt = use_rtx_pt_sbt(cx, core);
 
   cx.when_render(|| {
+    let mut base = base.unwrap();
+    base.1 |= request_reset_sample;
     (
       RayTracingRendererGroup {
-        base: (
-          base.unwrap(),
-          request_reset_sample || base_extra_changed.unwrap(),
-        ),
+        base,
         ao: ao.unwrap(),
         pt: pt.unwrap(),
       },

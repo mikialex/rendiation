@@ -26,42 +26,6 @@ impl RtxSystemCore {
   }
 }
 
-// // todo, share resource with the indirect renderer if possible
-// pub struct RayTracingSystemBase {
-//   camera: BoxedQueryBasedGPUFeature<Box<dyn RtxCameraRenderImpl>>,
-//   scene_tlas: QueryToken,
-//   mesh: MeshBindlessGPUSystemSource,
-//   material: RtxSceneMaterialSource,
-//   scene_ids: SceneIdProvider,
-//   lighting: ScenePTLightingSource,
-//   texture_system: TextureGPUSystemSource,
-//   system: RtxSystemCore,
-//   source_set: QueryCtxSetInfo,
-// }
-
-// impl RayTracingSystemBase {
-//   pub fn new(
-//     rtx: &RtxSystemCore,
-//     gpu: &GPU,
-//     camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-//   ) -> Self {
-//     let tex_sys_ty = get_suitable_texture_system_ty(gpu, true, false);
-//     Self {
-//       scene_ids: Default::default(),
-//       texture_system: TextureGPUSystemSource::new(tex_sys_ty),
-//       camera: Box::new(DefaultRtxCameraRenderImplProvider::new(camera_source)),
-//       scene_tlas: Default::default(),
-//       system: rtx.clone(),
-//       mesh: MeshBindlessGPUSystemSource::new(gpu),
-//       lighting: ScenePTLightingSource::default(),
-//       material: RtxSceneMaterialSource::default()
-//         .with_material_support(PbrMRMaterialDefaultIndirectRenderImplProvider::default())
-//         .with_material_support(PbrSGMaterialDefaultIndirectRenderImplProvider::default()),
-//       source_set: Default::default(),
-//     }
-//   }
-// }
-
 pub struct SceneRayTracingRendererBase {
   pub camera: Box<dyn RtxCameraRenderImpl>,
   pub scene_tlas: BoxedDynQuery<RawEntityHandle, TlASInstance>,
@@ -78,7 +42,9 @@ pub fn use_scene_rtx_renderer_base(
   mesh: Option<MeshGPUBindlessImpl>,
   materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
   tex: Option<GPUTextureBindingSystem>,
-) -> Option<SceneRayTracingRendererBase> {
+) -> Option<(SceneRayTracingRendererBase, bool)> {
+  let (cx, scope) = cx.use_begin_change_set_collect();
+
   let material = use_rtx_scene_material(cx, materials, tex);
 
   let scene_tlas = use_scene_to_tlas(cx, &system.rtx_acc);
@@ -86,12 +52,23 @@ pub fn use_scene_rtx_renderer_base(
   let lighting = use_scene_pt_light_source(cx);
   let scene_ids = use_scene_id_provider(cx); // this could be reused, but it's unnecessary.
 
-  cx.when_render(|| SceneRayTracingRendererBase {
-    camera: camera.unwrap(),
-    scene_tlas: scene_tlas.unwrap().into_boxed(),
-    mesh: mesh.unwrap(),
-    material: material.unwrap(),
-    lighting: lighting.unwrap(),
-    scene_ids,
+  let changed = scope(cx);
+  let (cx, changed_s) = cx.use_plain_state(|| false);
+  if let Some(changed) = changed {
+    *changed_s |= changed;
+  }
+
+  cx.when_render(|| {
+    (
+      SceneRayTracingRendererBase {
+        camera: camera.unwrap(),
+        scene_tlas: scene_tlas.unwrap().into_boxed(),
+        mesh: mesh.unwrap(),
+        material: material.unwrap(),
+        lighting: lighting.unwrap(),
+        scene_ids,
+      },
+      std::mem::take(changed_s),
+    )
   })
 }

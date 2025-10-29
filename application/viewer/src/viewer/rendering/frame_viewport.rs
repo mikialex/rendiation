@@ -139,7 +139,18 @@ impl Viewer3dViewportRenderingCtx {
     };
 
     if rtx_renderer_enabled {
-      ui.checkbox(&mut self.rtx_rendering_enabled, "enable ray tracing");
+      if ui
+        .checkbox(&mut self.rtx_rendering_enabled, "enable ray tracing")
+        .changed()
+      {
+        self.request_reset_rtx_sample = true;
+      }
+
+      if !self.rtx_rendering_enabled {
+        self.rtx_ao = None;
+        self.rtx_pt = None;
+      }
+
       egui::ComboBox::from_label("ray tracing mode")
         .selected_text(format!("{:?}", &self.rtx_effect_mode))
         .show_ui_changed(ui, |ui| {
