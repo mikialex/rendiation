@@ -11,6 +11,13 @@ pub struct ViewerViewPort {
   pub camera_node: EntityHandle<SceneNodeEntity>,
 }
 
+impl ViewerViewPort {
+  /// lower than 1, 1 will round to 1, 1 to avoid render error
+  pub fn render_pixel_size(&self) -> Size {
+    Size::from_u32_pair_min_one(self.viewport.zw().map(|v| v as u32).into())
+  }
+}
+
 pub fn find_top_hit<'a>(
   viewports: impl DoubleEndedIterator<Item = &'a ViewerViewPort>,
   mouse_position: (f32, f32),

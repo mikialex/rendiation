@@ -29,7 +29,7 @@ pub struct FrameCtx<'a> {
   /// to avoid unnecessary bindgroup invalidation.
   pass_info_pool: PassInfoPool,
   statistics: Option<FrameStaticInfoResolver>,
-  frame_size: Size,
+  pub frame_size: Size,
 }
 
 impl Drop for FrameCtx<'_> {

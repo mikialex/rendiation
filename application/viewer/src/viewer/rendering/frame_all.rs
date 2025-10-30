@@ -178,7 +178,7 @@ impl Viewer3dRenderingCtx {
           cx,
           &init_config.bindless_mesh_init,
           init_config.using_texture_as_storage_buffer_for_indirect_rendering,
-          self.init_config.using_host_driven_indirect_draw,
+          self.using_host_driven_indirect_draw,
         );
 
         scope.end(cx);
@@ -496,10 +496,14 @@ impl Viewer3dRenderingCtx {
     };
 
     let waker = futures::task::waker(self.any_render_change.clone());
+    let size_backup = ctx.frame_size;
     for (viewport_id, idx) in requested_render_views {
       let view_renderer = self.views.get_mut(viewport_id).unwrap();
-      view_renderer.render(&mut ctx, &renderer, content, *idx, final_target, &waker);
+      let viewport = &content.viewports[*idx];
+      ctx.frame_size = viewport.render_pixel_size();
+      view_renderer.render(&mut ctx, &renderer, content, viewport, final_target, &waker);
     }
+    ctx.frame_size = size_backup;
 
     drop(ctx);
 

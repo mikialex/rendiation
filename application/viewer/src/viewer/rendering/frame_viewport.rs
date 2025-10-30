@@ -248,11 +248,10 @@ impl Viewer3dViewportRenderingCtx {
     ctx: &mut FrameCtx,
     renderer: &ViewerRendererInstance,
     content: &Viewer3dContent,
-    viewport_idx: usize,
+    viewport: &ViewerViewPort,
     final_target: &RenderTargetView,
     waker: &Waker,
   ) {
-    let viewport = &content.viewports[viewport_idx];
     let camera = viewport.camera;
 
     let should_do_extra_copy = self.should_do_extra_copy(final_target, viewport);
@@ -261,9 +260,7 @@ impl Viewer3dViewportRenderingCtx {
       let mut key = final_target.create_attachment_key();
       key.usage |= TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC;
 
-      let viewport_size =
-        Size::from_u32_pair_min_one(viewport.viewport.zw().map(|v| v as u32).into());
-      key.size = viewport_size;
+      key.size = viewport.render_pixel_size();
       key.request(ctx)
     } else {
       final_target.clone()
@@ -623,10 +620,8 @@ impl Viewer3dViewportRenderingCtx {
     final_target: &RenderTargetView,
     viewport: &ViewerViewPort,
   ) -> bool {
-    let viewport_size =
-      Size::from_u32_pair_min_one(viewport.viewport.zw().map(|v| v as u32).into());
-    let is_full_covered = viewport_size == final_target.size(); // todo，should check if in bound, not size
-
+    // todo，should check if in full cover, not size equal
+    let is_full_covered = viewport.render_pixel_size() == final_target.size();
     !is_full_covered
       || (self.expect_read_back_for_next_render_result || self.should_do_frame_caching())
         && matches!(final_target, RenderTargetView::SurfaceTexture { .. })
