@@ -33,22 +33,17 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
       let reader = reader.unwrap();
       let world_mat = world_mat.expect_resolve_stage().mark_entity_type();
 
-      let widget_env = create_widget_cx(
-        &reader,
-        &viewer_cx.viewer.scene,
-        &picker,
-        world_mat.into_boxed(),
-      );
+      let widget_env = create_widget_cx(&picker, world_mat.into_boxed());
       let picker = &picker;
       let reader = &reader;
       let widget_env = widget_env.as_ref();
 
-      interaction = Some(prepare_picking_state(picker, &memory.pick_group));
+      interaction = prepare_picking_state(picker, &memory.pick_group);
       let mut cx = UI3dCx::new_event_stage(
         &mut memory.memory,
         UIEventStageCx {
           platform_event: viewer_cx.input,
-          interaction_cx: interaction.as_ref().unwrap(),
+          interaction_cx: interaction.as_ref(),
           widget_env,
         },
         reader,
@@ -91,34 +86,26 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
 }
 
 pub fn create_widget_cx(
-  scene_reader: &SceneReader,
-  viewer_scene: &Viewer3dContent,
   picker: &ViewerSceneModelPicker,
   world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
 ) -> Box<dyn WidgetEnvAccess> {
-  // todo, this is wrong
-  let first = viewer_scene.viewports.first().unwrap();
   Box::new(WidgetEnvAccessImpl {
     world_mat,
-    camera_node: first.camera_node,
-    camera_proj: scene_reader
-      .camera
-      .read::<SceneCameraPerspective>(first.camera)
-      .unwrap(),
-    view_logic_pixel_size: picker.camera_view_size_in_logic_pixel.into_u32().into(),
-    camera_world_ray: picker.current_mouse_ray_in_world(),
-    normalized_canvas_position: picker.normalized_position_ndc(),
+    ptr_ctx: picker.pointer_ctx.clone(),
+    // camera_node: first.camera_node,
+    // camera_proj: scene_reader
+    //   .camera
+    //   .read::<SceneCameraPerspective>(first.camera)
+    //   .unwrap(),
+    // view_logic_pixel_size: picker.camera_view_size_in_logic_pixel.into_u32().into(),
+    // camera_world_ray: picker.current_mouse_ray_in_world(),
+    // normalized_canvas_position: picker.normalized_position_ndc(),
   }) as Box<dyn WidgetEnvAccess>
 }
 
 struct WidgetEnvAccessImpl {
   world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
-  camera_node: EntityHandle<SceneNodeEntity>,
-  camera_proj: PerspectiveProjection<f32>,
-  view_logic_pixel_size: Vec2<u32>,
-  camera_world_ray: Ray3<f64>,
-  // xy -1 to 1
-  normalized_canvas_position: Vec2<f32>,
+  ptr_ctx: Option<ViewportPointerCtx>,
 }
 
 impl WidgetEnvAccess for WidgetEnvAccessImpl {
@@ -126,23 +113,7 @@ impl WidgetEnvAccess for WidgetEnvAccessImpl {
     self.world_mat.access(&sm)
   }
 
-  fn get_camera_node(&self) -> EntityHandle<SceneNodeEntity> {
-    self.camera_node
-  }
-
-  fn get_camera_perspective_proj(&self) -> PerspectiveProjection<f32> {
-    self.camera_proj
-  }
-
-  fn get_camera_world_ray(&self) -> Ray3<f64> {
-    self.camera_world_ray
-  }
-
-  fn get_normalized_canvas_position(&self) -> Vec2<f32> {
-    self.normalized_canvas_position
-  }
-
-  fn get_view_logic_pixel_size(&self) -> Vec2<u32> {
-    self.view_logic_pixel_size
+  fn get_viewport_pointer_ctx(&self) -> Option<&ViewportPointerCtx> {
+    self.ptr_ctx.as_ref()
   }
 }

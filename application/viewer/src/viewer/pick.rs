@@ -11,24 +11,22 @@ use rendiation_scene_geometry_query::*;
 use crate::*;
 
 pub struct ViewerSceneModelPicker {
-  current_mouse_ray_in_world: Ray3<f64>,
-  normalized_position_ndc: Vec2<f32>,
-  normalized_position: Vec2<f32>,
-  camera_world: Mat4<f64>,
-  camera_proj: Box<dyn Projection<f32>>,
   scene_model_picker: Box<dyn SceneModelPicker>,
-  viewport_id: u64,
-  pub camera_view_size_in_logic_pixel: Size,
+  pub pointer_ctx: Option<ViewportPointerCtx>,
 }
 
 impl ViewerSceneModelPicker {
-  fn create_ray_ctx(&self, world_ray: Ray3<f64>) -> SceneRayQuery {
+  fn create_ray_ctx(&self, world_ray: Ray3<f64>) -> Option<SceneRayQuery> {
+    let ctx = self.pointer_ctx.as_ref()?;
     SceneRayQuery {
       world_ray,
-      camera_view_size_in_logic_pixel: self.camera_view_size_in_logic_pixel,
-      camera_proj: self.camera_proj.clone(),
-      camera_world: self.camera_world,
+      camera_view_size_in_logic_pixel: Size::from_u32_pair_min_one(
+        ctx.view_logical_pixel_size.into(),
+      ),
+      camera_proj: Box::new(ctx.perspective_proj),
+      camera_world: ctx.camera_world_mat,
     }
+    .into()
   }
 }
 
@@ -72,63 +70,59 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
 
     let scene_model_picker: Box<dyn SceneModelPicker> = Box::new(scene_model_picker);
     let input = cx.input;
-    let mouse_position = &input.window_state.mouse_position; // todo, use surface relative position
+    let mouse_position = &input.window_state.mouse_position;
 
     let viewports = cx.viewer.scene.viewports.iter();
-    let (viewport, normalized_position_ndc) = find_top_hit(viewports, *mouse_position)
-      .unwrap_or((cx.viewer.scene.viewports.last().unwrap(), (-99., -99.))); // this is hack, but keep it for now
+    let pointer_ctx =
+      if let Some((viewport, normalized_position_ndc)) = find_top_hit(viewports, *mouse_position) {
+        let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
+        let normalized_position_ndc_f64 = normalized_position_ndc.into_f64();
 
-    let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
-    let normalized_position_ndc_f64 = normalized_position_ndc.into_f64();
+        let cam_trans = camera_transforms
+          .expect_resolve_stage()
+          .access(&viewport.camera.into_raw())
+          .unwrap();
+        let camera_view_projection_inv = cam_trans.view_projection_inv;
+        let camera_world = cam_trans.world;
 
-    let cam_trans = camera_transforms
-      .expect_resolve_stage()
-      .access(&viewport.camera.into_raw())
-      .unwrap();
-    let camera_view_projection_inv = cam_trans.view_projection_inv;
-    let camera_world = cam_trans.world;
+        let camera_proj = global_entity_component_of::<SceneCameraPerspective>()
+          .read()
+          .get_value(viewport.camera)
+          .unwrap()
+          .unwrap();
 
-    let camera_proj = global_entity_component_of::<SceneCameraPerspective>()
-      .read()
-      .get_value(viewport.camera)
-      .unwrap()
-      .unwrap();
-    let camera_proj = Box::new(camera_proj);
+        let current_mouse_ray_in_world =
+          cast_world_ray(camera_view_projection_inv, normalized_position_ndc_f64);
 
-    let current_mouse_ray_in_world =
-      cast_world_ray(camera_view_projection_inv, normalized_position_ndc_f64);
+        let viewport_idx = cx
+          .viewer
+          .scene
+          .viewports
+          .iter()
+          .position(|v| v.id == viewport.id)
+          .unwrap();
+
+        ViewportPointerCtx {
+          world_ray: current_mouse_ray_in_world,
+          viewport_idx,
+          viewport_id: viewport.id,
+          view_logical_pixel_size: view_logic_pixel_size.into_u32().into(),
+          normalized_position: normalized_position_ndc * Vec2::new(0.5, -0.5) + Vec2::new(0.5, 0.5),
+          perspective_proj: camera_proj,
+          camera_world_mat: camera_world,
+        }
+        .into()
+      } else {
+        None
+      };
 
     ViewerSceneModelPicker {
       scene_model_picker,
-      current_mouse_ray_in_world,
-      normalized_position_ndc,
-      normalized_position: normalized_position_ndc * Vec2::new(0.5, -0.5) + Vec2::new(0.5, 0.5),
-      camera_world,
-      camera_view_size_in_logic_pixel: view_logic_pixel_size,
-      camera_proj,
-      viewport_id: viewport.id,
+      pointer_ctx,
     }
     .into()
   } else {
     None
-  }
-}
-
-impl ViewerSceneModelPicker {
-  pub fn current_mouse_ray_in_world(&self) -> Ray3<f64> {
-    self.current_mouse_ray_in_world
-  }
-
-  pub fn normalized_position_ndc(&self) -> Vec2<f32> {
-    self.normalized_position_ndc
-  }
-
-  pub fn normalized_position(&self) -> Vec2<f32> {
-    self.normalized_position
-  }
-
-  pub fn viewport_id(&self) -> u64 {
-    self.viewport_id
   }
 }
 
@@ -140,7 +134,7 @@ impl Picker3d for ViewerSceneModelPicker {
   ) -> Option<MeshBufferHitPoint<f64>> {
     self
       .scene_model_picker
-      .ray_query_nearest(model, &self.create_ray_ctx(world_ray))
+      .ray_query_nearest(model, &self.create_ray_ctx(world_ray)?)
   }
 
   fn pick_model_all(
@@ -152,7 +146,7 @@ impl Picker3d for ViewerSceneModelPicker {
   ) -> Option<()> {
     self.scene_model_picker.ray_query_all(
       idx,
-      &self.create_ray_ctx(world_ray),
+      &self.create_ray_ctx(world_ray)?,
       results,
       local_result_scratch,
     )
@@ -162,17 +156,15 @@ impl Picker3d for ViewerSceneModelPicker {
 pub fn prepare_picking_state<'a>(
   picker: &'a ViewerSceneModelPicker,
   g: &WidgetSceneModelIntersectionGroupConfig,
-) -> Interaction3dCtx<'a> {
-  let world_ray_intersected_nearest = picker.pick_models_nearest(
-    &mut g.group.iter().copied(),
-    picker.current_mouse_ray_in_world,
-  );
+) -> Option<Interaction3dCtx<'a>> {
+  let pointer_ctx = picker.pointer_ctx.as_ref()?;
+  let world_ray_intersected_nearest =
+    picker.pick_models_nearest(&mut g.group.iter().copied(), pointer_ctx.world_ray);
 
-  Interaction3dCtx {
-    mouse_world_ray: picker.current_mouse_ray_in_world,
+  Some(Interaction3dCtx {
     picker: picker as &dyn Picker3d,
     world_ray_intersected_nearest,
-  }
+  })
 }
 
 pub fn compute_normalized_position_in_canvas_coordinate(

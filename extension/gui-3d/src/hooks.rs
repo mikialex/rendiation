@@ -37,7 +37,7 @@ pub struct UI3dCx<'a> {
 #[derive(Copy, Clone)]
 pub struct UIEventStageCx<'a> {
   pub platform_event: &'a PlatformEventInput,
-  pub interaction_cx: &'a Interaction3dCtx<'a>,
+  pub interaction_cx: Option<&'a Interaction3dCtx<'a>>,
   pub widget_env: &'a dyn WidgetEnvAccess,
 }
 
@@ -346,8 +346,10 @@ pub fn use_interactive_ui_widget_model(
       let is_releasing = platform_event.state_delta.is_left_mouse_releasing();
 
       let mut current_frame_hitting = None;
-      if let Some((hit, model)) = event.interaction_cx.world_ray_intersected_nearest {
-        current_frame_hitting = (model == target.model).then_some(hit);
+      if let Some(interaction_cx) = event.interaction_cx {
+        if let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest {
+          current_frame_hitting = (model == target.model).then_some(hit);
+        }
       }
 
       if let Some(hitting) = current_frame_hitting {

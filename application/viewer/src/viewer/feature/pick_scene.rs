@@ -74,14 +74,19 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
     let picker = picker.unwrap();
     let mut select_target_result = None;
-    let mut use_cpu_pick = false;
-    if prefer_gpu_pick && gpu_pick_future.is_none() && !is_request_list_pick {
-      if let Some(view_renderer) = cx.viewer.rendering.views.get_mut(&picker.viewport_id()) {
-        if let Some(render_size) = view_renderer.picker.last_id_buffer_size() {
-          let point = picker.normalized_position() * Vec2::from(render_size.into_f32());
-          let point = point.map(|v| v.floor() as usize);
-          if let Some(f) = view_renderer.picker.pick_point_at((point.x, point.y)) {
-            *gpu_pick_future = Some(f);
+    if let Some(pointer_ctx) = &picker.pointer_ctx {
+      let mut use_cpu_pick = false;
+
+      if prefer_gpu_pick && gpu_pick_future.is_none() && !is_request_list_pick {
+        if let Some(view_renderer) = cx.viewer.rendering.views.get_mut(&pointer_ctx.viewport_id) {
+          if let Some(render_size) = view_renderer.picker.last_id_buffer_size() {
+            let point = pointer_ctx.normalized_position * Vec2::from(render_size.into_f32());
+            let point = point.map(|v| v.floor() as usize);
+            if let Some(f) = view_renderer.picker.pick_point_at((point.x, point.y)) {
+              *gpu_pick_future = Some(f);
+            }
+          } else {
+            use_cpu_pick = true;
           }
         } else {
           use_cpu_pick = true;
@@ -89,34 +94,31 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       } else {
         use_cpu_pick = true;
       }
-    } else {
-      use_cpu_pick = true;
-    }
 
-    if use_cpu_pick {
-      let sms = sms
-        .expect_resolve_stage()
-        .mark_foreign_key::<SceneModelBelongsToScene>();
-      let mut main_scene_models = sms.access_multi(&scene).unwrap();
+      if use_cpu_pick {
+        let sms = sms
+          .expect_resolve_stage()
+          .mark_foreign_key::<SceneModelBelongsToScene>();
+        let mut main_scene_models = sms.access_multi(&scene).unwrap();
 
-      if is_request_list_pick {
-        let (results, result_ids) =
-          picker.pick_models_all(&mut main_scene_models, picker.current_mouse_ray_in_world());
-        if enable_hit_debug_log {
-          log::info!("cpu picked list {:#?}, ids: {:#?}", results, result_ids);
-        }
-      } else {
-        let _hit =
-          picker.pick_models_nearest(&mut main_scene_models, picker.current_mouse_ray_in_world());
-        drop(main_scene_models);
-
-        select_target_result = if let Some(hit) = _hit {
+        if is_request_list_pick {
+          let (results, result_ids) =
+            picker.pick_models_all(&mut main_scene_models, pointer_ctx.world_ray);
           if enable_hit_debug_log {
-            log::info!("cpu picked {:#?}", hit);
+            log::info!("cpu picked list {:#?}, ids: {:#?}", results, result_ids);
           }
-          hit.1.into()
         } else {
-          None
+          let _hit = picker.pick_models_nearest(&mut main_scene_models, pointer_ctx.world_ray);
+          drop(main_scene_models);
+
+          select_target_result = if let Some(hit) = _hit {
+            if enable_hit_debug_log {
+              log::info!("cpu picked {:#?}", hit);
+            }
+            hit.1.into()
+          } else {
+            None
+          }
         }
       }
     }

@@ -42,13 +42,18 @@ pub fn use_view_independent_scale_node(
     access_cx!(cx, config, Option<ViewIndependentScaleCx>);
     let config = config.as_ref().unwrap();
 
-    config.scale.override_mat(
-      origin_world,
-      config.override_position,
-      e.get_camera_world_mat(),
-      e.get_view_logic_pixel_size().y as f32,
-      e.get_camera_perspective_proj(),
-    )
+    let state = e.get_viewport_pointer_ctx()?;
+
+    config
+      .scale
+      .override_mat(
+        origin_world,
+        config.override_position,
+        state.camera_world_mat,
+        state.view_logical_pixel_size.y as f32,
+        state.perspective_proj,
+      )
+      .into()
   });
 }
 
@@ -58,7 +63,10 @@ pub fn use_billboard(
   mat: impl FnOnce() -> Mat4<f64> + 'static,
 ) {
   use_view_dependent_world_mat(cx, node, mat, |_, origin_world, e| {
-    BillBoard::default().override_mat(origin_world, e.get_camera_world_mat().position())
+    let state = e.get_viewport_pointer_ctx()?;
+    BillBoard::default()
+      .override_mat(origin_world, state.camera_world_mat.position())
+      .into()
   });
 }
 
@@ -66,7 +74,7 @@ pub fn use_view_dependent_world_mat(
   cx: &mut UI3dCx,
   node: &EntityHandle<SceneNodeEntity>,
   mat: impl FnOnce() -> Mat4<f64> + 'static,
-  mat_updates: impl FnOnce(&mut DynCx, Mat4<f64>, &dyn WidgetEnvAccess) -> Mat4<f64>,
+  mat_updates: impl FnOnce(&mut DynCx, Mat4<f64>, &dyn WidgetEnvAccess) -> Option<Mat4<f64>>,
 ) {
   let (cx, origin_local_mat) = cx.use_plain_state(mat);
   let (cx, local_mat_to_sync) = cx.use_plain_state_default::<Option<Mat4<f64>>>();
@@ -81,9 +89,9 @@ pub fn use_view_dependent_world_mat(
       };
 
     let origin_world = parent_world * *origin_local_mat;
-    let override_world_mat = mat_updates(cx, origin_world, e.widget_env);
-
-    *local_mat_to_sync = Some(parent_world.inverse_or_identity() * override_world_mat);
+    if let Some(override_world_mat) = mat_updates(cx, origin_world, e.widget_env) {
+      *local_mat_to_sync = Some(parent_world.inverse_or_identity() * override_world_mat);
+    }
   });
 
   cx.on_update(|w, _| {

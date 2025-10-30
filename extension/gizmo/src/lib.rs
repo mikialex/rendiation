@@ -33,14 +33,16 @@ pub fn use_gizmo(cx: &mut UI3dCx) {
         cx.on_event(|cx, _, dcx| {
           access_cx!(dcx, start_states, Option::<DragStartState>);
           if start_states.is_some() && cx.platform_event.state_delta.mouse_position_change {
-            let action = DragTargetAction {
-              camera_world: cx.widget_env.get_camera_world_mat(),
-              camera_projection: cx.widget_env.get_camera_proj_mat().into_f64(),
-              world_ray: cx.widget_env.get_camera_world_ray(),
-              normalized_screen_position: cx.widget_env.get_normalized_canvas_position().into_f64(),
-            };
-            dcx.message.put(action);
-            debug_print("dragging");
+            if let Some(states) = cx.widget_env.get_viewport_pointer_ctx() {
+              let action = DragTargetAction {
+                camera_world: states.camera_world_mat,
+                camera_projection: states.camera_projection_mat().into_f64(),
+                world_ray: states.world_ray,
+                normalized_screen_position: states.normalized_position.into_f64(),
+              };
+              dcx.message.put(action);
+              debug_print("dragging");
+            }
           }
 
           if cx.platform_event.state_delta.is_left_mouse_releasing() {
