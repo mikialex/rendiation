@@ -72,7 +72,7 @@ impl GraphicsShaderProvider for JumpFloodingInit {
       let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 
       let uv = builder.query::<FragmentUv>();
-      let size = builder.query::<RenderBufferSize>();
+      let size = builder.query::<ViewportRenderBufferSize>();
       let pixel_coordinates = (size * uv).floor();
 
       let is_mask = mask.sample_zero_level(sampler, uv).x().not_equals(0.);
@@ -112,7 +112,7 @@ impl GraphicsShaderProvider for JumpFlooding {
       let pixel_step = step.into_f32() / resolution.into_f32();
 
       let uv = builder.query::<FragmentUv>();
-      let size = builder.query::<RenderBufferSize>();
+      let size = builder.query::<ViewportRenderBufferSize>();
       let pixel_coordinates = (size * uv).floor();
 
       let closest_positions = val(Vec2::splat(f32::MAX)).make_local_var();

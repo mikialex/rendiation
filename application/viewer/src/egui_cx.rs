@@ -140,7 +140,7 @@ impl EguiContext {
     if *fmt != target.format() {
       pass("egui extra copy")
         .with_color(target, load_and_store())
-        .render(&mut encoder, gpu, None)
+        .render(&mut encoder, gpu, None, None)
         .by(&mut copy_frame(w_target, Some(BlendState::ALPHA_BLENDING)));
     }
 

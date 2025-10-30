@@ -1,13 +1,23 @@
 use std::mem::ManuallyDrop;
 
 use rendiation_algebra::*;
-use rendiation_shader_api::{std140_layout, ShaderStruct};
 
 use crate::*;
 
 pub struct FrameRenderPass {
   pub ctx: GPURenderPassCtx,
-  pub pass_info: UniformBufferCachedDataView<RenderPassGPUInfoData>,
+  pub pass_info_pool: PassInfoPool,
+  /// access pass_info_pool requires locking, so we keep here to reduce the locking to pass level
+  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
+}
+
+impl FrameRenderPass {
+  pub fn set_viewport(&mut self, x: f32, y: f32, w: f32, h: f32, min_depth: f32, max_depth: f32) {
+    self.ctx.pass.set_viewport(x, y, w, h, min_depth, max_depth);
+    self.pass_info = self
+      .pass_info_pool
+      .get_pass_info((w, h).into(), &self.ctx.gpu.device);
+  }
 }
 
 impl std::ops::Deref for FrameRenderPass {
@@ -21,24 +31,6 @@ impl std::ops::Deref for FrameRenderPass {
 impl std::ops::DerefMut for FrameRenderPass {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.ctx.pass
-  }
-}
-
-#[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, PartialEq, ShaderStruct, Default)]
-pub struct RenderPassGPUInfoData {
-  pub texel_size: Vec2<f32>,
-  pub buffer_size: Vec2<f32>,
-}
-
-impl RenderPassGPUInfoData {
-  pub fn new(texel_size: Vec2<f32>, buffer_size: Vec2<f32>) -> Self {
-    Self {
-      texel_size,
-      buffer_size,
-      ..Default::default()
-    }
   }
 }
 
@@ -129,7 +121,12 @@ impl RenderPassDescription {
 
   #[must_use]
   pub fn render_ctx(self, ctx: &mut FrameCtx) -> ActiveRenderPass {
-    self.render(&mut ctx.encoder, ctx.gpu, ctx.statistics.as_ref())
+    self.render(
+      &mut ctx.encoder,
+      ctx.gpu,
+      ctx.statistics.as_ref(),
+      Some(ctx.pass_info_pool.clone()),
+    )
   }
 
   #[must_use]
@@ -138,6 +135,7 @@ impl RenderPassDescription {
     encoder: &mut GPUCommandEncoder,
     gpu: &GPU,
     measurement_resolver: Option<&FrameStaticInfoResolver>,
+    pass_info_pool: Option<PassInfoPool>,
   ) -> ActiveRenderPass {
     let mut pass = encoder.begin_render_pass_with_info(
       self.clone(),
@@ -145,6 +143,7 @@ impl RenderPassDescription {
       measurement_resolver
         .and_then(|r| r.time_query_supported.then_some(()))
         .is_some(),
+      pass_info_pool.unwrap_or_default(),
     );
 
     let measurement = measurement_resolver.map(|m| m.create_defer_logic(&mut pass, gpu));

@@ -15,6 +15,9 @@ pub use quad::*;
 mod pass_base;
 pub use pass_base::*;
 
+mod pass_info;
+pub use pass_info::*;
+
 use crate::*;
 
 pub struct FrameCtx<'a> {
@@ -22,6 +25,9 @@ pub struct FrameCtx<'a> {
   /// note, wrap in manually drop enable us do submitting in drop fn
   pub encoder: ManuallyDrop<GPUCommandEncoder>,
   pool: &'a AttachmentPool,
+  /// currently we recreate pool every frame, this can be improved
+  /// to avoid unnecessary bindgroup invalidation.
+  pass_info_pool: PassInfoPool,
   statistics: Option<FrameStaticInfoResolver>,
   frame_size: Size,
 }
@@ -52,6 +58,7 @@ impl<'a> FrameCtx<'a> {
       statistics,
       encoder,
       gpu,
+      pass_info_pool: Default::default(),
     }
   }
 

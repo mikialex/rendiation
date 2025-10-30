@@ -127,7 +127,7 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
         builder.query::<WideLineStart>(),
         builder.query::<WideLineEnd>(),
         builder.query::<GeometryPosition>(),
-        builder.query::<RenderBufferSize>(),
+        builder.query::<ViewportRenderBufferSize>(),
         uniform.width,
         builder,
       );

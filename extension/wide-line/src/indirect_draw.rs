@@ -335,7 +335,7 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
         builder.query::<WideLineStart>(),
         builder.query::<WideLineEnd>(),
         builder.query::<GeometryPosition>(),
-        builder.query::<RenderBufferSize>(),
+        builder.query::<ViewportRenderBufferSize>(),
         width,
         builder,
       );

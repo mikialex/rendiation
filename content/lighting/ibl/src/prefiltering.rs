@@ -23,7 +23,7 @@ impl GraphicsShaderProvider for BrdfLUTGenerator {
 pub fn generate_brdf_lut(encoder: &mut GPUCommandEncoder, gpu: &GPU, target: GPU2DTextureView) {
   pass("brdf lut generate")
     .with_color(&RenderTargetView::from(target), store_full_frame())
-    .render(encoder, gpu, None)
+    .render(encoder, gpu, None, None)
     .by(&mut BrdfLUTGenerator.draw_quad());
 }
 
@@ -64,7 +64,7 @@ pub fn generate_pre_filter_map(
 
     pass("prefilter diffuse env map")
       .with_color(&RenderTargetView::from(target), store_full_frame())
-      .render(encoder, gpu, None)
+      .render(encoder, gpu, None, None)
       .by(
         &mut PreFilterDiffuseTask {
           input: input.clone(),
@@ -98,7 +98,7 @@ pub fn generate_pre_filter_map(
 
       pass("prefilter specular env map")
         .with_color(&RenderTargetView::from(target), store_full_frame())
-        .render(encoder, gpu, None)
+        .render(encoder, gpu, None, None)
         .by(
           &mut PreFilterSpecularTask {
             input: input.clone(),
@@ -209,7 +209,7 @@ impl GraphicsShaderProvider for PreFilterSpecularTask {
       let input = binder.bind_by(&self.input);
       let sampler = binder.bind_by(&ImmediateGPUSamplerViewBind);
 
-      let resolution = builder.query::<RenderBufferSize>().x();
+      let resolution = builder.query::<ViewportRenderBufferSize>().x();
       let uv = builder.query::<FragmentUv>();
       let cube_face_local = uv * val(2.0) - val(Vec2::one());
       let cube_face = config.direction.shrink_to_3() * (cube_face_local, val(1.)).into();

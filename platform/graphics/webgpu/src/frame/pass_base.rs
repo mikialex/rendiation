@@ -13,7 +13,7 @@ pub struct DefaultPassDispatcher {
   pub formats: RenderTargetFormatsInfo,
   pub auto_write: bool,
   pub reversed_depth: bool,
-  pub pass_info: UniformBufferCachedDataView<RenderPassGPUInfoData>,
+  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
 }
 
 impl DefaultPassDispatcher {
@@ -42,7 +42,7 @@ impl GraphicsShaderProvider for DefaultPassDispatcher {
       .bind_by_and_prepare(&self.pass_info)
       .using_graphics_pair(|r, pass| {
         let pass = pass.load().expand();
-        r.register_typed_both_stage::<RenderBufferSize>(pass.buffer_size);
+        r.register_typed_both_stage::<ViewportRenderBufferSize>(pass.buffer_size);
         r.register_typed_both_stage::<TexelSize>(pass.texel_size);
       });
 

@@ -44,7 +44,7 @@ impl GraphicsShaderProvider for ScreenChannelDebugger {
 
       let output = val(Vec4::new(0., 0., 0., 1.)).make_local_var();
 
-      let width = builder.query::<RenderBufferSize>().x();
+      let width = builder.query::<ViewportRenderBufferSize>().x();
 
       let step = width / val(self.channels.len() as f32);
       let start = val(0.).make_local_var();

@@ -83,20 +83,23 @@ impl GPUCommandEncoder {
     des: RenderPassDescription,
     gpu: GPU,
     enable_time_measuring: bool,
+    pass_info_pool: PassInfoPool,
   ) -> FrameRenderPass {
     let buffer_size = des.buffer_size();
+    let pass_info = pass_info_pool.get_pass_info(buffer_size, &gpu.device);
 
     let time_query =
       enable_time_measuring.then(|| TimeQuery::create_query_without_start(&gpu.device));
 
     let ctx = self.begin_render_pass(des, time_query);
 
-    let pass_info = RenderPassGPUInfoData::new(buffer_size.map(|v| 1.0 / v), buffer_size);
-    let pass_info = create_uniform_with_cache(pass_info, &gpu);
-
     let c = GPURenderPassCtx::new(ctx, gpu);
 
-    FrameRenderPass { ctx: c, pass_info }
+    FrameRenderPass {
+      ctx: c,
+      pass_info,
+      pass_info_pool,
+    }
   }
 
   pub fn begin_render_pass(

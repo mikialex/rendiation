@@ -245,7 +245,7 @@ both!(FragmentRenderPosition, Vec3<f32>);
 both!(FragmentRenderNormal, Vec3<f32>);
 both!(FragmentColor, Vec3<f32>);
 
-both!(RenderBufferSize, Vec2<f32>);
+both!(ViewportRenderBufferSize, Vec2<f32>);
 both!(TexelSize, Vec2<f32>);
 
 both!(ColorChannel, Vec3<f32>);

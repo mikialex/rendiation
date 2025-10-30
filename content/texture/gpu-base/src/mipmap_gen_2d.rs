@@ -51,7 +51,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
 
       pass("mip-gen-2d")
         .with_color(&RenderTargetView::from(write_view), store_full_frame())
-        .render(encoder, ctx, None)
+        .render(encoder, ctx, None, None)
         .by(&mut task);
     }
   }
@@ -97,7 +97,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
 
         pass("mip-gen-cube-face")
           .with_color(&RenderTargetView::from(write_view), store_full_frame())
-          .render(encoder, ctx, None)
+          .render(encoder, ctx, None, None)
           .by(&mut task);
       }
     }
@@ -143,7 +143,7 @@ impl GraphicsShaderProvider for Mipmap2DGeneratorTask<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let position = builder.query::<FragmentPosition>().xy();
-      let buffer_size = builder.query::<RenderBufferSize>();
+      let buffer_size = builder.query::<ViewportRenderBufferSize>();
       let texel_size = builder.query::<TexelSize>() * val(0.5);
       let source = binding.bind_by(&self.view);
       let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
