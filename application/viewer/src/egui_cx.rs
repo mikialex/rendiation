@@ -15,11 +15,6 @@ pub struct EguiContext {
 pub fn use_egui_cx(cx: &mut ApplicationCx, f: impl Fn(&mut ApplicationCx, &mut egui::Context)) {
   let (cx, egui_cx) = cx.use_plain_state_default::<EguiContext>();
 
-  if egui_cx.context.is_pointer_over_area() {
-    cx.dyn_cx.message.put(CameraControlBlocked);
-    cx.dyn_cx.message.put(PickSceneBlocked);
-  }
-
   let state = egui_cx.state.get_or_insert_with(|| {
     let id = egui_cx.context.viewport_id();
     egui_winit::State::new(egui_cx.context.clone(), id, &cx.window, None, None, None)

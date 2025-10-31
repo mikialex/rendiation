@@ -3,10 +3,12 @@ use crate::*;
 mod change;
 mod console;
 mod db_view;
+mod tile;
 
 pub use change::*;
 pub use console::*;
 use db_view::*;
+pub use tile::*;
 
 pub struct ViewerUIState {
   show_db_inspector: bool,
