@@ -9,7 +9,8 @@ const SAMPLE_COUNT: usize = 32;
 
 pub struct TAA {
   frame_index: usize,
-  jitters: Vec<Vec2<f32>>,
+  jitters: Vec<GPUBufferResourceView>,
+  zero: GPUBufferResourceView,
   history: Option<RenderTargetView>,
 }
 
@@ -19,17 +20,33 @@ pub struct TAAFrame {
 }
 
 pub trait TAAContent<R> {
-  fn set_jitter(&mut self, next_jitter: Vec2<f32>);
+  /// next_jitter type should be `Vec2<f32>`
+  fn set_jitter(&mut self, next_jitter: &GPUBufferResourceView, encoder: &mut GPUCommandEncoder);
   /// jitter will exist in this render call, implementation
   /// should provide new taa frame sample.
   fn render(&mut self, ctx: &mut FrameCtx) -> (TAAFrame, R);
 }
 
 impl TAA {
-  pub fn new() -> Self {
+  pub fn new(gpu: &GPU) -> Self {
+    let jitters: Vec<_> = (0..SAMPLE_COUNT).map(halton23).collect();
+    let buffer = create_gpu_buffer(cast_slice(&jitters), BufferUsages::COPY_SRC, &gpu.device);
+    let jitters = (0..SAMPLE_COUNT)
+      .map(|i| {
+        let i = i as u64;
+        buffer.create_view(GPUBufferViewRange {
+          offset: i * 8,
+          size: Some(std::num::NonZeroU64::new(8).unwrap()),
+        })
+      })
+      .collect();
+    let zero =
+      create_gpu_buffer_zeroed(8, BufferUsages::COPY_SRC, &gpu.device).create_default_view();
+
     Self {
       frame_index: 0,
-      jitters: (0..SAMPLE_COUNT).map(halton23).collect(),
+      jitters,
+      zero,
       history: None,
     }
   }
@@ -40,8 +57,7 @@ impl TAA {
     ctx: &mut FrameCtx,
     reproject: &GPUReprojectInfo,
   ) -> (TAAFrame, R) {
-    content.set_jitter(self.next_jitter());
-    ctx.make_submit();
+    content.set_jitter(self.next_jitter(), &mut ctx.encoder);
 
     let (
       TAAFrame {
@@ -51,8 +67,7 @@ impl TAA {
       r,
     ) = content.render(ctx);
 
-    ctx.make_submit();
-    content.set_jitter(Vec2::zero()); // reset
+    content.set_jitter(self.zero_jitter(), &mut ctx.encoder); // reset
 
     (
       TAAFrame {
@@ -63,10 +78,13 @@ impl TAA {
     )
   }
 
-  fn next_jitter(&mut self) -> Vec2<f32> {
-    let r = self.jitters[self.frame_index % SAMPLE_COUNT];
+  fn next_jitter(&mut self) -> &GPUBufferResourceView {
+    let r = &self.jitters[self.frame_index % SAMPLE_COUNT];
     self.frame_index += 1;
     r
+  }
+  fn zero_jitter(&self) -> &GPUBufferResourceView {
+    &self.zero
   }
 
   fn resolve(
@@ -100,12 +118,6 @@ impl TAA {
     std::mem::swap(history, &mut resolve_target);
 
     history
-  }
-}
-
-impl Default for TAA {
-  fn default() -> Self {
-    Self::new()
   }
 }
 

@@ -160,21 +160,6 @@ impl From<CameraTransform> for CameraGPUTransform {
   }
 }
 
-// pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_size: Size) {
-//   let width: usize = buffer_size.width.into();
-//   let width = width as f32;
-//   let height: usize = buffer_size.height.into();
-//   let height = height as f32;
-//   pass.set_viewport(
-//     width * cb.to_left,
-//     height * cb.to_top,
-//     width * cb.width,
-//     height * cb.height,
-//     0.,
-//     1.,
-//   )
-// }
-
 #[derive(Clone)]
 pub struct CameraRenderer(pub LockReadGuardHolder<CameraUniforms>);
 
@@ -189,14 +174,16 @@ impl CameraRenderer {
   pub fn setup_camera_jitter(
     &self,
     camera: EntityHandle<SceneCameraEntity>,
-    jitter: Vec2<f32>,
-    queue: &GPUQueue,
+    jitter: &GPUBufferResourceView,
+    encoder: &mut GPUCommandEncoder,
   ) {
     let uniform = self.0.get(&camera.into_raw()).unwrap();
-    uniform.write_at(
-      queue,
-      &jitter,
+    encoder.copy_buffer_to_buffer(
+      jitter.resource.gpu(),
+      jitter.desc.offset,
+      uniform.gpu.resource.gpu(),
       offset_of!(CameraGPUTransform, jitter_normalized) as u64,
+      std::mem::size_of::<Vec2<f32>>() as u64,
     );
   }
 }

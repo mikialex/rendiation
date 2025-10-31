@@ -52,7 +52,7 @@ impl Viewer3dViewportRenderingCtx {
       highlight: HighLighter::new(gpu),
       _blur: CrossBlurData::new(gpu),
       reproject: GPUReprojectInfo::new(gpu),
-      taa: TAA::new(),
+      taa: TAA::new(gpu),
       enable_taa: true,
       enable_fxaa: false,
       enable_ground: true,
@@ -443,7 +443,6 @@ impl Viewer3dViewportRenderingCtx {
     };
 
     let mut taa_content = SceneCameraTAAContent {
-      queue: &ctx.gpu.queue,
       camera,
       renderer: &renderer_c,
       f: |ctx: &mut FrameCtx| {
@@ -646,7 +645,6 @@ pub struct ViewerSceneRenderer<'a> {
 struct SceneCameraTAAContent<'a, F> {
   renderer: &'a ViewerSceneRenderer<'a>,
   camera: EntityHandle<SceneCameraEntity>,
-  queue: &'a GPUQueue,
   f: F,
 }
 
@@ -654,11 +652,11 @@ impl<F, R> TAAContent<R> for SceneCameraTAAContent<'_, F>
 where
   F: FnMut(&mut FrameCtx) -> (TAAFrame, R),
 {
-  fn set_jitter(&mut self, next_jitter: Vec2<f32>) {
+  fn set_jitter(&mut self, next_jitter: &GPUBufferResourceView, encoder: &mut GPUCommandEncoder) {
     self
       .renderer
       .cameras
-      .setup_camera_jitter(self.camera, next_jitter, self.queue);
+      .setup_camera_jitter(self.camera, next_jitter, encoder);
   }
 
   fn render(&mut self, ctx: &mut FrameCtx) -> (TAAFrame, R) {

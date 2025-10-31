@@ -62,12 +62,6 @@ impl<'a> FrameCtx<'a> {
     }
   }
 
-  pub fn make_submit(&mut self) {
-    let mut encoder = ManuallyDrop::new(self.gpu.create_encoder());
-    std::mem::swap(&mut self.encoder, &mut encoder);
-    self.gpu.submit_encoder(ManuallyDrop::into_inner(encoder))
-  }
-
   pub fn frame_size(&self) -> Size {
     self.frame_size
   }

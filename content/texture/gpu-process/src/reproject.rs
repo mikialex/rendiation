@@ -20,8 +20,6 @@ impl GPUReprojectInfo {
     });
 
     self.reproject.upload(&ctx.gpu.queue);
-    // make sure the reproject is correctly updated in gpu, is this required?
-    ctx.make_submit();
   }
 }
 

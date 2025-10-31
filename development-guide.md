@@ -13,7 +13,6 @@ important issue is in bold style.
 - oit loop32 flicks in metal backend
 - spd not support none pot target, and small target(the current impl will access out of boundary of image).
 - multi format support in texture pool system
-- optimize frame ctx "make_submit" call, use copy buffer to buffer to update.
 - support face side control
   - support double side config in gltf loader
   - fix gizmo plane move only one side is visible
