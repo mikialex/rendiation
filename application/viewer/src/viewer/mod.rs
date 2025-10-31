@@ -353,13 +353,14 @@ pub fn use_viewer<'a>(
   }
   .execute(|viewer| f(viewer));
 
-  let (acx, tree) = acx.use_plain_state(create_viewer_default_tile_tree);
+  let (acx, tree) =
+    acx.use_plain_state(|| create_viewer_default_tile_tree(&viewer.scene.viewports));
 
   let mut behavior = ViewerTileTreeBehavior {
     edited: std::cell::Cell::new(false),
   };
 
-  let tree = egui::CentralPanel::default()
+  let tree_res = egui::CentralPanel::default()
     .frame(egui::Frame::NONE)
     .show(egui_ctx, |ui| {
       tree.ui(&mut behavior, ui);
@@ -379,10 +380,27 @@ pub fn use_viewer<'a>(
     }
   }
 
-  let tree_layer_id = tree.response.layer_id;
+  let tree_layer_id = tree_res.response.layer_id;
   if is_pointer_over_area_no_view_tree(egui_ctx, tree_layer_id) || behavior.edited.get() {
     acx.dyn_cx.message.put(CameraControlBlocked);
     acx.dyn_cx.message.put(PickSceneBlocked);
+  }
+
+  for tile_id in tree.active_tiles() {
+    let tile = tree.tiles.get(tile_id).unwrap();
+    if let egui_tiles::Tile::Pane(pane) = tile {
+      let viewport = viewer
+        .scene
+        .viewports
+        .iter_mut()
+        .find(|viewport| viewport.id == pane.viewport_id)
+        .unwrap();
+      let r = pane.rect;
+      let ratio = acx.input.window_state.device_pixel_ratio;
+      let width = r.width() * ratio;
+      let height = r.height() * ratio;
+      viewport.viewport = (r.min.x * ratio, r.min.y * ratio, width, height).into();
+    }
   }
 
   ViewerCx {
@@ -480,8 +498,15 @@ impl Viewer {
       camera_node,
     };
 
+    let viewport2 = ViewerViewPort {
+      id: alloc_global_res_id(),
+      viewport: Default::default(),
+      camera: main_camera,
+      camera_node,
+    };
+
     let scene = Viewer3dContent {
-      viewports: vec![viewport],
+      viewports: vec![viewport, viewport2],
       scene,
       root,
       selected_target: None,

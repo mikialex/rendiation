@@ -229,7 +229,7 @@ impl Viewer3dViewportRenderingCtx {
 
     if let Some(cached_frame) = &self.on_demand_rendering_cached_frame {
       pass("on demand rendering copy cached frame")
-        .with_color(target, store_full_frame())
+        .with_color(target, load_and_store()) // todo, use store full when only has one viewport
         .render_ctx(ctx)
         .by(
           &mut CopyFrame(cached_frame.clone())
@@ -304,7 +304,7 @@ impl Viewer3dViewportRenderingCtx {
     // do extra copy to surface texture
     if should_do_extra_copy {
       pass("copy frame renderer local to surface")
-        .with_color(final_target, store_full_frame())
+        .with_color(final_target, load_and_store()) // todo, use store full when only has one viewport
         .render_ctx(ctx)
         .by(
           &mut CopyFrame(render_target.clone())
