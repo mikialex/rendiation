@@ -331,8 +331,8 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
             let std_model = scene_writer
               .model_writer
-              .read_foreign_key::<SceneModelStdModelRenderPayload>(target)
-              .unwrap();
+              .read_foreign_key::<SceneModelStdModelRenderPayload>(target)?;
+
             ui.label(format!(
               "referenced std_model id: {:?}",
               std_model.into_raw()
@@ -403,6 +403,8 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           } else {
             ui.label("No target selected");
           }
+
+          Some(())
         });
     }
 

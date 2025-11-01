@@ -450,15 +450,8 @@ impl Viewer {
       camera_node,
     };
 
-    let viewport2 = ViewerViewPort {
-      id: alloc_global_res_id(),
-      viewport: Default::default(),
-      camera: main_camera,
-      camera_node,
-    };
-
     let scene = Viewer3dContent {
-      viewports: vec![viewport, viewport2],
+      viewports: vec![viewport],
       scene,
       root,
       selected_target: None,

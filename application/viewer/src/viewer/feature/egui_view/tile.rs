@@ -7,7 +7,7 @@ pub fn use_egui_tile_for_viewer_viewports(
   egui_ctx: &mut egui::Context,
   viewer: &mut Viewer,
 ) {
-  let (acx, (tree, root)) =
+  let (acx, tree) =
     acx.use_plain_state(|| create_viewer_default_tile_tree(&viewer.scene.viewports));
 
   let mut behavior = ViewerTileTreeBehavior::default();
@@ -39,17 +39,17 @@ pub fn use_egui_tile_for_viewer_viewports(
   }
 
   if let Some(tile_id) = behavior.remove_tile.take() {
-    let removed = tree.remove_recursively(tile_id);
-    let tile = removed.last().unwrap();
-    if let egui_tiles::Tile::Pane(pane) = tile {
-      let removed_viewport_id = pane.viewport_id;
-      let idx = viewer
-        .scene
-        .viewports
-        .iter()
-        .position(|v| v.id == removed_viewport_id)
-        .unwrap();
-      viewer.scene.viewports.remove(idx);
+    for tile in tree.remove_recursively(tile_id) {
+      if let egui_tiles::Tile::Pane(pane) = tile {
+        let removed_viewport_id = pane.viewport_id;
+        let idx = viewer
+          .scene
+          .viewports
+          .iter()
+          .position(|v| v.id == removed_viewport_id)
+          .unwrap();
+        viewer.scene.viewports.remove(idx);
+      }
     }
   }
 
@@ -65,10 +65,14 @@ pub fn use_egui_tile_for_viewer_viewports(
     viewer.scene.viewports.push(new_viewport);
 
     let new_child = tree.tiles.insert_pane(ViewerPane::new(id));
-    if let egui_tiles::Tile::Container(egui_tiles::Container::Linear(container)) =
-      tree.tiles.get_mut(*root).unwrap()
-    {
-      container.add_child(new_child);
+    if let Some(root) = tree.root() {
+      if let egui_tiles::Tile::Container(egui_tiles::Container::Linear(container)) =
+        tree.tiles.get_mut(root).unwrap()
+      {
+        container.add_child(new_child);
+      } else {
+        log::error!("unable to add child to none container root, this is a bug")
+      }
     }
   }
 
@@ -117,7 +121,14 @@ pub struct ViewerTileTreeBehavior {
 
 impl egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior {
   fn simplification_options(&self) -> SimplificationOptions {
-    SimplificationOptions::OFF
+    SimplificationOptions {
+      prune_empty_tabs: true,
+      prune_empty_containers: false,
+      prune_single_child_tabs: true,
+      prune_single_child_containers: false,
+      all_panes_must_have_tabs: false,
+      join_nested_linear_containers: false,
+    }
   }
 
   fn tab_title_for_pane(&mut self, pane: &ViewerPane) -> egui::WidgetText {
@@ -203,7 +214,7 @@ impl egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior {
 
 pub fn create_viewer_default_tile_tree(
   viewports: &[ViewerViewPort],
-) -> (egui_tiles::Tree<ViewerPane>, TileId) {
+) -> egui_tiles::Tree<ViewerPane> {
   let mut tiles = egui_tiles::Tiles::default();
 
   let children = viewports
@@ -215,7 +226,5 @@ pub fn create_viewer_default_tile_tree(
     .collect();
   let root = tiles.insert_horizontal_tile(children);
 
-  let tree = egui_tiles::Tree::new("viewer tree", root, tiles);
-
-  (tree, root)
+  egui_tiles::Tree::new("viewer tree", root, tiles)
 }
