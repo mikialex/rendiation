@@ -148,6 +148,8 @@ pub fn use_std_model_renderer(
   let material_pbr_mr = cx.use_changes::<StandardModelRefPbrMRMaterial>();
   let material_pbr_sg = cx.use_changes::<StandardModelRefPbrSGMaterial>();
 
+  let state_override = use_state_overrides(cx);
+
   let changes = if cx.is_spawning_stage() {
     UseResult::SpawnStageReady(SelectChanges([
       material_flat
@@ -174,6 +176,7 @@ pub fn use_std_model_renderer(
     materials: materials.unwrap(),
     shapes: shapes.unwrap(),
     std_model: std_model.get_gpu_buffer(),
+    states: state_override.unwrap(),
   })
 }
 
@@ -182,6 +185,7 @@ pub struct SceneStdModelIndirectRenderer {
   std_model: AbstractReadonlyStorageBuffer<[SceneStdModelStorage]>,
   materials: Box<dyn IndirectModelMaterialRenderImpl>,
   shapes: Box<dyn IndirectModelShapeRenderImpl>,
+  states: StateOverrides,
 }
 
 impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
@@ -205,23 +209,27 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
 
   fn device_id_injector(
     &self,
-    _: EntityHandle<SceneModelEntity>,
+    sm: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
-    struct SceneStdModelIdInjector {
+    struct SceneStdModelIdInjector<'a> {
       std_model: AbstractReadonlyStorageBuffer<[SceneStdModelStorage]>,
+      states: StateGPUImpl<'a>,
     }
 
-    impl ShaderHashProvider for SceneStdModelIdInjector {
-      shader_hash_type_id! {}
+    impl<'a> ShaderHashProvider for SceneStdModelIdInjector<'a> {
+      fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+        self.states.hash_pipeline(hasher);
+      }
+      shader_hash_type_id! {SceneStdModelIdInjector<'static>}
     }
 
-    impl ShaderPassBuilder for SceneStdModelIdInjector {
+    impl<'a> ShaderPassBuilder for SceneStdModelIdInjector<'a> {
       fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
         ctx.binding.bind(&self.std_model);
       }
     }
 
-    impl GraphicsShaderProvider for SceneStdModelIdInjector {
+    impl<'a> GraphicsShaderProvider for SceneStdModelIdInjector<'a> {
       fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
         builder.vertex(|builder, binding| {
           let buffer = binding.bind_by(&self.std_model);
@@ -232,11 +240,14 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
           builder.set_vertex_out::<IndirectAbstractMaterialId>(info.material);
           builder.register::<IndirectAbstractMeshId>(info.mesh);
         });
+        self.states.build(builder);
       }
     }
 
+    let model = self.model.get(sm)?;
     Some(Box::new(SceneStdModelIdInjector {
       std_model: self.std_model.clone(),
+      states: self.states.get_gpu(model)?,
     }))
   }
 

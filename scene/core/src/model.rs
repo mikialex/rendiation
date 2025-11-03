@@ -36,6 +36,48 @@ impl SceneModelDataView {
 }
 
 declare_entity!(StandardModelEntity);
+declare_component!(
+  StandardModelRasterizationOverride,
+  StandardModelEntity,
+  Option<MaterialStates>
+);
+
+use wgpu_types::*;
+#[derive(Facet, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct MaterialStates {
+  pub depth_write_enabled: bool,
+  #[facet(opaque)]
+  pub depth_compare: CompareFunction,
+  #[facet(opaque)]
+  pub stencil: StencilState,
+  #[facet(opaque)]
+  pub bias: DepthBiasState,
+  #[facet(opaque)]
+  pub blend: Option<BlendState>,
+  #[facet(opaque)]
+  pub write_mask: ColorWrites,
+  #[facet(opaque)]
+  pub front_face: FrontFace,
+  #[facet(opaque)]
+  pub cull_mode: Option<Face>,
+}
+
+impl Default for MaterialStates {
+  fn default() -> Self {
+    Self {
+      depth_write_enabled: true,
+      depth_compare: CompareFunction::Less,
+      blend: None,
+      write_mask: ColorWrites::all(),
+      bias: Default::default(),
+      stencil: Default::default(),
+      front_face: FrontFace::Ccw,
+      cull_mode: Some(Face::Back),
+    }
+  }
+}
+
 declare_foreign_key!(
   StandardModelRefUnlitMaterial,
   StandardModelEntity,
@@ -61,6 +103,7 @@ declare_foreign_key!(StandardModelRefSkin, StandardModelEntity, SceneSkinEntity)
 pub fn register_std_model_data_model() {
   global_database()
     .declare_entity::<StandardModelEntity>()
+    .declare_component::<StandardModelRasterizationOverride>()
     .declare_foreign_key::<StandardModelRefAttributesMeshEntity>()
     .declare_foreign_key::<StandardModelRefUnlitMaterial>()
     .declare_foreign_key::<StandardModelRefPbrSGMaterial>()

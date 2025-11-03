@@ -46,11 +46,14 @@ pub fn std_model_renderer(
 ) -> Option<SceneStdModelRenderer> {
   let skin_gpu = use_skin(cx);
 
+  let state_override = use_state_overrides(cx);
+
   cx.when_render(|| SceneStdModelRenderer {
     model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
     materials: materials.unwrap(),
     shapes: shapes.unwrap(),
     skin_gpu: skin_gpu.unwrap(),
+    states: state_override.unwrap(),
     skin: global_entity_component_of::<StandardModelRefSkin>().read_foreign_key(),
   })
 }
@@ -61,6 +64,7 @@ pub struct SceneStdModelRenderer {
   shapes: Box<dyn GLESModelShapeRenderImpl>,
   skin_gpu: LockReadGuardHolder<SkinBoneMatrixesGPU>,
   skin: ForeignKeyReadView<StandardModelRefSkin>,
+  states: StateOverrides,
 }
 
 impl GLESModelRenderImpl for SceneStdModelRenderer {
@@ -71,11 +75,17 @@ impl GLESModelRenderImpl for SceneStdModelRenderer {
     let model = self.model.get(idx)?;
 
     let (base_shape, cmd) = self.shapes.make_component(model)?;
+    let state = self.states.get_gpu(model)?;
 
     let shape = if let Some(skin) = self.skin.get(model) {
       let bones = self.skin_gpu.get_bone_provider(skin).unwrap();
       let bones = Box::new(bones) as Box<dyn RenderComponent>;
-      let render = RenderArray([bones, base_shape, Box::new(SkinVertexTransform)]);
+      let render = RenderArray([
+        bones,
+        base_shape,
+        Box::new(state),
+        Box::new(SkinVertexTransform),
+      ]);
 
       Box::new(render)
     } else {

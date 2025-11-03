@@ -29,6 +29,7 @@ rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/
 rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
 thiserror = { workspace = true }
 log = { workspace = true }
+interning = { path = "../../../utility/interning" }
 
 [lints]
 workspace = true

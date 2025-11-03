@@ -1,6 +1,5 @@
 use rendiation_infinity_primitive::*;
 use rendiation_shader_library::plane::ShaderPlaneUniform;
-use rendiation_state_override::MaterialStates;
 
 use crate::*;
 
@@ -79,7 +78,7 @@ impl GraphicsShaderProvider for GridGroundShading<'_> {
 
       builder.register::<DefaultDisplay>(grid);
 
-      MaterialStates {
+      let state = MaterialStates {
         blend: BlendState::ALPHA_BLENDING.into(),
         depth_write_enabled: false,
         depth_compare: if self.reversed_depth {
@@ -88,8 +87,8 @@ impl GraphicsShaderProvider for GridGroundShading<'_> {
           CompareFunction::Less
         },
         ..Default::default()
-      }
-      .apply_pipeline_builder(builder);
+      };
+      apply_pipeline_builder(&state, builder);
     })
   }
 }

@@ -84,7 +84,6 @@ RRF is highly modulized, layered, decoupled and well-structured. Users can build
   - gizmo
   - gui-3d
   - infinity-primitive
-  - state-override
   - view-override-model
   - wide-line
 - application: the user facing application for testing, prototyping and demonstrating

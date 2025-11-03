@@ -22,6 +22,7 @@ database = { path = "../../utility/database" }
 parking_lot = { workspace = true }
 facet = { workspace = true }
 serde = { workspace = true }
+wgpu-types = { workspace = true }
 
 [lints]
 workspace = true

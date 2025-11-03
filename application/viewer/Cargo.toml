@@ -66,7 +66,6 @@ rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 rendiation-texture-loader = { path = "../../content/texture/loader" }
 rendiation-texture-exporter = { path = "../../content/texture/exporter" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
-rendiation-state-override = { path = "../../extension/state-override" }
 rendiation-area-lighting = { path = "../../extension/area-lighting" }
 rendiation-wide-line = { path = "../../extension/wide-line" }
 rendiation-webgpu-virtual-buffer = { path = "../../platform/graphics/webgpu-virtual-buffer" }

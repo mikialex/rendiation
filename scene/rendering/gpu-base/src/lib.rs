@@ -36,6 +36,8 @@ use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
+mod state;
+pub use state::*;
 mod error_model;
 pub use error_model::*;
 mod skin;

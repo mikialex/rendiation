@@ -8,14 +8,6 @@ pub struct ValueInterning<T> {
   values: Vec<T>,
 }
 
-#[macro_export]
-macro_rules! define_static_id_generator {
-  ($Name: tt, $Type: ty) => {
-    static $Name: once_cell::sync::Lazy<parking_lot::Mutex<ValueInterning<$Type>>> =
-      once_cell::sync::Lazy::new(|| parking_lot::Mutex::new(ValueInterning::default()));
-  };
-}
-
 impl<T> Default for ValueInterning<T> {
   fn default() -> Self {
     Self {
@@ -26,36 +18,36 @@ impl<T> Default for ValueInterning<T> {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]
-pub struct InternedValue<T> {
+pub struct InternedId<T> {
   value: usize,
   ty: PhantomData<T>,
 }
 
-impl<T> Clone for InternedValue<T> {
+impl<T> Clone for InternedId<T> {
   fn clone(&self) -> Self {
     *self
   }
 }
 
-impl<T> Copy for InternedValue<T> {}
+impl<T> Copy for InternedId<T> {}
 
 impl<T> ValueInterning<T>
 where
   T: Eq + Hash + Clone,
 {
-  pub fn get_uuid(&mut self, v: &T) -> InternedValue<T> {
+  pub fn get_intern_id(&mut self, v: &T) -> InternedId<T> {
     let count = self.values.len();
     let id = self.inner.raw_entry_mut().from_key(v).or_insert_with(|| {
       self.values.push(v.clone());
       (v.clone(), count)
     });
-    InternedValue {
+    InternedId {
       value: *id.1,
       ty: PhantomData,
     }
   }
 
-  pub fn get_value(&self, id: InternedValue<T>) -> Option<&T> {
+  pub fn get_value(&self, id: InternedId<T>) -> Option<&T> {
     self.values.get(id.value)
   }
 }

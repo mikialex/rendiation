@@ -3778,7 +3778,6 @@ dependencies = [
  "rendiation-platform-event-input",
  "rendiation-scene-core",
  "rendiation-shader-api",
- "rendiation-state-override",
  "rendiation-view-override-model",
  "rendiation-wide-line",
 ]
@@ -4042,6 +4041,7 @@ dependencies = [
  "rendiation-texture-core",
  "serde",
  "smallvec",
+ "wgpu-types",
 ]
 
 [[package]]
@@ -4117,6 +4117,7 @@ dependencies = [
  "dyn-clone",
  "fast-hash-collection",
  "hook",
+ "interning",
  "log",
  "parking_lot",
  "rendiation-algebra",
@@ -4275,20 +4276,6 @@ dependencies = [
  "rendiation-abstract-tree",
  "rendiation-algebra",
  "rendiation-geometry",
-]
-
-[[package]]
-name = "rendiation-state-override"
-version = "0.1.0"
-dependencies = [
- "database",
- "interning",
- "once_cell",
- "parking_lot",
- "rendiation-algebra",
- "rendiation-scene-core",
- "rendiation-shader-api",
- "rendiation-webgpu",
 ]
 
 [[package]]
@@ -5406,7 +5393,6 @@ dependencies = [
  "rendiation-scene-rendering-gpu-ray-tracing",
  "rendiation-shader-api",
  "rendiation-shader-library",
- "rendiation-state-override",
  "rendiation-texture-core",
  "rendiation-texture-exporter",
  "rendiation-texture-gpu-base",
