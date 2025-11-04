@@ -302,7 +302,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         .open(&mut ui_state.object_inspection)
         .vscroll(true)
         .show(ui, |ui| {
-          if let Some(target) = viewer.scene.selected_target {
+          if let Some(target) = viewer.scene.selected_model {
             let mut scene_writer = SceneWriter::from_global(viewer.scene.scene);
 
             ui.label(format!("SceneModel id: {:?}", target.into_raw()));

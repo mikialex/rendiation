@@ -14,7 +14,7 @@ pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     let reader = reader.unwrap();
     let world_mat = world_mat.expect_resolve_stage().mark_entity_type();
-    *state = cx.viewer.scene.selected_target.map(|target| {
+    *state = cx.viewer.scene.selected_model.map(|target| {
       node = reader
         .scene_model
         .read_foreign_key::<SceneModelRefNode>(target);

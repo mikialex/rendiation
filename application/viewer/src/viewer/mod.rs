@@ -454,7 +454,9 @@ impl Viewer {
       viewports: vec![viewport],
       scene,
       root,
-      selected_target: None,
+      selected_model: None,
+      selected_point_light: None,
+      selected_spot_light: None,
       widget_scene,
     };
 
@@ -520,7 +522,9 @@ pub struct Viewer3dContent {
   pub viewports: Vec<ViewerViewPort>,
   pub root: EntityHandle<SceneNodeEntity>,
   pub scene: EntityHandle<SceneEntity>,
-  pub selected_target: Option<EntityHandle<SceneModelEntity>>,
+  pub selected_model: Option<EntityHandle<SceneModelEntity>>,
+  pub selected_spot_light: Option<EntityHandle<SpotLightEntity>>,
+  pub selected_point_light: Option<EntityHandle<SpotLightEntity>>,
   pub widget_scene: EntityHandle<SceneEntity>,
 }
 

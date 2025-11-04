@@ -2,7 +2,7 @@ use rendiation_mesh_generator::*;
 
 use crate::*;
 
-pub fn use_scene_spotlight_helper(cx: &mut ViewerCx) {
+pub fn use_scene_light_helper(cx: &mut ViewerCx) {
   let (cx, spot_light_enabled) = cx.use_plain_state::<bool>();
   let (cx, point_light_enabled) = cx.use_plain_state::<bool>();
 

@@ -48,7 +48,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
               .entity_reader()
               .reconstruct_handle_by_idx(hit_entity_idx as usize);
 
-            cx.viewer.scene.selected_target = hit;
+            cx.viewer.scene.selected_model = hit;
           }
         }
 
@@ -123,7 +123,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       }
     }
 
-    cx.viewer.scene.selected_target = select_target_result;
+    cx.viewer.scene.selected_model = select_target_result;
   }
 }
 

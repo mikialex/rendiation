@@ -92,14 +92,6 @@ pub fn create_widget_cx(
   Box::new(WidgetEnvAccessImpl {
     world_mat,
     ptr_ctx: picker.pointer_ctx.clone(),
-    // camera_node: first.camera_node,
-    // camera_proj: scene_reader
-    //   .camera
-    //   .read::<SceneCameraPerspective>(first.camera)
-    //   .unwrap(),
-    // view_logic_pixel_size: picker.camera_view_size_in_logic_pixel.into_u32().into(),
-    // camera_world_ray: picker.current_mouse_ray_in_world(),
-    // normalized_canvas_position: picker.normalized_position_ndc(),
   }) as Box<dyn WidgetEnvAccess>
 }
 

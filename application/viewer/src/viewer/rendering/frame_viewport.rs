@@ -559,8 +559,8 @@ impl Viewer3dViewportRenderingCtx {
       .draw_quad()
     });
 
-    let mut highlight_compose = (content.selected_target.is_some()).then(|| {
-      let batch = Box::new(IteratorAsHostRenderBatch(content.selected_target));
+    let mut highlight_compose = (content.selected_model.is_some()).then(|| {
+      let batch = Box::new(IteratorAsHostRenderBatch(content.selected_model));
       let batch = SceneModelRenderBatch::Host(batch);
       let masked_content = renderer
         .raster_scene_renderer
