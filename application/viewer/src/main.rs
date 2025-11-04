@@ -201,9 +201,11 @@ fn main() {
       #[cfg(not(target_family = "wasm"))]
       test_persist_scope(cx);
 
-      use_pick_scene(cx);
-      use_scene_camera_helper(cx);
-      use_scene_light_helper(cx);
+      inject_picker(cx, |cx| {
+        use_pick_scene(cx);
+        use_scene_camera_helper(cx);
+        use_scene_light_helper(cx);
+      });
 
       use_mesh_tools(cx);
     });

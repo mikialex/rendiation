@@ -79,7 +79,10 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
         },
       );
 
-      use_immediate_helper_model(cx, helper_mesh_lines);
+      if let Some(pick) = use_immediate_helper_model(cx, helper_mesh_lines) {
+        println!("{:?}", pick);
+        //  cx.viewer.content.selected_spot_light = ;
+      }
     })
   }
 }

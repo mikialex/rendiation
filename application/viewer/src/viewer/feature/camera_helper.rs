@@ -50,7 +50,10 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
 }
 
 pub type LineBuffer = Vec<[Vec3<f32>; 2]>;
-pub fn use_immediate_helper_model(cx: &mut ViewerCx, line: UseResult<Option<LineBuffer>>) {
+pub fn use_immediate_helper_model(
+  cx: &mut ViewerCx,
+  line: UseResult<Option<LineBuffer>>,
+) -> Option<MeshBufferHitPoint<f64>> {
   let line = line.use_assure_result(cx);
 
   let (cx, changes) = cx.use_plain_state::<Option<LineBuffer>>();
@@ -60,6 +63,18 @@ pub fn use_immediate_helper_model(cx: &mut ViewerCx, line: UseResult<Option<Line
   match &mut cx.stage {
     ViewerCxStage::EventHandling { .. } => {
       *changes = line.expect_resolve_stage();
+
+      if cx.input.state_delta.is_left_mouse_pressing() {
+        if let Some(model) = &helper_mesh.internal {
+          access_cx!(cx.dyn_cx, picker, ViewerSceneModelPicker);
+          if let Some(ptr_cx) = &picker.pointer_ctx {
+            let model = model.model();
+            return picker.pick_model_nearest(model, ptr_cx.world_ray);
+          }
+        }
+      }
+
+      None
     }
     ViewerCxStage::SceneContentUpdate { writer, .. } => {
       if let Some(lines) = changes.take() {
@@ -79,8 +94,10 @@ pub fn use_immediate_helper_model(cx: &mut ViewerCx, line: UseResult<Option<Line
           }
         })
       }
+
+      None
     }
-    _ => {}
+    _ => None,
   }
   //
 }

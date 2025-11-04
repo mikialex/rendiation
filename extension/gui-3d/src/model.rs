@@ -43,6 +43,10 @@ impl UIWidgetModel {
     }
   }
 
+  pub fn model(&self) -> EntityHandle<SceneModelEntity> {
+    self.model
+  }
+
   pub fn do_cleanup(&mut self, scene_cx: &mut SceneWriter) {
     scene_cx.std_model_writer.delete_entity(self.std_model);
     scene_cx.model_writer.delete_entity(self.model);

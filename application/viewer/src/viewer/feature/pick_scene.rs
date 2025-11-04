@@ -1,5 +1,22 @@
 use crate::*;
 
+pub fn inject_picker(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)) {
+  let mut picker = use_viewer_scene_model_picker(cx);
+
+  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
+    let picker = picker.as_mut().unwrap();
+    unsafe { cx.dyn_cx.register_cx(picker) };
+  }
+
+  f(cx);
+
+  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
+    unsafe {
+      cx.dyn_cx.unregister_cx::<ViewerSceneModelPicker>();
+    }
+  }
+}
+
 pub fn use_pick_scene(cx: &mut ViewerCx) {
   let is_webgl = cx.viewer.rendering.gpu().info().is_webgl();
   let prefer_gpu_pick = !is_webgl && cx.viewer.features_config.pick_scene.prefer_gpu_picking;
@@ -7,7 +24,6 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
   let (cx, gpu_pick_future) =
     cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
 
-  let picker = use_viewer_scene_model_picker(cx);
   let sms = cx
     .use_db_rev_ref::<SceneModelBelongsToScene>()
     .use_assure_result(cx);
@@ -72,7 +88,8 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       .pressed_keys
       .contains(&winit::keyboard::KeyCode::KeyA);
 
-    let picker = picker.unwrap();
+    access_cx!(cx.dyn_cx, picker, ViewerSceneModelPicker);
+
     let mut select_target_result = None;
     if let Some(pointer_ctx) = &picker.pointer_ctx {
       let mut use_cpu_pick = false;
