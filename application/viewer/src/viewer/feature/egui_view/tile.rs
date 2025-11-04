@@ -8,7 +8,7 @@ pub fn use_egui_tile_for_viewer_viewports(
   viewer: &mut Viewer,
 ) {
   let (acx, tree) =
-    acx.use_plain_state(|| create_viewer_default_tile_tree(&viewer.scene.viewports));
+    acx.use_plain_state(|| create_viewer_default_tile_tree(&viewer.content.viewports));
 
   let mut behavior = ViewerTileTreeBehavior::default();
 
@@ -43,18 +43,18 @@ pub fn use_egui_tile_for_viewer_viewports(
       if let egui_tiles::Tile::Pane(pane) = tile {
         let removed_viewport_id = pane.viewport_id;
         let idx = viewer
-          .scene
+          .content
           .viewports
           .iter()
           .position(|v| v.id == removed_viewport_id)
           .unwrap();
-        viewer.scene.viewports.remove(idx);
+        viewer.content.viewports.remove(idx);
       }
     }
   }
 
   if let Some(_request_tile) = behavior.add_child_to.take() {
-    let camera_source = viewer.scene.viewports.last().unwrap();
+    let camera_source = viewer.content.viewports.last().unwrap();
     let id = alloc_global_res_id();
     let new_viewport = ViewerViewPort {
       id,
@@ -62,7 +62,7 @@ pub fn use_egui_tile_for_viewer_viewports(
       camera: camera_source.camera,
       camera_node: camera_source.camera_node,
     };
-    viewer.scene.viewports.push(new_viewport);
+    viewer.content.viewports.push(new_viewport);
 
     let new_child = tree.tiles.insert_pane(ViewerPane::new(id));
     if let Some(root) = tree.root() {
@@ -81,7 +81,7 @@ pub fn use_egui_tile_for_viewer_viewports(
     if let Some(tile) = tree.tiles.get(tile_id) {
       if let egui_tiles::Tile::Pane(pane) = tile {
         if let Some(viewport) = viewer
-          .scene
+          .content
           .viewports
           .iter_mut()
           .find(|viewport| viewport.id == pane.viewport_id)

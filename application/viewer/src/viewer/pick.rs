@@ -72,7 +72,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
     let input = cx.input;
     let mouse_position = &input.window_state.mouse_position;
 
-    let viewports = cx.viewer.scene.viewports.iter();
+    let viewports = cx.viewer.content.viewports.iter();
     let pointer_ctx =
       if let Some((viewport, normalized_position_ndc)) = find_top_hit(viewports, *mouse_position) {
         let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
@@ -96,7 +96,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
 
         let viewport_idx = cx
           .viewer
-          .scene
+          .content
           .viewports
           .iter()
           .position(|v| v.id == viewport.id)

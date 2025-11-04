@@ -163,7 +163,10 @@ fn main() {
     use_enable_screenshot(cx);
 
     stage_of_update(cx, 2, |cx| {
-      use_viewer_gizmo(cx);
+      let select = cx.viewer.content.selected_model;
+      widget_root(cx, |cx| {
+        use_viewer_gizmo(cx, select);
+      });
     });
 
     stage_of_update(cx, 1, |cx| {

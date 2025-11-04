@@ -46,7 +46,7 @@ pub fn use_camera_control(cx: &mut ViewerCx, camera_with_viewports: &CameraViewp
     let viewports = camera_with_viewports
       .viewports_index
       .iter()
-      .map(|(index, _)| &cx.viewer.scene.viewports[*index]);
+      .map(|(index, _)| &cx.viewer.content.viewports[*index]);
     if let Some((viewport, _)) = find_top_hit(viewports, *mouse_position) {
       let bound = viewport_to_input_bound(viewport.viewport);
 

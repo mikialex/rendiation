@@ -64,7 +64,7 @@ pub fn per_camera_per_viewport(
   logic: impl Fn(&mut ViewerCx, &CameraViewportAccess),
 ) {
   let mut mapping = FastHashMap::<_, Vec<_>>::default();
-  for (index, vp) in cx.viewer.scene.viewports.iter().enumerate() {
+  for (index, vp) in cx.viewer.content.viewports.iter().enumerate() {
     mapping
       .entry((vp.camera, vp.camera_node))
       .or_default()

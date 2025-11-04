@@ -122,7 +122,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           .rendering
           .egui(ui, cx.input.last_frame_cpu_time_in_ms, avg);
 
-        viewer.background.egui(ui, viewer.scene.scene);
+        viewer.background.egui(ui, viewer.content.scene);
 
         ui.separator();
 
@@ -292,7 +292,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         });
     }
     viewer.terminal.tick_execute(&mut TerminalInitExecuteCx {
-      scene: &viewer.scene,
+      scene: &viewer.content,
       renderer: &mut viewer.rendering,
       dyn_cx: cx.dyn_cx,
     });
@@ -302,8 +302,8 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         .open(&mut ui_state.object_inspection)
         .vscroll(true)
         .show(ui, |ui| {
-          if let Some(target) = viewer.scene.selected_model {
-            let mut scene_writer = SceneWriter::from_global(viewer.scene.scene);
+          if let Some(target) = viewer.content.selected_model {
+            let mut scene_writer = SceneWriter::from_global(viewer.content.scene);
 
             ui.label(format!("SceneModel id: {:?}", target.into_raw()));
             show_entity_label(&scene_writer.model_writer, target, ui);

@@ -19,7 +19,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
       .default_size((100., 100.))
       .vscroll(true)
       .show(egui_ctx, |ui| {
-        if cx.viewer.scene.selected_model.is_some() {
+        if cx.viewer.content.selected_model.is_some() {
           if ui.button("simplification edge collapse").clicked() {
             *simp_req = Some(SimplifySelectMeshRequest(
               None,
@@ -49,7 +49,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     let reader = &reader.unwrap();
     if let Some(simp_req) = simp_req {
-      if let Some(target) = cx.viewer.scene.selected_model {
+      if let Some(target) = cx.viewer.content.selected_model {
         let mesh = get_mesh(reader, target);
 
         let mut dest_idx = vec![0; mesh.indices.len()];
@@ -98,7 +98,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
     }
 
     if let Some(req) = lod_graph_req {
-      if let Some(target) = cx.viewer.scene.selected_model {
+      if let Some(target) = cx.viewer.content.selected_model {
         let mesh = get_mesh(reader, target);
 
         let mesh = DefaultMeshLODBuilder {}.build_from_mesh(mesh);
@@ -107,7 +107,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
     }
 
     if let Some(req) = seg_req {
-      if let Some(target) = cx.viewer.scene.selected_model {
+      if let Some(target) = cx.viewer.content.selected_model {
         let mesh = get_mesh(reader, target);
         req.0 = Some(mesh_segmentation_debug(mesh));
       }
@@ -116,12 +116,12 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
     if let Some(SimplifySelectMeshRequest(Some(mesh), _)) = simp_req.take() {
-      let target = cx.viewer.scene.selected_model.unwrap();
+      let target = cx.viewer.content.selected_model.unwrap();
       create_simplified_mesh(writer, target, mesh);
     }
 
     if let Some(CreateMeshLodGraphRequest(Some(mesh))) = lod_graph_req.take() {
-      let target = cx.viewer.scene.selected_model.unwrap();
+      let target = cx.viewer.content.selected_model.unwrap();
       let mesh = ExternalRefPtr::new(mesh);
 
       let mesh = global_entity_of::<LODGraphMeshEntity>()

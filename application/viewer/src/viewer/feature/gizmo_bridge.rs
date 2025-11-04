@@ -1,20 +1,15 @@
 use rendiation_gizmo::*;
 
-use crate::{viewer::use_scene_reader, *};
+use crate::*;
 
-pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
-  let (cx, state) = cx.use_plain_state::<Option<GizmoControlTargetState>>();
+pub fn use_viewer_gizmo(cx: &mut UI3dCx, selected_model: Option<EntityHandle<SceneModelEntity>>) {
+  let (cx, state) = cx.use_plain_state_default::<Option<GizmoControlTargetState>>();
   let (cx, view_update) =
-    cx.use_plain_state::<Option<(EntityHandle<SceneNodeEntity>, GizmoUpdateTargetLocal)>>();
-
-  let reader = use_scene_reader(cx);
-  let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
+    cx.use_plain_state_default::<Option<(EntityHandle<SceneNodeEntity>, GizmoUpdateTargetLocal)>>();
 
   let mut node = None;
-  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
-    let reader = reader.unwrap();
-    let world_mat = world_mat.expect_resolve_stage().mark_entity_type();
-    *state = cx.viewer.scene.selected_model.map(|target| {
+  cx.on_event(|e, reader, _| {
+    *state = selected_model.map(|target| {
       node = reader
         .scene_model
         .read_foreign_key::<SceneModelRefNode>(target);
@@ -24,11 +19,11 @@ pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
         .node_reader
         .read::<SceneNodeLocalMatrixComponent>(node);
 
-      let target_world_mat = world_mat.access(&node).unwrap();
+      let target_world_mat = e.widget_env.get_world_mat(node).unwrap();
       let target_parent_world_mat =
         if let Some(parent) = reader.node_reader.read::<SceneNodeParentIdx>(node) {
           let parent = unsafe { EntityHandle::from_raw(parent) };
-          world_mat.access(&parent).unwrap()
+          e.widget_env.get_world_mat(parent).unwrap()
         } else {
           Mat4::identity()
         };
@@ -39,32 +34,27 @@ pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
         target_world_mat,
       }
     });
-  }
-
-  widget_root(cx, |cx| {
-    inject_cx(cx, state, |cx| {
-      use_gizmo(cx);
-    });
   });
 
-  match &mut cx.stage {
-    ViewerCxStage::EventHandling { .. } => {
-      let cx = &mut cx.dyn_cx;
-      *view_update = cx
-        .message
-        .take::<GizmoUpdateTargetLocal>()
-        .map(|a| (node.unwrap(), a));
+  inject_cx(cx, state, |cx| {
+    use_gizmo(cx);
+  });
 
-      if cx.message.take::<GizmoInControl>().is_some() {
-        cx.message.put(CameraControlBlocked);
-        cx.message.put(PickSceneBlocked);
-      }
+  cx.on_event(|_, _, cx| {
+    *view_update = cx
+      .message
+      .take::<GizmoUpdateTargetLocal>()
+      .map(|a| (node.unwrap(), a));
+
+    if cx.message.take::<GizmoInControl>().is_some() {
+      cx.message.put(CameraControlBlocked);
+      cx.message.put(PickSceneBlocked);
     }
-    ViewerCxStage::SceneContentUpdate { writer, .. } => {
-      if let Some((node, update)) = view_update.take() {
-        writer.set_local_matrix(node, update.0);
-      }
+  });
+
+  cx.on_update(|writer, _| {
+    if let Some((node, update)) = view_update.take() {
+      writer.set_local_matrix(node, update.0);
     }
-    _ => {}
-  }
+  });
 }

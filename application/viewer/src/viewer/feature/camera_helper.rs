@@ -63,7 +63,7 @@ pub fn use_immediate_helper_model(cx: &mut ViewerCx, line: UseResult<Option<Line
     }
     ViewerCxStage::SceneContentUpdate { writer, .. } => {
       if let Some(lines) = changes.take() {
-        writer.write_other_scene(cx.viewer.scene.widget_scene, |writer| {
+        writer.write_other_scene(cx.viewer.content.widget_scene, |writer| {
           let lines: &[u8] = cast_slice(lines.as_slice());
 
           let lines = AttributesMeshData {

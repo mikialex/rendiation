@@ -2,7 +2,7 @@ use crate::*;
 
 pub fn sync_camera_view(cx: &mut ViewerCx) {
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
-    for viewport in &mut cx.viewer.scene.viewports {
+    for viewport in &mut cx.viewer.content.viewports {
       writer
         .camera_writer
         .mutate_component_data::<SceneCameraPerspective>(viewport.camera, |p| {

@@ -63,7 +63,7 @@ impl<'a> ViewerCx<'a> {
   }
 
   fn active_scene_writer(&mut self) {
-    let writer = SceneWriter::from_global(self.viewer.scene.scene);
+    let writer = SceneWriter::from_global(self.viewer.content.scene);
 
     self.stage = ViewerCxStage::SceneContentUpdate {
       writer: Box::new(writer),
@@ -105,7 +105,7 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
     let can_flush = matches!(self.stage, ViewerCxStage::Gui { .. });
 
     if can_flush {
-      let writer = SceneWriter::from_global(self.viewer.scene.scene);
+      let writer = SceneWriter::from_global(self.viewer.content.scene);
       let mut drop_cx = ViewerDropCx {
         dyn_cx: self.dyn_cx,
         writer,
@@ -205,7 +205,7 @@ impl<'a> ViewerCx<'a> {
       || {
         init(&mut ViewerInitCx {
           dyn_cx: self.dyn_cx,
-          scene: &self.viewer.scene,
+          scene: &self.viewer.content,
           terminal: &mut self.viewer.terminal,
           shared_ctx: &mut self.viewer.shared_ctx,
         })
@@ -374,7 +374,7 @@ pub fn use_viewer<'a>(
 }
 
 pub struct Viewer {
-  scene: Viewer3dContent,
+  pub content: Viewer3dContent,
   rendering: Viewer3dRenderingCtx,
   terminal: Terminal,
   background: ViewerBackgroundState,
@@ -387,7 +387,7 @@ pub struct Viewer {
 
 impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
   fn drop_from_cx(&mut self, cx: &mut ApplicationDropCx) {
-    let writer = SceneWriter::from_global(self.scene.scene);
+    let writer = SceneWriter::from_global(self.content.scene);
 
     let mut dcx = ViewerDropCx {
       dyn_cx: cx,
@@ -472,7 +472,7 @@ impl Viewer {
     };
 
     Self {
-      scene,
+      content: scene,
       terminal,
       rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc, init_config),
       background,
@@ -496,7 +496,7 @@ impl Viewer {
 
     let requested_render_views = self
       .rendering
-      .check_should_render_and_copy_cached(canvas, &self.scene.viewports);
+      .check_should_render_and_copy_cached(canvas, &self.content.viewports);
 
     if !requested_render_views.is_empty() {
       let tasks =
@@ -509,7 +509,7 @@ impl Viewer {
       self.rendering.render(
         &requested_render_views,
         canvas,
-        &self.scene,
+        &self.content,
         &mut self.render_memory,
         task_pool_result,
         &mut self.shared_ctx,
@@ -545,7 +545,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for QuerySceneReader {
 }
 
 fn use_scene_reader(cx: &mut ViewerCx) -> Option<Arc<SceneReader>> {
-  cx.use_shared_compute(QuerySceneReader(cx.viewer.scene.scene))
+  cx.use_shared_compute(QuerySceneReader(cx.viewer.content.scene))
     .into_resolve_stage()
 }
 
