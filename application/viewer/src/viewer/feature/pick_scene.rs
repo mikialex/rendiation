@@ -72,7 +72,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       }
     }
 
-    if cx.dyn_cx.message.take::<PickSceneBlocked>().is_some() {
+    if cx.dyn_cx.message.get::<PickSceneBlocked>().is_some() {
       return;
     }
 

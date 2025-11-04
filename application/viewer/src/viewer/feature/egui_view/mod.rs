@@ -302,9 +302,8 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         .open(&mut ui_state.object_inspection)
         .vscroll(true)
         .show(ui, |ui| {
+          let mut scene_writer = SceneWriter::from_global(viewer.content.scene);
           if let Some(target) = viewer.content.selected_model {
-            let mut scene_writer = SceneWriter::from_global(viewer.content.scene);
-
             ui.label(format!("SceneModel id: {:?}", target.into_raw()));
             show_entity_label(&scene_writer.model_writer, target, ui);
 
@@ -400,6 +399,40 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             }
 
             //
+          } else if let Some(target) = viewer.content.selected_spot_light {
+            ui.label(format!("Scene Spotlight id: {:?}", target.into_raw()));
+            show_entity_label(&scene_writer.spot_light_writer, target, ui);
+            ui.label("spotlight half cone angle:");
+            modify_ranged_value_like_slider_com::<SpotLightHalfConeAngle>(
+              ui,
+              &mut scene_writer.spot_light_writer,
+              target,
+              0.0..=(f32::PI() / 4.0),
+            );
+            ui.label("spotlight penumbra angle:");
+            modify_ranged_value_like_slider_com::<SpotLightHalfPenumbraAngle>(
+              ui,
+              &mut scene_writer.spot_light_writer,
+              target,
+              0.0..=(f32::PI() / 4.0),
+            );
+            ui.label("spotlight cutoff distance:");
+            modify_ranged_value_like_slider_com::<SpotLightCutOffDistance>(
+              ui,
+              &mut scene_writer.spot_light_writer,
+              target,
+              0.0..=10.,
+            );
+          } else if let Some(target) = viewer.content.selected_point_light {
+            ui.label(format!("Scene point light id: {:?}", target.into_raw()));
+            show_entity_label(&scene_writer.point_light_writer, target, ui);
+            ui.label("spotlight cutoff distance:");
+            modify_ranged_value_like_slider_com::<PointLightCutOffDistance>(
+              ui,
+              &mut scene_writer.point_light_writer,
+              target,
+              0.0..=10.,
+            );
           } else {
             ui.label("No target selected");
           }
@@ -443,9 +476,18 @@ fn modify_normalized_value_like_com<C: ComponentSemantic<Data = f32>>(
   writer: &mut EntityWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
 ) {
+  modify_ranged_value_like_slider_com::<C>(ui, writer, id, 0.0..=1.0);
+}
+
+fn modify_ranged_value_like_slider_com<C: ComponentSemantic<Data = f32>>(
+  ui: &mut egui::Ui,
+  writer: &mut EntityWriter<C::Entity>,
+  id: EntityHandle<C::Entity>,
+  range: std::ops::RangeInclusive<f32>,
+) {
   let mut v = writer.read::<C>(id);
 
-  ui.add(egui::Slider::new(&mut v, 0.0..=1.0).step_by(0.05));
+  ui.add(egui::Slider::new(&mut v, range).step_by(0.05));
 
   writer.write::<C>(id, v);
 }

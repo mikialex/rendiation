@@ -31,20 +31,30 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
           let light_ref_node = get_db_view::<PointLightRefNode>();
 
           let mut line_buffer = Vec::new();
+          let mut offsets = Vec::new();
 
           radius.iter_key_value().for_each(|(id, radius)| {
             let node_id = light_ref_node.access(&id).unwrap().unwrap();
+            offsets.push((id, line_buffer.len()));
             create_debug_line_mesh_point_light(
               &mut line_buffer,
               radius,
               world_mat.access(&node_id).unwrap().into_f32(),
             )
           });
-          line_buffer.into()
+          (line_buffer, offsets).into()
         },
       );
 
-      use_immediate_helper_model(cx, helper_mesh_lines);
+      let should_pick = cx.dyn_cx.message.get::<PickSceneBlocked>().is_none();
+      if let Some(pick) = use_immediate_helper_model(cx, helper_mesh_lines, should_pick) {
+        if let Some(pick) = pick {
+          println!("picked point light: {pick:?}");
+          cx.viewer.content.selected_point_light = Some(unsafe { EntityHandle::from_raw(pick) })
+        } else {
+          cx.viewer.content.selected_point_light = None
+        }
+      }
     })
   }
 
@@ -62,11 +72,13 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
           let light_ref_node = get_db_view::<SpotLightRefNode>();
 
           let mut line_buffer = Vec::new();
+          let mut offsets = Vec::new();
 
           half_cone_angle
             .iter_key_value()
             .for_each(|(id, half_cone_angle)| {
               let node_id = light_ref_node.access(&id).unwrap().unwrap();
+              offsets.push((id, line_buffer.len()));
               create_debug_line_mesh_spot_light(
                 &mut line_buffer,
                 half_cone_angle,
@@ -75,13 +87,18 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
                 world_mat.access(&node_id).unwrap().into_f32(),
               )
             });
-          line_buffer.into()
+          (line_buffer, offsets).into()
         },
       );
 
-      if let Some(pick) = use_immediate_helper_model(cx, helper_mesh_lines) {
-        println!("{:?}", pick);
-        //  cx.viewer.content.selected_spot_light = ;
+      let should_pick = cx.dyn_cx.message.get::<PickSceneBlocked>().is_none();
+      if let Some(pick) = use_immediate_helper_model(cx, helper_mesh_lines, should_pick) {
+        if let Some(pick) = pick {
+          println!("picked spot light: {pick:?}");
+          cx.viewer.content.selected_spot_light = Some(unsafe { EntityHandle::from_raw(pick) })
+        } else {
+          cx.viewer.content.selected_spot_light = None
+        }
       }
     })
   }

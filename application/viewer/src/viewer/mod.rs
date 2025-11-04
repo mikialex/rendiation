@@ -524,7 +524,7 @@ pub struct Viewer3dContent {
   pub scene: EntityHandle<SceneEntity>,
   pub selected_model: Option<EntityHandle<SceneModelEntity>>,
   pub selected_spot_light: Option<EntityHandle<SpotLightEntity>>,
-  pub selected_point_light: Option<EntityHandle<SpotLightEntity>>,
+  pub selected_point_light: Option<EntityHandle<PointLightEntity>>,
   pub widget_scene: EntityHandle<SceneEntity>,
 }
 

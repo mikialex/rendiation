@@ -35,41 +35,56 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
                 None // skip current viewing camera
               } else {
                 // we lost precision here, but for helpers it's ok(i don't care)
-                Some(transform.view_projection_inv.into_f32())
+                Some((camera, transform.view_projection_inv.into_f32()))
               }
             } else {
-              Some(transform.view_projection_inv.into_f32())
+              Some((camera, transform.view_projection_inv.into_f32()))
             }
           });
           build_debug_lines_in_camera_space(mats).into()
         });
 
-      use_immediate_helper_model(cx, helper_mesh_lines);
+      use_immediate_helper_model(cx, helper_mesh_lines, false);
     })
   }
 }
 
 pub type LineBuffer = Vec<[Vec3<f32>; 2]>;
+pub type OffsetBuffer = Vec<(RawEntityHandle, usize)>;
 pub fn use_immediate_helper_model(
   cx: &mut ViewerCx,
-  line: UseResult<Option<LineBuffer>>,
-) -> Option<MeshBufferHitPoint<f64>> {
+  line: UseResult<Option<(LineBuffer, OffsetBuffer)>>,
+  pick: bool,
+) -> Option<Option<RawEntityHandle>> {
   let line = line.use_assure_result(cx);
 
   let (cx, changes) = cx.use_plain_state::<Option<LineBuffer>>();
 
+  let (cx, offsets) = cx.use_plain_state::<Option<OffsetBuffer>>();
   let (cx, helper_mesh) = cx.use_state_init::<HelperLineModel>(|_| Default::default());
 
   match &mut cx.stage {
     ViewerCxStage::EventHandling { .. } => {
-      *changes = line.expect_resolve_stage();
+      if let Some(c) = line.expect_resolve_stage() {
+        *changes = Some(c.0);
+        *offsets = Some(c.1);
+      }
 
-      if cx.input.state_delta.is_left_mouse_pressing() {
+      if pick && cx.input.state_delta.is_left_mouse_pressing() {
         if let Some(model) = &helper_mesh.internal {
           access_cx!(cx.dyn_cx, picker, ViewerSceneModelPicker);
           if let Some(ptr_cx) = &picker.pointer_ctx {
             let model = model.model();
-            return picker.pick_model_nearest(model, ptr_cx.world_ray);
+            if let Some(pick_result) = picker.pick_model_nearest(model, ptr_cx.world_ray) {
+              let offsets = offsets.as_ref().unwrap();
+              let idx = match offsets.binary_search_by(|v| v.1.cmp(&pick_result.primitive_index)) {
+                Ok(idx) => idx,
+                Err(idx) => idx - 1,
+              };
+              return Some(Some(offsets[idx].0));
+            } else {
+              return Some(None);
+            }
           }
         }
       }
@@ -116,11 +131,16 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for HelperLineModel {
 }
 
 fn build_debug_lines_in_camera_space(
-  view_projection_inv: impl Iterator<Item = Mat4<f32>>,
-) -> LineBuffer {
-  view_projection_inv
-    .flat_map(build_debug_line_in_camera_space)
-    .collect::<Vec<_>>()
+  view_projection_inv: impl Iterator<Item = (RawEntityHandle, Mat4<f32>)>,
+) -> (LineBuffer, OffsetBuffer) {
+  let mut line_buffer = Vec::new();
+  let mut offsets = Vec::new();
+
+  view_projection_inv.for_each(|(id, mat)| {
+    offsets.push((id, line_buffer.len()));
+    line_buffer.extend(build_debug_line_in_camera_space(mat));
+  });
+  (line_buffer, offsets)
 }
 
 fn build_debug_line_in_camera_space(
