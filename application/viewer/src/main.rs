@@ -3,6 +3,7 @@
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(ptr_metadata)]
+#![feature(iter_array_chunks)]
 #![allow(clippy::collapsible_match)]
 
 use std::alloc::System;

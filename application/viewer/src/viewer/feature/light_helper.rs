@@ -5,6 +5,7 @@ use crate::*;
 pub fn use_scene_light_helper(cx: &mut ViewerCx) {
   let (cx, spot_light_enabled) = cx.use_plain_state::<bool>();
   let (cx, point_light_enabled) = cx.use_plain_state::<bool>();
+  let (cx, directional_light_enabled) = cx.use_plain_state::<bool>();
 
   if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
     let opened = global.features.entry("light helper").or_insert(false);
@@ -16,7 +17,45 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
       .show(egui_ctx, |ui| {
         ui.checkbox(spot_light_enabled, "spot light enabled");
         ui.checkbox(point_light_enabled, "point light enabled");
+        ui.checkbox(directional_light_enabled, "directional light enabled");
       });
+  }
+
+  if *directional_light_enabled {
+    cx.scope(|cx| {
+      let world_mat = use_global_node_world_mat_view(cx);
+
+      let helper_mesh_lines = world_mat.map_only_spawn_stage_in_thread(
+        cx,
+        |_| false,
+        |world_mat| {
+          let light_ref_node = get_db_view::<DirectionalRefNode>();
+
+          let mut line_buffer = Vec::new();
+          let mut offsets = Vec::new();
+
+          light_ref_node.iter_key_value().for_each(|(id, node_id)| {
+            let node_id = node_id.unwrap();
+            offsets.push((id, line_buffer.len()));
+            create_debug_line_mesh_dir_light(
+              &mut line_buffer,
+              world_mat.access(&node_id).unwrap().into_f32(),
+            )
+          });
+          (line_buffer, offsets).into()
+        },
+      );
+
+      let should_pick = cx.dyn_cx.message.get::<PickSceneBlocked>().is_none();
+      if let Some(pick) = use_immediate_helper_model(cx, helper_mesh_lines, should_pick) {
+        if let Some(pick) = pick {
+          log::info!("picked dir light: {pick:?}");
+          cx.viewer.content.selected_dir_light = Some(unsafe { EntityHandle::from_raw(pick) })
+        } else {
+          cx.viewer.content.selected_dir_light = None
+        }
+      }
+    })
   }
 
   if *point_light_enabled {
@@ -49,7 +88,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
       let should_pick = cx.dyn_cx.message.get::<PickSceneBlocked>().is_none();
       if let Some(pick) = use_immediate_helper_model(cx, helper_mesh_lines, should_pick) {
         if let Some(pick) = pick {
-          println!("picked point light: {pick:?}");
+          log::info!("picked point light: {pick:?}");
           cx.viewer.content.selected_point_light = Some(unsafe { EntityHandle::from_raw(pick) })
         } else {
           cx.viewer.content.selected_point_light = None
@@ -94,7 +133,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
       let should_pick = cx.dyn_cx.message.get::<PickSceneBlocked>().is_none();
       if let Some(pick) = use_immediate_helper_model(cx, helper_mesh_lines, should_pick) {
         if let Some(pick) = pick {
-          println!("picked spot light: {pick:?}");
+          log::info!("picked spot light: {pick:?}");
           cx.viewer.content.selected_spot_light = Some(unsafe { EntityHandle::from_raw(pick) })
         } else {
           cx.viewer.content.selected_spot_light = None
@@ -102,6 +141,58 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
       }
     })
   }
+}
+
+fn create_debug_line_mesh_dir_light(lines: &mut LineBuffer, world_mat: Mat4<f32>) {
+  let bottom_radius = 10.;
+  let arrow_body_height = 30.;
+  let arrow_radius = 20.;
+  let arrow_tip_height = 60.;
+  let circle = create_circle(bottom_radius, 0.).transform3d_by(world_mat);
+
+  tessellate_curve3d(lines, circle, 32);
+
+  let arrow = [
+    (bottom_radius, 0.0),
+    (bottom_radius, arrow_body_height),
+    (bottom_radius, arrow_body_height),
+    (arrow_radius, arrow_body_height),
+    (arrow_radius, arrow_body_height),
+    (0., arrow_tip_height),
+  ];
+
+  let (t, r, s) = world_mat.decompose();
+  let t = Mat4::translate(t);
+  let s = Mat4::scale(s);
+  let r = Mat4::from(r);
+
+  let m = t * r * Mat4::rotate_x(f32::PI() / 2.) * s;
+  lines.extend(
+    arrow
+      .into_iter()
+      .map(|p| m * Vec3::new(p.0, -p.1, 0.))
+      .array_chunks(),
+  );
+  lines.extend(
+    arrow
+      .into_iter()
+      .map(|p| m * Vec3::new(-p.0, -p.1, 0.))
+      .array_chunks(),
+  );
+
+  let m = t * r * Mat4::rotate_z(f32::PI() / 2.) * Mat4::rotate_x(f32::PI() / 2.) * s;
+  lines.extend(
+    arrow
+      .into_iter()
+      .map(|p| m * Vec3::new(p.0, -p.1, 0.))
+      .array_chunks(),
+  );
+  lines.extend(
+    arrow
+      .into_iter()
+      .map(|p| m * Vec3::new(-p.0, -p.1, 0.))
+      .array_chunks(),
+  );
 }
 
 fn create_debug_line_mesh_point_light(lines: &mut LineBuffer, radius: f32, world_mat: Mat4<f32>) {
@@ -120,12 +211,12 @@ fn create_debug_line_mesh_point_light(lines: &mut LineBuffer, radius: f32, world
   tessellate_curve3d(lines, circle, step);
   tessellate_curve3d(lines, line.transform3d_by(world_mat), step);
 
-  let mat = t * Mat4::rotate_x(f32::PI() / 2.) * r * s;
+  let mat = t * r * Mat4::rotate_x(f32::PI() / 2.) * s;
   let circle = create_circle(radius, 0.).transform3d_by(mat);
   tessellate_curve3d(lines, circle, step);
   tessellate_curve3d(lines, line.transform3d_by(mat), step);
 
-  let mat = t * Mat4::rotate_y(f32::PI() / 2.) * r * s;
+  let mat = t * r * Mat4::rotate_y(f32::PI() / 2.) * s;
   let circle = create_circle(radius, 0.).transform3d_by(mat);
   tessellate_curve3d(lines, circle, step);
   tessellate_curve3d(lines, line.transform3d_by(mat), step);

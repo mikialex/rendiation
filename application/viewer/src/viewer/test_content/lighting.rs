@@ -8,7 +8,7 @@ pub fn load_default_scene_lighting_test(writer: &mut SceneWriter) {
     let directional_light_node = writer.create_root_child();
     writer.set_local_matrix(
       directional_light_node,
-      Mat4::lookat(Vec3::splat(300.), Vec3::splat(0.), UP),
+      Mat4::lookat(Vec3::splat(100.), Vec3::splat(0.), UP),
     );
     DirectionalLightDataView {
       illuminance: Vec3::splat(5.),
@@ -22,7 +22,7 @@ pub fn load_default_scene_lighting_test(writer: &mut SceneWriter) {
     let directional_light_node = writer.create_root_child();
     writer.set_local_matrix(
       directional_light_node,
-      Mat4::lookat(Vec3::new(30., 300., -30.), Vec3::splat(0.), UP),
+      Mat4::lookat(Vec3::new(30., 100., -30.), Vec3::splat(0.), UP),
     );
     DirectionalLightDataView {
       illuminance: Vec3::new(5., 3., 2.) * 5.,
