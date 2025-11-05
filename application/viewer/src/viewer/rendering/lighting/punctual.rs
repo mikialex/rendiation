@@ -7,63 +7,74 @@ use crate::*;
 pub fn use_directional_light_uniform(
   cx: &mut QueryGPUHookCx,
   init_config: &MultiLayerTexturePackerConfig,
+  viewports: &[ViewerViewPort],
+  use_cascade_shadowmap_for_directional_lights: bool,
   ndc: ViewerNDC,
 ) -> Option<SceneDirectionalLightingPreparer> {
-  let source_world =
-    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>(), cx);
+  let shadow = if use_cascade_shadowmap_for_directional_lights {
+    cx.scope(|cx| {
+      use_cascade_shadow_map(cx, viewports, init_config).map(ViewerShadowPreparer::Cascade)
+    })
+  } else {
+    cx.scope(|cx| {
+      let source_world = use_global_node_world_mat(cx)
+        .fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>(), cx);
 
-  let source_proj = cx
-    .use_dual_query::<DirectionLightShadowBound>()
-    .dual_query_map(move |orth| {
-      orth
-        .unwrap_or(OrthographicProjection {
-          left: -20.,
-          right: 20.,
-          top: 20.,
-          bottom: -20.,
-          near: 0.,
-          far: 1000.,
-        })
-        .compute_projection_mat(&ndc)
-    });
+      let source_proj = cx
+        .use_dual_query::<DirectionLightShadowBound>()
+        .dual_query_map(move |orth| {
+          orth
+            .unwrap_or(OrthographicProjection {
+              left: -20.,
+              right: 20.,
+              top: 20.,
+              bottom: -20.,
+              near: 0.,
+              far: 1000.,
+            })
+            .compute_projection_mat(&ndc)
+        });
 
-  let size = cx
-    .use_dual_query::<BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>>()
-    .into_delta_change()
-    .map_changes(|size| Size::from_u32_pair_min_one(size.into()));
+      let size = cx
+        .use_dual_query::<BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>>()
+        .into_delta_change()
+        .map_changes(|size| Size::from_u32_pair_min_one(size.into()));
 
-  let bias = cx
-    .use_changes::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
-    .map_changes(|v| v.into());
+      let bias = cx
+        .use_changes::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
+        .map_changes(|v| v.into());
 
-  let enabled = cx.use_changes::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>();
+      let enabled = cx.use_changes::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>();
 
-  let shadow = use_basic_shadow_map_uniform(
-    cx,
-    source_world,
-    source_proj,
-    size,
-    bias,
-    enabled,
-    *init_config,
-  );
+      use_basic_shadow_map_uniform(
+        cx,
+        source_world,
+        source_proj,
+        size,
+        bias,
+        enabled,
+        *init_config,
+      )
+      .map(ViewerShadowPreparer::Basic)
+    })
+  };
 
   let light = use_directional_uniform_array(cx);
 
-  cx.when_render(|| {
-    let (updater, shadow_uniform) = shadow.unwrap();
-    SceneDirectionalLightingPreparer {
-      shadow: updater,
-      light,
-      info: shadow_uniform,
-    }
+  cx.when_render(|| SceneDirectionalLightingPreparer {
+    shadow: shadow.unwrap(),
+    light,
   })
 }
 
+enum ViewerShadowPreparer {
+  Basic((BasicShadowMapPreparer, UniformArray<BasicShadowMapInfo, 8>)),
+  Cascade(MultiCascadeShadowMapPreparer),
+}
+
 pub struct SceneDirectionalLightingPreparer {
-  pub shadow: BasicShadowMapPreparer,
-  pub light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
-  pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
+  shadow: ViewerShadowPreparer,
+  light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
 }
 
 impl SceneDirectionalLightingPreparer {
@@ -72,18 +83,25 @@ impl SceneDirectionalLightingPreparer {
     frame_ctx: &mut FrameCtx,
     draw: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
-  ) -> SceneDirectionalLightingProvider {
-    let shadow_map_atlas = self
-      .shadow
-      .update_shadow_maps(frame_ctx, draw, reversed_depth);
+  ) -> Box<dyn LightSystemSceneProvider> {
+    match self.shadow {
+      ViewerShadowPreparer::Basic((shadow, info)) => {
+        let shadow_map_atlas = shadow.update_shadow_maps(frame_ctx, draw, reversed_depth);
 
-    SceneDirectionalLightingProvider {
-      light: self.light,
-      shadow: BasicShadowMapComponent {
-        shadow_map_atlas,
-        info: self.info,
-        reversed_depth,
-      },
+        let provider = SceneDirectionalLightingProvider {
+          light: self.light,
+          shadow: BasicShadowMapComponent {
+            shadow_map_atlas,
+            info,
+            reversed_depth,
+          },
+        };
+        Box::new(provider)
+      }
+      ViewerShadowPreparer::Cascade(cascade_shadow_map_preparer) => {
+        let provider = cascade_shadow_map_preparer.update(frame_ctx, draw, reversed_depth);
+        Box::new(provider)
+      }
     }
   }
 }
@@ -97,6 +115,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
   fn get_scene_lighting(
     &self,
     _scene: EntityHandle<SceneEntity>,
+    _camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let com = ArrayLights(
       LightAndShadowCombinedSource(self.light.clone(), self.shadow.clone()),
@@ -132,6 +151,7 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
   fn get_scene_lighting(
     &self,
     _scene: EntityHandle<SceneEntity>,
+    _camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let com = ArrayLights(
       self.uniform.clone(),
@@ -239,6 +259,7 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
   fn get_scene_lighting(
     &self,
     _scene: EntityHandle<SceneEntity>,
+    _camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let com = ArrayLights(
       LightAndShadowCombinedSource(self.light.clone(), self.shadow.clone()),

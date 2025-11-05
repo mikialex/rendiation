@@ -10,6 +10,7 @@ mod ibl;
 mod light_pass;
 mod punctual;
 mod shadow;
+mod shadow_cascade;
 
 use debug_channels::*;
 use ibl::*;
@@ -17,12 +18,15 @@ pub use light_pass::*;
 use punctual::*;
 use rendiation_webgpu_hook_utils::*;
 pub use shadow::*;
+pub use shadow_cascade::*;
 
 use crate::*;
 
 pub fn use_lighting(
   cx: &mut QueryGPUHookCx,
+  lighting_sys: &LightSystem,
   ndc: ViewerNDC,
+  viewports: &[ViewerViewPort],
 ) -> Option<LightingRenderingCxPrepareCtx> {
   let size = Size::from_u32_pair_min_one((2048, 2048));
   let config = MultiLayerTexturePackerConfig {
@@ -36,7 +40,13 @@ pub fn use_lighting(
     },
   };
 
-  let dir_lights = use_directional_light_uniform(cx, &config, ndc);
+  let dir_lights = use_directional_light_uniform(
+    cx,
+    &config,
+    viewports,
+    lighting_sys.use_cascade_shadowmap_for_directional_lights,
+    ndc,
+  );
   let spot_lights = use_scene_spot_light_uniform(cx, &config, ndc);
   let point_lights = use_scene_point_light_uniform(cx);
   let area_lights = use_area_light_uniform(cx);
@@ -105,7 +115,7 @@ impl LightSystem {
 
     let imp = Box::new(LightingComputeComponentGroupProvider {
       lights: vec![
-        Box::new(ds),
+        ds,
         Box::new(ss),
         Box::new(instance.point_lights),
         Box::new(instance.area_lights),
@@ -134,6 +144,7 @@ pub struct LightSystem {
   pub tonemap: ToneMap,
   material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pub opaque_scene_content_lighting_technique: LightingTechniqueKind,
+  pub use_cascade_shadowmap_for_directional_lights: bool,
 }
 
 impl LightSystem {
@@ -141,6 +152,7 @@ impl LightSystem {
     Self {
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
+      use_cascade_shadowmap_for_directional_lights: false,
       tonemap: ToneMap::new(gpu),
       material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
         .register_material_impl::<PbrSurfaceEncodeDecode>(),
@@ -150,6 +162,10 @@ impl LightSystem {
 
   pub fn egui(&mut self, ui: &mut UiWithChangeInfo, is_hdr_rendering: bool) {
     ui.checkbox(&mut self.enable_channel_debugger, "enable channel debug");
+    ui.checkbox(
+      &mut self.use_cascade_shadowmap_for_directional_lights,
+      "use cascade shadowmap for directional lights",
+    );
 
     if is_hdr_rendering {
       ui.label("tonemap is disabled when hdr display enabled");
@@ -188,9 +204,11 @@ impl SceneLightSystem<'_> {
   pub fn get_scene_forward_lighting_component(
     &self,
     scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
   ) -> Box<dyn RenderComponent + '_> {
     self.get_scene_lighting_component(
       scene,
+      camera,
       Box::new(DirectGeometryProvider),
       Box::new(LightableSurfaceShadingLogicProviderAsLightableSurfaceProvider(PhysicalShading)),
     )
@@ -199,6 +217,7 @@ impl SceneLightSystem<'_> {
   pub fn get_scene_lighting_component<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
     geometry_constructor: Box<dyn GeometryCtxProvider + 'a>,
     surface_constructor: Box<dyn LightableSurfaceProvider + 'a>,
   ) -> Box<dyn RenderComponent + 'a> {
@@ -220,7 +239,7 @@ impl SceneLightSystem<'_> {
         scene_id,
         geometry_constructor,
         surface_constructor,
-        lighting: self.imp.get_scene_lighting(scene).unwrap(),
+        lighting: self.imp.get_scene_lighting(scene, camera).unwrap(),
       });
 
     Box::new(light)

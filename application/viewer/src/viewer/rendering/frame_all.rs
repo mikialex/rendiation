@@ -64,6 +64,7 @@ impl Viewer3dRenderingCtx {
   pub fn use_viewer_scene_renderer(
     &mut self,
     cx: &mut QueryGPUHookCx,
+    viewports: &[ViewerViewPort],
   ) -> Option<ViewerRendererInstancePreparer> {
     let (cx, change_scope) = cx.use_begin_change_set_collect();
 
@@ -218,7 +219,7 @@ impl Viewer3dRenderingCtx {
       }),
     };
 
-    let lighting = use_lighting(cx, self.ndc);
+    let lighting = use_lighting(cx, &self.lighting, self.ndc, viewports);
 
     let rtx_scene_renderer = if self.rtx_renderer_enabled {
       cx.scope(|cx| {

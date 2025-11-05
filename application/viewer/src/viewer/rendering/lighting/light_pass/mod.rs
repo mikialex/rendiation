@@ -46,7 +46,7 @@ pub fn render_lighting_scene_content(
     LightingTechniqueKind::Forward => {
       let lighting = lighting_cx
         .lighting
-        .get_scene_forward_lighting_component(scene);
+        .get_scene_forward_lighting_component(scene, camera);
 
       let all_opaque_object = renderer.batch_extractor.extract_scene_batch(
         scene,
@@ -274,6 +274,7 @@ pub fn render_lighting_scene_content(
         });
         let lighting = lighting_cx.lighting.get_scene_lighting_component(
           scene,
+          camera,
           geometry_from_g_buffer,
           surface_from_m_buffer,
         );

@@ -58,6 +58,7 @@ impl LightSystemSceneProvider for IBLLightingComponentProvider {
   fn get_scene_lighting(
     &self,
     scene: EntityHandle<SceneEntity>,
+    _camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let map = self.access.get(scene)?;
     Some(Box::new(IBLLightingComponent {

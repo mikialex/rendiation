@@ -67,6 +67,7 @@ impl LightSystemSceneProvider for SceneAreaLightingProvider {
   fn get_scene_lighting(
     &self,
     _scene: EntityHandle<SceneEntity>,
+    _camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
     Some(Box::new(LTCLightingComputeComponent {
       ltc_1: self.ltc_1.clone(),

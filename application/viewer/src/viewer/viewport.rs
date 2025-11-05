@@ -59,7 +59,7 @@ pub struct CameraViewportAccess {
   pub viewports_index: Vec<(usize, u64)>,
 }
 
-pub fn per_camera_per_viewport(
+pub fn use_per_camera_per_viewport(
   cx: &mut ViewerCx,
   logic: impl Fn(&mut ViewerCx, &CameraViewportAccess),
 ) {
