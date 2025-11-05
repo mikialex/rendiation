@@ -21,6 +21,7 @@ pub fn use_smooth_camera_motion(
     initial_response: 0.9,
   };
 
+  // todo, fix init camera target position and target not match the camera current position and target.
   let (cx, target_position) = cx.use_plain_state_init(|_| Vec3::splat(3.));
   let (cx, springed_position) =
     cx.use_plain_state_init(|_| SpringSystem::new(config, *target_position, Vec3::zero()));

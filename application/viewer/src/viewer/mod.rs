@@ -86,7 +86,7 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for EntityHandle<SceneEntity> {
 
 pub struct ViewerInitCx<'a> {
   pub dyn_cx: &'a mut DynCx,
-  pub scene: &'a Viewer3dContent,
+  pub content: &'a Viewer3dContent,
   pub terminal: &'a mut Terminal,
   pub shared_ctx: &'a mut SharedHooksCtx,
 }
@@ -205,7 +205,7 @@ impl<'a> ViewerCx<'a> {
       || {
         init(&mut ViewerInitCx {
           dyn_cx: self.dyn_cx,
-          scene: &self.viewer.content,
+          content: &self.viewer.content,
           terminal: &mut self.viewer.terminal,
           shared_ctx: &mut self.viewer.shared_ctx,
         })
@@ -352,8 +352,6 @@ pub fn use_viewer<'a>(
     waker: futures::task::noop_waker(),
   }
   .execute(|viewer| f(viewer));
-
-  use_egui_tile_for_viewer_viewports(acx, egui_ctx, viewer);
 
   ViewerCx {
     viewer,

@@ -1,99 +1,123 @@
 use egui_tiles::*;
+use fast_hash_collection::FastHashSet;
 
 use crate::*;
 
-pub fn use_egui_tile_for_viewer_viewports(
-  acx: &mut ApplicationCx,
-  egui_ctx: &mut egui::Context,
-  viewer: &mut Viewer,
-) {
-  let (acx, tree) =
-    acx.use_plain_state(|| create_viewer_default_tile_tree(&viewer.content.viewports));
+pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
+  let (cx, tree) =
+    cx.use_plain_state_init(|init| create_viewer_default_tile_tree(&init.content.viewports));
 
-  let mut behavior = ViewerTileTreeBehavior::default();
+  let all_scene_cameras = cx
+    .use_db_rev_ref::<SceneCameraBelongsToScene>()
+    .use_assure_result(cx);
+  let (cx, all_scene_cameras_cached) = cx.use_plain_state();
 
-  let tree_res = egui::CentralPanel::default()
-    .frame(egui::Frame::NONE)
-    .show(egui_ctx, |ui| {
-      tree.ui(&mut behavior, ui);
-    });
+  if cx.is_resolve_stage() {
+    *all_scene_cameras_cached = all_scene_cameras
+      .expect_resolve_stage()
+      .get(&cx.viewer.content.scene.into_raw())
+      .unwrap()
+      .clone();
+  }
 
-  /// Is the pointer (mouse/touch) over any egui area?
-  fn is_pointer_over_area_no_view_tree(cx: &egui::Context, tree_layer_id: egui::LayerId) -> bool {
-    let pointer_pos = cx.input(|i| i.pointer.interact_pos());
-    if let Some(pointer_pos) = pointer_pos {
-      if let Some(layer) = cx.layer_id_at(pointer_pos) {
-        tree_layer_id != layer
+  if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {
+    let mut behavior = ViewerTileTreeBehavior {
+      camera_handles: all_scene_cameras_cached.clone(),
+      ..Default::default()
+    };
+
+    let tree_res = egui::CentralPanel::default()
+      .frame(egui::Frame::NONE)
+      .show(egui_ctx, |ui| {
+        tree.ui(&mut behavior, ui);
+      });
+
+    /// Is the pointer (mouse/touch) over any egui area?
+    fn is_pointer_over_area_no_view_tree(cx: &egui::Context, tree_layer_id: egui::LayerId) -> bool {
+      let pointer_pos = cx.input(|i| i.pointer.interact_pos());
+      if let Some(pointer_pos) = pointer_pos {
+        if let Some(layer) = cx.layer_id_at(pointer_pos) {
+          tree_layer_id != layer
+        } else {
+          false
+        }
       } else {
         false
       }
-    } else {
-      false
     }
-  }
 
-  let tree_layer_id = tree_res.response.layer_id;
-  if is_pointer_over_area_no_view_tree(egui_ctx, tree_layer_id) || behavior.edited.get() {
-    acx.dyn_cx.message.put(CameraControlBlocked);
-    acx.dyn_cx.message.put(PickSceneBlocked);
-  }
+    let tree_layer_id = tree_res.response.layer_id;
+    if is_pointer_over_area_no_view_tree(egui_ctx, tree_layer_id) || behavior.edited.get() {
+      cx.dyn_cx.message.put(CameraControlBlocked);
+      cx.dyn_cx.message.put(PickSceneBlocked);
+    }
 
-  if let Some(tile_id) = behavior.remove_tile.take() {
-    for tile in tree.remove_recursively(tile_id) {
-      if let egui_tiles::Tile::Pane(pane) = tile {
-        let removed_viewport_id = pane.viewport_id;
-        let idx = viewer
-          .content
-          .viewports
-          .iter()
-          .position(|v| v.id == removed_viewport_id)
-          .unwrap();
-        viewer.content.viewports.remove(idx);
+    if let Some(tile_id) = behavior.remove_tile.take() {
+      for tile in tree.remove_recursively(tile_id) {
+        if let egui_tiles::Tile::Pane(pane) = tile {
+          let removed_viewport_id = pane.viewport_id;
+          let idx = cx
+            .viewer
+            .content
+            .viewports
+            .iter()
+            .position(|v| v.id == removed_viewport_id)
+            .unwrap();
+          cx.viewer.content.viewports.remove(idx);
+        }
       }
     }
-  }
 
-  if let Some(_request_tile) = behavior.add_child_to.take() {
-    let camera_source = viewer.content.viewports.last().unwrap();
-    let id = alloc_global_res_id();
-    let new_viewport = ViewerViewPort {
-      id,
-      viewport: Default::default(),
-      camera: camera_source.camera,
-      camera_node: camera_source.camera_node,
-    };
-    viewer.content.viewports.push(new_viewport);
+    if let Some(_request_tile) = behavior.add_child_to.take() {
+      let camera_source = cx.viewer.content.viewports.last().unwrap();
+      let id = alloc_global_res_id();
+      let new_viewport = ViewerViewPort {
+        id,
+        viewport: Default::default(),
+        camera: camera_source.camera,
+        camera_node: camera_source.camera_node,
+      };
+      cx.viewer.content.viewports.push(new_viewport);
 
-    let new_child = tree.tiles.insert_pane(ViewerPane::new(id));
-    if let Some(root) = tree.root() {
-      if let egui_tiles::Tile::Container(egui_tiles::Container::Linear(container)) =
-        tree.tiles.get_mut(root).unwrap()
-      {
-        container.add_child(new_child);
-      } else {
-        log::error!("unable to add child to none container root, this is a bug")
-      }
-    }
-  }
-
-  // sync the viewer viewports
-  for tile_id in tree.active_tiles() {
-    if let Some(tile) = tree.tiles.get(tile_id) {
-      if let egui_tiles::Tile::Pane(pane) = tile {
-        if let Some(viewport) = viewer
-          .content
-          .viewports
-          .iter_mut()
-          .find(|viewport| viewport.id == pane.viewport_id)
+      let any_camera_in_target_scene = *all_scene_cameras_cached.iter().next().unwrap();
+      let new_child = tree
+        .tiles
+        .insert_pane(ViewerPane::new(id, any_camera_in_target_scene));
+      if let Some(root) = tree.root() {
+        if let egui_tiles::Tile::Container(egui_tiles::Container::Linear(container)) =
+          tree.tiles.get_mut(root).unwrap()
         {
-          let r = pane.rect;
-          let ratio = acx.input.window_state.device_pixel_ratio;
-          let width = r.width() * ratio;
-          let height = r.height() * ratio;
-          viewport.viewport = (r.min.x * ratio, r.min.y * ratio, width, height).into();
-        } // or else tile get removed(viewport get removed)
+          container.add_child(new_child);
+        } else {
+          log::error!("unable to add child to none container root, this is a bug")
+        }
       }
-    } // or else new get removed
+    }
+
+    // sync the viewer viewports
+    let camera_nodes = get_db_view_typed_foreign::<SceneCameraNode>();
+    for tile_id in tree.active_tiles() {
+      if let Some(tile) = tree.tiles.get(tile_id) {
+        if let egui_tiles::Tile::Pane(pane) = tile {
+          if let Some(viewport) = cx
+            .viewer
+            .content
+            .viewports
+            .iter_mut()
+            .find(|viewport| viewport.id == pane.viewport_id)
+          {
+            let r = pane.rect;
+            let ratio = cx.input.window_state.device_pixel_ratio;
+            let width = r.width() * ratio;
+            let height = r.height() * ratio;
+            viewport.viewport = (r.min.x * ratio, r.min.y * ratio, width, height).into();
+            let camera = unsafe { EntityHandle::from_raw(pane.camera_handle) };
+            viewport.camera = camera;
+            viewport.camera_node = camera_nodes.access(&camera).unwrap();
+          } // or else tile get removed(viewport get removed)
+        }
+      } // or else new get removed
+    }
   }
 }
 
@@ -101,19 +125,22 @@ pub fn use_egui_tile_for_viewer_viewports(
 pub struct ViewerPane {
   pub viewport_id: u64,
   pub rect: egui::Rect,
+  pub camera_handle: RawEntityHandle,
 }
 
 impl ViewerPane {
-  pub fn new(viewport_id: u64) -> Self {
+  pub fn new(viewport_id: u64, camera_handle: RawEntityHandle) -> Self {
     ViewerPane {
       viewport_id,
       rect: egui::Rect::from_min_max(egui::pos2(0., 0.), egui::pos2(0., 0.)),
+      camera_handle,
     }
   }
 }
 
 #[derive(Default)]
 pub struct ViewerTileTreeBehavior {
+  pub camera_handles: FastHashSet<RawEntityHandle>,
   pub edited: std::cell::Cell<bool>,
   pub add_child_to: Option<TileId>,
   pub remove_tile: Option<TileId>,
@@ -198,6 +225,14 @@ impl egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior {
             self.remove_tile = Some(tile_id);
           }
 
+          egui::ComboBox::from_label("camera")
+            .selected_text(format!("{:?}", pane.camera_handle))
+            .show_ui(ui, |ui| {
+              for c in self.camera_handles.iter() {
+                ui.selectable_value(&mut pane.camera_handle, *c, format!("{:?}", c));
+              }
+            });
+
           if ui
             .add(egui::Button::new("Drag").sense(egui::Sense::drag()))
             .drag_started()
@@ -220,7 +255,7 @@ pub fn create_viewer_default_tile_tree(
   let children = viewports
     .iter()
     .map(|viewport| {
-      let pane = ViewerPane::new(viewport.id);
+      let pane = ViewerPane::new(viewport.id, viewport.camera.into_raw());
       tiles.insert_pane(pane)
     })
     .collect();
