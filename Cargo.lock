@@ -3311,6 +3311,7 @@ dependencies = [
 name = "query-hook"
 version = "0.0.1"
 dependencies = [
+ "bumpalo",
  "fast-hash-collection",
  "futures",
  "hook",

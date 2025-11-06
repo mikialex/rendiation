@@ -7,7 +7,7 @@ use crate::*;
 type ForeignKeyChange = BoxedDynQuery<RawEntityHandle, ValueChange<RawEntityHandle>>;
 pub type DBAllForeignKeyChange = FastHashMap<(EntityId, ComponentId), UseResult<ForeignKeyChange>>;
 
-type ForeignKeyChangeFut = Pin<Box<dyn Future<Output = ForeignKeyChange> + Send + Sync>>;
+type ForeignKeyChangeFut = Pin<FrameBox<dyn Future<Output = ForeignKeyChange> + Send + Sync>>;
 
 type RevOwnershipForeignKeysConfig = FastHashSet<ComponentId>;
 
@@ -121,7 +121,7 @@ pub fn use_db_all_entity_ref_count_change(
     let all_entity_updates = join_all(all_entity_updates)
       .map(|updates| updates.into_iter().collect::<FastHashMap<_, _>>());
 
-    UseResult::SpawnStageFuture(Box::pin(all_entity_updates))
+    UseResult::SpawnStageFuture(pin_box_in_frame(all_entity_updates))
   } else {
     UseResult::NotInStage
   }

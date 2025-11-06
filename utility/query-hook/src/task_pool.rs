@@ -101,18 +101,18 @@ impl AsyncTaskPool {
   pub fn try_share_task_by_id<T: Clone + Any>(
     &self,
     id: u32,
-  ) -> Option<Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>>> {
+  ) -> Option<Pin<FrameBox<dyn Future<Output = T> + Send + Sync + 'static>>> {
     let f = self
       .registry
       .get(&id)?
       .clone()
       .map(|v| v.downcast_ref::<T>().unwrap().clone()); // todo , is it possible to avoid inner clone??
-    Some(Box::pin(f))
+    Some(pin_box_in_frame(f))
   }
   pub fn share_task_by_id<T: Clone + Any>(
     &self,
     id: u32,
-  ) -> Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>> {
+  ) -> Pin<FrameBox<dyn Future<Output = T> + Send + Sync + 'static>> {
     self.try_share_task_by_id(id).unwrap()
   }
 

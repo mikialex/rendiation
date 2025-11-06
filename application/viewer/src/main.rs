@@ -159,6 +159,8 @@ fn main() {
   }
 
   run_viewer_app(|cx| {
+    setup_new_frame_allocator(10 * 1024 * 1024);
+
     use_viewer_egui(cx);
 
     use_enable_screenshot(cx);

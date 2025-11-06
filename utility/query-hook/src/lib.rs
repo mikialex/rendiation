@@ -1,3 +1,5 @@
+#![feature(allocator_api)]
+
 use std::any::Any;
 use std::any::TypeId;
 use std::future::Future;
@@ -13,10 +15,12 @@ use futures::stream::*;
 use parking_lot::RwLock;
 pub use query::*;
 
+mod frame_allocator;
 mod task_pool;
 mod use_result;
 mod wake_util;
 
+pub use frame_allocator::*;
 pub use hook::*;
 pub use task_pool::*;
 pub use use_result::*;

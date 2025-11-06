@@ -272,7 +272,7 @@ impl CombinedBufferAllocatorInternal {
   pub fn bind_shader_impl(
     &mut self,
     bind_builder: &mut ShaderBindGroupBuilder,
-    ty_desc: MaybeUnsizedValueType,
+    ty_desc: &MaybeUnsizedValueType,
   ) -> BoxedShaderPtr {
     self.check_rebuild();
 
@@ -323,7 +323,7 @@ impl CombinedBufferAllocatorInternal {
     } = array.downcast_ref::<ShaderMeta>().unwrap().clone();
 
     // todo, should we put it at allocation time?
-    meta.write().register_ty(&ty_desc);
+    meta.write().register_ty(ty_desc);
 
     let buffer_bind_index = bind_index_array.index(self.current_shader_recording_count);
     let offset = array.bitcast_read_u32_at(buffer_bind_index + val(1));
@@ -331,7 +331,7 @@ impl CombinedBufferAllocatorInternal {
     self.current_shader_recording_count += 1;
 
     let ptr = U32HeapPtr { array, offset };
-    let ty = ty_desc.into_shader_single_ty();
+    let ty = ty_desc.clone().into_shader_single_ty();
 
     let array_length =
       if let ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &ty {

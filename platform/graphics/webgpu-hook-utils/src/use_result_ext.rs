@@ -140,7 +140,8 @@ where
           *has_change = true;
         }
 
-        Box::pin(futures::future::ready(r)) as std::pin::Pin<Box<dyn Future<Output = T> + Send>>
+        pin_box_in_frame(futures::future::ready(r))
+          as std::pin::Pin<FrameBox<dyn Future<Output = T> + Send>>
       }
       UseResult::SpawnStageFuture(f) => {
         #[cfg(debug_assertions)]
@@ -188,7 +189,7 @@ where
         }
       };
 
-      collector.push(Box::pin(f));
+      collector.push(pin_box_in_frame(f));
     }
   }
 }

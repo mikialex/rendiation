@@ -14,7 +14,7 @@ pub struct SparseUpdateStorageBuffer<T> {
 }
 
 pub type SparseUpdateCollector =
-  Vec<Pin<Box<dyn Future<Output = SparseBufferWritesSource> + Send>>>;
+  Vec<Pin<FrameBox<dyn Future<Output = SparseBufferWritesSource> + Send>>>;
 
 impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
   pub fn new(

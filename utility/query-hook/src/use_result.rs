@@ -1,7 +1,7 @@
 use crate::*;
 
 pub enum UseResult<T> {
-  SpawnStageFuture(Pin<Box<dyn Future<Output = T> + Send + Sync>>),
+  SpawnStageFuture(Pin<FrameBox<dyn Future<Output = T> + Send + Sync>>),
   SpawnStageReady(T),
   ResolveStageReady(T),
   NotInStage,
@@ -37,7 +37,7 @@ impl<T: Send + Sync + 'static> UseResult<T> {
             spawner.spawn_task(move || f(r)).await
           }
         };
-        UseResult::SpawnStageFuture(Box::pin(fut))
+        UseResult::SpawnStageFuture(pin_box_in_frame(fut))
       }
       UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
       UseResult::ResolveStageReady(_) => UseResult::NotInStage,
@@ -87,7 +87,7 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   ) -> UseResult<U> {
     use futures::FutureExt;
     match self {
-      UseResult::SpawnStageFuture(fut) => UseResult::SpawnStageFuture(Box::pin(fut.map(f))),
+      UseResult::SpawnStageFuture(fut) => UseResult::SpawnStageFuture(pin_box_in_frame(fut.map(f))),
       UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
       UseResult::ResolveStageReady(_) => UseResult::NotInStage,
       UseResult::NotInStage => UseResult::NotInStage,
@@ -100,19 +100,19 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   pub fn map<U>(self, f: impl FnOnce(T) -> U + Send + Sync + 'static) -> UseResult<U> {
     use futures::FutureExt;
     match self {
-      UseResult::SpawnStageFuture(fut) => UseResult::SpawnStageFuture(Box::pin(fut.map(f))),
+      UseResult::SpawnStageFuture(fut) => UseResult::SpawnStageFuture(pin_box_in_frame(fut.map(f))),
       UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
       UseResult::ResolveStageReady(t) => UseResult::ResolveStageReady(f(t)),
       UseResult::NotInStage => UseResult::NotInStage,
     }
   }
 
-  pub fn into_future(self) -> Option<Pin<Box<dyn Future<Output = T> + Send + Sync>>> {
+  pub fn into_future(self) -> Option<Pin<FrameBox<dyn Future<Output = T> + Send + Sync>>> {
     match self {
       UseResult::SpawnStageFuture(future) => Some(future),
       UseResult::SpawnStageReady(r) => {
         let future = std::future::ready(r);
-        Some(Box::pin(future))
+        Some(pin_box_in_frame(future))
       }
       _ => None,
     }
@@ -137,7 +137,9 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     let b = other.into_future();
 
     match (a, b) {
-      (Some(a), Some(b)) => UseResult::SpawnStageFuture(Box::pin(futures::future::join(a, b))),
+      (Some(a), Some(b)) => {
+        UseResult::SpawnStageFuture(pin_box_in_frame(futures::future::join(a, b)))
+      }
       (None, None) => UseResult::NotInStage,
       _ => panic!("join source corrupted"),
     }
@@ -176,8 +178,8 @@ impl<T: Send + Sync> UseResult<T> {
         let future = future.shared();
         let future2 = future.clone();
         (
-          UseResult::SpawnStageFuture(Box::pin(future)),
-          UseResult::SpawnStageFuture(Box::pin(future2)),
+          UseResult::SpawnStageFuture(pin_box_in_frame(future)),
+          UseResult::SpawnStageFuture(pin_box_in_frame(future2)),
         )
       }
       UseResult::SpawnStageReady(r) => (
@@ -245,14 +247,16 @@ impl<T: Send + Sync> UseResult<T> {
     self.if_resolve_stage().unwrap()
   }
 
-  pub fn into_spawn_stage_future(self) -> Option<Pin<Box<dyn Future<Output = T> + Sync + Send>>> {
+  pub fn into_spawn_stage_future(
+    self,
+  ) -> Option<Pin<FrameBox<dyn Future<Output = T> + Sync + Send>>> {
     match self {
       UseResult::SpawnStageFuture(t) => Some(t),
       _ => None,
     }
   }
 
-  pub fn expect_spawn_stage_future(self) -> Pin<Box<dyn Future<Output = T> + Sync + Send>> {
+  pub fn expect_spawn_stage_future(self) -> Pin<FrameBox<dyn Future<Output = T> + Sync + Send>> {
     self
       .into_spawn_stage_future()
       .expect("expect spawn stage future")
@@ -298,14 +302,13 @@ impl<T: Clone + Send + Sync + 'static> UseResult<T> {
   }
 
   pub fn use_global_shared(self, cx: &mut impl QueryHookCxLike) -> TaskUseResult<T> {
-    let future =
-      match self {
-        UseResult::SpawnStageFuture(future) => Some(future),
-        UseResult::SpawnStageReady(result) => Some(Box::pin(futures::future::ready(result))
-          as Pin<Box<dyn Future<Output = T> + Send + Sync>>),
-        UseResult::ResolveStageReady(r) => return TaskUseResult::Result(r),
-        UseResult::NotInStage => return TaskUseResult::NotInStage,
-      };
+    let future = match self {
+      UseResult::SpawnStageFuture(future) => Some(future),
+      UseResult::SpawnStageReady(result) => Some(pin_box_in_frame(futures::future::ready(result))
+        as Pin<FrameBox<dyn Future<Output = T> + Send + Sync>>),
+      UseResult::ResolveStageReady(r) => return TaskUseResult::Result(r),
+      UseResult::NotInStage => return TaskUseResult::NotInStage,
+    };
     cx.use_global_shared_future(future)
   }
 

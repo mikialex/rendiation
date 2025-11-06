@@ -110,7 +110,7 @@ impl CombinedStorageBufferAllocator {
 
     SubCombinedStorageBufferDynTyped {
       buffer_index,
-      ty: ty_desc,
+      ty: Arc::new(ty_desc),
       internal: self.internal.clone(),
     }
   }
@@ -120,7 +120,8 @@ impl CombinedStorageBufferAllocator {
 pub struct SubCombinedStorageBufferDynTyped {
   /// user should make sure the index is stable across the binding to avoid hash this index.
   buffer_index: usize,
-  ty: MaybeUnsizedValueType,
+  // wrap arc to reduce clone cost
+  ty: Arc<MaybeUnsizedValueType>,
   internal: Arc<RwLock<CombinedBufferAllocatorInternal>>,
 }
 impl SubCombinedStorageBufferDynTyped {
@@ -151,7 +152,7 @@ impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
     self
       .internal
       .write()
-      .bind_shader_impl(bind_builder, self.ty.clone())
+      .bind_shader_impl(bind_builder, &self.ty)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
