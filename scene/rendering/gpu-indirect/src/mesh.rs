@@ -234,12 +234,13 @@ fn use_attribute_indices_updates(
   let (allocation_info, allocation_info_) = allocation_info.fork();
 
   let allocation_info_ = allocation_info_.use_assure_result(cx);
-  if cx.is_resolve_stage() {
+
+  if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
     let mut gpu_buffer = gpu_buffer.write();
     let gpu_buffer = gpu_buffer.abstract_gpu();
     allocation_info_
       .expect_resolve_stage()
-      .write(cx.gpu, gpu_buffer);
+      .write(cx.gpu, encoder, gpu_buffer);
   }
 
   let changes = allocation_info.map(|v| v.allocation_changes.clone());
@@ -341,12 +342,12 @@ fn use_attribute_vertex_updates(
   let (allocation_info, allocation_info_) = allocation_info.fork();
 
   let allocation_info_ = allocation_info_.use_assure_result(cx);
-  if cx.is_resolve_stage() {
+  if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
     let mut gpu_buffer = vertex_buffer.write();
     let gpu_buffer = gpu_buffer.abstract_gpu();
     allocation_info_
       .expect_resolve_stage()
-      .write(cx.gpu, gpu_buffer);
+      .write(cx.gpu, encoder, gpu_buffer);
   }
 
   let ab_ref_mesh = cx

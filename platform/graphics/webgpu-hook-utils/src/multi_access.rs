@@ -126,25 +126,29 @@ pub fn use_multi_access_gpu(
     Arc::new(RwLock::new(buffer))
   });
 
-  cx.when_render(|| {
+  if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
     {
-      let updates = updates.expect_resolve_stage();
-      let buffer = one_side_buffer.write();
-      updates.write_abstract(cx.gpu, &*buffer);
-    }
+      {
+        let updates = updates.expect_resolve_stage();
+        let buffer = one_side_buffer.write();
+        updates.write_abstract(cx.gpu, encoder, &*buffer);
+      }
 
-    {
-      let mut many_side_buffer = many_side_buffer.write();
-      let buffer = many_side_buffer.abstract_gpu();
-      let changes_ = changes_.expect_resolve_stage();
-      changes_.write(cx.gpu, buffer);
-    }
+      {
+        let mut many_side_buffer = many_side_buffer.write();
+        let buffer = many_side_buffer.abstract_gpu();
+        let changes_ = changes_.expect_resolve_stage();
+        changes_.write(cx.gpu, encoder, buffer);
+      }
 
-    MultiAccessGPUData {
-      meta: one_side_buffer.read().gpu().clone(),
-      indices: many_side_buffer.read().gpu().clone(),
+      Some(MultiAccessGPUData {
+        meta: one_side_buffer.read().gpu().clone(),
+        indices: many_side_buffer.read().gpu().clone(),
+      })
     }
-  })
+  } else {
+    None
+  }
 }
 
 #[derive(Clone)]

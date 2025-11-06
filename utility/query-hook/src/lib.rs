@@ -607,7 +607,7 @@ impl<K: CKey, V: CValue> ChangeReconciler for SharedQueryChangeReconciler<K, V> 
         .unwrap();
       internal.has_broadcasted = true;
 
-      if change.iter_key_value().next().is_some() {
+      if !change.is_empty() {
         for (_, v) in internal.consumers.iter_mut() {
           v.push(*change.clone());
         }
@@ -676,7 +676,7 @@ pub fn finalize_buffered_changes<K: CKey, V: CValue>(
   if target.is_empty() {
     Arc::new(EmptyQuery::default())
   } else {
-    Arc::new(Arc::new(target))
+    Arc::new(target)
   }
 }
 

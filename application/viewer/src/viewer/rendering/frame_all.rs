@@ -454,17 +454,22 @@ impl Viewer3dRenderingCtx {
   ) {
     let gpu = self.gpu.clone();
     shared_ctx.reset_visiting();
+    let mut encoder = gpu.create_encoder();
+
     let renderer = QueryGPUHookCx {
       memory,
       gpu: &gpu,
       stage: GPUQueryHookStage::CreateRender {
         task: task_pool_result,
+        encoder: &mut encoder,
       },
       shared_ctx,
       waker: futures::task::waker(self.any_render_change.clone()),
       storage_allocator: self.storage_allocator(),
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx).unwrap());
+
+    gpu.submit_encoder(encoder);
 
     let statistics = self
       .enable_statistic_collect

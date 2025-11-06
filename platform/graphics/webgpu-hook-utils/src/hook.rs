@@ -26,6 +26,8 @@ pub enum GPUQueryHookStage<'a> {
   },
   CreateRender {
     task: TaskPoolResultCx,
+    /// for updating resource
+    encoder: &'a mut GPUCommandEncoder,
   },
   Inspect(&'a mut dyn Inspector),
 }
@@ -183,6 +185,7 @@ impl<'a> QueryGPUHookCx<'a> {
   pub fn when_render<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
     self.is_in_render().then(f)
   }
+
   pub fn is_in_render(&self) -> bool {
     matches!(&self.stage, GPUQueryHookStage::CreateRender { .. })
   }

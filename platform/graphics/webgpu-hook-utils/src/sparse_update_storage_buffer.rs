@@ -165,12 +165,12 @@ fn use_update_impl(
 
       *token = task_pool.install_task(fut);
     }
-    GPUQueryHookStage::CreateRender { task } => {
+    GPUQueryHookStage::CreateRender { task, encoder } => {
       // do update in main thread
       let updates = task
         .expect_result_by_id::<Arc<SparseBufferWritesSource>>(*token)
         .clone();
-      updates.write_abstract(cx.gpu, buffer);
+      updates.write_abstract(cx.gpu, encoder, buffer);
       return Some(updates);
     }
     _ => {}

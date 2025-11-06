@@ -352,7 +352,7 @@ pub struct RangeAllocateBufferUpdates {
 }
 
 impl RangeAllocateBufferUpdates {
-  pub fn write(&self, gpu: &GPU, target: &dyn AbstractBuffer) {
+  pub fn write(&self, gpu: &GPU, encoder: &mut GPUCommandEncoder, target: &dyn AbstractBuffer) {
     if self.allocation_changes.has_data_movements() {
       let mut iter = self.allocation_changes.iter_data_movements();
       let mut encoder = gpu.create_encoder();
@@ -365,7 +365,7 @@ impl RangeAllocateBufferUpdates {
     self
       .buffers_to_write
       .small_buffer_writes
-      .write_abstract(gpu, target);
+      .write_abstract(gpu, encoder, target);
 
     for (k, (write_offset, size)) in &self.allocation_changes.0.new_data_to_write {
       let large = &self.buffers_to_write.large_buffer_writes;

@@ -173,7 +173,7 @@ fn main() {
     });
 
     stage_of_update(cx, 1, |cx| {
-      test_db_rc(cx);
+      // test_db_rc(cx);
 
       use_enable_gltf_io(cx);
       use_enable_obj_io(cx);
@@ -193,8 +193,8 @@ fn main() {
 
       use_animation_player(cx);
 
-      #[cfg(not(target_family = "wasm"))]
-      test_persist_scope(cx);
+      // #[cfg(not(target_family = "wasm"))]
+      // test_persist_scope(cx);
 
       inject_picker(cx, |cx| {
         use_pick_scene(cx);
@@ -207,6 +207,7 @@ fn main() {
   });
 }
 
+#[allow(dead_code)]
 fn test_db_rc(cx: &mut ViewerCx) {
   let (cx, config) = cx.use_plain_state_init(|_| {
     let mut set = fast_hash_collection::FastHashSet::default();
