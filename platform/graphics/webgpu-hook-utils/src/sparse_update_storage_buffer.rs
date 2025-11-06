@@ -135,6 +135,11 @@ fn use_update_impl(
       let collector = collector.take();
       let collector = collector.expect("expect collector exist in task spawn stage");
 
+      if collector.is_empty() {
+        *token = u32::MAX;
+        return None;
+      }
+
       let spawner = spawner.clone();
       let fut = async move {
         let mut all_writes = join_all(collector).await;
@@ -166,6 +171,10 @@ fn use_update_impl(
       *token = task_pool.install_task(fut);
     }
     GPUQueryHookStage::CreateRender { task, encoder } => {
+      if *token == u32::MAX {
+        return None;
+      }
+
       // do update in main thread
       let updates = task
         .expect_result_by_id::<Arc<SparseBufferWritesSource>>(*token)
