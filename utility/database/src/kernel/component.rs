@@ -51,7 +51,7 @@ pub type EntityScopeChange = ScopedValueChange<()>;
 #[derive(Clone)]
 pub struct ComponentReadViewUntyped {
   pub(crate) allocator: LockReadGuardHolder<Arena<()>>,
-  pub(crate) data: Box<dyn ComponentStorageReadView>,
+  pub(crate) data: Arc<dyn ComponentStorageReadView>,
 }
 
 impl ComponentReadViewUntyped {

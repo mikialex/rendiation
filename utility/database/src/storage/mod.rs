@@ -96,14 +96,14 @@ where
 /// space efficiency. If the multiple component will always accessed together, we could
 /// store them in a interleaved buffer like common AOS way to improve the access performance.
 pub trait ComponentStorage: Send + Sync + DynClone {
-  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView>;
+  fn create_read_view(&self) -> Arc<dyn ComponentStorageReadView>;
   fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView>;
   fn type_id(&self) -> TypeId;
   fn data_shape(&self) -> &'static facet::Shape<'_>;
 }
 dyn_clone::clone_trait_object!(ComponentStorage);
 
-pub trait ComponentStorageReadView: Send + Sync + DynClone {
+pub trait ComponentStorageReadView: Send + Sync {
   /// get the data located in idx, return None if out of bound.
   fn get(&self, idx: u32) -> Option<DataPtr>;
 
@@ -121,7 +121,6 @@ pub trait ComponentStorageReadView: Send + Sync + DynClone {
   }
   fn fast_serialize_all(&self) -> Vec<u8>;
 }
-dyn_clone::clone_trait_object!(ComponentStorageReadView);
 
 pub trait ComponentStorageReadWriteView {
   /// # Safety

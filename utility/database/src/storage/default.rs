@@ -19,8 +19,8 @@ pub fn init_linear_storage<S: ComponentSemantic>() -> Arc<RwLock<DBLinearStorage
 }
 
 impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBLinearStorage<T>>> {
-  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView> {
-    Box::new(self.make_read_holder())
+  fn create_read_view(&self) -> Arc<dyn ComponentStorageReadView> {
+    Arc::new(self.make_read_holder())
   }
 
   fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView> {

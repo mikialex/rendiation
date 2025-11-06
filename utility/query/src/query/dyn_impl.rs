@@ -1,6 +1,6 @@
 use crate::*;
 
-pub type BoxedDynQuery<K, V> = Box<dyn DynQuery<Key = K, Value = V>>;
+pub type BoxedDynQuery<K, V> = Arc<dyn DynQuery<Key = K, Value = V>>;
 pub trait DynQuery: DynClone + Send + Sync {
   type Key: CKey;
   type Value: CValue;
@@ -28,6 +28,18 @@ impl<K, V> Clone for Box<dyn DynQuery<Key = K, Value = V> + '_> {
 }
 
 impl<K: CKey, V: CValue> Query for Box<dyn DynQuery<Key = K, Value = V> + '_> {
+  type Key = K;
+  type Value = V;
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    (**self).iter_key_value_dyn()
+  }
+
+  fn access(&self, key: &K) -> Option<V> {
+    (**self).access_dyn(key)
+  }
+}
+
+impl<K: CKey, V: CValue> Query for Arc<dyn DynQuery<Key = K, Value = V> + '_> {
   type Key = K;
   type Value = V;
   fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {

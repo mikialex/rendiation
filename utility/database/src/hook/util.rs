@@ -84,7 +84,7 @@ pub type RevRefOfForeignKey<S> = BoxedDynMultiQuery<
 pub(crate) struct ArenaAccessProvider<T: CValue>(pub(crate) Arc<RwLock<Arena<T>>>);
 impl<T: CValue> QueryProvider<RawEntityHandle, T> for ArenaAccessProvider<T> {
   fn access(&self) -> BoxedDynQuery<RawEntityHandle, T> {
-    Box::new(ArenaAccess(self.0.make_read_holder()))
+    Arc::new(ArenaAccess(self.0.make_read_holder()))
   }
 }
 

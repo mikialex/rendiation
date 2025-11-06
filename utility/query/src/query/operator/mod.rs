@@ -18,7 +18,7 @@ pub trait QueryExt: Query + Sized {
   where
     Self: 'static,
   {
-    Box::new(self)
+    Arc::new(self)
   }
 
   fn keep_sth<X: Any + Send + Sync>(self, sth: X) -> KeptQuery<Self> {

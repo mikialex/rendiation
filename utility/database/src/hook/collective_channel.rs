@@ -115,6 +115,6 @@ pub trait QueryProvider<K, V>: Send + Sync {
 
 impl<T: Query + 'static> QueryProvider<T::Key, T::Value> for Arc<RwLock<T>> {
   fn access(&self) -> BoxedDynQuery<T::Key, T::Value> {
-    Box::new(self.make_read_holder())
+    Arc::new(self.make_read_holder())
   }
 }

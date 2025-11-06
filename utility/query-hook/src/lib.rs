@@ -605,7 +605,7 @@ impl<K: CKey, V: CValue> ChangeReconciler for SharedQueryChangeReconciler<K, V> 
 
       if change.iter_key_value().next().is_some() {
         for (_, v) in internal.consumers.iter_mut() {
-          v.push(change.clone());
+          v.push(*change.clone());
         }
       }
     }
@@ -653,7 +653,7 @@ pub fn finalize_buffered_changes<K: CKey, V: CValue>(
   mut changes: Vec<BoxedDynQuery<K, ValueChange<V>>>,
 ) -> BoxedDynQuery<K, ValueChange<V>> {
   if changes.is_empty() {
-    return Box::new(EmptyQuery::default());
+    return Arc::new(EmptyQuery::default());
   }
 
   if changes.len() == 1 {
@@ -670,9 +670,9 @@ pub fn finalize_buffered_changes<K: CKey, V: CValue>(
   }
 
   if target.is_empty() {
-    Box::new(EmptyQuery::default())
+    Arc::new(EmptyQuery::default())
   } else {
-    Box::new(Arc::new(target))
+    Arc::new(Arc::new(target))
   }
 }
 
