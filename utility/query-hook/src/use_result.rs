@@ -288,7 +288,7 @@ impl<T: Clone + Send + Sync + 'static> UseResult<T> {
       }
       QueryHookStage::ResolveTask { task, .. } => {
         if *token != u32::MAX {
-          UseResult::ResolveStageReady(task.expect_result_by_id(*token))
+          UseResult::ResolveStageReady(task.expect_result_by_id::<T>(*token).clone())
         } else {
           self
         }

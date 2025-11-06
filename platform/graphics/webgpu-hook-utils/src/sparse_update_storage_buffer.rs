@@ -167,7 +167,9 @@ fn use_update_impl(
     }
     GPUQueryHookStage::CreateRender { task } => {
       // do update in main thread
-      let updates = task.expect_result_by_id::<Arc<SparseBufferWritesSource>>(*token);
+      let updates = task
+        .expect_result_by_id::<Arc<SparseBufferWritesSource>>(*token)
+        .clone();
       updates.write_abstract(cx.gpu, buffer);
       return Some(updates);
     }

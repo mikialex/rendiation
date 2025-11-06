@@ -1,4 +1,3 @@
-use dyn_clone::DynClone;
 use futures::future::Shared;
 
 use crate::*;
@@ -57,42 +56,43 @@ impl TaskSpawner {
   }
 }
 
-pub trait AnyClone: Any + Sync + Send + DynClone + 'static {
-  fn as_any(&self) -> &dyn Any;
-}
-impl<T> AnyClone for T
-where
-  T: Any + DynClone + Sync + Send + 'static,
-{
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-}
-impl Clone for Box<dyn AnyClone> {
-  fn clone(&self) -> Self {
-    dyn_clone::clone_box(&**self)
-  }
-}
+// pub trait AnyClone: Any + Sync + Send + DynClone + 'static {
+//   fn as_any(&self) -> &dyn Any;
+// }
+// impl<T> AnyClone for T
+// where
+//   T: Any + DynClone + Sync + Send + 'static,
+// {
+//   fn as_any(&self) -> &dyn Any {
+//     self
+//   }
+// }
+// impl Clone for Box<dyn AnyClone> {
+//   fn clone(&self) -> Self {
+//     dyn_clone::clone_box(&**self)
+//   }
+// }
 
 #[derive(Default)]
 pub struct AsyncTaskPool {
-  registry: FastHashMap<u32, Shared<Pin<Box<dyn Future<Output = Box<dyn AnyClone>> + Send>>>>,
+  registry:
+    FastHashMap<u32, Shared<Pin<Box<dyn Future<Output = Arc<dyn Any + Send + Sync>> + Send>>>>,
   next: u32,
 }
 
 #[derive(Default)]
 pub struct TaskPoolResultCx {
-  pub token_based_result: FastHashMap<u32, Box<dyn AnyClone>>,
+  pub token_based_result: FastHashMap<u32, Arc<dyn Any + Send + Sync>>,
 }
 
 impl TaskPoolResultCx {
-  pub fn try_get_result_by_id<T: Clone + Any>(&self, id: u32) -> Option<T> {
+  pub fn try_get_result_by_id<T: Any>(&self, id: u32) -> Option<&T> {
     self
       .token_based_result
       .get(&id)
-      .map(|v| v.deref().as_any().downcast_ref::<T>().unwrap().clone()) // todo, bad
+      .map(|v| v.downcast_ref().unwrap())
   }
-  pub fn expect_result_by_id<T: Clone + Any>(&self, id: u32) -> T {
+  pub fn expect_result_by_id<T: Any>(&self, id: u32) -> &T {
     self.try_get_result_by_id(id).unwrap()
   }
 }
@@ -106,7 +106,7 @@ impl AsyncTaskPool {
       .registry
       .get(&id)?
       .clone()
-      .map(|v| v.deref().as_any().downcast_ref::<T>().unwrap().clone()); // todo bad
+      .map(|v| v.downcast_ref::<T>().unwrap().clone()); // todo , is it possible to avoid inner clone??
     Some(Box::pin(f))
   }
   pub fn share_task_by_id<T: Clone + Any>(
@@ -116,14 +116,14 @@ impl AsyncTaskPool {
     self.try_share_task_by_id(id).unwrap()
   }
 
-  pub fn install_task<T: 'static + Clone + Sync + Send>(
+  pub fn install_task<T: 'static + Sync + Send>(
     &mut self,
     task: impl Future<Output = T> + Send + 'static,
   ) -> u32 {
     self.next += 1;
 
     let task = task
-      .map(|v| Box::new(v) as Box<dyn AnyClone>)
+      .map(|v| Arc::new(v) as Arc<dyn Any + Send + Sync>)
       .boxed()
       .shared();
 

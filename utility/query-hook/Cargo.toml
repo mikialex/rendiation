@@ -11,7 +11,6 @@ storage = { path = "../storage" }
 tracing = { workspace = true }
 parking_lot = { workspace = true }
 hook = { path = "../hook" }
-dyn-clone = { workspace = true }
 
 [target.'cfg(not(target = "wasm"))'.dependencies]
 rayon = { workspace = true }

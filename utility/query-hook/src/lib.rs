@@ -1,7 +1,6 @@
 use std::any::Any;
 use std::any::TypeId;
 use std::future::Future;
-use std::ops::Deref;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -211,7 +210,7 @@ pub trait QueryHookCxLike: HooksCxLike {
       }
       QueryHookStage::ResolveTask { task, .. } => {
         if *token != u32::MAX {
-          TaskUseResult::Result(task.expect_result_by_id(*token))
+          TaskUseResult::Result(task.expect_result_by_id::<R>(*token).clone())
         } else {
           TaskUseResult::NotInStage
         }
@@ -339,7 +338,7 @@ pub trait QueryHookCxLike: HooksCxLike {
           }
         }
         QueryHookStage::ResolveTask { task, .. } => {
-          UseResult::ResolveStageReady(task.expect_result_by_id(task_id))
+          UseResult::ResolveStageReady(task.expect_result_by_id::<T>(task_id).clone())
         }
         _ => UseResult::NotInStage,
       }
@@ -361,7 +360,7 @@ pub trait QueryHookCxLike: HooksCxLike {
             *self_id = u32::MAX - cx.shared_hook_ctx().task_id_mapping.len() as u32 - 1;
             cx.shared_hook_ctx().task_id_mapping.insert(key, *self_id);
             if let QueryHookStage::ResolveTask { task, .. } = cx.stage() {
-              task.token_based_result.insert(*self_id, Box::new(r));
+              task.token_based_result.insert(*self_id, Arc::new(r));
             } else {
               panic!("unable to share direct upstream result in none resolve stage");
             }
@@ -383,7 +382,7 @@ pub trait QueryHookCxLike: HooksCxLike {
             UseResult::SpawnStageFuture(pool.share_task_by_id(*self_id))
           }
           QueryHookStage::ResolveTask { task, .. } => {
-            let result = task.expect_result_by_id(*self_id);
+            let result = task.expect_result_by_id::<T>(*self_id).clone();
             *self_id = u32::MAX;
             UseResult::ResolveStageReady(result)
           }

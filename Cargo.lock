@@ -3311,7 +3311,6 @@ dependencies = [
 name = "query-hook"
 version = "0.0.1"
 dependencies = [
- "dyn-clone",
  "fast-hash-collection",
  "futures",
  "hook",
