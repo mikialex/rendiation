@@ -151,17 +151,21 @@ pub fn use_std_model_renderer(
   let state_override = use_state_overrides(cx);
 
   let changes = if cx.is_spawning_stage() {
-    UseResult::SpawnStageReady(SelectChanges([
-      material_flat
-        .expect_spawn_stage_ready()
-        .map_some_u32_index(),
-      material_pbr_mr
-        .expect_spawn_stage_ready()
-        .map_some_u32_index(),
-      material_pbr_sg
-        .expect_spawn_stage_ready()
-        .map_some_u32_index(),
-    ]))
+    let material_flat = material_flat.into_spawn_stage_ready();
+    let material_pbr_mr = material_pbr_mr.into_spawn_stage_ready();
+    let material_pbr_sg = material_pbr_sg.into_spawn_stage_ready();
+
+    let mut r = Vec::new();
+    if let Some(v) = material_flat {
+      r.push(v.map_some_u32_index());
+    }
+    if let Some(v) = material_pbr_mr {
+      r.push(v.map_some_u32_index());
+    }
+    if let Some(v) = material_pbr_sg {
+      r.push(v.map_some_u32_index());
+    }
+    UseResult::SpawnStageReady(SelectChanges(r))
   } else {
     UseResult::NotInStage
   };

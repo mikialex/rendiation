@@ -70,8 +70,10 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
       if changes.has_change() {
         change_collector.notify_change();
+        UseResult::SpawnStageReady(Arc::new(changes))
+      } else {
+        UseResult::NotInStage
       }
-      UseResult::SpawnStageReady(Arc::new(changes))
     } else {
       if rev.has_change() {
         cx.waker().wake_by_ref();

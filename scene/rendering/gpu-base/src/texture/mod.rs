@@ -136,7 +136,7 @@ pub fn use_pool_texture_system(
     .filter_map_changes(|tex| tex.map(|tex| tex.size))
     .map_only_spawn_stage(move |size_changes| {
       let content_view = get_db_view_uncheck_access::<SceneTexture2dEntityDirectContent>();
-      let content_changes = content_changes.expect_spawn_stage_ready();
+      let content_changes = content_changes.into_spawn_stage_ready();
       let mut buff_changes = FastHashMap::default();
 
       let mut packer = packer.write();
@@ -156,7 +156,10 @@ pub fn use_pool_texture_system(
         |id| packer.access(&id).unwrap(),
         buff_changes.clone().into_iter(),
         |id| content_view.access(&id).unwrap().unwrap().ptr,
-        content_changes.iter_update_or_insert(),
+        content_changes
+          .map(|change| change.iter_update_or_insert().collect::<Vec<_>>()) // todo, bad
+          .into_iter()
+          .flatten(),
         packer.current_size(),
       );
 

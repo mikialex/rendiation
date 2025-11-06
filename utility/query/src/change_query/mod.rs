@@ -222,6 +222,13 @@ impl<T, const N: usize> IteratorProvider for [T; N] {
     self.iter()
   }
 }
+impl<T> IteratorProvider for Vec<T> {
+  type Item = T;
+
+  fn create_iter(&self) -> impl Iterator<Item = &Self::Item> + '_ {
+    self.iter()
+  }
+}
 
 #[derive(Clone)]
 pub struct SelectChanges<T>(pub T);

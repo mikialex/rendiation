@@ -253,14 +253,22 @@ impl<T: Send + Sync> UseResult<T> {
   }
 
   pub fn expect_spawn_stage_future(self) -> Pin<Box<dyn Future<Output = T> + Sync + Send>> {
-    self.into_spawn_stage_future().unwrap()
+    self
+      .into_spawn_stage_future()
+      .expect("expect spawn stage future")
+  }
+
+  pub fn into_spawn_stage_ready(self) -> Option<T> {
+    match self {
+      UseResult::SpawnStageReady(t) => Some(t),
+      _ => None,
+    }
   }
 
   pub fn expect_spawn_stage_ready(self) -> T {
-    match self {
-      UseResult::SpawnStageReady(t) => t,
-      _ => panic!("expect spawn stage ready"),
-    }
+    self
+      .into_spawn_stage_ready()
+      .expect("expect spawn stage ready")
   }
 }
 

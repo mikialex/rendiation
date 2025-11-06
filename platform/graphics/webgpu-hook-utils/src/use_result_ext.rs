@@ -131,18 +131,27 @@ where
     U: Std430 + ShaderSizedValueNodeType + Default,
     K: LinearIdentified + CKey,
   {
-    // todo, disable this check in release
+    #[cfg(debug_assertions)]
     let (cx, has_change) = cx.use_plain_state_default::<bool>();
     let r = match self {
       UseResult::SpawnStageReady(r) => {
-        *has_change = true;
+        #[cfg(debug_assertions)]
+        {
+          *has_change = true;
+        }
+
         Box::pin(futures::future::ready(r)) as std::pin::Pin<Box<dyn Future<Output = T> + Send>>
       }
       UseResult::SpawnStageFuture(f) => {
-        *has_change = true;
+        #[cfg(debug_assertions)]
+        {
+          *has_change = true;
+        }
+
         f
       }
       UseResult::ResolveStageReady(_) => {
+        #[cfg(debug_assertions)]
         if !*has_change {
           panic!("storage array update must prepared in spawn stage")
         }
