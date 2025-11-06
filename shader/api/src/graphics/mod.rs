@@ -33,10 +33,10 @@ pub struct ShaderRenderPipelineBuilder {
 
   errors: ErrorSink,
   pub debugger: ShaderBuilderDebugger,
-  pub info: GPUInfo,
+  pub info: Arc<GPUInfo>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct GPUInfo {
   pub adaptor_info: wgpu_types::AdapterInfo,
   pub power_preference: wgpu_types::PowerPreference,
@@ -61,7 +61,7 @@ impl GPUInfo {
 impl ShaderRenderPipelineBuilder {
   fn new(
     api: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
-    info: GPUInfo,
+    info: Arc<GPUInfo>,
     checks: ShaderRuntimeChecks,
   ) -> Self {
     set_build_api_by(api);
@@ -169,7 +169,7 @@ pub trait GraphicsShaderProvider {
   fn build_self(
     &self,
     api_builder: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
-    info: GPUInfo,
+    info: Arc<GPUInfo>,
     checks: ShaderRuntimeChecks,
   ) -> Result<ShaderRenderPipelineBuilder, Vec<ShaderBuildError>> {
     let mut builder = ShaderRenderPipelineBuilder::new(api_builder, info, checks);

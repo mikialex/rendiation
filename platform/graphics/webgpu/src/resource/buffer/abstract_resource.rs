@@ -147,7 +147,7 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
     let buffer = StorageBufferReadonlyDataView::<[u32]>::create_by(device, label, init).gpu;
     let buffer = DynTypedStorageBuffer {
       buffer,
-      ty: ty_desc,
+      ty: Arc::new(ty_desc),
       readonly,
     };
 
@@ -292,7 +292,8 @@ fn batch_relocate_impl(
 #[derive(Clone)]
 pub struct DynTypedStorageBuffer {
   pub buffer: GPUBufferResourceView,
-  pub ty: MaybeUnsizedValueType,
+  // wrap in arc to reduce clone cost
+  pub ty: Arc<MaybeUnsizedValueType>,
   pub readonly: bool,
 }
 impl AbstractBuffer for DynTypedStorageBuffer {
@@ -317,7 +318,7 @@ impl AbstractBuffer for DynTypedStorageBuffer {
   }
 
   fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr {
-    let ty = self.ty.clone().into_shader_single_ty();
+    let ty = self.ty.as_ref().clone().into_shader_single_ty();
     let desc = ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
       ty: ShaderValueType::Single(ty),
@@ -431,7 +432,7 @@ impl<T: ?Sized + Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType>
       phantom: Default::default(),
       buffer: Box::new(DynTypedStorageBuffer {
         buffer: value.gpu,
-        ty: T::maybe_unsized_ty(),
+        ty: Arc::new(T::maybe_unsized_ty()),
         readonly: true,
       }),
     }

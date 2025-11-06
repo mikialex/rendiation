@@ -152,10 +152,13 @@ where
       }
       UseResult::ResolveStageReady(_) => {
         #[cfg(debug_assertions)]
-        if !*has_change {
-          panic!("storage array update must prepared in spawn stage")
+        {
+          if !*has_change {
+            panic!("storage array update must prepared in spawn stage")
+          }
+          *has_change = false;
         }
-        *has_change = false;
+
         return;
       }
       _ => return,
