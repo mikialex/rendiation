@@ -44,7 +44,7 @@ pub fn use_widen_line_indirect_renderer(
   // todo, improve code sharing with indirect attribute mesh
   let allocation_info = cx
     .use_dual_query::<WideLineMeshBuffer>()
-    .map_only_spawn_stage_in_thread_dual_query(cx, move |source_info| {
+    .map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
       let change = source_info.delta().into_change();
       let removed_and_changed_keys = change
         .iter_removed()

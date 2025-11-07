@@ -124,10 +124,10 @@ where
     connectivity_rev_view
       .join(connectivity_change)
       .join(payload_change)
-      .map_only_spawn_stage_in_thread(
+      .map_spawn_stage_in_thread(
         cx,
         |((_, connectivity_change), payload_change)| {
-          !connectivity_change.is_empty() || !payload_change.is_empty()
+          connectivity_change.is_empty() || payload_change.is_empty()
         },
         move |((connectivity_rev_view, connectivity_change), payload_change)| {
           let changes = compute_tree_derive(

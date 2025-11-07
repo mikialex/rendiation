@@ -26,7 +26,7 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
       // let main_camera = cx.viewer.scene.main_camera.into_raw();
       let main_camera = None;
       let helper_mesh_lines =
-        camera_transforms.map_only_spawn_stage_in_thread_dual_query(cx, move |camera_transforms| {
+        camera_transforms.map_spawn_stage_in_thread_dual_query(cx, move |camera_transforms| {
           let (view, delta) = camera_transforms.view_delta();
           delta.iter_key_value().next()?; // skip if nothing changed
           let mats = view.iter_key_value().filter_map(|(camera, transform)| {

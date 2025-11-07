@@ -25,7 +25,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
     cx.scope(|cx| {
       let world_mat = use_global_node_world_mat_view(cx);
 
-      let helper_mesh_lines = world_mat.map_only_spawn_stage_in_thread(
+      let helper_mesh_lines = world_mat.map_spawn_stage_in_thread(
         cx,
         |_| false,
         |world_mat| {
@@ -62,7 +62,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
     cx.scope(|cx| {
       let world_mat = use_global_node_world_mat_view(cx);
 
-      let helper_mesh_lines = world_mat.map_only_spawn_stage_in_thread(
+      let helper_mesh_lines = world_mat.map_spawn_stage_in_thread(
         cx,
         |_| false,
         |world_mat| {
@@ -101,7 +101,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
     cx.scope(|cx| {
       let world_mat = use_global_node_world_mat_view(cx);
 
-      let helper_mesh_lines = world_mat.map_only_spawn_stage_in_thread(
+      let helper_mesh_lines = world_mat.map_spawn_stage_in_thread(
         cx,
         |_| false,
         |world_mat| {

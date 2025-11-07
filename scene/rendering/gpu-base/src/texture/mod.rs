@@ -134,7 +134,7 @@ pub fn use_pool_texture_system(
 
   cx.use_changes::<SceneTexture2dEntityDirectContent>()
     .filter_map_changes(|tex| tex.map(|tex| tex.size))
-    .map_only_spawn_stage(move |size_changes| {
+    .map(move |size_changes| {
       let content_view = get_db_view_uncheck_access::<SceneTexture2dEntityDirectContent>();
       let content_changes = content_changes.into_spawn_stage_ready();
       let mut buff_changes = FastHashMap::default();

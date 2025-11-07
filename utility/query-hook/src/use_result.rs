@@ -8,7 +8,7 @@ pub enum UseResult<T> {
 }
 
 impl<T: Send + Sync + 'static> UseResult<T> {
-  pub fn map_only_spawn_stage_in_thread_dual_query<U: Send + Sync + 'static>(
+  pub fn map_spawn_stage_in_thread_dual_query<U: Send + Sync + 'static>(
     self,
     cx: &mut impl QueryHookCxLike,
     f: impl FnOnce(T) -> U + Send + Sync + 'static,
@@ -16,13 +16,13 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   where
     T: DualQueryLike,
   {
-    self.map_only_spawn_stage_in_thread(cx, |q| q.is_change_possible_empty(), f)
+    self.map_spawn_stage_in_thread(cx, |q| q.is_change_possible_empty(), f)
   }
 
-  pub fn map_only_spawn_stage_in_thread<U: Send + Sync + 'static>(
+  pub fn map_spawn_stage_in_thread<U: Send + Sync + 'static>(
     self,
     cx: &mut impl QueryHookCxLike,
-    should_do_work_in_main_thread: impl FnOnce(&T) -> bool + Send + Sync + 'static,
+    has_no_real_work_todo: impl FnOnce(&T) -> bool + Send + Sync + 'static,
     f: impl FnOnce(T) -> U + Send + Sync + 'static,
   ) -> UseResult<U> {
     match self {
@@ -31,7 +31,7 @@ impl<T: Send + Sync + 'static> UseResult<T> {
         let spawner = spawner.clone();
         let fut = async move {
           let r = fut.await;
-          if should_do_work_in_main_thread(&r) {
+          if has_no_real_work_todo(&r) {
             f(r)
           } else {
             spawner.spawn_task(move || f(r)).await
@@ -40,7 +40,7 @@ impl<T: Send + Sync + 'static> UseResult<T> {
         UseResult::SpawnStageFuture(pin_box_in_frame(fut))
       }
       UseResult::SpawnStageReady(t) => {
-        if should_do_work_in_main_thread(&t) {
+        if has_no_real_work_todo(&t) {
           UseResult::SpawnStageReady(f(t))
         } else {
           let spawner = cx.spawner().unwrap();
@@ -61,7 +61,7 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     T: DataChanges,
   {
     let map = cx.use_shared_hash_map::<T::Key, T::Value>();
-    self.map_only_spawn_stage_in_thread(
+    self.map_spawn_stage_in_thread(
       cx,
       |change| !change.has_change(),
       move |change| {
@@ -87,19 +87,6 @@ impl<T: Send + Sync + 'static> UseResult<T> {
         }
       },
     )
-  }
-
-  pub fn map_only_spawn_stage<U>(
-    self,
-    f: impl FnOnce(T) -> U + Send + Sync + 'static,
-  ) -> UseResult<U> {
-    use futures::FutureExt;
-    match self {
-      UseResult::SpawnStageFuture(fut) => UseResult::SpawnStageFuture(pin_box_in_frame(fut.map(f))),
-      UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
-      UseResult::ResolveStageReady(_) => UseResult::NotInStage,
-      UseResult::NotInStage => UseResult::NotInStage,
-    }
   }
 
   /// note, this mapping is map both spawn stage and resolve stage,
@@ -369,7 +356,7 @@ where
   ) -> UseResult<
     DualQuery<ChainQuery<U::View, T::View>, Arc<FastHashMap<U::Key, ValueChange<T::Value>>>>,
   > {
-    self.join(other).map_only_spawn_stage_in_thread(
+    self.join(other).map_spawn_stage_in_thread(
       cx,
       |(a, b)| a.is_change_possible_empty() && b.is_change_possible_empty(),
       |(a, b)| a.fanout(b),
@@ -415,7 +402,7 @@ where
   {
     let map = cx.use_shared_hash_map();
 
-    self.map_only_spawn_stage_in_thread_dual_query(cx, move |t| {
+    self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
       let (view, delta) = t.view_delta();
       bookkeeping_hash_relation(&mut map.write(), &delta);
 
@@ -435,7 +422,7 @@ where
   {
     let map = cx.use_shared_hash_map();
 
-    self.map_only_spawn_stage_in_thread_dual_query(cx, move |t| {
+    self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
       let mut mapping = map.write();
       let mut mutations = FastHashMap::<T::Value, ValueChange<T::Key>>::default();
       use std::ops::DerefMut;
@@ -508,7 +495,7 @@ where
   {
     let cache = cx.use_shared_hash_map();
 
-    self.map_only_spawn_stage_in_thread_dual_query(cx, move |t| {
+    self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
       let d = t.delta();
       let materialized = d.iter_key_value().collect::<Vec<_>>();
 

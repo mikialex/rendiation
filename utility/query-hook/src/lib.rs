@@ -220,7 +220,7 @@ pub trait QueryHookCxLike: HooksCxLike {
       &|cx| {
         provider
           .use_logic(cx)
-          .map_only_spawn_stage_in_thread_dual_query(cx, |r| r.materialize_delta())
+          .map_spawn_stage_in_thread_dual_query(cx, |r| r.materialize_delta())
       },
       key,
       consumer_id,
@@ -233,7 +233,7 @@ pub trait QueryHookCxLike: HooksCxLike {
       .or_insert_with(|| Arc::new(SharedQueryChangeReconciler::<K, V>::default()))
       .clone();
 
-    result.map_only_spawn_stage_in_thread_dual_query(self, move |r| {
+    result.map_spawn_stage_in_thread_dual_query(self, move |r| {
       let (view, delta) = r.view_delta();
       let delta = Box::new(delta.into_boxed());
       if let Some(new_delta) = reconciler.reconcile(consumer_id, delta, skip_change) {
@@ -446,7 +446,7 @@ pub trait QueryHookCxLike: HooksCxLike {
   ) -> UseResult<RevRefContainerRead<V, C::Key>> {
     let (_, mapping) = self.use_plain_state_default_cloned::<RevRefContainer<V, C::Key>>();
 
-    changes.map_only_spawn_stage_in_thread(
+    changes.map_spawn_stage_in_thread(
       self,
       |changes| changes.is_empty(),
       move |changes| {

@@ -174,7 +174,7 @@ fn use_attribute_indices_updates(
   let allocator = allocator.clone();
   let gpu_buffer_ = gpu_buffer.clone();
 
-  let allocation_info = source_info.map_only_spawn_stage_in_thread_dual_query(cx, move |dual| {
+  let allocation_info = source_info.map_spawn_stage_in_thread_dual_query(cx, move |dual| {
     let change = dual.delta().into_change();
     let removed_and_changed_keys = change
       .iter_removed()
@@ -298,46 +298,45 @@ fn use_attribute_vertex_updates(
   let allocator = allocator.clone();
   let gpu_buffer = vertex_buffer.clone();
 
-  let allocation_info =
-    source_info.map_only_spawn_stage_in_thread_dual_query(cx, move |source_info| {
-      let change = source_info.delta().into_change();
-      let removed_and_changed_keys = change
-        .iter_removed()
-        .chain(change.iter_update_or_insert().map(|(k, _)| k));
+  let allocation_info = source_info.map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
+    let change = source_info.delta().into_change();
+    let removed_and_changed_keys = change
+      .iter_removed()
+      .chain(change.iter_update_or_insert().map(|(k, _)| k));
 
-      let data = get_db_view::<BufferEntityData>();
+    let data = get_db_view::<BufferEntityData>();
 
-      // todo, avoid resize
-      let mut buffers_to_write = RangeAllocateBufferCollector::default();
-      let mut sizes = Vec::new();
+    // todo, avoid resize
+    let mut buffers_to_write = RangeAllocateBufferCollector::default();
+    let mut sizes = Vec::new();
 
-      for (k, (buffer_id, range)) in change.iter_update_or_insert() {
-        let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
+    for (k, (buffer_id, range)) in change.iter_update_or_insert() {
+      let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
 
-        let range = range.map(|range| range.into_range(buffer.len()));
+      let range = range.map(|range| range.into_range(buffer.len()));
 
-        let len = range
-          .clone()
-          .map(|range| range.len() as u32)
-          .unwrap_or(buffer.len() as u32);
-        buffers_to_write.collect_shared(k, (buffer, range));
-        sizes.push((k, len / item_byte_size));
-      }
+      let len = range
+        .clone()
+        .map(|range| range.len() as u32)
+        .unwrap_or(buffer.len() as u32);
+      buffers_to_write.collect_shared(k, (buffer, range));
+      sizes.push((k, len / item_byte_size));
+    }
 
-      let changes = allocator.write().update(removed_and_changed_keys, sizes);
+    let changes = allocator.write().update(removed_and_changed_keys, sizes);
 
-      let buffers_to_write = buffers_to_write.prepare(&changes, item_byte_size);
+    let buffers_to_write = buffers_to_write.prepare(&changes, item_byte_size);
 
-      if let Some(new_size) = changes.resize_to {
-        // here we do(request) resize at spawn stage to avoid resize again and again
-        gpu_buffer.write().resize(new_size * item_byte_size / 4);
-      }
+    if let Some(new_size) = changes.resize_to {
+      // here we do(request) resize at spawn stage to avoid resize again and again
+      gpu_buffer.write().resize(new_size * item_byte_size / 4);
+    }
 
-      Arc::new(RangeAllocateBufferUpdates {
-        buffers_to_write,
-        allocation_changes: BatchAllocateResultShared(Arc::new(changes), item_byte_size / 4),
-      })
-    });
+    Arc::new(RangeAllocateBufferUpdates {
+      buffers_to_write,
+      allocation_changes: BatchAllocateResultShared(Arc::new(changes), item_byte_size / 4),
+    })
+  });
 
   let (allocation_info, allocation_info_) = allocation_info.fork();
 

@@ -32,7 +32,7 @@ pub fn use_multi_access_gpu(
 
   let many_side_buffer_ = many_side_buffer.clone();
   let allocator = allocator.clone();
-  let changes = source.map_only_spawn_stage_in_thread(
+  let changes = source.map_spawn_stage_in_thread(
     cx,
     |source| source.view_delta_ref().1.is_empty(),
     move |source| {
@@ -88,7 +88,7 @@ pub fn use_multi_access_gpu(
   let (changes, changes_) = changes.fork();
 
   let updates = changes
-    .map_only_spawn_stage_in_thread(
+    .map_spawn_stage_in_thread(
       cx,
       |changes| !changes.allocation_changes.has_change(),
       |changes| {
