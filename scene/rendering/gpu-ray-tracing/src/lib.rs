@@ -17,7 +17,6 @@ use rendiation_shader_api::*;
 use rendiation_texture_core::Size;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
-use tracing::*;
 
 mod acceleration_structure;
 pub use acceleration_structure::*;

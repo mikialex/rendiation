@@ -14,23 +14,14 @@ pub enum RasterizationRenderBackendType {
 }
 
 pub struct Viewer3dRenderingCtx {
-  pub(crate) frame_index: u64,
   pub(crate) ndc: ViewerNDC,
   pub(super) enable_indirect_occlusion_culling: bool,
   pub(super) using_host_driven_indirect_draw: bool,
   pub(super) current_renderer_impl_ty: RasterizationRenderBackendType,
   pub(super) rtx_renderer_enabled: bool,
-  pub(super) any_render_change: ChangeNotifier,
   pub(super) lighting: LightSystem,
-  pool: AttachmentPool,
   pub(super) gpu: GPU,
-  pub swap_chain: ApplicationWindowSurface,
-  pub statistics: FramePassStatistics,
-  pub enable_statistic_collect: bool,
   pub(super) prefer_bindless_for_indirect_texture_system: bool,
-
-  pub(super) stat_frame_time_in_ms: StatisticStore<f32>,
-  pub(super) last_render_timestamp: Option<Instant>,
 
   pub views: FastHashMap<u64, Viewer3dViewportRenderingCtx>,
 
@@ -44,7 +35,6 @@ impl Viewer3dRenderingCtx {
     init_config.prefer_bindless_for_indirect_texture_system =
       self.prefer_bindless_for_indirect_texture_system;
     init_config.init_only = self.init_config.init_only.clone();
-    init_config.present_mode = self.swap_chain.internal(|v| v.config.present_mode);
 
     let first_view = self.views.values().next().unwrap();
     init_config.transparent_config = first_view.transparent_config;
@@ -55,36 +45,23 @@ impl Viewer3dRenderingCtx {
     &self.gpu
   }
 
-  pub fn new(
-    gpu: GPU,
-    swap_chain: ApplicationWindowSurface,
-    ndc: ViewerNDC,
-    init_config: &ViewerInitConfig,
-  ) -> Self {
+  pub fn new(gpu: GPU, ndc: ViewerNDC, init_config: &ViewerInitConfig) -> Self {
     Self {
       prefer_bindless_for_indirect_texture_system: init_config
         .prefer_bindless_for_indirect_texture_system,
-      enable_statistic_collect: false,
       using_host_driven_indirect_draw: init_config.using_host_driven_indirect_draw,
-      frame_index: 0,
       ndc,
-      swap_chain,
       enable_indirect_occlusion_culling: init_config.enable_indirect_occlusion_culling,
       current_renderer_impl_ty: init_config.raster_backend_type,
       rtx_renderer_enabled: false,
-      any_render_change: Default::default(),
       lighting: LightSystem::new(&gpu),
-      pool: init_attachment_pool(&gpu),
-      statistics: FramePassStatistics::new(64, &gpu),
       gpu,
       views: FastHashMap::default(),
-      stat_frame_time_in_ms: StatisticStore::new(200),
-      last_render_timestamp: Default::default(),
       init_config: init_config.clone(),
     }
   }
 
-  fn use_viewer_scene_renderer(
+  pub fn use_viewer_scene_renderer(
     &mut self,
     cx: &mut QueryGPUHookCx,
   ) -> Option<ViewerRendererInstancePreparer> {
@@ -326,7 +303,7 @@ impl Viewer3dRenderingCtx {
     })
   }
 
-  fn storage_allocator(&self) -> Box<dyn AbstractStorageAllocator> {
+  pub fn storage_allocator(&self) -> Box<dyn AbstractStorageAllocator> {
     if self
       .init_config
       .init_only
@@ -338,85 +315,14 @@ impl Viewer3dRenderingCtx {
     }
   }
 
-  pub fn update_registry(
-    &mut self,
-    memory: &mut FunctionMemory,
-    task_spawner: &TaskSpawner,
-    shared_ctx: &mut SharedHooksCtx,
-    immediate_results: &mut FastHashMap<u32, Arc<dyn std::any::Any + Send + Sync>>,
-  ) -> AsyncTaskPool {
-    let mut pool = AsyncTaskPool::default();
-    let gpu = self.gpu.clone();
-
-    shared_ctx.reset_visiting();
-    QueryGPUHookCx {
-      memory,
-      gpu: &gpu,
-      waker: futures::task::waker(self.any_render_change.clone()),
-      stage: GPUQueryHookStage::Update {
-        spawner: task_spawner,
-        task_pool: &mut pool,
-        change_collector: &mut Default::default(),
-        immediate_results,
-      },
-      shared_ctx,
-      storage_allocator: self.storage_allocator(),
-    }
-    .execute(|cx| self.use_viewer_scene_renderer(cx));
-    pool
-  }
-
-  pub fn inspect(
-    &mut self,
-    memory: &mut FunctionMemory,
-    shared_ctx: &mut SharedHooksCtx,
-    inspector: &mut dyn Inspector,
-  ) {
-    if !memory.created {
-      return;
-    }
-
-    let gpu = self.gpu.clone();
-    shared_ctx.reset_visiting();
-    QueryGPUHookCx {
-      memory,
-      gpu: &gpu,
-      stage: GPUQueryHookStage::Inspect(inspector),
-      shared_ctx,
-      storage_allocator: self.storage_allocator(),
-      waker: futures::task::waker(self.any_render_change.clone()),
-    }
-    .execute(|cx| self.use_viewer_scene_renderer(cx));
-  }
-
-  pub fn init_frame(&mut self) {
-    self.frame_index += 1;
-    let now = Instant::now();
-    if let Some(last_frame_time) = self.last_render_timestamp.take() {
-      self.stat_frame_time_in_ms.insert(
-        now.duration_since(last_frame_time).as_secs_f32() * 1000.,
-        self.frame_index,
-      );
-    }
-    self.last_render_timestamp = Some(now);
-    self.pool.tick();
-  }
-
   /// return should render views
   pub fn check_should_render_and_copy_cached(
     &mut self,
     target: &RenderTargetView,
     views: &[ViewerViewPort],
+    ctx: &mut FrameCtx,
+    any_changed: bool,
   ) -> FastHashSet<(u64, usize)> {
-    let upstream = futures::task::noop_waker();
-    let any_changed = self.any_render_change.update(&upstream);
-
-    let statistics = self
-      .enable_statistic_collect
-      .then(|| self.statistics.create_resolver(self.frame_index));
-
-    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, statistics);
-
     let mut new_views = FastHashMap::default();
     for v in views {
       if let Some(view) = self.views.remove(&v.id) {
@@ -435,7 +341,7 @@ impl Viewer3dRenderingCtx {
       .enumerate()
       .filter_map(|(i, v)| {
         let view_renderer = self.views.get_mut(&v.id).unwrap();
-        if view_renderer.check_should_render_and_copy_cached(target, v, any_changed, &mut ctx) {
+        if view_renderer.check_should_render_and_copy_cached(target, v, any_changed, ctx) {
           Some((v.id, i))
         } else {
           None
@@ -450,43 +356,13 @@ impl Viewer3dRenderingCtx {
     requested_render_views: &FastHashSet<(u64, usize)>,
     final_target: &RenderTargetView,
     content: &Viewer3dContent,
-    memory: &mut FunctionMemory,
-    mut task_pool_result: TaskPoolResultCx,
-    shared_ctx: &mut SharedHooksCtx,
-    immediate_results: &mut FastHashMap<u32, Arc<dyn std::any::Any + Send + Sync>>,
+    renderer: ViewerRendererInstancePreparer,
+    ctx: &mut FrameCtx,
+    waker: &Waker,
   ) {
-    let gpu = self.gpu.clone();
-    shared_ctx.reset_visiting();
-    let mut encoder = gpu.create_encoder();
-
-    task_pool_result
-      .token_based_result
-      .extend(immediate_results.drain());
-
-    let renderer = QueryGPUHookCx {
-      memory,
-      gpu: &gpu,
-      stage: GPUQueryHookStage::CreateRender {
-        task: task_pool_result,
-        encoder: &mut encoder,
-      },
-      shared_ctx,
-      waker: futures::task::waker(self.any_render_change.clone()),
-      storage_allocator: self.storage_allocator(),
-    }
-    .execute(|cx| self.use_viewer_scene_renderer(cx).unwrap());
-
-    gpu.submit_encoder(encoder);
-
-    let statistics = self
-      .enable_statistic_collect
-      .then(|| self.statistics.create_resolver(self.frame_index));
-
-    let mut ctx = FrameCtx::new(&self.gpu, final_target.size(), &self.pool, statistics);
-
     let lighting_cx = self.lighting.prepare(
       renderer.lighting,
-      &mut ctx,
+      ctx,
       self.ndc.enable_reverse_z,
       renderer.raster_scene_renderer.as_ref(),
       &renderer.extractor,
@@ -507,24 +383,18 @@ impl Viewer3dRenderingCtx {
       lighting: lighting_cx,
     };
 
-    let waker = futures::task::waker(self.any_render_change.clone());
     let size_backup = ctx.frame_size;
     for (viewport_id, idx) in requested_render_views {
       let view_renderer = self.views.get_mut(viewport_id).unwrap();
       let viewport = &content.viewports[*idx];
       ctx.frame_size = viewport.render_pixel_size();
-      view_renderer.render(&mut ctx, &renderer, content, viewport, final_target, &waker);
+      view_renderer.render(ctx, &renderer, content, viewport, final_target, waker);
     }
     ctx.frame_size = size_backup;
-
-    drop(ctx);
-
-    noop_ctx!(cx);
-    self.statistics.poll(cx);
   }
 }
 
-struct ViewerRendererInstancePreparer {
+pub struct ViewerRendererInstancePreparer {
   pub camera: CameraRenderer,
   pub background: SceneBackgroundRenderer,
   pub raster_scene_renderer: Box<dyn SceneRenderer>,

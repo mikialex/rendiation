@@ -1,56 +1,10 @@
 use crate::*;
 
 impl Viewer3dRenderingCtx {
-  pub fn egui(&mut self, ui: &mut egui::Ui, last_frame_cpu_time: f32, average_frame_cpu_time: f32) {
+  #[must_use]
+  pub fn egui(&mut self, ui: &mut egui::Ui, is_hdr: bool) -> bool {
     let mut ui = UiWithChangeInfo(ui, false);
     let ui = &mut ui;
-
-    let mut is_hdr = false;
-    self.swap_chain.internal(|surface| {
-      is_hdr = surface.config.format == TextureFormat::Rgba16Float;
-      ui.collapsing("Swapchain config", |ui| {
-        let cap = surface.capabilities();
-        let default_none_hdr_format = get_default_preferred_format(cap);
-        let support_hdr = cap.formats.contains(&TextureFormat::Rgba16Float);
-
-        ui.add_enabled_ui(support_hdr, |ui| {
-          ui.checkbox(&mut is_hdr, "enable hdr rendering")
-            .on_disabled_hover_text("current platform does not support hdr rendering");
-          if is_hdr {
-            surface.config.format = TextureFormat::Rgba16Float;
-          } else {
-            surface.config.format = default_none_hdr_format;
-          }
-        });
-
-        let current = surface.config.present_mode;
-
-        let cap = surface.capabilities().present_modes.clone();
-
-        let present_mode_ui =
-          |ui: &mut UiWithChangeInfo, mode: PresentMode, name: &str, config: &mut PresentMode| {
-            let supported = cap.contains(&mode)
-              || mode == PresentMode::AutoVsync
-              || mode == PresentMode::AutoNoVsync;
-            ui.add_enabled_ui(supported, |ui| {
-              ui.selectable_value(config, mode, name)
-                .on_disabled_hover_text("not supported");
-            })
-          };
-
-        egui::ComboBox::from_label("present mode")
-          .selected_text(format!("{:?}", current))
-          .show_ui_changed(ui, |ui| {
-            let target = &mut surface.config.present_mode;
-            present_mode_ui(ui, PresentMode::AutoVsync, "AutoVsync", target);
-            present_mode_ui(ui, PresentMode::AutoNoVsync, "AutoNoVsync", target);
-            present_mode_ui(ui, PresentMode::Fifo, "Fifo", target);
-            present_mode_ui(ui, PresentMode::FifoRelaxed, "FifoRelaxed", target);
-            present_mode_ui(ui, PresentMode::Immediate, "Immediate", target);
-            present_mode_ui(ui, PresentMode::Mailbox, "Mailbox", target);
-          });
-      });
-    });
 
     let is_target_support_indirect_draw = self.gpu.info.downgrade_info.is_webgpu_compliant()
       || (self
@@ -150,13 +104,6 @@ impl Viewer3dRenderingCtx {
 
     ui.separator();
 
-    time_graph(
-      ui,
-      &self.stat_frame_time_in_ms,
-      last_frame_cpu_time,
-      average_frame_cpu_time,
-    );
-
     self.lighting.egui(ui, is_hdr);
 
     ui.separator();
@@ -171,89 +118,6 @@ impl Viewer3dRenderingCtx {
       });
     }
 
-    if ui.1 {
-      self.any_render_change.do_wake();
-    }
+    ui.1
   }
-}
-
-fn time_graph(
-  ui: &mut UiWithChangeInfo,
-  stat_frame_time_in_ms: &StatisticStore<f32>,
-  last_frame_cpu_time: f32,
-  average_frame_cpu_time: f32,
-) {
-  ui.collapsing("time graph", |ui| {
-    let ui = &mut ui.0;
-    ui.label(format!(
-      "last frame cpu time: {:.2} ms",
-      last_frame_cpu_time
-    ));
-
-    ui.label(format!(
-      "average cpu time: {:.2} ms",
-      average_frame_cpu_time
-    ));
-    if let Some((t, _)) = stat_frame_time_in_ms.get_latest() {
-      ui.label(format!(
-        "last frame time: {:.2} ms, fps: {:.2}",
-        t,
-        1000. / t
-      ));
-    }
-    let t = stat_frame_time_in_ms.history_average();
-    ui.label(format!(
-      "average frame time: {:.2} ms, fps: {:.2}",
-      t,
-      1000. / t
-    ));
-    if let Some(times) = stat_frame_time_in_ms.iter_history_from_oldest_latest() {
-      let graph_height = 200.;
-      let graph_width = 300.;
-      let (res, painter) = ui.allocate_painter(
-        egui::Vec2 {
-          x: graph_width,
-          y: graph_height,
-        },
-        egui::Sense::empty(),
-      );
-      let x_start = res.rect.left();
-      let y_start = res.rect.top();
-      let x_step = graph_width / stat_frame_time_in_ms.history_size() as f32;
-
-      let warning_time_threshold = 1000. / 60.;
-      let serious_warning_time_threshold = 1000. / 15.;
-      let max_time = stat_frame_time_in_ms
-        .history_max()
-        .copied()
-        .unwrap_or(warning_time_threshold);
-      for (idx, t) in times.enumerate() {
-        if let Some(&t) = t {
-          let height = t / max_time * graph_height;
-          let color = if t >= serious_warning_time_threshold {
-            egui::Color32::RED
-          } else if t >= warning_time_threshold {
-            egui::Color32::ORANGE
-          } else if ui.visuals().dark_mode {
-            egui::Color32::WHITE
-          } else {
-            egui::Color32::BLACK
-          };
-          painter.rect_filled(
-            egui::Rect {
-              min: egui::pos2(
-                x_start + idx as f32 * x_step,
-                y_start + (graph_height - height),
-              ),
-              max: egui::pos2(x_start + (idx + 1) as f32 * x_step, y_start + graph_height),
-            },
-            0.,
-            color,
-          );
-        }
-      }
-    } else {
-      ui.label("frame time graph not available");
-    }
-  });
 }

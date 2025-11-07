@@ -144,7 +144,6 @@ impl SceneRayTracingAORenderer {
     }
   }
 
-  #[instrument(name = "SceneRayTracingAORenderer rendering", skip_all)]
   pub fn render(
     &self,
     frame: &mut FrameCtx,

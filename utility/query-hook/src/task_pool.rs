@@ -56,23 +56,6 @@ impl TaskSpawner {
   }
 }
 
-// pub trait AnyClone: Any + Sync + Send + DynClone + 'static {
-//   fn as_any(&self) -> &dyn Any;
-// }
-// impl<T> AnyClone for T
-// where
-//   T: Any + DynClone + Sync + Send + 'static,
-// {
-//   fn as_any(&self) -> &dyn Any {
-//     self
-//   }
-// }
-// impl Clone for Box<dyn AnyClone> {
-//   fn clone(&self) -> Self {
-//     dyn_clone::clone_box(&**self)
-//   }
-// }
-
 #[derive(Default)]
 pub struct AsyncTaskPool {
   registry:

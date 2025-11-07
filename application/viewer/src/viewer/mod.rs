@@ -6,6 +6,9 @@ pub use feature::*;
 mod viewport;
 pub use viewport::*;
 
+mod rendering_root;
+pub use rendering_root::*;
+
 mod default_scene;
 pub use default_scene::*;
 
@@ -375,19 +378,25 @@ pub fn use_viewer<'a>(
   }
   .execute(|viewer| f(viewer));
 
-  viewer.draw_canvas(&acx.draw_target_canvas, worker_thread_pool);
+  viewer.rendering_root.draw_canvas(
+    &acx.draw_target_canvas,
+    worker_thread_pool,
+    &viewer.content,
+    &mut viewer.shared_ctx,
+    &mut viewer.rendering,
+  );
 
   viewer
 }
 
 pub struct Viewer {
   pub content: Viewer3dContent,
+  rendering_root: RenderingRoot,
   rendering: Viewer3dRenderingCtx,
   terminal: Terminal,
   background: ViewerBackgroundState,
   started_time: Instant,
   memory: FunctionMemory,
-  render_memory: FunctionMemory,
   shared_ctx: SharedHooksCtx,
   features_config: ViewerFeaturesInitConfig,
 }
@@ -404,11 +413,7 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
     };
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
 
-    let mut dcx = QueryGPUHookDropCx {
-      share_cx: &mut self.shared_ctx,
-    };
-
-    self.render_memory.cleanup(&mut dcx as *mut _ as *mut ());
+    self.rendering_root.cleanup(&mut self.shared_ctx);
   }
 }
 
@@ -482,11 +487,11 @@ impl Viewer {
     Self {
       content: scene,
       terminal,
-      rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc, init_config),
+      rendering_root: RenderingRoot::new(&gpu, swap_chain),
+      rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, init_config),
       background,
       started_time: Instant::now(),
       memory: Default::default(),
-      render_memory: Default::default(),
       shared_ctx: Default::default(),
       features_config: init_config.features.clone(),
     }
@@ -495,39 +500,9 @@ impl Viewer {
   pub fn export_init_config(&self) -> ViewerInitConfig {
     let mut config = ViewerInitConfig::default();
     self.rendering.setup_init_config(&mut config);
+    self.rendering_root.setup_init_config(&mut config);
     config.features = self.features_config.clone();
     config
-  }
-
-  pub fn draw_canvas(&mut self, canvas: &RenderTargetView, task_spawner: &TaskSpawner) {
-    self.rendering.init_frame();
-
-    let mut immediate_results = Default::default();
-
-    let requested_render_views = self
-      .rendering
-      .check_should_render_and_copy_cached(canvas, &self.content.viewports);
-
-    if !requested_render_views.is_empty() {
-      let tasks = self.rendering.update_registry(
-        &mut self.render_memory,
-        task_spawner,
-        &mut self.shared_ctx,
-        &mut immediate_results,
-      );
-
-      let task_pool_result = pollster::block_on(tasks.all_async_task_done());
-
-      self.rendering.render(
-        &requested_render_views,
-        canvas,
-        &self.content,
-        &mut self.render_memory,
-        task_pool_result,
-        &mut self.shared_ctx,
-        &mut immediate_results,
-      );
-    }
   }
 }
 

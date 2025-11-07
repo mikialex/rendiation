@@ -43,7 +43,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
   frame_cpu_time_stat.insert(
     cx.input.last_frame_cpu_time_in_ms,
-    cx.viewer.rendering.frame_index,
+    cx.viewer.rendering_root.frame_index(),
   );
 
   if let ViewerCxStage::Gui {
@@ -109,7 +109,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
       .resizable(true)
       .movable(true)
       .show(ui, |ui| {
-        ui.collapsing("Features panel", |ui| {
+        ui.collapsing("features", |ui| {
           for (name, show_panel) in global.features.iter_mut() {
             ui.checkbox(show_panel, *name);
           }
@@ -117,10 +117,12 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
         ui.separator();
 
-        let avg = frame_cpu_time_stat.history_average();
-        viewer
-          .rendering
-          .egui(ui, cx.input.last_frame_cpu_time_in_ms, avg);
+        let is_hdr = viewer.rendering_root.is_hdr();
+        let changed = viewer.rendering.egui(ui, is_hdr);
+
+        if changed {
+          viewer.rendering_root.notify_change();
+        }
 
         viewer.background.egui(ui, viewer.content.scene);
 
@@ -146,90 +148,20 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           }
           let mut inspector = EguiInspector(ui);
 
-          viewer.rendering.inspect(
-            &mut viewer.render_memory,
+          viewer.rendering_root.inspect(
             &mut viewer.shared_ctx,
             &mut inspector as &mut dyn Inspector,
+            &mut viewer.rendering,
           );
         });
       });
 
-    egui::Window::new("Frame Rendering Info")
-      .open(&mut ui_state.show_frame_info)
-      .vscroll(true)
-      .show(ui, |ui| {
-        ui.label("frame pass pipeline statistics:");
-        ui.separator();
-
-        ui.checkbox(
-          &mut viewer.rendering.enable_statistic_collect,
-          "enable_statistic_collect",
-        );
-
-        if viewer.rendering.enable_statistic_collect {
-          if viewer.rendering.statistics.collected.is_empty() {
-            ui.label("no statistics info available");
-          } else {
-            if !viewer.rendering.statistics.pipeline_query_supported {
-              ui.label("note: pipeline query not supported on this platform");
-            } else {
-              let statistics = &mut viewer.rendering.statistics;
-              ui.collapsing("pipeline_info", |ui| {
-                statistics.collected.iter().for_each(|(name, info)| {
-                  if let Some((value, index)) = &info.pipeline.get_latest() {
-                    #[allow(dead_code)]
-                    #[derive(Debug)] // just to impl Debug
-                    struct DeviceDrawStatistics2 {
-                      pub vertex_shader_invocations: u64,
-                      pub clipper_invocations: u64,
-                      pub clipper_primitives_out: u64,
-                      pub fragment_shader_invocations: u64,
-                      pub compute_shader_invocations: u64,
-                    }
-
-                    impl From<DeviceDrawStatistics> for DeviceDrawStatistics2 {
-                      fn from(value: DeviceDrawStatistics) -> Self {
-                        Self {
-                          vertex_shader_invocations: value.vertex_shader_invocations,
-                          clipper_invocations: value.clipper_invocations,
-                          clipper_primitives_out: value.clipper_primitives_out,
-                          fragment_shader_invocations: value.fragment_shader_invocations,
-                          compute_shader_invocations: value.compute_shader_invocations,
-                        }
-                      }
-                    }
-
-                    ui.collapsing(name, |ui| {
-                      ui.label(format!("frame index: {:?}", index));
-                      ui.label(format!("{:#?}", DeviceDrawStatistics2::from(*value)));
-                    });
-                  }
-                });
-              });
-            }
-            if !viewer.rendering.statistics.time_query_supported {
-              ui.label("warning: time query not supported");
-            } else {
-              let statistics = &mut viewer.rendering.statistics;
-              ui.collapsing("time_info", |ui| {
-                statistics.collected.iter().for_each(|(name, info)| {
-                  if let Some((value, _)) = &info.time.get_latest() {
-                    let name = format!("{}: {:.2}ms", name, value);
-                    ui.label(name);
-                  }
-                });
-              });
-            }
-
-            if ui.button("clear").clicked() {
-              viewer
-                .rendering
-                .statistics
-                .clear_history(viewer.rendering.statistics.max_history);
-            }
-          }
-        }
-      });
+    viewer.rendering_root.egui(
+      ui,
+      &mut ui_state.show_frame_info,
+      cx.input.last_frame_cpu_time_in_ms,
+      frame_cpu_time_stat,
+    );
 
     egui::Window::new("GPU Info")
       .open(&mut ui_state.show_gpu_info)
