@@ -182,30 +182,6 @@ pub trait QueryHookCxLike: HooksCxLike {
     self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, consumer_id)
   }
 
-  fn use_shared_dual_query_internal<Provider: SharedResultProvider<Self, Result: DualQueryLike>>(
-    &mut self,
-    provider: Provider,
-  ) -> (
-    UseResult<MaterializedDeltaDualQuery<Provider::Result>>,
-    ShareKey,
-    u32,
-  ) {
-    let key = provider.compute_share_key();
-    let consumer_id = self.use_shared_consumer(key);
-    let r = self.use_shared_compute_internal(
-      &|cx| {
-        provider
-          .use_logic(cx)
-          .map_only_spawn_stage_in_thread_dual_query(cx, |r| r.materialize_delta())
-      },
-      key,
-      consumer_id,
-    );
-    (r, key, consumer_id)
-  }
-
-  // todo, improve: the view only consumer not need reconcile, but still rely on
-  // use_shared_dual_query to fanout changes
   fn use_shared_dual_query_view<Provider, K: CKey, V: CValue>(
     &mut self,
     provider: Provider,
@@ -213,7 +189,9 @@ pub trait QueryHookCxLike: HooksCxLike {
   where
     Provider: SharedResultProvider<Self, Result: DualQueryLike<Key = K, Value = V>>,
   {
-    self.use_shared_dual_query(provider).map(|r| r.view())
+    self
+      .use_shared_dual_query_internal(provider, true)
+      .map(|r| r.view())
   }
 
   fn use_shared_dual_query<Provider, K: CKey, V: CValue>(
@@ -223,7 +201,29 @@ pub trait QueryHookCxLike: HooksCxLike {
   where
     Provider: SharedResultProvider<Self, Result: DualQueryLike<Key = K, Value = V>>,
   {
-    let (result, key, consumer_id) = self.use_shared_dual_query_internal(provider);
+    self.use_shared_dual_query_internal(provider, false)
+  }
+
+  /// note, skip_change will still wake correctly
+  fn use_shared_dual_query_internal<Provider, K: CKey, V: CValue>(
+    &mut self,
+    provider: Provider,
+    skip_change: bool,
+  ) -> UseResult<BoxedDynDualQuery<K, V>>
+  where
+    Provider: SharedResultProvider<Self, Result: DualQueryLike<Key = K, Value = V>>,
+  {
+    let key = provider.compute_share_key();
+    let consumer_id = self.use_shared_consumer(key);
+    let result = self.use_shared_compute_internal(
+      &|cx| {
+        provider
+          .use_logic(cx)
+          .map_only_spawn_stage_in_thread_dual_query(cx, |r| r.materialize_delta())
+      },
+      key,
+      consumer_id,
+    );
 
     let reconciler = self
       .shared_hook_ctx()
@@ -234,12 +234,18 @@ pub trait QueryHookCxLike: HooksCxLike {
 
     result.map_only_spawn_stage_in_thread_dual_query(self, move |r| {
       let (view, delta) = r.view_delta();
-      if let Some(new_delta) = reconciler.reconcile(consumer_id, Box::new(delta.into_boxed())) {
+      let delta = Box::new(delta.into_boxed());
+      if let Some(new_delta) = reconciler.reconcile(consumer_id, delta, skip_change) {
         DualQuery {
           view: view.into_boxed(),
           delta: *new_delta
             .downcast::<BoxedDynQuery<K, ValueChange<V>>>()
             .unwrap(),
+        }
+      } else if skip_change {
+        DualQuery {
+          view: view.into_boxed(),
+          delta: EmptyQuery::default().into_boxed(),
         }
       } else {
         // expand the full view as delta
@@ -540,8 +546,8 @@ pub struct SharedHookObject {
 }
 
 pub trait ChangeReconciler: Send + Sync {
-  /// return None if the change should use full view expand
-  fn reconcile(&self, id: u32, change: Box<dyn Any>) -> Option<Box<dyn Any>>;
+  /// return None if the change should use full view expand or skip_change = true
+  fn reconcile(&self, id: u32, change: Box<dyn Any>, skip_change: bool) -> Option<Box<dyn Any>>;
   fn reset(&self);
   fn remove_consumer(&self, id: u32) -> bool;
 }
@@ -556,7 +562,7 @@ pub struct SharedQueryChangeReconcilerInternal<K, V> {
 }
 
 impl<K: CKey, V: CValue> ChangeReconciler for SharedQueryChangeReconciler<K, V> {
-  fn reconcile(&self, id: u32, change: Box<dyn Any>) -> Option<Box<dyn Any>> {
+  fn reconcile(&self, id: u32, change: Box<dyn Any>, skip_change: bool) -> Option<Box<dyn Any>> {
     // this lock introduce a blocking scope, but it's small and guaranteed to have forward progress
     let mut internal = self.internal.write();
     //  the first consumer get the result broadcast the result to others
@@ -577,6 +583,11 @@ impl<K: CKey, V: CValue> ChangeReconciler for SharedQueryChangeReconciler<K, V> 
       internal.consumers.insert(id, Vec::default());
       return None;
     }
+
+    if skip_change {
+      return None;
+    }
+
     let buffered_changes = std::mem::take(internal.consumers.get_mut(&id).unwrap());
     drop(internal);
 
