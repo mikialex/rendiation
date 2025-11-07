@@ -343,6 +343,7 @@ impl Viewer3dRenderingCtx {
     memory: &mut FunctionMemory,
     task_spawner: &TaskSpawner,
     shared_ctx: &mut SharedHooksCtx,
+    immediate_results: &mut FastHashMap<u32, Arc<dyn std::any::Any + Send + Sync>>,
   ) -> AsyncTaskPool {
     let mut pool = AsyncTaskPool::default();
     let gpu = self.gpu.clone();
@@ -356,6 +357,7 @@ impl Viewer3dRenderingCtx {
         spawner: task_spawner,
         task_pool: &mut pool,
         change_collector: &mut Default::default(),
+        immediate_results,
       },
       shared_ctx,
       storage_allocator: self.storage_allocator(),
@@ -449,12 +451,17 @@ impl Viewer3dRenderingCtx {
     final_target: &RenderTargetView,
     content: &Viewer3dContent,
     memory: &mut FunctionMemory,
-    task_pool_result: TaskPoolResultCx,
+    mut task_pool_result: TaskPoolResultCx,
     shared_ctx: &mut SharedHooksCtx,
+    immediate_results: &mut FastHashMap<u32, Arc<dyn std::any::Any + Send + Sync>>,
   ) {
     let gpu = self.gpu.clone();
     shared_ctx.reset_visiting();
     let mut encoder = gpu.create_encoder();
+
+    task_pool_result
+      .token_based_result
+      .extend(immediate_results.drain());
 
     let renderer = QueryGPUHookCx {
       memory,

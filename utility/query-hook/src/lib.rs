@@ -44,6 +44,7 @@ pub enum QueryHookStage<'a> {
   SpawnTask {
     spawner: &'a TaskSpawner,
     pool: &'a mut AsyncTaskPool,
+    immediate_results: &'a mut FastHashMap<u32, Arc<dyn Any + Send + Sync>>,
     change_collector: &'a mut ChangeCollector,
   },
   ResolveTask {
@@ -303,12 +304,16 @@ pub trait QueryHookCxLike: HooksCxLike {
             };
           }
           UseResult::SpawnStageReady(result) => {
-            if let QueryHookStage::SpawnTask { pool, .. } = cx.stage() {
-              let spawned_task_id = pool.install_task(pin_box_in_frame(std::future::ready(result)));
-              cx.shared_hook_ctx()
-                .task_id_mapping
-                .insert(key, spawned_task_id);
-              *persist_upstream_task_id = spawned_task_id;
+            // in this case, we have result in spawn stage directly in upstream
+            // here we get an adhoc_per_cycle_unique_id task id.
+            let some_id = u32::MAX / 2 - cx.shared_hook_ctx().task_id_mapping.len() as u32 - 1;
+            cx.shared_hook_ctx().task_id_mapping.insert(key, some_id);
+            *persist_upstream_task_id = some_id;
+            if let QueryHookStage::SpawnTask {
+              immediate_results, ..
+            } = cx.stage()
+            {
+              immediate_results.insert(some_id, Arc::new(result.clone()));
             } else {
               unreachable!()
             };
@@ -344,8 +349,14 @@ pub trait QueryHookCxLike: HooksCxLike {
     // if we enter this, the logic has already been executed in this stage before, so
     // we just share the task or clone the result.
     let r = match self.stage() {
-      QueryHookStage::SpawnTask { pool, .. } => {
-        if let Some(f) = pool.try_share_task_by_id(task_id) {
+      QueryHookStage::SpawnTask {
+        pool,
+        immediate_results,
+        ..
+      } => {
+        if let Some(r) = immediate_results.get(&task_id) {
+          UseResult::SpawnStageReady(r.clone().downcast_ref::<T>().unwrap().clone())
+        } else if let Some(f) = pool.try_share_task_by_id(task_id) {
           UseResult::SpawnStageFuture(f)
         } else {
           // this is possible if upstream not spawn or resolve anything in spawn stage

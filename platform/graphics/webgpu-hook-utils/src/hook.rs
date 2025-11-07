@@ -23,6 +23,7 @@ pub enum GPUQueryHookStage<'a> {
     task_pool: &'a mut AsyncTaskPool,
     spawner: &'a TaskSpawner,
     change_collector: &'a mut ChangeCollector,
+    immediate_results: &'a mut FastHashMap<u32, Arc<dyn std::any::Any + Send + Sync>>,
   },
   CreateRender {
     task: TaskPoolResultCx,
@@ -237,11 +238,13 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
         spawner,
         task_pool,
         change_collector,
+        immediate_results,
         ..
       } => QueryHookStage::SpawnTask {
         spawner,
         pool: task_pool,
         change_collector,
+        immediate_results,
       },
       GPUQueryHookStage::CreateRender { task, .. } => QueryHookStage::ResolveTask { task },
       _ => QueryHookStage::Other,

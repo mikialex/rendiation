@@ -44,6 +44,7 @@ pub struct ViewerCx<'a> {
   pub time_delta_seconds: f32,
   pub task_spawner: &'a TaskSpawner,
   pub change_collector: ChangeCollector,
+  pub immediate_results: FastHashMap<u32, Arc<dyn Any + Send + Sync>>,
   stage: ViewerCxStage<'a>,
   waker: Waker,
 }
@@ -142,6 +143,7 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
       ViewerCxStage::SpawnTask { pool, .. } => QueryHookStage::SpawnTask {
         spawner: self.task_spawner,
         change_collector: &mut self.change_collector,
+        immediate_results: &mut self.immediate_results,
         pool,
       },
       ViewerCxStage::EventHandling { task, .. } => QueryHookStage::ResolveTask { task },
@@ -264,6 +266,7 @@ pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(
         let mut pool = AsyncTaskPool::default();
         {
           cx.viewer.shared_ctx.reset_visiting();
+          cx.immediate_results.clear();
           cx.stage = unsafe {
             std::mem::transmute(ViewerCxStage::SpawnTask {
               pool: &mut pool,
@@ -278,6 +281,10 @@ pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(
           let mut task_pool_result = pollster::block_on(pool.all_async_task_done());
 
           cx.viewer.shared_ctx.reset_visiting();
+          task_pool_result
+            .token_based_result
+            .extend(cx.immediate_results.drain());
+          cx.immediate_results.clear();
           cx.stage = unsafe {
             std::mem::transmute(ViewerCxStage::EventHandling {
               task: &mut task_pool_result,
@@ -350,6 +357,7 @@ pub fn use_viewer<'a>(
       global: gui_feature_global_states,
     },
     waker: futures::task::noop_waker(),
+    immediate_results: Default::default(),
   }
   .execute(|viewer| f(viewer));
 
@@ -363,6 +371,7 @@ pub fn use_viewer<'a>(
     task_spawner: worker_thread_pool,
     change_collector: Default::default(),
     waker: futures::task::noop_waker(),
+    immediate_results: Default::default(),
   }
   .execute(|viewer| f(viewer));
 
@@ -493,15 +502,19 @@ impl Viewer {
   pub fn draw_canvas(&mut self, canvas: &RenderTargetView, task_spawner: &TaskSpawner) {
     self.rendering.init_frame();
 
+    let mut immediate_results = Default::default();
+
     let requested_render_views = self
       .rendering
       .check_should_render_and_copy_cached(canvas, &self.content.viewports);
 
     if !requested_render_views.is_empty() {
-      let tasks =
-        self
-          .rendering
-          .update_registry(&mut self.render_memory, task_spawner, &mut self.shared_ctx);
+      let tasks = self.rendering.update_registry(
+        &mut self.render_memory,
+        task_spawner,
+        &mut self.shared_ctx,
+        &mut immediate_results,
+      );
 
       let task_pool_result = pollster::block_on(tasks.all_async_task_done());
 
@@ -512,6 +525,7 @@ impl Viewer {
         &mut self.render_memory,
         task_pool_result,
         &mut self.shared_ctx,
+        &mut immediate_results,
       );
     }
   }

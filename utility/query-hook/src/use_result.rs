@@ -39,7 +39,15 @@ impl<T: Send + Sync + 'static> UseResult<T> {
         };
         UseResult::SpawnStageFuture(pin_box_in_frame(fut))
       }
-      UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
+      UseResult::SpawnStageReady(t) => {
+        if should_do_work_in_main_thread(&t) {
+          UseResult::SpawnStageReady(f(t))
+        } else {
+          let spawner = cx.spawner().unwrap();
+          let fut = spawner.spawn_task(move || f(t));
+          UseResult::SpawnStageFuture(pin_box_in_frame(fut))
+        }
+      }
       UseResult::ResolveStageReady(_) => UseResult::NotInStage,
       UseResult::NotInStage => UseResult::NotInStage,
     }
@@ -284,6 +292,9 @@ impl<T: Clone + Send + Sync + 'static> UseResult<T> {
       QueryHookStage::SpawnTask { pool, .. } => {
         if let UseResult::SpawnStageFuture(fut) = self {
           *token = pool.install_task(fut);
+          UseResult::NotInStage
+        } else if let UseResult::SpawnStageReady(t) = self {
+          *token = pool.install_task(pin_box_in_frame(std::future::ready(t)));
           UseResult::NotInStage
         } else {
           *token = u32::MAX;
