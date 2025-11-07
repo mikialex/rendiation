@@ -301,17 +301,6 @@ impl<T: Clone + Send + Sync + 'static> UseResult<T> {
     }
   }
 
-  pub fn use_global_shared(self, cx: &mut impl QueryHookCxLike) -> TaskUseResult<T> {
-    let future = match self {
-      UseResult::SpawnStageFuture(future) => Some(future),
-      UseResult::SpawnStageReady(result) => Some(pin_box_in_frame(futures::future::ready(result))
-        as Pin<FrameBox<dyn Future<Output = T> + Send + Sync>>),
-      UseResult::ResolveStageReady(r) => return TaskUseResult::Result(r),
-      UseResult::NotInStage => return TaskUseResult::NotInStage,
-    };
-    cx.use_global_shared_future(future)
-  }
-
   pub fn use_retain_view_to_resolve_stage(self, cx: &mut impl QueryHookCxLike) -> UseResult<T::View>
   where
     T: DualQueryLike,

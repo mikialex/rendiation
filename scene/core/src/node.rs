@@ -119,44 +119,32 @@ where
 
     let derived = cx.use_shared_hash_map::<RawEntityHandle, C::Data>();
 
-    let spawner = cx.spawner();
+    let f = self.0;
 
-    cx.use_global_shared_future(connectivity_rev_view.into_spawn_stage_future().map(
-      |connectivity_rev_view| {
-        let visible_change = payload_change.expect_spawn_stage_future();
-        let connectivity_change = connectivity_change.expect_spawn_stage_future();
-        let spawner = spawner.unwrap();
-        let f = self.0;
-        async move {
-          let (connectivity_rev_view, visible_change, connectivity_change) =
-            futures::join!(connectivity_rev_view, visible_change, connectivity_change);
-
-          let changes = if !visible_change.is_empty() || !connectivity_change.is_empty() {
-            let derived = derived.clone();
-            spawner
-              .spawn_task(move || {
-                compute_tree_derive(
-                  &mut derived.write(),
-                  f,
-                  payload_source,
-                  visible_change,
-                  connectivity_view,
-                  connectivity_rev_view,
-                  connectivity_change,
-                )
-              })
-              .await
-          } else {
-            FastHashMap::default()
-          };
+    connectivity_rev_view
+      .join(connectivity_change)
+      .join(payload_change)
+      .map_only_spawn_stage_in_thread(
+        cx,
+        |((_, connectivity_change), payload_change)| {
+          !connectivity_change.is_empty() || !payload_change.is_empty()
+        },
+        move |((connectivity_rev_view, connectivity_change), payload_change)| {
+          let changes = compute_tree_derive(
+            &mut derived.write(),
+            f,
+            payload_source,
+            payload_change,
+            connectivity_view,
+            connectivity_rev_view,
+            connectivity_change,
+          );
 
           DualQuery {
             view: derived.make_read_holder(),
             delta: Arc::new(changes),
           }
-        }
-      },
-    ))
-    .into_use_result(cx)
+        },
+      )
   }
 }
