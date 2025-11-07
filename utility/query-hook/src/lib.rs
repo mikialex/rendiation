@@ -579,12 +579,13 @@ impl<K: CKey, V: CValue> ChangeReconciler for SharedQueryChangeReconciler<K, V> 
       }
     }
 
-    if !internal.consumers.contains_key(&id) {
-      internal.consumers.insert(id, Vec::default());
+    if skip_change {
+      // this also skips consumers.insert, which avoid memory leak
       return None;
     }
 
-    if skip_change {
+    if !internal.consumers.contains_key(&id) {
+      internal.consumers.insert(id, Vec::default());
       return None;
     }
 
