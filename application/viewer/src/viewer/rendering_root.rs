@@ -150,24 +150,19 @@ impl RenderingRoot {
           .token_based_result
           .extend(immediate_results.drain());
         shared_ctx.reset_visiting();
-        let mut update_encoder = gpu.create_encoder();
 
-        let renderer = QueryGPUHookCx {
+        QueryGPUHookCx {
           memory: &mut self.render_memory,
           gpu: &gpu,
           stage: GPUQueryHookStage::CreateRender {
             task: task_pool_result,
-            encoder: &mut update_encoder,
+            encoder: &mut ctx.encoder,
           },
           shared_ctx,
           waker: futures::task::waker(self.any_render_change.clone()),
           storage_allocator: rendering.storage_allocator(),
         }
-        .execute(|cx| rendering.use_viewer_scene_renderer(cx).unwrap());
-
-        gpu.submit_encoder(update_encoder);
-
-        renderer
+        .execute(|cx| rendering.use_viewer_scene_renderer(cx).unwrap())
       };
 
       let waker = futures::task::waker(self.any_render_change.clone());

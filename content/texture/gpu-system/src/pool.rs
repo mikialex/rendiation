@@ -129,6 +129,7 @@ pub struct TexturePoolSourceInit {
 
 pub fn update_atlas(
   gpu: &GPU,
+  encoder: &mut GPUCommandEncoder,
   atlas: &mut Option<GPU2DArrayTextureView>,
   format: TextureFormat,
   current_pack: impl Fn(u32) -> Option<PackResult2dWithDepth>,
@@ -168,8 +169,6 @@ pub fn update_atlas(
     .unwrap()
   });
 
-  let mut encoder = gpu.device.create_encoder();
-
   let mut changed_set = FastHashSet::default();
 
   let should_normalize_srgb = gpu.info().adaptor_info.backend == Backend::Gl;
@@ -179,8 +178,8 @@ pub fn update_atlas(
     if let Some(current_pack) = current_pack(id) {
       // pack may failed, in this case we do nothing
       if let Some(tex) = normalize_format(&new_tex, should_normalize_srgb) {
-        let tex = create_gpu_texture2d_with_mipmap(gpu, &mut encoder, &tex);
-        copy_tex(&mut encoder, &tex, &target.resource, &current_pack);
+        let tex = create_gpu_texture2d_with_mipmap(gpu, encoder, &tex);
+        copy_tex(encoder, &tex, &target.resource, &current_pack);
       }
     }
   }
@@ -199,8 +198,8 @@ pub fn update_atlas(
           // tex maybe removed
           if let Some(new_pack) = new_pack {
             if let Some(tex) = normalize_format(&tex, should_normalize_srgb) {
-              let tex = create_gpu_texture2d_with_mipmap(gpu, &mut encoder, &tex);
-              copy_tex(&mut encoder, &tex, &target.resource, &new_pack);
+              let tex = create_gpu_texture2d_with_mipmap(gpu, encoder, &tex);
+              copy_tex(encoder, &tex, &target.resource, &new_pack);
             }
           }
         }
@@ -208,8 +207,6 @@ pub fn update_atlas(
       ValueChange::Remove(_) => {}
     }
   }
-
-  gpu.queue.submit_encoder(encoder);
 }
 
 fn srgb_to_linear_convert_per_channel(c: f32) -> f32 {

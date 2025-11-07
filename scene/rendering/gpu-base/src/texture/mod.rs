@@ -120,54 +120,72 @@ pub fn use_pool_texture_system(
     );
 
   let (cx, atlas) = cx.use_plain_state_default::<Arc<RwLock<Option<GPU2DArrayTextureView>>>>();
-
-  // todo, spawn a task to pack
   let (cx, packer) = cx.use_sharable_plain_state(|| RemappedGrowablePacker::new(init.atlas_config));
 
-  let content_changes = cx
-    .use_changes::<SceneTexture2dEntityDirectContent>()
-    .filter_map_changes(|v| v.map(|v| v.ptr));
-
   let gpu = cx.gpu.clone();
-  let packer = packer.clone();
+  let packer_ = packer.clone();
   let _atlas = atlas.clone();
 
-  cx.use_changes::<SceneTexture2dEntityDirectContent>()
+  let packing_changes = cx
+    .use_changes::<SceneTexture2dEntityDirectContent>()
     .filter_map_changes(|tex| tex.map(|tex| tex.size))
-    .map(move |size_changes| {
-      let content_view = get_db_view_uncheck_access::<SceneTexture2dEntityDirectContent>();
-      let content_changes = content_changes.into_spawn_stage_ready();
-      let mut buff_changes = FastHashMap::default();
+    .map_spawn_stage_in_thread(
+      cx,
+      |changes| !changes.has_change(),
+      move |size_changes| {
+        let mut packing_changes = FastHashMap::default();
 
-      let mut packer = packer.write();
-      packer.process(
-        size_changes.iter_removed(),
-        size_changes.iter_update_or_insert(),
-        |_new_size| {},
-        |key, delta| {
-          merge_change(&mut buff_changes, (key, delta));
-        },
-      );
+        let mut packer = packer_.write();
+        packer.process(
+          size_changes.iter_removed(),
+          size_changes.iter_update_or_insert(),
+          |_new_size| {},
+          |key, delta| {
+            merge_change(&mut packing_changes, (key, delta));
+          },
+        );
+        Arc::new(packing_changes)
+      },
+    );
 
-      update_atlas(
-        &gpu,
-        &mut _atlas.write(),
-        TEXTURE_POOL_FORMAT,
-        |id| packer.access(&id).unwrap(),
-        buff_changes.clone().into_iter(),
-        |id| content_view.access(&id).unwrap().unwrap().ptr,
-        content_changes
-          .map(|change| change.iter_update_or_insert().collect::<Vec<_>>()) // todo, bad
-          .into_iter()
-          .flatten(),
-        packer.current_size(),
-      );
+  let (packing_changes, packing_changes_) = packing_changes.fork();
 
-      buff_changes
-        .into_change()
+  packing_changes
+    .map(|v| {
+      v.into_change()
         .collective_map(TexturePoolTextureMetaLayoutInfo::from)
     })
     .update_storage_array(cx, texture_address, 0);
+
+  let content_changes = cx
+    .use_changes::<SceneTexture2dEntityDirectContent>()
+    .filter_map_changes(|v| v.map(|v| v.ptr))
+    .use_assure_result(cx);
+
+  let content_view = get_db_view_uncheck_access::<SceneTexture2dEntityDirectContent>();
+  let packing_changes_ = packing_changes_.use_assure_result(cx);
+  if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
+    let packer = packer.write();
+    let packing_changes = packing_changes_.into_resolve_stage();
+    let content_changes = content_changes.into_resolve_stage();
+    update_atlas(
+      &gpu,
+      encoder,
+      &mut _atlas.write(),
+      TEXTURE_POOL_FORMAT,
+      |id| packer.access(&id).unwrap(),
+      packing_changes
+        .map(|v| (v.as_ref().clone()).into_iter())
+        .into_iter()
+        .flatten(), // todo, bad
+      |id| content_view.access(&id).unwrap().unwrap().ptr,
+      content_changes
+        .map(|change| change.iter_update_or_insert().collect::<Vec<_>>()) // todo, bad
+        .into_iter()
+        .flatten(),
+      packer.current_size(),
+    );
+  }
 
   texture_address.use_max_item_count_by_db_entity::<SceneTexture2dEntity>(cx);
   texture_address.use_update(cx);
