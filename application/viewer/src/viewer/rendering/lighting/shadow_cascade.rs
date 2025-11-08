@@ -8,29 +8,40 @@ pub fn use_cascade_shadow_map(
   ndc: ViewerNDC,
   shadow_pool_init_config: &MultiLayerTexturePackerConfig,
 ) -> Option<MultiCascadeShadowMapPreparer> {
-  let camera_transform = cx.use_shared_dual_query(GlobalCameraTransformShare(ndc));
+  let camera_transform = cx
+    .use_shared_dual_query(GlobalCameraTransformShare(ndc))
+    .use_assure_result(cx);
 
-  let inputs = CascadeShadowMapSystemInputs {
-    source_world: todo!(),
-    source_proj: todo!(),
-    size: todo!(),
-    bias: todo!(),
-    enabled: todo!(),
-  };
+  // let per_camera = per_camera_per_viewport_scope(cx, |cx|{
+
+  // });
 
   cx.when_render(|| {
+    let inputs = CascadeShadowMapSystemInputs {
+      source_world: todo!(),
+      source_proj: todo!(),
+      size: todo!(),
+      bias: todo!(),
+      enabled: todo!(),
+    };
+
+    let camera_transform = camera_transform.expect_resolve_stage();
+
     let per_camera = per_camera_per_viewport(viewports)
       .map(|cv| {
-        let view_camera_proj = todo!();
-        let view_camera_world = todo!();
+        let transform = camera_transform.view.access(&cv.camera.into_raw()).unwrap();
+        let view_camera_proj = transform.projection;
+        let view_camera_world = transform.world;
         //
-        generate_cascade_shadow_info(
-          inputs,
+        let info = generate_cascade_shadow_info(
+          &inputs,
           shadow_pool_init_config.init_size, // todo not supported grow
           view_camera_proj,
           view_camera_world,
           &ndc,
         );
+        let map = Arc::new(RwLock::new(todo!()));
+        (cv.camera, (info, map))
       })
       .collect();
 
@@ -41,11 +52,14 @@ pub fn use_cascade_shadow_map(
 type CascadeShadowGPUCacheShared = Arc<RwLock<CascadeShadowGPUCache>>;
 
 pub struct MultiCascadeShadowMapPreparer {
-  per_camera: FastHashMap<RawEntityHandle, (CascadeShadowPreparer, CascadeShadowGPUCacheShared)>,
+  per_camera: FastHashMap<
+    EntityHandle<SceneCameraEntity>,
+    (CascadeShadowPreparer, CascadeShadowGPUCacheShared),
+  >,
 }
 
 pub struct MultiCascadeShadowMapData {
-  per_camera: FastHashMap<RawEntityHandle, CascadeShadowMapComponent>,
+  per_camera: FastHashMap<EntityHandle<SceneCameraEntity>, CascadeShadowMapComponent>,
 }
 
 impl MultiCascadeShadowMapData {
@@ -55,7 +69,7 @@ impl MultiCascadeShadowMapData {
   ) -> Option<Box<dyn RandomAccessShadowProvider>> {
     // self
     //   .per_camera
-    //   .get(&camera.into_raw())
+    //   .get(&camera)
     //   .map(|c| Box::new(c.clone()) as Box<dyn LightingComputeComponent>)
     todo!()
   }

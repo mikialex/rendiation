@@ -25,7 +25,7 @@ pub struct CascadeShadowMapSystemInputs {
 type CascadeShadowPackerImpl = MultiLayerTexturePackerRaw<EtagerePacker>;
 
 pub fn generate_cascade_shadow_info(
-  inputs: CascadeShadowMapSystemInputs,
+  inputs: &CascadeShadowMapSystemInputs,
   packer_size: SizeWithDepth,
   view_camera_proj: Mat4<f32>,
   view_camera_world: Mat4<f64>,
