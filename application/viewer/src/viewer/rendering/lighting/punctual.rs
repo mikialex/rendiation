@@ -13,7 +13,7 @@ pub fn use_directional_light_uniform(
 ) -> Option<SceneDirectionalLightingPreparer> {
   let shadow = if use_cascade_shadowmap_for_directional_lights {
     cx.scope(|cx| {
-      use_cascade_shadow_map(cx, viewports, init_config).map(ViewerShadowPreparer::Cascade)
+      use_cascade_shadow_map(cx, viewports, ndc, init_config).map(ViewerShadowPreparer::Cascade)
     })
   } else {
     cx.scope(|cx| {
@@ -99,7 +99,8 @@ impl SceneDirectionalLightingPreparer {
         Box::new(provider)
       }
       ViewerShadowPreparer::Cascade(cascade_shadow_map_preparer) => {
-        let provider = cascade_shadow_map_preparer.update(frame_ctx, draw, reversed_depth);
+        let shadow = cascade_shadow_map_preparer.update(frame_ctx, draw, reversed_depth);
+        let provider = SceneDirectionalLightingCascadeShadowProvider { shadow };
         Box::new(provider)
       }
     }

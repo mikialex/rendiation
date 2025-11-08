@@ -59,26 +59,33 @@ pub struct CameraViewportAccess {
   pub viewports_index: Vec<(usize, u64)>,
 }
 
-pub fn use_per_camera_per_viewport(
+pub fn per_camera_per_viewport_scope(
   cx: &mut ViewerCx,
   logic: impl Fn(&mut ViewerCx, &CameraViewportAccess),
 ) {
+  for cv in per_camera_per_viewport(&cx.viewer.content.viewports) {
+    cx.keyed_scope(&cv.camera, |cx| {
+      logic(cx, &cv);
+    });
+  }
+}
+
+pub fn per_camera_per_viewport(
+  view_ports: &[ViewerViewPort],
+) -> impl Iterator<Item = CameraViewportAccess> {
   let mut mapping = FastHashMap::<_, Vec<_>>::default();
-  for (index, vp) in cx.viewer.content.viewports.iter().enumerate() {
+  for (index, vp) in view_ports.iter().enumerate() {
     mapping
       .entry((vp.camera, vp.camera_node))
       .or_default()
       .push((index, vp.id));
   }
-  for ((camera, camera_node), viewports) in mapping {
-    let cv = CameraViewportAccess {
+
+  mapping
+    .into_iter()
+    .map(|((camera, camera_node), viewports)| CameraViewportAccess {
       camera,
       camera_node,
       viewports_index: viewports,
-    };
-
-    cx.keyed_scope(&camera, |cx| {
-      logic(cx, &cv);
-    });
-  }
+    })
 }
