@@ -152,6 +152,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             &mut viewer.shared_ctx,
             &mut inspector as &mut dyn Inspector,
             &mut viewer.rendering,
+            &viewer.content.viewports,
           );
         });
       });

@@ -71,6 +71,7 @@ impl RenderingRoot {
     shared_ctx: &mut SharedHooksCtx,
     inspector: &mut dyn Inspector,
     rendering: &mut Viewer3dRenderingCtx,
+    viewports: &[ViewerViewPort],
   ) {
     if !self.render_memory.created {
       return;
@@ -86,7 +87,7 @@ impl RenderingRoot {
       storage_allocator: rendering.storage_allocator(),
       waker: futures::task::waker(self.any_render_change.clone()),
     }
-    .execute(|cx| rendering.use_viewer_scene_renderer(cx));
+    .execute(|cx| rendering.use_viewer_scene_renderer(cx, viewports));
   }
 
   pub fn draw_canvas(
@@ -136,7 +137,7 @@ impl RenderingRoot {
           shared_ctx,
           storage_allocator: rendering.storage_allocator(),
         }
-        .execute(|cx| rendering.use_viewer_scene_renderer(cx));
+        .execute(|cx| rendering.use_viewer_scene_renderer(cx, &content.viewports));
       }
 
       let mut task_pool_result = {
@@ -162,7 +163,11 @@ impl RenderingRoot {
           waker: futures::task::waker(self.any_render_change.clone()),
           storage_allocator: rendering.storage_allocator(),
         }
-        .execute(|cx| rendering.use_viewer_scene_renderer(cx).unwrap())
+        .execute(|cx| {
+          rendering
+            .use_viewer_scene_renderer(cx, &content.viewports)
+            .unwrap()
+        })
       };
 
       let waker = futures::task::waker(self.any_render_change.clone());

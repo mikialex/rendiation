@@ -22,20 +22,26 @@ pub fn use_cascade_shadow_map(
   todo!()
 }
 
+type CascadeShadowGPUCacheShared = Arc<RwLock<CascadeShadowGPUCache>>;
+
 pub struct MultiCascadeShadowMapPreparer {
-  per_camera_map: FastHashMap<RawEntityHandle, CascadeShadowPreparer>,
+  per_camera: FastHashMap<RawEntityHandle, (CascadeShadowPreparer, CascadeShadowGPUCacheShared)>,
 }
 
 pub struct MultiCascadeShadowMapData {
-  per_camera: FastHashMap<RawEntityHandle, usize>,
+  per_camera: FastHashMap<RawEntityHandle, CascadeShadowMapComponent>,
 }
 
 impl LightSystemSceneProvider for MultiCascadeShadowMapData {
   fn get_scene_lighting(
     &self,
-    scene: EntityHandle<SceneEntity>,
-    _camera: EntityHandle<SceneCameraEntity>,
+    _scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
+    // self
+    //   .per_camera
+    //   .get(&camera.into_raw())
+    //   .map(|c| Box::new(c.clone()) as Box<dyn LightingComputeComponent>)
     todo!()
   }
 }
@@ -47,6 +53,15 @@ impl MultiCascadeShadowMapPreparer {
     draw: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> MultiCascadeShadowMapData {
-    todo!()
+    let per_camera = self
+      .per_camera
+      .into_iter()
+      .map(|(k, (updater, map))| {
+        let mut map = map.write();
+        let com = updater.update_shadow_maps(&mut map, frame_ctx, draw, reversed_depth);
+        (k, com)
+      })
+      .collect();
+    MultiCascadeShadowMapData { per_camera }
   }
 }

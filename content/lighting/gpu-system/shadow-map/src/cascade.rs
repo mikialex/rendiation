@@ -111,6 +111,7 @@ pub struct CascadeShadowGPUCache {
 }
 
 impl CascadeShadowPreparer {
+  #[must_use]
   pub fn update_shadow_maps(
     self,
     resource_cache: &mut CascadeShadowGPUCache,
