@@ -102,7 +102,10 @@ impl SceneDirectionalLightingPreparer {
       }
       ViewerShadowPreparer::Cascade(cascade_shadow_map_preparer) => {
         let shadow = cascade_shadow_map_preparer.update(frame_ctx, draw, reversed_depth);
-        let provider = SceneDirectionalLightingCascadeShadowProvider { shadow };
+        let provider = SceneDirectionalLightingCascadeShadowProvider {
+          shadow,
+          light: self.light,
+        };
         Box::new(provider)
       }
     }

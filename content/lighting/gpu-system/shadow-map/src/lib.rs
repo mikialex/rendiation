@@ -106,3 +106,15 @@ pub fn create_shadow_depth_sampler_desc(reversed_depth: bool) -> SamplerDescript
     ..Default::default()
   }
 }
+
+pub trait RandomAccessShadowProvider: ShaderHashProvider {
+  fn bind_shader(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn RandomAccessShadowProviderInvocation>;
+  fn bind_pass(&self, cx: &mut BindingBuilder);
+}
+
+pub trait RandomAccessShadowProviderInvocation {
+  fn get_shadow_by_light_id(&self, light_id: Node<u32>) -> Box<dyn ShadowOcclusionQuery>;
+}

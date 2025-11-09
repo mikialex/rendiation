@@ -103,25 +103,9 @@ impl MultiCascadeShadowMapData {
     &self,
     camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn RandomAccessShadowProvider>> {
-    let cascade_info = self.per_camera.get(&camera)?;
-    // self
-    //   .per_camera
-    //   .get(&camera)
-    //   .map(|c| Box::new(c.clone()) as Box<dyn LightingComputeComponent>)
-    todo!()
+    let cascade_info = self.per_camera.get(&camera)?.clone();
+    Some(Box::new(cascade_info))
   }
-}
-
-pub trait RandomAccessShadowProvider: ShaderHashProvider {
-  fn bind_shader(
-    &self,
-    cx: &mut ShaderBindGroupBuilder,
-  ) -> Box<dyn RandomAccessShadowProviderInvocation>;
-  fn bind_pass(&self, ctx: &mut BindingBuilder);
-}
-
-pub trait RandomAccessShadowProviderInvocation {
-  fn get_shadow_by_light_id(&self, light_id: Node<u32>) -> Box<dyn ShadowOcclusionQuery>;
 }
 
 impl MultiCascadeShadowMapPreparer {
@@ -146,6 +130,7 @@ impl MultiCascadeShadowMapPreparer {
 
 pub struct SceneDirectionalLightingCascadeShadowProvider {
   pub shadow: MultiCascadeShadowMapData,
+  pub light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
 }
 impl LightSystemSceneProvider for SceneDirectionalLightingCascadeShadowProvider {
   fn get_scene_lighting(
@@ -155,5 +140,22 @@ impl LightSystemSceneProvider for SceneDirectionalLightingCascadeShadowProvider 
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let shadow = self.shadow.get_shadow_accessor(camera);
     todo!()
+
+    //  let com = ArrayLights(
+    //   LightAndShadowCombinedSource(self.light.clone(), self.shadow.clone()),
+    //   |((_, light), shadow): (
+    //     (Node<u32>, ShaderReadonlyPtrOf<DirectionalLightUniform>),
+    //     BasicShadowMapSingleInvocation,
+    //   )| {
+    //     let light_uniform = light.load().expand();
+    //     let light = ENode::<DirectionalShaderInfo> {
+    //       illuminance: light_uniform.illuminance,
+    //       direction: light_uniform.direction,
+    //     }
+    //     .construct();
+    //     ShadowedPunctualLighting { light, shadow }
+    //   },
+    // );
+    // Some(Box::new(com))
   }
 }

@@ -293,6 +293,10 @@ pub struct CascadeShadowMapComponent {
   pub reversed_depth: bool,
 }
 
+impl ShaderHashProvider for CascadeShadowMapComponent {
+  shader_hash_type_id! {}
+}
+
 impl AbstractShaderBindingSource for CascadeShadowMapComponent {
   type ShaderBindResult = CascadeShadowMapInvocation;
   fn bind_shader(&self, cx: &mut ShaderBindGroupBuilder) -> CascadeShadowMapInvocation {
@@ -311,6 +315,19 @@ impl AbstractBindingSource for CascadeShadowMapComponent {
   }
 }
 
+impl RandomAccessShadowProvider for CascadeShadowMapComponent {
+  fn bind_shader(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn RandomAccessShadowProviderInvocation> {
+    Box::new(AbstractShaderBindingSource::bind_shader(self, cx))
+  }
+
+  fn bind_pass(&self, cx: &mut BindingBuilder) {
+    AbstractBindingSource::bind_pass(self, cx)
+  }
+}
+
 #[derive(Clone)]
 pub struct CascadeShadowMapInvocation {
   shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
@@ -318,60 +335,12 @@ pub struct CascadeShadowMapInvocation {
   info: ShaderReadonlyPtrOf<Shader140Array<CascadeShadowMapInfo, 8>>,
 }
 
-impl CascadeShadowMapInvocation {
-  pub fn query_shadow_occlusion_by_idx(
-    &self,
-    render_position: Node<Vec3<f32>>,
-    render_normal: Node<Vec3<f32>>,
-    shadow_idx: Node<u32>,
-    camera_world_position: Node<HighPrecisionTranslation>,
-    camera_world_none_translation_mat: Node<Mat4<f32>>,
-  ) -> Node<f32> {
-    let enabled = self.info.index(shadow_idx).enabled().load();
-    enabled.into_bool().select_branched(
-      || {
-        let shadow_info = self.info.index(shadow_idx);
-
-        let bias = shadow_info.bias().load().expand();
-
-        // apply normal bias
-        let render_position = render_position + bias.normal_bias * render_normal;
-
-        let shadow_center_in_render_space = hpt_sub_hpt(
-          hpt_uniform_to_hpt(shadow_info.shadow_world_position().load()),
-          camera_world_position,
-        );
-
-        let position_in_shadow_center_space_without_translation =
-          render_position - shadow_center_in_render_space;
-
-        let cascade_index = compute_cascade_index(
-          render_position,
-          camera_world_none_translation_mat,
-          shadow_info.splits().load(),
-        );
-
-        let cascade_info = shadow_info.map_info().index(cascade_index).load().expand();
-
-        let shadow_position = cascade_info.shadow_center_to_shadowmap_ndc_without_translation
-          * (position_in_shadow_center_space_without_translation, val(1.)).into();
-
-        let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
-
-        // convert to uv space and apply offset bias
-        let shadow_position = shadow_position * val(Vec3::new(0.5, -0.5, 1.))
-          + val(Vec3::new(0.5, 0.5, 0.))
-          + (val(0.), val(0.), bias.bias).into();
-
-        sample_shadow_pcf_x36_by_offset(
-          self.shadow_map_atlas,
-          shadow_position,
-          self.sampler,
-          cascade_info.map_info.expand(),
-        )
-      },
-      || val(1.0),
-    )
+impl RandomAccessShadowProviderInvocation for CascadeShadowMapInvocation {
+  fn get_shadow_by_light_id(&self, light_id: Node<u32>) -> Box<dyn ShadowOcclusionQuery> {
+    Box::new(CascadeShadowMapSingleInvocation {
+      sys: self.clone(),
+      index: light_id,
+    })
   }
 }
 
@@ -428,6 +397,63 @@ impl ShadowOcclusionQuery for CascadeShadowMapSingleInvocation {
       self.index,
       camera_world_position,
       camera_world_none_translation_mat,
+    )
+  }
+}
+
+impl CascadeShadowMapInvocation {
+  pub fn query_shadow_occlusion_by_idx(
+    &self,
+    render_position: Node<Vec3<f32>>,
+    render_normal: Node<Vec3<f32>>,
+    shadow_idx: Node<u32>,
+    camera_world_position: Node<HighPrecisionTranslation>,
+    camera_world_none_translation_mat: Node<Mat4<f32>>,
+  ) -> Node<f32> {
+    let enabled = self.info.index(shadow_idx).enabled().load();
+    enabled.into_bool().select_branched(
+      || {
+        let shadow_info = self.info.index(shadow_idx);
+
+        let bias = shadow_info.bias().load().expand();
+
+        // apply normal bias
+        let render_position = render_position + bias.normal_bias * render_normal;
+
+        let shadow_center_in_render_space = hpt_sub_hpt(
+          hpt_uniform_to_hpt(shadow_info.shadow_world_position().load()),
+          camera_world_position,
+        );
+
+        let position_in_shadow_center_space_without_translation =
+          render_position - shadow_center_in_render_space;
+
+        let cascade_index = compute_cascade_index(
+          render_position,
+          camera_world_none_translation_mat,
+          shadow_info.splits().load(),
+        );
+
+        let cascade_info = shadow_info.map_info().index(cascade_index).load().expand();
+
+        let shadow_position = cascade_info.shadow_center_to_shadowmap_ndc_without_translation
+          * (position_in_shadow_center_space_without_translation, val(1.)).into();
+
+        let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
+
+        // convert to uv space and apply offset bias
+        let shadow_position = shadow_position * val(Vec3::new(0.5, -0.5, 1.))
+          + val(Vec3::new(0.5, 0.5, 0.))
+          + (val(0.), val(0.), bias.bias).into();
+
+        sample_shadow_pcf_x36_by_offset(
+          self.shadow_map_atlas,
+          shadow_position,
+          self.sampler,
+          cascade_info.map_info.expand(),
+        )
+      },
+      || val(1.0),
     )
   }
 }
