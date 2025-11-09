@@ -278,3 +278,61 @@ impl<T: CacheAbleBindingSource + ShaderBindingProvider> AbstractBindingSource fo
     ctx.bind_single(self);
   }
 }
+
+pub struct AbstractShaderBindingIterSourceMap<T, F>(pub T, pub F);
+
+impl<T, S, X, Y, F> AbstractShaderBindingSource for AbstractShaderBindingIterSourceMap<T, F>
+where
+  T: AbstractShaderBindingSource,
+  T::ShaderBindResult: IntoShaderIterator<ShaderIter = S> + Clone,
+  S: ShaderIterator<Item = X> + 'static,
+  F: Fn(X) -> Y + Copy + 'static,
+{
+  type ShaderBindResult = ShaderIntoIterMap<T::ShaderBindResult, F>;
+
+  fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
+    let inner = self.0.bind_shader(ctx);
+    inner.map(self.1)
+  }
+}
+
+impl<T, S, X, Y, F> AbstractBindingSource for AbstractShaderBindingIterSourceMap<T, F>
+where
+  T: AbstractBindingSource,
+  T::ShaderBindResult: IntoShaderIterator<ShaderIter = S> + Clone,
+  S: ShaderIterator<Item = X> + 'static,
+  F: Fn(X) -> Y + Copy + 'static,
+{
+  fn bind_pass(&self, ctx: &mut BindingBuilder) {
+    self.0.bind_pass(ctx);
+  }
+}
+
+pub struct AbstractShaderBindingIterSourceZip<L, S>(pub L, pub S);
+
+impl<L, S> AbstractShaderBindingSource for AbstractShaderBindingIterSourceZip<L, S>
+where
+  L: AbstractBindingSource,
+  L::ShaderBindResult: IntoShaderIterator,
+  S: AbstractBindingSource,
+  S::ShaderBindResult: IntoShaderIterator,
+{
+  type ShaderBindResult = ShaderIntoIterZip<L::ShaderBindResult, S::ShaderBindResult>;
+
+  fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
+    self.0.bind_shader(ctx).zip(self.1.bind_shader(ctx))
+  }
+}
+
+impl<L, S> AbstractBindingSource for AbstractShaderBindingIterSourceZip<L, S>
+where
+  L: AbstractBindingSource,
+  L::ShaderBindResult: IntoShaderIterator,
+  S: AbstractBindingSource,
+  S::ShaderBindResult: IntoShaderIterator,
+{
+  fn bind_pass(&self, ctx: &mut BindingBuilder) {
+    self.0.bind_pass(ctx);
+    self.1.bind_pass(ctx);
+  }
+}

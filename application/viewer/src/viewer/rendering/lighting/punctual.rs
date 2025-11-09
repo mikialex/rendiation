@@ -123,8 +123,11 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
     _scene: EntityHandle<SceneEntity>,
     _camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
-    let com = ArrayLights(
-      LightAndShadowCombinedSource(self.light.clone(), self.shadow.clone()),
+    let light_with_shadow =
+      AbstractShaderBindingIterSourceZip(self.light.clone(), self.shadow.clone());
+
+    let lights_iter_compute = AbstractShaderBindingIterSourceMap(
+      light_with_shadow,
       |((_, light), shadow): (
         (Node<u32>, ShaderReadonlyPtrOf<DirectionalLightUniform>),
         BasicShadowMapSingleInvocation,
@@ -138,6 +141,8 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
         ShadowedPunctualLighting { light, shadow }
       },
     );
+
+    let com = ArrayLights(lights_iter_compute);
     Some(Box::new(com))
   }
 }
@@ -159,7 +164,7 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
     _scene: EntityHandle<SceneEntity>,
     _camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
-    let com = ArrayLights(
+    let lights_iter_compute = AbstractShaderBindingIterSourceMap(
       self.uniform.clone(),
       |(_, light_uniform): (Node<u32>, ShaderReadonlyPtrOf<PointLightUniform>)| {
         let light_uniform = light_uniform.load().expand();
@@ -171,6 +176,8 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
         .construct()
       },
     );
+
+    let com = ArrayLights(lights_iter_compute);
     Some(Box::new(com))
   }
 }
@@ -267,8 +274,11 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
     _scene: EntityHandle<SceneEntity>,
     _camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
-    let com = ArrayLights(
-      LightAndShadowCombinedSource(self.light.clone(), self.shadow.clone()),
+    let light_with_shadow =
+      AbstractShaderBindingIterSourceZip(self.light.clone(), self.shadow.clone());
+
+    let lights_iter_compute = AbstractShaderBindingIterSourceMap(
+      light_with_shadow,
       |((_, light), shadow): (
         (Node<u32>, ShaderReadonlyPtrOf<SpotLightUniform>),
         BasicShadowMapSingleInvocation,
@@ -287,6 +297,7 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
       },
     );
 
+    let com = ArrayLights(lights_iter_compute);
     Some(Box::new(com))
   }
 }

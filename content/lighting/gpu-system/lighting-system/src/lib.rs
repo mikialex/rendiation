@@ -165,6 +165,7 @@ where
   }
 }
 
+#[derive(Clone)]
 pub struct ShadowedPunctualLighting<L, S> {
   pub light: L,
   pub shadow: S,

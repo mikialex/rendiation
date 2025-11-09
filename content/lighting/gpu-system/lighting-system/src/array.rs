@@ -1,31 +1,27 @@
 use crate::*;
 
-pub struct ArrayLights<C, F>(pub C, pub F);
+pub struct ArrayLights<C>(pub C);
 
-impl<C, F> ShaderHashProvider for ArrayLights<C, F>
+impl<C> ShaderHashProvider for ArrayLights<C>
 where
   C: 'static,
-  F: 'static,
 {
   shader_hash_type_id! {}
 }
 
-impl<C, S, T, U, F> LightingComputeComponent for ArrayLights<C, F>
+impl<C, S, T> LightingComputeComponent for ArrayLights<C>
 where
   C: AbstractBindingSource + 'static,
   C::ShaderBindResult: IntoShaderIterator<ShaderIter = S> + Clone,
   S: ShaderIterator<Item = T> + 'static,
-  F: Fn(T) -> U + Copy + 'static,
-  U: LightingComputeInvocation,
-  T: Clone + 'static,
+  T: LightingComputeInvocation + Clone + 'static,
 {
   fn build_light_compute_invocation(
     &self,
     binding: &mut ShaderBindGroupBuilder,
     _scene_id: Node<u32>,
   ) -> Box<dyn LightingComputeInvocation> {
-    let node = self.0.bind_shader(binding);
-    let light = node.map(self.1);
+    let light = self.0.bind_shader(binding);
     Box::new(ShaderIntoIterAsLightInvocation(light))
   }
 
@@ -59,34 +55,5 @@ where
       diffuse: light_diffuse_result.load(),
       specular_and_emissive: light_specular_and_emissive_result.load(),
     }
-  }
-}
-
-pub struct LightAndShadowCombinedSource<L, S>(pub L, pub S);
-
-impl<L, S> AbstractShaderBindingSource for LightAndShadowCombinedSource<L, S>
-where
-  L: AbstractBindingSource,
-  L::ShaderBindResult: IntoShaderIterator,
-  S: AbstractBindingSource,
-  S::ShaderBindResult: IntoShaderIterator,
-{
-  type ShaderBindResult = ShaderIntoIterZip<L::ShaderBindResult, S::ShaderBindResult>;
-
-  fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
-    self.0.bind_shader(ctx).zip(self.1.bind_shader(ctx))
-  }
-}
-
-impl<L, S> AbstractBindingSource for LightAndShadowCombinedSource<L, S>
-where
-  L: AbstractBindingSource,
-  L::ShaderBindResult: IntoShaderIterator,
-  S: AbstractBindingSource,
-  S::ShaderBindResult: IntoShaderIterator,
-{
-  fn bind_pass(&self, ctx: &mut BindingBuilder) {
-    self.0.bind_pass(ctx);
-    self.1.bind_pass(ctx);
   }
 }
