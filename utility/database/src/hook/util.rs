@@ -1,9 +1,29 @@
 use crate::*;
 
+pub type DBViewUnchecked<V> = IterableComponentReadView<V>;
 pub type DBView<V> = IterableComponentReadViewChecked<V>;
 pub type DBDelta<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
 pub type DBDualQuery<V> = DualQuery<DBView<V>, DBDelta<V>>;
 pub type DBSetDualQuery = DualQuery<BoxedDynQuery<RawEntityHandle, ()>, DBDelta<()>>;
+
+pub fn get_db_view_no_generation_check<C: ComponentSemantic>() -> DBViewUnchecked<C::Data> {
+  get_db_view_no_generation_check_internal(C::Entity::entity_id(), C::component_id())
+}
+
+pub fn get_db_view_no_generation_check_internal<T>(
+  e_id: EntityId,
+  c_id: ComponentId,
+) -> DBViewUnchecked<T> {
+  global_database()
+    .access_ecg_dyn(e_id, |ecg| {
+      ecg.access_component(c_id, |c| IterableComponentReadView {
+        ecg: ecg.clone(),
+        read_view: c.read_untyped(),
+        phantom: PhantomData,
+      })
+    })
+    .unwrap()
+}
 
 pub fn get_db_view_internal<T>(e_id: EntityId, c_id: ComponentId) -> DBView<T> {
   global_database()
@@ -173,5 +193,42 @@ impl<T: CValue> QueryProvider<RawEntityHandle, T> for ComponentAccess<T> {
       phantom: PhantomData,
     }
     .into_boxed()
+  }
+}
+
+pub trait SkipGenerationCheckExt: Sized {
+  fn skip_generation_check<E: EntitySemantic>(self) -> SkipGenerationCheck<Self>;
+}
+
+impl<T: Query> SkipGenerationCheckExt for T {
+  fn skip_generation_check<E: EntitySemantic>(self) -> SkipGenerationCheck<T> {
+    SkipGenerationCheck {
+      alloc: global_database()
+        .access_ecg_dyn(E::entity_id(), |ecg| ecg.inner.allocator.make_read_holder()),
+      inner: self,
+    }
+  }
+}
+
+#[derive(Clone)]
+pub struct SkipGenerationCheck<T> {
+  alloc: LockReadGuardHolder<Arena<()>>,
+  inner: T,
+}
+
+impl<T: Query<Key = RawEntityHandle>> Query for SkipGenerationCheck<T> {
+  type Key = u32;
+  type Value = T::Value;
+
+  fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    self.inner.iter_key_value().map(|(k, v)| {
+      let handle = self.alloc.get_handle(k.index() as usize).unwrap();
+      (handle.index() as u32, v)
+    })
+  }
+
+  fn access(&self, key: &Self::Key) -> Option<Self::Value> {
+    let handle = self.alloc.get_handle(*key as usize)?;
+    self.inner.access(&RawEntityHandle(handle))
   }
 }

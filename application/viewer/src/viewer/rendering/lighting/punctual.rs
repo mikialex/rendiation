@@ -4,6 +4,15 @@ use rendiation_webgpu_hook_utils::*;
 
 use crate::*;
 
+pub const DEFAULT_DIR_PROJ: OrthographicProjection<f32> = OrthographicProjection {
+  left: -20.,
+  right: 20.,
+  top: 20.,
+  bottom: -20.,
+  near: 0.,
+  far: 1000.,
+};
+
 pub fn use_directional_light_uniform(
   cx: &mut QueryGPUHookCx,
   init_config: &MultiLayerTexturePackerConfig,
@@ -24,14 +33,7 @@ pub fn use_directional_light_uniform(
         .use_dual_query::<DirectionLightShadowBound>()
         .dual_query_map(move |orth| {
           orth
-            .unwrap_or(OrthographicProjection {
-              left: -20.,
-              right: 20.,
-              top: 20.,
-              bottom: -20.,
-              near: 0.,
-              far: 1000.,
-            })
+            .unwrap_or(DEFAULT_DIR_PROJ)
             .compute_projection_mat(&ndc)
         });
 

@@ -1,6 +1,6 @@
 use rendiation_lighting_shadow_map::*;
 
-use crate::*;
+use crate::{viewer::rendering::lighting::punctual::DEFAULT_DIR_PROJ, *};
 
 pub fn use_cascade_shadow_map(
   cx: &mut QueryGPUHookCx,
@@ -12,17 +12,53 @@ pub fn use_cascade_shadow_map(
     .use_shared_dual_query(GlobalCameraTransformShare(ndc))
     .use_assure_result(cx);
 
-  // let per_camera = per_camera_per_viewport_scope(cx, |cx|{
+  let maps = per_camera_per_viewport(viewports)
+    .map(|cv| {
+      let cache = cx.keyed_scope(&cv.camera, |cx| {
+        cx.use_plain_state_default_cloned::<CascadeShadowGPUCacheShared>()
+          .1
+      });
+      (cv.camera, cache)
+    })
+    .collect::<FastHashMap<_, _>>();
 
-  // });
+  let source_world =
+    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>(), cx);
 
   cx.when_render(|| {
+    let enabled =
+      get_db_view_no_generation_check::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>()
+        .into_boxed();
+    let bias =
+      get_db_view_no_generation_check::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
+        .map_value(|bias| bias.into())
+        .into_boxed();
+    let size = get_db_view_no_generation_check::<
+      BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>,
+    >()
+    .map_value(|size| Size::from_u32_pair_min_one(size.into()))
+    .into_boxed();
+
+    let source_world = source_world
+      .expect_resolve_stage()
+      .view()
+      .skip_generation_check::<DirectionalLightEntity>()
+      .into_boxed();
+
+    let source_proj = get_db_view_no_generation_check::<DirectionLightShadowBound>()
+      .map_value(move |orth| {
+        orth
+          .unwrap_or(DEFAULT_DIR_PROJ)
+          .compute_projection_mat(&ndc)
+      })
+      .into_boxed();
+
     let inputs = CascadeShadowMapSystemInputs {
-      source_world: todo!(),
-      source_proj: todo!(),
-      size: todo!(),
-      bias: todo!(),
-      enabled: todo!(),
+      source_world,
+      source_proj,
+      size,
+      bias,
+      enabled,
     };
 
     let camera_transform = camera_transform.expect_resolve_stage();
@@ -40,7 +76,7 @@ pub fn use_cascade_shadow_map(
           view_camera_world,
           &ndc,
         );
-        let map = Arc::new(RwLock::new(todo!()));
+        let map = maps.get(&cv.camera).unwrap().clone();
         (cv.camera, (info, map))
       })
       .collect();
@@ -67,6 +103,7 @@ impl MultiCascadeShadowMapData {
     &self,
     camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn RandomAccessShadowProvider>> {
+    let cascade_info = self.per_camera.get(&camera)?;
     // self
     //   .per_camera
     //   .get(&camera)
