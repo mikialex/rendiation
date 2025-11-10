@@ -2,6 +2,7 @@ use crate::*;
 
 pub struct ArrayLights<C>(pub C);
 
+// todo, fix C not correctly hashed
 impl<C> ShaderHashProvider for ArrayLights<C>
 where
   C: 'static,
@@ -13,8 +14,8 @@ impl<C, S, T> LightingComputeComponent for ArrayLights<C>
 where
   C: AbstractShaderBindingSource + AbstractBindingSource + 'static,
   C::ShaderBindResult: IntoShaderIterator<ShaderIter = S> + Clone,
-  S: ShaderIterator<Item = T> + 'static,
-  T: LightingComputeInvocation + Clone + 'static,
+  S: ShaderIterator<Item = T>,
+  T: LightingComputeInvocation + Clone,
 {
   fn build_light_compute_invocation(
     &self,
@@ -57,3 +58,31 @@ where
     }
   }
 }
+
+// pub struct ArrayLightsAndRandomAccessShadow<L, S>(pub L, pub S);
+
+// impl<L, S> AbstractShaderBindingSource for ArrayLightsAndRandomAccessShadow<L, S>
+// where
+//   L: AbstractBindingSource,
+//   L::ShaderBindResult: IntoShaderIterator,
+//   S: RandomAccessShadowProvider,
+// {
+//   type ShaderBindResult = ShaderIntoIterZip<L::ShaderBindResult, S::ShaderBindResult>;
+
+//   fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
+//     self.0.bind_shader(ctx).zip(self.1.bind_shader(ctx))
+//   }
+// }
+
+// impl<L, S> AbstractBindingSource for ArrayLightsAndRandomAccessShadow<L, S>
+// where
+//   L: AbstractBindingSource,
+//   L::ShaderBindResult: IntoShaderIterator,
+//   S: AbstractBindingSource,
+//   S::ShaderBindResult: IntoShaderIterator,
+// {
+//   fn bind_pass(&self, ctx: &mut BindingBuilder) {
+//     self.0.bind_pass(ctx);
+//     self.1.bind_pass(ctx);
+//   }
+// }

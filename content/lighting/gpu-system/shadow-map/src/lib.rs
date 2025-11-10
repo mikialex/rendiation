@@ -1,4 +1,4 @@
-use std::mem::offset_of;
+use std::{mem::offset_of, sync::Arc};
 
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
@@ -117,4 +117,30 @@ pub trait RandomAccessShadowProvider: ShaderHashProvider {
 
 pub trait RandomAccessShadowProviderInvocation {
   fn get_shadow_by_light_id(&self, light_id: Node<u32>) -> Box<dyn ShadowOcclusionQuery>;
+}
+
+#[derive(Clone)]
+pub struct ShadowRandomAccessed {
+  pub shadow: Arc<dyn RandomAccessShadowProviderInvocation>,
+  pub light_id: Node<u32>,
+}
+
+impl ShadowOcclusionQuery for ShadowRandomAccessed {
+  fn query_shadow_occlusion(
+    &self,
+    render_position: Node<Vec3<f32>>,
+    render_normal: Node<Vec3<f32>>,
+    camera_world_position: Node<HighPrecisionTranslation>,
+    camera_world_none_translation_mat: Node<Mat4<f32>>,
+  ) -> Node<f32> {
+    self
+      .shadow
+      .get_shadow_by_light_id(self.light_id)
+      .query_shadow_occlusion(
+        render_position,
+        render_normal,
+        camera_world_position,
+        camera_world_none_translation_mat,
+      )
+  }
 }

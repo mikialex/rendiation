@@ -1,3 +1,4 @@
+use rendiation_lighting_punctual::DirectionalShaderInfo;
 use rendiation_lighting_shadow_map::*;
 
 use crate::{viewer::rendering::lighting::punctual::DEFAULT_DIR_PROJ, *};
@@ -102,9 +103,9 @@ impl MultiCascadeShadowMapData {
   pub fn get_shadow_accessor(
     &self,
     camera: EntityHandle<SceneCameraEntity>,
-  ) -> Option<Box<dyn RandomAccessShadowProvider>> {
+  ) -> Option<CascadeShadowMapComponent> {
     let cascade_info = self.per_camera.get(&camera)?.clone();
-    Some(Box::new(cascade_info))
+    Some(cascade_info)
   }
 }
 
@@ -135,27 +136,36 @@ pub struct SceneDirectionalLightingCascadeShadowProvider {
 impl LightSystemSceneProvider for SceneDirectionalLightingCascadeShadowProvider {
   fn get_scene_lighting(
     &self,
-    scene: EntityHandle<SceneEntity>,
+    _scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
-    let shadow = self.shadow.get_shadow_accessor(camera);
-    todo!()
+    let shadow = self.shadow.get_shadow_accessor(camera)?;
 
-    //  let com = ArrayLights(
-    //   LightAndShadowCombinedSource(self.light.clone(), self.shadow.clone()),
-    //   |((_, light), shadow): (
-    //     (Node<u32>, ShaderReadonlyPtrOf<DirectionalLightUniform>),
-    //     BasicShadowMapSingleInvocation,
-    //   )| {
-    //     let light_uniform = light.load().expand();
-    //     let light = ENode::<DirectionalShaderInfo> {
-    //       illuminance: light_uniform.illuminance,
-    //       direction: light_uniform.direction,
-    //     }
-    //     .construct();
-    //     ShadowedPunctualLighting { light, shadow }
-    //   },
-    // );
-    // Some(Box::new(com))
+    let lights_iter_compute = AbstractShaderBindingIterSourceHelperMap::new(
+      self.light.clone(),
+      shadow,
+      |(light_id, light_uniform): (Node<u32>, ShaderReadonlyPtrOf<DirectionalLightUniform>),
+       shadow: &CascadeShadowMapInvocation| {
+        let light_uniform = light_uniform.load().expand();
+        let light = ENode::<DirectionalShaderInfo> {
+          illuminance: light_uniform.illuminance,
+          direction: light_uniform.direction,
+        }
+        .construct();
+        let shadow = ShadowRandomAccessed {
+          shadow: Arc::new(shadow.clone()),
+          light_id,
+        };
+        ShadowedPunctualLighting { light, shadow }
+      },
+    );
+
+    let com = ArrayLights(lights_iter_compute);
+    Some(Box::new(com))
   }
+}
+
+pub struct LightWithRandomAccessShadow<L, S> {
+  pub light: L,
+  pub shadow: S,
 }
