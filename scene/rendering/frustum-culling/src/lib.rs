@@ -20,8 +20,10 @@ pub fn use_camera_gpu_frustum(
 
   cx.use_shared_dual_query(GlobalCameraTransformShare(ndc))
     .into_delta_change()
-    .map_changes(|transform| {
-      let arr = Frustum::new_from_matrix(transform.view_projection, true)
+    .map_changes(move |transform| {
+      let mat =
+        ndc.transform_from_opengl_standard_ndc_inverse().into_f64() * transform.view_projection;
+      let arr = Frustum::new_from_matrix(mat)
         .planes
         .map(|p| ShaderPlaneUniform::new(p.normal.value, p.constant));
 

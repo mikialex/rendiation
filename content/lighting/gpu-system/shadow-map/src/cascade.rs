@@ -48,11 +48,18 @@ pub fn generate_cascade_shadow_info(
     let world = inputs.source_world.access(&k).unwrap();
     let mut sub_proj_info = [Mat4::default(); CASCADE_SHADOW_SPLIT_COUNT];
 
-    let world_to_light =
-      inputs.source_proj.access(&k).unwrap().into_f64() * world.inverse_or_identity();
+    let to_opengl_ndc_space = ndc.transform_from_opengl_standard_ndc_inverse();
+    let shadow_camera_proj = to_opengl_ndc_space * inputs.source_proj.access(&k).unwrap();
+    let world_to_light = shadow_camera_proj.into_f64() * world.inverse_or_identity();
 
-    let cascades =
-      compute_directional_light_cascade_info(view_camera_world, view_camera_proj, world_to_light);
+    let view_camera_proj = to_opengl_ndc_space * view_camera_proj;
+
+    let cascades = compute_directional_light_cascade_info(
+      view_camera_world,
+      view_camera_proj,
+      shadow_camera_proj,
+      world_to_light,
+    );
 
     let light_world = inputs.source_world.access(&k).unwrap();
     let light_world_inv = light_world.inverse_or_identity();
@@ -75,6 +82,7 @@ pub fn generate_cascade_shadow_info(
         splits[idx] = *split;
         sub_proj_info[idx] = proj;
       } else {
+        log::warn!("shadow map pack failed");
         continue;
       }
     }
@@ -210,9 +218,10 @@ pub struct SingleShadowMapInfo {
 pub fn compute_directional_light_cascade_info(
   camera_world: Mat4<f64>,
   camera_projection: Mat4<f32>,
+  shadow_camera_proj: Mat4<f32>,
   world_to_light: Mat4<f64>,
 ) -> [(OrthographicProjection<f32>, f32); CASCADE_SHADOW_SPLIT_COUNT] {
-  let (near, far) = camera_projection.get_near_far_assume_orthographic();
+  let (near, far) = shadow_camera_proj.get_near_far_assume_orthographic();
   compute_light_cascade_info(camera_world, camera_projection, world_to_light).map(
     |(min, max, split)| {
       let proj = OrthographicProjection {

@@ -7,6 +7,7 @@ version = "0.1.0"
 [dependencies]
 fast-hash-collection = { path = "../../../../utility/fast-hash-collection" }
 parking_lot = { workspace = true }
+log = { workspace = true }
 database = { path = "../../../../utility/database" }
 rendiation-algebra = { path = "../../../../math/algebra" }
 rendiation-shader-api = { path = "../../../../shader/api" }

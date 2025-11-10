@@ -18,28 +18,22 @@ impl<T: Scalar> Frustum<T> {
       planes: [Plane::new(Vec3::splat(T::one()).into_normalized(), T::one()); 6],
     }
   }
-  pub fn new_from_matrix(m: Mat4<T>, is_webgpu_ndc_proj: bool) -> Self {
+  pub fn new_from_matrix(m: Mat4<T>) -> Self {
     let mut f = Frustum::<T>::default();
-    f.set_from_matrix(m, is_webgpu_ndc_proj);
+    f.set_from_matrix(m);
     f
   }
 
   #[rustfmt::skip]
-  pub fn set_from_matrix(&mut self, m: Mat4<T>, is_webgpu_ndc_proj: bool) -> &Self {
+  pub fn set_from_matrix(&mut self, m: Mat4<T>) -> &Self {
     self.planes[0].set_components(m.a4 - m.a1, m.b4 - m.b1, m.c4 - m.c1, m.d4 - m.d1);
     self.planes[1].set_components(m.a4 + m.a1, m.b4 + m.b1, m.c4 + m.c1, m.d4 + m.d1);
     self.planes[2].set_components(m.a4 + m.a2, m.b4 + m.b2, m.c4 + m.c2, m.d4 + m.d2);
     self.planes[3].set_components(m.a4 - m.a2, m.b4 - m.b2, m.c4 - m.c2, m.d4 - m.d2);
 
     self.planes[4].set_components(m.a4 - m.a3, m.b4 - m.b3, m.c4 - m.c3, m.d4 - m.d3); // near
-
-    // far
-    if is_webgpu_ndc_proj{
-      self.planes[5].set_components(m.a3,  m.b3,  m.c3,  m.d3); 
-    }else{
-      self.planes[5].set_components(m.a4 + m.a3, m.b4 + m.b3, m.c4 + m.c3, m.d4 + m.d3);
-    }
-
+    self.planes[5].set_components(m.a4 + m.a3, m.b4 + m.b3, m.c4 + m.c3, m.d4 + m.d3); // far
+    
     self
   }
 }
