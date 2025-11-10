@@ -23,8 +23,9 @@ pub fn use_cascade_shadow_map(
     })
     .collect::<FastHashMap<_, _>>();
 
-  let source_world =
-    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>(), cx);
+  let source_world = use_global_node_world_mat(cx)
+    .fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>(), cx)
+    .use_assure_result(cx);
 
   cx.when_render(|| {
     let enabled =

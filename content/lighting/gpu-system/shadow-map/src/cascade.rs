@@ -33,12 +33,15 @@ pub fn generate_cascade_shadow_info(
 ) -> CascadeShadowPreparer {
   let mut packer = CascadeShadowPackerImpl::init_by_config(packer_size);
 
-  let mut uniforms: Vec<CascadeShadowMapInfo> = Vec::new();
-  let mut proj_info = Vec::with_capacity(CASCADE_SHADOW_SPLIT_COUNT);
+  let mut gpu_buffer = Vec::new();
+  let mut proj_info = Vec::new();
 
   for (k, enabled) in inputs.enabled.iter_key_value() {
-    if enabled {
-      uniforms.push(Default::default());
+    let gpu_buffer_idx = k as usize;
+    gpu_buffer.resize(gpu_buffer.len().max(gpu_buffer_idx + 1), Default::default());
+    proj_info.resize(proj_info.len().max(gpu_buffer_idx + 1), Default::default());
+
+    if !enabled {
       continue;
     }
 
@@ -72,27 +75,26 @@ pub fn generate_cascade_shadow_info(
         splits[idx] = *split;
         sub_proj_info[idx] = proj;
       } else {
-        uniforms.push(Default::default());
         continue;
       }
     }
 
     let shadow_world_position = into_hpt(light_world.position()).into_uniform();
 
-    uniforms.push(CascadeShadowMapInfo {
+    gpu_buffer[gpu_buffer_idx] = CascadeShadowMapInfo {
       bias: inputs.bias.access(&k).unwrap(),
       shadow_world_position,
       map_info: Shader140Array::from_slice_clamp_or_default(&cascade_info),
       splits: splits.into(),
       enabled: true.into(),
       ..Default::default()
-    });
+    };
 
-    proj_info.push((world, sub_proj_info));
+    proj_info[gpu_buffer_idx] = (world, sub_proj_info);
   }
 
   CascadeShadowPreparer {
-    uniforms,
+    uniforms: gpu_buffer,
     map_size: packer_size,
     proj_info,
   }
@@ -133,6 +135,9 @@ impl CascadeShadowPreparer {
 
     // do shadowmap updates
     for (index, cascade) in self.uniforms.iter().enumerate() {
+      if cascade.enabled == Bool::from(false) {
+        continue;
+      }
       let proj_info = self.proj_info[index];
       let world = proj_info.0;
 
@@ -341,39 +346,6 @@ impl RandomAccessShadowProviderInvocation for CascadeShadowMapInvocation {
       sys: self.clone(),
       index: light_id,
     })
-  }
-}
-
-impl IntoShaderIterator for CascadeShadowMapInvocation {
-  type ShaderIter = CascadeShadowMapInvocationIter;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    CascadeShadowMapInvocationIter {
-      iter: self.info.clone().into_shader_iter(),
-      inner: self,
-    }
-  }
-}
-
-#[derive(Clone)]
-pub struct CascadeShadowMapInvocationIter {
-  inner: CascadeShadowMapInvocation,
-  iter:
-    ShaderStaticArrayReadonlyIter<Shader140Array<CascadeShadowMapInfo, 8>, CascadeShadowMapInfo>,
-}
-
-impl ShaderIterator for CascadeShadowMapInvocationIter {
-  type Item = CascadeShadowMapSingleInvocation;
-
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let (valid, (index, _)) = self.iter.shader_next();
-
-    let item = CascadeShadowMapSingleInvocation {
-      sys: self.inner.clone(),
-      index,
-    };
-
-    (valid, item)
   }
 }
 
