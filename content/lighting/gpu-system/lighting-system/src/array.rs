@@ -11,7 +11,7 @@ where
 
 impl<C, S, T> LightingComputeComponent for ArrayLights<C>
 where
-  C: AbstractBindingSource + 'static,
+  C: AbstractShaderBindingSource + AbstractBindingSource + 'static,
   C::ShaderBindResult: IntoShaderIterator<ShaderIter = S> + Clone,
   S: ShaderIterator<Item = T> + 'static,
   T: LightingComputeInvocation + Clone + 'static,

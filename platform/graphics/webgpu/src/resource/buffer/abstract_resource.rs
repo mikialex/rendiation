@@ -398,7 +398,7 @@ impl<T: ?Sized + ShaderAbstractPtrAccess> AbstractShaderBindingSource for Abstra
     T::create_view_from_raw_ptr(ptr)
   }
 }
-impl<T: ?Sized + ShaderAbstractPtrAccess> AbstractBindingSource for AbstractStorageBuffer<T> {
+impl<T: ?Sized> AbstractBindingSource for AbstractStorageBuffer<T> {
   fn bind_pass(&self, ctx: &mut BindingBuilder) {
     AbstractBuffer::bind_pass(&self.buffer, ctx);
   }

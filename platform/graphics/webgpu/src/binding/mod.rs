@@ -269,7 +269,7 @@ impl BindingBuilder {
   }
 }
 
-pub trait AbstractBindingSource: AbstractShaderBindingSource {
+pub trait AbstractBindingSource {
   fn bind_pass(&self, ctx: &mut BindingBuilder);
 }
 
@@ -296,12 +296,9 @@ where
   }
 }
 
-impl<T, S, X, Y, F> AbstractBindingSource for AbstractShaderBindingIterSourceMap<T, F>
+impl<T, F> AbstractBindingSource for AbstractShaderBindingIterSourceMap<T, F>
 where
   T: AbstractBindingSource,
-  T::ShaderBindResult: IntoShaderIterator<ShaderIter = S> + Clone,
-  S: ShaderIterator<Item = X> + 'static,
-  F: Fn(X) -> Y + Copy + 'static,
 {
   fn bind_pass(&self, ctx: &mut BindingBuilder) {
     self.0.bind_pass(ctx);
@@ -312,9 +309,9 @@ pub struct AbstractShaderBindingIterSourceZip<L, S>(pub L, pub S);
 
 impl<L, S> AbstractShaderBindingSource for AbstractShaderBindingIterSourceZip<L, S>
 where
-  L: AbstractBindingSource,
+  L: AbstractShaderBindingSource,
   L::ShaderBindResult: IntoShaderIterator,
-  S: AbstractBindingSource,
+  S: AbstractShaderBindingSource,
   S::ShaderBindResult: IntoShaderIterator,
 {
   type ShaderBindResult = ShaderIntoIterZip<L::ShaderBindResult, S::ShaderBindResult>;
@@ -327,9 +324,7 @@ where
 impl<L, S> AbstractBindingSource for AbstractShaderBindingIterSourceZip<L, S>
 where
   L: AbstractBindingSource,
-  L::ShaderBindResult: IntoShaderIterator,
   S: AbstractBindingSource,
-  S::ShaderBindResult: IntoShaderIterator,
 {
   fn bind_pass(&self, ctx: &mut BindingBuilder) {
     self.0.bind_pass(ctx);
