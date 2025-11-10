@@ -290,10 +290,25 @@ impl ShaderHashProvider for DefaultDisplayWriter {
 }
 impl ShaderPassBuilder for DefaultDisplayWriter {}
 impl GraphicsShaderProvider for DefaultDisplayWriter {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    if ENABLE_DEFAULT_DISPLAY_DEBUG {
+      builder.fragment(|_, _| {
+        DEFAULT_DISPLAY_DEBUG
+          .with_borrow_mut(|v| *v = Some(zeroed_val::<Vec3<f32>>().make_local_var()));
+      })
+    }
+  }
+
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      let default = builder.query_or_insert_default::<DefaultDisplay>();
-      builder.store_fragment_out(self.write_channel_index, default)
+      let debug = DEFAULT_DISPLAY_DEBUG.with_borrow_mut(|v| v.take());
+
+      if let Some(debug) = debug {
+        builder.store_fragment_out(self.write_channel_index, vec4_node((debug.load(), val(1.))));
+      } else {
+        let default = builder.query_or_insert_default::<DefaultDisplay>();
+        builder.store_fragment_out(self.write_channel_index, default)
+      }
     })
   }
 }

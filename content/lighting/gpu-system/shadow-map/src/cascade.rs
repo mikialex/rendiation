@@ -77,6 +77,7 @@ pub fn generate_cascade_shadow_info(
         cascade_info.push(SingleShadowMapInfo {
           map_info: convert_pack_result(pack),
           shadow_center_to_shadowmap_ndc_without_translation,
+          split_distance: *split, // this is not used
           ..Default::default()
         });
         splits[idx] = *split;
@@ -439,6 +440,8 @@ impl CascadeShadowMapInvocation {
   }
 }
 
+pub const DEBUG_CASCADE_INDEX: bool = false;
+
 /// compute the current shading point in which sub frustum
 #[shader_fn]
 pub fn compute_cascade_index(
@@ -446,7 +449,8 @@ pub fn compute_cascade_index(
   camera_world_none_translation_mat: Node<Mat4<f32>>,
   splits: Node<Vec4<f32>>,
 ) -> Node<u32> {
-  let camera_forward_dir = camera_world_none_translation_mat.forward().normalize();
+  let camera_forward_dir =
+    (camera_world_none_translation_mat.forward() * val(Vec3::splat(-1.))).normalize();
 
   let diff = render_position;
   let distance = diff.dot(camera_forward_dir);
@@ -469,6 +473,15 @@ pub fn compute_cascade_index(
   .else_by(|| {
     offset.store(val(3_u32));
   });
+
+  if DEBUG_CASCADE_INDEX {
+    let offset = offset.load().into_f32() / val(4.0);
+    DEFAULT_DISPLAY_DEBUG.with_borrow_mut(|v| {
+      if let Some(v) = v {
+        v.store(offset.splat());
+      }
+    })
+  }
 
   offset.load()
 }

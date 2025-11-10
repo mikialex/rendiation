@@ -238,6 +238,11 @@ both!(CameraWorldPositionHP, HighPrecisionTranslation);
 both!(CameraViewNoneTranslationProjectionMatrix, Mat4<f32>);
 both!(CameraViewNoneTranslationProjectionInverseMatrix, Mat4<f32>);
 
+pub const ENABLE_DEFAULT_DISPLAY_DEBUG: bool = false;
+thread_local! {
+  pub static DEFAULT_DISPLAY_DEBUG: RefCell<Option<ShaderPtrOf<Vec3<f32>>>> = const { RefCell::new(None) };
+}
+
 both!(DefaultDisplay, Vec4<f32>);
 
 both!(FragmentUv, Vec2<f32>);
