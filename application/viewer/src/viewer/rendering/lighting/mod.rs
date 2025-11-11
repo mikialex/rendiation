@@ -45,6 +45,7 @@ pub fn use_lighting(
     &config,
     viewports,
     lighting_sys.use_cascade_shadowmap_for_directional_lights,
+    lighting_sys.cascade_shadow_split_linear_log_blend_ratio,
     ndc,
   );
   let spot_lights = use_scene_spot_light_uniform(cx, &config, ndc);
@@ -145,12 +146,14 @@ pub struct LightSystem {
   material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pub opaque_scene_content_lighting_technique: LightingTechniqueKind,
   pub use_cascade_shadowmap_for_directional_lights: bool,
+  pub cascade_shadow_split_linear_log_blend_ratio: f32,
 }
 
 impl LightSystem {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       enable_channel_debugger: false,
+      cascade_shadow_split_linear_log_blend_ratio: 0.95,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       use_cascade_shadowmap_for_directional_lights: false,
       tonemap: ToneMap::new(gpu),
@@ -166,6 +169,17 @@ impl LightSystem {
       &mut self.use_cascade_shadowmap_for_directional_lights,
       "use cascade shadowmap for directional lights",
     );
+
+    if self.use_cascade_shadowmap_for_directional_lights {
+      ui.add(
+        egui::Slider::new(
+          &mut self.cascade_shadow_split_linear_log_blend_ratio,
+          0.0..=1.0,
+        )
+        .step_by(0.1)
+        .text("split_linear_log_blend_ratio"),
+      );
+    }
 
     if is_hdr_rendering {
       ui.label("tonemap is disabled when hdr display enabled");

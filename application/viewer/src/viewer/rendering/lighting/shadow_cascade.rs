@@ -8,6 +8,7 @@ pub fn use_cascade_shadow_map(
   viewports: &[ViewerViewPort],
   ndc: ViewerNDC,
   shadow_pool_init_config: &MultiLayerTexturePackerConfig,
+  split_linear_log_blend_ratio: f32,
 ) -> Option<MultiCascadeShadowMapPreparer> {
   let camera_transform = cx
     .use_shared_dual_query(GlobalCameraTransformShare(ndc))
@@ -77,6 +78,7 @@ pub fn use_cascade_shadow_map(
           view_camera_proj,
           view_camera_world,
           &ndc,
+          split_linear_log_blend_ratio,
         );
         let map = maps.get(&cv.camera).unwrap().clone();
         (cv.camera, (info, map))

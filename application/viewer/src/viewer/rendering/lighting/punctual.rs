@@ -18,11 +18,19 @@ pub fn use_directional_light_uniform(
   init_config: &MultiLayerTexturePackerConfig,
   viewports: &[ViewerViewPort],
   use_cascade_shadowmap_for_directional_lights: bool,
+  split_linear_log_blend_ratio: f32,
   ndc: ViewerNDC,
 ) -> Option<SceneDirectionalLightingPreparer> {
   let shadow = if use_cascade_shadowmap_for_directional_lights {
     cx.scope(|cx| {
-      use_cascade_shadow_map(cx, viewports, ndc, init_config).map(ViewerShadowPreparer::Cascade)
+      use_cascade_shadow_map(
+        cx,
+        viewports,
+        ndc,
+        init_config,
+        split_linear_log_blend_ratio,
+      )
+      .map(ViewerShadowPreparer::Cascade)
     })
   } else {
     cx.scope(|cx| {

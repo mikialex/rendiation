@@ -30,6 +30,7 @@ pub fn generate_cascade_shadow_info(
   view_camera_proj: Mat4<f32>,
   view_camera_world: Mat4<f64>,
   ndc: &dyn NDCSpaceMapper<f32>,
+  split_linear_log_blend_ratio: f32,
 ) -> CascadeShadowPreparer {
   let mut packer = CascadeShadowPackerImpl::init_by_config(packer_size);
 
@@ -50,18 +51,20 @@ pub fn generate_cascade_shadow_info(
 
     let to_opengl_ndc_space = ndc.transform_from_opengl_standard_ndc_inverse();
     let shadow_camera_proj = to_opengl_ndc_space * inputs.source_proj.access(&k).unwrap();
-    // important note: we must not multiply shadow_camera_proj here, because the left write top bottom
+    // important note: we must not multiply shadow_camera_proj here, because the left right top bottom
     // is computed, not used user defined value, if multiplied here, the projected shadow bound
     // will be scaled incorrectly.
     let world_to_light = world.inverse_or_identity();
 
     let view_camera_proj = to_opengl_ndc_space * view_camera_proj;
 
-    let cascades = compute_directional_light_cascade_info(
+    let shadow_near_far = shadow_camera_proj.get_near_far_assume_orthographic();
+    let cascades = compute_cascade_split_info(
       view_camera_world,
       view_camera_proj,
-      shadow_camera_proj,
       world_to_light,
+      split_linear_log_blend_ratio,
+      shadow_near_far,
     );
 
     let light_world = inputs.source_world.access(&k).unwrap();
@@ -221,35 +224,14 @@ pub struct SingleShadowMapInfo {
   pub split_distance: f32,
 }
 
-/// return per sub frustum light shadow camera projection mat and split distance
-pub fn compute_directional_light_cascade_info(
+/// return per sub frustum orth proj and split distance in light space
+pub fn compute_cascade_split_info(
   camera_world: Mat4<f64>,
   camera_projection: Mat4<f32>,
-  shadow_camera_proj: Mat4<f32>,
   world_to_light: Mat4<f64>,
+  split_linear_log_blend_ratio: f32,
+  (shadow_near, shadow_far): (f32, f32),
 ) -> [(OrthographicProjection<f32>, f32); CASCADE_SHADOW_SPLIT_COUNT] {
-  let (near, far) = shadow_camera_proj.get_near_far_assume_orthographic();
-  compute_light_cascade_info(camera_world, camera_projection, world_to_light).map(
-    |(min, max, split)| {
-      let proj = OrthographicProjection {
-        left: min.x,
-        right: max.x,
-        top: max.y,
-        bottom: min.y,
-        near,
-        far,
-      };
-      (proj, split)
-    },
-  )
-}
-
-/// return per sub frustum min max point and split distance in light space
-pub fn compute_light_cascade_info(
-  camera_world: Mat4<f64>,
-  camera_projection: Mat4<f32>,
-  world_to_light: Mat4<f64>,
-) -> [(Vec3<f32>, Vec3<f32>, f32); CASCADE_SHADOW_SPLIT_COUNT] {
   let (near, far) = camera_projection.get_near_far_assume_is_common_projection();
 
   let world_to_clip = camera_projection.into_f64() * camera_world.inverse_or_identity();
@@ -266,12 +248,11 @@ pub fn compute_light_cascade_info(
   ]
   .map(|v| clip_to_world * v);
 
-  let ratio = ((far * far) / 1_000_000.0).min(1.0);
   let target_cascade_splits: [f32; CASCADE_SHADOW_SPLIT_COUNT] = std::array::from_fn(|i| {
     let p = (i as f32 + 1.0) / (CASCADE_SHADOW_SPLIT_COUNT as f32);
     let log = near.powf(1.0 - p) * far.powf(p);
-    let linear = near + p * (far - near);
-    linear.lerp(log, ratio)
+    let linear = near.lerp(far, p);
+    linear.lerp(log, split_linear_log_blend_ratio)
   });
 
   let mut idx = 0;
@@ -303,7 +284,17 @@ pub fn compute_light_cascade_info(
       max = max.max(corner_position_in_light.into_f32());
     }
     idx += 1;
-    (min, max, split_distance)
+
+    let proj = OrthographicProjection {
+      left: min.x,
+      right: max.x,
+      top: max.y,
+      bottom: min.y,
+      near: shadow_near,
+      far: shadow_far,
+    };
+
+    (proj, split_distance)
   })
 }
 
