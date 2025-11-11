@@ -46,7 +46,7 @@ pub fn use_basic_shadow_map_uniform(
       uniform,
       offset_of!(
         BasicShadowMapInfo,
-        shadow_center_to_shadowmap_ndc_without_translation
+        shadow_center_without_translation_to_shadowmap_ndc
       ),
       cx.gpu,
     );
@@ -184,7 +184,7 @@ impl BasicShadowMapPreparer {
 #[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct BasicShadowMapInfo {
   pub enabled: Bool,
-  pub shadow_center_to_shadowmap_ndc_without_translation: Mat4<f32>,
+  pub shadow_center_without_translation_to_shadowmap_ndc: Mat4<f32>,
   pub shadow_world_position: HighPrecisionTranslationUniform,
   pub bias: ShadowBias,
   pub map_info: ShadowMapAddressInfo,
@@ -244,11 +244,11 @@ impl BasicShadowMapInvocation {
           camera_world_position,
         );
 
-        let position_in_shadow_center_space_without_translation =
+        let position_in_shadow_center_without_translation_space =
           render_position - shadow_center_in_render_space;
 
-        let shadow_position = shadow_info.shadow_center_to_shadowmap_ndc_without_translation
-          * (position_in_shadow_center_space_without_translation, val(1.)).into();
+        let shadow_position = shadow_info.shadow_center_without_translation_to_shadowmap_ndc
+          * (position_in_shadow_center_without_translation_space, val(1.)).into();
 
         let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
 

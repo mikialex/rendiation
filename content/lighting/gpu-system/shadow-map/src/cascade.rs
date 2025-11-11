@@ -33,12 +33,12 @@ pub fn generate_cascade_shadow_info(
 ) -> CascadeShadowPreparer {
   let mut packer = CascadeShadowPackerImpl::init_by_config(packer_size);
 
-  let mut gpu_buffer = Vec::new();
+  let mut info = Vec::new();
   let mut proj_info = Vec::new();
 
   for (k, enabled) in inputs.enabled.iter_key_value() {
     let gpu_buffer_idx = k as usize;
-    gpu_buffer.resize(gpu_buffer.len().max(gpu_buffer_idx + 1), Default::default());
+    info.resize(info.len().max(gpu_buffer_idx + 1), Default::default());
     proj_info.resize(proj_info.len().max(gpu_buffer_idx + 1), Default::default());
 
     if !enabled {
@@ -68,15 +68,17 @@ pub fn generate_cascade_shadow_info(
     let size = inputs.size.access(&k).unwrap();
     let mut splits = [0.; CASCADE_SHADOW_SPLIT_COUNT];
 
+    // dbg!(&cascades);
+
     for (idx, (sub_proj, split)) in cascades.iter().enumerate() {
       if let Ok(pack) = packer.pack(size) {
         let proj = sub_proj.compute_projection_mat(ndc);
-        let shadow_center_to_shadowmap_ndc_without_translation =
+        let shadow_center_without_translation_to_shadowmap_ndc =
           proj * light_world_inv.remove_position().into_f32();
 
         cascade_info.push(SingleShadowMapInfo {
           map_info: convert_pack_result(pack),
-          shadow_center_to_shadowmap_ndc_without_translation,
+          shadow_center_without_translation_to_shadowmap_ndc,
           split_distance: *split, // this is not used
           ..Default::default()
         });
@@ -90,7 +92,7 @@ pub fn generate_cascade_shadow_info(
 
     let shadow_world_position = into_hpt(light_world.position()).into_uniform();
 
-    gpu_buffer[gpu_buffer_idx] = CascadeShadowMapInfo {
+    info[gpu_buffer_idx] = CascadeShadowMapInfo {
       bias: inputs.bias.access(&k).unwrap(),
       shadow_world_position,
       map_info: Shader140Array::from_slice_clamp_or_default(&cascade_info),
@@ -103,14 +105,14 @@ pub fn generate_cascade_shadow_info(
   }
 
   CascadeShadowPreparer {
-    uniforms: gpu_buffer,
+    info,
     map_size: packer_size,
     proj_info,
   }
 }
 
 pub struct CascadeShadowPreparer {
-  uniforms: Vec<CascadeShadowMapInfo>,
+  info: Vec<CascadeShadowMapInfo>,
   proj_info: Vec<(Mat4<f64>, [Mat4<f32>; 4])>,
   map_size: SizeWithDepth,
 }
@@ -143,7 +145,7 @@ impl CascadeShadowPreparer {
     clear_shadow_map(&shadow_map_atlas, frame_ctx, reversed_depth);
 
     // do shadowmap updates
-    for (index, cascade) in self.uniforms.iter().enumerate() {
+    for (index, cascade) in self.info.iter().enumerate() {
       if cascade.enabled == Bool::from(false) {
         continue;
       }
@@ -182,8 +184,9 @@ impl CascadeShadowPreparer {
       }
     }
 
+    *uniforms = None; // todo, avoid create new buffer reference
     let info = uniforms.get_or_insert_with(|| {
-      let uniforms = Shader140Array::from_slice_clamp_or_default(&self.uniforms);
+      let uniforms = Shader140Array::from_slice_clamp_or_default(&self.info);
       create_uniform(uniforms, &frame_ctx.gpu.device)
     });
 
@@ -211,7 +214,7 @@ pub struct CascadeShadowMapInfo {
 #[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct SingleShadowMapInfo {
   pub map_info: ShadowMapAddressInfo,
-  pub shadow_center_to_shadowmap_ndc_without_translation: Mat4<f32>,
+  pub shadow_center_without_translation_to_shadowmap_ndc: Mat4<f32>,
   pub split_distance: f32,
 }
 
@@ -407,7 +410,7 @@ impl CascadeShadowMapInvocation {
           camera_world_position,
         );
 
-        let position_in_shadow_center_space_without_translation =
+        let position_in_shadow_center_without_translation_space =
           render_position - shadow_center_in_render_space;
 
         let cascade_index = compute_cascade_index(
@@ -418,8 +421,8 @@ impl CascadeShadowMapInvocation {
 
         let cascade_info = shadow_info.map_info().index(cascade_index).load().expand();
 
-        let shadow_position = cascade_info.shadow_center_to_shadowmap_ndc_without_translation
-          * (position_in_shadow_center_space_without_translation, val(1.)).into();
+        let shadow_position = cascade_info.shadow_center_without_translation_to_shadowmap_ndc
+          * (position_in_shadow_center_without_translation_space, val(1.)).into();
 
         let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
 
