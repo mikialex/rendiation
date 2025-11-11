@@ -83,7 +83,7 @@ pub fn render_lighting_scene_content(
           all_transparent_object
         };
 
-      cull_cx.install_device_frustum_culler(&mut all_transparent_object, camera_gpu, camera);
+      cull_cx.install_frustum_culler(&mut all_transparent_object, camera_gpu, camera);
 
       match renderer.oit.clone() {
         ViewerTransparentRenderer::NaiveAlphaBlend => {

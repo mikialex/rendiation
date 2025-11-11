@@ -18,6 +18,7 @@
 //! }
 //! ```
 use std::hash::Hash;
+use std::sync::Arc;
 
 use database::*;
 use dyn_clone::*;

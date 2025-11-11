@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::*};
+use std::{fmt::Debug, marker::PhantomData, ops::*};
 
 use crate::*;
 
@@ -8,10 +8,18 @@ pub type NormalizedVec4<T> = NormalizedVector<T, Vec4<T>>;
 
 #[repr(transparent)]
 #[derive(Serialize, Deserialize)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Facet)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Facet)]
 pub struct NormalizedVector<T, V> {
   pub value: V,
   phantom: PhantomData<T>,
+}
+
+impl<T, V: Debug> Debug for NormalizedVector<T, V> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("NormalizedVector")
+      .field("value", &self.value)
+      .finish()
+  }
 }
 
 pub trait IntoNormalizedVector<T, V> {

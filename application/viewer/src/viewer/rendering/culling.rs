@@ -20,9 +20,13 @@ pub fn use_viewer_culling(
     None
   };
 
+  let sm_world_bounding = cx.use_shared_dual_query(SceneModelWorldBounding);
+
+  let (sm_world_bounding, bounding) = sm_world_bounding.fork();
+  let sm_world_bounding = sm_world_bounding.map(|v| v.view).use_assure_result(cx);
+
   let bounding_provider = if is_indirect {
     cx.scope(|cx| {
-      let bounding = cx.use_shared_dual_query(SceneModelWorldBounding);
       use_scene_model_device_world_bounding(cx, bounding).map(|b| Box::new(b) as Box<_>)
     })
   } else {
@@ -33,6 +37,10 @@ pub fn use_viewer_culling(
   cx.when_render(|| ViewerCulling {
     oc,
     bounding_provider,
+    sm_world_bounding: sm_world_bounding
+      .expect_resolve_stage()
+      .mark_entity_type()
+      .into_boxed(),
     frustums: camera_frustums.unwrap(),
   })
 }
@@ -40,24 +48,34 @@ pub fn use_viewer_culling(
 pub struct ViewerCulling {
   oc: Option<Arc<RwLock<GPUTwoPassOcclusionCulling>>>,
   bounding_provider: Option<Box<dyn DrawUnitWorldBoundingProvider>>,
+  sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   frustums: CameraGPUFrustums,
 }
 
 impl ViewerCulling {
-  pub fn install_device_frustum_culler(
+  pub fn install_frustum_culler(
     &self,
     batch: &mut SceneModelRenderBatch,
     camera_gpu: &CameraGPU,
     camera: EntityHandle<SceneCameraEntity>,
   ) {
-    if let SceneModelRenderBatch::Device(batch) = batch {
-      let culler = GPUFrustumCuller {
-        bounding_provider: self.bounding_provider.clone().unwrap(),
-        frustum: self.frustums.get_gpu_frustum(camera),
-        camera: camera_gpu.clone(),
-      };
+    match batch {
+      SceneModelRenderBatch::Device(batch) => {
+        let culler = GPUFrustumCuller {
+          bounding_provider: self.bounding_provider.clone().unwrap(),
+          frustum: self.frustums.get_gpu_frustum(camera),
+          camera: camera_gpu.clone(),
+        };
 
-      batch.set_override_culler(culler);
+        batch.set_override_culler(culler);
+      }
+      SceneModelRenderBatch::Host(host_render_batch) => {
+        *host_render_batch = Box::new(HostFrustumCulling {
+          inner: host_render_batch.clone(),
+          sm_world_bounding: self.sm_world_bounding.clone(),
+          frustum: self.frustums.get_frustum(camera),
+        })
+      }
     }
   }
 
@@ -72,7 +90,7 @@ impl ViewerCulling {
     pass_base: RenderPassDescription,
     mut reorderable_batch: SceneModelRenderBatch,
   ) -> ActiveRenderPass {
-    self.install_device_frustum_culler(&mut reorderable_batch, camera_gpu, camera);
+    self.install_frustum_culler(&mut reorderable_batch, camera_gpu, camera);
 
     if let Some(oc) = &self.oc {
       oc.write().draw(

@@ -26,9 +26,9 @@ where
   }
 }
 
-impl HostRenderBatch for Vec<EntityHandle<SceneModelEntity>> {
-  fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>>> {
-    Box::new(self.clone().into_iter())
+impl HostRenderBatch for Arc<Vec<EntityHandle<SceneModelEntity>>> {
+  fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
+    Box::new(self.iter().copied())
   }
 }
 

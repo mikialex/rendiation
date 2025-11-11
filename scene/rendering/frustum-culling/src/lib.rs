@@ -18,34 +18,47 @@ pub fn use_camera_gpu_frustum(
 ) -> Option<CameraGPUFrustums> {
   let uniforms = cx.use_uniform_buffers();
 
-  cx.use_shared_dual_query(GlobalCameraTransformShare(ndc))
-    .into_delta_change()
-    .map_changes(move |transform| {
+  let camera_frustums = cx
+    .use_shared_dual_query(GlobalCameraTransformShare(ndc))
+    .dual_query_map(move |transform| {
       let mat =
         ndc.transform_from_opengl_standard_ndc_inverse().into_f64() * transform.view_projection;
-      let arr = Frustum::new_from_matrix(mat)
+      Frustum::new_from_matrix(mat)
+    });
+
+  let (c1, c2) = camera_frustums.fork();
+
+  c1.use_assure_result(cx)
+    .into_delta_change()
+    .map_changes(|v| {
+      let arr = v
         .planes
         .map(|p| ShaderPlaneUniform::new(p.normal.value, p.constant));
-
       GPUFrustumDataType::from_slice_clamp_or_default(&arr);
     })
-    .use_assure_result(cx)
     .update_uniforms(&uniforms, 0, cx.gpu);
 
+  let c2 = c2.map(|v| v.view()).use_assure_result(cx);
+
   cx.when_render(|| CameraGPUFrustums {
-    frustums: uniforms.make_read_holder(),
+    device: uniforms.make_read_holder(),
+    host: c2.expect_resolve_stage().into_boxed(),
   })
 }
 
 type CameraGPUFrustumsUniform = UniformBufferCollectionRaw<RawEntityHandle, GPUFrustumDataType>;
 
 pub struct CameraGPUFrustums {
-  frustums: LockReadGuardHolder<CameraGPUFrustumsUniform>,
+  device: LockReadGuardHolder<CameraGPUFrustumsUniform>,
+  host: BoxedDynQuery<RawEntityHandle, Frustum<f64>>,
 }
 
 impl CameraGPUFrustums {
   pub fn get_gpu_frustum(&self, camera: EntityHandle<SceneCameraEntity>) -> GPUFrustumData {
-    self.frustums.get(&camera.into_raw()).unwrap().clone()
+    self.device.get(&camera.into_raw()).unwrap().clone()
+  }
+  pub fn get_frustum(&self, camera: EntityHandle<SceneCameraEntity>) -> Frustum<f64> {
+    self.host.access(&camera.into_raw()).unwrap()
   }
 }
 
@@ -113,5 +126,31 @@ impl AbstractCullerInvocation for GPUFrustumCullingInvocation {
     }
 
     should_cull.load()
+  }
+}
+
+#[derive(Clone)]
+pub struct HostFrustumCulling {
+  pub inner: Box<dyn HostRenderBatch>,
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  pub frustum: Frustum<f64>,
+}
+
+impl HostRenderBatch for HostFrustumCulling {
+  fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
+    Box::new(self.inner.iter_scene_models())
+    // println!("host frustum culling");
+    // dbg!(self.frustum);
+    // Box::new(self.inner.iter_scene_models().filter(|v| {
+    //   let bbox = self.sm_world_bounding.access(v).unwrap();
+    //   let r = self.frustum.intersect(&bbox, &());
+
+    //   // if !r {
+    //   //   dbg!(self.frustum);
+    //   //   dbg!(v);
+    //   // }
+
+    //   r
+    // }))
   }
 }
