@@ -50,7 +50,10 @@ pub fn generate_cascade_shadow_info(
 
     let to_opengl_ndc_space = ndc.transform_from_opengl_standard_ndc_inverse();
     let shadow_camera_proj = to_opengl_ndc_space * inputs.source_proj.access(&k).unwrap();
-    let world_to_light = shadow_camera_proj.into_f64() * world.inverse_or_identity();
+    // important note: we must not multiply shadow_camera_proj here, because the left write top bottom
+    // is computed, not used user defined value, if multiplied here, the projected shadow bound
+    // will be scaled incorrectly.
+    let world_to_light = world.inverse_or_identity();
 
     let view_camera_proj = to_opengl_ndc_space * view_camera_proj;
 
@@ -249,7 +252,7 @@ pub fn compute_light_cascade_info(
 ) -> [(Vec3<f32>, Vec3<f32>, f32); CASCADE_SHADOW_SPLIT_COUNT] {
   let (near, far) = camera_projection.get_near_far_assume_is_common_projection();
 
-  let world_to_clip = camera_projection.into_f64() * camera_world;
+  let world_to_clip = camera_projection.into_f64() * camera_world.inverse_or_identity();
   let clip_to_world = world_to_clip.inverse_or_identity();
   let frustum_corners = [
     Vec3::new(-1.0, 1.0, 0.0),
