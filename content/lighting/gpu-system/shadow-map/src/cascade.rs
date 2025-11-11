@@ -428,6 +428,15 @@ impl CascadeShadowMapInvocation {
           + val(Vec3::new(0.5, 0.5, 0.))
           + (val(0.), val(0.), bias.bias).into();
 
+        if DEBUG_SHADOW_UV {
+          let debug = vec3_node((shadow_position.xy(), val(0.)));
+          DEFAULT_DISPLAY_DEBUG.with_borrow_mut(|v| {
+            if let Some(v) = v {
+              v.store(debug);
+            }
+          });
+        }
+
         sample_shadow_pcf_x36_by_offset(
           self.shadow_map_atlas,
           shadow_position,
@@ -440,6 +449,7 @@ impl CascadeShadowMapInvocation {
   }
 }
 
+pub const DEBUG_SHADOW_UV: bool = false;
 pub const DEBUG_CASCADE_INDEX: bool = false;
 
 /// compute the current shading point in which sub frustum
