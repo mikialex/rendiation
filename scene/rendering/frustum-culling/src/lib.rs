@@ -83,6 +83,7 @@ impl AbstractCullerProvider for GPUFrustumCuller {
     let frustum = cx.bind_by(&self.frustum);
 
     let frustum = std::array::from_fn(|i| {
+      // todo, move this compute in host
       let plane = frustum.index(val(i as u32)).load();
       ShaderPlaneUniform::into_shader_plane(plane, camera_world)
     });

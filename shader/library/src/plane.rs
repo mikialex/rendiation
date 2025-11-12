@@ -11,7 +11,7 @@ pub struct ShaderPlaneUniform {
 
 impl ShaderPlaneUniform {
   pub fn new(normal: Vec3<f64>, constant: f64) -> Self {
-    let position = normal * constant;
+    let position = normal * -constant;
     let position = into_hpt(position).into_uniform();
     Self {
       normal: normal.into_f32(),
