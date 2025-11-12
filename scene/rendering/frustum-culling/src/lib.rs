@@ -9,7 +9,7 @@ use rendiation_shader_library::plane::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
-type GPUFrustumDataType = Shader140Array<ShaderPlaneUniform, 6>;
+type GPUFrustumDataType = Shader140Array<Vec4<f32>, 6>;
 type GPUFrustumData = UniformBufferDataView<GPUFrustumDataType>;
 
 pub fn use_camera_gpu_frustum(
@@ -18,30 +18,38 @@ pub fn use_camera_gpu_frustum(
 ) -> Option<CameraGPUFrustums> {
   let uniforms = cx.use_uniform_buffers();
 
-  let camera_frustums = cx
+  let host_camera_frustums = cx
     .use_shared_dual_query(GlobalCameraTransformShare(ndc))
     .dual_query_map(move |transform| {
       let mat = ndc.transform_into_opengl_standard_ndc().into_f64() * transform.view_projection;
       Frustum::new_from_matrix(mat)
     });
 
-  let (c1, c2) = camera_frustums.fork();
+  let device_camera_frustums = cx
+    .use_shared_dual_query(GlobalCameraTransformShare(ndc))
+    .dual_query_map(move |transform| {
+      let mat = ndc.transform_into_opengl_standard_ndc().into_f64()
+        * transform.projection.into_f64()
+        * transform.view.remove_position();
+      Frustum::new_from_matrix(mat)
+    });
 
-  c1.use_assure_result(cx)
+  device_camera_frustums
+    .use_assure_result(cx)
     .into_delta_change()
     .map_changes(|v| {
       let arr = v
         .planes
-        .map(|p| ShaderPlaneUniform::new(p.normal.value, p.constant));
+        .map(|p| Vec4::new(p.normal.x, p.normal.y, p.normal.z, p.constant).into_f32());
       GPUFrustumDataType::from_slice_clamp_or_default(&arr);
     })
     .update_uniforms(&uniforms, 0, cx.gpu);
 
-  let c2 = c2.map(|v| v.view()).use_assure_result(cx);
+  let host_camera_frustums = host_camera_frustums.map(|v| v.view()).use_assure_result(cx);
 
   cx.when_render(|| CameraGPUFrustums {
     device: uniforms.make_read_holder(),
-    host: c2.expect_resolve_stage().into_boxed(),
+    host: host_camera_frustums.expect_resolve_stage().into_boxed(),
   })
 }
 
@@ -82,11 +90,7 @@ impl AbstractCullerProvider for GPUFrustumCuller {
 
     let frustum = cx.bind_by(&self.frustum);
 
-    let frustum = std::array::from_fn(|i| {
-      // todo, move this compute in host
-      let plane = frustum.index(val(i as u32)).load();
-      ShaderPlaneUniform::into_shader_plane(plane, camera_world)
-    });
+    let frustum = std::array::from_fn(|i| frustum.index(val(i as u32)).load());
 
     Box::new(GPUFrustumCullingInvocation {
       bounding_provider: self.bounding_provider.create_invocation(cx),
@@ -104,7 +108,7 @@ impl AbstractCullerProvider for GPUFrustumCuller {
 
 struct GPUFrustumCullingInvocation {
   bounding_provider: Box<dyn DrawUnitWorldBoundingInvocationProvider>,
-  frustum: [ENode<ShaderPlane>; 6],
+  frustum: [Node<Vec4<f32>>; 6],
   camera_world: Node<HighPrecisionTranslation>,
 }
 
@@ -117,8 +121,13 @@ impl AbstractCullerInvocation for GPUFrustumCullingInvocation {
     let should_cull = val(false).make_local_var();
 
     for plane in self.frustum.iter() {
+      let plane = ENode::<ShaderPlane> {
+        normal: plane.xyz(),
+        constant: plane.w(),
+      };
+
       if_by(should_cull.load().not(), || {
-        let intersect = aabb_half_space_intersect(min, max, *plane);
+        let intersect = aabb_half_space_intersect(min, max, plane);
         if_by(intersect.not(), || {
           should_cull.store(true);
         });
