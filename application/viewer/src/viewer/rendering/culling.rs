@@ -20,13 +20,13 @@ pub fn use_viewer_culling(
     None
   };
 
-  let sm_world_bounding = cx.use_shared_dual_query(SceneModelWorldBounding);
-
-  let (sm_world_bounding, bounding) = sm_world_bounding.fork();
-  let sm_world_bounding = sm_world_bounding.map(|v| v.view).use_assure_result(cx);
+  let sm_world_bounding = cx
+    .use_shared_dual_query_view(SceneModelWorldBounding)
+    .use_assure_result(cx);
 
   let bounding_provider = if is_indirect {
     cx.scope(|cx| {
+      let bounding = cx.use_shared_dual_query(SceneModelWorldBounding);
       use_scene_model_device_world_bounding(cx, bounding).map(|b| Box::new(b) as Box<_>)
     })
   } else {
