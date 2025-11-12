@@ -49,7 +49,7 @@ pub fn generate_cascade_shadow_info(
     let world = inputs.source_world.access(&k).unwrap();
     let mut sub_proj_info = [Mat4::default(); CASCADE_SHADOW_SPLIT_COUNT];
 
-    let to_opengl_ndc_space = ndc.transform_from_opengl_standard_ndc_inverse();
+    let to_opengl_ndc_space = ndc.transform_into_opengl_standard_ndc();
     let shadow_camera_proj = to_opengl_ndc_space * inputs.source_proj.access(&k).unwrap();
     // important note: we must not multiply shadow_camera_proj here, because the left right top bottom
     // is computed, not used user defined value, if multiplied here, the projected shadow bound

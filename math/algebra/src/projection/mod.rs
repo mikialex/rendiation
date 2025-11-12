@@ -30,12 +30,12 @@ pub trait ResizableProjection<T: Scalar>: Projection<T> {
 }
 
 impl<T: Scalar> Mat4<T> {
-  /// check if the mat is the perspective, assume the mat is the common projection(perspective or orthographic)
+  /// check if the mat is the perspective, assume the mat is the common projection(perspective or orthographic) in opengl ndc
   pub fn check_is_perspective_matrix_assume_common_projection(&self) -> bool {
     self.c4 == -T::one()
   }
 
-  /// get the near and far assume the mat is the common projection(perspective or orthographic)
+  /// get the near and far assume the mat is the common projection(perspective or orthographic) in opengl ndc
   pub fn get_near_far_assume_is_common_projection(&self) -> (T, T) {
     if self.check_is_perspective_matrix_assume_common_projection() {
       self.get_near_far_assume_perspective()

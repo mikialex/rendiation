@@ -27,8 +27,10 @@ impl<T: Scalar> Plane<T> {
   }
 
   pub fn from_components(x: T, y: T, z: T, w: T) -> Self {
-    let normal = Vec3::new(x, y, z).into_normalized();
-    let inverse_normal_length = T::one() / normal.length();
+    let v = Vec3::new(x, y, z);
+    let length = v.length();
+    let normal = v.into_normalized();
+    let inverse_normal_length = T::one() / length;
     Self {
       normal,
       constant: w * inverse_normal_length,

@@ -21,8 +21,7 @@ pub fn use_camera_gpu_frustum(
   let camera_frustums = cx
     .use_shared_dual_query(GlobalCameraTransformShare(ndc))
     .dual_query_map(move |transform| {
-      let mat =
-        ndc.transform_from_opengl_standard_ndc_inverse().into_f64() * transform.view_projection;
+      let mat = ndc.transform_into_opengl_standard_ndc().into_f64() * transform.view_projection;
       Frustum::new_from_matrix(mat)
     });
 
@@ -138,19 +137,9 @@ pub struct HostFrustumCulling {
 
 impl HostRenderBatch for HostFrustumCulling {
   fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
-    Box::new(self.inner.iter_scene_models())
-    // println!("host frustum culling");
-    // dbg!(self.frustum);
-    // Box::new(self.inner.iter_scene_models().filter(|v| {
-    //   let bbox = self.sm_world_bounding.access(v).unwrap();
-    //   let r = self.frustum.intersect(&bbox, &());
-
-    //   // if !r {
-    //   //   dbg!(self.frustum);
-    //   //   dbg!(v);
-    //   // }
-
-    //   r
-    // }))
+    Box::new(self.inner.iter_scene_models().filter(|v| {
+      let bbox = self.sm_world_bounding.access(v).unwrap();
+      self.frustum.intersect(&bbox, &())
+    }))
   }
 }

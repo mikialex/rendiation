@@ -127,7 +127,7 @@ pub trait NDCSpaceMapper<T: Scalar = f32>: Send + Sync + dyn_clone::DynClone + '
   /// We use OpenGL's NDC range as standard, this function return the transformation matrix
   /// from the OpenGL's NDC space to it's defined NDC Space
   fn transform_from_opengl_standard_ndc(&self) -> Mat4<T>;
-  fn transform_from_opengl_standard_ndc_inverse(&self) -> Mat4<T> {
+  fn transform_into_opengl_standard_ndc(&self) -> Mat4<T> {
     self
       .transform_from_opengl_standard_ndc()
       .inverse_or_identity()
