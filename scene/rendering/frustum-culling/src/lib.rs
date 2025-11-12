@@ -41,7 +41,7 @@ pub fn use_camera_gpu_frustum(
       let arr = v
         .planes
         .map(|p| Vec4::new(p.normal.x, p.normal.y, p.normal.z, p.constant).into_f32());
-      GPUFrustumDataType::from_slice_clamp_or_default(&arr);
+      GPUFrustumDataType::from_slice_clamp_or_default(&arr)
     })
     .update_uniforms(&uniforms, 0, cx.gpu);
 
