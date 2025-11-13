@@ -14,7 +14,7 @@ pub fn use_cascade_shadow_map(
     .use_shared_dual_query(GlobalCameraTransformShare(ndc))
     .use_assure_result(cx);
 
-  let maps = per_camera_per_viewport(viewports)
+  let maps = per_camera_per_viewport(viewports, false)
     .map(|cv| {
       let cache = cx.keyed_scope(&cv.camera, |cx| {
         cx.use_plain_state_default_cloned::<CascadeShadowGPUCacheShared>()
@@ -66,7 +66,7 @@ pub fn use_cascade_shadow_map(
 
     let camera_transform = camera_transform.expect_resolve_stage();
 
-    let per_camera = per_camera_per_viewport(viewports)
+    let per_camera = per_camera_per_viewport(viewports, false)
       .map(|cv| {
         let transform = camera_transform.view.access(&cv.camera.into_raw()).unwrap();
         let view_camera_proj = transform.projection;

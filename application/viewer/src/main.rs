@@ -183,7 +183,7 @@ fn main() {
       // this must called before per_camera_per_viewport
       use_egui_tile_for_viewer_viewports(cx);
 
-      per_camera_per_viewport_scope(cx, |cx, camera_with_viewports| {
+      per_camera_per_viewport_scope(cx, false, |cx, camera_with_viewports| {
         let cv = camera_with_viewports;
         use_smooth_camera_motion(cx, cv.camera_node, |cx| {
           use_fit_camera_view(cx, cv.camera, cv.camera_node);

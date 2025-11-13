@@ -9,6 +9,11 @@ pub struct ViewerViewPort {
   pub viewport: Vec4<f32>,
   pub camera: EntityHandle<SceneCameraEntity>,
   pub camera_node: EntityHandle<SceneNodeEntity>,
+  /// this camera is to debug the view related effect such as culling and lod selection
+  /// for another camera.
+  ///
+  /// None as default, if None, then the view related effect compute is using the `camera`.
+  pub debug_camera_for_view_related: Option<EntityHandle<SceneCameraEntity>>,
 }
 
 impl ViewerViewPort {
@@ -55,15 +60,20 @@ pub fn viewport_to_input_bound(viewport: Vec4<f32>) -> InputBound {
 pub struct CameraViewportAccess {
   pub camera: EntityHandle<SceneCameraEntity>,
   pub camera_node: EntityHandle<SceneNodeEntity>,
+  pub view_effect_camera: EntityHandle<SceneCameraEntity>,
   /// the order is preserved
   pub viewports_index: Vec<(usize, u64)>,
 }
 
 pub fn per_camera_per_viewport_scope(
   cx: &mut ViewerCx,
+  consider_debug_view_camera_override: bool,
   logic: impl Fn(&mut ViewerCx, &CameraViewportAccess),
 ) {
-  for cv in per_camera_per_viewport(&cx.viewer.content.viewports) {
+  for cv in per_camera_per_viewport(
+    &cx.viewer.content.viewports,
+    consider_debug_view_camera_override,
+  ) {
     cx.keyed_scope(&cv.camera, |cx| {
       logic(cx, &cv);
     });
@@ -72,20 +82,30 @@ pub fn per_camera_per_viewport_scope(
 
 pub fn per_camera_per_viewport(
   view_ports: &[ViewerViewPort],
+  consider_debug_view_camera_override: bool,
 ) -> impl Iterator<Item = CameraViewportAccess> {
   let mut mapping = FastHashMap::<_, Vec<_>>::default();
   for (index, vp) in view_ports.iter().enumerate() {
+    let view_camera = if consider_debug_view_camera_override {
+      vp.debug_camera_for_view_related.unwrap_or(vp.camera)
+    } else {
+      vp.camera
+    };
+
     mapping
-      .entry((vp.camera, vp.camera_node))
+      .entry((view_camera, vp.camera, vp.camera_node))
       .or_default()
       .push((index, vp.id));
   }
 
   mapping
     .into_iter()
-    .map(|((camera, camera_node), viewports)| CameraViewportAccess {
-      camera,
-      camera_node,
-      viewports_index: viewports,
-    })
+    .map(
+      |((view_effect_camera, camera, camera_node), viewports)| CameraViewportAccess {
+        camera,
+        camera_node,
+        view_effect_camera,
+        viewports_index: viewports,
+      },
+    )
 }

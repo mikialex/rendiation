@@ -76,6 +76,7 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
         viewport: Default::default(),
         camera: camera_source.camera,
         camera_node: camera_source.camera_node,
+        debug_camera_for_view_related: None,
       };
       cx.viewer.content.viewports.push(new_viewport);
 
@@ -114,6 +115,9 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
             let camera = unsafe { EntityHandle::from_raw(pane.camera_handle) };
             viewport.camera = camera;
             viewport.camera_node = camera_nodes.access(&camera).unwrap();
+            viewport.debug_camera_for_view_related = pane
+              .debug_view_camera_handle
+              .map(|h| unsafe { EntityHandle::from_raw(h) })
           } // or else tile get removed(viewport get removed)
         }
       } // or else new get removed
@@ -125,15 +129,19 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
 pub struct ViewerPane {
   pub viewport_id: u64,
   pub rect: egui::Rect,
+  pub show_camera_setting: bool,
   pub camera_handle: RawEntityHandle,
+  pub debug_view_camera_handle: Option<RawEntityHandle>,
 }
 
 impl ViewerPane {
   pub fn new(viewport_id: u64, camera_handle: RawEntityHandle) -> Self {
     ViewerPane {
       viewport_id,
+      show_camera_setting: false,
       rect: egui::Rect::from_min_max(egui::pos2(0., 0.), egui::pos2(0., 0.)),
       camera_handle,
+      debug_view_camera_handle: None,
     }
   }
 }
@@ -225,13 +233,9 @@ impl egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior {
             self.remove_tile = Some(tile_id);
           }
 
-          egui::ComboBox::from_label("camera")
-            .selected_text(format!("{:?}", pane.camera_handle))
-            .show_ui(ui, |ui| {
-              for c in self.camera_handles.iter() {
-                ui.selectable_value(&mut pane.camera_handle, *c, format!("{:?}", c));
-              }
-            });
+          if ui.button("camera").clicked() {
+            pane.show_camera_setting = !pane.show_camera_setting;
+          }
 
           if ui
             .add(egui::Button::new("Drag").sense(egui::Sense::drag()))
@@ -242,6 +246,35 @@ impl egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior {
           }
         })
     });
+
+    if pane.show_camera_setting {
+      ui.horizontal(|ui| {
+        egui::frame::Frame::NONE
+          .inner_margin(egui::Margin::same(3))
+          .show(ui, |ui| {
+            egui::ComboBox::from_label("camera")
+              .selected_text(format!("{:?}", pane.camera_handle))
+              .show_ui(ui, |ui| {
+                for c in self.camera_handles.iter() {
+                  ui.selectable_value(&mut pane.camera_handle, *c, format!("{:?}", c));
+                }
+              });
+
+            egui::ComboBox::from_label("debug view camera")
+              .selected_text(format!("{:?}", pane.debug_view_camera_handle))
+              .show_ui(ui, |ui| {
+                ui.selectable_value(&mut pane.debug_view_camera_handle, None, "none");
+                for c in self.camera_handles.iter() {
+                  ui.selectable_value(
+                    &mut pane.debug_view_camera_handle,
+                    Some(*c),
+                    format!("{:?}", c),
+                  );
+                }
+              });
+          });
+      });
+    }
 
     r
   }

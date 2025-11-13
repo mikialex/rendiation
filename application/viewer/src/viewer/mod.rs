@@ -460,6 +460,7 @@ impl Viewer {
       viewport: Default::default(),
       camera: main_camera,
       camera_node,
+      debug_camera_for_view_related: None,
     };
 
     let scene = Viewer3dContent {
