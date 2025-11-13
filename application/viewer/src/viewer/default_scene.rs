@@ -124,4 +124,32 @@ pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dCont
   }
 
   load_default_scene_lighting_test(writer);
+
+  // a large plane like cube to test oc
+  {
+    let cube = CubeMeshParameter {
+      width: 60.,
+      height: 30.,
+      depth: 1.,
+    };
+    let attribute_mesh = build_attributes_mesh(|builder| {
+      for face in cube.make_faces() {
+        builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
+      }
+    })
+    .build();
+    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
+
+    let material = PhysicalSpecularGlossinessMaterialDataView {
+      albedo: Vec3::splat(1.),
+      ..Default::default()
+    }
+    .write(&mut writer.pbr_sg_mat_writer);
+    let material = SceneMaterialDataView::PbrSGMaterial(material);
+
+    let child = writer.create_root_child();
+    writer.set_local_matrix(child, Mat4::translate((0., 0., 60.)));
+
+    writer.create_scene_model(material, attribute_mesh, child);
+  }
 }

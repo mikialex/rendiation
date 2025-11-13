@@ -8,6 +8,7 @@ pub fn use_viewer_culling(
   cx: &mut QueryGPUHookCx,
   ndc: impl NDCSpaceMapper + Copy + Hash,
   enable_oc_support: bool,
+  enable_frustum_culling: bool,
   is_indirect: bool,
   viewports: &[ViewerViewPort],
 ) -> Option<ViewerCulling> {
@@ -53,6 +54,7 @@ pub fn use_viewer_culling(
       .mark_entity_type()
       .into_boxed(),
     frustums: camera_frustums.unwrap(),
+    enable_frustum_culling,
   })
 }
 
@@ -61,6 +63,7 @@ pub struct ViewerCulling {
   bounding_provider: Option<Box<dyn DrawUnitWorldBoundingProvider>>,
   sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   frustums: CameraGPUFrustums,
+  enable_frustum_culling: bool,
 }
 
 impl ViewerCulling {
@@ -70,6 +73,9 @@ impl ViewerCulling {
     camera_gpu: &CameraGPU,
     camera: EntityHandle<SceneCameraEntity>,
   ) {
+    if !self.enable_frustum_culling {
+      return;
+    }
     match batch {
       SceneModelRenderBatch::Device(batch) => {
         let culler = GPUFrustumCuller {

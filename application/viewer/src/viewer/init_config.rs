@@ -12,6 +12,7 @@ pub struct ViewerInitConfig {
   pub raster_backend_type: RasterizationRenderBackendType,
   pub prefer_bindless_for_indirect_texture_system: bool,
   pub enable_indirect_occlusion_culling: bool,
+  pub enable_frustum_culling: bool,
   pub using_host_driven_indirect_draw: bool,
   pub transparent_config: ViewerTransparentContentRenderStyle,
   pub present_mode: PresentMode,
@@ -39,6 +40,11 @@ pub struct ViewerStaticInitConfig {
   pub wgpu_backend_select_override: Option<Backends>,
   pub using_texture_as_storage_buffer_for_indirect_rendering: bool,
   pub default_shader_protections: ShaderRuntimeProtection,
+  /// if None, then using wgpu default behavior (on when debug build)
+  ///
+  /// this is useful if we want to disable validation in debug to improve debug build performance
+  /// or do extra debug check in release build
+  pub enable_backend_validation: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
@@ -77,6 +83,7 @@ impl Default for ViewerStaticInitConfig {
         bounds_checks: true,
         force_loop_bounding: true,
       },
+      enable_backend_validation: None,
     }
   }
 }
@@ -129,6 +136,7 @@ impl Default for ViewerInitConfig {
       raster_backend_type: RasterizationRenderBackendType::Gles,
       prefer_bindless_for_indirect_texture_system: false,
       enable_indirect_occlusion_culling: false,
+      enable_frustum_culling: true,
       using_host_driven_indirect_draw: false,
       enable_on_demand_rendering: true,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,

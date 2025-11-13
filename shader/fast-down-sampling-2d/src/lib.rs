@@ -25,6 +25,11 @@ pub fn fast_down_sampling<V>(
   let (width, height) = io.root_size();
   let mip_level_count = io.mip_level_count();
   // check input
+  if width == 1 || height == 1 {
+    // in this case, we only have one level, which cause read write conflict in below
+    // and nothing to downsample
+    return;
+  }
   assert!(width <= MAX_INPUT_SIZE);
   assert!(height <= MAX_INPUT_SIZE);
   assert_eq!(

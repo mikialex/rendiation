@@ -102,6 +102,8 @@ impl Viewer3dRenderingCtx {
       },
     );
 
+    ui.checkbox(&mut self.enable_frustum_culling, "enable_frustum_culling");
+
     ui.separator();
 
     self.lighting.egui(ui, is_hdr);

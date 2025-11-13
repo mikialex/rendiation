@@ -122,8 +122,7 @@ struct WinitAppImpl {
   app_logic: Box<dyn Fn(&mut ApplicationCx)>,
   title: String,
   has_existed: bool,
-  preferred_backends: Option<Backends>,
-  checks: ShaderRuntimeChecks,
+  config: ApplicationPlatformConfig,
 }
 
 impl winit::application::ApplicationHandler for WinitAppImpl {
@@ -186,8 +185,12 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
           window_ref,
           Size::from_u32_pair_min_one((width, height)),
         )),
-        backends: self.preferred_backends.unwrap_or(Backends::all()),
-        default_shader_checks: self.checks,
+        backends: self.config.preferred_backends.unwrap_or(Backends::all()),
+        default_shader_checks: ShaderRuntimeChecks {
+          bounds_checks: self.config.checks.bounds_checks,
+          force_loop_bounding: self.config.checks.force_loop_bounding,
+        },
+        enable_backend_validation: self.config.enable_backend_validation,
         ..Default::default()
       };
 
@@ -305,9 +308,14 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
   }
 }
 
+pub struct ApplicationPlatformConfig {
+  pub preferred_backends: Option<Backends>,
+  pub checks: ShaderRuntimeProtection,
+  pub enable_backend_validation: Option<bool>,
+}
+
 pub fn run_application(
-  preferred_backends: Option<Backends>,
-  checks: ShaderRuntimeProtection,
+  config: ApplicationPlatformConfig,
   app_logic: impl Fn(&mut ApplicationCx) + 'static,
 ) {
   let event_loop = EventLoop::new().unwrap();
@@ -322,11 +330,7 @@ pub fn run_application(
     app_logic: Box::new(app_logic),
     title: "Rendiation Viewer".to_string(),
     has_existed: false,
-    preferred_backends,
-    checks: ShaderRuntimeChecks {
-      bounds_checks: checks.bounds_checks,
-      force_loop_bounding: checks.force_loop_bounding,
-    },
+    config,
   };
 
   event_loop.run_app(&mut app).unwrap();

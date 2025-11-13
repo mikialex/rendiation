@@ -122,8 +122,11 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   };
 
   run_application(
-    init_config.init_only.wgpu_backend_select_override,
-    init_config.init_only.default_shader_protections,
+    ApplicationPlatformConfig {
+      preferred_backends: init_config.init_only.wgpu_backend_select_override,
+      checks: init_config.init_only.default_shader_protections,
+      enable_backend_validation: init_config.init_only.enable_backend_validation,
+    },
     move |cx| {
       use_egui_cx(cx, |cx, egui_cx| {
         use_viewer(cx, egui_cx, &init_config, |cx| {

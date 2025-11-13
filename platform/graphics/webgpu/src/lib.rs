@@ -92,6 +92,8 @@ pub struct GPUCreateConfig<'a> {
   pub minimal_required_features: Features,
   pub minimal_required_limits: Limits,
   pub default_shader_checks: ShaderRuntimeChecks,
+  /// if None, then using wgpu default behavior (on when debug build)
+  pub enable_backend_validation: Option<bool>,
 }
 
 impl Default for GPUCreateConfig<'_> {
@@ -103,6 +105,7 @@ impl Default for GPUCreateConfig<'_> {
       minimal_required_features: Features::empty(),
       minimal_required_limits: Default::default(),
       default_shader_checks: ShaderRuntimeChecks::checked(),
+      enable_backend_validation: None,
     }
   }
 }
@@ -133,7 +136,17 @@ impl GPU {
   ) -> Result<(Self, Option<GPUSurface<'_>>), GPUCreateFailure> {
     let instance = gpu::Instance::new(&gpu::InstanceDescriptor {
       backends: config.backends,
-      flags: Default::default(),
+      flags: {
+        let mut r = InstanceFlags::default();
+        if let Some(validation) = config.enable_backend_validation {
+          if validation {
+            r.insert(InstanceFlags::VALIDATION)
+          } else {
+            r.remove(InstanceFlags::VALIDATION)
+          }
+        }
+        r
+      },
       backend_options: Default::default(),
       memory_budget_thresholds: Default::default(),
     });
