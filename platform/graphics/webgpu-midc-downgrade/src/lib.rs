@@ -46,7 +46,7 @@ pub fn downgrade_multi_indirect_draw_count(
           .into(),
       )
     };
-    assert!(draw_commands.cmd_count() > 0);
+    assert!(draw_commands.cmd_capacity_count() > 0);
     let draw_count = StorageBufferReadonlyDataView::try_from_raw(indirect_count).unwrap();
 
     let DeviceMaterializeResult {
@@ -63,7 +63,7 @@ pub fn downgrade_multi_indirect_draw_count(
     // because we using exclusive scan
     assert_eq!(
       sub_draw_range_start_prefix_sum.item_count(),
-      draw_commands.cmd_count() + 1
+      draw_commands.cmd_capacity_count() + 1
     );
 
     let indirect_buffer = StorageBufferDataView::create_by_with_extra_usage(
@@ -107,6 +107,7 @@ pub fn downgrade_multi_indirect_draw_count(
     (
       DowngradeMultiIndirectDrawCountHelper {
         sub_draw_range_start_prefix_sum: sub_draw_range_start_prefix_sum.into(),
+        draw_count: draw_count.into(),
         draw_commands,
       },
       DrawCommand::Indirect {
@@ -121,6 +122,7 @@ pub fn downgrade_multi_indirect_draw_count(
 
 pub struct DowngradeMultiIndirectDrawCountHelper {
   pub(crate) sub_draw_range_start_prefix_sum: AbstractReadonlyStorageBuffer<[u32]>,
+  pub(crate) draw_count: AbstractReadonlyStorageBuffer<u32>,
   pub(crate) draw_commands: StorageDrawCommands,
 }
 
@@ -139,16 +141,19 @@ impl DowngradeMultiIndirectDrawCountHelper {
     DowngradeMultiIndirectDrawCountHelperInvocation {
       sub_draw_range_start_prefix_sum: cx.bind_by(&self.sub_draw_range_start_prefix_sum),
       draw_commands: self.draw_commands.build(cx),
+      real_draw_command_count: cx.bind_by(&self.draw_count).load(),
     }
   }
   pub fn bind(&self, builder: &mut BindingBuilder) {
     builder.bind(&self.sub_draw_range_start_prefix_sum);
     self.draw_commands.bind(builder);
+    builder.bind(&self.draw_count);
   }
 }
 
 pub struct DowngradeMultiIndirectDrawCountHelperInvocation {
   sub_draw_range_start_prefix_sum: ShaderReadonlyPtrOf<[u32]>,
+  real_draw_command_count: Node<u32>,
   draw_commands: StorageDrawCommandsInvocation,
 }
 
@@ -182,7 +187,7 @@ impl DowngradeMultiIndirectDrawCountHelperInvocation {
   fn get_current_vertex_draw_info(&self, vertex_id: Node<u32>) -> MultiDrawDowngradeVertexInfo {
     // binary search for current draw command
     let start = val(0_u32).make_local_var();
-    let end = (self.sub_draw_range_start_prefix_sum.array_length() - val(2)).make_local_var();
+    let end = (self.real_draw_command_count - val(1)).make_local_var();
 
     loop_by(|cx| {
       if_by(start.load().greater_equal_than(end.load()), || {
@@ -252,7 +257,7 @@ impl DeviceParallelCompute<Node<u32>> for MultiIndirectCountDowngradeSource {
   }
 
   fn result_size(&self) -> u32 {
-    self.indirect_buffer.cmd_count()
+    self.indirect_buffer.cmd_capacity_count()
   }
 }
 impl DeviceParallelComputeIO<u32> for MultiIndirectCountDowngradeSource {}

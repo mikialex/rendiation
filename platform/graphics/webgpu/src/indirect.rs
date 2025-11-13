@@ -90,7 +90,7 @@ impl StorageDrawCommands {
     }
   }
 
-  pub fn cmd_count(&self) -> u32 {
+  pub fn cmd_capacity_count(&self) -> u32 {
     match self {
       Self::Indexed(v) => v.item_count(),
       Self::NoneIndexed(v) => v.item_count(),

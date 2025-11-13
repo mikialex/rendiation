@@ -49,6 +49,8 @@ pub fn downgrade_multi_indirect_draw_count_host_driven(
     instances: 0..1,
   };
 
+  let draw_count = sub_draw_range_start_prefix_sum.len() as u32;
+
   let sub_draw_range_start_prefix_sum = alloc.allocate_readonly_init(
     sub_draw_range_start_prefix_sum.as_slice(),
     gpu,
@@ -66,8 +68,11 @@ pub fn downgrade_multi_indirect_draw_count_host_driven(
     }
   };
 
+  let draw_count = alloc.allocate_readonly_init(&draw_count, gpu, "draw count".into());
+
   let helper = DowngradeMultiIndirectDrawCountHelper {
     sub_draw_range_start_prefix_sum,
+    draw_count,
     draw_commands,
   };
 

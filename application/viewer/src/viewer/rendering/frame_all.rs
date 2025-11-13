@@ -92,7 +92,8 @@ impl Viewer3dRenderingCtx {
     let t_clone = texture_sys.clone();
     let attributes_custom_key = Arc::new(|_: u32, _: &mut _| {}) as Arc<_>;
 
-    let is_indirect = self.current_renderer_impl_ty == RasterizationRenderBackendType::Indirect;
+    let is_indirect = self.current_renderer_impl_ty == RasterizationRenderBackendType::Indirect
+      && !self.using_host_driven_indirect_draw;
     let culling = use_viewer_culling(
       cx,
       self.ndc,

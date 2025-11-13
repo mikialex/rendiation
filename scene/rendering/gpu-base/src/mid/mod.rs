@@ -162,7 +162,7 @@ impl IndirectDrawProvider for MultiIndirectDrawBatch {
       indexed: matches!(&self.draw_command_buffer, StorageDrawCommands::Indexed(_)),
       indirect_buffer: self.draw_command_buffer.indirect_buffer(),
       indirect_count: self.draw_count.gpu.clone(),
-      max_count: self.draw_command_buffer.cmd_count(),
+      max_count: self.draw_command_buffer.cmd_capacity_count(),
     }
   }
 }
