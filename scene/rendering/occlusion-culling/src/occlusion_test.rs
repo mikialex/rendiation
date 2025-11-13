@@ -2,13 +2,13 @@ use std::hash::Hash;
 
 use crate::*;
 
-pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_culler(
+pub fn test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_return_culler(
   cx: &mut DeviceParallelComputeCtx,
   depth_pyramid: &GPU2DTextureView,
   last_frame_invisible: StorageBufferDataView<[Bool]>,
   camera: &CameraGPU,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
-  last_frame_occluder_batch: DeviceSceneModelRenderBatch,
+  last_frame_visible_batch: DeviceSceneModelRenderBatch,
   reverse_depth: bool,
 ) -> Box<dyn AbstractCullerProvider> {
   let device = cx.gpu.device.clone();
@@ -25,9 +25,9 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
   // update the occluder's visibility for the occluder
 
   // the occluder culler must be flushed
-  assert!(last_frame_occluder_batch.stash_culler.is_none());
+  assert!(last_frame_visible_batch.stash_culler.is_none());
 
-  for sub_batch in &last_frame_occluder_batch.sub_batches {
+  for sub_batch in &last_frame_visible_batch.sub_batches {
     let scene_models = sub_batch.scene_models.execute_and_expose(cx);
     // update the occluder's visibility for the occluder
     let mut hasher = shader_hasher_from_marker_ty!(OcclusionLastFrameVisibleUpdater);

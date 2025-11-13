@@ -16,7 +16,6 @@ pub struct GPUTwoPassOcclusionCulling {
   max_scene_model_id: usize,
   /// note, we store the invisible state here, because invisible is zero, which not require special buffer init.
   last_frame_visibility: FastHashMap<u32, StorageBufferDataView<[Bool]>>,
-  // todo, improve: we could share the depth pyramid cache for different view
   depth_pyramid_cache: FastHashMap<u32, GPU2DTexture>,
 }
 
@@ -35,7 +34,7 @@ impl GPUTwoPassOcclusionCulling {
 }
 
 impl GPUTwoPassOcclusionCulling {
-  /// view key is user defined id for viewport/camera related identity
+  /// view key is user defined id for camera related identity
   /// because the per scene model last frame visibility state should be kept for different view
   ///
   /// mix used view key for different view will reduce culling efficiency
@@ -67,18 +66,27 @@ impl GPUTwoPassOcclusionCulling {
         create_gpu_read_write_storage(init, frame_ctx.gpu)
       });
 
+    // split the batch in to last frame visible and invisible batch
+    // todo, this should be optimized
+    let last_frame_visible_batch = frame_ctx.access_parallel_compute(|cx| {
+      batch
+        .clone()
+        .with_override_culler(filter_last_frame_visible_object(last_frame_invisible))
+        .flush_culler_into_new(cx, true)
+    });
+
+    let last_frame_invisible_batch = frame_ctx.access_parallel_compute(|cx| {
+      batch
+        .clone()
+        .with_override_culler(filter_last_frame_visible_object(last_frame_invisible).not())
+        .flush_culler_into_new(cx, true)
+    });
+
     // first pass
     // draw all visible object in last frame culling result as the occluder
-    let only_last_frame_visible = filter_last_frame_visible_object(last_frame_invisible);
-    let first_pass_culler = only_last_frame_visible.shortcut_or(pre_culler.clone());
-    let first_pass_batch = batch.clone().with_override_culler(first_pass_culler);
-
-    // todo, this is not required as the cmd executed in order
-    // must flush culler explicit(even the make_scene_batch_pass_content call will flush),
-    // because the new culler will update the previous culler's result.
-    let first_pass_batch =
-      frame_ctx.access_parallel_compute(|cx| first_pass_batch.flush_culler_into_new(cx, true));
-
+    let first_pass_batch = last_frame_visible_batch
+      .clone()
+      .with_override_culler(pre_culler.clone());
     let mut first_pass_batch_draw = scene_renderer.make_scene_batch_pass_content(
       SceneModelRenderBatch::Device(first_pass_batch.clone()),
       camera,
@@ -135,23 +143,21 @@ impl GPUTwoPassOcclusionCulling {
     let pyramid = GPU2DTextureView::try_from(pyramid).unwrap();
 
     let occlusion_culler = frame_ctx.access_parallel_compute(|cx| {
-      test_and_update_last_frame_visibility_use_all_passed_batch_and_return_culler(
+      test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_return_culler(
         cx,
         &pyramid,
         last_frame_invisible.clone(),
         camera,
         bounding_provider,
-        first_pass_batch,
+        last_frame_visible_batch,
         reverse_depth,
       )
     });
 
     // second pass, draw rest but not occluded, and update the visibility states
-    let second_pass_culler = only_last_frame_visible
-      .not()
-      .shortcut_or(pre_culler)
-      .shortcut_or(occlusion_culler);
-    let second_pass_batch = batch.clone().with_override_culler(second_pass_culler);
+    // todo, check pre_culler if is ok to set before occlusion_culler
+    let second_pass_culler = pre_culler.shortcut_or(occlusion_culler);
+    let second_pass_batch = last_frame_invisible_batch.with_override_culler(second_pass_culler);
 
     let mut second_pass_draw = scene_renderer.make_scene_batch_pass_content(
       SceneModelRenderBatch::Device(second_pass_batch),

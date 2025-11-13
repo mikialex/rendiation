@@ -8,11 +8,11 @@ The following things is the current project development direction.
 
 important issue is in bold style.
 
-- fix oc and frustum culling
+- fix oc
 - fix mesh lod graph
 - oit loop32 flicks in metal backend
 - spd not support none pot target, and small target(the current impl will access out of boundary of image).
-- multi format support in texture pool system
+- improve multi format support in texture pool system
 - support face side control
   - support double side config in gltf loader
   - fix gizmo plane move only one side is visible
