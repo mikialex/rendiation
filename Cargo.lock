@@ -3980,7 +3980,6 @@ dependencies = [
 name = "rendiation-occlusion-culling"
 version = "0.1.0"
 dependencies = [
- "fast-hash-collection",
  "log",
  "rendiation-algebra",
  "rendiation-device-parallel-compute",

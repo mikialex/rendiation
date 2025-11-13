@@ -9,12 +9,23 @@ pub fn use_viewer_culling(
   ndc: impl NDCSpaceMapper + Copy + Hash,
   enable_oc_support: bool,
   is_indirect: bool,
+  viewports: &[ViewerViewPort],
 ) -> Option<ViewerCulling> {
   let oc = if enable_oc_support && is_indirect {
     cx.scope(|cx| {
-      let (_, oc) =
-        cx.use_sharable_plain_state(|| GPUTwoPassOcclusionCulling::new(u16::MAX as usize));
-      Some(oc.clone())
+      let maps = per_camera_per_viewport(viewports, true)
+        .map(|cv| {
+          let cache = cx.keyed_scope(&cv.camera, |cx| {
+            let (_, oc) = cx.use_sharable_plain_state(|| {
+              GPUTwoPassOcclusionCulling::new(u16::MAX as usize, cx.gpu)
+            });
+            oc.clone()
+          });
+          (cv.camera, cache)
+        })
+        .collect::<FastHashMap<_, _>>();
+
+      Some(maps)
     })
   } else {
     None
@@ -46,7 +57,7 @@ pub fn use_viewer_culling(
 }
 
 pub struct ViewerCulling {
-  oc: Option<Arc<RwLock<GPUTwoPassOcclusionCulling>>>,
+  oc: Option<FastHashMap<EntityHandle<SceneCameraEntity>, Arc<RwLock<GPUTwoPassOcclusionCulling>>>>,
   bounding_provider: Option<Box<dyn DrawUnitWorldBoundingProvider>>,
   sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   frustums: CameraGPUFrustums,
@@ -93,9 +104,9 @@ impl ViewerCulling {
     self.install_frustum_culler(&mut reorderable_batch, camera_gpu, camera);
 
     if let Some(oc) = &self.oc {
+      let oc = oc.get(&camera).unwrap();
       oc.write().draw(
         ctx,
-        camera.alloc_index(),
         &reorderable_batch.get_device_batch(None).unwrap(),
         pass_base,
         preflight_content,

@@ -2,6 +2,7 @@ use rendiation_controller::InputBound;
 
 use crate::*;
 
+#[derive(PartialEq, Clone)]
 pub struct ViewerViewPort {
   pub id: u64,
   /// x relative to surface top left, y relative to surface top left, width, height

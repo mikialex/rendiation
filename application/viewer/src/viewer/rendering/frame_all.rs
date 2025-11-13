@@ -96,6 +96,7 @@ impl Viewer3dRenderingCtx {
       self.ndc,
       self.enable_indirect_occlusion_culling,
       is_indirect,
+      viewports,
     );
 
     let mut mesh_lod_graph_renderer = None;

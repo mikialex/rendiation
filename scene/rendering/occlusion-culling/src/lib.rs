@@ -1,4 +1,3 @@
-use fast_hash_collection::*;
 use rendiation_algebra::*;
 use rendiation_device_parallel_compute::*;
 use rendiation_fast_down_sampling_2d::*;
@@ -13,10 +12,9 @@ mod occlusion_test;
 use occlusion_test::*;
 
 pub struct GPUTwoPassOcclusionCulling {
-  max_scene_model_id: usize,
   /// note, we store the invisible state here, because invisible is zero, which not require special buffer init.
-  last_frame_visibility: FastHashMap<u32, StorageBufferDataView<[Bool]>>,
-  depth_pyramid_cache: FastHashMap<u32, GPU2DTexture>,
+  last_frame_visibility: StorageBufferDataView<[Bool]>,
+  depth_pyramid_cache: Option<GPU2DTexture>,
 }
 
 impl GPUTwoPassOcclusionCulling {
@@ -24,10 +22,11 @@ impl GPUTwoPassOcclusionCulling {
   /// this decides the internal visibility buffer size that addressed by scene model entity id.
   /// user should set this conservatively big enough. if any scene model entity id is larger than
   /// this, the oc will not take effect but the correctness will be ensured
-  pub fn new(max_scene_model_count: usize) -> Self {
+  pub fn new(max_scene_model_id: usize, gpu: &GPU) -> Self {
+    let init = ZeroedArrayByArrayLength(max_scene_model_id);
+    let last_frame_visibility = create_gpu_read_write_storage(init, gpu);
     Self {
-      max_scene_model_id: max_scene_model_count,
-      last_frame_visibility: Default::default(),
+      last_frame_visibility,
       depth_pyramid_cache: Default::default(),
     }
   }
@@ -46,7 +45,6 @@ impl GPUTwoPassOcclusionCulling {
   pub fn draw(
     &mut self,
     frame_ctx: &mut FrameCtx,
-    view_key: u32,
     batch: &DeviceSceneModelRenderBatch,
     mut target: RenderPassDescription,
     preflight_content: &mut dyn FnMut(ActiveRenderPass) -> ActiveRenderPass,
@@ -58,13 +56,7 @@ impl GPUTwoPassOcclusionCulling {
   ) -> ActiveRenderPass {
     let pre_culler = batch.stash_culler.clone().unwrap_or(Box::new(NoopCuller));
 
-    let last_frame_invisible = self
-      .last_frame_visibility
-      .entry(view_key)
-      .or_insert_with(|| {
-        let init = ZeroedArrayByArrayLength(self.max_scene_model_id);
-        create_gpu_read_write_storage(init, frame_ctx.gpu)
-      });
+    let last_frame_invisible = &self.last_frame_visibility;
 
     // split the batch in to last frame visible and invisible batch
     // todo, this should be optimized
@@ -107,14 +99,15 @@ impl GPUTwoPassOcclusionCulling {
     let depth = depth.expect_standalone_common_texture_view().clone();
 
     let required_mip_level_count = MipLevelCount::BySize.get_level_count_wgpu(size);
-    if let Some(cache) = self.depth_pyramid_cache.get(&view_key) {
+
+    if let Some(cache) = &self.depth_pyramid_cache {
       if cache.size() != size.into_gpu_size() || cache.mip_level_count() != required_mip_level_count
       {
-        self.depth_pyramid_cache.remove(&view_key);
+        self.depth_pyramid_cache = None;
       }
     }
 
-    let pyramid = self.depth_pyramid_cache.entry(view_key).or_insert_with(|| {
+    let pyramid = self.depth_pyramid_cache.get_or_insert_with(|| {
       let tex = GPUTexture::create(
         TextureDescriptor {
           label: "gpu-occlusion-culling-depth-pyramid".into(),
@@ -173,10 +166,5 @@ impl GPUTwoPassOcclusionCulling {
       .with_name("occlusion-culling-second-pass")
       .render_ctx(frame_ctx)
       .by(&mut second_pass_draw)
-  }
-
-  /// if some view key is not used anymore, do cleanup to release underlayer resources
-  pub fn cleanup_view_key_culling_states(&mut self, view_key: u32) {
-    self.last_frame_visibility.remove(&view_key);
   }
 }

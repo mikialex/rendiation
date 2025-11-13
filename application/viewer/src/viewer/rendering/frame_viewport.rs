@@ -43,7 +43,7 @@ pub struct Viewer3dViewportRenderingCtx {
   pub(super) on_demand_rendering_cached_frame: Option<RenderTargetView>,
   pub(super) not_any_changed_frame_count: u32,
 
-  rendered_camera: Option<EntityHandle<SceneCameraEntity>>,
+  viewport_cache: Option<ViewerViewPort>,
 }
 
 impl Viewer3dViewportRenderingCtx {
@@ -79,7 +79,7 @@ impl Viewer3dViewportRenderingCtx {
       oit: ViewerTransparentRenderer::NaiveAlphaBlend,
       rtx_ao: None,
       rtx_pt: None,
-      rendered_camera: None,
+      viewport_cache: None,
     }
   }
 
@@ -195,10 +195,14 @@ impl Viewer3dViewportRenderingCtx {
     any_changed: bool,
     ctx: &mut FrameCtx,
   ) -> bool {
-    if let Some(camera) = self.rendered_camera {
-      if camera != viewport.camera {
+    if let Some(viewport_cached) = &self.viewport_cache {
+      if viewport_cached != viewport {
         self.on_demand_rendering_cached_frame = None;
+        self.viewport_cache = Some(viewport.clone());
       }
+    } else {
+      self.on_demand_rendering_cached_frame = None;
+      self.viewport_cache = Some(viewport.clone());
     }
 
     // currently the rtx mode is offline style, so we need continually rendering
@@ -330,8 +334,6 @@ impl Viewer3dViewportRenderingCtx {
       device: ctx.gpu.device.clone(),
       queue: ctx.gpu.queue.clone(),
     });
-
-    self.rendered_camera = camera.into();
   }
 
   fn render_ray_tracing(
