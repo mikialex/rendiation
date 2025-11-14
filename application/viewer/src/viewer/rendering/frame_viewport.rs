@@ -250,7 +250,7 @@ impl Viewer3dViewportRenderingCtx {
   pub fn render(
     &mut self,
     ctx: &mut FrameCtx,
-    renderer: &ViewerRendererInstance,
+    renderer: &mut ViewerRendererInstance,
     content: &Viewer3dContent,
     viewport: &ViewerViewPort,
     final_target: &RenderTargetView,
@@ -280,7 +280,7 @@ impl Viewer3dViewportRenderingCtx {
         renderer.lighting.tonemap,
       );
     } else {
-      self.render_raster(ctx, renderer, content, &render_target, camera, waker);
+      self.render_raster(ctx, renderer, content, &render_target, viewport, waker);
     }
 
     {
@@ -402,12 +402,13 @@ impl Viewer3dViewportRenderingCtx {
   fn render_raster(
     &mut self,
     ctx: &mut FrameCtx,
-    renderer: &ViewerRendererInstance,
+    renderer: &mut ViewerRendererInstance,
     content: &Viewer3dContent,
     render_target: &RenderTargetView,
-    camera: EntityHandle<SceneCameraEntity>,
+    viewport: &ViewerViewPort,
     waker: &Waker,
   ) {
+    let camera = viewport.camera;
     let camera_transform = renderer.camera_transforms.access(&camera).unwrap();
     let current_view_projection_inv = camera_transform.view_projection_inv;
     self.reproject.update(ctx, current_view_projection_inv);
@@ -456,10 +457,10 @@ impl Viewer3dViewportRenderingCtx {
         render_lighting_scene_content(
           ctx,
           &renderer.lighting,
-          &renderer.culling,
+          &mut renderer.culling,
           &renderer_c,
           content.scene,
-          camera,
+          viewport,
           &scene_result,
           &g_buffer,
           !is_outline_only_mode,

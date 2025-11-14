@@ -1,5 +1,5 @@
 use rendiation_frustum_culling::*;
-use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
+use rendiation_occlusion_culling::*;
 use rendiation_webgpu_hook_utils::*;
 
 use crate::*;
@@ -12,7 +12,7 @@ pub fn use_viewer_culling(
   is_indirect: bool,
   viewports: &[ViewerViewPort],
 ) -> Option<ViewerCulling> {
-  let oc = if enable_oc_support && is_indirect {
+  let oc_states = if enable_oc_support && is_indirect {
     cx.scope(|cx| {
       let maps = per_camera_per_viewport(viewports, true)
         .map(|cv| {
@@ -47,7 +47,11 @@ pub fn use_viewer_culling(
   let camera_frustums = use_camera_gpu_frustum(cx, ndc);
 
   cx.when_render(|| ViewerCulling {
-    oc,
+    oc: oc_states.map(|oc_states| ViewerOcclusionCulling {
+      oc_states,
+      enable_debug_cull_result: true, // todo, expose as a config, this has extra cost
+      debug_culled_result: Default::default(),
+    }),
     bounding_provider,
     sm_world_bounding: sm_world_bounding
       .expect_resolve_stage()
@@ -58,8 +62,16 @@ pub fn use_viewer_culling(
   })
 }
 
+pub struct ViewerOcclusionCulling {
+  pub oc_states:
+    FastHashMap<EntityHandle<SceneCameraEntity>, Arc<RwLock<GPUTwoPassOcclusionCulling>>>,
+  pub enable_debug_cull_result: bool,
+  pub debug_culled_result:
+    FastHashMap<EntityHandle<SceneCameraEntity>, GPUTwoPassOcclusionCullingDebugDrawBatchResult>,
+}
+
 pub struct ViewerCulling {
-  oc: Option<FastHashMap<EntityHandle<SceneCameraEntity>, Arc<RwLock<GPUTwoPassOcclusionCulling>>>>,
+  oc: Option<ViewerOcclusionCulling>,
   bounding_provider: Option<Box<dyn DrawUnitWorldBoundingProvider>>,
   sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   frustums: CameraGPUFrustums,
@@ -97,21 +109,48 @@ impl ViewerCulling {
   }
 
   pub fn draw_with_oc_maybe_enabled(
-    &self,
+    &mut self,
     ctx: &mut FrameCtx,
     renderer: &ViewerSceneRenderer,
     scene_pass_dispatcher: &dyn RenderComponent,
     camera_gpu: &CameraGPU,
-    camera: EntityHandle<SceneCameraEntity>,
+    viewport: &ViewerViewPort,
     preflight_content: &mut dyn FnMut(ActiveRenderPass) -> ActiveRenderPass,
     pass_base: RenderPassDescription,
     mut reorderable_batch: SceneModelRenderBatch,
   ) -> ActiveRenderPass {
+    let camera = viewport.camera;
     self.install_frustum_culler(&mut reorderable_batch, camera_gpu, camera);
 
-    if let Some(oc) = &self.oc {
-      let oc = oc.get(&camera).unwrap();
-      oc.write().draw(
+    if let Some(oc) = &mut self.oc {
+      if let Some(oc_debug_camera) = viewport.debug_camera_for_view_related {
+        if let Some(previous_oc_batch) = oc.debug_culled_result.get(&oc_debug_camera) {
+          let mut drawn_occluder = renderer.scene.make_scene_batch_pass_content(
+            SceneModelRenderBatch::Device(previous_oc_batch.drawn_occluder.clone()),
+            camera_gpu,
+            scene_pass_dispatcher,
+            ctx,
+          );
+
+          let mut drawn_not_occluded = renderer.scene.make_scene_batch_pass_content(
+            SceneModelRenderBatch::Device(previous_oc_batch.drawn_not_occluded.clone()),
+            camera_gpu,
+            scene_pass_dispatcher,
+            ctx,
+          );
+
+          return pass_base
+            .with_name("occlusion-culling-debug-for-other-view")
+            .render_ctx(ctx)
+            .by(&mut drawn_occluder)
+            .by(&mut drawn_not_occluded);
+        } else {
+          log::warn!("the oc debug info can not be found, adjust the viewport rendering order to make sure the oc is drawn before the debug camera");
+        }
+      }
+
+      let oc_state = oc.oc_states.get(&camera).unwrap();
+      let (pass, debug) = oc_state.write().draw(
         ctx,
         &reorderable_batch.get_device_batch(None).unwrap(),
         pass_base,
@@ -121,7 +160,14 @@ impl ViewerCulling {
         scene_pass_dispatcher,
         self.bounding_provider.clone().unwrap(),
         renderer.reversed_depth,
-      )
+        oc.enable_debug_cull_result,
+      );
+
+      if let Some(debug) = debug {
+        oc.debug_culled_result.insert(camera, debug);
+      }
+
+      pass
     } else {
       let mut all_opaque_object = renderer.scene.make_scene_batch_pass_content(
         reorderable_batch,

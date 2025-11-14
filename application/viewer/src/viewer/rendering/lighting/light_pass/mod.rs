@@ -23,14 +23,15 @@ pub struct LightingRenderingCx<'a> {
 pub fn render_lighting_scene_content(
   ctx: &mut FrameCtx,
   lighting_cx: &LightingRenderingCx,
-  cull_cx: &ViewerCulling,
+  cull_cx: &mut ViewerCulling,
   renderer: &ViewerSceneRenderer,
   scene: EntityHandle<SceneEntity>,
-  camera: EntityHandle<SceneCameraEntity>,
+  viewport: &ViewerViewPort,
   scene_result: &RenderTargetView,
   g_buffer: &FrameGeometryBuffer,
   only_draw_g_buffer: bool,
 ) {
+  let camera = viewport.camera;
   let camera_gpu = renderer.cameras.make_component(camera).unwrap();
   let camera_gpu = &camera_gpu;
 
@@ -120,7 +121,7 @@ pub fn render_lighting_scene_content(
               renderer,
               scene_pass_dispatcher,
               camera_gpu,
-              camera,
+              viewport,
               &mut |pass| pass.by(&mut background),
               pass_base,
               all_opaque_object,
@@ -149,7 +150,7 @@ pub fn render_lighting_scene_content(
             renderer,
             scene_pass_dispatcher,
             camera_gpu,
-            camera,
+            viewport,
             &mut |pass| pass.by(&mut background),
             pass_base_for_opaque,
             all_opaque_object,
@@ -200,7 +201,7 @@ pub fn render_lighting_scene_content(
             renderer,
             scene_pass_dispatcher,
             camera_gpu,
-            camera,
+            viewport,
             &mut |pass| pass.by(&mut background),
             pass_base_for_opaque,
             all_opaque_object,
@@ -257,7 +258,7 @@ pub fn render_lighting_scene_content(
         renderer,
         scene_pass_dispatcher,
         camera_gpu,
-        camera,
+        viewport,
         &mut |pass| pass,
         pass_base,
         main_scene_content,

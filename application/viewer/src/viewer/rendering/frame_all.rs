@@ -375,7 +375,7 @@ impl Viewer3dRenderingCtx {
       content.scene,
     );
 
-    let renderer = ViewerRendererInstance {
+    let mut renderer = ViewerRendererInstance {
       camera: renderer.camera,
       background: renderer.background,
       raster_scene_renderer: renderer.raster_scene_renderer,
@@ -394,7 +394,7 @@ impl Viewer3dRenderingCtx {
       let view_renderer = self.views.get_mut(viewport_id).unwrap();
       let viewport = &content.viewports[*idx];
       ctx.frame_size = viewport.render_pixel_size();
-      view_renderer.render(ctx, &renderer, content, viewport, final_target, waker);
+      view_renderer.render(ctx, &mut renderer, content, viewport, final_target, waker);
     }
     ctx.frame_size = size_backup;
   }
