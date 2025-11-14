@@ -132,12 +132,12 @@ impl ViewerCulling {
             ctx,
           );
 
-          // let mut drawn_not_occluded = renderer.scene.make_scene_batch_pass_content(
-          //   SceneModelRenderBatch::Device(previous_oc_batch.drawn_not_occluded.clone()),
-          //   camera_gpu,
-          //   scene_pass_dispatcher,
-          //   ctx,
-          // );
+          let mut drawn_not_occluded = renderer.scene.make_scene_batch_pass_content(
+            SceneModelRenderBatch::Device(previous_oc_batch.drawn_not_occluded.clone()),
+            camera_gpu,
+            scene_pass_dispatcher,
+            ctx,
+          );
 
           return pass_base
             .with_name("occlusion-culling-debug-for-other-view")

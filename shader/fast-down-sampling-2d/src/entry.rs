@@ -19,9 +19,9 @@ pub fn fast_down_sampling_generate_mipmap(
 
 fn depth_reducer(reverse_depth: bool) -> &'static dyn QuadReducer<f32> {
   if reverse_depth {
-    &MaxReducer as &dyn QuadReducer<f32>
+    &MinReducer as &dyn QuadReducer<f32>
   } else {
-    &MinReducer
+    &MaxReducer
   }
 }
 
