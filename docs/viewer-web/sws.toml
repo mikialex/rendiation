@@ -1,0 +1,16 @@
+[general]
+
+#### Address & Root dir
+host = "127.0.0.1"
+port = 6789
+root = "./application/viewer-web"
+cache-control-headers = false
+
+# we add this to enable testing shared memory wasm worker
+[advanced]
+[[advanced.headers]]
+source = "**/*.*"
+[advanced.headers.headers]
+Cross-Origin-Embedder-Policy = "require-corp"
+Cross-Origin-Opener-Policy = "same-origin"
+Cache-Control = "no-cache"
