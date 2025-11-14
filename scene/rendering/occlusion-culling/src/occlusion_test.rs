@@ -46,14 +46,15 @@ pub fn test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_re
       ctx
     });
 
+    let (indirect_dispatch_size, _) = scene_models.compute_work_size(cx);
+
     cx.record_pass(|pass, _| {
       let mut binder = BindingBuilder::default();
       scene_models.bind_input(&mut binder);
       tester.bind(&mut binder);
       binder.setup_compute_pass(pass, &device, &pipeline);
+      pass.dispatch_workgroups_indirect_by_buffer_resource_view(&indirect_dispatch_size);
     });
-
-    scene_models.dispatch_compute(cx);
   }
 
   // and return it for the rest
@@ -128,7 +129,8 @@ impl OcclusionTesterInvocation {
     let max_xy: Node<Vec2<f32>> = (val(0.), val(0.)).into();
     let min_xy = min_xy.make_local_var();
     let max_xy = max_xy.make_local_var();
-    let min_z = val(1.).make_local_var();
+
+    let shallowest_bbox_depth = if self.reverse_depth { val(0.) } else { val(1.) }.make_local_var();
 
     let camera_world_position = hpt_uniform_to_hpt(self.camera.world_position().load());
     let render_to_clip = self.camera.view_projection_without_translation().load();
@@ -184,9 +186,9 @@ impl OcclusionTesterInvocation {
       min_xy.store(min_xy.load().min(pos_xy));
       max_xy.store(max_xy.load().max(pos_xy));
       if self.reverse_depth {
-        min_z.store(min_z.load().max(z));
+        shallowest_bbox_depth.store(shallowest_bbox_depth.load().max(z));
       } else {
-        min_z.store(min_z.load().min(z));
+        shallowest_bbox_depth.store(shallowest_bbox_depth.load().min(z));
       }
     });
 
@@ -214,11 +216,11 @@ impl OcclusionTesterInvocation {
     let d_2 = self.depth.load_texel((l_x, b_y).into(), mip_level).x();
     let d_3 = self.depth.load_texel((r_x, b_y).into(), mip_level).x();
     if self.reverse_depth {
-      let max_depth = d_0.min(d_1).min(d_2).min(d_3);
-      min_z.load().less_than(max_depth)
+      let deepest_depth = d_0.min(d_1).min(d_2).min(d_3);
+      shallowest_bbox_depth.load().less_than(deepest_depth)
     } else {
-      let max_depth = d_0.max(d_1).max(d_2).max(d_3);
-      min_z.load().greater_than(max_depth)
+      let deepest_depth = d_0.max(d_1).max(d_2).max(d_3);
+      shallowest_bbox_depth.load().greater_than(deepest_depth)
     }
   }
 }
