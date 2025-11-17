@@ -17,6 +17,7 @@ pub struct Viewer3dRenderingCtx {
   pub(crate) ndc: ViewerNDC,
   pub(super) enable_indirect_occlusion_culling: bool,
   pub(super) enable_frustum_culling: bool,
+  pub(super) enable_debug_cull_result: bool,
   pub(super) using_host_driven_indirect_draw: bool,
   pub(super) current_renderer_impl_ty: RasterizationRenderBackendType,
   pub(super) rtx_renderer_enabled: bool,
@@ -32,6 +33,7 @@ pub struct Viewer3dRenderingCtx {
 impl Viewer3dRenderingCtx {
   pub fn setup_init_config(&self, init_config: &mut ViewerInitConfig) {
     init_config.raster_backend_type = self.current_renderer_impl_ty;
+    init_config.enable_debug_cull_result = self.enable_debug_cull_result;
     init_config.enable_indirect_occlusion_culling = self.enable_indirect_occlusion_culling;
     init_config.prefer_bindless_for_indirect_texture_system =
       self.prefer_bindless_for_indirect_texture_system;
@@ -53,6 +55,7 @@ impl Viewer3dRenderingCtx {
       using_host_driven_indirect_draw: init_config.using_host_driven_indirect_draw,
       ndc,
       enable_indirect_occlusion_culling: init_config.enable_indirect_occlusion_culling,
+      enable_debug_cull_result: init_config.enable_debug_cull_result,
       enable_frustum_culling: init_config.enable_frustum_culling,
       current_renderer_impl_ty: init_config.raster_backend_type,
       rtx_renderer_enabled: false,
@@ -98,6 +101,7 @@ impl Viewer3dRenderingCtx {
       cx,
       self.ndc,
       self.enable_indirect_occlusion_culling,
+      self.enable_debug_cull_result,
       self.enable_frustum_culling,
       is_indirect,
       viewports,

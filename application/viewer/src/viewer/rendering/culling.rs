@@ -8,6 +8,7 @@ pub fn use_viewer_culling(
   cx: &mut QueryGPUHookCx,
   ndc: impl NDCSpaceMapper + Copy + Hash,
   enable_oc_support: bool,
+  enable_debug_cull_result: bool,
   enable_frustum_culling: bool,
   is_indirect: bool,
   viewports: &[ViewerViewPort],
@@ -49,7 +50,7 @@ pub fn use_viewer_culling(
   cx.when_render(|| ViewerCulling {
     oc: oc_states.map(|oc_states| ViewerOcclusionCulling {
       oc_states,
-      enable_debug_cull_result: true, // todo, expose as a config, this has extra cost
+      enable_debug_cull_result,
       debug_culled_result: Default::default(),
     }),
     bounding_provider,
@@ -142,8 +143,8 @@ impl ViewerCulling {
           return pass_base
             .with_name("occlusion-culling-debug-for-other-view")
             .render_ctx(ctx)
-            .by(&mut drawn_occluder);
-          // .by(&mut drawn_not_occluded);
+            .by(&mut drawn_occluder)
+            .by(&mut drawn_not_occluded);
         } else {
           log::warn!("the oc debug info can not be found, adjust the viewport rendering order to make sure the oc is drawn before the debug camera");
         }
