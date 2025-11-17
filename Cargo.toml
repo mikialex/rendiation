@@ -55,6 +55,7 @@ members = [
   "scene/rendering/gpu-base",
   "scene/rendering/gpu-gles",
   "scene/rendering/gpu-indirect",
+  "scene/rendering/batch-extractor",
   "scene/rendering/occlusion-culling",
   "scene/rendering/frustum-culling",
   "scene/rendering/gpu-ray-tracing",

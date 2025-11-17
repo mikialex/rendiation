@@ -1,0 +1,20 @@
+[package]
+authors = ["MikiAlex <miikiialexx@gmail.com>"]
+edition = "2021"
+name = "rendiation-scene-batch-extractor"
+version = "0.1.0"
+
+[dependencies]
+database = { path = "../../../utility/database" }
+log = { workspace = true }
+parking_lot = { workspace = true }
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+rendiation-scene-core = { path = "../../core" }
+rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
+rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
+rendiation-webgpu-hook-utils = { path = "../../../platform/graphics/webgpu-hook-utils" }
+rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
+rendiation-shader-api = { path = "../../../shader/api" }
+
+[lints]
+workspace = true

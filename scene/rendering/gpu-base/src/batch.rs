@@ -57,7 +57,7 @@ impl HostRenderBatch for HostModelLookUp {
         self
           .scene_model_use_alpha_blending
           .access(sm)
-          .unwrap_or(false)
+          .unwrap_or(false) // todo, is this right?
           == enable_alpha_blending
       });
       Box::new(iter)

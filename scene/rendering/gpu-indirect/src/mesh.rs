@@ -529,7 +529,7 @@ impl ShaderHashProvider for BindlessMeshDispatcher {
 pub struct BindlessMeshRasterDispatcher {
   pub internal: BindlessMeshDispatcher,
   pub is_indexed: bool,
-  pub topology: PrimitiveTopology,
+  pub topology: rendiation_webgpu::PrimitiveTopology,
 }
 
 impl ShaderHashProvider for BindlessMeshRasterDispatcher {

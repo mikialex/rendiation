@@ -84,7 +84,7 @@ impl GraphicsShaderProvider for MeshletGPURenderData {
       builder.register::<GeometryUVChannel<0>>(zeroed_val());
       builder.register::<GeometryNormal>(val(Vec3::new(0., 1., 0.)));
 
-      builder.primitive_state.topology = PrimitiveTopology::TriangleList;
+      builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
     })
   }
 }

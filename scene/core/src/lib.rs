@@ -8,6 +8,7 @@ use database::*;
 use fast_hash_collection::FastHashMap;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
+pub use rendiation_mesh_core::PrimitiveTopology;
 use rendiation_mesh_core::*;
 use rendiation_texture_core::*;
 use serde::*;

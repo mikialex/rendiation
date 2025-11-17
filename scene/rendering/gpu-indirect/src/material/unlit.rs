@@ -60,9 +60,10 @@ impl IndirectModelMaterialRenderImpl for UnlitMaterialIndirectRenderer {
   fn hash_shader_group_key(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
-    _: &mut PipelineHasher,
+    hasher: &mut PipelineHasher,
   ) -> Option<()> {
-    self.material_access.get(any_idx)?;
+    let id = self.material_access.get(any_idx)?;
+    self.alpha_mode.get_value(id)?.hash(hasher);
     Some(())
   }
   fn as_any(&self) -> &dyn Any {

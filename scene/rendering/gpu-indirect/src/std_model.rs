@@ -205,6 +205,7 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
     self
       .shapes
       .hash_shader_group_key_with_self_type_info(model, hasher)?;
+    self.states.get_gpu(model)?.hash_pipeline(hasher);
     Some(())
   }
   fn as_any(&self) -> &dyn Any {
