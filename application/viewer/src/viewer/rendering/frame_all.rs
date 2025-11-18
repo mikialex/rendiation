@@ -228,7 +228,11 @@ impl Viewer3dRenderingCtx {
           ..Default::default()
         };
 
-        indirect_extractor = use_incremental_device_scene_batch_extractor(cx, key_impl);
+        if !self.using_host_driven_indirect_draw {
+          cx.scope(|cx| {
+            indirect_extractor = use_incremental_device_scene_batch_extractor(cx, key_impl);
+          })
+        }
 
         let renderer = cx
           .when_render(|| IndirectSceneRenderer {

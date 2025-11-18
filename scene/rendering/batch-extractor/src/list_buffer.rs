@@ -41,11 +41,12 @@ impl PersistSceneModelListBufferMutation {
 }
 
 impl PersistSceneModelListBuffer {
-  pub fn create_batch(&self) -> DeviceSceneModelRenderSubBatch {
+  pub fn create_batch(&self) -> Option<DeviceSceneModelRenderSubBatch> {
     DeviceSceneModelRenderSubBatch {
       scene_models: Box::new(self.buffer.clone().unwrap()),
-      impl_select_id: unsafe { EntityHandle::from_raw(*self.host.first().unwrap()) },
+      impl_select_id: unsafe { EntityHandle::from_raw(*self.host.first()?) }, // maybe empty
     }
+    .into()
   }
   pub fn with_capacity(capacity: usize) -> Self {
     Self {
@@ -82,14 +83,16 @@ impl PersistSceneModelListBuffer {
     mutations: &mut PersistSceneModelListBufferMutation,
   ) {
     let idx = self.mapping.remove(&sm_handle).unwrap();
-    self.host.swap_remove(idx);
-    let tail_item = self.host[idx];
-    self.mapping.insert(tail_item, idx);
+    if let Some(tail_item) = self.host.last().cloned() {
+      self.host.swap_remove(idx);
+      self.mapping.insert(tail_item, idx);
 
-    mutations.mapping_change.remove(&self.host.len());
-    mutations
-      .mapping_change
-      .insert(idx, tail_item.alloc_index());
+      mutations.mapping_change.remove(&self.host.len());
+      mutations
+        .mapping_change
+        .insert(idx, tail_item.alloc_index());
+    }
+
     mutations.new_len = self.host.len();
   }
 

@@ -123,10 +123,10 @@ impl IncrementalDeviceSceneBatchExtractor {
       contents
         .iter()
         .filter(|(k, _)| k.require_alpha_blend() == alpha_blend)
-        .map(|(_, v)| v.create_batch())
+        .filter_map(|(_, v)| v.create_batch())
         .collect()
     } else {
-      contents.values().map(|v| v.create_batch()).collect()
+      contents.values().filter_map(|v| v.create_batch()).collect()
     };
     let batches = DeviceSceneModelRenderBatch {
       sub_batches,
