@@ -117,8 +117,8 @@ impl IncrementalDeviceSceneBatchExtractor {
     &self,
     scene: EntityHandle<SceneEntity>,
     semantic: SceneContentKey,
-  ) -> SceneModelRenderBatch {
-    let contents = self.contents.get(&scene.into_raw()).unwrap();
+  ) -> Option<SceneModelRenderBatch> {
+    let contents = self.contents.get(&scene.into_raw())?;
     let sub_batches = if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
       contents
         .iter()
@@ -132,6 +132,6 @@ impl IncrementalDeviceSceneBatchExtractor {
       sub_batches,
       stash_culler: None,
     };
-    SceneModelRenderBatch::Device(batches)
+    SceneModelRenderBatch::Device(batches).into()
   }
 }

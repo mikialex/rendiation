@@ -80,6 +80,15 @@ pub struct DeviceSceneModelRenderBatch {
   pub stash_culler: Option<Box<dyn AbstractCullerProvider>>,
 }
 
+impl DeviceSceneModelRenderBatch {
+  pub fn empty() -> Self {
+    Self {
+      sub_batches: vec![],
+      stash_culler: None,
+    }
+  }
+}
+
 /// todo, using this to improve the dispatch call count.
 // #[derive(Clone)]
 // pub struct DeviceSceneModelRenderBatchCombined {
