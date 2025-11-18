@@ -235,6 +235,7 @@ impl DowngradeMultiIndirectDrawCountHelperInvocation {
   }
 }
 
+/// a per command vertex count view
 #[derive(Clone)]
 struct MultiIndirectCountDowngradeSource {
   indirect_buffer: StorageDrawCommands,

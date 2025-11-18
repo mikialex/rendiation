@@ -7,6 +7,9 @@ use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
+mod list_buffer;
+use list_buffer::*;
+
 pub fn use_incremental_device_scene_batch_extractor(
   cx: &mut QueryGPUHookCx,
   foreign_impl: GroupKeyForeignImpl,
@@ -21,47 +24,6 @@ pub fn use_incremental_device_scene_batch_extractor(
     use_global_node_net_visible(cx).fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>(), cx);
 
   todo!()
-}
-
-struct PersistSceneModelListBuffer {
-  buffer: PersistSceneModelListBufferWithLength,
-  host: Vec<RawEntityHandle>,
-}
-
-#[derive(Clone)]
-struct PersistSceneModelListBufferWithLength {
-  buffer: AbstractReadonlyStorageBuffer<[u32]>,
-}
-
-impl DeviceParallelCompute<Node<u32>> for PersistSceneModelListBufferWithLength {
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
-    todo!()
-  }
-
-  fn result_size(&self) -> u32 {
-    todo!()
-  }
-}
-impl DeviceParallelComputeIO<u32> for PersistSceneModelListBufferWithLength {}
-
-impl PersistSceneModelListBuffer {
-  pub fn with_capacity(capacity: usize, alloc: &dyn AbstractStorageAllocator, gpu: &GPU) -> Self {
-    let init_byte_size = (capacity + 1) * std::mem::size_of::<u32>();
-
-    Self {
-      buffer: PersistSceneModelListBufferWithLength {
-        buffer: alloc.allocate_readonly(
-          init_byte_size as u64,
-          &gpu.device,
-          Some("PersistSceneModelListBuffer"),
-        ),
-      },
-      host: Default::default(),
-    }
-  }
 }
 
 pub struct IncrementalDeviceSceneBatchExtractor {
@@ -82,19 +44,10 @@ impl IncrementalDeviceSceneBatchExtractor {
       contents
         .iter()
         .filter(|(k, _)| k.require_alpha_blend() == alpha_blend)
-        .map(|(_, v)| DeviceSceneModelRenderSubBatch {
-          scene_models: Box::new(v.buffer.clone()),
-          impl_select_id: unsafe { EntityHandle::from_raw(*v.host.first().unwrap()) },
-        })
+        .map(|(_, v)| v.create_batch())
         .collect()
     } else {
-      contents
-        .values()
-        .map(|v| DeviceSceneModelRenderSubBatch {
-          scene_models: Box::new(v.buffer.clone()),
-          impl_select_id: unsafe { EntityHandle::from_raw(*v.host.first().unwrap()) },
-        })
-        .collect()
+      contents.values().map(|v| v.create_batch()).collect()
     };
     let batches = DeviceSceneModelRenderBatch {
       sub_batches,
