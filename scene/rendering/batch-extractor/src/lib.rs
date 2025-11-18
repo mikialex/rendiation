@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use database::*;
 use fast_hash_collection::FastHashMap;
+use parking_lot::RwLock;
 use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
@@ -10,54 +13,60 @@ use rendiation_webgpu_hook_utils::*;
 mod list_buffer;
 use list_buffer::*;
 
+mod extractor;
+use extractor::*;
+
 pub fn use_incremental_device_scene_batch_extractor(
   cx: &mut QueryGPUHookCx,
   foreign_impl: GroupKeyForeignImpl,
-) -> Option<IncrementalDeviceSceneBatchExtractor> {
+) -> Option<IncrementalDeviceSceneBatchExtractorShared> {
   let sm_group_key = use_scene_model_group_key(cx, foreign_impl);
 
-  let scene_id = cx.use_dual_query::<SceneModelBelongsToScene>();
+  let scene_id = cx
+    .use_dual_query::<SceneModelBelongsToScene>()
+    .dual_query_filter_map(|v| v);
 
-  let group_key = sm_group_key.dual_query_zip(scene_id);
+  let group_key = sm_group_key.dual_query_zip(scene_id).dual_query_boxed();
 
-  let scene_model_net_visible =
-    use_global_node_net_visible(cx).fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>(), cx);
+  let visible_scene_models = use_global_node_net_visible(cx)
+    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>(), cx)
+    .dual_query_filter_map(|v| v.then_some(()))
+    .dual_query_boxed();
 
-  todo!()
-}
+  let group_key = group_key
+    .dual_query_filter_by_set(visible_scene_models)
+    .dual_query_boxed();
 
-pub struct IncrementalDeviceSceneBatchExtractor {
-  contents: FastHashMap<
-    EntityHandle<SceneEntity>,
-    FastHashMap<SceneModelGroupKey, PersistSceneModelListBuffer>,
-  >,
-}
+  let (cx, extractor) =
+    cx.use_plain_state_default_cloned::<IncrementalDeviceSceneBatchExtractorShared>();
 
-impl IncrementalDeviceSceneBatchExtractor {
-  pub fn extract_scene_batch(
-    &self,
-    scene: EntityHandle<SceneEntity>,
-    semantic: SceneContentKey,
-  ) -> SceneModelRenderBatch {
-    let contents = self.contents.get(&scene).unwrap();
-    let sub_batches = if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
-      contents
-        .iter()
-        .filter(|(k, _)| k.require_alpha_blend() == alpha_blend)
-        .map(|(_, v)| v.create_batch())
-        .collect()
-    } else {
-      contents.values().map(|v| v.create_batch()).collect()
-    };
-    let batches = DeviceSceneModelRenderBatch {
-      sub_batches,
-      stash_culler: None,
-    };
-    SceneModelRenderBatch::Device(batches)
+  let extractor_ = extractor.clone();
+  let gpu_updates = group_key
+    .map_spawn_stage_in_thread_dual_query(cx, move |v| {
+      let change = v.delta();
+      Arc::new(extractor_.write().prepare_updates(change))
+    })
+    .use_assure_result(cx);
+
+  if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
+    extractor
+      .write()
+      .do_updates(&gpu_updates.expect_resolve_stage(), cx.gpu, encoder);
+
+    Some(extractor)
+  } else {
+    None
   }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Default)]
+pub struct GroupKeyForeignImpl {
+  pub model: Option<UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>>>,
+  pub mesh: Option<UseResult<BoxedDynDualQuery<RawEntityHandle, MeshGroupKey>>>,
+  pub material: Option<UseResult<BoxedDynDualQuery<RawEntityHandle, MaterialGroupKey>>>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum SceneModelGroupKey {
   Standard {
     material: MaterialGroupKey,
@@ -79,49 +88,6 @@ impl SceneModelGroupKey {
       } => *require_alpha_blend,
     }
   }
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub enum MeshGroupKey {
-  Attribute {
-    is_index: bool,
-    topology: rendiation_scene_core::PrimitiveTopology,
-  },
-  ForeignHash(u64),
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub enum MaterialGroupKey {
-  Common {
-    ty: u8,
-    require_alpha_blend: bool,
-  },
-  ForeignHash {
-    internal: u64,
-    require_alpha_blend: bool,
-  },
-}
-
-impl MaterialGroupKey {
-  pub fn require_alpha_blend(&self) -> bool {
-    match self {
-      MaterialGroupKey::Common {
-        require_alpha_blend,
-        ..
-      } => *require_alpha_blend,
-      MaterialGroupKey::ForeignHash {
-        require_alpha_blend,
-        ..
-      } => *require_alpha_blend,
-    }
-  }
-}
-
-#[derive(Default)]
-pub struct GroupKeyForeignImpl {
-  pub model: Option<UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>>>,
-  pub mesh: Option<UseResult<BoxedDynDualQuery<RawEntityHandle, MeshGroupKey>>>,
-  pub material: Option<UseResult<BoxedDynDualQuery<RawEntityHandle, MaterialGroupKey>>>,
 }
 
 fn use_scene_model_group_key(
@@ -157,6 +123,15 @@ fn use_scene_model_group_key(
   }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum MeshGroupKey {
+  Attribute {
+    is_index: bool,
+    topology: rendiation_scene_core::PrimitiveTopology,
+  },
+  ForeignHash(u64),
+}
+
 fn attribute_mesh_group_key(
   cx: &mut QueryGPUHookCx,
 ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, MeshGroupKey>> {
@@ -172,6 +147,33 @@ fn attribute_mesh_group_key(
     .dual_query_map(|(is_index, topology)| MeshGroupKey::Attribute { is_index, topology })
     .fanout(model_ref, cx)
     .dual_query_boxed()
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum MaterialGroupKey {
+  Common {
+    ty: u8,
+    require_alpha_blend: bool,
+  },
+  ForeignHash {
+    internal: u64,
+    require_alpha_blend: bool,
+  },
+}
+
+impl MaterialGroupKey {
+  pub fn require_alpha_blend(&self) -> bool {
+    match self {
+      MaterialGroupKey::Common {
+        require_alpha_blend,
+        ..
+      } => *require_alpha_blend,
+      MaterialGroupKey::ForeignHash {
+        require_alpha_blend,
+        ..
+      } => *require_alpha_blend,
+    }
+  }
 }
 
 fn use_indirect_material_indirect_group_key(
