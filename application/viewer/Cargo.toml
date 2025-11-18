@@ -50,6 +50,7 @@ rendiation-scene-gltf-loader = { path = "../../scene/io/gltf/loader" }
 rendiation-scene-obj-loader = { path = "../../scene/io/obj/loader" }
 rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
 rendiation-scene-rendering-gpu-indirect = { path = "../../scene/rendering/gpu-indirect" }
+rendiation-scene-batch-extractor = { path = "../../scene/rendering/batch-extractor" }
 rendiation-scene-rendering-gpu-ray-tracing = { path = "../../scene/rendering/gpu-ray-tracing" }
 rendiation-mesh-lod-graph-rendering = { path = "../../scene/rendering/mesh-lod-graph" }
 rendiation-mesh-simplification = { path = "../../content/mesh/simplification" }

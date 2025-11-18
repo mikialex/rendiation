@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use database::*;
-use fast_hash_collection::FastHashMap;
+use fast_hash_collection::*;
 use parking_lot::RwLock;
 use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
@@ -14,7 +14,9 @@ mod list_buffer;
 use list_buffer::*;
 
 mod extractor;
-use extractor::*;
+pub use extractor::{
+  IncrementalDeviceSceneBatchExtractor, IncrementalDeviceSceneBatchExtractorShared,
+};
 
 pub fn use_incremental_device_scene_batch_extractor(
   cx: &mut QueryGPUHookCx,
@@ -49,9 +51,12 @@ pub fn use_incremental_device_scene_batch_extractor(
     .use_assure_result(cx);
 
   if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
-    extractor
-      .write()
-      .do_updates(&gpu_updates.expect_resolve_stage(), cx.gpu, encoder);
+    extractor.write().do_updates(
+      &gpu_updates.expect_resolve_stage(),
+      &cx.storage_allocator,
+      cx.gpu,
+      encoder,
+    );
 
     Some(extractor)
   } else {

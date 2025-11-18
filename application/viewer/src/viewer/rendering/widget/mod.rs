@@ -6,7 +6,7 @@ pub use axis::*;
 pub fn draw_widgets(
   ctx: &mut FrameCtx,
   renderer: &dyn SceneRenderer,
-  extractor: &DefaultSceneBatchExtractor,
+  extractor: &ViewerBatchExtractor,
   widget_scene: EntityHandle<SceneEntity>,
   reversed_depth: bool,
   main_camera_gpu: &dyn RenderComponent,
@@ -18,7 +18,6 @@ pub fn draw_widgets(
       only_alpha_blend_objects: None,
     },
     renderer,
-    ctx,
   );
 
   let mut widget_scene_content = renderer.make_scene_batch_pass_content(

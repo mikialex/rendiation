@@ -53,14 +53,12 @@ pub fn render_lighting_scene_content(
         scene,
         SceneContentKey::only_opaque_objects(),
         renderer.scene,
-        ctx,
       );
 
       let all_transparent_object = renderer.batch_extractor.extract_scene_batch(
         scene,
         SceneContentKey::only_alpha_blend_objects(),
         renderer.scene,
-        ctx,
       );
 
       let mut all_transparent_object =
@@ -250,7 +248,6 @@ pub fn render_lighting_scene_content(
         scene,
         SceneContentKey::default(),
         renderer.scene,
-        ctx,
       );
 
       cull_cx.draw_with_oc_maybe_enabled(

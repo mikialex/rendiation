@@ -32,7 +32,6 @@ impl DefaultSceneBatchExtractor {
     scene: EntityHandle<SceneEntity>,
     semantic: SceneContentKey,
     renderer: &dyn SceneRenderer,
-    _ctx: &mut FrameCtx,
   ) -> SceneModelRenderBatch {
     let batch = HostModelLookUp {
       v: self.model_lookup.clone(),

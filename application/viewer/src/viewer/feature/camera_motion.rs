@@ -93,7 +93,7 @@ fn fit_camera_view_for_viewer(
     if let Some(target_world_aabb) = sm_world_bounding.access(selected) {
       let proj = camera_reader.get(camera).unwrap().unwrap();
 
-      fit_camera_view(&proj, camera_world, target_world_aabb).into()
+      fit_camera_view(&proj, camera_world, target_world_aabb)
     } else {
       log::warn!(
         "fit_camera unable to access selected target bounding box, it's a bug or missing implementation"
@@ -111,8 +111,11 @@ fn fit_camera_view(
   proj: &PerspectiveProjection<f32>,
   camera_world: Mat4<f64>,
   target_world_aabb: Box3<f64>,
-) -> CameraMoveAction {
-  assert!(!target_world_aabb.is_empty());
+) -> Option<CameraMoveAction> {
+  if target_world_aabb.is_empty() {
+    log::warn!("target world aabb is empty, fit_camera_view skipped");
+    return None;
+  }
 
   let padding_ratio = 0.1;
   let target_center = target_world_aabb.center();
@@ -137,4 +140,5 @@ fn fit_camera_view(
     position: desired_camera_center,
     look_at: target_center,
   }
+  .into()
 }

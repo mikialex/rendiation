@@ -636,7 +636,7 @@ impl Viewer3dViewportRenderingCtx {
 
 pub struct ViewerSceneRenderer<'a> {
   pub scene: &'a dyn SceneRenderer,
-  pub batch_extractor: &'a DefaultSceneBatchExtractor,
+  pub batch_extractor: &'a ViewerBatchExtractor,
   pub cameras: &'a CameraRenderer,
   pub background: &'a SceneBackgroundRenderer,
   pub oit: ViewerTransparentRenderer,

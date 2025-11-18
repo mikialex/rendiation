@@ -81,7 +81,7 @@ impl LightSystem {
     frame_ctx: &mut FrameCtx,
     reversed_depth: bool,
     renderer: &dyn SceneRenderer,
-    extractor: &DefaultSceneBatchExtractor,
+    extractor: &ViewerBatchExtractor,
     target_scene: EntityHandle<SceneEntity>,
   ) -> LightingRenderingCx<'_> {
     self.tonemap.update(frame_ctx.gpu);
@@ -100,7 +100,7 @@ impl LightSystem {
         // we could just use empty pass dispatcher, because the color channel not exist at all
         let depth = ();
         let camera = Box::new(CameraGPU { ubo: camera }) as Box<dyn RenderComponent>;
-        let batch = extractor.extract_scene_batch(target_scene, key, renderer, frame_ctx);
+        let batch = extractor.extract_scene_batch(target_scene, key, renderer);
         let mut content = renderer.make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
 
         desc.render_ctx(frame_ctx).by(&mut content);
@@ -176,7 +176,7 @@ impl LightSystem {
           &mut self.cascade_shadow_split_linear_log_blend_ratio,
           0.0..=1.0,
         )
-        .step_by(0.1)
+        .step_by(0.01)
         .text("split_linear_log_blend_ratio"),
       );
     }

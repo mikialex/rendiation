@@ -1,30 +1,125 @@
 use crate::*;
 
 pub struct PersistSceneModelListBuffer {
-  buffer: PersistSceneModelListBufferWithLength,
+  buffer: Option<PersistSceneModelListBufferWithLength>,
   host: Vec<RawEntityHandle>,
+  mapping: FastHashMap<RawEntityHandle, usize>,
+}
+
+impl Default for PersistSceneModelListBuffer {
+  fn default() -> Self {
+    Self::with_capacity(1024)
+  }
+}
+
+pub struct PersistSceneModelListBufferMutation {
+  mapping_change: FastHashMap<usize, u32>,
+  len_before_updates: usize,
+  new_len: usize,
+}
+
+impl PersistSceneModelListBufferMutation {
+  pub fn into_sparse_update(self) -> Option<SparseBufferWritesSource> {
+    let change_count = self.mapping_change.len();
+    if change_count == 0 {
+      return None;
+    }
+    let change_count = change_count + 1;
+    let byte_change_capacity = change_count * 4;
+    let mut updates = SparseBufferWritesSource::with_capacity(byte_change_capacity, change_count);
+
+    for (idx, val) in self.mapping_change {
+      updates.collect_write(bytes_of(&val), (idx + 1) as u64 * 4);
+    }
+
+    if self.len_before_updates != self.new_len {
+      updates.collect_write(bytes_of(&(self.new_len as u32)), 0);
+    }
+
+    updates.into()
+  }
 }
 
 impl PersistSceneModelListBuffer {
   pub fn create_batch(&self) -> DeviceSceneModelRenderSubBatch {
     DeviceSceneModelRenderSubBatch {
-      scene_models: Box::new(self.buffer.clone()),
+      scene_models: Box::new(self.buffer.clone().unwrap()),
       impl_select_id: unsafe { EntityHandle::from_raw(*self.host.first().unwrap()) },
     }
   }
-  pub fn with_capacity(capacity: usize, alloc: &dyn AbstractStorageAllocator, gpu: &GPU) -> Self {
-    let init_byte_size = (capacity + 1) * std::mem::size_of::<u32>();
-
+  pub fn with_capacity(capacity: usize) -> Self {
     Self {
-      buffer: PersistSceneModelListBufferWithLength {
+      buffer: None,
+      host: Vec::with_capacity(capacity),
+      mapping: FastHashMap::with_capacity_and_hasher(capacity, FastHasherBuilder::default()),
+    }
+  }
+
+  pub fn create_mutation(&self) -> PersistSceneModelListBufferMutation {
+    PersistSceneModelListBufferMutation {
+      mapping_change: Default::default(),
+      len_before_updates: self.host.len(),
+      new_len: self.host.len(),
+    }
+  }
+
+  pub fn insert(
+    &mut self,
+    sm_handle: RawEntityHandle,
+    mutations: &mut PersistSceneModelListBufferMutation,
+  ) {
+    self.host.push(sm_handle);
+    self.mapping.insert(sm_handle, self.host.len() - 1);
+    mutations
+      .mapping_change
+      .insert(self.host.len() - 1, sm_handle.alloc_index());
+    mutations.new_len = self.host.len();
+  }
+
+  pub fn remove(
+    &mut self,
+    sm_handle: RawEntityHandle,
+    mutations: &mut PersistSceneModelListBufferMutation,
+  ) {
+    let idx = self.mapping.remove(&sm_handle).unwrap();
+    self.host.swap_remove(idx);
+    let tail_item = self.host[idx];
+    self.mapping.insert(tail_item, idx);
+
+    mutations.mapping_change.remove(&self.host.len());
+    mutations
+      .mapping_change
+      .insert(idx, tail_item.alloc_index());
+    mutations.new_len = self.host.len();
+  }
+
+  pub fn update_gpu(
+    &mut self,
+    alloc: &dyn AbstractStorageAllocator,
+    gpu: &GPU,
+    encoder: &mut GPUCommandEncoder,
+    updates: &SparseBufferWritesSource,
+  ) {
+    let new_capacity_required = self.host.len() + 1;
+    let new_bytes_required = new_capacity_required * 4;
+
+    if let Some(buffer) = &self.buffer {
+      if buffer.buffer.item_count() < new_capacity_required as u32 {
+        self.buffer = None;
+      }
+    }
+
+    let buffer = self
+      .buffer
+      .get_or_insert_with(|| PersistSceneModelListBufferWithLength {
         buffer: alloc.allocate_readonly(
-          init_byte_size as u64,
+          new_bytes_required as u64,
           &gpu.device,
           Some("PersistSceneModelListBuffer"),
         ),
-      },
-      host: Vec::with_capacity(capacity),
-    }
+      });
+
+    updates.write_abstract(gpu, encoder, &buffer.buffer);
   }
 }
 

@@ -7,42 +7,110 @@ type GroupKeyWithSceneHandle = (SceneModelGroupKey, RawEntityHandle);
 
 #[derive(Default)]
 pub struct IncrementalDeviceSceneBatchExtractor {
-  contents: FastHashMap<
-    EntityHandle<SceneEntity>,
-    FastHashMap<SceneModelGroupKey, PersistSceneModelListBuffer>,
+  contents:
+    FastHashMap<RawEntityHandle, FastHashMap<SceneModelGroupKey, PersistSceneModelListBuffer>>,
+}
+
+impl IncrementalDeviceSceneBatchExtractor {
+  fn get_or_create(
+    &mut self,
+    scene: &RawEntityHandle,
+    key: &SceneModelGroupKey,
+  ) -> &mut PersistSceneModelListBuffer {
+    self
+      .contents
+      .raw_entry_mut()
+      .from_key(scene)
+      .or_insert_with(|| (*scene, Default::default()))
+      .1
+      .raw_entry_mut()
+      .from_key(key)
+      .or_insert_with(|| (key.clone(), Default::default()))
+      .1
+  }
+}
+
+#[derive(Default)]
+pub struct IncrementalDeviceSceneBatchExtractorUpdates {
+  updates: FastHashMap<
+    RawEntityHandle,
+    FastHashMap<SceneModelGroupKey, PersistSceneModelListBufferMutation>,
   >,
 }
 
-pub struct IncrementalDeviceSceneBatchExtractorUpdates {
-  updates: FastHashMap<
-    EntityHandle<SceneEntity>,
-    FastHashMap<SceneModelGroupKey, SparseBufferWritesSource>,
-  >,
+impl IncrementalDeviceSceneBatchExtractorUpdates {
+  fn get_or_create_source(
+    &mut self,
+    scene: &RawEntityHandle,
+    key: &SceneModelGroupKey,
+    list: &PersistSceneModelListBuffer,
+  ) -> &mut PersistSceneModelListBufferMutation {
+    self
+      .updates
+      .raw_entry_mut()
+      .from_key(scene)
+      .or_insert_with(|| (*scene, Default::default()))
+      .1
+      .raw_entry_mut()
+      .from_key(key)
+      .or_insert_with(|| (key.clone(), list.create_mutation()))
+      .1
+  }
+}
+
+pub struct IncrementalDeviceSceneBatchExtractorGPUUpdates {
+  updates: FastHashMap<RawEntityHandle, FastHashMap<SceneModelGroupKey, SparseBufferWritesSource>>,
 }
 
 impl IncrementalDeviceSceneBatchExtractor {
   pub fn prepare_updates(
     &mut self,
     delta: impl Query<Key = RawEntityHandle, Value = ValueChange<GroupKeyWithSceneHandle>>,
-  ) -> IncrementalDeviceSceneBatchExtractorUpdates {
+  ) -> IncrementalDeviceSceneBatchExtractorGPUUpdates {
+    let mut updates = IncrementalDeviceSceneBatchExtractorUpdates::default();
     for (sm, key_change) in delta.iter_key_value() {
-      match key_change {
-        ValueChange::Delta(_, _) => todo!(),
-        ValueChange::Remove(_) => todo!(),
+      if let Some((key, scene_id)) = key_change.old_value() {
+        let list = self.get_or_create(scene_id, key);
+        let updates = updates.get_or_create_source(scene_id, key, list);
+        list.remove(sm, updates);
+      }
+
+      if let Some((key, scene_id)) = key_change.new_value() {
+        let list = self.get_or_create(scene_id, key);
+        let updates = updates.get_or_create_source(scene_id, key, list);
+        list.insert(sm, updates);
       }
     }
-    //
 
-    todo!()
+    let updates = updates
+      .updates
+      .into_iter()
+      .map(|(k, v)| {
+        let v = v
+          .into_iter()
+          .filter_map(|(k, v)| (k, v.into_sparse_update()?).into())
+          .collect();
+        (k, v)
+      })
+      .collect();
+
+    IncrementalDeviceSceneBatchExtractorGPUUpdates { updates }
   }
 
   pub fn do_updates(
     &mut self,
-    updates: &IncrementalDeviceSceneBatchExtractorUpdates,
+    updates: &IncrementalDeviceSceneBatchExtractorGPUUpdates,
+    alloc: &dyn AbstractStorageAllocator,
     gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
   ) {
-    todo!()
+    for (scene_id, updates) in &updates.updates {
+      let list = self.contents.get_mut(scene_id).unwrap();
+      for (key, updates) in updates {
+        let list = list.get_mut(key).unwrap();
+        list.update_gpu(alloc, gpu, encoder, updates);
+      }
+    }
   }
 
   pub fn extract_scene_batch(
@@ -50,7 +118,7 @@ impl IncrementalDeviceSceneBatchExtractor {
     scene: EntityHandle<SceneEntity>,
     semantic: SceneContentKey,
   ) -> SceneModelRenderBatch {
-    let contents = self.contents.get(&scene).unwrap();
+    let contents = self.contents.get(&scene.into_raw()).unwrap();
     let sub_batches = if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
       contents
         .iter()

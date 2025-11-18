@@ -74,8 +74,6 @@ pub fn generate_cascade_shadow_info(
     let size = inputs.size.access(&k).unwrap();
     let mut splits = [0.; CASCADE_SHADOW_SPLIT_COUNT];
 
-    // dbg!(&cascades);
-
     for (idx, (sub_proj, split)) in cascades.iter().enumerate() {
       if let Ok(pack) = packer.pack(size) {
         let proj = sub_proj.compute_projection_mat(ndc);

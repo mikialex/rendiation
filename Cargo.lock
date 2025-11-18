@@ -5399,6 +5399,7 @@ dependencies = [
  "rendiation-mesh-simplification",
  "rendiation-occlusion-culling",
  "rendiation-oit",
+ "rendiation-scene-batch-extractor",
  "rendiation-scene-core",
  "rendiation-scene-geometry-query",
  "rendiation-scene-gltf-exporter",

@@ -108,6 +108,7 @@ impl Viewer3dRenderingCtx {
     );
 
     let mut mesh_lod_graph_renderer = None;
+    let mut indirect_extractor = None;
 
     let (cx, model_error_state) = cx.use_plain_state_default::<SceneModelErrorRecorder>();
 
@@ -212,6 +213,8 @@ impl Viewer3dRenderingCtx {
 
         let scene_model = use_indirect_scene_model(cx, model_support);
 
+        indirect_extractor = use_incremental_device_scene_batch_extractor(cx, Default::default());
+
         let renderer = cx
           .when_render(|| IndirectSceneRenderer {
             texture_system: t_clone.unwrap(),
@@ -295,7 +298,10 @@ impl Viewer3dRenderingCtx {
     cx.when_render(|| ViewerRendererInstancePreparer {
       camera: camera.unwrap(),
       background: background.unwrap(),
-      extractor: extractor.unwrap(),
+      extractor: ViewerBatchExtractor {
+        default_extractor: extractor.unwrap(),
+        indirect_extractor: indirect_extractor.map(|c| c.make_read_holder()),
+      },
       raster_scene_renderer: raster_scene_renderer.unwrap(),
       rtx_system: rtx_scene_renderer,
       reversed_depth: self.ndc.enable_reverse_z,
@@ -408,7 +414,7 @@ pub struct ViewerRendererInstancePreparer {
   pub camera: CameraRenderer,
   pub background: SceneBackgroundRenderer,
   pub raster_scene_renderer: Box<dyn SceneRenderer>,
-  pub extractor: DefaultSceneBatchExtractor,
+  pub extractor: ViewerBatchExtractor,
   pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   pub lighting: LightingRenderingCxPrepareCtx,
   pub culling: ViewerCulling,
@@ -422,7 +428,7 @@ pub struct ViewerRendererInstance<'a> {
   pub camera: CameraRenderer,
   pub background: SceneBackgroundRenderer,
   pub raster_scene_renderer: Box<dyn SceneRenderer>,
-  pub extractor: DefaultSceneBatchExtractor,
+  pub extractor: ViewerBatchExtractor,
   pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   pub culling: ViewerCulling,
   pub mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,
@@ -430,4 +436,25 @@ pub struct ViewerRendererInstance<'a> {
   pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   pub reversed_depth: bool,
   pub lighting: LightingRenderingCx<'a>,
+}
+
+pub struct ViewerBatchExtractor {
+  default_extractor: DefaultSceneBatchExtractor,
+  indirect_extractor: Option<LockReadGuardHolder<IncrementalDeviceSceneBatchExtractor>>,
+}
+
+impl ViewerBatchExtractor {
+  pub fn extract_scene_batch(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    semantic: SceneContentKey,
+    renderer: &dyn SceneRenderer,
+  ) -> SceneModelRenderBatch {
+    if let Some(indirect_extractor) = &self.indirect_extractor {
+      return indirect_extractor.extract_scene_batch(scene, semantic);
+    }
+    self
+      .default_extractor
+      .extract_scene_batch(scene, semantic, renderer)
+  }
 }
