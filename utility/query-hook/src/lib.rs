@@ -273,6 +273,18 @@ pub trait QueryHookCxLike: HooksCxLike {
   where
     T: Clone + Send + Sync + 'static,
   {
+    let logic = |cx: &mut Self| logic(cx).map(|v| Arc::new(v) as Arc<dyn Any + Send + Sync>);
+    let r = self.use_shared_compute_internal_dyn(&logic, key, consumer_id);
+    r.map(|v| v.downcast_ref::<T>().unwrap().clone())
+  }
+
+  #[inline(never)]
+  fn use_shared_compute_internal_dyn(
+    &mut self,
+    logic: &dyn Fn(&mut Self) -> UseResult<Arc<dyn Any + Send + Sync>>,
+    key: ShareKey,
+    consumer_id: u32,
+  ) -> UseResult<Arc<dyn Any + Send + Sync>> {
     let shared_waker = {
       let waker = self.waker().clone();
       let shared = self.shared_hook_ctx().shared.entry(key).or_default();
@@ -294,7 +306,7 @@ pub trait QueryHookCxLike: HooksCxLike {
         match result {
           UseResult::SpawnStageFuture(future) => {
             if let QueryHookStage::SpawnTask { pool, .. } = cx.stage() {
-              let spawned_task_id = pool.install_task(future);
+              let spawned_task_id = pool.install_task_dyn(future);
               cx.shared_hook_ctx()
                 .task_id_mapping
                 .insert(key, spawned_task_id);
@@ -313,18 +325,18 @@ pub trait QueryHookCxLike: HooksCxLike {
               immediate_results, ..
             } = cx.stage()
             {
-              immediate_results.insert(some_id, Arc::new(result.clone()));
+              immediate_results.insert(some_id, result);
             } else {
               unreachable!()
             };
           }
-          UseResult::ResolveStageReady(r) => {
+          UseResult::ResolveStageReady(result) => {
             // in this case, we have result in resolve stage directly in upstream
             // here we get an unique task id.
             let some_id = u32::MAX - cx.shared_hook_ctx().task_id_mapping.len() as u32 - 1;
             cx.shared_hook_ctx().task_id_mapping.insert(key, some_id);
             if let QueryHookStage::ResolveTask { task, .. } = cx.stage() {
-              task.token_based_result.insert(some_id, Arc::new(r));
+              task.token_based_result.insert(some_id, result);
             } else {
               unreachable!()
             };
@@ -355,8 +367,8 @@ pub trait QueryHookCxLike: HooksCxLike {
         ..
       } => {
         if let Some(r) = immediate_results.get(&task_id) {
-          UseResult::SpawnStageReady(r.clone().downcast_ref::<T>().unwrap().clone())
-        } else if let Some(f) = pool.try_share_task_by_id(task_id) {
+          UseResult::SpawnStageReady(r.clone())
+        } else if let Some(f) = pool.try_share_task_by_id_dyn(task_id) {
           UseResult::SpawnStageFuture(f)
         } else {
           // this is possible if upstream not spawn or resolve anything in spawn stage
@@ -367,7 +379,7 @@ pub trait QueryHookCxLike: HooksCxLike {
         if task_id == u32::MAX {
           UseResult::NotInStage
         } else {
-          UseResult::ResolveStageReady(task.expect_result_by_id::<T>(task_id).clone())
+          UseResult::ResolveStageReady(task.expect_result_by_id_any(task_id).clone())
         }
       }
       _ => UseResult::NotInStage,

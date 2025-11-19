@@ -78,9 +78,22 @@ impl TaskPoolResultCx {
   pub fn expect_result_by_id<T: Any>(&self, id: u32) -> &T {
     self.try_get_result_by_id(id).unwrap()
   }
+
+  pub fn expect_result_by_id_any(&self, id: u32) -> &Arc<dyn Any + Send + Sync> {
+    self.token_based_result.get(&id).unwrap()
+  }
 }
 
 impl AsyncTaskPool {
+  pub fn try_share_task_by_id_dyn(
+    &self,
+    id: u32,
+  ) -> Option<Pin<FrameBox<dyn Future<Output = Arc<dyn Any + Send + Sync>> + Send + Sync + 'static>>>
+  {
+    let f = self.registry.get(&id)?.clone();
+    Some(pin_box_in_frame(f))
+  }
+
   pub fn try_share_task_by_id<T: Clone + Any>(
     &self,
     id: u32,
@@ -92,6 +105,7 @@ impl AsyncTaskPool {
       .map(|v| v.downcast_ref::<T>().unwrap().clone()); // todo , is it possible to avoid inner clone??
     Some(pin_box_in_frame(f))
   }
+
   pub fn share_task_by_id<T: Clone + Any>(
     &self,
     id: u32,
@@ -103,12 +117,17 @@ impl AsyncTaskPool {
     &mut self,
     task: impl Future<Output = T> + Send + 'static,
   ) -> u32 {
+    let task = task.map(|v| Arc::new(v) as Arc<dyn Any + Send + Sync>);
+    self.install_task_dyn(task)
+  }
+
+  pub fn install_task_dyn(
+    &mut self,
+    task: impl Future<Output = Arc<dyn Any + Send + Sync>> + Send + 'static,
+  ) -> u32 {
     self.next += 1;
 
-    let task = task
-      .map(|v| Arc::new(v) as Arc<dyn Any + Send + Sync>)
-      .boxed()
-      .shared();
+    let task = task.boxed().shared();
 
     self.registry.insert(self.next, task);
     self.next
