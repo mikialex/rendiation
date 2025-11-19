@@ -191,6 +191,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
           force_loop_bounding: self.config.checks.force_loop_bounding,
         },
         enable_backend_validation: self.config.enable_backend_validation,
+        dx_compiler_dll_path: self.config.dx_compiler_dll_path.clone(),
         ..Default::default()
       };
 
@@ -312,6 +313,7 @@ pub struct ApplicationPlatformConfig {
   pub preferred_backends: Option<Backends>,
   pub checks: ShaderRuntimeProtection,
   pub enable_backend_validation: Option<bool>,
+  pub dx_compiler_dll_path: Option<String>,
 }
 
 pub fn run_application(

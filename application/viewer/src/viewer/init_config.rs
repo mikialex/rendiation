@@ -46,6 +46,10 @@ pub struct ViewerStaticInitConfig {
   /// this is useful if we want to disable validation in debug to improve debug build performance
   /// or do extra debug check in release build
   pub enable_backend_validation: Option<bool>,
+
+  /// the dxc dll path for dx12 backend, the dll must support shader model 6.7 at least
+  /// if None, then using fxc compiler, which is buggy.
+  pub dx_compiler_dll_path: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
@@ -85,6 +89,7 @@ impl Default for ViewerStaticInitConfig {
         force_loop_bounding: true,
       },
       enable_backend_validation: None,
+      dx_compiler_dll_path: None,
     }
   }
 }

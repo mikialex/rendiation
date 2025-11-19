@@ -122,20 +122,20 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
     init_config
   };
 
-  run_application(
-    ApplicationPlatformConfig {
-      preferred_backends: init_config.init_only.wgpu_backend_select_override,
-      checks: init_config.init_only.default_shader_protections,
-      enable_backend_validation: init_config.init_only.enable_backend_validation,
-    },
-    move |cx| {
-      use_egui_cx(cx, |cx, egui_cx| {
-        use_viewer(cx, egui_cx, &init_config, |cx| {
-          content_logic(cx);
-        });
+  let app_config = ApplicationPlatformConfig {
+    preferred_backends: init_config.init_only.wgpu_backend_select_override,
+    checks: init_config.init_only.default_shader_protections,
+    enable_backend_validation: init_config.init_only.enable_backend_validation,
+    dx_compiler_dll_path: init_config.init_only.dx_compiler_dll_path.clone(),
+  };
+
+  run_application(app_config, move |cx| {
+    use_egui_cx(cx, |cx, egui_cx| {
+      use_viewer(cx, egui_cx, &init_config, |cx| {
+        content_logic(cx);
       });
-    },
-  );
+    });
+  });
 }
 
 fn main() {

@@ -94,6 +94,9 @@ pub struct GPUCreateConfig<'a> {
   pub default_shader_checks: ShaderRuntimeChecks,
   /// if None, then using wgpu default behavior (on when debug build)
   pub enable_backend_validation: Option<bool>,
+  /// the dxc dll path for dx12 backend, the dll must support shader model 6.7 at least
+  /// if None, then using fxc compiler, which is buggy.
+  pub dx_compiler_dll_path: Option<String>,
 }
 
 impl Default for GPUCreateConfig<'_> {
@@ -106,6 +109,7 @@ impl Default for GPUCreateConfig<'_> {
       minimal_required_limits: Default::default(),
       default_shader_checks: ShaderRuntimeChecks::checked(),
       enable_backend_validation: None,
+      dx_compiler_dll_path: None,
     }
   }
 }
@@ -147,7 +151,20 @@ impl GPU {
         }
         r
       },
-      backend_options: Default::default(),
+      backend_options: BackendOptions {
+        dx12: Dx12BackendOptions {
+          shader_compiler: if let Some(path) = config.dx_compiler_dll_path {
+            Dx12Compiler::DynamicDxc {
+              dxc_path: path,
+              max_shader_model: DxcShaderModel::V6_7,
+            }
+          } else {
+            Default::default()
+          },
+          ..Default::default()
+        },
+        ..Default::default()
+      },
       memory_budget_thresholds: Default::default(),
     });
     let power_preference = gpu::PowerPreference::HighPerformance;
