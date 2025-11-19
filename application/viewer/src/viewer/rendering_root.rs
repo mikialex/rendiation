@@ -4,6 +4,7 @@ use crate::*;
 pub struct RenderingRoot {
   render_memory: FunctionMemory,
   pool: AttachmentPool,
+  pass_info_pool: PassInfoPool,
   frame_index: u64,
   stat_frame_time_in_ms: StatisticStore<f32>,
   last_render_timestamp: Option<Instant>,
@@ -19,6 +20,7 @@ impl RenderingRoot {
     Self {
       render_memory: Default::default(),
       any_render_change: Default::default(),
+      pass_info_pool: Default::default(),
       pool: init_attachment_pool(gpu),
       frame_index: 0,
       stat_frame_time_in_ms: StatisticStore::new(200),
@@ -107,7 +109,13 @@ impl RenderingRoot {
       .enable_statistic_collect
       .then(|| self.statistics.create_resolver(self.frame_index));
 
-    let mut ctx = FrameCtx::new(&gpu, canvas.size(), &self.pool, statistics);
+    let mut ctx = FrameCtx::new(
+      &gpu,
+      canvas.size(),
+      &self.pool,
+      &self.pass_info_pool,
+      statistics,
+    );
 
     let upstream = futures::task::noop_waker();
     let any_changed = self.any_render_change.update(&upstream);

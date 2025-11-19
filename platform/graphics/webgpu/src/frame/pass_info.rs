@@ -20,10 +20,23 @@ impl RenderPassGPUInfoData {
 
 #[derive(Default, Clone)]
 pub struct PassInfoPool {
-  internal: Arc<RwLock<FastHashMap<Vec2<u32>, UniformBufferDataView<RenderPassGPUInfoData>>>>,
+  current_generation_idx: u64,
+  internal: Arc<RwLock<FastHashMap<Vec2<u32>, PassPoolItem>>>,
 }
 
+type PassPoolItem = (UniformBufferDataView<RenderPassGPUInfoData>, u64);
+
 impl PassInfoPool {
+  /// every 15 ticks we check and remove any item that not been accessed in 3 last ticks
+  pub fn tick(&mut self) {
+    self.current_generation_idx += 1;
+
+    if self.current_generation_idx.is_multiple_of(15) {
+      let mut internal = self.internal.write();
+      internal.retain(|_, v| self.current_generation_idx - v.1 <= 3);
+    }
+  }
+
   pub fn get_pass_info(
     &self,
     viewport_physical_pixel_size: Vec2<f32>,
@@ -36,9 +49,14 @@ impl PassInfoPool {
       let buffer_size = viewport_physical_pixel_size;
 
       let pass_info = RenderPassGPUInfoData::new(buffer_size.map(|v| 1.0 / v), buffer_size);
-      UniformBufferDataView::create(device, pass_info)
+      (
+        UniformBufferDataView::create(device, pass_info),
+        self.current_generation_idx,
+      )
     });
 
-    pass_info.clone()
+    pass_info.1 = self.current_generation_idx;
+
+    pass_info.0.clone()
   }
 }

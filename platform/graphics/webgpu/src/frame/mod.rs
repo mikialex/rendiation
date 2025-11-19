@@ -27,7 +27,7 @@ pub struct FrameCtx<'a> {
   pool: &'a AttachmentPool,
   /// currently we recreate pool every frame, this can be improved
   /// to avoid unnecessary bindgroup invalidation.
-  pass_info_pool: PassInfoPool,
+  pass_info_pool: &'a PassInfoPool,
   statistics: Option<FrameStaticInfoResolver>,
   pub frame_size: Size,
 }
@@ -48,6 +48,7 @@ impl<'a> FrameCtx<'a> {
     gpu: &'a GPU,
     frame_size: Size,
     pool: &'a AttachmentPool,
+    pass_info_pool: &'a PassInfoPool,
     statistics: Option<FrameStaticInfoResolver>,
   ) -> Self {
     let encoder = ManuallyDrop::new(gpu.create_encoder());
@@ -58,7 +59,7 @@ impl<'a> FrameCtx<'a> {
       statistics,
       encoder,
       gpu,
-      pass_info_pool: Default::default(),
+      pass_info_pool,
     }
   }
 

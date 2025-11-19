@@ -60,7 +60,7 @@ pub fn downgrade_multi_indirect_draw_count(
     .make_global_scan_exclusive::<AdditionMonoid<u32>>()
     .materialize_storage_buffer(cx);
 
-    // because we using exclusive scan
+    // because we're using exclusive scan
     assert_eq!(
       sub_draw_range_start_prefix_sum.item_count(),
       draw_commands.cmd_capacity_count() + 1
