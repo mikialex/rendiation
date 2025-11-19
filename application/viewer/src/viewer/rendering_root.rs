@@ -57,6 +57,9 @@ impl RenderingRoot {
   }
 
   fn init_frame(&mut self) {
+    self.pool.tick();
+    self.pass_info_pool.tick();
+
     self.frame_index += 1;
     let now = Instant::now();
     if let Some(last_frame_time) = self.last_render_timestamp.take() {
