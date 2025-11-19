@@ -1,9 +1,45 @@
 use crate::*;
 
+/// here we simply assume the mask input is the frame size
+pub fn compute_sdf_for_frame_render(
+  frame_cx: &mut FrameCtx,
+  mask_input: RenderTargetView,
+  max_distance: Option<u32>,
+) -> RenderTargetView {
+  let mask = mask_input
+    .expect_standalone_common_texture_view()
+    .clone()
+    .try_into()
+    .unwrap();
+
+  let src = attachment()
+    .format(TextureFormat::Rg32Float)
+    .request(frame_cx);
+  let src_ = src
+    .expect_standalone_common_texture_view()
+    .clone()
+    .try_into()
+    .unwrap();
+
+  let target = attachment()
+    .format(TextureFormat::Rg32Float)
+    .request(frame_cx);
+  let target_ = target
+    .expect_standalone_common_texture_view()
+    .clone()
+    .try_into()
+    .unwrap();
+
+  compute_sdf(frame_cx, mask, (src_, target_), max_distance);
+
+  target
+}
+
 /// reference: https://github.com/rerun-io/rerun/blob/main/crates/viewer/re_renderer/src/draw_phases/outlines.rs
 pub fn compute_sdf(
   frame_cx: &mut FrameCtx,
   mask_input: GPU2DTextureView,
+  (mut source, mut target): (GPU2DTextureView, GPU2DTextureView),
   max_distance: Option<u32>,
 ) -> GPU2DTextureView {
   let size = mask_input.size();
@@ -11,12 +47,6 @@ pub fn compute_sdf(
   let max_distance = max_distance.unwrap_or(width.max(height));
   let max_step_width = max_distance.max(1).next_power_of_two();
   let num_steps = max_step_width.ilog2() + 1;
-
-  let fmt = TextureFormat::Rg32Float;
-  let usage = TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
-  // todo, cache this
-  let mut source = create_empty_2d_texture_view(frame_cx.gpu, size, usage, fmt);
-  let mut target = create_empty_2d_texture_view(frame_cx.gpu, size, usage, fmt);
 
   pass("jump flooding sdf compute init")
     .with_color(

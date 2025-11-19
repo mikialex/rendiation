@@ -33,21 +33,9 @@ impl HighLighter {
 impl HighLighter {
   /// This fn is public because this allows user use any mask (maybe from the cached one)
   pub fn draw_result(&self, mask: RenderTargetView, ctx: &mut FrameCtx) -> impl PassContent + '_ {
-    let sdf = compute_sdf(
-      ctx,
-      mask
-        .expect_standalone_common_texture_view()
-        .clone()
-        .try_into()
-        .unwrap(),
-      Some(self.data.get().width),
-    );
+    let sdf = compute_sdf_for_frame_render(ctx, mask, Some(self.data.get().width));
 
-    HighLightComputer {
-      sdf: sdf.into(),
-      lighter: self,
-    }
-    .draw_quad_with_alpha_blending()
+    HighLightComputer { sdf, lighter: self }.draw_quad_with_alpha_blending()
   }
 
   /// the passed in content should draw by `HighLightMaskDispatcher`
