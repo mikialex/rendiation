@@ -1,6 +1,6 @@
 use crate::*;
 
-// for short cut
+// for shortcut
 pub fn create_empty_2d_texture_view(
   gpu: &GPU,
   size: Size,

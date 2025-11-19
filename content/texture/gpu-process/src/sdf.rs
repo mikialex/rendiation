@@ -14,6 +14,7 @@ pub fn compute_sdf(
 
   let fmt = TextureFormat::Rg32Float;
   let usage = TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
+  // todo, cache this
   let mut source = create_empty_2d_texture_view(frame_cx.gpu, size, usage, fmt);
   let mut target = create_empty_2d_texture_view(frame_cx.gpu, size, usage, fmt);
 

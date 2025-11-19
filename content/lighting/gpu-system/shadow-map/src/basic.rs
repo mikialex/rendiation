@@ -86,7 +86,7 @@ pub fn use_basic_shadow_map_uniform(
       .update_uniform_array(uniform, offset_of!(BasicShadowMapInfo, map_info), cx.gpu);
   }
 
-  let (cx, atlas) = cx.use_plain_state_default::<Option<GPU2DArrayDepthTextureView>>();
+  let (cx, atlas) = cx.use_plain_state_default::<Option<ShadowAtlas>>();
 
   cx.when_render(|| {
     let shadow_map_atlas = get_or_create_shadow_atlas(
@@ -127,7 +127,7 @@ impl Query for PackerView {
 }
 
 pub struct BasicShadowMapPreparer {
-  shadow_map_atlas: GPU2DArrayDepthTextureView,
+  shadow_map_atlas: ShadowAtlas,
   source_world: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
   source_proj: BoxedDynQuery<RawEntityHandle, Mat4<f32>>,
   packing: BoxedDynQuery<RawEntityHandle, ShadowMapAddressInfo>,
@@ -150,14 +150,8 @@ impl BasicShadowMapPreparer {
 
       let write_view = self
         .shadow_map_atlas
-        .resource
-        .create_view(TextureViewDescriptor {
-          label: Some("shadowmap-write-view"),
-          dimension: Some(TextureViewDimension::D2),
-          base_array_layer: shadow_view.layer_index as u32,
-          array_layer_count: Some(1),
-          ..Default::default()
-        });
+        .get_layer_view(shadow_view.layer_index as u32)
+        .clone();
 
       // todo, consider merge the pass within the same layer
       // custom dispatcher is not required because we only have depth output.
@@ -175,7 +169,7 @@ impl BasicShadowMapPreparer {
       );
     }
 
-    self.shadow_map_atlas
+    self.shadow_map_atlas.get_full_view().clone()
   }
 }
 

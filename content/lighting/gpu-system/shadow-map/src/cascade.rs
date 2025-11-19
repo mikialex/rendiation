@@ -123,7 +123,7 @@ pub struct CascadeShadowPreparer {
 
 #[derive(Default)]
 pub struct CascadeShadowGPUCache {
-  texture: Option<GPU2DArrayDepthTextureView>,
+  texture: Option<ShadowAtlas>,
   uniforms: Option<UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, 8>>>,
 }
 
@@ -160,14 +160,8 @@ impl CascadeShadowPreparer {
         let shadow_view = shadow_view.map_info;
 
         let write_view = shadow_map_atlas
-          .resource
-          .create_view(TextureViewDescriptor {
-            label: Some("shadowmap-write-view"),
-            dimension: Some(TextureViewDimension::D2),
-            base_array_layer: shadow_view.layer_index as u32,
-            array_layer_count: Some(1),
-            ..Default::default()
-          });
+          .get_layer_view(shadow_view.layer_index as u32)
+          .clone();
 
         // todo, consider merge the pass within the same layer
         // custom dispatcher is not required because we only have depth output.
@@ -195,7 +189,7 @@ impl CascadeShadowPreparer {
     });
 
     CascadeShadowMapComponent {
-      shadow_map_atlas,
+      shadow_map_atlas: shadow_map_atlas.get_full_view().clone(),
       info: info.clone(),
       reversed_depth,
     }
