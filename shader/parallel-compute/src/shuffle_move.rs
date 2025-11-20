@@ -99,6 +99,10 @@ where
     self.input.work_size()
   }
 
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+    Box::new(self.clone())
+  }
+
   // fn materialize_storage_buffer_into(
   //   &self,
   //   cx: &mut DeviceParallelComputeCtx,
@@ -176,6 +180,10 @@ where
 
   fn work_size(&self) -> Option<u32> {
     self.shuffle_idx.work_size()
+  }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+    Box::new(self.clone())
   }
 }
 

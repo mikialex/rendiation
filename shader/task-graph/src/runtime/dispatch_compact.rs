@@ -4,19 +4,19 @@ use super::*;
 #[derive(Clone)]
 pub struct ParallelComputeFromAbstractStorageBuffer(pub AbstractStorageBuffer<[u32]>);
 
-impl DeviceParallelCompute<Node<u32>> for ParallelComputeFromAbstractStorageBuffer {
-  fn execute_and_expose(
-    &self,
-    _: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
-    Box::new(self.clone())
-  }
+// impl DeviceParallelCompute<Node<u32>> for ParallelComputeFromAbstractStorageBuffer {
+//   fn execute_and_expose(
+//     &self,
+//     _: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+//     Box::new(self.clone())
+//   }
 
-  fn result_size(&self) -> u32 {
-    self.0.byte_size() as u32 / 4
-  }
-}
-impl DeviceParallelComputeIO<u32> for ParallelComputeFromAbstractStorageBuffer {}
+//   fn result_size(&self) -> u32 {
+//     self.0.byte_size() as u32 / 4
+//   }
+// }
+impl DeviceInvocationComponentIO<u32> for ParallelComputeFromAbstractStorageBuffer {}
 
 /// this is a little dangerous
 impl ShaderHashProvider for ParallelComputeFromAbstractStorageBuffer {
@@ -25,6 +25,14 @@ impl ShaderHashProvider for ParallelComputeFromAbstractStorageBuffer {
 impl DeviceInvocationComponent<Node<u32>> for ParallelComputeFromAbstractStorageBuffer {
   fn work_size(&self) -> Option<u32> {
     Some(self.result_size())
+  }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+    Box::new(self.clone())
+  }
+
+  fn result_size(&self) -> u32 {
+    self.0.byte_size() as u32 / 4
   }
 
   fn build_shader(
@@ -51,19 +59,19 @@ pub struct ActiveTaskCompact {
   pub task_pool: TaskPool,
 }
 
-impl DeviceParallelCompute<Node<bool>> for ActiveTaskCompact {
-  fn execute_and_expose(
-    &self,
-    _: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<bool>>> {
-    Box::new(self.clone())
-  }
+// impl DeviceParallelCompute<Node<bool>> for ActiveTaskCompact {
+//   fn execute_and_expose(
+//     &self,
+//     _: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<bool>>> {
+//     Box::new(self.clone())
+//   }
 
-  fn result_size(&self) -> u32 {
-    self.active_tasks.byte_size() as u32 / 4
-  }
-}
-impl DeviceParallelComputeIO<bool> for ActiveTaskCompact {}
+//   fn result_size(&self) -> u32 {
+//     self.active_tasks.byte_size() as u32 / 4
+//   }
+// }
+// impl DeviceParallelComputeIO<bool> for ActiveTaskCompact {}
 
 impl ShaderHashProvider for ActiveTaskCompact {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
@@ -72,7 +80,14 @@ impl ShaderHashProvider for ActiveTaskCompact {
   shader_hash_type_id! {}
 }
 
+impl DeviceInvocationComponentIO<bool> for ActiveTaskCompact {}
 impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
+  fn result_size(&self) -> u32 {
+    self.active_tasks.byte_size() as u32 / 4
+  }
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<bool>>> {
+    Box::new(self.clone())
+  }
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,

@@ -56,7 +56,7 @@ pub fn downgrade_multi_indirect_draw_count(
       indirect_buffer: draw_commands.clone(),
       indirect_count: draw_count.clone(),
     }
-    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024)
+    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx)
     .make_global_scan_exclusive::<AdditionMonoid<u32>>()
     .materialize_storage_buffer(cx);
 
@@ -249,23 +249,13 @@ impl ShaderHashProvider for MultiIndirectCountDowngradeSource {
   }
 }
 
-impl DeviceParallelCompute<Node<u32>> for MultiIndirectCountDowngradeSource {
-  fn execute_and_expose(
-    &self,
-    _: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
-    Box::new(self.clone())
-  }
-
-  fn result_size(&self) -> u32 {
-    self.indirect_buffer.cmd_capacity_count()
-  }
-}
-impl DeviceParallelComputeIO<u32> for MultiIndirectCountDowngradeSource {}
-
+impl DeviceInvocationComponentIO<u32> for MultiIndirectCountDowngradeSource {}
 impl DeviceInvocationComponent<Node<u32>> for MultiIndirectCountDowngradeSource {
   fn work_size(&self) -> Option<u32> {
     None
+  }
+  fn result_size(&self) -> u32 {
+    self.indirect_buffer.cmd_capacity_count()
   }
 
   fn build_shader(
@@ -303,6 +293,10 @@ impl DeviceInvocationComponent<Node<u32>> for MultiIndirectCountDowngradeSource 
 
   fn requested_workgroup_size(&self) -> Option<u32> {
     None
+  }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+    Box::new(self.clone())
   }
 }
 

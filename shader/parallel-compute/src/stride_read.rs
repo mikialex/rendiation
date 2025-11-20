@@ -69,6 +69,10 @@ impl<T: 'static> DeviceInvocationComponent<T> for DeviceParallelComputeStrideRea
     }
     .into()
   }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<T>> {
+    Box::new(self.clone())
+  }
 }
 impl<T: 'static> DeviceInvocationComponentIO<T> for DeviceParallelComputeStrideRead<Node<T>> {}
 

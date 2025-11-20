@@ -108,6 +108,10 @@ where
   fn work_size(&self) -> Option<u32> {
     self.upstream.work_size()
   }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+    Box::new(self.clone())
+  }
 }
 impl<T, S> DeviceInvocationComponentIO<T> for WorkGroupPrefixScanKoggeStoneCompute<T, S>
 where

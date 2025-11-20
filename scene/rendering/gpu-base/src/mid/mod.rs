@@ -72,7 +72,7 @@ impl DeviceSceneModelRenderSubBatch {
   ) -> Box<dyn IndirectDrawProvider> {
     let (draw_command_buffer, draw_count) = match draw_command_builder {
       DrawCommandBuilder::Indexed(generator) => {
-        let generator = IndexedDrawCommandGenerator {
+        let generator = IndexedDrawCommandGeneratorComponent {
           scene_models: self.scene_models.clone(),
           generator,
         };
@@ -98,7 +98,7 @@ impl DeviceSceneModelRenderSubBatch {
         (draw_command_buffer, draw_count)
       }
       DrawCommandBuilder::NoneIndexed(generator) => {
-        let generator = NoneIndexedDrawCommandGenerator {
+        let generator = DrawCommandGeneratorComponent {
           scene_models: self.scene_models.clone(),
           generator,
         };

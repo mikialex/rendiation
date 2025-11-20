@@ -237,11 +237,14 @@ impl TaskGroupExecutor {
 
     let re = active_tasks
       .clone()
-      .stream_compaction(ActiveTaskCompact {
-        active_size: imp.active_task_idx.current_size.clone(),
-        active_tasks: imp.active_task_idx.storage.clone(),
-        task_pool: imp.task_pool.clone(),
-      })
+      .stream_compaction(
+        ActiveTaskCompact {
+          active_size: imp.active_task_idx.current_size.clone(),
+          active_tasks: imp.active_task_idx.storage.clone(),
+          task_pool: imp.task_pool.clone(),
+        },
+        ctx,
+      )
       .materialize_storage_buffer_into(active_tasks_back_buffer, ctx);
 
     std::mem::swap(

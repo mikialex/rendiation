@@ -19,7 +19,7 @@ impl MeshLODExpander {
     cx: &mut DeviceParallelComputeCtx,
     max_meshlet_count: u32,
   ) -> MeshletBatchDrawData {
-    let scene_models = scene_models.scene_models.execute_and_expose(cx);
+    let scene_models = &scene_models.scene_models;
     let scene_model_size_indirect = scene_models.compute_work_size(cx);
 
     let device = &cx.gpu.device;

@@ -1,10 +1,9 @@
+use std::sync::Arc;
+
 #[test]
 fn test_gpu_triangle() {
   use rendiation_algebra::{vec2, vec3, Vec3};
-  use rendiation_device_parallel_compute::{
-    DeviceInvocation, DeviceInvocationComponent, DeviceInvocationExt, DeviceParallelCompute,
-    DeviceParallelComputeCtx, DeviceParallelComputeIO, DeviceParallelComputeIOExt,
-  };
+  use rendiation_device_parallel_compute::*;
   use rendiation_shader_api::{val, Node, ShaderComputePipelineBuilder};
   use rendiation_webgpu::{
     create_gpu_read_write_storage, shader_hash_type_id, BindingBuilder, PipelineHasher,
@@ -42,7 +41,8 @@ fn test_gpu_triangle() {
   let mut encoder = gpu.create_encoder();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
 
-  let direction = Box::new(dummy_array) as Box<dyn DeviceParallelCompute<Node<u32>>>;
+  let direction = Box::new(slice_into_compute(&dummy_array, &mut cx))
+    as Box<dyn DeviceInvocationComponent<Node<u32>>>;
   let tester = GpuTester::new(direction, gpu);
 
   cx.force_indirect_dispatch = false;
@@ -65,18 +65,13 @@ fn test_gpu_triangle() {
 
   #[derive(Clone)]
   struct GpuTester {
-    upstream: Box<dyn DeviceParallelCompute<Node<u32>>>,
-    payloads: StorageBufferDataView<[u32]>,
-    system: HardwareInlineRayQuerySystem,
-  }
-  struct GpuTesterInner {
     upstream: Box<dyn DeviceInvocationComponent<Node<u32>>>,
     payloads: StorageBufferDataView<[u32]>,
-    system: HardwareInlineRayQueryInstance,
+    system: Arc<HardwareInlineRayQueryInstance>,
   }
 
   impl GpuTester {
-    fn new(upstream: Box<dyn DeviceParallelCompute<Node<u32>>>, gpu: GPU) -> Self {
+    fn new(upstream: Box<dyn DeviceInvocationComponent<Node<u32>>>, gpu: GPU) -> Self {
       let payloads = create_gpu_read_write_storage::<[u32]>(ZeroedArrayByArrayLength(1), &gpu);
       let system = HardwareInlineRayQuerySystem::new(gpu.clone());
 
@@ -84,6 +79,7 @@ fn test_gpu_triangle() {
       let mut encoder = gpu.create_encoder();
       system.maintain(&mut encoder);
       gpu.queue.submit_encoder(encoder);
+      let system = Arc::new(system.create_instance());
 
       Self {
         upstream,
@@ -92,33 +88,29 @@ fn test_gpu_triangle() {
       }
     }
   }
-  impl DeviceParallelCompute<Node<u32>> for GpuTester {
-    fn execute_and_expose(
-      &self,
-      cx: &mut DeviceParallelComputeCtx,
-    ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
-      Box::new(GpuTesterInner {
-        upstream: self.upstream.execute_and_expose(cx),
-        system: self.system.create_instance(),
-        payloads: self.payloads.clone(),
-      })
-    }
-    fn result_size(&self) -> u32 {
-      self.upstream.result_size()
-    }
-  }
-  impl DeviceParallelComputeIO<u32> for GpuTester {}
 
-  impl ShaderHashProvider for GpuTesterInner {
+  impl DeviceInvocationComponentIO<u32> for GpuTester {}
+
+  impl ShaderHashProvider for GpuTester {
     fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
       self.upstream.hash_pipeline_with_type_info(hasher)
     }
     shader_hash_type_id! {}
   }
-  impl DeviceInvocationComponent<Node<u32>> for GpuTesterInner {
+  impl DeviceInvocationComponent<Node<u32>> for GpuTester {
     fn work_size(&self) -> Option<u32> {
       self.upstream.work_size()
     }
+    fn result_size(&self) -> u32 {
+      self.upstream.result_size()
+    }
+
+    fn clone_boxed(
+      &self,
+    ) -> Box<dyn rendiation_device_parallel_compute::DeviceInvocationComponent<Node<u32>>> {
+      Box::new(self.clone())
+    }
+
     fn build_shader(
       &self,
       builder: &mut ShaderComputePipelineBuilder,

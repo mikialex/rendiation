@@ -6,6 +6,7 @@ pub struct IndirectSceneRenderer {
   pub reversed_depth: bool,
   pub using_host_driven_indirect_draw: bool,
   pub model_error_state: SceneModelErrorRecorder,
+  pub gpu: GPU,
 }
 
 #[derive(Debug)]
@@ -62,7 +63,9 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
       .iter()
       .map(|(_, list)| {
         let scene_models: Vec<_> = list.iter().map(|sm| sm.alloc_index()).collect();
-        let scene_models = Box::new(scene_models);
+        let storage = create_gpu_readonly_storage(scene_models.as_slice(), &self.gpu);
+        let storage = storage_full_into_compute(storage);
+        let scene_models = Box::new(storage);
 
         DeviceSceneModelRenderSubBatch {
           scene_models,

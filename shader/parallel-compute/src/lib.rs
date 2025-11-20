@@ -147,6 +147,8 @@ impl<T> Clone for Box<dyn DeviceInvocationComponent<T>> {
 }
 
 pub trait DeviceInvocationComponent<T>: ShaderHashProvider + DynClone {
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<T>>;
+
   /// return None if the real work size is not known at host side
   fn work_size(&self) -> Option<u32>;
 
@@ -330,9 +332,13 @@ impl<T: 'static> DeviceInvocationComponent<T> for Box<dyn DeviceInvocationCompon
   fn bind_input(&self, builder: &mut BindingBuilder) {
     (**self).bind_input(builder)
   }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<T>> {
+    (**self).clone_boxed()
+  }
 }
 
-impl<T> ShaderHashProvider for Box<dyn DeviceInvocationComponentIO<T>> {
+impl<T: 'static> ShaderHashProvider for Box<dyn DeviceInvocationComponentIO<T>> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     (**self).hash_pipeline_with_type_info(hasher)
   }
@@ -340,7 +346,7 @@ impl<T> ShaderHashProvider for Box<dyn DeviceInvocationComponentIO<T>> {
   shader_hash_type_id! {}
 }
 
-impl<T> DeviceInvocationComponent<Node<T>> for Box<dyn DeviceInvocationComponentIO<T>> {
+impl<T: 'static> DeviceInvocationComponent<Node<T>> for Box<dyn DeviceInvocationComponentIO<T>> {
   fn work_size(&self) -> Option<u32> {
     (**self).work_size()
   }
@@ -363,9 +369,13 @@ impl<T> DeviceInvocationComponent<Node<T>> for Box<dyn DeviceInvocationComponent
   fn bind_input(&self, builder: &mut BindingBuilder) {
     (**self).bind_input(builder)
   }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+    (**self).clone_boxed()
+  }
 }
 
-impl<T> DeviceInvocationComponentIO<T> for Box<dyn DeviceInvocationComponentIO<T>> {
+impl<T: 'static> DeviceInvocationComponentIO<T> for Box<dyn DeviceInvocationComponentIO<T>> {
   fn materialize_storage_buffer_into(
     &self,
     target: StorageBufferDataView<[T]>,
@@ -1007,6 +1017,7 @@ impl<T: 'static> ShaderHashProvider for Box<dyn DeviceInvocationComponent<T>> {
   shader_hash_type_id! {}
 }
 
+#[allow(dead_code)]
 pub(crate) async fn gpu_test_scope(f: impl AsyncFnOnce(&mut DeviceParallelComputeCtx)) {
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();

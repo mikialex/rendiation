@@ -18,32 +18,32 @@ pub trait NoneIndexedDrawCommandBuilderInvocation {
   ) -> Node<DrawIndirectArgsStorage>;
 }
 
+// #[derive(Clone)]
+// pub struct NoneIndexedDrawCommandGenerator {
+//   pub scene_models: Box<dyn DeviceParallelComputeIO<u32>>,
+//   pub generator: Box<dyn NoneIndexedDrawCommandBuilder>,
+// }
+
+// impl DeviceParallelCompute<Node<DrawIndirectArgsStorage>> for NoneIndexedDrawCommandGenerator {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<DrawIndirectArgsStorage>>> {
+//     Box::new(DrawCommandGeneratorComponent {
+//       scene_models: self.scene_models.execute_and_expose(cx),
+//       generator: self.generator.clone(),
+//     })
+//   }
+
+//   fn result_size(&self) -> u32 {
+//     self.scene_models.result_size()
+//   }
+// }
+
 #[derive(Clone)]
-pub struct NoneIndexedDrawCommandGenerator {
-  pub scene_models: Box<dyn DeviceParallelComputeIO<u32>>,
+pub struct DrawCommandGeneratorComponent {
+  pub scene_models: Box<dyn DeviceInvocationComponent<Node<u32>>>,
   pub generator: Box<dyn NoneIndexedDrawCommandBuilder>,
-}
-
-impl DeviceParallelCompute<Node<DrawIndirectArgsStorage>> for NoneIndexedDrawCommandGenerator {
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<DrawIndirectArgsStorage>>> {
-    Box::new(DrawCommandGeneratorComponent {
-      scene_models: self.scene_models.execute_and_expose(cx),
-      generator: self.generator.clone(),
-    })
-  }
-
-  fn result_size(&self) -> u32 {
-    self.scene_models.result_size()
-  }
-}
-impl DeviceParallelComputeIO<DrawIndirectArgsStorage> for NoneIndexedDrawCommandGenerator {}
-
-struct DrawCommandGeneratorComponent {
-  scene_models: Box<dyn DeviceInvocationComponent<Node<u32>>>,
-  generator: Box<dyn NoneIndexedDrawCommandBuilder>,
 }
 
 impl ShaderHashProvider for DrawCommandGeneratorComponent {
@@ -55,9 +55,16 @@ impl ShaderHashProvider for DrawCommandGeneratorComponent {
   }
 }
 
+impl DeviceInvocationComponentIO<DrawIndirectArgsStorage> for DrawCommandGeneratorComponent {}
 impl DeviceInvocationComponent<Node<DrawIndirectArgsStorage>> for DrawCommandGeneratorComponent {
   fn work_size(&self) -> Option<u32> {
     self.scene_models.work_size()
+  }
+  fn result_size(&self) -> u32 {
+    self.scene_models.result_size()
+  }
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<DrawIndirectArgsStorage>>> {
+    Box::new(self.clone())
   }
 
   fn build_shader(

@@ -28,13 +28,12 @@ pub fn test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_re
   assert!(last_frame_visible_batch.stash_culler.is_none());
 
   for sub_batch in &last_frame_visible_batch.sub_batches {
-    let scene_models = sub_batch.scene_models.execute_and_expose(cx);
     // update the occluder's visibility for the occluder
     let mut hasher = shader_hasher_from_marker_ty!(OcclusionLastFrameVisibleUpdater);
     tester.hash_pipeline_with_type_info(&mut hasher);
 
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
-      let scene_models = scene_models.build_shader(&mut ctx);
+      let scene_models = sub_batch.scene_models.build_shader(&mut ctx);
       let culler = tester.create_invocation(ctx.bindgroups());
 
       let (id, valid) = scene_models.invocation_logic(ctx.global_invocation_id());
@@ -46,11 +45,11 @@ pub fn test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_re
       ctx
     });
 
-    let (indirect_dispatch_size, _) = scene_models.compute_work_size(cx);
+    let (indirect_dispatch_size, _) = sub_batch.scene_models.compute_work_size(cx);
 
     cx.record_pass(|pass, _| {
       let mut binder = BindingBuilder::default();
-      scene_models.bind_input(&mut binder);
+      sub_batch.scene_models.bind_input(&mut binder);
       tester.bind(&mut binder);
       binder.setup_compute_pass(pass, &device, &pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&indirect_dispatch_size);

@@ -66,6 +66,10 @@ impl DeviceInvocationComponent<Node<u32>> for PrefixSumTailAsSize {
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.prefix_sum_result.requested_workgroup_size()
   }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+    Box::new(self.clone())
+  }
 }
 
 struct DeviceInvocationTailAsSize(Box<dyn DeviceInvocation<Node<u32>>>);

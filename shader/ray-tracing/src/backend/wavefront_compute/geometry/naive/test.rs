@@ -313,7 +313,8 @@ fn test_gpu_triangle_naive() {
   let mut encoder = gpu.create_encoder();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
 
-  let direction = Box::new(dummy_array) as Box<dyn DeviceParallelCompute<Node<u32>>>;
+  let direction = Box::new(slice_into_compute(&dummy_array, &mut cx))
+    as Box<dyn DeviceInvocationComponent<Node<u32>>>;
   let tester = GpuTester::new(direction, gpu);
 
   cx.force_indirect_dispatch = false;
@@ -336,22 +337,18 @@ fn test_gpu_triangle_naive() {
 
   #[derive(Clone)]
   struct GpuTester {
-    upstream: Box<dyn DeviceParallelCompute<Node<u32>>>,
-    payloads: StorageBufferDataView<[u32]>,
-    system: NaiveSahBVHSystem,
-  }
-  struct GpuTesterInner {
     upstream: Box<dyn DeviceInvocationComponent<Node<u32>>>,
     payloads: StorageBufferDataView<[u32]>,
     system: NaiveSahBvhGpu,
   }
 
   impl GpuTester {
-    fn new(upstream: Box<dyn DeviceParallelCompute<Node<u32>>>, gpu: GPU) -> Self {
+    fn new(upstream: Box<dyn DeviceInvocationComponent<Node<u32>>>, gpu: GPU) -> Self {
       let init = ZeroedArrayByArrayLength(1);
       let payloads = create_gpu_read_write_storage::<[u32]>(init, &gpu);
       let system = NaiveSahBVHSystem::new(gpu);
       init_default_acceleration_structure(&system);
+      let system = system.get_or_build_gpu_data().clone();
       Self {
         upstream,
         system,
@@ -359,32 +356,24 @@ fn test_gpu_triangle_naive() {
       }
     }
   }
-  impl DeviceParallelCompute<Node<u32>> for GpuTester {
-    fn execute_and_expose(
-      &self,
-      cx: &mut DeviceParallelComputeCtx,
-    ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
-      Box::new(GpuTesterInner {
-        upstream: self.upstream.execute_and_expose(cx),
-        system: self.system.get_or_build_gpu_data().clone(),
-        payloads: self.payloads.clone(),
-      })
-    }
-    fn result_size(&self) -> u32 {
-      self.upstream.result_size()
-    }
-  }
-  impl DeviceParallelComputeIO<u32> for GpuTester {}
 
-  impl ShaderHashProvider for GpuTesterInner {
+  impl DeviceInvocationComponentIO<u32> for GpuTester {}
+
+  impl ShaderHashProvider for GpuTester {
     fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
       self.upstream.hash_pipeline_with_type_info(hasher)
     }
     shader_hash_type_id! {}
   }
-  impl DeviceInvocationComponent<Node<u32>> for GpuTesterInner {
+  impl DeviceInvocationComponent<Node<u32>> for GpuTester {
     fn work_size(&self) -> Option<u32> {
       self.upstream.work_size()
+    }
+    fn result_size(&self) -> u32 {
+      self.upstream.result_size()
+    }
+    fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+      Box::new(self.clone())
     }
     fn build_shader(
       &self,
@@ -394,7 +383,7 @@ fn test_gpu_triangle_naive() {
 
       let upstream_shader = self.upstream.build_shader(builder);
 
-      let traversable = self.system.clone().build_shader(builder);
+      let traversable = self.system.build_shader(builder);
       let payloads = builder.bindgroups().bind_by(&self.payloads);
 
       upstream_shader

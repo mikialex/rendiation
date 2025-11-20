@@ -1,31 +1,15 @@
 use crate::*;
 
+// #[derive(Clone)]
+// pub struct SceneModelCulling {
+//   pub culler: Box<dyn AbstractCullerProvider>,
+//   pub input: Box<dyn DeviceInvocationComponentIO<u32>>,
+// }
+
 #[derive(Clone)]
-pub struct SceneModelCulling {
+pub struct SceneModelCullingComponent {
   pub culler: Box<dyn AbstractCullerProvider>,
-  pub input: Box<dyn DeviceParallelComputeIO<u32>>,
-}
-
-impl DeviceParallelCompute<Node<bool>> for SceneModelCulling {
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<bool>>> {
-    Box::new(SceneModelCullingComponent {
-      culler: self.culler.clone(),
-      input: self.input.execute_and_expose(cx),
-    })
-  }
-
-  fn result_size(&self) -> u32 {
-    self.input.result_size()
-  }
-}
-impl DeviceParallelComputeIO<bool> for SceneModelCulling {}
-
-struct SceneModelCullingComponent {
-  culler: Box<dyn AbstractCullerProvider>,
-  input: Box<dyn DeviceInvocationComponent<Node<u32>>>,
+  pub input: Box<dyn DeviceInvocationComponent<Node<u32>>>,
 }
 
 impl ShaderHashProvider for SceneModelCullingComponent {
@@ -37,9 +21,18 @@ impl ShaderHashProvider for SceneModelCullingComponent {
   }
 }
 
+impl DeviceInvocationComponentIO<bool> for SceneModelCullingComponent {}
 impl DeviceInvocationComponent<Node<bool>> for SceneModelCullingComponent {
   fn work_size(&self) -> Option<u32> {
     self.input.work_size()
+  }
+
+  fn result_size(&self) -> u32 {
+    self.input.result_size()
+  }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<bool>>> {
+    Box::new(self.clone())
   }
 
   fn build_shader(

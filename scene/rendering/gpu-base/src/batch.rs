@@ -98,7 +98,7 @@ impl DeviceSceneModelRenderBatch {
 
 #[derive(Clone)]
 pub struct DeviceSceneModelRenderSubBatch {
-  pub scene_models: Box<dyn DeviceParallelComputeIO<u32>>,
+  pub scene_models: Box<dyn DeviceInvocationComponentIO<u32>>,
   /// this id is only used for implementation selecting. this may be not included in scene model.
   pub impl_select_id: EntityHandle<SceneModelEntity>,
 }
@@ -125,7 +125,7 @@ impl SceneModelRenderBatch {
           Some(DeviceSceneModelRenderBatch {
             sub_batches: vec![DeviceSceneModelRenderSubBatch {
               impl_select_id: v.iter_scene_models().next().unwrap(),
-              scene_models: Box::new(storage),
+              scene_models: Box::new(storage_full_into_compute(storage)),
             }],
             stash_culler: None,
           })
@@ -165,7 +165,7 @@ impl DeviceSceneModelRenderBatch {
         .sub_batches
         .iter()
         .map(|sub_batch| {
-          let mask = SceneModelCulling {
+          let mask = SceneModelCullingComponent {
             culler: culler.clone(),
             input: sub_batch.scene_models.clone(),
           };
@@ -174,11 +174,11 @@ impl DeviceSceneModelRenderBatch {
             let scene_models = sub_batch
               .scene_models
               .clone()
-              .stream_compaction(mask)
+              .stream_compaction(mask, cx)
               .materialize_storage_buffer(cx);
-            Box::new(scene_models) as Box<dyn DeviceParallelComputeIO<u32>>
+            Box::new(scene_models) as Box<dyn DeviceInvocationComponentIO<u32>>
           } else {
-            Box::new(sub_batch.scene_models.clone().stream_compaction(mask))
+            Box::new(sub_batch.scene_models.clone().stream_compaction(mask, cx))
           };
 
           DeviceSceneModelRenderSubBatch {

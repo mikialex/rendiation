@@ -135,6 +135,9 @@ where
   T: ShaderSizedValueNodeType,
   F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
 {
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+    Box::new(self.clone())
+  }
   fn result_size(&self) -> u32 {
     self.behavior.resize_work_size(self.source.result_size())
   }
@@ -219,6 +222,7 @@ async fn test1() {
   .await
 }
 
+#[allow(unused_macros)]
 macro_rules! gpu_cx {
   ($name: tt) => {
     let (gpu, _) = GPU::new(Default::default()).await.unwrap();

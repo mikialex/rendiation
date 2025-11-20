@@ -142,6 +142,10 @@ impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
   fn work_size(&self) -> Option<u32> {
     self.is_one.work_size()
   }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+    Box::new(self.clone())
+  }
 }
 
 pub struct U32RadixSort;

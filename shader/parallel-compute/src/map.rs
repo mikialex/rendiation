@@ -53,6 +53,10 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
   fn work_size(&self) -> Option<u32> {
     self.upstream.work_size()
   }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<O>> {
+    Box::new(self.clone())
+  }
 }
 impl<I: 'static, O: Copy + 'static> DeviceInvocationComponentIO<O>
   for DeviceMapCompute<I, Node<O>>

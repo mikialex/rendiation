@@ -241,6 +241,7 @@ impl Viewer3dRenderingCtx {
             reversed_depth: self.ndc.enable_reverse_z,
             using_host_driven_indirect_draw: self.using_host_driven_indirect_draw,
             model_error_state: model_error_state.clone(),
+            gpu: cx.gpu.clone(),
           })
           .map(|r| Box::new(r) as Box<dyn SceneRenderer>);
 

@@ -32,6 +32,9 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
 {
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+    Box::new(self.clone())
+  }
   fn result_size(&self) -> u32 {
     self.upstream.result_size().div_ceil(self.workgroup_size) * S::MAX
   }
@@ -255,6 +258,10 @@ where
 
   fn work_size(&self) -> Option<u32> {
     self.workgroup_level.work_size()
+  }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+    Box::new(self.clone())
   }
 }
 

@@ -201,6 +201,10 @@ where
       builder.bind(size);
     }
   }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+    Box::new(self.clone())
+  }
 }
 impl<T: Std430> ShaderHashProvider for DeviceMaterializeResult<T> {
   shader_hash_type_id! {}
@@ -303,6 +307,10 @@ where
   fn work_size(&self) -> Option<u32> {
     self.inner.work_size()
   }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+    Box::new(self.clone())
+  }
 }
 
 pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
@@ -315,7 +323,7 @@ pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
   assert!(write_target.item_count() >= source.result_size());
 
   let write = WriteIntoStorageWriter {
-    inner: Box::new(source.clone()),
+    inner: source.clone_boxed(),
     result_write_idx: Arc::new(write_position_mapper),
     output: write_target,
     result_write_idx_hasher,

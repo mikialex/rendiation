@@ -131,26 +131,20 @@ impl PersistSceneModelListBuffer {
 struct PersistSceneModelListBufferWithLength {
   buffer: AbstractReadonlyStorageBuffer<[u32]>,
 }
-
-impl DeviceParallelCompute<Node<u32>> for PersistSceneModelListBufferWithLength {
-  fn execute_and_expose(
-    &self,
-    _cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
-    Box::new(self.clone())
-  }
-
-  fn result_size(&self) -> u32 {
-    self.buffer.item_count() - 1
-  }
-}
-impl DeviceParallelComputeIO<u32> for PersistSceneModelListBufferWithLength {}
+impl DeviceInvocationComponentIO<u32> for PersistSceneModelListBufferWithLength {}
 impl ShaderHashProvider for PersistSceneModelListBufferWithLength {
   shader_hash_type_id! {}
 }
 impl DeviceInvocationComponent<Node<u32>> for PersistSceneModelListBufferWithLength {
   fn work_size(&self) -> Option<u32> {
     None
+  }
+
+  fn result_size(&self) -> u32 {
+    self.buffer.item_count() - 1
+  }
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+    Box::new(self.clone())
   }
 
   fn build_shader(

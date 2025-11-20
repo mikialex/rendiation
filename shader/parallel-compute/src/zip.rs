@@ -66,6 +66,10 @@ impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for DeviceCompute
       .zip(self.source_b.work_size())
       .map(|(a, b)| a.min(b))
   }
+
+  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<(A, B)>> {
+    Box::new(self.clone())
+  }
 }
 
 // #[derive(Derivative)]
