@@ -63,32 +63,6 @@ impl<I: 'static, O: Copy + 'static> DeviceInvocationComponentIO<O>
 {
 }
 
-// #[derive(Derivative)]
-// #[derivative(Clone(bound = ""))]
-// pub struct DeviceMap<I, O> {
-//   pub mapper: Arc<dyn Fn(I) -> O>,
-//   pub mapper_extra_hasher: Arc<dyn ShaderHashProvider>,
-//   pub upstream: Box<dyn DeviceParallelCompute<I>>,
-// }
-
-// impl<I: 'static, O: Copy + 'static> DeviceParallelCompute<O> for DeviceMap<I, O> {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<O>> {
-//     Box::new(DeviceMapCompute {
-//       mapper: self.mapper.clone(),
-//       upstream: self.upstream.execute_and_expose(cx),
-//       mapper_extra_hasher: self.mapper_extra_hasher.clone(),
-//     })
-//   }
-
-//   fn result_size(&self) -> u32 {
-//     self.upstream.result_size()
-//   }
-// }
-// impl<I: 'static, O: Copy + 'static> DeviceParallelComputeIO<O> for DeviceMap<I, Node<O>> {}
-
 #[pollster::test]
 async fn test() {
   gpu_test_scope(async |cx| {

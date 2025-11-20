@@ -18,28 +18,6 @@ pub trait IndexedDrawCommandBuilderInvocation {
   ) -> Node<DrawIndexedIndirectArgsStorage>;
 }
 
-// #[derive(Clone)]
-// pub struct IndexedDrawCommandGenerator {
-//   pub scene_models: Box<dyn DeviceInvocationComponentIO<u32>>,
-//   pub generator: Box<dyn IndexedDrawCommandBuilder>,
-// }
-
-// impl DeviceParallelCompute<Node<DrawIndexedIndirectArgsStorage>> for IndexedDrawCommandGenerator {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<Node<DrawIndexedIndirectArgsStorage>>> {
-//     Box::new(DrawCommandGeneratorComponent {
-//       scene_models: self.scene_models.execute_and_expose(cx),
-//       generator: self.generator.clone(),
-//     })
-//   }
-
-//   fn result_size(&self) -> u32 {
-//     self.scene_models.result_size()
-//   }
-// }
-
 #[derive(Clone)]
 pub struct IndexedDrawCommandGeneratorComponent {
   pub scene_models: Box<dyn DeviceInvocationComponent<Node<u32>>>,

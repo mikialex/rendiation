@@ -4,18 +4,6 @@ use super::*;
 #[derive(Clone)]
 pub struct ParallelComputeFromAbstractStorageBuffer(pub AbstractStorageBuffer<[u32]>);
 
-// impl DeviceParallelCompute<Node<u32>> for ParallelComputeFromAbstractStorageBuffer {
-//   fn execute_and_expose(
-//     &self,
-//     _: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
-//     Box::new(self.clone())
-//   }
-
-//   fn result_size(&self) -> u32 {
-//     self.0.byte_size() as u32 / 4
-//   }
-// }
 impl DeviceInvocationComponentIO<u32> for ParallelComputeFromAbstractStorageBuffer {}
 
 /// this is a little dangerous
@@ -58,20 +46,6 @@ pub struct ActiveTaskCompact {
   pub active_tasks: AbstractStorageBuffer<[u32]>,
   pub task_pool: TaskPool,
 }
-
-// impl DeviceParallelCompute<Node<bool>> for ActiveTaskCompact {
-//   fn execute_and_expose(
-//     &self,
-//     _: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<Node<bool>>> {
-//     Box::new(self.clone())
-//   }
-
-//   fn result_size(&self) -> u32 {
-//     self.active_tasks.byte_size() as u32 / 4
-//   }
-// }
-// impl DeviceParallelComputeIO<bool> for ActiveTaskCompact {}
 
 impl ShaderHashProvider for ActiveTaskCompact {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {

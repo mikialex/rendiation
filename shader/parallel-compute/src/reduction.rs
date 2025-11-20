@@ -109,59 +109,6 @@ where
   }
 }
 
-// #[derive(Derivative)]
-// #[derivative(Clone(bound = ""))]
-// pub struct WorkGroupReduction<T, S> {
-//   pub workgroup_size: u32,
-//   pub reduction_logic: PhantomData<S>,
-//   pub upstream: Box<dyn DeviceParallelComputeIO<T>>,
-// }
-
-// impl<T, S> DeviceParallelCompute<Node<T>> for WorkGroupReduction<T, S>
-// where
-//   T: ShaderSizedValueNodeType,
-//   S: DeviceMonoidLogic<Data = T> + 'static,
-// {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-//     Box::new(WorkGroupReductionCompute::<T, S> {
-//       workgroup_size: self.workgroup_size,
-//       upstream: self.upstream.execute_and_expose(cx),
-//       reduction_logic: Default::default(),
-//     })
-//   }
-
-//   fn result_size(&self) -> u32 {
-//     // todo, fix
-//     self.upstream.result_size()
-//   }
-// }
-
-// impl<T, S> DeviceParallelComputeIO<T> for WorkGroupReduction<T, S>
-// where
-//   T: ShaderSizedValueNodeType,
-//   S: DeviceMonoidLogic<Data = T> + 'static,
-// {
-//   fn materialize_storage_buffer_into(
-//     &self,
-//     target: StorageBufferDataView<[T]>,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> DeviceMaterializeResult<T>
-//   where
-//     T: Std430 + ShaderSizedValueNodeType,
-//   {
-//     custom_write_into_storage_buffer(
-//       self,
-//       cx,
-//       move |global_id| (global_id, val(true)),
-//       Box::new(LinearWriterHash),
-//       target,
-//     )
-//   }
-// }
-
 #[pollster::test]
 async fn test1() {
   gpu_test_scope(async |cx| {

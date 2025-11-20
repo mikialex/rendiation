@@ -174,38 +174,6 @@ where
 {
 }
 
-// #[derive(Derivative)]
-// #[derivative(Clone(bound = "F: Clone"))]
-// pub struct DeviceParallelComputeCustomInvocationBehavior<T, F> {
-//   pub source: Box<dyn DeviceParallelComputeIO<T>>,
-//   pub behavior: F,
-// }
-
-// impl<T, F> DeviceParallelCompute<Node<T>> for DeviceParallelComputeCustomInvocationBehavior<T, F>
-// where
-//   T: ShaderSizedValueNodeType,
-//   F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
-// {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-//     Box::new(Builder {
-//       source: self.source.execute_and_expose(cx),
-//       behavior: self.behavior.clone(),
-//     })
-//   }
-//   fn result_size(&self) -> u32 {
-//     self.behavior.resize_work_size(self.source.result_size())
-//   }
-// }
-// impl<T, F> DeviceParallelComputeIO<T> for DeviceParallelComputeCustomInvocationBehavior<T, F>
-// where
-//   T: ShaderSizedValueNodeType,
-//   F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
-// {
-// }
-
 #[pollster::test]
 async fn test1() {
   gpu_test_scope(async |cx| {

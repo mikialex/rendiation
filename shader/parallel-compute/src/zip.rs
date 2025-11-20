@@ -72,29 +72,6 @@ impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for DeviceCompute
   }
 }
 
-// #[derive(Derivative)]
-// #[derivative(Clone(bound = ""))]
-// pub struct DeviceParallelComputeZip<A, B> {
-//   pub source_a: Box<dyn DeviceParallelCompute<A>>,
-//   pub source_b: Box<dyn DeviceParallelCompute<B>>,
-// }
-
-// impl<A: 'static, B: 'static> DeviceParallelCompute<(A, B)> for DeviceParallelComputeZip<A, B> {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<(A, B)>> {
-//     Box::new(Builder {
-//       source_a: self.source_a.execute_and_expose(cx),
-//       source_b: self.source_b.execute_and_expose(cx),
-//     })
-//   }
-
-//   fn result_size(&self) -> u32 {
-//     self.source_a.result_size().min(self.source_b.result_size())
-//   }
-// }
-
 #[pollster::test]
 async fn test() {
   gpu_test_scope(async |cx| {

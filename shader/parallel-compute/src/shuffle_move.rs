@@ -1,50 +1,5 @@
 use crate::*;
 
-// #[derive(Derivative)]
-// #[derivative(Clone(bound = ""))]
-// pub struct DataShuffleMovement<T> {
-//   pub source: Box<dyn DeviceParallelCompute<(Node<T>, Node<u32>, Node<bool>)>>,
-// }
-
-// impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<Node<T>>
-//   for DataShuffleMovement<T>
-// {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-//     self.materialize_storage_buffer(cx).into_boxed()
-//   }
-//   fn result_size(&self) -> u32 {
-//     self.source.result_size()
-//   }
-// }
-// impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataShuffleMovement<T> {
-//   fn materialize_storage_buffer(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> DeviceMaterializeResult<T>
-//   where
-//     T: Std430 + ShaderSizedValueNodeType,
-//   {
-//     let input = self.source.execute_and_expose(cx);
-//     let init = ZeroedArrayByArrayLength(self.result_size() as usize);
-//     let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
-
-//     let write = ShuffleWrite {
-//       input,
-//       output: output.clone(),
-//     };
-
-//     // should size be the atomic max of the shuffle destination?
-//     let size = write.dispatch_compute(cx);
-//     DeviceMaterializeResult {
-//       buffer: output.into_readonly_view(),
-//       size,
-//     }
-//   }
-// }
-
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct ShuffleWrite<T: Std430> {
@@ -102,30 +57,6 @@ where
   fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
     Box::new(self.clone())
   }
-
-  // fn materialize_storage_buffer_into(
-  //   &self,
-  //   cx: &mut DeviceParallelComputeCtx,
-  // ) -> DeviceMaterializeResult<T>
-  // where
-  //   T: Std430 + ShaderSizedValueNodeType,
-  // {
-  //   // let input = self.source.execute_and_expose(cx);
-  //   // let init = ZeroedArrayByArrayLength(self.result_size() as usize);
-  //   // let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
-
-  //   // let write = ShuffleWrite {
-  //   //   input,
-  //   //   output: output.clone(),
-  //   // };
-
-  //   // should size be the atomic max of the shuffle destination?
-  //   let size = self.dispatch_compute(cx);
-  //   DeviceMaterializeResult {
-  //     buffer: self.output.into_readonly_view(),
-  //     size,
-  //   }
-  // }
 }
 
 #[derive(Derivative)]

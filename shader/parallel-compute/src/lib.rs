@@ -401,96 +401,6 @@ where
   }
 }
 
-// /// The top level composable trait for parallel compute.
-// ///
-// /// Note that [Clone] is implemented by duplicating the upstream work. If you want to reuse the work
-// /// by materializing and sharing the result, you should use the [into_forker](DeviceParallelComputeIOExt::into_forker) operator before clone
-// /// instead of calling [clone](Clone::clone) after [internal_materialize_storage_buffer](DeviceParallelComputeIOExt::internal_materialize_storage_buffer).
-// pub trait DeviceParallelCompute<T>: DynClone {
-//   /// This function represents the core logic of parallel computation. It may execute multiple dispatches within
-//   /// this function to prepare all necessary data for the final exposure step.
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<T>>;
-// }
-
-// /// This trait aims to minimize redundant storage buffer materialization without relying on
-// /// language specialization support. Any type implementing DeviceParallelCompute<Node<T>> should also implement this trait.
-// pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
-//   /// The user must not mutate the materialized result returned from this function.
-//   ///
-//   /// If the implementation has already materialized the storage buffer internally, a custom implementation
-//   /// should override this method to expose the result directly and avoid re-materialization cost.
-//   fn materialize_storage_buffer(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> DeviceMaterializeResult<T>
-//   where
-//     T: Std430 + ShaderSizedValueNodeType,
-//   {
-//     let init = ZeroedArrayByArrayLength(self.result_size() as usize);
-//     let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
-//     self.materialize_storage_buffer_into(output, cx)
-//   }
-
-//   fn materialize_storage_buffer_into(
-//     &self,
-//     target: StorageBufferDataView<[T]>,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> DeviceMaterializeResult<T>
-//   where
-//     T: Std430 + ShaderSizedValueNodeType,
-//   {
-//     do_write_into_storage_buffer(self, cx, target)
-//   }
-// }
-
-// impl<T> DeviceParallelCompute<T> for Box<dyn DeviceParallelCompute<T>> {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<T>> {
-//     (**self).execute_and_expose(cx)
-//   }
-
-//   fn result_size(&self) -> u32 {
-//     (**self).result_size()
-//   }
-// }
-// impl<T> Clone for Box<dyn DeviceParallelCompute<T>> {
-//   fn clone(&self) -> Self {
-//     dyn_clone::clone_box(&**self)
-//   }
-// }
-// impl<T> DeviceParallelCompute<Node<T>> for Box<dyn DeviceParallelComputeIO<T>> {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-//     (**self).execute_and_expose(cx)
-//   }
-//   fn result_size(&self) -> u32 {
-//     (**self).result_size()
-//   }
-// }
-// impl<T> Clone for Box<dyn DeviceParallelComputeIO<T>> {
-//   fn clone(&self) -> Self {
-//     dyn_clone::clone_box(&**self)
-//   }
-// }
-// impl<T> DeviceParallelComputeIO<T> for Box<dyn DeviceParallelComputeIO<T>> {
-//   fn materialize_storage_buffer(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> DeviceMaterializeResult<T>
-//   where
-//     T: Std430 + ShaderSizedValueNodeType,
-//   {
-//     (**self).materialize_storage_buffer(cx)
-//   }
-// }
-
 pub trait DeviceParallelComputeExt<T>: Sized + DeviceInvocationComponent<T>
 where
   Self: 'static,
@@ -664,18 +574,6 @@ where
       println!("{} has device size: {}", label, size);
     }
   }
-
-  // // todo, remove
-  // fn internal_materialize_storage_buffer(
-  //   self,
-  //   cx: &mut DeviceParallelComputeCtx,
-  // ) -> impl DeviceInvocationComponent<T> {
-  //   self.materialize_storage_buffer(cx)
-  // }
-
-  // fn fork(self) -> (DeviceMaterializeResult<T>, DeviceMaterializeResult<T>) {
-  //   ComputeResultForkerInstance::from_upstream(Box::new(self))
-  // }
 
   fn shuffle_move(
     self,

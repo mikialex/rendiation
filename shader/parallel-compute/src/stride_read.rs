@@ -76,36 +76,6 @@ impl<T: 'static> DeviceInvocationComponent<T> for DeviceParallelComputeStrideRea
 }
 impl<T: 'static> DeviceInvocationComponentIO<T> for DeviceParallelComputeStrideRead<Node<T>> {}
 
-// #[derive(Derivative)]
-// #[derivative(Clone(bound = ""))]
-// pub struct DeviceParallelComputeStrideRead<T> {
-//   pub source: Box<dyn DeviceParallelCompute<T>>,
-//   pub stride: u32,
-//   pub reduce: bool,
-// }
-
-// impl<T: 'static> DeviceParallelCompute<T> for DeviceParallelComputeStrideRead<T> {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<T>> {
-//     Box::new(Builder {
-//       source: self.source.execute_and_expose(cx),
-//       stride: self.stride,
-//       reduce: self.reduce,
-//     })
-//   }
-
-//   fn result_size(&self) -> u32 {
-//     if self.reduce {
-//       self.source.result_size().div_ceil(self.stride)
-//     } else {
-//       self.source.result_size() * self.stride
-//     }
-//   }
-// }
-// impl<T: 'static> DeviceParallelComputeIO<T> for DeviceParallelComputeStrideRead<Node<T>> {}
-
 #[pollster::test]
 async fn test_reduce() {
   gpu_test_scope(async |cx| {

@@ -120,41 +120,6 @@ where
 {
 }
 
-// #[derive(Derivative)]
-// #[derivative(Clone(bound = ""))]
-// pub struct WorkGroupPrefixScanKoggeStone<T, S> {
-//   pub workgroup_size: u32,
-//   pub scan_logic: PhantomData<S>,
-//   pub upstream: Box<dyn DeviceParallelComputeIO<T>>,
-// }
-
-// impl<T, S> DeviceParallelCompute<Node<T>> for WorkGroupPrefixScanKoggeStone<T, S>
-// where
-//   T: ShaderSizedValueNodeType,
-//   S: DeviceMonoidLogic<Data = T> + 'static,
-// {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-//     Box::new(WorkGroupPrefixScanKoggeStoneCompute::<T, S> {
-//       workgroup_size: self.workgroup_size,
-//       upstream: self.upstream.execute_and_expose(cx),
-//       scan_logic: Default::default(),
-//     })
-//   }
-
-//   fn result_size(&self) -> u32 {
-//     self.upstream.result_size()
-//   }
-// }
-// impl<T, S> DeviceParallelComputeIO<T> for WorkGroupPrefixScanKoggeStone<T, S>
-// where
-//   T: ShaderSizedValueNodeType,
-//   S: DeviceMonoidLogic<Data = T> + 'static,
-// {
-// }
-
 #[pollster::test]
 async fn test_workgroup_prefix_sum_kogge_stone() {
   gpu_test_scope(async |cx| {

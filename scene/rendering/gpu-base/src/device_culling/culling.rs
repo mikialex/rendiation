@@ -1,11 +1,5 @@
 use crate::*;
 
-// #[derive(Clone)]
-// pub struct SceneModelCulling {
-//   pub culler: Box<dyn AbstractCullerProvider>,
-//   pub input: Box<dyn DeviceInvocationComponentIO<u32>>,
-// }
-
 #[derive(Clone)]
 pub struct SceneModelCullingComponent {
   pub culler: Box<dyn AbstractCullerProvider>,

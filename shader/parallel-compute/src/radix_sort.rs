@@ -68,30 +68,6 @@ where
   result
 }
 
-// #[derive(Derivative)]
-// #[derivative(Clone(bound = ""))]
-// struct RadixShuffleMove {
-//   ones_before: Box<dyn DeviceParallelComputeIO<u32>>,
-//   is_one: Box<dyn DeviceParallelComputeIO<bool>>,
-// }
-
-// impl DeviceParallelCompute<Node<u32>> for RadixShuffleMove {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
-//     Box::new(RadixShuffleMoveCompute {
-//       ones_before: self.ones_before.materialize_storage_buffer(cx),
-//       is_one: self.is_one.execute_and_expose(cx),
-//     })
-//   }
-
-//   fn result_size(&self) -> u32 {
-//     self.is_one.result_size()
-//   }
-// }
-// impl DeviceParallelComputeIO<u32> for RadixShuffleMove {}
-
 #[derive(Clone)]
 struct RadixShuffleMoveCompute {
   ones_before: DeviceMaterializeResult<u32>,

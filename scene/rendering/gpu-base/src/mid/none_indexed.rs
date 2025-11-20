@@ -18,28 +18,6 @@ pub trait NoneIndexedDrawCommandBuilderInvocation {
   ) -> Node<DrawIndirectArgsStorage>;
 }
 
-// #[derive(Clone)]
-// pub struct NoneIndexedDrawCommandGenerator {
-//   pub scene_models: Box<dyn DeviceParallelComputeIO<u32>>,
-//   pub generator: Box<dyn NoneIndexedDrawCommandBuilder>,
-// }
-
-// impl DeviceParallelCompute<Node<DrawIndirectArgsStorage>> for NoneIndexedDrawCommandGenerator {
-//   fn execute_and_expose(
-//     &self,
-//     cx: &mut DeviceParallelComputeCtx,
-//   ) -> Box<dyn DeviceInvocationComponent<Node<DrawIndirectArgsStorage>>> {
-//     Box::new(DrawCommandGeneratorComponent {
-//       scene_models: self.scene_models.execute_and_expose(cx),
-//       generator: self.generator.clone(),
-//     })
-//   }
-
-//   fn result_size(&self) -> u32 {
-//     self.scene_models.result_size()
-//   }
-// }
-
 #[derive(Clone)]
 pub struct DrawCommandGeneratorComponent {
   pub scene_models: Box<dyn DeviceInvocationComponent<Node<u32>>>,
