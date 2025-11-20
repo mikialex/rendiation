@@ -96,14 +96,14 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
 pub fn slice_into_compute<T: Std430 + ShaderSizedValueNodeType>(
   data: &[T],
   cx: &mut DeviceParallelComputeCtx,
-) -> impl DeviceInvocationComponent<Node<T>> {
+) -> DeviceMaterializeResult<T> {
   let storage = create_gpu_readonly_storage(data, &cx.gpu);
   storage_full_into_compute(storage)
 }
 
 pub fn storage_full_into_compute<T: Std430 + ShaderSizedValueNodeType>(
   storage: StorageBufferReadonlyDataView<[T]>,
-) -> impl DeviceInvocationComponent<Node<T>> {
+) -> DeviceMaterializeResult<T> {
   DeviceMaterializeResult::full_buffer(storage)
 }
 
@@ -140,14 +140,15 @@ pub fn storage_full_into_compute<T: Std430 + ShaderSizedValueNodeType>(
 
 #[pollster::test]
 async fn test_storage_buffer() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = vec![1_u32; 70];
     let expect = input.clone();
 
     let input = slice_into_compute(&input, cx);
 
-    input.run_test(cx, &expect)
+    input.run_test(cx, &expect).await
   })
+  .await
 }
 
 #[derive(Clone)]
@@ -223,24 +224,27 @@ impl<T: Std430> ShaderHashProvider for DeviceMaterializeResult<T> {
 //   }
 // }
 
-// impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T>
-//   for DeviceMaterializeResult<T>
-// {
-//   fn materialize_storage_buffer(
-//     &self,
-//     _: &mut DeviceParallelComputeCtx,
-//   ) -> DeviceMaterializeResult<T>
-//   where
-//     T: Std430 + ShaderSizedValueNodeType,
-//   {
-//     self.clone()
-//   }
-// }
+impl<T: Std430 + ShaderSizedValueNodeType> DeviceInvocationComponentIO<T>
+  for DeviceMaterializeResult<T>
+{
+  fn materialize_storage_buffer_into(
+    &self,
+    _target: StorageBufferDataView<[T]>,
+    _cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    self.clone()
+  }
+}
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct WriteIntoStorageWriter<T: Std430> {
   pub inner: Box<dyn DeviceInvocationComponent<Node<T>>>,
   pub result_write_idx: Arc<dyn Fn(Node<u32>) -> (Node<u32>, Node<bool>)>,
-  pub result_write_idx_hasher: Box<dyn ShaderHashProvider>,
+  pub result_write_idx_hasher: Arc<dyn ShaderHashProvider>,
   pub output: StorageBufferDataView<[T]>,
 }
 
@@ -302,10 +306,10 @@ where
 }
 
 pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
-  source: &(impl DeviceInvocationComponent<Node<T>> + ?Sized),
+  source: &(impl DeviceInvocationComponentIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
   write_position_mapper: impl Fn(Node<u32>) -> (Node<u32>, Node<bool>) + 'static,
-  result_write_idx_hasher: Box<dyn ShaderHashProvider>,
+  result_write_idx_hasher: Arc<dyn ShaderHashProvider>,
   write_target: StorageBufferDataView<[T]>,
 ) -> DeviceMaterializeResult<T> {
   assert!(write_target.item_count() >= source.result_size());
@@ -331,7 +335,7 @@ impl ShaderHashProvider for LinearWriterHash {
 }
 
 pub fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
-  source: &(impl DeviceInvocationComponent<Node<T>> + ?Sized),
+  source: &(impl DeviceInvocationComponentIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
   write_target: StorageBufferDataView<[T]>,
 ) -> DeviceMaterializeResult<T> {
@@ -339,7 +343,7 @@ pub fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
     source,
     cx,
     |x| (x, val(true)),
-    Box::new(LinearWriterHash),
+    Arc::new(LinearWriterHash),
     write_target,
   )
 }

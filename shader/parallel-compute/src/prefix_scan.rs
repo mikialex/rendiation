@@ -109,6 +109,12 @@ where
     self.upstream.work_size()
   }
 }
+impl<T, S> DeviceInvocationComponentIO<T> for WorkGroupPrefixScanKoggeStoneCompute<T, S>
+where
+  T: ShaderSizedValueNodeType,
+  S: DeviceMonoidLogic<Data = T> + 'static,
+{
+}
 
 // #[derive(Derivative)]
 // #[derivative(Clone(bound = ""))]
@@ -147,7 +153,7 @@ where
 
 #[pollster::test]
 async fn test_workgroup_prefix_sum_kogge_stone() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = vec![1_u32; 70];
 
     let workgroup_size = 32;
@@ -170,14 +176,16 @@ async fn test_workgroup_prefix_sum_kogge_stone() {
 
     let input = slice_into_compute(&input, cx);
     input
-      .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size)
+      .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, cx)
       .run_test(cx, &expect)
+      .await
   })
+  .await
 }
 
 #[pollster::test]
 async fn test_prefix_sum_kogge_stone() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = vec![1_u32; 70];
 
     let workgroup_size = 32;
@@ -192,7 +200,9 @@ async fn test_prefix_sum_kogge_stone() {
 
     let input = slice_into_compute(&input, cx);
     input
-      .segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size)
+      .segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size, cx)
       .run_test(cx, &expect)
+      .await
   })
+  .await
 }

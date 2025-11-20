@@ -1,8 +1,8 @@
 use crate::*;
 
 pub fn stream_compaction<T>(
-  source: Box<dyn DeviceInvocationComponent<Node<T>>>,
-  filter: Box<dyn DeviceInvocationComponent<Node<bool>>>,
+  source: Box<dyn DeviceInvocationComponentIO<T>>,
+  filter: Box<dyn DeviceInvocationComponentIO<bool>>,
   cx: &mut DeviceParallelComputeCtx,
 ) -> DeviceMaterializeResult<T>
 where
@@ -11,21 +11,19 @@ where
   let write_target_positions = filter
     .clone()
     .map(|v| v.select(1_u32, 0))
-    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(512, 512);
+    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(512, 512, cx);
 
   let (_, size) = PrefixSumTailAsSize {
-    prefix_sum_result: write_target_positions.execute_and_expose(cx),
+    prefix_sum_result: Box::new(write_target_positions.clone()),
   }
   .compute_work_size(cx);
 
-  let shuffle_moved = source
-    .clone()
-    .shuffle_move(
-      write_target_positions
-        .make_global_scan_exclusive::<AdditionMonoid<u32>>()
-        .zip(filter.clone()),
-    )
-    .materialize_storage_buffer(cx);
+  let shuffle_moved = source.clone().shuffle_move(
+    write_target_positions
+      .make_global_scan_exclusive::<AdditionMonoid<u32>>()
+      .zip(filter.clone()),
+    cx,
+  );
 
   DeviceMaterializeResult {
     buffer: shuffle_moved.buffer,
@@ -33,6 +31,7 @@ where
   }
 }
 
+#[derive(Clone)]
 struct PrefixSumTailAsSize {
   prefix_sum_result: Box<dyn DeviceInvocationComponent<Node<u32>>>,
 }
@@ -83,28 +82,31 @@ impl DeviceInvocation<Node<u32>> for DeviceInvocationTailAsSize {
 
 #[pollster::test]
 async fn test_stream_compaction() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = vec![1, 0, 1, 0, 1, 1, 0];
     let expect = vec![1, 1, 1, 1, 0, 0, 0];
 
     let input = slice_into_compute(&input, cx);
-    let mask = input.map(|v| v.equals(1));
+    let mask = input.clone().map(|v| v.equals(1));
 
     input
       .stream_compaction(mask, cx)
       .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
+      .await
   })
+  .await
 }
 
 #[pollster::test]
 async fn test_stream_compaction2() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = vec![1, 0, 1, 0, 1, 1, 0];
     let expect = vec![1, 1, 1, 1, 0, 0, 0];
 
-    let input = slice_into_compute(&input, cx);
-    (Box::new(input) as Box<dyn DeviceInvocationComponent<Node<u32>>>)
+    slice_into_compute(&input, cx)
       .stream_compaction_self_filter(|v| v.equals(1), cx)
       .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
+      .await;
   })
+  .await
 }

@@ -3661,10 +3661,8 @@ version = "0.1.0"
 dependencies = [
  "derivative",
  "dyn-clone",
- "fast-hash-collection",
  "futures",
  "num-traits",
- "parking_lot",
  "pollster 0.3.0",
  "rendiation-algebra",
  "rendiation-shader-api",

@@ -1,5 +1,7 @@
 use crate::*;
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct WorkGroupReductionCompute<T, S> {
   pub workgroup_size: u32,
   pub reduction_logic: PhantomData<S>,
@@ -78,7 +80,13 @@ where
   fn work_size(&self) -> Option<u32> {
     self.upstream.work_size()
   }
+}
 
+impl<T, S> DeviceInvocationComponentIO<T> for WorkGroupReductionCompute<T, S>
+where
+  T: ShaderSizedValueNodeType,
+  S: DeviceMonoidLogic<Data = T> + 'static,
+{
   fn materialize_storage_buffer_into(
     &self,
     target: StorageBufferDataView<[T]>,
@@ -91,7 +99,7 @@ where
       self,
       cx,
       move |global_id| (global_id, val(true)),
-      Box::new(LinearWriterHash),
+      Arc::new(LinearWriterHash),
       target,
     )
   }
@@ -152,7 +160,7 @@ where
 
 #[pollster::test]
 async fn test1() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = vec![1_u32; 8];
 
     let expect = vec![4, 0, 0, 0, 4, 0, 0, 0];
@@ -163,12 +171,14 @@ async fn test1() {
     input
       .workgroup_scope_reduction::<AdditionMonoid<_>>(workgroup_size, cx)
       .run_test(cx, &expect)
+      .await
   })
+  .await
 }
 
 #[pollster::test]
 async fn test2() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = vec![1_u32; 70];
 
     let expect = vec![70];
@@ -179,5 +189,7 @@ async fn test2() {
     input
       .segmented_reduction::<AdditionMonoid<_>>(workgroup_size, workgroup_size, cx)
       .run_test(cx, &expect)
+      .await
   })
+  .await
 }

@@ -70,6 +70,7 @@ impl<T: 'static> DeviceInvocationComponent<T> for DeviceParallelComputeStrideRea
     .into()
   }
 }
+impl<T: 'static> DeviceInvocationComponentIO<T> for DeviceParallelComputeStrideRead<Node<T>> {}
 
 // #[derive(Derivative)]
 // #[derivative(Clone(bound = ""))]
@@ -103,24 +104,26 @@ impl<T: 'static> DeviceInvocationComponent<T> for DeviceParallelComputeStrideRea
 
 #[pollster::test]
 async fn test_reduce() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input: Vec<_> = (0..6).flat_map(|_| 0..6).collect();
     let expect = vec![0; 6];
     let input = slice_into_compute(&input, cx);
 
-    input.stride_reduce_result(6).run_test(cx, &expect)
+    input.stride_reduce_result(6).run_test(cx, &expect).await;
   })
+  .await;
 }
 
 #[pollster::test]
 async fn test_expand() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input: Vec<_> = (0..6).collect();
     let expect = (0..6)
       .flat_map(|v| std::iter::repeat_n(v, 6))
       .collect::<Vec<_>>();
     let input = slice_into_compute(&input, cx);
 
-    input.stride_expand_result(6).run_test(cx, &expect)
+    input.stride_expand_result(6).run_test(cx, &expect).await;
   })
+  .await
 }

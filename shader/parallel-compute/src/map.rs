@@ -54,6 +54,10 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
     self.upstream.work_size()
   }
 }
+impl<I: 'static, O: Copy + 'static> DeviceInvocationComponentIO<O>
+  for DeviceMapCompute<I, Node<O>>
+{
+}
 
 // #[derive(Derivative)]
 // #[derivative(Clone(bound = ""))]
@@ -83,12 +87,13 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
 
 #[pollster::test]
 async fn test() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = vec![1_u32; 70];
     let expect = input.iter().map(|v| v + 1).collect::<Vec<_>>();
 
     let input = slice_into_compute(&input, cx);
 
-    input.map(|v| v + val(1)).run_test(cx, &expect)
+    input.map(|v| v + val(1)).run_test(cx, &expect).await;
   })
+  .await;
 }

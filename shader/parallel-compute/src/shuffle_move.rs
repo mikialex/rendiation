@@ -45,6 +45,8 @@ use crate::*;
 //   }
 // }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct ShuffleWrite<T: Std430> {
   pub input: Box<dyn DeviceInvocationComponent<(Node<T>, Node<u32>, Node<bool>)>>,
   /// shuffle access require reading any position, so we need fully materialized result here
@@ -63,7 +65,7 @@ where
   T: Std430 + ShaderSizedValueNodeType,
 {
   fn result_size(&self) -> u32 {
-    self.source.result_size()
+    self.input.result_size()
   }
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.input.requested_workgroup_size()
@@ -97,31 +99,33 @@ where
     self.input.work_size()
   }
 
-  fn materialize_storage_buffer_into(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> DeviceMaterializeResult<T>
-  where
-    T: Std430 + ShaderSizedValueNodeType,
-  {
-    // let input = self.source.execute_and_expose(cx);
-    // let init = ZeroedArrayByArrayLength(self.result_size() as usize);
-    // let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
+  // fn materialize_storage_buffer_into(
+  //   &self,
+  //   cx: &mut DeviceParallelComputeCtx,
+  // ) -> DeviceMaterializeResult<T>
+  // where
+  //   T: Std430 + ShaderSizedValueNodeType,
+  // {
+  //   // let input = self.source.execute_and_expose(cx);
+  //   // let init = ZeroedArrayByArrayLength(self.result_size() as usize);
+  //   // let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
 
-    // let write = ShuffleWrite {
-    //   input,
-    //   output: output.clone(),
-    // };
+  //   // let write = ShuffleWrite {
+  //   //   input,
+  //   //   output: output.clone(),
+  //   // };
 
-    // should size be the atomic max of the shuffle destination?
-    let size = self.dispatch_compute(cx);
-    DeviceMaterializeResult {
-      buffer: self.output.into_readonly_view(),
-      size,
-    }
-  }
+  //   // should size be the atomic max of the shuffle destination?
+  //   let size = self.dispatch_compute(cx);
+  //   DeviceMaterializeResult {
+  //     buffer: self.output.into_readonly_view(),
+  //     size,
+  //   }
+  // }
 }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct ShuffleAccess<T: Std430> {
   /// shuffle access require reading any position, so we need fully materialized result here
   pub source: StorageBufferReadonlyDataView<[T]>,
@@ -139,6 +143,10 @@ impl<T> DeviceInvocationComponent<Node<T>> for ShuffleAccess<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
+  fn result_size(&self) -> u32 {
+    self.shuffle_idx.result_size()
+  }
+
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.shuffle_idx.requested_workgroup_size()
   }
@@ -173,7 +181,7 @@ where
 
 #[pollster::test]
 async fn test() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = [0, 1, 2, 3, 4, 5].to_vec();
     let move_target = [5, 4, 3, 2, 1, 0].to_vec();
     let expect = [5, 4, 3, 2, 1, 0].to_vec();
@@ -184,5 +192,7 @@ async fn test() {
     input
       .shuffle_move(move_target.map(|v| (v, val(true))), cx)
       .run_test(cx, &expect)
+      .await
   })
+  .await
 }

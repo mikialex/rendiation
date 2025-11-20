@@ -7,16 +7,11 @@ use std::sync::Arc;
 
 use derivative::Derivative;
 use dyn_clone::DynClone;
-use fast_hash_collection::FastHashMap;
-use parking_lot::RwLock;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
 mod io;
 pub use io::*;
-// mod fork;
-// pub use fork::*;
-
 mod radix_sort;
 pub use radix_sort::*;
 mod stream_compaction;
@@ -147,7 +142,7 @@ pub fn device_compute_dispatch_size(work_size: Node<u32>, workgroup_size: Node<u
 
 impl<T> Clone for Box<dyn DeviceInvocationComponent<T>> {
   fn clone(&self) -> Self {
-    todo!()
+    dyn_clone::clone_box(&**self)
   }
 }
 
@@ -274,7 +269,9 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider + DynClone {
 
     (size_output, work_size_output)
   }
+}
 
+pub trait DeviceInvocationComponentIO<T>: DeviceInvocationComponent<Node<T>> {
   /// The user must not mutate the materialized result returned from this function.
   ///
   /// If the implementation has already materialized the storage buffer internally, a custom implementation
@@ -285,6 +282,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider + DynClone {
   ) -> DeviceMaterializeResult<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
+    Self: Sized,
   {
     let init = ZeroedArrayByArrayLength(self.result_size() as usize);
     let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
@@ -300,6 +298,84 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider + DynClone {
     T: Std430 + ShaderSizedValueNodeType,
   {
     do_write_into_storage_buffer(self, cx, target)
+  }
+}
+
+impl<T> Clone for Box<dyn DeviceInvocationComponentIO<T>> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
+  }
+}
+
+impl<T: 'static> DeviceInvocationComponent<T> for Box<dyn DeviceInvocationComponent<T>> {
+  fn work_size(&self) -> Option<u32> {
+    (**self).work_size()
+  }
+
+  fn result_size(&self) -> u32 {
+    (**self).result_size()
+  }
+
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    (**self).requested_workgroup_size()
+  }
+
+  fn build_shader(
+    &self,
+    builder: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn DeviceInvocation<T>> {
+    (**self).build_shader(builder)
+  }
+
+  fn bind_input(&self, builder: &mut BindingBuilder) {
+    (**self).bind_input(builder)
+  }
+}
+
+impl<T> ShaderHashProvider for Box<dyn DeviceInvocationComponentIO<T>> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    (**self).hash_pipeline_with_type_info(hasher)
+  }
+
+  shader_hash_type_id! {}
+}
+
+impl<T> DeviceInvocationComponent<Node<T>> for Box<dyn DeviceInvocationComponentIO<T>> {
+  fn work_size(&self) -> Option<u32> {
+    (**self).work_size()
+  }
+
+  fn result_size(&self) -> u32 {
+    (**self).result_size()
+  }
+
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    (**self).requested_workgroup_size()
+  }
+
+  fn build_shader(
+    &self,
+    builder: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn DeviceInvocation<Node<T>>> {
+    (**self).build_shader(builder)
+  }
+
+  fn bind_input(&self, builder: &mut BindingBuilder) {
+    (**self).bind_input(builder)
+  }
+}
+
+impl<T> DeviceInvocationComponentIO<T> for Box<dyn DeviceInvocationComponentIO<T>> {
+  fn materialize_storage_buffer_into(
+    &self,
+    target: StorageBufferDataView<[T]>,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+    Self: Sized,
+  {
+    (**self).materialize_storage_buffer_into(target, cx)
   }
 }
 
@@ -490,7 +566,7 @@ where
 }
 
 #[allow(async_fn_in_trait)]
-pub trait DeviceParallelComputeIOExt<T>: Sized + DeviceInvocationComponent<Node<T>>
+pub trait DeviceParallelComputeIOExt<T>: Sized + DeviceInvocationComponentIO<T>
 where
   T: ShaderSizedValueNodeType + Std430 + Debug,
   Self: 'static,
@@ -571,11 +647,11 @@ where
   where
     T: std::fmt::Debug,
   {
-    let (device_result, size, host_result) = pollster::block_on(self.read_back_host(cx)).unwrap();
+    let (_, size, host_result) = pollster::block_on(self.read_back_host(cx)).unwrap();
 
-    println!("{} content is: {:?}", self.label, host_result);
+    println!("{} content is: {:?}", label, host_result);
     if let Some(size) = size {
-      println!("{} has device size: {}", self.label, size);
+      println!("{} has device size: {}", label, size);
     }
   }
 
@@ -595,25 +671,31 @@ where
     self,
     shuffle_idx: impl DeviceInvocationComponent<(Node<u32>, Node<bool>)> + 'static,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> impl DeviceInvocationComponent<Node<T>> {
+  ) -> DeviceMaterializeResult<T> {
     let init = ZeroedArrayByArrayLength(self.result_size() as usize);
     let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
-    ShuffleWrite {
+    let write = ShuffleWrite {
       input: Box::new(
         self
           .zip(shuffle_idx)
           .map(|(v, (id, should))| (v, id, should)),
       ),
       output,
+    };
+
+    // should size be the atomic max of the shuffle destination?
+    let size = write.dispatch_compute(cx);
+    DeviceMaterializeResult {
+      buffer: write.output.into_readonly_view(),
+      size,
     }
-    .materialize_storage_buffer(cx)
   }
 
   fn workgroup_scope_reduction<S>(
     self,
     workgroup_size: u32,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> WorkGroupReductionCompute<T, S>
+  ) -> DeviceMaterializeResult<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
@@ -631,7 +713,7 @@ where
     first_stage_workgroup_size: u32,
     second_stage_workgroup_size: u32,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> impl DeviceInvocationComponent<Node<T>>
+  ) -> impl DeviceInvocationComponentIO<T> + 'static
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
@@ -640,7 +722,7 @@ where
     self
       .workgroup_scope_reduction::<S>(first_stage_workgroup_size, cx)
       .stride_reduce_result(first_stage_workgroup_size)
-      .workgroup_scope_reduction::<S>(second_stage_workgroup_size)
+      .workgroup_scope_reduction::<S>(second_stage_workgroup_size, cx)
       .stride_reduce_result(second_stage_workgroup_size)
   }
 
@@ -652,7 +734,7 @@ where
     self,
     workgroup_size: u32,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> impl DeviceInvocationComponent<Node<u32>>
+  ) -> DeviceMaterializeResult<u32>
   where
     S: DeviceHistogramMappingLogic<Data = T> + 'static,
   {
@@ -674,7 +756,7 @@ where
     self,
     workgroup_privatization: u32,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> impl DeviceInvocationComponent<Node<u32>>
+  ) -> DeviceMaterializeResult<u32>
   where
     S: DeviceHistogramMappingLogic<Data = T> + 'static,
   {
@@ -691,7 +773,7 @@ where
       },
       result,
     }
-    .materialize_storage_buffer_into(result, cx)
+    .materialize_storage_buffer(cx)
   }
 
   fn custom_access(
@@ -709,7 +791,7 @@ where
     offset: i32,
     ob: OutBoundsBehavior<T>,
     size_expand: u32,
-  ) -> impl DeviceInvocationComponent<Node<T>> {
+  ) -> impl DeviceInvocationComponentIO<T> {
     DeviceParallelComputeCustomInvocationBehavior {
       source: Box::new(self),
       behavior: DeviceInvocationOffset {
@@ -722,10 +804,10 @@ where
 
   fn stream_compaction(
     self,
-    filter: impl DeviceInvocationComponent<Node<bool>> + 'static,
+    filter: impl DeviceInvocationComponentIO<bool> + 'static,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> impl DeviceInvocationComponent<Node<T>> {
-    stream_compaction(self, filter, cx)
+  ) -> DeviceMaterializeResult<T> {
+    stream_compaction(Box::new(self), Box::new(filter), cx)
   }
 
   /// this is not very useful but sometimes feel handy so I will keep it here
@@ -733,7 +815,7 @@ where
     self,
     filter: impl Fn(Node<T>) -> Node<bool> + 'static,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> impl DeviceInvocationComponent<Node<T>>
+  ) -> DeviceMaterializeResult<T>
   where
     Self: Clone,
   {
@@ -744,7 +826,8 @@ where
   fn workgroup_scope_prefix_scan_kogge_stone<S>(
     self,
     workgroup_size: u32,
-  ) -> impl DeviceInvocationComponent<Node<T>>
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
@@ -753,7 +836,7 @@ where
       scan_logic: Default::default(),
       upstream: Box::new(self),
     }
-    .internal_materialize_storage_buffer()
+    .materialize_storage_buffer(cx)
   }
 
   /// the scan is inclusive, using make_global_scan_exclusive to convert it to exclusive
@@ -763,16 +846,16 @@ where
     self,
     first_stage_workgroup_size: u32,
     second_stage_workgroup_size: u32,
-  ) -> impl DeviceInvocationComponent<Node<T>>
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
     // todo, impl another way to check if it's ok to run compute
     // assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
-    let per_workgroup_scanned = self
-      .workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size)
-      .into_forker();
+    let per_workgroup_scanned =
+      self.workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size, cx);
 
     let block_wise_scanned = per_workgroup_scanned
       .clone()
@@ -782,18 +865,18 @@ where
         0,
       )
       .stride_reduce_result(first_stage_workgroup_size)
-      .workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size)
+      .workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size, cx)
       .make_global_scan_exclusive::<S>()
       .stride_expand_result(first_stage_workgroup_size);
 
     per_workgroup_scanned
       .zip(block_wise_scanned)
       .map(|(block_scan, workgroup_scan)| S::combine(block_scan, workgroup_scan))
-      .internal_materialize_storage_buffer() // todo,remove and  fix compatibility issue
+      .materialize_storage_buffer(cx) // todo,remove and  fix compatibility issue
   }
 
   /// should logically used after global inclusive scan
-  fn make_global_scan_exclusive<S>(self) -> impl DeviceInvocationComponent<Node<T>>
+  fn make_global_scan_exclusive<S>(self) -> impl DeviceInvocationComponentIO<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
@@ -804,7 +887,8 @@ where
     self,
     per_pass_first_stage_workgroup_size: u32,
     per_pass_second_stage_workgroup_size: u32,
-  ) -> impl DeviceInvocationComponent<Node<T>>
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> Box<dyn DeviceInvocationComponentIO<T>>
   where
     S: DeviceRadixSortKeyLogic<Data = T>,
   {
@@ -812,13 +896,14 @@ where
       self,
       per_pass_first_stage_workgroup_size,
       per_pass_second_stage_workgroup_size,
+      cx,
     )
   }
 }
 
 impl<X, T> DeviceParallelComputeIOExt<T> for X
 where
-  X: Sized + DeviceInvocationComponent<Node<T>> + 'static,
+  X: Sized + DeviceInvocationComponentIO<T> + 'static,
   T: ShaderSizedValueNodeType + Std430 + Debug,
 {
 }
@@ -922,9 +1007,9 @@ impl<T: 'static> ShaderHashProvider for Box<dyn DeviceInvocationComponent<T>> {
   shader_hash_type_id! {}
 }
 
-pub(crate) async fn gpu_test_scope(f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R) -> R {
+pub(crate) async fn gpu_test_scope(f: impl AsyncFnOnce(&mut DeviceParallelComputeCtx)) {
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
-  f(&mut cx)
+  f(&mut cx).await
 }

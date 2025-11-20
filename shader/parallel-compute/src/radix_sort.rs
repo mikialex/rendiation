@@ -27,15 +27,16 @@ impl ShaderHashProvider for IterIndexHasher {
 
 // todo, impl memory coalesced version for better performance
 pub fn device_radix_sort_naive<T, S>(
-  input: impl DeviceInvocationComponent<Node<T>> + 'static,
+  input: impl DeviceInvocationComponentIO<T> + 'static,
   per_pass_first_stage_workgroup_size: u32,
   per_pass_second_stage_workgroup_size: u32,
-) -> Box<dyn DeviceInvocationComponent<Node<T>>>
+  cx: &mut DeviceParallelComputeCtx,
+) -> Box<dyn DeviceInvocationComponentIO<T>>
 where
   S: DeviceRadixSortKeyLogic<Data = T>,
   T: ShaderSizedValueNodeType + Std430 + Debug,
 {
-  let mut result: Box<dyn DeviceInvocationComponent<Node<T>>> = Box::new(input);
+  let mut result: Box<dyn DeviceInvocationComponentIO<T>> = Box::new(input);
   for iter in 0..S::MAX_BITS {
     let iter_input = result.clone();
 
@@ -50,17 +51,17 @@ where
       .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(
         per_pass_first_stage_workgroup_size,
         per_pass_second_stage_workgroup_size,
+        cx,
       )
-      .make_global_scan_exclusive::<AdditionMonoid<u32>>();
+      .make_global_scan_exclusive::<AdditionMonoid<u32>>()
+      .materialize_storage_buffer(cx);
 
-    let shuffle_idx = RadixShuffleMove {
-      ones_before: Box::new(ones_before),
+    let shuffle_idx = RadixShuffleMoveCompute {
+      ones_before,
       is_one: Box::new(is_one),
     };
 
-    let r = iter_input
-      .shuffle_move(shuffle_idx.map(|v| (v, val(true))))
-      .into_forker();
+    let r = iter_input.shuffle_move(shuffle_idx.map(|v| (v, val(true))), cx);
 
     result = Box::new(r)
   }
@@ -91,6 +92,7 @@ where
 // }
 // impl DeviceParallelComputeIO<u32> for RadixShuffleMove {}
 
+#[derive(Clone)]
 struct RadixShuffleMoveCompute {
   ones_before: DeviceMaterializeResult<u32>,
   is_one: Box<dyn DeviceInvocationComponent<Node<bool>>>,
@@ -155,13 +157,15 @@ impl DeviceRadixSortKeyLogic for U32RadixSort {
 
 #[pollster::test]
 async fn test() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = [3, 1, 4, 6, 5, 2].to_vec();
     let expect = [1, 2, 3, 4, 5, 6].to_vec();
     let input = slice_into_compute(&input, cx);
 
     input
-      .device_radix_sort_naive::<U32RadixSort>(64, 64)
+      .device_radix_sort_naive::<U32RadixSort>(64, 64, cx)
       .run_test(cx, &expect)
+      .await
   })
+  .await
 }

@@ -77,7 +77,13 @@ where
   fn bind_input(&self, builder: &mut BindingBuilder) {
     self.upstream.bind_input(builder)
   }
+}
 
+impl<T, S> DeviceInvocationComponentIO<u32> for WorkGroupHistogramCompute<T, S>
+where
+  T: ShaderSizedValueNodeType,
+  S: DeviceHistogramMappingLogic<Data = T> + 'static,
+{
   fn materialize_storage_buffer_into(
     &self,
     target: StorageBufferDataView<[u32]>,
@@ -104,7 +110,7 @@ where
         let idx = val(S::MAX) * workgroup_index + local_index;
         (idx, valid)
       },
-      Box::new(HistogramWrite(workgroup_size, S::MAX)),
+      Arc::new(HistogramWrite(workgroup_size, S::MAX)),
       target,
     )
   }
@@ -250,8 +256,14 @@ where
   fn work_size(&self) -> Option<u32> {
     self.workgroup_level.work_size()
   }
+}
 
-  fn materialize_storage_buffer_into(
+impl<T, S> DeviceHistogramCompute<T, S>
+where
+  T: ShaderSizedValueNodeType,
+  S: DeviceHistogramMappingLogic<Data = T> + 'static,
+{
+  pub fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceMaterializeResult<u32>
@@ -260,7 +272,11 @@ where
   {
     self.dispatch_compute(cx);
     DeviceMaterializeResult::full_buffer(
-      self.result.into_host_nonatomic_array().into_readonly_view(),
+      self
+        .result
+        .clone()
+        .into_host_nonatomic_array()
+        .into_readonly_view(),
     )
   }
 }
@@ -333,7 +349,7 @@ where
 
 #[pollster::test]
 async fn test_histogram_workgroup() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     struct TestRangedU32;
     impl DeviceHistogramMappingLogic for TestRangedU32 {
       type Data = u32;
@@ -352,12 +368,14 @@ async fn test_histogram_workgroup() {
     input
       .workgroup_histogram::<TestRangedU32>(4, cx)
       .run_test(cx, &expect)
+      .await
   })
+  .await
 }
 
 #[pollster::test]
 async fn test_histogram() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     struct TestRangedU32;
     impl DeviceHistogramMappingLogic for TestRangedU32 {
       type Data = u32;
@@ -376,12 +394,14 @@ async fn test_histogram() {
     input
       .histogram::<TestRangedU32>(32, cx)
       .run_test(cx, &expect)
+      .await
   })
+  .await
 }
 
 #[pollster::test]
 async fn test_histogram_clamp_behavior() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     struct TestRangedU32;
     impl DeviceHistogramMappingLogic for TestRangedU32 {
       type Data = u32;
@@ -400,5 +420,7 @@ async fn test_histogram_clamp_behavior() {
     input
       .histogram::<TestRangedU32>(32, cx)
       .run_test(cx, &expect)
+      .await
   })
+  .await
 }

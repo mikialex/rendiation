@@ -164,6 +164,13 @@ where
   }
 }
 
+impl<T, F> DeviceInvocationComponentIO<T> for DeviceParallelComputeCustomInvocationBehavior<T, F>
+where
+  T: ShaderSizedValueNodeType,
+  F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
+{
+}
+
 // #[derive(Derivative)]
 // #[derivative(Clone(bound = "F: Clone"))]
 // pub struct DeviceParallelComputeCustomInvocationBehavior<T, F> {
@@ -198,7 +205,7 @@ where
 
 #[pollster::test]
 async fn test1() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = [0, 1, 2, 3, 4, 5].to_vec();
     let expect = [3, 4, 5, 5, 5, 5].to_vec();
 
@@ -207,26 +214,40 @@ async fn test1() {
     input
       .offset_access(3, OutBoundsBehavior::ClampBorder, 0)
       .run_test(cx, &expect)
+      .await
   })
+  .await
+}
+
+macro_rules! gpu_cx {
+  ($name: tt) => {
+    let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+    let mut encoder = gpu.create_encoder();
+    let mut $name = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
+  };
 }
 
 #[pollster::test]
 async fn test2() {
-  gpu_test_scope(|cx| {
-    let input = [0, 1, 2, 3, 4, 5].to_vec();
-    let expect = [0, 0, 0, 1, 2, 3, 4].to_vec();
+  // let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  // let mut encoder = gpu.create_encoder();
+  // let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
+  gpu_cx!(cx);
 
-    let input = slice_into_compute(&input, cx);
+  let input = [0, 1, 2, 3, 4, 5].to_vec();
+  let expect = [0, 0, 0, 1, 2, 3, 4].to_vec();
 
-    input
-      .offset_access(-2, OutBoundsBehavior::ClampBorder, 1)
-      .run_test(cx, &expect)
-  })
+  let input = slice_into_compute(&input, &mut cx);
+
+  input
+    .offset_access(-2, OutBoundsBehavior::ClampBorder, 1)
+    .run_test(&mut cx, &expect)
+    .await;
 }
 
 #[pollster::test]
 async fn test3() {
-  gpu_test_scope(|cx| {
+  gpu_test_scope(async |cx| {
     let input = [0, 1, 2, 3, 4, 5].to_vec();
     let expect = [6, 6, 0, 1, 2, 3].to_vec();
 
@@ -235,5 +256,7 @@ async fn test3() {
     input
       .offset_access(-2, OutBoundsBehavior::from_const(|| val(6)), 0)
       .run_test(cx, &expect)
+      .await
   })
+  .await
 }
