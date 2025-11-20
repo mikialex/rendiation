@@ -454,4 +454,3 @@ pub enum AlphaMode {
   /// The alpha cutoff value is ignored.
   Blend,
 }
-

@@ -131,11 +131,11 @@ impl PersistSceneModelListBuffer {
 struct PersistSceneModelListBufferWithLength {
   buffer: AbstractReadonlyStorageBuffer<[u32]>,
 }
-impl DeviceInvocationComponentIO<u32> for PersistSceneModelListBufferWithLength {}
+impl ComputeComponentIO<u32> for PersistSceneModelListBufferWithLength {}
 impl ShaderHashProvider for PersistSceneModelListBufferWithLength {
   shader_hash_type_id! {}
 }
-impl DeviceInvocationComponent<Node<u32>> for PersistSceneModelListBufferWithLength {
+impl ComputeComponent<Node<u32>> for PersistSceneModelListBufferWithLength {
   fn work_size(&self) -> Option<u32> {
     None
   }
@@ -143,7 +143,7 @@ impl DeviceInvocationComponent<Node<u32>> for PersistSceneModelListBufferWithLen
   fn result_size(&self) -> u32 {
     self.buffer.item_count() - 1
   }
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<u32>>> {
     Box::new(self.clone())
   }
 

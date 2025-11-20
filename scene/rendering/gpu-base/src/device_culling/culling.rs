@@ -3,7 +3,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct SceneModelCullingComponent {
   pub culler: Box<dyn AbstractCullerProvider>,
-  pub input: Box<dyn DeviceInvocationComponent<Node<u32>>>,
+  pub input: Box<dyn ComputeComponent<Node<u32>>>,
 }
 
 impl ShaderHashProvider for SceneModelCullingComponent {
@@ -15,8 +15,8 @@ impl ShaderHashProvider for SceneModelCullingComponent {
   }
 }
 
-impl DeviceInvocationComponentIO<bool> for SceneModelCullingComponent {}
-impl DeviceInvocationComponent<Node<bool>> for SceneModelCullingComponent {
+impl ComputeComponentIO<bool> for SceneModelCullingComponent {}
+impl ComputeComponent<Node<bool>> for SceneModelCullingComponent {
   fn work_size(&self) -> Option<u32> {
     self.input.work_size()
   }
@@ -25,7 +25,7 @@ impl DeviceInvocationComponent<Node<bool>> for SceneModelCullingComponent {
     self.input.result_size()
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<bool>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<bool>>> {
     Box::new(self.clone())
   }
 

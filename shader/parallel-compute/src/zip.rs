@@ -20,8 +20,8 @@ impl<A, B> DeviceInvocation<(A, B)> for DeviceInvocationZip<A, B> {
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct DeviceComputeZip<A, B> {
-  pub source_a: Box<dyn DeviceInvocationComponent<A>>,
-  pub source_b: Box<dyn DeviceInvocationComponent<B>>,
+  pub source_a: Box<dyn ComputeComponent<A>>,
+  pub source_b: Box<dyn ComputeComponent<B>>,
 }
 
 impl<A: 'static, B: 'static> ShaderHashProvider for DeviceComputeZip<A, B> {
@@ -32,7 +32,7 @@ impl<A: 'static, B: 'static> ShaderHashProvider for DeviceComputeZip<A, B> {
   shader_hash_type_id! {}
 }
 
-impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for DeviceComputeZip<A, B> {
+impl<A: 'static, B: 'static> ComputeComponent<(A, B)> for DeviceComputeZip<A, B> {
   fn result_size(&self) -> u32 {
     self.source_a.result_size().min(self.source_b.result_size())
   }
@@ -67,7 +67,7 @@ impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for DeviceCompute
       .map(|(a, b)| a.min(b))
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<(A, B)>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<(A, B)>> {
     Box::new(self.clone())
   }
 }

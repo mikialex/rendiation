@@ -5,7 +5,7 @@ use crate::*;
 pub struct DeviceMapCompute<I, O> {
   pub mapper: Arc<dyn Fn(I) -> O>,
   pub mapper_extra_hasher: Arc<dyn ShaderHashProvider>,
-  pub upstream: Box<dyn DeviceInvocationComponent<I>>,
+  pub upstream: Box<dyn ComputeComponent<I>>,
 }
 
 impl<I: 'static, O: 'static> ShaderHashProvider for DeviceMapCompute<I, O> {
@@ -19,7 +19,7 @@ impl<I: 'static, O: 'static> ShaderHashProvider for DeviceMapCompute<I, O> {
   shader_hash_type_id! {}
 }
 
-impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCompute<I, O> {
+impl<I: 'static, O: 'static + Copy> ComputeComponent<O> for DeviceMapCompute<I, O> {
   fn result_size(&self) -> u32 {
     self.upstream.result_size()
   }
@@ -54,14 +54,11 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
     self.upstream.work_size()
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<O>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<O>> {
     Box::new(self.clone())
   }
 }
-impl<I: 'static, O: Copy + 'static> DeviceInvocationComponentIO<O>
-  for DeviceMapCompute<I, Node<O>>
-{
-}
+impl<I: 'static, O: Copy + 'static> ComputeComponentIO<O> for DeviceMapCompute<I, Node<O>> {}
 
 #[pollster::test]
 async fn test() {

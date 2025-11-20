@@ -5,7 +5,7 @@ use crate::*;
 pub struct WorkGroupReductionCompute<T, S> {
   pub workgroup_size: u32,
   pub reduction_logic: PhantomData<S>,
-  pub upstream: Box<dyn DeviceInvocationComponent<Node<T>>>,
+  pub upstream: Box<dyn ComputeComponent<Node<T>>>,
 }
 
 impl<T: 'static, S: 'static> ShaderHashProvider for WorkGroupReductionCompute<T, S> {
@@ -16,7 +16,7 @@ impl<T: 'static, S: 'static> ShaderHashProvider for WorkGroupReductionCompute<T,
   shader_hash_type_id! {}
 }
 
-impl<T, S> DeviceInvocationComponent<Node<T>> for WorkGroupReductionCompute<T, S>
+impl<T, S> ComputeComponent<Node<T>> for WorkGroupReductionCompute<T, S>
 where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
@@ -81,12 +81,12 @@ where
     self.upstream.work_size()
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<T>>> {
     Box::new(self.clone())
   }
 }
 
-impl<T, S> DeviceInvocationComponentIO<T> for WorkGroupReductionCompute<T, S>
+impl<T, S> ComputeComponentIO<T> for WorkGroupReductionCompute<T, S>
 where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,

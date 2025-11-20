@@ -63,11 +63,7 @@ impl AddAssign for Quadric {
 
 #[inline(always)]
 pub(crate) fn inverse_or_zeroed(value: f32) -> f32 {
-  if value != 0.0 {
-    1.0 / value
-  } else {
-    0.0
-  }
+  if value != 0.0 { 1.0 / value } else { 0.0 }
 }
 
 impl Quadric {

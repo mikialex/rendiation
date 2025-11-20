@@ -27,16 +27,16 @@ impl ShaderHashProvider for IterIndexHasher {
 
 // todo, impl memory coalesced version for better performance
 pub fn device_radix_sort_naive<T, S>(
-  input: impl DeviceInvocationComponentIO<T> + 'static,
+  input: impl ComputeComponentIO<T> + 'static,
   per_pass_first_stage_workgroup_size: u32,
   per_pass_second_stage_workgroup_size: u32,
   cx: &mut DeviceParallelComputeCtx,
-) -> Box<dyn DeviceInvocationComponentIO<T>>
+) -> Box<dyn ComputeComponentIO<T>>
 where
   S: DeviceRadixSortKeyLogic<Data = T>,
   T: ShaderSizedValueNodeType + Std430 + Debug,
 {
-  let mut result: Box<dyn DeviceInvocationComponentIO<T>> = Box::new(input);
+  let mut result: Box<dyn ComputeComponentIO<T>> = Box::new(input);
   for iter in 0..S::MAX_BITS {
     let iter_input = result.clone();
 
@@ -71,7 +71,7 @@ where
 #[derive(Clone)]
 struct RadixShuffleMoveCompute {
   ones_before: DeviceMaterializeResult<u32>,
-  is_one: Box<dyn DeviceInvocationComponent<Node<bool>>>,
+  is_one: Box<dyn ComputeComponent<Node<bool>>>,
 }
 
 impl ShaderHashProvider for RadixShuffleMoveCompute {
@@ -80,7 +80,7 @@ impl ShaderHashProvider for RadixShuffleMoveCompute {
   }
   shader_hash_type_id! {}
 }
-impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
+impl ComputeComponent<Node<u32>> for RadixShuffleMoveCompute {
   fn result_size(&self) -> u32 {
     self.is_one.result_size()
   }
@@ -119,7 +119,7 @@ impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
     self.is_one.work_size()
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<u32>>> {
     Box::new(self.clone())
   }
 }

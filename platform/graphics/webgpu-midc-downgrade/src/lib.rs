@@ -249,8 +249,8 @@ impl ShaderHashProvider for MultiIndirectCountDowngradeSource {
   }
 }
 
-impl DeviceInvocationComponentIO<u32> for MultiIndirectCountDowngradeSource {}
-impl DeviceInvocationComponent<Node<u32>> for MultiIndirectCountDowngradeSource {
+impl ComputeComponentIO<u32> for MultiIndirectCountDowngradeSource {}
+impl ComputeComponent<Node<u32>> for MultiIndirectCountDowngradeSource {
   fn work_size(&self) -> Option<u32> {
     None
   }
@@ -295,7 +295,7 @@ impl DeviceInvocationComponent<Node<u32>> for MultiIndirectCountDowngradeSource 
     None
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<u32>>> {
     Box::new(self.clone())
   }
 }

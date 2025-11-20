@@ -1,7 +1,7 @@
 #![feature(iter_array_chunks)]
 #![allow(clippy::disallowed_types)] // we have already used custom hasher
 
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{HashMap, hash_map::Entry};
 
 use rendiation_algebra::*;
 use rendiation_geometry::*;
@@ -26,7 +26,7 @@ use connectivity::*;
 
 const INVALID_INDEX: u32 = u32::MAX;
 
-pub use edge_collapse::{simplify_by_edge_collapse, EdgeCollapseConfig};
+pub use edge_collapse::{EdgeCollapseConfig, simplify_by_edge_collapse};
 pub use sloppy::simplify_sloppy;
 
 #[derive(Clone, Copy)]

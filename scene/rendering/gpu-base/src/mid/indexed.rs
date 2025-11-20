@@ -20,7 +20,7 @@ pub trait IndexedDrawCommandBuilderInvocation {
 
 #[derive(Clone)]
 pub struct IndexedDrawCommandGeneratorComponent {
-  pub scene_models: Box<dyn DeviceInvocationComponent<Node<u32>>>,
+  pub scene_models: Box<dyn ComputeComponent<Node<u32>>>,
   pub generator: Box<dyn IndexedDrawCommandBuilder>,
 }
 
@@ -33,11 +33,8 @@ impl ShaderHashProvider for IndexedDrawCommandGeneratorComponent {
   }
 }
 
-impl DeviceInvocationComponentIO<DrawIndexedIndirectArgsStorage>
-  for IndexedDrawCommandGeneratorComponent
-{
-}
-impl DeviceInvocationComponent<Node<DrawIndexedIndirectArgsStorage>>
+impl ComputeComponentIO<DrawIndexedIndirectArgsStorage> for IndexedDrawCommandGeneratorComponent {}
+impl ComputeComponent<Node<DrawIndexedIndirectArgsStorage>>
   for IndexedDrawCommandGeneratorComponent
 {
   fn work_size(&self) -> Option<u32> {
@@ -46,9 +43,7 @@ impl DeviceInvocationComponent<Node<DrawIndexedIndirectArgsStorage>>
   fn result_size(&self) -> u32 {
     self.scene_models.result_size()
   }
-  fn clone_boxed(
-    &self,
-  ) -> Box<dyn DeviceInvocationComponent<Node<DrawIndexedIndirectArgsStorage>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<DrawIndexedIndirectArgsStorage>>> {
     Box::new(self.clone())
   }
 

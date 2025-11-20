@@ -115,7 +115,7 @@ where
 #[derive(Derivative)]
 #[derivative(Clone(bound = "F: Clone"))]
 pub struct DeviceParallelComputeCustomInvocationBehavior<T, F> {
-  pub source: Box<dyn DeviceInvocationComponent<Node<T>>>,
+  pub source: Box<dyn ComputeComponent<Node<T>>>,
   pub behavior: F,
 }
 
@@ -129,13 +129,12 @@ impl<T: 'static, F: Hash + 'static> ShaderHashProvider
   shader_hash_type_id! {}
 }
 
-impl<T, F> DeviceInvocationComponent<Node<T>>
-  for DeviceParallelComputeCustomInvocationBehavior<T, F>
+impl<T, F> ComputeComponent<Node<T>> for DeviceParallelComputeCustomInvocationBehavior<T, F>
 where
   T: ShaderSizedValueNodeType,
   F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
 {
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<T>>> {
     Box::new(self.clone())
   }
   fn result_size(&self) -> u32 {
@@ -167,7 +166,7 @@ where
   }
 }
 
-impl<T, F> DeviceInvocationComponentIO<T> for DeviceParallelComputeCustomInvocationBehavior<T, F>
+impl<T, F> ComputeComponentIO<T> for DeviceParallelComputeCustomInvocationBehavior<T, F>
 where
   T: ShaderSizedValueNodeType,
   F: Hash + Clone + InvocationAccessBehavior<T> + 'static,

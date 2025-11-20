@@ -12,7 +12,7 @@ pub trait DeviceHistogramMappingLogic {
 pub struct WorkGroupHistogramCompute<T, S> {
   pub workgroup_size: u32,
   pub histogram_logic: PhantomData<S>,
-  pub upstream: Box<dyn DeviceInvocationComponent<Node<T>>>,
+  pub upstream: Box<dyn ComputeComponent<Node<T>>>,
 }
 
 impl<T: 'static, S: 'static> ShaderHashProvider for WorkGroupHistogramCompute<T, S>
@@ -27,12 +27,12 @@ where
   shader_hash_type_id! {}
 }
 
-impl<T, S> DeviceInvocationComponent<Node<u32>> for WorkGroupHistogramCompute<T, S>
+impl<T, S> ComputeComponent<Node<u32>> for WorkGroupHistogramCompute<T, S>
 where
   T: ShaderSizedValueNodeType,
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
 {
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<u32>>> {
     Box::new(self.clone())
   }
   fn result_size(&self) -> u32 {
@@ -58,6 +58,15 @@ where
       .upstream
       .build_shader(builder)
       .adhoc_invoke_with_self_size(move |upstream, id| {
+        let output_valid = local_id.less_than(S::MAX);
+
+        if_by(output_valid, || {
+          // reset the shared memory(we assume zero_initialize_workgroup_memory is false)
+          shared.index(local_id).atomic_store(val(0));
+        });
+
+        workgroup_barrier();
+
         let (input, valid) = upstream.invocation_logic(id);
 
         if_by(valid, || {
@@ -69,7 +78,6 @@ where
 
         workgroup_barrier();
 
-        let output_valid = local_id.less_than(S::MAX);
         let result =
           output_valid.select_branched(|| shared.index(local_id).atomic_load(), || val(0));
         (result, output_valid)
@@ -82,7 +90,7 @@ where
   }
 }
 
-impl<T, S> DeviceInvocationComponentIO<u32> for WorkGroupHistogramCompute<T, S>
+impl<T, S> ComputeComponentIO<u32> for WorkGroupHistogramCompute<T, S>
 where
   T: ShaderSizedValueNodeType,
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
@@ -136,7 +144,7 @@ where
   shader_hash_type_id! {}
 }
 
-impl<T, S> DeviceInvocationComponent<Node<u32>> for DeviceHistogramCompute<T, S>
+impl<T, S> ComputeComponent<Node<u32>> for DeviceHistogramCompute<T, S>
 where
   T: ShaderSizedValueNodeType,
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
@@ -182,7 +190,7 @@ where
     self.workgroup_level.work_size()
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<u32>>> {
     Box::new(self.clone())
   }
 }

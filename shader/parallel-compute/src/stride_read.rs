@@ -19,7 +19,7 @@ impl<T> DeviceInvocation<T> for DeviceInvocationStride<T> {
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct DeviceParallelComputeStrideRead<T> {
-  pub source: Box<dyn DeviceInvocationComponent<T>>,
+  pub source: Box<dyn ComputeComponent<T>>,
   pub stride: u32,
   pub reduce: bool,
 }
@@ -33,7 +33,7 @@ impl<T: 'static> ShaderHashProvider for DeviceParallelComputeStrideRead<T> {
   shader_hash_type_id! {}
 }
 
-impl<T: 'static> DeviceInvocationComponent<T> for DeviceParallelComputeStrideRead<T> {
+impl<T: 'static> ComputeComponent<T> for DeviceParallelComputeStrideRead<T> {
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -70,11 +70,11 @@ impl<T: 'static> DeviceInvocationComponent<T> for DeviceParallelComputeStrideRea
     .into()
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<T>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<T>> {
     Box::new(self.clone())
   }
 }
-impl<T: 'static> DeviceInvocationComponentIO<T> for DeviceParallelComputeStrideRead<Node<T>> {}
+impl<T: 'static> ComputeComponentIO<T> for DeviceParallelComputeStrideRead<Node<T>> {}
 
 #[pollster::test]
 async fn test_reduce() {

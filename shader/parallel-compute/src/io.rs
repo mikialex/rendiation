@@ -78,7 +78,7 @@ impl<T: Std430> DeviceMaterializeResult<T> {
   }
 }
 
-impl<T> DeviceInvocationComponent<Node<T>> for DeviceMaterializeResult<T>
+impl<T> ComputeComponent<Node<T>> for DeviceMaterializeResult<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
@@ -117,7 +117,7 @@ where
     }
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<T>>> {
     Box::new(self.clone())
   }
 }
@@ -129,9 +129,7 @@ impl<T: Std430> ShaderHashProvider for DeviceMaterializeResult<T> {
   }
 }
 
-impl<T: Std430 + ShaderSizedValueNodeType> DeviceInvocationComponentIO<T>
-  for DeviceMaterializeResult<T>
-{
+impl<T: Std430 + ShaderSizedValueNodeType> ComputeComponentIO<T> for DeviceMaterializeResult<T> {
   fn materialize_storage_buffer_into(
     &self,
     _target: StorageBufferDataView<[T]>,
@@ -147,7 +145,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceInvocationComponentIO<T>
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct WriteIntoStorageWriter<T: Std430> {
-  pub inner: Box<dyn DeviceInvocationComponent<Node<T>>>,
+  pub inner: Box<dyn ComputeComponent<Node<T>>>,
   pub result_write_idx: Arc<dyn Fn(Node<u32>) -> (Node<u32>, Node<bool>)>,
   pub result_write_idx_hasher: Arc<dyn ShaderHashProvider>,
   pub output: StorageBufferDataView<[T]>,
@@ -163,7 +161,7 @@ impl<T: Std430> ShaderHashProvider for WriteIntoStorageWriter<T> {
   shader_hash_type_id! {}
 }
 
-impl<T> DeviceInvocationComponent<Node<T>> for WriteIntoStorageWriter<T>
+impl<T> ComputeComponent<Node<T>> for WriteIntoStorageWriter<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
@@ -209,13 +207,13 @@ where
     self.inner.work_size()
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<T>>> {
     Box::new(self.clone())
   }
 }
 
 pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
-  source: &(impl DeviceInvocationComponentIO<T> + ?Sized),
+  source: &(impl ComputeComponentIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
   write_position_mapper: impl Fn(Node<u32>) -> (Node<u32>, Node<bool>) + 'static,
   result_write_idx_hasher: Arc<dyn ShaderHashProvider>,
@@ -244,7 +242,7 @@ impl ShaderHashProvider for LinearWriterHash {
 }
 
 pub fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
-  source: &(impl DeviceInvocationComponentIO<T> + ?Sized),
+  source: &(impl ComputeComponentIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
   write_target: StorageBufferDataView<[T]>,
 ) -> DeviceMaterializeResult<T> {

@@ -4,18 +4,18 @@ use super::*;
 #[derive(Clone)]
 pub struct ParallelComputeFromAbstractStorageBuffer(pub AbstractStorageBuffer<[u32]>);
 
-impl DeviceInvocationComponentIO<u32> for ParallelComputeFromAbstractStorageBuffer {}
+impl ComputeComponentIO<u32> for ParallelComputeFromAbstractStorageBuffer {}
 
 /// this is a little dangerous
 impl ShaderHashProvider for ParallelComputeFromAbstractStorageBuffer {
   shader_hash_type_id! {}
 }
-impl DeviceInvocationComponent<Node<u32>> for ParallelComputeFromAbstractStorageBuffer {
+impl ComputeComponent<Node<u32>> for ParallelComputeFromAbstractStorageBuffer {
   fn work_size(&self) -> Option<u32> {
     Some(self.result_size())
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<u32>>> {
     Box::new(self.clone())
   }
 
@@ -54,12 +54,12 @@ impl ShaderHashProvider for ActiveTaskCompact {
   shader_hash_type_id! {}
 }
 
-impl DeviceInvocationComponentIO<bool> for ActiveTaskCompact {}
-impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
+impl ComputeComponentIO<bool> for ActiveTaskCompact {}
+impl ComputeComponent<Node<bool>> for ActiveTaskCompact {
   fn result_size(&self) -> u32 {
     self.active_tasks.byte_size() as u32 / 4
   }
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<bool>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<bool>>> {
     Box::new(self.clone())
   }
   fn build_shader(

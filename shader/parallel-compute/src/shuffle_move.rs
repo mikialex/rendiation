@@ -3,7 +3,7 @@ use crate::*;
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct ShuffleWrite<T: Std430> {
-  pub input: Box<dyn DeviceInvocationComponent<(Node<T>, Node<u32>, Node<bool>)>>,
+  pub input: Box<dyn ComputeComponent<(Node<T>, Node<u32>, Node<bool>)>>,
   /// shuffle access require reading any position, so we need fully materialized result here
   pub output: StorageBufferDataView<[T]>,
 }
@@ -15,7 +15,7 @@ impl<T: Std430> ShaderHashProvider for ShuffleWrite<T> {
   shader_hash_type_id! {}
 }
 
-impl<T> DeviceInvocationComponent<Node<T>> for ShuffleWrite<T>
+impl<T> ComputeComponent<Node<T>> for ShuffleWrite<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
@@ -54,7 +54,7 @@ where
     self.input.work_size()
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<T>>> {
     Box::new(self.clone())
   }
 }
@@ -64,7 +64,7 @@ where
 pub struct ShuffleAccess<T: Std430> {
   /// shuffle access require reading any position, so we need fully materialized result here
   pub source: StorageBufferReadonlyDataView<[T]>,
-  pub shuffle_idx: Box<dyn DeviceInvocationComponent<Node<u32>>>,
+  pub shuffle_idx: Box<dyn ComputeComponent<Node<u32>>>,
 }
 
 impl<T: Std430> ShaderHashProvider for ShuffleAccess<T> {
@@ -74,7 +74,7 @@ impl<T: Std430> ShaderHashProvider for ShuffleAccess<T> {
   shader_hash_type_id! {}
 }
 
-impl<T> DeviceInvocationComponent<Node<T>> for ShuffleAccess<T>
+impl<T> ComputeComponent<Node<T>> for ShuffleAccess<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
@@ -113,7 +113,7 @@ where
     self.shuffle_idx.work_size()
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<T>>> {
     Box::new(self.clone())
   }
 }

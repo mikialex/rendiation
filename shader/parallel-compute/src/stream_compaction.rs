@@ -1,8 +1,8 @@
 use crate::*;
 
 pub fn stream_compaction<T>(
-  source: Box<dyn DeviceInvocationComponentIO<T>>,
-  filter: Box<dyn DeviceInvocationComponentIO<bool>>,
+  source: Box<dyn ComputeComponentIO<T>>,
+  filter: Box<dyn ComputeComponentIO<bool>>,
   cx: &mut DeviceParallelComputeCtx,
 ) -> DeviceMaterializeResult<T>
 where
@@ -33,7 +33,7 @@ where
 
 #[derive(Clone)]
 struct PrefixSumTailAsSize {
-  prefix_sum_result: Box<dyn DeviceInvocationComponent<Node<u32>>>,
+  prefix_sum_result: Box<dyn ComputeComponent<Node<u32>>>,
 }
 
 impl ShaderHashProvider for PrefixSumTailAsSize {
@@ -43,7 +43,7 @@ impl ShaderHashProvider for PrefixSumTailAsSize {
   }
 }
 
-impl DeviceInvocationComponent<Node<u32>> for PrefixSumTailAsSize {
+impl ComputeComponent<Node<u32>> for PrefixSumTailAsSize {
   fn work_size(&self) -> Option<u32> {
     self.prefix_sum_result.work_size()
   }
@@ -67,7 +67,7 @@ impl DeviceInvocationComponent<Node<u32>> for PrefixSumTailAsSize {
     self.prefix_sum_result.requested_workgroup_size()
   }
 
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<u32>>> {
     Box::new(self.clone())
   }
 }

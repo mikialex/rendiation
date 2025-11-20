@@ -98,7 +98,7 @@ impl DeviceSceneModelRenderBatch {
 
 #[derive(Clone)]
 pub struct DeviceSceneModelRenderSubBatch {
-  pub scene_models: Box<dyn DeviceInvocationComponentIO<u32>>,
+  pub scene_models: Box<dyn ComputeComponentIO<u32>>,
   /// this id is only used for implementation selecting. this may be not included in scene model.
   pub impl_select_id: EntityHandle<SceneModelEntity>,
 }
@@ -176,7 +176,7 @@ impl DeviceSceneModelRenderBatch {
               .clone()
               .stream_compaction(mask, cx)
               .materialize_storage_buffer(cx);
-            Box::new(scene_models) as Box<dyn DeviceInvocationComponentIO<u32>>
+            Box::new(scene_models) as Box<dyn ComputeComponentIO<u32>>
           } else {
             Box::new(sub_batch.scene_models.clone().stream_compaction(mask, cx))
           };

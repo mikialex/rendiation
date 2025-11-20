@@ -20,7 +20,7 @@ pub trait NoneIndexedDrawCommandBuilderInvocation {
 
 #[derive(Clone)]
 pub struct DrawCommandGeneratorComponent {
-  pub scene_models: Box<dyn DeviceInvocationComponent<Node<u32>>>,
+  pub scene_models: Box<dyn ComputeComponent<Node<u32>>>,
   pub generator: Box<dyn NoneIndexedDrawCommandBuilder>,
 }
 
@@ -33,15 +33,15 @@ impl ShaderHashProvider for DrawCommandGeneratorComponent {
   }
 }
 
-impl DeviceInvocationComponentIO<DrawIndirectArgsStorage> for DrawCommandGeneratorComponent {}
-impl DeviceInvocationComponent<Node<DrawIndirectArgsStorage>> for DrawCommandGeneratorComponent {
+impl ComputeComponentIO<DrawIndirectArgsStorage> for DrawCommandGeneratorComponent {}
+impl ComputeComponent<Node<DrawIndirectArgsStorage>> for DrawCommandGeneratorComponent {
   fn work_size(&self) -> Option<u32> {
     self.scene_models.work_size()
   }
   fn result_size(&self) -> u32 {
     self.scene_models.result_size()
   }
-  fn clone_boxed(&self) -> Box<dyn DeviceInvocationComponent<Node<DrawIndirectArgsStorage>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<DrawIndirectArgsStorage>>> {
     Box::new(self.clone())
   }
 
