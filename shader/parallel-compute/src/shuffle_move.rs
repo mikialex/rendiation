@@ -1,49 +1,49 @@
 use crate::*;
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
-pub struct DataShuffleMovement<T> {
-  pub source: Box<dyn DeviceParallelCompute<(Node<T>, Node<u32>, Node<bool>)>>,
-}
+// #[derive(Derivative)]
+// #[derivative(Clone(bound = ""))]
+// pub struct DataShuffleMovement<T> {
+//   pub source: Box<dyn DeviceParallelCompute<(Node<T>, Node<u32>, Node<bool>)>>,
+// }
 
-impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<Node<T>>
-  for DataShuffleMovement<T>
-{
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    self.materialize_storage_buffer(cx).into_boxed()
-  }
-  fn result_size(&self) -> u32 {
-    self.source.result_size()
-  }
-}
-impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataShuffleMovement<T> {
-  fn materialize_storage_buffer(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> DeviceMaterializeResult<T>
-  where
-    T: Std430 + ShaderSizedValueNodeType,
-  {
-    let input = self.source.execute_and_expose(cx);
-    let init = ZeroedArrayByArrayLength(self.result_size() as usize);
-    let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
+// impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<Node<T>>
+//   for DataShuffleMovement<T>
+// {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+//     self.materialize_storage_buffer(cx).into_boxed()
+//   }
+//   fn result_size(&self) -> u32 {
+//     self.source.result_size()
+//   }
+// }
+// impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataShuffleMovement<T> {
+//   fn materialize_storage_buffer(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> DeviceMaterializeResult<T>
+//   where
+//     T: Std430 + ShaderSizedValueNodeType,
+//   {
+//     let input = self.source.execute_and_expose(cx);
+//     let init = ZeroedArrayByArrayLength(self.result_size() as usize);
+//     let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
 
-    let write = ShuffleWrite {
-      input,
-      output: output.clone(),
-    };
+//     let write = ShuffleWrite {
+//       input,
+//       output: output.clone(),
+//     };
 
-    // should size be the atomic max of the shuffle destination?
-    let size = write.dispatch_compute(cx);
-    DeviceMaterializeResult {
-      buffer: output.into_readonly_view(),
-      size,
-    }
-  }
-}
+//     // should size be the atomic max of the shuffle destination?
+//     let size = write.dispatch_compute(cx);
+//     DeviceMaterializeResult {
+//       buffer: output.into_readonly_view(),
+//       size,
+//     }
+//   }
+// }
 
 pub struct ShuffleWrite<T: Std430> {
   pub input: Box<dyn DeviceInvocationComponent<(Node<T>, Node<u32>, Node<bool>)>>,
@@ -62,6 +62,9 @@ impl<T> DeviceInvocationComponent<Node<T>> for ShuffleWrite<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
+  fn result_size(&self) -> u32 {
+    self.source.result_size()
+  }
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.input.requested_workgroup_size()
   }
@@ -92,6 +95,30 @@ where
 
   fn work_size(&self) -> Option<u32> {
     self.input.work_size()
+  }
+
+  fn materialize_storage_buffer_into(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    // let input = self.source.execute_and_expose(cx);
+    // let init = ZeroedArrayByArrayLength(self.result_size() as usize);
+    // let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
+
+    // let write = ShuffleWrite {
+    //   input,
+    //   output: output.clone(),
+    // };
+
+    // should size be the atomic max of the shuffle destination?
+    let size = self.dispatch_compute(cx);
+    DeviceMaterializeResult {
+      buffer: self.output.into_readonly_view(),
+      size,
+    }
   }
 }
 
@@ -146,12 +173,16 @@ where
 
 #[pollster::test]
 async fn test() {
-  let input = [0, 1, 2, 3, 4, 5].to_vec();
-  let move_target = [5, 4, 3, 2, 1, 0].to_vec();
-  let expect = [5, 4, 3, 2, 1, 0].to_vec();
+  gpu_test_scope(|cx| {
+    let input = [0, 1, 2, 3, 4, 5].to_vec();
+    let move_target = [5, 4, 3, 2, 1, 0].to_vec();
+    let expect = [5, 4, 3, 2, 1, 0].to_vec();
 
-  input
-    .shuffle_move(move_target.map(|v| (v, val(true))))
-    .run_test(&expect)
-    .await
+    let input = slice_into_compute(&input, cx);
+    let move_target = slice_into_compute(&move_target, cx);
+
+    input
+      .shuffle_move(move_target.map(|v| (v, val(true))), cx)
+      .run_test(cx, &expect)
+  })
 }

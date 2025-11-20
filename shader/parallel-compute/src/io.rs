@@ -41,95 +41,113 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
   }
 }
 
-impl<T> DeviceParallelCompute<Node<T>> for StorageBufferReadonlyDataView<[T]>
-where
-  T: Std430 + ShaderSizedValueNodeType,
-{
-  fn execute_and_expose(
-    &self,
-    _cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    Box::new(DeviceMaterializeResult {
-      buffer: self.clone(),
-      size: None,
-    })
-  }
+// impl<T> DeviceParallelCompute<Node<T>> for StorageBufferReadonlyDataView<[T]>
+// where
+//   T: Std430 + ShaderSizedValueNodeType,
+// {
+//   fn execute_and_expose(
+//     &self,
+//     _cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+//     Box::new(DeviceMaterializeResult {
+//       buffer: self.clone(),
+//       size: None,
+//     })
+//   }
 
-  fn result_size(&self) -> u32 {
-    self.item_count()
-  }
-}
-impl<T> DeviceParallelComputeIO<T> for StorageBufferReadonlyDataView<[T]>
-where
-  T: Std430 + ShaderSizedValueNodeType,
-{
-  fn materialize_storage_buffer(
-    &self,
-    _: &mut DeviceParallelComputeCtx,
-  ) -> DeviceMaterializeResult<T>
-  where
-    Self: Sized,
-    T: Std430 + ShaderSizedValueNodeType,
-  {
-    DeviceMaterializeResult::full_buffer(self.clone())
-  }
+//   fn result_size(&self) -> u32 {
+//     self.item_count()
+//   }
+// }
+// impl<T> DeviceParallelComputeIO<T> for StorageBufferReadonlyDataView<[T]>
+// where
+//   T: Std430 + ShaderSizedValueNodeType,
+// {
+//   fn materialize_storage_buffer(
+//     &self,
+//     _: &mut DeviceParallelComputeCtx,
+//   ) -> DeviceMaterializeResult<T>
+//   where
+//     Self: Sized,
+//     T: Std430 + ShaderSizedValueNodeType,
+//   {
+//     DeviceMaterializeResult::full_buffer(self.clone())
+//   }
 
-  fn materialize_storage_buffer_into(
-    &self,
-    target: StorageBufferDataView<[T]>,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> DeviceMaterializeResult<T>
-  where
-    T: Std430 + ShaderSizedValueNodeType,
-  {
-    cx.encoder.copy_buffer_to_buffer(
-      self.resource.gpu(),
-      0,
-      target.resource.gpu(),
-      0,
-      Some(self.gpu.view_byte_size().into()),
-    );
-    DeviceMaterializeResult::full_buffer(target.into_readonly_view())
-  }
+//   fn materialize_storage_buffer_into(
+//     &self,
+//     target: StorageBufferDataView<[T]>,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> DeviceMaterializeResult<T>
+//   where
+//     T: Std430 + ShaderSizedValueNodeType,
+//   {
+//     cx.encoder.copy_buffer_to_buffer(
+//       self.resource.gpu(),
+//       0,
+//       target.resource.gpu(),
+//       0,
+//       Some(self.gpu.view_byte_size().into()),
+//     );
+//     DeviceMaterializeResult::full_buffer(target.into_readonly_view())
+//   }
+// }
+
+pub fn slice_into_compute<T: Std430 + ShaderSizedValueNodeType>(
+  data: &[T],
+  cx: &mut DeviceParallelComputeCtx,
+) -> impl DeviceInvocationComponent<Node<T>> {
+  let storage = create_gpu_readonly_storage(data, &cx.gpu);
+  storage_full_into_compute(storage)
 }
 
-impl<T> DeviceParallelCompute<Node<T>> for Vec<T>
-where
-  T: Std430 + ShaderSizedValueNodeType,
-{
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    self.materialize_storage_buffer(cx).into_boxed()
-  }
+pub fn storage_full_into_compute<T: Std430 + ShaderSizedValueNodeType>(
+  storage: StorageBufferReadonlyDataView<[T]>,
+) -> impl DeviceInvocationComponent<Node<T>> {
+  DeviceMaterializeResult::full_buffer(storage)
+}
 
-  fn result_size(&self) -> u32 {
-    self.len() as u32
-  }
-}
-impl<T> DeviceParallelComputeIO<T> for Vec<T>
-where
-  T: Std430 + ShaderSizedValueNodeType,
-{
-  fn materialize_storage_buffer(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> DeviceMaterializeResult<T>
-  where
-    Self: Sized,
-    T: Std430 + ShaderSizedValueNodeType,
-  {
-    DeviceMaterializeResult::full_buffer(create_gpu_readonly_storage(self.as_slice(), &cx.gpu))
-  }
-}
+// impl<T> DeviceParallelCompute<Node<T>> for Vec<T>
+// where
+//   T: Std430 + ShaderSizedValueNodeType,
+// {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+//     self.materialize_storage_buffer(cx).into_boxed()
+//   }
+
+//   fn result_size(&self) -> u32 {
+//     self.len() as u32
+//   }
+// }
+// impl<T> DeviceParallelComputeIO<T> for Vec<T>
+// where
+//   T: Std430 + ShaderSizedValueNodeType,
+// {
+//   fn materialize_storage_buffer(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> DeviceMaterializeResult<T>
+//   where
+//     Self: Sized,
+//     T: Std430 + ShaderSizedValueNodeType,
+//   {
+//     DeviceMaterializeResult::full_buffer(create_gpu_readonly_storage(self.as_slice(), &cx.gpu))
+//   }
+// }
 
 #[pollster::test]
 async fn test_storage_buffer() {
-  let input = vec![1_u32; 70];
-  let expect = input.clone();
+  gpu_test_scope(|cx| {
+    let input = vec![1_u32; 70];
+    let expect = input.clone();
 
-  input.run_test(&expect).await
+    let input = slice_into_compute(&input, cx);
+
+    input.run_test(cx, &expect)
+  })
 }
 
 #[derive(Clone)]
@@ -155,10 +173,14 @@ where
       self.buffer.item_count().into()
     }
   }
+  fn result_size(&self) -> u32 {
+    self.buffer.item_count()
+  }
 
   fn requested_workgroup_size(&self) -> Option<u32> {
     None
   }
+
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -186,34 +208,34 @@ impl<T: Std430> ShaderHashProvider for DeviceMaterializeResult<T> {
     self.size.is_some().hash(hasher)
   }
 }
-impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<Node<T>>
-  for DeviceMaterializeResult<T>
-{
-  fn execute_and_expose(
-    &self,
-    _: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    Box::new(self.clone())
-  }
+// impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<Node<T>>
+//   for DeviceMaterializeResult<T>
+// {
+//   fn execute_and_expose(
+//     &self,
+//     _: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+//     Box::new(self.clone())
+//   }
 
-  fn result_size(&self) -> u32 {
-    self.buffer.item_count()
-  }
-}
+//   fn result_size(&self) -> u32 {
+//     self.buffer.item_count()
+//   }
+// }
 
-impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T>
-  for DeviceMaterializeResult<T>
-{
-  fn materialize_storage_buffer(
-    &self,
-    _: &mut DeviceParallelComputeCtx,
-  ) -> DeviceMaterializeResult<T>
-  where
-    T: Std430 + ShaderSizedValueNodeType,
-  {
-    self.clone()
-  }
-}
+// impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T>
+//   for DeviceMaterializeResult<T>
+// {
+//   fn materialize_storage_buffer(
+//     &self,
+//     _: &mut DeviceParallelComputeCtx,
+//   ) -> DeviceMaterializeResult<T>
+//   where
+//     T: Std430 + ShaderSizedValueNodeType,
+//   {
+//     self.clone()
+//   }
+// }
 
 pub struct WriteIntoStorageWriter<T: Std430> {
   pub inner: Box<dyn DeviceInvocationComponent<Node<T>>>,
@@ -236,6 +258,10 @@ impl<T> DeviceInvocationComponent<Node<T>> for WriteIntoStorageWriter<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
+  fn result_size(&self) -> u32 {
+    self.inner.result_size()
+  }
+
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.inner.requested_workgroup_size()
   }
@@ -276,18 +302,16 @@ where
 }
 
 pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
-  source: &(impl DeviceParallelComputeIO<T> + ?Sized),
+  source: &(impl DeviceInvocationComponent<Node<T>> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
   write_position_mapper: impl Fn(Node<u32>) -> (Node<u32>, Node<bool>) + 'static,
   result_write_idx_hasher: Box<dyn ShaderHashProvider>,
   write_target: StorageBufferDataView<[T]>,
 ) -> DeviceMaterializeResult<T> {
-  let input_source = source.execute_and_expose(cx);
-
   assert!(write_target.item_count() >= source.result_size());
 
   let write = WriteIntoStorageWriter {
-    inner: input_source,
+    inner: Box::new(source.clone()),
     result_write_idx: Arc::new(write_position_mapper),
     output: write_target,
     result_write_idx_hasher,
@@ -307,7 +331,7 @@ impl ShaderHashProvider for LinearWriterHash {
 }
 
 pub fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
-  source: &(impl DeviceParallelComputeIO<T> + ?Sized),
+  source: &(impl DeviceInvocationComponent<Node<T>> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
   write_target: StorageBufferDataView<[T]>,
 ) -> DeviceMaterializeResult<T> {
@@ -320,83 +344,90 @@ pub fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
   )
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
-pub struct WriteIntoStorageReadBackToDevice<T> {
-  pub inner: Box<dyn DeviceParallelComputeIO<T>>,
+// #[derive(Derivative)]
+// #[derivative(Clone(bound = ""))]
+// pub struct WriteIntoStorageReadBackToDevice<T> {
+//   pub inner: Box<dyn DeviceParallelComputeIO<T>>,
+// }
+
+// impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelCompute<Node<T>>
+//   for WriteIntoStorageReadBackToDevice<T>
+// {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+//     self.materialize_storage_buffer(cx).into_boxed()
+//   }
+
+//   fn result_size(&self) -> u32 {
+//     self.inner.result_size()
+//   }
+// }
+
+// impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelComputeIO<T>
+//   for WriteIntoStorageReadBackToDevice<T>
+// {
+//   fn materialize_storage_buffer(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> DeviceMaterializeResult<T> {
+//     self.inner.materialize_storage_buffer(cx)
+//   }
+//   fn materialize_storage_buffer_into(
+//     &self,
+//     target: StorageBufferDataView<[T]>,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> DeviceMaterializeResult<T>
+//   where
+//     T: Std430 + ShaderSizedValueNodeType,
+//   {
+//     self.inner.materialize_storage_buffer_into(target, cx)
+//   }
+// }
+
+pub fn debug_log_compute<T>(
+  compute: impl DeviceInvocationComponent<Node<T>>,
+  cx: &mut DeviceParallelComputeCtx,
+) {
+  //
 }
 
-impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelCompute<Node<T>>
-  for WriteIntoStorageReadBackToDevice<T>
-{
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    self.materialize_storage_buffer(cx).into_boxed()
-  }
+// #[derive(Derivative)]
+// #[derivative(Clone(bound = ""))]
+// pub struct DeviceParallelComputeIODebug<T> {
+//   pub inner: Box<dyn DeviceParallelComputeIO<T>>,
+//   pub label: &'static str,
+// }
 
-  fn result_size(&self) -> u32 {
-    self.inner.result_size()
-  }
-}
+// impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelCompute<Node<T>>
+//   for DeviceParallelComputeIODebug<T>
+// {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+//     let (device_result, size, host_result) =
+//       pollster::block_on(self.inner.read_back_host(cx)).unwrap();
 
-impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelComputeIO<T>
-  for WriteIntoStorageReadBackToDevice<T>
-{
-  fn materialize_storage_buffer(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> DeviceMaterializeResult<T> {
-    self.inner.materialize_storage_buffer(cx)
-  }
-  fn materialize_storage_buffer_into(
-    &self,
-    target: StorageBufferDataView<[T]>,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> DeviceMaterializeResult<T>
-  where
-    T: Std430 + ShaderSizedValueNodeType,
-  {
-    self.inner.materialize_storage_buffer_into(target, cx)
-  }
-}
+//     println!("{} content is: {:?}", self.label, host_result);
+//     if let Some(size) = size {
+//       println!("{} has device size: {}", self.label, size);
+//     }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
-pub struct DeviceParallelComputeIODebug<T> {
-  pub inner: Box<dyn DeviceParallelComputeIO<T>>,
-  pub label: &'static str,
-}
+//     // todo, log should not has any side effect, but we can not return the inner execute_and_expose
+//     // because forker expect the execute_and_expose is consumed once
+//     device_result.into_boxed()
+//   }
 
-impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelCompute<Node<T>>
-  for DeviceParallelComputeIODebug<T>
-{
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    let (device_result, size, host_result) =
-      pollster::block_on(self.inner.read_back_host(cx)).unwrap();
+//   fn result_size(&self) -> u32 {
+//     self.inner.result_size()
+//   }
+// }
 
-    println!("{} content is: {:?}", self.label, host_result);
-    if let Some(size) = size {
-      println!("{} has device size: {}", self.label, size);
-    }
-
-    // todo, log should not has any side effect, but we can not return the inner execute_and_expose
-    // because forker expect the execute_and_expose is consumed once
-    device_result.into_boxed()
-  }
-
-  fn result_size(&self) -> u32 {
-    self.inner.result_size()
-  }
-}
-
-/// this impl should not call internal materialization or default implementation, because we have
-/// configured the workgroup size
-impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelComputeIO<T>
-  for DeviceParallelComputeIODebug<T>
-{
-}
+// /// this impl should not call internal materialization or default implementation, because we have
+// /// configured the workgroup size
+// impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelComputeIO<T>
+//   for DeviceParallelComputeIODebug<T>
+// {
+// }

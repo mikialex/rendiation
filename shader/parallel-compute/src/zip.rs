@@ -17,12 +17,14 @@ impl<A, B> DeviceInvocation<(A, B)> for DeviceInvocationZip<A, B> {
   }
 }
 
-struct Builder<A, B> {
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+pub struct DeviceComputeZip<A, B> {
   pub source_a: Box<dyn DeviceInvocationComponent<A>>,
   pub source_b: Box<dyn DeviceInvocationComponent<B>>,
 }
 
-impl<A: 'static, B: 'static> ShaderHashProvider for Builder<A, B> {
+impl<A: 'static, B: 'static> ShaderHashProvider for DeviceComputeZip<A, B> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.source_a.hash_pipeline_with_type_info(hasher);
     self.source_b.hash_pipeline_with_type_info(hasher)
@@ -30,7 +32,11 @@ impl<A: 'static, B: 'static> ShaderHashProvider for Builder<A, B> {
   shader_hash_type_id! {}
 }
 
-impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for Builder<A, B> {
+impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for DeviceComputeZip<A, B> {
+  fn result_size(&self) -> u32 {
+    self.source_a.result_size().min(self.source_b.result_size())
+  }
+
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -62,39 +68,40 @@ impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for Builder<A, B>
   }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
-pub struct DeviceParallelComputeZip<A, B> {
-  pub source_a: Box<dyn DeviceParallelCompute<A>>,
-  pub source_b: Box<dyn DeviceParallelCompute<B>>,
-}
+// #[derive(Derivative)]
+// #[derivative(Clone(bound = ""))]
+// pub struct DeviceParallelComputeZip<A, B> {
+//   pub source_a: Box<dyn DeviceParallelCompute<A>>,
+//   pub source_b: Box<dyn DeviceParallelCompute<B>>,
+// }
 
-impl<A: 'static, B: 'static> DeviceParallelCompute<(A, B)> for DeviceParallelComputeZip<A, B> {
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<(A, B)>> {
-    Box::new(Builder {
-      source_a: self.source_a.execute_and_expose(cx),
-      source_b: self.source_b.execute_and_expose(cx),
-    })
-  }
+// impl<A: 'static, B: 'static> DeviceParallelCompute<(A, B)> for DeviceParallelComputeZip<A, B> {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<(A, B)>> {
+//     Box::new(Builder {
+//       source_a: self.source_a.execute_and_expose(cx),
+//       source_b: self.source_b.execute_and_expose(cx),
+//     })
+//   }
 
-  fn result_size(&self) -> u32 {
-    self.source_a.result_size().min(self.source_b.result_size())
-  }
-}
+//   fn result_size(&self) -> u32 {
+//     self.source_a.result_size().min(self.source_b.result_size())
+//   }
+// }
 
 #[pollster::test]
 async fn test() {
-  let input = vec![1_u32; 70];
-  let input2 = vec![1_u32; 70];
+  gpu_test_scope(|cx| {
+    let input = vec![1_u32; 70];
+    let input2 = vec![1_u32; 70];
 
-  let expect = vec![2_u32; 70];
+    let expect = vec![2_u32; 70];
 
-  input
-    .zip(input2)
-    .map(|(a, b)| a + b)
-    .run_test(&expect)
-    .await
+    let input = slice_into_compute(&input, cx);
+    let input2 = slice_into_compute(&input2, cx);
+
+    input.zip(input2).map(|(a, b)| a + b).run_test(cx, &expect)
+  })
 }

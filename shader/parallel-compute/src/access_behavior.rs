@@ -112,12 +112,16 @@ where
   }
 }
 
-struct Builder<T, F> {
+#[derive(Derivative)]
+#[derivative(Clone(bound = "F: Clone"))]
+pub struct DeviceParallelComputeCustomInvocationBehavior<T, F> {
   pub source: Box<dyn DeviceInvocationComponent<Node<T>>>,
   pub behavior: F,
 }
 
-impl<T: 'static, F: Hash + 'static> ShaderHashProvider for Builder<T, F> {
+impl<T: 'static, F: Hash + 'static> ShaderHashProvider
+  for DeviceParallelComputeCustomInvocationBehavior<T, F>
+{
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.behavior.hash(hasher);
     self.source.hash_pipeline_with_type_info(hasher)
@@ -125,11 +129,16 @@ impl<T: 'static, F: Hash + 'static> ShaderHashProvider for Builder<T, F> {
   shader_hash_type_id! {}
 }
 
-impl<T, F> DeviceInvocationComponent<Node<T>> for Builder<T, F>
+impl<T, F> DeviceInvocationComponent<Node<T>>
+  for DeviceParallelComputeCustomInvocationBehavior<T, F>
 where
   T: ShaderSizedValueNodeType,
   F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
 {
+  fn result_size(&self) -> u32 {
+    self.behavior.resize_work_size(self.source.result_size())
+  }
+
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -155,67 +164,76 @@ where
   }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = "F: Clone"))]
-pub struct DeviceParallelComputeCustomInvocationBehavior<T, F> {
-  pub source: Box<dyn DeviceParallelComputeIO<T>>,
-  pub behavior: F,
-}
+// #[derive(Derivative)]
+// #[derivative(Clone(bound = "F: Clone"))]
+// pub struct DeviceParallelComputeCustomInvocationBehavior<T, F> {
+//   pub source: Box<dyn DeviceParallelComputeIO<T>>,
+//   pub behavior: F,
+// }
 
-impl<T, F> DeviceParallelCompute<Node<T>> for DeviceParallelComputeCustomInvocationBehavior<T, F>
-where
-  T: ShaderSizedValueNodeType,
-  F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
-{
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    Box::new(Builder {
-      source: self.source.execute_and_expose(cx),
-      behavior: self.behavior.clone(),
-    })
-  }
-  fn result_size(&self) -> u32 {
-    self.behavior.resize_work_size(self.source.result_size())
-  }
-}
-impl<T, F> DeviceParallelComputeIO<T> for DeviceParallelComputeCustomInvocationBehavior<T, F>
-where
-  T: ShaderSizedValueNodeType,
-  F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
-{
-}
+// impl<T, F> DeviceParallelCompute<Node<T>> for DeviceParallelComputeCustomInvocationBehavior<T, F>
+// where
+//   T: ShaderSizedValueNodeType,
+//   F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
+// {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+//     Box::new(Builder {
+//       source: self.source.execute_and_expose(cx),
+//       behavior: self.behavior.clone(),
+//     })
+//   }
+//   fn result_size(&self) -> u32 {
+//     self.behavior.resize_work_size(self.source.result_size())
+//   }
+// }
+// impl<T, F> DeviceParallelComputeIO<T> for DeviceParallelComputeCustomInvocationBehavior<T, F>
+// where
+//   T: ShaderSizedValueNodeType,
+//   F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
+// {
+// }
 
 #[pollster::test]
 async fn test1() {
-  let input = [0, 1, 2, 3, 4, 5].to_vec();
-  let expect = [3, 4, 5, 5, 5, 5].to_vec();
+  gpu_test_scope(|cx| {
+    let input = [0, 1, 2, 3, 4, 5].to_vec();
+    let expect = [3, 4, 5, 5, 5, 5].to_vec();
 
-  input
-    .offset_access(3, OutBoundsBehavior::ClampBorder, 0)
-    .run_test(&expect)
-    .await
+    let input = slice_into_compute(&input, cx);
+
+    input
+      .offset_access(3, OutBoundsBehavior::ClampBorder, 0)
+      .run_test(cx, &expect)
+  })
 }
 
 #[pollster::test]
 async fn test2() {
-  let input = [0, 1, 2, 3, 4, 5].to_vec();
-  let expect = [0, 0, 0, 1, 2, 3, 4].to_vec();
+  gpu_test_scope(|cx| {
+    let input = [0, 1, 2, 3, 4, 5].to_vec();
+    let expect = [0, 0, 0, 1, 2, 3, 4].to_vec();
 
-  input
-    .offset_access(-2, OutBoundsBehavior::ClampBorder, 1)
-    .run_test(&expect)
-    .await
+    let input = slice_into_compute(&input, cx);
+
+    input
+      .offset_access(-2, OutBoundsBehavior::ClampBorder, 1)
+      .run_test(cx, &expect)
+  })
 }
 
 #[pollster::test]
 async fn test3() {
-  let input = [0, 1, 2, 3, 4, 5].to_vec();
-  let expect = [6, 6, 0, 1, 2, 3].to_vec();
+  gpu_test_scope(|cx| {
+    let input = [0, 1, 2, 3, 4, 5].to_vec();
+    let expect = [6, 6, 0, 1, 2, 3].to_vec();
 
-  input
-    .offset_access(-2, OutBoundsBehavior::from_const(|| val(6)), 0)
-    .run_test(&expect)
-    .await
+    let input = slice_into_compute(&input, cx);
+
+    input
+      .offset_access(-2, OutBoundsBehavior::from_const(|| val(6)), 0)
+      .run_test(cx, &expect)
+  })
 }

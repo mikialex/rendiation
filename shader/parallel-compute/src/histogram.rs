@@ -7,10 +7,12 @@ pub trait DeviceHistogramMappingLogic {
   fn map(data: Node<Self::Data>) -> Node<u32>;
 }
 
-struct WorkGroupHistogramCompute<T, S> {
-  workgroup_size: u32,
-  histogram_logic: PhantomData<S>,
-  upstream: Box<dyn DeviceInvocationComponent<Node<T>>>,
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+pub struct WorkGroupHistogramCompute<T, S> {
+  pub workgroup_size: u32,
+  pub histogram_logic: PhantomData<S>,
+  pub upstream: Box<dyn DeviceInvocationComponent<Node<T>>>,
 }
 
 impl<T: 'static, S: 'static> ShaderHashProvider for WorkGroupHistogramCompute<T, S>
@@ -30,6 +32,10 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
 {
+  fn result_size(&self) -> u32 {
+    self.upstream.result_size().div_ceil(self.workgroup_size) * S::MAX
+  }
+
   fn work_size(&self) -> Option<u32> {
     self.upstream.work_size()
   }
@@ -71,54 +77,7 @@ where
   fn bind_input(&self, builder: &mut BindingBuilder) {
     self.upstream.bind_input(builder)
   }
-}
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
-pub struct WorkGroupHistogram<T, S> {
-  pub workgroup_size: u32,
-  pub logic: PhantomData<S>,
-  pub upstream: Box<dyn DeviceParallelComputeIO<T>>,
-}
-
-impl<T, S> WorkGroupHistogram<T, S>
-where
-  T: ShaderSizedValueNodeType,
-  S: DeviceHistogramMappingLogic<Data = T> + 'static,
-{
-  fn compute_result_typed(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> WorkGroupHistogramCompute<T, S> {
-    WorkGroupHistogramCompute::<T, S> {
-      workgroup_size: self.workgroup_size,
-      upstream: self.upstream.execute_and_expose(cx),
-      histogram_logic: Default::default(),
-    }
-  }
-}
-
-impl<T, S> DeviceParallelCompute<Node<u32>> for WorkGroupHistogram<T, S>
-where
-  T: ShaderSizedValueNodeType,
-  S: DeviceHistogramMappingLogic<Data = T> + 'static,
-{
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
-    Box::new(self.compute_result_typed(cx))
-  }
-
-  fn result_size(&self) -> u32 {
-    self.upstream.result_size().div_ceil(self.workgroup_size) * S::MAX
-  }
-}
-impl<T, S> DeviceParallelComputeIO<u32> for WorkGroupHistogram<T, S>
-where
-  T: ShaderSizedValueNodeType,
-  S: DeviceHistogramMappingLogic<Data = T> + 'static,
-{
   fn materialize_storage_buffer_into(
     &self,
     target: StorageBufferDataView<[u32]>,
@@ -151,9 +110,89 @@ where
   }
 }
 
+// #[derive(Derivative)]
+// #[derivative(Clone(bound = ""))]
+// pub struct WorkGroupHistogram<T, S> {
+//   pub workgroup_size: u32,
+//   pub logic: PhantomData<S>,
+//   pub upstream: Box<dyn DeviceParallelComputeIO<T>>,
+// }
+
+// impl<T, S> WorkGroupHistogram<T, S>
+// where
+//   T: ShaderSizedValueNodeType,
+//   S: DeviceHistogramMappingLogic<Data = T> + 'static,
+// {
+//   fn compute_result_typed(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> WorkGroupHistogramCompute<T, S> {
+//     WorkGroupHistogramCompute::<T, S> {
+//       workgroup_size: self.workgroup_size,
+//       upstream: self.upstream.execute_and_expose(cx),
+//       histogram_logic: Default::default(),
+//     }
+//   }
+// }
+
+// impl<T, S> DeviceParallelCompute<Node<u32>> for WorkGroupHistogram<T, S>
+// where
+//   T: ShaderSizedValueNodeType,
+//   S: DeviceHistogramMappingLogic<Data = T> + 'static,
+// {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+//     Box::new(self.compute_result_typed(cx))
+//   }
+
+//   fn result_size(&self) -> u32 {
+//     self.upstream.result_size().div_ceil(self.workgroup_size) * S::MAX
+//   }
+// }
+// impl<T, S> DeviceParallelComputeIO<u32> for WorkGroupHistogram<T, S>
+// where
+//   T: ShaderSizedValueNodeType,
+//   S: DeviceHistogramMappingLogic<Data = T> + 'static,
+// {
+//   fn materialize_storage_buffer_into(
+//     &self,
+//     target: StorageBufferDataView<[u32]>,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> DeviceMaterializeResult<u32> {
+//     let workgroup_size = self.workgroup_size;
+
+//     struct HistogramWrite(u32, u32);
+//     impl ShaderHashProvider for HistogramWrite {
+//       fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+//         self.0.hash(hasher);
+//         self.1.hash(hasher);
+//       }
+//       shader_hash_type_id! {}
+//     }
+
+//     custom_write_into_storage_buffer(
+//       self,
+//       cx,
+//       move |global_id| {
+//         let workgroup_index = global_id / val(workgroup_size);
+//         let local_index = global_id % val(workgroup_size);
+//         let valid = local_index.less_than(S::MAX);
+//         let idx = val(S::MAX) * workgroup_index + local_index;
+//         (idx, valid)
+//       },
+//       Box::new(HistogramWrite(workgroup_size, S::MAX)),
+//       target,
+//     )
+//   }
+// }
+
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct DeviceHistogramCompute<T, S> {
-  workgroup_level: WorkGroupHistogramCompute<T, S>,
-  result: StorageBufferDataView<[DeviceAtomic<u32>]>,
+  pub workgroup_level: WorkGroupHistogramCompute<T, S>,
+  pub result: StorageBufferDataView<[DeviceAtomic<u32>]>,
 }
 
 impl<T: 'static, S> ShaderHashProvider for DeviceHistogramCompute<T, S>
@@ -171,6 +210,10 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
 {
+  fn result_size(&self) -> u32 {
+    S::MAX
+  }
+
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.workgroup_level.requested_workgroup_size()
   }
@@ -207,130 +250,155 @@ where
   fn work_size(&self) -> Option<u32> {
     self.workgroup_level.work_size()
   }
-}
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
-pub struct DeviceHistogram<T, S> {
-  pub workgroup_level: WorkGroupHistogram<T, S>,
-}
-
-impl<T, S> DeviceHistogram<T, S>
-where
-  T: ShaderSizedValueNodeType,
-  S: DeviceHistogramMappingLogic<Data = T> + 'static,
-{
-  fn create_compute_instance_impl(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> DeviceHistogramCompute<T, S> {
-    let workgroup_level = self.workgroup_level.compute_result_typed(cx);
-
-    let init = ZeroedArrayByArrayLength(S::MAX as usize);
-    let result = create_gpu_read_write_storage(init, &cx.gpu.device);
-
-    DeviceHistogramCompute::<T, S> {
-      workgroup_level,
-      result,
-    }
-  }
-}
-
-impl<T, S> DeviceParallelCompute<Node<u32>> for DeviceHistogram<T, S>
-where
-  T: ShaderSizedValueNodeType,
-  S: DeviceHistogramMappingLogic<Data = T> + 'static,
-{
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
-    Box::new(self.create_compute_instance_impl(cx))
-  }
-
-  fn result_size(&self) -> u32 {
-    S::MAX
-  }
-}
-impl<T, S> DeviceParallelComputeIO<u32> for DeviceHistogram<T, S>
-where
-  T: ShaderSizedValueNodeType,
-  S: DeviceHistogramMappingLogic<Data = T> + 'static,
-{
-  fn materialize_storage_buffer(
+  fn materialize_storage_buffer_into(
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceMaterializeResult<u32>
   where
     u32: Std430 + ShaderSizedValueNodeType,
   {
-    let compute_instance = self.create_compute_instance_impl(cx);
-    compute_instance.dispatch_compute(cx);
+    self.dispatch_compute(cx);
     DeviceMaterializeResult::full_buffer(
-      compute_instance
-        .result
-        .into_host_nonatomic_array()
-        .into_readonly_view(),
+      self.result.into_host_nonatomic_array().into_readonly_view(),
     )
   }
 }
 
+// #[derive(Derivative)]
+// #[derivative(Clone(bound = ""))]
+// pub struct DeviceHistogram<T, S> {
+//   pub workgroup_level: WorkGroupHistogram<T, S>,
+// }
+
+// impl<T, S> DeviceHistogram<T, S>
+// where
+//   T: ShaderSizedValueNodeType,
+//   S: DeviceHistogramMappingLogic<Data = T> + 'static,
+// {
+//   fn create_compute_instance_impl(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> DeviceHistogramCompute<T, S> {
+//     let workgroup_level = self.workgroup_level.compute_result_typed(cx);
+
+//     let init = ZeroedArrayByArrayLength(S::MAX as usize);
+//     let result = create_gpu_read_write_storage(init, &cx.gpu.device);
+
+//     DeviceHistogramCompute::<T, S> {
+//       workgroup_level,
+//       result,
+//     }
+//   }
+// }
+
+// impl<T, S> DeviceParallelCompute<Node<u32>> for DeviceHistogram<T, S>
+// where
+//   T: ShaderSizedValueNodeType,
+//   S: DeviceHistogramMappingLogic<Data = T> + 'static,
+// {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+//     Box::new(self.create_compute_instance_impl(cx))
+//   }
+
+//   fn result_size(&self) -> u32 {
+//     S::MAX
+//   }
+// }
+// impl<T, S> DeviceParallelComputeIO<u32> for DeviceHistogram<T, S>
+// where
+//   T: ShaderSizedValueNodeType,
+//   S: DeviceHistogramMappingLogic<Data = T> + 'static,
+// {
+//   fn materialize_storage_buffer(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> DeviceMaterializeResult<u32>
+//   where
+//     u32: Std430 + ShaderSizedValueNodeType,
+//   {
+//     let compute_instance = self.create_compute_instance_impl(cx);
+//     compute_instance.dispatch_compute(cx);
+//     DeviceMaterializeResult::full_buffer(
+//       compute_instance
+//         .result
+//         .into_host_nonatomic_array()
+//         .into_readonly_view(),
+//     )
+//   }
+// }
+
 #[pollster::test]
 async fn test_histogram_workgroup() {
-  struct TestRangedU32;
-  impl DeviceHistogramMappingLogic for TestRangedU32 {
-    type Data = u32;
+  gpu_test_scope(|cx| {
+    struct TestRangedU32;
+    impl DeviceHistogramMappingLogic for TestRangedU32 {
+      type Data = u32;
 
-    const MAX: u32 = 4;
+      const MAX: u32 = 4;
 
-    fn map(data: Node<Self::Data>) -> Node<u32> {
-      data
+      fn map(data: Node<Self::Data>) -> Node<u32> {
+        data
+      }
     }
-  }
 
-  let input = [0, 0, 1, 2, 3, 2, 1].to_vec();
-  let expect = [2, 1, 1, 0, 0, 1, 1, 1].to_vec();
+    let input = [0, 0, 1, 2, 3, 2, 1].to_vec();
+    let expect = [2, 1, 1, 0, 0, 1, 1, 1].to_vec();
+    let input = slice_into_compute(&input, cx);
 
-  input
-    .workgroup_histogram::<TestRangedU32>(4)
-    .run_test(&expect)
-    .await
+    input
+      .workgroup_histogram::<TestRangedU32>(4, cx)
+      .run_test(cx, &expect)
+  })
 }
 
 #[pollster::test]
 async fn test_histogram() {
-  struct TestRangedU32;
-  impl DeviceHistogramMappingLogic for TestRangedU32 {
-    type Data = u32;
+  gpu_test_scope(|cx| {
+    struct TestRangedU32;
+    impl DeviceHistogramMappingLogic for TestRangedU32 {
+      type Data = u32;
 
-    const MAX: u32 = 6;
+      const MAX: u32 = 6;
 
-    fn map(data: Node<Self::Data>) -> Node<u32> {
-      data
+      fn map(data: Node<Self::Data>) -> Node<u32> {
+        data
+      }
     }
-  }
 
-  let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
-  let expect = [2, 1, 1, 1, 1, 1].to_vec();
+    let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
+    let expect = [2, 1, 1, 1, 1, 1].to_vec();
+    let input = slice_into_compute(&input, cx);
 
-  input.histogram::<TestRangedU32>(32).run_test(&expect).await
+    input
+      .histogram::<TestRangedU32>(32, cx)
+      .run_test(cx, &expect)
+  })
 }
 
 #[pollster::test]
 async fn test_histogram_clamp_behavior() {
-  struct TestRangedU32;
-  impl DeviceHistogramMappingLogic for TestRangedU32 {
-    type Data = u32;
+  gpu_test_scope(|cx| {
+    struct TestRangedU32;
+    impl DeviceHistogramMappingLogic for TestRangedU32 {
+      type Data = u32;
 
-    const MAX: u32 = 4;
+      const MAX: u32 = 4;
 
-    fn map(data: Node<Self::Data>) -> Node<u32> {
-      data
+      fn map(data: Node<Self::Data>) -> Node<u32> {
+        data
+      }
     }
-  }
 
-  let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
-  let expect = [2, 1, 1, 3].to_vec();
+    let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
+    let expect = [2, 1, 1, 3].to_vec();
+    let input = slice_into_compute(&input, cx);
 
-  input.histogram::<TestRangedU32>(32).run_test(&expect).await
+    input
+      .histogram::<TestRangedU32>(32, cx)
+      .run_test(cx, &expect)
+  })
 }

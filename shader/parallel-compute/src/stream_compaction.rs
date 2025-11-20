@@ -1,64 +1,35 @@
 use crate::*;
 
-/// stream compaction will reduce the work size in device, so extra care is required
-#[derive(Clone)]
-pub struct StreamCompaction<T> {
-  pub source: Box<dyn DeviceParallelComputeIO<T>>,
-  pub filter: Box<dyn DeviceParallelComputeIO<bool>>,
-}
-
-impl<T> DeviceParallelCompute<Node<T>> for StreamCompaction<T>
+pub fn stream_compaction<T>(
+  source: Box<dyn DeviceInvocationComponent<Node<T>>>,
+  filter: Box<dyn DeviceInvocationComponent<Node<bool>>>,
+  cx: &mut DeviceParallelComputeCtx,
+) -> DeviceMaterializeResult<T>
 where
   T: Std430 + ShaderSizedValueNodeType + Debug,
 {
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    self.materialize_storage_buffer(cx).into_boxed()
+  let write_target_positions = filter
+    .clone()
+    .map(|v| v.select(1_u32, 0))
+    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(512, 512);
+
+  let (_, size) = PrefixSumTailAsSize {
+    prefix_sum_result: write_target_positions.execute_and_expose(cx),
   }
+  .compute_work_size(cx);
 
-  fn result_size(&self) -> u32 {
-    self.source.result_size()
-  }
-}
+  let shuffle_moved = source
+    .clone()
+    .shuffle_move(
+      write_target_positions
+        .make_global_scan_exclusive::<AdditionMonoid<u32>>()
+        .zip(filter.clone()),
+    )
+    .materialize_storage_buffer(cx);
 
-impl<T> DeviceParallelComputeIO<T> for StreamCompaction<T>
-where
-  T: Std430 + ShaderSizedValueNodeType + Debug,
-{
-  fn materialize_storage_buffer(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> DeviceMaterializeResult<T>
-  where
-    T: Std430 + ShaderSizedValueNodeType,
-  {
-    let write_target_positions = self
-      .filter
-      .clone()
-      .map(|v| v.select(1_u32, 0))
-      .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(512, 512);
-
-    let (_, size) = PrefixSumTailAsSize {
-      prefix_sum_result: write_target_positions.execute_and_expose(cx),
-    }
-    .compute_work_size(cx);
-
-    let shuffle_moved = self
-      .source
-      .clone()
-      .shuffle_move(
-        write_target_positions
-          .make_global_scan_exclusive::<AdditionMonoid<u32>>()
-          .zip(self.filter.clone()),
-      )
-      .materialize_storage_buffer(cx);
-
-    DeviceMaterializeResult {
-      buffer: shuffle_moved.buffer,
-      size: size.into_readonly_view().into(),
-    }
+  DeviceMaterializeResult {
+    buffer: shuffle_moved.buffer,
+    size: size.into_readonly_view().into(),
   }
 }
 
@@ -76,6 +47,10 @@ impl ShaderHashProvider for PrefixSumTailAsSize {
 impl DeviceInvocationComponent<Node<u32>> for PrefixSumTailAsSize {
   fn work_size(&self) -> Option<u32> {
     self.prefix_sum_result.work_size()
+  }
+
+  fn result_size(&self) -> u32 {
+    self.prefix_sum_result.result_size()
   }
 
   fn build_shader(
@@ -108,24 +83,28 @@ impl DeviceInvocation<Node<u32>> for DeviceInvocationTailAsSize {
 
 #[pollster::test]
 async fn test_stream_compaction() {
-  let input = vec![1, 0, 1, 0, 1, 1, 0];
-  let expect = vec![1, 1, 1, 1, 0, 0, 0];
+  gpu_test_scope(|cx| {
+    let input = vec![1, 0, 1, 0, 1, 1, 0];
+    let expect = vec![1, 1, 1, 1, 0, 0, 0];
 
-  let mask = input.clone().map(|v| v.equals(1));
+    let input = slice_into_compute(&input, cx);
+    let mask = input.map(|v| v.equals(1));
 
-  input
-    .stream_compaction(mask)
-    .run_test_with_size_test(&expect, Some(Vec3::new(4, 0, 0)))
-    .await
+    input
+      .stream_compaction(mask, cx)
+      .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
+  })
 }
 
 #[pollster::test]
 async fn test_stream_compaction2() {
-  let input = vec![1, 0, 1, 0, 1, 1, 0];
-  let expect = vec![1, 1, 1, 1, 0, 0, 0];
+  gpu_test_scope(|cx| {
+    let input = vec![1, 0, 1, 0, 1, 1, 0];
+    let expect = vec![1, 1, 1, 1, 0, 0, 0];
 
-  input
-    .stream_compaction_self_filter(|v| v.equals(1))
-    .run_test_with_size_test(&expect, Some(Vec3::new(4, 0, 0)))
-    .await
+    let input = slice_into_compute(&input, cx);
+    (Box::new(input) as Box<dyn DeviceInvocationComponent<Node<u32>>>)
+      .stream_compaction_self_filter(|v| v.equals(1), cx)
+      .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
+  })
 }

@@ -35,10 +35,12 @@ where
   }
 }
 
-struct WorkGroupPrefixScanKoggeStoneCompute<T, S> {
-  workgroup_size: u32,
-  scan_logic: PhantomData<S>,
-  upstream: Box<dyn DeviceInvocationComponent<Node<T>>>,
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+pub struct WorkGroupPrefixScanKoggeStoneCompute<T, S> {
+  pub workgroup_size: u32,
+  pub scan_logic: PhantomData<S>,
+  pub upstream: Box<dyn DeviceInvocationComponent<Node<T>>>,
 }
 
 impl<T: 'static, S: 'static> ShaderHashProvider for WorkGroupPrefixScanKoggeStoneCompute<T, S> {
@@ -54,6 +56,9 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
+  fn result_size(&self) -> u32 {
+    self.upstream.result_size()
+  }
   fn requested_workgroup_size(&self) -> Option<u32> {
     Some(self.workgroup_size)
   }
@@ -105,85 +110,89 @@ where
   }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
-pub struct WorkGroupPrefixScanKoggeStone<T, S> {
-  pub workgroup_size: u32,
-  pub scan_logic: PhantomData<S>,
-  pub upstream: Box<dyn DeviceParallelComputeIO<T>>,
-}
+// #[derive(Derivative)]
+// #[derivative(Clone(bound = ""))]
+// pub struct WorkGroupPrefixScanKoggeStone<T, S> {
+//   pub workgroup_size: u32,
+//   pub scan_logic: PhantomData<S>,
+//   pub upstream: Box<dyn DeviceParallelComputeIO<T>>,
+// }
 
-impl<T, S> DeviceParallelCompute<Node<T>> for WorkGroupPrefixScanKoggeStone<T, S>
-where
-  T: ShaderSizedValueNodeType,
-  S: DeviceMonoidLogic<Data = T> + 'static,
-{
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    Box::new(WorkGroupPrefixScanKoggeStoneCompute::<T, S> {
-      workgroup_size: self.workgroup_size,
-      upstream: self.upstream.execute_and_expose(cx),
-      scan_logic: Default::default(),
-    })
-  }
+// impl<T, S> DeviceParallelCompute<Node<T>> for WorkGroupPrefixScanKoggeStone<T, S>
+// where
+//   T: ShaderSizedValueNodeType,
+//   S: DeviceMonoidLogic<Data = T> + 'static,
+// {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+//     Box::new(WorkGroupPrefixScanKoggeStoneCompute::<T, S> {
+//       workgroup_size: self.workgroup_size,
+//       upstream: self.upstream.execute_and_expose(cx),
+//       scan_logic: Default::default(),
+//     })
+//   }
 
-  fn result_size(&self) -> u32 {
-    self.upstream.result_size()
-  }
-}
-impl<T, S> DeviceParallelComputeIO<T> for WorkGroupPrefixScanKoggeStone<T, S>
-where
-  T: ShaderSizedValueNodeType,
-  S: DeviceMonoidLogic<Data = T> + 'static,
-{
-}
+//   fn result_size(&self) -> u32 {
+//     self.upstream.result_size()
+//   }
+// }
+// impl<T, S> DeviceParallelComputeIO<T> for WorkGroupPrefixScanKoggeStone<T, S>
+// where
+//   T: ShaderSizedValueNodeType,
+//   S: DeviceMonoidLogic<Data = T> + 'static,
+// {
+// }
 
 #[pollster::test]
 async fn test_workgroup_prefix_sum_kogge_stone() {
-  let input = vec![1_u32; 70];
+  gpu_test_scope(|cx| {
+    let input = vec![1_u32; 70];
 
-  let workgroup_size = 32;
+    let workgroup_size = 32;
 
-  let mut expect = Vec::new();
+    let mut expect = Vec::new();
 
-  let mut local_idx = 0;
-  let mut sum = 0;
-  for i in input.clone() {
-    if local_idx >= workgroup_size {
-      local_idx = 0;
-      sum = 0;
+    let mut local_idx = 0;
+    let mut sum = 0;
+    for i in input.clone() {
+      if local_idx >= workgroup_size {
+        local_idx = 0;
+        sum = 0;
+      }
+
+      sum += i;
+      expect.push(sum);
+
+      local_idx += 1;
     }
 
-    sum += i;
-    expect.push(sum);
-
-    local_idx += 1;
-  }
-
-  input
-    .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size)
-    .run_test(&expect)
-    .await
+    let input = slice_into_compute(&input, cx);
+    input
+      .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size)
+      .run_test(cx, &expect)
+  })
 }
 
 #[pollster::test]
 async fn test_prefix_sum_kogge_stone() {
-  let input = vec![1_u32; 70];
+  gpu_test_scope(|cx| {
+    let input = vec![1_u32; 70];
 
-  let workgroup_size = 32;
+    let workgroup_size = 32;
 
-  let mut expect = Vec::new();
+    let mut expect = Vec::new();
 
-  let mut sum = 0;
-  for i in input.clone() {
-    sum += i;
-    expect.push(sum);
-  }
+    let mut sum = 0;
+    for i in input.clone() {
+      sum += i;
+      expect.push(sum);
+    }
 
-  input
-    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size)
-    .run_test(&expect)
-    .await
+    let input = slice_into_compute(&input, cx);
+    input
+      .segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size)
+      .run_test(cx, &expect)
+  })
 }

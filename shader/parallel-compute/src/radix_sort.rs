@@ -27,15 +27,15 @@ impl ShaderHashProvider for IterIndexHasher {
 
 // todo, impl memory coalesced version for better performance
 pub fn device_radix_sort_naive<T, S>(
-  input: impl DeviceParallelComputeIO<T> + 'static,
+  input: impl DeviceInvocationComponent<Node<T>> + 'static,
   per_pass_first_stage_workgroup_size: u32,
   per_pass_second_stage_workgroup_size: u32,
-) -> Box<dyn DeviceParallelComputeIO<T>>
+) -> Box<dyn DeviceInvocationComponent<Node<T>>>
 where
   S: DeviceRadixSortKeyLogic<Data = T>,
   T: ShaderSizedValueNodeType + Std430 + Debug,
 {
-  let mut result: Box<dyn DeviceParallelComputeIO<T>> = Box::new(input);
+  let mut result: Box<dyn DeviceInvocationComponent<Node<T>>> = Box::new(input);
   for iter in 0..S::MAX_BITS {
     let iter_input = result.clone();
 
@@ -67,29 +67,29 @@ where
   result
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
-struct RadixShuffleMove {
-  ones_before: Box<dyn DeviceParallelComputeIO<u32>>,
-  is_one: Box<dyn DeviceParallelComputeIO<bool>>,
-}
+// #[derive(Derivative)]
+// #[derivative(Clone(bound = ""))]
+// struct RadixShuffleMove {
+//   ones_before: Box<dyn DeviceParallelComputeIO<u32>>,
+//   is_one: Box<dyn DeviceParallelComputeIO<bool>>,
+// }
 
-impl DeviceParallelCompute<Node<u32>> for RadixShuffleMove {
-  fn execute_and_expose(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
-    Box::new(RadixShuffleMoveCompute {
-      ones_before: self.ones_before.materialize_storage_buffer(cx),
-      is_one: self.is_one.execute_and_expose(cx),
-    })
-  }
+// impl DeviceParallelCompute<Node<u32>> for RadixShuffleMove {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+//     Box::new(RadixShuffleMoveCompute {
+//       ones_before: self.ones_before.materialize_storage_buffer(cx),
+//       is_one: self.is_one.execute_and_expose(cx),
+//     })
+//   }
 
-  fn result_size(&self) -> u32 {
-    self.is_one.result_size()
-  }
-}
-impl DeviceParallelComputeIO<u32> for RadixShuffleMove {}
+//   fn result_size(&self) -> u32 {
+//     self.is_one.result_size()
+//   }
+// }
+// impl DeviceParallelComputeIO<u32> for RadixShuffleMove {}
 
 struct RadixShuffleMoveCompute {
   ones_before: DeviceMaterializeResult<u32>,
@@ -103,6 +103,9 @@ impl ShaderHashProvider for RadixShuffleMoveCompute {
   shader_hash_type_id! {}
 }
 impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
+  fn result_size(&self) -> u32 {
+    self.is_one.result_size()
+  }
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.is_one.requested_workgroup_size()
   }
@@ -152,11 +155,13 @@ impl DeviceRadixSortKeyLogic for U32RadixSort {
 
 #[pollster::test]
 async fn test() {
-  let input = [3, 1, 4, 6, 5, 2].to_vec();
-  let expect = [1, 2, 3, 4, 5, 6].to_vec();
+  gpu_test_scope(|cx| {
+    let input = [3, 1, 4, 6, 5, 2].to_vec();
+    let expect = [1, 2, 3, 4, 5, 6].to_vec();
+    let input = slice_into_compute(&input, cx);
 
-  input
-    .device_radix_sort_naive::<U32RadixSort>(64, 64)
-    .run_test(&expect)
-    .await
+    input
+      .device_radix_sort_naive::<U32RadixSort>(64, 64)
+      .run_test(cx, &expect)
+  })
 }
