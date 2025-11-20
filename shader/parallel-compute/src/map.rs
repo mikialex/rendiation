@@ -65,13 +65,11 @@ impl<I: 'static, O: Copy + 'static> DeviceInvocationComponentIO<O>
 
 #[pollster::test]
 async fn test() {
-  gpu_test_scope(async |cx| {
-    let input = vec![1_u32; 70];
-    let expect = input.iter().map(|v| v + 1).collect::<Vec<_>>();
+  gpu_cx!(cx);
+  let input = vec![1_u32; 70];
+  let expect = input.iter().map(|v| v + 1).collect::<Vec<_>>();
 
-    let input = slice_into_compute(&input, cx);
+  let input = slice_into_compute(&input, cx);
 
-    input.map(|v| v + val(1)).run_test(cx, &expect).await;
-  })
-  .await;
+  input.map(|v| v + val(1)).run_test(cx, &expect).await;
 }

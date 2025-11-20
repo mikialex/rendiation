@@ -122,56 +122,52 @@ where
 
 #[pollster::test]
 async fn test_workgroup_prefix_sum_kogge_stone() {
-  gpu_test_scope(async |cx| {
-    let input = vec![1_u32; 70];
+  gpu_cx!(cx);
+  let input = vec![1_u32; 70];
 
-    let workgroup_size = 32;
+  let workgroup_size = 32;
 
-    let mut expect = Vec::new();
+  let mut expect = Vec::new();
 
-    let mut local_idx = 0;
-    let mut sum = 0;
-    for i in input.clone() {
-      if local_idx >= workgroup_size {
-        local_idx = 0;
-        sum = 0;
-      }
-
-      sum += i;
-      expect.push(sum);
-
-      local_idx += 1;
+  let mut local_idx = 0;
+  let mut sum = 0;
+  for i in input.clone() {
+    if local_idx >= workgroup_size {
+      local_idx = 0;
+      sum = 0;
     }
 
-    let input = slice_into_compute(&input, cx);
-    input
-      .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, cx)
-      .run_test(cx, &expect)
-      .await
-  })
-  .await
+    sum += i;
+    expect.push(sum);
+
+    local_idx += 1;
+  }
+
+  let input = slice_into_compute(&input, cx);
+  input
+    .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, cx)
+    .run_test(cx, &expect)
+    .await
 }
 
 #[pollster::test]
 async fn test_prefix_sum_kogge_stone() {
-  gpu_test_scope(async |cx| {
-    let input = vec![1_u32; 70];
+  gpu_cx!(cx);
+  let input = vec![1_u32; 70];
 
-    let workgroup_size = 32;
+  let workgroup_size = 32;
 
-    let mut expect = Vec::new();
+  let mut expect = Vec::new();
 
-    let mut sum = 0;
-    for i in input.clone() {
-      sum += i;
-      expect.push(sum);
-    }
+  let mut sum = 0;
+  for i in input.clone() {
+    sum += i;
+    expect.push(sum);
+  }
 
-    let input = slice_into_compute(&input, cx);
-    input
-      .segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size, cx)
-      .run_test(cx, &expect)
-      .await
-  })
-  .await
+  let input = slice_into_compute(&input, cx);
+  input
+    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size, cx)
+    .run_test(cx, &expect)
+    .await
 }

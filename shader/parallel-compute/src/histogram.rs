@@ -212,78 +212,72 @@ where
 
 #[pollster::test]
 async fn test_histogram_workgroup() {
-  gpu_test_scope(async |cx| {
-    struct TestRangedU32;
-    impl DeviceHistogramMappingLogic for TestRangedU32 {
-      type Data = u32;
+  gpu_cx!(cx);
+  struct TestRangedU32;
+  impl DeviceHistogramMappingLogic for TestRangedU32 {
+    type Data = u32;
 
-      const MAX: u32 = 4;
+    const MAX: u32 = 4;
 
-      fn map(data: Node<Self::Data>) -> Node<u32> {
-        data
-      }
+    fn map(data: Node<Self::Data>) -> Node<u32> {
+      data
     }
+  }
 
-    let input = [0, 0, 1, 2, 3, 2, 1].to_vec();
-    let expect = [2, 1, 1, 0, 0, 1, 1, 1].to_vec();
-    let input = slice_into_compute(&input, cx);
+  let input = [0, 0, 1, 2, 3, 2, 1].to_vec();
+  let expect = [2, 1, 1, 0, 0, 1, 1, 1].to_vec();
+  let input = slice_into_compute(&input, cx);
 
-    input
-      .workgroup_histogram::<TestRangedU32>(4, cx)
-      .run_test(cx, &expect)
-      .await
-  })
-  .await
+  input
+    .workgroup_histogram::<TestRangedU32>(4, cx)
+    .run_test(cx, &expect)
+    .await
 }
 
 #[pollster::test]
 async fn test_histogram() {
-  gpu_test_scope(async |cx| {
-    struct TestRangedU32;
-    impl DeviceHistogramMappingLogic for TestRangedU32 {
-      type Data = u32;
+  gpu_cx!(cx);
+  struct TestRangedU32;
+  impl DeviceHistogramMappingLogic for TestRangedU32 {
+    type Data = u32;
 
-      const MAX: u32 = 6;
+    const MAX: u32 = 6;
 
-      fn map(data: Node<Self::Data>) -> Node<u32> {
-        data
-      }
+    fn map(data: Node<Self::Data>) -> Node<u32> {
+      data
     }
+  }
 
-    let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
-    let expect = [2, 1, 1, 1, 1, 1].to_vec();
-    let input = slice_into_compute(&input, cx);
+  let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
+  let expect = [2, 1, 1, 1, 1, 1].to_vec();
+  let input = slice_into_compute(&input, cx);
 
-    input
-      .histogram::<TestRangedU32>(32, cx)
-      .run_test(cx, &expect)
-      .await
-  })
-  .await
+  input
+    .histogram::<TestRangedU32>(32, cx)
+    .run_test(cx, &expect)
+    .await
 }
 
 #[pollster::test]
 async fn test_histogram_clamp_behavior() {
-  gpu_test_scope(async |cx| {
-    struct TestRangedU32;
-    impl DeviceHistogramMappingLogic for TestRangedU32 {
-      type Data = u32;
+  gpu_cx!(cx);
+  struct TestRangedU32;
+  impl DeviceHistogramMappingLogic for TestRangedU32 {
+    type Data = u32;
 
-      const MAX: u32 = 4;
+    const MAX: u32 = 4;
 
-      fn map(data: Node<Self::Data>) -> Node<u32> {
-        data
-      }
+    fn map(data: Node<Self::Data>) -> Node<u32> {
+      data
     }
+  }
 
-    let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
-    let expect = [2, 1, 1, 3].to_vec();
-    let input = slice_into_compute(&input, cx);
+  let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
+  let expect = [2, 1, 1, 3].to_vec();
+  let input = slice_into_compute(&input, cx);
 
-    input
-      .histogram::<TestRangedU32>(32, cx)
-      .run_test(cx, &expect)
-      .await
-  })
-  .await
+  input
+    .histogram::<TestRangedU32>(32, cx)
+    .run_test(cx, &expect)
+    .await
 }

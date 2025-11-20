@@ -915,10 +915,13 @@ impl<T: 'static> ShaderHashProvider for Box<dyn DeviceInvocationComponent<T>> {
   shader_hash_type_id! {}
 }
 
-#[allow(dead_code)]
-pub(crate) async fn gpu_test_scope(f: impl AsyncFnOnce(&mut DeviceParallelComputeCtx)) {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
-  let mut encoder = gpu.create_encoder();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
-  f(&mut cx).await
+#[allow(unused_macros)]
+#[macro_export]
+macro_rules! gpu_cx {
+  ($name: tt) => {
+    let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+    let mut encoder = gpu.create_encoder();
+    let mut $name = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
+    let $name = &mut $name;
+  };
 }

@@ -57,15 +57,13 @@ pub fn storage_full_into_compute<T: Std430 + ShaderSizedValueNodeType>(
 
 #[pollster::test]
 async fn test_storage_buffer() {
-  gpu_test_scope(async |cx| {
-    let input = vec![1_u32; 70];
-    let expect = input.clone();
+  gpu_cx!(cx);
+  let input = vec![1_u32; 70];
+  let expect = input.clone();
 
-    let input = slice_into_compute(&input, cx);
+  let input = slice_into_compute(&input, cx);
 
-    input.run_test(cx, &expect).await
-  })
-  .await
+  input.run_test(cx, &expect).await
 }
 
 #[derive(Clone)]

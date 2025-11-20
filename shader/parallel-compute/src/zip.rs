@@ -74,20 +74,18 @@ impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for DeviceCompute
 
 #[pollster::test]
 async fn test() {
-  gpu_test_scope(async |cx| {
-    let input = vec![1_u32; 70];
-    let input2 = vec![1_u32; 70];
+  gpu_cx!(cx);
+  let input = vec![1_u32; 70];
+  let input2 = vec![1_u32; 70];
 
-    let expect = vec![2_u32; 70];
+  let expect = vec![2_u32; 70];
 
-    let input = slice_into_compute(&input, cx);
-    let input2 = slice_into_compute(&input2, cx);
+  let input = slice_into_compute(&input, cx);
+  let input2 = slice_into_compute(&input2, cx);
 
-    input
-      .zip(input2)
-      .map(|(a, b)| a + b)
-      .run_test(cx, &expect)
-      .await;
-  })
-  .await;
+  input
+    .zip(input2)
+    .map(|(a, b)| a + b)
+    .run_test(cx, &expect)
+    .await;
 }

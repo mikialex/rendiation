@@ -111,36 +111,32 @@ where
 
 #[pollster::test]
 async fn test1() {
-  gpu_test_scope(async |cx| {
-    let input = vec![1_u32; 8];
+  gpu_cx!(cx);
+  let input = vec![1_u32; 8];
 
-    let expect = vec![4, 0, 0, 0, 4, 0, 0, 0];
+  let expect = vec![4, 0, 0, 0, 4, 0, 0, 0];
 
-    let workgroup_size = 4;
-    let input = slice_into_compute(&input, cx);
+  let workgroup_size = 4;
+  let input = slice_into_compute(&input, cx);
 
-    input
-      .workgroup_scope_reduction::<AdditionMonoid<_>>(workgroup_size, cx)
-      .run_test(cx, &expect)
-      .await
-  })
-  .await
+  input
+    .workgroup_scope_reduction::<AdditionMonoid<_>>(workgroup_size, cx)
+    .run_test(cx, &expect)
+    .await
 }
 
 #[pollster::test]
 async fn test2() {
-  gpu_test_scope(async |cx| {
-    let input = vec![1_u32; 70];
+  gpu_cx!(cx);
+  let input = vec![1_u32; 70];
 
-    let expect = vec![70];
+  let expect = vec![70];
 
-    let workgroup_size = 32;
-    let input = slice_into_compute(&input, cx);
+  let workgroup_size = 32;
+  let input = slice_into_compute(&input, cx);
 
-    input
-      .segmented_reduction::<AdditionMonoid<_>>(workgroup_size, workgroup_size, cx)
-      .run_test(cx, &expect)
-      .await
-  })
-  .await
+  input
+    .segmented_reduction::<AdditionMonoid<_>>(workgroup_size, workgroup_size, cx)
+    .run_test(cx, &expect)
+    .await
 }

@@ -120,18 +120,16 @@ where
 
 #[pollster::test]
 async fn test() {
-  gpu_test_scope(async |cx| {
-    let input = [0, 1, 2, 3, 4, 5].to_vec();
-    let move_target = [5, 4, 3, 2, 1, 0].to_vec();
-    let expect = [5, 4, 3, 2, 1, 0].to_vec();
+  gpu_cx!(cx);
+  let input = [0, 1, 2, 3, 4, 5].to_vec();
+  let move_target = [5, 4, 3, 2, 1, 0].to_vec();
+  let expect = [5, 4, 3, 2, 1, 0].to_vec();
 
-    let input = slice_into_compute(&input, cx);
-    let move_target = slice_into_compute(&move_target, cx);
+  let input = slice_into_compute(&input, cx);
+  let move_target = slice_into_compute(&move_target, cx);
 
-    input
-      .shuffle_move(move_target.map(|v| (v, val(true))), cx)
-      .run_test(cx, &expect)
-      .await
-  })
-  .await
+  input
+    .shuffle_move(move_target.map(|v| (v, val(true))), cx)
+    .run_test(cx, &expect)
+    .await
 }

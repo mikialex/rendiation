@@ -86,31 +86,27 @@ impl DeviceInvocation<Node<u32>> for DeviceInvocationTailAsSize {
 
 #[pollster::test]
 async fn test_stream_compaction() {
-  gpu_test_scope(async |cx| {
-    let input = vec![1, 0, 1, 0, 1, 1, 0];
-    let expect = vec![1, 1, 1, 1, 0, 0, 0];
+  gpu_cx!(cx);
+  let input = vec![1, 0, 1, 0, 1, 1, 0];
+  let expect = vec![1, 1, 1, 1, 0, 0, 0];
 
-    let input = slice_into_compute(&input, cx);
-    let mask = input.clone().map(|v| v.equals(1));
+  let input = slice_into_compute(&input, cx);
+  let mask = input.clone().map(|v| v.equals(1));
 
-    input
-      .stream_compaction(mask, cx)
-      .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
-      .await
-  })
-  .await
+  input
+    .stream_compaction(mask, cx)
+    .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
+    .await
 }
 
 #[pollster::test]
 async fn test_stream_compaction2() {
-  gpu_test_scope(async |cx| {
-    let input = vec![1, 0, 1, 0, 1, 1, 0];
-    let expect = vec![1, 1, 1, 1, 0, 0, 0];
+  gpu_cx!(cx);
+  let input = vec![1, 0, 1, 0, 1, 1, 0];
+  let expect = vec![1, 1, 1, 1, 0, 0, 0];
 
-    slice_into_compute(&input, cx)
-      .stream_compaction_self_filter(|v| v.equals(1), cx)
-      .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
-      .await;
-  })
-  .await
+  slice_into_compute(&input, cx)
+    .stream_compaction_self_filter(|v| v.equals(1), cx)
+    .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
+    .await;
 }

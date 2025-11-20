@@ -137,15 +137,13 @@ impl DeviceRadixSortKeyLogic for U32RadixSort {
 
 #[pollster::test]
 async fn test() {
-  gpu_test_scope(async |cx| {
-    let input = [3, 1, 4, 6, 5, 2].to_vec();
-    let expect = [1, 2, 3, 4, 5, 6].to_vec();
-    let input = slice_into_compute(&input, cx);
+  gpu_cx!(cx);
+  let input = [3, 1, 4, 6, 5, 2].to_vec();
+  let expect = [1, 2, 3, 4, 5, 6].to_vec();
+  let input = slice_into_compute(&input, cx);
 
-    input
-      .device_radix_sort_naive::<U32RadixSort>(64, 64, cx)
-      .run_test(cx, &expect)
-      .await
-  })
-  .await
+  input
+    .device_radix_sort_naive::<U32RadixSort>(64, 64, cx)
+    .run_test(cx, &expect)
+    .await
 }
