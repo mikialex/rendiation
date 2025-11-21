@@ -71,7 +71,7 @@ impl DeviceSceneModelRenderSubBatch {
     enable_midc_downgrade: bool,
   ) -> Box<dyn IndirectDrawProvider> {
     let (draw_command_buffer, draw_count) = match draw_command_builder {
-      DrawCommandBuilder::Indexed(generator) => {
+      DrawCommandBuilder::Indexed(generator) => cx.scope(|cx| {
         let generator = IndexedDrawCommandGeneratorComponent {
           scene_models: self.scene_models.clone(),
           generator,
@@ -96,8 +96,8 @@ impl DeviceSceneModelRenderSubBatch {
           )
         });
         (draw_command_buffer, draw_count)
-      }
-      DrawCommandBuilder::NoneIndexed(generator) => {
+      }),
+      DrawCommandBuilder::NoneIndexed(generator) => cx.scope(|cx| {
         let generator = DrawCommandGeneratorComponent {
           scene_models: self.scene_models.clone(),
           generator,
@@ -122,7 +122,7 @@ impl DeviceSceneModelRenderSubBatch {
           )
         });
         (draw_command_buffer, draw_count)
-      }
+      }),
     };
 
     into_maybe_downgrade_batch_assume_standard_midc_style(

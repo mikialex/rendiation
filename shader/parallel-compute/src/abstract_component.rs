@@ -32,12 +32,14 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
       });
       None
     } else {
-      let (indirect_dispatch_size, indirect_work_size) = self.compute_work_size(cx);
-      self.prepare_main_pass(cx);
-      cx.record_pass(|pass, _| {
-        pass.dispatch_workgroups_indirect_by_buffer_resource_view(&indirect_dispatch_size);
-      });
-      Some(indirect_work_size.into_readonly_view())
+      cx.scope(|cx| {
+        let (indirect_dispatch_size, indirect_work_size) = self.compute_work_size(cx);
+        self.prepare_main_pass(cx);
+        cx.record_pass(|pass, _| {
+          pass.dispatch_workgroups_indirect_by_buffer_resource_view(&indirect_dispatch_size);
+        });
+        Some(indirect_work_size.into_readonly_view())
+      })
     }
   }
 
@@ -77,26 +79,36 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
       }
     }
 
-    let size_output = cx.gpu.device.make_indirect_dispatch_size_buffer();
-    let work_size_output = StorageBufferReadonlyDataView::create_by_with_extra_usage(
-      &cx.gpu.device,
-      Some("work_size_output"),
-      StorageBufferInit::WithInit(&Vec4::<u32>::zero()),
-      BufferUsages::INDIRECT,
-    )
-    .into_rw_view();
+    let gpu = cx.gpu.clone();
+    let (cx, (size_output, work_size_output)) = cx.use_plain_state(|| {
+      let size_output = gpu.device.make_indirect_dispatch_size_buffer();
+      let work_size_output = StorageBufferReadonlyDataView::create_by_with_extra_usage(
+        &gpu.device,
+        Some("work_size_output"),
+        StorageBufferInit::WithInit(&Vec4::<u32>::zero()),
+        BufferUsages::INDIRECT, // todo, this is necessary??
+      )
+      .into_rw_view();
+      (size_output, work_size_output)
+    });
 
     // requested_workgroup_size should always be respected
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
-    let workgroup_size_buffer =
-      create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device).into_rw_view();
+    let (cx, (workgroup_size_buffer, workgroup_size_cache)) = cx.use_plain_state(|| {
+      let buffer = create_gpu_readonly_storage(&workgroup_size, gpu.device).into_rw_view();
+      (buffer, workgroup_size)
+    });
+    if *workgroup_size_cache != workgroup_size {
+      *workgroup_size_buffer =
+        create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device).into_rw_view();
+    }
 
     let pipeline = cx.get_or_create_compute_pipeline(&SizeWriter(self), |cx| {
       cx.config_work_group_size(workgroup_size);
 
-      let size_output = cx.bind_by(&size_output);
-      let work_size_output = cx.bind_by(&work_size_output);
-      let workgroup_size = cx.bind_by(&workgroup_size_buffer);
+      let size_output = cx.bind_by(size_output);
+      let work_size_output = cx.bind_by(work_size_output);
+      let workgroup_size = cx.bind_by(workgroup_size_buffer);
 
       let size = self.build_shader(cx).invocation_size();
       let size: Node<Vec4<u32>> = (size, val(0)).into();
@@ -115,15 +127,15 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
 
     cx.record_pass(|pass, device| {
       BindingBuilder::default()
-        .with_bind(&size_output)
-        .with_bind(&work_size_output)
-        .with_bind(&workgroup_size_buffer)
+        .with_bind(size_output)
+        .with_bind(work_size_output)
+        .with_bind(workgroup_size_buffer)
         .with_fn(|bb| self.bind_input(bb))
         .setup_compute_pass(pass, device, &pipeline);
       pass.dispatch_workgroups(1, 1, 1);
     });
 
-    (size_output, work_size_output)
+    (size_output.clone(), work_size_output.clone())
   }
 }
 
@@ -140,8 +152,7 @@ pub trait ComputeComponentIO<T>: ComputeComponent<Node<T>> {
     T: Std430 + ShaderSizedValueNodeType,
     Self: Sized,
   {
-    let init = ZeroedArrayByArrayLength(self.result_size() as usize);
-    let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
+    let output = cx.use_rw_storage_buffer(self.result_size() as usize);
     self.materialize_storage_buffer_into(output, cx)
   }
 

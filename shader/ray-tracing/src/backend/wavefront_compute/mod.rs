@@ -128,7 +128,8 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       .unwrap();
 
     let mut encoder = self.gpu.create_encoder();
-    let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder);
+    let mut mem = Default::default();
+    let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder, &mut mem);
 
     let tile_size = 512; // todo, tile size should computed by memory limits
     let required_size = (tile_size * tile_size) as usize;

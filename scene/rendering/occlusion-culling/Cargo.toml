@@ -15,6 +15,7 @@ rendiation-shader-library = { path = "../../../shader/library" }
 rendiation-fast-down-sampling-2d = { path = "../../../shader/fast-down-sampling-2d" }
 rendiation-texture-core = { path = "../../../content/texture/core" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
+hook = { path = "../../../utility/hook" }
 
 [lints]
 workspace = true

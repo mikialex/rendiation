@@ -26,6 +26,7 @@ winit = { workspace = true }
 xalloc = "0.2.7"
 slab = "0.4.11"
 log = { workspace = true }
+hook = { path = "../../../utility/hook" }
 pollster = { workspace = true }                                             # used in examples
 
 [features]

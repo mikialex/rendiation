@@ -107,8 +107,11 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
     batch: &DeviceSceneModelRenderSubBatch,
     ctx: &mut FrameCtx,
   ) -> Option<Box<dyn IndirectDrawProvider>> {
-    for provider in self {
-      if let Some(v) = provider.generate_indirect_draw_provider(batch, ctx) {
+    ctx.next_key_scope_root();
+    for (i, provider) in self.iter().enumerate() {
+      if let Some(v) = ctx.keyed_scope(&i, |ctx| {
+        provider.generate_indirect_draw_provider(batch, ctx)
+      }) {
         return Some(v);
       }
     }

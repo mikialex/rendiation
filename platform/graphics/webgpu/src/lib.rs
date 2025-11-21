@@ -58,6 +58,7 @@ pub use gpu::{
   TextureViewDescriptor, Tlas, TlasInstance, VertexBufferLayout, VertexState,
 };
 use heap_tools::*;
+use hook::*;
 pub use indirect::*;
 use instance_poller::GPUInstance;
 use parking_lot::RwLock;

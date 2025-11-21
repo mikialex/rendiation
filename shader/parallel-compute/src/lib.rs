@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use derivative::Derivative;
 use dyn_clone::DynClone;
+use hook::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
@@ -227,8 +228,7 @@ where
     shuffle_idx: impl ComputeComponent<(Node<u32>, Node<bool>)> + 'static,
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceMaterializeResult<T> {
-    let init = ZeroedArrayByArrayLength(self.result_size() as usize);
-    let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
+    let output = cx.use_rw_storage_buffer(self.result_size() as usize);
     let write = ShuffleWrite {
       input: Box::new(
         self

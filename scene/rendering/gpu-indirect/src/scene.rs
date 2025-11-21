@@ -61,7 +61,7 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
 
     let sub_batches = classifier
       .iter()
-      .map(|(_, list)| {
+      .map(|(group_hash, list)| {
         let scene_models: Vec<_> = list.iter().map(|sm| sm.alloc_index()).collect();
         let storage = create_gpu_readonly_storage(scene_models.as_slice(), &self.gpu);
         let storage = storage_full_into_compute(storage);
@@ -70,6 +70,7 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
         DeviceSceneModelRenderSubBatch {
           scene_models,
           impl_select_id: *list.first().unwrap(),
+          group_key: *group_hash,
         }
       })
       .collect();
@@ -100,7 +101,9 @@ impl SceneRenderer for IndirectSceneRenderer {
       SceneModelRenderBatch::Device(batch) => batch,
       SceneModelRenderBatch::Host(batch) => {
         if self.using_host_driven_indirect_draw {
-          return self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass);
+          return ctx.scope(|ctx| {
+            self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass)
+          });
         }
         self.create_batch_from_iter(&mut batch.iter_scene_models())
       }
@@ -108,12 +111,15 @@ impl SceneRenderer for IndirectSceneRenderer {
 
     let batch = ctx.access_parallel_compute(|cx| batch.flush_culler_into_new(cx, false));
 
+    ctx.next_key_scope_root();
     let content: Vec<_> = batch
       .sub_batches
       .iter()
       .map(|batch| {
-        let provider = self.renderer.generate_indirect_draw_provider(batch, ctx);
-        (provider, batch.impl_select_id)
+        ctx.keyed_scope(&batch.group_key, |ctx| {
+          let provider = self.renderer.generate_indirect_draw_provider(batch, ctx);
+          (provider, batch.impl_select_id)
+        })
       })
       .collect();
 
