@@ -21,9 +21,9 @@ pub unsafe trait HooksCxLike: Sized {
   }
 
   fn execute<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-    let start_cursor = self.memory_ref().current_cursor;
     let r = f(self);
-    self.memory_mut().current_cursor = start_cursor;
+    self.memory_mut().current_cursor = 0;
+    self.memory_mut().sub_scope_cursor = 0;
 
     self.memory_mut().created = true;
     self.flush();
@@ -147,6 +147,7 @@ pub struct FunctionMemory {
   states: Bump,
   states_meta: Vec<FunctionMemoryState>,
   pub current_cursor: usize,
+  pub sub_scope_cursor: usize,
   sub_functions: FastHashMap<SubFunctionKey, Self>,
   sub_functions_next: FastHashMap<SubFunctionKey, Self>,
 }
@@ -236,9 +237,10 @@ impl FunctionMemory {
 
   pub fn sub_function(&mut self, is_dynamic_stage: bool, key: SubFunctionKeyType) -> &mut Self {
     let key = SubFunctionKey {
-      position: self.current_cursor,
+      position: self.sub_scope_cursor,
       key,
     };
+    self.sub_scope_cursor += 1;
     if is_dynamic_stage {
       if let Some(previous_memory) = self.sub_functions.remove(&key) {
         assert!(
