@@ -37,6 +37,7 @@ where
   T: ShaderSizedValueNodeType + Std430 + Debug,
 {
   let mut result: Box<dyn ComputeComponentIO<T>> = Box::new(input);
+  cx.next_key_scope_root();
   cx.scope(|cx| {
     for iter in 0..S::MAX_BITS {
       cx.keyed_scope(&iter, |cx| {

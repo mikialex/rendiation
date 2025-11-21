@@ -147,6 +147,7 @@ impl DeviceSceneModelRenderBatch {
               input: sub_batch.scene_models.clone(),
             };
 
+            cx.next_key_scope_root();
             let scene_models = cx.keyed_scope(&sub_batch.group_key, |cx| {
               if require_materialize {
                 let scene_models = sub_batch

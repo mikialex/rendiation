@@ -101,7 +101,9 @@ impl SceneRenderer for IndirectSceneRenderer {
       SceneModelRenderBatch::Device(batch) => batch,
       SceneModelRenderBatch::Host(batch) => {
         if self.using_host_driven_indirect_draw {
-          return self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass);
+          return ctx.scope(|ctx| {
+            self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass)
+          });
         }
         self.create_batch_from_iter(&mut batch.iter_scene_models())
       }
@@ -109,12 +111,15 @@ impl SceneRenderer for IndirectSceneRenderer {
 
     let batch = ctx.access_parallel_compute(|cx| batch.flush_culler_into_new(cx, false));
 
+    ctx.next_key_scope_root();
     let content: Vec<_> = batch
       .sub_batches
       .iter()
       .map(|batch| {
-        let provider = self.renderer.generate_indirect_draw_provider(batch, ctx);
-        (provider, batch.impl_select_id)
+        ctx.keyed_scope(&batch.group_key, |ctx| {
+          let provider = self.renderer.generate_indirect_draw_provider(batch, ctx);
+          (provider, batch.impl_select_id)
+        })
       })
       .collect();
 
