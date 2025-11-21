@@ -1,6 +1,4 @@
 mod pass;
-use std::mem::ManuallyDrop;
-
 pub use pass::*;
 
 mod attachment;

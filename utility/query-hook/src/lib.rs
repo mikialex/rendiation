@@ -469,19 +469,6 @@ pub trait QueryHookCxLike: HooksCxLike {
   }
 
   #[track_caller]
-  fn skip_if_not<R: Default>(&mut self, should_execute: bool, f: impl FnOnce(&mut Self) -> R) -> R {
-    let is_dyn = self.is_dynamic_stage();
-    let is_creating = self.is_creating();
-    let must_execute = is_dyn && is_creating;
-    if should_execute || must_execute {
-      self.scope(f)
-    } else {
-      self.skip_call_site_scope();
-      R::default()
-    }
-  }
-
-  #[track_caller]
   fn skip_if_not_waked<R: Default>(&mut self, f: impl FnOnce(&mut Self) -> R) -> (bool, R) {
     let (cx, notifier) = self.use_plain_state(|| Arc::new(ChangeNotifierInternal::default()));
     let waked = notifier.update(cx.waker());

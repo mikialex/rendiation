@@ -10,13 +10,13 @@ pub struct DeviceParallelComputeCtx<'a> {
 impl Drop for DeviceParallelComputeCtx<'_> {
   fn drop(&mut self) {
     // make sure pass is dropped
-    // note, we not submit encoder here
+    // note, we not submit encoder here to reduce submit count
     self.flush_pass();
   }
 }
 
 impl<'a> DeviceParallelComputeCtx<'a> {
-  /// note, the passed in encoder will be automatically been submitted after this ctx drop.
+  /// note, the passed in encoder will not be submit after this ctx drop.
   pub fn new(gpu: &GPU, encoder: &'a mut GPUCommandEncoder) -> Self {
     Self {
       gpu: gpu.clone(),
