@@ -62,6 +62,24 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     }
   }
 
+  pub fn use_rw_storage_buffer<T: Std430>(
+    &mut self,
+    size_require: usize,
+  ) -> StorageBufferDataView<[T]> {
+    let gpu = self.gpu.clone();
+    let (_, output) = self.use_plain_state(|| {
+      let init = ZeroedArrayByArrayLength(size_require);
+      create_gpu_read_write_storage::<[T]>(init, &gpu)
+    });
+
+    if (output.item_count() as usize) < size_require {
+      let init = ZeroedArrayByArrayLength(size_require);
+      *output = create_gpu_read_write_storage::<[T]>(init, &gpu)
+    }
+
+    output.clone()
+  }
+
   pub fn read_buffer(&mut self, buffer: &GPUBufferResourceView) -> ReadBufferFromStagingBuffer {
     self.encoder.read_buffer(&self.gpu.device, buffer)
   }

@@ -94,15 +94,21 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
 
     // requested_workgroup_size should always be respected
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
-    let workgroup_size_buffer =
-      create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device).into_rw_view();
+    let (cx, (workgroup_size_buffer, workgroup_size_cache)) = cx.use_plain_state(|| {
+      let buffer = create_gpu_readonly_storage(&workgroup_size, gpu.device).into_rw_view();
+      (buffer, workgroup_size)
+    });
+    if *workgroup_size_cache != workgroup_size {
+      *workgroup_size_buffer =
+        create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device).into_rw_view();
+    }
 
     let pipeline = cx.get_or_create_compute_pipeline(&SizeWriter(self), |cx| {
       cx.config_work_group_size(workgroup_size);
 
       let size_output = cx.bind_by(size_output);
       let work_size_output = cx.bind_by(work_size_output);
-      let workgroup_size = cx.bind_by(&workgroup_size_buffer);
+      let workgroup_size = cx.bind_by(workgroup_size_buffer);
 
       let size = self.build_shader(cx).invocation_size();
       let size: Node<Vec4<u32>> = (size, val(0)).into();
@@ -123,7 +129,7 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
       BindingBuilder::default()
         .with_bind(size_output)
         .with_bind(work_size_output)
-        .with_bind(&workgroup_size_buffer)
+        .with_bind(workgroup_size_buffer)
         .with_fn(|bb| self.bind_input(bb))
         .setup_compute_pass(pass, device, &pipeline);
       pass.dispatch_workgroups(1, 1, 1);
@@ -146,20 +152,8 @@ pub trait ComputeComponentIO<T>: ComputeComponent<Node<T>> {
     T: Std430 + ShaderSizedValueNodeType,
     Self: Sized,
   {
-    let size_require = self.result_size() as usize;
-    let gpu = &cx.gpu.clone(); // todo, avoid clone
-
-    let (cx, output) = cx.use_plain_state(|| {
-      let init = ZeroedArrayByArrayLength(size_require);
-      create_gpu_read_write_storage::<[T]>(init, &gpu)
-    });
-
-    if output.item_count() as usize != size_require {
-      let init = ZeroedArrayByArrayLength(size_require);
-      *output = create_gpu_read_write_storage::<[T]>(init, &gpu)
-    }
-
-    self.materialize_storage_buffer_into(output.clone(), cx) // todo, avoid clone
+    let output = cx.use_rw_storage_buffer(self.result_size() as usize);
+    self.materialize_storage_buffer_into(output, cx)
   }
 
   fn materialize_storage_buffer_into(
