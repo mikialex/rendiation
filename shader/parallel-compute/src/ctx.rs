@@ -5,6 +5,37 @@ pub struct DeviceParallelComputeCtx<'a> {
   pub encoder: &'a mut GPUCommandEncoder,
   pub pass: Option<GPUComputePass>,
   pub force_indirect_dispatch: bool,
+  pub memory: &'a mut FunctionMemory,
+}
+
+unsafe impl HooksCxLike for DeviceParallelComputeCtx<'_> {
+  fn memory_mut(&mut self) -> &mut FunctionMemory {
+    self.memory
+  }
+
+  fn memory_ref(&self) -> &FunctionMemory {
+    self.memory
+  }
+
+  fn flush(&mut self) {
+    let drop_cx = &mut () as *mut ();
+    self.memory.flush(drop_cx);
+  }
+
+  fn is_dynamic_stage(&self) -> bool {
+    true
+  }
+
+  fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
+    // this is safe because user can not access previous retrieved state through returned self.
+    let s = unsafe { std::mem::transmute_copy(&self) };
+
+    let state = self
+      .memory
+      .expect_state_init(f, |_state: &mut T, _: &mut ()| {});
+
+    (s, state)
+  }
 }
 
 impl Drop for DeviceParallelComputeCtx<'_> {
@@ -17,12 +48,17 @@ impl Drop for DeviceParallelComputeCtx<'_> {
 
 impl<'a> DeviceParallelComputeCtx<'a> {
   /// note, the passed in encoder will not be submit after this ctx drop.
-  pub fn new(gpu: &GPU, encoder: &'a mut GPUCommandEncoder) -> Self {
+  pub fn new(
+    gpu: &GPU,
+    encoder: &'a mut GPUCommandEncoder,
+    memory: &'a mut FunctionMemory,
+  ) -> Self {
     Self {
       gpu: gpu.clone(),
       encoder,
       pass: None,
       force_indirect_dispatch: false,
+      memory,
     }
   }
 
@@ -101,7 +137,7 @@ impl FrameCtxParallelComputeExt for FrameCtx<'_> {
     &mut self,
     f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R,
   ) -> R {
-    let mut ctx = DeviceParallelComputeCtx::new(self.gpu, &mut self.encoder);
+    let mut ctx = DeviceParallelComputeCtx::new(self.gpu, &mut self.encoder, self.memory);
     let r = f(&mut ctx);
     ctx.flush_pass();
     r
@@ -115,7 +151,8 @@ macro_rules! gpu_cx {
   ($name: tt) => {
     let (gpu, _) = GPU::new(Default::default()).await.unwrap();
     let mut encoder = gpu.create_encoder();
-    let mut $name = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
+    let mut memory = Default::default();
+    let mut $name = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
     let $name = &mut $name;
   };
 }
