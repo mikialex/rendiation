@@ -61,7 +61,7 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
 
     let sub_batches = classifier
       .iter()
-      .map(|(_, list)| {
+      .map(|(group_hash, list)| {
         let scene_models: Vec<_> = list.iter().map(|sm| sm.alloc_index()).collect();
         let storage = create_gpu_readonly_storage(scene_models.as_slice(), &self.gpu);
         let storage = storage_full_into_compute(storage);
@@ -70,6 +70,7 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
         DeviceSceneModelRenderSubBatch {
           scene_models,
           impl_select_id: *list.first().unwrap(),
+          group_key: *group_hash,
         }
       })
       .collect();

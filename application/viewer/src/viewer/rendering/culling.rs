@@ -157,7 +157,7 @@ impl ViewerCulling {
         let oc_state = oc.oc_states.get(&camera).unwrap();
         let (pass, debug) = oc_state.write().draw(
           ctx,
-          &reorderable_batch.get_device_batch(None).unwrap(),
+          &reorderable_batch.get_device_batch().unwrap(),
           pass_base,
           preflight_content,
           renderer.scene,
