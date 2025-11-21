@@ -232,14 +232,16 @@ impl Viewer3dViewportRenderingCtx {
     }
 
     if let Some(cached_frame) = &self.on_demand_rendering_cached_frame {
-      pass("on demand rendering copy cached frame")
-        .with_color(target, load_and_store()) // todo, use store full when only has one viewport
-        .render_ctx(ctx)
-        .by(
-          &mut CopyFrame(cached_frame.clone())
-            .draw_quad()
-            .with_viewport(viewport.viewport),
-        );
+      ctx.scope(|ctx| {
+        pass("on demand rendering copy cached frame")
+          .with_color(target, load_and_store()) // todo, use store full when only has one viewport
+          .render_ctx(ctx)
+          .by(
+            &mut CopyFrame(cached_frame.clone())
+              .draw_quad()
+              .with_viewport(viewport.viewport),
+          );
+      });
 
       false
     } else {
@@ -271,16 +273,20 @@ impl Viewer3dViewportRenderingCtx {
     };
 
     if self.rtx_rendering_enabled {
-      self.render_ray_tracing(
-        ctx,
-        renderer,
-        content,
-        &render_target,
-        camera,
-        renderer.lighting.tonemap,
-      );
+      ctx.scope(|ctx| {
+        self.render_ray_tracing(
+          ctx,
+          renderer,
+          content,
+          &render_target,
+          camera,
+          renderer.lighting.tonemap,
+        );
+      });
     } else {
-      self.render_raster(ctx, renderer, content, &render_target, viewport, waker);
+      ctx.scope(|ctx| {
+        self.render_raster(ctx, renderer, content, &render_target, viewport, waker);
+      });
     }
 
     {
@@ -307,26 +313,30 @@ impl Viewer3dViewportRenderingCtx {
 
     // do extra copy to surface texture
     if should_do_extra_copy {
-      pass("copy frame renderer local to surface")
-        .with_color(final_target, load_and_store()) // todo, use store full when only has one viewport
-        .render_ctx(ctx)
-        .by(
-          &mut CopyFrame(render_target.clone())
-            .draw_quad()
-            .with_viewport(viewport.viewport),
-        );
+      ctx.scope(|ctx| {
+        pass("copy frame renderer local to surface")
+          .with_color(final_target, load_and_store()) // todo, use store full when only has one viewport
+          .render_ctx(ctx)
+          .by(
+            &mut CopyFrame(render_target.clone())
+              .draw_quad()
+              .with_viewport(viewport.viewport),
+          );
+      });
     }
     self.expect_read_back_for_next_render_result = false;
 
     if self.should_do_frame_caching() {
-      let mut key = final_target.create_attachment_key();
-      key.usage |= TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC;
-      let frame_cache = key.request(ctx);
-      pass("copy rendered result to cached frame")
-        .with_color(&frame_cache, store_full_frame())
-        .render_ctx(ctx)
-        .by(&mut copy_frame(render_target.clone(), None));
-      self.on_demand_rendering_cached_frame = Some(frame_cache);
+      ctx.scope(|ctx| {
+        let mut key = final_target.create_attachment_key();
+        key.usage |= TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC;
+        let frame_cache = key.request(ctx);
+        pass("copy rendered result to cached frame")
+          .with_color(&frame_cache, store_full_frame())
+          .render_ctx(ctx)
+          .by(&mut copy_frame(render_target.clone(), None));
+        self.on_demand_rendering_cached_frame = Some(frame_cache);
+      });
     }
 
     self.on_encoding_finished.emit(&ViewportRenderedResult {
@@ -348,49 +358,53 @@ impl Viewer3dViewportRenderingCtx {
     if let Some((rtx_renderer, core)) = &renderer.rtx_system {
       match self.rtx_effect_mode {
         RayTracingEffectMode::AO => {
-          let ao = self
-            .rtx_ao
-            .get_or_insert_with(|| SceneRayTracingAORenderer::new(core, ctx.gpu));
-          if self.request_reset_rtx_sample || rtx_renderer.base.1 || rtx_renderer.ao.1 {
-            ao.reset_sample();
-          }
+          ctx.scope(|ctx| {
+            let ao = self
+              .rtx_ao
+              .get_or_insert_with(|| SceneRayTracingAORenderer::new(core, ctx.gpu));
+            if self.request_reset_rtx_sample || rtx_renderer.base.1 || rtx_renderer.ao.1 {
+              ao.reset_sample();
+            }
 
-          let ao_result = ao.render(
-            ctx,
-            core.rtx_system.as_ref(),
-            &rtx_renderer.base.0,
-            content.scene,
-            camera,
-            &rtx_renderer.ao.0,
-          );
+            let ao_result = ao.render(
+              ctx,
+              core.rtx_system.as_ref(),
+              &rtx_renderer.base.0,
+              content.scene,
+              camera,
+              &rtx_renderer.ao.0,
+            );
 
-          pass("copy rtx ao into final target")
-            .with_color(final_target, store_full_frame())
-            .render_ctx(ctx)
-            .by(&mut copy_frame(RenderTargetView::from(ao_result), None));
+            pass("copy rtx ao into final target")
+              .with_color(final_target, store_full_frame())
+              .render_ctx(ctx)
+              .by(&mut copy_frame(RenderTargetView::from(ao_result), None));
+          });
         }
         RayTracingEffectMode::ReferenceTracing => {
-          let pt = self
-            .rtx_pt
-            .get_or_insert_with(|| DeviceReferencePathTracingRenderer::new(core, ctx.gpu));
-          if self.request_reset_rtx_sample || rtx_renderer.base.1 || rtx_renderer.pt.1 {
-            pt.reset_sample();
-          }
+          ctx.scope(|ctx| {
+            let pt = self
+              .rtx_pt
+              .get_or_insert_with(|| DeviceReferencePathTracingRenderer::new(core, ctx.gpu));
+            if self.request_reset_rtx_sample || rtx_renderer.base.1 || rtx_renderer.pt.1 {
+              pt.reset_sample();
+            }
 
-          let result = pt.render(
-            ctx,
-            core.rtx_system.as_ref(),
-            &rtx_renderer.base.0,
-            content.scene,
-            camera,
-            tonemap,
-            &renderer.background,
-            &rtx_renderer.pt.0,
-          );
-          pass("copy pt result into final target")
-            .with_color(final_target, store_full_frame())
-            .render_ctx(ctx)
-            .by(&mut copy_frame(RenderTargetView::from(result), None));
+            let result = pt.render(
+              ctx,
+              core.rtx_system.as_ref(),
+              &rtx_renderer.base.0,
+              content.scene,
+              camera,
+              tonemap,
+              &renderer.background,
+              &rtx_renderer.pt.0,
+            );
+            pass("copy pt result into final target")
+              .with_color(final_target, store_full_frame())
+              .render_ctx(ctx)
+              .by(&mut copy_frame(RenderTargetView::from(result), None));
+          });
         }
       }
     }
@@ -467,42 +481,46 @@ impl Viewer3dViewportRenderingCtx {
         );
 
         if self.enable_ground && !is_outline_only_mode {
-          // this must a separate pass, because the id buffer should not be written.
-          pass("grid_ground")
-            .with_color(&scene_result, load_and_store())
-            .with_depth(&g_buffer.depth, load_and_store())
-            .render_ctx(ctx)
-            .by(&mut GridGround {
-              plane: &self.ground,
-              shading: &self.grid,
-              camera: &camera_gpu,
-              reversed_depth: renderer.reversed_depth,
-            });
+          ctx.scope(|ctx| {
+            // this must a separate pass, because the id buffer should not be written.
+            pass("grid_ground")
+              .with_color(&scene_result, load_and_store())
+              .with_depth(&g_buffer.depth, load_and_store())
+              .render_ctx(ctx)
+              .by(&mut GridGround {
+                plane: &self.ground,
+                shading: &self.grid,
+                camera: &camera_gpu,
+                reversed_depth: renderer.reversed_depth,
+              });
+          });
         }
 
         if self.enable_ssao {
-          let ao = self.ssao.draw(
-            ctx,
-            &g_buffer.depth,
-            &self.reproject.reproject,
-            renderer.reversed_depth,
-          );
+          ctx.scope(|ctx| {
+            let ao = self.ssao.draw(
+              ctx,
+              &g_buffer.depth,
+              &self.reproject.reproject,
+              renderer.reversed_depth,
+            );
 
-          pass("ao blend to scene")
-            .with_color(&scene_result, load_and_store())
-            .render_ctx(ctx)
-            .by(&mut copy_frame(
-              ao,
-              BlendState {
-                color: BlendComponent {
-                  src_factor: BlendFactor::Dst,
-                  dst_factor: BlendFactor::Zero,
-                  operation: BlendOperation::Add,
-                },
-                alpha: BlendComponent::REPLACE,
-              }
-              .into(),
-            ));
+            pass("ao blend to scene")
+              .with_color(&scene_result, load_and_store())
+              .render_ctx(ctx)
+              .by(&mut copy_frame(
+                ao,
+                BlendState {
+                  color: BlendComponent {
+                    src_factor: BlendFactor::Dst,
+                    dst_factor: BlendFactor::Zero,
+                    operation: BlendOperation::Add,
+                  },
+                  alpha: BlendComponent::REPLACE,
+                }
+                .into(),
+              ));
+          });
         }
 
         (
@@ -530,19 +548,21 @@ impl Viewer3dViewportRenderingCtx {
     };
 
     let maybe_aa_result = if self.enable_fxaa {
-      let fxaa_target = maybe_aa_result.create_attachment_key().request(ctx);
+      ctx.scope(|ctx| {
+        let fxaa_target = maybe_aa_result.create_attachment_key().request(ctx);
 
-      pass("fxaa")
-        .with_color(&fxaa_target, store_full_frame())
-        .render_ctx(ctx)
-        .by(
-          &mut FXAA {
-            source: &maybe_aa_result,
-          }
-          .draw_quad(),
-        );
+        pass("fxaa")
+          .with_color(&fxaa_target, store_full_frame())
+          .render_ctx(ctx)
+          .by(
+            &mut FXAA {
+              source: &maybe_aa_result,
+            }
+            .draw_quad(),
+          );
 
-      fxaa_target
+        fxaa_target
+      })
     } else {
       maybe_aa_result
     };
@@ -563,12 +583,14 @@ impl Viewer3dViewportRenderingCtx {
     });
 
     let mut highlight_compose = (content.selected_model.is_some()).then(|| {
-      let batch = Box::new(IteratorAsHostRenderBatch(content.selected_model));
-      let batch = SceneModelRenderBatch::Host(batch);
-      let masked_content = renderer
-        .raster_scene_renderer
-        .make_scene_batch_pass_content(batch, &camera_gpu, &HighLightMaskDispatcher, ctx);
-      self.highlight.draw(ctx, masked_content)
+      ctx.scope(|ctx| {
+        let batch = Box::new(IteratorAsHostRenderBatch(content.selected_model));
+        let batch = SceneModelRenderBatch::Host(batch);
+        let masked_content = renderer
+          .raster_scene_renderer
+          .make_scene_batch_pass_content(batch, &camera_gpu, &HighLightMaskDispatcher, ctx);
+        self.highlight.draw(ctx, masked_content)
+      })
     });
 
     let pass_init = if is_outline_only_mode {

@@ -421,11 +421,22 @@ impl Viewer3dRenderingCtx {
 
     let size_backup = ctx.frame_size;
     for (viewport_id, idx) in requested_render_views {
-      let view_renderer = self.views.get_mut(viewport_id).unwrap();
-      let viewport = &content.viewports[*idx];
-      ctx.frame_size = viewport.render_pixel_size();
-      view_renderer.render(ctx, &mut renderer, content, viewport, final_target, waker);
+      ctx.keyed_scope(&viewport_id, |ctx| {
+        let view_renderer = self.views.get_mut(viewport_id).unwrap();
+        let viewport = &content.viewports[*idx];
+        ctx.frame_size = viewport.render_pixel_size();
+        view_renderer.render(ctx, &mut renderer, content, viewport, final_target, waker);
+      });
     }
+
+    // todo, is this necessary from perspective of user?
+    // keep all sub scope that match the living viewport but not requested alive
+    for (i, v) in content.viewports.iter().enumerate() {
+      if !requested_render_views.contains(&(v.id, i)) {
+        ctx.skip_keyed_scope(&v.id);
+      }
+    }
+
     ctx.frame_size = size_backup;
   }
 }

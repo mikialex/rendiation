@@ -37,34 +37,38 @@ where
   T: ShaderSizedValueNodeType + Std430 + Debug,
 {
   let mut result: Box<dyn ComputeComponentIO<T>> = Box::new(input);
-  for iter in 0..S::MAX_BITS {
-    let iter_input = result.clone();
+  cx.scope(|cx| {
+    for iter in 0..S::MAX_BITS {
+      cx.keyed_scope(&iter, |cx| {
+        let iter_input = result.clone();
 
-    let is_one = iter_input.clone().map_with_id_provided(
-      move |data| S::is_one(data, val(iter)),
-      IterIndexHasher(iter),
-    );
+        let is_one = iter_input.clone().map_with_id_provided(
+          move |data| S::is_one(data, val(iter)),
+          IterIndexHasher(iter),
+        );
 
-    let ones_before = is_one
-      .clone()
-      .map(|is_one| is_one.select(val(1), val(0)))
-      .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(
-        per_pass_first_stage_workgroup_size,
-        per_pass_second_stage_workgroup_size,
-        cx,
-      )
-      .make_global_scan_exclusive::<AdditionMonoid<u32>>()
-      .materialize_storage_buffer(cx);
+        let ones_before = is_one
+          .clone()
+          .map(|is_one| is_one.select(val(1), val(0)))
+          .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(
+            per_pass_first_stage_workgroup_size,
+            per_pass_second_stage_workgroup_size,
+            cx,
+          )
+          .make_global_scan_exclusive::<AdditionMonoid<u32>>()
+          .materialize_storage_buffer(cx);
 
-    let shuffle_idx = RadixShuffleMoveCompute {
-      ones_before,
-      is_one: Box::new(is_one),
-    };
+        let shuffle_idx = RadixShuffleMoveCompute {
+          ones_before,
+          is_one: Box::new(is_one),
+        };
 
-    let r = iter_input.shuffle_move(shuffle_idx.map(|v| (v, val(true))), cx);
+        let r = iter_input.shuffle_move(shuffle_idx.map(|v| (v, val(true))), cx);
 
-    result = Box::new(r)
-  }
+        result = Box::new(r)
+      });
+    }
+  });
   result
 }
 

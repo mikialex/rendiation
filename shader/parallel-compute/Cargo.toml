@@ -9,6 +9,7 @@ rendiation-algebra = { path = "../../math/algebra" }
 rendiation-shader-derives = { path = "../derive" }
 rendiation-shader-api = { path = "../api" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+hook = { path = "../../utility/hook" }
 num-traits = "0.2"
 dyn-clone = { workspace = true }
 derivative = { workspace = true }

@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use derivative::Derivative;
 use dyn_clone::DynClone;
+use hook::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 

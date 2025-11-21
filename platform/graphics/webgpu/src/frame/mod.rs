@@ -28,6 +28,37 @@ pub struct FrameCtx<'a> {
   pass_info_pool: &'a PassInfoPool,
   statistics: Option<FrameStaticInfoResolver>,
   pub frame_size: Size,
+  pub memory: &'a mut FunctionMemory,
+}
+
+unsafe impl HooksCxLike for FrameCtx<'_> {
+  fn memory_mut(&mut self) -> &mut FunctionMemory {
+    self.memory
+  }
+
+  fn memory_ref(&self) -> &FunctionMemory {
+    self.memory
+  }
+
+  fn flush(&mut self) {
+    let drop_cx = &mut () as *mut ();
+    self.memory.flush(drop_cx);
+  }
+
+  fn is_dynamic_stage(&self) -> bool {
+    true
+  }
+
+  fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
+    // this is safe because user can not access previous retrieved state through returned self.
+    let s = unsafe { std::mem::transmute_copy(&self) };
+
+    let state = self
+      .memory
+      .expect_state_init(f, |_state: &mut T, _: &mut ()| {});
+
+    (s, state)
+  }
 }
 
 impl Drop for FrameCtx<'_> {
@@ -44,6 +75,7 @@ impl Drop for FrameCtx<'_> {
 impl<'a> FrameCtx<'a> {
   pub fn new(
     gpu: &'a GPU,
+    memory: &'a mut FunctionMemory,
     frame_size: Size,
     pool: &'a AttachmentPool,
     pass_info_pool: &'a PassInfoPool,
@@ -58,6 +90,7 @@ impl<'a> FrameCtx<'a> {
       encoder,
       gpu,
       pass_info_pool,
+      memory,
     }
   }
 

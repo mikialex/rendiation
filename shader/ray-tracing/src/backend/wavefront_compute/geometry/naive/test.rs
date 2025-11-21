@@ -311,7 +311,8 @@ fn test_gpu_triangle_naive() {
 
   let (gpu, _) = futures::executor::block_on(GPU::new(Default::default())).unwrap();
   let mut encoder = gpu.create_encoder();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
+  let mut mem = Default::default();
+  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut mem);
 
   let direction =
     Box::new(slice_into_compute(&dummy_array, &mut cx)) as Box<dyn ComputeComponent<Node<u32>>>;

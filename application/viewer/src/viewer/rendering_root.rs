@@ -2,7 +2,8 @@ use crate::*;
 
 /// The render logic that not related to specific rendering "business" logic
 pub struct RenderingRoot {
-  render_memory: FunctionMemory,
+  render_resource_memory: FunctionMemory,
+  render_process_memory: FunctionMemory,
   pool: AttachmentPool,
   pass_info_pool: PassInfoPool,
   frame_index: u64,
@@ -18,7 +19,8 @@ pub struct RenderingRoot {
 impl RenderingRoot {
   pub fn new(gpu: &GPU, swap_chain: ApplicationWindowSurface) -> Self {
     Self {
-      render_memory: Default::default(),
+      render_resource_memory: Default::default(),
+      render_process_memory: Default::default(),
       any_render_change: Default::default(),
       pass_info_pool: Default::default(),
       pool: init_attachment_pool(gpu),
@@ -49,7 +51,9 @@ impl RenderingRoot {
   pub fn cleanup(&mut self, share_cx: &mut SharedHooksCtx) {
     let mut dcx = QueryGPUHookDropCx { share_cx };
 
-    self.render_memory.cleanup(&mut dcx as *mut _ as *mut ());
+    self
+      .render_resource_memory
+      .cleanup(&mut dcx as *mut _ as *mut ());
   }
 
   pub fn setup_init_config(&self, init_config: &mut ViewerInitConfig) {
@@ -78,14 +82,14 @@ impl RenderingRoot {
     rendering: &mut Viewer3dRenderingCtx,
     viewports: &[ViewerViewPort],
   ) {
-    if !self.render_memory.created {
+    if !self.render_resource_memory.created {
       return;
     }
 
     let gpu = self.gpu.clone();
     shared_ctx.reset_visiting();
     QueryGPUHookCx {
-      memory: &mut self.render_memory,
+      memory: &mut self.render_resource_memory,
       gpu: &gpu,
       stage: GPUQueryHookStage::Inspect(inspector),
       shared_ctx,
@@ -114,83 +118,81 @@ impl RenderingRoot {
 
     let mut ctx = FrameCtx::new(
       &gpu,
+      &mut self.render_process_memory,
       canvas.size(),
       &self.pool,
       &self.pass_info_pool,
       statistics,
     );
+    ctx.execute(|ctx| {
+      let upstream = futures::task::noop_waker();
+      let any_changed = self.any_render_change.update(&upstream);
+      let requested_render_views =
+        rendering.check_should_render_and_copy_cached(canvas, &content.viewports, ctx, any_changed);
 
-    let upstream = futures::task::noop_waker();
-    let any_changed = self.any_render_change.update(&upstream);
-    let requested_render_views = rendering.check_should_render_and_copy_cached(
-      canvas,
-      &content.viewports,
-      &mut ctx,
-      any_changed,
-    );
+      ctx.skip_if_not(!requested_render_views.is_empty(), |ctx| {
+        let mut pool = AsyncTaskPool::default();
 
-    if !requested_render_views.is_empty() {
-      let mut pool = AsyncTaskPool::default();
-
-      {
-        let _ = trace_span!("spawn tasks to maintain renderer").entered();
-        shared_ctx.reset_visiting();
-        QueryGPUHookCx {
-          memory: &mut self.render_memory,
-          gpu: &gpu,
-          waker: futures::task::waker(self.any_render_change.clone()),
-          stage: GPUQueryHookStage::Update {
-            spawner: task_spawner,
-            task_pool: &mut pool,
-            change_collector: &mut Default::default(),
-            immediate_results: &mut immediate_results,
-          },
-          shared_ctx,
-          storage_allocator: rendering.storage_allocator(),
+        {
+          let _ = trace_span!("spawn tasks to maintain renderer").entered();
+          shared_ctx.reset_visiting();
+          QueryGPUHookCx {
+            memory: &mut self.render_resource_memory,
+            gpu: &gpu,
+            waker: futures::task::waker(self.any_render_change.clone()),
+            stage: GPUQueryHookStage::Update {
+              spawner: task_spawner,
+              task_pool: &mut pool,
+              change_collector: &mut Default::default(),
+              immediate_results: &mut immediate_results,
+            },
+            shared_ctx,
+            storage_allocator: rendering.storage_allocator(),
+          }
+          .execute(|cx| rendering.use_viewer_scene_renderer(cx, &content.viewports));
         }
-        .execute(|cx| rendering.use_viewer_scene_renderer(cx, &content.viewports));
-      }
 
-      let mut task_pool_result = {
-        let _ = trace_span!("wait maintain renderer task finish").entered();
-        pollster::block_on(pool.all_async_task_done())
-      };
+        let mut task_pool_result = {
+          let _ = trace_span!("wait maintain renderer task finish").entered();
+          pollster::block_on(pool.all_async_task_done())
+        };
 
-      let renderer = {
-        let _ = trace_span!("maintain(gpu) and create renderer instance").entered();
-        task_pool_result
-          .token_based_result
-          .extend(immediate_results.drain());
-        shared_ctx.reset_visiting();
+        let renderer = {
+          let _ = trace_span!("maintain(gpu) and create renderer instance").entered();
+          task_pool_result
+            .token_based_result
+            .extend(immediate_results.drain());
+          shared_ctx.reset_visiting();
 
-        QueryGPUHookCx {
-          memory: &mut self.render_memory,
-          gpu: &gpu,
-          stage: GPUQueryHookStage::CreateRender {
-            task: task_pool_result,
-            encoder: &mut ctx.encoder,
-          },
-          shared_ctx,
-          waker: futures::task::waker(self.any_render_change.clone()),
-          storage_allocator: rendering.storage_allocator(),
-        }
-        .execute(|cx| {
-          rendering
-            .use_viewer_scene_renderer(cx, &content.viewports)
-            .unwrap()
-        })
-      };
+          QueryGPUHookCx {
+            memory: &mut self.render_resource_memory,
+            gpu: &gpu,
+            stage: GPUQueryHookStage::CreateRender {
+              task: task_pool_result,
+              encoder: &mut ctx.encoder,
+            },
+            shared_ctx,
+            waker: futures::task::waker(self.any_render_change.clone()),
+            storage_allocator: rendering.storage_allocator(),
+          }
+          .execute(|cx| {
+            rendering
+              .use_viewer_scene_renderer(cx, &content.viewports)
+              .unwrap()
+          })
+        };
 
-      let waker = futures::task::waker(self.any_render_change.clone());
-      rendering.render(
-        &requested_render_views,
-        canvas,
-        content,
-        renderer,
-        &mut ctx,
-        &waker,
-      );
-    }
+        let waker = futures::task::waker(self.any_render_change.clone());
+        rendering.render(
+          &requested_render_views,
+          canvas,
+          content,
+          renderer,
+          ctx,
+          &waker,
+        );
+      });
+    });
 
     drop(ctx);
 
