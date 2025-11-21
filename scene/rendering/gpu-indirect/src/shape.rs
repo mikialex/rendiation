@@ -71,8 +71,11 @@ impl IndirectModelShapeRenderImpl for Vec<Box<dyn IndirectModelShapeRenderImpl>>
     any_idx: EntityHandle<StandardModelEntity>,
     ctx: &mut FrameCtx,
   ) -> Option<Box<dyn IndirectDrawProvider>> {
-    for provider in self {
-      if let Some(v) = provider.generate_indirect_draw_provider(batch, any_idx, ctx) {
+    ctx.next_key_scope_root();
+    for (i, provider) in self.iter().enumerate() {
+      if let Some(v) = ctx.keyed_scope(&i, |ctx| {
+        provider.generate_indirect_draw_provider(batch, any_idx, ctx)
+      }) {
         return Some(v);
       }
     }

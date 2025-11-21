@@ -420,6 +420,7 @@ impl Viewer3dRenderingCtx {
     };
 
     let size_backup = ctx.frame_size;
+    ctx.next_key_scope_root();
     for (viewport_id, idx) in requested_render_views {
       ctx.keyed_scope(&viewport_id, |ctx| {
         let view_renderer = self.views.get_mut(viewport_id).unwrap();
