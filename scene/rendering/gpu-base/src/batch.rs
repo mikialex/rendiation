@@ -101,38 +101,14 @@ pub struct DeviceSceneModelRenderSubBatch {
   pub scene_models: Box<dyn ComputeComponentIO<u32>>,
   /// this id is only used for implementation selecting. this may be not included in scene model.
   pub impl_select_id: EntityHandle<SceneModelEntity>,
+  pub group_key: u64,
 }
 
 impl SceneModelRenderBatch {
-  /// user must assure the given host batch could be converted to device batch logically correct.
-  /// (could be rendered indirectly, and at least has one scene model)
-  ///
-  /// **warning**, convert device to host may affect performance if scene model list is large
-  pub fn get_device_batch(
-    &self,
-    force_convert: Option<&GPU>,
-    // todo use indirect grouper for safeness
-  ) -> Option<DeviceSceneModelRenderBatch> {
+  pub fn get_device_batch(&self) -> Option<DeviceSceneModelRenderBatch> {
     match self {
       SceneModelRenderBatch::Device(v) => Some(v.clone()),
-      SceneModelRenderBatch::Host(v) => {
-        if let Some(gpu) = force_convert {
-          let data = v
-            .iter_scene_models()
-            .map(|v| v.alloc_index())
-            .collect::<Vec<_>>();
-          let storage = create_gpu_readonly_storage(data.as_slice(), &gpu.device);
-          Some(DeviceSceneModelRenderBatch {
-            sub_batches: vec![DeviceSceneModelRenderSubBatch {
-              impl_select_id: v.iter_scene_models().next().unwrap(),
-              scene_models: Box::new(storage_full_into_compute(storage)),
-            }],
-            stash_culler: None,
-          })
-        } else {
-          None
-        }
-      }
+      SceneModelRenderBatch::Host(_) => None,
     }
   }
 
@@ -161,32 +137,37 @@ impl DeviceSceneModelRenderBatch {
     require_materialize: bool,
   ) -> Vec<DeviceSceneModelRenderSubBatch> {
     if let Some(culler) = &self.stash_culler {
-      self
-        .sub_batches
-        .iter()
-        .map(|sub_batch| {
-          let mask = SceneModelCullingComponent {
-            culler: culler.clone(),
-            input: sub_batch.scene_models.clone(),
-          };
+      cx.scope(|cx| {
+        self
+          .sub_batches
+          .iter()
+          .map(|sub_batch| {
+            let mask = SceneModelCullingComponent {
+              culler: culler.clone(),
+              input: sub_batch.scene_models.clone(),
+            };
 
-          let scene_models = if require_materialize {
-            let scene_models = sub_batch
-              .scene_models
-              .clone()
-              .stream_compaction(mask, cx)
-              .materialize_storage_buffer(cx);
-            Box::new(scene_models) as Box<dyn ComputeComponentIO<u32>>
-          } else {
-            Box::new(sub_batch.scene_models.clone().stream_compaction(mask, cx))
-          };
+            let scene_models = cx.keyed_scope(&sub_batch.group_key, |cx| {
+              if require_materialize {
+                let scene_models = sub_batch
+                  .scene_models
+                  .clone()
+                  .stream_compaction(mask, cx)
+                  .materialize_storage_buffer(cx);
+                Box::new(scene_models) as Box<dyn ComputeComponentIO<u32>>
+              } else {
+                Box::new(sub_batch.scene_models.clone().stream_compaction(mask, cx))
+              }
+            });
 
-          DeviceSceneModelRenderSubBatch {
-            scene_models,
-            impl_select_id: sub_batch.impl_select_id,
-          }
-        })
-        .collect()
+            DeviceSceneModelRenderSubBatch {
+              scene_models,
+              impl_select_id: sub_batch.impl_select_id,
+              group_key: sub_batch.group_key,
+            }
+          })
+          .collect()
+      })
     } else {
       self.sub_batches.clone()
     }

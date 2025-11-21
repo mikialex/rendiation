@@ -3,13 +3,8 @@ use crate::*;
 pub struct PersistSceneModelListBuffer {
   buffer: Option<PersistSceneModelListBufferWithLength>,
   host: Vec<RawEntityHandle>,
+  group_key_hash: u64,
   mapping: FastHashMap<RawEntityHandle, usize>,
-}
-
-impl Default for PersistSceneModelListBuffer {
-  fn default() -> Self {
-    Self::with_capacity(1024)
-  }
 }
 
 pub struct PersistSceneModelListBufferMutation {
@@ -45,12 +40,14 @@ impl PersistSceneModelListBuffer {
     DeviceSceneModelRenderSubBatch {
       scene_models: Box::new(self.buffer.clone().unwrap()),
       impl_select_id: unsafe { EntityHandle::from_raw(*self.host.first()?) }, // maybe empty
+      group_key: self.group_key_hash,
     }
     .into()
   }
-  pub fn with_capacity(capacity: usize) -> Self {
+  pub fn with_capacity(capacity: usize, group_key_hash: u64) -> Self {
     Self {
       buffer: None,
+      group_key_hash,
       host: Vec::with_capacity(capacity),
       mapping: FastHashMap::with_capacity_and_hasher(capacity, FastHasherBuilder::default()),
     }

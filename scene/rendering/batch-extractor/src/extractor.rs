@@ -25,7 +25,18 @@ impl IncrementalDeviceSceneBatchExtractor {
       .1
       .raw_entry_mut()
       .from_key(key)
-      .or_insert_with(|| (key.clone(), Default::default()))
+      .or_insert_with(|| {
+        use std::hash::Hash;
+        use std::hash::Hasher;
+        let mut key_hasher = FastHasher::default();
+        key.hash(&mut key_hasher);
+        let hash = key_hasher.finish();
+
+        (
+          key.clone(),
+          PersistSceneModelListBuffer::with_capacity(1024, hash),
+        )
+      })
       .1
   }
 }
