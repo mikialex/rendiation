@@ -36,7 +36,7 @@ pub unsafe trait HooksCxLike: Sized {
 
     let location = FastLocation(Location::caller());
     let key = SubFunctionKeyType::CallSite(location);
-    let sub_memory = self.memory_mut().sub_function(is_dynamic_stage, key) as *mut _;
+    let sub_memory = self.memory_mut().sub_function(is_dynamic_stage, key, true) as *mut _;
 
     unsafe {
       core::ptr::swap(self.memory_mut(), sub_memory);
@@ -54,7 +54,7 @@ pub unsafe trait HooksCxLike: Sized {
     let is_dynamic_stage = self.is_dynamic_stage();
 
     let key = create_key_from_hash_impl(key);
-    let sub_memory = self.memory_mut().sub_function(is_dynamic_stage, key) as *mut _;
+    let sub_memory = self.memory_mut().sub_function(is_dynamic_stage, key, false) as *mut _;
 
     unsafe {
       core::ptr::swap(self.memory_mut(), sub_memory);
@@ -81,13 +81,17 @@ pub unsafe trait HooksCxLike: Sized {
   fn skip_call_site_scope(&mut self) {
     let key = SubFunctionKeyType::CallSite(FastLocation(Location::caller()));
     let is_dynamic_stage = self.is_dynamic_stage();
-    self.memory_mut().sub_function(is_dynamic_stage, key);
+    self.memory_mut().sub_function(is_dynamic_stage, key, true);
   }
 
   fn skip_keyed_scope<K: std::hash::Hash>(&mut self, key: &K) {
     let key = create_key_from_hash_impl(key);
     let is_dynamic_stage = self.is_dynamic_stage();
-    self.memory_mut().sub_function(is_dynamic_stage, key);
+    self.memory_mut().sub_function(is_dynamic_stage, key, false);
+  }
+
+  fn next_key_scope_root(&mut self) {
+    self.memory_mut().sub_scope_cursor += 1;
   }
 
   #[track_caller]
@@ -235,12 +239,20 @@ impl FunctionMemory {
     }
   }
 
-  pub fn sub_function(&mut self, is_dynamic_stage: bool, key: SubFunctionKeyType) -> &mut Self {
+  pub fn sub_function(
+    &mut self,
+    is_dynamic_stage: bool,
+    key: SubFunctionKeyType,
+    increase_current_cursor: bool,
+  ) -> &mut Self {
     let key = SubFunctionKey {
       position: self.sub_scope_cursor,
       key,
     };
-    self.sub_scope_cursor += 1;
+    if increase_current_cursor {
+      self.sub_scope_cursor += 1;
+    }
+
     if is_dynamic_stage {
       if let Some(previous_memory) = self.sub_functions.remove(&key) {
         assert!(

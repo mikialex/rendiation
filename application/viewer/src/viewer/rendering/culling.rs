@@ -15,6 +15,7 @@ pub fn use_viewer_culling(
 ) -> Option<ViewerCulling> {
   let oc_states = if enable_oc_support && is_indirect {
     cx.scope(|cx| {
+      cx.next_key_scope_root();
       let maps = per_camera_per_viewport(viewports, true)
         .map(|cv| {
           let cache = cx.keyed_scope(&cv.camera, |cx| {

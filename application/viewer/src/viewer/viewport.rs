@@ -71,6 +71,7 @@ pub fn per_camera_per_viewport_scope(
   consider_debug_view_camera_override: bool,
   logic: impl Fn(&mut ViewerCx, &CameraViewportAccess),
 ) {
+  cx.next_key_scope_root();
   for cv in per_camera_per_viewport(
     &cx.viewer.content.viewports,
     consider_debug_view_camera_override,
