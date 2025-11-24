@@ -54,6 +54,8 @@ impl RenderingRoot {
     self
       .render_resource_memory
       .cleanup(&mut dcx as *mut _ as *mut ());
+
+    self.render_process_memory.cleanup(&mut () as *mut ());
   }
 
   pub fn setup_init_config(&self, init_config: &mut ViewerInitConfig) {
