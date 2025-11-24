@@ -424,8 +424,12 @@ impl Viewer3dViewportRenderingCtx {
   ) {
     let camera = viewport.camera;
     let camera_transform = renderer.camera_transforms.access(&camera).unwrap();
-    let current_view_projection_inv = camera_transform.view_projection_inv;
-    self.reproject.update(ctx, current_view_projection_inv);
+    let current_view_projection_inv_no_translation =
+      camera_transform.projection * camera_transform.view.into_f32().remove_position();
+    self
+      .reproject
+      .update(ctx, current_view_projection_inv_no_translation);
+
     if let Some(mesh_lod_graph_renderer) = &renderer.mesh_lod_graph_renderer {
       if camera_transform
         .projection
