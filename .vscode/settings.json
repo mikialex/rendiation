@@ -80,6 +80,7 @@
         "GPURAL",
         "halton",
         "hashable",
+        "hashbrown",
         "Hasher",
         "HenyeyGreenstein",
         "hidpi",

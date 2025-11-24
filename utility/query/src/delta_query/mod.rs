@@ -112,12 +112,15 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
   fn dual_query_select<Q>(
     self,
     other: Q,
+    debug_location: Option<&'static Location<'static>>,
   ) -> impl DualQueryLike<Key = Self::Key, Value = Self::Value>
   where
     Q: DualQueryLike<Key = Self::Key, Value = Self::Value>,
   {
     self.dual_query_union(other, move |(a, b)| match (a, b) {
-      (Some(_), Some(_)) => unreachable!("key set should not overlap"),
+      (Some(_), Some(_)) => {
+        unreachable!("key set should not overlap, call site: {debug_location:?}")
+      }
       (Some(a), None) => a.into(),
       (None, Some(b)) => b.into(),
       (None, None) => None,
@@ -127,6 +130,7 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
   fn dual_query_zip<Q>(
     self,
     other: Q,
+    debug_location: Option<&'static Location<'static>>,
   ) -> impl DualQueryLike<Key = Self::Key, Value = (Self::Value, Q::Value)>
   where
     Q: DualQueryLike<Key = Self::Key>,
@@ -134,8 +138,8 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     self.dual_query_union(other, move |(a, b)| match (a, b) {
       (Some(a), Some(b)) => Some((a, b)),
       (None, None) => None,
-      (None, Some(_)) => unreachable!("zip missing left side"),
-      (Some(_), None) => unreachable!("zip missing right side"),
+      (None, Some(_)) => unreachable!("zip missing left side, call site: {debug_location:?}"),
+      (Some(_), None) => unreachable!("zip missing right side, call site: {debug_location:?}"),
     })
   }
 

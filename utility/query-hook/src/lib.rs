@@ -649,10 +649,7 @@ pub fn finalize_buffered_changes<K: CKey, V: CValue>(
   let mut target = FastHashMap::default();
 
   for c in changes {
-    merge_into_hashmap(
-      &mut target,
-      c.iter_key_value().map(|(k, v)| (k.clone(), v.clone())),
-    );
+    merge_into_hashmap(&mut target, c.iter_key_value());
   }
 
   if target.is_empty() {

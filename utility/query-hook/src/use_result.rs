@@ -363,6 +363,7 @@ where
     )
   }
 
+  #[track_caller]
   pub fn dual_query_zip<Q>(
     self,
     other: UseResult<Q>,
@@ -370,7 +371,10 @@ where
   where
     Q: DualQueryLike<Key = T::Key>,
   {
-    self.join(other).map(|(a, b)| a.dual_query_zip(b))
+    let location = std::panic::Location::caller();
+    self
+      .join(other)
+      .map(|(a, b)| a.dual_query_zip(b, location.into()))
   }
 
   pub fn dual_query_intersect<Q>(
@@ -529,11 +533,15 @@ where
     })
   }
 
+  #[track_caller]
   pub fn dual_query_select<Q: DualQueryLike<Key = T::Key, Value = T::Value>>(
     self,
     other: UseResult<Q>,
   ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = T::Value>> {
-    self.join(other).map(|(a, b)| a.dual_query_select(b))
+    let location = std::panic::Location::caller();
+    self
+      .join(other)
+      .map(|(a, b)| a.dual_query_select(b, location.into()))
   }
 
   pub fn dual_query_union<Q: DualQueryLike<Key = T::Key>, O: CValue>(

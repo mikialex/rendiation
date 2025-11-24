@@ -3,6 +3,7 @@
 #![feature(lazy_type_alias)]
 
 use std::marker::PhantomData;
+use std::panic::Location;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::{hash::Hash, ops::Deref};

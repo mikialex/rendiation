@@ -29,9 +29,6 @@ pub trait Query: Send + Sync + Clone {
   fn materialize(&self) -> Arc<QueryMaterialized<Self::Key, Self::Value>> {
     Arc::new(self.iter_key_value().collect())
   }
-  fn materialize_hashmap_maybe_cloned(&self) -> QueryMaterialized<Self::Key, Self::Value> {
-    Arc::try_unwrap(self.materialize()).unwrap_or_else(|m| m.deref().clone())
-  }
 }
 
 impl<T: Query> Query for &T {
