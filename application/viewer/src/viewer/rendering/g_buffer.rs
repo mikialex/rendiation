@@ -78,9 +78,7 @@ impl GraphicsShaderProvider for FrameGeometryBufferPassEncoder {
         builder.frag_output[self.entity_id].store(id);
       }
 
-      let normal = builder
-        .query_or_interpolate_by::<FragmentRenderNormal, VertexRenderNormal>()
-        .normalize();
+      let normal = builder.get_or_compute_fragment_normal();
       let out: Node<Vec4<f32>> = (normal, val(1.0)).into();
       builder.frag_output[self.normal].store(out);
     })
@@ -169,12 +167,10 @@ impl GeometryCtxProvider for FrameGeometryBufferReconstructGeometryCtx<'_> {
       let view_proj_inv = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
       let render_position = shader_uv_space_to_render_space(view_proj_inv, uv, depth);
 
-      let camera_position_in_render = val(Vec3::zero());
-
       ENode::<ShaderLightingGeometricCtx> {
         position: render_position,
         normal,
-        view_dir: (camera_position_in_render - render_position).normalize(),
+        view_dir: -render_position.normalize(),
         camera_world_position: builder.query::<CameraWorldPositionHP>(),
         camera_world_none_translation_mat: builder.query::<CameraWorldNoneTranslationMatrix>(),
       }

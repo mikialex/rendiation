@@ -481,7 +481,7 @@ impl Viewer3dViewportRenderingCtx {
           viewport,
           &scene_result,
           &g_buffer,
-          !is_outline_only_mode,
+          is_outline_only_mode,
         );
 
         if self.enable_ground && !is_outline_only_mode {

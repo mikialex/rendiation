@@ -9,7 +9,13 @@ pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer
   let env_background_intensity_uniform = cx.use_uniform_buffers();
 
   cx.use_changes::<SceneHDRxEnvBackgroundInfo>()
-    .filter_map_changes(|v| v.map(|v| Vec4::new(v.intensity, 0., 0., 0.)))
+    .filter_map_changes(|v| {
+      v.map(|v| IblShaderInfoForBackground {
+        transform: v.transform,
+        intensity: v.intensity,
+        ..Default::default()
+      })
+    })
     .update_uniforms(&env_background_intensity_uniform, 0, cx.gpu);
 
   let solid_background_color_uniform = cx.use_uniform_buffers();
@@ -155,7 +161,7 @@ impl PassContent for BackGroundDrawPassContent<'_> {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, PartialEq)]
+#[derive(Clone, Copy, Default, ShaderStruct, PartialEq, Debug)]
 pub struct IblShaderInfoForBackground {
   pub transform: Mat4<f32>,
   pub intensity: f32,
