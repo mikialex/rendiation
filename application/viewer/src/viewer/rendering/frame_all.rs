@@ -213,23 +213,22 @@ impl Viewer3dRenderingCtx {
 
         let scene_model = use_indirect_scene_model(cx, model_support);
 
-        let sm_ref_wide_line = cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>();
-        let wide_line_key = cx
-          .use_dual_query_set::<WideLineModelEntity>()
-          .fanout(sm_ref_wide_line, cx)
-          .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
-            internal: 0,
-            require_alpha_blend: false,
-          })
-          .dual_query_boxed();
-
-        let key_impl = GroupKeyForeignImpl {
-          model: Some(wide_line_key),
-          ..Default::default()
-        };
-
         if !self.using_host_driven_indirect_draw {
           cx.scope(|cx| {
+            let sm_ref_wide_line = cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>();
+            let wide_line_key = cx
+              .use_dual_query_set::<WideLineModelEntity>()
+              .fanout(sm_ref_wide_line, cx)
+              .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
+                internal: 0,
+                require_alpha_blend: false,
+              })
+              .dual_query_boxed();
+
+            let key_impl = GroupKeyForeignImpl {
+              model: Some(wide_line_key),
+              ..Default::default()
+            };
             indirect_extractor = use_incremental_device_scene_batch_extractor(cx, key_impl);
           })
         }
