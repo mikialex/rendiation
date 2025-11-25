@@ -188,6 +188,7 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     }
     drop(cx);
 
+    mem.flush(&mut () as *mut ());
     mem.cleanup(&mut () as *mut ());
 
     self.gpu.submit_encoder(encoder);

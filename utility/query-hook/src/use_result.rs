@@ -79,6 +79,10 @@ impl<T: Send + Sync + 'static> UseResult<T> {
         for (k, v) in change.iter_update_or_insert() {
           mutator.set_value(k, v);
         }
+
+        if mapping.capacity() > mapping.len() * 2 {
+          mapping.shrink_to_fit();
+        }
         drop(mapping);
 
         DualQuery {
@@ -452,6 +456,11 @@ where
           }
         }
       }
+
+      if mapping.capacity() > mapping.len() * 2 {
+        mapping.shrink_to_fit();
+      }
+
       drop(mapping);
 
       DualQuery {

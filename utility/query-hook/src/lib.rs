@@ -101,6 +101,10 @@ pub fn maintain_shared_map_avoid_unnecessary_creator_init<K, V, D, F>(
     for (k, v) in changes.iter_update_or_insert() {
       map.insert(k, f(v));
     }
+
+    if map.capacity() > map.len() * 2 {
+      map.shrink_to_fit();
+    }
   }
 }
 

@@ -219,6 +219,10 @@ where
         // todo, here we should do sophisticated optimization to merge the adjacent writes.
         buffer.write_at(&gpu.queue, &value, offset as u64);
       }
+
+      if uniform.capacity() > uniform.len() * 2 {
+        uniform.shrink_to_fit();
+      }
     }
   }
 

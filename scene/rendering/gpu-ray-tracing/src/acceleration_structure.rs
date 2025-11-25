@@ -232,6 +232,10 @@ pub fn use_scene_to_tlas(
       );
     }
 
+    if tlas.capacity() > tlas.len() * 2 {
+      tlas.shrink_to_fit();
+    }
+
     drop(tlas);
 
     Some(tlas_store.make_read_holder())

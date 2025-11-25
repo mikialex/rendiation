@@ -39,6 +39,10 @@ impl EntityComponentGroup {
       fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(idx, _)| RawEntityHandle(idx))
       }
+
+      fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+      }
     }
 
     Iter {

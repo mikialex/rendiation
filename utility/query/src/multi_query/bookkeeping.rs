@@ -12,6 +12,11 @@ pub fn bookkeeping_hash_relation<K: CKey, V: CKey>(
     if let Some(old_refed_one) = old_refed_one {
       let previous_one_refed_many = mapping.get_mut(old_refed_one).unwrap();
       previous_one_refed_many.remove(&many);
+
+      if previous_one_refed_many.capacity() > previous_one_refed_many.len() * 2 {
+        previous_one_refed_many.shrink_to_fit();
+      }
+
       if previous_one_refed_many.is_empty() {
         mapping.remove(old_refed_one);
       }
@@ -22,6 +27,10 @@ pub fn bookkeeping_hash_relation<K: CKey, V: CKey>(
       let new_one_refed_many = mapping.entry(new_one.clone()).or_default();
       new_one_refed_many.insert(many.clone());
     }
+  }
+
+  if mapping.capacity() > mapping.len() * 2 {
+    mapping.shrink_to_fit();
   }
 }
 

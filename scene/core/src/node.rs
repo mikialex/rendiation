@@ -130,8 +130,9 @@ where
           connectivity_change.is_empty() || payload_change.is_empty()
         },
         move |((connectivity_rev_view, connectivity_change), payload_change)| {
+          let mut d = derived.write();
           let changes = compute_tree_derive(
-            &mut derived.write(),
+            &mut d,
             f,
             payload_source,
             payload_change,
@@ -139,6 +140,11 @@ where
             connectivity_rev_view,
             connectivity_change,
           );
+
+          if d.capacity() > d.len() * 2 {
+            d.shrink_to_fit();
+          }
+          drop(d);
 
           DualQuery {
             view: derived.make_read_holder(),
