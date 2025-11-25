@@ -117,7 +117,7 @@ impl MultiCascadeShadowMapPreparer {
   pub fn update(
     self,
     frame_ctx: &mut FrameCtx,
-    draw: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
+    draw: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> MultiCascadeShadowMapData {
     let per_camera = self

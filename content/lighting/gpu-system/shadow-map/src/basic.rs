@@ -138,7 +138,7 @@ impl BasicShadowMapPreparer {
     self,
     frame_ctx: &mut FrameCtx,
     // proj, world
-    scene_content: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
+    scene_content: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> GPU2DArrayDepthTextureView {
     clear_shadow_map(&self.shadow_map_atlas, frame_ctx, reversed_depth);

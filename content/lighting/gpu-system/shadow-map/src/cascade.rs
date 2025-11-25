@@ -134,7 +134,7 @@ impl CascadeShadowPreparer {
     resource_cache: &mut CascadeShadowGPUCache,
     frame_ctx: &mut FrameCtx,
     // proj, world
-    scene_content: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
+    scene_content: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> CascadeShadowMapComponent {
     let shadow_map_atlas = &mut resource_cache.texture;

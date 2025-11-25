@@ -86,7 +86,7 @@ impl SparseBufferWritesSource {
       return;
     }
 
-    // this may failed if we support texture as storage buffer
+    // this may fail if we support texture as storage buffer
     if let Some(target_buffer) = target_buffer.get_gpu_buffer_view() {
       encoder.compute_pass_scoped(|mut pass| {
         self.write(gpu, &mut pass, target_buffer);

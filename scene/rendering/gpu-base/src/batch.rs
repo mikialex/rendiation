@@ -131,6 +131,7 @@ impl DeviceSceneModelRenderBatch {
     self
   }
 
+  #[track_caller]
   pub fn flush_culler(
     &self,
     cx: &mut DeviceParallelComputeCtx,
@@ -174,6 +175,7 @@ impl DeviceSceneModelRenderBatch {
     }
   }
 
+  #[track_caller]
   pub fn flush_culler_into_new(
     &self,
     cx: &mut DeviceParallelComputeCtx,

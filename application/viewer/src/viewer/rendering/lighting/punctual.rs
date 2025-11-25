@@ -91,7 +91,7 @@ impl SceneDirectionalLightingPreparer {
   pub fn update_shadow_maps(
     self,
     frame_ctx: &mut FrameCtx,
-    draw: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
+    draw: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> Box<dyn LightSystemSceneProvider> {
     match self.shadow {
@@ -253,7 +253,7 @@ impl SceneSpotLightingPreparer {
   pub fn update_shadow_maps(
     self,
     frame_ctx: &mut FrameCtx,
-    draw: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
+    draw: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> SceneSpotLightingProvider {
     let shadow_map_atlas = self

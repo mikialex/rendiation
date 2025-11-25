@@ -90,7 +90,9 @@ impl LightSystem {
       only_alpha_blend_objects: None,
     };
 
-    let content =
+    // this a bit hacky, but it should works
+    let mut shadow_id = 0;
+    let mut content =
       |proj: Mat4<f32>, world: Mat4<f64>, frame_ctx: &mut FrameCtx, desc: ShadowPassDesc| {
         let camera = UniformBufferDataView::create(
           &frame_ctx.gpu.device,
@@ -101,18 +103,23 @@ impl LightSystem {
         let depth = ();
         let camera = Box::new(CameraGPU { ubo: camera }) as Box<dyn RenderComponent>;
         let batch = extractor.extract_scene_batch(target_scene, key, renderer);
-        let mut content = renderer.make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
 
-        desc.render_ctx(frame_ctx).by(&mut content);
+        frame_ctx.keyed_scope(&shadow_id, |frame_ctx| {
+          let mut content =
+            renderer.make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
+
+          desc.render_ctx(frame_ctx).by(&mut content);
+        });
+        shadow_id += 1;
       };
 
     let ds = instance
       .dir_lights
-      .update_shadow_maps(frame_ctx, &content, reversed_depth);
+      .update_shadow_maps(frame_ctx, &mut content, reversed_depth);
 
     let ss = instance
       .spot_lights
-      .update_shadow_maps(frame_ctx, &content, reversed_depth);
+      .update_shadow_maps(frame_ctx, &mut content, reversed_depth);
 
     let imp = Box::new(LightingComputeComponentGroupProvider {
       lights: vec![
