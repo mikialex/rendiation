@@ -56,11 +56,12 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
   /// combinator, and view will be retained, which will cause deadlock in some case
   fn materialize_delta(
     self,
-  ) -> DualQuery<Self::View, Arc<QueryMaterialized<Self::Key, ValueChange<Self::Value>>>> {
+  ) -> DualQuery<Self::View, Arc<QueryMaterializedFastIter<Self::Key, ValueChange<Self::Value>>>>
+  {
     let (view, delta) = self.view_delta();
     DualQuery {
       view,
-      delta: delta.materialize(),
+      delta: delta.materialize_fast_iter(),
     }
   }
 

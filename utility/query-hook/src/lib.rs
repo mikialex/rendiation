@@ -253,7 +253,7 @@ pub trait QueryHookCxLike: HooksCxLike {
         let new_delta = view
           .iter_key_value()
           .map(|(k, v)| (k, ValueChange::Delta(v, None)))
-          .collect::<FastHashMap<_, _>>();
+          .collect::<QueryMaterializedFastIter<K, ValueChange<V>>>();
         let new_delta = Arc::new(new_delta);
 
         DualQuery {

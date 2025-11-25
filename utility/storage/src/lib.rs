@@ -1,4 +1,5 @@
 mod deduplication;
+mod fast_iter_map;
 mod generational;
 mod index_kept;
 mod index_reuse;
@@ -8,6 +9,7 @@ mod multi_hash;
 
 pub use deduplication::*;
 use fast_hash_collection::*;
+pub use fast_iter_map::*;
 pub use generational::*;
 pub use index_kept::*;
 pub use index_reuse::*;

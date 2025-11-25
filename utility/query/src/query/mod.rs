@@ -12,6 +12,7 @@ mod self_contain;
 pub use self_contain::*;
 
 pub type QueryMaterialized<K, V> = FastHashMap<K, V>;
+pub type QueryMaterializedFastIter<K, V> = FastIterMap<K, V>;
 
 pub trait Query: Send + Sync + Clone {
   type Key: CKey;
@@ -26,7 +27,13 @@ pub trait Query: Send + Sync + Clone {
     self.iter_key_value().next().is_none()
   }
 
+  /// the implementation of Arc<QueryMaterialized> should override this method to avoid collect
   fn materialize(&self) -> Arc<QueryMaterialized<Self::Key, Self::Value>> {
+    Arc::new(self.iter_key_value().collect())
+  }
+
+  /// the implementation of Arc<QueryMaterializedFastIter> should override this method to avoid collect
+  fn materialize_fast_iter(&self) -> Arc<QueryMaterializedFastIter<Self::Key, Self::Value>> {
     Arc::new(self.iter_key_value().collect())
   }
 }
@@ -106,6 +113,35 @@ impl<K: CKey, V: CValue> Query for FastHashMap<K, V> {
 
   fn access(&self, key: &K) -> Option<V> {
     self.get(key).cloned()
+  }
+}
+
+impl<K: CKey, V: CValue> Query for FastIterMap<K, V> {
+  type Key = K;
+  type Value = V;
+
+  fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    self.iter().cloned()
+  }
+
+  fn access(&self, key: &Self::Key) -> Option<Self::Value> {
+    self.get(key).cloned()
+  }
+}
+
+impl<K: CKey, V: CValue> Query for Arc<FastIterMap<K, V>> {
+  type Key = K;
+  type Value = V;
+
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    self.deref().iter_key_value()
+  }
+
+  fn access(&self, key: &K) -> Option<V> {
+    self.deref().access(key)
+  }
+  fn materialize_fast_iter(&self) -> Arc<QueryMaterializedFastIter<Self::Key, Self::Value>> {
+    self.clone()
   }
 }
 

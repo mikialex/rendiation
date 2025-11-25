@@ -6,6 +6,7 @@ mod util;
 
 use std::hash::Hasher;
 
+use ::storage::FastIterMap;
 pub use collective_channel::*;
 pub use persistence::*;
 pub use ref_counting::*;
@@ -106,7 +107,9 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
     let waker = cx.waker().clone();
     if let QueryHookStage::SpawnTask {
-      change_collector, ..
+      change_collector,
+      spawner,
+      ..
     } = cx.stage()
     {
       let mut ctx = Context::from_waker(&waker);
@@ -120,7 +123,14 @@ pub trait DBHookCxLike: QueryHookCxLike {
         change_collector.notify_change();
       }
 
-      UseResult::SpawnStageReady(Arc::new(changes))
+      if changes.is_empty() {
+        UseResult::SpawnStageReady(Arc::new(FastIterMap::from_iter(changes)))
+      } else {
+        let fut = spawner.spawn_task(|| Arc::new(FastIterMap::from_iter(changes)));
+        let fut = pin_box_in_frame(fut);
+
+        UseResult::SpawnStageFuture(fut)
+      }
     } else {
       if rev.has_change() {
         cx.waker().wake_by_ref();
@@ -155,7 +165,9 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
     let waker = cx.waker().clone();
     if let QueryHookStage::SpawnTask {
-      change_collector, ..
+      change_collector,
+      spawner,
+      ..
     } = cx.stage()
     {
       let mut ctx = Context::from_waker(&waker);
@@ -168,7 +180,15 @@ pub trait DBHookCxLike: QueryHookCxLike {
       if !changes.is_empty() {
         change_collector.notify_change();
       }
-      UseResult::SpawnStageReady(Arc::new(changes))
+
+      if changes.is_empty() {
+        UseResult::SpawnStageReady(Arc::new(FastIterMap::from_iter(changes)))
+      } else {
+        let fut = spawner.spawn_task(|| Arc::new(FastIterMap::from_iter(changes)));
+        let fut = pin_box_in_frame(fut);
+
+        UseResult::SpawnStageFuture(fut)
+      }
     } else {
       if rev.has_change() {
         cx.waker().wake_by_ref();
