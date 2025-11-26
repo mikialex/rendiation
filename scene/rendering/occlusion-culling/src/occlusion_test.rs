@@ -115,10 +115,16 @@ impl AbstractCullerInvocation for OcclusionTesterInvocation {
   fn cull(&self, id: Node<u32>) -> Node<bool> {
     let target_world_bounding = self.bounding_provider.get_world_bounding(id);
     let is_occluded = self.is_occluded(target_world_bounding);
-    self
-      .last_frame_invisible
-      .index(id)
-      .store(is_occluded.into_big_bool());
+    if_by(
+      id.less_than(self.last_frame_invisible.array_length()),
+      || {
+        self
+          .last_frame_invisible
+          .index(id)
+          .store(is_occluded.into_big_bool());
+      },
+    );
+
     is_occluded
   }
 }
