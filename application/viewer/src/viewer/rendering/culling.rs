@@ -7,20 +7,21 @@ use crate::*;
 pub fn use_viewer_culling(
   cx: &mut QueryGPUHookCx,
   ndc: impl NDCSpaceMapper + Copy + Hash,
-  enable_oc_support: bool,
-  enable_debug_cull_result: bool,
-  enable_frustum_culling: bool,
+  config: &ViewerCullingConfig,
   is_indirect: bool,
   viewports: &[ViewerViewPort],
 ) -> Option<ViewerCulling> {
-  let oc_states = if enable_oc_support && is_indirect {
+  let oc_states = if config.enable_indirect_occlusion_culling && is_indirect {
     cx.scope(|cx| {
       cx.next_key_scope_root();
       let maps = per_camera_per_viewport(viewports, true)
         .map(|cv| {
           let cache = cx.keyed_scope(&cv.camera, |cx| {
             let (_, oc) = cx.use_sharable_plain_state(|| {
-              GPUTwoPassOcclusionCulling::new(u16::MAX as usize, cx.gpu)
+              GPUTwoPassOcclusionCulling::new(
+                config.occlusion_culling_max_scene_model_count as usize,
+                cx.gpu,
+              )
             });
             oc.clone()
           });
@@ -51,7 +52,7 @@ pub fn use_viewer_culling(
   cx.when_render(|| ViewerCulling {
     oc: oc_states.map(|oc_states| ViewerOcclusionCulling {
       oc_states,
-      enable_debug_cull_result,
+      enable_debug_cull_result: config.enable_debug_occlusion_culling_result,
       debug_culled_result: Default::default(),
     }),
     bounding_provider,
@@ -60,7 +61,7 @@ pub fn use_viewer_culling(
       .mark_entity_type()
       .into_boxed(),
     frustums: camera_frustums.unwrap(),
-    enable_frustum_culling,
+    enable_frustum_culling: config.enable_frustum_culling,
   })
 }
 

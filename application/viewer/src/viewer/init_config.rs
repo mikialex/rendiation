@@ -35,6 +35,7 @@ pub struct ViewerStaticInitConfig {
   pub texture_pool_source_init_config: TexturePoolSourceInit,
   /// None means use available parallelism, 1 means no parallelism
   pub thread_pool_thread_count: Option<usize>,
+  pub occlusion_culling_max_scene_model_count: u32,
   pub bindless_mesh_init: BindlessMeshInit,
   pub enable_indirect_storage_combine: bool,
   pub enable_reverse_z: bool,
@@ -84,6 +85,7 @@ impl Default for ViewerStaticInitConfig {
       bindless_mesh_init: Default::default(),
       wgpu_backend_select_override: None,
       enable_indirect_storage_combine: true,
+      occlusion_culling_max_scene_model_count: u16::MAX as u32,
       using_texture_as_storage_buffer_for_indirect_rendering: false,
       default_shader_protections: ShaderRuntimeProtection {
         bounds_checks: true,

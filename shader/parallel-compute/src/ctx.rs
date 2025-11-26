@@ -72,7 +72,8 @@ impl<'a> DeviceParallelComputeCtx<'a> {
       create_gpu_read_write_storage::<[T]>(init, &gpu)
     });
 
-    if (output.item_count() as usize) < size_require {
+    let current_size = output.item_count() as usize;
+    if current_size < size_require || current_size > size_require * 2 {
       let init = ZeroedArrayByArrayLength(size_require);
       *output = create_gpu_read_write_storage::<[T]>(init, &gpu)
     }

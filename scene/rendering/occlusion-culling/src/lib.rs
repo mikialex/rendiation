@@ -25,6 +25,10 @@ impl GPUTwoPassOcclusionCulling {
   /// this decides the internal visibility buffer size that addressed by scene model entity id.
   /// user should set this conservatively big enough. if any scene model entity id is larger than
   /// this, the oc will not take effect but the correctness will be ensured
+  ///
+  /// note, this state buffer can not be dynamically resized by input batch buffer size, because
+  /// the input batch buffer stand for possible max model count for the current batch, not the
+  /// max model index address of the scene.
   pub fn new(max_scene_model_id: usize, gpu: &GPU) -> Self {
     let init = ZeroedArrayByArrayLength(max_scene_model_id);
     let last_frame_visibility = create_gpu_read_write_storage(init, gpu);
@@ -33,9 +37,7 @@ impl GPUTwoPassOcclusionCulling {
       depth_pyramid_cache: Default::default(),
     }
   }
-}
 
-impl GPUTwoPassOcclusionCulling {
   /// the input batch should be reorderable
   ///
   /// the preflight_content is used to support draw background without initialize another pass.
