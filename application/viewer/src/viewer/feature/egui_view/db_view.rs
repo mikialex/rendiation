@@ -156,14 +156,11 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
             });
             coms.values().for_each(|com| {
               row.col(|ui| {
-                if let Some(idx_handle) = ecg.get_handle_at(idx) {
-                  let read_view = com.data.create_read_view(); // keep read view alive!
-                  let data_ptr = read_view.get(idx_handle.index()).unwrap();
-
-                  let fallback_debug = read_view
-                    .get_as_dyn_storage(idx_handle.index())
-                    .unwrap()
-                    .debug_value();
+                let reader = com.read_untyped();
+                if let Some((data_ptr, data)) =
+                  reader.get_without_generation_check_dyn_data_type(idx as u32)
+                {
+                  let fallback_debug = data.debug_value();
 
                   let tid = com.data.deref().type_id();
                   assert_eq!(tid, com.data_typeid);

@@ -138,7 +138,13 @@ pub(crate) fn add_listen<T: CValue>(
   // expand initial value while first listen.
   unsafe {
     sender.lock();
-    for (idx, v) in query.access().iter_key_value() {
+    let query = query.access();
+    let iter = query.iter_key_value();
+
+    let count_hint = iter.size_hint().0;
+    sender.reserve_space(count_hint);
+
+    for (idx, v) in iter {
       sender.send(idx, ValueChange::Delta(v, None));
     }
     sender.unlock();

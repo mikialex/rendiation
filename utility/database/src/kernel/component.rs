@@ -56,14 +56,22 @@ pub struct ComponentReadViewUntyped {
 
 impl ComponentReadViewUntyped {
   pub fn get(&self, idx: RawEntityHandle) -> Option<DataPtr> {
-    let _ = self.allocator.get(idx.0)?;
+    // note, this is required, because the storage it self
+    // do not has any information about if an idx has deleted before
+    self.allocator.get(idx.0)?;
     self.get_without_generation_check(idx.alloc_index())
   }
   pub fn get_without_generation_check(&self, idx: u32) -> Option<DataPtr> {
-    // note, this is required, because the storage it self
-    // do not has any information about if an idx has deleted before
     self.allocator.get_handle(idx as usize)?;
-    self.data.get(idx)
+    unsafe { Some(self.data.get(idx)) }
+  }
+
+  pub fn get_without_generation_check_dyn_data_type(
+    &self,
+    idx: u32,
+  ) -> Option<(DataPtr, &dyn DataBaseDataTypeDyn)> {
+    self.allocator.get_handle(idx as usize)?;
+    unsafe { Some((self.data.get(idx), self.data.get_as_dyn_storage(idx))) }
   }
 }
 

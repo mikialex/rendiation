@@ -184,7 +184,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   }
 
   pub fn declare_sparse_component<S: ComponentSemantic<Entity = E>>(self) -> Self {
-    self.declare_component_impl::<S>(None, init_linear_storage::<S>())
+    self.declare_component_impl::<S>(None, init_sparse_storage::<S>())
   }
 
   pub fn declare_component_impl<S: ComponentSemantic<Entity = E>>(
@@ -217,11 +217,18 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     self
   }
 
-  pub fn declare_sparse_foreign_key<S: ForeignKeySemantic<Entity = E>>(mut self) -> Self {
-    self = self.declare_component_impl::<S>(
-      S::ForeignEntity::entity_id().into(),
-      init_linear_storage::<S>(),
-    );
+  pub fn declare_sparse_foreign_key_maybe_sparse<S: ForeignKeySemantic<Entity = E>>(
+    mut self,
+    sparse: bool,
+  ) -> Self {
+    if sparse {
+      let storage = init_sparse_storage::<S>();
+      self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
+    } else {
+      let storage = init_linear_storage::<S>();
+      self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
+    };
+
     self
       .inner
       .declare_foreign_key_dyn(S::component_id(), S::ForeignEntity::entity_id());

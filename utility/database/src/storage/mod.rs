@@ -104,48 +104,34 @@ pub trait ComponentStorage: Send + Sync + DynClone {
 dyn_clone::clone_trait_object!(ComponentStorage);
 
 pub trait ComponentStorageReadView: Send + Sync {
-  /// get the data located in idx, return None if out of bound.
-  fn get(&self, idx: u32) -> Option<DataPtr>;
-
   /// # Safety
-  /// ptr must be the correct data type.
-  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
-    &self,
-    ptr: DataPtr,
-  ) -> &'a dyn DataBaseDataTypeDyn;
-
-  fn get_as_dyn_storage(&self, idx: u32) -> Option<&dyn DataBaseDataTypeDyn> {
-    self
-      .get(idx)
-      .map(|ptr| unsafe { self.construct_dyn_datatype_from_raw_ptr(ptr) })
-  }
-  fn fast_serialize_all(&self) -> Vec<u8>;
-}
-
-pub trait ComponentStorageReadWriteView {
-  /// # Safety
-  /// ptr must be the correct data type.
-  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
-    &self,
-    ptr: DataPtr,
-  ) -> &'a dyn DataBaseDataTypeDyn;
-
-  /// # Safety
+  ///  
+  /// - the caller must ensure that idx is valid
+  /// - the impl must ensure the returned ptr is point to correct data
   ///
-  /// idx must point to living data
-  ///
-  /// get the data located in idx.
+  /// get the data located in idx
   unsafe fn get(&self, idx: u32) -> DataPtr;
 
   /// # Safety
   ///
-  /// idx must point to living data
+  /// the impl must ensure the returned ptr is point to correct data
+  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
+    &self,
+    ptr: DataPtr,
+  ) -> &'a dyn DataBaseDataTypeDyn;
+
+  /// # Safety
+  ///  
+  /// - the caller must ensure that idx is valid
+  /// - the impl must ensure the returned ptr is point to correct data
   ///
-  /// get the data in dynamic form located in idx.
+  /// get the data located in idx
   unsafe fn get_as_dyn_storage(&self, idx: u32) -> &dyn DataBaseDataTypeDyn {
     self.construct_dyn_datatype_from_raw_ptr(self.get(idx))
   }
+}
 
+pub trait ComponentStorageReadWriteView: ComponentStorageReadView {
   /// # Safety
   /// The index must point to living data if old_value_out is Some, otherwise it must be pointer to
   /// an allocate but not used location. Return (new_value_ptr, old_value_ptr, changed_if_not_init)
@@ -162,7 +148,9 @@ pub trait ComponentStorageReadWriteView {
   ) -> (DataPtr, DataPtr, bool);
 
   /// # Safety
-  /// the idx must point to living location, return old value ptr
+  ///  
+  /// - the caller must ensure that idx is valid
+  /// - the idx must point to living location, return old value ptr
   unsafe fn delete(&mut self, idx: u32) -> DataPtr;
 
   /// resize the storage to allow more data to stored at the bound of the max size address.

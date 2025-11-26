@@ -7,7 +7,6 @@ use std::task::{Context, Poll};
 use std::{
   any::{Any, TypeId},
   marker::PhantomData,
-  ops::Deref,
   sync::Arc,
 };
 

@@ -38,12 +38,9 @@ impl<T> ComponentStorageReadView for LockReadGuardHolder<DBLinearStorage<T>>
 where
   T: DataBaseDataType,
 {
-  fn get(&self, idx: u32) -> Option<DataPtr> {
-    self
-      .deref()
-      .data
-      .get(idx as usize)
-      .map(|r| r as *const _ as DataPtr)
+  unsafe fn get(&self, idx: u32) -> DataPtr {
+    let data: &Vec<T> = &self.data;
+    data.get_unchecked(idx as usize) as *const _ as DataPtr
   }
 
   unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
@@ -53,13 +50,23 @@ where
     let source = &*(ptr as *const T);
     source as &dyn DataBaseDataTypeDyn
   }
+}
 
-  fn fast_serialize_all(&self) -> Vec<u8> {
-    let mut init = Vec::<u8>::with_capacity(self.data.len() * std::mem::size_of::<T>());
-    self.data.iter().for_each(|data| {
-      data.fast_serialize(&mut init).unwrap();
-    });
-    init
+impl<T> ComponentStorageReadView for LockWriteGuardHolder<DBLinearStorage<T>>
+where
+  T: DataBaseDataType,
+{
+  unsafe fn get(&self, idx: u32) -> DataPtr {
+    let data: &Vec<T> = &self.data;
+    data.get_unchecked(idx as usize) as *const _ as DataPtr
+  }
+
+  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
+    &self,
+    ptr: DataPtr,
+  ) -> &'a dyn DataBaseDataTypeDyn {
+    let source = &*(ptr as *const T);
+    source as &dyn DataBaseDataTypeDyn
   }
 }
 
@@ -67,19 +74,6 @@ impl<T> ComponentStorageReadWriteView for LockWriteGuardHolder<DBLinearStorage<T
 where
   T: DataBaseDataType,
 {
-  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
-    &self,
-    ptr: DataPtr,
-  ) -> &'a dyn DataBaseDataTypeDyn {
-    let source = &*(ptr as *const T);
-    source as &dyn DataBaseDataTypeDyn
-  }
-
-  unsafe fn get(&self, idx: u32) -> DataPtr {
-    let data: &Vec<T> = &self.data;
-    data.get_unchecked(idx as usize) as *const _ as DataPtr
-  }
-
   unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr, bool) {
     let self_ = self.deref_mut();
     let target = self_.data.get_unchecked_mut(idx as usize);

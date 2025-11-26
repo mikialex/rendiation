@@ -38,12 +38,8 @@ impl<T> ComponentStorageReadView for LockReadGuardHolder<DBSparseStorage<T>>
 where
   T: DataBaseDataType,
 {
-  fn get(&self, idx: u32) -> Option<DataPtr> {
-    self
-      .deref()
-      .data
-      .get(&idx)
-      .map(|r| r as *const _ as DataPtr)
+  unsafe fn get(&self, idx: u32) -> DataPtr {
+    self.data.get(&idx).unwrap_or(&self.default_value) as *const _ as DataPtr
   }
 
   unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
@@ -53,13 +49,22 @@ where
     let source = &*(ptr as *const T);
     source as &dyn DataBaseDataTypeDyn
   }
+}
 
-  fn fast_serialize_all(&self) -> Vec<u8> {
-    let mut init = Vec::<u8>::with_capacity(self.data.len() * std::mem::size_of::<T>());
-    self.data.values().for_each(|data| {
-      data.fast_serialize(&mut init).unwrap();
-    });
-    init
+impl<T> ComponentStorageReadView for LockWriteGuardHolder<DBSparseStorage<T>>
+where
+  T: DataBaseDataType,
+{
+  unsafe fn get(&self, idx: u32) -> DataPtr {
+    self.data.get(&idx).unwrap_or(&self.default_value) as *const _ as DataPtr
+  }
+
+  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
+    &self,
+    ptr: DataPtr,
+  ) -> &'a dyn DataBaseDataTypeDyn {
+    let source = &*(ptr as *const T);
+    source as &dyn DataBaseDataTypeDyn
   }
 }
 
@@ -67,18 +72,6 @@ impl<T> ComponentStorageReadWriteView for LockWriteGuardHolder<DBSparseStorage<T
 where
   T: DataBaseDataType,
 {
-  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
-    &self,
-    ptr: DataPtr,
-  ) -> &'a dyn DataBaseDataTypeDyn {
-    let source = &*(ptr as *const T);
-    source as &dyn DataBaseDataTypeDyn
-  }
-
-  unsafe fn get(&self, idx: u32) -> DataPtr {
-    self.data.get(&idx).unwrap_unchecked() as *const _ as DataPtr
-  }
-
   unsafe fn set_value_from_small_serialize_data(
     &mut self,
     idx: u32,
@@ -104,24 +97,42 @@ where
       &self_.default_value
     };
 
-    let old = self_.data.insert(idx, new.clone());
+    if new == &self_.default_value {
+      let old = self_.data.remove(&idx);
 
-    let diff = if let Some(old) = old {
-      self_.old_value_out = old;
-      &self_.old_value_out == new
+      let diff = if let Some(old) = old {
+        self_.old_value_out = old;
+        &self_.old_value_out == new
+      } else {
+        false
+      };
+
+      let new = &self.default_value as *const _ as DataPtr;
+      let old = &self.old_value_out as *const _ as DataPtr;
+      (new, old, diff)
     } else {
-      true
-    };
+      let old = self_.data.insert(idx, new.clone());
 
-    let new = new as *const _ as DataPtr;
-    let old = &self.old_value_out as *const _ as DataPtr;
-    (new, old, diff)
+      let diff = if let Some(old) = old {
+        self_.old_value_out = old;
+        &self_.old_value_out == new
+      } else {
+        true
+      };
+
+      let new = new as *const _ as DataPtr;
+      let old = &self.old_value_out as *const _ as DataPtr;
+      (new, old, diff)
+    }
   }
 
   unsafe fn delete(&mut self, idx: u32) -> DataPtr {
-    let target = self.data.remove(&idx).unwrap_unchecked();
-    self.old_value_out = target.clone();
-    &self.old_value_out as *const _ as DataPtr
+    if let Some(target) = self.data.remove(&idx) {
+      self.old_value_out = target.clone();
+      &self.old_value_out as *const _ as DataPtr
+    } else {
+      &self.default_value as *const _ as DataPtr
+    }
   }
 
   fn resize(&mut self, _max_address: u32) {

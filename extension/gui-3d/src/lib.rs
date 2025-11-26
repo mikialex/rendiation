@@ -49,6 +49,6 @@ pub trait WidgetEnvAccess {
   fn get_viewport_pointer_ctx(&self) -> Option<&ViewportPointerCtx>;
 }
 
-pub fn register_gui3d_extension_data_model() {
-  rendiation_wide_line::register_wide_line_data_model();
+pub fn register_gui3d_extension_data_model(sparse: bool) {
+  rendiation_wide_line::register_wide_line_data_model(sparse);
 }

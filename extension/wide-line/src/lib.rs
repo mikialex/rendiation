@@ -21,9 +21,9 @@ pub use gles_draw::*;
 mod indirect_draw;
 pub use indirect_draw::*;
 
-pub fn register_wide_line_data_model() {
+pub fn register_wide_line_data_model(sparse: bool) {
   global_entity_of::<SceneModelEntity>()
-    .declare_sparse_foreign_key::<SceneModelWideLineRenderPayload>();
+    .declare_sparse_foreign_key_maybe_sparse::<SceneModelWideLineRenderPayload>(sparse);
 
   global_database()
     .declare_entity::<WideLineModelEntity>()
