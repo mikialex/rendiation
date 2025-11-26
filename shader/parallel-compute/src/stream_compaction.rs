@@ -11,7 +11,7 @@ where
   let write_target_positions = filter
     .clone()
     .map(|v| v.select(1_u32, 0))
-    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(512, 512, cx);
+    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx);
 
   let (_, size) = PrefixSumTailAsSize {
     prefix_sum_result: Box::new(write_target_positions.clone()),

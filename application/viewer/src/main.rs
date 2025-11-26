@@ -181,6 +181,7 @@ fn main() {
 
       use_enable_gltf_io(cx);
       use_enable_obj_io(cx);
+      use_test_content_panel(cx);
 
       sync_camera_view(cx);
 

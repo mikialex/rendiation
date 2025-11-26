@@ -10,27 +10,28 @@ pub fn load_stress_test(scene: &mut SceneWriter) {
   }
   .write(&mut scene.pbr_sg_mat_writer);
   let material = SceneMaterialDataView::PbrSGMaterial(material);
-  for i in 0..10 {
+
+  let cube = CubeMeshParameter {
+    width: 0.2,
+    height: 0.2,
+    depth: 0.2,
+  };
+  let mesh = build_attributes_mesh(|builder| {
+    for face in cube.make_faces() {
+      builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
+    }
+  });
+  let mesh = scene.write_attribute_mesh(mesh.build()).mesh;
+
+  for i in 0..100 {
     let i_parent = scene.create_root_child();
     scene.set_local_matrix(i_parent, Mat4::translate((i as f64, 0., 0.)));
-    for j in 0..10 {
+    for j in 0..100 {
       let j_parent = scene.create_child(i_parent);
       scene.set_local_matrix(j_parent, Mat4::translate((0., 0., j as f64)));
-      for k in 0..1 {
+      for k in 0..40 {
         let node = scene.create_child(j_parent);
         scene.set_local_matrix(node, Mat4::translate((0., k as f64, 0.)));
-
-        let cube = CubeMeshParameter {
-          width: 0.2,
-          height: 0.2,
-          depth: 0.2,
-        };
-        let mesh = build_attributes_mesh(|builder| {
-          for face in cube.make_faces() {
-            builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
-          }
-        });
-        let mesh = scene.write_attribute_mesh(mesh.build()).mesh;
 
         scene.create_scene_model(material, mesh, node);
       }
