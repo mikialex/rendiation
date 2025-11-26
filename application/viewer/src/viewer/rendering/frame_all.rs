@@ -40,6 +40,7 @@ impl Viewer3dRenderingCtx {
     init_config.init_only = self.init_config.init_only.clone();
 
     let first_view = self.views.values().next().unwrap();
+    init_config.enable_shadow = self.lighting.enable_shadow;
     init_config.transparent_config = first_view.transparent_config;
     init_config.enable_on_demand_rendering = first_view.enable_on_demand_rendering;
   }
@@ -59,7 +60,7 @@ impl Viewer3dRenderingCtx {
       enable_frustum_culling: init_config.enable_frustum_culling,
       current_renderer_impl_ty: init_config.raster_backend_type,
       rtx_renderer_enabled: false,
-      lighting: LightSystem::new(&gpu),
+      lighting: LightSystem::new(&gpu, init_config),
       gpu,
       views: FastHashMap::default(),
       init_config: init_config.clone(),

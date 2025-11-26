@@ -59,6 +59,11 @@ impl Viewer3dRenderingCtx {
 
     ui.separator();
 
+    ui.checkbox(
+      &mut self.lighting.enable_shadow,
+      "enable shadow(globally AND per light config)",
+    );
+
     egui::ComboBox::from_label("how to lighting opaque objects?")
       .selected_text(format!(
         "{:?}",

@@ -134,7 +134,7 @@ impl MultiCascadeShadowMapPreparer {
 }
 
 pub struct SceneDirectionalLightingCascadeShadowProvider {
-  pub shadow: MultiCascadeShadowMapData,
+  pub shadow: Option<MultiCascadeShadowMapData>,
   pub light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
 }
 impl LightSystemSceneProvider for SceneDirectionalLightingCascadeShadowProvider {
@@ -143,29 +143,33 @@ impl LightSystemSceneProvider for SceneDirectionalLightingCascadeShadowProvider 
     _scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
-    let shadow = self.shadow.get_shadow_accessor(camera)?;
+    if let Some(shadow) = &self.shadow {
+      let shadow = shadow.get_shadow_accessor(camera)?;
 
-    let lights_iter_compute = AbstractShaderBindingIterSourceHelperMap::new(
-      self.light.clone(),
-      shadow,
-      |(light_id, light_uniform): (Node<u32>, ShaderReadonlyPtrOf<DirectionalLightUniform>),
-       shadow: &CascadeShadowMapInvocation| {
-        let light_uniform = light_uniform.load().expand();
-        let light = ENode::<DirectionalShaderInfo> {
-          illuminance: light_uniform.illuminance,
-          direction: light_uniform.direction,
-        }
-        .construct();
-        let shadow = ShadowRandomAccessed {
-          shadow: Arc::new(shadow.clone()),
-          light_id,
-        };
-        ShadowedPunctualLighting { light, shadow }
-      },
-    );
+      let lights_iter_compute = AbstractShaderBindingIterSourceHelperMap::new(
+        self.light.clone(),
+        shadow,
+        |(light_id, light_uniform): (Node<u32>, ShaderReadonlyPtrOf<DirectionalLightUniform>),
+         shadow: &CascadeShadowMapInvocation| {
+          let light_uniform = light_uniform.load().expand();
+          let light = ENode::<DirectionalShaderInfo> {
+            illuminance: light_uniform.illuminance,
+            direction: light_uniform.direction,
+          }
+          .construct();
+          let shadow = ShadowRandomAccessed {
+            shadow: Arc::new(shadow.clone()),
+            light_id,
+          };
+          ShadowedPunctualLighting { light, shadow }
+        },
+      );
 
-    let com = ArrayLights(lights_iter_compute);
-    Some(Box::new(com))
+      let com = ArrayLights(lights_iter_compute);
+      Some(Box::new(com))
+    } else {
+      Some(super::punctual::dir_light_no_shadow(&self.light))
+    }
   }
 }
 

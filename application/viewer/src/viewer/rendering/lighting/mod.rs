@@ -40,15 +40,8 @@ pub fn use_lighting(
     },
   };
 
-  let dir_lights = use_directional_light_uniform(
-    cx,
-    &config,
-    viewports,
-    lighting_sys.use_cascade_shadowmap_for_directional_lights,
-    lighting_sys.cascade_shadow_split_linear_log_blend_ratio,
-    ndc,
-  );
-  let spot_lights = use_scene_spot_light_uniform(cx, &config, ndc);
+  let dir_lights = use_directional_light_uniform(cx, &config, viewports, lighting_sys, ndc);
+  let spot_lights = use_scene_spot_light_uniform(cx, &config, lighting_sys, ndc);
   let point_lights = use_scene_point_light_uniform(cx);
   let area_lights = use_area_light_uniform(cx);
   let ibl = use_ibl(cx);
@@ -152,13 +145,15 @@ pub struct LightSystem {
   pub tonemap: ToneMap,
   material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pub opaque_scene_content_lighting_technique: LightingTechniqueKind,
+  pub enable_shadow: bool,
   pub use_cascade_shadowmap_for_directional_lights: bool,
   pub cascade_shadow_split_linear_log_blend_ratio: f32,
 }
 
 impl LightSystem {
-  pub fn new(gpu: &GPU) -> Self {
+  pub fn new(gpu: &GPU, init_config: &ViewerInitConfig) -> Self {
     Self {
+      enable_shadow: init_config.enable_shadow,
       enable_channel_debugger: false,
       cascade_shadow_split_linear_log_blend_ratio: 0.95,
       channel_debugger: ScreenChannelDebugger::default_useful(),
