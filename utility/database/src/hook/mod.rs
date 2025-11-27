@@ -1,3 +1,4 @@
+mod changes_channel;
 mod collective_channel;
 mod persistence;
 mod ref_counting;
@@ -6,6 +7,7 @@ mod util;
 
 use std::hash::Hasher;
 
+pub use changes_channel::*;
 pub use collective_channel::*;
 pub use persistence::*;
 pub use ref_counting::*;
@@ -30,7 +32,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
     let (cx, rev) = self.use_plain_state(|| {
       global_database().access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
-          add_listen(
+          add_changes_listen(
             ComponentAccess {
               ecg: e.clone(),
               original: c.clone(),
@@ -50,15 +52,8 @@ pub trait DBHookCxLike: QueryHookCxLike {
     {
       let mut ctx = Context::from_waker(&waker);
       let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(&mut ctx) {
-        let removed = r
-          .iter()
-          .filter_map(|v| v.1.is_removed().then_some(v.0.index()))
-          .collect::<Vec<_>>();
-
-        let update_or_insert = r
-          .iter()
-          .filter_map(|v| v.1.new_value().map(|x| (v.0.index(), x.clone())))
-          .collect::<Vec<_>>();
+        let removed = r.0;
+        let update_or_insert = r.1.into_iter().collect::<Vec<_>>();
 
         LinearBatchChanges {
           removed,

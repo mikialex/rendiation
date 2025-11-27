@@ -1,25 +1,23 @@
 use crate::*;
 
-type MutationData<K, T> = FastHashMap<K, ValueChange<T>>;
+type MutationData<T> = (Vec<u32>, FastHashMap<u32, T>);
 
-pub fn collective_channel<K, T>() -> (
-  CollectiveMutationSender<K, T>,
-  CollectiveMutationReceiver<K, T>,
-) {
-  let inner: Arc<(RwLock<MutationData<K, T>>, AtomicWaker)> = Default::default();
-  let sender = CollectiveMutationSender {
+/// this should be a cheaper version of collective_channel
+pub fn changes_channel<T>() -> (ChangesMutationSender<T>, ChangesMutationReceiver<T>) {
+  let inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)> = Default::default();
+  let sender = ChangesMutationSender {
     inner: inner.clone(),
   };
-  let receiver = CollectiveMutationReceiver { inner };
+  let receiver = ChangesMutationReceiver { inner };
 
   (sender, receiver)
 }
 
-pub struct CollectiveMutationSender<K, T> {
-  inner: Arc<(RwLock<MutationData<K, T>>, AtomicWaker)>,
+pub struct ChangesMutationSender<T> {
+  inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)>,
 }
 
-impl<K, T> Clone for CollectiveMutationSender<K, T> {
+impl<T> Clone for ChangesMutationSender<T> {
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
@@ -28,7 +26,7 @@ impl<K, T> Clone for CollectiveMutationSender<K, T> {
 }
 
 use parking_lot::lock_api::RawRwLock;
-impl<K: CKey, T: CValue> CollectiveMutationSender<K, T> {
+impl<T: CValue> ChangesMutationSender<T> {
   /// # Safety
   ///
   /// this should be called before send
@@ -40,7 +38,7 @@ impl<K: CKey, T: CValue> CollectiveMutationSender<K, T> {
   /// this should be called after send
   pub unsafe fn unlock(&self) {
     let mutations = &mut *self.inner.0.data_ptr();
-    if !mutations.is_empty() {
+    if !(mutations.0.is_empty() && mutations.1.is_empty()) {
       self.inner.1.wake();
     }
     self.inner.0.raw().unlock_exclusive()
@@ -48,16 +46,23 @@ impl<K: CKey, T: CValue> CollectiveMutationSender<K, T> {
   /// # Safety
   ///
   /// this should be called when locked
-  pub unsafe fn send(&self, idx: K, change: ValueChange<T>) {
+  pub unsafe fn send(&self, idx: u32, change: Option<T>) {
     let mutations = &mut *self.inner.0.data_ptr();
-    merge_change(mutations, (idx, change));
+
+    if let Some(new) = change {
+      mutations.1.insert(idx, new);
+    } else {
+      mutations.0.push(idx);
+      mutations.1.remove(&idx);
+    }
   }
   /// # Safety
   ///
   /// this should be called when locked
   pub unsafe fn reserve_space(&self, size: usize) {
     let mutations = &mut *self.inner.0.data_ptr();
-    mutations.reserve(size);
+    mutations.0.reserve(size);
+    mutations.1.reserve(size);
   }
 
   pub fn is_closed(&self) -> bool {
@@ -68,24 +73,24 @@ impl<K: CKey, T: CValue> CollectiveMutationSender<K, T> {
 }
 
 /// this is not likely to be triggered because component type is not get removed in any time
-impl<K, T> Drop for CollectiveMutationSender<K, T> {
+impl<T> Drop for ChangesMutationSender<T> {
   fn drop(&mut self) {
     self.inner.1.wake()
   }
 }
 
-pub struct CollectiveMutationReceiver<K, T> {
-  inner: Arc<(RwLock<MutationData<K, T>>, AtomicWaker)>,
+pub struct ChangesMutationReceiver<T> {
+  inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)>,
 }
 
-impl<K: CKey, T: CValue> CollectiveMutationReceiver<K, T> {
-  pub fn poll_impl(&self, cx: &mut Context) -> Poll<Option<MutationData<K, T>>> {
+impl<T: CValue> ChangesMutationReceiver<T> {
+  pub fn poll_impl(&self, cx: &mut Context) -> Poll<Option<MutationData<T>>> {
     self.inner.1.register(cx.waker());
     let mut changes = self.inner.0.write();
-    let changes: &mut MutationData<K, T> = &mut changes;
+    let changes: &mut MutationData<T> = &mut changes;
 
     let changes = std::mem::take(changes);
-    if !changes.is_empty() {
+    if !(changes.0.is_empty() && changes.1.is_empty()) {
       Poll::Ready(Some(changes))
       // check if the sender has been dropped
     } else if Arc::strong_count(&self.inner) == 1 {
@@ -96,23 +101,23 @@ impl<K: CKey, T: CValue> CollectiveMutationReceiver<K, T> {
   }
   pub fn has_change(&self) -> bool {
     let changes = self.inner.0.read();
-    !changes.is_empty()
+    !changes.0.is_empty()
   }
 }
 
-impl<K: CKey, T: CValue> Stream for CollectiveMutationReceiver<K, T> {
-  type Item = MutationData<K, T>;
+impl<T: CValue> Stream for ChangesMutationReceiver<T> {
+  type Item = MutationData<T>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     self.poll_impl(cx)
   }
 }
 
-pub(crate) fn add_listen<T: CValue>(
+pub(crate) fn add_changes_listen<T: CValue>(
   query: impl QueryProvider<RawEntityHandle, T>,
   source: &EventSource<ChangePtr>,
-) -> CollectiveMutationReceiver<RawEntityHandle, T> {
-  let (sender, receiver) = collective_channel::<RawEntityHandle, T>();
+) -> ChangesMutationReceiver<T> {
+  let (sender, receiver) = changes_channel::<T>();
   // expand initial value while first listen.
   unsafe {
     sender.lock();
@@ -123,7 +128,7 @@ pub(crate) fn add_listen<T: CValue>(
     sender.reserve_space(count_hint);
 
     for (idx, v) in iter {
-      sender.send(idx, ValueChange::Delta(v, None));
+      sender.send(idx.alloc_index(), Some(v));
     }
     sender.unlock();
   }
@@ -143,8 +148,11 @@ pub(crate) fn add_listen<T: CValue>(
         false
       }
       ScopedMessage::Message(write) => {
-        let change = write.change.map(|v| (*(v.0 as *const T)).clone());
-        sender.send(write.idx, change);
+        let change = write
+          .change
+          .new_value()
+          .map(|v| (*(v.0 as *const T)).clone());
+        sender.send(write.idx.alloc_index(), change);
         false
       }
     }

@@ -1,5 +1,16 @@
 use crate::*;
 
+// this trait could be lift into upper stream
+pub trait QueryProvider<K, V>: Send + Sync {
+  fn access(&self) -> BoxedDynQuery<K, V>;
+}
+
+impl<T: Query + 'static> QueryProvider<T::Key, T::Value> for Arc<RwLock<T>> {
+  fn access(&self) -> BoxedDynQuery<T::Key, T::Value> {
+    Arc::new(self.make_read_holder())
+  }
+}
+
 pub type DBViewUnchecked<V> = IterableComponentReadView<V>;
 pub type DBView<V> = IterableComponentReadViewChecked<V>;
 pub type DBDelta<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
@@ -132,50 +143,6 @@ impl<V: CValue> Query for ArenaAccess<V> {
   fn has_item_hint(&self) -> bool {
     !self.0.is_empty()
   }
-}
-
-pub(crate) fn add_listen<T: CValue>(
-  query: impl QueryProvider<RawEntityHandle, T>,
-  source: &EventSource<ChangePtr>,
-) -> CollectiveMutationReceiver<RawEntityHandle, T> {
-  let (sender, receiver) = collective_channel::<RawEntityHandle, T>();
-  // expand initial value while first listen.
-  unsafe {
-    sender.lock();
-    let query = query.access();
-    let iter = query.iter_key_value();
-
-    let count_hint = iter.size_hint().0;
-    sender.reserve_space(count_hint);
-
-    for (idx, v) in iter {
-      sender.send(idx, ValueChange::Delta(v, None));
-    }
-    sender.unlock();
-  }
-
-  source.on(move |change| unsafe {
-    match change {
-      ScopedMessage::Start => {
-        sender.lock();
-        false
-      }
-      ScopedMessage::End => {
-        sender.unlock();
-        sender.is_closed()
-      }
-      ScopedMessage::ReserveSpace(size) => {
-        sender.reserve_space(*size);
-        false
-      }
-      ScopedMessage::Message(write) => {
-        let change = write.change.map(|v| (*(v.0 as *const T)).clone());
-        sender.send(write.idx, change);
-        false
-      }
-    }
-  });
-  receiver
 }
 
 pub(crate) struct ComponentAccess<T> {

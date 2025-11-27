@@ -184,6 +184,17 @@ pub struct LinearBatchChanges<K, T> {
   pub update_or_insert: Vec<(K, T)>,
 }
 
+impl<K, T> LinearBatchChanges<K, T> {
+  pub fn reserve(&mut self, size: usize) {
+    self.removed.reserve(size);
+    self.update_or_insert.reserve(size);
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.removed.is_empty() && self.update_or_insert.is_empty()
+  }
+}
+
 impl<K, T> Default for LinearBatchChanges<K, T> {
   fn default() -> Self {
     Self {
