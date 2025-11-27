@@ -116,6 +116,7 @@ impl EntityWriterUntyped {
           // safety, the handle is just created.
           com.1.write_init_component_value(handle, None);
         }
+      } else {
         com.1.has_write_for_new_entity = false
       }
     }

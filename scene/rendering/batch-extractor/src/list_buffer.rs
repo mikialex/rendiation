@@ -17,6 +17,7 @@ impl PersistSceneModelListBufferMutation {
   pub fn into_sparse_update(self) -> Option<SparseBufferWritesSource> {
     let change_count = self.mapping_change.len();
     if change_count == 0 {
+      assert_eq!(self.len_before_updates, self.new_len);
       return None;
     }
     let change_count = change_count + 1;
@@ -80,14 +81,20 @@ impl PersistSceneModelListBuffer {
     mutations: &mut PersistSceneModelListBufferMutation,
   ) {
     let idx = self.mapping.remove(&sm_handle).unwrap();
-    if let Some(tail_item) = self.host.last().cloned() {
-      self.host.swap_remove(idx);
-      self.mapping.insert(tail_item, idx);
+    if self.host.len() > 1 {
+      if let Some(tail_item) = self.host.last().cloned() {
+        self.host.swap_remove(idx);
+        self.mapping.insert(tail_item, idx);
 
-      mutations.mapping_change.remove(&self.host.len());
-      mutations
-        .mapping_change
-        .insert(idx, tail_item.alloc_index());
+        mutations.mapping_change.remove(&self.host.len());
+        mutations
+          .mapping_change
+          .insert(idx, tail_item.alloc_index());
+      }
+    } else {
+      assert_eq!(idx, 0);
+      self.host.pop();
+      mutations.mapping_change.remove(&0);
     }
 
     mutations.new_len = self.host.len();
@@ -101,23 +108,23 @@ impl PersistSceneModelListBuffer {
     updates: &SparseBufferWritesSource,
   ) {
     let new_capacity_required = self.host.len() + 1;
-    let new_bytes_required = new_capacity_required * 4;
-
-    if let Some(buffer) = &self.buffer {
-      if buffer.buffer.item_count() < new_capacity_required as u32 {
-        self.buffer = None;
-      }
-    }
+    let new_bytes_required = new_capacity_required as u64 * 4;
 
     let buffer = self
       .buffer
       .get_or_insert_with(|| PersistSceneModelListBufferWithLength {
         buffer: alloc.allocate_readonly(
-          new_bytes_required as u64,
+          new_bytes_required,
           &gpu.device,
           Some("PersistSceneModelListBuffer"),
         ),
       });
+
+    if buffer.buffer.item_count() < new_capacity_required as u32 {
+      buffer
+        .buffer
+        .resize_gpu(encoder, &gpu.device, new_bytes_required);
+    }
 
     updates.write_abstract(gpu, encoder, &buffer.buffer);
   }
@@ -157,8 +164,9 @@ impl ComputeComponent<Node<u32>> for PersistSceneModelListBufferWithLength {
         let idx = logic_global_id.x();
         let access_idx = idx + val(1);
 
-        let array_len = self.buffer.array_length();
-        let r = access_idx.less_than(array_len);
+        // let array_len = self.buffer.array_length(); // we could also check this?
+        let real_array_len = self.buffer.index(0).load();
+        let r = idx.less_than(real_array_len);
 
         let result = r.select_branched(|| self.buffer.index(access_idx).load(), || val(0_u32));
 
