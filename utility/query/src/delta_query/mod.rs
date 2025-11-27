@@ -210,33 +210,31 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
 
     let mut output = FastHashMap::default();
     {
-      let relational_changes = relational_changes.materialize();
       relational_changes
-        .iter()
+        .iter_key_value()
         .for_each(|(k, change)| match change {
           ValueChange::Delta(v, p) => {
             // to get the real previous X, we need the previous o->x mapping
             let p = p.clone().and_then(|p| getter_previous.access(&p));
-            if let Some(v) = getter.access(v) {
+            if let Some(v) = getter.access(&v) {
               output.insert(k.clone(), ValueChange::Delta(v, p));
             } else if let Some(p) = p {
               output.insert(k.clone(), ValueChange::Remove(p));
             }
           }
           ValueChange::Remove(p) => {
-            if let Some(p) = getter_previous.access(p) {
+            if let Some(p) = getter_previous.access(&p) {
               output.insert(k.clone(), ValueChange::Remove(p));
             }
           }
         });
     }
     {
-      let upstream_changes = upstream_changes.materialize();
-      for (one, delta) in upstream_changes.iter() {
+      for (one, delta) in upstream_changes.iter_key_value() {
         // the inv_query is the current relation, the previous one's delta is emitted
         // by the above relation change code
         match delta {
-          ValueChange::Remove(_p) => rev_many_view.access_multi_visitor(one, &mut |many| {
+          ValueChange::Remove(_p) => rev_many_view.access_multi_visitor(&one, &mut |many| {
             if let Some(pre_one) = one_acc_previous.access(&many) {
               if let Some(pre_x) = getter_previous.access(&pre_one) {
                 if let Some(ValueChange::Delta(_, _)) = output.get(&many) {
@@ -249,7 +247,7 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
             }
           }),
           ValueChange::Delta(change, _p) => {
-            rev_many_view.access_multi_visitor(one, &mut |many| {
+            rev_many_view.access_multi_visitor(&one, &mut |many| {
               if let Some(pre_one) = one_acc_previous.access(&many) {
                 let pre_x = getter_previous.access(&pre_one);
                 if let Some(ValueChange::Remove(_)) = output.get(&many) {

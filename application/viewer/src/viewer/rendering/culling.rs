@@ -151,7 +151,7 @@ impl ViewerCulling {
                 .by(&mut drawn_not_occluded)
             });
           } else {
-            log::warn!("the oc debug info can not be found, adjust the viewport rendering order to make sure the oc is drawn before the debug camera");
+            log::warn!("the oc debug info can not be found, make sure the debug is enabled or adjust the viewport rendering order to make sure the oc is drawn before the debug camera");
           }
         }
 
