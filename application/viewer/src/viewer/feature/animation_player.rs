@@ -41,7 +41,7 @@ pub fn use_animation_player(cx: &mut ViewerCx) {
         let animations = get_db_view_typed_foreign::<SceneAnimationBelongsToScene>();
         let animation_name = get_db_view_typed::<LabelOf<SceneAnimationEntity>>();
 
-        if !animations.is_empty() {
+        if animations.has_item_hint() {
           ui.label("animations in target scene:");
           for (animation, scene) in animations.iter_key_value() {
             if scene == cx.viewer.content.scene {

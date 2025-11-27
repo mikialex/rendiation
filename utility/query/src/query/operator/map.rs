@@ -24,6 +24,10 @@ where
   fn access(&self, key: &T::Key) -> Option<V2> {
     self.base.access(key).map(|v| (self.mapper)(key, v))
   }
+
+  fn has_item_hint(&self) -> bool {
+    self.base.has_item_hint()
+  }
 }
 
 #[derive(Clone)]
@@ -49,6 +53,10 @@ where
 
   fn access(&self, key: &T::Key) -> Option<V2> {
     self.base.access(key).map(|v| (self.mapper)(v))
+  }
+
+  fn has_item_hint(&self) -> bool {
+    self.base.has_item_hint()
   }
 }
 
@@ -77,5 +85,9 @@ where
 
   fn access(&self, key: &K2) -> Option<T::Value> {
     self.base.access(&(self.f2)(key.clone())?)
+  }
+
+  fn has_item_hint(&self) -> bool {
+    self.base.has_item_hint()
   }
 }

@@ -131,7 +131,7 @@ pub fn use_pool_texture_system(
     .filter_map_changes(|tex| tex.map(|tex| tex.size))
     .map_spawn_stage_in_thread(
       cx,
-      |changes| !changes.has_change(),
+      |changes| changes.has_change(),
       move |size_changes| {
         let mut packing_changes = FastHashMap::default();
 

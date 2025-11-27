@@ -1,12 +1,14 @@
 #[derive(Clone)]
 pub struct IndexKeptVec<T> {
   storage: Vec<Option<T>>,
+  len: usize,
 }
 
 impl<T> Default for IndexKeptVec<T> {
   fn default() -> Self {
     Self {
       storage: Default::default(),
+      len: 0,
     }
   }
 }
@@ -23,6 +25,14 @@ impl<T> IndexKeptVec<T> {
     self.storage.shrink_to_fit()
   }
 
+  pub fn len(&self) -> usize {
+    self.len
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.len == 0
+  }
+
   pub fn insert(&mut self, data: T, index: u32) {
     self
       .storage
@@ -30,6 +40,9 @@ impl<T> IndexKeptVec<T> {
 
     while self.storage.len() <= index as usize {
       self.storage.push(None)
+    }
+    if self.storage[index as usize].is_none() {
+      self.len += 1;
     }
     self.storage[index as usize] = Some(data);
   }
@@ -44,7 +57,13 @@ impl<T> IndexKeptVec<T> {
 
   pub fn remove(&mut self, idx: u32) -> Option<T> {
     let idx = idx as usize;
-    self.storage[idx].take()
+    let r = self.storage[idx].take();
+
+    if r.is_some() {
+      self.len -= 1;
+    }
+
+    r
   }
 
   pub fn try_get_mut(&mut self, idx: u32) -> Option<&mut T> {

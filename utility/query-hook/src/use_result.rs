@@ -16,13 +16,13 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   where
     T: DualQueryLike,
   {
-    self.map_spawn_stage_in_thread(cx, |q| q.is_change_possible_empty(), f)
+    self.map_spawn_stage_in_thread(cx, |q| q.has_delta_hint(), f)
   }
 
   pub fn map_spawn_stage_in_thread<U: Send + Sync + 'static>(
     self,
     cx: &mut impl QueryHookCxLike,
-    has_no_real_work_todo: impl FnOnce(&T) -> bool + Send + Sync + 'static,
+    should_spawn: impl FnOnce(&T) -> bool + Send + Sync + 'static,
     f: impl FnOnce(T) -> U + Send + Sync + 'static,
   ) -> UseResult<U> {
     match self {
@@ -31,21 +31,21 @@ impl<T: Send + Sync + 'static> UseResult<T> {
         let spawner = spawner.clone();
         let fut = async move {
           let r = fut.await;
-          if has_no_real_work_todo(&r) {
-            f(r)
-          } else {
+          if should_spawn(&r) {
             spawner.spawn_task(move || f(r)).await
+          } else {
+            f(r)
           }
         };
         UseResult::SpawnStageFuture(pin_box_in_frame(fut))
       }
       UseResult::SpawnStageReady(t) => {
-        if has_no_real_work_todo(&t) {
-          UseResult::SpawnStageReady(f(t))
-        } else {
+        if should_spawn(&t) {
           let spawner = cx.spawner().unwrap();
           let fut = spawner.spawn_task(move || f(t));
           UseResult::SpawnStageFuture(pin_box_in_frame(fut))
+        } else {
+          UseResult::SpawnStageReady(f(t))
         }
       }
       UseResult::ResolveStageReady(_) => UseResult::NotInStage,
@@ -63,7 +63,7 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     let map = cx.use_shared_hash_map::<T::Key, T::Value>();
     self.map_spawn_stage_in_thread(
       cx,
-      |change| !change.has_change(),
+      |change| change.has_change(),
       move |change| {
         let mut mapping = map.write();
         let mut mutations = FastHashMap::<T::Key, ValueChange<T::Value>>::default();
@@ -362,7 +362,7 @@ where
   > {
     self.join(other).map_spawn_stage_in_thread(
       cx,
-      |(a, b)| a.is_change_possible_empty() && b.is_change_possible_empty(),
+      |(a, b)| a.has_delta_hint() || b.has_delta_hint(),
       |(a, b)| a.fanout(b),
     )
   }

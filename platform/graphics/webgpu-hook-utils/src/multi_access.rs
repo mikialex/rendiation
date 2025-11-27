@@ -34,7 +34,7 @@ pub fn use_multi_access_gpu(
   let allocator = allocator.clone();
   let changes = source.map_spawn_stage_in_thread(
     cx,
-    |source| source.view_delta_ref().1.is_empty(),
+    |source| source.view_delta_ref().1.has_item_hint(),
     move |source| {
       let (multi_access, _, changes) = source.inv_view_view_delta();
 
@@ -90,7 +90,7 @@ pub fn use_multi_access_gpu(
   let updates = changes
     .map_spawn_stage_in_thread(
       cx,
-      |changes| !changes.allocation_changes.has_change(),
+      |changes| changes.allocation_changes.has_change(),
       |changes| {
         let item_size = std::mem::size_of::<GPURangeInfo>();
         let change_count = changes.allocation_changes.0.change_count();

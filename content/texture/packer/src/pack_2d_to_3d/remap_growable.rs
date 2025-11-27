@@ -28,6 +28,14 @@ impl<K: Copy + Eq + Hash + std::fmt::Debug> RemappedGrowablePacker<K> {
     }
   }
 
+  pub fn packed_count(&self) -> usize {
+    self.mapping.len()
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.mapping.is_empty()
+  }
+
   pub fn current_size(&self) -> SizeWithDepth {
     *self.packer.current_states().0
   }

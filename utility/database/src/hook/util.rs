@@ -128,6 +128,10 @@ impl<V: CValue> Query for ArenaAccess<V> {
     let handle = self.0.get_handle(key.index() as usize).unwrap();
     self.0.get(handle).cloned()
   }
+
+  fn has_item_hint(&self) -> bool {
+    !self.0.is_empty()
+  }
 }
 
 pub(crate) fn add_listen<T: CValue>(
@@ -236,5 +240,9 @@ impl<T: Query<Key = RawEntityHandle>> Query for SkipGenerationCheck<T> {
   fn access(&self, key: &Self::Key) -> Option<Self::Value> {
     let handle = self.alloc.get_handle(*key as usize)?;
     self.inner.access(&RawEntityHandle(handle))
+  }
+
+  fn has_item_hint(&self) -> bool {
+    self.inner.has_item_hint()
   }
 }

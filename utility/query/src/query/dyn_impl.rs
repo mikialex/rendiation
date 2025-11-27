@@ -6,6 +6,7 @@ pub trait DynQuery: DynClone + Send + Sync {
   type Value: CValue;
   fn iter_key_value_dyn(&self) -> Box<dyn Iterator<Item = (Self::Key, Self::Value)> + '_>;
   fn access_dyn(&self, key: &Self::Key) -> Option<Self::Value>;
+  fn has_item_hint_dyn(&self) -> bool;
 }
 impl<T> DynQuery for T
 where
@@ -18,6 +19,9 @@ where
   }
   fn access_dyn(&self, key: &Self::Key) -> Option<Self::Value> {
     self.access(key)
+  }
+  fn has_item_hint_dyn(&self) -> bool {
+    self.has_item_hint()
   }
 }
 
@@ -37,6 +41,9 @@ impl<K: CKey, V: CValue> Query for Box<dyn DynQuery<Key = K, Value = V> + '_> {
   fn access(&self, key: &K) -> Option<V> {
     (**self).access_dyn(key)
   }
+  fn has_item_hint(&self) -> bool {
+    (**self).has_item_hint_dyn()
+  }
 }
 
 impl<K: CKey, V: CValue> Query for Arc<dyn DynQuery<Key = K, Value = V> + '_> {
@@ -49,6 +56,10 @@ impl<K: CKey, V: CValue> Query for Arc<dyn DynQuery<Key = K, Value = V> + '_> {
   fn access(&self, key: &K) -> Option<V> {
     (**self).access_dyn(key)
   }
+
+  fn has_item_hint(&self) -> bool {
+    (**self).has_item_hint_dyn()
+  }
 }
 
 impl<K: CKey, V: CValue> Query for &dyn DynQuery<Key = K, Value = V> {
@@ -60,5 +71,9 @@ impl<K: CKey, V: CValue> Query for &dyn DynQuery<Key = K, Value = V> {
 
   fn access(&self, key: &K) -> Option<V> {
     (*self).access_dyn(key)
+  }
+
+  fn has_item_hint(&self) -> bool {
+    (*self).has_item_hint_dyn()
   }
 }

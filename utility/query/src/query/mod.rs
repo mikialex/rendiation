@@ -21,10 +21,9 @@ pub trait Query: Send + Sync + Clone {
   fn contains(&self, key: &Self::Key) -> bool {
     self.access(key).is_some()
   }
-  /// note, for some implementation(filter) this is costly O(n)
-  fn is_empty(&self) -> bool {
-    self.iter_key_value().next().is_none()
-  }
+
+  /// the implementation allows to have false positive(return has item but is actually empty)
+  fn has_item_hint(&self) -> bool;
 
   fn materialize(&self) -> Arc<QueryMaterialized<Self::Key, Self::Value>> {
     Arc::new(self.iter_key_value().collect())
@@ -41,6 +40,10 @@ impl<T: Query> Query for &T {
   fn access(&self, k: &Self::Key) -> Option<Self::Value> {
     (*self).access(k)
   }
+
+  fn has_item_hint(&self) -> bool {
+    (*self).has_item_hint()
+  }
 }
 
 impl<T: Query> Query for Option<T> {
@@ -51,6 +54,10 @@ impl<T: Query> Query for Option<T> {
   }
   fn access(&self, key: &Self::Key) -> Option<Self::Value> {
     self.as_ref().and_then(|v| v.access(key))
+  }
+
+  fn has_item_hint(&self) -> bool {
+    self.as_ref().is_some_and(|v| v.has_item_hint())
   }
 }
 
@@ -78,6 +85,10 @@ impl<K: CKey, V: CValue> Query for EmptyQuery<K, V> {
   fn access(&self, _: &K) -> Option<V> {
     None
   }
+
+  fn has_item_hint(&self) -> bool {
+    false
+  }
 }
 
 impl<K: CKey, V: CValue> Query for Arc<FastHashMap<K, V>> {
@@ -94,6 +105,10 @@ impl<K: CKey, V: CValue> Query for Arc<FastHashMap<K, V>> {
   fn materialize(&self) -> Arc<FastHashMap<K, V>> {
     self.clone()
   }
+
+  fn has_item_hint(&self) -> bool {
+    !self.is_empty()
+  }
 }
 
 impl<K: CKey, V: CValue> Query for FastHashMap<K, V> {
@@ -107,6 +122,10 @@ impl<K: CKey, V: CValue> Query for FastHashMap<K, V> {
   fn access(&self, key: &K) -> Option<V> {
     self.get(key).cloned()
   }
+
+  fn has_item_hint(&self) -> bool {
+    !self.is_empty()
+  }
 }
 
 impl<K: CKey, V: CValue> Query for dashmap::DashMap<K, V, FastHasherBuilder> {
@@ -119,6 +138,10 @@ impl<K: CKey, V: CValue> Query for dashmap::DashMap<K, V, FastHasherBuilder> {
 
   fn access(&self, key: &K) -> Option<V> {
     self.get(key)?.value().clone().into()
+  }
+
+  fn has_item_hint(&self) -> bool {
+    !self.is_empty()
   }
 }
 
@@ -134,6 +157,10 @@ impl<V: CValue> Query for Arena<V> {
     let handle = self.get_handle(*key as usize).unwrap();
     self.get(handle).cloned()
   }
+
+  fn has_item_hint(&self) -> bool {
+    !self.is_empty()
+  }
 }
 
 impl<V: CValue> Query for IndexReusedVec<V> {
@@ -147,6 +174,10 @@ impl<V: CValue> Query for IndexReusedVec<V> {
   fn access(&self, key: &u32) -> Option<V> {
     self.try_get(*key).cloned()
   }
+
+  fn has_item_hint(&self) -> bool {
+    !self.is_empty()
+  }
 }
 
 impl<V: CValue> Query for IndexKeptVec<V> {
@@ -159,6 +190,10 @@ impl<V: CValue> Query for IndexKeptVec<V> {
 
   fn access(&self, key: &u32) -> Option<V> {
     self.try_get(key.alloc_index()).cloned()
+  }
+
+  fn has_item_hint(&self) -> bool {
+    !self.is_empty()
   }
 }
 
@@ -184,6 +219,10 @@ impl<V: CValue> Query for IdenticalCollection<V> {
       None
     }
   }
+
+  fn has_item_hint(&self) -> bool {
+    self.size > 0
+  }
 }
 
 #[derive(Clone)]
@@ -202,6 +241,10 @@ impl<T: Query> Query for KeptQuery<T> {
 
   fn access(&self, key: &Self::Key) -> Option<Self::Value> {
     self.query.access(key)
+  }
+
+  fn has_item_hint(&self) -> bool {
+    self.query.has_item_hint()
   }
 }
 

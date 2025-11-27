@@ -25,4 +25,8 @@ where
     let base = self.base.access(key)?;
     (self.mapper)(base)
   }
+
+  fn has_item_hint(&self) -> bool {
+    self.base.has_item_hint()
+  }
 }

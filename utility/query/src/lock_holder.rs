@@ -14,6 +14,10 @@ impl<T: Query> Query for LockReadGuardHolder<T> {
   fn access(&self, key: &Self::Key) -> Option<Self::Value> {
     (**self).access(key)
   }
+
+  fn has_item_hint(&self) -> bool {
+    (**self).has_item_hint()
+  }
 }
 
 impl<T, K, V> DynValueRefQuery for LockReadGuardHolder<T>

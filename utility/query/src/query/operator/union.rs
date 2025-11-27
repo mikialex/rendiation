@@ -24,6 +24,10 @@ where
     }
     None
   }
+
+  fn has_item_hint(&self) -> bool {
+    self.0.create_iter().any(|q| q.has_item_hint())
+  }
 }
 
 #[derive(Clone)]
@@ -60,5 +64,9 @@ where
 
   fn access(&self, key: &A::Key) -> Option<O> {
     (self.f)((self.a.access(key), self.b.access(key)))
+  }
+
+  fn has_item_hint(&self) -> bool {
+    self.a.has_item_hint() || self.b.has_item_hint()
   }
 }

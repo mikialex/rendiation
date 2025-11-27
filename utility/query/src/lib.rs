@@ -28,9 +28,6 @@ pub use multi_query::*;
 mod change_query;
 pub use change_query::*;
 
-mod combined;
-pub use combined::*;
-
 mod lock_holder;
 pub use lock_holder::*;
 

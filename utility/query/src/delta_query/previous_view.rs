@@ -39,4 +39,8 @@ where
       self.current.access_dyn(key)
     }
   }
+
+  fn has_item_hint(&self) -> bool {
+    self.current.has_item_hint() || self.delta.has_item_hint()
+  }
 }

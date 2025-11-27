@@ -70,6 +70,9 @@ where
       &|k| self.b_current.access(k),
     )?)
   }
+  fn has_item_hint(&self) -> bool {
+    self.a.has_item_hint() || self.b.has_item_hint()
+  }
 }
 
 pub fn join_change<K1: Clone, K2: Clone, V1: Clone, V2: Clone>(

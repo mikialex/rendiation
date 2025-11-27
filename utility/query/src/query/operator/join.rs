@@ -25,4 +25,8 @@ where
   fn access(&self, key: &Self::Key) -> Option<Self::Value> {
     self.a.access(&key.0).zip(self.b.access(&key.1))
   }
+
+  fn has_item_hint(&self) -> bool {
+    self.a.has_item_hint() || self.b.has_item_hint()
+  }
 }

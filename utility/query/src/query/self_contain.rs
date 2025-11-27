@@ -15,6 +15,10 @@ impl<K: CKey, V: CValue> Query for &dyn DynValueRefQuery<Key = K, Value = V> {
   fn access(&self, key: &K) -> Option<V> {
     (**self).access_dyn(key)
   }
+
+  fn has_item_hint(&self) -> bool {
+    (**self).has_item_hint_dyn()
+  }
 }
 
 impl<K: CKey, V: CValue> DynValueRefQuery for &dyn DynValueRefQuery<Key = K, Value = V> {

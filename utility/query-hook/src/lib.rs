@@ -464,7 +464,7 @@ pub trait QueryHookCxLike: HooksCxLike {
 
     changes.map_spawn_stage_in_thread(
       self,
-      |changes| changes.is_empty(),
+      |changes| changes.has_item_hint(),
       move |changes| {
         bookkeeping_hash_relation(&mut mapping.write(), changes);
         mapping.make_read_holder()
@@ -586,7 +586,7 @@ impl<K: CKey, V: CValue> ChangeReconciler for SharedQueryChangeReconciler<K, V> 
         .unwrap();
       internal.has_broadcasted = true;
 
-      if !change.is_empty() {
+      if change.has_item_hint() {
         for (_, v) in internal.consumers.iter_mut() {
           v.push(*change.clone());
         }

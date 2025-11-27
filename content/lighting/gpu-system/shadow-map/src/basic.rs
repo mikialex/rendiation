@@ -124,6 +124,10 @@ impl Query for PackerView {
   fn access(&self, key: &Self::Key) -> Option<Self::Value> {
     self.0.access(key)?.map(convert_pack_result)
   }
+
+  fn has_item_hint(&self) -> bool {
+    !self.0.is_empty()
+  }
 }
 
 pub struct BasicShadowMapPreparer {

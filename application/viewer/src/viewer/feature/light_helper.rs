@@ -27,7 +27,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
 
       let helper_mesh_lines = world_mat.map_spawn_stage_in_thread(
         cx,
-        |_| false,
+        |_| true,
         |world_mat| {
           let light_ref_node = get_db_view::<DirectionalRefNode>();
 
@@ -64,7 +64,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
 
       let helper_mesh_lines = world_mat.map_spawn_stage_in_thread(
         cx,
-        |_| false,
+        |_| true,
         |world_mat| {
           let radius = get_db_view::<PointLightCutOffDistance>();
           let light_ref_node = get_db_view::<PointLightRefNode>();
@@ -103,7 +103,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
 
       let helper_mesh_lines = world_mat.map_spawn_stage_in_thread(
         cx,
-        |_| false,
+        |_| true,
         |world_mat| {
           let half_cone_angle = get_db_view::<SpotLightHalfConeAngle>();
           let half_penumbra_angle = get_db_view::<SpotLightHalfPenumbraAngle>();

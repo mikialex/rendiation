@@ -40,6 +40,10 @@ impl<T: CValue> Query for IterableComponentReadView<T> {
       .map(|v| unsafe { &*(v as *const T) })
       .cloned()
   }
+
+  fn has_item_hint(&self) -> bool {
+    !self.read_view.allocator.is_empty()
+  }
 }
 
 pub struct IterableComponentReadViewChecked<T> {
@@ -89,5 +93,9 @@ impl<T: CValue> Query for IterableComponentReadViewChecked<T> {
       .get(*key)
       .map(|v| unsafe { &*(v as *const T) })
       .cloned()
+  }
+
+  fn has_item_hint(&self) -> bool {
+    !self.read_view.allocator.is_empty()
   }
 }

@@ -25,4 +25,8 @@ where
     let o = self.first.access(key)?;
     self.next.access(&o)
   }
+
+  fn has_item_hint(&self) -> bool {
+    self.first.has_item_hint() || self.next.has_item_hint()
+  }
 }

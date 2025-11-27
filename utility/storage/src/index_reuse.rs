@@ -76,4 +76,8 @@ impl<T> IndexReusedVec<T> {
   pub fn get(&self, idx: u32) -> &T {
     self.try_get(idx).expect("bad index")
   }
+
+  pub fn is_empty(&self) -> bool {
+    self.empty_list.len() == self.storage.len()
+  }
 }
