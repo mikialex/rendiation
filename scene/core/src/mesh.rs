@@ -103,10 +103,10 @@ impl AttributesMeshWriter for AttributesMesh {
       count,
     };
 
-    let mesh_writer = &mut writer.mesh;
-    index.write::<AttributeIndexRef>(mesh_writer);
-    mesh_writer.component_value_writer::<AttributesMeshEntityTopology>(self.mode);
-    let mesh = mesh_writer.new_entity();
+    let mesh = writer.mesh.new_entity(|w| {
+      let w = w.write::<AttributesMeshEntityTopology>(&self.mode);
+      index.write::<AttributeIndexRef>(w)
+    });
 
     let mut vertices = Vec::with_capacity(self.attributes.len());
 
@@ -129,14 +129,15 @@ impl AttributesMeshWriter for AttributesMesh {
         count: count as u32,
       };
 
-      let relation_writer = &mut writer.relation;
-      vertex.write::<AttributeVertexRef>(relation_writer);
-      let vertex = relation_writer
-        .component_value_writer::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
-          mesh.some_handle(),
-        )
-        .component_value_writer::<AttributesMeshEntityVertexBufferSemantic>(semantic)
-        .new_entity();
+      let vertex = writer.relation.new_entity(|w| {
+        let w = w
+          .write::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
+            &mesh.some_handle(),
+          )
+          .write::<AttributesMeshEntityVertexBufferSemantic>(&semantic);
+
+        vertex.write::<AttributeVertexRef>(w)
+      });
 
       vertices.push((vertex, vertex_data));
     }

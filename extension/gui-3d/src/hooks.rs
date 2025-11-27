@@ -195,7 +195,7 @@ pub fn use_group(
 
 impl UI3dCx<'_> {
   pub fn use_node_entity(&mut self) -> (&mut Self, &mut EntityHandle<SceneNodeEntity>) {
-    self.use_state_init(|cx| cx.writer.node_writer.new_entity())
+    self.use_state_init(|cx| cx.writer.node_writer.new_entity(|w| w))
   }
   pub fn use_mesh_entity(
     &mut self,

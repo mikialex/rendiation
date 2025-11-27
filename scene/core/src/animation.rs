@@ -82,15 +82,6 @@ pub struct AnimationChannelDataView {
 
 impl AnimationChannelDataView {
   pub fn write(&self, writer: &mut SceneWriter) -> EntityHandle<SceneAnimationChannelEntity> {
-    writer
-      .animation_channel
-      .component_value_writer::<SceneAnimationChannelField>(self.sampler.field)
-      .component_value_writer::<SceneAnimationChannelInterpolation>(self.sampler.interpolation)
-      .component_value_writer::<SceneAnimationChannelTargetNode>(self.target_node.some_handle())
-      .component_value_writer::<SceneAnimationChannelBelongToAnimation>(
-        self.animation.some_handle(),
-      );
-
     let data = self.sampler.input.clone().write(&mut writer.buffer_writer);
     let input = SceneBufferViewDataView {
       data: Some(data),
@@ -104,10 +95,18 @@ impl AnimationChannelDataView {
       count: self.sampler.output.count as u32,
     };
 
-    input.write::<SceneAnimationChannelInput>(&mut writer.animation_channel);
-    output.write::<SceneAnimationChannelOutput>(&mut writer.animation_channel);
+    writer.animation_channel.new_entity(|w| {
+      let w = w
+        .write::<SceneAnimationChannelField>(&self.sampler.field)
+        .write::<SceneAnimationChannelInterpolation>(&self.sampler.interpolation)
+        .write::<SceneAnimationChannelTargetNode>(&self.target_node.some_handle())
+        .write::<SceneAnimationChannelBelongToAnimation>(&self.animation.some_handle());
 
-    writer.animation_channel.new_entity()
+      let w = input.write::<SceneAnimationChannelInput>(w);
+      let w = output.write::<SceneAnimationChannelOutput>(w);
+
+      w
+    })
   }
 }
 

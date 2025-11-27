@@ -384,8 +384,7 @@ fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
   let animation_handle = ctx
     .io
     .animation
-    .component_value_writer::<SceneAnimationBelongsToScene>(ctx.io.scene.some_handle())
-    .new_entity();
+    .new_entity(|w| w.write::<SceneAnimationBelongsToScene>(&ctx.io.scene.some_handle()));
 
   write_label(&mut ctx.io.animation, animation_handle, animation.name());
 
@@ -428,8 +427,7 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
   let skin_handle = ctx
     .io
     .skin_writer
-    .component_value_writer::<SceneSkinRoot>(skeleton_root.some_handle())
-    .new_entity();
+    .new_entity(|w| w.write::<SceneSkinRoot>(&skeleton_root.some_handle()));
 
   ctx.result.skin_map.insert(skin.index(), skin_handle);
 
@@ -454,14 +452,12 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
       Mat4::identity()
     };
 
-    ctx
-      .io
-      .joint_writer
-      .component_value_writer::<SceneJointBelongToSkin>(skin_handle.some_handle())
-      .component_value_writer::<SceneJointRefNode>(node.some_handle())
-      .component_value_writer::<SceneJointInverseBindMatrix>(mat)
-      .component_value_writer::<SceneJointSkinIndex>(i as u32)
-      .new_entity();
+    ctx.io.joint_writer.new_entity(|w| {
+      w.write::<SceneJointBelongToSkin>(&skin_handle.some_handle())
+        .write::<SceneJointRefNode>(&node.some_handle())
+        .write::<SceneJointInverseBindMatrix>(&mat)
+        .write::<SceneJointSkinIndex>(&(i as u32))
+    });
   }
 }
 
@@ -667,8 +663,7 @@ fn build_image(
 
   let image = ExternalRefPtr::new(GPUBufferImage { data, format, size });
   io.tex_writer
-    .component_value_writer::<SceneTexture2dEntityDirectContent>(image.into())
-    .new_entity()
+    .new_entity(|w| w.write::<SceneTexture2dEntityDirectContent>(&image.into()))
 }
 
 fn build_texture(
@@ -679,8 +674,7 @@ fn build_texture(
   let sampler = ctx
     .io
     .sampler_writer
-    .component_value_writer::<SceneSamplerInfo>(map_sampler(texture.sampler()))
-    .new_entity();
+    .new_entity(|w| w.write::<SceneSamplerInfo>(&map_sampler(texture.sampler())));
 
   let image_index = texture.source().index();
   let texture = *ctx

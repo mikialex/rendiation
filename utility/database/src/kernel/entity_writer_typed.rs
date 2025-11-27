@@ -35,55 +35,6 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self.inner.notify_reserve_changes(count);
   }
 
-  pub fn with_component_value_writer<C>(mut self, value: C::Data) -> Self
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    self.component_value_writer::<C>(value);
-    self
-  }
-
-  pub fn component_value_writer<C>(&mut self, value: C::Data) -> &mut Self
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    self.component_writer::<C>(ValueAsInitValueProviderOnce::new(value))
-  }
-
-  pub fn component_value_persist_writer<C>(&mut self, value: C::Data) -> &mut Self
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    self.component_writer::<C>(ValueAsInitValueProviderPersist(value))
-  }
-
-  pub fn with_component_writer<C>(
-    mut self,
-    writer_maker: impl ComponentInitValueProvider<Value = C::Data> + 'static,
-  ) -> Self
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    self.component_writer::<C>(writer_maker);
-    self
-  }
-
-  pub fn component_writer<C>(
-    &mut self,
-    writer_maker: impl ComponentInitValueProvider<Value = C::Data> + 'static,
-  ) -> &mut Self
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    let view = self
-      .inner
-      .get_component_by_id_mut(C::component_id())
-      .unwrap();
-    let maker = UntypedComponentInitValueProviderImpl(writer_maker);
-    view.next_value = Some(Box::new(maker));
-    self
-  }
-
   pub fn mutate_component_data<C>(
     &mut self,
     idx: EntityHandle<C::Entity>,
@@ -170,9 +121,12 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self.try_read_foreign_key::<C>(idx).unwrap()
   }
 
-  pub fn new_entity(&mut self) -> EntityHandle<E> {
+  pub fn new_entity(
+    &mut self,
+    init: impl FnOnce(EntityInitWriteView) -> EntityInitWriteView,
+  ) -> EntityHandle<E> {
     EntityHandle {
-      handle: self.inner.new_entity(),
+      handle: self.inner.new_entity(init),
       ty: PhantomData,
     }
   }

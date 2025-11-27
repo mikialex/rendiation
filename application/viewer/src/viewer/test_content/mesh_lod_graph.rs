@@ -4,7 +4,7 @@ use crate::*;
 
 pub fn test_mesh_lod_graph(writer: &mut SceneWriter) {
   let mesh = {
-    let lod_mesh_writer = global_entity_of::<LODGraphMeshEntity>().entity_writer();
+    let mut lod_mesh_writer = global_entity_of::<LODGraphMeshEntity>().entity_writer();
     let mesh = build_lod_graph_mesh(|builder| {
       builder.triangulate_parametric(
         &SphereMeshParameter::default().make_surface(),
@@ -13,9 +13,7 @@ pub fn test_mesh_lod_graph(writer: &mut SceneWriter) {
       );
     });
 
-    lod_mesh_writer
-      .with_component_value_writer::<LODGraphData>(Some(mesh))
-      .new_entity()
+    lod_mesh_writer.new_entity(|w| w.write::<LODGraphData>(&Some(mesh)))
   };
 
   let material = PhysicalSpecularGlossinessMaterialDataView {
@@ -27,12 +25,10 @@ pub fn test_mesh_lod_graph(writer: &mut SceneWriter) {
   let child = writer.create_root_child();
   writer.set_local_matrix(child, Mat4::translate((-2., 0., -3.)));
 
-  let std_model = {
-    let writer: &mut EntityWriter<StandardModelEntity> = &mut writer.std_model_writer;
-    writer.component_value_writer::<StandardModelRefPbrSGMaterial>(material.some_handle());
-    writer.component_value_writer::<StandardModelRefLodGraphMeshEntity>(mesh.some_handle());
-    writer.new_entity()
-  };
+  let std_model = writer.std_model_writer.new_entity(|w| {
+    w.write::<StandardModelRefPbrSGMaterial>(&material.some_handle())
+      .write::<StandardModelRefLodGraphMeshEntity>(&mesh.some_handle())
+  });
   SceneModelDataView {
     model: std_model,
     scene: writer.scene,

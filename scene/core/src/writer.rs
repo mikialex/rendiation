@@ -90,7 +90,7 @@ impl SceneWriter {
   }
 
   pub fn create_root_child(&mut self) -> EntityHandle<SceneNodeEntity> {
-    self.node_writer.new_entity()
+    self.node_writer.new_entity(|w| w)
   }
   pub fn create_child(
     &mut self,

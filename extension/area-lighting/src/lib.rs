@@ -44,13 +44,13 @@ pub struct AreaLightDataView {
 
 impl AreaLightDataView {
   pub fn write(self, writer: &mut EntityWriter<AreaLightEntity>) -> EntityHandle<AreaLightEntity> {
-    writer
-      .component_value_writer::<AreaLightSize>(self.size)
-      .component_value_writer::<AreaLightIntensity>(self.intensity)
-      .component_value_writer::<AreaLightIsRound>(self.is_round)
-      .component_value_writer::<AreaLightIsDoubleSide>(self.is_double_side)
-      .component_value_writer::<AreaLightRefNode>(self.node.some_handle())
-      .component_value_writer::<AreaLightRefScene>(self.scene.some_handle())
-      .new_entity()
+    writer.new_entity(|w| {
+      w.write::<AreaLightSize>(&self.size)
+        .write::<AreaLightIntensity>(&self.intensity)
+        .write::<AreaLightIsRound>(&self.is_round)
+        .write::<AreaLightIsDoubleSide>(&self.is_double_side)
+        .write::<AreaLightRefNode>(&self.node.some_handle())
+        .write::<AreaLightRefScene>(&self.scene.some_handle())
+    })
   }
 }

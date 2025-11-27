@@ -13,9 +13,7 @@ impl EntityCustomWrite<BufferEntity> for Vec<u8> {
   }
 
   fn write(self, writer: &mut Self::Writer) -> EntityHandle<BufferEntity> {
-    writer
-      .component_value_writer::<BufferEntityData>(ExternalRefPtr::new(self))
-      .new_entity()
+    writer.new_entity(|w| w.write::<BufferEntityData>(&ExternalRefPtr::new(self)))
   }
 }
 
@@ -30,11 +28,11 @@ impl EntityCustomWrite<BufferEntity> for AttributeAccessor {
     let start = self.byte_offset + self.view.range.offset as usize;
     let end = start + self.count * self.item_byte_size;
     // for simplicity we clone out sub buffer, this should be improved
-    writer
-      .component_value_writer::<BufferEntityData>(ExternalRefPtr::new_shared(std::sync::Arc::new(
+    writer.new_entity(|w| {
+      w.write::<BufferEntityData>(&ExternalRefPtr::new_shared(std::sync::Arc::new(
         self.view.buffer.get(start..end).unwrap().to_vec(),
       )))
-      .new_entity()
+    })
   }
 }
 
@@ -48,14 +46,14 @@ pub struct SceneBufferViewDataView {
 }
 
 impl SceneBufferViewDataView {
-  pub fn write<C>(self, writer: &mut EntityWriter<C::Entity>)
+  pub fn write<C>(self, writer: EntityInitWriteView) -> EntityInitWriteView
   where
     C: SceneBufferView,
   {
     writer
-      .component_value_writer::<SceneBufferViewBufferId<C>>(self.data.and_then(|v| v.some_handle()))
-      .component_value_writer::<SceneBufferViewBufferRange<C>>(self.range)
-      .component_value_writer::<SceneBufferViewBufferItemCount<C>>(self.count);
+      .write::<SceneBufferViewBufferId<C>>(&self.data.and_then(|v| v.some_handle()))
+      .write::<SceneBufferViewBufferRange<C>>(&self.range)
+      .write::<SceneBufferViewBufferItemCount<C>>(&self.count)
   }
 }
 

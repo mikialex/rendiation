@@ -30,11 +30,11 @@ pub struct SceneNodeDataView {
 
 impl SceneNodeDataView {
   pub fn write(self, writer: &mut EntityWriter<SceneNodeEntity>) -> EntityHandle<SceneNodeEntity> {
-    writer
-      .component_value_writer::<SceneNodeVisibleComponent>(self.visible)
-      .component_value_writer::<SceneNodeLocalMatrixComponent>(self.local_matrix)
-      .component_value_writer::<SceneNodeParentIdx>(self.parent)
-      .new_entity()
+    writer.new_entity(|w| {
+      w.write::<SceneNodeVisibleComponent>(&self.visible)
+        .write::<SceneNodeLocalMatrixComponent>(&self.local_matrix)
+        .write::<SceneNodeParentIdx>(&self.parent)
+    })
   }
 }
 

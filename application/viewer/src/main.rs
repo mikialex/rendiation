@@ -245,7 +245,7 @@ fn test_persist_scope(cx: &mut ViewerCx) {
         println!("create new root persistent scene");
         let node = global_entity_of::<SceneEntity>()
           .entity_writer()
-          .new_entity();
+          .new_entity(|w| w);
 
         persist_api.setup_hydration_label(label, node.into_raw());
         node

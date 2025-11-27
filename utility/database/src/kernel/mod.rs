@@ -8,7 +8,6 @@ mod entry;
 mod handle;
 mod lock;
 mod query;
-mod writer_value_init;
 
 pub use component::*;
 pub use component_typed::*;
@@ -20,7 +19,6 @@ pub use entry::*;
 pub use handle::*;
 pub use lock::*;
 pub use query::*;
-pub use writer_value_init::*;
 
 use crate::*;
 

@@ -126,8 +126,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
 
       let mesh = global_entity_of::<LODGraphMeshEntity>()
         .entity_writer()
-        .with_component_value_writer::<LODGraphData>(Some(mesh))
-        .new_entity();
+        .new_entity(|w| w.write::<LODGraphData>(&Some(mesh)));
 
       let std_model = writer
         .model_writer

@@ -18,7 +18,7 @@ pub struct UiWidgetModelResponse {
 
 impl UIWidgetModel {
   pub fn new(v: &mut SceneWriter, shape: AttributesMeshData) -> Self {
-    let material = v.unlit_mat_writer.new_entity();
+    let material = v.unlit_mat_writer.new_entity(|w| w);
     let mesh = v.write_attribute_mesh(shape.build());
     let model = StandardModelDataView {
       material: SceneMaterialDataView::UnlitMaterial(material),
@@ -26,7 +26,7 @@ impl UIWidgetModel {
       skin: None,
     }
     .write(&mut v.std_model_writer);
-    let node = v.node_writer.new_entity();
+    let node = v.node_writer.new_entity(|w| w);
     let scene_model = SceneModelDataView {
       model,
       scene: v.scene,

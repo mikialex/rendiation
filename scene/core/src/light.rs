@@ -21,12 +21,12 @@ impl PointLightDataView {
     self,
     writer: &mut EntityWriter<PointLightEntity>,
   ) -> EntityHandle<PointLightEntity> {
-    writer
-      .component_value_writer::<PointLightIntensity>(self.intensity)
-      .component_value_writer::<PointLightCutOffDistance>(self.cutoff_distance)
-      .component_value_writer::<PointLightRefNode>(self.node.some_handle())
-      .component_value_writer::<PointLightRefScene>(self.scene.some_handle())
-      .new_entity()
+    writer.new_entity(|w| {
+      w.write::<PointLightIntensity>(&self.intensity)
+        .write::<PointLightCutOffDistance>(&self.cutoff_distance)
+        .write::<PointLightRefNode>(&self.node.some_handle())
+        .write::<PointLightRefScene>(&self.scene.some_handle())
+    })
   }
 }
 
@@ -66,14 +66,14 @@ pub struct SpotLightDataView {
 
 impl SpotLightDataView {
   pub fn write(self, writer: &mut EntityWriter<SpotLightEntity>) -> EntityHandle<SpotLightEntity> {
-    writer
-      .component_value_writer::<SpotLightIntensity>(self.intensity)
-      .component_value_writer::<SpotLightCutOffDistance>(self.cutoff_distance)
-      .component_value_writer::<SpotLightHalfConeAngle>(self.half_cone_angle)
-      .component_value_writer::<SpotLightHalfPenumbraAngle>(self.half_penumbra_angle)
-      .component_value_writer::<SpotLightRefNode>(self.node.some_handle())
-      .component_value_writer::<SpotLightRefScene>(self.scene.some_handle())
-      .new_entity()
+    writer.new_entity(|w| {
+      w.write::<SpotLightCutOffDistance>(&self.cutoff_distance)
+        .write::<SpotLightHalfConeAngle>(&self.half_cone_angle)
+        .write::<SpotLightHalfPenumbraAngle>(&self.half_penumbra_angle)
+        .write::<SpotLightIntensity>(&self.intensity)
+        .write::<SpotLightRefNode>(&self.node.some_handle())
+        .write::<SpotLightRefScene>(&self.scene.some_handle())
+    })
   }
 }
 
@@ -117,11 +117,11 @@ impl DirectionalLightDataView {
     self,
     writer: &mut EntityWriter<DirectionalLightEntity>,
   ) -> EntityHandle<DirectionalLightEntity> {
-    writer
-      .component_value_writer::<DirectionalLightIlluminance>(self.illuminance)
-      .component_value_writer::<DirectionalRefNode>(self.node.some_handle())
-      .component_value_writer::<DirectionalRefScene>(self.scene.some_handle())
-      .new_entity()
+    writer.new_entity(|w| {
+      w.write::<DirectionalLightIlluminance>(&self.illuminance)
+        .write::<DirectionalRefNode>(&self.node.some_handle())
+        .write::<DirectionalRefScene>(&self.scene.some_handle())
+    })
   }
 }
 

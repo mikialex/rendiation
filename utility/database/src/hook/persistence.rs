@@ -172,7 +172,7 @@ impl PersistIdMapper {
       let entity_group = tables.get(e_id).unwrap();
       let mut writer = entity_group.entity_writer_dyn();
       for entity_p_id in &v.new_inserts {
-        let new_id = writer.new_entity();
+        let new_id = writer.new_entity(|w| w);
         self.rev_mapping.insert(*entity_p_id, new_id);
         self.mapping.insert(new_id, *entity_p_id);
       }

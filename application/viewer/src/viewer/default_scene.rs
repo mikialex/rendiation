@@ -115,12 +115,11 @@ pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dCont
       camera_node,
       Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), UP),
     );
-    writer
-      .camera_writer
-      .component_value_writer::<SceneCameraPerspective>(Some(PerspectiveProjection::default()))
-      .component_value_writer::<SceneCameraBelongsToScene>(Some(writer.scene.into_raw()))
-      .component_value_writer::<SceneCameraNode>(Some(camera_node.into_raw()))
-      .new_entity();
+    writer.camera_writer.new_entity(|w| {
+      w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
+        .write::<SceneCameraBelongsToScene>(&Some(writer.scene.into_raw()))
+        .write::<SceneCameraNode>(&Some(camera_node.into_raw()))
+    });
   }
 
   load_default_scene_lighting_test(writer);

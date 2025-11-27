@@ -3,6 +3,7 @@ use crate::*;
 type MutationData<T> = (Vec<u32>, FastHashMap<u32, T>);
 
 /// this should be a cheaper version of collective_channel
+/// todo, improve code sharing with collective channel or use more advance solution
 pub fn changes_channel<T>() -> (ChangesMutationSender<T>, ChangesMutationReceiver<T>) {
   let inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)> = Default::default();
   let sender = ChangesMutationSender {

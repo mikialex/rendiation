@@ -13,7 +13,7 @@ impl EntityComponentGroup {
           *id,
           EntityComponentWriterImpl {
             component: c.write_untyped(),
-            next_value: None,
+            has_write_for_new_entity: false,
           },
         )
       })
@@ -35,6 +35,30 @@ pub struct EntityWriterUntyped {
   /// in the callback scope.
   entity_watchers: EventSource<ChangePtr>,
   components: smallvec::SmallVec<[(ComponentId, EntityComponentWriterImpl); 6]>,
+}
+
+pub struct EntityInitWriteView<'a> {
+  components: &'a mut [(ComponentId, EntityComponentWriterImpl)],
+  idx: RawEntityHandle,
+}
+
+impl<'a> EntityInitWriteView<'a> {
+  pub fn write<C: ComponentSemantic>(self, v: &C::Data) -> Self {
+    let id = C::component_id();
+    let com = self
+      .components
+      .iter_mut()
+      .find(|(i, _)| *i == id)
+      .map(|(_, v)| v)
+      .expect("unknown component");
+
+    unsafe {
+      com.write_init_component_value(self.idx, Some(v as *const C::Data as DataPtr));
+      com.has_write_for_new_entity = true;
+    }
+
+    self
+  }
 }
 
 impl Drop for EntityWriterUntyped {
@@ -74,13 +98,25 @@ impl EntityWriterUntyped {
     }
   }
 
-  pub fn new_entity(&mut self) -> RawEntityHandle {
+  pub fn new_entity(
+    &mut self,
+    writer: impl FnOnce(EntityInitWriteView) -> EntityInitWriteView,
+  ) -> RawEntityHandle {
     let handle = self.allocator.insert(());
     let handle = RawEntityHandle(handle);
+
+    writer(EntityInitWriteView {
+      components: &mut self.components,
+      idx: handle,
+    });
+
     for com in &mut self.components {
-      unsafe {
-        // safety, the handle is just created.
-        com.1.write_init_component_value(handle);
+      if !com.1.has_write_for_new_entity {
+        unsafe {
+          // safety, the handle is just created.
+          com.1.write_init_component_value(handle, None);
+        }
+        com.1.has_write_for_new_entity = false
       }
     }
 
@@ -140,7 +176,7 @@ impl EntityWriterUntyped {
 
 pub struct EntityComponentWriterImpl {
   pub(crate) component: ComponentWriteViewUntyped,
-  pub(crate) next_value: Option<Box<dyn UntypedComponentInitValueProvider>>,
+  pub(crate) has_write_for_new_entity: bool,
 }
 
 impl EntityComponentWriterImpl {
@@ -157,11 +193,10 @@ impl EntityComponentWriterImpl {
 
   /// # Safety
   ///
-  /// idx must point to living data
-  pub unsafe fn write_init_component_value(&mut self, idx: RawEntityHandle) {
+  /// idx must allocated
+  pub unsafe fn write_init_component_value(&mut self, idx: RawEntityHandle, data: Option<DataPtr>) {
     self.component.data.resize(idx.index());
-    let next_value = self.next_value.as_mut().and_then(|v| v.next_value());
-    self.component.write(idx, true, next_value);
+    self.component.write(idx, true, data);
   }
 
   /// # Safety

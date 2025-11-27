@@ -429,31 +429,33 @@ impl Viewer {
 
     let scene = global_entity_of::<SceneEntity>()
       .entity_writer()
-      .new_entity();
+      .new_entity(|w| w);
 
     let widget_scene = global_entity_of::<SceneEntity>()
       .entity_writer()
-      .new_entity();
+      .new_entity(|w| w);
 
     let root = global_entity_of::<SceneNodeEntity>()
       .entity_writer()
-      .new_entity();
+      .new_entity(|w| w);
 
     let camera_node = global_entity_of::<SceneNodeEntity>()
       .entity_writer()
-      .with_component_value_writer::<SceneNodeLocalMatrixComponent>(Mat4::lookat(
-        Vec3::new(3., 3., 3.),
-        Vec3::new(0., 0., 0.),
-        Vec3::new(0., 1., 0.),
-      ))
-      .new_entity();
+      .new_entity(|w| {
+        w.write::<SceneNodeLocalMatrixComponent>(&Mat4::lookat(
+          Vec3::new(3., 3., 3.),
+          Vec3::new(0., 0., 0.),
+          Vec3::new(0., 1., 0.),
+        ))
+      });
 
     let main_camera = global_entity_of::<SceneCameraEntity>()
       .entity_writer()
-      .with_component_value_writer::<SceneCameraPerspective>(Some(PerspectiveProjection::default()))
-      .with_component_value_writer::<SceneCameraBelongsToScene>(Some(scene.into_raw()))
-      .with_component_value_writer::<SceneCameraNode>(Some(camera_node.into_raw()))
-      .new_entity();
+      .new_entity(|w| {
+        w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
+          .write::<SceneCameraBelongsToScene>(&scene.some_handle())
+          .write::<SceneCameraNode>(&camera_node.some_handle())
+      });
 
     let viewport = ViewerViewPort {
       id: alloc_global_res_id(),

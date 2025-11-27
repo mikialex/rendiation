@@ -87,16 +87,16 @@ pub fn load_ltc_lighting_test(writer: &mut SceneWriter) {
     writer.create_scene_model(material, attribute_mesh, child);
   }
 
-  let area_light_writer = global_entity_of::<AreaLightEntity>().entity_writer();
+  let mut area_light_writer = global_entity_of::<AreaLightEntity>().entity_writer();
   let node = writer.create_root_child();
   writer.set_local_matrix(node, Mat4::translate((10., 4., -10.)));
 
-  area_light_writer
-    .with_component_value_writer::<AreaLightRefNode>(node.some_handle())
-    .with_component_value_writer::<AreaLightRefScene>(writer.scene.some_handle())
-    .with_component_value_writer::<AreaLightIsRound>(true)
-    .with_component_value_writer::<AreaLightIsDoubleSide>(false)
-    .with_component_value_writer::<AreaLightIntensity>(Vec3::splat(100.))
-    .with_component_value_writer::<AreaLightSize>(Vec2::new(1., 1.))
-    .new_entity();
+  area_light_writer.new_entity(|w| {
+    w.write::<AreaLightSize>(&Vec2::new(1., 1.))
+      .write::<AreaLightIntensity>(&Vec3::splat(100.))
+      .write::<AreaLightIsRound>(&true)
+      .write::<AreaLightIsDoubleSide>(&false)
+      .write::<AreaLightRefNode>(&node.some_handle())
+      .write::<AreaLightRefScene>(&writer.scene.some_handle())
+  });
 }

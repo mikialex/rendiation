@@ -38,7 +38,7 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
             tcx
               .spawn_main_thread(move || {
                 let mut writer = SceneWriter::from_global(load_target_scene);
-                let default_mat = writer.pbr_sg_mat_writer.new_entity();
+                let default_mat = writer.pbr_sg_mat_writer.new_entity(|w| w);
 
                 #[cfg(not(target_family = "wasm"))]
                 rendiation_scene_obj_loader::load_obj(

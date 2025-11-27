@@ -115,13 +115,11 @@ fn demo_how_to_use_database_generally() {
 
   let ptr = global_entity_of::<MyTestEntity>()
     .entity_writer()
-    .with_component_value_writer::<TestEntityFieldB>(1.)
-    .new_entity();
+    .new_entity(|w| w.write::<TestEntityFieldB>(&1.));
 
   let ptr2 = global_entity_of::<MyTestEntity2>()
     .entity_writer()
-    .with_component_value_writer::<TestEntity2ReferenceEntity1>(Some(ptr.into()))
-    .new_entity();
+    .new_entity(|w| w.write::<TestEntity2ReferenceEntity1>(&Some(ptr.into())));
 
   //   let single_com_read = ptr.read().read_component::<TestEntity2FieldA>();
   //   ptr.write().write_component::<TestEntity2FieldA>(false); // single write

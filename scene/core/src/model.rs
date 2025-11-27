@@ -27,11 +27,11 @@ impl SceneModelDataView {
     &self,
     writer: &mut EntityWriter<SceneModelEntity>,
   ) -> EntityHandle<SceneModelEntity> {
-    writer
-      .component_value_writer::<SceneModelStdModelRenderPayload>(self.model.some_handle())
-      .component_value_writer::<SceneModelBelongsToScene>(self.scene.some_handle())
-      .component_value_writer::<SceneModelRefNode>(self.node.some_handle())
-      .new_entity()
+    writer.new_entity(|w| {
+      w.write::<SceneModelStdModelRenderPayload>(&self.model.some_handle())
+        .write::<SceneModelBelongsToScene>(&self.scene.some_handle())
+        .write::<SceneModelRefNode>(&self.node.some_handle())
+    })
   }
 }
 
@@ -122,21 +122,21 @@ impl StandardModelDataView {
     self,
     writer: &mut EntityWriter<StandardModelEntity>,
   ) -> EntityHandle<StandardModelEntity> {
-    match self.material {
-      SceneMaterialDataView::UnlitMaterial(m) => {
-        writer.component_value_writer::<StandardModelRefUnlitMaterial>(m.some_handle());
+    writer.new_entity(|w| {
+      match self.material {
+        SceneMaterialDataView::UnlitMaterial(m) => {
+          w.write::<StandardModelRefUnlitMaterial>(&m.some_handle())
+        }
+        SceneMaterialDataView::PbrSGMaterial(m) => {
+          w.write::<StandardModelRefPbrSGMaterial>(&m.some_handle())
+        }
+        SceneMaterialDataView::PbrMRMaterial(m) => {
+          w.write::<StandardModelRefPbrMRMaterial>(&m.some_handle())
+        }
       }
-      SceneMaterialDataView::PbrSGMaterial(m) => {
-        writer.component_value_writer::<StandardModelRefPbrSGMaterial>(m.some_handle());
-      }
-      SceneMaterialDataView::PbrMRMaterial(m) => {
-        writer.component_value_writer::<StandardModelRefPbrMRMaterial>(m.some_handle());
-      }
-    }
-    writer.component_value_writer::<StandardModelRefAttributesMeshEntity>(self.mesh.some_handle());
-    writer.component_value_writer::<StandardModelRefSkin>(self.skin.map(|v| v.into_raw()));
-
-    writer.new_entity()
+      .write::<StandardModelRefAttributesMeshEntity>(&self.mesh.some_handle())
+      .write::<StandardModelRefSkin>(&self.skin.map(|v| v.into_raw()))
+    })
   }
 }
 

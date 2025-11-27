@@ -48,9 +48,10 @@ mod unlit_material {
     }
 
     fn write(self, writer: &mut Self::Writer) -> EntityHandle<UnlitMaterialEntity> {
-      let w = writer.component_value_writer::<UnlitMaterialColorComponent>(self.color);
-      self.alpha.write::<UnlitMaterialAlphaConfig>(w);
-      w.new_entity()
+      writer.new_entity(|w| {
+        let w = w.write::<UnlitMaterialColorComponent>(&self.color);
+        self.alpha.write::<UnlitMaterialAlphaConfig>(w)
+      })
     }
   }
 }
@@ -145,31 +146,33 @@ mod sg_material {
       self,
       writer: &mut EntityWriter<PbrSGMaterialEntity>,
     ) -> EntityHandle<PbrSGMaterialEntity> {
-      writer
-        .component_value_writer::<PbrSGMaterialAlbedoComponent>(self.albedo)
-        .component_value_writer::<PbrSGMaterialSpecularComponent>(self.specular)
-        .component_value_writer::<PbrSGMaterialGlossinessComponent>(self.glossiness)
-        .component_value_writer::<PbrSGMaterialEmissiveComponent>(self.emissive);
+      writer.new_entity(|w| {
+        let w = w
+          .write::<PbrSGMaterialAlbedoComponent>(&self.albedo)
+          .write::<PbrSGMaterialSpecularComponent>(&self.specular)
+          .write::<PbrSGMaterialGlossinessComponent>(&self.glossiness)
+          .write::<PbrSGMaterialEmissiveComponent>(&self.emissive);
 
-      self.alpha.write::<PbrSGMaterialAlphaConfig>(writer);
+        let mut w = self.alpha.write::<PbrSGMaterialAlphaConfig>(w);
 
-      if let Some(t) = self.albedo_texture {
-        t.write::<PbrSGMaterialAlbedoAlphaTex>(writer)
-      }
+        if let Some(t) = self.albedo_texture {
+          w = t.write::<PbrSGMaterialAlbedoAlphaTex>(w)
+        }
 
-      if let Some(t) = self.specular_glossiness_texture {
-        t.write::<PbrSGMaterialSpecularGlossinessTex>(writer)
-      }
+        if let Some(t) = self.specular_glossiness_texture {
+          w = t.write::<PbrSGMaterialSpecularGlossinessTex>(w)
+        }
 
-      if let Some(t) = self.emissive_texture {
-        t.write::<PbrSGMaterialEmissiveTex>(writer)
-      }
+        if let Some(t) = self.emissive_texture {
+          w = t.write::<PbrSGMaterialEmissiveTex>(w)
+        }
 
-      if let Some(normal) = self.normal_texture {
-        normal.write::<PbrSGMaterialNormalInfo>(writer);
-      }
+        if let Some(normal) = self.normal_texture {
+          w = normal.write::<PbrSGMaterialNormalInfo>(w);
+        }
 
-      writer.new_entity()
+        w
+      })
     }
   }
 }
@@ -269,31 +272,32 @@ mod mr_material {
       self,
       writer: &mut EntityWriter<PbrMRMaterialEntity>,
     ) -> EntityHandle<PbrMRMaterialEntity> {
-      writer
-        .component_value_writer::<PbrMRMaterialBaseColorComponent>(self.base_color)
-        .component_value_writer::<PbrMRMaterialRoughnessComponent>(self.roughness)
-        .component_value_writer::<PbrMRMaterialMetallicComponent>(self.metallic)
-        .component_value_writer::<PbrMRMaterialEmissiveComponent>(self.emissive);
+      writer.new_entity(|w| {
+        let w = w
+          .write::<PbrMRMaterialBaseColorComponent>(&self.base_color)
+          .write::<PbrMRMaterialRoughnessComponent>(&self.roughness)
+          .write::<PbrMRMaterialMetallicComponent>(&self.metallic)
+          .write::<PbrMRMaterialEmissiveComponent>(&self.emissive);
 
-      self.alpha.write::<PbrMRMaterialAlphaConfig>(writer);
+        let mut w = self.alpha.write::<PbrMRMaterialAlphaConfig>(w);
 
-      if let Some(t) = self.base_color_texture {
-        t.write::<PbrMRMaterialBaseColorAlphaTex>(writer)
-      }
+        if let Some(t) = self.base_color_texture {
+          w = t.write::<PbrMRMaterialBaseColorAlphaTex>(w);
+        }
 
-      if let Some(t) = self.metallic_roughness_texture {
-        t.write::<PbrMRMaterialMetallicRoughnessTex>(writer)
-      }
+        if let Some(t) = self.metallic_roughness_texture {
+          w = t.write::<PbrMRMaterialMetallicRoughnessTex>(w);
+        }
 
-      if let Some(t) = self.emissive_texture {
-        t.write::<PbrMRMaterialEmissiveTex>(writer)
-      }
+        if let Some(t) = self.emissive_texture {
+          w = t.write::<PbrMRMaterialEmissiveTex>(w);
+        }
 
-      if let Some(normal) = self.normal_texture {
-        normal.write::<PbrMRMaterialNormalInfo>(writer);
-      }
-
-      writer.new_entity()
+        if let Some(normal) = self.normal_texture {
+          w = normal.write::<PbrMRMaterialNormalInfo>(w);
+        }
+        w
+      })
     }
   }
 }
@@ -331,12 +335,12 @@ pub struct NormalMappingDataView {
 }
 
 impl NormalMappingDataView {
-  pub fn write<C>(self, writer: &mut EntityWriter<C::Entity>)
+  pub fn write<C>(self, writer: EntityInitWriteView) -> EntityInitWriteView
   where
     C: NormalInfoSemantic,
   {
-    self.content.write::<NormalTexSamplerOf<C>>(writer);
-    writer.component_value_writer::<NormalScaleOf<C>>(self.scale);
+    let w = self.content.write::<NormalTexSamplerOf<C>>(writer);
+    w.write::<NormalScaleOf<C>>(&self.scale)
   }
 
   pub fn read<T, E>(reader: &EntityReader<E>, id: EntityHandle<E>) -> Option<Self>
@@ -371,14 +375,14 @@ impl Default for AlphaConfigDataView {
 }
 
 impl AlphaConfigDataView {
-  pub fn write<C>(self, writer: &mut EntityWriter<C::Entity>)
+  pub fn write<C>(self, writer: EntityInitWriteView) -> EntityInitWriteView
   where
     C: AlphaInfoSemantic,
   {
     writer
-      .component_value_writer::<AlphaCutoffOf<C>>(self.alpha_cutoff)
-      .component_value_writer::<AlphaModeOf<C>>(self.alpha_mode)
-      .component_value_writer::<AlphaOf<C>>(self.alpha);
+      .write::<AlphaCutoffOf<C>>(&self.alpha_cutoff)
+      .write::<AlphaModeOf<C>>(&self.alpha_mode)
+      .write::<AlphaOf<C>>(&self.alpha)
   }
 
   pub fn read<T, E>(reader: &EntityReader<E>, id: EntityHandle<E>) -> Self

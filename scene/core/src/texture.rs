@@ -118,13 +118,13 @@ impl Texture2DWithSamplingDataView {
 }
 
 impl Texture2DWithSamplingDataView {
-  pub fn write<C>(self, writer: &mut EntityWriter<C::Entity>)
+  pub fn write<C>(self, writer: EntityInitWriteView) -> EntityInitWriteView
   where
     C: TextureWithSamplingForeignKeys,
   {
     writer
-      .component_value_writer::<SceneTexture2dRefOf<C>>(self.texture.some_handle())
-      .component_value_writer::<SceneSamplerRefOf<C>>(self.sampler.some_handle());
+      .write::<SceneTexture2dRefOf<C>>(&self.texture.some_handle())
+      .write::<SceneSamplerRefOf<C>>(&self.sampler.some_handle())
   }
 }
 
@@ -149,13 +149,11 @@ impl TexSamplerWriter<'_> {
 
     let sampler = self
       .sampler_writer
-      .component_value_writer::<SceneSamplerInfo>(sampler)
-      .new_entity();
+      .new_entity(|w| w.write::<SceneSamplerInfo>(&sampler));
 
     let texture = self
       .tex_writer
-      .component_value_writer::<SceneTexture2dEntityDirectContent>(texture.into())
-      .new_entity();
+      .new_entity(|w| w.write::<SceneTexture2dEntityDirectContent>(&texture.into()));
 
     Texture2DWithSamplingDataView { texture, sampler }
   }
@@ -176,51 +174,32 @@ impl TexCubeWriter<'_> {
     y_neg: GPUBufferImage,
     z_neg: GPUBufferImage,
   ) -> EntityHandle<SceneTextureCubeEntity> {
-    let x_pos = self
-      .tex_writer
-      .component_value_writer::<SceneTexture2dEntityDirectContent>(
-        ExternalRefPtr::new(x_pos).into(),
-      )
-      .new_entity();
-    let y_pos = self
-      .tex_writer
-      .component_value_writer::<SceneTexture2dEntityDirectContent>(
-        ExternalRefPtr::new(y_pos).into(),
-      )
-      .new_entity();
-    let z_pos = self
-      .tex_writer
-      .component_value_writer::<SceneTexture2dEntityDirectContent>(
-        ExternalRefPtr::new(z_pos).into(),
-      )
-      .new_entity();
-    let x_neg = self
-      .tex_writer
-      .component_value_writer::<SceneTexture2dEntityDirectContent>(
-        ExternalRefPtr::new(x_neg).into(),
-      )
-      .new_entity();
-    let y_neg = self
-      .tex_writer
-      .component_value_writer::<SceneTexture2dEntityDirectContent>(
-        ExternalRefPtr::new(y_neg).into(),
-      )
-      .new_entity();
-    let z_neg = self
-      .tex_writer
-      .component_value_writer::<SceneTexture2dEntityDirectContent>(
-        ExternalRefPtr::new(z_neg).into(),
-      )
-      .new_entity();
+    let x_pos = self.tex_writer.new_entity(|w| {
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(x_pos).into())
+    });
+    let y_pos = self.tex_writer.new_entity(|w| {
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(y_pos).into())
+    });
+    let z_pos = self.tex_writer.new_entity(|w| {
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(z_pos).into())
+    });
+    let x_neg = self.tex_writer.new_entity(|w| {
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(x_neg).into())
+    });
+    let y_neg = self.tex_writer.new_entity(|w| {
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(y_neg).into())
+    });
+    let z_neg = self.tex_writer.new_entity(|w| {
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(z_neg).into())
+    });
 
-    self
-      .cube_writer
-      .component_value_writer::<SceneTextureCubeXPositiveFace>(x_pos.some_handle())
-      .component_value_writer::<SceneTextureCubeYPositiveFace>(y_pos.some_handle())
-      .component_value_writer::<SceneTextureCubeZPositiveFace>(z_pos.some_handle())
-      .component_value_writer::<SceneTextureCubeXNegativeFace>(x_neg.some_handle())
-      .component_value_writer::<SceneTextureCubeYNegativeFace>(y_neg.some_handle())
-      .component_value_writer::<SceneTextureCubeZNegativeFace>(z_neg.some_handle())
-      .new_entity()
+    self.cube_writer.new_entity(|w| {
+      w.write::<SceneTextureCubeXPositiveFace>(&x_pos.some_handle())
+        .write::<SceneTextureCubeYPositiveFace>(&y_pos.some_handle())
+        .write::<SceneTextureCubeZPositiveFace>(&z_pos.some_handle())
+        .write::<SceneTextureCubeXNegativeFace>(&x_neg.some_handle())
+        .write::<SceneTextureCubeYNegativeFace>(&y_neg.some_handle())
+        .write::<SceneTextureCubeZNegativeFace>(&z_neg.some_handle())
+    })
   }
 }
