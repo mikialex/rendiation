@@ -19,7 +19,7 @@ use crate::*;
 pub trait DBHookCxLike: QueryHookCxLike {
   fn use_changes<C: ComponentSemantic>(
     &mut self,
-  ) -> UseResult<Arc<LinearBatchChanges<u32, C::Data>>> {
+  ) -> UseResult<Arc<FastDeltaChangeCollector<C::Data>>> {
     self.use_changes_internal::<C::Data>(C::component_id(), C::Entity::entity_id())
   }
 
@@ -28,11 +28,12 @@ pub trait DBHookCxLike: QueryHookCxLike {
     &mut self,
     c_id: ComponentId,
     e_id: EntityId,
-  ) -> UseResult<Arc<LinearBatchChanges<u32, T>>> {
+  ) -> UseResult<Arc<FastDeltaChangeCollector<T>>> {
     let (cx, rev) = self.use_plain_state(|| {
       global_database().access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
           add_changes_listen(
+            e.max_entity_count_in_history(),
             ComponentAccess {
               ecg: e.clone(),
               original: c.clone(),
@@ -52,15 +53,9 @@ pub trait DBHookCxLike: QueryHookCxLike {
     {
       let mut ctx = Context::from_waker(&waker);
       let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(&mut ctx) {
-        let removed = r.0;
-        let update_or_insert = r.1.into_iter().collect::<Vec<_>>();
-
-        LinearBatchChanges {
-          removed,
-          update_or_insert,
-        }
+        r
       } else {
-        Default::default()
+        FastDeltaChangeCollector::empty()
       };
 
       if changes.has_change() {
