@@ -33,30 +33,28 @@ impl<T> IndexKeptVec<T> {
     self.len == 0
   }
 
-  pub fn insert(&mut self, data: T, index: u32) {
-    self
-      .storage
-      .reserve((index as usize - self.storage.len() + 1).max(0));
-
-    while self.storage.len() <= index as usize {
-      self.storage.push(None)
-    }
-    if self.storage[index as usize].is_none() {
-      self.len += 1;
-    }
-    self.storage[index as usize] = Some(data);
+  pub fn grow_to(&mut self, len: usize) {
+    let new_len = len.max(self.storage.len());
+    self.storage.resize_with(new_len, || None);
   }
 
-  pub fn iter(&self) -> impl Iterator<Item = (u32, &T)> {
+  pub fn insert(&mut self, index: usize, data: T) {
+    self.grow_to(index + 1);
+    if self.storage[index].is_none() {
+      self.len += 1;
+    }
+    self.storage[index] = Some(data);
+  }
+
+  pub fn iter(&self) -> impl Iterator<Item = (usize, &T)> {
     self
       .storage
       .iter()
       .enumerate()
-      .filter_map(|(index, v)| Some((index as u32, v.as_ref()?)))
+      .filter_map(|(index, v)| Some((index, v.as_ref()?)))
   }
 
-  pub fn remove(&mut self, idx: u32) -> Option<T> {
-    let idx = idx as usize;
+  pub fn remove(&mut self, idx: usize) -> Option<T> {
     let r = self.storage[idx].take();
 
     if r.is_some() {
@@ -66,19 +64,29 @@ impl<T> IndexKeptVec<T> {
     r
   }
 
-  pub fn try_get_mut(&mut self, idx: u32) -> Option<&mut T> {
-    self.storage.get_mut(idx as usize).and_then(|v| v.as_mut())
+  pub fn get_insert_with(&mut self, idx: usize, f: impl FnOnce() -> T) -> &mut T {
+    self.grow_to(idx + 1);
+    let store = unsafe { self.storage.get_unchecked_mut(idx) };
+    store.get_or_insert_with(f)
   }
 
-  pub fn try_get(&self, idx: u32) -> Option<&T> {
-    self.storage.get(idx as usize).and_then(|v| v.as_ref())
+  pub fn try_get_mut_ref(&mut self, idx: usize) -> Option<&mut Option<T>> {
+    self.storage.get_mut(idx)
   }
 
-  pub fn get_mut(&mut self, idx: u32) -> &mut T {
+  pub fn try_get_mut(&mut self, idx: usize) -> Option<&mut T> {
+    self.storage.get_mut(idx).and_then(|v| v.as_mut())
+  }
+
+  pub fn try_get(&self, idx: usize) -> Option<&T> {
+    self.storage.get(idx).and_then(|v| v.as_ref())
+  }
+
+  pub fn get_mut(&mut self, idx: usize) -> &mut T {
     self.try_get_mut(idx).expect("bad index")
   }
 
-  pub fn get(&self, idx: u32) -> &T {
+  pub fn get(&self, idx: usize) -> &T {
     self.try_get(idx).expect("bad index")
   }
 }

@@ -185,11 +185,11 @@ impl<V: CValue> Query for IndexKeptVec<V> {
   type Value = V;
 
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, V)> + '_ {
-    self.iter().map(|(k, v)| (k, v.clone()))
+    self.iter().map(|(k, v)| (k as u32, v.clone()))
   }
 
   fn access(&self, key: &u32) -> Option<V> {
-    self.try_get(key.alloc_index()).cloned()
+    self.try_get(key.alloc_index() as usize).cloned()
   }
 
   fn has_item_hint(&self) -> bool {

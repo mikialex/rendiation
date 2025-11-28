@@ -113,7 +113,7 @@ impl EntityWriterUntyped {
     for com in &mut self.components {
       if !com.1.has_write_for_new_entity {
         unsafe {
-          // safety, the handle is just created.
+          // safety, the handle has just created.
           com.1.write_init_component_value(handle, None);
         }
       } else {

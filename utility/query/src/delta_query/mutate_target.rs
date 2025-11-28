@@ -47,21 +47,21 @@ impl<K: CKey, V: CValue> QueryLikeMutateTarget<K, V> for FastHashMap<K, V> {
 }
 impl<T: CValue> QueryLikeMutateTarget<u32, T> for IndexKeptVec<T> {
   fn set_value(&mut self, k: u32, v: T) -> Option<T> {
-    let previous = self.try_get(k).cloned();
-    self.insert(v, k);
+    let previous = self.try_get(k as usize).cloned();
+    self.insert(k as usize, v);
     previous
   }
 
   fn remove(&mut self, k: u32) -> Option<T> {
-    IndexKeptVec::remove(self, k)
+    IndexKeptVec::remove(self, k as usize)
   }
 
   fn get_current(&self, k: u32) -> Option<&T> {
-    self.try_get(k)
+    self.try_get(k as usize)
   }
 
   fn mutate(&mut self, k: u32, mutator: &dyn Fn(&mut T)) {
-    if let Some(r) = self.try_get_mut(k) {
+    if let Some(r) = self.try_get_mut(k as usize) {
       mutator(r)
     }
   }

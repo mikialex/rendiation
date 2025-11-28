@@ -10,6 +10,7 @@ use rendiation_scene_core::*;
 mod convert_utils;
 use convert_utils::*;
 use rendiation_texture_core::*;
+use storage::IndexKeptVec;
 
 const SUPPORTED_GLTF_EXTENSIONS: [&str; 3] = [
   "KHR_materials_pbrSpecularGlossiness",
@@ -116,37 +117,35 @@ pub fn write_gltf_at_node(
 
   let node_count = document.nodes().len();
   ctx.io.node_writer.notify_reserve_changes(node_count);
+  ctx.result.node_map.grow_to(node_count);
+  let mut model_count = 0;
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
-      create_node_recursive(target, &node, &mut ctx);
+      create_node_recursive(target, &node, &mut ctx, &mut model_count);
     }
   }
 
-  ctx
-    .io
-    .skin_writer
-    .notify_reserve_changes(document.skins().len());
+  let skin_count = document.skins().len();
+  ctx.io.skin_writer.notify_reserve_changes(skin_count);
+  ctx.result.skin_map.grow_to(skin_count);
   for skin in document.skins() {
     build_skin(skin, &mut ctx);
   }
 
-  ctx
-    .io
-    .animation
-    .notify_reserve_changes(document.animations().len());
+  let animation_count = document.animations().len();
+  ctx.io.animation.notify_reserve_changes(animation_count);
+  ctx.result.animation_map.grow_to(animation_count);
   for animation in document.animations() {
     build_animation(animation, &mut ctx);
   }
 
-  ctx.io.tex_writer.notify_reserve_changes(ctx.images.len());
-  ctx
-    .io
-    .sampler_writer
-    .notify_reserve_changes(ctx.images.len());
+  let image_count = ctx.images.len();
+  ctx.io.tex_writer.notify_reserve_changes(image_count);
+  ctx.io.sampler_writer.notify_reserve_changes(image_count);
 
-  // todo, count specific element count and do reserve
-  ctx.io.std_model_writer.notify_reserve_changes(node_count);
-  ctx.io.model_writer.notify_reserve_changes(node_count);
+  ctx.io.std_model_writer.notify_reserve_changes(model_count);
+  ctx.result.primitive_map.grow_to(model_count);
+  ctx.io.model_writer.notify_reserve_changes(model_count);
   ctx
     .io
     .mesh_writer
@@ -172,14 +171,14 @@ struct Context<'a> {
 #[derive(Default)]
 pub struct GltfLoadResult {
   pub path: Option<PathBuf>,
-  pub primitive_map: FastHashMap<usize, EntityHandle<SceneModelEntity>>,
-  pub node_map: FastHashMap<usize, EntityHandle<SceneNodeEntity>>,
-  pub view_map: FastHashMap<usize, UnTypedBufferView>,
-  pub skin_map: FastHashMap<usize, EntityHandle<SceneSkinEntity>>,
-  pub animation_map: FastHashMap<usize, EntityHandle<SceneAnimationEntity>>,
-  pub directional_light_map: FastHashMap<usize, EntityHandle<DirectionalLightEntity>>,
-  pub point_light_map: FastHashMap<usize, EntityHandle<PointLightEntity>>,
-  pub spot_light_map: FastHashMap<usize, EntityHandle<SpotLightEntity>>,
+  pub primitive_map: IndexKeptVec<EntityHandle<SceneModelEntity>>,
+  pub node_map: IndexKeptVec<EntityHandle<SceneNodeEntity>>,
+  pub view_map: IndexKeptVec<UnTypedBufferView>,
+  pub skin_map: IndexKeptVec<EntityHandle<SceneSkinEntity>>,
+  pub animation_map: IndexKeptVec<EntityHandle<SceneAnimationEntity>>,
+  pub directional_light_map: IndexKeptVec<EntityHandle<DirectionalLightEntity>>,
+  pub point_light_map: IndexKeptVec<EntityHandle<PointLightEntity>>,
+  pub spot_light_map: IndexKeptVec<EntityHandle<SpotLightEntity>>,
   pub used_but_not_supported_extensions: Vec<String>,
 }
 
@@ -204,6 +203,7 @@ fn create_node_recursive(
   parent_to_attach: EntityHandle<SceneNodeEntity>,
   gltf_node: &Node,
   ctx: &mut Context,
+  model_count: &mut usize,
 ) {
   let node = ctx.io.create_child(parent_to_attach);
   ctx.result.node_map.insert(gltf_node.index(), node);
@@ -213,13 +213,17 @@ fn create_node_recursive(
     .set_local_matrix(node, map_transform(gltf_node.transform()));
   write_label(&mut ctx.io.node_writer, node, gltf_node.name());
 
+  if gltf_node.mesh().is_some() {
+    *model_count += 1;
+  }
+
   for gltf_node in gltf_node.children() {
-    create_node_recursive(node, &gltf_node, ctx)
+    create_node_recursive(node, &gltf_node, ctx, model_count)
   }
 }
 
 fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
-  let node = *ctx.result.node_map.get(&gltf_node.index()).unwrap();
+  let node = *ctx.result.node_map.get(gltf_node.index());
 
   if let Some(mesh) = gltf_node.mesh() {
     for (idx, primitive) in mesh.primitives().enumerate() {
@@ -363,7 +367,7 @@ fn build_model(
   };
 
   if let Some(skin) = gltf_node.skin() {
-    let sk = ctx.result.skin_map.get(&skin.index()).unwrap();
+    let sk = ctx.result.skin_map.get(skin.index());
     model.skin = Some(*sk)
   }
 
@@ -390,7 +394,7 @@ fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
 
   animation.channels().for_each(|channel| {
     let target = channel.target();
-    let node = *ctx.result.node_map.get(&target.node().index()).unwrap();
+    let node = *ctx.result.node_map.get(target.node().index());
 
     let field = map_animation_field(target.property());
     let gltf_sampler = channel.sampler();
@@ -420,7 +424,7 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
   // https://stackoverflow.com/questions/64734695/what-does-it-mean-when-gltf-does-not-specify-a-skeleton-value-in-a-skin
   let skeleton_root = skin
     .skeleton()
-    .and_then(|n| ctx.result.node_map.get(&n.index()))
+    .and_then(|n| ctx.result.node_map.try_get(n.index()))
     .copied()
     .unwrap_or_else(|| ctx.io.create_root_child());
 
@@ -444,7 +448,7 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
   };
 
   for (i, joint) in skin.joints().enumerate() {
-    let node = *ctx.result.node_map.get(&joint.index()).unwrap();
+    let node = *ctx.result.node_map.get(joint.index());
 
     let mat = if let Some(matrix_list) = matrix_list.as_ref() {
       matrix_list[i]
@@ -466,8 +470,7 @@ fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> UnTypedBuffer
   ctx
     .result
     .view_map
-    .entry(view.index())
-    .or_insert_with(|| {
+    .get_insert_with(view.index(), || {
       let buffer = buffers[view.buffer().index()].clone();
       UnTypedBufferView {
         buffer: buffer.ptr.clone(),

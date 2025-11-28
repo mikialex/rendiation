@@ -41,6 +41,6 @@ impl<K: CKey, V: CValue> DynValueRefQuery for FastHashMap<K, V> {
 
 impl<V: CValue> DynValueRefQuery for IndexKeptVec<V> {
   fn access_ref(&self, key: &u32) -> Option<&V> {
-    self.try_get(key.alloc_index())
+    self.try_get(key.alloc_index() as usize)
   }
 }
