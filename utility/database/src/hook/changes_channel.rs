@@ -1,6 +1,6 @@
 use crate::*;
 
-type MutationData<T> = FastDeltaChangeCollector<T>;
+type MutationData<T> = FastChangeCollector<T>;
 
 /// this should be a cheaper version of collective_channel
 /// todo, improve code sharing with collective channel or use more advance solution
@@ -56,7 +56,7 @@ impl<T: CValue> ChangesMutationSender<T> {
   pub unsafe fn send(&self, idx: u32, change: Option<T>) {
     let mutations = &mut *self.inner.0.data_ptr();
 
-    mutations.update_new(idx, change);
+    mutations.update_change(idx, change);
   }
   /// # Safety
   ///
@@ -164,7 +164,7 @@ pub(crate) fn add_changes_listen<T: CValue>(
 /// the optimization assumes: between the updates, one component is only changed once
 /// in this case, this collector can avoid any key hash operation.
 #[derive(Clone)]
-pub struct FastDeltaChangeCollector<T> {
+pub struct FastChangeCollector<T> {
   removed_set: Bitmap,
   inserted_set: Bitmap,
   inserted_override_set: Bitmap,
@@ -174,7 +174,7 @@ pub struct FastDeltaChangeCollector<T> {
   override_mapping: FastHashMap<u32, usize>,
 }
 
-impl<T> FastDeltaChangeCollector<T> {
+impl<T> FastChangeCollector<T> {
   pub fn empty() -> Self {
     Self {
       removed_set: Bitmap::with_size(0),
@@ -204,9 +204,9 @@ impl<T> FastDeltaChangeCollector<T> {
     let inserted_override_set = self.inserted_override_set.clone();
 
     // todo, only reset what changed
-    self.removed_set.bits.fill(0);
-    self.inserted_override_set.bits.fill(0);
-    self.inserted_set.bits.fill(0);
+    self.removed_set.reset();
+    self.inserted_override_set.reset();
+    self.inserted_set.reset();
 
     Self {
       inserted_set,
@@ -237,7 +237,7 @@ impl<T> FastDeltaChangeCollector<T> {
     self.removed_set.reserve(additional);
   }
 
-  pub fn update_new(&mut self, idx: u32, change: Option<T>) {
+  pub fn update_change(&mut self, idx: u32, change: Option<T>) {
     let idx_usize = idx as usize;
     self.removed_set.check_grow(idx_usize);
     self.inserted_override_set.check_grow(idx_usize);
@@ -280,7 +280,7 @@ impl<T> FastDeltaChangeCollector<T> {
   }
 }
 
-impl<T: CValue> DataChanges for FastDeltaChangeCollector<T> {
+impl<T: CValue> DataChanges for FastChangeCollector<T> {
   type Key = u32;
   type Value = T;
 
@@ -344,6 +344,10 @@ impl Bitmap {
   pub fn reserve(&mut self, additional: usize) {
     let new_len = self.bits.len() * 8 + additional;
     self.check_grow(new_len);
+  }
+
+  pub fn reset(&mut self) {
+    self.bits.fill(0);
   }
 
   #[inline(always)]

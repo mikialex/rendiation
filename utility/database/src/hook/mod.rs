@@ -1,5 +1,6 @@
 mod changes_channel;
 mod collective_channel;
+mod delta_channel;
 mod persistence;
 mod ref_counting;
 mod staged_scope_watch;
@@ -9,6 +10,7 @@ use std::hash::Hasher;
 
 pub use changes_channel::*;
 pub use collective_channel::*;
+pub use delta_channel::*;
 pub use persistence::*;
 pub use ref_counting::*;
 pub use staged_scope_watch::*;
@@ -17,9 +19,7 @@ pub use util::*;
 use crate::*;
 
 pub trait DBHookCxLike: QueryHookCxLike {
-  fn use_changes<C: ComponentSemantic>(
-    &mut self,
-  ) -> UseResult<Arc<FastDeltaChangeCollector<C::Data>>> {
+  fn use_changes<C: ComponentSemantic>(&mut self) -> UseResult<Arc<FastChangeCollector<C::Data>>> {
     self.use_changes_internal::<C::Data>(C::component_id(), C::Entity::entity_id())
   }
 
@@ -28,7 +28,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
     &mut self,
     c_id: ComponentId,
     e_id: EntityId,
-  ) -> UseResult<Arc<FastDeltaChangeCollector<T>>> {
+  ) -> UseResult<Arc<FastChangeCollector<T>>> {
     let (cx, rev) = self.use_plain_state(|| {
       global_database().access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
@@ -55,7 +55,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
       let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(&mut ctx) {
         r
       } else {
-        FastDeltaChangeCollector::empty()
+        FastChangeCollector::empty()
       };
 
       if changes.has_change() {
@@ -81,7 +81,8 @@ pub trait DBHookCxLike: QueryHookCxLike {
     let (cx, rev) = self.use_plain_state(|| {
       global_database().access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
-          add_listen(
+          add_delta_listen(
+            e.max_entity_count_in_history(),
             ComponentAccess {
               ecg: e.clone(),
               original: c.clone(),
@@ -103,14 +104,14 @@ pub trait DBHookCxLike: QueryHookCxLike {
       let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
         changes
       } else {
-        Default::default()
+        FastIterQuery::empty()
       };
 
       if !changes.is_empty() {
         change_collector.notify_change();
       }
 
-      UseResult::SpawnStageReady(Arc::new(changes))
+      UseResult::SpawnStageReady(changes)
     } else {
       if rev.has_change() {
         cx.waker().wake_by_ref();
@@ -136,7 +137,8 @@ pub trait DBHookCxLike: QueryHookCxLike {
   fn use_entity_set_delta_raw(&mut self, e_id: EntityId) -> UseResult<DBDelta<()>> {
     let (cx, rev) = self.use_plain_state(|| {
       global_database().access_ecg_dyn(e_id, move |e| {
-        add_listen(
+        add_delta_listen(
+          e.max_entity_count_in_history(),
           ArenaAccessProvider(e.inner.allocator.clone()),
           &e.inner.entity_watchers,
         )
@@ -152,13 +154,13 @@ pub trait DBHookCxLike: QueryHookCxLike {
       let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
         changes
       } else {
-        Default::default()
+        FastIterQuery::empty()
       };
 
       if !changes.is_empty() {
         change_collector.notify_change();
       }
-      UseResult::SpawnStageReady(Arc::new(changes))
+      UseResult::SpawnStageReady(changes)
     } else {
       if rev.has_change() {
         cx.waker().wake_by_ref();
