@@ -3,7 +3,7 @@ use crate::*;
 type MutationData<T> = FastChangeCollector<T>;
 
 /// this should be a cheaper version of collective_channel
-/// todo, improve code sharing with collective channel or use more advance solution
+///  improve code sharing with other channel
 pub fn changes_channel<T>(
   bitmap_init: usize,
   change_init: usize,

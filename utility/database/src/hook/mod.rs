@@ -1,5 +1,5 @@
 mod changes_channel;
-mod collective_channel;
+// mod collective_channel;
 mod delta_channel;
 mod persistence;
 mod ref_counting;
@@ -9,7 +9,7 @@ mod util;
 use std::hash::Hasher;
 
 pub use changes_channel::*;
-pub use collective_channel::*;
+// pub use collective_channel::*;
 pub use delta_channel::*;
 pub use persistence::*;
 pub use ref_counting::*;

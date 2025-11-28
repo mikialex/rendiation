@@ -3,7 +3,7 @@ use crate::*;
 type MutationData<T> = FastDeltaChangeCollector<T>;
 
 /// this should be a cheaper version of collective_channel
-/// todo, improve code sharing with collective channel or use more advance solution
+/// todo, improve code sharing with other channel
 pub fn delta_channel<T: CValue>(
   bitmap_init: usize,
   change_init: usize,
@@ -185,7 +185,7 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
   }
 
   pub fn has_change(&self) -> bool {
-    // todo
+    // note, as we do not do any delta merge, this may cause extra wake in some case
     self.unique_changed_key_count > 0
   }
 
@@ -217,45 +217,38 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
     );
     let mut changes = std::mem::take(&mut self.changes);
     unsafe {
-      let mut i = 0;
       let mut holes_indices = FastHashSet::default();
 
-      loop {
-        if i < changes.len() {
-          let (key, change) = changes.get_unchecked(i);
-          if self.has_duplicate_changes.get(i) {
-            // slow path
-            let key = *key;
-            let change = change.clone();
-            let mut remove_key = false;
-            if let Some(previous_same_key_idx) = mapping.get(&key) {
-              let previous_change: &mut (RawEntityHandle, ValueChange<T>) =
-                changes.get_unchecked_mut(*previous_same_key_idx);
-              let merge_target = &mut previous_change.1;
-              if !merge_target.merge(&change) {
-                remove_key = true;
-                holes_indices.insert(*previous_same_key_idx);
-              }
-              changes.swap_remove(i);
-            } else {
-              mapping.insert(key, i);
-              i += 1;
+      for i in 0..changes.len() {
+        let (key, change) = changes.get_unchecked(i);
+        if self.has_duplicate_changes.get(key.index() as usize) {
+          // slow path
+          let key = *key;
+          let change = change.clone();
+          let mut remove_key = false;
+          if let Some(previous_same_key_idx) = mapping.get(&key) {
+            let previous_change: &mut (RawEntityHandle, ValueChange<T>) =
+              changes.get_unchecked_mut(*previous_same_key_idx);
+            let merge_target = &mut previous_change.1;
+            if !merge_target.merge(&change) {
+              remove_key = true;
+              holes_indices.insert(*previous_same_key_idx);
             }
-
-            if remove_key {
-              mapping.remove(&key);
-            }
+            holes_indices.insert(i);
           } else {
-            mapping.insert(*key, i);
-            i += 1;
+            mapping.insert(key, i);
+          }
+
+          if remove_key {
+            mapping.remove(&key);
           }
         } else {
-          break;
+          mapping.insert(*key, i);
         }
       }
 
       if !holes_indices.is_empty() {
-        // todo, this is bad, use swap_remove
+        // todo, this is bad, use in place swap_remove
         changes = changes
           .into_iter()
           .enumerate()
@@ -280,6 +273,39 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
       mapping: Arc::new(mapping),
     }
   }
+}
+
+#[test]
+fn test() {
+  fn make_handle(idx: usize) -> RawEntityHandle {
+    RawEntityHandle::create_only_for_testing(idx)
+  }
+
+  let mut collector: FastDeltaChangeCollector<u32> = FastDeltaChangeCollector::new(0, 0);
+  assert!(!collector.has_change());
+
+  collector.update_delta(make_handle(3), ValueChange::Delta(1, None));
+  collector.update_delta(make_handle(4), ValueChange::Delta(1, None));
+  collector.update_delta(make_handle(4), ValueChange::Delta(2, Some(1)));
+
+  collector.update_delta(make_handle(5), ValueChange::Delta(2, None));
+  collector.update_delta(make_handle(5), ValueChange::Remove(2));
+
+  assert_eq!(collector.unique_changed_key_count, 3);
+  assert_eq!(collector.changes.len(), 5);
+  assert!(collector.has_change());
+
+  let r = collector.take_and_compute_query();
+
+  assert!(!r.is_empty());
+
+  assert_eq!(r.mapping.len(), 2);
+  assert_eq!(r.changes.len(), 2);
+  let v = r.access(&make_handle(3)).unwrap();
+  assert_eq!(v, ValueChange::Delta(1, None));
+
+  let v = r.access(&make_handle(4)).unwrap();
+  assert_eq!(v, ValueChange::Delta(2, None));
 }
 
 #[derive(Clone)]
