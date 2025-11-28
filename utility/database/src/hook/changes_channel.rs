@@ -187,18 +187,27 @@ impl<T> FastDeltaChangeCollector<T> {
     }
   }
 
+  // todo: note the bitmap's size will always increase, this may becomes a problem.
   pub fn take(&mut self) -> Self {
+    let removed_keys = std::mem::take(&mut self.removed_keys);
+    let new_or_inserts = std::mem::take(&mut self.new_or_inserts);
+    let override_new_or_inserts = std::mem::take(&mut self.override_new_or_inserts);
+
+    if removed_keys.is_empty() && new_or_inserts.is_empty() && override_new_or_inserts.is_empty() {
+      assert!(self.override_mapping.is_empty());
+      return Self::empty();
+    }
+
+    let override_mapping = std::mem::take(&mut self.override_mapping);
     let removed_set = self.removed_set.clone();
     let inserted_set = self.inserted_set.clone();
     let inserted_override_set = self.inserted_override_set.clone();
+
+    // todo, only reset what changed
     self.removed_set.bits.fill(0);
     self.inserted_override_set.bits.fill(0);
     self.inserted_set.bits.fill(0);
 
-    let removed_keys = std::mem::take(&mut self.removed_keys);
-    let new_or_inserts = std::mem::take(&mut self.new_or_inserts);
-    let override_new_or_inserts = std::mem::take(&mut self.override_new_or_inserts);
-    let override_mapping = std::mem::take(&mut self.override_mapping);
     Self {
       inserted_set,
       removed_set,
@@ -337,6 +346,7 @@ impl Bitmap {
     self.check_grow(new_len);
   }
 
+  #[inline(always)]
   pub fn check_grow(&mut self, at_least_new_size: usize) {
     let byte_size = (at_least_new_size >> 3) + 1;
     let byte_size = byte_size.max(self.bits.len());
@@ -346,6 +356,7 @@ impl Bitmap {
   /// # Safety
   ///
   /// idx must in bound
+  #[inline(always)]
   pub unsafe fn get(&self, idx: usize) -> bool {
     let byte_idx = idx >> 3; // idx / 8
     let offset = idx & 0b111; // idx % 8
@@ -356,6 +367,7 @@ impl Bitmap {
   /// # Safety
   ///
   /// idx must in bound
+  #[inline(always)]
   pub unsafe fn set(&mut self, idx: usize, value: bool) {
     let byte_idx = idx >> 3; // idx / 8
     let offset = idx & 0b111; // idx % 8
