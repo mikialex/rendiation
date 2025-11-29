@@ -260,7 +260,6 @@ impl<T> FastChangeCollector<T> {
     }
   }
 
-  /// extra a standalone fn to make it possible to see it in profiler
   fn update_new_slow_path(&mut self, idx: u32, change: T) {
     if let Some(previous_override_idx) = self.override_mapping.get(&idx) {
       unsafe {
@@ -333,6 +332,9 @@ pub struct Bitmap {
 }
 
 impl Bitmap {
+  pub fn empty() -> Self {
+    Self { bits: vec![] }
+  }
   /// Create a new bitmap with initial size `size`
   pub fn with_size(size: usize) -> Self {
     let byte_size = (size >> 3) + 1;

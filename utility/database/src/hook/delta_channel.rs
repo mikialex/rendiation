@@ -166,8 +166,8 @@ pub(crate) fn add_delta_listen<T: CValue>(
 pub struct FastDeltaChangeCollector<T> {
   has_any_change: Bitmap,
   has_duplicate_changes: Bitmap,
-  unique_changed_key_count: usize,
   changes: Vec<(RawEntityHandle, ValueChange<T>)>,
+  override_mapping: FastHashMap<RawEntityHandle, (usize, bool)>,
 }
 
 impl<T: CValue> FastDeltaChangeCollector<T> {
@@ -175,101 +175,93 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
     Self {
       has_any_change: Bitmap::with_size(bitmap_init),
       has_duplicate_changes: Bitmap::with_size(bitmap_init),
-      unique_changed_key_count: 0,
       changes: Vec::with_capacity(change_init),
+      override_mapping: FastHashMap::default(),
     }
   }
 
   pub fn reserve(&mut self, additional: usize) {
-    self.changes.reserve(additional);
+    self.changes.reserve(additional * 2); // * 2 to avoid reallocation for delta merge case
   }
 
   pub fn has_change(&self) -> bool {
     // note, as we do not do any delta merge, this may cause extra wake in some case
-    self.unique_changed_key_count > 0
+    !self.changes.is_empty()
   }
 
   pub fn update_delta(&mut self, idx: RawEntityHandle, change: ValueChange<T>) {
     let index = idx.index() as usize;
     self.has_any_change.check_grow(index);
     self.has_duplicate_changes.check_grow(index);
-    self.changes.push((idx, change));
     unsafe {
-      let changed = self.has_any_change.get(index);
-      if changed {
+      let has_any_change = self.has_any_change.get(index);
+      if has_any_change {
+        // slow path, do hashing and maybe delta merge
         self.has_duplicate_changes.set(index, true);
+        if let Some((previous_idx, has_delta)) = self.override_mapping.get_mut(&idx) {
+          let previous_change: &mut (RawEntityHandle, ValueChange<T>) =
+            self.changes.get_unchecked_mut(*previous_idx);
+
+          let merge_target = &mut previous_change.1;
+          if *has_delta {
+            *merge_target = change;
+          } else if !merge_target.merge(&change) {
+            *has_delta = false;
+          }
+        } else {
+          let change_index = self.changes.len();
+          self.changes.push((idx, change));
+          self.override_mapping.insert(idx, (change_index, true));
+        }
       } else {
-        self.unique_changed_key_count += 1;
         self.has_any_change.set(index, true);
+        self.changes.push((idx, change));
       }
     }
   }
 
   pub fn take_and_compute_query(&mut self) -> FastIterQuery<T> {
-    if self.unique_changed_key_count == 0 {
-      assert!(self.changes.is_empty());
+    if self.changes.is_empty() {
       return FastIterQuery::empty();
     }
 
-    let mut mapping = FastHashMap::with_capacity_and_hasher(
-      self.unique_changed_key_count,
-      FastHasherBuilder::default(),
-    );
-    let mut changes = std::mem::take(&mut self.changes);
-    unsafe {
-      let mut holes_indices = FastHashSet::default();
+    let mut mapping =
+      FastHashMap::with_capacity_and_hasher(self.changes.len(), FastHasherBuilder::default());
+    let changes = std::mem::take(&mut self.changes);
+    let override_mapping = std::mem::take(&mut self.override_mapping);
 
-      for i in 0..changes.len() {
-        let (key, change) = changes.get_unchecked(i);
-        if self.has_duplicate_changes.get(key.index() as usize) {
-          // slow path
-          let key = *key;
-          let change = change.clone();
-          let mut remove_key = false;
-          if let Some(previous_same_key_idx) = mapping.get(&key) {
-            let previous_change: &mut (RawEntityHandle, ValueChange<T>) =
-              changes.get_unchecked_mut(*previous_same_key_idx);
-            let merge_target = &mut previous_change.1;
-            if !merge_target.merge(&change) {
-              remove_key = true;
-              holes_indices.insert(*previous_same_key_idx);
-            }
-            holes_indices.insert(i);
-          } else {
-            mapping.insert(key, i);
-          }
+    let mut compacted_changes = Vec::with_capacity(changes.len() - override_mapping.len());
 
-          if remove_key {
-            mapping.remove(&key);
-          }
-        } else {
+    for (change_idx, (key, change)) in changes.iter().enumerate() {
+      if unsafe { !self.has_duplicate_changes.get(key.index() as usize) } {
+        let i = compacted_changes.len();
+        compacted_changes.push((*key, change.clone()));
+        mapping.insert(*key, i);
+      } else {
+        let (idx, has_change) = unsafe { override_mapping.get(key).unwrap_unchecked() };
+        if *idx != change_idx && *has_change {
+          let (_key, override_change) = unsafe { changes.get_unchecked(*idx) };
+          debug_assert_eq!(_key, key);
+          let mut change_to_merge = change.clone();
+          change_to_merge.merge(override_change);
+
+          let i = compacted_changes.len();
+          compacted_changes.push((*key, change_to_merge));
           mapping.insert(*key, i);
         }
       }
-
-      if !holes_indices.is_empty() {
-        // todo, this is bad, use in place swap_remove
-        changes = changes
-          .into_iter()
-          .enumerate()
-          .filter_map(|(idx, v)| {
-            if holes_indices.contains(&idx) {
-              None
-            } else {
-              Some(v)
-            }
-          })
-          .collect();
-      }
     }
 
+    // assert no reallocation
+    debug_assert!(compacted_changes.len() <= compacted_changes.capacity());
+    debug_assert!(mapping.len() <= mapping.capacity());
+
     // todo, only reset what changed
-    self.unique_changed_key_count = 0;
     self.has_any_change.reset();
     self.has_duplicate_changes.reset();
 
     FastIterQuery {
-      changes: Arc::new(changes),
+      changes: Arc::new(compacted_changes),
       mapping: Arc::new(mapping),
     }
   }
@@ -287,11 +279,11 @@ fn test() {
   collector.update_delta(make_handle(3), ValueChange::Delta(1, None));
   collector.update_delta(make_handle(4), ValueChange::Delta(1, None));
   collector.update_delta(make_handle(4), ValueChange::Delta(2, Some(1)));
+  collector.update_delta(make_handle(4), ValueChange::Delta(4, Some(2)));
 
   collector.update_delta(make_handle(5), ValueChange::Delta(2, None));
   collector.update_delta(make_handle(5), ValueChange::Remove(2));
 
-  assert_eq!(collector.unique_changed_key_count, 3);
   assert_eq!(collector.changes.len(), 5);
   assert!(collector.has_change());
 
@@ -299,13 +291,13 @@ fn test() {
 
   assert!(!r.is_empty());
 
-  assert_eq!(r.mapping.len(), 2);
-  assert_eq!(r.changes.len(), 2);
+  assert_eq!(r.mapping.len(), 3);
+  assert_eq!(r.changes.len(), 3);
   let v = r.access(&make_handle(3)).unwrap();
   assert_eq!(v, ValueChange::Delta(1, None));
 
   let v = r.access(&make_handle(4)).unwrap();
-  assert_eq!(v, ValueChange::Delta(2, None));
+  assert_eq!(v, ValueChange::Delta(4, None));
 }
 
 #[derive(Clone)]
