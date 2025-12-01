@@ -88,6 +88,7 @@ impl<T: Send + Sync + 'static> UseResult<T> {
         DualQuery {
           view: map.make_read_holder(),
           delta: Arc::new(mutations),
+          is_delta_retainable: true,
         }
       },
     )
@@ -411,11 +412,16 @@ where
     let map = cx.use_shared_hash_map();
 
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
+      let is_delta_retainable = t.is_delta_retainable();
       let (view, delta) = t.view_delta();
       bookkeeping_hash_relation(&mut map.write(), &delta);
 
       TriQuery {
-        base: DualQuery { view, delta },
+        base: DualQuery {
+          view,
+          delta,
+          is_delta_retainable,
+        },
         rev_many_view: map.make_read_holder(),
       }
     })
@@ -466,6 +472,7 @@ where
       DualQuery {
         view: map.make_read_holder(),
         delta: Arc::new(mutations),
+        is_delta_retainable: true,
       }
     })
   }
@@ -509,6 +516,7 @@ where
     let cache = cx.use_shared_hash_map();
 
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
+      let is_delta_retainable = t.is_delta_retainable();
       let d = t.delta();
       let materialized = d.iter_key_value().collect::<Vec<_>>();
 
@@ -538,7 +546,11 @@ where
 
       let v = cache.make_read_holder();
 
-      DualQuery { view: v, delta: d }
+      DualQuery {
+        view: v,
+        delta: d,
+        is_delta_retainable,
+      }
     })
   }
 
@@ -563,10 +575,12 @@ where
 
   pub fn dual_query_boxed(self) -> UseResult<BoxedDynDualQuery<T::Key, T::Value>> {
     self.map(|v| {
+      let is_delta_retainable = v.is_delta_retainable();
       let (a, d) = v.view_delta();
       DualQuery {
         view: a.into_boxed(),
         delta: d.into_boxed(),
+        is_delta_retainable,
       }
     })
   }

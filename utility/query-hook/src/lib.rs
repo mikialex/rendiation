@@ -246,11 +246,13 @@ pub trait QueryHookCxLike: HooksCxLike {
           delta: *new_delta
             .downcast::<BoxedDynQuery<K, ValueChange<V>>>()
             .unwrap(),
+          is_delta_retainable: true,
         }
       } else if skip_change {
         DualQuery {
           view: view.into_boxed(),
           delta: EmptyQuery::default().into_boxed(),
+          is_delta_retainable: true,
         }
       } else {
         // expand the full view as delta
@@ -263,6 +265,7 @@ pub trait QueryHookCxLike: HooksCxLike {
         DualQuery {
           view: view.into_boxed(),
           delta: new_delta.into_boxed(),
+          is_delta_retainable: true,
         }
       }
     })

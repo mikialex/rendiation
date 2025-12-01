@@ -149,6 +149,7 @@ where
           DualQuery {
             view: derived.make_read_holder(),
             delta: Arc::new(changes),
+            is_delta_retainable: true,
           }
         },
       )

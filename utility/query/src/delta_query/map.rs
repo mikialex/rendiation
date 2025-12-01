@@ -60,6 +60,7 @@ impl<T, U> DualQuery<T, U> {
     DualQuery {
       view: self.view.map(f.clone()),
       delta: self.delta.delta_map(f),
+      is_delta_retainable: self.is_delta_retainable,
     }
   }
 }

@@ -22,6 +22,7 @@ use crate::*;
 pub struct DualQuery<T, U> {
   pub view: T,
   pub delta: U,
+  pub is_delta_retainable: bool,
 }
 
 pub type BoxedDynDualQuery<K, V> = DualQuery<BoxedDynQuery<K, V>, BoxedDynQuery<K, ValueChange<V>>>;
@@ -34,6 +35,8 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
   type Value: CValue;
   type Delta: Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
   type View: Query<Key = Self::Key, Value = Self::Value> + 'static;
+  /// if delta is composed by view, then delta is not retainable(because view's lock is not released)
+  fn is_delta_retainable(&self) -> bool;
   fn view_delta(self) -> (Self::View, Self::Delta);
   fn view_delta_ref(&self) -> (&Self::View, &Self::Delta);
 
@@ -53,19 +56,31 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
   /// combinator, and view will be retained, which will cause deadlock in some case
   fn materialize_delta(
     self,
-  ) -> DualQuery<Self::View, Arc<QueryMaterialized<Self::Key, ValueChange<Self::Value>>>> {
-    let (view, delta) = self.view_delta();
-    DualQuery {
-      view,
-      delta: delta.materialize(),
+  ) -> DualQuery<Self::View, BoxedDynQuery<Self::Key, ValueChange<Self::Value>>> {
+    if self.is_delta_retainable() {
+      let (view, delta) = self.view_delta();
+      DualQuery {
+        view,
+        delta: delta.into_boxed(),
+        is_delta_retainable: true,
+      }
+    } else {
+      let (view, delta) = self.view_delta();
+      DualQuery {
+        view,
+        delta: delta.materialize().into_boxed(),
+        is_delta_retainable: true,
+      }
     }
   }
 
   fn into_boxed(self) -> BoxedDynDualQuery<Self::Key, Self::Value> {
+    let is_delta_retainable = self.is_delta_retainable();
     let (view, delta) = self.view_delta();
     DualQuery {
       view: view.into_boxed(),
       delta: delta.into_boxed(),
+      is_delta_retainable,
     }
   }
 
@@ -73,10 +88,12 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     self,
     f: impl Fn(Self::Value) -> V2 + Clone + Sync + Send + 'static,
   ) -> impl DualQueryLike<Key = Self::Key, Value = V2> {
+    let is_delta_retainable = self.is_delta_retainable();
     let (view, delta) = self.view_delta();
     DualQuery {
       view: view.map_value(f.clone()),
       delta: delta.delta_map_value(f),
+      is_delta_retainable,
     }
   }
 
@@ -84,8 +101,14 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     self,
     f: impl Fn(&Self::Key, Self::Value) -> V2 + Clone + Sync + Send + 'static,
   ) -> impl DualQueryLike<Key = Self::Key, Value = V2> {
+    let is_delta_retainable = self.is_delta_retainable();
     let (view, delta) = self.view_delta();
-    DualQuery { view, delta }.map(f)
+    DualQuery {
+      view,
+      delta,
+      is_delta_retainable,
+    }
+    .map(f)
   }
 
   fn dual_query_filter(
@@ -99,10 +122,12 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     self,
     f: impl Fn(Self::Value) -> Option<V2> + Clone + Sync + Send + 'static,
   ) -> impl DualQueryLike<Key = Self::Key, Value = V2> {
+    let is_delta_retainable = self.is_delta_retainable();
     let (view, delta) = self.view_delta();
     DualQuery {
       view: view.filter_map(f.clone()),
       delta: delta.delta_filter_map(f),
+      is_delta_retainable,
     }
   }
 
@@ -191,7 +216,11 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
       f,
     };
 
-    DualQuery { view, delta }
+    DualQuery {
+      view,
+      delta,
+      is_delta_retainable: false,
+    }
   }
 
   fn fanout<R: TriQueryLike<Value = Self::Key>>(
@@ -271,7 +300,11 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     let d = Arc::new(output);
     let v = relation_access.chain(getter);
 
-    DualQuery { view: v, delta: d }
+    DualQuery {
+      view: v,
+      delta: d,
+      is_delta_retainable: true,
+    }
   }
 }
 
@@ -286,6 +319,10 @@ where
   type Value = V;
   type Delta = U;
   type View = T;
+
+  fn is_delta_retainable(&self) -> bool {
+    self.is_delta_retainable
+  }
 
   fn view_delta_ref(&self) -> (&Self::View, &Self::Delta) {
     (&self.view, &self.delta)
@@ -319,6 +356,10 @@ where
   type Value = V;
   type Delta = U;
   type View = T;
+
+  fn is_delta_retainable(&self) -> bool {
+    self.base.is_delta_retainable
+  }
 
   fn view_delta_ref(&self) -> (&Self::View, &Self::Delta) {
     (&self.base.view, &self.base.delta)

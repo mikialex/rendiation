@@ -182,6 +182,7 @@ pub fn use_scene_to_tlas(
         DualQuery {
           view: current_sm_acc_scene,
           delta: scene_ref_sm_change,
+          ..
         },
       rev_many_view,
     } = scene_sm.expect_resolve_stage();

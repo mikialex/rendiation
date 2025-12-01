@@ -205,6 +205,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
           .map(move |change| DualQuery {
             view: get_db_view_internal::<T>(e_id, c_id),
             delta: change,
+            is_delta_retainable: true,
           })
       }
     }
@@ -240,6 +241,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
               ArenaAccessProvider(ecg.inner.allocator.clone()).access()
             }),
             delta: change,
+            is_delta_retainable: true,
           })
       }
     }
@@ -272,6 +274,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
             mapper: |v| v,
           }
           .into_boxed(),
+          is_delta_retainable: true,
         },
         rev_many_view,
       })
