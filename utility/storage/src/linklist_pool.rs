@@ -5,6 +5,12 @@ pub struct LinkListPool<T> {
   pool: IndexReusedVec<LinkListNode<T>>,
 }
 
+#[derive(Clone)]
+struct LinkListNode<T> {
+  next: IndexPtr,
+  data: T,
+}
+
 impl<T> Default for LinkListPool<T> {
   fn default() -> Self {
     Self {
@@ -138,12 +144,6 @@ impl Default for ListHandle {
       tail: u32::MAX,
     }
   }
-}
-
-#[derive(Clone)]
-struct LinkListNode<T> {
-  next: IndexPtr,
-  data: T,
 }
 
 #[test]
