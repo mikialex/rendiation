@@ -13,7 +13,7 @@ impl<T: Query + 'static> QueryProvider<T::Key, T::Value> for Arc<RwLock<T>> {
 
 pub type DBViewUnchecked<V> = IterableComponentReadView<V>;
 pub type DBView<V> = IterableComponentReadViewChecked<V>;
-pub type DBDelta<V> = FastIterQuery<V>;
+pub type DBDelta<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
 pub type DBDualQuery<V> = DualQuery<DBView<V>, DBDelta<V>>;
 pub type DBSetDualQuery = DualQuery<BoxedDynQuery<RawEntityHandle, ()>, DBDelta<()>>;
 

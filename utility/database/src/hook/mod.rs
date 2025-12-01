@@ -108,7 +108,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
         change_collector.notify_change();
         UseResult::SpawnStageFuture(f)
       } else {
-        let f = pin_box_in_frame(std::future::ready(FastIterQuery::empty()));
+        let f = pin_box_in_frame(std::future::ready(Default::default()));
         UseResult::SpawnStageFuture(f)
       }
     } else {
@@ -159,7 +159,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
         change_collector.notify_change();
         UseResult::SpawnStageFuture(f)
       } else {
-        let f = pin_box_in_frame(std::future::ready(FastIterQuery::empty()));
+        let f = pin_box_in_frame(std::future::ready(Default::default()));
         UseResult::SpawnStageFuture(f)
       }
     } else {

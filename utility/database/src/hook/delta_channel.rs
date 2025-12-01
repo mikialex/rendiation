@@ -250,24 +250,19 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
     }
   }
 
-  pub fn compute_query(self) -> FastIterQuery<T> {
+  pub fn compute_query(self) -> DBDelta<T> {
     if self.changes.is_empty() {
-      return FastIterQuery::empty();
+      return Default::default();
     }
 
-    let mut mapping =
-      FastHashMap::with_capacity_and_hasher(self.changes.len(), FastHasherBuilder::default());
+    let mut mapping = FastHashMap::with_capacity_and_hasher(self.changes.len(), Default::default());
 
     let changes = self.changes;
     let override_mapping = self.override_mapping;
 
-    let mut compacted_changes = Vec::with_capacity(changes.len() - override_mapping.len());
-
     for (change_idx, (key, change)) in changes.iter().enumerate() {
       if unsafe { !self.has_duplicate_changes.get(key.index() as usize) } {
-        let i = compacted_changes.len();
-        compacted_changes.push((*key, change.clone()));
-        mapping.insert(*key, i);
+        mapping.insert(*key, change.clone());
       } else {
         let (idx, has_change) = unsafe { override_mapping.get(key).unwrap_unchecked() };
         if *idx != change_idx && *has_change {
@@ -276,21 +271,15 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
           let mut change_to_merge = change.clone();
           change_to_merge.merge(override_change);
 
-          let i = compacted_changes.len();
-          compacted_changes.push((*key, change_to_merge));
-          mapping.insert(*key, i);
+          mapping.insert(*key, change_to_merge);
         }
       }
     }
 
     // assert no reallocation
-    debug_assert!(compacted_changes.len() <= compacted_changes.capacity());
     debug_assert!(mapping.len() <= mapping.capacity());
 
-    FastIterQuery {
-      changes: Arc::new(compacted_changes),
-      mapping: Arc::new(mapping),
-    }
+    Arc::new(mapping)
   }
 }
 
@@ -318,50 +307,10 @@ fn test() {
 
   assert!(!r.is_empty());
 
-  assert_eq!(r.mapping.len(), 3);
-  assert_eq!(r.changes.len(), 3);
+  assert_eq!(r.len(), 3);
   let v = r.access(&make_handle(3)).unwrap();
   assert_eq!(v, ValueChange::Delta(1, None));
 
   let v = r.access(&make_handle(4)).unwrap();
   assert_eq!(v, ValueChange::Delta(4, None));
-}
-
-#[derive(Clone)]
-pub struct FastIterQuery<T> {
-  pub changes: Arc<Vec<(RawEntityHandle, ValueChange<T>)>>,
-  pub mapping: Arc<FastHashMap<RawEntityHandle, usize>>,
-}
-
-impl<T> FastIterQuery<T> {
-  pub fn is_empty(&self) -> bool {
-    self.changes.is_empty()
-  }
-}
-
-impl<T: CValue> Query for FastIterQuery<T> {
-  type Key = RawEntityHandle;
-  type Value = ValueChange<T>;
-
-  fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
-    self.changes.iter().cloned()
-  }
-
-  fn access(&self, key: &Self::Key) -> Option<Self::Value> {
-    let index = self.mapping.get(key)?;
-    unsafe { self.changes.get_unchecked(*index).1.clone().into() }
-  }
-
-  fn has_item_hint(&self) -> bool {
-    !self.changes.is_empty()
-  }
-}
-
-impl<T> FastIterQuery<T> {
-  pub fn empty() -> Self {
-    Self {
-      changes: Default::default(),
-      mapping: Default::default(),
-    }
-  }
 }
