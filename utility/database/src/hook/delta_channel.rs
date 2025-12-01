@@ -85,12 +85,12 @@ pub struct ChangesMutationReceiver<T> {
 }
 
 impl<T: CValue> ChangesMutationReceiver<T> {
-  pub fn poll_impl(&self, cx: &mut Context) -> Poll<Option<FastIterQuery<T>>> {
+  pub fn poll_impl(&self, cx: &mut Context) -> Poll<Option<FastDeltaChangeCollector<T>>> {
     self.inner.1.register(cx.waker());
     let mut changes = self.inner.0.write();
 
-    let changes = changes.take_and_compute_query();
-    if !changes.is_empty() {
+    let changes = changes.take();
+    if changes.has_change() {
       Poll::Ready(Some(changes))
       // check if the sender has been dropped
     } else if Arc::strong_count(&self.inner) == 1 {
@@ -106,7 +106,7 @@ impl<T: CValue> ChangesMutationReceiver<T> {
 }
 
 impl<T: CValue> Stream for ChangesMutationReceiver<T> {
-  type Item = FastIterQuery<T>;
+  type Item = FastDeltaChangeCollector<T>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     self.poll_impl(cx)
@@ -223,15 +223,41 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
     }
   }
 
-  pub fn take_and_compute_query(&mut self) -> FastIterQuery<T> {
+  pub fn take(&mut self) -> Self {
+    if !self.has_change() {
+      return Self {
+        has_any_change: Bitmap::with_size(0),
+        has_duplicate_changes: Bitmap::with_size(0),
+        changes: Vec::new(),
+        override_mapping: FastHashMap::default(),
+      };
+    }
+
+    let changes = std::mem::take(&mut self.changes);
+    let override_mapping = std::mem::take(&mut self.override_mapping);
+
+    // not calling std::take for these bitmaps to preserve allocation
+    let has_any_change = self.has_any_change.clone();
+    let has_duplicate_changes = self.has_duplicate_changes.clone();
+
+    Self {
+      has_any_change,
+      has_duplicate_changes,
+      changes,
+      override_mapping,
+    }
+  }
+
+  pub fn compute_query(self) -> FastIterQuery<T> {
     if self.changes.is_empty() {
       return FastIterQuery::empty();
     }
 
     let mut mapping =
       FastHashMap::with_capacity_and_hasher(self.changes.len(), FastHasherBuilder::default());
-    let changes = std::mem::take(&mut self.changes);
-    let override_mapping = std::mem::take(&mut self.override_mapping);
+
+    let changes = self.changes;
+    let override_mapping = self.override_mapping;
 
     let mut compacted_changes = Vec::with_capacity(changes.len() - override_mapping.len());
 
@@ -258,10 +284,6 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
     // assert no reallocation
     debug_assert!(compacted_changes.len() <= compacted_changes.capacity());
     debug_assert!(mapping.len() <= mapping.capacity());
-
-    // todo, only reset what changed
-    self.has_any_change.reset();
-    self.has_duplicate_changes.reset();
 
     FastIterQuery {
       changes: Arc::new(compacted_changes),
@@ -290,7 +312,7 @@ fn test() {
   assert_eq!(collector.changes.len(), 5);
   assert!(collector.has_change());
 
-  let r = collector.take_and_compute_query();
+  let r = collector.take().compute_query();
 
   assert!(!r.is_empty());
 

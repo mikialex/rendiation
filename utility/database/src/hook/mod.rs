@@ -1,5 +1,4 @@
 mod changes_channel;
-// mod collective_channel;
 mod delta_channel;
 mod persistence;
 mod ref_counting;
@@ -9,7 +8,6 @@ mod util;
 use std::hash::Hasher;
 
 pub use changes_channel::*;
-// pub use collective_channel::*;
 pub use delta_channel::*;
 pub use persistence::*;
 pub use ref_counting::*;
@@ -97,21 +95,22 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
     let waker = cx.waker().clone();
     if let QueryHookStage::SpawnTask {
-      change_collector, ..
+      change_collector,
+      spawner,
+      ..
     } = cx.stage()
     {
       let mut ctx = Context::from_waker(&waker);
-      let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
-        changes
-      } else {
-        FastIterQuery::empty()
-      };
+      if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
+        let f = spawner.spawn_task(|| changes.compute_query());
+        let f = pin_box_in_frame(f);
 
-      if !changes.is_empty() {
         change_collector.notify_change();
+        UseResult::SpawnStageFuture(f)
+      } else {
+        let f = pin_box_in_frame(std::future::ready(FastIterQuery::empty()));
+        UseResult::SpawnStageFuture(f)
       }
-
-      UseResult::SpawnStageReady(changes)
     } else {
       if rev.has_change() {
         cx.waker().wake_by_ref();
@@ -147,20 +146,22 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
     let waker = cx.waker().clone();
     if let QueryHookStage::SpawnTask {
-      change_collector, ..
+      change_collector,
+      spawner,
+      ..
     } = cx.stage()
     {
       let mut ctx = Context::from_waker(&waker);
-      let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
-        changes
-      } else {
-        FastIterQuery::empty()
-      };
+      if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
+        let f = spawner.spawn_task(|| changes.compute_query());
+        let f = pin_box_in_frame(f);
 
-      if !changes.is_empty() {
         change_collector.notify_change();
+        UseResult::SpawnStageFuture(f)
+      } else {
+        let f = pin_box_in_frame(std::future::ready(FastIterQuery::empty()));
+        UseResult::SpawnStageFuture(f)
       }
-      UseResult::SpawnStageReady(changes)
     } else {
       if rev.has_change() {
         cx.waker().wake_by_ref();
