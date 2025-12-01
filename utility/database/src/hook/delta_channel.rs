@@ -182,6 +182,9 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
 
   pub fn reserve(&mut self, additional: usize) {
     self.changes.reserve(additional * 2); // * 2 to avoid reallocation for delta merge case
+    self.has_any_change.reserve(additional);
+    self.has_duplicate_changes.reserve(additional);
+    self.override_mapping.reserve(additional);
   }
 
   pub fn has_change(&self) -> bool {

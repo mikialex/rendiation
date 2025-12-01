@@ -24,8 +24,9 @@ pub fn load_stress_test(scene: &mut SceneWriter) {
   let mesh = scene.write_attribute_mesh(mesh.build()).mesh;
 
   let h_count = 50;
+  let node_count = 100 + 100 * 100 + 100 * 100 * h_count;
   let model_count = 100 * 100 * h_count;
-  scene.node_writer.notify_reserve_changes(model_count);
+  scene.node_writer.notify_reserve_changes(node_count);
   scene.std_model_writer.notify_reserve_changes(model_count);
   scene.model_writer.notify_reserve_changes(model_count);
 

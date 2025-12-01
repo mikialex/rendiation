@@ -235,6 +235,8 @@ impl<T> FastChangeCollector<T> {
     self.removed_keys.reserve(additional);
     self.new_or_inserts.reserve(additional);
     self.removed_set.reserve(additional);
+    self.inserted_set.reserve(additional);
+    self.inserted_override_set.reserve(additional);
   }
 
   pub fn update_change(&mut self, idx: u32, change: Option<T>) {
