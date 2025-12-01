@@ -160,8 +160,6 @@ pub(crate) fn add_delta_listen<T: CValue>(
 
 /// the optimization assumes: between the updates, one component is only changed once
 /// in this case, this collector can avoid delta merge and data value move
-///
-/// note, using this collector will buffer the max history that can increase peak memory usage.
 #[derive(Clone)]
 pub struct FastDeltaChangeCollector<T> {
   has_any_change: Bitmap,
@@ -239,6 +237,10 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
     // not calling std::take for these bitmaps to preserve allocation
     let has_any_change = self.has_any_change.clone();
     let has_duplicate_changes = self.has_duplicate_changes.clone();
+
+    // todo, only reset changed
+    self.has_any_change.reset();
+    self.has_duplicate_changes.reset();
 
     Self {
       has_any_change,
