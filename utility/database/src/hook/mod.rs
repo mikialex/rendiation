@@ -31,7 +31,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
       global_database().access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
           add_changes_listen(
-            e.max_entity_count_in_history(),
+            e.entity_capacity(),
             ComponentAccess {
               ecg: e.clone(),
               original: c.clone(),
@@ -80,7 +80,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
       global_database().access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
           add_delta_listen(
-            e.max_entity_count_in_history(),
+            e.entity_capacity(),
             ComponentAccess {
               ecg: e.clone(),
               original: c.clone(),
@@ -137,7 +137,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
     let (cx, rev) = self.use_plain_state(|| {
       global_database().access_ecg_dyn(e_id, move |e| {
         add_delta_listen(
-          e.max_entity_count_in_history(),
+          e.entity_capacity(),
           ArenaAccessProvider(e.inner.allocator.clone()),
           &e.inner.entity_watchers,
         )

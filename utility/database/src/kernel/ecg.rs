@@ -64,20 +64,34 @@ impl EntityComponentGroup {
     &self.inner.name
   }
 
+  pub fn short_name(&self) -> &str {
+    &self.inner.short_name
+  }
+
   pub fn get_handle_at(&self, index: usize) -> Option<RawEntityHandle> {
     let inner = self.inner.allocator.make_read_holder();
     let handle = inner.get_handle(index)?;
     Some(RawEntityHandle(handle))
   }
 
-  // todo, add real max entity count and max entity address
-  pub fn max_entity_count_in_history(&self) -> usize {
+  pub fn living_entity_count(&self) -> usize {
     self.inner.allocator.read().len()
   }
 
-  /// memory consumption
-  pub fn entity_allocation_count(&self) -> usize {
+  pub fn entity_capacity(&self) -> usize {
     self.inner.allocator.read().capacity()
+  }
+
+  pub fn memory_usage_in_bytes(&self) -> usize {
+    let mut byte_count = 0;
+    byte_count += self.inner.allocator.read().memory_usage_in_bytes();
+
+    let components = self.inner.components.read();
+    for c in components.values() {
+      byte_count += c.data.memory_usage_in_bytes()
+    }
+
+    byte_count
   }
 
   pub fn component_count(&self) -> usize {
@@ -106,6 +120,7 @@ impl EntityComponentGroup {
 pub(crate) struct EntityComponentGroupImpl {
   /// the name of this entity, will be unique among all components
   pub(crate) name: String,
+  pub(crate) short_name: String,
   pub(crate) type_id: EntityId,
   pub(crate) allocator: Arc<RwLock<Arena<()>>>,
   /// The components of entity
@@ -126,6 +141,7 @@ pub(crate) struct EntityComponentGroupImpl {
 impl EntityComponentGroupImpl {
   pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
     Self {
+      short_name: disqualified::ShortName(&name).to_string(),
       name,
       type_id,
       allocator: Default::default(),
@@ -193,6 +209,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     storage: impl ComponentStorage + 'static,
   ) -> Self {
     let com = ComponentCollectionUntyped {
+      short_name: Arc::new(disqualified::ShortName(S::unique_name()).to_string()),
       name: Arc::new(S::unique_name().to_string()),
       as_foreign_key,
       data_typeid: TypeId::of::<S::Data>(),

@@ -48,9 +48,10 @@ impl EntityComponentGroupImpl {
       old_value_out: Default::default(),
     }));
 
-    let display_name = format!("{} Label", &self.name);
+    let display_name = format!("{}-Label", &self.name);
 
     let com = ComponentCollectionUntyped {
+      short_name: Arc::new(disqualified::ShortName(&display_name).to_string()),
       name: Arc::new(display_name),
       as_foreign_key: None,
       data_typeid: TypeId::of::<String>(),

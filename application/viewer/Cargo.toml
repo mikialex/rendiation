@@ -24,6 +24,7 @@ serde = { workspace = true }
 facet = { workspace = true }
 log = { workspace = true }
 pin-project = { workspace = true }
+humansize = { workspace = true }
 png = "*"
 pollster = { workspace = true }
 serde_json = "*"

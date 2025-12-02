@@ -32,6 +32,11 @@ impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBSparseStorage<T>>> {
   fn data_shape(&self) -> &'static Shape<'_> {
     T::shape()
   }
+
+  fn memory_usage_in_bytes(&self) -> usize {
+    let data = self.read();
+    (data.data.capacity() + 2) * std::mem::size_of::<T>()
+  }
 }
 
 impl<T> ComponentStorageReadView for LockReadGuardHolder<DBSparseStorage<T>>

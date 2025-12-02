@@ -135,7 +135,7 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
           });
           coms.values().for_each(|com| {
             header.col(|ui| {
-              let label = ui.strong(com.name.as_str());
+              let label = ui.strong(com.short_name.as_str());
 
               if let Some(f) = com.as_foreign_key {
                 label.highlight().on_hover_ui(|ui| {
@@ -149,7 +149,7 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
           })
         })
         .body(|body| {
-          body.rows(20.0, ecg.entity_allocation_count(), |mut row| {
+          body.rows(20.0, ecg.entity_capacity(), |mut row| {
             let idx = row.index();
             row.col(|ui| {
               ui.label(idx.to_string());
@@ -315,29 +315,51 @@ fn all_tables(ui: &mut egui::Ui, state: &mut DBInspector) {
     .column(Column::auto())
     .column(Column::auto())
     .column(Column::auto())
+    .column(Column::auto())
     .cell_layout(egui::Layout::left_to_right(egui::Align::Center));
+
+  let mut all_memory_in_bytes = 0;
 
   table
     .header(20.0, |mut header| {
       header.col(|ui| {
-        ui.strong("Entity Name");
+        ui.strong("name");
       });
       header.col(|ui| {
-        ui.strong("Entity Count");
+        ui.strong("count");
+      });
+      header.col(|ui| {
+        ui.strong("capacity");
+      });
+      header.col(|ui| {
+        ui.strong("memory_usage")
+          .on_hover_text("not include indirect component heap data");
       });
     })
     .body(|mut body| {
       for (id, db_table) in db_tables.iter() {
         body.row(20.0, |mut row| {
           row.col(|ui| {
-            if ui.link(db_table.name()).clicked() {
+            if ui.link(db_table.short_name()).clicked() {
               state.goto(Some(*id));
             }
           });
           row.col(|ui| {
-            ui.label(db_table.max_entity_count_in_history().to_string());
+            ui.label(db_table.living_entity_count().to_string());
+          });
+          row.col(|ui| {
+            ui.label(db_table.entity_capacity().to_string());
+          });
+          row.col(|ui| {
+            let bytes = db_table.memory_usage_in_bytes();
+            all_memory_in_bytes += bytes;
+            let size = humansize::format_size(bytes, humansize::BINARY);
+            ui.label(size);
           });
         })
       }
     });
+
+  let size = humansize::format_size(all_memory_in_bytes, humansize::BINARY);
+  ui.label(format!("all data in db memory usage: {}", size));
 }

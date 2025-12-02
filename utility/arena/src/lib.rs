@@ -53,6 +53,10 @@ impl<T> Arena<T> {
     Arena::with_capacity(DEFAULT_CAPACITY)
   }
 
+  pub fn memory_usage_in_bytes(&self) -> usize {
+    self.items.capacity() * mem::size_of::<Entry<T>>()
+  }
+
   /// Constructs a new, empty `Arena<T>` with the specified capacity.
   ///
   /// The `Arena<T>` will be able to hold `n` elements without further allocation.

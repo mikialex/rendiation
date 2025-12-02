@@ -5,6 +5,9 @@ pub struct ComponentCollectionUntyped {
   /// the name of this component, will be unique among all components
   pub name: Arc<String>,
 
+  /// the name for ui display
+  pub short_name: Arc<String>,
+
   /// mark if this component is a foreign key
   pub as_foreign_key: Option<EntityId>,
 
