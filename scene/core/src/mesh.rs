@@ -322,7 +322,7 @@ pub fn use_attribute_mesh_position_query(
 
   // todo, impl chain instead of using one to many fanout
   let attribute_mesh_access_position_buffer = ranged_position_buffer
-    .fanout(ab_ref_mesh.use_dual_query_hash_many_to_one(cx), cx)
+    .fanout(ab_ref_mesh.use_dual_query_dense_many_to_one(cx), cx)
     .dual_query_boxed();
 
   let (position1, position2) = attribute_mesh_access_position_buffer.fork();

@@ -42,6 +42,13 @@ pub struct DenseIndexMapping<K, V> {
   large_mapping_fallback: FastHashMap<K, FastHashSet<V>>,
 }
 
+impl<K, V> DenseIndexMapping<K, V> {
+  pub fn reserve(&mut self, additional_multi: usize, additional_one: usize) {
+    self.mapping_buffer.reserve(additional_multi);
+    self.mapping.reserve(additional_one);
+  }
+}
+
 impl<K, V> Default for DenseIndexMapping<K, V> {
   fn default() -> Self {
     Self {
@@ -99,7 +106,14 @@ pub fn bookkeeping_dense_index_relation<K: CKey + LinearIdentified, V: CKey + Li
   mapping: &mut DenseIndexMapping<V, K>,
   changes: impl Query<Key = K, Value = ValueChange<V>>,
 ) {
-  for (many, change) in changes.iter_key_value() {
+  let changes_iter = changes.iter_key_value();
+  // this change count contains remove, so the reserve may be too conservative
+  let once_change_count = changes_iter.size_hint().0;
+  // assume one change count equals multi change count
+  // todo, try count exact change
+  mapping.reserve(once_change_count, once_change_count);
+
+  for (many, change) in changes_iter {
     let new_one = change.new_value();
 
     let old_refed_one = change.old_value();

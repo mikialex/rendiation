@@ -20,6 +20,10 @@ impl<T> Default for LinkListPool<T> {
 }
 
 impl<T> LinkListPool<T> {
+  pub fn reserve(&mut self, additional: usize) {
+    self.pool.reserve(additional);
+  }
+
   pub fn shrink_to_fit(&mut self) {
     self.pool.shrink_to_fit()
   }
