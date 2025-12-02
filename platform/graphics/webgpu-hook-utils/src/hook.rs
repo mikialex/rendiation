@@ -26,7 +26,7 @@ pub enum GPUQueryHookStage<'a> {
     immediate_results: &'a mut FastHashMap<u32, Arc<dyn std::any::Any + Send + Sync>>,
   },
   CreateRender {
-    task: TaskPoolResultCx,
+    task: &'a mut TaskPoolResultCx,
     /// for updating resource
     encoder: &'a mut GPUCommandEncoder,
   },

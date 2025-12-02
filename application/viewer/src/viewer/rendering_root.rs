@@ -170,7 +170,7 @@ impl RenderingRoot {
             memory: &mut self.render_resource_memory,
             gpu: &gpu,
             stage: GPUQueryHookStage::CreateRender {
-              task: task_pool_result,
+              task: &mut task_pool_result,
               encoder: &mut ctx.encoder,
             },
             shared_ctx,
@@ -183,6 +183,10 @@ impl RenderingRoot {
               .unwrap()
           })
         };
+
+        // in some cases task_pool_result is slow to drop, move the drop call to another task
+        #[allow(unused_must_use)]
+        task_spawner.spawn_task(|| task_pool_result);
 
         let waker = futures::task::waker(self.any_render_change.clone());
         rendering.render(
