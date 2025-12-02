@@ -1,11 +1,17 @@
 use crate::*;
 
-type MutationData<T> = (Vec<u32>, FastHashMap<u32, T>);
+type MutationData<T> = FastChangeCollector<T>;
 
 /// this should be a cheaper version of collective_channel
-/// todo, improve code sharing with collective channel or use more advance solution
-pub fn changes_channel<T>() -> (ChangesMutationSender<T>, ChangesMutationReceiver<T>) {
-  let inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)> = Default::default();
+///  improve code sharing with other channel
+pub fn changes_channel<T>(
+  bitmap_init: usize,
+  change_init: usize,
+) -> (ChangesMutationSender<T>, ChangesMutationReceiver<T>) {
+  let inner = Arc::new((
+    RwLock::new(MutationData::new(bitmap_init, change_init)),
+    AtomicWaker::new(),
+  ));
   let sender = ChangesMutationSender {
     inner: inner.clone(),
   };
@@ -39,7 +45,7 @@ impl<T: CValue> ChangesMutationSender<T> {
   /// this should be called after send
   pub unsafe fn unlock(&self) {
     let mutations = &mut *self.inner.0.data_ptr();
-    if !(mutations.0.is_empty() && mutations.1.is_empty()) {
+    if mutations.has_change() {
       self.inner.1.wake();
     }
     self.inner.0.raw().unlock_exclusive()
@@ -50,20 +56,14 @@ impl<T: CValue> ChangesMutationSender<T> {
   pub unsafe fn send(&self, idx: u32, change: Option<T>) {
     let mutations = &mut *self.inner.0.data_ptr();
 
-    if let Some(new) = change {
-      mutations.1.insert(idx, new);
-    } else {
-      mutations.0.push(idx);
-      mutations.1.remove(&idx);
-    }
+    mutations.update_change(idx, change);
   }
   /// # Safety
   ///
   /// this should be called when locked
   pub unsafe fn reserve_space(&self, size: usize) {
     let mutations = &mut *self.inner.0.data_ptr();
-    mutations.0.reserve(size);
-    mutations.1.reserve(size);
+    mutations.reserve(size);
   }
 
   pub fn is_closed(&self) -> bool {
@@ -88,10 +88,9 @@ impl<T: CValue> ChangesMutationReceiver<T> {
   pub fn poll_impl(&self, cx: &mut Context) -> Poll<Option<MutationData<T>>> {
     self.inner.1.register(cx.waker());
     let mut changes = self.inner.0.write();
-    let changes: &mut MutationData<T> = &mut changes;
 
-    let changes = std::mem::take(changes);
-    if !(changes.0.is_empty() && changes.1.is_empty()) {
+    let changes = changes.take();
+    if changes.has_change() {
       Poll::Ready(Some(changes))
       // check if the sender has been dropped
     } else if Arc::strong_count(&self.inner) == 1 {
@@ -102,7 +101,7 @@ impl<T: CValue> ChangesMutationReceiver<T> {
   }
   pub fn has_change(&self) -> bool {
     let changes = self.inner.0.read();
-    !changes.0.is_empty()
+    changes.has_change()
   }
 }
 
@@ -115,10 +114,11 @@ impl<T: CValue> Stream for ChangesMutationReceiver<T> {
 }
 
 pub(crate) fn add_changes_listen<T: CValue>(
+  bitmap_init: usize,
   query: impl QueryProvider<RawEntityHandle, T>,
   source: &EventSource<ChangePtr>,
 ) -> ChangesMutationReceiver<T> {
-  let (sender, receiver) = changes_channel::<T>();
+  let (sender, receiver) = changes_channel::<T>(bitmap_init, 0);
   // expand initial value while first listen.
   unsafe {
     sender.lock();
@@ -159,4 +159,234 @@ pub(crate) fn add_changes_listen<T: CValue>(
     }
   });
   receiver
+}
+
+/// the optimization assumes: between the updates, one component is only changed once
+/// in this case, this collector can avoid any key hash operation.
+#[derive(Clone)]
+pub struct FastChangeCollector<T> {
+  removed_set: Bitmap,
+  inserted_set: Bitmap,
+  inserted_override_set: Bitmap,
+  removed_keys: Vec<u32>,
+  new_or_inserts: Vec<(u32, T)>,
+  override_new_or_inserts: Vec<(u32, T)>,
+  override_mapping: FastHashMap<u32, usize>,
+}
+
+impl<T> FastChangeCollector<T> {
+  pub fn empty() -> Self {
+    Self {
+      removed_set: Bitmap::with_size(0),
+      inserted_set: Bitmap::with_size(0),
+      inserted_override_set: Bitmap::with_size(0),
+      removed_keys: Vec::new(),
+      new_or_inserts: Vec::new(),
+      override_new_or_inserts: Vec::new(),
+      override_mapping: FastHashMap::default(),
+    }
+  }
+
+  // todo: note the bitmap's size will always increase, this may becomes a problem.
+  pub fn take(&mut self) -> Self {
+    let removed_keys = std::mem::take(&mut self.removed_keys);
+    let new_or_inserts = std::mem::take(&mut self.new_or_inserts);
+    let override_new_or_inserts = std::mem::take(&mut self.override_new_or_inserts);
+
+    if removed_keys.is_empty() && new_or_inserts.is_empty() && override_new_or_inserts.is_empty() {
+      assert!(self.override_mapping.is_empty());
+      return Self::empty();
+    }
+
+    let override_mapping = std::mem::take(&mut self.override_mapping);
+    let removed_set = self.removed_set.clone();
+    let inserted_set = self.inserted_set.clone();
+    let inserted_override_set = self.inserted_override_set.clone();
+
+    // todo, only reset what changed
+    self.removed_set.reset();
+    self.inserted_override_set.reset();
+    self.inserted_set.reset();
+
+    Self {
+      inserted_set,
+      removed_set,
+      inserted_override_set,
+      removed_keys,
+      new_or_inserts,
+      override_new_or_inserts,
+      override_mapping,
+    }
+  }
+
+  pub fn new(bitmap_init: usize, change_init: usize) -> Self {
+    Self {
+      inserted_set: Bitmap::with_size(bitmap_init),
+      removed_set: Bitmap::with_size(bitmap_init),
+      inserted_override_set: Bitmap::with_size(bitmap_init),
+      removed_keys: Vec::with_capacity(change_init),
+      new_or_inserts: Vec::with_capacity(change_init),
+      override_new_or_inserts: Vec::new(),
+      override_mapping: FastHashMap::default(),
+    }
+  }
+
+  pub fn reserve(&mut self, additional: usize) {
+    self.removed_keys.reserve(additional);
+    self.new_or_inserts.reserve(additional);
+    self.removed_set.reserve(additional);
+    self.inserted_set.reserve(additional);
+    self.inserted_override_set.reserve(additional);
+  }
+
+  pub fn update_change(&mut self, idx: u32, change: Option<T>) {
+    let idx_usize = idx as usize;
+    self.removed_set.check_grow(idx_usize);
+    self.inserted_override_set.check_grow(idx_usize);
+    self.inserted_set.check_grow(idx_usize);
+
+    unsafe {
+      if let Some(change) = change {
+        self.removed_set.set(idx_usize, false);
+
+        if self.inserted_set.get(idx_usize) {
+          self.update_new_slow_path(idx, change);
+        } else {
+          self.inserted_set.set(idx_usize, true);
+          self.new_or_inserts.push((idx, change));
+        }
+      } else {
+        self.removed_keys.push(idx);
+        self.removed_set.set(idx_usize, true);
+      }
+    }
+  }
+
+  fn update_new_slow_path(&mut self, idx: u32, change: T) {
+    if let Some(previous_override_idx) = self.override_mapping.get(&idx) {
+      unsafe {
+        *self
+          .override_new_or_inserts
+          .get_unchecked_mut(*previous_override_idx) = (idx, change);
+      }
+    } else {
+      self.override_new_or_inserts.push((idx, change));
+      self
+        .override_mapping
+        .insert(idx, self.override_new_or_inserts.len() - 1);
+      unsafe {
+        self.inserted_override_set.set(idx as usize, true);
+      }
+    }
+  }
+}
+
+impl<T: CValue> DataChanges for FastChangeCollector<T> {
+  type Key = u32;
+  type Value = T;
+
+  fn has_change(&self) -> bool {
+    !(self.removed_keys.is_empty()
+      && self.new_or_inserts.is_empty()
+      && self.override_new_or_inserts.is_empty())
+  }
+
+  fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
+    self
+      .removed_keys
+      .iter()
+      .copied()
+      .filter(|idx| unsafe { self.removed_set.get(*idx as usize) })
+  }
+
+  fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    let new_or_inserts = self.new_or_inserts.iter().filter_map(|(idx, v)| unsafe {
+      if self.removed_set.get(*idx as usize) {
+        return None;
+      };
+
+      if self.inserted_override_set.get(*idx as usize) {
+        return None;
+      };
+
+      Some((*idx, v.clone()))
+    });
+
+    let override_new_or_inserts =
+      self
+        .override_new_or_inserts
+        .iter()
+        .filter_map(|(idx, v)| unsafe {
+          if self.removed_set.get(*idx as usize) {
+            return None;
+          };
+
+          Some((*idx, v.clone()))
+        });
+
+    new_or_inserts.chain(override_new_or_inserts)
+  }
+}
+
+#[derive(Clone)]
+pub struct Bitmap {
+  bits: Vec<u8>,
+}
+
+impl Bitmap {
+  pub fn empty() -> Self {
+    Self { bits: vec![] }
+  }
+  /// Create a new bitmap with initial size `size`
+  pub fn with_size(size: usize) -> Self {
+    let byte_size = (size >> 3) + 1;
+    Self {
+      bits: vec![0; byte_size],
+    }
+  }
+
+  pub fn reserve(&mut self, additional: usize) {
+    let new_len = self.bits.len() * 8 + additional;
+    self.check_grow(new_len);
+  }
+
+  pub fn reset(&mut self) {
+    self.bits.fill(0);
+  }
+
+  #[inline(always)]
+  pub fn check_grow(&mut self, at_least_new_size: usize) {
+    let byte_size = (at_least_new_size >> 3) + 1;
+    let byte_size = byte_size.max(self.bits.len());
+    self.bits.resize(byte_size, 0);
+  }
+
+  /// # Safety
+  ///
+  /// idx must in bound
+  #[inline(always)]
+  pub unsafe fn get(&self, idx: usize) -> bool {
+    let byte_idx = idx >> 3; // idx / 8
+    let offset = idx & 0b111; // idx % 8
+    let byte = self.bits.get_unchecked(byte_idx);
+    (byte >> (7 - offset)) & 1 == 1
+  }
+
+  /// # Safety
+  ///
+  /// idx must in bound
+  #[inline(always)]
+  pub unsafe fn set(&mut self, idx: usize, value: bool) {
+    let byte_idx = idx >> 3; // idx / 8
+    let offset = idx & 0b111; // idx % 8
+
+    let byte_ref = self.bits.get_unchecked_mut(byte_idx);
+
+    let byte = *byte_ref;
+
+    let curval = (byte >> (7 - offset)) & 1;
+    let mask = if value { 1 ^ curval } else { curval };
+
+    *byte_ref = byte ^ (mask << (7 - offset)); // Bit flipping
+  }
 }

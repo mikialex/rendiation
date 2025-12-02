@@ -92,15 +92,14 @@ impl SceneWriter {
   pub fn create_root_child(&mut self) -> EntityHandle<SceneNodeEntity> {
     self.node_writer.new_entity(|w| w)
   }
+
   pub fn create_child(
     &mut self,
     parent: EntityHandle<SceneNodeEntity>,
   ) -> EntityHandle<SceneNodeEntity> {
-    let child = self.create_root_child();
     self
       .node_writer
-      .write_foreign_key::<SceneNodeParentIdx>(child, Some(parent));
-    child
+      .new_entity(|w| w.write::<SceneNodeParentIdx>(&parent.some_handle()))
   }
 
   pub fn create_scene_model(

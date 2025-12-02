@@ -1,5 +1,5 @@
 mod changes_channel;
-mod collective_channel;
+mod delta_channel;
 mod persistence;
 mod ref_counting;
 mod staged_scope_watch;
@@ -8,7 +8,7 @@ mod util;
 use std::hash::Hasher;
 
 pub use changes_channel::*;
-pub use collective_channel::*;
+pub use delta_channel::*;
 pub use persistence::*;
 pub use ref_counting::*;
 pub use staged_scope_watch::*;
@@ -17,9 +17,7 @@ pub use util::*;
 use crate::*;
 
 pub trait DBHookCxLike: QueryHookCxLike {
-  fn use_changes<C: ComponentSemantic>(
-    &mut self,
-  ) -> UseResult<Arc<LinearBatchChanges<u32, C::Data>>> {
+  fn use_changes<C: ComponentSemantic>(&mut self) -> UseResult<Arc<FastChangeCollector<C::Data>>> {
     self.use_changes_internal::<C::Data>(C::component_id(), C::Entity::entity_id())
   }
 
@@ -28,11 +26,12 @@ pub trait DBHookCxLike: QueryHookCxLike {
     &mut self,
     c_id: ComponentId,
     e_id: EntityId,
-  ) -> UseResult<Arc<LinearBatchChanges<u32, T>>> {
+  ) -> UseResult<Arc<FastChangeCollector<T>>> {
     let (cx, rev) = self.use_plain_state(|| {
       global_database().access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
           add_changes_listen(
+            e.max_entity_count_in_history(),
             ComponentAccess {
               ecg: e.clone(),
               original: c.clone(),
@@ -52,15 +51,9 @@ pub trait DBHookCxLike: QueryHookCxLike {
     {
       let mut ctx = Context::from_waker(&waker);
       let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(&mut ctx) {
-        let removed = r.0;
-        let update_or_insert = r.1.into_iter().collect::<Vec<_>>();
-
-        LinearBatchChanges {
-          removed,
-          update_or_insert,
-        }
+        r
       } else {
-        Default::default()
+        FastChangeCollector::empty()
       };
 
       if changes.has_change() {
@@ -86,7 +79,8 @@ pub trait DBHookCxLike: QueryHookCxLike {
     let (cx, rev) = self.use_plain_state(|| {
       global_database().access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
-          add_listen(
+          add_delta_listen(
+            e.max_entity_count_in_history(),
             ComponentAccess {
               ecg: e.clone(),
               original: c.clone(),
@@ -101,21 +95,22 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
     let waker = cx.waker().clone();
     if let QueryHookStage::SpawnTask {
-      change_collector, ..
+      change_collector,
+      spawner,
+      ..
     } = cx.stage()
     {
       let mut ctx = Context::from_waker(&waker);
-      let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
-        changes
-      } else {
-        Default::default()
-      };
+      if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
+        let f = spawner.spawn_task(|| changes.compute_query());
+        let f = pin_box_in_frame(f);
 
-      if !changes.is_empty() {
         change_collector.notify_change();
+        UseResult::SpawnStageFuture(f)
+      } else {
+        let f = pin_box_in_frame(std::future::ready(Default::default()));
+        UseResult::SpawnStageFuture(f)
       }
-
-      UseResult::SpawnStageReady(Arc::new(changes))
     } else {
       if rev.has_change() {
         cx.waker().wake_by_ref();
@@ -141,7 +136,8 @@ pub trait DBHookCxLike: QueryHookCxLike {
   fn use_entity_set_delta_raw(&mut self, e_id: EntityId) -> UseResult<DBDelta<()>> {
     let (cx, rev) = self.use_plain_state(|| {
       global_database().access_ecg_dyn(e_id, move |e| {
-        add_listen(
+        add_delta_listen(
+          e.max_entity_count_in_history(),
           ArenaAccessProvider(e.inner.allocator.clone()),
           &e.inner.entity_watchers,
         )
@@ -150,20 +146,22 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
     let waker = cx.waker().clone();
     if let QueryHookStage::SpawnTask {
-      change_collector, ..
+      change_collector,
+      spawner,
+      ..
     } = cx.stage()
     {
       let mut ctx = Context::from_waker(&waker);
-      let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
-        changes
-      } else {
-        Default::default()
-      };
+      if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
+        let f = spawner.spawn_task(|| changes.compute_query());
+        let f = pin_box_in_frame(f);
 
-      if !changes.is_empty() {
         change_collector.notify_change();
+        UseResult::SpawnStageFuture(f)
+      } else {
+        let f = pin_box_in_frame(std::future::ready(Default::default()));
+        UseResult::SpawnStageFuture(f)
       }
-      UseResult::SpawnStageReady(Arc::new(changes))
     } else {
       if rev.has_change() {
         cx.waker().wake_by_ref();

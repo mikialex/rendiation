@@ -50,7 +50,7 @@ impl PersistSceneModelListBuffer {
       buffer: None,
       group_key_hash,
       host: Vec::with_capacity(capacity),
-      mapping: FastHashMap::with_capacity_and_hasher(capacity, FastHasherBuilder::default()),
+      mapping: FastHashMap::with_capacity_and_hasher(capacity, Default::default()),
     }
   }
 

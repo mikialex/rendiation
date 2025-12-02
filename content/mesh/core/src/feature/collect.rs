@@ -15,7 +15,7 @@ pub fn create_deduplicated_index_vertex_mesh<T: Eq + Hash + Copy>(
   let mut new_vertices = Vec::with_capacity(size_estimation);
 
   let mut hasher =
-    FastHashMap::<T, u32>::with_capacity_and_hasher(size_estimation, FastHasherBuilder::new());
+    FastHashMap::<T, u32>::with_capacity_and_hasher(size_estimation, Default::default());
 
   let mut new_indices = vertex
     .map(|vertex| {

@@ -515,6 +515,20 @@ where
       // map_creator call or drop may have significant cost, so we only create mapper
       // if we have actual delta processing to do.
       let d = if !materialized.is_empty() {
+        // reserve size to avoid reallocation
+        let mut size_increase = 0;
+        for (_, v) in &materialized {
+          match v {
+            ValueChange::Delta(_, old) => {
+              if old.is_none() {
+                size_increase += 1;
+              }
+            }
+            ValueChange::Remove(_) => {}
+          }
+        }
+        cache.write().reserve(size_increase);
+
         let mut mapper = f();
         let mut cache = cache.write();
         let materialized: FastHashMap<T::Key, ValueChange<V2>> = materialized
