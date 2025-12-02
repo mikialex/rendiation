@@ -456,17 +456,22 @@ pub trait QueryHookCxLike: HooksCxLike {
     r
   }
 
-  fn use_rev_ref<V: CKey, C: Query<Value = ValueChange<V>> + 'static>(
+  fn use_rev_ref<V, C>(
     &mut self,
     changes: UseResult<C>,
-  ) -> UseResult<RevRefContainerRead<V, C::Key>> {
+  ) -> UseResult<RevRefContainerRead<V, C::Key>>
+  where
+    V: CKey + LinearIdentified,
+    C: Query<Value = ValueChange<V>> + 'static,
+    C::Key: LinearIdentified,
+  {
     let (_, mapping) = self.use_plain_state_default_cloned::<RevRefContainer<V, C::Key>>();
 
     changes.map_spawn_stage_in_thread(
       self,
       |changes| changes.has_item_hint(),
       move |changes| {
-        bookkeeping_hash_relation(&mut mapping.write(), changes);
+        bookkeeping_dense_index_relation(&mut mapping.write(), changes);
         mapping.make_read_holder()
       },
     )
@@ -498,8 +503,8 @@ pub trait QueryHookCxLike: HooksCxLike {
   }
 }
 
-pub type RevRefContainer<K, V> = Arc<RwLock<FastHashMap<K, FastHashSet<V>>>>;
-pub type RevRefContainerRead<K, V> = LockReadGuardHolder<FastHashMap<K, FastHashSet<V>>>;
+pub type RevRefContainer<K, V> = Arc<RwLock<DenseIndexMapping<K, V>>>;
+pub type RevRefContainerRead<K, V> = LockReadGuardHolder<DenseIndexMapping<K, V>>;
 
 #[derive(Default)]
 pub struct SharedHooksCtx {

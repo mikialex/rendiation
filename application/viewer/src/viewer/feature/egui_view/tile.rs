@@ -15,9 +15,9 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
   if cx.is_resolve_stage() {
     *all_scene_cameras_cached = all_scene_cameras
       .expect_resolve_stage()
-      .get(&cx.viewer.content.scene.into_raw())
+      .access_multi(&cx.viewer.content.scene.into_raw())
       .unwrap()
-      .clone();
+      .collect::<FastHashSet<RawEntityHandle>>();
   }
 
   if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {

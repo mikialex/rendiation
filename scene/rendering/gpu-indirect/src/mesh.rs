@@ -355,7 +355,7 @@ fn use_attribute_vertex_updates(
     .dual_query_filter_by_set(scope_)
     .use_dual_query_hash_reverse_checked_one_one(cx)
     .dual_query_boxed()
-    .use_dual_query_hash_many_to_one(cx);
+    .use_dual_query_dense_many_to_one(cx);
 
   let allocation_info = allocation_info
     .map(|allocation_info| allocation_info.allocation_changes.clone())

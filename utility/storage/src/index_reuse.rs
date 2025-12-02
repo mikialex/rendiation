@@ -14,6 +14,11 @@ impl<T> Default for IndexReusedVec<T> {
 }
 
 impl<T> IndexReusedVec<T> {
+  pub fn reserve(&mut self, additional: usize) {
+    self.storage.reserve(additional);
+    self.empty_list.reserve(additional);
+  }
+
   pub fn shrink_to_fit(&mut self) {
     let tail_size = self
       .storage

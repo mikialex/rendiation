@@ -421,6 +421,27 @@ where
     })
   }
 
+  pub fn use_dual_query_dense_many_to_one(
+    self,
+    cx: &mut impl QueryHookCxLike,
+  ) -> UseResult<impl TriQueryLike<Key = T::Key, Value = T::Value>>
+  where
+    T::Value: CKey + LinearIdentified,
+    T::Key: LinearIdentified,
+  {
+    let (cx, map) = cx.use_plain_state_default_cloned::<RevRefContainer<T::Value, T::Key>>();
+
+    self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
+      let (view, delta) = t.view_delta();
+      bookkeeping_dense_index_relation(&mut map.write(), &delta);
+
+      TriQuery {
+        base: DualQuery { view, delta },
+        rev_many_view: map.make_read_holder(),
+      }
+    })
+  }
+
   pub fn use_dual_query_hash_reverse_checked_one_one(
     self,
     cx: &mut impl QueryHookCxLike,
