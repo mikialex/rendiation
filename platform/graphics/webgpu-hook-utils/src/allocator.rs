@@ -179,7 +179,7 @@ impl GrowableRangeAllocator {
       //  try to avoid fragmentation caused possible relocate
       let extra = self.current_count as f32 * 0.1;
       let new_size =
-        (current_remain_capacity + size_requirement + extra as u32).min(self.max_item_count);
+        (self.current_count + size_requirement + extra as u32).min(self.max_item_count);
       if new_size != self.max_item_count {
         self.relocate(new_size, &mut result, &mut new_metadata_to_write);
       }
@@ -229,6 +229,7 @@ impl GrowableRangeAllocator {
     results: &mut BatchAllocateResult,
     new_inserted: &mut FastHashMap<UserHandle, (Size, Offset, AllocationHandle)>,
   ) {
+    assert!(new_size > self.current_count);
     println!(
       "range allocator try grow from {} to {}, max {}",
       self.current_count, new_size, self.max_item_count
