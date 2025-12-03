@@ -3,11 +3,13 @@ use crate::*;
 mod change;
 mod console;
 mod db_view;
+mod inspector;
 mod tile;
 
 pub use change::*;
 pub use console::*;
 use db_view::*;
+pub use inspector::*;
 pub use tile::*;
 
 pub struct ViewerUIState {
@@ -49,6 +51,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
   if let ViewerCxStage::Gui {
     egui_ctx: ui,
     global,
+    ..
   } = &mut cx.stage
   {
     let viewer = &mut cx.viewer;
@@ -127,6 +130,8 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         viewer.background.egui(ui, viewer.content.scene);
 
         ui.separator();
+
+        ui.checkbox(&mut viewer.enable_inspection, "enable_inspection");
 
         ui.collapsing("Init config(not dynamic configurable)", |ui| {
           if ui

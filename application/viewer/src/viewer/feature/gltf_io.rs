@@ -115,7 +115,10 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
     }
   });
 
-  if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
+  if let ViewerCxStage::Gui {
+    egui_ctx, global, ..
+  } = &mut cx.stage
+  {
     let opened = global.features.entry("gltf-io").or_insert(false);
 
     egui::Window::new("Gltf IO")

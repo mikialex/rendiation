@@ -1,7 +1,10 @@
 use crate::*;
 
 pub fn use_test_content_panel(cx: &mut ViewerCx) {
-  if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
+  if let ViewerCxStage::Gui {
+    egui_ctx, global, ..
+  } = &mut cx.stage
+  {
     let opened = global.features.entry("test-content").or_insert(false);
 
     egui::Window::new("Test contents")

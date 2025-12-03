@@ -26,6 +26,17 @@ pub use task_pool::*;
 pub use use_result::*;
 pub use wake_util::*;
 
+pub trait Inspector {
+  fn label(&mut self, label: &str);
+  fn format_readable_data_size(&self, size: u64) -> String {
+    humansize::format_size(size, humansize::BINARY)
+  }
+}
+
+pub trait InspectableCx: HooksCxLike {
+  fn if_inspect(&mut self, f: impl FnOnce(&mut dyn Inspector));
+}
+
 #[derive(Default)]
 pub struct ChangeCollector {
   scope: FastHashMap<u32, bool>,
@@ -108,7 +119,7 @@ pub fn maintain_shared_map_avoid_unnecessary_creator_init<K, V, D, F>(
   }
 }
 
-pub trait QueryHookCxLike: HooksCxLike {
+pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
   fn is_spawning_stage(&self) -> bool;
   fn is_resolve_stage(&self) -> bool;
   fn stage(&mut self) -> QueryHookStage<'_>;
@@ -494,7 +505,7 @@ pub trait QueryHookCxLike: HooksCxLike {
       *cx.waker() = waker
     }
 
-    // if spawn stage not skipped, we keep the resolve stage exist
+    // if spawn stage not skipped, we do a wake to keep the resolve stage executed
     if waked && cx.is_spawning_stage() {
       notifier.do_wake();
     }

@@ -5,6 +5,7 @@
 #![feature(ptr_metadata)]
 #![feature(iter_array_chunks)]
 #![allow(clippy::collapsible_match)]
+#![feature(cold_path)]
 
 use std::alloc::System;
 use std::any::Any;

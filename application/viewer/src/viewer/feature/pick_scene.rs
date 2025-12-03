@@ -28,7 +28,10 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     .use_db_rev_ref::<SceneModelBelongsToScene>()
     .use_assure_result(cx);
 
-  if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
+  if let ViewerCxStage::Gui {
+    egui_ctx, global, ..
+  } = &mut cx.stage
+  {
     let opened = global.features.entry("scene picking").or_insert(false);
 
     egui::Window::new("Scene picking")

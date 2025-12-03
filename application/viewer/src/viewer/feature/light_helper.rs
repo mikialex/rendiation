@@ -7,7 +7,10 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
   let (cx, point_light_enabled) = cx.use_plain_state::<bool>();
   let (cx, directional_light_enabled) = cx.use_plain_state::<bool>();
 
-  if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
+  if let ViewerCxStage::Gui {
+    egui_ctx, global, ..
+  } = &mut cx.stage
+  {
     let opened = global.features.entry("light helper").or_insert(false);
 
     egui::Window::new("Light Helper")

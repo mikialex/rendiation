@@ -31,7 +31,10 @@ pub fn use_animation_player(cx: &mut ViewerCx) {
     _ => {}
   }
 
-  if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
+  if let ViewerCxStage::Gui {
+    egui_ctx, global, ..
+  } = &mut cx.stage
+  {
     let opened = global.features.entry("animation").or_insert(false);
 
     egui::Window::new("Animation")

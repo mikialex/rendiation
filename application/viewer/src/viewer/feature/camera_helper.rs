@@ -5,7 +5,10 @@ use crate::*;
 pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
   let (cx, enabled) = cx.use_plain_state::<bool>();
 
-  if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
+  if let ViewerCxStage::Gui {
+    egui_ctx, global, ..
+  } = &mut cx.stage
+  {
     let opened = global.features.entry("camera helper").or_insert(false);
 
     egui::Window::new("Camera Helper")

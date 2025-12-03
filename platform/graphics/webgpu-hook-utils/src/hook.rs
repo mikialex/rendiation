@@ -33,13 +33,6 @@ pub enum GPUQueryHookStage<'a> {
   Inspect(&'a mut dyn Inspector),
 }
 
-pub trait Inspector {
-  fn label(&mut self, label: &str);
-  fn format_readable_data_size(&self, size: u64) -> String {
-    humansize::format_size(size, humansize::BINARY)
-  }
-}
-
 unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
   fn memory_mut(&mut self) -> &mut FunctionMemory {
     self.memory
@@ -66,6 +59,15 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
     let (cx, state) = self.use_state_init(|| NothingToDrop(f()));
     (cx, &mut state.0)
+  }
+}
+
+impl InspectableCx for QueryGPUHookCx<'_> {
+  fn if_inspect(&mut self, f: impl FnOnce(&mut dyn Inspector)) {
+    if let GPUQueryHookStage::Inspect(inspector) = &mut self.stage {
+      std::hint::cold_path();
+      f(*inspector);
+    }
   }
 }
 
@@ -142,11 +144,11 @@ impl<'a> QueryGPUHookCx<'a> {
       storage.collector = Some(Default::default());
     }
 
-    if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
+    cx.if_inspect(|inspector| {
       let buffer_size: u64 = storage.get_gpu_buffer().byte_size();
       let buffer_size = inspector.format_readable_data_size(buffer_size);
       inspector.label(&format!("storage: {}, size: {}", label, buffer_size));
-    }
+    });
 
     (cx, storage)
   }
@@ -171,14 +173,14 @@ impl<'a> QueryGPUHookCx<'a> {
       storage.collector = Some(Default::default());
     }
 
-    if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
+    cx.if_inspect(|inspector| {
       let buffer_size: u64 = storage.get_gpu_buffer().byte_size();
       let buffer_size = inspector.format_readable_data_size(buffer_size);
       inspector.label(&format!(
         "storage(with host backup): {}, size: {}",
         label, buffer_size
       ));
-    }
+    });
 
     (cx, storage)
   }

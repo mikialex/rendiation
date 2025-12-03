@@ -128,6 +128,19 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
   }
 }
 
+impl InspectableCx for ViewerCx<'_> {
+  fn if_inspect(&mut self, f: impl FnOnce(&mut dyn Inspector)) {
+    if let ViewerCxStage::Gui {
+      stage_inspect_ui: Some(inspector),
+      ..
+    } = &mut self.stage
+    {
+      std::hint::cold_path();
+      f(*inspector);
+    }
+  }
+}
+
 impl<'a> QueryHookCxLike for ViewerCx<'a> {
   fn is_spawning_stage(&self) -> bool {
     matches!(&self.stage, ViewerCxStage::SpawnTask { .. })
@@ -252,6 +265,8 @@ pub enum ViewerCxStage<'a> {
   Gui {
     egui_ctx: &'a mut egui::Context,
     global: &'a mut FeaturesGlobalUIStates,
+    /// if None, then the inspection is disabled
+    stage_inspect_ui: Option<&'a mut dyn Inspector>,
   },
 }
 
@@ -347,6 +362,8 @@ pub fn use_viewer<'a>(
   *frame_time_delta_in_seconds = now.duration_since(*tick_timestamp).as_secs_f32();
   *tick_timestamp = now;
 
+  let mut inspection = viewer.enable_inspection.then(InspectedContent::default);
+
   ViewerCx {
     viewer,
     input: acx.input,
@@ -358,11 +375,16 @@ pub fn use_viewer<'a>(
     stage: ViewerCxStage::Gui {
       egui_ctx,
       global: gui_feature_global_states,
+      stage_inspect_ui: inspection.as_mut().map(|v| v as &mut dyn Inspector),
     },
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
   }
   .execute(|viewer| f(viewer));
+
+  if let Some(inspection) = inspection {
+    inspection.draw(egui_ctx);
+  }
 
   ViewerCx {
     viewer,
@@ -399,6 +421,7 @@ pub struct Viewer {
   memory: FunctionMemory,
   shared_ctx: SharedHooksCtx,
   features_config: ViewerFeaturesInitConfig,
+  pub enable_inspection: bool,
 }
 
 impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
@@ -497,6 +520,7 @@ impl Viewer {
       memory: Default::default(),
       shared_ctx: Default::default(),
       features_config: init_config.features.clone(),
+      enable_inspection: false,
     }
   }
 
