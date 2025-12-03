@@ -31,8 +31,8 @@ pub trait Inspector {
   fn format_readable_data_size(&self, size: u64) -> String {
     humansize::format_size(size, humansize::BINARY)
   }
-  fn label_memory_usage(&mut self, label: &str, bytes: u64) {
-    let readable = self.format_readable_data_size(bytes);
+  fn label_memory_usage(&mut self, label: &str, bytes: usize) {
+    let readable = self.format_readable_data_size(bytes as u64);
     self.label(format!("\"{}\" mem used: {}", label, readable).as_str());
   }
   fn label_device_memory_usage(&mut self, label: &str, bytes: u64) {
@@ -507,6 +507,11 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     C::Key: LinearIdentified,
   {
     let (_, mapping) = self.use_plain_state_default_cloned::<RevRefContainer<V, C::Key>>();
+
+    self.if_inspect(|inspector| {
+      let bytes = mapping.read().memory_usage_no_indirect_in_bytes();
+      inspector.label_memory_usage("use_ref_rev", bytes);
+    });
 
     changes.map_spawn_stage_in_thread(
       self,

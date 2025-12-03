@@ -152,8 +152,7 @@ impl<'a> QueryGPUHookCx<'a> {
 
     cx.if_inspect(|inspector| {
       let buffer_size: u64 = storage.get_gpu_buffer().byte_size();
-      let buffer_size = inspector.format_readable_data_size(buffer_size);
-      inspector.label(&format!("storage: {}, size: {}", label, buffer_size));
+      inspector.label_device_memory_usage(&format!("storage: {}", label), buffer_size);
     });
 
     (cx, storage)
@@ -181,11 +180,9 @@ impl<'a> QueryGPUHookCx<'a> {
 
     cx.if_inspect(|inspector| {
       let buffer_size: u64 = storage.get_gpu_buffer().byte_size();
-      let buffer_size = inspector.format_readable_data_size(buffer_size);
-      inspector.label(&format!(
-        "storage(with host backup): {}, size: {}",
-        label, buffer_size
-      ));
+      let label = format!("storage(with host backup): {},", label,);
+      inspector.label_memory_usage(&label, buffer_size as usize);
+      inspector.label_device_memory_usage(&label, buffer_size);
     });
 
     (cx, storage)

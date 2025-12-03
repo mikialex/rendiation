@@ -63,7 +63,8 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     let map = cx.use_shared_hash_map::<T::Key, T::Value>();
 
     cx.if_inspect(|inspector| {
-      inspector.label("use_change_to_dual_query_in_spawn_stage");
+      let mem = std::mem::size_of::<(T::Key, T::Value)>() * map.read().capacity();
+      inspector.label_memory_usage("change_to_dual_query", mem);
     });
 
     self.map_spawn_stage_in_thread(
@@ -350,6 +351,12 @@ where
   ) -> UseResult<T> {
     let label = label.into();
     let validator = cx.use_shared_hash_map();
+
+    cx.if_inspect(|inspector| {
+      let bytes = validator.read().len() * std::mem::size_of::<(T::Key, T::Value)>();
+      inspector.label_memory_usage("use_validation", bytes);
+    });
+
     self.map(move |dual| {
       let (_, d) = dual.view_delta_ref();
       validate_delta(&mut validator.write(), log_change, &label, d);
@@ -416,7 +423,9 @@ where
     let map = cx.use_shared_hash_map();
 
     cx.if_inspect(|inspector| {
-      inspector.label("use_dual_query_hash_many_to_one");
+      let mem = std::mem::size_of::<(T::Key, FastHashSet<T::Value>)>() * map.read().capacity();
+      // todo, the set memory it self is not computed
+      inspector.label_memory_usage("dual-query hash_many_to_one(at least)", mem);
     });
 
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
@@ -441,7 +450,8 @@ where
     let (cx, map) = cx.use_plain_state_default_cloned::<RevRefContainer<T::Value, T::Key>>();
 
     cx.if_inspect(|inspector| {
-      inspector.label("use_dual_query_dense_many_to_one");
+      let mem = map.read().memory_usage_no_indirect_in_bytes();
+      inspector.label_memory_usage("change_to_dual_query", mem);
     });
 
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
@@ -463,6 +473,11 @@ where
     T::Value: CKey,
   {
     let map = cx.use_shared_hash_map();
+
+    cx.if_inspect(|inspector| {
+      let mem = map.read().capacity() * std::mem::size_of::<(T::Key, T::Value)>();
+      inspector.label_memory_usage("hash_reverse_checked_one_one", mem);
+    });
 
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
       let mut mapping = map.write();
@@ -543,7 +558,8 @@ where
     let cache = cx.use_shared_hash_map();
 
     cx.if_inspect(|inspector| {
-      inspector.label("execute map");
+      let mem = cache.read().capacity() * std::mem::size_of::<(T::Key, V2)>();
+      inspector.label_memory_usage("dual_query_execute_map", mem);
     });
 
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {

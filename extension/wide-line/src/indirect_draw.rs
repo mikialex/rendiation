@@ -28,11 +28,7 @@ pub fn use_widen_line_indirect_renderer(
 
   cx.if_inspect(|inspector| {
     let buffer_size = line_seg_buffer.read().gpu().byte_size();
-    let buffer_size = inspector.format_readable_data_size(buffer_size);
-    inspector.label(&format!(
-      "wide line segment buffer pool, size: {}",
-      buffer_size
-    ));
+    inspector.label_device_memory_usage("wide line segment buffer pool", buffer_size);
   });
 
   let (cx, allocator) =

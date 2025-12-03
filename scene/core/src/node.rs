@@ -119,6 +119,11 @@ where
 
     let derived = cx.use_shared_hash_map::<RawEntityHandle, C::Data>();
 
+    cx.if_inspect(|inspector| {
+      let bytes = derived.read().capacity() * std::mem::size_of::<(RawEntityHandle, C::Data)>();
+      inspector.label_memory_usage("derived node data", bytes);
+    });
+
     let f = self.0;
 
     connectivity_rev_view

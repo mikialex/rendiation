@@ -154,8 +154,7 @@ fn use_attribute_indices_updates(
 
   cx.if_inspect(|inspector| {
     let buffer_size = gpu_buffer.read().gpu().byte_size();
-    let buffer_size = inspector.format_readable_data_size(buffer_size);
-    inspector.label(&format!("bindless index, size: {}", buffer_size));
+    inspector.label_device_memory_usage("bindless index", buffer_size);
   });
 
   let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
@@ -272,8 +271,7 @@ fn use_attribute_vertex_updates(
 
   cx.if_inspect(|inspector| {
     let buffer_size = vertex_buffer.read().gpu().byte_size();
-    let buffer_size = inspector.format_readable_data_size(buffer_size);
-    inspector.label(&format!("bindless {:?}, size: {}", semantic, buffer_size));
+    inspector.label_device_memory_usage(&format!("bindless {:?}", semantic), buffer_size);
   });
 
   let attribute_scope = cx
