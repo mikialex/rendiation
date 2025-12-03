@@ -143,23 +143,6 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           }
           ui.label(format!("{:#?}", viewer.rendering.init_config.init_only));
         });
-
-        ui.collapsing("Rendering Resources Detail", |ui| {
-          struct EguiInspector<'a>(&'a mut egui::Ui);
-          impl<'a> Inspector for EguiInspector<'a> {
-            fn label(&mut self, label: &str) {
-              self.0.label(label);
-            }
-          }
-          let mut inspector = EguiInspector(ui);
-
-          viewer.rendering_root.inspect(
-            &mut viewer.shared_ctx,
-            &mut inspector as &mut dyn Inspector,
-            &mut viewer.rendering,
-            &viewer.content.viewports,
-          );
-        });
       });
 
     viewer.rendering_root.egui(

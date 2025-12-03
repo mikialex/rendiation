@@ -61,6 +61,11 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     T: DataChanges,
   {
     let map = cx.use_shared_hash_map::<T::Key, T::Value>();
+
+    cx.if_inspect(|inspector| {
+      inspector.label("use_change_to_dual_query_in_spawn_stage");
+    });
+
     self.map_spawn_stage_in_thread(
       cx,
       |change| change.has_change(),
@@ -410,6 +415,10 @@ where
   {
     let map = cx.use_shared_hash_map();
 
+    cx.if_inspect(|inspector| {
+      inspector.label("use_dual_query_hash_many_to_one");
+    });
+
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
       let (view, delta) = t.view_delta();
       bookkeeping_hash_relation(&mut map.write(), &delta);
@@ -430,6 +439,10 @@ where
     T::Key: LinearIdentified,
   {
     let (cx, map) = cx.use_plain_state_default_cloned::<RevRefContainer<T::Value, T::Key>>();
+
+    cx.if_inspect(|inspector| {
+      inspector.label("use_dual_query_dense_many_to_one");
+    });
 
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
       let (view, delta) = t.view_delta();
@@ -528,6 +541,10 @@ where
     FF: FnMut(&T::Key, T::Value) -> V2 + Send + Sync + 'static,
   {
     let cache = cx.use_shared_hash_map();
+
+    cx.if_inspect(|inspector| {
+      inspector.label("execute map");
+    });
 
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
       let d = t.delta();

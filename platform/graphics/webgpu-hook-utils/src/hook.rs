@@ -24,13 +24,13 @@ pub enum GPUQueryHookStage<'a> {
     spawner: &'a TaskSpawner,
     change_collector: &'a mut ChangeCollector,
     immediate_results: &'a mut FastHashMap<u32, Arc<dyn std::any::Any + Send + Sync>>,
+    inspector: Option<&'a mut dyn Inspector>,
   },
   CreateRender {
     task: &'a mut TaskPoolResultCx,
     /// for updating resource
     encoder: &'a mut GPUCommandEncoder,
   },
-  Inspect(&'a mut dyn Inspector),
 }
 
 unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
@@ -47,9 +47,11 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
   }
 
   fn flush(&mut self) {
-    if let GPUQueryHookStage::Update { .. } = self.stage {
+    if let GPUQueryHookStage::Update { inspector, .. } = &mut self.stage {
+      let inspector = unsafe { std::mem::transmute(inspector) };
       let mut drop_cx = QueryGPUHookDropCx {
         share_cx: self.shared_ctx,
+        inspector,
       };
       let drop_cx = &mut drop_cx as *mut _ as *mut ();
       self.memory.flush(drop_cx);
@@ -64,7 +66,11 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
 
 impl InspectableCx for QueryGPUHookCx<'_> {
   fn if_inspect(&mut self, f: impl FnOnce(&mut dyn Inspector)) {
-    if let GPUQueryHookStage::Inspect(inspector) = &mut self.stage {
+    if let GPUQueryHookStage::Update {
+      inspector: Some(inspector),
+      ..
+    } = &mut self.stage
+    {
       std::hint::cold_path();
       f(*inspector);
     }
@@ -200,11 +206,12 @@ impl<T> CanCleanUpFrom<QueryGPUHookDropCx<'_>> for NothingToDrop<T> {
 
 pub struct QueryGPUHookDropCx<'a> {
   pub share_cx: &'a mut SharedHooksCtx,
+  pub inspector: &'a mut Option<&'a mut dyn Inspector>,
 }
 
 impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for SharedConsumerToken {
   fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
-    if let Some(mem) = cx.share_cx.drop_consumer(*self) {
+    if let Some(mem) = cx.share_cx.drop_consumer(*self, cx.inspector) {
       mem.write().memory.cleanup_assume_only_plain_states();
     }
   }
@@ -249,7 +256,6 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
         immediate_results,
       },
       GPUQueryHookStage::CreateRender { task, .. } => QueryHookStage::ResolveTask { task },
-      _ => QueryHookStage::Other,
     }
   }
 }

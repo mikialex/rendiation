@@ -80,6 +80,7 @@ pub struct ViewerDropCx<'a> {
   pub writer: SceneWriter,
   pub terminal: &'a mut Terminal,
   pub shared_ctx: &'a mut SharedHooksCtx,
+  pub inspector: &'a mut Option<&'a mut dyn Inspector>,
 }
 
 impl CanCleanUpFrom<ViewerDropCx<'_>> for EntityHandle<SceneEntity> {
@@ -106,15 +107,15 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
     matches!(self.stage, ViewerCxStage::Gui { .. })
   }
   fn flush(&mut self) {
-    let can_flush = matches!(self.stage, ViewerCxStage::Gui { .. });
-
-    if can_flush {
+    if let ViewerCxStage::Gui { inspector, .. } = &mut self.stage {
       let writer = SceneWriter::from_global(self.viewer.content.scene);
+      let inspector = unsafe { std::mem::transmute(inspector) };
       let mut drop_cx = ViewerDropCx {
         dyn_cx: self.dyn_cx,
         writer,
         terminal: &mut self.viewer.terminal,
         shared_ctx: &mut self.viewer.shared_ctx,
+        inspector,
       };
 
       let drop_cx = &mut drop_cx as *mut _ as *mut ();
@@ -131,7 +132,7 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
 impl InspectableCx for ViewerCx<'_> {
   fn if_inspect(&mut self, f: impl FnOnce(&mut dyn Inspector)) {
     if let ViewerCxStage::Gui {
-      stage_inspect_ui: Some(inspector),
+      inspector: Some(inspector),
       ..
     } = &mut self.stage
     {
@@ -184,7 +185,7 @@ impl<'a> DBHookCxLike for ViewerCx<'a> {}
 
 impl CanCleanUpFrom<ViewerDropCx<'_>> for SharedConsumerToken {
   fn drop_from_cx(&mut self, cx: &mut ViewerDropCx<'_>) {
-    if let Some(mem) = cx.shared_ctx.drop_consumer(*self) {
+    if let Some(mem) = cx.shared_ctx.drop_consumer(*self, cx.inspector) {
       mem.write().memory.cleanup_assume_only_plain_states();
     }
   }
@@ -266,7 +267,7 @@ pub enum ViewerCxStage<'a> {
     egui_ctx: &'a mut egui::Context,
     global: &'a mut FeaturesGlobalUIStates,
     /// if None, then the inspection is disabled
-    stage_inspect_ui: Option<&'a mut dyn Inspector>,
+    inspector: Option<&'a mut dyn Inspector>,
   },
 }
 
@@ -362,7 +363,8 @@ pub fn use_viewer<'a>(
   *frame_time_delta_in_seconds = now.duration_since(*tick_timestamp).as_secs_f32();
   *tick_timestamp = now;
 
-  let mut inspection = viewer.enable_inspection.then(InspectedContent::default);
+  let (acx, ins) = acx.use_plain_state(InspectedContent::default);
+  let inspection = viewer.enable_inspection.then_some(&mut *ins);
 
   ViewerCx {
     viewer,
@@ -375,16 +377,19 @@ pub fn use_viewer<'a>(
     stage: ViewerCxStage::Gui {
       egui_ctx,
       global: gui_feature_global_states,
-      stage_inspect_ui: inspection.as_mut().map(|v| v as &mut dyn Inspector),
+      inspector: inspection.map(|v| v as &mut dyn Inspector),
     },
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
   }
   .execute(|viewer| f(viewer));
 
-  if let Some(inspection) = inspection {
-    inspection.draw(egui_ctx);
+  if viewer.enable_inspection {
+    ins.draw(egui_ctx);
+    ins.clear();
   }
+
+  let inspection = viewer.enable_inspection.then_some(&mut *ins);
 
   ViewerCx {
     viewer,
@@ -406,6 +411,7 @@ pub fn use_viewer<'a>(
     &viewer.content,
     &mut viewer.shared_ctx,
     &mut viewer.rendering,
+    inspection,
   );
 
   viewer
@@ -433,6 +439,7 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
       writer,
       terminal: &mut self.terminal,
       shared_ctx: &mut self.shared_ctx,
+      inspector: &mut None,
     };
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
 

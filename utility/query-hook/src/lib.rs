@@ -31,6 +31,18 @@ pub trait Inspector {
   fn format_readable_data_size(&self, size: u64) -> String {
     humansize::format_size(size, humansize::BINARY)
   }
+  fn label_memory_usage(&mut self, label: &str, bytes: u64) {
+    let readable = self.format_readable_data_size(bytes);
+    self.label(format!("\"{}\" mem used: {}", label, readable).as_str());
+  }
+  fn label_device_memory_usage(&mut self, label: &str, bytes: u64) {
+    let readable = self.format_readable_data_size(bytes);
+    self.label(format!("\"{}\" gpu mem used: {}", label, readable).as_str());
+  }
+
+  fn enter_shared_ctx(&mut self, key: &ShareKey, label: &str);
+  fn leave_shared_ctx(&mut self, key: &ShareKey);
+  fn drop_shared_ctx(&mut self, key: &ShareKey);
 }
 
 pub trait InspectableCx: HooksCxLike {
@@ -79,6 +91,10 @@ pub trait SharedResultProvider<Cx>: 'static {
     ShareKey::TypeId(TypeId::of::<Self>())
   }
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result>;
+
+  fn debug_label(&self) -> &str {
+    std::any::type_name::<Self>()
+  }
 }
 
 pub type SharedHashMap<K, V> = Arc<RwLock<FastHashMap<K, V>>>;
@@ -194,8 +210,9 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     provider: Provider,
   ) -> UseResult<Provider::Result> {
     let key = provider.compute_share_key();
+    let label = provider.debug_label();
     let consumer_id = self.use_shared_consumer(key);
-    self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, consumer_id)
+    self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, label, consumer_id)
   }
 
   fn use_shared_dual_query_view<Provider, K: CKey, V: CValue>(
@@ -230,6 +247,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     Provider: SharedResultProvider<Self, Result: DualQueryLike<Key = K, Value = V>>,
   {
     let key = provider.compute_share_key();
+    let label = provider.debug_label();
     let consumer_id = self.use_shared_consumer(key);
     let result = self.use_shared_compute_internal(
       &|cx| {
@@ -238,6 +256,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
           .map_spawn_stage_in_thread_dual_query(cx, |r| r.materialize_delta())
       },
       key,
+      label,
       consumer_id,
     );
 
@@ -283,13 +302,14 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     &mut self,
     logic: &dyn Fn(&mut Self) -> UseResult<T>,
     key: ShareKey,
+    debug_label: &str,
     consumer_id: u32,
   ) -> UseResult<T>
   where
     T: Clone + Send + Sync + 'static,
   {
     let logic = |cx: &mut Self| logic(cx).map(|v| Arc::new(v) as Arc<dyn Any + Send + Sync>);
-    let r = self.use_shared_compute_internal_dyn(&logic, key, consumer_id);
+    let r = self.use_shared_compute_internal_dyn(&logic, key, debug_label, consumer_id);
     r.map(|v| v.downcast_ref::<T>().unwrap().clone())
   }
 
@@ -298,6 +318,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     &mut self,
     logic: &dyn Fn(&mut Self) -> UseResult<Arc<dyn Any + Send + Sync>>,
     key: ShareKey,
+    debug_label: &str,
     consumer_id: u32,
   ) -> UseResult<Arc<dyn Any + Send + Sync>> {
     let shared_waker = {
@@ -313,7 +334,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
       let waker_backup = self.waker().clone();
       *self.waker() = futures::task::waker(shared_waker);
 
-      self.enter_shared_ctx(key, |cx| {
+      self.enter_shared_ctx(key, debug_label, |cx| {
         let result = logic(cx);
 
         let (cx, persist_upstream_task_id) = cx.use_plain_state(|| u32::MAX);
@@ -422,7 +443,14 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
 
   fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx;
 
-  fn enter_shared_ctx<R>(&mut self, key: ShareKey, f: impl FnOnce(&mut Self) -> R) -> R {
+  fn enter_shared_ctx<R>(
+    &mut self,
+    key: ShareKey,
+    debug_label: &str,
+    f: impl FnOnce(&mut Self) -> R,
+  ) -> R {
+    self.if_inspect(|cx| cx.enter_shared_ctx(&key, debug_label));
+
     let shared = self.shared_hook_ctx().shared.get(&key).unwrap().clone();
 
     let mut shared = shared.write();
@@ -463,6 +491,8 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
         shared.consumer.values_mut().for_each(|v| *v = true);
       }
     }
+
+    self.if_inspect(|cx| cx.leave_shared_ctx(&key));
 
     r
   }
@@ -542,6 +572,7 @@ impl SharedHooksCtx {
   pub fn drop_consumer(
     &mut self,
     token: SharedConsumerToken,
+    inspector: &mut Option<&mut dyn Inspector>,
   ) -> Option<Arc<RwLock<SharedHookObject>>> {
     let SharedConsumerToken(id, key) = token;
 
@@ -557,6 +588,9 @@ impl SharedHooksCtx {
     assert!(target.consumer_wakers.remove(id));
     if target.consumer.is_empty() {
       drop(target);
+      if let Some(inspector) = inspector {
+        inspector.drop_shared_ctx(&key);
+      }
       self.shared.remove(&key).unwrap().into()
     } else {
       None
