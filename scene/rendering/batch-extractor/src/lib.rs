@@ -42,6 +42,11 @@ pub fn use_incremental_device_scene_batch_extractor(
   let (cx, extractor) =
     cx.use_plain_state_default_cloned::<IncrementalDeviceSceneBatchExtractorShared>();
 
+  cx.if_inspect(|inspector| {
+    let bytes = extractor.read().memory_usage();
+    inspector.label_memory_usage("indirect group key", bytes);
+  });
+
   let extractor_ = extractor.clone();
   let gpu_updates = group_key
     .map_spawn_stage_in_thread_dual_query(cx, move |v| {

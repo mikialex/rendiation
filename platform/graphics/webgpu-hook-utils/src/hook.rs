@@ -124,10 +124,10 @@ impl<'a> QueryGPUHookCx<'a> {
     (cx, &mut state.0)
   }
 
-  pub fn use_uniform_buffers<K: 'static, V: Std140 + 'static>(
+  pub fn use_uniform_buffers<K: 'static + Eq + std::hash::Hash, V: Std140 + 'static>(
     &mut self,
   ) -> UniformBufferCollection<K, V> {
-    self.use_shared_hash_map()
+    self.use_shared_hash_map("uniform buffers")
   }
 
   pub fn use_uniform_array_buffers<V: Std140 + Default, const N: usize>(

@@ -163,7 +163,7 @@ pub fn use_scene_to_tlas(
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
   // SceneEntity
 ) -> Option<impl Query<Key = RawEntityHandle, Value = TlASInstance>> {
-  let tlas_store = cx.use_shared_hash_map::<RawEntityHandle, TlASInstance>();
+  let tlas_store = cx.use_shared_hash_map::<RawEntityHandle, TlASInstance>("scene map tlas");
 
   let scene_sm = cx
     .use_db_rev_ref_tri_view::<SceneModelBelongsToScene>()

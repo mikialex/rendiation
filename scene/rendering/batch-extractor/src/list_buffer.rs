@@ -54,6 +54,10 @@ impl PersistSceneModelListBuffer {
     }
   }
 
+  pub fn memory_usage(&self) -> usize {
+    self.host.capacity() * std::mem::size_of::<RawEntityHandle>() + self.mapping.allocation_size()
+  }
+
   pub fn create_mutation(&self) -> PersistSceneModelListBufferMutation {
     PersistSceneModelListBufferMutation {
       mapping_change: Default::default(),

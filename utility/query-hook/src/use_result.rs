@@ -60,12 +60,7 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   where
     T: DataChanges,
   {
-    let map = cx.use_shared_hash_map::<T::Key, T::Value>();
-
-    cx.if_inspect(|inspector| {
-      let mem = std::mem::size_of::<(T::Key, T::Value)>() * map.read().capacity();
-      inspector.label_memory_usage("change_to_dual_query", mem);
-    });
+    let map = cx.use_shared_hash_map::<T::Key, T::Value>("change_to_dual_query");
 
     self.map_spawn_stage_in_thread(
       cx,
@@ -350,12 +345,7 @@ where
     log_change: bool,
   ) -> UseResult<T> {
     let label = label.into();
-    let validator = cx.use_shared_hash_map();
-
-    cx.if_inspect(|inspector| {
-      let bytes = validator.read().len() * std::mem::size_of::<(T::Key, T::Value)>();
-      inspector.label_memory_usage("use_validation", bytes);
-    });
+    let validator = cx.use_shared_hash_map("use_validation");
 
     self.map(move |dual| {
       let (_, d) = dual.view_delta_ref();
@@ -420,13 +410,8 @@ where
   where
     T::Value: CKey,
   {
-    let map = cx.use_shared_hash_map();
-
-    cx.if_inspect(|inspector| {
-      let mem = std::mem::size_of::<(T::Key, FastHashSet<T::Value>)>() * map.read().capacity();
-      // todo, the set memory it self is not computed
-      inspector.label_memory_usage("dual-query hash_many_to_one(at least)", mem);
-    });
+    // todo, the set memory it self is not labeled
+    let map = cx.use_shared_hash_map("dual-query hash_many_to_one map_only_part");
 
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
       let (view, delta) = t.view_delta();
@@ -472,12 +457,7 @@ where
   where
     T::Value: CKey,
   {
-    let map = cx.use_shared_hash_map();
-
-    cx.if_inspect(|inspector| {
-      let mem = map.read().capacity() * std::mem::size_of::<(T::Key, T::Value)>();
-      inspector.label_memory_usage("hash_reverse_checked_one_one", mem);
-    });
+    let map = cx.use_shared_hash_map("hash_reverse_checked_one_one");
 
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
       let mut mapping = map.write();
@@ -555,12 +535,7 @@ where
     F: FnOnce() -> FF + Send + Sync + 'static,
     FF: FnMut(&T::Key, T::Value) -> V2 + Send + Sync + 'static,
   {
-    let cache = cx.use_shared_hash_map();
-
-    cx.if_inspect(|inspector| {
-      let mem = cache.read().capacity() * std::mem::size_of::<(T::Key, V2)>();
-      inspector.label_memory_usage("dual_query_execute_map", mem);
-    });
+    let cache = cx.use_shared_hash_map("dual_query_execute_map");
 
     self.map_spawn_stage_in_thread_dual_query(cx, move |t| {
       let d = t.delta();

@@ -168,8 +168,17 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
   }
 
   // maybe this fn should move to upstream
-  fn use_shared_hash_map<K: 'static, V: 'static>(&mut self) -> SharedHashMap<K, V> {
+  fn use_shared_hash_map<K: 'static + Eq + std::hash::Hash, V: 'static>(
+    &mut self,
+    label: &str,
+  ) -> SharedHashMap<K, V> {
     let (_, r) = self.use_plain_state_default_cloned::<SharedHashMap<K, V>>();
+
+    self.if_inspect(|inspector| {
+      let bytes = r.read().allocation_size();
+      inspector.label_memory_usage(label, bytes);
+    });
+
     r
   }
 
