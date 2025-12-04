@@ -184,78 +184,11 @@ pub struct GltfLoadResult {
   pub standard_models: Vec<EntityHandle<StandardModelEntity>>,
   pub materials: IndexKeptVec<SceneMaterialDataView>,
   // key: (index of mesh in gltf doc, index of primitive in gltf mesh)
-  pub meshes: FastHashMap<(usize, usize), AttributesMeshEntities>,
+  pub meshes: Vec<AttributesMeshEntities>,
   /// map (image id, srgbness) => created texture
   pub images: FastHashMap<(usize, bool), EntityHandle<SceneTexture2dEntity>>,
   pub samplers: IndexKeptVec<EntityHandle<SceneSamplerEntity>>,
   pub new_created_skeleton_root: Vec<EntityHandle<SceneNodeEntity>>,
-}
-
-impl GltfLoadResult {
-  /// note, caller must assure any other entity is not referencing the loaded gltf entity
-  pub fn unload(self, writer: &mut SceneWriter) {
-    for (_, light) in self.directional_light_map.iter() {
-      writer.directional_light_writer.delete_entity(*light);
-    }
-    for (_, light) in self.point_light_map.iter() {
-      writer.point_light_writer.delete_entity(*light);
-    }
-    for (_, light) in self.spot_light_map.iter() {
-      writer.spot_light_writer.delete_entity(*light);
-    }
-    for joint in self.joints {
-      writer.joint_writer.delete_entity(joint);
-    }
-    for (_, skin) in self.skin_map.iter() {
-      writer.skin_writer.delete_entity(*skin);
-    }
-    for (_, animation) in self.animation_map.iter() {
-      writer.animation.delete_entity(*animation);
-    }
-    for c in self.animation_channels {
-      c.delete_entities(writer);
-    }
-    for (_, node) in self.node_map.iter() {
-      writer.node_writer.delete_entity(*node);
-    }
-    for node in self.new_created_skeleton_root {
-      writer.node_writer.delete_entity(node);
-    }
-    for (_, mesh) in self.meshes.iter() {
-      mesh.clean_up(&mut writer.mesh_writer, &mut writer.buffer_writer);
-    }
-
-    for (_, material) in self.materials.iter() {
-      match material {
-        SceneMaterialDataView::UnlitMaterial(entity_handle) => {
-          writer.unlit_mat_writer.delete_entity(*entity_handle);
-        }
-        SceneMaterialDataView::PbrSGMaterial(entity_handle) => {
-          writer.pbr_sg_mat_writer.delete_entity(*entity_handle);
-        }
-        SceneMaterialDataView::PbrMRMaterial(entity_handle) => {
-          writer.pbr_mr_mat_writer.delete_entity(*entity_handle);
-        }
-        _ => {}
-      }
-    }
-
-    for sm in self.scene_models.iter() {
-      writer.model_writer.delete_entity(*sm);
-    }
-
-    for std_model in self.standard_models.iter() {
-      writer.std_model_writer.delete_entity(*std_model);
-    }
-
-    for (_, texture) in self.images.iter() {
-      writer.tex_writer.delete_entity(*texture);
-    }
-
-    for (_, sampler) in self.samplers.iter() {
-      writer.sampler_writer.delete_entity(*sampler);
-    }
-  }
 }
 
 fn write_label<E: EntitySemantic>(
@@ -356,6 +289,10 @@ fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
   }
 }
 
+/// note, here we not share the std model for the same gltf mesh
+///
+/// this can be improved, but it's tricky because the gltf mesh skin is decided by the node(scene model level)
+/// but the rendiation's skin is in standard model level
 fn build_model(
   node: EntityHandle<SceneNodeEntity>,
   primitive: gltf::Primitive,
@@ -433,7 +370,7 @@ fn build_model(
     skin: None,
   };
 
-  ctx.result.meshes.insert((idx, primitive.index()), mesh);
+  ctx.result.meshes.push(mesh);
 
   if let Some(skin) = gltf_node.skin() {
     let sk = ctx.result.skin_map.get(skin.index());
@@ -789,4 +726,71 @@ fn build_texture(
     });
 
   Texture2DWithSamplingDataView { texture, sampler }
+}
+
+impl GltfLoadResult {
+  /// note, caller must assure any other entity is not referencing the loaded gltf entity
+  pub fn unload(self, writer: &mut SceneWriter) {
+    for (_, light) in self.directional_light_map.iter() {
+      writer.directional_light_writer.delete_entity(*light);
+    }
+    for (_, light) in self.point_light_map.iter() {
+      writer.point_light_writer.delete_entity(*light);
+    }
+    for (_, light) in self.spot_light_map.iter() {
+      writer.spot_light_writer.delete_entity(*light);
+    }
+    for joint in self.joints {
+      writer.joint_writer.delete_entity(joint);
+    }
+    for (_, skin) in self.skin_map.iter() {
+      writer.skin_writer.delete_entity(*skin);
+    }
+    for (_, animation) in self.animation_map.iter() {
+      writer.animation.delete_entity(*animation);
+    }
+    for c in self.animation_channels {
+      c.delete_entities(writer);
+    }
+    for (_, node) in self.node_map.iter() {
+      writer.node_writer.delete_entity(*node);
+    }
+    for node in self.new_created_skeleton_root {
+      writer.node_writer.delete_entity(node);
+    }
+    for mesh in self.meshes.iter() {
+      mesh.clean_up(&mut writer.mesh_writer, &mut writer.buffer_writer);
+    }
+
+    for (_, material) in self.materials.iter() {
+      match material {
+        SceneMaterialDataView::UnlitMaterial(entity_handle) => {
+          writer.unlit_mat_writer.delete_entity(*entity_handle);
+        }
+        SceneMaterialDataView::PbrSGMaterial(entity_handle) => {
+          writer.pbr_sg_mat_writer.delete_entity(*entity_handle);
+        }
+        SceneMaterialDataView::PbrMRMaterial(entity_handle) => {
+          writer.pbr_mr_mat_writer.delete_entity(*entity_handle);
+        }
+        _ => {}
+      }
+    }
+
+    for sm in self.scene_models.iter() {
+      writer.model_writer.delete_entity(*sm);
+    }
+
+    for std_model in self.standard_models.iter() {
+      writer.std_model_writer.delete_entity(*std_model);
+    }
+
+    for (_, texture) in self.images.iter() {
+      writer.tex_writer.delete_entity(*texture);
+    }
+
+    for (_, sampler) in self.samplers.iter() {
+      writer.sampler_writer.delete_entity(*sampler);
+    }
+  }
 }
