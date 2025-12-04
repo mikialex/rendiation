@@ -28,6 +28,8 @@ impl EntityCustomWrite<BufferEntity> for AttributeAccessor {
     let start = self.byte_offset + self.view.range.offset as usize;
     let end = start + self.count * self.item_byte_size;
     // for simplicity we clone out sub buffer, this should be improved
+    // when improve this, make sure the attribute entities drop implementation should not be called
+    // in some cases
     writer.new_entity(|w| {
       w.write::<BufferEntityData>(&ExternalRefPtr::new_shared(std::sync::Arc::new(
         self.view.buffer.get(start..end).unwrap().to_vec(),

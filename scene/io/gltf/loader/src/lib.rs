@@ -95,7 +95,6 @@ pub fn write_gltf_at_node(
 
   let mut ctx = Context {
     images,
-    build_images: Default::default(),
     attributes: buffers
       .drain(..)
       .map(|buffer| ExternalRefPtr::new(buffer.0))
@@ -143,13 +142,15 @@ pub fn write_gltf_at_node(
   ctx.io.tex_writer.notify_reserve_changes(image_count);
   ctx.io.sampler_writer.notify_reserve_changes(image_count);
 
-  ctx.io.std_model_writer.notify_reserve_changes(model_count);
-  ctx.result.primitive_map.grow_to(model_count);
+  ctx.result.scene_models.grow_to(model_count);
+  ctx.result.standard_models.grow_to(model_count);
   ctx.io.model_writer.notify_reserve_changes(model_count);
+  ctx.io.std_model_writer.notify_reserve_changes(model_count);
   ctx
     .io
     .mesh_writer
-    .notify_reserve_changes(node_count, &mut ctx.io.buffer_writer);
+    .notify_reserve_changes(model_count, &mut ctx.io.buffer_writer);
+
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
       create_node_content_recursive(&node, &mut ctx);
@@ -162,8 +163,6 @@ pub fn write_gltf_at_node(
 struct Context<'a> {
   io: &'a mut SceneWriter,
   images: Vec<gltf::image::Data>,
-  /// map (image id, srgbness) => created texture
-  build_images: FastHashMap<(usize, bool), EntityHandle<SceneTexture2dEntity>>,
   attributes: Vec<ExternalRefPtr<Vec<u8>>>,
   result: GltfLoadResult,
 }
@@ -171,20 +170,91 @@ struct Context<'a> {
 #[derive(Default)]
 pub struct GltfLoadResult {
   pub path: Option<PathBuf>,
-  pub primitive_map: IndexKeptVec<EntityHandle<SceneModelEntity>>,
   pub node_map: IndexKeptVec<EntityHandle<SceneNodeEntity>>,
   pub view_map: IndexKeptVec<UnTypedBufferView>,
   pub skin_map: IndexKeptVec<EntityHandle<SceneSkinEntity>>,
+  pub joints: Vec<EntityHandle<SceneJointEntity>>,
   pub animation_map: IndexKeptVec<EntityHandle<SceneAnimationEntity>>,
+  pub animation_channels: Vec<AnimationChannelEntities>,
   pub directional_light_map: IndexKeptVec<EntityHandle<DirectionalLightEntity>>,
   pub point_light_map: IndexKeptVec<EntityHandle<PointLightEntity>>,
   pub spot_light_map: IndexKeptVec<EntityHandle<SpotLightEntity>>,
   pub used_but_not_supported_extensions: Vec<String>,
+  pub scene_models: IndexKeptVec<EntityHandle<SceneModelEntity>>,
+  pub standard_models: IndexKeptVec<EntityHandle<StandardModelEntity>>,
+  pub materials: IndexKeptVec<SceneMaterialDataView>,
+  // key: (index of mesh in gltf doc, index of primitive in gltf mesh)
+  pub meshes: FastHashMap<(usize, usize), AttributesMeshEntities>,
+  /// map (image id, srgbness) => created texture
+  pub images: FastHashMap<(usize, bool), EntityHandle<SceneTexture2dEntity>>,
+  pub samplers: IndexKeptVec<EntityHandle<SceneSamplerEntity>>,
+  pub new_created_skeleton_root: Vec<EntityHandle<SceneNodeEntity>>,
 }
 
 impl GltfLoadResult {
-  pub fn unload(self, _writer: &mut SceneWriter) {
-    todo!()
+  /// note, caller must assure any other entity is not referencing the loaded gltf entity
+  pub fn unload(self, writer: &mut SceneWriter) {
+    for (_, light) in self.directional_light_map.iter() {
+      writer.directional_light_writer.delete_entity(*light);
+    }
+    for (_, light) in self.point_light_map.iter() {
+      writer.point_light_writer.delete_entity(*light);
+    }
+    for (_, light) in self.spot_light_map.iter() {
+      writer.spot_light_writer.delete_entity(*light);
+    }
+    for joint in self.joints {
+      writer.joint_writer.delete_entity(joint);
+    }
+    for (_, skin) in self.skin_map.iter() {
+      writer.skin_writer.delete_entity(*skin);
+    }
+    for (_, animation) in self.animation_map.iter() {
+      writer.animation.delete_entity(*animation);
+    }
+    for c in self.animation_channels {
+      c.delete_entities(writer);
+    }
+    for (_, node) in self.node_map.iter() {
+      writer.node_writer.delete_entity(*node);
+    }
+    for node in self.new_created_skeleton_root {
+      writer.node_writer.delete_entity(node);
+    }
+    for (_, mesh) in self.meshes.iter() {
+      mesh.clean_up(&mut writer.mesh_writer, &mut writer.buffer_writer);
+    }
+
+    for (_, material) in self.materials.iter() {
+      match material {
+        SceneMaterialDataView::UnlitMaterial(entity_handle) => {
+          writer.unlit_mat_writer.delete_entity(*entity_handle);
+        }
+        SceneMaterialDataView::PbrSGMaterial(entity_handle) => {
+          writer.pbr_sg_mat_writer.delete_entity(*entity_handle);
+        }
+        SceneMaterialDataView::PbrMRMaterial(entity_handle) => {
+          writer.pbr_mr_mat_writer.delete_entity(*entity_handle);
+        }
+        _ => {}
+      }
+    }
+
+    for (_, sm) in self.scene_models.iter() {
+      writer.model_writer.delete_entity(*sm);
+    }
+
+    for (_, std_model) in self.standard_models.iter() {
+      writer.std_model_writer.delete_entity(*std_model);
+    }
+
+    for (_, texture) in self.images.iter() {
+      writer.tex_writer.delete_entity(*texture);
+    }
+
+    for (_, sampler) in self.samplers.iter() {
+      writer.sampler_writer.delete_entity(*sampler);
+    }
   }
 }
 
@@ -226,11 +296,8 @@ fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
   let node = *ctx.result.node_map.get(gltf_node.index());
 
   if let Some(mesh) = gltf_node.mesh() {
-    for (idx, primitive) in mesh.primitives().enumerate() {
-      let index = primitive.index();
-      let model_handle = build_model(node, primitive, gltf_node, ctx, mesh.name(), idx);
-
-      ctx.result.primitive_map.insert(index, model_handle);
+    for primitive in mesh.primitives() {
+      build_model(node, primitive, gltf_node, ctx, mesh.name(), mesh.index());
     }
   }
 
@@ -356,23 +423,28 @@ fn build_model(
     indices,
     mode,
   };
-  let mesh = ctx.io.write_attribute_mesh(mesh).mesh;
+  let mesh = ctx.io.write_attribute_mesh(mesh);
 
   let material = build_material(primitive.material(), ctx);
 
   let mut model = StandardModelDataView {
     material,
-    mesh,
+    mesh: mesh.mesh,
     skin: None,
   };
+
+  ctx.result.meshes.insert((idx, primitive.index()), mesh);
 
   if let Some(skin) = gltf_node.skin() {
     let sk = ctx.result.skin_map.get(skin.index());
     model.skin = Some(*sk)
   }
 
+  let model = model.write(&mut ctx.io.std_model_writer);
+  ctx.result.standard_models.insert(idx, model);
+
   let sm = SceneModelDataView {
-    model: model.write(&mut ctx.io.std_model_writer),
+    model,
     scene: ctx.io.scene,
     node,
   };
@@ -380,6 +452,8 @@ fn build_model(
   let sm = sm.write(&mut ctx.io.model_writer);
   let name = name.map(|n| format!("{}-{}", n, idx));
   write_label(&mut ctx.io.model_writer, sm, name.as_deref());
+
+  ctx.result.scene_models.insert(idx, sm);
 
   sm
 }
@@ -411,7 +485,9 @@ fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
       animation: animation_handle,
     };
 
-    channel.write(ctx.io);
+    let channel = channel.write(ctx.io);
+
+    ctx.result.animation_channels.push(channel);
   });
 
   ctx
@@ -426,7 +502,11 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
     .skeleton()
     .and_then(|n| ctx.result.node_map.try_get(n.index()))
     .copied()
-    .unwrap_or_else(|| ctx.io.create_root_child());
+    .unwrap_or_else(|| {
+      let new = ctx.io.create_root_child();
+      ctx.result.new_created_skeleton_root.push(new);
+      new
+    });
 
   let skin_handle = ctx
     .io
@@ -456,12 +536,13 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
       Mat4::identity()
     };
 
-    ctx.io.joint_writer.new_entity(|w| {
+    let joint = ctx.io.joint_writer.new_entity(|w| {
       w.write::<SceneJointBelongToSkin>(&skin_handle.some_handle())
         .write::<SceneJointRefNode>(&node.some_handle())
         .write::<SceneJointInverseBindMatrix>(&mat)
         .write::<SceneJointSkinIndex>(&(i as u32))
     });
+    ctx.result.joints.push(joint);
   }
 }
 
@@ -518,8 +599,19 @@ fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAcces
   }
 }
 
-/// https://docs.rs/gltf/latest/gltf/struct.Material.html
 fn build_material(material: gltf::Material, ctx: &mut Context) -> SceneMaterialDataView {
+  let idx = material.index().unwrap_or(0) + 1; // keep 0 for default material;
+  if let Some(re) = ctx.result.materials.try_get(idx).copied() {
+    re
+  } else {
+    let re = build_material_internal(material, ctx);
+    ctx.result.materials.insert(idx, re);
+    re
+  }
+}
+
+/// https://docs.rs/gltf/latest/gltf/struct.Material.html
+fn build_material_internal(material: gltf::Material, ctx: &mut Context) -> SceneMaterialDataView {
   let pbr = material.pbr_metallic_roughness();
 
   let alpha_mode = map_alpha(material.alpha_mode());
@@ -674,14 +766,19 @@ fn build_texture(
   require_srgb: bool,
   ctx: &mut Context,
 ) -> Texture2DWithSamplingDataView {
-  let sampler = ctx
-    .io
-    .sampler_writer
-    .new_entity(|w| w.write::<SceneSamplerInfo>(&map_sampler(texture.sampler())));
+  let sampler = texture.sampler();
+  let sampler_idx = sampler.index().unwrap_or(0) + 1; // keep 0 for default sampler
+  let sampler = *ctx.result.samplers.get_insert_with(sampler_idx, || {
+    ctx
+      .io
+      .sampler_writer
+      .new_entity(|w| w.write::<SceneSamplerInfo>(&map_sampler(sampler)))
+  });
 
   let image_index = texture.source().index();
   let texture = *ctx
-    .build_images
+    .result
+    .images
     .entry((image_index, require_srgb))
     .or_insert_with(|| {
       build_image(

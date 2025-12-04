@@ -3,10 +3,18 @@ pub use delta_as_change::*;
 
 use crate::*;
 
-/// abstract batch change container
-/// - removing and mutation is separated, because removing likely to be consumed first
-/// - not care about previous value
-/// - not care about the consistency, all assumption is first do remove then do update that can make sure the data is synced
+/// Abstract batch change container
+///
+/// Why do we have this change abstract in addition to delta query?
+/// - removing and mutation is separated, because removing likely to be consumed first to reduce peak memory usage
+///   in downstream processing
+/// - not care about(storing or procession) previous value to reduce memory usage and improve performance
+/// - reduce code bloating
+///
+/// The call convention of this trait:
+/// - always call [DataChanges::iter_removed] first and then call [DataChanges::iter_update_or_insert]
+/// - keys can be duplicated in either removed or update_or_insert iteration
+///   - the later witnessed value for same key is considered as the final synced value
 ///   - key can be in both removed and update_or_insert(it's ok because we do remove first)
 ///   - can remove none exist key(it's ok because it's not exist at all)
 pub trait DataChanges: Send + Sync + Clone {
