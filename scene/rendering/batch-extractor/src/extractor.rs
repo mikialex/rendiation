@@ -12,6 +12,20 @@ pub struct IncrementalDeviceSceneBatchExtractor {
 }
 
 impl IncrementalDeviceSceneBatchExtractor {
+  pub fn memory_usage(&self) -> usize {
+    self
+      .contents
+      .values()
+      .map(|group| {
+        group
+          .values()
+          .map(|buffer| buffer.memory_usage())
+          .sum::<usize>()
+      })
+      .sum::<usize>()
+      + self.contents.allocation_size()
+  }
+
   fn get_or_create(
     &mut self,
     scene: &RawEntityHandle,

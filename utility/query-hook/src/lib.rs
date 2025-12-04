@@ -26,6 +26,29 @@ pub use task_pool::*;
 pub use use_result::*;
 pub use wake_util::*;
 
+pub trait Inspector {
+  fn label(&mut self, label: &str);
+  fn format_readable_data_size(&self, size: u64) -> String {
+    humansize::format_size(size, humansize::BINARY)
+  }
+  fn label_memory_usage(&mut self, label: &str, bytes: usize) {
+    let readable = self.format_readable_data_size(bytes as u64);
+    self.label(format!("\"{}\" mem used: {}", label, readable).as_str());
+  }
+  fn label_device_memory_usage(&mut self, label: &str, bytes: u64) {
+    let readable = self.format_readable_data_size(bytes);
+    self.label(format!("\"{}\" gpu mem used: {}", label, readable).as_str());
+  }
+
+  fn enter_shared_ctx(&mut self, key: &ShareKey, label: &str);
+  fn leave_shared_ctx(&mut self, key: &ShareKey);
+  fn drop_shared_ctx(&mut self, key: &ShareKey);
+}
+
+pub trait InspectableCx: HooksCxLike {
+  fn if_inspect(&mut self, f: impl FnOnce(&mut dyn Inspector));
+}
+
 #[derive(Default)]
 pub struct ChangeCollector {
   scope: FastHashMap<u32, bool>,
@@ -68,6 +91,10 @@ pub trait SharedResultProvider<Cx>: 'static {
     ShareKey::TypeId(TypeId::of::<Self>())
   }
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result>;
+
+  fn debug_label(&self) -> &str {
+    std::any::type_name::<Self>()
+  }
 }
 
 pub type SharedHashMap<K, V> = Arc<RwLock<FastHashMap<K, V>>>;
@@ -108,7 +135,7 @@ pub fn maintain_shared_map_avoid_unnecessary_creator_init<K, V, D, F>(
   }
 }
 
-pub trait QueryHookCxLike: HooksCxLike {
+pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
   fn is_spawning_stage(&self) -> bool;
   fn is_resolve_stage(&self) -> bool;
   fn stage(&mut self) -> QueryHookStage<'_>;
@@ -141,8 +168,17 @@ pub trait QueryHookCxLike: HooksCxLike {
   }
 
   // maybe this fn should move to upstream
-  fn use_shared_hash_map<K: 'static, V: 'static>(&mut self) -> SharedHashMap<K, V> {
+  fn use_shared_hash_map<K: 'static + Eq + std::hash::Hash, V: 'static>(
+    &mut self,
+    label: &str,
+  ) -> SharedHashMap<K, V> {
     let (_, r) = self.use_plain_state_default_cloned::<SharedHashMap<K, V>>();
+
+    self.if_inspect(|inspector| {
+      let bytes = r.read().allocation_size();
+      inspector.label_memory_usage(label, bytes);
+    });
+
     r
   }
 
@@ -183,8 +219,9 @@ pub trait QueryHookCxLike: HooksCxLike {
     provider: Provider,
   ) -> UseResult<Provider::Result> {
     let key = provider.compute_share_key();
+    let label = provider.debug_label();
     let consumer_id = self.use_shared_consumer(key);
-    self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, consumer_id)
+    self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, label, consumer_id)
   }
 
   fn use_shared_dual_query_view<Provider, K: CKey, V: CValue>(
@@ -219,6 +256,7 @@ pub trait QueryHookCxLike: HooksCxLike {
     Provider: SharedResultProvider<Self, Result: DualQueryLike<Key = K, Value = V>>,
   {
     let key = provider.compute_share_key();
+    let label = provider.debug_label();
     let consumer_id = self.use_shared_consumer(key);
     let result = self.use_shared_compute_internal(
       &|cx| {
@@ -227,6 +265,7 @@ pub trait QueryHookCxLike: HooksCxLike {
           .map_spawn_stage_in_thread_dual_query(cx, |r| r.materialize_delta())
       },
       key,
+      label,
       consumer_id,
     );
 
@@ -272,13 +311,14 @@ pub trait QueryHookCxLike: HooksCxLike {
     &mut self,
     logic: &dyn Fn(&mut Self) -> UseResult<T>,
     key: ShareKey,
+    debug_label: &str,
     consumer_id: u32,
   ) -> UseResult<T>
   where
     T: Clone + Send + Sync + 'static,
   {
     let logic = |cx: &mut Self| logic(cx).map(|v| Arc::new(v) as Arc<dyn Any + Send + Sync>);
-    let r = self.use_shared_compute_internal_dyn(&logic, key, consumer_id);
+    let r = self.use_shared_compute_internal_dyn(&logic, key, debug_label, consumer_id);
     r.map(|v| v.downcast_ref::<T>().unwrap().clone())
   }
 
@@ -287,6 +327,7 @@ pub trait QueryHookCxLike: HooksCxLike {
     &mut self,
     logic: &dyn Fn(&mut Self) -> UseResult<Arc<dyn Any + Send + Sync>>,
     key: ShareKey,
+    debug_label: &str,
     consumer_id: u32,
   ) -> UseResult<Arc<dyn Any + Send + Sync>> {
     let shared_waker = {
@@ -302,7 +343,7 @@ pub trait QueryHookCxLike: HooksCxLike {
       let waker_backup = self.waker().clone();
       *self.waker() = futures::task::waker(shared_waker);
 
-      self.enter_shared_ctx(key, |cx| {
+      self.enter_shared_ctx(key, debug_label, |cx| {
         let result = logic(cx);
 
         let (cx, persist_upstream_task_id) = cx.use_plain_state(|| u32::MAX);
@@ -411,7 +452,14 @@ pub trait QueryHookCxLike: HooksCxLike {
 
   fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx;
 
-  fn enter_shared_ctx<R>(&mut self, key: ShareKey, f: impl FnOnce(&mut Self) -> R) -> R {
+  fn enter_shared_ctx<R>(
+    &mut self,
+    key: ShareKey,
+    debug_label: &str,
+    f: impl FnOnce(&mut Self) -> R,
+  ) -> R {
+    self.if_inspect(|cx| cx.enter_shared_ctx(&key, debug_label));
+
     let shared = self.shared_hook_ctx().shared.get(&key).unwrap().clone();
 
     let mut shared = shared.write();
@@ -453,6 +501,8 @@ pub trait QueryHookCxLike: HooksCxLike {
       }
     }
 
+    self.if_inspect(|cx| cx.leave_shared_ctx(&key));
+
     r
   }
 
@@ -466,6 +516,11 @@ pub trait QueryHookCxLike: HooksCxLike {
     C::Key: LinearIdentified,
   {
     let (_, mapping) = self.use_plain_state_default_cloned::<RevRefContainer<V, C::Key>>();
+
+    self.if_inspect(|inspector| {
+      let bytes = mapping.read().memory_usage_no_indirect_in_bytes();
+      inspector.label_memory_usage("use_ref_rev", bytes);
+    });
 
     changes.map_spawn_stage_in_thread(
       self,
@@ -494,7 +549,7 @@ pub trait QueryHookCxLike: HooksCxLike {
       *cx.waker() = waker
     }
 
-    // if spawn stage not skipped, we keep the resolve stage exist
+    // if spawn stage not skipped, we do a wake to keep the resolve stage executed
     if waked && cx.is_spawning_stage() {
       notifier.do_wake();
     }
@@ -531,6 +586,7 @@ impl SharedHooksCtx {
   pub fn drop_consumer(
     &mut self,
     token: SharedConsumerToken,
+    inspector: &mut Option<&mut dyn Inspector>,
   ) -> Option<Arc<RwLock<SharedHookObject>>> {
     let SharedConsumerToken(id, key) = token;
 
@@ -546,6 +602,9 @@ impl SharedHooksCtx {
     assert!(target.consumer_wakers.remove(id));
     if target.consumer.is_empty() {
       drop(target);
+      if let Some(inspector) = inspector {
+        inspector.drop_shared_ctx(&key);
+      }
       self.shared.remove(&key).unwrap().into()
     } else {
       None

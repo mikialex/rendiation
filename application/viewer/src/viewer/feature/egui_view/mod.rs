@@ -3,11 +3,13 @@ use crate::*;
 mod change;
 mod console;
 mod db_view;
+mod inspector;
 mod tile;
 
 pub use change::*;
 pub use console::*;
 use db_view::*;
+pub use inspector::*;
 pub use tile::*;
 
 pub struct ViewerUIState {
@@ -49,6 +51,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
   if let ViewerCxStage::Gui {
     egui_ctx: ui,
     global,
+    ..
   } = &mut cx.stage
   {
     let viewer = &mut cx.viewer;
@@ -128,6 +131,8 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
         ui.separator();
 
+        ui.checkbox(&mut viewer.enable_inspection, "enable_inspection");
+
         ui.collapsing("Init config(not dynamic configurable)", |ui| {
           if ui
             .button("export first viewport init and current config")
@@ -137,23 +142,6 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             config.export_to_current_dir();
           }
           ui.label(format!("{:#?}", viewer.rendering.init_config.init_only));
-        });
-
-        ui.collapsing("Rendering Resources Detail", |ui| {
-          struct EguiInspector<'a>(&'a mut egui::Ui);
-          impl<'a> Inspector for EguiInspector<'a> {
-            fn label(&mut self, label: &str) {
-              self.0.label(label);
-            }
-          }
-          let mut inspector = EguiInspector(ui);
-
-          viewer.rendering_root.inspect(
-            &mut viewer.shared_ctx,
-            &mut inspector as &mut dyn Inspector,
-            &mut viewer.rendering,
-            &viewer.content.viewports,
-          );
         });
       });
 

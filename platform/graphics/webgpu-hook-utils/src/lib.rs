@@ -1,5 +1,6 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(iter_array_chunks)]
+#![feature(cold_path)]
 
 use std::sync::Arc;
 use std::task::Waker;

@@ -117,7 +117,7 @@ where
     let payload_change = cx.use_query_change::<C>();
     let payload_source = get_db_view::<C>();
 
-    let derived = cx.use_shared_hash_map::<RawEntityHandle, C::Data>();
+    let derived = cx.use_shared_hash_map::<RawEntityHandle, C::Data>("derived node data");
 
     let f = self.0;
 

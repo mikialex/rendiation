@@ -11,7 +11,10 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
   let (cx, lod_graph_req) = cx.use_plain_state::<Option<CreateMeshLodGraphRequest>>();
   let (cx, seg_req) = cx.use_plain_state::<Option<MeshSegmentationDebugRequest>>();
 
-  if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
+  if let ViewerCxStage::Gui {
+    egui_ctx, global, ..
+  } = &mut cx.stage
+  {
     let opened = global.features.entry("mesh tools").or_insert(false);
 
     egui::Window::new("Mesh Tools")

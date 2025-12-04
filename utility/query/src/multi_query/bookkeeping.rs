@@ -47,6 +47,13 @@ impl<K, V> DenseIndexMapping<K, V> {
     self.mapping_buffer.reserve(additional_multi);
     self.mapping.reserve(additional_one);
   }
+
+  pub fn memory_usage_no_indirect_in_bytes(&self) -> usize {
+    self.mapping_buffer.memory_usage_no_indirect_in_bytes()
+      + self.mapping.capacity() * std::mem::size_of::<MappingEntry<K>>()
+      + self.large_mapping_fallback.capacity() * std::mem::size_of::<(K, FastHashSet<V>)>()
+    // todo set it self is not computed
+  }
 }
 
 impl<K, V> Default for DenseIndexMapping<K, V> {

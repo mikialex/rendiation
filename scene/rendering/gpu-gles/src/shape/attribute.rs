@@ -80,7 +80,7 @@ fn use_buffers<B: SceneBufferView>(
   cx: &mut QueryGPUHookCx,
   usage: BufferUsages,
 ) -> BufferCollection {
-  let map = cx.use_shared_hash_map();
+  let map = cx.use_shared_hash_map("gles attribute buffer");
 
   let source = cx
     .use_dual_query::<SceneBufferViewBufferId<B>>()

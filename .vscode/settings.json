@@ -87,6 +87,7 @@
         "humansize",
         "ilog",
         "impls",
+        "Inspectable",
         "interphaser",
         "intrinsics",
         "kogge",

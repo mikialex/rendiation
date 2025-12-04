@@ -49,7 +49,10 @@ impl RenderingRoot {
   }
 
   pub fn cleanup(&mut self, share_cx: &mut SharedHooksCtx) {
-    let mut dcx = QueryGPUHookDropCx { share_cx };
+    let mut dcx = QueryGPUHookDropCx {
+      share_cx,
+      inspector: &mut None,
+    };
 
     self
       .render_resource_memory
@@ -77,30 +80,6 @@ impl RenderingRoot {
     self.last_render_timestamp = Some(now);
   }
 
-  pub fn inspect(
-    &mut self,
-    shared_ctx: &mut SharedHooksCtx,
-    inspector: &mut dyn Inspector,
-    rendering: &mut Viewer3dRenderingCtx,
-    viewports: &[ViewerViewPort],
-  ) {
-    if !self.render_resource_memory.created {
-      return;
-    }
-
-    let gpu = self.gpu.clone();
-    shared_ctx.reset_visiting();
-    QueryGPUHookCx {
-      memory: &mut self.render_resource_memory,
-      gpu: &gpu,
-      stage: GPUQueryHookStage::Inspect(inspector),
-      shared_ctx,
-      storage_allocator: rendering.storage_allocator(),
-      waker: futures::task::waker(self.any_render_change.clone()),
-    }
-    .execute(|cx| rendering.use_viewer_scene_renderer(cx, viewports));
-  }
-
   pub fn draw_canvas(
     &mut self,
     canvas: &RenderTargetView,
@@ -108,6 +87,7 @@ impl RenderingRoot {
     content: &Viewer3dContent,
     shared_ctx: &mut SharedHooksCtx,
     rendering: &mut Viewer3dRenderingCtx,
+    inspector: Option<&mut InspectedContent>,
   ) {
     self.init_frame();
 
@@ -147,6 +127,7 @@ impl RenderingRoot {
               task_pool: &mut pool,
               change_collector: &mut Default::default(),
               immediate_results: &mut immediate_results,
+              inspector: inspector.map(|v| v as &mut dyn Inspector),
             },
             shared_ctx,
             storage_allocator: rendering.storage_allocator(),

@@ -20,6 +20,10 @@ impl<T> Default for LinkListPool<T> {
 }
 
 impl<T> LinkListPool<T> {
+  pub fn memory_usage_no_indirect_in_bytes(&self) -> usize {
+    self.pool.memory_usage_no_indirect_in_bytes()
+  }
+
   pub fn reserve(&mut self, additional: usize) {
     self.pool.reserve(additional);
   }

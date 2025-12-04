@@ -26,14 +26,10 @@ pub fn use_widen_line_indirect_renderer(
     Arc::new(RwLock::new(buffer))
   });
 
-  if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
+  cx.if_inspect(|inspector| {
     let buffer_size = line_seg_buffer.read().gpu().byte_size();
-    let buffer_size = inspector.format_readable_data_size(buffer_size);
-    inspector.label(&format!(
-      "wide line segment buffer pool, size: {}",
-      buffer_size
-    ));
-  }
+    inspector.label_device_memory_usage("wide line segment buffer pool", buffer_size);
+  });
 
   let (cx, allocator) =
     cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_item_count, init_item_count));

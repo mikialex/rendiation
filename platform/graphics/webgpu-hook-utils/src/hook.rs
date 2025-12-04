@@ -24,20 +24,13 @@ pub enum GPUQueryHookStage<'a> {
     spawner: &'a TaskSpawner,
     change_collector: &'a mut ChangeCollector,
     immediate_results: &'a mut FastHashMap<u32, Arc<dyn std::any::Any + Send + Sync>>,
+    inspector: Option<&'a mut dyn Inspector>,
   },
   CreateRender {
     task: &'a mut TaskPoolResultCx,
     /// for updating resource
     encoder: &'a mut GPUCommandEncoder,
   },
-  Inspect(&'a mut dyn Inspector),
-}
-
-pub trait Inspector {
-  fn label(&mut self, label: &str);
-  fn format_readable_data_size(&self, size: u64) -> String {
-    humansize::format_size(size, humansize::BINARY)
-  }
 }
 
 unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
@@ -54,9 +47,11 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
   }
 
   fn flush(&mut self) {
-    if let GPUQueryHookStage::Update { .. } = self.stage {
+    if let GPUQueryHookStage::Update { inspector, .. } = &mut self.stage {
+      let inspector = unsafe { std::mem::transmute(inspector) };
       let mut drop_cx = QueryGPUHookDropCx {
         share_cx: self.shared_ctx,
+        inspector,
       };
       let drop_cx = &mut drop_cx as *mut _ as *mut ();
       self.memory.flush(drop_cx);
@@ -66,6 +61,19 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
     let (cx, state) = self.use_state_init(|| NothingToDrop(f()));
     (cx, &mut state.0)
+  }
+}
+
+impl InspectableCx for QueryGPUHookCx<'_> {
+  fn if_inspect(&mut self, f: impl FnOnce(&mut dyn Inspector)) {
+    if let GPUQueryHookStage::Update {
+      inspector: Some(inspector),
+      ..
+    } = &mut self.stage
+    {
+      std::hint::cold_path();
+      f(*inspector);
+    }
   }
 }
 
@@ -116,10 +124,10 @@ impl<'a> QueryGPUHookCx<'a> {
     (cx, &mut state.0)
   }
 
-  pub fn use_uniform_buffers<K: 'static, V: Std140 + 'static>(
+  pub fn use_uniform_buffers<K: 'static + Eq + std::hash::Hash, V: Std140 + 'static>(
     &mut self,
   ) -> UniformBufferCollection<K, V> {
-    self.use_shared_hash_map()
+    self.use_shared_hash_map("uniform buffers")
   }
 
   pub fn use_uniform_array_buffers<V: Std140 + Default, const N: usize>(
@@ -142,11 +150,10 @@ impl<'a> QueryGPUHookCx<'a> {
       storage.collector = Some(Default::default());
     }
 
-    if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
+    cx.if_inspect(|inspector| {
       let buffer_size: u64 = storage.get_gpu_buffer().byte_size();
-      let buffer_size = inspector.format_readable_data_size(buffer_size);
-      inspector.label(&format!("storage: {}, size: {}", label, buffer_size));
-    }
+      inspector.label_device_memory_usage(&format!("storage: {}", label), buffer_size);
+    });
 
     (cx, storage)
   }
@@ -171,14 +178,12 @@ impl<'a> QueryGPUHookCx<'a> {
       storage.collector = Some(Default::default());
     }
 
-    if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
+    cx.if_inspect(|inspector| {
       let buffer_size: u64 = storage.get_gpu_buffer().byte_size();
-      let buffer_size = inspector.format_readable_data_size(buffer_size);
-      inspector.label(&format!(
-        "storage(with host backup): {}, size: {}",
-        label, buffer_size
-      ));
-    }
+      let label = format!("storage(with host backup): {},", label,);
+      inspector.label_memory_usage(&label, buffer_size as usize);
+      inspector.label_device_memory_usage(&label, buffer_size);
+    });
 
     (cx, storage)
   }
@@ -198,11 +203,12 @@ impl<T> CanCleanUpFrom<QueryGPUHookDropCx<'_>> for NothingToDrop<T> {
 
 pub struct QueryGPUHookDropCx<'a> {
   pub share_cx: &'a mut SharedHooksCtx,
+  pub inspector: &'a mut Option<&'a mut dyn Inspector>,
 }
 
 impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for SharedConsumerToken {
   fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
-    if let Some(mem) = cx.share_cx.drop_consumer(*self) {
+    if let Some(mem) = cx.share_cx.drop_consumer(*self, cx.inspector) {
       mem.write().memory.cleanup_assume_only_plain_states();
     }
   }
@@ -247,7 +253,6 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
         immediate_results,
       },
       GPUQueryHookStage::CreateRender { task, .. } => QueryHookStage::ResolveTask { task },
-      _ => QueryHookStage::Other,
     }
   }
 }

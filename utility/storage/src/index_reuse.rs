@@ -19,6 +19,10 @@ impl<T> IndexReusedVec<T> {
     self.empty_list.reserve(additional);
   }
 
+  pub fn memory_usage_no_indirect_in_bytes(&self) -> usize {
+    self.storage.capacity() * std::mem::size_of::<Option<T>>() + self.empty_list.capacity() * 4
+  }
+
   pub fn shrink_to_fit(&mut self) {
     let tail_size = self
       .storage

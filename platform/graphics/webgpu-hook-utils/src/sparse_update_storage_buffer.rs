@@ -182,7 +182,6 @@ fn use_update_impl(
       updates.write_abstract(cx.gpu, encoder, buffer);
       return Some(updates);
     }
-    _ => {}
   }
 
   None

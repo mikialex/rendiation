@@ -2,7 +2,7 @@ use crate::*;
 
 /// not need to hash the sampler to reduce the gpu sampler count, in device we have deduplicated
 pub fn use_sampler_gpus(cx: &mut QueryGPUHookCx) -> (SharedHashMapRead<u32, GPUSamplerView>, bool) {
-  let map = cx.use_shared_hash_map();
+  let map = cx.use_shared_hash_map("sampler gpu mapping");
 
   let mut changed = false;
 
@@ -18,7 +18,7 @@ pub fn use_gpu_texture_2ds(
   cx: &mut QueryGPUHookCx,
   default: &GPU2DTextureView,
 ) -> (SharedHashMapRead<u32, GPU2DTextureView>, bool) {
-  let map = cx.use_shared_hash_map();
+  let map = cx.use_shared_hash_map("texture2d gpu mapping");
 
   let mut changed = false;
 
