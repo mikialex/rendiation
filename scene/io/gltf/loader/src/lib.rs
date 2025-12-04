@@ -142,8 +142,8 @@ pub fn write_gltf_at_node(
   ctx.io.tex_writer.notify_reserve_changes(image_count);
   ctx.io.sampler_writer.notify_reserve_changes(image_count);
 
-  ctx.result.scene_models.grow_to(model_count);
-  ctx.result.standard_models.grow_to(model_count);
+  ctx.result.scene_models.reserve(model_count);
+  ctx.result.standard_models.reserve(model_count);
   ctx.io.model_writer.notify_reserve_changes(model_count);
   ctx.io.std_model_writer.notify_reserve_changes(model_count);
   ctx
@@ -180,8 +180,8 @@ pub struct GltfLoadResult {
   pub point_light_map: IndexKeptVec<EntityHandle<PointLightEntity>>,
   pub spot_light_map: IndexKeptVec<EntityHandle<SpotLightEntity>>,
   pub used_but_not_supported_extensions: Vec<String>,
-  pub scene_models: IndexKeptVec<EntityHandle<SceneModelEntity>>,
-  pub standard_models: IndexKeptVec<EntityHandle<StandardModelEntity>>,
+  pub scene_models: Vec<EntityHandle<SceneModelEntity>>,
+  pub standard_models: Vec<EntityHandle<StandardModelEntity>>,
   pub materials: IndexKeptVec<SceneMaterialDataView>,
   // key: (index of mesh in gltf doc, index of primitive in gltf mesh)
   pub meshes: FastHashMap<(usize, usize), AttributesMeshEntities>,
@@ -240,11 +240,11 @@ impl GltfLoadResult {
       }
     }
 
-    for (_, sm) in self.scene_models.iter() {
+    for sm in self.scene_models.iter() {
       writer.model_writer.delete_entity(*sm);
     }
 
-    for (_, std_model) in self.standard_models.iter() {
+    for std_model in self.standard_models.iter() {
       writer.std_model_writer.delete_entity(*std_model);
     }
 
@@ -441,7 +441,7 @@ fn build_model(
   }
 
   let model = model.write(&mut ctx.io.std_model_writer);
-  ctx.result.standard_models.insert(idx, model);
+  ctx.result.standard_models.push(model);
 
   let sm = SceneModelDataView {
     model,
@@ -453,7 +453,7 @@ fn build_model(
   let name = name.map(|n| format!("{}-{}", n, idx));
   write_label(&mut ctx.io.model_writer, sm, name.as_deref());
 
-  ctx.result.scene_models.insert(idx, sm);
+  ctx.result.scene_models.push(sm);
 
   sm
 }
