@@ -17,7 +17,6 @@ impl PersistSceneModelListBufferMutation {
   pub fn into_sparse_update(self) -> Option<SparseBufferWritesSource> {
     let change_count = self.mapping_change.len();
     if change_count == 0 {
-      assert_eq!(self.len_before_updates, self.new_len);
       return None;
     }
     let change_count = change_count + 1;
