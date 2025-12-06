@@ -21,28 +21,26 @@ impl<T: CValue> Query for IterableComponentReadView<T> {
   type Value = T;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, T)> + '_ {
     self.ecg.iter_entity_idx().map(|id| unsafe {
-      (
-        id.alloc_index(),
-        self
-          .read_view
-          .get_without_generation_check(id.alloc_index())
-          .map(|v| (*(v as *const T)).clone())
-          .unwrap_unchecked(), /* as we iterated from the correct index set,
-                                * this unwrap should be safe */
-      )
+      let idx = id.alloc_index();
+      (idx, self.access_ref(&idx).unwrap_unchecked().clone())
     })
   }
 
   fn access(&self, key: &u32) -> Option<T> {
-    self
-      .read_view
-      .get_without_generation_check(*key)
-      .map(|v| unsafe { &*(v as *const T) })
-      .cloned()
+    self.access_ref(key).cloned()
   }
 
   fn has_item_hint(&self) -> bool {
     !self.read_view.allocator.is_empty()
+  }
+}
+
+impl<T: CValue> DynValueRefQuery for IterableComponentReadView<T> {
+  fn access_ref(&self, key: &Self::Key) -> Option<&Self::Value> {
+    self
+      .read_view
+      .get_without_generation_check(*key)
+      .map(|v| unsafe { &*(v as *const T) })
   }
 }
 
@@ -76,26 +74,23 @@ impl<T: CValue> Query for IterableComponentReadViewChecked<T> {
   type Value = T;
   fn iter_key_value(&self) -> impl Iterator<Item = (RawEntityHandle, T)> + '_ {
     self.ecg.iter_entity_idx().map(|id| unsafe {
-      (
-        id,
-        self
-          .read_view
-          .get_without_generation_check(id.index())
-          .map(|v| (*(v as *const T)).clone())
-          .unwrap_unchecked(), // ditto
-      )
+      // as we iterated from the correct index set,
+      // this unwrap should be safe
+      (id, self.access_ref(&id).unwrap_unchecked().clone())
     })
   }
 
   fn access(&self, key: &RawEntityHandle) -> Option<T> {
-    self
-      .read_view
-      .get(*key)
-      .map(|v| unsafe { &*(v as *const T) })
-      .cloned()
+    self.read_ref(*key).cloned()
   }
 
   fn has_item_hint(&self) -> bool {
     !self.read_view.allocator.is_empty()
+  }
+}
+
+impl<T: CValue> DynValueRefQuery for IterableComponentReadViewChecked<T> {
+  fn access_ref(&self, key: &Self::Key) -> Option<&Self::Value> {
+    self.read_ref(*key)
   }
 }

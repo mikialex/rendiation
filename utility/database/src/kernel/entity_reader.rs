@@ -75,6 +75,20 @@ impl<E: EntitySemantic> EntityReader<E> {
     self.try_get::<C>(idx).cloned()
   }
 
+  pub fn read_ref<C>(&self, idx: EntityHandle<C::Entity>) -> &C::Data
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    self.try_read_ref::<C>(idx).unwrap()
+  }
+
+  pub fn try_read_ref<C>(&self, idx: EntityHandle<C::Entity>) -> Option<&C::Data>
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    self.try_get::<C>(idx)
+  }
+
   pub fn try_read_foreign_key<C>(
     &self,
     idx: EntityHandle<C::Entity>,
