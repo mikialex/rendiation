@@ -50,10 +50,12 @@ pub trait AttributesMeshWriter {
 pub struct AttributesMeshEntities {
   pub mesh: EntityHandle<AttributesMeshEntity>,
   pub index: Option<EntityHandle<BufferEntity>>,
-  pub vertices: Vec<(
-    EntityHandle<AttributesMeshEntityVertexBufferRelation>,
-    EntityHandle<BufferEntity>,
-  )>,
+  pub vertices: smallvec::SmallVec<
+    [(
+      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
+      EntityHandle<BufferEntity>,
+    ); 3],
+  >,
 }
 
 impl AttributesMeshEntities {
@@ -109,7 +111,7 @@ impl AttributesMeshWriter for AttributesMesh {
       index.write::<AttributeIndexRef>(w)
     });
 
-    let mut vertices = Vec::with_capacity(self.attributes.len());
+    let mut vertices = smallvec::SmallVec::with_capacity(self.attributes.len());
 
     for (semantic, vertex) in self.attributes {
       if CHECK_NORMAL && semantic == AttributeSemantic::Normals {
