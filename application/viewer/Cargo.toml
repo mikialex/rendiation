@@ -5,8 +5,6 @@ name = "viewer"
 version = "0.1.0"
 default-run = "viewer"
 
-default-run = "viewer"
-
 [dependencies]
 bytemuck = { workspace = true }
 env_logger = "0.8.4"
