@@ -43,8 +43,8 @@ pub fn use_gles_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBind
 
   cx.when_render(|| {
     Box::new(TraditionalPerDrawBindingSystem {
-      textures: textures.0.into_boxed(),
-      samplers: samplers.0.into_boxed(),
+      textures: textures.into_boxed(),
+      samplers: samplers.into_boxed(),
       default_tex: default_2d.clone(),
       default_sampler: default_sampler.clone(),
     }) as GPUTextureBindingSystem
@@ -60,7 +60,7 @@ pub fn use_bindless_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTexture
     BindingArrayMaintainer::new(default_2d.clone(), bindless_minimal_effective_count)
   });
 
-  let (textures, changed) = use_gpu_texture_2ds(cx, default_2d);
+  let (textures, changed) = cx.run_with_waked_info(|cx, _| use_gpu_texture_2ds(cx, default_2d));
   if changed {
     bindless_texture_2d.update(textures, cx.gpu);
   }
@@ -69,7 +69,7 @@ pub fn use_bindless_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTexture
     BindingArrayMaintainer::new(default_sampler.clone(), bindless_minimal_effective_count)
   });
 
-  let (samplers, changed) = use_sampler_gpus(cx);
+  let (samplers, changed) = cx.run_with_waked_info(|cx, _| use_sampler_gpus(cx));
   if changed {
     bindless_samplers.update(samplers, cx.gpu);
   }

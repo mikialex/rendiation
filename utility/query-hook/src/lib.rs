@@ -1,4 +1,5 @@
 #![feature(allocator_api)]
+#![feature(closure_track_caller)]
 
 use std::any::Any;
 use std::any::TypeId;
@@ -533,8 +534,8 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
   }
 
   #[track_caller]
-  fn skip_if_not_waked<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> Option<R> {
-    let (cx, notifier) = self.use_plain_state(|| Arc::new(ChangeNotifierInternal::default()));
+  fn run_with_waked_info<R>(&mut self, f: impl FnOnce(&mut Self, bool) -> R) -> (R, bool) {
+    let (cx, notifier) = self.use_plain_state_default::<ChangeNotifier>();
     let waked = notifier.update(cx.waker());
     let mut waker_backup = None;
     if waked {
@@ -543,18 +544,32 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
       *cx.waker() = waker
     }
 
-    let r = cx.skip_if_not(waked, f);
+    let r = f(cx, waked);
 
     if let Some(waker) = waker_backup {
       *cx.waker() = waker
     }
 
-    // if spawn stage not skipped, we do a wake to keep the resolve stage executed
-    if waked && cx.is_spawning_stage() {
-      notifier.do_wake();
-    }
+    (r, waked)
+  }
 
-    r
+  #[track_caller]
+  fn skip_if_not_waked<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> Option<R> {
+    self
+      .run_with_waked_info(
+        #[track_caller]
+        |cx, waked| {
+          let r = cx.skip_if_not(waked, f);
+
+          // if spawn stage not skipped, we do a wake to keep the resolve stage executed
+          if waked && cx.is_spawning_stage() {
+            cx.waker().wake_by_ref();
+          }
+
+          r
+        },
+      )
+      .0
   }
 }
 
