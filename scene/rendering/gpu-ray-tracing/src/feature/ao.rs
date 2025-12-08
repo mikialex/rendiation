@@ -19,34 +19,36 @@ pub fn use_scene_ao_sbt(cx: &mut QueryGPUHookCx, rtx: &RtxSystemCore) -> Option<
     GPUSbt::new(sbt)
   });
 
-  let (changed, _) = cx.skip_if_not_waked(|cx| {
-    let closest_hit = AOShaderHandles::default().closest_hit;
-    let secondary_closest = AOShaderHandles::default().secondary_closest;
+  let changed = cx
+    .skip_if_not_waked(|cx| {
+      let closest_hit = AOShaderHandles::default().closest_hit;
+      let secondary_closest = AOShaderHandles::default().secondary_closest;
 
-    let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
-      v.into_change()
-        .collective_map(move |_| HitGroupShaderRecord {
-          closest_hit: Some(closest_hit),
-          any_hit: None,
-          intersection: None,
-        })
-    });
-    if let Some(updates) = updates.use_assure_result(cx).if_ready() {
-      sbt.update(updates, AORayType::Primary as u32);
-    }
+      let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+        v.into_change()
+          .collective_map(move |_| HitGroupShaderRecord {
+            closest_hit: Some(closest_hit),
+            any_hit: None,
+            intersection: None,
+          })
+      });
+      if let Some(updates) = updates.use_assure_result(cx).if_ready() {
+        sbt.update(updates, AORayType::Primary as u32);
+      }
 
-    let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
-      v.into_change()
-        .collective_map(move |_| HitGroupShaderRecord {
-          closest_hit: Some(secondary_closest),
-          any_hit: None,
-          intersection: None,
-        })
-    });
-    if let Some(updates) = updates.use_assure_result(cx).if_ready() {
-      sbt.update(updates, AORayType::AOTest as u32);
-    }
-  });
+      let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+        v.into_change()
+          .collective_map(move |_| HitGroupShaderRecord {
+            closest_hit: Some(secondary_closest),
+            any_hit: None,
+            intersection: None,
+          })
+      });
+      if let Some(updates) = updates.use_assure_result(cx).if_ready() {
+        sbt.update(updates, AORayType::AOTest as u32);
+      }
+    })
+    .is_some();
 
   let (cx, changed_s) = cx.use_plain_state(|| false);
   *changed_s |= changed;

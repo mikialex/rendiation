@@ -39,34 +39,36 @@ pub fn use_rtx_pt_sbt(cx: &mut QueryGPUHookCx, rtx: &RtxSystemCore) -> Option<(G
     GPUSbt::new(sbt)
   });
 
-  let (changed, _) = cx.skip_if_not_waked(|cx| {
-    let core_closest_hit = PathTracingShaderHandles::default().closest_hit;
-    let shadow_closest_hit = PathTracingShaderHandles::default().shadow_test_hit;
+  let changed = cx
+    .skip_if_not_waked(|cx| {
+      let core_closest_hit = PathTracingShaderHandles::default().closest_hit;
+      let shadow_closest_hit = PathTracingShaderHandles::default().shadow_test_hit;
 
-    let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
-      v.into_change()
-        .collective_map(move |_| HitGroupShaderRecord {
-          closest_hit: Some(core_closest_hit),
-          any_hit: None,
-          intersection: None,
-        })
-    });
-    if let Some(updates) = updates.use_assure_result(cx).if_ready() {
-      sbt.update(updates, PTRayType::Core as u32);
-    }
+      let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+        v.into_change()
+          .collective_map(move |_| HitGroupShaderRecord {
+            closest_hit: Some(core_closest_hit),
+            any_hit: None,
+            intersection: None,
+          })
+      });
+      if let Some(updates) = updates.use_assure_result(cx).if_ready() {
+        sbt.update(updates, PTRayType::Core as u32);
+      }
 
-    let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
-      v.into_change()
-        .collective_map(move |_| HitGroupShaderRecord {
-          closest_hit: Some(shadow_closest_hit),
-          any_hit: None,
-          intersection: None,
-        })
-    });
-    if let Some(updates) = updates.use_assure_result(cx).if_ready() {
-      sbt.update(updates, PTRayType::ShadowTest as u32);
-    }
-  });
+      let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+        v.into_change()
+          .collective_map(move |_| HitGroupShaderRecord {
+            closest_hit: Some(shadow_closest_hit),
+            any_hit: None,
+            intersection: None,
+          })
+      });
+      if let Some(updates) = updates.use_assure_result(cx).if_ready() {
+        sbt.update(updates, PTRayType::ShadowTest as u32);
+      }
+    })
+    .is_some();
 
   let (cx, changed_s) = cx.use_plain_state(|| false);
   *changed_s |= changed;

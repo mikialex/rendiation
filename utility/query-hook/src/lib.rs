@@ -533,7 +533,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
   }
 
   #[track_caller]
-  fn skip_if_not_waked<R: Default>(&mut self, f: impl FnOnce(&mut Self) -> R) -> (bool, R) {
+  fn skip_if_not_waked<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> Option<R> {
     let (cx, notifier) = self.use_plain_state(|| Arc::new(ChangeNotifierInternal::default()));
     let waked = notifier.update(cx.waker());
     let mut waker_backup = None;
@@ -554,7 +554,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
       notifier.do_wake();
     }
 
-    (waked, r)
+    r
   }
 }
 
