@@ -18,6 +18,7 @@ pub fn use_attribute_mesh_renderer(
 
   let f = |(idx, range): (RawEntityHandle, Option<BufferViewRange>)| {
     let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
+    let buffer = buffer.as_living().unwrap().clone();
     let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::INDEX, &cx.gpu.device);
     buffer.create_view(map_view(range))
   };
@@ -32,6 +33,7 @@ pub fn use_attribute_mesh_renderer(
 
   let f = |(idx, range): (RawEntityHandle, Option<BufferViewRange>)| {
     let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
+    let buffer = buffer.as_living().unwrap().clone();
     let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &cx.gpu.device);
     buffer.create_view(map_view(range))
   };

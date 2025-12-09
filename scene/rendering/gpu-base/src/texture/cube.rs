@@ -1,4 +1,4 @@
-use std::{ops::Deref, sync::Arc};
+use std::sync::Arc;
 
 use fast_hash_collection::{FastHashMap, FastHashSet};
 use parking_lot::RwLock;
@@ -64,34 +64,36 @@ fn use_cube_face_update<FK>(
       changed_keys.changed_keys.insert(k);
       changed_keys.removed_keys.remove(&k);
 
-      let source: &GPUBufferImage = v.deref();
+      if let Some(source) = v.as_living() {
+        let source = GPUBufferImageForeignImpl { inner: source };
+        let mip = if allocate_mipmap {
+          MipLevelCount::BySize
+        } else {
+          MipLevelCount::EmptyMipMap
+        };
+        let desc = source.create_cube_desc(mip, flags);
 
-      let source = GPUBufferImageForeignImpl { inner: source };
-      let mip = if allocate_mipmap {
-        MipLevelCount::BySize
+        // todo, check desc is matched and recreated texture!
+        if target.get_current(k).is_none() {
+          let gpu_texture = GPUTexture::create(desc, &cx.gpu.device);
+          let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
+          let new = gpu_texture
+            .create_view(TextureViewDescriptor {
+              dimension: Some(TextureViewDimension::Cube),
+              ..Default::default()
+            })
+            .try_into()
+            .unwrap();
+          target.set_value(k, new);
+        }
+
+        let gpu_texture = target.get_current(k).unwrap();
+
+        let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
+        let _ = gpu_texture.upload(&cx.gpu.queue, &source, face, 0);
       } else {
-        MipLevelCount::EmptyMipMap
-      };
-      let desc = source.create_cube_desc(mip, flags);
-
-      // todo, check desc is matched and recreated texture!
-      if target.get_current(k).is_none() {
-        let gpu_texture = GPUTexture::create(desc, &cx.gpu.device);
-        let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
-        let new = gpu_texture
-          .create_view(TextureViewDescriptor {
-            dimension: Some(TextureViewDimension::Cube),
-            ..Default::default()
-          })
-          .try_into()
-          .unwrap();
-        target.set_value(k, new);
+        todo!()
       }
-
-      let gpu_texture = target.get_current(k).unwrap();
-
-      let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
-      let _ = gpu_texture.upload(&cx.gpu.queue, &source, face, 0);
     }
   }
 }

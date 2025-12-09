@@ -32,15 +32,21 @@ impl<T: Default> Default for MaybeUriData<T> {
   }
 }
 
-pub trait UriDataSource<T> {
+pub trait UriDataSource<T>: Send + Sync {
   fn create_for_direct_data(&mut self, data: T) -> &str;
-  fn request_uri_data_load(&mut self, uri: &str) -> impl Future<Output = Option<Arc<T>>> + 'static;
+  fn request_uri_data_load(
+    &mut self,
+    uri: &str,
+  ) -> impl Future<Output = Option<T>> + Unpin + Send + Sync + 'static;
   fn clear_init_direct_data(&mut self);
 }
 
-pub trait UriDataSourceDyn<T> {
+pub trait UriDataSourceDyn<T>: Send + Sync {
   fn create_for_direct_data(&mut self, data: T) -> &str;
-  fn request_uri_data_load(&mut self, uri: &str) -> Box<dyn Future<Output = Option<Arc<T>>>>;
+  fn request_uri_data_load(
+    &mut self,
+    uri: &str,
+  ) -> Box<dyn Future<Output = Option<T>> + Unpin + Send + Sync>;
   fn clear_init_direct_data(&mut self);
 }
 
@@ -49,7 +55,10 @@ impl<X: UriDataSource<T>, T: 'static> UriDataSourceDyn<T> for X {
     self.create_for_direct_data(data)
   }
 
-  fn request_uri_data_load(&mut self, uri: &str) -> Box<dyn Future<Output = Option<Arc<T>>>> {
+  fn request_uri_data_load(
+    &mut self,
+    uri: &str,
+  ) -> Box<dyn Future<Output = Option<T>> + Unpin + Send + Sync> {
     Box::new(self.request_uri_data_load(uri))
   }
   fn clear_init_direct_data(&mut self) {
@@ -60,7 +69,7 @@ impl<X: UriDataSource<T>, T: 'static> UriDataSourceDyn<T> for X {
 pub struct InMemoryUriDataSource<T> {
   source_id: u64,
   next_id: u64,
-  data: FastHashMap<String, Arc<T>>,
+  data: FastHashMap<String, T>,
 }
 
 impl<T> InMemoryUriDataSource<T> {
@@ -73,16 +82,19 @@ impl<T> InMemoryUriDataSource<T> {
   }
 }
 
-impl<T: 'static> UriDataSource<T> for InMemoryUriDataSource<T> {
+impl<T: 'static + Send + Sync + Clone> UriDataSource<T> for InMemoryUriDataSource<T> {
   fn create_for_direct_data(&mut self, data: T) -> &str {
     let key = format!("{}:{}", self.source_id, self.next_id);
     self.next_id += 1;
-    self.data.insert(key.clone(), Arc::new(data));
+    self.data.insert(key.clone(), data);
     // is returning str really a good idea? because string clone is unavoidable
     self.data.get_key_value(&key).unwrap().0.as_str()
   }
 
-  fn request_uri_data_load(&mut self, uri: &str) -> impl Future<Output = Option<Arc<T>>> + 'static {
+  fn request_uri_data_load(
+    &mut self,
+    uri: &str,
+  ) -> impl Future<Output = Option<T>> + Unpin + Send + Sync + 'static {
     let source = self.data.get(uri).cloned();
     std::future::ready(source)
   }
@@ -90,4 +102,8 @@ impl<T: 'static> UriDataSource<T> for InMemoryUriDataSource<T> {
   fn clear_init_direct_data(&mut self) {
     // do nothing
   }
+}
+
+pub trait UriProvider {
+  type Data;
 }

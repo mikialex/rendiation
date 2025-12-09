@@ -180,6 +180,7 @@ fn use_attribute_indices_updates(
 
     for (k, (buffer_id, range, count)) in change.iter_update_or_insert() {
       let buffer = &data.read_ref(buffer_id).unwrap().ptr;
+      let buffer = buffer.as_living().unwrap();
 
       let range = range.map(|range| range.into_range(buffer.len()));
 
@@ -295,6 +296,7 @@ fn use_attribute_vertex_updates(
       let mut access_result = Vec::with_capacity(size_cap);
       for (k, (buffer_id, range)) in iter {
         let buffer = &data.read_ref(buffer_id).unwrap().ptr;
+        let buffer = buffer.as_living().unwrap();
         let range = range.map(|range| range.into_range(buffer.len()));
         let len = range
           .clone()

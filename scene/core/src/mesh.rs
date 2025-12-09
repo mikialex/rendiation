@@ -201,16 +201,20 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for AttributeMeshLocalBounding {
   }
 }
 
-fn get_ranged_buffer(buffer: &[u8], range: Option<BufferViewRange>) -> &[u8] {
+fn get_ranged_buffer(
+  buffer: &BufferEntityDataType,
+  range: Option<BufferViewRange>,
+) -> Option<&[u8]> {
   if let Some(range) = range {
+    let buffer = buffer.as_living()?.as_slice();
     let start = range.offset as usize;
     let count = range
       .size
       .map(|v| u64::from(v) as usize)
       .unwrap_or(buffer.len());
-    buffer.get(start..(start + count)).unwrap()
+    buffer.get(start..(start + count)).unwrap().into()
   } else {
-    buffer
+    buffer.as_living()?.as_slice().into()
   }
 }
 
@@ -224,8 +228,8 @@ fn use_attribute_mesh_local_bounding(
     .use_dual_query_execute_map(cx, || {
       let buffer_access = get_db_view::<BufferEntityData>();
       move |_, ((position, position_range), (idx, idx_range, count))| {
-        let index = buffer_access.access(&idx).unwrap();
-        let index = get_ranged_buffer(&index, idx_range);
+        let index = buffer_access.access_ref(&idx).unwrap();
+        let index = get_ranged_buffer(index, idx_range).unwrap(); // todo
 
         let count = count as usize;
         let index = if index.len() / count == 2 {
@@ -238,8 +242,8 @@ fn use_attribute_mesh_local_bounding(
           unreachable!("index count must be 2 or 4 bytes")
         };
 
-        let position = buffer_access.access(&position.unwrap()).unwrap();
-        let position = get_ranged_buffer(&position, position_range);
+        let position = buffer_access.access_ref(&position.unwrap()).unwrap();
+        let position = get_ranged_buffer(position, position_range).unwrap(); // todo
         let position: &[Vec3<f32>] = cast_slice(position);
 
         // as we are compute bounding, the topology not matters
@@ -255,8 +259,8 @@ fn use_attribute_mesh_local_bounding(
     .use_dual_query_execute_map(cx, || {
       let buffer_access = get_db_view::<BufferEntityData>();
       move |_, (position, position_range)| {
-        let position = buffer_access.access(&position.unwrap()).unwrap();
-        let position = get_ranged_buffer(&position, position_range);
+        let position = buffer_access.access_ref(&position.unwrap()).unwrap();
+        let position = get_ranged_buffer(position, position_range).unwrap(); // todo
         let position: &[Vec3<f32>] = cast_slice(position);
 
         // as we are compute bounding, the topology not matters
