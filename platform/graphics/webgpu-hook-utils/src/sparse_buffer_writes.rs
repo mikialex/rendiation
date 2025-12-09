@@ -13,12 +13,6 @@ pub struct SparseBufferWritesSource {
   pub offset_size: Vec<u32>,
 }
 
-/// enable this to debug <potential forget to resize target> bug
-const ENABLE_TARGET_SIZE_CHECK: bool = true;
-// todo add this check
-// enable this to debug <update has overlap> bug
-// const ENABLE_NO_OVERLAP_CHECK: bool = true;
-
 impl SparseBufferWritesSource {
   pub fn with_capacity(data_capacity: usize, offset_size_capacity: usize) -> Self {
     Self {
@@ -103,12 +97,27 @@ impl SparseBufferWritesSource {
       return;
     }
 
-    if ENABLE_TARGET_SIZE_CHECK {
+    // debug <potential forget to resize target> bug
+    #[cfg(feature = "extra-checks")]
+    {
       let mut max_write_size = 0;
       for [_, write_size, target_offset] in self.offset_size.iter().array_chunks::<3>() {
         max_write_size = max_write_size.max(write_size + target_offset);
       }
       assert!(max_write_size <= u64::from(target_buffer.view_byte_size()) as u32 / 4);
+    }
+
+    // enable this to debug <update has overlap> bug
+    #[cfg(feature = "extra-checks")]
+    {
+      let mut ranges = rangemap::RangeSet::<u32>::new();
+      for [_, &write_size, &target_offset] in self.offset_size.iter().array_chunks::<3>() {
+        let range = target_offset..(target_offset + write_size);
+        if ranges.overlaps(&range) {
+          panic!("sparse update has overlap");
+        }
+        ranges.insert(range);
+      }
     }
 
     assert_eq!(self.offset_size.len() % 3, 0);

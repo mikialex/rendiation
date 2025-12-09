@@ -95,7 +95,8 @@ web-time = { workspace = true }
 
 
 [features]
-default = ["heap-debug"]
+default = ["heap-debug", "extra-checks"]
+extra-checks = ["rendiation-webgpu-hook-utils/extra-checks"]
 heap-debug = ["heap-tools/enabled"]
 support-webgl = ["rendiation-webgpu/support-webgl"]
 tracy = ["dep:tracing-tracy"]

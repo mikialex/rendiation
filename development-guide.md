@@ -102,7 +102,8 @@ run main test viewer
 
 ```bash
 cargo run --bin viewer
-cargo run --release --bin viewer # run it in release mode
+cargo run --release --bin viewer # run it in release mode (most common to use)
+cargo run --release --bin viewer --no-default-features # run it in release mode without extra debug overhead(should used to profiling and production)
 ```
 
 run given test when debugging. this is useful to fast relaunch same test in terminal.

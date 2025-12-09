@@ -18,5 +18,12 @@ database = { path = "../../../utility/database" }
 futures = { workspace = true }
 xalloc = "0.2.7"
 
+# used for debug sparse writes not overlap
+rangemap = { version = "1.7.0", optional = true }
+
 [lints]
 workspace = true
+
+[features]
+
+extra-checks = ["rangemap"]
