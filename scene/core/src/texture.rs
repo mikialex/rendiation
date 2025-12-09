@@ -4,7 +4,7 @@ declare_entity!(SceneTexture2dEntity);
 declare_component!(
   SceneTexture2dEntityDirectContent,
   SceneTexture2dEntity,
-  Option<ExternalRefPtr<GPUBufferImage>>
+  Option<ExternalRefPtr<MaybeUriData<GPUBufferImage>>>
 );
 pub fn register_scene_texture2d_data_model() {
   global_database()
@@ -145,12 +145,12 @@ impl TexSamplerWriter<'_> {
     texture: GPUBufferImage,
     sampler: TextureSampler,
   ) -> Texture2DWithSamplingDataView {
-    let texture = ExternalRefPtr::new(texture);
-
     let sampler = self
       .sampler_writer
       .new_entity(|w| w.write::<SceneSamplerInfo>(&sampler));
 
+    let texture = MaybeUriData::Living(texture);
+    let texture = ExternalRefPtr::new(texture);
     let texture = self
       .tex_writer
       .new_entity(|w| w.write::<SceneTexture2dEntityDirectContent>(&texture.into()));
@@ -175,22 +175,28 @@ impl TexCubeWriter<'_> {
     z_neg: GPUBufferImage,
   ) -> EntityHandle<SceneTextureCubeEntity> {
     let x_pos = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(x_pos).into())
+      let t = MaybeUriData::Living(x_pos);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let y_pos = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(y_pos).into())
+      let t = MaybeUriData::Living(y_pos);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let z_pos = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(z_pos).into())
+      let t = MaybeUriData::Living(z_pos);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let x_neg = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(x_neg).into())
+      let t = MaybeUriData::Living(x_neg);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let y_neg = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(y_neg).into())
+      let t = MaybeUriData::Living(y_neg);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let z_neg = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(z_neg).into())
+      let t = MaybeUriData::Living(z_neg);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
 
     self.cube_writer.new_entity(|w| {

@@ -139,10 +139,13 @@ pub fn build_texture2d(
   ts: &Texture2DWithSamplingDataView,
 ) -> gltf_json::Index<gltf_json::Texture> {
   let source = images.append(ts.texture, {
-    let texture = reader.read_texture(ts.texture);
+    let texture = reader.read_texture(ts.texture).unwrap();
 
     let mut png_buffer = Vec::new(); // todo avoid extra copy
-    rendiation_texture_exporter::write_gpu_buffer_image_as_png(&mut png_buffer, &texture);
+    let texture = texture
+      .as_living()
+      .expect("none living texture is not supported in gltf export yet"); // todo
+    rendiation_texture_exporter::write_gpu_buffer_image_as_png(&mut png_buffer, texture);
 
     let mut image = gltf_json::Image {
       buffer_view: Default::default(),

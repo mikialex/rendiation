@@ -77,6 +77,12 @@ impl InspectableCx for QueryGPUHookCx<'_> {
   }
 }
 
+impl AbstractUriHookCx for QueryGPUHookCx<'_> {
+  fn uri_source<P: UriProvider>(&mut self) -> Arc<RwLock<dyn UriDataSourceDyn<P::Data>>> {
+    todo!()
+  }
+}
+
 impl<'a> QueryGPUHookCx<'a> {
   pub fn use_state_with_features<T: 'static + for<'x> CanCleanUpFrom<QueryGPUHookDropCx<'x>>>(
     &mut self,

@@ -423,6 +423,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
+name = "bisetmap"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22c974dd8ef792bd6539b0ae3fe33f050a2f456aa073e1b560a36904d7d9ca1a"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2301,6 +2310,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "mapped_futures"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e17e41c47c7d0b21cae15a4dbb85526b7b95283158832eaeb13e1f3bc4f95a41"
+dependencies = [
+ "bisetmap",
+ "futures-core",
+ "futures-task",
+ "futures-util",
 ]
 
 [[package]]
@@ -4417,6 +4438,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-uri-data-hook"
+version = "0.0.1"
+dependencies = [
+ "futures",
+ "mapped_futures",
+ "parking_lot",
+ "query",
+ "query-hook",
+ "rendiation-abstract-uri-data",
+]
+
+[[package]]
 name = "rendiation-view-override-model"
 version = "0.1.0"
 dependencies = [
@@ -4468,6 +4501,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
+ "rendiation-uri-data-hook",
  "rendiation-webgpu",
  "xalloc",
 ]

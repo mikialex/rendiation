@@ -13,6 +13,7 @@ members = [
   "utility/abstract-tree",
   "utility/abstract-graph",
   "utility/abstract-uri-data",
+  "utility/uri-data-hook",
   "utility/database",
   "utility/heap-tools",
   "utility/interning",

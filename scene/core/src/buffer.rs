@@ -2,8 +2,13 @@ use rendiation_mesh_core::BufferViewRange;
 
 use crate::*;
 
+pub type BufferEntityDataType = MaybeUriData<Arc<Vec<u8>>>;
 declare_entity!(BufferEntity);
-declare_component!(BufferEntityData, BufferEntity, ExternalRefPtr<Vec<u8>>);
+declare_component!(
+  BufferEntityData,
+  BufferEntity,
+  ExternalRefPtr<BufferEntityDataType>
+);
 
 impl EntityCustomWrite<BufferEntity> for Vec<u8> {
   type Writer = EntityWriter<BufferEntity>;
@@ -13,7 +18,8 @@ impl EntityCustomWrite<BufferEntity> for Vec<u8> {
   }
 
   fn write(self, writer: &mut Self::Writer) -> EntityHandle<BufferEntity> {
-    writer.new_entity(|w| w.write::<BufferEntityData>(&ExternalRefPtr::new(self)))
+    let data = MaybeUriData::Living(Arc::new(self));
+    writer.new_entity(|w| w.write::<BufferEntityData>(&ExternalRefPtr::new(data)))
   }
 }
 
@@ -30,11 +36,12 @@ impl EntityCustomWrite<BufferEntity> for AttributeAccessor {
     // for simplicity we clone out sub buffer, this should be improved
     // when improve this, make sure the attribute entities drop implementation should not be called
     // in some cases
-    writer.new_entity(|w| {
-      w.write::<BufferEntityData>(&ExternalRefPtr::new_shared(std::sync::Arc::new(
-        self.view.buffer.get(start..end).unwrap().to_vec(),
-      )))
-    })
+    let data = self.view.buffer.get(start..end).unwrap().to_vec();
+    let data = MaybeUriData::Living(Arc::new(data));
+    let data = Arc::new(data);
+    let data = ExternalRefPtr::new_shared(data);
+
+    writer.new_entity(|w| w.write::<BufferEntityData>(&data))
   }
 }
 

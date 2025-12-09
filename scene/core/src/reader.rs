@@ -108,14 +108,16 @@ impl SceneReader {
   pub fn read_sampler(&self, id: EntityHandle<SceneSamplerEntity>) -> TextureSampler {
     self.sampler.read::<SceneSamplerInfo>(id)
   }
-  pub fn read_texture(&self, id: EntityHandle<SceneTexture2dEntity>) -> GPUBufferImage {
-    self
+
+  pub fn read_texture(
+    &self,
+    id: EntityHandle<SceneTexture2dEntity>,
+  ) -> Option<&MaybeUriData<GPUBufferImage>> {
+    let tex = self
       .texture
-      .read::<SceneTexture2dEntityDirectContent>(id)
-      .unwrap()
-      .ptr
-      .as_ref()
-      .clone()
+      .try_read_ref::<SceneTexture2dEntityDirectContent>(id)?
+      .as_ref()?;
+    tex.ptr.as_ref().into()
   }
 
   pub fn read_unlit_material(
@@ -230,7 +232,9 @@ impl<T: SceneBufferView> SceneBufferViewReadView<T> {
     let range = self.range.get_value(id)?;
     let count = self.count.get_value(id)?;
     let data = self.buffer.get(id)?;
-    let data = buffer_reader.get(data)?.ptr.as_slice();
+
+    let data = buffer_reader.get(data)?;
+    let data = data.as_living()?.as_slice();
 
     if let Some(range) = range {
       let range = range.into_range(data.len());
@@ -258,7 +262,9 @@ pub fn scene_buffer_view_into_attribute(
   view: SceneBufferViewDataView,
   buffer: &ComponentReadView<BufferEntityData>,
 ) -> Option<AttributeAccessor> {
-  let buffer = buffer.get_value(view.data?)?.ptr.clone();
+  let data = buffer.get(view.data?)?;
+  let buffer = data.ptr.as_ref().clone().into_living()?;
+
   let range = view.range.unwrap_or_default();
   let count = view.count as usize;
 

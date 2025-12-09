@@ -1,5 +1,5 @@
 mod cube;
-use std::{ops::Deref, sync::Arc};
+use std::sync::Arc;
 
 pub use cube::*;
 mod d2_and_sampler;
@@ -106,7 +106,11 @@ pub fn use_pool_texture_system(
     .map_changes(move |v| {
       v.map(|v| {
         if require_convert {
-          Bool::from(v.format.is_srgb())
+          if let Some(v) = v.as_living() {
+            Bool::from(v.format.is_srgb())
+          } else {
+            Bool::from(false)
+          }
         } else {
           Bool::from(false)
         }
@@ -128,7 +132,7 @@ pub fn use_pool_texture_system(
 
   let packing_changes = cx
     .use_changes::<SceneTexture2dEntityDirectContent>()
-    .filter_map_changes(|tex| tex.map(|tex| tex.size))
+    .filter_map_changes(|tex| tex.map(|tex| tex.as_living().unwrap().size))
     .map_spawn_stage_in_thread(
       cx,
       |changes| changes.has_change(),
@@ -172,7 +176,7 @@ pub fn use_pool_texture_system(
       .unwrap_or_default(); // todo, bad
 
     let iter = content_changes.iter().filter_map(|(k, v)| {
-      let v = v.as_ref()?.deref();
+      let v = v.as_ref()?.as_living().unwrap();
       Some((*k, v))
     });
 

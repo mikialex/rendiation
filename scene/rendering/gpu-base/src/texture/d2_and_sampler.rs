@@ -28,11 +28,15 @@ pub fn use_gpu_texture_2ds(
 
       move |tex| {
         if let Some(tex) = tex {
-          create_gpu_texture2d_with_mipmap(
-            &mipmap_cx.gpu,
-            mipmap_cx.encoder.as_mut().unwrap(),
-            &tex,
-          )
+          if let Some(tex) = tex.as_living() {
+            create_gpu_texture2d_with_mipmap(
+              &mipmap_cx.gpu,
+              mipmap_cx.encoder.as_mut().unwrap(),
+              tex,
+            )
+          } else {
+            todo!()
+          }
         } else {
           default.clone()
         }

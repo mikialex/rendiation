@@ -15,6 +15,7 @@ parking_lot = { workspace = true }
 hook = { path = "../../../utility/hook" }
 query-hook = { path = "../../../utility/query-hook" }
 database = { path = "../../../utility/database" }
+rendiation-uri-data-hook = { path = "../../../utility/uri-data-hook" }
 futures = { workspace = true }
 xalloc = "0.2.7"
 

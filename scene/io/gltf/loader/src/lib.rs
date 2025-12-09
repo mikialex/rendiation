@@ -693,7 +693,8 @@ fn build_image(
   let size =
     rendiation_texture_core::Size::from_u32_pair_min_one((data_input.width, data_input.height));
 
-  let image = ExternalRefPtr::new(GPUBufferImage { data, format, size });
+  let image = MaybeUriData::Living(GPUBufferImage { data, format, size });
+  let image = ExternalRefPtr::new(image);
   io.tex_writer
     .new_entity(|w| w.write::<SceneTexture2dEntityDirectContent>(&image.into()))
 }

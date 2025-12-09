@@ -66,6 +66,8 @@ impl Drop for BlasInstanceInternal {
   }
 }
 
+const INFO: &str = "the current impl not support uri data for acceleration structure";
+
 // Key: AttributesMeshEntity
 pub fn use_attribute_mesh_to_blas(
   cx: &mut QueryGPUHookCx,
@@ -82,6 +84,7 @@ pub fn use_attribute_mesh_to_blas(
       let buffer_accessor = get_db_view::<BufferEntityData>();
       move |_, position| {
         let position_buffer = buffer_accessor.access(&position.0.unwrap()).unwrap();
+        let position_buffer = position_buffer.as_living().expect(INFO);
         let position_buffer = get_sub_buffer(position_buffer.as_slice(), position.1);
         let position_buffer = bytemuck::cast_slice(position_buffer);
 
@@ -108,10 +111,12 @@ pub fn use_attribute_mesh_to_blas(
       let buffer_accessor = get_db_view::<BufferEntityData>();
       move |_, (position, (index_buffer, index_range, index_count))| {
         let position_buffer = buffer_accessor.access(&position.0.unwrap()).unwrap();
+        let position_buffer = position_buffer.as_living().expect(INFO);
         let position_buffer = get_sub_buffer(position_buffer.as_slice(), position.1);
         let position_buffer = bytemuck::cast_slice(position_buffer);
 
         let index_buffer = buffer_accessor.access(&index_buffer).unwrap();
+        let index_buffer = index_buffer.as_living().expect(INFO);
         let index = get_sub_buffer(index_buffer.as_slice(), index_range);
 
         let count = index_count as usize;
