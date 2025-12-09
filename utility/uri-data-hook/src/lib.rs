@@ -11,53 +11,89 @@ use query::*;
 use query_hook::*;
 pub use rendiation_abstract_uri_data::*;
 
+/// this trait is to reserve the design space for virtualization related scheduling logic
+pub trait AbstractSourceScheduler: Send + Sync + 'static {
+  type Data;
+  type Key;
+
+  fn notify_use_resource(&mut self, key: &Self::Key, uri: &str);
+  fn notify_remove_resource(&mut self, key: &Self::Key);
+
+  fn poll_schedule(&mut self, cx: &mut Context) -> Vec<(Self::Key, Self::Data)>;
+}
+
+/// the basic implementation is load what your request to load
+pub struct NoScheduleScheduler<K: CKey, V> {
+  pub futures: MappedFutures<K, Box<dyn Future<Output = Option<V>> + Send + Sync + Unpin>>,
+  pub data_source: Box<dyn UriDataSourceDyn<V>>,
+}
+
+impl<K: CKey, V: CValue> AbstractSourceScheduler for NoScheduleScheduler<K, V> {
+  type Data = V;
+  type Key = K;
+
+  fn notify_use_resource(&mut self, key: &Self::Key, uri: &str) {
+    let future = self.data_source.request_uri_data_load(uri);
+    self.futures.replace(key.clone(), future);
+  }
+
+  fn notify_remove_resource(&mut self, key: &Self::Key) {
+    self.futures.remove(key);
+  }
+
+  fn poll_schedule(&mut self, cx: &mut Context) -> Vec<(Self::Key, Self::Data)> {
+    let mut loaded_list = Vec::new();
+    while let Poll::Ready(Some((key, loaded))) = self.futures.poll_next_unpin(cx) {
+      if let Some(loaded) = loaded {
+        loaded_list.push((key, loaded))
+      }
+    }
+
+    loaded_list
+  }
+}
+
 pub trait AbstractUriHookCx: QueryHookCxLike {
-  fn uri_source<P: UriProvider>(&mut self) -> Arc<RwLock<dyn UriDataSourceDyn<P::Data>>>;
+  fn uri_source<P: AbstractSourceScheduler>(&mut self) -> Arc<RwLock<P>>;
 
   fn use_maybe_uri_data_changes<P, C>(
     &mut self,
     changes: UseResult<C>,
   ) -> UseResult<impl DataChanges<Value = P::Data>>
   where
-    P: UriProvider,
-    C: DataChanges<Value = MaybeUriData<P::Data>> + 'static,
+    P: AbstractSourceScheduler,
+    C: DataChanges<Key = P::Key, Value = MaybeUriData<P::Data>> + 'static,
     P::Data: CValue,
   {
-    let data_source = self.uri_source::<P>();
-    let (_, futures) = self.use_plain_state_default_cloned::<Arc<
-      RwLock<
-        MappedFutures<C::Key, Box<dyn Future<Output = Option<P::Data>> + Send + Sync + Unpin>>,
-      >,
-    >>();
+    let data_scheduler = self.uri_source::<P>();
 
     let waker = self.waker().clone();
 
-    changes.map(move |changes| {
-      let mut data_source = data_source.write(); // todo, this may deadlock
-      let mut futures = futures.write();
-      let futures = &mut *futures;
-      // do cancelling first
-      for removed in changes.iter_removed() {
-        futures.remove(&removed);
-      }
+    changes.map_spawn_stage_in_thread(
+      self,
+      |changes| changes.has_change(),
+      move |changes| {
+        // todo, we should use some async lock to avoid blocking
+        let mut data_scheduler = data_scheduler.write();
 
-      // although the changes insert list may duplicate, it is not a problem
-      for (k, v) in changes.iter_update_or_insert() {
-        if let MaybeUriData::Uri(uri) = v {
-          let fut = data_source.request_uri_data_load(&uri);
-          futures.replace(k, fut);
+        // do cancelling first
+        // the futures should not resolved in poll next call
+        for removed in changes.iter_removed() {
+          data_scheduler.notify_remove_resource(&removed);
         }
-      }
 
-      let mut loaded_list = Vec::new();
-      let mut ctx = Context::from_waker(&waker);
-      while let Poll::Ready(Some((key, loaded))) = futures.poll_next_unpin(&mut ctx) {
-        if let Some(loaded) = loaded {
-          loaded_list.push((key, loaded))
+        // although the changes insert list may duplicate, it is not a problem but will have some performance cost
+        for (k, v) in changes.iter_update_or_insert() {
+          if let MaybeUriData::Uri(uri) = v {
+            data_scheduler.notify_use_resource(&k, &uri);
+          }
         }
-      }
 
-      changes.collective_filter_map(|v| v.into_living()) // todo, append loaded_list
-    })
+        let mut ctx = Context::from_waker(&waker);
+        let loading = data_scheduler.poll_schedule(&mut ctx);
+
+        changes.collective_filter_map(|v| v.into_living()) // todo, append loaded_list
+      },
+    )
   }
 }

@@ -78,7 +78,7 @@ impl InspectableCx for QueryGPUHookCx<'_> {
 }
 
 impl AbstractUriHookCx for QueryGPUHookCx<'_> {
-  fn uri_source<P: UriProvider>(&mut self) -> Arc<RwLock<dyn UriDataSourceDyn<P::Data>>> {
+  fn uri_source<P: AbstractSourceScheduler>(&mut self) -> Arc<RwLock<P>> {
     todo!()
   }
 }
