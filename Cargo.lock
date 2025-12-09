@@ -3580,6 +3580,15 @@ name = "rendiation-abstract-tree"
 version = "0.0.1"
 
 [[package]]
+name = "rendiation-abstract-uri-data"
+version = "0.0.1"
+dependencies = [
+ "facet",
+ "fast-hash-collection",
+ "serde",
+]
+
+[[package]]
 name = "rendiation-algebra"
 version = "1.0.0"
 dependencies = [
@@ -4057,6 +4066,7 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "pin-project",
+ "rendiation-abstract-uri-data",
  "rendiation-algebra",
  "rendiation-animation",
  "rendiation-geometry",
