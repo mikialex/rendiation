@@ -149,6 +149,8 @@ pub trait SceneModelRenderer {
 
 #[derive(thiserror::Error, Debug)]
 pub enum UnableToRenderSceneModelError {
+  #[error("unable to access mesh draw command, maybe the mesh buffer is failed to allocate")]
+  MeshBufferFailedGetDrawCommand,
   #[error("failed to find model renderer impl for: {model_id} the sub tries are: {tried:?}")]
   UnableToFindImpl {
     model_id: EntityHandle<SceneModelEntity>,

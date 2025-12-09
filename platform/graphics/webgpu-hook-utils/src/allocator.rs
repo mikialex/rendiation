@@ -64,6 +64,8 @@ impl BatchAllocateResultShared {
   }
 }
 
+pub const DEVICE_RANGE_ALLOCATE_FAIL_MARKER: u32 = u32::MAX;
+
 impl DataChanges for BatchAllocateResultShared {
   type Key = UserHandle;
   type Value = [u32; 2];
@@ -90,11 +92,13 @@ impl DataChanges for BatchAllocateResultShared {
       .new_data_to_write
       .iter()
       .map(move |(k, v)| (*k, [v.0 * u32_per_item, v.1 * u32_per_item]));
+
+    // note, return count 0 for failed_to_allocate case is important
     let failed = self
       .0
       .failed_to_allocate
       .iter()
-      .map(|k| (*k, [u32::MAX, 0]));
+      .map(|k| (*k, [DEVICE_RANGE_ALLOCATE_FAIL_MARKER, 0]));
 
     movements.chain(new).chain(failed)
   }

@@ -363,15 +363,20 @@ impl ShaderHashProvider for WideLineDrawCreator {
 }
 
 impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
-  fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand {
+  fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let model = self.sm_to_wide.get(id).unwrap();
     let param = self.params_host.get(model.alloc_index()).unwrap();
     let seg_count = param.data_range.y / WideLineVertexStorage::u32_size();
+
+    if param.data_range.x == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {
+      return None;
+    }
 
     DrawCommand::Array {
       instances: 0..1,
       vertices: 0..18 * seg_count,
     }
+    .into()
   }
 
   fn build_invocation(
@@ -403,6 +408,7 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
     draw_id: Node<u32>, // aka sm id
   ) -> Node<DrawIndirectArgsStorage> {
     let line_id = self.sm_to_wide_line_device.index(draw_id).load();
+    // the implementation of range allocate assure the count is zero if allocation failed
     let seg_count =
       self.params.index(line_id).data_range().load().y() / val(WideLineVertexStorage::u32_size());
 

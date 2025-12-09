@@ -15,7 +15,10 @@ pub enum DrawCommandBuilder {
 }
 
 impl DrawCommandBuilder {
-  pub fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand {
+  pub fn draw_command_host_access(
+    &self,
+    id: EntityHandle<SceneModelEntity>,
+  ) -> Option<DrawCommand> {
     match self {
       DrawCommandBuilder::Indexed(builder) => builder.draw_command_host_access(id),
       DrawCommandBuilder::NoneIndexed(builder) => builder.draw_command_host_access(id),

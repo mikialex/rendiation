@@ -14,19 +14,19 @@ impl IndirectSceneRenderer {
 
     let content = classifier
       .values()
-      .map(|list| {
-        let one_id = *list.first().unwrap();
-
-        let draw_cmd_builder = self.renderer.make_draw_command_builder(one_id).unwrap();
-
-        let first_cmd = draw_cmd_builder.draw_command_host_access(one_id);
+      .filter_map(|list| {
+        let (one_id, first_cmd, draw_cmd_builder) = list.iter().find_map(|id| {
+          let draw_cmd_builder = self.renderer.make_draw_command_builder(*id).unwrap();
+          let first_cmd = draw_cmd_builder.draw_command_host_access(*id);
+          first_cmd.map(|c| (id, c, draw_cmd_builder))
+        })?;
 
         let batch = match first_cmd {
           DrawCommand::Indexed { .. } => {
             let cmds = list
               .iter()
-              .map(|id| {
-                let cmd = draw_cmd_builder.draw_command_host_access(*id);
+              .filter_map(|id| {
+                let cmd = draw_cmd_builder.draw_command_host_access(*id)?;
                 if let DrawCommand::Indexed {
                   base_vertex,
                   indices,
@@ -40,6 +40,7 @@ impl IndirectSceneRenderer {
                     base_vertex,
                     id.alloc_index(),
                   )
+                  .into()
                 } else {
                   unreachable!()
                 }
@@ -51,8 +52,8 @@ impl IndirectSceneRenderer {
           DrawCommand::Array { .. } => {
             let cmds = list
               .iter()
-              .map(|id| {
-                let cmd = draw_cmd_builder.draw_command_host_access(*id);
+              .filter_map(|id| {
+                let cmd = draw_cmd_builder.draw_command_host_access(*id)?;
                 if let DrawCommand::Array {
                   instances,
                   vertices,
@@ -64,6 +65,7 @@ impl IndirectSceneRenderer {
                     vertices.start,
                     id.alloc_index(),
                   )
+                  .into()
                 } else {
                   unreachable!()
                 }
@@ -83,7 +85,7 @@ impl IndirectSceneRenderer {
 
         let provider = HostDrivenIndirectProvider { helper, cmd };
 
-        (Box::new(provider) as Box<dyn IndirectDrawProvider>, one_id)
+        (Box::new(provider) as Box<dyn IndirectDrawProvider>, *one_id).into()
       })
       .collect();
 

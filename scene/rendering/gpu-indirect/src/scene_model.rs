@@ -111,7 +111,8 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
     let cmd = self
       .make_draw_command_builder(idx)
       .unwrap()
-      .draw_command_host_access(idx);
+      .draw_command_host_access(idx)
+      .ok_or(UnableToRenderSceneModelError::MeshBufferFailedGetDrawCommand)?;
 
     struct SingleModelImmediateDraw {
       scene_model_id: UniformBufferDataView<u32>,

@@ -1,7 +1,7 @@
 use crate::*;
 
 pub trait IndexedDrawCommandBuilder: ShaderHashProvider + DynClone {
-  fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand;
+  fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand>;
   fn build_invocation(
     &self,
     cx: &mut ShaderComputePipelineBuilder,
@@ -12,6 +12,9 @@ pub trait IndexedDrawCommandBuilder: ShaderHashProvider + DynClone {
 dyn_clone::clone_trait_object!(IndexedDrawCommandBuilder);
 
 pub trait IndexedDrawCommandBuilderInvocation {
+  /// the implementation must generate an empty drawcall for mesh not allocated case
+  ///
+  /// we don't use another compact stream pass because it's costly
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // aka sm id

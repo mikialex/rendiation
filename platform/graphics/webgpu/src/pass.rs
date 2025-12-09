@@ -273,7 +273,6 @@ impl GPURenderPass {
         vertices,
         instances,
       } => self.draw(vertices, instances),
-      DrawCommand::Skip => {}
       DrawCommand::Indirect {
         indirect_buffer,
         indexed,
@@ -341,7 +340,6 @@ pub enum DrawCommand {
     indirect_count: GPUBufferResourceView,
     max_count: u32,
   },
-  Skip,
 }
 
 pub struct GPUComputePass {
