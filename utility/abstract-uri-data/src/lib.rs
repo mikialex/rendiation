@@ -103,7 +103,3 @@ impl<T: 'static + Send + Sync + Clone> UriDataSource<T> for InMemoryUriDataSourc
     // do nothing
   }
 }
-
-pub trait UriProvider {
-  type Data;
-}
