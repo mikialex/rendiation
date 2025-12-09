@@ -78,7 +78,7 @@ impl InspectableCx for QueryGPUHookCx<'_> {
 }
 
 impl AbstractUriHookCx for QueryGPUHookCx<'_> {
-  fn uri_source<P: AbstractSourceScheduler>(&mut self) -> Arc<RwLock<P>> {
+  fn uri_source<P: AbstractResourceScheduler>(&mut self) -> Arc<RwLock<P>> {
     todo!()
   }
 }

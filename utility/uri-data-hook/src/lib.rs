@@ -12,14 +12,15 @@ use query_hook::*;
 pub use rendiation_abstract_uri_data::*;
 
 /// this trait is to reserve the design space for virtualization related scheduling logic
-pub trait AbstractSourceScheduler: Send + Sync + 'static {
+pub trait AbstractResourceScheduler: Send + Sync + 'static {
   type Data;
   type Key;
 
   fn notify_use_resource(&mut self, key: &Self::Key, uri: &str);
   fn notify_remove_resource(&mut self, key: &Self::Key);
 
-  fn poll_schedule(&mut self, cx: &mut Context) -> Vec<(Self::Key, Self::Data)>;
+  /// the consumer must do dropping first, to make sure the peak memory usage is in bound
+  fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data>;
 }
 
 /// the basic implementation is load what your request to load
@@ -28,7 +29,7 @@ pub struct NoScheduleScheduler<K: CKey, V> {
   pub data_source: Box<dyn UriDataSourceDyn<V>>,
 }
 
-impl<K: CKey, V: CValue> AbstractSourceScheduler for NoScheduleScheduler<K, V> {
+impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V> {
   type Data = V;
   type Key = K;
 
@@ -41,29 +42,34 @@ impl<K: CKey, V: CValue> AbstractSourceScheduler for NoScheduleScheduler<K, V> {
     self.futures.remove(key);
   }
 
-  fn poll_schedule(&mut self, cx: &mut Context) -> Vec<(Self::Key, Self::Data)> {
-    let mut loaded_list = Vec::new();
+  fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data> {
+    let mut load_list = Vec::new();
     while let Poll::Ready(Some((key, loaded))) = self.futures.poll_next_unpin(cx) {
       if let Some(loaded) = loaded {
-        loaded_list.push((key, loaded))
+        load_list.push((key, loaded))
       }
     }
 
-    loaded_list
+    LinearBatchChanges {
+      removed: Vec::new(), // this can be empty, because it will removed by caller anyway
+      update_or_insert: load_list,
+    }
   }
 }
 
 pub trait AbstractUriHookCx: QueryHookCxLike {
-  fn uri_source<P: AbstractSourceScheduler>(&mut self) -> Arc<RwLock<P>>;
+  fn uri_source<P: AbstractResourceScheduler>(&mut self) -> Arc<RwLock<P>>;
 
+  // todo, optimize impl
   fn use_maybe_uri_data_changes<P, C>(
     &mut self,
     changes: UseResult<C>,
   ) -> UseResult<impl DataChanges<Value = P::Data>>
   where
-    P: AbstractSourceScheduler,
+    P: AbstractResourceScheduler,
     C: DataChanges<Key = P::Key, Value = MaybeUriData<P::Data>> + 'static,
     P::Data: CValue,
+    P::Key: CKey,
   {
     let data_scheduler = self.uri_source::<P>();
 
@@ -76,23 +82,38 @@ pub trait AbstractUriHookCx: QueryHookCxLike {
         // todo, we should use some async lock to avoid blocking
         let mut data_scheduler = data_scheduler.write();
 
+        let mut all_removed = Vec::new();
         // do cancelling first
         // the futures should not resolved in poll next call
         for removed in changes.iter_removed() {
           data_scheduler.notify_remove_resource(&removed);
+          all_removed.push(removed);
         }
+
+        let mut new_inserted = Vec::new();
 
         // although the changes insert list may duplicate, it is not a problem but will have some performance cost
         for (k, v) in changes.iter_update_or_insert() {
-          if let MaybeUriData::Uri(uri) = v {
-            data_scheduler.notify_use_resource(&k, &uri);
+          match v {
+            MaybeUriData::Uri(uri) => {
+              data_scheduler.notify_use_resource(&k, &uri);
+            }
+            MaybeUriData::Living(v) => {
+              new_inserted.push((k, v));
+            }
           }
         }
 
         let mut ctx = Context::from_waker(&waker);
         let loading = data_scheduler.poll_schedule(&mut ctx);
 
-        changes.collective_filter_map(|v| v.into_living()) // todo, append loaded_list
+        new_inserted.extend(loading.update_or_insert);
+        all_removed.extend(loading.removed);
+
+        LinearBatchChanges {
+          removed: all_removed,
+          update_or_insert: new_inserted,
+        }
       },
     )
   }
