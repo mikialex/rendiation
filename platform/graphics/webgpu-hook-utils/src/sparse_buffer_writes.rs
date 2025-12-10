@@ -104,7 +104,8 @@ impl SparseBufferWritesSource {
       for [_, write_size, target_offset] in self.offset_size.iter().array_chunks::<3>() {
         max_write_size = max_write_size.max(write_size + target_offset);
       }
-      assert!(max_write_size <= u64::from(target_buffer.view_byte_size()) as u32 / 4);
+      let target_buffer_u32_size = u64::from(target_buffer.view_byte_size()) as u32 / 4;
+      assert!(max_write_size <= target_buffer_u32_size, "potential forget to resize target, target size: {target_buffer_u32_size}, max write size: {max_write_size}");
     }
 
     // enable this to debug <update has overlap> bug

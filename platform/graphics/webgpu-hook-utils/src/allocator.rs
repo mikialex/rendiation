@@ -220,8 +220,10 @@ impl GrowableRangeAllocator {
     }
 
     for k in &result.failed_to_allocate {
-      let (count, _, _) = self.ranges.remove(k).unwrap();
-      self.used_count -= count;
+      // the failed allocated key may also failed to allocated before
+      if let Some((count, _, _)) = self.ranges.remove(k) {
+        self.used_count -= count;
+      }
     }
 
     result
@@ -326,12 +328,15 @@ impl RangeAllocateBufferCollector {
     let mut offset_size = Vec::with_capacity(self.small_buffer_mapping.len() * 3);
 
     for (k, (offset, size)) in self.small_buffer_mapping {
-      offset_size.push(offset as u32);
-      offset_size.push(size as u32);
-      let write_offset = allocation_changes.new_data_to_write.get(&k).unwrap().0;
-      assert_eq!(write_offset * alloc_unit_item_byte_size % 4, 0);
-      let write_offset = write_offset * alloc_unit_item_byte_size / 4;
-      offset_size.push(write_offset);
+      // allocation may fail
+      if let Some((write_offset, _)) = allocation_changes.new_data_to_write.get(&k) {
+        offset_size.push(offset as u32);
+        offset_size.push(size as u32);
+
+        assert_eq!(write_offset * alloc_unit_item_byte_size % 4, 0);
+        let write_offset = write_offset * alloc_unit_item_byte_size / 4;
+        offset_size.push(write_offset);
+      }
     }
 
     let small_buffer_writes = SparseBufferWritesSource {
@@ -370,9 +375,8 @@ impl RangeAllocateBufferUpdates {
       .small_buffer_writes
       .write_abstract(gpu, encoder, target);
 
-    for (k, (write_offset, size)) in &self.allocation_changes.0.new_data_to_write {
-      let large = &self.buffers_to_write.large_buffer_writes;
-      if let Some((buffer, range)) = large.get(k) {
+    for (k, (buffer, range)) in &self.buffers_to_write.large_buffer_writes {
+      if let Some((write_offset, size)) = self.allocation_changes.0.new_data_to_write.get(k) {
         let buffer = if let Some(range) = range {
           &buffer[range.clone()]
         } else {
