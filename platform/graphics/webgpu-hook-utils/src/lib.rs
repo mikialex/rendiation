@@ -9,7 +9,6 @@ use fast_hash_collection::*;
 use parking_lot::RwLock;
 pub use query_hook::*;
 use rendiation_shader_api::*;
-use rendiation_uri_data_hook::*;
 use rendiation_webgpu::*;
 
 mod hook;
