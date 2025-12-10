@@ -13,7 +13,6 @@ rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-texture-packer = { path = "../packer" }
 rendiation-texture-core = { path = "../core" }
 rendiation-texture-gpu-base = { path = "../gpu-base" }
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 dyn-clone = { workspace = true }
 serde = { workspace = true }
 log = { workspace = true }

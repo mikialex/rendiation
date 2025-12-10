@@ -1,5 +1,5 @@
 mod cube;
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 pub use cube::*;
 mod d2_and_sampler;
@@ -159,31 +159,35 @@ pub fn use_pool_texture_system(
 
   let content_changes = cx
     .use_changes::<SceneTexture2dEntityDirectContent>()
-    .filter_map_changes(|v| v.map(|v| v.ptr))
     .use_assure_result(cx);
 
-  let content_view = get_db_view_uncheck_access::<SceneTexture2dEntityDirectContent>();
   let packing_changes_ = packing_changes_.use_assure_result(cx);
   if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
     let packer = packer.write();
     let packing_changes = packing_changes_.into_resolve_stage();
     let content_changes = content_changes.into_resolve_stage();
+
+    let content_changes = content_changes
+      .map(|change| change.iter_update_or_insert().collect::<Vec<_>>())
+      .unwrap_or_default(); // todo, bad
+
+    let iter = content_changes.iter().filter_map(|(k, v)| {
+      let v = v.as_ref()?.deref();
+      Some((*k, v))
+    });
+
     update_atlas(
       &gpu,
       encoder,
       &mut _atlas.write(),
       TEXTURE_POOL_FORMAT,
-      |id| packer.access(&id).unwrap(),
+      packer.current_size(),
       packing_changes
         .map(|v| (v.as_ref().clone()).into_iter())
         .into_iter()
         .flatten(), // todo, bad
-      |id| content_view.access(&id).unwrap().unwrap().ptr,
-      content_changes
-        .map(|change| change.iter_update_or_insert().collect::<Vec<_>>()) // todo, bad
-        .into_iter()
-        .flatten(),
-      packer.current_size(),
+      iter,
+      |id| packer.access(&id).unwrap(),
     );
   }
 

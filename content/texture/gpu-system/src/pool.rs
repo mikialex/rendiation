@@ -1,10 +1,9 @@
 use std::borrow::Cow;
 
-use fast_hash_collection::FastHashSet;
 use rendiation_shader_library::color::shader_srgb_to_linear_convert_fn;
 use rendiation_texture_core::*;
 pub use rendiation_texture_packer::pack_2d_to_3d::MultiLayerTexturePackerConfig;
-use rendiation_texture_packer::pack_2d_to_3d::*;
+use rendiation_texture_packer::{pack_2d_to_2d::PackResult2d, pack_2d_to_3d::*};
 
 use crate::*;
 
@@ -127,19 +126,20 @@ pub struct TexturePoolSourceInit {
   pub atlas_config: MultiLayerTexturePackerConfig,
 }
 
-pub fn update_atlas(
+pub fn update_atlas<'a>(
   gpu: &GPU,
   encoder: &mut GPUCommandEncoder,
   atlas: &mut Option<GPU2DArrayTextureView>,
   format: TextureFormat,
-  current_pack: impl Fn(u32) -> Option<PackResult2dWithDepth>,
-  packing_change: impl Iterator<Item = (u32, ValueChange<Option<PackResult2dWithDepth>>)>,
-  tex_input_current: impl Fn(u32) -> Arc<GPUBufferImage>,
-  tex_source_change: impl Iterator<Item = (u32, Arc<GPUBufferImage>)>,
   size_request: SizeWithDepth,
+  packing_change: impl Iterator<Item = (u32, ValueChange<Option<PackResult2dWithDepth>>)>,
+  tex_source_change: impl Iterator<Item = (u32, &'a GPUBufferImage)>,
+  current_pack: impl Fn(u32) -> Option<PackResult2dWithDepth>,
 ) {
+  let mut old_atlas = None;
   if let Some(a) = atlas {
     if a.resource.desc.size != size_request.into_gpu_size() {
+      old_atlas = a.clone().into();
       *atlas = None;
     }
   }
@@ -155,6 +155,7 @@ pub fn update_atlas(
         format,
         view_formats: &[],
         usage: TextureUsages::COPY_DST
+          | TextureUsages::COPY_SRC
           | TextureUsages::TEXTURE_BINDING
           | TextureUsages::RENDER_ATTACHMENT,
       },
@@ -169,43 +170,84 @@ pub fn update_atlas(
     .unwrap()
   });
 
-  let mut changed_set = FastHashSet::default();
-
   let should_normalize_srgb = gpu.info().adaptor_info.backend == Backend::Gl;
 
-  for (id, new_tex) in tex_source_change {
-    changed_set.insert(id);
-    if let Some(current_pack) = current_pack(id) {
-      // pack may failed, in this case we do nothing
-      if let Some(tex) = normalize_format(&new_tex, should_normalize_srgb) {
-        let tex = create_gpu_texture2d_with_mipmap(gpu, encoder, &tex);
-        copy_tex(encoder, &tex, &target.resource, &current_pack);
+  // we must handle all movement first, because new texture write in new packed area may
+  // override the old packed area
+  for (_, change) in packing_change {
+    // extract the movement case
+    if let ValueChange::Delta(Some(new), Some(Some(previous))) = change {
+      if let Some(old_atlas) = &old_atlas {
+        // copy from old atlas to new atlas
+        copy_tex(
+          encoder,
+          &old_atlas.resource,
+          &target.resource,
+          &previous,
+          &new,
+        );
+      } else {
+        // this code path should rarely hit, but we will not assume the allocator's repack behavior at here.
+        //
+        // copy from new atlas to new atlas
+        // in this case we must do an temp copy.
+        //
+        // todo, we could find the max temp size and reuse the temp texture
+        let temp_texture = GPUTexture::create(
+          TextureDescriptor {
+            label: "texture-copy-temp-buffer".into(),
+            size: previous.result.range.size.into_gpu_size(),
+            mip_level_count: MipLevelCount::BySize.get_level_count_wgpu(previous.result.range.size),
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format,
+            view_formats: &[],
+            usage: TextureUsages::COPY_DST | TextureUsages::COPY_SRC,
+          },
+          &gpu.device,
+        );
+        let temp_origin = create_zero_origin_pack_info(previous.result.range.size);
+        copy_tex(
+          encoder,
+          &target.resource,
+          &temp_texture,
+          &previous,
+          &temp_origin,
+        );
+        copy_tex(encoder, &temp_texture, &target.resource, &temp_origin, &new);
       }
     }
   }
+  drop(old_atlas);
 
-  for (id, change) in packing_change {
-    match change {
-      ValueChange::Delta(new_pack, _) => {
-        let mut tex_has_recreated = false;
-        if changed_set.contains(&id) {
-          tex_has_recreated = true;
-        }
-
-        // if texture has already created as new texture, we skip the move operation
-        if !tex_has_recreated {
-          let tex = tex_input_current(id);
-          // tex maybe removed
-          if let Some(new_pack) = new_pack {
-            if let Some(tex) = normalize_format(&tex, should_normalize_srgb) {
-              let tex = create_gpu_texture2d_with_mipmap(gpu, encoder, &tex);
-              copy_tex(encoder, &tex, &target.resource, &new_pack);
-            }
-          }
-        }
+  for (id, new_tex) in tex_source_change {
+    if let Some(current_pack) = current_pack(id) {
+      // pack may failed, in this case we do nothing
+      if let Some(tex) = normalize_format(new_tex, should_normalize_srgb) {
+        let tex = create_gpu_texture2d_with_mipmap(gpu, encoder, &tex);
+        let src_pack = create_zero_origin_pack_info(current_pack.result.range.size);
+        copy_tex(
+          encoder,
+          &tex.resource,
+          &target.resource,
+          &src_pack,
+          &current_pack,
+        );
       }
-      ValueChange::Remove(_) => {}
     }
+  }
+}
+
+fn create_zero_origin_pack_info(size: Size) -> PackResult2dWithDepth {
+  PackResult2dWithDepth {
+    result: PackResult2d {
+      range: TextureRange {
+        origin: TextureOrigin::zero(),
+        size,
+      },
+      rotated: false,
+    },
+    depth: 0,
   }
 }
 
@@ -263,35 +305,38 @@ fn normalize_format(tex: &GPUBufferImage, normalize_srgb: bool) -> Option<Cow<'_
 
 fn copy_tex(
   encoder: &mut CommandEncoder,
-  src: &GPU2DTextureView,
+  src: &GPUTexture,
   target: &GPUTexture,
+  src_pack: &PackResult2dWithDepth,
   pack: &PackResult2dWithDepth,
 ) {
+  assert_eq!(src_pack.result.range.size, pack.result.range.size);
+  let (width, height) = src_pack.result.range.size.into_u32();
   // note, here we use smaller size, which is different from spec, but simplify the implementation
-  let smaller_length = src
-    .resource
-    .desc
-    .size
-    .width
-    .min(src.resource.desc.size.height);
+  let smaller_length = width.min(height);
   let max_mipmap_level = 32 - smaller_length.leading_zeros();
 
   for mip_level in 0..max_mipmap_level {
-    copy_tex_level(encoder, src, target, pack, mip_level);
+    copy_tex_level(encoder, src, target, src_pack, pack, mip_level);
   }
 }
 
 fn copy_tex_level(
   encoder: &mut CommandEncoder,
-  src: &GPU2DTextureView,
+  src: &GPUTexture,
   target: &GPUTexture,
+  src_pack: &PackResult2dWithDepth,
   pack: &PackResult2dWithDepth,
   mip_level: u32,
 ) {
   let source = TexelCopyTextureInfo {
-    texture: src.resource.gpu_resource(),
+    texture: src.gpu_resource(),
     mip_level,
-    origin: Origin3d::ZERO,
+    origin: Origin3d {
+      x: src_pack.result.range.origin.x as u32 >> mip_level,
+      y: src_pack.result.range.origin.y as u32 >> mip_level,
+      z: src_pack.depth,
+    },
     aspect: TextureAspect::All,
   };
 
@@ -306,12 +351,10 @@ fn copy_tex_level(
     aspect: TextureAspect::All,
   };
 
-  let width = src.resource.desc.size.width >> mip_level;
-  let height = src.resource.desc.size.height >> mip_level;
-
+  let (width, height) = src_pack.result.range.size.into_u32();
   let copy_size = Extent3d {
-    width,
-    height,
+    width: width >> mip_level,
+    height: height >> mip_level,
     depth_or_array_layers: 1,
   };
 
