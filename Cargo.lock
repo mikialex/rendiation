@@ -919,9 +919,11 @@ dependencies = [
  "facet",
  "fast-hash-collection",
  "futures",
+ "mapped_futures",
  "parking_lot",
  "query",
  "query-hook",
+ "rendiation-abstract-uri-data",
  "rmp-serde",
  "serde",
  "smallvec",
@@ -4438,18 +4440,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-uri-data-hook"
-version = "0.0.1"
-dependencies = [
- "futures",
- "mapped_futures",
- "parking_lot",
- "query",
- "query-hook",
- "rendiation-abstract-uri-data",
-]
-
-[[package]]
 name = "rendiation-view-override-model"
 version = "0.1.0"
 dependencies = [
@@ -4501,7 +4491,6 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
- "rendiation-uri-data-hook",
  "rendiation-webgpu",
  "xalloc",
 ]

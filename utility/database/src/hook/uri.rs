@@ -1,5 +1,6 @@
 use std::{
   future::Future,
+  ops::Deref,
   sync::Arc,
   task::{Context, Poll},
 };
@@ -10,6 +11,8 @@ use parking_lot::RwLock;
 use query::*;
 use query_hook::*;
 pub use rendiation_abstract_uri_data::*;
+
+use crate::ExternalRefPtr;
 
 /// this trait is to reserve the design space for virtualization related scheduling logic
 pub trait AbstractResourceScheduler: Send + Sync + 'static {
@@ -57,64 +60,65 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V>
   }
 }
 
-pub trait AbstractUriHookCx: QueryHookCxLike {
-  fn uri_source<P: AbstractResourceScheduler>(&mut self) -> Arc<RwLock<P>>;
+// todo, optimize impl
+pub fn use_maybe_uri_data_changes<P, C>(
+  cx: &mut impl QueryHookCxLike,
+  changes: UseResult<C>,
+  scheduler: &Arc<RwLock<P>>,
+) -> UseResult<LinearBatchChanges<P::Key, Option<P::Data>>>
+where
+  P: AbstractResourceScheduler,
+  C: DataChanges<Key = P::Key, Value = Option<ExternalRefPtr<MaybeUriData<P::Data>>>> + 'static,
+  P::Data: CValue,
+  P::Key: CKey,
+{
+  let scheduler = scheduler.clone();
+  let waker = cx.waker().clone();
 
-  // todo, optimize impl
-  fn use_maybe_uri_data_changes<P, C>(
-    &mut self,
-    changes: UseResult<C>,
-  ) -> UseResult<impl DataChanges<Value = P::Data>>
-  where
-    P: AbstractResourceScheduler,
-    C: DataChanges<Key = P::Key, Value = MaybeUriData<P::Data>> + 'static,
-    P::Data: CValue,
-    P::Key: CKey,
-  {
-    let data_scheduler = self.uri_source::<P>();
+  changes.map_spawn_stage_in_thread(
+    cx,
+    |changes| changes.has_change(),
+    move |changes| {
+      // todo, we should use some async lock to avoid blocking
+      let mut scheduler = scheduler.write();
 
-    let waker = self.waker().clone();
+      let mut all_removed = Vec::new();
+      // do cancelling first
+      // the futures should not resolved in poll next call
+      for removed in changes.iter_removed() {
+        scheduler.notify_remove_resource(&removed);
+        all_removed.push(removed);
+      }
 
-    changes.map_spawn_stage_in_thread(
-      self,
-      |changes| changes.has_change(),
-      move |changes| {
-        // todo, we should use some async lock to avoid blocking
-        let mut data_scheduler = data_scheduler.write();
+      // let mut new_inserted = Vec::new();
 
-        let mut all_removed = Vec::new();
-        // do cancelling first
-        // the futures should not resolved in poll next call
-        for removed in changes.iter_removed() {
-          data_scheduler.notify_remove_resource(&removed);
-          all_removed.push(removed);
-        }
-
-        let mut new_inserted = Vec::new();
-
-        // although the changes insert list may duplicate, it is not a problem but will have some performance cost
-        for (k, v) in changes.iter_update_or_insert() {
+      // although the changes insert list may duplicate, it is not a problem but will have some performance cost
+      for (k, v) in changes.iter_update_or_insert() {
+        if let Some(v) = v {
+          let v = v.deref();
           match v {
             MaybeUriData::Uri(uri) => {
-              data_scheduler.notify_use_resource(&k, &uri);
+              scheduler.notify_use_resource(&k, &uri);
             }
             MaybeUriData::Living(v) => {
-              new_inserted.push((k, v));
+              // new_inserted.push((k, v));
             }
           }
         }
+      }
 
-        let mut ctx = Context::from_waker(&waker);
-        let loading = data_scheduler.poll_schedule(&mut ctx);
+      // let mut ctx = Context::from_waker(&waker);
+      // let loading = data_scheduler.poll_schedule(&mut ctx);
 
-        new_inserted.extend(loading.update_or_insert);
-        all_removed.extend(loading.removed);
+      // new_inserted.extend(loading.update_or_insert);
+      // all_removed.extend(loading.removed);
 
-        LinearBatchChanges {
-          removed: all_removed,
-          update_or_insert: new_inserted,
-        }
-      },
-    )
-  }
+      // LinearBatchChanges {
+      //   removed: all_removed,
+      //   update_or_insert: new_inserted,
+      // };
+
+      todo!()
+    },
+  )
 }
