@@ -281,13 +281,31 @@ pub struct RangeAllocateBufferCollector {
   large_buffer_writes: FastHashMap<UserHandle, (Arc<Vec<u8>>, Option<Range<usize>>)>,
 }
 
-const SMALL_BUFFER_THRESHOLD_BYTE_COUNT: usize = 1024 * 5;
+pub const SMALL_BUFFER_THRESHOLD_BYTE_COUNT: usize = 1024 * 5;
 
 impl RangeAllocateBufferCollector {
+  pub fn with_capacity(
+    small_buffer_byte_writes: usize,
+    small_buffer_count: usize,
+    large_buffer_count: usize,
+  ) -> Self {
+    RangeAllocateBufferCollector {
+      small_buffer_writes: Vec::with_capacity(small_buffer_byte_writes),
+      small_buffer_mapping: FastHashMap::with_capacity_and_hasher(
+        small_buffer_count,
+        Default::default(),
+      ),
+      large_buffer_writes: FastHashMap::with_capacity_and_hasher(
+        large_buffer_count,
+        Default::default(),
+      ),
+    }
+  }
+
   pub fn collect_shared(
     &mut self,
     handle: UserHandle,
-    (buffer, range): (Arc<Vec<u8>>, Option<Range<usize>>),
+    (buffer, range): (&Arc<Vec<u8>>, Option<Range<usize>>),
   ) {
     let buffer_slice = if let Some(range) = range.clone() {
       buffer.get(range).unwrap()
@@ -295,14 +313,16 @@ impl RangeAllocateBufferCollector {
       buffer.as_slice()
     };
 
-    if buffer_slice.len() < SMALL_BUFFER_THRESHOLD_BYTE_COUNT {
+    if buffer_slice.len() <= SMALL_BUFFER_THRESHOLD_BYTE_COUNT {
       self.collect_small(handle, buffer_slice);
     } else {
-      self.large_buffer_writes.insert(handle, (buffer, range));
+      self
+        .large_buffer_writes
+        .insert(handle, (buffer.clone(), range));
     }
   }
   pub fn collect_direct(&mut self, handle: UserHandle, bytes: &[u8]) {
-    if bytes.len() < SMALL_BUFFER_THRESHOLD_BYTE_COUNT {
+    if bytes.len() <= SMALL_BUFFER_THRESHOLD_BYTE_COUNT {
       self.collect_small(handle, bytes);
     } else {
       self

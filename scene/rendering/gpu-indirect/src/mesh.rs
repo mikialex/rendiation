@@ -179,7 +179,7 @@ fn use_attribute_indices_updates(
     let mut new_sizes = Vec::new();
 
     for (k, (buffer_id, range, count)) in change.iter_update_or_insert() {
-      let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
+      let buffer = &data.read_ref(buffer_id).unwrap().ptr;
 
       let range = range.map(|range| range.into_range(buffer.len()));
 
@@ -188,7 +188,7 @@ fn use_attribute_indices_updates(
         unreachable!("index count must be multiple of 2(u16) or 4(u32)")
       }
 
-      let buffer = if byte_per_item == 2 {
+      if byte_per_item == 2 {
         let mut buffer = buffer.as_slice();
         if let Some(range) = range {
           buffer = &buffer[range];
@@ -196,14 +196,16 @@ fn use_attribute_indices_updates(
         let buffer = bytemuck::cast_slice::<_, u16>(buffer);
         let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
         let buffer = bytemuck::cast_slice(&buffer).to_vec();
-        (Arc::new(buffer), None)
-      } else {
-        (buffer, range)
-      };
+        let buffer = Arc::new(buffer);
 
-      let size = buffer.1.clone().map(|v| v.len()).unwrap_or(buffer.0.len()) as u32 / 4;
-      buffers_to_write.collect_shared(k, buffer);
-      new_sizes.push((k, size));
+        let size = buffer.len() as u32 / 4;
+        buffers_to_write.collect_shared(k, (&buffer, None));
+        new_sizes.push((k, size));
+      } else {
+        let size = range.clone().map(|v| v.len()).unwrap_or(buffer.len()) as u32 / 4;
+        buffers_to_write.collect_shared(k, (buffer, range));
+        new_sizes.push((k, size));
+      };
     }
 
     let changes = allocator
@@ -289,21 +291,41 @@ fn use_attribute_vertex_updates(
 
     let data = get_db_view::<BufferEntityData>();
 
-    // todo, avoid resize
-    let mut buffers_to_write = RangeAllocateBufferCollector::default();
-    let mut sizes = Vec::new();
+    // todo, this code should be improved
+    let mut small_buffer_count = 0;
+    let mut small_buffer_byte_count = 0;
+    let mut large_buffer_count = 0;
 
-    for (k, (buffer_id, range)) in change.iter_update_or_insert() {
-      let buffer = data.read_ref(buffer_id).unwrap().ptr.clone();
-
+    let iter = change.iter_update_or_insert();
+    let mut sizes = Vec::with_capacity(iter.size_hint().0);
+    for (k, (buffer_id, range)) in iter {
+      let buffer = &data.read_ref(buffer_id).unwrap().ptr;
       let range = range.map(|range| range.into_range(buffer.len()));
-
       let len = range
         .clone()
-        .map(|range| range.len() as u32)
-        .unwrap_or(buffer.len() as u32);
+        .map(|range| range.len())
+        .unwrap_or(buffer.len());
+
+      if len <= SMALL_BUFFER_THRESHOLD_BYTE_COUNT {
+        small_buffer_count += 1;
+        small_buffer_byte_count += len;
+      } else {
+        large_buffer_count += 1;
+      }
+
+      sizes.push((k, len as u32 / 4));
+    }
+
+    let mut buffers_to_write = RangeAllocateBufferCollector::with_capacity(
+      small_buffer_byte_count,
+      small_buffer_count,
+      large_buffer_count,
+    );
+
+    for (k, (buffer_id, range)) in change.iter_update_or_insert() {
+      let buffer = &data.read_ref(buffer_id).unwrap().ptr;
+      let range = range.map(|range| range.into_range(buffer.len()));
       buffers_to_write.collect_shared(k, (buffer, range));
-      sizes.push((k, len / 4));
     }
 
     let changes = allocator.write().update(removed_and_changed_keys, sizes);
@@ -350,57 +372,42 @@ fn use_attribute_vertex_updates(
       cx,
       |(ref_change, alloc_change)| ref_change.has_delta_hint() || alloc_change.has_delta_hint(),
       |(ref_side, alloc_side)| {
-        let mut writes = FastHashMap::default(); // todo init size
-        let mut maybe_removes = FastHashSet::default(); // todo init size
         let (ref_view, ref_change) = ref_side.view_delta();
         let (alloc, alloc_delta) = alloc_side.view_delta();
-        for (k, v) in alloc_delta.iter_key_value() {
-          let mesh = ref_view.access(&k).unwrap().unwrap();
-          match v {
-            ValueChange::Delta((new, se), _) => {
+        let alloc_delta_iter = alloc_delta.iter_key_value();
+        let ref_change_iter = ref_change.iter_key_value();
+        let change_estimate = alloc_delta_iter.size_hint().0 + ref_change_iter.size_hint().0;
+        let mut writes = FastHashMap::with_capacity_and_hasher(change_estimate, Default::default());
+        // we are not care removes here, because failed allocated range will have correct defaults
+        // todo, assure the mesh is valid and skip the invalid mesh.
+        for (k, v) in alloc_delta_iter {
+          if let Some(Some(mesh)) = ref_view.access(&k) {
+            if let ValueChange::Delta((new, se), _) = v {
               writes.insert((mesh, se), new);
             }
-            ValueChange::Remove((_, se)) => {
-              maybe_removes.insert((mesh, se));
+          }
+        }
+
+        for (k, v) in ref_change_iter {
+          if let Some((range, se)) = alloc.access(&k) {
+            if let ValueChange::Delta(Some(new_mesh), _) = v {
+              writes.insert((new_mesh, se), range);
             }
           }
         }
 
-        for (k, v) in ref_change.iter_key_value() {
-          let (range, se) = alloc.access(&k).unwrap();
-          match v {
-            ValueChange::Delta(new_mesh, _) => {
-              writes.insert((new_mesh.unwrap(), se), range);
-            }
-            ValueChange::Remove(old_mesh) => {
-              maybe_removes.insert((old_mesh.unwrap(), se));
-            }
-          }
-        }
-        for k in writes.keys() {
-          maybe_removes.remove(k);
-        }
+        let data_write_size = writes.len() * std::mem::size_of::<[u32; 2]>();
+        let mut updates = SparseBufferWritesSource::with_capacity(data_write_size, writes.len());
 
-        let mut updates = SparseBufferWritesSource::default(); // todo init size
-        let empty = [DEVICE_RANGE_ALLOCATE_FAIL_MARKER, 0];
         let stride = std::mem::size_of::<AttributeMeshMeta>() as u32;
-        for (remove_mesh, se) in maybe_removes {
-          if ENABLE_VERTEX_RANGE_UPDATE_DEBUG {
-            println!("{:?}, {:?}, {:?}", remove_mesh, se, empty);
-          }
-
-          let field_offset = write_field_offset(se);
-          let write_offset = stride * remove_mesh.index() + field_offset;
-          updates.collect_write(bytes_of(&empty), write_offset as u64);
-        }
-
         for ((mesh, se), range) in writes {
           if ENABLE_VERTEX_RANGE_UPDATE_DEBUG {
             println!("{:?}, {:?}, {:?}", mesh, se, range);
           }
-          let field_offset = write_field_offset(se);
-          let write_offset = stride * mesh.index() + field_offset;
-          updates.collect_write(bytes_of(&range), write_offset as u64);
+          if let Some(field_offset) = write_field_offset(se) {
+            let write_offset = stride * mesh.index() + field_offset;
+            updates.collect_write(bytes_of(&range), write_offset as u64);
+          }
         }
 
         Arc::new(updates)
@@ -410,13 +417,14 @@ fn use_attribute_vertex_updates(
   (range_writes, vertex_buffer.read().gpu().clone())
 }
 
-fn write_field_offset(semantic: AttributeSemantic) -> u32 {
-  (match semantic {
+fn write_field_offset(semantic: AttributeSemantic) -> Option<u32> {
+  let offset = match semantic {
     AttributeSemantic::Positions => std::mem::offset_of!(AttributeMeshMeta, position_offset),
     AttributeSemantic::Normals => std::mem::offset_of!(AttributeMeshMeta, normal_offset),
     AttributeSemantic::TexCoords(0) => std::mem::offset_of!(AttributeMeshMeta, uv_offset),
-    _ => todo!(),
-  }) as u32
+    _ => return None,
+  };
+  Some(offset as u32)
 }
 
 ///  note the attribute's count should be same for one mesh, will keep it here for simplicity
