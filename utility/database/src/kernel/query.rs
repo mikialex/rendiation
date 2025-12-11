@@ -26,6 +26,7 @@ impl<T: CValue> Query for IterableComponentReadView<T> {
     })
   }
 
+  #[inline]
   fn access(&self, key: &u32) -> Option<T> {
     self.access_ref(key).cloned()
   }
@@ -36,6 +37,7 @@ impl<T: CValue> Query for IterableComponentReadView<T> {
 }
 
 impl<T: CValue> DynValueRefQuery for IterableComponentReadView<T> {
+  #[inline]
   fn access_ref(&self, key: &Self::Key) -> Option<&Self::Value> {
     self
       .read_view
@@ -51,6 +53,7 @@ pub struct IterableComponentReadViewChecked<T> {
 }
 
 impl<T> IterableComponentReadViewChecked<T> {
+  #[inline]
   pub fn read_ref(&self, key: RawEntityHandle) -> Option<&T> {
     self
       .read_view
@@ -80,6 +83,7 @@ impl<T: CValue> Query for IterableComponentReadViewChecked<T> {
     })
   }
 
+  #[inline]
   fn access(&self, key: &RawEntityHandle) -> Option<T> {
     self.read_ref(*key).cloned()
   }
@@ -90,6 +94,7 @@ impl<T: CValue> Query for IterableComponentReadViewChecked<T> {
 }
 
 impl<T: CValue> DynValueRefQuery for IterableComponentReadViewChecked<T> {
+  #[inline]
   fn access_ref(&self, key: &Self::Key) -> Option<&Self::Value> {
     self.read_ref(*key)
   }

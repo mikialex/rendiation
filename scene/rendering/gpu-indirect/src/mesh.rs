@@ -285,9 +285,6 @@ fn use_attribute_vertex_updates(
 
   let allocation_info = source_info.map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
     let change = source_info.delta().into_change();
-    let removed_and_changed_keys = change
-      .iter_removed()
-      .chain(change.iter_update_or_insert().map(|(k, _)| k));
 
     let data = get_db_view::<BufferEntityData>();
 
@@ -297,7 +294,13 @@ fn use_attribute_vertex_updates(
     let mut large_buffer_count = 0;
 
     let iter = change.iter_update_or_insert();
-    let mut sizes = Vec::with_capacity(iter.size_hint().0);
+    let size_hint = iter.size_hint();
+    // use conservative hint because we have filter in upstream
+    let size_cap = size_hint.1.unwrap_or(size_hint.0);
+    let mut sizes = Vec::with_capacity(size_cap);
+
+    // iter is slow to iter, do this is much faster
+    let mut access_result = Vec::with_capacity(size_cap);
     for (k, (buffer_id, range)) in iter {
       let buffer = &data.read_ref(buffer_id).unwrap().ptr;
       let range = range.map(|range| range.into_range(buffer.len()));
@@ -314,7 +317,13 @@ fn use_attribute_vertex_updates(
       }
 
       sizes.push((k, len as u32 / 4));
+      access_result.push((k, buffer, range));
     }
+
+    let removed_and_changed_keys = change
+      .iter_removed()
+      .chain(access_result.iter().map(|v| v.0));
+    let changes = allocator.write().update(removed_and_changed_keys, sizes);
 
     let mut buffers_to_write = RangeAllocateBufferCollector::with_capacity(
       small_buffer_byte_count,
@@ -322,13 +331,9 @@ fn use_attribute_vertex_updates(
       large_buffer_count,
     );
 
-    for (k, (buffer_id, range)) in change.iter_update_or_insert() {
-      let buffer = &data.read_ref(buffer_id).unwrap().ptr;
-      let range = range.map(|range| range.into_range(buffer.len()));
+    for (k, buffer, range) in access_result {
       buffers_to_write.collect_shared(k, (buffer, range));
     }
-
-    let changes = allocator.write().update(removed_and_changed_keys, sizes);
 
     let buffers_to_write = buffers_to_write.prepare(&changes, 4);
 
