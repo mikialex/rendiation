@@ -1,5 +1,8 @@
 use crate::*;
 
+mod attribute;
+pub use attribute::*;
+
 pub trait IndirectModelShapeRenderImpl {
   fn make_component_indirect(
     &self,

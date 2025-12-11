@@ -22,9 +22,6 @@ mod host_driven;
 mod node;
 pub use node::*;
 
-mod mesh;
-pub use mesh::*;
-
 mod light;
 pub use light::*;
 
