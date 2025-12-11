@@ -130,6 +130,7 @@ pub struct AttributesMeshGPU<'a> {
 
 impl ShaderPassBuilder for AttributesMeshGPU<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    // todo, access_multi_value has no order guarantee
     for vertex_info_id in self.vertex.multi_access.access_multi_value(&self.mesh_id) {
       let gpu_buffer = self
         .vertex

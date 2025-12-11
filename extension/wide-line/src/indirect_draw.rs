@@ -76,7 +76,7 @@ pub fn use_widen_line_indirect_renderer(
 
       if let Some(new_size) = changes.resize_to {
         // here we do(request) resize at spawn stage to avoid resize again and again
-        gpu_buffer.write().resize(new_size * item_byte_size);
+        gpu_buffer.write().resize(new_size);
       }
 
       Arc::new(RangeAllocateBufferUpdates {
