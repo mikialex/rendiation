@@ -6,7 +6,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use database::*;
-use fast_hash_collection::FastHashMap;
+use fast_hash_collection::*;
 use rendiation_device_parallel_compute::*;
 use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_punctual::*;

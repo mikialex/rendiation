@@ -105,17 +105,21 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageWithHostBuffer<T> 
     self.buffer.write().check_resize(size_require as u32);
   }
 
+  // todo, make sure this called in worker
+  pub fn write_sparse_updates(&mut self, updates: &SparseBufferWritesSource) {
+    let mut buffer = self.buffer.write();
+    let host_buffer = &mut buffer.inner.vec;
+    let host_buffer: &mut [u8] = cast_slice_mut(host_buffer);
+
+    for (offset, data) in updates.iter_updates() {
+      host_buffer[offset..(offset + data.len())].copy_from_slice(data);
+    }
+  }
+
   pub fn use_update(&mut self, cx: &mut QueryGPUHookCx) {
     let updates = use_update_impl(cx, &mut self.collector, self.buffer.write().abstract_gpu());
     if let Some(updates) = updates {
-      // updates.offset_size
-      let mut buffer = self.buffer.write();
-      let host_buffer = &mut buffer.inner.vec;
-      let host_buffer: &mut [u8] = cast_slice_mut(host_buffer);
-
-      for (offset, data) in updates.iter_updates() {
-        host_buffer[offset..(offset + data.len())].copy_from_slice(data);
-      }
+      self.write_sparse_updates(&updates);
     }
   }
 }

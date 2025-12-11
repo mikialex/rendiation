@@ -1,7 +1,7 @@
 use std::{mem::offset_of, sync::Arc};
 
 use parking_lot::RwLock;
-use rendiation_mesh_core::{AttributeReadSchema, AttributeSemantic};
+use rendiation_mesh_core::AttributeSemantic;
 use rendiation_shader_api::*;
 use rendiation_webgpu_midc_downgrade::*;
 
@@ -13,8 +13,8 @@ use crate::*;
 pub struct BindlessMeshInit {
   pub init_index_count: u32,
   pub max_index_count: u32,
-  pub init_vertex_count: u32,
-  pub max_vertex_count: u32,
+  pub init_vertex_u32_size_count: u32,
+  pub max_vertex_u32_size_count: u32,
 }
 
 impl Default for BindlessMeshInit {
@@ -22,8 +22,8 @@ impl Default for BindlessMeshInit {
     Self {
       init_index_count: 200_000,
       max_index_count: 200_000 * 100,
-      init_vertex_count: 100_000,
-      max_vertex_count: 100_000 * 100,
+      init_vertex_u32_size_count: 100_000 * 8, // 8: 3+3+2
+      max_vertex_u32_size_count: 100_000 * 8 * 100,
     }
   }
 }
@@ -39,8 +39,8 @@ pub fn use_bindless_mesh(
   let BindlessMeshInit {
     init_index_count,
     max_index_count,
-    init_vertex_count,
-    max_vertex_count,
+    init_vertex_u32_size_count,
+    max_vertex_u32_size_count,
   } = *init;
 
   let (indices_range_change, indices) = use_attribute_indices_updates(
@@ -50,32 +50,18 @@ pub fn use_bindless_mesh(
     merge_with_vertex_allocator,
   );
 
-  let max = max_vertex_count;
-  let init = init_vertex_count;
-  let (position_range_change, position) =
-    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Positions);
-  let (normal_range_change, normal) =
-    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::Normals);
-  let (uv_range_change, uv) =
-    use_attribute_vertex_updates(cx, max, init, AttributeSemantic::TexCoords(0));
-
   let (cx, metadata) = cx.use_storage_buffer_with_host_backup::<AttributeMeshMeta>(
     "mesh buffer indirect range",
     128,
     u32::MAX,
   );
 
+  let max = max_vertex_u32_size_count;
+  let init = init_vertex_u32_size_count;
+  let (vertex_range_writes, vertices) = use_attribute_vertex_updates(cx, max, init);
+
   let offset = offset_of!(AttributeMeshMeta, index_offset);
   indices_range_change.update_storage_array_with_host(cx, metadata, offset);
-
-  let offset = offset_of!(AttributeMeshMeta, position_offset);
-  position_range_change.update_storage_array_with_host(cx, metadata, offset);
-
-  let offset = offset_of!(AttributeMeshMeta, normal_offset);
-  normal_range_change.update_storage_array_with_host(cx, metadata, offset);
-
-  let offset = offset_of!(AttributeMeshMeta, uv_offset);
-  uv_range_change.update_storage_array_with_host(cx, metadata, offset);
 
   metadata.use_max_item_count_by_db_entity::<AttributesMeshEntity>(cx);
   metadata.use_update(cx);
@@ -96,6 +82,15 @@ pub fn use_bindless_mesh(
   sm_to_mesh_device.use_max_item_count_by_db_entity::<SceneModelEntity>(cx);
   sm_to_mesh_device.use_update(cx);
 
+  let vertex_range_writes = vertex_range_writes.use_assure_result(cx);
+  if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
+    {
+      let updates = vertex_range_writes.expect_resolve_stage();
+      updates.write_abstract(cx.gpu, encoder, &metadata.get_gpu_buffer());
+      metadata.write_sparse_updates(&updates);
+    }
+  }
+
   let sm_to_mesh = fanout_
     .map(|v| v.view().filter_map(|v| v).into_boxed())
     .use_assure_result(cx);
@@ -104,9 +99,7 @@ pub fn use_bindless_mesh(
     let vertex_address_buffer = metadata.get_gpu_buffer();
     MeshGPUBindlessImpl {
       indices,
-      position,
-      normal,
-      uv,
+      vertices,
       checker: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
         .read_foreign_key(),
       indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
@@ -247,21 +240,21 @@ fn use_attribute_indices_updates(
   (changes, buffer)
 }
 
+pub const ENABLE_VERTEX_RANGE_UPDATE_DEBUG: bool = false;
+
 fn use_attribute_vertex_updates(
   cx: &mut QueryGPUHookCx,
-  max_item_count: u32,
-  init_item_count: u32,
-  semantic: AttributeSemantic,
+  max_u32_count: u32,
+  init_u32_count: u32,
 ) -> (
-  UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
+  UseResult<Arc<SparseBufferWritesSource>>,
   AbstractReadonlyStorageBuffer<[u32]>,
 ) {
-  let item_byte_size = semantic.item_byte_size() as u32;
   let (cx, vertex_buffer) = cx.use_gpu_init(|gpu, alloc| {
     let buffer = alloc.allocate_readonly::<[u32]>(
-      (item_byte_size * init_item_count) as u64,
+      init_u32_count as u64 * 4,
       &gpu.device,
-      Some(&format!("bindless mesh vertex pool: {:?}", semantic)),
+      Some("bindless mesh vertex pool"),
     );
 
     let buffer = buffer.with_direct_resize(gpu);
@@ -271,14 +264,8 @@ fn use_attribute_vertex_updates(
 
   cx.if_inspect(|inspector| {
     let buffer_size = vertex_buffer.read().gpu().byte_size();
-    inspector.label_device_memory_usage(&format!("bindless {:?}", semantic), buffer_size);
+    inspector.label_device_memory_usage("bindless vertex pool", buffer_size);
   });
-
-  let attribute_scope = cx
-    .use_dual_query::<AttributesMeshEntityVertexBufferSemantic>()
-    .dual_query_filter_map(move |s| (semantic == s).then_some(()));
-
-  let (scope, scope_) = attribute_scope.fork();
 
   let vertex_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>();
   let vertex_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>();
@@ -286,12 +273,10 @@ fn use_attribute_vertex_updates(
   let source_info = vertex_buffer_ref
     .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
     .dual_query_filter_map(|(index, range)| index.map(|i| (i, range)))
-    .dual_query_boxed()
-    .dual_query_filter_by_set(scope);
+    .dual_query_boxed();
 
-  // todo, share one allocator among all vertex buffer
   let (cx, allocator) =
-    cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_item_count, init_item_count));
+    cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_u32_count, init_u32_count));
 
   let allocator = allocator.clone();
   let gpu_buffer = vertex_buffer.clone();
@@ -318,21 +303,21 @@ fn use_attribute_vertex_updates(
         .map(|range| range.len() as u32)
         .unwrap_or(buffer.len() as u32);
       buffers_to_write.collect_shared(k, (buffer, range));
-      sizes.push((k, len / item_byte_size));
+      sizes.push((k, len / 4));
     }
 
     let changes = allocator.write().update(removed_and_changed_keys, sizes);
 
-    let buffers_to_write = buffers_to_write.prepare(&changes, item_byte_size);
+    let buffers_to_write = buffers_to_write.prepare(&changes, 4);
 
     if let Some(new_size) = changes.resize_to {
       // here we do(request) resize at spawn stage to avoid resize again and again
-      gpu_buffer.write().resize(new_size * item_byte_size / 4);
+      gpu_buffer.write().resize(new_size);
     }
 
     Arc::new(RangeAllocateBufferUpdates {
       buffers_to_write,
-      allocation_changes: BatchAllocateResultShared(Arc::new(changes), item_byte_size / 4),
+      allocation_changes: BatchAllocateResultShared(Arc::new(changes), 1),
     })
   });
 
@@ -347,26 +332,91 @@ fn use_attribute_vertex_updates(
       .write(cx.gpu, encoder, gpu_buffer);
   }
 
-  let ab_ref_mesh = cx
-    .use_dual_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
-    .dual_query_filter_map(|v| v)
-    .dual_query_filter_by_set(scope_)
-    .use_dual_query_hash_reverse_checked_one_one(cx)
-    .dual_query_boxed()
-    .use_dual_query_dense_many_to_one(cx);
+  // relation => mesh
+  let relation_ref_mesh =
+    cx.use_dual_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
 
+  let vertex_buffer_sem = cx.use_dual_query::<AttributesMeshEntityVertexBufferSemantic>();
+
+  // relation => allocation info
   let allocation_info = allocation_info
     .map(|allocation_info| allocation_info.allocation_changes.clone())
-    .use_change_to_dual_query_in_spawn_stage(cx);
+    .use_change_to_dual_query_in_spawn_stage(cx)
+    .dual_query_zip(vertex_buffer_sem);
 
-  let change = allocation_info
-    .fanout(ab_ref_mesh, cx)
-    .dual_query_boxed()
-    .into_delta_change();
+  let range_writes = relation_ref_mesh
+    .join(allocation_info)
+    .map_spawn_stage_in_thread(
+      cx,
+      |(ref_change, alloc_change)| ref_change.has_delta_hint() || alloc_change.has_delta_hint(),
+      |(ref_side, alloc_side)| {
+        let mut writes = FastHashMap::default(); // todo init size
+        let mut maybe_removes = FastHashSet::default(); // todo init size
+        let (ref_view, ref_change) = ref_side.view_delta();
+        let (alloc, alloc_delta) = alloc_side.view_delta();
+        for (k, v) in alloc_delta.iter_key_value() {
+          let mesh = ref_view.access(&k).unwrap().unwrap();
+          match v {
+            ValueChange::Delta((new, se), _) => {
+              writes.insert((mesh, se), new);
+            }
+            ValueChange::Remove((_, se)) => {
+              maybe_removes.insert((mesh, se));
+            }
+          }
+        }
 
-  let buffer = vertex_buffer.read().gpu().clone();
+        for (k, v) in ref_change.iter_key_value() {
+          let (range, se) = alloc.access(&k).unwrap();
+          match v {
+            ValueChange::Delta(new_mesh, _) => {
+              writes.insert((new_mesh.unwrap(), se), range);
+            }
+            ValueChange::Remove(old_mesh) => {
+              maybe_removes.insert((old_mesh.unwrap(), se));
+            }
+          }
+        }
+        for k in writes.keys() {
+          maybe_removes.remove(k);
+        }
 
-  (change, buffer)
+        let mut updates = SparseBufferWritesSource::default(); // todo init size
+        let empty = [DEVICE_RANGE_ALLOCATE_FAIL_MARKER, 0];
+        let stride = std::mem::size_of::<AttributeMeshMeta>() as u32;
+        for (remove_mesh, se) in maybe_removes {
+          if ENABLE_VERTEX_RANGE_UPDATE_DEBUG {
+            println!("{:?}, {:?}, {:?}", remove_mesh, se, empty);
+          }
+
+          let field_offset = write_field_offset(se);
+          let write_offset = stride * remove_mesh.index() + field_offset;
+          updates.collect_write(bytes_of(&empty), write_offset as u64);
+        }
+
+        for ((mesh, se), range) in writes {
+          if ENABLE_VERTEX_RANGE_UPDATE_DEBUG {
+            println!("{:?}, {:?}, {:?}", mesh, se, range);
+          }
+          let field_offset = write_field_offset(se);
+          let write_offset = stride * mesh.index() + field_offset;
+          updates.collect_write(bytes_of(&range), write_offset as u64);
+        }
+
+        Arc::new(updates)
+      },
+    );
+
+  (range_writes, vertex_buffer.read().gpu().clone())
+}
+
+fn write_field_offset(semantic: AttributeSemantic) -> u32 {
+  (match semantic {
+    AttributeSemantic::Positions => std::mem::offset_of!(AttributeMeshMeta, position_offset),
+    AttributeSemantic::Normals => std::mem::offset_of!(AttributeMeshMeta, normal_offset),
+    AttributeSemantic::TexCoords(0) => std::mem::offset_of!(AttributeMeshMeta, uv_offset),
+    _ => todo!(),
+  }) as u32
 }
 
 ///  note the attribute's count should be same for one mesh, will keep it here for simplicity
@@ -387,9 +437,7 @@ pub struct AttributeMeshMeta {
 #[derive(Clone)]
 pub struct MeshGPUBindlessImpl {
   indices: AbstractReadonlyStorageBuffer<[u32]>,
-  position: AbstractReadonlyStorageBuffer<[u32]>,
-  normal: AbstractReadonlyStorageBuffer<[u32]>,
-  uv: AbstractReadonlyStorageBuffer<[u32]>,
+  vertices: AbstractReadonlyStorageBuffer<[u32]>,
   vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   /// we keep the host metadata to support creating draw commands from host
   vertex_address_buffer_host:
@@ -404,19 +452,11 @@ pub struct MeshGPUBindlessImpl {
 
 impl MeshGPUBindlessImpl {
   pub fn make_bindless_dispatcher(&self) -> BindlessMeshDispatcher {
-    let position = self.position.clone();
-    let normal = self.normal.clone();
-    let uv = self.uv.clone();
-
-    let index_pool = self.indices.clone();
-
     BindlessMeshDispatcher {
       sm_to_mesh: self.sm_to_mesh_device.clone(),
       vertex_address_buffer: self.vertex_address_buffer.clone(),
-      position,
-      normal,
-      uv,
-      index_pool,
+      vertices: self.vertices.clone(),
+      index_pool: self.indices.clone(),
     }
   }
 }
@@ -514,9 +554,7 @@ pub struct BindlessMeshDispatcher {
   pub sm_to_mesh: AbstractReadonlyStorageBuffer<[u32]>,
   pub vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   pub index_pool: AbstractReadonlyStorageBuffer<[u32]>,
-  pub position: AbstractReadonlyStorageBuffer<[u32]>,
-  pub normal: AbstractReadonlyStorageBuffer<[u32]>,
-  pub uv: AbstractReadonlyStorageBuffer<[u32]>,
+  pub vertices: AbstractReadonlyStorageBuffer<[u32]>,
 }
 
 impl ShaderHashProvider for BindlessMeshDispatcher {
@@ -577,9 +615,7 @@ impl GraphicsShaderProvider for BindlessMeshRasterDispatcher {
 #[derive(Clone)]
 pub struct BindlessMeshDispatcherBaseInvocation {
   pub vertex_address_buffer: ShaderReadonlyPtrOf<[AttributeMeshMeta]>,
-  pub position: ShaderReadonlyPtrOf<[u32]>,
-  pub normal: ShaderReadonlyPtrOf<[u32]>,
-  pub uv: ShaderReadonlyPtrOf<[u32]>,
+  pub vertices: ShaderReadonlyPtrOf<[u32]>,
 }
 
 impl BindlessMeshDispatcherBaseInvocation {
@@ -604,7 +640,7 @@ impl BindlessMeshDispatcherBaseInvocation {
         let layout = StructLayoutTarget::Packed;
         unsafe {
           Vec3::<f32>::sized_ty()
-            .load_from_u32_buffer(&self.normal, normal_offset + vertex_id * val(3), layout)
+            .load_from_u32_buffer(&self.vertices, normal_offset + vertex_id * val(3), layout)
             .into_node::<Vec3<f32>>()
         }
       },
@@ -618,7 +654,7 @@ impl BindlessMeshDispatcherBaseInvocation {
     let layout = StructLayoutTarget::Packed;
     unsafe {
       Vec3::<f32>::sized_ty()
-        .load_from_u32_buffer(&self.position, position_offset + vertex_id * val(3), layout)
+        .load_from_u32_buffer(&self.vertices, position_offset + vertex_id * val(3), layout)
         .into_node::<Vec3<f32>>()
     }
   }
@@ -633,7 +669,7 @@ impl BindlessMeshDispatcherBaseInvocation {
         let layout = StructLayoutTarget::Packed;
         unsafe {
           Vec2::<f32>::sized_ty()
-            .load_from_u32_buffer(&self.uv, uv_offset + vertex_id * val(2), layout)
+            .load_from_u32_buffer(&self.vertices, uv_offset + vertex_id * val(2), layout)
             .into_node::<Vec2<f32>>()
         }
       },
@@ -648,16 +684,12 @@ impl BindlessMeshDispatcher {
   ) -> BindlessMeshDispatcherBaseInvocation {
     BindlessMeshDispatcherBaseInvocation {
       vertex_address_buffer: cx.bind_by(&self.vertex_address_buffer),
-      position: cx.bind_by(&self.position),
-      normal: cx.bind_by(&self.position),
-      uv: cx.bind_by(&self.position),
+      vertices: cx.bind_by(&self.vertices),
     }
   }
   pub fn bind_base_invocation(&self, cx: &mut BindingBuilder) {
     cx.bind(&self.vertex_address_buffer);
-    cx.bind(&self.position);
-    cx.bind(&self.normal);
-    cx.bind(&self.uv);
+    cx.bind(&self.vertices);
   }
 }
 
