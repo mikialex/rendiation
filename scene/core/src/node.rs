@@ -64,11 +64,6 @@ pub fn node_world_mat(this: &Mat4<f64>, parent: Option<&Mat4<f64>>) -> Mat4<f64>
   parent.map(|p| *p * *this).unwrap_or(*this)
 }
 
-pub type DeriveDataDualQuery<T> = DualQuery<
-  LockReadGuardHolder<FastHashMap<RawEntityHandle, T>>,
-  Arc<FastHashMap<RawEntityHandle, ValueChange<T>>>,
->;
-
 pub fn use_global_node_world_mat(
   cx: &mut impl DBHookCxLike,
 ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, Mat4<f64>>> {
@@ -102,6 +97,11 @@ pub fn global_node_derive_of<C, F>(f: F) -> GlobalNodeDerive<F, C> {
   GlobalNodeDerive(f, PhantomData)
 }
 
+pub type DeriveDataDualQuery<T> = DualQuery<
+  LockReadGuardHolder<FastHashMap<RawEntityHandle, T>>,
+  Arc<FastHashMap<RawEntityHandle, ValueChange<T>>>,
+>;
+
 impl<C, Cx, F> SharedResultProvider<Cx> for GlobalNodeDerive<F, C>
 where
   C: ComponentSemantic,
@@ -131,8 +131,15 @@ where
         },
         move |((connectivity_rev_view, connectivity_change), payload_change)| {
           let mut d = derived.write();
-          let changes = compute_tree_derive(
-            &mut d,
+
+          let mut derive_changes = FastHashMap::default();
+          let mut collector = QueryMutationCollector {
+            delta: &mut derive_changes,
+            target: &mut *d,
+          };
+
+          compute_tree_derive(
+            &mut collector,
             f,
             payload_source,
             payload_change,
@@ -148,7 +155,7 @@ where
 
           DualQuery {
             view: derived.make_read_holder(),
-            delta: Arc::new(changes),
+            delta: Arc::new(derive_changes),
           }
         },
       )

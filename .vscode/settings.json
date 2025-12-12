@@ -127,6 +127,7 @@
         "oneshot",
         "OPENGL",
         "opensource",
+        "parallelizable",
         "perlin",
         "Phong",
         "pickable",

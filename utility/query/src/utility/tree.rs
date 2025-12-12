@@ -3,19 +3,18 @@ use rendiation_abstract_tree::*;
 use crate::*;
 
 pub fn compute_tree_derive<K: CKey, T: CValue>(
-  derive_view: &mut FastHashMap<K, T>,
+  derive: &mut dyn QueryLikeMutateTarget<K, T>,
   derive_logic: impl Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
   payload_source: impl Query<Key = K, Value = T>,
   payload_change: impl Query<Key = K, Value = ValueChange<T>>,
   connectivity_source: impl Query<Key = K, Value = K>,
   connectivity_source_rev: impl MultiQuery<Key = K, Value = K>,
   connectivity_change: impl Query<Key = K, Value = ValueChange<K>>,
-) -> FastHashMap<K, ValueChange<T>> {
+) {
   // step1: find the update root
   // we have a change set as input. change set is the composition of the connectivity change
   // and the payload change. for each item in change set, we recursively check it parent if any
   // of the parent exist in the change set, if not, we have a update root
-
   let mut update_roots = FastHashSet::default();
 
   let payload_change_range =
@@ -51,15 +50,9 @@ pub fn compute_tree_derive<K: CKey, T: CValue>(
   }
 
   // step2: do derive update from all update roots
-  // maybe could using some forms of dynamic parallelism
-  let mut derive_changes = FastHashMap::default();
-  let collector = QueryMutationCollectorPtr {
-    delta: &mut derive_changes as *mut _,
-    target: derive_view as *mut _,
-  };
-
-  let ctx = Ctx {
-    derive: collector,
+  // this stage should be parallelizable
+  let mut ctx = Ctx {
+    derive,
     source: &payload_source,
     connectivity: &connectivity_source_rev,
     parent_connectivity: &connectivity_source,
@@ -69,7 +62,7 @@ pub fn compute_tree_derive<K: CKey, T: CValue>(
     let mut root = TreeMutNode {
       phantom: PhantomData,
       idx: root,
-      ctx: &ctx,
+      ctx: &mut ctx as *mut _,
     };
     root.traverse_pair_subtree_mut(&mut |node, parent| {
       if node.update(parent.as_deref()) {
@@ -79,47 +72,17 @@ pub fn compute_tree_derive<K: CKey, T: CValue>(
       }
     })
   }
-
-  derive_changes
-}
-
-struct QueryMutationCollectorPtr<K, T> {
-  delta: *mut FastHashMap<K, ValueChange<T>>,
-  target: *mut FastHashMap<K, T>,
-}
-
-impl<K: CKey, T: CValue> QueryMutationCollectorPtr<K, T> {
-  pub fn get_derive(&self, key: K) -> Option<&T> {
-    unsafe { (*self.target).get(&key) }
-  }
-  pub fn as_mutable(&self) -> impl QueryLikeMutateTarget<K, T> {
-    unsafe {
-      QueryMutationCollector {
-        delta: (&mut *self.delta),
-        target: (&mut *self.target),
-      }
-    }
-  }
-}
-
-impl<K, T> Clone for QueryMutationCollectorPtr<K, T> {
-  fn clone(&self) -> Self {
-    Self {
-      delta: self.delta,
-      target: self.target,
-    }
-  }
 }
 
 #[derive(Clone)]
 struct TreeMutNode<'a, K, T, F> {
   phantom: PhantomData<T>,
   idx: K,
-  ctx: &'a Ctx<'a, K, T, F>,
+  ctx: *mut Ctx<'a, K, T, F>,
 }
 
 struct Ctx<'a, K, T, F> {
-  derive: QueryMutationCollectorPtr<K, T>,
+  derive: &'a mut dyn QueryLikeMutateTarget<K, T>,
   source: &'a dyn DynQuery<Key = K, Value = T>,
   connectivity: &'a dyn DynMultiQuery<Key = K, Value = K>,
   parent_connectivity: &'a dyn DynQuery<Key = K, Value = K>,
@@ -133,15 +96,13 @@ where
   F: Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
 {
   pub fn get_derive(&self) -> &T {
-    self.ctx.derive.get_derive(self.idx.clone()).unwrap()
+    let derive = &(unsafe { &mut *self.ctx }).derive;
+    derive.get_current(self.idx.clone()).unwrap()
   }
   /// return has actually changed
-  pub fn set_derive(&self, d: T) -> bool {
-    let p = self
-      .ctx
-      .derive
-      .as_mutable()
-      .set_value(self.idx.clone(), d.clone());
+  pub fn set_derive(&mut self, d: T) -> bool {
+    let derive = &mut (unsafe { &mut *self.ctx }).derive;
+    let p = derive.set_value(self.idx.clone(), d.clone());
     if let Some(p) = p {
       p != d
     } else {
@@ -150,15 +111,17 @@ where
   }
   /// return has actually changed
   pub fn update(&mut self, parent: Option<&Self>) -> bool {
+    let ctx = unsafe { &*self.ctx };
     let parent_derive = parent.map(|parent| parent.get_derive());
-    let self_source = self.ctx.source.access_dyn(&self.idx).unwrap();
-    self.set_derive((self.ctx.derive_logic)(&self_source, parent_derive))
+    let self_source = ctx.source.access_dyn(&self.idx).unwrap();
+    self.set_derive((ctx.derive_logic)(&self_source, parent_derive))
   }
 }
 
 impl<K: CKey, T, F> AbstractTreeMutNode for TreeMutNode<'_, K, T, F> {
   fn visit_children_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
-    if let Some(children) = self.ctx.connectivity.access_multi(&self.idx) {
+    let ctx = unsafe { &*self.ctx };
+    if let Some(children) = ctx.connectivity.access_multi(&self.idx) {
       for idx in children {
         visitor(&mut TreeMutNode {
           phantom: PhantomData,
@@ -172,8 +135,8 @@ impl<K: CKey, T, F> AbstractTreeMutNode for TreeMutNode<'_, K, T, F> {
 
 impl<K: CKey, T, F> AbstractParentAddressableMutTreeNode for TreeMutNode<'_, K, T, F> {
   fn get_parent_mut(&mut self) -> Option<Self> {
-    self
-      .ctx
+    let ctx = unsafe { &*self.ctx };
+    ctx
       .parent_connectivity
       .access_dyn(&self.idx)
       .map(|idx| TreeMutNode {
