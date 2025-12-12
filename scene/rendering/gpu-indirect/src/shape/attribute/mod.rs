@@ -366,42 +366,37 @@ fn use_attribute_vertex_updates(
   }
 
   // relation => mesh
-  let relation_ref_mesh =
-    cx.use_dual_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
-
   let vertex_buffer_sem = cx.use_dual_query::<AttributesMeshEntityVertexBufferSemantic>();
+  let relation_ref_mesh = cx
+    .use_dual_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+    .dual_query_zip(vertex_buffer_sem);
 
   // relation => allocation info
-  let allocation_info = allocation_info
-    .map(|allocation_info| allocation_info.allocation_changes.clone())
-    .use_change_to_dual_query_in_spawn_stage(cx)
-    .dual_query_zip(vertex_buffer_sem);
+  let allocation_info =
+    allocation_info.map(|allocation_info| allocation_info.allocation_changes.clone());
 
   let range_writes = relation_ref_mesh
     .join(allocation_info)
     .map_spawn_stage_in_thread(
       cx,
-      |(ref_change, alloc_change)| ref_change.has_delta_hint() || alloc_change.has_delta_hint(),
+      |(ref_change, alloc_change)| ref_change.has_delta_hint() || alloc_change.has_change(),
       |(ref_side, alloc_side)| {
         let (ref_view, ref_change) = ref_side.view_delta();
-        let (alloc, alloc_delta) = alloc_side.view_delta();
-        let alloc_delta_iter = alloc_delta.iter_key_value();
+        let alloc_delta_iter = alloc_side.iter_update_or_insert();
         let ref_change_iter = ref_change.iter_key_value();
         let change_estimate = alloc_delta_iter.size_hint().0 + ref_change_iter.size_hint().0;
         let mut writes = FastHashMap::with_capacity_and_hasher(change_estimate, Default::default());
         // we are not care removes here, because failed allocated range will have correct defaults
         // todo, assure the mesh is valid and skip the invalid mesh.
-        for (k, v) in alloc_delta_iter {
-          if let Some(Some(mesh)) = ref_view.access(&k) {
-            if let ValueChange::Delta((new, se), _) = v {
-              writes.insert((mesh, se), new);
-            }
+        for (k, new) in alloc_delta_iter {
+          if let Some((Some(mesh), se)) = ref_view.access(&k) {
+            writes.insert((mesh, se), new);
           }
         }
 
         for (k, v) in ref_change_iter {
-          if let Some((range, se)) = alloc.access(&k) {
-            if let ValueChange::Delta(Some(new_mesh), _) = v {
+          if let Some(range) = alloc_side.access_new_change(k) {
+            if let ValueChange::Delta((Some(new_mesh), se), _) = v {
               writes.insert((new_mesh, se), range);
             }
           }

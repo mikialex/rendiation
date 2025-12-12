@@ -62,6 +62,23 @@ impl BatchAllocateResultShared {
       count: v.count as u64 * u32_per_item * 4,
     })
   }
+
+  pub fn access_new_change(&self, k: UserHandle) -> Option<[u32; 2]> {
+    let u32_per_item = self.1;
+    if let Some(v) = self.0.new_data_to_write.get(&k) {
+      return Some([v.0 * u32_per_item, v.1 * u32_per_item]);
+    }
+
+    if let Some(v) = self.0.data_movements.get(&k) {
+      return Some([v.new_offset * u32_per_item, v.count * u32_per_item]);
+    }
+
+    if self.0.failed_to_allocate.contains(&k) {
+      return Some([DEVICE_RANGE_ALLOCATE_FAIL_MARKER, 0]);
+    }
+
+    None
+  }
 }
 
 pub const DEVICE_RANGE_ALLOCATE_FAIL_MARKER: u32 = u32::MAX;

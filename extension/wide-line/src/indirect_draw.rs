@@ -102,10 +102,8 @@ pub fn use_widen_line_indirect_renderer(
     u32::MAX,
   );
 
-  let range_change = allocation_info
-    .map(|allocation_info| allocation_info.allocation_changes.clone())
-    .use_change_to_dual_query_in_spawn_stage(cx)
-    .into_delta_change();
+  let range_change =
+    allocation_info.map(|allocation_info| allocation_info.allocation_changes.clone());
 
   let offset = std::mem::offset_of!(WideLineParameters, data_range);
   range_change.update_storage_array_with_host(cx, params, offset);
