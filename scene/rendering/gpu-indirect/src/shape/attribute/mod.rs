@@ -39,6 +39,8 @@ pub fn use_bindless_mesh(
   init: &BindlessMeshInit,
   merge_with_vertex_allocator: bool,
   use_midc_downgrade: bool,
+  index_data_source: AttributeIndexDataSource,
+  vertex_data_source: AttributeVertexDataSource,
 ) -> Option<MeshGPUBindlessImpl> {
   let force_midc_downgrade = use_midc_downgrade || merge_with_vertex_allocator;
 
@@ -54,6 +56,7 @@ pub fn use_bindless_mesh(
     max_index_count,
     init_index_count,
     merge_with_vertex_allocator,
+    index_data_source,
   );
 
   let (cx, metadata) = cx.use_storage_buffer_with_host_backup::<AttributeMeshMeta>(
@@ -64,7 +67,8 @@ pub fn use_bindless_mesh(
 
   let max = max_vertex_u32_size_count;
   let init = init_vertex_u32_size_count;
-  let (vertex_range_writes, vertices) = use_attribute_vertex_updates(cx, max, init);
+  let (vertex_range_writes, vertices) =
+    use_attribute_vertex_updates(cx, max, init, vertex_data_source);
 
   let offset = offset_of!(AttributeMeshMeta, index_offset);
   indices_range_change.update_storage_array_with_host(cx, metadata, offset);
@@ -125,6 +129,7 @@ fn use_attribute_indices_updates(
   max_item_count: u32,
   init_item_count: u32,
   merge_with_vertex_allocator: bool,
+  index_source: AttributeIndexDataSource,
 ) -> (
   UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]> + 'static>,
   AbstractReadonlyStorageBuffer<[u32]>,
@@ -156,24 +161,13 @@ fn use_attribute_indices_updates(
     inspector.label_device_memory_usage("bindless index", buffer_size);
   });
 
-  let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
-  let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
-  let index_item_count = cx.use_dual_query::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
-
-  let source_info = index_buffer_ref
-    .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
-    .dual_query_zip(index_item_count)
-    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count)))
-    .dual_query_boxed();
-
   let (cx, allocator) =
     cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_item_count, init_item_count));
 
   let allocator = allocator.clone();
   let gpu_buffer_ = gpu_buffer.clone();
 
-  let allocation_info = source_info.map_spawn_stage_in_thread_dual_query(cx, move |dual| {
-    let change = dual.delta().into_change();
+  let allocation_info = index_source.map_spawn_stage_in_thread_data_changes(cx, move |change| {
     let removed_and_changed_keys = change
       .iter_removed()
       .chain(change.iter_update_or_insert().map(|(k, _)| k));
@@ -254,6 +248,7 @@ fn use_attribute_vertex_updates(
   cx: &mut QueryGPUHookCx,
   max_u32_count: u32,
   init_u32_count: u32,
+  vertex_data_source: AttributeVertexDataSource,
 ) -> (
   UseResult<Arc<SparseBufferWritesSource>>,
   AbstractReadonlyStorageBuffer<[u32]>,
@@ -275,84 +270,75 @@ fn use_attribute_vertex_updates(
     inspector.label_device_memory_usage("bindless vertex pool", buffer_size);
   });
 
-  let vertex_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>();
-  let vertex_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>();
-
-  let source_info = vertex_buffer_ref
-    .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
-    .dual_query_filter_map(|(index, range)| index.map(|i| (i, range)))
-    .dual_query_boxed();
-
   let (cx, allocator) =
     cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_u32_count, init_u32_count));
 
   let allocator = allocator.clone();
   let gpu_buffer = vertex_buffer.clone();
 
-  let allocation_info = source_info.map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
-    let change = source_info.delta().into_change();
+  let allocation_info =
+    vertex_data_source.map_spawn_stage_in_thread_data_changes(cx, move |change| {
+      let data = get_db_view::<BufferEntityData>();
 
-    let data = get_db_view::<BufferEntityData>();
+      // todo, this code should be improved
+      let mut small_buffer_count = 0;
+      let mut small_buffer_byte_count = 0;
+      let mut large_buffer_count = 0;
 
-    // todo, this code should be improved
-    let mut small_buffer_count = 0;
-    let mut small_buffer_byte_count = 0;
-    let mut large_buffer_count = 0;
+      let iter = change.iter_update_or_insert();
+      let size_hint = iter.size_hint();
+      // use conservative hint because we have filter in upstream
+      let size_cap = size_hint.1.unwrap_or(size_hint.0);
+      let mut sizes = Vec::with_capacity(size_cap);
 
-    let iter = change.iter_update_or_insert();
-    let size_hint = iter.size_hint();
-    // use conservative hint because we have filter in upstream
-    let size_cap = size_hint.1.unwrap_or(size_hint.0);
-    let mut sizes = Vec::with_capacity(size_cap);
+      // iter is slow to iter, do this is much faster
+      let mut access_result = Vec::with_capacity(size_cap);
+      for (k, (buffer_id, range)) in iter {
+        let buffer = &data.read_ref(buffer_id).unwrap().ptr;
+        let range = range.map(|range| range.into_range(buffer.len()));
+        let len = range
+          .clone()
+          .map(|range| range.len())
+          .unwrap_or(buffer.len());
 
-    // iter is slow to iter, do this is much faster
-    let mut access_result = Vec::with_capacity(size_cap);
-    for (k, (buffer_id, range)) in iter {
-      let buffer = &data.read_ref(buffer_id).unwrap().ptr;
-      let range = range.map(|range| range.into_range(buffer.len()));
-      let len = range
-        .clone()
-        .map(|range| range.len())
-        .unwrap_or(buffer.len());
+        if len <= SMALL_BUFFER_THRESHOLD_BYTE_COUNT {
+          small_buffer_count += 1;
+          small_buffer_byte_count += len;
+        } else {
+          large_buffer_count += 1;
+        }
 
-      if len <= SMALL_BUFFER_THRESHOLD_BYTE_COUNT {
-        small_buffer_count += 1;
-        small_buffer_byte_count += len;
-      } else {
-        large_buffer_count += 1;
+        sizes.push((k, len as u32 / 4));
+        access_result.push((k, buffer, range));
       }
 
-      sizes.push((k, len as u32 / 4));
-      access_result.push((k, buffer, range));
-    }
+      let removed_and_changed_keys = change
+        .iter_removed()
+        .chain(access_result.iter().map(|v| v.0));
+      let changes = allocator.write().update(removed_and_changed_keys, sizes);
 
-    let removed_and_changed_keys = change
-      .iter_removed()
-      .chain(access_result.iter().map(|v| v.0));
-    let changes = allocator.write().update(removed_and_changed_keys, sizes);
+      let mut buffers_to_write = RangeAllocateBufferCollector::with_capacity(
+        small_buffer_byte_count,
+        small_buffer_count,
+        large_buffer_count,
+      );
 
-    let mut buffers_to_write = RangeAllocateBufferCollector::with_capacity(
-      small_buffer_byte_count,
-      small_buffer_count,
-      large_buffer_count,
-    );
+      for (k, buffer, range) in access_result {
+        buffers_to_write.collect_shared(k, (buffer, range));
+      }
 
-    for (k, buffer, range) in access_result {
-      buffers_to_write.collect_shared(k, (buffer, range));
-    }
+      let buffers_to_write = buffers_to_write.prepare(&changes, 4);
 
-    let buffers_to_write = buffers_to_write.prepare(&changes, 4);
+      if let Some(new_size) = changes.resize_to {
+        // here we do(request) resize at spawn stage to avoid resize again and again
+        gpu_buffer.write().resize(new_size);
+      }
 
-    if let Some(new_size) = changes.resize_to {
-      // here we do(request) resize at spawn stage to avoid resize again and again
-      gpu_buffer.write().resize(new_size);
-    }
-
-    Arc::new(RangeAllocateBufferUpdates {
-      buffers_to_write,
-      allocation_changes: BatchAllocateResultShared(Arc::new(changes), 1),
-    })
-  });
+      Arc::new(RangeAllocateBufferUpdates {
+        buffers_to_write,
+        allocation_changes: BatchAllocateResultShared(Arc::new(changes), 1),
+      })
+    });
 
   let (allocation_info, allocation_info_) = allocation_info.fork();
 

@@ -119,8 +119,15 @@ impl Viewer3dRenderingCtx {
       RasterizationRenderBackendType::Gles => cx.scope(|cx| {
         let wide_line_renderer_gles = use_widen_line_gles_renderer(cx);
 
-        let mesh =
-          use_attribute_mesh_renderer(cx, attributes_custom_key).map(|v| Box::new(v) as Box<_>);
+        let attribute_indices = use_attribute_index_data(cx);
+        let attribute_vertices = use_attribute_vertex_data(cx);
+        let mesh = use_attribute_mesh_renderer(
+          cx,
+          attribute_indices,
+          attribute_vertices,
+          attributes_custom_key,
+        )
+        .map(|v| Box::new(v) as Box<_>);
 
         let unlit_mat = use_unlit_material_uniforms(cx);
         let pbr_mr_mat = use_pbr_mr_material_uniforms(cx);
@@ -165,11 +172,15 @@ impl Viewer3dRenderingCtx {
 
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
 
+        let attribute_indices = use_attribute_index_data(cx);
+        let attribute_vertices = use_attribute_vertex_data(cx);
         let mesh = use_bindless_mesh(
           cx,
           &init_config.bindless_mesh_init,
           init_config.using_texture_as_storage_buffer_for_indirect_rendering,
           self.using_host_driven_indirect_draw,
+          attribute_indices,
+          attribute_vertices,
         );
 
         scope.end(cx);
@@ -257,6 +268,10 @@ impl Viewer3dRenderingCtx {
 
     let rtx_scene_renderer = if self.rtx_renderer_enabled {
       cx.scope(|cx| {
+        // todo, share, or we have double the peak memory when we can shared
+        let attribute_indices = use_attribute_index_data(cx);
+        let attribute_vertices = use_attribute_vertex_data(cx);
+
         // when indirect raster render is not enabled, we create necessary resource by ourself.
         if self.current_renderer_impl_ty == RasterizationRenderBackendType::Gles {
           cx.scope(|cx| {
@@ -271,7 +286,14 @@ impl Viewer3dRenderingCtx {
             scope.end(cx);
 
             let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
-            let mesh = use_bindless_mesh(cx, &init_config.bindless_mesh_init, false, false);
+            let mesh = use_bindless_mesh(
+              cx,
+              &init_config.bindless_mesh_init,
+              false,
+              false,
+              attribute_indices,
+              attribute_vertices,
+            );
             scope.end(cx);
 
             any_indirect_resource_changed = change_scope(cx);

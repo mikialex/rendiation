@@ -19,6 +19,17 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     self.map_spawn_stage_in_thread(cx, |q| q.has_delta_hint(), f)
   }
 
+  pub fn map_spawn_stage_in_thread_data_changes<U: Send + Sync + 'static>(
+    self,
+    cx: &mut impl QueryHookCxLike,
+    f: impl FnOnce(T) -> U + Send + Sync + 'static,
+  ) -> UseResult<U>
+  where
+    T: DataChanges,
+  {
+    self.map_spawn_stage_in_thread(cx, |q| q.has_change(), f)
+  }
+
   pub fn map_spawn_stage_in_thread<U: Send + Sync + 'static>(
     self,
     cx: &mut impl QueryHookCxLike,

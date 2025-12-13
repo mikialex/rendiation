@@ -4,14 +4,43 @@ use crate::*;
 
 pub fn use_attribute_mesh_renderer(
   cx: &mut QueryGPUHookCx,
+  index_data_source: AttributeIndexDataSource,
+  vertex_data_source: AttributeVertexDataSource,
   foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 ) -> Option<GLESAttributesMeshRenderer> {
+  let index = cx.use_shared_hash_map("gles index buffer");
+
+  let source = index_data_source
+    .map_changes(|(id, range, _)| (id, range))
+    .use_assure_result(cx);
+
+  let read_view = global_entity_component_of::<BufferEntityData>().read();
+
+  let f = |(idx, range): (RawEntityHandle, Option<BufferViewRange>)| {
+    let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
+    let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::INDEX, &cx.gpu.device);
+    buffer.create_view(map_view(range))
+  };
+
+  maintain_shared_map(&index, source, f);
+
+  let vertex = cx.use_shared_hash_map("gles attribute buffer");
+
+  let source = vertex_data_source.use_assure_result(cx);
+
+  let read_view = global_entity_component_of::<BufferEntityData>().read();
+
+  let f = |(idx, range): (RawEntityHandle, Option<BufferViewRange>)| {
+    let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
+    let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &cx.gpu.device);
+    buffer.create_view(map_view(range))
+  };
+
+  maintain_shared_map(&vertex, source, f);
+
   let multi_access = cx
     .use_db_rev_ref_typed::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
     .use_assure_result(cx);
-
-  let index = use_buffers::<AttributeIndexRef>(cx, BufferUsages::INDEX);
-  let vertex = use_buffers::<AttributeVertexRef>(cx, BufferUsages::VERTEX);
 
   cx.when_render(|| GLESAttributesMeshRenderer {
     mesh_access: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
@@ -73,35 +102,6 @@ impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
   }
 }
 
-type BufferCollection = SharedHashMap<RawEntityHandle, GPUBufferResourceView>;
-type BufferCollectionRead = SharedHashMapRead<RawEntityHandle, GPUBufferResourceView>;
-
-fn use_buffers<B: SceneBufferView>(
-  cx: &mut QueryGPUHookCx,
-  usage: BufferUsages,
-) -> BufferCollection {
-  let map = cx.use_shared_hash_map("gles attribute buffer");
-
-  let source = cx
-    .use_dual_query::<SceneBufferViewBufferId<B>>()
-    .dual_query_zip(cx.use_dual_query::<SceneBufferViewBufferRange<B>>())
-    .into_delta_change()
-    .filter_map_changes(|(id, range)| Some((id?, range)))
-    .use_assure_result(cx);
-
-  let read_view = global_entity_component_of::<BufferEntityData>().read();
-
-  let f = |(idx, range): (RawEntityHandle, Option<BufferViewRange>)| {
-    let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
-    let buffer = create_gpu_buffer(buffer.as_slice(), usage, &cx.gpu.device);
-    buffer.create_view(map_view(range))
-  };
-
-  maintain_shared_map(&map, source, f);
-
-  map
-}
-
 fn map_view(view: Option<rendiation_mesh_core::BufferViewRange>) -> GPUBufferViewRange {
   view
     .map(|view| GPUBufferViewRange {
@@ -110,6 +110,8 @@ fn map_view(view: Option<rendiation_mesh_core::BufferViewRange>) -> GPUBufferVie
     })
     .unwrap_or_default()
 }
+
+type BufferCollectionRead = SharedHashMapRead<RawEntityHandle, GPUBufferResourceView>;
 
 pub struct AttributesMeshEntityVertexAccessView {
   pub semantics: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
