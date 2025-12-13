@@ -15,21 +15,31 @@ pub fn use_texture_system(
   ty: GPUTextureBindingSystemType,
   pool_init_config: &TexturePoolSourceInit,
 ) -> Option<GPUTextureBindingSystem> {
-  let source = cx.use_changes::<SceneTexture2dEntityDirectContent>();
-  let (cx, scheduler) = cx
-    .use_plain_state::<Arc<RwLock<NoScheduleScheduler<u32, GPUBufferImage>>>>(|| {
-      //
-      todo!()
-    });
+  let source_creator = |cx: &mut QueryGPUHookCx<'_>| {
+    let source = cx.use_changes::<SceneTexture2dEntityDirectContent>();
+    let (cx, scheduler) = cx
+      .use_plain_state::<Arc<RwLock<NoScheduleScheduler<u32, GPUBufferImage>>>>(|| {
+        //
+        todo!()
+      });
 
-  let source = use_maybe_uri_data_changes(cx, source, scheduler);
-  // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
+    use_maybe_uri_data_changes(cx, source, scheduler)
+    // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
+  };
+
+  // note, we must create source for each scope because if somehow we changed system type,
+  // we need the source emit new inits messages
   match ty {
     GPUTextureBindingSystemType::GlesSingleBinding => {
+      let source = source_creator(cx);
       cx.scope(|cx| use_gles_texture_system(cx, source))
     }
-    GPUTextureBindingSystemType::Bindless => cx.scope(|cx| use_bindless_texture_system(cx, source)),
+    GPUTextureBindingSystemType::Bindless => cx.scope(|cx| {
+      let source = source_creator(cx);
+      use_bindless_texture_system(cx, source)
+    }),
     GPUTextureBindingSystemType::TexturePool => {
+      let source = source_creator(cx);
       cx.scope(|cx| use_pool_texture_system(cx, pool_init_config, source))
     }
   }
