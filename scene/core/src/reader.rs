@@ -112,7 +112,7 @@ impl SceneReader {
   pub fn read_texture(
     &self,
     id: EntityHandle<SceneTexture2dEntity>,
-  ) -> Option<&MaybeUriData<GPUBufferImage>> {
+  ) -> Option<&MaybeUriData<Arc<GPUBufferImage>>> {
     let tex = self
       .texture
       .try_read_ref::<SceneTexture2dEntityDirectContent>(id)?

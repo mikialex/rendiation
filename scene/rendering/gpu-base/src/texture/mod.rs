@@ -18,13 +18,18 @@ pub fn use_texture_system(
   let source_creator = |cx: &mut QueryGPUHookCx<'_>| {
     let source = cx.use_changes::<SceneTexture2dEntityDirectContent>();
     let (cx, scheduler) = cx
-      .use_plain_state::<Arc<RwLock<NoScheduleScheduler<u32, GPUBufferImage>>>>(|| {
-        //
-        todo!()
+      .use_plain_state::<Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>>>>>(|| {
+        let source = InMemoryUriDataSource::new(alloc_global_res_id());
+        let scheduler = NoScheduleScheduler {
+          futures: Default::default(),
+          data_source: Box::new(source),
+        };
+        Arc::new(RwLock::new(scheduler))
       });
 
     use_maybe_uri_data_changes(cx, source, scheduler)
     // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
+    // so we use Arc, but we should use DataChangeRef trait
   };
 
   // note, we must create source for each scope because if somehow we changed system type,
@@ -59,7 +64,7 @@ fn create_default_tex_and_sampler(
 
 pub fn use_gles_texture_system(
   cx: &mut QueryGPUHookCx,
-  source: UseResult<impl DataChanges<Key = u32, Value = Option<GPUBufferImage>>>,
+  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>>>,
 ) -> Option<GPUTextureBindingSystem> {
   let (cx, (default_2d, default_sampler)) = cx.use_gpu_init(create_default_tex_and_sampler);
   let textures = use_gpu_texture_2ds(cx, default_2d, source);
@@ -77,7 +82,7 @@ pub fn use_gles_texture_system(
 
 pub fn use_bindless_texture_system(
   cx: &mut QueryGPUHookCx,
-  source: UseResult<impl DataChanges<Key = u32, Value = Option<GPUBufferImage>>>,
+  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>>>,
 ) -> Option<GPUTextureBindingSystem> {
   let (cx, (default_2d, default_sampler)) = cx.use_gpu_init(create_default_tex_and_sampler);
 
@@ -113,7 +118,7 @@ pub fn use_bindless_texture_system(
 pub fn use_pool_texture_system(
   cx: &mut QueryGPUHookCx,
   init: &TexturePoolSourceInit,
-  source: UseResult<impl DataChanges<Key = u32, Value = Option<GPUBufferImage>> + 'static>,
+  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>> + 'static>,
 ) -> Option<GPUTextureBindingSystem> {
   let (cx, samplers) =
     cx.use_storage_buffer("sampler info", init.init_sampler_count_capacity, u32::MAX);
@@ -202,7 +207,7 @@ pub fn use_pool_texture_system(
 
     let iter = content_changes.iter().filter_map(|(k, v)| {
       let v = v.as_ref()?;
-      Some((*k, v))
+      Some((*k, v.as_ref()))
     });
 
     update_atlas(

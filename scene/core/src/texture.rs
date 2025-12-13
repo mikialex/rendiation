@@ -4,7 +4,7 @@ declare_entity!(SceneTexture2dEntity);
 declare_component!(
   SceneTexture2dEntityDirectContent,
   SceneTexture2dEntity,
-  Option<ExternalRefPtr<MaybeUriData<GPUBufferImage>>>
+  Option<ExternalRefPtr<MaybeUriData<Arc<GPUBufferImage>>>>
 );
 pub fn register_scene_texture2d_data_model() {
   global_database()
@@ -149,6 +149,7 @@ impl TexSamplerWriter<'_> {
       .sampler_writer
       .new_entity(|w| w.write::<SceneSamplerInfo>(&sampler));
 
+    let texture = Arc::new(texture);
     let texture = MaybeUriData::Living(texture);
     let texture = ExternalRefPtr::new(texture);
     let texture = self
@@ -175,26 +176,32 @@ impl TexCubeWriter<'_> {
     z_neg: GPUBufferImage,
   ) -> EntityHandle<SceneTextureCubeEntity> {
     let x_pos = self.tex_writer.new_entity(|w| {
+      let x_pos = Arc::new(x_pos);
       let t = MaybeUriData::Living(x_pos);
       w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let y_pos = self.tex_writer.new_entity(|w| {
+      let y_pos = Arc::new(y_pos);
       let t = MaybeUriData::Living(y_pos);
       w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let z_pos = self.tex_writer.new_entity(|w| {
+      let z_pos = Arc::new(z_pos);
       let t = MaybeUriData::Living(z_pos);
       w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let x_neg = self.tex_writer.new_entity(|w| {
+      let x_neg = Arc::new(x_neg);
       let t = MaybeUriData::Living(x_neg);
       w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let y_neg = self.tex_writer.new_entity(|w| {
+      let y_neg = Arc::new(y_neg);
       let t = MaybeUriData::Living(y_neg);
       w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let z_neg = self.tex_writer.new_entity(|w| {
+      let z_neg = Arc::new(z_neg);
       let t = MaybeUriData::Living(z_neg);
       w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
