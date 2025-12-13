@@ -16,8 +16,20 @@ pub fn use_texture_system(
   pool_init_config: &TexturePoolSourceInit,
 ) -> Option<GPUTextureBindingSystem> {
   let source_creator = |cx: &mut QueryGPUHookCx<'_>| {
-    cx.use_changes::<SceneTexture2dEntityDirectContent>()
-      .map_changes(|v| v.map(|v| v.ptr.clone()))
+    let source = cx.use_changes::<SceneTexture2dEntityDirectContent>();
+    let (cx, scheduler) = cx
+      .use_plain_state::<Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>>>>>(|| {
+        let source = InMemoryUriDataSource::new(alloc_global_res_id());
+        let scheduler = NoScheduleScheduler {
+          futures: Default::default(),
+          data_source: Box::new(source),
+        };
+        Arc::new(RwLock::new(scheduler))
+      });
+
+    use_maybe_uri_data_changes(cx, source, scheduler)
+    // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
+    // so we use Arc, but we should use DataChangeRef trait
   };
 
   // note, we must create source for each scope because if somehow we changed system type,
