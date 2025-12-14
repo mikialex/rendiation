@@ -61,6 +61,8 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V>
 }
 
 // todo, optimize impl
+/// the scheduler should not be shared between different use_maybe_uri_data_changes
+/// the Arc is only to support it access in thread
 pub fn use_maybe_uri_data_changes<P, C>(
   cx: &mut impl QueryHookCxLike,
   changes: UseResult<C>,
@@ -79,7 +81,6 @@ where
     cx,
     |changes| changes.has_change(),
     move |changes| {
-      // todo, we should use some async lock to avoid blocking
       let mut scheduler = scheduler.write();
 
       let mut all_removed = Vec::new();
@@ -90,7 +91,8 @@ where
         all_removed.push(removed);
       }
 
-      // let mut new_inserted = Vec::new();
+      let mut new_inserted = Vec::new();
+      let mut new_loading = fast_hash_collection::FastHashSet::default();
 
       // although the changes insert list may duplicate, it is not a problem but will have some performance cost
       for (k, v) in changes.iter_update_or_insert() {
@@ -98,27 +100,32 @@ where
           let v = v.deref();
           match v {
             MaybeUriData::Uri(uri) => {
-              scheduler.notify_use_resource(&k, &uri);
+              scheduler.notify_use_resource(&k, uri);
+              new_loading.insert(k.clone());
             }
             MaybeUriData::Living(v) => {
-              // new_inserted.push((k, v));
+              new_inserted.push((k, Some(v.clone())));
             }
           }
         }
       }
 
-      // let mut ctx = Context::from_waker(&waker);
-      // let loading = data_scheduler.poll_schedule(&mut ctx);
+      let mut ctx = Context::from_waker(&waker);
+      let loaded = scheduler.poll_schedule(&mut ctx);
 
-      // new_inserted.extend(loading.update_or_insert);
-      // all_removed.extend(loading.removed);
+      for (k, v) in loaded.iter_update_or_insert() {
+        new_loading.remove(&k);
+        new_inserted.push((k, Some(v)));
+      }
 
-      // LinearBatchChanges {
-      //   removed: all_removed,
-      //   update_or_insert: new_inserted,
-      // };
+      for k in new_loading {
+        new_inserted.push((k, None));
+      }
 
-      todo!()
+      LinearBatchChanges {
+        removed: all_removed,
+        update_or_insert: new_inserted,
+      }
     },
   )
 }
