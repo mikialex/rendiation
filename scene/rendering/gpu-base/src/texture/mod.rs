@@ -1,5 +1,5 @@
 mod cube;
-use std::{ops::Deref, sync::Arc};
+use std::sync::Arc;
 
 pub use cube::*;
 mod d2_and_sampler;
@@ -15,12 +15,26 @@ pub fn use_texture_system(
   ty: GPUTextureBindingSystemType,
   pool_init_config: &TexturePoolSourceInit,
 ) -> Option<GPUTextureBindingSystem> {
+  let source_creator = |cx: &mut QueryGPUHookCx<'_>| {
+    cx.use_changes::<SceneTexture2dEntityDirectContent>()
+      .map_changes(|v| v.map(|v| v.ptr.clone()))
+  };
+
+  // note, we must create source for each scope because if somehow we changed system type,
+  // we need the source emit new inits messages
   match ty {
-    GPUTextureBindingSystemType::GlesSingleBinding => cx.scope(|cx| use_gles_texture_system(cx)),
-    GPUTextureBindingSystemType::Bindless => cx.scope(|cx| use_bindless_texture_system(cx)),
-    GPUTextureBindingSystemType::TexturePool => {
-      cx.scope(|cx| use_pool_texture_system(cx, pool_init_config))
-    }
+    GPUTextureBindingSystemType::GlesSingleBinding => cx.scope(|cx| {
+      let source = source_creator(cx);
+      use_gles_texture_system(cx, source)
+    }),
+    GPUTextureBindingSystemType::Bindless => cx.scope(|cx| {
+      let source = source_creator(cx);
+      use_bindless_texture_system(cx, source)
+    }),
+    GPUTextureBindingSystemType::TexturePool => cx.scope(|cx| {
+      let source = source_creator(cx);
+      use_pool_texture_system(cx, pool_init_config, source)
+    }),
   }
 }
 
@@ -36,9 +50,12 @@ fn create_default_tex_and_sampler(
   (default_2d, default_sampler)
 }
 
-pub fn use_gles_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
+pub fn use_gles_texture_system(
+  cx: &mut QueryGPUHookCx,
+  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>>>,
+) -> Option<GPUTextureBindingSystem> {
   let (cx, (default_2d, default_sampler)) = cx.use_gpu_init(create_default_tex_and_sampler);
-  let textures = use_gpu_texture_2ds(cx, default_2d);
+  let textures = use_gpu_texture_2ds(cx, default_2d, source);
   let samplers = use_sampler_gpus(cx);
 
   cx.when_render(|| {
@@ -51,7 +68,10 @@ pub fn use_gles_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBind
   })
 }
 
-pub fn use_bindless_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
+pub fn use_bindless_texture_system(
+  cx: &mut QueryGPUHookCx,
+  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>>>,
+) -> Option<GPUTextureBindingSystem> {
   let (cx, (default_2d, default_sampler)) = cx.use_gpu_init(create_default_tex_and_sampler);
 
   let bindless_minimal_effective_count = BINDLESS_EFFECTIVE_COUNT;
@@ -60,7 +80,8 @@ pub fn use_bindless_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTexture
     BindingArrayMaintainer::new(default_2d.clone(), bindless_minimal_effective_count)
   });
 
-  let (textures, changed) = cx.run_with_waked_info(|cx, _| use_gpu_texture_2ds(cx, default_2d));
+  let (textures, changed) =
+    cx.run_with_waked_info(|cx, _| use_gpu_texture_2ds(cx, default_2d, source));
   if changed {
     bindless_texture_2d.update(textures, cx.gpu);
   }
@@ -85,6 +106,7 @@ pub fn use_bindless_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTexture
 pub fn use_pool_texture_system(
   cx: &mut QueryGPUHookCx,
   init: &TexturePoolSourceInit,
+  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>> + 'static>,
 ) -> Option<GPUTextureBindingSystem> {
   let (cx, samplers) =
     cx.use_storage_buffer("sampler info", init.init_sampler_count_capacity, u32::MAX);
@@ -101,8 +123,11 @@ pub fn use_pool_texture_system(
     u32::MAX,
   );
 
+  let (source, source_) = source.fork();
+  let (source_, source__) = source_.fork();
+
   let require_convert = cx.gpu.info().adaptor_info.backend != Backend::Gl;
-  cx.use_changes::<SceneTexture2dEntityDirectContent>()
+  source
     .map_changes(move |v| {
       v.map(|v| {
         if require_convert {
@@ -126,8 +151,7 @@ pub fn use_pool_texture_system(
   let packer_ = packer.clone();
   let _atlas = atlas.clone();
 
-  let packing_changes = cx
-    .use_changes::<SceneTexture2dEntityDirectContent>()
+  let packing_changes = source_
     .filter_map_changes(|tex| tex.map(|tex| tex.size))
     .map_spawn_stage_in_thread(
       cx,
@@ -157,9 +181,7 @@ pub fn use_pool_texture_system(
     })
     .update_storage_array(cx, texture_address, 0);
 
-  let content_changes = cx
-    .use_changes::<SceneTexture2dEntityDirectContent>()
-    .use_assure_result(cx);
+  let content_changes = source__.use_assure_result(cx);
 
   let packing_changes_ = packing_changes_.use_assure_result(cx);
   if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
@@ -172,8 +194,8 @@ pub fn use_pool_texture_system(
       .unwrap_or_default(); // todo, bad
 
     let iter = content_changes.iter().filter_map(|(k, v)| {
-      let v = v.as_ref()?.deref();
-      Some((*k, v))
+      let v = v.as_ref()?;
+      Some((*k, v.as_ref()))
     });
 
     update_atlas(
