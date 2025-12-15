@@ -2,7 +2,7 @@ use fast_hash_collection::{FastHashMap, FastHashSet};
 use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_webgpu::*;
-use rendiation_webgpu_virtual_buffer::*;
+use rendiation_webgpu_virtual_typed_combine_buffer::*;
 
 use crate::*;
 
