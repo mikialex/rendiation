@@ -7,6 +7,9 @@ pub enum UseResult<T> {
   NotInStage,
 }
 
+pub type DualQueryFromDataChanges<K, V> =
+  DualQuery<LockReadGuardHolder<FastHashMap<K, V>>, Arc<FastHashMap<K, ValueChange<V>>>>;
+
 impl<T: Send + Sync + 'static> UseResult<T> {
   pub fn map_spawn_stage_in_thread_dual_query<U: Send + Sync + 'static>(
     self,
@@ -67,9 +70,10 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   pub fn use_change_to_dual_query_in_spawn_stage(
     self,
     cx: &mut impl QueryHookCxLike,
-  ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = T::Value>>
+  ) -> UseResult<DualQueryFromDataChanges<T::Key, T::Value>>
   where
     T: DataChanges,
+    T::Value: CValue,
   {
     let map = cx.use_shared_hash_map::<T::Key, T::Value>("change_to_dual_query");
 

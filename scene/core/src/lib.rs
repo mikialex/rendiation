@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use bytemuck::*;
 use database::*;
-use fast_hash_collection::FastHashMap;
+use fast_hash_collection::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 pub use rendiation_mesh_core::PrimitiveTopology;

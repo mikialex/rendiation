@@ -19,7 +19,7 @@ use crate::*;
 ///   - can remove none exist key(it's ok because it's not exist at all)
 pub trait DataChanges: Send + Sync + Clone {
   type Key: CKey;
-  type Value: CValue;
+  type Value;
   fn has_change(&self) -> bool;
   fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_;
   fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_;
@@ -212,7 +212,7 @@ impl<K, T> Default for LinearBatchChanges<K, T> {
   }
 }
 
-impl<K: CKey, T: CValue> DataChanges for LinearBatchChanges<K, T> {
+impl<K: CKey, T: Clone + Send + Sync> DataChanges for LinearBatchChanges<K, T> {
   type Key = K;
   type Value = T;
 
