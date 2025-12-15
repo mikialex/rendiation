@@ -15,14 +15,6 @@ impl PartialEq for TlASInstance {
   }
 }
 
-fn get_sub_buffer(buffer: &[u8], range: Option<BufferViewRange>) -> &[u8] {
-  if let Some(range) = range {
-    buffer.get(range.into_range(buffer.len())).unwrap()
-  } else {
-    buffer
-  }
-}
-
 #[derive(Clone)]
 pub struct BlasInstance {
   inner: Arc<BlasInstanceInternal>,
@@ -71,75 +63,59 @@ pub fn use_attribute_mesh_to_blas(
   cx: &mut QueryGPUHookCx,
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
 ) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = BlasInstance>> {
-  let (position_scopes1, position_scopes2) = use_attribute_mesh_position_query(cx).fork();
-
   let acc_sys_ = acc_sys.clone();
-
-  let none_indexed = position_scopes1
-    .map(|v| v.none_indexed)
-    .use_dual_query_execute_map(cx, move || {
+  cx.use_shared_dual_query(AttributeMeshInput)
+    .use_dual_query_execute_map(cx, || {
       let acc_sys = acc_sys_;
-      let buffer_accessor = get_db_view::<BufferEntityData>();
-      move |_, position| {
-        let position_buffer = buffer_accessor.access(&position.0.unwrap()).unwrap();
-        let position_buffer = get_sub_buffer(position_buffer.as_slice(), position.1);
-        let position_buffer = bytemuck::cast_slice(position_buffer);
+      move |_k, mesh| {
+        // todo, avoid vec
+        let positions = mesh
+          .get_position()
+          .read()
+          .visit_slice::<Vec3<f32>>()
+          .unwrap()
+          .to_vec();
 
-        let source = BottomLevelAccelerationStructureBuildSource {
-          geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
-            positions: position_buffer.to_vec(), // todo, avoid vec
-            indices: None,
-          },
-          flags: GEOMETRY_FLAG_OPAQUE,
-        };
-        BlasInstance::new(
-          acc_sys.create_bottom_level_acceleration_structure(&[source]),
-          acc_sys.clone(),
-        )
-      }
-    });
+        if let Some((fmt, indices)) = &mesh.indices {
+          let indices = indices.read();
+          let index = indices.visit_bytes().unwrap();
+          let index = match fmt {
+            AttributeIndexFormat::Uint16 => {
+              let index: &[u16] = cast_slice(index);
+              index.iter().map(|i| *i as u32).collect()
+            }
+            AttributeIndexFormat::Uint32 => {
+              let index: &[u32] = cast_slice(index);
+              index.to_vec()
+            }
+          };
 
-  let acc_sys__ = acc_sys.clone();
-
-  let indexed = position_scopes2
-    .map(|v| v.indexed)
-    .use_dual_query_execute_map(cx, move || {
-      let acc_sys = acc_sys__;
-      let buffer_accessor = get_db_view::<BufferEntityData>();
-      move |_, (position, (index_buffer, index_range, index_count))| {
-        let position_buffer = buffer_accessor.access(&position.0.unwrap()).unwrap();
-        let position_buffer = get_sub_buffer(position_buffer.as_slice(), position.1);
-        let position_buffer = bytemuck::cast_slice(position_buffer);
-
-        let index_buffer = buffer_accessor.access(&index_buffer).unwrap();
-        let index = get_sub_buffer(index_buffer.as_slice(), index_range);
-
-        let count = index_count as usize;
-        let index = if index.len() / count == 2 {
-          let index: &[u16] = cast_slice(index);
-          index.iter().map(|i| *i as u32).collect()
-        } else if index.len() / count == 4 {
-          let index: &[u32] = cast_slice(index);
-          index.to_vec()
+          let source = BottomLevelAccelerationStructureBuildSource {
+            geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
+              positions,
+              indices: Some(index),
+            },
+            flags: GEOMETRY_FLAG_OPAQUE,
+          };
+          BlasInstance::new(
+            acc_sys.create_bottom_level_acceleration_structure(&[source]),
+            acc_sys.clone(),
+          )
         } else {
-          unreachable!("index count must be 2 or 4")
-        };
-
-        let source = BottomLevelAccelerationStructureBuildSource {
-          geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
-            positions: position_buffer.to_vec(), // todo, avoid vec
-            indices: Some(index),
-          },
-          flags: GEOMETRY_FLAG_OPAQUE,
-        };
-        BlasInstance::new(
-          acc_sys.create_bottom_level_acceleration_structure(&[source]),
-          acc_sys.clone(),
-        )
+          let source = BottomLevelAccelerationStructureBuildSource {
+            geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
+              positions,
+              indices: None,
+            },
+            flags: GEOMETRY_FLAG_OPAQUE,
+          };
+          BlasInstance::new(
+            acc_sys.create_bottom_level_acceleration_structure(&[source]),
+            acc_sys.clone(),
+          )
+        }
       }
-    });
-
-  indexed.dual_query_select(none_indexed)
+    })
 }
 
 pub fn use_scene_model_to_blas_instance(
