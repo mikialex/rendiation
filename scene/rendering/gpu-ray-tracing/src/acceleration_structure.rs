@@ -64,58 +64,64 @@ pub fn use_attribute_mesh_to_blas(
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
 ) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = BlasInstance>> {
   let acc_sys_ = acc_sys.clone();
+
   cx.use_shared_dual_query(AttributeMeshInput)
     .use_dual_query_execute_map(cx, || {
       let acc_sys = acc_sys_;
-      move |_k, mesh| {
-        // todo, avoid vec
-        let positions = mesh
-          .get_position()
-          .read()
-          .visit_slice::<Vec3<f32>>()
-          .unwrap()
-          .to_vec();
-
-        if let Some((fmt, indices)) = &mesh.indices {
-          let indices = indices.read();
-          let index = indices.visit_bytes().unwrap();
-          let index = match fmt {
-            AttributeIndexFormat::Uint16 => {
-              let index: &[u16] = cast_slice(index);
-              index.iter().map(|i| *i as u32).collect()
-            }
-            AttributeIndexFormat::Uint32 => {
-              let index: &[u32] = cast_slice(index);
-              index.to_vec()
-            }
-          };
-
-          let source = BottomLevelAccelerationStructureBuildSource {
-            geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
-              positions,
-              indices: Some(index),
-            },
-            flags: GEOMETRY_FLAG_OPAQUE,
-          };
-          BlasInstance::new(
-            acc_sys.create_bottom_level_acceleration_structure(&[source]),
-            acc_sys.clone(),
-          )
-        } else {
-          let source = BottomLevelAccelerationStructureBuildSource {
-            geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
-              positions,
-              indices: None,
-            },
-            flags: GEOMETRY_FLAG_OPAQUE,
-          };
-          BlasInstance::new(
-            acc_sys.create_bottom_level_acceleration_structure(&[source]),
-            acc_sys.clone(),
-          )
-        }
-      }
+      move |_k, mesh| create_blas_from_attribute_mesh(&mesh, &acc_sys)
     })
+}
+
+fn create_blas_from_attribute_mesh(
+  mesh: &AttributesMesh,
+  acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
+) -> BlasInstance {
+  // todo, avoid vec
+  let positions = mesh
+    .get_position()
+    .read()
+    .visit_slice::<Vec3<f32>>()
+    .unwrap()
+    .to_vec();
+
+  if let Some((fmt, indices)) = &mesh.indices {
+    let indices = indices.read();
+    let index = indices.visit_bytes().unwrap();
+    let index = match fmt {
+      AttributeIndexFormat::Uint16 => {
+        let index: &[u16] = cast_slice(index);
+        index.iter().map(|i| *i as u32).collect()
+      }
+      AttributeIndexFormat::Uint32 => {
+        let index: &[u32] = cast_slice(index);
+        index.to_vec()
+      }
+    };
+
+    let source = BottomLevelAccelerationStructureBuildSource {
+      geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
+        positions,
+        indices: Some(index),
+      },
+      flags: GEOMETRY_FLAG_OPAQUE,
+    };
+    BlasInstance::new(
+      acc_sys.create_bottom_level_acceleration_structure(&[source]),
+      acc_sys.clone(),
+    )
+  } else {
+    let source = BottomLevelAccelerationStructureBuildSource {
+      geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
+        positions,
+        indices: None,
+      },
+      flags: GEOMETRY_FLAG_OPAQUE,
+    };
+    BlasInstance::new(
+      acc_sys.create_bottom_level_acceleration_structure(&[source]),
+      acc_sys.clone(),
+    )
+  }
 }
 
 pub fn use_scene_model_to_blas_instance(
