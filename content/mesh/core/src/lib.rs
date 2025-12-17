@@ -13,7 +13,6 @@ use std::{
   hash::Hash,
   marker::PhantomData,
   num::NonZeroU64,
-  ops::Deref,
   sync::Arc,
 };
 

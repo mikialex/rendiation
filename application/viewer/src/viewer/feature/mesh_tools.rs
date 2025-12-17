@@ -221,7 +221,6 @@ fn get_mesh(reader: &SceneReader, target: EntityHandle<SceneModelEntity>) -> Com
   let (fmt, indices) = mesh.indices.clone().unwrap();
   assert!(fmt == rendiation_mesh_core::AttributeIndexFormat::Uint32);
 
-  let mesh = mesh.read_full();
   let position = mesh
     .get_attribute(&rendiation_mesh_core::AttributeSemantic::Positions)
     .unwrap();
@@ -248,7 +247,7 @@ fn get_mesh(reader: &SceneReader, target: EntityHandle<SceneModelEntity>) -> Com
     .collect::<Vec<_>>();
 
   CommonMeshBuffer {
-    indices: indices.read().visit_slice().unwrap().to_vec(),
+    indices: indices.visit_slice().unwrap().to_vec(),
     vertices,
   }
 }

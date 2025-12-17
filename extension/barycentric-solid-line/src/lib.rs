@@ -43,8 +43,8 @@ pub fn barycentric_shader_inject(id: u32, vertex: &mut ShaderVertexBuilder) {
 }
 
 impl AttributeVertex for FullReaderReadWithBarycentric<'_> {
-  fn layout(&self) -> Vec<AttributeSemantic> {
-    let mut inner = self.inner.layout();
+  fn create_layout(&self) -> Vec<AttributeSemantic> {
+    let mut inner = self.inner.create_layout();
 
     inner.push(AttributeSemantic::Foreign {
       implementation_id: BARYCENTRIC_COORD_SEMANTIC_ID,
@@ -65,10 +65,9 @@ impl AttributeVertex for FullReaderReadWithBarycentric<'_> {
 }
 
 pub fn generate_barycentric_buffer_and_expanded_mesh(mesh: AttributesMesh) -> AttributesMeshData {
+  let full_vertex_read = mesh.create_full_read_view_base();
   mesh
-    .read()
-    .read_full()
-    .as_abstract_mesh_read_view()
+    .create_abstract_mesh_view(full_vertex_read)
     .primitive_iter()
     .filter_map(|p| match p {
       AttributeDynPrimitive::Triangle(t) => Some(t),

@@ -125,7 +125,7 @@ pub fn merge_attribute_accessor<T: bytemuck::Pod>(
 
   let mut merged = Vec::with_capacity(count);
   for (idx, acc) in inputs.iter().enumerate() {
-    acc.read().visit_slice::<T>()?.iter().for_each(|v| {
+    acc.visit_slice::<T>()?.iter().for_each(|v| {
       merged.push(mapper(idx, v));
     })
   }
