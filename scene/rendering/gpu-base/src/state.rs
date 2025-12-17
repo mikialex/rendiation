@@ -2,7 +2,7 @@ use interning::*;
 
 use crate::*;
 
-pub fn use_state_overrides(cx: &mut QueryGPUHookCx) -> Option<StateOverrides> {
+pub fn use_state_overrides(cx: &mut QueryGPUHookCx, reverse_z: bool) -> Option<StateOverrides> {
   let (cx, intern) = cx.use_sharable_plain_state(ValueInterning::default);
   let intern = intern.clone();
   let interned = cx
@@ -17,12 +17,14 @@ pub fn use_state_overrides(cx: &mut QueryGPUHookCx) -> Option<StateOverrides> {
   cx.when_render(|| StateOverrides {
     states: global_entity_component_of::<StandardModelRasterizationOverride>().read(),
     interned: interned.expect_resolve_stage().view,
+    reverse_z,
   })
 }
 
 pub struct StateOverrides {
   states: ComponentReadView<StandardModelRasterizationOverride>,
-  interned: BoxedDynQuery<RawEntityHandle, Option<InternedId<MaterialStates>>>,
+  interned: BoxedDynQuery<RawEntityHandle, Option<InternedId<RasterizationStates>>>,
+  reverse_z: bool,
 }
 
 impl StateOverrides {
@@ -33,13 +35,15 @@ impl StateOverrides {
     Some(StateGPUImpl {
       state_id: id,
       states,
+      is_reverse_z: self.reverse_z,
     })
   }
 }
 
 pub struct StateGPUImpl<'a> {
-  state_id: Option<InternedId<MaterialStates>>,
-  states: &'a Option<MaterialStates>,
+  state_id: Option<InternedId<RasterizationStates>>,
+  states: &'a Option<RasterizationStates>,
+  is_reverse_z: bool,
 }
 
 impl<'a> ShaderHashProvider for StateGPUImpl<'a> {
@@ -60,13 +64,13 @@ impl<'a> GraphicsShaderProvider for StateGPUImpl<'a> {
       });
 
       builder.fragment(|builder, _| {
-        apply_pipeline_builder(state, builder);
+        apply_pipeline_builder(state, self.is_reverse_z, builder);
       })
     }
   }
 }
 
-fn map_color_states(states: &MaterialStates, format: TextureFormat) -> ColorTargetState {
+fn map_color_states(states: &RasterizationStates, format: TextureFormat) -> ColorTargetState {
   let mut s = ColorTargetState {
     format,
     blend: states.blend,
@@ -80,19 +84,57 @@ fn map_color_states(states: &MaterialStates, format: TextureFormat) -> ColorTarg
   s
 }
 fn map_depth_stencil_state(
-  states: &MaterialStates,
+  states: &RasterizationStates,
   format: Option<TextureFormat>,
+  reverse_z: bool,
 ) -> Option<DepthStencilState> {
   format.map(|format| DepthStencilState {
     format,
     depth_write_enabled: states.depth_write_enabled,
-    depth_compare: states.depth_compare,
+    depth_compare: match states.depth_compare {
+      SemanticCompareFunction::Never => CompareFunction::Never,
+      SemanticCompareFunction::Nearer => {
+        if reverse_z {
+          CompareFunction::Greater
+        } else {
+          CompareFunction::Less
+        }
+      }
+      SemanticCompareFunction::Equal => CompareFunction::Equal,
+      SemanticCompareFunction::NearerEqual => {
+        if reverse_z {
+          CompareFunction::GreaterEqual
+        } else {
+          CompareFunction::LessEqual
+        }
+      }
+      SemanticCompareFunction::Further => {
+        if reverse_z {
+          CompareFunction::Less
+        } else {
+          CompareFunction::Greater
+        }
+      }
+      SemanticCompareFunction::NotEqual => CompareFunction::NotEqual,
+      SemanticCompareFunction::FurtherEqual => {
+        if reverse_z {
+          CompareFunction::LessEqual
+        } else {
+          CompareFunction::GreaterEqual
+        }
+      }
+      SemanticCompareFunction::Always => CompareFunction::Always,
+    },
     stencil: states.stencil.clone(),
     bias: states.bias,
   })
 }
 
-pub fn apply_pipeline_builder(states: &MaterialStates, builder: &mut ShaderFragmentBuilder) {
+pub fn apply_pipeline_builder(
+  states: &RasterizationStates,
+  reverse_z: bool,
+  builder: &mut ShaderFragmentBuilder,
+) {
   // override all outputs states
   builder.frag_output.iter_mut().for_each(|p| {
     let format = p.states.format;
@@ -101,5 +143,5 @@ pub fn apply_pipeline_builder(states: &MaterialStates, builder: &mut ShaderFragm
 
   // and depth_stencil if they exist
   let format = builder.depth_stencil.as_ref().map(|s| s.format);
-  builder.depth_stencil = map_depth_stencil_state(states, format);
+  builder.depth_stencil = map_depth_stencil_state(states, format, reverse_z);
 }

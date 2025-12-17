@@ -141,7 +141,7 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn GLESModelMaterialRenderImpl>
         });
 
-        let std_model = std_model_renderer(cx, materials, mesh);
+        let std_model = std_model_renderer(cx, materials, mesh, self.ndc.enable_reverse_z);
 
         let model_renderer = cx.when_render(|| {
           Box::new(vec![
@@ -215,7 +215,7 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn IndirectModelShapeRenderImpl>
         });
 
-        let std_model = use_std_model_renderer(cx, materials, mesh);
+        let std_model = use_std_model_renderer(cx, materials, mesh, self.ndc.enable_reverse_z);
         let wide_line = use_widen_line_indirect_renderer(cx, self.using_host_driven_indirect_draw);
 
         let model_support = cx.when_render(|| {
