@@ -150,8 +150,8 @@ impl AnimationSampler {
   }
 
   pub fn get_start_end_time(&self) -> (f32, f32) {
-    let start = self.input.read().get::<f32>(0).unwrap();
-    let end = self.input.read().get::<f32>(self.input.count - 1).unwrap();
+    let start = self.input.get::<f32>(0).unwrap();
+    let end = self.input.get::<f32>(self.input.count - 1).unwrap();
     (start, end)
   }
 
@@ -294,8 +294,7 @@ impl InterpolateInstance<InterpolationItem> {
 impl InterpolateInstance<InterpolationItem> {
   fn try_from_sampler(sampler: &AnimationSampler, time: f32) -> Option<(Self, (f32, f32))> {
     // decide which frame interval we are in;
-    let sampler_input = sampler.input.read();
-    let slice = sampler_input.visit_slice::<f32>()?;
+    let slice = sampler.input.visit_slice::<f32>()?;
 
     // the gltf animation spec doesn't contains start time or loop behavior, we just use abs time
     let end_index = slice
@@ -307,8 +306,8 @@ impl InterpolateInstance<InterpolationItem> {
       return None;
     }
 
-    let (start_time, start_index) = (sampler_input.get::<f32>(end_index - 1)?, end_index - 1);
-    let (end_time, end_index) = (sampler_input.get::<f32>(end_index)?, end_index);
+    let (start_time, start_index) = (sampler.input.get::<f32>(end_index - 1)?, end_index - 1);
+    let (end_time, end_index) = (sampler.input.get::<f32>(end_index)?, end_index);
     let field_ty = sampler.field;
 
     if let SceneAnimationField::Rotation | SceneAnimationField::MorphTargetWeights = field_ty {
@@ -322,7 +321,6 @@ impl InterpolateInstance<InterpolationItem> {
       field_ty: SceneAnimationField,
     ) -> Option<InterpolationItem> {
       use SceneAnimationField::*;
-      let output = output.read();
       match field_ty {
         MorphTargetWeights => InterpolationItem::MorphTargetWeights(output.get::<f32>(index)?),
         Position => InterpolationItem::Position(output.get::<Vec3<f32>>(index)?),
@@ -339,7 +337,6 @@ impl InterpolateInstance<InterpolationItem> {
     ) -> Option<InterpolationCubicItem> {
       use InterpolationCubicItem::*;
       use SceneAnimationField as SF;
-      let output = output.read();
       match field_ty {
         SF::MorphTargetWeights => MorphTargetWeights(output.get::<CubicVertex<f32>>(index)?),
         SF::Position => Position(output.get::<CubicVertex<Vec3<f32>>>(index)?),

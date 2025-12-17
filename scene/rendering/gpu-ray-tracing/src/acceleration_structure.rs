@@ -77,15 +77,9 @@ fn create_blas_from_attribute_mesh(
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
 ) -> BlasInstance {
   // todo, avoid vec
-  let positions = mesh
-    .get_position()
-    .read()
-    .visit_slice::<Vec3<f32>>()
-    .unwrap()
-    .to_vec();
+  let positions = mesh.get_position_slice().to_vec();
 
   if let Some((fmt, indices)) = &mesh.indices {
-    let indices = indices.read();
     let index = indices.visit_bytes().unwrap();
     let index = match fmt {
       AttributeIndexFormat::Uint16 => {

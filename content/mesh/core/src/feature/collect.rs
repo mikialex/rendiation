@@ -48,20 +48,8 @@ where
 }
 
 pub trait AttributeVertex {
-  fn layout(&self) -> Vec<AttributeSemantic>;
+  fn create_layout(&self) -> Vec<AttributeSemantic>;
   fn write(self, target: &mut [Vec<u8>]);
-}
-
-impl AttributeVertex for FullReaderRead<'_> {
-  fn write(self, target: &mut [Vec<u8>]) {
-    for (source, target) in self.read_bytes().zip(target.iter_mut()) {
-      target.extend_from_slice(source)
-    }
-  }
-
-  fn layout(&self) -> Vec<AttributeSemantic> {
-    self.reader.keys.clone()
-  }
 }
 
 impl<P: Simplex> FromIterator<P> for AttributesMeshData
@@ -82,7 +70,7 @@ where
       *deduplicate.entry(v).or_insert_with(|| {
         let buffers = buffers.get_or_insert_with(|| {
           layout
-            .get_or_insert_with(|| v.layout())
+            .get_or_insert_with(|| v.create_layout())
             .iter()
             .map(|k| Vec::with_capacity(vertex_max_count * k.item_byte_size()))
             .collect()

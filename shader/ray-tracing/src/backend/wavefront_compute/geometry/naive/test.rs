@@ -26,16 +26,15 @@ pub(crate) fn init_default_acceleration_structure(
     assert!(attribute_mesh.indices.is_some());
     let vertices = attribute_mesh.get_position();
     let (format, indices) = attribute_mesh.indices.as_ref().unwrap();
-    let vertices = vertices.read().visit_slice::<Vec3<f32>>().unwrap().to_vec();
+    let vertices = vertices.visit_slice::<Vec3<f32>>().unwrap().to_vec();
     let indices = match format {
       AttributeIndexFormat::Uint16 => indices
-        .read()
         .visit_slice::<u16>()
         .unwrap()
         .iter()
         .map(|i| *i as u32)
         .collect(),
-      AttributeIndexFormat::Uint32 => indices.read().visit_slice::<u32>().unwrap().to_vec(),
+      AttributeIndexFormat::Uint32 => indices.visit_slice::<u32>().unwrap().to_vec(),
     };
 
     let source = BottomLevelAccelerationStructureBuildSource {

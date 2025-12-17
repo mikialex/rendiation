@@ -115,7 +115,6 @@ impl AttributesMeshWriter for AttributesMesh {
 
     for (semantic, vertex) in self.attributes {
       if CHECK_NORMAL && semantic == AttributeSemantic::Normals {
-        let vertex = vertex.read();
         for normal in vertex.visit_slice::<Vec3<f32>>().unwrap() {
           if (normal.length() - 1.0).abs() > 0.01 {
             println!("normal length error: {}", normal.length());
@@ -200,30 +199,15 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for AttributeMeshLocalBounding {
     cx.use_shared_dual_query(AttributeMeshInput)
       .use_dual_query_execute_map(cx, || {
         |_k, mesh| {
+          let position = mesh.get_position_slice();
           mesh
-            .read_shape()
-            .as_abstract_mesh_read_view()
+            .create_abstract_mesh_view(position)
             .primitive_iter()
             .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
         }
       })
   }
 }
-
-// fn use_attribute_mesh_local_bounding(
-//   cx: &mut impl DBHookCxLike,
-//   mesh_inputs: UseResult<Arc<LinearBatchChanges<RawEntityHandle, AttributesMesh>>>,
-// ) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = Box3>> {
-//   mesh_inputs
-//     .map_changes(|mesh| {
-//       mesh
-//         .read_shape()
-//         .as_abstract_mesh_read_view()
-//         .primitive_iter()
-//         .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
-//     })
-//     .use_change_to_dual_query_in_spawn_stage(cx)
-// }
 
 pub struct AttributeMeshInput;
 
@@ -337,19 +321,4 @@ pub fn attribute_mesh_input(
         })
       },
     )
-}
-
-#[derive(Clone)]
-pub struct PositionRelatedAttributeMeshQuery {
-  pub indexed: BoxedDynDualQuery<
-    RawEntityHandle, // mesh buffer entity
-    (
-      (Option<RawEntityHandle>, Option<BufferViewRange>), // position, buffer entity
-      (RawEntityHandle, Option<BufferViewRange>, u32), /* index, count(used to distinguish the index format) */
-    ),
-  >,
-  pub none_indexed: BoxedDynDualQuery<
-    RawEntityHandle,                                    // mesh buffer entity
-    (Option<RawEntityHandle>, Option<BufferViewRange>), // buffer entity
-  >,
 }
