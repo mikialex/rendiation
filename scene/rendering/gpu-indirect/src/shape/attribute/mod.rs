@@ -164,7 +164,6 @@ fn use_attribute_indices_updates(
   let (cx, allocator) =
     cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_item_count, init_item_count));
 
-  let allocator = allocator.clone();
   let gpu_buffer_ = gpu_buffer.clone();
 
   let allocation_info = index_source.map_spawn_stage_in_thread_data_changes(cx, move |change| {
@@ -273,7 +272,6 @@ fn use_attribute_vertex_updates(
   let (cx, allocator) =
     cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_u32_count, init_u32_count));
 
-  let allocator = allocator.clone();
   let gpu_buffer = vertex_buffer.clone();
 
   let allocation_info =

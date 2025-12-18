@@ -161,6 +161,7 @@ fn fit_camera_view(
       }
       .into()
     }
+    // todo, in this case not change rotation is a better behavior
     CommonProjection::Orth(proj) => {
       let size = proj.size();
       let size = size.x.min(size.y);

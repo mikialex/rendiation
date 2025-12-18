@@ -9,7 +9,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for StateIntern {
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let (cx, intern) = cx.use_sharable_plain_state(ValueInterning::default);
-    let intern = intern.clone();
+
     cx.use_dual_query::<StandardModelRasterizationOverride>()
       .dual_query_filter_map(|v| v) // todo, we should use prefilter if state setting is parse(likely)
       .use_dual_query_execute_map(cx, move || {

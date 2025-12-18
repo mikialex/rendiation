@@ -34,7 +34,6 @@ pub fn use_widen_line_indirect_renderer(
   let (cx, allocator) =
     cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_item_count, init_item_count));
 
-  let allocator = allocator.clone();
   let gpu_buffer = line_seg_buffer.clone();
 
   // todo, improve code sharing with indirect attribute mesh
