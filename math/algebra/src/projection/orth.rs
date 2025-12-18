@@ -40,65 +40,23 @@ impl<T: Scalar> OrthographicProjection<T> {
   pub fn pixels_per_unit(&self, _distance: T, view_height_in_pixel: T) -> T {
     view_height_in_pixel / (self.top - self.bottom).abs()
   }
-}
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Copy, Clone, Facet)]
-pub struct ViewFrustumOrthographicProjection<T> {
-  orth: OrthographicProjection<T>,
-  aspect: T,
-  frustum_size: T,
-}
-
-impl<T: Scalar> ViewFrustumOrthographicProjection<T> {
-  pub fn get_orth(&self) -> &OrthographicProjection<T> {
-    &self.orth
+  pub fn size(&self) -> Vec2<T> {
+    Vec2::new(self.right - self.left, self.top - self.bottom)
   }
 
-  pub fn set_near_far(&mut self, near: T, far: T) {
-    self.orth.near = near;
-    self.orth.far = far;
+  pub fn center(&self) -> Vec2<T> {
+    Vec2::new(self.right + self.left, self.top + self.bottom).map(|v| v / T::two())
   }
 
-  pub fn set_aspect(&mut self, aspect: T) {
-    self.aspect = aspect;
-    self.update_orth();
-  }
+  pub fn scale_from_center(&mut self, scale: T) {
+    let new_size_half = self.size().map(|v| v * scale / T::two());
+    let center = self.center();
 
-  pub fn set_frustum_size(&mut self, frustum_size: T) {
-    self.frustum_size = frustum_size;
-    self.update_orth();
-  }
-
-  fn update_orth(&mut self) {
-    self.orth.left = self.frustum_size * self.aspect / -T::two();
-    self.orth.right = self.frustum_size * self.aspect / T::two();
-    self.orth.top = self.frustum_size / T::two();
-    self.orth.bottom = self.frustum_size / -T::two();
-  }
-}
-
-impl<T: Scalar> Default for ViewFrustumOrthographicProjection<T> {
-  fn default() -> Self {
-    ViewFrustumOrthographicProjection {
-      orth: OrthographicProjection::default(),
-      aspect: T::one(),
-      frustum_size: T::eval::<{ scalar_transmute(50.0) }>(),
-    }
-  }
-}
-
-impl<T: Scalar> ViewFrustumOrthographicProjection<T> {
-  pub fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T> {
-    self.orth.compute_projection_mat(mapper)
-  }
-
-  pub fn pixels_per_unit(&self, distance: T, view_height_in_pixel: T) -> T {
-    self.orth.pixels_per_unit(distance, view_height_in_pixel)
-  }
-
-  pub fn resize(&mut self, size: (T, T)) {
-    self.set_aspect(size.0 / size.1);
+    self.left = center.x - new_size_half.x;
+    self.right = center.x + new_size_half.x;
+    self.top = center.y + new_size_half.y;
+    self.bottom = center.y - new_size_half.y;
   }
 }
 

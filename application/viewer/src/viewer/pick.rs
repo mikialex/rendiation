@@ -99,18 +99,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
         let camera_view_projection_inv = cam_trans.view_projection_inv;
         let camera_world = cam_trans.world;
 
-        let pp = global_entity_component_of::<SceneCameraPerspective>().read();
-        let po = global_entity_component_of::<SceneCameraOrthographic>().read();
-        let camera_proj = pp
-          .get_value(viewport.camera)
-          .flatten()
-          .map(CommonProjection::Perspective)
-          .or_else(|| {
-            po.get_value(viewport.camera)
-              .flatten()
-              .map(CommonProjection::Orth)
-          })
-          .unwrap();
+        let camera_proj = read_common_proj_from_db(viewport.camera).unwrap();
 
         let current_mouse_ray_in_world =
           cast_world_ray(camera_view_projection_inv, normalized_position_ndc_f64);
@@ -150,6 +139,17 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
   } else {
     None
   }
+}
+
+pub fn read_common_proj_from_db(
+  camera: EntityHandle<SceneCameraEntity>,
+) -> Option<CommonProjection> {
+  let pp = global_entity_component_of::<SceneCameraPerspective>().read();
+  let po = global_entity_component_of::<SceneCameraOrthographic>().read();
+  pp.get_value(camera)
+    .flatten()
+    .map(CommonProjection::Perspective)
+    .or_else(|| po.get_value(camera).flatten().map(CommonProjection::Orth))
 }
 
 impl Picker3d for ViewerSceneModelPicker {

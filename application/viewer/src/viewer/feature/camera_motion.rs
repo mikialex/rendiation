@@ -3,14 +3,16 @@ use winit::event::ElementState;
 
 use crate::*;
 
-pub struct CameraMoveAction {
+pub struct CameraAction {
   pub position: Vec3<f64>,
   pub look_at: Vec3<f64>,
+  pub orth_scale: Option<f64>,
 }
 
 pub fn use_smooth_camera_motion(
   cx: &mut ViewerCx,
   camera_node: EntityHandle<SceneNodeEntity>,
+  camera: EntityHandle<SceneCameraEntity>,
   f: impl FnOnce(&mut ViewerCx),
 ) {
   f(cx);
@@ -30,10 +32,17 @@ pub fn use_smooth_camera_motion(
   let (cx, springed_target) =
     cx.use_plain_state_init(|_| SpringSystem::new(config, *target_target, Vec3::zero()));
 
-  if let Some(CameraMoveAction { position, look_at }) = cx.dyn_cx.message.take::<CameraMoveAction>()
+  let (cx, orth_scale_to_apply) = cx.use_plain_state_init(|_| None);
+
+  if let Some(CameraAction {
+    position,
+    look_at,
+    orth_scale,
+  }) = cx.dyn_cx.message.take::<CameraAction>()
   {
     *target_position = position;
     *target_target = look_at;
+    *orth_scale_to_apply = orth_scale;
   }
 
   if let ViewerCxStage::SceneContentUpdate { writer } = &mut cx.stage {
@@ -43,6 +52,15 @@ pub fn use_smooth_camera_motion(
 
     let mat = Mat4::lookat(position, look_at, Vec3::new(0., 1., 0.));
     writer.set_local_matrix(camera_node, mat);
+
+    if let Some(orth_scale) = orth_scale_to_apply.take() {
+      if let Some(mut orth) = writer.camera_writer.read::<SceneCameraOrthographic>(camera) {
+        orth.scale_from_center(orth_scale as f32);
+        writer
+          .camera_writer
+          .write::<SceneCameraOrthographic>(camera, Some(orth));
+      }
+    }
   }
 }
 
@@ -85,60 +103,87 @@ fn fit_camera_view_for_viewer(
   selected_sm: Option<EntityHandle<SceneModelEntity>>,
   world_mat: impl Query<Key = EntityHandle<SceneNodeEntity>, Value = Mat4<f64>>,
   sm_world_bounding: impl Query<Key = EntityHandle<SceneModelEntity>, Value = Box3<f64>>,
-) -> Option<CameraMoveAction> {
+) -> Option<CameraAction> {
   if let Some(selected) = &selected_sm {
     let camera_world = world_mat.access(&camera_node).unwrap();
-    let camera_reader = global_entity_component_of::<SceneCameraPerspective>().read();
 
     if let Some(target_world_aabb) = sm_world_bounding.access(selected) {
-      let proj = camera_reader.get(camera).unwrap().unwrap();
-
-      fit_camera_view(&proj, camera_world, target_world_aabb)
+      if let Some(camera_proj) = read_common_proj_from_db(camera) {
+        return fit_camera_view(camera_proj, camera_world, target_world_aabb);
+      } else {
+        log::warn!("fit_camera failed to get common proj for camera");
+      }
     } else {
       log::warn!(
         "fit_camera unable to access selected target bounding box, it's a bug or missing implementation"
       );
-      None
     }
-  } else {
-    None
   }
+  None
 }
 
 /// Target_world_aabb should not empty. If the target is unbound, the center point of the passed box
 /// should be logical target center. Return desired camera world matrix
 fn fit_camera_view(
-  proj: &PerspectiveProjection<f32>,
+  proj: CommonProjection,
   camera_world: Mat4<f64>,
   target_world_aabb: Box3<f64>,
-) -> Option<CameraMoveAction> {
+) -> Option<CameraAction> {
   if target_world_aabb.is_empty() {
     log::warn!("target world aabb is empty, fit_camera_view skipped");
-    return None;
   }
 
   let padding_ratio = 0.1;
   let target_center = target_world_aabb.center();
   let object_radius = target_world_aabb.min.distance_to(target_center);
 
-  //   if we not even have one box, only do look at
-  let desired_camera_center = if object_radius == 0. {
-    camera_world.position()
-  } else {
-    // todo also check horizon fov
-    let half_fov = proj.fov.to_rad() / 2.;
-    let canvas_half_size = half_fov.tan(); // todo consider near far limit
-    let padded_canvas_half_size = canvas_half_size * (1.0 - padding_ratio);
-    let desired_half_fov = padded_canvas_half_size.atan();
-    let desired_distance = object_radius / desired_half_fov.sin() as f64;
+  match proj {
+    CommonProjection::Perspective(proj) => {
+      //   if we not even have one box, only do look at
+      let desired_camera_center = if object_radius == 0. {
+        camera_world.position()
+      } else {
+        // todo also check horizon fov
+        let half_fov = proj.fov.to_rad() / 2.;
+        let canvas_half_size = half_fov.tan(); // todo consider near far limit
+        let padded_canvas_half_size = canvas_half_size * (1.0 - padding_ratio);
+        let desired_half_fov = padded_canvas_half_size.atan();
+        let desired_distance = object_radius / desired_half_fov.sin() as f64;
 
-    let look_at_dir_rev = (camera_world.position() - target_center).normalize();
-    look_at_dir_rev * desired_distance + target_center
-  };
+        let look_at_dir_rev = (camera_world.position() - target_center).normalize();
+        look_at_dir_rev * desired_distance + target_center
+      };
 
-  CameraMoveAction {
-    position: desired_camera_center,
-    look_at: target_center,
+      CameraAction {
+        position: desired_camera_center,
+        look_at: target_center,
+        orth_scale: None,
+      }
+      .into()
+    }
+    CommonProjection::Orth(proj) => {
+      let size = proj.size();
+      let size = size.x.min(size.y);
+
+      let target_size = object_radius * 2.0 * (1.0 + padding_ratio as f64);
+      let scale = target_size / size as f64;
+
+      // todo, currently we assume the orth is centered
+      // let orth_center = Vec3::new(
+      //   proj.right - proj.left / 2.0,
+      //   proj.top - proj.bottom / 2.0,
+      //   0.0,
+      // )
+      // .into_f64()
+      // .reverse();
+
+      CameraAction {
+        // position: camera_world * orth_center,
+        position: camera_world.position(),
+        look_at: target_center,
+        orth_scale: Some(scale),
+      }
+      .into()
+    }
   }
-  .into()
 }

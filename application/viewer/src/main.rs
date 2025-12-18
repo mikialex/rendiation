@@ -191,7 +191,7 @@ fn main() {
 
       per_camera_per_viewport_scope(cx, false, |cx, camera_with_viewports| {
         let cv = camera_with_viewports;
-        use_smooth_camera_motion(cx, cv.camera_node, |cx| {
+        use_smooth_camera_motion(cx, cv.camera_node, cv.camera, |cx| {
           use_fit_camera_view(cx, cv.camera, cv.camera_node);
           use_camera_control(cx, cv);
         });

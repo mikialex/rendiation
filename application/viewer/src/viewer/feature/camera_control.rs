@@ -15,7 +15,9 @@ pub fn use_camera_control(cx: &mut ViewerCx, camera_with_viewports: &CameraViewp
   let (cx, controller) = cx.use_plain_state::<ViewerCameraControl>();
 
   // if inner logic want change camera, then we adapt to  it
-  if let Some(CameraMoveAction { position, look_at }) = cx.dyn_cx.message.get::<CameraMoveAction>()
+  if let Some(CameraAction {
+    position, look_at, ..
+  }) = cx.dyn_cx.message.get::<CameraAction>()
   {
     controller
       .controller
@@ -57,9 +59,10 @@ pub fn use_camera_control(cx: &mut ViewerCx, camera_with_viewports: &CameraViewp
       }
 
       if let Some((eye, target)) = controller.controller.update() {
-        cx.dyn_cx.message.put(CameraMoveAction {
+        cx.dyn_cx.message.put(CameraAction {
           position: eye,
           look_at: target,
+          orth_scale: None,
         });
       }
     } else {
