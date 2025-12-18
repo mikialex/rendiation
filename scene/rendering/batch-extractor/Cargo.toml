@@ -15,6 +15,7 @@ rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
 rendiation-webgpu-hook-utils = { path = "../../../platform/graphics/webgpu-hook-utils" }
 rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
 rendiation-shader-api = { path = "../../../shader/api" }
+interning = { path = "../../../utility/interning" }
 
 [lints]
 workspace = true

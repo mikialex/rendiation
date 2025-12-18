@@ -2,15 +2,26 @@ use interning::*;
 
 use crate::*;
 
+pub struct StateIntern;
+
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for StateIntern {
+  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = InternedId<RasterizationStates>>;
+
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+    let (cx, intern) = cx.use_sharable_plain_state(ValueInterning::default);
+    let intern = intern.clone();
+    cx.use_dual_query::<StandardModelRasterizationOverride>()
+      .dual_query_filter_map(|v| v) // todo, we should use prefilter if state setting is parse(likely)
+      .use_dual_query_execute_map(cx, move || {
+        let mut intern = intern.make_write_holder();
+        move |_, v| intern.compute_intern_id(&v)
+      })
+  }
+}
+
 pub fn use_state_overrides(cx: &mut QueryGPUHookCx, reverse_z: bool) -> Option<StateOverrides> {
-  let (cx, intern) = cx.use_sharable_plain_state(ValueInterning::default);
-  let intern = intern.clone();
   let interned = cx
-    .use_dual_query::<StandardModelRasterizationOverride>()
-    .use_dual_query_execute_map(cx, move || {
-      let mut intern = intern.make_write_holder();
-      move |_, v| v.map(|v| intern.get_intern_id(&v))
-    })
+    .use_shared_dual_query(StateIntern)
     .dual_query_boxed()
     .use_assure_result(cx);
 
@@ -23,14 +34,14 @@ pub fn use_state_overrides(cx: &mut QueryGPUHookCx, reverse_z: bool) -> Option<S
 
 pub struct StateOverrides {
   states: ComponentReadView<StandardModelRasterizationOverride>,
-  interned: BoxedDynQuery<RawEntityHandle, Option<InternedId<RasterizationStates>>>,
+  interned: BoxedDynQuery<RawEntityHandle, InternedId<RasterizationStates>>,
   reverse_z: bool,
 }
 
 impl StateOverrides {
   pub fn get_gpu(&self, id: EntityHandle<StandardModelEntity>) -> Option<StateGPUImpl<'_>> {
     let states = self.states.get(id)?;
-    let id = self.interned.access(&id.into_raw())?;
+    let id = self.interned.access(&id.into_raw());
 
     Some(StateGPUImpl {
       state_id: id,

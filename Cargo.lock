@@ -4033,6 +4033,7 @@ version = "0.1.0"
 dependencies = [
  "database",
  "fast-hash-collection",
+ "interning",
  "log",
  "parking_lot",
  "rendiation-device-parallel-compute",
