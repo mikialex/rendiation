@@ -18,7 +18,7 @@ pub use scene::*;
 pub struct SceneRayQuery {
   pub world_ray: Ray3<f64>,
   pub camera_view_size_in_logic_pixel: Size,
-  pub camera_proj: Box<dyn Projection<f32>>,
+  pub pixels_per_unit_calc: Box<dyn Fn(f32, f32) -> f32>,
   pub camera_world: Mat4<f64>,
 }
 
@@ -37,7 +37,7 @@ impl SceneRayQuery {
     if let ToleranceType::ScreenSpace = tolerance.ty {
       let camera_to_target = target_object_center_in_world - self.world_ray.origin;
       let projected_distance = camera_to_target.dot(camera_world_mat.forward().reverse());
-      let pixel_per_unit = self.camera_proj.pixels_per_unit(
+      let pixel_per_unit = (self.pixels_per_unit_calc)(
         projected_distance as f32,
         self.camera_view_size_in_logic_pixel.height_usize() as f32,
       );

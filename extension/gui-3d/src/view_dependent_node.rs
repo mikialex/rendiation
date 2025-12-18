@@ -51,7 +51,8 @@ pub fn use_view_independent_scale_node(
         config.override_position,
         state.camera_world_mat,
         state.view_logical_pixel_size.y as f32,
-        state.perspective_proj,
+        state.projection,
+        state.projection_inv,
       )
       .into()
   });

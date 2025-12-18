@@ -57,7 +57,8 @@ impl ViewAutoScalable {
     override_position: Vec3<f64>,
     camera_world: Mat4<f64>,
     view_height_in_pixel: f32,
-    camera_proj: impl Projection<f32>,
+    camera_proj: Mat4<f32>,
+    camera_proj_inv: Mat4<f32>,
   ) -> f32 {
     let camera_position = camera_world.position();
     let camera_forward = camera_world.forward().reverse().normalize();
@@ -66,7 +67,11 @@ impl ViewAutoScalable {
     let projected_distance = camera_to_target.dot(camera_forward);
 
     self.independent_scale_factor
-      / camera_proj.pixels_per_unit(projected_distance as f32, view_height_in_pixel)
+      / camera_proj.pixels_per_unit(
+        camera_proj_inv,
+        projected_distance as f32,
+        view_height_in_pixel,
+      )
   }
 
   pub fn override_mat(
@@ -75,7 +80,8 @@ impl ViewAutoScalable {
     override_position: Vec3<f64>,
     camera_world: Mat4<f64>,
     view_height_in_pixel: f32,
-    camera_proj: impl Projection<f32>,
+    camera_proj: Mat4<f32>,
+    camera_proj_inv: Mat4<f32>,
   ) -> Mat4<f64> {
     let world_translation = Mat4::translate(override_position);
 
@@ -84,6 +90,7 @@ impl ViewAutoScalable {
       camera_world,
       view_height_in_pixel,
       camera_proj,
+      camera_proj_inv,
     );
 
     world_translation // move back to position

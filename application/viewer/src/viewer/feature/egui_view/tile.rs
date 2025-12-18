@@ -97,8 +97,12 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
 
     // sync the viewer viewports
     let camera_nodes = get_db_view_typed_foreign::<SceneCameraNode>();
+    let mut camera_perspective_proj =
+      global_entity_component_of::<SceneCameraPerspective>().write();
+    let mut camera_orth_proj = global_entity_component_of::<SceneCameraOrthographic>().write();
+
     for tile_id in tree.active_tiles() {
-      if let Some(tile) = tree.tiles.get(tile_id) {
+      if let Some(tile) = tree.tiles.get_mut(tile_id) {
         if let egui_tiles::Tile::Pane(pane) = tile {
           if let Some(viewport) = cx
             .viewer
@@ -117,7 +121,21 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
             viewport.camera_node = camera_nodes.access(&camera).unwrap();
             viewport.debug_camera_for_view_related = pane
               .debug_view_camera_handle
-              .map(|h| unsafe { EntityHandle::from_raw(h) })
+              .map(|h| unsafe { EntityHandle::from_raw(h) });
+
+            if pane.request_switch_proj {
+              pane.request_switch_proj = false;
+              println!("request switch proj");
+
+              if let Some(_perspective) = camera_perspective_proj.read(viewport.camera).flatten() {
+                camera_perspective_proj.write(viewport.camera, None);
+                camera_orth_proj.write(viewport.camera, Some(OrthographicProjection::default()));
+              } else if let Some(_orth) = camera_orth_proj.read(viewport.camera).flatten() {
+                camera_orth_proj.write(viewport.camera, None);
+                camera_perspective_proj
+                  .write(viewport.camera, Some(PerspectiveProjection::default()));
+              }
+            }
           } // or else tile get removed(viewport get removed)
         }
       } // or else new get removed
@@ -132,6 +150,7 @@ pub struct ViewerPane {
   pub show_camera_setting: bool,
   pub camera_handle: RawEntityHandle,
   pub debug_view_camera_handle: Option<RawEntityHandle>,
+  pub request_switch_proj: bool,
 }
 
 impl ViewerPane {
@@ -142,6 +161,7 @@ impl ViewerPane {
       rect: egui::Rect::from_min_max(egui::pos2(0., 0.), egui::pos2(0., 0.)),
       camera_handle,
       debug_view_camera_handle: None,
+      request_switch_proj: false,
     }
   }
 }
@@ -252,6 +272,10 @@ impl egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior {
         egui::frame::Frame::NONE
           .inner_margin(egui::Margin::same(3))
           .show(ui, |ui| {
+            if ui.button("switch_proj").clicked() {
+              pane.request_switch_proj = true;
+            }
+
             egui::ComboBox::from_label("camera")
               .selected_text(format!("{:?}", pane.camera_handle))
               .show_ui(ui, |ui| {

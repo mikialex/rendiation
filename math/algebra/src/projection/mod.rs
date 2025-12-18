@@ -1,33 +1,9 @@
 use crate::*;
 
 mod perspective;
-use dyn_clone::DynClone;
 pub use perspective::*;
 mod orth;
 pub use orth::*;
-
-pub trait Projection<T: Scalar>: Send + Sync + DynClone {
-  fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T>;
-
-  /// Calculate how many screen pixel match one world unit at given distance.
-  fn pixels_per_unit(&self, distance: T, view_height_in_pixel: T) -> T;
-
-  fn project(&self, point: Vec3<T>, mapper: &dyn NDCSpaceMapper<T>) -> Vec3<T> {
-    (self.compute_projection_mat(mapper) * point.expand_with_one()).xyz()
-  }
-  fn un_project(&self, point: Vec3<T>, mapper: &dyn NDCSpaceMapper<T>) -> Vec3<T> {
-    (self.compute_projection_mat(mapper).inverse_or_identity() * point.expand_with_one()).xyz()
-  }
-}
-impl<T: Scalar> Clone for Box<dyn Projection<T>> {
-  fn clone(&self) -> Self {
-    dyn_clone::clone_box(&**self)
-  }
-}
-
-pub trait ResizableProjection<T: Scalar>: Projection<T> {
-  fn resize(&mut self, size: (T, T));
-}
 
 impl<T: Scalar> Mat4<T> {
   /// check if the mat is the perspective, assume the mat is the common projection(perspective or orthographic) in opengl ndc
@@ -46,7 +22,7 @@ impl<T: Scalar> Mat4<T> {
 
   /// Calculate how many screen pixel match one world unit at given distance.
   ///
-  /// If the matrix originated from the common perspective, a better implementation can be used.
+  /// If the matrix originated from the common projection(perspective or orth), the simpler version should be used.
   pub fn pixels_per_unit(&self, inverse_of_self: Self, distance: T, view_height_in_pixel: T) -> T {
     let z_in_ndc = *self * Vec3::new(T::zero(), T::zero(), distance);
     let z_in_ndc = z_in_ndc.z;

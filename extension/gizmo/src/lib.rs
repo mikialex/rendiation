@@ -36,7 +36,7 @@ pub fn use_gizmo(cx: &mut UI3dCx) {
             if let Some(states) = cx.widget_env.get_viewport_pointer_ctx() {
               let action = DragTargetAction {
                 camera_world: states.camera_world_mat,
-                camera_projection: states.camera_projection_mat().into_f64(),
+                camera_projection: states.projection.into_f64(),
                 world_ray: states.world_ray,
                 normalized_screen_position: states.normalized_position.into_f64(),
               };

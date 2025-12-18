@@ -32,13 +32,24 @@ pub struct ViewportPointerCtx {
   pub view_logical_pixel_size: Vec2<u32>,
   /// xy -1 to 1
   pub normalized_position: Vec2<f32>,
-  pub perspective_proj: PerspectiveProjection<f32>,
+  pub projection: Mat4<f32>,
+  pub projection_inv: Mat4<f32>,
+  pub proj_source: Option<CommonProjection>,
   pub camera_world_mat: Mat4<f64>,
 }
 
-impl ViewportPointerCtx {
-  pub fn camera_projection_mat(&self) -> Mat4<f32> {
-    self.perspective_proj.compute_projection_mat(&OpenGLxNDC)
+#[derive(Copy, Clone)]
+pub enum CommonProjection {
+  Perspective(PerspectiveProjection<f32>),
+  Orth(OrthographicProjection<f32>),
+}
+
+impl CommonProjection {
+  pub fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<f32>) -> Mat4<f32> {
+    match self {
+      CommonProjection::Perspective(p) => p.compute_projection_mat(mapper),
+      CommonProjection::Orth(p) => p.compute_projection_mat(mapper),
+    }
   }
 }
 

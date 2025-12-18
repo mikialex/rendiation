@@ -24,8 +24,8 @@ impl<T: Scalar> Default for OrthographicProjection<T> {
   }
 }
 
-impl<T: Scalar> Projection<T> for OrthographicProjection<T> {
-  fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T> {
+impl<T: Scalar> OrthographicProjection<T> {
+  pub fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T> {
     Mat4::ortho(
       self.left,
       self.right,
@@ -37,7 +37,7 @@ impl<T: Scalar> Projection<T> for OrthographicProjection<T> {
     )
   }
 
-  fn pixels_per_unit(&self, _distance: T, view_height_in_pixel: T) -> T {
+  pub fn pixels_per_unit(&self, _distance: T, view_height_in_pixel: T) -> T {
     view_height_in_pixel / (self.top - self.bottom).abs()
   }
 }
@@ -88,18 +88,16 @@ impl<T: Scalar> Default for ViewFrustumOrthographicProjection<T> {
   }
 }
 
-impl<T: Scalar> Projection<T> for ViewFrustumOrthographicProjection<T> {
-  fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T> {
+impl<T: Scalar> ViewFrustumOrthographicProjection<T> {
+  pub fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T> {
     self.orth.compute_projection_mat(mapper)
   }
 
-  fn pixels_per_unit(&self, distance: T, view_height_in_pixel: T) -> T {
+  pub fn pixels_per_unit(&self, distance: T, view_height_in_pixel: T) -> T {
     self.orth.pixels_per_unit(distance, view_height_in_pixel)
   }
-}
 
-impl<T: Scalar> ResizableProjection<T> for ViewFrustumOrthographicProjection<T> {
-  fn resize(&mut self, size: (T, T)) {
+  pub fn resize(&mut self, size: (T, T)) {
     self.set_aspect(size.0 / size.1);
   }
 }
