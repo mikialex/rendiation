@@ -1,0 +1,58 @@
+<html>
+
+<head>
+    <title>Rendiation Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+    <style type="text/css">
+        :focus {
+            outline: none;
+        }
+
+        body {
+            margin: 0px;
+            background: #fff;
+            font-family: "Calibri", "Arial", sans-serif;
+            width: 100%;
+            height: 100%;
+        }
+
+        .root {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+
+        #content {
+            /* This allows the flexbox to grow to max size, this is needed for WebGPU */
+            flex: 1 1 100%;
+            /* This forces CSS to ignore the width/height of the canvas, this is needed for WebGL */
+            contain: size;
+        }
+
+        .main-canvas {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="root">
+        <div id="content">
+            <canvas class="main-canvas" id="canvas"></canvas>
+        </div>
+    </div>
+    <script type="module">
+        import(`./generated/viewer.js`).then((module) => module.default()).catch((error) => {
+            if (!error.message.startsWith("Using exceptions for control flow,")) {
+                throw error;
+            }
+        });
+    </script>
+</body>
+
+</html>
