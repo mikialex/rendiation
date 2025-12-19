@@ -32,6 +32,10 @@ pub fn use_smooth_camera_motion(
   let (cx, springed_target) =
     cx.use_plain_state_init(|_| SpringSystem::new(config, *target_target, Vec3::zero()));
 
+  let (cx, projection_target) = cx.use_plain_state_init(|_| Mat4::identity());
+  let (cx, springed_projection_target) =
+    cx.use_plain_state_init(|_| SpringSystem::new(config, *projection_target, Mat4::zero()));
+
   let (cx, orth_scale_to_apply) = cx.use_plain_state_init(|_| None);
 
   if let Some(CameraAction {
@@ -61,6 +65,19 @@ pub fn use_smooth_camera_motion(
           .write::<SceneCameraOrthographic>(camera, Some(orth));
       }
     }
+
+    if let Some(p) = writer.camera_writer.read::<SceneCameraOrthographic>(camera) {
+      *projection_target = p.compute_projection_mat(&OpenGLxNDC).into_f64();
+    }
+    if let Some(p) = writer.camera_writer.read::<SceneCameraPerspective>(camera) {
+      *projection_target = p.compute_projection_mat(&OpenGLxNDC).into_f64();
+    }
+    let projection = springed_projection_target
+      .step_clamped(time_delta_seconds, *projection_target)
+      .into_f32();
+    writer
+      .camera_writer
+      .write::<SceneCameraProjectionCustomOverride>(camera, Some(projection));
   }
 }
 
