@@ -26,7 +26,7 @@ pub fn use_db_all_foreign_key_change(
               if !config.contains(c_id) {
                 cx.scope(|cx| {
                   let change = cx
-                    .use_dual_query_impl::<Option<RawEntityHandle>>(*c_id, *e_id)
+                    .use_dual_query_impl::<Option<RawEntityHandle>>(*c_id, *e_id, None)
                     .dual_query_filter_map(|v| v)
                     .map(|v| v.delta().into_boxed());
 

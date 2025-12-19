@@ -580,6 +580,7 @@ pub type RevRefContainerRead<K, V> = LockReadGuardHolder<DenseIndexMapping<K, V>
 pub struct SharedHooksCtx {
   shared: FastHashMap<ShareKey, Arc<RwLock<SharedHookObject>>>,
   task_id_mapping: FastHashMap<ShareKey, u32>,
+  // todo, the reconciler is leaked, not a big issue for now
   delta_query_reconciler: FastHashMap<ShareKey, Arc<dyn DeltaQueryReconciler>>,
   next_consumer: u32,
 }
@@ -606,10 +607,8 @@ impl SharedHooksCtx {
     let SharedConsumerToken(id, key) = token;
 
     // this check is necessary because not all key need reconcile change
-    if let Some(reconciler) = self.delta_query_reconciler.get_mut(&key)
-      && reconciler.remove_consumer(id)
-    {
-      self.delta_query_reconciler.remove(&key);
+    if let Some(reconciler) = self.delta_query_reconciler.get_mut(&key) {
+      reconciler.remove_consumer(id);
     }
 
     let mut target = self.shared.get_mut(&key).unwrap().write();
