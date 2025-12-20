@@ -49,8 +49,8 @@ impl<T: Scalar> OrthographicProjection<T> {
     Vec2::new(self.right + self.left, self.top + self.bottom).map(|v| v / T::two())
   }
 
-  pub fn scale_from_center(&mut self, scale: T) {
-    let new_size_half = self.size().map(|v| v * scale / T::two());
+  pub fn scale_from_center(&mut self, scale: Vec2<T>) {
+    let new_size_half = self.size() * scale / T::two();
     let center = self.center();
 
     self.left = center.x - new_size_half.x;

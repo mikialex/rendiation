@@ -32,6 +32,12 @@ pub fn use_smooth_camera_motion(
   let (cx, springed_target) =
     cx.use_plain_state_init(|_| SpringSystem::new(config, *target_target, Vec3::zero()));
 
+  let config = SpringConfig {
+    frequency: 3.,
+    damping: 1.0,
+    initial_response: -10.,
+  };
+
   let (cx, projection_target) = cx.use_plain_state_init(|_| Mat4::identity());
   let (cx, springed_projection_target) =
     cx.use_plain_state_init(|_| SpringSystem::new(config, *projection_target, Mat4::zero()));
@@ -59,10 +65,14 @@ pub fn use_smooth_camera_motion(
 
     if let Some(orth_scale) = orth_scale_to_apply.take() {
       if let Some(mut orth) = writer.camera_writer.read::<SceneCameraOrthographic>(camera) {
-        orth.scale_from_center(orth_scale as f32);
-        writer
-          .camera_writer
-          .write::<SceneCameraOrthographic>(camera, Some(orth));
+        if orth_scale > 0. {
+          orth.scale_from_center(Vec2::splat(orth_scale as f32));
+          writer
+            .camera_writer
+            .write::<SceneCameraOrthographic>(camera, Some(orth));
+        } else {
+          log::warn!("orth_scale_to_apply should not be negative, {}", orth_scale);
+        }
       }
     }
 
