@@ -4,9 +4,10 @@ use crate::{viewer::use_scene_reader, *};
 
 #[derive(Default)]
 pub struct ViewerCameraControl {
-  pub controller: OrbitController,
-  pub winit_state: OrbitWinitWindowState,
-  pub have_synced_for_viewer_init_camera_state: bool,
+  controller: OrbitController,
+  winit_state: OrbitWinitWindowState,
+  have_synced_for_viewer_init_camera_state: bool,
+  control_spherical: Spherical<f64>,
 }
 
 pub struct CameraControlBlocked;
@@ -19,6 +20,7 @@ pub fn use_camera_control(cx: &mut ViewerCx, camera_with_viewports: &CameraViewp
     position, look_at, ..
   }) = cx.dyn_cx.message.get::<CameraAction>()
   {
+    controller.control_spherical.radius = (*look_at - *position).length();
     controller
       .controller
       .update_target_and_position(*look_at, *position);
@@ -27,9 +29,9 @@ pub fn use_camera_control(cx: &mut ViewerCx, camera_with_viewports: &CameraViewp
   let reader = use_scene_reader(cx);
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
+    let reader = reader.unwrap();
     if !controller.have_synced_for_viewer_init_camera_state {
       let camera_local = reader
-        .unwrap()
         .node_reader
         .read::<SceneNodeLocalMatrixComponent>(camera_with_viewports.camera_node);
       let lookat_target_init = camera_local * Vec3::new(0., 0., -1.);
@@ -58,11 +60,22 @@ pub fn use_camera_control(cx: &mut ViewerCx, camera_with_viewports: &CameraViewp
           .event(&mut controller.winit_state, e, bound);
       }
 
-      if let Some((eye, target)) = controller.controller.update() {
+      if let Some(control_update) = controller.controller.update() {
+        if reader
+          .camera
+          .read::<SceneCameraPerspective>(camera_with_viewports.camera)
+          .is_some()
+        {
+          controller.control_spherical.radius *= control_update.zooming as f64;
+        }
+        let radius = controller.control_spherical.radius;
+        controller.control_spherical = control_update.look_state;
+        controller.control_spherical.radius = radius;
+
         cx.dyn_cx.message.put(CameraAction {
-          position: eye,
-          look_at: target,
-          orth_scale: None,
+          position: controller.control_spherical.to_sphere_point(),
+          look_at: control_update.look_state.center,
+          orth_scale: Some(control_update.zooming as f64),
         });
       }
     } else {

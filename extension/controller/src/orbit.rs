@@ -10,6 +10,7 @@ pub enum OrbitControlPanBehavior {
 }
 
 pub struct OrbitController {
+  // the radius is not used. as in some case(orth) we not control the radius
   pub spherical: Spherical<f64>,
 
   pub rotate_angle_factor: f32,
@@ -108,10 +109,11 @@ impl OrbitController {
 impl OrbitController {
   pub fn update_target_and_position(&mut self, target: Vec3<f64>, position: Vec3<f64>) {
     self.spherical = Spherical::from_sphere_point_and_center(target - position, position);
+    self.spherical.radius = 1.0;
     self.reset_delta()
   }
 
-  pub fn update(&mut self) -> Option<(Vec3<f64>, Vec3<f64>)> {
+  pub fn update(&mut self) -> Option<OrbitControlResult> {
     if self.spherical_delta.azim.abs() < 0.0001
       && self.spherical_delta.polar.abs() < 0.0001
       && (self.zooming - 1.).abs() < 0.0001
@@ -120,8 +122,7 @@ impl OrbitController {
       return None;
     }
 
-    self.spherical.radius *= self.zooming as f64;
-
+    let zooming = self.zooming;
     self.spherical.azim += self.spherical_delta.azim as f64;
 
     self.spherical.polar = (self.spherical.polar + self.spherical_delta.polar as f64)
@@ -129,12 +130,20 @@ impl OrbitController {
 
     self.spherical.center += self.pan_offset.into_f64();
 
-    let eye = self.spherical.to_sphere_point();
-
     self.reset_delta();
 
-    (eye, self.spherical.center).into()
+    OrbitControlResult {
+      zooming,
+      look_state: self.spherical,
+    }
+    .into()
   }
+}
+
+pub struct OrbitControlResult {
+  /// > 1 is zooming out
+  pub zooming: f32,
+  pub look_state: Spherical<f64>,
 }
 
 #[derive(Default)]
