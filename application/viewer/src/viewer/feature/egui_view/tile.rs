@@ -10,6 +10,7 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
   let all_scene_cameras = cx
     .use_db_rev_ref::<SceneCameraBelongsToScene>()
     .use_assure_result(cx);
+
   let (cx, all_scene_cameras_cached) = cx.use_plain_state();
 
   if cx.is_resolve_stage() {
@@ -22,8 +23,10 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
 
   if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {
     let mut behavior = ViewerTileTreeBehavior {
-      camera_handles: all_scene_cameras_cached.clone(),
-      ..Default::default()
+      camera_handles: all_scene_cameras_cached,
+      edited: Default::default(),
+      add_child_to: Default::default(),
+      remove_tile: Default::default(),
     };
 
     let tree_res = egui::CentralPanel::default()
@@ -97,9 +100,6 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
 
     // sync the viewer viewports
     let camera_nodes = get_db_view_typed_foreign::<SceneCameraNode>();
-    let mut camera_perspective_proj =
-      global_entity_component_of::<SceneCameraPerspective>().write();
-    let mut camera_orth_proj = global_entity_component_of::<SceneCameraOrthographic>().write();
 
     for tile_id in tree.active_tiles() {
       if let Some(tile) = tree.tiles.get_mut(tile_id) {
@@ -125,16 +125,7 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
 
             if pane.request_switch_proj {
               pane.request_switch_proj = false;
-              println!("request switch proj");
-
-              if let Some(_perspective) = camera_perspective_proj.read(viewport.camera).flatten() {
-                camera_perspective_proj.write(viewport.camera, None);
-                camera_orth_proj.write(viewport.camera, Some(OrthographicProjection::default()));
-              } else if let Some(_orth) = camera_orth_proj.read(viewport.camera).flatten() {
-                camera_orth_proj.write(viewport.camera, None);
-                camera_perspective_proj
-                  .write(viewport.camera, Some(PerspectiveProjection::default()));
-              }
+              cx.dyn_cx.message.put(RequestSwitchCameraProjType(camera));
             }
           } // or else tile get removed(viewport get removed)
         }
@@ -166,15 +157,14 @@ impl ViewerPane {
   }
 }
 
-#[derive(Default)]
-pub struct ViewerTileTreeBehavior {
-  pub camera_handles: FastHashSet<RawEntityHandle>,
+pub struct ViewerTileTreeBehavior<'a> {
+  pub camera_handles: &'a FastHashSet<RawEntityHandle>,
   pub edited: std::cell::Cell<bool>,
   pub add_child_to: Option<TileId>,
   pub remove_tile: Option<TileId>,
 }
 
-impl egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior {
+impl<'a> egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior<'a> {
   fn simplification_options(&self) -> SimplificationOptions {
     SimplificationOptions {
       prune_empty_tabs: true,

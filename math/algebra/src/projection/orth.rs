@@ -19,7 +19,7 @@ impl<T: Scalar> Default for OrthographicProjection<T> {
       top: T::eval::<{ scalar_transmute(50.0) }>(),
       bottom: T::eval::<{ scalar_transmute(-50.0) }>(),
       near: T::zero(),
-      far: T::eval::<{ scalar_transmute(1000.0) }>(),
+      far: T::eval::<{ scalar_transmute(2000.0) }>(),
     }
   }
 }

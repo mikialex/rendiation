@@ -194,6 +194,7 @@ fn main() {
         use_smooth_camera_motion(cx, cv.camera_node, cv.camera, |cx| {
           use_fit_camera_view(cx, cv.camera, cv.camera_node);
           use_camera_control(cx, cv);
+          use_camera_proj_switch(cx);
         });
       });
 
