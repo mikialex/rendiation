@@ -11,7 +11,7 @@ pub fn use_cascade_shadow_map(
   split_linear_log_blend_ratio: f32,
 ) -> Option<MultiCascadeShadowMapPreparer> {
   let camera_transform = cx
-    .use_shared_dual_query(GlobalCameraTransformShare(ndc))
+    .use_shared_dual_query_view(GlobalCameraTransformShare(ndc))
     .use_assure_result(cx);
 
   cx.next_key_scope_root();
@@ -69,7 +69,7 @@ pub fn use_cascade_shadow_map(
 
     let per_camera = per_camera_per_viewport(viewports, false)
       .map(|cv| {
-        let transform = camera_transform.view.access(&cv.camera.into_raw()).unwrap();
+        let transform = camera_transform.access(&cv.camera.into_raw()).unwrap();
         let view_camera_proj = transform.projection;
         let view_camera_world = transform.world;
         //

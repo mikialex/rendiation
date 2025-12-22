@@ -12,7 +12,11 @@ impl<T> DeviceInvocation<T> for DeviceInvocationStride<T> {
     self.0.invocation_logic(target)
   }
   fn invocation_size(&self) -> Node<Vec3<u32>> {
-    self.0.invocation_size()
+    if self.2 {
+      (self.0.invocation_size() + val(Vec3::splat(self.1 - 1))) / val(Vec3::splat(self.1))
+    } else {
+      self.0.invocation_size() * val(Vec3::splat(self.1))
+    }
   }
 }
 

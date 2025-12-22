@@ -16,11 +16,25 @@ declare_component!(
   Option<OrthographicProjection<f32>>
 );
 
+// use this to implement any custom projection behavior
+//
+// todo, using this may cause render issue, as renderer sometime assume the projection is common.
+// search `get_near_far_assume_is_common_projection` in codebase for more details
+//
+// user can set (SceneCameraPerspective or SceneCameraOrthographic) and SceneCameraProjectionCustomOverride
+// the proj must be opengl ndc
+declare_component!(
+  SceneCameraProjectionCustomOverride,
+  SceneCameraEntity,
+  Option<Mat4<f32>>
+);
+
 pub fn register_camera_data_model() {
   global_database()
     .declare_entity::<SceneCameraEntity>()
     .declare_component::<SceneCameraPerspective>()
     .declare_component::<SceneCameraOrthographic>()
+    .declare_component::<SceneCameraProjectionCustomOverride>()
     .declare_foreign_key::<SceneCameraBelongsToScene>()
     .declare_foreign_key::<SceneCameraNode>();
 }
@@ -37,7 +51,15 @@ pub fn use_camera_project_matrix(
     .use_dual_query::<SceneCameraOrthographic>()
     .dual_query_filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
 
-  perspective.dual_query_select(orth)
+  let proj_override = cx
+    .use_dual_query::<SceneCameraProjectionCustomOverride>()
+    .dual_query_filter_map(move |proj| {
+      proj.map(|proj| ndc_mapper.transform_from_opengl_standard_ndc() * proj)
+    });
+
+  perspective
+    .dual_query_select(orth)
+    .dual_query_union(proj_override, |(p, op)| if op.is_some() { op } else { p })
 }
 
 #[derive(Clone, Copy, Default, Debug, PartialEq)]

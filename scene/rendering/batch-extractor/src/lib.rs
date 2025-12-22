@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use database::*;
 use fast_hash_collection::*;
+use interning::InternedId;
 use parking_lot::RwLock;
 use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
@@ -81,6 +82,7 @@ pub enum SceneModelGroupKey {
   Standard {
     material: MaterialGroupKey,
     mesh: MeshGroupKey,
+    state_id: Option<InternedId<RasterizationStates>>,
   },
   ForeignHash {
     internal: u64,
@@ -120,9 +122,18 @@ fn use_scene_model_group_key(
 
   let sm_ref = cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>();
 
+  let state_id = cx.use_shared_dual_query(StateIntern);
+
   let r = material
     .dual_query_zip(mesh)
-    .dual_query_map(|(material, mesh)| SceneModelGroupKey::Standard { material, mesh })
+    .dual_query_union(state_id, |(a, s)| Some((a?, s)))
+    .dual_query_map(
+      |((material, mesh), state_id)| SceneModelGroupKey::Standard {
+        material,
+        mesh,
+        state_id,
+      },
+    )
     .fanout(sm_ref, cx)
     .dual_query_boxed();
 

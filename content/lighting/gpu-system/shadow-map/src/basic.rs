@@ -100,7 +100,7 @@ pub fn use_basic_shadow_map_uniform(
       shadow_map_atlas,
       source_world: source_world_view.expect_resolve_stage().into_boxed(),
       source_proj: source_proj_view.expect_resolve_stage().into_boxed(),
-      packing: PackerView(packer.clone().make_read_holder()).into_boxed(),
+      packing: PackerView(packer.make_read_holder()).into_boxed(),
     };
 
     (system, uniform.clone())

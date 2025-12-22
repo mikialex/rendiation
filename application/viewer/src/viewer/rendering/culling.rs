@@ -23,7 +23,7 @@ pub fn use_viewer_culling(
                 cx.gpu,
               )
             });
-            oc.clone()
+            oc
           });
           (cv.camera, cache)
         })

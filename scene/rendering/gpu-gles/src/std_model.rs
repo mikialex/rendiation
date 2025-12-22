@@ -43,10 +43,11 @@ pub fn std_model_renderer(
   cx: &mut QueryGPUHookCx,
   materials: Option<Box<dyn GLESModelMaterialRenderImpl>>,
   shapes: Option<Box<dyn GLESModelShapeRenderImpl>>,
+  revere_z: bool,
 ) -> Option<SceneStdModelRenderer> {
   let skin_gpu = use_skin(cx);
 
-  let state_override = use_state_overrides(cx);
+  let state_override = use_state_overrides(cx, revere_z);
 
   cx.when_render(|| SceneStdModelRenderer {
     model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),

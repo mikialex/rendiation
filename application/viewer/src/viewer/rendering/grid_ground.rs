@@ -78,17 +78,12 @@ impl GraphicsShaderProvider for GridGroundShading<'_> {
 
       builder.register::<DefaultDisplay>(grid);
 
-      let state = MaterialStates {
+      let state = RasterizationStates {
         blend: BlendState::ALPHA_BLENDING.into(),
         depth_write_enabled: false,
-        depth_compare: if self.reversed_depth {
-          CompareFunction::Greater
-        } else {
-          CompareFunction::Less
-        },
         ..Default::default()
       };
-      apply_pipeline_builder(&state, builder);
+      apply_pipeline_builder(&state, self.reversed_depth, builder);
     })
   }
 }

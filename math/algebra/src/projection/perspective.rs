@@ -21,20 +21,18 @@ impl<T: Scalar> Default for PerspectiveProjection<T> {
   }
 }
 
-impl<T: Scalar> Projection<T> for PerspectiveProjection<T> {
-  fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T> {
+impl<T: Scalar> PerspectiveProjection<T> {
+  pub fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T> {
     Mat4::perspective_fov_aspect(self.fov.to_rad(), self.aspect, self.near, self.far, mapper)
   }
 
-  fn pixels_per_unit(&self, distance: T, view_height_in_pixel: T) -> T {
+  pub fn pixels_per_unit(&self, distance: T, view_height_in_pixel: T) -> T {
     let pixels_of_dist_one = T::two() * (self.fov.to_rad() / T::two()).tan();
     let distance_when_each_world_unit_match_screen_unit = view_height_in_pixel / pixels_of_dist_one;
     distance_when_each_world_unit_match_screen_unit / distance
   }
-}
 
-impl<T: Scalar> ResizableProjection<T> for PerspectiveProjection<T> {
-  fn resize(&mut self, size: (T, T)) {
+  pub fn resize(&mut self, size: (T, T)) {
     self.aspect = size.0 / size.1;
   }
 }

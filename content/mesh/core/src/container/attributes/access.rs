@@ -1,29 +1,6 @@
 use crate::*;
 
 impl UnTypedBufferView {
-  pub fn read(&self) -> UnTypedBufferViewReadView<'_> {
-    UnTypedBufferViewReadView {
-      buffer: &self.buffer,
-      view: self,
-    }
-  }
-}
-
-#[derive(Clone, Copy)]
-pub struct UnTypedBufferViewReadView<'a> {
-  buffer: &'a Vec<u8>,
-  view: &'a UnTypedBufferView,
-}
-
-impl std::ops::Deref for UnTypedBufferViewReadView<'_> {
-  type Target = UnTypedBufferView;
-
-  fn deref(&self) -> &Self::Target {
-    self.view
-  }
-}
-
-impl UnTypedBufferViewReadView<'_> {
   pub fn visit_bytes(&self, view_byte_offset: usize) -> Option<&[u8]> {
     let byte_slice = self.buffer.as_slice();
     let offset = self.range.offset as usize + view_byte_offset;
@@ -59,21 +36,7 @@ impl UnTypedBufferViewReadView<'_> {
   }
 }
 
-#[derive(Clone, Copy)]
-pub struct AttributeAccessorReadView<'a> {
-  view: UnTypedBufferViewReadView<'a>,
-  acc: &'a AttributeAccessor,
-}
-
-impl std::ops::Deref for AttributeAccessorReadView<'_> {
-  type Target = AttributeAccessor;
-
-  fn deref(&self) -> &Self::Target {
-    self.acc
-  }
-}
-
-impl AttributeAccessorReadView<'_> {
+impl AttributeAccessor {
   pub fn visit_bytes(&self) -> Option<&[u8]> {
     self.view.visit_bytes(self.byte_offset)
   }
@@ -86,92 +49,39 @@ impl AttributeAccessorReadView<'_> {
   }
 }
 
-impl AttributeAccessor {
-  pub fn read(&self) -> AttributeAccessorReadView<'_> {
-    AttributeAccessorReadView {
-      view: self.view.read(),
-      acc: self,
-    }
-  }
-}
-
-#[derive(Clone)]
-pub struct AttributesMeshEntityReadView<'a> {
-  pub attributes:
-    SmallVec<[(&'a AttributeSemantic, AttributeAccessorReadView<'a>); MOST_COMMON_ATTRIBUTE_COUNT]>,
-  pub indices: Option<(AttributeIndexFormat, AttributeAccessorReadView<'a>)>,
-  pub mesh: &'a AttributesMesh,
-}
-
-impl std::ops::Deref for AttributesMeshEntityReadView<'_> {
-  type Target = AttributesMesh;
-
-  fn deref(&self) -> &Self::Target {
-    self.mesh
-  }
-}
-
-impl AttributesMeshEntityReadView<'_> {
-  pub fn primitive_count(&self) -> usize {
-    let count = if let Some((_, index)) = &self.indices {
-      index.count
-    } else {
-      self.get_position().len()
-    };
-
-    (count + self.mode.step() - self.mode.stride()) / self.mode.step()
-  }
-
-  pub fn get_attribute(&self, s: &AttributeSemantic) -> Option<&AttributeAccessorReadView<'_>> {
-    self.attributes.iter().find(|(k, _)| *k == s).map(|r| &r.1)
-  }
-  pub fn get_position(&self) -> &[Vec3<f32>] {
-    self
-      .get_attribute(&AttributeSemantic::Positions)
-      .expect("position attribute should always exist")
-      .visit_slice::<Vec3<f32>>()
-      .expect("position type is maybe not correct")
-  }
-
-  pub fn create_full_read_view_base(&self) -> FullReaderBase<'_> {
-    FullReaderBase {
-      keys: self.attributes.iter().map(|(k, _)| (*k).clone()).collect(),
-      bytes: self
-        .attributes
-        .iter()
-        .map(|(_, b)| b.visit_bytes().unwrap())
-        .collect(),
-    }
-  }
-}
-
-#[derive(Clone, Copy)]
-pub struct PositionReader<'a> {
-  position: &'a [Vec3<f32>],
-}
-impl IndexGet for PositionReader<'_> {
-  type Output = Vec3<f32>;
-
-  fn index_get(&self, key: usize) -> Option<Self::Output> {
-    self.position.get(key).copied()
-  }
-}
-pub type AttributesMeshEntityShapeReadView<'a> =
-  AttributesMeshEntityCustomReadView<'a, PositionReader<'a>>;
-
 #[derive(Clone)]
 pub struct FullReaderBase<'a> {
   pub keys: Vec<AttributeSemantic>,
   pub bytes: Vec<&'a [u8]>,
 }
 
-pub type AttributesMeshEntityFullReadView<'a> =
-  AttributesMeshEntityCustomReadView<'a, FullReaderBase<'a>>;
+impl<'a> IndexGet for FullReaderBase<'a> {
+  type Output = FullReaderRead<'a>;
+
+  fn index_get(&self, key: usize) -> Option<Self::Output> {
+    // todo, we use the index get trait that not strong enough to
+    // constraint the returned output has relation with self lifetime.
+    let reader: &'a FullReaderBase<'a> = unsafe { std::mem::transmute(self) };
+    Some(FullReaderRead { reader, idx: key })
+  }
+}
 
 #[derive(Clone, Copy)]
 pub struct FullReaderRead<'a> {
   pub reader: &'a FullReaderBase<'a>,
   pub idx: usize,
+}
+
+impl AttributeVertex for FullReaderRead<'_> {
+  fn write(self, target: &mut [Vec<u8>]) {
+    for (source, target) in self.read_bytes().zip(target.iter_mut()) {
+      target.extend_from_slice(source)
+    }
+  }
+
+  fn create_layout(&self) -> Vec<AttributeSemantic> {
+    self.reader.keys.clone()
+  }
 }
 
 impl Hash for FullReaderRead<'_> {
@@ -211,56 +121,145 @@ impl<'a> FullReaderRead<'a> {
   }
 }
 
-impl<'a> IndexGet for FullReaderBase<'a> {
-  type Output = FullReaderRead<'a>;
-
-  fn index_get(&self, key: usize) -> Option<Self::Output> {
-    // todo, fixme, this is not safe for now. we use the index get trait that not strong enough to
-    // constraint the returned output has relation with self lifetime.
-    let reader: &'a FullReaderBase<'a> = unsafe { std::mem::transmute(self) };
-    // should we do option bound check here??
-    Some(FullReaderRead { reader, idx: key })
-  }
-}
-
 impl AttributesMesh {
-  pub fn read(&self) -> AttributesMeshEntityReadView<'_> {
-    let attributes = self.attributes.iter().map(|(k, a)| (k, a.read())).collect();
-    let indices = self.indices.as_ref().map(|(f, a)| (*f, a.read()));
-
-    AttributesMeshEntityReadView {
-      attributes,
-      indices,
-      mesh: self,
-    }
-  }
-
-  pub fn read_full(&self) -> AttributesMeshEntityFullReadView<'_> {
-    let inner = self.read();
-    let reader = inner.create_full_read_view_base();
-    // safety: the returned reference is origin from the buffer itself, no cyclic reference exists
-    // the allocate temp buffer is immutable and has stable heap location.
-    let reader = unsafe { std::mem::transmute(reader) };
-    AttributesMeshEntityFullReadView { inner, reader }
-  }
-
-  pub fn read_shape(&self) -> AttributesMeshEntityShapeReadView<'_> {
-    let inner = self.read();
-    let position = inner.get_position();
-    // safety: the returned reference is origin from the buffer itself, no cyclic reference exists
-    let position = unsafe { std::mem::transmute(position) };
-    AttributesMeshEntityCustomReadView {
-      inner,
-      reader: PositionReader { position },
-    }
-  }
-
   pub fn get_attribute(&self, s: &AttributeSemantic) -> Option<&AttributeAccessor> {
     self.attributes.iter().find(|(k, _)| k == s).map(|r| &r.1)
   }
+
   pub fn get_position(&self) -> &AttributeAccessor {
     self
       .get_attribute(&AttributeSemantic::Positions)
       .expect("position attribute should always exist")
+  }
+
+  pub fn get_position_slice(&self) -> &[Vec3<f32>] {
+    self
+      .get_position()
+      .visit_slice::<Vec3<f32>>()
+      .expect("unexpected position type")
+  }
+
+  pub fn primitive_count(&self) -> usize {
+    let count = if let Some((_, index)) = &self.indices {
+      index.count
+    } else {
+      self.get_position_slice().len()
+    };
+
+    (count + self.mode.step() - self.mode.stride()) / self.mode.step()
+  }
+
+  pub fn create_abstract_mesh_view<V>(
+    &self,
+    vertices_reader: V,
+  ) -> AttributesMeshEntityAbstractMeshReadView<V, DynIndexView<'_>> {
+    AttributesMeshEntityAbstractMeshReadView {
+      mode: self.mode,
+      vertices: vertices_reader,
+      indices: self.indices.as_ref().map(|index| DynIndexView {
+        fmt: index.0,
+        buffer: &index.1,
+      }),
+      count: self.primitive_count(),
+    }
+  }
+
+  pub fn create_full_read_view_base(&self) -> FullReaderBase<'_> {
+    FullReaderBase {
+      keys: self.attributes.iter().map(|(k, _)| (*k).clone()).collect(),
+      bytes: self
+        .attributes
+        .iter()
+        .map(|(_, b)| b.visit_bytes().unwrap())
+        .collect(),
+    }
+  }
+}
+
+pub struct DynIndexView<'a> {
+  fmt: AttributeIndexFormat,
+  buffer: &'a AttributeAccessor,
+}
+
+impl IndexGet for DynIndexView<'_> {
+  type Output = usize;
+
+  fn index_get(&self, key: usize) -> Option<Self::Output> {
+    match self.fmt {
+      AttributeIndexFormat::Uint16 => self.buffer.visit_slice::<u16>()?.index_get(key)? as usize,
+      AttributeIndexFormat::Uint32 => self.buffer.visit_slice::<u32>()?.index_get(key)? as usize,
+    }
+    .into()
+  }
+}
+
+pub struct AttributesMeshEntityAbstractMeshReadView<T, I> {
+  pub mode: PrimitiveTopology,
+  pub vertices: T,
+  pub indices: Option<I>,
+  pub count: usize,
+}
+
+/// we can not impl AbstractMesh for AttributesMeshEntity because it contains interior mutability.
+///
+/// this is slow, but not bloat the binary size.
+impl<V, T, I> AbstractMesh for AttributesMeshEntityAbstractMeshReadView<T, I>
+where
+  T: IndexGet<Output = V>,
+  I: IndexGet<Output = usize>,
+  V: Copy,
+{
+  type Primitive = AttributeDynPrimitive<V>;
+
+  fn primitive_count(&self) -> usize {
+    self.count
+  }
+
+  fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive> {
+    let read_index = self.mode.step() * primitive_index;
+
+    #[rustfmt::skip]
+     if let Some(index) = &self.indices {
+      match self.mode {
+        PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+      }.into()
+    } else {
+      match self.mode {
+        PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&self.vertices, read_index)?),
+        PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&self.vertices, read_index)?),
+        PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&self.vertices, read_index)?),
+        PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&self.vertices, read_index)?),
+        PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&self.vertices, read_index)?),
+      }.into()
+    }
+  }
+}
+
+pub enum AttributeDynPrimitive<T = Vec3<f32>> {
+  Points(Point<T>),
+  LineSegment(LineSegment<T>),
+  Triangle(Triangle<T>),
+}
+
+impl SpaceEntity<f32, 3> for AttributeDynPrimitive {
+  type Matrix = Mat4<f32>;
+
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
+    match self {
+      AttributeDynPrimitive::Points(v) => {
+        v.apply_matrix(mat);
+      }
+      AttributeDynPrimitive::LineSegment(v) => {
+        v.apply_matrix(mat);
+      }
+      AttributeDynPrimitive::Triangle(v) => {
+        v.apply_matrix(mat);
+      }
+    }
+    self
   }
 }

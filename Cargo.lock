@@ -3734,7 +3734,7 @@ dependencies = [
  "rendiation-space-algorithm",
  "rendiation-texture-core",
  "rendiation-webgpu",
- "rendiation-webgpu-virtual-buffer",
+ "rendiation-webgpu-virtual-typed-combine-buffer",
 ]
 
 [[package]]
@@ -3753,7 +3753,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-derives",
  "rendiation-webgpu",
- "rendiation-webgpu-virtual-buffer",
+ "rendiation-webgpu-virtual-typed-combine-buffer",
 ]
 
 [[package]]
@@ -4065,6 +4065,7 @@ version = "0.1.0"
 dependencies = [
  "database",
  "fast-hash-collection",
+ "interning",
  "log",
  "parking_lot",
  "rendiation-device-parallel-compute",
@@ -4517,7 +4518,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-webgpu-virtual-buffer"
+name = "rendiation-webgpu-virtual-typed-combine-buffer"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
@@ -5460,7 +5461,7 @@ dependencies = [
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-texture-as-buffer",
- "rendiation-webgpu-virtual-buffer",
+ "rendiation-webgpu-virtual-typed-combine-buffer",
  "rendiation-wide-line",
  "rfd",
  "serde",

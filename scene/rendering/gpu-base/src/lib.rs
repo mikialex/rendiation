@@ -1,5 +1,6 @@
 #![feature(associated_type_defaults)]
 #![feature(type_alias_impl_trait)]
+#![feature(impl_trait_in_assoc_type)]
 
 //! The whole idea of extensible rendering architecture works like this:
 //!

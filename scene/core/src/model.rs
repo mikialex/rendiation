@@ -39,16 +39,16 @@ declare_entity!(StandardModelEntity);
 declare_component!(
   StandardModelRasterizationOverride,
   StandardModelEntity,
-  Option<MaterialStates>
+  Option<RasterizationStates>
 );
 
 use wgpu_types::*;
 #[derive(Facet, Serialize, Deserialize)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct MaterialStates {
+pub struct RasterizationStates {
   pub depth_write_enabled: bool,
   #[facet(opaque)]
-  pub depth_compare: CompareFunction,
+  pub depth_compare: SemanticCompareFunction,
   #[facet(opaque)]
   pub stencil: StencilState,
   #[facet(opaque)]
@@ -63,11 +63,11 @@ pub struct MaterialStates {
   pub cull_mode: Option<Face>,
 }
 
-impl Default for MaterialStates {
+impl Default for RasterizationStates {
   fn default() -> Self {
     Self {
       depth_write_enabled: true,
-      depth_compare: CompareFunction::Less,
+      depth_compare: SemanticCompareFunction::Nearer,
       blend: None,
       write_mask: ColorWrites::all(),
       bias: Default::default(),
@@ -76,6 +76,32 @@ impl Default for MaterialStates {
       cull_mode: Some(Face::Back),
     }
   }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize)]
+pub enum SemanticCompareFunction {
+  /// Function never passes
+  Never = 1,
+  /// Function passes if new value nearer than existing value
+  Nearer = 2,
+  /// Function passes if new value is equal to existing value. When using
+  /// this compare function, make sure to mark your Vertex Shader's `@builtin(position)`
+  /// output as `@invariant` to prevent artifacting.
+  Equal = 3,
+  /// Function passes if new value is near than or equal to existing value
+  NearerEqual = 4,
+  /// Function passes if new value is further than existing value
+  Further = 5,
+  /// Function passes if new value is not equal to existing value. When using
+  /// this compare function, make sure to mark your Vertex Shader's `@builtin(position)`
+  /// output as `@invariant` to prevent artifacting.
+  NotEqual = 6,
+  /// Function passes if new value is further than or equal to existing value
+  FurtherEqual = 7,
+  /// Function always passes
+  Always = 8,
 }
 
 declare_foreign_key!(

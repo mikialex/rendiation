@@ -37,7 +37,16 @@ pub struct UnTypedBufferView {
   pub range: BufferViewRange,
 }
 
-#[derive(Clone)]
+impl std::fmt::Debug for UnTypedBufferView {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("UnTypedBufferView")
+      .field("buffer", &format!("data len {}", self.buffer.len()))
+      .field("range", &self.range)
+      .finish()
+  }
+}
+
+#[derive(Clone, Debug)]
 pub struct AttributeAccessor {
   pub view: UnTypedBufferView,
   /// offset relative to the view
@@ -98,7 +107,7 @@ impl AttributeIndexFormat {
 
 pub const MOST_COMMON_ATTRIBUTE_COUNT: usize = 3;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AttributesMesh {
   pub attributes: SmallVec<[(AttributeSemantic, AttributeAccessor); MOST_COMMON_ATTRIBUTE_COUNT]>,
   pub indices: Option<(AttributeIndexFormat, AttributeAccessor)>,

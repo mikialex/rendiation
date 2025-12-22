@@ -69,7 +69,7 @@ members = [
   "platform/event-input",
   "platform/graphics/webgpu",
   "platform/graphics/webgpu-hook-utils",
-  "platform/graphics/webgpu-virtual-buffer",
+  "platform/graphics/webgpu-virtual-typed-combine-buffer",
   "platform/graphics/webgpu-midc-downgrade",
   "platform/graphics/webgpu-texture-as-buffer",
   "extension/controller",

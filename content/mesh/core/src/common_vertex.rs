@@ -25,7 +25,7 @@ unsafe impl bytemuck::Zeroable for CommonVertex {}
 unsafe impl bytemuck::Pod for CommonVertex {}
 
 impl AttributeVertex for CommonVertex {
-  fn layout(&self) -> Vec<AttributeSemantic> {
+  fn create_layout(&self) -> Vec<AttributeSemantic> {
     vec![
       AttributeSemantic::Positions,
       AttributeSemantic::Normals,

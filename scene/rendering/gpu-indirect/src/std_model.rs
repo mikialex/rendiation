@@ -136,6 +136,7 @@ pub fn use_std_model_renderer(
   cx: &mut QueryGPUHookCx,
   materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
   shapes: Option<Box<dyn IndirectModelShapeRenderImpl>>,
+  revere_z: bool,
 ) -> Option<SceneStdModelIndirectRenderer> {
   let (cx, std_model) = cx.use_storage_buffer("std model metadata", 128, u32::MAX);
 
@@ -151,7 +152,7 @@ pub fn use_std_model_renderer(
   let material_pbr_mr = cx.use_changes::<StandardModelRefPbrMRMaterial>();
   let material_pbr_sg = cx.use_changes::<StandardModelRefPbrSGMaterial>();
 
-  let state_override = use_state_overrides(cx);
+  let state_override = use_state_overrides(cx, revere_z);
 
   let changes = if cx.is_spawning_stage() {
     let material_flat = material_flat.into_spawn_stage_ready();

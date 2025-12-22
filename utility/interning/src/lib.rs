@@ -35,10 +35,10 @@ impl<T> ValueInterning<T>
 where
   T: Eq + Hash + Clone,
 {
-  pub fn get_intern_id(&mut self, v: &T) -> InternedId<T> {
-    let count = self.values.len();
+  pub fn compute_intern_id(&mut self, v: &T) -> InternedId<T> {
     let id = self.inner.raw_entry_mut().from_key(v).or_insert_with(|| {
       self.values.push(v.clone());
+      let count = self.values.len();
       (v.clone(), count)
     });
     InternedId {

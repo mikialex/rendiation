@@ -131,8 +131,11 @@ pub trait DBHookCxLike: QueryHookCxLike {
     &mut self,
     c_id: ComponentId,
     e_id: EntityId,
+    label: Option<&'static str>,
   ) -> UseResult<BoxedDynQuery<RawEntityHandle, ValueChange<T>>> {
-    self.use_dual_query_impl::<T>(c_id, e_id).map(|v| v.delta())
+    self
+      .use_dual_query_impl::<T>(c_id, e_id, label)
+      .map(|v| v.delta())
   }
 
   fn use_entity_set_delta_raw(&mut self, e_id: EntityId) -> UseResult<DBDelta<()>> {
@@ -181,16 +184,21 @@ pub trait DBHookCxLike: QueryHookCxLike {
   fn use_dual_query<C: ComponentSemantic>(
     &mut self,
   ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, C::Data>> {
-    self.use_dual_query_impl::<C::Data>(C::component_id(), C::Entity::entity_id())
+    self.use_dual_query_impl::<C::Data>(
+      C::component_id(),
+      C::Entity::entity_id(),
+      Some(C::unique_name()),
+    )
   }
 
   fn use_dual_query_impl<T: CValue>(
     &mut self,
     c_id: ComponentId,
     e_id: EntityId,
+    label: Option<&'static str>,
   ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, T>> {
     #[derive(Clone, Copy)]
-    struct DBDualQueryProvider<T>(PhantomData<T>, ComponentId, EntityId);
+    struct DBDualQueryProvider<T>(PhantomData<T>, ComponentId, EntityId, Option<&'static str>);
 
     impl<T: CValue, Cx: DBHookCxLike> SharedResultProvider<Cx> for DBDualQueryProvider<T> {
       type Result = DBDualQuery<T>;
@@ -201,8 +209,16 @@ pub trait DBHookCxLike: QueryHookCxLike {
         }
       }
 
+      fn debug_label(&self) -> &str {
+        if let Some(label) = self.3 {
+          label
+        } else {
+          std::any::type_name::<Self>()
+        }
+      }
+
       fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-        let Self(_, c_id, e_id) = *self;
+        let Self(_, c_id, e_id, _) = *self;
         cx.use_component_delta_raw::<T>(c_id, e_id)
           .map(move |change| DualQuery {
             view: get_db_view_internal::<T>(e_id, c_id),
@@ -211,7 +227,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
       }
     }
 
-    self.use_shared_dual_query(DBDualQueryProvider::<T>(PhantomData, c_id, e_id))
+    self.use_shared_dual_query(DBDualQueryProvider::<T>(PhantomData, c_id, e_id, label))
   }
 
   fn use_dual_query_set<E: EntitySemantic>(
@@ -260,7 +276,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
     e_id: EntityId,
   ) -> UseResult<RevRefForeignTriQuery> {
     let rev_many_view = self.use_db_rev_ref_internal(c_id, e_id);
-    let changes = self.use_query_change_impl(c_id, e_id);
+    let changes = self.use_query_change_impl(c_id, e_id, None);
 
     rev_many_view
       .join(changes)
@@ -311,7 +327,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
     self.use_shared_compute_internal(
       &|cx| {
         let changes = cx
-          .use_query_change_impl::<Option<RawEntityHandle>>(c_id, e_id)
+          .use_query_change_impl::<Option<RawEntityHandle>>(c_id, e_id, None)
           .map(|v| v.delta_filter_map(|v| v));
 
         cx.use_rev_ref(changes)

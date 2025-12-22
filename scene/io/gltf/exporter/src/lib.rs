@@ -400,7 +400,6 @@ fn build_model(
 
         // todo, consider using scene derive data result
         if key_ == gltf_json::mesh::Semantic::Positions {
-          let att = att.read();
           let bbox: Box3 = att.visit_slice::<Vec3<f32>>().unwrap().iter().collect();
 
           fn vec3_to_gltf(v: Vec3<f32>) -> gltf_json::Value {

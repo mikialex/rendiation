@@ -31,7 +31,6 @@ pub fn use_multi_access_gpu(
   });
 
   let many_side_buffer_ = many_side_buffer.clone();
-  let allocator = allocator.clone();
   let changes = source.map_spawn_stage_in_thread(
     cx,
     |source| source.view_delta_ref().1.has_item_hint(),

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use bytemuck::*;
 use database::*;
-use fast_hash_collection::FastHashMap;
+use fast_hash_collection::*;
 pub use rendiation_abstract_uri_data::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;

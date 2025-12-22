@@ -63,19 +63,32 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
         val(1.)
       };
 
-      let camera_position_in_render = val(Vec3::zero());
-
       let far = view_proj_inv_none_translation * (ndc_xy, far, val(1.)).into();
       let far = far.xyz() / far.w().splat();
 
-      let direction = (far - camera_position_in_render).normalize();
+      // we should skip this when if we know the projection is perspective
+      let near = if self.reversed_depth {
+        val(1.)
+      } else {
+        val(0.)
+      };
+      let near = view_proj_inv_none_translation * (ndc_xy, near, val(1.)).into();
+      let near = near.xyz() / near.w().splat();
+
+      let direction = (far - near).normalize();
 
       let world_plane = plane.load();
       let render_space_plane =
         ShaderPlaneUniform::into_shader_plane(world_plane, camera_world_position);
 
-      let hit_in_render_space =
-        ray_plane_intersect(camera_position_in_render, direction, render_space_plane);
+      let hit_in_render_space = ray_plane_intersect(near, direction, render_space_plane);
+
+      // use this if want draw content before the near plane
+      // todo, what depth value should we write in this case??
+      // let hit_in_render_space = hit_in_render_space.w().equals(0.).select_branched(
+      //   || ray_plane_intersect(near, -direction, render_space_plane),
+      //   || hit_in_render_space,
+      // );
 
       let plane_hit = hit_in_render_space.xyz();
       let plane_if_hit = hit_in_render_space.w(); // 1 is hit, 0 is not

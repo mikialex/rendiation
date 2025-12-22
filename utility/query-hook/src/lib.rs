@@ -272,7 +272,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
 
     let reconciler = self
       .shared_hook_ctx()
-      .reconciler
+      .delta_query_reconciler
       .entry(key)
       .or_insert_with(|| Arc::new(SharedQueryChangeReconciler::<K, V>::default()))
       .clone();
@@ -580,14 +580,15 @@ pub type RevRefContainerRead<K, V> = LockReadGuardHolder<DenseIndexMapping<K, V>
 pub struct SharedHooksCtx {
   shared: FastHashMap<ShareKey, Arc<RwLock<SharedHookObject>>>,
   task_id_mapping: FastHashMap<ShareKey, u32>,
-  pub reconciler: FastHashMap<ShareKey, Arc<dyn ChangeReconciler>>,
+  // todo, the reconciler is leaked, not a big issue for now
+  delta_query_reconciler: FastHashMap<ShareKey, Arc<dyn DeltaQueryReconciler>>,
   next_consumer: u32,
 }
 
 impl SharedHooksCtx {
   pub fn reset_visiting(&mut self) {
     self.task_id_mapping.clear();
-    for r in self.reconciler.values() {
+    for r in self.delta_query_reconciler.values() {
       r.reset();
     }
   }
@@ -606,10 +607,8 @@ impl SharedHooksCtx {
     let SharedConsumerToken(id, key) = token;
 
     // this check is necessary because not all key need reconcile change
-    if let Some(reconciler) = self.reconciler.get_mut(&key)
-      && reconciler.remove_consumer(id)
-    {
-      self.reconciler.remove(&key);
+    if let Some(reconciler) = self.delta_query_reconciler.get_mut(&key) {
+      reconciler.remove_consumer(id);
     }
 
     let mut target = self.shared.get_mut(&key).unwrap().write();
@@ -638,14 +637,15 @@ pub struct SharedHookObject {
   pub consumer_wakers: Arc<BroadcastWaker>,
 }
 
-pub trait ChangeReconciler: Send + Sync {
+trait DeltaQueryReconciler: Send + Sync {
+  /// change can be downcast to `BoxedDynQuery<K, ValueChange<V>>`
   /// return None if the change should use full view expand or skip_change = true
   fn reconcile(&self, id: u32, change: Box<dyn Any>, skip_change: bool) -> Option<Box<dyn Any>>;
   fn reset(&self);
   fn remove_consumer(&self, id: u32) -> bool;
 }
 
-pub struct SharedQueryChangeReconciler<K, V> {
+struct SharedQueryChangeReconciler<K, V> {
   internal: Arc<RwLock<SharedQueryChangeReconcilerInternal<K, V>>>,
 }
 
@@ -654,7 +654,7 @@ pub struct SharedQueryChangeReconcilerInternal<K, V> {
   has_broadcasted: bool,
 }
 
-impl<K: CKey, V: CValue> ChangeReconciler for SharedQueryChangeReconciler<K, V> {
+impl<K: CKey, V: CValue> DeltaQueryReconciler for SharedQueryChangeReconciler<K, V> {
   fn reconcile(&self, id: u32, change: Box<dyn Any>, skip_change: bool) -> Option<Box<dyn Any>> {
     // this lock introduce a blocking scope, but it's small and guaranteed to have forward progress
     let mut internal = self.internal.write();

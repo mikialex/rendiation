@@ -2,7 +2,7 @@
 [package]
 authors = ["MikiAlex <miikiialexx@gmail.com>"]
 edition = "2021"
-name = "rendiation-webgpu-virtual-buffer"
+name = "rendiation-webgpu-virtual-typed-combine-buffer"
 version = "0.1.0"
 
 [dependencies]

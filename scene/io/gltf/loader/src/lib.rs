@@ -308,16 +308,15 @@ fn build_model(
       let mut att = build_accessor(accessor, ctx);
       // expand joint indices from u8/u16 to u32
       if let AttributeSemantic::Joints(_) = &semantic {
-        let read = att.read();
         if att.item_byte_size == 4 {
-          let indices = read.visit_slice::<Vec4<u8>>().unwrap();
+          let indices = att.visit_slice::<Vec4<u8>>().unwrap();
           let new_indices = indices
             .iter()
             .map(|v| v.map(|v| v as u32))
             .collect::<Vec<_>>();
           att = AttributeAccessor::create_owned(new_indices, 4 * 4)
         } else if att.item_byte_size == 2 * 4 {
-          let indices = read.visit_slice::<Vec4<u16>>().unwrap();
+          let indices = att.visit_slice::<Vec4<u16>>().unwrap();
           let new_indices = indices
             .iter()
             .map(|v| v.map(|v| v as u32))
@@ -454,7 +453,6 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
 
   let matrix_list = if let Some(matrix_list) = skin.inverse_bind_matrices() {
     let matrix_list = build_accessor(matrix_list, ctx);
-    let matrix_list = matrix_list.read();
     matrix_list
       .visit_slice::<Mat4<f32>>()
       .unwrap()
