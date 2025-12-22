@@ -88,9 +88,31 @@ where
   }
 }
 
-pub type ComponentReadViewBox = SmallBox<dyn ComponentStorageReadView, smallbox::space::S4>;
+pub type ComponentReadViewBox = SmallBox<dyn ComponentStorageReadView, smallbox::space::S2>;
 pub type ComponentReadWriteViewBox =
-  SmallBox<dyn ComponentStorageReadWriteView, smallbox::space::S4>;
+  SmallBox<dyn ComponentStorageReadWriteView, smallbox::space::S2>;
+
+#[test]
+fn common_view_should_fit_in_view_box() {
+  declare_entity!(T);
+  declare_component!(TC, T, u32);
+
+  let storage = init_linear_storage::<TC>();
+  let view = storage.create_read_view();
+  assert!(!view.is_heap());
+  drop(view);
+  let view = storage.create_read_write_view();
+  assert!(!view.is_heap());
+  drop(view);
+
+  let storage = init_sparse_storage::<TC>();
+  let view = storage.create_read_view();
+  assert!(!view.is_heap());
+  drop(view);
+  let view = storage.create_read_write_view();
+  assert!(!view.is_heap());
+  drop(view);
+}
 
 /// This trait encapsulate the implementation of component storage.
 /// For different kinds of component, we can have different storage implementation.
