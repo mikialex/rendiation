@@ -51,10 +51,18 @@ pub type ChangePtr = ScopedValueChange<(DataPtr, *const dyn DataBaseDataTypeDyn)
 
 pub type EntityScopeChange = ScopedValueChange<()>;
 
-#[derive(Clone)]
 pub struct ComponentReadViewUntyped {
   pub(crate) allocator: LockReadGuardHolder<Arena<()>>,
-  pub(crate) data: Arc<dyn ComponentStorageReadView>,
+  pub(crate) data: ComponentReadViewBox,
+}
+
+impl Clone for ComponentReadViewUntyped {
+  fn clone(&self) -> Self {
+    Self {
+      allocator: self.allocator.clone(),
+      data: self.data.clone_boxed(),
+    }
+  }
 }
 
 impl ComponentReadViewUntyped {
@@ -83,7 +91,7 @@ impl ComponentReadViewUntyped {
 }
 
 pub struct ComponentWriteViewUntyped {
-  pub(crate) data: Box<dyn ComponentStorageReadWriteView>,
+  pub(crate) data: ComponentReadWriteViewBox,
   events: MutexGuardHolder<Source<ChangePtr>>,
 }
 

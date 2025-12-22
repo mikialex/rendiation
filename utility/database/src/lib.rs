@@ -2,6 +2,7 @@
 #![feature(impl_trait_in_assoc_type)]
 
 use std::hash::Hash;
+use std::ops::DerefMut;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::{
@@ -21,6 +22,7 @@ use parking_lot::RwLock;
 pub use query::*;
 pub use query_hook::*;
 use serde::*;
+use smallbox::*;
 
 mod global;
 pub use global::*;

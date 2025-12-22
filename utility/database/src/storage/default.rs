@@ -19,12 +19,12 @@ pub fn init_linear_storage<S: ComponentSemantic>() -> Arc<RwLock<DBLinearStorage
 }
 
 impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBLinearStorage<T>>> {
-  fn create_read_view(&self) -> Arc<dyn ComponentStorageReadView> {
-    Arc::new(self.make_read_holder())
+  fn create_read_view(&self) -> ComponentReadViewBox {
+    smallbox!(self.make_read_holder())
   }
 
-  fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView> {
-    Box::new(self.make_write_holder())
+  fn create_read_write_view(&self) -> ComponentReadWriteViewBox {
+    smallbox!(self.make_write_holder())
   }
   fn type_id(&self) -> TypeId {
     TypeId::of::<T>()
@@ -43,6 +43,17 @@ impl<T> ComponentStorageReadView for LockReadGuardHolder<DBLinearStorage<T>>
 where
   T: DataBaseDataType,
 {
+  fn clone_boxed(&self) -> ComponentReadViewBox {
+    smallbox!(self.clone())
+  }
+}
+impl<T> ComponentStorageReadViewBase for LockReadGuardHolder<DBLinearStorage<T>>
+where
+  T: DataBaseDataType,
+{
+  // fn clone_boxed(&self) -> ComponentReadViewBox {
+  //   smallbox!(self.clone())
+  // }
   unsafe fn get(&self, idx: u32) -> DataPtr {
     let data: &Vec<T> = &self.data;
     data.get_unchecked(idx as usize) as *const _ as DataPtr
@@ -57,7 +68,7 @@ where
   }
 }
 
-impl<T> ComponentStorageReadView for LockWriteGuardHolder<DBLinearStorage<T>>
+impl<T> ComponentStorageReadViewBase for LockWriteGuardHolder<DBLinearStorage<T>>
 where
   T: DataBaseDataType,
 {

@@ -19,12 +19,12 @@ pub fn init_sparse_storage<S: ComponentSemantic>() -> Arc<RwLock<DBSparseStorage
 }
 
 impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBSparseStorage<T>>> {
-  fn create_read_view(&self) -> Arc<dyn ComponentStorageReadView> {
-    Arc::new(self.make_read_holder())
+  fn create_read_view(&self) -> ComponentReadViewBox {
+    smallbox!(self.make_read_holder())
   }
 
-  fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView> {
-    Box::new(self.make_write_holder())
+  fn create_read_write_view(&self) -> ComponentReadWriteViewBox {
+    smallbox!(self.make_write_holder())
   }
   fn type_id(&self) -> TypeId {
     TypeId::of::<T>()
@@ -43,6 +43,15 @@ impl<T> ComponentStorageReadView for LockReadGuardHolder<DBSparseStorage<T>>
 where
   T: DataBaseDataType,
 {
+  fn clone_boxed(&self) -> ComponentReadViewBox {
+    smallbox!(self.clone())
+  }
+}
+
+impl<T> ComponentStorageReadViewBase for LockReadGuardHolder<DBSparseStorage<T>>
+where
+  T: DataBaseDataType,
+{
   unsafe fn get(&self, idx: u32) -> DataPtr {
     self.data.get(&idx).unwrap_or(&self.default_value) as *const _ as DataPtr
   }
@@ -56,7 +65,7 @@ where
   }
 }
 
-impl<T> ComponentStorageReadView for LockWriteGuardHolder<DBSparseStorage<T>>
+impl<T> ComponentStorageReadViewBase for LockWriteGuardHolder<DBSparseStorage<T>>
 where
   T: DataBaseDataType,
 {

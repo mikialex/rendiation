@@ -88,6 +88,10 @@ where
   }
 }
 
+pub type ComponentReadViewBox = SmallBox<dyn ComponentStorageReadView, smallbox::space::S4>;
+pub type ComponentReadWriteViewBox =
+  SmallBox<dyn ComponentStorageReadWriteView, smallbox::space::S4>;
+
 /// This trait encapsulate the implementation of component storage.
 /// For different kinds of component, we can have different storage implementation.
 /// For example. If the component data is sparse, we could using hashmap as the storage
@@ -96,8 +100,8 @@ where
 /// space efficiency. If the multiple component will always accessed together, we could
 /// store them in a interleaved buffer like common AOS way to improve the access performance.
 pub trait ComponentStorage: Send + Sync + DynClone {
-  fn create_read_view(&self) -> Arc<dyn ComponentStorageReadView>;
-  fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView>;
+  fn create_read_view(&self) -> ComponentReadViewBox;
+  fn create_read_write_view(&self) -> ComponentReadWriteViewBox;
   fn type_id(&self) -> TypeId;
   fn data_shape(&self) -> &'static facet::Shape<'_>;
 
@@ -105,7 +109,9 @@ pub trait ComponentStorage: Send + Sync + DynClone {
 }
 dyn_clone::clone_trait_object!(ComponentStorage);
 
-pub trait ComponentStorageReadView: Send + Sync {
+pub trait ComponentStorageReadViewBase: Send + Sync {
+  // fn clone_boxed(&self) -> ComponentReadViewBox;
+
   /// # Safety
   ///  
   /// - the caller must ensure that idx is valid
@@ -133,7 +139,11 @@ pub trait ComponentStorageReadView: Send + Sync {
   }
 }
 
-pub trait ComponentStorageReadWriteView: ComponentStorageReadView {
+pub trait ComponentStorageReadView: ComponentStorageReadViewBase {
+  fn clone_boxed(&self) -> ComponentReadViewBox;
+}
+
+pub trait ComponentStorageReadWriteView: ComponentStorageReadViewBase {
   /// # Safety
   /// The index must point to living data if old_value_out is Some, otherwise it must be pointer to
   /// an allocate but not used location. Return (new_value_ptr, old_value_ptr, changed_if_not_init)

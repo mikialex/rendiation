@@ -196,7 +196,7 @@ impl EntityComponentWriterImpl {
   ///
   /// idx must allocated
   pub unsafe fn write_init_component_value(&mut self, idx: RawEntityHandle, data: Option<DataPtr>) {
-    self.component.data.resize(idx.index());
+    self.component.data.deref_mut().resize(idx.index());
     self.component.write(idx, true, data);
   }
 
@@ -205,7 +205,7 @@ impl EntityComponentWriterImpl {
   /// idx must point to living data
   pub unsafe fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
     let src = self.component.get_unchecked(src);
-    self.component.data.resize(dst.index());
+    self.component.data.deref_mut().resize(dst.index());
     self.write_component(dst, src);
   }
 
