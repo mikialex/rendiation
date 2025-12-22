@@ -58,8 +58,6 @@ impl Drop for BlasInstanceInternal {
   }
 }
 
-const INFO: &str = "the current impl not support uri data for acceleration structure";
-
 // Key: AttributesMeshEntity
 pub fn use_attribute_mesh_to_blas(
   cx: &mut QueryGPUHookCx,

@@ -92,6 +92,7 @@ fn use_cube_face_update<FK>(
         let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
         let _ = gpu_texture.upload(&cx.gpu.queue, &source, face, 0);
       } else {
+        // todo, impl fanout datachanges
         todo!()
       }
     }

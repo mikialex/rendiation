@@ -26,6 +26,25 @@ pub trait AbstractResourceScheduler: Send + Sync + 'static {
   fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data>;
 }
 
+impl<K: CKey, V: CValue> AbstractResourceScheduler
+  for Box<dyn AbstractResourceScheduler<Data = V, Key = K>>
+{
+  type Data = V;
+  type Key = K;
+
+  fn notify_use_resource(&mut self, key: &Self::Key, uri: &str) {
+    (**self).notify_use_resource(key, uri);
+  }
+
+  fn notify_remove_resource(&mut self, key: &Self::Key) {
+    (**self).notify_remove_resource(key);
+  }
+
+  fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data> {
+    (**self).poll_schedule(cx)
+  }
+}
+
 /// the basic implementation is load what your request to load
 pub struct NoScheduleScheduler<K: CKey, V> {
   pub futures: MappedFutures<K, Box<dyn Future<Output = Option<V>> + Send + Sync + Unpin>>,

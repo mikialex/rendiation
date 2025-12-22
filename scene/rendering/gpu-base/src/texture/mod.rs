@@ -10,28 +10,14 @@ use rendiation_texture_packer::pack_2d_to_3d::RemappedGrowablePacker;
 
 use crate::*;
 
-pub fn use_texture_system(
+pub fn use_texture_system<
+  R: DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>> + 'static,
+>(
   cx: &mut QueryGPUHookCx,
   ty: GPUTextureBindingSystemType,
   pool_init_config: &TexturePoolSourceInit,
+  source_creator: impl FnOnce(&mut QueryGPUHookCx<'_>) -> UseResult<R>,
 ) -> Option<GPUTextureBindingSystem> {
-  let source_creator = |cx: &mut QueryGPUHookCx<'_>| {
-    let source = cx.use_changes::<SceneTexture2dEntityDirectContent>();
-    let (cx, scheduler) = cx
-      .use_plain_state::<Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>>>>>(|| {
-        let source = InMemoryUriDataSource::new(alloc_global_res_id());
-        let scheduler = NoScheduleScheduler {
-          futures: Default::default(),
-          data_source: Box::new(source),
-        };
-        Arc::new(RwLock::new(scheduler))
-      });
-
-    use_maybe_uri_data_changes(cx, source, scheduler)
-    // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
-    // so we use Arc, but we should use DataChangeRef trait
-  };
-
   // note, we must create source for each scope because if somehow we changed system type,
   // we need the source emit new inits messages
   match ty {

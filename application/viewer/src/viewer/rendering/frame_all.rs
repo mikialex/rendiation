@@ -96,7 +96,30 @@ impl Viewer3dRenderingCtx {
       ) || self.rtx_renderer_enabled,
       self.prefer_bindless_for_indirect_texture_system,
     );
-    let texture_sys = use_texture_system(cx, ty, &init_config.texture_pool_source_init_config);
+
+    let source_creator = |cx: &mut QueryGPUHookCx<'_>| {
+      let source = cx.use_changes::<SceneTexture2dEntityDirectContent>();
+      let (cx, scheduler) = cx
+        .use_plain_state::<Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>>>>>(|| {
+          let source = InMemoryUriDataSource::new(alloc_global_res_id());
+          let scheduler = NoScheduleScheduler {
+            futures: Default::default(),
+            data_source: Box::new(source),
+          };
+          Arc::new(RwLock::new(scheduler))
+        });
+
+      use_maybe_uri_data_changes(cx, source, scheduler)
+      // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
+      // so we use Arc, but we should use DataChangeRef trait
+    };
+
+    let texture_sys = use_texture_system(
+      cx,
+      ty,
+      &init_config.texture_pool_source_init_config,
+      source_creator,
+    );
 
     let any_base_resource_changed = change_scope(cx);
     let mut any_indirect_resource_changed = None;
