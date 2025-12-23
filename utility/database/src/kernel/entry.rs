@@ -54,6 +54,7 @@ impl Database {
     let ecg = tables.get(&e_id).expect("unknown entity id");
     f(ecg)
   }
+
   pub fn access_ecg<E: EntitySemantic, R>(
     &self,
     f: impl FnOnce(&EntityComponentGroupTyped<E>) -> R,
@@ -158,11 +159,11 @@ fn demo_how_to_use_database_generally() {
   //   ptr.write().write_component::<TestEntity2FieldA>(false); // single write
 
   // batch read
-  let read_view = global_entity_component_of::<TestEntity2FieldA>().read();
+  let read_view = read_global_db_component::<TestEntity2FieldA>();
   assert_eq!(read_view.get(ptr2), Some(&u32::default()));
   read_view.get(ptr2);
 
-  let read_view2 = global_entity_component_of::<TestEntity2ReferenceEntity1>().read_foreign_key();
+  let read_view2 = read_global_db_foreign_key::<TestEntity2ReferenceEntity1>();
   assert_eq!(read_view2.get(ptr2), Some(ptr));
 
   // batch write

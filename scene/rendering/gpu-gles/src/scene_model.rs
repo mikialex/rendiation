@@ -21,7 +21,7 @@ pub fn use_gles_scene_model_renderer(
     Box::new(GLESPreferredComOrderRenderer {
       scene_model_ids: scene_model_ids.make_read_holder(),
       model_impl: model_impl.unwrap(),
-      node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
+      node: read_global_db_foreign_key(),
       node_render: node_render.unwrap(),
     }) as Box<_>
   })

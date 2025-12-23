@@ -60,14 +60,13 @@ pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer
     .update_uniforms(&gradient_background_uniform, 0, cx.gpu);
 
   cx.when_render(|| SceneBackgroundRenderer {
-    solid_background: global_entity_component_of::<SceneSolidBackground>().read(),
-    env_background_map: global_entity_component_of::<SceneHDRxEnvBackgroundCubeMap>()
-      .read_foreign_key(),
+    solid_background: read_global_db_component(),
+    env_background_map: read_global_db_foreign_key(),
     env_background_map_gpu: env_background_map_gpu.make_read_holder(),
     env_background_param: env_background_intensity_uniform.make_read_holder(),
     solid_background_uniform: solid_background_color_uniform.make_read_holder(),
     gradient_background_uniform: gradient_background_uniform.make_read_holder(),
-    gradient_background: global_entity_component_of::<SceneGradientBackgroundInfo>().read(),
+    gradient_background: read_global_db_component(),
   })
 }
 

@@ -110,11 +110,9 @@ pub fn use_bindless_mesh(
     MeshGPUBindlessImpl {
       indices,
       vertices,
-      checker: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
-        .read_foreign_key(),
-      indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
-        .read_foreign_key(),
-      topology_checker: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
+      checker: read_global_db_foreign_key(),
+      indices_checker: read_global_db_foreign_key(),
+      topology_checker: read_global_db_component(),
       vertex_address_buffer,
       vertex_address_buffer_host: metadata.buffer.make_read_holder(),
       sm_to_mesh_device: sm_to_mesh_device.get_gpu_buffer(),

@@ -1,20 +1,11 @@
 use crate::*;
 
-pub struct ComponentCollection<C> {
+pub struct ComponentCollection<'a, C> {
   phantom: PhantomData<C>,
-  inner: ComponentCollectionUntyped,
+  inner: &'a ComponentCollectionUntyped,
 }
 
-impl<C> Clone for ComponentCollection<C> {
-  fn clone(&self) -> Self {
-    Self {
-      phantom: PhantomData,
-      inner: self.inner.clone(),
-    }
-  }
-}
-
-impl<C: ComponentSemantic> ComponentCollection<C> {
+impl<'a, C: ComponentSemantic> ComponentCollection<'a, C> {
   pub fn read(&self) -> ComponentReadView<C> {
     ComponentReadView {
       phantom: PhantomData,
@@ -45,7 +36,7 @@ impl ComponentCollectionUntyped {
   /// # Safety
   ///
   /// The C must match the real component semantic
-  pub unsafe fn into_typed<C>(self) -> ComponentCollection<C> {
+  pub unsafe fn as_typed<C>(&self) -> ComponentCollection<'_, C> {
     ComponentCollection {
       phantom: Default::default(),
       inner: self,

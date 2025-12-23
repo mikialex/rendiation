@@ -42,11 +42,10 @@ pub fn use_pbr_sg_material_storage(
   tex_storages.use_update(cx);
 
   cx.when_render(|| PbrSGMaterialIndirectRenderer {
-    material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
-      .read_foreign_key(),
+    material_access: read_global_db_foreign_key(),
     storages: storages.get_gpu_buffer(),
     tex_storages: tex_storages.get_gpu_buffer(),
-    alpha_mode: global_entity_component_of().read(),
+    alpha_mode: read_global_db_component(),
   })
 }
 

@@ -6,11 +6,13 @@ pub type DBDelta<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
 pub type DBDualQuery<V> = DualQuery<DBView<V>, DBDelta<V>>;
 pub type DBSetDualQuery = DualQuery<BoxedDynQuery<RawEntityHandle, ()>, DBDelta<()>>;
 
+#[inline(always)]
 pub fn get_db_view_no_generation_check<C: ComponentSemantic>() -> DBViewUnchecked<C::Data> {
   get_db_view_no_generation_check_internal(C::Entity::entity_id(), C::component_id())
 }
 
-pub fn get_db_view_no_generation_check_internal<T>(
+#[inline(never)]
+fn get_db_view_no_generation_check_internal<T>(
   e_id: EntityId,
   c_id: ComponentId,
 ) -> DBViewUnchecked<T> {
@@ -25,7 +27,13 @@ pub fn get_db_view_no_generation_check_internal<T>(
     .unwrap()
 }
 
-pub fn get_db_view_internal<T>(e_id: EntityId, c_id: ComponentId) -> DBView<T> {
+#[inline(always)]
+pub fn get_db_view<C: ComponentSemantic>() -> DBView<C::Data> {
+  get_db_view_internal(C::Entity::entity_id(), C::component_id())
+}
+
+#[inline(never)]
+pub(crate) fn get_db_view_internal<T>(e_id: EntityId, c_id: ComponentId) -> DBView<T> {
   global_database()
     .access_ecg_dyn(e_id, |ecg| {
       ecg.access_component(c_id, |c| IterableComponentReadViewChecked {
@@ -37,22 +45,7 @@ pub fn get_db_view_internal<T>(e_id: EntityId, c_id: ComponentId) -> DBView<T> {
     .unwrap()
 }
 
-pub fn get_db_view<C: ComponentSemantic>() -> DBView<C::Data> {
-  get_db_view_internal(C::Entity::entity_id(), C::component_id())
-}
-
-pub fn get_db_view_uncheck_access<C: ComponentSemantic>() -> IterableComponentReadView<C::Data> {
-  global_database()
-    .access_ecg_dyn(C::Entity::entity_id(), |ecg| {
-      ecg.access_component(C::component_id(), |c| IterableComponentReadView {
-        ecg: ecg.clone(),
-        read_view: c.read_untyped(),
-        phantom: PhantomData,
-      })
-    })
-    .unwrap()
-}
-
+#[inline(always)]
 pub fn get_db_view_typed<C: ComponentSemantic>(
 ) -> impl Query<Key = EntityHandle<C::Entity>, Value = C::Data> {
   get_db_view_internal(C::Entity::entity_id(), C::component_id()).mark_entity_type::<C::Entity>()

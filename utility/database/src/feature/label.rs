@@ -47,13 +47,13 @@ impl EntityComponentGroupImpl {
     let display_name = format!("{}-Label", &self.name);
 
     let com = ComponentCollectionUntyped {
-      short_name: Arc::new(disqualified::ShortName(&display_name).to_string()),
-      name: Arc::new(display_name),
+      short_name: disqualified::ShortName(&display_name).to_string(),
+      name: display_name,
       as_foreign_key: None,
       entity_type_id: self.type_id,
       component_type_id: semantic,
       data_meta: data.create_meta(),
-      data: Arc::new(data),
+      data: Box::new(data),
       allocator: self.allocator.clone(),
       data_watchers: Default::default(),
     };

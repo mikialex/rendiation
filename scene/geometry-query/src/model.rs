@@ -110,16 +110,14 @@ pub fn use_attribute_mesh_picker(cx: &mut impl DBHookCxLike) -> Option<Attribute
       .expect_resolve_stage()
       .mark_entity_type()
       .into_boxed(),
-    model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
-      .read_foreign_key(),
-    std_model_access_mesh: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
-      .read_foreign_key(),
+    model_access_std_model: read_global_db_foreign_key(),
+    std_model_access_mesh: read_global_db_foreign_key(),
     mesh_vertex_refs: mesh_vertex_refs.expect_resolve_stage().into_boxed_multi(),
-    semantic: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
+    semantic: read_global_db_component(),
     vertex_buffer: SceneBufferViewReadView::new_from_global(),
     index_buffer: SceneBufferViewReadView::new_from_global(),
-    mesh_topology: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
-    buffer: global_entity_component_of::<BufferEntityData>().read(),
+    mesh_topology: read_global_db_component(),
+    buffer: read_global_db_component(),
     pick_line_tolerance: IntersectTolerance::new(1.0, ToleranceType::ScreenSpace),
     pick_point_tolerance: IntersectTolerance::new(1.0, ToleranceType::ScreenSpace),
   })

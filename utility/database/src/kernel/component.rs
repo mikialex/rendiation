@@ -1,26 +1,25 @@
 use crate::*;
 
-#[derive(Clone)]
 pub struct ComponentCollectionUntyped {
-  /// the name of this component, will be unique among all components
-  pub name: Arc<String>,
+  /// the name of this component, must be unique among all components
+  pub name: String,
 
   /// the name for ui display
-  pub short_name: Arc<String>,
+  pub short_name: String,
 
-  /// mark if this component is a foreign key
+  /// indicate if this component is a foreign key
   pub as_foreign_key: Option<EntityId>,
 
   /// the real data stored here
-  pub data: Arc<dyn ComponentStorage>,
+  pub data: Box<dyn ComponentStorage>,
 
   /// watch this component all change with idx
   pub(crate) data_watchers: EventSource<ChangePtr>,
 
+  /// the allocator that shared between all components of the self entity
   pub allocator: Arc<RwLock<Arena<()>>>,
 
   pub data_meta: DataTypeMetaInfo,
-
   pub entity_type_id: EntityId,
   pub component_type_id: ComponentId,
 }

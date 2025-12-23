@@ -14,7 +14,7 @@ pub fn use_attribute_mesh_renderer(
     .map_changes(|(id, range, _)| (id, range))
     .use_assure_result(cx);
 
-  let read_view = global_entity_component_of::<BufferEntityData>().read();
+  let read_view = read_global_db_component::<BufferEntityData>();
 
   let f = |(idx, range): (RawEntityHandle, Option<BufferViewRange>)| {
     let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
@@ -28,7 +28,7 @@ pub fn use_attribute_mesh_renderer(
 
   let source = vertex_data_source.use_assure_result(cx);
 
-  let read_view = global_entity_component_of::<BufferEntityData>().read();
+  let read_view = read_global_db_component::<BufferEntityData>();
 
   let f = |(idx, range): (RawEntityHandle, Option<BufferViewRange>)| {
     let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
@@ -43,18 +43,16 @@ pub fn use_attribute_mesh_renderer(
     .use_assure_result(cx);
 
   cx.when_render(|| GLESAttributesMeshRenderer {
-    mesh_access: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
-      .read_foreign_key(),
-    mode: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
+    mesh_access: read_global_db_foreign_key(),
+    mode: read_global_db_component(),
     index: index.make_read_holder(),
     vertex: AttributesMeshEntityVertexAccessView {
-      semantics: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
-      count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeVertexRef>>()
-        .read(),
+      semantics: read_global_db_component(),
+      count: read_global_db_component(),
       multi_access: multi_access.expect_resolve_stage(),
       vertex: vertex.make_read_holder(),
     },
-    count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeIndexRef>>().read(),
+    count: read_global_db_component(),
     foreign_implementation_semantics,
   })
 }

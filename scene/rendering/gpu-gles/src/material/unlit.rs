@@ -24,12 +24,11 @@ pub fn use_unlit_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<UnlitMater
   use_tex_watcher::<UnlitMaterialColorAlphaTex, _>(cx, color_alpha_texture, &tex_uniform);
 
   cx.when_render(|| UnlitMaterialGlesRender {
-    material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
-      .read_foreign_key(),
+    material_access: read_global_db_foreign_key(),
     uniforms: uniform.make_read_holder(),
     texture_uniforms: tex_uniform.make_read_holder(),
     color_tex_sampler: TextureSamplerIdView::read_from_global(),
-    alpha_mode: global_entity_component_of().read(),
+    alpha_mode: read_global_db_component(),
   })
 }
 

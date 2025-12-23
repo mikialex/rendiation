@@ -40,9 +40,9 @@ pub fn use_wide_line_picker(cx: &mut impl DBHookCxLike) -> Option<WideLinePicker
     .use_assure_result(cx);
 
   cx.when_resolve_stage(|| WideLinePicker {
-    lines: global_entity_component_of::<WideLineMeshBuffer>().read(),
-    line_width: global_entity_component_of::<WideLineWidth>().read(),
-    relation: global_entity_component_of::<SceneModelWideLineRenderPayload>().read_foreign_key(),
+    lines: read_global_db_component(),
+    line_width: read_global_db_component(),
+    relation: read_global_db_foreign_key(),
     sm_bounding: wide_line_sm_bounding
       .expect_resolve_stage()
       .mark_entity_type()

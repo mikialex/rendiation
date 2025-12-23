@@ -37,11 +37,10 @@ pub fn use_pbr_mr_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrMRMate
   use_tex_watcher::<NormalTexSamplerOf<PbrMRMaterialNormalInfo>, _>(cx, normal, &tex_uniforms);
 
   cx.when_render(|| PbrMRMaterialGlesRenderer {
-    material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
-      .read_foreign_key(),
+    material_access: read_global_db_foreign_key(),
     uniforms: uniforms.make_read_holder(),
     tex_uniforms: tex_uniforms.make_read_holder(),
-    alpha_mode: global_entity_component_of().read(),
+    alpha_mode: read_global_db_component(),
     base_color_tex_sampler: TextureSamplerIdView::read_from_global(),
     mr_tex_sampler: TextureSamplerIdView::read_from_global(),
     emissive_tex_sampler: TextureSamplerIdView::read_from_global(),

@@ -161,7 +161,7 @@ impl EntityComponentGroupImpl {
     self
       .name_mapping
       .write()
-      .insert_component(semantic, self.type_id, (*com.name).clone());
+      .insert_component(semantic, self.type_id, com.name.clone());
 
     self.components_meta_watchers.emit(&com);
     let previous = components.insert(semantic, com);
@@ -209,13 +209,13 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     storage: impl ComponentStorage + 'static,
   ) -> Self {
     let com = ComponentCollectionUntyped {
-      short_name: Arc::new(disqualified::ShortName(S::unique_name()).to_string()),
-      name: Arc::new(S::unique_name().to_string()),
+      short_name: disqualified::ShortName(S::unique_name()).to_string(),
+      name: S::unique_name().to_string(),
       as_foreign_key,
       data_meta: storage.create_meta(),
       entity_type_id: S::Entity::entity_id(),
       component_type_id: S::component_id(),
-      data: Arc::new(storage),
+      data: Box::new(storage),
       allocator: self.inner.inner.allocator.clone(),
       data_watchers: Default::default(),
     };
@@ -258,9 +258,9 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   ) -> R {
     if let Some(r) = self
       .inner
-      .access_component(S::component_id(), |s| unsafe { s.clone().into_typed() })
+      .access_component(S::component_id(), |s| f(unsafe { s.as_typed() }))
     {
-      f(r)
+      r
     } else {
       panic!(
         "access not exist component {}, make sure declared before use",
