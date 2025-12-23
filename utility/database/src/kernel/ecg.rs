@@ -212,7 +212,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
       short_name: Arc::new(disqualified::ShortName(S::unique_name()).to_string()),
       name: Arc::new(S::unique_name().to_string()),
       as_foreign_key,
-      data_typeid: TypeId::of::<S::Data>(),
+      data_meta: storage.create_meta(),
       entity_type_id: S::Entity::entity_id(),
       component_type_id: S::component_id(),
       data: Arc::new(storage),

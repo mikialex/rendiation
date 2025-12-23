@@ -8,6 +8,7 @@ pub struct DBLinearStorage<T> {
   pub data: Vec<T>,
   pub default_value: T,
   pub old_value_out: T, // todo, this value is leaked here, we should cleanup explicitly?
+  pub meta: DataTypeMetaInfo,
 }
 
 pub fn init_linear_storage<S: ComponentSemantic>() -> Arc<RwLock<DBLinearStorage<S::Data>>> {
@@ -15,22 +16,21 @@ pub fn init_linear_storage<S: ComponentSemantic>() -> Arc<RwLock<DBLinearStorage
     data: Default::default(),
     default_value: S::default_override(),
     old_value_out: Default::default(),
+    meta: DataTypeMetaInfo::from_type::<S::Data>(),
   }))
 }
 
 impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBLinearStorage<T>>> {
+  fn create_meta(&self) -> DataTypeMetaInfo {
+    self.read().meta.clone()
+  }
+
   fn create_read_view(&self) -> ComponentReadViewBox {
     smallbox!(self.make_read_holder())
   }
 
   fn create_read_write_view(&self) -> ComponentReadWriteViewBox {
     smallbox!(self.make_write_holder())
-  }
-  fn type_id(&self) -> TypeId {
-    TypeId::of::<T>()
-  }
-  fn data_shape(&self) -> &'static Shape<'_> {
-    T::shape()
   }
 
   fn memory_usage_in_bytes(&self) -> usize {
@@ -51,20 +51,15 @@ impl<T> ComponentStorageReadViewBase for LockReadGuardHolder<DBLinearStorage<T>>
 where
   T: DataBaseDataType,
 {
-  // fn clone_boxed(&self) -> ComponentReadViewBox {
-  //   smallbox!(self.clone())
-  // }
+  #[inline(always)]
+  fn meta(&self) -> &DataTypeMetaInfo {
+    &self.meta
+  }
+
+  #[inline(always)]
   unsafe fn get(&self, idx: u32) -> DataPtr {
     let data: &Vec<T> = &self.data;
     data.get_unchecked(idx as usize) as *const _ as DataPtr
-  }
-
-  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
-    &self,
-    ptr: DataPtr,
-  ) -> &'a dyn DataBaseDataTypeDyn {
-    let source = &*(ptr as *const T);
-    source as &dyn DataBaseDataTypeDyn
   }
 }
 
@@ -72,17 +67,14 @@ impl<T> ComponentStorageReadViewBase for LockWriteGuardHolder<DBLinearStorage<T>
 where
   T: DataBaseDataType,
 {
+  #[inline(always)]
+  fn meta(&self) -> &DataTypeMetaInfo {
+    &self.meta
+  }
+  #[inline(always)]
   unsafe fn get(&self, idx: u32) -> DataPtr {
     let data: &Vec<T> = &self.data;
     data.get_unchecked(idx as usize) as *const _ as DataPtr
-  }
-
-  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
-    &self,
-    ptr: DataPtr,
-  ) -> &'a dyn DataBaseDataTypeDyn {
-    let source = &*(ptr as *const T);
-    source as &dyn DataBaseDataTypeDyn
   }
 }
 

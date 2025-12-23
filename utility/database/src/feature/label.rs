@@ -42,11 +42,7 @@ impl EntityComponentGroupImpl {
   fn add_label_component(&self) {
     let semantic = compute_component_id(self.type_id.0);
 
-    let data = Arc::new(RwLock::new(DBSparseStorage::<String> {
-      data: Default::default(),
-      default_value: Default::default(),
-      old_value_out: Default::default(),
-    }));
+    let data = init_sparse_storage_by_data::<String>(Default::default());
 
     let display_name = format!("{}-Label", &self.name);
 
@@ -54,9 +50,9 @@ impl EntityComponentGroupImpl {
       short_name: Arc::new(disqualified::ShortName(&display_name).to_string()),
       name: Arc::new(display_name),
       as_foreign_key: None,
-      data_typeid: TypeId::of::<String>(),
       entity_type_id: self.type_id,
       component_type_id: semantic,
+      data_meta: data.create_meta(),
       data: Arc::new(data),
       allocator: self.allocator.clone(),
       data_watchers: Default::default(),

@@ -114,6 +114,38 @@ fn common_view_should_fit_in_view_box() {
   drop(view);
 }
 
+#[derive(Clone)]
+pub struct DataTypeMetaInfo {
+  pub create_dyn_data_ptr_readonly: unsafe fn(DataPtr) -> *const dyn DataBaseDataTypeDyn,
+  pub create_dyn_data_ptr: unsafe fn(DataMutPtr) -> *mut dyn DataBaseDataTypeDyn,
+  pub shape: &'static facet::Shape<'static>,
+  pub data_type_id: TypeId,
+}
+
+impl DataTypeMetaInfo {
+  /// # Safety
+  ///
+  /// the impl must ensure the returned ptr is point to correct data
+  #[inline(always)]
+  pub unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
+    &self,
+    ptr: DataPtr,
+  ) -> &'a dyn DataBaseDataTypeDyn {
+    &*(self.create_dyn_data_ptr_readonly)(ptr) as &dyn DataBaseDataTypeDyn
+  }
+
+  pub fn from_type<T: DataBaseDataType>() -> Self {
+    Self {
+      create_dyn_data_ptr_readonly: |ptr| unsafe {
+        &*(ptr as *const T) as *const dyn DataBaseDataTypeDyn
+      },
+      create_dyn_data_ptr: |ptr| unsafe { &mut *(ptr as *mut T) as *mut dyn DataBaseDataTypeDyn },
+      shape: T::shape(),
+      data_type_id: TypeId::of::<T>(),
+    }
+  }
+}
+
 /// This trait encapsulate the implementation of component storage.
 /// For different kinds of component, we can have different storage implementation.
 /// For example. If the component data is sparse, we could using hashmap as the storage
@@ -124,16 +156,14 @@ fn common_view_should_fit_in_view_box() {
 pub trait ComponentStorage: Send + Sync + DynClone {
   fn create_read_view(&self) -> ComponentReadViewBox;
   fn create_read_write_view(&self) -> ComponentReadWriteViewBox;
-  fn type_id(&self) -> TypeId;
-  fn data_shape(&self) -> &'static facet::Shape<'_>;
+  fn create_meta(&self) -> DataTypeMetaInfo;
 
   fn memory_usage_in_bytes(&self) -> usize;
 }
 dyn_clone::clone_trait_object!(ComponentStorage);
 
 pub trait ComponentStorageReadViewBase: Send + Sync {
-  // fn clone_boxed(&self) -> ComponentReadViewBox;
-
+  fn meta(&self) -> &DataTypeMetaInfo;
   /// # Safety
   ///  
   /// - the caller must ensure that idx is valid
@@ -143,21 +173,16 @@ pub trait ComponentStorageReadViewBase: Send + Sync {
   unsafe fn get(&self, idx: u32) -> DataPtr;
 
   /// # Safety
-  ///
-  /// the impl must ensure the returned ptr is point to correct data
-  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
-    &self,
-    ptr: DataPtr,
-  ) -> &'a dyn DataBaseDataTypeDyn;
-
-  /// # Safety
   ///  
   /// - the caller must ensure that idx is valid
   /// - the impl must ensure the returned ptr is point to correct data
   ///
   /// get the data located in idx
+  #[inline(always)]
   unsafe fn get_as_dyn_storage(&self, idx: u32) -> &dyn DataBaseDataTypeDyn {
-    self.construct_dyn_datatype_from_raw_ptr(self.get(idx))
+    self
+      .meta()
+      .construct_dyn_datatype_from_raw_ptr(self.get(idx))
   }
 }
 
