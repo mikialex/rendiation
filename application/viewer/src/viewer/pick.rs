@@ -119,7 +119,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
           viewport_idx,
           viewport_id: viewport.id,
           view_logical_pixel_size: view_logic_pixel_size.into_u32().into(),
-          normalized_position: normalized_position_ndc * Vec2::new(0.5, -0.5) + Vec2::new(0.5, 0.5),
+          normalized_position: normalized_position_ndc,
           projection,
           projection_inv,
           proj_source: Some(camera_proj),

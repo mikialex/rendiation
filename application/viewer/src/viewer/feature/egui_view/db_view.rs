@@ -1,4 +1,4 @@
-use std::{any::TypeId, ops::Deref};
+use std::any::TypeId;
 
 use egui::Response;
 use egui_extras::{Column, TableBuilder};
@@ -162,8 +162,6 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
                 {
                   let fallback_debug = data.debug_value();
 
-                  let tid = com.data.deref().type_id();
-                  assert_eq!(tid, com.data_meta.data_type_id);
                   state
                     .inspector
                     .ui(&com.data_meta.data_type_id, data_ptr, ui, fallback_debug);
