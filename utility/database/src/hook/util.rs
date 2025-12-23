@@ -1,16 +1,5 @@
 use crate::*;
 
-// this trait could be lift into upper stream
-pub trait QueryProvider<K, V>: Send + Sync {
-  fn access(&self) -> BoxedDynQuery<K, V>;
-}
-
-impl<T: Query + 'static> QueryProvider<T::Key, T::Value> for Arc<RwLock<T>> {
-  fn access(&self) -> BoxedDynQuery<T::Key, T::Value> {
-    Arc::new(self.make_read_holder())
-  }
-}
-
 pub type DBViewUnchecked<V> = IterableComponentReadView<V>;
 pub type DBView<V> = IterableComponentReadViewChecked<V>;
 pub type DBDelta<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
@@ -112,15 +101,7 @@ pub type RevRefOfForeignKey<S> = BoxedDynMultiQuery<
 >;
 
 #[derive(Clone)]
-pub(crate) struct ArenaAccessProvider<T: CValue>(pub(crate) Arc<RwLock<Arena<T>>>);
-impl<T: CValue> QueryProvider<RawEntityHandle, T> for ArenaAccessProvider<T> {
-  fn access(&self) -> BoxedDynQuery<RawEntityHandle, T> {
-    Arc::new(ArenaAccess(self.0.make_read_holder()))
-  }
-}
-
-#[derive(Clone)]
-struct ArenaAccess<T: CValue>(LockReadGuardHolder<Arena<T>>);
+pub struct ArenaAccess<T: CValue>(pub LockReadGuardHolder<Arena<T>>);
 
 impl<V: CValue> Query for ArenaAccess<V> {
   type Key = RawEntityHandle;
@@ -142,34 +123,6 @@ impl<V: CValue> Query for ArenaAccess<V> {
 
   fn has_item_hint(&self) -> bool {
     !self.0.is_empty()
-  }
-}
-
-pub(crate) struct ComponentAccess<T> {
-  pub(crate) ecg: EntityComponentGroup,
-  pub(crate) original: ComponentCollectionUntyped,
-  pub(crate) phantom: PhantomData<T>,
-}
-
-impl<T: CValue> QueryProvider<u32, T> for ComponentAccess<T> {
-  fn access(&self) -> BoxedDynQuery<u32, T> {
-    IterableComponentReadView::<T> {
-      ecg: self.ecg.clone(),
-      read_view: self.original.read_untyped(),
-      phantom: PhantomData,
-    }
-    .into_boxed()
-  }
-}
-
-impl<T: CValue> QueryProvider<RawEntityHandle, T> for ComponentAccess<T> {
-  fn access(&self) -> BoxedDynQuery<RawEntityHandle, T> {
-    IterableComponentReadViewChecked::<T> {
-      ecg: self.ecg.clone(),
-      read_view: self.original.read_untyped(),
-      phantom: PhantomData,
-    }
-    .into_boxed()
   }
 }
 

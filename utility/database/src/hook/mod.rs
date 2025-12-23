@@ -32,10 +32,10 @@ pub trait DBHookCxLike: QueryHookCxLike {
         e.access_component(c_id, move |c| {
           add_changes_listen(
             e.entity_capacity(),
-            ComponentAccess {
+            IterableComponentReadViewChecked::<T> {
               ecg: e.clone(),
-              original: c.clone(),
-              phantom: PhantomData::<T>,
+              read_view: c.read_untyped(),
+              phantom: PhantomData,
             },
             &c.data_watchers,
           )
@@ -81,10 +81,10 @@ pub trait DBHookCxLike: QueryHookCxLike {
         e.access_component(c_id, move |c| {
           add_delta_listen(
             e.entity_capacity(),
-            ComponentAccess {
+            IterableComponentReadViewChecked::<T> {
               ecg: e.clone(),
-              original: c.clone(),
-              phantom: PhantomData::<T>,
+              read_view: c.read_untyped(),
+              phantom: PhantomData,
             },
             &c.data_watchers,
           )
@@ -141,7 +141,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
       global_database().access_ecg_dyn(e_id, move |e| {
         add_delta_listen(
           e.entity_capacity(),
-          ArenaAccessProvider(e.inner.allocator.clone()),
+          ArenaAccess(e.inner.allocator.make_read_holder()),
           &e.inner.entity_watchers,
         )
       })
@@ -253,7 +253,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
         cx.use_entity_set_delta_raw(self.0)
           .map(move |change| DualQuery {
             view: global_database().access_ecg_dyn(e_id, |ecg| {
-              ArenaAccessProvider(ecg.inner.allocator.clone()).access()
+              ArenaAccess(ecg.inner.allocator.make_read_holder()).into_boxed()
             }),
             delta: change,
           })
