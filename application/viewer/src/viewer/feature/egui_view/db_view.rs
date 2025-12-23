@@ -110,8 +110,8 @@ pub fn egui_db_gui(ui: &egui::Context, state: &mut DBInspector, opened: &mut boo
 
 fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
   let db = global_database();
-  db.access_ecg_dyn(e_id, |ecg| {
-    ui.heading(ecg.name());
+  db.access_table_dyn(e_id, |tb| {
+    ui.heading(tb.name());
 
     let table = TableBuilder::new(ui)
       .striped(true)
@@ -122,12 +122,12 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
           .at_least(100.)
           .at_most(300.)
           .clip(true),
-        ecg.component_count(),
+        tb.component_count(),
       )
       .max_scroll_height(900.)
       .cell_layout(egui::Layout::left_to_right(egui::Align::Center));
 
-    ecg.access_components(|coms| {
+    tb.access_components(|coms| {
       table
         .header(20.0, |mut header| {
           header.col(|ui| {
@@ -139,7 +139,7 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
 
               if let Some(f) = com.as_foreign_key {
                 label.highlight().on_hover_ui(|ui| {
-                  let name = db.access_ecg_dyn(f, |ecg| ecg.name().to_string());
+                  let name = db.access_table_dyn(f, |tb| tb.name().to_string());
                   if ui.link(name).clicked() {
                     state.goto(Some(f));
                   }
@@ -149,7 +149,7 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
           })
         })
         .body(|body| {
-          body.rows(20.0, ecg.entity_capacity(), |mut row| {
+          body.rows(20.0, tb.entity_capacity(), |mut row| {
             let idx = row.index();
             row.col(|ui| {
               ui.label(idx.to_string());
@@ -308,7 +308,7 @@ fn all_tables(ui: &mut egui::Ui, state: &mut DBInspector) {
   ui.heading("Tables");
 
   let db = global_database();
-  let db_tables = db.ecg_tables.read_recursive();
+  let db_tables = db.tables.read_recursive();
 
   let table = TableBuilder::new(ui)
     .striped(true)

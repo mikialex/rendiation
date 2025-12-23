@@ -18,10 +18,10 @@ pub fn use_db_all_foreign_key_change(
   let mut changes = DBAllForeignKeyChange::default();
 
   cx.skip_if_not_waked(|cx| {
-    for (e_id, ecg) in global_database().ecg_tables.read().iter() {
+    for (e_id, table) in global_database().tables.read().iter() {
       cx.skip_if_not_waked(|cx| {
         cx.keyed_scope(e_id, |cx| {
-          for (c_id, ref_e_id) in ecg.inner.foreign_keys.read().iter() {
+          for (c_id, ref_e_id) in table.internal.foreign_keys.read().iter() {
             cx.keyed_scope(c_id, |cx| {
               if !config.contains(c_id) {
                 cx.scope(|cx| {

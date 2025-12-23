@@ -7,7 +7,7 @@ pub struct EntityComponentGroupShareLock {
   _locks: EntityReaderUntyped,
 }
 
-impl EntityComponentGroup {
+impl ArcTable {
   pub fn lock_exclusive(&self) -> EntityComponentGroupExclusiveLock {
     EntityComponentGroupExclusiveLock {
       _locks: self.entity_writer_dyn(),
@@ -30,15 +30,15 @@ pub struct DatabaseShareLock {
 
 impl Database {
   pub fn lock_exclusive(&self) -> DatabaseExclusiveLock {
-    let tables = self.ecg_tables.read();
+    let tables = self.tables.read();
     DatabaseExclusiveLock {
-      _locks: tables.values().map(|ecg| ecg.lock_exclusive()).collect(),
+      _locks: tables.values().map(|t| t.lock_exclusive()).collect(),
     }
   }
   pub fn lock_shared(&self) -> DatabaseShareLock {
-    let tables = self.ecg_tables.read();
+    let tables = self.tables.read();
     DatabaseShareLock {
-      _locks: tables.values().map(|ecg| ecg.lock_shared()).collect(),
+      _locks: tables.values().map(|t| t.lock_shared()).collect(),
     }
   }
 }

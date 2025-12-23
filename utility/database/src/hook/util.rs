@@ -17,9 +17,9 @@ fn get_db_view_no_generation_check_internal<T>(
   c_id: ComponentId,
 ) -> DBViewUnchecked<T> {
   global_database()
-    .access_ecg_dyn(e_id, |ecg| {
-      ecg.access_component(c_id, |c| IterableComponentReadView {
-        ecg: ecg.clone(),
+    .access_table_dyn(e_id, |table| {
+      table.access_component(c_id, |c| IterableComponentReadView {
+        table: table.clone(),
         read_view: c.read_untyped(),
         phantom: PhantomData,
       })
@@ -35,9 +35,9 @@ pub fn get_db_view<C: ComponentSemantic>() -> DBView<C::Data> {
 #[inline(never)]
 pub(crate) fn get_db_view_internal<T>(e_id: EntityId, c_id: ComponentId) -> DBView<T> {
   global_database()
-    .access_ecg_dyn(e_id, |ecg| {
-      ecg.access_component(c_id, |c| IterableComponentReadViewChecked {
-        ecg: ecg.clone(),
+    .access_table_dyn(e_id, |table| {
+      table.access_component(c_id, |c| IterableComponentReadViewChecked {
+        table: table.clone(),
         read_view: c.read_untyped(),
         phantom: PhantomData,
       })
@@ -126,8 +126,9 @@ pub trait SkipGenerationCheckExt: Sized {
 impl<T: Query> SkipGenerationCheckExt for T {
   fn skip_generation_check<E: EntitySemantic>(self) -> SkipGenerationCheck<T> {
     SkipGenerationCheck {
-      alloc: global_database()
-        .access_ecg_dyn(E::entity_id(), |ecg| ecg.inner.allocator.make_read_holder()),
+      alloc: global_database().access_table_dyn(E::entity_id(), |table| {
+        table.internal.allocator.make_read_holder()
+      }),
       inner: self,
     }
   }

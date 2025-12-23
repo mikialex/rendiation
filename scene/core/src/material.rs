@@ -22,13 +22,13 @@ mod unlit_material {
   declare_entity_associated!(UnlitMaterialColorAlphaTex, UnlitMaterialEntity);
   impl TextureWithSamplingForeignKeys for UnlitMaterialColorAlphaTex {}
   pub fn register_unlit_material_data_model() {
-    let ecg = global_database()
+    let table = global_database()
       .declare_entity::<UnlitMaterialEntity>()
       .declare_component::<UnlitMaterialColorComponent>();
 
-    let ecg = register_texture_with_sampling::<UnlitMaterialColorAlphaTex>(ecg);
+    let table = register_texture_with_sampling::<UnlitMaterialColorAlphaTex>(table);
 
-    register_alpha_config::<UnlitMaterialAlphaConfig>(ecg);
+    register_alpha_config::<UnlitMaterialAlphaConfig>(table);
   }
 
   declare_entity_associated!(UnlitMaterialAlphaConfig, UnlitMaterialEntity);
@@ -98,18 +98,18 @@ mod sg_material {
   impl NormalInfoSemantic for PbrSGMaterialNormalInfo {}
 
   pub fn register_pbr_sg_material_data_model() {
-    let ecg = global_database()
+    let table = global_database()
       .declare_entity::<PbrSGMaterialEntity>()
       .declare_component::<PbrSGMaterialAlbedoComponent>()
       .declare_component::<PbrSGMaterialSpecularComponent>()
       .declare_component::<PbrSGMaterialGlossinessComponent>()
       .declare_component::<PbrSGMaterialEmissiveComponent>();
 
-    let ecg = register_texture_with_sampling::<PbrSGMaterialAlbedoAlphaTex>(ecg);
-    let ecg = register_texture_with_sampling::<PbrSGMaterialSpecularGlossinessTex>(ecg);
-    let ecg = register_texture_with_sampling::<PbrSGMaterialEmissiveTex>(ecg);
-    let ecg = register_normal::<PbrSGMaterialNormalInfo>(ecg);
-    register_alpha_config::<PbrSGMaterialAlphaConfig>(ecg);
+    let table = register_texture_with_sampling::<PbrSGMaterialAlbedoAlphaTex>(table);
+    let table = register_texture_with_sampling::<PbrSGMaterialSpecularGlossinessTex>(table);
+    let table = register_texture_with_sampling::<PbrSGMaterialEmissiveTex>(table);
+    let table = register_normal::<PbrSGMaterialNormalInfo>(table);
+    register_alpha_config::<PbrSGMaterialAlphaConfig>(table);
   }
 
   #[derive(Clone)]
@@ -219,18 +219,18 @@ mod mr_material {
   impl NormalInfoSemantic for PbrMRMaterialNormalInfo {}
 
   pub fn register_pbr_mr_material_data_model() {
-    let ecg = global_database()
+    let table = global_database()
       .declare_entity::<PbrMRMaterialEntity>()
       .declare_component::<PbrMRMaterialBaseColorComponent>()
       .declare_component::<PbrMRMaterialRoughnessComponent>()
       .declare_component::<PbrMRMaterialMetallicComponent>()
       .declare_component::<PbrMRMaterialEmissiveComponent>();
 
-    let ecg = register_texture_with_sampling::<PbrMRMaterialBaseColorAlphaTex>(ecg);
-    let ecg = register_texture_with_sampling::<PbrMRMaterialMetallicRoughnessTex>(ecg);
-    let ecg = register_texture_with_sampling::<PbrMRMaterialEmissiveTex>(ecg);
-    let ecg = register_normal::<PbrMRMaterialNormalInfo>(ecg);
-    register_alpha_config::<PbrMRMaterialAlphaConfig>(ecg);
+    let table = register_texture_with_sampling::<PbrMRMaterialBaseColorAlphaTex>(table);
+    let table = register_texture_with_sampling::<PbrMRMaterialMetallicRoughnessTex>(table);
+    let table = register_texture_with_sampling::<PbrMRMaterialEmissiveTex>(table);
+    let table = register_normal::<PbrMRMaterialNormalInfo>(table);
+    register_alpha_config::<PbrMRMaterialAlphaConfig>(table);
   }
 
   #[derive(Clone)]
@@ -322,10 +322,10 @@ pub type NormalTexOf<T> = SceneTexture2dRefOf<NormalTexSamplerOf<T>>;
 pub type NormalSamplerOf<T> = SceneSamplerRefOf<NormalTexSamplerOf<T>>;
 
 pub fn register_normal<T: NormalInfoSemantic>(
-  ecg: EntityComponentGroupTyped<T::Entity>,
+  table: EntityComponentGroupTyped<T::Entity>,
 ) -> EntityComponentGroupTyped<T::Entity> {
-  let ecg = register_texture_with_sampling::<NormalTexSamplerOf<T>>(ecg);
-  ecg.declare_component::<NormalScaleOf<T>>()
+  let table = register_texture_with_sampling::<NormalTexSamplerOf<T>>(table);
+  table.declare_component::<NormalScaleOf<T>>()
 }
 
 #[derive(Clone)]
@@ -432,9 +432,9 @@ impl<T: AlphaInfoSemantic> ComponentSemantic for AlphaModeOf<T> {
 }
 
 pub fn register_alpha_config<T: AlphaInfoSemantic>(
-  ecg: EntityComponentGroupTyped<T::Entity>,
+  table: EntityComponentGroupTyped<T::Entity>,
 ) -> EntityComponentGroupTyped<T::Entity> {
-  ecg
+  table
     .declare_component::<AlphaOf<T>>()
     .declare_component::<AlphaModeOf<T>>()
     .declare_component::<AlphaCutoffOf<T>>()

@@ -60,9 +60,9 @@ impl SceneBufferViewDataView {
 }
 
 pub fn register_scene_buffer_view<T: SceneBufferView>(
-  ecg: EntityComponentGroupTyped<T::Entity>,
+  table: EntityComponentGroupTyped<T::Entity>,
 ) -> EntityComponentGroupTyped<T::Entity> {
-  ecg
+  table
     .declare_foreign_key::<SceneBufferViewBufferId<T>>()
     .declare_component::<SceneBufferViewBufferRange<T>>()
     .declare_component::<SceneBufferViewBufferItemCount<T>>()

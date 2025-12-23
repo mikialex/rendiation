@@ -49,7 +49,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
   // todo, use reactive impl(watch db change)
   pub fn use_max_item_count_by_db_entity<E: EntitySemantic>(&mut self, _cx: &mut QueryGPUHookCx) {
     let size_require =
-      database::global_database().access_ecg_dyn(E::entity_id(), |ecg| ecg.entity_capacity());
+      database::global_database().access_table_dyn(E::entity_id(), |table| table.entity_capacity());
     self.buffer.check_resize(size_require as u32);
   }
 
@@ -101,7 +101,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageWithHostBuffer<T> 
   // todo, use reactive impl(watch db change)
   pub fn use_max_item_count_by_db_entity<E: EntitySemantic>(&mut self, _cx: &mut QueryGPUHookCx) {
     let size_require =
-      database::global_database().access_ecg_dyn(E::entity_id(), |ecg| ecg.entity_capacity());
+      database::global_database().access_table_dyn(E::entity_id(), |table| table.entity_capacity());
     self.buffer.write().check_resize(size_require as u32);
   }
 

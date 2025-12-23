@@ -1,25 +1,33 @@
 use crate::*;
 
 #[derive(Clone)]
-pub struct EntityComponentGroup {
-  pub(crate) inner: Arc<EntityComponentGroupImpl>,
+pub struct ArcTable {
+  pub(crate) internal: Arc<Table>,
 }
 
-impl EntityComponentGroup {
+impl std::ops::Deref for ArcTable {
+  type Target = Table;
+
+  fn deref(&self) -> &Self::Target {
+    &self.internal
+  }
+}
+
+impl ArcTable {
   pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
     Self {
-      inner: Arc::new(EntityComponentGroupImpl::new(type_id, name, name_mapping)),
+      internal: Arc::new(Table::new(type_id, name, name_mapping)),
     }
   }
 
-  pub fn declare_component_dyn(&self, semantic: ComponentId, com: ComponentCollectionUntyped) {
-    self.inner.declare_component_dyn(semantic, com);
+  pub fn declare_component_dyn(&self, semantic: ComponentId, com: ComponentUntyped) {
+    self.internal.declare_component_dyn(semantic, com);
   }
 
   pub fn declare_foreign_key_dyn(&self, semantic: ComponentId, foreign_entity_type_id: EntityId) {
-    let mut foreign_keys = self.inner.foreign_keys.write();
+    let mut foreign_keys = self.internal.foreign_keys.write();
     self
-      .inner
+      .internal
       .foreign_key_meta_watchers
       .emit(&(semantic, foreign_entity_type_id));
     let previous = foreign_keys.insert(semantic, foreign_entity_type_id);
@@ -27,7 +35,7 @@ impl EntityComponentGroup {
   }
 
   pub fn iter_entity_idx(&self) -> impl Iterator<Item = RawEntityHandle> {
-    let inner = self.inner.allocator.make_read_holder();
+    let inner = self.internal.allocator.make_read_holder();
     struct Iter {
       iter: arena::Iter<'static, ()>,
       _holder: LockReadGuardHolder<Arena<()>>,
@@ -54,39 +62,39 @@ impl EntityComponentGroup {
   pub fn access_component<R>(
     &self,
     c_id: ComponentId,
-    f: impl FnOnce(&ComponentCollectionUntyped) -> R,
+    f: impl FnOnce(&ComponentUntyped) -> R,
   ) -> Option<R> {
-    let components = self.inner.components.read_recursive();
+    let components = self.internal.components.read_recursive();
     Some(f(components.get(&c_id)?))
   }
 
   pub fn name(&self) -> &str {
-    &self.inner.name
+    &self.internal.name
   }
 
   pub fn short_name(&self) -> &str {
-    &self.inner.short_name
+    &self.internal.short_name
   }
 
   pub fn get_handle_at(&self, index: usize) -> Option<RawEntityHandle> {
-    let inner = self.inner.allocator.make_read_holder();
+    let inner = self.internal.allocator.make_read_holder();
     let handle = inner.get_handle(index)?;
     Some(RawEntityHandle(handle))
   }
 
   pub fn living_entity_count(&self) -> usize {
-    self.inner.allocator.read().len()
+    self.internal.allocator.read().len()
   }
 
   pub fn entity_capacity(&self) -> usize {
-    self.inner.allocator.read().capacity()
+    self.internal.allocator.read().capacity()
   }
 
   pub fn memory_usage_in_bytes(&self) -> usize {
     let mut byte_count = 0;
-    byte_count += self.inner.allocator.read().memory_usage_in_bytes();
+    byte_count += self.internal.allocator.read().memory_usage_in_bytes();
 
-    let components = self.inner.components.read();
+    let components = self.internal.components.read();
     for c in components.values() {
       byte_count += c.data.memory_usage_in_bytes()
     }
@@ -95,18 +103,15 @@ impl EntityComponentGroup {
   }
 
   pub fn component_count(&self) -> usize {
-    self.inner.components.read().len()
+    self.internal.components.read().len()
   }
 
-  pub fn access_components(
-    &self,
-    f: impl FnOnce(&FastHashMap<ComponentId, ComponentCollectionUntyped>),
-  ) {
-    f(&self.inner.components.read());
+  pub fn access_components(&self, f: impl FnOnce(&FastHashMap<ComponentId, ComponentUntyped>)) {
+    f(&self.internal.components.read());
   }
 
   pub fn into_typed<E: EntitySemantic>(self) -> Option<EntityComponentGroupTyped<E>> {
-    if self.inner.type_id != E::entity_id() {
+    if self.internal.type_id != E::entity_id() {
       return None;
     }
     EntityComponentGroupTyped {
@@ -117,28 +122,28 @@ impl EntityComponentGroup {
   }
 }
 
-pub(crate) struct EntityComponentGroupImpl {
+pub struct Table {
   /// the name of this entity, will be unique among all components
   pub(crate) name: String,
   pub(crate) short_name: String,
   pub(crate) type_id: EntityId,
   pub(crate) allocator: Arc<RwLock<Arena<()>>>,
   /// The components of entity
-  pub(crate) components: RwLock<FastHashMap<ComponentId, ComponentCollectionUntyped>>,
+  pub(crate) components: RwLock<FastHashMap<ComponentId, ComponentUntyped>>,
   /// The foreign keys of entity, each foreign key express the one-to-many (or possibly one-to-one)
-  /// relation with other ECG. Each foreign key is a dependency between different ECG
+  /// relation with other table. Each foreign key is a dependency between different table
   ///
   /// components id => foreign id
   pub(crate) foreign_keys: RwLock<FastHashMap<ComponentId, EntityId>>,
 
-  pub(crate) components_meta_watchers: EventSource<ComponentCollectionUntyped>,
+  pub(crate) components_meta_watchers: EventSource<ComponentUntyped>,
   pub(crate) foreign_key_meta_watchers: EventSource<(ComponentId, EntityId)>,
 
   pub(crate) entity_watchers: EventSource<ChangePtr>,
   pub(crate) name_mapping: Arc<RwLock<DBNameMapping>>,
 }
 
-impl EntityComponentGroupImpl {
+impl Table {
   pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
     Self {
       short_name: disqualified::ShortName(&name).to_string(),
@@ -155,7 +160,7 @@ impl EntityComponentGroupImpl {
   }
 
   #[inline(never)]
-  pub fn declare_component_dyn(&self, semantic: ComponentId, com: ComponentCollectionUntyped) {
+  pub fn declare_component_dyn(&self, semantic: ComponentId, com: ComponentUntyped) {
     let mut components = self.components.write();
 
     self
@@ -171,7 +176,7 @@ impl EntityComponentGroupImpl {
 
 pub struct EntityComponentGroupTyped<E: EntitySemantic> {
   phantom: PhantomData<E>,
-  pub(crate) inner: EntityComponentGroup,
+  pub(crate) inner: ArcTable,
 }
 
 impl<E: EntitySemantic> Clone for EntityComponentGroupTyped<E> {
@@ -187,11 +192,11 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
     Self {
       phantom: Default::default(),
-      inner: EntityComponentGroup::new(type_id, name, name_mapping),
+      inner: ArcTable::new(type_id, name, name_mapping),
     }
   }
 
-  pub fn into_untyped(self) -> EntityComponentGroup {
+  pub fn into_untyped(self) -> ArcTable {
     self.inner
   }
 
@@ -208,7 +213,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     as_foreign_key: Option<EntityId>,
     storage: impl ComponentStorage + 'static,
   ) -> Self {
-    let com = ComponentCollectionUntyped {
+    let com = ComponentUntyped {
       short_name: disqualified::ShortName(S::unique_name()).to_string(),
       name: S::unique_name().to_string(),
       as_foreign_key,
@@ -216,7 +221,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
       entity_type_id: S::Entity::entity_id(),
       component_type_id: S::component_id(),
       data: Box::new(storage),
-      allocator: self.inner.inner.allocator.clone(),
+      allocator: self.inner.internal.allocator.clone(),
       data_watchers: Default::default(),
     };
     self.inner.declare_component_dyn(S::component_id(), com);

@@ -1,6 +1,6 @@
 use crate::*;
 
-pub struct ComponentCollectionUntyped {
+pub struct ComponentUntyped {
   /// the name of this component, must be unique among all components
   pub name: String,
 
@@ -24,7 +24,7 @@ pub struct ComponentCollectionUntyped {
   pub component_type_id: ComponentId,
 }
 
-impl ComponentCollectionUntyped {
+impl ComponentUntyped {
   pub fn read_untyped(&self) -> ComponentReadViewUntyped {
     ComponentReadViewUntyped {
       allocator: self.allocator.make_read_holder(),

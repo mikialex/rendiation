@@ -12,7 +12,7 @@ pub fn global_database() -> Database {
 }
 
 pub fn global_entity_of<E: EntitySemantic>() -> EntityComponentGroupTyped<E> {
-  global_database().access_ecg(|ecg| ecg.clone())
+  global_database().access_table(|t| t.clone())
 }
 
 pub fn global_entity_component_of<S: ComponentSemantic, R>(

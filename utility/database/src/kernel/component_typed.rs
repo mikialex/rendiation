@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct ComponentCollection<'a, C> {
   phantom: PhantomData<C>,
-  inner: &'a ComponentCollectionUntyped,
+  inner: &'a ComponentUntyped,
 }
 
 impl<'a, C: ComponentSemantic> ComponentCollection<'a, C> {
@@ -32,7 +32,7 @@ impl<'a, C: ComponentSemantic> ComponentCollection<'a, C> {
   }
 }
 
-impl ComponentCollectionUntyped {
+impl ComponentUntyped {
   /// # Safety
   ///
   /// The C must match the real component semantic
