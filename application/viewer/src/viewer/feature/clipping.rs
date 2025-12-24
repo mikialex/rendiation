@@ -66,8 +66,30 @@ pub fn load_testing_clipping_data() -> EntityHandle<CSGExpressionNodeEntity> {
 
 pub struct CSGClippingRenderer {
   expressions: AbstractReadonlyStorageBuffer<[u32]>,
-  scene_csg: ForeignKeyReadView<SceneCSGClipping>,
-  //
+  scene_csg: LockReadGuardHolder<UniformBufferCollectionRaw<u32, Vec4<u32>>>,
+}
+
+impl CSGClippingRenderer {
+  pub fn get_scene_clipping(
+    &self,
+    scene_id: EntityHandle<SceneEntity>,
+  ) -> Option<Box<dyn RenderComponent>> {
+    self.scene_csg.get(&scene_id.alloc_index()).map(|root| {
+      let clip_id = ClippingRootDirectProvide { root: root.clone() };
+
+      let csg_clip = CSGExpressionClippingComponent {
+        expressions: self.expressions.clone(),
+      };
+
+      // todo, reduce boxing
+      let compose = RenderArray([
+        Box::new(clip_id) as Box<dyn RenderComponent>,
+        Box::new(csg_clip),
+      ]);
+
+      Box::new(compose) as Box<dyn RenderComponent>
+    })
+  }
 }
 
 pub fn use_csg_clipping(cx: &mut QueryGPUHookCx) -> Option<CSGClippingRenderer> {
@@ -116,10 +138,77 @@ pub fn use_csg_clipping(cx: &mut QueryGPUHookCx) -> Option<CSGClippingRenderer> 
   storages.use_max_item_count_by_db_entity::<CSGExpressionNodeEntity>(cx);
   storages.use_update(cx);
 
+  let scene_csg = cx.use_uniform_buffers();
+
+  cx.use_changes::<SceneCSGClipping>()
+    .map_changes(|v| {
+      let id = v.map(|v| v.index()).unwrap_or(u32::MAX);
+      Vec4::new(id, 0, 0, 0)
+    })
+    .update_uniforms(&scene_csg, 0, cx.gpu);
+
   cx.when_render(|| CSGClippingRenderer {
     expressions: storages.get_gpu_buffer(),
-    scene_csg: read_global_db_foreign_key(),
+    scene_csg: scene_csg.make_read_holder(),
   })
+}
+
+struct ClippingRootDirectProvide {
+  root: UniformBufferDataView<Vec4<u32>>,
+}
+impl ShaderHashProvider for ClippingRootDirectProvide {
+  shader_hash_type_id! {}
+}
+impl ShaderPassBuilder for ClippingRootDirectProvide {
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.root);
+  }
+}
+impl GraphicsShaderProvider for ClippingRootDirectProvide {
+  // todo, currently we do clipping at the end, this is not optimal
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, b| {
+      let root = self.root.bind_shader(b).load().x();
+      builder.register::<SceneModelClippingId>(root);
+    })
+  }
+}
+
+struct CSGExpressionClippingComponent {
+  expressions: AbstractReadonlyStorageBuffer<[u32]>,
+}
+
+impl ShaderHashProvider for CSGExpressionClippingComponent {
+  shader_hash_type_id! {}
+}
+
+impl ShaderPassBuilder for CSGExpressionClippingComponent {
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.expressions);
+  }
+}
+
+only_fragment!(SceneModelClippingId, u32);
+
+impl GraphicsShaderProvider for CSGExpressionClippingComponent {
+  // todo, currently we do clipping at the end, this is not optimal
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, b| {
+      let expressions = AbstractShaderBindingSource::bind_shader(&self.expressions, b);
+      if let Some(root) = builder.try_query::<SceneModelClippingId>() {
+        if let Some(position) = builder.try_query::<FragmentRenderPosition>() {
+          if let Some(cam_position) = builder.try_query::<CameraWorldPositionHP>() {
+            // todo, support high precision rendering
+            let world_position = position + cam_position.expand().f1;
+            let should_clip = eval_clipping(world_position, root, &expressions);
+            if_by(should_clip, || {
+              builder.discard();
+            });
+          }
+        }
+      }
+    })
+  }
 }
 
 // todo, support early exit
@@ -142,43 +231,6 @@ struct CSGExpressionNodeDevice;
 impl CSGExpressionNodeDevice {
   pub fn match_by(&self, f: impl FnOnce(CSGExpressionNodeDeviceVariant)) {
     //
-  }
-}
-
-struct CSGExpressionClippingComponent {
-  expressions: AbstractStorageBuffer<[u32]>,
-}
-
-impl ShaderHashProvider for CSGExpressionClippingComponent {
-  shader_hash_type_id! {}
-}
-
-impl ShaderPassBuilder for CSGExpressionClippingComponent {
-  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.expressions);
-  }
-}
-
-only_fragment!(SceneModelClippingId, u32);
-
-impl GraphicsShaderProvider for CSGExpressionClippingComponent {
-  // todo, currently we do clipping at the end, this is not optimal
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.fragment(|builder, b| {
-      let expressions = self.expressions.bind_shader(b);
-      if let Some(root) = builder.try_query::<SceneModelClippingId>() {
-        if let Some(position) = builder.try_query::<FragmentRenderPosition>() {
-          if let Some(cam_position) = builder.try_query::<CameraWorldPositionHP>() {
-            // todo, support high precision rendering
-            let world_position = position + cam_position.expand().f1;
-            let should_clip = eval_clipping(world_position, root, &expressions);
-            if_by(should_clip, || {
-              builder.discard();
-            });
-          }
-        }
-      }
-    })
   }
 }
 
@@ -235,7 +287,7 @@ impl TreeTraverseStack {
 fn eval_clipping(
   world_position: Node<Vec3<f32>>,
   root: Node<u32>,
-  expression_nodes: &ShaderPtrOf<[u32]>,
+  expression_nodes: &ShaderReadonlyPtrOf<[u32]>,
 ) -> Node<bool> {
   let stack = TreeTraverseStack::default();
   stack.push(root);

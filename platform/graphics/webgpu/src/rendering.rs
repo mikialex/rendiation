@@ -225,6 +225,43 @@ impl GraphicsShaderProvider for RenderVec<'_> {
   }
 }
 
+pub struct OptionRender<T>(pub Option<T>);
+
+impl<T: ShaderHashProvider> ShaderHashProvider for OptionRender<T> {
+  shader_hash_type_id! {OptionRender<()>}
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+    if let Some(com) = &self.0 {
+      com.hash_pipeline_with_type_info(hasher);
+    }
+  }
+}
+
+impl<T: ShaderPassBuilder> ShaderPassBuilder for OptionRender<T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    if let Some(com) = &self.0 {
+      com.setup_pass(ctx);
+    }
+  }
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    if let Some(com) = &self.0 {
+      com.post_setup_pass(ctx);
+    }
+  }
+}
+
+impl<T: GraphicsShaderProvider> GraphicsShaderProvider for OptionRender<T> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    if let Some(com) = &self.0 {
+      com.build(builder);
+    }
+  }
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    if let Some(com) = &self.0 {
+      com.post_build(builder);
+    }
+  }
+}
+
 pub struct BindingController<T> {
   inner: T,
   target: usize,

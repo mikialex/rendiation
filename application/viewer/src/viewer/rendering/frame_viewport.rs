@@ -472,10 +472,14 @@ impl Viewer3dViewportRenderingCtx {
 
         let _span = span!(Level::INFO, "main scene content encode pass");
 
+        let extra_pass_component = renderer.clipping.get_scene_clipping(content.scene);
+        let extra_pass_component = OptionRender(extra_pass_component);
+
         render_lighting_scene_content(
           ctx,
           &renderer.lighting,
           &mut renderer.culling,
+          &extra_pass_component,
           &renderer_c,
           content.scene,
           viewport,
