@@ -24,6 +24,7 @@ pub fn render_lighting_scene_content(
   ctx: &mut FrameCtx,
   lighting_cx: &LightingRenderingCx,
   cull_cx: &mut ViewerCulling,
+  pass_render_component: &dyn RenderComponent,
   renderer: &ViewerSceneRenderer,
   scene: EntityHandle<SceneEntity>,
   viewport: &ViewerViewPort,
@@ -106,6 +107,7 @@ pub fn render_lighting_scene_content(
                 &color_writer as &dyn RenderComponent,
                 &g_buffer_base_writer as &dyn RenderComponent,
                 lighting.as_ref(),
+                pass_render_component,
               ]) as &dyn RenderComponent;
 
               let mut all_transparent_object = renderer.scene.make_scene_batch_pass_content(
@@ -292,6 +294,7 @@ pub fn render_lighting_scene_content(
                 write_channel_index: 0,
               } as &dyn RenderComponent,
               lighting.as_ref(),
+              pass_render_component,
             ]);
 
             let _ = pass("deferred lighting compute")
