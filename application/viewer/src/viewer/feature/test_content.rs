@@ -15,6 +15,10 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
         if ui.button("load many cubes").clicked() {
           load_stress_test(&mut SceneWriter::from_global(cx.viewer.content.scene))
         }
+
+        if ui.button("test clipping").clicked() {
+          test_clipping_data(cx.viewer.content.scene)
+        }
       });
   }
 }
