@@ -10,7 +10,7 @@ type SparseStorageBufferRaw<T> =
 
 pub struct SparseUpdateStorageBuffer<T> {
   buffer: SparseStorageBufferRaw<T>,
-  pub(crate) collector: Option<SparseUpdateCollector>,
+  pub collector: Option<SparseUpdateCollector>,
 }
 
 pub type SparseUpdateCollector =
@@ -64,7 +64,7 @@ pub type SparseStorageBufferWithHostRaw<T> = CustomGrowBehaviorMaintainer<
 
 pub struct SparseUpdateStorageWithHostBuffer<T: Std430> {
   pub buffer: Arc<RwLock<SparseStorageBufferWithHostRaw<T>>>,
-  pub(crate) collector: Option<SparseUpdateCollector>,
+  pub collector: Option<SparseUpdateCollector>,
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageWithHostBuffer<T> {

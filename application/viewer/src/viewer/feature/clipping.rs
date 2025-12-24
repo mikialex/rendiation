@@ -2,24 +2,17 @@ use rendiation_infinity_primitive::ShaderPlane;
 
 use crate::*;
 
-declare_entity!(ClippingSetEntity);
-
-declare_component!(ClippingSetComponent, ClippingSetEntity, Vec<Plane>);
-
 pub const MAX_CLIPPING_PLANE_SUPPORT_IN_CLIPPING_SET: usize = 8;
 
 pub fn register_clipping_data_model() {
   global_database()
-    .declare_entity::<ClippingSetEntity>()
-    .declare_component::<ClippingSetComponent>();
-}
+    .declare_entity::<CSGExpressionNodeEntity>()
+    .declare_component::<CSGExpressionNodeContent>()
+    .declare_foreign_key::<CSGExpressionLeftChild>()
+    .declare_foreign_key::<CSGExpressionRightChild>();
 
-declare_entity!(ClippingExpressionEntity);
-declare_foreign_key!(
-  ClippingExpressionRoot,
-  ClippingExpressionEntity,
-  CSGExpressionNodeEntity
-);
+  global_entity_of::<SceneEntity>().declare_foreign_key::<SceneCSGClipping>();
+}
 
 declare_entity!(CSGExpressionNodeEntity);
 declare_component!(
@@ -38,6 +31,8 @@ declare_foreign_key!(
   CSGExpressionNodeEntity
 );
 
+declare_foreign_key!(SceneCSGClipping, SceneEntity, CSGExpressionNodeEntity);
+
 #[repr(C)]
 #[derive(Clone, Debug, Facet, Serialize, Deserialize, PartialEq)]
 pub enum CSGExpressionNode {
@@ -46,16 +41,85 @@ pub enum CSGExpressionNode {
   Or,
 }
 
-pub fn register_clipping_expression_data_model() {
-  global_database()
-    .declare_entity::<ClippingExpressionEntity>()
-    .declare_foreign_key::<ClippingExpressionRoot>();
+pub fn load_testing_clipping_data() -> EntityHandle<CSGExpressionNodeEntity> {
+  let mut w = global_entity_of::<CSGExpressionNodeEntity>().entity_writer();
 
-  global_database()
-    .declare_entity::<CSGExpressionNodeEntity>()
-    .declare_component::<CSGExpressionNodeContent>()
-    .declare_foreign_key::<CSGExpressionLeftChild>()
-    .declare_foreign_key::<CSGExpressionRightChild>();
+  fn write_plane(
+    w: &mut EntityWriter<CSGExpressionNodeEntity>,
+    dir: Vec3<f32>,
+    constant: f32,
+  ) -> EntityHandle<CSGExpressionNodeEntity> {
+    let plane = Plane::new(dir.into_normalized(), constant);
+    let plane = CSGExpressionNode::Plane(plane);
+    w.new_entity(|w| w.write::<CSGExpressionNodeContent>(&Some(plane)))
+  }
+
+  let p1 = write_plane(&mut w, Vec3::new(1., 0., 0.), 0.);
+  let p2 = write_plane(&mut w, Vec3::new(0., 1., 0.), 0.);
+
+  w.new_entity(|w| {
+    w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::And))
+      .write::<CSGExpressionLeftChild>(&p1.some_handle())
+      .write::<CSGExpressionRightChild>(&p2.some_handle())
+  })
+}
+
+pub struct CSGClippingRenderer {
+  expressions: AbstractReadonlyStorageBuffer<[u32]>,
+  scene_csg: ForeignKeyReadView<SceneCSGClipping>,
+  //
+}
+
+pub fn use_csg_clipping(cx: &mut QueryGPUHookCx) -> Option<CSGClippingRenderer> {
+  let (cx, storages) = cx.use_storage_buffer::<u32>("csg expression pool", 128, u32::MAX);
+
+  const EXPR_U32_PAYLOAD_WIDTH: usize = 5;
+  const EXPR_BYTE_PAYLOAD_WIDTH: usize = EXPR_U32_PAYLOAD_WIDTH * 4;
+  const EXPR_U32_WIDTH: usize = 7;
+  const EXPR_BYTE_WIDTH: usize = EXPR_U32_WIDTH * 4;
+
+  cx.use_changes::<CSGExpressionNodeContent>()
+    .map_changes(|c| match c {
+      Some(c) => match c {
+        CSGExpressionNode::Plane(hyper_plane) => [
+          3,
+          hyper_plane.normal.x.to_bits(),
+          hyper_plane.normal.y.to_bits(),
+          hyper_plane.normal.z.to_bits(),
+          hyper_plane.constant.to_bits(),
+        ],
+        CSGExpressionNode::And => [1, 0, 0, 0, 0],
+        CSGExpressionNode::Or => [2, 0, 0, 0, 0],
+      },
+      None => [0; 5],
+    })
+    .update_gpu_buffer_array_raw(cx, storages.collector.as_mut(), 0, EXPR_BYTE_WIDTH);
+
+  cx.use_changes::<CSGExpressionLeftChild>()
+    .map_changes(|c| c.map(|v| v.index()).unwrap_or(u32::MAX))
+    .update_gpu_buffer_array_raw(
+      cx,
+      storages.collector.as_mut(),
+      EXPR_BYTE_PAYLOAD_WIDTH,
+      EXPR_BYTE_WIDTH,
+    );
+
+  cx.use_changes::<CSGExpressionRightChild>()
+    .map_changes(|c| c.map(|v| v.index()).unwrap_or(u32::MAX))
+    .update_gpu_buffer_array_raw(
+      cx,
+      storages.collector.as_mut(),
+      EXPR_BYTE_PAYLOAD_WIDTH + 4,
+      EXPR_BYTE_WIDTH,
+    );
+
+  storages.use_max_item_count_by_db_entity::<CSGExpressionNodeEntity>(cx);
+  storages.use_update(cx);
+
+  cx.when_render(|| CSGClippingRenderer {
+    expressions: storages.get_gpu_buffer(),
+    scene_csg: read_global_db_foreign_key(),
+  })
 }
 
 // todo, support early exit
@@ -89,15 +153,30 @@ impl ShaderHashProvider for CSGExpressionClippingComponent {
   shader_hash_type_id! {}
 }
 
-impl ShaderPassBuilder for CSGExpressionClippingComponent {}
+impl ShaderPassBuilder for CSGExpressionClippingComponent {
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.expressions);
+  }
+}
 
 only_fragment!(SceneModelClippingId, u32);
 
 impl GraphicsShaderProvider for CSGExpressionClippingComponent {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+  // todo, currently we do clipping at the end, this is not optimal
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, b| {
+      let expressions = self.expressions.bind_shader(b);
       if let Some(root) = builder.try_query::<SceneModelClippingId>() {
-        //
+        if let Some(position) = builder.try_query::<FragmentRenderPosition>() {
+          if let Some(cam_position) = builder.try_query::<CameraWorldPositionHP>() {
+            // todo, support high precision rendering
+            let world_position = position + cam_position.expand().f1;
+            let should_clip = eval_clipping(world_position, root, &expressions);
+            if_by(should_clip, || {
+              builder.discard();
+            });
+          }
+        }
       }
     })
   }
