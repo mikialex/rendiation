@@ -55,10 +55,10 @@ pub fn test_clipping_data(scene: EntityHandle<SceneEntity>) {
   }
 
   let p1 = write_plane(&mut w, Vec3::new(1., 0., 0.), 0.);
-  let p2 = write_plane(&mut w, Vec3::new(0., 1., 0.), 0.);
+  let p2 = write_plane(&mut w, Vec3::new(0., 0., 1.), 0.);
 
   let root = w.new_entity(|w| {
-    w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::And))
+    w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Or))
       .write::<CSGExpressionLeftChild>(&p1.some_handle())
       .write::<CSGExpressionRightChild>(&p2.some_handle())
   });
@@ -85,8 +85,8 @@ impl CSGClippingRenderer {
 
       // todo, reduce boxing
       let compose = RenderArray([
-        Box::new(clip_id) as Box<dyn RenderComponent>,
-        Box::new(csg_clip),
+        Box::new(csg_clip) as Box<dyn RenderComponent>,
+        Box::new(clip_id),
       ]);
 
       Box::new(compose) as Box<dyn RenderComponent>
@@ -201,18 +201,17 @@ impl GraphicsShaderProvider for CSGExpressionClippingComponent {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, b| {
       let expressions = AbstractShaderBindingSource::bind_shader(&self.expressions, b);
-      if let Some(root) = builder.try_query::<SceneModelClippingId>() {
-        if let Some(position) = builder.try_query::<FragmentRenderPosition>() {
-          if let Some(cam_position) = builder.try_query::<CameraWorldPositionHP>() {
-            // todo, support high precision rendering
-            let world_position = position + cam_position.expand().f1;
-            let should_clip = eval_clipping(world_position, root, &expressions);
-            if_by(should_clip, || {
-              builder.discard();
-            });
-          }
-        }
-      }
+      let root = builder.query::<SceneModelClippingId>();
+      let position =
+        builder.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
+      let cam_position = builder.query::<CameraWorldPositionHP>();
+
+      // todo, support high precision rendering
+      let world_position = position + cam_position.expand().f1;
+      let should_clip = eval_clipping(world_position, root, &expressions);
+      if_by(should_clip, || {
+        builder.discard();
+      });
     })
   }
 }
@@ -221,9 +220,9 @@ pub const MAX_CSG_EVAL_STACK_SIZE: usize = 32;
 
 struct TreeTraverseStack {
   result_stack: ShaderPtrOf<[bool; MAX_CSG_EVAL_STACK_SIZE]>,
-  last_result_index: ShaderPtrOf<u32>,
+  result_len: ShaderPtrOf<u32>,
   expr_stack: ShaderPtrOf<[u32; MAX_CSG_EVAL_STACK_SIZE]>, // each expr is 5 u32.
-  last_expr_index: ShaderPtrOf<u32>,
+  expr_len: ShaderPtrOf<u32>,
 }
 
 impl Default for TreeTraverseStack {
@@ -232,9 +231,9 @@ impl Default for TreeTraverseStack {
     let expr_stack = zeroed_val::<[u32; MAX_CSG_EVAL_STACK_SIZE]>();
     Self {
       result_stack: result_stack.make_local_var(),
-      last_result_index: val(0_u32).make_local_var(),
+      result_len: val(0_u32).make_local_var(),
       expr_stack: expr_stack.make_local_var(),
-      last_expr_index: val(0_u32).make_local_var(),
+      expr_len: val(0_u32).make_local_var(),
     }
   }
 }
@@ -249,34 +248,35 @@ impl TreeTraverseStack {
       CSGExpressionNodeDeviceAction::AndAction => val(AND_ACTION_TAG),
       CSGExpressionNodeDeviceAction::OrAction => val(OR_ACTION_TAG),
     };
-    let idx = self.last_expr_index.load();
-    self.last_expr_index.store(idx + val(1));
+    let idx = self.expr_len.load();
+    self.expr_len.store(idx + val(1));
     self.expr_stack.index(idx).store(node_or_tag);
   }
 
   pub fn push_result(&self, item: Node<bool>) {
-    let idx = self.last_result_index.load();
-    self.last_result_index.store(idx + val(1));
+    let idx = self.result_len.load();
+    self.result_len.store(idx + val(1));
     self.result_stack.index(idx).store(item)
   }
 
   pub fn pop_result(&self) -> Node<bool> {
-    let idx = self.last_result_index.load();
-    self.last_result_index.store(idx - val(1));
-    self.result_stack.index(idx).load()
+    let idx = self.result_len.load();
+    let read_idx = idx - val(1);
+    self.result_len.store(read_idx);
+    self.result_stack.index(read_idx).load()
   }
 
   pub fn pop(
     &self,
     expr_pool: &ShaderReadonlyPtrOf<[u32]>,
   ) -> (Node<bool>, CSGExpressionNodeDevice) {
-    let idx = self.last_expr_index.load();
+    let idx = self.expr_len.load();
 
     let valid = idx.not_equals(val(0));
-    let clamped_idx = valid.select(idx, val(0));
+    let clamped_idx = valid.select(idx - val(1), val(0));
     let expr = self.read_expr(clamped_idx, expr_pool);
 
-    if_by(valid, || self.last_expr_index.store(idx - val(1)));
+    if_by(valid, || self.expr_len.store(clamped_idx));
 
     (valid, expr)
   }

@@ -324,7 +324,7 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>();
       let width = builder.query::<WideLineWidthShader>();
 
-      let vertex_position = wide_line_vertex(
+      wide_line_vertex(
         builder.query::<WideLineStart>(),
         builder.query::<WideLineEnd>(),
         builder.query::<GeometryPosition>(),
@@ -333,7 +333,6 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
         builder,
       );
 
-      builder.register::<ClipPosition>(vertex_position);
       builder.set_vertex_out::<FragmentUv>(uv);
       builder.set_vertex_out::<DefaultDisplay>(color_with_alpha);
     });
