@@ -7,6 +7,8 @@ pub trait SceneModelPicker {
     ctx: &SceneRayQuery,
   ) -> Option<MeshBufferHitPoint<f64>>;
 
+  /// return None if errored
+  /// todo, this should be improved
   fn ray_query_all(
     &self,
     idx: EntityHandle<SceneModelEntity>,
@@ -54,6 +56,8 @@ pub struct SceneModelPickerBaseImpl<T> {
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
   pub internal: T,
+  // keep result if return true
+  pub filter: Option<Box<dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool>>,
 }
 
 impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
@@ -86,14 +90,21 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     let position = hit.hit.position.into_f64();
     let world_hit_position = position.apply_matrix_into(mat);
 
-    MeshBufferHitPoint {
+    let point = MeshBufferHitPoint {
       hit: HitPoint {
         position: world_hit_position,
         distance: ctx.world_ray.origin.distance_to(world_hit_position),
       },
       primitive_index: hit.primitive_index,
+    };
+
+    if let Some(filter) = self.filter.as_ref() {
+      if !filter(&point, idx) {
+        return None;
+      }
     }
-    .into()
+
+    point.into()
   }
 
   fn ray_query_all(
@@ -129,7 +140,15 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     results.reserve(local_result_scratch.len());
     local_result_scratch
       .iter()
-      .for_each(|r| results.push(transform_hit_point_to_world(*r, mat, ctx.world_ray.origin)));
+      .map(|r| transform_hit_point_to_world(*r, mat, ctx.world_ray.origin))
+      .filter(|r| {
+        if let Some(filter) = &self.filter {
+          filter(r, idx)
+        } else {
+          true
+        }
+      })
+      .for_each(|r| results.push(r));
 
     Some(())
   }

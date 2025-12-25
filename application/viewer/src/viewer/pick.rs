@@ -72,6 +72,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
+      filter: Some(Box::new(create_clip_pick_filter())),
     };
 
     let view_logic_pixel_size = Vec2::new(

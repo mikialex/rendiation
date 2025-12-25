@@ -135,3 +135,24 @@ impl GraphicsShaderProvider for CSGExpressionClippingComponent {
     })
   }
 }
+
+pub fn create_clip_pick_filter(
+) -> impl Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool {
+  let csg_eval = CSGxSDFxEvaluator::default();
+  let sm_ref_scene = read_global_db_foreign_key::<SceneModelBelongsToScene>();
+  let scene_csg_root = read_global_db_foreign_key::<SceneCSGClipping>();
+
+  move |v, id| {
+    let scene_id = sm_ref_scene.get(id).unwrap();
+    if let Some(scene_csg_root) = scene_csg_root.get(scene_id) {
+      let position = v.hit.position.into_f32();
+      if let Some(v) = csg_eval.eval_distance(position, scene_csg_root) {
+        v >= 0.
+      } else {
+        true
+      }
+    } else {
+      true
+    }
+  }
+}

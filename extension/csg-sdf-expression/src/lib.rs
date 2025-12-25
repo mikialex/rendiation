@@ -6,6 +6,9 @@ use serde::*;
 mod eval_device;
 pub use eval_device::*;
 
+mod eval;
+pub use eval::*;
+
 pub fn register_csg_sdf_data_model() {
   global_database()
     .declare_entity::<CSGExpressionNodeEntity>()
