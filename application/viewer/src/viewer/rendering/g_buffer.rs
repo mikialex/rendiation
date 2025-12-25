@@ -17,15 +17,19 @@ pub const MAX_U32_ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::C
 };
 
 impl FrameGeometryBuffer {
-  pub fn new(cx: &mut FrameCtx) -> Self {
+  pub fn should_skip_entity_id(cx: &mut FrameCtx) -> bool {
     let downgrade_info = &cx.gpu.info().downgrade_info;
+    !downgrade_info
+      .flags
+      .contains(DownlevelFlags::INDEPENDENT_BLEND) // to support webgl!
+  }
+
+  pub fn new(cx: &mut FrameCtx) -> Self {
     Self {
       depth: depth_attachment().request(cx),
       normal: attachment().format(TextureFormat::Rgba16Float).request(cx),
       entity_id: attachment().format(TextureFormat::R32Uint).request(cx),
-      should_skip_entity_id: !downgrade_info
-        .flags
-        .contains(DownlevelFlags::INDEPENDENT_BLEND), // to support webgl!
+      should_skip_entity_id: Self::should_skip_entity_id(cx),
     }
   }
 

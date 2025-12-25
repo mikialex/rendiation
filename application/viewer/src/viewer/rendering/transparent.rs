@@ -8,6 +8,7 @@ pub enum ViewerTransparentContentRenderStyle {
   NaiveAlphaBlend,
   Loop32OIT,
   WeightedOIT,
+  Opaque,
 }
 
 #[derive(Clone)]
@@ -15,6 +16,7 @@ pub enum ViewerTransparentRenderer {
   NaiveAlphaBlend,
   Loop32OIT(Arc<RwLock<OitLoop32Renderer>>),
   WeightedOIT,
+  Opaque,
 }
 
 impl ViewerTransparentRenderer {
@@ -123,6 +125,25 @@ impl ViewerTransparentRenderer {
           );
         });
       }
+      ViewerTransparentRenderer::Opaque => {
+        draw_opaque_content(ctx, cull_cx);
+      }
     }
+  }
+}
+
+pub struct DisableAllChannelBlend;
+impl ShaderHashProvider for DisableAllChannelBlend {
+  shader_hash_type_id! {}
+}
+
+impl ShaderPassBuilder for DisableAllChannelBlend {}
+impl GraphicsShaderProvider for DisableAllChannelBlend {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|b, _| {
+      for c in &mut b.frag_output {
+        c.states.blend = None;
+      }
+    })
   }
 }

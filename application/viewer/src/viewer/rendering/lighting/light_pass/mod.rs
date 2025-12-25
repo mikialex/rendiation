@@ -43,11 +43,25 @@ pub fn render_lighting_scene_content(
     .background
     .draw(scene, camera_gpu, lighting_cx.tonemap);
 
+  let is_opaque_all = matches!(
+    renderer.transparent_content_renderer,
+    ViewerTransparentRenderer::Opaque
+  );
   let all_opaque_object = renderer.batch_extractor.extract_scene_batch(
     scene,
-    SceneContentKey::only_opaque_objects(),
+    if is_opaque_all {
+      SceneContentKey::default()
+    } else {
+      SceneContentKey::only_opaque_objects()
+    },
     renderer.scene,
   );
+
+  let blend_disabler = if is_opaque_all {
+    OptionRender(Some(DisableAllChannelBlend))
+  } else {
+    OptionRender(None)
+  };
 
   let all_transparent_object = renderer.batch_extractor.extract_scene_batch(
     scene,
@@ -69,6 +83,7 @@ pub fn render_lighting_scene_content(
       let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
 
       let opaque_scene_pass_dispatcher = &RenderArray([
+        &blend_disabler as &dyn RenderComponent,
         &color_writer as &dyn RenderComponent,
         &g_buffer_base_writer as &dyn RenderComponent,
         pass_com,
@@ -115,7 +130,8 @@ pub fn render_lighting_scene_content(
         };
 
         let scene_pass_dispatcher = &RenderArray([
-          &g_buffer_base_writer as &dyn RenderComponent,
+          &DisableAllChannelBlend as &dyn RenderComponent,
+          &g_buffer_base_writer,
           &material_writer,
           pass_render_component,
         ]) as &dyn RenderComponent;
@@ -168,6 +184,7 @@ pub fn render_lighting_scene_content(
           let g_buffer_base_writer = g_buffer.extend_pass_desc_for_subsequent_draw(&mut pass_base);
 
           let opaque_scene_pass_dispatcher = &RenderArray([
+            &blend_disabler as &dyn RenderComponent,
             &color_writer as &dyn RenderComponent,
             &g_buffer_base_writer as &dyn RenderComponent,
             pass_com,

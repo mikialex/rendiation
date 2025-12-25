@@ -125,6 +125,12 @@ impl Viewer3dViewportRenderingCtx {
           &mut self.transparent_config,
           ViewerTransparentContentRenderStyle::Loop32OIT,
           "oit loop32 style",
+        );
+
+        ui.selectable_value(
+          &mut self.transparent_config,
+          ViewerTransparentContentRenderStyle::Opaque,
+          "as opaque",
         )
       });
 
@@ -136,6 +142,7 @@ impl Viewer3dViewportRenderingCtx {
         Arc::new(RwLock::new(rendiation_oit::OitLoop32Renderer::new(4))),
       ),
       ViewerTransparentContentRenderStyle::WeightedOIT => ViewerTransparentRenderer::WeightedOIT,
+      ViewerTransparentContentRenderStyle::Opaque => ViewerTransparentRenderer::Opaque,
     };
 
     if rtx_renderer_enabled {
@@ -581,6 +588,7 @@ impl Viewer3dViewportRenderingCtx {
       depth: scene_depth,
       normal: normal_buffer,
       entity_id: id_buffer,
+      should_skip_entity_id: FrameGeometryBuffer::should_skip_entity_id(ctx),
     };
 
     let mut post_process = (!is_outline_only_mode).then(|| {
