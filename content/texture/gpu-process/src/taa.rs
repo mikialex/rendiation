@@ -145,8 +145,11 @@ impl GraphicsShaderProvider for TAAResolver<'_> {
 
       let render_position =
         shader_uv_space_to_render_space(reproject.current_camera_view_projection_inv, uv, depth);
-      let (reproject_uv, _) =
-        shader_render_space_to_uv_space(reproject.previous_camera_view_projection, render_position);
+      let render_position_in_last_frame = render_position - reproject.camera_position_delta;
+      let (reproject_uv, _) = shader_render_space_to_uv_space(
+        reproject.previous_camera_view_projection,
+        render_position_in_last_frame,
+      );
 
       let previous = history.sample(color_sampler, reproject_uv);
 

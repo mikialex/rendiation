@@ -426,9 +426,11 @@ impl Viewer3dViewportRenderingCtx {
     let camera_transform = renderer.camera_transforms.access(&camera).unwrap();
     let current_view_projection_inv_no_translation =
       camera_transform.projection * camera_transform.view.into_f32().remove_position();
-    self
-      .reproject
-      .update(ctx, current_view_projection_inv_no_translation);
+    self.reproject.update(
+      ctx,
+      current_view_projection_inv_no_translation,
+      camera_transform.world.position(),
+    );
 
     if let Some(mesh_lod_graph_renderer) = &renderer.mesh_lod_graph_renderer {
       if camera_transform
@@ -463,6 +465,9 @@ impl Viewer3dViewportRenderingCtx {
       sm_world_bounding: &renderer.sm_world_bounding,
     };
 
+    let extra_pass_component = renderer.clipping.get_scene_clipping(content.scene);
+    let extra_pass_component = OptionRender(extra_pass_component);
+
     let mut taa_content = SceneCameraTAAContent {
       camera,
       renderer: &renderer_c,
@@ -471,9 +476,6 @@ impl Viewer3dViewportRenderingCtx {
         let g_buffer = FrameGeometryBuffer::new(ctx);
 
         let _span = span!(Level::INFO, "main scene content encode pass");
-
-        let extra_pass_component = renderer.clipping.get_scene_clipping(content.scene);
-        let extra_pass_component = OptionRender(extra_pass_component);
 
         render_lighting_scene_content(
           ctx,
@@ -590,13 +592,18 @@ impl Viewer3dViewportRenderingCtx {
       .draw_quad()
     });
 
+    let highlight_dispatch = RenderArray([
+      &HighLightMaskDispatcher as &dyn RenderComponent,
+      &extra_pass_component,
+    ]);
+
     let mut highlight_compose = (content.selected_model.is_some()).then(|| {
       ctx.scope(|ctx| {
         let batch = Box::new(IteratorAsHostRenderBatch(content.selected_model));
         let batch = SceneModelRenderBatch::Host(batch);
         let masked_content = renderer
           .raster_scene_renderer
-          .make_scene_batch_pass_content(batch, &camera_gpu, &HighLightMaskDispatcher, ctx);
+          .make_scene_batch_pass_content(batch, &camera_gpu, &highlight_dispatch, ctx);
         self.highlight.draw(ctx, masked_content)
       })
     });

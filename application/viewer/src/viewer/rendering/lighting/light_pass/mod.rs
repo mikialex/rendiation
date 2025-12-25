@@ -126,6 +126,7 @@ pub fn render_lighting_scene_content(
         let scene_pass_dispatcher = &RenderArray([
           &g_buffer_base_writer as &dyn RenderComponent,
           &material_writer,
+          pass_render_component,
         ]) as &dyn RenderComponent;
 
         let main_scene_content = renderer.batch_extractor.extract_scene_batch(
@@ -167,7 +168,6 @@ pub fn render_lighting_scene_content(
                 write_channel_index: 0,
               } as &dyn RenderComponent,
               lighting.as_ref(),
-              pass_render_component,
             ]);
 
             let _ = pass("deferred lighting compute")
