@@ -40,6 +40,10 @@ pub struct ShaderPlane {
   pub constant: f32,
 }
 
+pub fn shader_plane_distance(position: Node<Vec3<f32>>, plane: ENode<ShaderPlane>) -> Node<f32> {
+  position.dot(plane.normal) + plane.constant
+}
+
 pub fn ray_plane_intersect(
   origin: Node<Vec3<f32>>,
   direction: Node<Vec3<f32>>,

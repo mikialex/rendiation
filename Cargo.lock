@@ -3663,6 +3663,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-csg-sdf-expression"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "facet",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
+ "serde",
+]
+
+[[package]]
 name = "rendiation-device-parallel-compute"
 version = "0.1.0"
 dependencies = [
@@ -5396,6 +5411,7 @@ dependencies = [
  "rendiation-animation",
  "rendiation-area-lighting",
  "rendiation-controller",
+ "rendiation-csg-sdf-expression",
  "rendiation-device-ray-tracing",
  "rendiation-fast-down-sampling-2d",
  "rendiation-frustum-culling",
