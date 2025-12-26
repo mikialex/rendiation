@@ -36,7 +36,7 @@ impl ViewerTransparentRenderer {
     scene_result: &RenderTargetView,
     pass_com: &dyn RenderComponent,
     opaque_pass_dispatcher: &dyn RenderComponent,
-    draw_opaque_content: impl FnOnce(&mut FrameCtx<'_>, &mut ViewerCulling) -> ActiveRenderPass,
+    draw_opaque_content: impl FnOnce(&mut FrameCtx<'_>, &mut ViewerCulling) -> Option<ActiveRenderPass>,
   ) {
     let mut all_transparent_object =
       if let SceneModelRenderBatch::Host(all_transparent_object) = all_transparent_object {
@@ -72,14 +72,24 @@ impl ViewerTransparentRenderer {
               ctx,
             );
 
-          draw_opaque_content(ctx, cull_cx).by(&mut all_transparent_object_pass_content);
+          if let Some(active_pass) = draw_opaque_content(ctx, cull_cx) {
+            active_pass.by(&mut all_transparent_object_pass_content);
+          } else {
+            let mut pass_base = pass("scene forward transparent extra split alpha blend");
+            DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, load_and_store());
+            g_buffer.extend_pass_desc_for_subsequent_draw(&mut pass_base);
+
+            pass_base
+              .render_ctx(ctx)
+              .by(&mut all_transparent_object_pass_content);
+          }
         });
       }
       ViewerTransparentRenderer::Loop32OIT(oit) => {
         ctx.scope(|ctx| {
           draw_opaque_content(ctx, cull_cx);
 
-          let mut pass_base_transparent = pass("scene forward transparent");
+          let mut pass_base_transparent = pass("scene forward transparent loop32 oit");
           let g_buffer_base_writer =
             g_buffer.extend_pass_desc_for_subsequent_draw(&mut pass_base_transparent);
 
@@ -105,7 +115,7 @@ impl ViewerTransparentRenderer {
         ctx.scope(|ctx| {
           draw_opaque_content(ctx, cull_cx);
 
-          let mut pass_base_transparent = pass("scene forward transparent");
+          let mut pass_base_transparent = pass("scene forward transparent weighted oit");
           let g_buffer_base_writer =
             g_buffer.extend_pass_desc_for_subsequent_draw(&mut pass_base_transparent);
 

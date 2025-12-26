@@ -22,14 +22,17 @@ pub fn render_lighting_scene_content(
   ctx: &mut FrameCtx,
   lighting_cx: &LightingRenderingCx,
   cull_cx: &mut ViewerCulling,
-  pass_render_component: &dyn RenderComponent,
   renderer: &ViewerSceneRenderer,
+  clipping: &CSGClippingRenderer,
+  clip_component: &dyn RenderComponent,
   scene: EntityHandle<SceneEntity>,
   viewport: &ViewerViewPort,
   scene_result: &RenderTargetView,
   g_buffer: &FrameGeometryBuffer,
   only_draw_g_buffer: bool,
 ) {
+  let required_stencil_ops = clipping.get_stencil_load_op().unwrap_or(load_and_store());
+
   let camera = viewport.camera;
   let camera_gpu = renderer.cameras.make_component(camera).unwrap();
   let camera_gpu = &camera_gpu;
@@ -72,7 +75,7 @@ pub fn render_lighting_scene_content(
   let forward_lighting = lighting_cx
     .lighting
     .get_scene_forward_lighting_component(scene, camera);
-  let pass_com = &RenderArray([forward_lighting.as_ref(), pass_render_component]);
+  let pass_com = &RenderArray([forward_lighting.as_ref(), clip_component]);
 
   match lighting_cx.lighting_method {
     LightingTechniqueKind::Forward => ctx.scope(|ctx| {
@@ -80,7 +83,7 @@ pub fn render_lighting_scene_content(
       let color_writer =
         DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, color_ops);
       let g_buffer_base_writer =
-        g_buffer.extend_pass_desc(&mut pass_base, depth_ops, load_and_store());
+        g_buffer.extend_pass_desc(&mut pass_base, depth_ops, required_stencil_ops);
 
       let opaque_scene_pass_dispatcher = &RenderArray([
         &blend_disabler as &dyn RenderComponent,
@@ -90,7 +93,7 @@ pub fn render_lighting_scene_content(
       ]) as &dyn RenderComponent;
 
       let draw_opaque = |ctx: &mut FrameCtx<'_>, cull_cx: &mut ViewerCulling| {
-        cull_cx.draw_with_oc_maybe_enabled(
+        let pass = cull_cx.draw_with_oc_maybe_enabled(
           ctx,
           renderer,
           opaque_scene_pass_dispatcher,
@@ -99,7 +102,26 @@ pub fn render_lighting_scene_content(
           &mut |pass| pass.by(&mut background),
           pass_base,
           all_opaque_object,
-        )
+        );
+
+        if !clipping.fill_face(scene) {
+          return Some(pass);
+        }
+        drop(pass);
+
+        clipping.draw_csg_surface(
+          ctx,
+          g_buffer,
+          CSGxClipFillType::Forward {
+            scene_result,
+            forward_lighting: &forward_lighting,
+          },
+          camera_gpu,
+          scene,
+          renderer.reversed_depth,
+        );
+
+        None
       };
 
       renderer.transparent_content_renderer.render(
@@ -121,7 +143,7 @@ pub fn render_lighting_scene_content(
         let mut pass_base = pass("scene defer encode");
 
         let g_buffer_base_writer =
-          g_buffer.extend_pass_desc(&mut pass_base, depth_ops, load_and_store());
+          g_buffer.extend_pass_desc(&mut pass_base, depth_ops, required_stencil_ops);
         let mut m_buffer = FrameGeneralMaterialBuffer::new(ctx);
 
         let indices = m_buffer.extend_pass_desc(&mut pass_base);
@@ -134,7 +156,7 @@ pub fn render_lighting_scene_content(
           &DisableAllChannelBlend as &dyn RenderComponent,
           &g_buffer_base_writer,
           &material_writer,
-          pass_render_component,
+          clip_component,
         ]) as &dyn RenderComponent;
 
         cull_cx.draw_with_oc_maybe_enabled(
@@ -146,6 +168,15 @@ pub fn render_lighting_scene_content(
           &mut |pass| pass,
           pass_base,
           all_opaque_object,
+        );
+
+        clipping.draw_csg_surface(
+          ctx,
+          g_buffer,
+          CSGxClipFillType::Defer(&m_buffer),
+          camera_gpu,
+          scene,
+          renderer.reversed_depth,
         );
 
         if !only_draw_g_buffer {
@@ -202,7 +233,7 @@ pub fn render_lighting_scene_content(
             scene_result,
             pass_com,
             opaque_scene_pass_dispatcher,
-            |ctx: &mut FrameCtx<'_>, _cull_cx: &mut ViewerCulling| pass_base.render_ctx(ctx),
+            |ctx: &mut FrameCtx<'_>, _cull_cx: &mut ViewerCulling| Some(pass_base.render_ctx(ctx)),
           );
         }
       });
