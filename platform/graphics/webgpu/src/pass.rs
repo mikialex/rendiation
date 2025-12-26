@@ -22,8 +22,68 @@ impl<T: ShaderPassBuilder> ShaderPassBuilder for &T {
 }
 
 #[derive(Clone)]
+pub struct RenderViewContent {
+  pub render_view: GPUTextureView,
+  /// this field presents if the format has both stencil and depth aspect,
+  /// and the view is depth only aspect
+  pub depth_only_view: Option<GPUTextureView>,
+}
+
+impl RenderViewContent {
+  pub fn has_mipmaps(&self) -> bool {
+    self.render_view.resource.desc.mip_level_count > 1
+  }
+
+  pub fn usage(&self) -> TextureUsages {
+    self.render_view.resource.desc.usage
+  }
+
+  pub fn size(&self) -> Size {
+    self.render_view.size_assume_2d()
+  }
+
+  pub fn format(&self) -> wgpu::TextureFormat {
+    self.render_view.resource.desc.format
+  }
+
+  pub fn sample_count(&self) -> u32 {
+    self.render_view.resource.desc.sample_count
+  }
+
+  pub fn get_binding_view(&self) -> &GPUTextureView {
+    if let Some(v) = &self.depth_only_view {
+      return v;
+    }
+
+    &self.render_view
+  }
+
+  pub fn from_texture_view(view: GPUTextureView) -> Self {
+    // todo, validate?
+
+    let depth_only_view = if view.resource.desc.format.has_stencil_aspect()
+      && view.resource.desc.format.has_depth_aspect()
+    {
+      // create depth only texture view;
+      Some(view.resource.create_view(TextureViewDescriptor {
+        label: Some("depth view over depth stencil input in fast downsampling"),
+        aspect: TextureAspect::DepthOnly,
+        ..Default::default()
+      }))
+    } else {
+      None
+    };
+
+    Self {
+      render_view: view,
+      depth_only_view,
+    }
+  }
+}
+
+#[derive(Clone)]
 pub enum RenderTargetView {
-  Texture(GPUTextureView),
+  Texture(RenderViewContent),
   ReusedTexture(Arc<Attachment>),
   SurfaceTexture {
     size: Size,
@@ -37,12 +97,12 @@ pub enum RenderTargetView {
 impl CacheAbleBindingSource for RenderTargetView {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
     match self {
-      RenderTargetView::Texture(t) => t.get_binding_build_source(),
+      RenderTargetView::Texture(t) => t.get_binding_view().get_binding_build_source(),
       RenderTargetView::SurfaceTexture { view_id, .. } => CacheAbleBindingBuildSource {
         source: self.get_bindable(),
         view_id: *view_id,
       },
-      RenderTargetView::ReusedTexture(t) => t.item().get_binding_build_source(),
+      RenderTargetView::ReusedTexture(t) => t.item().get_binding_view().get_binding_build_source(),
     }
   }
 }
@@ -50,18 +110,18 @@ impl CacheAbleBindingSource for RenderTargetView {
 impl BindableResourceProvider for RenderTargetView {
   fn get_bindable(&self) -> BindingResourceOwned {
     match self {
-      RenderTargetView::Texture(t) => t.get_bindable(),
+      RenderTargetView::Texture(t) => t.get_binding_view().get_bindable(),
       RenderTargetView::SurfaceTexture { view, view_id, .. } => {
         BindingResourceOwned::RawTextureView(view.clone(), *view_id)
       }
-      RenderTargetView::ReusedTexture(t) => t.item().get_bindable(),
+      RenderTargetView::ReusedTexture(t) => t.item().get_binding_view().get_bindable(),
     }
   }
 }
 
 impl From<GPU2DTextureView> for RenderTargetView {
   fn from(view: GPU2DTextureView) -> Self {
-    Self::Texture(view.texture)
+    Self::from_texture_view(view.texture)
   }
 }
 impl From<Attachment> for RenderTargetView {
@@ -71,18 +131,22 @@ impl From<Attachment> for RenderTargetView {
 }
 
 impl RenderTargetView {
-  pub fn as_view(&self) -> &gpu::TextureView {
+  pub fn from_texture_view(view: GPUTextureView) -> Self {
+    Self::Texture(RenderViewContent::from_texture_view(view))
+  }
+
+  pub fn as_render_view(&self) -> &gpu::TextureView {
     match self {
-      RenderTargetView::Texture(t) => t,
+      RenderTargetView::Texture(t) => &t.render_view,
       RenderTargetView::SurfaceTexture { view, .. } => view.as_ref(),
-      RenderTargetView::ReusedTexture(t) => t.item(),
+      RenderTargetView::ReusedTexture(t) => &t.item().render_view,
     }
   }
 
-  pub fn expect_standalone_common_texture_view(&self) -> &GPUTextureView {
+  pub fn expect_standalone_common_texture_view_for_binding(&self) -> &GPUTextureView {
     match self {
-      RenderTargetView::Texture(t) => t,
-      RenderTargetView::ReusedTexture(t) => t.item(),
+      RenderTargetView::Texture(t) => t.get_binding_view(),
+      RenderTargetView::ReusedTexture(t) => t.item().get_binding_view(),
       _ => panic!("expect_standalone_texture_view failed"),
     }
   }
@@ -99,41 +163,41 @@ impl RenderTargetView {
 
   pub fn has_mipmaps(&self) -> bool {
     match self {
-      RenderTargetView::Texture(t) => t.resource.desc.mip_level_count > 1,
-      RenderTargetView::ReusedTexture(t) => t.item().resource.desc.mip_level_count > 1,
+      RenderTargetView::Texture(t) => t.has_mipmaps(),
+      RenderTargetView::ReusedTexture(t) => t.item().has_mipmaps(),
       RenderTargetView::SurfaceTexture { .. } => false,
     }
   }
 
   pub fn usage(&self) -> TextureUsages {
     match self {
-      RenderTargetView::Texture(t) => t.resource.desc.usage,
-      RenderTargetView::ReusedTexture(t) => t.item().resource.desc.usage,
+      RenderTargetView::Texture(t) => t.usage(),
+      RenderTargetView::ReusedTexture(t) => t.item().usage(),
       RenderTargetView::SurfaceTexture { .. } => TextureUsages::RENDER_ATTACHMENT,
     }
   }
 
   pub fn size(&self) -> Size {
     match self {
-      RenderTargetView::Texture(t) => t.size_assume_2d(),
+      RenderTargetView::Texture(t) => t.size(),
       RenderTargetView::SurfaceTexture { size, .. } => *size,
-      RenderTargetView::ReusedTexture(t) => t.item().size_assume_2d(),
+      RenderTargetView::ReusedTexture(t) => t.item().size(),
     }
   }
 
   pub fn format(&self) -> wgpu::TextureFormat {
     match self {
-      RenderTargetView::Texture(t) => t.resource.desc.format,
+      RenderTargetView::Texture(t) => t.format(),
       RenderTargetView::SurfaceTexture { format, .. } => *format,
-      RenderTargetView::ReusedTexture(t) => t.item().resource.desc.format,
+      RenderTargetView::ReusedTexture(t) => t.item().format(),
     }
   }
 
   pub fn sample_count(&self) -> u32 {
     match self {
-      RenderTargetView::Texture(t) => t.resource.desc.sample_count,
+      RenderTargetView::Texture(t) => t.sample_count(),
       RenderTargetView::SurfaceTexture { .. } => 1,
-      RenderTargetView::ReusedTexture(t) => t.item().resource.desc.sample_count,
+      RenderTargetView::ReusedTexture(t) => t.item().sample_count(),
     }
   }
 }

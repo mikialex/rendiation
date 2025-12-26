@@ -58,10 +58,7 @@ pub fn compute_pot_enlarged_hierarchy_depth(
   device: &GPUDevice,
   reverse_depth: bool,
 ) {
-  assert_eq!(
-    input_depth.resource.desc.format,
-    TextureFormat::Depth32Float
-  );
+  assert!(input_depth.resource.desc.format.is_depth_stencil_format());
   assert_eq!(output_target.desc.sample_count, 1);
   assert_eq!(output_target.desc.format, TextureFormat::R32Float);
   let size = next_pot_sizer(input_depth.size_assume_2d());
@@ -107,7 +104,7 @@ pub fn compute_pot_enlarged_hierarchy_depth(
 
     pass("copy depth to hierarchy depth base")
       .with_color(
-        &RenderTargetView::Texture(output_target_base.clone()),
+        &RenderTargetView::from_texture_view(output_target_base.clone()),
         load_and_store(),
       )
       .render_ctx(cx)

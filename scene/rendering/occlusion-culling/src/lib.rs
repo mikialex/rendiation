@@ -106,7 +106,9 @@ impl GPUTwoPassOcclusionCulling {
     let (_, depth) = target.depth_stencil_target.clone().unwrap();
     let size = next_pot_sizer(depth.size());
 
-    let depth = depth.expect_standalone_common_texture_view().clone();
+    let depth = depth
+      .expect_standalone_common_texture_view_for_binding()
+      .clone();
 
     let required_mip_level_count = MipLevelCount::BySize.get_level_count_wgpu(size);
 

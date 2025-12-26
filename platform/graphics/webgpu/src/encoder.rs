@@ -117,8 +117,8 @@ impl GPUCommandEncoder {
       .map(|(ops, view)| {
         size = Some(view.size());
         Some(gpu::RenderPassColorAttachment {
-          view: view.as_view(),
-          resolve_target: des.resolve_target.as_ref().map(|t| t.as_view()),
+          view: view.as_render_view(),
+          resolve_target: des.resolve_target.as_ref().map(|t| t.as_render_view()),
           ops: *ops,
           depth_slice: None,
         })
@@ -128,7 +128,7 @@ impl GPUCommandEncoder {
     let depth_stencil_attachment = des.depth_stencil_target.as_ref().map(|(ops, view)| {
       size = Some(view.size());
       gpu::RenderPassDepthStencilAttachment {
-        view: view.as_view(),
+        view: view.as_render_view(),
         depth_ops: (*ops).into(),
         stencil_ops: None,
       }

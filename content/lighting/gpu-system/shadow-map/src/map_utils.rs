@@ -70,7 +70,7 @@ pub fn clear_shadow_map(atlas: &ShadowAtlas, frame_ctx: &mut FrameCtx, reversed_
 
     let _ = pass("shadow-map-clear")
       .with_depth(
-        &RenderTargetView::Texture(write_view),
+        &RenderTargetView::from_texture_view(write_view),
         clear_and_store(if reversed_depth { 0. } else { 1. }),
       )
       .render_ctx(frame_ctx);

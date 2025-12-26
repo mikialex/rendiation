@@ -647,7 +647,7 @@ impl Viewer3dViewportRenderingCtx {
 
     let entity_id = g_buffer
       .entity_id
-      .expect_standalone_common_texture_view()
+      .expect_standalone_common_texture_view_for_binding()
       .clone();
 
     self.picker.read_new_frame_id_buffer(
@@ -740,7 +740,7 @@ impl ViewportRenderedResult {
 
     let mut encoder = self.device.create_encoder();
 
-    let tex = GPU2DTextureView::try_from(tex).unwrap();
+    let tex = GPU2DTextureView::try_from(tex.get_binding_view().clone()).unwrap();
 
     let buffer = encoder.read_texture_2d::<f32>(
       &self.device,

@@ -18,7 +18,6 @@ pub struct LightingRenderingCx<'a> {
   pub lighting_method: LightingTechniqueKind,
 }
 
-// todo, add transparent rendering in defer mode
 pub fn render_lighting_scene_content(
   ctx: &mut FrameCtx,
   lighting_cx: &LightingRenderingCx,
