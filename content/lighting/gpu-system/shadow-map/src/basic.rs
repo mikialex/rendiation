@@ -162,6 +162,7 @@ impl BasicShadowMapPreparer {
       let pass = pass("shadow-map").with_depth(
         &RenderTargetView::from_texture_view(write_view),
         load_and_store(),
+        load_and_store(),
       );
 
       scene_content(

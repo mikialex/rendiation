@@ -37,8 +37,9 @@ impl FrameGeometryBuffer {
     &self,
     desc: &mut RenderPassDescription,
     depth_op: impl Into<Operations<f32>>,
+    stencil_op: impl Into<Operations<u32>>,
   ) -> FrameGeometryBufferPassEncoder {
-    desc.set_depth(&self.depth, depth_op);
+    desc.set_depth(&self.depth, depth_op, stencil_op);
 
     FrameGeometryBufferPassEncoder {
       normal: desc.push_color(&self.normal, clear_and_store(all_zero())),
@@ -54,7 +55,7 @@ impl FrameGeometryBuffer {
     &self,
     desc: &mut RenderPassDescription,
   ) -> FrameGeometryBufferPassEncoder {
-    desc.set_depth(&self.depth, load_and_store());
+    desc.set_depth(&self.depth, load_and_store(), load_and_store());
 
     FrameGeometryBufferPassEncoder {
       normal: desc.push_color(&self.normal, load_and_store()),

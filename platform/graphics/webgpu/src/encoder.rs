@@ -125,14 +125,21 @@ impl GPUCommandEncoder {
       })
       .collect();
 
-    let depth_stencil_attachment = des.depth_stencil_target.as_ref().map(|(ops, view)| {
-      size = Some(view.size());
-      gpu::RenderPassDepthStencilAttachment {
-        view: view.as_render_view(),
-        depth_ops: (*ops).into(),
-        stencil_ops: None,
-      }
-    });
+    let depth_stencil_attachment =
+      des
+        .depth_stencil_target
+        .as_ref()
+        .map(|(depth_ops, stencil_ops, view)| {
+          size = Some(view.size());
+          let depth_ops = view.format().has_depth_aspect().then_some(*depth_ops);
+          let stencil_ops = view.format().has_stencil_aspect().then_some(*stencil_ops);
+
+          gpu::RenderPassDepthStencilAttachment {
+            view: view.as_render_view(),
+            depth_ops,
+            stencil_ops,
+          }
+        });
 
     let timestamp_writes = start_time_query
       .as_ref()
@@ -155,12 +162,12 @@ impl GPUCommandEncoder {
       depth_stencil_formats: des
         .depth_stencil_target
         .as_ref()
-        .map(|(_, view)| view.format()),
+        .map(|(_, _, view)| view.format()),
       sample_count: des
         .channels
         .first()
         .map(|c| &c.1)
-        .or_else(|| des.depth_stencil_target.as_ref().map(|c| &c.1))
+        .or_else(|| des.depth_stencil_target.as_ref().map(|c| &c.2))
         .map(|c| c.sample_count())
         .unwrap_or(1),
     };

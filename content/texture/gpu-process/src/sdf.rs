@@ -49,7 +49,7 @@ pub fn compute_sdf(
   let num_steps = max_step_width.ilog2() + 1;
 
   pass("jump flooding sdf compute init")
-    .with_color(&RenderTargetView::from(target.clone()), store_full_frame())
+    .with_color(&RenderTargetView::from(source.clone()), store_full_frame())
     .render_ctx(frame_cx)
     .by(
       &mut JumpFloodingInit {

@@ -47,7 +47,8 @@ pub fn pass(name: impl Into<String>) -> RenderPassDescription {
 pub struct RenderPassDescription {
   pub name: String,
   pub channels: Vec<(gpu::Operations<gpu::Color>, RenderTargetView)>,
-  pub depth_stencil_target: Option<(gpu::Operations<f32>, RenderTargetView)>,
+  /// (depth_op, stencil_op, attachment)
+  pub depth_stencil_target: Option<(gpu::Operations<f32>, gpu::Operations<u32>, RenderTargetView)>,
   pub resolve_target: Option<RenderTargetView>,
 }
 
@@ -66,7 +67,7 @@ impl RenderPassDescription {
       .channels
       .first()
       .map(|c| &c.1)
-      .or_else(|| self.depth_stencil_target.as_ref().map(|c| &c.1))
+      .or_else(|| self.depth_stencil_target.as_ref().map(|c| &c.2))
       .map(|c| Vec2::from(c.size().into_usize()).map(|v| v as f32))
       .unwrap()
   }
@@ -97,20 +98,28 @@ impl RenderPassDescription {
     idx
   }
 
+  /// if the attachment has no stencil, stencil_op will be ignored, same as the depth_op
   #[must_use]
   pub fn with_depth(
     mut self,
     attachment: &RenderTargetView,
-    op: impl Into<gpu::Operations<f32>>,
+    depth_op: impl Into<gpu::Operations<f32>>,
+    stencil_op: impl Into<gpu::Operations<u32>>,
   ) -> Self {
-    self.set_depth(attachment, op);
+    self.set_depth(attachment, depth_op, stencil_op);
     self
   }
 
-  pub fn set_depth(&mut self, attachment: &RenderTargetView, op: impl Into<gpu::Operations<f32>>) {
+  /// if the attachment has no stencil, stencil_op will be ignored, same as the depth_op
+  pub fn set_depth(
+    &mut self,
+    attachment: &RenderTargetView,
+    depth_op: impl Into<gpu::Operations<f32>>,
+    stencil_op: impl Into<gpu::Operations<u32>>,
+  ) {
     self
       .depth_stencil_target
-      .replace((op.into(), attachment.clone()));
+      .replace((depth_op.into(), stencil_op.into(), attachment.clone()));
   }
 
   #[must_use]

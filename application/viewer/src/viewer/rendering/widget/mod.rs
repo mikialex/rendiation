@@ -54,6 +54,7 @@ pub fn draw_widgets(
       .with_depth(
         &msaa_depth,
         clear_and_store(if reversed_depth { 0. } else { 1. }),
+        load_and_store(),
       )
       .resolve_to(&widgets_result)
       .render_ctx(ctx)
@@ -74,6 +75,7 @@ pub fn draw_widgets(
       .with_depth(
         &depth,
         clear_and_store(if reversed_depth { 0. } else { 1. }),
+        load_and_store(),
       )
       .render_ctx(ctx)
       .by(&mut DrawWorldAxis {

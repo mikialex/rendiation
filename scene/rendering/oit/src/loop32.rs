@@ -83,7 +83,7 @@ impl OitLoop32RendererInstance {
       .depth_stencil_target
       .as_ref()
       .unwrap()
-      .1
+      .2
       .clone();
 
     {
@@ -99,7 +99,7 @@ impl OitLoop32RendererInstance {
       );
 
       pass("loop32 oit depth pre pass")
-        .with_depth(depth, load_and_store())
+        .with_depth(depth, load_and_store(), load_and_store())
         .render_ctx(ctx)
         .by(&mut draw_content);
     }

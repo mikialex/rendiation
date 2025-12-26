@@ -502,7 +502,7 @@ impl Viewer3dViewportRenderingCtx {
             // this must a separate pass, because the id buffer should not be written.
             pass("grid_ground")
               .with_color(&scene_result, load_and_store())
-              .with_depth(&g_buffer.depth, load_and_store())
+              .with_depth(&g_buffer.depth, load_and_store(), load_and_store())
               .render_ctx(ctx)
               .by(&mut GridGround {
                 plane: &self.ground,

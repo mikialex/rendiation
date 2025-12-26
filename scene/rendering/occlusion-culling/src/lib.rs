@@ -103,7 +103,7 @@ impl GPUTwoPassOcclusionCulling {
     preflight_content(pass).by(&mut first_pass_batch_draw);
 
     // then generate depth pyramid for the occluder
-    let (_, depth) = target.depth_stencil_target.clone().unwrap();
+    let (_, _, depth) = target.depth_stencil_target.clone().unwrap();
     let size = next_pot_sizer(depth.size());
 
     let depth = depth
