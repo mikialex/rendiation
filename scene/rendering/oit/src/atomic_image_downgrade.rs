@@ -27,9 +27,10 @@ impl AtomicImageDowngrade {
     self.size_
   }
 
+  // todo, combine different layer's clear call?
   // wgpu does not have fill buffer cmd
-  pub fn clear(&self, device: &GPUDevice, encoder: &mut GPUCommandEncoder, value: u32) {
-    let clear_value = create_uniform(Vec4::new(value, 0, 0, 0), device);
+  pub fn clear(&self, device: &GPUDevice, encoder: &mut GPUCommandEncoder, layer: u32, value: u32) {
+    let clear_value = create_uniform(Vec4::new(value, layer, 0, 0), device);
     // cast to common buffer, as we not required atomic write in clear
     let buffer = StorageBufferDataView::<[u32]>::try_from_raw(self.buffer.gpu.clone()).unwrap();
     let workgroup_size = 256;
@@ -38,11 +39,16 @@ impl AtomicImageDowngrade {
       let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
         builder.config_work_group_size(workgroup_size);
         let buffer = builder.bind_by(&buffer);
-        let value = builder.bind_by(&clear_value);
+        let layer_area = builder.bind_by(&self.size).load().y();
+        let config = builder.bind_by(&clear_value);
+        let clear_value = config.load().x();
+        let layer_idx = config.load().y();
+
+        let offset = layer_idx * layer_area;
 
         let id = builder.global_invocation_id().x();
-        if_by(id.less_than(buffer.array_length()), || {
-          buffer.index(id).store(value.load().x());
+        if_by(id.less_than(layer_area), || {
+          buffer.index(id + offset).store(clear_value);
         });
 
         builder
@@ -50,10 +56,12 @@ impl AtomicImageDowngrade {
 
       BindingBuilder::default()
         .with_bind(&buffer)
+        .with_bind(&self.size)
         .with_bind(&clear_value)
         .setup_compute_pass(&mut pass, device, &pipeline);
 
-      pass.dispatch_workgroups(self.buffer.item_count().div_ceil(workgroup_size), 1, 1);
+      let area = self.size_.area() as u32;
+      pass.dispatch_workgroups(area.div_ceil(workgroup_size), 1, 1);
     });
   }
 

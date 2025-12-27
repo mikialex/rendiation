@@ -69,8 +69,18 @@ impl CSGClippingRenderer {
         let image = image
           .get_or_insert_with(|| AtomicImageDowngrade::new(&ctx.gpu.device, ctx.frame_size(), 2));
 
-        // todo, support layer clear
-        // image.clear(&ctx.gpu.device, &mut ctx.encoder, value);
+        image.clear(
+          &ctx.gpu.device,
+          &mut ctx.encoder,
+          FRONT_FACE_LAYER_IDX,
+          0_f32.to_bits(),
+        ); // todo reverse
+        image.clear(
+          &ctx.gpu.device,
+          &mut ctx.encoder,
+          BACKFACE_LAYER_IDX,
+          0_f32.to_bits(),
+        ); // todo reverse
 
         Some(image.clone())
       })
@@ -190,7 +200,7 @@ impl GraphicsShaderProvider for CSGExpressionClippingComponent {
         let frag_position_write = frag_position.xy().into_u32();
         if_by(is_front, || {
           // todo, reverse z config
-          extra_depth.atomic_min(
+          extra_depth.atomic_max(
             frag_position_write,
             val(FRONT_FACE_LAYER_IDX),
             frag_position.z().bitcast::<u32>(),
@@ -304,13 +314,12 @@ impl CSGClippingRenderer {
           DefaultDisplayWriter::extend_pass_desc(&mut pass, scene_result, load_and_store());
         let g_buffer_base_writer = g_buffer_target.extend_pass_desc_for_subsequent_draw(&mut pass);
 
-        let depth = g_buffer_target
-          .depth
-          .expect_standalone_common_texture_view_for_binding()
-          .clone();
-
         let draw = ForwardCsgSurfaceDraw {
-          filled_depth: depth.try_into().unwrap(),
+          filled_depth: fill_depth
+            .expect_standalone_common_texture_view_for_binding()
+            .clone()
+            .try_into()
+            .unwrap(),
         };
 
         let mut draw = RenderArray([
@@ -345,14 +354,9 @@ impl ShaderPassBuilder for ForwardCsgSurfaceDraw {
 impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
-      let depth_stencil = builder.depth_stencil.as_mut().unwrap();
-
-      // override quad draw config
-      depth_stencil.depth_compare = CompareFunction::Greater;
-
       // todo, compute normal
 
-      let frag_position = builder.query::<FragmentRenderPosition>().xy().into_u32();
+      let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
       let depth = self.filled_depth.bind_shader(binding);
       let depth = depth.load_texel(frag_position, val(0));
 
@@ -360,6 +364,12 @@ impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
       builder.register::<DefaultDisplay>(val(Vec4::one()));
       builder.register::<LogicalRenderEntityId>(val(u32::MAX));
       builder.register::<FragmentRenderNormal>(val(Vec3::new(1.0, 0., 0.)));
+
+      // override quad draw config
+      let depth_stencil = builder.depth_stencil.as_mut().unwrap();
+      depth_stencil.depth_compare = CompareFunction::Greater; // todo reverse z
+      builder.depth_stencil.as_mut().unwrap().depth_write_enabled = true;
+
       builder.register::<FragmentDepthOutput>(depth);
     })
   }
@@ -396,99 +406,154 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
       let expressions = AbstractShaderBindingSource::bind_shader(&self.expressions, binding);
       let clip_depth = self.clip_depth.bind_shader(binding);
       let fill_depth_info = self.fill_depth_info.build(binding);
+      let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
+      let uv = builder.query::<FragmentUv>();
+      let camera_position_world = builder.query::<CameraWorldPositionHP>().expand().f1;
+      let ndc_to_render = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
+      let render_to_ndc = builder.query::<CameraViewNoneTranslationProjectionMatrix>();
+      let root = builder.query::<SceneModelClippingId>();
 
-      let background_depth = val(0.);
+      let background_depth = if self.reverse_depth { val(0.) } else { val(1.) };
+      // let near_depth = if self.reverse_depth { val(1.) } else { val(0.) };
 
-      // let depth_stencil = builder.depth_stencil.as_mut().unwrap();
-      // // override the quad draw setting
+      let clip_depth = clip_depth.load_texel(frag_position, val(0));
+      // todo, use common load
+      let back_depth = fill_depth_info
+        .atomic_load(frag_position, val(BACKFACE_LAYER_IDX))
+        .bitcast::<f32>();
+      let front_depth = fill_depth_info
+        .atomic_load(frag_position, val(FRONT_FACE_LAYER_IDX))
+        .bitcast::<f32>();
 
-      // let uv = builder.query::<FragmentUv>();
-      // let root = builder.query::<SceneModelClippingId>();
+      let has_clip = clip_depth.not_equals(background_depth);
+      let has_back = back_depth.not_equals(background_depth);
+      let has_front = front_depth.not_equals(background_depth);
 
-      // let near = if self.reverse_depth { val(1.) } else { val(0.) };
+      let should_check = has_clip.or(has_back).or(has_front);
+      let not_require = has_clip.and(clip_depth.equals(front_depth));
+      let should_check = should_check.and(not_require.not());
 
-      // let start_point_in_ndc: Node<Vec3<f32>> = (uv * val(2.) - val(Vec2::splat(1.)), near).into();
-      // let mat = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
-      // let start_point_in_render_space = mat * vec4_node((start_point_in_ndc, val(1.)));
-      // let start_point_in_render_space =
-      //   start_point_in_render_space.xyz() / start_point_in_render_space.w().splat();
-      // let camera_position = builder.query::<CameraWorldPositionHP>().expand().f1;
-      // // todo high precision support
-      // let start_point_in_world = start_point_in_render_space + camera_position;
-      // let dir = start_point_in_render_space.normalize();
+      let output_depth = background_depth.make_local_var();
 
-      // let surface_point = start_point_in_world.make_local_var();
-      // let no_intersect = val(false).make_local_var();
+      if_by(should_check, || {
+        let start = compute_start_point_fn(uv, back_depth, camera_position_world, ndc_to_render);
+        let dir = (camera_position_world - start).normalize();
+        let (back_to_front_marched_depth, back_to_front_intersected) = ray_marching(
+          &expressions,
+          root,
+          start,
+          dir,
+          camera_position_world,
+          render_to_ndc,
+        );
 
-      // // raymarching
-      // let eval_count = val(0_u32).make_local_var();
-      // loop_by(|lcx| {
-      //   let distance = eval_distance(start_point_in_world, root, &expressions);
+        let start = compute_start_point_fn(uv, front_depth, camera_position_world, ndc_to_render);
+        let dir = (start - camera_position_world).normalize();
+        let (front_to_back_marched_depth, front_to_back_intersected) = ray_marching(
+          &expressions,
+          root,
+          start,
+          dir,
+          camera_position_world,
+          render_to_ndc,
+        );
 
-      //   surface_point.store(surface_point.load() + dir * distance);
+        let fill_depth = clip_depth.make_local_var();
+        if_by(has_clip, || {
+          if_by(
+            front_to_back_intersected
+              .and(front_to_back_marched_depth.greater_than(fill_depth.load())),
+            || {
+              fill_depth.store(front_to_back_marched_depth);
+            },
+          );
+          if_by(
+            back_to_front_intersected
+              .and(back_to_front_marched_depth.greater_than(fill_depth.load())),
+            || {
+              fill_depth.store(back_to_front_marched_depth);
+            },
+          );
 
-      //   if_by(distance.less_than(val(0.1)), || {
-      //     lcx.do_break();
-      //   });
-      //   let eval_c = eval_count.load();
-      //   if_by(eval_c.greater_equal_than(val(5)), || {
-      //     no_intersect.store(true);
-      //     lcx.do_break();
-      //   });
+          // let has_double_hit = back_to_front_intersected.and(front_to_back_intersected);
+          // let hit_is_near_than_clip = has_clip.and(fill_depth.load().greater_than(clip_depth));
 
-      //   eval_count.store(eval_c + val(1));
-      // });
+          // if_by(has_double_hit.and(hit_is_near_than_clip), || {
+          //   fill_depth.store(back_depth);
+          // });
+        })
+        .else_by(|| {
+          // todo
+        });
+        output_depth.store(fill_depth.load());
+      });
 
-      // if_by(no_intersect.load(), || {
-      //   builder.discard();
-      // });
-
-      // let surface_point = surface_point.load();
-      // let surface_point_in_render = surface_point - camera_position;
-      // let mat = builder.query::<CameraViewNoneTranslationProjectionMatrix>();
-      // let surface_point_in_ndc = mat * vec4_node((surface_point_in_render, val(1.)));
-      // let z = surface_point_in_ndc.z() / surface_point_in_ndc.w();
-      // builder.register::<FragmentDepthOutput>(z);
+      // override quad draw config
+      builder.depth_stencil.as_mut().unwrap().depth_write_enabled = true;
+      builder.register::<FragmentDepthOutput>(output_depth.load());
     });
   }
 }
 
-// if self.fill_face {
-//   let ray_dir = (world_position - cam_position).normalize();
-//   let is_front = builder.query::<FragmentFrontFacing>();
-//   let ray_dir = is_front.select(ray_dir, -ray_dir);
+#[shader_fn]
+fn compute_start_point(
+  uv: Node<Vec2<f32>>,
+  depth: Node<f32>,
+  camera_position_world: Node<Vec3<f32>>,
+  ndc_to_render: Node<Mat4<f32>>,
+) -> Node<Vec3<f32>> {
+  let uv = uv * val(Vec2::splat(2.)) - val(Vec2::splat(1.));
+  let uv = uv * val(Vec2::new(1., -1.));
+  let ndc = (uv, depth, val(1.)).into();
+  let render = ndc_to_render * ndc;
+  let render = render.xyz() / render.w().splat();
+  render + camera_position_world
+}
 
-//   let surface_point = world_position.make_local_var();
-//   let no_intersect = val(false).make_local_var();
+/// return (final position, if intersected)
+fn ray_marching(
+  expressions: &ShaderReadonlyPtrOf<[u32]>,
+  root: Node<u32>,
+  start: Node<Vec3<f32>>,
+  ray_dir: Node<Vec3<f32>>,
+  camera_position_world: Node<Vec3<f32>>,
+  render_to_ndc: Node<Mat4<f32>>,
+) -> (Node<f32>, Node<bool>) {
+  let surface_point = start.make_local_var();
+  let intersected = val(true).make_local_var();
 
-//   // raymarching
-//   let eval_count = val(0_u32).make_local_var();
-//   loop_by(|lcx| {
-//     let distance = eval_distance(surface_point.load(), root, &expressions);
+  // raymarching
+  let eval_count = val(0_u32).make_local_var();
+  loop_by(|lcx| {
+    let distance = eval_distance(surface_point.load(), root, expressions);
 
-//     // skip the none clip surface and close enough surface
-//     if_by(distance.greater_than(-val(0.01)), || {
-//       lcx.do_break();
-//     });
+    // not in clip part
+    if_by(distance.greater_equal_than(val(0.)), || {
+      intersected.store(false);
+      lcx.do_break();
+    });
 
-//     let eval_c = eval_count.load();
-//     if_by(eval_c.greater_equal_than(val(20)), || {
-//       no_intersect.store(true);
-//       lcx.do_break();
-//     });
+    // skip the none clip surface or close enough surface
+    if_by(distance.greater_than(-val(0.01)), || {
+      lcx.do_break();
+    });
 
-//     surface_point.store(surface_point.load() - ray_dir * distance);
-//     eval_count.store(eval_c + val(1));
-//   });
+    let eval_c = eval_count.load();
+    if_by(eval_c.greater_equal_than(val(20)), || {
+      intersected.store(false);
+      lcx.do_break();
+    });
 
-//   if_by(no_intersect.load(), || {
-//     builder.discard();
-//   });
+    // because we are marching from clipped(<0) to none clipped(>0), so this is negative
+    surface_point.store(surface_point.load() - ray_dir * distance);
+    eval_count.store(eval_c + val(1));
+  });
 
-//   let surface_point = surface_point.load();
-//   let surface_point_in_render = surface_point - cam_position;
-//   let mat = builder.query::<CameraViewNoneTranslationProjectionMatrix>();
-//   let surface_point_in_ndc = mat * vec4_node((surface_point_in_render, val(1.)));
-//   let z = surface_point_in_ndc.z() / surface_point_in_ndc.w();
-//   builder.register::<FragmentDepthOutput>(z);
-// }
+  let surface_point = surface_point.load();
+
+  let surface_point_in_render = surface_point - camera_position_world;
+  let surface_point_in_ndc = render_to_ndc * vec4_node((surface_point_in_render, val(1.)));
+  let z = surface_point_in_ndc.z() / surface_point_in_ndc.w();
+
+  (z, intersected.load())
+}

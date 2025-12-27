@@ -74,10 +74,12 @@ impl OitLoop32RendererInstance {
     reverse_depth: bool,
   ) {
     let far = if reverse_depth { 0_f32 } else { 1_f32 };
-    self
-      .depth
-      .clear(&ctx.gpu.device, &mut ctx.encoder, far.to_bits());
-    self.color.clear(&ctx.gpu.device, &mut ctx.encoder, 0);
+    for i in 0..self.layer_count {
+      self
+        .depth
+        .clear(&ctx.gpu.device, &mut ctx.encoder, i, far.to_bits());
+      self.color.clear(&ctx.gpu.device, &mut ctx.encoder, i, 0);
+    }
 
     let depth = &target_desc_without_final_color
       .depth_stencil_target
