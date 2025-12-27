@@ -282,6 +282,12 @@ impl CSGClippingRenderer {
       expressions: self.expressions.clone(),
       camera_gpu: camera_gpu.clone(),
       fill_depth_info,
+      clip_normal: g_buffer_target
+        .normal
+        .expect_standalone_common_texture_view_for_binding()
+        .clone()
+        .try_into()
+        .unwrap(),
       clip_depth: g_buffer_target
         .depth
         .expect_standalone_common_texture_view_for_binding()
@@ -379,6 +385,7 @@ struct RayMarchingCsgExpression {
   camera_gpu: CameraGPU,
   expressions: AbstractReadonlyStorageBuffer<[u32]>,
   clip_depth: GPU2DDepthTextureView,
+  clip_normal: GPU2DTextureView,
   fill_depth_info: AtomicImageDowngrade,
   reverse_depth: bool,
 }
@@ -395,6 +402,7 @@ impl ShaderPassBuilder for RayMarchingCsgExpression {
     self.camera_gpu.setup_pass(ctx);
     ctx.binding.bind(&self.expressions);
     self.clip_depth.bind_pass(&mut ctx.binding);
+    self.clip_normal.bind_pass(&mut ctx.binding);
     self.fill_depth_info.bind(&mut ctx.binding);
   }
 }
@@ -405,6 +413,7 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
     builder.fragment(|builder, binding| {
       let expressions = AbstractShaderBindingSource::bind_shader(&self.expressions, binding);
       let clip_depth = self.clip_depth.bind_shader(binding);
+      let clip_normal = self.clip_normal.bind_shader(binding);
       let fill_depth_info = self.fill_depth_info.build(binding);
       let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
       let uv = builder.query::<FragmentUv>();
@@ -417,6 +426,7 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
       // let near_depth = if self.reverse_depth { val(1.) } else { val(0.) };
 
       let clip_depth = clip_depth.load_texel(frag_position, val(0));
+      let clip_normal = clip_normal.load_texel(frag_position, val(0)).xyz();
       // todo, use common load
       let back_depth = fill_depth_info
         .atomic_load(frag_position, val(BACKFACE_LAYER_IDX))
@@ -460,27 +470,27 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
 
         let fill_depth = clip_depth.make_local_var();
         if_by(has_clip, || {
-          if_by(
-            front_to_back_intersected
-              .and(front_to_back_marched_depth.greater_than(fill_depth.load())),
-            || {
-              fill_depth.store(front_to_back_marched_depth);
-            },
-          );
-          if_by(
-            back_to_front_intersected
-              .and(back_to_front_marched_depth.greater_than(fill_depth.load())),
-            || {
-              fill_depth.store(back_to_front_marched_depth);
-            },
-          );
+          let clip_point =
+            compute_start_point_fn(uv, clip_depth, camera_position_world, ndc_to_render);
+          let dir = clip_point - camera_position_world;
+          let is_clip_surface_back_face = clip_normal.dot(dir).greater_than(val(0.));
 
-          // let has_double_hit = back_to_front_intersected.and(front_to_back_intersected);
-          // let hit_is_near_than_clip = has_clip.and(fill_depth.load().greater_than(clip_depth));
-
-          // if_by(has_double_hit.and(hit_is_near_than_clip), || {
-          //   fill_depth.store(back_depth);
-          // });
+          if_by(is_clip_surface_back_face, || {
+            if_by(
+              front_to_back_intersected
+                .and(front_to_back_marched_depth.greater_than(fill_depth.load())),
+              || {
+                fill_depth.store(front_to_back_marched_depth);
+              },
+            );
+            if_by(
+              back_to_front_intersected
+                .and(back_to_front_marched_depth.greater_than(fill_depth.load())),
+              || {
+                fill_depth.store(back_to_front_marched_depth);
+              },
+            );
+          });
         })
         .else_by(|| {
           // todo
