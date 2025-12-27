@@ -4,6 +4,7 @@ use crate::*;
 pub struct AtomicImageDowngrade {
   buffer: StorageBufferDataView<[DeviceAtomic<u32>]>,
   size: UniformBufferDataView<Vec4<u32>>,
+  size_: Size,
 }
 
 impl AtomicImageDowngrade {
@@ -14,8 +15,16 @@ impl AtomicImageDowngrade {
     let area = width * height;
     Self {
       buffer: create_gpu_read_write_storage(init, device),
-      size: create_uniform(Vec4::new(width as u32, area as u32, layer_count, 0), device),
+      size: create_uniform(
+        Vec4::new(width as u32, area as u32, layer_count, height as u32),
+        device,
+      ),
+      size_: size,
     }
+  }
+
+  pub fn size(&self) -> Size {
+    self.size_
   }
 
   // wgpu does not have fill buffer cmd
@@ -53,6 +62,7 @@ impl AtomicImageDowngrade {
     AtomicImageInvocationDowngrade {
       buffer: builder.bind_by(&self.buffer),
       width: info.x(),
+      height: info.w(),
       area: info.y(),
       layer_count: info.z(),
     }
@@ -67,6 +77,7 @@ impl AtomicImageDowngrade {
 pub struct AtomicImageInvocationDowngrade {
   buffer: ShaderPtrOf<[DeviceAtomic<u32>]>,
   width: Node<u32>,
+  height: Node<u32>,
   area: Node<u32>,
   layer_count: Node<u32>,
 }
@@ -74,6 +85,10 @@ pub struct AtomicImageInvocationDowngrade {
 impl AtomicImageInvocationDowngrade {
   pub fn layer_count(&self) -> Node<u32> {
     self.layer_count
+  }
+
+  pub fn size(&self) -> Node<Vec2<u32>> {
+    (self.width, self.height).into()
   }
 
   fn get_position(&self, position: Node<Vec2<u32>>, layer_idx: Node<u32>) -> Node<u32> {

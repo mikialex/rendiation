@@ -472,7 +472,8 @@ impl Viewer3dViewportRenderingCtx {
       sm_world_bounding: &renderer.sm_world_bounding,
     };
 
-    let clip_component = renderer.clipping.get_scene_clipping(content.scene);
+    let (clip_component, fill_depth_info) =
+      renderer.clipping.use_get_scene_clipping(content.scene, ctx);
     let clip_component = &OptionRender(clip_component) as &dyn RenderComponent;
 
     let mut taa_content = SceneCameraTAAContent {
@@ -491,6 +492,7 @@ impl Viewer3dViewportRenderingCtx {
           &renderer_c,
           &renderer.clipping,
           clip_component,
+          &fill_depth_info,
           content.scene,
           viewport,
           &scene_result,
