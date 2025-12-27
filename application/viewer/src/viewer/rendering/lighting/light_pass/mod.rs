@@ -33,8 +33,6 @@ pub fn render_lighting_scene_content(
   g_buffer: &FrameGeometryBuffer,
   only_draw_g_buffer: bool,
 ) {
-  let required_stencil_ops = clipping.get_stencil_load_op().unwrap_or(load_and_store());
-
   let camera = viewport.camera;
   let camera_gpu = renderer.cameras.make_component(camera).unwrap();
   let camera_gpu = &camera_gpu;
@@ -85,7 +83,7 @@ pub fn render_lighting_scene_content(
       let color_writer =
         DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, color_ops);
       let g_buffer_base_writer =
-        g_buffer.extend_pass_desc(&mut pass_base, depth_ops, required_stencil_ops);
+        g_buffer.extend_pass_desc(&mut pass_base, depth_ops, load_and_store());
 
       let opaque_scene_pass_dispatcher = &RenderArray([
         &blend_disabler as &dyn RenderComponent,
@@ -147,7 +145,7 @@ pub fn render_lighting_scene_content(
         let mut pass_base = pass("scene defer encode");
 
         let g_buffer_base_writer =
-          g_buffer.extend_pass_desc(&mut pass_base, depth_ops, required_stencil_ops);
+          g_buffer.extend_pass_desc(&mut pass_base, depth_ops, load_and_store());
         let mut m_buffer = FrameGeneralMaterialBuffer::new(ctx);
 
         let indices = m_buffer.extend_pass_desc(&mut pass_base);

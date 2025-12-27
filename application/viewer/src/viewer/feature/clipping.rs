@@ -47,14 +47,6 @@ impl CSGClippingRenderer {
     self.fill_face && self.scene_csg.get(&scene.alloc_index()).is_some()
   }
 
-  pub fn get_stencil_load_op(&self) -> Option<Operations<u32>> {
-    if self.fill_face {
-      Some(clear_and_store(CSG_CLIPPING_FILL_FACE_STENCIL_CLEAR))
-    } else {
-      None
-    }
-  }
-
   pub fn use_get_scene_clipping(
     &self,
     scene_id: EntityHandle<SceneEntity>,
@@ -146,9 +138,6 @@ impl GraphicsShaderProvider for ClippingRootDirectProvide {
   }
 }
 
-pub const CSG_CLIPPING_FILL_FACE_STENCIL_CLEAR: u32 = 0;
-pub const CSG_CLIPPING_FILL_FACE_STENCIL_BACKFACE_REF: u32 = 1;
-
 struct CSGExpressionClippingComponent {
   expressions: AbstractReadonlyStorageBuffer<[u32]>,
   fill_face_depth: Option<AtomicImageDowngrade>,
@@ -198,9 +187,7 @@ impl GraphicsShaderProvider for CSGExpressionClippingComponent {
         let extra_depth = fill_face_depth.build(b);
         let is_front = builder.query::<FragmentFrontFacing>();
         let frag_position = builder.query::<FragmentPosition>();
-        let frag_position_uv = frag_position.xy() * val(Vec2::splat(0.5)) + val(Vec2::splat(0.5));
-        let frag_position_write = frag_position_uv * extra_depth.size().into_f32();
-        let frag_position_write = frag_position_write.into_u32();
+        let frag_position_write = frag_position.xy().into_u32();
         if_by(is_front, || {
           // todo, reverse z config
           extra_depth.atomic_min(
@@ -266,75 +253,83 @@ impl CSGClippingRenderer {
     scene: EntityHandle<SceneEntity>,
     reverse_z: bool,
   ) {
-    assert!(self.fill_face);
+    if !self.fill_face {
+      return;
+    }
 
-    // let root = self
-    //   .scene_csg
-    //   .get(&scene.alloc_index())
-    //   .map(|root| ClippingRootDirectProvide { root: root.clone() });
+    let root = self
+      .scene_csg
+      .get(&scene.alloc_index())
+      .map(|root| ClippingRootDirectProvide { root: root.clone() });
 
-    // if root.is_none() {
-    //   return;
-    // }
-    // let root = &root.unwrap() as &dyn RenderComponent;
+    if root.is_none() {
+      return;
+    }
+    let root = &root.unwrap() as &dyn RenderComponent;
 
-    // // first, fill the face, write the depth buffer.
-    // let draw = RayMarchingCsgExpression {
-    //   expressions: self.expressions.clone(),
-    //   camera_gpu: camera_gpu.clone(),
-    //   reverse_depth: reverse_z,
-    // };
+    // first, fill the face, write the depth buffer.
+    let draw = RayMarchingCsgExpression {
+      expressions: self.expressions.clone(),
+      camera_gpu: camera_gpu.clone(),
+      fill_depth_info,
+      clip_depth: g_buffer_target
+        .depth
+        .expect_standalone_common_texture_view_for_binding()
+        .clone()
+        .try_into()
+        .unwrap(),
+      reverse_depth: reverse_z,
+    };
 
-    // let mut draw = RenderArray([root, &draw]).draw_quad();
+    let mut draw = RenderArray([root, &draw]).draw_quad();
 
-    // pass("csg fill surface")
-    //   .with_depth(
-    //     &g_buffer_target.depth,
-    //     clear_and_store(0.),
-    //     load_and_store(),
-    //   )
-    //   .render_ctx(frame_ctx)
-    //   .by(&mut draw);
+    let fill_depth = depth_attachment().request(frame_ctx);
 
-    // match target {
-    //   CSGxClipFillType::Forward {
-    //     forward_lighting,
-    //     scene_result,
-    //   } => {
-    //     let mut pass = pass("csg fill surface direct forward shading");
+    pass("csg fill surface")
+      .with_depth(&fill_depth, clear_and_store(0.), load_and_store())
+      .render_ctx(frame_ctx)
+      .by(&mut draw);
 
-    //     let color_writer =
-    //       DefaultDisplayWriter::extend_pass_desc(&mut pass, scene_result, load_and_store());
-    //     let g_buffer_base_writer = g_buffer_target.extend_pass_desc_for_subsequent_draw(&mut pass);
+    // then, copy filled depth to targets, and compute normal in image space only for filled surface.
+    // and write other necessary info or directly compute the result in targets
 
-    //     let depth = g_buffer_target
-    //       .depth
-    //       .expect_standalone_common_texture_view_for_binding()
-    //       .clone();
+    match target {
+      CSGxClipFillType::Forward {
+        forward_lighting,
+        scene_result,
+      } => {
+        let mut pass = pass("csg fill surface direct forward shading");
 
-    //     let draw = ForwardCsgSurfaceDraw {
-    //       depth: depth.try_into().unwrap(),
-    //     };
+        let color_writer =
+          DefaultDisplayWriter::extend_pass_desc(&mut pass, scene_result, load_and_store());
+        let g_buffer_base_writer = g_buffer_target.extend_pass_desc_for_subsequent_draw(&mut pass);
 
-    //     let mut draw = RenderArray([
-    //       &color_writer as &dyn RenderComponent,
-    //       &g_buffer_base_writer as &dyn RenderComponent,
-    //       // forward_lighting,
-    //       &draw,
-    //     ])
-    //     .draw_quad();
+        let depth = g_buffer_target
+          .depth
+          .expect_standalone_common_texture_view_for_binding()
+          .clone();
 
-    //     pass.render_ctx(frame_ctx).by(&mut draw);
-    //   }
-    //   CSGxClipFillType::Defer(_frame_general_material_buffer) => todo!(),
-    // }
+        let draw = ForwardCsgSurfaceDraw {
+          filled_depth: depth.try_into().unwrap(),
+        };
 
-    // then, compute normal in image space only for filled surface.
+        let mut draw = RenderArray([
+          &color_writer as &dyn RenderComponent,
+          &g_buffer_base_writer as &dyn RenderComponent,
+          // forward_lighting,
+          &draw,
+        ])
+        .draw_quad();
+
+        pass.render_ctx(frame_ctx).by(&mut draw);
+      }
+      CSGxClipFillType::Defer(_frame_general_material_buffer) => todo!(),
+    }
   }
 }
 
 struct ForwardCsgSurfaceDraw {
-  depth: GPU2DDepthTextureView,
+  filled_depth: GPU2DDepthTextureView,
 }
 
 impl ShaderHashProvider for ForwardCsgSurfaceDraw {
@@ -342,7 +337,9 @@ impl ShaderHashProvider for ForwardCsgSurfaceDraw {
 }
 
 impl ShaderPassBuilder for ForwardCsgSurfaceDraw {
-  fn setup_pass(&self, _ctx: &mut GPURenderPassCtx) {}
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.filled_depth.bind_pass(&mut ctx.binding);
+  }
 }
 
 impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
@@ -350,25 +347,29 @@ impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
     builder.fragment(|builder, binding| {
       let depth_stencil = builder.depth_stencil.as_mut().unwrap();
 
-      // only execute on fill area
-      depth_stencil.stencil.front.compare = CompareFunction::Equal;
+      // override quad draw config
+      depth_stencil.depth_compare = CompareFunction::Greater;
 
-      // todo, bind depth and compute normal
-      // let depth = self.depth.b
+      // todo, compute normal
 
-      // let uv = builder.query::<FragmentUv>();
+      let frag_position = builder.query::<FragmentRenderPosition>().xy().into_u32();
+      let depth = self.filled_depth.bind_shader(binding);
+      let depth = depth.load_texel(frag_position, val(0));
 
       // todo write material data
       builder.register::<DefaultDisplay>(val(Vec4::one()));
       builder.register::<LogicalRenderEntityId>(val(u32::MAX));
       builder.register::<FragmentRenderNormal>(val(Vec3::new(1.0, 0., 0.)));
+      builder.register::<FragmentDepthOutput>(depth);
     })
   }
 }
 
 struct RayMarchingCsgExpression {
-  expressions: AbstractReadonlyStorageBuffer<[u32]>,
   camera_gpu: CameraGPU,
+  expressions: AbstractReadonlyStorageBuffer<[u32]>,
+  clip_depth: GPU2DDepthTextureView,
+  fill_depth_info: AtomicImageDowngrade,
   reverse_depth: bool,
 }
 
@@ -379,84 +380,76 @@ impl ShaderHashProvider for RayMarchingCsgExpression {
   }
 }
 
+impl ShaderPassBuilder for RayMarchingCsgExpression {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.camera_gpu.setup_pass(ctx);
+    ctx.binding.bind(&self.expressions);
+    self.clip_depth.bind_pass(&mut ctx.binding);
+    self.fill_depth_info.bind(&mut ctx.binding);
+  }
+}
+
 impl GraphicsShaderProvider for RayMarchingCsgExpression {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.camera_gpu.inject_uniforms(builder);
     builder.fragment(|builder, binding| {
-      let depth_stencil = builder.depth_stencil.as_mut().unwrap();
-
-      // only write on fill area
-      // todo, only execute on fill area, (we can not express early stencil test)
-      // to do so, we need bind stencil only part of the depth buffer and write to another temp texture.
-      depth_stencil.stencil.front.compare = CompareFunction::Equal;
-
-      // override the quad draw setting
-      depth_stencil.depth_compare = if self.reverse_depth {
-        CompareFunction::Greater
-      } else {
-        CompareFunction::Less
-      };
-      depth_stencil.depth_write_enabled = true;
-
-      let uv = builder.query::<FragmentUv>();
       let expressions = AbstractShaderBindingSource::bind_shader(&self.expressions, binding);
-      let root = builder.query::<SceneModelClippingId>();
+      let clip_depth = self.clip_depth.bind_shader(binding);
+      let fill_depth_info = self.fill_depth_info.build(binding);
 
-      let near = if self.reverse_depth { val(1.) } else { val(0.) };
+      let background_depth = val(0.);
 
-      let start_point_in_ndc: Node<Vec3<f32>> = (uv * val(2.) - val(Vec2::splat(1.)), near).into();
-      let mat = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
-      let start_point_in_render_space = mat * vec4_node((start_point_in_ndc, val(1.)));
-      let start_point_in_render_space =
-        start_point_in_render_space.xyz() / start_point_in_render_space.w().splat();
-      let camera_position = builder.query::<CameraWorldPositionHP>().expand().f1;
-      // todo high precision support
-      let start_point_in_world = start_point_in_render_space + camera_position;
-      let dir = start_point_in_render_space.normalize();
+      // let depth_stencil = builder.depth_stencil.as_mut().unwrap();
+      // // override the quad draw setting
 
-      let surface_point = start_point_in_world.make_local_var();
-      let no_intersect = val(false).make_local_var();
+      // let uv = builder.query::<FragmentUv>();
+      // let root = builder.query::<SceneModelClippingId>();
 
-      // raymarching
-      let eval_count = val(0_u32).make_local_var();
-      loop_by(|lcx| {
-        let distance = eval_distance(start_point_in_world, root, &expressions);
+      // let near = if self.reverse_depth { val(1.) } else { val(0.) };
 
-        surface_point.store(surface_point.load() + dir * distance);
+      // let start_point_in_ndc: Node<Vec3<f32>> = (uv * val(2.) - val(Vec2::splat(1.)), near).into();
+      // let mat = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
+      // let start_point_in_render_space = mat * vec4_node((start_point_in_ndc, val(1.)));
+      // let start_point_in_render_space =
+      //   start_point_in_render_space.xyz() / start_point_in_render_space.w().splat();
+      // let camera_position = builder.query::<CameraWorldPositionHP>().expand().f1;
+      // // todo high precision support
+      // let start_point_in_world = start_point_in_render_space + camera_position;
+      // let dir = start_point_in_render_space.normalize();
 
-        if_by(distance.less_than(val(0.1)), || {
-          lcx.do_break();
-        });
-        let eval_c = eval_count.load();
-        if_by(eval_c.greater_equal_than(val(5)), || {
-          no_intersect.store(true);
-          lcx.do_break();
-        });
+      // let surface_point = start_point_in_world.make_local_var();
+      // let no_intersect = val(false).make_local_var();
 
-        eval_count.store(eval_c + val(1));
-      });
+      // // raymarching
+      // let eval_count = val(0_u32).make_local_var();
+      // loop_by(|lcx| {
+      //   let distance = eval_distance(start_point_in_world, root, &expressions);
 
-      if_by(no_intersect.load(), || {
-        builder.discard();
-      });
+      //   surface_point.store(surface_point.load() + dir * distance);
 
-      let surface_point = surface_point.load();
-      let surface_point_in_render = surface_point - camera_position;
-      let mat = builder.query::<CameraViewNoneTranslationProjectionMatrix>();
-      let surface_point_in_ndc = mat * vec4_node((surface_point_in_render, val(1.)));
-      let z = surface_point_in_ndc.z() / surface_point_in_ndc.w();
-      builder.register::<FragmentDepthOutput>(z);
+      //   if_by(distance.less_than(val(0.1)), || {
+      //     lcx.do_break();
+      //   });
+      //   let eval_c = eval_count.load();
+      //   if_by(eval_c.greater_equal_than(val(5)), || {
+      //     no_intersect.store(true);
+      //     lcx.do_break();
+      //   });
+
+      //   eval_count.store(eval_c + val(1));
+      // });
+
+      // if_by(no_intersect.load(), || {
+      //   builder.discard();
+      // });
+
+      // let surface_point = surface_point.load();
+      // let surface_point_in_render = surface_point - camera_position;
+      // let mat = builder.query::<CameraViewNoneTranslationProjectionMatrix>();
+      // let surface_point_in_ndc = mat * vec4_node((surface_point_in_render, val(1.)));
+      // let z = surface_point_in_ndc.z() / surface_point_in_ndc.w();
+      // builder.register::<FragmentDepthOutput>(z);
     });
-  }
-}
-
-impl ShaderPassBuilder for RayMarchingCsgExpression {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx
-      .pass
-      .set_stencil_reference(CSG_CLIPPING_FILL_FACE_STENCIL_BACKFACE_REF);
-    self.camera_gpu.setup_pass(ctx);
-    ctx.binding.bind(&self.expressions);
   }
 }
 
