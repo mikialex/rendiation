@@ -25,11 +25,17 @@ pub fn test_clipping_data(scene: EntityHandle<SceneEntity>) {
 
   let p1 = write_plane(&mut w, Vec3::new(1., 0., 0.), 0.);
   let p2 = write_plane(&mut w, Vec3::new(0., 0., 1.), 0.);
+  let p3 = write_plane(&mut w, Vec3::new(0., 1., 0.), 0.);
 
   let root = w.new_entity(|w| {
     w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Min))
       .write::<CSGExpressionLeftChild>(&p1.some_handle())
       .write::<CSGExpressionRightChild>(&p2.some_handle())
+  });
+  let root = w.new_entity(|w| {
+    w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Min))
+      .write::<CSGExpressionLeftChild>(&root.some_handle())
+      .write::<CSGExpressionRightChild>(&p3.some_handle())
   });
 
   global_entity_component_of::<SceneCSGClipping, _>(|c| c.write().write(scene, root.some_handle()));
@@ -368,7 +374,7 @@ impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
 
       // todo write material data
       builder.register::<DefaultDisplay>(val(Vec4::one()));
-      builder.register::<LogicalRenderEntityId>(val(u32::MAX));
+      builder.register::<LogicalRenderEntityId>(val(u32::MAX)); // todo, use max-1 to distinguish the background,but need fix gpu picking
       builder.register::<FragmentRenderNormal>(val(Vec3::new(1.0, 0., 0.)));
 
       // override quad draw config
@@ -493,7 +499,22 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
           });
         })
         .else_by(|| {
-          // todo
+          if_by(
+            front_to_back_intersected
+              .and(front_to_back_marched_depth.greater_than(fill_depth.load()))
+              .and(front_to_back_marched_depth.greater_than(back_depth)),
+            || {
+              fill_depth.store(front_to_back_marched_depth);
+            },
+          );
+          if_by(
+            back_to_front_intersected
+              .and(back_to_front_marched_depth.greater_than(fill_depth.load()))
+              .and(back_to_front_marched_depth.less_than(front_depth)),
+            || {
+              fill_depth.store(back_to_front_marched_depth);
+            },
+          );
         });
         output_depth.store(fill_depth.load());
       });
