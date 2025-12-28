@@ -473,7 +473,9 @@ impl Viewer3dViewportRenderingCtx {
     };
 
     let (clip_component, fill_depth_info) =
-      renderer.clipping.use_get_scene_clipping(content.scene, ctx);
+      renderer
+        .clipping
+        .use_get_scene_clipping(content.scene, ctx, renderer.reversed_depth);
     let clip_component = &OptionRender(clip_component) as &dyn RenderComponent;
 
     let mut taa_content = SceneCameraTAAContent {

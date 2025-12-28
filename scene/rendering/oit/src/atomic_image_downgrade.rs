@@ -27,10 +27,19 @@ impl AtomicImageDowngrade {
     self.size_
   }
 
-  // todo, combine different layer's clear call?
-  // wgpu does not have fill buffer cmd
-  pub fn clear(&self, device: &GPUDevice, encoder: &mut GPUCommandEncoder, layer: u32, value: u32) {
-    let clear_value = create_uniform(Vec4::new(value, layer, 0, 0), device);
+  // wgpu does not have fill buffer cmd, so we have to do it manually
+  pub fn clear(
+    &self,
+    device: &GPUDevice,
+    encoder: &mut GPUCommandEncoder,
+    layer_start: u32,
+    layer_count: u32,
+    value: u32,
+  ) {
+    let area = self.size_.area() as u32;
+    let start_offset = layer_start * area;
+    let count = layer_count * area;
+    let clear_config = create_uniform(Vec4::new(value, start_offset, count, 0), device);
     // cast to common buffer, as we not required atomic write in clear
     let buffer = StorageBufferDataView::<[u32]>::try_from_raw(self.buffer.gpu.clone()).unwrap();
     let workgroup_size = 256;
@@ -39,15 +48,13 @@ impl AtomicImageDowngrade {
       let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
         builder.config_work_group_size(workgroup_size);
         let buffer = builder.bind_by(&buffer);
-        let layer_area = builder.bind_by(&self.size).load().y();
-        let config = builder.bind_by(&clear_value);
+        let config = builder.bind_by(&clear_config);
         let clear_value = config.load().x();
-        let layer_idx = config.load().y();
-
-        let offset = layer_idx * layer_area;
+        let offset = config.load().y();
+        let count = config.load().z();
 
         let id = builder.global_invocation_id().x();
-        if_by(id.less_than(layer_area), || {
+        if_by(id.less_than(count), || {
           buffer.index(id + offset).store(clear_value);
         });
 
@@ -56,12 +63,10 @@ impl AtomicImageDowngrade {
 
       BindingBuilder::default()
         .with_bind(&buffer)
-        .with_bind(&self.size)
-        .with_bind(&clear_value)
+        .with_bind(&clear_config)
         .setup_compute_pass(&mut pass, device, &pipeline);
 
-      let area = self.size_.area() as u32;
-      pass.dispatch_workgroups(area.div_ceil(workgroup_size), 1, 1);
+      pass.dispatch_workgroups(count.div_ceil(workgroup_size), 1, 1);
     });
   }
 

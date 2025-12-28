@@ -57,6 +57,7 @@ impl CSGClippingRenderer {
     &self,
     scene_id: EntityHandle<SceneEntity>,
     ctx: &mut FrameCtx,
+    reverse_z: bool,
   ) -> (
     Option<Box<dyn RenderComponent>>,
     Option<AtomicImageDowngrade>,
@@ -75,18 +76,8 @@ impl CSGClippingRenderer {
         let image = image
           .get_or_insert_with(|| AtomicImageDowngrade::new(&ctx.gpu.device, ctx.frame_size(), 2));
 
-        image.clear(
-          &ctx.gpu.device,
-          &mut ctx.encoder,
-          FRONT_FACE_LAYER_IDX,
-          0_f32.to_bits(),
-        ); // todo reverse
-        image.clear(
-          &ctx.gpu.device,
-          &mut ctx.encoder,
-          BACKFACE_LAYER_IDX,
-          0_f32.to_bits(),
-        ); // todo reverse
+        let bg_depth = if reverse_z { 0_f32 } else { 1_f32 };
+        image.clear(&ctx.gpu.device, &mut ctx.encoder, 0, 2, bg_depth.to_bits());
 
         Some(image.clone())
       })
@@ -100,6 +91,7 @@ impl CSGClippingRenderer {
       let csg_clip = CSGExpressionClippingComponent {
         fill_face_depth: fill_face_depth.clone(),
         expressions: self.expressions.clone(),
+        reverse_z,
       };
 
       // todo, reduce boxing
@@ -157,12 +149,14 @@ impl GraphicsShaderProvider for ClippingRootDirectProvide {
 struct CSGExpressionClippingComponent {
   expressions: AbstractReadonlyStorageBuffer<[u32]>,
   fill_face_depth: Option<AtomicImageDowngrade>,
+  reverse_z: bool,
 }
 
 impl ShaderHashProvider for CSGExpressionClippingComponent {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.fill_face_depth.is_some().hash(hasher);
+    self.reverse_z.hash(hasher);
   }
 }
 
@@ -204,20 +198,20 @@ impl GraphicsShaderProvider for CSGExpressionClippingComponent {
         let is_front = builder.query::<FragmentFrontFacing>();
         let frag_position = builder.query::<FragmentPosition>();
         let frag_position_write = frag_position.xy().into_u32();
+        let depth_write = frag_position.z().bitcast::<u32>();
         if_by(is_front, || {
-          // todo, reverse z config
-          extra_depth.atomic_max(
-            frag_position_write,
-            val(FRONT_FACE_LAYER_IDX),
-            frag_position.z().bitcast::<u32>(),
-          );
+          if self.reverse_z {
+            extra_depth.atomic_max(frag_position_write, val(FRONT_FACE_LAYER_IDX), depth_write);
+          } else {
+            extra_depth.atomic_min(frag_position_write, val(FRONT_FACE_LAYER_IDX), depth_write);
+          }
         })
         .else_by(|| {
-          extra_depth.atomic_max(
-            frag_position_write,
-            val(BACKFACE_LAYER_IDX),
-            frag_position.z().bitcast::<u32>(),
-          );
+          if self.reverse_z {
+            extra_depth.atomic_max(frag_position_write, val(BACKFACE_LAYER_IDX), depth_write);
+          } else {
+            extra_depth.atomic_min(frag_position_write, val(BACKFACE_LAYER_IDX), depth_write);
+          }
         });
       }
 
@@ -332,6 +326,7 @@ impl CSGClippingRenderer {
             .clone()
             .try_into()
             .unwrap(),
+          reverse_z,
         };
 
         let mut draw = RenderArray([
@@ -351,10 +346,14 @@ impl CSGClippingRenderer {
 
 struct ForwardCsgSurfaceDraw {
   filled_depth: GPU2DDepthTextureView,
+  reverse_z: bool,
 }
 
 impl ShaderHashProvider for ForwardCsgSurfaceDraw {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.reverse_z.hash(hasher);
+  }
 }
 
 impl ShaderPassBuilder for ForwardCsgSurfaceDraw {
@@ -367,6 +366,7 @@ impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       // todo, compute normal
+      let normal = val(Vec3::new(1.0, 0., 0.));
 
       let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
       let depth = self.filled_depth.bind_shader(binding);
@@ -375,12 +375,21 @@ impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
       // todo write material data
       builder.register::<DefaultDisplay>(val(Vec4::one()));
       builder.register::<LogicalRenderEntityId>(val(u32::MAX)); // todo, use max-1 to distinguish the background,but need fix gpu picking
-      builder.register::<FragmentRenderNormal>(val(Vec3::new(1.0, 0., 0.)));
+      builder.register::<FragmentRenderNormal>(normal);
 
       // override quad draw config
       let depth_stencil = builder.depth_stencil.as_mut().unwrap();
-      depth_stencil.depth_compare = CompareFunction::Greater; // todo reverse z
+      depth_stencil.depth_compare = if self.reverse_z {
+        CompareFunction::Greater
+      } else {
+        CompareFunction::Less
+      };
       builder.depth_stencil.as_mut().unwrap().depth_write_enabled = true;
+
+      let background = if self.reverse_z { val(0.0) } else { val(1.0) };
+      if_by(depth.equals(background), || {
+        builder.discard();
+      });
 
       builder.register::<FragmentDepthOutput>(depth);
     })
@@ -484,7 +493,7 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
           if_by(is_clip_surface_back_face, || {
             if_by(
               front_to_back_intersected
-                .and(front_to_back_marched_depth.greater_than(fill_depth.load())),
+                .and(front_to_back_marched_depth.greater_than(fill_depth.load())), // todo, reverse z
               || {
                 fill_depth.store(front_to_back_marched_depth);
               },
