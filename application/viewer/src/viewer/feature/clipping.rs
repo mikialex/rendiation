@@ -1,5 +1,6 @@
 use rendiation_csg_sdf_expression::*;
 use rendiation_oit::AtomicImageDowngrade;
+use rendiation_shader_library::shader_uv_space_to_render_space;
 
 use crate::*;
 
@@ -23,17 +24,32 @@ pub fn test_clipping_data(scene: EntityHandle<SceneEntity>) {
     w.new_entity(|w| w.write::<CSGExpressionNodeContent>(&Some(plane)))
   }
 
-  let p1 = write_plane(&mut w, Vec3::new(1., 0., 0.), 0.);
-  let p2 = write_plane(&mut w, Vec3::new(0., 0., 1.), 0.);
-  let p3 = write_plane(&mut w, Vec3::new(0., 1., 0.), 0.);
+  // let p1 = write_plane(&mut w, Vec3::new(1., 0., 0.), 0.);
+  // let p2 = write_plane(&mut w, Vec3::new(0., 0., 1.), 0.);
+  // let p3 = write_plane(&mut w, Vec3::new(0., 1., 0.), 0.);
+
+  // let root = w.new_entity(|w| {
+  //   w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Min))
+  //     .write::<CSGExpressionLeftChild>(&p1.some_handle())
+  //     .write::<CSGExpressionRightChild>(&p2.some_handle())
+  // });
+  // let root = w.new_entity(|w| {
+  //   w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Min))
+  //     .write::<CSGExpressionLeftChild>(&root.some_handle())
+  //     .write::<CSGExpressionRightChild>(&p3.some_handle())
+  // });
+
+  let p1 = write_plane(&mut w, Vec3::new(-1., 0., 0.), 0.);
+  let p2 = write_plane(&mut w, Vec3::new(0., 0., -1.), 0.);
+  let p3 = write_plane(&mut w, Vec3::new(0., -1., 0.), 0.);
 
   let root = w.new_entity(|w| {
-    w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Min))
+    w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Max))
       .write::<CSGExpressionLeftChild>(&p1.some_handle())
       .write::<CSGExpressionRightChild>(&p2.some_handle())
   });
   let root = w.new_entity(|w| {
-    w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Min))
+    w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Max))
       .write::<CSGExpressionLeftChild>(&root.some_handle())
       .write::<CSGExpressionRightChild>(&p3.some_handle())
   });
@@ -328,12 +344,13 @@ impl CSGClippingRenderer {
             .try_into()
             .unwrap(),
           reverse_z,
+          camera: camera_gpu.clone(),
         };
 
         let mut draw = RenderArray([
           &color_writer as &dyn RenderComponent,
           &g_buffer_base_writer as &dyn RenderComponent,
-          // forward_lighting,
+          forward_lighting,
           &draw,
         ])
         .draw_quad();
@@ -347,6 +364,7 @@ impl CSGClippingRenderer {
 
 struct ForwardCsgSurfaceDraw {
   filled_depth: GPU2DDepthTextureView,
+  camera: CameraGPU,
   reverse_z: bool,
 }
 
@@ -359,22 +377,29 @@ impl ShaderHashProvider for ForwardCsgSurfaceDraw {
 
 impl ShaderPassBuilder for ForwardCsgSurfaceDraw {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.camera.setup_pass(ctx);
     self.filled_depth.bind_pass(&mut ctx.binding);
   }
 }
 
 impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    self.camera.inject_uniforms(builder);
     builder.fragment(|builder, binding| {
-      // todo, compute normal
-      let normal = val(Vec3::new(1.0, 0., 0.));
-
       let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
       let depth = self.filled_depth.bind_shader(binding);
       let depth = depth.load_texel(frag_position, val(0));
 
+      let uv = builder.query::<FragmentUv>();
+      let mat = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
+      let render_position = shader_uv_space_to_render_space(mat, uv, depth);
+      let normal = compute_normal_by_dxdy(render_position);
+
+      builder.insert_type_tag::<LightableSurfaceTag>();
+
       // todo write material data
-      builder.register::<DefaultDisplay>(val(Vec4::one()));
+      builder.register::<FragmentRenderPosition>(render_position);
+      // builder.register::<DefaultDisplay>(val(Vec4::one()));
       builder.register::<LogicalRenderEntityId>(val(u32::MAX)); // todo, use max-1 to distinguish the background,but need fix gpu picking
       builder.register::<FragmentRenderNormal>(normal);
 
