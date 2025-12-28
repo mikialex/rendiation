@@ -107,7 +107,7 @@ impl CSGClippingRenderer {
   }
 }
 
-pub fn use_csg_clipping(cx: &mut QueryGPUHookCx) -> Option<CSGClippingRenderer> {
+pub fn use_csg_clipping(cx: &mut QueryGPUHookCx, fill_face: bool) -> Option<CSGClippingRenderer> {
   let expressions = use_csg_device_data(cx);
 
   let scene_csg = cx.use_uniform_buffers();
@@ -122,7 +122,7 @@ pub fn use_csg_clipping(cx: &mut QueryGPUHookCx) -> Option<CSGClippingRenderer> 
   cx.when_render(|| CSGClippingRenderer {
     expressions: expressions.unwrap(),
     scene_csg: scene_csg.make_read_holder(),
-    fill_face: true,
+    fill_face,
   })
 }
 
@@ -418,7 +418,7 @@ impl ShaderPassBuilder for RayMarchingCsgExpression {
     ctx.binding.bind(&self.expressions);
     self.clip_depth.bind_pass(&mut ctx.binding);
     self.clip_normal.bind_pass(&mut ctx.binding);
-    self.fill_depth_info.bind(&mut ctx.binding);
+    self.fill_depth_info.bind_readonly(&mut ctx.binding);
   }
 }
 
@@ -429,7 +429,7 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
       let expressions = AbstractShaderBindingSource::bind_shader(&self.expressions, binding);
       let clip_depth = self.clip_depth.bind_shader(binding);
       let clip_normal = self.clip_normal.bind_shader(binding);
-      let fill_depth_info = self.fill_depth_info.build(binding);
+      let fill_depth_info = self.fill_depth_info.build_readonly(binding);
       let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
       let uv = builder.query::<FragmentUv>();
       let camera_position_world = builder.query::<CameraWorldPositionHP>().expand().f1;
@@ -438,16 +438,15 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
       let root = builder.query::<SceneModelClippingId>();
 
       let background_depth = if self.reverse_depth { val(0.) } else { val(1.) };
-      // let near_depth = if self.reverse_depth { val(1.) } else { val(0.) };
 
       let clip_depth = clip_depth.load_texel(frag_position, val(0));
       let clip_normal = clip_normal.load_texel(frag_position, val(0)).xyz();
       // todo, use common load
       let back_depth = fill_depth_info
-        .atomic_load(frag_position, val(BACKFACE_LAYER_IDX))
+        .load(frag_position, val(BACKFACE_LAYER_IDX))
         .bitcast::<f32>();
       let front_depth = fill_depth_info
-        .atomic_load(frag_position, val(FRONT_FACE_LAYER_IDX))
+        .load(frag_position, val(FRONT_FACE_LAYER_IDX))
         .bitcast::<f32>();
 
       let has_clip = clip_depth.not_equals(background_depth);

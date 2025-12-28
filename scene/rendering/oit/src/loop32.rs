@@ -163,7 +163,7 @@ impl GraphicsShaderProvider for Loop32DepthPrePass {
       cx.depth_stencil.as_mut().unwrap().depth_write_enabled = false;
 
       let oit_layers = self.oit_depth_layers.build(binding);
-      let layer_count = oit_layers.layer_count();
+      let layer_count = oit_layers.info.layer_count();
 
       let depth = cx.query::<FragmentPosition>().z();
       let coord = cx.query::<FragmentPosition>().xy().into_u32();
@@ -255,7 +255,7 @@ impl GraphicsShaderProvider for OitColorPass {
     builder.fragment(|cx, binding| {
       let oit_depth_layers = self.oit_depth_layers.build(binding);
       let oit_color_layers = self.oit_color_layers.build(binding);
-      let layer_count = oit_depth_layers.layer_count();
+      let layer_count = oit_depth_layers.info.layer_count();
 
       // Get the un premultiplied linear-space RGBA color of this pixel
       let color_output = cx.query::<DefaultDisplay>();
@@ -355,9 +355,9 @@ impl ShaderHashProvider for OitResolvePass {
 impl GraphicsShaderProvider for OitResolvePass {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|cx, binding| {
-      let oit_depth_layers = self.oit_depth_layers.build(binding);
-      let oit_color_layers = self.oit_color_layers.build(binding);
-      let layer_count = oit_depth_layers.layer_count();
+      let oit_depth_layers = self.oit_depth_layers.build_readonly(binding);
+      let oit_color_layers = self.oit_color_layers.build_readonly(binding);
+      let layer_count = oit_depth_layers.info.layer_count();
 
       let out_color = val(Vec4::<f32>::zero()).make_local_var();
       let coord = cx.query::<FragmentPosition>().xy().into_u32();
@@ -367,7 +367,7 @@ impl GraphicsShaderProvider for OitResolvePass {
       // Count the number of fragments for this pixel
       let fragments = val(0_u32).make_local_var();
       ForRange::ranged((val(0), layer_count).into()).for_each(|i, cx| {
-        let depth = oit_depth_layers.atomic_load(coord, i);
+        let depth = oit_depth_layers.load(coord, i);
 
         if_by(depth.not_equals(background), || {
           fragments.store(fragments.load() + val(1));
@@ -378,7 +378,7 @@ impl GraphicsShaderProvider for OitResolvePass {
       });
 
       ForRange::ranged((val(0), fragments.load()).into()).for_each(|i, _| {
-        let packed_color = oit_color_layers.atomic_load(coord, i);
+        let packed_color = oit_color_layers.load(coord, i);
         out_color.store(do_blend_packed(out_color.load(), packed_color));
       });
 
@@ -388,8 +388,8 @@ impl GraphicsShaderProvider for OitResolvePass {
 }
 impl ShaderPassBuilder for OitResolvePass {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.oit_depth_layers.bind(&mut ctx.binding);
-    self.oit_color_layers.bind(&mut ctx.binding);
+    self.oit_depth_layers.bind_readonly(&mut ctx.binding);
+    self.oit_color_layers.bind_readonly(&mut ctx.binding);
   }
 }
 

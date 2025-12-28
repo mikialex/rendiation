@@ -74,10 +74,12 @@ impl AtomicImageDowngrade {
     let info = builder.bind_by(&self.size).load();
     AtomicImageInvocationDowngrade {
       buffer: builder.bind_by(&self.buffer),
-      width: info.x(),
-      height: info.w(),
-      area: info.y(),
-      layer_count: info.z(),
+      info: ArrayImageInfo {
+        width: info.x(),
+        height: info.w(),
+        area: info.y(),
+        layer_count: info.z(),
+      },
     }
   }
 
@@ -85,17 +87,106 @@ impl AtomicImageDowngrade {
     builder.bind(&self.size);
     builder.bind(&self.buffer);
   }
+
+  pub fn build_readonly(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+  ) -> AtomicImageInvocationDowngradeReadonly {
+    let info = builder.bind_by(&self.size).load();
+    let buffer = self
+      .buffer
+      .clone()
+      .into_host_nonatomic_array()
+      .into_readonly_view();
+    AtomicImageInvocationDowngradeReadonly {
+      buffer: builder.bind_by(&buffer),
+      info: ArrayImageInfo {
+        width: info.x(),
+        height: info.w(),
+        area: info.y(),
+        layer_count: info.z(),
+      },
+    }
+  }
+
+  pub fn bind_readonly(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.size);
+    let buffer = self
+      .buffer
+      .clone()
+      .into_host_nonatomic_array()
+      .into_readonly_view();
+    builder.bind(&buffer);
+  }
 }
 
 pub struct AtomicImageInvocationDowngrade {
   buffer: ShaderPtrOf<[DeviceAtomic<u32>]>,
+  pub info: ArrayImageInfo,
+}
+
+impl AtomicImageInvocationDowngrade {
+  pub fn atomic_load(&self, position: Node<Vec2<u32>>, layer_idx: Node<u32>) -> Node<u32> {
+    self
+      .buffer
+      .index(self.info.get_position(position, layer_idx))
+      .atomic_load()
+  }
+
+  pub fn atomic_store(&self, position: Node<Vec2<u32>>, layer_idx: Node<u32>, value: Node<u32>) {
+    self
+      .buffer
+      .index(self.info.get_position(position, layer_idx))
+      .atomic_store(value)
+  }
+
+  pub fn atomic_min(
+    &self,
+    position: Node<Vec2<u32>>,
+    layer_idx: Node<u32>,
+    value: Node<u32>,
+  ) -> Node<u32> {
+    self
+      .buffer
+      .index(self.info.get_position(position, layer_idx))
+      .atomic_min(value)
+  }
+
+  pub fn atomic_max(
+    &self,
+    position: Node<Vec2<u32>>,
+    layer_idx: Node<u32>,
+    value: Node<u32>,
+  ) -> Node<u32> {
+    self
+      .buffer
+      .index(self.info.get_position(position, layer_idx))
+      .atomic_max(value)
+  }
+}
+
+pub struct AtomicImageInvocationDowngradeReadonly {
+  buffer: ShaderReadonlyPtrOf<[u32]>,
+  pub info: ArrayImageInfo,
+}
+
+impl AtomicImageInvocationDowngradeReadonly {
+  pub fn load(&self, position: Node<Vec2<u32>>, layer_idx: Node<u32>) -> Node<u32> {
+    self
+      .buffer
+      .index(self.info.get_position(position, layer_idx))
+      .load()
+  }
+}
+
+pub struct ArrayImageInfo {
   width: Node<u32>,
   height: Node<u32>,
   area: Node<u32>,
   layer_count: Node<u32>,
 }
 
-impl AtomicImageInvocationDowngrade {
+impl ArrayImageInfo {
   pub fn layer_count(&self) -> Node<u32> {
     self.layer_count
   }
@@ -108,43 +199,5 @@ impl AtomicImageInvocationDowngrade {
     let x = position.x();
     let y = position.y();
     x + y * self.width + self.area * layer_idx
-  }
-
-  pub fn atomic_load(&self, position: Node<Vec2<u32>>, layer_idx: Node<u32>) -> Node<u32> {
-    self
-      .buffer
-      .index(self.get_position(position, layer_idx))
-      .atomic_load()
-  }
-
-  pub fn atomic_store(&self, position: Node<Vec2<u32>>, layer_idx: Node<u32>, value: Node<u32>) {
-    self
-      .buffer
-      .index(self.get_position(position, layer_idx))
-      .atomic_store(value)
-  }
-
-  pub fn atomic_min(
-    &self,
-    position: Node<Vec2<u32>>,
-    layer_idx: Node<u32>,
-    value: Node<u32>,
-  ) -> Node<u32> {
-    self
-      .buffer
-      .index(self.get_position(position, layer_idx))
-      .atomic_min(value)
-  }
-
-  pub fn atomic_max(
-    &self,
-    position: Node<Vec2<u32>>,
-    layer_idx: Node<u32>,
-    value: Node<u32>,
-  ) -> Node<u32> {
-    self
-      .buffer
-      .index(self.get_position(position, layer_idx))
-      .atomic_max(value)
   }
 }

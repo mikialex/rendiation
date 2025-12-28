@@ -22,6 +22,7 @@ pub struct Viewer3dRenderingCtx {
   pub(super) lighting: LightSystem,
   pub(super) gpu: GPU,
   pub(super) prefer_bindless_for_indirect_texture_system: bool,
+  pub(super) fill_clip_face: bool,
 
   pub views: FastHashMap<u64, Viewer3dViewportRenderingCtx>,
 
@@ -74,6 +75,7 @@ impl Viewer3dRenderingCtx {
       gpu,
       views: FastHashMap::default(),
       init_config: init_config.clone(),
+      fill_clip_face: true,
     }
   }
 
@@ -339,7 +341,7 @@ impl Viewer3dRenderingCtx {
       .use_shared_dual_query_view(SceneModelWorldBounding)
       .use_assure_result(cx);
 
-    let clipping = use_csg_clipping(cx);
+    let clipping = use_csg_clipping(cx, self.fill_clip_face);
 
     cx.when_render(|| ViewerRendererInstancePreparer {
       camera: camera.unwrap(),
