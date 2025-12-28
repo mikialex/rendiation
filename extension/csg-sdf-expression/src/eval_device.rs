@@ -61,14 +61,14 @@ pub fn use_csg_device_data(
   cx.when_render(|| storages.get_gpu_buffer())
 }
 
-struct TreeTraverseStack {
+pub struct CSGEvaluator {
   result_stack: ShaderPtrOf<[f32; MAX_CSG_EVAL_STACK_SIZE]>,
   result_len: ShaderPtrOf<u32>,
   expr_stack: ShaderPtrOf<[u32; MAX_CSG_EVAL_STACK_SIZE]>, // each expr is 5 u32.
   expr_len: ShaderPtrOf<u32>,
 }
 
-impl Default for TreeTraverseStack {
+impl Default for CSGEvaluator {
   fn default() -> Self {
     let result_stack = zeroed_val::<[f32; MAX_CSG_EVAL_STACK_SIZE]>();
     let expr_stack = zeroed_val::<[u32; MAX_CSG_EVAL_STACK_SIZE]>();
@@ -84,8 +84,8 @@ impl Default for TreeTraverseStack {
 const MIN_ACTION_TAG: u32 = u32::MAX - 1;
 const MAX_ACTION_TAG: u32 = u32::MAX - 2;
 
-impl TreeTraverseStack {
-  pub fn push(&self, action: CSGExpressionNodeDeviceAction) {
+impl CSGEvaluator {
+  fn push(&self, action: CSGExpressionNodeDeviceAction) {
     let node_or_tag = match action {
       CSGExpressionNodeDeviceAction::Input(node) => node,
       CSGExpressionNodeDeviceAction::MaxAction => val(MAX_ACTION_TAG),
@@ -96,23 +96,20 @@ impl TreeTraverseStack {
     self.expr_stack.index(idx).store(node_or_tag);
   }
 
-  pub fn push_result(&self, item: Node<f32>) {
+  fn push_result(&self, item: Node<f32>) {
     let idx = self.result_len.load();
     self.result_len.store(idx + val(1));
     self.result_stack.index(idx).store(item)
   }
 
-  pub fn pop_result(&self) -> Node<f32> {
+  fn pop_result(&self) -> Node<f32> {
     let idx = self.result_len.load();
     let read_idx = idx - val(1);
     self.result_len.store(read_idx);
     self.result_stack.index(read_idx).load()
   }
 
-  pub fn pop(
-    &self,
-    expr_pool: &ShaderReadonlyPtrOf<[u32]>,
-  ) -> (Node<bool>, CSGExpressionNodeDevice) {
+  fn pop(&self, expr_pool: &ShaderReadonlyPtrOf<[u32]>) -> (Node<bool>, CSGExpressionNodeDevice) {
     let idx = self.expr_len.load();
 
     let valid = idx.not_equals(val(0));
@@ -204,12 +201,13 @@ impl CSGExpressionNodeDevice {
   }
 }
 
+/// the passed in evaluator must in clean state
 pub fn eval_distance(
+  stack: &CSGEvaluator,
   world_position: Node<Vec3<f32>>,
   root: Node<u32>,
   expression_nodes: &ShaderReadonlyPtrOf<[u32]>,
 ) -> Node<f32> {
-  let stack = TreeTraverseStack::default();
   stack.push(CSGExpressionNodeDeviceAction::Input(root));
 
   loop_by(|cx| {

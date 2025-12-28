@@ -215,7 +215,8 @@ impl GraphicsShaderProvider for CSGExpressionClippingComponent {
         });
       }
 
-      let distance = eval_distance(world_position, root, &expressions);
+      let eval = CSGEvaluator::default();
+      let distance = eval_distance(&eval, world_position, root, &expressions);
       if_by(distance.less_than(val(0.)), || {
         builder.discard();
       });
@@ -459,10 +460,13 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
 
       let output_depth = background_depth.make_local_var();
 
+      let eval = CSGEvaluator::default();
+
       if_by(should_check, || {
         let start = compute_start_point_fn(uv, back_depth, camera_position_world, ndc_to_render);
         let dir = (camera_position_world - start).normalize();
         let (back_to_front_marched_depth, back_to_front_intersected) = ray_marching(
+          &eval,
           &expressions,
           root,
           start,
@@ -474,6 +478,7 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
         let start = compute_start_point_fn(uv, front_depth, camera_position_world, ndc_to_render);
         let dir = (start - camera_position_world).normalize();
         let (front_to_back_marched_depth, front_to_back_intersected) = ray_marching(
+          &eval,
           &expressions,
           root,
           start,
@@ -551,6 +556,7 @@ fn compute_start_point(
 
 /// return (final position, if intersected)
 fn ray_marching(
+  evaluator: &CSGEvaluator,
   expressions: &ShaderReadonlyPtrOf<[u32]>,
   root: Node<u32>,
   start: Node<Vec3<f32>>,
@@ -564,7 +570,7 @@ fn ray_marching(
   // raymarching
   let eval_count = val(0_u32).make_local_var();
   loop_by(|lcx| {
-    let distance = eval_distance(surface_point.load(), root, expressions);
+    let distance = eval_distance(evaluator, surface_point.load(), root, expressions);
 
     // not in clip part
     if_by(distance.greater_equal_than(val(0.)), || {
