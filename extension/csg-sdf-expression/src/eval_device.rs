@@ -55,7 +55,10 @@ pub fn use_csg_device_data(
       EXPR_BYTE_WIDTH,
     );
 
-  storages.use_max_item_count_by_db_entity::<CSGExpressionNodeEntity>(cx);
+  storages.use_max_item_count_by_db_entity_with_extra_ratio::<CSGExpressionNodeEntity>(
+    cx,
+    EXPR_U32_WIDTH as u32,
+  );
   storages.use_update(cx);
 
   cx.when_render(|| storages.get_gpu_buffer())

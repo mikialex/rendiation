@@ -11,62 +11,17 @@ pub fn register_clipping_data_model() {
 
 declare_foreign_key!(SceneCSGClipping, SceneEntity, CSGExpressionNodeEntity);
 
-pub fn test_clipping_data(scene: EntityHandle<SceneEntity>) {
-  let mut w = global_entity_of::<CSGExpressionNodeEntity>().entity_writer();
-
-  fn write_plane(
-    w: &mut EntityWriter<CSGExpressionNodeEntity>,
-    dir: Vec3<f32>,
-    constant: f32,
-  ) -> EntityHandle<CSGExpressionNodeEntity> {
-    let plane = Plane::new(dir.into_normalized(), constant);
-    let plane = CSGExpressionNode::Plane(plane);
-    w.new_entity(|w| w.write::<CSGExpressionNodeContent>(&Some(plane)))
-  }
-
-  // let p1 = write_plane(&mut w, Vec3::new(1., 0., 0.), 0.);
-  // let p2 = write_plane(&mut w, Vec3::new(0., 0., 1.), 0.);
-  // let p3 = write_plane(&mut w, Vec3::new(0., 1., 0.), 0.);
-
-  // let root = w.new_entity(|w| {
-  //   w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Min))
-  //     .write::<CSGExpressionLeftChild>(&p1.some_handle())
-  //     .write::<CSGExpressionRightChild>(&p2.some_handle())
-  // });
-  // let root = w.new_entity(|w| {
-  //   w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Min))
-  //     .write::<CSGExpressionLeftChild>(&root.some_handle())
-  //     .write::<CSGExpressionRightChild>(&p3.some_handle())
-  // });
-
-  let p1 = write_plane(&mut w, Vec3::new(-1., 0., 0.), 0.);
-  let p2 = write_plane(&mut w, Vec3::new(0., 0., -1.), 0.);
-  let p3 = write_plane(&mut w, Vec3::new(0., -1., 0.), 0.);
-
-  let root = w.new_entity(|w| {
-    w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Max))
-      .write::<CSGExpressionLeftChild>(&p1.some_handle())
-      .write::<CSGExpressionRightChild>(&p2.some_handle())
-  });
-  let root = w.new_entity(|w| {
-    w.write::<CSGExpressionNodeContent>(&Some(CSGExpressionNode::Max))
-      .write::<CSGExpressionLeftChild>(&root.some_handle())
-      .write::<CSGExpressionRightChild>(&p3.some_handle())
-  });
-
-  global_entity_component_of::<SceneCSGClipping, _>(|c| c.write().write(scene, root.some_handle()));
-}
-
 pub struct CSGClippingRenderer {
   expressions: AbstractReadonlyStorageBuffer<[u32]>,
   scene_csg: LockReadGuardHolder<UniformBufferCollectionRaw<u32, Vec4<u32>>>,
   fill_face: bool,
+  enable: bool,
 }
 
 impl CSGClippingRenderer {
   /// pass scene because not scene has clipping
   pub fn fill_face(&self, scene: EntityHandle<SceneEntity>) -> bool {
-    self.fill_face && self.scene_csg.get(&scene.alloc_index()).is_some()
+    self.enable && self.fill_face && self.scene_csg.get(&scene.alloc_index()).is_some()
   }
 
   pub fn use_get_scene_clipping(
@@ -78,6 +33,10 @@ impl CSGClippingRenderer {
     Option<Box<dyn RenderComponent>>,
     Option<AtomicImageDowngrade>,
   ) {
+    if !self.enable {
+      return (None, None);
+    }
+
     let fill_face_depth = if self.fill_face && self.scene_csg.get(&scene_id.alloc_index()).is_some()
     {
       ctx.scope(|ctx| {
@@ -123,7 +82,11 @@ impl CSGClippingRenderer {
   }
 }
 
-pub fn use_csg_clipping(cx: &mut QueryGPUHookCx, fill_face: bool) -> Option<CSGClippingRenderer> {
+pub fn use_csg_clipping(
+  cx: &mut QueryGPUHookCx,
+  enable: bool,
+  fill_face: bool,
+) -> Option<CSGClippingRenderer> {
   let expressions = use_csg_device_data(cx);
 
   let scene_csg = cx.use_uniform_buffers();
@@ -139,6 +102,7 @@ pub fn use_csg_clipping(cx: &mut QueryGPUHookCx, fill_face: bool) -> Option<CSGC
     expressions: expressions.unwrap(),
     scene_csg: scene_csg.make_read_holder(),
     fill_face,
+    enable,
   })
 }
 
@@ -488,7 +452,14 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
       let eval = CSGEvaluator::default();
 
       if_by(should_check, || {
-        let start = compute_start_point_fn(uv, back_depth, camera_position_world, ndc_to_render);
+        let back_depth_start = back_depth.make_local_var();
+        if_by(has_clip.and(clip_depth.less_than(back_depth)), || {
+          back_depth_start.store(clip_depth);
+        });
+        let back_depth_start = back_depth_start.load();
+
+        let start =
+          compute_start_point_fn(uv, back_depth_start, camera_position_world, ndc_to_render);
         let dir = (camera_position_world - start).normalize();
         let (back_to_front_marched_depth, back_to_front_intersected) = ray_marching(
           &eval,
