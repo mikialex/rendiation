@@ -37,6 +37,10 @@ impl CSGxSDFxEvaluator {
     let expr = self.nodes.get(node).unwrap().as_ref().unwrap();
     match expr {
       CSGExpressionNode::Plane(plane) => plane.distance_to(&position),
+      CSGExpressionNode::Sphere(sphere) => {
+        let distance = sphere.center.distance_to(position);
+        sphere.radius - distance
+      }
       CSGExpressionNode::Max => {
         let left = self.left.get(node).unwrap();
         let left = self.eval_distance_impl(position, left);

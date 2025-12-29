@@ -1,5 +1,5 @@
 use database::*;
-use rendiation_geometry::Plane;
+use rendiation_geometry::*;
 use rendiation_shader_api::*;
 use serde::*;
 
@@ -38,6 +38,7 @@ declare_foreign_key!(
 #[derive(Clone, Debug, Facet, Serialize, Deserialize, PartialEq)]
 pub enum CSGExpressionNode {
   Plane(Plane),
+  Sphere(Sphere),
   Max,
   Min,
 }
