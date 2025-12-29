@@ -361,10 +361,11 @@ impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
 
       builder.insert_type_tag::<LightableSurfaceTag>();
 
-      // todo write material data
+      // todo config and write material data
       builder.register::<FragmentRenderPosition>(render_position);
-      // builder.register::<DefaultDisplay>(val(Vec4::one()));
-      builder.register::<LogicalRenderEntityId>(val(u32::MAX)); // todo, use max-1 to distinguish the background,but need fix gpu picking
+
+      // todo, use max-1 to distinguish the background,but need fix gpu picking
+      builder.register::<LogicalRenderEntityId>(val(u32::MAX));
       builder.register::<FragmentRenderNormal>(normal);
 
       // override quad draw config
@@ -431,7 +432,6 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
 
       let clip_depth = clip_depth.load_texel(frag_position, val(0));
       let clip_normal = clip_normal.load_texel(frag_position, val(0)).xyz();
-      // todo, use common load
       let back_depth = fill_depth_info
         .load(frag_position, val(BACKFACE_LAYER_IDX))
         .bitcast::<f32>();
@@ -453,7 +453,8 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
 
       if_by(should_check, || {
         let back_depth_start = back_depth.make_local_var();
-        if_by(has_clip.and(clip_depth.less_than(back_depth)), || {
+        let should_use_clip = has_clip.and(clip_depth.further_than(back_depth, self.reverse_depth));
+        if_by(should_use_clip, || {
           back_depth_start.store(clip_depth);
         });
         let back_depth_start = back_depth_start.load();
@@ -493,14 +494,14 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
           if_by(is_clip_surface_back_face, || {
             if_by(
               front_to_back_intersected
-                .and(front_to_back_marched_depth.greater_than(fill_depth.load())), // todo, reverse z
+                .and(front_to_back_marched_depth.near_than(fill_depth.load(), self.reverse_depth)),
               || {
                 fill_depth.store(front_to_back_marched_depth);
               },
             );
             if_by(
               back_to_front_intersected
-                .and(back_to_front_marched_depth.greater_than(fill_depth.load())),
+                .and(back_to_front_marched_depth.near_than(fill_depth.load(), self.reverse_depth)),
               || {
                 fill_depth.store(back_to_front_marched_depth);
               },
@@ -510,16 +511,16 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
         .else_by(|| {
           if_by(
             front_to_back_intersected
-              .and(front_to_back_marched_depth.greater_than(fill_depth.load()))
-              .and(front_to_back_marched_depth.greater_than(back_depth)),
+              .and(front_to_back_marched_depth.near_than(fill_depth.load(), self.reverse_depth))
+              .and(front_to_back_marched_depth.near_than(back_depth, self.reverse_depth)),
             || {
               fill_depth.store(front_to_back_marched_depth);
             },
           );
           if_by(
             back_to_front_intersected
-              .and(back_to_front_marched_depth.greater_than(fill_depth.load()))
-              .and(back_to_front_marched_depth.less_than(front_depth)),
+              .and(back_to_front_marched_depth.near_than(fill_depth.load(), self.reverse_depth))
+              .and(back_to_front_marched_depth.further_than(front_depth, self.reverse_depth)),
             || {
               fill_depth.store(back_to_front_marched_depth);
             },
