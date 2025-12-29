@@ -117,6 +117,9 @@ impl Viewer3dRenderingCtx {
       "enable_frustum_culling",
     );
 
+    ui.checkbox(&mut self.enable_clip, "enable_clip");
+    ui.checkbox(&mut self.fill_clip_face, "fill_csg_clip_face");
+
     ui.separator();
 
     self.lighting.egui(ui, is_hdr);

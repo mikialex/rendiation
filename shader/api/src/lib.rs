@@ -11,6 +11,7 @@ mod compute;
 mod graphics;
 mod layout;
 mod re_export;
+mod semantic_depth_compare;
 mod serialization;
 mod u32_load_store;
 

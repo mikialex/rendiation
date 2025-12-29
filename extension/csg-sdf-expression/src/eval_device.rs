@@ -10,6 +10,7 @@ const EXPR_U32_WIDTH: usize = 7;
 const EXPR_BYTE_WIDTH: usize = EXPR_U32_WIDTH * 4;
 
 const PLANE_TAG: u32 = 3;
+const SPHERE_TAG: u32 = 4;
 const MAX_TAG: u32 = 1;
 const MIN_TAG: u32 = 2;
 
@@ -23,12 +24,19 @@ pub fn use_csg_device_data(
   cx.use_changes::<CSGExpressionNodeContent>()
     .map_changes(|c| match c {
       Some(c) => match c {
-        CSGExpressionNode::Plane(hyper_plane) => [
+        CSGExpressionNode::Plane(plane) => [
           PLANE_TAG,
-          hyper_plane.normal.x.to_bits(),
-          hyper_plane.normal.y.to_bits(),
-          hyper_plane.normal.z.to_bits(),
-          hyper_plane.constant.to_bits(),
+          plane.normal.x.to_bits(),
+          plane.normal.y.to_bits(),
+          plane.normal.z.to_bits(),
+          plane.constant.to_bits(),
+        ],
+        CSGExpressionNode::Sphere(sphere) => [
+          SPHERE_TAG,
+          sphere.center.x.to_bits(),
+          sphere.center.y.to_bits(),
+          sphere.center.z.to_bits(),
+          sphere.radius.to_bits(),
         ],
         CSGExpressionNode::Max => [MAX_TAG, 0, 0, 0, 0],
         CSGExpressionNode::Min => [MIN_TAG, 0, 0, 0, 0],
@@ -55,20 +63,23 @@ pub fn use_csg_device_data(
       EXPR_BYTE_WIDTH,
     );
 
-  storages.use_max_item_count_by_db_entity::<CSGExpressionNodeEntity>(cx);
+  storages.use_max_item_count_by_db_entity_with_extra_ratio::<CSGExpressionNodeEntity>(
+    cx,
+    EXPR_U32_WIDTH as u32,
+  );
   storages.use_update(cx);
 
   cx.when_render(|| storages.get_gpu_buffer())
 }
 
-struct TreeTraverseStack {
+pub struct CSGEvaluator {
   result_stack: ShaderPtrOf<[f32; MAX_CSG_EVAL_STACK_SIZE]>,
   result_len: ShaderPtrOf<u32>,
   expr_stack: ShaderPtrOf<[u32; MAX_CSG_EVAL_STACK_SIZE]>, // each expr is 5 u32.
   expr_len: ShaderPtrOf<u32>,
 }
 
-impl Default for TreeTraverseStack {
+impl Default for CSGEvaluator {
   fn default() -> Self {
     let result_stack = zeroed_val::<[f32; MAX_CSG_EVAL_STACK_SIZE]>();
     let expr_stack = zeroed_val::<[u32; MAX_CSG_EVAL_STACK_SIZE]>();
@@ -84,8 +95,8 @@ impl Default for TreeTraverseStack {
 const MIN_ACTION_TAG: u32 = u32::MAX - 1;
 const MAX_ACTION_TAG: u32 = u32::MAX - 2;
 
-impl TreeTraverseStack {
-  pub fn push(&self, action: CSGExpressionNodeDeviceAction) {
+impl CSGEvaluator {
+  fn push(&self, action: CSGExpressionNodeDeviceAction) {
     let node_or_tag = match action {
       CSGExpressionNodeDeviceAction::Input(node) => node,
       CSGExpressionNodeDeviceAction::MaxAction => val(MAX_ACTION_TAG),
@@ -96,23 +107,20 @@ impl TreeTraverseStack {
     self.expr_stack.index(idx).store(node_or_tag);
   }
 
-  pub fn push_result(&self, item: Node<f32>) {
+  fn push_result(&self, item: Node<f32>) {
     let idx = self.result_len.load();
     self.result_len.store(idx + val(1));
     self.result_stack.index(idx).store(item)
   }
 
-  pub fn pop_result(&self) -> Node<f32> {
+  fn pop_result(&self) -> Node<f32> {
     let idx = self.result_len.load();
     let read_idx = idx - val(1);
     self.result_len.store(read_idx);
     self.result_stack.index(read_idx).load()
   }
 
-  pub fn pop(
-    &self,
-    expr_pool: &ShaderReadonlyPtrOf<[u32]>,
-  ) -> (Node<bool>, CSGExpressionNodeDevice) {
+  fn pop(&self, expr_pool: &ShaderReadonlyPtrOf<[u32]>) -> (Node<bool>, CSGExpressionNodeDevice) {
     let idx = self.expr_len.load();
 
     let valid = idx.not_equals(val(0));
@@ -140,6 +148,7 @@ impl TreeTraverseStack {
 
 enum CSGExpressionNodeDeviceVariant {
   Plane(ENode<ShaderPlane>),
+  Sphere(Node<Vec3<f32>>, Node<f32>),
   InputMax(Node<u32>, Node<u32>),
   ExecuteMax,
   InputMin(Node<u32>, Node<u32>),
@@ -185,6 +194,20 @@ impl CSGExpressionNodeDevice {
             let plane = ENode::<ShaderPlane> { normal, constant };
             f(CSGExpressionNodeDeviceVariant::Plane(plane))
           })
+          .case(SPHERE_TAG, || {
+            let offset = pool_offset + val(1);
+            let center = Node::<Vec3<f32>>::load_from_u32_buffer(
+              &self.expr_pool,
+              offset,
+              StructLayoutTarget::Packed,
+            );
+            let radius = self
+              .expr_pool
+              .index(offset + val(3))
+              .load()
+              .bitcast::<f32>();
+            f(CSGExpressionNodeDeviceVariant::Sphere(center, radius))
+          })
           .case(MAX_TAG, || {
             let offset = pool_offset + val(EXPR_U32_PAYLOAD_WIDTH as u32);
             let left = self.expr_pool.index(offset).load();
@@ -204,12 +227,13 @@ impl CSGExpressionNodeDevice {
   }
 }
 
+/// the passed in evaluator must in clean state
 pub fn eval_distance(
+  stack: &CSGEvaluator,
   world_position: Node<Vec3<f32>>,
   root: Node<u32>,
   expression_nodes: &ShaderReadonlyPtrOf<[u32]>,
 ) -> Node<f32> {
-  let stack = TreeTraverseStack::default();
   stack.push(CSGExpressionNodeDeviceAction::Input(root));
 
   loop_by(|cx| {
@@ -219,6 +243,9 @@ pub fn eval_distance(
     next_node.match_by(|v| match v {
       CSGExpressionNodeDeviceVariant::Plane(node) => {
         stack.push_result(shader_plane_distance(world_position, node));
+      }
+      CSGExpressionNodeDeviceVariant::Sphere(center, radius) => {
+        stack.push_result((center - world_position).length() - radius);
       }
       CSGExpressionNodeDeviceVariant::InputMax(left, right) => {
         stack.push(CSGExpressionNodeDeviceAction::MaxAction);

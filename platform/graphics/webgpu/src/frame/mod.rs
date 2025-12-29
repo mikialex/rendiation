@@ -27,6 +27,7 @@ pub struct FrameCtx<'a> {
   /// to avoid unnecessary bindgroup invalidation.
   pass_info_pool: &'a PassInfoPool,
   statistics: Option<FrameStaticInfoResolver>,
+  /// if we are in the ctx of viewport, the frame size is the viewport frame size
   pub frame_size: Size,
   pub memory: &'a mut FunctionMemory,
 }

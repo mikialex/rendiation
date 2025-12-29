@@ -53,6 +53,16 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
     self.buffer.check_resize(size_require as u32);
   }
 
+  pub fn use_max_item_count_by_db_entity_with_extra_ratio<E: EntitySemantic>(
+    &mut self,
+    _cx: &mut QueryGPUHookCx,
+    ratio: u32,
+  ) {
+    let size_require =
+      database::global_database().access_table_dyn(E::entity_id(), |table| table.entity_capacity());
+    self.buffer.check_resize(size_require as u32 * ratio);
+  }
+
   pub fn use_update(&mut self, cx: &mut QueryGPUHookCx) {
     use_update_impl(cx, &mut self.collector, self.buffer.abstract_gpu());
   }

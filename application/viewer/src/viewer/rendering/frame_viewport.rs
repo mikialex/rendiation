@@ -472,8 +472,11 @@ impl Viewer3dViewportRenderingCtx {
       sm_world_bounding: &renderer.sm_world_bounding,
     };
 
-    let extra_pass_component = renderer.clipping.get_scene_clipping(content.scene);
-    let extra_pass_component = OptionRender(extra_pass_component);
+    let (clip_component, fill_depth_info) =
+      renderer
+        .clipping
+        .use_get_scene_clipping(content.scene, ctx, renderer.reversed_depth);
+    let clip_component = &OptionRender(clip_component) as &dyn RenderComponent;
 
     let mut taa_content = SceneCameraTAAContent {
       camera,
@@ -488,8 +491,10 @@ impl Viewer3dViewportRenderingCtx {
           ctx,
           &renderer.lighting,
           &mut renderer.culling,
-          &extra_pass_component,
           &renderer_c,
+          &renderer.clipping,
+          clip_component,
+          &fill_depth_info,
           content.scene,
           viewport,
           &scene_result,
@@ -602,7 +607,7 @@ impl Viewer3dViewportRenderingCtx {
 
     let highlight_dispatch = RenderArray([
       &HighLightMaskDispatcher as &dyn RenderComponent,
-      &extra_pass_component,
+      clip_component,
     ]);
 
     let mut highlight_compose = (content.selected_model.is_some()).then(|| {

@@ -1,5 +1,6 @@
 mod defer_protocol;
 pub use defer_protocol::*;
+use rendiation_oit::AtomicImageDowngrade;
 use rendiation_texture_gpu_process::ToneMap;
 
 use crate::*;
@@ -22,8 +23,10 @@ pub fn render_lighting_scene_content(
   ctx: &mut FrameCtx,
   lighting_cx: &LightingRenderingCx,
   cull_cx: &mut ViewerCulling,
-  pass_render_component: &dyn RenderComponent,
   renderer: &ViewerSceneRenderer,
+  clipping: &CSGClippingRenderer,
+  clip_component: &dyn RenderComponent,
+  fill_depth_info: &Option<AtomicImageDowngrade>,
   scene: EntityHandle<SceneEntity>,
   viewport: &ViewerViewPort,
   scene_result: &RenderTargetView,
@@ -72,7 +75,7 @@ pub fn render_lighting_scene_content(
   let forward_lighting = lighting_cx
     .lighting
     .get_scene_forward_lighting_component(scene, camera);
-  let pass_com = &RenderArray([forward_lighting.as_ref(), pass_render_component]);
+  let pass_com = &RenderArray([forward_lighting.as_ref(), clip_component]);
 
   match lighting_cx.lighting_method {
     LightingTechniqueKind::Forward => ctx.scope(|ctx| {
@@ -90,7 +93,7 @@ pub fn render_lighting_scene_content(
       ]) as &dyn RenderComponent;
 
       let draw_opaque = |ctx: &mut FrameCtx<'_>, cull_cx: &mut ViewerCulling| {
-        cull_cx.draw_with_oc_maybe_enabled(
+        let pass = cull_cx.draw_with_oc_maybe_enabled(
           ctx,
           renderer,
           opaque_scene_pass_dispatcher,
@@ -99,7 +102,28 @@ pub fn render_lighting_scene_content(
           &mut |pass| pass.by(&mut background),
           pass_base,
           all_opaque_object,
-        )
+        );
+
+        if !clipping.fill_face(scene) {
+          return Some(pass);
+        }
+        drop(pass);
+
+        let fill_depth_info = fill_depth_info.clone().unwrap();
+        clipping.draw_csg_surface(
+          ctx,
+          g_buffer,
+          fill_depth_info,
+          CSGxClipFillType::Forward {
+            scene_result,
+            forward_lighting: &forward_lighting,
+          },
+          camera_gpu,
+          scene,
+          renderer.reversed_depth,
+        );
+
+        None
       };
 
       renderer.transparent_content_renderer.render(
@@ -134,7 +158,7 @@ pub fn render_lighting_scene_content(
           &DisableAllChannelBlend as &dyn RenderComponent,
           &g_buffer_base_writer,
           &material_writer,
-          pass_render_component,
+          clip_component,
         ]) as &dyn RenderComponent;
 
         cull_cx.draw_with_oc_maybe_enabled(
@@ -147,6 +171,18 @@ pub fn render_lighting_scene_content(
           pass_base,
           all_opaque_object,
         );
+
+        if let Some(fill_depth_info) = fill_depth_info {
+          clipping.draw_csg_surface(
+            ctx,
+            g_buffer,
+            fill_depth_info.clone(),
+            CSGxClipFillType::Defer(&m_buffer),
+            camera_gpu,
+            scene,
+            renderer.reversed_depth,
+          );
+        }
 
         if !only_draw_g_buffer {
           ctx.scope(|ctx| {
@@ -202,7 +238,7 @@ pub fn render_lighting_scene_content(
             scene_result,
             pass_com,
             opaque_scene_pass_dispatcher,
-            |ctx: &mut FrameCtx<'_>, _cull_cx: &mut ViewerCulling| pass_base.render_ctx(ctx),
+            |ctx: &mut FrameCtx<'_>, _cull_cx: &mut ViewerCulling| Some(pass_base.render_ctx(ctx)),
           );
         }
       });
