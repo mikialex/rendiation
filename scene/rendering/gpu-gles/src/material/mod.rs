@@ -103,8 +103,8 @@ pub struct TextureSamplerIdView<T: TextureWithSamplingForeignKeys> {
 impl<T: TextureWithSamplingForeignKeys> TextureSamplerIdView<T> {
   pub fn read_from_global() -> Self {
     Self {
-      texture: global_entity_component_of().read_foreign_key(),
-      sampler: global_entity_component_of().read_foreign_key(),
+      texture: read_global_db_foreign_key(),
+      sampler: read_global_db_foreign_key(),
     }
   }
 

@@ -88,9 +88,9 @@ impl<T: TextureWithSamplingForeignKeys> ForeignKeySemantic for SceneSamplerRefOf
 }
 
 pub fn register_texture_with_sampling<T: TextureWithSamplingForeignKeys>(
-  ecg: EntityComponentGroupTyped<T::Entity>,
+  table: EntityComponentGroupTyped<T::Entity>,
 ) -> EntityComponentGroupTyped<T::Entity> {
-  ecg
+  table
     .declare_foreign_key::<SceneTexture2dRefOf<T>>()
     .declare_foreign_key::<SceneSamplerRefOf<T>>()
 }

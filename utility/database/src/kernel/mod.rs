@@ -1,6 +1,5 @@
 mod component;
 mod component_typed;
-mod ecg;
 mod entity_reader;
 mod entity_writer;
 mod entity_writer_typed;
@@ -8,10 +7,10 @@ mod entry;
 mod handle;
 mod lock;
 mod query;
+mod table;
 
 pub use component::*;
 pub use component_typed::*;
-pub use ecg::*;
 pub use entity_reader::*;
 pub use entity_writer::*;
 pub use entity_writer_typed::*;
@@ -19,6 +18,7 @@ pub use entry::*;
 pub use handle::*;
 pub use lock::*;
 pub use query::*;
+pub use table::*;
 
 use crate::*;
 

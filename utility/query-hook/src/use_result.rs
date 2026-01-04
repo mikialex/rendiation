@@ -1,5 +1,6 @@
 use crate::*;
 
+#[must_use]
 pub enum UseResult<T> {
   SpawnStageFuture(Pin<FrameBox<dyn Future<Output = T> + Send + Sync>>),
   SpawnStageReady(T),

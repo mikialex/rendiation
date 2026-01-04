@@ -180,7 +180,7 @@ pub fn use_std_model_renderer(
   std_model.use_max_item_count_by_db_entity::<StandardModelEntity>(cx);
 
   cx.when_render(|| SceneStdModelIndirectRenderer {
-    model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
+    model: read_global_db_foreign_key(),
     materials: materials.unwrap(),
     shapes: shapes.unwrap(),
     std_model: std_model.get_gpu_buffer(),

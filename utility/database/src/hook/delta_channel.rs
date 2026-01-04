@@ -115,14 +115,13 @@ impl<T: CValue> Stream for ChangesMutationReceiver<T> {
 
 pub(crate) fn add_delta_listen<T: CValue>(
   bitmap_init: usize,
-  query: impl QueryProvider<RawEntityHandle, T>,
+  query: impl Query<Key = RawEntityHandle, Value = T>,
   source: &EventSource<ChangePtr>,
 ) -> ChangesMutationReceiver<T> {
   let (sender, receiver) = delta_channel::<T>(bitmap_init, 0);
   // expand initial value while first listen.
   unsafe {
     sender.lock();
-    let query = query.access();
     let iter = query.iter_key_value();
 
     let count_hint = iter.size_hint().0;

@@ -100,7 +100,9 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       if prefer_gpu_pick && gpu_pick_future.is_none() && !is_request_list_pick {
         if let Some(view_renderer) = cx.viewer.rendering.views.get_mut(&pointer_ctx.viewport_id) {
           if let Some(render_size) = view_renderer.picker.last_id_buffer_size() {
-            let point = pointer_ctx.normalized_position * Vec2::from(render_size.into_f32());
+            let point = (pointer_ctx.normalized_position * Vec2::new(0.5, -0.5)
+              + Vec2::new(0.5, 0.5))
+              * Vec2::from(render_size.into_f32());
             let point = point.map(|v| v.floor() as usize);
             if let Some(f) = view_renderer.picker.pick_point_at((point.x, point.y)) {
               *gpu_pick_future = Some(f);

@@ -153,22 +153,22 @@ impl AttributesMeshWriter for AttributesMesh {
 }
 
 pub fn register_attribute_mesh_data_model() {
-  let ecg = global_database()
+  let table = global_database()
     .declare_entity::<AttributesMeshEntity>()
     .declare_component::<AttributesMeshEntityTopology>();
 
-  register_scene_buffer_view::<AttributeIndexRef>(ecg);
+  register_scene_buffer_view::<AttributeIndexRef>(table);
 
   global_database()
     .declare_entity::<BufferEntity>()
     .declare_component::<BufferEntityData>();
 
-  let ecg = global_database()
+  let table = global_database()
     .declare_entity::<AttributesMeshEntityVertexBufferRelation>()
     .declare_component::<AttributesMeshEntityVertexBufferSemantic>()
     .declare_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
 
-  register_scene_buffer_view::<AttributeVertexRef>(ecg);
+  register_scene_buffer_view::<AttributeVertexRef>(table);
 }
 
 declare_entity!(InstanceMeshInstanceEntity);

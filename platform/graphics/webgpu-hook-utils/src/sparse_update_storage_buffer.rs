@@ -10,7 +10,7 @@ type SparseStorageBufferRaw<T> =
 
 pub struct SparseUpdateStorageBuffer<T> {
   buffer: SparseStorageBufferRaw<T>,
-  pub(crate) collector: Option<SparseUpdateCollector>,
+  pub collector: Option<SparseUpdateCollector>,
 }
 
 pub type SparseUpdateCollector =
@@ -49,8 +49,18 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
   // todo, use reactive impl(watch db change)
   pub fn use_max_item_count_by_db_entity<E: EntitySemantic>(&mut self, _cx: &mut QueryGPUHookCx) {
     let size_require =
-      database::global_database().access_ecg_dyn(E::entity_id(), |ecg| ecg.entity_capacity());
+      database::global_database().access_table_dyn(E::entity_id(), |table| table.entity_capacity());
     self.buffer.check_resize(size_require as u32);
+  }
+
+  pub fn use_max_item_count_by_db_entity_with_extra_ratio<E: EntitySemantic>(
+    &mut self,
+    _cx: &mut QueryGPUHookCx,
+    ratio: u32,
+  ) {
+    let size_require =
+      database::global_database().access_table_dyn(E::entity_id(), |table| table.entity_capacity());
+    self.buffer.check_resize(size_require as u32 * ratio);
   }
 
   pub fn use_update(&mut self, cx: &mut QueryGPUHookCx) {
@@ -64,7 +74,7 @@ pub type SparseStorageBufferWithHostRaw<T> = CustomGrowBehaviorMaintainer<
 
 pub struct SparseUpdateStorageWithHostBuffer<T: Std430> {
   pub buffer: Arc<RwLock<SparseStorageBufferWithHostRaw<T>>>,
-  pub(crate) collector: Option<SparseUpdateCollector>,
+  pub collector: Option<SparseUpdateCollector>,
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageWithHostBuffer<T> {
@@ -101,7 +111,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageWithHostBuffer<T> 
   // todo, use reactive impl(watch db change)
   pub fn use_max_item_count_by_db_entity<E: EntitySemantic>(&mut self, _cx: &mut QueryGPUHookCx) {
     let size_require =
-      database::global_database().access_ecg_dyn(E::entity_id(), |ecg| ecg.entity_capacity());
+      database::global_database().access_table_dyn(E::entity_id(), |table| table.entity_capacity());
     self.buffer.write().check_resize(size_require as u32);
   }
 

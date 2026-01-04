@@ -63,15 +63,15 @@ pub fn register_scene_animation_data_model() {
     .declare_entity::<SceneAnimationEntity>()
     .declare_foreign_key::<SceneAnimationBelongsToScene>();
 
-  let ecg = global_database()
+  let table = global_database()
     .declare_entity::<SceneAnimationChannelEntity>()
     .declare_foreign_key::<SceneAnimationChannelBelongToAnimation>()
     .declare_foreign_key::<SceneAnimationChannelTargetNode>()
     .declare_component::<SceneAnimationChannelInterpolation>()
     .declare_component::<SceneAnimationChannelField>();
 
-  let ecg = register_scene_buffer_view::<SceneAnimationChannelInput>(ecg);
-  let _ = register_scene_buffer_view::<SceneAnimationChannelOutput>(ecg);
+  let table = register_scene_buffer_view::<SceneAnimationChannelInput>(table);
+  let _ = register_scene_buffer_view::<SceneAnimationChannelOutput>(table);
 }
 
 pub struct AnimationChannelDataView {

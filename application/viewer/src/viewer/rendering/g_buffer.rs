@@ -6,6 +6,7 @@ pub struct FrameGeometryBuffer {
   pub depth: RenderTargetView,
   pub normal: RenderTargetView,
   pub entity_id: RenderTargetView,
+  pub should_skip_entity_id: bool,
 }
 
 pub const MAX_U32_ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::Color {
@@ -16,11 +17,19 @@ pub const MAX_U32_ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::C
 };
 
 impl FrameGeometryBuffer {
+  pub fn should_skip_entity_id(cx: &mut FrameCtx) -> bool {
+    let downgrade_info = &cx.gpu.info().downgrade_info;
+    !downgrade_info
+      .flags
+      .contains(DownlevelFlags::INDEPENDENT_BLEND) // to support webgl!
+  }
+
   pub fn new(cx: &mut FrameCtx) -> Self {
     Self {
       depth: depth_attachment().request(cx),
       normal: attachment().format(TextureFormat::Rgba16Float).request(cx),
       entity_id: attachment().format(TextureFormat::R32Uint).request(cx),
+      should_skip_entity_id: Self::should_skip_entity_id(cx),
     }
   }
 
@@ -28,13 +37,13 @@ impl FrameGeometryBuffer {
     &self,
     desc: &mut RenderPassDescription,
     depth_op: impl Into<Operations<f32>>,
-    skip_entity_id: bool,
+    stencil_op: impl Into<Operations<u32>>,
   ) -> FrameGeometryBufferPassEncoder {
-    desc.set_depth(&self.depth, depth_op);
+    desc.set_depth(&self.depth, depth_op, stencil_op);
 
     FrameGeometryBufferPassEncoder {
       normal: desc.push_color(&self.normal, clear_and_store(all_zero())),
-      entity_id: if skip_entity_id {
+      entity_id: if self.should_skip_entity_id {
         usize::MAX
       } else {
         desc.push_color(&self.entity_id, clear_and_store(MAX_U32_ID_BACKGROUND))
@@ -46,11 +55,17 @@ impl FrameGeometryBuffer {
     &self,
     desc: &mut RenderPassDescription,
   ) -> FrameGeometryBufferPassEncoder {
-    desc.set_depth(&self.depth, load_and_store());
+    desc.set_depth(&self.depth, load_and_store(), load_and_store());
 
     FrameGeometryBufferPassEncoder {
       normal: desc.push_color(&self.normal, load_and_store()),
-      entity_id: desc.push_color(&self.entity_id, load_and_store()),
+      entity_id: if self.should_skip_entity_id {
+        usize::MAX
+      } else {
+        // although here the load store is same for all channels, we still need to reject the writing
+        // as we never successfully write in first place
+        desc.push_color(&self.entity_id, load_and_store())
+      },
     }
   }
 }

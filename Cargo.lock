@@ -926,6 +926,7 @@ dependencies = [
  "rendiation-abstract-uri-data",
  "rmp-serde",
  "serde",
+ "smallbox",
  "smallvec",
  "storage",
 ]
@@ -3661,7 +3662,6 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
- "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
  "rendiation-webgpu",
 ]
@@ -3692,6 +3692,21 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "winit",
+]
+
+[[package]]
+name = "rendiation-csg-sdf-expression"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "facet",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
+ "serde",
 ]
 
 [[package]]
@@ -4834,6 +4849,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "smallbox"
+version = "0.8.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aca054fd9f8c2ebe8557a2433f307e038c0716124efd045daa0388afa5172189"
+
+[[package]]
 name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5423,6 +5444,7 @@ dependencies = [
  "rendiation-animation",
  "rendiation-area-lighting",
  "rendiation-controller",
+ "rendiation-csg-sdf-expression",
  "rendiation-device-ray-tracing",
  "rendiation-fast-down-sampling-2d",
  "rendiation-frustum-culling",

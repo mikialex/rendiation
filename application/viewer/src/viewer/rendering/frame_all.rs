@@ -23,6 +23,9 @@ pub struct Viewer3dRenderingCtx {
   pub(super) gpu: GPU,
   pub(super) prefer_bindless_for_indirect_texture_system: bool,
 
+  pub(super) enable_clip: bool,
+  pub(super) fill_clip_face: bool,
+
   pub views: FastHashMap<u64, Viewer3dViewportRenderingCtx>,
 
   pub(crate) init_config: ViewerInitConfig,
@@ -74,6 +77,8 @@ impl Viewer3dRenderingCtx {
       gpu,
       views: FastHashMap::default(),
       init_config: init_config.clone(),
+      enable_clip: true,
+      fill_clip_face: true,
     }
   }
 
@@ -362,6 +367,8 @@ impl Viewer3dRenderingCtx {
       .use_shared_dual_query_view(SceneModelWorldBounding)
       .use_assure_result(cx);
 
+    let clipping = use_csg_clipping(cx, self.enable_clip, self.fill_clip_face);
+
     cx.when_render(|| ViewerRendererInstancePreparer {
       camera: camera.unwrap(),
       background: background.unwrap(),
@@ -383,6 +390,7 @@ impl Viewer3dRenderingCtx {
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
+      clipping: clipping.unwrap(),
     })
   }
 
@@ -464,6 +472,7 @@ impl Viewer3dRenderingCtx {
       sm_world_bounding: renderer.sm_world_bounding,
       reversed_depth: renderer.reversed_depth,
       lighting: lighting_cx,
+      clipping: renderer.clipping,
     };
 
     let size_backup = ctx.frame_size;
@@ -496,6 +505,7 @@ pub struct ViewerRendererInstancePreparer {
   pub extractor: ViewerBatchExtractor,
   pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   pub lighting: LightingRenderingCxPrepareCtx,
+  pub clipping: CSGClippingRenderer,
   pub culling: ViewerCulling,
   pub mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
@@ -515,6 +525,7 @@ pub struct ViewerRendererInstance<'a> {
   pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   pub reversed_depth: bool,
   pub lighting: LightingRenderingCx<'a>,
+  pub clipping: CSGClippingRenderer,
 }
 
 pub struct ViewerBatchExtractor {

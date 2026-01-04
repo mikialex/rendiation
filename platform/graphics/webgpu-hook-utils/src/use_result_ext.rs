@@ -52,13 +52,13 @@ pub trait DataChangeGPUExtForUseResult<K: LinearIdentified + CKey> {
     U: Std430 + ShaderSizedValueNodeType + Default,
     K: LinearIdentified + CKey;
 
-  fn update_storage_array_raw<U>(
+  fn update_gpu_buffer_array_raw(
     self,
     cx: &mut QueryGPUHookCx,
     collector: Option<&mut SparseUpdateCollector>,
-    field_offset: usize,
+    field_byte_offset: usize,
+    item_byte_size: usize,
   ) where
-    U: Std430 + ShaderSizedValueNodeType + Default,
     K: LinearIdentified + CKey;
 }
 
@@ -98,6 +98,7 @@ where
     r.update_uniform_array(uniforms, field_offset, gpu);
   }
 
+  #[inline(always)]
   fn update_storage_array<U>(
     self,
     cx: &mut QueryGPUHookCx,
@@ -107,9 +108,11 @@ where
     U: Std430 + ShaderSizedValueNodeType + Default,
     K: LinearIdentified + CKey,
   {
-    self.update_storage_array_raw::<U>(cx, storage.collector.as_mut(), field_offset);
+    let item_byte_size = std::mem::size_of::<U>();
+    self.update_gpu_buffer_array_raw(cx, storage.collector.as_mut(), field_offset, item_byte_size);
   }
 
+  #[inline(always)]
   fn update_storage_array_with_host<U>(
     self,
     cx: &mut QueryGPUHookCx,
@@ -119,16 +122,18 @@ where
     U: Std430 + ShaderSizedValueNodeType + Default,
     K: LinearIdentified + CKey,
   {
-    self.update_storage_array_raw::<U>(cx, storage.collector.as_mut(), field_offset);
+    let item_byte_size = std::mem::size_of::<U>();
+    self.update_gpu_buffer_array_raw(cx, storage.collector.as_mut(), field_offset, item_byte_size);
   }
 
-  fn update_storage_array_raw<U>(
+  #[inline(never)]
+  fn update_gpu_buffer_array_raw(
     self,
     cx: &mut QueryGPUHookCx,
     collector: Option<&mut SparseUpdateCollector>,
-    field_offset: usize,
+    field_byte_offset: usize,
+    item_byte_size: usize,
   ) where
-    U: Std430 + ShaderSizedValueNodeType + Default,
     K: LinearIdentified + CKey,
   {
     #[cfg(debug_assertions)]
@@ -175,10 +180,9 @@ where
           spawner
             .spawn_task(move || {
               let mut write_src = SparseBufferWritesSource::default();
-              let item_size = std::mem::size_of::<U>() as u32;
               // todo, avoid resize
               r.iter_update_or_insert().for_each(|(id, value)| {
-                let offset = item_size * id.alloc_index() + field_offset as u32;
+                let offset = item_byte_size as u32 * id.alloc_index() + field_byte_offset as u32;
                 write_src.collect_write(bytes_of(&value), offset as u64);
               });
               write_src

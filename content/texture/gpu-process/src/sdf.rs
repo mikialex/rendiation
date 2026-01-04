@@ -7,7 +7,7 @@ pub fn compute_sdf_for_frame_render(
   max_distance: Option<u32>,
 ) -> RenderTargetView {
   let mask = mask_input
-    .expect_standalone_common_texture_view()
+    .expect_standalone_common_texture_view_for_binding()
     .clone()
     .try_into()
     .unwrap();
@@ -16,7 +16,7 @@ pub fn compute_sdf_for_frame_render(
     .format(TextureFormat::Rg32Float)
     .request(frame_cx);
   let src_ = src
-    .expect_standalone_common_texture_view()
+    .expect_standalone_common_texture_view_for_binding()
     .clone()
     .try_into()
     .unwrap();
@@ -25,7 +25,7 @@ pub fn compute_sdf_for_frame_render(
     .format(TextureFormat::Rg32Float)
     .request(frame_cx);
   let target_ = target
-    .expect_standalone_common_texture_view()
+    .expect_standalone_common_texture_view_for_binding()
     .clone()
     .try_into()
     .unwrap();
@@ -49,10 +49,7 @@ pub fn compute_sdf(
   let num_steps = max_step_width.ilog2() + 1;
 
   pass("jump flooding sdf compute init")
-    .with_color(
-      &RenderTargetView::Texture(source.clone().texture),
-      store_full_frame(),
-    )
+    .with_color(&RenderTargetView::from(source.clone()), store_full_frame())
     .render_ctx(frame_cx)
     .by(
       &mut JumpFloodingInit {
@@ -68,10 +65,7 @@ pub fn compute_sdf(
     );
 
     pass("jump flooding sdf compute iteration")
-      .with_color(
-        &RenderTargetView::Texture(target.clone().texture),
-        store_full_frame(),
-      )
+      .with_color(&RenderTargetView::from(target.clone()), store_full_frame())
       .render_ctx(frame_cx)
       .by(
         &mut JumpFlooding {

@@ -8,12 +8,12 @@ pub fn use_db_scope<Cx: HooksCxLike>(cx: &mut Cx, scope: impl FnOnce(&mut Cx, &m
   let (cx, db_scope) = cx.use_plain_state(EntityScope::default);
 
   let mut scope_watcher_drops = global_database()
-    .ecg_tables
+    .tables
     .read()
     .iter()
     .map(|(e_id, table)| {
       let set = db_scope.entities.entry(*e_id).or_default().clone();
-      let token = table.inner.entity_watchers.on(move |change| unsafe {
+      let token = table.internal.entity_watchers.on(move |change| unsafe {
         match change {
           ScopedMessage::Start => {
             set.raw().lock_exclusive();
@@ -47,12 +47,12 @@ pub fn use_db_scope<Cx: HooksCxLike>(cx: &mut Cx, scope: impl FnOnce(&mut Cx, &m
   scope(cx, db_scope);
 
   global_database()
-    .ecg_tables
+    .tables
     .read()
     .iter()
     .for_each(|(k, table)| {
       table
-        .inner
+        .internal
         .entity_watchers
         .off(scope_watcher_drops.remove(k).unwrap());
     });
@@ -317,12 +317,12 @@ pub fn watch_db_components_in_scope(
   inner: impl FnOnce(&mut StagedDBScopeChangeMerger),
 ) {
   let db = global_database();
-  let tables = db.ecg_tables.read();
+  let tables = db.tables.read();
 
   let mut remove_tokens = tables
     .iter()
     .map(|(e_id, v)| {
-      let components = v.inner.components.read();
+      let components = v.internal.components.read();
       let remove_tokens = components
         .iter()
         .map(|(c_id, v)| {
@@ -380,12 +380,12 @@ pub fn watch_db_components_in_scope(
   inner(scoped_change);
 
   global_database()
-    .ecg_tables
+    .tables
     .read()
     .iter()
     .for_each(|(e_id, v)| {
       let mut removers = remove_tokens.remove(e_id).unwrap();
-      v.inner.components.read().iter().for_each(|(k, v)| {
+      v.internal.components.read().iter().for_each(|(k, v)| {
         let token = removers.remove(k).unwrap();
         v.data_watchers.off(token);
       });

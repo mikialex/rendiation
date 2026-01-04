@@ -50,12 +50,12 @@ pub fn std_model_renderer(
   let state_override = use_state_overrides(cx, revere_z);
 
   cx.when_render(|| SceneStdModelRenderer {
-    model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
+    model: read_global_db_foreign_key(),
     materials: materials.unwrap(),
     shapes: shapes.unwrap(),
     skin_gpu: skin_gpu.unwrap(),
     states: state_override.unwrap(),
-    skin: global_entity_component_of::<StandardModelRefSkin>().read_foreign_key(),
+    skin: read_global_db_foreign_key(),
   })
 }
 

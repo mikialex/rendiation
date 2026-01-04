@@ -22,7 +22,7 @@ pub fn use_indirect_scene_model(
 
   cx.when_render(|| IndirectPreferredComOrderRenderer {
     model_impl: model_impl.unwrap(),
-    node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
+    node: read_global_db_foreign_key(),
     node_render: node.unwrap(),
     id_inject: DefaultSceneModelIdInject(scene_model_meta.get_gpu_buffer()),
   })

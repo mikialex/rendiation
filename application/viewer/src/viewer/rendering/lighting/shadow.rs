@@ -52,9 +52,9 @@ impl<T: BasicShadowMapConfigurable> ComponentSemantic for BasicShadowMapEnabledO
 }
 
 pub fn register_basic_shadow_map_for_light<T: BasicShadowMapConfigurable>(
-  ecg: EntityComponentGroupTyped<T::Entity>,
+  table: EntityComponentGroupTyped<T::Entity>,
 ) -> EntityComponentGroupTyped<T::Entity> {
-  ecg
+  table
     .declare_component::<BasicShadowMapResolutionOf<T>>()
     .declare_component::<BasicShadowMapBiasOf<T>>()
     .declare_component::<BasicShadowMapEnabledOf<T>>()

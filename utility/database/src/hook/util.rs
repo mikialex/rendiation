@@ -1,34 +1,25 @@
 use crate::*;
 
-// this trait could be lift into upper stream
-pub trait QueryProvider<K, V>: Send + Sync {
-  fn access(&self) -> BoxedDynQuery<K, V>;
-}
-
-impl<T: Query + 'static> QueryProvider<T::Key, T::Value> for Arc<RwLock<T>> {
-  fn access(&self) -> BoxedDynQuery<T::Key, T::Value> {
-    Arc::new(self.make_read_holder())
-  }
-}
-
 pub type DBViewUnchecked<V> = IterableComponentReadView<V>;
 pub type DBView<V> = IterableComponentReadViewChecked<V>;
 pub type DBDelta<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
 pub type DBDualQuery<V> = DualQuery<DBView<V>, DBDelta<V>>;
 pub type DBSetDualQuery = DualQuery<BoxedDynQuery<RawEntityHandle, ()>, DBDelta<()>>;
 
+#[inline(always)]
 pub fn get_db_view_no_generation_check<C: ComponentSemantic>() -> DBViewUnchecked<C::Data> {
   get_db_view_no_generation_check_internal(C::Entity::entity_id(), C::component_id())
 }
 
-pub fn get_db_view_no_generation_check_internal<T>(
+#[inline(never)]
+fn get_db_view_no_generation_check_internal<T>(
   e_id: EntityId,
   c_id: ComponentId,
 ) -> DBViewUnchecked<T> {
   global_database()
-    .access_ecg_dyn(e_id, |ecg| {
-      ecg.access_component(c_id, |c| IterableComponentReadView {
-        ecg: ecg.clone(),
+    .access_table_dyn(e_id, |table| {
+      table.access_component(c_id, |c| IterableComponentReadView {
+        table: table.clone(),
         read_view: c.read_untyped(),
         phantom: PhantomData,
       })
@@ -36,27 +27,17 @@ pub fn get_db_view_no_generation_check_internal<T>(
     .unwrap()
 }
 
-pub fn get_db_view_internal<T>(e_id: EntityId, c_id: ComponentId) -> DBView<T> {
-  global_database()
-    .access_ecg_dyn(e_id, |ecg| {
-      ecg.access_component(c_id, |c| IterableComponentReadViewChecked {
-        ecg: ecg.clone(),
-        read_view: c.read_untyped(),
-        phantom: PhantomData,
-      })
-    })
-    .unwrap()
-}
-
+#[inline(always)]
 pub fn get_db_view<C: ComponentSemantic>() -> DBView<C::Data> {
   get_db_view_internal(C::Entity::entity_id(), C::component_id())
 }
 
-pub fn get_db_view_uncheck_access<C: ComponentSemantic>() -> IterableComponentReadView<C::Data> {
+#[inline(never)]
+pub(crate) fn get_db_view_internal<T>(e_id: EntityId, c_id: ComponentId) -> DBView<T> {
   global_database()
-    .access_ecg_dyn(C::Entity::entity_id(), |ecg| {
-      ecg.access_component(C::component_id(), |c| IterableComponentReadView {
-        ecg: ecg.clone(),
+    .access_table_dyn(e_id, |table| {
+      table.access_component(c_id, |c| IterableComponentReadViewChecked {
+        table: table.clone(),
         read_view: c.read_untyped(),
         phantom: PhantomData,
       })
@@ -64,6 +45,7 @@ pub fn get_db_view_uncheck_access<C: ComponentSemantic>() -> IterableComponentRe
     .unwrap()
 }
 
+#[inline(always)]
 pub fn get_db_view_typed<C: ComponentSemantic>(
 ) -> impl Query<Key = EntityHandle<C::Entity>, Value = C::Data> {
   get_db_view_internal(C::Entity::entity_id(), C::component_id()).mark_entity_type::<C::Entity>()
@@ -112,15 +94,7 @@ pub type RevRefOfForeignKey<S> = BoxedDynMultiQuery<
 >;
 
 #[derive(Clone)]
-pub(crate) struct ArenaAccessProvider<T: CValue>(pub(crate) Arc<RwLock<Arena<T>>>);
-impl<T: CValue> QueryProvider<RawEntityHandle, T> for ArenaAccessProvider<T> {
-  fn access(&self) -> BoxedDynQuery<RawEntityHandle, T> {
-    Arc::new(ArenaAccess(self.0.make_read_holder()))
-  }
-}
-
-#[derive(Clone)]
-struct ArenaAccess<T: CValue>(LockReadGuardHolder<Arena<T>>);
+pub struct ArenaAccess<T: CValue>(pub LockReadGuardHolder<Arena<T>>);
 
 impl<V: CValue> Query for ArenaAccess<V> {
   type Key = RawEntityHandle;
@@ -145,34 +119,6 @@ impl<V: CValue> Query for ArenaAccess<V> {
   }
 }
 
-pub(crate) struct ComponentAccess<T> {
-  pub(crate) ecg: EntityComponentGroup,
-  pub(crate) original: ComponentCollectionUntyped,
-  pub(crate) phantom: PhantomData<T>,
-}
-
-impl<T: CValue> QueryProvider<u32, T> for ComponentAccess<T> {
-  fn access(&self) -> BoxedDynQuery<u32, T> {
-    IterableComponentReadView::<T> {
-      ecg: self.ecg.clone(),
-      read_view: self.original.read_untyped(),
-      phantom: PhantomData,
-    }
-    .into_boxed()
-  }
-}
-
-impl<T: CValue> QueryProvider<RawEntityHandle, T> for ComponentAccess<T> {
-  fn access(&self) -> BoxedDynQuery<RawEntityHandle, T> {
-    IterableComponentReadViewChecked::<T> {
-      ecg: self.ecg.clone(),
-      read_view: self.original.read_untyped(),
-      phantom: PhantomData,
-    }
-    .into_boxed()
-  }
-}
-
 pub trait SkipGenerationCheckExt: Sized {
   fn skip_generation_check<E: EntitySemantic>(self) -> SkipGenerationCheck<Self>;
 }
@@ -180,8 +126,9 @@ pub trait SkipGenerationCheckExt: Sized {
 impl<T: Query> SkipGenerationCheckExt for T {
   fn skip_generation_check<E: EntitySemantic>(self) -> SkipGenerationCheck<T> {
     SkipGenerationCheck {
-      alloc: global_database()
-        .access_ecg_dyn(E::entity_id(), |ecg| ecg.inner.allocator.make_read_holder()),
+      alloc: global_database().access_table_dyn(E::entity_id(), |table| {
+        table.internal.allocator.make_read_holder()
+      }),
       inner: self,
     }
   }

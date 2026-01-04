@@ -1,6 +1,6 @@
 mod defer_protocol;
 pub use defer_protocol::*;
-use rendiation_oit::draw_weighted_oit;
+use rendiation_oit::AtomicImageDowngrade;
 use rendiation_texture_gpu_process::ToneMap;
 
 use crate::*;
@@ -19,12 +19,14 @@ pub struct LightingRenderingCx<'a> {
   pub lighting_method: LightingTechniqueKind,
 }
 
-// todo，fix transparent rendering in defer mode
 pub fn render_lighting_scene_content(
   ctx: &mut FrameCtx,
   lighting_cx: &LightingRenderingCx,
   cull_cx: &mut ViewerCulling,
   renderer: &ViewerSceneRenderer,
+  clipping: &CSGClippingRenderer,
+  clip_component: &dyn RenderComponent,
+  fill_depth_info: &Option<AtomicImageDowngrade>,
   scene: EntityHandle<SceneEntity>,
   viewport: &ViewerViewPort,
   scene_result: &RenderTargetView,
@@ -43,203 +45,107 @@ pub fn render_lighting_scene_content(
     .background
     .draw(scene, camera_gpu, lighting_cx.tonemap);
 
+  let is_opaque_all = matches!(
+    renderer.transparent_content_renderer,
+    ViewerTransparentRenderer::Opaque
+  );
+  let all_opaque_object = renderer.batch_extractor.extract_scene_batch(
+    scene,
+    if is_opaque_all {
+      SceneContentKey::default()
+    } else {
+      SceneContentKey::only_opaque_objects()
+    },
+    renderer.scene,
+  );
+
+  let blend_disabler = if is_opaque_all {
+    OptionRender(Some(DisableAllChannelBlend))
+  } else {
+    OptionRender(None)
+  };
+
+  let all_transparent_object = renderer.batch_extractor.extract_scene_batch(
+    scene,
+    SceneContentKey::only_alpha_blend_objects(),
+    renderer.scene,
+  );
+
+  // always get forward lighting because we may use it in none forward case
+  let forward_lighting = lighting_cx
+    .lighting
+    .get_scene_forward_lighting_component(scene, camera);
+  let pass_com = &RenderArray([forward_lighting.as_ref(), clip_component]);
+
   match lighting_cx.lighting_method {
-    LightingTechniqueKind::Forward => {
-      ctx.scope(|ctx| {
-        let lighting = lighting_cx
-          .lighting
-          .get_scene_forward_lighting_component(scene, camera);
+    LightingTechniqueKind::Forward => ctx.scope(|ctx| {
+      let mut pass_base = pass("scene forward");
+      let color_writer =
+        DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, color_ops);
+      let g_buffer_base_writer =
+        g_buffer.extend_pass_desc(&mut pass_base, depth_ops, load_and_store());
 
-        let all_opaque_object = renderer.batch_extractor.extract_scene_batch(
-          scene,
-          SceneContentKey::only_opaque_objects(),
-          renderer.scene,
+      let opaque_scene_pass_dispatcher = &RenderArray([
+        &blend_disabler as &dyn RenderComponent,
+        &color_writer as &dyn RenderComponent,
+        &g_buffer_base_writer as &dyn RenderComponent,
+        pass_com,
+      ]) as &dyn RenderComponent;
+
+      let draw_opaque = |ctx: &mut FrameCtx<'_>, cull_cx: &mut ViewerCulling| {
+        let pass = cull_cx.draw_with_oc_maybe_enabled(
+          ctx,
+          renderer,
+          opaque_scene_pass_dispatcher,
+          camera_gpu,
+          viewport,
+          &mut |pass| pass.by(&mut background),
+          pass_base,
+          all_opaque_object,
         );
 
-        let all_transparent_object = renderer.batch_extractor.extract_scene_batch(
-          scene,
-          SceneContentKey::only_alpha_blend_objects(),
-          renderer.scene,
-        );
-
-        let mut all_transparent_object =
-          if let SceneModelRenderBatch::Host(all_transparent_object) = all_transparent_object {
-            if renderer.oit.should_reorder_draw_list() {
-              let camera_position = renderer
-                .camera_transforms
-                .access(&camera)
-                .unwrap()
-                .world
-                .position();
-              let all_transparent_object = TransparentHostOrderer {
-                world_bounding: renderer.sm_world_bounding.clone(),
-              }
-              .reorder_content(all_transparent_object.as_ref(), camera_position);
-              SceneModelRenderBatch::Host(all_transparent_object)
-            } else {
-              SceneModelRenderBatch::Host(all_transparent_object)
-            }
-          } else {
-            all_transparent_object
-          };
-
-        cull_cx.install_frustum_culler(&mut all_transparent_object, camera_gpu, camera);
-
-        match renderer.oit.clone() {
-          ViewerTransparentRenderer::NaiveAlphaBlend => {
-            ctx.scope(|ctx| {
-              let mut pass_base = pass("scene forward all");
-              let color_writer =
-                DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, color_ops);
-
-              let skip_entity_id = !ctx
-                .gpu
-                .info()
-                .downgrade_info
-                .flags
-                .contains(DownlevelFlags::INDEPENDENT_BLEND); // to support webgl!
-
-              let g_buffer_base_writer =
-                g_buffer.extend_pass_desc(&mut pass_base, depth_ops, skip_entity_id);
-
-              let scene_pass_dispatcher = &RenderArray([
-                &color_writer as &dyn RenderComponent,
-                &g_buffer_base_writer as &dyn RenderComponent,
-                lighting.as_ref(),
-              ]) as &dyn RenderComponent;
-
-              let mut all_transparent_object = renderer.scene.make_scene_batch_pass_content(
-                all_transparent_object,
-                camera_gpu,
-                scene_pass_dispatcher,
-                ctx,
-              );
-
-              cull_cx
-                .draw_with_oc_maybe_enabled(
-                  ctx,
-                  renderer,
-                  scene_pass_dispatcher,
-                  camera_gpu,
-                  viewport,
-                  &mut |pass| pass.by(&mut background),
-                  pass_base,
-                  all_opaque_object,
-                )
-                .by(&mut all_transparent_object);
-            });
-          }
-          ViewerTransparentRenderer::Loop32OIT(oit) => {
-            ctx.scope(|ctx| {
-              let mut pass_base_for_opaque = pass("scene forward opaque");
-
-              let g_buffer_base_writer =
-                g_buffer.extend_pass_desc(&mut pass_base_for_opaque, depth_ops, false);
-              let color_writer = DefaultDisplayWriter::extend_pass_desc(
-                &mut pass_base_for_opaque,
-                scene_result,
-                color_ops,
-              );
-
-              let scene_pass_dispatcher = &RenderArray([
-                &color_writer as &dyn RenderComponent,
-                &g_buffer_base_writer as &dyn RenderComponent,
-                lighting.as_ref(),
-              ]) as &dyn RenderComponent;
-
-              cull_cx.draw_with_oc_maybe_enabled(
-                ctx,
-                renderer,
-                scene_pass_dispatcher,
-                camera_gpu,
-                viewport,
-                &mut |pass| pass.by(&mut background),
-                pass_base_for_opaque,
-                all_opaque_object,
-              );
-
-              let mut pass_base_transparent = pass("scene forward transparent");
-              let g_buffer_base_writer =
-                g_buffer.extend_pass_desc_for_subsequent_draw(&mut pass_base_transparent);
-
-              let scene_pass_dispatcher = &RenderArray([
-                &g_buffer_base_writer as &dyn RenderComponent,
-                lighting.as_ref(),
-              ]) as &dyn RenderComponent;
-
-              let mut oit = oit.write();
-              let oit = oit.get_renderer_instance(ctx.frame_size(), ctx.gpu);
-              oit.draw_loop32_oit(
-                ctx,
-                all_transparent_object,
-                pass_base_transparent,
-                scene_result,
-                renderer.scene,
-                camera_gpu,
-                scene_pass_dispatcher,
-                renderer.reversed_depth,
-              );
-            });
-          }
-          ViewerTransparentRenderer::WeightedOIT => {
-            ctx.scope(|ctx| {
-              let mut pass_base_for_opaque = pass("scene forward opaque");
-
-              let g_buffer_base_writer =
-                g_buffer.extend_pass_desc(&mut pass_base_for_opaque, depth_ops, false);
-
-              let color_writer = DefaultDisplayWriter::extend_pass_desc(
-                &mut pass_base_for_opaque,
-                scene_result,
-                color_ops,
-              );
-
-              let scene_pass_dispatcher = &RenderArray([
-                &color_writer as &dyn RenderComponent,
-                &g_buffer_base_writer as &dyn RenderComponent,
-                lighting.as_ref(),
-              ]) as &dyn RenderComponent;
-
-              cull_cx.draw_with_oc_maybe_enabled(
-                ctx,
-                renderer,
-                scene_pass_dispatcher,
-                camera_gpu,
-                viewport,
-                &mut |pass| pass.by(&mut background),
-                pass_base_for_opaque,
-                all_opaque_object,
-              );
-
-              let mut pass_base_transparent = pass("scene forward transparent");
-              let g_buffer_base_writer =
-                g_buffer.extend_pass_desc_for_subsequent_draw(&mut pass_base_transparent);
-
-              let scene_pass_dispatcher = &RenderArray([
-                &g_buffer_base_writer as &dyn RenderComponent,
-                lighting.as_ref(),
-              ]) as &dyn RenderComponent;
-
-              draw_weighted_oit(
-                ctx,
-                all_transparent_object,
-                pass_base_transparent,
-                scene_result,
-                renderer.scene,
-                camera_gpu,
-                scene_pass_dispatcher,
-                renderer.reversed_depth,
-              );
-            });
-          }
+        if !clipping.fill_face(scene) {
+          return Some(pass);
         }
-      })
-    }
+        drop(pass);
+
+        let fill_depth_info = fill_depth_info.clone().unwrap();
+        clipping.draw_csg_surface(
+          ctx,
+          g_buffer,
+          fill_depth_info,
+          CSGxClipFillType::Forward {
+            scene_result,
+            forward_lighting: &forward_lighting,
+          },
+          camera_gpu,
+          scene,
+          renderer.reversed_depth,
+        );
+
+        None
+      };
+
+      renderer.transparent_content_renderer.render(
+        ctx,
+        cull_cx,
+        g_buffer,
+        renderer,
+        all_transparent_object,
+        camera_gpu,
+        viewport,
+        scene_result,
+        pass_com,
+        opaque_scene_pass_dispatcher,
+        draw_opaque,
+      );
+    }),
     LightingTechniqueKind::DeferLighting => {
       ctx.scope(|ctx| {
         let mut pass_base = pass("scene defer encode");
 
-        let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops, false);
+        let g_buffer_base_writer =
+          g_buffer.extend_pass_desc(&mut pass_base, depth_ops, load_and_store());
         let mut m_buffer = FrameGeneralMaterialBuffer::new(ctx);
 
         let indices = m_buffer.extend_pass_desc(&mut pass_base);
@@ -249,15 +155,11 @@ pub fn render_lighting_scene_content(
         };
 
         let scene_pass_dispatcher = &RenderArray([
-          &g_buffer_base_writer as &dyn RenderComponent,
+          &DisableAllChannelBlend as &dyn RenderComponent,
+          &g_buffer_base_writer,
           &material_writer,
+          clip_component,
         ]) as &dyn RenderComponent;
-
-        let main_scene_content = renderer.batch_extractor.extract_scene_batch(
-          scene,
-          SceneContentKey::default(),
-          renderer.scene,
-        );
 
         cull_cx.draw_with_oc_maybe_enabled(
           ctx,
@@ -267,8 +169,20 @@ pub fn render_lighting_scene_content(
           viewport,
           &mut |pass| pass,
           pass_base,
-          main_scene_content,
+          all_opaque_object,
         );
+
+        if let Some(fill_depth_info) = fill_depth_info {
+          clipping.draw_csg_surface(
+            ctx,
+            g_buffer,
+            fill_depth_info.clone(),
+            CSGxClipFillType::Defer(&m_buffer),
+            camera_gpu,
+            scene,
+            renderer.reversed_depth,
+          );
+        }
 
         if !only_draw_g_buffer {
           ctx.scope(|ctx| {
@@ -300,6 +214,32 @@ pub fn render_lighting_scene_content(
               .by(&mut background)
               .by(&mut lighting.draw_quad());
           });
+
+          let mut pass_base = pass("scene forward transparent in defer mode");
+          let color_writer =
+            DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, load_and_store());
+          let g_buffer_base_writer = g_buffer.extend_pass_desc_for_subsequent_draw(&mut pass_base);
+
+          let opaque_scene_pass_dispatcher = &RenderArray([
+            &blend_disabler as &dyn RenderComponent,
+            &color_writer as &dyn RenderComponent,
+            &g_buffer_base_writer as &dyn RenderComponent,
+            pass_com,
+          ]) as &dyn RenderComponent;
+
+          renderer.transparent_content_renderer.render(
+            ctx,
+            cull_cx,
+            g_buffer,
+            renderer,
+            all_transparent_object,
+            camera_gpu,
+            viewport,
+            scene_result,
+            pass_com,
+            opaque_scene_pass_dispatcher,
+            |ctx: &mut FrameCtx<'_>, _cull_cx: &mut ViewerCulling| Some(pass_base.render_ctx(ctx)),
+          );
         }
       });
     }

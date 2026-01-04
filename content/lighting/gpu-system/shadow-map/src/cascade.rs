@@ -165,8 +165,11 @@ impl CascadeShadowPreparer {
 
         // todo, consider merge the pass within the same layer
         // custom dispatcher is not required because we only have depth output.
-        let pass = pass("cascade-shadow-map")
-          .with_depth(&RenderTargetView::Texture(write_view), load_and_store());
+        let pass = pass("cascade-shadow-map").with_depth(
+          &RenderTargetView::from_texture_view(write_view),
+          load_and_store(),
+          load_and_store(),
+        );
 
         let proj = proj_info.1[slice_index];
 

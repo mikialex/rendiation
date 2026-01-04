@@ -128,18 +128,18 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   }
 }
 
-impl EntityComponentGroup {
+impl ArcTable {
   pub fn entity_reader_dyn(&self) -> EntityReaderUntyped {
-    let components = self.inner.components.read_recursive();
+    let components = self.internal.components.read_recursive();
     let components = components
       .iter()
       .map(|(id, c)| (*id, c.read_untyped()))
       .collect();
 
     EntityReaderUntyped {
-      type_id: self.inner.type_id,
+      type_id: self.internal.type_id,
       components,
-      allocator: self.inner.allocator.make_read_holder(),
+      allocator: self.internal.allocator.make_read_holder(),
     }
   }
 }

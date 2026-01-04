@@ -3,7 +3,6 @@ use std::sync::{
   Arc,
 };
 
-use database::global_entity_component_of;
 use futures::{channel::oneshot::Sender, FutureExt};
 use rendiation_gui_3d::*;
 use rendiation_scene_geometry_query::*;
@@ -64,7 +63,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
 
     let scene_model_picker = SceneModelPickerBaseImpl {
       internal: local_model_pickers,
-      scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
+      scene_model_node: read_global_db_foreign_key(),
       node_world: node_world
         .expect_resolve_stage()
         .mark_entity_type()
@@ -73,6 +72,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
+      filter: Some(Box::new(create_clip_pick_filter())),
     };
 
     let view_logic_pixel_size = Vec2::new(
@@ -120,7 +120,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
           viewport_idx,
           viewport_id: viewport.id,
           view_logical_pixel_size: view_logic_pixel_size.into_u32().into(),
-          normalized_position: normalized_position_ndc * Vec2::new(0.5, -0.5) + Vec2::new(0.5, 0.5),
+          normalized_position: normalized_position_ndc,
           projection,
           projection_inv,
           proj_source: Some(camera_proj),
@@ -144,8 +144,8 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
 pub fn read_common_proj_from_db(
   camera: EntityHandle<SceneCameraEntity>,
 ) -> Option<CommonProjection> {
-  let pp = global_entity_component_of::<SceneCameraPerspective>().read();
-  let po = global_entity_component_of::<SceneCameraOrthographic>().read();
+  let pp = read_global_db_component::<SceneCameraPerspective>();
+  let po = read_global_db_component::<SceneCameraOrthographic>();
   pp.get_value(camera)
     .flatten()
     .map(CommonProjection::Perspective)

@@ -125,6 +125,12 @@ impl Viewer3dViewportRenderingCtx {
           &mut self.transparent_config,
           ViewerTransparentContentRenderStyle::Loop32OIT,
           "oit loop32 style",
+        );
+
+        ui.selectable_value(
+          &mut self.transparent_config,
+          ViewerTransparentContentRenderStyle::Opaque,
+          "as opaque",
         )
       });
 
@@ -136,6 +142,7 @@ impl Viewer3dViewportRenderingCtx {
         Arc::new(RwLock::new(rendiation_oit::OitLoop32Renderer::new(4))),
       ),
       ViewerTransparentContentRenderStyle::WeightedOIT => ViewerTransparentRenderer::WeightedOIT,
+      ViewerTransparentContentRenderStyle::Opaque => ViewerTransparentRenderer::Opaque,
     };
 
     if rtx_renderer_enabled {
@@ -426,9 +433,11 @@ impl Viewer3dViewportRenderingCtx {
     let camera_transform = renderer.camera_transforms.access(&camera).unwrap();
     let current_view_projection_inv_no_translation =
       camera_transform.projection * camera_transform.view.into_f32().remove_position();
-    self
-      .reproject
-      .update(ctx, current_view_projection_inv_no_translation);
+    self.reproject.update(
+      ctx,
+      current_view_projection_inv_no_translation,
+      camera_transform.world.position(),
+    );
 
     if let Some(mesh_lod_graph_renderer) = &renderer.mesh_lod_graph_renderer {
       if camera_transform
@@ -457,11 +466,17 @@ impl Viewer3dViewportRenderingCtx {
       batch_extractor: &renderer.extractor,
       cameras: &renderer.camera,
       background: &renderer.background,
-      oit: self.oit.clone(),
+      transparent_content_renderer: self.oit.clone(),
       reversed_depth: renderer.reversed_depth,
       camera_transforms: &renderer.camera_transforms,
       sm_world_bounding: &renderer.sm_world_bounding,
     };
+
+    let (clip_component, fill_depth_info) =
+      renderer
+        .clipping
+        .use_get_scene_clipping(content.scene, ctx, renderer.reversed_depth);
+    let clip_component = &OptionRender(clip_component) as &dyn RenderComponent;
 
     let mut taa_content = SceneCameraTAAContent {
       camera,
@@ -477,6 +492,9 @@ impl Viewer3dViewportRenderingCtx {
           &renderer.lighting,
           &mut renderer.culling,
           &renderer_c,
+          &renderer.clipping,
+          clip_component,
+          &fill_depth_info,
           content.scene,
           viewport,
           &scene_result,
@@ -489,7 +507,7 @@ impl Viewer3dViewportRenderingCtx {
             // this must a separate pass, because the id buffer should not be written.
             pass("grid_ground")
               .with_color(&scene_result, load_and_store())
-              .with_depth(&g_buffer.depth, load_and_store())
+              .with_depth(&g_buffer.depth, load_and_store(), load_and_store())
               .render_ctx(ctx)
               .by(&mut GridGround {
                 plane: &self.ground,
@@ -575,6 +593,7 @@ impl Viewer3dViewportRenderingCtx {
       depth: scene_depth,
       normal: normal_buffer,
       entity_id: id_buffer,
+      should_skip_entity_id: FrameGeometryBuffer::should_skip_entity_id(ctx),
     };
 
     let mut post_process = (!is_outline_only_mode).then(|| {
@@ -586,13 +605,18 @@ impl Viewer3dViewportRenderingCtx {
       .draw_quad()
     });
 
+    let highlight_dispatch = RenderArray([
+      &HighLightMaskDispatcher as &dyn RenderComponent,
+      clip_component,
+    ]);
+
     let mut highlight_compose = (content.selected_model.is_some()).then(|| {
       ctx.scope(|ctx| {
         let batch = Box::new(IteratorAsHostRenderBatch(content.selected_model));
         let batch = SceneModelRenderBatch::Host(batch);
         let masked_content = renderer
           .raster_scene_renderer
-          .make_scene_batch_pass_content(batch, &camera_gpu, &HighLightMaskDispatcher, ctx);
+          .make_scene_batch_pass_content(batch, &camera_gpu, &highlight_dispatch, ctx);
         self.highlight.draw(ctx, masked_content)
       })
     });
@@ -628,7 +652,7 @@ impl Viewer3dViewportRenderingCtx {
 
     let entity_id = g_buffer
       .entity_id
-      .expect_standalone_common_texture_view()
+      .expect_standalone_common_texture_view_for_binding()
       .clone();
 
     self.picker.read_new_frame_id_buffer(
@@ -665,7 +689,7 @@ pub struct ViewerSceneRenderer<'a> {
   pub batch_extractor: &'a ViewerBatchExtractor,
   pub cameras: &'a CameraRenderer,
   pub background: &'a SceneBackgroundRenderer,
-  pub oit: ViewerTransparentRenderer,
+  pub transparent_content_renderer: ViewerTransparentRenderer,
   pub reversed_depth: bool,
   pub camera_transforms: &'a BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub sm_world_bounding: &'a BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
@@ -721,7 +745,7 @@ impl ViewportRenderedResult {
 
     let mut encoder = self.device.create_encoder();
 
-    let tex = GPU2DTextureView::try_from(tex).unwrap();
+    let tex = GPU2DTextureView::try_from(tex.get_binding_view().clone()).unwrap();
 
     let buffer = encoder.read_texture_2d::<f32>(
       &self.device,

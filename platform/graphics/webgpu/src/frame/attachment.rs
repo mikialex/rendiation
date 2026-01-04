@@ -1,7 +1,7 @@
 use crate::*;
 
-pub type AttachmentPool = ReuseKVPool<PooledTextureKey, GPUTextureView>;
-pub type Attachment = ReuseableItem<PooledTextureKey, GPUTextureView>;
+pub type AttachmentPool = ReuseKVPool<PooledTextureKey, RenderViewContent>;
+pub type Attachment = ReuseableItem<PooledTextureKey, RenderViewContent>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct PooledTextureKey {
@@ -21,13 +21,13 @@ impl PooledTextureKey {
   pub fn request(self, ctx: &FrameCtx) -> RenderTargetView {
     ctx.pool.request(&self).into()
   }
-  pub fn create_directly(self, gpu: &GPU) -> GPUTextureView {
+  pub fn create_directly(self, gpu: &GPU) -> RenderViewContent {
     let mip_level_count = if self.require_mipmaps {
       MipLevelCount::BySize.get_level_count_wgpu(self.size)
     } else {
       1
     };
-    GPUTexture::create(
+    let texture = GPUTexture::create(
       gpu::TextureDescriptor {
         label: None,
         size: map_size_gpu(self.size),
@@ -39,12 +39,14 @@ impl PooledTextureKey {
         sample_count: self.sample_count,
       },
       &gpu.device,
-    )
-    .create_view(gpu::TextureViewDescriptor {
+    );
+    let render_view = texture.create_view(gpu::TextureViewDescriptor {
       base_mip_level: 0,
       mip_level_count: Some(1),
       ..Default::default()
-    })
+    });
+
+    RenderViewContent::from_texture_view(render_view)
   }
 }
 
@@ -61,16 +63,6 @@ pub fn attachment() -> AttachmentDescriptor {
 pub fn depth_attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
     format: gpu::TextureFormat::Depth32Float,
-    sample_count: 1,
-    sizer: default_sizer(),
-    require_mipmaps: false,
-    usage: BASIC_TEXTURE_USAGE_FOR_TEXTURE_POOL,
-  }
-}
-
-pub fn depth_stencil_attachment() -> AttachmentDescriptor {
-  AttachmentDescriptor {
-    format: gpu::TextureFormat::Depth24PlusStencil8,
     sample_count: 1,
     sizer: default_sizer(),
     require_mipmaps: false,

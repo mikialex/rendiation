@@ -25,17 +25,20 @@ pub fn use_gpu_texture_cubes(
   let target = &mut target;
   let mut changed_keys = Default::default();
 
-  use_cube_face_update::<SceneTextureCubeXPositiveFace>(cx, CubeTextureFace::PositiveX, allocate_mipmap, target, &mut changed_keys);
-  use_cube_face_update::<SceneTextureCubeYPositiveFace>(cx, CubeTextureFace::PositiveY, allocate_mipmap, target, &mut changed_keys);
-  use_cube_face_update::<SceneTextureCubeZPositiveFace>(cx, CubeTextureFace::PositiveZ, allocate_mipmap, target, &mut changed_keys);
-  use_cube_face_update::<SceneTextureCubeXNegativeFace>(cx, CubeTextureFace::NegativeX, allocate_mipmap, target, &mut changed_keys);
-  use_cube_face_update::<SceneTextureCubeYNegativeFace>(cx, CubeTextureFace::NegativeY, allocate_mipmap, target, &mut changed_keys);
-  use_cube_face_update::<SceneTextureCubeZNegativeFace>(cx, CubeTextureFace::NegativeZ, allocate_mipmap, target, &mut changed_keys);
+  cx.skip_if_not_waked(|cx|{
+    use_cube_face_update::<SceneTextureCubeXPositiveFace>(cx, CubeTextureFace::PositiveX, allocate_mipmap, target, &mut changed_keys);
+    use_cube_face_update::<SceneTextureCubeYPositiveFace>(cx, CubeTextureFace::PositiveY, allocate_mipmap, target, &mut changed_keys);
+    use_cube_face_update::<SceneTextureCubeZPositiveFace>(cx, CubeTextureFace::PositiveZ, allocate_mipmap, target, &mut changed_keys);
+    use_cube_face_update::<SceneTextureCubeXNegativeFace>(cx, CubeTextureFace::NegativeX, allocate_mipmap, target, &mut changed_keys);
+    use_cube_face_update::<SceneTextureCubeYNegativeFace>(cx, CubeTextureFace::NegativeY, allocate_mipmap, target, &mut changed_keys);
+    use_cube_face_update::<SceneTextureCubeZNegativeFace>(cx, CubeTextureFace::NegativeZ, allocate_mipmap, target, &mut changed_keys);
+  });
+
 
   (env_background_map_gpu.clone(), changed_keys)
 }
 
-// todo, remove FK generic
+#[inline(always)]
 fn use_cube_face_update<FK>(
   cx: &mut QueryGPUHookCx,
   face: CubeTextureFace,
@@ -45,10 +48,23 @@ fn use_cube_face_update<FK>(
 ) where
   FK: ForeignKeySemantic<Entity = SceneTextureCubeEntity, ForeignEntity = SceneTexture2dEntity>,
 {
+  let id = (FK::component_id(), FK::Entity::entity_id());
+  use_cube_face_update_impl(cx, face, allocate_mipmap, target, changed_keys, id);
+}
+
+#[inline(never)]
+fn use_cube_face_update_impl(
+  cx: &mut QueryGPUHookCx,
+  face: CubeTextureFace,
+  allocate_mipmap: bool,
+  target: &mut FastHashMap<RawEntityHandle, GPUCubeTextureView>,
+  changed_keys: &mut CubeMapChanges,
+  (cid, e_id): (ComponentId, EntityId),
+) {
   let change = cx
     .use_dual_query::<SceneTexture2dEntityDirectContent>()
     .map(|v| v.filter_map(|v| v))
-    .fanout(cx.use_db_rev_ref_tri_view::<FK>(), cx)
+    .fanout(cx.use_db_rev_ref_tri_view_impl(cid, e_id), cx)
     .use_assure_result(cx)
     .into_delta_change();
 
@@ -60,11 +76,11 @@ fn use_cube_face_update<FK>(
       changed_keys.removed_keys.insert(k);
     }
 
-    for (k, v) in change.iter_update_or_insert() {
+    for (k, source) in change.iter_update_or_insert() {
       changed_keys.changed_keys.insert(k);
       changed_keys.removed_keys.remove(&k);
 
-      if let Some(source) = v.as_living() {
+      if let Some(source) = source.as_living() {
         let source = GPUBufferImageForeignImpl { inner: source };
         let mip = if allocate_mipmap {
           MipLevelCount::BySize
@@ -73,27 +89,36 @@ fn use_cube_face_update<FK>(
         };
         let desc = source.create_cube_desc(mip, flags);
 
-        // todo, check desc is matched and recreated texture!
-        if target.get_current(k).is_none() {
+        let create = || {
           let gpu_texture = GPUTexture::create(desc, &cx.gpu.device);
           let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
-          let new = gpu_texture
+          gpu_texture
             .create_view(TextureViewDescriptor {
               dimension: Some(TextureViewDimension::Cube),
               ..Default::default()
             })
             .try_into()
-            .unwrap();
-          target.set_value(k, new);
+            .unwrap()
+        };
+
+        let gpu_texture = target.entry(k).or_insert_with(create.clone());
+        let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
+
+        // todo, we current not checking if all face has same size and fmt
+        if gpu_texture.desc.format != source.inner.format
+          || gpu_texture.desc.size.width != usize::from(source.inner.size.width) as u32
+        {
+          target.remove(&k);
         }
 
-        let gpu_texture = target.get_current(k).unwrap();
-
+        // recreate
+        let gpu_texture = target.entry(k).or_insert_with(create);
         let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
+
         let _ = gpu_texture.upload(&cx.gpu.queue, &source, face, 0);
       } else {
-        // todo, impl fanout datachanges
-        todo!()
+        log::warn!("cube texture requires alive source");
+        target.remove(&k);
       }
     }
   }

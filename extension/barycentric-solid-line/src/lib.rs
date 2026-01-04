@@ -3,7 +3,6 @@ use core::hash::{Hash, Hasher};
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_mesh_core::*;
-use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
@@ -92,13 +91,14 @@ pub fn generate_barycentric_buffer_and_expanded_mesh(mesh: AttributesMesh) -> At
     .collect()
 }
 
-pub struct SolidLinedMeshGPU<'a> {
-  inner: AttributesMeshGPU<'a>,
+// expect T is mesh-like render component
+pub struct SolidLinedMeshGPU<T> {
+  inner: T,
 }
 
 both!(BarycentricCoord, Vec3<f32>);
 
-impl GraphicsShaderProvider for SolidLinedMeshGPU<'_> {
+impl<T: RenderComponent> GraphicsShaderProvider for SolidLinedMeshGPU<T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.inner.build(builder);
     builder.vertex(|builder, _| {
@@ -108,6 +108,7 @@ impl GraphicsShaderProvider for SolidLinedMeshGPU<'_> {
   }
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    self.inner.post_build(builder);
     builder.fragment(|builder, _| {
       let barycentric = builder.query::<BarycentricCoord>();
 
@@ -128,11 +129,18 @@ impl GraphicsShaderProvider for SolidLinedMeshGPU<'_> {
   }
 }
 
-impl ShaderHashProvider for SolidLinedMeshGPU<'_> {
-  shader_hash_type_id! {SolidLinedMeshGPU<'static>}
+impl<T: RenderComponent + 'static> ShaderHashProvider for SolidLinedMeshGPU<T> {
+  shader_hash_type_id! {SolidLinedMeshGPU<()>}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.inner.hash_pipeline_with_type_info(hasher);
+  }
 }
-impl ShaderPassBuilder for SolidLinedMeshGPU<'_> {
+
+impl<T: RenderComponent> ShaderPassBuilder for SolidLinedMeshGPU<T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.inner.setup_pass(ctx);
+  }
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.inner.post_setup_pass(ctx);
   }
 }

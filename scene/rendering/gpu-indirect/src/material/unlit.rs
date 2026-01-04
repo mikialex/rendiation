@@ -27,11 +27,10 @@ pub fn use_unlit_material_storage(
   tex_storages.use_update(cx);
 
   cx.when_render(|| UnlitMaterialIndirectRenderer {
-    material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
-      .read_foreign_key(),
+    material_access: read_global_db_foreign_key(),
     storages: storages.get_gpu_buffer(),
     texture_handles: tex_storages.get_gpu_buffer(),
-    alpha_mode: global_entity_component_of().read(),
+    alpha_mode: read_global_db_component(),
   })
 }
 

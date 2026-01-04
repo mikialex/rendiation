@@ -2,9 +2,8 @@ use crate::*;
 
 #[derive(Default, Clone)]
 pub struct Database {
-  /// ecg forms a DAG
-  pub ecg_tables: Arc<RwLock<FastHashMap<EntityId, EntityComponentGroup>>>,
-  pub(crate) entity_meta_watcher: EventSource<EntityComponentGroup>,
+  pub tables: Arc<RwLock<FastHashMap<EntityId, ArcTable>>>,
+  pub(crate) entity_meta_watcher: EventSource<ArcTable>,
   pub name_mapping: Arc<RwLock<DBNameMapping>>,
 }
 
@@ -39,72 +38,73 @@ impl Database {
       .unwrap()
   }
   #[inline(never)]
-  pub fn declare_entity_dyn(&self, e_id: EntityId, name: String) -> EntityComponentGroup {
-    let mut tables = self.ecg_tables.write();
+  pub fn declare_entity_dyn(&self, e_id: EntityId, name: String) -> ArcTable {
+    let mut tables = self.tables.write();
     self.name_mapping.write().insert_entity(e_id, name.clone());
-    let ecg = EntityComponentGroup::new(e_id, name, self.name_mapping.clone());
-    self.entity_meta_watcher.emit(&ecg);
-    let previous = tables.insert(e_id, ecg.clone());
+    let table = ArcTable::new(e_id, name, self.name_mapping.clone());
+    self.entity_meta_watcher.emit(&table);
+    let previous = tables.insert(e_id, table.clone());
     assert!(previous.is_none());
-    ecg
+    table
   }
 
-  pub fn access_ecg_dyn<R>(&self, e_id: EntityId, f: impl FnOnce(&EntityComponentGroup) -> R) -> R {
-    let tables = self.ecg_tables.read_recursive();
-    let ecg = tables.get(&e_id).expect("unknown entity id");
-    f(ecg)
+  pub fn access_table_dyn<R>(&self, e_id: EntityId, f: impl FnOnce(&ArcTable) -> R) -> R {
+    let tables = self.tables.read_recursive();
+    let table = tables.get(&e_id).expect("unknown entity id");
+    f(table)
   }
-  pub fn access_ecg<E: EntitySemantic, R>(
+
+  pub fn access_table<E: EntitySemantic, R>(
     &self,
     f: impl FnOnce(&EntityComponentGroupTyped<E>) -> R,
   ) -> R {
-    self.access_ecg_dyn(E::entity_id(), |c| f(&c.clone().into_typed().unwrap()))
+    self.access_table_dyn(E::entity_id(), |c| f(&c.clone().into_typed().unwrap()))
   }
 
   pub fn read<C: ComponentSemantic>(&self) -> ComponentReadView<C> {
-    self.access_ecg::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.read()))
+    self.access_table::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.read()))
   }
   pub fn read_foreign_key<C: ForeignKeySemantic>(&self) -> ForeignKeyReadView<C> {
-    self.access_ecg::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.read_foreign_key()))
+    self.access_table::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.read_foreign_key()))
   }
   pub fn write<C: ComponentSemantic>(&self) -> ComponentWriteView<C> {
-    self.access_ecg::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.write()))
+    self.access_table::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.write()))
   }
 
   pub fn entity_writer<E: EntitySemantic>(&self) -> EntityWriter<E> {
-    self.access_ecg::<E, _>(|e| e.entity_writer())
+    self.access_table::<E, _>(|e| e.entity_writer())
   }
   pub fn entity_writer_untyped<E: EntitySemantic>(&self) -> EntityWriterUntyped {
-    self.access_ecg::<E, _>(|e| e.entity_writer().into_untyped())
+    self.access_table::<E, _>(|e| e.entity_writer().into_untyped())
   }
   pub fn entity_writer_untyped_dyn(&self, e_id: EntityId) -> EntityWriterUntyped {
-    self.access_ecg_dyn(e_id, |e| e.entity_writer_dyn())
+    self.access_table_dyn(e_id, |e| e.entity_writer_dyn())
   }
 
   pub fn debug_check_reference_integrity(&self) {
     // todo, we should hold all lock first to avoid concurrent mutation;
-    let tables = self.ecg_tables.read();
-    for (_, ecg) in tables.iter() {
-      let ecg_ = &ecg.inner;
-      let fk = ecg_.foreign_keys.read();
+    let tables = self.tables.read();
+    for (_, table) in tables.iter() {
+      let table_ = &table.internal;
+      let fk = table_.foreign_keys.read();
       for (c_id, e_id) in fk.iter() {
-        let target_ecg = &tables.get(e_id).unwrap().inner;
-        let target_ecg_allocator = target_ecg.allocator.read();
-        ecg.access_component(*c_id, |com| {
+        let target_table = &tables.get(e_id).unwrap().internal;
+        let target_table_allocator = target_table.allocator.read();
+        table.access_component(*c_id, |com| {
           com.read_untyped();
           let view = IterableComponentReadView::<Option<RawEntityHandle>> {
-            ecg: ecg.clone(),
+            table: table.clone(),
             read_view: com.read_untyped(),
             phantom: PhantomData,
           };
 
           for (idx, v) in view.iter_key_value() {
             if let Some(v) = v {
-              if target_ecg_allocator.get(v.0).is_none() {
-                let handle = ecg_.allocator.read().get_handle(idx as usize).unwrap();
+              if target_table_allocator.get(v.0).is_none() {
+                let handle = table_.allocator.read().get_handle(idx as usize).unwrap();
                 panic!(
                   "broken reference, {} entity {} reference not exist handle {}, {}",
-                  ecg_.short_name, handle, target_ecg.short_name, v
+                  table_.short_name, handle, target_table.short_name, v
                 );
               }
             }
@@ -158,11 +158,11 @@ fn demo_how_to_use_database_generally() {
   //   ptr.write().write_component::<TestEntity2FieldA>(false); // single write
 
   // batch read
-  let read_view = global_entity_component_of::<TestEntity2FieldA>().read();
+  let read_view = read_global_db_component::<TestEntity2FieldA>();
   assert_eq!(read_view.get(ptr2), Some(&u32::default()));
   read_view.get(ptr2);
 
-  let read_view2 = global_entity_component_of::<TestEntity2ReferenceEntity1>().read_foreign_key();
+  let read_view2 = read_global_db_foreign_key::<TestEntity2ReferenceEntity1>();
   assert_eq!(read_view2.get(ptr2), Some(ptr));
 
   // batch write

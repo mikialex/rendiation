@@ -30,14 +30,14 @@ pub trait DBHookCxLike: QueryHookCxLike {
     e_id: EntityId,
   ) -> UseResult<Arc<FastChangeCollector<T>>> {
     let (cx, rev) = self.use_plain_state(|| {
-      global_database().access_ecg_dyn(e_id, move |e| {
+      global_database().access_table_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
           add_changes_listen(
             e.entity_capacity(),
-            ComponentAccess {
-              ecg: e.clone(),
-              original: c.clone(),
-              phantom: PhantomData::<T>,
+            IterableComponentReadViewChecked::<T> {
+              table: e.clone(),
+              read_view: c.read_untyped(),
+              phantom: PhantomData,
             },
             &c.data_watchers,
           )
@@ -79,14 +79,14 @@ pub trait DBHookCxLike: QueryHookCxLike {
     e_id: EntityId,
   ) -> UseResult<DBDelta<T>> {
     let (cx, rev) = self.use_plain_state(|| {
-      global_database().access_ecg_dyn(e_id, move |e| {
+      global_database().access_table_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
           add_delta_listen(
             e.entity_capacity(),
-            ComponentAccess {
-              ecg: e.clone(),
-              original: c.clone(),
-              phantom: PhantomData::<T>,
+            IterableComponentReadViewChecked::<T> {
+              table: e.clone(),
+              read_view: c.read_untyped(),
+              phantom: PhantomData,
             },
             &c.data_watchers,
           )
@@ -140,11 +140,11 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
   fn use_entity_set_delta_raw(&mut self, e_id: EntityId) -> UseResult<DBDelta<()>> {
     let (cx, rev) = self.use_plain_state(|| {
-      global_database().access_ecg_dyn(e_id, move |e| {
+      global_database().access_table_dyn(e_id, move |e| {
         add_delta_listen(
           e.entity_capacity(),
-          ArenaAccessProvider(e.inner.allocator.clone()),
-          &e.inner.entity_watchers,
+          ArenaAccess(e.internal.allocator.make_read_holder()),
+          &e.internal.entity_watchers,
         )
       })
     });
@@ -254,8 +254,8 @@ pub trait DBHookCxLike: QueryHookCxLike {
         let e_id = self.0;
         cx.use_entity_set_delta_raw(self.0)
           .map(move |change| DualQuery {
-            view: global_database().access_ecg_dyn(e_id, |ecg| {
-              ArenaAccessProvider(ecg.inner.allocator.clone()).access()
+            view: global_database().access_table_dyn(e_id, |t| {
+              ArenaAccess(t.internal.allocator.make_read_holder()).into_boxed()
             }),
             delta: change,
           })

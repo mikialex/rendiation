@@ -15,7 +15,7 @@ pub fn use_default_scene_batch_extractor(
       .mark_entity_type::<SceneNodeEntity>()
       .into_boxed(),
     alpha_blend: all_kinds_of_materials_enabled_alpha_blending().into_boxed(),
-    sm_ref_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
+    sm_ref_node: read_global_db_foreign_key(),
   })
 }
 

@@ -1,11 +1,11 @@
 use crate::*;
 
-impl EntityComponentGroup {
+impl ArcTable {
   pub fn entity_writer_dyn(&self) -> EntityWriterUntyped {
     let change: ChangePtr = ScopedValueChange::Start;
-    self.inner.entity_watchers.emit(&change);
+    self.internal.entity_watchers.emit(&change);
 
-    let components = self.inner.components.read_recursive();
+    let components = self.internal.components.read_recursive();
     let components = components
       .iter()
       .map(|(id, c)| {
@@ -20,10 +20,10 @@ impl EntityComponentGroup {
       .collect();
 
     EntityWriterUntyped {
-      type_id: self.inner.type_id,
+      type_id: self.internal.type_id,
       components,
-      entity_watchers: self.inner.entity_watchers.clone(),
-      allocator: self.inner.allocator.make_write_holder(),
+      entity_watchers: self.internal.entity_watchers.clone(),
+      allocator: self.internal.allocator.make_write_holder(),
     }
   }
 }
@@ -196,7 +196,7 @@ impl EntityComponentWriterImpl {
   ///
   /// idx must allocated
   pub unsafe fn write_init_component_value(&mut self, idx: RawEntityHandle, data: Option<DataPtr>) {
-    self.component.data.resize(idx.index());
+    self.component.data.deref_mut().resize(idx.index());
     self.component.write(idx, true, data);
   }
 
@@ -205,7 +205,7 @@ impl EntityComponentWriterImpl {
   /// idx must point to living data
   pub unsafe fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
     let src = self.component.get_unchecked(src);
-    self.component.data.resize(dst.index());
+    self.component.data.deref_mut().resize(dst.index());
     self.write_component(dst, src);
   }
 

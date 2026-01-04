@@ -10,7 +10,7 @@ pub fn wide_line_vertex(
   view_size: Node<Vec2<f32>>,
   width: Node<f32>,
   builder: &mut ShaderVertexBuilder,
-) -> Node<Vec4<f32>> {
+) {
   let object_world_position = builder.query::<WorldPositionHP>();
   let (clip_start, _) = camera_transform_impl(builder, wide_line_start, object_world_position);
   let (clip_end, _) = camera_transform_impl(builder, wide_line_end, object_world_position);
@@ -63,7 +63,17 @@ pub fn wide_line_vertex(
 
   // back to clip space
   offset = offset * clip.w();
-  (clip.xy() + offset, clip.zw()).into()
+  let clip = (clip.xy() + offset, clip.zw()).into();
+
+  builder.register::<ClipPosition>(clip);
+
+  // this should be optional(current used for clip effect)
+  {
+    let view_proj_inv = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
+    let position = view_proj_inv * clip;
+    let position = position.xyz() / position.w().splat();
+    builder.register::<VertexRenderPosition>(position);
+  }
 }
 
 #[shader_fn]

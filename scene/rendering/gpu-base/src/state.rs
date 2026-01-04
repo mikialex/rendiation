@@ -26,7 +26,7 @@ pub fn use_state_overrides(cx: &mut QueryGPUHookCx, reverse_z: bool) -> Option<S
     .use_assure_result(cx);
 
   cx.when_render(|| StateOverrides {
-    states: global_entity_component_of::<StandardModelRasterizationOverride>().read(),
+    states: read_global_db_component(),
     interned: interned.expect_resolve_stage().view,
     reverse_z,
   })

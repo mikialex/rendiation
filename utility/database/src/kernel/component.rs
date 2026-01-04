@@ -1,30 +1,30 @@
 use crate::*;
 
-#[derive(Clone)]
-pub struct ComponentCollectionUntyped {
-  /// the name of this component, will be unique among all components
-  pub name: Arc<String>,
+pub struct ComponentUntyped {
+  /// the name of this component, must be unique among all components
+  pub name: String,
 
   /// the name for ui display
-  pub short_name: Arc<String>,
+  pub short_name: String,
 
-  /// mark if this component is a foreign key
+  /// indicate if this component is a foreign key
   pub as_foreign_key: Option<EntityId>,
 
   /// the real data stored here
-  pub data: Arc<dyn ComponentStorage>,
+  pub data: Box<dyn ComponentStorage>,
 
   /// watch this component all change with idx
   pub(crate) data_watchers: EventSource<ChangePtr>,
 
+  /// the allocator that shared between all components of the self entity
   pub allocator: Arc<RwLock<Arena<()>>>,
 
-  pub data_typeid: TypeId,
+  pub data_meta: DataTypeMetaInfo,
   pub entity_type_id: EntityId,
   pub component_type_id: ComponentId,
 }
 
-impl ComponentCollectionUntyped {
+impl ComponentUntyped {
   pub fn read_untyped(&self) -> ComponentReadViewUntyped {
     ComponentReadViewUntyped {
       allocator: self.allocator.make_read_holder(),
@@ -51,10 +51,18 @@ pub type ChangePtr = ScopedValueChange<(DataPtr, *const dyn DataBaseDataTypeDyn)
 
 pub type EntityScopeChange = ScopedValueChange<()>;
 
-#[derive(Clone)]
 pub struct ComponentReadViewUntyped {
   pub(crate) allocator: LockReadGuardHolder<Arena<()>>,
-  pub(crate) data: Arc<dyn ComponentStorageReadView>,
+  pub(crate) data: ComponentReadViewBox,
+}
+
+impl Clone for ComponentReadViewUntyped {
+  fn clone(&self) -> Self {
+    Self {
+      allocator: self.allocator.clone(),
+      data: self.data.clone_boxed(),
+    }
+  }
 }
 
 impl ComponentReadViewUntyped {
@@ -83,7 +91,7 @@ impl ComponentReadViewUntyped {
 }
 
 pub struct ComponentWriteViewUntyped {
-  pub(crate) data: Box<dyn ComponentStorageReadWriteView>,
+  pub(crate) data: ComponentReadWriteViewBox,
   events: MutexGuardHolder<Source<ChangePtr>>,
 }
 
@@ -128,10 +136,10 @@ impl ComponentWriteViewUntyped {
       // todo, currently we have strange bug in application level if we not check changed.
       // This should not happen because the checking changed flag before event emit
       // is only an optimization.
-      let new_dyn = self.data.construct_dyn_datatype_from_raw_ptr(new);
+      let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
       let new_dyn = new_dyn as *const dyn DataBaseDataTypeDyn;
       let new_pair = (new, new_dyn);
-      let old_dyn = self.data.construct_dyn_datatype_from_raw_ptr(old);
+      let old_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(old);
       let old_dyn = old_dyn as *const dyn DataBaseDataTypeDyn;
       let old_pair = (old, old_dyn);
 
@@ -148,7 +156,7 @@ impl ComponentWriteViewUntyped {
     let (new, old, changed) = self.data.set_value(idx.index(), new);
 
     if init {
-      let new_dyn = self.data.construct_dyn_datatype_from_raw_ptr(new);
+      let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
       let new_dyn = new_dyn as *const dyn DataBaseDataTypeDyn;
       let pair = (new, new_dyn);
       let change = ValueChange::Delta(pair, None);
@@ -158,10 +166,10 @@ impl ComponentWriteViewUntyped {
       // todo, currently we have strange bug in application level if we not check changed.
       // This should not happen because the checking changed flag before event emit
       // is only an optimization.
-      let new_dyn = self.data.construct_dyn_datatype_from_raw_ptr(new);
+      let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
       let new_dyn = new_dyn as *const dyn DataBaseDataTypeDyn;
       let new_pair = (new, new_dyn);
-      let old_dyn = self.data.construct_dyn_datatype_from_raw_ptr(old);
+      let old_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(old);
       let old_dyn = old_dyn as *const dyn DataBaseDataTypeDyn;
       let old_pair = (old, old_dyn);
 
@@ -177,7 +185,7 @@ impl ComponentWriteViewUntyped {
   pub unsafe fn delete(&mut self, idx: RawEntityHandle) {
     let old = self.data.delete(idx.index());
 
-    let old_dyn = self.data.construct_dyn_datatype_from_raw_ptr(old);
+    let old_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(old);
     let old_dyn = old_dyn as *const dyn DataBaseDataTypeDyn;
     let old_pair = (old, old_dyn);
 

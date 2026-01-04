@@ -166,7 +166,7 @@ impl PersistIdMapper {
     let db = global_database();
 
     // create all new created entities first, for later mapping
-    let tables = db.ecg_tables.read();
+    let tables = db.tables.read();
     for (entity_name, v) in &change.entity_changes {
       let e_id = name_mapping.entities_inv.get(entity_name).unwrap();
       let entity_group = tables.get(e_id).unwrap();

@@ -21,6 +21,7 @@ rmp-serde = "1.3.0"
 disqualified = { workspace = true }
 mapped_futures = "0.2.1"
 rendiation-abstract-uri-data = { path = "../abstract-uri-data" }
+smallbox = "0.8"
 
 [lints]
 workspace = true

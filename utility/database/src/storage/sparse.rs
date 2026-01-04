@@ -8,29 +8,35 @@ pub struct DBSparseStorage<T> {
   pub data: FastHashMap<u32, T>,
   pub default_value: T,
   pub old_value_out: T, // todo, this value is leaked here, we should cleanup explicitly?
+  pub meta: DataTypeMetaInfo,
 }
 
 pub fn init_sparse_storage<S: ComponentSemantic>() -> Arc<RwLock<DBSparseStorage<S::Data>>> {
-  Arc::new(RwLock::new(DBSparseStorage::<S::Data> {
+  init_sparse_storage_by_data::<S::Data>(S::default_override())
+}
+
+pub fn init_sparse_storage_by_data<T: DataBaseDataType>(
+  default_value: T,
+) -> Arc<RwLock<DBSparseStorage<T>>> {
+  Arc::new(RwLock::new(DBSparseStorage::<T> {
     data: Default::default(),
-    default_value: S::default_override(),
+    default_value,
     old_value_out: Default::default(),
+    meta: DataTypeMetaInfo::from_type::<T>(),
   }))
 }
 
 impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBSparseStorage<T>>> {
-  fn create_read_view(&self) -> Arc<dyn ComponentStorageReadView> {
-    Arc::new(self.make_read_holder())
+  fn create_meta(&self) -> DataTypeMetaInfo {
+    self.read().meta.clone()
   }
 
-  fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView> {
-    Box::new(self.make_write_holder())
+  fn create_read_view(&self) -> ComponentReadViewBox {
+    smallbox!(self.make_read_holder())
   }
-  fn type_id(&self) -> TypeId {
-    TypeId::of::<T>()
-  }
-  fn data_shape(&self) -> &'static Shape<'_> {
-    T::shape()
+
+  fn create_read_write_view(&self) -> ComponentReadWriteViewBox {
+    smallbox!(self.make_write_holder())
   }
 
   fn memory_usage_in_bytes(&self) -> usize {
@@ -43,33 +49,32 @@ impl<T> ComponentStorageReadView for LockReadGuardHolder<DBSparseStorage<T>>
 where
   T: DataBaseDataType,
 {
-  unsafe fn get(&self, idx: u32) -> DataPtr {
-    self.data.get(&idx).unwrap_or(&self.default_value) as *const _ as DataPtr
-  }
-
-  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
-    &self,
-    ptr: DataPtr,
-  ) -> &'a dyn DataBaseDataTypeDyn {
-    let source = &*(ptr as *const T);
-    source as &dyn DataBaseDataTypeDyn
+  fn clone_boxed(&self) -> ComponentReadViewBox {
+    smallbox!(self.clone())
   }
 }
 
-impl<T> ComponentStorageReadView for LockWriteGuardHolder<DBSparseStorage<T>>
+impl<T> ComponentStorageReadViewBase for LockReadGuardHolder<DBSparseStorage<T>>
 where
   T: DataBaseDataType,
 {
+  fn meta(&self) -> &DataTypeMetaInfo {
+    &self.meta
+  }
   unsafe fn get(&self, idx: u32) -> DataPtr {
     self.data.get(&idx).unwrap_or(&self.default_value) as *const _ as DataPtr
   }
+}
 
-  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
-    &self,
-    ptr: DataPtr,
-  ) -> &'a dyn DataBaseDataTypeDyn {
-    let source = &*(ptr as *const T);
-    source as &dyn DataBaseDataTypeDyn
+impl<T> ComponentStorageReadViewBase for LockWriteGuardHolder<DBSparseStorage<T>>
+where
+  T: DataBaseDataType,
+{
+  fn meta(&self) -> &DataTypeMetaInfo {
+    &self.meta
+  }
+  unsafe fn get(&self, idx: u32) -> DataPtr {
+    self.data.get(&idx).unwrap_or(&self.default_value) as *const _ as DataPtr
   }
 }
 

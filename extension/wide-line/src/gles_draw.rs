@@ -123,7 +123,7 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>();
       let uniform = binding.bind_by(&self.uniform).load().expand();
 
-      let vertex_position = wide_line_vertex(
+      wide_line_vertex(
         builder.query::<WideLineStart>(),
         builder.query::<WideLineEnd>(),
         builder.query::<GeometryPosition>(),
@@ -132,7 +132,6 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
         builder,
       );
 
-      builder.register::<ClipPosition>(vertex_position);
       builder.set_vertex_out::<FragmentUv>(uv);
       builder.set_vertex_out::<DefaultDisplay>(color_with_alpha);
     });

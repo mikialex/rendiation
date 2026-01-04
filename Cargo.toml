@@ -80,6 +80,7 @@ members = [
   "extension/wide-line",
   "extension/gizmo",
   "extension/area-lighting",
+  "extension/csg-sdf-expression",
   "application/viewer",
   "xtask",
 ]

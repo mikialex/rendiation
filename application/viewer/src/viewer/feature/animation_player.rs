@@ -76,12 +76,12 @@ fn compute_mutation(
     channel_of_animation.mark_foreign_key::<SceneAnimationChannelBelongToAnimation>();
 
   let channel_reader = global_entity_of::<SceneAnimationChannelEntity>().entity_reader();
-  let buffer_reader = global_entity_component_of::<BufferEntityData>().read();
+  let buffer_reader = read_global_db_component::<BufferEntityData>();
   let input_read = SceneBufferViewReadView::<SceneAnimationChannelInput>::new_from_global();
   let output_read = SceneBufferViewReadView::<SceneAnimationChannelOutput>::new_from_global();
 
   let mut mutations = Vec::new();
-  let target = global_entity_component_of::<SceneAnimationChannelTargetNode>().read_foreign_key();
+  let target = read_global_db_foreign_key::<SceneAnimationChannelTargetNode>();
   let mut to_remove = Vec::new();
   for animation in active_animations.iter() {
     if let Some(animation) = channel_of_animation.access_multi(animation) {

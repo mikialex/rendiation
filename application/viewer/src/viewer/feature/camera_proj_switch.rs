@@ -99,8 +99,8 @@ pub fn use_camera_proj_switch(cx: &mut ViewerCx) {
   if let ViewerCxStage::EventHandling { .. } = cx.stage {
     if let Some(RequestSwitchCameraProjType(camera)) = raw_request.take() {
       // why we not have a reader stage??
-      let camera_perspective_proj = global_entity_component_of::<SceneCameraPerspective>().read();
-      let camera_orth_proj = global_entity_component_of::<SceneCameraOrthographic>().read();
+      let camera_perspective_proj = read_global_db_component::<SceneCameraPerspective>();
+      let camera_orth_proj = read_global_db_component::<SceneCameraOrthographic>();
       if let Some(_perspective) = camera_perspective_proj.get_value(camera).flatten() {
         *request_compute_suitable_orth = Some(SuitableOrthComputeRequest {
           camera,
