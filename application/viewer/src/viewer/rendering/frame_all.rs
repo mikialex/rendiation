@@ -121,12 +121,16 @@ impl Viewer3dRenderingCtx {
           Some((k, v.clone()))
         });
 
-      use_maybe_uri_data_changes(
-        cx,
-        &|cx| cx.use_changes::<SceneTexture2dEntityDirectContent>(),
-        scheduler,
-        Box::new(iter),
-      )
+      struct DBTextureInput;
+      impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for DBTextureInput {
+        type Result =
+          Arc<FastChangeCollector<<SceneTexture2dEntityDirectContent as ComponentSemantic>::Data>>;
+        fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+          cx.use_changes::<SceneTexture2dEntityDirectContent>()
+        }
+      }
+
+      use_maybe_uri_data_changes(cx, DBTextureInput, scheduler, Box::new(iter))
       // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
       // so we use Arc, but we should use DataChangeRef trait
     };

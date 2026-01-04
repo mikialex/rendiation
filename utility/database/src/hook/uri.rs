@@ -24,8 +24,8 @@ pub trait AbstractResourceScheduler: Send + Sync + 'static {
   fn notify_remove_resource(&mut self, key: &Self::Key);
 
   /// this api is to support dynamic creation of downstream, when a new downstream has created,
-  /// we have to emit remove message for all loaded data, cancelling all loading request, and reload all loaded data.
-  /// to make sure the new downstream has correct message received, and all downstream has same message witnessed.
+  /// we have to reload all loaded data. to make sure the new downstream has correct message received,
+  /// and all downstream has same message witnessed.
   ///
   /// a better behavior may implemented but it will greatly complicated the implementation. reload all is a acceptable tradeoff
   /// for this rare case.
@@ -62,6 +62,7 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler
 pub struct NoScheduleScheduler<K: CKey, V> {
   pub futures: MappedFutures<K, Box<dyn Future<Output = Option<V>> + Send + Sync + Unpin>>,
   pub data_source: Box<dyn UriDataSourceDyn<V>>,
+  pub loading_uri: FastHashMap<K, String>,
   pub loaded: FastHashMap<K, String>,
   pub request_reload: bool,
 }
@@ -73,6 +74,7 @@ impl<K: CKey, V> NoScheduleScheduler<K, V> {
       data_source,
       loaded: FastHashMap::default(),
       request_reload: false,
+      loading_uri: FastHashMap::default(),
     }
   }
 }
@@ -84,6 +86,7 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V>
   fn notify_use_resource(&mut self, key: &Self::Key, uri: &str) {
     let future = self.data_source.request_uri_data_load(uri);
     self.futures.replace(key.clone(), future);
+    self.loading_uri.insert(key.clone(), uri.to_string());
   }
 
   fn notify_remove_resource(&mut self, key: &Self::Key) {
@@ -96,11 +99,21 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V>
   }
 
   fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data> {
+    if self.request_reload {
+      self.request_reload = false;
+      for (key, uri) in &self.loaded {
+        let future = self.data_source.request_uri_data_load(uri);
+        self.futures.replace(key.clone(), future);
+        self.loading_uri.insert(key.clone(), uri.to_string());
+      }
+    }
+
     let mut load_list = Vec::new();
     while let Poll::Ready(Some((key, loaded))) = self.futures.poll_next_unpin(cx) {
       if let Some(loaded) = loaded {
         load_list.push((key.clone(), loaded));
-        self.loaded.insert(key, todo!());
+        let uri = self.loading_uri.remove(&key).unwrap();
+        self.loaded.insert(key, uri);
       }
     }
 
@@ -116,9 +129,9 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V>
 /// the Arc is only to support it access in thread
 pub fn use_maybe_uri_data_changes<P, C, Cx: QueryHookCxLike>(
   cx: &mut Cx,
-  changes: &dyn Fn(&mut Cx) -> UseResult<C>,
+  source: impl SharedResultProvider<Cx, Result = C>,
   scheduler: &Arc<RwLock<P>>,
-  iter_full: Box<dyn Iterator<Item = (P::Key, P::Data)>>,
+  iter_full: Box<dyn Iterator<Item = (P::Key, P::Data)> + Send + Sync>,
 ) -> UseResult<LinearBatchChanges<P::Key, Option<P::Data>>>
 where
   P: AbstractResourceScheduler,
@@ -126,8 +139,8 @@ where
   P::Data: CValue,
   P::Key: CKey,
 {
-  let share_key = todo!();
-  let debug_label = todo!();
+  let share_key = source.compute_share_key();
+  let debug_label = source.debug_label();
   let consumer_id = cx.use_shared_consumer(share_key);
 
   if cx.is_creating() {
@@ -136,7 +149,7 @@ where
 
   let all_downstream_changes = cx.use_shared_compute_internal(
     &|cx| {
-      let changes = changes(cx);
+      let changes = source.use_logic(cx);
 
       let scheduler = scheduler.clone();
       let waker = cx.waker().clone();
@@ -200,7 +213,7 @@ where
             downstream.push(changes.clone());
           }
           }
-           
+
         reconciler
         },
       )
@@ -223,7 +236,10 @@ where
     move |reconciler| {
       let mut reconciler = reconciler.write();
       let messages = reconciler.entry(consumer_id).or_insert_with(|| {
-        let init_message = todo!();
+        let init_message = Arc::new(LinearBatchChanges {
+          removed: Default::default(),
+          update_or_insert: iter_full.map(|(k, v)| (k, Some(v))).collect(),
+        });
         vec![init_message]
       });
       let merged = merge_linear_batch_changes(messages);
