@@ -103,18 +103,30 @@ impl Viewer3dRenderingCtx {
     );
 
     let source_creator = |cx: &mut QueryGPUHookCx<'_>| {
-      let source = cx.use_changes::<SceneTexture2dEntityDirectContent>();
       let (cx, scheduler) = cx
         .use_plain_state::<Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>>>>>(|| {
           let source = InMemoryUriDataSource::new(alloc_global_res_id());
-          let scheduler = NoScheduleScheduler {
-            futures: Default::default(),
-            data_source: Box::new(source),
-          };
+          let scheduler = NoScheduleScheduler::new(Box::new(source));
           Arc::new(RwLock::new(scheduler))
         });
 
-      use_maybe_uri_data_changes(cx, source, scheduler)
+      let iter = get_db_view_no_generation_check::<SceneTexture2dEntityDirectContent>()
+        .iter_static_life()
+        .filter_map(|(k, v)| {
+          let v = v?;
+          let v = match v.ptr.as_ref() {
+            MaybeUriData::Uri(_) => None,
+            MaybeUriData::Living(v) => Some(v),
+          }?;
+          Some((k, v.clone()))
+        });
+
+      use_maybe_uri_data_changes(
+        cx,
+        &|cx| cx.use_changes::<SceneTexture2dEntityDirectContent>(),
+        scheduler,
+        Box::new(iter),
+      )
       // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
       // so we use Arc, but we should use DataChangeRef trait
     };

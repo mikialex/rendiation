@@ -272,3 +272,27 @@ where
     self.0.create_iter().flat_map(|c| c.iter_update_or_insert())
   }
 }
+
+pub fn merge_linear_batch_changes<K: CKey, T: Clone>(
+  changes: &[Arc<LinearBatchChanges<K, T>>],
+) -> LinearBatchChanges<K, T> {
+  let mut removes = FastHashSet::default();
+  let mut new_inserts = FastHashMap::default();
+
+  for change in changes {
+    for k in change.removed.iter() {
+      removes.insert(k.clone());
+
+      new_inserts.remove(k);
+    }
+    for (k, v) in change.update_or_insert.iter() {
+      new_inserts.insert(k.clone(), v.clone());
+      removes.remove(k);
+    }
+  }
+
+  LinearBatchChanges {
+    removed: removes.into_iter().collect(),
+    update_or_insert: new_inserts.into_iter().collect(),
+  }
+}

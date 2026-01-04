@@ -5,6 +5,7 @@ use std::{
   task::{Context, Poll},
 };
 
+use fast_hash_collection::FastHashMap;
 use futures::stream::StreamExt;
 use mapped_futures::MappedFutures; // todo, i don't like this dep
 use parking_lot::RwLock;
@@ -21,6 +22,14 @@ pub trait AbstractResourceScheduler: Send + Sync + 'static {
 
   fn notify_use_resource(&mut self, key: &Self::Key, uri: &str);
   fn notify_remove_resource(&mut self, key: &Self::Key);
+
+  /// this api is to support dynamic creation of downstream, when a new downstream has created,
+  /// we have to emit remove message for all loaded data, cancelling all loading request, and reload all loaded data.
+  /// to make sure the new downstream has correct message received, and all downstream has same message witnessed.
+  ///
+  /// a better behavior may implemented but it will greatly complicated the implementation. reload all is a acceptable tradeoff
+  /// for this rare case.
+  fn reload_all_loaded(&mut self);
 
   /// the consumer must do dropping first, to make sure the peak memory usage is in bound
   fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data>;
@@ -40,6 +49,10 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler
     (**self).notify_remove_resource(key);
   }
 
+  fn reload_all_loaded(&mut self) {
+    (**self).reload_all_loaded();
+  }
+
   fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data> {
     (**self).poll_schedule(cx)
   }
@@ -49,6 +62,19 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler
 pub struct NoScheduleScheduler<K: CKey, V> {
   pub futures: MappedFutures<K, Box<dyn Future<Output = Option<V>> + Send + Sync + Unpin>>,
   pub data_source: Box<dyn UriDataSourceDyn<V>>,
+  pub loaded: FastHashMap<K, String>,
+  pub request_reload: bool,
+}
+
+impl<K: CKey, V> NoScheduleScheduler<K, V> {
+  pub fn new(data_source: Box<dyn UriDataSourceDyn<V>>) -> Self {
+    Self {
+      futures: MappedFutures::new(),
+      data_source,
+      loaded: FastHashMap::default(),
+      request_reload: false,
+    }
+  }
 }
 
 impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V> {
@@ -62,13 +88,19 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V>
 
   fn notify_remove_resource(&mut self, key: &Self::Key) {
     self.futures.remove(key);
+    self.loaded.remove(key);
+  }
+
+  fn reload_all_loaded(&mut self) {
+    self.request_reload = true;
   }
 
   fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data> {
     let mut load_list = Vec::new();
     while let Poll::Ready(Some((key, loaded))) = self.futures.poll_next_unpin(cx) {
       if let Some(loaded) = loaded {
-        load_list.push((key, loaded))
+        load_list.push((key.clone(), loaded));
+        self.loaded.insert(key, todo!());
       }
     }
 
@@ -82,10 +114,11 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V>
 // todo, optimize impl
 /// the scheduler should not be shared between different use_maybe_uri_data_changes
 /// the Arc is only to support it access in thread
-pub fn use_maybe_uri_data_changes<P, C>(
-  cx: &mut impl QueryHookCxLike,
-  changes: UseResult<C>,
+pub fn use_maybe_uri_data_changes<P, C, Cx: QueryHookCxLike>(
+  cx: &mut Cx,
+  changes: &dyn Fn(&mut Cx) -> UseResult<C>,
   scheduler: &Arc<RwLock<P>>,
+  iter_full: Box<dyn Iterator<Item = (P::Key, P::Data)>>,
 ) -> UseResult<LinearBatchChanges<P::Key, Option<P::Data>>>
 where
   P: AbstractResourceScheduler,
@@ -93,58 +126,109 @@ where
   P::Data: CValue,
   P::Key: CKey,
 {
-  let scheduler = scheduler.clone();
-  let waker = cx.waker().clone();
+  let share_key = todo!();
+  let debug_label = todo!();
+  let consumer_id = cx.use_shared_consumer(share_key);
 
-  changes.map_spawn_stage_in_thread(
-    cx,
-    |changes| changes.has_change(),
-    move |changes| {
-      let mut scheduler = scheduler.write();
+  if cx.is_creating() {
+    scheduler.write().reload_all_loaded();
+  }
 
-      let mut all_removed = Vec::new();
-      // do cancelling first
-      // the futures should not resolved in poll next call
-      for removed in changes.iter_removed() {
-        scheduler.notify_remove_resource(&removed);
-        all_removed.push(removed);
-      }
+  let all_downstream_changes = cx.use_shared_compute_internal(
+    &|cx| {
+      let changes = changes(cx);
 
-      let mut new_inserted = Vec::new();
-      let mut new_loading = fast_hash_collection::FastHashSet::default();
+      let scheduler = scheduler.clone();
+      let waker = cx.waker().clone();
 
-      // although the changes insert list may duplicate, it is not a problem but will have some performance cost
-      for (k, v) in changes.iter_update_or_insert() {
-        if let Some(v) = v {
-          let v = v.deref();
-          match v {
-            MaybeUriData::Uri(uri) => {
-              scheduler.notify_use_resource(&k, uri);
-              new_loading.insert(k.clone());
-            }
-            MaybeUriData::Living(v) => {
-              new_inserted.push((k, Some(v.clone())));
+      let (cx, reconciler) =
+        cx.use_plain_state_default_cloned::<Arc<RwLock<FastHashMap<u32, Vec<Arc<LinearBatchChanges<P::Key, Option<P::Data>>>>>>>>();
+
+       changes.map_spawn_stage_in_thread(
+        cx,
+        |changes| changes.has_change(),
+        move |changes| {
+          let mut scheduler = scheduler.write();
+
+          let mut all_removed = Vec::new();
+          // do cancelling first
+          // the futures should not resolved in poll next call
+          for removed in changes.iter_removed() {
+            scheduler.notify_remove_resource(&removed);
+            all_removed.push(removed);
+          }
+
+          let mut new_inserted = Vec::new();
+          let mut new_loading = fast_hash_collection::FastHashSet::default();
+
+          // although the changes insert list may duplicate, it is not a problem but will have some performance cost
+          for (k, v) in changes.iter_update_or_insert() {
+            if let Some(v) = v {
+              let v = v.deref();
+              match v {
+                MaybeUriData::Uri(uri) => {
+                  scheduler.notify_use_resource(&k, uri);
+                  new_loading.insert(k.clone());
+                }
+                MaybeUriData::Living(v) => {
+                  new_inserted.push((k, Some(v.clone())));
+                }
+              }
             }
           }
-        }
-      }
 
-      let mut ctx = Context::from_waker(&waker);
-      let loaded = scheduler.poll_schedule(&mut ctx);
+          let mut ctx = Context::from_waker(&waker);
+          let loaded = scheduler.poll_schedule(&mut ctx);
 
-      for (k, v) in loaded.iter_update_or_insert() {
-        new_loading.remove(&k);
-        new_inserted.push((k, Some(v)));
-      }
+          for (k, v) in loaded.iter_update_or_insert() {
+            new_loading.remove(&k);
+            new_inserted.push((k, Some(v)));
+          }
 
-      for k in new_loading {
-        new_inserted.push((k, None));
-      }
+          for k in new_loading {
+            new_inserted.push((k, None));
+          }
 
-      LinearBatchChanges {
-        removed: all_removed,
-        update_or_insert: new_inserted,
+          let changes = Arc::new(LinearBatchChanges {
+            removed: all_removed,
+            update_or_insert: new_inserted,
+          });
+
+          {
+            let mut r = reconciler.write();
+          for downstream in  r.values_mut() {
+            downstream.push(changes.clone());
+          }
+          }
+           
+        reconciler
+        },
+      )
+    },
+    share_key,
+    debug_label,
+    consumer_id,
+  );
+
+  all_downstream_changes.map_spawn_stage_in_thread(
+    cx,
+    move |reconciler| {
+      let r = reconciler.read();
+      if let Some(buffered_changes) = r.get(&consumer_id) {
+        buffered_changes.len() > 1
+      } else {
+        true
       }
+    },
+    move |reconciler| {
+      let mut reconciler = reconciler.write();
+      let messages = reconciler.entry(consumer_id).or_insert_with(|| {
+        let init_message = todo!();
+        vec![init_message]
+      });
+      let merged = merge_linear_batch_changes(messages);
+      messages.clear();
+      merged
     },
   )
 }

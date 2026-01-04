@@ -6,6 +6,16 @@ pub struct IterableComponentReadView<T> {
   pub phantom: PhantomData<T>,
 }
 
+impl<T: CValue> IterableComponentReadView<T> {
+  pub fn iter_static_life(&self) -> impl Iterator<Item = (u32, T)> + 'static {
+    let s = self.clone();
+    self.table.iter_entity_idx().map(move |id| unsafe {
+      let idx = id.alloc_index();
+      (idx, s.access_ref(&idx).unwrap_unchecked().clone())
+    })
+  }
+}
+
 impl<T> Clone for IterableComponentReadView<T> {
   fn clone(&self) -> Self {
     Self {
