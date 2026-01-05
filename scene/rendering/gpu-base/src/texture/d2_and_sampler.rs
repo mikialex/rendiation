@@ -14,9 +14,11 @@ pub fn use_sampler_gpus(cx: &mut QueryGPUHookCx) -> SharedHashMapRead<u32, GPUSa
 pub fn use_gpu_texture_2ds(
   cx: &mut QueryGPUHookCx,
   default: &GPU2DTextureView,
-  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>>>,
+  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>> + 'static>,
 ) -> SharedHashMapRead<u32, GPU2DTextureView> {
   let map = cx.use_shared_hash_map("texture2d gpu mapping");
+
+  let source = source.use_assure_result(cx);
 
   maintain_shared_map_avoid_unnecessary_creator_init(&map, source, || {
     let mut mipmap_cx = MipmapCtx {

@@ -50,7 +50,7 @@ fn create_default_tex_and_sampler(
 
 pub fn use_gles_texture_system(
   cx: &mut QueryGPUHookCx,
-  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>>>,
+  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>> + 'static>,
 ) -> Option<GPUTextureBindingSystem> {
   let (cx, (default_2d, default_sampler)) = cx.use_gpu_init(create_default_tex_and_sampler);
   let textures = use_gpu_texture_2ds(cx, default_2d, source);
@@ -68,7 +68,7 @@ pub fn use_gles_texture_system(
 
 pub fn use_bindless_texture_system(
   cx: &mut QueryGPUHookCx,
-  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>>>,
+  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>> + 'static>,
 ) -> Option<GPUTextureBindingSystem> {
   let (cx, (default_2d, default_sampler)) = cx.use_gpu_init(create_default_tex_and_sampler);
 

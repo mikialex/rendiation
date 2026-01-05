@@ -124,6 +124,9 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V>
   }
 }
 
+type Reconciler<K, V> = FastHashMap<u32, Vec<Arc<LinearBatchChanges<K, Option<V>>>>>;
+type SharedReconciler<K, V> = Arc<RwLock<Reconciler<K, V>>>;
+
 // todo, optimize impl
 /// the scheduler should not be shared between different use_maybe_uri_data_changes
 /// the Arc is only to support it access in thread
@@ -155,9 +158,11 @@ where
       let waker = cx.waker().clone();
 
       let (cx, reconciler) =
-        cx.use_plain_state_default_cloned::<Arc<RwLock<FastHashMap<u32, Vec<Arc<LinearBatchChanges<P::Key, Option<P::Data>>>>>>>>();
+        cx.use_plain_state_default_cloned::<SharedReconciler<P::Key, P::Data>>();
 
-       changes.map_spawn_stage_in_thread(
+      let reconciler_ = reconciler.clone();
+
+      let re = changes.map_spawn_stage_in_thread(
         cx,
         |changes| changes.has_change(),
         move |changes| {
@@ -209,22 +214,34 @@ where
 
           {
             let mut r = reconciler.write();
-          for downstream in  r.values_mut() {
-            downstream.push(changes.clone());
-          }
+            for downstream in r.values_mut() {
+              downstream.push(changes.clone());
+            }
           }
 
-        reconciler
+          reconciler
         },
-      )
+      );
+
+      if let UseResult::NotInStage = re {
+        if cx.is_spawning_stage() {
+          // data change is not in stage when nothing changed
+          UseResult::SpawnStageReady(reconciler_.clone())
+        } else {
+          re
+        }
+      } else {
+        re
+      }
     },
     share_key,
     debug_label,
     consumer_id,
   );
 
-  // todo, datachange is not in stage when nothing changed
-  // todo, remove downstream when dropped
+  let (cx, cleanup) =
+    cx.use_plain_state_default_cloned::<Arc<RwLock<Option<Cleanup<P::Key, P::Data>>>>>();
+
   all_downstream_changes.map_spawn_stage_in_thread(
     cx,
     move |reconciler| {
@@ -232,6 +249,10 @@ where
       if let Some(buffered_changes) = r.get(&consumer_id) {
         buffered_changes.len() > 1
       } else {
+        let mut cleanup = cleanup.write();
+        if cleanup.is_none() {
+          *cleanup = Some(Cleanup(reconciler.clone(), consumer_id));
+        }
         true
       }
     },
@@ -249,4 +270,12 @@ where
       Arc::new(merged)
     },
   )
+}
+
+struct Cleanup<K, V>(SharedReconciler<K, V>, u32);
+impl<K, V> Drop for Cleanup<K, V> {
+  fn drop(&mut self) {
+    let removed = self.0.write().remove(&self.1);
+    assert!(removed.is_some());
+  }
 }
