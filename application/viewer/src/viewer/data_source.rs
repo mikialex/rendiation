@@ -6,35 +6,44 @@ pub fn viewer_mesh_input<Cx>(cx: &mut Cx) -> UseResult<AttributesMeshDataChangeI
 where
   Cx: DBHookCxLike,
 {
-  //   struct DBMeshInput;
-  //   impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for DBMeshInput {
-  //     share_provider_hash_type_id! {}
-  //     type Result = AttributesMeshDataChangeInput;
-  //     fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-  //       attribute_mesh_input(cx)
-  //     }
-  //   }
+  struct DBMeshInput;
+  impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for DBMeshInput {
+    share_provider_hash_type_id! {}
+    type Result = AttributesMeshDataChangeMaybeUriInput;
+    fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+      attribute_mesh_input(cx)
+    }
+  }
 
-  // let (cx, scheduler) = cx
-  //   .use_plain_state::<Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>>>>>(|| {
-  //     let source = InMemoryUriDataSource::new(alloc_global_res_id());
-  //     let scheduler = NoScheduleScheduler::new(Box::new(source));
-  //     Arc::new(RwLock::new(scheduler))
-  //   });
+  let (cx, scheduler) = cx.use_plain_state::<Arc<
+    RwLock<NoScheduleScheduler<RawEntityHandle, AttributesMesh, MaybeUriMesh>>,
+  >>(|| {
+    let mut source = InMemoryUriDataSource::new(alloc_global_res_id());
+    let load_impl = move |uri: &MaybeUriMesh| load_uri_mesh(uri, &mut source);
 
-  //   let iter = [].into_iter(); // todo
-  //   use_maybe_uri_data_changes(cx, DBMeshInput, scheduler, Box::new(iter))
+    let scheduler = NoScheduleScheduler::new(Box::new(load_impl) as _);
+    Arc::new(RwLock::new(scheduler))
+  });
 
-  attribute_mesh_input(cx)
+  // let mesh_ref_vertex =
+  //   cx.use_db_rev_ref_tri_view::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
+  // let reader = AttributesMeshReader::new_from_global(
+  //   mesh_ref_vertex
+  //     .rev_many_view
+  //     .mark_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+  //     .into_boxed_multi(),
+  // );
+
+  let iter = [].into_iter(); // todo
+  use_uri_data_changes(cx, DBMeshInput, scheduler, Box::new(iter))
 }
 
-// struct MaybeUriMesh {}
-
-// fn read_maybe_uri_mesh(
-//   reader: &AttributesMeshReader,
-// ) -> MaybeUriData<AttributesMesh, MaybeUriMesh> {
-//   todo!()
-// }
+fn load_uri_mesh(
+  mesh: &MaybeUriMesh,
+  buffer_backend: &mut InMemoryUriDataSource<Arc<Vec<u8>>>,
+) -> Box<dyn Future<Output = Option<AttributesMesh>> + Send + Sync + Unpin + 'static> {
+  todo!()
+}
 
 // todo, share scheduler
 // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone

@@ -67,7 +67,9 @@ pub fn use_attribute_mesh_to_blas(
   let acc_sys_ = acc_sys.clone();
 
   mesh_input
-    .map_changes(move |mesh| create_blas_from_attribute_mesh(&mesh, &acc_sys_))
+    .filter_map_changes(move |mesh| {
+      mesh.map(|mesh| create_blas_from_attribute_mesh(&mesh, &acc_sys_))
+    })
     .use_change_to_dual_query_in_spawn_stage(cx)
 }
 

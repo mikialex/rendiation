@@ -203,21 +203,73 @@ where
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     (self.0.clone())(cx)
       .map_changes(|mesh| {
-        let position = mesh.get_position_slice();
-        mesh
-          .create_abstract_mesh_view(position)
-          .primitive_iter()
-          .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
+        if let Some(mesh) = mesh {
+          let position = mesh.get_position_slice();
+          mesh
+            .create_abstract_mesh_view(position)
+            .primitive_iter()
+            .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
+        } else {
+          Box3::empty()
+        }
       })
       .use_change_to_dual_query_in_spawn_stage(cx)
   }
 }
 
-pub type AttributesMeshDataChangeInput = Arc<LinearBatchChanges<RawEntityHandle, AttributesMesh>>;
+pub type AttributeVertexDataSource = UseResult<
+  impl DataChanges<Key = RawEntityHandle, Value = (RawEntityHandle, Option<BufferViewRange>)>,
+>;
+
+#[define_opaque(AttributeVertexDataSource)]
+pub fn use_attribute_vertex_data(cx: &mut impl DBHookCxLike) -> AttributeVertexDataSource {
+  let vertex_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>();
+  let vertex_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>();
+
+  vertex_buffer_ref
+    .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
+    .dual_query_filter_map(|(index, range)| index.map(|i| (i, range)))
+    .dual_query_boxed()
+    .into_delta_change()
+}
+
+pub type AttributeIndexDataSource = UseResult<
+  impl DataChanges<Key = RawEntityHandle, Value = (RawEntityHandle, Option<BufferViewRange>, u32)>,
+>;
+
+#[define_opaque(AttributeIndexDataSource)]
+pub fn use_attribute_index_data(cx: &mut impl DBHookCxLike) -> AttributeIndexDataSource {
+  let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
+  let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
+  // we need count to distinguish between the u16 or u32 index
+  let index_item_count = cx.use_dual_query::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
+
+  index_buffer_ref
+    .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
+    .dual_query_zip(index_item_count)
+    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count)))
+    .dual_query_boxed()
+    .into_delta_change()
+}
+
+#[derive(Clone)]
+pub struct MaybeUriMesh {}
+
+fn read_maybe_uri_mesh(
+  reader: &AttributesMeshReader,
+) -> MaybeUriData<AttributesMesh, MaybeUriMesh> {
+  todo!()
+}
+
+pub type AttributesMeshDataChangeInput =
+  Arc<LinearBatchChanges<RawEntityHandle, Option<AttributesMesh>>>;
+
+pub type AttributesMeshDataChangeMaybeUriInput =
+  Arc<LinearBatchChanges<RawEntityHandle, MaybeUriData<AttributesMesh, MaybeUriMesh>>>;
 
 pub fn attribute_mesh_input(
   cx: &mut impl DBHookCxLike,
-) -> UseResult<AttributesMeshDataChangeInput> {
+) -> UseResult<AttributesMeshDataChangeMaybeUriInput> {
   let mesh_set_changes = cx.use_query_set::<AttributesMeshEntity>();
 
   // key: attribute mesh
@@ -303,7 +355,7 @@ pub fn attribute_mesh_input(
           .into_iter()
           .map(|m| {
             let mesh = unsafe { EntityHandle::from_raw(m) };
-            let mesh = reader.read(mesh).unwrap();
+            let mesh = MaybeUriData::Living(reader.read(mesh).unwrap());
             (m, mesh)
           })
           .collect::<Vec<_>>();

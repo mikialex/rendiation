@@ -83,7 +83,7 @@ impl<K: CKey, V, URI> NoScheduleScheduler<K, V, URI> {
   }
 }
 
-impl<K: CKey, V: CValue, URI: Clone + Send + Sync> AbstractResourceScheduler
+impl<K: CKey, V, URI: Clone + Send + Sync> AbstractResourceScheduler
   for NoScheduleScheduler<K, V, URI>
 {
   type Data = V;
@@ -146,7 +146,7 @@ pub fn use_uri_data_changes<P, C, Cx: QueryHookCxLike>(
 where
   P: AbstractResourceScheduler + 'static,
   C: DataChanges<Key = P::Key, Value = MaybeUriData<P::Data, P::UriLike>> + 'static,
-  P::Data: CValue,
+  P::Data: Send + Sync + 'static + Clone,
   P::Key: CKey,
 {
   let share_key = source.compute_share_key();
