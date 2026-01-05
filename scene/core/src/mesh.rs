@@ -190,41 +190,34 @@ pub fn register_instance_mesh_data_model() {
     .declare_foreign_key::<InstanceMeshInstanceEntityRefAttributesMeshEntity>();
 }
 
-pub struct AttributeMeshLocalBounding;
+pub struct AttributeMeshLocalBounding<T>(pub T);
 
-impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for AttributeMeshLocalBounding {
+impl<Cx, T> SharedResultProvider<Cx> for AttributeMeshLocalBounding<T>
+where
+  Cx: DBHookCxLike,
+  T: FnOnce(&mut Cx) -> UseResult<AttributesMeshDataChangeInput> + Clone,
+{
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3> + 'static; // attribute mesh entity
+  share_provider_hash_type_id! {AttributeMeshLocalBounding<()>}
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-    cx.use_shared_dual_query(AttributeMeshInput)
-      .use_dual_query_execute_map(cx, || {
-        |_k, mesh| {
-          let position = mesh.get_position_slice();
-          mesh
-            .create_abstract_mesh_view(position)
-            .primitive_iter()
-            .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
-        }
+    (self.0.clone())(cx)
+      .map_changes(|mesh| {
+        let position = mesh.get_position_slice();
+        mesh
+          .create_abstract_mesh_view(position)
+          .primitive_iter()
+          .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
       })
-  }
-}
-
-pub struct AttributeMeshInput;
-
-impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for AttributeMeshInput {
-  type Result =
-    impl DualQueryLike<Key = RawEntityHandle, Value = ExternalRefPtr<AttributesMesh>> + 'static; // attribute mesh entity
-
-  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-    attribute_mesh_input(cx)
-      .map_changes(ExternalRefPtr::new)
       .use_change_to_dual_query_in_spawn_stage(cx)
   }
 }
 
+pub type AttributesMeshDataChangeInput = Arc<LinearBatchChanges<RawEntityHandle, AttributesMesh>>;
+
 pub fn attribute_mesh_input(
   cx: &mut impl DBHookCxLike,
-) -> UseResult<Arc<LinearBatchChanges<RawEntityHandle, AttributesMesh>>> {
+) -> UseResult<AttributesMeshDataChangeInput> {
   let mesh_set_changes = cx.use_query_set::<AttributesMeshEntity>();
 
   // key: attribute mesh

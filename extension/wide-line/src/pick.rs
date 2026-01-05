@@ -7,6 +7,7 @@ pub struct WideLineSceneModelWorldBounding;
 
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideLineSceneModelWorldBounding {
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f64>>;
+  share_provider_hash_type_id! {}
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let local_boxes = cx

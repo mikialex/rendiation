@@ -6,6 +6,9 @@ pub use feature::*;
 mod viewport;
 pub use viewport::*;
 
+mod data_source;
+pub use data_source::*;
+
 mod rendering_root;
 pub use rendering_root::*;
 

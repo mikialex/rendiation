@@ -102,44 +102,11 @@ impl Viewer3dRenderingCtx {
       self.prefer_bindless_for_indirect_texture_system,
     );
 
-    let source_creator = |cx: &mut QueryGPUHookCx<'_>| {
-      let (cx, scheduler) = cx
-        .use_plain_state::<Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>>>>>(|| {
-          let source = InMemoryUriDataSource::new(alloc_global_res_id());
-          let scheduler = NoScheduleScheduler::new(Box::new(source));
-          Arc::new(RwLock::new(scheduler))
-        });
-
-      let iter = get_db_view_no_generation_check::<SceneTexture2dEntityDirectContent>()
-        .iter_static_life()
-        .filter_map(|(k, v)| {
-          let v = v?;
-          let v = match v.ptr.as_ref() {
-            MaybeUriData::Uri(_) => None,
-            MaybeUriData::Living(v) => Some(v),
-          }?;
-          Some((k, v.clone()))
-        });
-
-      struct DBTextureInput;
-      impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for DBTextureInput {
-        type Result =
-          Arc<FastChangeCollector<<SceneTexture2dEntityDirectContent as ComponentSemantic>::Data>>;
-        fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-          cx.use_changes::<SceneTexture2dEntityDirectContent>()
-        }
-      }
-
-      use_maybe_uri_data_changes(cx, DBTextureInput, scheduler, Box::new(iter))
-      // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
-      // so we use Arc, but we should use DataChangeRef trait
-    };
-
     let texture_sys = use_texture_system(
       cx,
       ty,
       &init_config.texture_pool_source_init_config,
-      source_creator,
+      viewer_texture_input,
     );
 
     let any_base_resource_changed = change_scope(cx);

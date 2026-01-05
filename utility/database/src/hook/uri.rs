@@ -132,7 +132,7 @@ pub fn use_maybe_uri_data_changes<P, C, Cx: QueryHookCxLike>(
   source: impl SharedResultProvider<Cx, Result = C>,
   scheduler: &Arc<RwLock<P>>,
   iter_full: Box<dyn Iterator<Item = (P::Key, P::Data)> + Send + Sync>,
-) -> UseResult<LinearBatchChanges<P::Key, Option<P::Data>>>
+) -> UseResult<Arc<LinearBatchChanges<P::Key, Option<P::Data>>>>
 where
   P: AbstractResourceScheduler,
   C: DataChanges<Key = P::Key, Value = Option<ExternalRefPtr<MaybeUriData<P::Data>>>> + 'static,
@@ -223,6 +223,8 @@ where
     consumer_id,
   );
 
+  // todo, datachange is not in stage when nothing changed
+  // todo, remove downstream when dropped
   all_downstream_changes.map_spawn_stage_in_thread(
     cx,
     move |reconciler| {
@@ -244,7 +246,7 @@ where
       });
       let merged = merge_linear_batch_changes(messages);
       messages.clear();
-      merged
+      Arc::new(merged)
     },
   )
 }

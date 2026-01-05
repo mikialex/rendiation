@@ -6,6 +6,7 @@ pub struct StateIntern;
 
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for StateIntern {
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = InternedId<RasterizationStates>>;
+  share_provider_hash_type_id! {}
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let (cx, intern) = cx.use_sharable_plain_state(ValueInterning::default);

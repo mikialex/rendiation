@@ -86,16 +86,30 @@ pub enum ShareKey {
 /// this trait serves two purposes:
 /// - workaround/express a lifetime issue without unsafe
 /// - support custom shared
-pub trait SharedResultProvider<Cx>: 'static {
+pub trait SharedResultProvider<Cx> {
   type Result: Clone + Sync + Send + 'static;
-  fn compute_share_key(&self) -> ShareKey {
-    ShareKey::TypeId(TypeId::of::<Self>())
-  }
+  fn compute_share_key(&self) -> ShareKey;
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result>;
 
   fn debug_label(&self) -> &str {
     std::any::type_name::<Self>()
   }
+}
+
+#[macro_export]
+macro_rules! share_provider_hash_type_id {
+  () => {
+     fn compute_share_key(&self) -> ShareKey {
+      use std::hash::Hash;
+    ShareKey::TypeId(std::any::TypeId::of::<Self>())
+    }
+  };
+  {$ty:ty} => {
+     fn compute_share_key(&self) -> ShareKey {
+      use std::hash::Hash;
+    ShareKey::TypeId(std::any::TypeId::of::<$ty>())
+    }
+  };
 }
 
 pub type SharedHashMap<K, V> = Arc<RwLock<FastHashMap<K, V>>>;

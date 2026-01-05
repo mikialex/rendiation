@@ -96,13 +96,16 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
   }
 }
 
-pub fn use_attribute_mesh_picker(cx: &mut impl DBHookCxLike) -> Option<AttributeMeshPicker> {
+pub fn use_attribute_mesh_picker<Cx: DBHookCxLike>(
+  cx: &mut Cx,
+  mesh_input: impl FnOnce(&mut Cx) -> UseResult<AttributesMeshDataChangeInput> + Clone,
+) -> Option<AttributeMeshPicker> {
   let mesh_vertex_refs = cx
     .use_db_rev_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
     .use_assure_result(cx);
 
   let sm_bounding = cx
-    .use_shared_dual_query_view(SceneModelByAttributesMeshStdModelWorldBounding)
+    .use_shared_dual_query_view(SceneModelByAttributesMeshStdModelWorldBounding(mesh_input))
     .use_assure_result(cx);
 
   cx.when_resolve_stage(|| AttributeMeshPicker {

@@ -49,6 +49,7 @@ pub struct GlobalNodeConnectivity;
 
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalNodeConnectivity {
   type Result = RevRefContainerRead<RawEntityHandle, RawEntityHandle>;
+  share_provider_hash_type_id! {}
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let connectivity_change = use_connectivity_change(cx);
@@ -109,6 +110,7 @@ where
   F: Fn(&C::Data, Option<&C::Data>) -> C::Data + Send + Sync + 'static + Copy,
 {
   type Result = DeriveDataDualQuery<C::Data>;
+  share_provider_hash_type_id! {}
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let connectivity_rev_view = cx.use_shared_compute(GlobalNodeConnectivity);
