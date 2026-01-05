@@ -74,6 +74,7 @@ rendiation-wide-line = { path = "../../extension/wide-line" }
 rendiation-webgpu-virtual-typed-combine-buffer = { path = "../../platform/graphics/webgpu-virtual-typed-combine-buffer" }
 rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
 rendiation-webgpu-texture-as-buffer = { path = "../../platform/graphics/webgpu-texture-as-buffer" }
+rendiation-uri-scheduler = { path = "../../utility/uri-scheduler" }
 rfd = "0.15.4"
 tracing = { workspace = true }
 tracing-subscriber = "0.3.20"

@@ -1,6 +1,5 @@
 use std::{
   future::Future,
-  ops::Deref,
   sync::Arc,
   task::{Context, Poll},
 };
@@ -13,14 +12,13 @@ use query::*;
 use query_hook::*;
 pub use rendiation_abstract_uri_data::*;
 
-use crate::ExternalRefPtr;
-
 /// this trait is to reserve the design space for virtualization related scheduling logic
-pub trait AbstractResourceScheduler: Send + Sync + 'static {
+pub trait AbstractResourceScheduler: Send + Sync {
+  type UriLike;
   type Data;
   type Key;
 
-  fn notify_use_resource(&mut self, key: &Self::Key, uri: &str);
+  fn notify_use_resource(&mut self, key: &Self::Key, uri: &Self::UriLike);
   fn notify_remove_resource(&mut self, key: &Self::Key);
 
   /// this api is to support dynamic creation of downstream, when a new downstream has created,
@@ -35,13 +33,14 @@ pub trait AbstractResourceScheduler: Send + Sync + 'static {
   fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data>;
 }
 
-impl<K: CKey, V: CValue> AbstractResourceScheduler
-  for Box<dyn AbstractResourceScheduler<Data = V, Key = K>>
+impl<K: CKey, V: CValue, U> AbstractResourceScheduler
+  for Box<dyn AbstractResourceScheduler<Data = V, Key = K, UriLike = U>>
 {
+  type UriLike = U;
   type Data = V;
   type Key = K;
 
-  fn notify_use_resource(&mut self, key: &Self::Key, uri: &str) {
+  fn notify_use_resource(&mut self, key: &Self::Key, uri: &Self::UriLike) {
     (**self).notify_use_resource(key, uri);
   }
 
@@ -59,19 +58,24 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler
 }
 
 /// the basic implementation is load what your request to load
-pub struct NoScheduleScheduler<K: CKey, V> {
+pub struct NoScheduleScheduler<K: CKey, V, URI> {
   pub futures: MappedFutures<K, Box<dyn Future<Output = Option<V>> + Send + Sync + Unpin>>,
-  pub data_source: Box<dyn UriDataSourceDyn<V>>,
-  pub loading_uri: FastHashMap<K, String>,
-  pub loaded: FastHashMap<K, String>,
+  pub load_impl:
+    Box<dyn FnMut(&URI) -> Box<dyn Future<Output = Option<V>> + Send + Sync + Unpin> + Send + Sync>,
+  pub loading_uri: FastHashMap<K, URI>,
+  pub loaded: FastHashMap<K, URI>,
   pub request_reload: bool,
 }
 
-impl<K: CKey, V> NoScheduleScheduler<K, V> {
-  pub fn new(data_source: Box<dyn UriDataSourceDyn<V>>) -> Self {
+impl<K: CKey, V, URI> NoScheduleScheduler<K, V, URI> {
+  pub fn new(
+    load_impl: Box<
+      dyn FnMut(&URI) -> Box<dyn Future<Output = Option<V>> + Send + Sync + Unpin> + Send + Sync,
+    >,
+  ) -> Self {
     Self {
       futures: MappedFutures::new(),
-      data_source,
+      load_impl,
       loaded: FastHashMap::default(),
       request_reload: false,
       loading_uri: FastHashMap::default(),
@@ -79,14 +83,17 @@ impl<K: CKey, V> NoScheduleScheduler<K, V> {
   }
 }
 
-impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V> {
+impl<K: CKey, V: CValue, URI: Clone + Send + Sync> AbstractResourceScheduler
+  for NoScheduleScheduler<K, V, URI>
+{
   type Data = V;
   type Key = K;
+  type UriLike = URI;
 
-  fn notify_use_resource(&mut self, key: &Self::Key, uri: &str) {
-    let future = self.data_source.request_uri_data_load(uri);
+  fn notify_use_resource(&mut self, key: &Self::Key, uri: &URI) {
+    let future = (self.load_impl)(uri);
     self.futures.replace(key.clone(), future);
-    self.loading_uri.insert(key.clone(), uri.to_string());
+    self.loading_uri.insert(key.clone(), uri.clone());
   }
 
   fn notify_remove_resource(&mut self, key: &Self::Key) {
@@ -102,9 +109,9 @@ impl<K: CKey, V: CValue> AbstractResourceScheduler for NoScheduleScheduler<K, V>
     if self.request_reload {
       self.request_reload = false;
       for (key, uri) in &self.loaded {
-        let future = self.data_source.request_uri_data_load(uri);
+        let future = (self.load_impl)(uri);
         self.futures.replace(key.clone(), future);
-        self.loading_uri.insert(key.clone(), uri.to_string());
+        self.loading_uri.insert(key.clone(), uri.clone());
       }
     }
 
@@ -130,15 +137,15 @@ type SharedReconciler<K, V> = Arc<RwLock<Reconciler<K, V>>>;
 // todo, optimize impl
 /// the scheduler should not be shared between different use_maybe_uri_data_changes
 /// the Arc is only to support it access in thread
-pub fn use_maybe_uri_data_changes<P, C, Cx: QueryHookCxLike>(
+pub fn use_uri_data_changes<P, C, Cx: QueryHookCxLike>(
   cx: &mut Cx,
   source: impl SharedResultProvider<Cx, Result = C>,
   scheduler: &Arc<RwLock<P>>,
   iter_full: Box<dyn Iterator<Item = (P::Key, P::Data)> + Send + Sync>,
 ) -> UseResult<Arc<LinearBatchChanges<P::Key, Option<P::Data>>>>
 where
-  P: AbstractResourceScheduler,
-  C: DataChanges<Key = P::Key, Value = Option<ExternalRefPtr<MaybeUriData<P::Data>>>> + 'static,
+  P: AbstractResourceScheduler + 'static,
+  C: DataChanges<Key = P::Key, Value = MaybeUriData<P::Data, P::UriLike>> + 'static,
   P::Data: CValue,
   P::Key: CKey,
 {
@@ -181,16 +188,13 @@ where
 
           // although the changes insert list may duplicate, it is not a problem but will have some performance cost
           for (k, v) in changes.iter_update_or_insert() {
-            if let Some(v) = v {
-              let v = v.deref();
-              match v {
-                MaybeUriData::Uri(uri) => {
-                  scheduler.notify_use_resource(&k, uri);
-                  new_loading.insert(k.clone());
-                }
-                MaybeUriData::Living(v) => {
-                  new_inserted.push((k, Some(v.clone())));
-                }
+            match v {
+              MaybeUriData::Uri(uri) => {
+                scheduler.notify_use_resource(&k, &uri);
+                new_loading.insert(k.clone());
+              }
+              MaybeUriData::Living(v) => {
+                new_inserted.push((k, Some(v.clone())));
               }
             }
           }

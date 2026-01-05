@@ -3,7 +3,6 @@ mod delta_channel;
 mod persistence;
 mod ref_counting;
 mod staged_scope_watch;
-mod uri;
 mod util;
 
 use std::hash::Hasher;
@@ -13,7 +12,6 @@ pub use delta_channel::*;
 pub use persistence::*;
 pub use ref_counting::*;
 pub use staged_scope_watch::*;
-pub use uri::*;
 pub use util::*;
 
 use crate::*;

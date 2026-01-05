@@ -5,9 +5,9 @@ use fast_hash_collection::FastHashMap;
 use serde::*;
 
 #[repr(C)]
-#[derive(Facet, Serialize, Deserialize, Clone)]
-pub enum MaybeUriData<T> {
-  Uri(Arc<String>),
+#[derive(Facet, Serialize, Deserialize, Clone, Debug)]
+pub enum MaybeUriData<T, URI = Arc<String>> {
+  Uri(URI),
   Living(T),
 }
 
@@ -26,7 +26,7 @@ impl<T> MaybeUriData<T> {
   }
 }
 
-impl<T: Default> Default for MaybeUriData<T> {
+impl<T: Default, URI> Default for MaybeUriData<T, URI> {
   fn default() -> Self {
     MaybeUriData::Living(T::default())
   }
@@ -42,26 +42,26 @@ pub trait UriDataSource<T>: Send + Sync {
 }
 
 pub trait UriDataSourceDyn<T>: Send + Sync {
-  fn create_for_direct_data(&mut self, data: T) -> &str;
-  fn request_uri_data_load(
+  fn create_for_direct_data_dyn(&mut self, data: T) -> &str;
+  fn request_uri_data_load_dyn(
     &mut self,
     uri: &str,
   ) -> Box<dyn Future<Output = Option<T>> + Unpin + Send + Sync>;
-  fn clear_init_direct_data(&mut self);
+  fn clear_init_direct_data_dyn(&mut self);
 }
 
 impl<X: UriDataSource<T>, T: 'static> UriDataSourceDyn<T> for X {
-  fn create_for_direct_data(&mut self, data: T) -> &str {
+  fn create_for_direct_data_dyn(&mut self, data: T) -> &str {
     self.create_for_direct_data(data)
   }
 
-  fn request_uri_data_load(
+  fn request_uri_data_load_dyn(
     &mut self,
     uri: &str,
   ) -> Box<dyn Future<Output = Option<T>> + Unpin + Send + Sync> {
     Box::new(self.request_uri_data_load(uri))
   }
-  fn clear_init_direct_data(&mut self) {
+  fn clear_init_direct_data_dyn(&mut self) {
     self.clear_init_direct_data()
   }
 }
