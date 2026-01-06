@@ -217,40 +217,39 @@ where
   }
 }
 
-pub type AttributeVertexDataSource = UseResult<
-  impl DataChanges<Key = RawEntityHandle, Value = (RawEntityHandle, Option<BufferViewRange>)>,
->;
+pub type AttributeVertexDataSource =
+  UseResult<Arc<LinearBatchChanges<RawEntityHandle, (RawEntityHandle, Option<BufferViewRange>)>>>;
 
-#[define_opaque(AttributeVertexDataSource)]
-pub fn use_attribute_vertex_data(cx: &mut impl DBHookCxLike) -> AttributeVertexDataSource {
-  let vertex_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>();
-  let vertex_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>();
+// #[define_opaque(AttributeVertexDataSource)]
+// pub fn use_attribute_vertex_data(cx: &mut impl DBHookCxLike) -> AttributeVertexDataSource {
+//   let vertex_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>();
+//   let vertex_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>();
 
-  vertex_buffer_ref
-    .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
-    .dual_query_filter_map(|(index, range)| index.map(|i| (i, range)))
-    .dual_query_boxed()
-    .into_delta_change()
-}
+//   vertex_buffer_ref
+//     .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
+//     .dual_query_filter_map(|(index, range)| index.map(|i| (i, range)))
+//     .dual_query_boxed()
+//     .into_delta_change()
+// }
 
 pub type AttributeIndexDataSource = UseResult<
-  impl DataChanges<Key = RawEntityHandle, Value = (RawEntityHandle, Option<BufferViewRange>, u32)>,
+  Arc<LinearBatchChanges<RawEntityHandle, (RawEntityHandle, Option<BufferViewRange>, u32)>>,
 >;
 
-#[define_opaque(AttributeIndexDataSource)]
-pub fn use_attribute_index_data(cx: &mut impl DBHookCxLike) -> AttributeIndexDataSource {
-  let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
-  let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
-  // we need count to distinguish between the u16 or u32 index
-  let index_item_count = cx.use_dual_query::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
+// #[define_opaque(AttributeIndexDataSource)]
+// pub fn use_attribute_index_data(cx: &mut impl DBHookCxLike) -> AttributeIndexDataSource {
+//   let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
+//   let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
+//   // we need count to distinguish between the u16 or u32 index
+//   let index_item_count = cx.use_dual_query::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
 
-  index_buffer_ref
-    .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
-    .dual_query_zip(index_item_count)
-    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count)))
-    .dual_query_boxed()
-    .into_delta_change()
-}
+//   index_buffer_ref
+//     .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
+//     .dual_query_zip(index_item_count)
+//     .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count)))
+//     .dual_query_boxed()
+//     .into_delta_change()
+// }
 
 #[derive(Clone)]
 pub struct MaybeUriMesh {}
@@ -259,6 +258,46 @@ fn read_maybe_uri_mesh(
   reader: &AttributesMeshReader,
 ) -> MaybeUriData<AttributesMesh, MaybeUriMesh> {
   todo!()
+}
+
+/// the output changes are assumed to be consumed by gpu systems.
+/// the current implementation is not considering the buffer share between the difference views.
+/// this can be improved(not easy to do so) but not necessary for now.
+pub fn create_sub_buffer_changes_from_mesh_changes(
+  cx: &mut impl DBHookCxLike,
+  mesh_changes: UseResult<AttributesMeshDataChangeInput>,
+) -> (AttributeVertexDataSource, AttributeIndexDataSource) {
+  let vertex_mapping = cx.use_shared_hash_map::<RawEntityHandle, Vec<RawEntityHandle>>(
+    "vertex_mapping for mesh buffer change conversion",
+  );
+  let changes = mesh_changes.map_spawn_stage_in_thread_data_changes(cx, move |mesh_changes| {
+    let mut indices_changes = LinearBatchChanges::default();
+    let mut vertices_changes = LinearBatchChanges::default();
+
+    // even if some mesh does not have index, we can still put it in removed indices
+    // because the data changes allow us to remove none exist item
+    indices_changes.removed = mesh_changes.removed.clone();
+
+    // generate removed vertex from recorded vertex mapping info
+    let mut vertex_mapping = vertex_mapping.write();
+    for removed_mesh in &mesh_changes.removed {
+      let vertex = vertex_mapping.remove(removed_mesh).unwrap();
+      vertices_changes.removed.extend(vertex);
+    }
+
+    for (mesh, mesh_info) in mesh_changes.iter_update_or_insert() {
+      //
+    }
+
+    (Arc::new(indices_changes), Arc::new(vertices_changes))
+  });
+
+  let (indices_changes, vertices_changes) = changes.fork();
+
+  let indices_changes = indices_changes.map(|(i, _)| i);
+  let vertices_changes = vertices_changes.map(|(_, v)| v);
+
+  (vertices_changes, indices_changes)
 }
 
 pub type AttributesMeshDataChangeInput =

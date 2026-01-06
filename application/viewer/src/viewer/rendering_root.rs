@@ -87,6 +87,7 @@ impl RenderingRoot {
     content: &Viewer3dContent,
     shared_ctx: &mut SharedHooksCtx,
     rendering: &mut Viewer3dRenderingCtx,
+    dyn_cx: &mut DynCx,
     inspector: Option<&mut InspectedContent>,
   ) {
     self.init_frame();
@@ -131,6 +132,7 @@ impl RenderingRoot {
             },
             shared_ctx,
             storage_allocator: rendering.storage_allocator(),
+            dyn_cx,
           }
           .execute(|cx| rendering.use_viewer_scene_renderer(cx, &content.viewports));
         }
@@ -157,6 +159,7 @@ impl RenderingRoot {
             shared_ctx,
             waker: futures::task::waker(self.any_render_change.clone()),
             storage_allocator: rendering.storage_allocator(),
+            dyn_cx,
           }
           .execute(|cx| {
             rendering

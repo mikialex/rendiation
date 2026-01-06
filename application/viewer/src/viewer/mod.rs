@@ -158,6 +158,10 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
     &mut self.waker
   }
 
+  fn dyn_env(&mut self) -> &mut DynCx {
+    self.dyn_cx
+  }
+
   fn stage(&mut self) -> QueryHookStage<'_> {
     match &mut self.stage {
       ViewerCxStage::SpawnTask { pool, .. } => QueryHookStage::SpawnTask {
@@ -355,6 +359,8 @@ pub fn use_viewer<'a>(
     features: Default::default(),
   });
 
+  let (acx, data_scheduler) = acx.use_plain_state(|| ViewerDataScheduler::default());
+
   let (acx, tick_timestamp) = acx.use_plain_state(Instant::now);
   let (acx, frame_time_delta_in_seconds) = acx.use_plain_state(|| 0.0);
 
@@ -368,6 +374,12 @@ pub fn use_viewer<'a>(
 
   let (acx, ins) = acx.use_plain_state(InspectedContent::default);
   let inspection = viewer.enable_inspection.then_some(&mut *ins);
+
+  unsafe {
+    acx
+      .dyn_cx
+      .register_cx::<ViewerDataScheduler>(data_scheduler);
+  };
 
   ViewerCx {
     viewer,
@@ -414,8 +426,13 @@ pub fn use_viewer<'a>(
     &viewer.content,
     &mut viewer.shared_ctx,
     &mut viewer.rendering,
+    &mut acx.dyn_cx,
     inspection,
   );
+
+  unsafe {
+    acx.dyn_cx.unregister_cx::<ViewerDataScheduler>();
+  };
 
   viewer
 }

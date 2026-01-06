@@ -153,6 +153,7 @@ pub fn maintain_shared_map_avoid_unnecessary_creator_init<K, V, D, F>(
 pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
   fn is_spawning_stage(&self) -> bool;
   fn is_resolve_stage(&self) -> bool;
+  fn dyn_env(&mut self) -> &mut DynCx;
   fn stage(&mut self) -> QueryHookStage<'_>;
   fn waker(&mut self) -> &mut Waker;
   fn poll_ctx<R>(&mut self, f: impl FnOnce(&mut Context) -> R) -> R {

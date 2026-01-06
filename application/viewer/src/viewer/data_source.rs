@@ -2,6 +2,32 @@ use rendiation_uri_scheduler::*;
 
 use crate::*;
 
+pub struct ViewerDataScheduler {
+  texture: Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>, Arc<String>>>>,
+  mesh: Arc<RwLock<NoScheduleScheduler<RawEntityHandle, AttributesMesh, MaybeUriMesh>>>,
+}
+
+impl Default for ViewerDataScheduler {
+  fn default() -> Self {
+    let mut source = InMemoryUriDataSource::<Arc<GPUBufferImage>>::new(alloc_global_res_id());
+    let load_impl = move |uri: &Arc<String>| {
+      Box::new(source.request_uri_data_load(uri.as_str()))
+        as Box<dyn Future<Output = Option<Arc<GPUBufferImage>>> + Send + Sync + Unpin>
+    };
+
+    let scheduler = NoScheduleScheduler::new(Box::new(load_impl));
+    let texture = Arc::new(RwLock::new(scheduler));
+
+    let mut source = InMemoryUriDataSource::new(alloc_global_res_id());
+    let load_impl = move |uri: &MaybeUriMesh| load_uri_mesh(uri, &mut source);
+
+    let scheduler = NoScheduleScheduler::new(Box::new(load_impl) as _);
+    let mesh = Arc::new(RwLock::new(scheduler));
+
+    Self { texture, mesh }
+  }
+}
+
 pub fn viewer_mesh_input<Cx>(cx: &mut Cx) -> UseResult<AttributesMeshDataChangeInput>
 where
   Cx: DBHookCxLike,
@@ -15,27 +41,19 @@ where
     }
   }
 
-  let (cx, scheduler) = cx.use_plain_state::<Arc<
-    RwLock<NoScheduleScheduler<RawEntityHandle, AttributesMesh, MaybeUriMesh>>,
-  >>(|| {
-    let mut source = InMemoryUriDataSource::new(alloc_global_res_id());
-    let load_impl = move |uri: &MaybeUriMesh| load_uri_mesh(uri, &mut source);
-
-    let scheduler = NoScheduleScheduler::new(Box::new(load_impl) as _);
-    Arc::new(RwLock::new(scheduler))
-  });
-
-  // let mesh_ref_vertex =
-  //   cx.use_db_rev_ref_tri_view::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
-  // let reader = AttributesMeshReader::new_from_global(
-  //   mesh_ref_vertex
-  //     .rev_many_view
-  //     .mark_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
-  //     .into_boxed_multi(),
-  // );
+  access_cx!(cx.dyn_env(), scheduler, ViewerDataScheduler);
+  let scheduler = scheduler.mesh.clone();
 
   let iter = [].into_iter(); // todo
-  use_uri_data_changes(cx, DBMeshInput, scheduler, Box::new(iter))
+
+  use_uri_data_changes(cx, DBMeshInput, &scheduler, Box::new(iter))
+}
+
+pub fn viewer_mesh_buffer_input(
+  cx: &mut QueryGPUHookCx<'_>,
+) -> (AttributeVertexDataSource, AttributeIndexDataSource) {
+  let mesh_changes = viewer_mesh_input(cx);
+  create_sub_buffer_changes_from_mesh_changes(cx, mesh_changes)
 }
 
 fn load_uri_mesh(
@@ -45,26 +63,11 @@ fn load_uri_mesh(
   todo!()
 }
 
-// todo, share scheduler
 // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
 // so we use Arc, but we should use DataChangeRef trait
 pub fn viewer_texture_input(
   cx: &mut QueryGPUHookCx<'_>,
 ) -> UseResult<Arc<LinearBatchChanges<u32, Option<Arc<GPUBufferImage>>>>> {
-  let (cx, scheduler) = cx
-    .use_plain_state::<Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>, Arc<String>>>>>(
-      || {
-        let mut source = InMemoryUriDataSource::<Arc<GPUBufferImage>>::new(alloc_global_res_id());
-        let load_impl = move |uri: &Arc<String>| {
-          Box::new(source.request_uri_data_load(uri.as_str()))
-            as Box<dyn Future<Output = Option<Arc<GPUBufferImage>>> + Send + Sync + Unpin>
-        };
-
-        let scheduler = NoScheduleScheduler::new(Box::new(load_impl));
-        Arc::new(RwLock::new(scheduler))
-      },
-    );
-
   let iter = get_db_view_no_generation_check::<SceneTexture2dEntityDirectContent>()
     .iter_static_life()
     .filter_map(|(k, v)| {
@@ -90,5 +93,8 @@ pub fn viewer_texture_input(
     }
   }
 
-  use_uri_data_changes(cx, DBTextureUriInput, scheduler, Box::new(iter))
+  access_cx!(cx.dyn_env(), scheduler, ViewerDataScheduler);
+  let scheduler = scheduler.texture.clone();
+
+  use_uri_data_changes(cx, DBTextureUriInput, &scheduler, Box::new(iter))
 }
