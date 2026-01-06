@@ -204,6 +204,7 @@ where
     (self.0.clone())(cx)
       .map_changes(|mesh| {
         if let Some(mesh) = mesh {
+          let mesh = mesh.into_attributes_mesh();
           let position = mesh.get_position_slice();
           mesh
             .create_abstract_mesh_view(position)
@@ -218,10 +219,10 @@ where
 }
 
 pub type AttributeVertexDataSource =
-  UseResult<Arc<LinearBatchChanges<RawEntityHandle, (Arc<Vec<u8>>, Option<BufferViewRange>)>>>;
+  UseResult<Arc<LinearBatchChanges<RawEntityHandle, AttributeLivingData>>>;
 
 pub type AttributeIndexDataSource =
-  UseResult<Arc<LinearBatchChanges<RawEntityHandle, (Arc<Vec<u8>>, Option<BufferViewRange>, u32)>>>;
+  UseResult<Arc<LinearBatchChanges<RawEntityHandle, AttributeLivingData>>>;
 
 /// the output changes are assumed to be consumed by gpu systems.
 /// the current implementation is not considering the buffer share between the difference views.
@@ -251,11 +252,17 @@ pub fn create_sub_buffer_changes_from_mesh_changes(
     for (mesh, mesh_info) in mesh_changes.iter_update_or_insert() {
       if let Some(mesh_info) = mesh_info {
         if let Some(indices) = &mesh_info.indices {
-          indices_changes.update_or_insert.push((mesh, todo!()));
+          indices_changes
+            .update_or_insert
+            .push((mesh, indices.clone()));
+        }
+
+        for v in mesh_info.vertices {
+          vertices_changes
+            .update_or_insert
+            .push((mesh, v.data.clone()));
         }
       }
-
-      //
     }
 
     (Arc::new(indices_changes), Arc::new(vertices_changes))
@@ -270,10 +277,14 @@ pub fn create_sub_buffer_changes_from_mesh_changes(
 }
 
 pub type AttributesMeshDataChangeInput =
-  Arc<LinearBatchChanges<RawEntityHandle, Option<AttributesMesh>>>;
+  Arc<LinearBatchChanges<RawEntityHandle, Option<AttributesMeshWithVertexRelationInfo>>>;
 
-pub type AttributesMeshDataChangeMaybeUriInput =
-  Arc<LinearBatchChanges<RawEntityHandle, MaybeUriData<AttributesMesh, AttributesMeshWithUri>>>;
+pub type AttributesMeshDataChangeMaybeUriInput = Arc<
+  LinearBatchChanges<
+    RawEntityHandle,
+    MaybeUriData<AttributesMeshWithVertexRelationInfo, AttributesMeshWithUri>,
+  >,
+>;
 
 pub fn attribute_mesh_input(
   cx: &mut impl DBHookCxLike,

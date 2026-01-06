@@ -349,62 +349,107 @@ impl AttributesMeshReader {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone)] // todo, consider remove clone
 pub struct AttributesMeshWithUri {
-  mode: PrimitiveTopology,
-  indices: Option<(BufferEntityDataType, BufferViewRange, usize)>,
-  vertices: Vec<(
-    BufferEntityDataType,
-    BufferViewRange,
-    usize,
-    AttributeSemantic,
-  )>,
+  pub mode: PrimitiveTopology,
+  pub indices: Option<AttributeUriData>,
+  pub vertices: Vec<AttributeMeshUriVertex>,
+}
+
+#[derive(Clone)]
+pub struct AttributeMeshUriVertex {
+  pub relation_handle: RawEntityHandle,
+  pub semantic: AttributeSemantic,
+  pub data: AttributeUriData,
+}
+
+#[derive(Clone)]
+pub struct AttributeUriData {
+  pub data: BufferEntityDataType,
+  pub range: Option<BufferViewRange>,
+  pub count: usize,
+}
+
+#[derive(Clone)] // todo, consider remove clone
+pub struct AttributesMeshWithVertexRelationInfo {
+  pub mode: PrimitiveTopology,
+  pub indices: Option<AttributeLivingData>,
+  pub vertices: Vec<AttributeMeshLivingVertex>,
+}
+
+impl AttributesMeshWithVertexRelationInfo {
+  pub fn into_attributes_mesh(self) -> AttributesMesh {
+    // match self.into_maybe_uri_form() {
+    //   MaybeUriData::Uri(_) => None,
+    //   MaybeUriData::Living(mesh) => Some(mesh),
+    // }
+    todo!()
+  }
+}
+
+#[derive(Clone)]
+pub struct AttributeMeshLivingVertex {
+  pub relation_handle: RawEntityHandle,
+  pub semantic: AttributeSemantic,
+  pub data: AttributeLivingData,
+}
+
+#[derive(Clone)]
+pub struct AttributeLivingData {
+  pub data: Arc<Vec<u8>>,
+  pub range: Option<BufferViewRange>,
+  pub count: usize,
 }
 
 impl AttributesMeshWithUri {
   pub fn try_into_attributes_mesh(self) -> Option<AttributesMesh> {
-    match self.into_maybe_uri_form() {
-      MaybeUriData::Uri(_) => None,
-      MaybeUriData::Living(mesh) => Some(mesh),
-    }
+    // match self.into_maybe_uri_form() {
+    //   MaybeUriData::Uri(_) => None,
+    //   MaybeUriData::Living(mesh) => Some(mesh),
+    // }
+    todo!()
   }
 
-  pub fn into_maybe_uri_form(self) -> MaybeUriData<AttributesMesh, AttributesMeshWithUri> {
+  pub fn into_maybe_uri_form(
+    self,
+  ) -> MaybeUriData<AttributesMeshWithVertexRelationInfo, AttributesMeshWithUri> {
     for d in &self.vertices {
-      if d.0.as_living().is_none() {
+      if d.data.data.as_living().is_none() {
         return MaybeUriData::Uri(self);
       }
     }
 
     if let Some(indices) = &self.indices {
-      if indices.0.as_living().is_none() {
+      if indices.data.as_living().is_none() {
         return MaybeUriData::Uri(self);
       }
     }
 
-    let attributes = self
-      .vertices
-      .into_iter()
-      .map(|(data, range, count, semantic)| (semantic, convert(data, range, count).unwrap()))
-      .collect();
+    todo!()
 
-    let indices = self.indices.map(|(data, range, count)| {
-      let data = convert(data, range, count).unwrap();
-      let fmt = match data.item_byte_size {
-        4 => AttributeIndexFormat::Uint32,
-        2 => AttributeIndexFormat::Uint16,
-        _ => unreachable!("invalid index fmt"),
-      };
-      (fmt, data)
-    });
+    // let attributes = self
+    //   .vertices
+    //   .into_iter()
+    //   .map(|(data, range, count, semantic)| (semantic, convert(data, range, count).unwrap()))
+    //   .collect();
 
-    let mesh = AttributesMesh {
-      attributes,
-      indices,
-      mode: self.mode,
-    };
+    // let indices = self.indices.map(|data| {
+    //   let data = convert(data, range, count).unwrap();
+    //   let fmt = match data.item_byte_size {
+    //     4 => AttributeIndexFormat::Uint32,
+    //     2 => AttributeIndexFormat::Uint16,
+    //     _ => unreachable!("invalid index fmt"),
+    //   };
+    //   (fmt, data)
+    // });
 
-    MaybeUriData::Living(mesh)
+    // let mesh = AttributesMesh {
+    //   attributes,
+    //   indices,
+    //   mode: self.mode,
+    // };
+
+    // MaybeUriData::Living(mesh)
   }
 }
 

@@ -74,9 +74,10 @@ pub fn use_attribute_mesh_to_blas(
 }
 
 fn create_blas_from_attribute_mesh(
-  mesh: &AttributesMesh,
+  mesh: &AttributesMeshWithVertexRelationInfo,
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
 ) -> BlasInstance {
+  let mesh = mesh.clone().into_attributes_mesh();
   // todo, avoid vec
   let positions = mesh.get_position_slice().to_vec();
 

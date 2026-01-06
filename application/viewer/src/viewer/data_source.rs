@@ -4,7 +4,15 @@ use crate::*;
 
 pub struct ViewerDataScheduler {
   texture: Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>, Arc<String>>>>,
-  mesh: Arc<RwLock<NoScheduleScheduler<RawEntityHandle, AttributesMesh, AttributesMeshWithUri>>>,
+  mesh: Arc<
+    RwLock<
+      NoScheduleScheduler<
+        RawEntityHandle,
+        AttributesMeshWithVertexRelationInfo,
+        AttributesMeshWithUri,
+      >,
+    >,
+  >,
 }
 
 impl Default for ViewerDataScheduler {
@@ -59,8 +67,50 @@ pub fn viewer_mesh_buffer_input(
 fn load_uri_mesh(
   mesh: &AttributesMeshWithUri,
   buffer_backend: &mut InMemoryUriDataSource<Arc<Vec<u8>>>,
-) -> Box<dyn Future<Output = Option<AttributesMesh>> + Send + Sync + Unpin + 'static> {
-  todo!()
+) -> Box<
+  dyn Future<Output = Option<AttributesMeshWithVertexRelationInfo>> + Send + Sync + Unpin + 'static,
+> {
+  fn create_buffer_fut(
+    data: &AttributeUriData,
+    buffer_backend: &mut InMemoryUriDataSource<Arc<Vec<u8>>>,
+  ) -> Box<dyn Future<Output = Option<AttributeLivingData>> + 'static> {
+    let fut = match &data.data {
+      MaybeUriData::Uri(uri) => Some(buffer_backend.request_uri_data_load(uri.as_str())),
+      MaybeUriData::Living(_) => None,
+    };
+
+    let range = data.range;
+    let count = data.count;
+    let living_data = data.data.clone().into_living();
+
+    Box::new(async move {
+      let buffer = if let Some(fut) = fut {
+        fut.await
+      } else {
+        Some(living_data.unwrap())
+      };
+
+      buffer.map(|b| AttributeLivingData {
+        data: b,
+        range,
+        count,
+      })
+    })
+  }
+
+  let indices = mesh
+    .indices
+    .as_ref()
+    .map(|indices| create_buffer_fut(indices, buffer_backend));
+
+  Box::new(Box::pin(async {
+    AttributesMeshWithVertexRelationInfo {
+      mode: todo!(),
+      indices: todo!(),
+      vertices: todo!(),
+    }
+    .into()
+  }))
 }
 
 // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
