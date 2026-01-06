@@ -269,7 +269,7 @@ pub fn scene_buffer_view_into_attribute(
 
   AttributeAccessor {
     view: UnTypedBufferView { buffer, range },
-    byte_offset: range.offset as usize,
+    byte_offset: 0,
     count,
     item_byte_size: byte_size / count,
   }
