@@ -102,7 +102,12 @@ impl SceneReader {
   }
 
   pub fn read_attribute_mesh(&self, id: EntityHandle<AttributesMeshEntity>) -> AttributesMesh {
-    self.mesh.read(id).unwrap()
+    self
+      .mesh
+      .read(id)
+      .unwrap()
+      .try_into_attributes_mesh()
+      .unwrap()
   }
 
   pub fn read_sampler(&self, id: EntityHandle<SceneSamplerEntity>) -> TextureSampler {
@@ -309,35 +314,117 @@ impl AttributesMeshReader {
     }
   }
 
-  pub fn read(&self, id: EntityHandle<AttributesMeshEntity>) -> Option<AttributesMesh> {
+  pub fn read(&self, id: EntityHandle<AttributesMeshEntity>) -> Option<AttributesMeshWithUri> {
     let mode = self.topology.get_value(id)?;
 
-    let attributes = self
-      .mesh_ref_vertex
-      .access_multi(&id)?
-      .map(|id| {
-        let semantic = self.semantic.get_value(id).unwrap();
-        let vertex = self.vertex.read_view(id).unwrap();
-        let vertex = scene_buffer_view_into_attribute(vertex, &self.buffer).unwrap();
-        (semantic, vertex)
-      })
-      .collect();
+    // let attributes = self
+    //   .mesh_ref_vertex
+    //   .access_multi(&id)?
+    //   .map(|id| {
+    //     let semantic = self.semantic.get_value(id).unwrap();
+    //     let vertex = self.vertex.read_view(id).unwrap();
+    //     let vertex = scene_buffer_view_into_attribute(vertex, &self.buffer).unwrap();
+    //     (semantic, vertex)
+    //   })
+    //   .collect();
 
     let indices = self.index.read_view(id)?;
-    let indices = scene_buffer_view_into_attribute(indices, &self.buffer).and_then(|i| {
-      let fmt = match i.item_byte_size {
+    // let indices = self.buffer.get(indices.data?)?;
+    // let indices = scene_buffer_view_into_attribute(indices, &self.buffer).and_then(|i| {
+    //   let fmt = match i.item_byte_size {
+    //     4 => AttributeIndexFormat::Uint32,
+    //     2 => AttributeIndexFormat::Uint16,
+    //     _ => return None,
+    //   };
+    //   (fmt, i).into()
+    // });
+
+    // AttributesMeshWithUri {
+    //   vertices,
+    //   indices,
+    //   mode,
+    // }
+    // .into()
+    todo!()
+  }
+}
+
+#[derive(Clone)]
+pub struct AttributesMeshWithUri {
+  mode: PrimitiveTopology,
+  indices: Option<(BufferEntityDataType, BufferViewRange, usize)>,
+  vertices: Vec<(
+    BufferEntityDataType,
+    BufferViewRange,
+    usize,
+    AttributeSemantic,
+  )>,
+}
+
+impl AttributesMeshWithUri {
+  pub fn try_into_attributes_mesh(self) -> Option<AttributesMesh> {
+    match self.into_maybe_uri_form() {
+      MaybeUriData::Uri(_) => None,
+      MaybeUriData::Living(mesh) => Some(mesh),
+    }
+  }
+
+  pub fn into_maybe_uri_form(self) -> MaybeUriData<AttributesMesh, AttributesMeshWithUri> {
+    for d in &self.vertices {
+      if d.0.as_living().is_none() {
+        return MaybeUriData::Uri(self);
+      }
+    }
+
+    if let Some(indices) = &self.indices {
+      if indices.0.as_living().is_none() {
+        return MaybeUriData::Uri(self);
+      }
+    }
+
+    let attributes = self
+      .vertices
+      .into_iter()
+      .map(|(data, range, count, semantic)| (semantic, convert(data, range, count).unwrap()))
+      .collect();
+
+    let indices = self.indices.map(|(data, range, count)| {
+      let data = convert(data, range, count).unwrap();
+      let fmt = match data.item_byte_size {
         4 => AttributeIndexFormat::Uint32,
         2 => AttributeIndexFormat::Uint16,
-        _ => return None,
+        _ => unreachable!("invalid index fmt"),
       };
-      (fmt, i).into()
+      (fmt, data)
     });
 
-    AttributesMesh {
+    let mesh = AttributesMesh {
       attributes,
       indices,
-      mode,
-    }
-    .into()
+      mode: self.mode,
+    };
+
+    MaybeUriData::Living(mesh)
   }
+}
+
+fn convert(
+  data: BufferEntityDataType,
+  range: BufferViewRange,
+  count: usize,
+) -> Option<AttributeAccessor> {
+  let buffer = data.into_living()?;
+
+  let byte_size = range
+    .size
+    .map(|size| u64::from(size) as usize)
+    .unwrap_or(buffer.len());
+
+  AttributeAccessor {
+    view: UnTypedBufferView { buffer, range },
+    byte_offset: range.offset as usize,
+    count,
+    item_byte_size: byte_size / count,
+  }
+  .into()
 }

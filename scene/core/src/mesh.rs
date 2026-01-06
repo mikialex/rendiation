@@ -218,47 +218,10 @@ where
 }
 
 pub type AttributeVertexDataSource =
-  UseResult<Arc<LinearBatchChanges<RawEntityHandle, (RawEntityHandle, Option<BufferViewRange>)>>>;
+  UseResult<Arc<LinearBatchChanges<RawEntityHandle, (Arc<Vec<u8>>, Option<BufferViewRange>)>>>;
 
-// #[define_opaque(AttributeVertexDataSource)]
-// pub fn use_attribute_vertex_data(cx: &mut impl DBHookCxLike) -> AttributeVertexDataSource {
-//   let vertex_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>();
-//   let vertex_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>();
-
-//   vertex_buffer_ref
-//     .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
-//     .dual_query_filter_map(|(index, range)| index.map(|i| (i, range)))
-//     .dual_query_boxed()
-//     .into_delta_change()
-// }
-
-pub type AttributeIndexDataSource = UseResult<
-  Arc<LinearBatchChanges<RawEntityHandle, (RawEntityHandle, Option<BufferViewRange>, u32)>>,
->;
-
-// #[define_opaque(AttributeIndexDataSource)]
-// pub fn use_attribute_index_data(cx: &mut impl DBHookCxLike) -> AttributeIndexDataSource {
-//   let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
-//   let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
-//   // we need count to distinguish between the u16 or u32 index
-//   let index_item_count = cx.use_dual_query::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
-
-//   index_buffer_ref
-//     .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
-//     .dual_query_zip(index_item_count)
-//     .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count)))
-//     .dual_query_boxed()
-//     .into_delta_change()
-// }
-
-#[derive(Clone)]
-pub struct MaybeUriMesh {}
-
-fn read_maybe_uri_mesh(
-  reader: &AttributesMeshReader,
-) -> MaybeUriData<AttributesMesh, MaybeUriMesh> {
-  todo!()
-}
+pub type AttributeIndexDataSource =
+  UseResult<Arc<LinearBatchChanges<RawEntityHandle, (Arc<Vec<u8>>, Option<BufferViewRange>, u32)>>>;
 
 /// the output changes are assumed to be consumed by gpu systems.
 /// the current implementation is not considering the buffer share between the difference views.
@@ -286,6 +249,12 @@ pub fn create_sub_buffer_changes_from_mesh_changes(
     }
 
     for (mesh, mesh_info) in mesh_changes.iter_update_or_insert() {
+      if let Some(mesh_info) = mesh_info {
+        if let Some(indices) = &mesh_info.indices {
+          indices_changes.update_or_insert.push((mesh, todo!()));
+        }
+      }
+
       //
     }
 
@@ -304,7 +273,7 @@ pub type AttributesMeshDataChangeInput =
   Arc<LinearBatchChanges<RawEntityHandle, Option<AttributesMesh>>>;
 
 pub type AttributesMeshDataChangeMaybeUriInput =
-  Arc<LinearBatchChanges<RawEntityHandle, MaybeUriData<AttributesMesh, MaybeUriMesh>>>;
+  Arc<LinearBatchChanges<RawEntityHandle, MaybeUriData<AttributesMesh, AttributesMeshWithUri>>>;
 
 pub fn attribute_mesh_input(
   cx: &mut impl DBHookCxLike,
@@ -394,7 +363,7 @@ pub fn attribute_mesh_input(
           .into_iter()
           .map(|m| {
             let mesh = unsafe { EntityHandle::from_raw(m) };
-            let mesh = MaybeUriData::Living(reader.read(mesh).unwrap());
+            let mesh = reader.read(mesh).unwrap().into_maybe_uri_form();
             (m, mesh)
           })
           .collect::<Vec<_>>();

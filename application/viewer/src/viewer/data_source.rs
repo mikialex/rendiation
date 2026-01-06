@@ -4,7 +4,7 @@ use crate::*;
 
 pub struct ViewerDataScheduler {
   texture: Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>, Arc<String>>>>,
-  mesh: Arc<RwLock<NoScheduleScheduler<RawEntityHandle, AttributesMesh, MaybeUriMesh>>>,
+  mesh: Arc<RwLock<NoScheduleScheduler<RawEntityHandle, AttributesMesh, AttributesMeshWithUri>>>,
 }
 
 impl Default for ViewerDataScheduler {
@@ -19,7 +19,7 @@ impl Default for ViewerDataScheduler {
     let texture = Arc::new(RwLock::new(scheduler));
 
     let mut source = InMemoryUriDataSource::new(alloc_global_res_id());
-    let load_impl = move |uri: &MaybeUriMesh| load_uri_mesh(uri, &mut source);
+    let load_impl = move |uri: &AttributesMeshWithUri| load_uri_mesh(uri, &mut source);
 
     let scheduler = NoScheduleScheduler::new(Box::new(load_impl) as _);
     let mesh = Arc::new(RwLock::new(scheduler));
@@ -57,7 +57,7 @@ pub fn viewer_mesh_buffer_input(
 }
 
 fn load_uri_mesh(
-  mesh: &MaybeUriMesh,
+  mesh: &AttributesMeshWithUri,
   buffer_backend: &mut InMemoryUriDataSource<Arc<Vec<u8>>>,
 ) -> Box<dyn Future<Output = Option<AttributesMesh>> + Send + Sync + Unpin + 'static> {
   todo!()

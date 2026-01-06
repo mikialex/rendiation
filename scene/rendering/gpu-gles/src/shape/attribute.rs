@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use rendiation_mesh_core::*;
 
 use crate::*;
@@ -14,11 +16,7 @@ pub fn use_attribute_mesh_renderer(
     .map_changes(|(id, range, _)| (id, range))
     .use_assure_result(cx);
 
-  let read_view = read_global_db_component::<BufferEntityData>();
-
-  let f = |(idx, range): (RawEntityHandle, Option<BufferViewRange>)| {
-    let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
-    let buffer = buffer.as_living().unwrap().clone();
+  let f = |(buffer, range): (Arc<Vec<u8>>, Option<BufferViewRange>)| {
     let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::INDEX, &cx.gpu.device);
     buffer.create_view(map_view(range))
   };
@@ -29,11 +27,7 @@ pub fn use_attribute_mesh_renderer(
 
   let source = vertex_data_source.use_assure_result(cx);
 
-  let read_view = read_global_db_component::<BufferEntityData>();
-
-  let f = |(idx, range): (RawEntityHandle, Option<BufferViewRange>)| {
-    let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
-    let buffer = buffer.as_living().unwrap().clone();
+  let f = |(buffer, range): (Arc<Vec<u8>>, Option<BufferViewRange>)| {
     let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &cx.gpu.device);
     buffer.create_view(map_view(range))
   };
