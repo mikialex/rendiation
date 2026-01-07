@@ -31,18 +31,26 @@ impl EntityCustomWrite<BufferEntity> for AttributeAccessor {
   }
 
   fn write(self, writer: &mut Self::Writer) -> EntityHandle<BufferEntity> {
-    let start = self.byte_offset + self.view.range.offset as usize;
-    let end = start + self.count * self.item_byte_size;
-    // for simplicity we clone out sub buffer, this should be improved
-    // when improve this, make sure the attribute entities drop implementation should not be called
-    // in some cases
-    let data = self.view.buffer.get(start..end).unwrap().to_vec();
-    let data = MaybeUriData::Living(Arc::new(data));
-    let data = Arc::new(data);
-    let data = ExternalRefPtr::new_shared(data);
-
-    writer.new_entity(|w| w.write::<BufferEntityData>(&data))
+    write_attribute_acc_impl(&self, writer, &mut |data| MaybeUriData::Living(data))
   }
+}
+
+pub fn write_attribute_acc_impl(
+  att: &AttributeAccessor,
+  writer: &mut EntityWriter<BufferEntity>,
+  uri_converter: &mut dyn FnMut(Arc<Vec<u8>>) -> MaybeUriData<Arc<Vec<u8>>>,
+) -> EntityHandle<BufferEntity> {
+  let start = att.byte_offset + att.view.range.offset as usize;
+  let end = start + att.count * att.item_byte_size;
+  // for simplicity we clone out sub buffer, this should be improved
+  // when improve this, make sure the attribute entities drop implementation should not be called
+  // in some cases
+  let data = att.view.buffer.get(start..end).unwrap().to_vec();
+  let data = uri_converter(Arc::new(data));
+  let data = Arc::new(data);
+  let data = ExternalRefPtr::new_shared(data);
+
+  writer.new_entity(|w| w.write::<BufferEntityData>(&data))
 }
 
 pub trait SceneBufferView: EntityAssociateSemantic {}

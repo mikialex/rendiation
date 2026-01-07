@@ -87,8 +87,8 @@ pub struct NoScheduleScheduler<K: CKey, V, URI> {
   pub request_reload: bool,
 }
 
-impl<K: CKey, V, URI> NoScheduleScheduler<K, V, URI> {
-  pub fn new() -> Self {
+impl<K: CKey, V, URI> Default for NoScheduleScheduler<K, V, URI> {
+  fn default() -> Self {
     Self {
       futures: MappedFutures::new(),
       loaded: FastHashMap::default(),
@@ -199,10 +199,6 @@ where
   let debug_label = source.debug_label();
   let consumer_id = cx.use_shared_consumer(share_key);
 
-  if cx.is_creating() {
-    scheduler.write().reload_all_loaded();
-  }
-
   let all_downstream_changes = cx.use_shared_compute_internal(
     &|cx| {
       let changes = source.use_logic(cx);
@@ -285,6 +281,7 @@ where
   let (cx, cleanup) =
     cx.use_plain_state_default_cloned::<Arc<RwLock<Option<Cleanup<P::Key, P::Data>>>>>();
 
+  let scheduler = scheduler.clone();
   all_downstream_changes.map_spawn_stage_in_thread(
     cx,
     move |(reconciler, _)| {
@@ -302,6 +299,7 @@ where
     move |(reconciler, init_iter)| {
       let mut reconciler = reconciler.write();
       let messages = reconciler.entry(consumer_id).or_insert_with(|| {
+        scheduler.write().reload_all_loaded();
         let init_iter = init_iter.create_iter();
         let init_message = Arc::new(LinearBatchChanges {
           removed: Default::default(),
@@ -309,6 +307,7 @@ where
         });
         vec![init_message]
       });
+
       let merged = merge_linear_batch_changes(messages);
       messages.clear();
       Arc::new(merged)

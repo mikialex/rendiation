@@ -176,7 +176,7 @@ fn use_attribute_indices_updates(
     for (k, data) in change.iter_update_or_insert() {
       let range = data.range.map(|range| range.into_range(data.data.len()));
 
-      let byte_per_item = data.data.len() / data.count as usize;
+      let byte_per_item = data.data.len() / data.count;
       if byte_per_item != 4 && byte_per_item != 2 {
         unreachable!("index count must be multiple of 2(u16) or 4(u32)")
       }

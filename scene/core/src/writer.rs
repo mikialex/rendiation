@@ -168,6 +168,19 @@ impl SceneWriter {
     mesh.write(&mut self.mesh_writer, &mut self.buffer_writer)
   }
 
+  pub fn write_attribute_mesh_data_uri(
+    &mut self,
+    mesh: AttributesMesh,
+    buffer_source: &mut dyn UriDataSourceDyn<Arc<Vec<u8>>>,
+  ) -> AttributesMeshEntities {
+    mesh.write_impl(&mut self.mesh_writer, &mut |data| {
+      write_attribute_acc_impl(&data, &mut self.buffer_writer, &mut |data| {
+        let uri = buffer_source.create_for_direct_data_dyn(data);
+        MaybeUriData::Uri(Arc::new(uri.to_string()))
+      })
+    })
+  }
+
   pub fn texture_sample_pair_writer(&mut self) -> TexSamplerWriter<'_> {
     TexSamplerWriter {
       tex_writer: &mut self.tex_writer,

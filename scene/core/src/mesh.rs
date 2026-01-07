@@ -45,6 +45,11 @@ pub trait AttributesMeshWriter {
     writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
     buffer: &mut EntityWriter<BufferEntity>,
   ) -> AttributesMeshEntities;
+  fn write_impl(
+    self,
+    writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
+    buffer: &mut dyn FnMut(AttributeAccessor) -> EntityHandle<BufferEntity>,
+  ) -> AttributesMeshEntities;
 }
 
 pub struct AttributesMeshEntities {
@@ -93,12 +98,20 @@ impl AttributesMeshWriter for AttributesMesh {
     writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
     buffer: &mut EntityWriter<BufferEntity>,
   ) -> AttributesMeshEntities {
+    self.write_impl(writer, &mut |data| data.write(buffer))
+  }
+
+  fn write_impl(
+    self,
+    writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
+    write_buffer: &mut dyn FnMut(AttributeAccessor) -> EntityHandle<BufferEntity>,
+  ) -> AttributesMeshEntities {
     let count = self
       .indices
       .as_ref()
       .map(|(_, data)| data.count as u32)
       .unwrap_or(0);
-    let index_data = self.indices.map(|(_, data)| data.write(buffer));
+    let index_data = self.indices.map(|(_, data)| write_buffer(data));
 
     let index = SceneBufferViewDataView {
       data: index_data,
@@ -123,7 +136,7 @@ impl AttributesMeshWriter for AttributesMesh {
       }
 
       let count = vertex.count;
-      let vertex_data = vertex.write(buffer);
+      let vertex_data = write_buffer(vertex);
 
       let vertex = SceneBufferViewDataView {
         data: Some(vertex_data),

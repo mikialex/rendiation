@@ -346,7 +346,7 @@ pub fn use_viewer<'a>(
     )
   });
 
-  let (acx, data_scheduler) = acx.use_plain_state(|| ViewerDataScheduler::default());
+  let (acx, data_scheduler) = acx.use_plain_state(ViewerDataScheduler::default);
 
   let (acx, viewer) = acx.use_plain_state(|| {
     let viewer = Viewer::new(
@@ -357,8 +357,14 @@ pub fn use_viewer<'a>(
     );
     {
       let mut tex_source = data_scheduler.texture_uri_backend.write();
+      let mut mesh_source = data_scheduler.mesh_uri_backend.write();
       let mut writer = SceneWriter::from_global(viewer.content.scene);
-      load_default_scene(&mut writer, &viewer.content, tex_source.as_mut());
+      load_default_scene(
+        &mut writer,
+        &viewer.content,
+        tex_source.as_mut(),
+        mesh_source.as_mut(),
+      );
     };
     viewer
   });
@@ -432,7 +438,7 @@ pub fn use_viewer<'a>(
     &viewer.content,
     &mut viewer.shared_ctx,
     &mut viewer.rendering,
-    &mut acx.dyn_cx,
+    acx.dyn_cx,
     inspection,
   );
 

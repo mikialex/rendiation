@@ -444,7 +444,7 @@ pub struct AttributeLivingData {
 impl AttributeLivingData {
   pub fn into_accessor(self) -> AttributeAccessor {
     let range = self.range.unwrap_or_default();
-    let count = self.count as usize;
+    let count = self.count;
 
     let byte_size = range
       .size
@@ -460,7 +460,6 @@ impl AttributeLivingData {
       count,
       item_byte_size: byte_size / count,
     }
-    .into()
   }
 }
 
@@ -500,10 +499,7 @@ impl AttributesMeshWithUri {
       })
       .collect();
 
-    let indices = self.indices.map(|v| {
-      let data = v.expect_living();
-      data
-    });
+    let indices = self.indices.map(|v| v.expect_living());
 
     MaybeUriData::Living(AttributesMeshWithVertexRelationInfo {
       mode: self.mode,

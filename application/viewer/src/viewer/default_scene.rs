@@ -7,6 +7,7 @@ pub fn load_default_scene(
   writer: &mut SceneWriter,
   _viewer_scene: &Viewer3dContent,
   texture_data_source: &mut ViewerTextureDataSource,
+  mesh_source: &mut ViewerMeshDataSource,
 ) {
   // test_mesh_lod_graph(writer);
   load_widen_line_test(writer);
@@ -30,7 +31,16 @@ pub fn load_default_scene(
       );
     })
     .build();
-    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
+
+    const TEST_MESH_URI: bool = false;
+
+    let attribute_mesh = if TEST_MESH_URI {
+      writer
+        .write_attribute_mesh_data_uri(attribute_mesh, mesh_source)
+        .mesh
+    } else {
+      writer.write_attribute_mesh(attribute_mesh).mesh
+    };
 
     let texture = textured_example_tex(writer, texture_data_source);
     let material = PhysicalMetallicRoughnessMaterialDataView {

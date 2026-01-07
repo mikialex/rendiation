@@ -4,11 +4,12 @@ use rendiation_uri_scheduler::*;
 use crate::*;
 
 pub type ViewerTextureDataSource = dyn UriDataSourceDyn<Arc<GPUBufferImage>>;
+pub type ViewerMeshDataSource = dyn UriDataSourceDyn<Arc<Vec<u8>>>;
 
 pub struct ViewerDataScheduler {
   pub texture_uri_backend: Arc<RwLock<Box<ViewerTextureDataSource>>>,
   texture: Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>, Arc<String>>>>,
-  mesh_buffer_uri_backend: Arc<RwLock<Box<dyn UriDataSourceDyn<Arc<Vec<u8>>>>>>,
+  pub mesh_uri_backend: Arc<RwLock<Box<ViewerMeshDataSource>>>,
   mesh: Arc<
     RwLock<
       NoScheduleScheduler<
@@ -27,24 +28,21 @@ impl Default for ViewerDataScheduler {
     let texture_uri_backend = Box::new(texture_uri_backend) as Box<dyn UriDataSourceDyn<_>>;
     let texture_uri_backend = Arc::new(RwLock::new(texture_uri_backend));
 
-    let scheduler = NoScheduleScheduler::new();
+    let scheduler = NoScheduleScheduler::default();
     let texture = Arc::new(RwLock::new(scheduler));
 
     let mesh_buffer_uri_backend = InMemoryUriDataSource::<Arc<Vec<u8>>>::new(alloc_global_res_id());
     let mesh_buffer_uri_backend = Box::new(mesh_buffer_uri_backend) as Box<dyn UriDataSourceDyn<_>>;
     let mesh_buffer_uri_backend = Arc::new(RwLock::new(mesh_buffer_uri_backend));
 
-    // let mut source = InMemoryUriDataSource::new(alloc_global_res_id());
-    // let load_impl = move |uri: &AttributesMeshWithUri| load_uri_mesh(uri, &mut source);
-
-    let scheduler = NoScheduleScheduler::new();
+    let scheduler = NoScheduleScheduler::default();
     let mesh = Arc::new(RwLock::new(scheduler));
 
     Self {
       texture,
       mesh,
       texture_uri_backend,
-      mesh_buffer_uri_backend,
+      mesh_uri_backend: mesh_buffer_uri_backend,
     }
   }
 }
@@ -64,7 +62,7 @@ where
 
   access_cx!(cx.dyn_env(), s, ViewerDataScheduler);
   let scheduler = s.mesh.clone();
-  let source = s.mesh_buffer_uri_backend.clone();
+  let source = s.mesh_uri_backend.clone();
   let loader_creator = move || {
     let mut source = source.make_write_holder();
     Box::new(move |uri: &AttributesMeshWithUri| {
@@ -172,7 +170,7 @@ fn load_uri_mesh(
 
     let vertices = futures::future::join_all(vertices).await;
     let len = vertices.len();
-    let vertices: Vec<_> = vertices.into_iter().filter_map(|v| v).collect();
+    let vertices: Vec<_> = vertices.into_iter().flatten().collect();
 
     if len != vertices.len() {
       return None;
