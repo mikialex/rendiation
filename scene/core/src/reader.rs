@@ -228,6 +228,18 @@ impl<T: SceneBufferView> SceneBufferViewReadView<T> {
     .into()
   }
 
+  pub fn read_maybe_uri(
+    &self,
+    id: EntityHandle<T::Entity>,
+    buffer_reader: &ComponentReadView<BufferEntityData>,
+  ) -> Option<AttributeUriData> {
+    let range = self.range.get_value(id)?;
+    let count = self.count.get_value(id)? as usize;
+    let data = self.buffer.get(id)?;
+    let data = buffer_reader.get(data)?.ptr.as_ref().clone();
+    AttributeUriData { data, range, count }.into()
+  }
+
   /// return (data, count)
   pub fn read_view_bytes<'a>(
     &self,
@@ -317,35 +329,29 @@ impl AttributesMeshReader {
   pub fn read(&self, id: EntityHandle<AttributesMeshEntity>) -> Option<AttributesMeshWithUri> {
     let mode = self.topology.get_value(id)?;
 
-    // let attributes = self
-    //   .mesh_ref_vertex
-    //   .access_multi(&id)?
-    //   .map(|id| {
-    //     let semantic = self.semantic.get_value(id).unwrap();
-    //     let vertex = self.vertex.read_view(id).unwrap();
-    //     let vertex = scene_buffer_view_into_attribute(vertex, &self.buffer).unwrap();
-    //     (semantic, vertex)
-    //   })
-    //   .collect();
+    let vertices = self
+      .mesh_ref_vertex
+      .access_multi(&id)?
+      .map(|id| {
+        let semantic = self.semantic.get_value(id).unwrap();
+        let data = self.vertex.read_maybe_uri(id, &self.buffer).unwrap();
 
-    let indices = self.index.read_view(id)?;
-    // let indices = self.buffer.get(indices.data?)?;
-    // let indices = scene_buffer_view_into_attribute(indices, &self.buffer).and_then(|i| {
-    //   let fmt = match i.item_byte_size {
-    //     4 => AttributeIndexFormat::Uint32,
-    //     2 => AttributeIndexFormat::Uint16,
-    //     _ => return None,
-    //   };
-    //   (fmt, i).into()
-    // });
+        AttributeMeshUriVertex {
+          relation_handle: id.into_raw(),
+          semantic,
+          data,
+        }
+      })
+      .collect();
 
-    // AttributesMeshWithUri {
-    //   vertices,
-    //   indices,
-    //   mode,
-    // }
-    // .into()
-    todo!()
+    let indices = self.index.read_maybe_uri(id, &self.buffer);
+
+    AttributesMeshWithUri {
+      vertices,
+      indices,
+      mode,
+    }
+    .into()
   }
 }
 
@@ -370,6 +376,16 @@ pub struct AttributeUriData {
   pub count: usize,
 }
 
+impl AttributeUriData {
+  pub fn expect_living(self) -> AttributeLivingData {
+    AttributeLivingData {
+      data: self.data.into_living().unwrap(),
+      range: self.range,
+      count: self.count,
+    }
+  }
+}
+
 #[derive(Clone)] // todo, consider remove clone
 pub struct AttributesMeshWithVertexRelationInfo {
   pub mode: PrimitiveTopology,
@@ -379,11 +395,35 @@ pub struct AttributesMeshWithVertexRelationInfo {
 
 impl AttributesMeshWithVertexRelationInfo {
   pub fn into_attributes_mesh(self) -> AttributesMesh {
-    // match self.into_maybe_uri_form() {
-    //   MaybeUriData::Uri(_) => None,
-    //   MaybeUriData::Living(mesh) => Some(mesh),
-    // }
-    todo!()
+    let AttributesMeshWithVertexRelationInfo {
+      mode,
+      indices,
+      vertices,
+    } = self;
+
+    let vertices = vertices
+      .into_iter()
+      .map(|v| {
+        let view = v.data.into_accessor();
+        (v.semantic, view)
+      })
+      .collect();
+
+    let indices = indices.map(|i| {
+      let view = i.into_accessor();
+      let fmt = match view.item_byte_size {
+        4 => AttributeIndexFormat::Uint32,
+        2 => AttributeIndexFormat::Uint16,
+        _ => unreachable!("invalid index fmt"),
+      };
+      (fmt, view)
+    });
+
+    AttributesMesh {
+      attributes: vertices,
+      indices,
+      mode,
+    }
   }
 }
 
@@ -401,13 +441,35 @@ pub struct AttributeLivingData {
   pub count: usize,
 }
 
+impl AttributeLivingData {
+  pub fn into_accessor(self) -> AttributeAccessor {
+    let range = self.range.unwrap_or_default();
+    let count = self.count as usize;
+
+    let byte_size = range
+      .size
+      .map(|size| u64::from(size) as usize)
+      .unwrap_or(self.data.len());
+
+    AttributeAccessor {
+      view: UnTypedBufferView {
+        buffer: self.data,
+        range,
+      },
+      byte_offset: 0,
+      count,
+      item_byte_size: byte_size / count,
+    }
+    .into()
+  }
+}
+
 impl AttributesMeshWithUri {
   pub fn try_into_attributes_mesh(self) -> Option<AttributesMesh> {
-    // match self.into_maybe_uri_form() {
-    //   MaybeUriData::Uri(_) => None,
-    //   MaybeUriData::Living(mesh) => Some(mesh),
-    // }
-    todo!()
+    match self.into_maybe_uri_form() {
+      MaybeUriData::Uri(_) => None,
+      MaybeUriData::Living(mesh) => Some(mesh.into_attributes_mesh()),
+    }
   }
 
   pub fn into_maybe_uri_form(
@@ -425,51 +487,28 @@ impl AttributesMeshWithUri {
       }
     }
 
-    todo!()
+    let attributes = self
+      .vertices
+      .into_iter()
+      .map(|v| {
+        let data = v.data.expect_living();
+        AttributeMeshLivingVertex {
+          relation_handle: v.relation_handle,
+          semantic: v.semantic,
+          data,
+        }
+      })
+      .collect();
 
-    // let attributes = self
-    //   .vertices
-    //   .into_iter()
-    //   .map(|(data, range, count, semantic)| (semantic, convert(data, range, count).unwrap()))
-    //   .collect();
+    let indices = self.indices.map(|v| {
+      let data = v.expect_living();
+      data
+    });
 
-    // let indices = self.indices.map(|data| {
-    //   let data = convert(data, range, count).unwrap();
-    //   let fmt = match data.item_byte_size {
-    //     4 => AttributeIndexFormat::Uint32,
-    //     2 => AttributeIndexFormat::Uint16,
-    //     _ => unreachable!("invalid index fmt"),
-    //   };
-    //   (fmt, data)
-    // });
-
-    // let mesh = AttributesMesh {
-    //   attributes,
-    //   indices,
-    //   mode: self.mode,
-    // };
-
-    // MaybeUriData::Living(mesh)
+    MaybeUriData::Living(AttributesMeshWithVertexRelationInfo {
+      mode: self.mode,
+      indices,
+      vertices: attributes,
+    })
   }
-}
-
-fn convert(
-  data: BufferEntityDataType,
-  range: BufferViewRange,
-  count: usize,
-) -> Option<AttributeAccessor> {
-  let buffer = data.into_living()?;
-
-  let byte_size = range
-    .size
-    .map(|size| u64::from(size) as usize)
-    .unwrap_or(buffer.len());
-
-  AttributeAccessor {
-    view: UnTypedBufferView { buffer, range },
-    byte_offset: range.offset as usize,
-    count,
-    item_byte_size: byte_size / count,
-  }
-  .into()
 }
