@@ -3,8 +3,12 @@ use rendiation_uri_scheduler::*;
 
 use crate::*;
 
+pub type ViewerTextureDataSource = dyn UriDataSourceDyn<Arc<GPUBufferImage>>;
+
 pub struct ViewerDataScheduler {
+  pub texture_uri_backend: Arc<RwLock<Box<ViewerTextureDataSource>>>,
   texture: Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>, Arc<String>>>>,
+  mesh_buffer_uri_backend: Arc<RwLock<Box<dyn UriDataSourceDyn<Arc<Vec<u8>>>>>>,
   mesh: Arc<
     RwLock<
       NoScheduleScheduler<
@@ -18,22 +22,30 @@ pub struct ViewerDataScheduler {
 
 impl Default for ViewerDataScheduler {
   fn default() -> Self {
-    let mut source = InMemoryUriDataSource::<Arc<GPUBufferImage>>::new(alloc_global_res_id());
-    let load_impl = move |uri: &Arc<String>| {
-      Box::new(source.request_uri_data_load(uri.as_str()))
-        as Box<dyn Future<Output = Option<Arc<GPUBufferImage>>> + Send + Sync + Unpin>
-    };
+    let texture_uri_backend =
+      InMemoryUriDataSource::<Arc<GPUBufferImage>>::new(alloc_global_res_id());
+    let texture_uri_backend = Box::new(texture_uri_backend) as Box<dyn UriDataSourceDyn<_>>;
+    let texture_uri_backend = Arc::new(RwLock::new(texture_uri_backend));
 
-    let scheduler = NoScheduleScheduler::new(Box::new(load_impl));
+    let scheduler = NoScheduleScheduler::new();
     let texture = Arc::new(RwLock::new(scheduler));
 
-    let mut source = InMemoryUriDataSource::new(alloc_global_res_id());
-    let load_impl = move |uri: &AttributesMeshWithUri| load_uri_mesh(uri, &mut source);
+    let mesh_buffer_uri_backend = InMemoryUriDataSource::<Arc<Vec<u8>>>::new(alloc_global_res_id());
+    let mesh_buffer_uri_backend = Box::new(mesh_buffer_uri_backend) as Box<dyn UriDataSourceDyn<_>>;
+    let mesh_buffer_uri_backend = Arc::new(RwLock::new(mesh_buffer_uri_backend));
 
-    let scheduler = NoScheduleScheduler::new(Box::new(load_impl) as _);
+    // let mut source = InMemoryUriDataSource::new(alloc_global_res_id());
+    // let load_impl = move |uri: &AttributesMeshWithUri| load_uri_mesh(uri, &mut source);
+
+    let scheduler = NoScheduleScheduler::new();
     let mesh = Arc::new(RwLock::new(scheduler));
 
-    Self { texture, mesh }
+    Self {
+      texture,
+      mesh,
+      texture_uri_backend,
+      mesh_buffer_uri_backend,
+    }
   }
 }
 
@@ -50,10 +62,22 @@ where
     }
   }
 
-  access_cx!(cx.dyn_env(), scheduler, ViewerDataScheduler);
-  let scheduler = scheduler.mesh.clone();
+  access_cx!(cx.dyn_env(), s, ViewerDataScheduler);
+  let scheduler = s.mesh.clone();
+  let source = s.mesh_buffer_uri_backend.clone();
+  let loader_creator = move || {
+    let mut source = source.make_write_holder();
+    Box::new(move |uri: &AttributesMeshWithUri| {
+      let source = &mut *source;
+      load_uri_mesh(uri, source.as_mut())
+        as Box<
+          dyn Future<Output = Option<AttributesMeshWithVertexRelationInfo>> + Send + Sync + Unpin,
+        >
+    }) as Box<LoaderFunction<AttributesMeshWithUri, AttributesMeshWithVertexRelationInfo>>
+  };
+  let loader_creator = Arc::new(loader_creator) as Arc<_>;
 
-  use_uri_data_changes(cx, DBMeshInput, &scheduler)
+  use_uri_data_changes(cx, DBMeshInput, &scheduler, loader_creator)
 }
 
 pub fn viewer_mesh_buffer_input(
@@ -65,16 +89,16 @@ pub fn viewer_mesh_buffer_input(
 
 fn load_uri_mesh(
   mesh: &AttributesMeshWithUri,
-  buffer_backend: &mut InMemoryUriDataSource<Arc<Vec<u8>>>,
+  buffer_backend: &mut dyn UriDataSourceDyn<Arc<Vec<u8>>>,
 ) -> Box<
   dyn Future<Output = Option<AttributesMeshWithVertexRelationInfo>> + Send + Sync + Unpin + 'static,
 > {
   fn create_buffer_fut(
     data: &AttributeUriData,
-    buffer_backend: &mut InMemoryUriDataSource<Arc<Vec<u8>>>,
+    buffer_backend: &mut dyn UriDataSourceDyn<Arc<Vec<u8>>>,
   ) -> Pin<Box<dyn Future<Output = Option<AttributeLivingData>> + Send + Sync + 'static>> {
     let fut = match &data.data {
-      MaybeUriData::Uri(uri) => Some(buffer_backend.request_uri_data_load(uri.as_str())),
+      MaybeUriData::Uri(uri) => Some(buffer_backend.request_uri_data_load_dyn(uri.as_str())),
       MaybeUriData::Living(_) => None,
     };
 
@@ -101,7 +125,7 @@ fn load_uri_mesh(
     se: AttributeSemantic,
     handle: RawEntityHandle,
     data: &AttributeUriData,
-    buffer_backend: &mut InMemoryUriDataSource<Arc<Vec<u8>>>,
+    buffer_backend: &mut dyn UriDataSourceDyn<Arc<Vec<u8>>>,
   ) -> Pin<Box<dyn Future<Output = Option<AttributeMeshLivingVertex>> + Send + Sync + 'static>> {
     let fut = create_buffer_fut(data, buffer_backend).map(move |r| {
       r.map(|data| AttributeMeshLivingVertex {
@@ -341,8 +365,19 @@ pub fn viewer_texture_input(
     }
   }
 
-  access_cx!(cx.dyn_env(), scheduler, ViewerDataScheduler);
-  let scheduler = scheduler.texture.clone();
+  access_cx!(cx.dyn_env(), s, ViewerDataScheduler);
+  let scheduler = s.texture.clone();
+  let source = s.texture_uri_backend.clone();
 
-  use_uri_data_changes(cx, DBTextureUriInput, &scheduler)
+  let loader_creator = move || {
+    let mut source = source.make_write_holder();
+    Box::new(move |uri: &Arc<String>| {
+      let source = &mut *source;
+      Box::new(source.request_uri_data_load_dyn(uri.as_str()))
+        as Box<dyn Future<Output = Option<Arc<GPUBufferImage>>> + Send + Sync + Unpin>
+    }) as Box<LoaderFunction<Arc<String>, Arc<GPUBufferImage>>>
+  };
+  let loader_creator = Arc::new(loader_creator) as Arc<_>;
+
+  use_uri_data_changes(cx, DBTextureUriInput, &scheduler, loader_creator)
 }

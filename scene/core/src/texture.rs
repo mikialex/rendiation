@@ -134,23 +134,31 @@ pub struct TexSamplerWriter<'a> {
 }
 
 impl TexSamplerWriter<'_> {
-  pub fn write_tex_with_default_sampler(
+  pub fn write_direct_tex_with_default_sampler(
     &mut self,
     texture: GPUBufferImage,
   ) -> Texture2DWithSamplingDataView {
+    let texture = Arc::new(texture);
+    let texture = MaybeUriData::Living(texture);
+    self.write_tex_with_default_sampler(texture)
+  }
+
+  pub fn write_tex_with_default_sampler(
+    &mut self,
+    texture: MaybeUriData<Arc<GPUBufferImage>>,
+  ) -> Texture2DWithSamplingDataView {
     self.write(texture, TextureSampler::tri_linear_repeat())
   }
+
   pub fn write(
     &mut self,
-    texture: GPUBufferImage,
+    texture: MaybeUriData<Arc<GPUBufferImage>>,
     sampler: TextureSampler,
   ) -> Texture2DWithSamplingDataView {
     let sampler = self
       .sampler_writer
       .new_entity(|w| w.write::<SceneSamplerInfo>(&sampler));
 
-    let texture = Arc::new(texture);
-    let texture = MaybeUriData::Living(texture);
     let texture = ExternalRefPtr::new(texture);
     let texture = self
       .tex_writer

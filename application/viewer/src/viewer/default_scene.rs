@@ -3,7 +3,11 @@ use rendiation_mesh_generator::*;
 
 use crate::*;
 
-pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dContent) {
+pub fn load_default_scene(
+  writer: &mut SceneWriter,
+  _viewer_scene: &Viewer3dContent,
+  texture_data_source: &mut ViewerTextureDataSource,
+) {
   // test_mesh_lod_graph(writer);
   load_widen_line_test(writer);
 
@@ -28,7 +32,7 @@ pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dCont
     .build();
     let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
 
-    let texture = textured_example_tex(writer);
+    let texture = textured_example_tex(writer, texture_data_source);
     let material = PhysicalMetallicRoughnessMaterialDataView {
       base_color: Vec3::splat(0.8),
       base_color_texture: Some(texture),

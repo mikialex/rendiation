@@ -18,7 +18,12 @@ pub trait AbstractResourceScheduler: Send + Sync {
   type Data;
   type Key;
 
-  fn notify_use_resource(&mut self, key: &Self::Key, uri: &Self::UriLike);
+  fn notify_use_resource(
+    &mut self,
+    key: &Self::Key,
+    uri: &Self::UriLike,
+    loader: &mut LoaderFunction<Self::UriLike, Self::Data>,
+  );
   fn notify_remove_resource(&mut self, key: &Self::Key);
 
   /// this api is to support dynamic creation of downstream, when a new downstream has created,
@@ -30,7 +35,11 @@ pub trait AbstractResourceScheduler: Send + Sync {
   fn reload_all_loaded(&mut self);
 
   /// the consumer must do dropping first, to make sure the peak memory usage is in bound
-  fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data>;
+  fn poll_schedule(
+    &mut self,
+    cx: &mut Context,
+    loader: &mut LoaderFunction<Self::UriLike, Self::Data>,
+  ) -> LinearBatchChanges<Self::Key, Self::Data>;
 }
 
 impl<K: CKey, V: CValue, U> AbstractResourceScheduler
@@ -40,8 +49,13 @@ impl<K: CKey, V: CValue, U> AbstractResourceScheduler
   type Data = V;
   type Key = K;
 
-  fn notify_use_resource(&mut self, key: &Self::Key, uri: &Self::UriLike) {
-    (**self).notify_use_resource(key, uri);
+  fn notify_use_resource(
+    &mut self,
+    key: &Self::Key,
+    uri: &Self::UriLike,
+    loader: &mut LoaderFunction<U, V>,
+  ) {
+    (**self).notify_use_resource(key, uri, loader);
   }
 
   fn notify_remove_resource(&mut self, key: &Self::Key) {
@@ -52,30 +66,31 @@ impl<K: CKey, V: CValue, U> AbstractResourceScheduler
     (**self).reload_all_loaded();
   }
 
-  fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data> {
-    (**self).poll_schedule(cx)
+  fn poll_schedule(
+    &mut self,
+    cx: &mut Context,
+    loader: &mut LoaderFunction<U, V>,
+  ) -> LinearBatchChanges<Self::Key, Self::Data> {
+    (**self).poll_schedule(cx, loader)
   }
 }
 
+pub type LoadFuture<T> = Box<dyn Future<Output = Option<T>> + Send + Sync + Unpin>;
+pub type LoaderFunction<K, T> = dyn FnMut(&K) -> LoadFuture<T> + Send + Sync;
+pub type LoaderCreator<K, T> = Arc<dyn Fn() -> Box<LoaderFunction<K, T>> + Send + Sync>;
+
 /// the basic implementation is load what your request to load
 pub struct NoScheduleScheduler<K: CKey, V, URI> {
-  pub futures: MappedFutures<K, Box<dyn Future<Output = Option<V>> + Send + Sync + Unpin>>,
-  pub load_impl:
-    Box<dyn FnMut(&URI) -> Box<dyn Future<Output = Option<V>> + Send + Sync + Unpin> + Send + Sync>,
+  pub futures: MappedFutures<K, LoadFuture<V>>,
   pub loading_uri: FastHashMap<K, URI>,
   pub loaded: FastHashMap<K, URI>,
   pub request_reload: bool,
 }
 
 impl<K: CKey, V, URI> NoScheduleScheduler<K, V, URI> {
-  pub fn new(
-    load_impl: Box<
-      dyn FnMut(&URI) -> Box<dyn Future<Output = Option<V>> + Send + Sync + Unpin> + Send + Sync,
-    >,
-  ) -> Self {
+  pub fn new() -> Self {
     Self {
       futures: MappedFutures::new(),
-      load_impl,
       loaded: FastHashMap::default(),
       request_reload: false,
       loading_uri: FastHashMap::default(),
@@ -90,8 +105,13 @@ impl<K: CKey, V, URI: Clone + Send + Sync> AbstractResourceScheduler
   type Key = K;
   type UriLike = URI;
 
-  fn notify_use_resource(&mut self, key: &Self::Key, uri: &URI) {
-    let future = (self.load_impl)(uri);
+  fn notify_use_resource(
+    &mut self,
+    key: &Self::Key,
+    uri: &URI,
+    loader: &mut LoaderFunction<URI, V>,
+  ) {
+    let future = loader(uri);
     self.futures.replace(key.clone(), future);
     self.loading_uri.insert(key.clone(), uri.clone());
   }
@@ -105,11 +125,15 @@ impl<K: CKey, V, URI: Clone + Send + Sync> AbstractResourceScheduler
     self.request_reload = true;
   }
 
-  fn poll_schedule(&mut self, cx: &mut Context) -> LinearBatchChanges<Self::Key, Self::Data> {
+  fn poll_schedule(
+    &mut self,
+    cx: &mut Context,
+    loader: &mut LoaderFunction<URI, V>,
+  ) -> LinearBatchChanges<Self::Key, Self::Data> {
     if self.request_reload {
       self.request_reload = false;
       for (key, uri) in &self.loaded {
-        let future = (self.load_impl)(uri);
+        let future = loader(uri);
         self.futures.replace(key.clone(), future);
         self.loading_uri.insert(key.clone(), uri.clone());
       }
@@ -163,6 +187,7 @@ pub fn use_uri_data_changes<P, Cx: QueryHookCxLike>(
     Result = DataChangesAndLivingReInit<P::Key, P::Data, P::UriLike>,
   >,
   scheduler: &Arc<RwLock<P>>,
+  loader_creator: LoaderCreator<P::UriLike, P::Data>,
 ) -> UseResult<Arc<LinearBatchChanges<P::Key, Option<P::Data>>>>
 where
   P: AbstractResourceScheduler + 'static,
@@ -188,6 +213,8 @@ where
       let (cx, reconciler) =
         cx.use_plain_state_default_cloned::<SharedReconciler<P::Key, P::Data>>();
 
+      let loader_creator = loader_creator.clone();
+
       let re = changes.map_spawn_stage_in_thread(
         cx,
         |changes| changes.changes.has_change(),
@@ -205,11 +232,13 @@ where
           let mut new_inserted = Vec::new();
           let mut new_loading = fast_hash_collection::FastHashSet::default();
 
+          let mut loader = loader_creator();
+
           // although the changes insert list may duplicate, it is not a problem but will have some performance cost
           for (k, v) in changes.changes.iter_update_or_insert() {
             match v {
               MaybeUriData::Uri(uri) => {
-                scheduler.notify_use_resource(&k, &uri);
+                scheduler.notify_use_resource(&k, &uri, &mut loader);
                 new_loading.insert(k.clone());
               }
               MaybeUriData::Living(v) => {
@@ -219,7 +248,7 @@ where
           }
 
           let mut ctx = Context::from_waker(&waker);
-          let loaded = scheduler.poll_schedule(&mut ctx);
+          let loaded = scheduler.poll_schedule(&mut ctx, &mut loader);
 
           for (k, v) in loaded.iter_update_or_insert() {
             new_loading.remove(&k);

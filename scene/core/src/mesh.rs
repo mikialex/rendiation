@@ -257,11 +257,14 @@ pub fn create_sub_buffer_changes_from_mesh_changes(
             .push((mesh, indices.clone()));
         }
 
+        let mut vertices_record = Vec::new();
         for v in mesh_info.vertices {
           vertices_changes
             .update_or_insert
-            .push((mesh, v.data.clone()));
+            .push((v.relation_handle, v.data.clone()));
+          vertices_record.push(v.relation_handle)
         }
+        vertex_mapping.insert(mesh, vertices_record);
       }
     }
 

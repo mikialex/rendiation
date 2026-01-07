@@ -86,7 +86,7 @@ fn into_rff_material(
     let diffuse_texture = load_tex(diffuse_texture);
     mat.albedo_texture = writer
       .texture_sample_pair_writer()
-      .write_tex_with_default_sampler(diffuse_texture)
+      .write_direct_tex_with_default_sampler(diffuse_texture)
       .into();
   }
   if let Some(specular_texture) = &m.specular_texture {
@@ -94,7 +94,7 @@ fn into_rff_material(
     let specular_texture = load_tex(specular_texture);
     mat.specular_glossiness_texture = writer
       .texture_sample_pair_writer()
-      .write_tex_with_default_sampler(specular_texture)
+      .write_direct_tex_with_default_sampler(specular_texture)
       .into();
   }
   if let Some(normal_texture) = &m.normal_texture {
@@ -103,7 +103,7 @@ fn into_rff_material(
       scale: 1.0,
       content: writer
         .texture_sample_pair_writer()
-        .write_tex_with_default_sampler(normal_texture),
+        .write_direct_tex_with_default_sampler(normal_texture),
     });
   }
   mat

@@ -346,20 +346,26 @@ pub fn use_viewer<'a>(
     )
   });
 
+  let (acx, data_scheduler) = acx.use_plain_state(|| ViewerDataScheduler::default());
+
   let (acx, viewer) = acx.use_plain_state(|| {
-    Viewer::new(
+    let viewer = Viewer::new(
       acx.gpu_and_surface.gpu.clone(),
       acx.gpu_and_surface.surface.clone(),
       init_config,
       worker_thread_pool.clone(),
-    )
+    );
+    {
+      let mut tex_source = data_scheduler.texture_uri_backend.write();
+      let mut writer = SceneWriter::from_global(viewer.content.scene);
+      load_default_scene(&mut writer, &viewer.content, tex_source.as_mut());
+    };
+    viewer
   });
 
   let (acx, gui_feature_global_states) = acx.use_plain_state(|| FeaturesGlobalUIStates {
     features: Default::default(),
   });
-
-  let (acx, data_scheduler) = acx.use_plain_state(|| ViewerDataScheduler::default());
 
   let (acx, tick_timestamp) = acx.use_plain_state(Instant::now);
   let (acx, frame_time_delta_in_seconds) = acx.use_plain_state(|| 0.0);
@@ -528,7 +534,6 @@ impl Viewer {
 
     let background = {
       let mut writer = SceneWriter::from_global(scene.scene);
-      load_default_scene(&mut writer, &scene);
 
       ViewerBackgroundState::init(&mut writer)
     };
