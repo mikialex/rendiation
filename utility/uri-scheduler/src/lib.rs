@@ -131,22 +131,43 @@ impl<K: CKey, V, URI: Clone + Send + Sync> AbstractResourceScheduler
   }
 }
 
+pub trait SchedulerReInitIteratorProvider {
+  type Item;
+  fn create_iter(&self) -> Box<dyn Iterator<Item = Self::Item> + '_>;
+}
+
+pub struct DataChangesAndLivingReInit<K, VLiving, VUrl> {
+  pub changes: Arc<LinearBatchChanges<K, MaybeUriData<VLiving, VUrl>>>,
+  pub iter_living_full: Arc<dyn SchedulerReInitIteratorProvider<Item = (K, VLiving)> + Send + Sync>,
+}
+
+impl<K, VLiving, VUrl> Clone for DataChangesAndLivingReInit<K, VLiving, VUrl> {
+  fn clone(&self) -> Self {
+    Self {
+      changes: self.changes.clone(),
+      iter_living_full: self.iter_living_full.clone(),
+    }
+  }
+}
+
 type Reconciler<K, V> = FastHashMap<u32, Vec<Arc<LinearBatchChanges<K, Option<V>>>>>;
 type SharedReconciler<K, V> = Arc<RwLock<Reconciler<K, V>>>;
 
 // todo, optimize impl
 /// the scheduler should not be shared between different use_maybe_uri_data_changes
 /// the Arc is only to support it access in thread
-pub fn use_uri_data_changes<P, C, Cx: QueryHookCxLike>(
+pub fn use_uri_data_changes<P, Cx: QueryHookCxLike>(
   cx: &mut Cx,
-  source: impl SharedResultProvider<Cx, Result = C>,
+  source: impl SharedResultProvider<
+    Cx,
+    Result = DataChangesAndLivingReInit<P::Key, P::Data, P::UriLike>,
+  >,
   scheduler: &Arc<RwLock<P>>,
-  iter_full: Box<dyn Iterator<Item = (P::Key, P::Data)> + Send + Sync>,
 ) -> UseResult<Arc<LinearBatchChanges<P::Key, Option<P::Data>>>>
 where
   P: AbstractResourceScheduler + 'static,
-  C: DataChanges<Key = P::Key, Value = MaybeUriData<P::Data, P::UriLike>> + 'static,
   P::Data: Send + Sync + 'static + Clone,
+  P::UriLike: Send + Sync + 'static + Clone,
   P::Key: CKey,
 {
   let share_key = source.compute_share_key();
@@ -167,18 +188,16 @@ where
       let (cx, reconciler) =
         cx.use_plain_state_default_cloned::<SharedReconciler<P::Key, P::Data>>();
 
-      let reconciler_ = reconciler.clone();
-
       let re = changes.map_spawn_stage_in_thread(
         cx,
-        |changes| changes.has_change(),
+        |changes| changes.changes.has_change(),
         move |changes| {
           let mut scheduler = scheduler.write();
 
           let mut all_removed = Vec::new();
           // do cancelling first
           // the futures should not resolved in poll next call
-          for removed in changes.iter_removed() {
+          for removed in changes.changes.iter_removed() {
             scheduler.notify_remove_resource(&removed);
             all_removed.push(removed);
           }
@@ -187,7 +206,7 @@ where
           let mut new_loading = fast_hash_collection::FastHashSet::default();
 
           // although the changes insert list may duplicate, it is not a problem but will have some performance cost
-          for (k, v) in changes.iter_update_or_insert() {
+          for (k, v) in changes.changes.iter_update_or_insert() {
             match v {
               MaybeUriData::Uri(uri) => {
                 scheduler.notify_use_resource(&k, &uri);
@@ -211,7 +230,7 @@ where
             new_inserted.push((k, None));
           }
 
-          let changes = Arc::new(LinearBatchChanges {
+          let after_schedule_changes = Arc::new(LinearBatchChanges {
             removed: all_removed,
             update_or_insert: new_inserted,
           });
@@ -219,24 +238,15 @@ where
           {
             let mut r = reconciler.write();
             for downstream in r.values_mut() {
-              downstream.push(changes.clone());
+              downstream.push(after_schedule_changes.clone());
             }
           }
 
-          reconciler
+          (reconciler, changes.iter_living_full)
         },
       );
 
-      if let UseResult::NotInStage = re {
-        if cx.is_spawning_stage() {
-          // data change is not in stage when nothing changed
-          UseResult::SpawnStageReady(reconciler_.clone())
-        } else {
-          re
-        }
-      } else {
-        re
-      }
+      re
     },
     share_key,
     debug_label,
@@ -248,7 +258,7 @@ where
 
   all_downstream_changes.map_spawn_stage_in_thread(
     cx,
-    move |reconciler| {
+    move |(reconciler, _)| {
       let r = reconciler.read();
       if let Some(buffered_changes) = r.get(&consumer_id) {
         buffered_changes.len() > 1
@@ -260,12 +270,13 @@ where
         true
       }
     },
-    move |reconciler| {
+    move |(reconciler, init_iter)| {
       let mut reconciler = reconciler.write();
       let messages = reconciler.entry(consumer_id).or_insert_with(|| {
+        let init_iter = init_iter.create_iter();
         let init_message = Arc::new(LinearBatchChanges {
           removed: Default::default(),
-          update_or_insert: iter_full.map(|(k, v)| (k, Some(v))).collect(),
+          update_or_insert: init_iter.map(|(k, v)| (k, Some(v))).collect(),
         });
         vec![init_message]
       });

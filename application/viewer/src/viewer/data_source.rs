@@ -1,3 +1,4 @@
+use fast_hash_collection::FastHashSet;
 use rendiation_uri_scheduler::*;
 
 use crate::*;
@@ -43,7 +44,7 @@ where
   struct DBMeshInput;
   impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for DBMeshInput {
     share_provider_hash_type_id! {}
-    type Result = AttributesMeshDataChangeMaybeUriInput;
+    type Result = MeshInput;
     fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
       attribute_mesh_input(cx)
     }
@@ -52,9 +53,7 @@ where
   access_cx!(cx.dyn_env(), scheduler, ViewerDataScheduler);
   let scheduler = scheduler.mesh.clone();
 
-  let iter = [].into_iter(); // todo
-
-  use_uri_data_changes(cx, DBMeshInput, &scheduler, Box::new(iter))
+  use_uri_data_changes(cx, DBMeshInput, &scheduler)
 }
 
 pub fn viewer_mesh_buffer_input(
@@ -73,7 +72,7 @@ fn load_uri_mesh(
   fn create_buffer_fut(
     data: &AttributeUriData,
     buffer_backend: &mut InMemoryUriDataSource<Arc<Vec<u8>>>,
-  ) -> Box<dyn Future<Output = Option<AttributeLivingData>> + 'static> {
+  ) -> Pin<Box<dyn Future<Output = Option<AttributeLivingData>> + Send + Sync + 'static>> {
     let fut = match &data.data {
       MaybeUriData::Uri(uri) => Some(buffer_backend.request_uri_data_load(uri.as_str())),
       MaybeUriData::Living(_) => None,
@@ -83,7 +82,7 @@ fn load_uri_mesh(
     let count = data.count;
     let living_data = data.data.clone().into_living();
 
-    Box::new(async move {
+    Box::pin(async move {
       let buffer = if let Some(fut) = fut {
         fut.await
       } else {
@@ -98,19 +97,200 @@ fn load_uri_mesh(
     })
   }
 
+  fn create_vertex_buffer_fut(
+    se: AttributeSemantic,
+    handle: RawEntityHandle,
+    data: &AttributeUriData,
+    buffer_backend: &mut InMemoryUriDataSource<Arc<Vec<u8>>>,
+  ) -> Pin<Box<dyn Future<Output = Option<AttributeMeshLivingVertex>> + Send + Sync + 'static>> {
+    let fut = create_buffer_fut(data, buffer_backend).map(move |r| {
+      r.map(|data| AttributeMeshLivingVertex {
+        semantic: se,
+        relation_handle: handle,
+        data,
+      })
+    });
+
+    Box::pin(fut)
+  }
+
   let indices = mesh
     .indices
     .as_ref()
     .map(|indices| create_buffer_fut(indices, buffer_backend));
 
-  Box::new(Box::pin(async {
+  let vertices: Vec<_> = mesh
+    .vertices
+    .iter()
+    .map(|vertices| {
+      create_vertex_buffer_fut(
+        vertices.semantic.clone(),
+        vertices.relation_handle,
+        &vertices.data,
+        buffer_backend,
+      )
+    })
+    .collect();
+
+  let mode = mesh.mode;
+
+  Box::new(Box::pin(async move {
+    let indices = if let Some(indices) = indices {
+      let indices = indices.await;
+      if let Some(indices) = indices {
+        Some(indices)
+      } else {
+        return None;
+      }
+    } else {
+      None
+    };
+
+    let vertices = futures::future::join_all(vertices).await;
+    let len = vertices.len();
+    let vertices: Vec<_> = vertices.into_iter().filter_map(|v| v).collect();
+
+    if len != vertices.len() {
+      return None;
+    }
+
     AttributesMeshWithVertexRelationInfo {
-      mode: todo!(),
-      indices: todo!(),
-      vertices: todo!(),
+      mode,
+      indices,
+      vertices,
     }
     .into()
   }))
+}
+
+type MeshInput = DataChangesAndLivingReInit<
+  RawEntityHandle,
+  AttributesMeshWithVertexRelationInfo,
+  AttributesMeshWithUri,
+>;
+
+pub fn attribute_mesh_input(cx: &mut impl DBHookCxLike) -> UseResult<MeshInput> {
+  let mesh_set_changes = cx.use_query_set::<AttributesMeshEntity>();
+
+  // key: attribute mesh
+  // todo, only union key, as we not use value at all
+  let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
+  let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
+  let index_buffer = index_buffer_ref
+    .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
+    .dual_query_boxed();
+
+  // key: middle table
+  let vertex_buffer_ref = cx
+    .use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>()
+    .dual_query_boxed();
+  let vertex_buffer_range = cx
+    .use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>()
+    .dual_query_boxed();
+  let vertex_buffer_ref_attributes_mesh = cx
+    .use_dual_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+    .dual_query_boxed();
+  let vertex_buffer = vertex_buffer_ref
+    .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
+    .dual_query_boxed();
+  let vertex_buffer = vertex_buffer_ref_attributes_mesh
+    .dual_query_union(vertex_buffer, |(a, b)| Some((a?, b?)))
+    .dual_query_boxed();
+
+  let mesh_changes = mesh_set_changes
+    .join(index_buffer.join(vertex_buffer))
+    .map_spawn_stage_in_thread(
+      cx,
+      |(mesh_set_change, (index_buffer, vertex_buffer))| {
+        mesh_set_change.has_item_hint()
+          || index_buffer.has_delta_hint()
+          || vertex_buffer.has_delta_hint()
+      },
+      |(mesh_set_change, (index_buffer, vertex_buffer))| {
+        let mut removed_meshes = FastHashSet::default(); // todo improve
+        let mesh_set_change = mesh_set_change.into_change();
+        for mesh in mesh_set_change.iter_removed() {
+          removed_meshes.insert(mesh);
+        }
+        let mut re_access_meshes = FastHashSet::default(); // todo, improve capacity
+        for (mesh, _) in mesh_set_change.iter_update_or_insert() {
+          re_access_meshes.insert(mesh);
+        }
+        for (mesh, _) in index_buffer.delta.iter_key_value() {
+          re_access_meshes.insert(mesh);
+        }
+        for (_, change) in vertex_buffer.delta.iter_key_value() {
+          if let Some((Some(mesh), _)) = change.old_value() {
+            re_access_meshes.insert(*mesh);
+          }
+          if let Some((Some(mesh), _)) = change.new_value() {
+            re_access_meshes.insert(*mesh);
+          }
+        }
+        for mesh in &removed_meshes {
+          re_access_meshes.remove(mesh);
+        }
+        (re_access_meshes, removed_meshes)
+      },
+    );
+
+  let mesh_ref_vertex =
+    cx.use_db_rev_ref_tri_view::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
+
+  mesh_changes
+    .join(mesh_ref_vertex)
+    .map_spawn_stage_in_thread(
+      cx,
+      |(mesh_changes, mesh_ref_vertex)| {
+        !mesh_changes.0.is_empty() || !mesh_changes.1.is_empty() || mesh_ref_vertex.has_delta_hint()
+      },
+      |((re_access_meshes, removed_meshes), mesh_ref_vertex)| {
+        let reader = AttributesMeshReader::new_from_global(
+          mesh_ref_vertex
+            .rev_many_view
+            .mark_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+            .into_boxed_multi(),
+        );
+        let re_access_meshes = re_access_meshes
+          .into_iter()
+          .map(|m| {
+            let mesh = unsafe { EntityHandle::from_raw(m) };
+            let mesh = reader.read(mesh).unwrap().into_maybe_uri_form();
+            (m, mesh)
+          })
+          .collect::<Vec<_>>();
+
+        let changes = Arc::new(LinearBatchChanges {
+          removed: removed_meshes.into_iter().collect(),
+          update_or_insert: re_access_meshes,
+        });
+
+        let set = get_db_set_view::<AttributesMeshEntity>();
+        let iter = MeshInputIter(reader, set);
+
+        DataChangesAndLivingReInit {
+          changes,
+          iter_living_full: Arc::new(iter),
+        }
+      },
+    )
+}
+
+struct MeshInputIter(AttributesMeshReader, BoxedDynQuery<RawEntityHandle, ()>);
+
+impl SchedulerReInitIteratorProvider for MeshInputIter {
+  type Item = (RawEntityHandle, AttributesMeshWithVertexRelationInfo);
+
+  fn create_iter(&self) -> Box<dyn Iterator<Item = Self::Item> + '_> {
+    let iter = self.1.iter_key_value().filter_map(|(rk, _)| {
+      let k = unsafe { EntityHandle::from_raw(rk) };
+      match self.0.read(k).unwrap().into_maybe_uri_form() {
+        MaybeUriData::Uri(_) => None,
+        MaybeUriData::Living(v) => Some((rk, v)),
+      }
+    });
+    Box::new(iter)
+  }
 }
 
 // todo, LinearBatchChanges<u32, Option<GPUBufferImage>>'s iter will cause excessive clone
@@ -118,33 +298,51 @@ fn load_uri_mesh(
 pub fn viewer_texture_input(
   cx: &mut QueryGPUHookCx<'_>,
 ) -> UseResult<Arc<LinearBatchChanges<u32, Option<Arc<GPUBufferImage>>>>> {
-  let iter = get_db_view_no_generation_check::<SceneTexture2dEntityDirectContent>()
-    .iter_static_life()
-    .filter_map(|(k, v)| {
-      let v = v?;
-      let v = match v.ptr.as_ref() {
-        MaybeUriData::Uri(_) => None,
-        MaybeUriData::Living(v) => Some(v),
-      }?;
-      Some((k, v.clone()))
-    });
+  struct TextureIter;
+  impl SchedulerReInitIteratorProvider for TextureIter {
+    type Item = (u32, Arc<GPUBufferImage>);
+
+    fn create_iter(&self) -> Box<dyn Iterator<Item = Self::Item> + '_> {
+      Box::new(
+        get_db_view_no_generation_check::<SceneTexture2dEntityDirectContent>()
+          .iter_static_life()
+          .filter_map(|(k, v)| {
+            let v = v?;
+            let v = match v.ptr.as_ref() {
+              MaybeUriData::Uri(_) => None,
+              MaybeUriData::Living(v) => Some(v),
+            }?;
+            Some((k, v.clone()))
+          }),
+      )
+    }
+  }
 
   struct DBTextureUriInput;
   impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for DBTextureUriInput {
     share_provider_hash_type_id! {}
-    type Result = Arc<LinearBatchChanges<u32, MaybeUriData<Arc<GPUBufferImage>>>>;
+    type Result = DataChangesAndLivingReInit<u32, Arc<GPUBufferImage>, Arc<String>>;
     fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-      cx.use_changes::<SceneTexture2dEntityDirectContent>()
-        .map(|changes| {
-          changes
-            .collective_filter_map(|v| v.map(|v| (*v).clone()))
-            .materialize()
-        })
+      cx.use_changes_internal::<<SceneTexture2dEntityDirectContent as ComponentSemantic>::Data>(
+        SceneTexture2dEntityDirectContent::component_id(),
+        <SceneTexture2dEntityDirectContent as EntityAssociateSemantic>::Entity::entity_id(),
+        true,
+      )
+      .map(|changes| {
+        let changes = changes
+          .collective_filter_map(|v| v.map(|v| (*v).clone()))
+          .materialize();
+
+        DataChangesAndLivingReInit {
+          changes,
+          iter_living_full: Arc::new(TextureIter),
+        }
+      })
     }
   }
 
   access_cx!(cx.dyn_env(), scheduler, ViewerDataScheduler);
   let scheduler = scheduler.texture.clone();
 
-  use_uri_data_changes(cx, DBTextureUriInput, &scheduler, Box::new(iter))
+  use_uri_data_changes(cx, DBTextureUriInput, &scheduler)
 }

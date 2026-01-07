@@ -27,6 +27,19 @@ fn get_db_view_no_generation_check_internal<T>(
     .unwrap()
 }
 
+pub fn get_db_set_view<E: EntitySemantic>() -> BoxedDynQuery<RawEntityHandle, ()> {
+  global_database().access_table::<E, _>(|t| {
+    ArenaAccess(
+      t.clone()
+        .into_untyped()
+        .internal
+        .allocator
+        .make_read_holder(),
+    )
+    .into_boxed()
+  })
+}
+
 #[inline(always)]
 pub fn get_db_view<C: ComponentSemantic>() -> DBView<C::Data> {
   get_db_view_internal(C::Entity::entity_id(), C::component_id())
