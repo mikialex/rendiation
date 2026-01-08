@@ -1,0 +1,8 @@
+[package]
+edition = "2024"
+name = "generational-arena"
+version = "0.0.1"
+
+
+[lints]
+workspace = true

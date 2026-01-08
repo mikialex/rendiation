@@ -20,6 +20,7 @@ members = [
   "utility/hook",
   "utility/fast-hash-collection",
   "utility/reuse-pool",
+  "utility/generational-arena",
   "content/animation",
   "content/color",
   "content/mesh/core",

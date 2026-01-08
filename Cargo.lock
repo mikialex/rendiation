@@ -1610,6 +1610,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "generational-arena"
+version = "0.0.1"
+
+[[package]]
 name = "generator"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
