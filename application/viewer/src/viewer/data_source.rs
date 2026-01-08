@@ -320,23 +320,19 @@ impl SchedulerReInitIteratorProvider for MeshInputIter {
 pub fn viewer_texture_input(
   cx: &mut QueryGPUHookCx<'_>,
 ) -> UseResult<Arc<LinearBatchChanges<u32, Option<Arc<GPUBufferImage>>>>> {
-  struct TextureIter;
+  struct TextureIter(DBViewUnchecked<TextureDirectContentType>);
   impl SchedulerReInitIteratorProvider for TextureIter {
     type Item = (u32, Arc<GPUBufferImage>);
 
     fn create_iter(&self) -> Box<dyn Iterator<Item = Self::Item> + '_> {
-      Box::new(
-        get_db_view_no_generation_check::<SceneTexture2dEntityDirectContent>()
-          .iter_static_life()
-          .filter_map(|(k, v)| {
-            let v = v?;
-            let v = match v.ptr.as_ref() {
-              MaybeUriData::Uri(_) => None,
-              MaybeUriData::Living(v) => Some(v),
-            }?;
-            Some((k, v.clone()))
-          }),
-      )
+      Box::new(self.0.iter_key_value().filter_map(|(k, v)| {
+        let v = v?;
+        let v = match v.ptr.as_ref() {
+          MaybeUriData::Uri(_) => None,
+          MaybeUriData::Living(v) => Some(v),
+        }?;
+        Some((k, v.clone()))
+      }))
     }
   }
 
@@ -357,7 +353,9 @@ pub fn viewer_texture_input(
 
         DataChangesAndLivingReInit {
           changes,
-          iter_living_full: Arc::new(TextureIter),
+          iter_living_full: Arc::new(TextureIter(get_db_view_no_generation_check::<
+            SceneTexture2dEntityDirectContent,
+          >())),
         }
       })
     }

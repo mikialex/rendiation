@@ -1,10 +1,11 @@
 use crate::*;
 
 declare_entity!(SceneTexture2dEntity);
+pub type TextureDirectContentType = Option<ExternalRefPtr<MaybeUriData<Arc<GPUBufferImage>>>>;
 declare_component!(
   SceneTexture2dEntityDirectContent,
   SceneTexture2dEntity,
-  Option<ExternalRefPtr<MaybeUriData<Arc<GPUBufferImage>>>>
+  TextureDirectContentType
 );
 pub fn register_scene_texture2d_data_model() {
   global_database()

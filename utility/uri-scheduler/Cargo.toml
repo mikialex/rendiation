@@ -10,7 +10,6 @@ query = { path = "../query" }
 query-hook = { path = "../query-hook" }
 futures = { workspace = true }
 mapped_futures = "0.2.1"
-storage = { path = "../storage" }
 parking_lot = { workspace = true }
 
 [lints]
