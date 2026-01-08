@@ -6,6 +6,9 @@ pub use feature::*;
 mod viewport;
 pub use viewport::*;
 
+mod data_source;
+pub use data_source::*;
+
 mod rendering_root;
 pub use rendering_root::*;
 
@@ -153,6 +156,10 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
 
   fn waker(&mut self) -> &mut Waker {
     &mut self.waker
+  }
+
+  fn dyn_env(&mut self) -> &mut DynCx {
+    self.dyn_cx
   }
 
   fn stage(&mut self) -> QueryHookStage<'_> {
@@ -339,13 +346,27 @@ pub fn use_viewer<'a>(
     )
   });
 
+  let (acx, data_scheduler) = acx.use_plain_state(ViewerDataScheduler::default);
+
   let (acx, viewer) = acx.use_plain_state(|| {
-    Viewer::new(
+    let viewer = Viewer::new(
       acx.gpu_and_surface.gpu.clone(),
       acx.gpu_and_surface.surface.clone(),
       init_config,
       worker_thread_pool.clone(),
-    )
+    );
+    {
+      let mut tex_source = data_scheduler.texture_uri_backend.write();
+      let mut mesh_source = data_scheduler.mesh_uri_backend.write();
+      let mut writer = SceneWriter::from_global(viewer.content.scene);
+      load_default_scene(
+        &mut writer,
+        &viewer.content,
+        tex_source.as_mut(),
+        mesh_source.as_mut(),
+      );
+    };
+    viewer
   });
 
   let (acx, gui_feature_global_states) = acx.use_plain_state(|| FeaturesGlobalUIStates {
@@ -365,6 +386,12 @@ pub fn use_viewer<'a>(
 
   let (acx, ins) = acx.use_plain_state(InspectedContent::default);
   let inspection = viewer.enable_inspection.then_some(&mut *ins);
+
+  unsafe {
+    acx
+      .dyn_cx
+      .register_cx::<ViewerDataScheduler>(data_scheduler);
+  };
 
   ViewerCx {
     viewer,
@@ -411,8 +438,13 @@ pub fn use_viewer<'a>(
     &viewer.content,
     &mut viewer.shared_ctx,
     &mut viewer.rendering,
+    acx.dyn_cx,
     inspection,
   );
+
+  unsafe {
+    acx.dyn_cx.unregister_cx::<ViewerDataScheduler>();
+  };
 
   viewer
 }
@@ -508,7 +540,6 @@ impl Viewer {
 
     let background = {
       let mut writer = SceneWriter::from_global(scene.scene);
-      load_default_scene(&mut writer, &scene);
 
       ViewerBackgroundState::init(&mut writer)
     };

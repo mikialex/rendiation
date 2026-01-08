@@ -51,7 +51,7 @@ pub trait DataChanges: Send + Sync + Clone {
     }
   }
 
-  fn collective_filter_map<V: CValue>(
+  fn collective_filter_map<V>(
     self,
     f: impl Fn(Self::Value) -> Option<V> + Clone + Send + Sync + 'static,
   ) -> impl DataChanges<Key = Self::Key, Value = V> {
@@ -147,7 +147,6 @@ struct DataChangesFilterMap<T, F> {
 impl<T, V, F> DataChanges for DataChangesFilterMap<T, F>
 where
   T: DataChanges,
-  V: CValue,
   F: Fn(T::Value) -> Option<V> + Clone + Send + Sync,
 {
   type Key = T::Key;
@@ -271,4 +270,33 @@ where
   fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
     self.0.create_iter().flat_map(|c| c.iter_update_or_insert())
   }
+}
+
+pub fn merge_linear_batch_changes<K: CKey, T: Clone>(
+  changes: &mut Vec<Arc<LinearBatchChanges<K, T>>>,
+) -> Arc<LinearBatchChanges<K, T>> {
+  if changes.len() == 1 {
+    return changes.pop().unwrap();
+  }
+
+  let mut removes = FastHashSet::default();
+  let mut new_inserts = FastHashMap::default();
+
+  // the drain iter has correct visit order
+  for change in changes.drain(..) {
+    for k in change.removed.iter() {
+      removes.insert(k.clone());
+
+      new_inserts.remove(k);
+    }
+    for (k, v) in change.update_or_insert.iter() {
+      new_inserts.insert(k.clone(), v.clone());
+      removes.remove(k);
+    }
+  }
+
+  Arc::new(LinearBatchChanges {
+    removed: removes.into_iter().collect(),
+    update_or_insert: new_inserts.into_iter().collect(),
+  })
 }

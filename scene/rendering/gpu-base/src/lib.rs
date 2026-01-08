@@ -211,38 +211,3 @@ pub fn map_index(index: AttributeIndexFormat) -> IndexFormat {
     AttributeIndexFormat::Uint32 => IndexFormat::Uint32,
   }
 }
-
-pub type AttributeVertexDataSource = UseResult<
-  impl DataChanges<Key = RawEntityHandle, Value = (RawEntityHandle, Option<BufferViewRange>)>,
->;
-
-#[define_opaque(AttributeVertexDataSource)]
-pub fn use_attribute_vertex_data(cx: &mut QueryGPUHookCx) -> AttributeVertexDataSource {
-  let vertex_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>();
-  let vertex_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>();
-
-  vertex_buffer_ref
-    .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
-    .dual_query_filter_map(|(index, range)| index.map(|i| (i, range)))
-    .dual_query_boxed()
-    .into_delta_change()
-}
-
-pub type AttributeIndexDataSource = UseResult<
-  impl DataChanges<Key = RawEntityHandle, Value = (RawEntityHandle, Option<BufferViewRange>, u32)>,
->;
-
-#[define_opaque(AttributeIndexDataSource)]
-pub fn use_attribute_index_data(cx: &mut QueryGPUHookCx) -> AttributeIndexDataSource {
-  let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
-  let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
-  // we need count to distinguish between the u16 or u32 index
-  let index_item_count = cx.use_dual_query::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
-
-  index_buffer_ref
-    .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
-    .dual_query_zip(index_item_count)
-    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count)))
-    .dual_query_boxed()
-    .into_delta_change()
-}

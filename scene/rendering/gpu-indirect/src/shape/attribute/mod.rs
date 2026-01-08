@@ -169,24 +169,20 @@ fn use_attribute_indices_updates(
       .iter_removed()
       .chain(change.iter_update_or_insert().map(|(k, _)| k));
 
-    let data = get_db_view::<BufferEntityData>();
-
     // todo, avoid resize
     let mut buffers_to_write = RangeAllocateBufferCollector::default();
     let mut new_sizes = Vec::new();
 
-    for (k, (buffer_id, range, count)) in change.iter_update_or_insert() {
-      let buffer = &data.read_ref(buffer_id).unwrap().ptr;
+    for (k, data) in change.iter_update_or_insert() {
+      let range = data.range.map(|range| range.into_range(data.data.len()));
 
-      let range = range.map(|range| range.into_range(buffer.len()));
-
-      let byte_per_item = buffer.len() / count as usize;
+      let byte_per_item = data.data.len() / data.count;
       if byte_per_item != 4 && byte_per_item != 2 {
         unreachable!("index count must be multiple of 2(u16) or 4(u32)")
       }
 
       if byte_per_item == 2 {
-        let mut buffer = buffer.as_slice();
+        let mut buffer = data.data.as_slice();
         if let Some(range) = range {
           buffer = &buffer[range];
         }
@@ -199,8 +195,8 @@ fn use_attribute_indices_updates(
         buffers_to_write.collect_shared(k, (&buffer, None));
         new_sizes.push((k, size));
       } else {
-        let size = range.clone().map(|v| v.len()).unwrap_or(buffer.len()) as u32 / 4;
-        buffers_to_write.collect_shared(k, (buffer, range));
+        let size = range.clone().map(|v| v.len()).unwrap_or(data.data.len()) as u32 / 4;
+        buffers_to_write.collect_shared(k, (&data.data, range));
         new_sizes.push((k, size));
       };
     }
@@ -274,8 +270,6 @@ fn use_attribute_vertex_updates(
 
   let allocation_info =
     vertex_data_source.map_spawn_stage_in_thread_data_changes(cx, move |change| {
-      let data = get_db_view::<BufferEntityData>();
-
       // todo, this code should be improved
       let mut small_buffer_count = 0;
       let mut small_buffer_byte_count = 0;
@@ -289,13 +283,12 @@ fn use_attribute_vertex_updates(
 
       // iter is slow to iter, do this is much faster
       let mut access_result = Vec::with_capacity(size_cap);
-      for (k, (buffer_id, range)) in iter {
-        let buffer = &data.read_ref(buffer_id).unwrap().ptr;
-        let range = range.map(|range| range.into_range(buffer.len()));
+      for (k, data) in iter {
+        let range = data.range.map(|range| range.into_range(data.data.len()));
         let len = range
           .clone()
           .map(|range| range.len())
-          .unwrap_or(buffer.len());
+          .unwrap_or(data.data.len());
 
         if len <= SMALL_BUFFER_THRESHOLD_BYTE_COUNT {
           small_buffer_count += 1;
@@ -305,7 +298,7 @@ fn use_attribute_vertex_updates(
         }
 
         sizes.push((k, len as u32 / 4));
-        access_result.push((k, buffer, range));
+        access_result.push((k, data.data, range));
       }
 
       let removed_and_changed_keys = change
@@ -320,7 +313,7 @@ fn use_attribute_vertex_updates(
       );
 
       for (k, buffer, range) in access_result {
-        buffers_to_write.collect_shared(k, (buffer, range));
+        buffers_to_write.collect_shared(k, (&buffer, range));
       }
 
       let buffers_to_write = buffers_to_write.prepare(&changes, 4);

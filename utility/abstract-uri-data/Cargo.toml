@@ -1,0 +1,12 @@
+[package]
+edition = "2021"
+name = "rendiation-abstract-uri-data"
+version = "0.0.1"
+
+[dependencies]
+fast-hash-collection = { path = "../fast-hash-collection" }
+facet = { workspace = true }
+serde = { workspace = true }
+
+[lints]
+workspace = true

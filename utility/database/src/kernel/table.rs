@@ -34,7 +34,7 @@ impl ArcTable {
     assert!(previous.is_none())
   }
 
-  pub fn iter_entity_idx(&self) -> impl Iterator<Item = RawEntityHandle> {
+  pub fn iter_entity_idx(&self) -> impl Iterator<Item = RawEntityHandle> + 'static {
     let inner = self.internal.allocator.make_read_holder();
     struct Iter {
       iter: arena::Iter<'static, ()>,

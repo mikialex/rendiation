@@ -1,0 +1,16 @@
+[package]
+edition = "2021"
+name = "rendiation-uri-scheduler"
+version = "0.0.1"
+
+[dependencies]
+fast-hash-collection = { path = "../fast-hash-collection" }
+rendiation-abstract-uri-data = { path = "../abstract-uri-data" }
+query = { path = "../query" }
+query-hook = { path = "../query-hook" }
+futures = { workspace = true }
+mapped_futures = "0.2.1"
+parking_lot = { workspace = true }
+
+[lints]
+workspace = true

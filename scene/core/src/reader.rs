@@ -102,20 +102,27 @@ impl SceneReader {
   }
 
   pub fn read_attribute_mesh(&self, id: EntityHandle<AttributesMeshEntity>) -> AttributesMesh {
-    self.mesh.read(id).unwrap()
+    self
+      .mesh
+      .read(id)
+      .unwrap()
+      .try_into_attributes_mesh()
+      .unwrap()
   }
 
   pub fn read_sampler(&self, id: EntityHandle<SceneSamplerEntity>) -> TextureSampler {
     self.sampler.read::<SceneSamplerInfo>(id)
   }
-  pub fn read_texture(&self, id: EntityHandle<SceneTexture2dEntity>) -> GPUBufferImage {
-    self
+
+  pub fn read_texture(
+    &self,
+    id: EntityHandle<SceneTexture2dEntity>,
+  ) -> Option<&MaybeUriData<Arc<GPUBufferImage>>> {
+    let tex = self
       .texture
-      .read::<SceneTexture2dEntityDirectContent>(id)
-      .unwrap()
-      .ptr
-      .as_ref()
-      .clone()
+      .try_read_ref::<SceneTexture2dEntityDirectContent>(id)?
+      .as_ref()?;
+    tex.ptr.as_ref().into()
   }
 
   pub fn read_unlit_material(
@@ -221,6 +228,18 @@ impl<T: SceneBufferView> SceneBufferViewReadView<T> {
     .into()
   }
 
+  pub fn read_maybe_uri(
+    &self,
+    id: EntityHandle<T::Entity>,
+    buffer_reader: &ComponentReadView<BufferEntityData>,
+  ) -> Option<AttributeUriData> {
+    let range = self.range.get_value(id)?;
+    let count = self.count.get_value(id)? as usize;
+    let data = self.buffer.get(id)?;
+    let data = buffer_reader.get(data)?.ptr.as_ref().clone();
+    AttributeUriData { data, range, count }.into()
+  }
+
   /// return (data, count)
   pub fn read_view_bytes<'a>(
     &self,
@@ -230,7 +249,9 @@ impl<T: SceneBufferView> SceneBufferViewReadView<T> {
     let range = self.range.get_value(id)?;
     let count = self.count.get_value(id)?;
     let data = self.buffer.get(id)?;
-    let data = buffer_reader.get(data)?.ptr.as_slice();
+
+    let data = buffer_reader.get(data)?;
+    let data = data.as_living()?.as_slice();
 
     if let Some(range) = range {
       let range = range.into_range(data.len());
@@ -258,7 +279,9 @@ pub fn scene_buffer_view_into_attribute(
   view: SceneBufferViewDataView,
   buffer: &ComponentReadView<BufferEntityData>,
 ) -> Option<AttributeAccessor> {
-  let buffer = buffer.get_value(view.data?)?.ptr.clone();
+  let data = buffer.get(view.data?)?;
+  let buffer = data.ptr.as_ref().clone().into_living()?;
+
   let range = view.range.unwrap_or_default();
   let count = view.count as usize;
 
@@ -303,35 +326,185 @@ impl AttributesMeshReader {
     }
   }
 
-  pub fn read(&self, id: EntityHandle<AttributesMeshEntity>) -> Option<AttributesMesh> {
+  pub fn read(&self, id: EntityHandle<AttributesMeshEntity>) -> Option<AttributesMeshWithUri> {
     let mode = self.topology.get_value(id)?;
 
-    let attributes = self
+    let vertices = self
       .mesh_ref_vertex
       .access_multi(&id)?
       .map(|id| {
         let semantic = self.semantic.get_value(id).unwrap();
-        let vertex = self.vertex.read_view(id).unwrap();
-        let vertex = scene_buffer_view_into_attribute(vertex, &self.buffer).unwrap();
-        (semantic, vertex)
+        let data = self.vertex.read_maybe_uri(id, &self.buffer).unwrap();
+
+        AttributeMeshUriVertex {
+          relation_handle: id.into_raw(),
+          semantic,
+          data,
+        }
       })
       .collect();
 
-    let indices = self.index.read_view(id)?;
-    let indices = scene_buffer_view_into_attribute(indices, &self.buffer).and_then(|i| {
-      let fmt = match i.item_byte_size {
-        4 => AttributeIndexFormat::Uint32,
-        2 => AttributeIndexFormat::Uint16,
-        _ => return None,
-      };
-      (fmt, i).into()
-    });
+    let indices = self.index.read_maybe_uri(id, &self.buffer);
 
-    AttributesMesh {
-      attributes,
+    AttributesMeshWithUri {
+      vertices,
       indices,
       mode,
     }
     .into()
+  }
+}
+
+#[derive(Clone)] // todo, consider remove clone
+pub struct AttributesMeshWithUri {
+  pub mode: PrimitiveTopology,
+  pub indices: Option<AttributeUriData>,
+  pub vertices: Vec<AttributeMeshUriVertex>,
+}
+
+#[derive(Clone)]
+pub struct AttributeMeshUriVertex {
+  pub relation_handle: RawEntityHandle,
+  pub semantic: AttributeSemantic,
+  pub data: AttributeUriData,
+}
+
+#[derive(Clone)]
+pub struct AttributeUriData {
+  pub data: BufferEntityDataType,
+  pub range: Option<BufferViewRange>,
+  pub count: usize,
+}
+
+impl AttributeUriData {
+  pub fn expect_living(self) -> AttributeLivingData {
+    AttributeLivingData {
+      data: self.data.into_living().unwrap(),
+      range: self.range,
+      count: self.count,
+    }
+  }
+}
+
+#[derive(Clone)] // todo, consider remove clone
+pub struct AttributesMeshWithVertexRelationInfo {
+  pub mode: PrimitiveTopology,
+  pub indices: Option<AttributeLivingData>,
+  pub vertices: Vec<AttributeMeshLivingVertex>,
+}
+
+impl AttributesMeshWithVertexRelationInfo {
+  pub fn into_attributes_mesh(self) -> AttributesMesh {
+    let AttributesMeshWithVertexRelationInfo {
+      mode,
+      indices,
+      vertices,
+    } = self;
+
+    let vertices = vertices
+      .into_iter()
+      .map(|v| {
+        let view = v.data.into_accessor();
+        (v.semantic, view)
+      })
+      .collect();
+
+    let indices = indices.map(|i| {
+      let view = i.into_accessor();
+      let fmt = match view.item_byte_size {
+        4 => AttributeIndexFormat::Uint32,
+        2 => AttributeIndexFormat::Uint16,
+        _ => unreachable!("invalid index fmt"),
+      };
+      (fmt, view)
+    });
+
+    AttributesMesh {
+      attributes: vertices,
+      indices,
+      mode,
+    }
+  }
+}
+
+#[derive(Clone)]
+pub struct AttributeMeshLivingVertex {
+  pub relation_handle: RawEntityHandle,
+  pub semantic: AttributeSemantic,
+  pub data: AttributeLivingData,
+}
+
+#[derive(Clone)]
+pub struct AttributeLivingData {
+  pub data: Arc<Vec<u8>>,
+  pub range: Option<BufferViewRange>,
+  pub count: usize,
+}
+
+impl AttributeLivingData {
+  pub fn into_accessor(self) -> AttributeAccessor {
+    let range = self.range.unwrap_or_default();
+    let count = self.count;
+
+    let byte_size = range
+      .size
+      .map(|size| u64::from(size) as usize)
+      .unwrap_or(self.data.len());
+
+    AttributeAccessor {
+      view: UnTypedBufferView {
+        buffer: self.data,
+        range,
+      },
+      byte_offset: 0,
+      count,
+      item_byte_size: byte_size / count,
+    }
+  }
+}
+
+impl AttributesMeshWithUri {
+  pub fn try_into_attributes_mesh(self) -> Option<AttributesMesh> {
+    match self.into_maybe_uri_form() {
+      MaybeUriData::Uri(_) => None,
+      MaybeUriData::Living(mesh) => Some(mesh.into_attributes_mesh()),
+    }
+  }
+
+  pub fn into_maybe_uri_form(
+    self,
+  ) -> MaybeUriData<AttributesMeshWithVertexRelationInfo, AttributesMeshWithUri> {
+    for d in &self.vertices {
+      if d.data.data.as_living().is_none() {
+        return MaybeUriData::Uri(self);
+      }
+    }
+
+    if let Some(indices) = &self.indices {
+      if indices.data.as_living().is_none() {
+        return MaybeUriData::Uri(self);
+      }
+    }
+
+    let attributes = self
+      .vertices
+      .into_iter()
+      .map(|v| {
+        let data = v.data.expect_living();
+        AttributeMeshLivingVertex {
+          relation_handle: v.relation_handle,
+          semantic: v.semantic,
+          data,
+        }
+      })
+      .collect();
+
+    let indices = self.indices.map(|v| v.expect_living());
+
+    MaybeUriData::Living(AttributesMeshWithVertexRelationInfo {
+      mode: self.mode,
+      indices,
+      vertices: attributes,
+    })
   }
 }

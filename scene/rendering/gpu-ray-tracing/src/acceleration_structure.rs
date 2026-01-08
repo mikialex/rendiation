@@ -62,20 +62,24 @@ impl Drop for BlasInstanceInternal {
 pub fn use_attribute_mesh_to_blas(
   cx: &mut QueryGPUHookCx,
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
+  mesh_input: UseResult<AttributesMeshDataChangeInput>,
 ) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = BlasInstance>> {
   let acc_sys_ = acc_sys.clone();
 
-  cx.use_shared_dual_query(AttributeMeshInput)
-    .use_dual_query_execute_map(cx, || {
-      let acc_sys = acc_sys_;
-      move |_k, mesh| create_blas_from_attribute_mesh(&mesh, &acc_sys)
+  mesh_input
+    .filter_map_changes(move |mesh| {
+      mesh
+        .if_loaded()
+        .map(|mesh| create_blas_from_attribute_mesh(&mesh, &acc_sys_))
     })
+    .use_change_to_dual_query_in_spawn_stage(cx)
 }
 
 fn create_blas_from_attribute_mesh(
-  mesh: &AttributesMesh,
+  mesh: &AttributesMeshWithVertexRelationInfo,
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
 ) -> BlasInstance {
+  let mesh = mesh.clone().into_attributes_mesh();
   // todo, avoid vec
   let positions = mesh.get_position_slice().to_vec();
 
@@ -121,6 +125,7 @@ fn create_blas_from_attribute_mesh(
 pub fn use_scene_model_to_blas_instance(
   cx: &mut QueryGPUHookCx,
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
+  mesh_input: UseResult<AttributesMeshDataChangeInput>,
   // SceneModelEntity
 ) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = (BlasInstance, Mat4<f64>)>> {
   let scene_model_world_matrix = cx.use_shared_dual_query(GlobalSceneModelWorldMatrix);
@@ -128,7 +133,7 @@ pub fn use_scene_model_to_blas_instance(
   let std_model_ref_mesh = cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>();
   let std_model_render_payload = cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>();
 
-  use_attribute_mesh_to_blas(cx, acc_sys)
+  use_attribute_mesh_to_blas(cx, acc_sys, mesh_input)
     .fanout(std_model_ref_mesh, cx)
     .fanout(std_model_render_payload, cx)
     .dual_query_intersect(scene_model_world_matrix)
@@ -137,6 +142,7 @@ pub fn use_scene_model_to_blas_instance(
 pub fn use_scene_to_tlas(
   cx: &mut QueryGPUHookCx,
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
+  mesh_input: UseResult<AttributesMeshDataChangeInput>,
   // SceneEntity
 ) -> Option<impl Query<Key = RawEntityHandle, Value = TlASInstance>> {
   let tlas_store = cx.use_shared_hash_map::<RawEntityHandle, TlASInstance>("scene map tlas");
@@ -145,7 +151,7 @@ pub fn use_scene_to_tlas(
     .use_db_rev_ref_tri_view::<SceneModelBelongsToScene>()
     .use_assure_result(cx);
 
-  if let Some(blas_source) = use_scene_model_to_blas_instance(cx, acc_sys)
+  if let Some(blas_source) = use_scene_model_to_blas_instance(cx, acc_sys, mesh_input)
     .use_assure_result(cx)
     .if_ready()
   {

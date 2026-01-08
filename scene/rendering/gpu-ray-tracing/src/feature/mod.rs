@@ -42,12 +42,13 @@ pub fn use_scene_rtx_renderer_base(
   mesh: Option<MeshGPUBindlessImpl>,
   materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
   tex: Option<GPUTextureBindingSystem>,
+  mesh_input: UseResult<AttributesMeshDataChangeInput>,
 ) -> Option<(SceneRayTracingRendererBase, bool)> {
   let (cx, scope) = cx.use_begin_change_set_collect();
 
   let material = use_rtx_scene_material(cx, materials, tex);
 
-  let scene_tlas = use_scene_to_tlas(cx, &system.rtx_acc);
+  let scene_tlas = use_scene_to_tlas(cx, &system.rtx_acc, mesh_input);
 
   let lighting = use_scene_pt_light_source(cx);
   let scene_ids = use_scene_id_provider(cx); // this could be reused, but it's unnecessary.

@@ -45,6 +45,11 @@ pub trait AttributesMeshWriter {
     writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
     buffer: &mut EntityWriter<BufferEntity>,
   ) -> AttributesMeshEntities;
+  fn write_impl(
+    self,
+    writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
+    buffer: &mut dyn FnMut(AttributeAccessor) -> EntityHandle<BufferEntity>,
+  ) -> AttributesMeshEntities;
 }
 
 pub struct AttributesMeshEntities {
@@ -93,12 +98,20 @@ impl AttributesMeshWriter for AttributesMesh {
     writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
     buffer: &mut EntityWriter<BufferEntity>,
   ) -> AttributesMeshEntities {
+    self.write_impl(writer, &mut |data| data.write(buffer))
+  }
+
+  fn write_impl(
+    self,
+    writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
+    write_buffer: &mut dyn FnMut(AttributeAccessor) -> EntityHandle<BufferEntity>,
+  ) -> AttributesMeshEntities {
     let count = self
       .indices
       .as_ref()
       .map(|(_, data)| data.count as u32)
       .unwrap_or(0);
-    let index_data = self.indices.map(|(_, data)| data.write(buffer));
+    let index_data = self.indices.map(|(_, data)| write_buffer(data));
 
     let index = SceneBufferViewDataView {
       data: index_data,
@@ -123,7 +136,7 @@ impl AttributesMeshWriter for AttributesMesh {
       }
 
       let count = vertex.count;
-      let vertex_data = vertex.write(buffer);
+      let vertex_data = write_buffer(vertex);
 
       let vertex = SceneBufferViewDataView {
         data: Some(vertex_data),
@@ -190,135 +203,97 @@ pub fn register_instance_mesh_data_model() {
     .declare_foreign_key::<InstanceMeshInstanceEntityRefAttributesMeshEntity>();
 }
 
-pub struct AttributeMeshLocalBounding;
+pub struct AttributeMeshLocalBounding<T>(pub T);
 
-impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for AttributeMeshLocalBounding {
+impl<Cx, T> SharedResultProvider<Cx> for AttributeMeshLocalBounding<T>
+where
+  Cx: DBHookCxLike,
+  T: FnOnce(&mut Cx) -> UseResult<AttributesMeshDataChangeInput> + Clone,
+{
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3> + 'static; // attribute mesh entity
+  share_provider_hash_type_id! {AttributeMeshLocalBounding<()>}
 
+  /// todo, output UriLoadResult result
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-    cx.use_shared_dual_query(AttributeMeshInput)
-      .use_dual_query_execute_map(cx, || {
-        |_k, mesh| {
+    (self.0.clone())(cx)
+      .map_changes(|mesh| {
+        if let UriLoadResult::LivingOrLoaded(mesh) = mesh {
+          let mesh = mesh.into_attributes_mesh();
           let position = mesh.get_position_slice();
           mesh
             .create_abstract_mesh_view(position)
             .primitive_iter()
             .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
+        } else {
+          Box3::empty()
         }
       })
-  }
-}
-
-pub struct AttributeMeshInput;
-
-impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for AttributeMeshInput {
-  type Result =
-    impl DualQueryLike<Key = RawEntityHandle, Value = ExternalRefPtr<AttributesMesh>> + 'static; // attribute mesh entity
-
-  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-    attribute_mesh_input(cx)
-      .map_changes(ExternalRefPtr::new)
       .use_change_to_dual_query_in_spawn_stage(cx)
   }
 }
 
-pub fn attribute_mesh_input(
+pub type AttributeVertexDataSource =
+  UseResult<Arc<LinearBatchChanges<RawEntityHandle, AttributeLivingData>>>;
+
+pub type AttributeIndexDataSource =
+  UseResult<Arc<LinearBatchChanges<RawEntityHandle, AttributeLivingData>>>;
+
+/// the output changes are assumed to be consumed by gpu systems.
+/// the current implementation is not considering the buffer share between the difference views.
+/// this can be improved(not easy to do so) but not necessary for now.
+///
+/// todo, output UriLoadResult result
+pub fn create_sub_buffer_changes_from_mesh_changes(
   cx: &mut impl DBHookCxLike,
-) -> UseResult<Arc<LinearBatchChanges<RawEntityHandle, AttributesMesh>>> {
-  let mesh_set_changes = cx.use_query_set::<AttributesMeshEntity>();
+  mesh_changes: UseResult<AttributesMeshDataChangeInput>,
+) -> (AttributeVertexDataSource, AttributeIndexDataSource) {
+  let vertex_mapping = cx.use_shared_hash_map::<RawEntityHandle, Vec<RawEntityHandle>>(
+    "vertex_mapping for mesh buffer change conversion",
+  );
+  let changes = mesh_changes.map_spawn_stage_in_thread_data_changes(cx, move |mesh_changes| {
+    let mut indices_changes = LinearBatchChanges::default();
+    let mut vertices_changes = LinearBatchChanges::default();
 
-  // key: attribute mesh
-  // todo, only union key, as we not use value at all
-  let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
-  let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
-  let index_buffer = index_buffer_ref
-    .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
-    .dual_query_boxed();
+    // even if some mesh does not have index, we can still put it in removed indices
+    // because the data changes allow us to remove none exist item
+    indices_changes.removed = mesh_changes.removed.clone();
 
-  // key: middle table
-  let vertex_buffer_ref = cx
-    .use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>()
-    .dual_query_boxed();
-  let vertex_buffer_range = cx
-    .use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>()
-    .dual_query_boxed();
-  let vertex_buffer_ref_attributes_mesh = cx
-    .use_dual_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
-    .dual_query_boxed();
-  let vertex_buffer = vertex_buffer_ref
-    .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
-    .dual_query_boxed();
-  let vertex_buffer = vertex_buffer_ref_attributes_mesh
-    .dual_query_union(vertex_buffer, |(a, b)| Some((a?, b?)))
-    .dual_query_boxed();
+    // generate removed vertex from recorded vertex mapping info
+    let mut vertex_mapping = vertex_mapping.write();
+    for removed_mesh in &mesh_changes.removed {
+      let vertex = vertex_mapping.remove(removed_mesh).unwrap();
+      vertices_changes.removed.extend(vertex);
+    }
 
-  let mesh_changes = mesh_set_changes
-    .join(index_buffer.join(vertex_buffer))
-    .map_spawn_stage_in_thread(
-      cx,
-      |(mesh_set_change, (index_buffer, vertex_buffer))| {
-        mesh_set_change.has_item_hint()
-          || index_buffer.has_delta_hint()
-          || vertex_buffer.has_delta_hint()
-      },
-      |(mesh_set_change, (index_buffer, vertex_buffer))| {
-        let mut removed_meshes = FastHashSet::default(); // todo improve
-        let mesh_set_change = mesh_set_change.into_change();
-        for mesh in mesh_set_change.iter_removed() {
-          removed_meshes.insert(mesh);
+    for (mesh, mesh_info) in mesh_changes.iter_update_or_insert() {
+      if let UriLoadResult::LivingOrLoaded(mesh_info) = mesh_info {
+        if let Some(indices) = &mesh_info.indices {
+          indices_changes
+            .update_or_insert
+            .push((mesh, indices.clone()));
         }
-        let mut re_access_meshes = FastHashSet::default(); // todo, improve capacity
-        for (mesh, _) in mesh_set_change.iter_update_or_insert() {
-          re_access_meshes.insert(mesh);
-        }
-        for (mesh, _) in index_buffer.delta.iter_key_value() {
-          re_access_meshes.insert(mesh);
-        }
-        for (_, change) in vertex_buffer.delta.iter_key_value() {
-          if let Some((Some(mesh), _)) = change.old_value() {
-            re_access_meshes.insert(*mesh);
-          }
-          if let Some((Some(mesh), _)) = change.new_value() {
-            re_access_meshes.insert(*mesh);
-          }
-        }
-        for mesh in &removed_meshes {
-          re_access_meshes.remove(mesh);
-        }
-        (re_access_meshes, removed_meshes)
-      },
-    );
 
-  let mesh_ref_vertex =
-    cx.use_db_rev_ref_tri_view::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
+        let mut vertices_record = Vec::new();
+        for v in mesh_info.vertices {
+          vertices_changes
+            .update_or_insert
+            .push((v.relation_handle, v.data.clone()));
+          vertices_record.push(v.relation_handle)
+        }
+        vertex_mapping.insert(mesh, vertices_record);
+      }
+    }
 
-  mesh_changes
-    .join(mesh_ref_vertex)
-    .map_spawn_stage_in_thread(
-      cx,
-      |(mesh_changes, mesh_ref_vertex)| {
-        !mesh_changes.0.is_empty() || !mesh_changes.1.is_empty() || mesh_ref_vertex.has_delta_hint()
-      },
-      |((re_access_meshes, removed_meshes), mesh_ref_vertex)| {
-        let reader = AttributesMeshReader::new_from_global(
-          mesh_ref_vertex
-            .rev_many_view
-            .mark_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
-            .into_boxed_multi(),
-        );
-        let re_access_meshes = re_access_meshes
-          .into_iter()
-          .map(|m| {
-            let mesh = unsafe { EntityHandle::from_raw(m) };
-            let mesh = reader.read(mesh).unwrap();
-            (m, mesh)
-          })
-          .collect::<Vec<_>>();
+    (Arc::new(indices_changes), Arc::new(vertices_changes))
+  });
 
-        Arc::new(LinearBatchChanges {
-          removed: removed_meshes.into_iter().collect(),
-          update_or_insert: re_access_meshes,
-        })
-      },
-    )
+  let (indices_changes, vertices_changes) = changes.fork();
+
+  let indices_changes = indices_changes.map(|(i, _)| i);
+  let vertices_changes = vertices_changes.map(|(_, v)| v);
+
+  (vertices_changes, indices_changes)
 }
+
+pub type AttributesMeshDataChangeInput =
+  Arc<LinearBatchChanges<RawEntityHandle, UriLoadResult<AttributesMeshWithVertexRelationInfo>>>;

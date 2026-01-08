@@ -15,6 +15,7 @@ pub struct QueryGPUHookCx<'a> {
   pub shared_ctx: &'a mut SharedHooksCtx,
   pub stage: GPUQueryHookStage<'a>,
   pub waker: Waker,
+  pub dyn_cx: &'a mut DynCx,
 }
 
 #[non_exhaustive]
@@ -221,6 +222,10 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
 
   fn waker(&mut self) -> &mut Waker {
     &mut self.waker
+  }
+
+  fn dyn_env(&mut self) -> &mut DynCx {
+    self.dyn_cx
   }
 
   fn use_shared_consumer(&mut self, key: ShareKey) -> u32 {

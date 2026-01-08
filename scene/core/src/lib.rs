@@ -1,4 +1,5 @@
 #![feature(impl_trait_in_assoc_type)]
+#![feature(type_alias_impl_trait)]
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -6,6 +7,7 @@ use std::sync::Arc;
 use bytemuck::*;
 use database::*;
 use fast_hash_collection::*;
+pub use rendiation_abstract_uri_data::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 pub use rendiation_mesh_core::PrimitiveTopology;

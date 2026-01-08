@@ -25,6 +25,35 @@ pub struct SceneWriter {
 }
 
 impl SceneWriter {
+  pub fn from_global(
+    scene: EntityHandle<SceneEntity>,
+    // texture_uri_source: Box<dyn UriDataSourceDyn<Arc<GPUBufferImage>>>,
+  ) -> Self {
+    Self {
+      scene,
+      scene_writer: global_entity_of().entity_writer(),
+      camera_writer: global_entity_of().entity_writer(),
+      mesh_writer: AttributesMesh::create_writer(),
+      tex_writer: global_entity_of().entity_writer(),
+      cube_writer: global_entity_of().entity_writer(),
+      sampler_writer: global_entity_of().entity_writer(),
+      node_writer: global_entity_of().entity_writer(),
+      std_model_writer: global_entity_of().entity_writer(),
+      model_writer: global_entity_of().entity_writer(),
+      unlit_mat_writer: global_entity_of().entity_writer(),
+      pbr_sg_mat_writer: global_entity_of().entity_writer(),
+      pbr_mr_mat_writer: global_entity_of().entity_writer(),
+      point_light_writer: global_entity_of().entity_writer(),
+      directional_light_writer: global_entity_of().entity_writer(),
+      spot_light_writer: global_entity_of().entity_writer(),
+      animation: global_entity_of().entity_writer(),
+      animation_channel: global_entity_of().entity_writer(),
+      buffer_writer: global_entity_of().entity_writer(),
+      skin_writer: global_entity_of().entity_writer(),
+      joint_writer: global_entity_of().entity_writer(),
+    }
+  }
+
   pub fn replace_target_scene(
     &mut self,
     new_scene: EntityHandle<SceneEntity>,
@@ -135,33 +164,21 @@ impl SceneWriter {
       .try_read::<SceneNodeLocalMatrixComponent>(node)
   }
 
-  pub fn from_global(scene: EntityHandle<SceneEntity>) -> Self {
-    Self {
-      scene,
-      scene_writer: global_entity_of().entity_writer(),
-      camera_writer: global_entity_of().entity_writer(),
-      mesh_writer: AttributesMesh::create_writer(),
-      tex_writer: global_entity_of().entity_writer(),
-      cube_writer: global_entity_of().entity_writer(),
-      sampler_writer: global_entity_of().entity_writer(),
-      node_writer: global_entity_of().entity_writer(),
-      std_model_writer: global_entity_of().entity_writer(),
-      model_writer: global_entity_of().entity_writer(),
-      unlit_mat_writer: global_entity_of().entity_writer(),
-      pbr_sg_mat_writer: global_entity_of().entity_writer(),
-      pbr_mr_mat_writer: global_entity_of().entity_writer(),
-      point_light_writer: global_entity_of().entity_writer(),
-      directional_light_writer: global_entity_of().entity_writer(),
-      spot_light_writer: global_entity_of().entity_writer(),
-      animation: global_entity_of().entity_writer(),
-      animation_channel: global_entity_of().entity_writer(),
-      buffer_writer: global_entity_of().entity_writer(),
-      skin_writer: global_entity_of().entity_writer(),
-      joint_writer: global_entity_of().entity_writer(),
-    }
-  }
   pub fn write_attribute_mesh(&mut self, mesh: AttributesMesh) -> AttributesMeshEntities {
     mesh.write(&mut self.mesh_writer, &mut self.buffer_writer)
+  }
+
+  pub fn write_attribute_mesh_data_uri(
+    &mut self,
+    mesh: AttributesMesh,
+    buffer_source: &mut dyn UriDataSourceDyn<Arc<Vec<u8>>>,
+  ) -> AttributesMeshEntities {
+    mesh.write_impl(&mut self.mesh_writer, &mut |data| {
+      write_attribute_acc_impl(&data, &mut self.buffer_writer, &mut |data| {
+        let uri = buffer_source.create_for_direct_data_dyn(data);
+        MaybeUriData::Uri(Arc::new(uri.to_string()))
+      })
+    })
   }
 
   pub fn texture_sample_pair_writer(&mut self) -> TexSamplerWriter<'_> {

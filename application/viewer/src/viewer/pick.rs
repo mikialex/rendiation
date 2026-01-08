@@ -51,7 +51,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
     .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.rendering.ndc))
     .use_assure_result(cx);
 
-  let use_attribute_mesh_picker = use_attribute_mesh_picker(cx);
+  let use_attribute_mesh_picker = use_attribute_mesh_picker(cx, viewer_mesh_input);
   let wide_line_picker = use_wide_line_picker(cx);
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {

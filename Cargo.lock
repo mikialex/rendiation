@@ -423,6 +423,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
+name = "bisetmap"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22c974dd8ef792bd6539b0ae3fe33f050a2f456aa073e1b560a36904d7d9ca1a"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2305,6 +2314,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "mapped_futures"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e17e41c47c7d0b21cae15a4dbb85526b7b95283158832eaeb13e1f3bc4f95a41"
+dependencies = [
+ "bisetmap",
+ "futures-core",
+ "futures-task",
+ "futures-util",
+]
+
+[[package]]
 name = "matchers"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3581,6 +3602,15 @@ name = "rendiation-abstract-tree"
 version = "0.0.1"
 
 [[package]]
+name = "rendiation-abstract-uri-data"
+version = "0.0.1"
+dependencies = [
+ "facet",
+ "fast-hash-collection",
+ "serde",
+]
+
+[[package]]
 name = "rendiation-algebra"
 version = "1.0.0"
 dependencies = [
@@ -4073,6 +4103,7 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "pin-project",
+ "rendiation-abstract-uri-data",
  "rendiation-algebra",
  "rendiation-animation",
  "rendiation-geometry",
@@ -4420,6 +4451,19 @@ version = "0.1.0"
 dependencies = [
  "facet",
  "serde",
+]
+
+[[package]]
+name = "rendiation-uri-scheduler"
+version = "0.0.1"
+dependencies = [
+ "fast-hash-collection",
+ "futures",
+ "mapped_futures",
+ "parking_lot",
+ "query",
+ "query-hook",
+ "rendiation-abstract-uri-data",
 ]
 
 [[package]]
@@ -5447,6 +5491,7 @@ dependencies = [
  "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-process",
  "rendiation-texture-loader",
+ "rendiation-uri-scheduler",
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-texture-as-buffer",

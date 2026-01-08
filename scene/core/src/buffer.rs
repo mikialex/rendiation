@@ -2,8 +2,13 @@ use rendiation_mesh_core::BufferViewRange;
 
 use crate::*;
 
+pub type BufferEntityDataType = MaybeUriData<Arc<Vec<u8>>>;
 declare_entity!(BufferEntity);
-declare_component!(BufferEntityData, BufferEntity, ExternalRefPtr<Vec<u8>>);
+declare_component!(
+  BufferEntityData,
+  BufferEntity,
+  ExternalRefPtr<BufferEntityDataType>
+);
 
 impl EntityCustomWrite<BufferEntity> for Vec<u8> {
   type Writer = EntityWriter<BufferEntity>;
@@ -13,7 +18,8 @@ impl EntityCustomWrite<BufferEntity> for Vec<u8> {
   }
 
   fn write(self, writer: &mut Self::Writer) -> EntityHandle<BufferEntity> {
-    writer.new_entity(|w| w.write::<BufferEntityData>(&ExternalRefPtr::new(self)))
+    let data = MaybeUriData::Living(Arc::new(self));
+    writer.new_entity(|w| w.write::<BufferEntityData>(&ExternalRefPtr::new(data)))
   }
 }
 
@@ -25,17 +31,26 @@ impl EntityCustomWrite<BufferEntity> for AttributeAccessor {
   }
 
   fn write(self, writer: &mut Self::Writer) -> EntityHandle<BufferEntity> {
-    let start = self.byte_offset + self.view.range.offset as usize;
-    let end = start + self.count * self.item_byte_size;
-    // for simplicity we clone out sub buffer, this should be improved
-    // when improve this, make sure the attribute entities drop implementation should not be called
-    // in some cases
-    writer.new_entity(|w| {
-      w.write::<BufferEntityData>(&ExternalRefPtr::new_shared(std::sync::Arc::new(
-        self.view.buffer.get(start..end).unwrap().to_vec(),
-      )))
-    })
+    write_attribute_acc_impl(&self, writer, &mut |data| MaybeUriData::Living(data))
   }
+}
+
+pub fn write_attribute_acc_impl(
+  att: &AttributeAccessor,
+  writer: &mut EntityWriter<BufferEntity>,
+  uri_converter: &mut dyn FnMut(Arc<Vec<u8>>) -> MaybeUriData<Arc<Vec<u8>>>,
+) -> EntityHandle<BufferEntity> {
+  let start = att.byte_offset + att.view.range.offset as usize;
+  let end = start + att.count * att.item_byte_size;
+  // for simplicity we clone out sub buffer, this should be improved
+  // when improve this, make sure the attribute entities drop implementation should not be called
+  // in some cases
+  let data = att.view.buffer.get(start..end).unwrap().to_vec();
+  let data = uri_converter(Arc::new(data));
+  let data = Arc::new(data);
+  let data = ExternalRefPtr::new_shared(data);
+
+  writer.new_entity(|w| w.write::<BufferEntityData>(&data))
 }
 
 pub trait SceneBufferView: EntityAssociateSemantic {}

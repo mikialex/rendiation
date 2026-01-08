@@ -15,8 +15,11 @@ impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
   fn bind_texture2d(&self, collector: &mut BindingBuilder, handle: Texture2DHandle) {
     let texture = if handle == u32::MAX {
       self.default_tex.clone()
+    } else if let Some(texture) = self.textures.access(&handle) {
+      texture
     } else {
-      self.textures.access(&handle).unwrap()
+      // it's possible if the texture is loading
+      self.default_tex.clone()
     };
     collector.bind(&texture);
   }
@@ -38,8 +41,11 @@ impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
   ) -> BindingNode<ShaderTexture2D> {
     let texture = if handle == u32::MAX {
       self.default_tex.clone()
+    } else if let Some(texture) = self.textures.access(&handle) {
+      texture
     } else {
-      self.textures.access(&handle).unwrap()
+      // it's possible if the texture is loading
+      self.default_tex.clone()
     };
     builder.bind_by(&texture)
   }

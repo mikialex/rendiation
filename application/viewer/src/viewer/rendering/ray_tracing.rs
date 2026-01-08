@@ -26,7 +26,8 @@ pub fn use_viewer_rtx(
     RtxSystemCore::new(Box::new(rtx_backend_system))
   });
 
-  let base = use_scene_rtx_renderer_base(cx, core, camera, mesh, materials, tex);
+  let mesh_input = viewer_mesh_input(cx);
+  let base = use_scene_rtx_renderer_base(cx, core, camera, mesh, materials, tex, mesh_input);
 
   let ao = use_scene_ao_sbt(cx, core);
   let pt = use_rtx_pt_sbt(cx, core);

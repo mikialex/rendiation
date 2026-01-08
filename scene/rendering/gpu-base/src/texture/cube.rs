@@ -80,41 +80,46 @@ fn use_cube_face_update_impl(
       changed_keys.changed_keys.insert(k);
       changed_keys.removed_keys.remove(&k);
 
-      let source = GPUBufferImageForeignImpl { inner: &source };
-      let mip = if allocate_mipmap {
-        MipLevelCount::BySize
+      if let Some(source) = source.as_living() {
+        let source = GPUBufferImageForeignImpl { inner: source };
+        let mip = if allocate_mipmap {
+          MipLevelCount::BySize
+        } else {
+          MipLevelCount::EmptyMipMap
+        };
+        let desc = source.create_cube_desc(mip, flags);
+
+        let create = || {
+          let gpu_texture = GPUTexture::create(desc, &cx.gpu.device);
+          let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
+          gpu_texture
+            .create_view(TextureViewDescriptor {
+              dimension: Some(TextureViewDimension::Cube),
+              ..Default::default()
+            })
+            .try_into()
+            .unwrap()
+        };
+
+        let gpu_texture = target.entry(k).or_insert_with(create.clone());
+        let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
+
+        // todo, we current not checking if all face has same size and fmt
+        if gpu_texture.desc.format != source.inner.format
+          || gpu_texture.desc.size.width != usize::from(source.inner.size.width) as u32
+        {
+          target.remove(&k);
+        }
+
+        // recreate
+        let gpu_texture = target.entry(k).or_insert_with(create);
+        let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
+
+        let _ = gpu_texture.upload(&cx.gpu.queue, &source, face, 0);
       } else {
-        MipLevelCount::EmptyMipMap
-      };
-      let desc = source.create_cube_desc(mip, flags);
-
-      let create = || {
-        let gpu_texture = GPUTexture::create(desc, &cx.gpu.device);
-        let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
-        gpu_texture
-          .create_view(TextureViewDescriptor {
-            dimension: Some(TextureViewDimension::Cube),
-            ..Default::default()
-          })
-          .try_into()
-          .unwrap()
-      };
-
-      let gpu_texture = target.entry(k).or_insert_with(create.clone());
-      let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
-
-      // todo, we current not checking if all face has same size and fmt
-      if gpu_texture.desc.format != source.inner.format
-        || gpu_texture.desc.size.width != usize::from(source.inner.size.width) as u32
-      {
+        log::warn!("cube texture requires alive source");
         target.remove(&k);
       }
-
-      // recreate
-      let gpu_texture = target.entry(k).or_insert_with(create);
-      let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
-
-      let _ = gpu_texture.upload(&cx.gpu.queue, &source, face, 0);
     }
   }
 }

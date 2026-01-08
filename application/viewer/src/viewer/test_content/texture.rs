@@ -23,7 +23,10 @@ fn create_gpu_texture_by_fn(
   }
 }
 
-pub fn textured_example_tex(scene: &mut SceneWriter) -> Texture2DWithSamplingDataView {
+pub fn textured_example_tex(
+  scene: &mut SceneWriter,
+  texture_data_source: &mut ViewerTextureDataSource,
+) -> Texture2DWithSamplingDataView {
   let width = 256;
 
   // https://lodev.org/cgtutor/xortexture.html
@@ -39,6 +42,9 @@ pub fn textured_example_tex(scene: &mut SceneWriter) -> Texture2DWithSamplingDat
 
     Vec4::new(channel(r), channel(g), channel(b), 1.)
   });
+
+  let tex = texture_data_source.create_for_direct_data_dyn(Arc::new(tex));
+  let tex = MaybeUriData::Uri(Arc::new(tex.to_string()));
 
   scene
     .texture_sample_pair_writer()

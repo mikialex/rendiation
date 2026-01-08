@@ -1,10 +1,11 @@
 use crate::*;
 
 declare_entity!(SceneTexture2dEntity);
+pub type TextureDirectContentType = Option<ExternalRefPtr<MaybeUriData<Arc<GPUBufferImage>>>>;
 declare_component!(
   SceneTexture2dEntityDirectContent,
   SceneTexture2dEntity,
-  Option<ExternalRefPtr<GPUBufferImage>>
+  TextureDirectContentType
 );
 pub fn register_scene_texture2d_data_model() {
   global_database()
@@ -134,23 +135,32 @@ pub struct TexSamplerWriter<'a> {
 }
 
 impl TexSamplerWriter<'_> {
-  pub fn write_tex_with_default_sampler(
+  pub fn write_direct_tex_with_default_sampler(
     &mut self,
     texture: GPUBufferImage,
+  ) -> Texture2DWithSamplingDataView {
+    let texture = Arc::new(texture);
+    let texture = MaybeUriData::Living(texture);
+    self.write_tex_with_default_sampler(texture)
+  }
+
+  pub fn write_tex_with_default_sampler(
+    &mut self,
+    texture: MaybeUriData<Arc<GPUBufferImage>>,
   ) -> Texture2DWithSamplingDataView {
     self.write(texture, TextureSampler::tri_linear_repeat())
   }
+
   pub fn write(
     &mut self,
-    texture: GPUBufferImage,
+    texture: MaybeUriData<Arc<GPUBufferImage>>,
     sampler: TextureSampler,
   ) -> Texture2DWithSamplingDataView {
-    let texture = ExternalRefPtr::new(texture);
-
     let sampler = self
       .sampler_writer
       .new_entity(|w| w.write::<SceneSamplerInfo>(&sampler));
 
+    let texture = ExternalRefPtr::new(texture);
     let texture = self
       .tex_writer
       .new_entity(|w| w.write::<SceneTexture2dEntityDirectContent>(&texture.into()));
@@ -175,22 +185,34 @@ impl TexCubeWriter<'_> {
     z_neg: GPUBufferImage,
   ) -> EntityHandle<SceneTextureCubeEntity> {
     let x_pos = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(x_pos).into())
+      let x_pos = Arc::new(x_pos);
+      let t = MaybeUriData::Living(x_pos);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let y_pos = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(y_pos).into())
+      let y_pos = Arc::new(y_pos);
+      let t = MaybeUriData::Living(y_pos);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let z_pos = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(z_pos).into())
+      let z_pos = Arc::new(z_pos);
+      let t = MaybeUriData::Living(z_pos);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let x_neg = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(x_neg).into())
+      let x_neg = Arc::new(x_neg);
+      let t = MaybeUriData::Living(x_neg);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let y_neg = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(y_neg).into())
+      let y_neg = Arc::new(y_neg);
+      let t = MaybeUriData::Living(y_neg);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
     let z_neg = self.tex_writer.new_entity(|w| {
-      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(z_neg).into())
+      let z_neg = Arc::new(z_neg);
+      let t = MaybeUriData::Living(z_neg);
+      w.write::<SceneTexture2dEntityDirectContent>(&ExternalRefPtr::new(t).into())
     });
 
     self.cube_writer.new_entity(|w| {

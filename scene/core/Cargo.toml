@@ -17,6 +17,7 @@ rendiation-animation = { path = "../../content/animation" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-texture-core = { path = "../../content/texture/core" }
+rendiation-abstract-uri-data = { path = "../../utility/abstract-uri-data" }
 smallvec = { workspace = true }
 database = { path = "../../utility/database" }
 parking_lot = { workspace = true }

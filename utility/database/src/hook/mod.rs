@@ -18,7 +18,7 @@ use crate::*;
 
 pub trait DBHookCxLike: QueryHookCxLike {
   fn use_changes<C: ComponentSemantic>(&mut self) -> UseResult<Arc<FastChangeCollector<C::Data>>> {
-    self.use_changes_internal::<C::Data>(C::component_id(), C::Entity::entity_id())
+    self.use_changes_internal::<C::Data>(C::component_id(), C::Entity::entity_id(), false)
   }
 
   #[inline(never)]
@@ -26,6 +26,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
     &mut self,
     c_id: ComponentId,
     e_id: EntityId,
+    emit_empty: bool,
   ) -> UseResult<Arc<FastChangeCollector<T>>> {
     let (cx, rev) = self.use_plain_state(|| {
       global_database().access_table_dyn(e_id, move |e| {
@@ -59,6 +60,8 @@ pub trait DBHookCxLike: QueryHookCxLike {
       if changes.has_change() {
         change_collector.notify_change();
         UseResult::SpawnStageReady(Arc::new(changes))
+      } else if emit_empty {
+        UseResult::SpawnStageReady(Arc::new(FastChangeCollector::empty()))
       } else {
         UseResult::NotInStage
       }
@@ -344,7 +347,7 @@ pub type RevRefForeignTriQuery = TriQuery<
   RevRefForeignKeyRead,
 >;
 
-/// we can also using composer to implement this, like [get_db_view_typed_foreign]
+/// we can also use composer to implement this, like [get_db_view_typed_foreign]
 pub struct RevRefForeignKeyReadTyped<C> {
   pub internal: RevRefForeignKeyRead,
   pub phantom: PhantomData<C>,

@@ -12,6 +12,8 @@ members = [
   "utility/storage",
   "utility/abstract-tree",
   "utility/abstract-graph",
+  "utility/abstract-uri-data",
+  "utility/uri-scheduler",
   "utility/database",
   "utility/heap-tools",
   "utility/interning",
