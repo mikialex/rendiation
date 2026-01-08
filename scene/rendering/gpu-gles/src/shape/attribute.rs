@@ -184,12 +184,17 @@ impl GraphicsShaderProvider for AttributesMeshGPU<'_> {
           }
           AttributeSemantic::Normals => builder.push_single_vertex_layout::<GeometryNormal>(mode),
           AttributeSemantic::Tangents => builder.push_single_vertex_layout::<GeometryTangent>(mode),
-          AttributeSemantic::Colors(_) => builder.push_single_vertex_layout::<GeometryColor>(mode),
+          AttributeSemantic::Colors(channel) => {
+            if *channel == 0 {
+              builder.push_single_vertex_layout::<GeometryColor>(mode)
+            } else {
+              builder.error(ShaderBuildError::SemanticNotSupported)
+            }
+          }
           AttributeSemantic::TexCoords(channel) => match channel {
-            // support 3 channel should be enough
+            // support 2 channel should be enough
             0 => builder.push_single_vertex_layout::<GeometryUVChannel<0>>(mode),
             1 => builder.push_single_vertex_layout::<GeometryUVChannel<1>>(mode),
-            2 => builder.push_single_vertex_layout::<GeometryUVChannel<2>>(mode),
             _ => builder.error(ShaderBuildError::SemanticNotSupported),
           },
           AttributeSemantic::Joints(channel) => match channel {

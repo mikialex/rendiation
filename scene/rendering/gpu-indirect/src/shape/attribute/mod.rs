@@ -105,6 +105,10 @@ pub fn use_bindless_mesh(
     .map(|v| v.view().filter_map(|v| v).into_boxed())
     .use_assure_result(cx);
 
+  let multi_access = cx
+    .use_db_rev_ref_typed::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+    .use_assure_result(cx);
+
   cx.when_render(|| {
     let vertex_address_buffer = metadata.get_gpu_buffer();
     MeshGPUBindlessImpl {
@@ -118,6 +122,8 @@ pub fn use_bindless_mesh(
       sm_to_mesh_device: sm_to_mesh_device.get_gpu_buffer(),
       sm_to_mesh: sm_to_mesh.expect_resolve_stage(),
       used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
+      multi_access: multi_access.expect_resolve_stage(),
+      semantics: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
     }
   })
 }
@@ -398,17 +404,49 @@ fn use_attribute_vertex_updates(
   (range_writes, vertex_buffer.read().gpu().clone())
 }
 
+#[allow(clippy::collapsible_match)]
 fn write_field_offset(semantic: AttributeSemantic) -> Option<u32> {
+  let extra_base = std::mem::offset_of!(AttributeMeshMeta, extra_attributes);
+  let stride = std::mem::size_of::<[u32; 2]>();
+
   let offset = match semantic {
     AttributeSemantic::Positions => std::mem::offset_of!(AttributeMeshMeta, position_offset),
     AttributeSemantic::Normals => std::mem::offset_of!(AttributeMeshMeta, normal_offset),
-    AttributeSemantic::TexCoords(0) => std::mem::offset_of!(AttributeMeshMeta, uv_offset),
+    AttributeSemantic::Colors(channel) => {
+      if channel == 0 {
+        extra_base
+      } else {
+        return None;
+      }
+    }
+    AttributeSemantic::TexCoords(channel) => match channel {
+      // support 2 channel should be enough
+      0 => std::mem::offset_of!(AttributeMeshMeta, uv_offset),
+      1 => extra_base + stride,
+      _ => return None,
+    },
+    AttributeSemantic::Joints(channel) => match channel {
+      // should we support more channel?
+      0 => extra_base + stride * 2,
+      _ => return None,
+    },
+    AttributeSemantic::Weights(channel) => match channel {
+      // should we support more channel?
+      0 => extra_base + stride * 3,
+      _ => return None,
+    },
+    AttributeSemantic::Foreign { .. } => {
+      // todo
+      // type ForeignAttributeImpl = fn(semantic: AttributeSemantic, base: usize, max_support: usize) -> usize;
+      return None;
+    }
     _ => return None,
   };
   Some(offset as u32)
 }
 
 ///  note the attribute's count should be same for one mesh, will keep it here for simplicity
+/// todo the count info, except index and position, is not useful.
 #[repr(C)]
 #[std430_layout]
 #[derive(Debug, Clone, PartialEq, Copy, ShaderStruct, Default)]
@@ -421,7 +459,10 @@ pub struct AttributeMeshMeta {
   pub normal_count: u32,
   pub uv_offset: u32,
   pub uv_count: u32,
+  pub extra_attributes: [Vec2<u32>; ATTRIBUTE_MESH_EXTRA_ATTRIBUTE_CAPACITY],
 }
+
+pub const ATTRIBUTE_MESH_EXTRA_ATTRIBUTE_CAPACITY: usize = 6;
 
 #[derive(Clone)]
 pub struct MeshGPUBindlessImpl {
@@ -436,6 +477,10 @@ pub struct MeshGPUBindlessImpl {
   checker: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
   indices_checker: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
   topology_checker: ComponentReadView<AttributesMeshEntityTopology>,
+
+  semantics: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
+  multi_access:
+    RevRefForeignKeyReadTyped<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
   used_in_midc_downgrade: bool,
 }
 
@@ -485,6 +530,10 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     topology.hash(hasher);
     let is_index_mesh = self.indices_checker.get(mesh_id).is_some();
     is_index_mesh.hash(hasher);
+    for vertex_info_id in self.multi_access.access_multi_value(&mesh_id) {
+      let semantic = self.semantics.get(vertex_info_id).unwrap();
+      semantic.hash(hasher)
+    }
     Some(())
   }
 

@@ -149,6 +149,7 @@ pub enum MeshGroupKey {
   Attribute {
     is_index: bool,
     topology: rendiation_scene_core::PrimitiveTopology,
+    attributes_hash: u64, // todo, we need reduce query to support this!
   },
   ForeignHash(u64),
 }
