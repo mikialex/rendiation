@@ -138,7 +138,9 @@ pub fn bookkeeping_dense_index_relation<K: CKey + LinearIdentified, V: CKey + Li
             .mapping_buffer
             .visit_and_remove(previous_one_refed_many, |value, _| {
               let should_remove = *value == many;
-              *len -= 1;
+              if should_remove {
+                *len -= 1;
+              }
               (should_remove, !should_remove)
             });
 
