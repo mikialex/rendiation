@@ -11,7 +11,7 @@ use rendiation_texture_packer::pack_2d_to_3d::RemappedGrowablePacker;
 use crate::*;
 
 pub fn use_texture_system<
-  R: DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>> + 'static,
+  R: DataChanges<Key = u32, Value = UriLoadResult<Arc<GPUBufferImage>>> + 'static,
 >(
   cx: &mut QueryGPUHookCx,
   ty: GPUTextureBindingSystemType,
@@ -48,9 +48,11 @@ fn create_default_tex_and_sampler(
   (default_2d, default_sampler)
 }
 
+pub(crate) type TextureLoadResult = UriLoadResult<Arc<GPUBufferImage>>;
+
 pub fn use_gles_texture_system(
   cx: &mut QueryGPUHookCx,
-  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>> + 'static>,
+  source: UseResult<impl DataChanges<Key = u32, Value = TextureLoadResult> + 'static>,
 ) -> Option<GPUTextureBindingSystem> {
   let (cx, (default_2d, default_sampler)) = cx.use_gpu_init(create_default_tex_and_sampler);
   let textures = use_gpu_texture_2ds(cx, default_2d, source);
@@ -68,7 +70,7 @@ pub fn use_gles_texture_system(
 
 pub fn use_bindless_texture_system(
   cx: &mut QueryGPUHookCx,
-  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>> + 'static>,
+  source: UseResult<impl DataChanges<Key = u32, Value = TextureLoadResult> + 'static>,
 ) -> Option<GPUTextureBindingSystem> {
   let (cx, (default_2d, default_sampler)) = cx.use_gpu_init(create_default_tex_and_sampler);
 
@@ -104,7 +106,7 @@ pub fn use_bindless_texture_system(
 pub fn use_pool_texture_system(
   cx: &mut QueryGPUHookCx,
   init: &TexturePoolSourceInit,
-  source: UseResult<impl DataChanges<Key = u32, Value = Option<Arc<GPUBufferImage>>> + 'static>,
+  source: UseResult<impl DataChanges<Key = u32, Value = TextureLoadResult> + 'static>,
 ) -> Option<GPUTextureBindingSystem> {
   let (cx, samplers) =
     cx.use_storage_buffer("sampler info", init.init_sampler_count_capacity, u32::MAX);
@@ -127,14 +129,15 @@ pub fn use_pool_texture_system(
   let require_convert = cx.gpu.info().adaptor_info.backend != Backend::Gl;
   source
     .map_changes(move |v| {
-      v.map(|v| {
-        if require_convert {
-          Bool::from(v.format.is_srgb())
-        } else {
-          Bool::from(false)
-        }
-      })
-      .unwrap_or_default()
+      v.if_loaded()
+        .map(|v| {
+          if require_convert {
+            Bool::from(v.format.is_srgb())
+          } else {
+            Bool::from(false)
+          }
+        })
+        .unwrap_or_default()
     })
     .update_storage_array(
       cx,
@@ -150,7 +153,7 @@ pub fn use_pool_texture_system(
   let _atlas = atlas.clone();
 
   let packing_changes = source_
-    .filter_map_changes(|tex| tex.map(|tex| tex.size))
+    .filter_map_changes(|tex| tex.if_loaded().map(|tex| tex.size))
     .map_spawn_stage_in_thread(
       cx,
       |changes| changes.has_change(),
@@ -192,7 +195,7 @@ pub fn use_pool_texture_system(
       .unwrap_or_default(); // todo, bad
 
     let iter = content_changes.iter().filter_map(|(k, v)| {
-      let v = v.as_ref()?;
+      let v = v.if_loaded_ref()?;
       Some((*k, v.as_ref()))
     });
 

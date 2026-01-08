@@ -347,7 +347,7 @@ pub type RevRefForeignTriQuery = TriQuery<
   RevRefForeignKeyRead,
 >;
 
-/// we can also using composer to implement this, like [get_db_view_typed_foreign]
+/// we can also use composer to implement this, like [get_db_view_typed_foreign]
 pub struct RevRefForeignKeyReadTyped<C> {
   pub internal: RevRefForeignKeyRead,
   pub phantom: PhantomData<C>,

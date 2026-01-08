@@ -32,6 +32,32 @@ impl<T: Default, URI> Default for MaybeUriData<T, URI> {
   }
 }
 
+/// a semantic version of `Option`, which enables the downstream implement different behavior for different result
+#[derive(Debug, Clone, Copy)]
+pub enum UriLoadResult<T> {
+  LivingOrLoaded(T),
+  /// - the scheduler decide load this data but something went wrong during the loading process
+  PresentButFailedToLoad,
+  /// - the scheduler decide load this data but it's still loading
+  /// - the scheduler decide not to load this data
+  PresentButNotLoaded,
+}
+
+impl<T> UriLoadResult<T> {
+  pub fn if_loaded(self) -> Option<T> {
+    match self {
+      Self::LivingOrLoaded(v) => Some(v),
+      _ => None,
+    }
+  }
+  pub fn if_loaded_ref(&self) -> Option<&T> {
+    match self {
+      Self::LivingOrLoaded(v) => Some(v),
+      _ => None,
+    }
+  }
+}
+
 pub trait UriDataSource<T>: Send + Sync {
   fn create_for_direct_data(&mut self, data: T) -> &str;
   fn request_uri_data_load(

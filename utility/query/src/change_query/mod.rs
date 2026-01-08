@@ -273,12 +273,17 @@ where
 }
 
 pub fn merge_linear_batch_changes<K: CKey, T: Clone>(
-  changes: &[Arc<LinearBatchChanges<K, T>>],
-) -> LinearBatchChanges<K, T> {
+  changes: &mut Vec<Arc<LinearBatchChanges<K, T>>>,
+) -> Arc<LinearBatchChanges<K, T>> {
+  if changes.len() == 1 {
+    return changes.pop().unwrap();
+  }
+
   let mut removes = FastHashSet::default();
   let mut new_inserts = FastHashMap::default();
 
-  for change in changes {
+  // the drain iter has correct visit order
+  for change in changes.drain(..) {
     for k in change.removed.iter() {
       removes.insert(k.clone());
 
@@ -290,8 +295,8 @@ pub fn merge_linear_batch_changes<K: CKey, T: Clone>(
     }
   }
 
-  LinearBatchChanges {
+  Arc::new(LinearBatchChanges {
     removed: removes.into_iter().collect(),
     update_or_insert: new_inserts.into_iter().collect(),
-  }
+  })
 }

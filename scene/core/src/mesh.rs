@@ -213,10 +213,11 @@ where
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3> + 'static; // attribute mesh entity
   share_provider_hash_type_id! {AttributeMeshLocalBounding<()>}
 
+  /// todo, output UriLoadResult result
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     (self.0.clone())(cx)
       .map_changes(|mesh| {
-        if let Some(mesh) = mesh {
+        if let UriLoadResult::LivingOrLoaded(mesh) = mesh {
           let mesh = mesh.into_attributes_mesh();
           let position = mesh.get_position_slice();
           mesh
@@ -240,6 +241,8 @@ pub type AttributeIndexDataSource =
 /// the output changes are assumed to be consumed by gpu systems.
 /// the current implementation is not considering the buffer share between the difference views.
 /// this can be improved(not easy to do so) but not necessary for now.
+///
+/// todo, output UriLoadResult result
 pub fn create_sub_buffer_changes_from_mesh_changes(
   cx: &mut impl DBHookCxLike,
   mesh_changes: UseResult<AttributesMeshDataChangeInput>,
@@ -263,7 +266,7 @@ pub fn create_sub_buffer_changes_from_mesh_changes(
     }
 
     for (mesh, mesh_info) in mesh_changes.iter_update_or_insert() {
-      if let Some(mesh_info) = mesh_info {
+      if let UriLoadResult::LivingOrLoaded(mesh_info) = mesh_info {
         if let Some(indices) = &mesh_info.indices {
           indices_changes
             .update_or_insert
@@ -293,4 +296,4 @@ pub fn create_sub_buffer_changes_from_mesh_changes(
 }
 
 pub type AttributesMeshDataChangeInput =
-  Arc<LinearBatchChanges<RawEntityHandle, Option<AttributesMeshWithVertexRelationInfo>>>;
+  Arc<LinearBatchChanges<RawEntityHandle, UriLoadResult<AttributesMeshWithVertexRelationInfo>>>;

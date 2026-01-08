@@ -32,7 +32,7 @@ pub fn load_default_scene(
     })
     .build();
 
-    const TEST_MESH_URI: bool = false;
+    const TEST_MESH_URI: bool = true;
 
     let attribute_mesh = if TEST_MESH_URI {
       writer

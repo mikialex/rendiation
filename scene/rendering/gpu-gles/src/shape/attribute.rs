@@ -42,6 +42,7 @@ pub fn use_attribute_mesh_renderer(
     mesh_access: read_global_db_foreign_key(),
     mode: read_global_db_component(),
     index: index.make_read_holder(),
+    index_ref: read_global_db_foreign_key(),
     vertex: AttributesMeshEntityVertexAccessView {
       semantics: read_global_db_component(),
       count: read_global_db_component(),
@@ -58,29 +59,46 @@ pub struct GLESAttributesMeshRenderer {
   mode: ComponentReadView<AttributesMeshEntityTopology>,
   count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeIndexRef>>,
   index: BufferCollectionRead,
+  index_ref: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
   vertex: AttributesMeshEntityVertexAccessView,
   foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 }
 
 impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
+  // todo, if return None, the mesh is not error(unloaded). we should distinguish this case
   fn make_component(
     &self,
     idx: EntityHandle<StandardModelEntity>,
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     let mesh_id = self.mesh_access.get(idx)?;
 
-    let index = if let Some(index_buffer) = self.index.access_ref(&mesh_id.into_raw()) {
-      let count = self.count.get_value(mesh_id).unwrap() as u64;
-      let stride = u64::from(index_buffer.view_byte_size()) / count;
-      let fmt = match stride {
-        4 => AttributeIndexFormat::Uint32,
-        2 => AttributeIndexFormat::Uint16,
-        _ => unreachable!("invalid index format, computed stride size {}", stride),
-      };
-      (fmt, count as u32, index_buffer).into()
+    let index = if self.index_ref.get(mesh_id).is_some() {
+      if let Some(index_buffer) = self.index.access_ref(&mesh_id.into_raw()) {
+        let count = self.count.get_value(mesh_id).unwrap() as u64;
+        let stride = u64::from(index_buffer.view_byte_size()) / count;
+        let fmt = match stride {
+          4 => AttributeIndexFormat::Uint32,
+          2 => AttributeIndexFormat::Uint16,
+          _ => unreachable!("invalid index format, computed stride size {}", stride),
+        };
+        (fmt, count as u32, index_buffer).into()
+      } else {
+        return None;
+      }
     } else {
       None
     };
+
+    for vertex_info_id in self.vertex.multi_access.access_multi_value(&mesh_id) {
+      if self
+        .vertex
+        .vertex
+        .access_ref(&vertex_info_id.into_raw())
+        .is_none()
+      {
+        return None;
+      }
+    }
 
     let gpu = AttributesMeshGPU {
       mode: self.mode.get_value(mesh_id)?,

@@ -319,7 +319,7 @@ impl SchedulerReInitIteratorProvider for MeshInputIter {
 // so we use Arc, but we should use DataChangeRef trait
 pub fn viewer_texture_input(
   cx: &mut QueryGPUHookCx<'_>,
-) -> UseResult<Arc<LinearBatchChanges<u32, Option<Arc<GPUBufferImage>>>>> {
+) -> UseResult<Arc<LinearBatchChanges<u32, UriLoadResult<Arc<GPUBufferImage>>>>> {
   struct TextureIter(DBViewUnchecked<TextureDirectContentType>);
   impl SchedulerReInitIteratorProvider for TextureIter {
     type Item = (u32, Arc<GPUBufferImage>);
