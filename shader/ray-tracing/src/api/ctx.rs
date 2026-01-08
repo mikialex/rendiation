@@ -28,7 +28,7 @@ pub struct HitCtxInfo {
   ///
   /// index in tlas instance list
   pub instance_id: Node<u32>,
-  /// tlas instance sbt offset is not exposed in shader, so we should not exposed in our api.
+  /// tlas instance sbt offset is not exposed in shader, so we should not expose it in our api.
   pub(crate) instance_sbt_offset: Node<u32>,
   /// gl_InstanceCustomIndexEXT
   ///

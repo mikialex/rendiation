@@ -109,7 +109,7 @@ pub enum CubeTextureFace {
   NegativeZ = 5,
 }
 
-/// Represent a position in texture2d
+/// Represent a position in Texture2d
 #[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct TextureOrigin {

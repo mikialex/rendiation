@@ -296,7 +296,7 @@ impl InterpolateInstance<InterpolationItem> {
     // decide which frame interval we are in;
     let slice = sampler.input.visit_slice::<f32>()?;
 
-    // the gltf animation spec doesn't contains start time or loop behavior, we just use abs time
+    // the gltf animation spec doesn't contain start time or loop behavior, we just use abs time
     let end_index = slice
       .binary_search_by(|v| v.partial_cmp(&time).unwrap_or(core::cmp::Ordering::Equal))
       .unwrap_or_else(|e| e);

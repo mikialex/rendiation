@@ -52,7 +52,7 @@ impl IndexType for DynIndex {
   }
 }
 
-/// Mark type that indicates index oversized u32 and cannot used in gpu.
+/// Mark type that indicates index oversized u32 and cannot be used in gpu.
 #[derive(Debug)]
 pub struct IndexOversized;
 
@@ -196,7 +196,7 @@ impl CollectionSize for DynIndexRef<'_> {
   }
 }
 
-/// A indexed mesh that use vertex as primitive;
+/// An indexed mesh that use vertex as primitive;
 #[derive(Default, Clone)]
 pub struct IndexedMesh<T, U, IU> {
   pub vertex: U,

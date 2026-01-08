@@ -192,7 +192,7 @@ impl Vertex {
 
 /// Represents a convex polygon. The vertices used to initialize a polygon must
 /// be coplanar and form a convex loop. They do not have to be `Vertex`
-/// instances but they must behave similarly (duck typing can be used for
+/// instances, but they must behave similarly (duck typing can be used for
 /// customization).
 #[derive(Clone)]
 struct Polygon {

@@ -46,7 +46,7 @@ pub trait DataBaseDataTypeDyn {
   }
 
   fn shape(&self) -> &'static facet::Shape<'static>;
-  /// this function will be removed in future.
+  /// this function will be removed in the future.
   fn debug_value(&self) -> String;
 }
 
@@ -148,11 +148,11 @@ impl DataTypeMetaInfo {
 
 /// This trait encapsulate the implementation of component storage.
 /// For different kinds of component, we can have different storage implementation.
-/// For example. If the component data is sparse, we could using hashmap as the storage
+/// For example. If the component data is sparse, we could use hashmap as the storage
 /// to improve the space efficiency at the cost of access performance. If the multiple
-/// component data is exclusively exists, we can use a enum like buffer to improve the
-/// space efficiency. If the multiple component will always accessed together, we could
-/// store them in a interleaved buffer like common AOS way to improve the access performance.
+/// component data is exclusively exists, we can use an enum like buffer to improve the
+/// space efficiency. If the multiple component will always be accessed together, we could
+/// store them in an interleaved buffer like common AOS way to improve the access performance.
 pub trait ComponentStorage: Send + Sync + DynClone {
   fn create_read_view(&self) -> ComponentReadViewBox;
   fn create_read_write_view(&self) -> ComponentReadWriteViewBox;
@@ -212,7 +212,7 @@ pub trait ComponentStorageReadWriteView: ComponentStorageReadViewBase {
   /// - the idx must point to living location, return old value ptr
   unsafe fn delete(&mut self, idx: u32) -> DataPtr;
 
-  /// resize the storage to allow more data to stored at the bound of the max size address.
+  /// resize the storage to allow more data to be stored at the bound of the max size address.
   /// or shrink the storage to save memory
   fn resize(&mut self, max_address: u32);
 }

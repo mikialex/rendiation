@@ -32,7 +32,7 @@ impl ShaderPassBuilder for BindlessMeshRasterDispatcher {
     let mesh = &self.internal;
 
     if self.is_indexed {
-      // may be failed if we using texture as storage
+      // may be failed if we are using texture as storage
       if let Some(index) = mesh.index_pool.get_gpu_buffer_view() {
         ctx
           .pass

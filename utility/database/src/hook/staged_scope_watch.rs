@@ -175,7 +175,7 @@ impl HydrationManager {
 }
 
 impl<'a> PersistenceAPI<'a> {
-  /// this must called outside of the db mutation scope, or it will deadlock.
+  /// this must be called outside the db mutation scope, or it will deadlock.
   pub fn notify_checkpoint(&mut self, label: &str) {
     let changes = self.internal.flush_buffered_changes();
     let changes = StagedDBScopeChange {

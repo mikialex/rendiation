@@ -5,7 +5,7 @@ use crate::*;
 pub struct BindingResourceArray<T> {
   bindings: Arc<Vec<T>>,
   max_binding_length: u32,
-  /// note, here we using a new resource id to represent the all view id in bindings to
+  /// note, here we are using a new resource id to represent the all view id in bindings to
   /// reduce the binding time id relation maintain and hashing cost
   /// this is ok to do so because the binding is immutable.
   pseudo_view_id: usize,
@@ -90,7 +90,7 @@ impl<T: ?Sized + Std430MaybeUnsized> CacheAbleBindingSource
   }
 }
 
-/// the binding array length is inject into shader, so we have to impl shader hash for it.
+/// the binding array length is injected into shader, so we have to impl shader hash for it.
 impl<T: 'static> ShaderHashProvider for BindingResourceArray<T> {
   shader_hash_type_id! {}
 

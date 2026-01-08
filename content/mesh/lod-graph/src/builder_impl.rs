@@ -151,7 +151,7 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
     (meshlets, indices)
   }
 
-  /// we have compile issue one metis in wasm target. disable it for now
+  /// we have compiling issue one metis in wasm target. disable it for now
   #[cfg(target_family = "wasm")]
   fn segment_meshlets(&self, _input: &[Meshlet], _adj: &MeshletAdjacencyInfo) -> SegmentResult {
     unimplemented!()

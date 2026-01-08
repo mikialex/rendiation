@@ -107,7 +107,7 @@ impl BorderLoops {
 
         if target == vertex as u32 {
           // degenerate triangles have two distinct edges instead of three, and the self edge
-          // is bi-directional by definition; this can break border/seam classification by "closing"
+          // is bidirectional by definition; this can break border/seam classification by "closing"
           // the open edge from another triangle and falsely marking the vertex as manifold
           // instead we mark the vertex as having >1 open edges which turns it into locked/complex
           openinc[vertex] = vertex as u32;

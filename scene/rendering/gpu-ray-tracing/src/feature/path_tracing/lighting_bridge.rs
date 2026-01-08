@@ -133,7 +133,7 @@ impl DevicePathTracingLightingInvocation for SpotLightStorageShaderAPIInstance {
 }
 
 impl ShaderLightSource for SpotLightStorageShaderAPIInstance {
-  /// the spot light falloff fn is smoothstep(a polynomial), which is integrable
+  /// the spotlight falloff fn is smoothstep(a polynomial), which is integrable
   fn radiant_power(&self) -> Node<Vec3<f32>> {
     let cos_falloff_start = self.half_penumbra_cos;
     let cos_falloff_end = self.half_cone_cos;

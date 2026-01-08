@@ -4,7 +4,7 @@ use crate::*;
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct LTCAreaLightUniform {
-  /// pre calculated vertex in world space.
+  /// precalculated vertex in world space.
   pub p1: HighPrecisionTranslationUniform,
   pub p2: HighPrecisionTranslationUniform,
   pub p3: HighPrecisionTranslationUniform,

@@ -80,7 +80,7 @@ impl<K: CKey, S: ScheduleSource<K>> Scheduler<K, S> {
         self.source.unload_data(k);
       }
       // note, we not remove the loading set, because even if the future drop triggers cancellation,
-      // the cancellation may not effect immediately
+      // the cancellation may not take effect immediately
     }
 
     for (k, _) in &weights_list[0..fit_count] {

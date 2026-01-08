@@ -168,7 +168,7 @@ impl GraphicsShaderProvider for Loop32DepthPrePass {
       let depth = cx.query::<FragmentPosition>().z();
       let coord = cx.query::<FragmentPosition>().xy().into_u32();
 
-      // Insert the floating-point depth (reinterpreted as a uint) into the list of depths
+      // Insert the floating-point depth (reinterpreted as an uint) into the list of depths
       let z_current = depth.bitcast::<u32>().make_local_var();
       let i = val(0_u32).make_local_var(); // Current position in the array
 
@@ -200,7 +200,7 @@ impl GraphicsShaderProvider for Loop32DepthPrePass {
       }
 
       // Try to insert z_current in the place of the first element of the array that
-      // is greater than or equal to it. In the former case, shift all of the
+      // is greater than or equal to it. In the former case, shift all of
       // remaining elements in the array down.
       ForRange::ranged((i.load(), layer_count).into()).for_each(|i, cx| {
         if self.reverse_depth {
@@ -403,7 +403,7 @@ fn do_blend(color: Node<Vec4<f32>>, base_color: Node<Vec4<f32>>) -> Node<Vec4<f3
 
 // Sets color to the result of blending color over fragment.
 // Color and fragment are both premultiplied colors; fragment
-// is an rgba8 sRGB unpremultiplied color packed in a 32-bit uint.
+// is a rgba8 sRGB unpremultiplied color packed in a 32-bit uint.
 fn do_blend_packed(color: Node<Vec4<f32>>, fragment: Node<u32>) -> Node<Vec4<f32>> {
   let unpacked = fragment.unpack4x8unorm();
   // Convert from unpremultiplied sRGB to premultiplied alpha

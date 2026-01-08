@@ -32,7 +32,7 @@ impl RayTracingCustomCtxProvider for RayTracingTextureIO {
   }
 
   fn bind(&self, builder: &mut BindingBuilder) {
-    // we assume the iter order of hashmap will not changed between build_invocation, hash_pipeline and here.
+    // we assume the iter order of hashmap will not be changed between build_invocation, hash_pipeline and here.
     self.targets.read().iter().for_each(|(_, v)| {
       builder.bind(v);
     });

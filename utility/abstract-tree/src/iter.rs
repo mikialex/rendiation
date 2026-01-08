@@ -28,7 +28,7 @@ where
   }
 }
 
-/// In fact I don't know if it's essential to keep mutable version
+/// In fact, I don't know if it's essential to keep mutable version
 pub struct TraverseMutIter<T, F> {
   pub(crate) visit_stack: Vec<T>,
   pub(crate) visit_decider: F,

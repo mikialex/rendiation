@@ -54,7 +54,7 @@ where
 
 // todo, improve clone performance, use Arc
 //
-/// implementation note: in the future we may using `vec4<f32>` heap instead of u32 to enable
+/// implementation note: in the future we may use `vec4<f32>` heap instead of u32 to enable
 /// vectorized load to improve performance. to implement this, packed layout will not be supported
 /// because it will require `vec4<f32>` sized alignment.
 #[derive(Clone)]

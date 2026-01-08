@@ -96,7 +96,7 @@ pub fn create_padding_buffer(
   step_read_byte_count: usize,
   step_pad_bytes: &[u8],
 ) -> Vec<u8> {
-  // not checked the performance, maybe this could implemented in traditional way
+  // not checked the performance, maybe this could be implemented in traditional way
   input
     .chunks(step_read_byte_count)
     .flat_map(|c| [c, step_pad_bytes])

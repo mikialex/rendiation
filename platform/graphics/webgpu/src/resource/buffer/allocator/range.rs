@@ -58,7 +58,7 @@ where
         .expect("allocation after grow should success");
 
       // we currently do not use the abstract buffer's copy buffer to buffer
-      // because the abstract buffer's resize maybe has lazy implementation, that will not guaranteed
+      // because the abstract buffer's resize maybe has lazy implementation, that will not guarantee
       // to create new buffer and may cause copy buffer to buffer fail due to same buffer reference
       //
       // using temp buffer to work around is not an option, because the copy range may overlap

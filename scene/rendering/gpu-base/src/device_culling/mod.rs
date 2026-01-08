@@ -13,7 +13,7 @@ pub trait AbstractCullerProvider: ShaderHashProvider + DynClone {
 }
 
 pub trait AbstractCullerInvocation {
-  /// return if should be culled, true == invisible
+  /// return if the item should be culled, true == invisible
   fn cull(&self, id: Node<u32>) -> Node<bool>;
 }
 

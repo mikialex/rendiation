@@ -301,7 +301,7 @@ impl<T: Scalar> From<Mat3<T>> for Quat<T> {
 }
 
 /// http://www.euclideanspace.com/maths/algebra/realNormedAlgebra/quaternions/slerp/
-/// input should normalized, output is normalized
+/// input should be normalized, output is normalized
 impl<T> Slerp<T> for Quat<T>
 where
   T: Scalar,

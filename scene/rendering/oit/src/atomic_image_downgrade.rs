@@ -40,7 +40,7 @@ impl AtomicImageDowngrade {
     let start_offset = layer_start * area;
     let count = layer_count * area;
     let clear_config = create_uniform(Vec4::new(value, start_offset, count, 0), device);
-    // cast to common buffer, as we not required atomic write in clear
+    // cast to common buffer, as we are not required atomic write in clear
     let buffer = StorageBufferDataView::<[u32]>::try_from_raw(self.buffer.gpu.clone()).unwrap();
     let workgroup_size = 256;
     encoder.compute_pass_scoped(|mut pass| {

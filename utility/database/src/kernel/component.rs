@@ -68,8 +68,8 @@ impl Clone for ComponentReadViewUntyped {
 impl ComponentReadViewUntyped {
   #[inline]
   pub fn get(&self, idx: RawEntityHandle) -> Option<DataPtr> {
-    // note, this is required, because the storage it self
-    // do not has any information about if an idx has deleted before
+    // note, this is required, because the storage itself
+    // do not have any information about if an idx has deleted before
     self.allocator.get(idx.0)?;
     self.get_without_generation_check(idx.alloc_index())
   }

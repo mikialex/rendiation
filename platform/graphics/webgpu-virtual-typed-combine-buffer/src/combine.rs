@@ -19,7 +19,7 @@ pub struct CombinedBufferAllocatorInternal {
   atomic: Option<ShaderAtomicValueType>,
   enable_debug_log_for_binding: bool,
   enable_debug_log_for_updating: bool,
-  /// if this allocator allow allocate writeable buffer
+  /// if this allocator allow to allocate writeable buffer
   pub(crate) readonly: bool,
 }
 
@@ -116,7 +116,7 @@ impl CombinedBufferAllocatorInternal {
     // the sub buffer must be aligned to device limitation because user may directly
     // use the sub buffer as the storage/uniform binding
     let limits = &gpu.info.supported_limits;
-    // for simplicity we use the maximum alignment, they are same on my machine.
+    // for simplicity, we use the maximum alignment, they are same on my machine.
     let bind_alignment_requirement_in_u32 = limits
       .min_storage_buffer_offset_alignment
       .max(limits.min_uniform_buffer_offset_alignment)

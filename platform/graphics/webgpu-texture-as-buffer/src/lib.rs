@@ -44,7 +44,7 @@ pub struct TextureAsReadonlyStorageBuffer {
   ty_desc: Arc<MaybeUnsizedValueType>,
   /// this backup is to avoid excessive fragmented texture update call
   ///
-  /// we have to do this because we can not using sparse data update
+  /// we have to do this because we can not use sparse data update
   host_backup: Arc<RwLock<TextureAsReadonlyStorageBufferHostBackup>>,
   gpu: GPU,
 }

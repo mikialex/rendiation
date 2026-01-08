@@ -16,7 +16,7 @@ pub trait AllocatorStorageBase: LinearStorageBase {
   /// return if reserve_success
   ///  
   /// note that reserve success not necessary means range allocate
-  /// will always success because of fragmentation. This methods used is only for performance consideration.
+  /// will always success because of fragmentation. This method is only for performance consideration.
   fn try_reserve_used(
     &mut self,
     _used: u32,

@@ -222,7 +222,7 @@ pub fn update_atlas<'a>(
 
   for (id, new_tex) in tex_source_change {
     if let Some(current_pack) = current_pack(id) {
-      // pack may failed, in this case we do nothing
+      // pack may fail, in this case we do nothing
       if let Some(tex) = normalize_format(new_tex, should_normalize_srgb) {
         let tex = create_gpu_texture2d_with_mipmap(gpu, encoder, &tex);
         let src_pack = create_zero_origin_pack_info(current_pack.result.range.size);

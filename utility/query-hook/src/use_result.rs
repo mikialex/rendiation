@@ -111,7 +111,7 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   }
 
   /// note, this mapping is map both spawn stage and resolve stage,
-  /// so if the T contains changes, the change consuming should not using this method
+  /// so if the T contains changes, the change consuming should not use this method
   /// or the change will be consumed twice and cause logic error
   pub fn map<U>(self, f: impl FnOnce(T) -> U + Send + Sync + 'static) -> UseResult<U> {
     use futures::FutureExt;

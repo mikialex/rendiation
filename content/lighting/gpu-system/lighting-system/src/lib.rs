@@ -120,7 +120,7 @@ impl GraphicsShaderProvider for LightingComputeComponentAsRenderComponent<'_> {
         .build_light_compute_invocation(binder, scene_id);
       let shading = self.surface_constructor.construct_shading(builder, binder);
 
-      // we skip hashing, because the variant is inject by upstream component
+      // we skip hashing, because the variant is injected by upstream component
       let hdr = if builder.contains_type_tag::<LightableSurfaceTag>() {
         let hdr = invocation.compute_lights(shading.as_ref(), &geom_ctx);
         hdr.diffuse + hdr.specular_and_emissive

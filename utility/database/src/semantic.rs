@@ -7,7 +7,7 @@ pub trait EntitySemantic: Any + Send + Sync {
   /// this name must be unique in db(this will be runtime checked)
   /// this name also used in serialization, so it must be stable
   ///
-  /// The default implementation will using the std::any::type_name
+  /// The default implementation will use the std::any::type_name
   /// the stability of the name is not guaranteed if you modify the typename
   ///  or move it to other module/crate
   fn unique_name() -> &'static str {
@@ -22,7 +22,7 @@ pub trait EntityAssociateSemantic: Any + Send + Sync {
   /// this name must be unique in db(this will be runtime checked)
   /// this name also used in serialization, so it must be stable
   ///
-  /// The default implementation will using the std::any::type_name
+  /// The default implementation will use the std::any::type_name
   /// the stability of the name is not guaranteed if you modify the typename
   ///  or move it to other module/crate
   fn unique_name() -> &'static str {

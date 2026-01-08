@@ -60,7 +60,7 @@ pub unsafe fn index_access_field(
 
 /// # Safety
 ///
-/// the field index should be bounded and it is a pointer type
+/// the field index should be bounded, and it is a pointer type
 ///
 /// .
 pub unsafe fn index_access_field_as_ptr(

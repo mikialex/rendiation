@@ -32,7 +32,7 @@ pub enum GltfExportErr {
 /// Implementation Note
 ///
 /// The gltf is a node forest, each node can only attach one model(gltf mesh), but in our scene structure
-/// a node can have multiple models, so we create a new node for node that has multiple model when export.
+/// a node can have multiple models, so we create a new node for node that has multiple model when exporting.
 pub fn build_scene_to_gltf(
   reader: &SceneReader,
   folder_path: &Path,

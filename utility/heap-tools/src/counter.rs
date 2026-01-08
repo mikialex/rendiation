@@ -62,7 +62,7 @@ impl InstanceCounter {
 }
 
 /// this struct is to act as the counting point of the type T.
-/// user could use this struct in production build as we not enabled the real counting by default
+/// user could use this struct in production build as we are not enabled the real counting by default
 pub struct Counted<T: Any> {
   phantom: PhantomData<T>,
 }

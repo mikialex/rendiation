@@ -280,7 +280,7 @@ impl Viewer3dRenderingCtx {
       cx.scope(|cx| {
         let (attribute_vertices, attribute_indices) = viewer_mesh_buffer_input(cx);
 
-        // when indirect raster render is not enabled, we create necessary resource by ourself.
+        // when indirect raster render is not enabled, we create necessary resource by ourselves.
         if self.current_renderer_impl_ty == RasterizationRenderBackendType::Gles {
           cx.scope(|cx| {
             let (cx, change_scope) = cx.use_begin_change_set_collect();

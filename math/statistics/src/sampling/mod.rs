@@ -103,7 +103,7 @@ impl Sampler for RngSampler {
 pub fn importance_sample_discrete(pmf: &[f32], sample: f32) -> usize {
   let mut idx = 0;
   let mut sum = 0.;
-  // note, sample can not get 1, but it's ok
+  // note, sample can not get 1, but it's ok,
   // and we also not care about the rounding error
   for weight in pmf {
     sum += weight;

@@ -8,7 +8,7 @@ pub fn alloc_global_res_id() -> u64 {
 
 /// A globally marked item, marked by a globally incremental u64 flag
 ///
-/// **Any object *created since process started*** must has different id.
+/// **Any object *created since process started*** must have different id.
 pub trait GlobalIdentified {
   fn guid(&self) -> u64;
 }
@@ -19,7 +19,7 @@ pub trait GlobalIdentified {
 /// the max index should be u32::MAX - 1 (this should be sufficient for any container), we use
 /// u32::MAX to represent None case to reduce memory overhead of Option<u32>
 ///
-/// **Any object *living* must has different id, and id must tightly reused**.
+/// **Any object *living* must have different id, and id must tightly be reused**.
 pub trait LinearIdentified {
   fn alloc_index(&self) -> u32;
 }

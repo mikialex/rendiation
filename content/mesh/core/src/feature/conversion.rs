@@ -20,7 +20,7 @@ where
 }
 
 /// almost as same as create_wireframe, but if the edge is created depends on the adjacent face
-/// angle threshold. Maybe you should merge vertex before create edge， non manifold mesh may affect
+/// angle threshold. Maybe you should merge vertex before create edge， non-manifold mesh may affect
 /// result
 pub fn create_edges<T>(
   triangles: impl Iterator<Item = Triangle<T>>,
@@ -39,7 +39,7 @@ where
     face.for_each_edge(|edge| {
       edges
         .entry(edge.swap_if(|l| l.start < l.end))
-        .and_modify(|e| e.1 = Some(face_id)) // if we find the e.1 is some already, the mesh is non manifold
+        .and_modify(|e| e.1 = Some(face_id)) // if we find the e.1 is some already, the mesh is non-manifold
         .or_insert_with(|| (face_id, None));
     })
   });

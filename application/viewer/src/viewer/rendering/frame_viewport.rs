@@ -736,7 +736,7 @@ impl ViewportRenderedResult {
       RenderTargetView::Texture(tex) => tex.clone(),
       RenderTargetView::ReusedTexture(tex) => tex.item().clone(),
       RenderTargetView::SurfaceTexture { .. } => {
-        // note: the usage of surface texture could only guaranteed contains RENDER_ATTACHMENT,
+        // note: the usage of surface texture could only guarantee contains RENDER_ATTACHMENT,
         // so it's maybe impossible to do any read back from it. the upper layer should be draw
         // content into temp texture for read back and copy back to surface.
         return Err(ViewerRenderResultReadBackErr::UnableToReadSurfaceTexture);

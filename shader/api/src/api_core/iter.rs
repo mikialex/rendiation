@@ -198,7 +198,7 @@ impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayIter<A
     self.cursor.store(current_next + val(1));
     let has_next = current_next.less_than(val(self.len));
 
-    // should we do the clamp by ourself?
+    // should we do the clamp by ourselves?
     assert!(self.len >= 1);
     let uniform = self.array.index(current_next.min(val(self.len - 1)));
     (has_next, (current_next, uniform))
@@ -220,7 +220,7 @@ impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayReadon
     self.cursor.store(current_next + val(1));
     let has_next = current_next.less_than(val(self.len));
 
-    // should we do the clamp by ourself?
+    // should we do the clamp by ourselves?
     assert!(self.len >= 1);
     let uniform = self.array.index(current_next.min(val(self.len - 1)));
     (has_next, (current_next, uniform))

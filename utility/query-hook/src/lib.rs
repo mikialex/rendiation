@@ -229,7 +229,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     })
   }
 
-  /// warning, the delta/change must not shared
+  /// warning, the delta/change must not be shared
   fn use_shared_compute<Provider: SharedResultProvider<Self>>(
     &mut self,
     provider: Provider,
@@ -393,7 +393,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
           }
           UseResult::ResolveStageReady(result) => {
             // in this case, we have result in resolve stage directly in upstream
-            // here we get an unique task id.
+            // here we get a unique task id.
             let some_id = u32::MAX - cx.shared_hook_ctx().task_id_mapping.len() as u32 - 1;
             cx.shared_hook_ctx().task_id_mapping.insert(key, some_id);
             if let QueryHookStage::ResolveTask { task, .. } = cx.stage() {

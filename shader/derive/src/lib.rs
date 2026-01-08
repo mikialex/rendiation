@@ -43,7 +43,7 @@ pub fn derive_shader_struct(input: TokenStream) -> TokenStream {
 /// converted type like Bool, Shader16PaddedMat3 instead of the original one.
 ///
 /// The other design choice is, theoretically we could directly convert the field into the std140
-/// one for bool and mat3, but we don't, because this will cause too many confusion in users's code.
+/// one for bool and mat3, but we don't, because this will cause too many confusions in users' code.
 #[proc_macro_attribute]
 pub fn std140_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
@@ -62,7 +62,7 @@ pub fn std140_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
 /// converted type like Bool, Shader16PaddedMat3 instead of the original one.
 ///
 /// The other design choice is, theoretically we could directly convert the field into the 430
-/// one for bool and mat3, but we don't, because this will cause too many confusion in users's code.
+/// one for bool and mat3, but we don't, because this will cause too many confusions in users' code.
 #[proc_macro_attribute]
 pub fn std430_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);

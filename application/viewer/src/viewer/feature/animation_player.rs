@@ -65,7 +65,7 @@ pub fn use_animation_player(cx: &mut ViewerCx) {
   }
 }
 
-/// currently we implement per channel standalone looping behavior, i'm not sure how spec say about it
+/// currently we implement per channel standalone looping behavior, I'm not sure how spec say about it
 /// https://github.com/KhronosGroup/glTF/issues/1179
 fn compute_mutation(
   active_animations: &mut FastHashSet<EntityHandle<SceneAnimationEntity>>,

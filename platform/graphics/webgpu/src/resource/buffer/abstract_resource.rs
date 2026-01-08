@@ -176,8 +176,8 @@ pub trait AbstractBuffer: DynClone + Send + Sync {
   fn resize_gpu(&mut self, encoder: &mut GPUCommandEncoder, device: &GPUDevice, new_byte_size: u64);
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue);
 
-  /// as the abstract buffer not able to deep clone it self.
-  /// we use this api to express the self may overlapping batch relocate logic.
+  /// as the abstract buffer not able to deep clone itself.
+  /// we use this api to express the self may overlapped in batch relocate logic.
   fn batch_self_relocate(
     &self,
     iter: &mut dyn Iterator<Item = BufferRelocate>,
@@ -199,7 +199,7 @@ pub trait AbstractBuffer: DynClone + Send + Sync {
   fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr;
   fn bind_pass(&self, bind_builder: &mut BindingBuilder);
   fn as_any(&self) -> &dyn Any;
-  /// this is not possible(return None) if we using texture as the implementation
+  /// this is not possible(return None) if we are using texture as the implementation
   fn get_gpu_buffer_view(&self) -> Option<GPUBufferResourceView>;
 }
 dyn_clone::clone_trait_object!(AbstractBuffer);

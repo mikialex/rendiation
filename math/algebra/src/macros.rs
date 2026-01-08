@@ -144,7 +144,7 @@ macro_rules! default_fn {
 /// Generates a binary operator implementation for the permutations of by-ref and by-val
 #[macro_export]
 macro_rules! impl_operator {
-  // When it is an unary operator
+  // When it is a unary operator
   (<$S:ident> $Op:ident for $Lhs:ty {
     fn $op:ident($x:ident) -> $Output:ty { $body:expr }
   }) => {

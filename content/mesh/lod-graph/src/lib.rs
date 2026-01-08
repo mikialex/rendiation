@@ -30,7 +30,7 @@ pub struct MeshLODGraph {
 pub struct MeshLODGraphLevel {
   pub groups: Vec<MeshletGroup>,
   pub meshlets: Vec<Meshlet>,
-  /// the index is based on level it self, not the mesh.
+  /// the index is based on level itself, not the mesh.
   #[facet(opaque)]
   pub mesh: CommonMeshBuffer,
 }

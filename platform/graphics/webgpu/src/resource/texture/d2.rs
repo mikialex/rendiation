@@ -148,7 +148,7 @@ pub trait WebGPU2DTextureSource: Send + Sync {
         usage: gpu::BufferUsages::COPY_SRC,
       })
     } else {
-      // will this be optimized well or we should just use copy_from_slice?
+      // will this be optimized well, or we should just use copy_from_slice?
       let padded_data: Vec<_> = self
         .as_bytes()
         .chunks_exact(width)

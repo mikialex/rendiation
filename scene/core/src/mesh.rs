@@ -64,7 +64,7 @@ pub struct AttributesMeshEntities {
 }
 
 impl AttributesMeshEntities {
-  /// this method assume the mesh's buffers are owned by mesh it self and not shared
+  /// this method assume the mesh's buffers are owned by mesh itself and not shared
   pub fn clean_up(
     &self,
     writer: &mut AttributesMeshEntityFromAttributesMeshWriter,

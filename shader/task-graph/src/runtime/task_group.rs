@@ -106,7 +106,7 @@ impl TaskGroupExecutor {
 
     let active_idx = cx.global_invocation_id().x();
 
-    // even if the task is out of active bound, we still required to poll something to maintain the uniform control flow.
+    // even if the task is out of active bound, we still require to poll something to maintain the uniform control flow.
     // the task to poll for this case always resides at index 0 and always stay in pending state.
     let task_index = active_idx
       .less_than(active_task_count.load())
@@ -135,7 +135,7 @@ impl TaskGroupExecutor {
         let parent_task_type_id = pool.rw_parent_task_type_id(task_index).load();
 
         if_by(parent_index.equals(u32::MAX), || {
-          // if we do not have parent task, then we should cleanup ourself
+          // if we do not have parent task, then we should clean up by ourselves
           self_spawner.cleanup_finished_task_state_and_payload(task_index);
         })
         .else_by(|| {
@@ -216,7 +216,7 @@ impl TaskGroupExecutor {
   }
 
   fn compact_alive_tasks(&mut self, ctx: &mut DeviceParallelComputeCtx) {
-    // this is required because the task may spawn it self
+    // this is required because the task may spawn itself
     ctx.record_pass(|pass, device| {
       let imp = &self.resource;
       imp.active_task_idx.commit_size(pass, device, true);

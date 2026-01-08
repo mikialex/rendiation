@@ -201,7 +201,7 @@ impl DeviceTaskGraphExecutor {
 
   /// Allocate task directly in the task pool by dispatching compute shader.
   ///
-  /// The task_spawner should not has any shader variant.
+  /// The task_spawner should not have any shader variant.
   ///
   /// T must match given task_id's payload type
   pub fn dispatch_allocate_init_task_by_fn<T: ShaderSizedValueNodeType>(

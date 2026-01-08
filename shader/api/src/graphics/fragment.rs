@@ -312,8 +312,8 @@ impl ShaderFragmentBuilder {
     Ok(self.get_fragment_out_var::<T>(slot)?.load())
   }
 
-  /// currently we all depend on FragmentDepthOutput in semantic registry to given the final result
-  /// this behavior will be changed in future;
+  /// currently we all depend on FragmentDepthOutput in semantic registry to provide the final result
+  /// this behavior will be changed in the future;
   pub fn finalize_depth_write(&mut self) {
     let depth = self.try_query::<FragmentDepthOutput>();
     if let Some(depth) = depth {

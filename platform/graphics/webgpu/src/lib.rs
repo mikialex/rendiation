@@ -43,7 +43,7 @@ use fast_hash_collection::*;
 pub use frame::*;
 use futures::{Future, FutureExt};
 use gpu::RenderPassTimestampWrites;
-// note: we can not just use * because it cause core conflict
+// note: we can not just use * because it will cause core conflict
 pub use gpu::{
   util, util::DeviceExt, vertex_attr_array, AccelerationStructureFlags,
   AccelerationStructureGeometryFlags, AccelerationStructureUpdateMode, AddressMode, Backends,

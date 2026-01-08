@@ -186,7 +186,7 @@ fn main() {
 
       sync_camera_view(cx);
 
-      // this must called before per_camera_per_viewport
+      // this must be called before per_camera_per_viewport
       use_egui_tile_for_viewer_viewports(cx);
 
       per_camera_per_viewport_scope(cx, false, |cx, camera_with_viewports| {

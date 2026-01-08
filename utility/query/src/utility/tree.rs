@@ -32,7 +32,7 @@ pub fn compute_tree_derive<K: CKey, T: CValue>(
   // if we have a very branchy tree, and only root and leaves contains change, it's hard to
   // find the update root is the tree root because early return is not effective. To solve this
   // issue, we may continuously populate the change set by traversing the changeset item's sub
-  // tree into change set but it's not a good solution, because it's hard to parallelize  and
+  // tree into change set, but it's not a good solution, because it's hard to parallelize  and
   // the most important is that we can assume our tree is not that deep
   for change in payload_change_range.chain(connectivity_change_range) {
     let mut current_check = change.clone();

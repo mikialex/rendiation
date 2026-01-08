@@ -365,7 +365,7 @@ where
     stream_compaction(Box::new(self), Box::new(filter), cx)
   }
 
-  /// this is not very useful but sometimes feel handy so I will keep it here
+  /// this is not very useful but sometimes feel handy, so I will keep it here
   fn stream_compaction_self_filter(
     self,
     filter: impl Fn(Node<T>) -> Node<bool> + 'static,
@@ -430,7 +430,7 @@ where
       .materialize_storage_buffer(cx) // todo,remove and  fix compatibility issue
   }
 
-  /// should logically used after global inclusive scan
+  /// should logically be used after global inclusive scan
   fn make_global_scan_exclusive<S>(self) -> impl ComputeComponentIO<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,

@@ -30,7 +30,7 @@ pub struct DataMoveMent {
 #[derive(Debug)]
 pub struct BatchAllocateResult {
   pub removed: FastHashSet<UserHandle>,
-  /// failed_to_allocate may contains previous successful allocated handle
+  /// failed_to_allocate may contain previous successful allocated handle
   pub failed_to_allocate: FastHashSet<UserHandle>,
   /// only contains previous allocated handle
   pub data_movements: FastHashMap<UserHandle, DataMoveMent>,
@@ -237,7 +237,7 @@ impl GrowableRangeAllocator {
     }
 
     for k in &result.failed_to_allocate {
-      // the failed allocated key may also failed to allocated before
+      // the failed allocated key may also fail to allocated before
       if let Some((count, _, _)) = self.ranges.remove(k) {
         self.used_count -= count;
       }

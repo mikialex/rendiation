@@ -17,7 +17,7 @@ pub fn hierarchical_raymarch(
     .all()
     .select(val(Vec3::one()) / direction, val(Vec3::splat(f32::MAX)));
 
-  // Start on mip with highest detail.
+  // Start on mip with the highest detail.
   let current_mip = most_detailed_mip.make_local_var();
 
   // Could recompute these every iteration, but it's faster to hoist them out and update them.

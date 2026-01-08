@@ -40,7 +40,7 @@ pub fn test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_re
 
       let (id, valid) = scene_models.invocation_logic(ctx.global_invocation_id());
       if_by(valid, || {
-        // the result will be write into the visible buffer
+        // the result will be written into the visible buffer
         culler.cull(id);
       });
 

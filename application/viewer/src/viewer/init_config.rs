@@ -62,7 +62,7 @@ pub struct ShaderRuntimeProtection {
 
 impl Default for ViewerStaticInitConfig {
   fn default() -> Self {
-    // this should passed in by user
+    // this should be passed in by user
     let size = Size::from_u32_pair_min_one((4096, 4096));
     let init = TexturePoolSourceInit {
       init_texture_count_capacity: 128,

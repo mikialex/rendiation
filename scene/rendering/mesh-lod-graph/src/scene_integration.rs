@@ -62,7 +62,7 @@ impl MeshLODGraphSceneRenderer {
 ///
 /// - using current system, integrate into the indirect renderer
 /// - the generate_indirect_draw_provider dependency can be setup outside(before) of the call, this is acceptable hack
-/// - this integration should ok to reused the scene model level's culling and virtualization capability.
+/// - this integration should ok to be reused the scene model level's culling and virtualization capability.
 /// - to support per meshlet culling. we need
 ///   - create meshlet device batch container(mdbc) from DeviceSceneModelRenderSubBatch
 ///   - the mdbc may use DeviceSceneModelRenderSubBatch if we make batch item not stick to scene model

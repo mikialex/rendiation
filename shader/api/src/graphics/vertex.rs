@@ -234,8 +234,8 @@ impl ShaderVertexBuilder {
     V::provide_layout_and_vertex_in(self, step_mode)
   }
 
-  /// currently we all depend on ClipPosition in semantic registry to given the final result
-  /// this behavior will be changed in future;
+  /// currently we all depend on ClipPosition in semantic registry to provide the final result
+  /// this behavior will be changed in the future;
   pub fn finalize_position_write(&mut self) {
     let position = self.query_or_insert_default::<ClipPosition>();
     call_shader_api(|api| {

@@ -194,7 +194,7 @@ impl EntityComponentWriterImpl {
 
   /// # Safety
   ///
-  /// idx must allocated
+  /// idx must be allocated
   pub unsafe fn write_init_component_value(&mut self, idx: RawEntityHandle, data: Option<DataPtr>) {
     self.component.data.deref_mut().resize(idx.index());
     self.component.write(idx, true, data);

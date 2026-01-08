@@ -18,14 +18,14 @@ impl<T: Scalar> Ray3<T> {
     Ray3::new(origin, (target - origin).into_normalized())
   }
 
-  // this distance to can not expressed by DistanceSquareTo trait
+  // this distance to can not be expressed by DistanceSquareTo trait
   pub fn distance_sq_to_point(&self, point: Vec3<T>) -> T {
     let oc = point - self.origin;
     let tca = oc.dot(self.direction);
     oc.dot(oc) - tca * tca
   }
 
-  // this distance to can not expressed by DistanceTo trait
+  // this distance to can not be expressed by DistanceTo trait
   pub fn distance_to_plane(&self, plane: &Plane<T>) -> Option<T> {
     let denominator = plane.normal.dot(self.direction);
 
@@ -48,7 +48,7 @@ impl<T: Scalar> Ray3<T> {
     }
   }
 
-  // this distance to can not expressed by DistanceSquareTo trait
+  // this distance to can not be expressed by DistanceSquareTo trait
   pub fn distance_sq_to_segment(&self, line: LineSegment3D<T>) -> (T, Vec3<T>, Vec3<T>) {
     // (distance_sq_to_segment, optionalPointOnRay, optionalPointOnSegment)
     let v0 = line.start;

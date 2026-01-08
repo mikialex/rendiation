@@ -5,7 +5,7 @@ pub struct ResizeInput {
   pub required_size: u32,
 }
 
-/// control the grow behavior
+/// control the growing behavior
 ///
 /// try auto grow when unbound mutation occurred
 pub struct CustomGrowBehaviorMaintainer<T> {

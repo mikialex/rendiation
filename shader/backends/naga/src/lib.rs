@@ -900,7 +900,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
               ty,
               components: vec![a, b],
             });
-            // currently this is the only place where the constant must used
+            // currently this is the only place where the constant must be used
             let constant = self.module.constants.append(
               naga::Constant {
                 name: None,
@@ -1813,7 +1813,7 @@ fn struct_member(
   {
     assert!(pad_size_in_bytes % 4 == 0); // we assume the minimal type size is 4 bytes.
     let pad_count = pad_size_in_bytes / 4;
-    // not using array here because I do not want hit anther strange layout issue!
+    // not using array here because I do not want hit another strange layout issue!
     for i in 0..pad_count {
       let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(
         ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32),

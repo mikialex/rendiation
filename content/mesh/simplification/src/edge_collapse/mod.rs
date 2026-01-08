@@ -11,7 +11,7 @@ pub struct EdgeCollapseConfig {
   /// the max error rate allowed in simplify.
   pub target_error: f32,
   pub use_absolute_error: bool,
-  /// if the border allow to be simplify. User provide vertex lock will still worked as supplement
+  /// if the border allow to be simplified. User provide vertex lock will still work as supplement
   pub lock_border: bool,
 }
 
@@ -214,7 +214,7 @@ fn pick_edge_collapses(
       }
 
       // two vertices are on a border or a seam, but there's no direct edge between them
-      // this indicates that they belong to two different edge loops and we should not collapse this
+      // this indicates that they belong to two different edge loops, and we should not collapse this
       // edge loop[] tracks half edges so we only need to check i0->i1
       if k0 == k1
         && (k0 == VertexKind::Border || k0 == VertexKind::SimpleSeam)

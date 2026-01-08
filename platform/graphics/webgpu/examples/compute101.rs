@@ -7,7 +7,7 @@ pub async fn main() {
 
   let workgroup_size: u32 = 64;
 
-  let input_data = vec![1_u32; workgroup_size as usize]; // here we only demo workgroup case..
+  let input_data = vec![1_u32; workgroup_size as usize]; // here we only demo workgroup case.
   let input = create_gpu_readonly_storage(input_data.as_slice(), &gpu);
   let init = ZeroedArrayByArrayLength(input_data.len());
   let output = create_gpu_read_write_storage::<[u32]>(init, &gpu);

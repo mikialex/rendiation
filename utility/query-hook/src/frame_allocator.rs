@@ -20,7 +20,7 @@ impl FrameAlloc {
 /// we get frame allocator from thread_local, so it guaranteed all allocation for one FrameAlloc
 /// are from one thread
 unsafe impl Sync for FrameAlloc {}
-/// although the FrameAlloc may be send to other thread, but nothing can be called in this case
+/// although the FrameAlloc may be sent to other thread, but nothing can be called in this case
 /// even deallocation tail check is skipped
 unsafe impl Send for FrameAlloc {}
 
@@ -33,7 +33,7 @@ unsafe impl Allocator for FrameAlloc {
   }
 
   unsafe fn deallocate(&self, _ptr: std::ptr::NonNull<u8>, _layout: std::alloc::Layout) {
-    // we not try to deallocate at all, because this case may happens in other thread
+    // we not try to deallocate at all, because this case may happen in other thread
   }
 }
 

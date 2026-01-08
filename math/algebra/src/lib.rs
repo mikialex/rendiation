@@ -143,7 +143,7 @@ impl Clone for Box<dyn NDCSpaceMapper<f32> + '_> {
 pub struct OpenGLxNDC;
 
 impl<T: Scalar> NDCSpaceMapper<T> for OpenGLxNDC {
-  /// Of course we don't need transform here, so it's identity
+  /// Of course, we don't need to do transform here, so it's identity
   fn transform_from_opengl_standard_ndc(&self) -> Mat4<T> {
     Mat4::identity()
   }

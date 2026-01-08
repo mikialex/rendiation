@@ -1,7 +1,7 @@
 //! when wgpu used in web target, resource is not destroyed immediately when wgpu object dropped but
 //! waiting for browser GC. If huge resource create and destroy in high frequency and due to the GC
 //! uncertainty trigger time, huge memory will be consumed even OOM. In this case, we need to do
-//! explicit destroy but not rely on wgpu's object drop to cleanup resource.
+//! explicit destroy but not rely on wgpu's object drop to clean up resource.
 //!
 //! see https://github.com/gfx-rs/wgpu/issues/4092
 

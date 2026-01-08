@@ -52,7 +52,7 @@ impl Default for GridEffect {
 
 pub struct GridGroundShading<'a> {
   pub shading: &'a UniformBufferCachedDataView<GridEffect>,
-  pub reversed_depth: bool, // this should has already been hashed in infinity shader
+  pub reversed_depth: bool, // this should have already been hashed in infinity shader
 }
 impl ShaderHashProvider for GridGroundShading<'_> {
   shader_hash_type_id! {GridGroundShading<'static>}

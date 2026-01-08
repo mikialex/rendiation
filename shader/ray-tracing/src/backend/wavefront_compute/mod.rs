@@ -242,7 +242,7 @@ pub fn rect_split_iter(full_size: (u32, u32), max_area: u32) -> impl Iterator<It
   })
 }
 
-// we currently not use this because it yield small unnecessary edge tile.
+// we currently not use this because it yields small unnecessary edge tile.
 pub fn tiling_iter(full_size: (u32, u32), tile_size: u32) -> impl Iterator<Item = RectRange> {
   let x_repeat = full_size.0 / tile_size + 1;
   let y_repeat = full_size.1 / tile_size + 1;

@@ -31,7 +31,7 @@ pub trait PrimitiveData<U>: Sized {
   fn from_data(data: &U, offset: usize) -> Option<Self>;
   /// ## Safety
   ///
-  /// Users should responsible for offset is in bound, bound checking is skipped here
+  /// Users must be responsible for offset is in bound, bound checking is skipped here
   unsafe fn from_data_unchecked(data: &U, offset: usize) -> Self;
 }
 

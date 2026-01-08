@@ -19,7 +19,7 @@ pub use defer_explicit_destroy::*;
 use crate::*;
 
 pub struct ResourceViewContainer<T: Resource> {
-  // when resource view is hold, the resource it self should keep existing
+  // when resource view is hold, the resource itself should keep existing
   pub resource: ResourceRc<T>,
   pub view: T::View,
   pub guid: usize,

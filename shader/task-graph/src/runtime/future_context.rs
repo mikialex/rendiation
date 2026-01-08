@@ -19,7 +19,7 @@ pub struct DeviceTaskSystemBuildCtx<'a> {
 }
 
 impl DeviceTaskSystemBuildCtx<'_> {
-  /// just inner method short cut
+  /// just inner method shortcut
   pub fn make_state<T: ShaderAbstractRightValue>(&mut self) -> T::AbstractLeftValue {
     self
       .state_builder

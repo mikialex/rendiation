@@ -228,7 +228,7 @@ impl GPUxEntityIdMapPicker {
         sender
           .send(encoder.read_texture_2d(&gpu.device, texture, range))
           .ok();
-      } // else the sender will drop, and receiver will resolved
+      } // else the sender will drop, and receiver will be resolved
     }
     self.waker = Some(waker.clone());
   }

@@ -3,7 +3,7 @@ use std::any::TypeId;
 use crate::*;
 
 pub struct FrameGeneralMaterialBuffer {
-  /// the following channel will be encode/decode by the different material type.
+  /// the following channel will be encoded/decoded by the different material type.
   pub material_type_id: RenderTargetView,
   pub channel_a: RenderTargetView,
   pub channel_b: RenderTargetView,

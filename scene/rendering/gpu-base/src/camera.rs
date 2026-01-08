@@ -129,7 +129,7 @@ pub struct CameraGPUTransform {
   pub view_projection_without_translation: Mat4<f32>,
   pub view_projection_inv_without_translation: Mat4<f32>,
 
-  /// contains low precision translation, currently should only used in ray tracing
+  /// contains low precision translation, currently should only be used in ray tracing
   pub view_projection_inv: Mat4<f32>,
 
   /// jitter is always applied (cheap and reduce shader variance)

@@ -47,7 +47,7 @@ impl Drop for DeviceParallelComputeCtx<'_> {
 }
 
 impl<'a> DeviceParallelComputeCtx<'a> {
-  /// note, the passed in encoder will not be submit after this ctx drop.
+  /// note, the passed in encoder will not be submitted after this ctx drop.
   pub fn new(
     gpu: &GPU,
     encoder: &'a mut GPUCommandEncoder,

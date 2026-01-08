@@ -87,7 +87,7 @@ pub const TASK_STATUE_FLAG_TASK_NOT_EXIST: u32 = 0;
 /// state for the new spawned/ wait to be polled task.
 pub const TASK_STATUE_FLAG_NOT_FINISHED_WAKEN: u32 = 1;
 
-/// state for the polled but is going to sleep task, the task it self is in the active-list
+/// state for the polled but is going to sleep task, the task itself is in the active-list
 ///
 /// this is required because when task poll sleep, if we not do alive task compact, when the
 /// subsequent task wake the parent in this task group, it will create duplicate invocation.
@@ -98,7 +98,7 @@ pub const TASK_STATUE_FLAG_NOT_FINISHED_WAKEN: u32 = 1;
 /// if it see this special flag the alive task index spawn will be skipped.
 pub const TASK_STATUE_FLAG_GO_TO_SLEEP: u32 = 2;
 
-/// state for the sleeping task, the task it self is not in the active-list
+/// state for the sleeping task, the task itself is not in the active-list
 pub const TASK_STATUE_FLAG_NOT_FINISHED_SLEEP: u32 = 3;
 
 /// state for the finished task but not cleanup yet

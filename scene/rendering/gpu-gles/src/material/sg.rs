@@ -119,8 +119,8 @@ struct PhysicalSpecularGlossinessMaterialGPU<'a> {
   specular_glossiness_tex_sampler: (u32, u32),
   emissive_tex_sampler: (u32, u32),
   normal_tex_sampler: (u32, u32),
-  // no matter if we using indirect texture binding, this uniform is required for checking the
-  // texture if is exist in shader
+  // no matter if we are using indirect texture binding, this uniform is required for checking the
+  // texture if is existing in shader
   texture_uniforms:
     &'a UniformBufferDataView<PhysicalSpecularGlossinessMaterialTextureHandlesUniform>,
   binding_sys: &'a GPUTextureBindingSystem,

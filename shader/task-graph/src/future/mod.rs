@@ -35,7 +35,7 @@ impl<T> From<(ShaderPtrOf<bool>, T)> for ShaderPoll<T> {
 /// - The `device_poll` must be called inside the uniform control flow.
 pub trait ShaderFutureInvocation {
   type Output: 'static;
-  /// the poll logic can safely assumed in side the uniform control flow. so calling barrier is allowed.
+  /// the poll logic can safely assume in side the uniform control flow. so calling barrier is allowed.
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output>;
 }
 

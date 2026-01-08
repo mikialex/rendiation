@@ -45,7 +45,7 @@ pub trait BSPPlaneAlignable {
 }
 
 /// Use this trait as the abstraction of the cutting result
-/// is because we want avoid any allocation at best when get the front and back result.
+/// is because we want to avoid any allocation at best when get the front and back result.
 pub trait PlaneCutResult<T> {
   /// If the current plane is exact same plane, which actually not been cut.
   /// If false, we check the front and back result.

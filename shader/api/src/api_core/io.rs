@@ -6,7 +6,6 @@ pub enum ShaderInputNode {
   UserDefinedIn {
     ty: PrimitiveShaderValueType,
     location: usize,
-    // must have value for fragment in
     interpolation: Option<ShaderInterpolation>,
   },
   Binding {

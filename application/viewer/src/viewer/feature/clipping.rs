@@ -19,7 +19,7 @@ pub struct CSGClippingRenderer {
 }
 
 impl CSGClippingRenderer {
-  /// pass scene because not scene has clipping
+  /// scene is required because the given config is per scene
   pub fn fill_face(&self, scene: EntityHandle<SceneEntity>) -> bool {
     self.enable && self.fill_face && self.scene_csg.get(&scene.alloc_index()).is_some()
   }

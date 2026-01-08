@@ -343,7 +343,7 @@ fn direction_to_uv(dir: Node<Vec3<f32>>) -> Node<Vec2<f32>> {
   (s + val(0.5), t).into()
 }
 
-/// the write target may contains other channel for example entity id, which
+/// the write target may contain other channel for example entity id, which
 /// should not be written. we also check if platform support this case(webgl)
 fn mask_out_none_color_write(builder: &mut ShaderRenderPipelineBuilder) {
   if !builder

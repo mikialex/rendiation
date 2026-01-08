@@ -17,7 +17,7 @@ where
   fn single_ty() -> ShaderValueSingleType {
     ShaderValueSingleType::StorageTexture {
       dimension: D::DIMENSION,
-      format: StorageFormat::R8Unorm, // this will be override by container instance.
+      format: StorageFormat::R8Unorm, // this will be overridden by container instance.
       access: A::ACCESS,
     }
   }

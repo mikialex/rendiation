@@ -305,7 +305,7 @@ impl Iterator for TraverseBvhIteratorCpu<'_> {
         self.curr_idx = node.hit_next;
 
         if node.hit_next == node.miss_next {
-          // is leaf
+          //  leaf
           BVH_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
           return Some(curr);
         }

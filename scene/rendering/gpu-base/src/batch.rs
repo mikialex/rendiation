@@ -72,7 +72,7 @@ pub struct DeviceSceneModelRenderBatch {
   /// each sub batch could be and would be drawn by a multi-indirect-draw.
   pub sub_batches: Vec<DeviceSceneModelRenderSubBatch>,
   /// the culler for this batch, before the batch content be consumed/used, the culler
-  /// must be consider by [`DeviceSceneModelRenderBatch::flush_culler`]
+  /// must be considered by [`DeviceSceneModelRenderBatch::flush_culler`]
   ///
   /// The reason we have to keep the culler here because the culler logic is subject to compose
   /// with other cullers for example: [AbstractCullerProviderExt]. It's only possible if the culler

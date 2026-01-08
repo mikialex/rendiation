@@ -83,7 +83,7 @@ impl LightSystem {
       only_alpha_blend_objects: None,
     };
 
-    // this a bit hacky, but it should works
+    // this a bit hacky, but it works
     let mut shadow_id = 0;
     let mut content =
       |proj: Mat4<f32>, world: Mat4<f64>, frame_ctx: &mut FrameCtx, desc: ShadowPassDesc| {

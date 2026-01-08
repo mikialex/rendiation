@@ -93,8 +93,8 @@ impl<B: BVHBounding> FlattenBVH<B> {
     &self.sorted_primitive_index
   }
 
-  /// branch_enter_visitor: return if should continue visit children
-  /// leaf_visitor: return if should continue visit tree(back to parent)
+  /// branch_enter_visitor: return if we should continue visit children
+  /// leaf_visitor: return if we should continue visit tree(back to parent)
   pub fn traverse_branch_leaf_visitor(
     &self,
     mut branch_enter_visitor: impl FnMut(&FlattenBVHNode<B>) -> bool,

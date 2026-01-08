@@ -159,7 +159,7 @@ impl ShaderSizedValueType {
         }) = tail_pad
         {
           let pad_count = pad_size_in_bytes / 4;
-          // not using array here because I do not want hit anther strange layout issue!
+          // not using array here because I do not want hit another strange layout issue!
           for _ in 0..pad_count {
             parameters.push(val(0_u32).handle());
           }

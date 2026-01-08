@@ -218,7 +218,7 @@ impl DeviceReferencePathTracingRenderer {
     assert_eq!(handles, self.shader_handles);
 
     source.set_execution_round_hint(self.max_ray_depth * 5);
-    // this is 2 because when previous ray is reading back, their is no empty space for allocate new ray
+    // this is 2 because when previous ray is reading back, there is no empty space for allocate new ray
     source.max_in_flight_trace_ray = 2;
 
     let sbt = sbt.inner.read();

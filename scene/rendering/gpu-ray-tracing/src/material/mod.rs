@@ -5,7 +5,7 @@ use crate::*;
 mod mr;
 mod sg;
 
-/// for simplicity we not expect shader variant, so skip shader hashing
+/// for simplicity, we not expect shader variant, so skip shader hashing
 pub trait SceneMaterialSurfaceSupport {
   fn build(
     &self,

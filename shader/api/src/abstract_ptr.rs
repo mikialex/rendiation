@@ -67,7 +67,7 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
   }
 }
 
-/// this trait is to mapping the `T` to it's typed shader access object. the access object
+/// this trait is to map the `T` to it's typed shader access object. the access object
 /// has type api to constraint valid access.
 pub trait ShaderAbstractPtrAccess {
   type PtrView: Clone;

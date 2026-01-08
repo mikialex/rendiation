@@ -6,7 +6,7 @@ mod container;
 mod group;
 pub use group::*;
 
-/// We don't not provide none indexed version because the parametric mesh
+/// We don't provide none indexed version because the parametric mesh
 /// will mostly share the vertex, and the index builder will reduce the compute vertex
 /// cost greatly. For none indexed mesh, using conversion utility is enough
 #[derive(Default)]
