@@ -339,6 +339,7 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
 
     builder.fragment(|builder, _| {
       let uv = builder.query::<FragmentUv>();
+      builder.insert_type_tag::<UnlitMaterialTag>();
       if_by(discard_round_corner_fn(uv), || {
         builder.discard();
       });

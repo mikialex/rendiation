@@ -72,6 +72,7 @@ pub use mid::*;
 
 both!(LogicalRenderEntityId, u32);
 
+pub struct UnlitMaterialTag;
 pub struct PbrMRMaterialTag;
 pub struct PbrSGMaterialTag;
 

@@ -82,8 +82,23 @@ impl GraphicsShaderProvider for ToneMap {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let tonemap = self.build(binding);
+
+      // in some case like deferred lighting, we direct write ldr for unlit surface
+      // in this case we are not suppose to override it
+      let should_use_ldr_if_already_exist_ldr = builder
+        .try_query::<ShouldUsePreSetLDRResult>()
+        .unwrap_or(val(false));
+
+      let ldr = builder
+        .try_query::<LDRLightResult>()
+        .unwrap_or(val(Vec3::zero()))
+        .make_local_var();
       let hdr = builder.query::<HDRLightResult>();
-      builder.register::<LDRLightResult>(tonemap.compute_ldr(hdr));
+      if_by(should_use_ldr_if_already_exist_ldr.not(), || {
+        ldr.store(tonemap.compute_ldr(hdr));
+      });
+
+      builder.register::<LDRLightResult>(ldr.load());
     })
   }
 }

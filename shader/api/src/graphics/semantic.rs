@@ -257,3 +257,4 @@ both!(ColorChannel, Vec3<f32>);
 
 only_fragment!(HDRLightResult, Vec3<f32>);
 only_fragment!(LDRLightResult, Vec3<f32>);
+only_fragment!(ShouldUsePreSetLDRResult, bool);

@@ -69,13 +69,24 @@ pub struct FrameGeneralMaterialBufferEncoder<'a> {
 #[derive(Default, Clone)]
 pub struct DeferLightingMaterialRegistry {
   pub material_impl_ids: Vec<TypeId>,
-  pub encoders: Vec<fn(&mut ShaderFragmentBuilderView, &FrameGeneralMaterialChannelIndices)>,
-  pub decoders: Vec<fn(&FrameGeneralMaterialBufferReadValue) -> Box<dyn LightableSurfaceShading>>,
+  pub encoders:
+    Vec<fn(&mut ShaderFragmentBuilderView, &FrameGeneralMaterialChannelIndices) -> bool>,
+  pub decoders: Vec<fn(&FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack>,
+}
+
+pub enum DeferLightingSurfaceReadBack {
+  Lightable(Box<dyn LightableSurfaceShading>),
+  Direct(Node<Vec3<f32>>),
 }
 
 pub trait DeferLightingMaterialBufferReadWrite: 'static {
-  fn encode(builder: &mut ShaderFragmentBuilderView, indices: &FrameGeneralMaterialChannelIndices);
-  fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> Box<dyn LightableSurfaceShading>;
+  /// the implementation should check if the current fragment context is the self material/shading model
+  /// and return the check result. If true, the encode implementation should injected into the shader ctx.
+  fn encode(
+    builder: &mut ShaderFragmentBuilderView,
+    indices: &FrameGeneralMaterialChannelIndices,
+  ) -> bool;
+  fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack;
 }
 
 impl DeferLightingMaterialRegistry {
@@ -100,9 +111,17 @@ impl ShaderPassBuilder for FrameGeneralMaterialBufferEncoder<'_> {}
 impl GraphicsShaderProvider for FrameGeneralMaterialBufferEncoder<'_> {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
+      let mut has_injected = false;
       for (i, m) in self.materials.encoders.iter().enumerate() {
-        m(builder, &self.indices);
-        builder.frag_output[self.indices.material_type_id].store(val(i as u32));
+        if m(builder, &self.indices) {
+          builder.frag_output[self.indices.material_type_id].store(val(i as u32));
+          has_injected = true;
+          break;
+        }
+      }
+
+      if !has_injected {
+        log::error!("material encoder not found");
       }
     })
   }
@@ -143,7 +162,7 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
     let u32_uv = (input_size * uv).floor().into_u32();
     let material_ty_id = ids.load_texel(u32_uv, val(0)).x();
 
-    // discard compute to display the  background
+    // discard compute to display the background
     if_by(material_ty_id.equals(u8::MAX as u32), || {
       builder.discard();
     });
@@ -153,6 +172,23 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
       channel_b: channel_b.sample_zero_level(sampler, uv),
       channel_c: channel_c.sample_zero_level(sampler, uv).xy(),
     };
+
+    let has_none_lightable_surface_ldr = val(false).make_local_var();
+    let none_lightable_surface_ldr = zeroed_val::<Vec3<f32>>().make_local_var();
+
+    let mut switch = switch_by(material_ty_id);
+    for (i, logic) in self.registry.decoders.iter().enumerate() {
+      switch = switch.case(i as u32, || {
+        if let DeferLightingSurfaceReadBack::Direct(ldr) = logic(&values) {
+          none_lightable_surface_ldr.store(ldr);
+          has_none_lightable_surface_ldr.store(true);
+        }
+      })
+    }
+    switch.end_with_default(|| {});
+
+    builder.register::<LDRLightResult>(none_lightable_surface_ldr.load());
+    builder.register::<ShouldUsePreSetLDRResult>(has_none_lightable_surface_ldr.load());
 
     builder.insert_type_tag::<LightableSurfaceTag>();
 
@@ -180,16 +216,15 @@ impl LightableSurfaceShading for MultiMaterialUberDecoder {
     let specular_and_emissive = val(Vec3::<f32>::zero()).make_local_var();
 
     let mut switch = switch_by(self.material_ty_id);
-
     for (i, logic) in self.registry.decoders.iter().enumerate() {
       switch = switch.case(i as u32, || {
-        let shading = logic(&self.data);
-        let r = shading.compute_lighting_by_incident(direct_light, ctx);
-        diffuse.store(r.diffuse);
-        specular_and_emissive.store(r.specular_and_emissive);
+        if let DeferLightingSurfaceReadBack::Lightable(shading) = logic(&self.data) {
+          let r = shading.compute_lighting_by_incident(direct_light, ctx);
+          diffuse.store(r.diffuse);
+          specular_and_emissive.store(r.specular_and_emissive);
+        }
       })
     }
-
     switch.end_with_default(|| {});
 
     ENode::<ShaderLightingResult> {
@@ -207,7 +242,10 @@ pub struct PbrSurfaceEncodeDecode;
 // alpha is not used because in defer mode transparency is not supported
 // and alpha discard has already done in encoder.
 impl DeferLightingMaterialBufferReadWrite for PbrSurfaceEncodeDecode {
-  fn encode(builder: &mut ShaderFragmentBuilderView, indices: &FrameGeneralMaterialChannelIndices) {
+  fn encode(
+    builder: &mut ShaderFragmentBuilderView,
+    indices: &FrameGeneralMaterialChannelIndices,
+  ) -> bool {
     if builder.contains_type_tag::<PbrMRMaterialTag>()
       || builder.contains_type_tag::<PbrSGMaterialTag>()
     {
@@ -224,21 +262,47 @@ impl DeferLightingMaterialBufferReadWrite for PbrSurfaceEncodeDecode {
       builder.frag_output[indices.channel_a].store(albedo_roughness);
       builder.frag_output[indices.channel_b].store(f0_emissive_x);
       builder.frag_output[indices.channel_c].store((emissive.yz(), val(0.), val(1.)).into());
+      true
+    } else {
+      false
     }
   }
 
-  fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> Box<dyn LightableSurfaceShading> {
+  fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack {
     let albedo_roughness = instance.channel_a;
     let f0_emissive_x = instance.channel_b;
     let emissive_yz = instance.channel_c;
 
     let emissive = vec3_node((f0_emissive_x.w(), emissive_yz.x(), emissive_yz.y()));
 
-    Box::new(ENode::<ShaderPhysicalShading> {
+    let surface = Box::new(ENode::<ShaderPhysicalShading> {
       albedo: albedo_roughness.xyz(),
       linear_roughness: albedo_roughness.w(),
       f0: f0_emissive_x.xyz(),
       emissive,
-    })
+    });
+
+    DeferLightingSurfaceReadBack::Lightable(surface)
+  }
+}
+
+pub struct UnlitSurfaceEncodeDecode;
+impl DeferLightingMaterialBufferReadWrite for UnlitSurfaceEncodeDecode {
+  fn encode(
+    builder: &mut ShaderFragmentBuilderView,
+    indices: &FrameGeneralMaterialChannelIndices,
+  ) -> bool {
+    if builder.contains_type_tag::<UnlitMaterialTag>() {
+      let color = builder.query::<DefaultDisplay>();
+
+      builder.frag_output[indices.channel_a].store(color);
+      true
+    } else {
+      false
+    }
+  }
+
+  fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack {
+    DeferLightingSurfaceReadBack::Direct(instance.channel_a.xyz())
   }
 }

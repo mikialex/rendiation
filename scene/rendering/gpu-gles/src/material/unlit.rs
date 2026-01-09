@@ -118,6 +118,7 @@ impl GraphicsShaderProvider for UnlitMaterialGPU<'_> {
       );
 
       builder.register::<DefaultDisplay>(uniform.color * color_alpha_tex);
+      builder.insert_type_tag::<UnlitMaterialTag>();
 
       ShaderAlphaConfig {
         alpha_mode: self.alpha_mode,

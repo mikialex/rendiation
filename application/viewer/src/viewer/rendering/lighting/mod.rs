@@ -160,7 +160,8 @@ impl LightSystem {
       use_cascade_shadowmap_for_directional_lights: false,
       tonemap: ToneMap::new(gpu),
       material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
-        .register_material_impl::<PbrSurfaceEncodeDecode>(),
+        .register_material_impl::<PbrSurfaceEncodeDecode>()
+        .register_material_impl::<UnlitSurfaceEncodeDecode>(),
       opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
     }
   }

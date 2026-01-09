@@ -105,7 +105,15 @@ pub enum SwitchCaseCondition {
   Default,
 }
 
-pub struct SwitchBuilder<T>(PhantomData<T>);
+pub struct SwitchBuilder<T>(PhantomData<T>, std::cell::Cell<bool>);
+
+impl<T> Drop for SwitchBuilder<T> {
+  fn drop(&mut self) {
+    if !self.1.get() {
+      panic!("SwitchBuilder dropped without end_with_default")
+    }
+  }
+}
 
 impl<T: SwitchableShaderType> SwitchBuilder<T> {
   /// None is the default case
@@ -123,12 +131,14 @@ impl<T: SwitchableShaderType> SwitchBuilder<T> {
       g.pop_scope();
       g.end_switch();
     });
+    self.1.set(true);
   }
 }
 
+#[must_use]
 pub fn switch_by<T>(selector: Node<T>) -> SwitchBuilder<T> {
   call_shader_api(|g| g.begin_switch(selector.handle()));
-  SwitchBuilder(Default::default())
+  SwitchBuilder(Default::default(), Default::default())
 }
 
 pub fn return_value<T>(v: Option<Node<T>>) {

@@ -12,7 +12,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for StateIntern {
     let (cx, intern) = cx.use_sharable_plain_state(ValueInterning::default);
 
     cx.use_dual_query::<StandardModelRasterizationOverride>()
-      .dual_query_filter_map(|v| v) // todo, we should use prefilter if state setting is parse(likely)
+      .dual_query_filter_map(|v| v) // todo, we should use prefilter if state setting is sparse(likely)
       .use_dual_query_execute_map(cx, move || {
         let mut intern = intern.make_write_holder();
         move |_, v| intern.compute_intern_id(&v)
