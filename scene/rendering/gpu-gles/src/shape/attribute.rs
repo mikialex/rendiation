@@ -90,14 +90,7 @@ impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
     };
 
     for vertex_info_id in self.vertex.multi_access.access_multi_value(&mesh_id) {
-      if self
-        .vertex
-        .vertex
-        .access_ref(&vertex_info_id.into_raw())
-        .is_none()
-      {
-        return None;
-      }
+      self.vertex.vertex.access_ref(&vertex_info_id.into_raw())?;
     }
 
     let gpu = AttributesMeshGPU {

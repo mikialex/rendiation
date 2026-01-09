@@ -6,9 +6,9 @@ pub fn alloc_global_res_id() -> u64 {
   GLOBAL_ID.fetch_add(1, Ordering::Relaxed)
 }
 
-/// A globally marked item, marked by a globally incremental u64 flag
+/// A globally marked item, marked by a unique u64 flag
 ///
-/// **Any object *created since process started*** must have different id.
+/// **Any object *created since process started*** must return different id.
 pub trait GlobalIdentified {
   fn guid(&self) -> u64;
 }

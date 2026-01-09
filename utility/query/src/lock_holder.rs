@@ -35,21 +35,13 @@ pub trait MakeLockResultHolder<T>: Sized {
 }
 impl<T> MakeLockResultHolder<T> for Arc<RwLock<T>> {
   fn make_read_holder(&self) -> LockReadGuardHolder<T> {
-    let lock = self.read_recursive();
-    let lock: RwLockReadGuard<'static, T> = unsafe { std::mem::transmute(lock) };
-    LockReadGuardHolder {
-      holder: self.clone(),
-      guard: Arc::new(lock),
-    }
+    let guard = self.read_arc_recursive();
+    LockReadGuardHolder { guard }
   }
 
   fn make_write_holder(&self) -> LockWriteGuardHolder<T> {
-    let lock = self.write();
-    let lock: RwLockWriteGuard<'static, T> = unsafe { std::mem::transmute(lock) };
-    LockWriteGuardHolder {
-      holder: self.clone(),
-      guard: lock,
-    }
+    let guard = self.write_arc();
+    LockWriteGuardHolder { guard }
   }
 }
 
@@ -59,19 +51,13 @@ pub trait MakeMutexHolder<T>: Sized {
 
 impl<T> MakeMutexHolder<T> for Arc<parking_lot::Mutex<T>> {
   fn make_mutex_write_holder(&self) -> MutexGuardHolder<T> {
-    let lock = self.lock();
-    let lock: parking_lot::MutexGuard<'static, T> = unsafe { std::mem::transmute(lock) };
-    MutexGuardHolder {
-      _holder: self.clone(),
-      guard: lock,
-    }
+    let guard = self.lock_arc();
+    MutexGuardHolder { guard }
   }
 }
 
-/// Note, the field(drop) order is important
 pub struct MutexGuardHolder<T: 'static> {
-  guard: parking_lot::MutexGuard<'static, T>,
-  _holder: Arc<parking_lot::Mutex<T>>,
+  guard: ArcMutexGuard<RawMutex, T>,
 }
 
 impl<T: 'static> Deref for MutexGuardHolder<T> {
@@ -88,15 +74,13 @@ impl<T: 'static> DerefMut for MutexGuardHolder<T> {
   }
 }
 
-/// Note, the field(drop) order is important
 pub struct LockReadGuardHolder<T: 'static> {
-  guard: Arc<RwLockReadGuard<'static, T>>,
-  holder: Arc<RwLock<T>>,
+  guard: ArcRwLockReadGuard<RawRwLock, T>,
 }
 
 impl<T: 'static> LockReadGuardHolder<T> {
   pub fn get_lock(&self) -> Arc<RwLock<T>> {
-    self.holder.clone()
+    ArcRwLockReadGuard::rwlock(&self.guard).clone()
   }
 }
 
@@ -111,27 +95,22 @@ impl<T: 'static> Deref for LockReadGuardHolder<T> {
 impl<T: 'static> Clone for LockReadGuardHolder<T> {
   fn clone(&self) -> Self {
     Self {
-      guard: self.guard.clone(),
-      holder: self.holder.clone(),
+      guard: ArcRwLockReadGuard::rwlock(&self.guard).read_arc_recursive(),
     }
   }
 }
 
-/// Note, the field(drop) order is important
 pub struct LockWriteGuardHolder<T: 'static> {
-  guard: RwLockWriteGuard<'static, T>,
-  holder: Arc<RwLock<T>>,
+  guard: ArcRwLockWriteGuard<RawRwLock, T>,
 }
 
 impl<T: 'static> LockWriteGuardHolder<T> {
   pub fn get_lock(&self) -> Arc<RwLock<T>> {
-    self.holder.clone()
+    ArcRwLockWriteGuard::rwlock(&self.guard).clone()
   }
   pub fn downgrade_to_read(self) -> LockReadGuardHolder<T> {
-    LockReadGuardHolder {
-      guard: Arc::new(RwLockWriteGuard::downgrade(self.guard)),
-      holder: self.holder,
-    }
+    let guard = ArcRwLockWriteGuard::downgrade(self.guard);
+    LockReadGuardHolder { guard }
   }
 }
 
