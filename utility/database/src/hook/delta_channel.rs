@@ -249,11 +249,11 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
     }
   }
 
-  pub fn compute_query(self) -> DBDelta<T> {
-    if self.changes.is_empty() {
-      return Default::default();
-    }
+  pub fn is_empty(&self) -> bool {
+    self.changes.is_empty()
+  }
 
+  pub fn compute_query(self) -> DBDelta<T> {
     let mut mapping = FastHashMap::with_capacity_and_hasher(self.changes.len(), Default::default());
 
     let changes = self.changes;

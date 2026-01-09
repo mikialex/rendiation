@@ -104,15 +104,17 @@ where
             new_inserted.push((k, UriLoadResult::PresentButNotLoaded));
           }
 
-          let after_schedule_changes = Arc::new(LinearBatchChanges {
-            removed: all_removed,
-            update_or_insert: new_inserted,
-          });
+          if !(all_removed.is_empty() && new_inserted.is_empty()) {
+            let after_schedule_changes = Arc::new(LinearBatchChanges {
+              removed: all_removed,
+              update_or_insert: new_inserted,
+            });
 
-          {
-            let mut r = reconciler.write();
-            for downstream in r.values_mut() {
-              downstream.push(after_schedule_changes.clone());
+            {
+              let mut r = reconciler.write();
+              for downstream in r.values_mut() {
+                downstream.push(after_schedule_changes.clone());
+              }
             }
           }
 

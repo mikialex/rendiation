@@ -105,7 +105,15 @@ pub trait DBHookCxLike: QueryHookCxLike {
     {
       let mut ctx = Context::from_waker(&waker);
       if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
-        let f = spawner.spawn_task(|| changes.compute_query());
+        let spawner = spawner.clone();
+        let f = async move {
+          if changes.is_empty() {
+            Default::default()
+          } else {
+            spawner.spawn_task(|| changes.compute_query()).await
+          }
+        };
+
         let f = pin_box_in_frame(f);
 
         change_collector.notify_change();
@@ -159,7 +167,14 @@ pub trait DBHookCxLike: QueryHookCxLike {
     {
       let mut ctx = Context::from_waker(&waker);
       if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
-        let f = spawner.spawn_task(|| changes.compute_query());
+        let spawner = spawner.clone();
+        let f = async move {
+          if changes.is_empty() {
+            Default::default()
+          } else {
+            spawner.spawn_task(|| changes.compute_query()).await
+          }
+        };
         let f = pin_box_in_frame(f);
 
         change_collector.notify_change();

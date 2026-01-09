@@ -346,7 +346,7 @@ pub fn viewer_texture_input(
         <SceneTexture2dEntityDirectContent as EntityAssociateSemantic>::Entity::entity_id(),
         true,
       )
-      .map(|changes| {
+      .map_spawn_stage_in_thread_data_changes(cx, |changes| {
         let changes = changes
           .collective_filter_map(|v| v.map(|v| (*v).clone()))
           .materialize();
