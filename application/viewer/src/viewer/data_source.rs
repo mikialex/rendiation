@@ -23,9 +23,35 @@ pub struct ViewerDataScheduler {
 
 impl Default for ViewerDataScheduler {
   fn default() -> Self {
-    let texture_uri_backend =
-      InMemoryUriDataSource::<Arc<GPUBufferImage>>::new(alloc_global_res_id());
-    let texture_uri_backend = Box::new(texture_uri_backend) as Box<dyn UriDataSourceDyn<_>>;
+    #[cfg(not(target_family = "wasm"))]
+    let texture_uri_backend = {
+      let exe_path = std::env::current_exe().unwrap();
+      let root = exe_path.parent().unwrap().join("temp_textures/");
+      if root.is_dir() {
+        std::fs::remove_dir_all(&root).unwrap(); // clean up old, if last run not exist normally
+      }
+
+      let texture_uri_backend = URIDiskSyncSource::<Arc<GPUBufferImage>>::new(
+        root,
+        |image| {
+          // consider do encoding png for common fmt?
+          rmp_serde::to_vec(image.as_ref()).unwrap()
+        },
+        |bytes| {
+          let image: GPUBufferImage = rmp_serde::from_slice(bytes).unwrap();
+          Arc::new(image)
+        },
+      );
+      Box::new(texture_uri_backend) as Box<dyn UriDataSourceDyn<_>>
+    };
+
+    #[cfg(target_family = "wasm")]
+    let texture_uri_backend = {
+      let texture_uri_backend =
+        InMemoryUriDataSource::<Arc<GPUBufferImage>>::new(alloc_global_res_id());
+      Box::new(texture_uri_backend) as Box<dyn UriDataSourceDyn<_>>
+    };
+
     let texture_uri_backend = Arc::new(RwLock::new(texture_uri_backend));
 
     let scheduler = NoScheduleScheduler::default();

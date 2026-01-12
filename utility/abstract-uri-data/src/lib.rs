@@ -135,41 +135,44 @@ impl<T: 'static + Send + Sync + Clone> UriDataSource<T> for InMemoryUriDataSourc
   }
 }
 
-pub struct URIDiskSyncSource {
+pub struct URIDiskSyncSource<T> {
   file_root: PathBuf,
   file_increase_start_id: u32,
+  data_into_bytes: fn(&T) -> Vec<u8>,
+  bytes_into_data: fn(&[u8]) -> T,
 }
 
-impl URIDiskSyncSource {
-  pub fn new(file_root: impl Into<PathBuf>) -> Self {
+impl<T> URIDiskSyncSource<T> {
+  pub fn new(
+    file_root: impl Into<PathBuf>,
+    data_into_bytes: fn(&T) -> Vec<u8>,
+    bytes_into_data: fn(&[u8]) -> T,
+  ) -> Self {
     let file_root: PathBuf = file_root.into();
-    assert!(file_root.is_dir(), "must be a directory");
-
-    let dir = file_root.read_dir().unwrap();
-    assert_eq!(dir.count(), 0, "must be an empty directory");
+    std::fs::create_dir(&file_root).unwrap();
 
     Self {
-      file_root: file_root.into(),
+      file_root,
       file_increase_start_id: 0,
+      data_into_bytes,
+      bytes_into_data,
     }
   }
 }
 
-impl Drop for URIDiskSyncSource {
+impl<T> Drop for URIDiskSyncSource<T> {
   fn drop(&mut self) {
+    log::info!(
+      "drop URIDiskSyncSource, cleanup {}",
+      self.file_root.display()
+    );
     std::fs::remove_dir_all(&self.file_root).unwrap();
-    std::fs::create_dir(&self.file_root).unwrap();
   }
 }
 
-pub trait ByteConvertibleData {
-  fn into_bytes(self) -> Vec<u8>;
-  fn from_bytes(bytes: &[u8]) -> Self;
-}
-
-impl<T: ByteConvertibleData + Send + Sync + 'static> UriDataSource<T> for URIDiskSyncSource {
+impl<T: Send + Sync + 'static> UriDataSource<T> for URIDiskSyncSource<T> {
   fn create_for_direct_data(&mut self, data: T) -> String {
-    let bytes = data.into_bytes();
+    let bytes = (self.data_into_bytes)(&data);
     let file_path = self
       .file_root
       .join(format!("./{}", self.file_increase_start_id));
@@ -184,7 +187,7 @@ impl<T: ByteConvertibleData + Send + Sync + 'static> UriDataSource<T> for URIDis
     uri: &str,
   ) -> impl Future<Output = Option<T>> + Unpin + Send + Sync + 'static {
     let content = std::fs::read(uri);
-    let result = content.map(|c| T::from_bytes(&c)).ok();
+    let result = content.map(|c| (self.bytes_into_data)(&c)).ok();
     std::future::ready(result)
   }
 

@@ -3607,6 +3607,7 @@ version = "0.0.1"
 dependencies = [
  "facet",
  "fast-hash-collection",
+ "log",
  "serde",
 ]
 
@@ -5498,6 +5499,7 @@ dependencies = [
  "rendiation-webgpu-virtual-typed-combine-buffer",
  "rendiation-wide-line",
  "rfd",
+ "rmp-serde",
  "serde",
  "serde_json",
  "tracing",
