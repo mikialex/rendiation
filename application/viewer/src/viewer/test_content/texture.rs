@@ -43,8 +43,7 @@ pub fn textured_example_tex(
     Vec4::new(channel(r), channel(g), channel(b), 1.)
   });
 
-  let tex = texture_data_source.create_for_direct_data_dyn(Arc::new(tex));
-  let tex = MaybeUriData::Uri(Arc::new(tex.to_string()));
+  let tex = texture_data_source.create_maybe_uri_for_direct_data_dyn(Arc::new(tex));
 
   scene
     .texture_sample_pair_writer()

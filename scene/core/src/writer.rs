@@ -175,8 +175,7 @@ impl SceneWriter {
   ) -> AttributesMeshEntities {
     mesh.write_impl(&mut self.mesh_writer, &mut |data| {
       write_attribute_acc_impl(&data, &mut self.buffer_writer, &mut |data| {
-        let uri = buffer_source.create_for_direct_data_dyn(data);
-        MaybeUriData::Uri(Arc::new(uri.to_string()))
+        buffer_source.create_maybe_uri_for_direct_data_dyn(data)
       })
     })
   }
