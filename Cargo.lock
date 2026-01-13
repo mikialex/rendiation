@@ -4444,7 +4444,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-uri-scheduler"
+name = "rendiation-uri-streaming"
 version = "0.0.1"
 dependencies = [
  "fast-hash-collection",
@@ -5481,7 +5481,7 @@ dependencies = [
  "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-process",
  "rendiation-texture-loader",
- "rendiation-uri-scheduler",
+ "rendiation-uri-streaming",
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-texture-as-buffer",

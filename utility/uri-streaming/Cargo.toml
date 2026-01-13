@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "rendiation-uri-scheduler"
+name = "rendiation-uri-streaming"
 version = "0.0.1"
 
 [dependencies]

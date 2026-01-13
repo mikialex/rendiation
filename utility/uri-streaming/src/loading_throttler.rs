@@ -21,6 +21,14 @@ impl<K: CKey, V, URI: Clone> LoadingThrottler<K, V, URI> {
     }
   }
 
+  pub fn is_in_request(&self, k: &K) -> bool {
+    self.waitings.contains_key(k) || self.loading_uri.contains_key(k) || self.loaded.contains_key(k)
+  }
+
+  pub fn is_loaded(&self, k: &K) -> bool {
+    self.loaded.contains_key(k)
+  }
+
   pub fn request_load(&mut self, k: K, uri: URI, cost: u64) {
     if self.loading_uri.contains_key(&k) {
       // should we assert this case?
@@ -33,11 +41,14 @@ impl<K: CKey, V, URI: Clone> LoadingThrottler<K, V, URI> {
     self.waitings.insert(k, (uri, cost));
   }
 
-  pub fn cancel_not_dispatched_load(&mut self, k: K) {
-    self.waitings.remove(&k);
-    if let Some((_, should_load, _)) = self.loading_uri.get_mut(&k) {
+  pub fn cancel_not_dispatched_load(&mut self, k: &K) {
+    self.waitings.remove(k);
+    if let Some((_, should_load, _)) = self.loading_uri.get_mut(k) {
+      // note, we not remove the loading set, because even if the future drop triggers cancellation,
+      // the cancellation may not take effect immediately
       *should_load = false
     }
+    self.loaded.remove(k);
   }
 
   pub fn request_load_all_reloaded(&mut self) {

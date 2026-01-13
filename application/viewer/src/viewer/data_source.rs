@@ -1,14 +1,14 @@
 use fast_hash_collection::FastHashSet;
-use rendiation_uri_scheduler::*;
+use rendiation_uri_streaming::*;
 
 use crate::*;
 
 pub type ViewerTextureDataSource = dyn UriDataSourceDyn<Arc<GPUBufferImage>>;
 pub type ViewerMeshDataSource = dyn UriDataSourceDyn<Arc<Vec<u8>>>;
 
-type TextureScheduler = NoScheduleScheduler<u32, Arc<GPUBufferImage>, Arc<String>>;
+type TextureScheduler = NoControlStreaming<u32, Arc<GPUBufferImage>, Arc<String>>;
 type MeshScheduler =
-  NoScheduleScheduler<RawEntityHandle, AttributesMeshWithVertexRelationInfo, AttributesMeshWithUri>;
+  NoControlStreaming<RawEntityHandle, AttributesMeshWithVertexRelationInfo, AttributesMeshWithUri>;
 
 pub struct ViewerDataScheduler {
   pub texture_uri_backend: Arc<RwLock<Box<ViewerTextureDataSource>>>,
@@ -50,14 +50,14 @@ impl Default for ViewerDataScheduler {
 
     let texture_uri_backend = Arc::new(RwLock::new(texture_uri_backend));
 
-    let scheduler = NoScheduleScheduler::default();
+    let scheduler = NoControlStreaming::default();
     let texture = Arc::new(RwLock::new(scheduler));
 
     let mesh_buffer_uri_backend = InMemoryUriDataSource::<Arc<Vec<u8>>>::new(alloc_global_res_id());
     let mesh_buffer_uri_backend = Box::new(mesh_buffer_uri_backend) as Box<dyn UriDataSourceDyn<_>>;
     let mesh_buffer_uri_backend = Arc::new(RwLock::new(mesh_buffer_uri_backend));
 
-    let scheduler = NoScheduleScheduler::default();
+    let scheduler = NoControlStreaming::default();
     let mesh = Arc::new(RwLock::new(scheduler));
 
     Self {
@@ -322,7 +322,7 @@ pub fn attribute_mesh_input(cx: &mut impl DBHookCxLike) -> UseResult<MeshInput> 
 
 struct MeshInputIter(AttributesMeshReader, BoxedDynQuery<RawEntityHandle, ()>);
 
-impl SchedulerReInitIteratorProvider for MeshInputIter {
+impl LivingDataReInitIteratorProvider for MeshInputIter {
   type Item = (RawEntityHandle, AttributesMeshWithVertexRelationInfo);
 
   fn create_iter(&self) -> Box<dyn Iterator<Item = Self::Item> + '_> {
@@ -343,7 +343,7 @@ pub fn viewer_texture_input(
   cx: &mut QueryGPUHookCx<'_>,
 ) -> UseResult<Arc<LinearBatchChanges<u32, UriLoadResult<Arc<GPUBufferImage>>>>> {
   struct TextureIter(DBViewUnchecked<TextureDirectContentType>);
-  impl SchedulerReInitIteratorProvider for TextureIter {
+  impl LivingDataReInitIteratorProvider for TextureIter {
     type Item = (u32, Arc<GPUBufferImage>);
 
     fn create_iter(&self) -> Box<dyn Iterator<Item = Self::Item> + '_> {

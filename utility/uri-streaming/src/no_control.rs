@@ -1,14 +1,14 @@
 use crate::*;
 
 /// the basic implementation is load what your request to load
-pub struct NoScheduleScheduler<K: CKey, V, URI> {
-  pub futures: MappedFutures<K, LoadFuture<V>>,
-  pub loading_uri: FastHashMap<K, URI>,
-  pub loaded: FastHashMap<K, URI>,
-  pub request_reload: bool,
+pub struct NoControlStreaming<K: CKey, V, URI> {
+  futures: MappedFutures<K, LoadFuture<V>>,
+  loading_uri: FastHashMap<K, URI>,
+  loaded: FastHashMap<K, URI>,
+  request_reload: bool,
 }
 
-impl<K: CKey, V, URI> Default for NoScheduleScheduler<K, V, URI> {
+impl<K: CKey, V, URI> Default for NoControlStreaming<K, V, URI> {
   fn default() -> Self {
     Self {
       futures: MappedFutures::new(),
@@ -19,8 +19,8 @@ impl<K: CKey, V, URI> Default for NoScheduleScheduler<K, V, URI> {
   }
 }
 
-impl<K: CKey, V, URI: Clone + Send + Sync> AbstractResourceScheduler
-  for NoScheduleScheduler<K, V, URI>
+impl<K: CKey, V, URI: Clone + Send + Sync> AbstractResourceStreaming
+  for NoControlStreaming<K, V, URI>
 {
   type Data = V;
   type Key = K;
@@ -46,7 +46,7 @@ impl<K: CKey, V, URI: Clone + Send + Sync> AbstractResourceScheduler
     self.request_reload = true;
   }
 
-  fn poll_schedule(
+  fn poll_loading(
     &mut self,
     cx: &mut Context,
     loader: &mut LoaderFunction<URI, V>,

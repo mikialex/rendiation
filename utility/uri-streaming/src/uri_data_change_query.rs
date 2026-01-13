@@ -1,13 +1,14 @@
 use crate::*;
 
-pub trait SchedulerReInitIteratorProvider {
+pub trait LivingDataReInitIteratorProvider {
   type Item;
   fn create_iter(&self) -> Box<dyn Iterator<Item = Self::Item> + '_>;
 }
 
 pub struct DataChangesAndLivingReInit<K, VLiving, VUrl> {
   pub changes: Arc<LinearBatchChanges<K, MaybeUriData<VLiving, VUrl>>>,
-  pub iter_living_full: Arc<dyn SchedulerReInitIteratorProvider<Item = (K, VLiving)> + Send + Sync>,
+  pub iter_living_full:
+    Arc<dyn LivingDataReInitIteratorProvider<Item = (K, VLiving)> + Send + Sync>,
 }
 
 impl<K, VLiving, VUrl> Clone for DataChangesAndLivingReInit<K, VLiving, VUrl> {
@@ -23,7 +24,7 @@ type Reconciler<K, V> = FastHashMap<u32, Vec<Arc<LinearBatchChanges<K, UriLoadRe
 type SharedReconciler<K, V> = Arc<RwLock<Reconciler<K, V>>>;
 
 // todo, optimize impl
-/// the scheduler should not be shared between different use_maybe_uri_data_changes
+/// the streaming impl should not be shared between different use_maybe_uri_data_changes
 /// the Arc is only to support it access in thread
 pub fn use_uri_data_changes<P, Cx: QueryHookCxLike>(
   cx: &mut Cx,
@@ -31,11 +32,11 @@ pub fn use_uri_data_changes<P, Cx: QueryHookCxLike>(
     Cx,
     Result = DataChangesAndLivingReInit<P::Key, P::Data, P::UriLike>,
   >,
-  scheduler: &Arc<RwLock<P>>,
+  streaming_controller: &Arc<RwLock<P>>,
   loader_creator: LoaderCreator<P::UriLike, P::Data>,
 ) -> UseResult<Arc<LinearBatchChanges<P::Key, UriLoadResult<P::Data>>>>
 where
-  P: AbstractResourceScheduler + 'static,
+  P: AbstractResourceStreaming + 'static,
   P::Data: Send + Sync + 'static + Clone,
   P::UriLike: Send + Sync + 'static + Clone,
   P::Key: CKey,
@@ -48,7 +49,7 @@ where
     &|cx| {
       let changes = source.use_logic(cx);
 
-      let scheduler = scheduler.clone();
+      let streaming_controller = streaming_controller.clone();
       let waker = cx.waker().clone();
 
       let (cx, reconciler) =
@@ -60,13 +61,13 @@ where
         cx,
         |changes| changes.changes.has_change(),
         move |changes| {
-          let mut scheduler = scheduler.write();
+          let mut streaming_controller = streaming_controller.write();
 
           let mut all_removed = Vec::new();
           // do cancelling first
           // the futures should not resolved in poll next call
           for removed in changes.changes.iter_removed() {
-            scheduler.notify_remove_resource(&removed);
+            streaming_controller.notify_remove_resource(&removed);
             all_removed.push(removed);
           }
 
@@ -79,7 +80,7 @@ where
           for (k, v) in changes.changes.iter_update_or_insert() {
             match v {
               MaybeUriData::Uri(uri) => {
-                scheduler.notify_use_resource(&k, &uri, &mut loader);
+                streaming_controller.notify_use_resource(&k, &uri, &mut loader);
                 new_loading.insert(k.clone());
               }
               MaybeUriData::Living(v) => {
@@ -89,7 +90,7 @@ where
           }
 
           let mut ctx = Context::from_waker(&waker);
-          let loaded = scheduler.poll_schedule(&mut ctx, &mut loader);
+          let loaded = streaming_controller.poll_loading(&mut ctx, &mut loader);
 
           for (k, v) in loaded.iter_update_or_insert() {
             new_loading.remove(&k);
@@ -105,7 +106,7 @@ where
           }
 
           if !(all_removed.is_empty() && new_inserted.is_empty()) {
-            let after_schedule_changes = Arc::new(LinearBatchChanges {
+            let after_streaming_changes = Arc::new(LinearBatchChanges {
               removed: all_removed,
               update_or_insert: new_inserted,
             });
@@ -113,7 +114,7 @@ where
             {
               let mut r = reconciler.write();
               for downstream in r.values_mut() {
-                downstream.push(after_schedule_changes.clone());
+                downstream.push(after_streaming_changes.clone());
               }
             }
           }
@@ -132,7 +133,7 @@ where
   let (cx, cleanup) =
     cx.use_plain_state_default_cloned::<Arc<RwLock<Option<Cleanup<P::Key, P::Data>>>>>();
 
-  let scheduler = scheduler.clone();
+  let streaming_controller = streaming_controller.clone();
   all_downstream_changes.map_spawn_stage_in_thread(
     cx,
     move |(reconciler, _)| {
@@ -150,7 +151,7 @@ where
     move |(reconciler, init_iter)| {
       let mut reconciler = reconciler.write();
       let messages = reconciler.entry(consumer_id).or_insert_with(|| {
-        scheduler.write().reload_all_loaded();
+        streaming_controller.write().reload_all_loaded();
         let init_iter = init_iter.create_iter();
         let init_message = Arc::new(LinearBatchChanges {
           removed: Default::default(),
