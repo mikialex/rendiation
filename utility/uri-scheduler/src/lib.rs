@@ -12,11 +12,23 @@ use query::*;
 use query_hook::*;
 pub use rendiation_abstract_uri_data::*;
 
+mod scheduler;
+pub use scheduler::*;
+
 mod no_scheduler;
 pub use no_scheduler::*;
 
 mod uri_data_change_query;
 pub use uri_data_change_query::*;
+
+pub struct ResourceMemoryCost {
+  pub retain: u64,
+  pub loading_peak: u64,
+}
+
+pub trait ProvideMemoryCostInfo {
+  fn memory_cost(&self) -> ResourceMemoryCost;
+}
 
 /// this trait is to reserve the design space for virtualization related scheduling logic
 pub trait AbstractResourceScheduler: Send + Sync {
