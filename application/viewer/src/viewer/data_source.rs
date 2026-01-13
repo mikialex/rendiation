@@ -6,19 +6,15 @@ use crate::*;
 pub type ViewerTextureDataSource = dyn UriDataSourceDyn<Arc<GPUBufferImage>>;
 pub type ViewerMeshDataSource = dyn UriDataSourceDyn<Arc<Vec<u8>>>;
 
+type TextureScheduler = NoScheduleScheduler<u32, Arc<GPUBufferImage>, Arc<String>>;
+type MeshScheduler =
+  NoScheduleScheduler<RawEntityHandle, AttributesMeshWithVertexRelationInfo, AttributesMeshWithUri>;
+
 pub struct ViewerDataScheduler {
   pub texture_uri_backend: Arc<RwLock<Box<ViewerTextureDataSource>>>,
-  texture: Arc<RwLock<NoScheduleScheduler<u32, Arc<GPUBufferImage>, Arc<String>>>>,
+  texture: Arc<RwLock<TextureScheduler>>,
   pub mesh_uri_backend: Arc<RwLock<Box<ViewerMeshDataSource>>>,
-  mesh: Arc<
-    RwLock<
-      NoScheduleScheduler<
-        RawEntityHandle,
-        AttributesMeshWithVertexRelationInfo,
-        AttributesMeshWithUri,
-      >,
-    >,
-  >,
+  mesh: Arc<RwLock<MeshScheduler>>,
 }
 
 impl Default for ViewerDataScheduler {

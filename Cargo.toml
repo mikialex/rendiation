@@ -44,7 +44,6 @@ members = [
   "content/lighting/gpu-system/shadow-map",
   "content/lighting/gpu-system/lighting-system",
   "content/space",
-  "content/virtualization",
   "shader/api",
   "shader/derive",
   "shader/backends/naga",

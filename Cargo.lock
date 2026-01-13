@@ -3674,17 +3674,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-content-virtualization"
-version = "0.1.0"
-dependencies = [
- "fast-hash-collection",
- "futures",
- "query",
- "rendiation-shader-api",
- "rendiation-webgpu",
-]
-
-[[package]]
 name = "rendiation-controller"
 version = "0.1.0"
 dependencies = [

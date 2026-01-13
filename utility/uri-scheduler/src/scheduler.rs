@@ -6,7 +6,7 @@ pub struct ControlledMemoryScheduler<K: CKey, V, URI> {
   pub loaded: FastHashMap<K, URI>,
   pub request_reload: bool,
   waker: Option<std::task::Waker>,
-  full_resource_scope: FastHashMap<K, (URI, ResourceMemoryCost)>,
+  full_resource_scope: FastHashMap<K, (URI, u64)>,
   retain_cost_limitation: u64,
   schedule_action: Option<ScheduleAction<K>>,
 }
@@ -23,12 +23,10 @@ impl<K: CKey, V, URI> ControlledMemoryScheduler<K, V, URI> {
     let mut new_load_request = Vec::new();
 
     let mut budget = self.retain_cost_limitation;
-    // let mut fit_count = 0;
     for k in iter_from_most_important_to_least {
       if let Some((_, cost)) = self.full_resource_scope.get(&k) {
-        if budget >= cost.retain {
-          //   fit_count += 1;
-          budget -= cost.retain;
+        if budget >= *cost {
+          budget -= cost;
 
           // add new loaded items
           if !self.loaded.contains_key(&k) && !self.loading_uri.contains_key(&k) {
@@ -77,9 +75,10 @@ impl<K: CKey, V, URI: Clone + Send + Sync + ProvideMemoryCostInfo> AbstractResou
     uri: &Self::UriLike,
     _loader: &mut LoaderFunction<Self::UriLike, Self::Data>,
   ) {
+    let cost = uri.memory_cost();
     self
       .full_resource_scope
-      .insert(key.clone(), (uri.clone(), uri.memory_cost()));
+      .insert(key.clone(), (uri.clone(), cost.retain));
   }
 
   fn notify_remove_resource(&mut self, key: &Self::Key) {
@@ -112,6 +111,15 @@ impl<K: CKey, V, URI: Clone + Send + Sync + ProvideMemoryCostInfo> AbstractResou
       }
 
       removes = action.remove_loaded;
+    }
+
+    if self.request_reload {
+      self.request_reload = false;
+      for (key, uri) in &self.loaded {
+        let future = loader(uri);
+        self.futures.replace(key.clone(), future);
+        self.loading_uri.insert(key.clone(), (uri.clone(), true));
+      }
     }
 
     let mut load_list = Vec::new();

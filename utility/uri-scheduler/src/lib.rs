@@ -21,6 +21,9 @@ pub use no_scheduler::*;
 mod uri_data_change_query;
 pub use uri_data_change_query::*;
 
+mod loading_throttler;
+pub use loading_throttler::*;
+
 pub struct ResourceMemoryCost {
   pub retain: u64,
   pub loading_peak: u64,
