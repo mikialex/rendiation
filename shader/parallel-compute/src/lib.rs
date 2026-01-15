@@ -5,7 +5,7 @@ use std::hash::Hasher;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use derivative::Derivative;
+use derive_where::*;
 use dyn_clone::DynClone;
 use hook::*;
 use rendiation_shader_api::*;

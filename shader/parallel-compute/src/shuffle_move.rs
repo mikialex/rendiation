@@ -1,7 +1,6 @@
 use crate::*;
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive_where(Clone)]
 pub struct ShuffleWrite<T: Std430> {
   pub input: Box<dyn ComputeComponent<(Node<T>, Node<u32>, Node<bool>)>>,
   /// shuffle access require reading any position, so we need fully materialized result here
@@ -59,8 +58,7 @@ where
   }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive_where(Clone)]
 pub struct ShuffleAccess<T: Std430> {
   /// shuffle access require reading any position, so we need fully materialized result here
   pub source: StorageBufferReadonlyDataView<[T]>,

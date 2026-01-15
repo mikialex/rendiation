@@ -20,8 +20,7 @@ impl<T> DeviceInvocation<T> for DeviceInvocationStride<T> {
   }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive_where(Clone)]
 pub struct DeviceParallelComputeStrideRead<T> {
   pub source: Box<dyn ComputeComponent<T>>,
   pub stride: u32,

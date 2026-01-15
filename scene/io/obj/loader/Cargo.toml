@@ -12,7 +12,7 @@ rendiation-mesh-core = { path = "../../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../../core" }
 rendiation-texture-loader = { path = "../../../../content/texture/loader" }
 smallvec = { workspace = true }
-thiserror = "1.0.43"
+thiserror = { workspace = true }
 tobj = "4.0.0"
 
 [lints]

@@ -15,7 +15,7 @@ pub fn derive_vertex_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
       let attr = f
         .attrs
         .iter()
-        .find(|a| a.path.is_ident("semantic"))
+        .find(|a| a.path().is_ident("semantic"))
         .expect("require semantic attribute");
       let token = attr.parse_args::<syn::Type>().expect("expect type");
 

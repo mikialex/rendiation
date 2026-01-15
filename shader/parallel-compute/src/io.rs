@@ -142,8 +142,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> ComputeComponentIO<T> for DeviceMater
   }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive_where(Clone)]
 pub struct WriteIntoStorageWriter<T: Std430> {
   pub inner: Box<dyn ComputeComponent<Node<T>>>,
   pub result_write_idx: Arc<dyn Fn(Node<u32>) -> (Node<u32>, Node<bool>)>,

@@ -4,10 +4,10 @@ name = "fast-hash-collection"
 version = "0.0.1"
 
 [dependencies]
-rustc-hash = "1.1.0"
+rustc-hash = "2.1.0"
 # we have to use maps from this because they remove raw entry api
 # see https://github.com/rust-lang/rust/issues/56167
-hashbrown = { version = "0.15.2", features = ["serde"] }
+hashbrown = { version = "0.16", features = ["serde"] }
 
 [lints]
 workspace = true

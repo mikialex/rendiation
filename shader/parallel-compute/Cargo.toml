@@ -12,7 +12,7 @@ rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 hook = { path = "../../utility/hook" }
 num-traits = "0.2"
 dyn-clone = { workspace = true }
-derivative = { workspace = true }
+derive-where = { workspace = true }
 futures = { workspace = true }
 pollster = { workspace = true }
 

@@ -8,18 +8,10 @@ use fast_hash_collection::FastHashMap;
 use ordered_float::OrderedFloat;
 
 // todo, consider move this to another crate
+#[derive(Default)]
 pub struct BasicScheduler {
   weights: WeightOrdered<u32, OrderedFloat<f32>>,
   feedback_query: Option<Pin<Box<dyn Future<Output = ScheduleItemUseCountFeedBack>>>>,
-}
-
-impl Default for BasicScheduler {
-  fn default() -> Self {
-    Self {
-      weights: Default::default(),
-      feedback_query: Default::default(),
-    }
-  }
 }
 
 pub struct ScheduleItemUseCountFeedBack {
@@ -63,6 +55,7 @@ impl BasicScheduler {
   }
 }
 
+#[allow(clippy::disallowed_types)]
 use std::collections::BTreeSet;
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
@@ -72,6 +65,7 @@ struct WeightedKey<K, Weight> {
 }
 
 struct WeightOrdered<K, Weight> {
+  #[allow(clippy::disallowed_types)]
   tree: BTreeSet<WeightedKey<K, Weight>>,
   weight_map: FastHashMap<K, Weight>,
 }

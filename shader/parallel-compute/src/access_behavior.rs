@@ -16,8 +16,7 @@ pub trait InvocationAccessBehavior<T>: Clone {
   }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive_where(Clone)]
 pub enum OutBoundsBehavior<T> {
   ClampBorder,
   Const(Arc<dyn Fn() -> Node<T>>, TypeId),
@@ -47,9 +46,7 @@ impl<T> OutBoundsBehavior<T> {
   }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
-#[derivative(Hash(bound = ""))]
+#[derive_where(Clone, Hash)]
 pub struct DeviceInvocationOffset<T> {
   pub offset: i32,
   pub ob: OutBoundsBehavior<T>,
@@ -112,8 +109,7 @@ where
   }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = "F: Clone"))]
+#[derive_where(Clone; F)]
 pub struct DeviceParallelComputeCustomInvocationBehavior<T, F> {
   pub source: Box<dyn ComputeComponent<Node<T>>>,
   pub behavior: F,

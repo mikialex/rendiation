@@ -20,7 +20,6 @@ rendiation-texture-core = { path = "../../content/texture/core" }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 parking_lot = { workspace = true }
 dyn-clone = { workspace = true }
-derivative = { workspace = true }
 futures = { workspace = true }
 bytemuck = { workspace = true }
 

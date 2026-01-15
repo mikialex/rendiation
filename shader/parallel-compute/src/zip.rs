@@ -17,8 +17,7 @@ impl<A, B> DeviceInvocation<(A, B)> for DeviceInvocationZip<A, B> {
   }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive_where(Clone)]
 pub struct DeviceComputeZip<A, B> {
   pub source_a: Box<dyn ComputeComponent<A>>,
   pub source_b: Box<dyn ComputeComponent<B>>,

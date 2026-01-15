@@ -1,27 +1,27 @@
-use proc_macro2::{Ident, TokenStream, TokenTree};
+use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
   parse::Parser, AttrStyle, Attribute, Data, DeriveInput, Field, Fields, Type, Visibility,
 };
 
-fn get_ident_from_stream(tokens: TokenStream) -> Option<Ident> {
-  match tokens.into_iter().next() {
-    Some(TokenTree::Group(group)) => get_ident_from_stream(group.stream()),
-    Some(TokenTree::Ident(ident)) => Some(ident),
-    _ => None,
-  }
-}
-
 /// get a simple #[foo(bar)] attribute, returning "bar"
 fn get_simple_attr(attributes: &[Attribute], attr_name: &str) -> Option<Ident> {
   for attr in attributes {
-    if let (AttrStyle::Outer, Some(outer_ident), Some(inner_ident)) = (
-      &attr.style,
-      attr.path.get_ident(),
-      get_ident_from_stream(attr.tokens.clone()),
-    ) {
-      if *outer_ident == attr_name {
-        return Some(inner_ident);
+    if let (AttrStyle::Outer, Some(outer_ident)) = (&attr.style, attr.path().get_ident()) {
+      let mut inner = None;
+      attr
+        .parse_nested_meta(|meta| {
+          if let Some(i) = meta.path.get_ident() {
+            inner = Some(i.clone());
+          }
+          Ok(())
+        })
+        .ok();
+
+      if let Some(inner) = inner {
+        if *outer_ident == attr_name {
+          return Some(inner);
+        }
       }
     }
   }

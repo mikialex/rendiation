@@ -128,23 +128,6 @@ impl<K: CKey, V: CValue> Query for FastHashMap<K, V> {
   }
 }
 
-impl<K: CKey, V: CValue> Query for dashmap::DashMap<K, V, FastHasherBuilder> {
-  type Key = K;
-  type Value = V;
-
-  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
-    self.iter().map(|v| (v.key().clone(), v.value().clone()))
-  }
-
-  fn access(&self, key: &K) -> Option<V> {
-    self.get(key)?.value().clone().into()
-  }
-
-  fn has_item_hint(&self) -> bool {
-    !self.is_empty()
-  }
-}
-
 impl<V: CValue> Query for Arena<V> {
   type Key = u32;
   type Value = V;

@@ -1,7 +1,6 @@
 use crate::*;
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive_where(Clone)]
 pub struct DeviceMapCompute<I, O> {
   pub mapper: Arc<dyn Fn(I) -> O>,
   pub mapper_extra_hasher: Arc<dyn ShaderHashProvider>,

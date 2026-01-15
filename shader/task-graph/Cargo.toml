@@ -13,7 +13,6 @@ rendiation-device-parallel-compute = { path = "../parallel-compute" }
 rendiation-webgpu-virtual-typed-combine-buffer = { path = "../../platform/graphics/webgpu-virtual-typed-combine-buffer" }
 parking_lot = { workspace = true }
 dyn-clone = { workspace = true }
-derivative = { workspace = true }
 futures = { workspace = true }
 bytemuck = { workspace = true }
 anymap = { path = "../../utility/anymap" }

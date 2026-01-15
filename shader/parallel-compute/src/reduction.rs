@@ -1,7 +1,6 @@
 use crate::*;
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive_where(Clone)]
 pub struct WorkGroupReductionCompute<T, S> {
   pub workgroup_size: u32,
   pub reduction_logic: PhantomData<S>,

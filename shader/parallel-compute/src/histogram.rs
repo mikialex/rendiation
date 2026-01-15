@@ -7,8 +7,7 @@ pub trait DeviceHistogramMappingLogic {
   fn map(data: Node<Self::Data>) -> Node<u32>;
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive_where(Clone)]
 pub struct WorkGroupHistogramCompute<T, S> {
   pub workgroup_size: u32,
   pub histogram_logic: PhantomData<S>,
@@ -127,8 +126,7 @@ where
   }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive_where(Clone)]
 pub struct DeviceHistogramCompute<T, S> {
   pub workgroup_level: WorkGroupHistogramCompute<T, S>,
   pub result: StorageBufferDataView<[DeviceAtomic<u32>]>,
