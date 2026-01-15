@@ -6,7 +6,8 @@ First install necessary dependencies
 
 ```bash
 rustup target add wasm32-unknown-unknown
-cargo install wasm-bindgen-cli
+# this version must match wasm-bindgen version 
+cargo install -f wasm-bindgen-cli --version 0.2.108
 cargo install static-web-server
 ```
 
