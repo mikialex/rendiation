@@ -14,8 +14,11 @@ struct SwapAction<K> {
 }
 
 impl<K: CKey, V, URI: Clone> ControlledMemoryStreaming<K, V, URI> {
-  /// how iterator is computed is not our business.
-  pub fn decide_swap(&mut self, iter_from_most_important_to_least: impl Iterator<Item = K>) {
+  /// how iterator is computed is not our business. it's the scheduling decision
+  pub fn compute_swap_action(
+    &mut self,
+    iter_from_most_important_to_least: impl Iterator<Item = K>,
+  ) {
     let mut remove_loaded = Vec::new();
     let mut new_load_request = Vec::new();
 

@@ -168,6 +168,7 @@ impl SceneWriter {
     mesh.write(&mut self.mesh_writer, &mut self.buffer_writer)
   }
 
+  /// this writer will ignore the data sharing between the attributes buffer
   pub fn write_attribute_mesh_data_uri(
     &mut self,
     mesh: AttributesMesh,

@@ -11,6 +11,7 @@ impl TerminalTask for ExportGltfTerminalTask {
 pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
   let scene_reader = use_scene_reader(cx);
 
+  let (cx, create_mesh_uri_in_loading) = cx.use_plain_state::<bool>();
   let (cx, to_unload) = cx.use_plain_state::<Vec<GltfLoadResult>>();
 
   if let ViewerCxStage::EventHandling {
@@ -37,6 +38,7 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
 
   let (cx, GltfViewerIO(rev)) = cx.use_state_init(|cx| {
     let (sender, rev) = futures::channel::mpsc::unbounded::<GltfLoadResult>();
+    let create_mesh_uri_in_loading = *create_mesh_uri_in_loading;
 
     cx.terminal
       .register_command(CMD_LOAD_GLTF, move |ctx, _parameters, tcx| {
@@ -44,6 +46,8 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
         let load_target_scene = ctx.scene.scene;
         let tcx = tcx.clone();
         let sender = sender.clone();
+        access_cx!(ctx.dyn_cx, data_scheduler, ViewerDataScheduler);
+        let mesh_buffer_backend = data_scheduler.mesh_uri_backend.clone();
 
         async move {
           use rfd::AsyncFileDialog;
@@ -76,10 +80,12 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
               .spawn_main_thread(move || {
                 let _ = trace_span!("write gltf into scene").entered();
                 let mut writer = SceneWriter::from_global(load_target_scene);
+                let mut buffer_backend = mesh_buffer_backend.write();
 
                 let load_result = write_gltf_at_node(
                   load_target_node,
                   &mut writer,
+                  create_mesh_uri_in_loading.then_some(buffer_backend.as_mut()),
                   gltf
                 );
                 if !load_result.used_but_not_supported_extensions.is_empty() {
@@ -139,6 +145,8 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
             .buffered_requests
             .push_back(CMD_LOAD_GLTF.into())
         }
+
+        ui.checkbox(create_mesh_uri_in_loading, "create_mesh_uri_in_loading");
 
         let mut to_unload_path = None;
         for result in current_loaded.iter() {

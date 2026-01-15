@@ -1,5 +1,8 @@
 use core::num::NonZeroU64;
-use std::path::{Path, PathBuf};
+use std::{
+  path::{Path, PathBuf},
+  sync::Arc,
+};
 
 use database::*;
 use fast_hash_collection::*;
@@ -29,9 +32,10 @@ pub fn load_gltf(
   path: impl AsRef<Path>,
   target: EntityHandle<SceneNodeEntity>,
   writer: &mut SceneWriter,
+  mesh_buffer_uri_backend: Option<&mut dyn UriDataSourceDyn<Arc<Vec<u8>>>>,
 ) -> Result<GltfLoadResult, GLTFLoaderError> {
   let parse_result = parse_gltf(path)?;
-  let result = write_gltf_at_node(target, writer, parse_result);
+  let result = write_gltf_at_node(target, writer, mesh_buffer_uri_backend, parse_result);
   Ok(result)
 }
 
@@ -84,6 +88,7 @@ pub struct GltfParseResult {
 pub fn write_gltf_at_node(
   target: EntityHandle<SceneNodeEntity>,
   writer: &mut SceneWriter,
+  mesh_buffer_uri_backend: Option<&mut dyn UriDataSourceDyn<Arc<Vec<u8>>>>,
   gltf: GltfParseResult,
 ) -> GltfLoadResult {
   let GltfParseResult {
@@ -95,6 +100,7 @@ pub fn write_gltf_at_node(
 
   let mut ctx = Context {
     images,
+    mesh_buffer_uri_backend,
     attributes: buffers
       .drain(..)
       .map(|buffer| ExternalRefPtr::new(buffer.0))
@@ -160,8 +166,9 @@ pub fn write_gltf_at_node(
   ctx.result
 }
 
-struct Context<'a> {
+struct Context<'a, 'b> {
   io: &'a mut SceneWriter,
+  mesh_buffer_uri_backend: Option<&'b mut dyn UriDataSourceDyn<Arc<Vec<u8>>>>,
   images: Vec<gltf::image::Data>,
   attributes: Vec<ExternalRefPtr<Vec<u8>>>,
   result: GltfLoadResult,
@@ -359,7 +366,14 @@ fn build_model(
     indices,
     mode,
   };
-  let mesh = ctx.io.write_attribute_mesh(mesh);
+
+  let mesh = if let Some(mesh_buffer_backend) = &mut ctx.mesh_buffer_uri_backend {
+    ctx
+      .io
+      .write_attribute_mesh_data_uri(mesh, *mesh_buffer_backend)
+  } else {
+    ctx.io.write_attribute_mesh(mesh)
+  };
 
   let material = build_material(primitive.material(), ctx);
 

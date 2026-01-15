@@ -1,6 +1,9 @@
 use crate::*;
 
-/// the basic implementation is load what your request to load
+/// a basic implementation that load what your request to load
+///
+/// this implementation can be used as the fallback solution or for testing
+/// and locating streaming related issue
 pub struct NoControlStreaming<K: CKey, V, URI> {
   futures: MappedFutures<K, LoadFuture<V>>,
   loading_uri: FastHashMap<K, URI>,
