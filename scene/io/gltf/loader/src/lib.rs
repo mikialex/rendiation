@@ -8,6 +8,7 @@ use database::*;
 use fast_hash_collection::*;
 use gltf::Node;
 use rendiation_algebra::*;
+use rendiation_geometry::Box3;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 mod convert_utils;
@@ -374,6 +375,12 @@ fn build_model(
   } else {
     ctx.io.write_attribute_mesh(mesh)
   };
+  let bounding = primitive.bounding_box();
+  let bounding = Box3::new3(bounding.min.into(), bounding.max.into());
+  ctx
+    .io
+    .mesh_writer
+    .set_user_defined_bounding(mesh.mesh, bounding);
 
   let material = build_material(primitive.material(), ctx);
 

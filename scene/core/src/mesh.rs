@@ -6,6 +6,28 @@ declare_component!(
   AttributesMeshEntity,
   PrimitiveTopology
 );
+
+#[repr(C)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Facet)]
+pub enum BoundingConfig {
+  /// the implementation will compute the bounding from it's position and index data.
+  ///
+  /// **NOTE, if user using uri mesh, and switched to computed later,
+  ///  the bounding may not be correctly computed.** It's a valid limitation of current implementation.
+  #[default]
+  Computed,
+  /// using this if:
+  /// - the mesh contains skin animation(can not be effectively computed)
+  /// - the mesh is uri based and requires bounding info in advance for data scheduling
+  /// - the bounding has already been precomputed(for example in gltf import)
+  UserDefined(Box3),
+}
+declare_component!(
+  AttributesMeshBoundingConfig,
+  AttributesMeshEntity,
+  BoundingConfig
+);
+
 declare_entity_associated!(AttributeIndexRef, AttributesMeshEntity);
 impl SceneBufferView for AttributeIndexRef {}
 
@@ -35,6 +57,15 @@ impl AttributesMeshEntityFromAttributesMeshWriter {
     self.relation.notify_reserve_changes(size * 3); // assume 3 attributes
     buffer.notify_reserve_changes(size * 3);
     self.mesh.notify_reserve_changes(size);
+  }
+  pub fn set_user_defined_bounding(
+    &mut self,
+    mesh: EntityHandle<AttributesMeshEntity>,
+    bounding: Box3,
+  ) {
+    self
+      .mesh
+      .write::<AttributesMeshBoundingConfig>(mesh, BoundingConfig::UserDefined(bounding));
   }
 }
 
@@ -168,7 +199,8 @@ impl AttributesMeshWriter for AttributesMesh {
 pub fn register_attribute_mesh_data_model() {
   let table = global_database()
     .declare_entity::<AttributesMeshEntity>()
-    .declare_component::<AttributesMeshEntityTopology>();
+    .declare_component::<AttributesMeshEntityTopology>()
+    .declare_component::<AttributesMeshBoundingConfig>();
 
   register_scene_buffer_view::<AttributeIndexRef>(table);
 
@@ -215,20 +247,38 @@ where
 
   /// todo, output UriLoadResult result
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-    (self.0.clone())(cx)
-      .map_changes(|mesh| {
-        if let UriLoadResult::LivingOrLoaded(mesh) = mesh {
-          let mesh = mesh.into_attributes_mesh();
-          let position = mesh.get_position_slice();
-          mesh
-            .create_abstract_mesh_view(position)
-            .primitive_iter()
-            .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
-        } else {
-          Box3::empty()
-        }
+    let user_defined_bounding = cx
+      .use_dual_query::<AttributesMeshBoundingConfig>()
+      .dual_query_filter_map(|c| match c {
+        BoundingConfig::Computed => None,
+        BoundingConfig::UserDefined(aabb) => Some(aabb),
+      });
+
+    let computed = (self.0.clone())(cx)
+      .map(|mesh| {
+        let bounding_config = get_db_view::<AttributesMeshBoundingConfig>();
+        mesh.collective_filter_kv_map(move |k, mesh| {
+          if let UriLoadResult::LivingOrLoaded(mesh) = mesh {
+            if let BoundingConfig::Computed = bounding_config.read_ref(*k).unwrap() {
+              let mesh = mesh.into_attributes_mesh();
+              let position = mesh.get_position_slice();
+              Some(
+                mesh
+                  .create_abstract_mesh_view(position)
+                  .primitive_iter()
+                  .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding())),
+              )
+            } else {
+              None
+            }
+          } else {
+            None
+          }
+        })
       })
-      .use_change_to_dual_query_in_spawn_stage(cx)
+      .use_change_to_dual_query_in_spawn_stage(cx);
+
+    computed.dual_query_select(user_defined_bounding)
   }
 }
 

@@ -60,6 +60,16 @@ pub trait DataChanges: Send + Sync + Clone {
       mapper: f,
     }
   }
+
+  fn collective_filter_kv_map<V>(
+    self,
+    f: impl Fn(&Self::Key, Self::Value) -> Option<V> + Clone + Send + Sync + 'static,
+  ) -> impl DataChanges<Key = Self::Key, Value = V> {
+    DataChangesFilterKVMap {
+      base: self,
+      mapper: f,
+    }
+  }
 }
 
 impl<K: CKey, V: CValue> DataChanges for EmptyQuery<K, V> {
@@ -165,6 +175,35 @@ where
       .base
       .iter_update_or_insert()
       .filter_map(|(k, v)| (self.mapper)(v).map(|v2| (k, v2)))
+  }
+}
+
+#[derive(Clone)]
+struct DataChangesFilterKVMap<T, F> {
+  base: T,
+  mapper: F,
+}
+impl<T, V, F> DataChanges for DataChangesFilterKVMap<T, F>
+where
+  T: DataChanges,
+  F: Fn(&T::Key, T::Value) -> Option<V> + Clone + Send + Sync,
+{
+  type Key = T::Key;
+  type Value = V;
+
+  fn has_change(&self) -> bool {
+    self.base.has_change()
+  }
+
+  fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
+    self.base.iter_removed()
+  }
+
+  fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    self
+      .base
+      .iter_update_or_insert()
+      .filter_map(|(k, v)| (self.mapper)(&k, v).map(|v2| (k, v2)))
   }
 }
 
