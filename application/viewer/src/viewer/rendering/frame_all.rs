@@ -352,7 +352,7 @@ impl Viewer3dRenderingCtx {
     cx.when_render(|| ViewerRendererInstancePreparer {
       camera: camera.unwrap(),
       background: background.unwrap(),
-      extractor: ViewerBatchExtractor {
+      batch_extractor: ViewerBatchExtractor {
         default_extractor: extractor.unwrap(),
         indirect_extractor: indirect_extractor.map(|c| c.make_read_holder()),
       },
@@ -428,6 +428,7 @@ impl Viewer3dRenderingCtx {
     final_target: &RenderTargetView,
     content: &Viewer3dContent,
     renderer: ViewerRendererInstancePreparer,
+    batch_collector: &mut dyn RenderBatchCollector,
     ctx: &mut FrameCtx,
     waker: &Waker,
   ) {
@@ -436,7 +437,7 @@ impl Viewer3dRenderingCtx {
       ctx,
       self.ndc.enable_reverse_z,
       renderer.raster_scene_renderer.as_ref(),
-      &renderer.extractor,
+      &renderer.batch_extractor,
       content.scene,
     );
 
@@ -444,7 +445,7 @@ impl Viewer3dRenderingCtx {
       camera: renderer.camera,
       background: renderer.background,
       raster_scene_renderer: renderer.raster_scene_renderer,
-      extractor: renderer.extractor,
+      batch_extractor: renderer.batch_extractor,
       rtx_system: renderer.rtx_system,
       culling: renderer.culling,
       mesh_lod_graph_renderer: renderer.mesh_lod_graph_renderer,
@@ -453,6 +454,7 @@ impl Viewer3dRenderingCtx {
       reversed_depth: renderer.reversed_depth,
       lighting: lighting_cx,
       clipping: renderer.clipping,
+      batch_collector,
     };
 
     let size_backup = ctx.frame_size;
@@ -482,7 +484,7 @@ pub struct ViewerRendererInstancePreparer {
   pub camera: CameraRenderer,
   pub background: SceneBackgroundRenderer,
   pub raster_scene_renderer: Box<dyn SceneRenderer>,
-  pub extractor: ViewerBatchExtractor,
+  pub batch_extractor: ViewerBatchExtractor,
   pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   pub lighting: LightingRenderingCxPrepareCtx,
   pub clipping: CSGClippingRenderer,
@@ -497,7 +499,8 @@ pub struct ViewerRendererInstance<'a> {
   pub camera: CameraRenderer,
   pub background: SceneBackgroundRenderer,
   pub raster_scene_renderer: Box<dyn SceneRenderer>,
-  pub extractor: ViewerBatchExtractor,
+  pub batch_extractor: ViewerBatchExtractor,
+  pub batch_collector: &'a mut dyn RenderBatchCollector,
   pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   pub culling: ViewerCulling,
   pub mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,

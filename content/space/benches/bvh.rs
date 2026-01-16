@@ -1,4 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
+
+use criterion::{criterion_group, criterion_main, Criterion};
 use rendiation_space_algorithm::{
   bvh::bvh_build, bvh::BalanceTree, bvh::SAH, utils::generate_boxes_in_space,
   utils::TreeBuildOption,

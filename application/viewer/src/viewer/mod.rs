@@ -438,6 +438,7 @@ pub fn use_viewer<'a>(
     &viewer.content,
     &mut viewer.shared_ctx,
     &mut viewer.rendering,
+    data_scheduler,
     acx.dyn_cx,
     inspection,
   );

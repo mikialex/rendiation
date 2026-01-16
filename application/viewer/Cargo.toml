@@ -8,7 +8,7 @@ default-run = "viewer"
 
 [dependencies]
 bytemuck = { workspace = true }
-env_logger = "0.8.4"
+env_logger = "0.11.8"
 futures = { workspace = true, features = ["thread-pool"] }
 
 rand = "*"
@@ -54,6 +54,7 @@ rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" 
 rendiation-scene-rendering-gpu-indirect = { path = "../../scene/rendering/gpu-indirect" }
 rendiation-scene-batch-extractor = { path = "../../scene/rendering/batch-extractor" }
 rendiation-scene-rendering-gpu-ray-tracing = { path = "../../scene/rendering/gpu-ray-tracing" }
+rendiation-scene-scheduler = { path = "../../scene/rendering/scheduler" }
 rendiation-mesh-lod-graph-rendering = { path = "../../scene/rendering/mesh-lod-graph" }
 rendiation-mesh-simplification = { path = "../../content/mesh/simplification" }
 rendiation-mesh-segmentation = { path = "../../content/mesh/segmentation" }

@@ -6,6 +6,19 @@ use std::{
 
 use fast_hash_collection::FastHashMap;
 use ordered_float::OrderedFloat;
+use rendiation_scene_rendering_gpu_base::SceneModelRenderBatch;
+
+pub trait RenderBatchCollector {
+  fn collect_batch(&mut self, batch: SceneModelRenderBatch);
+  fn flush_frame(&mut self);
+}
+
+pub struct DoNothingRenderBatchCollector;
+
+impl RenderBatchCollector for DoNothingRenderBatchCollector {
+  fn collect_batch(&mut self, _batch: SceneModelRenderBatch) {}
+  fn flush_frame(&mut self) {}
+}
 
 // todo, consider move this to another crate
 #[derive(Default)]

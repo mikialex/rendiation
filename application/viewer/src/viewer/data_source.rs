@@ -11,6 +11,7 @@ type MeshScheduler =
   NoControlStreaming<RawEntityHandle, AttributesMeshWithVertexRelationInfo, AttributesMeshWithUri>;
 
 pub struct ViewerDataScheduler {
+  pub batch_collector: Box<dyn RenderBatchCollector>,
   pub texture_uri_backend: Arc<RwLock<Box<ViewerTextureDataSource>>>,
   texture: Arc<RwLock<TextureScheduler>>,
   pub mesh_uri_backend: Arc<RwLock<Box<ViewerMeshDataSource>>>,
@@ -61,6 +62,7 @@ impl Default for ViewerDataScheduler {
     let mesh = Arc::new(RwLock::new(scheduler));
 
     Self {
+      batch_collector: Box::new(DoNothingRenderBatchCollector),
       texture,
       mesh,
       texture_uri_backend,

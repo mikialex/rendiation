@@ -87,6 +87,7 @@ impl RenderingRoot {
     content: &Viewer3dContent,
     shared_ctx: &mut SharedHooksCtx,
     rendering: &mut Viewer3dRenderingCtx,
+    scheduler: &mut ViewerDataScheduler,
     dyn_cx: &mut DynCx,
     inspector: Option<&mut InspectedContent>,
   ) {
@@ -178,6 +179,7 @@ impl RenderingRoot {
           canvas,
           content,
           renderer,
+          scheduler.batch_collector.as_mut(),
           ctx,
           &waker,
         );

@@ -65,6 +65,7 @@ pub fn use_viewer_culling(
   })
 }
 
+// todo, fix state leak(when camera not exist anymore)
 pub struct ViewerOcclusionCulling {
   pub oc_states:
     FastHashMap<EntityHandle<SceneCameraEntity>, Arc<RwLock<GPUTwoPassOcclusionCulling>>>,
@@ -81,6 +82,7 @@ pub struct ViewerCulling {
   enable_frustum_culling: bool,
 }
 
+// todo, we should support transparent oc check
 impl ViewerCulling {
   pub fn install_frustum_culler(
     &self,
