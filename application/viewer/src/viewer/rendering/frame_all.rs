@@ -454,8 +454,11 @@ impl Viewer3dRenderingCtx {
       reversed_depth: renderer.reversed_depth,
       lighting: lighting_cx,
       clipping: renderer.clipping,
-      batch_collector,
     };
+
+    renderer
+      .culling
+      .set_should_keep_oc_cull_result(batch_collector.will_collecting());
 
     let size_backup = ctx.frame_size;
     ctx.next_key_scope_root();
@@ -474,6 +477,11 @@ impl Viewer3dRenderingCtx {
       if !requested_render_views.contains(&(v.id, i)) {
         ctx.skip_keyed_scope(&v.id);
       }
+    }
+
+    if batch_collector.is_collecting() {
+      renderer.culling.feedback_culling_result(batch_collector);
+      batch_collector.flush_frame();
     }
 
     ctx.frame_size = size_backup;
@@ -500,7 +508,6 @@ pub struct ViewerRendererInstance<'a> {
   pub background: SceneBackgroundRenderer,
   pub raster_scene_renderer: Box<dyn SceneRenderer>,
   pub batch_extractor: ViewerBatchExtractor,
-  pub batch_collector: &'a mut dyn RenderBatchCollector,
   pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   pub culling: ViewerCulling,
   pub mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,

@@ -53,11 +53,9 @@ impl GPUTwoPassOcclusionCulling {
     pass_com: &dyn RenderComponent,
     bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
     reverse_depth: bool,
-    generate_debug_result: bool,
-  ) -> (
-    ActiveRenderPass,
-    Option<GPUTwoPassOcclusionCullingDebugDrawBatchResult>,
-  ) {
+    // todo,  generate culling result should be optimized
+    generate_culling_result: bool,
+  ) -> (ActiveRenderPass, Option<GPUTwoPassOcclusionCullingResult>) {
     let pre_culler = batch.stash_culler.clone().unwrap_or(Box::new(NoopCuller));
 
     let last_frame_invisible = &self.last_frame_visibility;
@@ -84,9 +82,11 @@ impl GPUTwoPassOcclusionCulling {
       .clone()
       .with_override_culler(pre_culler.clone());
 
-    if generate_debug_result {
-      first_pass_batch =
-        frame_ctx.access_parallel_compute(|cx| first_pass_batch.flush_culler_into_new(cx, true));
+    if generate_culling_result {
+      frame_ctx.scope(|frame_ctx| {
+        first_pass_batch =
+          frame_ctx.access_parallel_compute(|cx| first_pass_batch.flush_culler_into_new(cx, true));
+      });
     }
 
     let mut first_pass_batch_draw = scene_renderer.make_scene_batch_pass_content(
@@ -164,9 +164,11 @@ impl GPUTwoPassOcclusionCulling {
     let second_pass_culler = pre_culler.shortcut_or(occlusion_culler);
     let mut second_pass_batch = last_frame_invisible_batch.with_override_culler(second_pass_culler);
 
-    if generate_debug_result {
-      second_pass_batch =
-        frame_ctx.access_parallel_compute(|cx| second_pass_batch.flush_culler_into_new(cx, true));
+    if generate_culling_result {
+      frame_ctx.scope(|frame_ctx| {
+        second_pass_batch =
+          frame_ctx.access_parallel_compute(|cx| second_pass_batch.flush_culler_into_new(cx, true));
+      });
     }
 
     let mut second_pass_draw = scene_renderer.make_scene_batch_pass_content(
@@ -184,8 +186,8 @@ impl GPUTwoPassOcclusionCulling {
       .render_ctx(frame_ctx)
       .by(&mut second_pass_draw);
 
-    let debug_result = if generate_debug_result {
-      Some(GPUTwoPassOcclusionCullingDebugDrawBatchResult {
+    let debug_result = if generate_culling_result {
+      Some(GPUTwoPassOcclusionCullingResult {
         drawn_occluder: first_pass_batch,
         drawn_not_occluded: second_pass_batch,
       })
@@ -198,7 +200,7 @@ impl GPUTwoPassOcclusionCulling {
 }
 
 /// The drawn batch debug content
-pub struct GPUTwoPassOcclusionCullingDebugDrawBatchResult {
+pub struct GPUTwoPassOcclusionCullingResult {
   pub drawn_occluder: DeviceSceneModelRenderBatch,
   pub drawn_not_occluded: DeviceSceneModelRenderBatch,
 }

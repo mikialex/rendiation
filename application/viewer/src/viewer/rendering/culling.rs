@@ -52,8 +52,9 @@ pub fn use_viewer_culling(
   cx.when_render(|| ViewerCulling {
     oc: oc_states.map(|oc_states| ViewerOcclusionCulling {
       oc_states,
-      enable_debug_cull_result: config.enable_debug_occlusion_culling_result,
-      debug_culled_result: Default::default(),
+      always_keep_cull_result: config.enable_debug_occlusion_culling_result,
+      should_keep_cull_result: false,
+      culling_results: Default::default(),
     }),
     bounding_provider,
     sm_world_bounding: sm_world_bounding
@@ -69,9 +70,11 @@ pub fn use_viewer_culling(
 pub struct ViewerOcclusionCulling {
   pub oc_states:
     FastHashMap<EntityHandle<SceneCameraEntity>, Arc<RwLock<GPUTwoPassOcclusionCulling>>>,
-  pub enable_debug_cull_result: bool,
-  pub debug_culled_result:
-    FastHashMap<EntityHandle<SceneCameraEntity>, GPUTwoPassOcclusionCullingDebugDrawBatchResult>,
+  pub always_keep_cull_result: bool,
+  /// set by other sub system logic for example list fallback
+  pub should_keep_cull_result: bool,
+  pub culling_results:
+    FastHashMap<EntityHandle<SceneCameraEntity>, GPUTwoPassOcclusionCullingResult>,
 }
 
 pub struct ViewerCulling {
@@ -84,6 +87,12 @@ pub struct ViewerCulling {
 
 // todo, we should support transparent oc check
 impl ViewerCulling {
+  pub fn set_should_keep_oc_cull_result(&mut self, should_keep: bool) {
+    if let Some(oc) = &mut self.oc {
+      oc.should_keep_cull_result = should_keep;
+    }
+  }
+
   pub fn install_frustum_culler(
     &self,
     batch: &mut SceneModelRenderBatch,
@@ -130,7 +139,7 @@ impl ViewerCulling {
     if let Some(oc) = &mut self.oc {
       ctx.scope(|ctx| {
         if let Some(oc_debug_camera) = viewport.debug_camera_for_view_related {
-          if let Some(previous_oc_batch) = oc.debug_culled_result.get(&oc_debug_camera) {
+          if let Some(previous_oc_batch) = oc.culling_results.get(&oc_debug_camera) {
             return ctx.scope(|ctx| {
               let mut drawn_occluder = renderer.scene.make_scene_batch_pass_content(
                 SceneModelRenderBatch::Device(previous_oc_batch.drawn_occluder.clone()),
@@ -158,7 +167,7 @@ impl ViewerCulling {
         }
 
         let oc_state = oc.oc_states.get(&camera).unwrap();
-        let (pass, debug) = oc_state.write().draw(
+        let (pass, cull_result) = oc_state.write().draw(
           ctx,
           &reorderable_batch.get_device_batch().unwrap(),
           pass_base,
@@ -168,11 +177,11 @@ impl ViewerCulling {
           scene_pass_dispatcher,
           self.bounding_provider.clone().unwrap(),
           renderer.reversed_depth,
-          oc.enable_debug_cull_result,
+          oc.always_keep_cull_result || oc.should_keep_cull_result,
         );
 
-        if let Some(debug) = debug {
-          oc.debug_culled_result.insert(camera, debug);
+        if let Some(cull_result) = cull_result {
+          oc.culling_results.insert(camera, cull_result);
         }
 
       pass
@@ -188,6 +197,15 @@ impl ViewerCulling {
 
         preflight_content(pass_base.render_ctx(ctx)).by(&mut all_opaque_object)
       })
+    }
+  }
+
+  pub fn feedback_culling_result(&self, collector: &mut dyn RenderBatchCollector) {
+    if let Some(oc) = &self.oc {
+      for (_, r) in &oc.culling_results {
+        collector.collect_batch(&r.drawn_not_occluded);
+        collector.collect_batch(&r.drawn_occluder);
+      }
     }
   }
 }
