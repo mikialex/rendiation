@@ -127,6 +127,15 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
               pane.request_switch_proj = false;
               cx.dyn_cx.message.put(RequestSwitchCameraProjType(camera));
             }
+
+            if pane.request_screenshot {
+              pane.request_screenshot = false;
+
+              cx.viewer
+                .terminal
+                .buffered_requests
+                .push_back(format!("{} {}", CMD_SCREENSHOT, viewport.id));
+            }
           } // or else tile get removed(viewport get removed)
         }
       } // or else new get removed
@@ -142,6 +151,7 @@ pub struct ViewerPane {
   pub camera_handle: RawEntityHandle,
   pub debug_view_camera_handle: Option<RawEntityHandle>,
   pub request_switch_proj: bool,
+  pub request_screenshot: bool,
 }
 
 impl ViewerPane {
@@ -153,6 +163,7 @@ impl ViewerPane {
       camera_handle,
       debug_view_camera_handle: None,
       request_switch_proj: false,
+      request_screenshot: false,
     }
   }
 }
@@ -245,6 +256,10 @@ impl<'a> egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior<'a> {
 
           if ui.button("camera").clicked() {
             pane.show_camera_setting = !pane.show_camera_setting;
+          }
+
+          if ui.button("screenshot").clicked() {
+            pane.request_screenshot = true;
           }
 
           if ui

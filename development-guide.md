@@ -118,8 +118,13 @@ generate documents and open it in default browser (currently the project is extr
 cargo doc --no-deps --open
 ```
 
-[the samply profiler](https://github.com/mstange/samply) is recommended to investigate cpu performance issue. the most
-used command is:
+check if any dependency has different version in used. it's not a big problem but should be cared.
+
+```bash
+cargo tree -d
+```
+
+[the samply profiler](https://github.com/mstange/samply) is recommended to investigate cpu performance issue. the most used command is:
 
 ```bash
 cargo build --release --bin viewer

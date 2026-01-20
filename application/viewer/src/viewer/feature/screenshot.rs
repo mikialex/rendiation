@@ -2,10 +2,12 @@ use std::path::Path;
 
 use crate::*;
 
+pub const CMD_SCREENSHOT: &str = "screenshot";
+
 pub fn use_enable_screenshot(cx: &mut ViewerCx) {
   cx.use_state_init(|cx| {
-    cx.terminal.register_command("screenshot", |ctx, parameters, _| {
-      let viewport_id = parameters.first().and_then(|v|v.parse::<u64>().ok()).unwrap_or_else(||{
+    cx.terminal.register_command(CMD_SCREENSHOT, |ctx, parameters, _| {
+      let viewport_id = parameters.iter().nth(1).and_then(|v|v.parse::<u64>().ok()).unwrap_or_else(||{
         log::warn!("viewport not specified, using the any viewport in current viewer");
         *ctx.renderer.views.iter().next().unwrap().0
       });
@@ -33,7 +35,7 @@ pub fn use_enable_screenshot(cx: &mut ViewerCx) {
 struct ViewerScreenshot;
 impl CanCleanUpFrom<ViewerDropCx<'_>> for ViewerScreenshot {
   fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
-    cx.terminal.unregister_command("screenshot");
+    cx.terminal.unregister_command(CMD_SCREENSHOT);
   }
 }
 

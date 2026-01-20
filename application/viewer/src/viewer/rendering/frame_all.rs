@@ -471,7 +471,6 @@ impl Viewer3dRenderingCtx {
       });
     }
 
-    // todo, is this necessary from perspective of user?
     // keep all sub scope that match the living viewport but not requested alive
     for (i, v) in content.viewports.iter().enumerate() {
       if !requested_render_views.contains(&(v.id, i)) {

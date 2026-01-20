@@ -66,7 +66,6 @@ pub fn use_viewer_culling(
   })
 }
 
-// todo, fix state leak(when camera not exist anymore)
 pub struct ViewerOcclusionCulling {
   pub oc_states:
     FastHashMap<EntityHandle<SceneCameraEntity>, Arc<RwLock<GPUTwoPassOcclusionCulling>>>,
