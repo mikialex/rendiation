@@ -16,6 +16,7 @@ pub fn use_enable_screenshot(cx: &mut ViewerCx) {
       async {
         match result.await {
             Ok(r) =>{
+              // todo, support download in web
               if let Some(mut dir) = dirs::download_dir() {
                 dir.push("screenshot.png"); // will override old but ok
                 write_screenshot(&r, dir);

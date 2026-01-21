@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use futures::channel::mpsc::UnboundedReceiver;
 use rendiation_scene_gltf_loader::*;
 
@@ -18,6 +20,24 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
     terminal_request, ..
   } = &mut cx.stage
   {
+    for e in &cx.input.accumulate_events {
+      if let Event::WindowEvent { event, .. } = e {
+        if let WindowEvent::DroppedFile(file) = event {
+          if let Some(ext) = file.extension() {
+            if let Some(ext) = ext.to_str() {
+              if ext == "gltf" || ext == "glb" {
+                cx.viewer.terminal.buffered_requests.push_back(format!(
+                  "{} {}",
+                  CMD_LOAD_GLTF,
+                  file.to_string_lossy()
+                ));
+              }
+            }
+          }
+        }
+      }
+    }
+
     if let Some(req) = terminal_request.take::<ExportGltfTerminalTask>() {
       let reader = scene_reader.unwrap();
       if let Some(mut dir) = dirs::download_dir() {
@@ -30,8 +50,10 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
       }
     }
   }
+
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
     while let Some(gltf_load_info) = to_unload.pop() {
+      cleanup_selection_states_from_gltf_load_result(&gltf_load_info, &mut cx.viewer.content);
       gltf_load_info.unload(writer);
     }
   }
@@ -49,30 +71,36 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
         access_cx!(ctx.dyn_cx, data_scheduler, ViewerDataScheduler);
         let mesh_buffer_backend = data_scheduler.mesh_uri_backend.clone();
 
+
+          let file_path = _parameters.iter().nth(1)
+          .map(|v| PathBuf::try_from(v).inspect_err(
+            |e| log::error!("the path parameter is invalid in command {}", e)
+          ).ok()).flatten();
+
         async move {
-          use rfd::AsyncFileDialog;
+          let file_content = if let Some(file_path) = file_path {
+            let content = tcx.worker.spawn_task(move || {
+              std::fs::read(file_path)
+            }).await;
+            content.inspect_err(|e|log::error!("failed to read file {}", e)).ok()
+          } else {
+            use rfd::AsyncFileDialog;
+            let file_handle = AsyncFileDialog::new()
+              .add_filter("gltf", &["gltf", "glb"])
+              .pick_file()
+              .await;
 
-          let file_handle = AsyncFileDialog::new()
-            .add_filter("gltf", &["gltf", "glb"])
-            .pick_file()
-            .await;
+            if let Some(file_handle) = file_handle {
+              Some(file_handle.read().await)
+            }else{
+              None
+            }
+          };
 
-          if let Some(file_handle) = file_handle {
-
-            #[cfg(target_family = "wasm")]
-            let file_content = file_handle.read().await;
-
-            #[cfg(target_family = "wasm")]
+          if let Some(file_content) = file_content {
             let gltf = tcx.worker.spawn_task(move || {
               let _ = trace_span!("parse gltf").entered();
               parse_gltf_from_buffer(&file_content)
-            }).await.unwrap();
-
-
-            #[cfg(not(target_family = "wasm"))]
-            let gltf = tcx.worker.spawn_task(move || {
-              let _ = trace_span!("parse gltf").entered();
-              parse_gltf(file_handle.path())
             }).await.unwrap();
 
 
@@ -176,5 +204,42 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for GltfViewerIO {
   fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
     cx.terminal.unregister_command(CMD_LOAD_GLTF);
     cx.terminal.unregister_command(CMD_EXPORT_GLTF);
+  }
+}
+
+#[inline(never)]
+fn cleanup_selection_states_from_gltf_load_result(
+  gltf_load_info: &GltfLoadResult,
+  content: &mut Viewer3dContent,
+) {
+  if let Some(selected) = content.selected_model {
+    for item in &gltf_load_info.scene_models {
+      if *item == selected {
+        content.selected_model = None;
+      }
+    }
+  }
+  if let Some(selected) = content.selected_dir_light {
+    for (_, item) in gltf_load_info.directional_light_map.iter() {
+      if *item == selected {
+        content.selected_dir_light = None;
+      }
+    }
+  }
+
+  if let Some(selected) = content.selected_point_light {
+    for (_, item) in gltf_load_info.point_light_map.iter() {
+      if *item == selected {
+        content.selected_point_light = None;
+      }
+    }
+  }
+
+  if let Some(selected) = content.selected_spot_light {
+    for (_, item) in gltf_load_info.spot_light_map.iter() {
+      if *item == selected {
+        content.selected_spot_light = None;
+      }
+    }
   }
 }
