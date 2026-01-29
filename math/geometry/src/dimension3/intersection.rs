@@ -100,7 +100,18 @@ where
   #[inline]
   fn intersect(&self, point: &Point<U>, t: &T) -> OptionalNearest<HitPoint3D<T>> {
     let point = point.map(|v| v.position()).0;
-    let dist_sq = self.distance_sq_to_point(point);
+
+    let oc = point - self.origin;
+    let tca = oc.dot(self.direction);
+
+    if tca < T::zero() {
+      // if the direction is backward to the point, even if the distance between
+      // ray origin and point is less than t, the ray will still not considered intersected
+      return OptionalNearest::none();
+    }
+
+    let dist_sq = oc.dot(oc) - tca * tca;
+
     if dist_sq > *t * *t {
       return OptionalNearest::none();
     }
