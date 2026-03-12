@@ -202,11 +202,14 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
           let previous_change: &mut (RawEntityHandle, ValueChange<T>) =
             self.changes.get_unchecked_mut(*previous_idx);
 
-          let merge_target = &mut previous_change.1;
           if *has_delta {
-            *merge_target = change;
-          } else if !merge_target.merge(&change) {
-            *has_delta = false;
+            let merge_target = &mut previous_change.1;
+            if !merge_target.merge(&change) {
+              *has_delta = false;
+            }
+          } else {
+            *has_delta = true;
+            previous_change.1 = change;
           }
         } else {
           let change_index = self.changes.len();
@@ -263,14 +266,19 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
       if unsafe { !self.has_duplicate_changes.get(key.index() as usize) } {
         mapping.insert(*key, change.clone());
       } else {
-        let (idx, has_change) = unsafe { override_mapping.get(key).unwrap_unchecked() };
-        if *idx != change_idx && *has_change {
-          let (_key, override_change) = unsafe { changes.get_unchecked(*idx) };
-          debug_assert_eq!(_key, key);
-          let mut change_to_merge = change.clone();
-          change_to_merge.merge(override_change);
+        // none is possible, because the access key may be a slate handle(but in same position, so it passed bitset check).
+        if let Some((idx, has_change)) = override_mapping.get(key) {
+          if *idx != change_idx && *has_change {
+            let (_key, override_change) = unsafe { changes.get_unchecked(*idx) };
+            debug_assert_eq!(_key, key);
+            let mut change_to_merge = change.clone();
+            change_to_merge.merge(override_change);
 
-          mapping.insert(*key, change_to_merge);
+            mapping.insert(*key, change_to_merge);
+          }
+        } else {
+          debug_assert!(change.is_removed());
+          mapping.insert(*key, change.clone());
         }
       }
     }
