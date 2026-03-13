@@ -327,7 +327,8 @@ impl<T: CValue> DataChanges for FastChangeCollector<T> {
   }
 }
 
-#[derive(Clone)]
+// todo,  should use custom debug impl
+#[derive(Clone, Debug)]
 pub struct Bitmap {
   bits: Vec<u8>,
 }

@@ -105,6 +105,10 @@ impl RawEntityHandle {
   pub fn create_only_for_testing(index: usize) -> Self {
     Self(Handle::from_raw_parts(index, 0))
   }
+
+  pub fn create_only_for_testing_with_gen(index: usize, generation: u64) -> Self {
+    Self(Handle::from_raw_parts(index, generation))
+  }
 }
 
 impl<T> From<EntityHandle<T>> for RawEntityHandle {
