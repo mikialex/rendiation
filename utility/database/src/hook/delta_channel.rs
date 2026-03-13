@@ -272,9 +272,9 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
             let (_key, override_change) = unsafe { changes.get_unchecked(*idx) };
             debug_assert_eq!(_key, key);
             let mut change_to_merge = change.clone();
-            change_to_merge.merge(override_change);
-
+            if change_to_merge.merge(override_change) {
             mapping.insert(*key, change_to_merge);
+          }
           }
         } else {
           debug_assert!(change.is_removed());
@@ -314,7 +314,7 @@ fn test() {
 
   assert!(!r.is_empty());
 
-  assert_eq!(r.len(), 3);
+  assert_eq!(r.len(), 2);
   let v = r.access(&make_handle(3)).unwrap();
   assert_eq!(v, ValueChange::Delta(1, None));
 
