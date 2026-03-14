@@ -83,6 +83,7 @@ members = [
   "extension/area-lighting",
   "extension/csg-sdf-expression",
   "application/viewer-content",
+  "application/viewer-content-api",
   "application/viewer",
   "xtask",
 ]

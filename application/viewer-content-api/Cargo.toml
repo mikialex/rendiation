@@ -1,0 +1,19 @@
+[package]
+authors = ["MikiAlex <miikiialexx@gmail.com>"]
+edition = "2021"
+name = "viewer-content-api"
+version = "0.1.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+
+[dependencies]
+rendiation-viewer-content = { path = "../viewer-content" }
+
+
+[features]
+extra-checks = ["rendiation-viewer-content/extra-checks"]
+
+[lints]
+workspace = true
