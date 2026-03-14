@@ -40,7 +40,7 @@ impl<P: bytemuck::Pod> Texture2DBuffer<P> {
   }
 }
 
-impl<P: Copy> Texture2D for Texture2DBuffer<P> {
+impl<P: Copy + Default> Texture2D for Texture2DBuffer<P> {
   type Pixel = P;
   fn get(&self, position: impl Into<Vec2<usize>>) -> &Self::Pixel {
     let position = position.into();
@@ -63,15 +63,6 @@ impl<P: Copy + Default> Texture2dInitAble for Texture2DBuffer<P> {
       data: vec![pixel; size.area()],
       size,
     }
-  }
-
-  #[allow(clippy::uninit_vec)]
-  fn init_not_care(size: Size) -> Self {
-    let width = usize::from(size.width);
-    let height = usize::from(size.height);
-    let mut buffer = Vec::with_capacity(width * height * 4);
-    unsafe { buffer.set_len(width * height * 4) };
-    Self { data: buffer, size }
   }
 }
 

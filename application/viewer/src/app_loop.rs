@@ -152,7 +152,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
       let gpu = GPUOrGPUCreateFuture::Creating(Box::pin(async {
         let (gpu, surface) = GPU::new(config).await.unwrap();
         let surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
-        let surface = WindowSurfaceWrapper::new(surface);
+        let surface = SurfaceWrapper::new(surface);
         WGPUAndSurface { gpu, surface }
       }));
 
@@ -249,6 +249,36 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
       // make sure it always requested
       if let WindowEvent::RedrawRequested = &event {
         window.request_redraw();
+      }
+    }
+  }
+}
+
+/// we use this to avoid block_on, which is not allowed in wasm
+#[allow(clippy::large_enum_variant)]
+pub enum GPUOrGPUCreateFuture {
+  Created(WGPUAndSurface),
+  Creating(Pin<Box<dyn Future<Output = WGPUAndSurface>>>),
+}
+
+impl GPUOrGPUCreateFuture {
+  pub fn poll_gpu(&mut self) -> Option<&mut WGPUAndSurface> {
+    match self {
+      GPUOrGPUCreateFuture::Created(gpu) => Some(gpu),
+      GPUOrGPUCreateFuture::Creating(future) => {
+        noop_ctx!(ctx);
+        if let Poll::Ready(gpu) = future.poll_unpin(ctx) {
+          #[cfg(target_family = "wasm")]
+          if gpu.gpu.info().adaptor_info.backend == Backend::Gl {
+            log::warn!("selected backend is webgl, major performance issue may happen and features may missing");
+          }
+
+          *self = GPUOrGPUCreateFuture::Created(gpu);
+
+          self.poll_gpu()
+        } else {
+          None
+        }
       }
     }
   }

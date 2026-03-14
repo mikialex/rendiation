@@ -10,6 +10,7 @@ use std::sync::Arc;
 use std::task::Poll;
 use std::task::Waker;
 
+pub use database::RawEntityHandle;
 use database::*;
 use event_source::*;
 use fast_hash_collection::*;

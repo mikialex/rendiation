@@ -16,7 +16,7 @@ pub struct Viewer {
 impl Viewer {
   pub fn new(
     gpu: GPU,
-    swap_chain: WindowSurfaceWrapper,
+    swap_chain: SurfaceWrapper,
     init_config: &ViewerInitConfig,
     worker: TaskSpawner,
     load_example_cube_tex: impl FnOnce(&mut SceneWriter) -> EntityHandle<SceneTextureCubeEntity>,

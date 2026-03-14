@@ -1,16 +1,16 @@
 use crate::*;
 
 pub struct WGPUAndSurface {
-  pub surface: WindowSurfaceWrapper,
+  pub surface: SurfaceWrapper,
   pub gpu: GPU,
 }
 
 #[derive(Clone)]
-pub struct WindowSurfaceWrapper {
+pub struct SurfaceWrapper {
   surface: Arc<RwLock<GPUSurface<'static>>>,
 }
 
-impl WindowSurfaceWrapper {
+impl SurfaceWrapper {
   pub fn new(surface: GPUSurface<'static>) -> Self {
     Self {
       surface: Arc::new(RwLock::new(surface)),
@@ -38,35 +38,5 @@ impl WindowSurfaceWrapper {
       .surface
       .write()
       .get_current_frame_with_render_target_view(device)
-  }
-}
-
-/// we use this to avoid block_on, which is not allowed in wasm
-#[allow(clippy::large_enum_variant)]
-pub enum GPUOrGPUCreateFuture {
-  Created(WGPUAndSurface),
-  Creating(Pin<Box<dyn Future<Output = WGPUAndSurface>>>),
-}
-
-impl GPUOrGPUCreateFuture {
-  pub fn poll_gpu(&mut self) -> Option<&mut WGPUAndSurface> {
-    match self {
-      GPUOrGPUCreateFuture::Created(gpu) => Some(gpu),
-      GPUOrGPUCreateFuture::Creating(future) => {
-        noop_ctx!(ctx);
-        if let Poll::Ready(gpu) = future.poll_unpin(ctx) {
-          #[cfg(target_family = "wasm")]
-          if gpu.gpu.info().adaptor_info.backend == Backend::Gl {
-            log::warn!("selected backend is webgl, major performance issue may happen and features may missing");
-          }
-
-          *self = GPUOrGPUCreateFuture::Created(gpu);
-
-          self.poll_gpu()
-        } else {
-          None
-        }
-      }
-    }
   }
 }

@@ -11,6 +11,8 @@ crate-type = ["cdylib"]
 [dependencies]
 rendiation-viewer-content = { path = "../viewer-content" }
 
+[build-dependencies]
+cbindgen = "0.29.2"
 
 [features]
 extra-checks = ["rendiation-viewer-content/extra-checks"]
