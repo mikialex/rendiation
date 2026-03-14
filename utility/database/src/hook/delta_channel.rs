@@ -2,7 +2,6 @@ use crate::*;
 
 type MutationData<T> = FastDeltaChangeCollector<T>;
 
-/// this should be a cheaper version of collective_channel
 /// todo, improve code sharing with other channel
 pub fn delta_channel<T: CValue>(
   bitmap_init: usize,

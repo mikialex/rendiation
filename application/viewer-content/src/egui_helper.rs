@@ -1,5 +1,6 @@
 use egui::*;
-use rendiation_algebra::*;
+
+use crate::*;
 
 pub struct UiWithChangeInfo<'a>(pub &'a mut Ui, pub bool);
 impl<'x> UiWithChangeInfo<'x> {

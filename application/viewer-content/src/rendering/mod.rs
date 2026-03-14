@@ -1,3 +1,4 @@
+mod clipping;
 mod culling;
 mod egui;
 mod frame_all;
@@ -11,6 +12,7 @@ mod transparent;
 mod widget;
 
 mod g_buffer;
+pub use clipping::*;
 pub use culling::*;
 pub use frame_all::*;
 pub use g_buffer::*;

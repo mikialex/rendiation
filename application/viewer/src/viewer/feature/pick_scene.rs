@@ -150,19 +150,3 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 }
 
 pub struct PickSceneBlocked;
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct PickScenePersistConfig {
-  /// prefer gpu picking for nearest hit query if target platform has correct support
-  pub prefer_gpu_picking: bool,
-  pub enable_hit_debug_log: bool,
-}
-
-impl Default for PickScenePersistConfig {
-  fn default() -> Self {
-    Self {
-      prefer_gpu_picking: true,
-      enable_hit_debug_log: true,
-    }
-  }
-}

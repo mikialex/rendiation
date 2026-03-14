@@ -3,29 +3,14 @@ use crate::*;
 mod feature;
 pub use feature::*;
 
-mod viewport;
-pub use viewport::*;
-
-mod data_source;
-pub use data_source::*;
-
-mod rendering_root;
-pub use rendering_root::*;
-
 mod default_scene;
 pub use default_scene::*;
 
 mod pick;
 pub use pick::*;
 
-mod bounding;
-pub use bounding::*;
-
 mod terminal;
 pub use terminal::*;
-
-mod init_config;
-pub use init_config::*;
 
 mod background;
 pub use background::*;
@@ -35,9 +20,6 @@ pub use widget_bridge::*;
 
 mod test_content;
 pub use test_content::*;
-
-mod rendering;
-pub use rendering::*;
 
 pub const UP: Vec3<f64> = Vec3::new(0., 1., 0.);
 
@@ -416,7 +398,9 @@ pub fn use_viewer<'a>(
     ins.clear();
   }
 
-  let inspection = viewer.enable_inspection.then_some(&mut *ins);
+  let inspection = viewer
+    .enable_inspection
+    .then_some(&mut *ins as &mut dyn Inspector);
 
   ViewerCx {
     viewer,
@@ -483,7 +467,7 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
 impl Viewer {
   pub fn new(
     gpu: GPU,
-    swap_chain: ApplicationWindowSurface,
+    swap_chain: WindowSurfaceWrapper,
     init_config: &ViewerInitConfig,
     worker: TaskSpawner,
   ) -> Self {
@@ -563,6 +547,10 @@ impl Viewer {
     }
   }
 
+  pub fn ndc(&self) -> &ViewerNDC {
+    self.rendering.ndc()
+  }
+
   pub fn export_init_config(&self) -> ViewerInitConfig {
     let mut config = ViewerInitConfig::default();
     self.rendering.setup_init_config(&mut config);
@@ -570,17 +558,6 @@ impl Viewer {
     config.features = self.features_config.clone();
     config
   }
-}
-
-pub struct Viewer3dContent {
-  pub viewports: Vec<ViewerViewPort>,
-  pub root: EntityHandle<SceneNodeEntity>,
-  pub scene: EntityHandle<SceneEntity>,
-  pub selected_model: Option<EntityHandle<SceneModelEntity>>,
-  pub selected_dir_light: Option<EntityHandle<DirectionalLightEntity>>,
-  pub selected_spot_light: Option<EntityHandle<SpotLightEntity>>,
-  pub selected_point_light: Option<EntityHandle<PointLightEntity>>,
-  pub widget_scene: EntityHandle<SceneEntity>,
 }
 
 struct QuerySceneReader(EntityHandle<SceneEntity>);

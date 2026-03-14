@@ -1,12 +1,10 @@
 use crate::*;
 
-mod change;
 mod console;
 mod db_view;
 mod inspector;
 mod tile;
 
-pub use change::*;
 pub use console::*;
 use db_view::*;
 pub use inspector::*;
@@ -141,7 +139,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             let config = viewer.export_init_config();
             config.export_to_current_dir();
           }
-          ui.label(format!("{:#?}", viewer.rendering.init_config.init_only));
+          ui.label(format!("{:#?}", viewer.rendering.init_config().init_only));
         });
       });
 

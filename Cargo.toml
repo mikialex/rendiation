@@ -82,6 +82,7 @@ members = [
   "extension/gizmo",
   "extension/area-lighting",
   "extension/csg-sdf-expression",
+  "application/viewer-content",
   "application/viewer",
   "xtask",
 ]

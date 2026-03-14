@@ -46,7 +46,7 @@ pub fn use_camera_proj_switch(cx: &mut ViewerCx) {
   }
 
   let camera_transforms = cx
-    .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.rendering.ndc))
+    .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.ndc().clone()))
     .use_assure_result(cx);
   let (cx, request_compute_suitable_orth) =
     cx.use_plain_state_default::<Option<SuitableOrthComputeRequest>>();

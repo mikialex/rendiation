@@ -9,7 +9,7 @@ pub struct RenderingRoot {
   frame_index: u64,
   stat_frame_time_in_ms: StatisticStore<f32>,
   last_render_timestamp: Option<Instant>,
-  swap_chain: ApplicationWindowSurface,
+  swap_chain: WindowSurfaceWrapper,
   statistics: FramePassStatistics,
   enable_statistic_collect: bool,
   any_render_change: ChangeNotifier,
@@ -17,7 +17,7 @@ pub struct RenderingRoot {
 }
 
 impl RenderingRoot {
-  pub fn new(gpu: &GPU, swap_chain: ApplicationWindowSurface) -> Self {
+  pub fn new(gpu: &GPU, swap_chain: WindowSurfaceWrapper) -> Self {
     Self {
       render_resource_memory: Default::default(),
       render_process_memory: Default::default(),
@@ -89,7 +89,7 @@ impl RenderingRoot {
     rendering: &mut Viewer3dRenderingCtx,
     scheduler: &mut ViewerDataScheduler,
     dyn_cx: &mut DynCx,
-    inspector: Option<&mut InspectedContent>,
+    inspector: Option<&mut dyn Inspector>,
   ) {
     self.init_frame();
 

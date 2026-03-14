@@ -15,33 +15,21 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
 use std::task::Waker;
-#[cfg(not(target_arch = "wasm32"))]
-use std::time::Instant;
 
+use bytemuck::*;
 use database::*;
 use event_source::*;
 use fast_hash_collection::FastHashMap;
 use futures::FutureExt;
 use futures::StreamExt;
 use parking_lot::RwLock;
-use rendiation_area_lighting::register_area_lighting_data_model;
+use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_gui_3d::*;
-use rendiation_lighting_gpu_system::*;
-use rendiation_lighting_transport::*;
 use rendiation_mesh_core::*;
-use rendiation_mesh_lod_graph_rendering::*;
-use rendiation_scene_batch_extractor::*;
-use rendiation_scene_rendering_gpu_gles::*;
-use rendiation_scene_scheduler::*;
-use rendiation_shader_api::*;
-use rendiation_texture_gpu_base::SamplerConvertExt;
-use rendiation_webgpu_hook_utils::*;
+use rendiation_viewer_content::*;
 use rendiation_wide_line::*;
-use serde::{Deserialize, Serialize};
 use tracing::*;
-#[cfg(target_arch = "wasm32")]
-use web_time::Instant;
 use winit::{
   event::{Event, WindowEvent},
   event_loop::EventLoop,
@@ -50,7 +38,6 @@ use winit::{
 
 mod app_loop;
 mod egui_cx;
-mod util;
 mod viewer;
 
 use app_loop::*;
@@ -59,7 +46,6 @@ use heap_tools::*;
 use rendiation_scene_core::*;
 use rendiation_texture_core::*;
 use rendiation_webgpu::*;
-use util::*;
 pub use viewer::*;
 
 #[cfg(feature = "tracy-heap-debug")]
@@ -80,10 +66,10 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   register_scene_core_data_model();
   register_light_shadow_config();
   register_gui3d_extension_data_model(true);
-  register_area_lighting_data_model();
   register_sky_env_data_model();
-  register_scene_mesh_lod_graph_data_model(true);
   register_clipping_data_model();
+
+  register_viewer_content_data_model();
 
   let init_config = ViewerInitConfig::from_default_json_or_default();
 
@@ -260,4 +246,20 @@ fn test_persist_scope(cx: &mut ViewerCx) {
     cx.suppress_scene_writer();
   });
   cx.re_enable_scene_writer();
+}
+
+fn per_camera_per_viewport_scope(
+  cx: &mut ViewerCx,
+  consider_debug_view_camera_override: bool,
+  logic: impl Fn(&mut ViewerCx, &CameraViewportAccess),
+) {
+  cx.next_key_scope_root();
+  for cv in per_camera_per_viewport(
+    &cx.viewer.content.viewports,
+    consider_debug_view_camera_override,
+  ) {
+    cx.keyed_scope(&cv.camera, |cx| {
+      logic(cx, &cv);
+    });
+  }
 }

@@ -26,7 +26,5 @@ mod egui_view;
 pub use egui_view::*;
 mod mesh_tools;
 pub use mesh_tools::*;
-mod clipping;
-pub use clipping::*;
 mod test_content;
 pub use test_content::*;

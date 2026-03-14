@@ -1,5 +1,3 @@
-use rendiation_controller::InputBound;
-
 use crate::*;
 
 #[derive(PartialEq, Clone)]
@@ -22,6 +20,13 @@ impl ViewerViewPort {
   pub fn render_pixel_size(&self) -> Size {
     Size::from_u32_pair_min_one(self.viewport.zw().map(|v| v as u32).into())
   }
+}
+
+pub fn compute_normalized_position_in_canvas_coordinate(
+  offset: (f32, f32),
+  size: (f32, f32),
+) -> (f32, f32) {
+  (offset.0 / size.0 * 2. - 1., -(offset.1 / size.1 * 2. - 1.))
 }
 
 pub fn find_top_hit<'a>(
@@ -64,22 +69,6 @@ pub struct CameraViewportAccess {
   pub view_effect_camera: EntityHandle<SceneCameraEntity>,
   /// the order is preserved
   pub viewports_index: Vec<(usize, u64)>,
-}
-
-pub fn per_camera_per_viewport_scope(
-  cx: &mut ViewerCx,
-  consider_debug_view_camera_override: bool,
-  logic: impl Fn(&mut ViewerCx, &CameraViewportAccess),
-) {
-  cx.next_key_scope_root();
-  for cv in per_camera_per_viewport(
-    &cx.viewer.content.viewports,
-    consider_debug_view_camera_override,
-  ) {
-    cx.keyed_scope(&cv.camera, |cx| {
-      logic(cx, &cv);
-    });
-  }
 }
 
 pub fn per_camera_per_viewport(

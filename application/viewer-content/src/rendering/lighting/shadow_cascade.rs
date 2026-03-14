@@ -1,7 +1,7 @@
 use rendiation_lighting_punctual::DirectionalShaderInfo;
 use rendiation_lighting_shadow_map::*;
 
-use crate::{viewer::rendering::lighting::punctual::DEFAULT_DIR_PROJ, *};
+use crate::*;
 
 pub fn use_cascade_shadow_map(
   cx: &mut QueryGPUHookCx,

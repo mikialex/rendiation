@@ -1,5 +1,3 @@
-use rendiation_texture_gpu_base::create_gpu_texture2d;
-
 use crate::*;
 
 pub fn create_gpu_tex_from_png_buffer(
