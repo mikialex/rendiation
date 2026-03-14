@@ -9,12 +9,6 @@ pub use default_scene::*;
 mod pick;
 pub use pick::*;
 
-mod terminal;
-pub use terminal::*;
-
-mod background;
-pub use background::*;
-
 mod widget_bridge;
 pub use widget_bridge::*;
 
@@ -315,6 +309,23 @@ pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(
   })
 }
 
+fn drop_viewer_from_dyn_cx(viewer: &mut Viewer, dyn_cx: &mut DynCx) {
+  let writer = SceneWriter::from_global(viewer.content.scene);
+
+  let mut dcx = ViewerDropCx {
+    dyn_cx,
+    writer,
+    terminal: &mut viewer.terminal,
+    shared_ctx: &mut viewer.shared_ctx,
+    inspector: &mut None,
+  };
+  viewer.memory.cleanup(&mut dcx as *mut _ as *mut ());
+
+  viewer.rendering_root.cleanup(&mut viewer.shared_ctx);
+
+  log::info!("drop viewer from dyn_cx");
+}
+
 pub fn use_viewer<'a>(
   acx: &'a mut ApplicationCx,
   egui_ctx: &mut egui::Context,
@@ -330,26 +341,30 @@ pub fn use_viewer<'a>(
 
   let (acx, data_scheduler) = acx.use_plain_state(ViewerDataScheduler::default);
 
-  let (acx, viewer) = acx.use_plain_state(|| {
-    let viewer = Viewer::new(
-      acx.gpu_and_surface.gpu.clone(),
-      acx.gpu_and_surface.surface.clone(),
-      init_config,
-      worker_thread_pool.clone(),
-    );
-    {
-      let mut tex_source = data_scheduler.texture_uri_backend.write();
-      let mut mesh_source = data_scheduler.mesh_uri_backend.write();
-      let mut writer = SceneWriter::from_global(viewer.content.scene);
-      load_default_scene(
-        &mut writer,
-        &viewer.content,
-        tex_source.as_mut(),
-        mesh_source.as_mut(),
+  let (acx, viewer) = acx.use_state_init(
+    || {
+      let viewer = Viewer::new(
+        acx.gpu_and_surface.gpu.clone(),
+        acx.gpu_and_surface.surface.clone(),
+        init_config,
+        worker_thread_pool.clone(),
+        |writer| load_example_cube_tex(writer),
       );
-    };
-    viewer
-  });
+      {
+        let mut tex_source = data_scheduler.texture_uri_backend.write();
+        let mut mesh_source = data_scheduler.mesh_uri_backend.write();
+        let mut writer = SceneWriter::from_global(viewer.content.scene);
+        load_default_scene(
+          &mut writer,
+          &viewer.content,
+          tex_source.as_mut(),
+          mesh_source.as_mut(),
+        );
+      };
+      viewer
+    },
+    drop_viewer_from_dyn_cx,
+  );
 
   let (acx, gui_feature_global_states) = acx.use_plain_state(|| FeaturesGlobalUIStates {
     features: Default::default(),
@@ -416,12 +431,9 @@ pub fn use_viewer<'a>(
   }
   .execute(|viewer| f(viewer));
 
-  viewer.rendering_root.draw_canvas(
+  viewer.draw_canvas(
     &acx.draw_target_canvas,
     worker_thread_pool,
-    &viewer.content,
-    &mut viewer.shared_ctx,
-    &mut viewer.rendering,
     data_scheduler,
     acx.dyn_cx,
     inspection,
@@ -432,132 +444,6 @@ pub fn use_viewer<'a>(
   };
 
   viewer
-}
-
-pub struct Viewer {
-  pub content: Viewer3dContent,
-  rendering_root: RenderingRoot,
-  rendering: Viewer3dRenderingCtx,
-  terminal: Terminal,
-  background: ViewerBackgroundState,
-  started_time: Instant,
-  memory: FunctionMemory,
-  shared_ctx: SharedHooksCtx,
-  features_config: ViewerFeaturesInitConfig,
-  pub enable_inspection: bool,
-}
-
-impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
-  fn drop_from_cx(&mut self, cx: &mut ApplicationDropCx) {
-    let writer = SceneWriter::from_global(self.content.scene);
-
-    let mut dcx = ViewerDropCx {
-      dyn_cx: cx,
-      writer,
-      terminal: &mut self.terminal,
-      shared_ctx: &mut self.shared_ctx,
-      inspector: &mut None,
-    };
-    self.memory.cleanup(&mut dcx as *mut _ as *mut ());
-
-    self.rendering_root.cleanup(&mut self.shared_ctx);
-  }
-}
-
-impl Viewer {
-  pub fn new(
-    gpu: GPU,
-    swap_chain: WindowSurfaceWrapper,
-    init_config: &ViewerInitConfig,
-    worker: TaskSpawner,
-  ) -> Self {
-    let mut terminal = Terminal::new(worker);
-    register_default_commands(&mut terminal);
-
-    let scene = global_entity_of::<SceneEntity>()
-      .entity_writer()
-      .new_entity(|w| w);
-
-    let widget_scene = global_entity_of::<SceneEntity>()
-      .entity_writer()
-      .new_entity(|w| w);
-
-    let root = global_entity_of::<SceneNodeEntity>()
-      .entity_writer()
-      .new_entity(|w| w);
-
-    let camera_node = global_entity_of::<SceneNodeEntity>()
-      .entity_writer()
-      .new_entity(|w| {
-        w.write::<SceneNodeLocalMatrixComponent>(&Mat4::lookat(
-          Vec3::new(3., 3., 3.),
-          Vec3::new(0., 0., 0.),
-          Vec3::new(0., 1., 0.),
-        ))
-      });
-
-    let main_camera = global_entity_of::<SceneCameraEntity>()
-      .entity_writer()
-      .new_entity(|w| {
-        w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
-          .write::<SceneCameraBelongsToScene>(&scene.some_handle())
-          .write::<SceneCameraNode>(&camera_node.some_handle())
-      });
-
-    let viewport = ViewerViewPort {
-      id: alloc_global_res_id(),
-      viewport: Default::default(),
-      camera: main_camera,
-      camera_node,
-      debug_camera_for_view_related: None,
-    };
-
-    let scene = Viewer3dContent {
-      viewports: vec![viewport],
-      scene,
-      root,
-      selected_dir_light: None,
-      selected_model: None,
-      selected_point_light: None,
-      selected_spot_light: None,
-      widget_scene,
-    };
-
-    let background = {
-      let mut writer = SceneWriter::from_global(scene.scene);
-
-      ViewerBackgroundState::init(&mut writer)
-    };
-
-    let viewer_ndc = ViewerNDC {
-      enable_reverse_z: init_config.init_only.enable_reverse_z,
-    };
-
-    Self {
-      content: scene,
-      terminal,
-      rendering_root: RenderingRoot::new(&gpu, swap_chain),
-      rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, init_config),
-      background,
-      started_time: Instant::now(),
-      memory: Default::default(),
-      shared_ctx: Default::default(),
-      features_config: init_config.features.clone(),
-      enable_inspection: false,
-    }
-  }
-
-  pub fn ndc(&self) -> &ViewerNDC {
-    self.rendering.ndc()
-  }
-
-  pub fn export_init_config(&self) -> ViewerInitConfig {
-    let mut config = ViewerInitConfig::default();
-    self.rendering.setup_init_config(&mut config);
-    self.rendering_root.setup_init_config(&mut config);
-    config.features = self.features_config.clone();
-    config
-  }
 }
 
 struct QuerySceneReader(EntityHandle<SceneEntity>);

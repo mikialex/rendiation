@@ -39,6 +39,8 @@ impl Default for ViewerUIState {
 pub fn use_viewer_egui(cx: &mut ViewerCx) {
   let (cx, ui_state) = cx.use_plain_state::<ViewerUIState>();
 
+  let (cx, console) = cx.use_plain_state::<Console>();
+
   let (cx, frame_cpu_time_stat) = cx.use_plain_state_init(|_| StatisticStore::<f32>::new(200));
 
   frame_cpu_time_stat.insert(
@@ -207,14 +209,19 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
       egui::TopBottomPanel::bottom("view bottom terminal")
         .resizable(true)
         .show(ui, |ui| {
-          viewer.terminal.egui(ui);
+          console.egui(ui, &mut viewer.terminal);
         });
     }
-    viewer.terminal.tick_execute(&mut TerminalInitExecuteCx {
-      scene: &viewer.content,
-      renderer: &mut viewer.rendering,
-      dyn_cx: cx.dyn_cx,
-    });
+    viewer.terminal.tick_execute(
+      &mut TerminalInitExecuteCx {
+        scene: &viewer.content,
+        renderer: &mut viewer.rendering,
+        dyn_cx: cx.dyn_cx,
+      },
+      &mut |output| {
+        console.writeln(output);
+      },
+    );
 
     if ui_state.object_inspection {
       egui::Window::new("Object Inspection")

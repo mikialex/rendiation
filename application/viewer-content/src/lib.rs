@@ -14,6 +14,7 @@ use database::*;
 use event_source::*;
 use fast_hash_collection::*;
 use futures::FutureExt;
+use futures::StreamExt;
 use parking_lot::*;
 use rendiation_algebra::*;
 use rendiation_area_lighting::*;
@@ -49,6 +50,7 @@ use rendiation_wide_line::*;
 use serde::{Deserialize, Serialize};
 use tracing::*;
 
+mod background;
 mod bounding;
 mod data_source;
 mod egui_helper;
@@ -57,12 +59,15 @@ mod gpu_with_surface;
 mod init_config;
 mod rendering;
 mod rendering_root;
+mod terminal;
 mod util;
+mod viewer;
 mod viewport;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use std::time::Instant;
 
+pub use background::*;
 pub use bounding::*;
 pub use data_source::*;
 pub use egui_helper::*;
@@ -71,7 +76,9 @@ pub use gpu_with_surface::*;
 pub use init_config::*;
 pub use rendering::*;
 pub use rendering_root::*;
+pub use terminal::*;
 pub use util::*;
+pub use viewer::*;
 pub use viewport::*;
 #[cfg(target_arch = "wasm32")]
 pub use web_time::Instant;
@@ -90,4 +97,5 @@ pub struct Viewer3dContent {
 pub fn register_viewer_content_data_model() {
   register_area_lighting_data_model();
   register_scene_mesh_lod_graph_data_model(true);
+  register_sky_env_data_model();
 }

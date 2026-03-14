@@ -22,7 +22,6 @@ use event_source::*;
 use fast_hash_collection::FastHashMap;
 use futures::FutureExt;
 use futures::StreamExt;
-use parking_lot::RwLock;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_gui_3d::*;
@@ -66,7 +65,6 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   register_scene_core_data_model();
   register_light_shadow_config();
   register_gui3d_extension_data_model(true);
-  register_sky_env_data_model();
   register_clipping_data_model();
 
   register_viewer_content_data_model();

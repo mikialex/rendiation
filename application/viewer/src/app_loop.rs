@@ -15,7 +15,23 @@ pub struct ApplicationCx<'a> {
   pub draw_target_canvas: RenderTargetView,
 }
 
-pub type ApplicationDropCx = DynCx;
+impl<'a> ApplicationCx<'a> {
+  pub fn use_state_init<T>(
+    &mut self,
+    init: impl FnOnce() -> T,
+    drop_from_cx: fn(&mut T, &mut DynCx),
+  ) -> (&mut Self, &mut T)
+  where
+    T: Any,
+  {
+    // this is safe because user can not access previous retrieved state through returned self.
+    let s = unsafe { std::mem::transmute_copy(&self) };
+
+    let state = self.memory.expect_state_init(|| init(), drop_from_cx);
+
+    (s, state)
+  }
+}
 
 unsafe impl HooksCxLike for ApplicationCx<'_> {
   fn memory_mut(&mut self) -> &mut FunctionMemory {
@@ -35,7 +51,7 @@ unsafe impl HooksCxLike for ApplicationCx<'_> {
 
     let state = self
       .memory
-      .expect_state_init(f, |_state: &mut T, _: &mut ApplicationDropCx| {});
+      .expect_state_init(f, |_state: &mut T, _: &mut DynCx| {});
 
     (s, state)
   }

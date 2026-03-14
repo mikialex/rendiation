@@ -48,7 +48,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
   let use_attribute_mesh_picker = use_attribute_mesh_picker(cx, viewer_mesh_input);
   let wide_line_picker = use_wide_line_picker(cx);
 
-  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
+  let scene_model_picker = cx.when_resolve_stage(|| {
     let att_mesh_picker = use_attribute_mesh_picker.unwrap();
     let wide_line_picker = wide_line_picker.unwrap();
 
@@ -69,6 +69,10 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
       filter: Some(Box::new(create_clip_pick_filter())),
     };
 
+    Box::new(scene_model_picker) as Box<dyn SceneModelPicker>
+  });
+
+  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     let view_logic_pixel_size = Vec2::new(
       cx.input.window_state.physical_size.0 / cx.input.window_state.device_pixel_ratio,
       cx.input.window_state.physical_size.1 / cx.input.window_state.device_pixel_ratio,
@@ -76,7 +80,6 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
     .map(|v| v.ceil() as u32);
     let view_logic_pixel_size = Size::from_u32_pair_min_one(view_logic_pixel_size.into());
 
-    let scene_model_picker: Box<dyn SceneModelPicker> = Box::new(scene_model_picker);
     let input = cx.input;
     let mouse_position = &input.window_state.mouse_position;
 
@@ -126,7 +129,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
       };
 
     ViewerSceneModelPicker {
-      scene_model_picker,
+      scene_model_picker: scene_model_picker.unwrap(),
       pointer_ctx,
     }
     .into()
