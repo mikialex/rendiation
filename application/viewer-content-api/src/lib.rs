@@ -149,6 +149,11 @@ pub extern "C" fn create_viewer_content_api_instance(hwnd: i32) -> *mut ViewerAP
 }
 
 #[no_mangle]
+pub extern "C" fn drop_viewer_content_api_instance(api: *mut ViewerAPI) {
+  let _ = unsafe { Box::from_raw(api) };
+}
+
+#[no_mangle]
 pub extern "C" fn viewer_resize(api: *mut ViewerAPI, new_width: u32, new_height: u32) {
   let api = unsafe { &mut *api };
   api.resize(new_width, new_height);
@@ -188,9 +193,4 @@ pub extern "C" fn viewer_node_attach_parent(
 pub extern "C" fn viewer_render(api: *mut ViewerAPI) {
   let api = unsafe { &mut *api };
   api.render();
-}
-
-#[no_mangle]
-pub extern "C" fn drop_viewer_content_api_instance(api: *mut ViewerAPI) {
-  let _ = unsafe { Box::from_raw(api) };
 }
