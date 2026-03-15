@@ -4641,6 +4641,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+ "web-time",
 ]
 
 [[package]]
@@ -5620,7 +5621,6 @@ dependencies = [
  "tracing-tracy",
  "wasm-bindgen",
  "web-sys",
- "web-time",
  "winit",
 ]
 

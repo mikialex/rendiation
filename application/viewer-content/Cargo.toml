@@ -81,5 +81,8 @@ extra-checks = ["rendiation-webgpu-hook-utils/extra-checks"]
 heap-debug = ["heap-tools/enabled"]
 support-webgl = ["rendiation-webgpu/support-webgl"]
 
+[target.'cfg(target_family = "wasm")'.dependencies]
+web-time = { workspace = true }
+
 [lints]
 workspace = true
