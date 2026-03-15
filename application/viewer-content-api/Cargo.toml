@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 
 
 [dependencies]
+pollster = { workspace = true }
 rendiation-viewer-content = { path = "../viewer-content" }
 
 [build-dependencies]

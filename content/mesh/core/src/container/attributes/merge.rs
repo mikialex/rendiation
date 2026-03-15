@@ -90,7 +90,7 @@ impl<'a, T, F: FnMut(&T) -> bool> Iterator for LookAheadSplit<'a, T, F> {
 pub struct AttributesMeshEntityMergeKey {
   pub attributes: SmallVec<[AttributeSemantic; 3]>,
   pub indices: Option<AttributeIndexFormat>,
-  pub mode: PrimitiveTopology,
+  pub mode: MeshPrimitiveTopology,
 }
 
 pub fn compute_merge_key(att: &&AttributesMesh) -> AttributesMeshEntityMergeKey {

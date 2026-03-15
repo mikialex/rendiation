@@ -39,7 +39,6 @@ rendiation-gui-3d = { path = "../../extension/gui-3d" }
 rendiation-lighting-punctual = { path = "../../content/lighting/punctual" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
-rendiation-scene-core = { path = "../../scene/core" }
 rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
 rendiation-scene-gltf-exporter = { path = "../../scene/io/gltf/exporter" }
 rendiation-scene-gltf-loader = { path = "../../scene/io/gltf/loader" }

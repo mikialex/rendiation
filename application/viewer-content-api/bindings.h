@@ -14,9 +14,11 @@ struct ViewerAPI *create_viewer_content_api_instance(int32_t hwnd);
 
 void viewer_resize(struct ViewerAPI *api, uint32_t new_width, uint32_t new_height);
 
-struct ViewerEntityHandle viewer_create_node(struct ViewerAPI *api);
+struct ViewerEntityHandle viewer_create_node(void);
 
-void viewer_delete_node(struct ViewerAPI *api, struct ViewerEntityHandle node);
+void viewer_delete_node(struct ViewerEntityHandle node);
+
+void viewer_node_attach_parent(struct ViewerEntityHandle node, struct ViewerEntityHandle *parent);
 
 void viewer_render(struct ViewerAPI *api);
 

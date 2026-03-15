@@ -1,4 +1,4 @@
-use rendiation_mesh_core::AttributeIndexFormat;
+use rendiation_mesh_core::{AttributeIndexFormat, MeshPrimitiveTopology};
 use rendiation_mesh_generator::*;
 
 use crate::backend::wavefront_compute::geometry::naive::*;
@@ -19,10 +19,7 @@ pub(crate) fn init_default_acceleration_structure(
       builder.triangulate_parametric(surface, config, true);
     })
     .build();
-    assert_eq!(
-      attribute_mesh.mode,
-      rendiation_mesh_core::PrimitiveTopology::TriangleList
-    );
+    assert_eq!(attribute_mesh.mode, MeshPrimitiveTopology::TriangleList);
     assert!(attribute_mesh.indices.is_some());
     let vertices = attribute_mesh.get_position();
     let (format, indices) = attribute_mesh.indices.as_ref().unwrap();

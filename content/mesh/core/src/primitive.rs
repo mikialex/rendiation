@@ -4,26 +4,26 @@ use crate::*;
 pub trait Simplex: IntoIterator<Item = Self::Vertex> {
   type Vertex;
   type Topology;
-  const TOPOLOGY: PrimitiveTopology;
+  const TOPOLOGY: MeshPrimitiveTopology;
   const DIMENSION: usize;
 }
 
 impl<V> Simplex for Point<V> {
   type Vertex = V;
   type Topology = PointList;
-  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::PointList;
+  const TOPOLOGY: MeshPrimitiveTopology = MeshPrimitiveTopology::PointList;
   const DIMENSION: usize = 1;
 }
 impl<V> Simplex for LineSegment<V> {
   type Vertex = V;
   type Topology = LineList;
-  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::LineList;
+  const TOPOLOGY: MeshPrimitiveTopology = MeshPrimitiveTopology::LineList;
   const DIMENSION: usize = 2;
 }
 impl<V> Simplex for Triangle<V> {
   type Vertex = V;
   type Topology = TriangleList;
-  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::TriangleList;
+  const TOPOLOGY: MeshPrimitiveTopology = MeshPrimitiveTopology::TriangleList;
   const DIMENSION: usize = 3;
 }
 
@@ -149,14 +149,14 @@ pub trait PrimitiveTopologyMeta: 'static {
   type Primitive<V>: Functor;
   const STEP: usize;
   const STRIDE: usize;
-  const ENUM: PrimitiveTopology;
+  const ENUM: MeshPrimitiveTopology;
 }
 
 /// Primitive type the input mesh is composed of.
 #[repr(C)]
 #[derive(Serialize, Deserialize)]
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Facet)]
-pub enum PrimitiveTopology {
+pub enum MeshPrimitiveTopology {
   /// Vertex data is a list of points. Each vertex is a new point.
   PointList = 0,
   /// Vertex data is a list of lines. Each pair of vertices composes a new line.
@@ -178,24 +178,24 @@ pub enum PrimitiveTopology {
   TriangleStrip = 4,
 }
 
-impl PrimitiveTopology {
+impl MeshPrimitiveTopology {
   pub fn stride(&self) -> usize {
     match self {
-      PrimitiveTopology::PointList => 1,
-      PrimitiveTopology::LineList => 2,
-      PrimitiveTopology::LineStrip => 2,
-      PrimitiveTopology::TriangleList => 3,
-      PrimitiveTopology::TriangleStrip => 3,
+      MeshPrimitiveTopology::PointList => 1,
+      MeshPrimitiveTopology::LineList => 2,
+      MeshPrimitiveTopology::LineStrip => 2,
+      MeshPrimitiveTopology::TriangleList => 3,
+      MeshPrimitiveTopology::TriangleStrip => 3,
     }
   }
 
   pub fn step(&self) -> usize {
     match self {
-      PrimitiveTopology::PointList => 1,
-      PrimitiveTopology::LineList => 2,
-      PrimitiveTopology::LineStrip => 1,
-      PrimitiveTopology::TriangleList => 3,
-      PrimitiveTopology::TriangleStrip => 1,
+      MeshPrimitiveTopology::PointList => 1,
+      MeshPrimitiveTopology::LineList => 2,
+      MeshPrimitiveTopology::LineStrip => 1,
+      MeshPrimitiveTopology::TriangleList => 3,
+      MeshPrimitiveTopology::TriangleStrip => 1,
     }
   }
 }
@@ -206,7 +206,7 @@ impl PrimitiveTopologyMeta for PointList {
   type Primitive<T> = Point<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 1;
-  const ENUM: PrimitiveTopology = PrimitiveTopology::PointList;
+  const ENUM: MeshPrimitiveTopology = MeshPrimitiveTopology::PointList;
 }
 
 #[derive(Clone, Default)]
@@ -215,7 +215,7 @@ impl PrimitiveTopologyMeta for TriangleList {
   type Primitive<T> = Triangle<T>;
   const STEP: usize = 3;
   const STRIDE: usize = 3;
-  const ENUM: PrimitiveTopology = PrimitiveTopology::TriangleList;
+  const ENUM: MeshPrimitiveTopology = MeshPrimitiveTopology::TriangleList;
 }
 
 #[derive(Clone, Default)]
@@ -224,7 +224,7 @@ impl PrimitiveTopologyMeta for TriangleStrip {
   type Primitive<T> = Triangle<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 3;
-  const ENUM: PrimitiveTopology = PrimitiveTopology::TriangleStrip;
+  const ENUM: MeshPrimitiveTopology = MeshPrimitiveTopology::TriangleStrip;
 }
 
 #[derive(Clone, Default)]
@@ -233,7 +233,7 @@ impl PrimitiveTopologyMeta for LineList {
   type Primitive<T> = LineSegment<T>;
   const STEP: usize = 2;
   const STRIDE: usize = 2;
-  const ENUM: PrimitiveTopology = PrimitiveTopology::LineList;
+  const ENUM: MeshPrimitiveTopology = MeshPrimitiveTopology::LineList;
 }
 
 #[derive(Clone, Default)]
@@ -242,5 +242,5 @@ impl PrimitiveTopologyMeta for LineStrip {
   type Primitive<T> = LineSegment<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 2;
-  const ENUM: PrimitiveTopology = PrimitiveTopology::LineStrip;
+  const ENUM: MeshPrimitiveTopology = MeshPrimitiveTopology::LineStrip;
 }

@@ -4,7 +4,7 @@ declare_entity!(AttributesMeshEntity);
 declare_component!(
   AttributesMeshEntityTopology,
   AttributesMeshEntity,
-  PrimitiveTopology
+  MeshPrimitiveTopology
 );
 
 #[repr(C)]

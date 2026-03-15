@@ -194,7 +194,7 @@ impl IndexGet for DynIndexView<'_> {
 }
 
 pub struct AttributesMeshEntityAbstractMeshReadView<T, I> {
-  pub mode: PrimitiveTopology,
+  pub mode: MeshPrimitiveTopology,
   pub vertices: T,
   pub indices: Option<I>,
   pub count: usize,
@@ -221,19 +221,19 @@ where
     #[rustfmt::skip]
      if let Some(index) = &self.indices {
       match self.mode {
-        PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
-        PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
-        PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
-        PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
-        PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        MeshPrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        MeshPrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        MeshPrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        MeshPrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        MeshPrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
       }.into()
     } else {
       match self.mode {
-        PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&self.vertices, read_index)?),
-        PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&self.vertices, read_index)?),
-        PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&self.vertices, read_index)?),
-        PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&self.vertices, read_index)?),
-        PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&self.vertices, read_index)?),
+        MeshPrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&self.vertices, read_index)?),
+        MeshPrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&self.vertices, read_index)?),
+        MeshPrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&self.vertices, read_index)?),
+        MeshPrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&self.vertices, read_index)?),
+        MeshPrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&self.vertices, read_index)?),
       }.into()
     }
   }

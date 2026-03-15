@@ -62,14 +62,14 @@ pub fn map_mag_filter(f: gltf::texture::MagFilter) -> rendiation_texture_core::F
   }
 }
 
-pub fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<PrimitiveTopology> {
+pub fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<MeshPrimitiveTopology> {
   match mode {
-    gltf::mesh::Mode::Points => PrimitiveTopology::PointList,
-    gltf::mesh::Mode::Lines => PrimitiveTopology::LineList,
+    gltf::mesh::Mode::Points => MeshPrimitiveTopology::PointList,
+    gltf::mesh::Mode::Lines => MeshPrimitiveTopology::LineList,
     gltf::mesh::Mode::LineLoop => return None,
-    gltf::mesh::Mode::LineStrip => PrimitiveTopology::LineStrip,
-    gltf::mesh::Mode::Triangles => PrimitiveTopology::TriangleList,
-    gltf::mesh::Mode::TriangleStrip => PrimitiveTopology::TriangleStrip,
+    gltf::mesh::Mode::LineStrip => MeshPrimitiveTopology::LineStrip,
+    gltf::mesh::Mode::Triangles => MeshPrimitiveTopology::TriangleList,
+    gltf::mesh::Mode::TriangleStrip => MeshPrimitiveTopology::TriangleStrip,
     gltf::mesh::Mode::TriangleFan => return None,
   }
   .into()

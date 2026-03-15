@@ -60,7 +60,7 @@ pub use gpu::{
 use heap_tools::*;
 use hook::*;
 pub use indirect::*;
-use instance_poller::GPUInstance;
+pub use instance_poller::GPUInstance;
 use parking_lot::RwLock;
 pub use pass::*;
 pub use pipeline::*;
@@ -76,6 +76,7 @@ use reuse_pool::*;
 pub use surface::*;
 pub use types::*;
 use wgpu as gpu;
+pub use wgpu as raw_gpu;
 pub use wgpu_types::*;
 
 #[derive(Clone)]

@@ -291,7 +291,7 @@ fn create_mesh(
         .flat_map(|v| bytemuck::bytes_of(v).iter().copied())
         .collect(),
     )),
-    mode: rendiation_mesh_core::PrimitiveTopology::TriangleList,
+    mode: MeshPrimitiveTopology::TriangleList,
   }
   .build();
 

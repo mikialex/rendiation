@@ -42,7 +42,6 @@ mod viewer;
 use app_loop::*;
 use egui_cx::use_egui_cx;
 use heap_tools::*;
-use rendiation_scene_core::*;
 use rendiation_texture_core::*;
 use rendiation_webgpu::*;
 pub use viewer::*;
@@ -108,14 +107,9 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
     init_config
   };
 
-  let app_config = ApplicationPlatformConfig {
-    preferred_backends: init_config.init_only.wgpu_backend_select_override,
-    checks: init_config.init_only.default_shader_protections,
-    enable_backend_validation: init_config.init_only.enable_backend_validation,
-    dx_compiler_dll_path: init_config.init_only.dx_compiler_dll_path.clone(),
-  };
+  let gpu_config = init_config.make_gpu_platform_config();
 
-  run_application(app_config, move |cx| {
+  run_application(gpu_config, move |cx| {
     use_egui_cx(cx, |cx, egui_cx| {
       use_viewer(cx, egui_cx, &init_config, |cx| {
         content_logic(cx);

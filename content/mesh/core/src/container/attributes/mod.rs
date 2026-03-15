@@ -111,13 +111,13 @@ pub const MOST_COMMON_ATTRIBUTE_COUNT: usize = 3;
 pub struct AttributesMesh {
   pub attributes: SmallVec<[(AttributeSemantic, AttributeAccessor); MOST_COMMON_ATTRIBUTE_COUNT]>,
   pub indices: Option<(AttributeIndexFormat, AttributeAccessor)>,
-  pub mode: PrimitiveTopology,
+  pub mode: MeshPrimitiveTopology,
 }
 
 pub struct AttributesMeshData {
   pub attributes: Vec<(AttributeSemantic, Vec<u8>)>,
   pub indices: Option<(AttributeIndexFormat, Vec<u8>)>,
-  pub mode: PrimitiveTopology,
+  pub mode: MeshPrimitiveTopology,
 }
 
 impl AttributesMeshData {

@@ -67,7 +67,7 @@ struct WinitAppImpl {
   app_logic: Box<dyn Fn(&mut ApplicationCx)>,
   title: String,
   has_existed: bool,
-  config: ApplicationPlatformConfig,
+  config: GPUPlatformConfig,
 }
 
 impl winit::application::ApplicationHandler for WinitAppImpl {
@@ -149,12 +149,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         config
       };
 
-      let gpu = GPUOrGPUCreateFuture::Creating(Box::pin(async {
-        let (gpu, surface) = GPU::new(config).await.unwrap();
-        let surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
-        let surface = SurfaceWrapper::new(surface);
-        WGPUAndSurface { gpu, surface }
-      }));
+      let gpu = GPUOrGPUCreateFuture::Creating(Box::pin(WGPUAndSurface::new(config)));
 
       WindowWithWGPUSurface {
         window,
@@ -218,7 +213,6 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
             physical_size.height,
           ))),
           WindowEvent::RedrawRequested => {
-            surface.re_config_if_changed(&gpu.device);
             // when window resize to zero, the surface will be outdated.
             // but when should we deal with the surface lost case?
             if let Ok((output, canvas)) =
@@ -284,15 +278,8 @@ impl GPUOrGPUCreateFuture {
   }
 }
 
-pub struct ApplicationPlatformConfig {
-  pub preferred_backends: Option<Backends>,
-  pub checks: ShaderRuntimeProtection,
-  pub enable_backend_validation: Option<bool>,
-  pub dx_compiler_dll_path: Option<String>,
-}
-
 pub fn run_application(
-  config: ApplicationPlatformConfig,
+  config: GPUPlatformConfig,
   app_logic: impl Fn(&mut ApplicationCx) + 'static,
 ) {
   let event_loop = EventLoop::new().unwrap();
