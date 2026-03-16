@@ -5629,6 +5629,8 @@ name = "viewer-content-api"
 version = "0.1.0"
 dependencies = [
  "cbindgen",
+ "fast-hash-collection",
+ "futures",
  "pollster",
  "rendiation-viewer-content",
 ]

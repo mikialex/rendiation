@@ -9,7 +9,9 @@ crate-type = ["cdylib"]
 
 
 [dependencies]
+futures = { workspace = true }
 pollster = { workspace = true }
+fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 rendiation-viewer-content = { path = "../viewer-content" }
 
 [build-dependencies]

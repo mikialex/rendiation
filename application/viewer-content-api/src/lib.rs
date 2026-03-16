@@ -1,10 +1,15 @@
 use std::num::NonZeroIsize;
 
+use fast_hash_collection::FastHashMap;
 use rendiation_viewer_content::*;
+
+mod cx;
+use cx::*;
 
 pub struct ViewerAPI {
   gpu_and_surface: WGPUAndSurface,
   viewer: Viewer,
+  picker_mem: FunctionMemory,
   task_spawner: TaskSpawner,
   data_source: ViewerDataScheduler,
   dyn_cx: DynCx,
@@ -19,7 +24,20 @@ impl ViewerAPI {
   }
 
   pub fn create_picker_api(&mut self) -> ViewerPickerAPI {
-    todo!()
+    self.viewer_api_cx_scope(|cx| {
+      let picker_impl = use_viewer_scene_model_picker_impl(cx);
+      let sms = cx
+        .use_db_rev_ref::<SceneModelBelongsToScene>()
+        .use_assure_result(cx);
+
+      cx.when_resolve_stage(|| {
+        let sms = sms.expect_resolve_stage();
+        ViewerPickerAPI {
+          picker_impl: picker_impl.unwrap(),
+          scene_models_of_scene: sms,
+        }
+      })
+    })
   }
 
   pub fn render(&mut self) {
@@ -39,10 +57,62 @@ impl ViewerAPI {
       canvas.present();
     }
   }
+
+  pub fn viewer_api_cx_scope<T>(&mut self, f: impl Fn(&mut ViewerAPICx) -> Option<T>) -> T {
+    let mut pool = AsyncTaskPool::default();
+    let mut immediate_results = FastHashMap::default();
+    let mut change_collector = ChangeCollector::default();
+
+    {
+      self.viewer.shared_ctx.reset_visiting();
+      immediate_results.clear();
+      let mut cx = ViewerAPICx {
+        memory: &mut self.picker_mem,
+        dyn_cx: &mut self.dyn_cx,
+        stage: ViewerAPICxStage::Spawn {
+          spawner: &self.task_spawner,
+          pool: &mut pool,
+          immediate_results: &mut immediate_results,
+          change_collector: &mut change_collector,
+        },
+        shared_ctx: &mut self.viewer.shared_ctx,
+        waker: futures::task::noop_waker(),
+      };
+
+      let r = f(&mut cx);
+      assert!(r.is_none());
+    }
+
+    let mut task_pool_result = pollster::block_on(pool.all_async_task_done());
+
+    self.viewer.shared_ctx.reset_visiting();
+    task_pool_result
+      .token_based_result
+      .extend(immediate_results.drain());
+    immediate_results.clear();
+
+    let mut cx = ViewerAPICx {
+      memory: &mut self.picker_mem,
+      dyn_cx: &mut self.dyn_cx,
+      stage: ViewerAPICxStage::Resolve {
+        result: &mut task_pool_result,
+      },
+      shared_ctx: &mut self.viewer.shared_ctx,
+      waker: futures::task::noop_waker(),
+    };
+    f(&mut cx).unwrap()
+  }
 }
 
 pub struct ViewerPickerAPI {
   picker_impl: Box<dyn SceneModelPicker>,
+  scene_models_of_scene: RevRefForeignKeyRead,
+}
+
+impl ViewerPickerAPI {
+  pub fn pick_nearest(&mut self, x: f32, y: f32) {
+    todo!()
+  }
 }
 
 #[repr(C)]
@@ -151,6 +221,7 @@ pub extern "C" fn create_viewer_content_api_instance(hwnd: i32) -> *mut ViewerAP
     task_spawner: worker,
     data_source: Default::default(),
     dyn_cx: Default::default(),
+    picker_mem: Default::default(),
   };
   let api = Box::new(api);
   Box::leak(api)
@@ -205,16 +276,20 @@ pub extern "C" fn viewer_render(api: *mut ViewerAPI) {
 
 #[no_mangle]
 pub extern "C" fn viewer_create_picker_api(api: *mut ViewerAPI) -> *mut ViewerPickerAPI {
-  todo!()
+  let api = unsafe { &mut *api };
+  let api = api.create_picker_api();
+  let api = Box::new(api);
+  Box::leak(api)
 }
 
 /// picker api must be dropped before any scene related modifications, or deadlock will occur
 #[no_mangle]
 pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerPickerAPI) {
-  todo!()
+  let _ = unsafe { Box::from_raw(api) };
 }
 
 #[no_mangle]
 pub extern "C" fn picker_pick_nearest(api: *mut ViewerPickerAPI, x: f32, y: f32) {
-  todo!()
+  let api = unsafe { &mut *api };
+  api.pick_nearest(x, y);
 }
