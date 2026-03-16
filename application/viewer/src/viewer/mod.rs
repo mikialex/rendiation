@@ -54,20 +54,6 @@ impl<'a> ViewerCx<'a> {
   }
 }
 
-pub struct ViewerDropCx<'a> {
-  pub dyn_cx: &'a mut DynCx,
-  pub writer: SceneWriter,
-  pub terminal: &'a mut Terminal,
-  pub shared_ctx: &'a mut SharedHooksCtx,
-  pub inspector: &'a mut Option<&'a mut dyn Inspector>,
-}
-
-impl CanCleanUpFrom<ViewerDropCx<'_>> for EntityHandle<SceneEntity> {
-  fn drop_from_cx(&mut self, cx: &mut ViewerDropCx<'_>) {
-    cx.writer.scene_writer.delete_entity(*self);
-  }
-}
-
 pub struct ViewerInitCx<'a> {
   pub dyn_cx: &'a mut DynCx,
   pub content: &'a Viewer3dContent,
@@ -166,14 +152,6 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
 }
 impl<'a> DBHookCxLike for ViewerCx<'a> {}
 
-impl CanCleanUpFrom<ViewerDropCx<'_>> for SharedConsumerToken {
-  fn drop_from_cx(&mut self, cx: &mut ViewerDropCx<'_>) {
-    if let Some(mem) = cx.shared_ctx.drop_consumer(*self, cx.inspector) {
-      mem.write().memory.cleanup_assume_only_plain_states();
-    }
-  }
-}
-
 impl<'a> ViewerCx<'a> {
   pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T)
   where
@@ -219,10 +197,6 @@ impl<'a> ViewerCx<'a> {
 
     (s, state)
   }
-}
-
-impl<T> CanCleanUpFrom<ViewerDropCx<'_>> for NothingToDrop<T> {
-  fn drop_from_cx(&mut self, _: &mut ViewerDropCx) {}
 }
 
 #[non_exhaustive]
@@ -307,23 +281,6 @@ pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(
       cx.execute(internal);
     }
   })
-}
-
-fn drop_viewer_from_dyn_cx(viewer: &mut Viewer, dyn_cx: &mut DynCx) {
-  let writer = SceneWriter::from_global(viewer.content.scene);
-
-  let mut dcx = ViewerDropCx {
-    dyn_cx,
-    writer,
-    terminal: &mut viewer.terminal,
-    shared_ctx: &mut viewer.shared_ctx,
-    inspector: &mut None,
-  };
-  viewer.memory.cleanup(&mut dcx as *mut _ as *mut ());
-
-  viewer.rendering_root.cleanup(&mut viewer.shared_ctx);
-
-  log::info!("drop viewer from dyn_cx");
 }
 
 pub fn use_viewer<'a>(

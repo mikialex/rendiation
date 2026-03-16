@@ -15,6 +15,15 @@ pub struct ViewerAPI {
   dyn_cx: DynCx,
 }
 
+impl Drop for ViewerAPI {
+  fn drop(&mut self) {
+    drop_viewer_from_dyn_cx(&mut self.viewer, &mut self.dyn_cx);
+    self
+      .picker_mem
+      .cleanup(&mut ViewerAPICxDropCx as *mut ViewerAPICxDropCx as *mut ());
+  }
+}
+
 impl ViewerAPI {
   pub fn resize(&mut self, new_width: u32, new_height: u32) {
     self
@@ -24,7 +33,7 @@ impl ViewerAPI {
   }
 
   pub fn create_picker_api(&mut self) -> ViewerPickerAPI {
-    self.viewer_api_cx_scope(|cx| {
+    self.viewer_api_picker_scope(|cx| {
       let picker_impl = use_viewer_scene_model_picker_impl(cx);
       let sms = cx
         .use_db_rev_ref::<SceneModelBelongsToScene>()
@@ -58,7 +67,7 @@ impl ViewerAPI {
     }
   }
 
-  pub fn viewer_api_cx_scope<T>(&mut self, f: impl Fn(&mut ViewerAPICx) -> Option<T>) -> T {
+  pub fn viewer_api_picker_scope<T>(&mut self, f: impl Fn(&mut ViewerAPICx) -> Option<T>) -> T {
     let mut pool = AsyncTaskPool::default();
     let mut immediate_results = FastHashMap::default();
     let mut change_collector = ChangeCollector::default();
