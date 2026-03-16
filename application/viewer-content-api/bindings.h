@@ -5,6 +5,8 @@
 
 typedef struct ViewerAPI ViewerAPI;
 
+typedef struct ViewerPickerAPI ViewerPickerAPI;
+
 typedef struct ViewerEntityHandle {
   uint32_t index;
   uint64_t generation;
@@ -23,3 +25,12 @@ void viewer_delete_node(struct ViewerEntityHandle node);
 void viewer_node_attach_parent(struct ViewerEntityHandle node, struct ViewerEntityHandle *parent);
 
 void viewer_render(struct ViewerAPI *api);
+
+struct ViewerPickerAPI *viewer_create_picker_api(struct ViewerAPI *api);
+
+/**
+ * picker api must be dropped before any scene related modifications, or deadlock will occur
+ */
+void viewer_drop_picker_api(struct ViewerPickerAPI *api);
+
+void picker_pick_nearest(struct ViewerPickerAPI *api, float x, float y);

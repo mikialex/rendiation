@@ -18,6 +18,10 @@ impl ViewerAPI {
       .set_size(Size::from_u32_pair_min_one((new_width, new_height)));
   }
 
+  pub fn create_picker_api(&mut self) -> ViewerPickerAPI {
+    todo!()
+  }
+
   pub fn render(&mut self) {
     if let Ok((canvas, target)) = self
       .gpu_and_surface
@@ -35,6 +39,10 @@ impl ViewerAPI {
       canvas.present();
     }
   }
+}
+
+pub struct ViewerPickerAPI {
+  picker_impl: Box<dyn SceneModelPicker>,
 }
 
 #[repr(C)]
@@ -193,4 +201,20 @@ pub extern "C" fn viewer_node_attach_parent(
 pub extern "C" fn viewer_render(api: *mut ViewerAPI) {
   let api = unsafe { &mut *api };
   api.render();
+}
+
+#[no_mangle]
+pub extern "C" fn viewer_create_picker_api(api: *mut ViewerAPI) -> *mut ViewerPickerAPI {
+  todo!()
+}
+
+/// picker api must be dropped before any scene related modifications, or deadlock will occur
+#[no_mangle]
+pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerPickerAPI) {
+  todo!()
+}
+
+#[no_mangle]
+pub extern "C" fn picker_pick_nearest(api: *mut ViewerPickerAPI, x: f32, y: f32) {
+  todo!()
 }
