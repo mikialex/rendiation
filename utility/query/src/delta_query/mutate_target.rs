@@ -96,7 +96,9 @@ where
         self.delta.set_value(k, previous_delta.clone());
       }
     } else {
-      self.delta.set_value(k, new_delta);
+      if !new_delta.is_not_changed() {
+        self.delta.set_value(k, new_delta);
+      }
     }
   }
 
@@ -110,7 +112,9 @@ where
         self.delta.set_value(k, previous_delta.clone());
       }
     } else {
-      self.delta.set_value(k, new_delta);
+      if !new_delta.is_not_changed() {
+        self.delta.set_value(k, new_delta);
+      }
     }
 
     previous

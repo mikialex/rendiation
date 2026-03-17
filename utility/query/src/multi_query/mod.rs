@@ -32,6 +32,27 @@ pub trait MultiQuery: Send + Sync + Clone {
   }
 }
 
+impl<T: MultiQuery> MultiQuery for &T {
+  type Key = T::Key;
+  type Value = T::Value;
+
+  fn iter_keys(&self) -> impl Iterator<Item = Self::Key> + '_ {
+    (**self).iter_keys()
+  }
+
+  fn access_multi(&self, key: &Self::Key) -> Option<impl Iterator<Item = Self::Value> + '_> {
+    (**self).access_multi(key)
+  }
+
+  fn access_multi_value(&self, key: &Self::Key) -> impl Iterator<Item = Self::Value> + '_ {
+    (**self).access_multi_value(key)
+  }
+
+  fn access_multi_visitor(&self, key: &Self::Key, visitor: &mut dyn FnMut(Self::Value)) {
+    (**self).access_multi_visitor(key, visitor)
+  }
+}
+
 impl<K: CKey, V: CKey> MultiQuery for EmptyQuery<K, V> {
   type Key = K;
   type Value = V;
