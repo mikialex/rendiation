@@ -127,7 +127,7 @@ pub struct AttributesMeshEntityVertexAccessView {
 }
 
 pub struct AttributesMeshGPU<'a> {
-  pub mode: rendiation_mesh_core::PrimitiveTopology,
+  pub mode: MeshPrimitiveTopology,
   // fmt, count, buffer
   pub index: Option<(AttributeIndexFormat, u32, &'a GPUBufferResourceView)>,
   pub mesh_id: EntityHandle<AttributesMeshEntity>,

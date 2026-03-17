@@ -357,7 +357,7 @@ impl AttributesMeshReader {
 
 #[derive(Clone)] // todo, consider remove clone
 pub struct AttributesMeshWithUri {
-  pub mode: PrimitiveTopology,
+  pub mode: MeshPrimitiveTopology,
   pub indices: Option<AttributeUriData>,
   pub vertices: Vec<AttributeMeshUriVertex>,
 }
@@ -388,7 +388,7 @@ impl AttributeUriData {
 
 #[derive(Clone)] // todo, consider remove clone
 pub struct AttributesMeshWithVertexRelationInfo {
-  pub mode: PrimitiveTopology,
+  pub mode: MeshPrimitiveTopology,
   pub indices: Option<AttributeLivingData>,
   pub vertices: Vec<AttributeMeshLivingVertex>,
 }

@@ -2,13 +2,13 @@ use rendiation_mesh_core::*;
 use rendiation_scene_core::AlphaMode;
 use rendiation_texture_core::{AddressMode, FilterMode, TextureSampler};
 
-pub fn map_draw_mode(mode: PrimitiveTopology) -> gltf_json::mesh::Mode {
+pub fn map_draw_mode(mode: MeshPrimitiveTopology) -> gltf_json::mesh::Mode {
   match mode {
-    PrimitiveTopology::PointList => gltf_json::mesh::Mode::Points,
-    PrimitiveTopology::LineList => gltf_json::mesh::Mode::Lines,
-    PrimitiveTopology::LineStrip => gltf_json::mesh::Mode::LineStrip,
-    PrimitiveTopology::TriangleList => gltf_json::mesh::Mode::Triangles,
-    PrimitiveTopology::TriangleStrip => gltf_json::mesh::Mode::TriangleStrip,
+    MeshPrimitiveTopology::PointList => gltf_json::mesh::Mode::Points,
+    MeshPrimitiveTopology::LineList => gltf_json::mesh::Mode::Lines,
+    MeshPrimitiveTopology::LineStrip => gltf_json::mesh::Mode::LineStrip,
+    MeshPrimitiveTopology::TriangleList => gltf_json::mesh::Mode::Triangles,
+    MeshPrimitiveTopology::TriangleStrip => gltf_json::mesh::Mode::TriangleStrip,
   }
 }
 

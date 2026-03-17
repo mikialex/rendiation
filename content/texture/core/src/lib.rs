@@ -66,8 +66,13 @@ pub trait Texture2D: Sized {
     self.iter_mut().for_each(|(p, _)| *p = pixel)
   }
 
-  fn map<T: Texture2dInitAble>(&self, mapper: impl Fn(Self::Pixel) -> T::Pixel) -> T {
-    let mut target = T::init_not_care(self.size());
+  // todo, remove init
+  fn map<T: Texture2dInitAble>(
+    &self,
+    init: T::Pixel,
+    mapper: impl Fn(Self::Pixel) -> T::Pixel,
+  ) -> T {
+    let mut target = T::init_with(self.size(), init);
     self.iter().for_each(|(&p, xy)| {
       let p = mapper(p);
       target.write(xy, p)
@@ -84,9 +89,6 @@ pub trait Texture2D: Sized {
 
 pub trait Texture2dInitAble: Texture2D {
   fn init_with(size: Size, pixel: Self::Pixel) -> Self;
-  /// Opt in use a fast allocation call,
-  /// use this function to get better performance.
-  fn init_not_care(size: Size) -> Self;
 }
 
 /// Not all texture storage container has continues memory,

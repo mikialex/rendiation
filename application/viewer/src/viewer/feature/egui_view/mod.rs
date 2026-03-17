@@ -1,12 +1,10 @@
 use crate::*;
 
-mod change;
 mod console;
 mod db_view;
 mod inspector;
 mod tile;
 
-pub use change::*;
 pub use console::*;
 use db_view::*;
 pub use inspector::*;
@@ -40,6 +38,8 @@ impl Default for ViewerUIState {
 
 pub fn use_viewer_egui(cx: &mut ViewerCx) {
   let (cx, ui_state) = cx.use_plain_state::<ViewerUIState>();
+
+  let (cx, console) = cx.use_plain_state::<Console>();
 
   let (cx, frame_cpu_time_stat) = cx.use_plain_state_init(|_| StatisticStore::<f32>::new(200));
 
@@ -141,7 +141,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             let config = viewer.export_init_config();
             config.export_to_current_dir();
           }
-          ui.label(format!("{:#?}", viewer.rendering.init_config.init_only));
+          ui.label(format!("{:#?}", viewer.rendering.init_config().init_only));
         });
       });
 
@@ -209,14 +209,19 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
       egui::TopBottomPanel::bottom("view bottom terminal")
         .resizable(true)
         .show(ui, |ui| {
-          viewer.terminal.egui(ui);
+          console.egui(ui, &mut viewer.terminal);
         });
     }
-    viewer.terminal.tick_execute(&mut TerminalInitExecuteCx {
-      scene: &viewer.content,
-      renderer: &mut viewer.rendering,
-      dyn_cx: cx.dyn_cx,
-    });
+    viewer.terminal.tick_execute(
+      &mut TerminalInitExecuteCx {
+        scene: &viewer.content,
+        renderer: &mut viewer.rendering,
+        dyn_cx: cx.dyn_cx,
+      },
+      &mut |output| {
+        console.writeln(output);
+      },
+    );
 
     if ui_state.object_inspection {
       egui::Window::new("Object Inspection")

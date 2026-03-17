@@ -6,7 +6,6 @@ use futures::{executor::LocalPool, task::LocalSpawnExt, Future};
 use crate::*;
 
 pub struct Terminal {
-  console: Console,
   pub command_registry: FastHashMap<String, TerminalCommandCb>,
   pub executor: LocalPool,
   /// some task may only run on main thread, for example acquire db write lock
@@ -18,7 +17,7 @@ pub struct Terminal {
 #[derive(Clone)]
 pub struct TerminalCtx {
   channel: futures::channel::mpsc::UnboundedSender<Box<dyn FnOnce()>>,
-  pub(crate) store: TerminalTaskStore,
+  pub store: TerminalTaskStore,
   pub worker: TaskSpawner,
 }
 
@@ -109,7 +108,6 @@ impl Terminal {
     };
 
     Self {
-      console: Console::new(),
       command_registry: Default::default(),
       executor: futures::executor::LocalPool::new(),
       main_thread_tasks: r,
@@ -129,15 +127,13 @@ pub struct TerminalInitExecuteCx<'a> {
 }
 
 impl Terminal {
-  pub fn egui(&mut self, ui: &mut egui::Ui) {
-    if let Some(command) = self.console.ui(ui) {
-      self.buffered_requests.push_back(command)
-    }
-  }
-
-  pub fn tick_execute(&mut self, cx: &mut TerminalInitExecuteCx) {
+  pub fn tick_execute(
+    &mut self,
+    cx: &mut TerminalInitExecuteCx,
+    write_output: &mut impl FnMut(&str),
+  ) {
     if let Some(command) = self.buffered_requests.pop_front() {
-      self.execute_current(command, cx);
+      self.execute_current(command, cx, write_output);
     }
 
     self.executor.run_until_stalled();
@@ -176,7 +172,12 @@ impl Terminal {
     self
   }
 
-  pub fn execute_current(&mut self, command: String, ctx: &mut TerminalInitExecuteCx) {
+  pub fn execute_current(
+    &mut self,
+    command: String,
+    ctx: &mut TerminalInitExecuteCx,
+    write_output: &mut impl FnMut(&str),
+  ) {
     let parameters: Vec<String> = command
       .split_ascii_whitespace()
       .map(|s| s.to_owned())
@@ -187,9 +188,7 @@ impl Terminal {
         let task = exe(ctx, &parameters);
         self.executor.spawner().spawn_local(task).unwrap();
       } else {
-        self
-          .console
-          .writeln(format!("unknown command {command_name}"));
+        write_output(&format!("unknown command {command_name}"));
       }
     }
   }

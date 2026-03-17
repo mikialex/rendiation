@@ -37,8 +37,10 @@ const SKY_BLUE: Vec3<f32> = Vec3::new(0.373, 0.753, 0.922);
 const GROUND_GREEN: Vec3<f32> = Vec3::new(0.667, 0.761, 0.608);
 
 impl ViewerBackgroundState {
-  pub fn init(writer: &mut SceneWriter) -> Self {
-    let default_env_background = load_example_cube_tex(writer);
+  pub fn init(
+    default_env_background: EntityHandle<SceneTextureCubeEntity>,
+    writer: &mut SceneWriter,
+  ) -> Self {
     let s = Self {
       current: ViewerBackgroundType::Color,
       default_env_background,

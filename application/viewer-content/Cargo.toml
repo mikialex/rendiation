@@ -1,20 +1,15 @@
 [package]
 authors = ["MikiAlex <miikiialexx@gmail.com>"]
 edition = "2021"
-name = "viewer"
+name = "rendiation-viewer-content"
 version = "0.1.0"
-
-default-run = "viewer"
 
 [dependencies]
 bytemuck = { workspace = true }
 env_logger = "0.11.8"
 futures = { workspace = true, features = ["thread-pool"] }
 
-rand = "*"
-
 database = { path = "../../utility/database" }
-dirs = "4.0.0"
 parking_lot = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 heap-tools = { path = "../../utility/heap-tools" }
@@ -33,55 +28,61 @@ event-source = { path = "../../utility/event-source" }
 rendiation-animation = { path = "../../content/animation" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-controller = { path = "../../extension/controller" }
+rendiation-device-ray-tracing = { path = "../../shader/ray-tracing" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-gizmo = { path = "../../extension/gizmo" }
 rendiation-gui-3d = { path = "../../extension/gui-3d" }
+rendiation-infinity-primitive = { path = "../../extension/infinity-primitive" }
+rendiation-lighting-gpu-system = { path = "../../content/lighting/gpu-system/lighting-system" }
+rendiation-lighting-transport = { path = "../../content/lighting/transport" }
+rendiation-lighting-ibl = { path = "../../content/lighting/ibl" }
+rendiation-lighting-shadow-map = { path = "../../content/lighting/gpu-system/shadow-map" }
 rendiation-lighting-punctual = { path = "../../content/lighting/punctual" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
-rendiation-mesh-generator = { path = "../../content/mesh/generator" }
+rendiation-scene-core = { path = "../../scene/core" }
 rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
 rendiation-scene-gltf-exporter = { path = "../../scene/io/gltf/exporter" }
 rendiation-scene-gltf-loader = { path = "../../scene/io/gltf/loader" }
 rendiation-scene-obj-loader = { path = "../../scene/io/obj/loader" }
+rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
+rendiation-scene-rendering-gpu-indirect = { path = "../../scene/rendering/gpu-indirect" }
+rendiation-scene-batch-extractor = { path = "../../scene/rendering/batch-extractor" }
+rendiation-scene-rendering-gpu-ray-tracing = { path = "../../scene/rendering/gpu-ray-tracing" }
+rendiation-scene-scheduler = { path = "../../scene/rendering/scheduler" }
+rendiation-mesh-lod-graph-rendering = { path = "../../scene/rendering/mesh-lod-graph" }
 rendiation-mesh-simplification = { path = "../../content/mesh/simplification" }
 rendiation-mesh-segmentation = { path = "../../content/mesh/segmentation" }
 rendiation-csg-sdf-expression = { path = "../../extension/csg-sdf-expression" }
+rendiation-occlusion-culling = { path = "../../scene/rendering/occlusion-culling" }
+rendiation-frustum-culling = { path = "../../scene/rendering/frustum-culling" }
+rendiation-oit = { path = "../../scene/rendering/oit" }
+rendiation-shader-api = { path = "../../shader/api" }
+rendiation-shader-library = { path = "../../shader/library" }
+rendiation-fast-down-sampling-2d = { path = "../../shader/fast-down-sampling-2d" }
 rendiation-texture-core = { path = "../../content/texture/core" }
 rendiation-texture-gpu-base = { path = "../../content/texture/gpu-base" }
 rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 rendiation-texture-loader = { path = "../../content/texture/loader" }
 rendiation-texture-exporter = { path = "../../content/texture/exporter" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+rendiation-area-lighting = { path = "../../extension/area-lighting" }
 rendiation-wide-line = { path = "../../extension/wide-line" }
-rendiation-viewer-content ={ path = "../viewer-content" }
-rfd = "0.15.4"
+rendiation-webgpu-virtual-typed-combine-buffer = { path = "../../platform/graphics/webgpu-virtual-typed-combine-buffer" }
+rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
+rendiation-webgpu-texture-as-buffer = { path = "../../platform/graphics/webgpu-texture-as-buffer" }
+rendiation-uri-streaming = { path = "../../utility/uri-streaming" }
 tracing = { workspace = true }
-tracing-subscriber = "0.3.20"
-tracing-tracy = { version = "0.11.4", optional = true }
+
 egui = { version = "0.33" }
-egui-wgpu = { version = "0.33" }
-egui-winit = { version = "0.33", default-features = false }
-egui_extras = { version = "0.33" }
-egui_tiles = "0.14.0"
-winit = { workspace = true }
-
-
-[target.'cfg(target_family = "wasm")'.dependencies]
-getrandom = { version = "0.3", features = ["wasm_js"] }
-console_error_panic_hook = "0.1.7"
-web-sys = { version = "0.3.77", features = ["Location", "UrlSearchParams"] }
-console_log = "1"
-wasm-bindgen = "=0.2.108" # the installed cli version must match this, so we lock it
-
-
 
 [features]
 default = ["heap-debug", "extra-checks"]
-extra-checks = ["rendiation-viewer-content/extra-checks"]
+extra-checks = ["rendiation-webgpu-hook-utils/extra-checks"]
 heap-debug = ["heap-tools/enabled"]
 support-webgl = ["rendiation-webgpu/support-webgl"]
-tracy = ["dep:tracing-tracy"]
-tracy-heap-debug = ["tracy"]
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+web-time = { workspace = true }
 
 [lints]
 workspace = true

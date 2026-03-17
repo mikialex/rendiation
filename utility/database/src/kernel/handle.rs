@@ -102,6 +102,10 @@ impl RawEntityHandle {
     self.0.index() as u32
   }
 
+  pub fn generation(&self) -> u64 {
+    self.0.into_raw_parts().1
+  }
+
   pub fn create_only_for_testing(index: usize) -> Self {
     Self(Handle::from_raw_parts(index, 0))
   }

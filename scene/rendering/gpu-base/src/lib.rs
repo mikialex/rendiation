@@ -193,9 +193,9 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
 }
 
 pub fn map_topology(
-  pt: rendiation_mesh_core::PrimitiveTopology,
+  pt: MeshPrimitiveTopology,
 ) -> rendiation_webgpu::PrimitiveTopology {
-  use rendiation_mesh_core::PrimitiveTopology as Enum;
+  use MeshPrimitiveTopology as Enum;
   use rendiation_webgpu::PrimitiveTopology as GPUEnum;
   match pt {
     Enum::PointList => GPUEnum::PointList,

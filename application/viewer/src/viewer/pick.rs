@@ -1,9 +1,3 @@
-use std::sync::{
-  atomic::{AtomicI32, Ordering},
-  Arc,
-};
-
-use futures::{channel::oneshot::Sender, FutureExt};
 use rendiation_gui_3d::*;
 use rendiation_scene_geometry_query::*;
 
@@ -44,37 +38,13 @@ impl ViewerSceneModelPicker {
 }
 
 pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneModelPicker> {
-  let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
-  let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
+  let scene_model_picker = use_viewer_scene_model_picker_impl(cx);
 
   let camera_transforms = cx
-    .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.rendering.ndc))
+    .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.ndc().clone()))
     .use_assure_result(cx);
 
-  let use_attribute_mesh_picker = use_attribute_mesh_picker(cx, viewer_mesh_input);
-  let wide_line_picker = use_wide_line_picker(cx);
-
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
-    let att_mesh_picker = use_attribute_mesh_picker.unwrap();
-    let wide_line_picker = wide_line_picker.unwrap();
-
-    let local_model_pickers: Vec<Box<dyn LocalModelPicker>> =
-      vec![Box::new(att_mesh_picker), Box::new(wide_line_picker)];
-
-    let scene_model_picker = SceneModelPickerBaseImpl {
-      internal: local_model_pickers,
-      scene_model_node: read_global_db_foreign_key(),
-      node_world: node_world
-        .expect_resolve_stage()
-        .mark_entity_type()
-        .into_boxed(),
-      node_net_visible: node_net_visible
-        .expect_resolve_stage()
-        .mark_entity_type()
-        .into_boxed(),
-      filter: Some(Box::new(create_clip_pick_filter())),
-    };
-
     let view_logic_pixel_size = Vec2::new(
       cx.input.window_state.physical_size.0 / cx.input.window_state.device_pixel_ratio,
       cx.input.window_state.physical_size.1 / cx.input.window_state.device_pixel_ratio,
@@ -82,7 +52,6 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
     .map(|v| v.ceil() as u32);
     let view_logic_pixel_size = Size::from_u32_pair_min_one(view_logic_pixel_size.into());
 
-    let scene_model_picker: Box<dyn SceneModelPicker> = Box::new(scene_model_picker);
     let input = cx.input;
     let mouse_position = &input.window_state.mouse_position;
 
@@ -132,7 +101,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
       };
 
     ViewerSceneModelPicker {
-      scene_model_picker,
+      scene_model_picker: scene_model_picker.unwrap(),
       pointer_ctx,
     }
     .into()
@@ -191,103 +160,4 @@ pub fn prepare_picking_state<'a>(
     picker: picker as &dyn Picker3d,
     world_ray_intersected_nearest,
   })
-}
-
-pub fn compute_normalized_position_in_canvas_coordinate(
-  offset: (f32, f32),
-  size: (f32, f32),
-) -> (f32, f32) {
-  (offset.0 / size.0 * 2. - 1., -(offset.1 / size.1 * 2. - 1.))
-}
-
-#[derive(Default)]
-pub struct GPUxEntityIdMapPicker {
-  last_id_buffer_size: Option<Size>,
-  wait_to_read_tasks: Vec<(Sender<ReadTextureFromStagingBuffer>, ReadRange)>,
-  unresolved_counter: Arc<AtomicI32>,
-  // this is to trigger the render when on demand rendering is enabled
-  // another way or optimization is to keep a id buffer locally for any time to pick
-  waker: Option<Waker>,
-}
-
-impl GPUxEntityIdMapPicker {
-  pub fn last_id_buffer_size(&self) -> Option<Size> {
-    self.last_id_buffer_size
-  }
-  pub fn read_new_frame_id_buffer(
-    &mut self,
-    texture: &GPUTypedTextureView<TextureDimension2, u32>,
-    gpu: &GPU,
-    encoder: &mut GPUCommandEncoder,
-    waker: &Waker,
-  ) {
-    let full_size = texture.size();
-    self.last_id_buffer_size = Some(full_size);
-    for (sender, range) in self.wait_to_read_tasks.drain(..) {
-      if let Some(range) = range.clamp(full_size) {
-        sender
-          .send(encoder.read_texture_2d(&gpu.device, texture, range))
-          .ok();
-      } // else the sender will drop, and receiver will be resolved
-    }
-    self.waker = Some(waker.clone());
-  }
-
-  pub fn notify_frame_id_buffer_not_available(&mut self) {
-    self.wait_to_read_tasks.clear();
-    self.last_id_buffer_size = None;
-  }
-
-  pub fn pick_point_at(
-    &mut self,
-    pixel_position: (usize, usize),
-  ) -> Option<Box<dyn Future<Output = Option<u32>> + Unpin>> {
-    let range = ReadRange {
-      size: Size::from_usize_pair_min_one((1, 1)),
-      offset_x: pixel_position.0,
-      offset_y: pixel_position.1,
-    };
-    let f = self.pick_ids(range)?;
-    let f = f.map(|result| result.map(|ids| ids.first().copied().unwrap_or(0)));
-
-    if let Some(w) = self.waker.take() {
-      w.wake();
-    }
-
-    Some(Box::new(f))
-  }
-
-  /// resolved to None if gpu read failed or read cancelled because of the read range is out of bound.
-  ///
-  /// - the picking result is not deduplicated
-  /// - the result id only contains entity index, without generational info, so it's possible to access
-  ///   wrong or deleted entity because of the unsynced entity change happened in same entity position.
-  pub fn pick_ids(
-    &mut self,
-    range: ReadRange,
-  ) -> Option<Pin<Box<dyn Future<Output = Option<Vec<u32>>>>>> {
-    if self.unresolved_counter.load(Ordering::Relaxed) > 100 {
-      return None;
-    }
-
-    let counter = self.unresolved_counter.clone();
-    counter.fetch_add(1, Ordering::Relaxed);
-
-    let (sender, receiver) = futures::channel::oneshot::channel();
-    self.wait_to_read_tasks.push((sender, range));
-
-    Some(Box::pin(
-      async {
-        let texture_read_future = receiver.await.ok()?;
-        let texture_read_buffer = texture_read_future.await.ok()?;
-        let buffer = texture_read_buffer.read_into_raw_unpadded_buffer();
-        let buffer: &[u32] = bytemuck::cast_slice(&buffer); // todo fix potential alignment issue
-        Some(buffer.to_vec())
-      }
-      .map(move |r| {
-        counter.fetch_sub(1, Ordering::Relaxed);
-        r
-      }),
-    ))
-  }
 }

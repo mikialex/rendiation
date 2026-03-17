@@ -149,6 +149,6 @@ fn create_attribute_mesh_from_obj_mesh(mesh: &tobj::Mesh) -> AttributesMesh {
   AttributesMesh {
     attributes,
     indices: (AttributeIndexFormat::Uint32, indices).into(),
-    mode: rendiation_mesh_core::PrimitiveTopology::TriangleList,
+    mode: MeshPrimitiveTopology::TriangleList,
   }
 }

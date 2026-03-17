@@ -51,9 +51,10 @@ pub async fn main() {
 
 fn write_image(texture: &Texture2DBuffer<Vec4<u8>>, path: impl AsRef<Path>) {
   texture
-    .map::<ImageLibContainerWrap<image::ImageBuffer<image::Rgba<u8>, Vec<u8>>>>(|pix| {
-      image::Rgba([pix.x, pix.y, pix.z, pix.w])
-    })
+    .map::<ImageLibContainerWrap<image::ImageBuffer<image::Rgba<u8>, Vec<u8>>>>(
+      image::Rgba(Default::default()),
+      |pix| image::Rgba([pix.x, pix.y, pix.z, pix.w]),
+    )
     .0
     .save(path)
     .unwrap();

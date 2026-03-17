@@ -148,7 +148,7 @@ fn use_scene_model_group_key(
 pub enum MeshGroupKey {
   Attribute {
     is_index: bool,
-    topology: rendiation_scene_core::PrimitiveTopology,
+    topology: rendiation_scene_core::MeshPrimitiveTopology,
   },
   ForeignHash(u64),
 }

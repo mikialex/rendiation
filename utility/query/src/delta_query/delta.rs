@@ -25,6 +25,22 @@ impl<V: std::fmt::Debug> std::fmt::Debug for ValueChange<V> {
 }
 
 impl<V> ValueChange<V> {
+  pub fn is_not_changed(&self) -> bool
+  where
+    V: PartialEq,
+  {
+    match self {
+      Self::Delta(v, pv) => {
+        if let Some(pv) = pv {
+          v == pv
+        } else {
+          false
+        }
+      }
+      Self::Remove(_) => false,
+    }
+  }
+
   pub fn map<R>(self, mapper: impl Fn(V) -> R) -> ValueChange<R> {
     type Rt<R> = ValueChange<R>;
     match self {
@@ -90,16 +106,21 @@ impl<V> ValueChange<V> {
   /// return if exist after merge
   pub fn merge(&mut self, new: &Self) -> bool
   where
-    V: Clone,
+    V: Clone + PartialEq,
   {
     use ValueChange::*;
     *self = match (self.clone(), new.clone()) {
       (Delta(_d1, p1), Delta(d2, _p2)) => {
-        // we should check d1 = d2
+        // we should also check d1 = d2(validation)
+        if let Some(p1) = &p1 {
+          if p1 == &d2 {
+            return false;
+          }
+        }
         Delta(d2, p1)
       }
       (Delta(_d1, p1), Remove(_p2)) => {
-        // we should check d1 = d2
+        // we should check d1 = d2(validation)
         if let Some(p1) = p1 {
           Remove(p1)
         } else {

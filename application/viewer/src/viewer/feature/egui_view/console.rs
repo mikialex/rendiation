@@ -1,22 +1,30 @@
 use std::sync::atomic::AtomicU16;
 
 use egui::*;
+use rendiation_viewer_content::Terminal;
 
 pub struct Console {
   pub buffer: String,
   id: egui::Id,
 }
 
-static INSTANCE_COUNT: AtomicU16 = AtomicU16::new(0);
-impl Console {
-  #[allow(clippy::new_without_default)]
-  pub fn new() -> Self {
+impl Default for Console {
+  fn default() -> Self {
     Self {
       buffer: Default::default(),
       id: Id::new(format!(
         "console_text_{}",
         INSTANCE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
       )),
+    }
+  }
+}
+
+static INSTANCE_COUNT: AtomicU16 = AtomicU16::new(0);
+impl Console {
+  pub fn egui(&mut self, ui: &mut egui::Ui, terminal: &mut Terminal) {
+    if let Some(command) = self.ui(ui) {
+      terminal.buffered_requests.push_back(command)
     }
   }
 

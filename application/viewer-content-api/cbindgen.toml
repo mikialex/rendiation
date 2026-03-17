@@ -1,0 +1,4 @@
+# see https://github.com/mozilla/cbindgen/blob/main/template.toml
+# and https://github.com/mozilla/cbindgen/blob/main/docs.md#cbindgentoml
+
+language = "C"

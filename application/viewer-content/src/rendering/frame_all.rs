@@ -1,9 +1,3 @@
-use fast_hash_collection::{FastHashMap, FastHashSet};
-use rendiation_scene_rendering_gpu_indirect::*;
-use rendiation_scene_rendering_gpu_ray_tracing::*;
-use rendiation_webgpu::*;
-use rendiation_webgpu_virtual_typed_combine_buffer::*;
-
 use crate::*;
 
 #[derive(Serialize, Deserialize)]
@@ -39,6 +33,13 @@ pub struct ViewerCullingConfig {
 }
 
 impl Viewer3dRenderingCtx {
+  pub fn ndc(&self) -> &ViewerNDC {
+    &self.ndc
+  }
+  pub fn init_config(&self) -> &ViewerInitConfig {
+    &self.init_config
+  }
+
   pub fn setup_init_config(&self, init_config: &mut ViewerInitConfig) {
     init_config.raster_backend_type = self.current_renderer_impl_ty;
     init_config.enable_debug_cull_result = self.culling.enable_debug_occlusion_culling_result;

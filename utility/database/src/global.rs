@@ -7,6 +7,10 @@ pub fn setup_global_database(sg: Database) -> Option<Database> {
   GLOBAL_DATABASE.write().replace(sg)
 }
 
+pub fn take_global_database() -> Option<Database> {
+  GLOBAL_DATABASE.write().take()
+}
+
 pub fn global_database() -> Database {
   GLOBAL_DATABASE.read().as_ref().unwrap().clone()
 }

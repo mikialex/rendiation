@@ -6,77 +6,6 @@ struct WindowWithWGPUSurface {
   gpu: GPUOrGPUCreateFuture,
 }
 
-pub struct WGPUAndSurface {
-  pub surface: ApplicationWindowSurface,
-  pub gpu: GPU,
-}
-
-#[derive(Clone)]
-pub struct ApplicationWindowSurface {
-  surface: Arc<RwLock<GPUSurface<'static>>>,
-}
-
-impl ApplicationWindowSurface {
-  pub fn new(surface: GPUSurface<'static>) -> Self {
-    Self {
-      surface: Arc::new(RwLock::new(surface)),
-    }
-  }
-
-  pub fn internal<R>(&self, v: impl FnOnce(&mut GPUSurface) -> R) -> R {
-    let mut s = self.surface.write();
-    v(&mut s)
-  }
-
-  pub fn set_size(&mut self, size: Size) {
-    self.surface.write().set_size(size)
-  }
-
-  pub fn re_config_if_changed(&mut self, device: &GPUDevice) {
-    self.surface.write().re_config_if_changed(device)
-  }
-
-  pub fn get_current_frame_with_render_target_view(
-    &self,
-    device: &GPUDevice,
-  ) -> Result<(SurfaceTexture, RenderTargetView), SurfaceError> {
-    self
-      .surface
-      .write()
-      .get_current_frame_with_render_target_view(device)
-  }
-}
-
-/// we use this to avoid block_on, which is not allowed in wasm
-#[allow(clippy::large_enum_variant)]
-enum GPUOrGPUCreateFuture {
-  Created(WGPUAndSurface),
-  Creating(Pin<Box<dyn Future<Output = WGPUAndSurface>>>),
-}
-
-impl GPUOrGPUCreateFuture {
-  pub fn poll_gpu(&mut self) -> Option<&mut WGPUAndSurface> {
-    match self {
-      GPUOrGPUCreateFuture::Created(gpu) => Some(gpu),
-      GPUOrGPUCreateFuture::Creating(future) => {
-        noop_ctx!(ctx);
-        if let Poll::Ready(gpu) = future.poll_unpin(ctx) {
-          #[cfg(target_family = "wasm")]
-          if gpu.gpu.info().adaptor_info.backend == Backend::Gl {
-            log::warn!("selected backend is webgl, major performance issue may happen and features may missing");
-          }
-
-          *self = GPUOrGPUCreateFuture::Created(gpu);
-
-          self.poll_gpu()
-        } else {
-          None
-        }
-      }
-    }
-  }
-}
-
 pub struct ApplicationCx<'a> {
   pub memory: &'a mut FunctionMemory,
   pub dyn_cx: &'a mut DynCx,
@@ -86,7 +15,23 @@ pub struct ApplicationCx<'a> {
   pub draw_target_canvas: RenderTargetView,
 }
 
-pub type ApplicationDropCx = DynCx;
+impl<'a> ApplicationCx<'a> {
+  pub fn use_state_init<T>(
+    &mut self,
+    init: impl FnOnce() -> T,
+    drop_from_cx: fn(&mut T, &mut DynCx),
+  ) -> (&mut Self, &mut T)
+  where
+    T: Any,
+  {
+    // this is safe because user can not access previous retrieved state through returned self.
+    let s = unsafe { std::mem::transmute_copy(&self) };
+
+    let state = self.memory.expect_state_init(|| init(), drop_from_cx);
+
+    (s, state)
+  }
+}
 
 unsafe impl HooksCxLike for ApplicationCx<'_> {
   fn memory_mut(&mut self) -> &mut FunctionMemory {
@@ -106,7 +51,7 @@ unsafe impl HooksCxLike for ApplicationCx<'_> {
 
     let state = self
       .memory
-      .expect_state_init(f, |_state: &mut T, _: &mut ApplicationDropCx| {});
+      .expect_state_init(f, |_state: &mut T, _: &mut DynCx| {});
 
     (s, state)
   }
@@ -122,7 +67,7 @@ struct WinitAppImpl {
   app_logic: Box<dyn Fn(&mut ApplicationCx)>,
   title: String,
   has_existed: bool,
-  config: ApplicationPlatformConfig,
+  config: GPUPlatformConfig,
 }
 
 impl winit::application::ApplicationHandler for WinitAppImpl {
@@ -204,12 +149,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         config
       };
 
-      let gpu = GPUOrGPUCreateFuture::Creating(Box::pin(async {
-        let (gpu, surface) = GPU::new(config).await.unwrap();
-        let surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
-        let surface = ApplicationWindowSurface::new(surface);
-        WGPUAndSurface { gpu, surface }
-      }));
+      let gpu = GPUOrGPUCreateFuture::Creating(Box::pin(WGPUAndSurface::new(config)));
 
       WindowWithWGPUSurface {
         window,
@@ -273,7 +213,6 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
             physical_size.height,
           ))),
           WindowEvent::RedrawRequested => {
-            surface.re_config_if_changed(&gpu.device);
             // when window resize to zero, the surface will be outdated.
             // but when should we deal with the surface lost case?
             if let Ok((output, canvas)) =
@@ -309,15 +248,38 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
   }
 }
 
-pub struct ApplicationPlatformConfig {
-  pub preferred_backends: Option<Backends>,
-  pub checks: ShaderRuntimeProtection,
-  pub enable_backend_validation: Option<bool>,
-  pub dx_compiler_dll_path: Option<String>,
+/// we use this to avoid block_on, which is not allowed in wasm
+#[allow(clippy::large_enum_variant)]
+pub enum GPUOrGPUCreateFuture {
+  Created(WGPUAndSurface),
+  Creating(Pin<Box<dyn Future<Output = WGPUAndSurface>>>),
+}
+
+impl GPUOrGPUCreateFuture {
+  pub fn poll_gpu(&mut self) -> Option<&mut WGPUAndSurface> {
+    match self {
+      GPUOrGPUCreateFuture::Created(gpu) => Some(gpu),
+      GPUOrGPUCreateFuture::Creating(future) => {
+        noop_ctx!(ctx);
+        if let Poll::Ready(gpu) = future.poll_unpin(ctx) {
+          #[cfg(target_family = "wasm")]
+          if gpu.gpu.info().adaptor_info.backend == Backend::Gl {
+            log::warn!("selected backend is webgl, major performance issue may happen and features may missing");
+          }
+
+          *self = GPUOrGPUCreateFuture::Created(gpu);
+
+          self.poll_gpu()
+        } else {
+          None
+        }
+      }
+    }
+  }
 }
 
 pub fn run_application(
-  config: ApplicationPlatformConfig,
+  config: GPUPlatformConfig,
   app_logic: impl Fn(&mut ApplicationCx) + 'static,
 ) {
   let event_loop = EventLoop::new().unwrap();

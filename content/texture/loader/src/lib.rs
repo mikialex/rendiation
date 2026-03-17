@@ -47,15 +47,6 @@ impl Texture2dInitAble for ImageLibContainerWrap<ImageBuffer<Rgba<u8>, Vec<u8>>>
     result.clear(pixel);
     result
   }
-
-  #[allow(clippy::uninit_vec)]
-  fn init_not_care(size: Size) -> Self {
-    let width = <usize as std::convert::From<_>>::from(size.width);
-    let height = <usize as std::convert::From<_>>::from(size.height);
-    let mut buffer = Vec::with_capacity(width * height * 4);
-    unsafe { buffer.set_len(width * height * 4) };
-    ImageLibContainerWrap(ImageBuffer::from_raw(width as u32, height as u32, buffer).unwrap())
-  }
 }
 
 // todo texture loader should passed in and config ability freely

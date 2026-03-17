@@ -23,7 +23,7 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
   if *enabled {
     cx.scope(|cx| {
       let camera_transforms =
-        cx.use_shared_dual_query(GlobalCameraTransformShare(cx.viewer.rendering.ndc));
+        cx.use_shared_dual_query(GlobalCameraTransformShare(cx.viewer.ndc().clone()));
 
       // due to multi view support, we disabled the filter for now
       // let main_camera = cx.viewer.scene.main_camera.into_raw();
@@ -102,7 +102,7 @@ pub fn use_immediate_helper_model(
           let lines = AttributesMeshData {
             attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
             indices: None,
-            mode: rendiation_mesh_core::PrimitiveTopology::LineList,
+            mode: MeshPrimitiveTopology::LineList,
           };
 
           if let Some(model) = &mut helper_mesh.internal {

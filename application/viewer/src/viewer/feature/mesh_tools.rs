@@ -263,7 +263,7 @@ fn create_mesh(
         mesh
           .vertices
           .iter()
-          .flat_map(|v| v.position.bytes().iter().copied())
+          .flat_map(|v| bytemuck::bytes_of(&v.position).iter().copied())
           .collect(),
       ),
       (
@@ -271,7 +271,7 @@ fn create_mesh(
         mesh
           .vertices
           .iter()
-          .flat_map(|v| v.normal.bytes().iter().copied())
+          .flat_map(|v| bytemuck::bytes_of(&v.normal).iter().copied())
           .collect(),
       ),
       (
@@ -279,7 +279,7 @@ fn create_mesh(
         mesh
           .vertices
           .iter()
-          .flat_map(|v| v.uv.bytes().iter().copied())
+          .flat_map(|v| bytemuck::bytes_of(&v.uv).iter().copied())
           .collect(),
       ),
     ],
@@ -288,10 +288,10 @@ fn create_mesh(
       mesh
         .indices
         .iter()
-        .flat_map(|v| v.bytes().iter().copied())
+        .flat_map(|v| bytemuck::bytes_of(v).iter().copied())
         .collect(),
     )),
-    mode: rendiation_mesh_core::PrimitiveTopology::TriangleList,
+    mode: MeshPrimitiveTopology::TriangleList,
   }
   .build();
 

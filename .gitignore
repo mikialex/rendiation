@@ -5,6 +5,6 @@
 .idea/
 .vs/
 **/*.otf
-**/*.bin
+db_save.bin
 
 /viewer_init_config.json

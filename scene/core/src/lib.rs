@@ -10,7 +10,7 @@ use fast_hash_collection::*;
 pub use rendiation_abstract_uri_data::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
-pub use rendiation_mesh_core::PrimitiveTopology;
+pub use rendiation_mesh_core::MeshPrimitiveTopology;
 use rendiation_mesh_core::*;
 use rendiation_texture_core::*;
 use serde::*;
