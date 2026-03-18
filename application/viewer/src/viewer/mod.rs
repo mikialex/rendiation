@@ -302,7 +302,6 @@ pub fn use_viewer<'a>(
     || {
       let viewer = Viewer::new(
         acx.gpu_and_surface.gpu.clone(),
-        acx.gpu_and_surface.surface.clone(),
         init_config,
         worker_thread_pool.clone(),
         |writer| load_example_cube_tex(writer),

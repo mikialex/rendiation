@@ -38,7 +38,7 @@ impl ViewerInitConfig {
 }
 
 pub struct WGPUAndSurface {
-  pub surface: SurfaceWrapper,
+  pub surface: Option<SurfaceWrapper>,
   pub gpu: GPU,
 }
 
@@ -47,7 +47,14 @@ impl WGPUAndSurface {
     let (gpu, surface) = GPU::new(config).await.unwrap();
     let surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
     let surface = SurfaceWrapper::new(surface, surface_holder);
-    WGPUAndSurface { gpu, surface }
+    WGPUAndSurface {
+      gpu,
+      surface: Some(surface),
+    }
+  }
+  pub async fn new_without_init_surface<'a>(config: GPUCreateConfig<'a>) -> Self {
+    let (gpu, _) = GPU::new(config).await.unwrap();
+    WGPUAndSurface { gpu, surface: None }
   }
 }
 
@@ -64,6 +71,13 @@ impl SurfaceWrapper {
       surface: Arc::new(RwLock::new(surface)),
       _surface_holder: surface_holder,
     }
+  }
+
+  pub fn is_hdr(&self) -> bool {
+    todo!()
+    // self
+    //   .swap_chain
+    //   .internal(|surface| surface.config.format == TextureFormat::Rgba16Float)
   }
 
   pub fn internal<R>(&self, v: impl FnOnce(&mut GPUSurface) -> R) -> R {

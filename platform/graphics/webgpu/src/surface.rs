@@ -54,8 +54,7 @@ pub fn get_default_preferred_format(capabilities: &gpu::SurfaceCapabilities) -> 
 }
 
 impl<'a> GPUSurface<'a> {
-  #[allow(clippy::or_fun_call)]
-  pub(crate) fn new(
+  pub fn new(
     adapter: &gpu::Adapter,
     device: &GPUDevice,
     surface: gpu::Surface<'a>,

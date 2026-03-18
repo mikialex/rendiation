@@ -64,7 +64,7 @@ unsafe impl HooksCxLike for ApplicationCx<'_> {
 }
 
 struct WinitAppImpl {
-  window: Option<WindowWithWGPUSurface>,
+  windows: FastHashMap<winit::window::WindowId, WindowWithWGPUSurface>,
   memory: FunctionMemory,
   app_logic: Box<dyn Fn(&mut ApplicationCx)>,
   title: String,
@@ -74,7 +74,7 @@ struct WinitAppImpl {
 
 impl winit::application::ApplicationHandler for WinitAppImpl {
   fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-    self.window.get_or_insert_with(|| {
+    self.windows.get_or_insert_with(|| {
       #[allow(unused_mut)]
       let mut window_att = Window::default_attributes().with_title(&self.title);
       #[allow(unused_assignments)]
@@ -177,7 +177,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
     if let Some(WindowWithWGPUSurface {
       platform_states: event_state,
       ..
-    }) = &mut self.window
+    }) = &mut self.windows
     {
       event_state.queue_event(Event::DeviceEvent {
         event: event.clone(),
@@ -200,7 +200,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
       window,
       platform_states: event_state,
       gpu,
-    }) = &mut self.window
+    }) = &mut self.windows
     {
       // safety depend on that we don't replace the entire window in our application logic
       let mut window_ = window.write();
@@ -299,7 +299,7 @@ pub fn run_application(
   event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
 
   let mut app = WinitAppImpl {
-    window: None,
+    windows: None,
     memory: Default::default(),
     app_logic: Box::new(app_logic),
     title: "Rendiation Viewer".to_string(),

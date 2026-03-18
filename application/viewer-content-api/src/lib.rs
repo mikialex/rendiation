@@ -7,7 +7,10 @@ mod cx;
 use cx::*;
 
 pub struct ViewerAPI {
-  gpu_and_surface: WGPUAndSurface,
+  gpu_and_main_surface: WGPUAndSurface,
+  /// the api supports multiple surface, the main surfaces also stored(cloned) here
+  surfaces: FastHashMap<u32, SurfaceWrapper>,
+  next_new_surface_id: u32,
   viewer: Viewer,
   picker_mem: FunctionMemory,
   task_spawner: TaskSpawner,
@@ -25,11 +28,96 @@ impl Drop for ViewerAPI {
 }
 
 impl ViewerAPI {
-  pub fn resize(&mut self, new_width: u32, new_height: u32) {
-    self
-      .gpu_and_surface
-      .surface
-      .set_size(Size::from_u32_pair_min_one((new_width, new_height)));
+  // todo, we should use i32??
+  pub fn create_view(&mut self, hwnd: u32) -> u32 {
+    let init_size = Size::from_u32_pair_min_one((256, 256));
+
+    let window_handle =
+      raw_gpu::rwh::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
+    // do we need GWLP_HINSTANCE?
+    let window_handle = raw_gpu::rwh::RawWindowHandle::Win32(window_handle);
+
+    let display_handle =
+      raw_gpu::rwh::RawDisplayHandle::Windows(raw_gpu::rwh::WindowsDisplayHandle::new());
+    let surface = unsafe {
+      self
+        .gpu_and_main_surface
+        .gpu
+        .instance
+        .create_surface_unsafe(raw_gpu::SurfaceTargetUnsafe::RawHandle {
+          raw_display_handle: display_handle,
+          raw_window_handle: window_handle,
+        })
+    }
+    .unwrap();
+
+    let surface = GPUSurface::new(
+      &self.gpu_and_main_surface.gpu.adaptor,
+      &self.gpu_and_main_surface.gpu.device,
+      surface,
+      init_size,
+    );
+
+    // here we pray the caller not drop the window!
+    let surface = SurfaceWrapper::new(surface, Arc::new(hwnd));
+    let next_id = self.next_new_surface_id;
+    self.next_new_surface_id += 1;
+
+    self.surfaces.insert(next_id, surface);
+
+    next_id
+  }
+
+  pub fn drop_view(&mut self, id: u32) {
+    self.surfaces.remove(&id);
+  }
+
+  pub fn new() -> Self {
+    let init_config = ViewerInitConfig::default();
+    let gpu_platform_config = init_config.make_gpu_platform_config();
+
+    let gpu_config = gpu_platform_config.make_gpu_create_config(None);
+
+    let fut = WGPUAndSurface::new_without_init_surface(gpu_config);
+    let gpu_and_surface = pollster::block_on(fut);
+
+    let worker = TaskSpawner::new("viewer-api", None);
+
+    let viewer = Viewer::new(
+      gpu_and_surface.gpu.clone(),
+      &init_config,
+      worker.clone(),
+      |writer| {
+        let tex = create_gpu_texture_by_fn(Size::from_u32_pair_min_one((1, 1)), |_, _| {
+          Vec4::new(0., 0., 0., 1.)
+        });
+        writer.cube_texture_writer().write_cube_tex(
+          tex.clone(),
+          tex.clone(),
+          tex.clone(),
+          tex.clone(),
+          tex.clone(),
+          tex.clone(),
+        )
+      },
+    );
+
+    ViewerAPI {
+      gpu_and_main_surface: gpu_and_surface,
+      surfaces: Default::default(),
+      next_new_surface_id: 0,
+      viewer,
+      task_spawner: worker,
+      data_source: Default::default(),
+      dyn_cx: Default::default(),
+      picker_mem: Default::default(),
+    }
+  }
+
+  pub fn resize(&mut self, view_id: u32, new_width: u32, new_height: u32) {
+    if let Some(surface) = self.surfaces.get_mut(&view_id) {
+      surface.set_size(Size::from_u32_pair_min_one((new_width, new_height)));
+    }
   }
 
   pub fn create_picker_api(&mut self) -> ViewerPickerAPI {
@@ -50,20 +138,20 @@ impl ViewerAPI {
   }
 
   pub fn render(&mut self) {
-    if let Ok((canvas, target)) = self
-      .gpu_and_surface
-      .surface
-      .get_current_frame_with_render_target_view(&self.gpu_and_surface.gpu.device)
-    {
-      self.viewer.draw_canvas(
-        &target,
-        &self.task_spawner,
-        &mut self.data_source,
-        &mut self.dyn_cx,
-        None,
-      );
+    for surface in self.surfaces.values_mut() {
+      if let Ok((canvas, target)) =
+        surface.get_current_frame_with_render_target_view(&self.gpu_and_main_surface.gpu.device)
+      {
+        self.viewer.draw_canvas(
+          &target,
+          &self.task_spawner,
+          &mut self.data_source,
+          &mut self.dyn_cx,
+          None,
+        );
 
-      canvas.present();
+        canvas.present();
+      }
     }
   }
 
@@ -158,81 +246,9 @@ impl From<ViewerEntityHandle> for RawEntityHandle {
   }
 }
 
-struct NativeWin32Handle {
-  hwnd: NonZeroIsize,
-  size: Size,
-}
-
-impl SurfaceProvider for NativeWin32Handle {
-  fn create_surface<'a>(
-    &'a self,
-    instance: &raw_gpu::Instance,
-  ) -> Result<raw_gpu::Surface<'a>, CreateSurfaceError> {
-    let window_handle = raw_gpu::rwh::Win32WindowHandle::new(self.hwnd);
-    // do we need GWLP_HINSTANCE?
-    let window_handle = raw_gpu::rwh::RawWindowHandle::Win32(window_handle);
-
-    let display_handle =
-      raw_gpu::rwh::RawDisplayHandle::Windows(raw_gpu::rwh::WindowsDisplayHandle::new());
-    unsafe {
-      instance.create_surface_unsafe(raw_gpu::SurfaceTargetUnsafe::RawHandle {
-        raw_display_handle: display_handle,
-        raw_window_handle: window_handle,
-      })
-    }
-  }
-  fn size(&self) -> Size {
-    self.size
-  }
-}
-
 #[no_mangle]
-pub extern "C" fn create_viewer_content_api_instance(hwnd: i32) -> *mut ViewerAPI {
-  let init_config = ViewerInitConfig::default();
-  let gpu_platform_config = init_config.make_gpu_platform_config();
-
-  let init_size = Size::from_u32_pair_min_one((256, 256));
-  let surface = NativeWin32Handle {
-    hwnd: NonZeroIsize::new(hwnd as isize).unwrap(),
-    size: init_size,
-  };
-
-  let gpu_config = gpu_platform_config.make_gpu_create_config(Some((&surface, init_size)));
-
-  // here we pray the caller not drop the window!
-  let fut = WGPUAndSurface::new(gpu_config, Arc::new(hwnd));
-  let gpu_and_surface = pollster::block_on(fut);
-
-  let worker = TaskSpawner::new("viewer-api", None);
-
-  let viewer = Viewer::new(
-    gpu_and_surface.gpu.clone(),
-    gpu_and_surface.surface.clone(),
-    &init_config,
-    worker.clone(),
-    |writer| {
-      let tex = create_gpu_texture_by_fn(Size::from_u32_pair_min_one((1, 1)), |_, _| {
-        Vec4::new(0., 0., 0., 1.)
-      });
-      writer.cube_texture_writer().write_cube_tex(
-        tex.clone(),
-        tex.clone(),
-        tex.clone(),
-        tex.clone(),
-        tex.clone(),
-        tex.clone(),
-      )
-    },
-  );
-
-  let api = ViewerAPI {
-    gpu_and_surface,
-    viewer,
-    task_spawner: worker,
-    data_source: Default::default(),
-    dyn_cx: Default::default(),
-    picker_mem: Default::default(),
-  };
+pub extern "C" fn create_viewer_content_api_instance() -> *mut ViewerAPI {
+  let api = ViewerAPI::new();
   let api = Box::new(api);
   Box::leak(api)
 }
@@ -243,9 +259,26 @@ pub extern "C" fn drop_viewer_content_api_instance(api: *mut ViewerAPI) {
 }
 
 #[no_mangle]
-pub extern "C" fn viewer_resize(api: *mut ViewerAPI, new_width: u32, new_height: u32) {
+pub extern "C" fn viewer_create_view(api: *mut ViewerAPI, hwnd: u32) -> u32 {
   let api = unsafe { &mut *api };
-  api.resize(new_width, new_height);
+  api.create_view(hwnd)
+}
+
+#[no_mangle]
+pub extern "C" fn viewer_drop_view(api: *mut ViewerAPI, view_id: u32) {
+  let api = unsafe { &mut *api };
+  api.drop_view(view_id)
+}
+
+#[no_mangle]
+pub extern "C" fn viewer_resize(
+  api: *mut ViewerAPI,
+  view_id: u32,
+  new_width: u32,
+  new_height: u32,
+) {
+  let api = unsafe { &mut *api };
+  api.resize(view_id, new_width, new_height);
 }
 
 #[no_mangle]
