@@ -15,7 +15,7 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
       .vscroll(true)
       .show(egui_ctx, |ui| {
         if ui.button("load many cubes").clicked() {
-          load_stress_test(&mut SceneWriter::from_global(cx.viewer.content.scene))
+          load_stress_test(&mut SceneWriter::from_global(cx.viewer.content.scene), true)
         }
 
         if ui.button("test clipping1").clicked() {

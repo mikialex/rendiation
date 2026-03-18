@@ -2,14 +2,8 @@ use rendiation_mesh_generator::*;
 
 use crate::*;
 
-pub fn load_stress_test(scene: &mut SceneWriter) {
-  let material = PhysicalSpecularGlossinessMaterialDataView {
-    albedo: Vec3::splat(1.),
-    albedo_texture: None,
-    ..Default::default()
-  }
-  .write(&mut scene.pbr_sg_mat_writer);
-  let material = SceneMaterialDataView::PbrSGMaterial(material);
+pub fn load_stress_test(scene: &mut SceneWriter, use_unique_material: bool) {
+  let material = create_mat(scene);
 
   let cube = CubeMeshParameter {
     width: 0.2,
@@ -40,8 +34,24 @@ pub fn load_stress_test(scene: &mut SceneWriter) {
         let node = scene.create_child(j_parent);
         scene.set_local_matrix(node, Mat4::translate((0., k as f64, 0.)));
 
+        let material = if use_unique_material {
+          create_mat(scene)
+        } else {
+          material
+        };
+
         scene.create_scene_model(material, mesh, node);
       }
     }
   }
+}
+
+fn create_mat(scene: &mut SceneWriter) -> SceneMaterialDataView {
+  let material = PhysicalSpecularGlossinessMaterialDataView {
+    albedo: Vec3::splat(1.),
+    albedo_texture: None,
+    ..Default::default()
+  }
+  .write(&mut scene.pbr_sg_mat_writer);
+  SceneMaterialDataView::PbrSGMaterial(material)
 }

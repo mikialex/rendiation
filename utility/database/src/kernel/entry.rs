@@ -7,29 +7,6 @@ pub struct Database {
   pub name_mapping: Arc<RwLock<DBNameMapping>>,
 }
 
-#[derive(Default)]
-pub struct DBNameMapping {
-  pub component_to_entity: FastHashMap<ComponentId, EntityId>,
-  pub components: FastHashMap<ComponentId, String>,
-  pub components_inv: FastHashMap<String, ComponentId>,
-  pub entities: FastHashMap<EntityId, String>,
-  pub entities_inv: FastHashMap<String, EntityId>,
-}
-
-impl DBNameMapping {
-  pub fn insert_component(&mut self, c_id: ComponentId, e_id: EntityId, name: String) {
-    let occupied_name = self.components.insert(c_id, name.clone());
-    assert!(occupied_name.is_none());
-    self.components_inv.insert(name, c_id);
-    self.component_to_entity.insert(c_id, e_id);
-  }
-  pub fn insert_entity(&mut self, e_id: EntityId, name: String) {
-    let occupied_name = self.entities.insert(e_id, name.clone());
-    assert!(occupied_name.is_none());
-    self.entities_inv.insert(name, e_id);
-  }
-}
-
 impl Database {
   pub fn declare_entity<E: EntitySemantic>(&self) -> EntityComponentGroupTyped<E> {
     self
@@ -112,6 +89,29 @@ impl Database {
         });
       }
     }
+  }
+}
+
+#[derive(Default)]
+pub struct DBNameMapping {
+  pub component_to_entity: FastHashMap<ComponentId, EntityId>,
+  pub components: FastHashMap<ComponentId, String>,
+  pub components_inv: FastHashMap<String, ComponentId>,
+  pub entities: FastHashMap<EntityId, String>,
+  pub entities_inv: FastHashMap<String, EntityId>,
+}
+
+impl DBNameMapping {
+  pub fn insert_component(&mut self, c_id: ComponentId, e_id: EntityId, name: String) {
+    let occupied_name = self.components.insert(c_id, name.clone());
+    assert!(occupied_name.is_none());
+    self.components_inv.insert(name, c_id);
+    self.component_to_entity.insert(c_id, e_id);
+  }
+  pub fn insert_entity(&mut self, e_id: EntityId, name: String) {
+    let occupied_name = self.entities.insert(e_id, name.clone());
+    assert!(occupied_name.is_none());
+    self.entities_inv.insert(name, e_id);
   }
 }
 
