@@ -1,7 +1,9 @@
+use parking_lot::RwLock;
+
 use crate::*;
 
 struct WindowWithWGPUSurface {
-  window: Pin<Box<winit::window::Window>>,
+  window: Arc<RwLock<winit::window::Window>>,
   platform_states: PlatformEventInput,
   gpu: GPUOrGPUCreateFuture,
 }
@@ -66,7 +68,7 @@ struct WinitAppImpl {
   memory: FunctionMemory,
   app_logic: Box<dyn Fn(&mut ApplicationCx)>,
   title: String,
-  has_existed: bool,
+  has_exited: bool,
   config: GPUPlatformConfig,
 }
 
@@ -104,7 +106,6 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
       let window = event_loop.create_window(window_att).unwrap();
       log::info!("window created");
       window.request_redraw();
-      let window = Box::pin(window);
 
       #[cfg(not(target_family = "wasm"))]
       {
@@ -124,7 +125,13 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         platform_states.window_state.physical_size = (width as f32, height as f32);
       }
 
-      let window_ref: &'static Window = unsafe { std::mem::transmute(window.as_ref()) };
+      let window = Arc::new(RwLock::new(window));
+
+      let window_ref_ = window.read();
+      let window_ref = &*window_ref_;
+      // this should be safe, as no one mutate window if gpu and surface not created
+      let window_ref: &'static Window = unsafe { std::mem::transmute(window_ref) };
+      drop(window_ref_);
       let config = GPUCreateConfig {
         surface_for_compatible_check_init: Some((
           window_ref,
@@ -149,7 +156,9 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         config
       };
 
-      let gpu = GPUOrGPUCreateFuture::Creating(Box::pin(WGPUAndSurface::new(config)));
+      let extra_window_holder = Arc::new(window.clone());
+      let fut = WGPUAndSurface::new(config, extra_window_holder);
+      let gpu = GPUOrGPUCreateFuture::Creating(Box::pin(fut));
 
       WindowWithWGPUSurface {
         window,
@@ -183,7 +192,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
     _: winit::window::WindowId,
     event: WindowEvent,
   ) {
-    if self.has_existed {
+    if self.has_exited {
       return;
     }
 
@@ -194,7 +203,8 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
     }) = &mut self.window
     {
       // safety depend on that we don't replace the entire window in our application logic
-      let window = unsafe { window.as_mut().get_unchecked_mut() };
+      let mut window_ = window.write();
+      let window = &mut *window_;
       if let Some(mut gpu_and_surface) = gpu.poll_gpu() {
         let WGPUAndSurface { surface, gpu } = &mut gpu_and_surface;
         event_state.queue_event(Event::WindowEvent {
@@ -206,7 +216,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
             let mut cx = DynCx::default();
             self.memory.cleanup(&mut cx as *mut _ as *mut ());
             target.exit();
-            self.has_existed = true;
+            self.has_exited = true;
           }
           WindowEvent::Resized(physical_size) => surface.set_size(Size::from_u32_pair_min_one((
             physical_size.width,
@@ -293,7 +303,7 @@ pub fn run_application(
     memory: Default::default(),
     app_logic: Box::new(app_logic),
     title: "Rendiation Viewer".to_string(),
-    has_existed: false,
+    has_exited: false,
     config,
   };
 

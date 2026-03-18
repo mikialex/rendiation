@@ -1,4 +1,4 @@
-use std::num::NonZeroIsize;
+use std::{num::NonZeroIsize, sync::Arc};
 
 use fast_hash_collection::FastHashMap;
 use rendiation_viewer_content::*;
@@ -199,7 +199,8 @@ pub extern "C" fn create_viewer_content_api_instance(hwnd: i32) -> *mut ViewerAP
 
   let gpu_config = gpu_platform_config.make_gpu_create_config(Some((&surface, init_size)));
 
-  let fut = WGPUAndSurface::new(gpu_config);
+  // here we pray the caller not drop the window!
+  let fut = WGPUAndSurface::new(gpu_config, Arc::new(hwnd));
   let gpu_and_surface = pollster::block_on(fut);
 
   let worker = TaskSpawner::new("viewer-api", None);

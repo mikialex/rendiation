@@ -43,10 +43,10 @@ pub struct WGPUAndSurface {
 }
 
 impl WGPUAndSurface {
-  pub async fn new<'a>(config: GPUCreateConfig<'a>) -> Self {
+  pub async fn new<'a>(config: GPUCreateConfig<'a>, surface_holder: Arc<dyn Any>) -> Self {
     let (gpu, surface) = GPU::new(config).await.unwrap();
     let surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
-    let surface = SurfaceWrapper::new(surface);
+    let surface = SurfaceWrapper::new(surface, surface_holder);
     WGPUAndSurface { gpu, surface }
   }
 }
@@ -54,12 +54,15 @@ impl WGPUAndSurface {
 #[derive(Clone)]
 pub struct SurfaceWrapper {
   surface: Arc<RwLock<GPUSurface<'static>>>,
+  // we somehow hold the surface to make sure it won't be dropped when we have gpu surface
+  _surface_holder: Arc<dyn Any>,
 }
 
 impl SurfaceWrapper {
-  pub fn new(surface: GPUSurface<'static>) -> Self {
+  pub fn new(surface: GPUSurface<'static>, surface_holder: Arc<dyn Any>) -> Self {
     Self {
       surface: Arc::new(RwLock::new(surface)),
+      _surface_holder: surface_holder,
     }
   }
 
