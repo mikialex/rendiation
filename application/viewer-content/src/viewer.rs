@@ -58,7 +58,6 @@ pub fn drop_viewer_from_dyn_cx(viewer: &mut Viewer, dyn_cx: &mut DynCx) {
 impl Viewer {
   pub fn new(
     gpu: GPU,
-    swap_chain: SurfaceWrapper,
     init_config: &ViewerInitConfig,
     worker: TaskSpawner,
     load_example_cube_tex: impl FnOnce(&mut SceneWriter) -> EntityHandle<SceneTextureCubeEntity>,
@@ -129,7 +128,7 @@ impl Viewer {
     Self {
       content: scene,
       terminal,
-      rendering_root: RenderingRoot::new(&gpu, swap_chain),
+      rendering_root: RenderingRoot::new(&gpu),
       rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, init_config),
       background,
       started_time: Instant::now(),
@@ -164,10 +163,13 @@ impl Viewer {
     self.rendering.ndc()
   }
 
-  pub fn export_init_config(&self) -> ViewerInitConfig {
+  // todo, currently we only export the swapchain config in exporting window
+  pub fn export_init_config(&self, surface: &SurfaceWrapper) -> ViewerInitConfig {
     let mut config = ViewerInitConfig::default();
     self.rendering.setup_init_config(&mut config);
-    self.rendering_root.setup_init_config(&mut config);
+
+    config.present_mode = surface.internal(|v| v.config.present_mode);
+
     config.features = self.features_config.clone();
     config
   }

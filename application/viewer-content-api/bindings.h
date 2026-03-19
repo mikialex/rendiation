@@ -12,11 +12,18 @@ typedef struct ViewerEntityHandle {
   uint64_t generation;
 } ViewerEntityHandle;
 
-struct ViewerAPI *create_viewer_content_api_instance(int32_t hwnd);
+struct ViewerAPI *create_viewer_content_api_instance(void);
 
 void drop_viewer_content_api_instance(struct ViewerAPI *api);
 
-void viewer_resize(struct ViewerAPI *api, uint32_t new_width, uint32_t new_height);
+uint32_t viewer_create_view(struct ViewerAPI *api, uint32_t hwnd);
+
+void viewer_drop_view(struct ViewerAPI *api, uint32_t view_id);
+
+void viewer_resize(struct ViewerAPI *api,
+                   uint32_t view_id,
+                   uint32_t new_width,
+                   uint32_t new_height);
 
 struct ViewerEntityHandle viewer_create_node(void);
 
@@ -33,4 +40,4 @@ struct ViewerPickerAPI *viewer_create_picker_api(struct ViewerAPI *api);
  */
 void viewer_drop_picker_api(struct ViewerPickerAPI *api);
 
-void picker_pick_nearest(struct ViewerPickerAPI *api, float x, float y);
+void picker_pick_list(struct ViewerPickerAPI *api, float x, float y);

@@ -67,6 +67,7 @@ rendiation-texture-exporter = { path = "../../content/texture/exporter" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 rendiation-area-lighting = { path = "../../extension/area-lighting" }
 rendiation-wide-line = { path = "../../extension/wide-line" }
+rendiation-wide-styled-points = { path = "../../extension/wide-styled-points" }
 rendiation-webgpu-virtual-typed-combine-buffer = { path = "../../platform/graphics/webgpu-virtual-typed-combine-buffer" }
 rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
 rendiation-webgpu-texture-as-buffer = { path = "../../platform/graphics/webgpu-texture-as-buffer" }

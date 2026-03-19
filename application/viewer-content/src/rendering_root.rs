@@ -9,7 +9,6 @@ pub struct RenderingRoot {
   frame_index: u64,
   stat_frame_time_in_ms: StatisticStore<f32>,
   last_render_timestamp: Option<Instant>,
-  swap_chain: SurfaceWrapper,
   statistics: FramePassStatistics,
   enable_statistic_collect: bool,
   any_render_change: ChangeNotifier,
@@ -17,7 +16,7 @@ pub struct RenderingRoot {
 }
 
 impl RenderingRoot {
-  pub fn new(gpu: &GPU, swap_chain: SurfaceWrapper) -> Self {
+  pub fn new(gpu: &GPU) -> Self {
     Self {
       render_resource_memory: Default::default(),
       render_process_memory: Default::default(),
@@ -27,7 +26,6 @@ impl RenderingRoot {
       frame_index: 0,
       stat_frame_time_in_ms: StatisticStore::new(200),
       last_render_timestamp: Default::default(),
-      swap_chain,
       enable_statistic_collect: false,
       statistics: FramePassStatistics::new(64, gpu),
       gpu: gpu.clone(),
@@ -42,12 +40,6 @@ impl RenderingRoot {
     self.any_render_change.do_wake();
   }
 
-  pub fn is_hdr(&self) -> bool {
-    self
-      .swap_chain
-      .internal(|surface| surface.config.format == TextureFormat::Rgba16Float)
-  }
-
   pub fn cleanup(&mut self, share_cx: &mut SharedHooksCtx) {
     let mut dcx = QueryGPUHookDropCx {
       share_cx,
@@ -59,10 +51,6 @@ impl RenderingRoot {
       .cleanup(&mut dcx as *mut _ as *mut ());
 
     self.render_process_memory.cleanup(&mut () as *mut ());
-  }
-
-  pub fn setup_init_config(&self, init_config: &mut ViewerInitConfig) {
-    init_config.present_mode = self.swap_chain.internal(|v| v.config.present_mode);
   }
 
   fn init_frame(&mut self) {
@@ -198,6 +186,7 @@ impl RenderingRoot {
     show_frame_info: &mut bool,
     last_frame_cpu_time: f32,
     frame_cpu_time_stat: &mut StatisticStore<f32>,
+    current_swapchain: &SurfaceWrapper,
   ) {
     egui::Window::new("Frame Rendering Info")
       .open(show_frame_info)
@@ -205,7 +194,8 @@ impl RenderingRoot {
       .show(ui, |ui| {
         let mut is_hdr = false;
         let mut ui = UiWithChangeInfo(ui, false);
-        self.swap_chain.internal(|surface| {
+
+        current_swapchain.internal(|surface| {
           is_hdr = surface.config.format == TextureFormat::Rgba16Float;
           ui.collapsing("Swapchain config", |ui| {
             let cap = surface.capabilities();

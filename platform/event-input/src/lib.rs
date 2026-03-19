@@ -9,34 +9,49 @@ use web_time::Instant;
 use winit::{
   event::*,
   keyboard::{KeyCode, PhysicalKey},
+  window::WindowId,
 };
 
 #[derive(Default)]
 pub struct PlatformEventInput {
+  pub window_states: FastHashMap<WindowId, WindowEventStates>,
+  pub current_window_id: Option<WindowId>,
+}
+
+#[derive(Default)]
+pub struct WindowEventStates {
   pub accumulate_events: Vec<Event<()>>,
   pub previous_frame_window_state: WindowState,
   pub window_state: WindowState,
   pub state_delta: WindowStateChange,
+
   pub last_frame_cpu_time_in_ms: f32,
   pub current_frame_time_start: Option<Instant>,
 }
 
-impl PlatformEventInput {
+impl WindowEventStates {
   pub fn queue_event(&mut self, event: Event<()>) {
     self.accumulate_events.push(event);
   }
   pub fn begin_frame(&mut self) {
     for e in &self.accumulate_events {
-      self.window_state.event(e);
+      // window is filtered
+      if let Event::WindowEvent { event, .. } = e {
+        self.window_state.event(event);
+      }
     }
+
     self.state_delta = self.window_state.compare(&self.previous_frame_window_state);
+
     self.current_frame_time_start = Some(Instant::now());
   }
 
   pub fn end_frame(&mut self) {
     self.accumulate_events.clear();
+
     self.previous_frame_window_state = self.window_state.clone();
     self.window_state.reset_in_frame_states();
+
     self.last_frame_cpu_time_in_ms = self
       .current_frame_time_start
       .take()
@@ -49,6 +64,12 @@ impl PlatformEventInput {
         self.last_frame_cpu_time_in_ms
       );
     }
+  }
+}
+
+impl PlatformEventInput {
+  pub fn current_window_state(&self) -> Option<&WindowEventStates> {
+    self.current_window_id.map(|id| &self.window_states[&id])
   }
 }
 
@@ -141,44 +162,41 @@ impl WindowStateChange {
 
 impl WindowState {
   #[allow(clippy::single_match)]
-  pub fn event(&mut self, event: &winit::event::Event<()>) {
+  pub fn event(&mut self, event: &winit::event::WindowEvent) {
     match event {
-      winit::event::Event::WindowEvent { event, .. } => match event {
-        WindowEvent::Resized(size) => {
-          self.physical_size.0 = size.width as f32;
-          self.physical_size.1 = size.height as f32;
+      WindowEvent::Resized(size) => {
+        self.physical_size.0 = size.width as f32;
+        self.physical_size.1 = size.height as f32;
+      }
+      WindowEvent::MouseInput { button, state, .. } => {
+        match button {
+          MouseButton::Left => self.left_mouse_state = *state,
+          MouseButton::Right => self.right_mouse_state = *state,
+          _ => {}
         }
-        WindowEvent::MouseInput { button, state, .. } => {
-          match button {
-            MouseButton::Left => self.left_mouse_state = *state,
-            MouseButton::Right => self.right_mouse_state = *state,
-            _ => {}
-          }
-          self.has_any_mouse_event = true
-        }
-        WindowEvent::KeyboardInput { event, .. } => {
-          if let winit::keyboard::PhysicalKey::Code(key) = event.physical_key {
-            match event.state {
-              ElementState::Pressed => {
-                self.pressed_keys.insert(key);
-              }
-              ElementState::Released => {
-                self.pressed_keys.remove(&key);
-              }
+        self.has_any_mouse_event = true
+      }
+      WindowEvent::KeyboardInput { event, .. } => {
+        if let winit::keyboard::PhysicalKey::Code(key) = event.physical_key {
+          match event.state {
+            ElementState::Pressed => {
+              self.pressed_keys.insert(key);
+            }
+            ElementState::Released => {
+              self.pressed_keys.remove(&key);
             }
           }
         }
-        WindowEvent::CursorMoved { position, .. } => {
-          self.mouse_position.0 = position.x as f32;
-          self.mouse_position.1 = position.y as f32;
-          self.has_any_mouse_event = true
-        }
-        WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-          self.device_pixel_ratio = *scale_factor as f32;
-        }
-        _ => (),
-      },
-      _ => {}
+      }
+      WindowEvent::CursorMoved { position, .. } => {
+        self.mouse_position.0 = position.x as f32;
+        self.mouse_position.1 = position.y as f32;
+        self.has_any_mouse_event = true
+      }
+      WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+        self.device_pixel_ratio = *scale_factor as f32;
+      }
+      _ => (),
     }
   }
 }
@@ -196,36 +214,6 @@ impl Default for WindowState {
     }
   }
 }
-
-// pub struct CanvasWindowPositionInfo {
-//   /// in window coordinates
-//   pub absolute_position: Vec2<f32>,
-//   pub size: Vec2<f32>,
-// }
-
-// impl CanvasWindowPositionInfo {
-//   pub fn full_window(window_size: (f32, f32)) -> Self {
-//     Self {
-//       absolute_position: Vec2::new(0., 0.),
-//       size: Vec2::new(window_size.0, window_size.1),
-//     }
-//   }
-// }
-
-// impl CanvasWindowPositionInfo {
-//   pub fn compute_normalized_position_in_canvas_coordinate(
-//     &self,
-//     states: &WindowState,
-//   ) -> (f32, f32) {
-//     let canvas_x = states.mouse_position.0 - self.absolute_position.x;
-//     let canvas_y = states.mouse_position.1 - self.absolute_position.y;
-
-//     (
-//       canvas_x / self.size.x * 2. - 1.,
-//       -(canvas_y / self.size.y * 2. - 1.),
-//     )
-//   }
-// }
 
 pub fn window_event(event: &Event<()>) -> Option<&WindowEvent> {
   match event {

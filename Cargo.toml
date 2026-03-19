@@ -79,6 +79,7 @@ members = [
   "extension/gui-3d",
   "extension/infinity-primitive",
   "extension/wide-line",
+  "extension/wide-styled-points",
   "extension/gizmo",
   "extension/area-lighting",
   "extension/csg-sdf-expression",

@@ -82,7 +82,7 @@ pub use wgpu_types::*;
 #[derive(Clone)]
 pub struct GPU {
   pub instance: GPUInstance,
-  _adaptor: Arc<gpu::Adapter>,
+  pub adaptor: Arc<gpu::Adapter>,
   pub info: Arc<GPUInfo>,
   pub device: GPUDevice,
   pub queue: GPUQueue,
@@ -238,7 +238,7 @@ impl GPU {
 
     let gpu = Self {
       instance,
-      _adaptor: Arc::new(adaptor),
+      adaptor: Arc::new(adaptor),
       info: Arc::new(info),
       device,
       queue,
@@ -272,7 +272,7 @@ impl GPU {
   ) -> Result<GPUSurface<'a>, CreateSurfaceError> {
     let surface = provider.create_surface(&self.instance)?;
     Ok(GPUSurface::new(
-      &self._adaptor,
+      &self.adaptor,
       &self.device,
       surface,
       init_resolution,

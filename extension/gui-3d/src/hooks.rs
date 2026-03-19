@@ -36,7 +36,7 @@ pub struct UI3dCx<'a> {
 
 #[derive(Copy, Clone)]
 pub struct UIEventStageCx<'a> {
-  pub platform_event: &'a PlatformEventInput,
+  pub platform_event: &'a WindowEventStates,
   pub interaction_cx: Option<&'a Interaction3dCtx<'a>>,
   pub widget_env: &'a dyn WidgetEnvAccess,
 }
@@ -333,17 +333,17 @@ pub fn use_interactive_ui_widget_model(
       // println!("{}", label);
     }
 
-    let platform_event = event.platform_event;
+    let window_state = event.platform_event;
 
-    if platform_event.window_state.has_any_mouse_event {
+    if window_state.window_state.has_any_mouse_event {
       let mut mouse_entering = false;
       let mut mouse_leave = false;
       let mut mouse_hovering = None;
       let mut mouse_down = None;
       let mut mouse_click = None;
 
-      let is_pressing = platform_event.state_delta.is_left_mouse_pressing();
-      let is_releasing = platform_event.state_delta.is_left_mouse_releasing();
+      let is_pressing = window_state.state_delta.is_left_mouse_pressing();
+      let is_releasing = window_state.state_delta.is_left_mouse_releasing();
 
       let mut current_frame_hitting = None;
       if let Some(interaction_cx) = event.interaction_cx {

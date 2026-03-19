@@ -4,7 +4,6 @@ use crate::*;
 
 struct WindowWithWGPUSurface {
   window: Arc<RwLock<winit::window::Window>>,
-  platform_states: PlatformEventInput,
   gpu: GPUOrGPUCreateFuture,
 }
 
@@ -12,7 +11,8 @@ pub struct ApplicationCx<'a> {
   pub memory: &'a mut FunctionMemory,
   pub dyn_cx: &'a mut DynCx,
   pub window: &'a mut Window,
-  pub input: &'a PlatformEventInput,
+  pub input: &'a WindowEventStates,
+  /// current window
   pub gpu_and_surface: &'a WGPUAndSurface,
   pub draw_target_canvas: RenderTargetView,
 }
@@ -64,7 +64,8 @@ unsafe impl HooksCxLike for ApplicationCx<'_> {
 }
 
 struct WinitAppImpl {
-  window: Option<WindowWithWGPUSurface>,
+  windows: FastHashMap<winit::window::WindowId, WindowWithWGPUSurface>,
+  platform_states: PlatformEventInput,
   memory: FunctionMemory,
   app_logic: Box<dyn Fn(&mut ApplicationCx)>,
   title: String,
@@ -74,7 +75,7 @@ struct WinitAppImpl {
 
 impl winit::application::ApplicationHandler for WinitAppImpl {
   fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-    self.window.get_or_insert_with(|| {
+    if self.windows.is_empty() {
       #[allow(unused_mut)]
       let mut window_att = Window::default_attributes().with_title(&self.title);
       #[allow(unused_assignments)]
@@ -104,6 +105,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
       }
 
       let window = event_loop.create_window(window_att).unwrap();
+      let window_id = window.id();
       log::info!("window created");
       window.request_redraw();
 
@@ -114,15 +116,20 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
       }
 
       log::info!("window physical size: {}x{}", width, height);
-      #[allow(unused_mut)]
-      let mut platform_states = PlatformEventInput::default();
+
+      #[allow(unused)]
+      let window_state = self
+        .platform_states
+        .window_states
+        .entry(window_id)
+        .or_insert_with(Default::default);
 
       #[cfg(target_family = "wasm")]
       {
         let device = web_sys::window().unwrap().device_pixel_ratio() as f32;
 
-        platform_states.window_state.device_pixel_ratio = device;
-        platform_states.window_state.physical_size = (width as f32, height as f32);
+        window_state.device_pixel_ratio = device;
+        window_state.physical_size = (width as f32, height as f32);
       }
 
       let window = Arc::new(RwLock::new(window));
@@ -160,12 +167,10 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
       let fut = WGPUAndSurface::new(config, extra_window_holder);
       let gpu = GPUOrGPUCreateFuture::Creating(Box::pin(fut));
 
-      WindowWithWGPUSurface {
-        window,
-        gpu,
-        platform_states,
-      }
-    });
+      let window = WindowWithWGPUSurface { window, gpu };
+
+      self.windows.insert(window_id, window);
+    };
   }
 
   fn device_event(
@@ -174,12 +179,8 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
     device_id: winit::event::DeviceId,
     event: winit::event::DeviceEvent,
   ) {
-    if let Some(WindowWithWGPUSurface {
-      platform_states: event_state,
-      ..
-    }) = &mut self.window
-    {
-      event_state.queue_event(Event::DeviceEvent {
+    for w in self.platform_states.window_states.values_mut() {
+      w.queue_event(Event::DeviceEvent {
         event: event.clone(),
         device_id,
       });
@@ -189,25 +190,29 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
   fn window_event(
     &mut self,
     target: &winit::event_loop::ActiveEventLoop,
-    _: winit::window::WindowId,
+    window_id: winit::window::WindowId,
     event: WindowEvent,
   ) {
     if self.has_exited {
       return;
     }
 
-    if let Some(WindowWithWGPUSurface {
-      window,
-      platform_states: event_state,
-      gpu,
-    }) = &mut self.window
-    {
+    if let WindowEvent::Destroyed = event {
+      self.platform_states.window_states.remove(&window_id);
+    }
+
+    if let Some(WindowWithWGPUSurface { window, gpu }) = &mut self.windows.get_mut(&window_id) {
       // safety depend on that we don't replace the entire window in our application logic
       let mut window_ = window.write();
       let window = &mut *window_;
       if let Some(mut gpu_and_surface) = gpu.poll_gpu() {
         let WGPUAndSurface { surface, gpu } = &mut gpu_and_surface;
-        event_state.queue_event(Event::WindowEvent {
+        let window_state = self
+          .platform_states
+          .window_states
+          .entry(window_id)
+          .or_default();
+        window_state.queue_event(Event::WindowEvent {
           event: event.clone(),
           window_id: window.id(),
         });
@@ -230,17 +235,24 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
             {
               let mut cx = DynCx::default();
 
-              event_state.begin_frame();
+              let window_state = self
+                .platform_states
+                .window_states
+                .entry(window_id)
+                .or_default();
+              window_state.begin_frame();
+
               ApplicationCx {
                 window,
                 memory: &mut self.memory,
                 dyn_cx: &mut cx,
-                input: event_state,
+                input: window_state,
                 draw_target_canvas: canvas,
                 gpu_and_surface,
               }
               .execute(|cx| (self.app_logic)(cx));
-              event_state.end_frame();
+
+              window_state.end_frame();
 
               output.present();
             }
@@ -299,12 +311,13 @@ pub fn run_application(
   event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
 
   let mut app = WinitAppImpl {
-    window: None,
+    windows: Default::default(),
     memory: Default::default(),
     app_logic: Box::new(app_logic),
     title: "Rendiation Viewer".to_string(),
     has_exited: false,
     config,
+    platform_states: Default::default(),
   };
 
   event_loop.run_app(&mut app).unwrap();

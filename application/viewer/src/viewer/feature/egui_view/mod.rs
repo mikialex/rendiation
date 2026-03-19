@@ -120,7 +120,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
         ui.separator();
 
-        let is_hdr = viewer.rendering_root.is_hdr();
+        let is_hdr = cx.current_window_swapchain.is_hdr();
         let changed = viewer.rendering.egui(ui, is_hdr);
 
         if changed {
@@ -138,7 +138,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             .button("export first viewport init and current config")
             .clicked()
           {
-            let config = viewer.export_init_config();
+            let config = viewer.export_init_config(cx.current_window_swapchain);
             config.export_to_current_dir();
           }
           ui.label(format!("{:#?}", viewer.rendering.init_config().init_only));
@@ -150,6 +150,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
       &mut ui_state.show_frame_info,
       cx.input.last_frame_cpu_time_in_ms,
       frame_cpu_time_stat,
+      cx.current_window_swapchain,
     );
 
     egui::Window::new("GPU Info")

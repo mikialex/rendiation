@@ -51,6 +51,11 @@ impl WGPUAndSurface {
   }
 }
 
+pub struct WGPUAndInitSurface {
+  pub surface: Option<SurfaceWrapper>,
+  pub gpu: GPU,
+}
+
 #[derive(Clone)]
 pub struct SurfaceWrapper {
   surface: Arc<RwLock<GPUSurface<'static>>>,
@@ -64,6 +69,10 @@ impl SurfaceWrapper {
       surface: Arc::new(RwLock::new(surface)),
       _surface_holder: surface_holder,
     }
+  }
+
+  pub fn is_hdr(&self) -> bool {
+    self.internal(|surface| surface.config.format == TextureFormat::Rgba16Float)
   }
 
   pub fn internal<R>(&self, v: impl FnOnce(&mut GPUSurface) -> R) -> R {
