@@ -11,6 +11,7 @@ pub fn load_default_scene(
 ) {
   // test_mesh_lod_graph(writer);
   load_widen_line_test(writer);
+  load_widen_points_test(writer);
 
   // test_ltc_lighting(writer);
   let transparent_test_root = writer.create_root_child();

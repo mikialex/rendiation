@@ -4637,6 +4637,7 @@ dependencies = [
  "rendiation-webgpu-texture-as-buffer",
  "rendiation-webgpu-virtual-typed-combine-buffer",
  "rendiation-wide-line",
+ "rendiation-wide-styled-points",
  "rmp-serde",
  "serde",
  "serde_json",
@@ -4726,6 +4727,28 @@ dependencies = [
 
 [[package]]
 name = "rendiation-wide-line"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "database",
+ "parking_lot",
+ "rendiation-algebra",
+ "rendiation-device-parallel-compute",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-scene-core",
+ "rendiation-scene-geometry-query",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-scene-rendering-gpu-gles",
+ "rendiation-scene-rendering-gpu-indirect",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
+ "rendiation-webgpu-midc-downgrade",
+]
+
+[[package]]
+name = "rendiation-wide-styled-points"
 version = "0.1.0"
 dependencies = [
  "bytemuck",

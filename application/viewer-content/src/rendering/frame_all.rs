@@ -228,11 +228,14 @@ impl Viewer3dRenderingCtx {
 
         let std_model = use_std_model_renderer(cx, materials, mesh, self.ndc.enable_reverse_z);
         let wide_line = use_widen_line_indirect_renderer(cx, self.using_host_driven_indirect_draw);
+        let wide_point =
+          use_widen_styled_points_indirect_renderer(cx, self.using_host_driven_indirect_draw);
 
         let model_support = cx.when_render(|| {
           Box::new(vec![
             Box::new(std_model.unwrap()) as Box<dyn IndirectModelRenderImpl>,
             Box::new(wide_line.unwrap()),
+            Box::new(wide_point.unwrap()),
           ]) as Box<dyn IndirectModelRenderImpl>
         });
 
@@ -250,8 +253,23 @@ impl Viewer3dRenderingCtx {
               })
               .dual_query_boxed();
 
+            let sm_ref_wide_point =
+              cx.use_db_rev_ref_tri_view::<SceneModelWideStyledPointsRenderPayload>();
+            let wide_point_key = cx
+              .use_dual_query_set::<WideStyledPointsEntity>()
+              .fanout(sm_ref_wide_point, cx)
+              .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
+                internal: 1,
+                require_alpha_blend: true,
+              })
+              .dual_query_boxed();
+
+            let impl_key = wide_line_key
+              .dual_query_select(wide_point_key)
+              .dual_query_boxed();
+
             let key_impl = GroupKeyForeignImpl {
-              model: Some(wide_line_key),
+              model: Some(impl_key),
               ..Default::default()
             };
             indirect_extractor = use_incremental_device_scene_batch_extractor(cx, key_impl);

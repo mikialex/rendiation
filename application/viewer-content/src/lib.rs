@@ -51,6 +51,11 @@ pub use rendiation_webgpu::{CreateSurfaceError, GPUInstance, GPUSurface, Surface
 use rendiation_webgpu_hook_utils::*;
 use rendiation_webgpu_virtual_typed_combine_buffer::*;
 use rendiation_wide_line::*;
+use rendiation_wide_styled_points::*;
+pub use rendiation_wide_styled_points::{
+  SceneModelWideStyledPointsRenderPayload, WideStyledPointVertex, WideStyledPointsEntity,
+  WidesStyledPointsMeshBuffer,
+};
 use serde::{Deserialize, Serialize};
 use tracing::*;
 
@@ -104,4 +109,5 @@ pub fn register_viewer_content_data_model() {
   register_area_lighting_data_model();
   register_scene_mesh_lod_graph_data_model(true);
   register_sky_env_data_model();
+  register_wide_styled_points_data_model(true);
 }
