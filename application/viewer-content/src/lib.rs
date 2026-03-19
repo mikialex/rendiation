@@ -47,7 +47,7 @@ use rendiation_texture_gpu_base::{create_gpu_texture2d, SamplerConvertExt};
 use rendiation_texture_gpu_process::{ToneMap, ToneMapType};
 pub use rendiation_webgpu::raw_gpu;
 use rendiation_webgpu::*;
-pub use rendiation_webgpu::{CreateSurfaceError, GPUInstance, GPUSurface, SurfaceProvider};
+pub use rendiation_webgpu::{CreateSurfaceError, GPUInstance, GPUSurface, SurfaceProvider, GPU};
 use rendiation_webgpu_hook_utils::*;
 use rendiation_webgpu_virtual_typed_combine_buffer::*;
 use rendiation_wide_line::*;

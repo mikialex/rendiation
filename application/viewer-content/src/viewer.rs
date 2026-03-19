@@ -163,12 +163,12 @@ impl Viewer {
     self.rendering.ndc()
   }
 
-  pub fn export_init_config(&self) -> ViewerInitConfig {
+  // todo, currently we only export the swapchain config in exporting window
+  pub fn export_init_config(&self, surface: &SurfaceWrapper) -> ViewerInitConfig {
     let mut config = ViewerInitConfig::default();
     self.rendering.setup_init_config(&mut config);
 
-    // config.present_mode = self.swap_chain.internal(|v| v.config.present_mode);
-    todo!();
+    config.present_mode = surface.internal(|v| v.config.present_mode);
 
     config.features = self.features_config.clone();
     config

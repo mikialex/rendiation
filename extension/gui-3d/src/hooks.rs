@@ -36,7 +36,7 @@ pub struct UI3dCx<'a> {
 
 #[derive(Copy, Clone)]
 pub struct UIEventStageCx<'a> {
-  pub platform_event: &'a PlatformEventInput,
+  pub platform_event: &'a WindowEventStates,
   pub interaction_cx: Option<&'a Interaction3dCtx<'a>>,
   pub widget_env: &'a dyn WidgetEnvAccess,
 }
@@ -333,61 +333,57 @@ pub fn use_interactive_ui_widget_model(
       // println!("{}", label);
     }
 
-    let platform_event = event.platform_event;
+    let window_state = event.platform_event;
 
-    if let Some(window_state) = platform_event.current_window_state() {
-      if window_state.window_state.has_any_mouse_event {
-        let mut mouse_entering = false;
-        let mut mouse_leave = false;
-        let mut mouse_hovering = None;
-        let mut mouse_down = None;
-        let mut mouse_click = None;
+    if window_state.window_state.has_any_mouse_event {
+      let mut mouse_entering = false;
+      let mut mouse_leave = false;
+      let mut mouse_hovering = None;
+      let mut mouse_down = None;
+      let mut mouse_click = None;
 
-        let is_pressing = window_state.state_delta.is_left_mouse_pressing();
-        let is_releasing = window_state.state_delta.is_left_mouse_releasing();
+      let is_pressing = window_state.state_delta.is_left_mouse_pressing();
+      let is_releasing = window_state.state_delta.is_left_mouse_releasing();
 
-        let mut current_frame_hitting = None;
-        if let Some(interaction_cx) = event.interaction_cx {
-          if let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest {
-            current_frame_hitting = (model == target.model).then_some(hit);
-          }
+      let mut current_frame_hitting = None;
+      if let Some(interaction_cx) = event.interaction_cx {
+        if let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest {
+          current_frame_hitting = (model == target.model).then_some(hit);
         }
-
-        if let Some(hitting) = current_frame_hitting {
-          if !*is_mouse_in {
-            debug("mouse in");
-            *is_mouse_in = true;
-            mouse_entering = true;
-          }
-          debug("mouse hovering");
-          mouse_hovering = hitting.into();
-          if is_pressing {
-            debug("mouse down");
-            mouse_down = hitting.into();
-            *is_mouse_down_in_history = true;
-          }
-          if is_releasing && *is_mouse_down_in_history {
-            debug("click");
-            mouse_click = hitting.into();
-            *is_mouse_down_in_history = false;
-          }
-        } else if *is_mouse_in {
-          debug("mouse out");
-          mouse_leave = true;
-          *is_mouse_in = false;
-        }
-
-        UiWidgetModelResponse {
-          mouse_entering,
-          mouse_leave,
-          mouse_hovering,
-          mouse_down,
-          mouse_click,
-        }
-        .into()
-      } else {
-        None
       }
+
+      if let Some(hitting) = current_frame_hitting {
+        if !*is_mouse_in {
+          debug("mouse in");
+          *is_mouse_in = true;
+          mouse_entering = true;
+        }
+        debug("mouse hovering");
+        mouse_hovering = hitting.into();
+        if is_pressing {
+          debug("mouse down");
+          mouse_down = hitting.into();
+          *is_mouse_down_in_history = true;
+        }
+        if is_releasing && *is_mouse_down_in_history {
+          debug("click");
+          mouse_click = hitting.into();
+          *is_mouse_down_in_history = false;
+        }
+      } else if *is_mouse_in {
+        debug("mouse out");
+        mouse_leave = true;
+        *is_mouse_in = false;
+      }
+
+      UiWidgetModelResponse {
+        mouse_entering,
+        mouse_leave,
+        mouse_hovering,
+        mouse_down,
+        mouse_click,
+      }
+      .into()
     } else {
       None
     }

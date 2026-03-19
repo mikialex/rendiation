@@ -40,4 +40,4 @@ struct ViewerPickerAPI *viewer_create_picker_api(struct ViewerAPI *api);
  */
 void viewer_drop_picker_api(struct ViewerPickerAPI *api);
 
-void picker_pick_nearest(struct ViewerPickerAPI *api, float x, float y);
+void picker_pick_list(struct ViewerPickerAPI *api, float x, float y);

@@ -7,7 +7,7 @@ mod cx;
 use cx::*;
 
 pub struct ViewerAPI {
-  gpu_and_main_surface: WGPUAndSurface,
+  gpu_and_main_surface: WGPUAndInitSurface,
   /// the api supports multiple surface, the main surfaces also stored(cloned) here
   surfaces: FastHashMap<u32, SurfaceWrapper>,
   next_new_surface_id: u32,
@@ -78,8 +78,8 @@ impl ViewerAPI {
 
     let gpu_config = gpu_platform_config.make_gpu_create_config(None);
 
-    let fut = WGPUAndSurface::new_without_init_surface(gpu_config);
-    let gpu_and_surface = pollster::block_on(fut);
+    let (gpu, _) = pollster::block_on(GPU::new(gpu_config)).unwrap();
+    let gpu_and_surface = WGPUAndInitSurface { gpu, surface: None };
 
     let worker = TaskSpawner::new("viewer-api", None);
 
@@ -207,7 +207,7 @@ pub struct ViewerPickerAPI {
 }
 
 impl ViewerPickerAPI {
-  pub fn pick_nearest(&mut self, x: f32, y: f32) {
+  pub fn pick_list(&mut self, x: f32, y: f32) {
     todo!()
   }
 }
@@ -288,6 +288,7 @@ pub extern "C" fn viewer_create_node() -> ViewerEntityHandle {
     .new_entity(|w| w)
     .into()
 }
+
 #[no_mangle]
 pub extern "C" fn viewer_delete_node(node: ViewerEntityHandle) {
   global_entity_of::<SceneNodeEntity>()
@@ -332,7 +333,7 @@ pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerPickerAPI) {
 }
 
 #[no_mangle]
-pub extern "C" fn picker_pick_nearest(api: *mut ViewerPickerAPI, x: f32, y: f32) {
+pub extern "C" fn picker_pick_list(api: *mut ViewerPickerAPI, x: f32, y: f32) {
   let api = unsafe { &mut *api };
-  api.pick_nearest(x, y);
+  api.pick_list(x, y);
 }
