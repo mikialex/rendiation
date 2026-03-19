@@ -117,7 +117,7 @@ pub fn use_widen_line_indirect_renderer(
   let (cx, sm_to_wide_line_device) =
     cx.use_storage_buffer::<u32>("scene_model to wide line mapping", 128, u32::MAX);
 
-  cx.use_dual_query::<StandardModelRefAttributesMeshEntity>()
+  cx.use_dual_query::<SceneModelWideLineRenderPayload>()
     .map_raw_handle_or_u32_max_changes()
     .update_storage_array(cx, sm_to_wide_line_device, 0);
 
@@ -301,11 +301,7 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
       builder.register::<GeometryUV>(vertex);
 
       let seg = segments
-        .index(
-          instance_index
-            + line_param.data_range.x()
-              / val(std::mem::size_of::<WideLineVertexStorage>() as u32 / 4),
-        )
+        .index(instance_index + line_param.data_range.x() / val(WideLineVertexStorage::u32_size()))
         .load()
         .expand();
 
@@ -413,7 +409,7 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
       vertex_count: val(18) * seg_count,
       instance_count: val(1),
       base_vertex: val(0),
-      base_instance: val(0),
+      base_instance: draw_id,
     }
     .construct()
   }
