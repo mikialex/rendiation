@@ -312,14 +312,13 @@ impl GraphicsShaderProvider for WidePointsIndirectDrawComponent {
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>();
       let width = builder.query::<WidePointSize>();
 
-      //   wide_line_vertex(
-      //     builder.query::<WideLineStart>(),
-      //     builder.query::<WideLineEnd>(),
-      //     builder.query::<GeometryPosition>(),
-      //     builder.query::<ViewportRenderBufferSize>(),
-      //     width,
-      //     builder,
-      //   );
+      wide_line_vertex(
+        builder.query::<WidePointPosition>(),
+        builder.query::<GeometryPosition>(),
+        builder.query::<ViewportRenderBufferSize>(),
+        width,
+        builder,
+      );
 
       builder.set_vertex_out::<FragmentUv>(uv);
       builder.set_vertex_out::<DefaultDisplay>(color_with_alpha);

@@ -12,20 +12,24 @@ pub fn wide_line_vertex(
 
   let ndc = clip.xyz() / clip.w().splat();
 
-  let offset = position.xy() * width;
+  let width: Node<Vec2<f32>> = width.splat::<Vec2<f32>>() / view_size;
+
+  let position = position.xy() * val(Vec2::new(2., 2.)) - val(Vec2::splat(1.));
+
+  let offset = position * width;
   let offset = (offset, val(0.)).into();
 
   let clip: Node<Vec4<f32>> = (ndc + offset, val(1.)).into();
 
   builder.register::<ClipPosition>(clip);
 
-  // // this should be optional(current used for clip effect)
-  // {
-  //   let view_proj_inv = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
-  //   let position = view_proj_inv * clip;
-  //   let position = position.xyz() / position.w().splat();
-  //   builder.register::<VertexRenderPosition>(position);
-  // }
+  // this should be optional(current used for clip effect)
+  {
+    let view_proj_inv = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
+    let position = view_proj_inv * clip;
+    let position = position.xyz() / position.w().splat();
+    builder.register::<VertexRenderPosition>(position);
+  }
 }
 
 only_vertex!(WidePointPosition, Vec3<f32>);
