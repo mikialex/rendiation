@@ -148,8 +148,12 @@ pub struct HostFrustumCulling {
 impl HostRenderBatch for HostFrustumCulling {
   fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
     Box::new(self.inner.iter_scene_models().filter(|v| {
-      let bbox = self.sm_world_bounding.access(v).unwrap();
-      self.frustum.intersect(&bbox, &())
+      if let Some(bbox) = self.sm_world_bounding.access(v) {
+        self.frustum.intersect(&bbox, &())
+      } else {
+        log::warn!("no world bounding found for sm {}", v);
+        false
+      }
     }))
   }
 }

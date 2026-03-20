@@ -10,8 +10,10 @@ use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
 mod indirect_draw;
+mod pick;
 mod point_style;
 pub use indirect_draw::*;
+pub use pick::*;
 use point_style::*;
 
 pub fn register_wide_styled_points_data_model(sparse: bool) {
@@ -35,6 +37,7 @@ declare_component!(
   WideStyledPointsEntity,
   ExternalRefPtr<Vec<u8>> // Vec<WideLineVertex>
 );
+declare_component!(WidesStyledPointsColor, WideStyledPointsEntity, Vec3<f32>);
 
 #[repr(C)]
 #[derive(Copy, Clone, Zeroable, Pod)]

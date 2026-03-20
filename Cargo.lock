@@ -3862,6 +3862,7 @@ version = "0.1.0"
 dependencies = [
  "database",
  "fast-hash-collection",
+ "log",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-scene-core",

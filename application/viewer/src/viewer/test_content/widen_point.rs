@@ -4,10 +4,13 @@ pub fn load_widen_points_test(s_writer: &mut SceneWriter) {
   let mut writer = global_entity_of::<WideStyledPointsEntity>().entity_writer();
 
   let mesh_buffer = build_wide_points_mesh(|builder| {
-    builder.push(Vec3::new(0., 0., 0.), 30., 0);
-    builder.push(Vec3::new(1., 0., 0.), 60., 1);
-    builder.push(Vec3::new(1., 1., 0.), 10., 2);
-    builder.push(Vec3::new(0., 1., 0.), 10., 3);
+    let mut style_id = 0;
+    for i in 0..4 {
+      for j in 0..4 {
+        builder.push(Vec3::new(i as f32, j as f32, 0.), 30., style_id);
+        style_id += 1;
+      }
+    }
   });
 
   let wide_points_model =

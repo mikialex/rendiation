@@ -139,8 +139,13 @@ pub struct WideStyledPointsIndirectRenderer {
   used_in_midc_downgrade: bool,
 }
 
-// data range
-type WideStyledPointParameters = Vec2<u32>;
+#[repr(C)]
+#[std430_layout]
+#[derive(Copy, Clone, ShaderStruct, Default)]
+struct WideStyledPointParameters {
+  pub range: Vec2<u32>,
+  pub color: Vec3<f32>,
+}
 
 #[repr(C)]
 #[std430_layout]
@@ -267,7 +272,8 @@ impl GraphicsShaderProvider for WidePointsIndirectDrawComponent {
       let points_id = sm_to_wide_points_device.index(sm_id).load();
 
       let params = binding.bind_by(&self.params);
-      let points_range = params.index(points_id).load();
+      let meta = params.index(points_id).load().expand();
+      let points_range = meta.range;
       //   builder.register::<WideLineWidthShader>(points_range.width);
 
       let points = binding.bind_by(&self.points);
@@ -298,8 +304,8 @@ impl GraphicsShaderProvider for WidePointsIndirectDrawComponent {
 
       builder.register::<WidePointPosition>(point.position);
       builder.register::<WidePointSize>(point.width);
-      builder.register::<WidePointStyleId>(point.style_id);
-      builder.register::<GeometryColorWithAlpha>(val(Vec4::one())); // todo color
+      builder.set_vertex_out::<WidePointStyleId>(point.style_id);
+      builder.register::<GeometryColorWithAlpha>((meta.color, val(1.)));
 
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
@@ -328,10 +334,25 @@ impl GraphicsShaderProvider for WidePointsIndirectDrawComponent {
       let uv = builder.query::<FragmentUv>();
       // reject lighting
       builder.insert_type_tag::<UnlitMaterialTag>();
-      //   if_by(discard_round_corner_fn(uv), || {
-      //     builder.discard();
-      //   });
-      //   builder.
+
+      let coord = uv * val(Vec2::new(2., 2.)) - val(Vec2::new(1., 1.));
+      let style_id = builder.query::<WidePointStyleId>();
+      let color = builder.query::<DefaultDisplay>();
+
+      let (alpha, color_multiplier) = point_style_entry(coord, style_id);
+
+      let final_color: Node<Vec4<f32>> = (color.xyz() * color_multiplier, alpha).into();
+
+      builder.register::<DefaultDisplay>(final_color);
+
+      builder.frag_output.iter_mut().for_each(|p| {
+        if p.is_blendable() {
+          p.states.blend = BlendState::ALPHA_BLENDING.into();
+        }
+      });
+      if let Some(depth) = &mut builder.depth_stencil {
+        depth.depth_write_enabled = false;
+      }
     })
   }
 }
@@ -351,7 +372,7 @@ impl ShaderHashProvider for WidePointsDrawCreator {
 impl NoneIndexedDrawCommandBuilder for WidePointsDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let model = self.sm_to_wide.get(id).unwrap();
-    let param = self.params_host.get(model.alloc_index()).unwrap();
+    let param = self.params_host.get(model.alloc_index()).unwrap().range;
     let seg_count = param.y / WideStyledPointVertexStorage::u32_size();
 
     if param.x == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {
@@ -395,8 +416,8 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
   ) -> Node<DrawIndirectArgsStorage> {
     let point_id = self.sm_to_wide_points_device.index(draw_id).load();
     // the implementation of range allocate assure the count is zero if allocation failed
-    let seg_count =
-      self.params.index(point_id).load().y() / val(WideStyledPointVertexStorage::u32_size());
+    let seg_count = self.params.index(point_id).load().expand().range.y()
+      / val(WideStyledPointVertexStorage::u32_size());
 
     ENode::<DrawIndirectArgsStorage> {
       vertex_count: val(6) * seg_count,
