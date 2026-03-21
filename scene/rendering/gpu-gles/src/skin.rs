@@ -18,16 +18,16 @@ impl BoneMatrixAccessInvocation for BoneMatrixInvocationProvider {
   fn get_matrix(&self, joint_index: Node<u32>) -> Node<Mat4<f32>> {
     let joint_index = joint_index * val(4);
     let uv = vec2_node((joint_index, val(0)));
-    let m1 = self.data.load_texel(uv, val(0));
+    let m1 = self.data.load_texel(uv, 0);
 
     let uv = vec2_node((joint_index + val(1), val(0)));
-    let m2 = self.data.load_texel(uv, val(0));
+    let m2 = self.data.load_texel(uv, 0);
 
     let uv = vec2_node((joint_index + val(2), val(0)));
-    let m3 = self.data.load_texel(uv, val(0));
+    let m3 = self.data.load_texel(uv, 0);
 
     let uv = vec2_node((joint_index + val(3), val(0)));
-    let m4 = self.data.load_texel(uv, val(0));
+    let m4 = self.data.load_texel(uv, 0);
 
     (m1, m2, m3, m4).into()
   }

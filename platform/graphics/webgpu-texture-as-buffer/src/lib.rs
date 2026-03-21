@@ -447,7 +447,7 @@ impl AbstractShaderPtr for TextureAsU32Heap {
   }
 
   fn array_length(&self) -> Node<u32> {
-    self.texture.load_texel(val(Vec2::zero()), val(0)).x()
+    self.texture.load_texel(val(Vec2::zero()), 0).x()
   }
 
   fn load(&self) -> ShaderNodeRawHandle {
@@ -487,7 +487,7 @@ impl AbstractShaderPtr for TextureAsU32HeapPosition {
   }
 
   fn load(&self) -> ShaderNodeRawHandle {
-    self.texture.load_texel(self.position, val(0)).x().handle()
+    self.texture.load_texel(self.position, 0).x().handle()
   }
 
   fn store(&self, _: ShaderNodeRawHandle) {

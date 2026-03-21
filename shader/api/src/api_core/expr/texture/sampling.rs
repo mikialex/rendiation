@@ -103,7 +103,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
   pub fn load_texel(
     &self,
     position: Node<TextureSampleInputOf<D, u32>>,
-    level: Node<u32>,
+    level: impl Into<Node<u32>>,
   ) -> Node<ChannelOutputOf<F>>
   where
     F: SingleSampleTarget,
@@ -114,7 +114,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
       position: position.handle(),
       array_index: None,
       sample_index: None,
-      level: level.handle().into(),
+      level: level.into().handle().into(),
     })
     .insert_api()
   }

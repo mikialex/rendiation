@@ -229,7 +229,7 @@ where
   Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
 {
   fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<ChannelOutputOf<F>> {
-    self.load_texel(coord.into(), val(0))
+    self.load_texel(coord.into(), 0)
   }
 }
 

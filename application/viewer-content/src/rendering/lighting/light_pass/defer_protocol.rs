@@ -160,7 +160,7 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
 
     let input_size = channel_a.texture_dimension_2d(None).into_f32();
     let u32_uv = (input_size * uv).floor().into_u32();
-    let material_ty_id = ids.load_texel(u32_uv, val(0)).x();
+    let material_ty_id = ids.load_texel(u32_uv, 0).x();
 
     // discard compute to display the background
     if_by(material_ty_id.equals(u8::MAX as u32), || {

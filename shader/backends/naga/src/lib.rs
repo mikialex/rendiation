@@ -1034,6 +1034,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           OperatorNode::Unary { one, operator } => {
             let op = match operator {
               UnaryOperator::LogicalNot => naga::UnaryOperator::LogicalNot,
+              UnaryOperator::BitwiseNot => naga::UnaryOperator::BitwiseNot,
               UnaryOperator::Neg => naga::UnaryOperator::Negate,
             };
             naga::Expression::Unary {

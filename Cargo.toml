@@ -80,6 +80,7 @@ members = [
   "extension/infinity-primitive",
   "extension/wide-line",
   "extension/wide-styled-points",
+  "extension/text-3d",
   "extension/gizmo",
   "extension/area-lighting",
   "extension/csg-sdf-expression",

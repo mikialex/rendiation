@@ -152,7 +152,7 @@ impl FrameGeometryBufferReadInvocation {
   }
   pub fn read_id(&self, uv: Node<Vec2<f32>>) -> Node<u32> {
     let u32_uv = (self.input_size * uv).floor().into_u32();
-    self.ids.load_texel(u32_uv, val(0)).x()
+    self.ids.load_texel(u32_uv, 0).x()
   }
 }
 

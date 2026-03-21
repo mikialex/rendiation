@@ -2,6 +2,7 @@ use crate::*;
 
 pub enum UnaryOperator {
   LogicalNot,
+  BitwiseNot,
   Neg,
 }
 
@@ -229,6 +230,22 @@ where
       left: self.handle(),
       right: rhs.handle(),
       operator: BinaryOperator::BitOr,
+    }
+    .insert_api()
+  }
+}
+
+impl<T> Not for Node<T>
+where
+  T: Not<Output = T>,
+  T: ShaderNodeType,
+{
+  type Output = Self;
+
+  fn not(self) -> Self::Output {
+    OperatorNode::Unary {
+      one: self.handle(),
+      operator: UnaryOperator::BitwiseNot,
     }
     .insert_api()
   }

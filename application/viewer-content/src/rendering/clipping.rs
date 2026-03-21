@@ -352,7 +352,7 @@ impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
     builder.fragment(|builder, binding| {
       let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
       let depth = self.filled_depth.bind_shader(binding);
-      let depth = depth.load_texel(frag_position, val(0));
+      let depth = depth.load_texel(frag_position, 0);
 
       let uv = builder.query::<FragmentUv>();
       let mat = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
@@ -430,8 +430,8 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
 
       let background_depth = if self.reverse_depth { val(0.) } else { val(1.) };
 
-      let clip_depth = clip_depth.load_texel(frag_position, val(0));
-      let clip_normal = clip_normal.load_texel(frag_position, val(0)).xyz();
+      let clip_depth = clip_depth.load_texel(frag_position, 0);
+      let clip_normal = clip_normal.load_texel(frag_position, 0).xyz();
       let back_depth = fill_depth_info
         .load(frag_position, val(BACKFACE_LAYER_IDX))
         .bitcast::<f32>();
