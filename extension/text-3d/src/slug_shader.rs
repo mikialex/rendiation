@@ -171,7 +171,7 @@ fn SlugRender(
   curve_data: BindingNode<ShaderTexture2D>,
   band_data: BindingNode<ShaderTexture<TextureDimension2, u32>>,
   render_coord: Node<Vec2<f32>>,
-  bandT_transform: Node<Vec4<f32>>,
+  band_t_transform: Node<Vec4<f32>>,
   glyph_data: Node<Vec4<i32>>,
 ) -> Node<f32> {
   // The effective pixel dimensions of the em square are computed
@@ -186,7 +186,7 @@ fn SlugRender(
   // to the render coordinates. The scales are given by bandTransform.xy, and the
   // offsets are given by bandTransform.zw. Band indexes are clamped to [0, bandMax.xy].
 
-  let band_index = (render_coord * bandT_transform.xy() + bandT_transform.zw())
+  let band_index = (render_coord * band_t_transform.xy() + band_t_transform.zw())
     .into_i32()
     .clamp(val(Vec2::zero()), band_max);
   let glyph_loc = vec2_node((glyph_data.x(), glyph_data.y()));
@@ -198,12 +198,8 @@ fn SlugRender(
   // of curves intersecting the band is in the x component, and the offset
   // to the list of locations for those curves is in the y component.
 
-  let hband_data = band_data
-    .load_texel(
-      vec2_node((glyph_loc.x() + band_index.y(), glyph_loc.y())).into_u32(),
-      0,
-    )
-    .xy();
+  let hband_data = vec2_node((glyph_loc.x() + band_index.y(), glyph_loc.y()));
+  let hband_data = band_data.load_texel(hband_data.into_u32(), 0).xy();
   let hband_loc = calc_band_loc(glyph_loc, hband_data.y());
 
   // Loop over all curves in the horizontal band.
@@ -214,12 +210,8 @@ fn SlugRender(
     .for_each(|curve_index, lcx| {
       let curve_index = curve_index.into_i32();
       // Fetch the location of the current curve from the index texture.
-      let curve_loc = band_data
-        .load_texel(
-          vec2_node((hband_loc.x() + curve_index, hband_loc.y())).into_u32(),
-          0,
-        )
-        .xy();
+      let curve_loc = vec2_node((hband_loc.x() + curve_index, hband_loc.y()));
+      let curve_loc = band_data.load_texel(curve_loc.into_u32(), 0).xy();
 
       // Fetch the three 2D control points for the current curve from the curve texture.
       // The first texel contains both p1 and p2 in the (x,y) and (z,w) components, respectively,
@@ -284,12 +276,8 @@ fn SlugRender(
     .into_shader_iter()
     .for_each(|curve_index, lcx| {
       let curve_index = curve_index.into_i32();
-      let curve_loc = band_data
-        .load_texel(
-          vec2_node((vband_loc.x() + curve_index, vband_loc.y())).into_u32(),
-          0,
-        )
-        .xy();
+      let curve_loc = vec2_node((vband_loc.x() + curve_index, vband_loc.y()));
+      let curve_loc = band_data.load_texel(curve_loc.into_u32(), 0).xy();
 
       let p12 = curve_data.load_texel(curve_loc, 0) - vec4_node((render_coord, render_coord));
       let p3_coord = vec2_node((curve_loc.x() + val(1), curve_loc.y()));
@@ -329,4 +317,36 @@ fn SlugRender(
     ywgt.load(),
     glyph_data.w(),
   );
+}
+
+#[derive(Clone, Copy, ShaderStruct)]
+struct SlugDilateResult {
+  pub texcoord: Vec2<f32>,
+  pub vpos: Vec2<f32>,
+}
+
+fn slug_dilate(
+  pos: Node<Vec4<f32>>,
+  tex: Node<Vec4<f32>>,
+  jac: Node<Vec4<f32>>,
+  m0: Node<Vec4<f32>>,
+  m1: Node<Vec4<f32>>,
+  m3: Node<Vec4<f32>>,
+  dim: Node<Vec2<f32>>,
+) -> Node<SlugDilateResult> {
+  let n = pos.zw().normalize();
+  let s = m3.xy().dot(pos.xy()) + m3.w();
+  let t = m3.xy().dot(n);
+
+  let u = (s * m0.xy().dot(n) - t * (m0.xy().dot(pos.xy()) + m0.w())) * dim.x();
+  let v = (s * m1.xy().dot(n) - t * (m1.xy().dot(pos.xy()) + m1.w())) * dim.y();
+
+  let s2 = s * s;
+  let st = s * t;
+  let uv = u * u + v * v;
+  let d = pos.zw() * (s2 * (st + uv.sqrt()) / (uv - st * st));
+
+  let vpos = pos.xy() + d;
+  let texcoord = vec2_node((tex.x() + d.dot(jac.xy()), tex.y() + d.dot(jac.zw())));
+  ENode::<SlugDilateResult> { texcoord, vpos }.construct()
 }

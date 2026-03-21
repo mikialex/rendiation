@@ -25,6 +25,7 @@ rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
 rendiation-device-parallel-compute = { path = "../../shader/parallel-compute" }
 rendiation-webgpu-midc-downgrade = { path = "../../platform/graphics/webgpu-midc-downgrade" }
 parking_lot = { workspace = true }
+fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 
 [lints]
 workspace = true
