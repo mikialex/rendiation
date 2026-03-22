@@ -3,7 +3,10 @@ use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
-use crate::{slug_shader::SlugRender, *};
+use crate::{
+  slug_shader::{slug_dilate, SlugRender},
+  *,
+};
 
 pub fn use_text3d_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<Text3dGlesRenderer> {
   todo!()
@@ -74,13 +77,23 @@ impl ShaderPassBuilder for SlugTextGPUData {
       .pass
       .set_index_buffer_by_buffer_resource_view(&self.indices, IndexFormat::Uint32);
   }
+
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.curve_tex_data);
+    ctx.binding.bind(&self.band_tex_data);
+  }
 }
+
+both!(Text3dBandTransform, Vec4<f32>);
+both!(Text3dGlyphData, Vec4<i32>);
 
 impl GraphicsShaderProvider for SlugTextGPUData {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
-      // builder.register_vertex::<CommonVertex>(VertexStepMode::Vertex);
-      // builder.register_vertex::<WideLineVertex>(VertexStepMode::Instance);
+      builder.register_vertex::<TextGlesVertex>(VertexStepMode::Vertex);
+
+      // builder.register::<GeometryPosition>(todo!());
+
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
     });
@@ -88,21 +101,43 @@ impl GraphicsShaderProvider for SlugTextGPUData {
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
-      // let uv = builder.query::<GeometryUV>();
-      // let color_with_alpha = builder.query::<GeometryColorWithAlpha>();
-      // let uniform = binding.bind_by(&self.uniform).load().expand();
-
-      // wide_line_vertex(
-      //   builder.query::<WideLineStart>(),
-      //   builder.query::<WideLineEnd>(),
-      //   builder.query::<GeometryPosition>(),
-      //   builder.query::<ViewportRenderBufferSize>(),
-      //   uniform.width,
-      //   builder,
-      // );
-
+      // builder.register::<GeometryUV>(todo!());
+      // todo
       // builder.set_vertex_out::<FragmentUv>(uv);
-      // builder.set_vertex_out::<DefaultDisplay>(color_with_alpha);
+
+      let viewport_size = builder.query::<ViewportRenderBufferSize>();
+
+      let pos = builder.query::<SlugTextGlesVertexPos>();
+      let tex = builder.query::<SlugTextGlesVertexTex>();
+      let jac = builder.query::<SlugTextGlesVertexJac>();
+      let dilated = slug_dilate(pos, tex, jac, todo!(), todo!(), todo!(), viewport_size).expand();
+      builder.set_vertex_out::<FragmentUv>(dilated.texcoord);
+
+      // builder.register::<ClipPosition>(clip);
+
+      builder.register_vertex::<TextGlesVertex>(VertexStepMode::Vertex);
+
+      let color_with_alpha = builder.query::<SlugTextGlesVertexCol>();
+      builder.set_vertex_out::<DefaultDisplay>(color_with_alpha);
+
+      let band = builder.query::<SlugTextGlesVertexBnd>();
+      builder.set_vertex_out_with_given_interpolate::<Text3dBandTransform>(
+        band,
+        ShaderInterpolation::Flat,
+      );
+
+      let tex = builder.query::<SlugTextGlesVertexTex>();
+      let g1 = tex.z().bitcast::<u32>();
+      let g2 = tex.w().bitcast::<u32>();
+      let g = vec2_node((g1, g2));
+      let vgly = vec4_node((
+        (g.x() & val(0xFFFF)).into_i32(),
+        (g.x() >> val(16)).into_i32(),
+        (g.y() & val(0xFFFF)).into_i32(),
+        (g.y() >> val(16)).into_i32(),
+      ));
+
+      builder.set_vertex_out::<Text3dGlyphData>(vgly);
     });
 
     builder.fragment(|builder, binding| {
@@ -112,9 +147,16 @@ impl GraphicsShaderProvider for SlugTextGPUData {
       let curve_tex_data = binding.bind_by(&self.curve_tex_data);
       let band_tex_data = binding.bind_by(&self.band_tex_data);
 
-      let coverage = SlugRender(curve_tex_data, band_tex_data, uv, todo!(), todo!());
-      // band_t_transform,
-      // glyph_data,
+      let band_t_transform = builder.query::<Text3dBandTransform>();
+      let glyph_data = builder.query::<Text3dGlyphData>();
+
+      let coverage = SlugRender(
+        curve_tex_data,
+        band_tex_data,
+        uv,
+        band_t_transform,
+        glyph_data,
+      );
 
       builder
         .register::<DefaultDisplay>(val(Vec4::new(0., 0., 0., 1.)) * coverage.splat::<Vec4<f32>>());
@@ -123,17 +165,28 @@ impl GraphicsShaderProvider for SlugTextGPUData {
   }
 }
 
-// #[repr(C)]
-// #[derive(rendiation_shader_api::ShaderVertex)]
-// #[derive(Serialize, Deserialize)]
-// #[derive(Clone, Copy, Debug, PartialEq, Default)]
-// pub struct TextGlesVertex {
-//   #[semantic(GeometryPosition)]
-//   pub position: Vec3<f32>,
+#[repr(C)]
+#[derive(rendiation_shader_api::ShaderVertex)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+struct TextGlesVertex {
+  #[semantic(SlugTextGlesVertexPos)]
+  pub pos: Vec4<f32>,
 
-//   #[semantic(GeometryNormal)]
-//   pub normal: Vec3<f32>,
+  #[semantic(SlugTextGlesVertexTex)]
+  pub tex: Vec4<f32>,
 
-//   #[semantic(GeometryUV)]
-//   pub uv: Vec2<f32>,
-// }
+  #[semantic(SlugTextGlesVertexJac)]
+  pub jac: Vec4<f32>,
+
+  #[semantic(SlugTextGlesVertexBnd)]
+  pub bnd: Vec4<f32>,
+
+  #[semantic(SlugTextGlesVertexCol)]
+  pub col: Vec4<f32>,
+}
+
+only_vertex!(SlugTextGlesVertexPos, Vec4<f32>);
+only_vertex!(SlugTextGlesVertexTex, Vec4<f32>);
+only_vertex!(SlugTextGlesVertexJac, Vec4<f32>);
+only_vertex!(SlugTextGlesVertexBnd, Vec4<f32>);
+only_vertex!(SlugTextGlesVertexCol, Vec4<f32>);

@@ -497,6 +497,7 @@ trait True {}
 impl True for If<true> {}
 
 impl<T: DeviceRawBitCast + PrimitiveShaderNodeType> Node<T> {
+  // todo, impl vec bitcast
   #[allow(private_bounds)]
   pub fn bitcast<V>(self) -> Node<V>
   where

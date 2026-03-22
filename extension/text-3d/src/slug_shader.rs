@@ -320,7 +320,7 @@ pub fn SlugRender(
 }
 
 #[derive(Clone, Copy, ShaderStruct)]
-struct SlugDilateResult {
+pub struct SlugDilateResult {
   pub texcoord: Vec2<f32>,
   pub vpos: Vec2<f32>,
 }
