@@ -2,9 +2,11 @@ use database::*;
 use fast_hash_collection::*;
 use rendiation_algebra::*;
 use rendiation_scene_core::SceneModelEntity;
-use rendiation_webgpu::GPU2DTextureView;
+use rendiation_texture_core::GPUBufferImage;
+use rendiation_texture_gpu_base::create_gpu_texture2d;
+use rendiation_webgpu::*;
 
-mod draw;
+mod gles_draw;
 mod slug_shader;
 
 pub fn register_text3d_data_model(sparse: bool) {
@@ -29,7 +31,20 @@ pub struct FontSystem {
   swash: cosmic_text::SwashCache,
 }
 
+#[test]
+fn test_font_system() {
+  let mut system = FontSystem::new();
+  system.build_text_slug_data("Hello, Rust!\n Hello, World! 我是中文");
+}
+
 impl FontSystem {
+  pub fn new() -> Self {
+    Self {
+      system: cosmic_text::FontSystem::new(),
+      swash: cosmic_text::SwashCache::new(),
+    }
+  }
+
   fn build_text_slug_data(&mut self, text: &str) {
     // Text metrics indicate the font size and line height of a buffer
     let metrics = cosmic_text::Metrics::new(14.0, 20.0);
@@ -46,7 +61,7 @@ impl FontSystem {
     // Add some text!
     buffer.set_text(
       &mut self.system,
-      "Hello, Rust!\n Hello, World!",
+      text,
       &attrs,
       cosmic_text::Shaping::Advanced,
       None,
@@ -62,8 +77,8 @@ impl FontSystem {
 
     // Inspect the output runs
     for run in buffer.layout_runs() {
+      println!("{:#?}", run);
       for glyph in run.glyphs.iter() {
-        println!("{:#?}", glyph);
         used_glyphs.insert(glyph.glyph_id);
 
         if let Some(outline_cmds) = self.swash.get_outline_commands(
@@ -78,8 +93,7 @@ impl FontSystem {
         }
       }
     }
-
-    todo!()
+    //
   }
 }
 
@@ -93,6 +107,20 @@ struct Bounds {
 impl Bounds {
   pub fn size(&self) -> (f32, f32) {
     (self.x_max - self.x_min, self.y_max - self.y_min)
+  }
+  pub fn empty() -> Self {
+    Self {
+      x_min: f32::MAX,
+      y_min: f32::MAX,
+      x_max: -f32::MAX,
+      y_max: -f32::MAX,
+    }
+  }
+  pub fn expand(&mut self, x: f32, y: f32) {
+    self.x_min = self.x_min.min(x);
+    self.y_min = self.y_min.min(y);
+    self.x_max = self.x_max.max(x);
+    self.y_max = self.y_max.max(y);
   }
 }
 
@@ -338,12 +366,14 @@ struct GlyphBandInfo {
   glyphLocY: usize,
 }
 
-fn extract_curves(cmds: &[cosmic_text::Command], curves: &mut Vec<f32>) {
+fn extract_curves(cmds: &[cosmic_text::Command], curves: &mut Vec<f32>) -> Option<Bounds> {
   let mut current_x = 0.0;
   let mut current_y = 0.0;
 
   let mut start_x = 0.0;
   let mut start_y = 0.0;
+
+  let start = curves.len();
 
   for cmd in cmds {
     match cmd {
@@ -410,6 +440,18 @@ fn extract_curves(cmds: &[cosmic_text::Command], curves: &mut Vec<f32>) {
       }
     }
   }
+
+  if curves.len() - start <= 6 {
+    return None;
+  }
+
+  let mut bound = Bounds::empty();
+  let new_points = curves[start..].as_chunks::<2>().0;
+  for [x, y] in new_points {
+    bound.expand(*x, *y);
+  }
+
+  Some(bound)
 }
 
 /// Prepare all glyph data for a text string.
@@ -487,7 +529,7 @@ fn prepareText(system: &mut FontSystem, text: &str, fontSize: f32) -> SlugTextPr
     // Object-space position (Y-up screen pixels)
     let ox = (cursorX + positioned_glyph.relative_x) * scale;
     let oy = positioned_glyph.relative_y * scale;
-    let x0 = ox + x_min * scale;
+    let x0 = ox + x_min * scale; // todo, why?
     let y0 = oy + y_min * scale;
     let x1 = ox + x_max * scale;
     let y1 = oy + y_max * scale;
@@ -556,17 +598,10 @@ fn prepareText(system: &mut FontSystem, text: &str, fontSize: f32) -> SlugTextPr
   };
 }
 
-struct SlugTextPrepared {
-  slugGlyphs: Vec<SlugGlyph>,
-  vertices: Vec<f32>,
-  indices: Vec<u32>,
-  packed: PackedGlyphData,
+pub struct SlugTextPrepared {
+  pub slugGlyphs: Vec<SlugGlyph>,
+  pub vertices: Vec<f32>,
+  pub indices: Vec<u32>,
+  pub packed: PackedGlyphData,
   // totalAdvance: u32,
 }
-
-// struct SlugTextGPUData {
-//   pub indices: Vec<u32>,
-//   pub vertices: Vec<f32>,
-//   pub curve_tex_data: GPU2DTextureView,
-//   pub band_tex_data: GPU2DTextureView,
-// }

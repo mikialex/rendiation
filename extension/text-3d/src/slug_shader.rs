@@ -167,7 +167,7 @@ fn calc_coverage(
   coverage.load()
 }
 
-fn SlugRender(
+pub fn SlugRender(
   curve_data: BindingNode<ShaderTexture2D>,
   band_data: BindingNode<ShaderTexture<TextureDimension2, u32>>,
   render_coord: Node<Vec2<f32>>,
@@ -325,7 +325,7 @@ struct SlugDilateResult {
   pub vpos: Vec2<f32>,
 }
 
-fn slug_dilate(
+pub fn slug_dilate(
   pos: Node<Vec4<f32>>,
   tex: Node<Vec4<f32>>,
   jac: Node<Vec4<f32>>,
