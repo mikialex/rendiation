@@ -4576,6 +4576,7 @@ dependencies = [
  "cosmic-text",
  "database",
  "fast-hash-collection",
+ "log",
  "parking_lot",
  "rendiation-algebra",
  "rendiation-device-parallel-compute",

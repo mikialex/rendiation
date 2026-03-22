@@ -73,6 +73,8 @@ impl FontSystem {
           extract_curves(&outline_cmds, &mut curves);
           // self.swash.
           // let bounds = self.swash.get_image(font_system, cache_key)
+        } else {
+          log::warn!("unable to get outline commands of glyph {}", glyph.glyph_id);
         }
       }
     }
@@ -412,11 +414,12 @@ fn extract_curves(cmds: &[cosmic_text::Command], curves: &mut Vec<f32>) {
 
 /// Prepare all glyph data for a text string.
 /// Returns texture data and 5-attribute vertex buffers matching the Slug shaders.
-fn prepareText(text: &str, fontSize: f32) -> SlugTextPrepared {
+fn prepareText(system: &mut FontSystem, text: &str, fontSize: f32) -> SlugTextPrepared {
   // const buf = new UnicodeBuffer();
   // buf.addStr(text);
   // const glyphBuffer = shape(font, buf);
   // const scale = font.scaleForSize(fontSize);
+  let scale: f32 = todo!();
 
   // // Process unique glyphs
   // const glyphMap = new Map<number, SlugGlyph>();
@@ -452,81 +455,104 @@ fn prepareText(text: &str, fontSize: f32) -> SlugTextPrepared {
   // 5 attributes × vec4 = 20 floats = 80 bytes per vertex
   let verts = Vec::new();
   let idxs = Vec::new();
-  let cursorX = 0;
+  let cursorX = 0.;
   let quadIdx = 0;
 
+  struct PositionedGlyph {
+    glyph_id: u32,
+    /// the bounding's origin relative to glyph space origin?
+    relative_x: f32,
+    relative_y: f32,
+  }
+
+  let glyphBuffer: Vec<PositionedGlyph> = todo!();
+
   // for (const { info, position } of glyphBuffer) {
-  //   const data = glyphDataMap.get(info.glyphId);
-  //   if (!data) {
-  //     cursorX += position.xAdvance;
-  //     continue;
-  //   }
+  for positioned_glyph in &glyphBuffer {
+    let data = glyphDataMap.get(&positioned_glyph.glyph_id).unwrap();
+    //   if (!data) {
+    //     cursorX += position.xAdvance;
+    //     continue;
+    //   }
 
-  //   const { glyph, glyphLocX, glyphLocY } = data;
-  //   const { xMin, yMin, xMax, yMax } = glyph.bounds;
-  //   const w = xMax - xMin;
-  //   const h = yMax - yMin;
+    let (glyph, glyphLocX, glyphLocY) = data;
+    let Bounds {
+      x_min,
+      y_min,
+      x_max,
+      y_max,
+    } = glyph.bounds;
+    let (w, h) = glyph.bounds.size();
 
-  //   // Object-space position (Y-up screen pixels)
-  //   const ox = (cursorX + position.xOffset) * scale;
-  //   const oy = position.yOffset * scale;
-  //   const x0 = ox + xMin * scale;
-  //   const y0 = oy + yMin * scale;
-  //   const x1 = ox + xMax * scale;
-  //   const y1 = oy + yMax * scale;
+    // Object-space position (Y-up screen pixels)
+    let ox = (cursorX + positioned_glyph.relative_x) * scale;
+    let oy = positioned_glyph.relative_y * scale;
+    let x0 = ox + x_min * scale;
+    let y0 = oy + y_min * scale;
+    let x1 = ox + x_max * scale;
+    let y1 = oy + y_max * scale;
 
-  //   // Band transform: maps em-space to band indices
-  //   const bandScaleX = w > 0 ? glyph.bands.vBandCount / w : 0;
-  //   const bandScaleY = h > 0 ? glyph.bands.hBandCount / h : 0;
-  //   const bandOffsetX = -xMin * bandScaleX;
-  //   const bandOffsetY = -yMin * bandScaleY;
+    // Band transform: maps em-space to band indices
+    let bandScaleX = if w > 0. {
+      glyph.bands.v_band_count as f32 / w
+    } else {
+      0.0
+    };
+    let bandScaleY = if h > 0. {
+      glyph.bands.h_band_count as f32 / h
+    } else {
+      0.0
+    };
+    let bandOffsetX = -x_min * bandScaleX;
+    let bandOffsetY = -y_min * bandScaleY;
 
-  //   // Pack tex.z: glyph location in band texture (u16 x, u16 y → bitcast to f32)
-  //   const glyphLocPacked = packU32AsF32((glyphLocY << 16) | glyphLocX);
+    // Pack tex.z: glyph location in band texture (u16 x, u16 y → bitcast to f32)
+    let glyphLocPacked = f32::from_bits(((*glyphLocY as u32) << 16) | *glyphLocX as u32);
 
-  //   // Pack tex.w: band max indices (bandMaxX in bits 0-7, bandMaxY in bits 16-23)
-  //   const bandMaxX = glyph.bands.vBandCount - 1;
-  //   const bandMaxY = glyph.bands.hBandCount - 1;
-  //   const bandMaxPacked = packU32AsF32((bandMaxY << 16) | bandMaxX);
+    // Pack tex.w: band max indices (bandMaxX in bits 0-7, bandMaxY in bits 16-23)
+    let bandMaxX = glyph.bands.v_band_count - 1;
+    let bandMaxY = glyph.bands.h_band_count - 1;
+    let bandMaxPacked = f32::from_bits((bandMaxY << 16) | bandMaxX);
 
-  //   // Inverse Jacobian: d(em)/d(obj) = 1/scale (uniform scaling)
-  //   const invScale = 1 / scale;
+    // Inverse Jacobian: d(em)/d(obj) = 1/scale (uniform scaling)
+    let invScale = 1. / scale;
 
-  //   // 4 corners: (objX, objY, normX, normY, emX, emY)
-  //   const corners = [
-  //     [x0, y0, -1, -1, xMin, yMin], // bottom-left
-  //     [x1, y0, 1, -1, xMax, yMin], // bottom-right
-  //     [x1, y1, 1, 1, xMax, yMax], // top-right
-  //     [x0, y1, -1, 1, xMin, yMax], // top-left
-  //   ];
+    // 4 corners: (objX, objY, normX, normY, emX, emY)
+    let corners = [
+      [x0, y0, -1., -1., x_min, y_min], // bottom-left
+      [x1, y0, 1., -1., x_max, y_min],  // bottom-right
+      [x1, y1, 1., 1., x_max, y_max],   // top-right
+      [x0, y1, -1., 1., x_min, y_max],  // top-left
+    ];
 
-  //   for (const [px, py, nx, ny, ex, ey] of corners) {
-  //     verts.push(
-  //       // pos (location 0): object-space position + normal
-  //       px, py, nx, ny,
-  //       // tex (location 1): em-space coords + packed glyph/band data
-  //       ex, ey, glyphLocPacked, bandMaxPacked,
-  //       // jac (location 2): inverse Jacobian (d(em)/d(obj))
-  //       invScale, 0, 0, invScale,
-  //       // bnd (location 3): band transform (scale + offset)
-  //       bandScaleX, bandScaleY, bandOffsetX, bandOffsetY,
-  //       // col (location 4): vertex color
-  //       1, 1, 1, 1,
-  //     );
-  //   }
+    for [px, py, nx, ny, ex, ey] in corners {
+      #[rustfmt::skip]
+      verts.extend([
+        // pos (location 0): object-space position + normal
+        px, py, nx, ny,
+        // tex (location 1): em-space coords + packed glyph/band data
+        ex, ey, glyphLocPacked, bandMaxPacked,
+        // jac (location 2): inverse Jacobian (d(em)/d(obj))
+        invScale, 0., 0., invScale,
+        // bnd (location 3): band transform (scale + offset)
+        bandScaleX, bandScaleY, bandOffsetX, bandOffsetY,
+        // col (location 4): vertex color
+        1., 1., 1., 1.,]
+      );
+    }
 
-  //   const base = quadIdx * 4;
-  //   idxs.push(base, base + 1, base + 2, base, base + 2, base + 3);
-  //   cursorX += position.xAdvance;
-  //   quadIdx++;
-  // }
+    let base = quadIdx * 4;
+    idxs.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+    // cursorX += position.xAdvance; todo
+    quadIdx += 1;
+  }
 
   return SlugTextPrepared {
     slugGlyphs,
     vertices: verts,
     indices: idxs,
     packed,
-    totalAdvance: cursorX,
+    // totalAdvance: cursorX,
   };
 }
 
@@ -535,7 +561,7 @@ struct SlugTextPrepared {
   vertices: Vec<f32>,
   indices: Vec<u32>,
   packed: PackedGlyphData,
-  totalAdvance: u32,
+  // totalAdvance: u32,
 }
 
 // struct SlugTextGPUData {
