@@ -9,6 +9,7 @@ pub fn load_default_scene(
   texture_data_source: &mut ViewerTextureDataSource,
   mesh_source: &mut ViewerMeshDataSource,
 ) {
+  load_text3d_test(writer);
   // test_mesh_lod_graph(writer);
   load_widen_line_test(writer);
   load_widen_points_test(writer);

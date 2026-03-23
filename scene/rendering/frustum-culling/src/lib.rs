@@ -152,7 +152,8 @@ impl HostRenderBatch for HostFrustumCulling {
         self.frustum.intersect(&bbox, &())
       } else {
         log::warn!("no world bounding found for sm {}", v);
-        false
+        // if anything missing bounding, we should not cull it for safety as the frustum culling is only an optimization
+        true
       }
     }))
   }

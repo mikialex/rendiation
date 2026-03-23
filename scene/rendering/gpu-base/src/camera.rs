@@ -70,13 +70,14 @@ impl GraphicsShaderProvider for CameraGPU {
     builder.vertex(|builder, _| {
       // this check enables self as a uniform inject only render component without dependency on node.
       if builder.try_query::<WorldNoneTranslationMatrix>().is_some() {
-        let local_position = builder.query::<GeometryPosition>();
-        let object_world_position = builder.query::<WorldPositionHP>();
-        let (clip_position, render_position) =
-          camera_transform_impl(builder, local_position, object_world_position);
+        if let Some(local_position) = builder.try_query::<GeometryPosition>() {
+          let object_world_position = builder.query::<WorldPositionHP>();
+          let (clip_position, render_position) =
+            camera_transform_impl(builder, local_position, object_world_position);
 
-        builder.register::<VertexRenderPosition>(render_position);
-        builder.register::<ClipPosition>(clip_position);
+          builder.register::<VertexRenderPosition>(render_position);
+          builder.register::<ClipPosition>(clip_position);
+        }
       }
     })
   }

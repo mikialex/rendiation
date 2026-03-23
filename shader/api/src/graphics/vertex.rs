@@ -166,6 +166,8 @@ impl ShaderVertexBuilder {
     .insert_api();
     self.registry.register_raw(ty_id, node);
 
+    assert!(!self.vertex_in.contains_key(&ty_id));
+
     self.vertex_in.entry(ty_id).or_insert_with(|| VertexIOInfo {
       node: node.handle(),
       ty,

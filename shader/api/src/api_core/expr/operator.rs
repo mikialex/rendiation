@@ -184,9 +184,21 @@ where
   }
 }
 
+impl Node<i32> {
+  // todo, we have great work to do for solve this issue
+  // wgsl only accept. i32 >> u32, not i32 >> i32
+  pub fn right_shift_u32(self, rhs: Node<u32>) -> Node<i32> {
+    OperatorNode::Binary {
+      left: self.handle(),
+      right: rhs.handle(),
+      operator: BinaryOperator::ShiftRight,
+    }
+    .insert_api()
+  }
+}
+
 impl<T> Shr for Node<T>
 where
-  T: Shr<T, Output = T>,
   T: ShaderNodeType,
 {
   type Output = Self;

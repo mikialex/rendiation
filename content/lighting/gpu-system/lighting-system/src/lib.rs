@@ -64,15 +64,20 @@ impl GeometryCtxProvider for DirectGeometryProvider {
     builder: &mut ShaderRenderPipelineBuilder,
   ) -> ENode<ShaderLightingGeometricCtx> {
     builder.fragment(|builder, _| {
-      let fragment_render =
-        builder.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
-      let fragment_normal = builder.get_or_compute_fragment_normal();
-      ENode::<ShaderLightingGeometricCtx> {
-        position: fragment_render,
-        normal: fragment_normal,
-        view_dir: -fragment_render.normalize(),
-        camera_world_position: builder.query::<CameraWorldPositionHP>(),
-        camera_world_none_translation_mat: builder.query::<CameraWorldNoneTranslationMatrix>(),
+      // skip the preparation cost if not need lighting
+      if builder.contains_type_tag::<LightableSurfaceTag>() {
+        let fragment_render =
+          builder.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
+        let fragment_normal = builder.get_or_compute_fragment_normal();
+        ENode::<ShaderLightingGeometricCtx> {
+          position: fragment_render,
+          normal: fragment_normal,
+          view_dir: -fragment_render.normalize(),
+          camera_world_position: builder.query::<CameraWorldPositionHP>(),
+          camera_world_none_translation_mat: builder.query::<CameraWorldNoneTranslationMatrix>(),
+        }
+      } else {
+        zeroed_val::<ShaderLightingGeometricCtx>().expand()
       }
     })
   }

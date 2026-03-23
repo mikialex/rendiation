@@ -197,12 +197,12 @@ impl GraphicsShaderProvider for SlugTextGPUData {
 
       let local_position = vec3_node((pos.xy(), val(0.)));
       let object_world_position = builder.query::<WorldPositionHP>();
-      let (clip_position, _) =
+      let (clip_position, render_space_position) =
         camera_transform_impl(builder, local_position, object_world_position);
       builder.set_vertex_out::<FragmentUv>(tex.xy());
       builder.register::<ClipPosition>(clip_position);
 
-      builder.register_vertex::<TextGlesVertex>(VertexStepMode::Vertex);
+      builder.register::<VertexRenderPosition>(render_space_position);
 
       let color_with_alpha = builder.query::<SlugTextGlesVertexCol>();
       builder.set_vertex_out::<DefaultDisplay>(color_with_alpha);

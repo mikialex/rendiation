@@ -109,7 +109,7 @@ fn calc_band_loc(glyph_loc: Node<Vec2<i32>>, offset: Node<u32>) -> Node<Vec2<i32
   let k_log_band_texture_width: u32 = 12;
 
   let band_loc = vec2_node((glyph_loc.x() + offset.into_i32(), glyph_loc.y()));
-  let y = band_loc.y() + (band_loc.x() >> val(k_log_band_texture_width as i32));
+  let y = band_loc.y() + (band_loc.x().right_shift_u32(val(k_log_band_texture_width)));
   let x = band_loc.x() & val((1 << k_log_band_texture_width) - 1);
 
   (x, y).into()
