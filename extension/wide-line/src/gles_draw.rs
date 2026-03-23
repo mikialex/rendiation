@@ -19,7 +19,7 @@ pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineM
   });
 
   cx.when_render(|| WideLineModelGLESRenderer {
-    model_access: global_database().read_foreign_key::<SceneModelWideLineRenderPayload>(),
+    model_access: global_database().read_foreign_key(),
     uniforms: uniform.make_read_holder(),
     instance_buffers: mesh.make_read_holder(),
     index_buffer: quad.0.clone(),

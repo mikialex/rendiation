@@ -102,12 +102,12 @@ fn solve_vert_poly(p12: Node<Vec4<f32>>, p3: Node<Vec2<f32>>) -> Node<Vec2<f32>>
     .into()
 }
 
-fn calc_band_loc(glyphLoc: Node<Vec2<i32>>, offset: Node<u32>) -> Node<Vec2<i32>> {
+fn calc_band_loc(glyph_loc: Node<Vec2<i32>>, offset: Node<u32>) -> Node<Vec2<i32>> {
   // If the offset causes the x coordinate to exceed the texture width, then wrap to the next line.
 
   let k_log_band_texture_width: u32 = 12;
 
-  let band_loc = vec2_node((glyphLoc.x() + offset.into_i32(), glyphLoc.y()));
+  let band_loc = vec2_node((glyph_loc.x() + offset.into_i32(), glyph_loc.y()));
   let y = band_loc.y() + (band_loc.x() >> val(k_log_band_texture_width as i32));
   let x = band_loc.x() & val((1 << k_log_band_texture_width) - 1);
 
@@ -167,7 +167,7 @@ fn calc_coverage(
   coverage.load()
 }
 
-pub fn SlugRender(
+pub fn slug_render(
   curve_data: BindingNode<ShaderTexture2D>,
   band_data: BindingNode<ShaderTexture<TextureDimension2, u32>>,
   render_coord: Node<Vec2<f32>>,

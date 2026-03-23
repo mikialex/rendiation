@@ -1,18 +1,64 @@
 use rendiation_scene_rendering_gpu_base::*;
+use rendiation_scene_rendering_gpu_gles::GLESModelRenderImpl;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
-use crate::{
-  slug_shader::{slug_dilate, SlugRender},
-  *,
-};
+use crate::{slug_shader::slug_render, *};
 
 pub fn use_text3d_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<Text3dGlesRenderer> {
-  todo!()
+  let (cx, font_system) = cx.use_sharable_plain_state(|| FontSystem::new());
+
+  let text3d_resources = cx.use_shared_hash_map("text3d gles gpu resources");
+
+  let gpu = cx.gpu.clone();
+  let font_system = font_system.clone();
+
+  maintain_shared_map(
+    &text3d_resources,
+    cx.use_changes::<Text3dContent>().filter_map_changes(|t| t),
+    |info| create_gles_render_data(&info, &mut *font_system.write(), &gpu), /* todo move out locking */
+  );
+
+  cx.when_render(|| Text3dGlesRenderer {
+    access: global_database().read_foreign_key(),
+    texts: text3d_resources.make_read_holder(),
+  })
 }
 
-pub struct Text3dGlesRenderer {}
+fn create_gles_render_data(
+  data: &Text3dContentInfo,
+  font_system: &mut FontSystem,
+  gpu: &GPU,
+) -> SlugTextGPUData {
+  prepare_text(font_system, data).create_gpu(gpu)
+}
+
+pub struct Text3dGlesRenderer {
+  access: ForeignKeyReadView<SceneModelText3dPayload>,
+  texts: SharedHashMapRead<u32, SlugTextGPUData>,
+}
+
+impl GLESModelRenderImpl for Text3dGlesRenderer {
+  fn shape_renderable(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
+    let text_id = self.access.get(idx)?;
+    let text_gpu = self.texts.get(&text_id.alloc_index()).unwrap();
+
+    let cmd = text_gpu.draw_command();
+
+    Some((Box::new(text_gpu), cmd))
+  }
+  fn material_renderable<'a>(
+    &'a self,
+    _idx: EntityHandle<SceneModelEntity>,
+    _cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    Some(Box::new(())) // no material
+  }
+}
 
 impl SlugTextPrepared {
   fn create_gpu(&self, gpu: &GPU) -> SlugTextGPUData {
@@ -66,6 +112,16 @@ struct SlugTextGPUData {
   pub band_tex_data: GPUTypedTextureView<TextureDimension2, u32>,
 }
 
+impl SlugTextGPUData {
+  pub fn draw_command(&self) -> DrawCommand {
+    DrawCommand::Indexed {
+      instances: 0..1,
+      base_vertex: 0,
+      indices: 0..u64::from(self.indices.view_byte_size()) as u32 / 4,
+    }
+  }
+}
+
 impl ShaderHashProvider for SlugTextGPUData {
   shader_hash_type_id! {}
 }
@@ -92,28 +148,33 @@ impl GraphicsShaderProvider for SlugTextGPUData {
     builder.vertex(|builder, _| {
       builder.register_vertex::<TextGlesVertex>(VertexStepMode::Vertex);
 
-      // builder.register::<GeometryPosition>(todo!());
-
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
     });
   }
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.vertex(|builder, binding| {
-      // builder.register::<GeometryUV>(todo!());
-      // todo
-      // builder.set_vertex_out::<FragmentUv>(uv);
-
-      let viewport_size = builder.query::<ViewportRenderBufferSize>();
-
+    builder.vertex(|builder, _binding| {
       let pos = builder.query::<SlugTextGlesVertexPos>();
       let tex = builder.query::<SlugTextGlesVertexTex>();
-      let jac = builder.query::<SlugTextGlesVertexJac>();
-      let dilated = slug_dilate(pos, tex, jac, todo!(), todo!(), todo!(), viewport_size).expand();
-      builder.set_vertex_out::<FragmentUv>(dilated.texcoord);
+      // let jac = builder.query::<SlugTextGlesVertexJac>();
 
-      // builder.register::<ClipPosition>(clip);
+      // let viewport_size = builder.query::<ViewportRenderBufferSize>();
+      // let dilated = slug_dilate(pos, tex, jac, todo!(), todo!(), todo!(), viewport_size).expand();
+
+      // let local_position = vec3_node((dilated.vpos, val(0.)));
+
+      // let object_world_position = builder.query::<WorldPositionHP>();
+      // let (clip_position, _) = camera_transform_impl(builder, local_position, object_world_position);
+
+      // builder.set_vertex_out::<FragmentUv>(dilated.texcoord);
+
+      let local_position = vec3_node((pos.xy(), val(0.)));
+      let object_world_position = builder.query::<WorldPositionHP>();
+      let (clip_position, _) =
+        camera_transform_impl(builder, local_position, object_world_position);
+      builder.set_vertex_out::<FragmentUv>(tex.xy());
+      builder.register::<ClipPosition>(clip_position);
 
       builder.register_vertex::<TextGlesVertex>(VertexStepMode::Vertex);
 
@@ -150,7 +211,7 @@ impl GraphicsShaderProvider for SlugTextGPUData {
       let band_t_transform = builder.query::<Text3dBandTransform>();
       let glyph_data = builder.query::<Text3dGlyphData>();
 
-      let coverage = SlugRender(
+      let coverage = slug_render(
         curve_tex_data,
         band_tex_data,
         uv,

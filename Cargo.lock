@@ -4575,6 +4575,7 @@ dependencies = [
  "bytemuck",
  "cosmic-text",
  "database",
+ "facet",
  "fast-hash-collection",
  "log",
  "parking_lot",
@@ -4593,6 +4594,7 @@ dependencies = [
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
+ "serde",
 ]
 
 [[package]]

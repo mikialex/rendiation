@@ -8,6 +8,7 @@ use rendiation_webgpu::*;
 
 mod gles_draw;
 mod slug_shader;
+pub use gles_draw::use_text3d_gles_renderer;
 
 pub fn register_text3d_data_model(sparse: bool) {
   global_entity_of::<SceneModelEntity>()
@@ -18,13 +19,25 @@ pub fn register_text3d_data_model(sparse: bool) {
     .declare_component::<Text3dContent>();
 }
 
+use facet::Facet;
+use serde::*;
+#[derive(Debug, Clone, Serialize, Deserialize, Facet)]
+pub struct Text3dContentInfo {
+  content: String,
+  font_size: f32,
+  font: Option<u32>,
+  weight: Option<u32>,
+  color: Vec4<f32>,
+}
+
 declare_foreign_key!(SceneModelText3dPayload, SceneModelEntity, Text3dEntity);
 
 declare_entity!(Text3dEntity);
-declare_component!(Text3dContent, Text3dEntity, ExternalRefPtr<String>);
-declare_component!(Text3dFont, Text3dEntity, Option<u32>);
-declare_component!(Text3dWeight, Text3dEntity, Option<u32>);
-declare_component!(Text3dColor, Text3dEntity, Vec3<f32>, Vec3::zero());
+declare_component!(
+  Text3dContent,
+  Text3dEntity,
+  Option<ExternalRefPtr<Text3dContentInfo>>
+);
 
 pub struct FontSystem {
   system: cosmic_text::FontSystem,
@@ -34,7 +47,7 @@ pub struct FontSystem {
 #[test]
 fn test_font_system() {
   let mut system = FontSystem::new();
-  system.build_text_slug_data("Hello, Rust!\n Hello, World! 我是中文");
+  // system.build_text_slug_data("Hello, Rust!\n Hello, World! 我是中文");
 }
 
 impl FontSystem {
@@ -43,57 +56,6 @@ impl FontSystem {
       system: cosmic_text::FontSystem::new(),
       swash: cosmic_text::SwashCache::new(),
     }
-  }
-
-  fn build_text_slug_data(&mut self, text: &str) {
-    // Text metrics indicate the font size and line height of a buffer
-    let metrics = cosmic_text::Metrics::new(14.0, 20.0);
-
-    // A Buffer provides shaping and layout for a UTF-8 string, create one per text widget
-    let mut buffer = cosmic_text::Buffer::new(&mut self.system, metrics);
-
-    // Set a size for the text buffer, in pixels
-    buffer.set_size(&mut self.system, Some(80.0), Some(25.0));
-
-    // Attributes indicate what font to choose
-    let attrs = cosmic_text::Attrs::new();
-
-    // Add some text!
-    buffer.set_text(
-      &mut self.system,
-      text,
-      &attrs,
-      cosmic_text::Shaping::Advanced,
-      None,
-    );
-
-    // Perform shaping as desired
-    buffer.shape_until_scroll(&mut self.system, true);
-
-    let mut used_glyphs = FastHashSet::default();
-
-    let mut curves = Vec::new();
-    // let mut bounds = Vec::new();
-
-    // Inspect the output runs
-    for run in buffer.layout_runs() {
-      println!("{:#?}", run);
-      for glyph in run.glyphs.iter() {
-        used_glyphs.insert(glyph.glyph_id);
-
-        if let Some(outline_cmds) = self.swash.get_outline_commands(
-          &mut self.system,
-          glyph.physical((0., run.line_y), 1.0).cache_key,
-        ) {
-          extract_curves(&outline_cmds, &mut curves);
-          // self.swash.
-          // let bounds = self.swash.get_image(font_system, cache_key)
-        } else {
-          log::warn!("unable to get outline commands of glyph {}", glyph.glyph_id);
-        }
-      }
-    }
-    //
   }
 }
 
@@ -456,7 +418,55 @@ fn extract_curves(cmds: &[cosmic_text::Command], curves: &mut Vec<f32>) -> Optio
 
 /// Prepare all glyph data for a text string.
 /// Returns texture data and 5-attribute vertex buffers matching the Slug shaders.
-fn prepareText(system: &mut FontSystem, text: &str, fontSize: f32) -> SlugTextPrepared {
+fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugTextPrepared {
+  // Text metrics indicate the font size and line height of a buffer
+  let metrics = cosmic_text::Metrics::new(14.0, 20.0);
+
+  // A Buffer provides shaping and layout for a UTF-8 string, create one per text widget
+  let mut buffer = cosmic_text::Buffer::new(&mut system.system, metrics);
+
+  // Set a size for the text buffer, in pixels
+  buffer.set_size(&mut system.system, Some(80.0), Some(25.0));
+
+  // Attributes indicate what font to choose
+  let attrs = cosmic_text::Attrs::new();
+
+  // Add some text!
+  buffer.set_text(
+    &mut system.system,
+    &input.content,
+    &attrs,
+    cosmic_text::Shaping::Advanced,
+    None,
+  );
+
+  // Perform shaping as desired
+  buffer.shape_until_scroll(&mut system.system, true);
+
+  let mut used_glyphs = FastHashSet::default();
+
+  let mut curves = Vec::new();
+  // let mut bounds = Vec::new();
+
+  // Inspect the output runs
+  for run in buffer.layout_runs() {
+    println!("{:#?}", run);
+    for glyph in run.glyphs.iter() {
+      used_glyphs.insert(glyph.glyph_id);
+
+      if let Some(outline_cmds) = system.swash.get_outline_commands(
+        &mut system.system,
+        glyph.physical((0., run.line_y), 1.0).cache_key,
+      ) {
+        extract_curves(&outline_cmds, &mut curves);
+        // self.swash.
+        // let bounds = self.swash.get_image(font_system, cache_key)
+      } else {
+        log::warn!("unable to get outline commands of glyph {}", glyph.glyph_id);
+      }
+    }
+  }
+
   // const buf = new UnicodeBuffer();
   // buf.addStr(text);
   // const glyphBuffer = shape(font, buf);
