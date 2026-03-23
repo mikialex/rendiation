@@ -1,6 +1,7 @@
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_scene_rendering_gpu_gles::GLESModelRenderImpl;
 use rendiation_shader_api::*;
+use rendiation_texture_gpu_base::GPUBufferImageForeignImpl;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
@@ -60,6 +61,31 @@ impl GLESModelRenderImpl for Text3dGlesRenderer {
   }
 }
 
+fn create_gpu_texture2d(cx: &GPU, texture: &GPUBufferImage) -> GPU2DTextureView {
+  let texture = GPUBufferImageForeignImpl { inner: texture };
+
+  let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap, cx.info().downgrade_info.flags);
+  let gpu_texture = GPUTexture::create(desc, &cx.device);
+  let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
+  let gpu_texture = gpu_texture.upload_into(&cx.queue, &texture, 0);
+
+  gpu_texture.create_default_view().try_into().unwrap()
+}
+
+fn create_gpu_texture2d_u32(
+  cx: &GPU,
+  texture: &GPUBufferImage,
+) -> GPUTypedTextureView<TextureDimension2, u32> {
+  let texture = GPUBufferImageForeignImpl { inner: texture };
+
+  let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap, cx.info().downgrade_info.flags);
+  let gpu_texture = GPUTexture::create(desc, &cx.device);
+  let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
+  let gpu_texture = gpu_texture.upload_into(&cx.queue, &texture, 0);
+
+  gpu_texture.create_default_view().try_into().unwrap()
+}
+
 impl SlugTextPrepared {
   fn create_gpu(&self, gpu: &GPU) -> SlugTextGPUData {
     let indices = create_gpu_buffer(
@@ -84,7 +110,7 @@ impl SlugTextPrepared {
       },
     );
 
-    let band_tex_data = create_gpu_texture2d(
+    let band_tex_data = create_gpu_texture2d_u32(
       gpu,
       &GPUBufferImage {
         data: bytemuck::cast_slice(&self.packed.band_tex_data).to_vec(),

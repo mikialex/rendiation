@@ -41,6 +41,7 @@ use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_scene_scheduler::*;
 use rendiation_shader_api::*;
+pub use rendiation_text_3d::*;
 pub use rendiation_texture_core::Size;
 use rendiation_texture_core::*;
 use rendiation_texture_gpu_base::{create_gpu_texture2d, SamplerConvertExt};
@@ -110,4 +111,5 @@ pub fn register_viewer_content_data_model() {
   register_scene_mesh_lod_graph_data_model(true);
   register_sky_env_data_model();
   register_wide_styled_points_data_model(true);
+  register_text3d_data_model(true);
 }

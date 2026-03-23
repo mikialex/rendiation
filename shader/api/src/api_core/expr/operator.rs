@@ -235,14 +235,13 @@ where
   }
 }
 
-impl<T> Not for Node<T>
+// note, we not impl the Not trait, because we have not impl for Node<bool>
+impl<T> Node<T>
 where
   T: Not<Output = T>,
   T: ShaderNodeType,
 {
-  type Output = Self;
-
-  fn not(self) -> Self::Output {
+  pub fn bitwise_not(self) -> Self {
     OperatorNode::Unary {
       one: self.handle(),
       operator: UnaryOperator::BitwiseNot,

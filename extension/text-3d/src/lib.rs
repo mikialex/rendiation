@@ -4,7 +4,6 @@ use fast_hash_collection::*;
 use rendiation_algebra::*;
 use rendiation_scene_core::SceneModelEntity;
 use rendiation_texture_core::GPUBufferImage;
-use rendiation_texture_gpu_base::create_gpu_texture2d;
 
 mod gles_draw;
 mod slug_shader;
@@ -23,11 +22,11 @@ use facet::Facet;
 use serde::*;
 #[derive(Debug, Clone, Serialize, Deserialize, Facet)]
 pub struct Text3dContentInfo {
-  content: String,
-  font_size: f32,
-  font: Option<u32>,
-  weight: Option<u32>,
-  color: Vec4<f32>,
+  pub content: String,
+  pub font_size: f32,
+  pub font: Option<u32>,
+  pub weight: Option<u32>,
+  pub color: Vec4<f32>,
 }
 
 declare_foreign_key!(SceneModelText3dPayload, SceneModelEntity, Text3dEntity);
@@ -43,12 +42,6 @@ pub struct FontSystem {
   system: cosmic_text::FontSystem,
   swash: cosmic_text::SwashCache,
 }
-
-// #[test]
-// fn test_font_system() {
-//   let mut system = FontSystem::new();
-//   // system.build_text_slug_data("Hello, Rust!\n Hello, World! 我是中文");
-// }
 
 impl FontSystem {
   pub fn new() -> Self {
@@ -258,7 +251,7 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
     // }));
 
     //   const allBands = [...sortedHBands, ...sortedVBands];
-    let allBands: Vec<_> = g
+    let all_bands: Vec<_> = g
       .bands
       .h_bands
       .iter()
@@ -268,7 +261,7 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
     // Calculate offsets: curve lists follow all headers
     let mut curve_list_offset = header_count;
     let mut band_offsets: Vec<u32> = Vec::new();
-    for band in &allBands {
+    for band in &all_bands {
       band_offsets.push(curve_list_offset);
       curve_list_offset += band.len() as u32;
     }
@@ -277,7 +270,7 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
     let glyph_curve_start = glyph_curve_starts[gi];
 
     // Write band headers
-    for (i, band) in allBands.iter().enumerate() {
+    for (i, band) in all_bands.iter().enumerate() {
       let tl = glyph_start + i;
       let tx = tl % TEX_WIDTH;
       let ty = (tl / TEX_WIDTH) | 0;
@@ -287,7 +280,7 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
     }
 
     // Write curve index lists (each entry = curve's 2D location in curve texture)
-    for (i, band) in allBands.iter().enumerate() {
+    for (i, band) in all_bands.iter().enumerate() {
       let list_start = glyph_start + band_offsets[i] as usize;
       for (j, &ci) in band.iter().enumerate() {
         let curve_texel = glyph_curve_start + ci as usize * 2;
@@ -312,7 +305,7 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
     curve_tex_height,
     band_tex_height,
     glyph_band_info,
-    glyph_curve_starts,
+    // glyph_curve_starts,
   }
 }
 
@@ -322,7 +315,7 @@ pub struct PackedGlyphData {
   curve_tex_height: usize,
   band_tex_height: usize,
   glyph_band_info: Vec<GlyphBandInfo>,
-  glyph_curve_starts: Vec<usize>,
+  // glyph_curve_starts: Vec<usize>,
 }
 struct GlyphBandInfo {
   glyph_loc_x: usize,
@@ -518,12 +511,17 @@ fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugTextP
   // 5 attributes × vec4 = 20 floats = 80 bytes per vertex
   let mut verts = Vec::new();
   let mut idxs = Vec::new();
-  let mut cursor_x = 0.;
+  let cursor_x = 0.;
   let mut quad_idx = 0;
 
   // for (const { info, position } of glyphBuffer) {
   for positioned_glyph in &glyph_buffer {
-    let data = glyph_data_map.get(&positioned_glyph.glyph_key).unwrap();
+    let data = glyph_data_map.get(&positioned_glyph.glyph_key);
+    if data.is_none() {
+      continue;
+    }
+    let data = data.unwrap();
+
     //   if (!data) {
     //     cursorX += position.xAdvance;
     //     continue;

@@ -1,0 +1,24 @@
+use crate::*;
+
+pub fn load_text3d_test(s_writer: &mut SceneWriter) {
+  let mut writer = global_entity_of::<Text3dEntity>().entity_writer();
+
+  let text_3d = writer.new_entity(|w| {
+    w.write::<Text3dContent>(&Some(ExternalRefPtr::new(Text3dContentInfo {
+      content: String::from("Hello, Rust!\n Hello, World! 我是中文"),
+      font_size: 12.,
+      font: None,
+      weight: None,
+      color: Vec4::new(1., 0., 0., 1.),
+    })))
+  });
+
+  let child = s_writer.create_root_child();
+  s_writer.set_local_matrix(child, Mat4::translate((0., 3., 0.)));
+
+  s_writer.model_writer.new_entity(|w| {
+    w.write::<SceneModelText3dPayload>(&text_3d.some_handle())
+      .write::<SceneModelBelongsToScene>(&s_writer.scene.some_handle())
+      .write::<SceneModelRefNode>(&child.some_handle())
+  });
+}

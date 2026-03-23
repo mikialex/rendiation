@@ -129,6 +129,7 @@ impl Viewer3dRenderingCtx {
 
     let raster_scene_renderer = match self.current_renderer_impl_ty {
       RasterizationRenderBackendType::Gles => cx.scope(|cx| {
+        let text3d = use_text3d_gles_renderer(cx);
         let wide_line_renderer_gles = use_widen_line_gles_renderer(cx);
 
         let (attribute_vertices, attribute_indices) = viewer_mesh_buffer_input(cx);
@@ -159,6 +160,7 @@ impl Viewer3dRenderingCtx {
           Box::new(vec![
             Box::new(std_model.unwrap()) as Box<dyn GLESModelRenderImpl>,
             Box::new(wide_line_renderer_gles.unwrap()),
+            Box::new(text3d.unwrap()),
           ]) as Box<dyn GLESModelRenderImpl>
         });
 

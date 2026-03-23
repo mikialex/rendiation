@@ -12,7 +12,8 @@ fn calc_root_code(y1: Node<f32>, y2: Node<f32>, y3: Node<f32>) -> Node<u32> {
   let i2 = y2.bitcast::<u32>() >> val(30);
   let i3 = y3.bitcast::<u32>() >> val(29);
 
-  let shift = (i3 & val(4)) | (((i2 & val(2)) | (i1 & !val(2))) & !val(4));
+  let shift =
+    (i3 & val(4)) | (((i2 & val(2)) | (i1 & val(2).bitwise_not())) & val(4).bitwise_not());
 
   // Eligibility is returned in bits 0 and 8.
 

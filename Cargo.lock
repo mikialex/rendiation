@@ -4770,6 +4770,7 @@ dependencies = [
  "rendiation-scene-scheduler",
  "rendiation-shader-api",
  "rendiation-shader-library",
+ "rendiation-text-3d",
  "rendiation-texture-core",
  "rendiation-texture-exporter",
  "rendiation-texture-gpu-base",
