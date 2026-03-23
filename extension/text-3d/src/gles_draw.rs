@@ -78,18 +78,18 @@ impl SlugTextPrepared {
     let curve_tex_data = create_gpu_texture2d(
       gpu,
       &GPUBufferImage {
-        data: bytemuck::cast_slice(&self.packed.curveTexData).to_vec(),
+        data: bytemuck::cast_slice(&self.packed.curve_tex_data).to_vec(),
         format: TextureFormat::Rgba32Float,
-        size: Size::from_u32_pair_min_one((TEX_WIDTH as u32, self.packed.curveTexHeight as u32)),
+        size: Size::from_u32_pair_min_one((TEX_WIDTH as u32, self.packed.curve_tex_height as u32)),
       },
     );
 
     let band_tex_data = create_gpu_texture2d(
       gpu,
       &GPUBufferImage {
-        data: bytemuck::cast_slice(&self.packed.bandTexData).to_vec(),
+        data: bytemuck::cast_slice(&self.packed.band_tex_data).to_vec(),
         format: TextureFormat::Rgba32Uint,
-        size: Size::from_u32_pair_min_one((TEX_WIDTH as u32, self.packed.bandTexHeight as u32)),
+        size: Size::from_u32_pair_min_one((TEX_WIDTH as u32, self.packed.band_tex_height as u32)),
       },
     )
     .texture

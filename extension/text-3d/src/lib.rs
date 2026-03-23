@@ -1,10 +1,10 @@
+use cosmic_text::CacheKey;
 use database::*;
 use fast_hash_collection::*;
 use rendiation_algebra::*;
 use rendiation_scene_core::SceneModelEntity;
 use rendiation_texture_core::GPUBufferImage;
 use rendiation_texture_gpu_base::create_gpu_texture2d;
-use rendiation_webgpu::*;
 
 mod gles_draw;
 mod slug_shader;
@@ -44,11 +44,11 @@ pub struct FontSystem {
   swash: cosmic_text::SwashCache,
 }
 
-#[test]
-fn test_font_system() {
-  let mut system = FontSystem::new();
-  // system.build_text_slug_data("Hello, Rust!\n Hello, World! 我是中文");
-}
+// #[test]
+// fn test_font_system() {
+//   let mut system = FontSystem::new();
+//   // system.build_text_slug_data("Hello, Rust!\n Hello, World! 我是中文");
+// }
 
 impl FontSystem {
   pub fn new() -> Self {
@@ -59,6 +59,7 @@ impl FontSystem {
   }
 }
 
+#[derive(Clone, Copy, Debug)]
 struct Bounds {
   x_min: f32,
   y_min: f32,
@@ -147,8 +148,8 @@ fn build_bands(curves: &[f32], bounds: Bounds, band_count: u32) -> GlyphBands {
   }
 }
 
-struct SlugGlyph {
-  glyph_id: u32,
+pub struct SlugGlyph {
+  glyph_key: CacheKey,
   curves: Vec<f32>,
   bands: GlyphBands,
   bounds: Bounds,
@@ -157,42 +158,42 @@ struct SlugGlyph {
 const TEX_WIDTH: usize = 4096;
 
 /// Pack glyph data into GPU textures (RGBA32Float for curves, RGBA32Uint for bands).
-fn pack_glyph_data(glyphs: Vec<SlugGlyph>) -> PackedGlyphData {
+fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
   // --- Curve texture (RGBA32Float, width 4096) ---
   // Each curve = 2 texels: (p0x, p0y, p1x, p1y) and (p2x, p2y, 0, 0)
-  let mut totalCurveTexels = 0;
-  for g in &glyphs {
-    totalCurveTexels += g.curves.len() / 6 * 2;
+  let mut total_curve_texels = 0;
+  for g in glyphs {
+    total_curve_texels += g.curves.len() / 6 * 2;
   }
 
-  let curveTexHeight = totalCurveTexels.div_ceil(TEX_WIDTH).max(1);
-  let mut curveTexData = vec![0.0; TEX_WIDTH * curveTexHeight * 4];
+  let curve_tex_height = total_curve_texels.div_ceil(TEX_WIDTH).max(1);
+  let mut curve_tex_data = vec![0.0; TEX_WIDTH * curve_tex_height * 4];
 
-  let mut curveTexelIdx = 0;
-  let mut glyphCurveStarts = Vec::new();
+  let mut curve_texel_idx = 0;
+  let mut glyph_curve_starts = Vec::new();
 
-  for g in &glyphs {
-    glyphCurveStarts.push(curveTexelIdx);
+  for g in glyphs {
+    glyph_curve_starts.push(curve_texel_idx);
     for [p0x, p0y, p1x, p1y, p2x, p2y] in g.curves.as_chunks::<6>().0 {
       // Texel 0: (p0x, p0y, p1x, p1y)
-      let i0 = curveTexelIdx;
+      let i0 = curve_texel_idx;
       let x0 = i0 % TEX_WIDTH;
       let y0 = (i0 / TEX_WIDTH) | 0;
       let off0 = (y0 * TEX_WIDTH + x0) * 4;
-      curveTexData[off0] = *p0x;
-      curveTexData[off0 + 1] = *p0y;
-      curveTexData[off0 + 2] = *p1x;
-      curveTexData[off0 + 3] = *p1y;
+      curve_tex_data[off0] = *p0x;
+      curve_tex_data[off0 + 1] = *p0y;
+      curve_tex_data[off0 + 2] = *p1x;
+      curve_tex_data[off0 + 3] = *p1y;
 
       // Texel 1: (p2x, p2y, 0, 0)
-      let i1 = curveTexelIdx + 1;
+      let i1 = curve_texel_idx + 1;
       let x1 = i1 % TEX_WIDTH;
       let y1 = (i1 / TEX_WIDTH) | 0;
       let off1 = (y1 * TEX_WIDTH + x1) * 4;
-      curveTexData[off1] = *p2x;
-      curveTexData[off1 + 1] = *p2y;
+      curve_tex_data[off1] = *p2x;
+      curve_tex_data[off1 + 1] = *p2y;
 
-      curveTexelIdx += 2;
+      curve_texel_idx += 2;
     }
   }
 
@@ -200,46 +201,46 @@ fn pack_glyph_data(glyphs: Vec<SlugGlyph>) -> PackedGlyphData {
   // Per glyph: [hBand headers...] [vBand headers...] [curve index lists...]
   // Each header texel: (curveCount, offsetFromGlyphLoc, 0, 0)
   // Each curve ref texel: (curveTexX, curveTexY, 0, 0)
-  let mut totalBandTexels = 0;
-  for g in &glyphs {
-    let headerCount = g.bands.h_band_count + g.bands.v_band_count;
+  let mut total_band_texels = 0;
+  for g in glyphs {
+    let header_count = g.bands.h_band_count + g.bands.v_band_count;
     // Pad to avoid header wrapping at row boundary
-    let padded = TEX_WIDTH - (totalBandTexels % TEX_WIDTH);
-    if padded < headerCount as usize && padded < TEX_WIDTH {
-      totalBandTexels += padded;
+    let padded = TEX_WIDTH - (total_band_texels % TEX_WIDTH);
+    if padded < header_count as usize && padded < TEX_WIDTH {
+      total_band_texels += padded;
     }
-    totalBandTexels += headerCount as usize;
+    total_band_texels += header_count as usize;
     for band in &g.bands.h_bands {
-      totalBandTexels += band.len();
+      total_band_texels += band.len();
     }
     for band in &g.bands.v_bands {
-      totalBandTexels += band.len();
+      total_band_texels += band.len();
     }
   }
 
-  let bandTexHeight = totalBandTexels.div_ceil(TEX_WIDTH).max(1);
-  let mut bandTexData = vec![0_u32; TEX_WIDTH * bandTexHeight * 4];
+  let band_tex_height = total_band_texels.div_ceil(TEX_WIDTH).max(1);
+  let mut band_tex_data = vec![0_u32; TEX_WIDTH * band_tex_height * 4];
 
-  let mut bandTexelIdx = 0;
+  let mut band_texel_idx = 0;
 
-  let mut glyphBandInfo: Vec<GlyphBandInfo> = Vec::new();
+  let mut glyph_band_info: Vec<GlyphBandInfo> = Vec::new();
 
   for (gi, g) in glyphs.iter().enumerate() {
-    let hBandCount = g.bands.h_band_count;
-    let vBandCount = g.bands.v_band_count;
-    let headerCount = hBandCount + vBandCount;
+    let h_band_count = g.bands.h_band_count;
+    let v_band_count = g.bands.v_band_count;
+    let header_count = h_band_count + v_band_count;
 
     // Ensure headers don't straddle a row boundary
-    let curX = bandTexelIdx % TEX_WIDTH;
-    if (curX + headerCount as usize > TEX_WIDTH) {
-      bandTexelIdx = (((bandTexelIdx / TEX_WIDTH) | 0) + 1) * TEX_WIDTH;
+    let cur_x = band_texel_idx % TEX_WIDTH;
+    if cur_x + header_count as usize > TEX_WIDTH {
+      band_texel_idx = (((band_texel_idx / TEX_WIDTH) | 0) + 1) * TEX_WIDTH;
     }
 
-    let glyphLocX = bandTexelIdx % TEX_WIDTH;
-    let glyphLocY = (bandTexelIdx / TEX_WIDTH) | 0;
-    glyphBandInfo.push(GlyphBandInfo {
-      glyphLocX,
-      glyphLocY,
+    let glyph_loc_x = band_texel_idx % TEX_WIDTH;
+    let glyph_loc_y = (band_texel_idx / TEX_WIDTH) | 0;
+    glyph_band_info.push(GlyphBandInfo {
+      glyph_loc_x,
+      glyph_loc_y,
     });
 
     // Sort curves: h-bands by descending max x, v-bands by descending max y
@@ -265,67 +266,67 @@ fn pack_glyph_data(glyphs: Vec<SlugGlyph>) -> PackedGlyphData {
       .collect();
 
     // Calculate offsets: curve lists follow all headers
-    let mut curveListOffset = headerCount;
-    let mut bandOffsets: Vec<u32> = Vec::new();
+    let mut curve_list_offset = header_count;
+    let mut band_offsets: Vec<u32> = Vec::new();
     for band in &allBands {
-      bandOffsets.push(curveListOffset);
-      curveListOffset += band.len() as u32;
+      band_offsets.push(curve_list_offset);
+      curve_list_offset += band.len() as u32;
     }
 
-    let glyphStart = bandTexelIdx;
-    let glyphCurveStart = glyphCurveStarts[gi];
+    let glyph_start = band_texel_idx;
+    let glyph_curve_start = glyph_curve_starts[gi];
 
     // Write band headers
     for (i, band) in allBands.iter().enumerate() {
-      let tl = glyphStart + i;
+      let tl = glyph_start + i;
       let tx = tl % TEX_WIDTH;
       let ty = (tl / TEX_WIDTH) | 0;
       let di = (ty * TEX_WIDTH + tx) * 4;
-      bandTexData[di] = band.len() as u32;
-      bandTexData[di + 1] = bandOffsets[i];
+      band_tex_data[di] = band.len() as u32;
+      band_tex_data[di + 1] = band_offsets[i];
     }
 
     // Write curve index lists (each entry = curve's 2D location in curve texture)
     for (i, band) in allBands.iter().enumerate() {
-      let listStart = glyphStart + bandOffsets[i] as usize;
+      let list_start = glyph_start + band_offsets[i] as usize;
       for (j, &ci) in band.iter().enumerate() {
-        let curveTexel = glyphCurveStart + ci as usize * 2;
-        let cTexX = curveTexel % TEX_WIDTH;
-        let cTexY = (curveTexel / TEX_WIDTH) | 0;
+        let curve_texel = glyph_curve_start + ci as usize * 2;
+        let c_tex_x = curve_texel % TEX_WIDTH;
+        let c_tex_y = (curve_texel / TEX_WIDTH) | 0;
 
-        let tl = listStart + j;
+        let tl = list_start + j;
         let tx = tl % TEX_WIDTH;
         let ty = (tl / TEX_WIDTH) | 0;
         let di = (ty * TEX_WIDTH + tx) * 4;
-        bandTexData[di] = cTexX as u32;
-        bandTexData[di + 1] = cTexY as u32;
+        band_tex_data[di] = c_tex_x as u32;
+        band_tex_data[di + 1] = c_tex_y as u32;
       }
     }
 
-    bandTexelIdx = glyphStart + curveListOffset as usize;
+    band_texel_idx = glyph_start + curve_list_offset as usize;
   }
 
   PackedGlyphData {
-    curveTexData,
-    bandTexData,
-    curveTexHeight,
-    bandTexHeight,
-    glyphBandInfo,
-    glyphCurveStarts,
+    curve_tex_data,
+    band_tex_data,
+    curve_tex_height,
+    band_tex_height,
+    glyph_band_info,
+    glyph_curve_starts,
   }
 }
 
-struct PackedGlyphData {
-  curveTexData: Vec<f32>,
-  bandTexData: Vec<u32>,
-  curveTexHeight: usize,
-  bandTexHeight: usize,
-  glyphBandInfo: Vec<GlyphBandInfo>,
-  glyphCurveStarts: Vec<usize>,
+pub struct PackedGlyphData {
+  curve_tex_data: Vec<f32>,
+  band_tex_data: Vec<u32>,
+  curve_tex_height: usize,
+  band_tex_height: usize,
+  glyph_band_info: Vec<GlyphBandInfo>,
+  glyph_curve_starts: Vec<usize>,
 }
 struct GlyphBandInfo {
-  glyphLocX: usize,
-  glyphLocY: usize,
+  glyph_loc_x: usize,
+  glyph_loc_y: usize,
 }
 
 fn extract_curves(cmds: &[cosmic_text::Command], curves: &mut Vec<f32>) -> Option<Bounds> {
@@ -445,89 +446,90 @@ fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugTextP
 
   let mut used_glyphs = FastHashSet::default();
 
-  let mut curves = Vec::new();
-  // let mut bounds = Vec::new();
-
-  // Inspect the output runs
-  for run in buffer.layout_runs() {
-    println!("{:#?}", run);
-    for glyph in run.glyphs.iter() {
-      used_glyphs.insert(glyph.glyph_id);
-
-      if let Some(outline_cmds) = system.swash.get_outline_commands(
-        &mut system.system,
-        glyph.physical((0., run.line_y), 1.0).cache_key,
-      ) {
-        extract_curves(&outline_cmds, &mut curves);
-        // self.swash.
-        // let bounds = self.swash.get_image(font_system, cache_key)
-      } else {
-        log::warn!("unable to get outline commands of glyph {}", glyph.glyph_id);
-      }
-    }
-  }
-
-  // const buf = new UnicodeBuffer();
-  // buf.addStr(text);
-  // const glyphBuffer = shape(font, buf);
-  // const scale = font.scaleForSize(fontSize);
-  let scale: f32 = todo!();
-
-  // // Process unique glyphs
-  // const glyphMap = new Map<number, SlugGlyph>();
-  // for (const { info } of glyphBuffer) {
-  //   if (glyphMap.has(info.glyphId)) continue;
-  //   const result = extractCurves(font, info.glyphId);
-  //   if (!result) continue;
-  //   const bands = buildBands(result.curves, result.bounds);
-  //   glyphMap.set(info.glyphId, {
-  //     glyphId: info.glyphId,
-  //     curves: result.curves,
-  //     bands,
-  //     bounds: result.bounds,
-  //   });
-  // }
-
-  // const slugGlyphs = [...glyphMap.values()];
-  let slugGlyphs = todo!();
-  let packed = pack_glyph_data(slugGlyphs);
-
-  // Build per-glyph lookup
-  let glyphDataMap: FastHashMap<u32, (&SlugGlyph, usize, usize)> = FastHashMap::default();
-
-  for (index, slug_glyph) in slugGlyphs.iter().enumerate() {
-    let band_info = packed.glyphBandInfo[index];
-    glyphDataMap.insert(
-      slug_glyph.glyph_id,
-      (slug_glyph, band_info.glyphLocX, band_info.glyphLocY),
-    );
-  }
-
-  // Build vertex/index data
-  // 5 attributes × vec4 = 20 floats = 80 bytes per vertex
-  let verts = Vec::new();
-  let idxs = Vec::new();
-  let cursorX = 0.;
-  let quadIdx = 0;
-
   struct PositionedGlyph {
-    glyph_id: u32,
+    glyph_key: CacheKey,
     /// the bounding's origin relative to glyph space origin?
     relative_x: f32,
     relative_y: f32,
   }
 
-  let glyphBuffer: Vec<PositionedGlyph> = todo!();
+  let mut glyph_buffer: Vec<PositionedGlyph> = Vec::new();
+
+  // Inspect the output runs
+  for run in buffer.layout_runs() {
+    // println!("{:#?}", run);
+    for glyph in run.glyphs.iter() {
+      let cache_key = glyph.physical((0., run.line_y), 1.0).cache_key;
+      used_glyphs.insert(cache_key);
+      glyph_buffer.push(PositionedGlyph {
+        glyph_key: cache_key,
+        relative_x: glyph.x_offset,
+        relative_y: glyph.y_offset,
+      });
+    }
+  }
+
+  let mut glyph_map = FastHashMap::default();
+
+  for cache_key in &used_glyphs {
+    if let Some(outline_cmds) = system
+      .swash
+      .get_outline_commands(&mut system.system, *cache_key)
+    {
+      let mut curves = Vec::new();
+      if let Some(bounds) = extract_curves(&outline_cmds, &mut curves) {
+        let bands = build_bands(&curves, bounds, 8);
+        glyph_map.insert(
+          cache_key,
+          SlugGlyph {
+            glyph_key: *cache_key,
+            curves,
+            bands,
+            bounds,
+          },
+        );
+      }
+    } else {
+      log::warn!(
+        "unable to get outline commands of glyph {}",
+        cache_key.glyph_id
+      );
+    }
+  }
+
+  let scale: f32 = 1.0;
+
+  let slug_glyphs = glyph_map.drain().map(|(_, v)| v).collect::<Vec<_>>();
+  let packed = pack_glyph_data(&slug_glyphs);
+
+  // Build per-glyph lookup
+  let mut glyph_data_map: FastHashMap<CacheKey, (&SlugGlyph, usize, usize)> =
+    FastHashMap::default();
+
+  for (index, slug_glyph) in slug_glyphs.iter().enumerate() {
+    let band_info = &packed.glyph_band_info[index];
+    glyph_data_map.insert(
+      slug_glyph.glyph_key,
+      (slug_glyph, band_info.glyph_loc_x, band_info.glyph_loc_y),
+    );
+  }
+
+  // Build vertex/index data
+  // 5 attributes × vec4 = 20 floats = 80 bytes per vertex
+  let mut verts = Vec::new();
+  let mut idxs = Vec::new();
+  let mut cursor_x = 0.;
+  let mut quad_idx = 0;
 
   // for (const { info, position } of glyphBuffer) {
-  for positioned_glyph in &glyphBuffer {
-    let data = glyphDataMap.get(&positioned_glyph.glyph_id).unwrap();
+  for positioned_glyph in &glyph_buffer {
+    let data = glyph_data_map.get(&positioned_glyph.glyph_key).unwrap();
     //   if (!data) {
     //     cursorX += position.xAdvance;
     //     continue;
     //   }
 
-    let (glyph, glyphLocX, glyphLocY) = data;
+    let (glyph, glyph_loc_x, glyph_loc_y) = data;
     let Bounds {
       x_min,
       y_min,
@@ -537,7 +539,7 @@ fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugTextP
     let (w, h) = glyph.bounds.size();
 
     // Object-space position (Y-up screen pixels)
-    let ox = (cursorX + positioned_glyph.relative_x) * scale;
+    let ox = (cursor_x + positioned_glyph.relative_x) * scale;
     let oy = positioned_glyph.relative_y * scale;
     let x0 = ox + x_min * scale; // todo, why?
     let y0 = oy + y_min * scale;
@@ -545,29 +547,29 @@ fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugTextP
     let y1 = oy + y_max * scale;
 
     // Band transform: maps em-space to band indices
-    let bandScaleX = if w > 0. {
+    let band_scale_x = if w > 0. {
       glyph.bands.v_band_count as f32 / w
     } else {
       0.0
     };
-    let bandScaleY = if h > 0. {
+    let band_scale_y = if h > 0. {
       glyph.bands.h_band_count as f32 / h
     } else {
       0.0
     };
-    let bandOffsetX = -x_min * bandScaleX;
-    let bandOffsetY = -y_min * bandScaleY;
+    let band_offset_x = -x_min * band_scale_x;
+    let band_offset_y = -y_min * band_scale_y;
 
     // Pack tex.z: glyph location in band texture (u16 x, u16 y → bitcast to f32)
-    let glyphLocPacked = f32::from_bits(((*glyphLocY as u32) << 16) | *glyphLocX as u32);
+    let glyph_loc_packed = f32::from_bits(((*glyph_loc_y as u32) << 16) | *glyph_loc_x as u32);
 
     // Pack tex.w: band max indices (bandMaxX in bits 0-7, bandMaxY in bits 16-23)
-    let bandMaxX = glyph.bands.v_band_count - 1;
-    let bandMaxY = glyph.bands.h_band_count - 1;
-    let bandMaxPacked = f32::from_bits((bandMaxY << 16) | bandMaxX);
+    let band_max_x = glyph.bands.v_band_count - 1;
+    let band_max_y = glyph.bands.h_band_count - 1;
+    let band_max_packed = f32::from_bits((band_max_y << 16) | band_max_x);
 
     // Inverse Jacobian: d(em)/d(obj) = 1/scale (uniform scaling)
-    let invScale = 1. / scale;
+    let inv_scale = 1. / scale;
 
     // 4 corners: (objX, objY, normX, normY, emX, emY)
     let corners = [
@@ -583,24 +585,26 @@ fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugTextP
         // pos (location 0): object-space position + normal
         px, py, nx, ny,
         // tex (location 1): em-space coords + packed glyph/band data
-        ex, ey, glyphLocPacked, bandMaxPacked,
+        ex, ey, glyph_loc_packed, band_max_packed,
         // jac (location 2): inverse Jacobian (d(em)/d(obj))
-        invScale, 0., 0., invScale,
+        inv_scale, 0., 0., inv_scale,
         // bnd (location 3): band transform (scale + offset)
-        bandScaleX, bandScaleY, bandOffsetX, bandOffsetY,
+        band_scale_x, band_scale_y, band_offset_x, band_offset_y,
         // col (location 4): vertex color
         1., 1., 1., 1.,]
       );
     }
 
-    let base = quadIdx * 4;
+    let base = quad_idx * 4;
     idxs.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
     // cursorX += position.xAdvance; todo
-    quadIdx += 1;
+    quad_idx += 1;
   }
 
+  drop(glyph_data_map);
+
   return SlugTextPrepared {
-    slugGlyphs,
+    slug_glyphs,
     vertices: verts,
     indices: idxs,
     packed,
@@ -609,7 +613,7 @@ fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugTextP
 }
 
 pub struct SlugTextPrepared {
-  pub slugGlyphs: Vec<SlugGlyph>,
+  pub slug_glyphs: Vec<SlugGlyph>,
   pub vertices: Vec<f32>,
   pub indices: Vec<u32>,
   pub packed: PackedGlyphData,
