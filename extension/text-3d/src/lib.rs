@@ -1,3 +1,5 @@
+use core::f32;
+
 use cosmic_text::CacheKey;
 use database::*;
 use fast_hash_collection::*;
@@ -89,6 +91,7 @@ struct GlyphBands {
 
 /// Organize curves into horizontal and vertical bands.
 fn build_bands(curves: &[f32], bounds: Bounds, band_count: u32) -> GlyphBands {
+  dbg!(&bounds);
   let Bounds { x_min, y_min, .. } = bounds;
   let (width, height) = bounds.size();
 
@@ -148,14 +151,21 @@ pub struct SlugGlyph {
   bounds: Bounds,
 }
 
+fn curve_axis_max(curves: &[f32], curve_index: u32, axis: usize) -> f32 {
+  let base = curve_index as usize * 6;
+  curves[base + axis]
+    .max(curves[base + axis + 2])
+    .max(curves[base + axis + 4])
+}
+
 const TEX_WIDTH: usize = 4096;
 
 /// Pack glyph data into GPU textures (RGBA32Float for curves, RGBA32Uint for bands).
-fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
+fn pack_glyph_data(glyphs: &mut Vec<SlugGlyph>) -> PackedGlyphData {
   // --- Curve texture (RGBA32Float, width 4096) ---
   // Each curve = 2 texels: (p0x, p0y, p1x, p1y) and (p2x, p2y, 0, 0)
   let mut total_curve_texels = 0;
-  for g in glyphs {
+  for g in &*glyphs {
     total_curve_texels += g.curves.len() / 6 * 2;
   }
 
@@ -165,7 +175,7 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
   let mut curve_texel_idx = 0;
   let mut glyph_curve_starts = Vec::new();
 
-  for g in glyphs {
+  for g in &mut *glyphs {
     glyph_curve_starts.push(curve_texel_idx);
     for [p0x, p0y, p1x, p1y, p2x, p2y] in g.curves.as_chunks::<6>().0 {
       // Texel 0: (p0x, p0y, p1x, p1y)
@@ -195,7 +205,7 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
   // Each header texel: (curveCount, offsetFromGlyphLoc, 0, 0)
   // Each curve ref texel: (curveTexX, curveTexY, 0, 0)
   let mut total_band_texels = 0;
-  for g in glyphs {
+  for g in &mut *glyphs {
     let header_count = g.bands.h_band_count + g.bands.v_band_count;
     // Pad to avoid header wrapping at row boundary
     let padded = TEX_WIDTH - (total_band_texels % TEX_WIDTH);
@@ -218,7 +228,7 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
 
   let mut glyph_band_info: Vec<GlyphBandInfo> = Vec::new();
 
-  for (gi, g) in glyphs.iter().enumerate() {
+  for (gi, g) in glyphs.iter_mut().enumerate() {
     let h_band_count = g.bands.h_band_count;
     let v_band_count = g.bands.v_band_count;
     let header_count = h_band_count + v_band_count;
@@ -237,18 +247,20 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
     });
 
     // Sort curves: h-bands by descending max x, v-bands by descending max y
-    // const sortedHBands = g.bands.hBands.map(band => ({
-    //   curveIndices: [...band.curveIndices].sort((a, b) => {
-    //     const ca = g.curves[a], cb = g.curves[b];
-    //     return Math.max(cb.p0x, cb.p1x, cb.p2x) - Math.max(ca.p0x, ca.p1x, ca.p2x);
-    //   }),
-    // }));
-    // const sortedVBands = g.bands.vBands.map(band => ({
-    //   curveIndices: [...band.curveIndices].sort((a, b) => {
-    //     const ca = g.curves[a], cb = g.curves[b];
-    //     return Math.max(cb.p0y, cb.p1y, cb.p2y) - Math.max(ca.p0y, ca.p1y, ca.p2y);
-    //   }),
-    // }));
+    for h_band in &mut g.bands.h_bands {
+      h_band.sort_by(|&a, &b| {
+        let ca = curve_axis_max(&g.curves, a, 0);
+        let cb = curve_axis_max(&g.curves, b, 0);
+        cb.total_cmp(&ca)
+      });
+    }
+    for v_band in &mut g.bands.v_bands {
+      v_band.sort_by(|&a, &b| {
+        let ca = curve_axis_max(&g.curves, a, 1);
+        let cb = curve_axis_max(&g.curves, b, 1);
+        cb.total_cmp(&ca)
+      });
+    }
 
     //   const allBands = [...sortedHBands, ...sortedVBands];
     let all_bands: Vec<_> = g
@@ -298,6 +310,8 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
 
     band_texel_idx = glyph_start + curve_list_offset as usize;
   }
+
+  // println!("{:?}", &curve_tex_data);
 
   PackedGlyphData {
     curve_tex_data,
@@ -439,6 +453,7 @@ fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugTextP
 
   let mut used_glyphs = FastHashSet::default();
 
+  #[derive(Clone, Copy, Debug)]
   struct PositionedGlyph {
     glyph_key: CacheKey,
     /// the bounding's origin relative to glyph space origin?
@@ -456,11 +471,13 @@ fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugTextP
       used_glyphs.insert(cache_key);
       glyph_buffer.push(PositionedGlyph {
         glyph_key: cache_key,
-        relative_x: glyph.x_offset,
-        relative_y: glyph.y_offset,
+        relative_x: glyph.x,
+        relative_y: glyph.y + run.line_y,
       });
     }
   }
+
+  // dbg!(&glyph_buffer);
 
   let mut glyph_map = FastHashMap::default();
 
@@ -492,8 +509,8 @@ fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugTextP
 
   let scale: f32 = 1.0;
 
-  let slug_glyphs = glyph_map.drain().map(|(_, v)| v).collect::<Vec<_>>();
-  let packed = pack_glyph_data(&slug_glyphs);
+  let mut slug_glyphs = glyph_map.drain().map(|(_, v)| v).collect::<Vec<_>>();
+  let packed = pack_glyph_data(&mut slug_glyphs);
 
   // Build per-glyph lookup
   let mut glyph_data_map: FastHashMap<CacheKey, (&SlugGlyph, usize, usize)> =

@@ -150,7 +150,7 @@ fn calc_coverage(
     })
     .else_by(|| {
       // Using even-odd fill rule here.
-      let c_ = (c * val(0.5)).fract() * val(2.);
+      let c_ = val(1.0) - (c * val(0.5)).fract() * val(2.0);
       coverage.store(val(1.0) - c_.abs());
     });
   } else {
@@ -264,7 +264,7 @@ pub fn slug_render(
   // the data for all horizontal bands, so we have to add bandMax.y + 1.
 
   let coord = vec2_node((
-    glyph_loc.x() + band_index.y() + val(1) + band_index.x(),
+    glyph_loc.x() + band_max.y() + val(1) + band_index.x(),
     glyph_loc.y(),
   ));
 

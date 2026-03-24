@@ -247,6 +247,12 @@ impl GraphicsShaderProvider for SlugTextGPUData {
 
       builder
         .register::<DefaultDisplay>(val(Vec4::new(0., 0., 0., 1.)) * coverage.splat::<Vec4<f32>>());
+
+      builder.frag_output.iter_mut().for_each(|p| {
+        if p.is_blendable() {
+          p.states.blend = BlendState::ALPHA_BLENDING.into();
+        }
+      });
       //
     })
   }

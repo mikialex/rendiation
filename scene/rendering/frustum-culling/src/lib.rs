@@ -151,7 +151,7 @@ impl HostRenderBatch for HostFrustumCulling {
       if let Some(bbox) = self.sm_world_bounding.access(v) {
         self.frustum.intersect(&bbox, &())
       } else {
-        log::warn!("no world bounding found for sm {}", v);
+        // log::warn!("no world bounding found for sm {}", v);
         // if anything missing bounding, we should not cull it for safety as the frustum culling is only an optimization
         true
       }
