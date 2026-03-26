@@ -2,10 +2,9 @@ use crate::*;
 
 pub fn use_indirect_scene_model(
   cx: &mut QueryGPUHookCx,
+  node_impl: Option<Box<dyn IndirectNodeRenderImpl>>,
   model_impl: Option<Box<dyn IndirectModelRenderImpl>>,
 ) -> Option<IndirectPreferredComOrderRenderer> {
-  let node = use_node_storage(cx);
-
   let (cx, scene_model_meta) = cx.use_storage_buffer("scene model metadata", 128, u32::MAX);
 
   let offset = offset_of!(SceneModelStorage, std_model);
@@ -23,7 +22,7 @@ pub fn use_indirect_scene_model(
   cx.when_render(|| IndirectPreferredComOrderRenderer {
     model_impl: model_impl.unwrap(),
     node: read_global_db_foreign_key(),
-    node_render: node.unwrap(),
+    node_render: node_impl.unwrap(),
     id_inject: DefaultSceneModelIdInject(scene_model_meta.get_gpu_buffer()),
   })
 }
@@ -82,7 +81,7 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
 
 pub struct IndirectPreferredComOrderRenderer {
   model_impl: Box<dyn IndirectModelRenderImpl>,
-  node_render: IndirectNodeRenderer,
+  node_render: Box<dyn IndirectNodeRenderImpl>,
   node: ForeignKeyReadView<SceneModelRefNode>,
   id_inject: DefaultSceneModelIdInject,
 }

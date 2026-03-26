@@ -2,3 +2,7 @@
 # and https://github.com/mozilla/cbindgen/blob/main/docs.md#cbindgentoml
 
 language = "C"
+
+[parse]
+parse_deps = true
+include = ["rendiation-mesh-core"]

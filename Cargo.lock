@@ -5858,7 +5858,6 @@ dependencies = [
  "rendiation-gizmo",
  "rendiation-gui-3d",
  "rendiation-lighting-punctual",
- "rendiation-mesh-core",
  "rendiation-mesh-generator",
  "rendiation-mesh-segmentation",
  "rendiation-mesh-simplification",
@@ -5873,7 +5872,6 @@ dependencies = [
  "rendiation-texture-loader",
  "rendiation-viewer-content",
  "rendiation-webgpu",
- "rendiation-wide-line",
  "rfd",
  "rmp-serde",
  "serde",
@@ -5890,10 +5888,12 @@ dependencies = [
 name = "viewer-content-api"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "cbindgen",
  "fast-hash-collection",
  "futures",
  "pollster",
+ "rendiation-mesh-core",
  "rendiation-viewer-content",
 ]
 

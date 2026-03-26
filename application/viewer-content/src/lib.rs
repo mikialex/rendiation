@@ -27,7 +27,7 @@ use rendiation_geometry::*;
 use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_shadow_map::*;
 use rendiation_lighting_transport::*;
-use rendiation_mesh_core::*;
+pub use rendiation_mesh_core::*;
 use rendiation_mesh_lod_graph_rendering::*;
 pub use rendiation_mesh_lod_graph_rendering::{
   DefaultMeshLODBuilder, LODGraphData, LODGraphMeshEntity, MeshLODGraph, MeshLodGraphBuilder,
@@ -51,7 +51,7 @@ use rendiation_webgpu::*;
 pub use rendiation_webgpu::{CreateSurfaceError, GPUInstance, GPUSurface, SurfaceProvider, GPU};
 use rendiation_webgpu_hook_utils::*;
 use rendiation_webgpu_virtual_typed_combine_buffer::*;
-use rendiation_wide_line::*;
+pub use rendiation_wide_line::*;
 use rendiation_wide_styled_points::*;
 pub use rendiation_wide_styled_points::{
   SceneModelWideStyledPointsRenderPayload, WideStyledPointVertex, WideStyledPointsEntity,

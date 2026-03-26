@@ -11,8 +11,12 @@ crate-type = ["cdylib"]
 [dependencies]
 futures = { workspace = true }
 pollster = { workspace = true }
+bytemuck = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 rendiation-viewer-content = { path = "../viewer-content" }
+
+# this is necessary as we are export c type from it
+rendiation-mesh-core = { path = "../../content/mesh/core" }
 
 [build-dependencies]
 cbindgen = "0.29.2"

@@ -5,7 +5,10 @@ use rendiation_texture_gpu_base::GPUBufferImageForeignImpl;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
-use crate::{slug_shader::slug_render, *};
+use crate::{
+  slug_shader::{slug_dilate, slug_render},
+  *,
+};
 
 pub fn use_text3d_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<Text3dGlesRenderer> {
   let (cx, font_system) = cx.use_sharable_plain_state(|| FontSystem::new());
@@ -183,26 +186,64 @@ impl GraphicsShaderProvider for SlugTextGPUData {
     builder.vertex(|builder, _binding| {
       let pos = builder.query::<SlugTextGlesVertexPos>();
       let tex = builder.query::<SlugTextGlesVertexTex>();
-      // let jac = builder.query::<SlugTextGlesVertexJac>();
+      let jac = builder.query::<SlugTextGlesVertexJac>();
 
-      // let viewport_size = builder.query::<ViewportRenderBufferSize>();
-      // let dilated = slug_dilate(pos, tex, jac, todo!(), todo!(), todo!(), viewport_size).expand();
+      let viewport_size = builder.query::<ViewportRenderBufferSize>();
 
-      // let local_position = vec3_node((dilated.vpos, val(0.)));
-
-      // let object_world_position = builder.query::<WorldPositionHP>();
-      // let (clip_position, _) = camera_transform_impl(builder, local_position, object_world_position);
-
-      // builder.set_vertex_out::<FragmentUv>(dilated.texcoord);
-
-      let local_position = vec3_node((pos.xy(), val(0.)));
       let object_world_position = builder.query::<WorldPositionHP>();
-      let (clip_position, render_space_position) =
-        camera_transform_impl(builder, local_position, object_world_position);
-      builder.set_vertex_out::<FragmentUv>(tex.xy());
-      builder.register::<ClipPosition>(clip_position);
+      let view_projection = builder.query::<CameraViewNoneTranslationProjectionMatrix>();
 
-      builder.register::<VertexRenderPosition>(render_space_position);
+      let enable_dilation = false;
+
+      if enable_dilation {
+        let view_projection_t = view_projection.transpose();
+
+        // let world_matrix = builder.query::<WorldNoneTranslationMatrix>();
+        // // SlugDilate follows the reference vertex shader and expects the first, second,
+        // // and fourth rows of the effective local-to-clip transform.
+        // let local_to_clip = view_projection * world_matrix;
+        // let local_to_clip_t = local_to_clip.transpose();
+        // let render_origin =
+        //   compute_render_space_position(builder, val(Vec3::zero()), object_world_position);
+        // let clip_origin = view_projection * render_origin;
+
+        // let m0 = local_to_clip_t.nth_colum(0);
+        // let m1 = local_to_clip_t.nth_colum(1);
+        // let m3 = local_to_clip_t.nth_colum(3);
+
+        // let m0 = vec4_node((m0.x(), m0.y(), m0.z(), clip_origin.x()));
+        // let m1 = vec4_node((m1.x(), m1.y(), m1.z(), clip_origin.y()));
+        // let m3 = vec4_node((m3.x(), m3.y(), m3.z(), clip_origin.w()));
+
+        let dilated = slug_dilate(
+          pos,
+          tex,
+          jac,
+          view_projection_t.nth_colum(0),
+          view_projection_t.nth_colum(1),
+          view_projection_t.nth_colum(3),
+          viewport_size,
+        )
+        .expand();
+
+        let dilated_local_position = vec3_node((dilated.vpos, val(0.)));
+        let (clip_position, position_in_render_space) =
+          camera_transform_impl(builder, dilated_local_position, object_world_position);
+
+        builder.set_vertex_out::<FragmentUv>(dilated.texcoord);
+        builder.register::<ClipPosition>(clip_position);
+
+        builder.register::<VertexRenderPosition>(position_in_render_space);
+      } else {
+        let local_position = vec3_node((pos.xy(), val(0.)));
+        let object_world_position = builder.query::<WorldPositionHP>();
+        let (clip_position, render_space_position) =
+          camera_transform_impl(builder, local_position, object_world_position);
+        builder.set_vertex_out::<FragmentUv>(tex.xy());
+        builder.register::<ClipPosition>(clip_position);
+
+        builder.register::<VertexRenderPosition>(render_space_position);
+      }
 
       let color_with_alpha = builder.query::<SlugTextGlesVertexCol>();
       builder.set_vertex_out::<DefaultDisplay>(color_with_alpha);

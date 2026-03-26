@@ -83,12 +83,12 @@ impl GraphicsShaderProvider for CameraGPU {
   }
 }
 
-/// return (clip space position, render space position)
-pub fn camera_transform_impl(
+/// the return value's w should be 1., for convenience we return the vec4 not the vec3.
+pub fn compute_render_space_position(
   builder: &mut ShaderVertexBuilder,
   position_in_local_space: Node<Vec3<f32>>,
   object_world_position: Node<HighPrecisionTranslation>,
-) -> (Node<Vec4<f32>>, Node<Vec3<f32>>) {
+) -> Node<Vec4<f32>> {
   let world_mat_no_translation = builder.query::<WorldNoneTranslationMatrix>();
   let camera_world_position = builder.query::<CameraWorldPositionHP>();
   let world_to_render_offset = hpt_sub_hpt(object_world_position, camera_world_position);
@@ -96,9 +96,15 @@ pub fn camera_transform_impl(
 
   let world_transformed_without_translation =
     world_mat_no_translation * (position_in_local_space, val(1.)).into();
-  let position_in_render_space =
-    world_transformed_without_translation + translate_into_render_space;
 
+  world_transformed_without_translation + translate_into_render_space
+}
+
+/// the position_in_render_space value's w should be 1., for convenience we use the vec4 not the vec3.
+pub fn compute_jittered_clip_space_position(
+  builder: &mut ShaderVertexBuilder,
+  position_in_render_space: Node<Vec4<f32>>,
+) -> Node<Vec4<f32>> {
   let view_projection_none_translation =
     builder.query::<CameraViewNoneTranslationProjectionMatrix>();
 
@@ -112,6 +118,20 @@ pub fn camera_transform_impl(
     Vec4::zero().into()
   };
   clip_position += jitter;
+
+  clip_position
+}
+
+/// return (clip space position, render space position)
+pub fn camera_transform_impl(
+  builder: &mut ShaderVertexBuilder,
+  position_in_local_space: Node<Vec3<f32>>,
+  object_world_position: Node<HighPrecisionTranslation>,
+) -> (Node<Vec4<f32>>, Node<Vec3<f32>>) {
+  let position_in_render_space =
+    compute_render_space_position(builder, position_in_local_space, object_world_position);
+
+  let clip_position = compute_jittered_clip_space_position(builder, position_in_render_space);
 
   (clip_position, position_in_render_space.xyz())
 }

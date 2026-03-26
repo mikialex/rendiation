@@ -1,3 +1,4 @@
+use core::slice;
 use std::{num::NonZeroIsize, sync::Arc};
 
 use fast_hash_collection::FastHashMap;
@@ -206,8 +207,41 @@ pub struct ViewerPickerAPI {
   scene_models_of_scene: RevRefForeignKeyRead,
 }
 
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct ViewerRayPickResult {
+  pub primitive_index: u32,
+  /// in world space. the logic hit result(maybe not exactly the ray hit point if the primitive is line or points)
+  pub hit_position: [f32; 3],
+  pub scene_model_handle: ViewerEntityHandle,
+}
+
 impl ViewerPickerAPI {
-  pub fn pick_list(&mut self, x: f32, y: f32) {
+  pub fn pick_list(
+    &mut self,
+    scene: RawEntityHandle,
+    x: f32,
+    y: f32,
+    results: &mut ViewerRayPickResult,
+  ) {
+    let mut results = Vec::new();
+    let mut model_results = Vec::new();
+    let mut local_result_scratch = Vec::new();
+
+    let cx = todo!();
+
+    if let Some(iter) = self.scene_models_of_scene.access_multi(&scene) {
+      let iter = iter.map(|v| unsafe { EntityHandle::from_raw(v) });
+      pick_models_all(
+        self.picker_impl.as_ref(),
+        &mut iter,
+        cx,
+        &mut results,
+        &mut model_results,
+        &mut local_result_scratch,
+      );
+    }
+
     todo!()
   }
 }
@@ -282,7 +316,7 @@ pub extern "C" fn viewer_resize(
 }
 
 #[no_mangle]
-pub extern "C" fn viewer_create_node() -> ViewerEntityHandle {
+pub extern "C" fn create_node() -> ViewerEntityHandle {
   global_entity_of::<SceneNodeEntity>()
     .entity_writer()
     .new_entity(|w| w)
@@ -290,17 +324,17 @@ pub extern "C" fn viewer_create_node() -> ViewerEntityHandle {
 }
 
 #[no_mangle]
-pub extern "C" fn viewer_delete_node(node: ViewerEntityHandle) {
+pub extern "C" fn delete_node(node: ViewerEntityHandle) {
   global_entity_of::<SceneNodeEntity>()
     .entity_writer()
     .delete_entity(node.into());
 }
 
 #[no_mangle]
-pub extern "C" fn viewer_node_attach_parent(
-  node: ViewerEntityHandle,
-  parent: *mut ViewerEntityHandle,
-) {
+pub extern "C" fn node_set_local_mat(node: ViewerEntityHandle, mat4: *const [f32; 16]) {}
+
+#[no_mangle]
+pub extern "C" fn node_attach_parent(node: ViewerEntityHandle, parent: *mut ViewerEntityHandle) {
   let mut writer = global_entity_component_of::<SceneNodeParentIdx, _>(|c| c.write());
 
   if parent.is_null() {
@@ -310,6 +344,200 @@ pub extern "C" fn viewer_node_attach_parent(
     let parent = unsafe { *parent };
     writer.write(node.into(), Some(parent.into()));
   }
+}
+
+#[no_mangle]
+pub extern "C" fn create_mesh(
+  indices_length: u32,
+  indices: *const u32,
+  vertex_length: u32,
+  position: *const f32,
+  normal: *const f32,
+  uv: *const f32,
+  topo: MeshPrimitiveTopology,
+) -> AttributesMeshEntitiesCommon {
+  let indices = unsafe { slice::from_raw_parts(indices, indices_length as usize) };
+  let indices: &[u8] = bytemuck::cast_slice(indices);
+  let indices = indices.to_vec();
+
+  let mut attributes = Vec::new();
+
+  let position = unsafe { slice::from_raw_parts(position, vertex_length as usize * 3) };
+  let position: &[u8] = bytemuck::cast_slice(position);
+  let position = position.to_vec();
+  attributes.push((AttributeSemantic::Positions, position));
+
+  if !normal.is_null() {
+    let normal = unsafe { slice::from_raw_parts(normal, vertex_length as usize * 3) };
+    let normal: &[u8] = bytemuck::cast_slice(normal);
+    let normal = normal.to_vec();
+    attributes.push((AttributeSemantic::Normals, normal));
+  }
+
+  if !uv.is_null() {
+    let uv = unsafe { slice::from_raw_parts(uv, vertex_length as usize * 2) };
+    let uv: &[u8] = bytemuck::cast_slice(uv);
+    let uv = uv.to_vec();
+    attributes.push((AttributeSemantic::TexCoords(0), uv));
+  }
+
+  let mut writer = AttributesMeshEntityFromAttributesMeshWriter::from_global();
+  let mut buffer = global_entity_of::<BufferEntity>().entity_writer();
+  let mesh = AttributesMeshData {
+    attributes,
+    indices: Some((AttributeIndexFormat::Uint32, indices)),
+    mode: topo,
+  }
+  .build()
+  .write(&mut writer, &mut buffer);
+
+  AttributesMeshEntitiesCommon {
+    mesh: mesh.mesh.into(),
+  }
+}
+
+#[repr(C)]
+pub struct AttributesMeshEntitiesCommon {
+  mesh: ViewerEntityHandle,
+}
+
+#[no_mangle]
+pub extern "C" fn drop_mesh(handle: AttributesMeshEntitiesCommon) {
+  //
+}
+
+#[no_mangle]
+pub extern "C" fn create_texture2d() -> ViewerEntityHandle {
+  global_entity_of::<SceneTexture2dEntity>()
+    .entity_writer()
+    .new_entity(|w| w)
+    .into()
+}
+#[no_mangle]
+pub extern "C" fn drop_texture2d(handle: ViewerEntityHandle) {
+  global_entity_of::<SceneTexture2dEntity>()
+    .entity_writer()
+    .delete_entity(handle.into());
+}
+
+#[no_mangle]
+pub extern "C" fn create_unlit_material() -> ViewerEntityHandle {
+  global_entity_of::<UnlitMaterialEntity>()
+    .entity_writer()
+    .new_entity(|w| w)
+    .into()
+}
+#[no_mangle]
+pub extern "C" fn drop_unlit_material(handle: ViewerEntityHandle) {
+  global_entity_of::<UnlitMaterialEntity>()
+    .entity_writer()
+    .delete_entity(handle.into())
+}
+
+#[no_mangle]
+pub extern "C" fn create_pbr_mr_material() -> ViewerEntityHandle {
+  global_entity_of::<PbrMRMaterialEntity>()
+    .entity_writer()
+    .new_entity(|w| w)
+    .into()
+}
+#[no_mangle]
+pub extern "C" fn drop_pbr_mr_material(handle: ViewerEntityHandle) {
+  global_entity_of::<PbrMRMaterialEntity>()
+    .entity_writer()
+    .delete_entity(handle.into())
+}
+
+#[no_mangle]
+pub extern "C" fn create_wide_line() -> ViewerEntityHandle {
+  global_entity_of::<WideLineModelEntity>()
+    .entity_writer()
+    .new_entity(|w| w)
+    .into()
+}
+#[no_mangle]
+pub extern "C" fn drop_wide_line(handle: ViewerEntityHandle) {
+  global_entity_of::<WideLineModelEntity>()
+    .entity_writer()
+    .delete_entity(handle.into());
+}
+
+#[no_mangle]
+pub extern "C" fn create_text3d() -> ViewerEntityHandle {
+  global_entity_of::<Text3dEntity>()
+    .entity_writer()
+    .new_entity(|w| w)
+    .into()
+}
+#[no_mangle]
+pub extern "C" fn drop_text3d(handle: ViewerEntityHandle) {
+  global_entity_of::<Text3dEntity>()
+    .entity_writer()
+    .delete_entity(handle.into());
+}
+
+#[no_mangle]
+pub extern "C" fn create_camera(node: ViewerEntityHandle) -> ViewerEntityHandle {
+  global_entity_of::<SceneCameraEntity>()
+    .entity_writer()
+    .new_entity(|w| {
+      //
+      w.write::<SceneCameraNode>(&Some(node.into()))
+    })
+    .into()
+}
+#[no_mangle]
+pub extern "C" fn drop_camera(handle: ViewerEntityHandle) {
+  global_entity_of::<SceneCameraEntity>()
+    .entity_writer()
+    .delete_entity(handle.into());
+}
+
+#[no_mangle]
+pub extern "C" fn create_dir_light(node: ViewerEntityHandle) -> ViewerEntityHandle {
+  global_entity_of::<DirectionalLightEntity>()
+    .entity_writer()
+    .new_entity(|w| w.write::<DirectionalRefNode>(&Some(node.into())))
+    .into()
+}
+
+#[no_mangle]
+pub extern "C" fn drop_dir_light(handle: ViewerEntityHandle) {
+  global_entity_of::<DirectionalLightEntity>()
+    .entity_writer()
+    .delete_entity(handle.into());
+}
+
+// #[no_mangle]
+// pub extern "C" fn create_wide_point() -> ViewerEntityHandle {
+//   // global_entity_of::<SceneModelEntity>()
+//   //   .entity_writer()
+//   //   .new_entity(|w| w)
+//   //   .into()
+//   todo!()
+// }
+
+// #[no_mangle]
+// pub extern "C" fn drop_wide_point(handle: ViewerEntityHandle) {
+//   todo!()
+// }
+
+#[no_mangle]
+pub extern "C" fn create_scene_model(
+  material: ViewerEntityHandle,
+  mesh: ViewerEntityHandle,
+) -> ViewerEntityHandle {
+  global_entity_of::<SceneModelEntity>()
+    .entity_writer()
+    .new_entity(|w| w)
+    .into()
+}
+
+#[no_mangle]
+pub extern "C" fn drop_scene_model(handle: ViewerEntityHandle) {
+  global_entity_of::<SceneModelEntity>()
+    .entity_writer()
+    .delete_entity(handle.into());
 }
 
 #[no_mangle]
@@ -333,7 +561,13 @@ pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerPickerAPI) {
 }
 
 #[no_mangle]
-pub extern "C" fn picker_pick_list(api: *mut ViewerPickerAPI, x: f32, y: f32) {
+pub extern "C" fn picker_pick_list(
+  api: *mut ViewerPickerAPI,
+  scene: ViewerEntityHandle,
+  x: f32,
+  y: f32,
+  results: &mut ViewerRayPickResult,
+) {
   let api = unsafe { &mut *api };
-  api.pick_list(x, y);
+  api.pick_list(scene.into(), x, y, results);
 }

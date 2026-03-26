@@ -146,6 +146,44 @@ impl Picker3d for ViewerSceneModelPicker {
       local_result_scratch,
     )
   }
+
+  fn pick_models_all(
+    &self,
+    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+    world_ray: Ray3<f64>,
+  ) -> (
+    Vec<MeshBufferHitPoint<f64>>,
+    Vec<EntityHandle<SceneModelEntity>>,
+  ) {
+    let cx = self.create_ray_ctx(world_ray);
+
+    if cx.is_none() {
+      return (Vec::new(), Vec::new());
+    }
+    let cx = cx.unwrap();
+
+    let mut results = Vec::default();
+    let mut models_results = Vec::default();
+    let mut local_result_scratch = Vec::default();
+    pick_models_all(
+      self.scene_model_picker.as_ref(),
+      models,
+      &cx,
+      &mut results,
+      &mut models_results,
+      &mut local_result_scratch,
+    );
+    (results, models_results)
+  }
+
+  fn pick_models_nearest(
+    &self,
+    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+    world_ray: Ray3<f64>,
+  ) -> Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> {
+    let cx = self.create_ray_ctx(world_ray)?;
+    pick_models_nearest(self.scene_model_picker.as_ref(), models, &cx)
+  }
 }
 
 pub fn prepare_picking_state<'a>(

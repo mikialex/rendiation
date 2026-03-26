@@ -37,7 +37,6 @@ rendiation-geometry = { path = "../../math/geometry" }
 rendiation-gizmo = { path = "../../extension/gizmo" }
 rendiation-gui-3d = { path = "../../extension/gui-3d" }
 rendiation-lighting-punctual = { path = "../../content/lighting/punctual" }
-rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
 rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
 rendiation-scene-gltf-exporter = { path = "../../scene/io/gltf/exporter" }
@@ -52,7 +51,6 @@ rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 rendiation-texture-loader = { path = "../../content/texture/loader" }
 rendiation-texture-exporter = { path = "../../content/texture/exporter" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
-rendiation-wide-line = { path = "../../extension/wide-line" }
 rendiation-viewer-content ={ path = "../viewer-content" }
 rfd = "0.15.4"
 tracing = { workspace = true }

@@ -25,9 +25,7 @@ use futures::StreamExt;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_gui_3d::*;
-use rendiation_mesh_core::*;
 use rendiation_viewer_content::*;
-use rendiation_wide_line::*;
 use tracing::*;
 use winit::{
   event::{Event, WindowEvent},

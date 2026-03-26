@@ -53,6 +53,13 @@ pub struct AttributesMeshEntityFromAttributesMeshWriter {
 }
 
 impl AttributesMeshEntityFromAttributesMeshWriter {
+  pub fn from_global() -> Self {
+    Self {
+      relation: global_entity_of::<AttributesMeshEntityVertexBufferRelation>().entity_writer(),
+      mesh: global_entity_of::<AttributesMeshEntity>().entity_writer(),
+    }
+  }
+
   pub fn notify_reserve_changes(&mut self, size: usize, buffer: &mut EntityWriter<BufferEntity>) {
     self.relation.notify_reserve_changes(size * 3); // assume 3 attributes
     buffer.notify_reserve_changes(size * 3);
@@ -118,10 +125,7 @@ const CHECK_NORMAL: bool = false;
 
 impl AttributesMeshWriter for AttributesMesh {
   fn create_writer() -> AttributesMeshEntityFromAttributesMeshWriter {
-    AttributesMeshEntityFromAttributesMeshWriter {
-      relation: global_entity_of::<AttributesMeshEntityVertexBufferRelation>().entity_writer(),
-      mesh: global_entity_of::<AttributesMeshEntity>().entity_writer(),
-    }
+    AttributesMeshEntityFromAttributesMeshWriter::from_global()
   }
 
   fn write(

@@ -1,5 +1,3 @@
-use rendiation_mesh_core::{AttributeSemantic, AttributesMeshData};
-
 use crate::*;
 
 pub fn use_scene_camera_helper(cx: &mut ViewerCx) {

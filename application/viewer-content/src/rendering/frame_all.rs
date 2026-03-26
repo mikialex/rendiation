@@ -241,7 +241,8 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn IndirectModelRenderImpl>
         });
 
-        let scene_model = use_indirect_scene_model(cx, model_support);
+        let node = use_node_storage(cx);
+        let scene_model = use_indirect_scene_model(cx, node, model_support);
 
         if !self.using_host_driven_indirect_draw {
           cx.scope(|cx| {

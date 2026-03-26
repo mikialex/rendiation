@@ -1,6 +1,3 @@
-use rendiation_mesh_core::{
-  create_deduplicated_index_vertex_mesh, AttributeIndexFormat, AttributesMeshData, CommonVertex,
-};
 use rendiation_mesh_segmentation::*;
 use rendiation_mesh_simplification::*;
 
@@ -219,16 +216,12 @@ fn get_mesh(reader: &SceneReader, target: EntityHandle<SceneModelEntity>) -> Com
   let mesh = reader.read_attribute_mesh(mesh);
 
   let (fmt, indices) = mesh.indices.clone().unwrap();
-  assert!(fmt == rendiation_mesh_core::AttributeIndexFormat::Uint32);
+  assert!(fmt == AttributeIndexFormat::Uint32);
 
-  let position = mesh
-    .get_attribute(&rendiation_mesh_core::AttributeSemantic::Positions)
-    .unwrap();
-  let normals = mesh
-    .get_attribute(&rendiation_mesh_core::AttributeSemantic::Normals)
-    .unwrap();
+  let position = mesh.get_attribute(&AttributeSemantic::Positions).unwrap();
+  let normals = mesh.get_attribute(&AttributeSemantic::Normals).unwrap();
   let uvs = mesh
-    .get_attribute(&rendiation_mesh_core::AttributeSemantic::TexCoords(0))
+    .get_attribute(&AttributeSemantic::TexCoords(0))
     .unwrap();
 
   let position = position.visit_slice::<Vec3<f32>>().unwrap();
@@ -259,7 +252,7 @@ fn create_mesh(
   let attribute_mesh = AttributesMeshData {
     attributes: vec![
       (
-        rendiation_mesh_core::AttributeSemantic::Positions,
+        AttributeSemantic::Positions,
         mesh
           .vertices
           .iter()
@@ -267,7 +260,7 @@ fn create_mesh(
           .collect(),
       ),
       (
-        rendiation_mesh_core::AttributeSemantic::Normals,
+        AttributeSemantic::Normals,
         mesh
           .vertices
           .iter()
@@ -275,7 +268,7 @@ fn create_mesh(
           .collect(),
       ),
       (
-        rendiation_mesh_core::AttributeSemantic::TexCoords(0),
+        AttributeSemantic::TexCoords(0),
         mesh
           .vertices
           .iter()

@@ -12,8 +12,8 @@ pub use model::*;
 mod scene_model;
 pub use scene_model::*;
 
-mod scene;
-pub use scene::*;
+mod iter;
+pub use iter::*;
 
 pub struct SceneRayQuery {
   pub world_ray: Ray3<f64>,

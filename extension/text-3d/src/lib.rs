@@ -7,6 +7,7 @@ use rendiation_algebra::*;
 use rendiation_scene_core::SceneModelEntity;
 use rendiation_texture_core::GPUBufferImage;
 
+mod bounding;
 mod gles_draw;
 mod slug_shader;
 pub use gles_draw::use_text3d_gles_renderer;
