@@ -11,6 +11,7 @@ pub struct Viewer {
   pub shared_ctx: SharedHooksCtx,
   pub features_config: ViewerFeaturesInitConfig,
   pub enable_inspection: bool,
+  pub font_system: Arc<RwLock<FontSystem>>,
 }
 
 pub struct ViewerDropCx<'a> {
@@ -125,17 +126,20 @@ impl Viewer {
       enable_reverse_z: init_config.init_only.enable_reverse_z,
     };
 
+    let font_system = Arc::new(RwLock::new(FontSystem::new()));
+
     Self {
       content: scene,
       terminal,
       rendering_root: RenderingRoot::new(&gpu),
-      rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, init_config),
+      rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, init_config, font_system.clone()),
       background,
       started_time: Instant::now(),
       memory: Default::default(),
       shared_ctx: Default::default(),
       features_config: init_config.features.clone(),
       enable_inspection: false,
+      font_system,
     }
   }
 

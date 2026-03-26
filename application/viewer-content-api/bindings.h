@@ -46,8 +46,19 @@ typedef struct ViewerEntityHandle {
   uint64_t generation;
 } ViewerEntityHandle;
 
+typedef struct VertexPair {
+  struct ViewerEntityHandle h1;
+  struct ViewerEntityHandle h2;
+} VertexPair;
+
 typedef struct AttributesMeshEntitiesCommon {
   struct ViewerEntityHandle mesh;
+  struct ViewerEntityHandle index;
+  struct VertexPair position;
+  struct VertexPair normal;
+  struct VertexPair uv;
+  bool has_normal;
+  bool has_uv;
 } AttributesMeshEntitiesCommon;
 
 typedef struct ViewerRayPickResult {
@@ -76,7 +87,7 @@ struct ViewerEntityHandle create_node(void);
 
 void delete_node(struct ViewerEntityHandle node);
 
-void node_set_local_mat(struct ViewerEntityHandle node, const float (*mat4)[16]);
+void node_set_local_mat(struct ViewerEntityHandle node, const double (*mat4)[16]);
 
 void node_attach_parent(struct ViewerEntityHandle node, struct ViewerEntityHandle *parent);
 
@@ -84,8 +95,8 @@ struct AttributesMeshEntitiesCommon create_mesh(uint32_t indices_length,
                                                 const uint32_t *indices,
                                                 uint32_t vertex_length,
                                                 const float *position,
-                                                const float *normal,
-                                                const float *uv,
+                                                const float *normal_raw,
+                                                const float *uv_raw,
                                                 enum MeshPrimitiveTopology topo);
 
 void drop_mesh(struct AttributesMeshEntitiesCommon handle);

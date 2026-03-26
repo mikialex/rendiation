@@ -23,6 +23,7 @@ pub struct Viewer3dRenderingCtx {
   pub views: FastHashMap<u64, Viewer3dViewportRenderingCtx>,
 
   pub(crate) init_config: ViewerInitConfig,
+  font_system: Arc<RwLock<FontSystem>>,
 }
 
 pub struct ViewerCullingConfig {
@@ -58,8 +59,14 @@ impl Viewer3dRenderingCtx {
     &self.gpu
   }
 
-  pub fn new(gpu: GPU, ndc: ViewerNDC, init_config: &ViewerInitConfig) -> Self {
+  pub fn new(
+    gpu: GPU,
+    ndc: ViewerNDC,
+    init_config: &ViewerInitConfig,
+    font_system: Arc<RwLock<FontSystem>>,
+  ) -> Self {
     Self {
+      font_system,
       prefer_bindless_for_indirect_texture_system: init_config
         .prefer_bindless_for_indirect_texture_system,
       using_host_driven_indirect_draw: init_config.using_host_driven_indirect_draw,
@@ -129,7 +136,7 @@ impl Viewer3dRenderingCtx {
 
     let raster_scene_renderer = match self.current_renderer_impl_ty {
       RasterizationRenderBackendType::Gles => cx.scope(|cx| {
-        let text3d = use_text3d_gles_renderer(cx);
+        let text3d = use_text3d_gles_renderer(cx, &self.font_system);
         let wide_line_renderer_gles = use_widen_line_gles_renderer(cx);
 
         let (attribute_vertices, attribute_indices) = viewer_mesh_buffer_input(cx);
@@ -267,8 +274,20 @@ impl Viewer3dRenderingCtx {
               })
               .dual_query_boxed();
 
+            let sm_ref_text = cx.use_db_rev_ref_tri_view::<SceneModelText3dPayload>();
+            let text_key = cx
+              .use_dual_query_set::<Text3dEntity>()
+              .fanout(sm_ref_text, cx)
+              .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
+                internal: 2,
+                require_alpha_blend: true,
+              })
+              .dual_query_boxed();
+
             let impl_key = wide_line_key
               .dual_query_select(wide_point_key)
+              .dual_query_boxed()
+              .dual_query_select(text_key)
               .dual_query_boxed();
 
             let key_impl = GroupKeyForeignImpl {

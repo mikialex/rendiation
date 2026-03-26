@@ -116,10 +116,18 @@ impl SceneRenderer for IndirectSceneRenderer {
       let content: Vec<_> = batch
         .sub_batches
         .iter()
-        .map(|batch| {
+        .filter_map(|batch| {
           ctx.keyed_scope(&batch.group_key, |ctx| {
             let provider = self.renderer.generate_indirect_draw_provider(batch, ctx);
-            (provider, batch.impl_select_id)
+            if let Some(provider) = provider {
+              Some((provider, batch.impl_select_id))
+            } else {
+              log::warn!(
+                "unable to fine suitable indirect draw provider for this indirect draw batch, batch select id: {}",
+                batch.impl_select_id
+              );
+              None
+            }
           })
         })
         .collect();

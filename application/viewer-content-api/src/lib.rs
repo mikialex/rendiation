@@ -331,7 +331,12 @@ pub extern "C" fn delete_node(node: ViewerEntityHandle) {
 }
 
 #[no_mangle]
-pub extern "C" fn node_set_local_mat(node: ViewerEntityHandle, mat4: *const [f32; 16]) {}
+pub extern "C" fn node_set_local_mat(node: ViewerEntityHandle, mat4: *const [f64; 16]) {
+  let mat4 = unsafe { *mat4 };
+  let mat4 = Mat4::from(mat4);
+  let mut writer = global_entity_component_of::<SceneNodeLocalMatrixComponent, _>(|c| c.write());
+  writer.write(node.into(), mat4);
+}
 
 #[no_mangle]
 pub extern "C" fn node_attach_parent(node: ViewerEntityHandle, parent: *mut ViewerEntityHandle) {
@@ -352,8 +357,8 @@ pub extern "C" fn create_mesh(
   indices: *const u32,
   vertex_length: u32,
   position: *const f32,
-  normal: *const f32,
-  uv: *const f32,
+  normal_raw: *const f32,
+  uv_raw: *const f32,
   topo: MeshPrimitiveTopology,
 ) -> AttributesMeshEntitiesCommon {
   let indices = unsafe { slice::from_raw_parts(indices, indices_length as usize) };
@@ -367,15 +372,15 @@ pub extern "C" fn create_mesh(
   let position = position.to_vec();
   attributes.push((AttributeSemantic::Positions, position));
 
-  if !normal.is_null() {
-    let normal = unsafe { slice::from_raw_parts(normal, vertex_length as usize * 3) };
+  if !normal_raw.is_null() {
+    let normal = unsafe { slice::from_raw_parts(normal_raw, vertex_length as usize * 3) };
     let normal: &[u8] = bytemuck::cast_slice(normal);
     let normal = normal.to_vec();
     attributes.push((AttributeSemantic::Normals, normal));
   }
 
-  if !uv.is_null() {
-    let uv = unsafe { slice::from_raw_parts(uv, vertex_length as usize * 2) };
+  if !uv_raw.is_null() {
+    let uv = unsafe { slice::from_raw_parts(uv_raw, vertex_length as usize * 2) };
     let uv: &[u8] = bytemuck::cast_slice(uv);
     let uv = uv.to_vec();
     attributes.push((AttributeSemantic::TexCoords(0), uv));
@@ -393,12 +398,30 @@ pub extern "C" fn create_mesh(
 
   AttributesMeshEntitiesCommon {
     mesh: mesh.mesh.into(),
+    index: mesh.index.unwrap().into(),
+    position: todo!(),
+    normal: todo!(),
+    uv: todo!(),
+    has_normal: !normal_raw.is_null(),
+    has_uv: !uv_raw.is_null(),
   }
+}
+
+#[repr(C)]
+struct VertexPair {
+  h1: ViewerEntityHandle,
+  h2: ViewerEntityHandle,
 }
 
 #[repr(C)]
 pub struct AttributesMeshEntitiesCommon {
   mesh: ViewerEntityHandle,
+  index: ViewerEntityHandle,
+  position: VertexPair,
+  normal: VertexPair,
+  uv: VertexPair,
+  has_normal: bool,
+  has_uv: bool,
 }
 
 #[no_mangle]

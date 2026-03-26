@@ -255,6 +255,26 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
             ui.separator();
 
+            if let Some(text3d) = scene_writer
+              .model_writer
+              .read_foreign_key::<SceneModelText3dPayload>(target)
+            {
+              let mut w = global_entity_of::<Text3dEntity>().entity_writer();
+              let content = w.read::<Text3dContent>(text3d).unwrap();
+
+              let mut text = content.content.clone();
+
+              ui.label(&content.content);
+
+              ui.text_edit_multiline(&mut text);
+
+              if text != content.content {
+                let mut c = (*content).clone();
+                c.content = text;
+                w.write::<Text3dContent>(text3d, Some(ExternalRefPtr::new(c)));
+              }
+            }
+
             let std_model = scene_writer
               .model_writer
               .read_foreign_key::<SceneModelStdModelRenderPayload>(target)?;
@@ -266,6 +286,19 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             show_entity_label(&scene_writer.std_model_writer, std_model, ui);
 
             ui.separator();
+
+            if ui.button("change to unlit").clicked() {
+              let new_unlit = scene_writer.unlit_mat_writer.new_entity(|w| w);
+              scene_writer
+                .std_model_writer
+                .write_foreign_key::<StandardModelRefPbrMRMaterial>(std_model, None);
+              scene_writer
+                .std_model_writer
+                .write_foreign_key::<StandardModelRefPbrSGMaterial>(std_model, None);
+              scene_writer
+                .std_model_writer
+                .write_foreign_key::<StandardModelRefUnlitMaterial>(std_model, Some(new_unlit));
+            }
 
             if let Some(mat) = scene_writer
               .std_model_writer

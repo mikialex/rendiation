@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use parking_lot::RwLock;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_scene_rendering_gpu_gles::GLESModelRenderImpl;
 use rendiation_shader_api::*;
@@ -10,9 +13,10 @@ use crate::{
   *,
 };
 
-pub fn use_text3d_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<Text3dGlesRenderer> {
-  let (cx, font_system) = cx.use_sharable_plain_state(|| FontSystem::new());
-
+pub fn use_text3d_gles_renderer(
+  cx: &mut QueryGPUHookCx,
+  font_system: &Arc<RwLock<FontSystem>>,
+) -> Option<Text3dGlesRenderer> {
   let text3d_resources = cx.use_shared_hash_map("text3d gles gpu resources");
 
   let gpu = cx.gpu.clone();
@@ -294,6 +298,9 @@ impl GraphicsShaderProvider for SlugTextGPUData {
           p.states.blend = BlendState::ALPHA_BLENDING.into();
         }
       });
+      if let Some(depth) = &mut builder.depth_stencil {
+        depth.depth_write_enabled = false;
+      }
       //
     })
   }

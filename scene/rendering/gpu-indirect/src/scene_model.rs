@@ -35,7 +35,7 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
     &self,
     batch: &DeviceSceneModelRenderSubBatch,
     ctx: &mut FrameCtx,
-  ) -> Box<dyn IndirectDrawProvider>;
+  ) -> Option<Box<dyn IndirectDrawProvider>>;
 
   /// the caller must guarantee the batch source can be drawn by the implementation selected by any_id
   fn render_indirect_batch_models(
@@ -176,11 +176,9 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     &self,
     batch: &DeviceSceneModelRenderSubBatch,
     ctx: &mut FrameCtx,
-  ) -> Box<dyn IndirectDrawProvider> {
-    self
-      .model_impl
-      .generate_indirect_draw_provider(batch, ctx)
-      .expect("unable to fine suitable indirect draw provider for this indirect draw batch")
+  ) -> Option<Box<dyn IndirectDrawProvider>> {
+    self.model_impl.generate_indirect_draw_provider(batch, ctx)
+    // .expect("unable to fine suitable indirect draw provider for this indirect draw batch")
   }
 
   fn render_indirect_batch_models(
