@@ -2,7 +2,12 @@ use crate::*;
 
 /// Prepare all glyph data for a text string.
 /// Returns texture data and 5-attribute vertex buffers matching the Slug shaders.
-pub fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugTextPrepared {
+///
+/// if something wrong or the content is empty, return None
+pub fn prepare_text(
+  system: &mut FontSystem,
+  input: &Text3dContentInfo,
+) -> Option<SlugTextPrepared> {
   // Text metrics indicate the font size and line height of a buffer
   let metrics = cosmic_text::Metrics::new(input.font_size, input.font_size * input.line_height);
 
@@ -215,13 +220,17 @@ pub fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugT
 
   drop(glyph_data_map);
 
-  return SlugTextPrepared {
+  if verts.is_empty() || idxs.is_empty() {
+    return None;
+  }
+
+  Some(SlugTextPrepared {
     slug_glyphs,
     vertices: verts,
     indices: idxs,
     packed,
     // totalAdvance: cursorX,
-  };
+  })
 }
 
 pub struct SlugTextPrepared {

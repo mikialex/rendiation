@@ -22,10 +22,13 @@ pub fn use_text3d_gles_renderer(
   let gpu = cx.gpu.clone();
   let font_system = font_system.clone();
 
-  maintain_shared_map(
+  maintain_shared_map_avoid_unnecessary_creator_init(
     &text3d_resources,
     cx.use_changes::<Text3dContent>().filter_map_changes(|t| t),
-    |info| create_gles_render_data(&info, &mut *font_system.write(), &gpu), /* todo move out locking */
+    || {
+      let mut font_system = font_system.write();
+      move |info| prepare_text(&mut font_system, &info).map(|v| v.create_gpu(&gpu))
+    },
   );
 
   cx.when_render(|| Text3dGlesRenderer {
@@ -34,17 +37,9 @@ pub fn use_text3d_gles_renderer(
   })
 }
 
-fn create_gles_render_data(
-  data: &Text3dContentInfo,
-  font_system: &mut FontSystem,
-  gpu: &GPU,
-) -> SlugTextGPUData {
-  prepare_text(font_system, data).create_gpu(gpu)
-}
-
 pub struct Text3dGlesRenderer {
   access: ForeignKeyReadView<SceneModelText3dPayload>,
-  texts: SharedHashMapRead<u32, SlugTextGPUData>,
+  texts: SharedHashMapRead<u32, Option<SlugTextGPUData>>,
 }
 
 impl GLESModelRenderImpl for Text3dGlesRenderer {
@@ -54,6 +49,8 @@ impl GLESModelRenderImpl for Text3dGlesRenderer {
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     let text_id = self.access.get(idx)?;
     let text_gpu = self.texts.get(&text_id.alloc_index()).unwrap();
+    // todo, we should distinguish between this case from the error case
+    let text_gpu = text_gpu.as_ref()?;
 
     let cmd = text_gpu.draw_command();
 
