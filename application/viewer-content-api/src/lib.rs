@@ -1,11 +1,13 @@
 use core::slice;
-use std::{num::NonZeroIsize, sync::Arc};
+use std::{ffi::c_void, num::NonZeroIsize, sync::Arc};
 
 use fast_hash_collection::FastHashMap;
 use rendiation_viewer_content::*;
 
 mod cx;
 use cx::*;
+mod panic_hook;
+pub use panic_hook::setup_panic_message_file_writer;
 
 pub struct ViewerAPI {
   gpu_and_main_surface: WGPUAndInitSurface,
@@ -29,15 +31,18 @@ impl Drop for ViewerAPI {
 }
 
 impl ViewerAPI {
-  // todo, we should use i32??
-  pub fn create_view(&mut self, hwnd: u32) -> u32 {
+  pub fn create_view(&mut self, hwnd: *mut c_void, hinstance: *mut c_void) -> u32 {
     let init_size = Size::from_u32_pair_min_one((256, 256));
 
-    let window_handle =
+    let mut window_handle =
       raw_gpu::rwh::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
-    // do we need GWLP_HINSTANCE?
+
+    if !hinstance.is_null() {
+      window_handle.hinstance = Some(NonZeroIsize::new(hinstance as isize).unwrap());
+    }
     let window_handle = raw_gpu::rwh::RawWindowHandle::Win32(window_handle);
 
+    // display handle in windows is always default.
     let display_handle =
       raw_gpu::rwh::RawDisplayHandle::Windows(raw_gpu::rwh::WindowsDisplayHandle::new());
     let surface = unsafe {
@@ -228,14 +233,19 @@ impl ViewerPickerAPI {
     let mut model_results = Vec::new();
     let mut local_result_scratch = Vec::new();
 
-    let cx = todo!();
+    let cx = SceneRayQuery {
+      world_ray: todo!(),
+      camera_view_size_in_logic_pixel: todo!(),
+      pixels_per_unit_calc: todo!(),
+      camera_world: todo!(),
+    };
 
     if let Some(iter) = self.scene_models_of_scene.access_multi(&scene) {
       let iter = iter.map(|v| unsafe { EntityHandle::from_raw(v) });
       pick_models_all(
         self.picker_impl.as_ref(),
         &mut iter,
-        cx,
+        &cx,
         &mut results,
         &mut model_results,
         &mut local_result_scratch,
@@ -292,10 +302,15 @@ pub extern "C" fn drop_viewer_content_api_instance(api: *mut ViewerAPI) {
   let _ = unsafe { Box::from_raw(api) };
 }
 
+/// hinstance can be null_ptr
 #[no_mangle]
-pub extern "C" fn viewer_create_view(api: *mut ViewerAPI, hwnd: u32) -> u32 {
+pub extern "C" fn viewer_create_view(
+  api: *mut ViewerAPI,
+  hwnd: *mut c_void,
+  hinstance: *mut c_void,
+) -> u32 {
   let api = unsafe { &mut *api };
-  api.create_view(hwnd)
+  api.create_view(hwnd, hinstance)
 }
 
 #[no_mangle]
@@ -425,7 +440,13 @@ pub struct AttributesMeshEntitiesCommon {
 }
 
 #[no_mangle]
-pub extern "C" fn drop_mesh(handle: AttributesMeshEntitiesCommon) {
+pub extern "C" fn drop_mesh(entities: AttributesMeshEntitiesCommon) {
+  let mut writer = AttributesMeshEntityFromAttributesMeshWriter::from_global();
+  let mut buffer = global_entity_of::<BufferEntity>().entity_writer();
+
+  let entities: AttributesMeshEntities = todo!();
+  entities.clean_up(&mut writer, &mut buffer);
+
   //
 }
 
@@ -503,10 +524,7 @@ pub extern "C" fn drop_text3d(handle: ViewerEntityHandle) {
 pub extern "C" fn create_camera(node: ViewerEntityHandle) -> ViewerEntityHandle {
   global_entity_of::<SceneCameraEntity>()
     .entity_writer()
-    .new_entity(|w| {
-      //
-      w.write::<SceneCameraNode>(&Some(node.into()))
-    })
+    .new_entity(|w| w.write::<SceneCameraNode>(&Some(node.into())))
     .into()
 }
 #[no_mangle]

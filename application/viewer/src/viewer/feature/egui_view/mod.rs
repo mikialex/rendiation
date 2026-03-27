@@ -262,15 +262,32 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
               let mut w = global_entity_of::<Text3dEntity>().entity_writer();
               let content = w.read::<Text3dContent>(text3d).unwrap();
 
-              let mut text = content.content.clone();
+              let mut c = (*content).clone();
+              ui.text_edit_multiline(&mut c.content);
+              ui.checkbox(&mut c.italic, "italic");
 
-              ui.label(&content.content);
+              let mut has_width = c.width.is_some();
+              ui.checkbox(&mut has_width, "enable_width");
+              if has_width {
+                if c.width.is_none() {
+                  c.width = Some(100.);
+                }
+              } else {
+                c.width = None;
+              }
+              if let Some(width) = &mut c.width {
+                ui.add(egui::Slider::new(width, 0.0..=100.0).text("width"));
+              }
 
-              ui.text_edit_multiline(&mut text);
+              egui::ComboBox::from_label("alignment")
+                .selected_text(format!("{:?}", &c.align))
+                .show_ui(ui, |ui| {
+                  ui.selectable_value(&mut c.align, TextAlignment::Left, "left");
+                  ui.selectable_value(&mut c.align, TextAlignment::Center, "Center");
+                  ui.selectable_value(&mut c.align, TextAlignment::Right, "Right");
+                });
 
-              if text != content.content {
-                let mut c = (*content).clone();
-                c.content = text;
+              if c != *content {
                 w.write::<Text3dContent>(text3d, Some(ExternalRefPtr::new(c)));
               }
             }

@@ -5,13 +5,17 @@ pub fn load_text3d_test(s_writer: &mut SceneWriter) {
 
   let text_3d = writer.new_entity(|w| {
     w.write::<Text3dContent>(&Some(ExternalRefPtr::new(Text3dContentInfo {
-      content: String::from("Hello abcd!\n Hello, World! 我是中文"),
+      content: String::from("Hello abcd!\nHello, World! 我是中文"),
       font_size: 12.,
       line_height: 1.2,
       scale: 0.05,
-      font: None,
+      font: Some(String::from("Cascadia Code")),
       weight: None,
       color: Vec4::new(1., 0., 0., 1.),
+      italic: false,
+      width: None,
+      height: None,
+      align: TextAlignment::Left,
     })))
   });
 

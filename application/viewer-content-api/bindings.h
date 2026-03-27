@@ -74,7 +74,10 @@ struct ViewerAPI *create_viewer_content_api_instance(void);
 
 void drop_viewer_content_api_instance(struct ViewerAPI *api);
 
-uint32_t viewer_create_view(struct ViewerAPI *api, uint32_t hwnd);
+/**
+ * hinstance can be null_ptr
+ */
+uint32_t viewer_create_view(struct ViewerAPI *api, void *hwnd, void *hinstance);
 
 void viewer_drop_view(struct ViewerAPI *api, uint32_t view_id);
 
@@ -99,7 +102,7 @@ struct AttributesMeshEntitiesCommon create_mesh(uint32_t indices_length,
                                                 const float *uv_raw,
                                                 enum MeshPrimitiveTopology topo);
 
-void drop_mesh(struct AttributesMeshEntitiesCommon handle);
+void drop_mesh(struct AttributesMeshEntitiesCommon entities);
 
 struct ViewerEntityHandle create_texture2d(void);
 
@@ -148,3 +151,8 @@ void picker_pick_list(struct ViewerPickerAPI *api,
                       float x,
                       float y,
                       struct ViewerRayPickResult *results);
+
+/**
+ * call this to setup panic message writer when panic happens
+ */
+void setup_panic_message_file_writer(void);

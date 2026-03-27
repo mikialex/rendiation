@@ -25,7 +25,7 @@ pub fn register_text3d_data_model(sparse: bool) {
 
 use facet::Facet;
 use serde::*;
-#[derive(Debug, Clone, Serialize, Deserialize, Facet)]
+#[derive(Debug, Clone, Serialize, Deserialize, Facet, PartialEq)]
 pub struct Text3dContentInfo {
   pub content: String,
   pub font_size: f32,
@@ -33,9 +33,21 @@ pub struct Text3dContentInfo {
   pub line_height: f32,
   /// the real glyph size(in local space) will be font_size * scale
   pub scale: f32,
-  pub font: Option<u32>,
+  pub font: Option<String>,
   pub weight: Option<u32>,
   pub color: Vec4<f32>,
+  pub italic: bool,
+  pub width: Option<f32>,
+  pub height: Option<f32>,
+  pub align: TextAlignment,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Serialize, Deserialize, Facet, PartialEq)]
+pub enum TextAlignment {
+  Left,
+  Center,
+  Right,
 }
 
 declare_foreign_key!(SceneModelText3dPayload, SceneModelEntity, Text3dEntity);

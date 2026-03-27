@@ -10,12 +10,31 @@ pub fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugT
   let mut buffer = cosmic_text::Buffer::new(&mut system.system, metrics);
 
   // Set a size for the text buffer, in pixels
-  buffer.set_size(&mut system.system, None, None);
+  buffer.set_size(&mut system.system, input.width, input.height);
+
+  let font = input
+    .font
+    .as_ref()
+    .map(|f| cosmic_text::Family::Name(f))
+    .unwrap_or(cosmic_text::Family::SansSerif);
+
+  // todo, check if font presented in font system
 
   // Attributes indicate what font to choose
   let attrs = cosmic_text::Attrs::new()
-    .family(cosmic_text::Family::Serif)
+    .family(font)
+    .style(if input.italic {
+      cosmic_text::Style::Italic
+    } else {
+      cosmic_text::Style::Normal
+    })
     .weight(cosmic_text::Weight::NORMAL);
+
+  let alignment = match input.align {
+    TextAlignment::Left => cosmic_text::Align::Left,
+    TextAlignment::Center => cosmic_text::Align::Center,
+    TextAlignment::Right => cosmic_text::Align::Right,
+  };
 
   // Add some text!
   buffer.set_text(
@@ -23,7 +42,7 @@ pub fn prepare_text(system: &mut FontSystem, input: &Text3dContentInfo) -> SlugT
     &input.content,
     &attrs,
     cosmic_text::Shaping::Advanced,
-    Some(cosmic_text::Align::Left),
+    Some(alignment),
   );
 
   // Perform shaping as desired
@@ -250,7 +269,6 @@ struct GlyphBands {
 
 /// Organize curves into horizontal and vertical bands.
 fn build_bands(curves: &[f32], bounds: Bounds, band_count: u32) -> GlyphBands {
-  dbg!(&bounds);
   let Bounds { x_min, y_min, .. } = bounds;
   let (width, height) = bounds.size();
 
