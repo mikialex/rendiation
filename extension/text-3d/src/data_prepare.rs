@@ -1,3 +1,4 @@
+use rendiation_geometry::Box2;
 use rendiation_scene_core::GlobalSceneModelWorldMatrix;
 
 use crate::*;
@@ -54,7 +55,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSlugTextWorldBoundingC
 #[derive(Clone, Copy, Debug)]
 struct PositionedGlyph {
   glyph_key: CacheKey,
-  /// the bounding's origin relative to glyph space origin?
+  /// relative to glyph space origin
   relative_x: f32,
   relative_y: f32,
 }
@@ -70,16 +71,15 @@ impl SlugBuffer {
     let mut bbox = Box3::empty();
     let scale = self.scale;
 
+    // todo, remove
     let glyphs_map: FastHashMap<_, _> = self.glyphs.iter().map(|v| (v.glyph_key, v)).collect();
 
     for pos in &self.positions {
       if let Some(glyph) = glyphs_map.get(&pos.glyph_key) {
-        let Bounds {
-          x_min,
-          y_min,
-          x_max,
-          y_max,
-        } = glyph.bounds;
+        let x_min = glyph.bounds.min.x;
+        let y_min = glyph.bounds.min.y;
+        let x_max = glyph.bounds.max.x;
+        let y_max = glyph.bounds.max.y;
 
         let ox = (pos.relative_x) * scale;
         let oy = pos.relative_y * scale;
@@ -261,12 +261,10 @@ pub fn prepare_text(input: &SlugBuffer) -> Option<SlugTextPrepared> {
     let data = data.unwrap();
 
     let (glyph, glyph_loc_x, glyph_loc_y) = data;
-    let Bounds {
-      x_min,
-      y_min,
-      x_max,
-      y_max,
-    } = glyph.bounds;
+    let x_min = glyph.bounds.min.x;
+    let y_min = glyph.bounds.min.y;
+    let x_max = glyph.bounds.max.x;
+    let y_max = glyph.bounds.max.y;
     let (w, h) = glyph.bounds.size();
 
     // Object-space position (Y-up screen pixels)
@@ -350,34 +348,6 @@ pub struct SlugTextPrepared {
   pub packed: PackedGlyphData,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Bounds {
-  pub x_min: f32,
-  pub y_min: f32,
-  pub x_max: f32,
-  pub y_max: f32,
-}
-
-impl Bounds {
-  pub fn size(&self) -> (f32, f32) {
-    (self.x_max - self.x_min, self.y_max - self.y_min)
-  }
-  pub fn empty() -> Self {
-    Self {
-      x_min: f32::MAX,
-      y_min: f32::MAX,
-      x_max: -f32::MAX,
-      y_max: -f32::MAX,
-    }
-  }
-  pub fn expand(&mut self, x: f32, y: f32) {
-    self.x_min = self.x_min.min(x);
-    self.y_min = self.y_min.min(y);
-    self.x_max = self.x_max.max(x);
-    self.y_max = self.y_max.max(y);
-  }
-}
-
 #[derive(Clone)]
 struct GlyphBands {
   h_bands: Vec<Vec<u32>>,
@@ -387,8 +357,9 @@ struct GlyphBands {
 }
 
 /// Organize curves into horizontal and vertical bands.
-fn build_bands(curves: &[f32], bounds: Bounds, band_count: u32) -> GlyphBands {
-  let Bounds { x_min, y_min, .. } = bounds;
+fn build_bands(curves: &[f32], bounds: Box2, band_count: u32) -> GlyphBands {
+  let x_min = bounds.min.x;
+  let y_min = bounds.min.y;
   let (width, height) = bounds.size();
 
   let mut h_bands = Vec::new();
@@ -445,7 +416,7 @@ pub struct SlugGlyph {
   glyph_key: CacheKey,
   curves: Vec<f32>,
   bands: GlyphBands,
-  bounds: Bounds,
+  bounds: Box2,
 }
 
 impl SlugGlyph {
@@ -611,15 +582,12 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
     band_texel_idx = glyph_start + curve_list_offset as usize;
   }
 
-  // println!("{:?}", &curve_tex_data);
-
   PackedGlyphData {
     curve_tex_data,
     band_tex_data,
     curve_tex_height,
     band_tex_height,
     glyph_band_info,
-    // glyph_curve_starts,
   }
 }
 
@@ -636,7 +604,8 @@ pub struct GlyphBandInfo {
   pub glyph_loc_y: usize,
 }
 
-fn extract_curves(cmds: &[cosmic_text::Command], curves: &mut Vec<f32>) -> Option<Bounds> {
+// todo, https://github.com/diffusionstudio/slug-webgpu/commit/12d8bdf333263c1340a7ca5de0c36f7f90721be0
+fn extract_curves(cmds: &[cosmic_text::Command], curves: &mut Vec<f32>) -> Option<Box2> {
   let mut current_x = 0.0;
   let mut current_y = 0.0;
 
@@ -715,10 +684,10 @@ fn extract_curves(cmds: &[cosmic_text::Command], curves: &mut Vec<f32>) -> Optio
     return None;
   }
 
-  let mut bound = Bounds::empty();
+  let mut bound = Box2::empty();
   let new_points = curves[start..].as_chunks::<2>().0;
   for [x, y] in new_points {
-    bound.expand(*x, *y);
+    bound.expand_by_point(Vec2::new(*x, *y));
   }
 
   Some(bound)

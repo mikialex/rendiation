@@ -1,6 +1,7 @@
 use crate::*;
 
 pub type Rectangle<T = f32> = HyperAABB<Vec2<T>>;
+pub type Box2<T = f32> = HyperAABB<Vec2<T>>;
 
 impl<T: Scalar> Rectangle<T> {
   pub fn width(&self) -> T {
@@ -14,6 +15,10 @@ impl<T: Scalar> Rectangle<T> {
   #[inline(always)]
   pub fn is_empty(&self) -> bool {
     (self.max.x < self.min.x) || (self.max.y < self.min.y)
+  }
+
+  pub fn size(&self) -> (T, T) {
+    (self.width(), self.height())
   }
 }
 
