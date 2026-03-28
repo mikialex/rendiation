@@ -3,9 +3,9 @@ use rendiation_scene_core::GlobalSceneModelWorldMatrix;
 
 use crate::*;
 
-pub struct GlobalSlugBufferComputed(pub Arc<RwLock<FontSystem>>);
+pub struct Text3dSlugBuffer(pub Arc<RwLock<FontSystem>>);
 
-impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSlugBufferComputed {
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for Text3dSlugBuffer {
   type Result =
     impl DualQueryLike<Key = RawEntityHandle, Value = ExternalRefPtr<SlugBuffer>> + 'static;
   share_provider_hash_type_id! {}
@@ -26,16 +26,20 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSlugBufferComputed {
   }
 }
 
-pub struct GlobalSlugTextWorldBoundingComputed(pub Arc<RwLock<FontSystem>>);
+pub struct Text3dSceneModelWorldBounding(pub Arc<RwLock<FontSystem>>);
 
-impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSlugTextWorldBoundingComputed {
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for Text3dSceneModelWorldBounding {
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f64>> + 'static;
   share_provider_hash_type_id! {}
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+    let font_system = self.0.clone();
     let local_boxes = cx
-      .use_shared_dual_query(GlobalSlugBufferComputed(self.0.clone()))
-      .use_dual_query_execute_map(cx, || |_, slug_buffer| slug_buffer.compute_local_bounding());
+      .use_shared_dual_query(Text3dSlugBuffer(self.0.clone()))
+      .use_dual_query_execute_map(cx, move || {
+        let font_system = font_system.make_read_holder();
+        move |_, slug_buffer| slug_buffer.compute_local_bounding(&font_system)
+      });
 
     let relation = cx.use_db_rev_ref_tri_view::<SceneModelText3dPayload>();
     let sm_local_bounding = local_boxes.fanout(relation, cx);
@@ -62,20 +66,18 @@ pub struct PositionedGlyph {
 
 pub struct SlugBuffer {
   pub positions: Vec<PositionedGlyph>,
-  pub glyphs: Vec<SlugGlyph>,
+  pub unique_glyphs: FastHashSet<CacheKey>,
+  // pub glyphs: Vec<SlugGlyph>,
   pub scale: f32,
 }
 
 impl SlugBuffer {
-  pub fn compute_local_bounding(&self) -> Box3 {
+  pub fn compute_local_bounding(&self, font_sys: &FontSystem) -> Box3 {
     let mut bbox = Box3::empty();
     let scale = self.scale;
 
-    // todo, remove
-    let glyphs_map: FastHashMap<_, _> = self.glyphs.iter().map(|v| (v.glyph_key, v)).collect();
-
     for pos in &self.positions {
-      if let Some(glyph) = glyphs_map.get(&pos.glyph_key) {
+      if let Some(glyph) = font_sys.get_computed_slug_glyph(&pos.glyph_key) {
         let x_min = glyph.bounds.min.x;
         let y_min = glyph.bounds.min.y;
         let x_max = glyph.bounds.max.x;
@@ -172,7 +174,7 @@ pub fn create_slug_buffer_from_text3d_content(
     }
   }
 
-  let mut slug_glyphs = Vec::new();
+  let mut unique_glyphs = FastHashSet::default();
 
   for cache_key in &used_glyphs {
     let slug_glyph = system
@@ -210,13 +212,13 @@ pub fn create_slug_buffer_from_text3d_content(
       });
 
     if let Some(slug_glyph) = slug_glyph {
-      slug_glyphs.push(slug_glyph.clone());
+      unique_glyphs.insert(slug_glyph.glyph_key);
     }
   }
 
   SlugBuffer {
     positions: glyph_buffer,
-    glyphs: slug_glyphs,
+    unique_glyphs,
     scale: input.scale,
   }
 }

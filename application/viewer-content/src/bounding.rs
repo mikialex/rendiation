@@ -15,7 +15,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
     let wide_line_sm_bounding = cx.use_shared_dual_query(WideLineSceneModelWorldBounding);
     let wide_point_sm_bounding = cx.use_shared_dual_query(WideStyledPointsSceneModelWorldBounding);
     let text3d_sm_bounding =
-      cx.use_shared_dual_query(GlobalSlugTextWorldBoundingComputed(self.0.clone()));
+      cx.use_shared_dual_query(Text3dSceneModelWorldBounding(self.0.clone()));
 
     let extra = wide_line_sm_bounding
       .dual_query_select(wide_point_sm_bounding)

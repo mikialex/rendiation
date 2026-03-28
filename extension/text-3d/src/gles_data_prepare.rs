@@ -6,26 +6,14 @@ use crate::*;
 /// Returns texture data and 5-attribute vertex buffers matching the Slug shaders.
 ///
 /// if something wrong or the content is empty, return None
-pub fn prepare_gles_text(input: &SlugBuffer) -> Option<SlugTextPrepared> {
+pub fn prepare_gles_text(input: &SlugBuffer, font_sys: &FontSystem) -> Option<SlugTextPrepared> {
   let SlugBuffer {
     positions: glyph_buffer,
-    glyphs: slug_glyphs,
+    unique_glyphs,
     scale,
   } = input;
 
-  let packed = pack_glyph_data(&slug_glyphs);
-
-  // Build per-glyph lookup
-  let mut glyph_data_map: FastHashMap<CacheKey, (&SlugGlyph, usize, usize)> =
-    FastHashMap::default();
-
-  for (index, slug_glyph) in slug_glyphs.iter().enumerate() {
-    let band_info = &packed.glyph_band_info[index];
-    glyph_data_map.insert(
-      slug_glyph.glyph_key,
-      (slug_glyph, band_info.glyph_loc_x, band_info.glyph_loc_y),
-    );
-  }
+  let (packed, glyph_data_map) = pack_glyph_data(unique_glyphs, font_sys);
 
   // Build vertex/index data
   // 5 attributes × vec4 = 20 floats = 80 bytes per vertex
@@ -40,7 +28,16 @@ pub fn prepare_gles_text(input: &SlugBuffer) -> Option<SlugTextPrepared> {
     }
     let data = data.unwrap();
 
-    let (glyph, glyph_loc_x, glyph_loc_y) = data;
+    let glyph = font_sys.get_computed_slug_glyph(&positioned_glyph.glyph_key);
+    if glyph.is_none() {
+      continue;
+    }
+    let glyph = glyph.unwrap();
+
+    let GlyphBandInfo {
+      glyph_loc_x,
+      glyph_loc_y,
+    } = data;
     let x_min = glyph.bounds.min.x;
     let y_min = glyph.bounds.min.y;
     let x_max = glyph.bounds.max.x;
@@ -135,19 +132,24 @@ pub struct PackedGlyphData {
   pub band_tex_data: Vec<u32>,
   pub curve_tex_height: usize,
   pub band_tex_height: usize,
-  pub glyph_band_info: Vec<GlyphBandInfo>,
 }
+
 pub struct GlyphBandInfo {
   pub glyph_loc_x: usize,
   pub glyph_loc_y: usize,
 }
 
 /// Pack glyph data into GPU textures (RGBA32Float for curves, RGBA32Uint for bands).
-fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
+fn pack_glyph_data(
+  glyphs: &FastHashSet<CacheKey>,
+  font_sys: &FontSystem,
+) -> (PackedGlyphData, FastHashMap<CacheKey, GlyphBandInfo>) {
+  let filter = |g| font_sys.get_computed_slug_glyph(g);
+
   // --- Curve texture (RGBA32Float, width 4096) ---
   // Each curve = 2 texels: (p0x, p0y, p1x, p1y) and (p2x, p2y, 0, 0)
   let mut total_curve_texels = 0;
-  for g in &*glyphs {
+  for g in glyphs.iter().filter_map(filter) {
     total_curve_texels += g.curves.len() / 6 * 2;
   }
 
@@ -157,7 +159,7 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
   let mut curve_texel_idx = 0;
   let mut glyph_curve_starts = Vec::new();
 
-  for g in glyphs {
+  for g in glyphs.iter().filter_map(filter) {
     glyph_curve_starts.push(curve_texel_idx);
     for [p0x, p0y, p1x, p1y, p2x, p2y] in g.curves.as_chunks::<6>().0 {
       // Texel 0: (p0x, p0y, p1x, p1y)
@@ -187,7 +189,7 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
   // Each header texel: (curveCount, offsetFromGlyphLoc, 0, 0)
   // Each curve ref texel: (curveTexX, curveTexY, 0, 0)
   let mut total_band_texels = 0;
-  for g in glyphs {
+  for g in glyphs.iter().filter_map(filter) {
     let header_count = g.bands.h_band_count + g.bands.v_band_count;
     // Pad to avoid header wrapping at row boundary
     let padded = TEX_WIDTH - (total_band_texels % TEX_WIDTH);
@@ -208,9 +210,10 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
 
   let mut band_texel_idx = 0;
 
-  let mut glyph_band_info: Vec<GlyphBandInfo> = Vec::new();
+  // Build per-glyph lookup
+  let mut glyph_data_map: FastHashMap<CacheKey, GlyphBandInfo> = FastHashMap::default();
 
-  for (gi, g) in glyphs.iter().enumerate() {
+  for (gi, g) in glyphs.iter().filter_map(filter).enumerate() {
     let h_band_count = g.bands.h_band_count;
     let v_band_count = g.bands.v_band_count;
     let header_count = h_band_count + v_band_count;
@@ -223,10 +226,14 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
 
     let glyph_loc_x = band_texel_idx % TEX_WIDTH;
     let glyph_loc_y = (band_texel_idx / TEX_WIDTH) | 0;
-    glyph_band_info.push(GlyphBandInfo {
-      glyph_loc_x,
-      glyph_loc_y,
-    });
+
+    glyph_data_map.insert(
+      g.glyph_key,
+      GlyphBandInfo {
+        glyph_loc_x,
+        glyph_loc_y,
+      },
+    );
 
     let all_bands: Vec<_> = g
       .bands
@@ -276,13 +283,13 @@ fn pack_glyph_data(glyphs: &Vec<SlugGlyph>) -> PackedGlyphData {
     band_texel_idx = glyph_start + curve_list_offset as usize;
   }
 
-  PackedGlyphData {
+  let packed = PackedGlyphData {
     curve_tex_data,
     band_tex_data,
     curve_tex_height,
     band_tex_height,
-    glyph_band_info,
-  }
+  };
+  (packed, glyph_data_map)
 }
 
 fn create_gpu_texture2d_impl(cx: &GPU, texture: &GPUBufferImage) -> GPU2DTextureView {

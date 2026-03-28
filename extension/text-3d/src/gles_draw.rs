@@ -13,12 +13,17 @@ pub fn use_text3d_gles_renderer(
   let gpu = cx.gpu.clone();
 
   let slug_buffer = cx
-    .use_shared_dual_query(GlobalSlugBufferComputed(font_system.clone()))
+    .use_shared_dual_query(Text3dSlugBuffer(font_system.clone()))
     .use_assure_result(cx);
 
-  maintain_shared_map(&text3d_resources, slug_buffer.into_delta_change(), |v| {
-    prepare_gles_text(&v).map(|v| v.create_gpu(&gpu))
-  });
+  maintain_shared_map_avoid_unnecessary_creator_init(
+    &text3d_resources,
+    slug_buffer.into_delta_change(),
+    || {
+      let font_sys = font_system.make_read_holder();
+      move |v| prepare_gles_text(&v, &font_sys).map(|v| v.create_gpu(&gpu))
+    },
+  );
 
   cx.when_render(|| Text3dGlesRenderer {
     access: global_database().read_foreign_key(),

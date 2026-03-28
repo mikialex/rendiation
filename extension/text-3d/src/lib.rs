@@ -19,7 +19,7 @@ mod slug_shader;
 use std::sync::Arc;
 
 use data_prepare::*;
-pub use data_prepare::{GlobalSlugBufferComputed, GlobalSlugTextWorldBoundingComputed};
+pub use data_prepare::{Text3dSceneModelWorldBounding, Text3dSlugBuffer};
 use gles_data_prepare::*;
 pub use gles_draw::use_text3d_gles_renderer;
 use gles_draw::*;
@@ -90,5 +90,9 @@ impl FontSystem {
 
   pub fn load_font(&mut self, data: Vec<u8>) {
     self.system.db_mut().load_font_data(data);
+  }
+
+  pub(crate) fn get_computed_slug_glyph(&self, key: &CacheKey) -> Option<&SlugGlyph> {
+    self.slug_glyph_cache.get(key).map(|v| v.as_ref()).flatten()
   }
 }
