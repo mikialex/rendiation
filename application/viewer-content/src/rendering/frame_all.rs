@@ -127,7 +127,15 @@ impl Viewer3dRenderingCtx {
 
     let is_indirect = self.current_renderer_impl_ty == RasterizationRenderBackendType::Indirect
       && !self.using_host_driven_indirect_draw;
-    let culling = use_viewer_culling(cx, self.ndc, &self.culling, is_indirect, viewports);
+
+    let culling = use_viewer_culling(
+      cx,
+      self.ndc,
+      &self.culling,
+      is_indirect,
+      viewports,
+      &self.font_system,
+    );
 
     let mut mesh_lod_graph_renderer = None;
     let mut indirect_extractor = None;
@@ -385,7 +393,7 @@ impl Viewer3dRenderingCtx {
       .use_assure_result(cx);
 
     let sm_world_bounding = cx
-      .use_shared_dual_query_view(SceneModelWorldBounding)
+      .use_shared_dual_query_view(SceneModelWorldBounding(self.font_system.clone()))
       .use_assure_result(cx);
 
     let clipping = use_csg_clipping(cx, self.enable_clip, self.fill_clip_face);

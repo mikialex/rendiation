@@ -1,18 +1,24 @@
+#![feature(impl_trait_in_assoc_type)]
+
 use core::f32;
 
 use cosmic_text::CacheKey;
 use database::*;
 use fast_hash_collection::*;
 use rendiation_algebra::*;
+use rendiation_geometry::Box3;
 use rendiation_scene_core::SceneModelEntity;
 use rendiation_texture_core::GPUBufferImage;
 
-mod bounding;
 mod data_prepare;
 mod gles_draw;
 mod slug_shader;
+use std::sync::Arc;
+
 use data_prepare::*;
+pub use data_prepare::{GlobalSlugBufferComputed, GlobalSlugTextWorldBoundingComputed};
 pub use gles_draw::use_text3d_gles_renderer;
+use parking_lot::RwLock;
 
 pub fn register_text3d_data_model(sparse: bool) {
   global_entity_of::<SceneModelEntity>()

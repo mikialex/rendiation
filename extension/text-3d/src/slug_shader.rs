@@ -326,6 +326,7 @@ pub struct SlugDilateResult {
   pub vpos: Vec2<f32>,
 }
 
+/// https://terathon.com/blog/glyph-dilation.html
 pub fn slug_dilate(
   pos: Node<Vec4<f32>>,
   tex: Node<Vec4<f32>>,

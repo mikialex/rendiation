@@ -10,6 +10,7 @@ pub fn use_viewer_culling(
   config: &ViewerCullingConfig,
   is_indirect: bool,
   viewports: &[ViewerViewPort],
+  font_system: &Arc<RwLock<FontSystem>>,
 ) -> Option<ViewerCulling> {
   let oc_states = if config.enable_indirect_occlusion_culling && is_indirect {
     cx.scope(|cx| {
@@ -36,12 +37,12 @@ pub fn use_viewer_culling(
   };
 
   let sm_world_bounding = cx
-    .use_shared_dual_query_view(SceneModelWorldBounding)
+    .use_shared_dual_query_view(SceneModelWorldBounding(font_system.clone()))
     .use_assure_result(cx);
 
   let bounding_provider = if is_indirect {
     cx.scope(|cx| {
-      let bounding = cx.use_shared_dual_query(SceneModelWorldBounding);
+      let bounding = cx.use_shared_dual_query(SceneModelWorldBounding(font_system.clone()));
       use_scene_model_device_world_bounding(cx, bounding).map(|b| Box::new(b) as Box<_>)
     })
   } else {

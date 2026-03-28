@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use parking_lot::RwLock;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_scene_rendering_gpu_gles::GLESModelRenderImpl;
 use rendiation_shader_api::*;
@@ -20,16 +17,14 @@ pub fn use_text3d_gles_renderer(
   let text3d_resources = cx.use_shared_hash_map("text3d gles gpu resources");
 
   let gpu = cx.gpu.clone();
-  let font_system = font_system.clone();
 
-  maintain_shared_map_avoid_unnecessary_creator_init(
-    &text3d_resources,
-    cx.use_changes::<Text3dContent>().filter_map_changes(|t| t),
-    || {
-      let mut font_system = font_system.write();
-      move |info| prepare_text(&mut font_system, &info).map(|v| v.create_gpu(&gpu))
-    },
-  );
+  let slug_buffer = cx
+    .use_shared_dual_query(GlobalSlugBufferComputed(font_system.clone()))
+    .use_assure_result(cx);
+
+  maintain_shared_map(&text3d_resources, slug_buffer.into_delta_change(), |v| {
+    prepare_text(&v).map(|v| v.create_gpu(&gpu))
+  });
 
   cx.when_render(|| Text3dGlesRenderer {
     access: global_database().read_foreign_key(),
@@ -39,7 +34,7 @@ pub fn use_text3d_gles_renderer(
 
 pub struct Text3dGlesRenderer {
   access: ForeignKeyReadView<SceneModelText3dPayload>,
-  texts: SharedHashMapRead<u32, Option<SlugTextGPUData>>,
+  texts: SharedHashMapRead<RawEntityHandle, Option<SlugTextGPUData>>,
 }
 
 impl GLESModelRenderImpl for Text3dGlesRenderer {
@@ -48,7 +43,7 @@ impl GLESModelRenderImpl for Text3dGlesRenderer {
     idx: EntityHandle<SceneModelEntity>,
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     let text_id = self.access.get(idx)?;
-    let text_gpu = self.texts.get(&text_id.alloc_index()).unwrap();
+    let text_gpu = self.texts.get(text_id.raw_handle_ref()).unwrap();
     // todo, we should distinguish between this case from the error case
     let text_gpu = text_gpu.as_ref()?;
 

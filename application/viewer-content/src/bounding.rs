@@ -1,6 +1,6 @@
 use crate::*;
 
-pub struct SceneModelWorldBounding;
+pub struct SceneModelWorldBounding(pub Arc<RwLock<FontSystem>>);
 
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
   share_provider_hash_type_id! {}
@@ -14,8 +14,13 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
 
     let wide_line_sm_bounding = cx.use_shared_dual_query(WideLineSceneModelWorldBounding);
     let wide_point_sm_bounding = cx.use_shared_dual_query(WideStyledPointsSceneModelWorldBounding);
+    let text3d_sm_bounding =
+      cx.use_shared_dual_query(GlobalSlugTextWorldBoundingComputed(self.0.clone()));
+
     let extra = wide_line_sm_bounding
       .dual_query_select(wide_point_sm_bounding)
+      .dual_query_boxed()
+      .dual_query_select(text3d_sm_bounding)
       .dual_query_boxed();
 
     att_mesh_std_sm_bounding.dual_query_select(extra)

@@ -1,4 +1,55 @@
+use rendiation_scene_core::GlobalSceneModelWorldMatrix;
+
 use crate::*;
+
+pub struct GlobalSlugBufferComputed(pub Arc<RwLock<FontSystem>>);
+
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSlugBufferComputed {
+  type Result =
+    impl DualQueryLike<Key = RawEntityHandle, Value = ExternalRefPtr<SlugBuffer>> + 'static;
+  share_provider_hash_type_id! {}
+
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+    let font_system = self.0.clone();
+    cx.use_dual_query::<Text3dContent>()
+      .dual_query_filter_map(|v| v)
+      .use_dual_query_execute_map(cx, move || {
+        let mut font_system = font_system.make_write_holder();
+        move |_, info| {
+          ExternalRefPtr::new(create_slug_buffer_from_text3d_content(
+            &mut font_system,
+            &info,
+          ))
+        }
+      })
+  }
+}
+
+pub struct GlobalSlugTextWorldBoundingComputed(pub Arc<RwLock<FontSystem>>);
+
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSlugTextWorldBoundingComputed {
+  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f64>> + 'static;
+  share_provider_hash_type_id! {}
+
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+    let local_boxes = cx
+      .use_shared_dual_query(GlobalSlugBufferComputed(self.0.clone()))
+      .use_dual_query_execute_map(cx, || |_, slug_buffer| slug_buffer.compute_local_bounding());
+
+    let relation = cx.use_db_rev_ref_tri_view::<SceneModelText3dPayload>();
+    let sm_local_bounding = local_boxes.fanout(relation, cx);
+
+    let scene_model_world_mat = cx.use_shared_dual_query(GlobalSceneModelWorldMatrix);
+
+    // todo, materialize
+    scene_model_world_mat
+      .dual_query_intersect(sm_local_bounding)
+      .dual_query_map(|(mat, local)| {
+        let f64_box = Box3::new(local.min.into_f64(), local.max.into_f64());
+        f64_box.apply_matrix_into(mat)
+      })
+  }
+}
 
 #[derive(Clone, Copy, Debug)]
 struct PositionedGlyph {
@@ -11,6 +62,47 @@ struct PositionedGlyph {
 pub struct SlugBuffer {
   positions: Vec<PositionedGlyph>,
   glyphs: Vec<SlugGlyph>,
+  scale: f32,
+}
+
+impl SlugBuffer {
+  pub fn compute_local_bounding(&self) -> Box3 {
+    let mut bbox = Box3::empty();
+    let scale = self.scale;
+
+    let glyphs_map: FastHashMap<_, _> = self.glyphs.iter().map(|v| (v.glyph_key, v)).collect();
+
+    for pos in &self.positions {
+      if let Some(glyph) = glyphs_map.get(&pos.glyph_key) {
+        let Bounds {
+          x_min,
+          y_min,
+          x_max,
+          y_max,
+        } = glyph.bounds;
+
+        let ox = (pos.relative_x) * scale;
+        let oy = pos.relative_y * scale;
+        let x0 = ox + x_min * scale;
+        let y0 = oy + y_min * scale;
+        let x1 = ox + x_max * scale;
+        let y1 = oy + y_max * scale;
+        bbox.expand_by_point(Vec3::new(x0, y0, 0.));
+        bbox.expand_by_point(Vec3::new(x1, y1, 0.));
+      }
+    }
+
+    println!(":");
+    dbg!(&bbox);
+
+    bbox
+  }
+}
+
+impl std::fmt::Debug for SlugBuffer {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("SlugBuffer").finish()
+  }
 }
 
 pub fn create_slug_buffer_from_text3d_content(
@@ -125,6 +217,7 @@ pub fn create_slug_buffer_from_text3d_content(
   SlugBuffer {
     positions: glyph_buffer,
     glyphs: slug_glyphs,
+    scale: input.scale,
   }
 }
 
@@ -132,16 +225,12 @@ pub fn create_slug_buffer_from_text3d_content(
 /// Returns texture data and 5-attribute vertex buffers matching the Slug shaders.
 ///
 /// if something wrong or the content is empty, return None
-pub fn prepare_text(
-  system: &mut FontSystem,
-  input: &Text3dContentInfo,
-) -> Option<SlugTextPrepared> {
+pub fn prepare_text(input: &SlugBuffer) -> Option<SlugTextPrepared> {
   let SlugBuffer {
     positions: glyph_buffer,
     glyphs: slug_glyphs,
-  } = create_slug_buffer_from_text3d_content(system, input);
-
-  let scale = input.scale;
+    scale,
+  } = input;
 
   let packed = pack_glyph_data(&slug_glyphs);
 
@@ -161,21 +250,15 @@ pub fn prepare_text(
   // 5 attributes × vec4 = 20 floats = 80 bytes per vertex
   let mut verts = Vec::new();
   let mut idxs = Vec::new();
-  let cursor_x = 0.;
   let mut quad_idx = 0;
 
   // for (const { info, position } of glyphBuffer) {
-  for positioned_glyph in &glyph_buffer {
+  for positioned_glyph in glyph_buffer {
     let data = glyph_data_map.get(&positioned_glyph.glyph_key);
     if data.is_none() {
       continue;
     }
     let data = data.unwrap();
-
-    //   if (!data) {
-    //     cursorX += position.xAdvance;
-    //     continue;
-    //   }
 
     let (glyph, glyph_loc_x, glyph_loc_y) = data;
     let Bounds {
@@ -187,9 +270,9 @@ pub fn prepare_text(
     let (w, h) = glyph.bounds.size();
 
     // Object-space position (Y-up screen pixels)
-    let ox = (cursor_x + positioned_glyph.relative_x) * scale;
+    let ox = positioned_glyph.relative_x * scale;
     let oy = positioned_glyph.relative_y * scale;
-    let x0 = ox + x_min * scale; // todo, why?
+    let x0 = ox + x_min * scale;
     let y0 = oy + y_min * scale;
     let x1 = ox + x_max * scale;
     let y1 = oy + y_max * scale;
@@ -245,7 +328,6 @@ pub fn prepare_text(
 
     let base = quad_idx * 4;
     idxs.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
-    // cursorX += position.xAdvance; todo
     quad_idx += 1;
   }
 
@@ -256,20 +338,16 @@ pub fn prepare_text(
   }
 
   Some(SlugTextPrepared {
-    slug_glyphs,
     vertices: verts,
     indices: idxs,
     packed,
-    // totalAdvance: cursorX,
   })
 }
 
 pub struct SlugTextPrepared {
-  pub slug_glyphs: Vec<SlugGlyph>,
   pub vertices: Vec<f32>,
   pub indices: Vec<u32>,
   pub packed: PackedGlyphData,
-  // totalAdvance: u32,
 }
 
 #[derive(Clone, Copy, Debug)]

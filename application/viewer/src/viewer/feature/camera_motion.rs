@@ -97,7 +97,7 @@ pub fn use_fit_camera_view(
   camera_node: EntityHandle<SceneNodeEntity>,
 ) {
   let sm_world_bounding = cx
-    .use_shared_dual_query_view(SceneModelWorldBounding)
+    .use_shared_dual_query_view(SceneModelWorldBounding(cx.viewer.font_system.clone()))
     .use_assure_result(cx);
 
   let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
