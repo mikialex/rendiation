@@ -1,14 +1,8 @@
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_scene_rendering_gpu_gles::GLESModelRenderImpl;
-use rendiation_shader_api::*;
-use rendiation_texture_gpu_base::GPUBufferImageForeignImpl;
-use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
-use crate::{
-  slug_shader::{slug_dilate, slug_render},
-  *,
-};
+use crate::*;
 
 pub fn use_text3d_gles_renderer(
   cx: &mut QueryGPUHookCx,
@@ -23,7 +17,7 @@ pub fn use_text3d_gles_renderer(
     .use_assure_result(cx);
 
   maintain_shared_map(&text3d_resources, slug_buffer.into_delta_change(), |v| {
-    prepare_text(&v).map(|v| v.create_gpu(&gpu))
+    prepare_gles_text(&v).map(|v| v.create_gpu(&gpu))
   });
 
   cx.when_render(|| Text3dGlesRenderer {
@@ -60,77 +54,7 @@ impl GLESModelRenderImpl for Text3dGlesRenderer {
   }
 }
 
-fn create_gpu_texture2d(cx: &GPU, texture: &GPUBufferImage) -> GPU2DTextureView {
-  let texture = GPUBufferImageForeignImpl { inner: texture };
-
-  let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap, cx.info().downgrade_info.flags);
-  let gpu_texture = GPUTexture::create(desc, &cx.device);
-  let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
-  let gpu_texture = gpu_texture.upload_into(&cx.queue, &texture, 0);
-
-  gpu_texture.create_default_view().try_into().unwrap()
-}
-
-fn create_gpu_texture2d_u32(
-  cx: &GPU,
-  texture: &GPUBufferImage,
-) -> GPUTypedTextureView<TextureDimension2, u32> {
-  let texture = GPUBufferImageForeignImpl { inner: texture };
-
-  let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap, cx.info().downgrade_info.flags);
-  let gpu_texture = GPUTexture::create(desc, &cx.device);
-  let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
-  let gpu_texture = gpu_texture.upload_into(&cx.queue, &texture, 0);
-
-  gpu_texture.create_default_view().try_into().unwrap()
-}
-
-impl SlugTextPrepared {
-  fn create_gpu(&self, gpu: &GPU) -> SlugTextGPUData {
-    let indices = create_gpu_buffer(
-      bytemuck::cast_slice(&self.indices),
-      BufferUsages::INDEX,
-      &gpu.device,
-    );
-    let indices = indices.create_default_view();
-    let vertices = create_gpu_buffer(
-      bytemuck::cast_slice(&self.vertices),
-      BufferUsages::VERTEX,
-      &gpu.device,
-    );
-    let vertices = vertices.create_default_view();
-
-    let curve_tex_data = create_gpu_texture2d(
-      gpu,
-      &GPUBufferImage {
-        data: bytemuck::cast_slice(&self.packed.curve_tex_data).to_vec(),
-        format: TextureFormat::Rgba32Float,
-        size: Size::from_u32_pair_min_one((TEX_WIDTH as u32, self.packed.curve_tex_height as u32)),
-      },
-    );
-
-    let band_tex_data = create_gpu_texture2d_u32(
-      gpu,
-      &GPUBufferImage {
-        data: bytemuck::cast_slice(&self.packed.band_tex_data).to_vec(),
-        format: TextureFormat::Rgba32Uint,
-        size: Size::from_u32_pair_min_one((TEX_WIDTH as u32, self.packed.band_tex_height as u32)),
-      },
-    )
-    .texture
-    .try_into()
-    .unwrap();
-
-    SlugTextGPUData {
-      indices,
-      vertices,
-      curve_tex_data,
-      band_tex_data,
-    }
-  }
-}
-
-struct SlugTextGPUData {
+pub struct SlugTextGPUData {
   pub indices: GPUBufferResourceView,
   pub vertices: GPUBufferResourceView,
   pub curve_tex_data: GPU2DTextureView,
