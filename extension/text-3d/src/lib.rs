@@ -62,6 +62,7 @@ declare_component!(
 pub struct FontSystem {
   system: cosmic_text::FontSystem,
   swash: cosmic_text::SwashCache,
+  slug_glyph_cache: FastHashMap<CacheKey, Option<SlugGlyph>>,
 }
 
 impl FontSystem {
@@ -71,6 +72,7 @@ impl FontSystem {
     Self {
       system,
       swash: cosmic_text::SwashCache::new(),
+      slug_glyph_cache: Default::default(),
     }
   }
 
