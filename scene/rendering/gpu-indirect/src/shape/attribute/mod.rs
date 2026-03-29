@@ -271,6 +271,7 @@ fn use_attribute_vertex_updates(
   let allocation_info =
     vertex_data_source.map_spawn_stage_in_thread_data_changes(cx, move |change| {
       // todo, this code should be improved
+      // we should add datachange ref trait to avoid some arc clone
       let mut small_buffer_count = 0;
       let mut small_buffer_byte_count = 0;
       let mut large_buffer_count = 0;

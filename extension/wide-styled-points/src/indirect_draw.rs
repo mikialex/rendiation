@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use parking_lot::RwLock;
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
 use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
@@ -10,90 +7,34 @@ pub fn use_widen_styled_points_indirect_renderer(
   cx: &mut QueryGPUHookCx,
   force_midc_downgrade: bool,
 ) -> Option<WideStyledPointsIndirectRenderer> {
-  let init_item_count = 100;
-  let max_item_count = 1000000;
-
-  let item_byte_size = std::mem::size_of::<WideStyledPointVertexStorage>() as u32;
-  let (cx, points_buffer) = cx.use_gpu_init(|gpu, alloc| {
-    let buffer = alloc.allocate_readonly::<[WideStyledPointVertexStorage]>(
-      (item_byte_size * init_item_count) as u64,
-      &gpu.device,
-      Some("wide points buffer pool"),
-    );
-
-    let buffer = buffer.with_direct_resize(gpu);
-
-    Arc::new(RwLock::new(buffer))
-  });
-
-  cx.if_inspect(|inspector| {
-    let buffer_size = points_buffer.read().gpu().byte_size();
-    inspector.label_device_memory_usage("wide points segment buffer pool", buffer_size);
-  });
-
-  let (cx, allocator) =
-    cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_item_count, init_item_count));
-
-  let gpu_buffer = points_buffer.clone();
-
-  // todo, improve code sharing with indirect attribute mesh
-  let allocation_info = cx
+  let data_source = cx
     .use_dual_query::<WidesStyledPointsMeshBuffer>()
     .map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
-      let change = source_info.delta().into_change();
-      let removed_and_changed_keys = change
-        .iter_removed()
-        .chain(change.iter_update_or_insert().map(|(k, _)| k));
-
-      // todo, avoid resize
-      let mut buffers_to_write = RangeAllocateBufferCollector::default();
-      let mut sizes = Vec::new();
-
-      for (k, buffer) in change.iter_update_or_insert() {
-        let buffer = buffer.ptr.clone();
-
+      source_info.delta().into_change().collective_map(|buffer| {
         // here we assume the buffer is correctly aligned
         let buffer: &[WideStyledPointVertex] = cast_slice(&buffer);
-        let buffer: Vec<_> = buffer
-          .iter()
-          .map(|v| WideStyledPointVertexStorage {
-            position: v.position,
-            style_id: v.style_id,
-            width: v.width,
-            ..Default::default()
-          })
-          .collect();
-        let buffer: &[u8] = cast_slice(&buffer);
-        let len = buffer.len() as u32;
-        buffers_to_write.collect_direct(k, buffer);
-        sizes.push((k, len / item_byte_size));
-      }
-
-      let changes = allocator.write().update(removed_and_changed_keys, sizes);
-
-      let buffers_to_write = buffers_to_write.prepare(&changes, item_byte_size);
-
-      if let Some(new_size) = changes.resize_to {
-        // here we do(request) resize at spawn stage to avoid resize again and again
-        gpu_buffer.write().resize(new_size);
-      }
-
-      Arc::new(RangeAllocateBufferUpdates {
-        buffers_to_write,
-        allocation_changes: BatchAllocateResultShared(Arc::new(changes), item_byte_size / 4),
+        let mut new_buffer =
+          Vec::with_capacity(buffer.len() * std::mem::size_of::<WideStyledPointVertexStorage>());
+        for v in buffer {
+          new_buffer.extend_from_slice(
+            WideStyledPointVertexStorage {
+              position: v.position,
+              style_id: v.style_id,
+              width: v.width,
+              ..Default::default()
+            }
+            .as_bytes(),
+          );
+        }
+        ExternalRefPtr::new(new_buffer)
       })
     });
 
-  let (allocation_info, allocation_info_) = allocation_info.fork();
-
-  let allocation_info_ = allocation_info_.use_assure_result(cx);
-  if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
-    let mut gpu_buffer = points_buffer.write();
-    let gpu_buffer = gpu_buffer.abstract_gpu();
-    allocation_info_
-      .expect_resolve_stage()
-      .write(cx.gpu, encoder, gpu_buffer);
-  }
+  let (points_buffer, allocation_info) = use_range_allocated_device_buffers::<
+    WideStyledPointVertexStorage,
+  >(
+    cx, "wide points buffer pool", 100, 1000000, data_source
+  );
 
   let (cx, params) = cx.use_storage_buffer_with_host_backup::<WideStyledPointParameters>(
     "wide points buffer parameters and range info",
@@ -114,7 +55,7 @@ pub fn use_widen_styled_points_indirect_renderer(
 
   cx.when_render(|| WideStyledPointsIndirectRenderer {
     model_access: global_database().read_foreign_key::<SceneModelWideStyledPointsRenderPayload>(),
-    points: points_buffer.read().gpu().clone(),
+    points: points_buffer,
     params: params.get_gpu_buffer(),
     sm_to_wide_points_device: sm_to_wide_points_device.unwrap(),
     params_host: params.buffer.make_read_holder(),
