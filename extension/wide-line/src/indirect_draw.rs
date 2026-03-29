@@ -114,21 +114,13 @@ pub fn use_widen_line_indirect_renderer(
   params.use_max_item_count_by_db_entity::<WideLineModelEntity>(cx);
   params.use_update(cx);
 
-  let (cx, sm_to_wide_line_device) =
-    cx.use_storage_buffer::<u32>("scene_model to wide line mapping", 128, u32::MAX);
-
-  cx.use_dual_query::<SceneModelWideLineRenderPayload>()
-    .map_raw_handle_or_u32_max_changes()
-    .update_storage_array(cx, sm_to_wide_line_device, 0);
-
-  sm_to_wide_line_device.use_max_item_count_by_db_entity::<SceneModelEntity>(cx);
-  sm_to_wide_line_device.use_update(cx);
+  let sm_to_wide_line_device = use_db_device_foreign_key::<SceneModelWideLineRenderPayload>(cx);
 
   cx.when_render(|| WideLineModelIndirectRenderer {
     model_access: global_database().read_foreign_key::<SceneModelWideLineRenderPayload>(),
     segments: line_seg_buffer.read().gpu().clone(),
     params: params.get_gpu_buffer(),
-    sm_to_wide_line_device: sm_to_wide_line_device.get_gpu_buffer(),
+    sm_to_wide_line_device: sm_to_wide_line_device.unwrap(),
     params_host: params.buffer.make_read_holder(),
     used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
   })
