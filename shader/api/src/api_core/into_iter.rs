@@ -36,7 +36,7 @@ pub struct ShaderIntoIterMap<T, F> {
 impl<T, F, U> IntoShaderIterator for ShaderIntoIterMap<T, F>
 where
   T: IntoShaderIterator,
-  F: Fn(ItemOfIntoShaderIter<T>) -> U + 'static,
+  F: Fn(ItemOfIntoShaderIter<T>) -> U,
 {
   type ShaderIter = impl ShaderIterator<Item = U>;
   fn into_shader_iter(self) -> Self::ShaderIter {
@@ -54,7 +54,7 @@ pub struct ShaderIntoIterHelperMap<T, T2, F> {
 impl<T, T2, F, U> IntoShaderIterator for ShaderIntoIterHelperMap<T, T2, F>
 where
   T: IntoShaderIterator,
-  F: Fn(ItemOfIntoShaderIter<T>, &T2) -> U + 'static,
+  F: Fn(ItemOfIntoShaderIter<T>, &T2) -> U,
 {
   type ShaderIter = impl ShaderIterator<Item = U>;
   fn into_shader_iter(self) -> Self::ShaderIter {

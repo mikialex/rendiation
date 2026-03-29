@@ -146,7 +146,7 @@ fn pack_glyph_data(
 ) -> (PackedGlyphData, FastHashMap<CacheKey, GlyphBandInfo>) {
   let filter = |g| font_sys.get_computed_slug_glyph(g);
 
-  // --- Curve texture (RGBA32Float, width 4096) ---
+  // --- Curve texture (RGBA32Float, width TEX_WIDTH) ---
   // Each curve = 2 texels: (p0x, p0y, p1x, p1y) and (p2x, p2y, 0, 0)
   let mut total_curve_texels = 0;
   for g in glyphs.iter().filter_map(filter) {
@@ -184,7 +184,7 @@ fn pack_glyph_data(
     }
   }
 
-  // --- Band texture (RGBA32Uint, width 4096) ---
+  // --- Band texture (RGBA32Uint, width TEX_WIDTH) ---
   // Per glyph: [hBand headers...] [vBand headers...] [curve index lists...]
   // Each header texel: (curveCount, offsetFromGlyphLoc, 0, 0)
   // Each curve ref texel: (curveTexX, curveTexY, 0, 0)

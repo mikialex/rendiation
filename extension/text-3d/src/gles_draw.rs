@@ -203,13 +203,13 @@ impl GraphicsShaderProvider for SlugTextGPUData {
       let band_t_transform = builder.query::<Text3dBandTransform>();
       let glyph_data = builder.query::<Text3dGlyphData>();
 
-      let coverage = slug_render(
-        curve_tex_data,
-        band_tex_data,
-        uv,
+      let coverage = GlesSlugShaderDataSource {
+        band_data: band_tex_data,
         band_t_transform,
+        curve_data: curve_tex_data,
         glyph_data,
-      );
+      }
+      .slug_render(uv, glyph_data.w());
 
       builder
         .register::<DefaultDisplay>(val(Vec4::new(0., 0., 0., 1.)) * coverage.splat::<Vec4<f32>>());
@@ -252,3 +252,128 @@ only_vertex!(SlugTextGlesVertexTex, Vec4<f32>);
 only_vertex!(SlugTextGlesVertexJac, Vec4<f32>);
 only_vertex!(SlugTextGlesVertexBnd, Vec4<f32>);
 only_vertex!(SlugTextGlesVertexCol, Vec4<f32>);
+
+struct GlesSlugShaderDataSource {
+  band_data: BindingNode<ShaderTexture<TextureDimension2, u32>>,
+  band_t_transform: Node<Vec4<f32>>,
+  curve_data: BindingNode<ShaderTexture2D>,
+  glyph_data: Node<Vec4<i32>>,
+}
+
+impl SlugShaderComputer for GlesSlugShaderDataSource {
+  fn get_band_data_source(
+    &self,
+    render_coord: Node<Vec2<f32>>,
+  ) -> Box<dyn SlugShaderBandDataSource> {
+    let glyph_data = self.glyph_data;
+    let band_t_transform = self.band_t_transform;
+
+    let band_max = vec2_node((glyph_data.z(), glyph_data.w() & val(0x00FF)));
+
+    // Determine what bands the current pixel lies in by applying a scale and offset
+    // to the render coordinates. The scales are given by bandTransform.xy, and the
+    // offsets are given by bandTransform.zw. Band indexes are clamped to [0, bandMax.xy].
+
+    let band_index = (render_coord * band_t_transform.xy() + band_t_transform.zw())
+      .into_i32()
+      .clamp(val(Vec2::zero()), band_max);
+    let glyph_loc = vec2_node((glyph_data.x(), glyph_data.y()));
+
+    // Fetch data for the horizontal band from the index texture. The number
+    // of curves intersecting the band is in the x component, and the offset
+    // to the list of locations for those curves is in the y component.
+
+    let hband_data = vec2_node((glyph_loc.x() + band_index.y(), glyph_loc.y()));
+    let hband_data = self.band_data.load_texel(hband_data.into_u32(), 0).xy();
+    let hband_loc = calc_band_loc(glyph_loc, hband_data.y());
+
+    // Fetch data for the vertical band from the index texture. This follows
+    // the data for all horizontal bands, so we have to add bandMax.y + 1.
+    let coord = vec2_node((
+      glyph_loc.x() + band_max.y() + val(1) + band_index.x(),
+      glyph_loc.y(),
+    ));
+
+    let vband_data = self.band_data.load_texel(coord.into_u32(), 0).xy();
+    let vband_loc = calc_band_loc(glyph_loc, vband_data.y());
+
+    Box::new(GlesSlugShaderBandDataSource {
+      hband_loc,
+      hband_data,
+      vband_loc,
+      vband_data,
+      band_data: self.band_data,
+      curve_data: self.curve_data,
+    })
+  }
+}
+
+const K_LOG_BAND_TEXTURE_WIDTH: u32 = TEX_WIDTH.ilog2();
+
+fn calc_band_loc(glyph_loc: Node<Vec2<i32>>, offset: Node<u32>) -> Node<Vec2<i32>> {
+  // If the offset causes the x coordinate to exceed the texture width, then wrap to the next line.
+
+  let band_loc = vec2_node((glyph_loc.x() + offset.into_i32(), glyph_loc.y()));
+  let y = band_loc.y() + (band_loc.x().right_shift_u32(val(K_LOG_BAND_TEXTURE_WIDTH)));
+  let x = band_loc.x() & val((1 << K_LOG_BAND_TEXTURE_WIDTH) - 1);
+
+  (x, y).into()
+}
+
+struct GlesSlugShaderBandDataSource {
+  hband_loc: Node<Vec2<i32>>,
+  hband_data: Node<Vec2<u32>>,
+  vband_loc: Node<Vec2<i32>>,
+  vband_data: Node<Vec2<u32>>,
+  band_data: BindingNode<ShaderTexture<TextureDimension2, u32>>,
+  curve_data: BindingNode<ShaderTexture2D>,
+}
+
+impl SlugShaderBandDataSource for GlesSlugShaderBandDataSource {
+  fn iter_curves_horizontal(
+    &self,
+    render_coord: Node<Vec2<f32>>,
+  ) -> Box<dyn ShaderIterator<Item = (Node<Vec4<f32>>, Node<Vec2<f32>>)> + '_> {
+    let iter = self
+      .hband_data
+      .x()
+      .into_shader_iter()
+      .map(move |curve_index: Node<u32>| {
+        let curve_index = curve_index.into_i32();
+        // Fetch the location of the current curve from the index texture.
+        let curve_loc = vec2_node((self.hband_loc.x() + curve_index, self.hband_loc.y()));
+        let curve_loc = self.band_data.load_texel(curve_loc.into_u32(), 0).xy();
+
+        let p12 =
+          self.curve_data.load_texel(curve_loc, 0) - vec4_node((render_coord, render_coord));
+        let p3_coord = vec2_node((curve_loc.x() + val(1), curve_loc.y()));
+        let p3 = self.curve_data.load_texel(p3_coord, 0).xy() - render_coord;
+
+        (p12, p3)
+      });
+    Box::new(iter)
+  }
+
+  fn iter_curves_vertical(
+    &self,
+    render_coord: Node<Vec2<f32>>,
+  ) -> Box<dyn ShaderIterator<Item = (Node<Vec4<f32>>, Node<Vec2<f32>>)> + '_> {
+    let iter = self
+      .vband_data
+      .x()
+      .into_shader_iter()
+      .map(move |curve_index: Node<u32>| {
+        let curve_index = curve_index.into_i32();
+        let curve_loc = vec2_node((self.vband_loc.x() + curve_index, self.vband_loc.y()));
+        let curve_loc = self.band_data.load_texel(curve_loc.into_u32(), 0).xy();
+
+        let p12 =
+          self.curve_data.load_texel(curve_loc, 0) - vec4_node((render_coord, render_coord));
+        let p3_coord = vec2_node((curve_loc.x() + val(1), curve_loc.y()));
+        let p3 = self.curve_data.load_texel(p3_coord, 0).xy() - render_coord;
+
+        (p12, p3)
+      });
+    Box::new(iter)
+  }
+}

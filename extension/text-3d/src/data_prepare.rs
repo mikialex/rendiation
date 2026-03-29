@@ -94,9 +94,6 @@ impl SlugBuffer {
       }
     }
 
-    println!(":");
-    dbg!(&bbox);
-
     bbox
   }
 }
@@ -156,16 +153,14 @@ pub fn create_slug_buffer_from_text3d_content(
   // Perform shaping as desired
   buffer.shape_until_scroll(&mut system.system, true);
 
-  let mut used_glyphs = FastHashSet::default();
-
+  let mut unique_glyphs = FastHashSet::default();
   let mut glyph_buffer: Vec<PositionedGlyph> = Vec::new();
 
   // Inspect the output runs
   for run in buffer.layout_runs() {
-    // println!("{:#?}", run);
     for glyph in run.glyphs.iter() {
       let cache_key = glyph.physical((0., run.line_y), 1.0).cache_key;
-      used_glyphs.insert(cache_key);
+      unique_glyphs.insert(cache_key);
       glyph_buffer.push(PositionedGlyph {
         glyph_key: cache_key,
         relative_x: glyph.x,
@@ -174,10 +169,8 @@ pub fn create_slug_buffer_from_text3d_content(
     }
   }
 
-  let mut unique_glyphs = FastHashSet::default();
-
-  for cache_key in &used_glyphs {
-    let slug_glyph = system
+  for cache_key in &unique_glyphs {
+    system
       .slug_glyph_cache
       .entry(*cache_key)
       .or_insert_with(|| {
@@ -210,10 +203,6 @@ pub fn create_slug_buffer_from_text3d_content(
           None
         }
       });
-
-    if let Some(slug_glyph) = slug_glyph {
-      unique_glyphs.insert(slug_glyph.glyph_key);
-    }
   }
 
   SlugBuffer {

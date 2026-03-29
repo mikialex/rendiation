@@ -16,7 +16,6 @@ fn calc_root_code(y1: Node<f32>, y2: Node<f32>, y3: Node<f32>) -> Node<u32> {
     (i3 & val(4)) | (((i2 & val(2)) | (i1 & val(2).bitwise_not())) & val(4).bitwise_not());
 
   // Eligibility is returned in bits 0 and 8.
-
   (val(0x2E74) >> shift) & val(0x0101)
 }
 
@@ -103,18 +102,6 @@ fn solve_vert_poly(p12: Node<Vec4<f32>>, p3: Node<Vec2<f32>>) -> Node<Vec2<f32>>
     .into()
 }
 
-fn calc_band_loc(glyph_loc: Node<Vec2<i32>>, offset: Node<u32>) -> Node<Vec2<i32>> {
-  // If the offset causes the x coordinate to exceed the texture width, then wrap to the next line.
-
-  let k_log_band_texture_width: u32 = 12;
-
-  let band_loc = vec2_node((glyph_loc.x() + offset.into_i32(), glyph_loc.y()));
-  let y = band_loc.y() + (band_loc.x().right_shift_u32(val(k_log_band_texture_width)));
-  let x = band_loc.x() & val((1 << k_log_band_texture_width) - 1);
-
-  (x, y).into()
-}
-
 // Override constants for optional features.
 // Set SLUG_EVENODD = true to enable even-odd fill rule support.
 // Set SLUG_WEIGHT = true to enable optical weight boost via square root.
@@ -155,12 +142,10 @@ fn calc_coverage(
     });
   } else {
     // Using nonzero fill rule here.
-
     coverage.store(coverage.load().saturate());
   }
 
   // If SLUG_WEIGHT is defined during compilation, then take a square root to boost optical weight.
-
   if SLUG_WEIGHT {
     coverage.store(coverage.load().sqrt());
   }
@@ -168,156 +153,116 @@ fn calc_coverage(
   coverage.load()
 }
 
-pub fn slug_render(
-  curve_data: BindingNode<ShaderTexture2D>,
-  band_data: BindingNode<ShaderTexture<TextureDimension2, u32>>,
-  render_coord: Node<Vec2<f32>>,
-  band_t_transform: Node<Vec4<f32>>,
-  glyph_data: Node<Vec4<i32>>,
-) -> Node<f32> {
-  // The effective pixel dimensions of the em square are computed
-  // independently for x and y directions with texcoord derivatives.
+pub trait SlugShaderComputer {
+  fn get_band_data_source(
+    &self,
+    render_coord: Node<Vec2<f32>>,
+  ) -> Box<dyn SlugShaderBandDataSource>;
 
-  let ems_per_pixel = render_coord.fwidth();
-  let pixels_per_em = val(1.0).splat() / ems_per_pixel;
+  fn slug_render(&self, render_coord: Node<Vec2<f32>>, flags: Node<i32>) -> Node<f32> {
+    // The effective pixel dimensions of the em square are computed
+    // independently for x and y directions with texcoord derivatives.
 
-  let band_max = vec2_node((glyph_data.z(), glyph_data.w() & val(0x00FF)));
+    let ems_per_pixel = render_coord.fwidth();
+    let pixels_per_em = val(1.0).splat() / ems_per_pixel;
 
-  // Determine what bands the current pixel lies in by applying a scale and offset
-  // to the render coordinates. The scales are given by bandTransform.xy, and the
-  // offsets are given by bandTransform.zw. Band indexes are clamped to [0, bandMax.xy].
+    let xcov = val(0.0).make_local_var();
+    let xwgt = val(0.0).make_local_var();
 
-  let band_index = (render_coord * band_t_transform.xy() + band_t_transform.zw())
-    .into_i32()
-    .clamp(val(Vec2::zero()), band_max);
-  let glyph_loc = vec2_node((glyph_data.x(), glyph_data.y()));
+    let band_data_source = self.get_band_data_source(render_coord);
 
-  let xcov = val(0.0).make_local_var();
-  let xwgt = val(0.0).make_local_var();
+    // Loop over all curves in the horizontal band.
+    band_data_source
+      .iter_curves_horizontal(render_coord)
+      .for_each(|(p12, p3), lcx| {
+        // If the largest x coordinate among all three control points falls
+        // left of the current pixel, then there are no more curves in the
+        // horizontal band that can influence the result, so exit the loop.
+        // (The curves are sorted in descending order by max x coordinate.)
 
-  // Fetch data for the horizontal band from the index texture. The number
-  // of curves intersecting the band is in the x component, and the offset
-  // to the list of locations for those curves is in the y component.
+        let cond = (p12.x().max(p12.z()).max(p3.x()) * pixels_per_em.x()).less_than(val(-0.5));
+        if_by(cond, || lcx.do_break());
 
-  let hband_data = vec2_node((glyph_loc.x() + band_index.y(), glyph_loc.y()));
-  let hband_data = band_data.load_texel(hband_data.into_u32(), 0).xy();
-  let hband_loc = calc_band_loc(glyph_loc, hband_data.y());
+        let code = calc_root_code_fn(p12.y(), p12.w(), p3.y());
+        if_by(code.not_equals(0), || {
+          // At least one root makes a contribution. Calculate them and scale so
+          // that the current pixel corresponds to the range [0,1].
 
-  // Loop over all curves in the horizontal band.
+          let r = solve_horiz_poly_fn(p12, p3) * pixels_per_em.x();
 
-  hband_data
-    .x()
-    .into_shader_iter()
-    .for_each(|curve_index, lcx| {
-      let curve_index = curve_index.into_i32();
-      // Fetch the location of the current curve from the index texture.
-      let curve_loc = vec2_node((hband_loc.x() + curve_index, hband_loc.y()));
-      let curve_loc = band_data.load_texel(curve_loc.into_u32(), 0).xy();
+          // Bits in code tell which roots make a contribution.
+          if_by((code & val(1)).not_equals(0), || {
+            xcov.store(xcov.load() + (r.x() + val(0.5)).saturate());
+            let xwgt_next = (val(1.) - r.x().abs() * val(2.)).saturate();
+            xwgt.store(xwgt.load().max(xwgt_next));
+          });
 
-      // Fetch the three 2D control points for the current curve from the curve texture.
-      // The first texel contains both p1 and p2 in the (x,y) and (z,w) components, respectively,
-      // and the the second texel contains p3 in the (x,y) components. Subtracting the render
-      // coordinates makes the curve relative to the sample position. The quadratic Bézier curve
-      // C(t) is given by
-      //
-      //     C(t) = (1 - t)^2 p1 + 2t(1 - t) p2 + t^2 p3
-
-      let p12 = curve_data.load_texel(curve_loc, 0) - vec4_node((render_coord, render_coord));
-      let p3_coord = vec2_node((curve_loc.x() + val(1), curve_loc.y()));
-      let p3 = curve_data.load_texel(p3_coord, 0).xy() - render_coord;
-
-      // If the largest x coordinate among all three control points falls
-      // left of the current pixel, then there are no more curves in the
-      // horizontal band that can influence the result, so exit the loop.
-      // (The curves are sorted in descending order by max x coordinate.)
-
-      let cond = (p12.x().max(p12.z()).max(p3.x()) * pixels_per_em.x()).less_than(val(-0.5));
-      if_by(cond, || lcx.do_break());
-
-      let code = calc_root_code_fn(p12.y(), p12.w(), p3.y());
-      if_by(code.not_equals(0), || {
-        // At least one root makes a contribution. Calculate them and scale so
-        // that the current pixel corresponds to the range [0,1].
-
-        let r = solve_horiz_poly_fn(p12, p3) * pixels_per_em.x();
-
-        // Bits in code tell which roots make a contribution.
-
-        if_by((code & val(1)).not_equals(0), || {
-          xcov.store(xcov.load() + (r.x() + val(0.5)).saturate());
-          let xwgt_next = (val(1.) - r.x().abs() * val(2.)).saturate();
-          xwgt.store(xwgt.load().max(xwgt_next));
-        });
-
-        if_by(code.greater_than(1), || {
-          xcov.store(xcov.load() - (r.y() + val(0.5)).saturate());
-          let xwgt_next = (val(1.) - r.y().abs() * val(2.)).saturate();
-          xwgt.store(xwgt.load().max(xwgt_next));
+          if_by(code.greater_than(1), || {
+            xcov.store(xcov.load() - (r.y() + val(0.5)).saturate());
+            let xwgt_next = (val(1.) - r.y().abs() * val(2.)).saturate();
+            xwgt.store(xwgt.load().max(xwgt_next));
+          });
         });
       });
-    });
 
-  let ycov = val(0.0).make_local_var();
-  let ywgt = val(0.0).make_local_var();
+    let ycov = val(0.0).make_local_var();
+    let ywgt = val(0.0).make_local_var();
 
-  // Fetch data for the vertical band from the index texture. This follows
-  // the data for all horizontal bands, so we have to add bandMax.y + 1.
+    // Loop over all curves in the vertical band.
+    band_data_source
+      .iter_curves_vertical(render_coord)
+      .for_each(|(p12, p3), lcx| {
+        // If the largest y coordinate among all three control points falls
+        // below the current pixel, then there are no more curves in the
+        // vertical band that can influence the result, so exit the loop.
+        // (The curves are sorted in descending order by max y coordinate.)
 
-  let coord = vec2_node((
-    glyph_loc.x() + band_max.y() + val(1) + band_index.x(),
-    glyph_loc.y(),
-  ));
+        let cond = (p12.y().max(p12.w()).max(p3.y()) * pixels_per_em.y()).less_than(val(-0.5));
+        if_by(cond, || lcx.do_break());
 
-  let vband_data = band_data.load_texel(coord.into_u32(), 0).xy();
-  let vband_loc = calc_band_loc(glyph_loc, vband_data.y());
+        let code = calc_root_code_fn(p12.x(), p12.z(), p3.x());
 
-  // Loop over all curves in the vertical band.
-  vband_data
-    .x()
-    .into_shader_iter()
-    .for_each(|curve_index, lcx| {
-      let curve_index = curve_index.into_i32();
-      let curve_loc = vec2_node((vband_loc.x() + curve_index, vband_loc.y()));
-      let curve_loc = band_data.load_texel(curve_loc.into_u32(), 0).xy();
+        if_by(code.not_equals(0), || {
+          let r = solve_vert_poly_fn(p12, p3) * pixels_per_em.y();
 
-      let p12 = curve_data.load_texel(curve_loc, 0) - vec4_node((render_coord, render_coord));
-      let p3_coord = vec2_node((curve_loc.x() + val(1), curve_loc.y()));
-      let p3 = curve_data.load_texel(p3_coord, 0).xy() - render_coord;
+          if_by((code & val(1)).not_equals(0), || {
+            ycov.store(ycov.load() - (r.x() + val(0.5)).saturate());
+            let ywgt_next = (val(1.) - r.x().abs() * val(2.)).saturate();
+            ywgt.store(ywgt.load().max(ywgt_next));
+          });
 
-      // If the largest y coordinate among all three control points falls
-      // below the current pixel, then there are no more curves in the
-      // vertical band that can influence the result, so exit the loop.
-      // (The curves are sorted in descending order by max y coordinate.)
-
-      let cond = (p12.y().max(p12.w()).max(p3.y()) * pixels_per_em.y()).less_than(val(-0.5));
-      if_by(cond, || lcx.do_break());
-
-      let code = calc_root_code_fn(p12.x(), p12.z(), p3.x());
-
-      if_by(code.not_equals(0), || {
-        let r = solve_vert_poly_fn(p12, p3) * pixels_per_em.y();
-
-        if_by((code & val(1)).not_equals(0), || {
-          ycov.store(ycov.load() - (r.x() + val(0.5)).saturate());
-          let ywgt_next = (val(1.) - r.x().abs() * val(2.)).saturate();
-          ywgt.store(ywgt.load().max(ywgt_next));
-        });
-
-        if_by(code.greater_than(1), || {
-          ycov.store(ycov.load() + (r.y() + val(0.5)).saturate());
-          let ywgt_next = (val(1.) - r.y().abs() * val(2.)).saturate();
-          ywgt.store(ywgt.load().max(ywgt_next));
+          if_by(code.greater_than(1), || {
+            ycov.store(ycov.load() + (r.y() + val(0.5)).saturate());
+            let ywgt_next = (val(1.) - r.y().abs() * val(2.)).saturate();
+            ywgt.store(ywgt.load().max(ywgt_next));
+          });
         });
       });
-    });
 
-  return calc_coverage_fn(
-    xcov.load(),
-    ycov.load(),
-    xwgt.load(),
-    ywgt.load(),
-    glyph_data.w(),
-  );
+    calc_coverage_fn(xcov.load(), ycov.load(), xwgt.load(), ywgt.load(), flags)
+  }
+}
+
+pub trait SlugShaderBandDataSource {
+  /// Fetch the three 2D control points for the current curve from the curve texture.
+  /// The first texel contains both p1 and p2 in the (x,y) and (z,w) components, respectively,
+  /// and the the second texel contains p3 in the (x,y) components. Subtracting the render
+  /// coordinates makes the curve relative to the sample position. The quadratic Bézier curve
+  /// C(t) is given by
+  ///
+  ///     C(t) = (1 - t)^2 p1 + 2t(1 - t) p2 + t^2 p3
+  ///
+  ///   the return value is (p1p2, p3)
+  ///
+  /// the returned iter's lifetime bound is just for implementation convenience
+  fn iter_curves_horizontal(
+    &self,
+    render_coord: Node<Vec2<f32>>,
+  ) -> Box<dyn ShaderIterator<Item = (Node<Vec4<f32>>, Node<Vec2<f32>>)> + '_>;
+  fn iter_curves_vertical(
+    &self,
+    render_coord: Node<Vec2<f32>>,
+  ) -> Box<dyn ShaderIterator<Item = (Node<Vec4<f32>>, Node<Vec2<f32>>)> + '_>;
 }
 
 #[derive(Clone, Copy, ShaderStruct)]

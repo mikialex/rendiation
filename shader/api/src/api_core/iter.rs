@@ -7,7 +7,7 @@ pub trait ShaderIterator {
   fn shader_next(&self) -> (Node<bool>, Self::Item);
 }
 
-impl<T> ShaderIterator for Box<dyn ShaderIterator<Item = T>> {
+impl<'a, T> ShaderIterator for Box<dyn ShaderIterator<Item = T> + 'a> {
   type Item = T;
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
