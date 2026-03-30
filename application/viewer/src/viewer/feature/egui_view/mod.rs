@@ -121,7 +121,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         ui.separator();
 
         let is_hdr = cx.current_window_swapchain.is_hdr();
-        let changed = viewer.rendering.egui(ui, is_hdr);
+        let changed = viewer.rendering.egui(ui, is_hdr, cx.surface_id);
 
         if changed {
           viewer.rendering_root.notify_change();

@@ -4,8 +4,10 @@ use fast_hash_collection::FastHashSet;
 use crate::*;
 
 pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
-  let (cx, tree) =
-    cx.use_plain_state_init(|init| create_viewer_default_tile_tree(&init.content.viewports));
+  let (cx, tree) = cx.use_plain_state_init(|init| {
+    let surface_content = init.surface_content.get(&init.surface_id).unwrap();
+    create_viewer_default_tile_tree(&surface_content.viewports)
+  });
 
   let all_scene_cameras = cx
     .use_db_rev_ref::<SceneCameraBelongsToScene>()
@@ -22,6 +24,8 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
   }
 
   if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {
+    let surface_content = cx.viewer.surfaces_content.get_mut(&cx.surface_id).unwrap();
+
     let mut behavior = ViewerTileTreeBehavior {
       camera_handles: all_scene_cameras_cached,
       edited: Default::default(),
@@ -59,20 +63,18 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
       for tile in tree.remove_recursively(tile_id) {
         if let egui_tiles::Tile::Pane(pane) = tile {
           let removed_viewport_id = pane.viewport_id;
-          let idx = cx
-            .viewer
-            .content
+          let idx = surface_content
             .viewports
             .iter()
             .position(|v| v.id == removed_viewport_id)
             .unwrap();
-          cx.viewer.content.viewports.remove(idx);
+          surface_content.viewports.remove(idx);
         }
       }
     }
 
     if let Some(_request_tile) = behavior.add_child_to.take() {
-      let camera_source = cx.viewer.content.viewports.last().unwrap();
+      let camera_source = surface_content.viewports.last().unwrap();
       let id = alloc_global_res_id();
       let new_viewport = ViewerViewPort {
         id,
@@ -81,7 +83,7 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
         camera_node: camera_source.camera_node,
         debug_camera_for_view_related: None,
       };
-      cx.viewer.content.viewports.push(new_viewport);
+      surface_content.viewports.push(new_viewport);
 
       let any_camera_in_target_scene = *all_scene_cameras_cached.iter().next().unwrap();
       let new_child = tree
@@ -104,9 +106,7 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
     for tile_id in tree.active_tiles() {
       if let Some(tile) = tree.tiles.get_mut(tile_id) {
         if let egui_tiles::Tile::Pane(pane) = tile {
-          if let Some(viewport) = cx
-            .viewer
-            .content
+          if let Some(viewport) = surface_content
             .viewports
             .iter_mut()
             .find(|viewport| viewport.id == pane.viewport_id)

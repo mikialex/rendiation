@@ -36,14 +36,17 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
 
 pub fn create_viewport_pointer_ctx(
   viewer: &Viewer,
+  surface_id: u32,
   mouse_position_relative_to_surface_origin: (f32, f32),
   view_logic_pixel_size: Size,
   camera_transforms: &dyn DynQuery<Key = RawEntityHandle, Value = CameraTransform>,
 ) -> Option<ViewportPointerCtx> {
-  let viewports = viewer.content.viewports.iter();
+  let surface_content = viewer.surfaces_content.get(&surface_id)?;
 
-  let (viewport, normalized_position_ndc) =
-    find_top_hit(viewports, mouse_position_relative_to_surface_origin)?;
+  let (viewport, normalized_position_ndc) = find_top_hit(
+    surface_content.viewports.iter(),
+    mouse_position_relative_to_surface_origin,
+  )?;
 
   let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
   let normalized_position_ndc_f64 = normalized_position_ndc.into_f64();
@@ -59,8 +62,7 @@ pub fn create_viewport_pointer_ctx(
   let current_mouse_ray_in_world =
     cast_world_ray(camera_view_projection_inv, normalized_position_ndc_f64);
 
-  let viewport_idx = viewer
-    .content
+  let viewport_idx = surface_content
     .viewports
     .iter()
     .position(|v| v.id == viewport.id)

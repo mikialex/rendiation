@@ -2,6 +2,7 @@ use crate::*;
 
 pub struct Viewer {
   pub content: Viewer3dContent,
+  pub surfaces_content: FastHashMap<u32, ViewerSurfaceContent>,
   pub rendering_root: RenderingRoot,
   pub rendering: Viewer3dRenderingCtx,
   pub terminal: Terminal,
@@ -66,10 +67,6 @@ impl Viewer {
     let mut terminal = Terminal::new(worker);
     register_default_commands(&mut terminal);
 
-    let scene = global_entity_of::<SceneEntity>()
-      .entity_writer()
-      .new_entity(|w| w);
-
     let widget_scene = global_entity_of::<SceneEntity>()
       .entity_writer()
       .new_entity(|w| w);
@@ -78,34 +75,11 @@ impl Viewer {
       .entity_writer()
       .new_entity(|w| w);
 
-    let camera_node = global_entity_of::<SceneNodeEntity>()
+    let scene = global_entity_of::<SceneEntity>()
       .entity_writer()
-      .new_entity(|w| {
-        w.write::<SceneNodeLocalMatrixComponent>(&Mat4::lookat(
-          Vec3::new(3., 3., 3.),
-          Vec3::new(0., 0., 0.),
-          Vec3::new(0., 1., 0.),
-        ))
-      });
-
-    let main_camera = global_entity_of::<SceneCameraEntity>()
-      .entity_writer()
-      .new_entity(|w| {
-        w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
-          .write::<SceneCameraBelongsToScene>(&scene.some_handle())
-          .write::<SceneCameraNode>(&camera_node.some_handle())
-      });
-
-    let viewport = ViewerViewPort {
-      id: alloc_global_res_id(),
-      viewport: Default::default(),
-      camera: main_camera,
-      camera_node,
-      debug_camera_for_view_related: None,
-    };
+      .new_entity(|w| w);
 
     let scene = Viewer3dContent {
-      viewports: vec![viewport],
       scene,
       root,
       selected_dir_light: None,
@@ -130,6 +104,7 @@ impl Viewer {
 
     Self {
       content: scene,
+      surfaces_content: Default::default(),
       terminal,
       rendering_root: RenderingRoot::new(&gpu),
       rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, init_config, font_system.clone()),
@@ -143,24 +118,39 @@ impl Viewer {
     }
   }
 
+  pub fn drop_surface(&mut self, surface_id: u32) {
+    self.surfaces_content.remove(&surface_id);
+    self
+      .rendering_root
+      .drop_surface_render_process_memory(surface_id, &mut self.shared_ctx);
+    self.rendering.surface_views.remove(&surface_id);
+  }
+
   pub fn draw_canvas(
     &mut self,
+    surface_id: u32,
     canvas: &RenderTargetView,
     task_spawner: &TaskSpawner,
     data_scheduler: &mut ViewerDataScheduler,
     dyn_cx: &mut DynCx,
     inspector: Option<&mut dyn Inspector>,
   ) {
-    self.rendering_root.draw_canvas(
-      canvas,
-      task_spawner,
-      &self.content,
-      &mut self.shared_ctx,
-      &mut self.rendering,
-      data_scheduler,
-      dyn_cx,
-      inspector,
-    );
+    if let Some(surface_content) = self.surfaces_content.get(&surface_id) {
+      self.rendering_root.draw_canvas(
+        canvas,
+        task_spawner,
+        &self.content,
+        surface_content,
+        surface_id,
+        &mut self.shared_ctx,
+        &mut self.rendering,
+        data_scheduler,
+        dyn_cx,
+        inspector,
+      );
+    } else {
+      log::error!("surface {surface_id}'s content not found");
+    }
   }
 
   pub fn ndc(&self) -> &ViewerNDC {

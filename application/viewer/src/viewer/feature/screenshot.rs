@@ -7,11 +7,17 @@ pub const CMD_SCREENSHOT: &str = "screenshot";
 pub fn use_enable_screenshot(cx: &mut ViewerCx) {
   cx.use_state_init(|cx| {
     cx.terminal.register_command(CMD_SCREENSHOT, |ctx, parameters, _| {
-      let viewport_id = parameters.iter().nth(1).and_then(|v|v.parse::<u64>().ok()).unwrap_or_else(||{
-        log::warn!("viewport not specified, using the any viewport in current viewer");
-        *ctx.renderer.views.iter().next().unwrap().0
-      });
-      let result = ctx.renderer.views.get_mut(&viewport_id).unwrap().read_next_render_result();
+
+      let surface_id = parameters.iter().nth(1).and_then(|v|v.parse::<u32>().ok()).expect("missing surface id");
+      let viewport_id = parameters.iter().nth(2).and_then(|v|v.parse::<u64>().ok()).expect("missing viewport id");
+
+        let surface_view = ctx
+         . renderer
+          .surface_views
+          .get_mut(&surface_id)
+          .unwrap();
+
+      let result = surface_view.get_mut(&viewport_id).unwrap().read_next_render_result();
 
       async {
         match result.await {

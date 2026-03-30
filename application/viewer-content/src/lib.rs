@@ -97,8 +97,13 @@ pub use viewport::*;
 #[cfg(target_arch = "wasm32")]
 pub use web_time::Instant;
 
-pub struct Viewer3dContent {
+pub struct ViewerSurfaceContent {
   pub viewports: Vec<ViewerViewPort>,
+  /// the viewport is physical size. we store the dpi per surface to help the convert to logic pixel
+  pub device_pixel_ratio: f32,
+}
+
+pub struct Viewer3dContent {
   pub root: EntityHandle<SceneNodeEntity>,
   pub scene: EntityHandle<SceneEntity>,
   pub selected_model: Option<EntityHandle<SceneModelEntity>>,

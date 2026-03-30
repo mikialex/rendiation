@@ -42,6 +42,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
 
     let pointer_ctx = create_viewport_pointer_ctx(
       cx.viewer,
+      cx.surface_id,
       *mouse_position,
       view_logic_pixel_size,
       &cam_trans,

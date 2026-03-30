@@ -3,7 +3,7 @@ use crate::*;
 /// The render logic that not related to specific rendering "business" logic
 pub struct RenderingRoot {
   render_resource_memory: FunctionMemory,
-  render_process_memory: FunctionMemory,
+  render_process_memory: FastHashMap<u32, FunctionMemory>,
   pool: AttachmentPool,
   pass_info_pool: PassInfoPool,
   frame_index: u64,
@@ -50,7 +50,23 @@ impl RenderingRoot {
       .render_resource_memory
       .cleanup(&mut dcx as *mut _ as *mut ());
 
-    self.render_process_memory.cleanup(&mut () as *mut ());
+    for m in self.render_process_memory.values_mut() {
+      m.cleanup(&mut dcx as *mut _ as *mut ());
+    }
+  }
+
+  pub fn drop_surface_render_process_memory(
+    &mut self,
+    surface_id: u32,
+    share_cx: &mut SharedHooksCtx,
+  ) {
+    if let Some(mut mem) = self.render_process_memory.remove(&surface_id) {
+      let mut dcx = QueryGPUHookDropCx {
+        share_cx,
+        inspector: &mut None,
+      };
+      mem.cleanup(&mut dcx as *mut _ as *mut ());
+    }
   }
 
   fn init_frame(&mut self) {
@@ -73,6 +89,8 @@ impl RenderingRoot {
     canvas: &RenderTargetView,
     task_spawner: &TaskSpawner,
     content: &Viewer3dContent,
+    surface_content: &ViewerSurfaceContent,
+    surface_id: u32,
     shared_ctx: &mut SharedHooksCtx,
     rendering: &mut Viewer3dRenderingCtx,
     scheduler: &mut ViewerDataScheduler,
@@ -88,9 +106,11 @@ impl RenderingRoot {
       .enable_statistic_collect
       .then(|| self.statistics.create_resolver(self.frame_index));
 
+    let render_process_memory = self.render_process_memory.entry(surface_id).or_default();
+
     let mut ctx = FrameCtx::new(
       &gpu,
-      &mut self.render_process_memory,
+      render_process_memory,
       canvas.size(),
       &self.pool,
       &self.pass_info_pool,
@@ -99,8 +119,13 @@ impl RenderingRoot {
     ctx.execute(|ctx| {
       let upstream = futures::task::noop_waker();
       let any_changed = self.any_render_change.update(&upstream);
-      let requested_render_views =
-        rendering.check_should_render_and_copy_cached(canvas, &content.viewports, ctx, any_changed);
+      let requested_render_views = rendering.check_should_render_and_copy_cached(
+        canvas,
+        surface_id,
+        &surface_content.viewports,
+        ctx,
+        any_changed,
+      );
 
       ctx.skip_if_not(!requested_render_views.is_empty(), |ctx| {
         let mut pool = AsyncTaskPool::default();
@@ -123,7 +148,7 @@ impl RenderingRoot {
             storage_allocator: rendering.storage_allocator(),
             dyn_cx,
           }
-          .execute(|cx| rendering.use_viewer_scene_renderer(cx, &content.viewports));
+          .execute(|cx| rendering.use_viewer_scene_renderer(cx, &surface_content.viewports));
         }
 
         let mut task_pool_result = {
@@ -152,7 +177,7 @@ impl RenderingRoot {
           }
           .execute(|cx| {
             rendering
-              .use_viewer_scene_renderer(cx, &content.viewports)
+              .use_viewer_scene_renderer(cx, &surface_content.viewports)
               .unwrap()
           })
         };
@@ -166,6 +191,8 @@ impl RenderingRoot {
           &requested_render_views,
           canvas,
           content,
+          surface_content,
+          surface_id,
           renderer,
           scheduler.batch_collector.as_mut(),
           ctx,

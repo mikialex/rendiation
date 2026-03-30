@@ -74,8 +74,9 @@ impl ViewerAPI {
     next_id
   }
 
-  pub fn drop_view(&mut self, id: u32) {
+  pub fn drop_surface(&mut self, id: u32) {
     self.surfaces.remove(&id);
+    self.viewer.drop_surface(id);
   }
 
   pub fn new() -> Self {
@@ -120,13 +121,18 @@ impl ViewerAPI {
     }
   }
 
-  pub fn resize(&mut self, view_id: u32, new_width: u32, new_height: u32) {
-    if let Some(surface) = self.surfaces.get_mut(&view_id) {
+  // pub fn set_device_pixel_ratio(&mut self, surface_id: u32, device_pixel_ratio: f32) {
+  //  self.viewer.
+  // }
+
+  /// the size is physical resolution
+  pub fn resize(&mut self, surface_id: u32, new_width: u32, new_height: u32) {
+    if let Some(surface) = self.surfaces.get_mut(&surface_id) {
       surface.set_size(Size::from_u32_pair_min_one((new_width, new_height)));
     }
   }
 
-  pub fn create_picker_api(&mut self) -> ViewerPickerAPI {
+  pub fn create_picker_api(&mut self, surface_id: u32) -> ViewerPickerAPI {
     self.viewer_api_picker_scope(|cx| {
       let picker_impl = use_viewer_scene_model_picker_impl(cx);
       let sms = cx
@@ -143,17 +149,19 @@ impl ViewerAPI {
           picker_impl: picker_impl.unwrap(),
           camera_transforms: camera_transforms.expect_resolve_stage(),
           scene_models_of_scene: sms,
+          surface_id,
         }
       })
     })
   }
 
-  pub fn render(&mut self) {
-    for surface in self.surfaces.values_mut() {
+  pub fn render_all_views(&mut self) {
+    for (surface_id, surface) in self.surfaces.iter_mut() {
       if let Ok((canvas, target)) =
         surface.get_current_frame_with_render_target_view(&self.gpu_and_main_surface.gpu.device)
       {
         self.viewer.draw_canvas(
+          *surface_id,
           &target,
           &self.task_spawner,
           &mut self.data_source,
@@ -216,6 +224,7 @@ pub struct ViewerPickerAPI {
   picker_impl: Box<dyn SceneModelPicker>,
   camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
   scene_models_of_scene: RevRefForeignKeyRead,
+  surface_id: u32,
 }
 
 #[repr(C)]
@@ -240,7 +249,13 @@ impl ViewerPickerAPI {
     let mut results = Vec::new();
     let mut model_results = Vec::new();
     let mut local_result_scratch = Vec::new();
-    let ctx = create_viewport_pointer_ctx(viewer, (x, y), todo!(), &self.camera_transforms);
+    let ctx = create_viewport_pointer_ctx(
+      viewer,
+      self.surface_id,
+      (x, y),
+      todo!(),
+      &self.camera_transforms,
+    );
 
     if let Some(ctx) = ctx {
       let cx = create_ray_query_ctx_from_vpc(&ctx);
@@ -325,7 +340,7 @@ pub extern "C" fn drop_viewer_content_api_instance(api: *mut ViewerAPI) {
 
 /// hinstance can be null_ptr
 #[no_mangle]
-pub extern "C" fn viewer_create_view(
+pub extern "C" fn viewer_create_surface(
   api: *mut ViewerAPI,
   hwnd: *mut c_void,
   hinstance: *mut c_void,
@@ -335,21 +350,21 @@ pub extern "C" fn viewer_create_view(
 }
 
 #[no_mangle]
-pub extern "C" fn viewer_drop_view(api: *mut ViewerAPI, view_id: u32) {
+pub extern "C" fn viewer_drop_surface(api: *mut ViewerAPI, surface_id: u32) {
   let api = unsafe { &mut *api };
-  api.drop_view(view_id)
+  api.drop_surface(surface_id)
 }
 
 /// the size is physical resolution
 #[no_mangle]
 pub extern "C" fn viewer_resize(
   api: *mut ViewerAPI,
-  view_id: u32,
+  surface_id: u32,
   new_width: u32,
   new_height: u32,
 ) {
   let api = unsafe { &mut *api };
-  api.resize(view_id, new_width, new_height);
+  api.resize(surface_id, new_width, new_height);
 }
 
 #[no_mangle]
@@ -722,15 +737,18 @@ pub extern "C" fn drop_scene_model(handle: ViewerEntityHandle) {
 }
 
 #[no_mangle]
-pub extern "C" fn viewer_render(api: *mut ViewerAPI) {
+pub extern "C" fn viewer_render_all_views(api: *mut ViewerAPI) {
   let api = unsafe { &mut *api };
-  api.render();
+  api.render_all_views();
 }
 
 #[no_mangle]
-pub extern "C" fn viewer_create_picker_api(api: *mut ViewerAPI) -> *mut ViewerPickerAPI {
+pub extern "C" fn viewer_create_picker_api(
+  api: *mut ViewerAPI,
+  surface_id: u32,
+) -> *mut ViewerPickerAPI {
   let api = unsafe { &mut *api };
-  let api = api.create_picker_api();
+  let api = api.create_picker_api(surface_id);
   let api = Box::new(api);
   Box::leak(api)
 }

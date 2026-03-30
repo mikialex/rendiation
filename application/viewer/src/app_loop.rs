@@ -14,6 +14,7 @@ pub struct ApplicationCx<'a> {
   pub input: &'a WindowEventStates,
   /// current window
   pub gpu_and_surface: &'a WGPUAndSurface,
+  pub surface_id: u32,
   pub draw_target_canvas: RenderTargetView,
 }
 
@@ -64,7 +65,7 @@ unsafe impl HooksCxLike for ApplicationCx<'_> {
 }
 
 struct WinitAppImpl {
-  windows: FastHashMap<winit::window::WindowId, WindowWithWGPUSurface>,
+  windows: FastHashMap<winit::window::WindowId, (u32, WindowWithWGPUSurface)>,
   platform_states: PlatformEventInput,
   memory: FunctionMemory,
   app_logic: Box<dyn Fn(&mut ApplicationCx)>,
@@ -169,7 +170,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
 
       let window = WindowWithWGPUSurface { window, gpu };
 
-      self.windows.insert(window_id, window);
+      self.windows.insert(window_id, (0, window));
     };
   }
 
@@ -201,7 +202,9 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
       self.platform_states.window_states.remove(&window_id);
     }
 
-    if let Some(WindowWithWGPUSurface { window, gpu }) = &mut self.windows.get_mut(&window_id) {
+    if let Some((surface_id, WindowWithWGPUSurface { window, gpu })) =
+      &mut self.windows.get_mut(&window_id)
+    {
       // safety depend on that we don't replace the entire window in our application logic
       let mut window_ = window.write();
       let window = &mut *window_;
@@ -249,6 +252,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
                 input: window_state,
                 draw_target_canvas: canvas,
                 gpu_and_surface,
+                surface_id: *surface_id,
               }
               .execute(|cx| (self.app_logic)(cx));
 

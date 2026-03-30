@@ -84,15 +84,15 @@ void drop_viewer_content_api_instance(struct ViewerAPI *api);
 /**
  * hinstance can be null_ptr
  */
-uint32_t viewer_create_view(struct ViewerAPI *api, void *hwnd, void *hinstance);
+uint32_t viewer_create_surface(struct ViewerAPI *api, void *hwnd, void *hinstance);
 
-void viewer_drop_view(struct ViewerAPI *api, uint32_t view_id);
+void viewer_drop_surface(struct ViewerAPI *api, uint32_t surface_id);
 
 /**
  * the size is physical resolution
  */
 void viewer_resize(struct ViewerAPI *api,
-                   uint32_t view_id,
+                   uint32_t surface_id,
                    uint32_t new_width,
                    uint32_t new_height);
 
@@ -165,9 +165,9 @@ struct ViewerEntityHandle create_scene_model(struct ViewerEntityHandle material,
 
 void drop_scene_model(struct ViewerEntityHandle handle);
 
-void viewer_render(struct ViewerAPI *api);
+void viewer_render_all_views(struct ViewerAPI *api);
 
-struct ViewerPickerAPI *viewer_create_picker_api(struct ViewerAPI *api);
+struct ViewerPickerAPI *viewer_create_picker_api(struct ViewerAPI *api, uint32_t surface_id);
 
 /**
  * picker api must be dropped before any scene related modifications, or deadlock will occur

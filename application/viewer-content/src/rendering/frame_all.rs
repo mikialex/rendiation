@@ -20,7 +20,8 @@ pub struct Viewer3dRenderingCtx {
   pub(super) enable_clip: bool,
   pub(super) fill_clip_face: bool,
 
-  pub views: FastHashMap<u64, Viewer3dViewportRenderingCtx>,
+  // surface id -> view id -> view state
+  pub surface_views: FastHashMap<u32, FastHashMap<u64, Viewer3dViewportRenderingCtx>>,
 
   pub(crate) init_config: ViewerInitConfig,
   font_system: Arc<RwLock<FontSystem>>,
@@ -49,10 +50,13 @@ impl Viewer3dRenderingCtx {
       self.prefer_bindless_for_indirect_texture_system;
     init_config.init_only = self.init_config.init_only.clone();
 
-    let first_view = self.views.values().next().unwrap();
-    init_config.enable_shadow = self.lighting.enable_shadow;
-    init_config.transparent_config = first_view.transparent_config;
-    init_config.enable_on_demand_rendering = first_view.enable_on_demand_rendering;
+    if let Some(first_surface) = self.surface_views.values().next() {
+      if let Some(first_view) = first_surface.values().next() {
+        init_config.enable_shadow = self.lighting.enable_shadow;
+        init_config.transparent_config = first_view.transparent_config;
+        init_config.enable_on_demand_rendering = first_view.enable_on_demand_rendering;
+      }
+    }
   }
 
   pub fn gpu(&self) -> &GPU {
@@ -83,7 +87,7 @@ impl Viewer3dRenderingCtx {
       rtx_renderer_enabled: false,
       lighting: LightSystem::new(&gpu, init_config),
       gpu,
-      views: FastHashMap::default(),
+      surface_views: FastHashMap::default(),
       init_config: init_config.clone(),
       enable_clip: true,
       fill_clip_face: true,
@@ -439,13 +443,17 @@ impl Viewer3dRenderingCtx {
   pub fn check_should_render_and_copy_cached(
     &mut self,
     target: &RenderTargetView,
+    surface_id: u32,
     views: &[ViewerViewPort],
     ctx: &mut FrameCtx,
     any_changed: bool,
   ) -> FastHashSet<(u64, usize)> {
+    let surface_views = self.surface_views.entry(surface_id).or_default();
+
     let mut new_views = FastHashMap::default();
+
     for v in views {
-      if let Some(view) = self.views.remove(&v.id) {
+      if let Some(view) = surface_views.remove(&v.id) {
         new_views.insert(v.id, view);
       } else {
         new_views.insert(
@@ -454,13 +462,13 @@ impl Viewer3dRenderingCtx {
         );
       }
     }
-    self.views = new_views;
+    *surface_views = new_views;
 
     views
       .iter()
       .enumerate()
       .filter_map(|(i, v)| {
-        let view_renderer = self.views.get_mut(&v.id).unwrap();
+        let view_renderer = surface_views.get_mut(&v.id).unwrap();
         if view_renderer.check_should_render_and_copy_cached(target, v, any_changed, ctx) {
           Some((v.id, i))
         } else {
@@ -476,6 +484,8 @@ impl Viewer3dRenderingCtx {
     requested_render_views: &FastHashSet<(u64, usize)>,
     final_target: &RenderTargetView,
     content: &Viewer3dContent,
+    surface_content: &ViewerSurfaceContent,
+    surface_id: u32,
     renderer: ViewerRendererInstancePreparer,
     batch_collector: &mut dyn RenderBatchCollector,
     ctx: &mut FrameCtx,
@@ -513,15 +523,16 @@ impl Viewer3dRenderingCtx {
     ctx.next_key_scope_root();
     for (viewport_id, idx) in requested_render_views {
       ctx.keyed_scope(&viewport_id, |ctx| {
-        let view_renderer = self.views.get_mut(viewport_id).unwrap();
-        let viewport = &content.viewports[*idx];
+        let surface_views = self.surface_views.get_mut(&surface_id).unwrap();
+        let view_renderer = surface_views.get_mut(viewport_id).unwrap();
+        let viewport = &surface_content.viewports[*idx];
         ctx.frame_size = viewport.render_pixel_size();
         view_renderer.render(ctx, &mut renderer, content, viewport, final_target, waker);
       });
     }
 
     // keep all sub scope that match the living viewport but not requested alive
-    for (i, v) in content.viewports.iter().enumerate() {
+    for (i, v) in surface_content.viewports.iter().enumerate() {
       if !requested_render_views.contains(&(v.id, i)) {
         ctx.skip_keyed_scope(&v.id);
       }

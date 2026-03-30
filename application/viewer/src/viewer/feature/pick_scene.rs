@@ -98,7 +98,9 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       let mut use_cpu_pick = false;
 
       if prefer_gpu_pick && gpu_pick_future.is_none() && !is_request_list_pick {
-        if let Some(view_renderer) = cx.viewer.rendering.views.get_mut(&pointer_ctx.viewport_id) {
+        let surface_views = &mut cx.viewer.rendering.surface_views;
+        let surface_view = surface_views.get_mut(&cx.surface_id).unwrap();
+        if let Some(view_renderer) = surface_view.get_mut(&pointer_ctx.viewport_id) {
           if let Some(render_size) = view_renderer.picker.last_id_buffer_size() {
             let point = (pointer_ctx.normalized_position * Vec2::new(0.5, -0.5)
               + Vec2::new(0.5, 0.5))

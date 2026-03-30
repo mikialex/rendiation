@@ -47,10 +47,11 @@ pub fn use_camera_control(cx: &mut ViewerCx, camera_with_viewports: &CameraViewp
     }
 
     let mouse_position = &cx.input.window_state.mouse_position; // todo, use surface relative position
+    let surface_content = cx.viewer.surfaces_content.get(&cx.surface_id).unwrap();
     let viewports = camera_with_viewports
       .viewports_index
       .iter()
-      .map(|(index, _)| &cx.viewer.content.viewports[*index]);
+      .map(|(index, _)| &surface_content.viewports[*index]);
     if let Some((viewport, _)) = find_top_hit(viewports, *mouse_position) {
       let bound = viewport_to_input_bound(viewport.viewport);
 

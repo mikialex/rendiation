@@ -23,6 +23,8 @@ pub struct ViewerCx<'a> {
 
   pub input: &'a WindowEventStates,
   pub current_window_swapchain: &'a SurfaceWrapper,
+  pub surface_id: u32,
+
   pub absolute_seconds_from_start: f32,
   pub time_delta_seconds: f32,
   pub task_spawner: &'a TaskSpawner,
@@ -58,6 +60,8 @@ impl<'a> ViewerCx<'a> {
 pub struct ViewerInitCx<'a> {
   pub dyn_cx: &'a mut DynCx,
   pub content: &'a Viewer3dContent,
+  pub surface_content: &'a FastHashMap<u32, ViewerSurfaceContent>,
+  pub surface_id: u32,
   pub terminal: &'a mut Terminal,
   pub shared_ctx: &'a mut SharedHooksCtx,
 }
@@ -189,6 +193,8 @@ impl<'a> ViewerCx<'a> {
           content: &self.viewer.content,
           terminal: &mut self.viewer.terminal,
           shared_ctx: &mut self.viewer.shared_ctx,
+          surface_content: &mut self.viewer.surfaces_content,
+          surface_id: self.surface_id,
         })
       },
       |state: &mut T, dcx: &mut ViewerDropCx| {
@@ -299,14 +305,55 @@ pub fn use_viewer<'a>(
 
   let (acx, data_scheduler) = acx.use_plain_state(ViewerDataScheduler::default);
 
+  let surface_id = acx.surface_id;
   let (acx, viewer) = acx.use_state_init(
     || {
-      let viewer = Viewer::new(
+      let mut viewer = Viewer::new(
         acx.gpu_and_surface.gpu.clone(),
         init_config,
         worker_thread_pool.clone(),
         |writer| load_example_cube_tex(writer),
       );
+
+      let camera_node = global_entity_of::<SceneNodeEntity>()
+        .entity_writer()
+        .new_entity(|w| {
+          w.write::<SceneNodeLocalMatrixComponent>(&Mat4::lookat(
+            Vec3::new(3., 3., 3.),
+            Vec3::new(0., 0., 0.),
+            Vec3::new(0., 1., 0.),
+          ))
+        });
+
+      let main_camera = global_entity_of::<SceneCameraEntity>()
+        .entity_writer()
+        .new_entity(|w| {
+          w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
+            .write::<SceneCameraBelongsToScene>(&viewer.content.scene.some_handle())
+            .write::<SceneCameraNode>(&camera_node.some_handle())
+        });
+
+      let viewport = ViewerViewPort {
+        id: alloc_global_res_id(),
+        viewport: Default::default(),
+        camera: main_camera,
+        camera_node,
+        debug_camera_for_view_related: None,
+      };
+
+      let surface_content = ViewerSurfaceContent {
+        viewports: vec![viewport],
+        device_pixel_ratio: 1.0,
+      };
+      // we construct the default view in our viewer application
+      viewer.surfaces_content.insert(surface_id, surface_content);
+      // this is necessary, as we unwrap to access surface views in our update cycles
+      viewer
+        .rendering
+        .surface_views
+        .entry(surface_id)
+        .or_default();
+
       {
         let mut tex_source = data_scheduler.texture_uri_backend.write();
         let mut mesh_source = data_scheduler.mesh_uri_backend.write();
@@ -322,6 +369,10 @@ pub fn use_viewer<'a>(
     },
     drop_viewer_from_dyn_cx,
   );
+
+  let surface_content = viewer.surfaces_content.get_mut(&acx.surface_id).unwrap();
+  // always sync
+  surface_content.device_pixel_ratio = acx.input.window_state.device_pixel_ratio;
 
   let (acx, gui_feature_global_states) = acx.use_plain_state(|| FeaturesGlobalUIStates {
     features: Default::default(),
@@ -354,6 +405,7 @@ pub fn use_viewer<'a>(
     absolute_seconds_from_start,
     current_window_swapchain: &acx.gpu_and_surface.surface,
     time_delta_seconds: *frame_time_delta_in_seconds,
+    surface_id: acx.surface_id,
     task_spawner: worker_thread_pool,
     change_collector: Default::default(),
     stage: ViewerCxStage::Gui {
@@ -387,10 +439,12 @@ pub fn use_viewer<'a>(
     change_collector: Default::default(),
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
+    surface_id: acx.surface_id,
   }
   .execute(|viewer| f(viewer));
 
   viewer.draw_canvas(
+    acx.surface_id,
     &acx.draw_target_canvas,
     worker_thread_pool,
     data_scheduler,

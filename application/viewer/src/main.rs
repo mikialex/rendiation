@@ -244,8 +244,11 @@ fn per_camera_per_viewport_scope(
   logic: impl Fn(&mut ViewerCx, &CameraViewportAccess),
 ) {
   cx.next_key_scope_root();
+
+  let surface_content = cx.viewer.surfaces_content.get(&cx.surface_id).unwrap();
+
   for cv in per_camera_per_viewport(
-    &cx.viewer.content.viewports,
+    &surface_content.viewports,
     consider_debug_view_camera_override,
   ) {
     cx.keyed_scope(&cv.camera, |cx| {

@@ -2,7 +2,7 @@ use crate::*;
 
 impl Viewer3dRenderingCtx {
   #[must_use]
-  pub fn egui(&mut self, ui: &mut egui::Ui, is_hdr: bool) -> bool {
+  pub fn egui(&mut self, ui: &mut egui::Ui, is_hdr: bool, surface_id: u32) -> bool {
     let mut ui = UiWithChangeInfo(ui, false);
     let ui = &mut ui;
 
@@ -130,7 +130,9 @@ impl Viewer3dRenderingCtx {
       ui.checkbox(&mut self.rtx_renderer_enabled, "rtx_renderer_is_ready");
     });
 
-    for (id, view) in self.views.iter_mut() {
+    let surface_views = self.surface_views.get_mut(&surface_id).unwrap();
+
+    for (id, view) in surface_views.iter_mut() {
       ui.collapsing(format!("view config {}", id), |ui| {
         view.egui(ui, self.rtx_renderer_enabled);
       });
