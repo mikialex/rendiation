@@ -38,6 +38,23 @@ pub struct ViewportPointerCtx {
   pub camera_world_mat: Mat4<f64>,
 }
 
+impl ViewportPointerCtx {
+  pub fn create_ratio_cal(&self) -> Box<dyn Fn(f32, f32) -> f32> {
+    if let Some(proj_source) = self.proj_source {
+      match proj_source {
+        CommonProjection::Perspective(p) => {
+          Box::new(move |d, h| p.pixels_per_unit(d, h)) as Box<dyn Fn(f32, f32) -> f32>
+        }
+        CommonProjection::Orth(p) => Box::new(move |d, h| p.pixels_per_unit(d, h)),
+      }
+    } else {
+      let projection = self.projection;
+      let projection_inv = self.projection_inv;
+      Box::new(move |d, h| projection.pixels_per_unit(projection_inv, d, h))
+    }
+  }
+}
+
 #[derive(Copy, Clone)]
 pub enum CommonProjection {
   Perspective(PerspectiveProjection<f32>),

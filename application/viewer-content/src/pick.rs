@@ -33,3 +33,74 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     Box::new(scene_model_picker) as Box<dyn SceneModelPicker>
   })
 }
+
+pub fn create_viewport_pointer_ctx(
+  viewer: &Viewer,
+  mouse_position_relative_to_surface_origin: (f32, f32),
+  view_logic_pixel_size: Size,
+  camera_transforms: &dyn DynQuery<Key = RawEntityHandle, Value = CameraTransform>,
+) -> Option<ViewportPointerCtx> {
+  let viewports = viewer.content.viewports.iter();
+
+  let (viewport, normalized_position_ndc) =
+    find_top_hit(viewports, mouse_position_relative_to_surface_origin)?;
+
+  let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
+  let normalized_position_ndc_f64 = normalized_position_ndc.into_f64();
+
+  let cam_trans = camera_transforms
+    .access(&viewport.camera.into_raw())
+    .unwrap();
+  let camera_view_projection_inv = cam_trans.view_projection_inv;
+  let camera_world = cam_trans.world;
+
+  let camera_proj = read_common_proj_from_db(viewport.camera).unwrap();
+
+  let current_mouse_ray_in_world =
+    cast_world_ray(camera_view_projection_inv, normalized_position_ndc_f64);
+
+  let viewport_idx = viewer
+    .content
+    .viewports
+    .iter()
+    .position(|v| v.id == viewport.id)
+    .unwrap();
+
+  let projection = camera_proj.compute_projection_mat(&OpenGLxNDC);
+  let projection_inv = projection.inverse_or_identity();
+
+  ViewportPointerCtx {
+    world_ray: current_mouse_ray_in_world,
+    viewport_idx,
+    viewport_id: viewport.id,
+    view_logical_pixel_size: view_logic_pixel_size.into_u32().into(),
+    normalized_position: normalized_position_ndc,
+    projection,
+    projection_inv,
+    proj_source: Some(camera_proj),
+    camera_world_mat: camera_world,
+  }
+  .into()
+}
+
+pub fn read_common_proj_from_db(
+  camera: EntityHandle<SceneCameraEntity>,
+) -> Option<CommonProjection> {
+  let pp = read_global_db_component::<SceneCameraPerspective>();
+  let po = read_global_db_component::<SceneCameraOrthographic>();
+  pp.get_value(camera)
+    .flatten()
+    .map(CommonProjection::Perspective)
+    .or_else(|| po.get_value(camera).flatten().map(CommonProjection::Orth))
+}
+
+pub fn create_ray_query_ctx_from_vpc(ctx: &ViewportPointerCtx) -> SceneRayQuery {
+  SceneRayQuery {
+    world_ray: ctx.world_ray,
+    camera_view_size_in_logic_pixel: Size::from_u32_pair_min_one(
+      ctx.view_logical_pixel_size.into(),
+    ),
+    pixels_per_unit_calc: ctx.create_ratio_cal(),
+    camera_world: ctx.camera_world_mat,
+  }
+}

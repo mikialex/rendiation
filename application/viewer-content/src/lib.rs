@@ -24,6 +24,8 @@ pub use rendiation_area_lighting::{
 };
 use rendiation_controller::InputBound;
 use rendiation_geometry::*;
+pub use rendiation_gui_3d::ViewportPointerCtx;
+use rendiation_gui_3d::*;
 use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_shadow_map::*;
 use rendiation_lighting_transport::*;
@@ -42,8 +44,8 @@ use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_scene_scheduler::*;
 use rendiation_shader_api::*;
 pub use rendiation_text_3d::*;
-pub use rendiation_texture_core::Size;
 use rendiation_texture_core::*;
+pub use rendiation_texture_core::{GPUBufferImage, Size};
 use rendiation_texture_gpu_base::{create_gpu_texture2d, SamplerConvertExt};
 use rendiation_texture_gpu_process::{ToneMap, ToneMapType};
 pub use rendiation_webgpu::raw_gpu;

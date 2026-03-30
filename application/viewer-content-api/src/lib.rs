@@ -133,10 +133,15 @@ impl ViewerAPI {
         .use_db_rev_ref::<SceneModelBelongsToScene>()
         .use_assure_result(cx);
 
+      let camera_transforms = cx
+        .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.ndc().clone()))
+        .use_assure_result(cx);
+
       cx.when_resolve_stage(|| {
         let sms = sms.expect_resolve_stage();
         ViewerPickerAPI {
           picker_impl: picker_impl.unwrap(),
+          camera_transforms: camera_transforms.expect_resolve_stage(),
           scene_models_of_scene: sms,
         }
       })
@@ -178,7 +183,7 @@ impl ViewerAPI {
           immediate_results: &mut immediate_results,
           change_collector: &mut change_collector,
         },
-        shared_ctx: &mut self.viewer.shared_ctx,
+        viewer: &mut self.viewer,
         waker: futures::task::noop_waker(),
       };
 
@@ -200,7 +205,7 @@ impl ViewerAPI {
       stage: ViewerAPICxStage::Resolve {
         result: &mut task_pool_result,
       },
-      shared_ctx: &mut self.viewer.shared_ctx,
+      viewer: &mut self.viewer,
       waker: futures::task::noop_waker(),
     };
     f(&mut cx).unwrap()
@@ -209,6 +214,7 @@ impl ViewerAPI {
 
 pub struct ViewerPickerAPI {
   picker_impl: Box<dyn SceneModelPicker>,
+  camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
   scene_models_of_scene: RevRefForeignKeyRead,
 }
 
@@ -222,37 +228,43 @@ pub struct ViewerRayPickResult {
 }
 
 impl ViewerPickerAPI {
+  /// the x, y is logic pixel
   pub fn pick_list(
     &mut self,
+    viewer: &Viewer,
     scene: RawEntityHandle,
     x: f32,
     y: f32,
-    results: &mut ViewerRayPickResult,
+    output_results: &mut Vec<ViewerRayPickResult>,
   ) {
     let mut results = Vec::new();
     let mut model_results = Vec::new();
     let mut local_result_scratch = Vec::new();
+    let ctx = create_viewport_pointer_ctx(viewer, (x, y), todo!(), &self.camera_transforms);
 
-    let cx = SceneRayQuery {
-      world_ray: todo!(),
-      camera_view_size_in_logic_pixel: todo!(),
-      pixels_per_unit_calc: todo!(),
-      camera_world: todo!(),
-    };
+    if let Some(ctx) = ctx {
+      let cx = create_ray_query_ctx_from_vpc(&ctx);
 
-    if let Some(iter) = self.scene_models_of_scene.access_multi(&scene) {
-      let iter = iter.map(|v| unsafe { EntityHandle::from_raw(v) });
-      pick_models_all(
-        self.picker_impl.as_ref(),
-        &mut iter,
-        &cx,
-        &mut results,
-        &mut model_results,
-        &mut local_result_scratch,
-      );
+      if let Some(iter) = self.scene_models_of_scene.access_multi(&scene) {
+        let iter = iter.map(|v| unsafe { EntityHandle::from_raw(v) });
+        pick_models_all(
+          self.picker_impl.as_ref(),
+          &mut iter,
+          &cx,
+          &mut results,
+          &mut model_results,
+          &mut local_result_scratch,
+        );
+      }
     }
 
-    todo!()
+    for (r, mr) in results.iter().zip(model_results.iter()) {
+      output_results.push(ViewerRayPickResult {
+        primitive_index: r.primitive_index as u32,
+        hit_position: r.hit.position.into_f32().into(),
+        scene_model_handle: (*mr).into(),
+      })
+    }
   }
 }
 
@@ -261,6 +273,15 @@ impl ViewerPickerAPI {
 pub struct ViewerEntityHandle {
   pub index: u32,
   pub generation: u64,
+}
+
+impl ViewerEntityHandle {
+  pub fn empty() -> Self {
+    Self {
+      index: u32::MAX,
+      generation: u64::MAX,
+    }
+  }
 }
 impl<T> From<EntityHandle<T>> for ViewerEntityHandle {
   fn from(value: EntityHandle<T>) -> Self {
@@ -319,6 +340,7 @@ pub extern "C" fn viewer_drop_view(api: *mut ViewerAPI, view_id: u32) {
   api.drop_view(view_id)
 }
 
+/// the size is physical resolution
 #[no_mangle]
 pub extern "C" fn viewer_resize(
   api: *mut ViewerAPI,
@@ -387,14 +409,16 @@ pub extern "C" fn create_mesh(
   let position = position.to_vec();
   attributes.push((AttributeSemantic::Positions, position));
 
-  if !normal_raw.is_null() {
+  let has_normal = !normal_raw.is_null();
+  if has_normal {
     let normal = unsafe { slice::from_raw_parts(normal_raw, vertex_length as usize * 3) };
     let normal: &[u8] = bytemuck::cast_slice(normal);
     let normal = normal.to_vec();
     attributes.push((AttributeSemantic::Normals, normal));
   }
 
-  if !uv_raw.is_null() {
+  let has_uv = !uv_raw.is_null();
+  if has_uv {
     let uv = unsafe { slice::from_raw_parts(uv_raw, vertex_length as usize * 2) };
     let uv: &[u8] = bytemuck::cast_slice(uv);
     let uv = uv.to_vec();
@@ -411,21 +435,67 @@ pub extern "C" fn create_mesh(
   .build()
   .write(&mut writer, &mut buffer);
 
+  // it's not good
+  let (normal, uv) = match (has_normal, has_uv) {
+    (true, true) => (
+      VertexPair::from_typed(mesh.vertices[1]),
+      VertexPair::from_typed(mesh.vertices[2]),
+    ),
+    (true, false) => (
+      VertexPair::from_typed(mesh.vertices[1]),
+      VertexPair::empty(),
+    ),
+    (false, true) => (
+      VertexPair::empty(),
+      VertexPair::from_typed(mesh.vertices[1]),
+    ),
+    (false, false) => (VertexPair::empty(), VertexPair::empty()),
+  };
+
   AttributesMeshEntitiesCommon {
     mesh: mesh.mesh.into(),
     index: mesh.index.unwrap().into(),
-    position: todo!(),
-    normal: todo!(),
-    uv: todo!(),
-    has_normal: !normal_raw.is_null(),
-    has_uv: !uv_raw.is_null(),
+    position: VertexPair::from_typed(mesh.vertices[0]),
+    normal,
+    uv,
+    has_normal,
+    has_uv,
   }
 }
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 struct VertexPair {
   h1: ViewerEntityHandle,
   h2: ViewerEntityHandle,
+}
+
+impl VertexPair {
+  fn empty() -> Self {
+    Self {
+      h1: ViewerEntityHandle::empty(),
+      h2: ViewerEntityHandle::empty(),
+    }
+  }
+  fn from_typed(
+    handle: (
+      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
+      EntityHandle<BufferEntity>,
+    ),
+  ) -> Self {
+    VertexPair {
+      h1: handle.0.into(),
+      h2: handle.1.into(),
+    }
+  }
+  fn into_typed(
+    self,
+  ) -> (
+    EntityHandle<AttributesMeshEntityVertexBufferRelation>,
+    EntityHandle<BufferEntity>,
+  ) {
+    (self.h1.into(), self.h2.into())
+  }
 }
 
 #[repr(C)]
@@ -434,8 +504,8 @@ pub struct AttributesMeshEntitiesCommon {
   index: ViewerEntityHandle,
   position: VertexPair,
   normal: VertexPair,
-  uv: VertexPair,
   has_normal: bool,
+  uv: VertexPair,
   has_uv: bool,
 }
 
@@ -444,22 +514,64 @@ pub extern "C" fn drop_mesh(entities: AttributesMeshEntitiesCommon) {
   let mut writer = AttributesMeshEntityFromAttributesMeshWriter::from_global();
   let mut buffer = global_entity_of::<BufferEntity>().entity_writer();
 
-  let entities: AttributesMeshEntities = todo!();
-  entities.clean_up(&mut writer, &mut buffer);
+  let mut vertices = Vec::new();
 
-  //
+  vertices.push(entities.position.into_typed());
+  if entities.has_normal {
+    vertices.push(entities.normal.into_typed());
+  }
+  if entities.has_uv {
+    vertices.push(entities.uv.into_typed());
+  }
+
+  let entities: AttributesMeshEntities = AttributesMeshEntities {
+    mesh: entities.mesh.into(),
+    index: Some(entities.index.into()),
+    vertices: vertices.into(),
+  };
+  entities.clean_up(&mut writer, &mut buffer);
+}
+
+/// the content format expects Rgba8UnormSrgb
+#[no_mangle]
+pub extern "C" fn create_texture2d(
+  content: *const u8,
+  len: usize,
+  width: u32,
+  height: u32,
+) -> ViewerEntityHandle {
+  let data = unsafe { slice::from_raw_parts(content, len) };
+  let data = data.to_vec();
+  let data = GPUBufferImage {
+    data,
+    format: raw_gpu::TextureFormat::Rgba8UnormSrgb,
+    size: Size::from_u32_pair_min_one((width, height)),
+  };
+  let data = MaybeUriData::Living(Arc::new(data));
+  let data = ExternalRefPtr::new(data);
+  global_entity_of::<SceneTexture2dEntity>()
+    .entity_writer()
+    .new_entity(|w| w.write::<SceneTexture2dEntityDirectContent>(&Some(data)))
+    .into()
 }
 
 #[no_mangle]
-pub extern "C" fn create_texture2d() -> ViewerEntityHandle {
+pub extern "C" fn drop_texture2d(handle: ViewerEntityHandle) {
   global_entity_of::<SceneTexture2dEntity>()
+    .entity_writer()
+    .delete_entity(handle.into());
+}
+
+#[no_mangle]
+pub extern "C" fn create_sampler() -> ViewerEntityHandle {
+  global_entity_of::<SceneSamplerEntity>()
     .entity_writer()
     .new_entity(|w| w)
     .into()
 }
 #[no_mangle]
-pub extern "C" fn drop_texture2d(handle: ViewerEntityHandle) {
-  global_entity_of::<SceneTexture2dEntity>()
+pub extern "C" fn drop_sampler(handle: ViewerEntityHandle) {
+  global_entity_of::<SceneSamplerEntity>()
     .entity_writer()
     .delete_entity(handle.into());
 }
@@ -471,6 +583,11 @@ pub extern "C" fn create_unlit_material() -> ViewerEntityHandle {
     .new_entity(|w| w)
     .into()
 }
+#[no_mangle]
+pub extern "C" fn unlit_material_set_color(mat: ViewerEntityHandle, color: &[f32; 4]) {
+  write_global_db_component::<UnlitMaterialColorComponent>().write(mat.into(), (*color).into());
+}
+
 #[no_mangle]
 pub extern "C" fn drop_unlit_material(handle: ViewerEntityHandle) {
   global_entity_of::<UnlitMaterialEntity>()
@@ -485,6 +602,29 @@ pub extern "C" fn create_pbr_mr_material() -> ViewerEntityHandle {
     .new_entity(|w| w)
     .into()
 }
+
+#[no_mangle]
+pub extern "C" fn pbr_mr_material_set_color(mat: ViewerEntityHandle, color: &[f32; 3]) {
+  write_global_db_component::<PbrMRMaterialBaseColorComponent>().write(mat.into(), (*color).into());
+}
+#[no_mangle]
+pub extern "C" fn pbr_mr_material_set_color_tex(
+  mat: ViewerEntityHandle,
+  tex: ViewerEntityHandle,
+  sampler: ViewerEntityHandle,
+) {
+  write_tex_sampler::<PbrMRMaterialBaseColorAlphaTex>(mat, tex, sampler)
+}
+
+fn write_tex_sampler<C: TextureWithSamplingForeignKeys>(
+  mat: ViewerEntityHandle,
+  tex: ViewerEntityHandle,
+  sampler: ViewerEntityHandle,
+) {
+  write_global_db_component::<SceneTexture2dRefOf<C>>().write(mat.into(), Some(tex.into()));
+  write_global_db_component::<SceneSamplerRefOf<C>>().write(mat.into(), Some(sampler.into()));
+}
+
 #[no_mangle]
 pub extern "C" fn drop_pbr_mr_material(handle: ViewerEntityHandle) {
   global_entity_of::<PbrMRMaterialEntity>()
@@ -601,14 +741,48 @@ pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerPickerAPI) {
   let _ = unsafe { Box::from_raw(api) };
 }
 
+/// the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
 #[no_mangle]
 pub extern "C" fn picker_pick_list(
   api: *mut ViewerPickerAPI,
+  viewer: *mut ViewerAPI,
   scene: ViewerEntityHandle,
   x: f32,
   y: f32,
-  results: &mut ViewerRayPickResult,
-) {
+) -> *mut ViewerRayPickListResult {
   let api = unsafe { &mut *api };
-  api.pick_list(scene.into(), x, y, results);
+  let viewer = unsafe { &mut *viewer };
+  let mut pick_results = Vec::new();
+  api.pick_list(&viewer.viewer, scene.into(), x, y, &mut pick_results);
+
+  let r = Box::new(ViewerRayPickListResult { pick_results });
+  Box::leak(r)
+}
+
+#[no_mangle]
+pub extern "C" fn drop_pick_list_result(r: *mut ViewerRayPickListResult) {
+  unsafe {
+    let _ = Box::from_raw(r);
+  };
+}
+
+pub struct ViewerRayPickListResult {
+  pick_results: Vec<ViewerRayPickResult>,
+}
+
+#[repr(C)]
+pub struct ViewerRayPickListResultInfo {
+  pub len: usize,
+  pub ptr: *const ViewerRayPickResult,
+}
+
+#[no_mangle]
+pub extern "C" fn get_ray_pick_list_info(
+  r: *mut ViewerRayPickListResult,
+) -> ViewerRayPickListResultInfo {
+  let r = unsafe { &*r };
+  ViewerRayPickListResultInfo {
+    len: r.pick_results.len(),
+    ptr: r.pick_results.as_ptr(),
+  }
 }

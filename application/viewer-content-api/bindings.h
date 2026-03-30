@@ -41,6 +41,8 @@ typedef struct ViewerAPI ViewerAPI;
 
 typedef struct ViewerPickerAPI ViewerPickerAPI;
 
+typedef struct ViewerRayPickListResult ViewerRayPickListResult;
+
 typedef struct ViewerEntityHandle {
   uint32_t index;
   uint64_t generation;
@@ -56,8 +58,8 @@ typedef struct AttributesMeshEntitiesCommon {
   struct ViewerEntityHandle index;
   struct VertexPair position;
   struct VertexPair normal;
-  struct VertexPair uv;
   bool has_normal;
+  struct VertexPair uv;
   bool has_uv;
 } AttributesMeshEntitiesCommon;
 
@@ -70,6 +72,11 @@ typedef struct ViewerRayPickResult {
   struct ViewerEntityHandle scene_model_handle;
 } ViewerRayPickResult;
 
+typedef struct ViewerRayPickListResultInfo {
+  uintptr_t len;
+  const struct ViewerRayPickResult *ptr;
+} ViewerRayPickListResultInfo;
+
 struct ViewerAPI *create_viewer_content_api_instance(void);
 
 void drop_viewer_content_api_instance(struct ViewerAPI *api);
@@ -81,6 +88,9 @@ uint32_t viewer_create_view(struct ViewerAPI *api, void *hwnd, void *hinstance);
 
 void viewer_drop_view(struct ViewerAPI *api, uint32_t view_id);
 
+/**
+ * the size is physical resolution
+ */
 void viewer_resize(struct ViewerAPI *api,
                    uint32_t view_id,
                    uint32_t new_width,
@@ -104,15 +114,33 @@ struct AttributesMeshEntitiesCommon create_mesh(uint32_t indices_length,
 
 void drop_mesh(struct AttributesMeshEntitiesCommon entities);
 
-struct ViewerEntityHandle create_texture2d(void);
+/**
+ * the content format expects Rgba8UnormSrgb
+ */
+struct ViewerEntityHandle create_texture2d(const uint8_t *content,
+                                           uintptr_t len,
+                                           uint32_t width,
+                                           uint32_t height);
 
 void drop_texture2d(struct ViewerEntityHandle handle);
 
+struct ViewerEntityHandle create_sampler(void);
+
+void drop_sampler(struct ViewerEntityHandle handle);
+
 struct ViewerEntityHandle create_unlit_material(void);
+
+void unlit_material_set_color(struct ViewerEntityHandle mat, const float (*color)[4]);
 
 void drop_unlit_material(struct ViewerEntityHandle handle);
 
 struct ViewerEntityHandle create_pbr_mr_material(void);
+
+void pbr_mr_material_set_color(struct ViewerEntityHandle mat, const float (*color)[3]);
+
+void pbr_mr_material_set_color_tex(struct ViewerEntityHandle mat,
+                                   struct ViewerEntityHandle tex,
+                                   struct ViewerEntityHandle sampler);
 
 void drop_pbr_mr_material(struct ViewerEntityHandle handle);
 
@@ -146,11 +174,18 @@ struct ViewerPickerAPI *viewer_create_picker_api(struct ViewerAPI *api);
  */
 void viewer_drop_picker_api(struct ViewerPickerAPI *api);
 
-void picker_pick_list(struct ViewerPickerAPI *api,
-                      struct ViewerEntityHandle scene,
-                      float x,
-                      float y,
-                      struct ViewerRayPickResult *results);
+/**
+ * the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
+ */
+struct ViewerRayPickListResult *picker_pick_list(struct ViewerPickerAPI *api,
+                                                 struct ViewerAPI *viewer,
+                                                 struct ViewerEntityHandle scene,
+                                                 float x,
+                                                 float y);
+
+void drop_pick_list_result(struct ViewerRayPickListResult *r);
+
+struct ViewerRayPickListResultInfo get_ray_pick_list_info(struct ViewerRayPickListResult *r);
 
 /**
  * call this to setup panic message writer when panic happens

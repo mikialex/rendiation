@@ -8,7 +8,7 @@ pub struct ViewerAPICx<'a> {
   pub memory: &'a mut FunctionMemory,
   pub dyn_cx: &'a mut DynCx,
   pub stage: ViewerAPICxStage<'a>,
-  pub shared_ctx: &'a mut SharedHooksCtx,
+  pub viewer: &'a mut Viewer,
   pub waker: Waker,
 }
 
@@ -32,7 +32,7 @@ impl<'a> ViewerAPICx<'a> {
     let state = self.memory.expect_state_init(
       || {
         init(&mut ViewerAPIInitCx {
-          shared_ctx: &mut self.shared_ctx,
+          shared_ctx: &mut self.viewer.shared_ctx,
         })
       },
       |state: &mut T, dcx: &mut ViewerAPICxDropCx| {
@@ -136,7 +136,7 @@ impl<'a> QueryHookCxLike for ViewerAPICx<'a> {
   }
 
   fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx {
-    &mut self.shared_ctx
+    &mut self.viewer.shared_ctx
   }
 }
 impl<'a> DBHookCxLike for ViewerAPICx<'a> {}

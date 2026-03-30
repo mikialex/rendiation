@@ -32,3 +32,7 @@ pub fn read_global_db_component<S: ComponentSemantic>() -> ComponentReadView<S> 
 pub fn read_global_db_foreign_key<S: ForeignKeySemantic>() -> ForeignKeyReadView<S> {
   global_entity_component_of(|c| c.read_foreign_key())
 }
+
+pub fn write_global_db_component<S: ComponentSemantic>() -> ComponentWriteView<S> {
+  global_entity_component_of(|c| c.write())
+}
