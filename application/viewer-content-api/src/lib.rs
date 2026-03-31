@@ -249,19 +249,13 @@ impl ViewerPickerAPI {
     let mut results = Vec::new();
     let mut model_results = Vec::new();
     let mut local_result_scratch = Vec::new();
-    let ctx = create_viewport_pointer_ctx(
-      viewer,
-      self.surface_id,
-      (x, y),
-      todo!(),
-      &self.camera_transforms,
-    );
+    let ctx = create_viewport_pointer_ctx(viewer, self.surface_id, (x, y), &self.camera_transforms);
 
     if let Some(ctx) = ctx {
       let cx = create_ray_query_ctx_from_vpc(&ctx);
 
       if let Some(iter) = self.scene_models_of_scene.access_multi(&scene) {
-        let iter = iter.map(|v| unsafe { EntityHandle::from_raw(v) });
+        let mut iter = iter.map(|v| unsafe { EntityHandle::from_raw(v) });
         pick_models_all(
           self.picker_impl.as_ref(),
           &mut iter,

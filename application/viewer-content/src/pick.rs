@@ -38,7 +38,6 @@ pub fn create_viewport_pointer_ctx(
   viewer: &Viewer,
   surface_id: u32,
   mouse_position_relative_to_surface_origin: (f32, f32),
-  view_logic_pixel_size: Size,
   camera_transforms: &dyn DynQuery<Key = RawEntityHandle, Value = CameraTransform>,
 ) -> Option<ViewportPointerCtx> {
   let surface_content = viewer.surfaces_content.get(&surface_id)?;
@@ -71,11 +70,22 @@ pub fn create_viewport_pointer_ctx(
   let projection = camera_proj.compute_projection_mat(&OpenGLxNDC);
   let projection_inv = projection.inverse_or_identity();
 
+  let view_physical_pixel_size = viewport.viewport.yw();
+
+  let view_logical_pixel_size = Vec2::new(
+    view_physical_pixel_size.x() / surface_content.device_pixel_ratio,
+    view_physical_pixel_size.y() / surface_content.device_pixel_ratio,
+  )
+  .map(|v| v.ceil() as u32);
+
+  let view_logical_pixel_size = Size::from_u32_pair_min_one(view_logical_pixel_size.into());
+  let view_logical_pixel_size = view_logical_pixel_size.into_u32().into();
+
   ViewportPointerCtx {
     world_ray: current_mouse_ray_in_world,
     viewport_idx,
     viewport_id: viewport.id,
-    view_logical_pixel_size: view_logic_pixel_size.into_u32().into(),
+    view_logical_pixel_size,
     normalized_position: normalized_position_ndc,
     projection,
     projection_inv,

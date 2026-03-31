@@ -28,25 +28,13 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
     .use_assure_result(cx);
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
-    let view_logic_pixel_size = Vec2::new(
-      cx.input.window_state.physical_size.0 / cx.input.window_state.device_pixel_ratio,
-      cx.input.window_state.physical_size.1 / cx.input.window_state.device_pixel_ratio,
-    )
-    .map(|v| v.ceil() as u32);
-    let view_logic_pixel_size = Size::from_u32_pair_min_one(view_logic_pixel_size.into());
-
     let input = cx.input;
     let mouse_position = &input.window_state.mouse_position;
 
     let cam_trans = camera_transforms.expect_resolve_stage();
 
-    let pointer_ctx = create_viewport_pointer_ctx(
-      cx.viewer,
-      cx.surface_id,
-      *mouse_position,
-      view_logic_pixel_size,
-      &cam_trans,
-    );
+    let pointer_ctx =
+      create_viewport_pointer_ctx(cx.viewer, cx.surface_id, *mouse_position, &cam_trans);
 
     ViewerSceneModelPicker {
       scene_model_picker: scene_model_picker.unwrap(),

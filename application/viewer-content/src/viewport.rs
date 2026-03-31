@@ -3,7 +3,7 @@ use crate::*;
 #[derive(PartialEq, Clone)]
 pub struct ViewerViewPort {
   pub id: u64,
-  /// x relative to surface top left, y relative to surface top left, width, height
+  /// x relative to surface left, y relative to surface top, width, height
   /// physical pixel unit
   pub viewport: Vec4<f32>,
   pub camera: EntityHandle<SceneCameraEntity>,
