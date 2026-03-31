@@ -29,6 +29,7 @@ pub extern "C" fn node_set_local_mat(node: ViewerEntityHandle, mat4: *const [f64
 //   todo!();
 // }
 
+/// set parent to null_ptr to detach
 #[no_mangle]
 pub extern "C" fn node_attach_parent(node: ViewerEntityHandle, parent: *mut ViewerEntityHandle) {
   let mut writer = global_entity_component_of::<SceneNodeParentIdx, _>(|c| c.write());

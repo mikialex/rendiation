@@ -49,12 +49,11 @@ impl Viewer3dRenderingCtx {
     init_config.prefer_bindless_for_indirect_texture_system =
       self.prefer_bindless_for_indirect_texture_system;
     init_config.init_only = self.init_config.init_only.clone();
+    init_config.enable_shadow = self.lighting.enable_shadow;
 
     if let Some(first_surface) = self.surface_views.values().next() {
       if let Some(first_view) = first_surface.values().next() {
-        init_config.enable_shadow = self.lighting.enable_shadow;
-        init_config.transparent_config = first_view.transparent_config;
-        init_config.enable_on_demand_rendering = first_view.enable_on_demand_rendering;
+        first_view.setup_init_config(init_config);
       }
     }
   }

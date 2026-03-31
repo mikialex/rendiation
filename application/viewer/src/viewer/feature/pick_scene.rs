@@ -28,6 +28,8 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     .use_db_rev_ref::<SceneModelBelongsToScene>()
     .use_assure_result(cx);
 
+  let (cx, range_state) = cx.use_plain_state::<Option<(Vec2<f32>, Vec2<f32>)>>();
+
   if let ViewerCxStage::Gui {
     egui_ctx, global, ..
   } = &mut cx.stage
@@ -48,6 +50,24 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
           "enable pick log",
         );
       });
+
+    // draw ui rect
+    if let Some((start, end)) = range_state {
+      egui::Area::new(egui::Id::new("range_pick"))
+        .fixed_pos(egui::pos2(0.0, 0.0))
+        .show(egui_ctx, |ui| {
+          let width = (start.x - end.x).abs();
+          let height = (start.y - end.y).abs();
+          let x = start.x.min(end.x);
+          let y = start.y.min(end.y);
+
+          ui.painter().rect_filled(
+            egui::Rect::from_min_size(egui::pos2(x, y), egui::Vec2::new(width, height)),
+            0.0,
+            egui::Color32::from_rgba_unmultiplied(0, 0, 0, 100),
+          );
+        });
+    }
   }
 
   let enable_hit_debug_log = cx.viewer.features_config.pick_scene.enable_hit_debug_log;
@@ -75,6 +95,23 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       }
     }
 
+    if cx.input.state_delta.is_left_mouse_releasing() {
+      if range_state.is_some() {
+        log::info!("end range");
+      }
+      *range_state = None;
+    }
+    if cx.input.state_delta.mouse_position_change {
+      if let Some((_start, end)) = range_state {
+        let position = cx.input.window_state.mouse_position_in_logic_pixel();
+        *end = position.into();
+      }
+    }
+
+    if range_state.is_some() {
+      cx.dyn_cx.message.put(CameraControlBlocked);
+    }
+
     if cx.dyn_cx.message.get::<PickSceneBlocked>().is_some() {
       return;
     }
@@ -83,31 +120,39 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       return;
     }
 
-    let scene = cx.active_surface_content.scene;
+    let pressed_keys = &cx.input.window_state.pressed_keys;
+    let is_start_range_pick = pressed_keys.contains(&winit::keyboard::KeyCode::KeyQ);
 
-    let is_request_list_pick = cx
-      .input
-      .window_state
-      .pressed_keys
-      .contains(&winit::keyboard::KeyCode::KeyA);
+    if is_start_range_pick {
+      log::info!("start range pick");
+      let position = cx.input.window_state.mouse_position_in_logic_pixel();
+      *range_state = Some((position.into(), position.into()))
+      //
+    } else {
+      let is_request_list_pick = pressed_keys.contains(&winit::keyboard::KeyCode::KeyA);
 
-    access_cx!(cx.dyn_cx, picker, ViewerSceneModelPicker);
+      let scene = cx.active_surface_content.scene;
 
-    let mut select_target_result = None;
-    if let Some(pointer_ctx) = &picker.pointer_ctx {
-      let mut use_cpu_pick = false;
+      access_cx!(cx.dyn_cx, picker, ViewerSceneModelPicker);
 
-      if prefer_gpu_pick && gpu_pick_future.is_none() && !is_request_list_pick {
-        let surface_views = &mut cx.viewer.rendering.surface_views;
-        let surface_view = surface_views.get_mut(&cx.surface_id).unwrap();
-        if let Some(view_renderer) = surface_view.get_mut(&pointer_ctx.viewport_id) {
-          if let Some(render_size) = view_renderer.picker.last_id_buffer_size() {
-            let point = (pointer_ctx.normalized_position * Vec2::new(0.5, -0.5)
-              + Vec2::new(0.5, 0.5))
-              * Vec2::from(render_size.into_f32());
-            let point = point.map(|v| v.floor() as usize);
-            if let Some(f) = view_renderer.picker.pick_point_at((point.x, point.y)) {
-              *gpu_pick_future = Some(f);
+      let mut select_target_result = None;
+      if let Some(pointer_ctx) = &picker.pointer_ctx {
+        let mut use_cpu_pick = false;
+
+        if prefer_gpu_pick && gpu_pick_future.is_none() && !is_request_list_pick {
+          let surface_views = &mut cx.viewer.rendering.surface_views;
+          let surface_view = surface_views.get_mut(&cx.surface_id).unwrap();
+          if let Some(view_renderer) = surface_view.get_mut(&pointer_ctx.viewport_id) {
+            if let Some(render_size) = view_renderer.picker.last_id_buffer_size() {
+              let point = (pointer_ctx.normalized_position * Vec2::new(0.5, -0.5)
+                + Vec2::new(0.5, 0.5))
+                * Vec2::from(render_size.into_f32());
+              let point = point.map(|v| v.floor() as usize);
+              if let Some(f) = view_renderer.picker.pick_point_at((point.x, point.y)) {
+                *gpu_pick_future = Some(f);
+              }
+            } else {
+              use_cpu_pick = true;
             }
           } else {
             use_cpu_pick = true;
@@ -115,39 +160,37 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
         } else {
           use_cpu_pick = true;
         }
-      } else {
-        use_cpu_pick = true;
-      }
 
-      if use_cpu_pick {
-        let sms = sms
-          .expect_resolve_stage()
-          .mark_foreign_key::<SceneModelBelongsToScene>();
-        let mut main_scene_models = sms.access_multi(&scene).unwrap();
+        if use_cpu_pick {
+          let sms = sms
+            .expect_resolve_stage()
+            .mark_foreign_key::<SceneModelBelongsToScene>();
+          let mut main_scene_models = sms.access_multi(&scene).unwrap();
 
-        if is_request_list_pick {
-          let (results, result_ids) =
-            picker.pick_models_all(&mut main_scene_models, pointer_ctx.world_ray);
-          if enable_hit_debug_log {
-            log::info!("cpu picked list {:#?}, ids: {:#?}", results, result_ids);
-          }
-        } else {
-          let _hit = picker.pick_models_nearest(&mut main_scene_models, pointer_ctx.world_ray);
-          drop(main_scene_models);
-
-          select_target_result = if let Some(hit) = _hit {
+          if is_request_list_pick {
+            let (results, result_ids) =
+              picker.pick_models_all(&mut main_scene_models, pointer_ctx.world_ray);
             if enable_hit_debug_log {
-              log::info!("cpu picked {:#?}", hit);
+              log::info!("cpu picked list {:#?}, ids: {:#?}", results, result_ids);
             }
-            hit.1.into()
           } else {
-            None
+            let _hit = picker.pick_models_nearest(&mut main_scene_models, pointer_ctx.world_ray);
+            drop(main_scene_models);
+
+            select_target_result = if let Some(hit) = _hit {
+              if enable_hit_debug_log {
+                log::info!("cpu picked {:#?}", hit);
+              }
+              hit.1.into()
+            } else {
+              None
+            }
           }
         }
       }
-    }
 
-    cx.active_surface_content.selected_model = select_target_result;
+      cx.active_surface_content.selected_model = select_target_result;
+    }
   }
 }
 

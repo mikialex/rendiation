@@ -106,6 +106,9 @@ void delete_node(struct ViewerEntityHandle node);
 
 void node_set_local_mat(struct ViewerEntityHandle node, const double (*mat4)[16]);
 
+/**
+ * set parent to null_ptr to detach
+ */
 void node_attach_parent(struct ViewerEntityHandle node, struct ViewerEntityHandle *parent);
 
 struct ViewerAPI *create_viewer_content_api_instance(void);
@@ -153,6 +156,10 @@ void drop_pick_list_result(struct ViewerRayPickListResult *r);
 
 struct ViewerRayPickListResultInfo get_ray_pick_list_info(struct ViewerRayPickListResult *r);
 
+struct ViewerEntityHandle create_scene(void);
+
+void drop_scene(struct ViewerEntityHandle handle);
+
 /**
  * the content format expects Rgba8UnormSrgb
  */
@@ -185,11 +192,11 @@ void drop_unlit_material(struct ViewerEntityHandle handle);
 
 struct ViewerEntityHandle create_pbr_mr_material(void);
 
-void pbr_mr_material_set_color(struct ViewerEntityHandle mat, const float (*color)[3]);
+void pbr_mr_material_set_base_color(struct ViewerEntityHandle mat, const float (*color)[3]);
 
-void pbr_mr_material_set_color_tex(struct ViewerEntityHandle mat,
-                                   struct ViewerEntityHandle tex,
-                                   struct ViewerEntityHandle sampler);
+void pbr_mr_material_set_base_color_tex(struct ViewerEntityHandle mat,
+                                        struct ViewerEntityHandle tex,
+                                        struct ViewerEntityHandle sampler);
 
 void drop_pbr_mr_material(struct ViewerEntityHandle handle);
 
@@ -208,6 +215,8 @@ void scene_model_set_material(struct SceneModelHandleInfo handle,
                               bool is_unlit_material);
 
 struct ViewerEntityHandle create_dir_light(struct ViewerEntityHandle node);
+
+void set_dir_light_illuminance(struct ViewerEntityHandle node, const float (*illuminance)[3]);
 
 void drop_dir_light(struct ViewerEntityHandle handle);
 

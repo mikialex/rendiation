@@ -4,6 +4,21 @@
 
 The following things is the current project development direction.
 
+### foreign features requirement
+
+- viewer main content msaa support
+  - msaa, taa, fxaa can enabled without affect each other
+  - msaa support depth resolve
+    - what resolve policy should we use?
+    - should we remove the msaa handling in fast down sampling crate?
+      - not remove, directly handing msaa has better performance if other feature not use single sample depth
+      - remove, simplify code for this niche case
+  - add mrt msaa resolve support in webgpu layer
+  - disable normal and id case for better performance
+- occulsion test not correctly handle the depth test/write configured object
+- viewer selection set
+- viewer range pick ui
+  
 ### Correctness issues
 
 important issue is in bold style.

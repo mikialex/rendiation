@@ -14,8 +14,10 @@ pub struct Viewer3dViewportRenderingCtx {
   highlight: HighLighter,
   reproject: GPUReprojectInfo,
   taa: TAA,
-  pub enable_taa: bool,
+  enable_taa: bool,
   enable_fxaa: bool,
+  // todo
+  enable_msaa: bool,
   enable_ground: bool,
   enable_ssao: bool,
   enable_outline: bool,
@@ -30,12 +32,12 @@ pub struct Viewer3dViewportRenderingCtx {
   pub axis: WorldCoordinateAxis,
   rtx_rendering_enabled: bool,
   rtx_effect_mode: RayTracingEffectMode,
-  pub transparent_config: ViewerTransparentContentRenderStyle,
+  transparent_config: ViewerTransparentContentRenderStyle,
   on_encoding_finished: EventSource<ViewportRenderedResult>,
   expect_read_back_for_next_render_result: bool,
   pub picker: GPUxEntityIdMapPicker,
   request_reset_rtx_sample: bool,
-  pub oit: ViewerTransparentRenderer,
+  oit: ViewerTransparentRenderer,
   pub rtx_ao: Option<SceneRayTracingAORenderer>,
   pub rtx_pt: Option<DeviceReferencePathTracingRenderer>,
 
@@ -53,8 +55,9 @@ impl Viewer3dViewportRenderingCtx {
       _blur: CrossBlurData::new(gpu),
       reproject: GPUReprojectInfo::new(gpu),
       taa: TAA::new(gpu),
-      enable_taa: true,
-      enable_fxaa: false,
+      enable_taa: init_config.enable_taa,
+      enable_fxaa: init_config.enable_fxaa,
+      enable_msaa: init_config.enable_msaa,
       enable_ground: true,
       enable_ssao: false,
       enable_outline: false,
@@ -83,6 +86,14 @@ impl Viewer3dViewportRenderingCtx {
     }
   }
 
+  pub fn setup_init_config(&self, init_config: &mut ViewerInitConfig) {
+    init_config.transparent_config = self.transparent_config;
+    init_config.enable_on_demand_rendering = self.enable_on_demand_rendering;
+    init_config.enable_taa = self.enable_taa;
+    init_config.enable_fxaa = self.enable_fxaa;
+    init_config.enable_msaa = self.enable_msaa;
+  }
+
   pub fn egui(&mut self, ui: &mut UiWithChangeInfo, rtx_renderer_enabled: bool) {
     ui.checkbox(
       &mut self.enable_on_demand_rendering,
@@ -91,8 +102,21 @@ impl Viewer3dViewportRenderingCtx {
 
     ui.checkbox(&mut self.enable_taa, "enable taa");
     ui.checkbox(&mut self.enable_fxaa, "enable fxaa");
-    if self.enable_fxaa && self.enable_taa {
-      ui.label("enable fxaa with other aa method is allowed, but may have undesirable result");
+    ui.checkbox(&mut self.enable_msaa, "enable msaa");
+    let mut aa_feature_count = 0;
+    if self.enable_taa {
+      aa_feature_count += 1;
+    }
+    if self.enable_fxaa {
+      aa_feature_count += 1;
+    }
+    if self.enable_msaa {
+      aa_feature_count += 1;
+    }
+    if aa_feature_count > 1 {
+      ui.label(
+        "enable different aa method at same time is allowed, but may have undesirable result",
+      );
     }
     ui.checkbox(&mut self.enable_ground, "enable ground");
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
@@ -478,7 +502,7 @@ impl Viewer3dViewportRenderingCtx {
         .use_get_scene_clipping(content.scene, ctx, renderer.reversed_depth);
     let clip_component = &OptionRender(clip_component) as &dyn RenderComponent;
 
-    let mut taa_content = SceneCameraTAAContent {
+    let mut content_for_taa = ViewerContentForTAA {
       camera,
       renderer: &renderer_c,
       f: |ctx: &mut FrameCtx| {
@@ -564,9 +588,9 @@ impl Viewer3dViewportRenderingCtx {
     ) = if self.enable_taa {
       self
         .taa
-        .render_aa_content(taa_content, ctx, &self.reproject)
+        .render_aa_content(content_for_taa, ctx, &self.reproject)
     } else {
-      taa_content.render(ctx)
+      content_for_taa.render(ctx)
     };
 
     let maybe_aa_result = if self.enable_fxaa {
@@ -695,13 +719,13 @@ pub struct ViewerSceneRenderer<'a> {
   pub sm_world_bounding: &'a BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
 }
 
-struct SceneCameraTAAContent<'a, F> {
+struct ViewerContentForTAA<'a, F> {
   renderer: &'a ViewerSceneRenderer<'a>,
   camera: EntityHandle<SceneCameraEntity>,
   f: F,
 }
 
-impl<F, R> TAAContent<R> for SceneCameraTAAContent<'_, F>
+impl<F, R> TAAContent<R> for ViewerContentForTAA<'_, F>
 where
   F: FnMut(&mut FrameCtx) -> (TAAFrame, R),
 {

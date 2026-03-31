@@ -133,6 +133,10 @@ impl WindowState {
   pub fn is_right_mouse_released(&self) -> bool {
     matches!(self.right_mouse_state, ElementState::Released)
   }
+  pub fn mouse_position_in_logic_pixel(&self) -> (f32, f32) {
+    let (x, y) = self.mouse_position;
+    (x / self.device_pixel_ratio, y / self.device_pixel_ratio)
+  }
 }
 
 #[derive(Default)]

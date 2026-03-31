@@ -118,3 +118,17 @@ pub extern "C" fn get_ray_pick_list_info(
     ptr: r.pick_results.as_ptr(),
   }
 }
+
+#[no_mangle]
+pub extern "C" fn create_scene() -> ViewerEntityHandle {
+  global_entity_of::<SceneEntity>()
+    .entity_writer()
+    .new_entity(|w| w)
+    .into()
+}
+#[no_mangle]
+pub extern "C" fn drop_scene(handle: ViewerEntityHandle) {
+  global_entity_of::<SceneEntity>()
+    .entity_writer()
+    .delete_entity(handle.into());
+}

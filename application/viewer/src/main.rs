@@ -166,6 +166,12 @@ fn main() {
       // this must be called before per_camera_per_viewport
       use_egui_tile_for_viewer_viewports(cx);
 
+      inject_picker(cx, |cx| {
+        use_pick_scene(cx);
+        use_scene_camera_helper(cx);
+        use_scene_light_helper(cx);
+      });
+
       per_camera_per_viewport_scope(cx, false, |cx, camera_with_viewports| {
         let cv = camera_with_viewports;
         use_smooth_camera_motion(cx, cv.camera_node, cv.camera, |cx| {
@@ -179,12 +185,6 @@ fn main() {
 
       // #[cfg(not(target_family = "wasm"))]
       // test_persist_scope(cx);
-
-      inject_picker(cx, |cx| {
-        use_pick_scene(cx);
-        use_scene_camera_helper(cx);
-        use_scene_light_helper(cx);
-      });
 
       use_mesh_tools(cx);
     });

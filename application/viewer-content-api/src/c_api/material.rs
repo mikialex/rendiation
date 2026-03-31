@@ -28,11 +28,11 @@ pub extern "C" fn create_pbr_mr_material() -> ViewerEntityHandle {
 }
 
 #[no_mangle]
-pub extern "C" fn pbr_mr_material_set_color(mat: ViewerEntityHandle, color: &[f32; 3]) {
+pub extern "C" fn pbr_mr_material_set_base_color(mat: ViewerEntityHandle, color: &[f32; 3]) {
   write_global_db_component::<PbrMRMaterialBaseColorComponent>().write(mat.into(), (*color).into());
 }
 #[no_mangle]
-pub extern "C" fn pbr_mr_material_set_color_tex(
+pub extern "C" fn pbr_mr_material_set_base_color_tex(
   mat: ViewerEntityHandle,
   tex: ViewerEntityHandle,
   sampler: ViewerEntityHandle,
