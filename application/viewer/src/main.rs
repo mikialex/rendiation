@@ -148,7 +148,7 @@ fn main() {
     use_enable_screenshot(cx);
 
     stage_of_update(cx, 2, |cx| {
-      let select = cx.viewer.content.selected_model;
+      let select = cx.active_surface_content.selected_model;
       widget_root(cx, |cx| {
         use_viewer_gizmo(cx, select);
       });
@@ -245,7 +245,7 @@ fn per_camera_per_viewport_scope(
 ) {
   cx.next_key_scope_root();
 
-  let surface_content = cx.viewer.surfaces_content.get(&cx.surface_id).unwrap();
+  let surface_content = &cx.active_surface_content;
 
   for cv in per_camera_per_viewport(
     &surface_content.viewports,

@@ -94,7 +94,7 @@ pub fn use_immediate_helper_model(
     }
     ViewerCxStage::SceneContentUpdate { writer, .. } => {
       if let Some(lines) = changes.take() {
-        writer.write_other_scene(cx.viewer.content.widget_scene, |writer| {
+        writer.write_other_scene(Some(cx.active_surface_content.widget_scene), |writer| {
           let lines: &[u8] = cast_slice(lines.as_slice());
 
           let lines = AttributesMeshData {

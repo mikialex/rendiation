@@ -53,7 +53,7 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
     while let Some(gltf_load_info) = to_unload.pop() {
-      cleanup_selection_states_from_gltf_load_result(&gltf_load_info, &mut cx.viewer.content);
+      cleanup_selection_states_from_gltf_load_result(&gltf_load_info, cx.active_surface_content);
       gltf_load_info.unload(writer);
     }
   }
@@ -210,7 +210,7 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for GltfViewerIO {
 #[inline(never)]
 fn cleanup_selection_states_from_gltf_load_result(
   gltf_load_info: &GltfLoadResult,
-  content: &mut Viewer3dContent,
+  content: &mut ViewerSurfaceContent,
 ) {
   if let Some(selected) = content.selected_model {
     for item in &gltf_load_info.scene_models {

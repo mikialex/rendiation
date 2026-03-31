@@ -31,7 +31,7 @@ pub fn test_mesh_lod_graph(writer: &mut SceneWriter) {
   });
   SceneModelDataView {
     model: std_model,
-    scene: writer.scene,
+    scene: writer.expect_target_scene(),
     node: child,
   }
   .write(&mut writer.model_writer);

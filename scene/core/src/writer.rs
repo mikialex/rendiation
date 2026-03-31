@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct SceneWriter {
-  pub scene: EntityHandle<SceneEntity>,
+  pub scene: Option<EntityHandle<SceneEntity>>,
   pub scene_writer: EntityWriter<SceneEntity>,
   pub camera_writer: EntityWriter<SceneCameraEntity>,
   pub mesh_writer: AttributesMeshEntityFromAttributesMeshWriter,
@@ -25,10 +25,15 @@ pub struct SceneWriter {
 }
 
 impl SceneWriter {
-  pub fn from_global(
-    scene: EntityHandle<SceneEntity>,
-    // texture_uri_source: Box<dyn UriDataSourceDyn<Arc<GPUBufferImage>>>,
-  ) -> Self {
+  pub fn expect_target_scene(&self) -> EntityHandle<SceneEntity> {
+    self.scene.expect("scene writer not set target scene")
+  }
+
+  pub fn from_global(scene: EntityHandle<SceneEntity>) -> Self {
+    Self::from_global_some(Some(scene))
+  }
+
+  pub fn from_global_some(scene: Option<EntityHandle<SceneEntity>>) -> Self {
     Self {
       scene,
       scene_writer: global_entity_of().entity_writer(),
@@ -56,15 +61,15 @@ impl SceneWriter {
 
   pub fn replace_target_scene(
     &mut self,
-    new_scene: EntityHandle<SceneEntity>,
-  ) -> EntityHandle<SceneEntity> {
+    new_scene: Option<EntityHandle<SceneEntity>>,
+  ) -> Option<EntityHandle<SceneEntity>> {
     let scene_backup = self.scene;
     self.scene = new_scene;
     scene_backup
   }
   pub fn write_other_scene<R>(
     &mut self,
-    scene: EntityHandle<SceneEntity>,
+    scene: Option<EntityHandle<SceneEntity>>,
     f: impl FnOnce(&mut Self) -> R,
   ) -> R {
     let scene_backup = self.replace_target_scene(scene);
@@ -74,29 +79,41 @@ impl SceneWriter {
   }
 
   pub fn reset_background_to_solid(&mut self) {
-    self
-      .scene_writer
-      .write_foreign_key::<SceneHDRxEnvBackgroundCubeMap>(self.scene, None);
-    self
-      .scene_writer
-      .write::<SceneHDRxEnvBackgroundInfo>(self.scene, None);
-    self
-      .scene_writer
-      .write::<SceneGradientBackgroundInfo>(self.scene, None);
+    if let Some(scene) = self.scene {
+      self
+        .scene_writer
+        .write_foreign_key::<SceneHDRxEnvBackgroundCubeMap>(scene, None);
+      self
+        .scene_writer
+        .write::<SceneHDRxEnvBackgroundInfo>(scene, None);
+      self
+        .scene_writer
+        .write::<SceneGradientBackgroundInfo>(scene, None);
+    } else {
+      log::warn!("scene writer not set target scene");
+    }
   }
 
   pub fn set_solid_background(&mut self, solid: Vec3<f32>) {
-    self.reset_background_to_solid();
-    self
-      .scene_writer
-      .write::<SceneSolidBackground>(self.scene, Some(solid));
+    if let Some(scene) = self.scene {
+      self.reset_background_to_solid();
+      self
+        .scene_writer
+        .write::<SceneSolidBackground>(scene, Some(solid));
+    } else {
+      log::warn!("scene writer not set target scene");
+    }
   }
 
   pub fn set_gradient_background(&mut self, gradient: SceneGradientBackgroundParam) {
-    self.reset_background_to_solid();
-    self
-      .scene_writer
-      .write::<SceneGradientBackgroundInfo>(self.scene, Some(gradient));
+    if let Some(scene) = self.scene {
+      self.reset_background_to_solid();
+      self
+        .scene_writer
+        .write::<SceneGradientBackgroundInfo>(scene, Some(gradient));
+    } else {
+      log::warn!("scene writer not set target scene");
+    }
   }
 
   pub fn set_hdr_env_background(
@@ -105,17 +122,21 @@ impl SceneWriter {
     intensity: f32,
     transform: Mat4<f32>,
   ) {
-    self.reset_background_to_solid();
-    self
-      .scene_writer
-      .write_foreign_key::<SceneHDRxEnvBackgroundCubeMap>(self.scene, Some(cube_map));
-    self.scene_writer.write::<SceneHDRxEnvBackgroundInfo>(
-      self.scene,
-      Some(SceneHDRxEnvBackgroundParameter {
-        transform,
-        intensity,
-      }),
-    );
+    if let Some(scene) = self.scene {
+      self.reset_background_to_solid();
+      self
+        .scene_writer
+        .write_foreign_key::<SceneHDRxEnvBackgroundCubeMap>(scene, Some(cube_map));
+      self.scene_writer.write::<SceneHDRxEnvBackgroundInfo>(
+        scene,
+        Some(SceneHDRxEnvBackgroundParameter {
+          transform,
+          intensity,
+        }),
+      );
+    } else {
+      log::warn!("scene writer not set target scene");
+    }
   }
 
   pub fn create_root_child(&mut self) -> EntityHandle<SceneNodeEntity> {
@@ -145,7 +166,7 @@ impl SceneWriter {
     let std_model = std_model.write(&mut self.std_model_writer);
     let sm = SceneModelDataView {
       model: std_model,
-      scene: self.scene,
+      scene: self.scene.expect("scene writer not set target scene"),
       node,
     };
 

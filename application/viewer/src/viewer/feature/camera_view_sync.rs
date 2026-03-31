@@ -2,8 +2,7 @@ use crate::*;
 
 pub fn sync_camera_view(cx: &mut ViewerCx) {
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
-    let surface_content = cx.viewer.surfaces_content.get_mut(&cx.surface_id).unwrap();
-    for viewport in &mut surface_content.viewports {
+    for viewport in &mut cx.active_surface_content.viewports {
       if viewport.viewport.z > 0. && viewport.viewport.w > 0. {
         writer
           .camera_writer

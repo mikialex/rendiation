@@ -5,7 +5,6 @@ use crate::*;
 
 pub fn load_default_scene(
   writer: &mut SceneWriter,
-  _viewer_scene: &Viewer3dContent,
   texture_data_source: &mut ViewerTextureDataSource,
   mesh_source: &mut ViewerMeshDataSource,
 ) {
@@ -131,9 +130,10 @@ pub fn load_default_scene(
       camera_node,
       Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), UP),
     );
+    let scene = writer.expect_target_scene().into_raw();
     writer.camera_writer.new_entity(|w| {
       w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
-        .write::<SceneCameraBelongsToScene>(&Some(writer.scene.into_raw()))
+        .write::<SceneCameraBelongsToScene>(&Some(scene))
         .write::<SceneCameraNode>(&Some(camera_node.into_raw()))
     });
   }

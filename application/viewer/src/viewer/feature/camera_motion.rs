@@ -114,7 +114,7 @@ pub fn use_fit_camera_view(
       if let Some(action) = fit_camera_view_for_viewer(
         camera,
         camera_node,
-        cx.viewer.content.selected_model,
+        cx.active_surface_content.selected_model,
         world_mat,
         sm_world_bounding,
       ) {

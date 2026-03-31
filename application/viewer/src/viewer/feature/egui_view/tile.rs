@@ -5,7 +5,7 @@ use crate::*;
 
 pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
   let (cx, tree) = cx.use_plain_state_init(|init| {
-    let surface_content = init.surface_content.get(&init.surface_id).unwrap();
+    let surface_content = init.content;
     create_viewer_default_tile_tree(&surface_content.viewports)
   });
 
@@ -18,13 +18,13 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
   if cx.is_resolve_stage() {
     *all_scene_cameras_cached = all_scene_cameras
       .expect_resolve_stage()
-      .access_multi(&cx.viewer.content.scene.into_raw())
+      .access_multi(&cx.active_surface_content.scene.into_raw())
       .unwrap()
       .collect::<FastHashSet<RawEntityHandle>>();
   }
 
   if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {
-    let surface_content = cx.viewer.surfaces_content.get_mut(&cx.surface_id).unwrap();
+    let surface_content = &mut cx.active_surface_content;
 
     let mut behavior = ViewerTileTreeBehavior {
       camera_handles: all_scene_cameras_cached,

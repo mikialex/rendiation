@@ -88,7 +88,6 @@ impl RenderingRoot {
     &mut self,
     canvas: &RenderTargetView,
     task_spawner: &TaskSpawner,
-    content: &Viewer3dContent,
     surface_content: &ViewerSurfaceContent,
     surface_id: u32,
     shared_ctx: &mut SharedHooksCtx,
@@ -190,7 +189,6 @@ impl RenderingRoot {
         rendering.render(
           &requested_render_views,
           canvas,
-          content,
           surface_content,
           surface_id,
           renderer,

@@ -12,7 +12,7 @@ pub fn load_default_scene_lighting_test(writer: &mut SceneWriter) {
     DirectionalLightDataView {
       illuminance: Vec3::splat(5.),
       node: directional_light_node,
-      scene: writer.scene,
+      scene: writer.expect_target_scene(),
     }
     .write(&mut writer.directional_light_writer);
   }
@@ -26,7 +26,7 @@ pub fn load_default_scene_lighting_test(writer: &mut SceneWriter) {
     DirectionalLightDataView {
       illuminance: Vec3::new(5., 3., 2.) * 5.,
       node: directional_light_node,
-      scene: writer.scene,
+      scene: writer.expect_target_scene(),
     }
     .write(&mut writer.directional_light_writer);
   }
@@ -38,7 +38,7 @@ pub fn load_default_scene_lighting_test(writer: &mut SceneWriter) {
       intensity: Vec3::new(1., 1., 1.) * 100.,
       cutoff_distance: 40.,
       node: point_light_node,
-      scene: writer.scene,
+      scene: writer.expect_target_scene(),
     }
     .write(&mut writer.point_light_writer);
   }
@@ -53,7 +53,7 @@ pub fn load_default_scene_lighting_test(writer: &mut SceneWriter) {
       half_cone_angle: Deg::by(60. / 2.).to_rad(),
       half_penumbra_angle: Deg::by(50. / 2.).to_rad(),
       node: spot_light_node,
-      scene: writer.scene,
+      scene: writer.expect_target_scene(),
     }
     .write(&mut writer.spot_light_writer);
   }
@@ -96,6 +96,6 @@ pub fn load_ltc_lighting_test(writer: &mut SceneWriter) {
       .write::<AreaLightIsRound>(&true)
       .write::<AreaLightIsDoubleSide>(&false)
       .write::<AreaLightRefNode>(&node.some_handle())
-      .write::<AreaLightRefScene>(&writer.scene.some_handle())
+      .write::<AreaLightRefScene>(&writer.expect_target_scene().some_handle())
   });
 }

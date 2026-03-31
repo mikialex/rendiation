@@ -24,6 +24,7 @@ pub struct ViewerCx<'a> {
   pub input: &'a WindowEventStates,
   pub current_window_swapchain: &'a SurfaceWrapper,
   pub surface_id: u32,
+  pub active_surface_content: &'a mut ViewerSurfaceContent,
 
   pub absolute_seconds_from_start: f32,
   pub time_delta_seconds: f32,
@@ -49,7 +50,7 @@ impl<'a> ViewerCx<'a> {
   }
 
   fn active_scene_writer(&mut self) {
-    let writer = SceneWriter::from_global(self.viewer.content.scene);
+    let writer = SceneWriter::from_global(self.active_surface_content.scene);
 
     self.stage = ViewerCxStage::SceneContentUpdate {
       writer: Box::new(writer),
@@ -59,8 +60,7 @@ impl<'a> ViewerCx<'a> {
 
 pub struct ViewerInitCx<'a> {
   pub dyn_cx: &'a mut DynCx,
-  pub content: &'a Viewer3dContent,
-  pub surface_content: &'a FastHashMap<u32, ViewerSurfaceContent>,
+  pub content: &'a ViewerSurfaceContent,
   pub surface_id: u32,
   pub terminal: &'a mut Terminal,
   pub shared_ctx: &'a mut SharedHooksCtx,
@@ -78,7 +78,7 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
   }
   fn flush(&mut self) {
     if let ViewerCxStage::Gui { inspector, .. } = &mut self.stage {
-      let writer = SceneWriter::from_global(self.viewer.content.scene);
+      let writer = SceneWriter::from_global(self.active_surface_content.scene);
       let inspector = unsafe { std::mem::transmute(inspector) };
       let mut drop_cx = ViewerDropCx {
         dyn_cx: self.dyn_cx,
@@ -190,10 +190,9 @@ impl<'a> ViewerCx<'a> {
       || {
         init(&mut ViewerInitCx {
           dyn_cx: self.dyn_cx,
-          content: &self.viewer.content,
+          content: &self.active_surface_content,
           terminal: &mut self.viewer.terminal,
           shared_ctx: &mut self.viewer.shared_ctx,
-          surface_content: &mut self.viewer.surfaces_content,
           surface_id: self.surface_id,
         })
       },
@@ -312,8 +311,26 @@ pub fn use_viewer<'a>(
         acx.gpu_and_surface.gpu.clone(),
         init_config,
         worker_thread_pool.clone(),
-        |writer| load_example_cube_tex(writer),
       );
+
+      let widget_scene = global_entity_of::<SceneEntity>()
+        .entity_writer()
+        .new_entity(|w| w);
+
+      let root = global_entity_of::<SceneNodeEntity>()
+        .entity_writer()
+        .new_entity(|w| w);
+
+      let scene = global_entity_of::<SceneEntity>()
+        .entity_writer()
+        .new_entity(|w| w);
+
+      let background = {
+        let mut writer = SceneWriter::from_global(scene);
+
+        let default_env_background = load_example_cube_tex(&mut writer);
+        ViewerBackgroundState::init(default_env_background, &mut writer)
+      };
 
       let camera_node = global_entity_of::<SceneNodeEntity>()
         .entity_writer()
@@ -329,7 +346,7 @@ pub fn use_viewer<'a>(
         .entity_writer()
         .new_entity(|w| {
           w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
-            .write::<SceneCameraBelongsToScene>(&viewer.content.scene.some_handle())
+            .write::<SceneCameraBelongsToScene>(&scene.some_handle())
             .write::<SceneCameraNode>(&camera_node.some_handle())
         });
 
@@ -344,6 +361,14 @@ pub fn use_viewer<'a>(
       let surface_content = ViewerSurfaceContent {
         viewports: vec![viewport],
         device_pixel_ratio: 1.0,
+        root,
+        scene,
+        selected_model: None,
+        selected_dir_light: None,
+        selected_spot_light: None,
+        selected_point_light: None,
+        widget_scene,
+        background,
       };
       // we construct the default view in our viewer application
       viewer.surfaces_content.insert(surface_id, surface_content);
@@ -357,22 +382,14 @@ pub fn use_viewer<'a>(
       {
         let mut tex_source = data_scheduler.texture_uri_backend.write();
         let mut mesh_source = data_scheduler.mesh_uri_backend.write();
-        let mut writer = SceneWriter::from_global(viewer.content.scene);
-        load_default_scene(
-          &mut writer,
-          &viewer.content,
-          tex_source.as_mut(),
-          mesh_source.as_mut(),
-        );
+        let mut writer = SceneWriter::from_global(scene);
+        load_default_scene(&mut writer, tex_source.as_mut(), mesh_source.as_mut());
       };
+
       viewer
     },
     drop_viewer_from_dyn_cx,
   );
-
-  let surface_content = viewer.surfaces_content.get_mut(&acx.surface_id).unwrap();
-  // always sync
-  surface_content.device_pixel_ratio = acx.input.window_state.device_pixel_ratio;
 
   let (acx, gui_feature_global_states) = acx.use_plain_state(|| FeaturesGlobalUIStates {
     features: Default::default(),
@@ -398,11 +415,16 @@ pub fn use_viewer<'a>(
       .register_cx::<ViewerDataScheduler>(data_scheduler);
   };
 
+  let mut active_surface_content = viewer.surfaces_content.remove(&acx.surface_id).unwrap();
+  // always sync
+  active_surface_content.device_pixel_ratio = acx.input.window_state.device_pixel_ratio;
+
   ViewerCx {
     viewer,
     input: acx.input,
     dyn_cx: acx.dyn_cx,
     absolute_seconds_from_start,
+    active_surface_content: &mut active_surface_content,
     current_window_swapchain: &acx.gpu_and_surface.surface,
     time_delta_seconds: *frame_time_delta_in_seconds,
     surface_id: acx.surface_id,
@@ -432,6 +454,7 @@ pub fn use_viewer<'a>(
     dyn_cx: acx.dyn_cx,
     input: acx.input,
     absolute_seconds_from_start,
+    active_surface_content: &mut active_surface_content,
     current_window_swapchain: &acx.gpu_and_surface.surface,
     time_delta_seconds: *frame_time_delta_in_seconds,
     stage: ViewerCxStage::BaseStage,
@@ -442,6 +465,10 @@ pub fn use_viewer<'a>(
     surface_id: acx.surface_id,
   }
   .execute(|viewer| f(viewer));
+
+  viewer
+    .surfaces_content
+    .insert(acx.surface_id, active_surface_content);
 
   viewer.draw_canvas(
     acx.surface_id,
@@ -476,7 +503,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for QuerySceneReader {
 }
 
 fn use_scene_reader(cx: &mut ViewerCx) -> Option<Arc<SceneReader>> {
-  cx.use_shared_compute(QuerySceneReader(cx.viewer.content.scene))
+  cx.use_shared_compute(QuerySceneReader(cx.active_surface_content.scene))
     .into_resolve_stage()
 }
 

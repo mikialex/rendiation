@@ -121,7 +121,7 @@ type TerminalCommandCb =
   Box<dyn Fn(&mut TerminalInitExecuteCx, &Vec<String>) -> Pin<Box<dyn Future<Output = ()>>>>;
 
 pub struct TerminalInitExecuteCx<'a> {
-  pub scene: &'a Viewer3dContent,
+  pub scene: &'a ViewerSurfaceContent,
   pub renderer: &'a mut Viewer3dRenderingCtx,
   pub dyn_cx: &'a mut DynCx,
 }

@@ -483,7 +483,6 @@ impl Viewer3dRenderingCtx {
     &mut self,
     requested_render_views: &FastHashSet<(u64, usize)>,
     final_target: &RenderTargetView,
-    content: &Viewer3dContent,
     surface_content: &ViewerSurfaceContent,
     surface_id: u32,
     renderer: ViewerRendererInstancePreparer,
@@ -497,7 +496,7 @@ impl Viewer3dRenderingCtx {
       self.ndc.enable_reverse_z,
       renderer.raster_scene_renderer.as_ref(),
       &renderer.batch_extractor,
-      content.scene,
+      surface_content.scene,
     );
 
     let mut renderer = ViewerRendererInstance {
@@ -527,7 +526,14 @@ impl Viewer3dRenderingCtx {
         let view_renderer = surface_views.get_mut(viewport_id).unwrap();
         let viewport = &surface_content.viewports[*idx];
         ctx.frame_size = viewport.render_pixel_size();
-        view_renderer.render(ctx, &mut renderer, content, viewport, final_target, waker);
+        view_renderer.render(
+          ctx,
+          &mut renderer,
+          surface_content,
+          viewport,
+          final_target,
+          waker,
+        );
       });
     }
 

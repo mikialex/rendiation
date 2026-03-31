@@ -101,9 +101,8 @@ pub struct ViewerSurfaceContent {
   pub viewports: Vec<ViewerViewPort>,
   /// the viewport is physical size. we store the dpi per surface to help the convert to logic pixel
   pub device_pixel_ratio: f32,
-}
 
-pub struct Viewer3dContent {
+  // the currently implementation only allows one scene for one surface, not one scene for one viewport
   pub root: EntityHandle<SceneNodeEntity>,
   pub scene: EntityHandle<SceneEntity>,
   pub selected_model: Option<EntityHandle<SceneModelEntity>>,
@@ -111,6 +110,7 @@ pub struct Viewer3dContent {
   pub selected_spot_light: Option<EntityHandle<SpotLightEntity>>,
   pub selected_point_light: Option<EntityHandle<PointLightEntity>>,
   pub widget_scene: EntityHandle<SceneEntity>,
+  pub background: ViewerBackgroundState,
 }
 
 pub fn register_viewer_content_data_model() {

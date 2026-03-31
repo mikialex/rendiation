@@ -90,23 +90,53 @@ impl ViewerAPI {
 
     let worker = TaskSpawner::new("viewer-api", None);
 
+    // let widget_scene = global_entity_of::<SceneEntity>()
+    //   .entity_writer()
+    //   .new_entity(|w| w);
+
+    // let root = global_entity_of::<SceneNodeEntity>()
+    //   .entity_writer()
+    //   .new_entity(|w| w);
+
+    // let scene = global_entity_of::<SceneEntity>()
+    //   .entity_writer()
+    //   .new_entity(|w| w);
+
+    // let scene = Viewer3dContent {
+    //   scene,
+    //   root,
+    //   selected_dir_light: None,
+    //   selected_model: None,
+    //   selected_point_light: None,
+    //   selected_spot_light: None,
+    //   widget_scene,
+    // };
+
+    // let background = {
+    //   // let mut writer = SceneWriter::from_global(scene.scene);
+    //   let mut writer = SceneWriter::from_global(todo!());
+
+    //   let default_env_background = load_example_cube_tex(&mut writer);
+    //   ViewerBackgroundState::init(default_env_background, &mut writer)
+    // };
+
     let viewer = Viewer::new(
       gpu_and_surface.gpu.clone(),
       &init_config,
       worker.clone(),
-      |writer| {
-        let tex = create_gpu_texture_by_fn(Size::from_u32_pair_min_one((1, 1)), |_, _| {
-          Vec4::new(0., 0., 0., 1.)
-        });
-        writer.cube_texture_writer().write_cube_tex(
-          tex.clone(),
-          tex.clone(),
-          tex.clone(),
-          tex.clone(),
-          tex.clone(),
-          tex.clone(),
-        )
-      },
+      // |writer| {
+      //   let tex = create_gpu_texture_by_fn(Size::from_u32_pair_min_one((1, 1)), |_, _| {
+      //     Vec4::new(0., 0., 0., 1.)
+      //   });
+      //   writer.cube_texture_writer().write_cube_tex(
+      //     tex.clone(),
+      //     tex.clone(),
+      //     tex.clone(),
+      //     tex.clone(),
+      //     tex.clone(),
+      //     tex.clone(),
+      //   )
+      // },
     );
 
     ViewerAPI {
@@ -249,7 +279,8 @@ impl ViewerPickerAPI {
     let mut results = Vec::new();
     let mut model_results = Vec::new();
     let mut local_result_scratch = Vec::new();
-    let ctx = create_viewport_pointer_ctx(viewer, self.surface_id, (x, y), &self.camera_transforms);
+    let surface_content = viewer.surfaces_content.get(&self.surface_id).unwrap();
+    let ctx = create_viewport_pointer_ctx(surface_content, (x, y), &self.camera_transforms);
 
     if let Some(ctx) = ctx {
       let cx = create_ray_query_ctx_from_vpc(&ctx);

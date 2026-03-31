@@ -26,7 +26,7 @@ pub fn load_obj(
 
     let sm = SceneModelDataView {
       model: std_model,
-      scene: writer.scene,
+      scene: writer.expect_target_scene(),
       node,
     };
 

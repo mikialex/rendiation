@@ -47,7 +47,7 @@ pub fn use_animation_player(cx: &mut ViewerCx) {
         if animations.has_item_hint() {
           ui.label("animations in target scene:");
           for (animation, scene) in animations.iter_key_value() {
-            if scene == cx.viewer.content.scene {
+            if scene == cx.active_surface_content.scene {
               ui.label(animation_name.access(&animation).unwrap());
               let mut enable = active_animations.contains(&animation);
               ui.checkbox(&mut enable, "play");

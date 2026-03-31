@@ -278,7 +278,7 @@ impl UIWidgetModelProxy {
     .write(&mut v.std_model_writer);
     let scene_model = SceneModelDataView {
       model,
-      scene: v.scene,
+      scene: v.expect_target_scene(),
       node: *node,
     }
     .write(&mut v.model_writer);

@@ -34,7 +34,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
     let cam_trans = camera_transforms.expect_resolve_stage();
 
     let pointer_ctx =
-      create_viewport_pointer_ctx(cx.viewer, cx.surface_id, *mouse_position, &cam_trans);
+      create_viewport_pointer_ctx(cx.active_surface_content, *mouse_position, &cam_trans);
 
     ViewerSceneModelPicker {
       scene_model_picker: scene_model_picker.unwrap(),

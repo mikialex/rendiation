@@ -18,7 +18,7 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for UI3DMemory {
 
 pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
   let (viewer_cx, memory) = viewer_cx.use_state_init(|_| UI3DMemory::default());
-  let widget_scene = viewer_cx.viewer.content.widget_scene;
+  let widget_scene = viewer_cx.active_surface_content.widget_scene;
 
   #[allow(unused_assignments)] // false positive?
   let mut interaction = None;
@@ -69,7 +69,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
       let mut scene_old = None;
       cx.execute(|cx| {
         cx.on_update(|w, _| {
-          scene_old = w.replace_target_scene(widget_scene).into();
+          scene_old = w.replace_target_scene(Some(widget_scene)).into();
         });
 
         f(cx);

@@ -67,7 +67,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
               .entity_reader()
               .reconstruct_handle_by_idx(hit_entity_idx as usize);
 
-            cx.viewer.content.selected_model = hit;
+            cx.active_surface_content.selected_model = hit;
           }
         }
 
@@ -83,7 +83,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       return;
     }
 
-    let scene = cx.viewer.content.scene;
+    let scene = cx.active_surface_content.scene;
 
     let is_request_list_pick = cx
       .input
@@ -147,7 +147,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       }
     }
 
-    cx.viewer.content.selected_model = select_target_result;
+    cx.active_surface_content.selected_model = select_target_result;
   }
 }
 

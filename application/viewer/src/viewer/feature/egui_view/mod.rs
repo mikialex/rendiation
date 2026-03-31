@@ -127,7 +127,9 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           viewer.rendering_root.notify_change();
         }
 
-        viewer.background.egui(ui, viewer.content.scene);
+        cx.active_surface_content
+          .background
+          .egui(ui, cx.active_surface_content.scene);
 
         ui.separator();
 
@@ -215,7 +217,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
     }
     viewer.terminal.tick_execute(
       &mut TerminalInitExecuteCx {
-        scene: &viewer.content,
+        scene: &cx.active_surface_content,
         renderer: &mut viewer.rendering,
         dyn_cx: cx.dyn_cx,
       },
@@ -229,8 +231,8 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         .open(&mut ui_state.object_inspection)
         .vscroll(true)
         .show(ui, |ui| {
-          let mut scene_writer = SceneWriter::from_global(viewer.content.scene);
-          if let Some(target) = viewer.content.selected_model {
+          let mut scene_writer = SceneWriter::from_global(cx.active_surface_content.scene);
+          if let Some(target) = cx.active_surface_content.selected_model {
             ui.label(format!("SceneModel id: {:?}", target.into_raw()));
             show_entity_label(&scene_writer.model_writer, target, ui);
 
@@ -376,7 +378,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             }
 
             //
-          } else if let Some(target) = viewer.content.selected_spot_light {
+          } else if let Some(target) = cx.active_surface_content.selected_spot_light {
             ui.label(format!("Scene Spotlight id: {:?}", target.into_raw()));
             show_entity_label(&scene_writer.spot_light_writer, target, ui);
             ui.label("spotlight half cone angle:");
@@ -400,7 +402,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
               target,
               0.0..=10.,
             );
-          } else if let Some(target) = viewer.content.selected_point_light {
+          } else if let Some(target) = cx.active_surface_content.selected_point_light {
             ui.label(format!("Scene point light id: {:?}", target.into_raw()));
             show_entity_label(&scene_writer.point_light_writer, target, ui);
             ui.label("spotlight cutoff distance:");

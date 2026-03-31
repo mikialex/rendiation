@@ -47,7 +47,7 @@ pub fn use_camera_control(cx: &mut ViewerCx, camera_with_viewports: &CameraViewp
     }
 
     let mouse_position = &cx.input.window_state.mouse_position; // todo, use surface relative position
-    let surface_content = cx.viewer.surfaces_content.get(&cx.surface_id).unwrap();
+    let surface_content = &cx.active_surface_content;
     let viewports = camera_with_viewports
       .viewports_index
       .iter()

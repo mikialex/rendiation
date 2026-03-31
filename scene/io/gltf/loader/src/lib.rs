@@ -247,7 +247,7 @@ fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
     let color = light.color();
     let intensity = Vec3::from(color) * intensity;
     let cutoff_distance = light.range().unwrap_or(DEFAULT_CUTOFF_DISTANCE);
-    let scene = ctx.io.scene;
+    let scene = ctx.io.expect_target_scene();
     match light.kind() {
       gltf::khr_lights_punctual::Kind::Directional => {
         let scene_light = DirectionalLightDataView {
@@ -402,7 +402,7 @@ fn build_model(
 
   let sm = SceneModelDataView {
     model,
-    scene: ctx.io.scene,
+    scene: ctx.io.expect_target_scene(),
     node,
   };
 
@@ -416,10 +416,11 @@ fn build_model(
 }
 
 fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
+  let scene = ctx.io.expect_target_scene().some_handle();
   let animation_handle = ctx
     .io
     .animation
-    .new_entity(|w| w.write::<SceneAnimationBelongsToScene>(&ctx.io.scene.some_handle()));
+    .new_entity(|w| w.write::<SceneAnimationBelongsToScene>(&scene));
 
   write_label(&mut ctx.io.animation, animation_handle, animation.name());
 
