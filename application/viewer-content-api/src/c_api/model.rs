@@ -1,0 +1,100 @@
+use crate::*;
+
+#[repr(C)]
+pub struct SceneModelHandleInfo {
+  scene_model: ViewerEntityHandle,
+  std_model: ViewerEntityHandle,
+}
+
+#[no_mangle]
+pub extern "C" fn create_scene_model(
+  material: ViewerEntityHandle,
+  is_unlit_material: bool, // or pbr mr
+  mesh: ViewerEntityHandle,
+  node: ViewerEntityHandle,
+  scene: ViewerEntityHandle,
+) -> SceneModelHandleInfo {
+  let std_model = global_entity_of::<StandardModelEntity>()
+    .entity_writer()
+    .new_entity(|w| {
+      let w = w.write::<StandardModelRefAttributesMeshEntity>(&Some(mesh.into()));
+      if is_unlit_material {
+        w.write::<StandardModelRefUnlitMaterial>(&Some(material.into()))
+      } else {
+        w.write::<StandardModelRefPbrMRMaterial>(&Some(material.into()))
+      }
+    });
+
+  let scene_model = global_entity_of::<SceneModelEntity>()
+    .entity_writer()
+    .new_entity(|w| {
+      w.write::<SceneModelBelongsToScene>(&Some(scene.into()))
+        .write::<SceneModelRefNode>(&Some(node.into()))
+        .write::<SceneModelStdModelRenderPayload>(&Some(node.into()))
+    });
+
+  SceneModelHandleInfo {
+    std_model: std_model.into(),
+    scene_model: scene_model.into(),
+  }
+}
+
+#[no_mangle]
+pub extern "C" fn drop_scene_model(handle: SceneModelHandleInfo) {
+  global_entity_of::<StandardModelEntity>()
+    .entity_writer()
+    .delete_entity(handle.std_model.into());
+
+  global_entity_of::<SceneModelEntity>()
+    .entity_writer()
+    .delete_entity(handle.scene_model.into());
+}
+
+#[no_mangle]
+pub extern "C" fn scene_model_set_mesh(handle: SceneModelHandleInfo, mesh: ViewerEntityHandle) {
+  write_global_db_component::<StandardModelRefAttributesMeshEntity>()
+    .write(handle.std_model.into(), Some(mesh.into()));
+}
+
+#[no_mangle]
+pub extern "C" fn scene_model_set_material(
+  handle: SceneModelHandleInfo,
+  material: ViewerEntityHandle,
+  is_unlit_material: bool,
+) {
+  if is_unlit_material {
+    write_global_db_component::<StandardModelRefUnlitMaterial>()
+      .write(handle.std_model.into(), Some(material.into()));
+  } else {
+    write_global_db_component::<StandardModelRefUnlitMaterial>()
+      .write(handle.std_model.into(), Some(material.into()));
+  }
+}
+
+// #[no_mangle]
+// pub extern "C" fn create_wide_line() -> ViewerEntityHandle {
+//   global_entity_of::<WideLineModelEntity>()
+//     .entity_writer()
+//     .new_entity(|w| w)
+//     .into()
+// }
+// #[no_mangle]
+// pub extern "C" fn drop_wide_line(handle: ViewerEntityHandle) {
+//   global_entity_of::<WideLineModelEntity>()
+//     .entity_writer()
+//     .delete_entity(handle.into());
+// }
+
+// #[no_mangle]
+// pub extern "C" fn create_text3d() -> ViewerEntityHandle {
+//   global_entity_of::<Text3dEntity>()
+//     .entity_writer()
+//     .new_entity(|w| w)
+//     .into()
+// }
+// #[no_mangle]
+// pub extern "C" fn drop_text3d(handle: ViewerEntityHandle) {
+//   global_entity_of::<Text3dEntity>()
+//     .entity_writer()
+//     .delete_entity(handle.into());
+// }

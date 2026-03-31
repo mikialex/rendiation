@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 futures = { workspace = true }
 pollster = { workspace = true }
 bytemuck = { workspace = true }
+log = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 rendiation-viewer-content = { path = "../viewer-content" }
 

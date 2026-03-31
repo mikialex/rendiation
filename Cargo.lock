@@ -5892,6 +5892,7 @@ dependencies = [
  "cbindgen",
  "fast-hash-collection",
  "futures",
+ "log",
  "pollster",
  "rendiation-mesh-core",
  "rendiation-viewer-content",

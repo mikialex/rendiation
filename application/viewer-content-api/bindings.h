@@ -48,6 +48,20 @@ typedef struct ViewerEntityHandle {
   uint64_t generation;
 } ViewerEntityHandle;
 
+typedef struct ViewerRayPickResult {
+  uint32_t primitive_index;
+  /**
+   * in world space. the logic hit result(maybe not exactly the ray hit point if the primitive is line or points)
+   */
+  float hit_position[3];
+  struct ViewerEntityHandle scene_model_handle;
+} ViewerRayPickResult;
+
+typedef struct ViewerRayPickListResultInfo {
+  uintptr_t len;
+  const struct ViewerRayPickResult *ptr;
+} ViewerRayPickListResultInfo;
+
 typedef struct VertexPair {
   struct ViewerEntityHandle h1;
   struct ViewerEntityHandle h2;
@@ -63,19 +77,36 @@ typedef struct AttributesMeshEntitiesCommon {
   bool has_uv;
 } AttributesMeshEntitiesCommon;
 
-typedef struct ViewerRayPickResult {
-  uint32_t primitive_index;
-  /**
-   * in world space. the logic hit result(maybe not exactly the ray hit point if the primitive is line or points)
-   */
-  float hit_position[3];
-  struct ViewerEntityHandle scene_model_handle;
-} ViewerRayPickResult;
+typedef struct SceneModelHandleInfo {
+  struct ViewerEntityHandle scene_model;
+  struct ViewerEntityHandle std_model;
+} SceneModelHandleInfo;
 
-typedef struct ViewerRayPickListResultInfo {
-  uintptr_t len;
-  const struct ViewerRayPickResult *ptr;
-} ViewerRayPickListResultInfo;
+struct ViewerEntityHandle create_camera(struct ViewerEntityHandle node);
+
+void drop_camera(struct ViewerEntityHandle handle);
+
+void camera_set_proj_perspective(struct ViewerEntityHandle handle,
+                                 float near,
+                                 float far,
+                                 float vertical_fov_in_deg,
+                                 float aspect);
+
+void camera_set_proj_orth(struct ViewerEntityHandle handle,
+                          float near,
+                          float far,
+                          float left,
+                          float right,
+                          float top,
+                          float bottom);
+
+struct ViewerEntityHandle create_node(void);
+
+void delete_node(struct ViewerEntityHandle node);
+
+void node_set_local_mat(struct ViewerEntityHandle node, const double (*mat4)[16]);
+
+void node_attach_parent(struct ViewerEntityHandle node, struct ViewerEntityHandle *parent);
 
 struct ViewerAPI *create_viewer_content_api_instance(void);
 
@@ -84,7 +115,11 @@ void drop_viewer_content_api_instance(struct ViewerAPI *api);
 /**
  * hinstance can be null_ptr
  */
-uint32_t viewer_create_surface(struct ViewerAPI *api, void *hwnd, void *hinstance);
+uint32_t viewer_create_surface(struct ViewerAPI *api,
+                               void *hwnd,
+                               void *hinstance,
+                               uint32_t width,
+                               uint32_t height);
 
 void viewer_drop_surface(struct ViewerAPI *api, uint32_t surface_id);
 
@@ -96,76 +131,7 @@ void viewer_resize(struct ViewerAPI *api,
                    uint32_t new_width,
                    uint32_t new_height);
 
-struct ViewerEntityHandle create_node(void);
-
-void delete_node(struct ViewerEntityHandle node);
-
-void node_set_local_mat(struct ViewerEntityHandle node, const double (*mat4)[16]);
-
-void node_attach_parent(struct ViewerEntityHandle node, struct ViewerEntityHandle *parent);
-
-struct AttributesMeshEntitiesCommon create_mesh(uint32_t indices_length,
-                                                const uint32_t *indices,
-                                                uint32_t vertex_length,
-                                                const float *position,
-                                                const float *normal_raw,
-                                                const float *uv_raw,
-                                                enum MeshPrimitiveTopology topo);
-
-void drop_mesh(struct AttributesMeshEntitiesCommon entities);
-
-/**
- * the content format expects Rgba8UnormSrgb
- */
-struct ViewerEntityHandle create_texture2d(const uint8_t *content,
-                                           uintptr_t len,
-                                           uint32_t width,
-                                           uint32_t height);
-
-void drop_texture2d(struct ViewerEntityHandle handle);
-
-struct ViewerEntityHandle create_sampler(void);
-
-void drop_sampler(struct ViewerEntityHandle handle);
-
-struct ViewerEntityHandle create_unlit_material(void);
-
-void unlit_material_set_color(struct ViewerEntityHandle mat, const float (*color)[4]);
-
-void drop_unlit_material(struct ViewerEntityHandle handle);
-
-struct ViewerEntityHandle create_pbr_mr_material(void);
-
-void pbr_mr_material_set_color(struct ViewerEntityHandle mat, const float (*color)[3]);
-
-void pbr_mr_material_set_color_tex(struct ViewerEntityHandle mat,
-                                   struct ViewerEntityHandle tex,
-                                   struct ViewerEntityHandle sampler);
-
-void drop_pbr_mr_material(struct ViewerEntityHandle handle);
-
-struct ViewerEntityHandle create_wide_line(void);
-
-void drop_wide_line(struct ViewerEntityHandle handle);
-
-struct ViewerEntityHandle create_text3d(void);
-
-void drop_text3d(struct ViewerEntityHandle handle);
-
-struct ViewerEntityHandle create_camera(struct ViewerEntityHandle node);
-
-void drop_camera(struct ViewerEntityHandle handle);
-
-struct ViewerEntityHandle create_dir_light(struct ViewerEntityHandle node);
-
-void drop_dir_light(struct ViewerEntityHandle handle);
-
-struct ViewerEntityHandle create_scene_model(struct ViewerEntityHandle material,
-                                             struct ViewerEntityHandle mesh);
-
-void drop_scene_model(struct ViewerEntityHandle handle);
-
-void viewer_render_all_views(struct ViewerAPI *api);
+void viewer_render_all_surfaces(struct ViewerAPI *api);
 
 struct ViewerPickerAPI *viewer_create_picker_api(struct ViewerAPI *api, uint32_t surface_id);
 
@@ -186,6 +152,64 @@ struct ViewerRayPickListResult *picker_pick_list(struct ViewerPickerAPI *api,
 void drop_pick_list_result(struct ViewerRayPickListResult *r);
 
 struct ViewerRayPickListResultInfo get_ray_pick_list_info(struct ViewerRayPickListResult *r);
+
+/**
+ * the content format expects Rgba8UnormSrgb
+ */
+struct ViewerEntityHandle create_texture2d(const uint8_t *content,
+                                           uintptr_t len,
+                                           uint32_t width,
+                                           uint32_t height);
+
+void drop_texture2d(struct ViewerEntityHandle handle);
+
+struct ViewerEntityHandle create_sampler(void);
+
+void drop_sampler(struct ViewerEntityHandle handle);
+
+struct AttributesMeshEntitiesCommon create_mesh(uint32_t indices_length,
+                                                const uint32_t *indices,
+                                                uint32_t vertex_length,
+                                                const float *position,
+                                                const float *normal_raw,
+                                                const float *uv_raw,
+                                                enum MeshPrimitiveTopology topo);
+
+void drop_mesh(struct AttributesMeshEntitiesCommon entities);
+
+struct ViewerEntityHandle create_unlit_material(void);
+
+void unlit_material_set_color(struct ViewerEntityHandle mat, const float (*color)[4]);
+
+void drop_unlit_material(struct ViewerEntityHandle handle);
+
+struct ViewerEntityHandle create_pbr_mr_material(void);
+
+void pbr_mr_material_set_color(struct ViewerEntityHandle mat, const float (*color)[3]);
+
+void pbr_mr_material_set_color_tex(struct ViewerEntityHandle mat,
+                                   struct ViewerEntityHandle tex,
+                                   struct ViewerEntityHandle sampler);
+
+void drop_pbr_mr_material(struct ViewerEntityHandle handle);
+
+struct SceneModelHandleInfo create_scene_model(struct ViewerEntityHandle material,
+                                               bool is_unlit_material,
+                                               struct ViewerEntityHandle mesh,
+                                               struct ViewerEntityHandle node,
+                                               struct ViewerEntityHandle scene);
+
+void drop_scene_model(struct SceneModelHandleInfo handle);
+
+void scene_model_set_mesh(struct SceneModelHandleInfo handle, struct ViewerEntityHandle mesh);
+
+void scene_model_set_material(struct SceneModelHandleInfo handle,
+                              struct ViewerEntityHandle material,
+                              bool is_unlit_material);
+
+struct ViewerEntityHandle create_dir_light(struct ViewerEntityHandle node);
+
+void drop_dir_light(struct ViewerEntityHandle handle);
 
 /**
  * call this to setup panic message writer when panic happens

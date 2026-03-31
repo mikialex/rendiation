@@ -10,4 +10,4 @@ show dylib exported symbols(macos):
 
 if something not right(the build.rs not print warnings from cbindgen), you can call cbindgen manually:
 
-`cd to current folder`, run `cbindgen --config cbindgen.toml --crate viewer-content-api --output my_header.h` to see what went wrong.
+cd to viewer-content-api folder, run `cbindgen --config cbindgen.toml --crate viewer-content-api --output binding.h` to see what went wrong.
