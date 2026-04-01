@@ -69,6 +69,11 @@ pub extern "C" fn viewer_render_all_surfaces(api: &mut ViewerAPI) {
 }
 
 #[no_mangle]
+pub extern "C" fn viewer_render_surface(api: &mut ViewerAPI, surface_id: u32) {
+  api.render_surface(surface_id);
+}
+
+#[no_mangle]
 pub extern "C" fn viewer_create_picker_api(
   api: &mut ViewerAPI,
   surface_id: u32,

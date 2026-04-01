@@ -142,6 +142,8 @@ void viewer_resize(struct ViewerAPI *api,
 
 void viewer_render_all_surfaces(struct ViewerAPI *api);
 
+void viewer_render_surface(struct ViewerAPI *api, uint32_t surface_id);
+
 struct ViewerPickerAPI *viewer_create_picker_api(struct ViewerAPI *api, uint32_t surface_id);
 
 /**

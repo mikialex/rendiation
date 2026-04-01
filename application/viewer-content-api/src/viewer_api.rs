@@ -261,11 +261,32 @@ impl ViewerAPI {
 
   pub fn render_all_surfaces(&mut self) {
     for (surface_id, surface) in self.surfaces.iter_mut() {
+      setup_new_frame_allocator(10 * 1024 * 1024);
       if let Ok((canvas, target)) =
         surface.get_current_frame_with_render_target_view(&self.gpu_and_main_surface.gpu.device)
       {
         self.viewer.draw_canvas(
           *surface_id,
+          &target,
+          &self.task_spawner,
+          &mut self.data_source,
+          &mut self.dyn_cx,
+          None,
+        );
+
+        canvas.present();
+      }
+    }
+  }
+
+  pub fn render_surface(&mut self, surface_id: u32) {
+    setup_new_frame_allocator(10 * 1024 * 1024);
+    if let Some(surface) = self.surfaces.get(&surface_id) {
+      if let Ok((canvas, target)) =
+        surface.get_current_frame_with_render_target_view(&self.gpu_and_main_surface.gpu.device)
+      {
+        self.viewer.draw_canvas(
+          surface_id,
           &target,
           &self.task_spawner,
           &mut self.data_source,

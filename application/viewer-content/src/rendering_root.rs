@@ -69,6 +69,7 @@ impl RenderingRoot {
     }
   }
 
+  // todo, this is not for per surface
   fn init_frame(&mut self) {
     self.pool.tick();
     self.pass_info_pool.tick();
