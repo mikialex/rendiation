@@ -134,6 +134,12 @@ pub struct TextReadBufferInfo {
 }
 
 impl TextReadBufferInfo {
+  pub fn size(&self) -> Size {
+    Size::from_usize_pair_min_one((self.width, self.height))
+  }
+}
+
+impl TextReadBufferInfo {
   fn new(width: usize, height: usize, format: gpu::TextureFormat) -> Self {
     let bytes_per_pixel = format.block_copy_size(None).unwrap() as usize;
     let unpadded_bytes_per_row = width * bytes_per_pixel;

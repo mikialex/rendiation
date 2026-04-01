@@ -22,6 +22,7 @@ pub struct ViewerInitConfig {
   pub enable_msaa: bool,
   pub present_mode: PresentMode,
   pub enable_on_demand_rendering: bool,
+  pub always_enable_caching_frame_for_direct_read: bool,
   pub init_only: ViewerStaticInitConfig,
   pub features: ViewerFeaturesInitConfig,
 }
@@ -172,6 +173,7 @@ impl Default for ViewerInitConfig {
       enable_fxaa: false,
       using_host_driven_indirect_draw: false,
       enable_on_demand_rendering: true,
+      always_enable_caching_frame_for_direct_read: false,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       init_only: ViewerStaticInitConfig::default(),
       features: Default::default(),

@@ -41,8 +41,9 @@ pub struct Viewer3dViewportRenderingCtx {
   pub rtx_ao: Option<SceneRayTracingAORenderer>,
   pub rtx_pt: Option<DeviceReferencePathTracingRenderer>,
 
+  pub always_enable_caching_frame_for_direct_read: bool,
   pub(super) enable_on_demand_rendering: bool,
-  pub(super) on_demand_rendering_cached_frame: Option<RenderTargetView>,
+  pub(super) cached_frame: Option<RenderTargetView>,
   pub(super) not_any_changed_frame_count: u32,
 
   viewport_cache: Option<ViewerViewPort>,
@@ -77,7 +78,9 @@ impl Viewer3dViewportRenderingCtx {
       rtx_rendering_enabled: false,
       request_reset_rtx_sample: true,
       enable_on_demand_rendering: init_config.enable_on_demand_rendering,
-      on_demand_rendering_cached_frame: None,
+      always_enable_caching_frame_for_direct_read: init_config
+        .always_enable_caching_frame_for_direct_read,
+      cached_frame: None,
       not_any_changed_frame_count: 0,
       oit: ViewerTransparentRenderer::NaiveAlphaBlend,
       rtx_ao: None,
@@ -92,6 +95,8 @@ impl Viewer3dViewportRenderingCtx {
     init_config.enable_taa = self.enable_taa;
     init_config.enable_fxaa = self.enable_fxaa;
     init_config.enable_msaa = self.enable_msaa;
+    init_config.always_enable_caching_frame_for_direct_read =
+      self.always_enable_caching_frame_for_direct_read;
   }
 
   pub fn egui(&mut self, ui: &mut UiWithChangeInfo, rtx_renderer_enabled: bool) {
@@ -205,9 +210,6 @@ impl Viewer3dViewportRenderingCtx {
     post_egui(ui, &self.post);
   }
 
-  /// only texture could be read. caller must sure the target passed in render call not using
-  /// window surface.
-  #[allow(unused)] // used in terminal command
   pub fn read_next_render_result(
     &mut self,
   ) -> impl Future<Output = Result<ReadableTextureBuffer, ViewerRenderResultReadBackErr>> {
@@ -219,6 +221,34 @@ impl Viewer3dViewportRenderingCtx {
       .flatten()
   }
 
+  /// read the last rendered frame result, return None if the viewer never rendered or sth wrong.
+  ///
+  /// the always_enable_caching_frame_for_direct_read must set true
+  ///
+  /// this feature is not recommend to use
+  pub fn direct_read_cached_frame_sync(&self, gpu: &GPU) -> Option<ReadableTextureBuffer> {
+    let cached: GPU2DTextureView = self
+      .cached_frame
+      .as_ref()?
+      .expect_standalone_common_texture_view_for_binding()
+      .clone()
+      .try_into()
+      .unwrap();
+    let mut encoder = gpu.create_encoder();
+    let fut = encoder.read_texture_2d(
+      &gpu.device,
+      &cached,
+      ReadRange {
+        size: cached.size(),
+        offset_x: 0,
+        offset_y: 0,
+      },
+    );
+    gpu.submit_encoder(encoder);
+
+    pollster::block_on(fut).ok()
+  }
+
   pub fn check_should_render_and_copy_cached(
     &mut self,
     target: &RenderTargetView,
@@ -228,41 +258,41 @@ impl Viewer3dViewportRenderingCtx {
   ) -> bool {
     if let Some(viewport_cached) = &self.viewport_cache {
       if viewport_cached != viewport {
-        self.on_demand_rendering_cached_frame = None;
+        self.cached_frame = None;
         self.viewport_cache = Some(viewport.clone());
       }
     } else {
-      self.on_demand_rendering_cached_frame = None;
+      self.cached_frame = None;
       self.viewport_cache = Some(viewport.clone());
     }
 
     // currently the rtx mode is offline style, so we need continually rendering
     if self.rtx_rendering_enabled {
-      self.on_demand_rendering_cached_frame = None;
+      self.cached_frame = None;
     }
 
     if !self.enable_on_demand_rendering {
-      self.on_demand_rendering_cached_frame = None;
+      self.cached_frame = None;
     }
 
     if any_changed {
-      self.on_demand_rendering_cached_frame = None;
+      self.cached_frame = None;
       self.not_any_changed_frame_count = 0;
     } else {
       self.not_any_changed_frame_count += 1;
     }
 
     if self.enable_taa && self.not_any_changed_frame_count <= 32 {
-      self.on_demand_rendering_cached_frame = None;
+      self.cached_frame = None;
     }
 
-    if let Some(cached_frame) = &self.on_demand_rendering_cached_frame {
+    if let Some(cached_frame) = &self.cached_frame {
       if cached_frame.size() != target.size() {
-        self.on_demand_rendering_cached_frame = None;
+        self.cached_frame = None;
       }
     }
 
-    if let Some(cached_frame) = &self.on_demand_rendering_cached_frame {
+    if let Some(cached_frame) = &self.cached_frame {
       ctx.scope(|ctx| {
         pass("on demand rendering copy cached frame")
           .with_color(target, load_and_store()) // todo, use store full when only has one viewport
@@ -366,7 +396,7 @@ impl Viewer3dViewportRenderingCtx {
           .with_color(&frame_cache, store_full_frame())
           .render_ctx(ctx)
           .by(&mut copy_frame(render_target.clone(), None));
-        self.on_demand_rendering_cached_frame = Some(frame_cache);
+        self.cached_frame = Some(frame_cache);
       });
     }
 
@@ -688,7 +718,8 @@ impl Viewer3dViewportRenderingCtx {
   }
 
   fn should_do_frame_caching(&self) -> bool {
-    self.enable_on_demand_rendering && !self.rtx_rendering_enabled
+    self.always_enable_caching_frame_for_direct_read
+      || (self.enable_on_demand_rendering && !self.rtx_rendering_enabled)
   }
 
   fn should_do_extra_copy(

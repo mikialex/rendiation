@@ -143,6 +143,21 @@ impl ViewerAPI {
     self.viewer.drop_surface(surface_id);
   }
 
+  pub fn read_last_render_result(&mut self, surface_id: u32) -> Option<GPUBufferImage> {
+    let view = self.viewer.rendering.surface_views.get(&surface_id)?;
+    let view = view.values().next()?; // we only have one view
+    let result = view.direct_read_cached_frame_sync(&self.gpu_and_main_surface.gpu)?;
+
+    let data = result.read_into_raw_unpadded_buffer();
+
+    GPUBufferImage {
+      data,
+      format: result.info().format,
+      size: result.info().size(),
+    }
+    .into()
+  }
+
   pub fn set_surface_scene(&mut self, surface_id: u32, scene: RawEntityHandle) {
     let content = self
       .viewer
@@ -169,7 +184,10 @@ impl ViewerAPI {
     }
   }
 
-  pub fn new(init_config: ViewerInitConfig) -> Self {
+  pub fn new(mut init_config: ViewerInitConfig) -> Self {
+    // setup some necessary config for viewer api's use case
+    init_config.always_enable_caching_frame_for_direct_read = true;
+
     let gpu_platform_config = init_config.make_gpu_platform_config();
 
     let gpu_config = gpu_platform_config.make_gpu_create_config(None);

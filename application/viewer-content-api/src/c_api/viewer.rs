@@ -31,14 +31,25 @@ pub extern "C" fn viewer_drop_surface(api: *mut ViewerAPI, surface_id: u32) {
   api.drop_surface(surface_id)
 }
 
-// #[no_mangle]
-// pub extern "C" fn read_last_viewer_render_result(
-//   api: *mut ViewerAPI,
-//   surface_id: u32,
-// ) -> ViewerEntityHandle {
-//   let api = unsafe { &mut *api };
-//   todo!()
-// }
+/// may return empty handle for error case
+#[no_mangle]
+pub extern "C" fn viewer_read_last_render_result(
+  api: *mut ViewerAPI,
+  surface_id: u32,
+) -> ViewerEntityHandle {
+  let api = unsafe { &mut *api };
+
+  if let Some(data) = api.read_last_render_result(surface_id) {
+    let data = MaybeUriData::Living(Arc::new(data));
+    let data = ExternalRefPtr::new(data);
+    global_entity_of::<SceneTexture2dEntity>()
+      .entity_writer()
+      .new_entity(|w| w.write::<SceneTexture2dEntityDirectContent>(&Some(data)))
+      .into()
+  } else {
+    ViewerEntityHandle::empty()
+  }
+}
 
 /// the size is physical resolution
 #[no_mangle]

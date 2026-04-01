@@ -127,6 +127,12 @@ uint32_t viewer_create_surface(struct ViewerAPI *api,
 void viewer_drop_surface(struct ViewerAPI *api, uint32_t surface_id);
 
 /**
+ * may return empty handle for error case
+ */
+struct ViewerEntityHandle viewer_read_last_render_result(struct ViewerAPI *api,
+                                                         uint32_t surface_id);
+
+/**
  * the size is physical resolution
  */
 void viewer_resize(struct ViewerAPI *api,
