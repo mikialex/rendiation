@@ -12,7 +12,10 @@ pub struct ViewerAPICx<'a> {
   pub waker: Waker,
 }
 
-pub struct ViewerAPICxDropCx;
+pub struct ViewerAPICxDropCx<'a> {
+  pub dyn_cx: &'a mut DynCx,
+  pub shared_ctx: &'a mut SharedHooksCtx,
+}
 
 pub struct ViewerAPIInitCx<'a> {
   pub shared_ctx: &'a mut SharedHooksCtx,
@@ -24,7 +27,7 @@ impl<'a> ViewerAPICx<'a> {
     init: impl FnOnce(&mut ViewerAPIInitCx) -> T,
   ) -> (&mut Self, &mut T)
   where
-    T: Any + CanCleanUpFrom<ViewerAPICxDropCx>,
+    T: Any + for<'b> CanCleanUpFrom<ViewerAPICxDropCx<'b>>,
   {
     // this is safe because user can not access previous retrieved state through returned self.
     let s = unsafe { std::mem::transmute_copy(&self) };
@@ -44,10 +47,14 @@ impl<'a> ViewerAPICx<'a> {
   }
 }
 
-impl CanCleanUpFrom<ViewerAPICxDropCx> for SharedConsumerToken {
-  fn drop_from_cx(&mut self, _: &mut ViewerAPICxDropCx) {}
+impl<'a> CanCleanUpFrom<ViewerAPICxDropCx<'a>> for SharedConsumerToken {
+  fn drop_from_cx(&mut self, cx: &mut ViewerAPICxDropCx) {
+    if let Some(mem) = cx.shared_ctx.drop_consumer(*self, &mut None) {
+      mem.write().memory.cleanup_assume_only_plain_states();
+    }
+  }
 }
-impl<T> CanCleanUpFrom<ViewerAPICxDropCx> for NothingToDrop<T> {
+impl<'a, T> CanCleanUpFrom<ViewerAPICxDropCx<'a>> for NothingToDrop<T> {
   fn drop_from_cx(&mut self, _: &mut ViewerAPICxDropCx) {}
 }
 
@@ -74,7 +81,12 @@ unsafe impl<'a> HooksCxLike for ViewerAPICx<'a> {
 
   fn flush(&mut self) {
     if let ViewerAPICxStage::Spawn { .. } = &mut self.stage {
-      self.memory.flush(&mut () as *mut ());
+      let mut drop_cx = ViewerAPICxDropCx {
+        shared_ctx: &mut self.viewer.shared_ctx,
+        dyn_cx: self.dyn_cx,
+      };
+      let drop_cx = &mut drop_cx as *mut _ as *mut ();
+      self.memory.flush(drop_cx);
     }
   }
 

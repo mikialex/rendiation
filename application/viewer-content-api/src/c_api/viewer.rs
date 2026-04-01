@@ -64,11 +64,6 @@ pub extern "C" fn viewer_resize(
 }
 
 #[no_mangle]
-pub extern "C" fn viewer_render_all_surfaces(api: &mut ViewerAPI) {
-  api.render_all_surfaces();
-}
-
-#[no_mangle]
 pub extern "C" fn viewer_render_surface(api: &mut ViewerAPI, surface_id: u32) {
   api.render_surface(surface_id);
 }

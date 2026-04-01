@@ -14,10 +14,16 @@ pub struct ViewerAPI {
 
 impl Drop for ViewerAPI {
   fn drop(&mut self) {
-    drop_viewer_from_dyn_cx(&mut self.viewer, &mut self.dyn_cx);
+    let mut drop_cx = ViewerAPICxDropCx {
+      dyn_cx: &mut self.dyn_cx,
+      shared_ctx: &mut self.viewer.shared_ctx,
+    };
+
     self
       .picker_mem
-      .cleanup(&mut ViewerAPICxDropCx as *mut ViewerAPICxDropCx as *mut ());
+      .cleanup(&mut drop_cx as *mut ViewerAPICxDropCx as *mut ());
+
+    drop_viewer_from_dyn_cx(&mut self.viewer, &mut self.dyn_cx);
   }
 }
 
@@ -259,32 +265,18 @@ impl ViewerAPI {
     })
   }
 
-  pub fn render_all_surfaces(&mut self) {
-    for (surface_id, surface) in self.surfaces.iter_mut() {
-      setup_new_frame_allocator(10 * 1024 * 1024);
-      if let Ok((canvas, target)) =
-        surface.get_current_frame_with_render_target_view(&self.gpu_and_main_surface.gpu.device)
-      {
-        self.viewer.draw_canvas(
-          *surface_id,
-          &target,
-          &self.task_spawner,
-          &mut self.data_source,
-          &mut self.dyn_cx,
-          None,
-        );
-
-        canvas.present();
-      }
-    }
-  }
-
   pub fn render_surface(&mut self, surface_id: u32) {
     setup_new_frame_allocator(10 * 1024 * 1024);
     if let Some(surface) = self.surfaces.get(&surface_id) {
       if let Ok((canvas, target)) =
         surface.get_current_frame_with_render_target_view(&self.gpu_and_main_surface.gpu.device)
       {
+        unsafe {
+          self
+            .dyn_cx
+            .register_cx::<ViewerDataScheduler>(&mut self.data_source);
+        };
+
         self.viewer.draw_canvas(
           surface_id,
           &target,
@@ -293,6 +285,10 @@ impl ViewerAPI {
           &mut self.dyn_cx,
           None,
         );
+
+        unsafe {
+          self.dyn_cx.unregister_cx::<ViewerDataScheduler>();
+        };
 
         canvas.present();
       }
@@ -303,6 +299,12 @@ impl ViewerAPI {
     let mut pool = AsyncTaskPool::default();
     let mut immediate_results = FastHashMap::default();
     let mut change_collector = ChangeCollector::default();
+
+    unsafe {
+      self
+        .dyn_cx
+        .register_cx::<ViewerDataScheduler>(&mut self.data_source);
+    };
 
     {
       self.viewer.shared_ctx.reset_visiting();
@@ -341,7 +343,13 @@ impl ViewerAPI {
       viewer: &mut self.viewer,
       waker: futures::task::noop_waker(),
     };
-    f(&mut cx).unwrap()
+    let r = f(&mut cx).unwrap();
+
+    unsafe {
+      self.dyn_cx.unregister_cx::<ViewerDataScheduler>();
+    };
+
+    r
   }
 }
 
