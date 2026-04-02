@@ -69,6 +69,18 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     }
   }
 
+  fn into_boxed_void_huge_symbol_in_debug_build(
+    self,
+  ) -> impl DualQueryLike<Key = Self::Key, Value = Self::Value> {
+    #[cfg(debug_assertions)]
+    {
+      self.into_boxed()
+    }
+
+    #[cfg(not(debug_assertions))]
+    self
+  }
+
   fn dual_query_map<V2: CValue>(
     self,
     f: impl Fn(Self::Value) -> V2 + Clone + Sync + Send + 'static,
@@ -78,6 +90,7 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
       view: view.map_value(f.clone()),
       delta: delta.delta_map_value(f),
     }
+    .into_boxed_void_huge_symbol_in_debug_build()
   }
 
   fn dual_query_map_kv<V2: CValue>(
@@ -85,14 +98,18 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     f: impl Fn(&Self::Key, Self::Value) -> V2 + Clone + Sync + Send + 'static,
   ) -> impl DualQueryLike<Key = Self::Key, Value = V2> {
     let (view, delta) = self.view_delta();
-    DualQuery { view, delta }.map(f)
+    DualQuery { view, delta }
+      .map(f)
+      .into_boxed_void_huge_symbol_in_debug_build()
   }
 
   fn dual_query_filter(
     self,
     f: impl Fn(Self::Value) -> bool + Clone + Sync + Send + 'static,
   ) -> impl DualQueryLike<Key = Self::Key, Value = Self::Value> {
-    self.dual_query_filter_map(move |v| f(v.clone()).then_some(v))
+    self
+      .dual_query_filter_map(move |v| f(v.clone()).then_some(v))
+      .into_boxed_void_huge_symbol_in_debug_build()
   }
 
   fn dual_query_filter_map<V2: CValue>(
@@ -104,6 +121,7 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
       view: view.filter_map(f.clone()),
       delta: delta.delta_filter_map(f),
     }
+    .into_boxed_void_huge_symbol_in_debug_build()
   }
 
   fn dual_query_select<Q>(
@@ -114,14 +132,16 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
   where
     Q: DualQueryLike<Key = Self::Key, Value = Self::Value>,
   {
-    self.dual_query_union(other, move |(a, b)| match (a, b) {
-      (Some(_), Some(_)) => {
-        unreachable!("key set should not overlap, call site: {debug_location:?}")
-      }
-      (Some(a), None) => a.into(),
-      (None, Some(b)) => b.into(),
-      (None, None) => None,
-    })
+    self
+      .dual_query_union(other, move |(a, b)| match (a, b) {
+        (Some(_), Some(_)) => {
+          unreachable!("key set should not overlap, call site: {debug_location:?}")
+        }
+        (Some(a), None) => a.into(),
+        (None, Some(b)) => b.into(),
+        (None, None) => None,
+      })
+      .into_boxed_void_huge_symbol_in_debug_build()
   }
 
   fn dual_query_zip<Q>(
@@ -132,12 +152,14 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
   where
     Q: DualQueryLike<Key = Self::Key>,
   {
-    self.dual_query_union(other, move |(a, b)| match (a, b) {
-      (Some(a), Some(b)) => Some((a, b)),
-      (None, None) => None,
-      (None, Some(_)) => unreachable!("zip missing left side, call site: {debug_location:?}"),
-      (Some(_), None) => unreachable!("zip missing right side, call site: {debug_location:?}"),
-    })
+    self
+      .dual_query_union(other, move |(a, b)| match (a, b) {
+        (Some(a), Some(b)) => Some((a, b)),
+        (None, None) => None,
+        (None, Some(_)) => unreachable!("zip missing left side, call site: {debug_location:?}"),
+        (Some(_), None) => unreachable!("zip missing right side, call site: {debug_location:?}"),
+      })
+      .into_boxed_void_huge_symbol_in_debug_build()
   }
 
   fn dual_query_filter_by_set<Q>(
@@ -147,10 +169,12 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
   where
     Q: DualQueryLike<Key = Self::Key>,
   {
-    self.dual_query_union(other, |(a, b)| match (a, b) {
-      (Some(a), Some(_)) => Some(a),
-      _ => None,
-    })
+    self
+      .dual_query_union(other, |(a, b)| match (a, b) {
+        (Some(a), Some(_)) => Some(a),
+        _ => None,
+      })
+      .into_boxed_void_huge_symbol_in_debug_build()
   }
 
   fn dual_query_intersect<Q>(
@@ -160,10 +184,12 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
   where
     Q: DualQueryLike<Key = Self::Key>,
   {
-    self.dual_query_union(other, move |(a, b)| match (a, b) {
-      (Some(a), Some(b)) => Some((a, b)),
-      _ => None,
-    })
+    self
+      .dual_query_union(other, move |(a, b)| match (a, b) {
+        (Some(a), Some(b)) => Some((a, b)),
+        _ => None,
+      })
+      .into_boxed_void_huge_symbol_in_debug_build()
   }
 
   fn dual_query_union<Q, O: CValue>(
@@ -191,7 +217,7 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
       f,
     };
 
-    DualQuery { view, delta }
+    DualQuery { view, delta }.into_boxed_void_huge_symbol_in_debug_build()
   }
 
   fn fanout<R: TriQueryLike<Value = Self::Key>>(
