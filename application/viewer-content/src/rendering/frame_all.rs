@@ -463,16 +463,20 @@ impl Viewer3dRenderingCtx {
     }
     *surface_views = new_views;
 
+    ctx.next_key_scope_root();
     views
       .iter()
       .enumerate()
       .filter_map(|(i, v)| {
         let view_renderer = surface_views.get_mut(&v.id).unwrap();
-        if view_renderer.check_should_render_and_copy_cached(target, v, any_changed, ctx) {
-          Some((v.id, i))
-        } else {
-          None
-        }
+
+        ctx.keyed_scope(&v.id, |ctx| {
+          if view_renderer.check_should_render_and_copy_cached(target, v, any_changed, ctx) {
+            Some((v.id, i))
+          } else {
+            None
+          }
+        })
       })
       .collect()
   }

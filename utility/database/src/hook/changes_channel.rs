@@ -338,7 +338,11 @@ impl Bitmap {
   }
   /// Create a new bitmap with initial size `size`
   pub fn with_size(size: usize) -> Self {
-    let byte_size = (size >> 3) + 1;
+    let mut byte_size = (size >> 3) + 1;
+    if size == 0 {
+      // avoid allocation
+      byte_size = 0;
+    }
     Self {
       bits: vec![0; byte_size],
     }
