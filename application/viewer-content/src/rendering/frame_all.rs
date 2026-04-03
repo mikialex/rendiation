@@ -121,7 +121,7 @@ impl Viewer3dRenderingCtx {
     );
 
     let any_base_resource_changed = change_scope(cx);
-    let mut any_indirect_resource_changed = None;
+    let mut any_indirect_resource_changed = false;
     let mut rtx_materials_support = None;
     let mut rtx_mesh = None;
 
@@ -320,7 +320,7 @@ impl Viewer3dRenderingCtx {
           })
           .map(|r| Box::new(r) as Box<dyn SceneRenderer>);
 
-        any_indirect_resource_changed = change_scope(cx);
+        any_indirect_resource_changed |= change_scope(cx);
 
         renderer
       }),
@@ -356,7 +356,7 @@ impl Viewer3dRenderingCtx {
             );
             scope.end(cx);
 
-            any_indirect_resource_changed = change_scope(cx);
+            any_indirect_resource_changed |= change_scope(cx);
 
             rtx_materials_support = cx.when_render(|| {
               Arc::new(vec![
@@ -373,8 +373,7 @@ impl Viewer3dRenderingCtx {
           .clone()
           .map(|c| Box::new(c) as Box<dyn RtxCameraRenderImpl>);
 
-        let request_reset_sample = any_base_resource_changed.unwrap_or(false)
-          || any_indirect_resource_changed.unwrap_or(false);
+        let request_reset_sample = any_base_resource_changed || any_indirect_resource_changed;
 
         use_viewer_rtx(
           cx,

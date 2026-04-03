@@ -54,10 +54,6 @@ pub fn use_scene_rtx_renderer_base(
   let scene_ids = use_scene_id_provider(cx); // this could be reused, but it's unnecessary.
 
   let changed = scope(cx);
-  let (cx, changed_s) = cx.use_plain_state(|| false);
-  if let Some(changed) = changed {
-    *changed_s |= changed;
-  }
 
   cx.when_render(|| {
     (
@@ -69,7 +65,7 @@ pub fn use_scene_rtx_renderer_base(
         lighting: lighting.unwrap(),
         scene_ids,
       },
-      std::mem::take(changed_s),
+      changed,
     )
   })
 }

@@ -32,9 +32,14 @@ pub fn use_viewer_rtx(
   let ao = use_scene_ao_sbt(cx, core);
   let pt = use_rtx_pt_sbt(cx, core);
 
+  let (cx, request_sample) = cx.use_plain_state(|| true);
+  // the passed in request_reset_sample only true in some stage, so we have to cache the event here
+  *request_sample |= request_reset_sample;
+
   cx.when_render(|| {
     let mut base = base.unwrap();
-    base.1 |= request_reset_sample;
+    base.1 |= *request_sample;
+    *request_sample = false;
     (
       RayTracingRendererGroup {
         base,

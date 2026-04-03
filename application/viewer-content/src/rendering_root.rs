@@ -140,7 +140,6 @@ impl RenderingRoot {
             stage: GPUQueryHookStage::Update {
               spawner: task_spawner,
               task_pool: &mut pool,
-              change_collector: &mut Default::default(),
               immediate_results: &mut immediate_results,
               inspector: inspector.map(|v| v as &mut dyn Inspector),
             },

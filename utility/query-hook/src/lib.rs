@@ -50,26 +50,11 @@ pub trait InspectableCx: HooksCxLike {
   fn if_inspect(&mut self, f: impl FnOnce(&mut dyn Inspector));
 }
 
-#[derive(Default)]
-pub struct ChangeCollector {
-  scope: FastHashMap<u32, bool>,
-  changed: bool,
-}
-
-impl ChangeCollector {
-  #[inline(never)]
-  pub fn notify_change(&mut self) {
-    self.scope.values_mut().for_each(|v| *v = true);
-    self.changed = true;
-  }
-}
-
 pub enum QueryHookStage<'a> {
   SpawnTask {
     spawner: &'a TaskSpawner,
     pool: &'a mut AsyncTaskPool,
     immediate_results: &'a mut FastHashMap<u32, Arc<dyn Any + Send + Sync>>,
-    change_collector: &'a mut ChangeCollector,
   },
   ResolveTask {
     task: &'a mut TaskPoolResultCx,
@@ -198,34 +183,20 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     r
   }
 
-  fn use_begin_change_set_collect(
-    &mut self,
-  ) -> (&mut Self, impl FnOnce(&mut Self) -> Option<bool>) {
-    use std::sync::atomic::AtomicU32;
-    static ID: AtomicU32 = AtomicU32::new(0);
-    fn get_new_id() -> u32 {
-      ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    }
+  // the change scope ender must be called in same hook scope
+  // todo add runtime check
+  // todo, investigate why we cant skip like run_with_waked_info
+  fn use_begin_change_set_collect(&mut self) -> (&mut Self, impl FnOnce(&mut Self) -> bool) {
+    let (cx, notifier) = self.use_plain_state_default::<ChangeNotifier>();
+    let waked = notifier.update(cx.waker());
+    let waker = futures::task::waker(notifier.clone());
 
-    let (cx, id) = self.use_plain_state::<u32>(get_new_id);
-
-    if let QueryHookStage::SpawnTask {
-      change_collector, ..
-    } = cx.stage()
-    {
-      change_collector.scope.insert(*id, false);
-    }
+    let waker_backup = cx.waker().clone().into();
+    *cx.waker() = waker;
 
     (cx, move |cx| {
-      if let QueryHookStage::SpawnTask {
-        change_collector, ..
-      } = cx.stage()
-      {
-        let has_change = change_collector.scope.remove(id).unwrap();
-        Some(has_change)
-      } else {
-        None
-      }
+      *cx.waker() = waker_backup;
+      waked
     })
   }
 
@@ -350,7 +321,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
       let waker = self.waker().clone();
       let shared = self.shared_hook_ctx().shared.entry(key).or_default();
       let mut shared = shared.write();
-      shared.consumer.entry(consumer_id).or_insert_with(|| true);
+      shared.consumer.insert(consumer_id);
       shared.consumer_wakers.setup(consumer_id, waker);
       shared.consumer_wakers.clone()
     };
@@ -446,21 +417,6 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
       _ => UseResult::NotInStage,
     };
 
-    if self.is_spawning_stage() {
-      let changed = {
-        let mut shared = self.shared_hook_ctx().shared.get(&key).unwrap().write();
-        shared.consumer.insert(consumer_id, false).unwrap()
-      };
-
-      if let QueryHookStage::SpawnTask {
-        change_collector, ..
-      } = self.stage()
-        && changed
-      {
-        change_collector.notify_change();
-      }
-    }
-
     r
   }
 
@@ -480,14 +436,6 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
 
     let mut shared = shared.write();
 
-    let mut old = ChangeCollector::default();
-    if let QueryHookStage::SpawnTask {
-      change_collector, ..
-    } = self.stage()
-    {
-      std::mem::swap(&mut old, change_collector);
-    }
-
     let memory = &mut shared.memory;
 
     let r = unsafe {
@@ -501,21 +449,6 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
       core::ptr::swap(self.memory_mut(), memory);
       r
     };
-
-    if let QueryHookStage::SpawnTask {
-      change_collector, ..
-    } = self.stage()
-    {
-      let changed = change_collector.changed;
-      std::mem::swap(&mut old, change_collector);
-      if changed {
-        change_collector.notify_change();
-      }
-
-      if changed {
-        shared.consumer.values_mut().for_each(|v| *v = true);
-      }
-    }
 
     self.if_inspect(|cx| cx.leave_shared_ctx(&key));
 
@@ -548,6 +481,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     )
   }
 
+  /// return (R, if_waked)
   #[track_caller]
   fn run_with_waked_info<R>(&mut self, f: impl FnOnce(&mut Self, bool) -> R) -> (R, bool) {
     let (cx, notifier) = self.use_plain_state_default::<ChangeNotifier>();
@@ -627,7 +561,7 @@ impl SharedHooksCtx {
     }
 
     let mut target = self.shared.get_mut(&key).unwrap().write();
-    assert!(target.consumer.remove(&id).is_some());
+    assert!(target.consumer.remove(&id));
     assert!(target.consumer_wakers.remove(id));
     if target.consumer.is_empty() {
       drop(target);
@@ -647,8 +581,7 @@ pub struct SharedConsumerToken(pub u32, pub ShareKey);
 #[derive(Default)]
 pub struct SharedHookObject {
   pub memory: FunctionMemory,
-  /// map id to changed state
-  pub consumer: FastHashMap<u32, bool>,
+  pub consumer: FastHashSet<u32>,
   pub consumer_wakers: Arc<BroadcastWaker>,
 }
 

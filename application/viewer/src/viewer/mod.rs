@@ -29,7 +29,6 @@ pub struct ViewerCx<'a> {
   pub absolute_seconds_from_start: f32,
   pub time_delta_seconds: f32,
   pub task_spawner: &'a TaskSpawner,
-  pub change_collector: ChangeCollector,
   pub immediate_results: FastHashMap<u32, Arc<dyn Any + Send + Sync>>,
   stage: ViewerCxStage<'a>,
   waker: Waker,
@@ -133,7 +132,6 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
     match &mut self.stage {
       ViewerCxStage::SpawnTask { pool, .. } => QueryHookStage::SpawnTask {
         spawner: self.task_spawner,
-        change_collector: &mut self.change_collector,
         immediate_results: &mut self.immediate_results,
         pool,
       },
@@ -429,7 +427,6 @@ pub fn use_viewer<'a>(
     time_delta_seconds: *frame_time_delta_in_seconds,
     surface_id: acx.surface_id,
     task_spawner: worker_thread_pool,
-    change_collector: Default::default(),
     stage: ViewerCxStage::Gui {
       egui_ctx,
       global: gui_feature_global_states,
@@ -459,7 +456,6 @@ pub fn use_viewer<'a>(
     time_delta_seconds: *frame_time_delta_in_seconds,
     stage: ViewerCxStage::BaseStage,
     task_spawner: worker_thread_pool,
-    change_collector: Default::default(),
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
     surface_id: acx.surface_id,

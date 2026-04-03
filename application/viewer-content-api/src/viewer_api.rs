@@ -298,7 +298,6 @@ impl ViewerAPI {
   pub fn viewer_api_picker_scope<T>(&mut self, f: impl Fn(&mut ViewerAPICx) -> Option<T>) -> T {
     let mut pool = AsyncTaskPool::default();
     let mut immediate_results = FastHashMap::default();
-    let mut change_collector = ChangeCollector::default();
 
     unsafe {
       self
@@ -316,7 +315,6 @@ impl ViewerAPI {
           spawner: &self.task_spawner,
           pool: &mut pool,
           immediate_results: &mut immediate_results,
-          change_collector: &mut change_collector,
         },
         viewer: &mut self.viewer,
         waker: futures::task::noop_waker(),

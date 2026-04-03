@@ -63,7 +63,6 @@ pub enum ViewerAPICxStage<'a> {
     spawner: &'a TaskSpawner,
     pool: &'a mut AsyncTaskPool,
     immediate_results: &'a mut FastHashMap<u32, Arc<dyn Any + Send + Sync>>,
-    change_collector: &'a mut ChangeCollector,
   },
   Resolve {
     result: &'a mut TaskPoolResultCx,
@@ -123,12 +122,10 @@ impl<'a> QueryHookCxLike for ViewerAPICx<'a> {
         spawner,
         pool,
         immediate_results,
-        change_collector,
       } => QueryHookStage::SpawnTask {
         spawner,
         pool,
         immediate_results,
-        change_collector,
       },
       ViewerAPICxStage::Resolve { result } => QueryHookStage::ResolveTask { task: result },
     }

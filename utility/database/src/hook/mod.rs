@@ -46,10 +46,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
     });
 
     let waker = cx.waker().clone();
-    if let QueryHookStage::SpawnTask {
-      change_collector, ..
-    } = cx.stage()
-    {
+    if let QueryHookStage::SpawnTask { .. } = cx.stage() {
       let mut ctx = Context::from_waker(&waker);
       let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(&mut ctx) {
         r
@@ -58,7 +55,6 @@ pub trait DBHookCxLike: QueryHookCxLike {
       };
 
       if changes.has_change() {
-        change_collector.notify_change();
         UseResult::SpawnStageReady(Arc::new(changes))
       } else if emit_empty {
         UseResult::SpawnStageReady(Arc::new(FastChangeCollector::empty()))
@@ -97,12 +93,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
     });
 
     let waker = cx.waker().clone();
-    if let QueryHookStage::SpawnTask {
-      change_collector,
-      spawner,
-      ..
-    } = cx.stage()
-    {
+    if let QueryHookStage::SpawnTask { spawner, .. } = cx.stage() {
       let mut ctx = Context::from_waker(&waker);
       if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
         let spawner = spawner.clone();
@@ -116,7 +107,6 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
         let f = pin_box_in_frame(f);
 
-        change_collector.notify_change();
         UseResult::SpawnStageFuture(f)
       } else {
         let f = pin_box_in_frame(std::future::ready(Default::default()));
@@ -159,12 +149,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
     });
 
     let waker = cx.waker().clone();
-    if let QueryHookStage::SpawnTask {
-      change_collector,
-      spawner,
-      ..
-    } = cx.stage()
-    {
+    if let QueryHookStage::SpawnTask { spawner, .. } = cx.stage() {
       let mut ctx = Context::from_waker(&waker);
       if let Poll::Ready(Some(changes)) = rev.poll_impl(&mut ctx) {
         let spawner = spawner.clone();
@@ -177,7 +162,6 @@ pub trait DBHookCxLike: QueryHookCxLike {
         };
         let f = pin_box_in_frame(f);
 
-        change_collector.notify_change();
         UseResult::SpawnStageFuture(f)
       } else {
         let f = pin_box_in_frame(std::future::ready(Default::default()));
