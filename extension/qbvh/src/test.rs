@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 use colored::Colorize;
 use ptree::*;
-use simba::simd::SimdValue;
 
 use crate::*;
 
@@ -39,8 +38,6 @@ mod test_core {
   fn test_case_qbvh_3() {
     test_qbvh_random_operations(0x93bcaea3b92a9bfe, 100, None, 0.53);
   }
-
-  type Box3 = HyperAABBForSimd<Vec3ForSimd<f32>>;
 
   fn test_qbvh_random_operations(
     seed: u64,
@@ -81,7 +78,7 @@ mod test_core {
     }
   }
 
-  pub fn generate_random_aabb(rng: &mut StdRng) -> Box3 {
+  pub fn generate_random_aabb(rng: &mut StdRng) -> Box3ForSimd {
     let min_x = rng.random_range(-100..100);
     let min_y = rng.random_range(-100..100);
     let min_z = rng.random_range(-100..100);
@@ -92,13 +89,13 @@ mod test_core {
 
     let mins = vec3(min_x as f32, min_y as f32, min_z as f32);
     let maxs = vec3(max_x as f32, max_y as f32, max_z as f32);
-    box3_to_simd_ver(HyperAABB::new(mins, maxs))
+    box3_to_box3_for_simd(HyperAABB::new(mins, maxs))
   }
 
   struct QbvhTester {
-    qbvh: Qbvh<Handle<Box3>, Box3, SimdBox3>,
-    workspace: QbvhUpdateWorkspace<Box3>,
-    aabbs: Arena<Box3>,
+    qbvh: Qbvh<Handle<Box3ForSimd>, Box3ForSimd, SimdBox3>,
+    workspace: QbvhUpdateWorkspace<Box3ForSimd>,
+    aabbs: Arena<Box3ForSimd>,
   }
 
   impl QbvhTester {
@@ -111,7 +108,7 @@ mod test_core {
     }
 
     fn clear_and_rebuild(&self) -> QbvhTester {
-      let mut qbvh = Qbvh::<Handle<Box3>, Box3, SimdBox3>::default();
+      let mut qbvh = Qbvh::<Handle<Box3ForSimd>, Box3ForSimd, SimdBox3>::default();
       let workspace = QbvhUpdateWorkspace::default();
       let aabbs = self.aabbs.clone();
 
@@ -126,7 +123,7 @@ mod test_core {
       }
     }
 
-    fn add_aabb(&mut self, aabb: Box3, print_debug: bool) -> Handle<Box3> {
+    fn add_aabb(&mut self, aabb: Box3ForSimd, print_debug: bool) -> Handle<Box3ForSimd> {
       if print_debug {
         println!("before insert");
         self.print_tree();
@@ -152,7 +149,7 @@ mod test_core {
       index
     }
 
-    fn remove_aabb(&mut self, handle: Handle<Box3>, print_debug: bool) {
+    fn remove_aabb(&mut self, handle: Handle<Box3ForSimd>, print_debug: bool) {
       if print_debug {
         println!("before remove");
         self.print_tree();

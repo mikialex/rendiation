@@ -1,10 +1,6 @@
-use std::ops::{Add, Mul, Sub};
-
-use rendiation_geometry::{Box3, IntersectAble, Ray3};
-
 use crate::*;
 
-/// we use a new type to avoid our algebra crate to be depended on simba
+/// we use a new type with minimal impl to avoid our algebra crate to be depended on simba
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct Vec3ForSimd<T> {
   pub x: T,
@@ -117,10 +113,7 @@ where
   type Element = Vec3ForSimd<T::Element>;
   type SimdBool = T::SimdBool;
 
-  #[inline(always)]
-  fn lanes() -> usize {
-    T::lanes()
-  }
+  const LANES: usize = T::LANES;
 
   #[inline(always)]
   fn splat(val: Self::Element) -> Self {
@@ -159,25 +152,32 @@ where
   }
 }
 
-macro_rules! impl_simd_vector(
-    ($VectorN: ident,$SimdVectorN:ident,$($field:ident),+) => {
-        pub type $SimdVectorN = $VectorN<SimdRealValue>;
-        impl From<[$VectorN<f32>; SIMD_WIDTH]> for $SimdVectorN {
-            fn from(value:[$VectorN<f32>; SIMD_WIDTH])->Self{
-                $VectorN{ $($field:array!(|i| value[i].$field;SIMD_WIDTH).into(),)+}
-            }
-        }
+pub type SimdVec3 = Vec3ForSimd<SimdRealValue>;
+impl From<[Vec3ForSimd<f32>; SIMD_WIDTH]> for SimdVec3 {
+  fn from(value: [Vec3ForSimd<f32>; SIMD_WIDTH]) -> Self {
+    Vec3ForSimd {
+      x: array!(|i|value[i].x;
+            SIMD_WIDTH)
+      .into(),
+      y: array!(|i|value[i].y;
+            SIMD_WIDTH)
+      .into(),
+      z: array!(|i|value[i].z;
+            SIMD_WIDTH)
+      .into(),
     }
-);
-impl_simd_vector!(Vec3ForSimd, SimdVec3, x, y, z);
+  }
+}
 
-impl From<SimdHyperAABB<Vec3ForSimd<SimdRealValue>>> for HyperAABBForSimd<Vec3ForSimd<f32>> {
-  fn from(value: SimdHyperAABB<Vec3ForSimd<SimdRealValue>>) -> Self {
+pub type Box3ForSimd = HyperAABBForSimd<Vec3ForSimd<f32>>;
+
+impl From<HyperAABBForSimd<Vec3ForSimd<SimdRealValue>>> for Box3ForSimd {
+  fn from(value: HyperAABBForSimd<Vec3ForSimd<SimdRealValue>>) -> Self {
     value.to_merged_aabb()
   }
 }
 
-impl CenterAblePrimitive for HyperAABBForSimd<Vec3ForSimd<f32>> {
+impl CenterAblePrimitive for Box3ForSimd {
   type Center = Vec3<f32>;
 
   fn get_center(&self) -> Self::Center {
@@ -186,90 +186,25 @@ impl CenterAblePrimitive for HyperAABBForSimd<Vec3ForSimd<f32>> {
   }
 }
 
-// this only act as the lane part of SimdHyperAABB;
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HyperAABBForSimd<V> {
   pub min: V,
   pub max: V,
 }
 
 impl<V> HyperAABBForSimd<V> {
-  pub fn new(min: V, max: V) -> Self {
-    Self { min, max }
-  }
-  #[inline(always)]
-  pub fn empty<T>() -> Self
-  where
-    T: Scalar,
-    V: Vector<T>,
-  {
-    Self::new(
-      Vector::splat(T::infinity()),
-      Vector::splat(T::neg_infinity()),
-    )
-  }
-}
-
-impl<V: Copy> SimdValue for HyperAABBForSimd<V> {
-  type Element = HyperAABBForSimd<V>;
-  type SimdBool = bool;
-
-  #[inline(always)]
-  fn lanes() -> usize {
-    1
-  }
-
-  #[inline(always)]
-  fn splat(val: Self::Element) -> Self {
-    val
-  }
-
-  #[inline(always)]
-  fn extract(&self, _: usize) -> Self::Element {
-    *self
-  }
-
-  #[inline(always)]
-  unsafe fn extract_unchecked(&self, _: usize) -> Self::Element {
-    *self
-  }
-
-  #[inline(always)]
-  fn replace(&mut self, _: usize, val: Self::Element) {
-    *self = val
-  }
-
-  #[inline(always)]
-  unsafe fn replace_unchecked(&mut self, _: usize, val: Self::Element) {
-    *self = val
-  }
-
-  #[inline(always)]
-  fn select(self, cond: Self::SimdBool, other: Self) -> Self {
-    if cond {
-      self
-    } else {
-      other
-    }
-  }
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SimdHyperAABB<V> {
-  pub mins: V,
-  pub maxs: V,
-}
-
-impl<V> SimdHyperAABB<V> {
   /// An invalid Aabb.
   #[inline(always)]
   pub fn empty<S, T>() -> Self
   where
     S: Scalar,
-    T: Vector<S>,
-    V: SimdValue<Element = T>,
+    // T: Vector<S>,
+    V: SimdValue<Element = S>,
   {
-    Self::splat(HyperAABBForSimd::<T>::empty())
+    Self {
+      min: V::splat(S::infinity()),
+      max: V::splat(S::neg_infinity()),
+    }
   }
 
   /// Expand current simd aabb with another simd aabb
@@ -279,8 +214,8 @@ impl<V> SimdHyperAABB<V> {
     T: SimdPartialOrd + One + Zero + Copy,
     V: Vector<T>,
   {
-    self.mins = self.mins.zip(other.mins, |a, b| a.simd_min(b));
-    self.maxs = self.maxs.zip(other.maxs, |a, b| a.simd_max(b));
+    self.min = self.min.zip(other.min, |a, b| a.simd_min(b));
+    self.max = self.max.zip(other.max, |a, b| a.simd_max(b));
   }
 
   #[inline(always)]
@@ -299,14 +234,14 @@ impl<V> SimdHyperAABB<V> {
     T: SimdPartialOrd,
     V: Copy + Functor<Unwrapped = T>,
   {
-    HyperAABBForSimd::new(
-      self.mins.f_map(|e| e.simd_horizontal_min()),
-      self.maxs.f_map(|e| e.simd_horizontal_max()),
-    )
+    HyperAABBForSimd {
+      min: self.min.f_map(|e| e.simd_horizontal_min()),
+      max: self.max.f_map(|e| e.simd_horizontal_max()),
+    }
   }
 }
 
-impl<V> SimdValue for SimdHyperAABB<V>
+impl<V> SimdValue for HyperAABBForSimd<V>
 where
   V: SimdValue,
   V::Element: Copy,
@@ -314,58 +249,61 @@ where
   type Element = HyperAABBForSimd<V::Element>;
   type SimdBool = V::SimdBool;
 
-  #[inline(always)]
-  fn lanes() -> usize {
-    V::lanes()
-  }
+  const LANES: usize = V::LANES;
 
   #[inline(always)]
   fn splat(val: Self::Element) -> Self {
     Self {
-      mins: V::splat(val.min),
-      maxs: V::splat(val.max),
+      min: V::splat(val.min),
+      max: V::splat(val.max),
     }
   }
 
   #[inline(always)]
   fn extract(&self, lane: usize) -> Self::Element {
-    HyperAABBForSimd::new(self.mins.extract(lane), self.maxs.extract(lane))
+    HyperAABBForSimd {
+      min: self.min.extract(lane),
+      max: self.max.extract(lane),
+    }
   }
 
   #[inline(always)]
   unsafe fn extract_unchecked(&self, lane: usize) -> Self::Element {
-    HyperAABBForSimd::new(
-      self.mins.extract_unchecked(lane),
-      self.maxs.extract_unchecked(lane),
-    )
+    HyperAABBForSimd {
+      min: self.min.extract_unchecked(lane),
+      max: self.max.extract_unchecked(lane),
+    }
   }
 
   #[inline(always)]
   fn replace(&mut self, i: usize, val: Self::Element) {
-    self.mins.replace(i, val.min);
-    self.maxs.replace(i, val.max);
+    self.min.replace(i, val.min);
+    self.max.replace(i, val.max);
   }
 
   #[inline(always)]
   unsafe fn replace_unchecked(&mut self, i: usize, val: Self::Element) {
-    self.mins.replace_unchecked(i, val.min);
-    self.maxs.replace_unchecked(i, val.max);
+    self.min.replace_unchecked(i, val.min);
+    self.max.replace_unchecked(i, val.max);
   }
 
   #[inline(always)]
   fn select(self, cond: Self::SimdBool, other: Self) -> Self {
-    let mins = self.mins.select(cond, other.mins);
-    let maxs = self.maxs.select(cond, other.maxs);
-    Self { mins, maxs }
+    let mins = self.min.select(cond, other.min);
+    let maxs = self.max.select(cond, other.max);
+    Self {
+      min: mins,
+      max: maxs,
+    }
   }
 }
 
-pub type SimdBox3 = SimdHyperAABB<Vec3ForSimd<SimdRealValue>>;
+pub type SimdBox3 = HyperAABBForSimd<SimdVec3>;
 
 impl SimdBox3 {
   /// The half-extents of all the Aabbs represented by `self``.
   pub fn half_extents(&self) -> Vec3<SimdRealValue> {
-    let r = (self.maxs - self.mins) * SimdRealValue::splat(0.5);
+    let r = (self.max - self.min) * SimdRealValue::splat(0.5);
     Vec3::new(r.x, r.y, r.z)
   }
 
@@ -377,8 +315,8 @@ impl SimdBox3 {
       y: margin,
       z: margin,
     };
-    self.mins = self.mins - margins;
-    self.maxs = self.maxs + margins;
+    self.min = self.min - margins;
+    self.max = self.max + margins;
   }
 
   /// Lanewise check which Aabb represented by `self` contains the given set of `other` aabbs.
@@ -386,40 +324,40 @@ impl SimdBox3 {
   /// Note: we can not adapt this method to Containable trait for now, because data type Scalar
   /// is not compatible with SimdReal
   pub fn contains(&self, other: &Self) -> SimdBoolValue {
-    self.mins.x.simd_le(other.mins.x)
-      & self.mins.y.simd_le(other.mins.y)
-      & self.mins.z.simd_le(other.mins.z)
-      & self.maxs.x.simd_ge(other.maxs.x)
-      & self.maxs.y.simd_ge(other.maxs.y)
-      & self.maxs.z.simd_ge(other.maxs.z)
+    self.min.x.simd_le(other.min.x)
+      & self.min.y.simd_le(other.min.y)
+      & self.min.z.simd_le(other.min.z)
+      & self.max.x.simd_ge(other.max.x)
+      & self.max.y.simd_ge(other.max.y)
+      & self.max.z.simd_ge(other.max.z)
   }
 
   /// Check which Aabb represented by `self` contains the given `point`.
   pub fn contains_point(&self, point: &Vec3<SimdRealValue>) -> SimdBoolValue {
-    self.mins.x.simd_le(point.x)
-      & self.mins.y.simd_le(point.y)
-      & self.mins.z.simd_le(point.z)
-      & self.maxs.x.simd_ge(point.x)
-      & self.maxs.y.simd_ge(point.y)
-      & self.maxs.z.simd_ge(point.z)
+    self.min.x.simd_le(point.x)
+      & self.min.y.simd_le(point.y)
+      & self.min.z.simd_le(point.z)
+      & self.max.x.simd_ge(point.x)
+      & self.max.y.simd_ge(point.y)
+      & self.max.z.simd_ge(point.z)
   }
 
   pub fn intersects(&self, other: &Self) -> SimdBoolValue {
-    self.mins.x.simd_le(other.maxs.x)
-      & other.mins.x.simd_le(self.maxs.x)
-      & self.mins.y.simd_le(other.maxs.y)
-      & other.mins.y.simd_le(self.maxs.y)
-      & self.mins.z.simd_le(other.maxs.z)
-      & other.mins.z.simd_le(self.maxs.z)
+    self.min.x.simd_le(other.max.x)
+      & other.min.x.simd_le(self.max.x)
+      & self.min.y.simd_le(other.max.y)
+      & other.min.y.simd_le(self.max.y)
+      & self.min.z.simd_le(other.max.z)
+      & other.min.z.simd_le(self.max.z)
   }
 
   pub fn equals(&self, other: &Self) -> SimdBoolValue {
-    self.mins.x.simd_eq(other.mins.x)
-      & self.mins.y.simd_eq(other.mins.y)
-      & self.mins.z.simd_eq(other.mins.z)
-      & self.maxs.x.simd_eq(other.maxs.x)
-      & self.maxs.y.simd_eq(other.maxs.y)
-      & self.maxs.z.simd_eq(other.maxs.z)
+    self.min.x.simd_eq(other.min.x)
+      & self.min.y.simd_eq(other.min.y)
+      & self.min.z.simd_eq(other.min.z)
+      & self.max.x.simd_eq(other.max.x)
+      & self.max.y.simd_eq(other.max.y)
+      & self.max.z.simd_eq(other.max.z)
   }
 
   /// Casts a ray on all the Aabbs represented by `self`.
@@ -445,26 +383,26 @@ impl SimdBox3 {
       tmin = tmin.simd_max(near_bound.simd_min(far_bound));
       tmax = tmax.simd_min(near_bound.simd_max(far_bound));
     };
-    each_dimension(self.mins.x, self.maxs.x, ray_dir.x, ray_origin.x);
-    each_dimension(self.mins.y, self.maxs.y, ray_dir.y, ray_origin.y);
-    each_dimension(self.mins.z, self.maxs.z, ray_dir.z, ray_origin.z);
+    each_dimension(self.min.x, self.max.x, ray_dir.x, ray_origin.x);
+    each_dimension(self.min.y, self.max.y, ray_dir.y, ray_origin.y);
+    each_dimension(self.min.z, self.max.z, ray_dir.z, ray_origin.z);
 
     (tmin.simd_le(tmax), tmin)
   }
 }
 
-impl From<[HyperAABBForSimd<Vec3ForSimd<f32>>; SIMD_WIDTH]> for SimdBox3 {
-  fn from(aabbs: [HyperAABBForSimd<Vec3ForSimd<f32>>; SIMD_WIDTH]) -> Self {
+impl From<[Box3ForSimd; SIMD_WIDTH]> for SimdBox3 {
+  fn from(aabbs: [Box3ForSimd; SIMD_WIDTH]) -> Self {
     let mins = array![|ii| aabbs[ii].min; SIMD_WIDTH];
     let maxs = array![|ii| aabbs[ii].max; SIMD_WIDTH];
 
-    SimdHyperAABB {
-      mins: Vec3ForSimd {
+    HyperAABBForSimd {
+      min: Vec3ForSimd {
         x: SimdRealValue::from([mins[0].x, mins[1].x, mins[2].x, mins[3].x]),
         y: SimdRealValue::from([mins[0].y, mins[1].y, mins[2].y, mins[3].y]),
         z: SimdRealValue::from([mins[0].z, mins[1].z, mins[2].z, mins[3].z]),
       },
-      maxs: Vec3ForSimd {
+      max: Vec3ForSimd {
         x: SimdRealValue::from([maxs[0].x, maxs[1].x, maxs[2].x, maxs[3].x]),
         y: SimdRealValue::from([maxs[0].y, maxs[1].y, maxs[2].y, maxs[3].y]),
         z: SimdRealValue::from([maxs[0].z, maxs[1].z, maxs[2].z, maxs[3].z]),
@@ -483,12 +421,12 @@ impl IntersectAble<Ray3, SimdBoolValue> for SimdBox3 {
 // intersect_reverse!(Box3, SimdBool, (), SimdBox3);
 impl IntersectAble<Box3, SimdBoolValue> for SimdBox3 {
   fn intersect(&self, other: &Box3, _param: &()) -> SimdBoolValue {
-    let other = SimdBox3::splat(box3_to_simd_ver(*other));
+    let other = SimdBox3::splat(box3_to_box3_for_simd(*other));
     self.intersects(&other)
   }
 }
 
-pub fn box3_to_simd_ver(box3: Box3) -> HyperAABBForSimd<Vec3ForSimd<f32>> {
+pub fn box3_to_box3_for_simd(box3: Box3) -> Box3ForSimd {
   HyperAABBForSimd {
     min: box3.min.into(),
     max: box3.max.into(),
@@ -498,44 +436,44 @@ pub fn box3_to_simd_ver(box3: Box3) -> HyperAABBForSimd<Vec3ForSimd<f32>> {
 #[test]
 fn test_simd_aabb() {
   let aabbs = [
-    box3_to_simd_ver(Box3::new(vec3(0., 0., 0.), vec3(1., 1., 1.))),
-    box3_to_simd_ver(Box3::new(vec3(1., 1., 1.), vec3(2., 2., 2.))),
-    box3_to_simd_ver(Box3::new(vec3(2., 2., 2.), vec3(3., 3., 3.))),
-    box3_to_simd_ver(Box3::new(vec3(3., 3., 3.), vec3(4., 4., 4.))),
+    box3_to_box3_for_simd(Box3::new(vec3(0., 0., 0.), vec3(1., 1., 1.))),
+    box3_to_box3_for_simd(Box3::new(vec3(1., 1., 1.), vec3(2., 2., 2.))),
+    box3_to_box3_for_simd(Box3::new(vec3(2., 2., 2.), vec3(3., 3., 3.))),
+    box3_to_box3_for_simd(Box3::new(vec3(3., 3., 3.), vec3(4., 4., 4.))),
   ];
   let mut simd_aabb: SimdBox3 = aabbs.into();
   let merged = simd_aabb.to_merged_aabb();
   assert_eq!(
     merged,
-    box3_to_simd_ver(Box3::new(vec3(0., 0., 0.), vec3(4., 4., 4.)))
+    box3_to_box3_for_simd(Box3::new(vec3(0., 0., 0.), vec3(4., 4., 4.)))
   );
 
   simd_aabb.loosen([1., 2., 3., 4.].into());
   assert_eq!(
     simd_aabb.extract(0),
-    box3_to_simd_ver(Box3::new(vec3(-1., -1., -1.), vec3(2., 2., 2.)))
+    box3_to_box3_for_simd(Box3::new(vec3(-1., -1., -1.), vec3(2., 2., 2.)))
   );
   assert_eq!(
     simd_aabb.extract(1),
-    box3_to_simd_ver(Box3::new(vec3(-1., -1., -1.), vec3(4., 4., 4.)))
+    box3_to_box3_for_simd(Box3::new(vec3(-1., -1., -1.), vec3(4., 4., 4.)))
   );
   assert_eq!(
     simd_aabb.extract(2),
-    box3_to_simd_ver(Box3::new(vec3(-1., -1., -1.), vec3(6., 6., 6.)))
+    box3_to_box3_for_simd(Box3::new(vec3(-1., -1., -1.), vec3(6., 6., 6.)))
   );
   assert_eq!(
     simd_aabb.extract(3),
-    box3_to_simd_ver(Box3::new(vec3(-1., -1., -1.), vec3(8., 8., 8.)))
+    box3_to_box3_for_simd(Box3::new(vec3(-1., -1., -1.), vec3(8., 8., 8.)))
   );
 }
 
 #[test]
 fn test_simd_aabb_intersect() {
   let aabbs = [
-    box3_to_simd_ver(Box3::empty()),
-    box3_to_simd_ver(Box3::new(vec3(0., 0., 0.), vec3(2., 2., 2.))),
-    box3_to_simd_ver(Box3::new(vec3(2., 2., 2.), vec3(3., 3., 3.))),
-    box3_to_simd_ver(Box3::new(vec3(3., 3., 3.), vec3(4., 4., 4.))),
+    box3_to_box3_for_simd(Box3::empty()),
+    box3_to_box3_for_simd(Box3::new(vec3(0., 0., 0.), vec3(2., 2., 2.))),
+    box3_to_box3_for_simd(Box3::new(vec3(2., 2., 2.), vec3(3., 3., 3.))),
+    box3_to_box3_for_simd(Box3::new(vec3(3., 3., 3.), vec3(4., 4., 4.))),
   ];
   let simd_aabb: SimdBox3 = aabbs.into();
   let ray = Ray3::from_origin_to_target(vec3(3., 1., 1.), vec3(0., 1., 1.));

@@ -1,4 +1,4 @@
-use rendiation_algebra::{Vec3, Vector};
+use crate::*;
 
 // todo use upstream
 pub trait CenterAblePrimitive {

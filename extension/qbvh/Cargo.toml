@@ -12,7 +12,7 @@ rendiation-abstract-tree = { path = "../../utility/abstract-tree" }
 
 log = { workspace = true }
 
-simba = { version = "0.8", default-features = false }
+simba = { version = "0.9", features = ["portable_simd"] }
 once_cell = { workspace = true }
 heapless = "0.8.0"
 smallvec = { workspace = true }

@@ -1,14 +1,20 @@
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
+use std::ops::{Add, Mul, Sub};
 use std::{
   collections::BinaryHeap,
   sync::{RwLock, TryLockError},
 };
+
+use rendiation_geometry::{Box3, IntersectAble, Ray3};
 
 /// The number of lanes of a SIMD number.
 const SIMD_WIDTH: usize = 4;
 type SimdRealValue = simba::simd::AutoF32x4;
 type SimdBoolValue = simba::simd::AutoBoolx4;
 
+use std::{ops::DerefMut, sync::RwLockWriteGuard};
+
+use heapless::binary_heap::Max;
 use rendiation_abstract_tree::AbstractTreeNode;
 use rendiation_algebra::*;
 use simba::simd::SimdBool;

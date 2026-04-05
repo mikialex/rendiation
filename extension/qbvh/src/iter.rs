@@ -1,10 +1,4 @@
-use std::{collections::BinaryHeap, ops::DerefMut, sync::RwLockWriteGuard};
-
-use heapless::binary_heap::Max;
-use simba::simd::SimdBool;
-use smallvec::SmallVec;
-
-use super::*;
+use crate::*;
 
 pub trait SimdVisitDecider<SimdBV> {
   fn visit(&mut self, bv: &SimdBV, margin: &SimdRealValue) -> SimdVisitStatus;
