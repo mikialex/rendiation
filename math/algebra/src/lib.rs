@@ -21,8 +21,8 @@ pub use euler::*;
 use facet::*;
 pub use interpolation::*;
 pub use mat::*;
-pub use num_traits::Zero;
 use num_traits::*;
+pub use num_traits::{One, Zero};
 pub use projection::*;
 use serde::*;
 pub use shader_aligned::*;
@@ -187,3 +187,19 @@ f32_f64_convert!(Mat2);
 f32_f64_convert!(Mat3);
 f32_f64_convert!(Mat4);
 f32_f64_convert!(Quat);
+
+pub type FunctorInner<T> = <T as Functor>::Unwrapped;
+pub type FunctorMapped<T, U> = <T as Functor>::Wrapped<U>;
+/// we should move this trait to math/geometry?
+pub trait Functor {
+  type Unwrapped;
+  type Wrapped<B>: Functor;
+
+  fn f_map<F, B>(self, f: F) -> Self::Wrapped<B>
+  where
+    F: FnMut(Self::Unwrapped) -> B;
+
+  fn f_filter_map<F, B>(self, f: F) -> Option<Self::Wrapped<B>>
+  where
+    F: FnMut(Self::Unwrapped) -> Option<B>;
+}

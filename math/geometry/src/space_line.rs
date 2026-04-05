@@ -9,6 +9,19 @@ pub struct SpaceLineSegment<U, X> {
   pub shape: X,
 }
 
+impl<A> Functor for LineSegment<A> {
+  type Unwrapped = A;
+  type Wrapped<B> = LineSegment<B>;
+
+  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> LineSegment<B> {
+    self.map(f)
+  }
+
+  fn f_filter_map<F: FnMut(A) -> Option<B>, B>(self, f: F) -> Option<LineSegment<B>> {
+    self.filter_map(f)
+  }
+}
+
 impl<V, X> SpaceLineSegment<V, X> {
   pub fn sample<T>(&self, t: T) -> V
   where

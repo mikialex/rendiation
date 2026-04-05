@@ -90,61 +90,6 @@ where
   }
 }
 
-pub type FunctorInner<T> = <T as Functor>::Unwrapped;
-pub type FunctorMapped<T, U> = <T as Functor>::Wrapped<U>;
-/// we should move this trait to math/geometry?
-pub trait Functor {
-  type Unwrapped;
-  type Wrapped<B>: Functor;
-
-  fn f_map<F, B>(self, f: F) -> Self::Wrapped<B>
-  where
-    F: FnMut(Self::Unwrapped) -> B;
-
-  fn f_filter_map<F, B>(self, f: F) -> Option<Self::Wrapped<B>>
-  where
-    F: FnMut(Self::Unwrapped) -> Option<B>;
-}
-
-impl<A> Functor for Triangle<A> {
-  type Unwrapped = A;
-  type Wrapped<B> = Triangle<B>;
-
-  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> Triangle<B> {
-    self.map(f)
-  }
-
-  fn f_filter_map<F: FnMut(A) -> Option<B>, B>(self, f: F) -> Option<Triangle<B>> {
-    self.filter_map(f)
-  }
-}
-
-impl<A> Functor for LineSegment<A> {
-  type Unwrapped = A;
-  type Wrapped<B> = LineSegment<B>;
-
-  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> LineSegment<B> {
-    self.map(f)
-  }
-
-  fn f_filter_map<F: FnMut(A) -> Option<B>, B>(self, f: F) -> Option<LineSegment<B>> {
-    self.filter_map(f)
-  }
-}
-
-impl<A> Functor for Point<A> {
-  type Unwrapped = A;
-  type Wrapped<B> = Point<B>;
-
-  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> Point<B> {
-    self.map(f)
-  }
-
-  fn f_filter_map<F: FnMut(A) -> Option<B>, B>(self, f: F) -> Option<Point<B>> {
-    self.filter_map(f)
-  }
-}
-
 pub trait PrimitiveTopologyMeta: 'static {
   type Primitive<V>: Functor;
   const STEP: usize;

@@ -83,6 +83,7 @@ members = [
   "extension/text-3d",
   "extension/gizmo",
   "extension/area-lighting",
+  "extension/qbvh",
   "extension/csg-sdf-expression",
   "application/viewer-content",
   "application/viewer-content-api",

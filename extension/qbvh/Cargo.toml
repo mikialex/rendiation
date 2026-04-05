@@ -1,0 +1,30 @@
+[package]
+authors = ["MikiAlex <miikiialexx@gmail.com>"]
+edition = "2021"
+name = "rendiation-qvh"
+version = "0.1.0"
+
+[dependencies]
+
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-geometry = { path = "../../math/geometry" }
+rendiation-abstract-tree = { path = "../../utility/abstract-tree" }
+
+log = { workspace = true }
+
+simba = { version = "0.8", default-features = false }
+once_cell = { workspace = true }
+heapless = "0.8.0"
+smallvec = { workspace = true }
+bitflags = { workspace = true }
+
+
+# [dev-dependencies]
+arena = { path = "../../utility/arena" }
+rand = { workspace = true }
+rand_chacha = "0.3.1"
+ptree = "0.4.0"
+colored = "2.0.4"
+
+[lints]
+workspace = true
