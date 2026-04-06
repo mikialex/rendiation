@@ -74,8 +74,7 @@ impl LocalModelPicker for WideLinePicker {
     ctx
       .compute_local_tolerance(
         pick_line_tolerance,
-        target_world,
-        ctx.camera_world,
+        target_world.max_scale(),
         target_world_center,
       )
       .into()

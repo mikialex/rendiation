@@ -2,6 +2,7 @@ use bytemuck::cast_slice;
 use database::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
+pub use rendiation_mesh_core::IntersectTolerance;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 use rendiation_texture_core::Size;
@@ -26,17 +27,15 @@ impl SceneRayQuery {
   pub fn compute_local_tolerance(
     &self,
     tolerance: IntersectTolerance,
-    target_world_mat: Mat4<f64>,
-    camera_world_mat: Mat4<f64>,
+    target_world_mat_max_scale: f64,
     target_object_center_in_world: Vec3<f64>,
   ) -> f32 {
-    let target_scale = target_world_mat.max_scale();
     // todo, should we considering camera scale??
-    let mut local_tolerance = tolerance.value / target_scale as f32;
+    let mut local_tolerance = tolerance.value / target_world_mat_max_scale as f32;
 
     if let ToleranceType::ScreenSpace = tolerance.ty {
       let camera_to_target = target_object_center_in_world - self.world_ray.origin;
-      let projected_distance = camera_to_target.dot(camera_world_mat.forward().reverse());
+      let projected_distance = camera_to_target.dot(self.camera_world.forward().reverse());
       let pixel_per_unit = (self.pixels_per_unit_calc)(
         projected_distance as f32,
         self.camera_view_size_in_logic_pixel.height_usize() as f32,

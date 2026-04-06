@@ -79,6 +79,15 @@ impl<T> From<Vec3<T>> for Vec3ForSimd<T> {
     }
   }
 }
+impl<T> From<Vec3ForSimd<T>> for Vec3<T> {
+  fn from(value: Vec3ForSimd<T>) -> Self {
+    Vec3 {
+      x: value.x,
+      y: value.y,
+      z: value.z,
+    }
+  }
+}
 
 impl<T> Vec3ForSimd<T> {
   #[inline]
