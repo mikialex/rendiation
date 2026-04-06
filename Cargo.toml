@@ -84,6 +84,7 @@ members = [
   "extension/gizmo",
   "extension/area-lighting",
   "extension/qbvh",
+  "extension/qbvh-scene",
   "extension/csg-sdf-expression",
   "application/viewer-content",
   "application/viewer-content-api",

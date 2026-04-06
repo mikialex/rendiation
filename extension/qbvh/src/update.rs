@@ -66,7 +66,7 @@ impl<LeafData: IndexedData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV> {
   pub fn pre_update_bounding_or_insert(&mut self, data: LeafData)
   where
     BV: Default,
-    SimdBV: SimdValue<Element = BV> + From<[BV; SIMD_WIDTH]> + Copy,
+    SimdBV: SimdValue<Element = BV> + From<[BV; QBVH_SIMD_WIDTH]> + Copy,
   {
     if self.nodes.is_empty() {
       let mut root = QbvhNode::empty();
@@ -87,7 +87,7 @@ impl<LeafData: IndexedData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV> {
 
     if proxy.is_detached() {
       // Attach the proxy into one of the leaf attached to the root, if there is room.
-      for lane in 0..SIMD_WIDTH {
+      for lane in 0..QBVH_SIMD_WIDTH {
         let mut child = self.nodes[0].children[lane];
 
         if child == u32::MAX {
@@ -108,7 +108,7 @@ impl<LeafData: IndexedData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV> {
         }
 
         // Insert into this node if there is room.
-        for lane in 0..SIMD_WIDTH {
+        for lane in 0..QBVH_SIMD_WIDTH {
           if child_node.children[lane] == u32::MAX {
             child_node.children[lane] = proxy_id as u32;
             proxy.node = NodeIndex::new(child, lane as u8);
@@ -173,7 +173,7 @@ impl<LeafData: IndexedData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV> {
     while !self.dirty_margin_nodes.is_empty() {
       while let Some(id) = self.dirty_margin_nodes.pop() {
         if let Some(node) = self.nodes.get(id as usize) {
-          let mut new_margins = [0.; SIMD_WIDTH];
+          let mut new_margins = [0.; QBVH_SIMD_WIDTH];
           for (child_id, new_margin) in node.children.iter().zip(new_margins.iter_mut()) {
             if node.is_leaf() {
               if let Some(proxy) = self.proxies.get(*child_id as usize) {
@@ -208,7 +208,7 @@ impl<LeafData: IndexedData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV> {
   pub fn refit_bounding<F>(&mut self, aabb_builder: F) -> usize
   where
     BV: From<SimdBV>,
-    SimdBV: SimdValue<Element = BV> + From<[BV; SIMD_WIDTH]> + Copy,
+    SimdBV: SimdValue<Element = BV> + From<[BV; QBVH_SIMD_WIDTH]> + Copy,
     F: Fn(&LeafData) -> BV,
   {
     // Loop on the dirty leaves.
@@ -220,7 +220,7 @@ impl<LeafData: IndexedData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV> {
         // NOTE: this will cover the case where we reach the root of the tree.
         if let Some(node) = self.nodes.get(id as usize) {
           // Compute the new aabb.
-          let mut new_aabbs = array!(|lane| node.simd_aabb.extract(lane); SIMD_WIDTH);
+          let mut new_aabbs = array!(|lane| node.simd_aabb.extract(lane));
 
           for (child_id, new_aabb) in node.children.iter().zip(new_aabbs.iter_mut()) {
             if node.is_leaf() {
@@ -261,7 +261,7 @@ impl<LeafData: IndexedData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV> {
 impl<LeafData: IndexedData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV>
 where
   BV: Default + From<SimdBV> + Copy,
-  SimdBV: SimdValue<Element = BV> + From<[BV; SIMD_WIDTH]> + Copy,
+  SimdBV: SimdValue<Element = BV> + From<[BV; QBVH_SIMD_WIDTH]> + Copy,
 {
   /// Rebalances the `Qbvh` tree.
   ///
@@ -292,7 +292,7 @@ where
 
       if node.is_leaf() {
         self.free_list.push(id);
-        for lane in 0..SIMD_WIDTH {
+        for lane in 0..QBVH_SIMD_WIDTH {
           let proxy_id = node.children[lane];
           if proxy_id < self.proxies.len() as u32 {
             workspace.orig_ids.push(proxy_id);

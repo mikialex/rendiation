@@ -29,7 +29,7 @@ where
 impl<LeafData: IndexedData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV>
 where
   BV: Default + From<SimdBV> + Copy,
-  SimdBV: SimdValue<Element = BV> + From<[BV; SIMD_WIDTH]> + Copy,
+  SimdBV: SimdValue<Element = BV> + From<[BV; QBVH_SIMD_WIDTH]> + Copy,
 {
   pub fn clear_and_rebuild(
     &mut self,

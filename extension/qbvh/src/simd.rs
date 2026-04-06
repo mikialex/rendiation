@@ -153,18 +153,12 @@ where
 }
 
 pub type SimdVec3 = Vec3ForSimd<SimdRealValue>;
-impl From<[Vec3ForSimd<f32>; SIMD_WIDTH]> for SimdVec3 {
-  fn from(value: [Vec3ForSimd<f32>; SIMD_WIDTH]) -> Self {
+impl From<[Vec3ForSimd<f32>; QBVH_SIMD_WIDTH]> for SimdVec3 {
+  fn from(value: [Vec3ForSimd<f32>; QBVH_SIMD_WIDTH]) -> Self {
     Vec3ForSimd {
-      x: array!(|i|value[i].x;
-            SIMD_WIDTH)
-      .into(),
-      y: array!(|i|value[i].y;
-            SIMD_WIDTH)
-      .into(),
-      z: array!(|i|value[i].z;
-            SIMD_WIDTH)
-      .into(),
+      x: array!(|i| value[i].x).into(),
+      y: array!(|i| value[i].y).into(),
+      z: array!(|i| value[i].z).into(),
     }
   }
 }
@@ -391,10 +385,10 @@ impl SimdBox3 {
   }
 }
 
-impl From<[Box3ForSimd; SIMD_WIDTH]> for SimdBox3 {
-  fn from(aabbs: [Box3ForSimd; SIMD_WIDTH]) -> Self {
-    let mins = array![|ii| aabbs[ii].min; SIMD_WIDTH];
-    let maxs = array![|ii| aabbs[ii].max; SIMD_WIDTH];
+impl From<[Box3ForSimd; QBVH_SIMD_WIDTH]> for SimdBox3 {
+  fn from(aabbs: [Box3ForSimd; QBVH_SIMD_WIDTH]) -> Self {
+    let mins = array![|ii| aabbs[ii].min];
+    let maxs = array![|ii| aabbs[ii].max];
 
     HyperAABBForSimd {
       min: Vec3ForSimd {

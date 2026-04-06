@@ -126,13 +126,13 @@ impl<LeafData: IndexedData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV> {
       let node = &self.nodes[index as usize];
 
       if node.is_leaf() {
-        for lane in 0..SIMD_WIDTH {
+        for lane in 0..QBVH_SIMD_WIDTH {
           if let Some(leaf_data) = self.proxies.get(node.children[lane] as usize) {
             leaf_cache.push(leaf_data.data);
           }
         }
       } else {
-        for lane in 0..SIMD_WIDTH {
+        for lane in 0..QBVH_SIMD_WIDTH {
           if node.children[lane] as usize <= len {
             stack.push(node.children[lane]);
           }
@@ -174,7 +174,7 @@ impl<LeafData: IndexedData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV> {
       }
 
       if node.is_leaf() {
-        for ii in 0..SIMD_WIDTH {
+        for ii in 0..QBVH_SIMD_WIDTH {
           let proxy_id = node.children[ii];
           if proxy_id != u32::MAX {
             // No duplicate references to proxies.
@@ -233,7 +233,7 @@ pub struct QbvhTreeNodeRef<'a, Leaf, BV, SimdBV> {
 impl<'a, Leaf: IndexedData, BV, SimdBV> AbstractTreeNode for QbvhTreeNodeRef<'a, Leaf, BV, SimdBV> {
   fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
     if !self.node.is_leaf() {
-      for lane in 0..SIMD_WIDTH {
+      for lane in 0..QBVH_SIMD_WIDTH {
         let entry = self.node.children[lane] as usize;
         if entry <= self.qbvh.nodes.len() {
           visitor(&self.qbvh.create_node_ref(entry));

@@ -4469,7 +4469,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-qvh"
+name = "rendiation-qbvh"
 version = "0.1.0"
 dependencies = [
  "arena",
@@ -4485,6 +4485,21 @@ dependencies = [
  "rendiation-geometry",
  "simba",
  "smallvec",
+]
+
+[[package]]
+name = "rendiation-qbvh-scene"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "fast-hash-collection",
+ "log",
+ "parking_lot",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-qbvh",
+ "rendiation-scene-core",
+ "rendiation-scene-geometry-query",
 ]
 
 [[package]]

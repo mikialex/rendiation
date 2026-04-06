@@ -122,7 +122,9 @@ mod traverse_impl {
     while let Some(entry) = stack.pop() {
       let node = &qbvh.nodes[entry as usize];
       let leaf_data = if node.is_leaf() {
-        Some(array![|ii| Some(&qbvh.proxies.get(node.children[ii] as usize)?.data); SIMD_WIDTH])
+        Some(array![|ii| Some(
+          &qbvh.proxies.get(node.children[ii] as usize)?.data
+        )])
       } else {
         None
       };
@@ -135,7 +137,7 @@ mod traverse_impl {
           let bitmask = mask.bitmask();
 
           if !node.is_leaf() {
-            for lane in 0..SIMD_WIDTH {
+            for lane in 0..QBVH_SIMD_WIDTH {
               if (bitmask & (1 << lane)) != 0 && node.children[lane] as usize <= qbvh.nodes.len() {
                 stack.push(node.children[lane]);
               }
@@ -180,7 +182,9 @@ mod traverse_impl {
 
       let node = &qbvh.nodes[entry.value as usize];
       let leaf_data = if node.is_leaf() {
-        Some(array![|ii| Some(&qbvh.proxies.get(node.children[ii] as usize)?.data); SIMD_WIDTH])
+        Some(array![|ii| Some(
+          &qbvh.proxies.get(node.children[ii] as usize)?.data
+        )])
       } else {
         None
       };
@@ -195,9 +199,9 @@ mod traverse_impl {
           results,
         } => {
           let bitmask = mask.bitmask();
-          let weights: [f32; SIMD_WIDTH] = weights.into();
+          let weights: [f32; QBVH_SIMD_WIDTH] = weights.into();
 
-          for ii in 0..SIMD_WIDTH {
+          for ii in 0..QBVH_SIMD_WIDTH {
             if (bitmask & (1 << ii)) != 0 {
               if node.is_leaf() {
                 if weights[ii] < best_cost && results[ii].is_some() {

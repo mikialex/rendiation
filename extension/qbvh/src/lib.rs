@@ -8,9 +8,9 @@ use std::{
 use rendiation_geometry::{Box3, IntersectAble, Ray3};
 
 /// The number of lanes of a SIMD number.
-const SIMD_WIDTH: usize = 4;
-type SimdRealValue = simba::simd::AutoF32x4;
-type SimdBoolValue = simba::simd::AutoBoolx4;
+pub const QBVH_SIMD_WIDTH: usize = 4;
+pub type SimdRealValue = simba::simd::AutoF32x4;
+pub type SimdBoolValue = simba::simd::AutoBoolx4;
 
 use std::{ops::DerefMut, sync::RwLockWriteGuard};
 
@@ -19,7 +19,7 @@ use rendiation_abstract_tree::AbstractTreeNode;
 use rendiation_algebra::*;
 use simba::simd::SimdBool;
 use simba::simd::SimdPartialOrd;
-use simba::simd::SimdValue;
+pub use simba::simd::SimdValue;
 use smallvec::SmallVec;
 
 pub mod node;
@@ -47,11 +47,11 @@ pub use simd::*;
 
 #[macro_export]
 macro_rules! array(
-  ($callback: expr; SIMD_WIDTH) => {
+  ($callback: expr) => {
     {
       #[inline(always)]
       #[allow(dead_code)]
-      fn create_arr<T>(mut callback: impl FnMut(usize) -> T) -> [T; SIMD_WIDTH] {
+      fn create_arr<T>(mut callback: impl FnMut(usize) -> T) -> [T; QBVH_SIMD_WIDTH] {
         [callback(0usize), callback(1usize), callback(2usize), callback(3usize)]
       }
 

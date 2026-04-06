@@ -26,7 +26,7 @@ pub trait SimdBestFirstVisitDecider<SimdBV> {
 
 pub struct LeafDataIter<'a, LeafData, F, BV, SimdBV> {
   pub(crate) stack: RwLockWriteGuard<'a, Vec<u32>>,
-  pub(crate) leaf_cache: SmallVec<[LeafData; SIMD_WIDTH]>,
+  pub(crate) leaf_cache: SmallVec<[LeafData; QBVH_SIMD_WIDTH]>,
   pub(crate) visit_decider: F,
   pub(crate) qbvh: &'a Qbvh<LeafData, BV, SimdBV>,
 }
@@ -57,7 +57,7 @@ where
           SimdVisitStatus::MaybeContinue(mask) => {
             let bitmask = mask.bitmask();
             if !node.is_leaf() {
-              for lane in 0..SIMD_WIDTH {
+              for lane in 0..QBVH_SIMD_WIDTH {
                 if (bitmask & (1 << lane)) != 0
                   && node.children[lane] as usize <= self.qbvh.nodes.len()
                 {
@@ -65,7 +65,7 @@ where
                 }
               }
             } else {
-              for lane in 0..SIMD_WIDTH {
+              for lane in 0..QBVH_SIMD_WIDTH {
                 if (bitmask & (1 << lane)) != 0 {
                   if let Some(leaf_data) = self.qbvh.proxies.get(node.children[lane] as usize) {
                     self.leaf_cache.push(leaf_data.data);
@@ -89,7 +89,7 @@ where
   Stack: DerefMut<Target = BinaryHeap<WeightedValue<u32>>>,
 {
   pub(crate) stack: Stack,
-  pub(crate) leaf_stack: heapless::BinaryHeap<WeightedValue<LeafData>, Max, SIMD_WIDTH>,
+  pub(crate) leaf_stack: heapless::BinaryHeap<WeightedValue<LeafData>, Max, QBVH_SIMD_WIDTH>,
   pub(crate) visit_decider: F,
   pub(crate) qbvh: &'a Qbvh<LeafData, B, SimdBV>,
 }
@@ -125,10 +125,10 @@ where
             SimdBestFirstVisitStatus::ExitEarly(_) => break,
             SimdBestFirstVisitStatus::MaybeContinue { weights, mask, .. } => {
               let bitmask = mask.bitmask();
-              let weights: [f32; SIMD_WIDTH] = weights.into();
+              let weights: [f32; QBVH_SIMD_WIDTH] = weights.into();
 
               #[allow(clippy::needless_range_loop)]
-              for lane in 0..SIMD_WIDTH {
+              for lane in 0..QBVH_SIMD_WIDTH {
                 if (bitmask & (1 << lane)) != 0 {
                   if node.is_leaf() {
                     if let Some(proxy) = self.qbvh.proxies.get(node.children[lane] as usize) {

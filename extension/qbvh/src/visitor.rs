@@ -9,7 +9,7 @@ pub enum SimdVisitStatus {
   ExitEarly,
 }
 
-pub type MayBeDataGroup<T> = Option<[Option<T>; SIMD_WIDTH]>;
+pub type MayBeDataGroup<T> = Option<[Option<T>; QBVH_SIMD_WIDTH]>;
 /// Trait implemented by visitor called during the traversal of a spatial partitioning data structure.
 pub trait SimdVisitor<LeafData, SimdBV, Margin> {
   /// Execute an operation on the content of a node of the spatial partitioning structure.
@@ -50,7 +50,7 @@ pub enum SimdBestFirstVisitStatus<Res> {
     /// should be traversed too.
     mask: SimdBoolValue,
     /// Optional results associated to each child of the node being traversed.
-    results: [Option<Res>; SIMD_WIDTH],
+    results: [Option<Res>; QBVH_SIMD_WIDTH],
   },
   /// The traversal aborts.
   ///
@@ -70,7 +70,7 @@ pub trait SimdBestFirstVisitor<LeafData, SimdBV, Margin> {
     best_cost_so_far: f32,
     bv: &SimdBV,
     margin: &Margin,
-    value: Option<[Option<&LeafData>; SIMD_WIDTH]>,
+    value: Option<[Option<&LeafData>; QBVH_SIMD_WIDTH]>,
   ) -> SimdBestFirstVisitStatus<Self::Result>;
 }
 
