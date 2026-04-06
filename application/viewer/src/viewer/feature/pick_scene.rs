@@ -12,7 +12,7 @@ pub fn inject_picker(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)) {
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     unsafe {
-      cx.dyn_cx.unregister_cx::<ViewerSceneModelPicker>();
+      cx.dyn_cx.unregister_cx::<ViewerPickerWithCtx>();
     }
   }
 }
@@ -23,10 +23,6 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
   let (cx, gpu_pick_future) =
     cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
-
-  let sms = cx
-    .use_db_rev_ref::<SceneModelBelongsToScene>()
-    .use_assure_result(cx);
 
   let (cx, range_state) = cx.use_plain_state::<Option<(Vec2<f32>, Vec2<f32>)>>();
 
@@ -133,7 +129,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
       let scene = cx.active_surface_content.scene;
 
-      access_cx!(cx.dyn_cx, picker, ViewerSceneModelPicker);
+      access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
 
       let mut select_target_result = None;
       if let Some(pointer_ctx) = &picker.pointer_ctx {
@@ -162,20 +158,13 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
         }
 
         if use_cpu_pick {
-          let sms = sms
-            .expect_resolve_stage()
-            .mark_foreign_key::<SceneModelBelongsToScene>();
-          let mut main_scene_models = sms.access_multi(&scene).unwrap();
-
           if is_request_list_pick {
-            let (results, result_ids) =
-              picker.pick_models_all(&mut main_scene_models, pointer_ctx.world_ray);
+            let (results, result_ids) = picker.pick_models_list_all(pointer_ctx.world_ray, scene);
             if enable_hit_debug_log {
               log::info!("cpu picked list {:#?}, ids: {:#?}", results, result_ids);
             }
           } else {
-            let _hit = picker.pick_models_nearest(&mut main_scene_models, pointer_ctx.world_ray);
-            drop(main_scene_models);
+            let _hit = picker.pick_model_nearest_all(pointer_ctx.world_ray, scene);
 
             select_target_result = if let Some(hit) = _hit {
               if enable_hit_debug_log {

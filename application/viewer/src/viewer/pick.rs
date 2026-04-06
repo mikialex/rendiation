@@ -3,12 +3,12 @@ use rendiation_scene_geometry_query::*;
 
 use crate::*;
 
-pub struct ViewerSceneModelPicker {
-  scene_model_picker: Box<dyn SceneModelPicker>,
+pub struct ViewerPickerWithCtx {
+  pub picker_impl: ViewerPicker,
   pub pointer_ctx: Option<ViewportPointerCtx>,
 }
 
-impl ViewerSceneModelPicker {
+impl ViewerPickerWithCtx {
   fn create_ray_ctx(&self, world_ray: Ray3<f64>) -> Option<SceneRayQuery> {
     let ctx = self.pointer_ctx.as_ref()?;
 
@@ -18,9 +18,57 @@ impl ViewerSceneModelPicker {
 
     ctx.into()
   }
+
+  pub fn pick_model_nearest_all(
+    &self,
+    world_ray: Ray3<f64>,
+    scene: EntityHandle<SceneEntity>,
+  ) -> Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> {
+    let cx = self.create_ray_ctx(world_ray)?;
+    let mut iter = self
+      .picker_impl
+      .scene_model_iter_provider
+      .create_ray_scene_model_iter(scene, &cx);
+    pick_models_nearest(self.picker_impl.model_picker.as_ref(), &mut iter, &cx)
+  }
+
+  pub fn pick_models_list_all(
+    &self,
+    world_ray: Ray3<f64>,
+    scene: EntityHandle<SceneEntity>,
+  ) -> (
+    Vec<MeshBufferHitPoint<f64>>,
+    Vec<EntityHandle<SceneModelEntity>>,
+  ) {
+    let cx = self.create_ray_ctx(world_ray);
+
+    if cx.is_none() {
+      return (Vec::new(), Vec::new());
+    }
+    let cx = cx.unwrap();
+
+    let mut results = Vec::default();
+    let mut models_results = Vec::default();
+    let mut local_result_scratch = Vec::default();
+
+    let mut iter = self
+      .picker_impl
+      .scene_model_iter_provider
+      .create_ray_scene_model_iter(scene, &cx);
+
+    pick_models_all(
+      self.picker_impl.model_picker.as_ref(),
+      &mut iter,
+      &cx,
+      &mut results,
+      &mut models_results,
+      &mut local_result_scratch,
+    );
+    (results, models_results)
+  }
 }
 
-pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneModelPicker> {
+pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerPickerWithCtx> {
   let scene_model_picker = use_viewer_scene_model_picker_impl(cx);
 
   let camera_transforms = cx
@@ -36,8 +84,8 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
     let pointer_ctx =
       create_viewport_pointer_ctx(cx.active_surface_content, *mouse_position, &cam_trans);
 
-    ViewerSceneModelPicker {
-      scene_model_picker: scene_model_picker.unwrap(),
+    ViewerPickerWithCtx {
+      picker_impl: scene_model_picker.unwrap(),
       pointer_ctx,
     }
     .into()
@@ -46,14 +94,16 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerSceneMod
   }
 }
 
-impl Picker3d for ViewerSceneModelPicker {
+// todo, remove duplication
+impl Picker3d for ViewerPickerWithCtx {
   fn pick_model_nearest(
     &self,
     model: EntityHandle<SceneModelEntity>,
     world_ray: Ray3<f64>,
   ) -> Option<MeshBufferHitPoint<f64>> {
     self
-      .scene_model_picker
+      .picker_impl
+      .model_picker
       .ray_query_nearest(model, &self.create_ray_ctx(world_ray)?)
   }
 
@@ -64,7 +114,7 @@ impl Picker3d for ViewerSceneModelPicker {
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
   ) -> Option<()> {
-    self.scene_model_picker.ray_query_all(
+    self.picker_impl.model_picker.ray_query_all(
       idx,
       &self.create_ray_ctx(world_ray)?,
       results,
@@ -91,7 +141,7 @@ impl Picker3d for ViewerSceneModelPicker {
     let mut models_results = Vec::default();
     let mut local_result_scratch = Vec::default();
     pick_models_all(
-      self.scene_model_picker.as_ref(),
+      self.picker_impl.model_picker.as_ref(),
       models,
       &cx,
       &mut results,
@@ -107,12 +157,12 @@ impl Picker3d for ViewerSceneModelPicker {
     world_ray: Ray3<f64>,
   ) -> Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> {
     let cx = self.create_ray_ctx(world_ray)?;
-    pick_models_nearest(self.scene_model_picker.as_ref(), models, &cx)
+    pick_models_nearest(self.picker_impl.model_picker.as_ref(), models, &cx)
   }
 }
 
 pub fn prepare_picking_state<'a>(
-  picker: &'a ViewerSceneModelPicker,
+  picker: &'a ViewerPickerWithCtx,
   g: &WidgetSceneModelIntersectionGroupConfig,
 ) -> Option<Interaction3dCtx<'a>> {
   let pointer_ctx = picker.pointer_ctx.as_ref()?;

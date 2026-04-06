@@ -11,7 +11,6 @@ database = { path = "../../utility/database" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-qbvh = { path = "../qbvh" }
-rendiation-scene-core = { path = "../../scene/core" }
 rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
 parking_lot = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }

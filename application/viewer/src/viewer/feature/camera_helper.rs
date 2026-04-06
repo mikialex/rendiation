@@ -73,7 +73,7 @@ pub fn use_immediate_helper_model(
 
       if pick && cx.input.state_delta.is_left_mouse_pressing() {
         if let Some(model) = &helper_mesh.internal {
-          access_cx!(cx.dyn_cx, picker, ViewerSceneModelPicker);
+          access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
           if let Some(ptr_cx) = &picker.pointer_ctx {
             let model = model.model();
             if let Some(pick_result) = picker.pick_model_nearest(model, ptr_cx.world_ray) {

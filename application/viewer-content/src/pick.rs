@@ -1,13 +1,39 @@
 use crate::*;
 
-pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
-  cx: &mut Cx,
-) -> Option<Box<dyn SceneModelPicker>> {
+pub struct ViewerPicker {
+  pub model_picker: Box<dyn SceneModelPicker>,
+  pub scene_model_iter_provider: Box<dyn SceneModelIterProvider>,
+}
+
+pub struct NaiveSceneModelIterProvider {
+  pub scene_ref_scene_model: RevRefForeignKeyRead,
+}
+
+impl SceneModelIterProvider for NaiveSceneModelIterProvider {
+  fn create_ray_scene_model_iter(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    _ctx: &SceneRayQuery,
+  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
+    if let Some(iter) = self.scene_ref_scene_model.access_multi(&scene.into_raw()) {
+      let iter = iter.map(|v| unsafe { EntityHandle::from_raw(v) });
+      Box::new(iter)
+    } else {
+      Box::new([].into_iter())
+    }
+  }
+}
+
+pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(cx: &mut Cx) -> Option<ViewerPicker> {
   let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
   let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
 
   let use_attribute_mesh_picker = use_attribute_mesh_picker(cx, viewer_mesh_input);
   let wide_line_picker = use_wide_line_picker(cx);
+
+  let sms = cx
+    .use_db_rev_ref::<SceneModelBelongsToScene>()
+    .use_assure_result(cx);
 
   cx.when_resolve_stage(|| {
     let att_mesh_picker = use_attribute_mesh_picker.unwrap();
@@ -30,7 +56,14 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
       filter: Some(Box::new(create_clip_pick_filter())),
     };
 
-    Box::new(scene_model_picker) as Box<dyn SceneModelPicker>
+    let iter_provider = NaiveSceneModelIterProvider {
+      scene_ref_scene_model: sms.expect_resolve_stage(),
+    };
+
+    ViewerPicker {
+      model_picker: Box::new(scene_model_picker),
+      scene_model_iter_provider: Box::new(iter_provider),
+    }
   })
 }
 

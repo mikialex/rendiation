@@ -245,22 +245,15 @@ impl ViewerAPI {
   pub fn create_picker_api(&mut self, surface_id: u32) -> ViewerPickerAPI {
     self.viewer_api_picker_scope(|cx| {
       let picker_impl = use_viewer_scene_model_picker_impl(cx);
-      let sms = cx
-        .use_db_rev_ref::<SceneModelBelongsToScene>()
-        .use_assure_result(cx);
 
       let camera_transforms = cx
         .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.ndc().clone()))
         .use_assure_result(cx);
 
-      cx.when_resolve_stage(|| {
-        let sms = sms.expect_resolve_stage();
-        ViewerPickerAPI {
-          picker_impl: picker_impl.unwrap(),
-          camera_transforms: camera_transforms.expect_resolve_stage(),
-          scene_models_of_scene: sms,
-          surface_id,
-        }
+      cx.when_resolve_stage(|| ViewerPickerAPI {
+        picker_impl: picker_impl.unwrap(),
+        camera_transforms: camera_transforms.expect_resolve_stage(),
+        surface_id,
       })
     })
   }
@@ -352,9 +345,8 @@ impl ViewerAPI {
 }
 
 pub struct ViewerPickerAPI {
-  picker_impl: Box<dyn SceneModelPicker>,
+  picker_impl: ViewerPicker,
   camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
-  scene_models_of_scene: RevRefForeignKeyRead,
   surface_id: u32,
 }
 
@@ -386,17 +378,20 @@ impl ViewerPickerAPI {
     if let Some(ctx) = ctx {
       let cx = create_ray_query_ctx_from_vpc(&ctx);
 
-      if let Some(iter) = self.scene_models_of_scene.access_multi(&scene) {
-        let mut iter = iter.map(|v| unsafe { EntityHandle::from_raw(v) });
-        pick_models_all(
-          self.picker_impl.as_ref(),
-          &mut iter,
-          &cx,
-          &mut results,
-          &mut model_results,
-          &mut local_result_scratch,
-        );
-      }
+      let scene = unsafe { EntityHandle::from_raw(scene) };
+      let mut iter = self
+        .picker_impl
+        .scene_model_iter_provider
+        .create_ray_scene_model_iter(scene, &cx);
+
+      pick_models_all(
+        self.picker_impl.model_picker.as_ref(),
+        &mut iter,
+        &cx,
+        &mut results,
+        &mut model_results,
+        &mut local_result_scratch,
+      );
     }
 
     for (r, mr) in results.iter().zip(model_results.iter()) {

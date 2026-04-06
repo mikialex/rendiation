@@ -86,7 +86,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
 }
 
 pub fn create_widget_cx(
-  picker: &ViewerSceneModelPicker,
+  picker: &ViewerPickerWithCtx,
   world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
 ) -> Box<dyn WidgetEnvAccess> {
   Box::new(WidgetEnvAccessImpl {
