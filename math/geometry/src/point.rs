@@ -10,6 +10,19 @@ impl<U> Point<U> {
   }
 }
 
+impl<A> Functor for Point<A> {
+  type Unwrapped = A;
+  type Wrapped<B> = Point<B>;
+
+  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> Point<B> {
+    self.map(f)
+  }
+
+  fn f_filter_map<F: FnMut(A) -> Option<B>, B>(self, f: F) -> Option<Point<B>> {
+    self.filter_map(f)
+  }
+}
+
 pub type PointPointIter<V> = impl Iterator<Item = V>;
 
 impl<U> IntoIterator for Point<U> {

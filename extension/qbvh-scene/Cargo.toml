@@ -1,0 +1,20 @@
+[package]
+authors = ["mikialex <miikiialexx@gmail.com>"]
+edition = "2021"
+name = "rendiation-qbvh-scene"
+version = "0.1.0"
+
+[dependencies]
+log = { workspace = true }
+
+database = { path = "../../utility/database" }
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-geometry = { path = "../../math/geometry" }
+rendiation-qbvh = { path = "../qbvh" }
+rendiation-scene-core = { path = "../../scene/core" }
+rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
+parking_lot = { workspace = true }
+fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+
+[lints]
+workspace = true

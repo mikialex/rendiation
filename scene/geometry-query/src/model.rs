@@ -215,8 +215,7 @@ impl LocalModelPicker for AttributeMeshPicker {
     ctx
       .compute_local_tolerance(
         self.pick_line_tolerance,
-        target_world,
-        ctx.camera_world,
+        target_world.max_scale(),
         target_world_center,
       )
       .into()

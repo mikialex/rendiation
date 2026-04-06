@@ -16,6 +16,19 @@ pub struct Triangle<V = Vec3<f32>> {
   pub c: V,
 }
 
+impl<A> Functor for Triangle<A> {
+  type Unwrapped = A;
+  type Wrapped<B> = Triangle<B>;
+
+  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> Triangle<B> {
+    self.map(f)
+  }
+
+  fn f_filter_map<F: FnMut(A) -> Option<B>, B>(self, f: F) -> Option<Triangle<B>> {
+    self.filter_map(f)
+  }
+}
+
 impl<T, V, M, U, const D: usize> SpaceEntity<T, D> for Triangle<U>
 where
   T: Scalar,
