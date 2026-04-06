@@ -5,7 +5,6 @@ use ptree::*;
 
 use crate::*;
 
-#[cfg(test)]
 mod test_core {
 
   use arena::{Arena, Handle};

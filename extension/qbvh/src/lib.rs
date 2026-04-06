@@ -41,7 +41,8 @@ pub use build::*;
 pub mod iter;
 pub use iter::*;
 pub mod simd;
-pub mod test;
+#[cfg(test)]
+mod test;
 pub use simd::*;
 
 #[macro_export]

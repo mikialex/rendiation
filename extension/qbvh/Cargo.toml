@@ -10,8 +10,6 @@ rendiation-algebra = { path = "../../math/algebra" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-abstract-tree = { path = "../../utility/abstract-tree" }
 
-log = { workspace = true }
-
 simba = { version = "0.9", features = ["portable_simd"] }
 once_cell = { workspace = true }
 heapless = "0.8.0"
@@ -19,7 +17,7 @@ smallvec = { workspace = true }
 bitflags = { workspace = true }
 
 
-# [dev-dependencies]
+[dev-dependencies]
 arena = { path = "../../utility/arena" }
 rand = { workspace = true }
 rand_chacha = "0.3.1"

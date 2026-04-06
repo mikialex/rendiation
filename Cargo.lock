@@ -4476,7 +4476,6 @@ dependencies = [
  "bitflags 2.10.0",
  "colored",
  "heapless",
- "log",
  "once_cell",
  "ptree",
  "rand 0.9.2",
