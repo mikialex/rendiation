@@ -35,7 +35,8 @@ pub fn use_scene_qbvh(
         delta.into_change().map_changes_key(|k| k.index()),
         |index| view.access(&index).unwrap(),
         m_delta.into_change().map_changes_key(|k| k.index()),
-        |index| m_view.access(&index).unwrap(),
+        // note: we here not require strict value scope for margin, the default margin is always 0.
+        |index| m_view.access(&index).unwrap_or(0.),
       );
     },
   );

@@ -5,9 +5,10 @@ pub struct SceneQbvhIterProvider {
 }
 
 impl SceneModelIterProvider for SceneQbvhIterProvider {
+  // todo, impl per scene separation
   fn create_ray_scene_model_iter<'a>(
     &'a self,
-    scene: EntityHandle<SceneEntity>,
+    _scene: EntityHandle<SceneEntity>,
     ctx: &'a SceneRayQuery,
   ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
     let visitor = RayIntersectionClosestPointVisitor {
