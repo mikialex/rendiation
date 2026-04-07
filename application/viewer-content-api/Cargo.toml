@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 
 
 [dependencies]
+env_logger = { workspace = true }
 futures = { workspace = true }
 pollster = { workspace = true }
 bytemuck = { workspace = true }

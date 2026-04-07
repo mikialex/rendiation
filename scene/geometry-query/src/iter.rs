@@ -2,11 +2,11 @@ use crate::*;
 
 /// The TLAS abstraction for picking
 pub trait SceneModelIterProvider {
-  fn create_ray_scene_model_iter(
-    &self,
+  fn create_ray_scene_model_iter<'a>(
+    &'a self,
     scene: EntityHandle<SceneEntity>,
-    ctx: &SceneRayQuery,
-  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_>;
+    ctx: &'a SceneRayQuery,
+  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a>;
 }
 
 pub fn pick_models_all(

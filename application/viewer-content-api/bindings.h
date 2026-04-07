@@ -216,6 +216,9 @@ void drop_scene_model(struct SceneModelHandleInfo handle);
 
 void scene_model_set_mesh(struct SceneModelHandleInfo handle, struct ViewerEntityHandle mesh);
 
+void scene_model_set_scene(struct SceneModelHandleInfo handle,
+                           const struct ViewerEntityHandle *scene);
+
 void scene_model_set_material(struct SceneModelHandleInfo handle,
                               struct ViewerEntityHandle material,
                               bool is_unlit_material);
@@ -229,4 +232,4 @@ void drop_dir_light(struct ViewerEntityHandle handle);
 /**
  * call this to setup panic message writer when panic happens
  */
-void setup_panic_message_file_writer(void);
+void rendiation_init(void);

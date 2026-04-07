@@ -127,6 +127,7 @@ impl AsyncTaskPool {
   ) -> u32 {
     self.next += 1;
 
+    // todo, this box and share is hot
     let task = task.boxed().shared();
 
     self.registry.insert(self.next, task);

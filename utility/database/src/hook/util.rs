@@ -132,6 +132,10 @@ impl<V: CValue> Query for ArenaAccess<V> {
   }
 }
 
+pub fn global_entity_arena_access<E: EntitySemantic>() -> LockReadGuardHolder<Arena<()>> {
+  global_entity_of::<E>().inner.allocator.make_read_holder()
+}
+
 pub trait SkipGenerationCheckExt: Sized {
   fn skip_generation_check<E: EntitySemantic>(self) -> SkipGenerationCheck<Self>;
 }
@@ -139,9 +143,7 @@ pub trait SkipGenerationCheckExt: Sized {
 impl<T: Query> SkipGenerationCheckExt for T {
   fn skip_generation_check<E: EntitySemantic>(self) -> SkipGenerationCheck<T> {
     SkipGenerationCheck {
-      alloc: global_database().access_table_dyn(E::entity_id(), |table| {
-        table.internal.allocator.make_read_holder()
-      }),
+      alloc: global_entity_arena_access::<E>(),
       inner: self,
     }
   }

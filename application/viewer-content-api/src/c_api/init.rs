@@ -2,10 +2,21 @@ use std::backtrace::Backtrace;
 use std::io::Write;
 use std::panic::PanicHookInfo;
 
+use crate::*;
+
 /// call this to setup panic message writer when panic happens
 #[no_mangle]
-pub extern "C" fn setup_panic_message_file_writer() {
+pub extern "C" fn rendiation_init() {
   std::panic::set_hook(Box::new(on_panic));
+
+  env_logger::builder()
+    .filter_level(log::LevelFilter::Info)
+    .init();
+
+  setup_global_database(Default::default());
+  global_database().enable_label_for_all_entity();
+
+  register_viewer_content_data_model();
 }
 
 fn on_panic(panic: &PanicHookInfo) {

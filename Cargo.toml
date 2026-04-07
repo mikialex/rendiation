@@ -104,6 +104,7 @@ bitflags = "2.2"
 bumpalo = { version = "3.19", features = ["allocator_api"] }
 disqualified = "1.0.0"
 image = "0.25.8"
+env_logger = "0.11.8"
 bytemuck = { version = "1.4.1", features = ["derive"] }
 dyn-clone = "1.0.5"
 walkdir = "2"

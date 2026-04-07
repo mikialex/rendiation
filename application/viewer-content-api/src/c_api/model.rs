@@ -57,6 +57,19 @@ pub extern "C" fn scene_model_set_mesh(handle: SceneModelHandleInfo, mesh: Viewe
 }
 
 #[no_mangle]
+pub extern "C" fn scene_model_set_scene(
+  handle: SceneModelHandleInfo,
+  scene: *const ViewerEntityHandle,
+) {
+  if scene.is_null() {
+    write_global_db_component::<SceneModelBelongsToScene>().write(handle.scene_model.into(), None);
+  } else {
+    write_global_db_component::<SceneModelBelongsToScene>()
+      .write(handle.scene_model.into(), Some(unsafe { *scene }.into()));
+  }
+}
+
+#[no_mangle]
 pub extern "C" fn scene_model_set_material(
   handle: SceneModelHandleInfo,
   material: ViewerEntityHandle,

@@ -114,6 +114,10 @@ pub struct ViewerSurfaceContent {
 }
 
 pub fn register_viewer_content_data_model() {
+  register_scene_core_data_model();
+  register_light_shadow_config();
+  register_gui3d_extension_data_model(true);
+  register_clipping_data_model();
   register_area_lighting_data_model();
   register_scene_mesh_lod_graph_data_model(true);
   register_sky_env_data_model();

@@ -21,3 +21,6 @@ pub use model::*;
 
 mod light;
 pub use light::*;
+
+mod init;
+pub use init::*;

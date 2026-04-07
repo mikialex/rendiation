@@ -1,23 +1,32 @@
 use crate::*;
 
-pub fn create_qbvh_ray_iter<'a>(
-  qbvh: &'a SceneQbvh,
-  ctx: &'a SceneRayQuery,
-  world_ray: &Ray3<f64>,
-  tolerance: IntersectTolerance,
-) -> impl Iterator<Item = (f32, u32)> + 'a {
-  let visitor = RayIntersectionClosestPointVisitor {
-    world_ray: world_ray.into_f32(),
-    ctx,
-    tolerance,
-  };
+pub struct SceneQbvhIterProvider {
+  internal: LockReadGuardHolder<SceneQbvh>,
+}
 
-  qbvh.leaf_data_weighted_iter(f32::MAX, visitor)
-  // .filter_map(move |(cost, index)| {
-  //   models
-  //     .get_handle((mapper)(index.into()))
-  //     .map(|handle| (cost, handle))
-  // });
+impl SceneModelIterProvider for SceneQbvhIterProvider {
+  fn create_ray_scene_model_iter<'a>(
+    &'a self,
+    scene: EntityHandle<SceneEntity>,
+    ctx: &'a SceneRayQuery,
+  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
+    let visitor = RayIntersectionClosestPointVisitor {
+      world_ray: ctx.world_ray.into_f32(),
+      ctx,
+      tolerance: IntersectTolerance::new(0., ToleranceType::ScreenSpace),
+    };
+
+    let models = global_entity_arena_access::<SceneModelEntity>();
+    let iter = self
+      .internal
+      .leaf_data_weighted_iter(f32::MAX, visitor)
+      .map(move |(_cost, index)| {
+        let handle = models.get_handle(index as usize).unwrap();
+        unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle(handle)) }
+      });
+
+    Box::new(iter)
+  }
 }
 
 struct RayIntersectionClosestPointVisitor<'a> {

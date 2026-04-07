@@ -59,11 +59,6 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   setup_global_database(Default::default());
   global_database().enable_label_for_all_entity();
 
-  register_scene_core_data_model();
-  register_light_shadow_config();
-  register_gui3d_extension_data_model(true);
-  register_clipping_data_model();
-
   register_viewer_content_data_model();
 
   let init_config = ViewerInitConfig::from_default_json_or_default();

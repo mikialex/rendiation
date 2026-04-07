@@ -10,8 +10,6 @@ mod c_api;
 pub use c_api::*;
 mod cx;
 use cx::*;
-mod panic_hook;
-pub use panic_hook::setup_panic_message_file_writer;
 
 #[repr(C)]
 #[derive(Copy, Clone)]

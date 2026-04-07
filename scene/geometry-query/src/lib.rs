@@ -2,8 +2,8 @@ use bytemuck::cast_slice;
 use database::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
-pub use rendiation_mesh_core::IntersectTolerance;
 use rendiation_mesh_core::*;
+pub use rendiation_mesh_core::{IntersectTolerance, ToleranceType};
 use rendiation_scene_core::*;
 use rendiation_texture_core::Size;
 

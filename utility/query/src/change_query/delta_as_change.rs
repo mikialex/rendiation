@@ -15,6 +15,12 @@ impl<T: CValue, Q: Query<Value = ValueChange<T>>> DataChanges for DeltaQueryAsCh
   type Value = T;
 
   fn has_change(&self) -> bool {
+    // iter_key_value may have heap allocation, use this to do a pre check
+    // todo, we should add this to Query trait to avoid box
+    if !self.0.has_item_hint() {
+      return false;
+    }
+
     self.0.iter_key_value().next().is_some()
   }
 
