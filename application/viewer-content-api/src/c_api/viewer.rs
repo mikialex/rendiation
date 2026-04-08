@@ -31,6 +31,26 @@ pub extern "C" fn viewer_drop_surface(api: *mut ViewerAPI, surface_id: u32) {
   api.drop_surface(surface_id)
 }
 
+#[no_mangle]
+pub extern "C" fn viewer_surface_set_camera(
+  api: *mut ViewerAPI,
+  surface_id: u32,
+  camera: ViewerEntityHandle,
+) {
+  let api = unsafe { &mut *api };
+  api.set_surface_camera(surface_id, camera.into());
+}
+
+#[no_mangle]
+pub extern "C" fn viewer_surface_set_scene(
+  api: *mut ViewerAPI,
+  surface_id: u32,
+  scene: ViewerEntityHandle,
+) {
+  let api = unsafe { &mut *api };
+  api.set_surface_scene(surface_id, scene.into());
+}
+
 /// may return empty handle for error case
 #[no_mangle]
 pub extern "C" fn viewer_read_last_render_result(

@@ -23,12 +23,6 @@ pub extern "C" fn node_set_local_mat(node: ViewerEntityHandle, mat4: *const [f64
   writer.write(node.into(), mat4);
 }
 
-// #[no_mangle]
-// pub extern "C" fn node_get_world_mat(node: ViewerEntityHandle, mat4: *const [f64; 16]) {
-//   let mat4 = unsafe { *mat4 };
-//   todo!();
-// }
-
 /// set parent to null_ptr to detach
 #[no_mangle]
 pub extern "C" fn node_attach_parent(node: ViewerEntityHandle, parent: *mut ViewerEntityHandle) {

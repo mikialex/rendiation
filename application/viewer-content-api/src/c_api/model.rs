@@ -30,7 +30,7 @@ pub extern "C" fn create_scene_model(
     .new_entity(|w| {
       w.write::<SceneModelBelongsToScene>(&Some(scene.into()))
         .write::<SceneModelRefNode>(&Some(node.into()))
-        .write::<SceneModelStdModelRenderPayload>(&Some(node.into()))
+        .write::<SceneModelStdModelRenderPayload>(&Some(std_model.into_raw()))
     });
 
   SceneModelHandleInfo {

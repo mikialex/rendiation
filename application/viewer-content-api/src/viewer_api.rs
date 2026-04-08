@@ -38,7 +38,7 @@ impl ViewerAPI {
     width: u32,
     height: u32,
   ) -> u32 {
-    let init_size = Size::from_u32_pair_min_one((256, 256));
+    let init_size = Size::from_u32_pair_min_one((width, height));
 
     let mut window_handle =
       raw_gpu::rwh::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
@@ -108,7 +108,7 @@ impl ViewerAPI {
       });
 
     // this will sync later
-    let viewport = Vec4::new(0., 0., 200., 200.);
+    let viewport = Vec4::new(0., 0., width as f32, height as f32);
 
     let viewports = vec![ViewerViewPort {
       id: alloc_global_res_id(),
@@ -235,7 +235,7 @@ impl ViewerAPI {
 
     if let Some(content) = self.viewer.surfaces_content.get_mut(&surface_id) {
       let vp = &mut content.viewports[0];
-      vp.viewport.y = new_width as f32;
+      vp.viewport.z = new_width as f32;
       vp.viewport.w = new_height as f32;
     } else {
       log::warn!("unable to find surface content")

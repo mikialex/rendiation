@@ -126,6 +126,14 @@ uint32_t viewer_create_surface(struct ViewerAPI *api,
 
 void viewer_drop_surface(struct ViewerAPI *api, uint32_t surface_id);
 
+void viewer_surface_set_camera(struct ViewerAPI *api,
+                               uint32_t surface_id,
+                               struct ViewerEntityHandle camera);
+
+void viewer_surface_set_scene(struct ViewerAPI *api,
+                              uint32_t surface_id,
+                              struct ViewerEntityHandle scene);
+
 /**
  * may return empty handle for error case
  */
