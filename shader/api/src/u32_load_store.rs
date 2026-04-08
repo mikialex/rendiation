@@ -235,6 +235,9 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
         array_length: None,
       })
     } else {
+      // todo, we should support fixed size array, as the rrf shader api allows user do field_array_index on fixed size array
+      // !but not on (mat vec struct). the difference between the field_array_index and field_index is the dynamistic of index.
+      // so the function name should be fixed as well.
       unreachable!("not an runtime-size array type")
     }
   }

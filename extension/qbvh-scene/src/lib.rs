@@ -31,7 +31,7 @@ pub fn use_scene_qbvh(
       update_qbvh(
         &mut bvh,
         // note: map_changes_key to convert handle to index is ok
-        // same index all, remove will be correctly expressed as a change in index.
+        // same index add, remove will be correctly expressed as a change in index.
         delta.into_change().map_changes_key(|k| k.index()),
         |index| view.access(&index).unwrap(),
         m_delta.into_change().map_changes_key(|k| k.index()),
