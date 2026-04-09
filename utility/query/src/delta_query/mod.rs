@@ -16,6 +16,9 @@ pub use map::*;
 mod union;
 pub use union::*;
 
+mod join;
+pub use join::*;
+
 use crate::*;
 
 #[derive(Clone)]
@@ -215,6 +218,31 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
       a: a_access,
       b: b_access,
       f,
+    };
+
+    DualQuery { view, delta }.into_boxed_void_huge_symbol_in_debug_build()
+  }
+
+  fn dual_query_cross_join<Q>(
+    self,
+    other: Q,
+  ) -> impl DualQueryLike<Key = (Self::Key, Q::Key), Value = (Self::Value, Q::Value)>
+  where
+    Q: DualQueryLike,
+  {
+    let (a_access, t1) = self.view_delta();
+    let (b_access, t2) = other.view_delta();
+
+    let delta = CrossJoinValueChange {
+      a: t1,
+      b: t2,
+      a_current: a_access.clone(),
+      b_current: b_access.clone(),
+    };
+
+    let view = CrossJoinQuery {
+      a: a_access,
+      b: b_access,
     };
 
     DualQuery { view, delta }.into_boxed_void_huge_symbol_in_debug_build()

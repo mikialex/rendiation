@@ -111,6 +111,23 @@ impl<K: CKey, V: CValue> Query for Arc<FastHashMap<K, V>> {
   }
 }
 
+impl<K: CKey> Query for FastHashSet<K> {
+  type Key = K;
+  type Value = ();
+
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, ())> + '_ {
+    self.iter().map(|k| (k.clone(), ()))
+  }
+
+  fn access(&self, key: &K) -> Option<()> {
+    self.contains(key).then_some(())
+  }
+
+  fn has_item_hint(&self) -> bool {
+    !self.is_empty()
+  }
+}
+
 impl<K: CKey, V: CValue> Query for FastHashMap<K, V> {
   type Key = K;
   type Value = V;

@@ -154,9 +154,11 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     }
   }
 
-  fn when_spawning_stage(&self, f: impl FnOnce()) {
+  fn when_spawning_stage<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
     if self.is_spawning_stage() {
-      f();
+      f().into()
+    } else {
+      None
     }
   }
 

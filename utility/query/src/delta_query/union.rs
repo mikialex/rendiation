@@ -75,7 +75,7 @@ where
   }
 }
 
-pub fn join_change<K1: Clone, K2: Clone, V1: Clone, V2: Clone>(
+fn join_change<K1: Clone, K2: Clone, V1: Clone, V2: Clone>(
   k1: &K1,
   k2: &K2,
   change1: Option<ValueChange<V1>>,
