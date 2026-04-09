@@ -144,7 +144,7 @@ impl TextureAsReadonlyStorageBuffer {
         None
       };
 
-    let r = Self {
+    Self {
       texture: Arc::new(RwLock::new(create_tex(max_width, height, gpu))),
       ty_desc: Arc::new(ty_desc),
       host_backup: Arc::new(RwLock::new(TextureAsReadonlyStorageBufferHostBackup::new(
@@ -153,15 +153,7 @@ impl TextureAsReadonlyStorageBuffer {
         array_len,
       ))),
       gpu: gpu.clone(),
-    };
-
-    if let MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &*r.ty_desc {
-      let size = ty.u32_size_count(StructLayoutTarget::Std430);
-      let array_len = init_u32_size / size;
-      r.write(cast_slice(&[array_len]), 0, &gpu.queue);
     }
-
-    r
   }
 
   #[allow(clippy::needless_range_loop)]
