@@ -40,7 +40,7 @@ pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<Box<dyn IndirectNodeR
   })
 }
 
-pub struct IndirectNodeRenderer(AbstractReadonlyStorageBuffer<[NodeStorage]>);
+pub struct IndirectNodeRenderer(pub AbstractReadonlyStorageBuffer<[NodeStorage]>);
 
 impl IndirectNodeRenderImpl for IndirectNodeRenderer {
   fn make_component_indirect(

@@ -111,7 +111,7 @@ void node_set_local_mat(struct ViewerEntityHandle node, const double (*mat4)[16]
  */
 void node_attach_parent(struct ViewerEntityHandle node, struct ViewerEntityHandle *parent);
 
-struct ViewerAPI *create_viewer_content_api_instance(void);
+struct ViewerAPI *create_viewer_content_api_instance(const char *config_path);
 
 void drop_viewer_content_api_instance(struct ViewerAPI *api);
 

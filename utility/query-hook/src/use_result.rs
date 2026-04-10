@@ -620,6 +620,15 @@ where
     self.join(other).map(move |(a, b)| a.dual_query_union(b, f))
   }
 
+  pub fn dual_query_cross_join<Q: DualQueryLike>(
+    self,
+    other: UseResult<Q>,
+  ) -> UseResult<impl DualQueryLike<Key = (T::Key, Q::Key), Value = (T::Value, Q::Value)>> {
+    self
+      .join(other)
+      .map(move |(a, b)| a.dual_query_cross_join(b))
+  }
+
   pub fn dual_query_boxed(self) -> UseResult<BoxedDynDualQuery<T::Key, T::Value>> {
     self.map(|v| {
       let (a, d) = v.view_delta();

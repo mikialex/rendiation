@@ -1,8 +1,22 @@
+use std::ffi::{c_char, CStr};
+
 use crate::*;
 
 #[no_mangle]
-pub extern "C" fn create_viewer_content_api_instance() -> *mut ViewerAPI {
-  let init_config = ViewerInitConfig::default();
+pub extern "C" fn create_viewer_content_api_instance(config_path: *const c_char) -> *mut ViewerAPI {
+  let config_path = unsafe { CStr::from_ptr(config_path) };
+  let init_config = if let Ok(config_path) = config_path.to_str() {
+    if let Some(r) = ViewerInitConfig::from_json_or_default(config_path) {
+      r
+    } else {
+      log::warn!("unable to read or parse the config file, use default config");
+      ViewerInitConfig::default()
+    }
+  } else {
+    log::warn!("unable to convert c style config path into utf8, use default config");
+    ViewerInitConfig::default()
+  };
+
   let api = ViewerAPI::new(init_config);
   let api = Box::new(api);
   Box::leak(api)
