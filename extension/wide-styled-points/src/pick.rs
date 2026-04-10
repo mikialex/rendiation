@@ -30,9 +30,6 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideStyledPointsSceneModelWo
     // todo, materialize
     scene_model_world_mat
       .dual_query_intersect(sm_line_local_bounding)
-      .dual_query_map(|(mat, local)| {
-        let f64_box = Box3::new(local.min.into_f64(), local.max.into_f64());
-        f64_box.apply_matrix_into(mat)
-      })
+      .dual_query_map(|(mat, local)| local.into_f64().apply_matrix_into(mat))
   }
 }

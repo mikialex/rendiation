@@ -215,3 +215,9 @@ impl Box3<f32> {
     )
   }
 }
+
+impl Box3<f32> {
+  pub fn into_f64(self) -> Box3<f64> {
+    Box3::new(self.min.into_f64(), self.max.into_f64())
+  }
+}

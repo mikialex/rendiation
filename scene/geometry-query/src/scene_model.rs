@@ -1,17 +1,22 @@
 use crate::*;
 
 pub trait SceneModelPicker {
+  /// if the override_world_mat used, the internal node matrix is ignored
   fn ray_query_nearest(
     &self,
     idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
   ) -> Option<MeshBufferHitPoint<f64>>;
 
+  /// if the override_world_mat used, the internal node matrix is ignored
+  ///
   /// return None if errored
   /// todo, this should be improved
   fn ray_query_all(
     &self,
     idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
@@ -22,10 +27,11 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
   fn ray_query_nearest(
     &self,
     idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
   ) -> Option<MeshBufferHitPoint<f64>> {
     for provider in self {
-      if let Some(hit) = provider.ray_query_nearest(idx, ctx) {
+      if let Some(hit) = provider.ray_query_nearest(idx, override_world_mat, ctx) {
         return Some(hit);
       }
     }
@@ -35,13 +41,14 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
   fn ray_query_all(
     &self,
     idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
   ) -> Option<()> {
     for provider in self {
       if provider
-        .ray_query_all(idx, ctx, results, local_result_scratch)
+        .ray_query_all(idx, override_world_mat, ctx, results, local_result_scratch)
         .is_some()
       {
         return Some(());
@@ -64,6 +71,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
   fn ray_query_nearest(
     &self,
     idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
   ) -> Option<MeshBufferHitPoint<f64>> {
     let node = self.scene_model_node.get(idx)?;
@@ -71,10 +79,21 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       return None;
     }
 
-    let mat = self.node_world.access(&node)?;
-    let local_tolerance = self.internal.compute_local_tolerance(idx, ctx, mat)?;
+    let mat = if let Some(mat) = override_world_mat {
+      *mat
+    } else {
+      self.node_world.access(&node)?
+    };
 
-    if !self.internal.bounding_pre_test(idx, ctx, local_tolerance)? {
+    let is_target_world_origin_from_node = override_world_mat.is_none();
+    let local_tolerance =
+      self
+        .internal
+        .compute_local_tolerance(idx, ctx, mat, is_target_world_origin_from_node)?;
+
+    if is_target_world_origin_from_node // todo, add this test for override_world_mat case
+      && !self.internal.bounding_pre_test(idx, ctx, local_tolerance)?
+    {
       return None;
     }
 
@@ -110,6 +129,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
   fn ray_query_all(
     &self,
     idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
@@ -119,10 +139,21 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       return None;
     }
 
-    let mat = self.node_world.access(&node)?;
-    let local_tolerance = self.internal.compute_local_tolerance(idx, ctx, mat)?;
+    let mat = if let Some(mat) = override_world_mat {
+      *mat
+    } else {
+      self.node_world.access(&node)?
+    };
 
-    if !self.internal.bounding_pre_test(idx, ctx, local_tolerance)? {
+    let is_target_world_origin_from_node = override_world_mat.is_none();
+    let local_tolerance =
+      self
+        .internal
+        .compute_local_tolerance(idx, ctx, mat, is_target_world_origin_from_node)?;
+
+    if is_target_world_origin_from_node // todo, add this test for override_world_mat case
+      && !self.internal.bounding_pre_test(idx, ctx, local_tolerance)?
+    {
       return None;
     }
 

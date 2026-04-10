@@ -104,7 +104,7 @@ impl Picker3d for ViewerPickerWithCtx {
     self
       .picker_impl
       .model_picker
-      .ray_query_nearest(model, &self.create_ray_ctx(world_ray)?)
+      .ray_query_nearest(model, None, &self.create_ray_ctx(world_ray)?)
   }
 
   fn pick_model_all(
@@ -116,6 +116,7 @@ impl Picker3d for ViewerPickerWithCtx {
   ) -> Option<()> {
     self.picker_impl.model_picker.ray_query_all(
       idx,
+      None,
       &self.create_ray_ctx(world_ray)?,
       results,
       local_result_scratch,

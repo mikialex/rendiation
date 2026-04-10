@@ -3,6 +3,24 @@ use rendiation_scene_geometry_query::*;
 
 use crate::*;
 
+pub struct WideLineSceneModelLocalBounding;
+
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideLineSceneModelLocalBounding {
+  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f32>>;
+  share_provider_hash_type_id! {}
+
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+    cx.use_dual_query::<WideLineMeshBuffer>()
+      .use_dual_query_execute_map(cx, || {
+        |_, buffer| {
+          let buffer: &[WideLineVertex] = cast_slice(&buffer);
+          let box3: Box3<f32> = buffer.iter().flat_map(|v| [v.start, v.end]).collect();
+          box3
+        }
+      })
+  }
+}
+
 pub struct WideLineSceneModelWorldBounding;
 
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideLineSceneModelWorldBounding {
@@ -10,15 +28,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideLineSceneModelWorldBound
   share_provider_hash_type_id! {}
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-    let local_boxes = cx
-      .use_dual_query::<WideLineMeshBuffer>()
-      .use_dual_query_execute_map(cx, || {
-        |_, buffer| {
-          let buffer: &[WideLineVertex] = cast_slice(&buffer);
-          let box3: Box3<f32> = buffer.iter().flat_map(|v| [v.start, v.end]).collect();
-          box3
-        }
-      });
+    let local_boxes = cx.use_shared_dual_query(WideLineSceneModelLocalBounding);
 
     let relation = cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>();
     let sm_line_local_bounding = local_boxes.fanout(relation, cx);
@@ -28,10 +38,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideLineSceneModelWorldBound
     // todo, materialize
     scene_model_world_mat
       .dual_query_intersect(sm_line_local_bounding)
-      .dual_query_map(|(mat, local)| {
-        let f64_box = Box3::new(local.min.into_f64(), local.max.into_f64());
-        f64_box.apply_matrix_into(mat)
-      })
+      .dual_query_map(|(mat, local)| local.into_f64().apply_matrix_into(mat))
   }
 }
 
@@ -40,10 +47,18 @@ pub fn use_wide_line_picker(cx: &mut impl DBHookCxLike) -> Option<WideLinePicker
     .use_shared_dual_query_view(WideLineSceneModelWorldBounding)
     .use_assure_result(cx);
 
+  let local_bounding = cx
+    .use_shared_dual_query_view(WideLineSceneModelLocalBounding)
+    .use_assure_result(cx);
+
   cx.when_resolve_stage(|| WideLinePicker {
     lines: read_global_db_component(),
     line_width: read_global_db_component(),
     relation: read_global_db_foreign_key(),
+    local_bounding: local_bounding // todo, this type box is not necessary
+      .expect_resolve_stage()
+      .mark_entity_type()
+      .into_boxed(),
     sm_bounding: wide_line_sm_bounding
       .expect_resolve_stage()
       .mark_entity_type()
@@ -55,6 +70,7 @@ pub struct WideLinePicker {
   pub lines: ComponentReadView<WideLineMeshBuffer>,
   pub relation: ForeignKeyReadView<SceneModelWideLineRenderPayload>,
   pub sm_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  pub local_bounding: BoxedDynQuery<EntityHandle<WideLineModelEntity>, Box3<f32>>,
   pub line_width: ComponentReadView<WideLineWidth>,
 }
 
@@ -65,9 +81,18 @@ impl LocalModelPicker for WideLinePicker {
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
     target_world: Mat4<f64>,
+    is_target_world_origin_from_node: bool,
   ) -> Option<f32> {
     let line = self.relation.get(idx)?;
-    let target_world_center = self.sm_bounding.access(&idx)?.center();
+
+    let target_world_center = if is_target_world_origin_from_node {
+      self.sm_bounding.access(&idx)?.center()
+    } else {
+      let wide_line_id = self.relation.get(idx)?;
+      let local = self.local_bounding.access(&wide_line_id)?;
+      local.into_f64().apply_matrix_into(target_world).center()
+    };
+
     let line_width = self.line_width.get_value(line)?;
     let pick_line_tolerance = IntersectTolerance::new(line_width / 2., ToleranceType::ScreenSpace);
 

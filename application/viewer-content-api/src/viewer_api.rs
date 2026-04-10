@@ -107,7 +107,6 @@ impl ViewerAPI {
           .write::<SceneCameraNode>(&camera_node.some_handle())
       });
 
-    // this will sync later
     let viewport = Vec4::new(0., 0., width as f32, height as f32);
 
     let viewports = vec![ViewerViewPort {

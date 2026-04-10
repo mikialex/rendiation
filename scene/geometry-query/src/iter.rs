@@ -20,7 +20,7 @@ pub fn pick_models_all(
   for m in models {
     let len = results.len();
     if model_impl
-      .ray_query_all(m, cx, results, local_result_scratch)
+      .ray_query_all(m, None, cx, results, local_result_scratch)
       .is_some()
     {
       for _ in len..results.len() {
@@ -37,7 +37,7 @@ pub fn pick_models_nearest(
 ) -> Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> {
   let mut nearest: Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> = None;
   for m in models {
-    if let Some(hit) = model_impl.ray_query_nearest(m, cx) {
+    if let Some(hit) = model_impl.ray_query_nearest(m, None, cx) {
       let hit = hit.hit;
       if let Some(n) = nearest {
         if hit.is_near_than(&n.0) {

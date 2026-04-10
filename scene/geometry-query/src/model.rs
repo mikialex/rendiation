@@ -6,6 +6,7 @@ pub trait LocalModelPicker {
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
     target_world: Mat4<f64>,
+    is_target_world_origin_from_node: bool,
   ) -> Option<f32>;
 
   /// return if intersect with bounding
@@ -40,9 +41,12 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
     target_world: Mat4<f64>,
+    is_target_world_origin_from_node: bool,
   ) -> Option<f32> {
     for provider in self {
-      if let Some(hit) = provider.compute_local_tolerance(idx, ctx, target_world) {
+      if let Some(hit) =
+        provider.compute_local_tolerance(idx, ctx, target_world, is_target_world_origin_from_node)
+      {
         return Some(hit);
       }
     }
@@ -105,10 +109,20 @@ pub fn use_attribute_mesh_picker<Cx: DBHookCxLike>(
     .use_assure_result(cx);
 
   let sm_bounding = cx
-    .use_shared_dual_query_view(SceneModelByAttributesMeshStdModelWorldBounding(mesh_input))
+    .use_shared_dual_query_view(SceneModelByAttributesMeshStdModelWorldBounding(
+      mesh_input.clone(),
+    ))
+    .use_assure_result(cx);
+
+  let local_bounding = cx
+    .use_shared_dual_query_view(AttributeMeshLocalBounding(mesh_input))
     .use_assure_result(cx);
 
   cx.when_resolve_stage(|| AttributeMeshPicker {
+    local_bounding: local_bounding
+      .expect_resolve_stage() // todo, remove type box
+      .mark_entity_type()
+      .into_boxed(),
     sm_bounding: sm_bounding
       .expect_resolve_stage()
       .mark_entity_type()
@@ -127,6 +141,7 @@ pub fn use_attribute_mesh_picker<Cx: DBHookCxLike>(
 }
 
 pub struct AttributeMeshPicker {
+  pub local_bounding: BoxedDynQuery<EntityHandle<AttributesMeshEntity>, Box3<f32>>,
   pub sm_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   pub model_access_std_model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
@@ -210,8 +225,17 @@ impl LocalModelPicker for AttributeMeshPicker {
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
     target_world: Mat4<f64>,
+    is_target_world_origin_from_node: bool,
   ) -> Option<f32> {
-    let target_world_center = self.sm_bounding.access(&idx)?.center();
+    let target_world_center = if is_target_world_origin_from_node {
+      self.sm_bounding.access(&idx)?.center()
+    } else {
+      let std_id = self.model_access_std_model.get(idx)?;
+      let mesh_id = self.std_model_access_mesh.get(std_id)?;
+      let local = self.local_bounding.access(&mesh_id)?;
+      local.into_f64().apply_matrix_into(target_world).center()
+    };
+
     ctx
       .compute_local_tolerance(
         self.pick_line_tolerance,
