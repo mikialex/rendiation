@@ -31,7 +31,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
   let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
   let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
 
-  let use_attribute_mesh_picker = use_attribute_mesh_picker(cx, viewer_mesh_input);
+  let use_attribute_mesh_picker = use_attribute_mesh_picker(cx);
   let wide_line_picker = use_wide_line_picker(cx);
 
   let sm_world_bounding = cx

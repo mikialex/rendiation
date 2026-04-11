@@ -100,6 +100,7 @@ resolver = "2"
 serde = { version = "1", features = ["derive", "rc"] }
 facet = "0.27.16"
 rayon = "1.7.0"
+slab = "0.4.11"
 bitflags = "2.2"
 bumpalo = { version = "3.19", features = ["allocator_api"] }
 disqualified = "1.0.0"

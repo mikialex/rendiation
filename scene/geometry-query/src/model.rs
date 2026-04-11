@@ -70,10 +70,7 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
   }
 }
 
-pub fn use_attribute_mesh_picker<Cx: DBHookCxLike>(
-  cx: &mut Cx,
-  mesh_input: impl FnOnce(&mut Cx) -> UseResult<AttributesMeshDataChangeInput> + Clone,
-) -> Option<AttributeMeshPicker> {
+pub fn use_attribute_mesh_picker<Cx: DBHookCxLike>(cx: &mut Cx) -> Option<AttributeMeshPicker> {
   let mesh_vertex_refs = cx
     .use_db_rev_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
     .use_assure_result(cx);

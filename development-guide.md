@@ -17,7 +17,6 @@ The following things is the current project development direction.
   - disable normal and id case for better performance
 - occulsion test not correctly handle the depth test/write configured object
 - viewer selection set
-- viewer range pick ui
 - fix init_frame not for per surface
   
 ### Correctness issues

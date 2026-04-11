@@ -42,6 +42,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
+  // todo add a get ref version
   pub fn get_gpu_buffer(&self) -> AbstractReadonlyStorageBuffer<[T]> {
     self.buffer.gpu().clone()
   }
