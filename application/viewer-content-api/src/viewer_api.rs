@@ -243,7 +243,7 @@ impl ViewerAPI {
 
   pub fn create_picker_api(&mut self, surface_id: u32) -> ViewerPickerAPI {
     self.viewer_api_picker_scope(|cx| {
-      let picker_impl = use_viewer_scene_model_picker_impl(cx);
+      let picker_impl = use_viewer_scene_model_picker_impl(cx, cx.viewer.font_system.clone());
 
       let camera_transforms = cx
         .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.ndc().clone()))

@@ -62,6 +62,7 @@ pub struct SceneModelPickerBaseImpl<T> {
   pub node_world: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   pub internal: T,
   // keep result if return true
   pub filter: Option<Box<dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool>>,
@@ -85,17 +86,14 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       self.node_world.access(&node)?
     };
 
-    let is_target_world_origin_from_node = override_world_mat.is_none();
-    let local_tolerance =
-      self
-        .internal
-        .compute_local_tolerance(idx, ctx, mat, is_target_world_origin_from_node)?;
-
-    if is_target_world_origin_from_node // todo, add this test for override_world_mat case
-      && !self.internal.bounding_pre_test(idx, ctx, local_tolerance)?
-    {
-      return None;
-    }
+    let local_tolerance = pre_check_bounding_early_return_and_compute_local_tolerance(
+      idx,
+      ctx,
+      &self.sm_world_bounding,
+      &self.internal,
+      mat,
+      override_world_mat.is_none(),
+    )?;
 
     let local_ray = ctx
       .world_ray
@@ -145,17 +143,14 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       self.node_world.access(&node)?
     };
 
-    let is_target_world_origin_from_node = override_world_mat.is_none();
-    let local_tolerance =
-      self
-        .internal
-        .compute_local_tolerance(idx, ctx, mat, is_target_world_origin_from_node)?;
-
-    if is_target_world_origin_from_node // todo, add this test for override_world_mat case
-      && !self.internal.bounding_pre_test(idx, ctx, local_tolerance)?
-    {
-      return None;
-    }
+    let local_tolerance = pre_check_bounding_early_return_and_compute_local_tolerance(
+      idx,
+      ctx,
+      &self.sm_world_bounding,
+      &self.internal,
+      mat,
+      override_world_mat.is_none(),
+    )?;
 
     let local_ray = ctx
       .world_ray
@@ -182,6 +177,39 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       .for_each(|r| results.push(r));
 
     Some(())
+  }
+}
+
+fn pre_check_bounding_early_return_and_compute_local_tolerance(
+  idx: EntityHandle<SceneModelEntity>,
+  ctx: &SceneRayQuery,
+  sm_world_bounding: &BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  internal: &impl LocalModelPicker,
+  mat: Mat4<f64>,
+  is_target_world_origin_from_node: bool,
+) -> Option<f32> {
+  let mut sm_world_bounding = sm_world_bounding.access(&idx)?;
+
+  let local_tolerance = if let Some(tolerance) = internal.bounding_enlarge_tolerance(idx)? {
+    let target_world_center = sm_world_bounding.center();
+
+    let local_tolerance =
+      ctx.compute_local_tolerance(tolerance, mat.max_scale(), target_world_center);
+    sm_world_bounding = sm_world_bounding.enlarge(local_tolerance as f64);
+    local_tolerance
+  } else {
+    0.
+  };
+
+  let sm_intersected =
+    IntersectAble::<_, bool, _>::intersect(&ctx.world_ray, &sm_world_bounding, &());
+
+  if is_target_world_origin_from_node // todo, add this test for override_world_mat case
+      && !sm_intersected
+  {
+    return Some(local_tolerance);
+  } else {
+    None
   }
 }
 

@@ -24,12 +24,19 @@ impl SceneModelIterProvider for NaiveSceneModelIterProvider {
   }
 }
 
-pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(cx: &mut Cx) -> Option<ViewerPicker> {
+pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
+  cx: &mut Cx,
+  font_system: Arc<RwLock<FontSystem>>,
+) -> Option<ViewerPicker> {
   let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
   let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
 
   let use_attribute_mesh_picker = use_attribute_mesh_picker(cx, viewer_mesh_input);
   let wide_line_picker = use_wide_line_picker(cx);
+
+  let sm_world_bounding = cx
+    .use_shared_dual_query_view(SceneModelWorldBounding(font_system))
+    .use_assure_result(cx);
 
   let sms = cx
     .use_db_rev_ref::<SceneModelBelongsToScene>()
@@ -54,6 +61,10 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(cx: &mut Cx) -> Opti
         .mark_entity_type()
         .into_boxed(),
       filter: Some(Box::new(create_clip_pick_filter())),
+      sm_world_bounding: sm_world_bounding
+        .expect_resolve_stage()
+        .mark_entity_type()
+        .into_boxed(),
     };
 
     let iter_provider = NaiveSceneModelIterProvider {

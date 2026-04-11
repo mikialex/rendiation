@@ -69,7 +69,7 @@ impl ViewerPickerWithCtx {
 }
 
 pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerPickerWithCtx> {
-  let scene_model_picker = use_viewer_scene_model_picker_impl(cx);
+  let scene_model_picker = use_viewer_scene_model_picker_impl(cx, cx.viewer.font_system.clone());
 
   let camera_transforms = cx
     .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.ndc().clone()))

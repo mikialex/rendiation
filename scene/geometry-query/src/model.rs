@@ -1,21 +1,10 @@
 use crate::*;
 
 pub trait LocalModelPicker {
-  fn compute_local_tolerance(
+  fn bounding_enlarge_tolerance(
     &self,
     idx: EntityHandle<SceneModelEntity>,
-    ctx: &SceneRayQuery,
-    target_world: Mat4<f64>,
-    is_target_world_origin_from_node: bool,
-  ) -> Option<f32>;
-
-  /// return if intersect with bounding
-  fn bounding_pre_test(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    ctx: &SceneRayQuery,
-    local_tolerance: f32,
-  ) -> Option<bool>;
+  ) -> Option<Option<IntersectTolerance>>;
 
   /// should return hit result in local space
   fn ray_query_local_nearest(
@@ -36,31 +25,12 @@ pub trait LocalModelPicker {
 }
 
 impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
-  fn compute_local_tolerance(
+  fn bounding_enlarge_tolerance(
     &self,
     idx: EntityHandle<SceneModelEntity>,
-    ctx: &SceneRayQuery,
-    target_world: Mat4<f64>,
-    is_target_world_origin_from_node: bool,
-  ) -> Option<f32> {
+  ) -> Option<Option<IntersectTolerance>> {
     for provider in self {
-      if let Some(hit) =
-        provider.compute_local_tolerance(idx, ctx, target_world, is_target_world_origin_from_node)
-      {
-        return Some(hit);
-      }
-    }
-    None
-  }
-
-  fn bounding_pre_test(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    ctx: &SceneRayQuery,
-    local_tolerance: f32,
-  ) -> Option<bool> {
-    for provider in self {
-      if let Some(hit) = provider.bounding_pre_test(idx, ctx, local_tolerance) {
+      if let Some(hit) = provider.bounding_enlarge_tolerance(idx) {
         return Some(hit);
       }
     }
@@ -108,25 +78,7 @@ pub fn use_attribute_mesh_picker<Cx: DBHookCxLike>(
     .use_db_rev_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
     .use_assure_result(cx);
 
-  let sm_bounding = cx
-    .use_shared_dual_query_view(SceneModelByAttributesMeshStdModelWorldBounding(
-      mesh_input.clone(),
-    ))
-    .use_assure_result(cx);
-
-  let local_bounding = cx
-    .use_shared_dual_query_view(AttributeMeshLocalBounding(mesh_input))
-    .use_assure_result(cx);
-
   cx.when_resolve_stage(|| AttributeMeshPicker {
-    local_bounding: local_bounding
-      .expect_resolve_stage() // todo, remove type box
-      .mark_entity_type()
-      .into_boxed(),
-    sm_bounding: sm_bounding
-      .expect_resolve_stage()
-      .mark_entity_type()
-      .into_boxed(),
     model_access_std_model: read_global_db_foreign_key(),
     std_model_access_mesh: read_global_db_foreign_key(),
     mesh_vertex_refs: mesh_vertex_refs.expect_resolve_stage().into_boxed_multi(),
@@ -141,8 +93,6 @@ pub fn use_attribute_mesh_picker<Cx: DBHookCxLike>(
 }
 
 pub struct AttributeMeshPicker {
-  pub local_bounding: BoxedDynQuery<EntityHandle<AttributesMeshEntity>, Box3<f32>>,
-  pub sm_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   pub model_access_std_model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
   pub mesh_vertex_refs: BoxedDynMultiQuery<RawEntityHandle, RawEntityHandle>,
@@ -220,40 +170,20 @@ impl AttributeMeshPicker {
 }
 
 impl LocalModelPicker for AttributeMeshPicker {
-  fn compute_local_tolerance(
+  fn bounding_enlarge_tolerance(
     &self,
     idx: EntityHandle<SceneModelEntity>,
-    ctx: &SceneRayQuery,
-    target_world: Mat4<f64>,
-    is_target_world_origin_from_node: bool,
-  ) -> Option<f32> {
-    let target_world_center = if is_target_world_origin_from_node {
-      self.sm_bounding.access(&idx)?.center()
-    } else {
-      let std_id = self.model_access_std_model.get(idx)?;
-      let mesh_id = self.std_model_access_mesh.get(std_id)?;
-      let local = self.local_bounding.access(&mesh_id)?;
-      local.into_f64().apply_matrix_into(target_world).center()
+  ) -> Option<Option<IntersectTolerance>> {
+    let model = self.model_access_std_model.get(idx)?;
+    let mesh = self.std_model_access_mesh.get(model)?;
+    let topo = self.mesh_topology.get_value(mesh)?;
+    let tor = match topo {
+      MeshPrimitiveTopology::PointList => self.pick_point_tolerance,
+      MeshPrimitiveTopology::LineList => self.pick_line_tolerance,
+      MeshPrimitiveTopology::LineStrip => self.pick_line_tolerance,
+      _ => return Some(None),
     };
-
-    ctx
-      .compute_local_tolerance(
-        self.pick_line_tolerance,
-        target_world.max_scale(),
-        target_world_center,
-      )
-      .into()
-  }
-
-  fn bounding_pre_test(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    ctx: &SceneRayQuery,
-    local_tolerance: f32,
-  ) -> Option<bool> {
-    let mesh_world_bounding = self.sm_bounding.access(&idx)?;
-    let mesh_world_bounding = mesh_world_bounding.enlarge(local_tolerance as f64);
-    IntersectAble::<_, bool, _>::intersect(&ctx.world_ray, &mesh_world_bounding, &()).into()
+    Some(Some(tor))
   }
 
   fn ray_query_local_nearest(
