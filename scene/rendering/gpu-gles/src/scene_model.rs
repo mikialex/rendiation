@@ -32,7 +32,7 @@ type SceneModelIdUniforms = UniformBufferCollectionRaw<RawEntityHandle, Vec4<u32
 pub struct GLESPreferredComOrderRenderer {
   scene_model_ids: LockReadGuardHolder<SceneModelIdUniforms>,
   model_impl: Box<dyn GLESModelRenderImpl>,
-  node_render: GLESNodeRenderer,
+  node_render: Box<dyn GLESNodeRenderImpl>,
   node: ForeignKeyReadView<SceneModelRefNode>,
 }
 

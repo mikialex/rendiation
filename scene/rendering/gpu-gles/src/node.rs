@@ -1,6 +1,13 @@
 use crate::*;
 
-pub fn use_node_uniforms(cx: &mut QueryGPUHookCx) -> Option<GLESNodeRenderer> {
+pub trait GLESNodeRenderImpl {
+  fn make_component<'a>(
+    &'a self,
+    idx: EntityHandle<SceneNodeEntity>,
+  ) -> Option<Box<dyn RenderComponent + 'a>>;
+}
+
+pub fn use_node_uniforms(cx: &mut QueryGPUHookCx) -> Option<Box<dyn GLESNodeRenderImpl>> {
   let uniform = cx.use_uniform_buffers();
 
   use_global_node_world_mat(cx)
@@ -9,13 +16,15 @@ pub fn use_node_uniforms(cx: &mut QueryGPUHookCx) -> Option<GLESNodeRenderer> {
     .use_assure_result(cx)
     .update_uniforms(&uniform, 0, cx.gpu);
 
-  cx.when_render(|| GLESNodeRenderer(uniform.make_read_holder()))
+  cx.when_render(|| {
+    Box::new(GLESNodeRenderer(uniform.make_read_holder())) as Box<dyn GLESNodeRenderImpl>
+  })
 }
 
 pub struct GLESNodeRenderer(LockReadGuardHolder<SceneNodeUniforms>);
 
-impl GLESNodeRenderer {
-  pub fn make_component(
+impl GLESNodeRenderImpl for GLESNodeRenderer {
+  fn make_component(
     &self,
     idx: EntityHandle<SceneNodeEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
