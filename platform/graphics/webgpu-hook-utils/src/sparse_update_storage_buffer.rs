@@ -202,6 +202,6 @@ fn use_update_impl(
   None
 }
 
-fn make_init_size<T: Std430>(size: u32) -> u64 {
+pub fn make_init_size<T: Std430>(size: u32) -> u64 {
   ((size as usize) * std::mem::size_of::<T>()) as u64
 }

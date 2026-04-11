@@ -8,6 +8,8 @@ mod vec_backup;
 pub use vec_backup::*;
 mod queue_direct_update;
 pub use queue_direct_update::*;
+mod default_value;
+pub use default_value::*;
 
 pub trait GPULinearStorage: LinearStorageBase + Sized {
   type GPUType;
@@ -33,6 +35,16 @@ pub trait GPULinearStorage: LinearStorageBase + Sized {
 pub trait LinearStorageBase {
   type Item: Pod;
   fn max_size(&self) -> u32;
+
+  fn with_default_value_with_init_write(
+    self,
+    default_value: Self::Item,
+  ) -> BufferWidthDefaultValue<Self>
+  where
+    Self: Sized + LinearStorageDirectAccess,
+  {
+    BufferWidthDefaultValue::new_with_default_init_write(self, default_value)
+  }
 
   fn with_vec_backup(self, none_default: Self::Item, diff: bool) -> VecWithStorageBuffer<Self>
   where
