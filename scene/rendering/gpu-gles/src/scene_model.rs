@@ -2,10 +2,9 @@ use crate::*;
 
 pub fn use_gles_scene_model_renderer(
   cx: &mut QueryGPUHookCx,
+  node: Option<Box<dyn GLESNodeRenderImpl>>,
   model_impl: Option<Box<dyn GLESModelRenderImpl>>,
 ) -> Option<Box<dyn SceneModelRenderer>> {
-  let node_render = use_node_uniforms(cx);
-
   let scene_model_ids = cx.use_uniform_buffers();
 
   cx.use_query_set::<SceneModelEntity>()
@@ -22,7 +21,7 @@ pub fn use_gles_scene_model_renderer(
       scene_model_ids: scene_model_ids.make_read_holder(),
       model_impl: model_impl.unwrap(),
       node: read_global_db_foreign_key(),
-      node_render: node_render.unwrap(),
+      node_render: node.unwrap(),
     }) as Box<_>
   })
 }

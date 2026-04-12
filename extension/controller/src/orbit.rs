@@ -196,21 +196,18 @@ impl OrbitController {
           }
         }
         WindowEvent::CursorMoved { position, .. } => {
-          s.mouse_position.x = position.x as f32;
-          s.mouse_position.y = position.y as f32;
-
           if !self.use_mouse_motion {
             let delta = s.mouse_position - Vec2::new(position.x as f32, position.y as f32);
-            if self.use_mouse_motion {
-              if s.is_left_mouse_down {
-                self.rotate(Vec2::new(delta.x as f32, delta.y as f32))
-              }
+            if s.is_left_mouse_down {
+              self.rotate(Vec2::new(delta.x as f32, delta.y as f32))
+            }
 
-              if s.is_right_mouse_down {
-                self.pan(Vec2::new(delta.x as f32, delta.y as f32))
-              }
+            if s.is_right_mouse_down {
+              self.pan(Vec2::new(delta.x as f32, delta.y as f32))
             }
           }
+          s.mouse_position.x = position.x as f32;
+          s.mouse_position.y = position.y as f32;
         }
         WindowEvent::MouseWheel { delta, .. } => match delta {
           MouseScrollDelta::LineDelta(_, y) => {

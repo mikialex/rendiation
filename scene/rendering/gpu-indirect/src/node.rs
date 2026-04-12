@@ -24,7 +24,7 @@ pub trait IndirectNodeRenderImpl {
   fn as_any(&self) -> &dyn Any;
 }
 
-pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<Box<dyn IndirectNodeRenderImpl>> {
+pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<IndirectNodeRenderer> {
   let (cx, nodes) = cx.use_storage_buffer("nodes data", 128, u32::MAX);
 
   use_global_node_world_mat(cx)
@@ -35,9 +35,7 @@ pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<Box<dyn IndirectNodeR
   nodes.use_update(cx);
   nodes.use_max_item_count_by_db_entity::<SceneNodeEntity>(cx);
 
-  cx.when_render(|| {
-    Box::new(IndirectNodeRenderer(nodes.get_gpu_buffer())) as Box<dyn IndirectNodeRenderImpl>
-  })
+  cx.when_render(|| IndirectNodeRenderer(nodes.get_gpu_buffer()))
 }
 
 pub struct IndirectNodeRenderer(pub AbstractReadonlyStorageBuffer<[NodeStorage]>);
