@@ -85,6 +85,7 @@ members = [
   "extension/area-lighting",
   "extension/qbvh",
   "extension/qbvh-scene",
+  "extension/view-dependent-transform",
   "extension/csg-sdf-expression",
   "application/viewer-content",
   "application/viewer-content-api",

@@ -100,6 +100,12 @@ impl Viewer3dRenderingCtx {
   ) -> Option<ViewerRendererInstancePreparer> {
     let (cx, change_scope) = cx.use_begin_change_set_collect();
 
+    let viewports_map: FastHashMap<_, _> = viewports
+      .iter()
+      .map(|vp| (vp.id, (vp.camera.into_raw(), vp.viewport.zw())))
+      .collect();
+    let viewports_map = Arc::new(viewports_map);
+
     let camera = use_camera_uniforms(cx, self.ndc);
     let background = use_background(cx);
     let init_config = &self.init_config.init_only;
@@ -143,6 +149,7 @@ impl Viewer3dRenderingCtx {
     let mut mesh_lod_graph_renderer = None;
     let mut indirect_extractor = None;
 
+    let (cx, active_view_control) = cx.use_plain_state_default::<CurrentViewControl>();
     let (cx, model_error_state) = cx.use_plain_state_default::<SceneModelErrorRecorder>();
 
     let raster_scene_renderer = match self.current_renderer_impl_ty {
@@ -182,8 +189,19 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn GLESModelRenderImpl>
         });
 
-        let node = use_node_uniforms(cx);
-        let scene_model_renderer = use_gles_scene_model_renderer(cx, node, model_renderer);
+        let node_render = use_node_uniforms(cx);
+
+        let view_camera_source = cx.use_shared_dual_query(
+          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map),
+        );
+        let node_render = use_view_dependent_transform_gles_gpu(
+          cx,
+          view_camera_source,
+          node_render,
+          active_view_control.clone(),
+        );
+
+        let scene_model_renderer = use_gles_scene_model_renderer(cx, node_render, model_renderer);
         cx.when_render(|| GLESSceneRenderer {
           texture_system: texture_sys.clone().unwrap(),
           reversed_depth: self.ndc.enable_reverse_z,
@@ -260,7 +278,18 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn IndirectModelRenderImpl>
         });
 
-        let node = use_node_storage(cx).map(|v| Box::new(v) as Box<_>);
+        let node = use_node_storage(cx);
+
+        let view_camera_source = cx.use_shared_dual_query(
+          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map),
+        );
+        let node = use_view_dependent_transform_indirect_gpu(
+          cx,
+          view_camera_source,
+          node,
+          active_view_control.clone(),
+        );
+
         let scene_model = use_indirect_scene_model(cx, node, model_support);
 
         if !self.using_host_driven_indirect_draw {
@@ -423,6 +452,7 @@ impl Viewer3dRenderingCtx {
         .mark_entity_type()
         .into_boxed(),
       clipping: clipping.unwrap(),
+      active_view_control: active_view_control.clone(),
     })
   }
 
@@ -515,6 +545,7 @@ impl Viewer3dRenderingCtx {
       reversed_depth: renderer.reversed_depth,
       lighting: lighting_cx,
       clipping: renderer.clipping,
+      active_view_control: renderer.active_view_control,
     };
 
     renderer
@@ -529,6 +560,8 @@ impl Viewer3dRenderingCtx {
         let view_renderer = surface_views.get_mut(viewport_id).unwrap();
         let viewport = &surface_content.viewports[*idx];
         ctx.frame_size = viewport.render_pixel_size();
+
+        renderer.active_view_control.set(Some(viewport.id));
         view_renderer.render(
           ctx,
           &mut renderer,
@@ -537,6 +570,7 @@ impl Viewer3dRenderingCtx {
           final_target,
           waker,
         );
+        renderer.active_view_control.set(None);
       });
     }
 
@@ -569,6 +603,7 @@ pub struct ViewerRendererInstancePreparer {
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   pub reversed_depth: bool,
+  pub active_view_control: CurrentViewControl,
 }
 
 pub struct ViewerRendererInstance<'a> {
@@ -584,6 +619,7 @@ pub struct ViewerRendererInstance<'a> {
   pub reversed_depth: bool,
   pub lighting: LightingRenderingCx<'a>,
   pub clipping: CSGClippingRenderer,
+  pub active_view_control: CurrentViewControl,
 }
 
 pub struct ViewerBatchExtractor {

@@ -87,6 +87,61 @@ pub fn load_default_scene(
 
     writer.create_scene_model(material, attribute_mesh, child);
   }
+  // face
+  {
+    let cube = CubeMeshParameter {
+      width: 100.,
+      height: 200.,
+      depth: 0.1,
+    };
+    let attribute_mesh = build_attributes_mesh(|builder| {
+      for face in cube.make_faces() {
+        builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
+      }
+    })
+    .build();
+    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
+
+    let material = PhysicalSpecularGlossinessMaterialDataView {
+      albedo: Vec3::splat(1.),
+      ..Default::default()
+    }
+    .write(&mut writer.pbr_sg_mat_writer);
+    let material = SceneMaterialDataView::PbrSGMaterial(material);
+
+    let child = writer.create_root_child();
+    writer.set_local_matrix(
+      child,
+      Mat4::translate((2., 0., 3.)) * Mat4::scale((2., 1., 1.)),
+    );
+
+    let sm = writer.create_scene_model(material, attribute_mesh, child);
+
+    // writer
+    //   .model_writer
+    //   .write::<SceneModelViewDependentTransformOcc>(
+    //     sm,
+    //     Some(OccStyleViewDepConfig {
+    //       transform_ty: OccStyleTransform::Dimension2 {
+    //         offset: Vec2::new(150, 150),
+    //         corner: OccStyleCorner::LeftUpper,
+    //       },
+    //       mode: OccStyleMode::Screen2d,
+    //     }),
+    //   );
+
+    writer
+      .model_writer
+      .write::<SceneModelViewDependentTransformOcc>(
+        sm,
+        Some(OccStyleViewDepConfig {
+          transform_ty: OccStyleTransform::Dimension3 {
+            anchor_point: Vec3::new(0., 0., 0.),
+          },
+          mode: OccStyleMode::NotZoomRotate,
+        }),
+      );
+  }
 
   //   {
   //     let mesh = build_scene_mesh(|builder| {

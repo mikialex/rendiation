@@ -63,6 +63,10 @@ pub fn use_smooth_camera_motion(
     let mat = Mat4::lookat(position, look_at, Vec3::new(0., 1., 0.));
     writer.set_local_matrix(camera_node, mat);
 
+    writer
+      .camera_writer
+      .write::<SceneCameraLookAt>(camera, Some(look_at));
+
     if let Some(orth_scale) = orth_scale_to_apply.take() {
       if let Some(mut orth) = writer.camera_writer.read::<SceneCameraOrthographic>(camera) {
         if orth_scale > 0. {

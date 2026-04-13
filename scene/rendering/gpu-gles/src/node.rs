@@ -4,6 +4,7 @@ pub trait GLESNodeRenderImpl {
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<SceneNodeEntity>,
+    sm: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + 'a>>;
 }
 
@@ -27,6 +28,7 @@ impl GLESNodeRenderImpl for GLESNodeRenderer {
   fn make_component(
     &self,
     idx: EntityHandle<SceneNodeEntity>,
+    _sm: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     let node = NodeGPUUniform {
       ubo: self.0.get(&idx.into_raw())?,
