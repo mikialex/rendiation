@@ -182,7 +182,8 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn GLESModelRenderImpl>
         });
 
-        let scene_model_renderer = use_gles_scene_model_renderer(cx, model_renderer);
+        let node = use_node_uniforms(cx);
+        let scene_model_renderer = use_gles_scene_model_renderer(cx, node, model_renderer);
         cx.when_render(|| GLESSceneRenderer {
           texture_system: texture_sys.clone().unwrap(),
           reversed_depth: self.ndc.enable_reverse_z,
@@ -259,7 +260,7 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn IndirectModelRenderImpl>
         });
 
-        let node = use_node_storage(cx);
+        let node = use_node_storage(cx).map(|v| Box::new(v) as Box<_>);
         let scene_model = use_indirect_scene_model(cx, node, model_support);
 
         if !self.using_host_driven_indirect_draw {
