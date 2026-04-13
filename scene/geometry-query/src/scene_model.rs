@@ -188,6 +188,11 @@ fn pre_check_bounding_early_return_and_compute_local_tolerance(
   mat: Mat4<f64>,
   is_target_world_origin_from_node: bool,
 ) -> Option<f32> {
+  // todo, fix
+  if is_target_world_origin_from_node {
+    return Some(0.);
+  }
+
   let mut sm_world_bounding = sm_world_bounding.access(&idx)?;
 
   let local_tolerance = if let Some(tolerance) = internal.bounding_enlarge_tolerance(idx)? {
@@ -204,9 +209,7 @@ fn pre_check_bounding_early_return_and_compute_local_tolerance(
   let sm_intersected =
     IntersectAble::<_, bool, _>::intersect(&ctx.world_ray, &sm_world_bounding, &());
 
-  if is_target_world_origin_from_node // todo, add this test for override_world_mat case
-      && !sm_intersected
-  {
+  if sm_intersected {
     return Some(local_tolerance);
   } else {
     None
