@@ -227,6 +227,15 @@ void scene_model_set_mesh(struct SceneModelHandleInfo handle, struct ViewerEntit
 void scene_model_set_scene(struct SceneModelHandleInfo handle,
                            const struct ViewerEntityHandle *scene);
 
+void scene_model_set_occ_style_view_dep(struct SceneModelHandleInfo handle,
+                                        bool is_2d,
+                                        const float (*anchor)[3],
+                                        const int32_t (*offset)[2],
+                                        uint32_t corner,
+                                        uint32_t mode);
+
+void scene_model_remove_occ_style_view_dep(struct SceneModelHandleInfo handle);
+
 void scene_model_set_material(struct SceneModelHandleInfo handle,
                               struct ViewerEntityHandle material,
                               bool is_unlit_material);

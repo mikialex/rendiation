@@ -34,6 +34,10 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
   let use_attribute_mesh_picker = use_attribute_mesh_picker(cx);
   let wide_line_picker = use_wide_line_picker(cx);
 
+  let sm_local_bounding = cx
+    .use_shared_dual_query_view(SceneModelLocalBounding(font_system.clone()))
+    .use_assure_result(cx);
+
   let sm_world_bounding = cx
     .use_shared_dual_query_view(SceneModelWorldBounding(font_system))
     .use_assure_result(cx);
@@ -62,6 +66,10 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
         .into_boxed(),
       filter: Some(Box::new(create_clip_pick_filter())),
       sm_world_bounding: sm_world_bounding
+        .expect_resolve_stage()
+        .mark_entity_type()
+        .into_boxed(),
+      sm_local_bounding: sm_local_bounding
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),

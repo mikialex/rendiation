@@ -2,10 +2,10 @@ use rendiation_geometry::Box3;
 
 use crate::*;
 
-pub struct WideStyledPointsSceneModelWorldBounding;
+pub struct WideStyledPointsSceneModelLocalBounding;
 
-impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideStyledPointsSceneModelWorldBounding {
-  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f64>>;
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideStyledPointsSceneModelLocalBounding {
+  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f32>>;
   share_provider_hash_type_id! {}
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
@@ -23,13 +23,6 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideStyledPointsSceneModelWo
       });
 
     let relation = cx.use_db_rev_ref_tri_view::<SceneModelWideStyledPointsRenderPayload>();
-    let sm_line_local_bounding = local_boxes.fanout(relation, cx);
-
-    let scene_model_world_mat = cx.use_shared_dual_query(GlobalSceneModelWorldMatrix);
-
-    // todo, materialize
-    scene_model_world_mat
-      .dual_query_intersect(sm_line_local_bounding)
-      .dual_query_map(|(mat, local)| local.into_f64().apply_matrix_into(mat))
+    local_boxes.fanout(relation, cx)
   }
 }

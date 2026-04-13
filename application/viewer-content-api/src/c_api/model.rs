@@ -70,6 +70,40 @@ pub extern "C" fn scene_model_set_scene(
 }
 
 #[no_mangle]
+pub extern "C" fn scene_model_set_occ_style_view_dep(
+  handle: SceneModelHandleInfo,
+  is_2d: bool,
+  anchor: &[f32; 3],
+  offset: &[i32; 2],
+  corner: u32,
+  mode: u32,
+) {
+  let transform_ty = if is_2d {
+    OccStyleTransform::Dimension2 {
+      offset: (*offset).into(),
+      corner: OccStyleCorner::from_bits_retain(corner),
+    }
+  } else {
+    OccStyleTransform::Dimension3 {
+      anchor_point: (*anchor).into(),
+    }
+  };
+
+  let config = OccStyleViewDepConfig {
+    transform_ty,
+    mode: OccStyleMode::from_bits_retain(mode),
+  };
+  write_global_db_component::<SceneModelViewDependentTransformOcc>()
+    .write(handle.scene_model.into(), Some(config));
+}
+
+#[no_mangle]
+pub extern "C" fn scene_model_remove_occ_style_view_dep(handle: SceneModelHandleInfo) {
+  write_global_db_component::<SceneModelViewDependentTransformOcc>()
+    .write(handle.scene_model.into(), None);
+}
+
+#[no_mangle]
 pub extern "C" fn scene_model_set_material(
   handle: SceneModelHandleInfo,
   material: ViewerEntityHandle,
