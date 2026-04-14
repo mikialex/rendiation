@@ -597,7 +597,7 @@ pub struct ViewerRendererInstancePreparer {
   pub culling: ViewerCulling,
   pub mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   pub reversed_depth: bool,
   pub active_view_control: CurrentViewControl,
 }
@@ -611,7 +611,7 @@ pub struct ViewerRendererInstance<'a> {
   pub culling: ViewerCulling,
   pub mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   pub reversed_depth: bool,
   pub lighting: LightingRenderingCx<'a>,
   pub clipping: CSGClippingRenderer,

@@ -747,7 +747,7 @@ pub struct ViewerSceneRenderer<'a> {
   pub transparent_content_renderer: ViewerTransparentRenderer,
   pub reversed_depth: bool,
   pub camera_transforms: &'a BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  pub sm_world_bounding: &'a BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  pub sm_world_bounding: &'a BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
 }
 
 struct ViewerContentForTAA<'a, F> {

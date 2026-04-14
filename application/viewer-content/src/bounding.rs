@@ -32,7 +32,8 @@ pub struct SceneModelWorldBounding(pub Arc<RwLock<FontSystem>>);
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
   share_provider_hash_type_id! {}
 
-  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f64>>;
+  // return None if the box is dynamic
+  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Option<Box3<f64>>>;
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let scene_model_world_mat = cx.use_shared_dual_query(GlobalSceneModelWorldMatrix);
@@ -45,17 +46,17 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
 
     // todo, materialize
     scene_model_world_mat
-      .dual_query_union(models_contains_view_dep, |(sm, vp)| {
-        // do subtraction
-        match (sm, vp) {
-          (None, None) => None,
-          (None, Some(_)) => None,
-          (Some(m), None) => Some(m),
-          (Some(_), Some(_)) => None,
-        }
-      })
       .dual_query_boxed()
       .dual_query_intersect(all_model_local_bounding)
       .dual_query_map(|(mat, local)| local.into_f64().apply_matrix_into(mat))
+      .dual_query_union(models_contains_view_dep, |(bbox, vp)| {
+        // do subtraction
+        match (bbox, vp) {
+          (None, None) => None,
+          (None, Some(_)) => None, // not possible, show we check?
+          (Some(bbox), None) => Some(Some(bbox)),
+          (Some(_), Some(_)) => Some(None),
+        }
+      })
   }
 }

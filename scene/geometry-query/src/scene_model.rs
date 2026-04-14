@@ -84,7 +84,7 @@ pub struct SceneModelPickerBaseImpl<T> {
   pub node_world: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
-  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   pub sm_local_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
   pub internal: T,
   // keep result if return true
@@ -113,7 +113,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     } else {
       (
         self.node_world.access(&node)?,
-        self.sm_world_bounding.access(&idx)?,
+        self.sm_world_bounding.access(&idx)??,
       )
     };
 
@@ -177,7 +177,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     } else {
       (
         self.node_world.access(&node)?,
-        self.sm_world_bounding.access(&idx)?,
+        self.sm_world_bounding.access(&idx)??,
       )
     };
 

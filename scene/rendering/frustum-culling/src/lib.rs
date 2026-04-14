@@ -134,6 +134,14 @@ impl AbstractCullerInvocation for GPUFrustumCullingInvocation {
       });
     }
 
+    // we use empty box for box not require cull
+    // we have to use the origin box, as the hpt is not valid
+    let min_x = bounding.min.expand().f1.x();
+    let max_x = bounding.max.expand().f1.x();
+    if_by(min_x.greater_than(max_x), || {
+      should_cull.store(false);
+    });
+
     should_cull.load()
   }
 }
@@ -141,14 +149,15 @@ impl AbstractCullerInvocation for GPUFrustumCullingInvocation {
 #[derive(Clone)]
 pub struct HostFrustumCulling {
   pub inner: Box<dyn HostRenderBatch>,
-  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  // none means skip box check
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   pub frustum: Frustum<f64>,
 }
 
 impl HostRenderBatch for HostFrustumCulling {
   fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
     Box::new(self.inner.iter_scene_models().filter(|v| {
-      if let Some(bbox) = self.sm_world_bounding.access(v) {
+      if let Some(Some(bbox)) = self.sm_world_bounding.access(v) {
         self.frustum.intersect(&bbox, &())
       } else {
         // if anything missing bounding, we should not cull it for safety as the frustum culling is only an optimization
