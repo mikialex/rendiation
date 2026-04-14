@@ -55,7 +55,7 @@ pub fn all_kinds_of_materials_enabled_alpha_blending(
 }
 
 pub struct TransparentHostOrderer {
-  pub world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  pub world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
 }
 
 impl TransparentHostOrderer {
@@ -67,7 +67,7 @@ impl TransparentHostOrderer {
     let mut content = content
       .iter_scene_models()
       .map(|sm| {
-        let distance = if let Some(bounding) = self.world_bounding.access(&sm) {
+        let distance = if let Some(Some(bounding)) = self.world_bounding.access(&sm) {
           bounding.center().distance2_to(camera_position)
         } else {
           0.

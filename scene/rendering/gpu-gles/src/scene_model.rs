@@ -92,7 +92,7 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
     let node = self.node.get(idx).ok_or(E::NodeAccessFailed(idx))?;
     let node = self
       .node_render
-      .make_component(node)
+      .make_component(node, idx)
       .ok_or(E::NodeGPUAccessFailed(node))?;
     let node = node.as_ref();
 

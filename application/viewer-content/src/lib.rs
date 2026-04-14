@@ -48,6 +48,11 @@ use rendiation_texture_core::*;
 pub use rendiation_texture_core::{GPUBufferImage, Size};
 use rendiation_texture_gpu_base::{create_gpu_texture2d, SamplerConvertExt};
 use rendiation_texture_gpu_process::{ToneMap, ToneMapType};
+use rendiation_view_dependent_transform::*;
+pub use rendiation_view_dependent_transform::{
+  OccStyleCorner, OccStyleMode, OccStyleTransform, OccStyleViewDepConfig, SceneCameraLookAt,
+  SceneModelViewDependentTransformOcc,
+};
 pub use rendiation_webgpu::raw_gpu;
 use rendiation_webgpu::*;
 pub use rendiation_webgpu::{CreateSurfaceError, GPUInstance, GPUSurface, SurfaceProvider, GPU};
@@ -74,6 +79,7 @@ mod rendering;
 mod rendering_root;
 mod terminal;
 mod util;
+mod view_dependent_transform;
 mod viewer;
 mod viewport;
 
@@ -92,6 +98,7 @@ pub use rendering::*;
 pub use rendering_root::*;
 pub use terminal::*;
 pub use util::*;
+use view_dependent_transform::*;
 pub use viewer::*;
 pub use viewport::*;
 #[cfg(target_arch = "wasm32")]
@@ -123,4 +130,5 @@ pub fn register_viewer_content_data_model() {
   register_sky_env_data_model();
   register_wide_styled_points_data_model(true);
   register_text3d_data_model(true);
+  register_occ_style_view_dependent_data_model();
 }

@@ -243,22 +243,36 @@ impl ViewerAPI {
 
   pub fn create_picker_api(&mut self, surface_id: u32) -> ViewerPickerAPI {
     self.viewer_api_picker_scope(|cx| {
-      let picker_impl = use_viewer_scene_model_picker_impl(cx, cx.viewer.font_system.clone());
+      cx.viewer.update_view_ty_immediate();
+      let picker_impl = use_viewer_scene_model_picker_impl(
+        cx,
+        cx.viewer.font_system.clone(),
+        cx.viewer.ndc().clone(),
+        cx.viewer.viewport_map.clone(),
+      );
 
       let camera_transforms = cx
         .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.ndc().clone()))
         .use_assure_result(cx);
 
-      cx.when_resolve_stage(|| ViewerPickerAPI {
-        picker_impl: picker_impl.unwrap(),
-        camera_transforms: camera_transforms.expect_resolve_stage(),
-        surface_id,
+      cx.when_resolve_stage(|| {
+        let active_surface = cx.viewer.surfaces_content.get(&surface_id).unwrap();
+        let active_view = active_surface.viewports[0].id;
+        let mut picker_impl = picker_impl.unwrap();
+        picker_impl.model_picker.set_active_view(Some(active_view));
+
+        ViewerPickerAPI {
+          picker_impl,
+          camera_transforms: camera_transforms.expect_resolve_stage(),
+          surface_id,
+        }
       })
     })
   }
 
   pub fn render_surface(&mut self, surface_id: u32) {
     setup_new_frame_allocator(10 * 1024 * 1024);
+    self.viewer.update_view_ty_immediate();
     if let Some(surface) = self.surfaces.get(&surface_id) {
       if let Ok((canvas, target)) =
         surface.get_current_frame_with_render_target_view(&self.gpu_and_main_surface.gpu.device)
@@ -384,7 +398,7 @@ impl ViewerPickerAPI {
         .create_ray_scene_model_iter(scene, &cx);
 
       pick_models_all(
-        self.picker_impl.model_picker.as_ref(),
+        &self.picker_impl.model_picker,
         &mut iter,
         &cx,
         &mut results,

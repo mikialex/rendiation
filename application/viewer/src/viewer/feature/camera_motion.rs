@@ -63,6 +63,10 @@ pub fn use_smooth_camera_motion(
     let mat = Mat4::lookat(position, look_at, Vec3::new(0., 1., 0.));
     writer.set_local_matrix(camera_node, mat);
 
+    writer
+      .camera_writer
+      .write::<SceneCameraLookAt>(camera, Some(look_at));
+
     if let Some(orth_scale) = orth_scale_to_apply.take() {
       if let Some(mut orth) = writer.camera_writer.read::<SceneCameraOrthographic>(camera) {
         if orth_scale > 0. {
@@ -129,14 +133,18 @@ fn fit_camera_view_for_viewer(
   camera_node: EntityHandle<SceneNodeEntity>,
   selected_sm: Option<EntityHandle<SceneModelEntity>>,
   world_mat: impl Query<Key = EntityHandle<SceneNodeEntity>, Value = Mat4<f64>>,
-  sm_world_bounding: impl Query<Key = EntityHandle<SceneModelEntity>, Value = Box3<f64>>,
+  sm_world_bounding: impl Query<Key = EntityHandle<SceneModelEntity>, Value = Option<Box3<f64>>>,
 ) -> Option<CameraAction> {
   if let Some(selected) = &selected_sm {
     let camera_world = world_mat.access(&camera_node).unwrap();
 
     if let Some(target_world_aabb) = sm_world_bounding.access(selected) {
       if let Some(camera_proj) = read_common_proj_from_db(camera) {
-        return fit_camera_view(camera_proj, camera_world, target_world_aabb);
+        if let Some(target_world_aabb) = target_world_aabb {
+          return fit_camera_view(camera_proj, camera_world, target_world_aabb);
+        } else {
+          log::warn!("fit_camera skipped for dynamic box");
+        }
       } else {
         log::warn!("fit_camera failed to get common proj for camera");
       }

@@ -29,7 +29,7 @@ impl ViewerPickerWithCtx {
       .picker_impl
       .scene_model_iter_provider
       .create_ray_scene_model_iter(scene, &cx);
-    pick_models_nearest(self.picker_impl.model_picker.as_ref(), &mut iter, &cx)
+    pick_models_nearest(&self.picker_impl.model_picker, &mut iter, &cx)
   }
 
   pub fn pick_models_list_all(
@@ -57,7 +57,7 @@ impl ViewerPickerWithCtx {
       .create_ray_scene_model_iter(scene, &cx);
 
     pick_models_all(
-      self.picker_impl.model_picker.as_ref(),
+      &self.picker_impl.model_picker,
       &mut iter,
       &cx,
       &mut results,
@@ -69,7 +69,12 @@ impl ViewerPickerWithCtx {
 }
 
 pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerPickerWithCtx> {
-  let scene_model_picker = use_viewer_scene_model_picker_impl(cx, cx.viewer.font_system.clone());
+  let scene_model_picker = use_viewer_scene_model_picker_impl(
+    cx,
+    cx.viewer.font_system.clone(),
+    cx.viewer.ndc().clone(),
+    cx.viewer.viewport_map.clone(),
+  );
 
   let camera_transforms = cx
     .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.ndc().clone()))
@@ -84,8 +89,13 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerPickerWi
     let pointer_ctx =
       create_viewport_pointer_ctx(cx.active_surface_content, *mouse_position, &cam_trans);
 
+    let mut picker_impl = scene_model_picker.unwrap();
+    picker_impl
+      .model_picker
+      .set_active_view(pointer_ctx.as_ref().map(|c| c.viewport_id));
+
     ViewerPickerWithCtx {
-      picker_impl: scene_model_picker.unwrap(),
+      picker_impl,
       pointer_ctx,
     }
     .into()
@@ -142,7 +152,7 @@ impl Picker3d for ViewerPickerWithCtx {
     let mut models_results = Vec::default();
     let mut local_result_scratch = Vec::default();
     pick_models_all(
-      self.picker_impl.model_picker.as_ref(),
+      &self.picker_impl.model_picker,
       models,
       &cx,
       &mut results,
@@ -158,7 +168,7 @@ impl Picker3d for ViewerPickerWithCtx {
     world_ray: Ray3<f64>,
   ) -> Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> {
     let cx = self.create_ray_ctx(world_ray)?;
-    pick_models_nearest(self.picker_impl.model_picker.as_ref(), models, &cx)
+    pick_models_nearest(&self.picker_impl.model_picker, models, &cx)
   }
 }
 

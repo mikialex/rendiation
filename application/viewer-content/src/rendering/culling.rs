@@ -80,7 +80,7 @@ pub struct ViewerOcclusionCulling {
 pub struct ViewerCulling {
   oc: Option<ViewerOcclusionCulling>,
   bounding_provider: Option<Box<dyn DrawUnitWorldBoundingProvider>>,
-  sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   frustums: CameraGPUFrustums,
   enable_frustum_culling: bool,
 }

@@ -23,6 +23,28 @@ pub trait SceneModelPicker {
   ) -> Option<()>;
 }
 
+impl<'a> SceneModelPicker for Box<dyn SceneModelPicker + 'a> {
+  fn ray_query_nearest(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
+    ctx: &SceneRayQuery,
+  ) -> Option<MeshBufferHitPoint<f64>> {
+    (**self).ray_query_nearest(idx, override_world_mat, ctx)
+  }
+
+  fn ray_query_all(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
+    ctx: &SceneRayQuery,
+    results: &mut Vec<MeshBufferHitPoint<f64>>,
+    local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
+  ) -> Option<()> {
+    (**self).ray_query_all(idx, override_world_mat, ctx, results, local_result_scratch)
+  }
+}
+
 impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
   fn ray_query_nearest(
     &self,
@@ -62,7 +84,8 @@ pub struct SceneModelPickerBaseImpl<T> {
   pub node_world: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
-  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
+  pub sm_local_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
   pub internal: T,
   // keep result if return true
   pub filter: Option<Box<dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool>>,
@@ -80,19 +103,26 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       return None;
     }
 
-    let mat = if let Some(mat) = override_world_mat {
-      *mat
+    let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
+      let smb = self
+        .sm_local_bounding
+        .access(&idx)?
+        .into_f64()
+        .apply_matrix_into(*mat);
+      (*mat, smb)
     } else {
-      self.node_world.access(&node)?
+      (
+        self.node_world.access(&node)?,
+        self.sm_world_bounding.access(&idx)??,
+      )
     };
 
     let local_tolerance = pre_check_bounding_early_return_and_compute_local_tolerance(
       idx,
       ctx,
-      &self.sm_world_bounding,
+      sm_world_bounding,
       &self.internal,
       mat,
-      override_world_mat.is_none(),
     )?;
 
     let local_ray = ctx
@@ -137,19 +167,26 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       return None;
     }
 
-    let mat = if let Some(mat) = override_world_mat {
-      *mat
+    let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
+      let smb = self
+        .sm_local_bounding
+        .access(&idx)?
+        .into_f64()
+        .apply_matrix_into(*mat);
+      (*mat, smb)
     } else {
-      self.node_world.access(&node)?
+      (
+        self.node_world.access(&node)?,
+        self.sm_world_bounding.access(&idx)??,
+      )
     };
 
     let local_tolerance = pre_check_bounding_early_return_and_compute_local_tolerance(
       idx,
       ctx,
-      &self.sm_world_bounding,
+      sm_world_bounding,
       &self.internal,
       mat,
-      override_world_mat.is_none(),
     )?;
 
     let local_ray = ctx
@@ -183,18 +220,10 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
 fn pre_check_bounding_early_return_and_compute_local_tolerance(
   idx: EntityHandle<SceneModelEntity>,
   ctx: &SceneRayQuery,
-  sm_world_bounding: &BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
+  mut sm_world_bounding: Box3<f64>,
   internal: &impl LocalModelPicker,
   mat: Mat4<f64>,
-  is_target_world_origin_from_node: bool,
 ) -> Option<f32> {
-  // todo, fix
-  if is_target_world_origin_from_node {
-    return Some(0.);
-  }
-
-  let mut sm_world_bounding = sm_world_bounding.access(&idx)?;
-
   let local_tolerance = if let Some(tolerance) = internal.bounding_enlarge_tolerance(idx)? {
     let target_world_center = sm_world_bounding.center();
 

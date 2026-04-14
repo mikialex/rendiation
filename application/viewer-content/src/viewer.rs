@@ -2,6 +2,7 @@ use crate::*;
 
 pub struct Viewer {
   pub surfaces_content: FastHashMap<u32, ViewerSurfaceContent>,
+  pub viewport_map: ViewportsImmediate,
   pub rendering_root: RenderingRoot,
   pub rendering: Viewer3dRenderingCtx,
   pub terminal: Terminal,
@@ -11,6 +12,19 @@ pub struct Viewer {
   pub features_config: ViewerFeaturesInitConfig,
   pub enable_inspection: bool,
   pub font_system: Arc<RwLock<FontSystem>>,
+}
+
+impl Viewer {
+  pub fn update_view_ty_immediate(&mut self) {
+    // todo, active view
+    let mut viewports_map: FastHashMap<_, _> = Default::default();
+    for surface in self.surfaces_content.values() {
+      for vp in &surface.viewports {
+        viewports_map.insert(vp.id, (vp.camera.into_raw(), vp.viewport.zw()));
+      }
+    }
+    self.viewport_map = Arc::new(viewports_map);
+  }
 }
 
 pub struct ViewerDropCx<'a> {
@@ -68,6 +82,7 @@ impl Viewer {
 
     Self {
       surfaces_content: Default::default(),
+      viewport_map: Default::default(),
       terminal,
       rendering_root: RenderingRoot::new(&gpu),
       rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, init_config, font_system.clone()),
@@ -108,6 +123,7 @@ impl Viewer {
         data_scheduler,
         dyn_cx,
         inspector,
+        &self.viewport_map,
       );
     } else {
       log::error!("surface {surface_id}'s content not found");

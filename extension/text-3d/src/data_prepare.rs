@@ -1,6 +1,3 @@
-use rendiation_geometry::Box2;
-use rendiation_scene_core::GlobalSceneModelWorldMatrix;
-
 use crate::*;
 
 pub struct Text3dSlugBuffer(pub Arc<RwLock<FontSystem>>);
@@ -26,10 +23,10 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for Text3dSlugBuffer {
   }
 }
 
-pub struct Text3dSceneModelWorldBounding(pub Arc<RwLock<FontSystem>>);
+pub struct Text3dSceneModelLocalBounding(pub Arc<RwLock<FontSystem>>);
 
-impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for Text3dSceneModelWorldBounding {
-  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f64>> + 'static;
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for Text3dSceneModelLocalBounding {
+  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f32>> + 'static;
   share_provider_hash_type_id! {}
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
@@ -42,14 +39,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for Text3dSceneModelWorldBoundin
       });
 
     let relation = cx.use_db_rev_ref_tri_view::<SceneModelText3dPayload>();
-    let sm_local_bounding = local_boxes.fanout(relation, cx);
-
-    let scene_model_world_mat = cx.use_shared_dual_query(GlobalSceneModelWorldMatrix);
-
-    // todo, materialize
-    scene_model_world_mat
-      .dual_query_intersect(sm_local_bounding)
-      .dual_query_map(|(mat, local)| local.into_f64().apply_matrix_into(mat))
+    local_boxes.fanout(relation, cx)
   }
 }
 
