@@ -1,6 +1,7 @@
 use std::hash::Hash;
 use std::sync::Arc;
 
+use bitflags::bitflags;
 use database::*;
 use fast_hash_collection::FastHashMap;
 use parking_lot::Mutex;
@@ -13,6 +14,8 @@ use rendiation_webgpu_hook_utils::*;
 use serde::*;
 use slab::Slab;
 
+mod picking;
+pub use picking::*;
 mod occ;
 pub use occ::*;
 mod indirect_draw;

@@ -39,8 +39,22 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
     let all_model_local_bounding =
       cx.use_shared_dual_query(SceneModelLocalBounding(self.0.clone()));
 
+    let models_contains_view_dep = cx
+      .use_dual_query::<SceneModelViewDependentTransformOcc>()
+      .dual_query_filter_map(|v| v);
+
     // todo, materialize
     scene_model_world_mat
+      .dual_query_union(models_contains_view_dep, |(sm, vp)| {
+        // do subtraction
+        match (sm, vp) {
+          (None, None) => None,
+          (None, Some(_)) => None,
+          (Some(m), None) => Some(m),
+          (Some(_), Some(_)) => None,
+        }
+      })
+      .dual_query_boxed()
       .dual_query_intersect(all_model_local_bounding)
       .dual_query_map(|(mat, local)| local.into_f64().apply_matrix_into(mat))
   }

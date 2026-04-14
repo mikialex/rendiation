@@ -86,6 +86,8 @@ struct ViewerEntityHandle create_camera(struct ViewerEntityHandle node);
 
 void drop_camera(struct ViewerEntityHandle handle);
 
+void camera_set_lookat_position(struct ViewerEntityHandle handle, const float (*position)[3]);
+
 void camera_set_proj_perspective(struct ViewerEntityHandle handle,
                                  float near,
                                  float far,

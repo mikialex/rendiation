@@ -96,6 +96,7 @@ impl RenderingRoot {
     scheduler: &mut ViewerDataScheduler,
     dyn_cx: &mut DynCx,
     inspector: Option<&mut dyn Inspector>,
+    viewports_map: &ViewportsImmediate,
   ) {
     self.init_frame();
 
@@ -147,7 +148,7 @@ impl RenderingRoot {
             storage_allocator: rendering.storage_allocator(),
             dyn_cx,
           }
-          .execute(|cx| rendering.use_viewer_scene_renderer(cx, &surface_content.viewports));
+          .execute(|cx| rendering.use_viewer_scene_renderer(cx, surface_content, viewports_map));
         }
 
         let mut task_pool_result = {
@@ -176,7 +177,7 @@ impl RenderingRoot {
           }
           .execute(|cx| {
             rendering
-              .use_viewer_scene_renderer(cx, &surface_content.viewports)
+              .use_viewer_scene_renderer(cx, surface_content, viewports_map)
               .unwrap()
           })
         };

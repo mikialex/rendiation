@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct ViewerPicker {
-  pub model_picker: Box<dyn SceneModelPicker>,
+  pub model_picker: SceneModelPickerWithViewDep<Box<dyn SceneModelPicker>>,
   pub scene_model_iter_provider: Box<dyn SceneModelIterProvider>,
 }
 
@@ -27,6 +27,8 @@ impl SceneModelIterProvider for NaiveSceneModelIterProvider {
 pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
   cx: &mut Cx,
   font_system: Arc<RwLock<FontSystem>>,
+  ndc: ViewerNDC,
+  viewports_map: ViewportsImmediate,
 ) -> Option<ViewerPicker> {
   let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
   let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
@@ -44,6 +46,10 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
 
   let sms = cx
     .use_db_rev_ref::<SceneModelBelongsToScene>()
+    .use_assure_result(cx);
+
+  let view_maps = cx
+    .use_shared_dual_query_view(SceneModelViewDependentTransformOccShare(ndc, viewports_map))
     .use_assure_result(cx);
 
   cx.when_resolve_stage(|| {
@@ -75,12 +81,18 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
         .into_boxed(),
     };
 
+    let scene_model_picker = SceneModelPickerWithViewDep {
+      internal: Box::new(scene_model_picker) as Box<dyn SceneModelPicker>,
+      view_mats: view_maps.expect_resolve_stage(),
+      active_view: None,
+    };
+
     let iter_provider = NaiveSceneModelIterProvider {
       scene_ref_scene_model: sms.expect_resolve_stage(),
     };
 
     ViewerPicker {
-      model_picker: Box::new(scene_model_picker),
+      model_picker: scene_model_picker,
       scene_model_iter_provider: Box::new(iter_provider),
     }
   })

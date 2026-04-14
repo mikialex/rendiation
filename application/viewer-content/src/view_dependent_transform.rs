@@ -1,9 +1,8 @@
 use crate::*;
 
-pub struct SceneModelViewDependentTransformOccShare(
-  pub ViewerNDC,
-  pub Arc<FastHashMap<ViewKey, (RawEntityHandle, Vec2<f32>)>>,
-);
+pub type ViewportsImmediate = Arc<FastHashMap<ViewKey, (RawEntityHandle, Vec2<f32>)>>;
+
+pub struct SceneModelViewDependentTransformOccShare(pub ViewerNDC, pub ViewportsImmediate);
 
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelViewDependentTransformOccShare {
   share_provider_hash_type_id! {}

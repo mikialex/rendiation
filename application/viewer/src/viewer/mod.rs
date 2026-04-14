@@ -413,6 +413,7 @@ pub fn use_viewer<'a>(
       .register_cx::<ViewerDataScheduler>(data_scheduler);
   };
 
+  viewer.update_view_ty_immediate();
   let mut active_surface_content = viewer.surfaces_content.remove(&acx.surface_id).unwrap();
   // always sync
   active_surface_content.device_pixel_ratio = acx.input.window_state.device_pixel_ratio;

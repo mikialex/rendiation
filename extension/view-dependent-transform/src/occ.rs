@@ -183,8 +183,6 @@ pub enum OccStyleTransform {
   },
 }
 
-use bitflags::bitflags;
-
 bitflags! {
   #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
   pub struct OccStyleMode: u32 {

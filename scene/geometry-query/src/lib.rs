@@ -3,7 +3,7 @@ use database::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_mesh_core::*;
-pub use rendiation_mesh_core::{IntersectTolerance, ToleranceType};
+pub use rendiation_mesh_core::{IntersectTolerance, MeshBufferHitPoint, ToleranceType};
 use rendiation_scene_core::*;
 use rendiation_texture_core::Size;
 

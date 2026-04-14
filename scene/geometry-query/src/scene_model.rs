@@ -23,6 +23,28 @@ pub trait SceneModelPicker {
   ) -> Option<()>;
 }
 
+impl<'a> SceneModelPicker for Box<dyn SceneModelPicker + 'a> {
+  fn ray_query_nearest(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
+    ctx: &SceneRayQuery,
+  ) -> Option<MeshBufferHitPoint<f64>> {
+    (**self).ray_query_nearest(idx, override_world_mat, ctx)
+  }
+
+  fn ray_query_all(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
+    ctx: &SceneRayQuery,
+    results: &mut Vec<MeshBufferHitPoint<f64>>,
+    local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
+  ) -> Option<()> {
+    (**self).ray_query_all(idx, override_world_mat, ctx, results, local_result_scratch)
+  }
+}
+
 impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
   fn ray_query_nearest(
     &self,

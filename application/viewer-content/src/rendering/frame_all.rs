@@ -96,15 +96,11 @@ impl Viewer3dRenderingCtx {
   pub fn use_viewer_scene_renderer(
     &mut self,
     cx: &mut QueryGPUHookCx,
-    viewports: &[ViewerViewPort],
+    surface_content: &ViewerSurfaceContent,
+    viewports_map: &ViewportsImmediate,
   ) -> Option<ViewerRendererInstancePreparer> {
+    let viewports = &surface_content.viewports;
     let (cx, change_scope) = cx.use_begin_change_set_collect();
-
-    let viewports_map: FastHashMap<_, _> = viewports
-      .iter()
-      .map(|vp| (vp.id, (vp.camera.into_raw(), vp.viewport.zw())))
-      .collect();
-    let viewports_map = Arc::new(viewports_map);
 
     let camera = use_camera_uniforms(cx, self.ndc);
     let background = use_background(cx);
@@ -192,7 +188,7 @@ impl Viewer3dRenderingCtx {
         let node_render = use_node_uniforms(cx);
 
         let view_camera_source = cx.use_shared_dual_query(
-          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map),
+          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map.clone()),
         );
         let node_render = use_view_dependent_transform_gles_gpu(
           cx,
@@ -281,7 +277,7 @@ impl Viewer3dRenderingCtx {
         let node = use_node_storage(cx);
 
         let view_camera_source = cx.use_shared_dual_query(
-          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map),
+          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map.clone()),
         );
         let node = use_view_dependent_transform_indirect_gpu(
           cx,
