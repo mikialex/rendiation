@@ -1,17 +1,23 @@
 use crate::*;
 
-pub type IncrementalDeviceSceneBatchExtractorShared =
-  Arc<RwLock<IncrementalDeviceSceneBatchExtractor>>;
+pub type IncrementalDeviceSceneBatchExtractorShared<K> =
+  Arc<RwLock<IncrementalDeviceSceneBatchExtractor<K>>>;
 
-type GroupKeyWithSceneHandle = (SceneModelGroupKey, RawEntityHandle);
+type GroupKeyWithSceneHandle<K> = (K, RawEntityHandle);
 
-#[derive(Default)]
-pub struct IncrementalDeviceSceneBatchExtractor {
-  contents:
-    FastHashMap<RawEntityHandle, FastHashMap<SceneModelGroupKey, PersistSceneModelListBuffer>>,
+pub struct IncrementalDeviceSceneBatchExtractor<K> {
+  contents: FastHashMap<RawEntityHandle, FastHashMap<K, PersistSceneModelListBuffer>>,
 }
 
-impl IncrementalDeviceSceneBatchExtractor {
+impl<K> Default for IncrementalDeviceSceneBatchExtractor<K> {
+  fn default() -> Self {
+    Self {
+      contents: Default::default(),
+    }
+  }
+}
+
+impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
   pub fn memory_usage(&self) -> usize {
     self
       .contents
@@ -29,7 +35,7 @@ impl IncrementalDeviceSceneBatchExtractor {
   fn get_or_create(
     &mut self,
     scene: &RawEntityHandle,
-    key: &SceneModelGroupKey,
+    key: &K,
   ) -> &mut PersistSceneModelListBuffer {
     self
       .contents
@@ -40,8 +46,6 @@ impl IncrementalDeviceSceneBatchExtractor {
       .raw_entry_mut()
       .from_key(key)
       .or_insert_with(|| {
-        use std::hash::Hash;
-        use std::hash::Hasher;
         let mut key_hasher = FastHasher::default();
         key.hash(&mut key_hasher);
         let hash = key_hasher.finish();
@@ -55,19 +59,23 @@ impl IncrementalDeviceSceneBatchExtractor {
   }
 }
 
-#[derive(Default)]
-pub struct IncrementalDeviceSceneBatchExtractorUpdates {
-  updates: FastHashMap<
-    RawEntityHandle,
-    FastHashMap<SceneModelGroupKey, PersistSceneModelListBufferMutation>,
-  >,
+pub struct IncrementalDeviceSceneBatchExtractorUpdates<K> {
+  updates: FastHashMap<RawEntityHandle, FastHashMap<K, PersistSceneModelListBufferMutation>>,
 }
 
-impl IncrementalDeviceSceneBatchExtractorUpdates {
+impl<K> Default for IncrementalDeviceSceneBatchExtractorUpdates<K> {
+  fn default() -> Self {
+    Self {
+      updates: Default::default(),
+    }
+  }
+}
+
+impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractorUpdates<K> {
   fn get_or_create_source(
     &mut self,
     scene: &RawEntityHandle,
-    key: &SceneModelGroupKey,
+    key: &K,
     list: &PersistSceneModelListBuffer,
   ) -> &mut PersistSceneModelListBufferMutation {
     self
@@ -83,16 +91,16 @@ impl IncrementalDeviceSceneBatchExtractorUpdates {
   }
 }
 
-pub struct IncrementalDeviceSceneBatchExtractorGPUUpdates {
-  updates: FastHashMap<RawEntityHandle, FastHashMap<SceneModelGroupKey, SparseBufferWritesSource>>,
+pub struct IncrementalDeviceSceneBatchExtractorGPUUpdates<K> {
+  updates: FastHashMap<RawEntityHandle, FastHashMap<K, SparseBufferWritesSource>>,
 }
 
-impl IncrementalDeviceSceneBatchExtractor {
+impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
   pub fn prepare_updates(
     &mut self,
-    delta: impl Query<Key = RawEntityHandle, Value = ValueChange<GroupKeyWithSceneHandle>>,
-  ) -> IncrementalDeviceSceneBatchExtractorGPUUpdates {
-    let mut updates = IncrementalDeviceSceneBatchExtractorUpdates::default();
+    delta: impl Query<Key = RawEntityHandle, Value = ValueChange<GroupKeyWithSceneHandle<K>>>,
+  ) -> IncrementalDeviceSceneBatchExtractorGPUUpdates<K> {
+    let mut updates = IncrementalDeviceSceneBatchExtractorUpdates::<K>::default();
     for (sm, key_change) in delta.iter_key_value() {
       if let Some((key, scene_id)) = key_change.old_value() {
         let list = self.get_or_create(scene_id, key);
@@ -124,7 +132,7 @@ impl IncrementalDeviceSceneBatchExtractor {
 
   pub fn do_updates(
     &mut self,
-    updates: &IncrementalDeviceSceneBatchExtractorGPUUpdates,
+    updates: &IncrementalDeviceSceneBatchExtractorGPUUpdates<K>,
     alloc: &dyn AbstractStorageAllocator,
     gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
@@ -137,7 +145,9 @@ impl IncrementalDeviceSceneBatchExtractor {
       }
     }
   }
+}
 
+impl IncrementalDeviceSceneBatchExtractor<SceneModelGroupKey> {
   pub fn extract_scene_batch(
     &self,
     scene: EntityHandle<SceneEntity>,

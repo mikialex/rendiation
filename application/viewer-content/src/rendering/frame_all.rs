@@ -331,7 +331,9 @@ impl Viewer3dRenderingCtx {
               model: Some(impl_key),
               ..Default::default()
             };
-            indirect_extractor = use_incremental_device_scene_batch_extractor(cx, key_impl);
+
+            let sm_group_key = use_scene_model_group_key(cx, key_impl);
+            indirect_extractor = use_incremental_device_scene_batch_extractor(cx, sm_group_key);
           })
         }
 
@@ -620,7 +622,8 @@ pub struct ViewerRendererInstance<'a> {
 
 pub struct ViewerBatchExtractor {
   default_extractor: DefaultSceneBatchExtractor,
-  indirect_extractor: Option<LockReadGuardHolder<IncrementalDeviceSceneBatchExtractor>>,
+  indirect_extractor:
+    Option<LockReadGuardHolder<IncrementalDeviceSceneBatchExtractor<SceneModelGroupKey>>>,
 }
 
 impl ViewerBatchExtractor {
