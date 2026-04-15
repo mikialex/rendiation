@@ -44,7 +44,6 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
       .use_dual_query::<SceneModelViewDependentTransformOcc>()
       .dual_query_filter_map(|v| v);
 
-    // todo, materialize
     scene_model_world_mat
       .dual_query_boxed()
       .dual_query_intersect(all_model_local_bounding)
@@ -58,5 +57,6 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
           (Some(_), Some(_)) => Some(None),
         }
       })
+      .use_dual_query_materialized_hashmap(cx, "SceneModelWorldBounding")
   }
 }

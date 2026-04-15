@@ -536,6 +536,38 @@ where
     self.map(|t| t.dual_query_map(f))
   }
 
+  pub fn use_dual_query_materialized_hashmap(
+    self,
+    cx: &mut impl QueryHookCxLike,
+    label: &str,
+  ) -> UseResult<
+    DualQuery<
+      LockReadGuardHolder<FastHashMap<T::Key, T::Value>>,
+      Arc<QueryMaterialized<T::Key, ValueChange<T::Value>>>,
+    >,
+  > {
+    let map = cx.use_shared_hash_map(label);
+    self.map_spawn_stage_in_thread_dual_query(cx, move |query| {
+      let delta = query.delta().materialize();
+      let mut guard = map.write();
+      for (k, change) in delta.iter_key_value() {
+        match change.clone() {
+          ValueChange::Delta(v, _) => {
+            guard.insert(k, v);
+          }
+          ValueChange::Remove(_) => {
+            guard.remove(&k);
+          }
+        }
+      }
+      drop(guard);
+      DualQuery {
+        view: map.make_read_holder(),
+        delta,
+      }
+    })
+  }
+
   pub fn use_dual_query_execute_map<V2, F, FF>(
     self,
     cx: &mut impl QueryHookCxLike,
