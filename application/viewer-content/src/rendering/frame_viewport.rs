@@ -360,7 +360,7 @@ impl Viewer3dViewportRenderingCtx {
       let widgets_result = draw_widgets(
         ctx,
         renderer.raster_scene_renderer.as_ref(),
-        &renderer.batch_extractor,
+        renderer.batch_extractor.as_ref(),
         content.widget_scene,
         renderer.reversed_depth,
         &main_camera_gpu,
@@ -521,7 +521,7 @@ impl Viewer3dViewportRenderingCtx {
 
     let renderer_c = ViewerSceneRenderer {
       scene: renderer.raster_scene_renderer.as_ref(),
-      batch_extractor: &renderer.batch_extractor,
+      batch_extractor: renderer.batch_extractor.as_ref(),
       cameras: &renderer.camera,
       background: &renderer.background,
       transparent_content_renderer: self.oit.clone(),
@@ -745,7 +745,7 @@ impl Viewer3dViewportRenderingCtx {
 
 pub struct ViewerSceneRenderer<'a> {
   pub scene: &'a dyn SceneRenderer,
-  pub batch_extractor: &'a ViewerBatchExtractor,
+  pub batch_extractor: &'a dyn SceneBatchBasicExtractAbility,
   pub cameras: &'a CameraRenderer,
   pub background: &'a SceneBackgroundRenderer,
   pub transparent_content_renderer: ViewerTransparentRenderer,

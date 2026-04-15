@@ -26,8 +26,28 @@ pub struct DefaultSceneBatchExtractor {
   model_lookup: RevRefForeignKeyReadTyped<SceneModelBelongsToScene>,
 }
 
-impl DefaultSceneBatchExtractor {
-  pub fn extract_scene_batch(
+pub trait SceneBatchBasicExtractAbility {
+  fn extract_scene_batch(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    semantic: SceneContentKey,
+    renderer: &dyn SceneRenderer,
+  ) -> SceneModelRenderBatch;
+}
+
+impl<T: SceneBatchBasicExtractAbility> SceneBatchBasicExtractAbility for LockReadGuardHolder<T> {
+  fn extract_scene_batch(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    semantic: SceneContentKey,
+    renderer: &dyn SceneRenderer,
+  ) -> SceneModelRenderBatch {
+    (**self).extract_scene_batch(scene, semantic, renderer)
+  }
+}
+
+impl SceneBatchBasicExtractAbility for DefaultSceneBatchExtractor {
+  fn extract_scene_batch(
     &self,
     scene: EntityHandle<SceneEntity>,
     semantic: SceneContentKey,

@@ -66,7 +66,7 @@ impl LightSystem {
     frame_ctx: &mut FrameCtx,
     reversed_depth: bool,
     renderer: &dyn SceneRenderer,
-    extractor: &ViewerBatchExtractor,
+    extractor: &dyn SceneBatchBasicExtractAbility,
     target_scene: EntityHandle<SceneEntity>,
   ) -> LightingRenderingCx<'_> {
     self.tonemap.update(frame_ctx.gpu);

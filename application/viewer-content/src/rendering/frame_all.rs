@@ -332,8 +332,13 @@ impl Viewer3dRenderingCtx {
               ..Default::default()
             };
 
+            // use rendiation_occ_style_draw_control::*;
+            // let sm_group_key = use_scene_model_occ_group_key(cx, key_impl);
+            // indirect_extractor = use_occ_incremental_device_scene_batch_extractor(cx, sm_group_key);
+
             let sm_group_key = use_scene_model_group_key(cx, key_impl);
-            indirect_extractor = use_incremental_device_scene_batch_extractor(cx, sm_group_key);
+            indirect_extractor = use_incremental_device_scene_batch_extractor(cx, sm_group_key)
+              .map(|v| Box::new(v) as Box<dyn SceneBatchBasicExtractAbility>);
           })
         }
 
@@ -431,10 +436,10 @@ impl Viewer3dRenderingCtx {
     cx.when_render(|| ViewerRendererInstancePreparer {
       camera: camera.unwrap(),
       background: background.unwrap(),
-      batch_extractor: ViewerBatchExtractor {
-        default_extractor: extractor.unwrap(),
-        indirect_extractor: indirect_extractor.map(|c| c.make_read_holder()),
-      },
+      batch_extractor: Box::new(ViewerBatchExtractor {
+        default_extractor: Box::new(extractor.unwrap()),
+        indirect_extractor,
+      }),
       raster_scene_renderer: raster_scene_renderer.unwrap(),
       rtx_system: rtx_scene_renderer,
       reversed_depth: self.ndc.enable_reverse_z,
@@ -526,7 +531,7 @@ impl Viewer3dRenderingCtx {
       ctx,
       self.ndc.enable_reverse_z,
       renderer.raster_scene_renderer.as_ref(),
-      &renderer.batch_extractor,
+      renderer.batch_extractor.as_ref(),
       surface_content.scene,
     );
 
@@ -592,7 +597,7 @@ pub struct ViewerRendererInstancePreparer {
   pub camera: CameraRenderer,
   pub background: SceneBackgroundRenderer,
   pub raster_scene_renderer: Box<dyn SceneRenderer>,
-  pub batch_extractor: ViewerBatchExtractor,
+  pub batch_extractor: Box<dyn SceneBatchBasicExtractAbility>,
   pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   pub lighting: LightingRenderingCxPrepareCtx,
   pub clipping: CSGClippingRenderer,
@@ -608,7 +613,7 @@ pub struct ViewerRendererInstance<'a> {
   pub camera: CameraRenderer,
   pub background: SceneBackgroundRenderer,
   pub raster_scene_renderer: Box<dyn SceneRenderer>,
-  pub batch_extractor: ViewerBatchExtractor,
+  pub batch_extractor: Box<dyn SceneBatchBasicExtractAbility>,
   pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   pub culling: ViewerCulling,
   pub mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,
@@ -621,27 +626,23 @@ pub struct ViewerRendererInstance<'a> {
 }
 
 pub struct ViewerBatchExtractor {
-  default_extractor: DefaultSceneBatchExtractor,
-  indirect_extractor:
-    Option<LockReadGuardHolder<IncrementalDeviceSceneBatchExtractor<SceneModelGroupKey>>>,
+  default_extractor: Box<dyn SceneBatchBasicExtractAbility>,
+  indirect_extractor: Option<Box<dyn SceneBatchBasicExtractAbility>>,
 }
 
-impl ViewerBatchExtractor {
-  pub fn extract_scene_batch(
+impl SceneBatchBasicExtractAbility for ViewerBatchExtractor {
+  fn extract_scene_batch(
     &self,
     scene: EntityHandle<SceneEntity>,
     semantic: SceneContentKey,
     renderer: &dyn SceneRenderer,
   ) -> SceneModelRenderBatch {
     if let Some(indirect_extractor) = &self.indirect_extractor {
-      return if let Some(batch) = indirect_extractor.extract_scene_batch(scene, semantic) {
-        batch
-      } else {
-        SceneModelRenderBatch::Device(DeviceSceneModelRenderBatch::empty())
-      };
+      indirect_extractor.extract_scene_batch(scene, semantic, renderer)
+    } else {
+      self
+        .default_extractor
+        .extract_scene_batch(scene, semantic, renderer)
     }
-    self
-      .default_extractor
-      .extract_scene_batch(scene, semantic, renderer)
   }
 }

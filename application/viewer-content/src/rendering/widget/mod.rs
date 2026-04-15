@@ -6,7 +6,7 @@ pub use axis::*;
 pub fn draw_widgets(
   ctx: &mut FrameCtx,
   renderer: &dyn SceneRenderer,
-  extractor: &ViewerBatchExtractor,
+  extractor: &dyn SceneBatchBasicExtractAbility,
   widget_scene: EntityHandle<SceneEntity>,
   reversed_depth: bool,
   main_camera_gpu: &dyn RenderComponent,

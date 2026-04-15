@@ -27,7 +27,7 @@ pub use extractor::{
 pub fn use_incremental_device_scene_batch_extractor<K: CKey>(
   cx: &mut QueryGPUHookCx,
   sm_group_key_with_scene_id: UseResult<BoxedDynDualQuery<RawEntityHandle, (K, RawEntityHandle)>>,
-) -> Option<IncrementalDeviceSceneBatchExtractorShared<K>> {
+) -> Option<LockReadGuardHolder<IncrementalDeviceSceneBatchExtractor<K>>> {
   let (cx, extractor) =
     cx.use_plain_state_default_cloned::<IncrementalDeviceSceneBatchExtractorShared<K>>();
 
@@ -52,7 +52,7 @@ pub fn use_incremental_device_scene_batch_extractor<K: CKey>(
       encoder,
     );
 
-    Some(extractor)
+    Some(extractor.make_read_holder())
   } else {
     None
   }

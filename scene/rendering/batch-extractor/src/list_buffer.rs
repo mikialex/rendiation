@@ -137,7 +137,7 @@ impl PersistSceneModelListBuffer {
 /// the [0] store the real length
 #[derive(Clone)]
 pub struct PersistSceneModelListBufferWithLength {
-  buffer: AbstractReadonlyStorageBuffer<[u32]>,
+  pub buffer: AbstractReadonlyStorageBuffer<[u32]>,
 }
 impl ComputeComponentIO<u32> for PersistSceneModelListBufferWithLength {}
 impl ShaderHashProvider for PersistSceneModelListBufferWithLength {
