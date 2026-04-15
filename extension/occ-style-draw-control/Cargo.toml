@@ -18,6 +18,7 @@ bytemuck = { workspace = true }
 rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
 rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
 rendiation-scene-core = { path = "../../scene/core" }
+rendiation-scene-batch-extractor = { path = "../../scene/rendering/batch-extractor" }
 parking_lot = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 

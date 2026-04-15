@@ -131,4 +131,5 @@ pub fn register_viewer_content_data_model() {
   register_wide_styled_points_data_model(true);
   register_text3d_data_model(true);
   register_occ_style_view_dependent_data_model();
+  rendiation_occ_style_draw_control::register_occ_style_draw_control_data_model();
 }

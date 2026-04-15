@@ -332,13 +332,14 @@ impl Viewer3dRenderingCtx {
               ..Default::default()
             };
 
-            // use rendiation_occ_style_draw_control::*;
-            // let sm_group_key = use_scene_model_occ_group_key(cx, key_impl);
-            // indirect_extractor = use_occ_incremental_device_scene_batch_extractor(cx, sm_group_key);
+            // todo, host version
+            use rendiation_occ_style_draw_control::*;
+            let sm_group_key = use_scene_model_occ_group_key(cx, key_impl);
+            indirect_extractor = use_occ_incremental_device_scene_batch_extractor(cx, sm_group_key);
 
-            let sm_group_key = use_scene_model_group_key(cx, key_impl);
-            indirect_extractor = use_incremental_device_scene_batch_extractor(cx, sm_group_key)
-              .map(|v| Box::new(v) as Box<dyn SceneBatchBasicExtractAbility>);
+            // let sm_group_key = use_scene_model_group_key(cx, key_impl);
+            // indirect_extractor = use_incremental_device_scene_batch_extractor(cx, sm_group_key)
+            //   .map(|v| Box::new(v) as Box<dyn SceneBatchBasicExtractAbility>);
           })
         }
 
