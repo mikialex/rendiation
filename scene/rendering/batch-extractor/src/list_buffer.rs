@@ -1,10 +1,11 @@
 use crate::*;
 
 pub struct PersistSceneModelListBuffer {
-  buffer: Option<PersistSceneModelListBufferWithLength>,
-  host: Vec<RawEntityHandle>,
-  group_key_hash: u64,
-  mapping: FastHashMap<RawEntityHandle, usize>,
+  pub buffer: Option<PersistSceneModelListBufferWithLength>,
+  pub host: Vec<RawEntityHandle>,
+  pub group_key_hash: u64,
+  pub mapping: FastHashMap<RawEntityHandle, usize>,
+  pub updates: Option<PersistSceneModelListBufferMutation>,
 }
 
 pub struct PersistSceneModelListBufferMutation {
@@ -14,6 +15,13 @@ pub struct PersistSceneModelListBufferMutation {
 }
 
 impl PersistSceneModelListBufferMutation {
+  pub fn new(len: usize) -> Self {
+    PersistSceneModelListBufferMutation {
+      mapping_change: Default::default(),
+      len_before_updates: len,
+      new_len: len,
+    }
+  }
   pub fn into_sparse_update(self) -> Option<SparseBufferWritesSource> {
     let change_count = self.mapping_change.len();
     if change_count == 0 {
@@ -50,6 +58,7 @@ impl PersistSceneModelListBuffer {
       group_key_hash,
       host: Vec::with_capacity(capacity),
       mapping: FastHashMap::with_capacity_and_hasher(capacity, Default::default()),
+      updates: None,
     }
   }
 
@@ -57,19 +66,11 @@ impl PersistSceneModelListBuffer {
     self.host.capacity() * std::mem::size_of::<RawEntityHandle>() + self.mapping.allocation_size()
   }
 
-  pub fn create_mutation(&self) -> PersistSceneModelListBufferMutation {
-    PersistSceneModelListBufferMutation {
-      mapping_change: Default::default(),
-      len_before_updates: self.host.len(),
-      new_len: self.host.len(),
-    }
-  }
+  pub fn insert(&mut self, sm_handle: RawEntityHandle) {
+    let mutations = self
+      .updates
+      .get_or_insert_with(|| PersistSceneModelListBufferMutation::new(self.host.len()));
 
-  pub fn insert(
-    &mut self,
-    sm_handle: RawEntityHandle,
-    mutations: &mut PersistSceneModelListBufferMutation,
-  ) {
     self.host.push(sm_handle);
     self.mapping.insert(sm_handle, self.host.len() - 1);
     mutations
@@ -78,11 +79,11 @@ impl PersistSceneModelListBuffer {
     mutations.new_len = self.host.len();
   }
 
-  pub fn remove(
-    &mut self,
-    sm_handle: RawEntityHandle,
-    mutations: &mut PersistSceneModelListBufferMutation,
-  ) {
+  pub fn remove(&mut self, sm_handle: RawEntityHandle) {
+    let mutations = self
+      .updates
+      .get_or_insert_with(|| PersistSceneModelListBufferMutation::new(self.host.len()));
+
     let idx = self.mapping.remove(&sm_handle).unwrap();
     if self.host.len() > 1 {
       if let Some(tail_item) = self.host.last().cloned() {
@@ -135,7 +136,7 @@ impl PersistSceneModelListBuffer {
 
 /// the [0] store the real length
 #[derive(Clone)]
-struct PersistSceneModelListBufferWithLength {
+pub struct PersistSceneModelListBufferWithLength {
   buffer: AbstractReadonlyStorageBuffer<[u32]>,
 }
 impl ComputeComponentIO<u32> for PersistSceneModelListBufferWithLength {}

@@ -14,7 +14,7 @@ use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
 mod list_buffer;
-use list_buffer::*;
+pub use list_buffer::*;
 
 mod default_key_logic;
 pub use default_key_logic::*;
@@ -40,7 +40,7 @@ pub fn use_incremental_device_scene_batch_extractor<K: CKey>(
   let gpu_updates = sm_group_key_with_scene_id
     .map_spawn_stage_in_thread_dual_query(cx, move |v| {
       let change = v.delta();
-      Arc::new(extractor_.write().prepare_updates(change))
+      Arc::new(extractor_.write().prepare_updates(change).0)
     })
     .use_assure_result(cx);
 
