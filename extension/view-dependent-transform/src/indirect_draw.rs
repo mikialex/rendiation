@@ -157,7 +157,9 @@ impl IndirectNodeRenderImpl for OverrideNodeIndirectGPU {
     _any_idx: EntityHandle<SceneNodeEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     let overrides = if let Some(current_view) = self.current_view.get() {
-      Some(self.overrides.get(&current_view)?)
+      // the override view can not be found, if there is no a single view dep object in scene,
+      // so we must not early return here
+      self.overrides.get(&current_view)
     } else {
       None
     };
