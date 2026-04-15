@@ -35,7 +35,7 @@ impl SceneModelGroupKey {
 pub fn use_scene_model_group_key(
   cx: &mut QueryGPUHookCx,
   foreign: GroupKeyForeignImpl,
-) -> UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>> {
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, (SceneModelGroupKey, RawEntityHandle)>> {
   let material = use_indirect_material_indirect_group_key(cx);
   let material = if let Some(foreign) = foreign.material {
     material.dual_query_select(foreign).dual_query_boxed()
@@ -67,11 +67,26 @@ pub fn use_scene_model_group_key(
     .fanout(sm_ref, cx)
     .dual_query_boxed();
 
-  if let Some(foreign) = foreign.model {
+  let sm_group_key = if let Some(foreign) = foreign.model {
     r.dual_query_select(foreign).dual_query_boxed()
   } else {
     r
-  }
+  };
+
+  let scene_id = cx
+    .use_dual_query::<SceneModelBelongsToScene>()
+    .dual_query_filter_map(|v| v);
+
+  let group_key = sm_group_key.dual_query_zip(scene_id).dual_query_boxed();
+
+  let visible_scene_models = use_global_node_net_visible(cx)
+    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>(), cx)
+    .dual_query_filter_map(|v| v.then_some(()))
+    .dual_query_boxed();
+
+  group_key
+    .dual_query_filter_by_set(visible_scene_models)
+    .dual_query_boxed()
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]

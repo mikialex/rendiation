@@ -1,0 +1,25 @@
+
+
+[package]
+authors = ["mikialex <miikiialexx@gmail.com>"]
+edition = "2021"
+name = "rendiation-occ-style-draw-control"
+version = "0.1.0"
+
+[dependencies]
+
+log = { workspace = true }
+facet = { workspace = true }
+serde = { workspace = true }
+database = { path = "../../utility/database" }
+rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+rendiation-shader-api = { path = "../../shader/api" }
+bytemuck = { workspace = true }
+rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
+rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
+rendiation-scene-core = { path = "../../scene/core" }
+parking_lot = { workspace = true }
+fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+
+[lints]
+workspace = true

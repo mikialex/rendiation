@@ -19,6 +19,7 @@ pub struct Viewer3dViewportRenderingCtx {
   // todo
   enable_msaa: bool,
   enable_ground: bool,
+  enable_widget_scene: bool,
   enable_ssao: bool,
   enable_outline: bool,
   outline_color: UniformBufferCachedDataView<Vec4<f32>>,
@@ -59,7 +60,8 @@ impl Viewer3dViewportRenderingCtx {
       enable_taa: init_config.enable_taa,
       enable_fxaa: init_config.enable_fxaa,
       enable_msaa: init_config.enable_msaa,
-      enable_ground: true,
+      enable_widget_scene: init_config.enable_widget_scene,
+      enable_ground: init_config.enable_grid_ground,
       enable_ssao: false,
       enable_outline: false,
       ssao: SSAO::new(gpu),
@@ -95,6 +97,8 @@ impl Viewer3dViewportRenderingCtx {
     init_config.enable_taa = self.enable_taa;
     init_config.enable_fxaa = self.enable_fxaa;
     init_config.enable_msaa = self.enable_msaa;
+    init_config.enable_grid_ground = self.enable_ground;
+    init_config.enable_widget_scene = self.enable_widget_scene;
     init_config.always_enable_caching_frame_for_direct_read =
       self.always_enable_caching_frame_for_direct_read;
   }
@@ -350,7 +354,7 @@ impl Viewer3dViewportRenderingCtx {
       });
     }
 
-    {
+    if self.enable_widget_scene {
       let main_camera_gpu = renderer.camera.make_component(camera).unwrap();
 
       let widgets_result = draw_widgets(

@@ -26,23 +26,8 @@ pub use extractor::{
 
 pub fn use_incremental_device_scene_batch_extractor<K: CKey>(
   cx: &mut QueryGPUHookCx,
-  sm_group_key: UseResult<BoxedDynDualQuery<RawEntityHandle, K>>,
+  sm_group_key_with_scene_id: UseResult<BoxedDynDualQuery<RawEntityHandle, (K, RawEntityHandle)>>,
 ) -> Option<IncrementalDeviceSceneBatchExtractorShared<K>> {
-  let scene_id = cx
-    .use_dual_query::<SceneModelBelongsToScene>()
-    .dual_query_filter_map(|v| v);
-
-  let group_key = sm_group_key.dual_query_zip(scene_id).dual_query_boxed();
-
-  let visible_scene_models = use_global_node_net_visible(cx)
-    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>(), cx)
-    .dual_query_filter_map(|v| v.then_some(()))
-    .dual_query_boxed();
-
-  let group_key = group_key
-    .dual_query_filter_by_set(visible_scene_models)
-    .dual_query_boxed();
-
   let (cx, extractor) =
     cx.use_plain_state_default_cloned::<IncrementalDeviceSceneBatchExtractorShared<K>>();
 
@@ -52,7 +37,7 @@ pub fn use_incremental_device_scene_batch_extractor<K: CKey>(
   });
 
   let extractor_ = extractor.clone();
-  let gpu_updates = group_key
+  let gpu_updates = sm_group_key_with_scene_id
     .map_spawn_stage_in_thread_dual_query(cx, move |v| {
       let change = v.delta();
       Arc::new(extractor_.write().prepare_updates(change))

@@ -4424,6 +4424,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-occ-style-draw-control"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "database",
+ "facet",
+ "fast-hash-collection",
+ "log",
+ "parking_lot",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
+ "serde 1.0.228",
+]
+
+[[package]]
 name = "rendiation-occlusion-culling"
 version = "0.1.0"
 dependencies = [

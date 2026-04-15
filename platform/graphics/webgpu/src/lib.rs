@@ -96,6 +96,8 @@ pub struct GPUCreateConfig<'a> {
   pub minimal_required_limits: Limits,
   pub default_shader_checks: ShaderRuntimeChecks,
   /// if None, then using wgpu default behavior (on when debug build)
+  pub enable_debug_info: Option<bool>,
+  /// if None, then using wgpu default behavior (on when debug build)
   pub enable_backend_validation: Option<bool>,
   /// the dxc dll path for dx12 backend, the dll must support shader model 6.7 at least
   /// if None, then using fxc compiler, which is buggy.
@@ -112,6 +114,7 @@ impl Default for GPUCreateConfig<'_> {
       minimal_required_limits: Default::default(),
       default_shader_checks: ShaderRuntimeChecks::checked(),
       enable_backend_validation: None,
+      enable_debug_info: None,
       dx_compiler_dll_path: None,
     }
   }
@@ -150,6 +153,13 @@ impl GPU {
             r.insert(InstanceFlags::VALIDATION)
           } else {
             r.remove(InstanceFlags::VALIDATION)
+          }
+        }
+        if let Some(enable) = config.enable_debug_info {
+          if enable {
+            r.insert(InstanceFlags::DEBUG)
+          } else {
+            r.remove(InstanceFlags::DEBUG)
           }
         }
         r

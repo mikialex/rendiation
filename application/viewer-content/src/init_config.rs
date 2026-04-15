@@ -20,6 +20,8 @@ pub struct ViewerInitConfig {
   pub enable_taa: bool,
   pub enable_fxaa: bool,
   pub enable_msaa: bool,
+  pub enable_widget_scene: bool,
+  pub enable_grid_ground: bool,
   pub present_mode: PresentMode,
   pub enable_on_demand_rendering: bool,
   pub always_enable_caching_frame_for_direct_read: bool,
@@ -63,6 +65,12 @@ pub struct ViewerStaticInitConfig {
   pub wgpu_backend_select_override: Option<Backends>,
   pub using_texture_as_storage_buffer_for_indirect_rendering: bool,
   pub default_shader_protections: ShaderRuntimeProtection,
+
+  /// if None, then using wgpu default behavior (on when debug build)
+  ///
+  /// generate debug info for shaders and objects in wgpu,
+  /// this is useful if you want use graphics debugger when in release build
+  pub enable_hal_debug_info: Option<bool>,
   /// if None, then using wgpu default behavior (on when debug build)
   ///
   /// this is useful if we want to disable validation in debug to improve debug build performance
@@ -112,6 +120,7 @@ impl Default for ViewerStaticInitConfig {
         force_loop_bounding: true,
       },
       enable_backend_validation: None,
+      enable_hal_debug_info: None,
       dx_compiler_dll_path: None,
     }
   }
@@ -171,6 +180,8 @@ impl Default for ViewerInitConfig {
       enable_taa: true,
       enable_msaa: false,
       enable_fxaa: false,
+      enable_widget_scene: true,
+      enable_grid_ground: true,
       using_host_driven_indirect_draw: false,
       enable_on_demand_rendering: true,
       always_enable_caching_frame_for_direct_read: false,

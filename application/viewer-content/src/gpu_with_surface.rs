@@ -4,6 +4,7 @@ pub struct GPUPlatformConfig {
   pub preferred_backends: Option<Backends>,
   pub checks: ShaderRuntimeProtection,
   pub enable_backend_validation: Option<bool>,
+  pub enable_hal_debug_info: Option<bool>,
   pub dx_compiler_dll_path: Option<String>,
 }
 
@@ -20,6 +21,7 @@ impl GPUPlatformConfig {
         force_loop_bounding: self.checks.force_loop_bounding,
       },
       enable_backend_validation: self.enable_backend_validation,
+      enable_debug_info: self.enable_hal_debug_info,
       dx_compiler_dll_path: self.dx_compiler_dll_path.clone(),
       ..Default::default()
     }
@@ -32,6 +34,7 @@ impl ViewerInitConfig {
       preferred_backends: self.init_only.wgpu_backend_select_override,
       checks: self.init_only.default_shader_protections,
       enable_backend_validation: self.init_only.enable_backend_validation,
+      enable_hal_debug_info: self.init_only.enable_hal_debug_info,
       dx_compiler_dll_path: self.init_only.dx_compiler_dll_path.clone(),
     }
   }
