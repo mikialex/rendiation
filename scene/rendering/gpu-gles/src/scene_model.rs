@@ -100,7 +100,7 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
 
     let (shape, draw) = self
       .model_impl
-      .shape_renderable(idx)
+      .shape_renderable(idx, tex)
       .ok_or(E::ShapeGPUAccessFailed(idx))?;
     let shape = shape.as_ref();
 

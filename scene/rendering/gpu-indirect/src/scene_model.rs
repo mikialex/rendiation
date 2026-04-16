@@ -199,7 +199,7 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     let sub_id_injector = self.model_impl.device_id_injector(any_id)?;
     let sub_id_injector = sub_id_injector.as_ref();
 
-    let shape = self.model_impl.shape_renderable_indirect(any_id)?;
+    let shape = self.model_impl.shape_renderable_indirect(any_id, tex)?;
     let shape = shape.as_ref();
 
     let material = self.model_impl.material_renderable_indirect(any_id, tex)?;

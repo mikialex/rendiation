@@ -13,8 +13,10 @@ pub fn load_widen_points_test(s_writer: &mut SceneWriter) {
     }
   });
 
-  let wide_points_model =
-    writer.new_entity(|w| w.write::<WidesStyledPointsMeshBuffer>(&mesh_buffer));
+  let wide_points_model = writer.new_entity(|w| {
+    w.write::<WideStyledPointsColor>(&Vec3::new(0., 0., 1.))
+      .write::<WideStyledPointsMeshBuffer>(&mesh_buffer)
+  });
 
   let child = s_writer.create_root_child();
   s_writer.set_local_matrix(child, Mat4::translate((10., 5., 0.)));

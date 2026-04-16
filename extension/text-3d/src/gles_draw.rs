@@ -37,10 +37,11 @@ pub struct Text3dGlesRenderer {
 }
 
 impl GLESModelRenderImpl for Text3dGlesRenderer {
-  fn shape_renderable(
-    &self,
+  fn shape_renderable<'a>(
+    &'a self,
     idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
+    _cx: &'a GPUTextureBindingSystem,
+  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     let text_id = self.access.get(idx)?;
     let text_gpu = self.texts.get(text_id.raw_handle_ref()).unwrap();
     // todo, we should distinguish between this case from the error case

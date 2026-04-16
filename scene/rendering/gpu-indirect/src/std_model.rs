@@ -26,10 +26,11 @@ pub trait IndirectModelRenderImpl {
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>>;
 
-  fn shape_renderable_indirect(
-    &self,
+  fn shape_renderable_indirect<'a>(
+    &'a self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>>;
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>>;
 
   fn generate_indirect_draw_provider(
     &self,
@@ -78,12 +79,13 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
     self
   }
 
-  fn shape_renderable_indirect(
-    &self,
+  fn shape_renderable_indirect<'a>(
+    &'a self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
     for provider in self {
-      if let Some(v) = provider.shape_renderable_indirect(any_idx) {
+      if let Some(v) = provider.shape_renderable_indirect(any_idx, cx) {
         return Some(v);
       }
     }
@@ -260,10 +262,11 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
     }))
   }
 
-  fn shape_renderable_indirect(
-    &self,
+  fn shape_renderable_indirect<'a>(
+    &'a self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+    _cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
     let model = self.model.get(any_idx)?;
     self.shapes.make_component_indirect(model)
   }

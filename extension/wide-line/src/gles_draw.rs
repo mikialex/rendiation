@@ -36,10 +36,11 @@ pub struct WideLineModelGLESRenderer {
 }
 
 impl GLESModelRenderImpl for WideLineModelGLESRenderer {
-  fn shape_renderable(
-    &self,
+  fn shape_renderable<'a>(
+    &'a self,
     idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
+    _cx: &'a GPUTextureBindingSystem,
+  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     let model_idx = self.model_access.get(idx)?;
     let uniform = self.uniforms.get(&model_idx.alloc_index()).unwrap();
     let instance_buffer = self

@@ -10,7 +10,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideStyledPointsSceneModelLo
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let local_boxes = cx
-      .use_dual_query::<WidesStyledPointsMeshBuffer>()
+      .use_dual_query::<WideStyledPointsMeshBuffer>()
       .use_dual_query_execute_map(cx, || {
         |_, buffer| {
           let mut bbox = Box3::empty();

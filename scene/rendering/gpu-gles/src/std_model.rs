@@ -1,10 +1,11 @@
 use crate::*;
 
 pub trait GLESModelRenderImpl {
-  fn shape_renderable(
-    &self,
+  fn shape_renderable<'a>(
+    &'a self,
     idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)>;
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)>;
   fn material_renderable<'a>(
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
@@ -13,12 +14,13 @@ pub trait GLESModelRenderImpl {
 }
 
 impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
-  fn shape_renderable(
-    &self,
+  fn shape_renderable<'a>(
+    &'a self,
     idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     for provider in self {
-      if let Some(v) = provider.shape_renderable(idx) {
+      if let Some(v) = provider.shape_renderable(idx, cx) {
         return Some(v);
       }
     }
@@ -69,10 +71,11 @@ pub struct SceneStdModelRenderer {
 }
 
 impl GLESModelRenderImpl for SceneStdModelRenderer {
-  fn shape_renderable(
-    &self,
+  fn shape_renderable<'a>(
+    &'a self,
     idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
+    _cx: &'a GPUTextureBindingSystem,
+  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     let model = self.model.get(idx)?;
 
     let (base_shape, cmd) = self.shapes.make_component(model)?;

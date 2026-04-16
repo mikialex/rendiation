@@ -75,6 +75,26 @@ pub fn use_tex_watcher<T, TexStorage>(
     .update_storage_array(cx, storage, offset + sam_offset);
 }
 
+pub fn use_tex_watcher_with_host<T, TexStorage>(
+  cx: &mut QueryGPUHookCx,
+  storage: &mut SparseUpdateStorageWithHostBuffer<TexStorage>,
+  offset: usize,
+) where
+  TexStorage: Std430 + ShaderSizedValueNodeType + Default,
+  T: TextureWithSamplingForeignKeys,
+{
+  let tex_offset = std::mem::offset_of!(TextureSamplerHandlePair, texture_handle);
+  let sam_offset = std::mem::offset_of!(TextureSamplerHandlePair, sampler_handle);
+
+  cx.use_changes::<SceneTexture2dRefOf<T>>()
+    .map(|change| change.map_u32_index_or_u32_max())
+    .update_storage_array_with_host(cx, storage, offset + tex_offset);
+
+  cx.use_changes::<SceneSamplerRefOf<T>>()
+    .map(|change| change.map_u32_index_or_u32_max())
+    .update_storage_array_with_host(cx, storage, offset + sam_offset);
+}
+
 pub trait IndirectModelMaterialRenderImpl: Any {
   fn make_component_indirect<'a>(
     &'a self,

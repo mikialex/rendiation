@@ -15,7 +15,7 @@ pub struct TextureSamplerHandlePair {
   pub sampler_handle: u32,
 }
 
-pub(super) fn setup_tex(
+pub fn setup_tex(
   ctx: &mut GPURenderPassCtx,
   binding_sys: &GPUTextureBindingSystem,
   (tex, sampler): (u32, u32),
@@ -24,7 +24,7 @@ pub(super) fn setup_tex(
   binding_sys.bind_sampler(&mut ctx.binding, sampler);
 }
 
-pub(super) fn bind_and_sample(
+pub fn bind_and_sample(
   binding: &GPUTextureBindingSystem,
   builder: &mut ShaderBindGroupBuilder,
   reg: &SemanticRegistry,

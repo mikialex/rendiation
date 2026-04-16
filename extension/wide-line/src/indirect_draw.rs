@@ -124,10 +124,11 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
     Some(Box::new(()))
   }
 
-  fn shape_renderable_indirect(
-    &self,
+  fn shape_renderable_indirect<'a>(
+    &'a self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+    _cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
     self.model_access.get(any_idx)?;
     Some(Box::new(WideLineIndirectDrawComponent {
       segments: self.segments.clone(),

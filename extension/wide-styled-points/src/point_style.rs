@@ -35,6 +35,7 @@ pub fn wide_line_vertex(
 only_vertex!(WidePointPosition, Vec3<f32>);
 only_vertex!(WidePointSize, f32);
 both!(WidePointStyleId, u32);
+both!(WidePointTextureId, Vec2<u32>);
 
 pub fn point_style_entry(
   p: Node<Vec2<f32>>,

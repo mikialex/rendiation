@@ -1,4 +1,5 @@
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
+use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
 use crate::*;
@@ -8,7 +9,7 @@ pub fn use_widen_styled_points_indirect_renderer(
   force_midc_downgrade: bool,
 ) -> Option<WideStyledPointsIndirectRenderer> {
   let data_source = cx
-    .use_dual_query::<WidesStyledPointsMeshBuffer>()
+    .use_dual_query::<WideStyledPointsMeshBuffer>()
     .map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
       source_info.delta().into_change().collective_map(|buffer| {
         // here we assume the buffer is correctly aligned
@@ -47,6 +48,12 @@ pub fn use_widen_styled_points_indirect_renderer(
 
   range_change.update_storage_array_with_host(cx, params, 0);
 
+  cx.use_changes::<WideStyledPointsColor>()
+    .update_storage_array_with_host(cx, params, offset_of!(WideStyledPointParameters, color));
+
+  let color_alpha_texture = offset_of!(WideStyledPointParameters, color_alpha_texture);
+  use_tex_watcher_with_host::<UnlitMaterialColorAlphaTex, _>(cx, params, color_alpha_texture);
+
   params.use_max_item_count_by_db_entity::<WideStyledPointsEntity>(cx);
   params.use_update(cx);
 
@@ -79,6 +86,7 @@ pub struct WideStyledPointsIndirectRenderer {
 struct WideStyledPointParameters {
   pub range: Vec2<u32>,
   pub color: Vec3<f32>,
+  pub color_alpha_texture: TextureSamplerHandlePair,
 }
 
 #[repr(C)]
@@ -118,15 +126,17 @@ impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
     Some(Box::new(()))
   }
 
-  fn shape_renderable_indirect(
-    &self,
+  fn shape_renderable_indirect<'a>(
+    &'a self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
     self.model_access.get(any_idx)?;
     Some(Box::new(WidePointsIndirectDrawComponent {
-      points: self.points.clone(),
-      params: self.params.clone(),
-      sm_to_wide_points_device: self.sm_to_wide_points_device.clone(),
+      points: &self.points,
+      params: &self.params,
+      sm_to_wide_points_device: &self.sm_to_wide_points_device,
+      binding_sys: cx,
     }))
   }
 
@@ -178,39 +188,40 @@ impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
   }
 }
 
-pub struct WidePointsIndirectDrawComponent {
-  points: AbstractReadonlyStorageBuffer<[WideStyledPointVertexStorage]>,
-  params: AbstractReadonlyStorageBuffer<[WideStyledPointParameters]>,
-  sm_to_wide_points_device: AbstractReadonlyStorageBuffer<[u32]>,
+pub struct WidePointsIndirectDrawComponent<'a> {
+  points: &'a AbstractReadonlyStorageBuffer<[WideStyledPointVertexStorage]>,
+  params: &'a AbstractReadonlyStorageBuffer<[WideStyledPointParameters]>,
+  sm_to_wide_points_device: &'a AbstractReadonlyStorageBuffer<[u32]>,
+  binding_sys: &'a GPUTextureBindingSystem,
 }
 
-impl ShaderHashProvider for WidePointsIndirectDrawComponent {
-  shader_hash_type_id! {}
+impl<'a> ShaderHashProvider for WidePointsIndirectDrawComponent<'a> {
+  shader_hash_type_id! {WidePointsIndirectDrawComponent<'static>}
 }
 
-impl ShaderPassBuilder for WidePointsIndirectDrawComponent {
+impl<'a> ShaderPassBuilder for WidePointsIndirectDrawComponent<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.sm_to_wide_points_device);
-    ctx.binding.bind(&self.params);
-    ctx.binding.bind(&self.points);
+    ctx.binding.bind(self.sm_to_wide_points_device);
+    ctx.binding.bind(self.params);
+    ctx.binding.bind(self.points);
   }
 }
 
 only_vertex!(WidePointsWidthShader, f32);
 
-impl GraphicsShaderProvider for WidePointsIndirectDrawComponent {
+impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       let sm_id = builder.query::<LogicalRenderEntityId>();
-      let sm_to_wide_points_device = binding.bind_by(&self.sm_to_wide_points_device);
+      let sm_to_wide_points_device = binding.bind_by(self.sm_to_wide_points_device);
       let points_id = sm_to_wide_points_device.index(sm_id).load();
 
-      let params = binding.bind_by(&self.params);
+      let params = binding.bind_by(self.params);
       let meta = params.index(points_id).load().expand();
       let points_range = meta.range;
       //   builder.register::<WideLineWidthShader>(points_range.width);
 
-      let points = binding.bind_by(&self.points);
+      let points = binding.bind_by(self.points);
 
       let vertex_index = builder.query::<VertexIndex>();
       let instance_index = vertex_index / val(6);
@@ -240,6 +251,12 @@ impl GraphicsShaderProvider for WidePointsIndirectDrawComponent {
       builder.register::<WidePointSize>(point.width);
       builder.set_vertex_out::<WidePointStyleId>(point.style_id);
       builder.register::<GeometryColorWithAlpha>((meta.color, val(1.)));
+      let tex_id = meta.color_alpha_texture.expand();
+      // not very decent, but ok
+      builder.set_vertex_out::<WidePointTextureId>(vec2_node((
+        tex_id.texture_handle,
+        tex_id.sampler_handle,
+      )));
 
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
@@ -274,6 +291,24 @@ impl GraphicsShaderProvider for WidePointsIndirectDrawComponent {
       let color = builder.query::<DefaultDisplay>();
 
       let (alpha, color_multiplier) = point_style_entry(coord, style_id);
+
+      let tex_id = builder.query::<WidePointTextureId>();
+      let tex_id = TextureSamplerHandlePairShaderAPIInstance {
+        texture_handle: tex_id.x(),
+        sampler_handle: tex_id.y(),
+      }
+      .construct();
+
+      let color_alpha_tex = indirect_sample(
+        &self.binding_sys,
+        builder.registry(),
+        tex_id,
+        uv,
+        val(Vec4::one()),
+      );
+
+      let alpha = alpha * color_alpha_tex.w();
+      let color_multiplier = color_multiplier * color_alpha_tex.xyz();
 
       let final_color: Node<Vec4<f32>> = (color.xyz() * color_multiplier, alpha).into();
 
