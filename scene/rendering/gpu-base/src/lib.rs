@@ -94,24 +94,6 @@ pub enum CameraRenderSource {
 
 pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub struct SceneContentKey {
-  pub only_alpha_blend_objects: Option<bool>,
-}
-
-impl SceneContentKey {
-  pub fn only_opaque_objects() -> Self {
-    Self {
-      only_alpha_blend_objects: Some(false),
-    }
-  }
-  pub fn only_alpha_blend_objects() -> Self {
-    Self {
-      only_alpha_blend_objects: Some(true),
-    }
-  }
-}
-
 /// A scene renderer that encapsulate the scene rendering ability.
 pub trait SceneRenderer: SceneModelRenderer {
   /// render batched scene model with given pass component on given pass
@@ -192,11 +174,9 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
   }
 }
 
-pub fn map_topology(
-  pt: MeshPrimitiveTopology,
-) -> rendiation_webgpu::PrimitiveTopology {
-  use MeshPrimitiveTopology as Enum;
+pub fn map_topology(pt: MeshPrimitiveTopology) -> rendiation_webgpu::PrimitiveTopology {
   use rendiation_webgpu::PrimitiveTopology as GPUEnum;
+  use MeshPrimitiveTopology as Enum;
   match pt {
     Enum::PointList => GPUEnum::PointList,
     Enum::LineList => GPUEnum::LineList,

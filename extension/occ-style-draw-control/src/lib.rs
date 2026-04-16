@@ -11,6 +11,9 @@ use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 use serde::*;
 
+mod gles;
+pub use gles::*;
+
 #[repr(C)]
 #[derive(Serialize, Deserialize, Facet)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]

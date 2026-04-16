@@ -422,7 +422,8 @@ impl Viewer3dRenderingCtx {
       None
     };
 
-    let extractor = use_default_scene_batch_extractor(cx);
+    // let extractor = use_default_scene_batch_extractor(cx);
+    let extractor = rendiation_occ_style_draw_control::use_occ_host_scene_batch_extractor(cx);
 
     let camera_transforms = cx
       .use_shared_dual_query_view(GlobalCameraTransformShare(self.ndc))
@@ -438,7 +439,7 @@ impl Viewer3dRenderingCtx {
       camera: camera.unwrap(),
       background: background.unwrap(),
       batch_extractor: Box::new(ViewerBatchExtractor {
-        default_extractor: Box::new(extractor.unwrap()),
+        default_extractor: extractor.unwrap(),
         indirect_extractor,
       }),
       raster_scene_renderer: raster_scene_renderer.unwrap(),

@@ -34,39 +34,6 @@ impl HostRenderBatch for Arc<Vec<EntityHandle<SceneModelEntity>>> {
 
 dyn_clone::clone_trait_object!(HostRenderBatch);
 
-// todo, we should make it incremental
-#[derive(Clone)]
-pub struct HostModelLookUp {
-  pub v: RevRefForeignKeyReadTyped<SceneModelBelongsToScene>,
-  pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
-  pub scene_model_use_alpha_blending: BoxedDynQuery<EntityHandle<SceneModelEntity>, bool>,
-  pub sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
-  pub scene_id: EntityHandle<SceneEntity>,
-  pub enable_alpha_blending: Option<bool>,
-}
-
-impl HostRenderBatch for HostModelLookUp {
-  fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
-    let iter = self.v.access_multi_value_dyn(&self.scene_id).filter(|sm| {
-      let node = self.sm_ref_node.get(*sm).unwrap();
-      self.node_net_visible.access(&node).unwrap_or(false)
-    });
-
-    if let Some(enable_alpha_blending) = self.enable_alpha_blending {
-      let iter = iter.filter(move |sm| {
-        self
-          .scene_model_use_alpha_blending
-          .access(sm)
-          .unwrap_or(false) // todo, is this right?
-          == enable_alpha_blending
-      });
-      Box::new(iter)
-    } else {
-      Box::new(iter)
-    }
-  }
-}
-
 #[derive(Clone)]
 pub struct DeviceSceneModelRenderBatch {
   /// each sub batch could be and would be drawn by a multi-indirect-draw.
