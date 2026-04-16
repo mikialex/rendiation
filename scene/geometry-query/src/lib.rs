@@ -16,6 +16,11 @@ pub use scene_model::*;
 mod iter;
 pub use iter::*;
 
+declare_component!(SceneModelSelectable, SceneModelEntity, bool, true);
+pub fn register_selectable_data_model() {
+  global_entity_of::<SceneModelEntity>().declare_component::<SceneModelSelectable>();
+}
+
 pub struct SceneRayQuery {
   pub world_ray: Ray3<f64>,
   pub camera_view_size_in_logic_pixel: Size,

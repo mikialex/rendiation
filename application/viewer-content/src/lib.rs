@@ -125,6 +125,7 @@ pub struct ViewerSurfaceContent {
 
 pub fn register_viewer_content_data_model() {
   register_scene_core_data_model();
+  register_selectable_data_model();
   register_light_shadow_config();
   register_gui3d_extension_data_model(true);
   register_clipping_data_model();

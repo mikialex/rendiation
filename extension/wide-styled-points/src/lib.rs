@@ -39,7 +39,7 @@ declare_entity!(WideStyledPointsEntity);
 declare_component!(
   WideStyledPointsMeshBuffer,
   WideStyledPointsEntity,
-  ExternalRefPtr<Vec<u8>> // Vec<WideLineVertex>
+  ExternalRefPtr<Vec<u8>> // Vec<WideStyledPointVertex>
 );
 declare_component!(WideStyledPointsColor, WideStyledPointsEntity, Vec3<f32>);
 

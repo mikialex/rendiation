@@ -113,6 +113,11 @@ pub extern "C" fn scene_model_set_priority(handle: ViewerEntityHandle, priority:
 }
 
 #[no_mangle]
+pub extern "C" fn scene_model_set_selectable(handle: ViewerEntityHandle, selectable: bool) {
+  write_global_db_component::<SceneModelSelectable>().write(handle.into(), selectable);
+}
+
+#[no_mangle]
 pub extern "C" fn scene_model_set_material(
   handle: SceneModelHandleInfo,
   material: ViewerEntityHandle,
@@ -127,30 +132,46 @@ pub extern "C" fn scene_model_set_material(
   }
 }
 
-// #[no_mangle]
-// pub extern "C" fn create_wide_line() -> ViewerEntityHandle {
-//   global_entity_of::<WideLineModelEntity>()
-//     .entity_writer()
-//     .new_entity(|w| w)
-//     .into()
-// }
-// #[no_mangle]
-// pub extern "C" fn drop_wide_line(handle: ViewerEntityHandle) {
-//   global_entity_of::<WideLineModelEntity>()
-//     .entity_writer()
-//     .delete_entity(handle.into());
-// }
+#[repr(C)]
+pub struct SceneWidePointsHandleInfo {
+  scene_model: ViewerEntityHandle,
+  points: ViewerEntityHandle,
+}
 
-// #[no_mangle]
-// pub extern "C" fn create_text3d() -> ViewerEntityHandle {
-//   global_entity_of::<Text3dEntity>()
-//     .entity_writer()
-//     .new_entity(|w| w)
-//     .into()
-// }
-// #[no_mangle]
-// pub extern "C" fn drop_text3d(handle: ViewerEntityHandle) {
-//   global_entity_of::<Text3dEntity>()
-//     .entity_writer()
-//     .delete_entity(handle.into());
-// }
+#[no_mangle]
+pub extern "C" fn create_wide_points(
+  node: ViewerEntityHandle,
+  data_length: u32,
+  data: *const u8,
+) -> SceneWidePointsHandleInfo {
+  let mut writer = global_entity_of::<WideStyledPointsEntity>().entity_writer();
+
+  let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = data.to_vec();
+  let data = ExternalRefPtr::new(data);
+
+  let points = writer.new_entity(|w| w.write::<WideStyledPointsMeshBuffer>(&data));
+
+  let scene_model = global_entity_of::<SceneModelEntity>()
+    .entity_writer()
+    .new_entity(|w| {
+      w.write::<SceneModelWideStyledPointsRenderPayload>(&points.some_handle())
+        .write::<SceneModelRefNode>(&Some(node.into()))
+    });
+
+  SceneWidePointsHandleInfo {
+    scene_model: scene_model.into(),
+    points: points.into(),
+  }
+}
+
+#[no_mangle]
+pub extern "C" fn drop_wide_points(p: SceneWidePointsHandleInfo) {
+  global_entity_of::<WideStyledPointsEntity>()
+    .entity_writer()
+    .delete_entity(p.points.into());
+
+  global_entity_of::<SceneModelEntity>()
+    .entity_writer()
+    .delete_entity(p.scene_model.into());
+}

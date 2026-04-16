@@ -61,6 +61,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
 
     let scene_model_picker = SceneModelPickerBaseImpl {
       internal: local_model_pickers,
+      selectable: read_global_db_component(),
       scene_model_node: read_global_db_foreign_key(),
       node_world: node_world
         .expect_resolve_stage()

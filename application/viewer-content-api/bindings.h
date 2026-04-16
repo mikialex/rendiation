@@ -82,6 +82,11 @@ typedef struct SceneModelHandleInfo {
   struct ViewerEntityHandle std_model;
 } SceneModelHandleInfo;
 
+typedef struct SceneWidePointsHandleInfo {
+  struct ViewerEntityHandle scene_model;
+  struct ViewerEntityHandle points;
+} SceneWidePointsHandleInfo;
+
 struct ViewerEntityHandle create_camera(struct ViewerEntityHandle node);
 
 void drop_camera(struct ViewerEntityHandle handle);
@@ -242,9 +247,17 @@ void scene_model_set_z_layer(struct ViewerEntityHandle handle, OccStyleZLayer z_
 
 void scene_model_set_priority(struct ViewerEntityHandle handle, uint32_t priority);
 
+void scene_model_set_selectable(struct ViewerEntityHandle handle, bool selectable);
+
 void scene_model_set_material(struct SceneModelHandleInfo handle,
                               struct ViewerEntityHandle material,
                               bool is_unlit_material);
+
+struct SceneWidePointsHandleInfo create_wide_points(struct ViewerEntityHandle node,
+                                                    uint32_t data_length,
+                                                    const uint8_t *data);
+
+void drop_wide_points(struct SceneWidePointsHandleInfo p);
 
 struct ViewerEntityHandle create_dir_light(struct ViewerEntityHandle node);
 

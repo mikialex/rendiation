@@ -86,6 +86,7 @@ pub struct SceneModelPickerBaseImpl<T> {
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
   pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   pub sm_local_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
+  pub selectable: ComponentReadView<SceneModelSelectable>,
   pub internal: T,
   // keep result if return true
   pub filter: Option<Box<dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool>>,
@@ -100,6 +101,9 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
   ) -> Option<MeshBufferHitPoint<f64>> {
     let node = self.scene_model_node.get(idx)?;
     if !self.node_net_visible.access(&node)? {
+      return None;
+    }
+    if !self.selectable.get(idx).copied().unwrap() {
       return None;
     }
 
@@ -164,6 +168,9 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
   ) -> Option<()> {
     let node = self.scene_model_node.get(idx)?;
     if !self.node_net_visible.access(&node)? {
+      return None;
+    }
+    if !self.selectable.get(idx).copied().unwrap() {
       return None;
     }
 
