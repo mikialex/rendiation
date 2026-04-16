@@ -23,9 +23,10 @@ impl Default for ViewerDataScheduler {
     #[cfg(not(target_family = "wasm"))]
     let texture_uri_backend = {
       let exe_path = std::env::current_exe().unwrap();
+      // todo, make it configurable
       let root = exe_path.parent().unwrap().join("temp_textures/");
       if root.is_dir() {
-        std::fs::remove_dir_all(&root).unwrap(); // clean up old, if last run not exist normally
+        std::fs::remove_dir_all(&root).unwrap(); // clean up old, if last run not exit normally
       }
 
       let texture_uri_backend = URIDiskSyncSource::<Arc<GPUBufferImage>>::new(

@@ -71,7 +71,7 @@ pub extern "C" fn scene_model_set_scene(
 
 #[no_mangle]
 pub extern "C" fn scene_model_set_occ_style_view_dep(
-  handle: SceneModelHandleInfo,
+  handle: ViewerEntityHandle,
   is_2d: bool,
   anchor: &[f32; 3],
   offset: &[i32; 2],
@@ -94,13 +94,22 @@ pub extern "C" fn scene_model_set_occ_style_view_dep(
     mode: OccStyleMode::from_bits_retain(mode),
   };
   write_global_db_component::<SceneModelViewDependentTransformOcc>()
-    .write(handle.scene_model.into(), Some(config));
+    .write(handle.into(), Some(config));
 }
 
 #[no_mangle]
-pub extern "C" fn scene_model_remove_occ_style_view_dep(handle: SceneModelHandleInfo) {
-  write_global_db_component::<SceneModelViewDependentTransformOcc>()
-    .write(handle.scene_model.into(), None);
+pub extern "C" fn scene_model_remove_occ_style_view_dep(handle: ViewerEntityHandle) {
+  write_global_db_component::<SceneModelViewDependentTransformOcc>().write(handle.into(), None);
+}
+
+#[no_mangle]
+pub extern "C" fn scene_model_set_z_layer(handle: ViewerEntityHandle, z_layer: OccStyleZLayer) {
+  write_global_db_component::<SceneModelOccStyleLayer>().write(handle.into(), z_layer);
+}
+
+#[no_mangle]
+pub extern "C" fn scene_model_set_priority(handle: ViewerEntityHandle, priority: u32) {
+  write_global_db_component::<SceneModelOccStylePriority>().write(handle.into(), priority);
 }
 
 #[no_mangle]

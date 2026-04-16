@@ -229,14 +229,18 @@ void scene_model_set_mesh(struct SceneModelHandleInfo handle, struct ViewerEntit
 void scene_model_set_scene(struct SceneModelHandleInfo handle,
                            const struct ViewerEntityHandle *scene);
 
-void scene_model_set_occ_style_view_dep(struct SceneModelHandleInfo handle,
+void scene_model_set_occ_style_view_dep(struct ViewerEntityHandle handle,
                                         bool is_2d,
                                         const float (*anchor)[3],
                                         const int32_t (*offset)[2],
                                         uint32_t corner,
                                         uint32_t mode);
 
-void scene_model_remove_occ_style_view_dep(struct SceneModelHandleInfo handle);
+void scene_model_remove_occ_style_view_dep(struct ViewerEntityHandle handle);
+
+void scene_model_set_z_layer(struct ViewerEntityHandle handle, OccStyleZLayer z_layer);
+
+void scene_model_set_priority(struct ViewerEntityHandle handle, uint32_t priority);
 
 void scene_model_set_material(struct SceneModelHandleInfo handle,
                               struct ViewerEntityHandle material,
@@ -244,9 +248,36 @@ void scene_model_set_material(struct SceneModelHandleInfo handle,
 
 struct ViewerEntityHandle create_dir_light(struct ViewerEntityHandle node);
 
+void set_dir_light_scene(struct ViewerEntityHandle handle, const struct ViewerEntityHandle *scene);
+
 void set_dir_light_illuminance(struct ViewerEntityHandle node, const float (*illuminance)[3]);
 
 void drop_dir_light(struct ViewerEntityHandle handle);
+
+struct ViewerEntityHandle create_point_light(struct ViewerEntityHandle node);
+
+void set_point_light_scene(struct ViewerEntityHandle handle,
+                           const struct ViewerEntityHandle *scene);
+
+void set_point_light_intensity(struct ViewerEntityHandle node, const float (*illuminance)[3]);
+
+void set_point_light_cutoff_distance(struct ViewerEntityHandle node, float distance);
+
+void drop_point_light(struct ViewerEntityHandle handle);
+
+struct ViewerEntityHandle create_spot_light(struct ViewerEntityHandle node);
+
+void set_spot_light_scene(struct ViewerEntityHandle handle, const struct ViewerEntityHandle *scene);
+
+void set_spot_light_intensity(struct ViewerEntityHandle node, const float (*illuminance)[3]);
+
+void set_spot_light_cutoff_distance(struct ViewerEntityHandle node, float distance);
+
+void set_spot_light_half_cone_angle(struct ViewerEntityHandle node, float angle);
+
+void set_spot_light_half_penumbra_angle(struct ViewerEntityHandle node, float angle);
+
+void drop_spot_light(struct ViewerEntityHandle handle);
 
 /**
  * call this to setup panic message writer when panic happens
