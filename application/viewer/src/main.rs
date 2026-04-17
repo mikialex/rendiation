@@ -143,7 +143,8 @@ fn main() {
     use_enable_screenshot(cx);
 
     stage_of_update(cx, 2, |cx| {
-      let select = cx.active_surface_content.selected_model;
+      // todo, support group
+      let select = cx.active_surface_content.selected_model.if_single();
       widget_root(cx, |cx| {
         use_viewer_gizmo(cx, select);
       });

@@ -212,13 +212,15 @@ fn cleanup_selection_states_from_gltf_load_result(
   gltf_load_info: &GltfLoadResult,
   content: &mut ViewerSurfaceContent,
 ) {
-  if let Some(selected) = content.selected_model {
+  // todo, this is o(n^2)
+  content.selected_model.remove_select_if(|selected| {
     for item in &gltf_load_info.scene_models {
       if *item == selected {
-        content.selected_model = None;
+        return true;
       }
     }
-  }
+    false
+  });
   if let Some(selected) = content.selected_dir_light {
     for (_, item) in gltf_load_info.directional_light_map.iter() {
       if *item == selected {

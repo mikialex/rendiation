@@ -232,7 +232,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         .vscroll(true)
         .show(ui, |ui| {
           let mut scene_writer = SceneWriter::from_global(cx.active_surface_content.scene);
-          if let Some(target) = cx.active_surface_content.selected_model {
+          if let Some(target) = cx.active_surface_content.selected_model.if_single() {
             ui.label(format!("SceneModel id: {:?}", target.into_raw()));
             show_entity_label(&scene_writer.model_writer, target, ui);
 

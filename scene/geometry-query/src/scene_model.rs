@@ -21,6 +21,20 @@ pub trait SceneModelPicker {
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
   ) -> Option<()>;
+
+  fn frustum_query(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
+    frustum: &Frustum<f64>,
+    policy: ObjectTestPolicy,
+  ) -> Option<bool>;
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum ObjectTestPolicy {
+  Intersect,
+  Contains,
 }
 
 impl<'a> SceneModelPicker for Box<dyn SceneModelPicker + 'a> {
@@ -42,6 +56,16 @@ impl<'a> SceneModelPicker for Box<dyn SceneModelPicker + 'a> {
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
   ) -> Option<()> {
     (**self).ray_query_all(idx, override_world_mat, ctx, results, local_result_scratch)
+  }
+
+  fn frustum_query(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
+    frustum: &Frustum<f64>,
+    policy: ObjectTestPolicy,
+  ) -> Option<bool> {
+    (**self).frustum_query(idx, override_world_mat, frustum, policy)
   }
 }
 
@@ -78,6 +102,21 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
     }
     None
   }
+
+  fn frustum_query(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
+    frustum: &Frustum<f64>,
+    policy: ObjectTestPolicy,
+  ) -> Option<bool> {
+    for provider in self {
+      if let Some(r) = provider.frustum_query(idx, override_world_mat, frustum, policy) {
+        return Some(r);
+      }
+    }
+    None
+  }
 }
 
 pub struct SceneModelPickerBaseImpl<T> {
@@ -92,6 +131,23 @@ pub struct SceneModelPickerBaseImpl<T> {
   pub filter: Option<Box<dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool>>,
 }
 
+impl<T> SceneModelPickerBaseImpl<T> {
+  pub fn pre_check(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<EntityHandle<SceneNodeEntity>> {
+    if !self.selectable.get(idx).copied().unwrap() {
+      return None;
+    }
+    let node = self.scene_model_node.get(idx)?;
+    if !self.node_net_visible.access(&node)? {
+      return None;
+    }
+
+    Some(node)
+  }
+}
+
 impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
   fn ray_query_nearest(
     &self,
@@ -99,13 +155,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
   ) -> Option<MeshBufferHitPoint<f64>> {
-    let node = self.scene_model_node.get(idx)?;
-    if !self.node_net_visible.access(&node)? {
-      return None;
-    }
-    if !self.selectable.get(idx).copied().unwrap() {
-      return None;
-    }
+    let node = self.pre_check(idx)?;
 
     let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
       let smb = self
@@ -166,13 +216,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
   ) -> Option<()> {
-    let node = self.scene_model_node.get(idx)?;
-    if !self.node_net_visible.access(&node)? {
-      return None;
-    }
-    if !self.selectable.get(idx).copied().unwrap() {
-      return None;
-    }
+    let node = self.pre_check(idx)?;
 
     let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
       let smb = self
@@ -221,6 +265,36 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       .for_each(|r| results.push(r));
 
     Some(())
+  }
+
+  fn frustum_query(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
+    frustum: &Frustum<f64>,
+    policy: ObjectTestPolicy,
+  ) -> Option<bool> {
+    let node = self.pre_check(idx)?;
+
+    let (mat, _sm_world_bounding) = if let Some(mat) = override_world_mat {
+      let smb = self
+        .sm_local_bounding
+        .access(&idx)?
+        .into_f64()
+        .apply_matrix_into(*mat);
+      (*mat, smb)
+    } else {
+      (
+        self.node_world.access(&node)?,
+        self.sm_world_bounding.access(&idx)??,
+      )
+    };
+
+    // todo, early return
+
+    let frustum = frustum.apply_matrix_into(mat.inverse_or_identity());
+
+    self.internal.frustum_query_local(idx, &frustum, policy)
   }
 }
 

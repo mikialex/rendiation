@@ -361,7 +361,7 @@ pub fn use_viewer<'a>(
         device_pixel_ratio: 1.0,
         root,
         scene,
-        selected_model: None,
+        selected_model: Default::default(),
         selected_dir_light: None,
         selected_spot_light: None,
         selected_point_light: None,

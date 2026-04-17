@@ -1,3 +1,4 @@
+use rendiation_geometry::Frustum;
 use rendiation_scene_geometry_query::*;
 
 use crate::*;
@@ -52,5 +53,18 @@ impl<T: SceneModelPicker> SceneModelPicker for SceneModelPickerWithViewDep<T> {
     self
       .internal
       .ray_query_all(idx, mat.as_ref(), ctx, results, local_result_scratch)
+  }
+
+  fn frustum_query(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    override_world_mat: Option<&Mat4<f64>>,
+    frustum: &Frustum<f64>,
+    policy: ObjectTestPolicy,
+  ) -> Option<bool> {
+    let mat = self.get_mat(idx, override_world_mat);
+    self
+      .internal
+      .frustum_query(idx, mat.as_ref(), frustum, policy)
   }
 }

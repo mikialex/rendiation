@@ -4,6 +4,15 @@ use crate::{DistanceTo, HyperPlane, Triangle};
 
 pub type Plane<T = f32> = HyperPlane<T, Vec3<T>>;
 
+impl Plane<f64> {
+  pub fn into_f32(self) -> Plane<f32> {
+    Plane {
+      normal: unsafe { self.normal.map(|v| v as f32).into_normalized_unchecked() },
+      constant: self.constant as f32,
+    }
+  }
+}
+
 impl<T: Scalar> DistanceTo<Vec3<T>, T> for Plane<T> {
   fn distance_to(&self, point: &Vec3<T>) -> T {
     self.normal.dot(*point) + self.constant

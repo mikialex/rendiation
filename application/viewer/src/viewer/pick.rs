@@ -6,6 +6,7 @@ use crate::*;
 pub struct ViewerPickerWithCtx {
   pub picker_impl: ViewerPicker,
   pub pointer_ctx: Option<ViewportPointerCtx>,
+  pub camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
 }
 
 impl ViewerPickerWithCtx {
@@ -17,6 +18,27 @@ impl ViewerPickerWithCtx {
     ctx.world_ray = world_ray;
 
     ctx.into()
+  }
+
+  pub fn pick_range(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    frustum: Frustum<f64>,
+    ty: ObjectTestPolicy,
+  ) -> Vec<EntityHandle<SceneModelEntity>> {
+    let mut iter = self
+      .picker_impl
+      .scene_model_iter_provider
+      .create_frustum_scene_model_iter(scene, &frustum);
+    let mut results = Vec::default();
+    range_pick_models(
+      &self.picker_impl.model_picker,
+      &mut iter,
+      &frustum,
+      ty,
+      &mut results,
+    );
+    results
   }
 
   pub fn pick_model_nearest_all(
@@ -97,6 +119,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerPickerWi
     ViewerPickerWithCtx {
       picker_impl,
       pointer_ctx,
+      camera_transforms: cam_trans,
     }
     .into()
   } else {

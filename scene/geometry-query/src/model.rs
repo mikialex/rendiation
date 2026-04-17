@@ -22,6 +22,13 @@ pub trait LocalModelPicker {
     local_tolerance: f32,
     results: &mut Vec<MeshBufferHitPoint>,
   ) -> Option<()>;
+
+  fn frustum_query_local(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    frustum: &Frustum<f64>,
+    policy: ObjectTestPolicy,
+  ) -> Option<bool>;
 }
 
 impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
@@ -64,6 +71,20 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
         .is_some()
       {
         return Some(());
+      }
+    }
+    None
+  }
+
+  fn frustum_query_local(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    frustum: &Frustum<f64>,
+    policy: ObjectTestPolicy,
+  ) -> Option<bool> {
+    for provider in self {
+      if let Some(r) = provider.frustum_query_local(idx, frustum, policy) {
+        return Some(r);
       }
     }
     None
@@ -115,7 +136,7 @@ impl IndexGet for AttributeFastPickView<'_> {
 }
 
 impl AttributeMeshPicker {
-  fn ray_query_local_read_view(
+  fn query_local_read_view(
     &self,
     idx: EntityHandle<SceneModelEntity>,
   ) -> Option<AttributesMeshEntityAbstractMeshReadView<AttributeFastPickView<'_>, DynIndexRef<'_>>>
@@ -195,7 +216,7 @@ impl LocalModelPicker for AttributeMeshPicker {
     };
 
     *self
-      .ray_query_local_read_view(idx)?
+      .query_local_read_view(idx)?
       .ray_intersect_nearest(local_ray, &config)
   }
 
@@ -212,9 +233,54 @@ impl LocalModelPicker for AttributeMeshPicker {
       triangle_face: FaceSide::Double,
     };
     self
-      .ray_query_local_read_view(idx)?
+      .query_local_read_view(idx)?
       .ray_intersect_all(local_ray, &config, results);
 
     Some(())
+  }
+
+  fn frustum_query_local(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    frustum: &Frustum<f64>,
+    policy: ObjectTestPolicy,
+  ) -> Option<bool> {
+    let frustum = frustum.into_f32();
+    let mesh = self.query_local_read_view(idx)?;
+
+    let r = match policy {
+      ObjectTestPolicy::Intersect => mesh
+        .primitive_iter()
+        .any(|p| frustum_test_primitive(&p, &frustum, policy)),
+      ObjectTestPolicy::Contains => mesh
+        .primitive_iter()
+        .all(|p| frustum_test_primitive(&p, &frustum, policy)),
+    };
+
+    Some(r)
+  }
+}
+
+fn frustum_test_primitive(
+  p: &AttributeDynPrimitive,
+  f: &Frustum,
+  policy: ObjectTestPolicy,
+) -> bool {
+  match policy {
+    ObjectTestPolicy::Intersect => match p {
+      AttributeDynPrimitive::Points(point) => f.contains(&point.0),
+      AttributeDynPrimitive::LineSegment(line) => f.contains(&line.start) || f.contains(&line.end),
+      AttributeDynPrimitive::Triangle(triangle) => {
+        // todo, this is wrong
+        f.contains(&triangle.a) || f.contains(&triangle.b) || f.contains(&triangle.c)
+      }
+    },
+    ObjectTestPolicy::Contains => match p {
+      AttributeDynPrimitive::Points(point) => f.contains(&point.0),
+      AttributeDynPrimitive::LineSegment(line) => f.contains(&line.start) && f.contains(&line.end),
+      AttributeDynPrimitive::Triangle(triangle) => {
+        f.contains(&triangle.a) && f.contains(&triangle.b) && f.contains(&triangle.c)
+      }
+    },
   }
 }

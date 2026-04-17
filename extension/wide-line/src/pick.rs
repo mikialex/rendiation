@@ -81,6 +81,15 @@ impl LocalModelPicker for WideLinePicker {
     WideLinePickView { lines }.ray_intersect_all(local_ray, &local_tolerance, results);
     Some(())
   }
+
+  fn frustum_query_local(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    frustum: &Frustum<f64>,
+    policy: ObjectTestPolicy,
+  ) -> Option<bool> {
+    None
+  }
 }
 
 struct WideLinePickView<'a> {

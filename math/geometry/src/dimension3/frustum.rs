@@ -6,6 +6,14 @@ pub struct Frustum<T: Scalar = f32> {
   pub planes: [Plane<T>; 6],
 }
 
+impl Frustum<f64> {
+  pub fn into_f32(self) -> Frustum<f32> {
+    Frustum {
+      planes: self.planes.map(|v| v.into_f32()),
+    }
+  }
+}
+
 impl<T: Scalar> Default for Frustum<T> {
   fn default() -> Self {
     Self::new()
@@ -35,6 +43,25 @@ impl<T: Scalar> Frustum<T> {
     self.planes[3].set_components(m.a4 + m.a2, m.b4 + m.b2, m.c4 + m.c2, m.d4 + m.d2); // bottom
     self.planes[4].set_components(m.a4 - m.a3, m.b4 - m.b3, m.c4 - m.c3, m.d4 - m.d3); // far
     self.planes[5].set_components(m.a4 + m.a3, m.b4 + m.b3, m.c4 + m.c3, m.d4 + m.d3); // near
+    self
+  }
+
+  /// the matrix must in opengl standard ndc
+  pub fn new_from_matrix_ndc(m: Mat4<T>, ndc: &[T; 6]) -> Self {
+    let mut f = Frustum::<T>::default();
+    f.set_from_matrix_ndc(m, ndc);
+    f
+  }
+
+  /// the matrix must in opengl standard ndc
+  #[rustfmt::skip]
+  pub fn set_from_matrix_ndc(&mut self, m: Mat4<T>, ndc:&[T; 6]) -> &Self {
+    self.planes[0].set_components(m.a4 * ndc[1] - m.a1, m.b4 * ndc[1] - m.b1, m.c4 * ndc[1] - m.c1, m.d4 * ndc[1] - m.d1);  // right
+    self.planes[1].set_components(m.a1 - m.a4 * ndc[0], m.b1 - m.b4 * ndc[0],  m.c1 - m.c4 * ndc[0], m.d1 - m.d4 * ndc[0]);  // left
+    self.planes[2].set_components(m.a4 * ndc[3] - m.a2, m.b4 * ndc[3] - m.b2, m.c4 * ndc[3] - m.c2, m.d4 * ndc[3] - m.d2);  // top
+    self.planes[3].set_components(m.a2 - m.a4 * ndc[2], m.b2 - m.b4 * ndc[2],  m.c2 - m.c4 * ndc[2], m.d2 - m.d4 * ndc[2]);  // bottom
+    self.planes[4].set_components(m.a4 * ndc[5] - m.a3, m.b4 * ndc[5] - m.b3, m.c4 * ndc[5] - m.c3, m.d4 * ndc[5] - m.d3);  // far
+    self.planes[5].set_components(m.a3 - m.a4 * ndc[4], m.b3 - m.b4 * ndc[4],  m.c3 - m.c4 * ndc[4], m.d3 - m.d4 * ndc[4]);  // near
     self
   }
 }

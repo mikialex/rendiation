@@ -60,11 +60,14 @@ pub fn downgrade_multi_indirect_draw_count(
     .make_global_scan_exclusive::<AdditionMonoid<u32>>()
     .materialize_storage_buffer(cx);
 
+    // note, this assert is wrong, because the sub_draw_range_start_prefix_sum is cached in hooks
+    // it has standalone size shrink strategy
+    //
     // because we're using exclusive scan
-    assert_eq!(
-      sub_draw_range_start_prefix_sum.item_count(),
-      draw_commands.cmd_capacity_count() + 1
-    );
+    // assert_eq!(
+    //   sub_draw_range_start_prefix_sum.item_count(),
+    //   draw_commands.cmd_capacity_count() + 1
+    // );
 
     let indirect_buffer = StorageBufferDataView::create_by_with_extra_usage(
       &cx.gpu.device,

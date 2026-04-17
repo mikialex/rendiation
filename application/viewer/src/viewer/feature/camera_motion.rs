@@ -118,7 +118,7 @@ pub fn use_fit_camera_view(
       if let Some(action) = fit_camera_view_for_viewer(
         camera,
         camera_node,
-        cx.active_surface_content.selected_model,
+        &cx.active_surface_content.selected_model,
         world_mat,
         sm_world_bounding,
       ) {
@@ -131,14 +131,15 @@ pub fn use_fit_camera_view(
 fn fit_camera_view_for_viewer(
   camera: EntityHandle<SceneCameraEntity>,
   camera_node: EntityHandle<SceneNodeEntity>,
-  selected_sm: Option<EntityHandle<SceneModelEntity>>,
+  selected_sm: &ViewerModelSelectionSet,
   world_mat: impl Query<Key = EntityHandle<SceneNodeEntity>, Value = Mat4<f64>>,
   sm_world_bounding: impl Query<Key = EntityHandle<SceneModelEntity>, Value = Option<Box3<f64>>>,
 ) -> Option<CameraAction> {
-  if let Some(selected) = &selected_sm {
+  // todo, support ground fit
+  if let Some(selected) = selected_sm.if_single() {
     let camera_world = world_mat.access(&camera_node).unwrap();
 
-    if let Some(target_world_aabb) = sm_world_bounding.access(selected) {
+    if let Some(target_world_aabb) = sm_world_bounding.access(&selected) {
       if let Some(camera_proj) = read_common_proj_from_db(camera) {
         if let Some(target_world_aabb) = target_world_aabb {
           return fit_camera_view(camera_proj, camera_world, target_world_aabb);

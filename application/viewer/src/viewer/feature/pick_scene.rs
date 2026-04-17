@@ -76,14 +76,16 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
           log::info!("gpu pick resolved {:?}", r);
         }
 
+        cx.active_surface_content.selected_model.clear();
         if let Some(hit_entity_idx) = r {
           // skip the background
           if hit_entity_idx != u32::MAX {
-            let hit = global_entity_of::<SceneModelEntity>()
+            if let Some(hit) = global_entity_of::<SceneModelEntity>()
               .entity_reader()
-              .reconstruct_handle_by_idx(hit_entity_idx as usize);
-
-            cx.active_surface_content.selected_model = hit;
+              .reconstruct_handle_by_idx(hit_entity_idx as usize)
+            {
+              cx.active_surface_content.selected_model.add_select(hit);
+            }
           }
         }
 
@@ -92,8 +94,53 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     }
 
     if cx.input.state_delta.is_left_mouse_releasing() {
-      if range_state.is_some() {
-        log::info!("end range");
+      if let Some((a, b)) = range_state.take() {
+        let a = a * cx.active_surface_content.device_pixel_ratio;
+        let b = b * cx.active_surface_content.device_pixel_ratio;
+
+        log::info!("end range {:?}", (a, b));
+        access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
+        let scene = cx.active_surface_content.scene;
+
+        let (viewport, normalized_a) =
+          find_top_hit(cx.active_surface_content.viewports.iter(), a.into()).unwrap();
+        let (viewport_, normalized_b) =
+          find_top_hit(cx.active_surface_content.viewports.iter(), b.into()).unwrap();
+        assert_eq!(viewport.id, viewport_.id);
+        let a = Vec2::from(normalized_a);
+        let b = Vec2::from(normalized_b);
+
+        let min = a.min(b);
+        let max = a.max(b);
+
+        dbg!(&min);
+        dbg!(&max);
+
+        let ndc_arr = [
+          min.x as f64,
+          max.x as f64,
+          min.y as f64,
+          max.y as f64,
+          0.0,
+          1.0,
+        ];
+
+        let camera = viewport.camera;
+        let camera_trans = picker
+          .camera_transforms
+          .access(camera.raw_handle_ref())
+          .unwrap();
+
+        let ndc = cx.viewer.ndc();
+        let mat =
+          ndc.transform_into_opengl_standard_ndc().into_f64() * camera_trans.view_projection;
+        let frustum = Frustum::new_from_matrix_ndc(mat, &ndc_arr);
+
+        let r = picker.pick_range(scene, frustum, ObjectTestPolicy::Intersect);
+        log::info!("range pick results {:?}", r);
+        for m in r {
+          cx.active_surface_content.selected_model.add_select(m);
+        }
       }
       *range_state = None;
     }
@@ -131,7 +178,6 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
       access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
 
-      let mut select_target_result = None;
       if let Some(pointer_ctx) = &picker.pointer_ctx {
         let mut use_cpu_pick = false;
 
@@ -166,19 +212,16 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
           } else {
             let _hit = picker.pick_model_nearest_all(pointer_ctx.world_ray, scene);
 
-            select_target_result = if let Some(hit) = _hit {
+            cx.active_surface_content.selected_model.clear();
+            if let Some(hit) = _hit {
               if enable_hit_debug_log {
                 log::info!("cpu picked {:#?}", hit);
               }
-              hit.1.into()
-            } else {
-              None
+              cx.active_surface_content.selected_model.add_select(hit.1);
             }
           }
         }
       }
-
-      cx.active_surface_content.selected_model = select_target_result;
     }
   }
 }

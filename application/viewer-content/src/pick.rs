@@ -9,11 +9,10 @@ pub struct NaiveSceneModelIterProvider {
   pub scene_ref_scene_model: RevRefForeignKeyRead,
 }
 
-impl SceneModelIterProvider for NaiveSceneModelIterProvider {
-  fn create_ray_scene_model_iter(
+impl NaiveSceneModelIterProvider {
+  fn create_full_scene_iter(
     &self,
     scene: EntityHandle<SceneEntity>,
-    _ctx: &SceneRayQuery,
   ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
     if let Some(iter) = self.scene_ref_scene_model.access_multi(&scene.into_raw()) {
       let iter = iter.map(|v| unsafe { EntityHandle::from_raw(v) });
@@ -21,6 +20,24 @@ impl SceneModelIterProvider for NaiveSceneModelIterProvider {
     } else {
       Box::new([].into_iter())
     }
+  }
+}
+
+impl SceneModelIterProvider for NaiveSceneModelIterProvider {
+  fn create_ray_scene_model_iter(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    _ctx: &SceneRayQuery,
+  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
+    self.create_full_scene_iter(scene)
+  }
+
+  fn create_frustum_scene_model_iter<'a>(
+    &'a self,
+    scene: EntityHandle<SceneEntity>,
+    _frustum: &Frustum<f64>,
+  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
+    self.create_full_scene_iter(scene)
   }
 }
 

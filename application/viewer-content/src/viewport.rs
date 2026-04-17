@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct ViewerViewPort {
   pub id: u64,
   /// x relative to surface left, y relative to surface top, width, height

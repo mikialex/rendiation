@@ -28,6 +28,14 @@ impl SceneModelIterProvider for SceneQbvhIterProvider {
 
     Box::new(iter)
   }
+
+  fn create_frustum_scene_model_iter<'a>(
+    &'a self,
+    scene: EntityHandle<SceneEntity>,
+    frustum: &Frustum<f64>,
+  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
+    todo!()
+  }
 }
 
 struct RayIntersectionClosestPointVisitor<'a> {

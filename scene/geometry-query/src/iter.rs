@@ -2,6 +2,11 @@ use crate::*;
 
 /// The TLAS abstraction for picking
 pub trait SceneModelIterProvider {
+  fn create_frustum_scene_model_iter<'a>(
+    &'a self,
+    scene: EntityHandle<SceneEntity>,
+    frustum: &Frustum<f64>,
+  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a>;
   fn create_ray_scene_model_iter<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
@@ -49,4 +54,18 @@ pub fn pick_models_nearest(
     }
   }
   nearest
+}
+
+pub fn range_pick_models(
+  model_impl: &dyn SceneModelPicker,
+  models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+  frustum: &Frustum<f64>,
+  policy: ObjectTestPolicy,
+  results: &mut Vec<EntityHandle<SceneModelEntity>>,
+) {
+  for m in models {
+    if let Some(true) = model_impl.frustum_query(m, None, frustum, policy) {
+      results.push(m);
+    }
+  }
 }
