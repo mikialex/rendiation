@@ -293,6 +293,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     // todo, early return
 
     let frustum = frustum.apply_matrix_into(mat.inverse_or_identity());
+    let frustum = frustum.into_f32();
 
     self.internal.frustum_query_local(idx, &frustum, policy)
   }

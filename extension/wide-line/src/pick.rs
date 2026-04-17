@@ -39,6 +39,17 @@ pub struct WideLinePicker {
   pub line_width: ComponentReadView<WideLineWidth>,
 }
 
+impl WideLinePicker {
+  fn mesh_view(&self, idx: EntityHandle<SceneModelEntity>) -> Option<WideLinePickView<'_>> {
+    let line = self.relation.get(idx)?;
+    let lines = self.lines.get(line)?;
+
+    // here we assume the buffer is correctly aligned
+    let lines = cast_slice(lines);
+    Some(WideLinePickView { lines })
+  }
+}
+
 impl LocalModelPicker for WideLinePicker {
   fn bounding_enlarge_tolerance(
     &self,
@@ -56,13 +67,9 @@ impl LocalModelPicker for WideLinePicker {
     local_ray: Ray3<f32>,
     local_tolerance: f32,
   ) -> Option<MeshBufferHitPoint> {
-    let line = self.relation.get(idx)?;
-    let lines = self.lines.get(line)?;
-
-    // here we assume the buffer is correctly aligned
-    let lines = cast_slice(lines);
-
-    *WideLinePickView { lines }.ray_intersect_nearest(local_ray, &local_tolerance)
+    *self
+      .mesh_view(idx)?
+      .ray_intersect_nearest(local_ray, &local_tolerance)
   }
 
   fn ray_query_local_all(
@@ -72,23 +79,24 @@ impl LocalModelPicker for WideLinePicker {
     local_tolerance: f32,
     results: &mut Vec<MeshBufferHitPoint>,
   ) -> Option<()> {
-    let line = self.relation.get(idx)?;
-    let lines = self.lines.get(line)?;
-
-    // here we assume the buffer is correctly aligned
-    let lines = cast_slice(lines);
-
-    WideLinePickView { lines }.ray_intersect_all(local_ray, &local_tolerance, results);
+    self
+      .mesh_view(idx)?
+      .ray_intersect_all(local_ray, &local_tolerance, results);
     Some(())
   }
 
   fn frustum_query_local(
     &self,
     idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum<f64>,
+    f: &Frustum,
     policy: ObjectTestPolicy,
   ) -> Option<bool> {
-    None
+    let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |line| match policy {
+      ObjectTestPolicy::Intersect => f.contains(&line.start) || f.contains(&line.end),
+      ObjectTestPolicy::Contains => f.contains(&line.start) && f.contains(&line.end),
+    });
+
+    Some(r)
   }
 }
 

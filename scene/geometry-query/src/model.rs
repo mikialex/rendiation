@@ -26,7 +26,7 @@ pub trait LocalModelPicker {
   fn frustum_query_local(
     &self,
     idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum<f64>,
+    frustum: &Frustum,
     policy: ObjectTestPolicy,
   ) -> Option<bool>;
 }
@@ -79,7 +79,7 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
   fn frustum_query_local(
     &self,
     idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum<f64>,
+    frustum: &Frustum,
     policy: ObjectTestPolicy,
   ) -> Option<bool> {
     for provider in self {
@@ -242,22 +242,27 @@ impl LocalModelPicker for AttributeMeshPicker {
   fn frustum_query_local(
     &self,
     idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum<f64>,
+    frustum: &Frustum,
     policy: ObjectTestPolicy,
   ) -> Option<bool> {
-    let frustum = frustum.into_f32();
     let mesh = self.query_local_read_view(idx)?;
 
-    let r = match policy {
-      ObjectTestPolicy::Intersect => mesh
-        .primitive_iter()
-        .any(|p| frustum_test_primitive(&p, &frustum, policy)),
-      ObjectTestPolicy::Contains => mesh
-        .primitive_iter()
-        .all(|p| frustum_test_primitive(&p, &frustum, policy)),
-    };
+    let r = frustum_test_abstract_mesh(&mesh, policy, |p| {
+      frustum_test_primitive(&p, &frustum, policy)
+    });
 
     Some(r)
+  }
+}
+
+pub fn frustum_test_abstract_mesh<G: AbstractMesh>(
+  mesh: &G,
+  policy: ObjectTestPolicy,
+  tester: impl Fn(G::Primitive) -> bool,
+) -> bool {
+  match policy {
+    ObjectTestPolicy::Intersect => mesh.primitive_iter().any(tester),
+    ObjectTestPolicy::Contains => mesh.primitive_iter().all(tester),
   }
 }
 
