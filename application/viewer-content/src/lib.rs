@@ -64,7 +64,7 @@ use rendiation_webgpu_virtual_typed_combine_buffer::*;
 pub use rendiation_wide_line::*;
 use rendiation_wide_styled_points::*;
 pub use rendiation_wide_styled_points::{
-  SceneModelWideStyledPointsRenderPayload, WideLineColorAlphaTex, WideStyledPointVertex,
+  SceneModelWideStyledPointsRenderPayload, WidePointsColorAlphaTex, WideStyledPointVertex,
   WideStyledPointsColor, WideStyledPointsEntity, WideStyledPointsMeshBuffer,
 };
 use serde::{Deserialize, Serialize};

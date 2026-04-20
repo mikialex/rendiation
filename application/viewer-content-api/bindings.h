@@ -87,6 +87,11 @@ typedef struct SceneWidePointsHandleInfo {
   struct ViewerEntityHandle points;
 } SceneWidePointsHandleInfo;
 
+typedef struct SceneWideLineHandleInfo {
+  struct ViewerEntityHandle scene_model;
+  struct ViewerEntityHandle line;
+} SceneWideLineHandleInfo;
+
 struct ViewerEntityHandle create_camera(struct ViewerEntityHandle node);
 
 void drop_camera(struct ViewerEntityHandle handle);
@@ -257,7 +262,27 @@ struct SceneWidePointsHandleInfo create_wide_points(struct ViewerEntityHandle no
                                                     uint32_t data_length,
                                                     const uint8_t *data);
 
+void wide_points_set_color(struct ViewerEntityHandle handle, const float (*color)[4]);
+
+void wide_points_set_pattern_texture(struct ViewerEntityHandle handle,
+                                     struct ViewerEntityHandle texture,
+                                     struct ViewerEntityHandle sampler);
+
 void drop_wide_points(struct SceneWidePointsHandleInfo p);
+
+struct SceneWideLineHandleInfo create_wide_line(struct ViewerEntityHandle node,
+                                                uint32_t data_length,
+                                                const uint8_t *data);
+
+void wide_line_set_color(struct ViewerEntityHandle handle, const float (*color)[4]);
+
+void wide_line_set_width(struct ViewerEntityHandle handle, const float *width);
+
+void wide_line_set_pattern(struct ViewerEntityHandle handle, uint32_t pattern);
+
+void wide_line_set_factor(struct ViewerEntityHandle handle, float factor);
+
+void drop_wide_line(struct SceneWideLineHandleInfo p);
 
 struct ViewerEntityHandle create_dir_light(struct ViewerEntityHandle node);
 

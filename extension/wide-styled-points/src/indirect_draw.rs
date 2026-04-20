@@ -85,7 +85,7 @@ pub struct WideStyledPointsIndirectRenderer {
 #[derive(Copy, Clone, ShaderStruct, Default)]
 struct WideStyledPointParameters {
   pub range: Vec2<u32>,
-  pub color: Vec3<f32>,
+  pub color: Vec4<f32>,
   pub color_alpha_texture: TextureSamplerHandlePair,
 }
 
@@ -250,7 +250,7 @@ impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
       builder.register::<WidePointPosition>(point.position);
       builder.register::<WidePointSize>(point.width);
       builder.set_vertex_out::<WidePointStyleId>(point.style_id);
-      builder.register::<GeometryColorWithAlpha>((meta.color, val(1.)));
+      builder.register::<GeometryColorWithAlpha>(meta.color);
       let tex_id = meta.color_alpha_texture.expand();
       // not very decent, but ok
       builder.set_vertex_out::<WidePointTextureId>(vec2_node((
@@ -307,7 +307,7 @@ impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
         val(Vec4::one()),
       );
 
-      let alpha = alpha * color_alpha_tex.w();
+      let alpha = color.w() * alpha * color_alpha_tex.w();
       let color_multiplier = color_multiplier * color_alpha_tex.xyz();
 
       let final_color: Node<Vec4<f32>> = (color.xyz() * color_multiplier, alpha).into();

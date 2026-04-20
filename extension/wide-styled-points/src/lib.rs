@@ -26,7 +26,7 @@ pub fn register_wide_styled_points_data_model(sparse: bool) {
     .declare_component::<WideStyledPointsColor>()
     .declare_component::<WideStyledPointsMeshBuffer>();
 
-  register_texture_with_sampling::<WideLineColorAlphaTex>(table);
+  register_texture_with_sampling::<WidePointsColorAlphaTex>(table);
 }
 
 declare_foreign_key!(
@@ -41,10 +41,10 @@ declare_component!(
   WideStyledPointsEntity,
   ExternalRefPtr<Vec<u8>> // Vec<WideStyledPointVertex>
 );
-declare_component!(WideStyledPointsColor, WideStyledPointsEntity, Vec3<f32>);
+declare_component!(WideStyledPointsColor, WideStyledPointsEntity, Vec4<f32>);
 
-declare_entity_associated!(WideLineColorAlphaTex, WideStyledPointsEntity);
-impl TextureWithSamplingForeignKeys for WideLineColorAlphaTex {}
+declare_entity_associated!(WidePointsColorAlphaTex, WideStyledPointsEntity);
+impl TextureWithSamplingForeignKeys for WidePointsColorAlphaTex {}
 
 #[repr(C)]
 #[derive(Copy, Clone, Zeroable, Pod, ShaderVertex)]

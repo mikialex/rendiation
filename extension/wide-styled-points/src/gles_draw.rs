@@ -16,7 +16,7 @@ pub fn use_widen_points_gles_renderer(
   );
 
   let color_alpha_texture = offset_of!(WidePointUniform, color_alpha_texture);
-  use_tex_watcher::<WideLineColorAlphaTex, _>(cx, color_alpha_texture, &uniform);
+  use_tex_watcher::<WidePointsColorAlphaTex, _>(cx, color_alpha_texture, &uniform);
 
   let mesh = cx.use_shared_hash_map("wide point mesh gles");
 
@@ -41,7 +41,7 @@ pub fn use_widen_points_gles_renderer(
 
 pub struct WidePointModelGLESRenderer {
   model_access: ForeignKeyReadView<SceneModelWideStyledPointsRenderPayload>,
-  tex: TextureSamplerIdView<WideLineColorAlphaTex>,
+  tex: TextureSamplerIdView<WidePointsColorAlphaTex>,
   uniforms: LockReadGuardHolder<WidePointUniforms>,
   instance_buffers: SharedHashMapRead<u32, GPUBufferResourceView>,
   index_buffer: GPUBufferResourceView,
@@ -95,7 +95,7 @@ type WidePointUniforms = UniformBufferCollectionRaw<u32, WidePointUniform>;
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]
 pub struct WidePointUniform {
-  pub color: Vec3<f32>,
+  pub color: Vec4<f32>,
   pub color_alpha_texture: TextureSamplerHandlePair,
 }
 
@@ -179,10 +179,10 @@ impl GraphicsShaderProvider for WidePointGPU<'_> {
         val(Vec4::one()),
       );
 
-      let alpha = alpha * color_alpha_tex.w();
+      let alpha = color.w() * alpha * color_alpha_tex.w();
       let color_multiplier = color_multiplier * color_alpha_tex.xyz();
 
-      let final_color: Node<Vec4<f32>> = (color * color_multiplier, alpha).into();
+      let final_color: Node<Vec4<f32>> = (color.xyz() * color_multiplier, alpha).into();
 
       builder.register::<DefaultDisplay>(final_color);
 

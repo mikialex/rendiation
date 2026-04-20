@@ -28,6 +28,10 @@ pub fn register_wide_line_data_model(sparse: bool) {
   global_database()
     .declare_entity::<WideLineModelEntity>()
     .declare_component::<WideLineWidth>()
+    .declare_component::<WideLineColor>()
+    .declare_component::<WideLineStylePattern>()
+    .declare_component::<WideLineStyleFactor>()
+    .declare_component::<WideLineEnableRoundJoint>()
     .declare_component::<WideLineMeshBuffer>();
 }
 
@@ -39,6 +43,17 @@ declare_foreign_key!(
 
 declare_entity!(WideLineModelEntity);
 declare_component!(WideLineWidth, WideLineModelEntity, f32, 1.0);
+declare_component!(
+  WideLineColor,
+  WideLineModelEntity,
+  Vec4<f32>,
+  Vec4::new(1.0, 1.0, 1.0, 1.0)
+);
+
+declare_component!(WideLineStyleFactor, WideLineModelEntity, f32, 1.0);
+declare_component!(WideLineStylePattern, WideLineModelEntity, u32, 0);
+declare_component!(WideLineEnableRoundJoint, WideLineModelEntity, bool, false);
+
 declare_component!(
   WideLineMeshBuffer,
   WideLineModelEntity,

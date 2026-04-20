@@ -1,3 +1,5 @@
+use std::ops::BitAnd;
+
 use crate::*;
 
 only_vertex!(WideLineStart, Vec3<f32>);
@@ -63,9 +65,15 @@ pub fn wide_line_vertex(
 
   // back to clip space
   offset = offset * clip.w();
-  let clip = (clip.xy() + offset, clip.zw()).into();
+  let clip: Node<Vec4<f32>> = (clip.xy() + offset, clip.zw()).into();
 
   builder.register::<ClipPosition>(clip);
+
+  // for line pattern effect
+  let sc = clip.xy() / clip.w().splat::<Vec2<f32>>();
+  let sc = sc * val(Vec2::splat(0.5)) + val(Vec2::splat(0.5));
+  let viewport_size = builder.query::<ViewportRenderBufferSize>();
+  builder.set_vertex_out::<WideLineScreenCoord>(sc * viewport_size);
 
   // this should be optional(current used for clip effect)
   {
@@ -77,10 +85,36 @@ pub fn wide_line_vertex(
 }
 
 #[shader_fn]
-pub fn discard_round_corner(uv: Node<Vec2<f32>>) -> Node<bool> {
+pub fn discard_by_round_corner(uv: Node<Vec2<f32>>) -> Node<bool> {
   let a = uv.x();
   let b = uv.y() + uv.y().greater_than(0.).select(-1., 1.);
   let len2 = a * a + b * b;
 
   uv.y().abs().greater_than(1.).and(len2.greater_than(1.))
+}
+
+both!(WideLineScreenCoord, Vec2<f32>);
+
+#[shader_fn]
+pub fn discard_by_line_pattern(
+  factor: Node<f32>,
+  pattern: Node<u32>,
+  screen_coord: Node<Vec2<f32>>,
+  frag_position: Node<Vec2<f32>>,
+) -> Node<bool> {
+  let x_ratio = screen_coord.x().dpdx_fine().abs();
+  let y_ratio = screen_coord.y().dpdy_fine().abs();
+
+  let an_axis = (x_ratio - y_ratio)
+    .greater_than(0.001)
+    .select(val(Vec2::new(0., 1.0)), val(Vec2::new(1.0, 0.0)));
+
+  let rotate_point = frag_position.dot(an_axis);
+
+  let a_bit = (rotate_point / factor + val(0.5))
+    .floor()
+    .into_u32()
+    .bitand(val(15_u32));
+
+  pattern.bitand(val(1_u32) << a_bit).equals(val(0))
 }

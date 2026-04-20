@@ -131,7 +131,8 @@ only_vertex!(ClipPosition, Vec4<f32>);
 
 // fragment input
 both!(FragmentFrontFacing, bool);
-// this is actually vertex clip position
+// https://gpuweb.github.io/gpuweb/#rasterizationpoint
+// for xy, it's in framebuffer coordinates
 both!(FragmentPosition, Vec4<f32>);
 both!(FragmentSampleIndex, u32);
 both!(FragmentSampleMaskInput, u32);

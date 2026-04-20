@@ -40,13 +40,13 @@ pub extern "C" fn pbr_mr_material_set_base_color_tex(
   write_tex_sampler::<PbrMRMaterialBaseColorAlphaTex>(mat, tex, sampler)
 }
 
-fn write_tex_sampler<C: TextureWithSamplingForeignKeys>(
-  mat: ViewerEntityHandle,
+pub(crate) fn write_tex_sampler<C: TextureWithSamplingForeignKeys>(
+  target: ViewerEntityHandle,
   tex: ViewerEntityHandle,
   sampler: ViewerEntityHandle,
 ) {
-  write_global_db_component::<SceneTexture2dRefOf<C>>().write(mat.into(), Some(tex.into()));
-  write_global_db_component::<SceneSamplerRefOf<C>>().write(mat.into(), Some(sampler.into()));
+  write_global_db_component::<SceneTexture2dRefOf<C>>().write(target.into(), Some(tex.into()));
+  write_global_db_component::<SceneSamplerRefOf<C>>().write(target.into(), Some(sampler.into()));
 }
 
 #[no_mangle]

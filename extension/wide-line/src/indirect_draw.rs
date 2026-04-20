@@ -50,9 +50,32 @@ pub fn use_widen_line_indirect_renderer(
   let offset = std::mem::offset_of!(WideLineParameters, data_range);
   range_change.update_storage_array_with_host(cx, params, offset);
 
-  let width_change = cx.use_dual_query::<WideLineWidth>().into_delta_change();
+  let change = cx.use_dual_query::<WideLineWidth>().into_delta_change();
   let offset = std::mem::offset_of!(WideLineParameters, width);
-  width_change.update_storage_array_with_host(cx, params, offset);
+  change.update_storage_array_with_host(cx, params, offset);
+
+  let change = cx
+    .use_dual_query::<WideLineStyleFactor>()
+    .into_delta_change();
+  let offset = std::mem::offset_of!(WideLineParameters, style_factor);
+  change.update_storage_array_with_host(cx, params, offset);
+
+  let change = cx
+    .use_dual_query::<WideLineStylePattern>()
+    .into_delta_change();
+  let offset = std::mem::offset_of!(WideLineParameters, style_pattern);
+  change.update_storage_array_with_host(cx, params, offset);
+
+  let change = cx
+    .use_dual_query::<WideLineEnableRoundJoint>()
+    .into_delta_change()
+    .map_changes(Bool::from);
+  let offset = std::mem::offset_of!(WideLineParameters, enable_round_joint);
+  change.update_storage_array_with_host(cx, params, offset);
+
+  let change = cx.use_dual_query::<WideLineColor>().into_delta_change();
+  let offset = std::mem::offset_of!(WideLineParameters, color);
+  change.update_storage_array_with_host(cx, params, offset);
 
   params.use_max_item_count_by_db_entity::<WideLineModelEntity>(cx);
   params.use_update(cx);
@@ -85,6 +108,10 @@ pub struct WideLineModelIndirectRenderer {
 struct WideLineParameters {
   pub data_range: Vec2<u32>,
   pub width: f32,
+  pub style_factor: f32,
+  pub style_pattern: u32,
+  pub enable_round_joint: Bool,
+  pub color: Vec4<f32>,
 }
 
 #[repr(C)]
@@ -134,6 +161,7 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
       segments: self.segments.clone(),
       params: self.params.clone(),
       sm_to_wide_line_device: self.sm_to_wide_line_device.clone(),
+      bind_state: Default::default(),
     }))
   }
 
@@ -189,6 +217,7 @@ pub struct WideLineIndirectDrawComponent {
   segments: AbstractReadonlyStorageBuffer<[WideLineVertexStorage]>,
   params: AbstractReadonlyStorageBuffer<[WideLineParameters]>,
   sm_to_wide_line_device: AbstractReadonlyStorageBuffer<[u32]>,
+  bind_state: BindingPreparerInternalStage,
 }
 
 impl ShaderHashProvider for WideLineIndirectDrawComponent {
@@ -203,16 +232,20 @@ impl ShaderPassBuilder for WideLineIndirectDrawComponent {
   }
 }
 
+both!(WideLineShaderId, u32);
 only_vertex!(WideLineWidthShader, f32);
 
 impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    let mut params = BindingPreparer::new_with_state(&self.params, &self.bind_state);
+
     builder.vertex(|builder, binding| {
       let sm_id = builder.query::<LogicalRenderEntityId>();
       let sm_to_wide_line_device = binding.bind_by(&self.sm_to_wide_line_device);
       let line_id = sm_to_wide_line_device.index(sm_id).load();
+      builder.set_vertex_out::<WideLineShaderId>(line_id);
 
-      let params = binding.bind_by(&self.params);
+      let params = params.using(binding);
       let line_param = params.index(line_id).load().expand();
       builder.register::<WideLineWidthShader>(line_param.width);
 
@@ -243,7 +276,10 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
 
       builder.register::<WideLineStart>(seg.start);
       builder.register::<WideLineEnd>(seg.end);
-      builder.register::<GeometryColorWithAlpha>(seg.color);
+
+      let color = seg.color * line_param.color;
+      builder.register::<GeometryColorWithAlpha>(color);
+      builder.set_vertex_out::<DefaultDisplay>(color);
 
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
@@ -253,7 +289,6 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
       let uv = builder.query::<GeometryUV>();
-      let color_with_alpha = builder.query::<GeometryColorWithAlpha>();
       let width = builder.query::<WideLineWidthShader>();
 
       wide_line_vertex(
@@ -266,13 +301,33 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
       );
 
       builder.set_vertex_out::<FragmentUv>(uv);
-      builder.set_vertex_out::<DefaultDisplay>(color_with_alpha);
     });
 
-    builder.fragment(|builder, _| {
+    let mut params = BindingPreparer::new_with_state(&self.params, &self.bind_state);
+
+    builder.fragment(|builder, binding| {
+      let params = params.using(binding);
+      let line_id = builder.query::<WideLineShaderId>();
+      let line_param = params.index(line_id).load().expand();
+
+      let enable_line_pattern = line_param.style_pattern.not_equals(val(0));
+      let coord = builder.query::<FragmentPosition>().xy();
+      let sc_coord = builder.query::<WideLineScreenCoord>();
+      let should_discard_by_pattern = enable_line_pattern.and(discard_by_line_pattern_fn(
+        line_param.style_factor,
+        line_param.style_pattern,
+        sc_coord,
+        coord,
+      ));
+      if_by(should_discard_by_pattern, || {
+        builder.discard();
+      });
+
       let uv = builder.query::<FragmentUv>();
       builder.insert_type_tag::<UnlitMaterialTag>();
-      if_by(discard_round_corner_fn(uv), || {
+      let enable_round_joint = line_param.enable_round_joint.into_bool();
+      let should_discard_by_joint_style = enable_round_joint.and(discard_by_round_corner_fn(uv));
+      if_by(should_discard_by_joint_style, || {
         builder.discard();
       });
     })

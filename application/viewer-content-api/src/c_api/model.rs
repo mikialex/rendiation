@@ -166,10 +166,88 @@ pub extern "C" fn create_wide_points(
 }
 
 #[no_mangle]
+pub extern "C" fn wide_points_set_color(handle: ViewerEntityHandle, color: &[f32; 4]) {
+  write_global_db_component::<WideStyledPointsColor>().write(handle.into(), (*color).into());
+}
+
+#[no_mangle]
+pub extern "C" fn wide_points_set_pattern_texture(
+  handle: ViewerEntityHandle,
+  texture: ViewerEntityHandle,
+  sampler: ViewerEntityHandle,
+) {
+  write_tex_sampler::<WidePointsColorAlphaTex>(handle, texture, sampler)
+}
+
+#[no_mangle]
 pub extern "C" fn drop_wide_points(p: SceneWidePointsHandleInfo) {
   global_entity_of::<WideStyledPointsEntity>()
     .entity_writer()
     .delete_entity(p.points.into());
+
+  global_entity_of::<SceneModelEntity>()
+    .entity_writer()
+    .delete_entity(p.scene_model.into());
+}
+
+#[repr(C)]
+pub struct SceneWideLineHandleInfo {
+  scene_model: ViewerEntityHandle,
+  line: ViewerEntityHandle,
+}
+
+#[no_mangle]
+pub extern "C" fn create_wide_line(
+  node: ViewerEntityHandle,
+  data_length: u32,
+  data: *const u8,
+) -> SceneWideLineHandleInfo {
+  let mut writer = global_entity_of::<WideLineModelEntity>().entity_writer();
+
+  let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = data.to_vec();
+  let data = ExternalRefPtr::new(data);
+
+  let line = writer.new_entity(|w| w.write::<WideLineMeshBuffer>(&data));
+
+  let scene_model = global_entity_of::<SceneModelEntity>()
+    .entity_writer()
+    .new_entity(|w| {
+      w.write::<SceneModelWideLineRenderPayload>(&line.some_handle())
+        .write::<SceneModelRefNode>(&Some(node.into()))
+    });
+
+  SceneWideLineHandleInfo {
+    scene_model: scene_model.into(),
+    line: line.into(),
+  }
+}
+
+#[no_mangle]
+pub extern "C" fn wide_line_set_color(handle: ViewerEntityHandle, color: &[f32; 4]) {
+  write_global_db_component::<WideLineColor>().write(handle.into(), (*color).into());
+}
+
+#[no_mangle]
+pub extern "C" fn wide_line_set_width(handle: ViewerEntityHandle, width: &f32) {
+  write_global_db_component::<WideLineWidth>().write(handle.into(), *width);
+}
+
+#[no_mangle]
+pub extern "C" fn wide_line_set_pattern(handle: ViewerEntityHandle, pattern: u32) {
+  write_global_db_component::<WideLineStylePattern>().write(handle.into(), pattern);
+}
+
+#[no_mangle]
+pub extern "C" fn wide_line_set_factor(handle: ViewerEntityHandle, factor: f32) {
+  write_global_db_component::<WideLineStyleFactor>().write(handle.into(), factor);
+}
+
+#[no_mangle]
+pub extern "C" fn drop_wide_line(p: SceneWideLineHandleInfo) {
+  global_entity_of::<WideLineModelEntity>()
+    .entity_writer()
+    .delete_entity(p.line.into());
 
   global_entity_of::<SceneModelEntity>()
     .entity_writer()

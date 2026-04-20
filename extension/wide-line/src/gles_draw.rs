@@ -5,11 +5,26 @@ pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineM
 
   let uniform = cx.use_uniform_buffers();
 
-  cx.use_changes::<WideLineWidth>().update_uniforms(
-    &uniform,
-    offset_of!(WideLineUniform, width),
-    cx.gpu,
-  );
+  let offset = offset_of!(WideLineUniform, width);
+  cx.use_changes::<WideLineWidth>()
+    .update_uniforms(&uniform, offset, cx.gpu);
+
+  let offset = offset_of!(WideLineUniform, style_factor);
+  cx.use_changes::<WideLineStyleFactor>()
+    .update_uniforms(&uniform, offset, cx.gpu);
+
+  let offset = offset_of!(WideLineUniform, style_pattern);
+  cx.use_changes::<WideLineStylePattern>()
+    .update_uniforms(&uniform, offset, cx.gpu);
+
+  let offset = offset_of!(WideLineUniform, enable_round_joint);
+  cx.use_changes::<WideLineEnableRoundJoint>()
+    .map_changes(Bool::from)
+    .update_uniforms(&uniform, offset, cx.gpu);
+
+  let offset = offset_of!(WideLineUniform, color);
+  cx.use_changes::<WideLineColor>()
+    .update_uniforms(&uniform, offset, cx.gpu);
 
   let mesh = cx.use_shared_hash_map("wide line mesh gles");
 
@@ -81,6 +96,10 @@ type WideLineUniforms = UniformBufferCollectionRaw<u32, WideLineUniform>;
 #[derive(Clone, Copy, ShaderStruct, Default)]
 pub struct WideLineUniform {
   pub width: f32,
+  pub style_factor: f32,
+  pub style_pattern: u32,
+  pub enable_round_joint: Bool,
+  pub color: Vec4<f32>,
 }
 
 pub struct WideLineGPU<'a> {
@@ -119,10 +138,12 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
   }
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    let mut uniform = BindingPreparer::new(&self.uniform);
+
     builder.vertex(|builder, binding| {
       let uv = builder.query::<GeometryUV>();
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>();
-      let uniform = binding.bind_by(&self.uniform).load().expand();
+      let uniform = uniform.using(binding).load().expand();
 
       wide_line_vertex(
         builder.query::<WideLineStart>(),
@@ -134,13 +155,30 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
       );
 
       builder.set_vertex_out::<FragmentUv>(uv);
-      builder.set_vertex_out::<DefaultDisplay>(color_with_alpha);
+      builder.set_vertex_out::<DefaultDisplay>(color_with_alpha * uniform.color);
     });
 
-    builder.fragment(|builder, _| {
+    builder.fragment(|builder, binding| {
       let uv = builder.query::<FragmentUv>();
       builder.insert_type_tag::<UnlitMaterialTag>();
-      if_by(discard_round_corner_fn(uv), || {
+      let line_param = uniform.using(binding).load().expand();
+
+      let enable_line_pattern = line_param.style_pattern.not_equals(val(0));
+      let coord = builder.query::<FragmentPosition>().xy();
+      let sc_coord = builder.query::<WideLineScreenCoord>();
+      let should_discard_by_pattern = enable_line_pattern.and(discard_by_line_pattern_fn(
+        line_param.style_factor,
+        line_param.style_pattern,
+        sc_coord,
+        coord,
+      ));
+      if_by(should_discard_by_pattern, || {
+        builder.discard();
+      });
+
+      let enable_round_joint = line_param.enable_round_joint.into_bool();
+      let should_discard_by_joint_style = enable_round_joint.and(discard_by_round_corner_fn(uv));
+      if_by(should_discard_by_joint_style, || {
         builder.discard();
       });
     })

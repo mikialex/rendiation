@@ -14,7 +14,7 @@ pub fn load_widen_points_test(s_writer: &mut SceneWriter) {
   });
 
   let wide_points_model = writer.new_entity(|w| {
-    w.write::<WideStyledPointsColor>(&Vec3::new(0., 0., 1.))
+    w.write::<WideStyledPointsColor>(&Vec4::new(0., 0., 1., 1.))
       .write::<WideStyledPointsMeshBuffer>(&mesh_buffer)
   });
 
