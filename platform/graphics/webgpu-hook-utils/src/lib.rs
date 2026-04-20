@@ -36,11 +36,12 @@ pub fn use_db_device_foreign_key<S: ForeignKeySemantic>(
 
   let (cx, device_mapping_buffer) = cx.use_storage_buffer::<u32>(label, 128, u32::MAX);
 
+  device_mapping_buffer.use_max_item_count_by_db_entity::<S::Entity>(cx);
+
   cx.use_dual_query::<S>()
     .map_raw_handle_or_u32_max_changes()
     .update_storage_array(cx, device_mapping_buffer, 0);
 
-  device_mapping_buffer.use_max_item_count_by_db_entity::<S::Entity>(cx);
   device_mapping_buffer.use_update(cx);
 
   cx.when_render(|| device_mapping_buffer.get_gpu_buffer())

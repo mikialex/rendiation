@@ -61,16 +61,16 @@ pub fn wide_line_vertex(
   offset /= view_size.y().splat();
 
   // select end
-  let clip = position.y().less_than(0.5).select(clip_start, clip_end);
+  let clip_no_offset = position.y().less_than(0.5).select(clip_start, clip_end);
 
   // back to clip space
-  offset = offset * clip.w();
-  let clip: Node<Vec4<f32>> = (clip.xy() + offset, clip.zw()).into();
+  offset = offset * clip_no_offset.w();
+  let clip: Node<Vec4<f32>> = (clip_no_offset.xy() + offset, clip_no_offset.zw()).into();
 
   builder.register::<ClipPosition>(clip);
 
   // for line pattern effect
-  let sc = clip.xy() / clip.w().splat::<Vec2<f32>>();
+  let sc = clip_no_offset.xy() / clip_no_offset.w().splat::<Vec2<f32>>();
   let sc = sc * val(Vec2::splat(0.5)) + val(Vec2::splat(0.5));
   let viewport_size = builder.query::<ViewportRenderBufferSize>();
   builder.set_vertex_out::<WideLineScreenCoord>(sc * viewport_size);
@@ -107,7 +107,7 @@ pub fn discard_by_line_pattern(
 
   let an_axis = (x_ratio - y_ratio)
     .greater_than(0.001)
-    .select(val(Vec2::new(0., 1.0)), val(Vec2::new(1.0, 0.0)));
+    .select(val(Vec2::new(1.0, 0.0)), val(Vec2::new(0.0, 1.0)));
 
   let rotate_point = frag_position.dot(an_axis);
 

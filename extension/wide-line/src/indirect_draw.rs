@@ -1,5 +1,7 @@
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
-use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
+use rendiation_webgpu_midc_downgrade::{
+  require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
+};
 
 use crate::*;
 
@@ -250,6 +252,11 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
       builder.register::<WideLineWidthShader>(line_param.width);
 
       let segments = binding.bind_by(&self.segments);
+
+      // as we are using none indexed draw, this is easier to integrate the midc downgrade
+      if let Some(relative) = builder.try_query::<VertexIndexForMIDCDowngradeRelative>() {
+        builder.register::<VertexIndex>(relative);
+      }
 
       let vertex_index = builder.query::<VertexIndex>();
       let instance_index = vertex_index / val(18);

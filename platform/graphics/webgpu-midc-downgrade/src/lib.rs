@@ -8,6 +8,7 @@ mod host_driven;
 pub use host_driven::*;
 
 only_vertex!(VertexIndexForMIDCDowngrade, u32);
+only_vertex!(VertexIndexForMIDCDowngradeRelative, u32);
 
 pub fn require_midc_downgrade(info: &GPUInfo, force_downgrade: bool) -> bool {
   if force_downgrade {
@@ -181,6 +182,7 @@ impl DowngradeMultiIndirectDrawCountHelperInvocation {
     builder.register::<VertexIndexForMIDCDowngrade>(
       vertex_index_inside_sub_draw + base_vertex_or_index_offset_for_sub_draw,
     );
+    builder.register::<VertexIndexForMIDCDowngradeRelative>(vertex_index_inside_sub_draw);
 
     builder.register::<VertexInstanceIndex>(base_instance);
 
@@ -325,15 +327,16 @@ where
 {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|vertex, binding| {
+      // here we override the builtin
       if self.enable_downgrade {
-        let vertex_real_index = vertex.query::<VertexIndexForMIDCDowngrade>();
         if let Some(index) = &self.index {
+          let vertex_real_index = vertex.query::<VertexIndexForMIDCDowngrade>();
           let index_pool = binding.bind_by(index);
           let index = index_pool.index(vertex_real_index).load();
-          // here we override the builtin
           vertex.register::<VertexIndex>(index);
         } else {
-          vertex.register::<VertexIndex>(vertex_real_index);
+          let relative = vertex.query::<VertexIndexForMIDCDowngradeRelative>();
+          vertex.register::<VertexIndex>(relative);
         }
       }
     });
