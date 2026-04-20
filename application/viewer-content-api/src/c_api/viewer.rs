@@ -119,6 +119,8 @@ pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerPickerAPI) {
 }
 
 /// the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
+///
+/// all inputs are logic pixel
 #[no_mangle]
 pub extern "C" fn picker_pick_list(
   api: *mut ViewerPickerAPI,
@@ -141,6 +143,67 @@ pub extern "C" fn drop_pick_list_result(r: *mut ViewerRayPickListResult) {
   unsafe {
     let _ = Box::from_raw(r);
   };
+}
+
+/// the returned pick range's should be dropped by  [drop_pick_range_result] after read the result
+///
+/// the a, b point can be swapped without order limits.
+///
+/// all inputs are logic pixel
+#[no_mangle]
+pub extern "C" fn picker_pick_range(
+  api: *mut ViewerPickerAPI,
+  viewer: *mut ViewerAPI,
+  scene: ViewerEntityHandle,
+  ax: f32,
+  ay: f32,
+  bx: f32,
+  by: f32,
+  contains: bool,
+) -> *mut ViewerRayPickRangeResult {
+  let api = unsafe { &mut *api };
+  let viewer = unsafe { &mut *viewer };
+  let mut pick_results = Vec::new();
+  api.pick_range(
+    &viewer.viewer,
+    scene.into(),
+    ax,
+    ay,
+    bx,
+    by,
+    &mut pick_results,
+    contains,
+  );
+
+  let r = Box::new(ViewerRayPickRangeResult { pick_results });
+  Box::leak(r)
+}
+
+#[no_mangle]
+pub extern "C" fn drop_pick_range_result(r: *mut ViewerRayPickRangeResult) {
+  unsafe {
+    let _ = Box::from_raw(r);
+  };
+}
+
+pub struct ViewerRayPickRangeResult {
+  pick_results: Vec<ViewerEntityHandle>,
+}
+#[repr(C)]
+pub struct ViewerRayPickRangeResultInfo {
+  pub len: usize,
+  pub ptr: *const ViewerEntityHandle,
+}
+
+#[no_mangle]
+pub extern "C" fn get_ray_pick_range_info(
+  r: *mut ViewerRayPickRangeResult,
+) -> ViewerRayPickRangeResultInfo {
+  let r = unsafe { &*r };
+  ViewerRayPickRangeResultInfo {
+    len: r.pick_results.len(),
+    ptr: r.pick_results.as_ptr(),
+  }
 }
 
 pub struct ViewerRayPickListResult {

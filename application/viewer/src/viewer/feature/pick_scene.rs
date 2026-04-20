@@ -95,51 +95,21 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
     if cx.input.state_delta.is_left_mouse_releasing() {
       if let Some((a, b)) = range_state.take() {
-        let a = a * cx.active_surface_content.device_pixel_ratio;
-        let b = b * cx.active_surface_content.device_pixel_ratio;
-
         log::info!("end range {:?}", (a, b));
+
         access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
-        let scene = cx.active_surface_content.scene;
-
-        let (viewport, normalized_a) =
-          find_top_hit(cx.active_surface_content.viewports.iter(), a.into()).unwrap();
-        let (viewport_, normalized_b) =
-          find_top_hit(cx.active_surface_content.viewports.iter(), b.into()).unwrap();
-        assert_eq!(viewport.id, viewport_.id);
-        let a = Vec2::from(normalized_a);
-        let b = Vec2::from(normalized_b);
-
-        let min = a.min(b);
-        let max = a.max(b);
-
-        dbg!(&min);
-        dbg!(&max);
-
-        let ndc_arr = [
-          min.x as f64,
-          max.x as f64,
-          min.y as f64,
-          max.y as f64,
-          0.0,
-          1.0,
-        ];
-
-        let camera = viewport.camera;
-        let camera_trans = picker
-          .camera_transforms
-          .access(camera.raw_handle_ref())
-          .unwrap();
-
-        let ndc = cx.viewer.ndc();
-        let mat =
-          ndc.transform_into_opengl_standard_ndc().into_f64() * camera_trans.view_projection;
-        let frustum = Frustum::new_from_matrix_ndc(mat, &ndc_arr);
-
-        let r = picker.pick_range(scene, frustum, ObjectTestPolicy::Intersect);
-        log::info!("range pick results {:?}", r);
-        for m in r {
-          cx.active_surface_content.selected_model.add_select(m);
+        if let Some(frustum) =
+          create_range_pick_frustum(a, b, cx.active_surface_content, &picker.picker_impl)
+        {
+          let r = picker.pick_range(
+            cx.active_surface_content.scene,
+            frustum,
+            ObjectTestPolicy::Intersect,
+          );
+          log::info!("range pick results {:?}", r);
+          for m in r {
+            cx.active_surface_content.selected_model.add_select(m);
+          }
         }
       }
       *range_state = None;

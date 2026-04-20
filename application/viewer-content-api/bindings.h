@@ -37,16 +37,31 @@ typedef enum MeshPrimitiveTopology {
   TriangleStrip = 4,
 } MeshPrimitiveTopology;
 
+typedef enum OccStyleZLayer {
+  BotOSD = 0,
+  Default = 1,
+  Top = 2,
+  TopMost = 3,
+  TopOSD = 4,
+} OccStyleZLayer;
+
 typedef struct ViewerAPI ViewerAPI;
 
 typedef struct ViewerPickerAPI ViewerPickerAPI;
 
 typedef struct ViewerRayPickListResult ViewerRayPickListResult;
 
+typedef struct ViewerRayPickRangeResult ViewerRayPickRangeResult;
+
 typedef struct ViewerEntityHandle {
   uint32_t index;
   uint64_t generation;
 } ViewerEntityHandle;
+
+typedef struct ViewerRayPickRangeResultInfo {
+  uintptr_t len;
+  const struct ViewerEntityHandle *ptr;
+} ViewerRayPickRangeResultInfo;
 
 typedef struct ViewerRayPickResult {
   uint32_t primitive_index;
@@ -171,6 +186,8 @@ void viewer_drop_picker_api(struct ViewerPickerAPI *api);
 
 /**
  * the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
+ *
+ * all inputs are logic pixel
  */
 struct ViewerRayPickListResult *picker_pick_list(struct ViewerPickerAPI *api,
                                                  struct ViewerAPI *viewer,
@@ -179,6 +196,26 @@ struct ViewerRayPickListResult *picker_pick_list(struct ViewerPickerAPI *api,
                                                  float y);
 
 void drop_pick_list_result(struct ViewerRayPickListResult *r);
+
+/**
+ * the returned pick range's should be dropped by  [drop_pick_range_result] after read the result
+ *
+ * the a, b point can be swapped without order limits.
+ *
+ * all inputs are logic pixel
+ */
+struct ViewerRayPickRangeResult *picker_pick_range(struct ViewerPickerAPI *api,
+                                                   struct ViewerAPI *viewer,
+                                                   struct ViewerEntityHandle scene,
+                                                   float ax,
+                                                   float ay,
+                                                   float bx,
+                                                   float by,
+                                                   bool contains);
+
+void drop_pick_range_result(struct ViewerRayPickRangeResult *r);
+
+struct ViewerRayPickRangeResultInfo get_ray_pick_range_info(struct ViewerRayPickRangeResult *r);
 
 struct ViewerRayPickListResultInfo get_ray_pick_list_info(struct ViewerRayPickListResult *r);
 
@@ -248,7 +285,7 @@ void scene_model_set_occ_style_view_dep(struct ViewerEntityHandle handle,
 
 void scene_model_remove_occ_style_view_dep(struct ViewerEntityHandle handle);
 
-void scene_model_set_z_layer(struct ViewerEntityHandle handle, OccStyleZLayer z_layer);
+void scene_model_set_z_layer(struct ViewerEntityHandle handle, enum OccStyleZLayer z_layer);
 
 void scene_model_set_priority(struct ViewerEntityHandle handle, uint32_t priority);
 

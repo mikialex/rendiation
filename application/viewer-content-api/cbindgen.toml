@@ -5,4 +5,4 @@ language = "C"
 
 [parse]
 parse_deps = true
-include = ["rendiation-mesh-core"]
+include = ["rendiation-mesh-core", "rendiation-occ-style-draw-control"]

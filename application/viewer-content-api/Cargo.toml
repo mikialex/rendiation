@@ -17,8 +17,9 @@ log = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 rendiation-viewer-content = { path = "../viewer-content" }
 
-# this is necessary as we are export c type from it
+# these dep declare are necessary as we are export c type from them
 rendiation-mesh-core = { path = "../../content/mesh/core" }
+rendiation-occ-style-draw-control = { path = "../../extension/occ-style-draw-control" }
 
 [build-dependencies]
 cbindgen = "0.29.2"

@@ -87,6 +87,7 @@ members = [
   "extension/qbvh-scene",
   "extension/view-dependent-transform",
   "extension/occ-style-draw-control",
+  "extension/occ-style-material",
   "extension/csg-sdf-expression",
   "application/viewer-content",
   "application/viewer-content-api",

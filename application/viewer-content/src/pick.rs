@@ -3,6 +3,8 @@ use crate::*;
 pub struct ViewerPicker {
   pub model_picker: SceneModelPickerWithViewDep<Box<dyn SceneModelPicker>>,
   pub scene_model_iter_provider: Box<dyn SceneModelIterProvider>,
+  pub camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
+  pub ndc: ViewerNDC,
 }
 
 pub struct NaiveSceneModelIterProvider {
@@ -69,6 +71,10 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     .use_shared_dual_query_view(SceneModelViewDependentTransformOccShare(ndc, viewports_map))
     .use_assure_result(cx);
 
+  let camera_transforms = cx
+    .use_shared_dual_query_view(GlobalCameraTransformShare(ndc.clone()))
+    .use_assure_result(cx);
+
   cx.when_resolve_stage(|| {
     let att_mesh_picker = use_attribute_mesh_picker.unwrap();
     let wide_line_picker = wide_line_picker.unwrap();
@@ -112,6 +118,8 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     ViewerPicker {
       model_picker: scene_model_picker,
       scene_model_iter_provider: Box::new(iter_provider),
+      camera_transforms: camera_transforms.expect_resolve_stage(),
+      ndc,
     }
   })
 }
@@ -194,4 +202,44 @@ pub fn create_ray_query_ctx_from_vpc(ctx: &ViewportPointerCtx) -> SceneRayQuery 
     pixels_per_unit_calc: ctx.create_ratio_cal(),
     camera_world: ctx.camera_world_mat,
   }
+}
+
+pub fn create_range_pick_frustum(
+  a: Vec2<f32>,
+  b: Vec2<f32>,
+  surface_content: &ViewerSurfaceContent,
+  picker: &ViewerPicker,
+) -> Option<Frustum<f64>> {
+  let a = a * surface_content.device_pixel_ratio;
+  let b = b * surface_content.device_pixel_ratio;
+
+  let (viewport, normalized_a) = find_top_hit(surface_content.viewports.iter(), a.into())?;
+  let (viewport_, normalized_b) = find_top_hit(surface_content.viewports.iter(), b.into())?;
+  if viewport.id != viewport_.id {
+    return None;
+  }
+  let a = Vec2::from(normalized_a);
+  let b = Vec2::from(normalized_b);
+
+  let min = a.min(b);
+  let max = a.max(b);
+
+  let ndc_arr = [
+    min.x as f64,
+    max.x as f64,
+    min.y as f64,
+    max.y as f64,
+    0.0,
+    1.0,
+  ];
+
+  let camera = viewport.camera;
+  let camera_trans = picker
+    .camera_transforms
+    .access(camera.raw_handle_ref())
+    .unwrap();
+
+  let mat =
+    picker.ndc.transform_into_opengl_standard_ndc().into_f64() * camera_trans.view_projection;
+  Frustum::new_from_matrix_ndc(mat, &ndc_arr).into()
 }

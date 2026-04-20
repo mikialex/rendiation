@@ -61,11 +61,11 @@ pub fn range_pick_models(
   models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
   frustum: &Frustum<f64>,
   policy: ObjectTestPolicy,
-  results: &mut Vec<EntityHandle<SceneModelEntity>>,
+  add_results: &mut dyn FnMut(EntityHandle<SceneModelEntity>),
 ) {
   for m in models {
     if let Some(true) = model_impl.frustum_query(m, None, frustum, policy) {
-      results.push(m);
+      add_results(m);
     }
   }
 }

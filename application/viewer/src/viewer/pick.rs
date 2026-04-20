@@ -6,7 +6,6 @@ use crate::*;
 pub struct ViewerPickerWithCtx {
   pub picker_impl: ViewerPicker,
   pub pointer_ctx: Option<ViewportPointerCtx>,
-  pub camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
 }
 
 impl ViewerPickerWithCtx {
@@ -36,7 +35,7 @@ impl ViewerPickerWithCtx {
       &mut iter,
       &frustum,
       ty,
-      &mut results,
+      &mut |r| results.push(r),
     );
     results
   }
@@ -119,7 +118,6 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerPickerWi
     ViewerPickerWithCtx {
       picker_impl,
       pointer_ctx,
-      camera_transforms: cam_trans,
     }
     .into()
   } else {

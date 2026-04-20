@@ -251,10 +251,6 @@ impl ViewerAPI {
         cx.viewer.viewport_map.clone(),
       );
 
-      let camera_transforms = cx
-        .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.ndc().clone()))
-        .use_assure_result(cx);
-
       cx.when_resolve_stage(|| {
         let active_surface = cx.viewer.surfaces_content.get(&surface_id).unwrap();
         let active_view = active_surface.viewports[0].id;
@@ -263,7 +259,6 @@ impl ViewerAPI {
 
         ViewerPickerAPI {
           picker_impl,
-          camera_transforms: camera_transforms.expect_resolve_stage(),
           surface_id,
         }
       })
@@ -359,7 +354,6 @@ impl ViewerAPI {
 
 pub struct ViewerPickerAPI {
   picker_impl: ViewerPicker,
-  camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
   surface_id: u32,
 }
 
@@ -386,7 +380,8 @@ impl ViewerPickerAPI {
     let mut model_results = Vec::new();
     let mut local_result_scratch = Vec::new();
     let surface_content = viewer.surfaces_content.get(&self.surface_id).unwrap();
-    let ctx = create_viewport_pointer_ctx(surface_content, (x, y), &self.camera_transforms);
+    let ctx =
+      create_viewport_pointer_ctx(surface_content, (x, y), &self.picker_impl.camera_transforms);
 
     if let Some(ctx) = ctx {
       let cx = create_ray_query_ctx_from_vpc(&ctx);
@@ -413,6 +408,44 @@ impl ViewerPickerAPI {
         hit_position: r.hit.position.into_f32().into(),
         scene_model_handle: (*mr).into(),
       })
+    }
+  }
+
+  /// all inputs are logic pixel
+  pub fn pick_range(
+    &mut self,
+    viewer: &Viewer,
+    scene: RawEntityHandle,
+    ax: f32,
+    ay: f32,
+    bx: f32,
+    by: f32,
+    output_results: &mut Vec<ViewerEntityHandle>,
+    contain: bool,
+  ) {
+    let scene = unsafe { EntityHandle::from_raw(scene) };
+    let a = Vec2::new(ax, ay);
+    let b = Vec2::new(bx, by);
+
+    let surface_content = viewer.surfaces_content.get(&self.surface_id).unwrap();
+    if let Some(frustum) = create_range_pick_frustum(a, b, surface_content, &self.picker_impl) {
+      let mut iter = self
+        .picker_impl
+        .scene_model_iter_provider
+        .create_frustum_scene_model_iter(scene, &frustum);
+
+      range_pick_models(
+        &self.picker_impl.model_picker,
+        &mut iter,
+        &frustum,
+        if contain {
+          ObjectTestPolicy::Contains
+        } else {
+          ObjectTestPolicy::Intersect
+        },
+        &mut |r| output_results.push(r.into_raw().into()),
+      );
+      //
     }
   }
 }
