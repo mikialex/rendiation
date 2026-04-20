@@ -48,16 +48,12 @@ impl NodeGPUUniform<'_> {
     &self,
     builder: &mut ShaderRenderPipelineBuilder,
   ) -> GraphicsPairInputNodeAccessor<UniformBufferDataView<NodeUniform>> {
-    builder
-      .bind_by_and_prepare(self.ubo)
-      .using_graphics_pair(|r, node| {
-        let node = node.load().expand();
-        r.register_typed_both_stage::<WorldNoneTranslationMatrix>(
-          node.world_matrix_none_translation,
-        );
-        r.register_typed_both_stage::<WorldPositionHP>(hpt_uniform_to_hpt(node.world_position_hp));
-        r.register_typed_both_stage::<WorldNormalMatrix>(node.normal_matrix);
-      })
+    BindingPreparer::new(self.ubo).using_graphics_pair(builder, |r, node| {
+      let node = node.load().expand();
+      r.register_typed_both_stage::<WorldNoneTranslationMatrix>(node.world_matrix_none_translation);
+      r.register_typed_both_stage::<WorldPositionHP>(hpt_uniform_to_hpt(node.world_position_hp));
+      r.register_typed_both_stage::<WorldNormalMatrix>(node.normal_matrix);
+    })
   }
 }
 

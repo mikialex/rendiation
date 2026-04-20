@@ -38,13 +38,11 @@ impl ShaderPassBuilder for DefaultPassDispatcher {
 
 impl GraphicsShaderProvider for DefaultPassDispatcher {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder
-      .bind_by_and_prepare(&self.pass_info)
-      .using_graphics_pair(|r, pass| {
-        let pass = pass.load().expand();
-        r.register_typed_both_stage::<ViewportRenderBufferSize>(pass.buffer_size);
-        r.register_typed_both_stage::<TexelSize>(pass.texel_size);
-      });
+    BindingPreparer::new(&self.pass_info).using_graphics_pair(builder, |r, pass| {
+      let pass = pass.load().expand();
+      r.register_typed_both_stage::<ViewportRenderBufferSize>(pass.buffer_size);
+      r.register_typed_both_stage::<TexelSize>(pass.texel_size);
+    });
 
     builder.fragment(|builder, _| {
       for &format in &self.formats.color_formats {

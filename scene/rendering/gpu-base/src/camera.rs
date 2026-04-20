@@ -29,27 +29,25 @@ impl CameraGPU {
     &self,
     builder: &mut ShaderRenderPipelineBuilder,
   ) -> GraphicsPairInputNodeAccessor<UniformBufferDataView<CameraGPUTransform>> {
-    builder
-      .bind_by_and_prepare(&self.ubo)
-      .using_graphics_pair(|r, camera| {
-        let camera = camera.load().expand();
+    BindingPreparer::new(&self.ubo).using_graphics_pair(builder, |r, camera| {
+      let camera = camera.load().expand();
 
-        r.register_typed_both_stage::<CameraWorldPositionHP>(hpt_uniform_to_hpt(
-          camera.world_position,
-        ));
-        r.register_typed_both_stage::<CameraProjectionMatrix>(camera.projection);
-        r.register_typed_both_stage::<CameraProjectionInverseMatrix>(camera.projection_inv);
-        r.register_typed_both_stage::<CameraWorldNoneTranslationMatrix>(
-          camera.world_without_translation,
-        );
-        r.register_typed_both_stage::<CameraViewNoneTranslationProjectionMatrix>(
-          camera.view_projection_without_translation,
-        );
-        r.register_typed_both_stage::<CameraViewNoneTranslationProjectionInverseMatrix>(
-          camera.view_projection_inv_without_translation,
-        );
-        r.register_vertex_stage::<CameraJitter>(camera.jitter_normalized);
-      })
+      r.register_typed_both_stage::<CameraWorldPositionHP>(hpt_uniform_to_hpt(
+        camera.world_position,
+      ));
+      r.register_typed_both_stage::<CameraProjectionMatrix>(camera.projection);
+      r.register_typed_both_stage::<CameraProjectionInverseMatrix>(camera.projection_inv);
+      r.register_typed_both_stage::<CameraWorldNoneTranslationMatrix>(
+        camera.world_without_translation,
+      );
+      r.register_typed_both_stage::<CameraViewNoneTranslationProjectionMatrix>(
+        camera.view_projection_without_translation,
+      );
+      r.register_typed_both_stage::<CameraViewNoneTranslationProjectionInverseMatrix>(
+        camera.view_projection_inv_without_translation,
+      );
+      r.register_vertex_stage::<CameraJitter>(camera.jitter_normalized);
+    })
   }
 }
 

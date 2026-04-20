@@ -24,32 +24,54 @@ impl Default for ShaderBindGroupBuilder {
   }
 }
 
+#[derive(Default, Clone)]
+pub struct BindingPreparerInternalStage {
+  internal: Arc<RwLock<Option<Vec<(usize, usize)>>>>,
+}
+
 pub struct BindingPreparer<'a, T> {
   source: &'a T,
-  builder: &'a mut ShaderRenderPipelineBuilder,
-  bind_info: Option<Vec<(usize, usize)>>,
+  bind_info: BindingPreparerInternalStage,
+}
+
+impl<'a, T> BindingPreparer<'a, T> {
+  pub fn new(source: &'a T) -> Self {
+    Self {
+      source,
+      bind_info: Default::default(),
+    }
+  }
+
+  pub fn new_with_state(source: &'a T, bind_info: &BindingPreparerInternalStage) -> Self {
+    Self {
+      source,
+      bind_info: bind_info.clone(),
+    }
+  }
 }
 
 impl<T: AbstractShaderBindingSource> BindingPreparer<'_, T> {
-  pub fn using(&mut self) -> T::ShaderBindResult {
-    self.builder.binding_re_enter = if let Some(bind_info) = &self.bind_info {
+  pub fn using(&mut self, binding: &mut ShaderBindGroupBuilder) -> T::ShaderBindResult {
+    let mut bind_info = self.bind_info.internal.write();
+    binding.binding_re_enter = if let Some(bind_info) = &*bind_info {
       BindingReEnter::ReEnter(bind_info.clone(), 0)
     } else {
       BindingReEnter::Recording(Default::default())
     };
-    let r = self.source.bind_shader(self.builder);
+    let r = self.source.bind_shader(binding);
 
-    if let BindingReEnter::Recording(info) = &mut self.builder.binding_re_enter {
-      self.bind_info = Some(info.clone());
+    if let BindingReEnter::Recording(info) = &mut binding.binding_re_enter {
+      *bind_info = Some(info.clone());
     }
 
-    self.builder.binding_re_enter = BindingReEnter::None;
+    binding.binding_re_enter = BindingReEnter::None;
 
     r
   }
 
   pub fn using_graphics_pair(
     mut self,
+    builder: &mut ShaderRenderPipelineBuilder,
     register: impl Fn(&mut SemanticRegistry, &T::ShaderBindResult),
   ) -> GraphicsPairInputNodeAccessor<T> {
     assert!(
@@ -57,11 +79,11 @@ impl<T: AbstractShaderBindingSource> BindingPreparer<'_, T> {
       "using_graphics_pair must be called outside any graphics sub shader stage"
     );
     set_current_building(ShaderStage::Vertex.into());
-    let vertex = self.using();
-    register(&mut self.builder.vertex.registry, &vertex);
+    let vertex = self.using(builder);
+    register(&mut builder.vertex.registry, &vertex);
     set_current_building(ShaderStage::Fragment.into());
-    let fragment = self.using();
-    register(&mut self.builder.fragment.registry, &fragment);
+    let fragment = self.using(builder);
+    register(&mut builder.fragment.registry, &fragment);
     set_current_building(None);
     GraphicsPairInputNodeAccessor { vertex, fragment }
   }
@@ -142,19 +164,8 @@ impl ShaderBindGroupBuilder {
 }
 
 impl ShaderRenderPipelineBuilder {
-  pub fn bind_by_and_prepare<'a, T: AbstractShaderBindingSource>(
-    &'a mut self,
-    instance: &'a T,
-  ) -> BindingPreparer<'a, T> {
-    BindingPreparer {
-      source: instance,
-      builder: self,
-      bind_info: None,
-    }
-  }
-
   /// use in current stage directly
   pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> T::ShaderInstance {
-    self.bind_by_and_prepare(instance).using()
+    BindingPreparer::new(instance).using(self)
   }
 }
