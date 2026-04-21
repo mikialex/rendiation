@@ -23,12 +23,21 @@ pub fn register_selectable_data_model() {
 
 pub struct SceneRayQuery {
   pub world_ray: Ray3<f64>,
+  pub camera_ctx: CameraQueryCtx,
+}
+
+pub struct SceneFrustumQuery {
+  pub world_frustum: Frustum<f64>,
+  pub camera_ctx: CameraQueryCtx,
+}
+
+pub struct CameraQueryCtx {
   pub camera_view_size_in_logic_pixel: Size,
   pub pixels_per_unit_calc: Box<dyn Fn(f32, f32) -> f32>,
   pub camera_world: Mat4<f64>,
 }
 
-impl SceneRayQuery {
+impl CameraQueryCtx {
   pub fn compute_local_tolerance(
     &self,
     tolerance: IntersectTolerance,
@@ -39,7 +48,7 @@ impl SceneRayQuery {
     let mut local_tolerance = tolerance.value / target_world_mat_max_scale as f32;
 
     if let ToleranceType::ScreenSpace = tolerance.ty {
-      let camera_to_target = target_object_center_in_world - self.world_ray.origin;
+      let camera_to_target = target_object_center_in_world - self.camera_world.position();
       let projected_distance = camera_to_target.dot(self.camera_world.forward().reverse());
       let pixel_per_unit = (self.pixels_per_unit_calc)(
         projected_distance as f32,

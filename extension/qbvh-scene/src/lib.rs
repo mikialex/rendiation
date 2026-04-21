@@ -1,4 +1,5 @@
 use database::*;
+use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_qbvh::*;
 use rendiation_scene_core::*;

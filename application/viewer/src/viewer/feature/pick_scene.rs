@@ -103,7 +103,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
         {
           let r = picker.pick_range(
             cx.active_surface_content.scene,
-            frustum,
+            &frustum,
             ObjectTestPolicy::Intersect,
           );
           log::info!("range pick results {:?}", r);

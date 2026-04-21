@@ -22,18 +22,18 @@ impl ViewerPickerWithCtx {
   pub fn pick_range(
     &self,
     scene: EntityHandle<SceneEntity>,
-    frustum: Frustum<f64>,
+    frustum: &SceneFrustumQuery,
     ty: ObjectTestPolicy,
   ) -> Vec<EntityHandle<SceneModelEntity>> {
     let mut iter = self
       .picker_impl
       .scene_model_iter_provider
-      .create_frustum_scene_model_iter(scene, &frustum);
+      .create_frustum_scene_model_iter(scene, frustum);
     let mut results = Vec::default();
     range_pick_models(
       &self.picker_impl.model_picker,
       &mut iter,
-      &frustum,
+      frustum,
       ty,
       &mut |r| results.push(r),
     );

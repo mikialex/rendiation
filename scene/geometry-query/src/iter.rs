@@ -5,7 +5,7 @@ pub trait SceneModelIterProvider {
   fn create_frustum_scene_model_iter<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
-    frustum: &Frustum<f64>,
+    frustum: &'a SceneFrustumQuery,
   ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a>;
   fn create_ray_scene_model_iter<'a>(
     &'a self,
@@ -59,7 +59,7 @@ pub fn pick_models_nearest(
 pub fn range_pick_models(
   model_impl: &dyn SceneModelPicker,
   models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-  frustum: &Frustum<f64>,
+  frustum: &SceneFrustumQuery,
   policy: ObjectTestPolicy,
   add_results: &mut dyn FnMut(EntityHandle<SceneModelEntity>),
 ) {

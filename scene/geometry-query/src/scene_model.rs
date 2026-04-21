@@ -26,7 +26,7 @@ pub trait SceneModelPicker {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
-    frustum: &Frustum<f64>,
+    frustum: &SceneFrustumQuery,
     policy: ObjectTestPolicy,
   ) -> Option<bool>;
 }
@@ -62,7 +62,7 @@ impl<'a> SceneModelPicker for Box<dyn SceneModelPicker + 'a> {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
-    frustum: &Frustum<f64>,
+    frustum: &SceneFrustumQuery,
     policy: ObjectTestPolicy,
   ) -> Option<bool> {
     (**self).frustum_query(idx, override_world_mat, frustum, policy)
@@ -107,7 +107,7 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
-    frustum: &Frustum<f64>,
+    frustum: &SceneFrustumQuery,
     policy: ObjectTestPolicy,
   ) -> Option<bool> {
     for provider in self {
@@ -271,7 +271,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
-    frustum: &Frustum<f64>,
+    frustum: &SceneFrustumQuery,
     policy: ObjectTestPolicy,
   ) -> Option<bool> {
     let node = self.pre_check(idx)?;
@@ -292,7 +292,9 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
 
     // todo, early return
 
-    let frustum = frustum.apply_matrix_into(mat.inverse_or_identity());
+    let frustum = frustum
+      .world_frustum
+      .apply_matrix_into(mat.inverse_or_identity());
     let frustum = frustum.into_f32();
 
     self.internal.frustum_query_local(idx, &frustum, policy)
@@ -310,7 +312,9 @@ fn pre_check_bounding_early_return_and_compute_local_tolerance(
     let target_world_center = sm_world_bounding.center();
 
     let local_tolerance =
-      ctx.compute_local_tolerance(tolerance, mat.max_scale(), target_world_center);
+      ctx
+        .camera_ctx
+        .compute_local_tolerance(tolerance, mat.max_scale(), target_world_center);
     sm_world_bounding = sm_world_bounding.enlarge(local_tolerance as f64);
     local_tolerance
   } else {

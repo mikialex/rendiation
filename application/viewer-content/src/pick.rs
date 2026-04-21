@@ -3,6 +3,7 @@ use crate::*;
 pub struct ViewerPicker {
   pub model_picker: SceneModelPickerWithViewDep<Box<dyn SceneModelPicker>>,
   pub scene_model_iter_provider: Box<dyn SceneModelIterProvider>,
+  pub bvh: LockReadGuardHolder<rendiation_qbvh_scene::SceneQbvh>,
   pub camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
   pub ndc: ViewerNDC,
 }
@@ -37,7 +38,7 @@ impl SceneModelIterProvider for NaiveSceneModelIterProvider {
   fn create_frustum_scene_model_iter<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
-    _frustum: &Frustum<f64>,
+    _frustum: &SceneFrustumQuery,
   ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
     self.create_full_scene_iter(scene)
   }
@@ -60,8 +61,15 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     .use_assure_result(cx);
 
   let sm_world_bounding = cx
-    .use_shared_dual_query_view(SceneModelWorldBounding(font_system))
+    .use_shared_dual_query_view(SceneModelWorldBounding(font_system.clone()))
     .use_assure_result(cx);
+
+  let (sm_world_bounding_valid, sm_w) = cx
+    .use_shared_dual_query(SceneModelWorldBounding(font_system))
+    .dual_query_filter_map(|v| v)
+    .fork();
+  let margin = sm_w.dual_query_map(|_| 0.); // todo, use correct margin source
+  let qbvh = rendiation_qbvh_scene::use_scene_qbvh(cx, sm_world_bounding_valid, margin);
 
   let sms = cx
     .use_db_rev_ref::<SceneModelBelongsToScene>()
@@ -119,6 +127,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
       model_picker: scene_model_picker,
       scene_model_iter_provider: Box::new(iter_provider),
       camera_transforms: camera_transforms.expect_resolve_stage(),
+      bvh: qbvh.unwrap(),
       ndc,
     }
   })
@@ -196,6 +205,12 @@ pub fn read_common_proj_from_db(
 pub fn create_ray_query_ctx_from_vpc(ctx: &ViewportPointerCtx) -> SceneRayQuery {
   SceneRayQuery {
     world_ray: ctx.world_ray,
+    camera_ctx: create_camera_query_ctx_from_vpc(ctx),
+  }
+}
+
+pub fn create_camera_query_ctx_from_vpc(ctx: &ViewportPointerCtx) -> CameraQueryCtx {
+  CameraQueryCtx {
     camera_view_size_in_logic_pixel: Size::from_u32_pair_min_one(
       ctx.view_logical_pixel_size.into(),
     ),
@@ -209,7 +224,8 @@ pub fn create_range_pick_frustum(
   b: Vec2<f32>,
   surface_content: &ViewerSurfaceContent,
   picker: &ViewerPicker,
-) -> Option<Frustum<f64>> {
+) -> Option<SceneFrustumQuery> {
+  let raw_a = a;
   let a = a * surface_content.device_pixel_ratio;
   let b = b * surface_content.device_pixel_ratio;
 
@@ -241,5 +257,14 @@ pub fn create_range_pick_frustum(
 
   let mat =
     picker.ndc.transform_into_opengl_standard_ndc().into_f64() * camera_trans.view_projection;
-  Frustum::new_from_matrix_ndc(mat, &ndc_arr).into()
+  let frustum = Frustum::new_from_matrix_ndc(mat, &ndc_arr);
+
+  let ctx = create_viewport_pointer_ctx(surface_content, raw_a.into(), &picker.camera_transforms)?;
+  let camera_ctx = create_camera_query_ctx_from_vpc(&ctx);
+
+  SceneFrustumQuery {
+    world_frustum: frustum,
+    camera_ctx,
+  }
+  .into()
 }
