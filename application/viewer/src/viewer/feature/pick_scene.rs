@@ -45,6 +45,10 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
           &mut cx.viewer.features_config.pick_scene.enable_hit_debug_log,
           "enable pick log",
         );
+        ui.checkbox(
+          &mut cx.viewer.features_config.pick_scene.range_query_contains,
+          "use contain test for range test",
+        );
       });
 
     // draw ui rect
@@ -67,6 +71,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
   }
 
   let enable_hit_debug_log = cx.viewer.features_config.pick_scene.enable_hit_debug_log;
+  let use_contain_for_range_test = cx.viewer.features_config.pick_scene.range_query_contains;
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     if let Some(f) = gpu_pick_future {
@@ -104,7 +109,11 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
           let r = picker.pick_range(
             cx.active_surface_content.scene,
             &frustum,
-            ObjectTestPolicy::Intersect,
+            if use_contain_for_range_test {
+              ObjectTestPolicy::Contains
+            } else {
+              ObjectTestPolicy::Intersect
+            },
           );
           log::info!("range pick results {:?}", r);
           for m in r {

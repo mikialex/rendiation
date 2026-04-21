@@ -184,9 +184,13 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       .apply_matrix_into(mat.inverse_or_identity()) // todo, cache inverse mat
       .into_f32();
 
-    let hit = self
-      .internal
-      .ray_query_local_nearest(idx, local_ray, local_tolerance)?;
+    let hit = self.internal.ray_query_local_nearest(
+      idx,
+      local_ray,
+      local_tolerance,
+      &mat,
+      &ctx.camera_ctx,
+    )?;
 
     let position = hit.hit.position.into_f64();
     let world_hit_position = position.apply_matrix_into(mat);
@@ -247,9 +251,14 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
 
     local_result_scratch.clear();
 
-    self
-      .internal
-      .ray_query_local_all(idx, local_ray, local_tolerance, local_result_scratch)?;
+    self.internal.ray_query_local_all(
+      idx,
+      local_ray,
+      local_tolerance,
+      local_result_scratch,
+      &mat,
+      &ctx.camera_ctx,
+    )?;
 
     results.reserve(local_result_scratch.len());
     local_result_scratch
@@ -271,7 +280,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
-    frustum: &SceneFrustumQuery,
+    ctx: &SceneFrustumQuery,
     policy: ObjectTestPolicy,
   ) -> Option<bool> {
     let node = self.pre_check(idx)?;
@@ -292,12 +301,14 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
 
     // todo, early return
 
-    let frustum = frustum
+    let frustum = ctx
       .world_frustum
       .apply_matrix_into(mat.inverse_or_identity());
     let frustum = frustum.into_f32();
 
-    self.internal.frustum_query_local(idx, &frustum, policy)
+    self
+      .internal
+      .frustum_query_local(idx, &frustum, policy, &mat, &ctx.camera_ctx)
   }
 }
 

@@ -39,6 +39,7 @@ pub struct PickScenePersistConfig {
   /// prefer gpu picking for nearest hit query if target platform has correct support
   pub prefer_gpu_picking: bool,
   pub enable_hit_debug_log: bool,
+  pub range_query_contains: bool,
 }
 
 impl Default for PickScenePersistConfig {
@@ -46,6 +47,7 @@ impl Default for PickScenePersistConfig {
     Self {
       prefer_gpu_picking: true,
       enable_hit_debug_log: true,
+      range_query_contains: false,
     }
   }
 }

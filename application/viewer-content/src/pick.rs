@@ -55,6 +55,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
 
   let use_attribute_mesh_picker = use_attribute_mesh_picker(cx);
   let wide_line_picker = use_wide_line_picker(cx);
+  let wide_point_picker = use_wide_points_picker(cx);
 
   let sm_local_bounding = cx
     .use_shared_dual_query_view(SceneModelLocalBounding(font_system.clone()))
@@ -86,9 +87,13 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
   cx.when_resolve_stage(|| {
     let att_mesh_picker = use_attribute_mesh_picker.unwrap();
     let wide_line_picker = wide_line_picker.unwrap();
+    let wide_point_picker = wide_point_picker.unwrap();
 
-    let local_model_pickers: Vec<Box<dyn LocalModelPicker>> =
-      vec![Box::new(att_mesh_picker), Box::new(wide_line_picker)];
+    let local_model_pickers: Vec<Box<dyn LocalModelPicker>> = vec![
+      Box::new(att_mesh_picker),
+      Box::new(wide_line_picker),
+      Box::new(wide_point_picker),
+    ];
 
     let scene_model_picker = SceneModelPickerBaseImpl {
       internal: local_model_pickers,
@@ -166,7 +171,7 @@ pub fn create_viewport_pointer_ctx(
   let projection = camera_proj.compute_projection_mat(&OpenGLxNDC);
   let projection_inv = projection.inverse_or_identity();
 
-  let view_physical_pixel_size = viewport.viewport.yw();
+  let view_physical_pixel_size = viewport.viewport.zw();
 
   let view_logical_pixel_size = Vec2::new(
     view_physical_pixel_size.x() / surface_content.device_pixel_ratio,
@@ -216,6 +221,7 @@ pub fn create_camera_query_ctx_from_vpc(ctx: &ViewportPointerCtx) -> CameraQuery
     ),
     pixels_per_unit_calc: ctx.create_ratio_cal(),
     camera_world: ctx.camera_world_mat,
+    camera_vp: ctx.projection.into_f64() * ctx.camera_world_mat.inverse_or_identity(),
   }
 }
 

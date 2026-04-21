@@ -35,6 +35,7 @@ pub struct CameraQueryCtx {
   pub camera_view_size_in_logic_pixel: Size,
   pub pixels_per_unit_calc: Box<dyn Fn(f32, f32) -> f32>,
   pub camera_world: Mat4<f64>,
+  pub camera_vp: Mat4<f64>,
 }
 
 impl CameraQueryCtx {

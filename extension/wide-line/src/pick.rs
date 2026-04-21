@@ -66,6 +66,8 @@ impl LocalModelPicker for WideLinePicker {
     idx: EntityHandle<SceneModelEntity>,
     local_ray: Ray3<f32>,
     local_tolerance: f32,
+    _world_mat: &Mat4<f64>,
+    _camera_ctx: &CameraQueryCtx,
   ) -> Option<MeshBufferHitPoint> {
     *self
       .mesh_view(idx)?
@@ -78,6 +80,8 @@ impl LocalModelPicker for WideLinePicker {
     local_ray: Ray3<f32>,
     local_tolerance: f32,
     results: &mut Vec<MeshBufferHitPoint>,
+    _world_mat: &Mat4<f64>,
+    _camera_ctx: &CameraQueryCtx,
   ) -> Option<()> {
     self
       .mesh_view(idx)?
@@ -90,6 +94,8 @@ impl LocalModelPicker for WideLinePicker {
     idx: EntityHandle<SceneModelEntity>,
     f: &Frustum,
     policy: ObjectTestPolicy,
+    _world_mat: &Mat4<f64>,
+    _camera_ctx: &CameraQueryCtx,
   ) -> Option<bool> {
     let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |line| match policy {
       ObjectTestPolicy::Intersect => f.contains(&line.start) || f.contains(&line.end),

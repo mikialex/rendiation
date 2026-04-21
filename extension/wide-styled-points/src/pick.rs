@@ -1,4 +1,5 @@
-use rendiation_geometry::Box3;
+use rendiation_geometry::*;
+use rendiation_scene_geometry_query::*;
 
 // use rendiation_scene_geometry_query::LocalModelPicker;
 use crate::*;
@@ -28,91 +29,177 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideStyledPointsSceneModelLo
   }
 }
 
-// pub fn use_wide_points_picker(cx: &mut impl DBHookCxLike) -> Option<WidePointsPicker> {
-//   cx.when_resolve_stage(|| WidePointsPicker {
-//     points: read_global_db_component(),
-//     relation: read_global_db_foreign_key(),
-//   })
-// }
+pub fn use_wide_points_picker(cx: &mut impl DBHookCxLike) -> Option<WidePointsPicker> {
+  let max_size = cx
+    .use_dual_query::<WideStyledPointsMeshBuffer>()
+    .use_dual_query_execute_map(cx, || {
+      |_, buffer| {
+        // here we assume the buffer is correctly aligned
+        let points: &[WideStyledPointVertex] = cast_slice(buffer.as_slice());
+        let mut max_size = 0.;
+        for p in points {
+          max_size = max_size.max(p.width);
+        }
+        max_size
+      }
+    })
+    .use_assure_result(cx);
 
-// pub struct WidePointsPicker {
-//   pub points: ComponentReadView<WideStyledPointsMeshBuffer>,
-//   pub relation: ForeignKeyReadView<SceneModelWideStyledPointsRenderPayload>,
-// }
+  cx.when_resolve_stage(|| WidePointsPicker {
+    points: read_global_db_component(),
+    relation: read_global_db_foreign_key(),
+    max_size: max_size.expect_resolve_stage().view().into_boxed(),
+  })
+}
 
-// impl LocalModelPicker for WidePointsPicker {
-//   fn bounding_enlarge_tolerance(
-//     &self,
-//     idx: EntityHandle<SceneModelEntity>,
-//   ) -> Option<Option<IntersectTolerance>> {
-//     let point = self.relation.get(idx)?;
-//     let mesh = self.points.get(point)?;
-//     // let line_width = self.line_width.get_value(point)?;
-//     // let pick_line_tolerance = IntersectTolerance::new(line_width / 2., ToleranceType::ScreenSpace);
-//     // Some(Some(pick_line_tolerance))
-//     todo!()
-//   }
+pub struct WidePointsPicker {
+  pub points: ComponentReadView<WideStyledPointsMeshBuffer>,
+  pub relation: ForeignKeyReadView<SceneModelWideStyledPointsRenderPayload>,
+  pub max_size: BoxedDynQuery<RawEntityHandle, f32>,
+}
 
-//   fn ray_query_local_nearest(
-//     &self,
-//     idx: EntityHandle<SceneModelEntity>,
-//     local_ray: Ray3<f32>,
-//     local_tolerance: f32,
-//   ) -> Option<MeshBufferHitPoint> {
-//     // let point = self.relation.get(idx)?;
-//     // let lines = self.lines.get(point)?;
+impl WidePointsPicker {
+  fn create_view(&self, idx: EntityHandle<SceneModelEntity>) -> Option<WidePointPickView<'_>> {
+    let point = self.relation.get(idx)?;
+    let points = self.points.get(point)?;
 
-//     // // here we assume the buffer is correctly aligned
-//     // let lines = cast_slice(lines);
+    // here we assume the buffer is correctly aligned
+    let points = cast_slice(points);
+    WidePointPickView { points }.into()
+  }
+}
 
-//     // *WidePointPickView { lines }.ray_intersect_nearest(local_ray, &local_tolerance)
-//     todo!()
-//   }
+impl LocalModelPicker for WidePointsPicker {
+  fn bounding_enlarge_tolerance(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Option<IntersectTolerance>> {
+    let point = self.relation.get(idx)?;
+    let size = self.max_size.access(&point.raw_handle_ref())?;
+    Some(Some(IntersectTolerance::new(
+      size,
+      ToleranceType::ScreenSpace,
+    )))
+  }
 
-//   fn ray_query_local_all(
-//     &self,
-//     idx: EntityHandle<SceneModelEntity>,
-//     local_ray: Ray3<f32>,
-//     _local_tolerance: f32,
-//     results: &mut Vec<MeshBufferHitPoint>,
-//   ) -> Option<()> {
-//     let point = self.relation.get(idx)?;
-//     let points = self.points.get(point)?;
+  fn ray_query_local_nearest(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    local_ray: Ray3<f32>,
+    _local_tolerance: f32,
+    world_mat: &Mat4<f64>,
+    camera_ctx: &CameraQueryCtx,
+  ) -> Option<MeshBufferHitPoint> {
+    let mut nearest = OptionalNearest::none();
 
-//     // here we assume the buffer is correctly aligned
-//     let points: &[WideStyledPointVertex] = cast_slice(points);
+    self
+      .create_view(idx)?
+      .iter_pick_test(local_ray, world_mat, camera_ctx)
+      .for_each(|r| {
+        nearest.refresh_nearest(OptionalNearest::some(r));
+      });
 
-//     let camera_proj: Mat4<f32> = todo!();
-//     let camera_world: Mat4<f32> = todo!();
-//     let object_world: Mat4<f32> = todo!();
+    *nearest
+  }
 
-//     let local_to_ndc: Mat4<f32> = todo!();
+  fn ray_query_local_all(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    local_ray: Ray3<f32>,
+    _local_tolerance: f32,
+    results: &mut Vec<MeshBufferHitPoint>,
+    world_mat: &Mat4<f64>,
+    camera_ctx: &CameraQueryCtx,
+  ) -> Option<()> {
+    self
+      .create_view(idx)?
+      .iter_pick_test(local_ray, world_mat, camera_ctx)
+      .for_each(|r| results.push(r));
 
-//     for p in points {
-//       let p_in_ndc = p.position.apply_matrix_into(local_to_ndc);
-//       // do test in screen space if we have hit, then go back to world
+    Some(())
+  }
 
-//       // let tri
-//     }
+  fn frustum_query_local(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    frustum: &Frustum,
+    policy: ObjectTestPolicy,
+    world_mat: &Mat4<f64>,
+    camera_ctx: &CameraQueryCtx,
+  ) -> Option<bool> {
+    let mut iter = self
+      .create_view(idx)?
+      .iter_tri_in_local(world_mat, camera_ctx);
 
-//     // WidePointPickView { lines }.ray_intersect_all(local_ray, &local_tolerance, results);
-//     // Some(())
-//     todo!()
-//   }
-// }
+    let tester = |(_, tri): (usize, Triangle3D)| frustum_test_tri(frustum, &tri, policy);
 
-// // struct WidePointPickView<'a> {
-// //   lines: &'a [WideStyledPointVertex],
-// // }
+    let r = match policy {
+      ObjectTestPolicy::Intersect => iter.any(tester),
+      ObjectTestPolicy::Contains => iter.all(tester),
+    };
 
-// // impl<'a> AbstractMesh for WidePointPickView<'a> {
-// //   type Primitive = Point<Vec3<f32>>;
-// //   fn primitive_count(&self) -> usize {
-// //     self.lines.len()
-// //   }
+    Some(r)
+  }
+}
 
-// //   fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive> {
-// //     let point = self.lines.get(primitive_index)?;
-// //     Some(LineSegment::new(point.start, point.end))
-// //   }
-// // }
+struct WidePointPickView<'a> {
+  points: &'a [WideStyledPointVertex],
+}
+
+impl<'a> WidePointPickView<'a> {
+  pub fn iter_tri_in_local(
+    &self,
+    world_mat: &Mat4<f64>,
+    camera_ctx: &'a CameraQueryCtx,
+  ) -> impl Iterator<Item = (usize, Triangle3D)> + 'a {
+    // todo, support high precision
+    let local_to_ndc = (camera_ctx.camera_vp * *world_mat).into_f32();
+    let ndc_to_local = local_to_ndc.inverse_or_identity();
+
+    self
+      .points
+      .iter()
+      .enumerate()
+      .flat_map(move |(primitive_index, p)| {
+        let p_in_ndc = p.position.apply_matrix_into(local_to_ndc);
+        p_in_ndc.xy();
+        let width_half = p.width / 2.;
+        let offset = Vec2::new(width_half, width_half)
+          / Vec2::from(camera_ctx.camera_view_size_in_logic_pixel.into_f32());
+        let max = p_in_ndc.xy() + offset;
+        let min = p_in_ndc.xy() - offset;
+        let z = p_in_ndc.z();
+
+        let max = Vec3::new(max.x, max.y, z);
+        let min = Vec3::new(min.x, min.y, z);
+        let left_up = Vec3::new(min.x, max.y, z);
+        let right_bottom = Vec3::new(max.x, min.y, z);
+
+        let tri_a = Triangle::new(left_up, right_bottom, max);
+        let tri_b = Triangle::new(left_up, min, right_bottom);
+
+        let tri_a = tri_a.apply_matrix_into(ndc_to_local);
+        let tri_b = tri_b.apply_matrix_into(ndc_to_local);
+
+        [(primitive_index, tri_a), (primitive_index, tri_b)]
+      })
+  }
+  pub fn iter_pick_test(
+    &self,
+    local_ray: Ray3<f32>,
+    world_mat: &Mat4<f64>,
+    camera_ctx: &'a CameraQueryCtx,
+  ) -> impl Iterator<Item = MeshBufferHitPoint> + 'a {
+    self
+      .iter_tri_in_local(world_mat, camera_ctx)
+      .filter_map(move |(primitive_index, tri)| {
+        local_ray
+          .intersect(&tri, &FaceSide::Double)
+          .0
+          .map(|hit| MeshBufferHitPoint {
+            hit,
+            primitive_index,
+          })
+      })
+  }
+}
