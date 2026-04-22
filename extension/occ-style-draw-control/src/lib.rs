@@ -17,7 +17,7 @@ pub use gles::*;
 #[repr(C)]
 #[derive(Serialize, Deserialize, Facet)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum OccStyleZLayer {
+pub enum OccFlavorZLayer {
   BotOSD = 0,
   #[default]
   Default = 1,
@@ -26,7 +26,7 @@ pub enum OccStyleZLayer {
   TopOSD = 4,
 }
 
-declare_component!(SceneModelOccStyleLayer, SceneModelEntity, OccStyleZLayer);
+declare_component!(SceneModelOccStyleLayer, SceneModelEntity, OccFlavorZLayer);
 declare_component!(SceneModelOccStylePriority, SceneModelEntity, u32);
 
 pub fn register_occ_style_draw_control_data_model() {
@@ -37,7 +37,7 @@ pub fn register_occ_style_draw_control_data_model() {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OccSceneModelGroupKey {
   pub internal: SceneModelGroupKey,
-  pub layer: OccStyleZLayer,
+  pub layer: OccFlavorZLayer,
 }
 
 pub fn use_scene_model_occ_group_key(

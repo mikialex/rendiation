@@ -23,6 +23,10 @@ fn on_panic(panic: &PanicHookInfo) {
   let backtrace = Backtrace::force_capture();
   let content = format!("{panic}\n{backtrace}\n");
 
+  println!("rendiation panic");
+  println!("{:?}", panic.payload_as_str());
+  println!("{}", backtrace);
+
   let mut file = std::fs::OpenOptions::new()
     .create(true)
     .append(true)

@@ -37,13 +37,13 @@ typedef enum MeshPrimitiveTopology {
   TriangleStrip = 4,
 } MeshPrimitiveTopology;
 
-typedef enum OccStyleZLayer {
+typedef enum OccFlavorZLayer {
   BotOSD = 0,
   Default = 1,
   Top = 2,
   TopMost = 3,
   TopOSD = 4,
-} OccStyleZLayer;
+} OccFlavorZLayer;
 
 typedef struct ViewerAPI ViewerAPI;
 
@@ -285,7 +285,7 @@ void scene_model_set_occ_style_view_dep(struct ViewerEntityHandle handle,
 
 void scene_model_remove_occ_style_view_dep(struct ViewerEntityHandle handle);
 
-void scene_model_set_z_layer(struct ViewerEntityHandle handle, enum OccStyleZLayer z_layer);
+void scene_model_set_z_layer(struct ViewerEntityHandle handle, enum OccFlavorZLayer z_layer);
 
 void scene_model_set_priority(struct ViewerEntityHandle handle, uint32_t priority);
 
@@ -299,6 +299,10 @@ struct SceneWidePointsHandleInfo create_wide_points(struct ViewerEntityHandle no
                                                     uint32_t data_length,
                                                     const uint8_t *data);
 
+void wide_points_set_buffer(struct ViewerEntityHandle handle,
+                            uint32_t data_length,
+                            const uint8_t *data);
+
 void wide_points_set_color(struct ViewerEntityHandle handle, const float (*color)[4]);
 
 void wide_points_set_pattern_texture(struct ViewerEntityHandle handle,
@@ -310,6 +314,10 @@ void drop_wide_points(struct SceneWidePointsHandleInfo p);
 struct SceneWideLineHandleInfo create_wide_line(struct ViewerEntityHandle node,
                                                 uint32_t data_length,
                                                 const uint8_t *data);
+
+void wide_line_set_buffer(struct ViewerEntityHandle handle,
+                          uint32_t data_length,
+                          const uint8_t *data);
 
 void wide_line_set_color(struct ViewerEntityHandle handle, const float (*color)[4]);
 

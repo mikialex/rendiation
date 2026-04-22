@@ -103,7 +103,7 @@ pub extern "C" fn scene_model_remove_occ_style_view_dep(handle: ViewerEntityHand
 }
 
 #[no_mangle]
-pub extern "C" fn scene_model_set_z_layer(handle: ViewerEntityHandle, z_layer: OccStyleZLayer) {
+pub extern "C" fn scene_model_set_z_layer(handle: ViewerEntityHandle, z_layer: OccFlavorZLayer) {
   write_global_db_component::<SceneModelOccStyleLayer>().write(handle.into(), z_layer);
 }
 
@@ -166,6 +166,19 @@ pub extern "C" fn create_wide_points(
 }
 
 #[no_mangle]
+pub extern "C" fn wide_points_set_buffer(
+  handle: ViewerEntityHandle,
+  data_length: u32,
+  data: *const u8,
+) {
+  let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = data.to_vec();
+  let data = ExternalRefPtr::new(data);
+
+  write_global_db_component::<WideStyledPointsMeshBuffer>().write(handle.into(), data.into());
+}
+
+#[no_mangle]
 pub extern "C" fn wide_points_set_color(handle: ViewerEntityHandle, color: &[f32; 4]) {
   write_global_db_component::<WideStyledPointsColor>().write(handle.into(), (*color).into());
 }
@@ -221,6 +234,19 @@ pub extern "C" fn create_wide_line(
     scene_model: scene_model.into(),
     line: line.into(),
   }
+}
+
+#[no_mangle]
+pub extern "C" fn wide_line_set_buffer(
+  handle: ViewerEntityHandle,
+  data_length: u32,
+  data: *const u8,
+) {
+  let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = data.to_vec();
+  let data = ExternalRefPtr::new(data);
+
+  write_global_db_component::<WideLineMeshBuffer>().write(handle.into(), data.into());
 }
 
 #[no_mangle]

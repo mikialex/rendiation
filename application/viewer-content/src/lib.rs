@@ -36,7 +36,7 @@ pub use rendiation_mesh_lod_graph_rendering::{
   StandardModelRefLodGraphMeshEntity,
 };
 pub use rendiation_occ_style_draw_control::{
-  OccStyleZLayer, SceneModelOccStyleLayer, SceneModelOccStylePriority,
+  OccFlavorZLayer, SceneModelOccStyleLayer, SceneModelOccStylePriority,
 };
 use rendiation_scene_batch_extractor::*;
 pub use rendiation_scene_core::*;

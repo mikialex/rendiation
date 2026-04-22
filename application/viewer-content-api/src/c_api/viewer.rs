@@ -17,6 +17,8 @@ pub extern "C" fn create_viewer_content_api_instance(config_path: *const c_char)
     ViewerInitConfig::default()
   };
 
+  log::info!("create viewer api instance");
+
   let api = ViewerAPI::new(init_config);
   let api = Box::new(api);
   Box::leak(api)
