@@ -163,6 +163,7 @@ strip = "symbols" # see https://github.com/rust-lang/rust/issues/139950
 [profile.profiling]
 opt-level = 3
 inherits = "dev"
+debug-assertions = false
 
 [patch.crates-io]
 # wgpu = { path = "../references/wgpu/wgpu" }

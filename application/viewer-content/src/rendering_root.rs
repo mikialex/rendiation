@@ -224,6 +224,8 @@ impl RenderingRoot {
         current_swapchain.internal(|surface| {
           is_hdr = surface.config.format == TextureFormat::Rgba16Float;
           ui.collapsing("Swapchain config", |ui| {
+            ui.label(format!("{:?}", surface.config.format));
+
             let cap = surface.capabilities();
             let default_none_hdr_format = get_default_preferred_format(cap);
             let support_hdr = cap.formats.contains(&TextureFormat::Rgba16Float);

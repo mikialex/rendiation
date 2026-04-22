@@ -142,8 +142,8 @@ cargo tree -d
 [the samply profiler](https://github.com/mstange/samply) is recommended to investigate cpu performance issue. the most used command is:
 
 ```bash
-cargo build --release --bin viewer
-samply record ./target/release/viewer
+cargo build --profile --profiling --bin viewer
+samply record ./target/profiling/viewer
 ```
 
 For GPU debugging and profiling, the metal gpu capture is recommended to investigate gpu workload on macOS. On the other

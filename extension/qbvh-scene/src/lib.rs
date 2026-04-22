@@ -21,11 +21,12 @@ impl SceneQbvh {
     self.internal.get(&scene).map(|v| &v.0)
   }
   pub fn get_or_create_qbvh(&mut self, scene: RawEntityHandle) -> &mut SceneQbvhImpl {
-    &mut self
+    let bvh = self
       .internal
       .entry(scene)
-      .or_insert_with(|| (Default::default(), true))
-      .0
+      .or_insert_with(|| (Default::default(), true));
+    bvh.1 = true;
+    &mut bvh.0
   }
 
   pub fn flush_changed_bvh(&mut self, mut f: impl FnMut(&mut SceneQbvhImpl)) {
