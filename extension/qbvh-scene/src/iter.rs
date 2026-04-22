@@ -5,62 +5,67 @@ pub struct SceneQbvhIterProvider {
 }
 
 impl SceneModelIterProvider for SceneQbvhIterProvider {
-  // todo, impl per scene separation
   fn create_ray_scene_model_iter<'a>(
     &'a self,
-    _scene: EntityHandle<SceneEntity>,
+    scene: EntityHandle<SceneEntity>,
     ctx: &'a SceneRayQuery,
   ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
-    let visitor = RayIntersectionClosestPointVisitor {
-      world_ray: ctx.world_ray.into_f32(),
-      ctx,
-      tolerance: IntersectTolerance::new(0., ToleranceType::ScreenSpace),
-    };
+    if let Some(bvh) = self.internal.get_qbvh(scene.into_raw()) {
+      let visitor = RayIntersectionClosestPointVisitor {
+        world_ray: ctx.world_ray.into_f32(),
+        ctx,
+        tolerance: IntersectTolerance::new(0., ToleranceType::ScreenSpace),
+      };
 
-    let models = global_entity_arena_access::<SceneModelEntity>();
-    let iter = self
-      .internal
-      .leaf_data_weighted_iter(f32::MAX, visitor)
-      .map(move |(_cost, index)| {
-        let handle = models.get_handle(index as usize).unwrap();
-        unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle(handle)) }
-      });
+      let models = global_entity_arena_access::<SceneModelEntity>();
+      let iter = bvh
+        .leaf_data_weighted_iter(f32::MAX, visitor)
+        .map(move |(_cost, index)| {
+          let handle = models.get_handle(index as usize).unwrap();
+          unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle(handle)) }
+        });
 
-    Box::new(iter)
+      Box::new(iter)
+    } else {
+      Box::new([].into_iter())
+    }
   }
 
-  // todo, impl per scene separation
   fn create_frustum_scene_model_iter<'a>(
     &'a self,
-    _scene: EntityHandle<SceneEntity>,
+    scene: EntityHandle<SceneEntity>,
     frustum: &'a SceneFrustumQuery,
   ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
-    let mut pick_area_visitor = ScenePickAreaDepthFirstVisitor {
-      ctx: frustum,
-      global_picking_tolerance: 0.,
-      inside_leaf_data_iter: LeafDataIter::new(TraverseAll, &self.internal),
-      intersect_leaf_data_iter: LeafDataIter::new(TraverseAll, &self.internal),
-    };
+    if let Some(bvh) = self.internal.get_qbvh(scene.into_raw()) {
+      let mut pick_area_visitor = ScenePickAreaDepthFirstVisitor {
+        ctx: frustum,
+        global_picking_tolerance: 0.,
+        inside_leaf_data_iter: LeafDataIter::new(TraverseAll, bvh),
+        intersect_leaf_data_iter: LeafDataIter::new(TraverseAll, bvh),
+      };
 
-    // traversal with collision test, pick nodes in visit_decider.leaf_data_iter.node_stack
-    self.internal.traverse_depth_first(&mut pick_area_visitor);
+      // traversal with collision test, pick nodes in visit_decider.leaf_data_iter.node_stack
+      bvh.traverse_depth_first(&mut pick_area_visitor);
 
-    let insider = pick_area_visitor
-      .inside_leaf_data_iter
-      .map(|idx| (true, idx));
+      let insider = pick_area_visitor
+        .inside_leaf_data_iter
+        .map(|idx| (true, idx));
 
-    let partial = pick_area_visitor
-      .intersect_leaf_data_iter
-      .map(|idx| (false, idx));
+      let partial = pick_area_visitor
+        .intersect_leaf_data_iter
+        .map(|idx| (false, idx));
 
-    let models = global_entity_arena_access::<SceneModelEntity>();
+      let models = global_entity_arena_access::<SceneModelEntity>();
 
-    let iter = insider.chain(partial).map(move |(_intersect, idx)| {
-      let handle = models.get_handle(idx as usize).unwrap();
-      let handle = unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle(handle)) };
-      handle
-    });
-    Box::new(iter)
+      let iter = insider.chain(partial).map(move |(_intersect, idx)| {
+        let handle = models.get_handle(idx as usize).unwrap();
+        let handle = unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle(handle)) };
+        handle
+      });
+      Box::new(iter)
+    } else {
+      Box::new([].into_iter())
+    }
   }
 }
 

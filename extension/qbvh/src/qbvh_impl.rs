@@ -41,6 +41,7 @@ pub struct Qbvh<LeafData, BV, SimdBV> {
   pub(crate) dirty_bounding_nodes: Vec<u32>,
   pub(crate) dirty_margin_nodes: Vec<u32>,
   pub(crate) free_list: Vec<u32>,
+  // todo, considering sparse mapping
   pub(crate) proxies: Vec<QbvhProxy<LeafData>>,
 }
 

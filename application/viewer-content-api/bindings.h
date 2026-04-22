@@ -1,3 +1,6 @@
+#ifndef RENDIATION_C_HEADER
+#define RENDIATION_C_HEADER
+
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -273,7 +276,7 @@ void drop_scene_model(struct SceneModelHandleInfo handle);
 
 void scene_model_set_mesh(struct SceneModelHandleInfo handle, struct ViewerEntityHandle mesh);
 
-void scene_model_set_scene(struct SceneModelHandleInfo handle,
+void scene_model_set_scene(struct ViewerEntityHandle handle,
                            const struct ViewerEntityHandle *scene);
 
 void scene_model_set_occ_style_view_dep(struct ViewerEntityHandle handle,
@@ -366,3 +369,5 @@ void drop_spot_light(struct ViewerEntityHandle handle);
  * call this to setup panic message writer when panic happens
  */
 void rendiation_init(void);
+
+#endif  /* RENDIATION_C_HEADER */
