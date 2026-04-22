@@ -249,6 +249,7 @@ impl ViewerAPI {
         cx.viewer.font_system.clone(),
         cx.viewer.ndc().clone(),
         cx.viewer.viewport_map.clone(),
+        cx.viewer.use_scene_bvh,
       );
 
       cx.when_resolve_stage(|| {

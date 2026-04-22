@@ -51,7 +51,7 @@ pub fn use_scene_qbvh(
     .use_dual_query::<SceneModelBelongsToScene>()
     .dual_query_filter_map(|v| v);
 
-  let _ = world_bounding
+  let compute = world_bounding
     .join(margin)
     .join(ids)
     .map_spawn_stage_in_thread(
@@ -82,6 +82,8 @@ pub fn use_scene_qbvh(
         );
       },
     );
+
+  let _ = compute.use_assure_result(cx);
 
   cx.when_resolve_stage(|| bvh.make_read_holder())
 }

@@ -3,7 +3,6 @@ use crate::*;
 pub struct ViewerPicker {
   pub model_picker: SceneModelPickerWithViewDep<Box<dyn SceneModelPicker>>,
   pub scene_model_iter_provider: Box<dyn SceneModelIterProvider>,
-  pub bvh: LockReadGuardHolder<rendiation_qbvh_scene::SceneQbvh>,
   pub camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
   pub ndc: ViewerNDC,
 }
@@ -49,6 +48,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
   font_system: Arc<RwLock<FontSystem>>,
   ndc: ViewerNDC,
   viewports_map: ViewportsImmediate,
+  use_scene_bvh: bool,
 ) -> Option<ViewerPicker> {
   let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
   let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
@@ -69,8 +69,19 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     .use_shared_dual_query(SceneModelWorldBounding(font_system))
     .dual_query_filter_map(|v| v)
     .fork();
-  let margin = sm_w.dual_query_map(|_| 0.); // todo, use correct margin source
-  let qbvh = rendiation_qbvh_scene::use_scene_qbvh(cx, sm_world_bounding_valid, margin);
+
+  let qbvh = if use_scene_bvh {
+    cx.scope(|cx| {
+      let margin = sm_w.dual_query_map(|_| 0.); // todo, use correct margin source
+      Some(rendiation_qbvh_scene::use_scene_qbvh(
+        cx,
+        sm_world_bounding_valid,
+        margin,
+      ))
+    })
+  } else {
+    None
+  };
 
   let sms = cx
     .use_db_rev_ref::<SceneModelBelongsToScene>()
@@ -124,15 +135,21 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
       active_view: None,
     };
 
-    let iter_provider = NaiveSceneModelIterProvider {
-      scene_ref_scene_model: sms.expect_resolve_stage(),
+    let scene_model_iter_provider = if let Some(qbvh) = qbvh {
+      let qbvh = qbvh.unwrap();
+      let iter_provider = rendiation_qbvh_scene::SceneQbvhIterProvider { internal: qbvh };
+      Box::new(iter_provider) as Box<dyn SceneModelIterProvider>
+    } else {
+      let iter_provider = NaiveSceneModelIterProvider {
+        scene_ref_scene_model: sms.expect_resolve_stage(),
+      };
+      Box::new(iter_provider)
     };
 
     ViewerPicker {
       model_picker: scene_model_picker,
-      scene_model_iter_provider: Box::new(iter_provider),
+      scene_model_iter_provider,
       camera_transforms: camera_transforms.expect_resolve_stage(),
-      bvh: qbvh.unwrap(),
       ndc,
     }
   })

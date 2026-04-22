@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct SceneQbvhIterProvider {
-  internal: LockReadGuardHolder<SceneQbvh>,
+  pub internal: LockReadGuardHolder<SceneQbvh>,
 }
 
 impl SceneModelIterProvider for SceneQbvhIterProvider {

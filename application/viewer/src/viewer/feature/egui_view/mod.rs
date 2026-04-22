@@ -135,6 +135,8 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
         ui.checkbox(&mut viewer.enable_inspection, "enable_inspection");
 
+        ui.checkbox(&mut viewer.use_scene_bvh, "use_scene_bvh");
+
         ui.collapsing("Init config(not dynamic configurable)", |ui| {
           if ui
             .button("export first viewport init and current config")
