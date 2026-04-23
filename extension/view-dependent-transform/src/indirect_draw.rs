@@ -18,15 +18,6 @@ pub fn use_view_dependent_transform_indirect_gpu(
     let overrides = &mut overrides_;
     let changes = query.delta.into_change();
 
-    let size_require = database::global_database()
-      .access_table_dyn(SceneModelEntity::entity_id(), |table| {
-        table.entity_capacity()
-      });
-
-    for o in overrides.values_mut() {
-      o.notify_max_sm_size(size_require);
-    }
-
     for (view_id, sm) in changes.iter_removed() {
       let view_data = overrides
         .entry(view_id)
@@ -39,6 +30,15 @@ pub fn use_view_dependent_transform_indirect_gpu(
         .entry(view_id)
         .or_insert_with(|| PerViewGPUResource::new(cx.gpu, cx.storage_allocator.as_ref()));
       view_data.update(sm, mat);
+    }
+
+    let size_require = database::global_database()
+      .access_table_dyn(SceneModelEntity::entity_id(), |table| {
+        table.entity_capacity()
+      });
+
+    for o in overrides.values_mut() {
+      o.notify_max_sm_size(size_require);
     }
 
     overrides.retain(|_, o| o.flush(cx.gpu, encoder));
@@ -108,6 +108,10 @@ impl PerViewGPUResource {
 
   pub fn notify_max_sm_size(&mut self, max_sm_size: usize) {
     self.index_remap.resize(max_sm_size as u32);
+    self
+      .overrides
+      .buffer
+      .check_resize(self.slab.capacity() as u32);
   }
 
   pub fn update(&mut self, sm: RawEntityHandle, mat: Mat4<f64>) {

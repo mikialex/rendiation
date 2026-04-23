@@ -9,7 +9,7 @@ type SparseStorageBufferRaw<T> =
   CustomGrowBehaviorMaintainer<ResizableGPUBuffer<AbstractReadonlyStorageBuffer<[T]>>>;
 
 pub struct SparseUpdateStorageBuffer<T> {
-  buffer: SparseStorageBufferRaw<T>,
+  pub buffer: SparseStorageBufferRaw<T>,
   pub collector: Option<SparseUpdateCollector>,
 }
 
