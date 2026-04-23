@@ -243,6 +243,7 @@ pub trait SlugShaderComputer {
   }
 }
 
+// todo, move render_coord outside
 pub trait SlugShaderBandDataSource {
   /// Fetch the three 2D control points for the current curve from the curve texture.
   /// The first texel contains both p1 and p2 in the (x,y) and (z,w) components, respectively,

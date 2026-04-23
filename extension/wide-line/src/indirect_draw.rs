@@ -98,9 +98,9 @@ pub struct WideLineModelIndirectRenderer {
   model_access: ForeignKeyReadView<SceneModelWideLineRenderPayload>,
   segments: AbstractReadonlyStorageBuffer<[WideLineVertexStorage]>,
   params: AbstractReadonlyStorageBuffer<[WideLineParameters]>,
-  sm_to_wide_line_device: AbstractReadonlyStorageBuffer<[u32]>,
   /// we keep the host metadata to support creating draw commands from host
   params_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<WideLineParameters>>,
+  sm_to_wide_line_device: AbstractReadonlyStorageBuffer<[u32]>,
   used_in_midc_downgrade: bool,
 }
 

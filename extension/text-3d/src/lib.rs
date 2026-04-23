@@ -12,10 +12,13 @@ use rendiation_scene_core::SceneModelEntity;
 use rendiation_shader_api::*;
 use rendiation_texture_core::GPUBufferImage;
 use rendiation_webgpu::*;
+use rendiation_webgpu_hook_utils::*;
 
 mod data_prepare;
 mod gles_data_prepare;
 mod gles_draw;
+mod indirect_data_prepare;
+mod indirect_draw;
 mod slug_shader;
 use std::sync::Arc;
 
@@ -24,6 +27,8 @@ pub use data_prepare::{Text3dSceneModelLocalBounding, Text3dSlugBuffer};
 use gles_data_prepare::*;
 pub use gles_draw::use_text3d_gles_renderer;
 use gles_draw::*;
+use indirect_data_prepare::*;
+pub use indirect_draw::use_text3d_indirect_renderer;
 use parking_lot::RwLock;
 use slug_shader::*;
 

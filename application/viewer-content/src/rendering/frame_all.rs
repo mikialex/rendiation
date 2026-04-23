@@ -267,12 +267,15 @@ impl Viewer3dRenderingCtx {
         let wide_line = use_widen_line_indirect_renderer(cx, self.using_host_driven_indirect_draw);
         let wide_point =
           use_widen_styled_points_indirect_renderer(cx, self.using_host_driven_indirect_draw);
+        let text3d =
+          use_text3d_indirect_renderer(cx, &self.font_system, self.using_host_driven_indirect_draw);
 
         let model_support = cx.when_render(|| {
           Box::new(vec![
             Box::new(std_model.unwrap()) as Box<dyn IndirectModelRenderImpl>,
             Box::new(wide_line.unwrap()),
             Box::new(wide_point.unwrap()),
+            Box::new(text3d.unwrap()),
           ]) as Box<dyn IndirectModelRenderImpl>
         });
 

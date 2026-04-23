@@ -54,7 +54,6 @@ pub struct PositionedGlyph {
 pub struct SlugBuffer {
   pub positions: Vec<PositionedGlyph>,
   pub unique_glyphs: FastHashSet<CacheKey>,
-  // pub glyphs: Vec<SlugGlyph>,
   pub scale: f32,
 }
 
@@ -70,7 +69,7 @@ impl SlugBuffer {
         let x_max = glyph.bounds.max.x;
         let y_max = glyph.bounds.max.y;
 
-        let ox = (pos.relative_x) * scale;
+        let ox = pos.relative_x * scale;
         let oy = pos.relative_y * scale;
         let x0 = ox + x_min * scale;
         let y0 = oy + y_min * scale;

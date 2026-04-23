@@ -1,6 +1,5 @@
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_scene_rendering_gpu_gles::GLESModelRenderImpl;
-use rendiation_webgpu_hook_utils::*;
 
 use crate::*;
 
@@ -103,7 +102,7 @@ impl GraphicsShaderProvider for SlugTextGPUData {
     builder.vertex(|builder, _| {
       builder.register_vertex::<TextGlesVertex>(VertexStepMode::Vertex);
 
-      builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
+      builder.primitive_state.topology = PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
     });
   }
@@ -165,10 +164,10 @@ impl GraphicsShaderProvider for SlugTextGPUData {
         let object_world_position = builder.query::<WorldPositionHP>();
         let (clip_position, render_space_position) =
           camera_transform_impl(builder, local_position, object_world_position);
-        builder.set_vertex_out::<FragmentUv>(tex.xy());
         builder.register::<ClipPosition>(clip_position);
-
         builder.register::<VertexRenderPosition>(render_space_position);
+
+        builder.set_vertex_out::<FragmentUv>(tex.xy());
       }
 
       let color_with_alpha = builder.query::<SlugTextGlesVertexCol>();
@@ -210,7 +209,7 @@ impl GraphicsShaderProvider for SlugTextGPUData {
         curve_data: curve_tex_data,
         glyph_data,
       }
-      .slug_render(uv, glyph_data.w());
+      .slug_render(uv, val(0));
 
       builder
         .register::<DefaultDisplay>(val(Vec4::new(0., 0., 0., 1.)) * coverage.splat::<Vec4<f32>>());
@@ -274,7 +273,6 @@ impl SlugShaderComputer for GlesSlugShaderDataSource {
     // Determine what bands the current pixel lies in by applying a scale and offset
     // to the render coordinates. The scales are given by bandTransform.xy, and the
     // offsets are given by bandTransform.zw. Band indexes are clamped to [0, bandMax.xy].
-
     let band_index = (render_coord * band_t_transform.xy() + band_t_transform.zw())
       .into_i32()
       .clamp(val(Vec2::zero()), band_max);
@@ -283,7 +281,6 @@ impl SlugShaderComputer for GlesSlugShaderDataSource {
     // Fetch data for the horizontal band from the index texture. The number
     // of curves intersecting the band is in the x component, and the offset
     // to the list of locations for those curves is in the y component.
-
     let hband_data = vec2_node((glyph_loc.x() + band_index.y(), glyph_loc.y()));
     let hband_data = self.band_data.load_texel(hband_data.into_u32(), 0).xy();
     let hband_loc = calc_band_loc(glyph_loc, hband_data.y());
