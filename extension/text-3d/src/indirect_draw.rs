@@ -413,28 +413,30 @@ impl SlugShaderComputer for IndirectSlugShaderDataSource {
       .into_i32()
       .clamp(val(Vec2::zero()), self.band_max.into_i32());
 
-    let band_h = band_index.x().into_u32();
-    let band_v = band_index.y().into_u32();
+    // Horizontal bands are selected by y, vertical bands by x.
+    let band_h = band_index.y().into_u32();
+    let band_v = band_index.x().into_u32();
 
-    let band_h_count = self.bands.index(self.glyph_abs_band_offset).load();
-    let band_v_count = self.bands.index(self.glyph_abs_band_offset + val(1)).load();
-    let header_len = (band_h_count + band_v_count) * val(2) + val(2);
+    let curve_relative_offset = self.bands.index(self.glyph_abs_band_offset).load();
+    let band_h_count = self.bands.index(self.glyph_abs_band_offset + val(1)).load();
+    let band_v_count = self.bands.index(self.glyph_abs_band_offset + val(2)).load();
+    let header_len = (band_h_count + band_v_count) * val(2) + val(3);
 
-    let h_info_offset = self.glyph_abs_band_offset + val(2) + band_h * val(2);
-    let h_offset = self.bands.index(h_info_offset).load() + header_len;
-    let h_count = self.bands.index(h_info_offset + val(1)).load() + header_len;
+    let h_info_offset = self.glyph_abs_band_offset + val(3) + band_h * val(2);
+    let h_offset = self.glyph_abs_band_offset + self.bands.index(h_info_offset).load() + header_len;
+    let h_count = self.bands.index(h_info_offset + val(1)).load();
 
     let v_info_offset =
-      self.glyph_abs_band_offset + val(2) + band_h_count * val(2) + band_v * val(2);
-    let v_offset = self.bands.index(v_info_offset).load() + header_len;
-    let v_count = self.bands.index(v_info_offset + val(1)).load() + header_len;
+      self.glyph_abs_band_offset + val(3) + band_h_count * val(2) + band_v * val(2);
+    let v_offset = self.glyph_abs_band_offset + self.bands.index(v_info_offset).load() + header_len;
+    let v_count = self.bands.index(v_info_offset + val(1)).load();
 
     Box::new(IndirectSlugShaderBandDataSource {
       bands: self.bands.clone(),
       curves: self.curves.clone(),
-      h_band_range: vec2_node((h_offset, h_count)),
-      v_band_range: vec2_node((v_offset, v_count)),
-      curve_text_global_offset: self.curve_text_global_offset,
+      h_band_range: vec2_node((h_offset, h_offset + h_count)),
+      v_band_range: vec2_node((v_offset, v_offset + v_count)),
+      curve_text_global_offset: self.curve_text_global_offset + curve_relative_offset,
     })
   }
 }

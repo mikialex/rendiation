@@ -14,24 +14,9 @@ pub(crate) fn prepare_indirect_text(
 
   let glyphs = &input.unique_glyphs;
 
-  let mut glyph_curve_starts = Vec::new();
-  let mut curves = Vec::new();
-
-  for g in glyphs.iter().filter_map(filter) {
-    glyph_curve_starts.push(curves.len());
-
-    for [p0x, p0y, p1x, p1y, p2x, p2y] in g.curves.as_chunks::<6>().0 {
-      curves.push(CurveData {
-        p1: (*p0x, *p0y).into(),
-        p2: (*p1x, *p1y).into(),
-        p3: (*p2x, *p2y).into(),
-        ..Default::default()
-      });
-    }
-  }
-
   // Build per-glyph lookup
   let mut glyph_data_map: FastHashMap<CacheKey, u32> = FastHashMap::default();
+  let mut curves = Vec::new();
 
   // Per glyph: [hBand headers...] [vBand headers...] [curve index lists...]
   // Each header: (curveCount, offsetFromGlyphLoc, 0, 0)
@@ -40,6 +25,17 @@ pub(crate) fn prepare_indirect_text(
   for g in glyphs.iter().filter_map(filter) {
     glyph_data_map.insert(g.glyph_key, band_data.len() as u32);
 
+    let curve_offset = curves.len() as u32;
+    for [p0x, p0y, p1x, p1y, p2x, p2y] in g.curves.as_chunks::<6>().0 {
+      curves.push(CurveData {
+        p1: (*p0x, *p0y).into(),
+        p2: (*p1x, *p1y).into(),
+        p3: (*p2x, *p2y).into(),
+        ..Default::default()
+      });
+    }
+
+    band_data.push(curve_offset);
     band_data.push(g.bands.h_band_count);
     band_data.push(g.bands.v_band_count);
 
@@ -49,7 +45,6 @@ pub(crate) fn prepare_indirect_text(
       band_data.push(h_band.len() as u32);
       offset += h_band.len();
     }
-    let mut offset = 0;
     for v_band in &g.bands.v_bands {
       band_data.push(offset as u32);
       band_data.push(v_band.len() as u32);
@@ -107,7 +102,6 @@ pub(crate) fn prepare_indirect_text(
     let band_max_y = glyph.bands.h_band_count - 1;
 
     vertices.push(TextGlyphQuad {
-      // band_entry: *index,
       obj_space_min: (x0, y0).into(),
       obj_space_size: (x1 - x0, y1 - y0).into(),
 
