@@ -131,6 +131,11 @@ pub struct CurveData {
   pub p2: Vec2<f32>,
   pub p3: Vec2<f32>,
 }
+impl CurveData {
+  pub fn u32_size() -> u32 {
+    std::mem::size_of::<Self>() as u32 / 4
+  }
+}
 
 #[repr(C)]
 #[std430_layout]

@@ -1,6 +1,8 @@
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
 use rendiation_scene_rendering_gpu_indirect::*;
-use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
+use rendiation_webgpu_midc_downgrade::{
+  require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
+};
 
 use crate::*;
 
@@ -44,11 +46,7 @@ pub fn use_text3d_indirect_renderer(
   let (vertices, vertices_range_updates) =
     use_range_allocated_device_buffers(cx, "text_buffer vertices", 1024, u32::MAX, vertices_source);
 
-  let (cx, params) = cx.use_storage_buffer_with_host_backup::<TextMeta>(
-    "wide line buffer parameters and range info",
-    128,
-    u32::MAX,
-  );
+  let (cx, params) = cx.use_storage_buffer_with_host_backup::<TextMeta>("textmeta", 128, u32::MAX);
 
   let offset = std::mem::offset_of!(TextMeta, text_curves_range);
   let curve_range_updates = curve_range_updates.map(|a| a.allocation_changes.clone());
@@ -196,7 +194,7 @@ impl NoneIndexedDrawCommandBuilder for Text3dDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let model = self.sm_to_text.get(id).unwrap();
     let param = self.params_host.get(model.alloc_index()).unwrap();
-    let seg_count = param.text_vertices_range.y / TextGlyphQuad::u32_size();
+    let quad_count = param.text_vertices_range.y / TextGlyphQuad::u32_size();
 
     if param.text_vertices_range.x == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {
       return None;
@@ -204,7 +202,7 @@ impl NoneIndexedDrawCommandBuilder for Text3dDrawCreator {
 
     DrawCommand::Array {
       instances: 0..1,
-      vertices: 0..6 * seg_count,
+      vertices: 0..6 * quad_count,
     }
     .into()
   }
@@ -214,10 +212,10 @@ impl NoneIndexedDrawCommandBuilder for Text3dDrawCreator {
     cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn NoneIndexedDrawCommandBuilderInvocation> {
     let params = cx.bind_by(&self.params);
-    let sm_to_wide_line_device = cx.bind_by(&self.sm_to_text_device);
+    let sm_to_text_device = cx.bind_by(&self.sm_to_text_device);
     Box::new(DrawCmdBuilderInvocation {
       params,
-      sm_to_text_device: sm_to_wide_line_device,
+      sm_to_text_device,
     })
   }
 
@@ -239,11 +237,11 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
   ) -> Node<DrawIndirectArgsStorage> {
     let text_id = self.sm_to_text_device.index(draw_id).load();
     // the implementation of range allocate assure the count is zero if allocation failed
-    let seg_count =
+    let quad_count =
       self.params.index(text_id).text_vertices_range().load().y() / val(TextGlyphQuad::u32_size());
 
     ENode::<DrawIndirectArgsStorage> {
-      vertex_count: val(6) * seg_count,
+      vertex_count: val(6) * quad_count,
       instance_count: val(1),
       base_vertex: val(0),
       base_instance: draw_id,
@@ -289,6 +287,11 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
 
       let text_meta = text_meta.using(binding);
       let text_meta = text_meta.index(text_id).load().expand();
+
+      // as we are using none indexed draw, this is easier to integrate the midc downgrade
+      if let Some(relative) = builder.try_query::<VertexIndexForMIDCDowngradeRelative>() {
+        builder.register::<VertexIndex>(relative);
+      }
 
       let vertex_index = builder.query::<VertexIndex>();
       let instance_index = vertex_index / val(6);
@@ -337,7 +340,8 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
         .load()
         .expand()
         .text_curves_range
-        .x();
+        .x()
+        / val(CurveData::u32_size());
 
       builder.insert_type_tag::<UnlitMaterialTag>();
 
@@ -452,7 +456,6 @@ struct IndirectSlugShaderBandDataSource {
 impl SlugShaderBandDataSource for IndirectSlugShaderBandDataSource {
   fn iter_curves_horizontal(
     &self,
-    render_coord: Node<Vec2<f32>>,
   ) -> Box<dyn ShaderIterator<Item = (Node<Vec4<f32>>, Node<Vec2<f32>>)> + '_> {
     let iter = self
       .h_band_range
@@ -462,17 +465,13 @@ impl SlugShaderBandDataSource for IndirectSlugShaderBandDataSource {
         let abs_curve_idx = self.curve_text_global_offset + curve_index;
         let curve = self.curves.index(abs_curve_idx).load();
         let curve = curve.expand();
-        (
-          vec4_node((curve.p1 - render_coord, curve.p2 - render_coord)),
-          curve.p3 - render_coord,
-        )
+        (vec4_node((curve.p1, curve.p2)), curve.p3)
       });
     Box::new(iter)
   }
 
   fn iter_curves_vertical(
     &self,
-    render_coord: Node<Vec2<f32>>,
   ) -> Box<dyn ShaderIterator<Item = (Node<Vec4<f32>>, Node<Vec2<f32>>)> + '_> {
     let iter = self
       .v_band_range
@@ -482,10 +481,7 @@ impl SlugShaderBandDataSource for IndirectSlugShaderBandDataSource {
         let abs_curve_idx = self.curve_text_global_offset + curve_index;
         let curve = self.curves.index(abs_curve_idx).load();
         let curve = curve.expand();
-        (
-          vec4_node((curve.p1 - render_coord, curve.p2 - render_coord)),
-          curve.p3 - render_coord,
-        )
+        (vec4_node((curve.p1, curve.p2)), curve.p3)
       });
     Box::new(iter)
   }

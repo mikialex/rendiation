@@ -173,8 +173,12 @@ pub trait SlugShaderComputer {
 
     // Loop over all curves in the horizontal band.
     band_data_source
-      .iter_curves_horizontal(render_coord)
+      .iter_curves_horizontal()
       .for_each(|(p12, p3), lcx| {
+        //  Subtracting the render coordinates makes the curve relative to the sample position.
+        let p12 = p12 - vec4_node((render_coord, render_coord));
+        let p3 = p3 - render_coord;
+
         // If the largest x coordinate among all three control points falls
         // left of the current pixel, then there are no more curves in the
         // horizontal band that can influence the result, so exit the loop.
@@ -210,8 +214,12 @@ pub trait SlugShaderComputer {
 
     // Loop over all curves in the vertical band.
     band_data_source
-      .iter_curves_vertical(render_coord)
+      .iter_curves_vertical()
       .for_each(|(p12, p3), lcx| {
+        //  Subtracting the render coordinates makes the curve relative to the sample position.
+        let p12 = p12 - vec4_node((render_coord, render_coord));
+        let p3 = p3 - render_coord;
+
         // If the largest y coordinate among all three control points falls
         // below the current pixel, then there are no more curves in the
         // vertical band that can influence the result, so exit the loop.
@@ -247,8 +255,7 @@ pub trait SlugShaderComputer {
 pub trait SlugShaderBandDataSource {
   /// Fetch the three 2D control points for the current curve from the curve texture.
   /// The first texel contains both p1 and p2 in the (x,y) and (z,w) components, respectively,
-  /// and the the second texel contains p3 in the (x,y) components. Subtracting the render
-  /// coordinates makes the curve relative to the sample position. The quadratic Bézier curve
+  /// and the the second texel contains p3 in the (x,y) components.The quadratic Bézier curve
   /// C(t) is given by
   ///
   ///     C(t) = (1 - t)^2 p1 + 2t(1 - t) p2 + t^2 p3
@@ -258,11 +265,9 @@ pub trait SlugShaderBandDataSource {
   /// the returned iter's lifetime bound is just for implementation convenience
   fn iter_curves_horizontal(
     &self,
-    render_coord: Node<Vec2<f32>>,
   ) -> Box<dyn ShaderIterator<Item = (Node<Vec4<f32>>, Node<Vec2<f32>>)> + '_>;
   fn iter_curves_vertical(
     &self,
-    render_coord: Node<Vec2<f32>>,
   ) -> Box<dyn ShaderIterator<Item = (Node<Vec4<f32>>, Node<Vec2<f32>>)> + '_>;
 }
 

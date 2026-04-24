@@ -330,7 +330,6 @@ struct GlesSlugShaderBandDataSource {
 impl SlugShaderBandDataSource for GlesSlugShaderBandDataSource {
   fn iter_curves_horizontal(
     &self,
-    render_coord: Node<Vec2<f32>>,
   ) -> Box<dyn ShaderIterator<Item = (Node<Vec4<f32>>, Node<Vec2<f32>>)> + '_> {
     let iter = self
       .hband_data
@@ -342,10 +341,9 @@ impl SlugShaderBandDataSource for GlesSlugShaderBandDataSource {
         let curve_loc = vec2_node((self.hband_loc.x() + curve_index, self.hband_loc.y()));
         let curve_loc = self.band_data.load_texel(curve_loc.into_u32(), 0).xy();
 
-        let p12 =
-          self.curve_data.load_texel(curve_loc, 0) - vec4_node((render_coord, render_coord));
+        let p12 = self.curve_data.load_texel(curve_loc, 0);
         let p3_coord = vec2_node((curve_loc.x() + val(1), curve_loc.y()));
-        let p3 = self.curve_data.load_texel(p3_coord, 0).xy() - render_coord;
+        let p3 = self.curve_data.load_texel(p3_coord, 0).xy();
 
         (p12, p3)
       });
@@ -354,7 +352,6 @@ impl SlugShaderBandDataSource for GlesSlugShaderBandDataSource {
 
   fn iter_curves_vertical(
     &self,
-    render_coord: Node<Vec2<f32>>,
   ) -> Box<dyn ShaderIterator<Item = (Node<Vec4<f32>>, Node<Vec2<f32>>)> + '_> {
     let iter = self
       .vband_data
@@ -365,10 +362,9 @@ impl SlugShaderBandDataSource for GlesSlugShaderBandDataSource {
         let curve_loc = vec2_node((self.vband_loc.x() + curve_index, self.vband_loc.y()));
         let curve_loc = self.band_data.load_texel(curve_loc.into_u32(), 0).xy();
 
-        let p12 =
-          self.curve_data.load_texel(curve_loc, 0) - vec4_node((render_coord, render_coord));
+        let p12 = self.curve_data.load_texel(curve_loc, 0);
         let p3_coord = vec2_node((curve_loc.x() + val(1), curve_loc.y()));
-        let p3 = self.curve_data.load_texel(p3_coord, 0).xy() - render_coord;
+        let p3 = self.curve_data.load_texel(p3_coord, 0).xy();
 
         (p12, p3)
       });
