@@ -48,6 +48,12 @@ typedef enum OccFlavorZLayer {
   TopOSD = 4,
 } OccFlavorZLayer;
 
+typedef enum TextAlignment {
+  Left,
+  Center,
+  Right,
+} TextAlignment;
+
 typedef struct ViewerAPI ViewerAPI;
 
 typedef struct ViewerPickerAPI ViewerPickerAPI;
@@ -109,6 +115,28 @@ typedef struct SceneWideLineHandleInfo {
   struct ViewerEntityHandle scene_model;
   struct ViewerEntityHandle line;
 } SceneWideLineHandleInfo;
+
+typedef struct SceneText3dHandleInfo {
+  struct ViewerEntityHandle scene_model;
+  struct ViewerEntityHandle text3d;
+} SceneText3dHandleInfo;
+
+typedef struct Text3dContentInfoC {
+  const char *content;
+  float font_size;
+  float line_height;
+  float scale;
+  const char *font;
+  uint32_t weight;
+  bool has_weight;
+  float color[4];
+  bool italic;
+  float width;
+  bool has_width;
+  float height;
+  bool has_height;
+  enum TextAlignment align;
+} Text3dContentInfoC;
 
 struct ViewerEntityHandle create_camera(struct ViewerEntityHandle node);
 
@@ -177,6 +205,8 @@ void viewer_resize(struct ViewerAPI *api,
                    uint32_t surface_id,
                    uint32_t new_width,
                    uint32_t new_height);
+
+void viewer_load_font(struct ViewerAPI *api, uint32_t data_length, const uint8_t *data);
 
 void viewer_render_surface(struct ViewerAPI *api, uint32_t surface_id);
 
@@ -331,6 +361,13 @@ void wide_line_set_pattern(struct ViewerEntityHandle handle, uint32_t pattern);
 void wide_line_set_factor(struct ViewerEntityHandle handle, float factor);
 
 void drop_wide_line(struct SceneWideLineHandleInfo p);
+
+struct SceneText3dHandleInfo create_text3d(struct ViewerEntityHandle node,
+                                           const struct Text3dContentInfoC *content);
+
+void text3d_set_content(struct ViewerEntityHandle handle, const struct Text3dContentInfoC *content);
+
+void drop_text3d(struct SceneText3dHandleInfo p);
 
 struct ViewerEntityHandle create_dir_light(struct ViewerEntityHandle node);
 

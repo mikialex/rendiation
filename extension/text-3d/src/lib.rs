@@ -51,6 +51,7 @@ pub struct Text3dContentInfo {
   pub line_height: f32,
   /// the real glyph size(in local space) will be font_size * scale
   pub scale: f32,
+  /// if not provided, a default font will be used(the rendering may not be correct)
   pub font: Option<String>,
   pub weight: Option<u32>,
   pub color: Vec4<f32>,
@@ -61,7 +62,7 @@ pub struct Text3dContentInfo {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Serialize, Deserialize, Facet, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Facet, PartialEq)]
 pub enum TextAlignment {
   Left,
   Center,
@@ -94,6 +95,9 @@ impl FontSystem {
     }
   }
 
+  // currently we not support unload font, this is doable
+  // let font_ids = self.system.db_mut().load_font_source(data);
+  // font_ids can be used to remove font faces in db
   pub fn load_font(&mut self, data: Vec<u8>) {
     self.system.db_mut().load_font_data(data);
   }

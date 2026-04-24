@@ -1,3 +1,5 @@
+use std::ffi::{c_char, CStr};
+
 use crate::*;
 
 #[repr(C)]
@@ -274,6 +276,105 @@ pub extern "C" fn drop_wide_line(p: SceneWideLineHandleInfo) {
   global_entity_of::<WideLineModelEntity>()
     .entity_writer()
     .delete_entity(p.line.into());
+
+  global_entity_of::<SceneModelEntity>()
+    .entity_writer()
+    .delete_entity(p.scene_model.into());
+}
+
+#[repr(C)]
+pub struct Text3dContentInfoC {
+  pub content: *const c_char,
+  pub font_size: f32,
+  pub line_height: f32,
+  pub scale: f32,
+  pub font: *const c_char,
+  pub weight: u32,
+  pub has_weight: bool,
+  pub color: [f32; 4],
+  pub italic: bool,
+  pub width: f32,
+  pub has_width: bool,
+  pub height: f32,
+  pub has_height: bool,
+  pub align: TextAlignment,
+}
+
+#[repr(C)]
+pub struct SceneText3dHandleInfo {
+  scene_model: ViewerEntityHandle,
+  text3d: ViewerEntityHandle,
+}
+
+#[no_mangle]
+pub extern "C" fn create_text3d(
+  node: ViewerEntityHandle,
+  content: *const Text3dContentInfoC,
+) -> SceneText3dHandleInfo {
+  let mut writer = global_entity_of::<Text3dEntity>().entity_writer();
+  let content = text3d_content_from_c(content);
+
+  let text3d = writer.new_entity(|w| w.write::<Text3dContent>(&content));
+
+  let scene_model = global_entity_of::<SceneModelEntity>()
+    .entity_writer()
+    .new_entity(|w| {
+      w.write::<SceneModelText3dPayload>(&text3d.some_handle())
+        .write::<SceneModelRefNode>(&Some(node.into()))
+    });
+
+  SceneText3dHandleInfo {
+    scene_model: scene_model.into(),
+    text3d: text3d.into(),
+  }
+}
+
+#[no_mangle]
+pub extern "C" fn text3d_set_content(
+  handle: ViewerEntityHandle,
+  content: *const Text3dContentInfoC,
+) {
+  let content = text3d_content_from_c(content);
+  write_global_db_component::<Text3dContent>().write(handle.into(), content);
+}
+
+fn parse_optional_c_string(ptr: *const c_char) -> Option<String> {
+  if ptr.is_null() {
+    None
+  } else {
+    Some(
+      unsafe { CStr::from_ptr(ptr) }
+        .to_string_lossy()
+        .into_owned(),
+    )
+  }
+}
+
+fn text3d_content_from_c(
+  info: *const Text3dContentInfoC,
+) -> Option<ExternalRefPtr<Text3dContentInfo>> {
+  let info = unsafe { info.as_ref() }?;
+
+  Some(ExternalRefPtr::new(Text3dContentInfo {
+    content: parse_optional_c_string(info.content).unwrap_or_default(),
+    font_size: info.font_size,
+    line_height: info.line_height,
+    scale: info.scale,
+    font: parse_optional_c_string(info.font),
+    weight: info.has_weight.then_some(info.weight),
+    color: info.color.into(),
+    italic: info.italic,
+    width: info.has_width.then_some(info.width),
+    height: info.has_height.then_some(info.height),
+    align: info.align.into(),
+  }))
+}
+
+#[no_mangle]
+pub extern "C" fn drop_text3d(p: SceneText3dHandleInfo) {
+  global_entity_of::<Text3dEntity>()
+    .entity_writer()
+    .delete_entity(p.text3d.into());
 
   global_entity_of::<SceneModelEntity>()
     .entity_writer()

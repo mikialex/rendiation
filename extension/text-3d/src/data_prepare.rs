@@ -103,23 +103,40 @@ pub fn create_slug_buffer_from_text3d_content(
   // Set a size for the text buffer, in pixels
   buffer.set_size(&mut system.system, input.width, input.height);
 
-  let font = input
-    .font
-    .as_ref()
-    .map(|f| cosmic_text::Family::Name(f))
-    .unwrap_or(cosmic_text::Family::SansSerif);
+  let style = if input.italic {
+    cosmic_text::Style::Italic
+  } else {
+    cosmic_text::Style::Normal
+  };
 
-  // todo, check if font presented in font system
+  let weight = cosmic_text::Weight(input.weight.unwrap_or(400) as u16);
+
+  let font = if let Some(font) = &input.font {
+    // check if font presented in font system
+    if system
+      .system
+      .db()
+      .query(&cosmic_text::fontdb::Query {
+        families: &[cosmic_text::Family::Name(font)],
+        weight,
+        stretch: cosmic_text::Stretch::Normal,
+        style,
+      })
+      .is_none()
+    {
+      log::warn!("Font {} used in text, not found in font system", font);
+    }
+
+    cosmic_text::Family::Name(font)
+  } else {
+    cosmic_text::Family::SansSerif
+  };
 
   // Attributes indicate what font to choose
   let attrs = cosmic_text::Attrs::new()
     .family(font)
-    .style(if input.italic {
-      cosmic_text::Style::Italic
-    } else {
-      cosmic_text::Style::Normal
-    })
-    .weight(cosmic_text::Weight::NORMAL);
+    .style(style)
+    .weight(weight);
 
   let alignment = match input.align {
     TextAlignment::Left => cosmic_text::Align::Left,

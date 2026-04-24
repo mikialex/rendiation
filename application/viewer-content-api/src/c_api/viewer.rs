@@ -100,6 +100,13 @@ pub extern "C" fn viewer_resize(
 }
 
 #[no_mangle]
+pub extern "C" fn viewer_load_font(api: *mut ViewerAPI, data_length: u32, data: *const u8) {
+  let api = unsafe { &mut *api };
+  let data = unsafe { std::slice::from_raw_parts(data, data_length as usize) }.to_vec();
+  api.viewer.load_font(data);
+}
+
+#[no_mangle]
 pub extern "C" fn viewer_render_surface(api: &mut ViewerAPI, surface_id: u32) {
   api.render_surface(surface_id);
 }

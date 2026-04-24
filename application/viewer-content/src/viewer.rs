@@ -26,6 +26,9 @@ impl Viewer {
     }
     self.viewport_map = Arc::new(viewports_map);
   }
+  pub fn load_font(&self, font_buffer: Vec<u8>) {
+    self.font_system.write().load_font(font_buffer);
+  }
 }
 
 pub struct ViewerDropCx<'a> {

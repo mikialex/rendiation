@@ -6280,6 +6280,7 @@ dependencies = [
  "pollster",
  "rendiation-mesh-core",
  "rendiation-occ-style-draw-control",
+ "rendiation-text-3d",
  "rendiation-viewer-content",
 ]
 
