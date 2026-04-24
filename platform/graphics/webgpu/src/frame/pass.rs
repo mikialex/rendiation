@@ -46,10 +46,14 @@ pub fn pass(name: impl Into<String>) -> RenderPassDescription {
 #[derive(Default, Clone)]
 pub struct RenderPassDescription {
   pub name: String,
-  pub channels: Vec<(gpu::Operations<gpu::Color>, RenderTargetView)>,
+  /// (op, attachment, resolve_target)
+  pub channels: Vec<(
+    gpu::Operations<gpu::Color>,
+    RenderTargetView,
+    Option<RenderTargetView>,
+  )>,
   /// (depth_op, stencil_op, attachment)
   pub depth_stencil_target: Option<(gpu::Operations<f32>, gpu::Operations<u32>, RenderTargetView)>,
-  pub resolve_target: Option<RenderTargetView>,
 }
 
 impl RenderPassDescription {
@@ -88,13 +92,37 @@ impl RenderPassDescription {
     self
   }
 
+  #[must_use]
+  pub fn with_color_and_resolve_target(
+    mut self,
+    attachment: &RenderTargetView,
+    op: impl Into<gpu::Operations<gpu::Color>>,
+    resolve_target: &RenderTargetView,
+  ) -> Self {
+    self.push_color_with_resolve_target(attachment, op, resolve_target);
+    self
+  }
+
   pub fn push_color(
     &mut self,
     attachment: &RenderTargetView,
     op: impl Into<gpu::Operations<gpu::Color>>,
   ) -> usize {
     let idx = self.channels.len();
-    self.channels.push((op.into(), attachment.clone()));
+    self.channels.push((op.into(), attachment.clone(), None));
+    idx
+  }
+
+  pub fn push_color_with_resolve_target(
+    &mut self,
+    attachment: &RenderTargetView,
+    op: impl Into<gpu::Operations<gpu::Color>>,
+    resolve_target: &RenderTargetView,
+  ) -> usize {
+    let idx = self.channels.len();
+    self
+      .channels
+      .push((op.into(), attachment.clone(), Some(resolve_target.clone())));
     idx
   }
 
@@ -120,12 +148,6 @@ impl RenderPassDescription {
     self
       .depth_stencil_target
       .replace((depth_op.into(), stencil_op.into(), attachment.clone()));
-  }
-
-  #[must_use]
-  pub fn resolve_to(mut self, attachment: &RenderTargetView) -> Self {
-    self.resolve_target = Some(attachment.clone());
-    self
   }
 
   #[must_use]

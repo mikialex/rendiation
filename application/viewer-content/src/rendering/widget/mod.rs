@@ -50,13 +50,12 @@ pub fn draw_widgets(
     let msaa_depth = depth_attachment().sample_count(4).request(ctx);
 
     pass("scene-widgets-msaa")
-      .with_color(&msaa_color, clear_and_store(all_zero()))
+      .with_color_and_resolve_target(&msaa_color, clear_and_store(all_zero()), &widgets_result)
       .with_depth(
         &msaa_depth,
         clear_and_store(if reversed_depth { 0. } else { 1. }),
         load_and_store(),
       )
-      .resolve_to(&widgets_result)
       .render_ctx(ctx)
       .by(&mut DrawWorldAxis {
         data: axis,

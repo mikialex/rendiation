@@ -114,11 +114,11 @@ impl GPUCommandEncoder {
     let color_attachments: Vec<_> = des
       .channels
       .iter()
-      .map(|(ops, view)| {
+      .map(|(ops, view, resolve_target)| {
         size = Some(view.size());
         Some(gpu::RenderPassColorAttachment {
           view: view.as_render_view(),
-          resolve_target: des.resolve_target.as_ref().map(|t| t.as_render_view()),
+          resolve_target: resolve_target.as_ref().map(|t| t.as_render_view()),
           ops: *ops,
           depth_slice: None,
         })
@@ -158,7 +158,11 @@ impl GPUCommandEncoder {
     };
 
     let formats = RenderTargetFormatsInfo {
-      color_formats: des.channels.iter().map(|(_, view)| view.format()).collect(),
+      color_formats: des
+        .channels
+        .iter()
+        .map(|(_, view, _)| view.format())
+        .collect(),
       depth_stencil_formats: des
         .depth_stencil_target
         .as_ref()
