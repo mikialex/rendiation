@@ -232,13 +232,7 @@ impl Viewer3dViewportRenderingCtx {
   ///
   /// this feature is not recommend to use
   pub fn direct_read_cached_frame_sync(&self, gpu: &GPU) -> Option<ReadableTextureBuffer> {
-    let cached: GPU2DTextureView = self
-      .cached_frame
-      .as_ref()?
-      .expect_standalone_common_texture_view_for_binding()
-      .clone()
-      .try_into()
-      .unwrap();
+    let cached: GPU2DTextureView = self.cached_frame.as_ref()?.expect_texture_view();
     let mut encoder = gpu.create_encoder();
     let fut = encoder.read_texture_2d(
       &gpu.device,
@@ -585,7 +579,7 @@ impl Viewer3dViewportRenderingCtx {
           scene_result
         };
 
-        let g_buffer = g_buffer.resolve_if_have_multi_sample(ctx);
+        let g_buffer = g_buffer.resolve_if_have_multi_sample(ctx, renderer.reversed_depth);
 
         if self.enable_ground && !is_outline_only_mode {
           ctx.scope(|ctx| {
@@ -737,12 +731,8 @@ impl Viewer3dViewportRenderingCtx {
     drop(compose);
 
     if let Some(entity_id) = &g_buffer.entity_id {
-      let entity_id = entity_id
-        .expect_standalone_common_texture_view_for_binding()
-        .clone();
-
       self.picker.read_new_frame_id_buffer(
-        &GPUTypedTextureView::<TextureDimension2, u32>::try_from(entity_id).unwrap(),
+        &entity_id.expect_texture_view(),
         ctx.gpu,
         &mut ctx.encoder,
         waker,

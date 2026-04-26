@@ -15,6 +15,9 @@ pub const MAX_U32_ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::C
   a: 0.,
 };
 
+const ENABLE_MSAA_NORMAL_RESOLVE_DEPTH_AWARE_AVERAGE: bool = false;
+const MSAA_NORMAL_RESOLVE_DEPTH_EPSILON: f32 = 1e-5;
+
 impl FrameGeometryBuffer {
   pub fn should_skip_entity_id(cx: &mut FrameCtx) -> bool {
     let downgrade_info = &cx.gpu.info().downgrade_info;
@@ -71,12 +74,64 @@ impl FrameGeometryBuffer {
     }
   }
 
-  pub fn resolve_if_have_multi_sample(self, cx: &mut FrameCtx) -> Self {
+  pub fn resolve_if_have_multi_sample(self, ctx: &mut FrameCtx, reverse_depth: bool) -> Self {
     if self.depth.sample_count() == 1 {
       return self;
     }
-    todo!();
-    self
+
+    let sample_count = self.depth.sample_count();
+    let new_depth = depth_attachment().request(ctx);
+
+    pass("msaa resolve depth")
+      .with_depth(&new_depth, load_and_store(), load_and_store())
+      .render_ctx(ctx)
+      .by(
+        &mut MSAADepthResolver {
+          depth: self.depth.expect_texture_view(),
+          sample_count,
+          reverse_depth,
+        }
+        .draw_quad(),
+      );
+
+    let new_normal = attachment().format(self.normal.format()).request(ctx);
+    pass("msaa resolve normal")
+      .with_color(&new_normal, store_full_frame())
+      .render_ctx(ctx)
+      .by(
+        &mut MSAANormalResolver {
+          depth: self.depth.expect_texture_view(),
+          normal: self.normal.expect_texture_view(),
+          sample_count,
+          reverse_depth,
+        }
+        .draw_quad(),
+      );
+
+    let new_entity_id = if let Some(entity_id) = self.entity_id {
+      let new_entity_id = attachment().format(entity_id.format()).request(ctx);
+      pass("msaa resolve entity id")
+        .with_color(&new_entity_id, clear_and_store(MAX_U32_ID_BACKGROUND))
+        .render_ctx(ctx)
+        .by(
+          &mut EntityIdResolver {
+            depth: self.depth.expect_texture_view(),
+            id: entity_id.expect_texture_view().clone(),
+            sample_count,
+            reverse_depth,
+          }
+          .draw_quad(),
+        );
+      new_entity_id.into()
+    } else {
+      None
+    };
+
+    Self {
+      depth: new_depth,
+      normal: new_normal,
+      entity_id: new_entity_id,
+    }
   }
 }
 
@@ -203,4 +258,193 @@ impl GeometryCtxProvider for FrameGeometryBufferReconstructGeometryCtx<'_> {
       }
     })
   }
+}
+
+// todo, we should merge these resolver together to reduce bandwidth
+struct MSAADepthResolver {
+  depth: GPU2DMultiSampleDepthTextureView,
+  sample_count: u32,
+  reverse_depth: bool,
+}
+impl ShaderHashProvider for MSAADepthResolver {
+  shader_hash_type_id! {}
+
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.sample_count.hash(hasher);
+    self.reverse_depth.hash(hasher);
+  }
+}
+impl ShaderPassBuilder for MSAADepthResolver {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.depth.bind_pass(&mut ctx.binding);
+  }
+}
+
+impl GraphicsShaderProvider for MSAADepthResolver {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, binding| {
+      let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
+      let depth = binding.bind_by(&self.depth);
+      let (_, resolved_depth) = select_conservative_depth_sample(
+        depth,
+        frag_position,
+        self.sample_count,
+        self.reverse_depth,
+      );
+
+      let depth_stencil = builder.depth_stencil.as_mut().unwrap();
+      depth_stencil.depth_compare = CompareFunction::Always;
+      depth_stencil.depth_write_enabled = true;
+
+      builder.register::<FragmentDepthOutput>(resolved_depth);
+    });
+  }
+}
+
+struct MSAANormalResolver {
+  depth: GPU2DMultiSampleDepthTextureView,
+  normal: GPU2DMultiSampleTextureView,
+  sample_count: u32,
+  reverse_depth: bool,
+}
+impl ShaderHashProvider for MSAANormalResolver {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.sample_count.hash(hasher);
+    self.reverse_depth.hash(hasher);
+  }
+}
+impl ShaderPassBuilder for MSAANormalResolver {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.depth.bind_pass(&mut ctx.binding);
+    self.normal.bind_pass(&mut ctx.binding);
+  }
+}
+
+impl GraphicsShaderProvider for MSAANormalResolver {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, binding| {
+      let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
+      let depth = binding.bind_by(&self.depth);
+      let normal = binding.bind_by(&self.normal);
+      let (sample_index, resolved_depth) = select_conservative_depth_sample(
+        depth,
+        frag_position,
+        self.sample_count,
+        self.reverse_depth,
+      );
+
+      let resolved = if ENABLE_MSAA_NORMAL_RESOLVE_DEPTH_AWARE_AVERAGE {
+        resolve_normal_from_depth_cluster(
+          depth,
+          normal,
+          frag_position,
+          resolved_depth,
+          self.sample_count,
+        )
+      } else {
+        normal
+          .load_texel_multi_sample_index(frag_position, sample_index)
+          .xyz()
+          .normalize()
+      };
+
+      builder.store_fragment_out_vec4f(0, (resolved, val(1.0)));
+    });
+  }
+}
+
+struct EntityIdResolver {
+  depth: GPU2DMultiSampleDepthTextureView,
+  id: GPUTypedTextureView<TextureDimension2, MultiSampleOf<u32>>,
+  sample_count: u32,
+  reverse_depth: bool,
+}
+impl ShaderHashProvider for EntityIdResolver {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.sample_count.hash(hasher);
+    self.reverse_depth.hash(hasher);
+  }
+}
+impl ShaderPassBuilder for EntityIdResolver {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.depth.bind_pass(&mut ctx.binding);
+    self.id.bind_pass(&mut ctx.binding);
+  }
+}
+
+impl GraphicsShaderProvider for EntityIdResolver {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, binding| {
+      let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
+      let depth = binding.bind_by(&self.depth);
+      let id = binding.bind_by(&self.id);
+      let (sample_index, _) = select_conservative_depth_sample(
+        depth,
+        frag_position,
+        self.sample_count,
+        self.reverse_depth,
+      );
+
+      builder.store_fragment_out(
+        0,
+        id.load_texel_multi_sample_index(frag_position, sample_index)
+          .x(),
+      );
+    });
+  }
+}
+
+fn select_conservative_depth_sample(
+  depth: BindingNode<ShaderMultiSampleDepthTexture2D>,
+  frag_position: Node<Vec2<u32>>,
+  sample_count: u32,
+  reverse_depth: bool,
+) -> (Node<u32>, Node<f32>) {
+  let selected_sample_index = val(0_u32).make_local_var();
+  let selected_depth = depth
+    .load_texel_multi_sample_index(frag_position, val(0_u32))
+    .make_local_var();
+
+  for sample_index in 1..sample_count {
+    let sample_depth = depth.load_texel_multi_sample_index(frag_position, val(sample_index));
+    if_by(
+      sample_depth.near_than(selected_depth.load(), reverse_depth),
+      || {
+        selected_depth.store(sample_depth);
+        selected_sample_index.store(val(sample_index));
+      },
+    );
+  }
+
+  (selected_sample_index.load(), selected_depth.load())
+}
+
+fn resolve_normal_from_depth_cluster(
+  depth: BindingNode<ShaderMultiSampleDepthTexture2D>,
+  normal: BindingNode<ShaderMultiSampleTexture2D>,
+  frag_position: Node<Vec2<u32>>,
+  selected_depth: Node<f32>,
+  sample_count: u32,
+) -> Node<Vec3<f32>> {
+  let normal_sum = val(Vec3::<f32>::zero()).make_local_var();
+  let sample_hit_count = val(0.0).make_local_var();
+
+  for sample_index in 0..sample_count {
+    let sample_normal = normal
+      .load_texel_multi_sample_index(frag_position, val(sample_index))
+      .xyz();
+    let sample_depth = depth.load_texel_multi_sample_index(frag_position, val(sample_index));
+    let is_same_surface = (sample_depth - selected_depth)
+      .abs()
+      .less_equal_than(val(MSAA_NORMAL_RESOLVE_DEPTH_EPSILON));
+
+    if_by(is_same_surface, || {
+      normal_sum.store(normal_sum.load() + sample_normal);
+      sample_hit_count.store(sample_hit_count.load() + val(1.0));
+    });
+  }
+
+  (normal_sum.load() / sample_hit_count.load().splat()).normalize()
 }

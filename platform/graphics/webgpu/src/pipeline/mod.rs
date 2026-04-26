@@ -91,11 +91,20 @@ pub fn map_shader_value_ty_to_binding_layout_type(
         dimension,
         sample_type,
         multi_sampled,
-      } => gpu::BindingType::Texture {
-        multisampled: multi_sampled,
-        sample_type,
-        view_dimension: dimension,
-      },
+      } => {
+        let mut sample_type = sample_type;
+        // disable the filterable for multisampled texture
+        if multi_sampled {
+          if let TextureSampleType::Float { filterable } = &mut sample_type {
+            *filterable = false;
+          }
+        }
+        gpu::BindingType::Texture {
+          multisampled: multi_sampled,
+          sample_type,
+          view_dimension: dimension,
+        }
+      }
       StorageTexture {
         dimension,
         format,

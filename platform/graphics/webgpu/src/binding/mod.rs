@@ -162,6 +162,7 @@ impl BindingBuilder {
   {
     // check if the layout match, or panic directly, this is helpful to debug binding mismatch because the wgpu
     // validation is too late to catch where the miss match happens.
+    // todo, move this to cold path
     if let Some(checking_layouts) = &mut self.checking_layouts {
       let desc = item.binding_desc();
       let layout = &checking_layouts[self.current_index];

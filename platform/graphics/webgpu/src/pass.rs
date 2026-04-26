@@ -143,12 +143,22 @@ impl RenderTargetView {
     }
   }
 
-  pub fn expect_standalone_common_texture_view_for_binding(&self) -> &GPUTextureView {
+  pub fn expect_common_texture_view_for_binding(&self) -> &GPUTextureView {
     match self {
       RenderTargetView::Texture(t) => t.get_binding_view(),
       RenderTargetView::ReusedTexture(t) => t.item().get_binding_view(),
       _ => panic!("expect_standalone_texture_view failed"),
     }
+  }
+
+  pub fn expect_texture_view<F: TextureFormatDynamicCheck>(
+    &self,
+  ) -> GPUTypedTextureView<TextureDimension2, F> {
+    self
+      .expect_common_texture_view_for_binding()
+      .clone()
+      .try_into()
+      .unwrap()
   }
 
   pub fn create_attachment_key(&self) -> PooledTextureKey {

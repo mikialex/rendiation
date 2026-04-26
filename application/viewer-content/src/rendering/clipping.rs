@@ -263,18 +263,8 @@ impl CSGClippingRenderer {
       expressions: self.expressions.clone(),
       camera_gpu: camera_gpu.clone(),
       fill_depth_info,
-      clip_normal: g_buffer_target
-        .normal
-        .expect_standalone_common_texture_view_for_binding()
-        .clone()
-        .try_into()
-        .unwrap(),
-      clip_depth: g_buffer_target
-        .depth
-        .expect_standalone_common_texture_view_for_binding()
-        .clone()
-        .try_into()
-        .unwrap(),
+      clip_normal: g_buffer_target.normal.expect_texture_view(),
+      clip_depth: g_buffer_target.depth.expect_texture_view(),
       reverse_depth: reverse_z,
     };
 
@@ -302,11 +292,7 @@ impl CSGClippingRenderer {
         let g_buffer_base_writer = g_buffer_target.extend_pass_desc_for_subsequent_draw(&mut pass);
 
         let draw = ForwardCsgSurfaceDraw {
-          filled_depth: fill_depth
-            .expect_standalone_common_texture_view_for_binding()
-            .clone()
-            .try_into()
-            .unwrap(),
+          filled_depth: fill_depth.expect_texture_view(),
           reverse_z,
           camera: camera_gpu.clone(),
         };

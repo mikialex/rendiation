@@ -6,31 +6,20 @@ pub fn compute_sdf_for_frame_render(
   mask_input: RenderTargetView,
   max_distance: Option<u32>,
 ) -> RenderTargetView {
-  let mask = mask_input
-    .expect_standalone_common_texture_view_for_binding()
-    .clone()
-    .try_into()
-    .unwrap();
-
   let src = attachment()
     .format(TextureFormat::Rg32Float)
     .request(frame_cx);
-  let src_ = src
-    .expect_standalone_common_texture_view_for_binding()
-    .clone()
-    .try_into()
-    .unwrap();
 
   let target = attachment()
     .format(TextureFormat::Rg32Float)
     .request(frame_cx);
-  let target_ = target
-    .expect_standalone_common_texture_view_for_binding()
-    .clone()
-    .try_into()
-    .unwrap();
 
-  compute_sdf(frame_cx, mask, (src_, target_), max_distance);
+  compute_sdf(
+    frame_cx,
+    mask_input.expect_texture_view(),
+    (src.expect_texture_view(), target.expect_texture_view()),
+    max_distance,
+  );
 
   target
 }
