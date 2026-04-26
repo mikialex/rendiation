@@ -81,51 +81,29 @@ impl FrameGeometryBuffer {
 
     let sample_count = self.depth.sample_count();
     let new_depth = depth_attachment().request(ctx);
-
-    pass("msaa resolve depth")
-      .with_depth(&new_depth, load_and_store(), load_and_store())
-      .render_ctx(ctx)
-      .by(
-        &mut MSAADepthResolver {
-          depth: self.depth.expect_texture_view(),
-          sample_count,
-          reverse_depth,
-        }
-        .draw_quad(),
-      );
-
     let new_normal = attachment().format(self.normal.format()).request(ctx);
-    pass("msaa resolve normal")
-      .with_color(&new_normal, store_full_frame())
-      .render_ctx(ctx)
-      .by(
-        &mut MSAANormalResolver {
-          depth: self.depth.expect_texture_view(),
-          normal: self.normal.expect_texture_view(),
-          sample_count,
-          reverse_depth,
-        }
-        .draw_quad(),
-      );
 
-    let new_entity_id = if let Some(entity_id) = self.entity_id {
-      let new_entity_id = attachment().format(entity_id.format()).request(ctx);
-      pass("msaa resolve entity id")
-        .with_color(&new_entity_id, clear_and_store(MAX_U32_ID_BACKGROUND))
-        .render_ctx(ctx)
-        .by(
-          &mut EntityIdResolver {
-            depth: self.depth.expect_texture_view(),
-            id: entity_id.expect_texture_view().clone(),
-            sample_count,
-            reverse_depth,
-          }
-          .draw_quad(),
-        );
-      new_entity_id.into()
-    } else {
-      None
+    let new_entity_id = self.entity_id.as_ref().map(|entity_id| {
+      attachment().format(entity_id.format()).request(ctx)
+    });
+
+    let resolver = MSAAGBufferResolver {
+      depth: self.depth.expect_texture_view(),
+      normal: self.normal.expect_texture_view(),
+      entity_id: self.entity_id.map(|id| id.expect_texture_view()),
+      sample_count,
+      reverse_depth,
     };
+
+    let mut pass_builder = pass("msaa resolve g buffer")
+      .with_depth(&new_depth, load_and_store(), load_and_store())
+      .with_color(&new_normal, store_full_frame());
+
+    if let Some(ref target) = new_entity_id {
+      pass_builder = pass_builder.with_color(target, clear_and_store(MAX_U32_ID_BACKGROUND));
+    }
+
+    pass_builder.render_ctx(ctx).by(&mut resolver.draw_quad());
 
     Self {
       depth: new_depth,
@@ -260,68 +238,33 @@ impl GeometryCtxProvider for FrameGeometryBufferReconstructGeometryCtx<'_> {
   }
 }
 
-// todo, we should merge these resolver together to reduce bandwidth
-struct MSAADepthResolver {
-  depth: GPU2DMultiSampleDepthTextureView,
-  sample_count: u32,
-  reverse_depth: bool,
-}
-impl ShaderHashProvider for MSAADepthResolver {
-  shader_hash_type_id! {}
-
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.sample_count.hash(hasher);
-    self.reverse_depth.hash(hasher);
-  }
-}
-impl ShaderPassBuilder for MSAADepthResolver {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.depth.bind_pass(&mut ctx.binding);
-  }
-}
-
-impl GraphicsShaderProvider for MSAADepthResolver {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.fragment(|builder, binding| {
-      let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
-      let depth = binding.bind_by(&self.depth);
-      let (_, resolved_depth) = select_conservative_depth_sample(
-        depth,
-        frag_position,
-        self.sample_count,
-        self.reverse_depth,
-      );
-
-      let depth_stencil = builder.depth_stencil.as_mut().unwrap();
-      depth_stencil.depth_compare = CompareFunction::Always;
-      depth_stencil.depth_write_enabled = true;
-
-      builder.register::<FragmentDepthOutput>(resolved_depth);
-    });
-  }
-}
-
-struct MSAANormalResolver {
+struct MSAAGBufferResolver {
   depth: GPU2DMultiSampleDepthTextureView,
   normal: GPU2DMultiSampleTextureView,
+  entity_id: Option<GPUTypedTextureView<TextureDimension2, MultiSampleOf<u32>>>,
   sample_count: u32,
   reverse_depth: bool,
 }
-impl ShaderHashProvider for MSAANormalResolver {
+impl ShaderHashProvider for MSAAGBufferResolver {
   shader_hash_type_id! {}
+
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.sample_count.hash(hasher);
     self.reverse_depth.hash(hasher);
+    self.entity_id.is_some().hash(hasher);
   }
 }
-impl ShaderPassBuilder for MSAANormalResolver {
+impl ShaderPassBuilder for MSAAGBufferResolver {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.depth.bind_pass(&mut ctx.binding);
     self.normal.bind_pass(&mut ctx.binding);
+    if let Some(entity_id) = &self.entity_id {
+      entity_id.bind_pass(&mut ctx.binding);
+    }
   }
 }
 
-impl GraphicsShaderProvider for MSAANormalResolver {
+impl GraphicsShaderProvider for MSAAGBufferResolver {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
@@ -333,6 +276,11 @@ impl GraphicsShaderProvider for MSAANormalResolver {
         self.sample_count,
         self.reverse_depth,
       );
+
+      let depth_stencil = builder.depth_stencil.as_mut().unwrap();
+      depth_stencil.depth_compare = CompareFunction::Always;
+      depth_stencil.depth_write_enabled = true;
+      builder.register::<FragmentDepthOutput>(resolved_depth);
 
       let resolved = if ENABLE_MSAA_NORMAL_RESOLVE_DEPTH_AWARE_AVERAGE {
         resolve_normal_from_depth_cluster(
@@ -350,48 +298,14 @@ impl GraphicsShaderProvider for MSAANormalResolver {
       };
 
       builder.store_fragment_out_vec4f(0, (resolved, val(1.0)));
-    });
-  }
-}
 
-struct EntityIdResolver {
-  depth: GPU2DMultiSampleDepthTextureView,
-  id: GPUTypedTextureView<TextureDimension2, MultiSampleOf<u32>>,
-  sample_count: u32,
-  reverse_depth: bool,
-}
-impl ShaderHashProvider for EntityIdResolver {
-  shader_hash_type_id! {}
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.sample_count.hash(hasher);
-    self.reverse_depth.hash(hasher);
-  }
-}
-impl ShaderPassBuilder for EntityIdResolver {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.depth.bind_pass(&mut ctx.binding);
-    self.id.bind_pass(&mut ctx.binding);
-  }
-}
-
-impl GraphicsShaderProvider for EntityIdResolver {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.fragment(|builder, binding| {
-      let frag_position = builder.query::<FragmentPosition>().xy().into_u32();
-      let depth = binding.bind_by(&self.depth);
-      let id = binding.bind_by(&self.id);
-      let (sample_index, _) = select_conservative_depth_sample(
-        depth,
-        frag_position,
-        self.sample_count,
-        self.reverse_depth,
-      );
-
-      builder.store_fragment_out(
-        0,
-        id.load_texel_multi_sample_index(frag_position, sample_index)
-          .x(),
-      );
+      if let Some(entity_id) = &self.entity_id {
+        let id = binding.bind_by(entity_id);
+        builder.store_fragment_out(
+          1,
+          id.load_texel_multi_sample_index(frag_position, sample_index).x(),
+        );
+      }
     });
   }
 }
