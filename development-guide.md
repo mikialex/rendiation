@@ -109,6 +109,11 @@ important issue is in bold style.
     - <https://github.com/rust-lang/rust/issues/135849>
   - disable fast-math for large world rendering: <https://github.com/gpuweb/gpuweb/issues/2076>
 
+### other nice to have improvements in viewer
+
+- <https://vplesko.com/posts/how_to_implement_an_fps_counter.html>
+- framepacing
+
 ## Useful commands
 
 most used testing and developing commands (write it down for convenience)

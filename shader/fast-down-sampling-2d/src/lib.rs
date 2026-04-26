@@ -45,6 +45,7 @@ pub fn fast_down_sampling<V>(
   {
     let mut hasher = shader_hasher_from_marker_ty!(SPDxFirstPass);
     reducer.type_id().hash(&mut hasher);
+    io.hash_pipeline_with_type_info(&mut hasher);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
       ctx.config_work_group_size(16 * 16);
       let group_id = ctx.workgroup_id().xy();
@@ -112,6 +113,7 @@ pub fn fast_down_sampling<V>(
   {
     let mut hasher = shader_hasher_from_marker_ty!(SPDxSecondPass);
     reducer.type_id().hash(&mut hasher);
+    io.hash_pipeline_with_type_info(&mut hasher);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
       ctx.config_work_group_size(16 * 16);
       let group_id = ctx.workgroup_id().xy();

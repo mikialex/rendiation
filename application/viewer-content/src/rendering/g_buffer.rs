@@ -5,8 +5,7 @@ use crate::*;
 pub struct FrameGeometryBuffer {
   pub depth: RenderTargetView,
   pub normal: RenderTargetView,
-  pub entity_id: RenderTargetView,
-  pub should_skip_entity_id: bool,
+  pub entity_id: Option<RenderTargetView>,
 }
 
 pub const MAX_U32_ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::Color {
@@ -24,12 +23,19 @@ impl FrameGeometryBuffer {
       .contains(DownlevelFlags::INDEPENDENT_BLEND) // to support webgl!
   }
 
-  pub fn new(cx: &mut FrameCtx) -> Self {
+  pub fn new(cx: &mut FrameCtx, sample_count: u32) -> Self {
     Self {
-      depth: depth_attachment().request(cx),
-      normal: attachment().format(TextureFormat::Rgba16Float).request(cx),
-      entity_id: attachment().format(TextureFormat::R32Uint).request(cx),
-      should_skip_entity_id: Self::should_skip_entity_id(cx),
+      depth: depth_attachment().sample_count(sample_count).request(cx),
+      normal: attachment()
+        .format(TextureFormat::Rgba16Float)
+        .sample_count(sample_count)
+        .request(cx),
+      entity_id: Self::should_skip_entity_id(cx).then(|| {
+        attachment()
+          .format(TextureFormat::R32Uint)
+          .sample_count(sample_count)
+          .request(cx)
+      }),
     }
   }
 
@@ -43,11 +49,10 @@ impl FrameGeometryBuffer {
 
     FrameGeometryBufferPassEncoder {
       normal: desc.push_color(&self.normal, clear_and_store(all_zero())),
-      entity_id: if self.should_skip_entity_id {
-        usize::MAX
-      } else {
-        desc.push_color(&self.entity_id, clear_and_store(MAX_U32_ID_BACKGROUND))
-      },
+      entity_id: self
+        .entity_id
+        .as_ref()
+        .map(|entity_id| desc.push_color(entity_id, clear_and_store(MAX_U32_ID_BACKGROUND))),
     }
   }
 
@@ -59,20 +64,25 @@ impl FrameGeometryBuffer {
 
     FrameGeometryBufferPassEncoder {
       normal: desc.push_color(&self.normal, load_and_store()),
-      entity_id: if self.should_skip_entity_id {
-        usize::MAX
-      } else {
-        // although here the load store is same for all channels, we still need to reject the writing
-        // as we never successfully write in first place
-        desc.push_color(&self.entity_id, load_and_store())
-      },
+      entity_id: self
+        .entity_id
+        .as_ref()
+        .map(|entity_id| desc.push_color(entity_id, load_and_store())),
     }
+  }
+
+  pub fn resolve_if_have_multi_sample(self, cx: &mut FrameCtx) -> Self {
+    if self.depth.sample_count() == 1 {
+      return self;
+    }
+    todo!();
+    self
   }
 }
 
 pub struct FrameGeometryBufferPassEncoder {
   pub normal: usize,
-  pub entity_id: usize,
+  pub entity_id: Option<usize>,
 }
 
 impl ShaderHashProvider for FrameGeometryBufferPassEncoder {
@@ -88,9 +98,9 @@ impl ShaderPassBuilder for FrameGeometryBufferPassEncoder {}
 impl GraphicsShaderProvider for FrameGeometryBufferPassEncoder {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      if self.entity_id != usize::MAX {
+      if let Some(entity_id) = self.entity_id {
         let id = builder.query_or_interpolate_by::<LogicalRenderEntityId, LogicalRenderEntityId>();
-        builder.frag_output[self.entity_id].store(id);
+        builder.frag_output[entity_id].store(id);
       }
 
       let normal = builder.get_or_compute_fragment_normal();
@@ -104,7 +114,9 @@ impl ShaderPassBuilder for FrameGeometryBuffer {
   fn setup_pass(&self, cx: &mut GPURenderPassCtx) {
     self.normal.bind_pass(&mut cx.binding);
     self.depth.bind_pass(&mut cx.binding);
-    self.entity_id.bind_pass(&mut cx.binding);
+    if let Some(entity_id) = &self.entity_id {
+      entity_id.bind_pass(&mut cx.binding);
+    }
     cx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
   }
 }

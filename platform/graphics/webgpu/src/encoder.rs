@@ -141,6 +141,27 @@ impl GPUCommandEncoder {
           }
         });
 
+    // we do checking here because wgpu validation check is deferred and hard to debug related issue.
+    #[cfg(debug_assertions)]
+    {
+      let iter = des.channels.iter().map(|v| v.1.sample_count());
+      let mut _iter = iter.clone();
+      let all_equal = match _iter.next() {
+        None => true, // Empty iterators are technically all equal
+        Some(first) => _iter.all(|x| x == first),
+      };
+
+      assert!(all_equal);
+
+      let depth_sample_count = des
+        .depth_stencil_target
+        .as_ref()
+        .map(|v| v.2.sample_count());
+      if let (Some(a), Some(b)) = (iter.clone().next(), depth_sample_count) {
+        assert_eq!(a, b);
+      }
+    }
+
     let timestamp_writes = start_time_query
       .as_ref()
       .map(|t| RenderPassTimestampWrites {

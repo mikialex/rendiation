@@ -46,8 +46,10 @@ pub fn draw_widgets(
 
   if enable_msaa {
     let widgets_result = attachment().request(ctx);
-    let msaa_color = attachment().sample_count(4).request(ctx);
-    let msaa_depth = depth_attachment().sample_count(4).request(ctx);
+    let msaa_color = attachment().sample_count(MSAA_SAMPLE_COUNT).request(ctx);
+    let msaa_depth = depth_attachment()
+      .sample_count(MSAA_SAMPLE_COUNT)
+      .request(ctx);
 
     pass("scene-widgets-msaa")
       .with_color_and_resolve_target(&msaa_color, clear_and_store(all_zero()), &widgets_result)

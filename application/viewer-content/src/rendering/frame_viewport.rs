@@ -10,13 +10,14 @@ use super::{
 };
 use crate::*;
 
+pub const MSAA_SAMPLE_COUNT: u32 = 4;
+
 pub struct Viewer3dViewportRenderingCtx {
   highlight: HighLighter,
   reproject: GPUReprojectInfo,
   taa: TAA,
   enable_taa: bool,
   enable_fxaa: bool,
-  // todo
   enable_msaa: bool,
   enable_ground: bool,
   enable_widget_scene: bool,
@@ -540,8 +541,18 @@ impl Viewer3dViewportRenderingCtx {
       camera,
       renderer: &renderer_c,
       f: |ctx: &mut FrameCtx| {
-        let scene_result = attachment().use_hdr_if_enabled(hdr_enabled).request(ctx);
-        let g_buffer = FrameGeometryBuffer::new(ctx);
+        let sample_count = if self.enable_msaa {
+          MSAA_SAMPLE_COUNT
+        } else {
+          1
+        };
+
+        let scene_result = attachment()
+          .sample_count(sample_count)
+          .use_hdr_if_enabled(hdr_enabled) // todo msaa with hdr need special handling
+          .request(ctx);
+
+        let g_buffer = FrameGeometryBuffer::new(ctx, sample_count);
 
         let _span = span!(Level::INFO, "main scene content encode pass");
 
@@ -559,6 +570,22 @@ impl Viewer3dViewportRenderingCtx {
           &g_buffer,
           is_outline_only_mode,
         );
+
+        let scene_result = if sample_count > 1 {
+          let simple_sample_scene_result = attachment().request(ctx);
+          let _ = pass("resolve_scene_result")
+            .with_color_and_resolve_target(
+              &scene_result,
+              load_once_and_discard(),
+              &simple_sample_scene_result,
+            )
+            .render_ctx(ctx);
+          simple_sample_scene_result
+        } else {
+          scene_result
+        };
+
+        let g_buffer = g_buffer.resolve_if_have_multi_sample(ctx);
 
         if self.enable_ground && !is_outline_only_mode {
           ctx.scope(|ctx| {
@@ -651,7 +678,6 @@ impl Viewer3dViewportRenderingCtx {
       depth: scene_depth,
       normal: normal_buffer,
       entity_id: id_buffer,
-      should_skip_entity_id: FrameGeometryBuffer::should_skip_entity_id(ctx),
     };
 
     let mut post_process = (!is_outline_only_mode).then(|| {
@@ -710,17 +736,20 @@ impl Viewer3dViewportRenderingCtx {
 
     drop(compose);
 
-    let entity_id = g_buffer
-      .entity_id
-      .expect_standalone_common_texture_view_for_binding()
-      .clone();
+    if let Some(entity_id) = &g_buffer.entity_id {
+      let entity_id = entity_id
+        .expect_standalone_common_texture_view_for_binding()
+        .clone();
 
-    self.picker.read_new_frame_id_buffer(
-      &GPUTypedTextureView::<TextureDimension2, u32>::try_from(entity_id).unwrap(),
-      ctx.gpu,
-      &mut ctx.encoder,
-      waker,
-    );
+      self.picker.read_new_frame_id_buffer(
+        &GPUTypedTextureView::<TextureDimension2, u32>::try_from(entity_id).unwrap(),
+        ctx.gpu,
+        &mut ctx.encoder,
+        waker,
+      );
+    } else {
+      self.picker.notify_frame_id_buffer_not_available();
+    }
   }
 
   fn should_do_frame_caching(&self) -> bool {
