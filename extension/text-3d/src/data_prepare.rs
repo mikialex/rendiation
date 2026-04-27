@@ -1,4 +1,27 @@
+use cosmic_text::fontdb;
+
 use crate::*;
+
+/// Key to identify a glyph in the slug cache, either a real font glyph or a synthetic one.
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
+pub enum GlyphKey {
+  Real(CacheKey),
+  Underline {
+    font_id: fontdb::ID,
+    width_bits: u32,
+    thickness_bits: u32,
+  },
+}
+
+impl GlyphKey {
+  pub fn underline(font_id: fontdb::ID, width: f32, thickness: f32) -> Self {
+    GlyphKey::Underline {
+      font_id,
+      width_bits: width.to_bits(),
+      thickness_bits: thickness.to_bits(),
+    }
+  }
+}
 
 pub struct Text3dSlugBuffer(pub Arc<RwLock<FontSystem>>);
 
@@ -45,7 +68,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for Text3dSceneModelLocalBoundin
 
 #[derive(Clone, Copy, Debug)]
 pub struct PositionedGlyph {
-  pub glyph_key: CacheKey,
+  pub glyph_key: GlyphKey,
   /// relative to glyph space origin
   pub relative_x: f32,
   pub relative_y: f32,
@@ -53,7 +76,7 @@ pub struct PositionedGlyph {
 
 pub struct SlugBuffer {
   pub positions: Vec<PositionedGlyph>,
-  pub unique_glyphs: FastHashSet<CacheKey>,
+  pub unique_glyphs: FastHashSet<GlyphKey>,
   pub scale: f32,
 }
 
@@ -159,51 +182,137 @@ pub fn create_slug_buffer_from_text3d_content(
   let mut unique_glyphs = FastHashSet::default();
   let mut glyph_buffer: Vec<PositionedGlyph> = Vec::new();
 
-  // Inspect the output runs
+  // Inspect the output runs, collect both glyphs and underline segments in one pass.
+  struct UnderlineSegment {
+    run_x_min: f32,
+    run_x_max: f32,
+    line_y: f32,
+    font_size: f32,
+    font_id: fontdb::ID,
+    font_weight: fontdb::Weight,
+  }
+  let mut underline_segments: Vec<UnderlineSegment> = Vec::new();
+
   for run in buffer.layout_runs() {
     for glyph in run.glyphs.iter() {
       let cache_key = glyph.physical((0., run.line_y), 1.0).cache_key;
-      unique_glyphs.insert(cache_key);
+      unique_glyphs.insert(GlyphKey::Real(cache_key));
       glyph_buffer.push(PositionedGlyph {
-        glyph_key: cache_key,
+        glyph_key: GlyphKey::Real(cache_key),
         relative_x: glyph.x,
         relative_y: glyph.y - run.line_y,
       });
     }
+
+    if input.underline {
+      let first = run.glyphs.first();
+      if let Some(first) = first {
+        let mut x_min = first.x;
+        let mut x_max = first.x + first.w;
+        for g in run.glyphs.iter() {
+          x_min = x_min.min(g.x);
+          x_max = x_max.max(g.x + g.w);
+        }
+        underline_segments.push(UnderlineSegment {
+          run_x_min: x_min,
+          run_x_max: x_max,
+          line_y: run.line_y,
+          font_size: first.font_size,
+          font_id: first.font_id,
+          font_weight: first.font_weight,
+        });
+      }
+    }
   }
 
-  for cache_key in &unique_glyphs {
+  // todo, rework underline logic
+  if input.underline {
+    for seg in &underline_segments {
+      let font_metrics = system
+        .system
+        .get_font(seg.font_id, seg.font_weight)
+        .map(|f| {
+          let m = f.metrics();
+          let upem = m.units_per_em as f32;
+          let underline = m
+            .underline
+            .unwrap_or(cosmic_text::skrifa::metrics::Decoration {
+              offset: -0.12 * upem,
+              thickness: 0.05 * upem,
+            });
+          (underline.offset, underline.thickness, upem)
+        });
+
+      // todo, this looks like a hack
+      let (underline_offset, underline_thickness, upem) = font_metrics.unwrap_or_else(|| {
+        let upem = 1000.0;
+        (-0.12 * upem, 0.05 * upem, upem)
+      });
+
+      let width = seg.run_x_max - seg.run_x_min;
+      let thickness = underline_thickness / upem * seg.font_size;
+      // Regular glyph: relative_y = glyph.y - run.line_y, glyph.y ≈ 0,
+      // so baseline maps to -run.line_y in object space.
+      // Underline below baseline needs a more negative value:
+      //   underline_y = -line_y + underline_offset_px
+      // where underline_offset_px is negative (skrifa convention).
+      let underline_offset_px = underline_offset / upem * seg.font_size;
+      let underline_y = -(seg.line_y) + underline_offset_px;
+
+      let glyph_key = GlyphKey::underline(seg.font_id, width, thickness);
+
+      unique_glyphs.insert(glyph_key);
+      system
+        .slug_glyph_cache
+        .entry(glyph_key)
+        .or_insert_with(|| Some(create_rect_slug_glyph(glyph_key, width, thickness)));
+
+      glyph_buffer.push(PositionedGlyph {
+        glyph_key,
+        relative_x: seg.run_x_min,
+        relative_y: underline_y,
+      });
+    }
+  }
+
+  for glyph_key in &unique_glyphs {
     system
       .slug_glyph_cache
-      .entry(*cache_key)
-      .or_insert_with(|| {
-        if let Some(outline_cmds) = system
-          .swash
-          .get_outline_commands(&mut system.system, *cache_key)
-        {
-          let mut curves = Vec::new();
-          if let Some(bounds) = extract_curves(&outline_cmds, &mut curves) {
-            let bands = build_bands(&curves, bounds, 8);
+      .entry(*glyph_key)
+      .or_insert_with(|| match glyph_key {
+        GlyphKey::Real(cache_key) => {
+          if let Some(outline_cmds) = system
+            .swash
+            .get_outline_commands(&mut system.system, *cache_key)
+          {
+            let mut curves = Vec::new();
+            if let Some(bounds) = extract_curves(&outline_cmds, &mut curves) {
+              let bands = build_bands(&curves, bounds, 8);
 
-            let mut slug = SlugGlyph {
-              glyph_key: *cache_key,
-              curves,
-              bands,
-              bounds,
-            };
+              let mut slug = SlugGlyph {
+                glyph_key: *glyph_key,
+                curves,
+                bands,
+                bounds,
+              };
 
-            slug.sort();
+              slug.sort();
 
-            Some(slug)
+              Some(slug)
+            } else {
+              None
+            }
           } else {
+            log::warn!(
+              "unable to get outline commands of glyph {}",
+              cache_key.glyph_id
+            );
             None
           }
-        } else {
-          log::warn!(
-            "unable to get outline commands of glyph {}",
-            cache_key.glyph_id
-          );
-          None
+        }
+        GlyphKey::Underline { .. } => {
+          // Underline glyphs are pre-populated before this loop
+          unreachable!()
         }
       });
   }
@@ -280,7 +389,7 @@ fn build_bands(curves: &[f32], bounds: Box2, band_count: u32) -> GlyphBands {
 
 #[derive(Clone)]
 pub struct SlugGlyph {
-  pub glyph_key: CacheKey,
+  pub glyph_key: GlyphKey,
   pub curves: Vec<f32>,
   pub bands: GlyphBands,
   pub bounds: Box2,
@@ -400,4 +509,50 @@ fn extract_curves(cmds: &[cosmic_text::Command], curves: &mut Vec<f32>) -> Optio
   }
 
   Some(bound)
+}
+
+fn create_rect_slug_glyph(glyph_key: GlyphKey, width: f32, thickness: f32) -> SlugGlyph {
+  let w = width;
+  let h = thickness;
+
+  // 4 edges of a filled rectangle, each as a quadratic bezier curve
+  // Each curve: [p0x, p0y, p1x, p1y, p2x, p2y]
+  let curves = vec![
+    0.0,
+    0.0,
+    w * 0.5,
+    0.0,
+    w,
+    0.0, // bottom edge
+    w,
+    0.0,
+    w,
+    h * 0.5,
+    w,
+    h, // right edge
+    w,
+    h,
+    w * 0.5,
+    h,
+    0.0,
+    h, // top edge
+    0.0,
+    h,
+    0.0,
+    h * 0.5,
+    0.0,
+    0.0, // left edge
+  ];
+
+  let bounds = Box2::new((0.0, 0.0).into(), (w, h).into());
+  let bands = build_bands(&curves, bounds, 8);
+
+  let mut slug = SlugGlyph {
+    glyph_key,
+    curves,
+    bands,
+    bounds,
+  };
+  slug.sort();
+  slug
 }

@@ -367,6 +367,7 @@ fn text3d_content_from_c(
     width: info.has_width.then_some(info.width),
     height: info.has_height.then_some(info.height),
     align: info.align.into(),
+    underline: false,
   }))
 }
 

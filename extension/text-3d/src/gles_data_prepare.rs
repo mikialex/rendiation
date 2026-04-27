@@ -141,9 +141,9 @@ pub struct GlyphBandInfo {
 
 /// Pack glyph data into GPU textures (RGBA32Float for curves, RGBA32Uint for bands).
 fn pack_glyph_data(
-  glyphs: &FastHashSet<CacheKey>,
+  glyphs: &FastHashSet<GlyphKey>,
   font_sys: &FontSystem,
-) -> (PackedGlyphData, FastHashMap<CacheKey, GlyphBandInfo>) {
+) -> (PackedGlyphData, FastHashMap<GlyphKey, GlyphBandInfo>) {
   let filter = |g| font_sys.get_computed_slug_glyph(g);
 
   // --- Curve texture (RGBA32Float, width TEX_WIDTH) ---
@@ -211,7 +211,7 @@ fn pack_glyph_data(
   let mut band_texel_idx = 0;
 
   // Build per-glyph lookup
-  let mut glyph_data_map: FastHashMap<CacheKey, GlyphBandInfo> = FastHashMap::default();
+  let mut glyph_data_map: FastHashMap<GlyphKey, GlyphBandInfo> = FastHashMap::default();
 
   for (gi, g) in glyphs.iter().filter_map(filter).enumerate() {
     let h_band_count = g.bands.h_band_count;

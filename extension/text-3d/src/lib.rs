@@ -56,6 +56,7 @@ pub struct Text3dContentInfo {
   pub weight: Option<u32>,
   pub color: Vec4<f32>,
   pub italic: bool,
+  pub underline: bool,
   pub width: Option<f32>,
   pub height: Option<f32>,
   pub align: TextAlignment,
@@ -81,7 +82,7 @@ declare_component!(
 pub struct FontSystem {
   system: cosmic_text::FontSystem,
   swash: cosmic_text::SwashCache,
-  slug_glyph_cache: FastHashMap<CacheKey, Option<SlugGlyph>>,
+  slug_glyph_cache: FastHashMap<GlyphKey, Option<SlugGlyph>>,
 }
 
 impl FontSystem {
@@ -102,7 +103,7 @@ impl FontSystem {
     self.system.db_mut().load_font_data(data);
   }
 
-  pub(crate) fn get_computed_slug_glyph(&self, key: &CacheKey) -> Option<&SlugGlyph> {
+  pub(crate) fn get_computed_slug_glyph(&self, key: &GlyphKey) -> Option<&SlugGlyph> {
     self.slug_glyph_cache.get(key).map(|v| v.as_ref()).flatten()
   }
 }

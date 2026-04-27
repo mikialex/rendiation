@@ -15,7 +15,7 @@ pub(crate) fn prepare_indirect_text(
   let glyphs = &input.unique_glyphs;
 
   // Build per-glyph lookup
-  let mut glyph_data_map: FastHashMap<CacheKey, u32> = FastHashMap::default();
+  let mut glyph_data_map: FastHashMap<GlyphKey, u32> = FastHashMap::default();
   let mut curves = Vec::new();
 
   // Per glyph: [hBand headers...] [vBand headers...] [curve index lists...]

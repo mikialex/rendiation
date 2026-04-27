@@ -17,6 +17,7 @@ pub fn load_text3d_test(s_writer: &mut SceneWriter) {
         width: None,
         height: None,
         align: TextAlignment::Left,
+        underline: false,
       })))
     });
 
@@ -45,6 +46,7 @@ pub fn load_text3d_test(s_writer: &mut SceneWriter) {
         width: Some(50.),
         height: None,
         align: TextAlignment::Left,
+        underline: true,
       })))
     });
 
