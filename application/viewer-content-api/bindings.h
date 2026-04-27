@@ -40,6 +40,12 @@ typedef enum MeshPrimitiveTopology {
   TriangleStrip = 4,
 } MeshPrimitiveTopology;
 
+typedef enum OccStyleEffectType {
+  Unlit,
+  Lighted,
+  Zebra,
+} OccStyleEffectType;
+
 typedef enum OccFlavorZLayer {
   BotOSD = 0,
   Default = 1,
@@ -56,7 +62,7 @@ typedef enum TextAlignment {
 
 typedef struct ViewerAPI ViewerAPI;
 
-typedef struct ViewerPickerAPI ViewerPickerAPI;
+typedef struct ViewerQueryAPI ViewerQueryAPI;
 
 typedef struct ViewerRayPickListResult ViewerRayPickListResult;
 
@@ -210,19 +216,21 @@ void viewer_load_font(struct ViewerAPI *api, uint32_t data_length, const uint8_t
 
 void viewer_render_surface(struct ViewerAPI *api, uint32_t surface_id);
 
-struct ViewerPickerAPI *viewer_create_picker_api(struct ViewerAPI *api, uint32_t surface_id);
+struct ViewerQueryAPI *viewer_create_picker_api(struct ViewerAPI *api, uint32_t surface_id);
 
 /**
  * picker api must be dropped before any scene related modifications, or deadlock will occur
  */
-void viewer_drop_picker_api(struct ViewerPickerAPI *api);
+void viewer_drop_picker_api(struct ViewerQueryAPI *api);
+
+void query_scene_bounding(struct ViewerQueryAPI *api, struct ViewerAPI *viewer, float (*result)[6]);
 
 /**
  * the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
  *
  * all inputs are logic pixel
  */
-struct ViewerRayPickListResult *picker_pick_list(struct ViewerPickerAPI *api,
+struct ViewerRayPickListResult *picker_pick_list(struct ViewerQueryAPI *api,
                                                  struct ViewerAPI *viewer,
                                                  struct ViewerEntityHandle scene,
                                                  float x,
@@ -237,7 +245,7 @@ void drop_pick_list_result(struct ViewerRayPickListResult *r);
  *
  * all inputs are logic pixel
  */
-struct ViewerRayPickRangeResult *picker_pick_range(struct ViewerPickerAPI *api,
+struct ViewerRayPickRangeResult *picker_pick_range(struct ViewerQueryAPI *api,
                                                    struct ViewerAPI *viewer,
                                                    struct ViewerEntityHandle scene,
                                                    float ax,
@@ -279,6 +287,36 @@ struct AttributesMeshEntitiesCommon create_mesh(uint32_t indices_length,
                                                 enum MeshPrimitiveTopology topo);
 
 void drop_mesh(struct AttributesMeshEntitiesCommon entities);
+
+struct ViewerEntityHandle create_occ_material(void);
+
+void drop_occ_material(struct ViewerEntityHandle handle);
+
+void occ_material_set_transparent(struct ViewerEntityHandle mat, bool transparent);
+
+void occ_material_set_diffuse(struct ViewerEntityHandle mat, const float (*color)[4]);
+
+void occ_material_set_specular(struct ViewerEntityHandle mat, const float (*color)[3]);
+
+void occ_material_set_shiness(struct ViewerEntityHandle mat, float shiness);
+
+void occ_material_set_emissive(struct ViewerEntityHandle mat, const float (*color)[3]);
+
+struct ViewerEntityHandle create_occ_effect_control(void);
+
+void drop_occ_effect_control(struct ViewerEntityHandle handle);
+
+void occ_material_set_effect(struct ViewerEntityHandle mat, struct ViewerEntityHandle effect);
+
+void occ_effect_control_set_shade_type(struct ViewerEntityHandle effect,
+                                       enum OccStyleEffectType shade_type);
+
+void occ_material_set_diffuse_tex(struct ViewerEntityHandle mat,
+                                  struct ViewerEntityHandle tex,
+                                  struct ViewerEntityHandle sampler);
+
+void std_model_set_occ_material(struct ViewerEntityHandle handle,
+                                struct ViewerEntityHandle material);
 
 struct ViewerEntityHandle create_unlit_material(void);
 

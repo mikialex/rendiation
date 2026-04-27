@@ -57,6 +57,53 @@ pub fn load_default_scene(
     writer.create_scene_model(material, attribute_mesh, child);
   }
 
+  {
+    let attribute_mesh = build_attributes_mesh(|builder| {
+      builder.triangulate_parametric(
+        &SphereMeshParameter::default().make_surface(),
+        TessellationConfig { u: 16, v: 16 },
+        true,
+      );
+    })
+    .build();
+
+    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
+
+    let texture = textured_example_tex(writer, texture_data_source);
+
+    let mut occ_mat_writer = global_entity_of::<OccStyleMaterialEntity>().entity_writer();
+    let occ_material = occ_mat_writer.new_entity(|w| {
+      let w = w
+        .write::<OccStyleMaterialDiffuse>(&Vec4::new(0.8, 0.8, 0.8, 1.0))
+        .write::<OccStyleMaterialSpecular>(&Vec3::new(1.0, 1.0, 1.0))
+        .write::<OccStyleMaterialShiness>(&0.5)
+        .write::<OccStyleMaterialEmissive>(&Vec3::zero())
+        .write::<OccStyleMaterialTransparent>(&false);
+      texture.write::<OccStyleMaterialDiffuseTex>(w)
+    });
+
+    let mut effect_writer = global_entity_of::<OccStyleEffectControlEntity>().entity_writer();
+    let effect = effect_writer
+      .new_entity(|w| w.write::<OccStyleEffectShadeType>(&OccStyleEffectType::Lighted));
+
+    occ_mat_writer.write::<OccStyleMaterialEffect>(occ_material, effect.some_handle());
+
+    let child = writer.create_root_child();
+    writer.set_local_matrix(child, Mat4::translate((-3., -3., 0.)));
+
+    let scene = writer.expect_target_scene().some_handle();
+    let std_model = writer.std_model_writer.new_entity(|w| {
+      w.write::<StandardModelRefAttributesMeshEntity>(&attribute_mesh.some_handle())
+        .write::<StdModelOccStyleMaterialPayload>(&occ_material.some_handle())
+    });
+
+    writer.model_writer.new_entity(|w| {
+      w.write::<SceneModelStdModelRenderPayload>(&std_model.some_handle())
+        .write::<SceneModelBelongsToScene>(&scene)
+        .write::<SceneModelRefNode>(&child.some_handle())
+    });
+  }
+
   // cube
   {
     let cube = CubeMeshParameter {

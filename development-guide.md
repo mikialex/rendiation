@@ -141,7 +141,7 @@ cargo tree -d
 [the samply profiler](https://github.com/mstange/samply) is recommended to investigate cpu performance issue. the most used command is:
 
 ```bash
-cargo build --profile --profiling --bin viewer
+cargo build --profile profiling --bin viewer
 samply record ./target/profiling/viewer
 ```
 

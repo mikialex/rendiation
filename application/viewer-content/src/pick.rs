@@ -1,3 +1,5 @@
+use rendiation_qbvh_scene::SceneQbvh;
+
 use crate::*;
 
 pub struct ViewerPicker {
@@ -43,6 +45,27 @@ impl SceneModelIterProvider for NaiveSceneModelIterProvider {
   }
 }
 
+pub struct ViewerQbvhShared(pub Arc<RwLock<FontSystem>>);
+
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for ViewerQbvhShared {
+  type Result = LockReadGuardHolder<SceneQbvh>;
+  share_provider_hash_type_id! {}
+
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+    let (sm_world_bounding_valid, sm_w) = cx
+      .use_shared_dual_query(SceneModelWorldBounding(self.0.clone()))
+      .dual_query_filter_map(|v| v)
+      .fork();
+
+    let margin = sm_w.dual_query_map(|_| 0.); // todo, use correct margin source
+    if let Some(r) = rendiation_qbvh_scene::use_scene_qbvh(cx, sm_world_bounding_valid, margin) {
+      UseResult::ResolveStageReady(r)
+    } else {
+      UseResult::NotInStage
+    }
+  }
+}
+
 pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
   cx: &mut Cx,
   font_system: Arc<RwLock<FontSystem>>,
@@ -65,19 +88,10 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     .use_shared_dual_query_view(SceneModelWorldBounding(font_system.clone()))
     .use_assure_result(cx);
 
-  let (sm_world_bounding_valid, sm_w) = cx
-    .use_shared_dual_query(SceneModelWorldBounding(font_system))
-    .dual_query_filter_map(|v| v)
-    .fork();
-
   let qbvh = if use_scene_bvh {
     cx.scope(|cx| {
-      let margin = sm_w.dual_query_map(|_| 0.); // todo, use correct margin source
-      Some(rendiation_qbvh_scene::use_scene_qbvh(
-        cx,
-        sm_world_bounding_valid,
-        margin,
-      ))
+      cx.use_shared_compute(ViewerQbvhShared(font_system.clone()))
+        .into_resolve_stage()
     })
   } else {
     None
@@ -136,7 +150,6 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     };
 
     let scene_model_iter_provider = if let Some(qbvh) = qbvh {
-      let qbvh = qbvh.unwrap();
       let iter_provider = rendiation_qbvh_scene::SceneQbvhIterProvider { internal: qbvh };
       Box::new(iter_provider) as Box<dyn SceneModelIterProvider>
     } else {

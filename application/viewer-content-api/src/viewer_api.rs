@@ -241,8 +241,8 @@ impl ViewerAPI {
     }
   }
 
-  pub fn create_picker_api(&mut self, surface_id: u32) -> ViewerPickerAPI {
-    self.viewer_api_picker_scope(|cx| {
+  pub fn create_query_api(&mut self, surface_id: u32) -> ViewerQueryAPI {
+    self.viewer_api_query_scope(|cx| {
       cx.viewer.update_view_ty_immediate();
       let picker_impl = use_viewer_scene_model_picker_impl(
         cx,
@@ -252,15 +252,18 @@ impl ViewerAPI {
         cx.viewer.use_scene_bvh,
       );
 
+      let scene_bounding = use_bounding_computer(cx);
+
       cx.when_resolve_stage(|| {
         let active_surface = cx.viewer.surfaces_content.get(&surface_id).unwrap();
         let active_view = active_surface.viewports[0].id;
         let mut picker_impl = picker_impl.unwrap();
         picker_impl.model_picker.set_active_view(Some(active_view));
 
-        ViewerPickerAPI {
+        ViewerQueryAPI {
           picker_impl,
           surface_id,
+          scene_bounding: scene_bounding.unwrap(),
         }
       })
     })
@@ -297,7 +300,7 @@ impl ViewerAPI {
     }
   }
 
-  pub fn viewer_api_picker_scope<T>(&mut self, f: impl Fn(&mut ViewerAPICx) -> Option<T>) -> T {
+  pub fn viewer_api_query_scope<T>(&mut self, f: impl Fn(&mut ViewerAPICx) -> Option<T>) -> T {
     let mut pool = AsyncTaskPool::default();
     let mut immediate_results = FastHashMap::default();
 
@@ -353,8 +356,9 @@ impl ViewerAPI {
   }
 }
 
-pub struct ViewerPickerAPI {
+pub struct ViewerQueryAPI {
   picker_impl: ViewerPicker,
+  scene_bounding: SceneBoundingComputer,
   surface_id: u32,
 }
 
@@ -367,7 +371,15 @@ pub struct ViewerRayPickResult {
   pub scene_model_handle: ViewerEntityHandle,
 }
 
-impl ViewerPickerAPI {
+impl ViewerQueryAPI {
+  pub fn get_view_scene_bbox(&self, viewer: &Viewer) -> Box3 {
+    let surface_content = viewer.surfaces_content.get(&self.surface_id).unwrap();
+    let active_view = surface_content.viewports[0].id;
+    self
+      .scene_bounding
+      .get_or_compute_scene_bounding(surface_content.scene, active_view)
+  }
+
   /// the x, y is logic pixel
   pub fn pick_list(
     &mut self,
@@ -449,4 +461,66 @@ impl ViewerPickerAPI {
       //
     }
   }
+}
+
+struct SceneBoundingComputer {
+  qbvh: Option<LockReadGuardHolder<SceneQbvh>>,
+  sm_to_local_bbox: BoxedDynQuery<RawEntityHandle, Box3<f32>>,
+  view_maps: BoxedDynQuery<ViewSceneModelKey, Mat4<f64>>,
+}
+
+impl SceneBoundingComputer {
+  // todo, impl downgrade impl to support bvh not enabled case
+  pub fn get_or_compute_scene_bounding(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    active_view_id: u64,
+  ) -> Box3<f32> {
+    let mut r = Box3::empty();
+    if let Some(qbvh) = &self.qbvh {
+      if let Some(qbvh) = qbvh.get_qbvh(scene.into_raw()) {
+        let root = qbvh.root_aabb();
+        r = Box3::new(root.min.into(), root.max.into()).into()
+      } // the none case is possible if the scene is empty?
+    }
+
+    // we assume this kind of case is not too common
+    for ((view_id, sm), mat) in self.view_maps.iter_key_value() {
+      if view_id == active_view_id {
+        if let Some(other) = self.sm_to_local_bbox.access(&sm) {
+          let world_aabb = other.apply_matrix_into(mat.into_f32());
+          r.expand_by_other(world_aabb);
+        }
+      }
+    }
+    r
+  }
+}
+
+fn use_bounding_computer(cx: &mut ViewerAPICx) -> Option<SceneBoundingComputer> {
+  let qbvh = if cx.viewer.use_scene_bvh {
+    cx.scope(|cx| {
+      cx.use_shared_compute(ViewerQbvhShared(cx.viewer.font_system.clone()))
+        .into_resolve_stage()
+    })
+  } else {
+    None
+  };
+
+  let sm_local_bounding = cx
+    .use_shared_dual_query_view(SceneModelLocalBounding(cx.viewer.font_system.clone()))
+    .use_assure_result(cx);
+
+  let view_maps = cx
+    .use_shared_dual_query_view(SceneModelViewDependentTransformOccShare(
+      cx.viewer.ndc().clone(),
+      cx.viewer.viewport_map.clone(),
+    ))
+    .use_assure_result(cx);
+
+  cx.when_resolve_stage(|| SceneBoundingComputer {
+    qbvh,
+    sm_to_local_bbox: sm_local_bounding.expect_resolve_stage(),
+    view_maps: view_maps.expect_resolve_stage(),
+  })
 }

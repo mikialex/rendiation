@@ -115,16 +115,35 @@ pub extern "C" fn viewer_render_surface(api: &mut ViewerAPI, surface_id: u32) {
 pub extern "C" fn viewer_create_picker_api(
   api: &mut ViewerAPI,
   surface_id: u32,
-) -> *mut ViewerPickerAPI {
-  let api = api.create_picker_api(surface_id);
+) -> *mut ViewerQueryAPI {
+  let api = api.create_query_api(surface_id);
   let api = Box::new(api);
   Box::leak(api)
 }
 
 /// picker api must be dropped before any scene related modifications, or deadlock will occur
 #[no_mangle]
-pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerPickerAPI) {
+pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerQueryAPI) {
   let _ = unsafe { Box::from_raw(api) };
+}
+
+#[no_mangle]
+pub extern "C" fn query_scene_bounding(
+  api: *mut ViewerQueryAPI,
+  viewer: *mut ViewerAPI,
+  result: &mut [f32; 6],
+) {
+  let api = unsafe { &mut *api };
+  let viewer = unsafe { &mut *viewer };
+  let bbox = api.get_view_scene_bbox(&viewer.viewer);
+
+  result[0] = bbox.min.x;
+  result[1] = bbox.min.y;
+  result[2] = bbox.min.z;
+
+  result[3] = bbox.max.x;
+  result[4] = bbox.max.y;
+  result[5] = bbox.max.z;
 }
 
 /// the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
@@ -132,7 +151,7 @@ pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerPickerAPI) {
 /// all inputs are logic pixel
 #[no_mangle]
 pub extern "C" fn picker_pick_list(
-  api: *mut ViewerPickerAPI,
+  api: *mut ViewerQueryAPI,
   viewer: *mut ViewerAPI,
   scene: ViewerEntityHandle,
   x: f32,
@@ -161,7 +180,7 @@ pub extern "C" fn drop_pick_list_result(r: *mut ViewerRayPickListResult) {
 /// all inputs are logic pixel
 #[no_mangle]
 pub extern "C" fn picker_pick_range(
-  api: *mut ViewerPickerAPI,
+  api: *mut ViewerQueryAPI,
   viewer: *mut ViewerAPI,
   scene: ViewerEntityHandle,
   ax: f32,

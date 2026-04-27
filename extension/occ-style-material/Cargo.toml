@@ -17,6 +17,9 @@ rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-uti
 rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
 rendiation-scene-core = { path = "../../scene/core" }
 rendiation-scene-batch-extractor = { path = "../../scene/rendering/batch-extractor" }
+rendiation-scene-rendering-gpu-indirect = { path = "../../scene/rendering/gpu-indirect" }
+rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
+rendiation-shader-library = { path = "../../shader/library" }
 parking_lot = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 

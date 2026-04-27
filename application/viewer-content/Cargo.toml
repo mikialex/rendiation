@@ -75,6 +75,7 @@ rendiation-webgpu-texture-as-buffer = { path = "../../platform/graphics/webgpu-t
 rendiation-uri-streaming = { path = "../../utility/uri-streaming" }
 rendiation-qbvh-scene = { path = "../../extension/qbvh-scene" }
 rendiation-occ-style-draw-control = { path = "../../extension/occ-style-draw-control" }
+rendiation-occ-style-material = { path = "../../extension/occ-style-material" }
 rendiation-view-dependent-transform = { path = "../../extension/view-dependent-transform" }
 tracing = { workspace = true }
 

@@ -23,6 +23,7 @@ pub use rendiation_area_lighting::{
   AreaLightRefScene, AreaLightSize,
 };
 use rendiation_controller::InputBound;
+pub use rendiation_geometry::Box3;
 use rendiation_geometry::*;
 pub use rendiation_gui_3d::ViewportPointerCtx;
 use rendiation_gui_3d::*;
@@ -38,6 +39,13 @@ pub use rendiation_mesh_lod_graph_rendering::{
 pub use rendiation_occ_style_draw_control::{
   OccFlavorZLayer, SceneModelOccStyleLayer, SceneModelOccStylePriority,
 };
+pub use rendiation_occ_style_material::{
+  register_occ_material_data_model, OccStyleEffectControlEntity, OccStyleEffectShadeType,
+  OccStyleEffectType, OccStyleMaterialDiffuse, OccStyleMaterialDiffuseTex, OccStyleMaterialEffect,
+  OccStyleMaterialEmissive, OccStyleMaterialEntity, OccStyleMaterialShiness,
+  OccStyleMaterialSpecular, OccStyleMaterialTransparent, StdModelOccStyleMaterialPayload,
+};
+pub use rendiation_qbvh_scene::SceneQbvh;
 use rendiation_scene_batch_extractor::*;
 pub use rendiation_scene_core::*;
 pub use rendiation_scene_geometry_query::*;
@@ -54,7 +62,7 @@ use rendiation_texture_gpu_process::{ToneMap, ToneMapType};
 use rendiation_view_dependent_transform::*;
 pub use rendiation_view_dependent_transform::{
   OccStyleCorner, OccStyleMode, OccStyleTransform, OccStyleViewDepConfig, SceneCameraLookAt,
-  SceneModelViewDependentTransformOcc,
+  SceneModelViewDependentTransformOcc, ViewSceneModelKey,
 };
 pub use rendiation_webgpu::raw_gpu;
 use rendiation_webgpu::*;
@@ -69,6 +77,7 @@ pub use rendiation_wide_styled_points::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::*;
+pub use view_dependent_transform::SceneModelViewDependentTransformOccShare;
 
 mod background;
 mod bounding;
@@ -180,4 +189,5 @@ pub fn register_viewer_content_data_model() {
   register_text3d_data_model(true);
   register_occ_style_view_dependent_data_model();
   rendiation_occ_style_draw_control::register_occ_style_draw_control_data_model();
+  register_occ_material_data_model(true);
 }

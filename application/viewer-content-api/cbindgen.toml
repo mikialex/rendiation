@@ -10,5 +10,6 @@ parse_deps = true
 include = [
     "rendiation-mesh-core",
     "rendiation-occ-style-draw-control",
+    "rendiation-occ-style-material",
     "rendiation-text-3d",
 ]

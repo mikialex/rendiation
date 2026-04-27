@@ -20,6 +20,7 @@ rendiation-viewer-content = { path = "../viewer-content" }
 # these dep declare are necessary as we are export c type from them
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-occ-style-draw-control = { path = "../../extension/occ-style-draw-control" }
+rendiation-occ-style-material = { path = "../../extension/occ-style-material" }
 rendiation-text-3d = { path = "../../extension/text-3d" }
 
 [build-dependencies]
