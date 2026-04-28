@@ -22,6 +22,7 @@ rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-occ-style-draw-control = { path = "../../extension/occ-style-draw-control" }
 rendiation-occ-style-material = { path = "../../extension/occ-style-material" }
 rendiation-text-3d = { path = "../../extension/text-3d" }
+rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 
 [build-dependencies]
 cbindgen = "0.29.2"

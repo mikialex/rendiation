@@ -13,7 +13,7 @@ pub struct Viewer3dRenderingCtx {
   pub(super) using_host_driven_indirect_draw: bool,
   pub(super) current_renderer_impl_ty: RasterizationRenderBackendType,
   pub(super) rtx_renderer_enabled: bool,
-  pub(super) lighting: LightSystem,
+  pub lighting: LightSystem,
   pub(super) gpu: GPU,
   pub(super) prefer_bindless_for_indirect_texture_system: bool,
 

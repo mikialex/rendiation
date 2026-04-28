@@ -29,6 +29,16 @@ pub extern "C" fn drop_viewer_content_api_instance(api: *mut ViewerAPI) {
   let _ = unsafe { Box::from_raw(api) };
 }
 
+#[no_mangle]
+pub extern "C" fn viewer_set_tonemap_ty_value(
+  api: &mut ViewerAPI,
+  ty: rendiation_texture_gpu_process::ToneMapType,
+  exposure: f32,
+) {
+  api.viewer.rendering.lighting.tonemap.ty = ty;
+  api.viewer.rendering.lighting.tonemap.set_exposure(exposure);
+}
+
 /// hinstance can be null_ptr
 #[no_mangle]
 pub extern "C" fn viewer_create_surface(

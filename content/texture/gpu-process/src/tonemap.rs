@@ -27,6 +27,7 @@ impl ToneMap {
   }
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ToneMapType {
   None,

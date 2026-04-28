@@ -6,6 +6,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+typedef enum ToneMapType {
+  None,
+  Linear,
+  Reinhard,
+  Cineon,
+  ACESFilmic,
+} ToneMapType;
+
 /**
  * Primitive type the input mesh is composed of.
  */
@@ -178,6 +186,8 @@ void node_attach_parent(struct ViewerEntityHandle node, struct ViewerEntityHandl
 struct ViewerAPI *create_viewer_content_api_instance(const char *config_path);
 
 void drop_viewer_content_api_instance(struct ViewerAPI *api);
+
+void viewer_set_tonemap_ty_value(struct ViewerAPI *api, enum ToneMapType ty, float exposure);
 
 /**
  * hinstance can be null_ptr

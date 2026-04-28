@@ -6287,6 +6287,7 @@ dependencies = [
  "rendiation-occ-style-draw-control",
  "rendiation-occ-style-material",
  "rendiation-text-3d",
+ "rendiation-texture-gpu-process",
  "rendiation-viewer-content",
 ]
 
