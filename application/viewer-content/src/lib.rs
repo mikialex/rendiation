@@ -42,7 +42,7 @@ pub use rendiation_occ_style_draw_control::{
 pub use rendiation_occ_style_material::{
   register_occ_material_data_model, OccStyleEffectControlEntity, OccStyleEffectShadeType,
   OccStyleEffectType, OccStyleMaterialDiffuse, OccStyleMaterialDiffuseTex, OccStyleMaterialEffect,
-  OccStyleMaterialEmissive, OccStyleMaterialEntity, OccStyleMaterialShiness,
+  OccStyleMaterialEmissive, OccStyleMaterialEntity, OccStyleMaterialShininess,
   OccStyleMaterialSpecular, OccStyleMaterialTransparent, StdModelOccStyleMaterialPayload,
 };
 pub use rendiation_qbvh_scene::SceneQbvh;

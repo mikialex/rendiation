@@ -190,15 +190,15 @@ pub fn render_lighting_scene_content(
               camera: &camera_gpu,
               g_buffer,
             }) as Box<dyn GeometryCtxProvider>;
-            let surface_from_m_buffer = Box::new(FrameGeneralMaterialBufferReconstructSurface {
+            let surface_from_m_buffer = FrameGeneralMaterialBufferReconstructSurface {
               m_buffer: &m_buffer,
               registry: lighting_cx.deferred_mat_supports,
-            });
+            };
             let lighting = lighting_cx.lighting.get_scene_lighting_component(
               scene,
               camera,
               geometry_from_g_buffer,
-              surface_from_m_buffer,
+              &surface_from_m_buffer,
             );
 
             let lighting = RenderArray([

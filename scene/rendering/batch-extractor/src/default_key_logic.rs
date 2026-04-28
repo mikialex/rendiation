@@ -2,8 +2,11 @@ use crate::*;
 
 #[derive(Default)]
 pub struct GroupKeyForeignImpl {
+  /// sm id. -> sm key
   pub model: Option<UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>>>,
+  /// std model id -> mesh key
   pub mesh: Option<UseResult<BoxedDynDualQuery<RawEntityHandle, MeshGroupKey>>>,
+  /// std model id -> material key
   pub material: Option<UseResult<BoxedDynDualQuery<RawEntityHandle, MaterialGroupKey>>>,
 }
 

@@ -31,8 +31,8 @@ pub extern "C" fn occ_material_set_specular(mat: ViewerEntityHandle, color: &[f3
 }
 
 #[no_mangle]
-pub extern "C" fn occ_material_set_shiness(mat: ViewerEntityHandle, shiness: f32) {
-  write_global_db_component::<OccStyleMaterialShiness>().write(mat.into(), shiness);
+pub extern "C" fn occ_material_set_shininess(mat: ViewerEntityHandle, shininess: f32) {
+  write_global_db_component::<OccStyleMaterialShininess>().write(mat.into(), shininess);
 }
 
 #[no_mangle]

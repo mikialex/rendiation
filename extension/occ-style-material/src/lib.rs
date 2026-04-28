@@ -1,6 +1,7 @@
 use std::hash::Hash;
 
 use database::*;
+use rendiation_lighting_transport::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
 use serde::*;
@@ -27,7 +28,7 @@ declare_component!(
   Vec3::new(1.0, 1.0, 1.0)
 );
 
-declare_component!(OccStyleMaterialShiness, OccStyleMaterialEntity, f32, 0.5);
+declare_component!(OccStyleMaterialShininess, OccStyleMaterialEntity, f32, 0.5);
 declare_entity_associated!(OccStyleMaterialDiffuseTex, OccStyleMaterialEntity);
 impl TextureWithSamplingForeignKeys for OccStyleMaterialDiffuseTex {}
 declare_component!(
@@ -74,7 +75,7 @@ pub fn register_occ_material_data_model(sparse: bool) {
     .declare_component::<OccStyleMaterialTransparent>()
     .declare_component::<OccStyleMaterialDiffuse>()
     .declare_component::<OccStyleMaterialSpecular>()
-    .declare_component::<OccStyleMaterialShiness>()
+    .declare_component::<OccStyleMaterialShininess>()
     .declare_component::<OccStyleMaterialEmissive>()
     .declare_foreign_key::<OccStyleMaterialEffect>();
   register_texture_with_sampling::<OccStyleMaterialDiffuseTex>(table);

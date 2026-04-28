@@ -27,6 +27,7 @@ pub struct ViewerInitConfig {
   pub use_scene_bvh: bool,
   pub always_enable_caching_frame_for_direct_read: bool,
   pub init_only: ViewerStaticInitConfig,
+  pub light_surface_ty: ViewerLightSurfaceType,
   pub features: ViewerFeaturesInitConfig,
 }
 
@@ -189,6 +190,7 @@ impl Default for ViewerInitConfig {
       use_scene_bvh: false,
       always_enable_caching_frame_for_direct_read: false,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
+      light_surface_ty: ViewerLightSurfaceType::Pbr,
       init_only: ViewerStaticInitConfig::default(),
       features: Default::default(),
     }

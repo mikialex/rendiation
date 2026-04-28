@@ -298,7 +298,7 @@ void occ_material_set_diffuse(struct ViewerEntityHandle mat, const float (*color
 
 void occ_material_set_specular(struct ViewerEntityHandle mat, const float (*color)[3]);
 
-void occ_material_set_shiness(struct ViewerEntityHandle mat, float shiness);
+void occ_material_set_shininess(struct ViewerEntityHandle mat, float shininess);
 
 void occ_material_set_emissive(struct ViewerEntityHandle mat, const float (*color)[3]);
 

@@ -91,7 +91,7 @@ pub struct LightingComputeComponentAsRenderComponent<'a> {
   pub scene_id: UniformBufferDataView<Vec4<u32>>,
   pub geometry_constructor: Box<dyn GeometryCtxProvider + 'a>,
   pub lighting: Box<dyn LightingComputeComponent + 'a>,
-  pub surface_constructor: Box<dyn LightableSurfaceProvider + 'a>,
+  pub surface_constructor: &'a (dyn LightableSurfaceProvider + 'a),
 }
 
 impl ShaderHashProvider for LightingComputeComponentAsRenderComponent<'_> {

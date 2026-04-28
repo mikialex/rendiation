@@ -22,11 +22,12 @@ pub fn use_occ_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<OccStyleMate
       cx.gpu,
     );
 
-  cx.use_changes::<OccStyleMaterialShiness>().update_uniforms(
-    &uniforms,
-    offset_of!(OccStyleMaterialUniform, shiness),
-    cx.gpu,
-  );
+  cx.use_changes::<OccStyleMaterialShininess>()
+    .update_uniforms(
+      &uniforms,
+      offset_of!(OccStyleMaterialUniform, shininess),
+      cx.gpu,
+    );
 
   cx.use_changes::<OccStyleMaterialEmissive>()
     .update_uniforms(
@@ -90,7 +91,7 @@ type OccStyleMaterialUniforms = UniformBufferCollectionRaw<u32, OccStyleMaterial
 struct OccStyleMaterialUniform {
   pub diffuse: Vec4<f32>,
   pub specular: Vec3<f32>,
-  pub shiness: f32,
+  pub shininess: f32,
   pub emissive: Vec3<f32>,
 }
 
@@ -125,7 +126,80 @@ impl ShaderHashProvider for OccStyleMaterialGPU<'_> {
 
 impl GraphicsShaderProvider for OccStyleMaterialGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.fragment(|builder, _| {
+    // allow this material to be used with none uv geometry provider
+    builder.vertex(|builder, _| {
+      if builder.try_query::<GeometryUV>().is_none() {
+        builder.register::<GeometryUV>(val(Vec2::zero()));
+      }
+    });
+
+    builder.fragment(|builder, binding| {
+      let uniform = binding.bind_by(&self.uniform).load().expand();
+      let tex_uniform = binding.bind_by(&self.tex_uniform).load().expand();
+      let uv = builder.get_or_compute_fragment_uv();
+
+      let diffuse_alpha_tex = bind_and_sample(
+        self.binding_sys,
+        binding,
+        builder.registry(),
+        self.diffuse_tex_sampler,
+        tex_uniform.diffuse_texture,
+        uv,
+        val(Vec4::one()),
+      );
+
+      builder.register::<DefaultDisplay>(uniform.diffuse * diffuse_alpha_tex);
+      match self.shade_type {
+        OccStyleEffectType::Unlit => {
+          builder.insert_type_tag::<UnlitMaterialTag>();
+        }
+        OccStyleEffectType::Lighted => {
+          let diffuse = uniform.diffuse.xyz() * diffuse_alpha_tex.xyz();
+
+          builder.register::<ColorChannel>(diffuse);
+          builder.register::<SpecularChannel>(uniform.specular);
+          builder.register::<EmissiveChannel>(uniform.emissive);
+          builder.register::<ShininessChannel>(uniform.shininess);
+          builder.insert_type_tag::<PbrSGMaterialTag>();
+          builder.insert_type_tag::<LightableSurfaceTag>();
+        }
+        OccStyleEffectType::Zebra => {
+          let normal = builder.get_or_compute_fragment_normal();
+          let eye_to_surface =
+            builder.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
+          let reflect = normal.reflect(eye_to_surface);
+
+          // compute the zebra sample position
+          let reflect = reflect.normalize() + val(Vec3::new(0., 0., 1.));
+          let zebra_uv = reflect.xy() * reflect.dot(reflect).inverse_sqrt() * val(Vec2::splat(0.5))
+            + val(Vec2::splat(0.5));
+
+          let zebra_tex = bind_and_sample(
+            self.binding_sys,
+            binding,
+            builder.registry(),
+            self.diffuse_tex_sampler,
+            tex_uniform.diffuse_texture,
+            zebra_uv,
+            val(Vec4::one()),
+          );
+
+          let alpha = uniform
+            .diffuse
+            .w()
+            .equals(-1.)
+            .select(zebra_tex.w(), uniform.diffuse.w());
+
+          let one_minus_a = val(1.) - alpha;
+          let color = zebra_tex.xyz() * alpha.splat::<Vec3<f32>>()
+            + uniform.diffuse.xyz() * one_minus_a.splat::<Vec3<f32>>();
+
+          builder.register::<DefaultDisplay>((color, val(1.)));
+
+          builder.insert_type_tag::<UnlitMaterialTag>();
+        }
+      }
+
       if self.transparent {
         builder.frag_output.iter_mut().for_each(|p| {
           if p.is_blendable() {

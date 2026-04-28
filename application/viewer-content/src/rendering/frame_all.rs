@@ -50,6 +50,7 @@ impl Viewer3dRenderingCtx {
       self.prefer_bindless_for_indirect_texture_system;
     init_config.init_only = self.init_config.init_only.clone();
     init_config.enable_shadow = self.lighting.enable_shadow;
+    init_config.light_surface_ty = self.lighting.lighting_surface_ty_value;
 
     if let Some(first_surface) = self.surface_views.values().next() {
       if let Some(first_view) = first_surface.values().next() {
@@ -167,12 +168,14 @@ impl Viewer3dRenderingCtx {
         let unlit_mat = use_unlit_material_uniforms(cx);
         let pbr_mr_mat = use_pbr_mr_material_uniforms(cx);
         let pbr_sg_mat = use_pbr_sg_material_uniforms(cx);
+        let occ_material = rendiation_occ_style_material::gles::use_occ_material_uniforms(cx);
 
         let materials = cx.when_render(|| {
           Box::new(vec![
             Box::new(unlit_mat.unwrap()) as Box<dyn GLESModelMaterialRenderImpl>,
             Box::new(pbr_mr_mat.unwrap()),
             Box::new(pbr_sg_mat.unwrap()),
+            Box::new(occ_material.unwrap()),
           ]) as Box<dyn GLESModelMaterialRenderImpl>
         });
 
@@ -217,6 +220,7 @@ impl Viewer3dRenderingCtx {
         let unlit_material = use_unlit_material_storage(cx);
         let pbr_mr_material = use_pbr_mr_material_storage(cx);
         let pbr_sg_material = use_pbr_sg_material_storage(cx);
+        let occ_material = rendiation_occ_style_material::indirect::use_occ_material_storage(cx);
         scope.end(cx);
 
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
@@ -247,6 +251,7 @@ impl Viewer3dRenderingCtx {
             Box::new(unlit_material.unwrap()) as Box<dyn IndirectModelMaterialRenderImpl>,
             Box::new(pbr_mr_material.unwrap()),
             Box::new(pbr_sg_material.unwrap()),
+            Box::new(occ_material.unwrap()),
           ]) as Box<dyn IndirectModelMaterialRenderImpl>
         });
 
@@ -332,8 +337,12 @@ impl Viewer3dRenderingCtx {
               .dual_query_select(text_key)
               .dual_query_boxed();
 
+            let occ_material =
+              rendiation_occ_style_material::indirect::use_occ_material_indirect_group_key(cx);
+
             let key_impl = GroupKeyForeignImpl {
               model: Some(impl_key),
+              material: Some(occ_material),
               ..Default::default()
             };
 

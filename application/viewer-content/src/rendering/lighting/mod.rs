@@ -131,9 +131,30 @@ impl LightSystem {
   }
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub enum ViewerLightSurfaceType {
+  Pbr,
+  SimplePhong,
+}
+
+impl ViewerLightSurfaceType {
+  pub fn create_impl(self) -> Box<dyn LightableSurfaceProvider> {
+    match self {
+      ViewerLightSurfaceType::Pbr => {
+        Box::new(LightableSurfaceShadingLogicProviderAsLightableSurfaceProvider(PhysicalShading))
+      }
+      ViewerLightSurfaceType::SimplePhong => {
+        Box::new(LightableSurfaceShadingLogicProviderAsLightableSurfaceProvider(PhongShading))
+      }
+    }
+  }
+}
+
 pub struct LightSystem {
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
+  pub lighting_surface_ty: Box<dyn LightableSurfaceProvider>,
+  pub lighting_surface_ty_value: ViewerLightSurfaceType,
   pub tonemap: ToneMap,
   material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pub opaque_scene_content_lighting_technique: LightingTechniqueKind,
@@ -145,6 +166,8 @@ pub struct LightSystem {
 impl LightSystem {
   pub fn new(gpu: &GPU, init_config: &ViewerInitConfig) -> Self {
     Self {
+      lighting_surface_ty: init_config.light_surface_ty.create_impl(),
+      lighting_surface_ty_value: init_config.light_surface_ty,
       enable_shadow: init_config.enable_shadow,
       enable_channel_debugger: false,
       cascade_shadow_split_linear_log_blend_ratio: 0.95,
@@ -174,6 +197,26 @@ impl LightSystem {
         .step_by(0.01)
         .text("split_linear_log_blend_ratio"),
       );
+    }
+
+    let old = self.lighting_surface_ty_value;
+    egui::ComboBox::from_label("Light surface ty")
+      .selected_text(format!("{:?}", &self.lighting_surface_ty_value))
+      .show_ui_changed(ui, |ui| {
+        ui.selectable_value(
+          &mut self.lighting_surface_ty_value,
+          ViewerLightSurfaceType::Pbr,
+          "Pbr",
+        );
+        ui.selectable_value(
+          &mut self.lighting_surface_ty_value,
+          ViewerLightSurfaceType::SimplePhong,
+          "SimplePhong",
+        );
+      });
+
+    if self.lighting_surface_ty_value != old {
+      self.lighting_surface_ty = self.lighting_surface_ty_value.create_impl();
     }
 
     if is_hdr_rendering {
@@ -219,7 +262,7 @@ impl SceneLightSystem<'_> {
       scene,
       camera,
       Box::new(DirectGeometryProvider),
-      Box::new(LightableSurfaceShadingLogicProviderAsLightableSurfaceProvider(PhysicalShading)),
+      self.system.lighting_surface_ty.as_ref(),
     )
   }
 
@@ -228,7 +271,7 @@ impl SceneLightSystem<'_> {
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
     geometry_constructor: Box<dyn GeometryCtxProvider + 'a>,
-    surface_constructor: Box<dyn LightableSurfaceProvider + 'a>,
+    surface_constructor: &'a (dyn LightableSurfaceProvider + 'a),
   ) -> Box<dyn RenderComponent + 'a> {
     let mut light = RenderVec::default();
 

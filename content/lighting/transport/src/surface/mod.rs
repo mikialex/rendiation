@@ -3,6 +3,9 @@ use crate::*;
 mod microfacet;
 pub use microfacet::*;
 
+mod phong;
+pub use phong::*;
+
 pub struct ImportanceSampled<T, U> {
   pub sample: T,
   pub pdf: f32,

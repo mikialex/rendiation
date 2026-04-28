@@ -22,6 +22,7 @@ rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" 
 rendiation-shader-library = { path = "../../shader/library" }
 parking_lot = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+rendiation-lighting-transport = { path = "../../content/lighting/transport" }
 
 [lints]
 workspace = true

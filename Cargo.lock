@@ -4452,6 +4452,7 @@ dependencies = [
  "fast-hash-collection",
  "log",
  "parking_lot",
+ "rendiation-lighting-transport",
  "rendiation-scene-batch-extractor",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",

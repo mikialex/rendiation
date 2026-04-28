@@ -76,7 +76,7 @@ pub fn load_default_scene(
       let w = w
         .write::<OccStyleMaterialDiffuse>(&Vec4::new(0.8, 0.8, 0.8, 1.0))
         .write::<OccStyleMaterialSpecular>(&Vec3::new(1.0, 1.0, 1.0))
-        .write::<OccStyleMaterialShiness>(&0.5)
+        .write::<OccStyleMaterialShininess>(&200.)
         .write::<OccStyleMaterialEmissive>(&Vec3::zero())
         .write::<OccStyleMaterialTransparent>(&false);
       texture.write::<OccStyleMaterialDiffuseTex>(w)
