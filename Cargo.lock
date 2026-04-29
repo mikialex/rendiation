@@ -1101,6 +1101,7 @@ version = "0.0.1"
 dependencies = [
  "arena",
  "bytemuck",
+ "criterion",
  "disqualified",
  "dyn-clone",
  "event-source",

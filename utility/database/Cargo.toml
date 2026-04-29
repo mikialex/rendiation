@@ -3,6 +3,14 @@ edition = "2021"
 name = "database"
 version = "0.0.1"
 
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+harness = false
+name = "global_access"
+
 [dependencies]
 fast-hash-collection = { path = "../fast-hash-collection" }
 event-source = { path = "../event-source" }
