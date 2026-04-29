@@ -109,8 +109,8 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
         UseResult::SpawnStageFuture(f)
       } else {
-        let f = pin_box_in_frame(std::future::ready(Default::default()));
-        UseResult::SpawnStageFuture(f)
+        let f = Default::default();
+        UseResult::SpawnStageReady(f)
       }
     } else {
       if rev.has_change() {
@@ -164,8 +164,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
         UseResult::SpawnStageFuture(f)
       } else {
-        let f = pin_box_in_frame(std::future::ready(Default::default()));
-        UseResult::SpawnStageFuture(f)
+        UseResult::SpawnStageReady(Default::default())
       }
     } else {
       if rev.has_change() {
