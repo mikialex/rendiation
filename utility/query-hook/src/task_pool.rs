@@ -134,10 +134,11 @@ impl AsyncTaskPool {
     self.next
   }
 
-  pub fn all_async_task_done(self) -> impl Future<Output = TaskPoolResultCx> {
+  pub fn all_async_task_done(&mut self) -> impl Future<Output = TaskPoolResultCx> {
+    self.next = 0;
     self
       .registry
-      .into_iter()
+      .drain()
       .map(|(k, source)| source.map(move |r| (k, r)))
       .collect::<FuturesUnordered<_>>()
       .fold(

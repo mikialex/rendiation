@@ -35,8 +35,14 @@ pub extern "C" fn viewer_set_tonemap_ty_value(
   ty: rendiation_texture_gpu_process::ToneMapType,
   exposure: f32,
 ) {
-  api.viewer.rendering.lighting.tonemap.ty = ty;
-  api.viewer.rendering.lighting.tonemap.set_exposure(exposure);
+  api.core.viewer.rendering.lighting.tonemap.ty = ty;
+  api
+    .core
+    .viewer
+    .rendering
+    .lighting
+    .tonemap
+    .set_exposure(exposure);
 }
 
 /// hinstance can be null_ptr
@@ -113,12 +119,61 @@ pub extern "C" fn viewer_resize(
 pub extern "C" fn viewer_load_font(api: *mut ViewerAPI, data_length: u32, data: *const u8) {
   let api = unsafe { &mut *api };
   let data = unsafe { std::slice::from_raw_parts(data, data_length as usize) }.to_vec();
-  api.viewer.load_font(data);
+  api.core.viewer.load_font(data);
 }
 
 #[no_mangle]
 pub extern "C" fn viewer_render_surface(api: &mut ViewerAPI, surface_id: u32) {
   api.render_surface(surface_id);
+}
+
+#[no_mangle]
+pub extern "C" fn viewer_create_world_derive_query_api(
+  api: &mut ViewerAPI,
+) -> *mut ViewerWorldDeriveQueryAPI {
+  let api = api.create_world_derive_query_api();
+  let api = Box::new(api);
+  Box::leak(api)
+}
+
+/// api must be dropped before any scene related modifications, or deadlock will occur
+#[no_mangle]
+pub extern "C" fn viewer_drop_world_derive_query_api(api: *mut ViewerWorldDeriveQueryAPI) {
+  let _ = unsafe { Box::from_raw(api) };
+}
+
+#[no_mangle]
+pub extern "C" fn world_derive_query_api_get_world_mat(
+  api: &mut ViewerWorldDeriveQueryAPI,
+  node: ViewerEntityHandle,
+  r: &mut [f64; 16],
+) -> bool {
+  if let Some(mat) = api.world_mats.access(&node.into()) {
+    *r = mat.into();
+    true
+  } else {
+    false
+  }
+}
+
+#[no_mangle]
+pub extern "C" fn world_derive_query_api_get_world_bounding(
+  api: &mut ViewerWorldDeriveQueryAPI,
+  sm: ViewerEntityHandle,
+  result: &mut [f64; 6],
+) -> bool {
+  if let Some(Some(bbox)) = api.sm_world_bound.access(&sm.into()) {
+    result[0] = bbox.min.x;
+    result[1] = bbox.min.y;
+    result[2] = bbox.min.z;
+    result[3] = bbox.max.x;
+    result[4] = bbox.max.y;
+    result[5] = bbox.max.z;
+
+    true
+  } else {
+    false
+  }
 }
 
 #[no_mangle]
@@ -131,7 +186,7 @@ pub extern "C" fn viewer_create_picker_api(
   Box::leak(api)
 }
 
-/// picker api must be dropped before any scene related modifications, or deadlock will occur
+/// api must be dropped before any scene related modifications, or deadlock will occur
 #[no_mangle]
 pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerQueryAPI) {
   let _ = unsafe { Box::from_raw(api) };
@@ -145,7 +200,7 @@ pub extern "C" fn query_scene_bounding(
 ) {
   let api = unsafe { &mut *api };
   let viewer = unsafe { &mut *viewer };
-  let bbox = api.get_view_scene_bbox(&viewer.viewer);
+  let bbox = api.get_view_scene_bbox(&viewer.core.viewer);
 
   result[0] = bbox.min.x;
   result[1] = bbox.min.y;
@@ -170,7 +225,7 @@ pub extern "C" fn picker_pick_list(
   let api = unsafe { &mut *api };
   let viewer = unsafe { &mut *viewer };
   let mut pick_results = Vec::new();
-  api.pick_list(&viewer.viewer, scene.into(), x, y, &mut pick_results);
+  api.pick_list(&viewer.core.viewer, scene.into(), x, y, &mut pick_results);
 
   let r = Box::new(ViewerRayPickListResult { pick_results });
   Box::leak(r)
@@ -203,7 +258,7 @@ pub extern "C" fn picker_pick_range(
   let viewer = unsafe { &mut *viewer };
   let mut pick_results = Vec::new();
   api.pick_range(
-    &viewer.viewer,
+    &viewer.core.viewer,
     scene.into(),
     ax,
     ay,

@@ -76,6 +76,8 @@ typedef struct ViewerRayPickListResult ViewerRayPickListResult;
 
 typedef struct ViewerRayPickRangeResult ViewerRayPickRangeResult;
 
+typedef struct ViewerWorldDeriveQueryAPI ViewerWorldDeriveQueryAPI;
+
 typedef struct ViewerEntityHandle {
   uint32_t index;
   uint64_t generation;
@@ -226,10 +228,25 @@ void viewer_load_font(struct ViewerAPI *api, uint32_t data_length, const uint8_t
 
 void viewer_render_surface(struct ViewerAPI *api, uint32_t surface_id);
 
+struct ViewerWorldDeriveQueryAPI *viewer_create_world_derive_query_api(struct ViewerAPI *api);
+
+/**
+ * api must be dropped before any scene related modifications, or deadlock will occur
+ */
+void viewer_drop_world_derive_query_api(struct ViewerWorldDeriveQueryAPI *api);
+
+bool world_derive_query_api_get_world_mat(struct ViewerWorldDeriveQueryAPI *api,
+                                          struct ViewerEntityHandle node,
+                                          double (*r)[16]);
+
+bool world_derive_query_api_get_world_bounding(struct ViewerWorldDeriveQueryAPI *api,
+                                               struct ViewerEntityHandle sm,
+                                               double (*result)[6]);
+
 struct ViewerQueryAPI *viewer_create_picker_api(struct ViewerAPI *api, uint32_t surface_id);
 
 /**
- * picker api must be dropped before any scene related modifications, or deadlock will occur
+ * api must be dropped before any scene related modifications, or deadlock will occur
  */
 void viewer_drop_picker_api(struct ViewerQueryAPI *api);
 

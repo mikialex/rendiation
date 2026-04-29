@@ -1,29 +1,98 @@
+use std::any::Any;
+
 use crate::*;
 
 pub struct ViewerAPI {
+  pub(crate) core: ViewerAPICore,
+  picker_mem: FunctionMemory,
+  world_derive_access_mem: FunctionMemory,
+}
+
+pub struct ViewerAPICore {
   gpu_and_main_surface: WGPUAndInitSurface,
   /// the api supports multiple surface, the main surfaces also stored(cloned) here
   surfaces: FastHashMap<u32, SurfaceWrapper>,
   next_new_surface_id: u32,
   pub(crate) viewer: Viewer,
-  picker_mem: FunctionMemory,
   task_spawner: TaskSpawner,
   data_source: ViewerDataScheduler,
   dyn_cx: DynCx,
+  pool: AsyncTaskPool,
+  immediate_results: FastHashMap<u32, Arc<dyn Any + Send + Sync>>,
+}
+
+impl ViewerAPICore {
+  pub fn viewer_api_cx_scope<T>(
+    &mut self,
+    memory: &mut FunctionMemory,
+    f: impl Fn(&mut ViewerAPICx) -> Option<T>,
+  ) -> T {
+    unsafe {
+      self
+        .dyn_cx
+        .register_cx::<ViewerDataScheduler>(&mut self.data_source);
+    };
+
+    {
+      self.viewer.shared_ctx.reset_visiting();
+      let mut cx = ViewerAPICx {
+        memory,
+        dyn_cx: &mut self.dyn_cx,
+        stage: ViewerAPICxStage::Spawn {
+          spawner: &self.task_spawner,
+          pool: &mut self.pool,
+          immediate_results: &mut self.immediate_results,
+        },
+        viewer: &mut self.viewer,
+        waker: futures::task::noop_waker(),
+      };
+
+      let r = f(&mut cx);
+      assert!(r.is_none());
+    }
+
+    let mut task_pool_result = pollster::block_on(self.pool.all_async_task_done());
+
+    self.viewer.shared_ctx.reset_visiting();
+    task_pool_result
+      .token_based_result
+      .extend(self.immediate_results.drain());
+
+    let mut cx = ViewerAPICx {
+      memory,
+      dyn_cx: &mut self.dyn_cx,
+      stage: ViewerAPICxStage::Resolve {
+        result: &mut task_pool_result,
+      },
+      viewer: &mut self.viewer,
+      waker: futures::task::noop_waker(),
+    };
+    let r = f(&mut cx).unwrap();
+
+    unsafe {
+      self.dyn_cx.unregister_cx::<ViewerDataScheduler>();
+    };
+
+    r
+  }
 }
 
 impl Drop for ViewerAPI {
   fn drop(&mut self) {
     let mut drop_cx = ViewerAPICxDropCx {
-      dyn_cx: &mut self.dyn_cx,
-      shared_ctx: &mut self.viewer.shared_ctx,
+      dyn_cx: &mut self.core.dyn_cx,
+      shared_ctx: &mut self.core.viewer.shared_ctx,
     };
 
     self
       .picker_mem
       .cleanup(&mut drop_cx as *mut ViewerAPICxDropCx as *mut ());
 
-    drop_viewer_from_dyn_cx(&mut self.viewer, &mut self.dyn_cx);
+    self
+      .world_derive_access_mem
+      .cleanup(&mut drop_cx as *mut ViewerAPICxDropCx as *mut ());
+
+    drop_viewer_from_dyn_cx(&mut self.core.viewer, &mut self.core.dyn_cx);
   }
 }
 
@@ -53,6 +122,7 @@ impl ViewerAPI {
       raw_gpu::rwh::RawDisplayHandle::Windows(raw_gpu::rwh::WindowsDisplayHandle::new());
     let surface = unsafe {
       self
+        .core
         .gpu_and_main_surface
         .gpu
         .instance
@@ -64,18 +134,18 @@ impl ViewerAPI {
     .unwrap();
 
     let surface = GPUSurface::new(
-      &self.gpu_and_main_surface.gpu.adaptor,
-      &self.gpu_and_main_surface.gpu.device,
+      &self.core.gpu_and_main_surface.gpu.adaptor,
+      &self.core.gpu_and_main_surface.gpu.device,
       surface,
       init_size,
     );
 
     // here we pray the caller not drop the window!
     let surface = SurfaceWrapper::new(surface, Arc::new(hwnd));
-    let surface_id = self.next_new_surface_id;
-    self.next_new_surface_id += 1;
+    let surface_id = self.core.next_new_surface_id;
+    self.core.next_new_surface_id += 1;
 
-    self.surfaces.insert(surface_id, surface);
+    self.core.surfaces.insert(surface_id, surface);
 
     let widget_scene = global_entity_of::<SceneEntity>()
       .entity_writer()
@@ -136,7 +206,7 @@ impl ViewerAPI {
       device_pixel_ratio: 1.0,
       background,
     };
-    self.viewer.surfaces_content.insert(surface_id, scene);
+    self.core.viewer.surfaces_content.insert(surface_id, scene);
 
     self.resize(surface_id, width, height);
 
@@ -144,14 +214,14 @@ impl ViewerAPI {
   }
 
   pub fn drop_surface(&mut self, surface_id: u32) {
-    self.surfaces.remove(&surface_id);
-    self.viewer.drop_surface(surface_id);
+    self.core.surfaces.remove(&surface_id);
+    self.core.viewer.drop_surface(surface_id);
   }
 
   pub fn read_last_render_result(&mut self, surface_id: u32) -> Option<GPUBufferImage> {
-    let view = self.viewer.rendering.surface_views.get(&surface_id)?;
+    let view = self.core.viewer.rendering.surface_views.get(&surface_id)?;
     let view = view.values().next()?; // we only have one view
-    let result = view.direct_read_cached_frame_sync(&self.gpu_and_main_surface.gpu)?;
+    let result = view.direct_read_cached_frame_sync(&self.core.gpu_and_main_surface.gpu)?;
 
     let data = result.read_into_raw_unpadded_buffer();
 
@@ -165,6 +235,7 @@ impl ViewerAPI {
 
   pub fn set_surface_scene(&mut self, surface_id: u32, scene: RawEntityHandle) {
     let content = self
+      .core
       .viewer
       .surfaces_content
       .get_mut(&surface_id)
@@ -175,6 +246,7 @@ impl ViewerAPI {
 
   pub fn set_surface_camera(&mut self, surface_id: u32, camera: RawEntityHandle) {
     let content = self
+      .core
       .viewer
       .surfaces_content
       .get_mut(&surface_id)
@@ -204,7 +276,7 @@ impl ViewerAPI {
 
     let viewer = Viewer::new(gpu_and_surface.gpu.clone(), &init_config, worker.clone());
 
-    ViewerAPI {
+    let core = ViewerAPICore {
       gpu_and_main_surface: gpu_and_surface,
       surfaces: Default::default(),
       next_new_surface_id: 0,
@@ -212,12 +284,19 @@ impl ViewerAPI {
       task_spawner: worker,
       data_source: Default::default(),
       dyn_cx: Default::default(),
+      pool: Default::default(),
+      immediate_results: Default::default(),
+    };
+
+    ViewerAPI {
+      core,
       picker_mem: Default::default(),
+      world_derive_access_mem: Default::default(),
     }
   }
 
   pub fn set_device_pixel_ratio(&mut self, surface_id: u32, device_pixel_ratio: f32) {
-    if let Some(content) = self.viewer.surfaces_content.get_mut(&surface_id) {
+    if let Some(content) = self.core.viewer.surfaces_content.get_mut(&surface_id) {
       content.device_pixel_ratio = device_pixel_ratio;
     } else {
       log::warn!("unable to find surface")
@@ -226,13 +305,13 @@ impl ViewerAPI {
 
   /// the size is physical resolution
   pub fn resize(&mut self, surface_id: u32, new_width: u32, new_height: u32) {
-    if let Some(surface) = self.surfaces.get_mut(&surface_id) {
+    if let Some(surface) = self.core.surfaces.get_mut(&surface_id) {
       surface.set_size(Size::from_u32_pair_min_one((new_width, new_height)));
     } else {
       log::warn!("unable to find surface")
     }
 
-    if let Some(content) = self.viewer.surfaces_content.get_mut(&surface_id) {
+    if let Some(content) = self.core.viewer.surfaces_content.get_mut(&surface_id) {
       let vp = &mut content.viewports[0];
       vp.viewport.z = new_width as f32;
       vp.viewport.w = new_height as f32;
@@ -242,7 +321,8 @@ impl ViewerAPI {
   }
 
   pub fn create_query_api(&mut self, surface_id: u32) -> ViewerQueryAPI {
-    self.viewer_api_query_scope(|cx| {
+    setup_new_frame_allocator(1 * 1024 * 1024);
+    self.core.viewer_api_cx_scope(&mut self.picker_mem, |cx| {
       cx.viewer.update_view_ty_immediate();
       let picker_impl = use_viewer_scene_model_picker_impl(
         cx,
@@ -269,91 +349,64 @@ impl ViewerAPI {
     })
   }
 
+  pub fn create_world_derive_query_api(&mut self) -> ViewerWorldDeriveQueryAPI {
+    setup_new_frame_allocator(1 * 1024 * 1024);
+    let font_sys = self.core.viewer.font_system.clone();
+    self
+      .core
+      .viewer_api_cx_scope(&mut self.world_derive_access_mem, move |cx| {
+        let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
+
+        let sm_world_bound =
+          cx.use_shared_dual_query_view(SceneModelWorldBounding(font_sys.clone()));
+
+        cx.when_resolve_stage(|| {
+          let world_mats = node_world.expect_resolve_stage();
+          let sm_world_bound = sm_world_bound.expect_resolve_stage();
+          ViewerWorldDeriveQueryAPI {
+            world_mats,
+            sm_world_bound,
+          }
+        })
+      })
+  }
+
   pub fn render_surface(&mut self, surface_id: u32) {
-    setup_new_frame_allocator(10 * 1024 * 1024);
-    self.viewer.update_view_ty_immediate();
-    if let Some(surface) = self.surfaces.get(&surface_id) {
+    setup_new_frame_allocator(1 * 1024 * 1024);
+    let core = &mut self.core;
+    core.viewer.update_view_ty_immediate();
+    if let Some(surface) = core.surfaces.get(&surface_id) {
       if let Ok((canvas, target)) =
-        surface.get_current_frame_with_render_target_view(&self.gpu_and_main_surface.gpu.device)
+        surface.get_current_frame_with_render_target_view(&core.gpu_and_main_surface.gpu.device)
       {
         unsafe {
-          self
+          core
             .dyn_cx
-            .register_cx::<ViewerDataScheduler>(&mut self.data_source);
+            .register_cx::<ViewerDataScheduler>(&mut core.data_source);
         };
 
-        self.viewer.draw_canvas(
+        core.viewer.draw_canvas(
           surface_id,
           &target,
-          &self.task_spawner,
-          &mut self.data_source,
-          &mut self.dyn_cx,
+          &core.task_spawner,
+          &mut core.data_source,
+          &mut core.dyn_cx,
           None,
         );
 
         unsafe {
-          self.dyn_cx.unregister_cx::<ViewerDataScheduler>();
+          core.dyn_cx.unregister_cx::<ViewerDataScheduler>();
         };
 
         canvas.present();
       }
     }
   }
+}
 
-  pub fn viewer_api_query_scope<T>(&mut self, f: impl Fn(&mut ViewerAPICx) -> Option<T>) -> T {
-    let mut pool = AsyncTaskPool::default();
-    let mut immediate_results = FastHashMap::default();
-
-    unsafe {
-      self
-        .dyn_cx
-        .register_cx::<ViewerDataScheduler>(&mut self.data_source);
-    };
-
-    {
-      self.viewer.shared_ctx.reset_visiting();
-      immediate_results.clear();
-      let mut cx = ViewerAPICx {
-        memory: &mut self.picker_mem,
-        dyn_cx: &mut self.dyn_cx,
-        stage: ViewerAPICxStage::Spawn {
-          spawner: &self.task_spawner,
-          pool: &mut pool,
-          immediate_results: &mut immediate_results,
-        },
-        viewer: &mut self.viewer,
-        waker: futures::task::noop_waker(),
-      };
-
-      let r = f(&mut cx);
-      assert!(r.is_none());
-    }
-
-    let mut task_pool_result = pollster::block_on(pool.all_async_task_done());
-
-    self.viewer.shared_ctx.reset_visiting();
-    task_pool_result
-      .token_based_result
-      .extend(immediate_results.drain());
-    immediate_results.clear();
-
-    let mut cx = ViewerAPICx {
-      memory: &mut self.picker_mem,
-      dyn_cx: &mut self.dyn_cx,
-      stage: ViewerAPICxStage::Resolve {
-        result: &mut task_pool_result,
-      },
-      viewer: &mut self.viewer,
-      waker: futures::task::noop_waker(),
-    };
-    let r = f(&mut cx).unwrap();
-
-    unsafe {
-      self.dyn_cx.unregister_cx::<ViewerDataScheduler>();
-    };
-
-    r
-  }
+pub struct ViewerWorldDeriveQueryAPI {
+  pub world_mats: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
+  pub sm_world_bound: BoxedDynQuery<RawEntityHandle, Option<Box3<f64>>>,
 }
 
 pub struct ViewerQueryAPI {
