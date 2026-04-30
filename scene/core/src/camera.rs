@@ -130,5 +130,6 @@ impl<T: NDCSpaceMapper + Copy + std::hash::Hash, Cx: DBHookCxLike> SharedResultP
     camera_world_mat
       .dual_query_zip(projections)
       .dual_query_map(|(world, proj)| CameraTransform::new(proj, world))
+      .use_dual_query_materialized_hashmap(cx, "camera transform")
   }
 }

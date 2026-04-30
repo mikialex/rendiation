@@ -76,6 +76,10 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
       .show(ui, |ui| {
         #[cfg(feature = "heap-debug")]
         {
+          ui.label(format!(
+            "global living frame bumper: {}",
+            get_global_living_bump()
+          ));
           if ui.button("reset heap peak stat").clicked() {
             GLOBAL_ALLOCATOR.reset_history_peak();
           }

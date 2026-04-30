@@ -1,18 +1,32 @@
-use std::{alloc::Allocator, cell::RefCell};
+use std::{alloc::Allocator, cell::RefCell, sync::atomic::AtomicUsize};
 
 use bumpalo::Bump;
 
 use crate::*;
 
+static GLOBAL_LIVING_BUMP: AtomicUsize = AtomicUsize::new(0);
+pub fn get_global_living_bump() -> usize {
+  GLOBAL_LIVING_BUMP.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+struct BumpWrap(Bump);
+
+impl Drop for BumpWrap {
+  fn drop(&mut self) {
+    GLOBAL_LIVING_BUMP.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+  }
+}
+
 #[derive(Clone)]
 pub struct FrameAlloc {
-  bump: Arc<Bump>,
+  bump: Arc<BumpWrap>,
 }
 
 impl FrameAlloc {
   pub fn new(bytes_capacity: usize) -> Self {
+    GLOBAL_LIVING_BUMP.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     Self {
-      bump: Arc::new(Bump::with_capacity(bytes_capacity)),
+      bump: Arc::new(BumpWrap(Bump::with_capacity(bytes_capacity))),
     }
   }
 }
@@ -29,7 +43,7 @@ unsafe impl Allocator for FrameAlloc {
     &self,
     layout: std::alloc::Layout,
   ) -> Result<std::ptr::NonNull<[u8]>, std::alloc::AllocError> {
-    self.bump.as_ref().allocate(layout)
+    (&self.bump.as_ref().0).allocate(layout)
   }
 
   unsafe fn deallocate(&self, _ptr: std::ptr::NonNull<u8>, _layout: std::alloc::Layout) {
