@@ -65,6 +65,7 @@ pub fn node_world_mat(this: &Mat4<f64>, parent: Option<&Mat4<f64>>) -> Mat4<f64>
   parent.map(|p| *p * *this).unwrap_or(*this)
 }
 
+#[track_caller]
 pub fn use_global_node_world_mat(
   cx: &mut impl DBHookCxLike,
 ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, Mat4<f64>>> {
@@ -72,6 +73,7 @@ pub fn use_global_node_world_mat(
   cx.use_shared_dual_query(c)
 }
 
+#[track_caller]
 pub fn use_global_node_net_visible(
   cx: &mut impl DBHookCxLike,
 ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, bool>> {
@@ -79,6 +81,7 @@ pub fn use_global_node_net_visible(
   cx.use_shared_dual_query(c)
 }
 
+#[track_caller]
 pub fn use_global_node_world_mat_view(
   cx: &mut impl DBHookCxLike,
 ) -> UseResult<BoxedDynQuery<RawEntityHandle, Mat4<f64>>> {
@@ -86,6 +89,7 @@ pub fn use_global_node_world_mat_view(
   cx.use_shared_dual_query_view(c)
 }
 
+#[track_caller]
 pub fn use_global_node_net_visible_view(
   cx: &mut impl DBHookCxLike,
 ) -> UseResult<BoxedDynQuery<RawEntityHandle, bool>> {

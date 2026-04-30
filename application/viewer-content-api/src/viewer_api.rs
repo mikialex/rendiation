@@ -357,8 +357,9 @@ impl ViewerAPI {
       .viewer_api_cx_scope(&mut self.world_derive_access_mem, move |cx| {
         let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
-        let sm_world_bound =
-          cx.use_shared_dual_query_view(SceneModelWorldBounding(font_sys.clone()));
+        let sm_world_bound = cx
+          .use_shared_dual_query_view(SceneModelWorldBounding(font_sys.clone()))
+          .use_assure_result(cx);
 
         cx.when_resolve_stage(|| {
           let world_mats = node_world.expect_resolve_stage();

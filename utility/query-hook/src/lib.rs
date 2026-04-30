@@ -4,6 +4,7 @@
 use std::any::Any;
 use std::any::TypeId;
 use std::future::Future;
+use std::panic::Location;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -213,6 +214,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, label, consumer_id)
   }
 
+  #[track_caller]
   fn use_shared_dual_query_view<Provider, K: CKey, V: CValue>(
     &mut self,
     provider: Provider,
@@ -225,6 +227,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
       .map(|r| r.view())
   }
 
+  #[track_caller]
   fn use_shared_dual_query<Provider, K: CKey, V: CValue>(
     &mut self,
     provider: Provider,
@@ -236,6 +239,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
   }
 
   /// note, skip_change will still wake correctly
+  #[track_caller]
   fn use_shared_dual_query_internal<Provider, K: CKey, V: CValue>(
     &mut self,
     provider: Provider,
@@ -262,13 +266,16 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
       .shared_hook_ctx()
       .delta_query_reconciler
       .entry(key)
-      .or_insert_with(|| Arc::new(SharedQueryChangeReconciler::<K, V>::default()))
+      .or_insert_with(|| Arc::new(SharedQueryChangeReconciler::<K, V>::new(label.to_string())))
       .clone();
 
+    let debug_info = Location::caller();
+
+    // todo, if the delta is empty, we may still want use thread because we are reconciling change.
     result.map_spawn_stage_in_thread_dual_query(self, move |r| {
       let (view, delta) = r.view_delta();
       let delta = Box::new(delta.into_boxed());
-      if let Some(new_delta) = reconciler.reconcile(consumer_id, delta, skip_change) {
+      if let Some(new_delta) = reconciler.reconcile(consumer_id, delta, skip_change, debug_info) {
         DualQuery {
           view: view.into_boxed(),
           delta: *new_delta
@@ -590,7 +597,15 @@ pub struct SharedHookObject {
 trait DeltaQueryReconciler: Send + Sync {
   /// change can be downcast to `BoxedDynQuery<K, ValueChange<V>>`
   /// return None if the change should use full view expand or skip_change = true
-  fn reconcile(&self, id: u32, change: Box<dyn Any>, skip_change: bool) -> Option<Box<dyn Any>>;
+  ///
+  /// the debug_info is the downstream caller location.
+  fn reconcile(
+    &self,
+    id: u32,
+    change: Box<dyn Any>,
+    skip_change: bool,
+    debug_info: &'static Location<'static>,
+  ) -> Option<Box<dyn Any>>;
   fn reset(&self);
   fn remove_consumer(&self, id: u32) -> bool;
 }
@@ -600,14 +615,25 @@ struct SharedQueryChangeReconciler<K, V> {
 }
 
 pub struct SharedQueryChangeReconcilerInternal<K, V> {
-  consumers: FastHashMap<u32, Vec<BoxedDynQuery<K, ValueChange<V>>>>,
+  consumers: FastHashMap<u32, (DebugLocation, Vec<BoxedDynQuery<K, ValueChange<V>>>)>,
   has_broadcasted: bool,
+  debug_label: String,
 }
 
+pub const DEBUG_CHANNEL_LEAK_THRESHOLD: usize = 32;
+type DebugLocation = &'static Location<'static>;
+
 impl<K: CKey, V: CValue> DeltaQueryReconciler for SharedQueryChangeReconciler<K, V> {
-  fn reconcile(&self, id: u32, change: Box<dyn Any>, skip_change: bool) -> Option<Box<dyn Any>> {
+  fn reconcile(
+    &self,
+    id: u32,
+    change: Box<dyn Any>,
+    skip_change: bool,
+    debug_info: DebugLocation,
+  ) -> Option<Box<dyn Any>> {
     // this lock introduce a blocking scope, but it's small and guaranteed to have forward progress
-    let mut internal = self.internal.write();
+    let mut _internal = self.internal.write();
+    let internal = &mut *_internal;
     //  the first consumer get the result broadcast the result to others
     if !internal.has_broadcasted {
       let change = change
@@ -616,7 +642,16 @@ impl<K: CKey, V: CValue> DeltaQueryReconciler for SharedQueryChangeReconciler<K,
       internal.has_broadcasted = true;
 
       if change.has_item_hint() {
-        for (_, v) in internal.consumers.iter_mut() {
+        for (id, (debug_info, v)) in internal.consumers.iter_mut() {
+          if v.len() > DEBUG_CHANNEL_LEAK_THRESHOLD {
+            println!(
+              "leaked: {}, current_count: {}, downstream_id: {} {}",
+              &internal.debug_label,
+              v.len(),
+              id,
+              debug_info
+            );
+          }
           v.push(*change.clone());
         }
       }
@@ -628,12 +663,12 @@ impl<K: CKey, V: CValue> DeltaQueryReconciler for SharedQueryChangeReconciler<K,
     }
 
     if !internal.consumers.contains_key(&id) {
-      internal.consumers.insert(id, Vec::default());
+      internal.consumers.insert(id, (debug_info, Vec::default()));
       return None;
     }
 
-    let buffered_changes = std::mem::take(internal.consumers.get_mut(&id).unwrap());
-    drop(internal);
+    let buffered_changes = std::mem::take(&mut internal.consumers.get_mut(&id).unwrap().1);
+    drop(_internal);
 
     let r = Box::new(finalize_buffered_changes(buffered_changes)) as Box<dyn Any>;
     r.into()
@@ -651,18 +686,14 @@ impl<K: CKey, V: CValue> DeltaQueryReconciler for SharedQueryChangeReconciler<K,
   }
 }
 
-impl<K, V> Default for SharedQueryChangeReconciler<K, V> {
-  fn default() -> Self {
+impl<K, V> SharedQueryChangeReconciler<K, V> {
+  fn new(debug_label: String) -> Self {
     Self {
-      internal: Default::default(),
-    }
-  }
-}
-impl<K, V> Default for SharedQueryChangeReconcilerInternal<K, V> {
-  fn default() -> Self {
-    Self {
-      consumers: Default::default(),
-      has_broadcasted: false,
+      internal: Arc::new(RwLock::new(SharedQueryChangeReconcilerInternal {
+        consumers: Default::default(),
+        has_broadcasted: false,
+        debug_label,
+      })),
     }
   }
 }

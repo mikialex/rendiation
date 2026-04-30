@@ -232,9 +232,6 @@ pub fn use_scene_spot_light_uniform(
   lighting_sys: &LightSystem,
   ndc: ViewerNDC,
 ) -> Option<SceneSpotLightingPreparer> {
-  let source_world =
-    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>(), cx);
-
   let source_proj = cx
     .use_dual_query::<SpotLightHalfConeAngle>()
     .dual_query_map(move |half_cone_angle| {
@@ -259,6 +256,9 @@ pub fn use_scene_spot_light_uniform(
   let enabled = cx.use_changes::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>();
 
   let shadow = if lighting_sys.enable_shadow {
+    let source_world =
+      use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>(), cx);
+
     cx.scope(|cx| {
       Some(use_basic_shadow_map_uniform(
         cx,
