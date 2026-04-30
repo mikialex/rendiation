@@ -242,7 +242,12 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
                 .platform_states
                 .window_states
                 .entry(window_id)
-                .or_default();
+                .or_insert_with(|| {
+                  let mut window_state = WindowEventStates::default();
+                  // the initial device pixel ratio is not synced by event on some platforms, so do a manual set here.
+                  window_state.window_state.device_pixel_ratio = window.scale_factor() as f32;
+                  window_state
+                });
               window_state.begin_frame();
 
               ApplicationCx {
