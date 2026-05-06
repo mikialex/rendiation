@@ -1,5 +1,3 @@
-use rendiation_oit::AtomicImageDowngrade;
-
 use crate::*;
 
 mod clipping_csg;

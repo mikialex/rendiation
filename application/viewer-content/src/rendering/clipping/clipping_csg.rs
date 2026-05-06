@@ -1,5 +1,4 @@
 use rendiation_csg_sdf_expression::*;
-use rendiation_oit::AtomicImageDowngrade;
 use rendiation_shader_library::shader_uv_space_to_render_space;
 
 use crate::*;

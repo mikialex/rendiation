@@ -1,5 +1,6 @@
 #![feature(type_alias_impl_trait)]
 
+mod atomic_image_downgrade;
 mod binding;
 mod device;
 mod encoder;
@@ -33,6 +34,7 @@ use std::{
   sync::Arc,
 };
 
+pub use atomic_image_downgrade::*;
 pub use binding::*;
 use bytemuck::*;
 pub use device::*;
