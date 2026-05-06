@@ -35,7 +35,7 @@ impl ViewerAPICore {
 
     {
       self.viewer.shared_ctx.reset_visiting();
-      let mut cx = ViewerAPICx {
+      let r = ViewerAPICx {
         memory,
         dyn_cx: &mut self.dyn_cx,
         stage: ViewerAPICxStage::Spawn {
@@ -45,9 +45,9 @@ impl ViewerAPICore {
         },
         viewer: &mut self.viewer,
         waker: futures::task::noop_waker(),
-      };
+      }
+      .execute(|cx| f(cx));
 
-      let r = f(&mut cx);
       assert!(r.is_none());
     }
 
@@ -58,7 +58,7 @@ impl ViewerAPICore {
       .token_based_result
       .extend(self.immediate_results.drain());
 
-    let mut cx = ViewerAPICx {
+    let r = ViewerAPICx {
       memory,
       dyn_cx: &mut self.dyn_cx,
       stage: ViewerAPICxStage::Resolve {
@@ -66,8 +66,9 @@ impl ViewerAPICore {
       },
       viewer: &mut self.viewer,
       waker: futures::task::noop_waker(),
-    };
-    let r = f(&mut cx).unwrap();
+    }
+    .execute(|cx| f(cx))
+    .unwrap();
 
     unsafe {
       self.dyn_cx.unregister_cx::<ViewerDataScheduler>();
