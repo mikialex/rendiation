@@ -227,21 +227,13 @@ pub fn create_clip_pick_filter(
   }
 }
 
-pub enum CSGxClipFillType<'a> {
-  Forward {
-    scene_result: &'a RenderTargetView,
-    forward_lighting: &'a dyn RenderComponent,
-  },
-  Defer(&'a FrameGeneralMaterialBuffer),
-}
-
 impl CSGClippingRenderer {
   pub fn draw_csg_surface(
     &self,
     frame_ctx: &mut FrameCtx,
     g_buffer_target: &FrameGeometryBuffer,
     fill_depth_info: AtomicImageDowngrade,
-    target: CSGxClipFillType,
+    target: ClipFillType,
     camera_gpu: &CameraGPU,
     scene: EntityHandle<SceneEntity>,
     reverse_z: bool,
@@ -284,7 +276,7 @@ impl CSGClippingRenderer {
     // and write other necessary info or directly compute the result in targets
 
     match target {
-      CSGxClipFillType::Forward {
+      ClipFillType::Forward {
         forward_lighting,
         scene_result,
       } => {
@@ -310,7 +302,7 @@ impl CSGClippingRenderer {
 
         pass.render_ctx(frame_ctx).by(&mut draw);
       }
-      CSGxClipFillType::Defer(_frame_general_material_buffer) => todo!(),
+      ClipFillType::Defer(_frame_general_material_buffer) => todo!(),
     }
   }
 }

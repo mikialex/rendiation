@@ -12,6 +12,15 @@ pub struct ViewerClippingRenderer {
   pub plane_array: ClippingPlaneArrayRenderer,
   pub use_array_clip: bool,
 }
+
+pub enum ClipFillType<'a> {
+  Forward {
+    scene_result: &'a RenderTargetView,
+    forward_lighting: &'a dyn RenderComponent,
+  },
+  Defer(&'a FrameGeneralMaterialBuffer),
+}
+
 #[derive(Clone)]
 
 pub struct ViewerClippingHelper(pub Option<AtomicImageDowngrade>);
@@ -52,7 +61,7 @@ impl ViewerClippingRenderer {
     renderer: &ViewerSceneRenderer,
     g_buffer: &FrameGeometryBuffer,
     fill_depth_info: ViewerClippingHelper,
-    target: CSGxClipFillType,
+    target: ClipFillType,
     camera_gpu: &CameraGPU,
     scene: EntityHandle<SceneEntity>,
   ) {

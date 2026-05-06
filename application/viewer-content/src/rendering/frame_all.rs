@@ -17,6 +17,7 @@ pub struct Viewer3dRenderingCtx {
   pub(super) gpu: GPU,
   pub(super) prefer_bindless_for_indirect_texture_system: bool,
 
+  pub(super) use_array_clip: bool,
   pub(super) enable_clip: bool,
   pub(super) fill_clip_face: bool,
 
@@ -51,6 +52,7 @@ impl Viewer3dRenderingCtx {
     init_config.init_only = self.init_config.init_only.clone();
     init_config.enable_shadow = self.lighting.enable_shadow;
     init_config.light_surface_ty = self.lighting.lighting_surface_ty_value;
+    init_config.use_array_clip = self.use_array_clip;
 
     if let Some(first_surface) = self.surface_views.values().next() {
       if let Some(first_view) = first_surface.values().next() {
@@ -91,6 +93,7 @@ impl Viewer3dRenderingCtx {
       init_config: init_config.clone(),
       enable_clip: true,
       fill_clip_face: true,
+      use_array_clip: init_config.use_array_clip,
     }
   }
 
@@ -474,7 +477,7 @@ impl Viewer3dRenderingCtx {
       clipping: ViewerClippingRenderer {
         csg: clipping.unwrap(),
         plane_array: clipping_plane_array.unwrap(),
-        use_array_clip: false,
+        use_array_clip: self.use_array_clip,
       },
       active_view_control: active_view_control.clone(),
     })

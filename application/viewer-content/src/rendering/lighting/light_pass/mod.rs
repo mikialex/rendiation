@@ -115,7 +115,7 @@ pub fn render_lighting_scene_content(
               renderer,
               g_buffer,
               clip_helper,
-              CSGxClipFillType::Forward {
+              ClipFillType::Forward {
                 scene_result,
                 forward_lighting: &forward_lighting,
               },
@@ -181,7 +181,7 @@ pub fn render_lighting_scene_content(
               renderer,
               g_buffer,
               clip_helper,
-              CSGxClipFillType::Defer(&m_buffer),
+              ClipFillType::Defer(&m_buffer),
               camera_gpu,
               scene,
             );

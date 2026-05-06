@@ -72,6 +72,10 @@ impl ClippingPlaneArrayRenderer {
     scene_id: EntityHandle<SceneEntity>,
     frame_ctx: &mut FrameCtx,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
+    if !self.enable {
+      return None;
+    }
+
     // todo cache
     let scene_id = create_uniform(
       Vec4::new(scene_id.alloc_index(), 0, 0, 0),
@@ -91,7 +95,7 @@ impl ClippingPlaneArrayRenderer {
     frame_ctx: &mut FrameCtx,
     renderer: &ViewerSceneRenderer,
     g_buffer: &FrameGeometryBuffer,
-    target: CSGxClipFillType,
+    target: ClipFillType,
     camera_gpu: &CameraGPU,
     scene: EntityHandle<SceneEntity>,
   ) {
@@ -191,7 +195,7 @@ impl ClippingPlaneArrayRenderer {
             );
 
             match target {
-              CSGxClipFillType::Forward {
+              ClipFillType::Forward {
                 scene_result,
                 forward_lighting,
               } => {
@@ -213,7 +217,7 @@ impl ClippingPlaneArrayRenderer {
 
                 pass_base.render_ctx(frame_ctx).by(&mut filler);
               }
-              CSGxClipFillType::Defer(_frame_general_material_buffer) => todo!(),
+              ClipFillType::Defer(_frame_general_material_buffer) => todo!(),
             }
           })
         }
@@ -291,9 +295,10 @@ impl<'a> GraphicsShaderProvider for ClipComponent<'a> {
       let scene_id = binding.bind_by(&self.scene_id).load().x();
       let iter = planes_gpu_access.iter_refed_many_of(scene_id);
 
-      let position = builder.query::<FragmentRenderPosition>();
+      let fragment_render =
+        builder.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
       // todo, support high precision
-      let position = builder.query::<CameraWorldPositionHP>().expand().f1 + position;
+      let position = builder.query::<CameraWorldPositionHP>().expand().f1 + fragment_render;
 
       match &self.ty {
         ClipDrawType::MainPass => {
