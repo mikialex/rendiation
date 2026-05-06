@@ -427,6 +427,18 @@ pub struct ViewerRayPickResult {
 }
 
 impl ViewerQueryAPI {
+  pub fn get_camera_position_world(&self, viewer: &Viewer) -> Vec3<f64> {
+    let surface_content = viewer.surfaces_content.get(&self.surface_id).unwrap();
+    let camera = surface_content.viewports[0].camera;
+    self
+      .picker_impl
+      .camera_transforms
+      .access(camera.raw_handle_ref())
+      .unwrap()
+      .world
+      .position()
+  }
+
   pub fn get_view_scene_bbox(&self, viewer: &Viewer) -> Box3 {
     let surface_content = viewer.surfaces_content.get(&self.surface_id).unwrap();
     let active_view = surface_content.viewports[0].id;

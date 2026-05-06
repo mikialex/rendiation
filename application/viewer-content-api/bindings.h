@@ -100,6 +100,7 @@ typedef struct ViewerRayPickResult {
 typedef struct ViewerRayPickListResultInfo {
   uintptr_t len;
   const struct ViewerRayPickResult *ptr;
+  double camera_position_world[3];
 } ViewerRayPickListResultInfo;
 
 typedef struct VertexPair {

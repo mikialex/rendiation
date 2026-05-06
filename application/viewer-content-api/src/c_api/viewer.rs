@@ -227,7 +227,12 @@ pub extern "C" fn picker_pick_list(
   let mut pick_results = Vec::new();
   api.pick_list(&viewer.core.viewer, scene.into(), x, y, &mut pick_results);
 
-  let r = Box::new(ViewerRayPickListResult { pick_results });
+  let camera_position_world = api.get_camera_position_world(&viewer.core.viewer);
+
+  let r = Box::new(ViewerRayPickListResult {
+    pick_results,
+    camera_position_world,
+  });
   Box::leak(r)
 }
 
@@ -301,12 +306,14 @@ pub extern "C" fn get_ray_pick_range_info(
 
 pub struct ViewerRayPickListResult {
   pick_results: Vec<ViewerRayPickResult>,
+  camera_position_world: Vec3<f64>,
 }
 
 #[repr(C)]
 pub struct ViewerRayPickListResultInfo {
   pub len: usize,
   pub ptr: *const ViewerRayPickResult,
+  pub camera_position_world: [f64; 3],
 }
 
 #[no_mangle]
@@ -317,6 +324,7 @@ pub extern "C" fn get_ray_pick_list_info(
   ViewerRayPickListResultInfo {
     len: r.pick_results.len(),
     ptr: r.pick_results.as_ptr(),
+    camera_position_world: r.camera_position_world.into(),
   }
 }
 
