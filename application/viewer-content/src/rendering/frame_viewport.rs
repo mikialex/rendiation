@@ -525,7 +525,7 @@ impl Viewer3dViewportRenderingCtx {
       sm_world_bounding: &renderer.sm_world_bounding,
     };
 
-    let (clip_component, fill_depth_info) =
+    let (clip_component, clip_helper) =
       renderer
         .clipping
         .use_get_scene_clipping(content.scene, ctx, renderer.reversed_depth);
@@ -557,7 +557,7 @@ impl Viewer3dViewportRenderingCtx {
           &renderer_c,
           &renderer.clipping,
           clip_component,
-          &fill_depth_info,
+          &clip_helper,
           content.scene,
           viewport,
           &scene_result,

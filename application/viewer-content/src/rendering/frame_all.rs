@@ -448,6 +448,7 @@ impl Viewer3dRenderingCtx {
       .use_assure_result(cx);
 
     let clipping = use_csg_clipping(cx, self.enable_clip, self.fill_clip_face);
+    let clipping_plane_array = use_array_plane_clipping(cx, self.enable_clip, self.fill_clip_face);
 
     cx.when_render(|| ViewerRendererInstancePreparer {
       camera: camera.unwrap(),
@@ -470,7 +471,11 @@ impl Viewer3dRenderingCtx {
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
-      clipping: clipping.unwrap(),
+      clipping: ViewerClippingRenderer {
+        csg: clipping.unwrap(),
+        plane_array: clipping_plane_array.unwrap(),
+        use_array_clip: false,
+      },
       active_view_control: active_view_control.clone(),
     })
   }
@@ -616,7 +621,7 @@ pub struct ViewerRendererInstancePreparer {
   pub batch_extractor: Box<dyn SceneBatchBasicExtractAbility>,
   pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   pub lighting: LightingRenderingCxPrepareCtx,
-  pub clipping: CSGClippingRenderer,
+  pub clipping: ViewerClippingRenderer,
   pub culling: ViewerCulling,
   pub mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
@@ -637,7 +642,7 @@ pub struct ViewerRendererInstance<'a> {
   pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   pub reversed_depth: bool,
   pub lighting: LightingRenderingCx<'a>,
-  pub clipping: CSGClippingRenderer,
+  pub clipping: ViewerClippingRenderer,
   pub active_view_control: CurrentViewControl,
 }
 

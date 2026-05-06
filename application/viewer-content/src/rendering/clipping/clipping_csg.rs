@@ -11,6 +11,30 @@ pub fn register_clipping_data_model() {
 
 declare_foreign_key!(SceneCSGClipping, SceneEntity, CSGExpressionNodeEntity);
 
+pub fn use_csg_clipping(
+  cx: &mut QueryGPUHookCx,
+  enable: bool,
+  fill_face: bool,
+) -> Option<CSGClippingRenderer> {
+  let expressions = use_csg_device_data(cx);
+
+  let scene_csg = cx.use_uniform_buffers();
+
+  cx.use_changes::<SceneCSGClipping>()
+    .filter_map_changes(|v| {
+      let id = v?.index();
+      Vec4::new(id, 0, 0, 0).into()
+    })
+    .update_uniforms(&scene_csg, 0, cx.gpu);
+
+  cx.when_render(|| CSGClippingRenderer {
+    expressions: expressions.unwrap(),
+    scene_csg: scene_csg.make_read_holder(),
+    fill_face,
+    enable,
+  })
+}
+
 pub struct CSGClippingRenderer {
   expressions: AbstractReadonlyStorageBuffer<[u32]>,
   scene_csg: LockReadGuardHolder<UniformBufferCollectionRaw<u32, Vec4<u32>>>,
@@ -31,7 +55,7 @@ impl CSGClippingRenderer {
     reverse_z: bool,
   ) -> (
     Option<Box<dyn RenderComponent>>,
-    Option<AtomicImageDowngrade>,
+    Option<ViewerClippingHelper>,
   ) {
     if !self.enable {
       return (None, None);
@@ -78,32 +102,10 @@ impl CSGClippingRenderer {
       Box::new(compose) as Box<dyn RenderComponent>
     });
 
+    let fill_face_depth = fill_face_depth.map(|v| ViewerClippingHelper(Some(v)));
+
     (r, fill_face_depth)
   }
-}
-
-pub fn use_csg_clipping(
-  cx: &mut QueryGPUHookCx,
-  enable: bool,
-  fill_face: bool,
-) -> Option<CSGClippingRenderer> {
-  let expressions = use_csg_device_data(cx);
-
-  let scene_csg = cx.use_uniform_buffers();
-
-  cx.use_changes::<SceneCSGClipping>()
-    .filter_map_changes(|v| {
-      let id = v?.index();
-      Vec4::new(id, 0, 0, 0).into()
-    })
-    .update_uniforms(&scene_csg, 0, cx.gpu);
-
-  cx.when_render(|| CSGClippingRenderer {
-    expressions: expressions.unwrap(),
-    scene_csg: scene_csg.make_read_holder(),
-    fill_face,
-    enable,
-  })
 }
 
 struct ClippingRootDirectProvide {
@@ -272,8 +274,9 @@ impl CSGClippingRenderer {
 
     let fill_depth = depth_attachment().request(frame_ctx);
 
+    let depth_op = clear_and_store(if reverse_z { 0. } else { 1. });
     pass("csg fill surface")
-      .with_depth(&fill_depth, clear_and_store(0.), load_and_store())
+      .with_depth(&fill_depth, depth_op, load_and_store())
       .render_ctx(frame_ctx)
       .by(&mut draw);
 

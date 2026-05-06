@@ -1,6 +1,5 @@
 mod defer_protocol;
 pub use defer_protocol::*;
-use rendiation_oit::AtomicImageDowngrade;
 use rendiation_texture_gpu_process::ToneMap;
 
 use crate::*;
@@ -24,9 +23,9 @@ pub fn render_lighting_scene_content(
   lighting_cx: &LightingRenderingCx,
   cull_cx: &mut ViewerCulling,
   renderer: &ViewerSceneRenderer,
-  clipping: &CSGClippingRenderer,
+  clipping: &ViewerClippingRenderer,
   clip_component: &dyn RenderComponent,
-  fill_depth_info: &Option<AtomicImageDowngrade>,
+  clip_helper: &Option<ViewerClippingHelper>,
   scene: EntityHandle<SceneEntity>,
   viewport: &ViewerViewPort,
   scene_result: &RenderTargetView,
@@ -109,19 +108,22 @@ pub fn render_lighting_scene_content(
         }
         drop(pass);
 
-        let fill_depth_info = fill_depth_info.clone().unwrap();
-        clipping.draw_csg_surface(
-          ctx,
-          g_buffer,
-          fill_depth_info,
-          CSGxClipFillType::Forward {
-            scene_result,
-            forward_lighting: &forward_lighting,
-          },
-          camera_gpu,
-          scene,
-          renderer.reversed_depth,
-        );
+        if let Some(clip_helper) = clip_helper.clone() {
+          ctx.scope(|ctx| {
+            clipping.use_draw_csg_surface(
+              ctx,
+              renderer,
+              g_buffer,
+              clip_helper,
+              CSGxClipFillType::Forward {
+                scene_result,
+                forward_lighting: &forward_lighting,
+              },
+              camera_gpu,
+              scene,
+            );
+          });
+        }
 
         None
       };
@@ -172,16 +174,18 @@ pub fn render_lighting_scene_content(
           all_opaque_object,
         );
 
-        if let Some(fill_depth_info) = fill_depth_info {
-          clipping.draw_csg_surface(
-            ctx,
-            g_buffer,
-            fill_depth_info.clone(),
-            CSGxClipFillType::Defer(&m_buffer),
-            camera_gpu,
-            scene,
-            renderer.reversed_depth,
-          );
+        if let Some(clip_helper) = clip_helper.clone() {
+          ctx.scope(|ctx| {
+            clipping.use_draw_csg_surface(
+              ctx,
+              renderer,
+              g_buffer,
+              clip_helper,
+              CSGxClipFillType::Defer(&m_buffer),
+              camera_gpu,
+              scene,
+            );
+          });
         }
 
         if !only_draw_g_buffer {

@@ -27,32 +27,48 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
           ));
         }
 
-        if ui.button("test clipping1").clicked() {
-          test_clipping_data1(cx.active_surface_content.scene)
+        if ui.button("test csg clipping1").clicked() {
+          test_csg_clipping_data1(cx.active_surface_content.scene)
         }
 
-        if ui.button("test clipping2").clicked() {
-          test_clipping_data2(cx.active_surface_content.scene)
+        if ui.button("test csg clipping2").clicked() {
+          test_csg_clipping_data2(cx.active_surface_content.scene)
         }
-        if ui.button("test clipping3").clicked() {
-          test_clipping_data3(cx.active_surface_content.scene)
+
+        if ui.button("test csg clipping3").clicked() {
+          test_csg_clipping_data3(cx.active_surface_content.scene)
+        }
+
+        if ui.button("test array plane clipping1").clicked() {
+          test_array_plane_clipping_data1(cx.active_surface_content.scene)
         }
       });
   }
 }
 
-fn test_clipping_data1(scene: EntityHandle<SceneEntity>) {
-  let mut w = global_entity_of::<CSGExpressionNodeEntity>().entity_writer();
+fn test_array_plane_clipping_data1(scene: EntityHandle<SceneEntity>) {
+  let mut w = global_entity_of::<ClippingPlaneEntity>().entity_writer();
 
   fn write_plane(
-    w: &mut EntityWriter<CSGExpressionNodeEntity>,
+    w: &mut EntityWriter<ClippingPlaneEntity>,
     dir: Vec3<f32>,
     constant: f32,
-  ) -> EntityHandle<CSGExpressionNodeEntity> {
-    let plane = Plane::new(dir.into_normalized(), constant);
-    let plane = CSGExpressionNode::Plane(plane);
-    w.new_entity(|w| w.write::<CSGExpressionNodeContent>(&Some(plane)))
+    scene: EntityHandle<SceneEntity>,
+  ) {
+    let dir = dir.normalize();
+    w.new_entity(|w| {
+      w.write::<ClippingPlaneInfo>(&Vec4::new(dir.x, dir.y, dir.z, constant))
+        .write::<ClippingPlaneRefScene>(&scene.some_handle())
+    });
   }
+
+  write_plane(&mut w, Vec3::new(1., 0., 0.), 0., scene);
+  write_plane(&mut w, Vec3::new(0., 0., 1.), 0., scene);
+  write_plane(&mut w, Vec3::new(0., 1., 0.), 0., scene);
+}
+
+fn test_csg_clipping_data1(scene: EntityHandle<SceneEntity>) {
+  let mut w = global_entity_of::<CSGExpressionNodeEntity>().entity_writer();
 
   let p1 = write_plane(&mut w, Vec3::new(1., 0., 0.), 0.);
   let p2 = write_plane(&mut w, Vec3::new(0., 0., 1.), 0.);
@@ -91,7 +107,7 @@ fn write_sphere(
   w.new_entity(|w| w.write::<CSGExpressionNodeContent>(&Some(sphere)))
 }
 
-fn test_clipping_data2(scene: EntityHandle<SceneEntity>) {
+fn test_csg_clipping_data2(scene: EntityHandle<SceneEntity>) {
   let mut w = global_entity_of::<CSGExpressionNodeEntity>().entity_writer();
 
   let p1 = write_plane(&mut w, Vec3::new(-1., 0., 0.), 0.);
@@ -112,7 +128,7 @@ fn test_clipping_data2(scene: EntityHandle<SceneEntity>) {
   global_entity_component_of::<SceneCSGClipping, _>(|c| c.write().write(scene, root.some_handle()));
 }
 
-fn test_clipping_data3(scene: EntityHandle<SceneEntity>) {
+fn test_csg_clipping_data3(scene: EntityHandle<SceneEntity>) {
   let mut w = global_entity_of::<CSGExpressionNodeEntity>().entity_writer();
 
   let p1 = write_plane(&mut w, Vec3::new(-1., 0., 0.), 0.);
