@@ -20,7 +20,6 @@ pub enum ClipFillType<'a> {
 }
 
 #[derive(Clone)]
-
 pub struct ViewerClippingHelper(pub Option<AtomicImageDowngrade>);
 
 impl ViewerClippingRenderer {

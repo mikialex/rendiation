@@ -289,8 +289,6 @@ pub fn load_and_store<V>() -> gpu::Operations<V> {
 
 /// if attachment result is not read by subsequent passes use this can optimize performance in TBDR arch
 /// The write result is persist between the drawcall in this pass, but not available to subsequent passes
-///
-/// It's relatively rare to use
 pub fn load_once_and_discard<V>() -> gpu::Operations<V> {
   gpu::Operations {
     load: gpu::LoadOp::Load,

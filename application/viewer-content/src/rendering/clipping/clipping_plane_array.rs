@@ -114,16 +114,6 @@ impl ClippingPlaneArrayRenderer {
       &frame_ctx.gpu.device,
     );
 
-    let temp_depth = attachment()
-      .format(TextureFormat::Depth32FloatStencil8)
-      .request(frame_ctx);
-
-    let depth_clear = if reverse_z {
-      clear_and_store(0.)
-    } else {
-      clear_and_store(1.)
-    };
-
     if let Some(planes) = planes {
       if self.enable && self.fill_face {
         frame_ctx.next_key_scope_root();
@@ -151,7 +141,7 @@ impl ClippingPlaneArrayRenderer {
             assert!(g_buffer.depth.format().has_stencil_aspect());
 
             pass("clip per plane boundary extract")
-              .with_depth(&g_buffer.depth, depth_clear, clear_and_store(0))
+              .with_depth(&g_buffer.depth, load_and_store(), clear_and_store(0))
               .render_ctx(frame_ctx)
               .by(&mut content);
 
@@ -177,29 +167,16 @@ impl ClippingPlaneArrayRenderer {
               scene_id: scene_id.clone(),
             };
 
-            let temp_texture_raw = temp_depth.expect_texture_view::<f32>();
-            frame_ctx.encoder.copy_texture_to_texture(
-              TexelCopyTextureInfo {
-                texture: temp_texture_raw.texture(),
-                mip_level: 0,
-                origin: Origin3d::ZERO,
-                aspect: TextureAspect::StencilOnly,
-              },
-              TexelCopyTextureInfo {
-                texture: g_buffer.depth.expect_texture_view::<f32>().texture(),
-                mip_level: 0,
-                origin: Origin3d::ZERO,
-                aspect: TextureAspect::StencilOnly,
-              },
-              temp_texture_raw.size().into_gpu_size(),
-            );
-
             match target {
               ClipFillType::Forward {
                 scene_result,
                 forward_lighting,
               } => {
-                let mut pass_base = pass("draw clip plane");
+                let mut pass_base = pass("draw clip plane").with_depth(
+                  &g_buffer.depth,
+                  load_and_store(),
+                  load_once_and_discard(),
+                );
                 let color_writer = DefaultDisplayWriter::extend_pass_desc(
                   &mut pass_base,
                   scene_result,
@@ -213,6 +190,7 @@ impl ClippingPlaneArrayRenderer {
                   plane: &plane,
                   material_injector: &MaterialInjector {},
                   lighting: forward_lighting,
+                  reversed_depth: reverse_z,
                 };
 
                 pass_base.render_ctx(frame_ctx).by(&mut filler);
@@ -227,18 +205,21 @@ impl ClippingPlaneArrayRenderer {
 }
 
 struct FillFace<'a> {
-  pub writer: &'a dyn RenderComponent,
-  pub clip: &'a ClipComponent<'a>,
-  pub plane: &'a InfinityShaderPlaneEffect<'a>,
-  pub material_injector: &'a MaterialInjector,
-  pub lighting: &'a dyn RenderComponent,
+  writer: &'a dyn RenderComponent,
+  clip: &'a ClipComponent<'a>,
+  plane: &'a InfinityShaderPlaneEffect<'a>,
+  material_injector: &'a MaterialInjector,
+  lighting: &'a dyn RenderComponent,
+  reversed_depth: bool,
 }
 
 impl PassContent for FillFace<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
+    let base = default_dispatcher(pass, self.reversed_depth).disable_auto_write();
     let com: [&dyn RenderComponent; _] = [
-      self.writer,
+      &base,
       self.plane,
+      self.writer,
       self.clip,
       self.material_injector,
       self.lighting,
@@ -325,11 +306,20 @@ impl<'a> GraphicsShaderProvider for ClipComponent<'a> {
           });
 
           let depth_stencil = builder.depth_stencil.as_mut().unwrap();
+          depth_stencil.depth_write_enabled = false;
+          depth_stencil.depth_compare = CompareFunction::Always;
+          depth_stencil.stencil.read_mask = 0xffffffff;
+          depth_stencil.stencil.write_mask = 0xffffffff;
+
           depth_stencil.stencil.front.compare = CompareFunction::Always;
           depth_stencil.stencil.front.pass_op = StencilOperation::DecrementWrap;
+          depth_stencil.stencil.front.fail_op = StencilOperation::DecrementWrap;
+          depth_stencil.stencil.front.depth_fail_op = StencilOperation::DecrementWrap;
 
           depth_stencil.stencil.back.compare = CompareFunction::Always;
-          depth_stencil.stencil.back.pass_op = StencilOperation::IncrementClamp;
+          depth_stencil.stencil.back.pass_op = StencilOperation::IncrementWrap;
+          depth_stencil.stencil.back.fail_op = StencilOperation::IncrementWrap;
+          depth_stencil.stencil.back.depth_fail_op = StencilOperation::IncrementWrap;
         }
         ClipDrawType::PlaneSelf(self_plane_id) => {
           let self_plane_id = binding.bind_by(self_plane_id).load().x();
@@ -344,6 +334,9 @@ impl<'a> GraphicsShaderProvider for ClipComponent<'a> {
           });
 
           let depth_stencil = builder.depth_stencil.as_mut().unwrap();
+
+          depth_stencil.stencil.read_mask = 0xffffffff;
+          depth_stencil.stencil.write_mask = 0xffffffff;
           depth_stencil.stencil.front.compare = CompareFunction::Equal;
           depth_stencil.stencil.back.compare = CompareFunction::Equal;
         }
