@@ -213,7 +213,7 @@ impl ClippingPlaneArrayRenderer {
                   &material_buffer,
                 );
 
-                let mut filler = FillFace {
+                let mut filler = PlaneCapDrawer {
                   writer: &color_writer,
                   clip: &clip,
                   plane: &plane,
@@ -233,7 +233,7 @@ impl ClippingPlaneArrayRenderer {
   }
 }
 
-struct FillFace<'a> {
+struct PlaneCapDrawer<'a> {
   writer: &'a dyn RenderComponent,
   clip: &'a ClipComponent<'a>,
   plane: &'a InfinityShaderPlaneEffect<'a>,
@@ -242,7 +242,7 @@ struct FillFace<'a> {
   reversed_depth: bool,
 }
 
-impl PassContent for FillFace<'_> {
+impl PassContent for PlaneCapDrawer<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     let base = default_dispatcher(pass, self.reversed_depth).disable_auto_write();
     let com: [&dyn RenderComponent; _] = [

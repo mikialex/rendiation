@@ -22,5 +22,8 @@ pub use model::*;
 mod light;
 pub use light::*;
 
+mod clipping;
+pub use clipping::*;
+
 mod init;
 pub use init::*;

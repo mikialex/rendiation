@@ -146,13 +146,16 @@ impl DataTypeMetaInfo {
   }
 }
 
-/// This trait encapsulate the implementation of component storage.
-/// For different kinds of component, we can have different storage implementation.
-/// For example. If the component data is sparse, we could use hashmap as the storage
-/// to improve the space efficiency at the cost of access performance. If the multiple
-/// component data is exclusively exists, we can use an enum like buffer to improve the
-/// space efficiency. If the multiple component will always be accessed together, we could
-/// store them in an interleaved buffer like common AOS way to improve the access performance.
+/// Encapsulates the underlying storage strategy for a component.
+/// Different components may benefit from different storage implementations:
+///
+/// - *Sparse* data: use a hashmap to reduce memory at the cost of access speed.
+/// - *Mutually exclusive*: when multiple component types are mutually exclusive
+///   (i.e., an entity has at most one of them at a time), a single storage can hold
+///   all of them together in an enum-like buffer to save space.
+/// - *Co-accessed*: when multiple component types are always accessed together in
+///   the same code paths, a single storage can hold them in an interleaved AOS
+///   (array-of-structs) buffer to improve cache locality.
 pub trait ComponentStorage: Send + Sync + DynClone {
   fn create_read_view(&self) -> ComponentReadViewBox;
   fn create_read_write_view(&self) -> ComponentReadWriteViewBox;

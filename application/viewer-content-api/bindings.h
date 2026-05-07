@@ -468,6 +468,18 @@ void set_spot_light_half_penumbra_angle(struct ViewerEntityHandle node, float an
 
 void drop_spot_light(struct ViewerEntityHandle handle);
 
+struct ViewerEntityHandle create_clipping_plane(const float (*plane)[4],
+                                                const struct ViewerEntityHandle *scene);
+
+void drop_clipping_plane(struct ViewerEntityHandle handle);
+
+void clipping_plane_set_plane(struct ViewerEntityHandle handle, const float (*plane)[4]);
+
+void clipping_plane_set_scene(struct ViewerEntityHandle handle,
+                              const struct ViewerEntityHandle *scene);
+
+void attribute_mesh_set_is_solid(struct ViewerEntityHandle handle, bool is_solid);
+
 /**
  * call this to setup panic message writer when panic happens
  */
