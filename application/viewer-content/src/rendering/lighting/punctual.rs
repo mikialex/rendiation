@@ -232,34 +232,34 @@ pub fn use_scene_spot_light_uniform(
   lighting_sys: &LightSystem,
   ndc: ViewerNDC,
 ) -> Option<SceneSpotLightingPreparer> {
-  let source_proj = cx
-    .use_dual_query::<SpotLightHalfConeAngle>()
-    .dual_query_map(move |half_cone_angle| {
-      PerspectiveProjection {
-        near: 0.1,
-        far: 2000.,
-        fov: Deg::from_rad(half_cone_angle * 2.),
-        aspect: 1.,
-      }
-      .compute_projection_mat(&ndc)
-    });
-
-  let size = cx
-    .use_dual_query::<BasicShadowMapResolutionOf<SpotLightBasicShadowInfo>>()
-    .into_delta_change()
-    .map_changes(|size| Size::from_u32_pair_min_one(size.into()));
-
-  let bias = cx
-    .use_changes::<BasicShadowMapBiasOf<SpotLightBasicShadowInfo>>()
-    .map_changes(|v| v.into());
-
-  let enabled = cx.use_changes::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>();
-
   let shadow = if lighting_sys.enable_shadow {
-    let source_world =
-      use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>(), cx);
-
     cx.scope(|cx| {
+      let source_proj = cx
+        .use_dual_query::<SpotLightHalfConeAngle>()
+        .dual_query_map(move |half_cone_angle| {
+          PerspectiveProjection {
+            near: 0.1,
+            far: 2000.,
+            fov: Deg::from_rad(half_cone_angle * 2.),
+            aspect: 1.,
+          }
+          .compute_projection_mat(&ndc)
+        });
+
+      let size = cx
+        .use_dual_query::<BasicShadowMapResolutionOf<SpotLightBasicShadowInfo>>()
+        .into_delta_change()
+        .map_changes(|size| Size::from_u32_pair_min_one(size.into()));
+
+      let bias = cx
+        .use_changes::<BasicShadowMapBiasOf<SpotLightBasicShadowInfo>>()
+        .map_changes(|v| v.into());
+
+      let enabled = cx.use_changes::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>();
+
+      let source_world =
+        use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>(), cx);
+
       Some(use_basic_shadow_map_uniform(
         cx,
         source_world,
