@@ -60,12 +60,21 @@ impl ViewerClippingRenderer {
     fill_depth_info: ViewerClippingHelper,
     target: ClipFillType,
     camera_gpu: &CameraGPU,
+    camera: EntityHandle<SceneCameraEntity>,
     scene: EntityHandle<SceneEntity>,
+    lighting_sys: &SceneLightSystem,
   ) {
     if self.use_array_clip {
-      self
-        .plane_array
-        .use_fill_surface(frame_ctx, renderer, g_buffer, target, camera_gpu, scene);
+      self.plane_array.use_fill_surface(
+        frame_ctx,
+        renderer,
+        g_buffer,
+        target,
+        camera,
+        camera_gpu,
+        scene,
+        lighting_sys,
+      );
     } else {
       self.csg.draw_csg_surface(
         frame_ctx,

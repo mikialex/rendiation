@@ -97,6 +97,7 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
       builder.register::<FragmentDepthOutput>(plane_hit_project.z() / plane_hit_project.w());
 
       builder.register::<FragmentRenderPosition>(plane_hit);
+      builder.register::<FragmentRenderNormal>(plane.normal().load());
       builder.register::<IsHitInfinityPlane>(plane_if_hit);
     })
   }

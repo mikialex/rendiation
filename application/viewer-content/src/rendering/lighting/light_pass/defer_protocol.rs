@@ -25,7 +25,7 @@ impl FrameGeneralMaterialBuffer {
   }
 
   pub fn extend_pass_desc(
-    &mut self,
+    &self,
     desc: &mut RenderPassDescription,
   ) -> FrameGeneralMaterialChannelIndices {
     FrameGeneralMaterialChannelIndices {

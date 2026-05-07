@@ -120,7 +120,9 @@ pub fn render_lighting_scene_content(
                 forward_lighting: &forward_lighting,
               },
               camera_gpu,
+              camera,
               scene,
+              &lighting_cx.lighting,
             );
           });
         }
@@ -148,7 +150,7 @@ pub fn render_lighting_scene_content(
 
         let g_buffer_base_writer =
           g_buffer.extend_pass_desc(&mut pass_base, depth_ops, load_and_store());
-        let mut m_buffer = FrameGeneralMaterialBuffer::new(ctx);
+        let m_buffer = FrameGeneralMaterialBuffer::new(ctx);
 
         let indices = m_buffer.extend_pass_desc(&mut pass_base);
         let material_writer = FrameGeneralMaterialBufferEncoder {
@@ -183,7 +185,9 @@ pub fn render_lighting_scene_content(
               clip_helper,
               ClipFillType::Defer(&m_buffer),
               camera_gpu,
+              camera,
               scene,
+              &lighting_cx.lighting,
             );
           });
         }

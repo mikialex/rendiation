@@ -96,8 +96,10 @@ impl ClippingPlaneArrayRenderer {
     renderer: &ViewerSceneRenderer,
     g_buffer: &FrameGeometryBuffer,
     target: ClipFillType,
+    camera: EntityHandle<SceneCameraEntity>,
     camera_gpu: &CameraGPU,
     scene: EntityHandle<SceneEntity>,
+    lighting_sys: &SceneLightSystem,
   ) {
     let reverse_z = renderer.reversed_depth;
     let all_object = renderer.batch_extractor.extract_scene_batch(
@@ -113,6 +115,8 @@ impl ClippingPlaneArrayRenderer {
       Vec4::new(scene.alloc_index(), 0, 0, 0),
       &frame_ctx.gpu.device,
     );
+
+    let m_buffer = FrameGeneralMaterialBuffer::new(frame_ctx);
 
     if let Some(planes) = planes {
       if self.enable && self.fill_face {
@@ -130,20 +134,33 @@ impl ClippingPlaneArrayRenderer {
               scene_id: scene_id.clone(),
             };
 
+            let mut pass_base = pass("clip per plane boundary extract").with_depth(
+              &g_buffer.depth,
+              load_and_store(),
+              clear_and_store(0),
+            );
+
+            let indices = m_buffer.extend_pass_desc(&mut pass_base);
+            let material_writer = FrameGeneralMaterialBufferEncoder {
+              indices,
+              materials: &lighting_sys.system.material_defer_lighting_supports,
+            };
+
+            let clip_dispatcher = RenderArray([&clip as &dyn RenderComponent, &material_writer]);
+
             // todo, try move out side
             let mut content = renderer.scene.make_scene_batch_pass_content(
               all_object.clone(),
               camera_gpu,
-              &clip,
+              &clip_dispatcher,
               frame_ctx,
             );
 
             assert!(g_buffer.depth.format().has_stencil_aspect());
 
-            pass("clip per plane boundary extract")
-              .with_depth(&g_buffer.depth, load_and_store(), clear_and_store(0))
-              .render_ctx(frame_ctx)
-              .by(&mut content);
+            pass_base.render_ctx(frame_ctx).by(&mut content);
+
+            ////
 
             let plane = self.planes_host.get(plane).unwrap();
             // todo cache
@@ -167,10 +184,15 @@ impl ClippingPlaneArrayRenderer {
               scene_id: scene_id.clone(),
             };
 
+            let material_buffer = FrameGeneralMaterialBufferReconstructSurface {
+              m_buffer: &m_buffer,
+              registry: &lighting_sys.system.material_defer_lighting_supports,
+            };
+
             match target {
               ClipFillType::Forward {
                 scene_result,
-                forward_lighting,
+                forward_lighting: _,
               } => {
                 let mut pass_base = pass("draw clip plane").with_depth(
                   &g_buffer.depth,
@@ -184,12 +206,19 @@ impl ClippingPlaneArrayRenderer {
                 );
                 // todo, write g buffer entity id buffer(if exist)
 
+                let lighting = lighting_sys.get_scene_lighting_component(
+                  scene,
+                  camera,
+                  Box::new(DirectGeometryProvider),
+                  &material_buffer,
+                );
+
                 let mut filler = FillFace {
                   writer: &color_writer,
                   clip: &clip,
                   plane: &plane,
                   material_injector: &MaterialInjector {},
-                  lighting: forward_lighting,
+                  lighting: &lighting,
                   reversed_depth: reverse_z,
                 };
 
@@ -221,8 +250,8 @@ impl PassContent for FillFace<'_> {
       self.plane,
       self.writer,
       self.clip,
-      self.material_injector,
       self.lighting,
+      self.material_injector,
     ];
     let com = RenderArray(com);
 
@@ -230,15 +259,20 @@ impl PassContent for FillFace<'_> {
   }
 }
 
-struct MaterialInjector {
-  //
-}
+struct MaterialInjector {}
 
 impl ShaderHashProvider for MaterialInjector {
   shader_hash_type_id! {}
 }
 
-impl GraphicsShaderProvider for MaterialInjector {}
+impl GraphicsShaderProvider for MaterialInjector {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, _| {
+      builder.insert_type_tag::<LightableSurfaceTag>();
+      builder.register::<ColorChannel>(val(Vec3::one()));
+    })
+  }
+}
 
 impl ShaderPassBuilder for MaterialInjector {}
 

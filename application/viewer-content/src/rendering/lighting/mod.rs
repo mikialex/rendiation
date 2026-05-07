@@ -156,7 +156,7 @@ pub struct LightSystem {
   pub lighting_surface_ty: Box<dyn LightableSurfaceProvider>,
   pub lighting_surface_ty_value: ViewerLightSurfaceType,
   pub tonemap: ToneMap,
-  material_defer_lighting_supports: DeferLightingMaterialRegistry,
+  pub material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pub opaque_scene_content_lighting_technique: LightingTechniqueKind,
   pub enable_shadow: bool,
   pub use_cascade_shadowmap_for_directional_lights: bool,
@@ -247,7 +247,7 @@ impl LightSystem {
 }
 
 pub struct SceneLightSystem<'a> {
-  system: &'a LightSystem,
+  pub(crate) system: &'a LightSystem,
   scene_ids: SceneIdUniformBufferAccess,
   imp: Box<dyn LightSystemSceneProvider>,
 }
