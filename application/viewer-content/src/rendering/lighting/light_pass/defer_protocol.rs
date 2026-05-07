@@ -150,7 +150,7 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
     builder: &mut ShaderFragmentBuilderView,
     binding: &mut ShaderBindGroupBuilder,
   ) -> Box<dyn LightableSurfaceShading> {
-    let ids = binding.bind_by(&U32Texture2d);
+    let ids = binding.bind_by(&self.m_buffer.material_type_id.expect_texture_view::<u32>());
     let channel_a = binding.bind_by(&self.m_buffer.channel_a);
     let channel_b = binding.bind_by(&self.m_buffer.channel_b);
     let channel_c = binding.bind_by(&self.m_buffer.channel_c);

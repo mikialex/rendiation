@@ -83,9 +83,10 @@ impl FrameGeometryBuffer {
     let new_depth = depth_attachment().request(ctx);
     let new_normal = attachment().format(self.normal.format()).request(ctx);
 
-    let new_entity_id = self.entity_id.as_ref().map(|entity_id| {
-      attachment().format(entity_id.format()).request(ctx)
-    });
+    let new_entity_id = self
+      .entity_id
+      .as_ref()
+      .map(|entity_id| attachment().format(entity_id.format()).request(ctx));
 
     let resolver = MSAAGBufferResolver {
       depth: self.depth.expect_texture_view(),
@@ -162,29 +163,27 @@ impl FrameGeometryBuffer {
     let normal = binding.bind_by(&self.normal);
     let input_size = normal.texture_dimension_2d(None).into_f32();
 
+    let depth = binding.bind_by(&DisableFiltering(&self.depth));
+
+    let ids = self.entity_id.as_ref().map(|entity_id| {
+      let entity_id = entity_id.expect_texture_view::<u32>();
+      binding.bind_by(&entity_id)
+    });
+
     FrameGeometryBufferReadInvocation {
       normal,
-      depth: binding.bind_by(&DisableFiltering(&self.depth)),
-      ids: binding.bind_by(&U32Texture2d),
+      depth,
+      ids,
       sampler: binding.bind_by(&DisableFiltering(ImmediateGPUSamplerViewBind)),
       input_size,
     }
   }
 }
 
-/// work around
-pub struct U32Texture2d;
-impl ShaderBindingProvider for U32Texture2d {
-  type Node = ShaderBinding<ShaderTexture2DUint>;
-  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
-    node
-  }
-}
-
 pub struct FrameGeometryBufferReadInvocation {
   pub depth: BindingNode<ShaderTexture2D>,
   pub normal: BindingNode<ShaderTexture2D>,
-  pub ids: BindingNode<ShaderTexture2DUint>,
+  pub ids: Option<BindingNode<ShaderTexture2DUint>>,
   pub sampler: BindingNode<ShaderSampler>,
   input_size: Node<Vec2<f32>>,
 }
@@ -197,7 +196,7 @@ impl FrameGeometryBufferReadInvocation {
   }
   pub fn read_id(&self, uv: Node<Vec2<f32>>) -> Node<u32> {
     let u32_uv = (self.input_size * uv).floor().into_u32();
-    self.ids.load_texel(u32_uv, 0).x()
+    self.ids.as_ref().unwrap().load_texel(u32_uv, 0).x()
   }
 }
 
@@ -301,10 +300,10 @@ impl GraphicsShaderProvider for MSAAGBufferResolver {
 
       if let Some(entity_id) = &self.entity_id {
         let id = binding.bind_by(entity_id);
-        builder.store_fragment_out(
-          1,
-          id.load_texel_multi_sample_index(frag_position, sample_index).x(),
-        );
+        let r = id
+          .load_texel_multi_sample_index(frag_position, sample_index)
+          .x();
+        builder.store_fragment_out(1, r);
       }
     });
   }
