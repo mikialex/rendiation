@@ -20,7 +20,9 @@ impl FrameGeneralMaterialBuffer {
       channel_b: attachment()
         .format(TextureFormat::Rgba8UnormSrgb)
         .request(cx),
-      channel_c: attachment().format(TextureFormat::Rg16Float).request(cx),
+      channel_c: attachment()
+        .format(TextureFormat::Rgba8UnormSrgb)
+        .request(cx),
     }
   }
 
@@ -50,7 +52,7 @@ pub const MAX_U8_ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::Co
 pub struct FrameGeneralMaterialBufferReadValue {
   pub channel_a: Node<Vec4<f32>>,
   pub channel_b: Node<Vec4<f32>>,
-  pub channel_c: Node<Vec2<f32>>,
+  pub channel_c: Node<Vec4<f32>>,
 }
 
 #[derive(Hash)]
@@ -72,6 +74,7 @@ pub struct DeferLightingMaterialRegistry {
   pub encoders:
     Vec<fn(&mut ShaderFragmentBuilderView, &FrameGeneralMaterialChannelIndices) -> bool>,
   pub decoders: Vec<fn(&FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack>,
+  pub alpha_decoders: Vec<fn(&FrameGeneralMaterialBufferReadValue) -> Node<f32>>,
 }
 
 pub enum DeferLightingSurfaceReadBack {
@@ -87,6 +90,9 @@ pub trait DeferLightingMaterialBufferReadWrite: 'static {
     indices: &FrameGeneralMaterialChannelIndices,
   ) -> bool;
   fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack;
+  // although the alpha is not used in typical defer lighting, some times in
+  // defer rendering it's useful
+  fn decode_alpha(instance: &FrameGeneralMaterialBufferReadValue) -> Node<f32>;
 }
 
 impl DeferLightingMaterialRegistry {
@@ -94,6 +100,7 @@ impl DeferLightingMaterialRegistry {
     self.material_impl_ids.push(TypeId::of::<M>());
     self.encoders.push(M::encode);
     self.decoders.push(M::decode);
+    self.alpha_decoders.push(M::decode_alpha);
     self
   }
 }
@@ -170,15 +177,17 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
     let values = FrameGeneralMaterialBufferReadValue {
       channel_a: channel_a.sample_zero_level(sampler, uv),
       channel_b: channel_b.sample_zero_level(sampler, uv),
-      channel_c: channel_c.sample_zero_level(sampler, uv).xy(),
+      channel_c: channel_c.sample_zero_level(sampler, uv),
     };
 
+    let alpha = val(1.).make_local_var();
     let has_none_lightable_surface_ldr = val(false).make_local_var();
     let none_lightable_surface_ldr = zeroed_val::<Vec3<f32>>().make_local_var();
 
     let mut switch = switch_by(material_ty_id);
     for (i, logic) in self.registry.decoders.iter().enumerate() {
       switch = switch.case(i as u32, || {
+        alpha.store(self.registry.alpha_decoders[i](&values));
         if let DeferLightingSurfaceReadBack::Direct(ldr) = logic(&values) {
           none_lightable_surface_ldr.store(ldr);
           has_none_lightable_surface_ldr.store(true);
@@ -187,6 +196,7 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
     }
     switch.end_with_default(|| {});
 
+    builder.register::<AlphaChannel>(alpha.load());
     builder.register::<LDRLightResult>(none_lightable_surface_ldr.load());
     builder.register::<ShouldUsePreSetLDRResult>(has_none_lightable_surface_ldr.load());
 
@@ -259,21 +269,32 @@ impl DeferLightingMaterialBufferReadWrite for PbrSurfaceEncodeDecode {
       let albedo_roughness: Node<Vec4<_>> = (albedo, linear_roughness).into();
       let f0_emissive_x: Node<Vec4<_>> = (f0, emissive.x()).into();
 
+      let alpha = builder.try_query::<AlphaChannel>().unwrap_or(val(1.));
+
       builder.frag_output[indices.channel_a].store(albedo_roughness);
       builder.frag_output[indices.channel_b].store(f0_emissive_x);
-      builder.frag_output[indices.channel_c].store((emissive.yz(), val(0.), val(1.)).into());
+      builder.frag_output[indices.channel_c].store((emissive.yz(), alpha, val(1.)).into());
       true
     } else {
       false
     }
   }
 
+  fn decode_alpha(instance: &FrameGeneralMaterialBufferReadValue) -> Node<f32> {
+    let emissive_yz_alpha = instance.channel_c;
+    emissive_yz_alpha.z()
+  }
+
   fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack {
     let albedo_roughness = instance.channel_a;
     let f0_emissive_x = instance.channel_b;
-    let emissive_yz = instance.channel_c;
+    let emissive_yz_alpha = instance.channel_c;
 
-    let emissive = vec3_node((f0_emissive_x.w(), emissive_yz.x(), emissive_yz.y()));
+    let emissive = vec3_node((
+      f0_emissive_x.w(),
+      emissive_yz_alpha.x(),
+      emissive_yz_alpha.y(),
+    ));
 
     let surface = Box::new(ENode::<ShaderPhysicalShading> {
       albedo: albedo_roughness.xyz(),
@@ -304,5 +325,9 @@ impl DeferLightingMaterialBufferReadWrite for UnlitSurfaceEncodeDecode {
 
   fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack {
     DeferLightingSurfaceReadBack::Direct(instance.channel_a.xyz())
+  }
+
+  fn decode_alpha(instance: &FrameGeneralMaterialBufferReadValue) -> Node<f32> {
+    instance.channel_a.w()
   }
 }

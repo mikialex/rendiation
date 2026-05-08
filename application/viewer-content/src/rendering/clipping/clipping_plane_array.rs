@@ -296,7 +296,12 @@ impl GraphicsShaderProvider for MaterialInjector {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
       builder.insert_type_tag::<LightableSurfaceTag>();
-      builder.register::<ColorChannel>(val(Vec3::one()));
+      // enable blend for transparent face fill
+      builder.frag_output.iter_mut().for_each(|p| {
+        if p.is_blendable() {
+          p.states.blend = BlendState::ALPHA_BLENDING.into();
+        }
+      });
     })
   }
 }
