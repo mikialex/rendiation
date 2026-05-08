@@ -56,9 +56,9 @@ impl GraphicsShaderProvider for DefaultPassDispatcher {
           format,
           depth_write_enabled: true,
           depth_compare: if self.reversed_depth {
-            CompareFunction::Greater
+            CompareFunction::GreaterEqual
           } else {
-            CompareFunction::Less
+            CompareFunction::LessEqual
           },
           stencil: Default::default(),
           bias: Default::default(),
