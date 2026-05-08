@@ -452,6 +452,7 @@ impl Viewer3dRenderingCtx {
 
     let clipping = use_csg_clipping(cx, self.enable_clip, self.fill_clip_face);
     let clipping_plane_array = use_array_plane_clipping(cx, self.enable_clip, self.fill_clip_face);
+    let filter = use_is_solid_filter(cx);
 
     cx.when_render(|| ViewerRendererInstancePreparer {
       camera: camera.unwrap(),
@@ -478,6 +479,7 @@ impl Viewer3dRenderingCtx {
         csg: clipping.unwrap(),
         plane_array: clipping_plane_array.unwrap(),
         use_array_clip: self.use_array_clip,
+        filter: filter.unwrap(),
       },
       active_view_control: active_view_control.clone(),
     })

@@ -2,12 +2,15 @@ use crate::*;
 
 mod clipping_csg;
 mod clipping_plane_array;
+mod is_solid_filter;
 pub use clipping_csg::*;
 pub use clipping_plane_array::*;
+pub use is_solid_filter::*;
 
 pub struct ViewerClippingRenderer {
   pub csg: CSGClippingRenderer,
   pub plane_array: ClippingPlaneArrayRenderer,
+  pub filter: IsSolidFilter,
   pub use_array_clip: bool,
 }
 
@@ -54,7 +57,7 @@ impl ViewerClippingRenderer {
 
   // todo this draw should be called after transparent draw.
   // if we want the cap face take effect in occlusion culling, we should
-  // distinguish the transparent draw part of it.
+  // distinguish the opaque and transparent part of it.
   pub fn use_draw_surface(
     &self,
     frame_ctx: &mut FrameCtx,
@@ -77,6 +80,7 @@ impl ViewerClippingRenderer {
         camera_gpu,
         scene,
         lighting_sys,
+        &self.filter,
       );
     } else {
       self.csg.draw_csg_surface(

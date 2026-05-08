@@ -37,10 +37,10 @@ pub fn load_default_scene(
 
     let attribute_mesh = if TEST_MESH_URI {
       writer
-        .write_attribute_mesh_data_uri(attribute_mesh, mesh_source)
+        .write_solid_attribute_mesh_data_uri(attribute_mesh, mesh_source)
         .mesh
     } else {
-      writer.write_attribute_mesh(attribute_mesh).mesh
+      writer.write_solid_attribute_mesh(attribute_mesh).mesh
     };
 
     let texture = textured_example_tex(writer, texture_data_source);
@@ -67,7 +67,7 @@ pub fn load_default_scene(
     })
     .build();
 
-    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
+    let attribute_mesh = writer.write_solid_attribute_mesh(attribute_mesh).mesh;
 
     let texture = textured_example_tex(writer, texture_data_source);
 
@@ -117,7 +117,7 @@ pub fn load_default_scene(
       }
     })
     .build();
-    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
+    let attribute_mesh = writer.write_solid_attribute_mesh(attribute_mesh).mesh;
 
     let material = PhysicalSpecularGlossinessMaterialDataView {
       albedo: Vec3::splat(1.),
@@ -147,7 +147,7 @@ pub fn load_default_scene(
       }
     })
     .build();
-    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
+    let attribute_mesh = writer.write_solid_attribute_mesh(attribute_mesh).mesh;
 
     let material = PhysicalSpecularGlossinessMaterialDataView {
       albedo: Vec3::splat(1.),
@@ -255,7 +255,7 @@ pub fn load_default_scene(
       }
     })
     .build();
-    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
+    let attribute_mesh = writer.write_solid_attribute_mesh(attribute_mesh).mesh;
 
     let material = PhysicalSpecularGlossinessMaterialDataView {
       albedo: Vec3::splat(1.),

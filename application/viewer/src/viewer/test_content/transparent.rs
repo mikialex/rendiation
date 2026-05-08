@@ -42,7 +42,7 @@ pub fn load_transparent_test_overlap_ball(
     );
   })
   .build();
-  let ball = writer.write_attribute_mesh(attribute_mesh).mesh;
+  let ball = writer.write_solid_attribute_mesh(attribute_mesh).mesh;
 
   let scale = Mat4::scale((2., 2., 2.));
   {

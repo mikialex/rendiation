@@ -48,8 +48,8 @@ declare_foreign_key!(
 );
 
 pub struct AttributesMeshEntityFromAttributesMeshWriter {
-  relation: EntityWriter<AttributesMeshEntityVertexBufferRelation>,
-  mesh: EntityWriter<AttributesMeshEntity>,
+  pub relation: EntityWriter<AttributesMeshEntityVertexBufferRelation>,
+  pub mesh: EntityWriter<AttributesMeshEntity>,
 }
 
 impl AttributesMeshEntityFromAttributesMeshWriter {

@@ -100,13 +100,16 @@ impl ClippingPlaneArrayRenderer {
     camera_gpu: &CameraGPU,
     scene: EntityHandle<SceneEntity>,
     lighting_sys: &SceneLightSystem,
+    filter: &IsSolidFilter,
   ) {
     let reverse_z = renderer.reversed_depth;
-    let all_object = renderer.batch_extractor.extract_scene_batch(
+    let mut all_object = renderer.batch_extractor.extract_scene_batch(
       scene,
       SceneContentKey::default(),
       renderer.scene,
     );
+    filter.install_filter(&mut all_object);
+    // todo flush filter reduce filter cost
 
     let planes = self.planes_host_access.access_multi(&scene);
 
@@ -120,8 +123,18 @@ impl ClippingPlaneArrayRenderer {
       TextureFormat::Depth16Unorm => TextureFormat::Depth24PlusStencil8,
       TextureFormat::Depth24Plus => TextureFormat::Depth24PlusStencil8,
       TextureFormat::Depth24PlusStencil8 => TextureFormat::Depth24PlusStencil8,
-      // todo, this requires feature, but most platform should support
-      TextureFormat::Depth32Float => TextureFormat::Depth32FloatStencil8,
+      TextureFormat::Depth32Float => {
+        if frame_ctx
+          .gpu
+          .info()
+          .supported_features
+          .contains(Features::DEPTH32FLOAT_STENCIL8)
+        {
+          TextureFormat::Depth32FloatStencil8
+        } else {
+          TextureFormat::Depth24PlusStencil8
+        }
+      }
       TextureFormat::Depth32FloatStencil8 => TextureFormat::Depth32FloatStencil8,
       _ => unreachable!("expect depth fmt"),
     };
