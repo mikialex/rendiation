@@ -52,7 +52,10 @@ impl ViewerClippingRenderer {
     }
   }
 
-  pub fn use_draw_csg_surface(
+  // todo this draw should be called after transparent draw.
+  // if we want the cap face take effect in occlusion culling, we should
+  // distinguish the transparent draw part of it.
+  pub fn use_draw_surface(
     &self,
     frame_ctx: &mut FrameCtx,
     renderer: &ViewerSceneRenderer,

@@ -116,6 +116,18 @@ impl ClippingPlaneArrayRenderer {
       &frame_ctx.gpu.device,
     );
 
+    let fmt = match g_buffer.depth.format() {
+      TextureFormat::Depth16Unorm => TextureFormat::Depth24PlusStencil8,
+      TextureFormat::Depth24Plus => TextureFormat::Depth24PlusStencil8,
+      TextureFormat::Depth24PlusStencil8 => TextureFormat::Depth24PlusStencil8,
+      // todo, this requires feature, but most platform should support
+      TextureFormat::Depth32Float => TextureFormat::Depth32FloatStencil8,
+      TextureFormat::Depth32FloatStencil8 => TextureFormat::Depth32FloatStencil8,
+      _ => unreachable!("expect depth fmt"),
+    };
+
+    let temp_depth_stencil = depth_attachment().format(fmt).request(frame_ctx);
+
     let m_buffer = FrameGeneralMaterialBuffer::new(frame_ctx);
 
     if let Some(planes) = planes {
@@ -135,8 +147,8 @@ impl ClippingPlaneArrayRenderer {
             };
 
             let mut pass_base = pass("clip per plane boundary extract").with_depth(
-              &g_buffer.depth,
-              load_and_store(),
+              &temp_depth_stencil,
+              clear_and_store(if reverse_z { 0. } else { 0. }),
               clear_and_store(0),
             );
 
@@ -146,7 +158,11 @@ impl ClippingPlaneArrayRenderer {
               materials: &lighting_sys.system.material_defer_lighting_supports,
             };
 
-            let clip_dispatcher = RenderArray([&clip as &dyn RenderComponent, &material_writer]);
+            let clip_dispatcher = RenderArray([
+              &clip as &dyn RenderComponent,
+              &material_writer,
+              &DisableAllChannelBlend,
+            ]);
 
             // todo, try move out side
             let mut content = renderer.scene.make_scene_batch_pass_content(
@@ -155,8 +171,6 @@ impl ClippingPlaneArrayRenderer {
               &clip_dispatcher,
               frame_ctx,
             );
-
-            assert!(g_buffer.depth.format().has_stencil_aspect());
 
             pass_base.render_ctx(frame_ctx).by(&mut content);
 
@@ -195,9 +209,9 @@ impl ClippingPlaneArrayRenderer {
                 forward_lighting: _,
               } => {
                 let mut pass_base = pass("draw clip plane").with_depth(
-                  &g_buffer.depth,
+                  &temp_depth_stencil,
                   load_and_store(),
-                  load_once_and_discard(),
+                  load_and_store(),
                 );
                 let color_writer = DefaultDisplayWriter::extend_pass_desc(
                   &mut pass_base,
@@ -340,8 +354,7 @@ impl<'a> GraphicsShaderProvider for ClipComponent<'a> {
           });
 
           let depth_stencil = builder.depth_stencil.as_mut().unwrap();
-          depth_stencil.depth_write_enabled = false;
-          depth_stencil.depth_compare = CompareFunction::Always;
+
           depth_stencil.stencil.read_mask = 0xffffffff;
           depth_stencil.stencil.write_mask = 0xffffffff;
 

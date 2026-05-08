@@ -102,32 +102,7 @@ pub fn render_lighting_scene_content(
           pass_base,
           all_opaque_object,
         );
-
-        if !clipping.fill_face(scene) {
-          return Some(pass);
-        }
-        drop(pass);
-
-        if let Some(clip_helper) = clip_helper.clone() {
-          ctx.scope(|ctx| {
-            clipping.use_draw_csg_surface(
-              ctx,
-              renderer,
-              g_buffer,
-              clip_helper,
-              ClipFillType::Forward {
-                scene_result,
-                forward_lighting: &forward_lighting,
-              },
-              camera_gpu,
-              camera,
-              scene,
-              &lighting_cx.lighting,
-            );
-          });
-        }
-
-        None
+        Some(pass)
       };
 
       renderer.transparent_content_renderer.render(
@@ -143,6 +118,25 @@ pub fn render_lighting_scene_content(
         opaque_scene_pass_dispatcher,
         draw_opaque,
       );
+
+      if let Some(clip_helper) = clip_helper.clone() {
+        ctx.scope(|ctx| {
+          clipping.use_draw_surface(
+            ctx,
+            renderer,
+            g_buffer,
+            clip_helper,
+            ClipFillType::Forward {
+              scene_result,
+              forward_lighting: &forward_lighting,
+            },
+            camera_gpu,
+            camera,
+            scene,
+            &lighting_cx.lighting,
+          );
+        });
+      }
     }),
     LightingTechniqueKind::DeferLighting => {
       ctx.scope(|ctx| {
@@ -178,7 +172,7 @@ pub fn render_lighting_scene_content(
 
         if let Some(clip_helper) = clip_helper.clone() {
           ctx.scope(|ctx| {
-            clipping.use_draw_csg_surface(
+            clipping.use_draw_surface(
               ctx,
               renderer,
               g_buffer,

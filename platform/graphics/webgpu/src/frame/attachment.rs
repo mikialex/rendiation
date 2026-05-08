@@ -62,8 +62,7 @@ pub fn attachment() -> AttachmentDescriptor {
 
 pub fn depth_attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
-    // todo, this requires feature, but most platform should support
-    format: gpu::TextureFormat::Depth32FloatStencil8,
+    format: gpu::TextureFormat::Depth32Float,
     sample_count: 1,
     sizer: default_sizer(),
     require_mipmaps: false,
