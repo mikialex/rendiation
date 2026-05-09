@@ -292,16 +292,14 @@ impl Viewer3dViewportRenderingCtx {
     }
 
     if let Some(cached_frame) = &self.cached_frame {
-      ctx.scope(|ctx| {
-        pass("on demand rendering copy cached frame")
-          .with_color(target, load_and_store()) // todo, use store full when only has one viewport
-          .render_ctx(ctx)
-          .by(
-            &mut CopyFrame(cached_frame.clone())
-              .draw_quad()
-              .with_viewport(viewport.viewport),
-          );
-      });
+      pass("on demand rendering copy cached frame")
+        .with_color(target, load_and_store()) // todo, use store full when only has one viewport
+        .render_ctx(ctx)
+        .by(
+          &mut CopyFrame(cached_frame.clone())
+            .draw_quad()
+            .with_viewport(viewport.viewport),
+        );
 
       false
     } else {
@@ -373,16 +371,14 @@ impl Viewer3dViewportRenderingCtx {
 
     // do extra copy to surface texture
     if should_do_extra_copy {
-      ctx.scope(|ctx| {
-        pass("copy frame renderer local to surface")
-          .with_color(final_target, load_and_store()) // todo, use store full when only has one viewport
-          .render_ctx(ctx)
-          .by(
-            &mut CopyFrame(render_target.clone())
-              .draw_quad()
-              .with_viewport(viewport.viewport),
-          );
-      });
+      pass("copy frame renderer local to surface")
+        .with_color(final_target, load_and_store()) // todo, use store full when only has one viewport
+        .render_ctx(ctx)
+        .by(
+          &mut CopyFrame(render_target.clone())
+            .draw_quad()
+            .with_viewport(viewport.viewport),
+        );
     }
     self.expect_read_back_for_next_render_result = false;
 
@@ -582,46 +578,42 @@ impl Viewer3dViewportRenderingCtx {
         let g_buffer = g_buffer.resolve_if_have_multi_sample(ctx, renderer.reversed_depth);
 
         if self.enable_ground && !is_outline_only_mode {
-          ctx.scope(|ctx| {
-            // this must a separate pass, because the id buffer should not be written.
-            pass("grid_ground")
-              .with_color(&scene_result, load_and_store())
-              .with_depth(&g_buffer.depth, load_and_store(), load_and_store())
-              .render_ctx(ctx)
-              .by(&mut GridGround {
-                plane: &self.ground,
-                shading: &self.grid,
-                camera: &camera_gpu,
-                reversed_depth: renderer.reversed_depth,
-              });
-          });
+          // this must a separate pass, because the id buffer should not be written.
+          pass("grid_ground")
+            .with_color(&scene_result, load_and_store())
+            .with_depth(&g_buffer.depth, load_and_store(), load_and_store())
+            .render_ctx(ctx)
+            .by(&mut GridGround {
+              plane: &self.ground,
+              shading: &self.grid,
+              camera: &camera_gpu,
+              reversed_depth: renderer.reversed_depth,
+            });
         }
 
         if self.enable_ssao {
-          ctx.scope(|ctx| {
-            let ao = self.ssao.draw(
-              ctx,
-              &g_buffer.depth,
-              &self.reproject.reproject,
-              renderer.reversed_depth,
-            );
+          let ao = self.ssao.draw(
+            ctx,
+            &g_buffer.depth,
+            &self.reproject.reproject,
+            renderer.reversed_depth,
+          );
 
-            pass("ao blend to scene")
-              .with_color(&scene_result, load_and_store())
-              .render_ctx(ctx)
-              .by(&mut copy_frame(
-                ao,
-                BlendState {
-                  color: BlendComponent {
-                    src_factor: BlendFactor::Dst,
-                    dst_factor: BlendFactor::Zero,
-                    operation: BlendOperation::Add,
-                  },
-                  alpha: BlendComponent::REPLACE,
-                }
-                .into(),
-              ));
-          });
+          pass("ao blend to scene")
+            .with_color(&scene_result, load_and_store())
+            .render_ctx(ctx)
+            .by(&mut copy_frame(
+              ao,
+              BlendState {
+                color: BlendComponent {
+                  src_factor: BlendFactor::Dst,
+                  dst_factor: BlendFactor::Zero,
+                  operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent::REPLACE,
+              }
+              .into(),
+            ));
         }
 
         (
@@ -649,21 +641,19 @@ impl Viewer3dViewportRenderingCtx {
     };
 
     let maybe_aa_result = if self.enable_fxaa {
-      ctx.scope(|ctx| {
-        let fxaa_target = maybe_aa_result.create_attachment_key().request(ctx);
+      let fxaa_target = maybe_aa_result.create_attachment_key().request(ctx);
 
-        pass("fxaa")
-          .with_color(&fxaa_target, store_full_frame())
-          .render_ctx(ctx)
-          .by(
-            &mut FXAA {
-              source: &maybe_aa_result,
-            }
-            .draw_quad(),
-          );
+      pass("fxaa")
+        .with_color(&fxaa_target, store_full_frame())
+        .render_ctx(ctx)
+        .by(
+          &mut FXAA {
+            source: &maybe_aa_result,
+          }
+          .draw_quad(),
+        );
 
-        fxaa_target
-      })
+      fxaa_target
     } else {
       maybe_aa_result
     };
