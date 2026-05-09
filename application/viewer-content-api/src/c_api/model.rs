@@ -11,7 +11,6 @@ pub struct SceneModelHandleInfo {
 #[no_mangle]
 pub extern "C" fn create_scene_model(
   material: ViewerEntityHandle,
-  is_unlit_material: bool, // or pbr mr
   mesh: ViewerEntityHandle,
   node: ViewerEntityHandle,
   scene: ViewerEntityHandle,
@@ -20,11 +19,7 @@ pub extern "C" fn create_scene_model(
     .entity_writer()
     .new_entity(|w| {
       let w = w.write::<StandardModelRefAttributesMeshEntity>(&Some(mesh.into()));
-      if is_unlit_material {
-        w.write::<StandardModelRefUnlitMaterial>(&Some(material.into()))
-      } else {
-        w.write::<StandardModelRefPbrMRMaterial>(&Some(material.into()))
-      }
+      w.write::<StdModelOccStyleMaterialPayload>(&Some(material.into()))
     });
 
   let scene_model = global_entity_of::<SceneModelEntity>()
@@ -123,15 +118,9 @@ pub extern "C" fn scene_model_set_selectable(handle: ViewerEntityHandle, selecta
 pub extern "C" fn scene_model_set_material(
   handle: SceneModelHandleInfo,
   material: ViewerEntityHandle,
-  is_unlit_material: bool,
 ) {
-  if is_unlit_material {
-    write_global_db_component::<StandardModelRefUnlitMaterial>()
-      .write(handle.std_model.into(), Some(material.into()));
-  } else {
-    write_global_db_component::<StandardModelRefUnlitMaterial>()
-      .write(handle.std_model.into(), Some(material.into()));
-  }
+  write_global_db_component::<StdModelOccStyleMaterialPayload>()
+    .write(handle.std_model.into(), Some(material.into()));
 }
 
 #[repr(C)]

@@ -1,7 +1,7 @@
 # see https://github.com/mozilla/cbindgen/blob/main/template.toml
 # and https://github.com/mozilla/cbindgen/blob/main/docs.md#cbindgentoml
 
-language = "C"
+language = "C++"
 
 include_guard = "RENDIATION_C_HEADER"
 

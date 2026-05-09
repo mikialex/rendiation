@@ -1,144 +1,131 @@
 #ifndef RENDIATION_C_HEADER
 #define RENDIATION_C_HEADER
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include <cstdarg>
+#include <cstdint>
+#include <cstdlib>
+#include <ostream>
+#include <new>
 
-typedef enum ToneMapType {
+enum class ToneMapType {
   None,
   Linear,
   Reinhard,
   Cineon,
   ACESFilmic,
-} ToneMapType;
+};
 
-/**
- * Primitive type the input mesh is composed of.
- */
-typedef enum MeshPrimitiveTopology {
-  /**
-   * Vertex data is a list of points. Each vertex is a new point.
-   */
+/// Primitive type the input mesh is composed of.
+enum class MeshPrimitiveTopology {
+  /// Vertex data is a list of points. Each vertex is a new point.
   PointList = 0,
-  /**
-   * Vertex data is a list of lines. Each pair of vertices composes a new line.
-   *
-   * Vertices `0 1 2 3` create two lines `0 1` and `2 3`
-   */
+  /// Vertex data is a list of lines. Each pair of vertices composes a new line.
+  ///
+  /// Vertices `0 1 2 3` create two lines `0 1` and `2 3`
   LineList = 1,
-  /**
-   * Vertex data is a strip of lines. Each set of two adjacent vertices form a line.
-   *
-   * Vertices `0 1 2 3` create three lines `0 1`, `1 2`, and `2 3`.
-   */
+  /// Vertex data is a strip of lines. Each set of two adjacent vertices form a line.
+  ///
+  /// Vertices `0 1 2 3` create three lines `0 1`, `1 2`, and `2 3`.
   LineStrip = 2,
-  /**
-   * Vertex data is a list of triangles. Each set of 3 vertices composes a new triangle.
-   *
-   * Vertices `0 1 2 3 4 5` create two triangles `0 1 2` and `3 4 5`
-   */
+  /// Vertex data is a list of triangles. Each set of 3 vertices composes a new triangle.
+  ///
+  /// Vertices `0 1 2 3 4 5` create two triangles `0 1 2` and `3 4 5`
   TriangleList = 3,
-  /**
-   * Vertex data is a triangle strip. Each set of three adjacent vertices form a triangle.
-   *
-   * Vertices `0 1 2 3 4 5` creates four triangles `0 1 2`, `2 1 3`, `2 3 4`, and `4 3 5`
-   */
+  /// Vertex data is a triangle strip. Each set of three adjacent vertices form a triangle.
+  ///
+  /// Vertices `0 1 2 3 4 5` creates four triangles `0 1 2`, `2 1 3`, `2 3 4`, and `4 3 5`
   TriangleStrip = 4,
-} MeshPrimitiveTopology;
+};
 
-typedef enum OccStyleEffectType {
+enum class OccStyleEffectType {
   Unlit,
   Lighted,
   Zebra,
-} OccStyleEffectType;
+};
 
-typedef enum OccFlavorZLayer {
+enum class OccFlavorZLayer {
   BotOSD = 0,
   Default = 1,
   Top = 2,
   TopMost = 3,
   TopOSD = 4,
-} OccFlavorZLayer;
+};
 
-typedef enum TextAlignment {
+enum class TextAlignment {
   Left,
   Center,
   Right,
-} TextAlignment;
+};
 
-typedef struct ViewerAPI ViewerAPI;
+struct ViewerAPI;
 
-typedef struct ViewerQueryAPI ViewerQueryAPI;
+struct ViewerQueryAPI;
 
-typedef struct ViewerRayPickListResult ViewerRayPickListResult;
+struct ViewerRayPickListResult;
 
-typedef struct ViewerRayPickRangeResult ViewerRayPickRangeResult;
+struct ViewerRayPickRangeResult;
 
-typedef struct ViewerWorldDeriveQueryAPI ViewerWorldDeriveQueryAPI;
+struct ViewerWorldDeriveQueryAPI;
 
-typedef struct ViewerEntityHandle {
+struct ViewerEntityHandle {
   uint32_t index;
   uint64_t generation;
-} ViewerEntityHandle;
+};
 
-typedef struct ViewerRayPickRangeResultInfo {
+struct ViewerRayPickRangeResultInfo {
   uintptr_t len;
-  const struct ViewerEntityHandle *ptr;
-} ViewerRayPickRangeResultInfo;
+  const ViewerEntityHandle *ptr;
+};
 
-typedef struct ViewerRayPickResult {
+struct ViewerRayPickResult {
   uint32_t primitive_index;
-  /**
-   * in world space. the logic hit result(maybe not exactly the ray hit point if the primitive is line or points)
-   */
+  /// in world space. the logic hit result(maybe not exactly the ray hit point if the primitive is line or points)
   float hit_position[3];
-  struct ViewerEntityHandle scene_model_handle;
-} ViewerRayPickResult;
+  ViewerEntityHandle scene_model_handle;
+};
 
-typedef struct ViewerRayPickListResultInfo {
+struct ViewerRayPickListResultInfo {
   uintptr_t len;
-  const struct ViewerRayPickResult *ptr;
+  const ViewerRayPickResult *ptr;
   double camera_position_world[3];
-} ViewerRayPickListResultInfo;
+};
 
-typedef struct VertexPair {
-  struct ViewerEntityHandle h1;
-  struct ViewerEntityHandle h2;
-} VertexPair;
+struct VertexPair {
+  ViewerEntityHandle h1;
+  ViewerEntityHandle h2;
+};
 
-typedef struct AttributesMeshEntitiesCommon {
-  struct ViewerEntityHandle mesh;
-  struct ViewerEntityHandle index;
-  struct VertexPair position;
-  struct VertexPair normal;
+struct AttributesMeshEntitiesCommon {
+  ViewerEntityHandle mesh;
+  ViewerEntityHandle index;
+  VertexPair position;
+  VertexPair normal;
   bool has_normal;
-  struct VertexPair uv;
+  VertexPair uv;
   bool has_uv;
-} AttributesMeshEntitiesCommon;
+};
 
-typedef struct SceneModelHandleInfo {
-  struct ViewerEntityHandle scene_model;
-  struct ViewerEntityHandle std_model;
-} SceneModelHandleInfo;
+struct SceneModelHandleInfo {
+  ViewerEntityHandle scene_model;
+  ViewerEntityHandle std_model;
+};
 
-typedef struct SceneWidePointsHandleInfo {
-  struct ViewerEntityHandle scene_model;
-  struct ViewerEntityHandle points;
-} SceneWidePointsHandleInfo;
+struct SceneWidePointsHandleInfo {
+  ViewerEntityHandle scene_model;
+  ViewerEntityHandle points;
+};
 
-typedef struct SceneWideLineHandleInfo {
-  struct ViewerEntityHandle scene_model;
-  struct ViewerEntityHandle line;
-} SceneWideLineHandleInfo;
+struct SceneWideLineHandleInfo {
+  ViewerEntityHandle scene_model;
+  ViewerEntityHandle line;
+};
 
-typedef struct SceneText3dHandleInfo {
-  struct ViewerEntityHandle scene_model;
-  struct ViewerEntityHandle text3d;
-} SceneText3dHandleInfo;
+struct SceneText3dHandleInfo {
+  ViewerEntityHandle scene_model;
+  ViewerEntityHandle text3d;
+};
 
-typedef struct Text3dContentInfoC {
+struct Text3dContentInfoC {
   const char *content;
   float font_size;
   float line_height;
@@ -152,22 +139,24 @@ typedef struct Text3dContentInfoC {
   bool has_width;
   float height;
   bool has_height;
-  enum TextAlignment align;
-} Text3dContentInfoC;
+  TextAlignment align;
+};
 
-struct ViewerEntityHandle create_camera(struct ViewerEntityHandle node);
+extern "C" {
 
-void drop_camera(struct ViewerEntityHandle handle);
+ViewerEntityHandle create_camera(ViewerEntityHandle node);
 
-void camera_set_lookat_position(struct ViewerEntityHandle handle, const float (*position)[3]);
+void drop_camera(ViewerEntityHandle handle);
 
-void camera_set_proj_perspective(struct ViewerEntityHandle handle,
+void camera_set_lookat_position(ViewerEntityHandle handle, const float (*position)[3]);
+
+void camera_set_proj_perspective(ViewerEntityHandle handle,
                                  float near,
                                  float far,
                                  float vertical_fov_in_deg,
                                  float aspect);
 
-void camera_set_proj_orth(struct ViewerEntityHandle handle,
+void camera_set_proj_orth(ViewerEntityHandle handle,
                           float near,
                           float far,
                           float left,
@@ -175,314 +164,274 @@ void camera_set_proj_orth(struct ViewerEntityHandle handle,
                           float top,
                           float bottom);
 
-struct ViewerEntityHandle create_node(void);
+ViewerEntityHandle create_node();
 
-void delete_node(struct ViewerEntityHandle node);
+void delete_node(ViewerEntityHandle node);
 
-void node_set_local_mat(struct ViewerEntityHandle node, const double (*mat4)[16]);
+void node_set_local_mat(ViewerEntityHandle node, const double (*mat4)[16]);
 
-/**
- * set parent to null_ptr to detach
- */
-void node_attach_parent(struct ViewerEntityHandle node, struct ViewerEntityHandle *parent);
+/// set parent to null_ptr to detach
+void node_attach_parent(ViewerEntityHandle node, ViewerEntityHandle *parent);
 
-struct ViewerAPI *create_viewer_content_api_instance(const char *config_path);
+ViewerAPI *create_viewer_content_api_instance(const char *config_path);
 
-void drop_viewer_content_api_instance(struct ViewerAPI *api);
+void drop_viewer_content_api_instance(ViewerAPI *api);
 
-void viewer_set_tonemap_ty_value(struct ViewerAPI *api, enum ToneMapType ty, float exposure);
+void viewer_set_tonemap_ty_value(ViewerAPI *api, ToneMapType ty, float exposure);
 
-/**
- * hinstance can be null_ptr
- */
-uint32_t viewer_create_surface(struct ViewerAPI *api,
+/// hinstance can be null_ptr
+uint32_t viewer_create_surface(ViewerAPI *api,
                                void *hwnd,
                                void *hinstance,
                                uint32_t width,
                                uint32_t height);
 
-void viewer_drop_surface(struct ViewerAPI *api, uint32_t surface_id);
+void viewer_drop_surface(ViewerAPI *api, uint32_t surface_id);
 
-void viewer_surface_set_camera(struct ViewerAPI *api,
-                               uint32_t surface_id,
-                               struct ViewerEntityHandle camera);
+void viewer_surface_set_camera(ViewerAPI *api, uint32_t surface_id, ViewerEntityHandle camera);
 
-void viewer_surface_set_scene(struct ViewerAPI *api,
-                              uint32_t surface_id,
-                              struct ViewerEntityHandle scene);
+void viewer_surface_set_scene(ViewerAPI *api, uint32_t surface_id, ViewerEntityHandle scene);
 
-/**
- * may return empty handle for error case
- */
-struct ViewerEntityHandle viewer_read_last_render_result(struct ViewerAPI *api,
-                                                         uint32_t surface_id);
+/// may return empty handle for error case
+ViewerEntityHandle viewer_read_last_render_result(ViewerAPI *api, uint32_t surface_id);
 
-/**
- * the size is physical resolution
- */
-void viewer_resize(struct ViewerAPI *api,
-                   uint32_t surface_id,
-                   uint32_t new_width,
-                   uint32_t new_height);
+/// the size is physical resolution
+void viewer_resize(ViewerAPI *api, uint32_t surface_id, uint32_t new_width, uint32_t new_height);
 
-void viewer_load_font(struct ViewerAPI *api, uint32_t data_length, const uint8_t *data);
+void viewer_load_font(ViewerAPI *api, uint32_t data_length, const uint8_t *data);
 
-void viewer_render_surface(struct ViewerAPI *api, uint32_t surface_id);
+void viewer_render_surface(ViewerAPI *api, uint32_t surface_id);
 
-struct ViewerWorldDeriveQueryAPI *viewer_create_world_derive_query_api(struct ViewerAPI *api);
+ViewerWorldDeriveQueryAPI *viewer_create_world_derive_query_api(ViewerAPI *api);
 
-/**
- * api must be dropped before any scene related modifications, or deadlock will occur
- */
-void viewer_drop_world_derive_query_api(struct ViewerWorldDeriveQueryAPI *api);
+/// api must be dropped before any scene related modifications, or deadlock will occur
+void viewer_drop_world_derive_query_api(ViewerWorldDeriveQueryAPI *api);
 
-bool world_derive_query_api_get_world_mat(struct ViewerWorldDeriveQueryAPI *api,
-                                          struct ViewerEntityHandle node,
+bool world_derive_query_api_get_world_mat(ViewerWorldDeriveQueryAPI *api,
+                                          ViewerEntityHandle node,
                                           double (*r)[16]);
 
-bool world_derive_query_api_get_world_bounding(struct ViewerWorldDeriveQueryAPI *api,
-                                               struct ViewerEntityHandle sm,
+bool world_derive_query_api_get_world_bounding(ViewerWorldDeriveQueryAPI *api,
+                                               ViewerEntityHandle sm,
                                                double (*result)[6]);
 
-struct ViewerQueryAPI *viewer_create_picker_api(struct ViewerAPI *api, uint32_t surface_id);
+ViewerQueryAPI *viewer_create_picker_api(ViewerAPI *api, uint32_t surface_id);
 
-/**
- * api must be dropped before any scene related modifications, or deadlock will occur
- */
-void viewer_drop_picker_api(struct ViewerQueryAPI *api);
+/// api must be dropped before any scene related modifications, or deadlock will occur
+void viewer_drop_picker_api(ViewerQueryAPI *api);
 
-void query_scene_bounding(struct ViewerQueryAPI *api, struct ViewerAPI *viewer, float (*result)[6]);
+void query_scene_bounding(ViewerQueryAPI *api, ViewerAPI *viewer, float (*result)[6]);
 
-/**
- * the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
- *
- * all inputs are logic pixel
- */
-struct ViewerRayPickListResult *picker_pick_list(struct ViewerQueryAPI *api,
-                                                 struct ViewerAPI *viewer,
-                                                 struct ViewerEntityHandle scene,
-                                                 float x,
-                                                 float y);
+/// the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
+///
+/// all inputs are logic pixel
+ViewerRayPickListResult *picker_pick_list(ViewerQueryAPI *api,
+                                          ViewerAPI *viewer,
+                                          ViewerEntityHandle scene,
+                                          float x,
+                                          float y);
 
-void drop_pick_list_result(struct ViewerRayPickListResult *r);
+void drop_pick_list_result(ViewerRayPickListResult *r);
 
-/**
- * the returned pick range's should be dropped by  [drop_pick_range_result] after read the result
- *
- * the a, b point can be swapped without order limits.
- *
- * all inputs are logic pixel
- */
-struct ViewerRayPickRangeResult *picker_pick_range(struct ViewerQueryAPI *api,
-                                                   struct ViewerAPI *viewer,
-                                                   struct ViewerEntityHandle scene,
-                                                   float ax,
-                                                   float ay,
-                                                   float bx,
-                                                   float by,
-                                                   bool contains);
+/// the returned pick range's should be dropped by  [drop_pick_range_result] after read the result
+///
+/// the a, b point can be swapped without order limits.
+///
+/// all inputs are logic pixel
+ViewerRayPickRangeResult *picker_pick_range(ViewerQueryAPI *api,
+                                            ViewerAPI *viewer,
+                                            ViewerEntityHandle scene,
+                                            float ax,
+                                            float ay,
+                                            float bx,
+                                            float by,
+                                            bool contains);
 
-void drop_pick_range_result(struct ViewerRayPickRangeResult *r);
+void drop_pick_range_result(ViewerRayPickRangeResult *r);
 
-struct ViewerRayPickRangeResultInfo get_ray_pick_range_info(struct ViewerRayPickRangeResult *r);
+ViewerRayPickRangeResultInfo get_ray_pick_range_info(ViewerRayPickRangeResult *r);
 
-struct ViewerRayPickListResultInfo get_ray_pick_list_info(struct ViewerRayPickListResult *r);
+ViewerRayPickListResultInfo get_ray_pick_list_info(ViewerRayPickListResult *r);
 
-struct ViewerEntityHandle create_scene(void);
+ViewerEntityHandle create_scene();
 
-void drop_scene(struct ViewerEntityHandle handle);
+void drop_scene(ViewerEntityHandle handle);
 
-/**
- * the content format expects Rgba8UnormSrgb
- */
-struct ViewerEntityHandle create_texture2d(const uint8_t *content,
-                                           uintptr_t len,
-                                           uint32_t width,
-                                           uint32_t height);
+/// the content format expects Rgba8UnormSrgb
+ViewerEntityHandle create_texture2d(const uint8_t *content,
+                                    uintptr_t len,
+                                    uint32_t width,
+                                    uint32_t height);
 
-void drop_texture2d(struct ViewerEntityHandle handle);
+void drop_texture2d(ViewerEntityHandle handle);
 
-struct ViewerEntityHandle create_sampler(void);
+ViewerEntityHandle create_sampler();
 
-void drop_sampler(struct ViewerEntityHandle handle);
+void drop_sampler(ViewerEntityHandle handle);
 
-struct AttributesMeshEntitiesCommon create_mesh(uint32_t indices_length,
-                                                const uint32_t *indices,
-                                                uint32_t vertex_length,
-                                                const float *position,
-                                                const float *normal_raw,
-                                                const float *uv_raw,
-                                                enum MeshPrimitiveTopology topo);
+AttributesMeshEntitiesCommon create_mesh(uint32_t indices_length,
+                                         const uint32_t *indices,
+                                         uint32_t vertex_length,
+                                         const float *position,
+                                         const float *normal_raw,
+                                         const float *uv_raw,
+                                         MeshPrimitiveTopology topo);
 
-void drop_mesh(struct AttributesMeshEntitiesCommon entities);
+void drop_mesh(AttributesMeshEntitiesCommon entities);
 
-struct ViewerEntityHandle create_occ_material(void);
+ViewerEntityHandle create_occ_material();
 
-void drop_occ_material(struct ViewerEntityHandle handle);
+void drop_occ_material(ViewerEntityHandle handle);
 
-void occ_material_set_transparent(struct ViewerEntityHandle mat, bool transparent);
+void occ_material_set_transparent(ViewerEntityHandle mat, bool transparent);
 
-void occ_material_set_diffuse(struct ViewerEntityHandle mat, const float (*color)[4]);
+void occ_material_set_diffuse(ViewerEntityHandle mat, const float (*color)[4]);
 
-void occ_material_set_specular(struct ViewerEntityHandle mat, const float (*color)[3]);
+void occ_material_set_specular(ViewerEntityHandle mat, const float (*color)[3]);
 
-void occ_material_set_shininess(struct ViewerEntityHandle mat, float shininess);
+void occ_material_set_shininess(ViewerEntityHandle mat, float shininess);
 
-void occ_material_set_emissive(struct ViewerEntityHandle mat, const float (*color)[3]);
+void occ_material_set_emissive(ViewerEntityHandle mat, const float (*color)[3]);
 
-struct ViewerEntityHandle create_occ_effect_control(void);
+ViewerEntityHandle create_occ_effect_control();
 
-void drop_occ_effect_control(struct ViewerEntityHandle handle);
+void drop_occ_effect_control(ViewerEntityHandle handle);
 
-void occ_material_set_effect(struct ViewerEntityHandle mat, struct ViewerEntityHandle effect);
+void occ_material_set_effect(ViewerEntityHandle mat, ViewerEntityHandle effect);
 
-void occ_effect_control_set_shade_type(struct ViewerEntityHandle effect,
-                                       enum OccStyleEffectType shade_type);
+void occ_effect_control_set_shade_type(ViewerEntityHandle effect, OccStyleEffectType shade_type);
 
-void occ_material_set_diffuse_tex(struct ViewerEntityHandle mat,
-                                  struct ViewerEntityHandle tex,
-                                  struct ViewerEntityHandle sampler);
+void occ_material_set_diffuse_tex(ViewerEntityHandle mat,
+                                  ViewerEntityHandle tex,
+                                  ViewerEntityHandle sampler);
 
-void std_model_set_occ_material(struct ViewerEntityHandle handle,
-                                struct ViewerEntityHandle material);
+void std_model_set_occ_material(ViewerEntityHandle handle, ViewerEntityHandle material);
 
-struct ViewerEntityHandle create_unlit_material(void);
+ViewerEntityHandle create_unlit_material();
 
-void unlit_material_set_color(struct ViewerEntityHandle mat, const float (*color)[4]);
+void unlit_material_set_color(ViewerEntityHandle mat, const float (*color)[4]);
 
-void drop_unlit_material(struct ViewerEntityHandle handle);
+void drop_unlit_material(ViewerEntityHandle handle);
 
-struct ViewerEntityHandle create_pbr_mr_material(void);
+ViewerEntityHandle create_pbr_mr_material();
 
-void pbr_mr_material_set_base_color(struct ViewerEntityHandle mat, const float (*color)[3]);
+void pbr_mr_material_set_base_color(ViewerEntityHandle mat, const float (*color)[3]);
 
-void pbr_mr_material_set_base_color_tex(struct ViewerEntityHandle mat,
-                                        struct ViewerEntityHandle tex,
-                                        struct ViewerEntityHandle sampler);
+void pbr_mr_material_set_base_color_tex(ViewerEntityHandle mat,
+                                        ViewerEntityHandle tex,
+                                        ViewerEntityHandle sampler);
 
-void drop_pbr_mr_material(struct ViewerEntityHandle handle);
+void drop_pbr_mr_material(ViewerEntityHandle handle);
 
-struct SceneModelHandleInfo create_scene_model(struct ViewerEntityHandle material,
-                                               bool is_unlit_material,
-                                               struct ViewerEntityHandle mesh,
-                                               struct ViewerEntityHandle node,
-                                               struct ViewerEntityHandle scene);
+SceneModelHandleInfo create_scene_model(ViewerEntityHandle material,
+                                        ViewerEntityHandle mesh,
+                                        ViewerEntityHandle node,
+                                        ViewerEntityHandle scene);
 
-void drop_scene_model(struct SceneModelHandleInfo handle);
+void drop_scene_model(SceneModelHandleInfo handle);
 
-void scene_model_set_mesh(struct SceneModelHandleInfo handle, struct ViewerEntityHandle mesh);
+void scene_model_set_mesh(SceneModelHandleInfo handle, ViewerEntityHandle mesh);
 
-void scene_model_set_scene(struct ViewerEntityHandle handle,
-                           const struct ViewerEntityHandle *scene);
+void scene_model_set_scene(ViewerEntityHandle handle, const ViewerEntityHandle *scene);
 
-void scene_model_set_occ_style_view_dep(struct ViewerEntityHandle handle,
+void scene_model_set_occ_style_view_dep(ViewerEntityHandle handle,
                                         bool is_2d,
                                         const float (*anchor)[3],
                                         const int32_t (*offset)[2],
                                         uint32_t corner,
                                         uint32_t mode);
 
-void scene_model_remove_occ_style_view_dep(struct ViewerEntityHandle handle);
+void scene_model_remove_occ_style_view_dep(ViewerEntityHandle handle);
 
-void scene_model_set_z_layer(struct ViewerEntityHandle handle, enum OccFlavorZLayer z_layer);
+void scene_model_set_z_layer(ViewerEntityHandle handle, OccFlavorZLayer z_layer);
 
-void scene_model_set_priority(struct ViewerEntityHandle handle, uint32_t priority);
+void scene_model_set_priority(ViewerEntityHandle handle, uint32_t priority);
 
-void scene_model_set_selectable(struct ViewerEntityHandle handle, bool selectable);
+void scene_model_set_selectable(ViewerEntityHandle handle, bool selectable);
 
-void scene_model_set_material(struct SceneModelHandleInfo handle,
-                              struct ViewerEntityHandle material,
-                              bool is_unlit_material);
+void scene_model_set_material(SceneModelHandleInfo handle, ViewerEntityHandle material);
 
-struct SceneWidePointsHandleInfo create_wide_points(struct ViewerEntityHandle node,
-                                                    uint32_t data_length,
-                                                    const uint8_t *data);
+SceneWidePointsHandleInfo create_wide_points(ViewerEntityHandle node,
+                                             uint32_t data_length,
+                                             const uint8_t *data);
 
-void wide_points_set_buffer(struct ViewerEntityHandle handle,
-                            uint32_t data_length,
-                            const uint8_t *data);
+void wide_points_set_buffer(ViewerEntityHandle handle, uint32_t data_length, const uint8_t *data);
 
-void wide_points_set_color(struct ViewerEntityHandle handle, const float (*color)[4]);
+void wide_points_set_color(ViewerEntityHandle handle, const float (*color)[4]);
 
-void wide_points_set_pattern_texture(struct ViewerEntityHandle handle,
-                                     struct ViewerEntityHandle texture,
-                                     struct ViewerEntityHandle sampler);
+void wide_points_set_pattern_texture(ViewerEntityHandle handle,
+                                     ViewerEntityHandle texture,
+                                     ViewerEntityHandle sampler);
 
-void drop_wide_points(struct SceneWidePointsHandleInfo p);
+void drop_wide_points(SceneWidePointsHandleInfo p);
 
-struct SceneWideLineHandleInfo create_wide_line(struct ViewerEntityHandle node,
-                                                uint32_t data_length,
-                                                const uint8_t *data);
+SceneWideLineHandleInfo create_wide_line(ViewerEntityHandle node,
+                                         uint32_t data_length,
+                                         const uint8_t *data);
 
-void wide_line_set_buffer(struct ViewerEntityHandle handle,
-                          uint32_t data_length,
-                          const uint8_t *data);
+void wide_line_set_buffer(ViewerEntityHandle handle, uint32_t data_length, const uint8_t *data);
 
-void wide_line_set_color(struct ViewerEntityHandle handle, const float (*color)[4]);
+void wide_line_set_color(ViewerEntityHandle handle, const float (*color)[4]);
 
-void wide_line_set_width(struct ViewerEntityHandle handle, const float *width);
+void wide_line_set_width(ViewerEntityHandle handle, const float *width);
 
-void wide_line_set_pattern(struct ViewerEntityHandle handle, uint32_t pattern);
+void wide_line_set_pattern(ViewerEntityHandle handle, uint32_t pattern);
 
-void wide_line_set_factor(struct ViewerEntityHandle handle, float factor);
+void wide_line_set_factor(ViewerEntityHandle handle, float factor);
 
-void drop_wide_line(struct SceneWideLineHandleInfo p);
+void drop_wide_line(SceneWideLineHandleInfo p);
 
-struct SceneText3dHandleInfo create_text3d(struct ViewerEntityHandle node,
-                                           const struct Text3dContentInfoC *content);
+SceneText3dHandleInfo create_text3d(ViewerEntityHandle node, const Text3dContentInfoC *content);
 
-void text3d_set_content(struct ViewerEntityHandle handle, const struct Text3dContentInfoC *content);
+void text3d_set_content(ViewerEntityHandle handle, const Text3dContentInfoC *content);
 
-void drop_text3d(struct SceneText3dHandleInfo p);
+void drop_text3d(SceneText3dHandleInfo p);
 
-struct ViewerEntityHandle create_dir_light(struct ViewerEntityHandle node);
+ViewerEntityHandle create_dir_light(ViewerEntityHandle node);
 
-void set_dir_light_scene(struct ViewerEntityHandle handle, const struct ViewerEntityHandle *scene);
+void set_dir_light_scene(ViewerEntityHandle handle, const ViewerEntityHandle *scene);
 
-void set_dir_light_illuminance(struct ViewerEntityHandle node, const float (*illuminance)[3]);
+void set_dir_light_illuminance(ViewerEntityHandle node, const float (*illuminance)[3]);
 
-void drop_dir_light(struct ViewerEntityHandle handle);
+void drop_dir_light(ViewerEntityHandle handle);
 
-struct ViewerEntityHandle create_point_light(struct ViewerEntityHandle node);
+ViewerEntityHandle create_point_light(ViewerEntityHandle node);
 
-void set_point_light_scene(struct ViewerEntityHandle handle,
-                           const struct ViewerEntityHandle *scene);
+void set_point_light_scene(ViewerEntityHandle handle, const ViewerEntityHandle *scene);
 
-void set_point_light_intensity(struct ViewerEntityHandle node, const float (*illuminance)[3]);
+void set_point_light_intensity(ViewerEntityHandle node, const float (*illuminance)[3]);
 
-void set_point_light_cutoff_distance(struct ViewerEntityHandle node, float distance);
+void set_point_light_cutoff_distance(ViewerEntityHandle node, float distance);
 
-void drop_point_light(struct ViewerEntityHandle handle);
+void drop_point_light(ViewerEntityHandle handle);
 
-struct ViewerEntityHandle create_spot_light(struct ViewerEntityHandle node);
+ViewerEntityHandle create_spot_light(ViewerEntityHandle node);
 
-void set_spot_light_scene(struct ViewerEntityHandle handle, const struct ViewerEntityHandle *scene);
+void set_spot_light_scene(ViewerEntityHandle handle, const ViewerEntityHandle *scene);
 
-void set_spot_light_intensity(struct ViewerEntityHandle node, const float (*illuminance)[3]);
+void set_spot_light_intensity(ViewerEntityHandle node, const float (*illuminance)[3]);
 
-void set_spot_light_cutoff_distance(struct ViewerEntityHandle node, float distance);
+void set_spot_light_cutoff_distance(ViewerEntityHandle node, float distance);
 
-void set_spot_light_half_cone_angle(struct ViewerEntityHandle node, float angle);
+void set_spot_light_half_cone_angle(ViewerEntityHandle node, float angle);
 
-void set_spot_light_half_penumbra_angle(struct ViewerEntityHandle node, float angle);
+void set_spot_light_half_penumbra_angle(ViewerEntityHandle node, float angle);
 
-void drop_spot_light(struct ViewerEntityHandle handle);
+void drop_spot_light(ViewerEntityHandle handle);
 
-struct ViewerEntityHandle create_clipping_plane(const float (*plane)[4],
-                                                const struct ViewerEntityHandle *scene);
+ViewerEntityHandle create_clipping_plane(const float (*plane)[4], const ViewerEntityHandle *scene);
 
-void drop_clipping_plane(struct ViewerEntityHandle handle);
+void drop_clipping_plane(ViewerEntityHandle handle);
 
-void clipping_plane_set_plane(struct ViewerEntityHandle handle, const float (*plane)[4]);
+void clipping_plane_set_plane(ViewerEntityHandle handle, const float (*plane)[4]);
 
-void clipping_plane_set_scene(struct ViewerEntityHandle handle,
-                              const struct ViewerEntityHandle *scene);
+void clipping_plane_set_scene(ViewerEntityHandle handle, const ViewerEntityHandle *scene);
 
-void attribute_mesh_set_is_solid(struct ViewerEntityHandle handle, bool is_solid);
+void attribute_mesh_set_is_solid(ViewerEntityHandle handle, bool is_solid);
 
-/**
- * call this to setup panic message writer when panic happens
- */
-void rendiation_init(void);
+/// call this to setup panic message writer when panic happens
+void rendiation_init();
 
-#endif  /* RENDIATION_C_HEADER */
+}  // extern "C"
+
+#endif  // RENDIATION_C_HEADER
