@@ -137,6 +137,8 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
 pub fn use_std_model_renderer(
   cx: &mut QueryGPUHookCx,
   materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
+  // todo improve
+  foreign_material_keys: UseResult<std::sync::Arc<FastChangeCollector<Option<RawEntityHandle>>>>,
   shapes: Option<Box<dyn IndirectModelShapeRenderImpl>>,
   revere_z: bool,
 ) -> Option<SceneStdModelIndirectRenderer> {
@@ -160,6 +162,7 @@ pub fn use_std_model_renderer(
     let material_flat = material_flat.into_spawn_stage_ready();
     let material_pbr_mr = material_pbr_mr.into_spawn_stage_ready();
     let material_pbr_sg = material_pbr_sg.into_spawn_stage_ready();
+    let foreign_material_keys = foreign_material_keys.into_spawn_stage_ready();
 
     let mut r = Vec::new();
     if let Some(v) = material_flat {
@@ -169,6 +172,9 @@ pub fn use_std_model_renderer(
       r.push(v.map_some_u32_index());
     }
     if let Some(v) = material_pbr_sg {
+      r.push(v.map_some_u32_index());
+    }
+    if let Some(v) = foreign_material_keys {
       r.push(v.map_some_u32_index());
     }
     UseResult::SpawnStageReady(SelectChanges(r))

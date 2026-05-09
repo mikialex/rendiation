@@ -194,13 +194,28 @@ pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerQueryAPI) {
 
 #[no_mangle]
 pub extern "C" fn query_scene_bounding(
-  api: *mut ViewerQueryAPI,
-  viewer: *mut ViewerAPI,
+  api: &mut ViewerWorldDeriveQueryAPI,
+  viewer_api: &mut ViewerAPI,
+  scene: ViewerEntityHandle,
   result: &mut [f32; 6],
+  consider_override: bool,
+  surface_id: u32,
 ) {
-  let api = unsafe { &mut *api };
-  let viewer = unsafe { &mut *viewer };
-  let bbox = api.get_view_scene_bbox(&viewer.core.viewer);
+  let active_view = if consider_override {
+    let surface_content = viewer_api
+      .core
+      .viewer
+      .surfaces_content
+      .get(&surface_id)
+      .unwrap();
+    Some(surface_content.viewports[0].id)
+  } else {
+    None
+  };
+
+  let bbox = api
+    .scene_bounding
+    .get_or_compute_scene_bounding(scene.into(), active_view);
 
   result[0] = bbox.min.x;
   result[1] = bbox.min.y;

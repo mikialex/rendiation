@@ -271,7 +271,10 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn IndirectModelShapeRenderImpl>
         });
 
-        let std_model = use_std_model_renderer(cx, materials, mesh, self.ndc.enable_reverse_z);
+        let material_occ = cx.use_changes::<StdModelOccStyleMaterialPayload>();
+
+        let std_model =
+          use_std_model_renderer(cx, materials, material_occ, mesh, self.ndc.enable_reverse_z);
         let wide_line = use_widen_line_indirect_renderer(cx, self.using_host_driven_indirect_draw);
         let wide_point =
           use_widen_styled_points_indirect_renderer(cx, self.using_host_driven_indirect_draw);

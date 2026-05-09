@@ -220,7 +220,12 @@ ViewerQueryAPI *viewer_create_picker_api(ViewerAPI *api, uint32_t surface_id);
 /// api must be dropped before any scene related modifications, or deadlock will occur
 void viewer_drop_picker_api(ViewerQueryAPI *api);
 
-void query_scene_bounding(ViewerQueryAPI *api, ViewerAPI *viewer, float (*result)[6]);
+void query_scene_bounding(ViewerWorldDeriveQueryAPI *api,
+                          ViewerAPI *viewer_api,
+                          ViewerEntityHandle scene,
+                          float (*result)[6],
+                          bool consider_override,
+                          uint32_t surface_id);
 
 /// the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
 ///

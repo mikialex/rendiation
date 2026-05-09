@@ -333,8 +333,6 @@ impl ViewerAPI {
         cx.viewer.use_scene_bvh,
       );
 
-      let scene_bounding = use_bounding_computer(cx);
-
       cx.when_resolve_stage(|| {
         let active_surface = cx.viewer.surfaces_content.get(&surface_id).unwrap();
         let active_view = active_surface.viewports[0].id;
@@ -344,7 +342,6 @@ impl ViewerAPI {
         ViewerQueryAPI {
           picker_impl,
           surface_id,
-          scene_bounding: scene_bounding.unwrap(),
         }
       })
     })
@@ -362,12 +359,15 @@ impl ViewerAPI {
           .use_shared_dual_query_view(SceneModelWorldBounding(font_sys.clone()))
           .use_assure_result(cx);
 
+        let scene_bounding = use_bounding_computer(cx);
+
         cx.when_resolve_stage(|| {
           let world_mats = node_world.expect_resolve_stage();
           let sm_world_bound = sm_world_bound.expect_resolve_stage();
           ViewerWorldDeriveQueryAPI {
             world_mats,
             sm_world_bound,
+            scene_bounding: scene_bounding.unwrap(),
           }
         })
       })
@@ -409,11 +409,11 @@ impl ViewerAPI {
 pub struct ViewerWorldDeriveQueryAPI {
   pub world_mats: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
   pub sm_world_bound: BoxedDynQuery<RawEntityHandle, Option<Box3<f64>>>,
+  pub scene_bounding: SceneBoundingComputer,
 }
 
 pub struct ViewerQueryAPI {
   picker_impl: ViewerPicker,
-  scene_bounding: SceneBoundingComputer,
   surface_id: u32,
 }
 
@@ -437,14 +437,6 @@ impl ViewerQueryAPI {
       .unwrap()
       .world
       .position()
-  }
-
-  pub fn get_view_scene_bbox(&self, viewer: &Viewer) -> Box3 {
-    let surface_content = viewer.surfaces_content.get(&self.surface_id).unwrap();
-    let active_view = surface_content.viewports[0].id;
-    self
-      .scene_bounding
-      .get_or_compute_scene_bounding(surface_content.scene, active_view)
   }
 
   /// the x, y is logic pixel
@@ -530,7 +522,7 @@ impl ViewerQueryAPI {
   }
 }
 
-struct SceneBoundingComputer {
+pub struct SceneBoundingComputer {
   qbvh: Option<LockReadGuardHolder<SceneQbvh>>,
   sm_to_local_bbox: BoxedDynQuery<RawEntityHandle, Box3<f32>>,
   view_maps: BoxedDynQuery<ViewSceneModelKey, Mat4<f64>>,
@@ -541,7 +533,7 @@ impl SceneBoundingComputer {
   pub fn get_or_compute_scene_bounding(
     &self,
     scene: EntityHandle<SceneEntity>,
-    active_view_id: u64,
+    active_view_id: Option<u64>,
   ) -> Box3<f32> {
     let mut r = Box3::empty();
     if let Some(qbvh) = &self.qbvh {
@@ -551,15 +543,18 @@ impl SceneBoundingComputer {
       } // the none case is possible if the scene is empty?
     }
 
-    // we assume this kind of case is not too common
-    for ((view_id, sm), mat) in self.view_maps.iter_key_value() {
-      if view_id == active_view_id {
-        if let Some(other) = self.sm_to_local_bbox.access(&sm) {
-          let world_aabb = other.apply_matrix_into(mat.into_f32());
-          r.expand_by_other(world_aabb);
+    if let Some(active_view_id) = active_view_id {
+      // we assume this kind of case is not too common
+      for ((view_id, sm), mat) in self.view_maps.iter_key_value() {
+        if view_id == active_view_id {
+          if let Some(other) = self.sm_to_local_bbox.access(&sm) {
+            let world_aabb = other.apply_matrix_into(mat.into_f32());
+            r.expand_by_other(world_aabb);
+          }
         }
       }
     }
+
     r
   }
 }
