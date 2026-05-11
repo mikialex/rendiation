@@ -271,10 +271,37 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn IndirectModelShapeRenderImpl>
         });
 
+        let material_flat = cx.use_changes::<StandardModelRefUnlitMaterial>();
+        let material_pbr_mr = cx.use_changes::<StandardModelRefPbrMRMaterial>();
+        let material_pbr_sg = cx.use_changes::<StandardModelRefPbrSGMaterial>();
         let material_occ = cx.use_changes::<StdModelOccStyleMaterialPayload>();
 
+        let material_key = if cx.is_spawning_stage() {
+          let material_flat = material_flat.into_spawn_stage_ready();
+          let material_pbr_mr = material_pbr_mr.into_spawn_stage_ready();
+          let material_pbr_sg = material_pbr_sg.into_spawn_stage_ready();
+          let material_occ = material_occ.into_spawn_stage_ready();
+
+          let mut r = Vec::new();
+          if let Some(v) = material_flat {
+            r.push(v.map_some_u32_index());
+          }
+          if let Some(v) = material_pbr_mr {
+            r.push(v.map_some_u32_index());
+          }
+          if let Some(v) = material_pbr_sg {
+            r.push(v.map_some_u32_index());
+          }
+          if let Some(v) = material_occ {
+            r.push(v.map_some_u32_index());
+          }
+          UseResult::SpawnStageReady(SelectChanges(r))
+        } else {
+          UseResult::NotInStage
+        };
+
         let std_model =
-          use_std_model_renderer(cx, materials, material_occ, mesh, self.ndc.enable_reverse_z);
+          use_std_model_renderer(cx, materials, material_key, mesh, self.ndc.enable_reverse_z);
         let wide_line = use_widen_line_indirect_renderer(cx, self.using_host_driven_indirect_draw);
         let wide_point =
           use_widen_styled_points_indirect_renderer(cx, self.using_host_driven_indirect_draw);
