@@ -89,8 +89,25 @@ pub trait LinearStorageDirectAccess: LinearStorageBase {
 }
 
 pub trait ResizableLinearStorage: LinearStorageBase {
-  /// return if resize success
+  /// Set the buffer capacity to exactly `new_size`.
+  ///
+  /// Direct resize to the given size, whether that means growing or shrinking.
+  /// No growth strategy is applied — the resulting capacity is exactly
+  /// `new_size`. Callers should use this only when the exact required capacity
+  /// is known (e.g. after an external allocator like a slab has been shrunk).
   fn resize(&mut self, new_size: u32) -> bool;
+
+  /// Ensure the buffer has at least `new_size` capacity.
+  ///
+  /// The buffer may grow larger than `new_size` (e.g. doubling strategy) to
+  /// avoid repeated resizes. If current capacity already satisfies the
+  /// requirement, this is a no-op and never shrinks.
+  ///
+  /// Default implementation delegates to [`resize`](Self::resize); types
+  /// that wish to apply a growth strategy should override this method.
+  fn grow_at_least(&mut self, new_size: u32) -> bool {
+    self.resize(new_size)
+  }
 
   fn with_grow_behavior(
     self,

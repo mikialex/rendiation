@@ -634,7 +634,7 @@ fn resize_impl(
     0,
     &new_buffer.resource.gpu,
     0,
-    Some(buffer.resource.desc.size.into()),
+    Some(buffer.resource.desc.size.get().min(byte_new_size as u64)),
   );
 
   new_buffer

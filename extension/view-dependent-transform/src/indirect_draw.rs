@@ -73,6 +73,7 @@ struct PerViewGPUResource {
   mapping_change: FastHashMap<RawEntityHandle, u32>,
   index_remap: GPUBufferImpl<u32>,
   overrides_updates: Option<SparseBufferWritesSource>,
+  should_check_slab_shrink: bool,
 }
 
 impl PerViewGPUResource {
@@ -103,15 +104,17 @@ impl PerViewGPUResource {
       mapping_change: Default::default(),
       slab: Default::default(),
       mapping: Default::default(),
+      should_check_slab_shrink: false,
     }
   }
 
   pub fn notify_max_sm_size(&mut self, max_sm_size: usize) {
-    self.index_remap.resize(max_sm_size as u32);
-    self
-      .overrides
-      .buffer
-      .check_resize(self.slab.capacity() as u32);
+    self.index_remap.grow_at_least(max_sm_size as u32);
+    if self.should_check_slab_shrink {
+      self.slab.shrink_to_fit();
+      self.overrides.buffer.resize(self.slab.capacity() as u32);
+      self.should_check_slab_shrink = false;
+    }
   }
 
   pub fn update(&mut self, sm: RawEntityHandle, mat: Mat4<f64>) {
@@ -135,6 +138,7 @@ impl PerViewGPUResource {
   pub fn remove(&mut self, sm: RawEntityHandle) {
     let old_index = self.mapping.remove(&sm).unwrap();
     self.slab.remove(old_index);
+    self.should_check_slab_shrink = true;
     self.mapping_change.insert(sm, u32::MAX);
   }
 

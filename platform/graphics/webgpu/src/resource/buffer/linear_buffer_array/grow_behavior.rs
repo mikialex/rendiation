@@ -14,8 +14,12 @@ pub struct CustomGrowBehaviorMaintainer<T> {
 }
 
 impl<T: ResizableLinearStorage> ResizableLinearStorage for CustomGrowBehaviorMaintainer<T> {
-  fn resize(&mut self, new_size: u32) -> bool {
+  fn grow_at_least(&mut self, new_size: u32) -> bool {
     self.check_resize(new_size).is_some()
+  }
+
+  fn resize(&mut self, new_size: u32) -> bool {
+    self.inner.resize(new_size)
   }
 }
 
@@ -23,7 +27,7 @@ impl<T> CustomGrowBehaviorMaintainer<T>
 where
   T: LinearStorageBase + ResizableLinearStorage,
 {
-  pub fn check_resize(&mut self, required: u32) -> Option<()> {
+  fn check_resize(&mut self, required: u32) -> Option<()> {
     if self.max_size() < required {
       let new_size = (self.size_adjust)(ResizeInput {
         current_size: self.max_size(),
