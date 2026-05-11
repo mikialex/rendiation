@@ -8,6 +8,7 @@ members = [
   "utility/query",
   "utility/query-hook",
   "utility/arena",
+  "utility/auto-shrink-arena",
   "utility/anymap",
   "utility/storage",
   "utility/abstract-tree",
