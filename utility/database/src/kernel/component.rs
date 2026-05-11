@@ -17,7 +17,7 @@ pub struct ComponentUntyped {
   pub(crate) data_watchers: EventSource<ChangePtr>,
 
   /// the allocator that shared between all components of the self entity
-  pub allocator: Arc<RwLock<Arena<()>>>,
+  pub allocator: Arc<RwLock<AutoShrinkArena<()>>>,
 
   pub data_meta: DataTypeMetaInfo,
   pub entity_type_id: EntityId,
@@ -52,7 +52,7 @@ pub type ChangePtr = ScopedValueChange<(DataPtr, *const dyn DataBaseDataTypeDyn)
 pub type EntityScopeChange = ScopedValueChange<()>;
 
 pub struct ComponentReadViewUntyped {
-  pub(crate) allocator: LockReadGuardHolder<Arena<()>>,
+  pub(crate) allocator: LockReadGuardHolder<AutoShrinkArena<()>>,
   pub(crate) data: ComponentReadViewBox,
 }
 
@@ -104,7 +104,7 @@ impl Drop for ComponentWriteViewUntyped {
 }
 
 impl ComponentWriteViewUntyped {
-  pub fn get(&self, idx: RawEntityHandle, allocator: &Arena<()>) -> Option<DataPtr> {
+  pub fn get(&self, idx: RawEntityHandle, allocator: &AutoShrinkArena<()>) -> Option<DataPtr> {
     let _ = allocator.get(idx.0)?;
     unsafe { Some(self.data.get(idx.alloc_index())) }
   }

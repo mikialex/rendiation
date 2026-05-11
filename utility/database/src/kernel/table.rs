@@ -37,8 +37,8 @@ impl ArcTable {
   pub fn iter_entity_idx(&self) -> impl Iterator<Item = RawEntityHandle> + 'static {
     let inner = self.internal.allocator.make_read_holder();
     struct Iter {
-      iter: arena::Iter<'static, ()>,
-      _holder: LockReadGuardHolder<Arena<()>>,
+      iter: auto_shrink_arena::Iter<'static, ()>,
+      _holder: LockReadGuardHolder<AutoShrinkArena<()>>,
     }
 
     impl Iterator for Iter {
@@ -127,7 +127,7 @@ pub struct Table {
   pub(crate) name: String,
   pub(crate) short_name: String,
   pub(crate) type_id: EntityId,
-  pub(crate) allocator: Arc<RwLock<Arena<()>>>,
+  pub(crate) allocator: Arc<RwLock<AutoShrinkArena<()>>>,
   /// The components of entity
   pub(crate) components: RwLock<FastHashMap<ComponentId, ComponentUntyped>>,
   /// The foreign keys of entity, each foreign key express the one-to-many (or possibly one-to-one)
