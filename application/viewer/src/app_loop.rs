@@ -121,9 +121,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
       #[allow(unused)]
       let window_state = self
         .platform_states
-        .window_states
-        .entry(window_id)
-        .or_insert_with(Default::default);
+        .get_or_init_window_state(window_id, &window);
 
       #[cfg(target_family = "wasm")]
       {
@@ -180,12 +178,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
     device_id: winit::event::DeviceId,
     event: winit::event::DeviceEvent,
   ) {
-    for w in self.platform_states.window_states.values_mut() {
-      w.queue_event(Event::DeviceEvent {
-        event: event.clone(),
-        device_id,
-      });
-    }
+    self.platform_states.input_device_event(&event, device_id);
   }
 
   fn window_event(
@@ -199,7 +192,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
     }
 
     if let WindowEvent::Destroyed = event {
-      self.platform_states.window_states.remove(&window_id);
+      self.platform_states.remove_window(window_id);
     }
 
     if let Some((surface_id, WindowWithWGPUSurface { window, gpu })) =
@@ -212,9 +205,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         let WGPUAndSurface { surface, gpu } = &mut gpu_and_surface;
         let window_state = self
           .platform_states
-          .window_states
-          .entry(window_id)
-          .or_default();
+          .get_or_init_window_state(window_id, window);
         window_state.queue_event(Event::WindowEvent {
           event: event.clone(),
           window_id: window.id(),
@@ -240,14 +231,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
 
               let window_state = self
                 .platform_states
-                .window_states
-                .entry(window_id)
-                .or_insert_with(|| {
-                  let mut window_state = WindowEventStates::default();
-                  // the initial device pixel ratio is not synced by event on some platforms, so do a manual set here.
-                  window_state.window_state.device_pixel_ratio = window.scale_factor() as f32;
-                  window_state
-                });
+                .get_or_init_window_state(window_id, window);
               window_state.begin_frame();
 
               ApplicationCx {

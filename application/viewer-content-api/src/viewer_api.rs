@@ -355,6 +355,10 @@ impl ViewerAPI {
       .viewer_api_cx_scope(&mut self.world_derive_access_mem, move |cx| {
         let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
+        let sm_local_bound = cx
+          .use_shared_dual_query_view(SceneModelLocalBounding(font_sys.clone()))
+          .use_assure_result(cx);
+
         let sm_world_bound = cx
           .use_shared_dual_query_view(SceneModelWorldBounding(font_sys.clone()))
           .use_assure_result(cx);
@@ -364,9 +368,11 @@ impl ViewerAPI {
         cx.when_resolve_stage(|| {
           let world_mats = node_world.expect_resolve_stage();
           let sm_world_bound = sm_world_bound.expect_resolve_stage();
+          let sm_local_bound = sm_local_bound.expect_resolve_stage();
           ViewerWorldDeriveQueryAPI {
             world_mats,
             sm_world_bound,
+            sm_local_bound,
             scene_bounding: scene_bounding.unwrap(),
           }
         })
@@ -409,6 +415,7 @@ impl ViewerAPI {
 pub struct ViewerWorldDeriveQueryAPI {
   pub world_mats: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
   pub sm_world_bound: BoxedDynQuery<RawEntityHandle, Option<Box3<f64>>>,
+  pub sm_local_bound: BoxedDynQuery<RawEntityHandle, Box3<f32>>,
   pub scene_bounding: SceneBoundingComputer,
 }
 

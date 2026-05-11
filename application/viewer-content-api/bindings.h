@@ -215,6 +215,10 @@ bool world_derive_query_api_get_world_bounding(ViewerWorldDeriveQueryAPI *api,
                                                ViewerEntityHandle sm,
                                                double (*result)[6]);
 
+bool world_derive_query_api_get_local_bounding(ViewerWorldDeriveQueryAPI *api,
+                                               ViewerEntityHandle sm,
+                                               float (*result)[6]);
+
 ViewerQueryAPI *viewer_create_picker_api(ViewerAPI *api, uint32_t surface_id);
 
 /// api must be dropped before any scene related modifications, or deadlock will occur

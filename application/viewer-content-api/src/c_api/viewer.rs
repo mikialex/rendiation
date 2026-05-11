@@ -177,6 +177,26 @@ pub extern "C" fn world_derive_query_api_get_world_bounding(
 }
 
 #[no_mangle]
+pub extern "C" fn world_derive_query_api_get_local_bounding(
+  api: &mut ViewerWorldDeriveQueryAPI,
+  sm: ViewerEntityHandle,
+  result: &mut [f32; 6],
+) -> bool {
+  if let Some(bbox) = api.sm_local_bound.access(&sm.into()) {
+    result[0] = bbox.min.x;
+    result[1] = bbox.min.y;
+    result[2] = bbox.min.z;
+    result[3] = bbox.max.x;
+    result[4] = bbox.max.y;
+    result[5] = bbox.max.z;
+
+    true
+  } else {
+    false
+  }
+}
+
+#[no_mangle]
 pub extern "C" fn viewer_create_picker_api(
   api: &mut ViewerAPI,
   surface_id: u32,

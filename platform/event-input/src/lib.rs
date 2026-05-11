@@ -14,8 +14,36 @@ use winit::{
 
 #[derive(Default)]
 pub struct PlatformEventInput {
-  pub window_states: FastHashMap<WindowId, WindowEventStates>,
+  window_states: FastHashMap<WindowId, WindowEventStates>,
   pub current_window_id: Option<WindowId>,
+}
+
+impl PlatformEventInput {
+  pub fn get_or_init_window_state(
+    &mut self,
+    window_id: WindowId,
+    window: &winit::window::Window,
+  ) -> &mut WindowEventStates {
+    self.window_states.entry(window_id).or_insert_with(|| {
+      let mut window_state = WindowEventStates::default();
+      // the initial device pixel ratio is not synced by event on some platforms, so do a manual set here.
+      window_state.window_state.device_pixel_ratio = window.scale_factor() as f32;
+      window_state
+    })
+  }
+
+  pub fn remove_window(&mut self, window_id: WindowId) {
+    self.window_states.remove(&window_id);
+  }
+
+  pub fn input_device_event(&mut self, device_event: &DeviceEvent, device_id: DeviceId) {
+    for w in self.window_states.values_mut() {
+      w.queue_event(Event::DeviceEvent {
+        event: device_event.clone(),
+        device_id,
+      });
+    }
+  }
 }
 
 #[derive(Default)]
