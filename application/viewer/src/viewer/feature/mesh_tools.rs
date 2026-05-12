@@ -19,12 +19,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
       .default_size((100., 100.))
       .vscroll(true)
       .show(egui_ctx, |ui| {
-        if cx
-          .active_surface_content
-          .selected_model
-          .if_single()
-          .is_some()
-        {
+        if cx.viewer.selection.selected_model.if_single().is_some() {
           if ui.button("simplification edge collapse").clicked() {
             *simp_req = Some(SimplifySelectMeshRequest(
               None,
@@ -54,7 +49,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     let reader = &reader.unwrap();
     if let Some(simp_req) = simp_req {
-      if let Some(target) = cx.active_surface_content.selected_model.if_single() {
+      if let Some(target) = cx.viewer.selection.selected_model.if_single() {
         if let Some(mesh) = get_mesh(reader, target) {
           let mut dest_idx = vec![0; mesh.indices.len()];
 
@@ -103,7 +98,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
     }
 
     if let Some(req) = lod_graph_req {
-      if let Some(target) = cx.active_surface_content.selected_model.if_single() {
+      if let Some(target) = cx.viewer.selection.selected_model.if_single() {
         if let Some(mesh) = get_mesh(reader, target) {
           let mesh = DefaultMeshLODBuilder {}.build_from_mesh(mesh);
           req.0 = Some(mesh);
@@ -112,7 +107,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
     }
 
     if let Some(req) = seg_req {
-      if let Some(target) = cx.active_surface_content.selected_model.if_single() {
+      if let Some(target) = cx.viewer.selection.selected_model.if_single() {
         if let Some(mesh) = get_mesh(reader, target) {
           req.0 = Some(mesh_segmentation_debug(mesh));
         }
@@ -122,13 +117,13 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
     if let Some(SimplifySelectMeshRequest(Some(mesh), _)) = simp_req.take() {
-      if let Some(target) = cx.active_surface_content.selected_model.if_single() {
+      if let Some(target) = cx.viewer.selection.selected_model.if_single() {
         create_simplified_mesh(writer, target, mesh);
       }
     }
 
     if let Some(CreateMeshLodGraphRequest(Some(mesh))) = lod_graph_req.take() {
-      if let Some(target) = cx.active_surface_content.selected_model.if_single() {
+      if let Some(target) = cx.viewer.selection.selected_model.if_single() {
         let mesh = ExternalRefPtr::new(mesh);
 
         let mesh = global_entity_of::<LODGraphMeshEntity>()

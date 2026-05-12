@@ -81,7 +81,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
           log::info!("gpu pick resolved {:?}", r);
         }
 
-        cx.active_surface_content.selected_model.clear();
+        cx.viewer.selection.selected_model.clear();
         if let Some(hit_entity_idx) = r {
           // skip the background
           if hit_entity_idx != u32::MAX {
@@ -89,7 +89,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
               .entity_reader()
               .reconstruct_handle_by_idx(hit_entity_idx as usize)
             {
-              cx.active_surface_content.selected_model.add_select(hit);
+              cx.viewer.selection.selected_model.add_select(hit);
             }
           }
         }
@@ -117,7 +117,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
           );
           log::info!("range pick results {:?}", r);
           for m in r {
-            cx.active_surface_content.selected_model.add_select(m);
+            cx.viewer.selection.selected_model.add_select(m);
           }
         }
       }
@@ -199,12 +199,12 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
           } else {
             let _hit = picker.pick_model_nearest_all(pointer_ctx.world_ray, scene);
 
-            cx.active_surface_content.selected_model.clear();
+            cx.viewer.selection.selected_model.clear();
             if let Some(hit) = _hit {
               if enable_hit_debug_log {
                 log::info!("cpu picked {:#?}", hit);
               }
-              cx.active_surface_content.selected_model.add_select(hit.1);
+              cx.viewer.selection.selected_model.add_select(hit.1);
             }
           }
         }

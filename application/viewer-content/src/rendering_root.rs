@@ -97,6 +97,7 @@ impl RenderingRoot {
     dyn_cx: &mut DynCx,
     inspector: Option<&mut dyn Inspector>,
     viewports_map: &ViewportsImmediate,
+    selection_info: &ViewerSelectionStates,
   ) {
     self.init_frame();
 
@@ -192,6 +193,7 @@ impl RenderingRoot {
           canvas,
           surface_content,
           surface_id,
+          selection_info,
           renderer,
           scheduler.batch_collector.as_mut(),
           ctx,

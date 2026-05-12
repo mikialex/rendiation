@@ -2,6 +2,7 @@ use crate::*;
 
 pub struct Viewer {
   pub surfaces_content: FastHashMap<u32, ViewerSurfaceContent>,
+  pub selection: ViewerSelectionStates,
   pub viewport_map: ViewportsImmediate,
   pub rendering_root: RenderingRoot,
   pub rendering: Viewer3dRenderingCtx,
@@ -85,6 +86,7 @@ impl Viewer {
     let font_system = Arc::new(RwLock::new(FontSystem::new()));
 
     Self {
+      selection: Default::default(),
       surfaces_content: Default::default(),
       viewport_map: Default::default(),
       terminal,
@@ -129,6 +131,7 @@ impl Viewer {
         dyn_cx,
         inspector,
         &self.viewport_map,
+        &self.selection,
       );
     } else {
       log::error!("surface {surface_id}'s content not found");

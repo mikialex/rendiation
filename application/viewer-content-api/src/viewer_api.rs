@@ -198,10 +198,6 @@ impl ViewerAPI {
     let scene = ViewerSurfaceContent {
       scene,
       root,
-      selected_dir_light: None,
-      selected_model: Default::default(),
-      selected_point_light: None,
-      selected_spot_light: None,
       widget_scene,
       viewports,
       device_pixel_ratio: 1.0,

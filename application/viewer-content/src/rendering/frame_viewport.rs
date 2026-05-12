@@ -314,6 +314,7 @@ impl Viewer3dViewportRenderingCtx {
     ctx: &mut FrameCtx,
     renderer: &mut ViewerRendererInstance,
     content: &ViewerSurfaceContent,
+    selection_info: &ViewerSelectionStates,
     viewport: &ViewerViewPort,
     final_target: &RenderTargetView,
     waker: &Waker,
@@ -345,7 +346,15 @@ impl Viewer3dViewportRenderingCtx {
       });
     } else {
       ctx.scope(|ctx| {
-        self.render_raster(ctx, renderer, content, &render_target, viewport, waker);
+        self.render_raster(
+          ctx,
+          renderer,
+          content,
+          &render_target,
+          viewport,
+          selection_info,
+          waker,
+        );
       });
     }
 
@@ -478,6 +487,7 @@ impl Viewer3dViewportRenderingCtx {
     content: &ViewerSurfaceContent,
     render_target: &RenderTargetView,
     viewport: &ViewerViewPort,
+    selection_info: &ViewerSelectionStates,
     waker: &Waker,
   ) {
     let camera = viewport.camera;
@@ -680,10 +690,10 @@ impl Viewer3dViewportRenderingCtx {
       clip_component,
     ]);
 
-    let mut highlight_compose = (content.selected_model.has_selected()).then(|| {
+    let mut highlight_compose = (selection_info.selected_model.has_selected()).then(|| {
       ctx.scope(|ctx| {
         let batch = Box::new(IteratorAsHostRenderBatch(
-          content.selected_model.iter_selected(),
+          selection_info.selected_model.iter_selected(),
         ));
         let batch = SceneModelRenderBatch::Host(batch);
         let masked_content = renderer

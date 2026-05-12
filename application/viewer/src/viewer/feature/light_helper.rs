@@ -53,10 +53,9 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
       if let Some(pick) = use_immediate_helper_model(cx, helper_mesh_lines, should_pick) {
         if let Some(pick) = pick {
           log::info!("picked dir light: {pick:?}");
-          cx.active_surface_content.selected_dir_light =
-            Some(unsafe { EntityHandle::from_raw(pick) })
+          cx.viewer.selection.selected_dir_light = Some(unsafe { EntityHandle::from_raw(pick) })
         } else {
-          cx.active_surface_content.selected_dir_light = None
+          cx.viewer.selection.selected_dir_light = None
         }
       }
     })
@@ -93,10 +92,9 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
       if let Some(pick) = use_immediate_helper_model(cx, helper_mesh_lines, should_pick) {
         if let Some(pick) = pick {
           log::info!("picked point light: {pick:?}");
-          cx.active_surface_content.selected_point_light =
-            Some(unsafe { EntityHandle::from_raw(pick) })
+          cx.viewer.selection.selected_point_light = Some(unsafe { EntityHandle::from_raw(pick) })
         } else {
-          cx.active_surface_content.selected_point_light = None
+          cx.viewer.selection.selected_point_light = None
         }
       }
     })
@@ -139,10 +137,9 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
       if let Some(pick) = use_immediate_helper_model(cx, helper_mesh_lines, should_pick) {
         if let Some(pick) = pick {
           log::info!("picked spot light: {pick:?}");
-          cx.active_surface_content.selected_spot_light =
-            Some(unsafe { EntityHandle::from_raw(pick) })
+          cx.viewer.selection.selected_spot_light = Some(unsafe { EntityHandle::from_raw(pick) })
         } else {
-          cx.active_surface_content.selected_spot_light = None
+          cx.viewer.selection.selected_spot_light = None
         }
       }
     })

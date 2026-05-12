@@ -144,7 +144,7 @@ fn main() {
 
     stage_of_update(cx, 2, |cx| {
       // todo, support group
-      let select = cx.active_surface_content.selected_model.if_single();
+      let select = cx.viewer.selection.selected_model.if_single();
       widget_root(cx, |cx| {
         use_viewer_gizmo(cx, select);
       });

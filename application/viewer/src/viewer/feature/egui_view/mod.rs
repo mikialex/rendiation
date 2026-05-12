@@ -238,7 +238,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         .vscroll(true)
         .show(ui, |ui| {
           let mut scene_writer = SceneWriter::from_global(cx.active_surface_content.scene);
-          if let Some(target) = cx.active_surface_content.selected_model.if_single() {
+          if let Some(target) = cx.viewer.selection.selected_model.if_single() {
             ui.label(format!("SceneModel id: {:?}", target.into_raw()));
             show_entity_label(&scene_writer.model_writer, target, ui);
 
@@ -384,7 +384,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             }
 
             //
-          } else if let Some(target) = cx.active_surface_content.selected_spot_light {
+          } else if let Some(target) = cx.viewer.selection.selected_spot_light {
             ui.label(format!("Scene Spotlight id: {:?}", target.into_raw()));
             show_entity_label(&scene_writer.spot_light_writer, target, ui);
             ui.label("spotlight half cone angle:");
@@ -408,7 +408,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
               target,
               0.0..=10.,
             );
-          } else if let Some(target) = cx.active_surface_content.selected_point_light {
+          } else if let Some(target) = cx.viewer.selection.selected_point_light {
             ui.label(format!("Scene point light id: {:?}", target.into_raw()));
             show_entity_label(&scene_writer.point_light_writer, target, ui);
             ui.label("spotlight cutoff distance:");
