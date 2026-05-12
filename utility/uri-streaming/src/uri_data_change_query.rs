@@ -43,7 +43,7 @@ where
 {
   let share_key = source.compute_share_key();
   let debug_label = source.debug_label();
-  let consumer_id = cx.use_shared_consumer(share_key);
+  let consumer_id = cx.use_shared_consumer(share_key, debug_label);
 
   let all_downstream_changes = cx.use_shared_compute_internal(
     &|cx| {

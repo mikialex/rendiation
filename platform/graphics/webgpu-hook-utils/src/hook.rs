@@ -208,7 +208,7 @@ pub struct QueryGPUHookDropCx<'a> {
 
 impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for SharedConsumerToken {
   fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
-    if let Some(mem) = cx.share_cx.drop_consumer(*self, cx.inspector) {
+    if let Some(mem) = cx.share_cx.drop_consumer(self, cx.inspector) {
       mem.write().memory.cleanup_assume_only_plain_states();
     }
   }
@@ -227,13 +227,17 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
     self.dyn_cx
   }
 
-  fn use_shared_consumer(&mut self, key: ShareKey) -> u32 {
+  fn use_shared_consumer(&mut self, key: ShareKey, debug_label: &str) -> u32 {
     let (_, tk) = self.use_state_with_features(|fcx| {
       let id = fcx.shared_ctx.next_consumer_id();
-      SharedConsumerToken(id, key)
+      SharedConsumerToken {
+        id,
+        key,
+        debug_label: debug_label.to_string(),
+      }
     });
 
-    tk.0
+    tk.id
   }
 
   fn is_spawning_stage(&self) -> bool {

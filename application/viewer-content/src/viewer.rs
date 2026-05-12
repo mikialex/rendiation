@@ -42,7 +42,7 @@ pub struct ViewerDropCx<'a> {
 
 impl CanCleanUpFrom<ViewerDropCx<'_>> for SharedConsumerToken {
   fn drop_from_cx(&mut self, cx: &mut ViewerDropCx<'_>) {
-    if let Some(mem) = cx.shared_ctx.drop_consumer(*self, cx.inspector) {
+    if let Some(mem) = cx.shared_ctx.drop_consumer(self, cx.inspector) {
       mem.write().memory.cleanup_assume_only_plain_states();
     }
   }

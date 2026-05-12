@@ -321,8 +321,8 @@ pub trait DBHookCxLike: QueryHookCxLike {
     TypeId::of::<Marker>().hash(&mut hasher);
     let key = ShareKey::Hash(hasher.finish());
 
-    let consumer_id = self.use_shared_consumer(key);
     let label = "db rev_ref";
+    let consumer_id = self.use_shared_consumer(key, label);
     self.use_shared_compute_internal(
       &|cx| {
         let changes = cx

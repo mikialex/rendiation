@@ -49,7 +49,7 @@ impl<'a> ViewerAPICx<'a> {
 
 impl<'a> CanCleanUpFrom<ViewerAPICxDropCx<'a>> for SharedConsumerToken {
   fn drop_from_cx(&mut self, cx: &mut ViewerAPICxDropCx) {
-    if let Some(mem) = cx.shared_ctx.drop_consumer(*self, &mut None) {
+    if let Some(mem) = cx.shared_ctx.drop_consumer(self, &mut None) {
       mem.write().memory.cleanup_assume_only_plain_states();
     }
   }
@@ -135,13 +135,17 @@ impl<'a> QueryHookCxLike for ViewerAPICx<'a> {
     &mut self.waker
   }
 
-  fn use_shared_consumer(&mut self, key: ShareKey) -> u32 {
+  fn use_shared_consumer(&mut self, key: ShareKey, debug_label: &str) -> u32 {
     let (_, tk) = self.use_state_init(|fcx| {
       let id = fcx.shared_ctx.next_consumer_id();
-      SharedConsumerToken(id, key)
+      SharedConsumerToken {
+        id,
+        key,
+        debug_label: debug_label.to_string(),
+      }
     });
 
-    tk.0
+    tk.id
   }
 
   fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx {

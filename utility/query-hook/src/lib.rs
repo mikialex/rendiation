@@ -210,7 +210,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
   ) -> UseResult<Provider::Result> {
     let key = provider.compute_share_key();
     let label = provider.debug_label();
-    let consumer_id = self.use_shared_consumer(key);
+    let consumer_id = self.use_shared_consumer(key, label);
     self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, label, consumer_id)
   }
 
@@ -250,7 +250,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
   {
     let key = provider.compute_share_key();
     let label = provider.debug_label();
-    let consumer_id = self.use_shared_consumer(key);
+    let consumer_id = self.use_shared_consumer(key, label);
     let result = self.use_shared_compute_internal(
       &|cx| {
         provider
@@ -328,8 +328,19 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
   ) -> UseResult<Arc<dyn Any + Send + Sync>> {
     let shared_waker = {
       let waker = self.waker().clone();
-      let shared = self.shared_hook_ctx().shared.entry(key).or_default();
+      let shared = self.shared_hook_ctx().shared.entry(key).or_insert_with(|| {
+        if DEBUG_LOG_SHARED_HOOK {
+          println!("create shared_ctx upstream {}", debug_label);
+        }
+        Default::default()
+      });
       let mut shared = shared.write();
+      if DEBUG_LOG_SHARED_HOOK {
+        if !shared.consumer.contains(&consumer_id) {
+          println!("create shared_ctx consumer {}", debug_label);
+        }
+      }
+
       shared.consumer.insert(consumer_id);
       shared.consumer_wakers.setup(consumer_id, waker);
       shared.consumer_wakers.clone()
@@ -429,7 +440,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     r
   }
 
-  fn use_shared_consumer(&mut self, key: ShareKey) -> u32;
+  fn use_shared_consumer(&mut self, key: ShareKey, debug_label: &str) -> u32;
 
   fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx;
 
@@ -559,33 +570,49 @@ impl SharedHooksCtx {
 
   pub fn drop_consumer(
     &mut self,
-    token: SharedConsumerToken,
+    token: &SharedConsumerToken,
     inspector: &mut Option<&mut dyn Inspector>,
   ) -> Option<Arc<RwLock<SharedHookObject>>> {
-    let SharedConsumerToken(id, key) = token;
-
-    // this check is necessary because not all key need reconcile change
-    if let Some(reconciler) = self.delta_query_reconciler.get_mut(&key) {
-      reconciler.remove_consumer(id);
+    let SharedConsumerToken {
+      id,
+      key,
+      debug_label,
+    } = token;
+    if DEBUG_LOG_SHARED_HOOK {
+      println!("drop shared_ctx consumer: {}", debug_label);
     }
 
-    let mut target = self.shared.get_mut(&key).unwrap().write();
-    assert!(target.consumer.remove(&id));
-    assert!(target.consumer_wakers.remove(id));
+    // this check is necessary because not all key need reconcile change
+    if let Some(reconciler) = self.delta_query_reconciler.get_mut(key) {
+      reconciler.remove_consumer(*id);
+    }
+
+    let mut target = self.shared.get_mut(key).unwrap().write();
+    assert!(target.consumer.remove(id));
+    assert!(target.consumer_wakers.remove(*id));
     if target.consumer.is_empty() {
+      if DEBUG_LOG_SHARED_HOOK {
+        println!("drop shared_ctx upstream: {}", debug_label);
+      }
       drop(target);
       if let Some(inspector) = inspector {
         inspector.drop_shared_ctx(&key);
       }
-      self.shared.remove(&key).unwrap().into()
+      self.shared.remove(key).unwrap().into()
     } else {
       None
     }
   }
 }
 
-#[derive(Clone, Copy)]
-pub struct SharedConsumerToken(pub u32, pub ShareKey);
+#[derive(Clone)]
+pub struct SharedConsumerToken {
+  pub id: u32,
+  pub key: ShareKey,
+  pub debug_label: String,
+}
+
+pub const DEBUG_LOG_SHARED_HOOK: bool = false;
 
 #[derive(Default)]
 pub struct SharedHookObject {
