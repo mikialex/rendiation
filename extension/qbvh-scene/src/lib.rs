@@ -39,12 +39,47 @@ impl SceneQbvh {
   }
 }
 
+#[derive(Clone)]
+pub struct SceneBVHResultView {
+  pub bvh: LockReadGuardHolder<SceneQbvh>,
+  pub inv: BoxedDynMultiQuery<RawEntityHandle, RawEntityHandle>,
+}
+
+impl SceneBVHResultView {
+  pub fn iter_unbound_item<'a>(
+    &'a self,
+    scene: EntityHandle<SceneEntity>,
+  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
+    self
+      .inv
+      .access_multi(&scene.into_raw())
+      .map(|v| {
+        Box::new(v.map(|v| unsafe { EntityHandle::from_raw(v) }))
+          as Box<dyn Iterator<Item = _> + 'a>
+      })
+      .unwrap_or_else(|| Box::new([].into_iter()))
+  }
+}
+
 /// margin is necessary for line-like primitives
+///
+/// if input bbox is none, it means the sm is unbound and should be considered separately
 pub fn use_scene_qbvh(
   cx: &mut impl DBHookCxLike,
-  world_bounding: UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f64>>>,
+  world_bounding: UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = Option<Box3<f64>>>>,
   margin: UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = f32>>,
-) -> Option<LockReadGuardHolder<SceneQbvh>> {
+) -> UseResult<SceneBVHResultView> {
+  let (world_bounding, world_bounding_) = world_bounding.fork();
+
+  let unbound_sm_rev_view = world_bounding_
+    .dual_query_filter_map(|v| if v.is_none() { Some(()) } else { None })
+    .dual_query_intersect(cx.use_dual_query::<SceneModelBelongsToScene>())
+    .dual_query_boxed()
+    .dual_query_filter_map(|(_, scene_id)| scene_id)
+    .dual_query_boxed()
+    .use_dual_query_hash_many_to_one(cx)
+    .use_assure_result(cx);
+
   let (cx, bvh) = cx.use_sharable_plain_state(SceneQbvh::default);
 
   let bvh_ = bvh.clone();
@@ -73,10 +108,13 @@ pub fn use_scene_qbvh(
           &mut bvh,
           // note: map_changes_key to convert handle to index is ok
           // same index add, remove will be correctly expressed as a change in index.
-          delta.into_change().map_changes_key(|k| k.index()),
+          delta
+            .into_change()
+            .collective_filter_map(|v| v)
+            .map_changes_key(|k| k.index()),
           sid_change,
           |index| sid_view.access(&index),
-          |index| view.access(&index),
+          |index| view.access(&index).flatten(),
           m_delta.into_change().map_changes_key(|k| k.index()),
           // note: we here not require strict value scope for margin, the default margin is always 0.
           |index| m_view.access(&index).unwrap_or(0.),
@@ -86,7 +124,18 @@ pub fn use_scene_qbvh(
 
   let _ = compute.use_assure_result(cx);
 
-  cx.when_resolve_stage(|| bvh.make_read_holder())
+  if cx.is_resolve_stage() {
+    let (inv, _, _) = unbound_sm_rev_view
+      .expect_resolve_stage()
+      .inv_view_view_delta();
+    let inv = inv.into_boxed_multi();
+    UseResult::ResolveStageReady(SceneBVHResultView {
+      bvh: bvh.make_read_holder(),
+      inv,
+    })
+  } else {
+    UseResult::NotInStage
+  }
 }
 
 fn update_qbvh(

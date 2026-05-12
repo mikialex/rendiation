@@ -522,13 +522,12 @@ impl ViewerQueryAPI {
 }
 
 pub struct SceneBoundingComputer {
-  qbvh: Option<LockReadGuardHolder<SceneQbvh>>,
+  qbvh: Option<SceneBVHResultView>,
   sm_to_local_bbox: BoxedDynQuery<RawEntityHandle, Box3<f32>>,
   view_maps: BoxedDynQuery<ViewSceneModelKey, Mat4<f64>>,
 }
 
 impl SceneBoundingComputer {
-  // todo, impl downgrade impl to support bvh not enabled case
   pub fn get_or_compute_scene_bounding(
     &self,
     scene: EntityHandle<SceneEntity>,
@@ -536,10 +535,13 @@ impl SceneBoundingComputer {
   ) -> Box3<f32> {
     let mut r = Box3::empty();
     if let Some(qbvh) = &self.qbvh {
-      if let Some(qbvh) = qbvh.get_qbvh(scene.into_raw()) {
+      if let Some(qbvh) = qbvh.bvh.get_qbvh(scene.into_raw()) {
         let root = qbvh.root_aabb();
         r = Box3::new(root.min.into(), root.max.into()).into()
       } // the none case is possible if the scene is empty?
+    } else {
+      // todo, impl downgrade impl to support bvh not enabled case
+      log::error!("scene bvh not enabled")
     }
 
     if let Some(active_view_id) = active_view_id {
@@ -560,10 +562,7 @@ impl SceneBoundingComputer {
 
 fn use_bounding_computer(cx: &mut ViewerAPICx) -> Option<SceneBoundingComputer> {
   let qbvh = if cx.viewer.use_scene_bvh {
-    cx.scope(|cx| {
-      cx.use_shared_compute(ViewerQbvhShared(cx.viewer.font_system.clone()))
-        .into_resolve_stage()
-    })
+    cx.scope(|cx| Some(cx.use_shared_compute(ViewerQbvhShared(cx.viewer.font_system.clone()))))
   } else {
     None
   };
@@ -580,7 +579,7 @@ fn use_bounding_computer(cx: &mut ViewerAPICx) -> Option<SceneBoundingComputer> 
     .use_assure_result(cx);
 
   cx.when_resolve_stage(|| SceneBoundingComputer {
-    qbvh,
+    qbvh: qbvh.map(|v| v.into_resolve_stage()).flatten(),
     sm_to_local_bbox: sm_local_bounding.expect_resolve_stage(),
     view_maps: view_maps.expect_resolve_stage(),
   })

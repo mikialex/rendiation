@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct SceneQbvhIterProvider {
-  pub internal: LockReadGuardHolder<SceneQbvh>,
+  pub internal: SceneBVHResultView,
 }
 
 impl SceneModelIterProvider for SceneQbvhIterProvider {
@@ -10,7 +10,9 @@ impl SceneModelIterProvider for SceneQbvhIterProvider {
     scene: EntityHandle<SceneEntity>,
     ctx: &'a SceneRayQuery,
   ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
-    if let Some(bvh) = self.internal.get_qbvh(scene.into_raw()) {
+    let base = self.internal.iter_unbound_item(scene);
+
+    if let Some(bvh) = self.internal.bvh.get_qbvh(scene.into_raw()) {
       let visitor = RayIntersectionClosestPointVisitor {
         world_ray: ctx.world_ray.into_f32(),
         ctx,
@@ -25,9 +27,9 @@ impl SceneModelIterProvider for SceneQbvhIterProvider {
           unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle(handle)) }
         });
 
-      Box::new(iter)
+      Box::new(iter.chain(base))
     } else {
-      Box::new([].into_iter())
+      base
     }
   }
 
@@ -36,7 +38,9 @@ impl SceneModelIterProvider for SceneQbvhIterProvider {
     scene: EntityHandle<SceneEntity>,
     frustum: &'a SceneFrustumQuery,
   ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
-    if let Some(bvh) = self.internal.get_qbvh(scene.into_raw()) {
+    let base = self.internal.iter_unbound_item(scene);
+
+    if let Some(bvh) = self.internal.bvh.get_qbvh(scene.into_raw()) {
       let mut pick_area_visitor = ScenePickAreaDepthFirstVisitor {
         ctx: frustum,
         global_picking_tolerance: 0.,
@@ -62,9 +66,9 @@ impl SceneModelIterProvider for SceneQbvhIterProvider {
         let handle = unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle(handle)) };
         handle
       });
-      Box::new(iter)
+      Box::new(iter.chain(base))
     } else {
-      Box::new([].into_iter())
+      base
     }
   }
 }
