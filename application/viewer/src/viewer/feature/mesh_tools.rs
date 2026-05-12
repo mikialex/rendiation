@@ -55,66 +55,67 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
     let reader = &reader.unwrap();
     if let Some(simp_req) = simp_req {
       if let Some(target) = cx.active_surface_content.selected_model.if_single() {
-        let mesh = get_mesh(reader, target);
+        if let Some(mesh) = get_mesh(reader, target) {
+          let mut dest_idx = vec![0; mesh.indices.len()];
 
-        let mut dest_idx = vec![0; mesh.indices.len()];
+          let SimplificationResult {
+            result_error,
+            result_count,
+          } = match simp_req.1 {
+            MeshToolSimplificationType::EdgeCollapse => {
+              let config = EdgeCollapseConfig {
+                target_index_count: mesh.indices.len() / 2,
+                target_error: f32::INFINITY,
+                lock_border: false,
+                use_absolute_error: true,
+              };
 
-        let SimplificationResult {
-          result_error,
-          result_count,
-        } = match simp_req.1 {
-          MeshToolSimplificationType::EdgeCollapse => {
-            let config = EdgeCollapseConfig {
-              target_index_count: mesh.indices.len() / 2,
-              target_error: f32::INFINITY,
-              lock_border: false,
-              use_absolute_error: true,
-            };
+              simplify_by_edge_collapse(&mut dest_idx, &mesh.indices, &mesh.vertices, None, config)
+            }
+            MeshToolSimplificationType::Sloppy => simplify_sloppy(
+              &mut dest_idx,
+              &mesh.indices,
+              &mesh.vertices,
+              None,
+              mesh.indices.len() as u32 / 2,
+              f32::INFINITY,
+              true,
+            ),
+          };
 
-            simplify_by_edge_collapse(&mut dest_idx, &mesh.indices, &mesh.vertices, None, config)
+          println!("result_error: {result_error}, result_index_count: {result_count}");
+
+          dest_idx.resize(result_count, 0);
+
+          let mesh = CommonMeshBuffer {
+            vertices: mesh.vertices,
+            indices: dest_idx,
           }
-          MeshToolSimplificationType::Sloppy => simplify_sloppy(
-            &mut dest_idx,
-            &mesh.indices,
-            &mesh.vertices,
-            None,
-            mesh.indices.len() as u32 / 2,
-            f32::INFINITY,
-            true,
-          ),
-        };
+          .deduplicate_indices_and_remove_unused_vertices();
 
-        println!("result_error: {result_error}, result_index_count: {result_count}");
-
-        dest_idx.resize(result_count, 0);
-
-        let mesh = CommonMeshBuffer {
-          vertices: mesh.vertices,
-          indices: dest_idx,
-        }
-        .deduplicate_indices_and_remove_unused_vertices();
-
-        if mesh.indices.is_empty() {
-          println!("mesh is simplified to nothing, this may be a bug");
-        } else {
-          simp_req.0 = Some(mesh);
+          if mesh.indices.is_empty() {
+            println!("mesh is simplified to nothing, this may be a bug");
+          } else {
+            simp_req.0 = Some(mesh);
+          }
         }
       }
     }
 
     if let Some(req) = lod_graph_req {
       if let Some(target) = cx.active_surface_content.selected_model.if_single() {
-        let mesh = get_mesh(reader, target);
-
-        let mesh = DefaultMeshLODBuilder {}.build_from_mesh(mesh);
-        req.0 = Some(mesh);
+        if let Some(mesh) = get_mesh(reader, target) {
+          let mesh = DefaultMeshLODBuilder {}.build_from_mesh(mesh);
+          req.0 = Some(mesh);
+        }
       }
     }
 
     if let Some(req) = seg_req {
       if let Some(target) = cx.active_surface_content.selected_model.if_single() {
-        let mesh = get_mesh(reader, target);
-        req.0 = Some(mesh_segmentation_debug(mesh));
+        if let Some(mesh) = get_mesh(reader, target) {
+          req.0 = Some(mesh_segmentation_debug(mesh));
+        }
       }
     }
   }
@@ -217,10 +218,20 @@ fn mesh_segmentation_debug(mesh: CommonMeshBuffer) -> Vec<CommonMeshBuffer> {
     .collect()
 }
 
-fn get_mesh(reader: &SceneReader, target: EntityHandle<SceneModelEntity>) -> CommonMeshBuffer {
-  let std_model = reader.read_scene_model(target).model;
+fn get_mesh(
+  reader: &SceneReader,
+  target: EntityHandle<SceneModelEntity>,
+) -> Option<CommonMeshBuffer> {
+  let std_model = reader.try_read_scene_model(target);
+  if std_model.is_none() {
+    log::warn!("not s std mesh");
+  }
+  let std_model = std_model?.model;
   let mesh = reader.read_std_model(std_model).mesh;
-  let mesh = reader.read_attribute_mesh(mesh);
+  let mesh = reader
+    .read_attribute_mesh(mesh)
+    .into_living()?
+    .into_attributes_mesh();
 
   let (fmt, indices) = mesh.indices.clone().unwrap();
   assert!(fmt == AttributeIndexFormat::Uint32);
@@ -250,6 +261,7 @@ fn get_mesh(reader: &SceneReader, target: EntityHandle<SceneModelEntity>) -> Com
     indices: indices.visit_slice().unwrap().to_vec(),
     vertices,
   }
+  .into()
 }
 
 fn create_mesh(

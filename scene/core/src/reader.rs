@@ -48,8 +48,17 @@ impl SceneReader {
     }
   }
 
-  pub fn models(&self) -> impl Iterator<Item = EntityHandle<SceneModelEntity>> + '_ {
+  pub fn scene_models(&self) -> impl Iterator<Item = EntityHandle<SceneModelEntity>> + '_ {
     self.scene_ref_models.access_multi(&self.scene_id).unwrap()
+  }
+  pub fn std_models(
+    &self,
+  ) -> impl Iterator<Item = (EntityHandle<SceneModelEntity>, SceneModelDataView)> + '_ {
+    self
+      .scene_ref_models
+      .access_multi(&self.scene_id)
+      .unwrap()
+      .filter_map(|id| self.try_read_scene_model(id).map(|r| (id, r)))
   }
 
   pub fn read_node(&self, id: EntityHandle<SceneNodeEntity>) -> SceneNodeDataView {
@@ -69,13 +78,18 @@ impl SceneReader {
     self.node_reader.read_foreign_key::<SceneNodeParentIdx>(id)
   }
 
-  pub fn read_scene_model(&self, id: EntityHandle<SceneModelEntity>) -> SceneModelDataView {
+  /// return None if the model payload is not std model
+  pub fn try_read_scene_model(
+    &self,
+    id: EntityHandle<SceneModelEntity>,
+  ) -> Option<SceneModelDataView> {
     let sm = &self.scene_model;
     SceneModelDataView {
-      model: sm.read_expected_foreign_key::<SceneModelStdModelRenderPayload>(id),
+      model: sm.try_read_foreign_key::<SceneModelStdModelRenderPayload>(id)??,
       scene: sm.read_expected_foreign_key::<SceneModelBelongsToScene>(id),
       node: sm.read_expected_foreign_key::<SceneModelRefNode>(id),
     }
+    .into()
   }
 
   pub fn read_std_model(&self, id: EntityHandle<StandardModelEntity>) -> StandardModelDataView {
@@ -92,7 +106,7 @@ impl SceneReader {
         m.read_foreign_key::<StandardModelRefUnlitMaterial>(id)
           .map(SceneMaterialDataView::UnlitMaterial)
       })
-      .unwrap();
+      .unwrap_or(SceneMaterialDataView::Other);
 
     StandardModelDataView {
       material,
@@ -101,13 +115,11 @@ impl SceneReader {
     }
   }
 
-  pub fn read_attribute_mesh(&self, id: EntityHandle<AttributesMeshEntity>) -> AttributesMesh {
-    self
-      .mesh
-      .read(id)
-      .unwrap()
-      .try_into_attributes_mesh()
-      .unwrap()
+  pub fn read_attribute_mesh(
+    &self,
+    id: EntityHandle<AttributesMeshEntity>,
+  ) -> MaybeUriData<AttributesMeshWithVertexRelationInfo, AttributesMeshWithUri> {
+    self.mesh.read(id).unwrap().into_maybe_uri_form()
   }
 
   pub fn read_sampler(&self, id: EntityHandle<SceneSamplerEntity>) -> TextureSampler {
@@ -464,13 +476,6 @@ impl AttributeLivingData {
 }
 
 impl AttributesMeshWithUri {
-  pub fn try_into_attributes_mesh(self) -> Option<AttributesMesh> {
-    match self.into_maybe_uri_form() {
-      MaybeUriData::Uri(_) => None,
-      MaybeUriData::Living(mesh) => Some(mesh.into_attributes_mesh()),
-    }
-  }
-
   pub fn into_maybe_uri_form(
     self,
   ) -> MaybeUriData<AttributesMeshWithVertexRelationInfo, AttributesMeshWithUri> {

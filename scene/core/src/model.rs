@@ -159,6 +159,7 @@ impl StandardModelDataView {
         SceneMaterialDataView::PbrMRMaterial(m) => {
           w.write::<StandardModelRefPbrMRMaterial>(&m.some_handle())
         }
+        SceneMaterialDataView::Other => w,
       }
       .write::<StandardModelRefAttributesMeshEntity>(&self.mesh.some_handle())
       .write::<StandardModelRefSkin>(&self.skin.map(|v| v.into_raw()))

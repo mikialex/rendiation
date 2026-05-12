@@ -170,8 +170,6 @@ where
       assert_eq!(size, expect_size);
     }
 
-    cx.gpu.device.clear_resource_cache(); // todo , fixme
-
     cx.force_indirect_dispatch = true;
     let (_, size, result) = self.read_back_host(cx).await.unwrap();
 

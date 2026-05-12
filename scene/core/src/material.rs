@@ -8,6 +8,7 @@ pub enum SceneMaterialDataView {
   UnlitMaterial(EntityHandle<UnlitMaterialEntity>),
   PbrSGMaterial(EntityHandle<PbrSGMaterialEntity>),
   PbrMRMaterial(EntityHandle<PbrMRMaterialEntity>),
+  Other,
 }
 
 mod unlit_material {

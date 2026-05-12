@@ -8,6 +8,7 @@ gltf = "1.4.1"
 gltf-json = "1.4.1"
 serde_json = "1.0.143"
 png = "*"
+log = { workspace = true }
 database = { path = "../../../../utility/database" }
 query = { path = "../../../../utility/query" }
 rendiation-algebra = { path = "../../../../math/algebra" }

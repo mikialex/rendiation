@@ -10,6 +10,7 @@ use rendiation_geometry::Box3;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 use rendiation_texture_core::TextureSampler;
+use rendiation_texture_core::{GPUBufferImage, Size};
 
 mod convert_utils;
 use convert_utils::*;
@@ -48,8 +49,7 @@ pub fn build_scene_to_gltf(
 
     let mut all_nodes = FastHashSet::default();
     let mut batch_writes = Vec::default();
-    for model in reader.models() {
-      let model_info = reader.read_scene_model(model);
+    for (_, model_info) in reader.std_models() {
       all_nodes.insert(model_info.node);
     }
     let first_batch = all_nodes.iter().copied().collect::<Vec<_>>();
@@ -97,8 +97,7 @@ pub fn build_scene_to_gltf(
 
   let mut has_sg_material = false;
 
-  for model in reader.models() {
-    let model_info = reader.read_scene_model(model);
+  for (_, model_info) in reader.std_models() {
     let std_model = reader.read_std_model(model_info.model);
     all_mesh_to_write.insert(std_model.mesh);
 
@@ -143,7 +142,7 @@ pub fn build_scene_to_gltf(
           all_texture_to_write.insert(t);
         }
       }
-      _ => {}
+      _ => log::warn!("unknown material ty"),
     }
   }
 
@@ -164,6 +163,12 @@ pub fn build_scene_to_gltf(
   let mut samplers = Default::default();
   let mut textures = Default::default();
 
+  let fallback_tex = GPUBufferImage {
+    data: [255, 255, 255, 255].to_vec(),
+    format: rendiation_texture_core::TextureFormat::Rgba8UnormSrgb,
+    size: Size::from_u32_pair_min_one((1, 1)),
+  };
+
   for tex in all_texture_to_write {
     build_texture2d(
       &mut images,
@@ -172,6 +177,7 @@ pub fn build_scene_to_gltf(
       Some(&mut buffer_builder),
       reader,
       &tex,
+      &fallback_tex,
     );
   }
 
@@ -180,8 +186,7 @@ pub fn build_scene_to_gltf(
     build_material(&mut materials, reader, &m, &textures);
   }
 
-  for model in reader.models() {
-    let model_info = reader.read_scene_model(model);
+  for (model, model_info) in reader.std_models() {
     let idx = *target_nodes.mapping.get(&model_info.node).unwrap();
     let node = target_nodes.collected.get_mut(idx.value()).unwrap();
     let targe_node_idx = if node.mesh.is_some() {
@@ -213,6 +218,7 @@ pub fn build_scene_to_gltf(
       &mut materials,
       reader,
       model,
+      model_info,
     );
   }
 
@@ -374,12 +380,13 @@ fn build_model(
   materials: &mut Resource<SceneMaterialDataView, gltf_json::Material>,
   reader: &SceneReader,
   id: EntityHandle<SceneModelEntity>,
+  model: SceneModelDataView,
 ) -> Option<gltf_json::Index<gltf_json::Mesh>> {
   models
     .append(id, {
-      let model = reader.read_scene_model(id);
       let std_model = reader.read_std_model(model.model);
-      let mesh = reader.read_attribute_mesh(std_model.mesh);
+      let mesh = reader.read_attribute_mesh(std_model.mesh).into_living()?;
+      let mesh = mesh.into_attributes_mesh();
 
       #[allow(clippy::disallowed_types)]
       let mut attributes = std::collections::BTreeMap::default();

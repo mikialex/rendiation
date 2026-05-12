@@ -4609,6 +4609,7 @@ dependencies = [
  "fast-hash-collection",
  "gltf",
  "gltf-json",
+ "log",
  "png",
  "query",
  "rendiation-algebra",

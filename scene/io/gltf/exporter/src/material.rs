@@ -137,14 +137,20 @@ pub fn build_texture2d(
   data_writer: Option<&mut BufferResourceInliner>,
   reader: &SceneReader,
   ts: &Texture2DWithSamplingDataView,
+  fallback_tex: &GPUBufferImage,
 ) -> gltf_json::Index<gltf_json::Texture> {
   let source = images.append(ts.texture, {
     let texture = reader.read_texture(ts.texture).unwrap();
 
     let mut png_buffer = Vec::new(); // todo avoid extra copy
-    let texture = texture
-      .as_living()
-      .expect("none living texture is not supported in gltf export yet"); // todo
+    let texture = if let Some(tex) = texture.as_living() {
+      &tex
+    } else {
+      // todo, we should support read back as a better way to handle this case
+      log::warn!("none living texture is not supported in gltf export yet");
+      fallback_tex
+    };
+
     rendiation_texture_exporter::write_gpu_buffer_image_as_png(&mut png_buffer, texture);
 
     let mut image = gltf_json::Image {

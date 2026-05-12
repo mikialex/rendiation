@@ -11,7 +11,7 @@ pub enum MaybeUriData<T, URI = Arc<String>> {
   Living(T),
 }
 
-impl<T> MaybeUriData<T> {
+impl<T, URI> MaybeUriData<T, URI> {
   pub fn into_living(self) -> Option<T> {
     match self {
       MaybeUriData::Uri(_) => None,
