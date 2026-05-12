@@ -37,6 +37,13 @@ enum class MeshPrimitiveTopology {
   TriangleStrip = 4,
 };
 
+enum class MeshAPIDataType {
+  Position,
+  Normal,
+  Uv,
+  Indices,
+};
+
 enum class OccStyleEffectType {
   Unlit,
   Lighted,
@@ -287,6 +294,11 @@ AttributesMeshEntitiesCommon create_mesh(uint32_t indices_length,
                                          MeshPrimitiveTopology topo);
 
 void drop_mesh(AttributesMeshEntitiesCommon entities);
+
+void update_mesh_data(AttributesMeshEntitiesCommon *entities,
+                      uint32_t byte_size,
+                      const float *data,
+                      MeshAPIDataType vertex_ty);
 
 ViewerEntityHandle create_occ_material();
 

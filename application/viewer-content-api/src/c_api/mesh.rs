@@ -143,3 +143,109 @@ pub extern "C" fn drop_mesh(entities: AttributesMeshEntitiesCommon) {
   };
   entities.clean_up(&mut writer, &mut buffer);
 }
+
+fn create_vertex_attribute(
+  byte_size: u32,
+  item_byte_size: u32,
+  semantic: AttributeSemantic,
+  data: &ExternalRefPtr<MaybeUriData<Arc<Vec<u8>>>>,
+  mesh_handle: ViewerEntityHandle,
+) -> VertexPair {
+  let mut buffer_writer = global_entity_of::<BufferEntity>().entity_writer();
+  let buffer_handle = buffer_writer.new_entity(|w| w.write::<BufferEntityData>(data));
+  let mut mesh_writer = AttributesMeshEntityFromAttributesMeshWriter::from_global();
+  let mesh_handle: EntityHandle<AttributesMeshEntity> = mesh_handle.into();
+  let vertex_view = SceneBufferViewDataView {
+    data: Some(buffer_handle),
+    range: None,
+    count: byte_size / item_byte_size,
+  };
+  let relation = mesh_writer.relation.new_entity(|w| {
+    let w = w
+      .write::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
+        &mesh_handle.some_handle(),
+      )
+      .write::<AttributesMeshEntityVertexBufferSemantic>(&semantic);
+    vertex_view.write::<AttributeVertexRef>(w)
+  });
+  VertexPair::from_typed((relation, buffer_handle))
+}
+
+#[repr(C)]
+pub enum MeshAPIDataType {
+  Position,
+  Normal,
+  Uv,
+  Indices,
+}
+
+#[no_mangle]
+pub extern "C" fn update_mesh_data(
+  entities: &mut AttributesMeshEntitiesCommon,
+  byte_size: u32,
+  data: *const f32,
+  vertex_ty: MeshAPIDataType,
+) {
+  if byte_size == 0 || data.is_null() {
+    log::warn!("update_mesh_data: byte_size is 0 or data is null");
+    return;
+  }
+
+  let element_byte_size = match vertex_ty {
+    MeshAPIDataType::Position | MeshAPIDataType::Normal => 12,
+    MeshAPIDataType::Uv => 8,
+    MeshAPIDataType::Indices => 4,
+  };
+  if byte_size % element_byte_size != 0 {
+    log::warn!(
+      "update_mesh_data: byte_size {byte_size} is not divisible by element size {element_byte_size}"
+    );
+    return;
+  }
+
+  let data = unsafe { slice::from_raw_parts(data as *const u8, byte_size as usize) };
+  let data = ExternalRefPtr::new(MaybeUriData::Living(Arc::new(data.to_vec())));
+
+  let mut buffer_writer = global_entity_of::<BufferEntity>().entity_writer();
+
+  match vertex_ty {
+    MeshAPIDataType::Position => {
+      let buffer_handle: EntityHandle<BufferEntity> = entities.position.h2.into();
+      buffer_writer.write::<BufferEntityData>(buffer_handle, data);
+    }
+    MeshAPIDataType::Normal => {
+      if entities.has_normal {
+        let buffer_handle: EntityHandle<BufferEntity> = entities.normal.h2.into();
+        buffer_writer.write::<BufferEntityData>(buffer_handle, data);
+      } else {
+        entities.normal = create_vertex_attribute(
+          byte_size,
+          12,
+          AttributeSemantic::Normals,
+          &data,
+          entities.mesh,
+        );
+        entities.has_normal = true;
+      }
+    }
+    MeshAPIDataType::Uv => {
+      if entities.has_uv {
+        let buffer_handle: EntityHandle<BufferEntity> = entities.uv.h2.into();
+        buffer_writer.write::<BufferEntityData>(buffer_handle, data);
+      } else {
+        entities.uv = create_vertex_attribute(
+          byte_size,
+          8,
+          AttributeSemantic::TexCoords(0),
+          &data,
+          entities.mesh,
+        );
+        entities.has_uv = true;
+      }
+    }
+    MeshAPIDataType::Indices => {
+      let buffer_handle: EntityHandle<BufferEntity> = entities.index.into();
+      buffer_writer.write::<BufferEntityData>(buffer_handle, data);
+    }
+  }
+}
