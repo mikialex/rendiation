@@ -19,21 +19,21 @@ const ENABLE_MSAA_NORMAL_RESOLVE_DEPTH_AWARE_AVERAGE: bool = false;
 const MSAA_NORMAL_RESOLVE_DEPTH_EPSILON: f32 = 1e-5;
 
 impl FrameGeometryBuffer {
-  pub fn should_skip_entity_id(cx: &mut FrameCtx) -> bool {
+  pub fn unable_to_draw_entity_id(cx: &mut FrameCtx) -> bool {
     let downgrade_info = &cx.gpu.info().downgrade_info;
     !downgrade_info
       .flags
       .contains(DownlevelFlags::INDEPENDENT_BLEND) // to support webgl!
   }
 
-  pub fn new(cx: &mut FrameCtx, sample_count: u32) -> Self {
+  pub fn new(cx: &mut FrameCtx, sample_count: u32, require_entity_id: bool) -> Self {
     Self {
       depth: depth_attachment().sample_count(sample_count).request(cx),
       normal: attachment()
         .format(TextureFormat::Rgba16Float)
         .sample_count(sample_count)
         .request(cx),
-      entity_id: Self::should_skip_entity_id(cx).then(|| {
+      entity_id: (require_entity_id && !Self::unable_to_draw_entity_id(cx)).then(|| {
         attachment()
           .format(TextureFormat::R32Uint)
           .sample_count(sample_count)

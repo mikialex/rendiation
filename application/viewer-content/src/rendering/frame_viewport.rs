@@ -21,6 +21,7 @@ pub struct Viewer3dViewportRenderingCtx {
   enable_msaa: bool,
   enable_ground: bool,
   enable_widget_scene: bool,
+  pub enable_gpu_pick_id_write: bool,
   enable_ssao: bool,
   enable_outline: bool,
   outline_color: UniformBufferCachedDataView<Vec4<f32>>,
@@ -65,6 +66,7 @@ impl Viewer3dViewportRenderingCtx {
       enable_ground: init_config.enable_grid_ground,
       enable_ssao: false,
       enable_outline: false,
+      enable_gpu_pick_id_write: false,
       ssao: SSAO::new(gpu),
       outline_color: UniformBufferCachedDataView::create(&gpu.device, vec4(0., 0., 0., 1.)),
       outline_background_color: vec3(1., 1., 1.),
@@ -542,7 +544,7 @@ impl Viewer3dViewportRenderingCtx {
           .use_hdr_if_enabled(hdr_enabled) // todo msaa with hdr need special handling
           .request(ctx);
 
-        let g_buffer = FrameGeometryBuffer::new(ctx, sample_count);
+        let g_buffer = FrameGeometryBuffer::new(ctx, sample_count, self.enable_gpu_pick_id_write);
 
         let _span = span!(Level::INFO, "main scene content encode pass");
 

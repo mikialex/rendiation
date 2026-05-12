@@ -160,6 +160,14 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       if let Some(pointer_ctx) = &picker.pointer_ctx {
         let mut use_cpu_pick = false;
 
+        // todo watch prefer_gpu_pick changed
+        let surface_views = &mut cx.viewer.rendering.surface_views;
+        let surface_view = surface_views.get_mut(&cx.surface_id).unwrap();
+        if let Some(view_renderer) = surface_view.get_mut(&pointer_ctx.viewport_id) {
+          // this will take effect in next frame but it's ok i assume
+          view_renderer.enable_gpu_pick_id_write = prefer_gpu_pick;
+        }
+
         if prefer_gpu_pick && gpu_pick_future.is_none() && !is_request_list_pick {
           let surface_views = &mut cx.viewer.rendering.surface_views;
           let surface_view = surface_views.get_mut(&cx.surface_id).unwrap();
