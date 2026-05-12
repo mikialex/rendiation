@@ -5,10 +5,29 @@ use rendiation_shader_library::plane::ShaderPlaneUniform;
 use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
 
-use super::{
-  outline::ViewerOutlineSourceProvider, widget::WorldCoordinateAxis, GridEffect, GridGround,
-};
+use super::{outline::ViewerOutlineSourceProvider, GridEffect, GridGround};
 use crate::*;
+
+pub trait ViewerFrameRenderingExtension {
+  fn use_draw_content_on_post_frame(
+    &mut self,
+    frame: &mut FrameCtx,
+    renderer: &ViewerRendererInstance,
+    camera: EntityHandle<SceneCameraEntity>,
+    target: &RenderTargetView,
+  );
+}
+
+impl ViewerFrameRenderingExtension for () {
+  fn use_draw_content_on_post_frame(
+    &mut self,
+    _frame: &mut FrameCtx,
+    _renderer: &ViewerRendererInstance,
+    _camera: EntityHandle<SceneCameraEntity>,
+    _target: &RenderTargetView,
+  ) {
+  }
+}
 
 pub const MSAA_SAMPLE_COUNT: u32 = 4;
 
@@ -20,7 +39,6 @@ pub struct Viewer3dViewportRenderingCtx {
   enable_fxaa: bool,
   enable_msaa: bool,
   enable_ground: bool,
-  enable_widget_scene: bool,
   pub enable_gpu_pick_id_write: bool,
   enable_ssao: bool,
   enable_outline: bool,
@@ -32,7 +50,6 @@ pub struct Viewer3dViewportRenderingCtx {
   ground: UniformBufferCachedDataView<ShaderPlaneUniform>,
   grid: UniformBufferCachedDataView<GridEffect>,
   post: UniformBufferCachedDataView<PostEffects>,
-  pub axis: WorldCoordinateAxis,
   rtx_rendering_enabled: bool,
   rtx_effect_mode: RayTracingEffectMode,
   transparent_config: ViewerTransparentContentRenderStyle,
@@ -62,7 +79,6 @@ impl Viewer3dViewportRenderingCtx {
       enable_taa: init_config.enable_taa,
       enable_fxaa: init_config.enable_fxaa,
       enable_msaa: init_config.enable_msaa,
-      enable_widget_scene: init_config.enable_widget_scene,
       enable_ground: init_config.enable_grid_ground,
       enable_ssao: false,
       enable_outline: false,
@@ -74,7 +90,6 @@ impl Viewer3dViewportRenderingCtx {
       ground: UniformBufferCachedDataView::create(&gpu.device, ground_like_shader_plane()),
       grid: UniformBufferCachedDataView::create_default(&gpu.device),
       post: UniformBufferCachedDataView::create_default(&gpu.device),
-      axis: WorldCoordinateAxis::new(gpu),
       on_encoding_finished: Default::default(),
       expect_read_back_for_next_render_result: false,
       picker: Default::default(),
@@ -101,7 +116,6 @@ impl Viewer3dViewportRenderingCtx {
     init_config.enable_fxaa = self.enable_fxaa;
     init_config.enable_msaa = self.enable_msaa;
     init_config.enable_grid_ground = self.enable_ground;
-    init_config.enable_widget_scene = self.enable_widget_scene;
     init_config.always_enable_caching_frame_for_direct_read =
       self.always_enable_caching_frame_for_direct_read;
   }
@@ -317,6 +331,7 @@ impl Viewer3dViewportRenderingCtx {
     selection_info: &ViewerSelectionStates,
     viewport: &ViewerViewPort,
     final_target: &RenderTargetView,
+    extension: &mut dyn ViewerFrameRenderingExtension,
     waker: &Waker,
   ) {
     let camera = viewport.camera;
@@ -358,27 +373,7 @@ impl Viewer3dViewportRenderingCtx {
       });
     }
 
-    if self.enable_widget_scene {
-      let main_camera_gpu = renderer.camera.make_component(camera).unwrap();
-
-      let widgets_result = draw_widgets(
-        ctx,
-        renderer.raster_scene_renderer.as_ref(),
-        renderer.batch_extractor.as_ref(),
-        content.widget_scene,
-        renderer.reversed_depth,
-        &main_camera_gpu,
-        &self.axis,
-      );
-      let mut copy_scene_msaa_widgets = copy_frame(
-        widgets_result,
-        BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
-      );
-      pass("copy_scene_msaa_widgets")
-        .with_color(&render_target, load_and_store())
-        .render_ctx(ctx)
-        .by(&mut copy_scene_msaa_widgets);
-    }
+    extension.use_draw_content_on_post_frame(ctx, renderer, camera, &render_target);
 
     // do extra copy to surface texture
     if should_do_extra_copy {

@@ -578,6 +578,7 @@ impl Viewer3dRenderingCtx {
     surface_content: &ViewerSurfaceContent,
     surface_id: u32,
     selection_info: &ViewerSelectionStates,
+    extension: &mut dyn ViewerFrameRenderingExtension,
     renderer: ViewerRendererInstancePreparer,
     batch_collector: &mut dyn RenderBatchCollector,
     ctx: &mut FrameCtx,
@@ -629,6 +630,7 @@ impl Viewer3dRenderingCtx {
           selection_info,
           viewport,
           final_target,
+          extension,
           waker,
         );
         renderer.active_view_control.set(None);

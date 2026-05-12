@@ -9,7 +9,6 @@ mod ndc;
 mod outline;
 mod ray_tracing;
 mod transparent;
-mod widget;
 
 mod g_buffer;
 pub use clipping::*;
@@ -25,4 +24,3 @@ use grid_ground::*;
 pub use lighting::*;
 pub use ndc::*;
 pub use post::*;
-pub use widget::*;

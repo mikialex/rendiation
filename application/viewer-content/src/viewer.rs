@@ -118,6 +118,7 @@ impl Viewer {
     data_scheduler: &mut ViewerDataScheduler,
     dyn_cx: &mut DynCx,
     inspector: Option<&mut dyn Inspector>,
+    extension: &mut dyn ViewerFrameRenderingExtension,
   ) {
     if let Some(surface_content) = self.surfaces_content.get(&surface_id) {
       self.rendering_root.draw_canvas(
@@ -132,6 +133,7 @@ impl Viewer {
         inspector,
         &self.viewport_map,
         &self.selection,
+        extension,
       );
     } else {
       log::error!("surface {surface_id}'s content not found");

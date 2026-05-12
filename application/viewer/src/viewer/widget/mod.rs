@@ -2,6 +2,43 @@ use crate::*;
 
 mod axis;
 pub use axis::*;
+use rendiation_scene_rendering_gpu_base::*;
+use rendiation_texture_gpu_process::copy_frame;
+
+pub struct ViewerAppFrameRenderingExtension<'a> {
+  pub widget_scene: EntityHandle<SceneEntity>,
+  pub axis: &'a WorldCoordinateAxis,
+}
+
+impl<'a> ViewerFrameRenderingExtension for ViewerAppFrameRenderingExtension<'a> {
+  fn use_draw_content_on_post_frame(
+    &mut self,
+    ctx: &mut FrameCtx,
+    renderer: &ViewerRendererInstance,
+    camera: EntityHandle<SceneCameraEntity>,
+    target: &RenderTargetView,
+  ) {
+    let main_camera_gpu = renderer.camera.make_component(camera).unwrap();
+
+    let widgets_result = draw_widgets(
+      ctx,
+      renderer.raster_scene_renderer.as_ref(),
+      renderer.batch_extractor.as_ref(),
+      self.widget_scene,
+      renderer.reversed_depth,
+      &main_camera_gpu,
+      &self.axis,
+    );
+    let mut copy_scene_msaa_widgets = copy_frame(
+      widgets_result,
+      BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
+    );
+    pass("copy_scene_msaa_widgets")
+      .with_color(&target, load_and_store())
+      .render_ctx(ctx)
+      .by(&mut copy_scene_msaa_widgets);
+  }
+}
 
 pub fn draw_widgets(
   ctx: &mut FrameCtx,

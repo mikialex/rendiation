@@ -5,7 +5,6 @@ enum ViewerBackgroundType {
   Color,
   Gradient,
   Environment,
-  //   Sky,
 }
 
 pub struct ViewerBackgroundState {
@@ -99,23 +98,4 @@ impl ViewerBackgroundState {
       }
     });
   }
-}
-
-declare_entity!(SkyEnvironmentEntity);
-declare_component!(SkyEnvironmentSunDirection, SkyEnvironmentEntity, Vec3<f32>);
-declare_component!(SkyEnvironmentLuminance, SkyEnvironmentEntity, f32);
-declare_component!(SkyEnvironmentTurbidity, SkyEnvironmentEntity, f32);
-declare_component!(SkyEnvironmentRayleigh, SkyEnvironmentEntity, f32);
-declare_component!(SkyEnvironmentMieCoefficient, SkyEnvironmentEntity, f32);
-declare_component!(SkyEnvironmentDirectionalG, SkyEnvironmentEntity, f32);
-
-pub fn register_sky_env_data_model() {
-  global_database()
-    .declare_entity::<SkyEnvironmentEntity>()
-    .declare_component::<SkyEnvironmentSunDirection>()
-    .declare_component::<SkyEnvironmentLuminance>()
-    .declare_component::<SkyEnvironmentTurbidity>()
-    .declare_component::<SkyEnvironmentRayleigh>()
-    .declare_component::<SkyEnvironmentMieCoefficient>()
-    .declare_component::<SkyEnvironmentDirectionalG>();
 }

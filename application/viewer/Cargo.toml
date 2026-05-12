@@ -30,6 +30,9 @@ rmp-serde = { workspace = true }
 pollster = { workspace = true }
 serde_json = "*"
 event-source = { path = "../../utility/event-source" }
+rendiation-shader-api = { path = "../../shader/api" }
+rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
+rendiation-infinity-primitive = { path = "../../extension/infinity-primitive" }
 rendiation-animation = { path = "../../content/animation" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-controller = { path = "../../extension/controller" }

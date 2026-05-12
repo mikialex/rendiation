@@ -98,6 +98,7 @@ impl RenderingRoot {
     inspector: Option<&mut dyn Inspector>,
     viewports_map: &ViewportsImmediate,
     selection_info: &ViewerSelectionStates,
+    extension: &mut dyn ViewerFrameRenderingExtension,
   ) {
     self.init_frame();
 
@@ -194,6 +195,7 @@ impl RenderingRoot {
           surface_content,
           surface_id,
           selection_info,
+          extension,
           renderer,
           scheduler.batch_collector.as_mut(),
           ctx,

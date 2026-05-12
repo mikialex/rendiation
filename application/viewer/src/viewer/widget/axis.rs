@@ -1,4 +1,5 @@
 use rendiation_infinity_primitive::*;
+use rendiation_shader_api::*;
 
 use crate::*;
 

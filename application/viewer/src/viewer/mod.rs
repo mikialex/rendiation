@@ -3,6 +3,9 @@ use crate::*;
 mod feature;
 pub use feature::*;
 
+mod widget;
+pub use widget::*;
+
 mod default_scene;
 pub use default_scene::*;
 
@@ -25,6 +28,8 @@ pub struct ViewerCx<'a> {
   pub current_window_swapchain: &'a SurfaceWrapper,
   pub surface_id: u32,
   pub active_surface_content: &'a mut ViewerSurfaceContent,
+
+  pub widget_scene: EntityHandle<SceneEntity>,
 
   pub absolute_seconds_from_start: f32,
   pub time_delta_seconds: f32,
@@ -311,10 +316,6 @@ pub fn use_viewer<'a>(
         worker_thread_pool.clone(),
       );
 
-      let widget_scene = global_entity_of::<SceneEntity>()
-        .entity_writer()
-        .new_entity(|w| w);
-
       let root = global_entity_of::<SceneNodeEntity>()
         .entity_writer()
         .new_entity(|w| w);
@@ -361,7 +362,6 @@ pub fn use_viewer<'a>(
         device_pixel_ratio: 1.0,
         root,
         scene,
-        widget_scene,
         background,
       };
       // we construct the default view in our viewer application
@@ -388,6 +388,14 @@ pub fn use_viewer<'a>(
   let (acx, gui_feature_global_states) = acx.use_plain_state(|| FeaturesGlobalUIStates {
     features: Default::default(),
   });
+
+  let (acx, widget_scene) = acx.use_plain_state(|| {
+    global_entity_of::<SceneEntity>()
+      .entity_writer()
+      .new_entity(|w| w)
+  });
+
+  let (acx, axis) = acx.use_plain_state(|| WorldCoordinateAxis::new(&acx.gpu_and_surface.gpu));
 
   let (acx, tick_timestamp) = acx.use_plain_state(Instant::now);
   let (acx, frame_time_delta_in_seconds) = acx.use_plain_state(|| 0.0);
@@ -416,6 +424,7 @@ pub fn use_viewer<'a>(
 
   ViewerCx {
     viewer,
+    widget_scene: *widget_scene,
     input: acx.input,
     dyn_cx: acx.dyn_cx,
     absolute_seconds_from_start,
@@ -445,6 +454,7 @@ pub fn use_viewer<'a>(
 
   ViewerCx {
     viewer,
+    widget_scene: *widget_scene,
     dyn_cx: acx.dyn_cx,
     input: acx.input,
     absolute_seconds_from_start,
@@ -470,6 +480,10 @@ pub fn use_viewer<'a>(
     data_scheduler,
     acx.dyn_cx,
     inspection,
+    &mut ViewerAppFrameRenderingExtension {
+      widget_scene: *widget_scene,
+      axis,
+    },
   );
 
   unsafe {
