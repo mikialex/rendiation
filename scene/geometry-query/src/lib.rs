@@ -10,6 +10,9 @@ use rendiation_texture_core::Size;
 mod model;
 pub use model::*;
 
+mod frustum;
+pub use frustum::*;
+
 mod scene_model;
 pub use scene_model::*;
 
@@ -28,6 +31,7 @@ pub struct SceneRayQuery {
 
 pub struct SceneFrustumQuery {
   pub world_frustum: Frustum<f64>,
+  pub world_helper: Option<FrustumIntersectionTestHelper<f64>>,
   pub camera_ctx: CameraQueryCtx,
 }
 

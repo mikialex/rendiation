@@ -261,7 +261,8 @@ ViewerRayPickRangeResult *picker_pick_range(ViewerQueryAPI *api,
                                             float ay,
                                             float bx,
                                             float by,
-                                            bool contains);
+                                            bool contains,
+                                            bool precise_intersection_test);
 
 void drop_pick_range_result(ViewerRayPickRangeResult *r);
 

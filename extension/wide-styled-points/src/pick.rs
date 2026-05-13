@@ -123,6 +123,7 @@ impl LocalModelPicker for WidePointsPicker {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     frustum: &Frustum,
+    helper: Option<&FrustumIntersectionTestHelper<f32>>,
     policy: ObjectTestPolicy,
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
@@ -131,7 +132,7 @@ impl LocalModelPicker for WidePointsPicker {
       .create_view(idx)?
       .iter_tri_in_local(world_mat, camera_ctx);
 
-    let tester = |(_, tri): (usize, Triangle3D)| frustum_test_tri(frustum, &tri, policy);
+    let tester = |(_, tri): (usize, Triangle3D)| frustum_test_tri(helper, frustum, &tri, policy);
 
     let r = match policy {
       ObjectTestPolicy::Intersect => iter.any(tester),

@@ -493,13 +493,20 @@ impl ViewerQueryAPI {
     by: f32,
     output_results: &mut Vec<ViewerEntityHandle>,
     contain: bool,
+    precise_intersection_test: bool,
   ) {
     let scene = unsafe { EntityHandle::from_raw(scene) };
     let a = Vec2::new(ax, ay);
     let b = Vec2::new(bx, by);
 
     let surface_content = viewer.surfaces_content.get(&self.surface_id).unwrap();
-    if let Some(frustum) = create_range_pick_frustum(a, b, surface_content, &self.picker_impl) {
+    if let Some(frustum) = create_range_pick_frustum(
+      a,
+      b,
+      surface_content,
+      &self.picker_impl,
+      precise_intersection_test,
+    ) {
       let mut iter = self
         .picker_impl
         .scene_model_iter_provider

@@ -253,6 +253,7 @@ pub fn create_range_pick_frustum(
   b: Vec2<f32>,
   surface_content: &ViewerSurfaceContent,
   picker: &ViewerPicker,
+  precise_intersection_test: bool,
 ) -> Option<SceneFrustumQuery> {
   let raw_a = a;
   let a = a * surface_content.device_pixel_ratio;
@@ -291,8 +292,15 @@ pub fn create_range_pick_frustum(
   let ctx = create_viewport_pointer_ctx(surface_content, raw_a.into(), &picker.camera_transforms)?;
   let camera_ctx = create_camera_query_ctx_from_vpc(&ctx);
 
+  let world_helper = if precise_intersection_test {
+    FrustumIntersectionTestHelper::new(&frustum)
+  } else {
+    None
+  };
+
   SceneFrustumQuery {
     world_frustum: frustum,
+    world_helper,
     camera_ctx,
   }
   .into()

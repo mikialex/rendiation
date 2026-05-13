@@ -49,6 +49,14 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
           &mut cx.viewer.features_config.pick_scene.range_query_contains,
           "use contain test for range test",
         );
+        ui.checkbox(
+          &mut cx
+            .viewer
+            .features_config
+            .pick_scene
+            .precise_intersection_test,
+          "use precise intersection test",
+        );
       });
 
     // draw ui rect
@@ -72,6 +80,11 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
   let enable_hit_debug_log = cx.viewer.features_config.pick_scene.enable_hit_debug_log;
   let use_contain_for_range_test = cx.viewer.features_config.pick_scene.range_query_contains;
+  let precise_intersection_test = cx
+    .viewer
+    .features_config
+    .pick_scene
+    .precise_intersection_test;
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     if let Some(f) = gpu_pick_future {
@@ -103,18 +116,24 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
         log::info!("end range {:?}", (a, b));
 
         access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
-        if let Some(frustum) =
-          create_range_pick_frustum(a, b, cx.active_surface_content, &picker.picker_impl)
-        {
-          let r = picker.pick_range(
-            cx.active_surface_content.scene,
-            &frustum,
-            if use_contain_for_range_test {
-              ObjectTestPolicy::Contains
-            } else {
-              ObjectTestPolicy::Intersect
-            },
-          );
+        if let Some(frustum) = create_range_pick_frustum(
+          a,
+          b,
+          cx.active_surface_content,
+          &picker.picker_impl,
+          precise_intersection_test,
+        ) {
+          let r = measure_and_log_time("cpu pick range", || {
+            picker.pick_range(
+              cx.active_surface_content.scene,
+              &frustum,
+              if use_contain_for_range_test {
+                ObjectTestPolicy::Contains
+              } else {
+                ObjectTestPolicy::Intersect
+              },
+            )
+          });
           log::info!("range pick results {:?}", r);
           for m in r {
             cx.viewer.selection.selected_model.add_select(m);
@@ -192,17 +211,25 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
         if use_cpu_pick {
           if is_request_list_pick {
-            let (results, result_ids) = picker.pick_models_list_all(pointer_ctx.world_ray, scene);
+            let (results, result_ids) = measure_and_log_time("cpu pick list", || {
+              picker.pick_models_list_all(pointer_ctx.world_ray, scene)
+            });
             if enable_hit_debug_log {
-              log::info!("cpu picked list {:#?}, ids: {:#?}", results, result_ids);
+              log::info!(
+                "cpu picked list result {:#?}, ids: {:#?}",
+                results,
+                result_ids
+              );
             }
           } else {
-            let _hit = picker.pick_model_nearest_all(pointer_ctx.world_ray, scene);
+            let _hit = measure_and_log_time("cpu pick nearest", || {
+              picker.pick_model_nearest_all(pointer_ctx.world_ray, scene)
+            });
 
             cx.viewer.selection.selected_model.clear();
             if let Some(hit) = _hit {
               if enable_hit_debug_log {
-                log::info!("cpu picked {:#?}", hit);
+                log::info!("cpu pick nearest result {:#?}", hit);
               }
               cx.viewer.selection.selected_model.add_select(hit.1);
             }
@@ -214,3 +241,10 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 }
 
 pub struct PickSceneBlocked;
+
+fn measure_and_log_time<R>(label: &str, f: impl FnOnce() -> R) -> R {
+  let start = std::time::Instant::now();
+  let r = f();
+  log::info!("{} time: {}ms", label, start.elapsed().as_millis());
+  r
+}

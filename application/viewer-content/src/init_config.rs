@@ -42,6 +42,9 @@ pub struct PickScenePersistConfig {
   pub prefer_gpu_picking: bool,
   pub enable_hit_debug_log: bool,
   pub range_query_contains: bool,
+  /// compute and cache frustum edge/corner data for exact SAT intersection tests;
+  /// disabling reduces per-frame cost at the expense of conservative results
+  pub precise_intersection_test: bool,
 }
 
 impl Default for PickScenePersistConfig {
@@ -50,6 +53,7 @@ impl Default for PickScenePersistConfig {
       prefer_gpu_picking: true,
       enable_hit_debug_log: true,
       range_query_contains: false,
+      precise_intersection_test: true,
     }
   }
 }

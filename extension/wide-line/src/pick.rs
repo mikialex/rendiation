@@ -93,12 +93,15 @@ impl LocalModelPicker for WideLinePicker {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     f: &Frustum,
+    helper: Option<&FrustumIntersectionTestHelper<f32>>,
     policy: ObjectTestPolicy,
     _world_mat: &Mat4<f64>,
     _camera_ctx: &CameraQueryCtx,
   ) -> Option<bool> {
     let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |line| match policy {
-      ObjectTestPolicy::Intersect => f.contains(&line.start) || f.contains(&line.end),
+      ObjectTestPolicy::Intersect => {
+        frustum_intersect_line_segment(helper, f, line.start, line.end)
+      }
       ObjectTestPolicy::Contains => f.contains(&line.start) && f.contains(&line.end),
     });
 

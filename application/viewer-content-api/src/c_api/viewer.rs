@@ -293,6 +293,7 @@ pub extern "C" fn picker_pick_range(
   bx: f32,
   by: f32,
   contains: bool,
+  precise_intersection_test: bool,
 ) -> *mut ViewerRayPickRangeResult {
   let api = unsafe { &mut *api };
   let viewer = unsafe { &mut *viewer };
@@ -306,6 +307,7 @@ pub extern "C" fn picker_pick_range(
     by,
     &mut pick_results,
     contains,
+    precise_intersection_test,
   );
 
   let r = Box::new(ViewerRayPickRangeResult { pick_results });

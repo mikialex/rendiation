@@ -305,10 +305,16 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       .world_frustum
       .apply_matrix_into(mat.inverse_or_identity());
     let frustum = frustum.into_f32();
+    let helper = FrustumIntersectionTestHelper::new(&frustum);
 
-    self
-      .internal
-      .frustum_query_local(idx, &frustum, policy, &mat, &ctx.camera_ctx)
+    self.internal.frustum_query_local(
+      idx,
+      &frustum,
+      helper.as_ref(),
+      policy,
+      &mat,
+      &ctx.camera_ctx,
+    )
   }
 }
 

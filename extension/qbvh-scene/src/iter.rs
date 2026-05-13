@@ -149,13 +149,17 @@ impl<'a, LeafData, F, B, SimdBV> SimdVisitor<LeafData, SimdBox3, SimdRealValue>
     let bounding = aabbs.to_merged_aabb();
     let bounding = Box3::new(bounding.min.into(), bounding.max.into());
 
-    match f_intersect(&self.ctx.world_frustum, &bounding.into_f64()) {
+    match f_intersect_exact(
+      self.ctx.world_helper.as_ref(),
+      &self.ctx.world_frustum,
+      &bounding.into_f64(),
+    ) {
       IntersectResult::Outside => SimdVisitStatus::MaybeContinue(SimdBoolValue::splat(false)),
       IntersectResult::Inside => {
         self.inside_leaf_data_iter.join(id);
         SimdVisitStatus::MaybeContinue(SimdBoolValue::splat(false))
       }
-      IntersectResult::MaybeIntersect => {
+      IntersectResult::Intersect => {
         // a parent node is partial intersect, continue visit its children
         if data.is_none() {
           SimdVisitStatus::MaybeContinue(SimdBoolValue::splat(true))
@@ -174,53 +178,40 @@ impl<'a, LeafData, F, B, SimdBV> SimdVisitor<LeafData, SimdBox3, SimdRealValue>
 pub enum IntersectResult {
   Outside,
   Inside,
-  /// todo, this contains lot's of false positive, we should do more culling(following)
-  MaybeIntersect,
+  /// The AABB intersects the frustum but is not fully inside.
+  ///
+  /// When `helper` is `None` (degenerate frustum or precise test disabled),
+  /// this variant may contain **false positives** — some AABBs reported as
+  /// `Intersect` may actually be outside. This is because the fallback is a
+  /// conservative p-vertex test that only rejects AABBs entirely behind a
+  /// single frustum plane.
+  Intersect,
 }
 
-// pub fn intersect<T: Scalar>(f: &Frustum<T>, box3: &HyperAABB<Vec3<T>>) -> IntersectResult {
-//   // check Intersect false positive: box intersect frustum,but outside
-//   let check_false_positive = || {
-//     // box3 is AABB
-//     self.bounding.min.x > box3.max.x
-//       || box3.min.x > self.bounding.max.x
-//       || self.bounding.min.y > box3.max.y
-//       || box3.min.y > self.bounding.max.y
-//       || self.bounding.min.z > box3.max.z
-//       || box3.min.z > self.bounding.max.z
-//   };
-
-//   match f_intersect(f, box3) {
-//     IntersectResult::Inside => IntersectResult::Inside,
-//     IntersectResult::Outside => IntersectResult::Outside,
-//     IntersectResult::Intersect => {
-//       if check_false_positive() {
-//         IntersectResult::Outside
-//       } else {
-//         IntersectResult::Intersect
-//       }
-//     }
-//   }
-// }
-
-pub fn f_intersect<T: Scalar>(f: &Frustum<T>, box3: &HyperAABB<Vec3<T>>) -> IntersectResult {
+pub fn f_intersect_exact<T: Scalar>(
+  helper: Option<&FrustumIntersectionTestHelper<T>>,
+  f: &Frustum<T>,
+  box3: &Box3<T>,
+) -> IntersectResult {
   if box3.is_empty() {
     return IntersectResult::Outside;
   }
 
-  let mut num: u32 = 0;
-  for p in f.planes {
-    let point_p = box3.min_corner(*p.normal);
-    let point_q = box3.max_corner(*p.normal);
-    if p.distance_to(&point_q) < T::zero() {
-      return IntersectResult::Outside;
-    }
-    if p.distance_to(&point_p) > T::zero() {
-      num += 1;
+  // fast Inside check via n-vertex (exact for convex frustum)
+  let mut inside = true;
+  for p in &f.planes {
+    if p.distance_to(&box3.min_corner(*p.normal)) <= T::zero() {
+      inside = false;
+      break;
     }
   }
-  if num == 6 {
+  if inside {
     return IntersectResult::Inside;
   }
-  IntersectResult::MaybeIntersect
+
+  if frustum_intersect_aabb(helper, f, box3) {
+    IntersectResult::Intersect
+  } else {
+    IntersectResult::Outside
+  }
 }
