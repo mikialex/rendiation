@@ -274,7 +274,7 @@ pub fn create_range_pick_frustum(
     max.x as f64,
     min.y as f64,
     max.y as f64,
-    0.0,
+    -1.0,
     1.0,
   ];
 
