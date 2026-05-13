@@ -40,11 +40,8 @@ impl RenderingRoot {
     self.any_render_change.do_wake();
   }
 
-  pub fn cleanup(&mut self, share_cx: &mut SharedHooksCtx) {
-    let mut dcx = QueryGPUHookDropCx {
-      share_cx,
-      inspector: &mut None,
-    };
+  pub fn cleanup(&mut self) {
+    let mut dcx = QueryGPUHookDropCx {};
 
     self
       .render_resource_memory
@@ -55,16 +52,9 @@ impl RenderingRoot {
     }
   }
 
-  pub fn drop_surface_render_process_memory(
-    &mut self,
-    surface_id: u32,
-    share_cx: &mut SharedHooksCtx,
-  ) {
+  pub fn drop_surface_render_process_memory(&mut self, surface_id: u32) {
     if let Some(mut mem) = self.render_process_memory.remove(&surface_id) {
-      let mut dcx = QueryGPUHookDropCx {
-        share_cx,
-        inspector: &mut None,
-      };
+      let mut dcx = QueryGPUHookDropCx {};
       mem.cleanup(&mut dcx as *mut _ as *mut ());
     }
   }
@@ -95,7 +85,7 @@ impl RenderingRoot {
     rendering: &mut Viewer3dRenderingCtx,
     scheduler: &mut ViewerDataScheduler,
     dyn_cx: &mut DynCx,
-    inspector: Option<&mut dyn Inspector>,
+    mut inspector: Option<&mut dyn Inspector>,
     viewports_map: &ViewportsImmediate,
     selection_info: &ViewerSelectionStates,
     extension: &mut dyn ViewerFrameRenderingExtension,
@@ -133,6 +123,11 @@ impl RenderingRoot {
       ctx.skip_if_not(!requested_render_views.is_empty(), |ctx| {
         let mut pool = AsyncTaskPool::default();
 
+        shared_ctx.flush_drop_queue(&mut |key| {
+          if let Some(ins) = &mut inspector {
+            ins.drop_shared_ctx(key);
+          }
+        });
         {
           let _ = trace_span!("spawn tasks to maintain renderer").entered();
           shared_ctx.reset_visiting();

@@ -548,10 +548,27 @@ pub type RevRefContainerRead<K, V> = LockReadGuardHolder<DenseIndexMapping<K, V>
 #[derive(Default)]
 pub struct SharedHooksCtx {
   shared: FastHashMap<ShareKey, Arc<RwLock<SharedHookObject>>>,
+  /// use a standalone drop queue, instead of wrapping the shared field into arc rwlock
+  /// because the drop should be rare, but the shared field access is not.
+  ///
+  /// another consideration is: we can defer the shared ctx drop, in some case this is
+  /// a better choice for performance: if one branch dropped(rc to zero) another branch used
+  /// we can avoid the first branch drop and second branch recreate
+  drop_queue: Arc<RwLock<Vec<(ShareKey, u32, String)>>>,
   task_id_mapping: FastHashMap<ShareKey, u32>,
   // todo, the reconciler is leaked, not a big issue for now
   delta_query_reconciler: FastHashMap<ShareKey, Arc<dyn DeltaQueryReconciler>>,
   next_consumer: u32,
+}
+
+struct SharedHooksCtxUpstreamDropQueue {
+  shared: Arc<RwLock<Vec<(ShareKey, u32, String)>>>,
+}
+
+impl SharedConsumerTokenDrop for SharedHooksCtxUpstreamDropQueue {
+  fn drop_downstream(&self, id: u32, key: ShareKey, debug_label: &str) {
+    self.shared.write().push((key, id, debug_label.to_string()));
+  }
 }
 
 impl SharedHooksCtx {
@@ -562,46 +579,54 @@ impl SharedHooksCtx {
     }
   }
 
+  pub fn flush_drop_queue(&mut self, extra_cleanup: &mut dyn FnMut(&ShareKey)) {
+    let mut drop_queue = self.drop_queue.write();
+    if drop_queue.is_empty() {
+      return;
+    }
+    let drop_queue_to_drop = drop_queue.clone();
+    drop_queue.clear();
+    drop(drop_queue);
+    for (key, id, debug_label) in &drop_queue_to_drop {
+      if DEBUG_LOG_SHARED_HOOK {
+        println!("drop shared_ctx consumer: {}", debug_label);
+      }
+
+      // this check is necessary because not all key need reconcile change
+      if let Some(reconciler) = self.delta_query_reconciler.get_mut(key) {
+        reconciler.remove_consumer(*id);
+      }
+
+      let mut target = self.shared.get_mut(key).unwrap().write();
+      assert!(target.consumer.remove(id));
+      assert!(target.consumer_wakers.remove(*id));
+      if target.consumer.is_empty() {
+        if DEBUG_LOG_SHARED_HOOK {
+          println!("drop shared_ctx upstream: {}", debug_label);
+        }
+        drop(target);
+        extra_cleanup(key);
+        let shared_state = self.shared.remove(key).unwrap();
+        shared_state
+          .write()
+          .memory
+          .cleanup_assume_only_plain_states();
+      }
+    }
+    // the state clean up may drop more
+    self.flush_drop_queue(extra_cleanup);
+  }
+
+  pub fn create_dropper(&mut self) -> Box<dyn SharedConsumerTokenDrop> {
+    Box::new(SharedHooksCtxUpstreamDropQueue {
+      shared: self.drop_queue.clone(),
+    })
+  }
+
   pub fn next_consumer_id(&mut self) -> u32 {
     let id = self.next_consumer;
     self.next_consumer += 1;
     id
-  }
-
-  pub fn drop_consumer(
-    &mut self,
-    token: &SharedConsumerToken,
-    inspector: &mut Option<&mut dyn Inspector>,
-  ) -> Option<Arc<RwLock<SharedHookObject>>> {
-    let SharedConsumerToken {
-      id,
-      key,
-      debug_label,
-    } = token;
-    if DEBUG_LOG_SHARED_HOOK {
-      println!("drop shared_ctx consumer: {}", debug_label);
-    }
-
-    // this check is necessary because not all key need reconcile change
-    if let Some(reconciler) = self.delta_query_reconciler.get_mut(key) {
-      reconciler.remove_consumer(*id);
-    }
-
-    let mut target = self.shared.get_mut(key).unwrap().write();
-    assert!(target.consumer.remove(id));
-    assert!(target.consumer_wakers.remove(*id));
-    if target.consumer.is_empty() {
-      if DEBUG_LOG_SHARED_HOOK {
-        println!("drop shared_ctx upstream: {}", debug_label);
-      }
-      drop(target);
-      if let Some(inspector) = inspector {
-        inspector.drop_shared_ctx(&key);
-      }
-      self.shared.remove(key).unwrap().into()
-    } else {
-      None
-    }
   }
 }
 
@@ -610,9 +635,25 @@ pub struct SharedConsumerToken {
   pub id: u32,
   pub key: ShareKey,
   pub debug_label: String,
+  pub dropper: Arc<Vec<Box<dyn SharedConsumerTokenDrop>>>,
 }
 
-pub const DEBUG_LOG_SHARED_HOOK: bool = false;
+/// we must rely on the drop instead of hook ctx's state cleanup function
+/// because the shared cx can be create and access under different hook ctx
+/// and theirs state cleanup requires different drop ctx.
+impl Drop for SharedConsumerToken {
+  fn drop(&mut self) {
+    for dropper in self.dropper.iter() {
+      dropper.drop_downstream(self.id, self.key, &self.debug_label);
+    }
+  }
+}
+
+pub trait SharedConsumerTokenDrop {
+  fn drop_downstream(&self, id: u32, key: ShareKey, debug_label: &str);
+}
+
+pub const DEBUG_LOG_SHARED_HOOK: bool = true;
 
 #[derive(Default)]
 pub struct SharedHookObject {

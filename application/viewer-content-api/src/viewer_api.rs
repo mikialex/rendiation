@@ -33,6 +33,7 @@ impl ViewerAPICore {
         .register_cx::<ViewerDataScheduler>(&mut self.data_source);
     };
 
+    self.viewer.shared_ctx.flush_drop_queue(&mut |_| {});
     {
       self.viewer.shared_ctx.reset_visiting();
       let r = ViewerAPICx {
@@ -82,7 +83,6 @@ impl Drop for ViewerAPI {
   fn drop(&mut self) {
     let mut drop_cx = ViewerAPICxDropCx {
       dyn_cx: &mut self.core.dyn_cx,
-      shared_ctx: &mut self.core.viewer.shared_ctx,
     };
 
     self

@@ -47,12 +47,8 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
   }
 
   fn flush(&mut self) {
-    if let GPUQueryHookStage::Update { inspector, .. } = &mut self.stage {
-      let inspector = unsafe { std::mem::transmute(inspector) };
-      let mut drop_cx = QueryGPUHookDropCx {
-        share_cx: self.shared_ctx,
-        inspector,
-      };
+    if let GPUQueryHookStage::Update { .. } = &mut self.stage {
+      let mut drop_cx = QueryGPUHookDropCx {};
       let drop_cx = &mut drop_cx as *mut _ as *mut ();
       self.memory.flush(drop_cx);
     }
@@ -78,7 +74,7 @@ impl InspectableCx for QueryGPUHookCx<'_> {
 }
 
 impl<'a> QueryGPUHookCx<'a> {
-  pub fn use_state_with_features<T: 'static + for<'x> CanCleanUpFrom<QueryGPUHookDropCx<'x>>>(
+  pub fn use_state_with_features<T: 'static + CanCleanUpFrom<QueryGPUHookDropCx>>(
     &mut self,
     init: impl FnOnce(QueryGPUHookFeatureCx) -> T,
   ) -> (&mut Self, &mut T) {
@@ -101,13 +97,13 @@ impl<'a> QueryGPUHookCx<'a> {
     (s, state)
   }
 
-  pub fn use_state<T: Default + for<'x> CanCleanUpFrom<QueryGPUHookDropCx<'x>> + 'static>(
+  pub fn use_state<T: Default + CanCleanUpFrom<QueryGPUHookDropCx> + 'static>(
     &mut self,
   ) -> (&mut Self, &mut T) {
     self.use_state_init(T::default)
   }
 
-  pub fn use_state_init<T: 'static + for<'x> CanCleanUpFrom<QueryGPUHookDropCx<'x>>>(
+  pub fn use_state_init<T: 'static + CanCleanUpFrom<QueryGPUHookDropCx>>(
     &mut self,
     init: impl FnOnce() -> T,
   ) -> (&mut Self, &mut T) {
@@ -197,21 +193,14 @@ impl<'a> QueryGPUHookCx<'a> {
   }
 }
 
-impl<T> CanCleanUpFrom<QueryGPUHookDropCx<'_>> for NothingToDrop<T> {
+impl<T> CanCleanUpFrom<QueryGPUHookDropCx> for NothingToDrop<T> {
   fn drop_from_cx(&mut self, _: &mut QueryGPUHookDropCx) {}
 }
 
-pub struct QueryGPUHookDropCx<'a> {
-  pub share_cx: &'a mut SharedHooksCtx,
-  pub inspector: &'a mut Option<&'a mut dyn Inspector>,
-}
+pub struct QueryGPUHookDropCx {}
 
-impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for SharedConsumerToken {
-  fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
-    if let Some(mem) = cx.share_cx.drop_consumer(self, cx.inspector) {
-      mem.write().memory.cleanup_assume_only_plain_states();
-    }
-  }
+impl CanCleanUpFrom<QueryGPUHookDropCx> for SharedConsumerToken {
+  fn drop_from_cx(&mut self, _cx: &mut QueryGPUHookDropCx) {}
 }
 
 impl QueryHookCxLike for QueryGPUHookCx<'_> {
@@ -230,10 +219,12 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
   fn use_shared_consumer(&mut self, key: ShareKey, debug_label: &str) -> u32 {
     let (_, tk) = self.use_state_with_features(|fcx| {
       let id = fcx.shared_ctx.next_consumer_id();
+      let dropper = fcx.shared_ctx.create_dropper();
       SharedConsumerToken {
         id,
         key,
         debug_label: debug_label.to_string(),
+        dropper: Arc::new(vec![dropper]),
       }
     });
 

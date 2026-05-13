@@ -81,15 +81,12 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
     matches!(self.stage, ViewerCxStage::Gui { .. })
   }
   fn flush(&mut self) {
-    if let ViewerCxStage::Gui { inspector, .. } = &mut self.stage {
+    if let ViewerCxStage::Gui { .. } = &mut self.stage {
       let writer = SceneWriter::from_global(self.active_surface_content.scene);
-      let inspector = unsafe { std::mem::transmute(inspector) };
       let mut drop_cx = ViewerDropCx {
         dyn_cx: self.dyn_cx,
         writer,
         terminal: &mut self.viewer.terminal,
-        shared_ctx: &mut self.viewer.shared_ctx,
-        inspector,
       };
 
       let drop_cx = &mut drop_cx as *mut _ as *mut ();
@@ -148,10 +145,12 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
   fn use_shared_consumer(&mut self, key: ShareKey, debug_label: &str) -> u32 {
     let (_, tk) = self.use_state_init(|fcx| {
       let id = fcx.shared_ctx.next_consumer_id();
+      let dropper = fcx.shared_ctx.create_dropper();
       SharedConsumerToken {
         id,
         key,
         debug_label: debug_label.to_string(),
+        dropper: Arc::new(vec![dropper]),
       }
     });
 
@@ -250,6 +249,13 @@ pub struct FeaturesGlobalUIStates {
 #[track_caller]
 pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(&mut ViewerCx)) {
   cx.raw_scope(|cx| {
+    if let ViewerCxStage::Gui { inspector, .. } = &mut cx.stage {
+      cx.viewer.shared_ctx.flush_drop_queue(&mut |key| {
+        if let Some(ins) = inspector {
+          ins.drop_shared_ctx(key);
+        }
+      });
+    }
     if let ViewerCxStage::BaseStage = cx.stage {
       for _ in 0..cycle_count {
         let mut pool = AsyncTaskPool::default();

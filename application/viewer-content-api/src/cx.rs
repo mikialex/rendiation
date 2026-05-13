@@ -14,7 +14,6 @@ pub struct ViewerAPICx<'a> {
 
 pub struct ViewerAPICxDropCx<'a> {
   pub dyn_cx: &'a mut DynCx,
-  pub shared_ctx: &'a mut SharedHooksCtx,
 }
 
 pub struct ViewerAPIInitCx<'a> {
@@ -48,11 +47,7 @@ impl<'a> ViewerAPICx<'a> {
 }
 
 impl<'a> CanCleanUpFrom<ViewerAPICxDropCx<'a>> for SharedConsumerToken {
-  fn drop_from_cx(&mut self, cx: &mut ViewerAPICxDropCx) {
-    if let Some(mem) = cx.shared_ctx.drop_consumer(self, &mut None) {
-      mem.write().memory.cleanup_assume_only_plain_states();
-    }
-  }
+  fn drop_from_cx(&mut self, _: &mut ViewerAPICxDropCx) {}
 }
 impl<'a, T> CanCleanUpFrom<ViewerAPICxDropCx<'a>> for NothingToDrop<T> {
   fn drop_from_cx(&mut self, _: &mut ViewerAPICxDropCx) {}
@@ -81,7 +76,6 @@ unsafe impl<'a> HooksCxLike for ViewerAPICx<'a> {
   fn flush(&mut self) {
     if let ViewerAPICxStage::Spawn { .. } = &mut self.stage {
       let mut drop_cx = ViewerAPICxDropCx {
-        shared_ctx: &mut self.viewer.shared_ctx,
         dyn_cx: self.dyn_cx,
       };
       let drop_cx = &mut drop_cx as *mut _ as *mut ();
@@ -138,10 +132,12 @@ impl<'a> QueryHookCxLike for ViewerAPICx<'a> {
   fn use_shared_consumer(&mut self, key: ShareKey, debug_label: &str) -> u32 {
     let (_, tk) = self.use_state_init(|fcx| {
       let id = fcx.shared_ctx.next_consumer_id();
+      let dropper = fcx.shared_ctx.create_dropper();
       SharedConsumerToken {
         id,
         key,
         debug_label: debug_label.to_string(),
+        dropper: Arc::new(vec![dropper]),
       }
     });
 
