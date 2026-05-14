@@ -11,6 +11,9 @@ pub struct ViewerOutlineSourceProvider<'a> {
 
 impl ShaderHashProvider for ViewerOutlineSourceProvider<'_> {
   shader_hash_type_id! {ViewerOutlineSourceProvider<'static>}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.g_buffer.hash_pipeline(hasher);
+  }
 }
 
 impl OutlineComputeSourceProvider for ViewerOutlineSourceProvider<'_> {

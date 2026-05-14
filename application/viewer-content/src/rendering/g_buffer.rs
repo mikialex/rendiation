@@ -149,9 +149,17 @@ impl ShaderPassBuilder for FrameGeometryBuffer {
     self.normal.bind_pass(&mut cx.binding);
     self.depth.bind_pass(&mut cx.binding);
     if let Some(entity_id) = &self.entity_id {
-      entity_id.bind_pass(&mut cx.binding);
+      entity_id
+        .expect_texture_view::<u32>()
+        .bind_pass(&mut cx.binding);
     }
     cx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
+  }
+}
+impl ShaderHashProvider for FrameGeometryBuffer {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.entity_id.is_some().hash(hasher);
   }
 }
 
@@ -206,6 +214,9 @@ pub struct FrameGeometryBufferReconstructGeometryCtx<'a> {
 }
 impl ShaderHashProvider for FrameGeometryBufferReconstructGeometryCtx<'_> {
   shader_hash_type_id! {FrameGeometryBufferReconstructGeometryCtx<'static>}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.g_buffer.hash_pipeline(hasher);
+  }
 }
 impl ShaderPassBuilder for FrameGeometryBufferReconstructGeometryCtx<'_> {
   fn setup_pass(&self, cx: &mut GPURenderPassCtx) {

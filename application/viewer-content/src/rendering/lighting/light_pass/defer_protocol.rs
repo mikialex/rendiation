@@ -144,7 +144,11 @@ impl ShaderHashProvider for FrameGeneralMaterialBufferReconstructSurface<'_> {
 }
 impl ShaderPassBuilder for FrameGeneralMaterialBufferReconstructSurface<'_> {
   fn setup_pass(&self, cx: &mut GPURenderPassCtx) {
-    self.m_buffer.material_type_id.bind_pass(&mut cx.binding);
+    self
+      .m_buffer
+      .material_type_id
+      .expect_texture_view::<u32>()
+      .bind_pass(&mut cx.binding);
     self.m_buffer.channel_a.bind_pass(&mut cx.binding);
     self.m_buffer.channel_b.bind_pass(&mut cx.binding);
     self.m_buffer.channel_c.bind_pass(&mut cx.binding);

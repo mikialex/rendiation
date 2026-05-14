@@ -30,7 +30,10 @@ impl GPUDevice {
       compute_pipeline_cache: Default::default(),
       placeholder_bg: Arc::new(placeholder_bg),
       deferred_explicit_destroy: Default::default(),
-      enable_binding_ty_check: Arc::new(RwLock::new(false)),
+      enable_binding_ty_check: {
+        let enabled = cfg!(debug_assertions);
+        Arc::new(RwLock::new(enabled))
+      },
       default_shader_checks,
     };
 
