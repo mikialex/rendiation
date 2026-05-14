@@ -31,6 +31,7 @@ impl PointLightDataView {
 }
 
 declare_entity!(PointLightEntity);
+declare_component!(PointLightEnabled, PointLightEntity, bool, true);
 declare_foreign_key!(PointLightRefScene, PointLightEntity, SceneEntity);
 declare_foreign_key!(PointLightRefNode, PointLightEntity, SceneNodeEntity);
 declare_component!(
@@ -49,6 +50,7 @@ declare_component!(
 pub fn register_point_light_data_model() {
   global_database()
     .declare_entity::<PointLightEntity>()
+    .declare_component::<PointLightEnabled>()
     .declare_component::<PointLightCutOffDistance>()
     .declare_component::<PointLightIntensity>()
     .declare_foreign_key::<PointLightRefScene>()
@@ -78,6 +80,7 @@ impl SpotLightDataView {
 }
 
 declare_entity!(SpotLightEntity);
+declare_component!(SpotLightEnabled, SpotLightEntity, bool, true);
 declare_foreign_key!(SpotLightRefScene, SpotLightEntity, SceneEntity);
 declare_foreign_key!(SpotLightRefNode, SpotLightEntity, SceneNodeEntity);
 declare_component!(
@@ -98,6 +101,7 @@ declare_component!(
 pub fn register_spot_light_data_model() {
   global_database()
     .declare_entity::<SpotLightEntity>()
+    .declare_component::<SpotLightEnabled>()
     .declare_component::<SpotLightCutOffDistance>()
     .declare_component::<SpotLightHalfConeAngle>()
     .declare_component::<SpotLightHalfPenumbraAngle>()
@@ -126,6 +130,7 @@ impl DirectionalLightDataView {
 }
 
 declare_entity!(DirectionalLightEntity);
+declare_component!(DirectionalLightEnabled, DirectionalLightEntity, bool, true);
 declare_foreign_key!(DirectionalRefScene, DirectionalLightEntity, SceneEntity);
 declare_foreign_key!(DirectionalRefNode, DirectionalLightEntity, SceneNodeEntity);
 declare_component!(
@@ -138,6 +143,7 @@ declare_component!(
 pub fn register_directional_light_data_model() {
   global_database()
     .declare_entity::<DirectionalLightEntity>()
+    .declare_component::<DirectionalLightEnabled>()
     .declare_component::<DirectionalLightIlluminance>()
     .declare_foreign_key::<DirectionalRefScene>()
     .declare_foreign_key::<DirectionalRefNode>();
