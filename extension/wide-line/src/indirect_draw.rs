@@ -36,7 +36,7 @@ pub fn use_widen_line_indirect_renderer(
     cx,
     "wide line segment buffer pool",
     100,
-    1000000,
+    u32::MAX,
     data_source,
   );
 

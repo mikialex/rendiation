@@ -62,6 +62,11 @@ impl<LeafData, BV, SimdBV> Qbvh<LeafData, BV, SimdBV>
 where
   SimdBV: SimdValue<Element = BV>,
 {
+  /// Reference to all nodes in the tree.
+  pub fn nodes(&self) -> &[QbvhNode<SimdBV>] {
+    &self.nodes
+  }
+
   /// The Aabb of the given node.
   pub fn node_aabb(&self, node_id: NodeIndex) -> Option<BV> {
     self

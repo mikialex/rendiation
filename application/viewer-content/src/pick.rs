@@ -3,8 +3,20 @@ use crate::*;
 pub struct ViewerPicker {
   pub model_picker: SceneModelPickerWithViewDep<Box<dyn SceneModelPicker>>,
   pub scene_model_iter_provider: Box<dyn SceneModelIterProvider>,
+  pub scene_bvh: Option<SceneBVHResultView>,
   pub camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
   pub ndc: ViewerNDC,
+}
+
+impl ViewerPicker {
+  pub fn debug_bvh(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+  ) -> Option<Vec<Vec<(Vec3<f32>, Vec3<f32>)>>> {
+    let bvh_view = self.scene_bvh.as_ref()?;
+    let qbvh = bvh_view.bvh.get_qbvh(scene.into_raw())?;
+    Some(rendiation_qbvh_scene::generate_qbvh_wireframe(qbvh))
+  }
 }
 
 pub struct NaiveSceneModelIterProvider {
@@ -142,7 +154,10 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
       active_view: None,
     };
 
+    let mut scene_bvh = None;
+
     let scene_model_iter_provider = if let Some(qbvh) = qbvh {
+      scene_bvh = Some(qbvh.clone());
       let iter_provider = rendiation_qbvh_scene::SceneQbvhIterProvider { internal: qbvh };
       Box::new(iter_provider) as Box<dyn SceneModelIterProvider>
     } else {
@@ -156,6 +171,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
       model_picker: scene_model_picker,
       scene_model_iter_provider,
       camera_transforms: camera_transforms.expect_resolve_stage(),
+      scene_bvh,
       ndc,
     }
   })

@@ -17,7 +17,7 @@ pub fn load_stress_test(scene: &mut SceneWriter, use_unique_material: bool) {
   });
   let mesh = scene.write_attribute_mesh(mesh.build()).mesh;
 
-  let h_count = 50;
+  let h_count = 10;
   let node_count = 100 + 100 * 100 + 100 * 100 * h_count;
   let model_count = 100 * 100 * h_count;
   scene.node_writer.notify_reserve_changes(node_count);

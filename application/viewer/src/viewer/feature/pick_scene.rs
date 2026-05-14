@@ -26,6 +26,8 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
   let (cx, range_state) = cx.use_plain_state::<Option<(Vec2<f32>, Vec2<f32>)>>();
 
+  let (cx, request_bvh_debug) = cx.use_plain_state::<bool>();
+
   if let ViewerCxStage::Gui {
     egui_ctx, global, ..
   } = &mut cx.stage
@@ -57,6 +59,10 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
             .precise_intersection_test,
           "use precise intersection test",
         );
+
+        if ui.button("debug scene bvh").clicked() {
+          *request_bvh_debug = true;
+        }
       });
 
     // draw ui rect
@@ -86,6 +92,27 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     .pick_scene
     .precise_intersection_test;
 
+  let (cx, request_bvh_debug_to_write) = cx.use_plain_state::<Option<Vec<WideLineVertex>>>();
+  if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
+    if let Some(vertices) = request_bvh_debug_to_write.take() {
+      let buffer = ExternalRefPtr::new(bytemuck::cast_slice(&vertices).to_vec());
+
+      let wide_line_model = global_entity_of::<WideLineModelEntity>()
+        .entity_writer()
+        .new_entity(|w| {
+          w.write::<WideLineWidth>(&2.0)
+            .write::<WideLineMeshBuffer>(&buffer)
+        });
+
+      let scene = writer.expect_target_scene().some_handle();
+      writer.model_writer.new_entity(|w| {
+        w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
+          .write::<SceneModelBelongsToScene>(&scene)
+          .write::<SceneModelRefNode>(&cx.active_surface_content.root.some_handle())
+      });
+    }
+  }
+
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     if let Some(f) = gpu_pick_future {
       noop_ctx!(ctx);
@@ -111,11 +138,47 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       }
     }
 
+    if *request_bvh_debug {
+      access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
+      *request_bvh_debug = false;
+      if let Some(bvh_line_buffer) = picker
+        .picker_impl
+        .debug_bvh(cx.active_surface_content.scene)
+      {
+        let max_depth = bvh_line_buffer.len().saturating_sub(1);
+        let vertices: Vec<WideLineVertex> = bvh_line_buffer
+          .iter()
+          .enumerate()
+          .flat_map(|(depth, lines)| {
+            let t = if max_depth > 0 {
+              depth as f32 / max_depth as f32
+            } else {
+              0.0
+            };
+            // red (0) -> green (0.5) -> blue (1)
+            let color = Vec4::new(
+              (1.0 - t * 2.0).max(0.0),
+              1.0 - (t * 2.0 - 1.0).abs(),
+              (t * 2.0 - 1.0).max(0.0),
+              1.0,
+            );
+            lines.iter().map(move |(start, end)| WideLineVertex {
+              start: *start,
+              end: *end,
+              color,
+            })
+          })
+          .collect();
+        *request_bvh_debug_to_write = Some(vertices);
+      }
+    }
+
     if cx.input.state_delta.is_left_mouse_releasing() {
       if let Some((a, b)) = range_state.take() {
         log::info!("end range {:?}", (a, b));
 
         access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
+
         if let Some(frustum) = create_range_pick_frustum(
           a,
           b,

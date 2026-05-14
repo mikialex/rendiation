@@ -39,6 +39,73 @@ impl SceneQbvh {
   }
 }
 
+pub fn generate_qbvh_wireframe(
+  qbvh: &SceneQbvhImpl,
+) -> Vec<Vec<(Vec3<f32>, Vec3<f32>)>> {
+  let nodes = qbvh.nodes();
+  if nodes.is_empty() {
+    return Vec::new();
+  }
+
+  let mut depth_lines: Vec<Vec<(Vec3<f32>, Vec3<f32>)>> = Vec::new();
+  let mut stack: Vec<(u32, usize)> = vec![(0, 0)];
+
+  while let Some((node_idx, depth)) = stack.pop() {
+    let node = &nodes[node_idx as usize];
+
+    if depth >= depth_lines.len() {
+      depth_lines.resize_with(depth + 1, Vec::new);
+    }
+
+    for lane in 0..QBVH_SIMD_WIDTH {
+      let child = node.children[lane];
+      if child == u32::MAX {
+        continue;
+      }
+      let aabb_simd: Box3ForSimd = node.simd_aabb.extract(lane);
+      let min: Vec3<f32> = aabb_simd.min.into();
+      let max: Vec3<f32> = aabb_simd.max.into();
+
+      let p0 = Vec3::new(min.x, min.y, min.z);
+      let p1 = Vec3::new(min.x, min.y, max.z);
+      let p2 = Vec3::new(min.x, max.y, min.z);
+      let p3 = Vec3::new(min.x, max.y, max.z);
+      let p4 = Vec3::new(max.x, min.y, min.z);
+      let p5 = Vec3::new(max.x, min.y, max.z);
+      let p6 = Vec3::new(max.x, max.y, min.z);
+      let p7 = Vec3::new(max.x, max.y, max.z);
+
+      let lines = &mut depth_lines[depth];
+      // bottom face
+      lines.push((p0, p2));
+      lines.push((p2, p6));
+      lines.push((p6, p4));
+      lines.push((p4, p0));
+      // top face
+      lines.push((p1, p3));
+      lines.push((p3, p7));
+      lines.push((p7, p5));
+      lines.push((p5, p1));
+      // vertical edges
+      lines.push((p0, p1));
+      lines.push((p2, p3));
+      lines.push((p6, p7));
+      lines.push((p4, p5));
+    }
+
+    if !node.is_leaf() {
+      for lane in 0..QBVH_SIMD_WIDTH {
+        let child = node.children[lane];
+        if child != u32::MAX && (child as usize) < nodes.len() {
+          stack.push((child, depth + 1));
+        }
+      }
+    }
+  }
+
+  depth_lines
+}
+
 #[derive(Clone)]
 pub struct SceneBVHResultView {
   pub bvh: LockReadGuardHolder<SceneQbvh>,
