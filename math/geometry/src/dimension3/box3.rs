@@ -136,6 +136,96 @@ impl<T: Scalar> Box3<T> {
   pub fn is_empty(&self) -> bool {
     (self.max.x < self.min.x) || (self.max.y < self.min.y) || (self.max.z < self.min.z)
   }
+
+  #[inline]
+  pub fn from_points<I: IntoIterator<Item = Vec3<T>>>(pts: I) -> Self {
+    pts.into_iter().collect()
+  }
+
+  #[inline]
+  pub fn merged(&self, other: &Self) -> Self {
+    self.union_into(*other)
+  }
+
+  #[inline]
+  pub fn volume(&self) -> T {
+    <Self as LebesgueMeasurable<T, 3>>::measure(self)
+  }
+
+  #[inline]
+  pub fn half_area(&self) -> T {
+    let e = self.size();
+    e.x * (e.y + e.z) + e.y * e.z
+  }
+
+  #[inline]
+  pub fn contains_box(&self, other: &Self) -> bool {
+    <Self as ContainAble<T, Self, 3>>::contains(self, other)
+  }
+
+  #[inline]
+  pub fn contains_point(&self, point: &Vec3<T>) -> bool {
+    <Self as ContainAble<T, Vec3<T>, 3>>::contains(self, point)
+  }
+
+  #[inline]
+  pub fn intersects(&self, other: &Self) -> bool {
+    self.min.x <= other.max.x
+      && self.max.x >= other.min.x
+      && self.min.y <= other.max.y
+      && self.max.y >= other.min.y
+      && self.min.z <= other.max.z
+      && self.max.z >= other.min.z
+  }
+
+  #[inline]
+  pub fn distance_to_local_point(&self, pt: Vec3<T>, solid: bool) -> T {
+    let mins_pt = self.min - pt;
+    let pt_maxs = pt - self.max;
+    let shift = mins_pt.max(pt_maxs).max(Vec3::zero());
+    if solid || shift != Vec3::zero() {
+      shift.length()
+    } else {
+      let nearest = Vec3::new(
+        pt.x.clamp(self.min.x, self.max.x),
+        pt.y.clamp(self.min.y, self.max.y),
+        pt.z.clamp(self.min.z, self.max.z),
+      );
+      -pt.distance_to(nearest)
+    }
+  }
+
+  #[inline]
+  pub fn cast_local_ray(&self, ray: &Ray3<T>, max_toi: T, solid: bool) -> Option<T> {
+    let mut tmin: T = T::zero();
+    let mut tmax: T = max_toi;
+    let dir = ray.direction.value;
+    let orig = ray.origin;
+    for i in 0..3 {
+      if dir[i].is_zero() {
+        if orig[i] < self.min[i] || orig[i] > self.max[i] {
+          return None;
+        }
+      } else {
+        let denom = T::one() / dir[i];
+        let mut inter_near = (self.min[i] - orig[i]) * denom;
+        let mut inter_far = (self.max[i] - orig[i]) * denom;
+        if inter_near > inter_far {
+          core::mem::swap(&mut inter_near, &mut inter_far);
+        }
+        tmin = tmin.max(inter_near);
+        tmax = tmax.min(inter_far);
+        if tmin > tmax {
+          return None;
+        }
+      }
+    }
+    if tmin.is_zero() && !solid {
+      Some(tmax)
+    } else {
+      Some(tmin)
+    }
+  }
 }
 
 impl<'a, T: Scalar> FromIterator<&'a Vec3<T>> for Box3<T> {

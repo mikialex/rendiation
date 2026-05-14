@@ -1,0 +1,18 @@
+[package]
+authors = ["MikiAlex <miikiialexx@gmail.com>"]
+edition = "2021"
+name = "dynamic-bvh"
+version = "0.1.0"
+
+[dependencies]
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-geometry = { path = "../../math/geometry" }
+smallvec = { workspace = true }
+ordered-float = "4.6"
+static_assertions = "1.1"
+
+[dev-dependencies]
+rand = { workspace = true }
+
+[lints]
+workspace = true

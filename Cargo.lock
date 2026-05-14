@@ -1230,6 +1230,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
+name = "dynamic-bvh"
+version = "0.1.0"
+dependencies = [
+ "ordered-float 4.6.0",
+ "rand 0.9.2",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "smallvec",
+ "static_assertions",
+]
+
+[[package]]
 name = "ecolor"
 version = "0.33.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4166,6 +4178,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-dynamic-bvh-scene"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "dynamic-bvh",
+ "fast-hash-collection",
+ "log",
+ "parking_lot",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-scene-core",
+ "rendiation-scene-geometry-query",
+]
+
+[[package]]
 name = "rendiation-fast-down-sampling-2d"
 version = "0.1.0"
 dependencies = [
@@ -5047,6 +5074,7 @@ dependencies = [
  "rendiation-controller",
  "rendiation-csg-sdf-expression",
  "rendiation-device-ray-tracing",
+ "rendiation-dynamic-bvh-scene",
  "rendiation-fast-down-sampling-2d",
  "rendiation-frustum-culling",
  "rendiation-geometry",
@@ -5066,7 +5094,6 @@ dependencies = [
  "rendiation-occ-style-material",
  "rendiation-occlusion-culling",
  "rendiation-oit",
- "rendiation-qbvh-scene",
  "rendiation-scene-batch-extractor",
  "rendiation-scene-core",
  "rendiation-scene-geometry-query",
