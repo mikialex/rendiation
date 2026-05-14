@@ -101,7 +101,7 @@ impl LTCxLightEval {
 
     ENode::<ShaderLightingResult> {
       diffuse: diff * diffuse_color * light_color,
-      specular_and_emissive: spec * light_color,
+      specular: spec * light_color,
     }
   }
 }

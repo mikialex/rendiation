@@ -59,7 +59,7 @@ pub use rendiation_text_3d::*;
 use rendiation_texture_core::*;
 pub use rendiation_texture_core::{GPUBufferImage, Size};
 use rendiation_texture_gpu_base::{create_gpu_texture2d, SamplerConvertExt};
-use rendiation_texture_gpu_process::{ToneMap, ToneMapType};
+use rendiation_texture_gpu_process::{ForwardLightingEmissiveAdd, ToneMap, ToneMapType};
 use rendiation_view_dependent_transform::*;
 pub use rendiation_view_dependent_transform::{
   OccStyleCorner, OccStyleMode, OccStyleTransform, OccStyleViewDepConfig, SceneCameraLookAt,

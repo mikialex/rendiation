@@ -1,6 +1,5 @@
 use crate::*;
 
-both!(EmissiveChannel, Vec3<f32>);
 both!(SpecularChannel, Vec3<f32>);
 
 // This is the alpha, which is the square of the perceptual roughness
@@ -106,7 +105,7 @@ fn physical_shading_fn(
       if_by(n_dot_l.equals(0.), || {
         cx.do_return(ENode::<ShaderLightingResult> {
           diffuse: val(Vec3::zero()),
-          specular_and_emissive: shading.emissive,
+          specular: val(Vec3::zero()),
         })
       });
 
@@ -126,7 +125,7 @@ fn physical_shading_fn(
 
       cx.do_return(ENode::<ShaderLightingResult> {
         diffuse: light.color * direct_diffuse_brdf * n_dot_l,
-        specular_and_emissive: light.color * direct_specular_brdf * n_dot_l + shading.emissive,
+        specular: light.color * direct_specular_brdf * n_dot_l,
       })
     })
     .prepare_parameters()

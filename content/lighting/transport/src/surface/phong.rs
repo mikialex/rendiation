@@ -58,7 +58,7 @@ impl LightableSurfaceShading for ShaderPhongShadingShaderAPIInstance {
 
     ENode::<ShaderLightingResult> {
       diffuse: direct_light.color * self.diffuse * n_dot_l,
-      specular_and_emissive: self.emissive + direct_light.color * self.specular * specular_ratio,
+      specular: direct_light.color * self.specular * specular_ratio,
     }
   }
 

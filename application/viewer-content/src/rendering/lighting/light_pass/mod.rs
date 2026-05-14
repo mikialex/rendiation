@@ -8,7 +8,6 @@ use crate::*;
 pub enum LightingTechniqueKind {
   Forward,
   DeferLighting,
-  // Visibility,
 }
 
 pub struct LightingRenderingCx<'a> {
@@ -70,7 +69,7 @@ pub fn render_lighting_scene_content(
     renderer.scene,
   );
 
-  // always get forward lighting because we may use it in none forward case
+  // always get forward lighting because we may use it in none forward case(transparent pass in defer mode)
   let forward_lighting = lighting_cx
     .lighting
     .get_scene_forward_lighting_component(scene, camera);

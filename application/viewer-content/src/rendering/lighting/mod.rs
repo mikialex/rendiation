@@ -286,7 +286,10 @@ impl SceneLightSystem<'_> {
     let scene_id = self.scene_ids.get(&scene.into_raw()).unwrap().clone();
 
     light
-      .push(&system.tonemap as &dyn RenderComponent) //
+      .push(&system.tonemap as &dyn RenderComponent)
+      // if we can not do a single draw for all light, this should not be used!
+      // because the emissive will be added multiple times
+      .push(&ForwardLightingEmissiveAdd as &dyn RenderComponent)
       .push(LightingComputeComponentAsRenderComponent {
         scene_id,
         geometry_constructor,

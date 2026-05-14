@@ -94,12 +94,35 @@ impl GraphicsShaderProvider for ToneMap {
         .try_query::<LDRLightResult>()
         .unwrap_or(val(Vec3::zero()))
         .make_local_var();
+
       let hdr = builder.query::<HDRLightResult>();
+
       if_by(should_use_ldr_if_already_exist_ldr.not(), || {
         ldr.store(tonemap.compute_ldr(hdr));
       });
 
       builder.register::<LDRLightResult>(ldr.load());
+    })
+  }
+}
+
+pub struct ForwardLightingEmissiveAdd;
+impl ShaderHashProvider for ForwardLightingEmissiveAdd {
+  shader_hash_type_id! {}
+}
+impl ShaderPassBuilder for ForwardLightingEmissiveAdd {}
+impl GraphicsShaderProvider for ForwardLightingEmissiveAdd {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, _| {
+      let hdr = builder.query::<HDRLightResult>();
+
+      let emissive = builder
+        .try_query::<EmissiveChannel>()
+        .unwrap_or_else(|| val(Vec3::zero()));
+
+      let hdr = hdr + emissive;
+
+      builder.register::<HDRLightResult>(hdr);
     })
   }
 }

@@ -73,7 +73,6 @@ impl LightingComputeInvocation for IBLLighting {
       albedo,
       linear_roughness,
       f0,
-      emissive,
       ..
     } = shading.cloned().unwrap();
 
@@ -87,7 +86,7 @@ impl LightingComputeInvocation for IBLLighting {
 
     let diffuse = self.diffuse.sample_zero_level(self.sampler, sample_normal);
 
-    let diffuse = diffuse.xyz() * uniform.diffuse_illuminance * albedo + emissive;
+    let diffuse = diffuse.xyz() * uniform.diffuse_illuminance * albedo;
 
     let lod = linear_roughness * (self.specular.texture_number_levels() - val(1)).into_f32();
     let specular = self
@@ -103,9 +102,6 @@ impl LightingComputeInvocation for IBLLighting {
     let specular =
       (f0 * brdf_lut.x() + brdf_lut.y().splat()) * specular.xyz() * uniform.specular_illuminance;
 
-    ENode::<ShaderLightingResult> {
-      diffuse,
-      specular_and_emissive: specular,
-    }
+    ENode::<ShaderLightingResult> { diffuse, specular }
   }
 }

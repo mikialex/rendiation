@@ -653,7 +653,7 @@ pub trait SharedConsumerTokenDrop {
   fn drop_downstream(&self, id: u32, key: ShareKey, debug_label: &str);
 }
 
-pub const DEBUG_LOG_SHARED_HOOK: bool = true;
+pub const DEBUG_LOG_SHARED_HOOK: bool = false;
 
 #[derive(Default)]
 pub struct SharedHookObject {

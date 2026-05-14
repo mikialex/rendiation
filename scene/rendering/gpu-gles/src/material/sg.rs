@@ -1,4 +1,4 @@
-use rendiation_lighting_transport::{EmissiveChannel, GlossinessChannel, SpecularChannel};
+use rendiation_lighting_transport::{GlossinessChannel, SpecularChannel};
 use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;

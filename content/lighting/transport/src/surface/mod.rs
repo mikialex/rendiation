@@ -157,7 +157,7 @@ pub trait LightableSurfaceShading {
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct ShaderLightingResult {
   pub diffuse: Vec3<f32>,
-  pub specular_and_emissive: Vec3<f32>,
+  pub specular: Vec3<f32>,
 }
 
 impl core::ops::Add for ENode<ShaderLightingResult> {
@@ -166,7 +166,7 @@ impl core::ops::Add for ENode<ShaderLightingResult> {
   fn add(self, rhs: Self) -> Self::Output {
     Self {
       diffuse: self.diffuse + rhs.diffuse,
-      specular_and_emissive: self.specular_and_emissive + rhs.specular_and_emissive,
+      specular: self.specular + rhs.specular,
     }
   }
 }
