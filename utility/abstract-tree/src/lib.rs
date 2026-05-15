@@ -18,7 +18,7 @@ pub trait AbstractTreeNode {
     visit_count
   }
   fn has_children(&self) -> bool {
-    self.children_count() == 0
+    self.children_count() != 0
   }
   /// Check if this node is a leaf of the tree.
   fn is_leaf(&self) -> bool {
