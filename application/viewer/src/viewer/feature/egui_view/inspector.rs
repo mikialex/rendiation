@@ -5,11 +5,68 @@ pub struct InspectedContent {
   contents: FastHashMap<ShareKey, (String, SharedContentState)>,
   shared_stack: Vec<ShareKey>,
   root: SharedContentState,
+  show_config: ShowConfig,
+}
+
+#[derive(Default, Debug, PartialEq, Clone, Copy)]
+enum ShowConfig {
+  MemoryUsageOnly,
+  DeviceMemoryUsageOnly,
+  #[default]
+  All,
+}
+
+enum InspectionItem {
+  Label(String),
+  DeviceMemoryUsage { label: String, usage: u64 },
+  HostMemoryUsage { label: String, usage: u64 },
+}
+
+impl InspectionItem {
+  fn filter(&self, config: &ShowConfig) -> Option<&Self> {
+    match config {
+      ShowConfig::MemoryUsageOnly => match self {
+        InspectionItem::HostMemoryUsage { .. } => Some(self),
+        _ => None,
+      },
+      ShowConfig::DeviceMemoryUsageOnly => match self {
+        InspectionItem::DeviceMemoryUsage { .. } => Some(self),
+        _ => None,
+      },
+      ShowConfig::All => Some(self),
+    }
+  }
+}
+
+impl InspectionItem {
+  fn ui(&self, ui: &mut egui::Ui, config: &ShowConfig) {
+    if let Some(item) = self.filter(config) {
+      match item {
+        InspectionItem::DeviceMemoryUsage { label, usage } => {
+          ui.label(format!(
+            "<{}> mem used: {}",
+            label,
+            humansize::format_size(*usage, humansize::BINARY)
+          ));
+        }
+        InspectionItem::HostMemoryUsage { label, usage } => {
+          ui.label(format!(
+            "<{}> gpu mem used: {}",
+            label,
+            humansize::format_size(*usage, humansize::BINARY)
+          ));
+        }
+        InspectionItem::Label(label) => {
+          ui.label(label);
+        }
+      }
+    }
+  }
 }
 
 #[derive(Default)]
 struct SharedContentState {
-  content: Vec<String>,
+  content: Vec<InspectionItem>,
   memory_used: u64,
   device_memory_used: u64,
 }
@@ -28,10 +85,26 @@ impl InspectedContent {
     self.root.clear();
   }
 
-  pub fn draw(&self, egui_ctx: &mut egui::Context) {
+  pub fn draw(&mut self, egui_ctx: &mut egui::Context) {
     egui::Window::new("System Inspection")
       .vscroll(true)
       .show(egui_ctx, |ui| {
+        egui::ComboBox::from_label("filter")
+          .selected_text(format!("{:?}", &self.show_config))
+          .show_ui(ui, |ui| {
+            ui.selectable_value(&mut self.show_config, ShowConfig::All, "All");
+            ui.selectable_value(
+              &mut self.show_config,
+              ShowConfig::MemoryUsageOnly,
+              "MemoryUsageOnly",
+            );
+            ui.selectable_value(
+              &mut self.show_config,
+              ShowConfig::DeviceMemoryUsageOnly,
+              "DeviceMemoryUsageOnly",
+            );
+          });
+
         ui.heading("Summary:");
 
         let all_memory =
@@ -59,7 +132,7 @@ impl InspectedContent {
         }
 
         for content in &self.root.content {
-          ui.label(content);
+          content.ui(ui, &self.show_config);
         }
 
         ui.heading("Shared scopes:");
@@ -73,7 +146,7 @@ impl InspectedContent {
             .id_salt(unique_k)
             .show(ui, |ui| {
               for content in content.content.iter() {
-                ui.label(content);
+                content.ui(ui, &self.show_config);
               }
               if content.content.is_empty() {
                 ui.label("nothing to show");
@@ -94,7 +167,10 @@ impl InspectedContent {
 
 impl Inspector for InspectedContent {
   fn label(&mut self, label: &str) {
-    self.current_content().content.push(label.to_string());
+    self
+      .current_content()
+      .content
+      .push(InspectionItem::Label(label.to_string()));
   }
 
   fn enter_shared_ctx(&mut self, key: &ShareKey, label: &str) {
@@ -114,13 +190,23 @@ impl Inspector for InspectedContent {
   }
 
   fn label_memory_usage(&mut self, label: &str, bytes: usize) {
-    let readable = self.format_readable_data_size(bytes as u64);
-    self.label(format!("\"{}\" mem used: {}", label, readable).as_str());
+    self
+      .current_content()
+      .content
+      .push(InspectionItem::DeviceMemoryUsage {
+        label: label.to_string(),
+        usage: bytes as u64,
+      });
     self.current_content().memory_used += bytes as u64;
   }
   fn label_device_memory_usage(&mut self, label: &str, bytes: u64) {
-    let readable = self.format_readable_data_size(bytes);
-    self.label(format!("\"{}\" gpu mem used: {}", label, readable).as_str());
+    self
+      .current_content()
+      .content
+      .push(InspectionItem::HostMemoryUsage {
+        label: label.to_string(),
+        usage: bytes as u64,
+      });
     self.current_content().device_memory_used += bytes;
   }
 }
