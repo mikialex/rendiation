@@ -14,8 +14,7 @@ impl ViewerPicker {
     scene: EntityHandle<SceneEntity>,
   ) -> Option<Vec<Vec<(Vec3<f32>, Vec3<f32>)>>> {
     let bvh_view = self.scene_bvh.as_ref()?;
-    let bvh = bvh_view.bvh.get_bvh(scene.into_raw())?;
-    Some(rendiation_dynamic_bvh_scene::generate_dynamic_bvh_wireframe(bvh))
+    bvh_view.bvh.generate_bvh_debug_wireframe(scene.into_raw())
   }
 }
 

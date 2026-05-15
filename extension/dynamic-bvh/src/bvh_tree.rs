@@ -1,7 +1,7 @@
 use std::collections::{BinaryHeap, VecDeque};
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
-use rendiation_algebra::{RealVector, Vec3, Vector};
+use rendiation_algebra::{RealVector, Scalar, Vec3, Vector};
 use rendiation_geometry::Ray3;
 use rendiation_geometry::{Box3, ContainAble};
 
@@ -1037,10 +1037,44 @@ impl BvhNode {
   /// - [`Ray3<f32>`] - Ray3<f32> structure
   /// - [`Bvh::traverse`] - For traversing the full BVH with ray casts
   pub fn cast_ray(&self, ray: &Ray3<f32>, max_toi: f32) -> f32 {
-    self
-      .aabb()
-      .cast_local_ray(ray, max_toi, true)
-      .unwrap_or(f32::MAX)
+    #[inline]
+    fn cast_local_ray<T: Scalar>(
+      bbox: &Box3<T>,
+      ray: &Ray3<T>,
+      max_toi: T,
+      solid: bool,
+    ) -> Option<T> {
+      let mut tmin: T = T::zero();
+      let mut tmax: T = max_toi;
+      let dir = ray.direction.value;
+      let orig = ray.origin;
+      for i in 0..3 {
+        if dir[i].is_zero() {
+          if orig[i] < bbox.min[i] || orig[i] > bbox.max[i] {
+            return None;
+          }
+        } else {
+          let denom = T::one() / dir[i];
+          let mut inter_near = (bbox.min[i] - orig[i]) * denom;
+          let mut inter_far = (bbox.max[i] - orig[i]) * denom;
+          if inter_near > inter_far {
+            core::mem::swap(&mut inter_near, &mut inter_far);
+          }
+          tmin = tmin.max(inter_near);
+          tmax = tmax.min(inter_far);
+          if tmin > tmax {
+            return None;
+          }
+        }
+      }
+      if tmin.is_zero() && !solid {
+        Some(tmax)
+      } else {
+        Some(tmin)
+      }
+    }
+
+    cast_local_ray(&self.aabb(), ray, max_toi, true).unwrap_or(f32::MAX)
   }
 }
 

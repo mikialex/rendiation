@@ -47,7 +47,7 @@ impl Bvh {
     assert!(leaves.len() > 1);
 
     let centroid_aabb = Box3::from_points(leaves.iter().map(|node| node.center()));
-    let bins_axis = centroid_aabb.size().max_position();
+    let bins_axis = centroid_aabb.size().max_channel_index();
     let bins_range = [centroid_aabb.min[bins_axis], centroid_aabb.max[bins_axis]];
 
     // Compute bins characteristics.
