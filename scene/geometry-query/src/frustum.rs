@@ -298,38 +298,13 @@ fn compute_frustum_corners<T: Scalar>(f: &Frustum<T>) -> Option<[Vec3<T>; 8]> {
   let p = &f.planes;
   // planes: 0=right, 1=left, 2=top, 3=bottom, 4=far, 5=near
   Some([
-    intersect_three_planes(&p[5], &p[1], &p[2])?, // near left top
-    intersect_three_planes(&p[5], &p[0], &p[2])?, // near right top
-    intersect_three_planes(&p[5], &p[1], &p[3])?, // near left bottom
-    intersect_three_planes(&p[5], &p[0], &p[3])?, // near right bottom
-    intersect_three_planes(&p[4], &p[1], &p[2])?, // far left top
-    intersect_three_planes(&p[4], &p[0], &p[2])?, // far right top
-    intersect_three_planes(&p[4], &p[1], &p[3])?, // far left bottom
-    intersect_three_planes(&p[4], &p[0], &p[3])?, // far right bottom
+    Plane::intersect_three(&p[5], &p[1], &p[2])?, // near left top
+    Plane::intersect_three(&p[5], &p[0], &p[2])?, // near right top
+    Plane::intersect_three(&p[5], &p[1], &p[3])?, // near left bottom
+    Plane::intersect_three(&p[5], &p[0], &p[3])?, // near right bottom
+    Plane::intersect_three(&p[4], &p[1], &p[2])?, // far left top
+    Plane::intersect_three(&p[4], &p[0], &p[2])?, // far right top
+    Plane::intersect_three(&p[4], &p[1], &p[3])?, // far left bottom
+    Plane::intersect_three(&p[4], &p[0], &p[3])?, // far right bottom
   ])
-}
-
-fn intersect_three_planes<T: Scalar>(
-  p1: &Plane<T>,
-  p2: &Plane<T>,
-  p3: &Plane<T>,
-) -> Option<Vec3<T>> {
-  let n1 = *p1.normal;
-  let n2 = *p2.normal;
-  let n3 = *p3.normal;
-  let d1 = p1.constant;
-  let d2 = p2.constant;
-  let d3 = p3.constant;
-
-  let n2_cross_n3 = n2.cross(n3);
-  let det = n1.dot(n2_cross_n3);
-  if det == T::zero() {
-    return None;
-  }
-
-  let n3_cross_n1 = n3.cross(n1);
-  let n1_cross_n2 = n1.cross(n2);
-
-  let p = (n2_cross_n3 * d1 + n3_cross_n1 * d2 + n1_cross_n2 * d3) / (-det);
-  Some(p)
 }
