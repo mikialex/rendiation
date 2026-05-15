@@ -542,9 +542,8 @@ impl SceneBoundingComputer {
   ) -> Box3<f32> {
     let mut r = Box3::empty();
     if let Some(qbvh) = &self.qbvh {
-      if let Some(qbvh) = qbvh.bvh.get_qbvh(scene.into_raw()) {
-        let root = qbvh.root_aabb();
-        r = Box3::new(root.min.into(), root.max.into()).into()
+      if let Some(aabb) = qbvh.bvh.get_root_aabb(scene.into_raw()) {
+        r = aabb;
       } // the none case is possible if the scene is empty?
     } else {
       // todo, impl downgrade impl to support bvh not enabled case

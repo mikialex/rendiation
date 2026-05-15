@@ -45,8 +45,8 @@ pub use rendiation_occ_style_material::{
   OccStyleMaterialEmissive, OccStyleMaterialEntity, OccStyleMaterialShininess,
   OccStyleMaterialSpecular, OccStyleMaterialTransparent, StdModelOccStyleMaterialPayload,
 };
-pub use rendiation_qbvh_scene::SceneBVHResultView;
-pub use rendiation_qbvh_scene::SceneQbvh;
+pub use rendiation_dynamic_bvh_scene::SceneBVHResultView;
+pub use rendiation_dynamic_bvh_scene::SceneDynamicBvh;
 use rendiation_scene_batch_extractor::*;
 pub use rendiation_scene_core::*;
 pub use rendiation_scene_geometry_query::*;

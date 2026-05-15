@@ -136,6 +136,47 @@ impl<T: Scalar> Box3<T> {
   pub fn is_empty(&self) -> bool {
     (self.max.x < self.min.x) || (self.max.y < self.min.y) || (self.max.z < self.min.z)
   }
+
+  #[inline]
+  pub fn from_points<I: IntoIterator<Item = Vec3<T>>>(pts: I) -> Self {
+    pts.into_iter().collect()
+  }
+
+  #[inline]
+  pub fn merged(&self, other: &Self) -> Self {
+    self.union_into(*other)
+  }
+
+  #[inline]
+  pub fn volume(&self) -> T {
+    <Self as LebesgueMeasurable<T, 3>>::measure(self)
+  }
+
+  #[inline]
+  pub fn half_area(&self) -> T {
+    let e = self.size();
+    e.x * (e.y + e.z) + e.y * e.z
+  }
+
+  #[inline]
+  pub fn contains_box(&self, other: &Self) -> bool {
+    <Self as ContainAble<T, Self, 3>>::contains(self, other)
+  }
+
+  #[inline]
+  pub fn contains_point(&self, point: &Vec3<T>) -> bool {
+    <Self as ContainAble<T, Vec3<T>, 3>>::contains(self, point)
+  }
+
+  #[inline]
+  pub fn intersects(&self, other: &Self) -> bool {
+    self.min.x <= other.max.x
+      && self.max.x >= other.min.x
+      && self.min.y <= other.max.y
+      && self.max.y >= other.min.y
+      && self.min.z <= other.max.z
+      && self.max.z >= other.min.z
+  }
 }
 
 impl<'a, T: Scalar> FromIterator<&'a Vec3<T>> for Box3<T> {

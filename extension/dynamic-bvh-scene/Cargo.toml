@@ -1,7 +1,7 @@
 [package]
 authors = ["mikialex <miikiialexx@gmail.com>"]
 edition = "2021"
-name = "rendiation-qbvh-scene"
+name = "rendiation-dynamic-bvh-scene"
 version = "0.1.0"
 
 [dependencies]
@@ -10,7 +10,7 @@ log = { workspace = true }
 database = { path = "../../utility/database" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-geometry = { path = "../../math/geometry" }
-rendiation-qbvh = { path = "../qbvh" }
+dynamic-bvh = { path = "../dynamic-bvh" }
 rendiation-scene-core = { path = "../../scene/core" }
 rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
 parking_lot = { workspace = true }

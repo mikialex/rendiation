@@ -14,8 +14,7 @@ impl ViewerPicker {
     scene: EntityHandle<SceneEntity>,
   ) -> Option<Vec<Vec<(Vec3<f32>, Vec3<f32>)>>> {
     let bvh_view = self.scene_bvh.as_ref()?;
-    let qbvh = bvh_view.bvh.get_qbvh(scene.into_raw())?;
-    Some(rendiation_qbvh_scene::generate_qbvh_wireframe(qbvh))
+    bvh_view.bvh.generate_bvh_debug_wireframe(scene.into_raw())
   }
 }
 
@@ -67,7 +66,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for ViewerQbvhShared {
       .fork();
 
     let margin = sm_w.dual_query_map(|_| 0.); // todo, use correct margin source
-    rendiation_qbvh_scene::use_scene_qbvh(cx, sm_world_bounding_valid, margin)
+    rendiation_dynamic_bvh_scene::use_scene_dynamic_bvh(cx, sm_world_bounding_valid, margin)
   }
 }
 
@@ -158,7 +157,8 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
 
     let scene_model_iter_provider = if let Some(qbvh) = qbvh {
       scene_bvh = Some(qbvh.clone());
-      let iter_provider = rendiation_qbvh_scene::SceneQbvhIterProvider { internal: qbvh };
+      let iter_provider =
+        rendiation_dynamic_bvh_scene::SceneDynamicBvhIterProvider { internal: qbvh };
       Box::new(iter_provider) as Box<dyn SceneModelIterProvider>
     } else {
       let iter_provider = NaiveSceneModelIterProvider {

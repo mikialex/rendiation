@@ -94,6 +94,17 @@ where
   pub fn min_channel(self) -> T {
     self.x.min(self.y).min(self.z)
   }
+
+  #[inline]
+  pub fn max_channel_index(self) -> usize {
+    if self.x >= self.y && self.x >= self.z {
+      0
+    } else if self.y >= self.z {
+      1
+    } else {
+      2
+    }
+  }
 }
 
 impl<T> Vec3<T>
