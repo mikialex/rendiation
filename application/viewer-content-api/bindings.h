@@ -205,7 +205,7 @@ ViewerEntityHandle viewer_read_last_render_result(ViewerAPI *api, uint32_t surfa
 /// the size is physical resolution
 void viewer_resize(ViewerAPI *api, uint32_t surface_id, uint32_t new_width, uint32_t new_height);
 
-void viewer_load_font(ViewerAPI *api, uint32_t data_length, const uint8_t *data);
+void viewer_load_font(ViewerAPI *api, const char *font_path);
 
 void viewer_render_surface(ViewerAPI *api, uint32_t surface_id);
 

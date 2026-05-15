@@ -1,4 +1,8 @@
-use std::ffi::{c_char, CStr};
+use std::{
+  ffi::{c_char, CStr},
+  os::unix::ffi::OsStrExt,
+  path::Path,
+};
 
 use crate::*;
 
@@ -58,39 +62,34 @@ pub extern "C" fn viewer_create_surface(
 }
 
 #[no_mangle]
-pub extern "C" fn viewer_drop_surface(api: *mut ViewerAPI, surface_id: u32) {
-  let api = unsafe { &mut *api };
+pub extern "C" fn viewer_drop_surface(api: &mut ViewerAPI, surface_id: u32) {
   api.drop_surface(surface_id)
 }
 
 #[no_mangle]
 pub extern "C" fn viewer_surface_set_camera(
-  api: *mut ViewerAPI,
+  api: &mut ViewerAPI,
   surface_id: u32,
   camera: ViewerEntityHandle,
 ) {
-  let api = unsafe { &mut *api };
   api.set_surface_camera(surface_id, camera.into());
 }
 
 #[no_mangle]
 pub extern "C" fn viewer_surface_set_scene(
-  api: *mut ViewerAPI,
+  api: &mut ViewerAPI,
   surface_id: u32,
   scene: ViewerEntityHandle,
 ) {
-  let api = unsafe { &mut *api };
   api.set_surface_scene(surface_id, scene.into());
 }
 
 /// may return empty handle for error case
 #[no_mangle]
 pub extern "C" fn viewer_read_last_render_result(
-  api: *mut ViewerAPI,
+  api: &mut ViewerAPI,
   surface_id: u32,
 ) -> ViewerEntityHandle {
-  let api = unsafe { &mut *api };
-
   if let Some(data) = api.read_last_render_result(surface_id) {
     let data = MaybeUriData::Living(Arc::new(data));
     let data = ExternalRefPtr::new(data);
@@ -106,20 +105,23 @@ pub extern "C" fn viewer_read_last_render_result(
 /// the size is physical resolution
 #[no_mangle]
 pub extern "C" fn viewer_resize(
-  api: *mut ViewerAPI,
+  api: &mut ViewerAPI,
   surface_id: u32,
   new_width: u32,
   new_height: u32,
 ) {
-  let api = unsafe { &mut *api };
   api.resize(surface_id, new_width, new_height);
 }
 
 #[no_mangle]
-pub extern "C" fn viewer_load_font(api: *mut ViewerAPI, data_length: u32, data: *const u8) {
-  let api = unsafe { &mut *api };
-  let data = unsafe { std::slice::from_raw_parts(data, data_length as usize) }.to_vec();
-  api.core.viewer.load_font(data);
+pub extern "C" fn viewer_load_font(api: &mut ViewerAPI, font_path: *const c_char) {
+  let font_path = unsafe { CStr::from_ptr(font_path) };
+  let font_path = Path::new(std::ffi::OsStr::from_bytes(font_path.to_bytes()));
+
+  match std::fs::read(&font_path) {
+    Ok(data) => api.core.viewer.load_font(data),
+    Err(e) => log::error!("failed to read font from {:?}, error: {e:?}", font_path),
+  }
 }
 
 #[no_mangle]
@@ -251,14 +253,12 @@ pub extern "C" fn query_scene_bounding(
 /// all inputs are logic pixel
 #[no_mangle]
 pub extern "C" fn picker_pick_list(
-  api: *mut ViewerQueryAPI,
-  viewer: *mut ViewerAPI,
+  api: &mut ViewerQueryAPI,
+  viewer: &mut ViewerAPI,
   scene: ViewerEntityHandle,
   x: f32,
   y: f32,
 ) -> *mut ViewerRayPickListResult {
-  let api = unsafe { &mut *api };
-  let viewer = unsafe { &mut *viewer };
   let mut pick_results = Vec::new();
   api.pick_list(&viewer.core.viewer, scene.into(), x, y, &mut pick_results);
 
@@ -285,8 +285,8 @@ pub extern "C" fn drop_pick_list_result(r: *mut ViewerRayPickListResult) {
 /// all inputs are logic pixel
 #[no_mangle]
 pub extern "C" fn picker_pick_range(
-  api: *mut ViewerQueryAPI,
-  viewer: *mut ViewerAPI,
+  api: &mut ViewerQueryAPI,
+  viewer: &mut ViewerAPI,
   scene: ViewerEntityHandle,
   ax: f32,
   ay: f32,
@@ -295,8 +295,6 @@ pub extern "C" fn picker_pick_range(
   contains: bool,
   precise_intersection_test: bool,
 ) -> *mut ViewerRayPickRangeResult {
-  let api = unsafe { &mut *api };
-  let viewer = unsafe { &mut *viewer };
   let mut pick_results = Vec::new();
   api.pick_range(
     &viewer.core.viewer,

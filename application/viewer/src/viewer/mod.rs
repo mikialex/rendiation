@@ -315,7 +315,11 @@ pub fn use_viewer<'a>(
     )
   });
 
-  let (acx, data_scheduler) = acx.use_plain_state(ViewerDataScheduler::default);
+  let (acx, data_scheduler) = acx.use_plain_state(|| {
+    let exe_path = std::env::current_exe().unwrap();
+    let root = exe_path.parent().unwrap().join("temp_resources/");
+    ViewerDataScheduler::new(Some(&root))
+  });
 
   let surface_id = acx.surface_id;
   let (acx, viewer) = acx.use_state_init(

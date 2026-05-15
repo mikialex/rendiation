@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use fast_hash_collection::FastHashSet;
 use rendiation_uri_streaming::*;
 
@@ -18,29 +20,34 @@ pub struct ViewerDataScheduler {
   mesh: Arc<RwLock<MeshScheduler>>,
 }
 
-impl Default for ViewerDataScheduler {
-  fn default() -> Self {
+impl ViewerDataScheduler {
+  /// if `disk_backend_path` is None, or in wasm build, the stream-able resource will be stored in memory
+  #[allow(unused)] // in wasm build, the disk_backend_path is not used
+  pub fn new(disk_backend_path: Option<&Path>) -> Self {
     #[cfg(not(target_family = "wasm"))]
     let texture_uri_backend = {
-      let exe_path = std::env::current_exe().unwrap();
-      // todo, make it configurable
-      let root = exe_path.parent().unwrap().join("temp_textures/");
-      if root.is_dir() {
-        std::fs::remove_dir_all(&root).unwrap(); // clean up old, if last run not exit normally
-      }
+      if let Some(disk_backend_path) = disk_backend_path {
+        if disk_backend_path.is_dir() {
+          std::fs::remove_dir_all(&disk_backend_path).unwrap(); // clean up old, if last run not exit normally
+        }
 
-      let texture_uri_backend = URIDiskSyncSource::<Arc<GPUBufferImage>>::new(
-        root,
-        |image| {
-          // consider do encoding png for common fmt?
-          rmp_serde::to_vec(image.as_ref()).unwrap()
-        },
-        |bytes| {
-          let image: GPUBufferImage = rmp_serde::from_slice(bytes).unwrap();
-          Arc::new(image)
-        },
-      );
-      Box::new(texture_uri_backend) as Box<dyn UriDataSourceDyn<_>>
+        let texture_uri_backend = URIDiskSyncSource::<Arc<GPUBufferImage>>::new(
+          disk_backend_path,
+          |image| {
+            // consider do encoding png for common fmt?
+            rmp_serde::to_vec(image.as_ref()).unwrap()
+          },
+          |bytes| {
+            let image: GPUBufferImage = rmp_serde::from_slice(bytes).unwrap();
+            Arc::new(image)
+          },
+        );
+        Box::new(texture_uri_backend) as Box<dyn UriDataSourceDyn<_>>
+      } else {
+        let texture_uri_backend =
+          InMemoryUriDataSource::<Arc<GPUBufferImage>>::new(alloc_global_res_id());
+        Box::new(texture_uri_backend) as Box<dyn UriDataSourceDyn<_>>
+      }
     };
 
     #[cfg(target_family = "wasm")]

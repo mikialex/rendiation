@@ -268,13 +268,15 @@ impl ViewerAPI {
 
     let viewer = Viewer::new(gpu_and_surface.gpu.clone(), &init_config, worker.clone());
 
+    let data_source = ViewerDataScheduler::new(None);
+
     let core = ViewerAPICore {
       gpu_and_main_surface: gpu_and_surface,
       surfaces: Default::default(),
       next_new_surface_id: 0,
       viewer,
       task_spawner: worker,
-      data_source: Default::default(),
+      data_source,
       dyn_cx: Default::default(),
       pool: Default::default(),
       immediate_results: Default::default(),
