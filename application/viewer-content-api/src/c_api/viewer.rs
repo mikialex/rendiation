@@ -1,6 +1,5 @@
 use std::{
   ffi::{c_char, CStr},
-  os::unix::ffi::OsStrExt,
   path::Path,
 };
 
@@ -116,11 +115,15 @@ pub extern "C" fn viewer_resize(
 #[no_mangle]
 pub extern "C" fn viewer_load_font(api: &mut ViewerAPI, font_path: *const c_char) {
   let font_path = unsafe { CStr::from_ptr(font_path) };
-  let font_path = Path::new(std::ffi::OsStr::from_bytes(font_path.to_bytes()));
+  if let Ok(s) = font_path.to_str() {
+    let font_path = Path::new(s);
 
-  match std::fs::read(&font_path) {
-    Ok(data) => api.core.viewer.load_font(data),
-    Err(e) => log::error!("failed to read font from {:?}, error: {e:?}", font_path),
+    match std::fs::read(&font_path) {
+      Ok(data) => api.core.viewer.load_font(data),
+      Err(e) => log::error!("failed to read font from {:?}, error: {e:?}", font_path),
+    }
+  } else {
+    log::error!("invalid font path: {font_path:?}");
   }
 }
 
