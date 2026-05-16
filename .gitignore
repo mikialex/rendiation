@@ -1,4 +1,5 @@
 /target
+/doc
 **/*.rs.bk
 **/*.DS_Store
 

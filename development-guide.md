@@ -35,7 +35,7 @@ important issue is in bold style.
 - fix parallel compute hash issue(disable the clear cache in test runner to reproduce this issue)
 - fix scene gpu lighting is globally shared in gles mode
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
-- fix missing blur pass in ssao
+- blur pass in ssao is not every effective
 - fix ao should only shadowing diffuse lighting.
 - ibl brdf lut should use higher precision lut
 - fix outline shaking

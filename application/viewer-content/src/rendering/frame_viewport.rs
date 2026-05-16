@@ -41,6 +41,7 @@ pub struct Viewer3dViewportRenderingCtx {
   enable_ground: bool,
   pub enable_gpu_pick_id_write: bool,
   enable_ssao: bool,
+  enable_ssao_blur: bool,
   enable_outline: bool,
   outline_color: UniformBufferCachedDataView<Vec4<f32>>,
   outline_background_color: Vec3<f32>,
@@ -81,6 +82,7 @@ impl Viewer3dViewportRenderingCtx {
       enable_msaa: init_config.enable_msaa,
       enable_ground: init_config.enable_grid_ground,
       enable_ssao: false,
+      enable_ssao_blur: true,
       enable_outline: false,
       enable_gpu_pick_id_write: false,
       ssao: SSAO::new(gpu),
@@ -146,6 +148,45 @@ impl Viewer3dViewportRenderingCtx {
     }
     ui.checkbox(&mut self.enable_ground, "enable ground");
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
+    if self.enable_ssao {
+      ui.checkbox(&mut self.enable_ssao_blur, "enable ssao blur");
+      ui.collapsing("ssao", |ui| {
+        self.ssao.parameters().mutate(|parameters| {
+          ui.add(
+            egui::Slider::new(&mut parameters.sample_count, 1..=64)
+              .step_by(1.)
+              .text("sample count"),
+          );
+          ui.add(
+            egui::Slider::new(&mut parameters.radius, 0.05..=10.0)
+              .step_by(0.05)
+              .logarithmic(true)
+              .text("radius"),
+          );
+          ui.add(
+            egui::Slider::new(&mut parameters.bias, 0.0..=0.02)
+              .step_by(0.0001)
+              .text("bias"),
+          );
+          ui.add(
+            egui::Slider::new(&mut parameters.magnitude, 0.2..=4.0)
+              .step_by(0.05)
+              .text("magnitude"),
+          );
+          ui.add(
+            egui::Slider::new(&mut parameters.contrast, 0.0..=3.0)
+              .step_by(0.05)
+              .text("contrast"),
+          );
+          ui.add(
+            egui::Slider::new(&mut parameters.max_distance, 1.0..=500.0)
+              .step_by(1.)
+              .logarithmic(true)
+              .text("max distance"),
+          );
+        });
+      });
+    }
 
     ui.collapsing("outline", |ui| {
       ui.checkbox(&mut self.enable_outline, "enable outline");
@@ -602,8 +643,10 @@ impl Viewer3dViewportRenderingCtx {
           let ao = self.ssao.draw(
             ctx,
             &g_buffer.depth,
+            &g_buffer.normal,
             &self.reproject.reproject,
             renderer.reversed_depth,
+            self.enable_ssao_blur,
           );
 
           pass("ao blend to scene")

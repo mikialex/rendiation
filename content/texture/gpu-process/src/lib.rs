@@ -12,6 +12,8 @@ mod highlight;
 pub use highlight::*;
 mod blur;
 pub use blur::*;
+mod blur_bilateral;
+pub use blur_bilateral::*;
 mod tonemap;
 pub use tonemap::*;
 mod taa;
