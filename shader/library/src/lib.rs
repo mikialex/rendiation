@@ -104,8 +104,7 @@ pub fn shader_depth_bias(
   })
   .else_if(clamp.less_than(0.), || {
     bias.store(bias.load().max(clamp));
-  })
-  .else_over();
+  });
 
   bias.load()
 }

@@ -412,8 +412,7 @@ pub fn solve_cubic(coef: Node<Vec4<f32>>) -> Node<Vec3<f32>> {
       let r = result.load();
       result.store((r.x(), r.z(), r.y()));
     },
-  )
-  .else_over();
+  );
 
   result.load()
 }
