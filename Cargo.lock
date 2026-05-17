@@ -4326,6 +4326,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-parametric-rendering"
+version = "0.1.0"
+dependencies = [
+ "pollster",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-mesh-generator",
+ "rendiation-shader-api",
+ "rendiation-shader-derives",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-platform-event-input"
 version = "0.1.0"
 dependencies = [
@@ -5962,6 +5975,7 @@ dependencies = [
  "rendiation-mesh-generator",
  "rendiation-mesh-segmentation",
  "rendiation-mesh-simplification",
+ "rendiation-parametric-rendering",
  "rendiation-scene-geometry-query",
  "rendiation-scene-gltf-exporter",
  "rendiation-scene-gltf-loader",

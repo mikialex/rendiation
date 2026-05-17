@@ -86,6 +86,7 @@ members = [
   "extension/view-dependent-transform",
   "extension/occ-style-draw-control",
   "extension/occ-style-material",
+  "extension/parametric-rendering",
   "extension/csg-sdf-expression",
   "extension/dynamic-bvh",
   "extension/dynamic-bvh-scene",

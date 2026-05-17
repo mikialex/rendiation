@@ -37,6 +37,7 @@ rendiation-animation = { path = "../../content/animation" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-controller = { path = "../../extension/controller" }
 rendiation-geometry = { path = "../../math/geometry" }
+rendiation-parametric-rendering = { path = "../../extension/parametric-rendering" }
 rendiation-gizmo = { path = "../../extension/gizmo" }
 rendiation-gui-3d = { path = "../../extension/gui-3d" }
 rendiation-lighting-punctual = { path = "../../content/lighting/punctual" }

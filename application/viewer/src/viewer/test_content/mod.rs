@@ -1,5 +1,6 @@
 mod lighting;
 mod mesh_lod_graph;
+mod parametric_surface;
 mod stress;
 mod text3d;
 mod texture;
@@ -9,6 +10,7 @@ mod widen_point;
 
 pub use lighting::*;
 pub use mesh_lod_graph::*;
+pub use parametric_surface::*;
 pub use stress::*;
 pub use text3d::*;
 pub use texture::*;

@@ -10,6 +10,7 @@ pub fn load_default_scene(
 ) {
   // load_text3d_test(writer);
   // test_mesh_lod_graph(writer);
+  load_parametric_surface_test(writer);
   load_widen_line_test(writer);
   load_widen_points_test(writer);
 
