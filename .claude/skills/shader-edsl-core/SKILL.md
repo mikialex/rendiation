@@ -173,6 +173,7 @@ if_by(a.less_than(val(0.0)), || {
     // else
 });
 // Note: .else_if() and .else_by() can be skipped
+// Note: if have any else_if(), the ending must have else_by() or else_over() call.
 
 ```
 

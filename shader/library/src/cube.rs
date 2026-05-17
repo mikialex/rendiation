@@ -102,7 +102,8 @@ pub fn get_cube_face_index_by_dir(dir: Node<Vec3<f32>>) -> Node<i32> {
   .else_if((max - abs_z).abs().less_than(tolerance), || {
     index.store(4);
     if_by(dir.z().less_than(0.), || index.store(5));
-  });
+  })
+  .else_over();
 
   index.load()
 }

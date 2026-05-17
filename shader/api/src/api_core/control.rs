@@ -17,10 +17,10 @@ impl LoopCtx {
   }
 }
 
-pub struct ElseEmitter;
+pub struct ElseEmitter(usize);
 
 impl ElseEmitter {
-  pub fn else_if(self, condition: impl Into<Node<bool>>, logic: impl FnOnce()) -> ElseEmitter {
+  pub fn else_if(mut self, condition: impl Into<Node<bool>>, logic: impl FnOnce()) -> ElseEmitter {
     let condition = condition.into().handle();
     call_shader_api(|builder| {
       builder.push_else_scope();
@@ -28,7 +28,15 @@ impl ElseEmitter {
     });
     logic();
     call_shader_api(|api| api.pop_scope());
+    self.0 += 1;
     self
+  }
+
+  pub fn else_over(self) {
+    // closing outer scope
+    for _ in 0..self.0 {
+      call_shader_api(|g| g.pop_scope());
+    }
   }
 
   pub fn else_by(self, logic: impl FnOnce()) {
@@ -39,6 +47,11 @@ impl ElseEmitter {
     logic();
 
     call_shader_api(|g| g.pop_scope());
+
+    // closing outer scope
+    for _ in 0..self.0 {
+      call_shader_api(|g| g.pop_scope());
+    }
   }
 }
 
@@ -52,7 +65,7 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl FnOnce()) -> ElseEmit
 
   call_shader_api(|g| g.pop_scope());
 
-  ElseEmitter
+  ElseEmitter(0)
 }
 
 impl Node<bool> {
