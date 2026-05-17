@@ -43,7 +43,19 @@ let loaded: Node<Vec3<f32>> = slot.load();
 
 // Or initialize a local var from a Node value
 let slot = val(Vec3::new(1.0, 0.0, 0.0)).make_local_var();
+
+// Fixed-size local array
+let arr: ShaderPtrOf<[f32; 16]> = make_local_var::<[f32; 16]>();
 ```
+
+### Array types and indexing
+
+| Array type | Indexed by | `.index(idx)` returns | Example |
+|------------|-----------|----------------------|---------|
+| `ShaderPtrOf<[T; N]>` | `Node<u32>` | `ShaderPtrOf<T>` | `arr.index(i).store(v)` / `.load()` |
+| `ShaderReadonlyPtrOf<[T; N]>` | `Node<u32>` | `ShaderReadonlyPtrOf<T>` | `arr.index(i).load()` |
+| `ShaderPtrOf<[T]>` (dynamic) | `Node<u32>` | `ShaderPtrOf<T>` | storage buffer rw |
+| `ShaderReadonlyPtrOf<[T]>` (dynamic) | `Node<u32>` | `ShaderReadonlyPtrOf<T>` | storage buffer ro |
 
 ### Key type reference
 
