@@ -27,7 +27,11 @@ impl<T: Scalar> RationalBezierSurface<T> {
     debug_assert_eq!(control_points.len(), expected);
     debug_assert!(u_degree >= 1);
     debug_assert!(v_degree >= 1);
-    Self { control_points, u_degree, v_degree }
+    Self {
+      control_points,
+      u_degree,
+      v_degree,
+    }
   }
 
   /// Create a rational Bézier surface from unweighted 3D control points
@@ -43,11 +47,21 @@ impl<T: Scalar> RationalBezierSurface<T> {
 
   // --- Accessors ---
 
-  pub fn u_degree(&self) -> usize { self.u_degree }
-  pub fn v_degree(&self) -> usize { self.v_degree }
-  pub fn u_count(&self) -> usize { self.u_degree + 1 }
-  pub fn v_count(&self) -> usize { self.v_degree + 1 }
-  pub fn control_points(&self) -> &[Vec4<T>] { &self.control_points }
+  pub fn u_degree(&self) -> usize {
+    self.u_degree
+  }
+  pub fn v_degree(&self) -> usize {
+    self.v_degree
+  }
+  pub fn u_count(&self) -> usize {
+    self.u_degree + 1
+  }
+  pub fn v_count(&self) -> usize {
+    self.v_degree + 1
+  }
+  pub fn control_points(&self) -> &[Vec4<T>] {
+    &self.control_points
+  }
 
   pub fn control_point(&self, u_idx: usize, v_idx: usize) -> Vec4<T> {
     self.control_points[v_idx * self.u_count() + u_idx]
@@ -69,7 +83,11 @@ impl<T: Scalar> RationalBezierSurface<T> {
 
     // Evaluate the v-direction column at v
     let result = Self::de_casteljau_curve(&intermediate, v);
-    Vec3::new(result.x / result.w, result.y / result.w, result.z / result.w)
+    Vec3::new(
+      result.x / result.w,
+      result.y / result.w,
+      result.z / result.w,
+    )
   }
 
   /// Evaluate surface point and first-order partial derivatives.
@@ -99,6 +117,95 @@ impl<T: Scalar> RationalBezierSurface<T> {
 
     (point, su, sv)
   }
+
+  /// Project a 3D point onto the surface using Gauss-Newton iteration.
+  ///
+  /// Returns `Some((u, v, distance))` if the iteration converges within
+  /// `max_iterations`, or `None` if it fails to converge.
+  pub fn project_point(
+    &self,
+    point: Vec3<T>,
+    initial_grid: usize,
+    tolerance: T,
+    max_iterations: usize,
+  ) -> Option<(T, T, T)> {
+    // Phase 1: grid search for initial guess
+    let grid_n = initial_grid + 1;
+    let div = T::from(initial_grid).expect("grid size must fit in scalar type");
+    let mut best: Option<(T, T)> = None;
+    let mut best_dist_sq = T::zero();
+
+    for j in 0..grid_n {
+      let v = T::from(j).expect("index must fit in scalar type") / div;
+      for i in 0..grid_n {
+        let u = T::from(i).expect("index must fit in scalar type") / div;
+        let s = self.evaluate(u, v);
+        let d = s - point;
+        let dist_sq = d.dot(d);
+        match best {
+          None => {
+            best = Some((u, v));
+            best_dist_sq = dist_sq;
+          }
+          Some(_) if dist_sq < best_dist_sq => {
+            best = Some((u, v));
+            best_dist_sq = dist_sq;
+          }
+          _ => {}
+        }
+      }
+    }
+
+    let (mut u, mut v) = best?;
+
+    // Phase 2: Gauss-Newton iteration
+    for _ in 0..max_iterations {
+      let (s, su, sv) = self.evaluate_partial(u, v);
+      let d = s - point;
+
+      // Gradient
+      let g0 = su.dot(d);
+      let g1 = sv.dot(d);
+
+      // Gauss-Newton approximate Hessian (always positive semi-definite)
+      let h00 = su.dot(su);
+      let h01 = su.dot(sv);
+      let h11 = sv.dot(sv);
+
+      let det = h00 * h11 - h01 * h01;
+      if det.abs() <= tolerance {
+        break;
+      }
+
+      // Newton step: Δ = -H⁻¹·g
+      let du = (h01 * g1 - h11 * g0) / det;
+      let dv = (h01 * g0 - h00 * g1) / det;
+
+      u = u + du;
+      v = v + dv;
+
+      // Clamp to parameter domain
+      if u < T::zero() {
+        u = T::zero();
+      }
+      if u > T::one() {
+        u = T::one();
+      }
+      if v < T::zero() {
+        v = T::zero();
+      }
+      if v > T::one() {
+        v = T::one();
+      }
+
+      if du.abs() + dv.abs() < tolerance {
+        let dist = d.dot(d).sqrt();
+        return Some((u, v, dist));
+      }
+    }
+
+    None
+  }
 }
 
 // --- Private helpers ---
@@ -108,11 +215,7 @@ impl<T: Scalar> RationalBezierSurface<T> {
   /// - `A` = weighted sum of control points = (w·S, w)
   /// - `A_u` = derivative of A with respect to u
   /// - `A_v` = derivative of A with respect to v
-  fn evaluate_homogeneous_derivatives(
-    &self,
-    u: T,
-    v: T,
-  ) -> (Vec4<T>, Vec4<T>, Vec4<T>) {
+  fn evaluate_homogeneous_derivatives(&self, u: T, v: T) -> (Vec4<T>, Vec4<T>, Vec4<T>) {
     let row_count = self.v_count();
     let col_count = self.u_count();
 
@@ -130,9 +233,7 @@ impl<T: Scalar> RationalBezierSurface<T> {
     for v_idx in 0..row_count {
       let start = v_idx * col_count;
       let du_row: Vec<Vec4<T>> = (0..self.u_degree)
-        .map(|i| {
-          self.control_points[start + i + 1] - self.control_points[start + i]
-        })
+        .map(|i| self.control_points[start + i + 1] - self.control_points[start + i])
         .collect();
       du_curves.push(Self::de_casteljau_curve(&du_row, u));
     }
@@ -151,8 +252,7 @@ impl<T: Scalar> RationalBezierSurface<T> {
       let cp_row_start = v_idx * col_count;
       let dv_row: Vec<Vec4<T>> = (0..col_count)
         .map(|i| {
-          self.control_points[(v_idx + 1) * col_count + i]
-            - self.control_points[cp_row_start + i]
+          self.control_points[(v_idx + 1) * col_count + i] - self.control_points[cp_row_start + i]
         })
         .collect();
       dv_rows.push(Self::de_casteljau_curve(&dv_row, u));
@@ -182,6 +282,107 @@ impl<T: Scalar> RationalBezierSurface<T> {
       }
     }
     q[0]
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn test_surface_deg3() -> RationalBezierSurface<f32> {
+    let points: Vec<Vec3<f32>> = vec![
+      Vec3::new(-1.0, -1.0, 0.0),
+      Vec3::new(-0.3, -1.0, 0.5),
+      Vec3::new(0.3, -1.0, 0.5),
+      Vec3::new(1.0, -1.0, 0.0),
+      Vec3::new(-1.0, -0.3, 0.5),
+      Vec3::new(-0.3, -0.3, 1.0),
+      Vec3::new(0.3, -0.3, 1.0),
+      Vec3::new(1.0, -0.3, 0.5),
+      Vec3::new(-1.0, 0.3, 0.5),
+      Vec3::new(-0.3, 0.3, 1.0),
+      Vec3::new(0.3, 0.3, 1.0),
+      Vec3::new(1.0, 0.3, 0.5),
+      Vec3::new(-1.0, 1.0, 0.0),
+      Vec3::new(-0.3, 1.0, 0.5),
+      Vec3::new(0.3, 1.0, 0.5),
+      Vec3::new(1.0, 1.0, 0.0),
+    ];
+    RationalBezierSurface::from_unweighted(points, 3, 3)
+  }
+
+  #[test]
+  fn project_point_onto_surface_sample() {
+    let surface = test_surface_deg3();
+    // Sample a point on the surface and project it back
+    let (u0, v0) = (0.3, 0.7);
+    let pt = surface.evaluate(u0, v0);
+    let result = surface.project_point(pt, 8, 1e-6, 50);
+    assert!(
+      result.is_some(),
+      "projection should converge for a point on the surface"
+    );
+    let (u, v, dist) = result.unwrap();
+    assert!(dist < 1e-4, "distance should be near zero, got {}", dist);
+    assert!((u - u0).abs() < 1e-3, "u should recover to ~{u0}, got {u}");
+    assert!((v - v0).abs() < 1e-3, "v should recover to ~{v0}, got {v}");
+    assert!((0.0..=1.0).contains(&u), "u must stay in [0,1]");
+    assert!((0.0..=1.0).contains(&v), "v must stay in [0,1]");
+  }
+
+  #[test]
+  fn project_point_corner() {
+    let surface = test_surface_deg3();
+    // Project a point near the corner (0,0)
+    let corner = surface.evaluate(0.0, 0.0);
+    let result = surface.project_point(corner, 8, 1e-6, 50);
+    assert!(result.is_some());
+    let (u, v, dist) = result.unwrap();
+    assert!(dist < 1e-4, "corner distance should be near zero");
+    assert!(u < 0.1, "u should be near 0, got {u}");
+    assert!(v < 0.1, "v should be near 0, got {v}");
+  }
+
+  #[test]
+  fn project_point_near_surface() {
+    let surface = test_surface_deg3();
+    // Take a surface point and perturb it slightly off-surface
+    let (u0, v0) = (0.5, 0.5);
+    let (pt, normal, _) = surface.evaluate_partial(u0, v0);
+    let normal = normal.normalize();
+    let offset = pt + normal * 0.1;
+    let result = surface.project_point(offset, 8, 1e-6, 50);
+    assert!(
+      result.is_some(),
+      "projection should converge for a near-surface point"
+    );
+    let (u, v, dist) = result.unwrap();
+    // Distance should be close to the offset magnitude
+    assert!(dist < 0.15, "distance should be ≤ offset, got {dist}");
+    // Parameter should be close to original
+    assert!(
+      (u - u0).abs() < 0.5,
+      "u should not drift far from {u0}, got {u}"
+    );
+    assert!(
+      (v - v0).abs() < 0.5,
+      "v should not drift far from {v0}, got {v}"
+    );
+  }
+
+  #[test]
+  fn project_point_multiple_samples() {
+    let surface = test_surface_deg3();
+    // Test projection from many surface points
+    for &(u0, v0) in &[(0.1, 0.1), (0.5, 0.3), (0.8, 0.6), (0.3, 0.9), (0.7, 0.2)] {
+      let pt = surface.evaluate(u0, v0);
+      let result = surface.project_point(pt, 10, 1e-6, 50);
+      assert!(result.is_some(), "projection failed for (u={u0}, v={v0})");
+      let (u, v, dist) = result.unwrap();
+      assert!(dist < 1e-3, "dist too large at (u={u0}, v={v0}): {dist}");
+      assert!((u - u0).abs() < 0.01, "u mismatch at ({u0},{v0}): got {u}");
+      assert!((v - v0).abs() < 0.01, "v mismatch at ({u0},{v0}): got {v}");
+    }
   }
 }
 

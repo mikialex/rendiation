@@ -23,6 +23,8 @@ pub use rendiation_area_lighting::{
   AreaLightRefScene, AreaLightSize,
 };
 use rendiation_controller::InputBound;
+pub use rendiation_dynamic_bvh_scene::SceneBVHResultView;
+pub use rendiation_dynamic_bvh_scene::SceneDynamicBvh;
 pub use rendiation_geometry::Box3;
 use rendiation_geometry::*;
 pub use rendiation_gui_3d::ViewportPointerCtx;
@@ -45,8 +47,6 @@ pub use rendiation_occ_style_material::{
   OccStyleMaterialEmissive, OccStyleMaterialEntity, OccStyleMaterialShininess,
   OccStyleMaterialSpecular, OccStyleMaterialTransparent, StdModelOccStyleMaterialPayload,
 };
-pub use rendiation_dynamic_bvh_scene::SceneBVHResultView;
-pub use rendiation_dynamic_bvh_scene::SceneDynamicBvh;
 use rendiation_scene_batch_extractor::*;
 pub use rendiation_scene_core::*;
 pub use rendiation_scene_geometry_query::*;

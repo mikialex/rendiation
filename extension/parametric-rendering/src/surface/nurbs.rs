@@ -1,6 +1,7 @@
 use rendiation_algebra::*;
-use super::bezier::RationalBezierSurface;
 use rendiation_mesh_generator::ParametricSurface;
+
+use super::bezier::RationalBezierSurface;
 
 /// A NURBS (Non-Uniform Rational B-Spline) surface of arbitrary degree.
 ///
@@ -218,7 +219,11 @@ impl<T: Scalar> NurbsSurface<T> {
 
     // Convert flat storage to 2D grid for easier row/column manipulation
     let mut grid: Vec<Vec<Vec4<T>>> = (0..self.v_count)
-      .map(|v| (0..self.u_count).map(|u| self.control_points[v * self.u_count + u]).collect())
+      .map(|v| {
+        (0..self.u_count)
+          .map(|u| self.control_points[v * self.u_count + u])
+          .collect()
+      })
       .collect();
     let mut u_knots = self.u_knots.clone();
     let mut v_knots = self.v_knots.clone();
@@ -376,12 +381,7 @@ impl<T: Scalar> NurbsSurface<T> {
 
   /// Insert a knot `u` into the u direction (each row is a curve).
   /// Algorithm A5.1 from *The NURBS Book* (Piegl & Tiller).
-  fn insert_knot_u(
-    grid: &mut Vec<Vec<Vec4<T>>>,
-    knots: &mut Vec<T>,
-    degree: usize,
-    u: T,
-  ) {
+  fn insert_knot_u(grid: &mut Vec<Vec<Vec4<T>>>, knots: &mut Vec<T>, degree: usize, u: T) {
     let n = grid[0].len() - 1;
     let k = Self::find_knot_span(n, degree, u, knots);
 
@@ -390,7 +390,11 @@ impl<T: Scalar> NurbsSurface<T> {
     let mut alphas = vec![T::zero(); k + 1];
     for i in start..=k {
       let denom = knots[i + degree] - knots[i];
-      alphas[i] = if denom > T::zero() { (u - knots[i]) / denom } else { T::zero() };
+      alphas[i] = if denom > T::zero() {
+        (u - knots[i]) / denom
+      } else {
+        T::zero()
+      };
     }
 
     knots.insert(k + 1, u);
@@ -419,12 +423,7 @@ impl<T: Scalar> NurbsSurface<T> {
 
   /// Insert a knot `v` into the v direction (each column is a curve).
   /// Follows the same formula as `insert_knot_u`, transposed.
-  fn insert_knot_v(
-    grid: &mut Vec<Vec<Vec4<T>>>,
-    knots: &mut Vec<T>,
-    degree: usize,
-    v: T,
-  ) {
+  fn insert_knot_v(grid: &mut Vec<Vec<Vec4<T>>>, knots: &mut Vec<T>, degree: usize, v: T) {
     let n = grid.len() - 1;
     let k = Self::find_knot_span(n, degree, v, knots);
 
@@ -432,7 +431,11 @@ impl<T: Scalar> NurbsSurface<T> {
     let mut alphas = vec![T::zero(); k + 1];
     for i in start..=k {
       let denom = knots[i + degree] - knots[i];
-      alphas[i] = if denom > T::zero() { (v - knots[i]) / denom } else { T::zero() };
+      alphas[i] = if denom > T::zero() {
+        (v - knots[i]) / denom
+      } else {
+        T::zero()
+      };
     }
 
     knots.insert(k + 1, v);

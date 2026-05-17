@@ -74,11 +74,8 @@ impl<T: Scalar> Frustum<T> {
     for i in 0..4 {
       for j in (i + 1)..5 {
         for k in (j + 1)..6 {
-          if let Some(p) = Plane::intersect_three(
-            &self.planes[i],
-            &self.planes[j],
-            &self.planes[k],
-          ) {
+          if let Some(p) = Plane::intersect_three(&self.planes[i], &self.planes[j], &self.planes[k])
+          {
             let valid = self
               .planes
               .iter()
@@ -280,9 +277,21 @@ mod tests {
     let c = frustum.centroid();
 
     assert!((vol - 8.0).abs() < 1e-5, "volume should be 8, got {}", vol);
-    assert!((c.x - 0.0).abs() < 1e-5, "centroid x should be 0, got {}", c.x);
-    assert!((c.y - 0.0).abs() < 1e-5, "centroid y should be 0, got {}", c.y);
-    assert!((c.z - 0.0).abs() < 1e-5, "centroid z should be 0, got {}", c.z);
+    assert!(
+      (c.x - 0.0).abs() < 1e-5,
+      "centroid x should be 0, got {}",
+      c.x
+    );
+    assert!(
+      (c.y - 0.0).abs() < 1e-5,
+      "centroid y should be 0, got {}",
+      c.y
+    );
+    assert!(
+      (c.z - 0.0).abs() < 1e-5,
+      "centroid z should be 0, got {}",
+      c.z
+    );
   }
 
   /// Cube [0, 2]^3: volume = 8, centroid = (1, 1, 1)
@@ -303,8 +312,20 @@ mod tests {
     let c = frustum.centroid();
 
     assert!((vol - 8.0).abs() < 1e-5, "volume should be 8, got {}", vol);
-    assert!((c.x - 1.0).abs() < 1e-5, "centroid x should be 1, got {}", c.x);
-    assert!((c.y - 1.0).abs() < 1e-5, "centroid y should be 1, got {}", c.y);
-    assert!((c.z - 1.0).abs() < 1e-5, "centroid z should be 1, got {}", c.z);
+    assert!(
+      (c.x - 1.0).abs() < 1e-5,
+      "centroid x should be 1, got {}",
+      c.x
+    );
+    assert!(
+      (c.y - 1.0).abs() < 1e-5,
+      "centroid y should be 1, got {}",
+      c.y
+    );
+    assert!(
+      (c.z - 1.0).abs() < 1e-5,
+      "centroid z should be 1, got {}",
+      c.z
+    );
   }
 }

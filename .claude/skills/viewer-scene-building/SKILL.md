@@ -8,7 +8,7 @@ description: >
   For the underlying scene data model (entity types, components, foreign keys, SceneWriter API),
   see scene-core-structure. For the relational database layer, see database-schema.
 metadata:
-  version: "2.0"
+  version: "2.1"
   updated: "2026-05-17"
   depends: [scene-core-structure, database-schema]
 ---
@@ -21,6 +21,7 @@ Key files used here:
 |------|---------|
 | [application/viewer/src/viewer/default_scene.rs](application/viewer/src/viewer/default_scene.rs) | Canonical scene setup patterns |
 | [application/viewer/src/viewer/test_content/](application/viewer/src/viewer/test_content/) | Test scene functions |
+| [application/viewer/src/viewer/test_content/widen_line.rs](application/viewer/src/viewer/test_content/widen_line.rs) | Wide line test examples |
 | [content/mesh/generator/src/lib.rs](content/mesh/generator/src/lib.rs) | `build_attributes_mesh`, `AttributesMeshBuilder` |
 | [content/mesh/generator/src/builder/mod.rs](content/mesh/generator/src/builder/mod.rs) | `triangulate_parametric`, `TessellationConfig` |
 | [content/mesh/generator/src/parametric.rs](content/mesh/generator/src/parametric.rs) | `ParametricSurface` trait |
@@ -315,3 +316,72 @@ writer.model_writer.write::<SceneModelViewDependentTransformOcc>(
     }),
 );
 ```
+
+## Wide Line Rendering
+
+Wide lines render screen space width anti-aliased line segments in 3D. Each segment is defined by start/end world-space points with per-vertex colors.
+
+### WideLineVertex format
+
+```rust
+// Definition in extension/wide-line/src/lib.rs
+#[repr(C)]
+#[derive(Copy, Clone, Zeroable, Pod, ShaderVertex)]
+pub struct WideLineVertex {
+    pub start: Vec3<f32>,  // segment start in world space
+    pub end:   Vec3<f32>,  // segment end in world space
+    pub color: Vec4<f32>,  // per-vertex rgba
+}
+```
+
+The final fragment color is `per_vertex_color * WideLineColor` where `WideLineColor` is the global multiplier on the model entity (defaults to white).
+
+### WideLineModelEntity components
+
+| Component | Type | Default | Purpose |
+|-----------|------|---------|---------|
+| `WideLineWidth` | `f32` | 1.0 | Line width in screen pixels |
+| `WideLineColor` | `Vec4<f32>` | (1,1,1,1) | Global color multiplier |
+| `WideLineStylePattern` | `u32` | 0 | Bit pattern for dashed line (0 = solid) |
+| `WideLineStyleFactor` | `f32` | 1.0 | Dash repetition scale |
+| `WideLineEnableRoundJoint` | `bool` | false | Rounded segment joints |
+| `WideLineMeshBuffer` | `ExternalRefPtr<Vec<u8>>` | — | Byte buffer of `WideLineVertex` array |
+
+For curves or procedural geometry, build `Vec<WideLineVertex>` directly:
+
+### Scene wiring
+
+Wide lines use `SceneModelWideLineRenderPayload` instead of `StandardModel`:
+
+```rust
+let wide_line_model = global_entity_of::<WideLineModelEntity>()
+    .entity_writer()
+    .new_entity(|w| {
+        w.write::<WideLineWidth>(&3.0)
+          .write::<WideLineStylePattern>(&0xFFC0)   // dashed
+          .write::<WideLineStyleFactor>(&6.0)
+          .write::<WideLineMeshBuffer>(&mesh_buffer)
+          // WideLineColor defaults to white, omitted
+    });
+
+let child = writer.create_root_child();
+writer.set_local_matrix(child, Mat4::translate((x, y, z)).into_f64());
+
+let scene = writer.expect_target_scene().some_handle();
+writer.model_writer.new_entity(|w| {
+    w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
+      .write::<SceneModelBelongsToScene>(&scene)
+      .write::<SceneModelRefNode>(&child.some_handle())
+});
+```
+
+### Line style examples
+
+| Pattern | Description |
+|---------|-------------|
+| `0` | Solid line |
+| `0xFFC0` | Long dash (bits 15..6 set) |
+| `0x0F0F` | Regular dash (alternating 4 on, 4 off) |
+| `0xFF18` | Dash-dot pattern |
+| `0x3333` | Dense dot pattern |
+=

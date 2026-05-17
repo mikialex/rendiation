@@ -33,6 +33,7 @@
         "BSDF",
         "bumpalo",
         "bytemuck",
+        "Casteljau",
         "Chirality",
         "Cineon",
         "clippy",

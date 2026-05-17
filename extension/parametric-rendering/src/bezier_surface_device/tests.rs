@@ -5,6 +5,86 @@ use rendiation_webgpu::*;
 use crate::bezier_surface_device::*;
 use crate::surface::*;
 
+fn test_surface_deg1x1() -> RationalBezierSurface<f32> {
+  RationalBezierSurface::from_unweighted(
+    vec![
+      Vec3::new(-1.0, -1.0, 0.0),
+      Vec3::new(1.0, -1.0, 0.0),
+      Vec3::new(-1.0, 1.0, 0.5),
+      Vec3::new(1.0, 1.0, 0.5),
+    ],
+    1,
+    1,
+  )
+}
+
+fn test_surface_deg2x2() -> RationalBezierSurface<f32> {
+  RationalBezierSurface::from_unweighted(
+    vec![
+      Vec3::new(-1.0, -1.0, 0.0),
+      Vec3::new(0.0, -1.0, 0.8),
+      Vec3::new(1.0, -1.0, 0.0),
+      Vec3::new(-1.0, 0.0, 0.8),
+      Vec3::new(0.0, 0.0, 1.5),
+      Vec3::new(1.0, 0.0, 0.8),
+      Vec3::new(-1.0, 1.0, 0.0),
+      Vec3::new(0.0, 1.0, 0.8),
+      Vec3::new(1.0, 1.0, 0.0),
+    ],
+    2,
+    2,
+  )
+}
+
+fn test_surface_deg1x2() -> RationalBezierSurface<f32> {
+  RationalBezierSurface::from_unweighted(
+    vec![
+      Vec3::new(-1.0, -1.0, 0.0),
+      Vec3::new(1.0, -1.0, 0.3),
+      Vec3::new(-1.0, 0.0, 0.5),
+      Vec3::new(1.0, 0.0, 0.8),
+      Vec3::new(-1.0, 1.0, 0.0),
+      Vec3::new(1.0, 1.0, 0.3),
+    ],
+    1,
+    2,
+  )
+}
+
+fn test_surface_deg2x3() -> RationalBezierSurface<f32> {
+  RationalBezierSurface::from_unweighted(
+    (0..4)
+      .flat_map(|v| {
+        (0..3).map(move |u| {
+          let x = u as f32 * 2.0 - 2.0;
+          let y = v as f32 * 1.33 - 2.0;
+          let z = (x * 0.8).cos() * (y * 0.6).sin() * 0.7;
+          Vec3::new(x, y, z)
+        })
+      })
+      .collect(),
+    2,
+    3,
+  )
+}
+
+fn test_surface_deg3x2() -> RationalBezierSurface<f32> {
+  RationalBezierSurface::from_unweighted(
+    (0..3)
+      .flat_map(|v| {
+        (0..4).map(move |u| {
+          let x = u as f32 * 1.33 - 2.0;
+          let y = v as f32 * 2.0 - 2.0;
+          let z = (x * 0.6).sin() * (y * 0.8).cos() * 0.7;
+          Vec3::new(x, y, z)
+        })
+      })
+      .collect(),
+    3,
+    2,
+  )
+}
+
 fn test_surface_deg3() -> RationalBezierSurface<f32> {
   let points: Vec<Vec3<f32>> = vec![
     Vec3::new(-1.0, -1.0, 0.0),
@@ -41,6 +121,34 @@ fn test_surface_deg5() -> RationalBezierSurface<f32> {
   RationalBezierSurface::from_unweighted(points, 5, 5)
 }
 
+fn test_surface_deg4x4() -> RationalBezierSurface<f32> {
+  let points: Vec<Vec3<f32>> = (0..5)
+    .flat_map(|v| {
+      (0..5).map(move |u| {
+        let x = u as f32 * 0.5 - 1.0;
+        let y = v as f32 * 0.5 - 1.0;
+        let z = (x * 1.2).cos() * (y * 1.2).sin() * 0.6;
+        Vec3::new(x, y, z)
+      })
+    })
+    .collect();
+  RationalBezierSurface::from_unweighted(points, 4, 4)
+}
+
+fn test_surface_deg14x14() -> RationalBezierSurface<f32> {
+  let points: Vec<Vec3<f32>> = (0..15)
+    .flat_map(|v| {
+      (0..15).map(move |u| {
+        let x = u as f32 * 0.14 - 1.0;
+        let y = v as f32 * 0.14 - 1.0;
+        let z = (-(x * x + y * y) * 1.5).exp() * 0.8;
+        Vec3::new(x, y, z)
+      })
+    })
+    .collect();
+  RationalBezierSurface::from_unweighted(points, 14, 14)
+}
+
 async fn run_gpu_test(surface: &RationalBezierSurface<f32>, sample_count: u32, eps: f32) {
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let total_samples = (sample_count * sample_count) as usize;
@@ -53,8 +161,15 @@ async fn run_gpu_test(surface: &RationalBezierSurface<f32>, sample_count: u32, e
 
   let workgroup_size: u32 = 64;
 
-  let pipeline =
-    build_bezier_bernstein_pipeline(&gpu, &info, &cp, &binomial, &output, sample_count, workgroup_size);
+  let pipeline = build_bezier_bernstein_pipeline(
+    &gpu,
+    &info,
+    &cp,
+    &binomial,
+    &output,
+    sample_count,
+    workgroup_size,
+  );
 
   let dispatch_x = (total_samples as u32 + workgroup_size - 1) / workgroup_size;
   let mut encoder = gpu.create_encoder().with_compute_pass_scoped(|mut pass| {
@@ -109,4 +224,39 @@ async fn bernstein_gpu_vs_cpu_deg3() {
 #[pollster::test]
 async fn bernstein_gpu_vs_cpu_deg5() {
   run_gpu_test(&test_surface_deg5(), 12, 1e-4).await;
+}
+
+#[pollster::test]
+async fn bernstein_gpu_vs_cpu_deg1x1() {
+  run_gpu_test(&test_surface_deg1x1(), 6, 1e-4).await;
+}
+
+#[pollster::test]
+async fn bernstein_gpu_vs_cpu_deg2x2() {
+  run_gpu_test(&test_surface_deg2x2(), 8, 1e-4).await;
+}
+
+#[pollster::test]
+async fn bernstein_gpu_vs_cpu_deg1x2() {
+  run_gpu_test(&test_surface_deg1x2(), 6, 1e-4).await;
+}
+
+#[pollster::test]
+async fn bernstein_gpu_vs_cpu_deg2x3() {
+  run_gpu_test(&test_surface_deg2x3(), 8, 1e-4).await;
+}
+
+#[pollster::test]
+async fn bernstein_gpu_vs_cpu_deg3x2() {
+  run_gpu_test(&test_surface_deg3x2(), 8, 1e-4).await;
+}
+
+#[pollster::test]
+async fn bernstein_gpu_vs_cpu_deg4x4() {
+  run_gpu_test(&test_surface_deg4x4(), 6, 1e-4).await;
+}
+
+#[pollster::test]
+async fn bernstein_gpu_vs_cpu_deg14x14() {
+  run_gpu_test(&test_surface_deg14x14(), 3, 1e-4).await;
 }
