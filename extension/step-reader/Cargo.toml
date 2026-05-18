@@ -1,0 +1,13 @@
+[package]
+authors = ["mikialex <miikiialexx@gmail.com>"]
+edition = "2021"
+name = "rendiation-step-reader"
+version = "0.1.0"
+
+[dependencies]
+ruststep = "0.4.0"
+ruststep-derive = "0.4.0"
+serde = { workspace = true }
+
+[lints]
+workspace = true
