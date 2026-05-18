@@ -1,9 +1,12 @@
+use std::hash::Hash;
+
 use rendiation_scene_rendering_gpu_gles::*;
 
 use crate::*;
 
 pub fn use_widen_points_gles_renderer(
   cx: &mut QueryGPUHookCx,
+  rev_z: bool,
 ) -> Option<WidePointModelGLESRenderer> {
   let (cx, quad) = cx.use_gpu_init(|g, _| create_wide_point_quad_gpu(g));
 
@@ -36,6 +39,8 @@ pub fn use_widen_points_gles_renderer(
     index_buffer: quad.0.clone(),
     vertex_buffer: quad.1.clone(),
     tex: TextureSamplerIdView::read_from_global(),
+    states: read_global_db_component(),
+    rev_z,
   })
 }
 
@@ -46,6 +51,8 @@ pub struct WidePointModelGLESRenderer {
   instance_buffers: SharedHashMapRead<u32, GPUBufferResourceView>,
   index_buffer: GPUBufferResourceView,
   vertex_buffer: GPUBufferResourceView,
+  states: ComponentReadView<WideStyledPointsDepthTestEnabled>,
+  rev_z: bool,
 }
 
 impl GLESModelRenderImpl for WidePointModelGLESRenderer {
@@ -77,6 +84,8 @@ impl GLESModelRenderImpl for WidePointModelGLESRenderer {
       instance_buffer,
       color_alpha_tex_sampler: self.tex.get_pair(model_idx).unwrap_or(EMPTY_H),
       binding_sys: cx,
+      depth_test_enable: self.states.get_value(model_idx)?,
+      rev_z: self.rev_z,
     });
     Some((com, draw_command))
   }
@@ -106,10 +115,15 @@ pub struct WidePointGPU<'a> {
   instance_buffer: &'a GPUBufferResourceView,
   color_alpha_tex_sampler: (u32, u32),
   binding_sys: &'a GPUTextureBindingSystem,
+  depth_test_enable: bool,
+  rev_z: bool,
 }
 
 impl ShaderHashProvider for WidePointGPU<'_> {
   shader_hash_type_id! {WidePointGPU<'static>}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.depth_test_enable.hash(hasher);
+  }
 }
 
 impl ShaderPassBuilder for WidePointGPU<'_> {
@@ -193,6 +207,9 @@ impl GraphicsShaderProvider for WidePointGPU<'_> {
       });
       if let Some(depth) = &mut builder.depth_stencil {
         depth.depth_write_enabled = false;
+        if self.depth_test_enable {
+          depth.depth_compare = SemanticCompareFunction::Nearer.into_raw(self.rev_z)
+        }
       }
     })
   }

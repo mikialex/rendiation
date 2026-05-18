@@ -105,6 +105,45 @@ pub enum SemanticCompareFunction {
   Always = 8,
 }
 
+impl SemanticCompareFunction {
+  pub fn into_raw(&self, reverse_z: bool) -> CompareFunction {
+    match self {
+      SemanticCompareFunction::Never => CompareFunction::Never,
+      SemanticCompareFunction::Nearer => {
+        if reverse_z {
+          CompareFunction::Greater
+        } else {
+          CompareFunction::Less
+        }
+      }
+      SemanticCompareFunction::Equal => CompareFunction::Equal,
+      SemanticCompareFunction::NearerEqual => {
+        if reverse_z {
+          CompareFunction::GreaterEqual
+        } else {
+          CompareFunction::LessEqual
+        }
+      }
+      SemanticCompareFunction::Further => {
+        if reverse_z {
+          CompareFunction::Less
+        } else {
+          CompareFunction::Greater
+        }
+      }
+      SemanticCompareFunction::NotEqual => CompareFunction::NotEqual,
+      SemanticCompareFunction::FurtherEqual => {
+        if reverse_z {
+          CompareFunction::LessEqual
+        } else {
+          CompareFunction::GreaterEqual
+        }
+      }
+      SemanticCompareFunction::Always => CompareFunction::Always,
+    }
+  }
+}
+
 declare_foreign_key!(
   StandardModelRefUnlitMaterial,
   StandardModelEntity,

@@ -173,6 +173,10 @@ pub extern "C" fn wide_points_set_buffer(
 pub extern "C" fn wide_points_set_color(handle: ViewerEntityHandle, color: &[f32; 4]) {
   write_global_db_component::<WideStyledPointsColor>().write(handle.into(), (*color).into());
 }
+#[no_mangle]
+pub extern "C" fn wide_points_set_depth_test(handle: ViewerEntityHandle, bool: bool) {
+  write_global_db_component::<WideLineDepthEnable>().write(handle.into(), bool);
+}
 
 #[no_mangle]
 pub extern "C" fn wide_points_set_pattern_texture(

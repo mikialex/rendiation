@@ -104,40 +104,7 @@ fn map_depth_stencil_state(
   format.map(|format| DepthStencilState {
     format,
     depth_write_enabled: states.depth_write_enabled,
-    depth_compare: match states.depth_compare {
-      SemanticCompareFunction::Never => CompareFunction::Never,
-      SemanticCompareFunction::Nearer => {
-        if reverse_z {
-          CompareFunction::Greater
-        } else {
-          CompareFunction::Less
-        }
-      }
-      SemanticCompareFunction::Equal => CompareFunction::Equal,
-      SemanticCompareFunction::NearerEqual => {
-        if reverse_z {
-          CompareFunction::GreaterEqual
-        } else {
-          CompareFunction::LessEqual
-        }
-      }
-      SemanticCompareFunction::Further => {
-        if reverse_z {
-          CompareFunction::Less
-        } else {
-          CompareFunction::Greater
-        }
-      }
-      SemanticCompareFunction::NotEqual => CompareFunction::NotEqual,
-      SemanticCompareFunction::FurtherEqual => {
-        if reverse_z {
-          CompareFunction::LessEqual
-        } else {
-          CompareFunction::GreaterEqual
-        }
-      }
-      SemanticCompareFunction::Always => CompareFunction::Always,
-    },
+    depth_compare: states.depth_compare.into_raw(reverse_z),
     stencil: states.stencil.clone(),
     bias: states.bias,
   })

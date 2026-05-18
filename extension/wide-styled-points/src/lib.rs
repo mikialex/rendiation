@@ -24,6 +24,7 @@ pub fn register_wide_styled_points_data_model(sparse: bool) {
   let table = global_database()
     .declare_entity::<WideStyledPointsEntity>()
     .declare_component::<WideStyledPointsColor>()
+    .declare_component::<WideStyledPointsDepthTestEnabled>()
     .declare_component::<WideStyledPointsMeshBuffer>();
 
   register_texture_with_sampling::<WidePointsColorAlphaTex>(table);
@@ -40,6 +41,12 @@ declare_component!(
   WideStyledPointsMeshBuffer,
   WideStyledPointsEntity,
   ExternalRefPtr<Vec<u8>> // Vec<WideStyledPointVertex>
+);
+declare_component!(
+  WideStyledPointsDepthTestEnabled,
+  WideStyledPointsEntity,
+  bool,
+  true
 );
 declare_component!(WideStyledPointsColor, WideStyledPointsEntity, Vec4<f32>);
 

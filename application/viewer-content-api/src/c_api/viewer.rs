@@ -379,3 +379,27 @@ pub extern "C" fn drop_scene(handle: ViewerEntityHandle) {
     .entity_writer()
     .delete_entity(handle.into());
 }
+
+#[no_mangle]
+pub extern "C" fn scene_set_background_solid(handle: ViewerEntityHandle, color: &[f32; 3]) {
+  write_global_db_component::<SceneSolidBackground>().write(handle.into(), Some((*color).into()));
+  write_global_db_component::<SceneGradientBackgroundInfo>().write(handle.into(), None);
+}
+
+#[no_mangle]
+pub extern "C" fn scene_set_background_gradient(
+  handle: ViewerEntityHandle,
+  top: &[f32; 3],
+  bottom: &[f32; 3],
+) {
+  let top: Vec3<f32> = (*top).into();
+  let bottom: Vec3<f32> = (*bottom).into();
+  write_global_db_component::<SceneGradientBackgroundInfo>().write(
+    handle.into(),
+    Some(SceneGradientBackgroundParam {
+      transform: Mat4::identity(),
+      color_and_stops: vec![top.expand_with(0.), bottom.expand_with(1.)],
+    }),
+  );
+  write_global_db_component::<SceneSolidBackground>().write(handle.into(), None);
+}

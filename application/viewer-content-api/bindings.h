@@ -725,6 +725,12 @@ ViewerEntityHandle create_scene();
 
 void drop_scene(ViewerEntityHandle handle);
 
+void scene_set_background_solid(ViewerEntityHandle handle, const float (*color)[3]);
+
+void scene_set_background_gradient(ViewerEntityHandle handle,
+                                   const float (*top)[3],
+                                   const float (*bottom)[3]);
+
 /// the content format expects Rgba8UnormSrgb
 ViewerEntityHandle create_texture2d(const uint8_t *content,
                                     uintptr_t len,
@@ -849,6 +855,8 @@ SceneWidePointsHandleInfo create_wide_points(ViewerEntityHandle node,
 void wide_points_set_buffer(ViewerEntityHandle handle, uint32_t data_length, const uint8_t *data);
 
 void wide_points_set_color(ViewerEntityHandle handle, const float (*color)[4]);
+
+void wide_points_set_depth_test(ViewerEntityHandle handle, bool bool_);
 
 void wide_points_set_pattern_texture(ViewerEntityHandle handle,
                                      ViewerEntityHandle texture,

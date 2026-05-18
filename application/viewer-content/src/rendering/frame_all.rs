@@ -156,7 +156,8 @@ impl Viewer3dRenderingCtx {
       RasterizationRenderBackendType::Gles => cx.scope(|cx| {
         let text3d = use_text3d_gles_renderer(cx, &self.font_system);
         let wide_line_renderer_gles = use_widen_line_gles_renderer(cx);
-        let wide_points_renderer_gles = use_widen_points_gles_renderer(cx);
+        let wide_points_renderer_gles =
+          use_widen_points_gles_renderer(cx, self.ndc.enable_reverse_z);
 
         let (attribute_vertices, attribute_indices) = viewer_mesh_buffer_input(cx);
 
@@ -309,8 +310,11 @@ impl Viewer3dRenderingCtx {
         let std_model =
           use_std_model_renderer(cx, materials, material_key, mesh, self.ndc.enable_reverse_z);
         let wide_line = use_widen_line_indirect_renderer(cx, self.using_host_driven_indirect_draw);
-        let wide_point =
-          use_widen_styled_points_indirect_renderer(cx, self.using_host_driven_indirect_draw);
+        let wide_point = use_widen_styled_points_indirect_renderer(
+          cx,
+          self.using_host_driven_indirect_draw,
+          self.ndc.enable_reverse_z,
+        );
         let text3d =
           use_text3d_indirect_renderer(cx, &self.font_system, self.using_host_driven_indirect_draw);
 
@@ -343,10 +347,10 @@ impl Viewer3dRenderingCtx {
             let wide_line_key = cx
               .use_dual_query::<WideLineDepthEnable>()
               .fanout(sm_ref_wide_line, cx)
-              .dual_query_map(|enable_depth_test| SceneModelGroupKey::ForeignHash {
+              .dual_query_map(|enable_depth| SceneModelGroupKey::ForeignHash {
                 internal: fast_hash_scope(|hasher| {
                   std::any::TypeId::of::<WideLineModelEntity>().hash(hasher);
-                  enable_depth_test.hash(hasher);
+                  enable_depth.hash(hasher);
                 }),
                 require_alpha_blend: false,
               })
@@ -355,11 +359,12 @@ impl Viewer3dRenderingCtx {
             let sm_ref_wide_point =
               cx.use_db_rev_ref_tri_view::<SceneModelWideStyledPointsRenderPayload>();
             let wide_point_key = cx
-              .use_dual_query_set::<WideStyledPointsEntity>()
+              .use_dual_query::<WideStyledPointsDepthTestEnabled>()
               .fanout(sm_ref_wide_point, cx)
-              .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
+              .dual_query_map(|enable_depth_test| SceneModelGroupKey::ForeignHash {
                 internal: fast_hash_scope(|hasher| {
                   std::any::TypeId::of::<WideStyledPointsEntity>().hash(hasher);
+                  enable_depth_test.hash(hasher);
                 }),
                 require_alpha_blend: true,
               })

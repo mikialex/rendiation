@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
 use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_webgpu_midc_downgrade::{
@@ -9,6 +11,7 @@ use crate::*;
 pub fn use_widen_styled_points_indirect_renderer(
   cx: &mut QueryGPUHookCx,
   force_midc_downgrade: bool,
+  rev_z: bool,
 ) -> Option<WideStyledPointsIndirectRenderer> {
   let data_source = cx
     .use_dual_query::<WideStyledPointsMeshBuffer>()
@@ -69,6 +72,8 @@ pub fn use_widen_styled_points_indirect_renderer(
     sm_to_wide_points_device: sm_to_wide_points_device.unwrap(),
     params_host: params.buffer.make_read_holder(),
     used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
+    states: read_global_db_component(),
+    rev_z,
   })
 }
 
@@ -80,6 +85,8 @@ pub struct WideStyledPointsIndirectRenderer {
   /// we keep the host metadata to support creating draw commands from host
   params_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<WideStyledPointParameters>>,
   used_in_midc_downgrade: bool,
+  states: ComponentReadView<WideStyledPointsDepthTestEnabled>,
+  rev_z: bool,
 }
 
 #[repr(C)]
@@ -110,9 +117,10 @@ impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
   fn hash_shader_group_key(
     &self,
     any_id: EntityHandle<SceneModelEntity>,
-    _hasher: &mut PipelineHasher,
+    hasher: &mut PipelineHasher,
   ) -> Option<()> {
-    self.model_access.get(any_id)?;
+    let idx = self.model_access.get(any_id)?;
+    self.states.get_value(idx)?.hash(hasher);
     Some(())
   }
 
@@ -133,12 +141,14 @@ impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
     any_idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
-    self.model_access.get(any_idx)?;
+    let model_idx = self.model_access.get(any_idx)?;
     Some(Box::new(WidePointsIndirectDrawComponent {
       points: &self.points,
       params: &self.params,
       sm_to_wide_points_device: &self.sm_to_wide_points_device,
       binding_sys: cx,
+      depth_test_enable: self.states.get_value(model_idx)?,
+      rev_z: self.rev_z,
     }))
   }
 
@@ -195,10 +205,15 @@ pub struct WidePointsIndirectDrawComponent<'a> {
   params: &'a AbstractReadonlyStorageBuffer<[WideStyledPointParameters]>,
   sm_to_wide_points_device: &'a AbstractReadonlyStorageBuffer<[u32]>,
   binding_sys: &'a GPUTextureBindingSystem,
+  depth_test_enable: bool,
+  rev_z: bool,
 }
 
 impl<'a> ShaderHashProvider for WidePointsIndirectDrawComponent<'a> {
   shader_hash_type_id! {WidePointsIndirectDrawComponent<'static>}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.depth_test_enable.hash(hasher);
+  }
 }
 
 impl<'a> ShaderPassBuilder for WidePointsIndirectDrawComponent<'a> {
@@ -325,8 +340,12 @@ impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
           p.states.blend = BlendState::ALPHA_BLENDING.into();
         }
       });
+
       if let Some(depth) = &mut builder.depth_stencil {
         depth.depth_write_enabled = false;
+        if self.depth_test_enable {
+          depth.depth_compare = SemanticCompareFunction::Nearer.into_raw(self.rev_z)
+        }
       }
     })
   }
