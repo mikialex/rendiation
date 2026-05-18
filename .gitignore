@@ -1,5 +1,5 @@
 /target
-/doc
+/temp
 **/*.rs.bk
 **/*.DS_Store
 

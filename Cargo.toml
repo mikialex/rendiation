@@ -90,6 +90,7 @@ members = [
   "extension/csg-sdf-expression",
   "extension/dynamic-bvh",
   "extension/dynamic-bvh-scene",
+  "extension/step-reader",
   "application/viewer-content",
   "application/viewer-content-api",
   "application/viewer",
