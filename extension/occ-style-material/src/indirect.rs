@@ -12,21 +12,22 @@ pub fn use_occ_material_indirect_group_key(
   let effect_ref = cx.use_db_rev_ref_tri_view::<OccStyleMaterialEffect>();
   let effect = cx
     .use_dual_query::<OccStyleEffectShadeType>()
+    .dual_query_union(
+      cx.use_dual_query::<OccStyleEffectStateOverride>(),
+      |(a, b)| Some((a, b)),
+    )
     .fanout(effect_ref, cx);
 
   let model_ref = cx.use_db_rev_ref_tri_view::<StdModelOccStyleMaterialPayload>();
   cx.use_dual_query::<OccStyleMaterialTransparent>()
     .dual_query_zip(effect)
     .dual_query_boxed()
-    .dual_query_map(|(is_transparent, effect)| {
-      let mut hasher = fast_hash_collection::FastHasher::default();
-      effect.hash(&mut hasher);
-      let internal = std::hash::Hasher::finish(&hasher);
-
-      MaterialGroupKey::ForeignHash {
-        internal,
-        require_alpha_blend: is_transparent,
-      }
+    .dual_query_map(|(is_transparent, effect)| MaterialGroupKey::ForeignHash {
+      internal: fast_hash_scope(|hasher| {
+        std::any::TypeId::of::<OccStyleMaterialEntity>().hash(hasher);
+        effect.hash(hasher);
+      }),
+      require_alpha_blend: is_transparent,
     })
     .fanout(model_ref, cx)
     .dual_query_boxed()
@@ -34,6 +35,7 @@ pub fn use_occ_material_indirect_group_key(
 
 pub fn use_occ_material_storage(
   cx: &mut QueryGPUHookCx,
+  reverse_z: bool,
 ) -> Option<OccStyleMaterialIndirectRenderer> {
   let (cx, storages) = cx.use_storage_buffer("occ material parameter data", 128, u32::MAX);
 
@@ -66,8 +68,10 @@ pub fn use_occ_material_storage(
     transparent: read_global_db_component(),
     effect_access: read_global_db_foreign_key(),
     shade_type: read_global_db_component(),
+    states: read_global_db_component(),
     storages: storages.get_gpu_buffer(),
     texture_handles: tex_storages.get_gpu_buffer(),
+    reverse_z,
   })
 }
 
@@ -76,9 +80,11 @@ pub struct OccStyleMaterialIndirectRenderer {
   material_access: ForeignKeyReadView<StdModelOccStyleMaterialPayload>,
   transparent: ComponentReadView<OccStyleMaterialTransparent>,
   effect_access: ForeignKeyReadView<OccStyleMaterialEffect>,
+  states: ComponentReadView<OccStyleEffectStateOverride>,
   shade_type: ComponentReadView<OccStyleEffectShadeType>,
   storages: AbstractReadonlyStorageBuffer<[OccStyleMaterialStorage]>,
   texture_handles: AbstractReadonlyStorageBuffer<[OccStyleMaterialTextureHandlesStorage]>,
+  reverse_z: bool,
 }
 
 impl IndirectModelMaterialRenderImpl for OccStyleMaterialIndirectRenderer {
@@ -91,12 +97,15 @@ impl IndirectModelMaterialRenderImpl for OccStyleMaterialIndirectRenderer {
     let transparent = self.transparent.get_value(m)?;
     let effect = self.effect_access.get(m)?;
     let shade_type = self.shade_type.get_value(effect)?;
+    let states = self.states.get(effect)?;
     Some(Box::new(OccStyleMaterialStorageGPU {
       buffer: self.storages.clone(),
       texture_handles: self.texture_handles.clone(),
       binding_sys: cx,
       transparent,
+      states,
       shade_type,
+      reverse_z: self.reverse_z,
     }))
   }
 
@@ -109,8 +118,10 @@ impl IndirectModelMaterialRenderImpl for OccStyleMaterialIndirectRenderer {
     let transparent = self.transparent.get_value(m)?;
     let effect = self.effect_access.get(m)?;
     let shade_type = self.shade_type.get_value(effect)?;
+    let states = self.states.get(effect)?;
     transparent.hash(hasher);
     shade_type.hash(hasher);
+    states.hash(hasher);
     Some(())
   }
 
@@ -144,7 +155,9 @@ pub struct OccStyleMaterialStorageGPU<'a> {
   pub texture_handles: AbstractReadonlyStorageBuffer<[OccStyleMaterialTextureHandlesStorage]>,
   pub binding_sys: &'a GPUTextureBindingSystem,
   pub transparent: bool,
+  pub states: &'a Option<RasterizationStates>,
   pub shade_type: OccStyleEffectType,
+  pub reverse_z: bool,
 }
 
 impl ShaderHashProvider for OccStyleMaterialStorageGPU<'_> {
@@ -153,6 +166,7 @@ impl ShaderHashProvider for OccStyleMaterialStorageGPU<'_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.transparent.hash(hasher);
     self.shade_type.hash(hasher);
+    self.states.hash(hasher); // we are doing indirect draw so it's ok
   }
 }
 
@@ -236,6 +250,10 @@ impl GraphicsShaderProvider for OccStyleMaterialStorageGPU<'_> {
             p.states.blend = BlendState::ALPHA_BLENDING.into();
           }
         });
+      }
+
+      if let Some(states) = self.states {
+        apply_pipeline_builder(states, self.reverse_z, builder);
       }
     });
   }

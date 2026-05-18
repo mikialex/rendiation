@@ -512,10 +512,10 @@ struct QuerySceneReader(EntityHandle<SceneEntity>);
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for QuerySceneReader {
   type Result = Arc<SceneReader>;
   fn compute_share_key(&self) -> ShareKey {
-    let mut hasher = fast_hash_collection::FastHasher::default();
-    std::any::TypeId::of::<Self>().hash(&mut hasher);
-    self.0.hash(&mut hasher);
-    ShareKey::Hash(std::hash::Hasher::finish(&hasher))
+    ShareKey::Hash(fast_hash_scope(|hasher| {
+      std::any::TypeId::of::<Self>().hash(hasher);
+      self.0.hash(hasher);
+    }))
   }
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {

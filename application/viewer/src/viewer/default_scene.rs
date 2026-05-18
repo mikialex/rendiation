@@ -10,9 +10,13 @@ pub fn load_default_scene(
 ) {
   // load_text3d_test(writer);
   // test_mesh_lod_graph(writer);
-  load_parametric_surface_test(writer);
+  // load_parametric_surface_test(writer);
+  // load_parametric_curve_test(writer);
+
   load_widen_line_test(writer);
   load_widen_points_test(writer);
+
+  load_default_scene_lighting_test(writer);
 
   // test_ltc_lighting(writer);
   let transparent_test_root = writer.create_root_child();
@@ -84,8 +88,14 @@ pub fn load_default_scene(
     });
 
     let mut effect_writer = global_entity_of::<OccStyleEffectControlEntity>().entity_writer();
-    let effect = effect_writer
-      .new_entity(|w| w.write::<OccStyleEffectShadeType>(&OccStyleEffectType::Lighted));
+    let effect = effect_writer.new_entity(|w| {
+      w.write::<OccStyleEffectShadeType>(&OccStyleEffectType::Lighted)
+        .write::<OccStyleEffectStateOverride>(&Some(RasterizationStates {
+          depth_compare: SemanticCompareFunction::Always,
+          depth_write_enabled: false,
+          ..Default::default()
+        }))
+    });
 
     occ_mat_writer.write::<OccStyleMaterialEffect>(occ_material, effect.some_handle());
 
@@ -240,8 +250,6 @@ pub fn load_default_scene(
         .write::<SceneCameraNode>(&Some(camera_node.into_raw()))
     });
   }
-
-  load_default_scene_lighting_test(writer);
 
   // a large plane like cube to test oc
   {

@@ -19,7 +19,7 @@ use std::task::Waker;
 use bytemuck::*;
 use database::*;
 use event_source::*;
-use fast_hash_collection::FastHashMap;
+use fast_hash_collection::*;
 use futures::FutureExt;
 use futures::StreamExt;
 use rendiation_algebra::*;

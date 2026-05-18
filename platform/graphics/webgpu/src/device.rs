@@ -127,9 +127,7 @@ impl GPUDevice {
       .map(|(i, (ty, vis))| map_shader_value_ty_to_binding_layout_type(ty, i, vis))
       .collect();
 
-    let mut hasher = FastHasher::default();
-    raw_layouts.hash(&mut hasher);
-    let key = hasher.finish();
+    let key = fast_hash_scope(|hasher| raw_layouts.hash(hasher));
 
     self
       .inner

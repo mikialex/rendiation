@@ -5,8 +5,6 @@ mod ref_counting;
 mod staged_scope_watch;
 mod util;
 
-use std::hash::Hasher;
-
 pub use changes_channel::*;
 pub use delta_channel::*;
 pub use persistence::*;
@@ -316,10 +314,10 @@ pub trait DBHookCxLike: QueryHookCxLike {
     e_id: EntityId,
   ) -> UseResult<RevRefForeignKeyRead> {
     struct Marker;
-    let mut hasher = FastHasher::default();
-    c_id.hash(&mut hasher);
-    TypeId::of::<Marker>().hash(&mut hasher);
-    let key = ShareKey::Hash(hasher.finish());
+    let key = ShareKey::Hash(fast_hash_scope(|hasher| {
+      c_id.hash(hasher);
+      TypeId::of::<Marker>().hash(hasher);
+    }));
 
     let label = "db rev_ref";
     let consumer_id = self.use_shared_consumer(key, label);

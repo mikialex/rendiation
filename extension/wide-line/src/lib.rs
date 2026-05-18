@@ -32,6 +32,7 @@ pub fn register_wide_line_data_model(sparse: bool) {
     .declare_component::<WideLineStylePattern>()
     .declare_component::<WideLineStyleFactor>()
     .declare_component::<WideLineEnableRoundJoint>()
+    .declare_component::<WideLineDepthEnable>()
     .declare_component::<WideLineMeshBuffer>();
 }
 
@@ -50,6 +51,7 @@ declare_component!(
   Vec4::new(1.0, 1.0, 1.0, 1.0)
 );
 
+declare_component!(WideLineDepthEnable, WideLineModelEntity, bool, true);
 declare_component!(WideLineStyleFactor, WideLineModelEntity, f32, 1.0);
 declare_component!(WideLineStylePattern, WideLineModelEntity, u32, 0);
 declare_component!(WideLineEnableRoundJoint, WideLineModelEntity, bool, false);

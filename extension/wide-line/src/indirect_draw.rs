@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
 use rendiation_webgpu_midc_downgrade::{
   require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
@@ -88,6 +90,7 @@ pub fn use_widen_line_indirect_renderer(
     model_access: global_database().read_foreign_key::<SceneModelWideLineRenderPayload>(),
     segments,
     params: params.get_gpu_buffer(),
+    states: read_global_db_component(),
     sm_to_wide_line_device: sm_to_wide_line_device.unwrap(),
     params_host: params.buffer.make_read_holder(),
     used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
@@ -96,6 +99,7 @@ pub fn use_widen_line_indirect_renderer(
 
 pub struct WideLineModelIndirectRenderer {
   model_access: ForeignKeyReadView<SceneModelWideLineRenderPayload>,
+  states: ComponentReadView<WideLineDepthEnable>,
   segments: AbstractReadonlyStorageBuffer<[WideLineVertexStorage]>,
   params: AbstractReadonlyStorageBuffer<[WideLineParameters]>,
   /// we keep the host metadata to support creating draw commands from host
@@ -135,9 +139,11 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
   fn hash_shader_group_key(
     &self,
     any_id: EntityHandle<SceneModelEntity>,
-    _hasher: &mut PipelineHasher,
+    hasher: &mut PipelineHasher,
   ) -> Option<()> {
-    self.model_access.get(any_id)?;
+    let wide_line_id = self.model_access.get(any_id)?;
+    let enabled = self.states.get_value(wide_line_id)?;
+    enabled.hash(hasher);
     Some(())
   }
 
@@ -158,12 +164,13 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
     any_idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
-    self.model_access.get(any_idx)?;
+    let line = self.model_access.get(any_idx)?;
     Some(Box::new(WideLineIndirectDrawComponent {
       segments: self.segments.clone(),
       params: self.params.clone(),
       sm_to_wide_line_device: self.sm_to_wide_line_device.clone(),
       bind_state: Default::default(),
+      enabled_depth: self.states.get_value(line)?,
     }))
   }
 
@@ -220,10 +227,14 @@ pub struct WideLineIndirectDrawComponent {
   params: AbstractReadonlyStorageBuffer<[WideLineParameters]>,
   sm_to_wide_line_device: AbstractReadonlyStorageBuffer<[u32]>,
   bind_state: BindingPreparerInternalStage,
+  enabled_depth: bool,
 }
 
 impl ShaderHashProvider for WideLineIndirectDrawComponent {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.enabled_depth.hash(hasher);
+  }
 }
 
 impl ShaderPassBuilder for WideLineIndirectDrawComponent {
@@ -337,6 +348,13 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
       if_by(should_discard_by_joint_style, || {
         builder.discard();
       });
+
+      if !self.enabled_depth {
+        if let Some(depth) = &mut builder.depth_stencil {
+          depth.depth_compare = CompareFunction::Always;
+          depth.depth_write_enabled = false;
+        }
+      }
     })
   }
 }

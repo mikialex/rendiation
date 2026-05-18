@@ -8,6 +8,7 @@ include_guard = "RENDIATION_C_HEADER"
 [parse]
 parse_deps = true
 include = [
+    "wgpu-types",
     "rendiation-mesh-core",
     "rendiation-occ-style-draw-control",
     "rendiation-occ-style-material",

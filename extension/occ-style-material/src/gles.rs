@@ -4,7 +4,10 @@ use rendiation_webgpu_hook_utils::*;
 
 use crate::*;
 
-pub fn use_occ_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<OccStyleMaterialGlesRenderer> {
+pub fn use_occ_material_uniforms(
+  cx: &mut QueryGPUHookCx,
+  reverse_z: bool,
+) -> Option<OccStyleMaterialGlesRenderer> {
   let uniforms = cx.use_uniform_buffers();
 
   cx.use_changes::<OccStyleMaterialDiffuse>()
@@ -48,7 +51,9 @@ pub fn use_occ_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<OccStyleMate
     shade_type: read_global_db_component(),
     uniforms: uniforms.make_read_holder(),
     tex_uniforms: tex_uniforms.make_read_holder(),
+    states: read_global_db_component(),
     diffuse_tex_sampler: TextureSamplerIdView::read_from_global(),
+    reverse_z,
   })
 }
 
@@ -57,9 +62,11 @@ pub struct OccStyleMaterialGlesRenderer {
   transparent: ComponentReadView<OccStyleMaterialTransparent>,
   effect_access: ForeignKeyReadView<OccStyleMaterialEffect>,
   shade_type: ComponentReadView<OccStyleEffectShadeType>,
+  states: ComponentReadView<OccStyleEffectStateOverride>,
   uniforms: LockReadGuardHolder<OccStyleMaterialUniforms>,
   tex_uniforms: LockReadGuardHolder<OccStyleMaterialTexUniforms>,
   diffuse_tex_sampler: TextureSamplerIdView<OccStyleMaterialDiffuseTex>,
+  reverse_z: bool,
 }
 
 impl GLESModelMaterialRenderImpl for OccStyleMaterialGlesRenderer {
@@ -79,6 +86,8 @@ impl GLESModelMaterialRenderImpl for OccStyleMaterialGlesRenderer {
       binding_sys: cx,
       transparent,
       shade_type,
+      reverse_z: self.reverse_z,
+      states: self.states.get(effect)?,
     }))
   }
 }
@@ -111,8 +120,10 @@ pub struct OccStyleMaterialGPU<'a> {
   tex_uniform: &'a UniformBufferDataView<OccStyleMaterialTextureHandlesUniform>,
   diffuse_tex_sampler: (u32, u32),
   binding_sys: &'a GPUTextureBindingSystem,
-  pub transparent: bool,
-  pub shade_type: OccStyleEffectType,
+  transparent: bool,
+  shade_type: OccStyleEffectType,
+  reverse_z: bool,
+  states: &'a Option<RasterizationStates>,
 }
 
 impl ShaderHashProvider for OccStyleMaterialGPU<'_> {
@@ -121,6 +132,7 @@ impl ShaderHashProvider for OccStyleMaterialGPU<'_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.transparent.hash(hasher);
     self.shade_type.hash(hasher);
+    self.states.hash(hasher);
   }
 }
 
@@ -206,6 +218,10 @@ impl GraphicsShaderProvider for OccStyleMaterialGPU<'_> {
             p.states.blend = BlendState::ALPHA_BLENDING.into();
           }
         });
+      }
+
+      if let Some(states) = self.states {
+        apply_pipeline_builder(states, self.reverse_z, builder);
       }
     });
   }

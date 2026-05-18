@@ -68,6 +68,64 @@ pub extern "C" fn occ_effect_control_set_shade_type(
   write_global_db_component::<OccStyleEffectShadeType>().write(effect.into(), shade_type);
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub enum CullMode {
+  None,
+  Front,
+  Back,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct OccControlStateSimple {
+  enable_depth_test: bool,
+  enable_depth_write: bool,
+  front_face_ccw: bool,
+  depth_bias_constant_factor: f32,
+  depth_bias_slop_factor: f32,
+  depth_bias_clamp: f32,
+  enable_alpha_blend: bool,
+  cull_mode: CullMode,
+}
+
+#[no_mangle]
+pub extern "C" fn occ_effect_control_set_state(
+  effect: ViewerEntityHandle,
+  simple_config: OccControlStateSimple,
+) {
+  let state = RasterizationStates {
+    depth_compare: if simple_config.enable_depth_test {
+      SemanticCompareFunction::Nearer
+    } else {
+      SemanticCompareFunction::Always
+    },
+    depth_write_enabled: simple_config.enable_depth_write,
+    front_face: if simple_config.front_face_ccw {
+      FrontFace::Ccw
+    } else {
+      FrontFace::Cw
+    },
+    bias: DepthBiasState {
+      constant: simple_config.depth_bias_constant_factor as i32,
+      slope_scale: simple_config.depth_bias_slop_factor,
+      clamp: simple_config.depth_bias_clamp,
+    },
+    blend: if simple_config.enable_alpha_blend {
+      Some(BlendState::ALPHA_BLENDING)
+    } else {
+      None
+    },
+    cull_mode: match simple_config.cull_mode {
+      CullMode::None => None,
+      CullMode::Front => Some(Face::Front),
+      CullMode::Back => Some(Face::Back),
+    },
+    ..Default::default()
+  };
+  write_global_db_component::<OccStyleEffectStateOverride>().write(effect.into(), Some(state));
+}
+
 #[no_mangle]
 pub extern "C" fn occ_material_set_diffuse_tex(
   mat: ViewerEntityHandle,

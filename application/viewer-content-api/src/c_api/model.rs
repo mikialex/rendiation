@@ -241,6 +241,11 @@ pub extern "C" fn wide_line_set_buffer(
 }
 
 #[no_mangle]
+pub extern "C" fn wide_line_set_enable_depth_test(handle: ViewerEntityHandle, enabled: bool) {
+  write_global_db_component::<WideLineDepthEnable>().write(handle.into(), enabled);
+}
+
+#[no_mangle]
 pub extern "C" fn wide_line_set_color(handle: ViewerEntityHandle, color: &[f32; 4]) {
   write_global_db_component::<WideLineColor>().write(handle.into(), (*color).into());
 }

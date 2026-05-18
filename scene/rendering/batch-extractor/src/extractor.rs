@@ -46,9 +46,7 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
       .raw_entry_mut()
       .from_key(key)
       .or_insert_with(|| {
-        let mut key_hasher = FastHasher::default();
-        key.hash(&mut key_hasher);
-        let hash = key_hasher.finish();
+        let hash = fast_hash_scope(|hasher| key.hash(hasher));
 
         (
           key.clone(),

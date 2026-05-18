@@ -171,7 +171,10 @@ impl Viewer3dRenderingCtx {
         let unlit_mat = use_unlit_material_uniforms(cx);
         let pbr_mr_mat = use_pbr_mr_material_uniforms(cx);
         let pbr_sg_mat = use_pbr_sg_material_uniforms(cx);
-        let occ_material = rendiation_occ_style_material::gles::use_occ_material_uniforms(cx);
+        let occ_material = rendiation_occ_style_material::gles::use_occ_material_uniforms(
+          cx,
+          self.ndc.enable_reverse_z,
+        );
 
         let materials = cx.when_render(|| {
           Box::new(vec![
@@ -223,7 +226,10 @@ impl Viewer3dRenderingCtx {
         let unlit_material = use_unlit_material_storage(cx);
         let pbr_mr_material = use_pbr_mr_material_storage(cx);
         let pbr_sg_material = use_pbr_sg_material_storage(cx);
-        let occ_material = rendiation_occ_style_material::indirect::use_occ_material_storage(cx);
+        let occ_material = rendiation_occ_style_material::indirect::use_occ_material_storage(
+          cx,
+          self.ndc.enable_reverse_z,
+        );
         scope.end(cx);
 
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
@@ -335,10 +341,13 @@ impl Viewer3dRenderingCtx {
           cx.scope(|cx| {
             let sm_ref_wide_line = cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>();
             let wide_line_key = cx
-              .use_dual_query_set::<WideLineModelEntity>()
+              .use_dual_query::<WideLineDepthEnable>()
               .fanout(sm_ref_wide_line, cx)
-              .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
-                internal: 0,
+              .dual_query_map(|enable_depth_test| SceneModelGroupKey::ForeignHash {
+                internal: fast_hash_scope(|hasher| {
+                  std::any::TypeId::of::<WideLineModelEntity>().hash(hasher);
+                  enable_depth_test.hash(hasher);
+                }),
                 require_alpha_blend: false,
               })
               .dual_query_boxed();
@@ -349,7 +358,9 @@ impl Viewer3dRenderingCtx {
               .use_dual_query_set::<WideStyledPointsEntity>()
               .fanout(sm_ref_wide_point, cx)
               .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
-                internal: 1,
+                internal: fast_hash_scope(|hasher| {
+                  std::any::TypeId::of::<WideStyledPointsEntity>().hash(hasher);
+                }),
                 require_alpha_blend: true,
               })
               .dual_query_boxed();
@@ -359,7 +370,9 @@ impl Viewer3dRenderingCtx {
               .use_dual_query_set::<Text3dEntity>()
               .fanout(sm_ref_text, cx)
               .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
-                internal: 2,
+                internal: fast_hash_scope(|hasher| {
+                  std::any::TypeId::of::<Text3dEntity>().hash(hasher);
+                }),
                 require_alpha_blend: true,
               })
               .dual_query_boxed();

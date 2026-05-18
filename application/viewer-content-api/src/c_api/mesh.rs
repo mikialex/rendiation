@@ -249,3 +249,8 @@ pub extern "C" fn update_mesh_data(
     }
   }
 }
+
+#[no_mangle]
+pub extern "C" fn set_mesh_topology(mesh: ViewerEntityHandle, topo: MeshPrimitiveTopology) {
+  write_global_db_component::<AttributesMeshEntityTopology>().write(mesh.into(), topo);
+}

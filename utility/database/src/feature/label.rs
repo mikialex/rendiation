@@ -1,5 +1,3 @@
-use std::hash::Hasher;
-
 use crate::*;
 
 struct LabelHashMarker;
@@ -17,10 +15,10 @@ impl<T: EntitySemantic> ComponentSemantic for LabelOf<T> {
 }
 
 fn compute_component_id(entity_type_id: TypeId) -> ComponentId {
-  let mut hasher = FastHasher::default();
-  entity_type_id.hash(&mut hasher);
-  LabelHashMarker.type_id().hash(&mut hasher);
-  ComponentId::Hash(hasher.finish())
+  ComponentId::Hash(fast_hash_scope(|hasher| {
+    entity_type_id.hash(hasher);
+    LabelHashMarker.type_id().hash(hasher);
+  }))
 }
 
 impl Database {

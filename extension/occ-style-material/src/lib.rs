@@ -1,6 +1,7 @@
 use std::hash::Hash;
 
 use database::*;
+use fast_hash_collection::*;
 use rendiation_lighting_transport::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
@@ -49,6 +50,11 @@ declare_foreign_key!(
 );
 
 declare_entity!(OccStyleEffectControlEntity);
+declare_component!(
+  OccStyleEffectStateOverride,
+  OccStyleEffectControlEntity,
+  Option<RasterizationStates>
+);
 
 declare_component!(
   OccStyleEffectShadeType,
@@ -82,5 +88,6 @@ pub fn register_occ_material_data_model(sparse: bool) {
 
   global_database()
     .declare_entity::<OccStyleEffectControlEntity>()
+    .declare_component::<OccStyleEffectStateOverride>()
     .declare_component::<OccStyleEffectShadeType>();
 }

@@ -115,10 +115,10 @@ impl<T: NDCSpaceMapper + Copy + std::hash::Hash, Cx: DBHookCxLike> SharedResultP
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = CameraTransform>;
 
   fn compute_share_key(&self) -> ShareKey {
-    let mut hasher = fast_hash_collection::FastHasher::default();
-    std::any::TypeId::of::<Self>().hash(&mut hasher);
-    self.0.hash(&mut hasher);
-    ShareKey::Hash(hasher.finish())
+    ShareKey::Hash(fast_hash_scope(|hasher| {
+      std::any::TypeId::of::<Self>().hash(hasher);
+      self.0.hash(hasher);
+    }))
   }
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {

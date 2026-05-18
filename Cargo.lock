@@ -6018,6 +6018,7 @@ dependencies = [
  "rendiation-text-3d",
  "rendiation-texture-gpu-process",
  "rendiation-viewer-content",
+ "wgpu-types",
 ]
 
 [[package]]

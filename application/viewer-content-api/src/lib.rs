@@ -10,6 +10,7 @@ mod c_api;
 pub use c_api::*;
 mod cx;
 use cx::*;
+pub use wgpu_types::TextureFormat;
 
 #[repr(C)]
 #[derive(Copy, Clone)]

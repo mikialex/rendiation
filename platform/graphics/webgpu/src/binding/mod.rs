@@ -230,11 +230,10 @@ impl BindingBuilder {
 
       let layout = &layouts[group_index];
 
-      // hash
-      let mut hasher = FastHasher::default();
-      group.hash_binding_ids(&mut hasher);
-      layout.cache_id.hash(&mut hasher);
-      let hash = hasher.finish();
+      let hash = fast_hash_scope(|hasher| {
+        group.hash_binding_ids(hasher);
+        layout.cache_id.hash(hasher);
+      });
 
       let cache = device.get_binding_cache();
       let mut binding_cache = cache.cache.write();

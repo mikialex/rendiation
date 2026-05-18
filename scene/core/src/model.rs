@@ -43,6 +43,7 @@ declare_component!(
 );
 
 use wgpu_types::*;
+pub use wgpu_types::{BlendState, DepthBiasState, Face, FrontFace};
 #[derive(Facet, Serialize, Deserialize)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct RasterizationStates {

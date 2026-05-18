@@ -95,6 +95,7 @@ fn map_color_states(states: &RasterizationStates, format: TextureFormat) -> Colo
 
   s
 }
+
 fn map_depth_stencil_state(
   states: &RasterizationStates,
   format: Option<TextureFormat>,
