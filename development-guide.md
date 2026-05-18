@@ -17,6 +17,7 @@ The following things is the current project development direction.
 
 important issue is in bold style.
 
+- on demand rendering not consider selection state change
 - uniform light containner iter none exist lights
 - fix indirect rendering in windows dx12 native
 - fix mesh lod graph

@@ -185,6 +185,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
           cx.active_surface_content,
           &picker.picker_impl,
           precise_intersection_test,
+          0.,
         ) {
           let r = measure_and_log_time("cpu pick range", || {
             picker.pick_range(

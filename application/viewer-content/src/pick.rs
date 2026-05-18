@@ -246,10 +246,14 @@ pub fn read_common_proj_from_db(
     .or_else(|| po.get_value(camera).flatten().map(CommonProjection::Orth))
 }
 
-pub fn create_ray_query_ctx_from_vpc(ctx: &ViewportPointerCtx) -> SceneRayQuery {
+pub fn create_ray_query_ctx_from_vpc(
+  ctx: &ViewportPointerCtx,
+  extra_screen_space_tolerance: f32,
+) -> SceneRayQuery {
   SceneRayQuery {
     world_ray: ctx.world_ray,
     camera_ctx: create_camera_query_ctx_from_vpc(ctx),
+    extra_screen_space_tolerance,
   }
 }
 
@@ -270,6 +274,7 @@ pub fn create_range_pick_frustum(
   surface_content: &ViewerSurfaceContent,
   picker: &ViewerPicker,
   precise_intersection_test: bool,
+  extra_screen_space_tolerance: f32,
 ) -> Option<SceneFrustumQuery> {
   let raw_a = a;
   let a = a * surface_content.device_pixel_ratio;
@@ -318,6 +323,7 @@ pub fn create_range_pick_frustum(
     world_frustum: frustum,
     world_helper,
     camera_ctx,
+    extra_screen_space_tolerance,
   }
   .into()
 }

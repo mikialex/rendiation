@@ -66,6 +66,8 @@ impl LocalModelPicker for WideLinePicker {
     idx: EntityHandle<SceneModelEntity>,
     local_ray: Ray3<f32>,
     local_tolerance: f32,
+    // already considered in local_tolerance
+    _extra_screen_space_tolerance: f32,
     _world_mat: &Mat4<f64>,
     _camera_ctx: &CameraQueryCtx,
   ) -> Option<MeshBufferHitPoint> {
@@ -79,6 +81,8 @@ impl LocalModelPicker for WideLinePicker {
     idx: EntityHandle<SceneModelEntity>,
     local_ray: Ray3<f32>,
     local_tolerance: f32,
+    // already considered in local_tolerance
+    _extra_screen_space_tolerance: f32,
     results: &mut Vec<MeshBufferHitPoint>,
     _world_mat: &Mat4<f64>,
     _camera_ctx: &CameraQueryCtx,
@@ -95,6 +99,8 @@ impl LocalModelPicker for WideLinePicker {
     f: &Frustum,
     helper: Option<&FrustumIntersectionTestHelper<f32>>,
     policy: ObjectTestPolicy,
+    // todo missing
+    _extra_screen_space_tolerance: f32,
     _world_mat: &Mat4<f64>,
     _camera_ctx: &CameraQueryCtx,
   ) -> Option<bool> {

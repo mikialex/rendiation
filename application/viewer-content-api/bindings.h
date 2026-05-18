@@ -696,7 +696,8 @@ ViewerRayPickListResult *picker_pick_list(ViewerQueryAPI *api,
                                           ViewerAPI *viewer,
                                           ViewerEntityHandle scene,
                                           float x,
-                                          float y);
+                                          float y,
+                                          float extra_screen_space_tolerance);
 
 void drop_pick_list_result(ViewerRayPickListResult *r);
 
@@ -713,7 +714,8 @@ ViewerRayPickRangeResult *picker_pick_range(ViewerQueryAPI *api,
                                             float bx,
                                             float by,
                                             bool contains,
-                                            bool precise_intersection_test);
+                                            bool precise_intersection_test,
+                                            float extra_screen_space_tolerance);
 
 void drop_pick_range_result(ViewerRayPickRangeResult *r);
 

@@ -4,7 +4,7 @@ use rendiation_algebra::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
-use crate::bezier_surface_device::de_casteljau::*;
+use crate::bezier_device_shared::*;
 use crate::bezier_surface_device::storage::*;
 
 /// Evaluate a rational Bézier surface point via Bernstein basis tensor product.

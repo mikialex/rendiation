@@ -17,6 +17,7 @@ impl SceneModelIterProvider for SceneDynamicBvhIterProvider {
       let mut hits: Vec<u32> = Vec::new();
 
       bvh.traverse(|node| {
+        // todo, expand node aabb, ctx.extra screen space
         if node.cast_ray(&ray, f32::MAX) == f32::MAX {
           return TraversalAction::Prune;
         }
@@ -45,6 +46,7 @@ impl SceneModelIterProvider for SceneDynamicBvhIterProvider {
   ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
     let base = self.internal.iter_unbound_item(scene);
 
+    // todo, expand node aabb, ctx.extra screen space
     if let Some(bvh) = self.internal.bvh.get_bvh(scene.into_raw()) {
       let mut inside_leaves: Vec<u32> = Vec::new();
       let mut partial_leaves: Vec<u32> = Vec::new();

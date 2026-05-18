@@ -188,6 +188,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       idx,
       local_ray,
       local_tolerance,
+      ctx.extra_screen_space_tolerance,
       &mat,
       &ctx.camera_ctx,
     )?;
@@ -255,6 +256,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       idx,
       local_ray,
       local_tolerance,
+      ctx.extra_screen_space_tolerance,
       local_result_scratch,
       &mat,
       &ctx.camera_ctx,
@@ -312,6 +314,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       &frustum,
       helper.as_ref(),
       policy,
+      ctx.extra_screen_space_tolerance,
       &mat,
       &ctx.camera_ctx,
     )
@@ -325,18 +328,30 @@ fn pre_check_bounding_early_return_and_compute_local_tolerance(
   internal: &impl LocalModelPicker,
   mat: Mat4<f64>,
 ) -> Option<f32> {
-  let local_tolerance = if let Some(tolerance) = internal.bounding_enlarge_tolerance(idx)? {
+  let mut local_tolerance = if let Some(tolerance) = internal.bounding_enlarge_tolerance(idx)? {
     let target_world_center = sm_world_bounding.center();
 
     let local_tolerance =
       ctx
         .camera_ctx
         .compute_local_tolerance(tolerance, mat.max_scale(), target_world_center);
-    sm_world_bounding = sm_world_bounding.enlarge(local_tolerance as f64);
     local_tolerance
   } else {
     0.
   };
+
+  if ctx.extra_screen_space_tolerance > 0. {
+    let target_world_center = sm_world_bounding.center();
+    local_tolerance += ctx.camera_ctx.compute_local_tolerance(
+      IntersectTolerance::new(ctx.extra_screen_space_tolerance, ToleranceType::ScreenSpace),
+      mat.max_scale(),
+      target_world_center,
+    );
+  }
+
+  if local_tolerance > 0. {
+    sm_world_bounding = sm_world_bounding.enlarge(local_tolerance as f64);
+  }
 
   let sm_intersected =
     IntersectAble::<_, bool, _>::intersect(&ctx.world_ray, &sm_world_bounding, &());

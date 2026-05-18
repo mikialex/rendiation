@@ -12,7 +12,7 @@ impl ViewerPickerWithCtx {
   fn create_ray_ctx(&self, world_ray: Ray3<f64>) -> Option<SceneRayQuery> {
     let ctx = self.pointer_ctx.as_ref()?;
 
-    let mut ctx = create_ray_query_ctx_from_vpc(ctx);
+    let mut ctx = create_ray_query_ctx_from_vpc(ctx, 0.);
 
     ctx.world_ray = world_ray;
 

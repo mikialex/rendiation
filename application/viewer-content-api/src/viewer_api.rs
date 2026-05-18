@@ -447,6 +447,7 @@ impl ViewerQueryAPI {
     scene: RawEntityHandle,
     x: f32,
     y: f32,
+    extra_screen_space_tolerance: f32,
     output_results: &mut Vec<ViewerRayPickResult>,
   ) {
     let mut results = Vec::new();
@@ -457,7 +458,7 @@ impl ViewerQueryAPI {
       create_viewport_pointer_ctx(surface_content, (x, y), &self.picker_impl.camera_transforms);
 
     if let Some(ctx) = ctx {
-      let cx = create_ray_query_ctx_from_vpc(&ctx);
+      let cx = create_ray_query_ctx_from_vpc(&ctx, extra_screen_space_tolerance);
 
       let scene = unsafe { EntityHandle::from_raw(scene) };
       let mut iter = self
@@ -496,6 +497,7 @@ impl ViewerQueryAPI {
     output_results: &mut Vec<ViewerEntityHandle>,
     contain: bool,
     precise_intersection_test: bool,
+    extra_screen_space_tolerance: f32,
   ) {
     let scene = unsafe { EntityHandle::from_raw(scene) };
     let a = Vec2::new(ax, ay);
@@ -508,6 +510,7 @@ impl ViewerQueryAPI {
       surface_content,
       &self.picker_impl,
       precise_intersection_test,
+      extra_screen_space_tolerance,
     ) {
       let mut iter = self
         .picker_impl

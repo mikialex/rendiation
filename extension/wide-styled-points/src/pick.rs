@@ -87,6 +87,7 @@ impl LocalModelPicker for WidePointsPicker {
     idx: EntityHandle<SceneModelEntity>,
     local_ray: Ray3<f32>,
     _local_tolerance: f32,
+    extra_screen_space_tolerance: f32,
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
   ) -> Option<MeshBufferHitPoint> {
@@ -94,7 +95,12 @@ impl LocalModelPicker for WidePointsPicker {
 
     self
       .create_view(idx)?
-      .iter_pick_test(local_ray, world_mat, camera_ctx)
+      .iter_pick_test(
+        local_ray,
+        world_mat,
+        camera_ctx,
+        extra_screen_space_tolerance,
+      )
       .for_each(|r| {
         nearest.refresh_nearest(OptionalNearest::some(r));
       });
@@ -107,13 +113,19 @@ impl LocalModelPicker for WidePointsPicker {
     idx: EntityHandle<SceneModelEntity>,
     local_ray: Ray3<f32>,
     _local_tolerance: f32,
+    extra_screen_space_tolerance: f32,
     results: &mut Vec<MeshBufferHitPoint>,
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
   ) -> Option<()> {
     self
       .create_view(idx)?
-      .iter_pick_test(local_ray, world_mat, camera_ctx)
+      .iter_pick_test(
+        local_ray,
+        world_mat,
+        camera_ctx,
+        extra_screen_space_tolerance,
+      )
       .for_each(|r| results.push(r));
 
     Some(())
@@ -125,12 +137,14 @@ impl LocalModelPicker for WidePointsPicker {
     frustum: &Frustum,
     helper: Option<&FrustumIntersectionTestHelper<f32>>,
     policy: ObjectTestPolicy,
+    extra_screen_space_tolerance: f32,
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
   ) -> Option<bool> {
-    let mut iter = self
-      .create_view(idx)?
-      .iter_tri_in_local(world_mat, camera_ctx);
+    let mut iter =
+      self
+        .create_view(idx)?
+        .iter_tri_in_local(world_mat, camera_ctx, extra_screen_space_tolerance);
 
     let tester = |(_, tri): (usize, Triangle3D)| frustum_test_tri(helper, frustum, &tri, policy);
 
@@ -152,6 +166,7 @@ impl<'a> WidePointPickView<'a> {
     &self,
     world_mat: &Mat4<f64>,
     camera_ctx: &'a CameraQueryCtx,
+    extra_screen_space_tolerance: f32,
   ) -> impl Iterator<Item = (usize, Triangle3D)> + 'a {
     // todo, support high precision
     let local_to_ndc = (camera_ctx.camera_vp * *world_mat).into_f32();
@@ -164,7 +179,7 @@ impl<'a> WidePointPickView<'a> {
       .flat_map(move |(primitive_index, p)| {
         let p_in_ndc = p.position.apply_matrix_into(local_to_ndc);
         p_in_ndc.xy();
-        let width_half = p.width / 2.;
+        let width_half = p.width / 2. + extra_screen_space_tolerance;
         let offset = Vec2::new(width_half, width_half)
           / Vec2::from(camera_ctx.camera_view_size_in_logic_pixel.into_f32());
         let max = p_in_ndc.xy() + offset;
@@ -190,9 +205,10 @@ impl<'a> WidePointPickView<'a> {
     local_ray: Ray3<f32>,
     world_mat: &Mat4<f64>,
     camera_ctx: &'a CameraQueryCtx,
+    extra_screen_space_tolerance: f32,
   ) -> impl Iterator<Item = MeshBufferHitPoint> + 'a {
     self
-      .iter_tri_in_local(world_mat, camera_ctx)
+      .iter_tri_in_local(world_mat, camera_ctx, extra_screen_space_tolerance)
       .filter_map(move |(primitive_index, tri)| {
         local_ray
           .intersect(&tri, &FaceSide::Double)

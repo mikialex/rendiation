@@ -27,12 +27,14 @@ pub fn register_selectable_data_model() {
 pub struct SceneRayQuery {
   pub world_ray: Ray3<f64>,
   pub camera_ctx: CameraQueryCtx,
+  pub extra_screen_space_tolerance: f32,
 }
 
 pub struct SceneFrustumQuery {
   pub world_frustum: Frustum<f64>,
   pub world_helper: Option<FrustumIntersectionTestHelper<f64>>,
   pub camera_ctx: CameraQueryCtx,
+  pub extra_screen_space_tolerance: f32,
 }
 
 pub struct CameraQueryCtx {

@@ -12,6 +12,7 @@ pub trait LocalModelPicker {
     idx: EntityHandle<SceneModelEntity>,
     local_ray: Ray3<f32>,
     local_tolerance: f32,
+    extra_screen_space_tolerance: f32,
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
   ) -> Option<MeshBufferHitPoint>;
@@ -22,6 +23,7 @@ pub trait LocalModelPicker {
     idx: EntityHandle<SceneModelEntity>,
     local_ray: Ray3<f32>,
     local_tolerance: f32,
+    extra_screen_space_tolerance: f32,
     results: &mut Vec<MeshBufferHitPoint>,
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
@@ -33,6 +35,7 @@ pub trait LocalModelPicker {
     local_frustum: &Frustum,
     helper: Option<&FrustumIntersectionTestHelper<f32>>,
     policy: ObjectTestPolicy,
+    extra_screen_space_tolerance: f32,
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
   ) -> Option<bool>;
@@ -56,13 +59,19 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
     idx: EntityHandle<SceneModelEntity>,
     local_ray: Ray3<f32>,
     local_tolerance: f32,
+    extra_screen_space_tolerance: f32,
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
   ) -> Option<MeshBufferHitPoint> {
     for provider in self {
-      if let Some(hit) =
-        provider.ray_query_local_nearest(idx, local_ray, local_tolerance, world_mat, camera_ctx)
-      {
+      if let Some(hit) = provider.ray_query_local_nearest(
+        idx,
+        local_ray,
+        local_tolerance,
+        extra_screen_space_tolerance,
+        world_mat,
+        camera_ctx,
+      ) {
         return Some(hit);
       }
     }
@@ -74,6 +83,7 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
     idx: EntityHandle<SceneModelEntity>,
     local_ray: Ray3<f32>,
     local_tolerance: f32,
+    extra_screen_space_tolerance: f32,
     results: &mut Vec<MeshBufferHitPoint>,
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
@@ -84,6 +94,7 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
           idx,
           local_ray,
           local_tolerance,
+          extra_screen_space_tolerance,
           results,
           world_mat,
           camera_ctx,
@@ -102,13 +113,20 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
     frustum: &Frustum,
     helper: Option<&FrustumIntersectionTestHelper<f32>>,
     policy: ObjectTestPolicy,
+    extra_screen_space_tolerance: f32,
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
   ) -> Option<bool> {
     for provider in self {
-      if let Some(r) =
-        provider.frustum_query_local(idx, frustum, helper, policy, world_mat, camera_ctx)
-      {
+      if let Some(r) = provider.frustum_query_local(
+        idx,
+        frustum,
+        helper,
+        policy,
+        extra_screen_space_tolerance,
+        world_mat,
+        camera_ctx,
+      ) {
         return Some(r);
       }
     }
@@ -234,6 +252,8 @@ impl LocalModelPicker for AttributeMeshPicker {
     idx: EntityHandle<SceneModelEntity>,
     local_ray: Ray3<f32>,
     local_tolerance: f32,
+    // already applied in considered in local_tolerance
+    _extra_screen_space_tolerance: f32,
     _world_mat: &Mat4<f64>,
     _camera_ctx: &CameraQueryCtx,
   ) -> Option<MeshBufferHitPoint> {
@@ -253,6 +273,8 @@ impl LocalModelPicker for AttributeMeshPicker {
     idx: EntityHandle<SceneModelEntity>,
     local_ray: Ray3<f32>,
     local_tolerance: f32,
+    // already applied in considered in local_tolerance
+    _extra_screen_space_tolerance: f32,
     results: &mut Vec<MeshBufferHitPoint>,
     _world_mat: &Mat4<f64>,
     _camera_ctx: &CameraQueryCtx,
@@ -274,6 +296,8 @@ impl LocalModelPicker for AttributeMeshPicker {
     frustum: &Frustum,
     helper: Option<&FrustumIntersectionTestHelper<f32>>,
     policy: ObjectTestPolicy,
+    // todo, missing support
+    _extra_screen_space_tolerance: f32,
     _world_mat: &Mat4<f64>,
     _camera_ctx: &CameraQueryCtx,
   ) -> Option<bool> {

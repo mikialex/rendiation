@@ -261,9 +261,17 @@ pub extern "C" fn picker_pick_list(
   scene: ViewerEntityHandle,
   x: f32,
   y: f32,
+  extra_screen_space_tolerance: f32,
 ) -> *mut ViewerRayPickListResult {
   let mut pick_results = Vec::new();
-  api.pick_list(&viewer.core.viewer, scene.into(), x, y, &mut pick_results);
+  api.pick_list(
+    &viewer.core.viewer,
+    scene.into(),
+    x,
+    y,
+    extra_screen_space_tolerance,
+    &mut pick_results,
+  );
 
   let camera_position_world = api.get_camera_position_world(&viewer.core.viewer);
 
@@ -297,6 +305,7 @@ pub extern "C" fn picker_pick_range(
   by: f32,
   contains: bool,
   precise_intersection_test: bool,
+  extra_screen_space_tolerance: f32,
 ) -> *mut ViewerRayPickRangeResult {
   let mut pick_results = Vec::new();
   api.pick_range(
@@ -309,6 +318,7 @@ pub extern "C" fn picker_pick_range(
     &mut pick_results,
     contains,
     precise_intersection_test,
+    extra_screen_space_tolerance,
   );
 
   let r = Box::new(ViewerRayPickRangeResult { pick_results });
