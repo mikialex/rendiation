@@ -1,8 +1,8 @@
 use ruststep::{
+  Holder,
   ast::{EntityInstance, Parameter, SubSuperRecord},
   primitive::Logical,
   tables::PlaceHolder,
-  Holder,
 };
 use serde::{Deserialize, Serialize};
 
@@ -337,6 +337,7 @@ pub struct OffsetCurve3d {
   #[holder(use_place_holder)]
   pub basis_curve: CurveAny,
   pub distance: f64,
+  pub self_intersect: Logical,
   #[holder(use_place_holder)]
   pub ref_direction: Direction,
 }
@@ -541,7 +542,6 @@ pub struct SurfaceOfLinearExtrusion {
   pub swept_curve: CurveAny,
   #[holder(use_place_holder)]
   pub extrusion_axis: Vector,
-  pub depth: f64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
@@ -784,9 +784,9 @@ pub struct MappedItem {
 pub struct Product {
   pub id: String,
   pub name: String,
-  pub description: String,
+  pub description: Option<String>,
   #[holder(use_place_holder)]
-  pub frame_of_reference: Vec<RepresentationItem>,
+  pub frame_of_reference: Vec<ProductDefinitionContext>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
@@ -795,7 +795,7 @@ pub struct Product {
 #[holder(generate_deserialize)]
 pub struct ProductDefinitionFormation {
   pub id: String,
-  pub description: String,
+  pub description: Option<String>,
   #[holder(use_place_holder)]
   pub of_product: Product,
 }
@@ -807,9 +807,8 @@ pub struct ProductDefinitionFormation {
 pub struct ProductDefinitionContext {
   pub name: String,
   #[holder(use_place_holder)]
-  pub life_cycle_stage: RepresentationItem,
-  #[holder(use_place_holder)]
-  pub frame_of_reference: RepresentationContext,
+  pub frame_of_reference: ApplicationContext,
+  pub life_cycle_stage: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
@@ -818,7 +817,7 @@ pub struct ProductDefinitionContext {
 #[holder(generate_deserialize)]
 pub struct ProductDefinition {
   pub id: String,
-  pub description: String,
+  pub description: Option<String>,
   #[holder(use_place_holder)]
   pub formation: ProductDefinitionFormation,
   #[holder(use_place_holder)]
@@ -831,7 +830,7 @@ pub struct ProductDefinition {
 #[holder(generate_deserialize)]
 pub struct ProductDefinitionShape {
   pub name: String,
-  pub description: String,
+  pub description: Option<String>,
   #[holder(use_place_holder)]
   pub definition: ProductDefinition,
 }
@@ -841,7 +840,6 @@ pub struct ProductDefinitionShape {
 #[holder(field = shape_definition_representation)]
 #[holder(generate_deserialize)]
 pub struct ShapeDefinitionRepresentation {
-  pub label: String,
   #[holder(use_place_holder)]
   pub definition: ProductDefinitionShape,
   #[holder(use_place_holder)]
@@ -865,7 +863,6 @@ pub struct ShapeRepresentation {
 #[holder(field = context_dependent_shape_representation)]
 #[holder(generate_deserialize)]
 pub struct ContextDependentShapeRepresentation {
-  pub name: String,
   #[holder(use_place_holder)]
   pub representation_relation: ShapeRepresentationRelationship,
   #[holder(use_place_holder)]
@@ -878,7 +875,7 @@ pub struct ContextDependentShapeRepresentation {
 #[holder(generate_deserialize)]
 pub struct ShapeRepresentationRelationship {
   pub name: String,
-  pub description: String,
+  pub description: Option<String>,
   #[holder(use_place_holder)]
   pub rep_1: ShapeRepresentation,
   #[holder(use_place_holder)]
@@ -891,7 +888,7 @@ pub struct ShapeRepresentationRelationship {
 #[holder(generate_deserialize)]
 pub struct ShapeRepresentationRelationshipWithTransformation {
   pub name: String,
-  pub description: String,
+  pub description: Option<String>,
   #[holder(use_place_holder)]
   pub rep_1: ShapeRepresentation,
   #[holder(use_place_holder)]
@@ -907,12 +904,12 @@ pub struct ShapeRepresentationRelationshipWithTransformation {
 pub struct NextAssemblyUsageOccurrence {
   pub id: String,
   pub name: String,
-  pub description: String,
+  pub description: Option<String>,
   #[holder(use_place_holder)]
   pub relating_product_definition: ProductDefinition,
   #[holder(use_place_holder)]
   pub related_product_definition: ProductDefinition,
-  pub reference_designator: String,
+  pub reference_designator: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
@@ -921,7 +918,7 @@ pub struct NextAssemblyUsageOccurrence {
 #[holder(generate_deserialize)]
 pub struct ItemDefinedTransformation {
   pub name: String,
-  pub description: String,
+  pub description: Option<String>,
   #[holder(use_place_holder)]
   pub transform_item_1: RepresentationItem,
   #[holder(use_place_holder)]
@@ -969,9 +966,9 @@ pub struct DefinitionalRepresentation {
 pub struct StyledItem {
   pub name: String,
   #[holder(use_place_holder)]
-  pub item: RepresentationItem,
-  #[holder(use_place_holder)]
   pub styles: Vec<PresentationStyleAssignment>,
+  #[holder(use_place_holder)]
+  pub item: RepresentationItem,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
@@ -979,7 +976,6 @@ pub struct StyledItem {
 #[holder(field = presentation_style_assignment)]
 #[holder(generate_deserialize)]
 pub struct PresentationStyleAssignment {
-  pub label: String,
   #[holder(use_place_holder)]
   pub styles: Vec<SurfaceStyleUsage>,
 }
@@ -992,6 +988,18 @@ pub struct SurfaceStyleUsage {
   pub side: SurfaceSide,
   #[holder(use_place_holder)]
   pub style: SurfaceSideStyle,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ShadingSurfaceMethod {
+  #[serde(rename = ".CONSTANT_SHADING.")]
+  ConstantShading,
+  #[serde(rename = ".COLOUR_SHADING.")]
+  ColourShading,
+  #[serde(rename = ".DOT_SHADING.")]
+  DotShading,
+  #[serde(rename = ".NORMAL_SHADING.")]
+  NormalShading,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1028,9 +1036,8 @@ pub enum PresentationStyleSelect {
 #[holder(field = surface_style_fill_area)]
 #[holder(generate_deserialize)]
 pub struct SurfaceStyleFillArea {
-  pub name: String,
   #[holder(use_place_holder)]
-  pub fill_area: FillAreaStyleColour,
+  pub fill_area: FillAreaStyle,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
@@ -1041,6 +1048,43 @@ pub struct FillAreaStyleColour {
   pub name: String,
   #[holder(use_place_holder)]
   pub fill_colour: ColourRGB,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
+#[holder(table = Table)]
+#[holder(field = draughting_pre_defined_colour)]
+#[holder(generate_deserialize)]
+pub struct DraughtingPreDefinedColour {
+  pub name: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
+#[holder(table = Table)]
+#[holder(field = fill_area_style)]
+#[holder(generate_deserialize)]
+pub struct FillAreaStyle {
+  pub name: String,
+  #[holder(use_place_holder)]
+  pub fill_styles: Vec<FillAreaStyleColour>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
+#[holder(table = Table)]
+#[holder(field = application_context)]
+#[holder(generate_deserialize)]
+pub struct ApplicationContext {
+  pub application: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
+#[holder(table = Table)]
+#[holder(field = presentation_layer_assignment)]
+#[holder(generate_deserialize)]
+pub struct PresentationLayerAssignment {
+  pub name: String,
+  pub description: String,
+  #[holder(use_place_holder)]
+  pub assigned_items: Vec<RepresentationItem>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
@@ -1059,7 +1103,6 @@ pub struct ColourRGB {
 #[holder(field = surface_style_transparency)]
 #[holder(generate_deserialize)]
 pub struct SurfaceStyleTransparency {
-  pub name: String,
   pub transparency: f64,
 }
 
@@ -1068,23 +1111,9 @@ pub struct SurfaceStyleTransparency {
 #[holder(field = surface_style_rendering)]
 #[holder(generate_deserialize)]
 pub struct SurfaceStyleRendering {
-  pub name: String,
+  pub rendering_method: ShadingSurfaceMethod,
   #[holder(use_place_holder)]
   pub surface_colour: ColourRGB,
-  pub reflectance: SurfaceStyleRenderingProperties,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct SurfaceStyleRenderingProperties {
-  #[serde(default)]
-  pub ambient_coefficient: f64,
-  #[serde(default)]
-  pub diffuse_coefficient: f64,
-  #[serde(default)]
-  pub specular_coefficient: f64,
-  #[serde(default)]
-  pub specular_exponent: f64,
-  pub specular_colour: Option<ColourRGB>,
 }
 
 // ── UnrecognizedEntity ──────────────────────────────────────────────
@@ -1120,20 +1149,21 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
       }
 
       // placements
+      // Subtypes: entity name differs from Holder-generated name → use &record.parameter
       "AXIS1_PLACEMENT" => {
         table
           .axis1_placement
-          .insert(*id, Deserialize::deserialize(record)?);
+          .insert(*id, Deserialize::deserialize(&record.parameter)?);
       }
       "AXIS2_PLACEMENT_2D" => {
         table
           .axis2_placement_2d
-          .insert(*id, Deserialize::deserialize(record)?);
+          .insert(*id, Deserialize::deserialize(&record.parameter)?);
       }
       "AXIS2_PLACEMENT_3D" => {
         table
           .axis2_placement_3d
-          .insert(*id, Deserialize::deserialize(record)?);
+          .insert(*id, Deserialize::deserialize(&record.parameter)?);
       }
 
       // curves
@@ -1207,7 +1237,7 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
       "SEAM_CURVE" => {
         table
           .surface_curve
-          .insert(*id, Deserialize::deserialize(record)?);
+          .insert(*id, Deserialize::deserialize(&record.parameter)?);
       }
 
       // surfaces
@@ -1308,7 +1338,7 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
       "FACE_OUTER_BOUND" => {
         table
           .face_bound
-          .insert(*id, Deserialize::deserialize(record)?);
+          .insert(*id, Deserialize::deserialize(&record.parameter)?);
       }
       "FACE_SURFACE" => {
         table
@@ -1318,7 +1348,7 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
       "ADVANCED_FACE" => {
         table
           .face_surface
-          .insert(*id, Deserialize::deserialize(record)?);
+          .insert(*id, Deserialize::deserialize(&record.parameter)?);
       }
       "ORIENTED_FACE" => {
         if let Parameter::List(params) = &record.parameter {
@@ -1338,7 +1368,9 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
         table.shell.insert(*id, Deserialize::deserialize(record)?);
       }
       "CLOSED_SHELL" => {
-        table.shell.insert(*id, Deserialize::deserialize(record)?);
+        table
+          .shell
+          .insert(*id, Deserialize::deserialize(&record.parameter)?);
       }
       "ORIENTED_OPEN_SHELL" => {
         if let Parameter::List(params) = &record.parameter {
@@ -1431,11 +1463,9 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
       "PRODUCT" => {
         table.product.insert(*id, Deserialize::deserialize(record)?);
       }
-      "PRODUCT_CONTEXT" => {
-        table
-          .product_definition_context
-          .insert(*id, Deserialize::deserialize(record)?);
-      }
+      // PRODUCT_CONTEXT: field layout (name, frame_of_ref, life_cycle_stage)
+      // differs from PRODUCT_DEFINITION_CONTEXT (name, life_cycle_stage, frame_of_ref).
+      // Skip for now; falls through to unrecognized.
       "PRODUCT_DEFINITION_FORMATION" => {
         table
           .product_definition_formation
@@ -1478,7 +1508,12 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
       "ADVANCED_BREP_SHAPE_REPRESENTATION" => {
         table
           .shape_representation
-          .insert(*id, Deserialize::deserialize(record)?);
+          .insert(*id, Deserialize::deserialize(&record.parameter)?);
+      }
+      "MECHANICAL_DESIGN_GEOMETRIC_PRESENTATION_REPRESENTATION" => {
+        table
+          .shape_representation
+          .insert(*id, Deserialize::deserialize(&record.parameter)?);
       }
       "CONTEXT_DEPENDENT_SHAPE_REPRESENTATION" => {
         table
@@ -1517,6 +1552,26 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
       }
 
       // presentation / visual
+      "APPLICATION_CONTEXT" => {
+        table
+          .application_context
+          .insert(*id, Deserialize::deserialize(record)?);
+      }
+      "PRESENTATION_LAYER_ASSIGNMENT" => {
+        table
+          .presentation_layer_assignment
+          .insert(*id, Deserialize::deserialize(record)?);
+      }
+      "DRAUGHTING_PRE_DEFINED_COLOUR" => {
+        table
+          .draughting_pre_defined_colour
+          .insert(*id, Deserialize::deserialize(record)?);
+      }
+      "FILL_AREA_STYLE" => {
+        table
+          .fill_area_style
+          .insert(*id, Deserialize::deserialize(record)?);
+      }
       "STYLED_ITEM" => {
         table
           .styled_item

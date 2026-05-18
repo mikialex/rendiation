@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ruststep::ast::EntityInstance;
+use ruststep::ast::{EntityInstance, SubSuperRecord};
 
 use crate::entities::*;
 
@@ -89,6 +89,10 @@ pub struct Table {
   pub definitional_representation: HashMap<u64, DefinitionalRepresentationHolder>,
 
   // presentation / visual
+  pub application_context: HashMap<u64, ApplicationContextHolder>,
+  pub presentation_layer_assignment: HashMap<u64, PresentationLayerAssignmentHolder>,
+  pub draughting_pre_defined_colour: HashMap<u64, DraughtingPreDefinedColourHolder>,
+  pub fill_area_style: HashMap<u64, FillAreaStyleHolder>,
   pub styled_item: HashMap<u64, StyledItemHolder>,
   pub presentation_style_assignment: HashMap<u64, PresentationStyleAssignmentHolder>,
   pub surface_style_usage: HashMap<u64, SurfaceStyleUsageHolder>,
@@ -121,13 +125,28 @@ impl Table {
   }
 }
 
+fn entity_descriptor(instance: &EntityInstance) -> String {
+  match instance {
+    EntityInstance::Simple { id, record } => {
+      format!("#{id} = {}(…)", record.name)
+    }
+    EntityInstance::Complex {
+      id,
+      subsuper: SubSuperRecord(records),
+    } => {
+      let names: Vec<&str> = records.iter().map(|r| r.name.as_str()).collect();
+      format!("#{id} = ({})", names.join(" & "))
+    }
+  }
+}
+
 impl<'a> FromIterator<&'a EntityInstance> for Table {
   fn from_iter<I: IntoIterator<Item = &'a EntityInstance>>(iter: I) -> Self {
     let mut table = Table::default();
     for instance in iter {
       table
         .push_instance(instance)
-        .unwrap_or_else(|e| eprintln!("step-reader: {e}"));
+        .unwrap_or_else(|e| eprintln!("step-reader: {} — {e}", entity_descriptor(instance)));
     }
     table
   }
