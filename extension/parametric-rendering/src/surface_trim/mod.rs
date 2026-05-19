@@ -1,11 +1,22 @@
-mod bezier_curve_tessellate;
+pub mod bezier_curve_tessellate;
 mod recontruct_boundary;
 
 use bezier_curve_tessellate::adaptive_tessellate_bezier_curve;
-use recontruct_boundary::{reconstruct_boundary, QuadraticBezierCurve2d};
+pub use recontruct_boundary::reconstruct_boundary;
 use rendiation_algebra::*;
 
 use crate::{curve3d::RationalBezierCurve3d, surface::RationalBezierSurface};
+
+/// A quadratic Bézier curve in 2D parametric space.
+///
+/// Defined by start point, control point, and end point:
+/// `B(t) = (1-t)²·start + 2(1-t)t·ctrl + t²·end`
+#[derive(Clone)]
+pub struct QuadraticBezierCurve2d<T> {
+  pub start: Vec2<T>,
+  pub ctrl: Vec2<T>,
+  pub end: Vec2<T>,
+}
 
 /// Project 3D trim curves onto a surface's parametric domain and reconstruct
 /// them as 2D quadratic Bézier curves.

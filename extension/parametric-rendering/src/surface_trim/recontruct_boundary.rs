@@ -1,14 +1,6 @@
 use rendiation_algebra::*;
 
-/// A quadratic Bézier curve in 2D parametric space.
-///
-/// Defined by start point, control point, and end point:
-/// `B(t) = (1-t)²·start + 2(1-t)t·ctrl + t²·end`
-pub struct QuadraticBezierCurve2d<T> {
-  pub start: Vec2<T>,
-  pub ctrl: Vec2<T>,
-  pub end: Vec2<T>,
-}
+use crate::*;
 
 /// Fit a single quadratic Bézier curve to a window of polyline points using
 /// least squares.

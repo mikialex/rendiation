@@ -4434,6 +4434,7 @@ dependencies = [
  "rendiation-mesh-generator",
  "rendiation-shader-api",
  "rendiation-shader-derives",
+ "rendiation-step-reader",
  "rendiation-webgpu",
 ]
 
