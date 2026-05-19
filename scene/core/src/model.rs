@@ -3,6 +3,8 @@ use crate::*;
 declare_entity!(SceneModelEntity);
 declare_foreign_key!(SceneModelBelongsToScene, SceneModelEntity, SceneEntity);
 declare_foreign_key!(SceneModelRefNode, SceneModelEntity, SceneNodeEntity);
+declare_component!(SceneModelVisible, SceneModelEntity, bool, true);
+
 declare_foreign_key!(
   SceneModelStdModelRenderPayload,
   SceneModelEntity,
@@ -11,6 +13,7 @@ declare_foreign_key!(
 pub fn register_scene_model_data_model() {
   global_database()
     .declare_entity::<SceneModelEntity>()
+    .declare_component::<SceneModelVisible>()
     .declare_foreign_key::<SceneModelBelongsToScene>()
     .declare_foreign_key::<SceneModelRefNode>()
     .declare_foreign_key::<SceneModelStdModelRenderPayload>();

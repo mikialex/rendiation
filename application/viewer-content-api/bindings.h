@@ -829,6 +829,8 @@ SceneModelHandleInfo create_scene_model(ViewerEntityHandle material,
 
 void drop_scene_model(SceneModelHandleInfo handle);
 
+void scene_model_set_visible(ViewerEntityHandle handle, bool visible);
+
 void scene_model_set_mesh(SceneModelHandleInfo handle, ViewerEntityHandle mesh);
 
 void scene_model_set_scene(ViewerEntityHandle handle, const ViewerEntityHandle *scene);

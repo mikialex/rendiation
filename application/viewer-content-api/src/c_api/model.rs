@@ -48,6 +48,11 @@ pub extern "C" fn drop_scene_model(handle: SceneModelHandleInfo) {
 }
 
 #[no_mangle]
+pub extern "C" fn scene_model_set_visible(handle: ViewerEntityHandle, visible: bool) {
+  write_global_db_component::<SceneModelVisible>().write(handle.into(), visible);
+}
+
+#[no_mangle]
 pub extern "C" fn scene_model_set_mesh(handle: SceneModelHandleInfo, mesh: ViewerEntityHandle) {
   write_global_db_component::<StandardModelRefAttributesMeshEntity>()
     .write(handle.std_model.into(), Some(mesh.into()));

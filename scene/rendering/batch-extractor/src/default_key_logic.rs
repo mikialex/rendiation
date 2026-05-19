@@ -84,7 +84,13 @@ pub fn use_scene_model_group_key(
 
   let visible_scene_models = use_global_node_net_visible(cx)
     .fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>(), cx)
-    .dual_query_filter_map(|v| v.then_some(()))
+    .dual_query_boxed();
+
+  let visible_scene_models_db = cx.use_dual_query::<SceneModelVisible>();
+
+  let visible_scene_models = visible_scene_models
+    .dual_query_zip(visible_scene_models_db)
+    .dual_query_filter_map(|(v, visible)| (v & visible).then_some(()))
     .dual_query_boxed();
 
   group_key
