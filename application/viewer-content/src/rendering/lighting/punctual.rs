@@ -158,6 +158,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
           let light = ENode::<DirectionalShaderInfo> {
             illuminance: light_uniform.illuminance,
             direction: light_uniform.direction,
+            follow_camera: light_uniform.follow_camera,
           }
           .construct();
           ShadowedPunctualLighting { light, shadow }
@@ -182,6 +183,7 @@ pub fn dir_light_no_shadow(
       ENode::<DirectionalShaderInfo> {
         illuminance: light_uniform.illuminance,
         direction: light_uniform.direction,
+        follow_camera: light_uniform.follow_camera,
       }
       .construct()
     },

@@ -155,6 +155,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingCascadeShadowProvider 
           let light = ENode::<DirectionalShaderInfo> {
             illuminance: light_uniform.illuminance,
             direction: light_uniform.direction,
+            follow_camera: light_uniform.follow_camera,
           }
           .construct();
           let shadow = ShadowRandomAccessed {

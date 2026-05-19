@@ -894,6 +894,8 @@ ViewerEntityHandle create_dir_light(ViewerEntityHandle node);
 
 void set_dir_light_scene(ViewerEntityHandle handle, const ViewerEntityHandle *scene);
 
+void set_dir_light_follow_camera(ViewerEntityHandle node, bool should_follow);
+
 void set_dir_light_illuminance(ViewerEntityHandle node, const float (*illuminance)[3]);
 
 void drop_dir_light(ViewerEntityHandle handle);

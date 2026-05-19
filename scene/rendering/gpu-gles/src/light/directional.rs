@@ -7,6 +7,7 @@ pub struct DirectionalLightUniform {
   /// in lx
   pub illuminance: Vec3<f32>,
   pub direction: Vec3<f32>,
+  pub follow_camera: Bool,
 }
 
 pub fn use_directional_uniform_array(
@@ -16,6 +17,11 @@ pub fn use_directional_uniform_array(
 
   let offset = offset_of!(DirectionalLightUniform, illuminance);
   cx.use_changes::<DirectionalLightIlluminance>()
+    .update_uniform_array(uniform, offset, cx.gpu);
+
+  let offset = offset_of!(DirectionalLightUniform, follow_camera);
+  cx.use_changes::<DirectionalLightFollowCamera>()
+    .map_changes(|v| Bool::from(v))
     .update_uniform_array(uniform, offset, cx.gpu);
 
   let offset = offset_of!(DirectionalLightUniform, direction);
