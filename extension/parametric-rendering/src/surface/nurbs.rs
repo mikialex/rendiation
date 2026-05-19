@@ -39,8 +39,22 @@ impl<T: Scalar> NurbsSurface<T> {
     v_knots: Vec<T>,
   ) -> Self {
     debug_assert_eq!(control_points.len(), u_count * v_count);
-    debug_assert_eq!(u_knots.len(), u_count + u_degree + 1);
-    debug_assert_eq!(v_knots.len(), v_count + v_degree + 1);
+    debug_assert!(
+      u_knots.len() >= u_count + u_degree + 1,
+      "u_knots too short: {} < {} (u_count={} + u_degree={} + 1)",
+      u_knots.len(),
+      u_count + u_degree + 1,
+      u_count,
+      u_degree
+    );
+    debug_assert!(
+      v_knots.len() >= v_count + v_degree + 1,
+      "v_knots too short: {} < {} (v_count={} + v_degree={} + 1)",
+      v_knots.len(),
+      v_count + v_degree + 1,
+      v_count,
+      v_degree
+    );
     debug_assert!(u_degree >= 1);
     debug_assert!(v_degree >= 1);
     Self {

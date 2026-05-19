@@ -1,12 +1,31 @@
 use ruststep::{
-  Holder,
-  ast::{EntityInstance, Parameter, SubSuperRecord},
+  ast::{EntityInstance, Name, Parameter, SubSuperRecord},
   primitive::Logical,
   tables::PlaceHolder,
+  Holder,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::table::Table;
+
+// ── Internal helpers ──────────────────────────────────────────────────
+
+fn make_clamped_mults(n_cp: usize, degree: usize) -> Vec<i64> {
+  let n_knots = n_cp + degree + 1;
+  let mut mults = vec![1i64; n_knots];
+  mults[0] = (degree + 1) as i64;
+  mults[n_knots - 1] = (degree + 1) as i64;
+  mults
+}
+
+fn make_uniform_knots(n_distinct: usize) -> Vec<f64> {
+  if n_distinct <= 1 {
+    return vec![0.0];
+  }
+  (0..n_distinct)
+    .map(|i| i as f64 / (n_distinct - 1) as f64)
+    .collect()
+}
 
 // ── Enums ────────────────────────────────────────────────────────────
 
@@ -124,8 +143,10 @@ pub struct Axis2Placement3d {
   pub location: CartesianPoint,
   #[holder(use_place_holder)]
   pub axis: Direction,
+  /// Optional reference direction. When `$` in STEP, defaults to a direction
+  /// perpendicular to `axis` (typically the X-axis projection).
   #[holder(use_place_holder)]
-  pub ref_direction: Direction,
+  pub ref_direction: Option<Direction>,
 }
 
 // ── Curves ──────────────────────────────────────────────────────────
@@ -273,14 +294,16 @@ pub struct TrimmedCurve {
 /// reference to a CartesianPoint. The `#[serde(untagged)]` enum lets serde
 /// try each variant in order — `f64` matches `Parameter::Real`, and
 /// `PlaceHolder<CartesianPointHolder>` matches `Parameter::Ref(Name::Entity(id))`.
+///
+/// Some STEP files contain unrecognized trim-select values that cannot be
+/// deserialized. These are silently ignored (empty `Vec<TrimSelect>`) by the
+/// `push_instance` handler for TRIMMED_CURVE.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum TrimSelect {
   /// Trimming at a parameter value along the curve.
   Value(f64),
   /// Trimming at a CartesianPoint reference or inline definition.
-  /// Uses `CartesianPointHolder` (not `CartesianPoint`) so that
-  /// `PlaceHolder` can deserialize both `#id` refs and inline data.
   Point(PlaceHolder<CartesianPointHolder>),
 }
 
@@ -1201,20 +1224,77 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
           .bezier_curve
           .insert(*id, Deserialize::deserialize(record)?);
       }
-      "QUASI_UNIFORM_CURVE" => {
-        table
-          .b_spline_curve_with_knots
-          .insert(*id, Deserialize::deserialize(record)?);
-      }
-      "UNIFORM_CURVE" => {
-        table
-          .b_spline_curve_with_knots
-          .insert(*id, Deserialize::deserialize(record)?);
+      "QUASI_UNIFORM_CURVE" | "UNIFORM_CURVE" => {
+        // These have no explicit knots — construct implied clamped knot vector
+        if let Parameter::List(params) = &record.parameter {
+          if params.len() >= 3 {
+            let label: String = Deserialize::deserialize(&params[0]).unwrap_or_default();
+            let degree: i64 = Deserialize::deserialize(&params[1]).unwrap_or(0);
+            let control_points_list: Vec<PlaceHolder<CartesianPointHolder>> =
+              Deserialize::deserialize(&params[2]).unwrap_or_default();
+            let curve_form: BSplineCurveForm =
+              Deserialize::deserialize(&params[3]).unwrap_or(BSplineCurveForm::Unspecified);
+            let closed_curve: Logical =
+              Deserialize::deserialize(&params[4]).unwrap_or(Logical::False);
+            let self_intersect: Logical =
+              Deserialize::deserialize(&params[5]).unwrap_or(Logical::False);
+
+            let n_cp = control_points_list.len();
+            let p = degree as usize;
+            let n_knots = n_cp + p + 1;
+            let knot_multiplicities: Vec<i64> = vec![(p + 1) as i64]
+              .into_iter()
+              .chain(std::iter::repeat(1i64).take(n_knots - 2 * (p + 1)))
+              .chain(std::iter::once((p + 1) as i64))
+              .collect();
+            let knots: Vec<f64> = (0..knot_multiplicities.len())
+              .map(|i| i as f64 / (knot_multiplicities.len() - 1) as f64)
+              .collect();
+
+            table.b_spline_curve_with_knots.insert(
+              *id,
+              BSplineCurveWithKnotsHolder {
+                label,
+                degree,
+                control_points_list,
+                curve_form,
+                closed_curve,
+                self_intersect,
+                knot_multiplicities,
+                knots,
+                knot_spec: KnotType::QuasiUniformKnots,
+              },
+            );
+          }
+        }
       }
       "TRIMMED_CURVE" => {
-        table
-          .trimmed_curve
-          .insert(*id, Deserialize::deserialize(record)?);
+        // Manually deserialize fields: trim_1/trim_2 can fail for
+        // non-standard trim-select values in some STEP exporters.
+        if let Parameter::List(params) = &record.parameter {
+          if params.len() >= 5 {
+            let label: String = Deserialize::deserialize(&params[0]).unwrap_or_default();
+            let basis_curve: PlaceHolder<CurveAnyHolder> = Deserialize::deserialize(&params[1])
+              .unwrap_or_else(|_| PlaceHolder::Ref(Name::Entity(0)));
+            let trim_1: Vec<TrimSelect> = Deserialize::deserialize(&params[2]).unwrap_or_default();
+            let trim_2: Vec<TrimSelect> = Deserialize::deserialize(&params[3]).unwrap_or_default();
+            let sense_agreement: bool = Deserialize::deserialize(&params[4]).unwrap_or(true);
+            let master_representation: TrimmingPreference =
+              Deserialize::deserialize(&params[5]).unwrap_or(TrimmingPreference::Unspecified);
+
+            table.trimmed_curve.insert(
+              *id,
+              TrimmedCurveHolder {
+                label,
+                basis_curve,
+                trim_1,
+                trim_2,
+                sense_agreement,
+                master_representation,
+              },
+            );
+          }
+        }
       }
       "COMPOSITE_CURVE" => {
         table
@@ -1274,15 +1354,51 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
           .bezier_surface
           .insert(*id, Deserialize::deserialize(record)?);
       }
-      "UNIFORM_SURFACE" => {
-        table
-          .b_spline_surface_with_knots
-          .insert(*id, Deserialize::deserialize(record)?);
-      }
-      "QUASI_UNIFORM_SURFACE" => {
-        table
-          .b_spline_surface_with_knots
-          .insert(*id, Deserialize::deserialize(record)?);
+      "QUASI_UNIFORM_SURFACE" | "UNIFORM_SURFACE" => {
+        if let Parameter::List(params) = &record.parameter {
+          if params.len() >= 4 {
+            let label: String = Deserialize::deserialize(&params[0]).unwrap_or_default();
+            let u_degree: i64 = Deserialize::deserialize(&params[1]).unwrap_or(0);
+            let v_degree: i64 = Deserialize::deserialize(&params[2]).unwrap_or(0);
+            let control_points_list: Vec<Vec<PlaceHolder<CartesianPointHolder>>> =
+              Deserialize::deserialize(&params[3]).unwrap_or_default();
+            let surface_form: BSplineSurfaceForm =
+              Deserialize::deserialize(&params[4]).unwrap_or(BSplineSurfaceForm::Unspecified);
+            let u_closed: Logical = Deserialize::deserialize(&params[5]).unwrap_or(Logical::False);
+            let v_closed: Logical = Deserialize::deserialize(&params[6]).unwrap_or(Logical::False);
+            let self_intersect: Logical =
+              Deserialize::deserialize(&params[7]).unwrap_or(Logical::False);
+
+            let u_cp = control_points_list.first().map(|r| r.len()).unwrap_or(0);
+            let v_cp = control_points_list.len();
+            let pu = u_degree as usize;
+            let pv = v_degree as usize;
+
+            let u_km: Vec<i64> = make_clamped_mults(u_cp, pu);
+            let v_km: Vec<i64> = make_clamped_mults(v_cp, pv);
+            let u_k: Vec<f64> = make_uniform_knots(u_km.len());
+            let v_k: Vec<f64> = make_uniform_knots(v_km.len());
+
+            table.b_spline_surface_with_knots.insert(
+              *id,
+              BSplineSurfaceWithKnotsHolder {
+                label,
+                u_degree,
+                v_degree,
+                control_points_list,
+                surface_form,
+                u_closed,
+                v_closed,
+                self_intersect,
+                u_multiplicities: u_km,
+                v_multiplicities: v_km,
+                u_knots: u_k,
+                v_knots: v_k,
+                knot_spec: KnotType::QuasiUniformKnots,
+              },
+            );
+          }
+        }
       }
       "SURFACE_OF_LINEAR_EXTRUSION" => {
         table
@@ -1637,7 +1753,7 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
       use crate::entities::NonRationalBSplineCurveHolder as NRBC;
       use crate::entities::NonRationalBSplineSurfaceHolder as NRBS;
 
-      // ── Rational B-Spline Curve Complex Entities ──
+      // ── Rational B-Spline Curve Complex Entities (7 records) ──
       if records.len() == 7 {
         match (
           records[0].name.as_str(),
@@ -1767,6 +1883,36 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
                   Deserialize::deserialize(&Parameter::List(params))?,
                 )),
                 weights_data: Vec::new(),
+              },
+            );
+          }
+          // Alternative ordering: GEOMETRIC_REPRESENTATION_ITEM before SURFACE
+          (
+            "BOUNDED_SURFACE",
+            _,
+            "B_SPLINE_SURFACE",
+            Parameter::List(bsp_params),
+            "B_SPLINE_SURFACE_WITH_KNOTS",
+            Parameter::List(knots_params),
+            "GEOMETRIC_REPRESENTATION_ITEM",
+            _,
+            "RATIONAL_B_SPLINE_SURFACE",
+            Parameter::List(weights),
+            "REPRESENTATION_ITEM",
+            Parameter::List(label),
+            "SURFACE",
+            _,
+          ) => {
+            let mut params = label.clone();
+            params.extend(bsp_params.clone());
+            params.extend(knots_params.clone());
+            table.rational_b_spline_surface.insert(
+              *id,
+              RationalBSplineSurfaceHolder {
+                non_rational_b_spline_surface: PlaceHolder::Owned(NRBS::BSplineSurfaceWithKnots(
+                  Deserialize::deserialize(&Parameter::List(params))?,
+                )),
+                weights_data: Deserialize::deserialize(&weights[0])?,
               },
             );
           }

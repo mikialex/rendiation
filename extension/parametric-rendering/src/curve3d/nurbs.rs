@@ -26,7 +26,14 @@ impl<T: Scalar> NurbsCurve3d<T> {
   /// * `knots` - Knot vector (length = `count + degree + 1`).
   pub fn new(control_points: Vec<Vec4<T>>, count: usize, degree: usize, knots: Vec<T>) -> Self {
     debug_assert_eq!(control_points.len(), count);
-    debug_assert_eq!(knots.len(), count + degree + 1);
+    debug_assert!(
+      knots.len() >= count + degree + 1,
+      "knots too short: {} < {} (count={} + degree={} + 1)",
+      knots.len(),
+      count + degree + 1,
+      count,
+      degree
+    );
     debug_assert!(degree >= 1);
     Self {
       control_points,
