@@ -311,8 +311,8 @@ fn build_model(
 ) -> EntityHandle<SceneModelEntity> {
   let attributes = primitive
     .attributes()
-    .map(|(semantic, accessor)| {
-      let semantic = map_attribute_semantic(semantic);
+    .filter_map(|(semantic, accessor)| {
+      let semantic = map_attribute_semantic(semantic)?;
       let mut att = build_accessor(accessor, ctx);
       // expand joint indices from u8/u16 to u32
       if let AttributeSemantic::Joints(_) = &semantic {
@@ -347,7 +347,7 @@ fn build_model(
         }
       }
 
-      (semantic, att)
+      (semantic, att).into()
     })
     .collect();
 

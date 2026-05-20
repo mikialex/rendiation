@@ -3,11 +3,8 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
-use rendiation_parametric_rendering::step::{
-  read_parametric_rendering_data_from_table, StepReadConfig,
-};
+use rendiation_parametric_rendering::step::{read_parametric_rendering_data_from_step, StepReadConfig};
 use rendiation_step_reader::step_utils::{normalize_step, visit_stp_files};
-use rendiation_step_reader::table::Table;
 
 /// Parse STEP files and convert to parametric rendering data.
 ///
@@ -117,19 +114,7 @@ fn process_file(path: &Path, config: &StepReadConfig) -> ProcessResult {
 
   let start = Instant::now();
 
-  // Parse into Table, then run the full pipeline
-  let exchange = match rendiation_step_reader::ruststep::parser::parse(&step_str) {
-    Ok(e) => e,
-    Err(e) => return ProcessResult::Error(format!("parse error: {e}")),
-  };
-
-  if exchange.data.is_empty() {
-    return ProcessResult::Error("no data section".into());
-  }
-
-  let table = Table::from_data_section(&exchange.data[0]);
-
-  match read_parametric_rendering_data_from_table(&table, config) {
+  match read_parametric_rendering_data_from_step(&step_str, config.clone()) {
     Ok(data) => {
       let duration = start.elapsed();
       ProcessResult::Success {

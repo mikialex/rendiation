@@ -3,9 +3,6 @@ mod parameter_remapping;
 mod surface_convert;
 mod topology;
 
-use std::fs;
-use std::path::Path;
-
 pub use curve_convert::{
   convert_90deg_circular_arc_to_bezier, convert_bspline_curve_to_bezier,
   convert_circle_to_bezier_curves, convert_ellipse_to_bezier_curves, convert_line_to_bezier,
@@ -110,14 +107,11 @@ impl std::error::Error for StepReadError {}
 // ── Main entry ────────────────────────────────────────────────────────
 
 pub fn read_parametric_rendering_data_from_step(
-  stp_file_path: impl AsRef<Path>,
+  step_str: &str,
   config: StepReadConfig,
 ) -> Result<ParametricRenderingData, StepReadError> {
-  let step_str = fs::read_to_string(stp_file_path.as_ref())
-    .map_err(|e| StepReadError::ParseError(format!("Cannot read file: {e}")))?;
-
   let table =
-    Table::from_step(&step_str).ok_or_else(|| StepReadError::ParseError("Parse failed".into()))?;
+    Table::from_step(step_str).ok_or_else(|| StepReadError::ParseError("Parse failed".into()))?;
 
   assemble_from_table(&table, &config)
 }
