@@ -311,9 +311,7 @@ impl GltfDoc {
     let (line_indices, mode) = if use_line_list {
       // LINE_LIST: each segment is an independent pair (i, i+1)
       let n = points.len();
-      let pairs: Vec<u32> = (0..n as u32 - 1)
-        .flat_map(|i| [i, i + 1])
-        .collect();
+      let pairs: Vec<u32> = (0..n as u32 - 1).flat_map(|i| [i, i + 1]).collect();
       (pairs, json::mesh::Mode::Lines)
     } else {
       let indices: Vec<u32> = (0..points.len() as u32).collect();
@@ -321,7 +319,8 @@ impl GltfDoc {
     };
     let idx_acc = self.add_u32_index_accessor_flat(&line_indices);
 
-    self.extensions_used
+    self
+      .extensions_used
       .insert("KHR_materials_unlit".to_string());
     let mat_idx = self.materials.len() as u32;
     self.materials.push(json::Material {
@@ -397,10 +396,7 @@ impl GltfDoc {
         extras: Default::default(),
       }],
       scene: Some(json::Index::new(0)),
-      extensions_used: self
-        .extensions_used
-        .into_iter()
-        .collect::<Vec<_>>(),
+      extensions_used: self.extensions_used.into_iter().collect::<Vec<_>>(),
       ..Default::default()
     };
     (root, bin)
@@ -450,22 +446,22 @@ fn write_glb(
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   let args: Vec<String> = env::args().collect();
   if args.len() < 3 {
-    eprintln!("usage: {} <input.stp> <output.glb> [--linelist]", args[0]);
+    println!("usage: {} <input.stp> <output.glb>", args[0]);
     std::process::exit(1);
   }
 
   let step_path = Path::new(&args[1]);
   let gltf_path = Path::new(&args[2]);
-  let use_line_list = args.get(3).map(|s| s.as_str()) == Some("--linelist");
+  let use_line_list = true;
 
-  eprintln!("reading STEP: {}", step_path.display());
+  println!("reading STEP: {}", step_path.display());
   let raw = fs::read_to_string(step_path)?;
   let step_str = normalize_step(&raw);
 
   let step_config = StepReadConfig::default();
   let data = read_parametric_rendering_data_from_step(&step_str, step_config)?;
 
-  eprintln!(
+  println!(
     "  {} trimmed surfaces, {} 3D curves",
     data.surfaces.len(),
     data.curves_3d.len()
@@ -475,7 +471,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   let mut doc = GltfDoc::new();
 
   for (i, trimmed) in data.surfaces.iter().enumerate() {
-    eprintln!(
+    println!(
       "  triangulating surface {}/{}{}",
       i + 1,
       data.surfaces.len(),
@@ -487,10 +483,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let mesh = triangulate_trimmed_surface(trimmed, &tri_config);
     if mesh.indices.is_empty() {
-      eprintln!("    skipped (empty triangulation)");
+      println!("    skipped (empty triangulation)");
       continue;
     }
-    eprintln!(
+    println!(
       "    {} vertices, {} triangles",
       mesh.positions.len(),
       mesh.indices.len()
@@ -499,19 +495,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   }
 
   if !data.curves_3d.is_empty() {
-    eprintln!("  tessellating {} 3D curves...", data.curves_3d.len());
+    println!("  tessellating {} 3D curves...", data.curves_3d.len());
   }
   for (i, curve) in data.curves_3d.iter().enumerate() {
     let pts = rendiation_parametric_rendering::surface_trim::bezier_curve_tessellate::adaptive_tessellate_bezier_curve(curve.clone(), 1e-3);
     if pts.len() < 2 {
-      eprintln!(
+      println!(
         "    curve {}/{}: skipped (too few points)",
         i + 1,
         data.curves_3d.len()
       );
       continue;
     }
-    eprintln!(
+    println!(
       "    curve {}/{}: {} line points",
       i + 1,
       data.curves_3d.len(),
@@ -521,7 +517,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   }
 
   let (root, bin) = doc.into_root();
-  eprintln!(
+  println!(
     "writing glTF: {} ({} meshes, {} nodes, {}K binary)",
     gltf_path.display(),
     root.meshes.len(),
@@ -530,6 +526,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   );
   write_glb(gltf_path, &root, &bin)?;
 
-  eprintln!("done.");
+  println!("done.");
   Ok(())
 }

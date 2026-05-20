@@ -943,9 +943,9 @@ pub struct ItemDefinedTransformation {
   pub name: String,
   pub description: Option<String>,
   #[holder(use_place_holder)]
-  pub transform_item_1: RepresentationItem,
+  pub transform_item_1: Axis2Placement3d,
   #[holder(use_place_holder)]
-  pub transform_item_2: RepresentationItem,
+  pub transform_item_2: Axis2Placement3d,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
@@ -1753,8 +1753,48 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
       use crate::entities::NonRationalBSplineCurveHolder as NRBC;
       use crate::entities::NonRationalBSplineSurfaceHolder as NRBS;
 
+      // ── Assembly Complex Entities (3 records) ──
+      if records.len() == 3 {
+        match (
+          records[0].name.as_str(),
+          &records[0].parameter,
+          records[1].name.as_str(),
+          &records[1].parameter,
+          records[2].name.as_str(),
+          &records[2].parameter,
+        ) {
+          // REPRESENTATION_RELATIONSHIP + WITH_TRANSFORMATION + SHAPE_REPRESENTATION_RELATIONSHIP
+          (
+            "REPRESENTATION_RELATIONSHIP",
+            Parameter::List(rel_params),
+            "REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION",
+            Parameter::List(trans_params),
+            "SHAPE_REPRESENTATION_RELATIONSHIP",
+            _,
+          ) => {
+            let mut params = rel_params.clone();
+            params.extend(trans_params.clone());
+            table
+              .shape_representation_relationship_with_transformation
+              .insert(*id, Deserialize::deserialize(&Parameter::List(params))?);
+          }
+          _ => {
+            table.unrecognized.insert(
+              *id,
+              UnrecognizedEntityHolder {
+                entity_name: records
+                  .iter()
+                  .map(|r| r.name.as_str())
+                  .collect::<Vec<_>>()
+                  .join(" & "),
+                raw_data: format!("{records:?}"),
+                is_simple: false,
+              },
+            );
+          }
+        }
       // ── Rational B-Spline Curve Complex Entities (7 records) ──
-      if records.len() == 7 {
+      } else if records.len() == 7 {
         match (
           records[0].name.as_str(),
           &records[0].parameter,
@@ -2100,9 +2140,9 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
             "SHAPE_REPRESENTATION",
             Parameter::List(shape_params),
             "SHAPE_REPRESENTATION_RELATIONSHIP",
-            Parameter::List(rel_params),
+            Parameter::List(rel_params8),
             "SHAPE_REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION",
-            Parameter::List(trans_params),
+            Parameter::List(trans_params8),
             _,
             _,
             _,
@@ -2114,8 +2154,8 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
           ) => {
             let mut params = rep_params.clone();
             params.extend(shape_params.clone());
-            params.extend(rel_params.clone());
-            params.extend(trans_params.clone());
+            params.extend(rel_params8.clone());
+            params.extend(trans_params8.clone());
             table
               .shape_representation_relationship_with_transformation
               .insert(*id, Deserialize::deserialize(&Parameter::List(params))?);

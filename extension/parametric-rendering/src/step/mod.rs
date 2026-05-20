@@ -30,7 +30,7 @@ use crate::*;
 
 // ── Debug logging ─────────────────────────────────────────────────────
 
-/// Set to `true` to enable verbose step-pipeline tracing via `eprintln!`.
+/// Set to `true` to enable verbose step-pipeline tracing via `println!`.
 pub const STEP_DEBUG_LOG: bool = true;
 
 /// Log a debug message when STEP_DEBUG_LOG is enabled.
@@ -38,7 +38,7 @@ pub const STEP_DEBUG_LOG: bool = true;
 #[allow(unused)]
 pub(crate) fn step_debug(args: std::fmt::Arguments<'_>) {
   if STEP_DEBUG_LOG {
-    eprintln!("{}", args);
+    println!("{}", args);
   }
 }
 
@@ -123,6 +123,26 @@ pub fn read_parametric_rendering_data_from_table(
   assemble_from_table(table, config)
 }
 
+fn apply_rigid_transform_to_surface(
+  surface: &mut crate::surface::RationalBezierSurface<f32>,
+  origin: Vec3<f32>,
+  x_dir: Vec3<f32>,
+  y_dir: Vec3<f32>,
+  z_dir: Vec3<f32>,
+) {
+  for cp in surface.control_points_mut() {
+    let w = cp.w;
+    if w.abs() < 1e-12 {
+      continue;
+    }
+    let p = Vec3::new(cp.x / w, cp.y / w, cp.z / w);
+    let tp = origin + x_dir * p.x + y_dir * p.y + z_dir * p.z;
+    cp.x = tp.x * w;
+    cp.y = tp.y * w;
+    cp.z = tp.z * w;
+  }
+}
+
 fn assemble_from_table(
   table: &Table,
   config: &StepReadConfig,
@@ -135,7 +155,7 @@ fn assemble_from_table(
   let mut curves_3d: Vec<RationalBezierCurve3d<f32>> = Vec::new();
 
   for (fi, face_data) in face_data_list.iter().enumerate() {
-    let (patches, original_surface) =
+    let (mut patches, original_surface) =
       match convert_any_surface_to_bezier_patches(&face_data.surface) {
         Ok(p) => p,
         Err(e) => {
@@ -152,6 +172,38 @@ fn assemble_from_table(
 
     let patch_trim_boundaries =
       process_trim_curves_for_face(&original_surface, &patches, &face_data.edges, config, table);
+
+    // Assembly placement is extracted but currently not applied.
+    // Both reference implementations (truck, foxtrot) apply transforms to
+    // tessellated mesh vertices. Applying to Bezier control points should be
+    // mathematically equivalent for rigid transforms, but something is off.
+    // TODO: debug why applying the assembly transform makes surface positions
+    // worse instead of better. Possibly the surfaces already include their
+    // assembly placement, or the transform direction needs investigation.
+    if let Some((origin, x_dir, y_dir, z_dir)) = face_data.placement {
+      step_dbg!(
+        "step: face #{fi} placement: origin=({:.3},{:.3},{:.3}) x=({:.3},{:.3},{:.3}) z=({:.3},{:.3},{:.3}) — SKIPPED",
+        origin.x, origin.y, origin.z,
+        x_dir.x, x_dir.y, x_dir.z,
+        z_dir.x, z_dir.y, z_dir.z,
+      );
+      // for patch in &mut patches {
+      //   apply_rigid_transform_to_surface(&mut patch.surface, origin, x_dir, y_dir, z_dir);
+      // }
+    } else {
+      step_dbg!("step: face #{fi} no placement");
+    }
+
+    // Surface position debug (first two faces only)
+    if fi < 2 && !patches.is_empty() {
+      let p0 = patches[0].surface.evaluate(0.5, 0.5);
+      step_dbg!(
+        "step: face #{fi} patch center BEFORE transform: ({:.3},{:.3},{:.3})",
+        p0.x,
+        p0.y,
+        p0.z
+      );
+    }
 
     for (pi, patch) in patches.iter().enumerate() {
       match &patch_trim_boundaries[pi] {
