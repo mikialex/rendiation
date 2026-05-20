@@ -89,7 +89,7 @@ pub fn map_transform(t: gltf::scene::Transform) -> Mat4<f64> {
   .into_f64()
 }
 
-pub fn map_attribute_semantic(a: gltf::Semantic) -> AttributeSemantic {
+pub fn map_attribute_semantic(a: gltf::Semantic) -> Option<AttributeSemantic> {
   match a {
     gltf::Semantic::Positions => AttributeSemantic::Positions,
     gltf::Semantic::Normals => AttributeSemantic::Normals,
@@ -98,7 +98,9 @@ pub fn map_attribute_semantic(a: gltf::Semantic) -> AttributeSemantic {
     gltf::Semantic::TexCoords(v) => AttributeSemantic::TexCoords(v),
     gltf::Semantic::Joints(v) => AttributeSemantic::Joints(v),
     gltf::Semantic::Weights(v) => AttributeSemantic::Weights(v),
+    gltf::Semantic::Extras(_) => return None,
   }
+  .into()
 }
 
 pub fn map_alpha(a: gltf::material::AlphaMode) -> AlphaMode {
