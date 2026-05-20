@@ -222,6 +222,97 @@ impl<T: Scalar> NurbsSurface<T> {
     (point, su, sv)
   }
 
+  /// Project a 3D point onto the NURBS surface using Gauss-Newton iteration.
+  ///
+  /// The grid search and iteration are performed in the knot vector range
+  /// `[u_knots[degree], u_knots[count]] × [v_knots[degree], v_knots[count]]`.
+  ///
+  /// Returns `Some((u, v, distance))` in global knot-vector parameter space
+  /// if the iteration converges, or `None` if it fails to converge.
+  pub fn project_point(
+    &self,
+    point: Vec3<T>,
+    initial_grid: usize,
+    tolerance: T,
+    max_iterations: usize,
+  ) -> Option<(T, T, T)> {
+    let (u_min, u_max) = self.u_range();
+    let (v_min, v_max) = self.v_range();
+
+    let grid_n = initial_grid + 1;
+    let div = T::from(initial_grid).expect("grid size must fit in scalar type");
+    let du = u_max - u_min;
+    let dv = v_max - v_min;
+    let mut best: Option<(T, T)> = None;
+    let mut best_dist_sq = T::zero();
+
+    for j in 0..grid_n {
+      let v = v_min + T::from(j).expect("index must fit in scalar type") / div * dv;
+      for i in 0..grid_n {
+        let u = u_min + T::from(i).expect("index must fit in scalar type") / div * du;
+        let s = self.evaluate(u, v);
+        let d = s - point;
+        let dist_sq = d.dot(d);
+        match best {
+          None => {
+            best = Some((u, v));
+            best_dist_sq = dist_sq;
+          }
+          Some(_) if dist_sq < best_dist_sq => {
+            best = Some((u, v));
+            best_dist_sq = dist_sq;
+          }
+          _ => {}
+        }
+      }
+    }
+
+    let (mut u, mut v) = best?;
+
+    for _ in 0..max_iterations {
+      let (s, su, sv) = self.evaluate_partial(u, v);
+      let d = s - point;
+
+      let g0 = su.dot(d);
+      let g1 = sv.dot(d);
+
+      let h00 = su.dot(su);
+      let h01 = su.dot(sv);
+      let h11 = sv.dot(sv);
+
+      let det = h00 * h11 - h01 * h01;
+      if det.abs() <= tolerance {
+        break;
+      }
+
+      let du_step = (h01 * g1 - h11 * g0) / det;
+      let dv_step = (h01 * g0 - h00 * g1) / det;
+
+      u = u + du_step;
+      v = v + dv_step;
+
+      if u < u_min {
+        u = u_min;
+      }
+      if u > u_max {
+        u = u_max;
+      }
+      if v < v_min {
+        v = v_min;
+      }
+      if v > v_max {
+        v = v_max;
+      }
+
+      if du_step.abs() + dv_step.abs() < tolerance {
+        let dist = d.dot(d).sqrt();
+        return Some((u, v, dist));
+      }
+    }
+
+    None
+  }
+
   /// Decompose the NURBS surface into a grid of mathematically equivalent
   /// rational Bézier patches by inserting all interior knots to full multiplicity.
   ///

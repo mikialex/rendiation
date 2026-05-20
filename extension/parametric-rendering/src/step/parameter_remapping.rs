@@ -275,6 +275,32 @@ fn concatenate_polylines(polylines: &[Vec<Vec2<f32>>]) -> Vec<Vec2<f32>> {
   result
 }
 
+/// Ray-casting point-in-polygon test for a closed 2D polygon.
+///
+/// Returns `true` if `point` is inside the polygon (including on edges).
+/// The polygon is assumed closed (last point connects to first).
+pub fn point_in_polygon(point: Vec2<f32>, polygon: &[Vec2<f32>]) -> bool {
+  let n = polygon.len();
+  if n < 3 {
+    return false;
+  }
+  let mut inside = false;
+  let mut j = n - 1;
+  for i in 0..n {
+    let a = polygon[i];
+    let b = polygon[j];
+    // Check if the ray from point to +x crosses edge (a,b)
+    if (a.y > point.y) != (b.y > point.y) {
+      let x_intersect = a.x + (b.x - a.x) * (point.y - a.y) / (b.y - a.y);
+      if point.x < x_intersect {
+        inside = !inside;
+      }
+    }
+    j = i;
+  }
+  inside
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -331,5 +357,31 @@ mod tests {
     assert!(pcurve_intersects_patch((0.2, 0.7), (0.0, 0.3), &patch));
     assert!(!pcurve_intersects_patch((0.6, 0.8), (0.0, 0.3), &patch));
     assert!(pcurve_intersects_patch((0.2, 0.3), (0.0, 1.0), &patch));
+  }
+
+  #[test]
+  fn point_in_square() {
+    let square = vec![
+      Vec2::new(0.0, 0.0),
+      Vec2::new(1.0, 0.0),
+      Vec2::new(1.0, 1.0),
+      Vec2::new(0.0, 1.0),
+    ];
+    assert!(point_in_polygon(Vec2::new(0.5, 0.5), &square));
+    assert!(point_in_polygon(Vec2::new(0.1, 0.1), &square));
+    assert!(!point_in_polygon(Vec2::new(1.5, 0.5), &square));
+    assert!(!point_in_polygon(Vec2::new(-0.1, 0.5), &square));
+  }
+
+  #[test]
+  fn point_outside_polygon() {
+    let triangle = vec![
+      Vec2::new(0.0, 0.0),
+      Vec2::new(1.0, 0.0),
+      Vec2::new(0.5, 1.0),
+    ];
+    assert!(point_in_polygon(Vec2::new(0.5, 0.3), &triangle));
+    assert!(!point_in_polygon(Vec2::new(0.5, -0.3), &triangle));
+    assert!(!point_in_polygon(Vec2::new(1.5, 0.5), &triangle));
   }
 }

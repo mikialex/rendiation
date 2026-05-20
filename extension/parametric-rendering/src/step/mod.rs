@@ -24,15 +24,17 @@ pub use surface_convert::{
 use topology::{collect_face_surface_data, EdgeData};
 
 use crate::step::curve_convert::{convert_any_curve_to_bezier, extract_2d_curve_points};
-use crate::step::parameter_remapping::{connect_polylines_with_boundary, remap_2d_points_to_patch};
-use crate::step::surface_convert::PatchParamRange;
+use crate::step::parameter_remapping::{
+  connect_polylines_with_boundary, point_in_polygon, remap_2d_points_to_patch,
+};
+use crate::step::surface_convert::{OriginalSurface, PatchParamRange};
 use crate::surface_trim::QuadraticBezierCurve2d;
 use crate::*;
 
 // ── Debug logging ─────────────────────────────────────────────────────
 
 /// Set to `true` to enable verbose step-pipeline tracing via `eprintln!`.
-pub const STEP_DEBUG_LOG: bool = false;
+pub const STEP_DEBUG_LOG: bool = true;
 
 /// Log a debug message when STEP_DEBUG_LOG is enabled.
 /// Uses `format_args!`-style formatting call: `step_debug(format_args!(...))`.
@@ -139,13 +141,14 @@ fn assemble_from_table(
   let mut curves_3d: Vec<RationalBezierCurve3d<f32>> = Vec::new();
 
   for (fi, face_data) in face_data_list.iter().enumerate() {
-    let patches = match convert_any_surface_to_bezier_patches(&face_data.surface) {
-      Ok(p) => p,
-      Err(e) => {
-        step_dbg!("step: face #{fi} surface conversion failed: {e}");
-        continue;
-      }
-    };
+    let (patches, original_surface) =
+      match convert_any_surface_to_bezier_patches(&face_data.surface) {
+        Ok(p) => p,
+        Err(e) => {
+          step_dbg!("step: face #{fi} surface conversion failed: {e}");
+          continue;
+        }
+      };
 
     step_dbg!(
       "step: face #{fi} → {} patches, {} edges",
@@ -153,21 +156,21 @@ fn assemble_from_table(
       face_data.edges.len()
     );
 
-    // Process all edges and patches together: tessellate each edge once,
-    // project 3D points onto the correct patch (try-last-patch-first),
-    // then per-patch connect boundaries + reconstruct.
     let patch_trim_boundaries =
-      process_trim_curves_for_face(&patches, &face_data.edges, config, table);
+      process_trim_curves_for_face(&original_surface, &patches, &face_data.edges, config, table);
 
     for (pi, patch) in patches.iter().enumerate() {
-      let trim = patch_trim_boundaries
-        .get(pi)
-        .map(|v| v.to_vec())
-        .unwrap_or_default();
-      trimmed_surfaces.push(TrimmedSurface {
-        surface: patch.surface.clone(),
-        trim_boundary: trim,
-      });
+      match &patch_trim_boundaries[pi] {
+        Some(trim) => {
+          trimmed_surfaces.push(TrimmedSurface {
+            surface: patch.surface.clone(),
+            trim_boundary: trim.clone(),
+          });
+        }
+        None => {
+          step_dbg!("step: face #{fi} patch #{pi} discarded (fully trimmed)");
+        }
+      }
     }
 
     for edge in &face_data.edges {
@@ -191,22 +194,26 @@ fn assemble_from_table(
   })
 }
 
-/// Process trim curves for all patches of a face, using single-pass tessellation
-/// with distribution of 3D points to the correct patch (try-last-patch heuristic).
+/// Project 3D tessellation points onto the original surface once, then
+/// distribute the resulting (u,v) coordinates to the correct Bezier patch
+/// by checking each patch's parameter range.
 ///
-/// Returns one `Vec<QuadraticBezierCurve2d>` per patch.
+/// Returns `Some(trim_boundary)` per patch to keep, or `None` for patches
+/// that are fully outside the trimmed region and should be discarded.
 fn process_trim_curves_for_face(
+  original_surface: &OriginalSurface,
   patches: &[PatchParamRange],
   edges: &[EdgeData],
   config: &StepReadConfig,
   table: &Table,
-) -> Vec<Vec<QuadraticBezierCurve2d<f32>>> {
+) -> Vec<Option<Vec<QuadraticBezierCurve2d<f32>>>> {
   let n_patches = patches.len();
   if n_patches == 0 || edges.is_empty() {
-    return std::iter::repeat_with(Vec::new).take(n_patches).collect();
+    return std::iter::repeat_with(|| Some(Vec::new()))
+      .take(n_patches)
+      .collect();
   }
 
-  // per_patch_polylines[pi][ei] = polyline for edge ei on patch pi
   let n_edges = edges.len();
   let mut per_patch_polylines: Vec<Vec<Vec<Vec2<f32>>>> =
     vec![vec![Vec::new(); n_edges]; n_patches];
@@ -214,12 +221,13 @@ fn process_trim_curves_for_face(
   let proj_dist_tolerance = config.project_tolerance * 10.0;
 
   for (ei, edge) in edges.iter().enumerate() {
-    // Try pcurve path first — remap to each patch directly
+    // Try pcurve path first
     if try_pcurve_for_all_patches(ei, edge, patches, table, &mut per_patch_polylines) {
       continue;
     }
 
-    // Numerical path: tessellate once, project points onto correct patch
+    // Numerical path: tessellate edge once, project each 3D point onto
+    // the original surface, then find the correct patch by range check.
     let beziers = match convert_any_curve_to_bezier(&edge.curve_3d) {
       Ok(b) => b,
       Err(_) => continue,
@@ -238,55 +246,59 @@ fn process_trim_curves_for_face(
       continue;
     }
 
-    // Project each 3D point onto the correct patch.
-    // Use last-successful-patch heuristic with distance check to avoid
-    // adding points to the wrong patch (project_point clamps to [0,1]²
-    // so wrong-patch projections still "succeed" but with large distance).
-    let mut last_patch: Option<usize> = None;
     for &p3 in &all_3d_points {
-      // Try last successful patch first
-      if let Some(lp) = last_patch {
-        if let Some((u, v, d)) = patches[lp].surface.project_point(
-          p3,
-          config.project_grid,
-          config.project_tolerance,
-          config.project_max_iter,
-        ) {
-          if d < proj_dist_tolerance {
-            per_patch_polylines[lp][ei].push(Vec2::new(u, v));
-            continue;
-          }
-        }
+      // Project onto the original surface once
+      let Some((u_global, v_global, dist)) = original_surface.project_point(
+        p3,
+        config.project_grid,
+        config.project_tolerance,
+        config.project_max_iter,
+      ) else {
+        continue;
+      };
+
+      if dist > proj_dist_tolerance {
+        continue;
       }
 
-      // Try all patches
+      // Find which patch contains this (u, v) — O(P) float comparisons
       for (pi, patch) in patches.iter().enumerate() {
-        if let Some((u, v, d)) = patch.surface.project_point(
-          p3,
-          config.project_grid,
-          config.project_tolerance,
-          config.project_max_iter,
-        ) {
-          if d < proj_dist_tolerance {
-            per_patch_polylines[pi][ei].push(Vec2::new(u, v));
-            last_patch = Some(pi);
-            break;
+        if u_global >= patch.u_range.0
+          && u_global <= patch.u_range.1
+          && v_global >= patch.v_range.0
+          && v_global <= patch.v_range.1
+        {
+          let du = patch.u_range.1 - patch.u_range.0;
+          let dv = patch.v_range.1 - patch.v_range.0;
+          if du > 0.0 && dv > 0.0 {
+            let u_local = ((u_global - patch.u_range.0) / du).clamp(0.0, 1.0);
+            let v_local = ((v_global - patch.v_range.0) / dv).clamp(0.0, 1.0);
+            per_patch_polylines[pi][ei].push(Vec2::new(u_local, v_local));
           }
+          break;
         }
       }
     }
   }
 
-  // Phase 2: per-patch boundary connection + reconstruction
+  // Phase 2: classify empty patches using a global boundary built from
+  // non-empty patches, then reconstruct boundaries for kept patches.
   let boundary_epsilon = config.fit_tolerance * 10.0;
+
+  let keep_mask = classify_empty_patches(patches, &per_patch_polylines, boundary_epsilon);
+
   per_patch_polylines
     .into_iter()
-    .map(|edge_polys| {
+    .enumerate()
+    .map(|(pi, edge_polys)| {
+      if !keep_mask[pi] {
+        return None; // patch fully outside trimmed region
+      }
       let polylines: Vec<Vec<Vec2<f32>>> =
         edge_polys.into_iter().filter(|p| !p.is_empty()).collect();
 
       if polylines.is_empty() {
-        return Vec::new();
+        return Some(Vec::new()); // patch fully inside — no trim needed
       }
 
       let components = connect_polylines_with_boundary(polylines, boundary_epsilon);
@@ -297,9 +309,99 @@ fn process_trim_curves_for_face(
           quadratics.extend(qs);
         }
       }
-      quadratics
+      Some(quadratics)
     })
     .collect()
+}
+
+/// Build a global trim boundary from non-empty patches and classify empty
+/// patches as inside (keep) or outside (discard) the trimmed region.
+///
+/// Returns a bool per patch: `true` = keep, `false` = discard.
+fn classify_empty_patches(
+  patches: &[PatchParamRange],
+  per_patch_polylines: &[Vec<Vec<Vec2<f32>>>],
+  boundary_epsilon: f32,
+) -> Vec<bool> {
+  let n = patches.len();
+
+  // If all patches are empty (no trim data), keep all — untrimmed face.
+  // If all patches are non-empty, keep all — normal case.
+  let empty_count = per_patch_polylines
+    .iter()
+    .filter(|eps| eps.iter().all(|p| p.is_empty()))
+    .count();
+  if empty_count == 0 || empty_count == n {
+    return vec![true; n];
+  }
+
+  // Compute global parameter range
+  let mut u_min = f32::MAX;
+  let mut u_max = f32::MIN;
+  let mut v_min = f32::MAX;
+  let mut v_max = f32::MIN;
+  for p in patches {
+    u_min = u_min.min(p.u_range.0);
+    u_max = u_max.max(p.u_range.1);
+    v_min = v_min.min(p.v_range.0);
+    v_max = v_max.max(p.v_range.1);
+  }
+  let du = u_max - u_min;
+  let dv = v_max - v_min;
+  if du < 1e-10 || dv < 1e-10 {
+    return vec![true; n];
+  }
+
+  // Collect all polylines from non-empty patches, mapped to
+  // normalized global [0,1]² space
+  let mut global_polylines: Vec<Vec<Vec2<f32>>> = Vec::new();
+  for (pi, edge_polys) in per_patch_polylines.iter().enumerate() {
+    for poly in edge_polys {
+      if poly.is_empty() {
+        continue;
+      }
+      let mapped: Vec<Vec2<f32>> = poly
+        .iter()
+        .map(|&p_local| {
+          let u_global =
+            patches[pi].u_range.0 + p_local.x * (patches[pi].u_range.1 - patches[pi].u_range.0);
+          let v_global =
+            patches[pi].v_range.0 + p_local.y * (patches[pi].v_range.1 - patches[pi].v_range.0);
+          Vec2::new((u_global - u_min) / du, (v_global - v_min) / dv)
+        })
+        .collect();
+      global_polylines.push(mapped);
+    }
+  }
+
+  if global_polylines.is_empty() {
+    return vec![true; n];
+  }
+
+  // Build closed global boundary polygon(s)
+  let components = connect_polylines_with_boundary(global_polylines, boundary_epsilon);
+
+  // For each empty patch, test if its center is inside the global boundary
+  let mut keep = vec![true; n];
+  for (pi, edge_polys) in per_patch_polylines.iter().enumerate() {
+    if edge_polys.iter().any(|p| !p.is_empty()) {
+      continue; // non-empty patch → already classified as keep
+    }
+
+    // Map patch center to normalized global space
+    let cu = (patches[pi].u_range.0 + patches[pi].u_range.1) * 0.5;
+    let cv = (patches[pi].v_range.0 + patches[pi].v_range.1) * 0.5;
+    let test_pt = Vec2::new((cu - u_min) / du, (cv - v_min) / dv);
+
+    // Point-in-polygon test against each closed component.
+    // If inside any component, keep the patch; otherwise discard.
+    let inside = components
+      .iter()
+      .any(|comp| point_in_polygon(test_pt, comp));
+    keep[pi] = inside;
+  }
+
+  keep
 }
 
 /// Try pcurve path for all patches at once (remaps pcurve points to each patch).
