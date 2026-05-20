@@ -17,6 +17,8 @@ The following things is the current project development direction.
 
 important issue is in bold style.
 
+- midc downgrade not support linestrip or triangle strip
+- indirect frustum culling，inside case is wrong?
 - on demand rendering not consider selection state change
 - uniform light containner iter none exist lights
 - fix indirect rendering in windows dx12 native

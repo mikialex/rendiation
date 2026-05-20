@@ -57,7 +57,7 @@ pub fn use_widen_styled_points_indirect_renderer(
     .update_storage_array_with_host(cx, params, offset_of!(WideStyledPointParameters, color));
 
   let color_alpha_texture = offset_of!(WideStyledPointParameters, color_alpha_texture);
-  use_tex_watcher_with_host::<UnlitMaterialColorAlphaTex, _>(cx, params, color_alpha_texture);
+  use_tex_watcher_with_host::<WidePointsColorAlphaTex, _>(cx, params, color_alpha_texture);
 
   params.use_max_item_count_by_db_entity::<WideStyledPointsEntity>(cx);
   params.use_update(cx);
