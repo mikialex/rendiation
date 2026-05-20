@@ -1,6 +1,4 @@
-use rendiation_algebra::*;
-
-use super::beizer::RationalBezierCurve3d;
+use crate::*;
 
 /// A NURBS (Non-Uniform Rational B-Spline) curve in 3D of arbitrary degree.
 ///

@@ -1,34 +1,25 @@
-mod curve_convert;
+mod curve2d_sample;
+mod curve3d_convert;
+mod helpers;
 mod parameter_remapping;
+mod placement;
 mod surface_convert;
+mod surface_project;
 mod topology;
 
-pub use curve_convert::{
-  convert_90deg_circular_arc_to_bezier, convert_bspline_curve_to_bezier,
-  convert_circle_to_bezier_curves, convert_ellipse_to_bezier_curves, convert_line_to_bezier,
-  convert_rational_bspline_curve_to_bezier,
-};
-use rendiation_algebra::{Vec2, Vec3};
+use curve2d_sample::*;
+use curve3d_convert::*;
+use helpers::*;
+use placement::*;
 use rendiation_step_reader::table::Table;
-use surface_convert::convert_any_surface_to_bezier_patches;
-pub use surface_convert::{
-  convert_bezier_surface_to_patch, convert_bspline_surface_to_bezier_patches,
-  convert_cone_to_bezier_patches, convert_cylinder_to_bezier_patches,
-  convert_extrusion_surface_to_bezier_patches, convert_plane_to_bezier_patch,
-  convert_rational_bspline_surface_to_bezier_patches, convert_sphere_to_bezier_patches,
-  convert_torus_to_bezier_patches,
-};
-use topology::{collect_face_surface_data, EdgeData};
+use surface_convert::*;
+use surface_project::*;
+use topology::*;
 
-use crate::step::curve_convert::{convert_any_curve_to_bezier, extract_2d_curve_points};
 use crate::step::parameter_remapping::{
   connect_polylines_with_boundary, point_in_polygon, remap_2d_points_to_patch,
 };
-use crate::step::surface_convert::{OriginalSurface, PatchParamRange};
-use crate::surface_trim::QuadraticBezierCurve2d;
 use crate::*;
-
-// ── Debug logging ─────────────────────────────────────────────────────
 
 /// Set to `true` to enable verbose step-pipeline tracing via `println!`.
 pub const STEP_DEBUG_LOG: bool = true;
@@ -50,8 +41,6 @@ macro_rules! step_dbg {
 }
 pub(crate) use step_dbg;
 
-// ── Configuration ─────────────────────────────────────────────────────
-
 #[derive(Debug, Clone)]
 pub struct StepReadConfig {
   pub tessellate_tolerance: f32,
@@ -72,8 +61,6 @@ impl Default for StepReadConfig {
     }
   }
 }
-
-// ── Error ─────────────────────────────────────────────────────────────
 
 #[derive(Debug)]
 pub enum StepReadError {
@@ -123,25 +110,25 @@ pub fn read_parametric_rendering_data_from_table(
   assemble_from_table(table, config)
 }
 
-fn apply_rigid_transform_to_surface(
-  surface: &mut crate::surface::RationalBezierSurface<f32>,
-  origin: Vec3<f32>,
-  x_dir: Vec3<f32>,
-  y_dir: Vec3<f32>,
-  z_dir: Vec3<f32>,
-) {
-  for cp in surface.control_points_mut() {
-    let w = cp.w;
-    if w.abs() < 1e-12 {
-      continue;
-    }
-    let p = Vec3::new(cp.x / w, cp.y / w, cp.z / w);
-    let tp = origin + x_dir * p.x + y_dir * p.y + z_dir * p.z;
-    cp.x = tp.x * w;
-    cp.y = tp.y * w;
-    cp.z = tp.z * w;
-  }
-}
+// fn apply_rigid_transform_to_surface(
+//   surface: &mut crate::surface::RationalBezierSurface<f32>,
+//   origin: Vec3<f32>,
+//   x_dir: Vec3<f32>,
+//   y_dir: Vec3<f32>,
+//   z_dir: Vec3<f32>,
+// ) {
+//   for cp in surface.control_points_mut() {
+//     let w = cp.w;
+//     if w.abs() < 1e-12 {
+//       continue;
+//     }
+//     let p = Vec3::new(cp.x / w, cp.y / w, cp.z / w);
+//     let tp = origin + x_dir * p.x + y_dir * p.y + z_dir * p.z;
+//     cp.x = tp.x * w;
+//     cp.y = tp.y * w;
+//     cp.z = tp.z * w;
+//   }
+// }
 
 fn assemble_from_table(
   table: &Table,
@@ -155,8 +142,8 @@ fn assemble_from_table(
   let mut curves_3d: Vec<RationalBezierCurve3d<f32>> = Vec::new();
 
   for (fi, face_data) in face_data_list.iter().enumerate() {
-    let (mut patches, original_surface) =
-      match convert_any_surface_to_bezier_patches(&face_data.surface) {
+    let (patches, original_surface) =
+      match convert_and_split_any_surface_to_bezier_patches(&face_data.surface) {
         Ok(p) => p,
         Err(e) => {
           step_dbg!("step: face #{fi} surface conversion failed: {e}");
@@ -180,7 +167,7 @@ fn assemble_from_table(
     // TODO: debug why applying the assembly transform makes surface positions
     // worse instead of better. Possibly the surfaces already include their
     // assembly placement, or the transform direction needs investigation.
-    if let Some((origin, x_dir, y_dir, z_dir)) = face_data.placement {
+    if let Some((origin, x_dir, _y_dir, z_dir)) = face_data.placement {
       step_dbg!(
         "step: face #{fi} placement: origin=({:.3},{:.3},{:.3}) x=({:.3},{:.3},{:.3}) z=({:.3},{:.3},{:.3}) — SKIPPED",
         origin.x, origin.y, origin.z,
@@ -248,7 +235,7 @@ fn assemble_from_table(
 /// that are fully outside the trimmed region and should be discarded.
 fn process_trim_curves_for_face(
   original_surface: &OriginalSurface,
-  patches: &[PatchParamRange],
+  patches: &[SurfaceSubPatch],
   edges: &[EdgeData],
   config: &StepReadConfig,
   table: &Table,
@@ -280,11 +267,8 @@ fn process_trim_curves_for_face(
     };
 
     let mut all_3d_points: Vec<Vec3<f32>> = Vec::new();
-    for curve in beziers {
-      let pts = crate::surface_trim::bezier_curve_tessellate::adaptive_tessellate_bezier_curve(
-        curve,
-        config.tessellate_tolerance,
-      );
+    for curve in &beziers {
+      let pts = adaptive_tessellate_bezier_curve(curve, config.tessellate_tolerance);
       all_3d_points.extend(pts);
     }
 
@@ -309,16 +293,17 @@ fn process_trim_curves_for_face(
 
       // Find which patch contains this (u, v) — O(P) float comparisons
       for (pi, patch) in patches.iter().enumerate() {
-        if u_global >= patch.u_range.0
-          && u_global <= patch.u_range.1
-          && v_global >= patch.v_range.0
-          && v_global <= patch.v_range.1
+        let range = patch.sub_range;
+        if u_global >= range.u_range.0
+          && u_global <= range.u_range.1
+          && v_global >= range.v_range.0
+          && v_global <= range.v_range.1
         {
-          let du = patch.u_range.1 - patch.u_range.0;
-          let dv = patch.v_range.1 - patch.v_range.0;
+          let du = range.u_range.1 - range.u_range.0;
+          let dv = range.v_range.1 - range.v_range.0;
           if du > 0.0 && dv > 0.0 {
-            let u_local = ((u_global - patch.u_range.0) / du).clamp(0.0, 1.0);
-            let v_local = ((v_global - patch.v_range.0) / dv).clamp(0.0, 1.0);
+            let u_local = ((u_global - range.u_range.0) / du).clamp(0.0, 1.0);
+            let v_local = ((v_global - range.v_range.0) / dv).clamp(0.0, 1.0);
             per_patch_polylines[pi][ei].push(Vec2::new(u_local, v_local));
           }
           break;
@@ -365,7 +350,7 @@ fn process_trim_curves_for_face(
 ///
 /// Returns a bool per patch: `true` = keep, `false` = discard.
 fn classify_empty_patches(
-  patches: &[PatchParamRange],
+  patches: &[SurfaceSubPatch],
   per_patch_polylines: &[Vec<Vec<Vec2<f32>>>],
   boundary_epsilon: f32,
 ) -> Vec<bool> {
@@ -387,10 +372,10 @@ fn classify_empty_patches(
   let mut v_min = f32::MAX;
   let mut v_max = f32::MIN;
   for p in patches {
-    u_min = u_min.min(p.u_range.0);
-    u_max = u_max.max(p.u_range.1);
-    v_min = v_min.min(p.v_range.0);
-    v_max = v_max.max(p.v_range.1);
+    u_min = u_min.min(p.sub_range.u_range.0);
+    u_max = u_max.max(p.sub_range.u_range.1);
+    v_min = v_min.min(p.sub_range.v_range.0);
+    v_max = v_max.max(p.sub_range.v_range.1);
   }
   let du = u_max - u_min;
   let dv = v_max - v_min;
@@ -409,10 +394,10 @@ fn classify_empty_patches(
       let mapped: Vec<Vec2<f32>> = poly
         .iter()
         .map(|&p_local| {
-          let u_global =
-            patches[pi].u_range.0 + p_local.x * (patches[pi].u_range.1 - patches[pi].u_range.0);
-          let v_global =
-            patches[pi].v_range.0 + p_local.y * (patches[pi].v_range.1 - patches[pi].v_range.0);
+          let u_global = patches[pi].sub_range.u_range.0
+            + p_local.x * (patches[pi].sub_range.u_range.1 - patches[pi].sub_range.u_range.0);
+          let v_global = patches[pi].sub_range.v_range.0
+            + p_local.y * (patches[pi].sub_range.v_range.1 - patches[pi].sub_range.v_range.0);
           Vec2::new((u_global - u_min) / du, (v_global - v_min) / dv)
         })
         .collect();
@@ -435,8 +420,8 @@ fn classify_empty_patches(
     }
 
     // Map patch center to normalized global space
-    let cu = (patches[pi].u_range.0 + patches[pi].u_range.1) * 0.5;
-    let cv = (patches[pi].v_range.0 + patches[pi].v_range.1) * 0.5;
+    let cu = (patches[pi].sub_range.u_range.0 + patches[pi].sub_range.u_range.1) * 0.5;
+    let cv = (patches[pi].sub_range.v_range.0 + patches[pi].sub_range.v_range.1) * 0.5;
     let test_pt = Vec2::new((cu - u_min) / du, (cv - v_min) / dv);
 
     // Point-in-polygon test against each closed component.
@@ -455,7 +440,7 @@ fn classify_empty_patches(
 fn try_pcurve_for_all_patches(
   ei: usize,
   edge: &EdgeData,
-  patches: &[PatchParamRange],
+  patches: &[SurfaceSubPatch],
   table: &Table,
   per_patch_polylines: &mut [Vec<Vec<Vec2<f32>>>],
 ) -> bool {
@@ -474,7 +459,7 @@ fn try_pcurve_for_all_patches(
 
     let mut any_mapped = false;
     for (pi, patch) in patches.iter().enumerate() {
-      let remapped = remap_2d_points_to_patch(&points_2d, patch);
+      let remapped = remap_2d_points_to_patch(&points_2d, &patch.sub_range);
       if !remapped.is_empty() {
         per_patch_polylines[pi][ei] = remapped;
         any_mapped = true;

@@ -1,4 +1,4 @@
-use rendiation_algebra::*;
+use crate::*;
 
 /// A rational Bézier curve in 3D of arbitrary degree.
 ///

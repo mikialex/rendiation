@@ -1,7 +1,17 @@
-use rendiation_algebra::*;
 use spade::{handles::FixedVertexHandle, ConstrainedDelaunayTriangulation, Point2, Triangulation};
 
-use crate::{surface_trim::QuadraticBezierCurve2d, TrimmedSurface};
+use crate::*;
+
+/// Triangulate a single trimmed Bézier surface.
+pub fn triangulate_trimmed_surface(
+  trimmed: &TrimmedSurface,
+  config: &TriangulationConfig,
+) -> MeshData {
+  if trimmed.trim_boundary.is_empty() {
+    return triangulate_untrimmed(&trimmed.surface, config.grid_resolution);
+  }
+  triangulate_trimmed(&trimmed.surface, &trimmed.trim_boundary, config)
+}
 
 /// Per-surface triangulation result.
 pub struct MeshData {
@@ -28,90 +38,12 @@ impl Default for TriangulationConfig {
   }
 }
 
+pub fn tessellate_curve(curve: &RationalBezierCurve3d<f32>, tolerance: f32) -> Vec<Vec3<f32>> {
+  adaptive_tessellate_bezier_curve(curve, tolerance)
+}
+
 type SpadePoint = Point2<f64>;
 type SpadeCdt = ConstrainedDelaunayTriangulation<SpadePoint>;
-
-// ── Boundary tessellation ────────────────────────────────────────────
-
-/// Adaptively tessellate a 2D quadratic Bézier curve by recursive
-/// subdivision until the chord error is below `tolerance`.
-fn tessellate_quadratic_bezier_2d(
-  curve: &QuadraticBezierCurve2d<f32>,
-  tolerance: f32,
-) -> Vec<Vec2<f32>> {
-  let mut out = vec![curve.start];
-  subdivide_qbezier(curve.start, curve.ctrl, curve.end, tolerance, &mut out);
-  out.push(curve.end);
-  out
-}
-
-fn subdivide_qbezier(
-  p0: Vec2<f32>,
-  p1: Vec2<f32>,
-  p2: Vec2<f32>,
-  tol: f32,
-  out: &mut Vec<Vec2<f32>>,
-) {
-  // Flatness: distance from p1 to the chord midpoint
-  let mid = (p0 + p2) * 0.5;
-  if (p1 - mid).length() < tol {
-    return;
-  }
-  // De Casteljau subdivision at t = 0.5
-  let q1 = (p0 + p1) * 0.5;
-  let r1 = (p1 + p2) * 0.5;
-  let q2 = (q1 + r1) * 0.5; // B(0.5)
-  subdivide_qbezier(p0, q1, q2, tol, out);
-  out.push(q2);
-  subdivide_qbezier(q2, r1, p2, tol, out);
-}
-
-// ── Winding number ───────────────────────────────────────────────────
-
-fn cross_2d(a: Vec2<f32>, b: Vec2<f32>) -> f32 {
-  a.x * b.y - a.y * b.x
-}
-
-/// Winding number of `point` relative to a closed polygon.
-/// Positive = inside a CCW polygon; 0 = outside.
-fn winding_number(point: Vec2<f32>, polygon: &[Vec2<f32>]) -> i32 {
-  let mut wn = 0i32;
-  let n = polygon.len();
-  if n < 3 {
-    return 0;
-  }
-  for i in 0..n {
-    let a = polygon[i];
-    let b = polygon[(i + 1) % n];
-    if a.y <= point.y {
-      if b.y > point.y && cross_2d(b - a, point - a) > 0.0 {
-        wn += 1;
-      }
-    } else if b.y <= point.y && cross_2d(b - a, point - a) < 0.0 {
-      wn -= 1;
-    }
-  }
-  wn
-}
-
-/// Test if `point` is inside a trim boundary (one closed polygon formed
-/// by concatenating all tessellated boundary curves).
-fn is_inside_boundary(point: Vec2<f32>, boundary: &[Vec2<f32>]) -> bool {
-  winding_number(point, boundary) != 0
-}
-
-// ── Triangulation ────────────────────────────────────────────────────
-
-/// Triangulate a single trimmed Bézier surface.
-pub fn triangulate_trimmed_surface(
-  trimmed: &TrimmedSurface,
-  config: &TriangulationConfig,
-) -> MeshData {
-  if trimmed.trim_boundary.is_empty() {
-    return triangulate_untrimmed(&trimmed.surface, config.grid_resolution);
-  }
-  triangulate_trimmed(&trimmed.surface, &trimmed.trim_boundary, config)
-}
 
 /// Regular grid triangulation of the full [0,1]² domain (no trimming).
 fn triangulate_untrimmed(
@@ -301,7 +233,70 @@ fn triangulate_trimmed(
   }
 }
 
-// ── Tests ────────────────────────────────────────────────────────────
+/// Adaptively tessellate a 2D quadratic Bézier curve by recursive
+/// subdivision until the chord error is below `tolerance`.
+fn tessellate_quadratic_bezier_2d(
+  curve: &QuadraticBezierCurve2d<f32>,
+  tolerance: f32,
+) -> Vec<Vec2<f32>> {
+  let mut out = vec![curve.start];
+  subdivide_qbezier(curve.start, curve.ctrl, curve.end, tolerance, &mut out);
+  out.push(curve.end);
+  out
+}
+
+fn subdivide_qbezier(
+  p0: Vec2<f32>,
+  p1: Vec2<f32>,
+  p2: Vec2<f32>,
+  tol: f32,
+  out: &mut Vec<Vec2<f32>>,
+) {
+  // Flatness: distance from p1 to the chord midpoint
+  let mid = (p0 + p2) * 0.5;
+  if (p1 - mid).length() < tol {
+    return;
+  }
+  // De Casteljau subdivision at t = 0.5
+  let q1 = (p0 + p1) * 0.5;
+  let r1 = (p1 + p2) * 0.5;
+  let q2 = (q1 + r1) * 0.5; // B(0.5)
+  subdivide_qbezier(p0, q1, q2, tol, out);
+  out.push(q2);
+  subdivide_qbezier(q2, r1, p2, tol, out);
+}
+
+/// Test if `point` is inside a trim boundary (one closed polygon formed
+/// by concatenating all tessellated boundary curves).
+fn is_inside_boundary(point: Vec2<f32>, boundary: &[Vec2<f32>]) -> bool {
+  winding_number(point, boundary) != 0
+}
+
+/// Winding number of `point` relative to a closed polygon.
+/// Positive = inside a CCW polygon; 0 = outside.
+fn winding_number(point: Vec2<f32>, polygon: &[Vec2<f32>]) -> i32 {
+  let mut wn = 0i32;
+  let n = polygon.len();
+  if n < 3 {
+    return 0;
+  }
+  for i in 0..n {
+    let a = polygon[i];
+    let b = polygon[(i + 1) % n];
+    if a.y <= point.y {
+      if b.y > point.y && cross_2d(b - a, point - a) > 0.0 {
+        wn += 1;
+      }
+    } else if b.y <= point.y && cross_2d(b - a, point - a) < 0.0 {
+      wn -= 1;
+    }
+  }
+  wn
+}
+
+fn cross_2d(a: Vec2<f32>, b: Vec2<f32>) -> f32 {
+  a.x * b.y - a.y * b.x
+}
 
 #[cfg(test)]
 mod tests {

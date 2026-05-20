@@ -1,6 +1,5 @@
 use curve3d::RationalBezierCurve3d;
 use surface::RationalBezierSurface;
-use surface_trim::QuadraticBezierCurve2d;
 
 pub mod bezier_curve3d_device;
 pub mod bezier_device_shared;
@@ -9,7 +8,13 @@ pub mod curve3d;
 pub mod mesh;
 pub mod step;
 pub mod surface;
-pub mod surface_trim;
+mod surface_trim;
+
+use curve3d::*;
+use rendiation_algebra::*;
+use rendiation_step_reader;
+use surface::*;
+use surface_trim::*;
 
 pub struct ParametricRenderingData {
   pub surfaces: Vec<TrimmedSurface>,
@@ -22,4 +27,13 @@ pub struct TrimmedSurface {
   pub trim_boundary: Vec<QuadraticBezierCurve2d<f32>>,
 }
 
-use rendiation_step_reader;
+/// A quadratic Bézier curve in 2D parametric space.
+///
+/// Defined by start point, control point, and end point:
+/// `B(t) = (1-t)²·start + 2(1-t)t·ctrl + t²·end`
+#[derive(Clone)]
+pub struct QuadraticBezierCurve2d<T> {
+  pub start: Vec2<T>,
+  pub ctrl: Vec2<T>,
+  pub end: Vec2<T>,
+}

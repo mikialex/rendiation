@@ -1,21 +1,5 @@
-use rendiation_algebra::*;
-
-use crate::step::surface_convert::PatchParamRange;
-
-/// Check whether a pcurve parameter range intersects with a patch's parameter domain.
-#[allow(dead_code)]
-pub fn pcurve_intersects_patch(
-  pcurve_u_range: (f32, f32),
-  pcurve_v_range: (f32, f32),
-  patch: &PatchParamRange,
-) -> bool {
-  let (pu_min, pu_max) = pcurve_u_range;
-  let (pv_min, pv_max) = pcurve_v_range;
-  let (pa_u_min, pa_u_max) = patch.u_range;
-  let (pa_v_min, pa_v_max) = patch.v_range;
-
-  pu_min <= pa_u_max && pu_max >= pa_u_min && pv_min <= pa_v_max && pv_max >= pa_v_min
-}
+use super::*;
+use crate::*;
 
 /// Remap a set of 2D points from the original surface parameter space to a
 /// patch's local `[0, 1]²` parameter domain using an affine transformation.
@@ -29,9 +13,9 @@ pub fn pcurve_intersects_patch(
 /// ```
 ///
 /// Points outside the patch domain are dropped.
-pub fn remap_2d_points_to_patch(points: &[Vec2<f32>], patch: &PatchParamRange) -> Vec<Vec2<f32>> {
-  let du = patch.u_range.1 - patch.u_range.0;
-  let dv = patch.v_range.1 - patch.v_range.0;
+pub fn remap_2d_points_to_patch(points: &[Vec2<f32>], range: &SubRange) -> Vec<Vec2<f32>> {
+  let du = range.u_range.1 - range.u_range.0;
+  let dv = range.v_range.1 - range.v_range.0;
 
   if du.abs() < 1e-10 || dv.abs() < 1e-10 {
     return Vec::new();
@@ -40,13 +24,13 @@ pub fn remap_2d_points_to_patch(points: &[Vec2<f32>], patch: &PatchParamRange) -
   points
     .iter()
     .filter_map(|p| {
-      if p.x >= patch.u_range.0
-        && p.x <= patch.u_range.1
-        && p.y >= patch.v_range.0
-        && p.y <= patch.v_range.1
+      if p.x >= range.u_range.0
+        && p.x <= range.u_range.1
+        && p.y >= range.v_range.0
+        && p.y <= range.v_range.1
       {
-        let u_local = (p.x - patch.u_range.0) / du;
-        let v_local = (p.y - patch.v_range.0) / dv;
+        let u_local = (p.x - range.u_range.0) / du;
+        let v_local = (p.y - range.v_range.0) / dv;
         Some(Vec2::new(u_local.clamp(0.0, 1.0), v_local.clamp(0.0, 1.0)))
       } else {
         None
@@ -54,25 +38,6 @@ pub fn remap_2d_points_to_patch(points: &[Vec2<f32>], patch: &PatchParamRange) -
     })
     .collect()
 }
-
-/// Clip a range to fit within the patch domain, returning the overlap.
-#[allow(dead_code)]
-pub fn clip_range_to_patch(
-  range_min: f32,
-  range_max: f32,
-  patch_min: f32,
-  patch_max: f32,
-) -> Option<(f32, f32)> {
-  let lo = range_min.max(patch_min);
-  let hi = range_max.min(patch_max);
-  if lo <= hi {
-    Some((lo, hi))
-  } else {
-    None
-  }
-}
-
-// ── Polyline boundary connection ────────────────────────────────────
 
 /// Given per-edge 2D polylines projected onto a single Bezier patch, insert
 /// boundary-edge polyline points so that open endpoints on the `[0,1]²` boundary
@@ -304,20 +269,9 @@ pub fn point_in_polygon(point: Vec2<f32>, polygon: &[Vec2<f32>]) -> bool {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::surface::RationalBezierSurface;
 
-  fn dummy_patch(u0: f32, u1: f32, v0: f32, v1: f32) -> PatchParamRange {
-    PatchParamRange {
-      surface: RationalBezierSurface::new(
-        vec![
-          Vec4::new(0.0, 0.0, 0.0, 1.0),
-          Vec4::new(1.0, 0.0, 0.0, 1.0),
-          Vec4::new(0.0, 1.0, 0.0, 1.0),
-          Vec4::new(1.0, 1.0, 0.0, 1.0),
-        ],
-        1,
-        1,
-      ),
+  fn make_range(u0: f32, u1: f32, v0: f32, v1: f32) -> SubRange {
+    SubRange {
       u_range: (u0, u1),
       v_range: (v0, v1),
     }
@@ -325,7 +279,7 @@ mod tests {
 
   #[test]
   fn remap_midpoint() {
-    let patch = dummy_patch(0.0, 1.0, 0.0, 1.0);
+    let patch = make_range(0.0, 1.0, 0.0, 1.0);
     let points = vec![Vec2::new(0.5, 0.5)];
     let result = remap_2d_points_to_patch(&points, &patch);
     assert_eq!(result.len(), 1);
@@ -335,7 +289,7 @@ mod tests {
 
   #[test]
   fn remap_offset_patch() {
-    let patch = dummy_patch(0.5, 1.0, 0.0, 0.5);
+    let patch = make_range(0.5, 1.0, 0.0, 0.5);
     let points = vec![Vec2::new(0.75, 0.25)];
     let result = remap_2d_points_to_patch(&points, &patch);
     assert_eq!(result.len(), 1);
@@ -345,18 +299,10 @@ mod tests {
 
   #[test]
   fn remap_outside_patch_dropped() {
-    let patch = dummy_patch(0.0, 0.5, 0.0, 0.5);
+    let patch = make_range(0.0, 0.5, 0.0, 0.5);
     let points = vec![Vec2::new(0.75, 0.25)];
     let result = remap_2d_points_to_patch(&points, &patch);
     assert_eq!(result.len(), 0);
-  }
-
-  #[test]
-  fn intersection_check() {
-    let patch = dummy_patch(0.0, 0.5, 0.0, 1.0);
-    assert!(pcurve_intersects_patch((0.2, 0.7), (0.0, 0.3), &patch));
-    assert!(!pcurve_intersects_patch((0.6, 0.8), (0.0, 0.3), &patch));
-    assert!(pcurve_intersects_patch((0.2, 0.3), (0.0, 1.0), &patch));
   }
 
   #[test]

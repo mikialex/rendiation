@@ -24,8 +24,6 @@ use rendiation_parametric_rendering::step::{
 };
 use rendiation_step_reader::step_utils::normalize_step;
 
-// ── Colors ────────────────────────────────────────────────────────────
-
 fn color_for_index(idx: usize) -> [f32; 4] {
   let hue = (idx.wrapping_mul(0x9E37_79B9).wrapping_add(0x7F4A_7C15) % 360) as f32 / 360.0;
   let sat = 0.6;
@@ -51,8 +49,6 @@ fn to_f32_bytes(data: &[f32]) -> Vec<u8> {
 fn to_u32_bytes(data: &[u32]) -> Vec<u8> {
   data.iter().flat_map(|i| i.to_le_bytes()).collect()
 }
-
-// ── glTF document builder ────────────────────────────────────────────
 
 struct GltfDoc {
   bin: Vec<u8>,
@@ -403,8 +399,6 @@ impl GltfDoc {
   }
 }
 
-// ── GLB writer ──────────────────────────────────────────────────────
-
 fn write_glb(
   path: &Path,
   json_root: &json::Root,
@@ -440,8 +434,6 @@ fn write_glb(
   fs::write(path, out)?;
   Ok(())
 }
-
-// ── Main ────────────────────────────────────────────────────────────
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   let args: Vec<String> = env::args().collect();
@@ -497,8 +489,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   if !data.curves_3d.is_empty() {
     println!("  tessellating {} 3D curves...", data.curves_3d.len());
   }
+
   for (i, curve) in data.curves_3d.iter().enumerate() {
-    let pts = rendiation_parametric_rendering::surface_trim::bezier_curve_tessellate::adaptive_tessellate_bezier_curve(curve.clone(), 1e-3);
+    let pts = rendiation_parametric_rendering::mesh::tessellate_curve(curve, 1e-3);
     if pts.len() < 2 {
       println!(
         "    curve {}/{}: skipped (too few points)",
