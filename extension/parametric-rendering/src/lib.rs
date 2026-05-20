@@ -17,6 +17,7 @@ pub struct ParametricRenderingData {
 
 pub struct TrimmedSurface {
   pub surface: RationalBezierSurface<f32>,
+  /// if empty, the surface is not trimmed
   pub trim_boundary: Vec<QuadraticBezierCurve2d<f32>>,
 }
 
