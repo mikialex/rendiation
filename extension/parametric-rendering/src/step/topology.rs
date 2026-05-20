@@ -82,12 +82,11 @@ pub fn collect_face_surface_data(table: &Table) -> Result<Vec<FaceSurfaceData>, 
   for (&brep_id, brep_holder) in &table.manifold_solid_brep {
     // Navigate: brep → outer shell → shell_elements → oriented faces → face surfaces
     if let Some(shell_id) = entity_id_from_ph(&brep_holder.outer) {
-      // Prefer assembly placement (from raw STEP parsing), fall back to
-      // simple ShapeRepresentation-level placement.
-      let asm_pl = assembly_placement_map.get(&brep_id).copied();
+      // Prefer assembly occurrences, fall back to simple
+      // ShapeRepresentation-level placement.
+      let asm_placements = assembly_placement_map.get(&brep_id);
       let simple_pl = placement_map.get(&brep_id).copied();
-      let placement = asm_pl.or(simple_pl);
-      if let (Some(asm), Some(simple)) = (asm_pl, simple_pl) {
+      if let (Some(asm), Some(simple)) = (asm_placements.and_then(|p| p.first()), simple_pl) {
         crate::step::step_dbg!(
           "step: brep #{brep_id}: asm origin=({:.1},{:.1},{:.1}) simple origin=({:.1},{:.1},{:.1})",
           (asm.0).x,
@@ -98,11 +97,22 @@ pub fn collect_face_surface_data(table: &Table) -> Result<Vec<FaceSurfaceData>, 
           (simple.0).z,
         );
       }
-      crate::step::step_dbg!(
-        "step: brep #{brep_id} → shell #{shell_id} placement={}",
-        if placement.is_some() { "yes" } else { "no" }
-      );
-      collect_from_shell_id(shell_id, table, &mut faces, placement);
+
+      if let Some(placements) = asm_placements {
+        crate::step::step_dbg!(
+          "step: brep #{brep_id} → shell #{shell_id} assembly occurrences={}",
+          placements.len()
+        );
+        for placement in placements {
+          collect_from_shell_id(shell_id, table, &mut faces, Some(*placement));
+        }
+      } else {
+        crate::step::step_dbg!(
+          "step: brep #{brep_id} → shell #{shell_id} placement={}",
+          if simple_pl.is_some() { "yes" } else { "no" }
+        );
+        collect_from_shell_id(shell_id, table, &mut faces, simple_pl);
+      }
     } else {
       crate::step::step_dbg!("step: brep #{brep_id} outer is not a Ref");
     }

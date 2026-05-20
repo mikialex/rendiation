@@ -11,7 +11,9 @@ use crate::*;
 
 pub type Placement = (Vec3<f32>, Vec3<f32>, Vec3<f32>, Vec3<f32>);
 
-pub fn build_assembly_placement_map(table: &Table) -> std::collections::HashMap<u64, Placement> {
+pub fn build_assembly_placement_map(
+  table: &Table,
+) -> std::collections::HashMap<u64, Vec<Placement>> {
   use std::collections::{HashMap, HashSet};
   let srrwt_count = table
     .shape_representation_relationship_with_transformation
@@ -38,17 +40,25 @@ pub fn build_assembly_placement_map(table: &Table) -> std::collections::HashMap<
     }
   }
 
-  // 2. Build SR → parent SR mapping from ShapeRepresentationRelationship
-  let mut sr_to_parent: HashMap<u64, u64> = HashMap::new();
+  // 2. Build assembly SR → geometry SR links from ShapeRepresentationRelationship.
+  // In AP214 assemblies, rep_2 is usually the product/component shape
+  // representation, while rep_1 is the representation that owns the BREP.
+  let mut representation_children: HashMap<u64, Vec<u64>> = HashMap::new();
   for (_id, srr_holder) in &table.shape_representation_relationship {
-    let rep1_id = get_holder_ref_id(&srr_holder.rep_1);
-    let rep2_id = get_holder_ref_id(&srr_holder.rep_2);
-    if let (Some(absr_id), Some(sr_id)) = (rep1_id, rep2_id) {
-      sr_to_parent.insert(absr_id, sr_id);
+    if let (Some(geometry_sr), Some(component_sr)) = (
+      get_holder_ref_id(&srr_holder.rep_1),
+      get_holder_ref_id(&srr_holder.rep_2),
+    ) {
+      representation_children
+        .entry(component_sr)
+        .or_default()
+        .push(geometry_sr);
     }
   }
 
-  // 3. Build transform stack from ShapeRepresentationRelationshipWithTransformation
+  // 3. Build transform stack from ShapeRepresentationRelationshipWithTransformation.
+  // The transform maps rep_1 (child/component coordinates) into rep_2
+  // (parent/assembly coordinates), so traversal is rep_2 → rep_1.
   let mut parent_to_children: HashMap<u64, Vec<(u64, Placement)>> = HashMap::new();
   for (_id, srrwt_holder) in &table.shape_representation_relationship_with_transformation {
     let rep1_id = get_holder_ref_id(&srrwt_holder.rep_1);
@@ -72,7 +82,8 @@ pub fn build_assembly_placement_map(table: &Table) -> std::collections::HashMap<
     return HashMap::new();
   }
 
-  // 4. Walk from roots
+  // 4. Walk from assembly roots and keep every occurrence. A single BREP may be
+  // instanced many times through the same component representation.
   let all_children: HashSet<u64> = parent_to_children
     .values()
     .flat_map(|v| v.iter().map(|(child, _)| *child))
@@ -89,43 +100,37 @@ pub fn build_assembly_placement_map(table: &Table) -> std::collections::HashMap<
     Vec3::new(0., 1., 0.),
     Vec3::new(0., 0., 1.),
   );
-  let mut sr_placement: HashMap<u64, Placement> = HashMap::new();
+  let mut brep_placement: HashMap<u64, Vec<Placement>> = HashMap::new();
   for root in &roots {
     let mut stack: Vec<(u64, Placement)> = vec![(*root, identity)];
-    while let Some((sr_id, parent_mat)) = stack.pop() {
-      sr_placement.insert(sr_id, parent_mat);
+    while let Some((sr_id, mat)) = stack.pop() {
+      if let Some(breps) = sr_to_breps.get(&sr_id) {
+        for brep_id in breps {
+          brep_placement.entry(*brep_id).or_default().push(mat);
+        }
+      }
+
+      if let Some(children) = representation_children.get(&sr_id) {
+        for child_sr in children {
+          stack.push((*child_sr, mat));
+        }
+      }
+
       if let Some(children) = parent_to_children.get(&sr_id) {
         for (child_sr, child_mat) in children {
-          stack.push((*child_sr, compose_placement(&parent_mat, child_mat)));
+          stack.push((*child_sr, compose_placement(&mat, child_mat)));
         }
       }
     }
   }
 
-  // 5. Map SR placement to Brep placement
+  // 5. Report the number of resulting BREP occurrences.
   crate::step::step_dbg!(
-    "step: assembly placement — sr_to_breps={} sr_to_parent={} sr_placement={}",
+    "step: assembly placement — sr_to_breps={} representation_links={} brep_occurrences={}",
     sr_to_breps.len(),
-    sr_to_parent.len(),
-    sr_placement.len()
+    representation_children.len(),
+    brep_placement.values().map(Vec::len).sum::<usize>()
   );
-  let mut brep_placement: HashMap<u64, Placement> = HashMap::new();
-  for (sr_id, brep_ids) in &sr_to_breps {
-    let mut current = *sr_id;
-    let mut pl = sr_placement.get(&current).copied().unwrap_or(identity);
-    while let Some(parent_sr) = sr_to_parent.get(&current) {
-      if *parent_sr == current {
-        break;
-      }
-      current = *parent_sr;
-      if let Some(parent_pl) = sr_placement.get(&current) {
-        pl = compose_placement(&pl, parent_pl);
-      }
-    }
-    for brep_id in brep_ids {
-      brep_placement.insert(*brep_id, pl);
-    }
-  }
   brep_placement
 }
 
