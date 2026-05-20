@@ -4,3 +4,5 @@
 invoke matching skills. Only explore source files for details the skills don't cover.
 
 Use `cargo fmt` to format code after writing any rust code in project.
+
+Do not write these kind of seperators in code `// ── XXX ────────────────`
