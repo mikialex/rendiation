@@ -3,7 +3,9 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
-use rendiation_parametric_rendering::step::{read_parametric_rendering_data_from_step, StepReadConfig};
+use rendiation_parametric_rendering::step::{
+  read_parametric_rendering_data_from_step, StepReadConfig,
+};
 use rendiation_step_reader::step_utils::{normalize_step, visit_stp_files};
 
 /// Parse STEP files and convert to parametric rendering data.
@@ -22,13 +24,13 @@ use rendiation_step_reader::step_utils::{normalize_step, visit_stp_files};
 fn main() {
   let args: Vec<String> = env::args().collect();
   if args.len() < 2 {
-    eprintln!("usage: {} <file.stp | directory>", args[0]);
+    println!("usage: {} <file.stp | directory>", args[0]);
     std::process::exit(1);
   }
 
   let path = Path::new(&args[1]);
   if !path.exists() {
-    eprintln!("path does not exist: {}", path.display());
+    println!("path does not exist: {}", path.display());
     std::process::exit(1);
   }
 
@@ -90,7 +92,7 @@ fn main() {
         );
       }
       ProcessResult::Error(e) => {
-        eprintln!("error: {e}");
+        println!("error: {e}");
         std::process::exit(1);
       }
     }

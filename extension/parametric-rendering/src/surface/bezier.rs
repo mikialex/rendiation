@@ -63,6 +63,10 @@ impl<T: Scalar> RationalBezierSurface<T> {
     &self.control_points
   }
 
+  pub fn control_points_mut(&mut self) -> &mut [Vec4<T>] {
+    &mut self.control_points
+  }
+
   pub fn control_point(&self, u_idx: usize, v_idx: usize) -> Vec4<T> {
     self.control_points[v_idx * self.u_count() + u_idx]
   }
