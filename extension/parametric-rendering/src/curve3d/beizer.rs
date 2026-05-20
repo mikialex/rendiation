@@ -46,6 +46,9 @@ impl<T: Scalar> RationalBezierCurve3d<T> {
   pub fn control_points(&self) -> &[Vec4<T>] {
     &self.control_points
   }
+  pub fn control_points_mut(&mut self) -> &mut [Vec4<T>] {
+    &mut self.control_points
+  }
   pub fn control_point(&self, idx: usize) -> Vec4<T> {
     self.control_points[idx]
   }

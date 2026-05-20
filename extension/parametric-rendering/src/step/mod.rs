@@ -110,25 +110,33 @@ pub fn read_parametric_rendering_data_from_table(
   assemble_from_table(table, config)
 }
 
-// fn apply_rigid_transform_to_surface(
-//   surface: &mut crate::surface::RationalBezierSurface<f32>,
-//   origin: Vec3<f32>,
-//   x_dir: Vec3<f32>,
-//   y_dir: Vec3<f32>,
-//   z_dir: Vec3<f32>,
-// ) {
-//   for cp in surface.control_points_mut() {
-//     let w = cp.w;
-//     if w.abs() < 1e-12 {
-//       continue;
-//     }
-//     let p = Vec3::new(cp.x / w, cp.y / w, cp.z / w);
-//     let tp = origin + x_dir * p.x + y_dir * p.y + z_dir * p.z;
-//     cp.x = tp.x * w;
-//     cp.y = tp.y * w;
-//     cp.z = tp.z * w;
-//   }
-// }
+fn transform_homogeneous_point(cp: &mut Vec4<f32>, placement: &Placement) {
+  let w = cp.w;
+  if w.abs() < 1e-12 {
+    return;
+  }
+  let (origin, x_dir, y_dir, z_dir) = *placement;
+  let p = Vec3::new(cp.x / w, cp.y / w, cp.z / w);
+  let tp = origin + x_dir * p.x + y_dir * p.y + z_dir * p.z;
+  cp.x = tp.x * w;
+  cp.y = tp.y * w;
+  cp.z = tp.z * w;
+}
+
+fn apply_placement_to_surface(
+  surface: &mut crate::surface::RationalBezierSurface<f32>,
+  placement: &Placement,
+) {
+  for cp in surface.control_points_mut() {
+    transform_homogeneous_point(cp, placement);
+  }
+}
+
+fn apply_placement_to_curve(curve: &mut RationalBezierCurve3d<f32>, placement: &Placement) {
+  for cp in curve.control_points_mut() {
+    transform_homogeneous_point(cp, placement);
+  }
+}
 
 fn assemble_from_table(
   table: &Table,
@@ -142,7 +150,7 @@ fn assemble_from_table(
   let mut curves_3d: Vec<RationalBezierCurve3d<f32>> = Vec::new();
 
   for (fi, face_data) in face_data_list.iter().enumerate() {
-    let (patches, original_surface) =
+    let (mut patches, original_surface) =
       match convert_and_split_any_surface_to_bezier_patches(&face_data.surface) {
         Ok(p) => p,
         Err(e) => {
@@ -160,23 +168,17 @@ fn assemble_from_table(
     let patch_trim_boundaries =
       process_trim_curves_for_face(&original_surface, &patches, &face_data.edges, config, table);
 
-    // Assembly placement is extracted but currently not applied.
-    // Both reference implementations (truck, foxtrot) apply transforms to
-    // tessellated mesh vertices. Applying to Bezier control points should be
-    // mathematically equivalent for rigid transforms, but something is off.
-    // TODO: debug why applying the assembly transform makes surface positions
-    // worse instead of better. Possibly the surfaces already include their
-    // assembly placement, or the transform direction needs investigation.
-    if let Some((origin, x_dir, _y_dir, z_dir)) = face_data.placement {
+    if let Some(placement) = face_data.placement {
+      let (origin, x_dir, _y_dir, z_dir) = placement;
       step_dbg!(
-        "step: face #{fi} placement: origin=({:.3},{:.3},{:.3}) x=({:.3},{:.3},{:.3}) z=({:.3},{:.3},{:.3}) — SKIPPED",
+        "step: face #{fi} placement: origin=({:.3},{:.3},{:.3}) x=({:.3},{:.3},{:.3}) z=({:.3},{:.3},{:.3})",
         origin.x, origin.y, origin.z,
         x_dir.x, x_dir.y, x_dir.z,
         z_dir.x, z_dir.y, z_dir.z,
       );
-      // for patch in &mut patches {
-      //   apply_rigid_transform_to_surface(&mut patch.surface, origin, x_dir, y_dir, z_dir);
-      // }
+      for patch in &mut patches {
+        apply_placement_to_surface(&mut patch.surface, &placement);
+      }
     } else {
       step_dbg!("step: face #{fi} no placement");
     }
@@ -185,7 +187,7 @@ fn assemble_from_table(
     if fi < 2 && !patches.is_empty() {
       let p0 = patches[0].surface.evaluate(0.5, 0.5);
       step_dbg!(
-        "step: face #{fi} patch center BEFORE transform: ({:.3},{:.3},{:.3})",
+        "step: face #{fi} patch center: ({:.3},{:.3},{:.3})",
         p0.x,
         p0.y,
         p0.z
@@ -208,7 +210,14 @@ fn assemble_from_table(
 
     for edge in &face_data.edges {
       match convert_any_curve_to_bezier(&edge.curve_3d) {
-        Ok(beziers) => curves_3d.extend(beziers),
+        Ok(mut beziers) => {
+          if let Some(placement) = face_data.placement {
+            for curve in &mut beziers {
+              apply_placement_to_curve(curve, &placement);
+            }
+          }
+          curves_3d.extend(beziers);
+        }
         Err(e) => {
           step_dbg!("step: convert_any_curve_to_bezier failed: {e:?}");
         }
