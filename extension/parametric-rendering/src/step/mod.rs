@@ -11,6 +11,7 @@ use curve2d_sample::*;
 use curve3d_convert::*;
 use helpers::*;
 use placement::*;
+use rendiation_step_reader::entities::SurfaceAny;
 use rendiation_step_reader::table::Table;
 use surface_convert::*;
 use surface_project::*;
@@ -138,6 +139,95 @@ fn apply_placement_to_curve(curve: &mut RationalBezierCurve3d<f32>, placement: &
   }
 }
 
+/// Compute the U,V extent of a plane face by projecting edge curve points
+/// onto the plane's local coordinate system.
+///
+/// Returns (u_min, u_max, v_min, v_max).
+/// Falls back to (-1, 1, -1, 1) if no points can be obtained.
+fn compute_plane_face_extent(
+  position: &rendiation_step_reader::entities::Axis2Placement3d,
+  edges: &[EdgeData],
+  config: &StepReadConfig,
+) -> (f32, f32, f32, f32) {
+  let origin = cartesian_point_to_vec3(&position.location);
+  let normal = direction_to_vec3(&position.axis);
+  let u_dir = axis2_x_dir(position);
+  let v_dir = normal.cross(u_dir).normalize();
+
+  let mut u_min = f32::MAX;
+  let mut u_max = f32::MIN;
+  let mut v_min = f32::MAX;
+  let mut v_max = f32::MIN;
+  let mut any_point = false;
+
+  for edge in edges {
+    let beziers = match convert_any_curve_to_bezier(&edge.curve_3d) {
+      Ok(b) => b,
+      Err(_) => continue,
+    };
+    for curve in &beziers {
+      let pts = adaptive_tessellate_bezier_curve(curve, config.tessellate_tolerance);
+      for p in &pts {
+        let local = *p - origin;
+        let u = local.dot(u_dir);
+        let v = local.dot(v_dir);
+        u_min = u_min.min(u);
+        u_max = u_max.max(u);
+        v_min = v_min.min(v);
+        v_max = v_max.max(v);
+        any_point = true;
+      }
+    }
+  }
+
+  if !any_point {
+    return (-1.0, 1.0, -1.0, 1.0);
+  }
+
+  (u_min, u_max, v_min, v_max)
+}
+
+/// Compute the V-axis extent for cylinder/cone faces by projecting edge
+/// curve points onto the surface's axis direction.
+///
+/// V is the signed distance from the placement origin along the axis.
+/// Returns (v_min, v_max). Falls back to (0.0, 1.0)
+/// if no points can be obtained.
+fn compute_axis_v_extent(
+  position: &rendiation_step_reader::entities::Axis2Placement3d,
+  edges: &[EdgeData],
+  config: &StepReadConfig,
+) -> (f64, f64) {
+  let origin = cartesian_point_to_vec3(&position.location);
+  let axis = direction_to_vec3(&position.axis).normalize();
+
+  let mut v_min = f64::MAX;
+  let mut v_max = f64::MIN;
+  let mut any_point = false;
+
+  for edge in edges {
+    let beziers = match convert_any_curve_to_bezier(&edge.curve_3d) {
+      Ok(b) => b,
+      Err(_) => continue,
+    };
+    for curve in &beziers {
+      let pts = adaptive_tessellate_bezier_curve(curve, config.tessellate_tolerance);
+      for p in &pts {
+        let v = (*p - origin).dot(axis) as f64;
+        v_min = v_min.min(v);
+        v_max = v_max.max(v);
+        any_point = true;
+      }
+    }
+  }
+
+  if !any_point {
+    return (0.0, 1.0);
+  }
+
+  (v_min, v_max)
+}
+
 fn assemble_from_table(
   table: &Table,
   config: &StepReadConfig,
@@ -150,14 +240,37 @@ fn assemble_from_table(
   let mut curves_3d: Vec<RationalBezierCurve3d<f32>> = Vec::new();
 
   for (fi, face_data) in face_data_list.iter().enumerate() {
-    let (mut patches, original_surface) =
-      match convert_and_split_any_surface_to_bezier_patches(&face_data.surface) {
-        Ok(p) => p,
-        Err(e) => {
-          step_dbg!("step: face #{fi} surface conversion failed: {e}");
-          continue;
-        }
-      };
+    let plane_extent = if let SurfaceAny::Plane(ref p) = &face_data.surface {
+      Some(compute_plane_face_extent(
+        &p.position,
+        &face_data.edges,
+        config,
+      ))
+    } else {
+      None
+    };
+
+    let v_range = match &face_data.surface {
+      SurfaceAny::CylindricalSurface(c) => {
+        Some(compute_axis_v_extent(&c.position, &face_data.edges, config))
+      }
+      SurfaceAny::ConicalSurface(c) => {
+        Some(compute_axis_v_extent(&c.position, &face_data.edges, config))
+      }
+      _ => None,
+    };
+
+    let (mut patches, original_surface) = match convert_and_split_any_surface_to_bezier_patches(
+      &face_data.surface,
+      plane_extent,
+      v_range,
+    ) {
+      Ok(p) => p,
+      Err(e) => {
+        step_dbg!("step: face #{fi} surface conversion failed: {e}");
+        continue;
+      }
+    };
 
     step_dbg!(
       "step: face #{fi} → {} patches, {} edges",
@@ -200,6 +313,7 @@ fn assemble_from_table(
           trimmed_surfaces.push(TrimmedSurface {
             surface: patch.surface.clone(),
             trim_boundary: trim.clone(),
+            is_back_face: face_data.is_back_face,
           });
         }
         None => {
@@ -341,11 +455,12 @@ fn process_trim_curves_for_face(
         return Some(Vec::new()); // patch fully inside — no trim needed
       }
 
-      let components = connect_polylines_with_boundary(polylines, boundary_epsilon);
+      // Each edge polyline is already tangent-continuous; fit independently
+      // so that sharp corners at edge junctions are preserved.
       let mut quadratics = Vec::new();
-      for component in &components {
-        if component.len() >= 2 {
-          let qs = crate::surface_trim::reconstruct_boundary(component, config.fit_tolerance);
+      for polyline in &polylines {
+        if polyline.len() >= 2 {
+          let qs = crate::surface_trim::reconstruct_boundary(polyline, config.fit_tolerance);
           quadratics.extend(qs);
         }
       }

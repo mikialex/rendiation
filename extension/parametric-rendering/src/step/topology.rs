@@ -15,6 +15,9 @@ pub struct FaceSurfaceData {
   /// Shape-level placement (origin, x_dir, y_dir, z_dir) — only set when the
   /// containing ShapeRepresentation carries an Axis2Placement3d.
   pub placement: Option<(Vec3<f32>, Vec3<f32>, Vec3<f32>, Vec3<f32>)>,
+  /// Whether to flip the normal relative to du×dv.
+  /// Computed from FaceSurface.same_sense and OrientedFace.orientation.
+  pub is_back_face: bool,
 }
 
 /// Trim curve data for one edge of a FaceSurface.
@@ -224,10 +227,18 @@ fn collect_from_oriented_face_id(
       .count()
   );
 
+  // Compute net flip: FaceSurface.same_sense XOR OrientedFace.orientation.
+  // If same_sense=T and orientation=T → no flip (surface normal = face normal)
+  // If same_sense=T and orientation=F → flip
+  // If same_sense=F and orientation=T → flip
+  // If same_sense=F and orientation=F → no flip
+  let is_back_face = face.same_sense != oface.orientation;
+
   faces.push(FaceSurfaceData {
     surface,
     edges,
     placement,
+    is_back_face,
   });
 }
 
@@ -266,10 +277,13 @@ fn collect_from_face_surface_id(
       .count()
   );
 
+  let is_back_face = !face.same_sense;
+
   faces.push(FaceSurfaceData {
     surface,
     edges,
     placement,
+    is_back_face,
   });
 }
 

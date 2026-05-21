@@ -25,6 +25,9 @@ pub struct TrimmedSurface {
   pub surface: RationalBezierSurface<f32>,
   /// if empty, the surface is not trimmed
   pub trim_boundary: Vec<QuadraticBezierCurve2d<f32>>,
+  /// Whether to flip normals (and triangle winding) relative to du×dv.
+  /// Propagated from FaceSurface.same_sense / OrientedFace.orientation.
+  pub is_back_face: bool,
 }
 
 /// A quadratic Bézier curve in 2D parametric space.
