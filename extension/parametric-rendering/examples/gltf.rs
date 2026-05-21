@@ -460,7 +460,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   );
 
   let mut tri_config = TriangulationConfig::default();
-  tri_config.ignore_surface_trim = false;
+  tri_config.ignore_surface_trim = true;
 
   let mut doc = GltfDoc::new();
 
