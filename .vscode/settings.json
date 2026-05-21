@@ -18,6 +18,7 @@
         "backface",
         "bbox",
         "Bezier",
+        "beziers",
         "Bgra",
         "bindgen",
         "bindgroup",

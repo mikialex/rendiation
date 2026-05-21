@@ -11,6 +11,31 @@ use crate::*;
 
 pub type Placement = (Vec3<f32>, Vec3<f32>, Vec3<f32>, Vec3<f32>);
 
+pub fn apply_placement_to_surface(surface: &mut RationalBezierSurface<f32>, placement: &Placement) {
+  for cp in surface.control_points_mut() {
+    transform_homogeneous_point(cp, placement);
+  }
+}
+
+pub fn apply_placement_to_curve(curve: &mut RationalBezierCurve3d<f32>, placement: &Placement) {
+  for cp in curve.control_points_mut() {
+    transform_homogeneous_point(cp, placement);
+  }
+}
+
+fn transform_homogeneous_point(cp: &mut Vec4<f32>, placement: &Placement) {
+  let w = cp.w;
+  if w.abs() < 1e-12 {
+    return;
+  }
+  let (origin, x_dir, y_dir, z_dir) = *placement;
+  let p = Vec3::new(cp.x / w, cp.y / w, cp.z / w);
+  let tp = origin + x_dir * p.x + y_dir * p.y + z_dir * p.z;
+  cp.x = tp.x * w;
+  cp.y = tp.y * w;
+  cp.z = tp.z * w;
+}
+
 pub fn build_assembly_placement_map(
   table: &Table,
 ) -> std::collections::HashMap<u64, Vec<Placement>> {
