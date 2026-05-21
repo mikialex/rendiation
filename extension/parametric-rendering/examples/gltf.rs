@@ -470,7 +470,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       i + 1,
       data.surfaces.len(),
       trimmed.debug_label,
-      if trimmed.trim_boundary.is_empty() {
+      if !trimmed.is_trimmed() {
         " (untrimmed)"
       } else {
         ""

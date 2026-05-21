@@ -11,7 +11,9 @@ use crate::step::StepReadError;
 /// using Holder-level traversal to preserve pcurve entity IDs.
 pub struct FaceSurfaceData {
   pub surface: SurfaceAny,
-  pub edges: Vec<EdgeData>,
+  /// Edge loops, one per FaceBound. Edges within each loop are in traversal
+  /// order as defined by the STEP EdgeLoop entity.
+  pub edge_loops: Vec<Vec<EdgeData>>,
   /// Shape-level placement (origin, x_dir, y_dir, z_dir) — only set when the
   /// containing ShapeRepresentation carries an Axis2Placement3d.
   pub placement: Option<(Vec3<f32>, Vec3<f32>, Vec3<f32>, Vec3<f32>)>,
@@ -222,27 +224,26 @@ fn collect_from_oriented_face_id(
   };
 
   // Extract edge data from bounds, preserving pcurve entity IDs
-  let edges = extract_edges_from_face(&face.bounds, table);
+  let edge_loops = extract_edges_from_face(&face.bounds, table);
+  let total_edges: usize = edge_loops.iter().map(|l| l.len()).sum();
 
   crate::step::step_dbg!(
-    "step: face #{face_id} → {} edges ({} with pcurve)",
-    edges.len(),
-    edges
+    "step: face #{face_id} → {} loops, {} edges ({} with pcurve)",
+    edge_loops.len(),
+    total_edges,
+    edge_loops
       .iter()
+      .flat_map(|l| l.iter())
       .filter(|e| !e.pcurve_entity_ids.is_empty())
       .count()
   );
 
   // Compute net flip: FaceSurface.same_sense XOR OrientedFace.orientation.
-  // If same_sense=T and orientation=T → no flip (surface normal = face normal)
-  // If same_sense=T and orientation=F → flip
-  // If same_sense=F and orientation=T → flip
-  // If same_sense=F and orientation=F → no flip
   let is_back_face = face.same_sense != oface.orientation;
 
   faces.push(FaceSurfaceData {
     surface,
-    edges,
+    edge_loops,
     placement,
     is_back_face,
     face_id,
@@ -273,13 +274,16 @@ fn collect_from_face_surface_id(
     }
   };
 
-  let edges = extract_edges_from_face(&face.bounds, table);
+  let edge_loops = extract_edges_from_face(&face.bounds, table);
+  let total_edges: usize = edge_loops.iter().map(|l| l.len()).sum();
 
   crate::step::step_dbg!(
-    "step: face_surface #{face_id} (direct) → {} edges ({} with pcurve)",
-    edges.len(),
-    edges
+    "step: face_surface #{face_id} (direct) → {} loops, {} edges ({} with pcurve)",
+    edge_loops.len(),
+    total_edges,
+    edge_loops
       .iter()
+      .flat_map(|l| l.iter())
       .filter(|e| !e.pcurve_entity_ids.is_empty())
       .count()
   );
@@ -288,7 +292,7 @@ fn collect_from_face_surface_id(
 
   faces.push(FaceSurfaceData {
     surface,
-    edges,
+    edge_loops,
     placement,
     is_back_face,
     face_id,
@@ -298,8 +302,8 @@ fn collect_from_face_surface_id(
 fn extract_edges_from_face(
   bounds: &[PlaceHolder<FaceBoundHolder>],
   table: &Table,
-) -> Vec<EdgeData> {
-  let mut edges = Vec::new();
+) -> Vec<Vec<EdgeData>> {
+  let mut loops: Vec<Vec<EdgeData>> = Vec::new();
 
   crate::step::step_dbg!("step: extract_edges_from_face: {} bounds", bounds.len());
 
@@ -338,6 +342,7 @@ fn extract_edges_from_face(
       eloop.edge_list.len()
     );
 
+    let mut loop_edges = Vec::new();
     for oe_ph in &eloop.edge_list {
       let oe_id = match entity_id_from_ph(oe_ph) {
         Some(id) => id,
@@ -378,16 +383,17 @@ fn extract_edges_from_face(
       // Extract pcurve entity IDs from the edge geometry Holder
       let pcurve_entity_ids = extract_pcurve_ids_from_edge_curve(&ec.edge_geometry, table);
 
-      edges.push(EdgeData {
+      loop_edges.push(EdgeData {
         curve_3d,
         orientation,
         same_sense: ec.same_sense,
         pcurve_entity_ids,
       });
     }
+    loops.push(loop_edges);
   }
 
-  edges
+  loops
 }
 
 /// Extract pcurve 2D curve entity IDs from an edge curve Holder.

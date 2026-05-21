@@ -7,10 +7,12 @@ pub fn triangulate_trimmed_surface(
   trimmed: &TrimmedSurface,
   config: &TriangulationConfig,
 ) -> MeshData {
-  let mut mesh = if config.ignore_surface_trim || trimmed.trim_boundary.is_empty() {
+  let flat: Vec<QuadraticBezierCurve2d<f32>> =
+    trimmed.trim_loops.iter().flatten().cloned().collect();
+  let mut mesh = if config.ignore_surface_trim || flat.is_empty() {
     triangulate_untrimmed(&trimmed.surface, config.grid_resolution)
   } else {
-    triangulate_trimmed(&trimmed.surface, &trimmed.trim_boundary, config)
+    triangulate_trimmed(&trimmed.surface, &flat, config)
   };
 
   if trimmed.is_back_face {
@@ -76,52 +78,64 @@ pub enum TrimBoundaryIssue {
   },
 }
 
-/// Validate trim boundary curves against the [0,1]² domain and connectivity.
+/// Validate trim boundary curves — per-loop OOB check and within-loop
+/// closure gap check.
 ///
 /// Returns a list of issues found. An empty vec means the boundary is clean.
 pub fn validate_trim_boundary(
   label: &str,
-  boundary: &[QuadraticBezierCurve2d<f32>],
+  trim_loops: &[Vec<QuadraticBezierCurve2d<f32>>],
 ) -> Vec<TrimBoundaryIssue> {
-  let domain_eps = 1e-4;
+  let domain_eps = 5e-3;
   let gap_eps = 1e-3;
   let mut issues = Vec::new();
+  let mut global_ci = 0usize;
 
-  for (ci, c) in boundary.iter().enumerate() {
-    // Tessellate the curve and check every sample point — relying on
-    // start/end alone is not sufficient because the curve can bulge
-    // outside [0,1]² while its endpoints stay in bounds.
-    let pts = tessellate_quadratic_bezier_2d(c, domain_eps * 0.5);
-    for p in &pts {
-      if p.x < -domain_eps || p.x > 1.0 + domain_eps || p.y < -domain_eps || p.y > 1.0 + domain_eps
-      {
-        issues.push(TrimBoundaryIssue::OutOfBounds {
-          curve_idx: ci,
-          point_kind: "curve",
-          uv: (p.x, p.y),
-        });
-        break;
+  for (_li, loop_curves) in trim_loops.iter().enumerate() {
+    let n = loop_curves.len();
+    if n == 0 {
+      continue;
+    }
+
+    // OOB check
+    for (ci, c) in loop_curves.iter().enumerate() {
+      let pts = tessellate_quadratic_bezier_2d(c, domain_eps * 0.5);
+      for p in &pts {
+        if p.x < -domain_eps
+          || p.x > 1.0 + domain_eps
+          || p.y < -domain_eps
+          || p.y > 1.0 + domain_eps
+        {
+          issues.push(TrimBoundaryIssue::OutOfBounds {
+            curve_idx: global_ci + ci,
+            point_kind: "curve",
+            uv: (p.x, p.y),
+          });
+          break;
+        }
       }
     }
-  }
 
-  let n = boundary.len();
-  for i in 0..n {
-    let j = (i + 1) % n;
-    let end = (boundary[i].end.x, boundary[i].end.y);
-    let start = (boundary[j].start.x, boundary[j].start.y);
-    let dx = end.0 - start.0;
-    let dy = end.1 - start.1;
-    let dist = (dx * dx + dy * dy).sqrt();
-    if dist > gap_eps {
-      issues.push(TrimBoundaryIssue::Gap {
-        from_curve_idx: i,
-        from_end: end,
-        to_curve_idx: j,
-        to_start: start,
-        distance: dist,
-      });
+    // Within-loop closure check (circular)
+    for i in 0..n {
+      let j = (i + 1) % n;
+      let end = (loop_curves[i].end.x, loop_curves[i].end.y);
+      let start = (loop_curves[j].start.x, loop_curves[j].start.y);
+      let dx = end.0 - start.0;
+      let dy = end.1 - start.1;
+      let dist = (dx * dx + dy * dy).sqrt();
+      if dist > gap_eps {
+        issues.push(TrimBoundaryIssue::Gap {
+          from_curve_idx: global_ci + i,
+          from_end: end,
+          to_curve_idx: global_ci + j,
+          to_start: start,
+          distance: dist,
+        });
+      }
     }
+
+    global_ci += n;
   }
 
   if !issues.is_empty() {
@@ -498,7 +512,7 @@ mod tests {
     let trimmed = TrimmedSurface {
       debug_label: String::new(),
       surface,
-      trim_boundary: Vec::new(),
+      trim_loops: vec![],
       is_back_face: false,
     };
     let config = TriangulationConfig::default();

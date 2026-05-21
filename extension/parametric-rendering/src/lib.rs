@@ -24,11 +24,26 @@ pub struct ParametricRenderingData {
 pub struct TrimmedSurface {
   pub debug_label: String,
   pub surface: RationalBezierSurface<f32>,
-  /// if empty, the surface is not trimmed
-  pub trim_boundary: Vec<QuadraticBezierCurve2d<f32>>,
+  /// Trim boundary loops, one per FaceBound.  Each inner vec is a closed
+  /// loop of quadratic Bézier curves in the patch-local [0,1]² domain.
+  /// Empty vec means the surface is not trimmed.
+  pub trim_loops: Vec<Vec<QuadraticBezierCurve2d<f32>>>,
   /// Whether to flip normals (and triangle winding) relative to du×dv.
   /// Propagated from FaceSurface.same_sense / OrientedFace.orientation.
   pub is_back_face: bool,
+}
+
+impl TrimmedSurface {
+  /// Whether this surface has any trim loops.
+  pub fn is_trimmed(&self) -> bool {
+    self.trim_loops.iter().any(|l| !l.is_empty())
+  }
+
+  /// Flatten all trim loops into a single list (for consumers that don't
+  /// care about loop boundaries).
+  pub fn all_trim_curves(&self) -> impl Iterator<Item = &QuadraticBezierCurve2d<f32>> {
+    self.trim_loops.iter().flat_map(|l| l.iter())
+  }
 }
 
 /// A quadratic Bézier curve in 2D parametric space.
