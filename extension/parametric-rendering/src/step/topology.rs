@@ -43,7 +43,7 @@ pub struct EdgeData {
 pub fn collect_face_surface_data(table: &Table) -> Result<Vec<FaceSurfaceData>, StepReadError> {
   let assembly_placement_map = build_assembly_placement_map(table);
 
-  crate::step::step_dbg!(
+  step_dbg!(
     "step: assembly entities — product_definition_shape: {}, shape_definition_representation: {}, \
      next_assembly_usage_occurrence: {}, item_defined_transformation: {}, \
      context_dependent_shape_representation: {}, shape_representation_relationship: {}, \
@@ -74,7 +74,7 @@ pub fn collect_face_surface_data(table: &Table) -> Result<Vec<FaceSurfaceData>, 
           .contains_key(&id)
       })
       .unwrap_or(false);
-    crate::step::step_dbg!(
+    step_dbg!(
       "step:   cdsr #{cdsr_id} → pds={pds_id:?} rel={rel_id:?} (in_rel={in_rel}, in_rel_wt={in_rel_wt})",
     );
   }
@@ -82,7 +82,7 @@ pub fn collect_face_surface_data(table: &Table) -> Result<Vec<FaceSurfaceData>, 
   let placement_map = build_placement_map(table);
   let mut faces = Vec::new();
 
-  crate::step::step_dbg!(
+  step_dbg!(
     "step: topology entry — manifold_solid_brep: {}, shell_based_surface_model: {}, face_surface (direct): {}",
     table.manifold_solid_brep.len(),
     table.shell_based_surface_model.len(),
@@ -98,7 +98,7 @@ pub fn collect_face_surface_data(table: &Table) -> Result<Vec<FaceSurfaceData>, 
       let asm_placements = assembly_placement_map.get(&brep_id);
       let simple_pl = placement_map.get(&brep_id).copied();
       if let (Some(asm), Some(simple)) = (asm_placements.and_then(|p| p.first()), simple_pl) {
-        crate::step::step_dbg!(
+        step_dbg!(
           "step: brep #{brep_id}: asm origin=({:.1},{:.1},{:.1}) simple origin=({:.1},{:.1},{:.1})",
           (asm.0).x,
           (asm.0).y,
@@ -110,7 +110,7 @@ pub fn collect_face_surface_data(table: &Table) -> Result<Vec<FaceSurfaceData>, 
       }
 
       if let Some(placements) = asm_placements {
-        crate::step::step_dbg!(
+        step_dbg!(
           "step: brep #{brep_id} → shell #{shell_id} assembly occurrences={}",
           placements.len()
         );
@@ -118,20 +118,20 @@ pub fn collect_face_surface_data(table: &Table) -> Result<Vec<FaceSurfaceData>, 
           collect_from_shell_id(shell_id, table, &mut faces, Some(*placement));
         }
       } else {
-        crate::step::step_dbg!(
+        step_dbg!(
           "step: brep #{brep_id} → shell #{shell_id} placement={}",
           if simple_pl.is_some() { "yes" } else { "no" }
         );
         collect_from_shell_id(shell_id, table, &mut faces, simple_pl);
       }
     } else {
-      crate::step::step_dbg!("step: brep #{brep_id} outer is not a Ref");
+      step_dbg!("step: brep #{brep_id} outer is not a Ref");
     }
   }
 
   // Entry: ShellBasedSurfaceModel
   for (model_id, model_holder) in &table.shell_based_surface_model {
-    crate::step::step_dbg!("step: shell_based_surface_model #{model_id}");
+    step_dbg!("step: shell_based_surface_model #{model_id}");
     for shell_ph in &model_holder.sbms_boundary {
       if let Some(shell_id) = entity_id_from_ph(shell_ph) {
         collect_from_shell_id(shell_id, table, &mut faces, None);
@@ -139,7 +139,7 @@ pub fn collect_face_surface_data(table: &Table) -> Result<Vec<FaceSurfaceData>, 
     }
   }
 
-  crate::step::step_dbg!(
+  step_dbg!(
     "step: topology result — {} FaceSurfaceData collected",
     faces.len()
   );
@@ -155,12 +155,12 @@ fn collect_from_shell_id(
   let shell = match table.shell.get(&shell_id) {
     Some(s) => s,
     None => {
-      crate::step::step_dbg!("step: shell #{shell_id} not found");
+      step_dbg!("step: shell #{shell_id} not found");
       return;
     }
   };
 
-  crate::step::step_dbg!(
+  step_dbg!(
     "step: shell #{shell_id} has {} elements",
     shell.shell_element.len()
   );
@@ -174,12 +174,10 @@ fn collect_from_shell_id(
       } else if table.face_surface.contains_key(&oface_id) {
         collect_from_face_surface_id(oface_id, table, faces, placement);
       } else {
-        crate::step::step_dbg!(
-          "step: element #{oface_id} not found in oriented_face or face_surface"
-        );
+        step_dbg!("step: element #{oface_id} not found in oriented_face or face_surface");
       }
     } else {
-      crate::step::step_dbg!("step: element in shell #{shell_id} is not a Ref");
+      step_dbg!("step: element in shell #{shell_id} is not a Ref");
     }
   }
 }
@@ -193,7 +191,7 @@ fn collect_from_oriented_face_id(
   let oface = match table.oriented_face.get(&oface_id) {
     Some(o) => o,
     None => {
-      crate::step::step_dbg!("step: oriented_face #{oface_id} not found");
+      step_dbg!("step: oriented_face #{oface_id} not found");
       return;
     }
   };
@@ -201,7 +199,7 @@ fn collect_from_oriented_face_id(
   let face_id = match entity_id_from_ph(&oface.face_element) {
     Some(id) => id,
     None => {
-      crate::step::step_dbg!("step: oriented_face #{oface_id} face_element is not a Ref");
+      step_dbg!("step: oriented_face #{oface_id} face_element is not a Ref");
       return;
     }
   };
@@ -209,7 +207,7 @@ fn collect_from_oriented_face_id(
   let face = match table.face_surface.get(&face_id) {
     Some(f) => f,
     None => {
-      crate::step::step_dbg!("step: face_surface #{face_id} not found");
+      step_dbg!("step: face_surface #{face_id} not found");
       return;
     }
   };
@@ -218,7 +216,7 @@ fn collect_from_oriented_face_id(
   let surface = match resolve_surface_fallback(&face.face_geometry, table) {
     Some(s) => s,
     None => {
-      crate::step::step_dbg!("step: face #{face_id} surface resolution failed");
+      step_dbg!("step: face #{face_id} surface resolution failed");
       return;
     }
   };
@@ -227,7 +225,7 @@ fn collect_from_oriented_face_id(
   let edge_loops = extract_edges_from_face(&face.bounds, table);
   let total_edges: usize = edge_loops.iter().map(|l| l.len()).sum();
 
-  crate::step::step_dbg!(
+  step_dbg!(
     "step: face #{face_id} → {} loops, {} edges ({} with pcurve)",
     edge_loops.len(),
     total_edges,
@@ -261,7 +259,7 @@ fn collect_from_face_surface_id(
   let face = match table.face_surface.get(&face_id) {
     Some(f) => f,
     None => {
-      crate::step::step_dbg!("step: face_surface #{face_id} not found (direct)");
+      step_dbg!("step: face_surface #{face_id} not found (direct)");
       return;
     }
   };
@@ -269,7 +267,7 @@ fn collect_from_face_surface_id(
   let surface = match resolve_surface_fallback(&face.face_geometry, table) {
     Some(s) => s,
     None => {
-      crate::step::step_dbg!("step: face_surface #{face_id} surface resolution failed");
+      step_dbg!("step: face_surface #{face_id} surface resolution failed");
       return;
     }
   };
@@ -277,7 +275,7 @@ fn collect_from_face_surface_id(
   let edge_loops = extract_edges_from_face(&face.bounds, table);
   let total_edges: usize = edge_loops.iter().map(|l| l.len()).sum();
 
-  crate::step::step_dbg!(
+  step_dbg!(
     "step: face_surface #{face_id} (direct) → {} loops, {} edges ({} with pcurve)",
     edge_loops.len(),
     total_edges,
@@ -305,39 +303,39 @@ fn extract_edges_from_face(
 ) -> Vec<Vec<EdgeData>> {
   let mut loops: Vec<Vec<EdgeData>> = Vec::new();
 
-  crate::step::step_dbg!("step: extract_edges_from_face: {} bounds", bounds.len());
+  step_dbg!("step: extract_edges_from_face: {} bounds", bounds.len());
 
   for fb_ph in bounds {
     let fb_id = match entity_id_from_ph(fb_ph) {
       Some(id) => id,
       None => {
-        crate::step::step_dbg!("step:   bound entity_id not found");
+        step_dbg!("step:   bound entity_id not found");
         continue;
       }
     };
     let fb = match table.face_bound.get(&fb_id) {
       Some(f) => f,
       None => {
-        crate::step::step_dbg!("step:   face_bound #{fb_id} not found");
+        step_dbg!("step:   face_bound #{fb_id} not found");
         continue;
       }
     };
     let loop_id = match entity_id_from_ph(&fb.bound) {
       Some(id) => id,
       None => {
-        crate::step::step_dbg!("step:   loop entity_id not found");
+        step_dbg!("step:   loop entity_id not found");
         continue;
       }
     };
     let eloop = match table.edge_loop.get(&loop_id) {
       Some(e) => e,
       None => {
-        crate::step::step_dbg!("step:   edge_loop #{loop_id} not found");
+        step_dbg!("step:   edge_loop #{loop_id} not found");
         continue;
       }
     };
 
-    crate::step::step_dbg!(
+    step_dbg!(
       "step:   loop #{loop_id} has {} edges",
       eloop.edge_list.len()
     );
@@ -351,7 +349,7 @@ fn extract_edges_from_face(
       let oe = match table.oriented_edge.get(&oe_id) {
         Some(o) => o,
         None => {
-          crate::step::step_dbg!("step:     oriented_edge #{oe_id} not found");
+          step_dbg!("step:     oriented_edge #{oe_id} not found");
           continue;
         }
       };
@@ -360,14 +358,14 @@ fn extract_edges_from_face(
       let ec_id = match entity_id_from_ph(&oe.edge_element) {
         Some(id) => id,
         None => {
-          crate::step::step_dbg!("step:     edge_element entity_id not found");
+          step_dbg!("step:     edge_element entity_id not found");
           continue;
         }
       };
       let ec = match table.edge_curve.get(&ec_id) {
         Some(e) => e,
         None => {
-          crate::step::step_dbg!("step:     edge_curve #{ec_id} not found");
+          step_dbg!("step:     edge_curve #{ec_id} not found");
           continue;
         }
       };

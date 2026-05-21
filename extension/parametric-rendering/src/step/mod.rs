@@ -11,6 +11,7 @@ mod topology;
 use curve2d_sample::*;
 use curve3d_convert::*;
 use helpers::*;
+use parameter_remapping::*;
 use placement::*;
 use rendiation_step_reader::entities::SurfaceAny;
 use rendiation_step_reader::table::Table;
@@ -19,9 +20,6 @@ use surface_extent::*;
 use surface_project::*;
 use topology::*;
 
-use crate::step::parameter_remapping::{
-  connect_polylines_with_boundary, point_in_polygon, remap_2d_points_to_patch,
-};
 use crate::*;
 
 /// Set to `true` to enable verbose step-pipeline tracing via `println!`.
