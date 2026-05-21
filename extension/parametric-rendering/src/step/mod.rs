@@ -397,6 +397,7 @@ fn flush_projected_to_patches(
   projected: &mut Vec<Vec2<f32>>,
   patches: &[SurfaceSubPatch],
   per_patch: &mut [Vec<Vec<Vec2<f32>>>],
+  global_polylines: &mut [Vec<Vec2<f32>>],
 ) {
   if projected.len() < 2 {
     projected.clear();
@@ -439,7 +440,7 @@ fn flush_projected_to_patches(
     }
   }
 
-  projected.clear();
+  global_polylines[ei].extend(projected.drain(..));
 }
 
 /// Project 3D tessellation points onto the original surface once, then
@@ -477,10 +478,19 @@ fn process_trim_curves_for_face(
   let mut per_patch_polylines: Vec<Vec<Vec<Vec2<f32>>>> =
     vec![vec![Vec::new(); n_edges]; n_patches];
 
+  let mut global_polylines: Vec<Vec<Vec2<f32>>> = vec![Vec::new(); n_edges];
+
   let proj_dist_tolerance = 1e-2;
 
   for (ei, edge) in edges.iter().enumerate() {
-    if try_pcurve_for_all_patches(ei, edge, patches, table, &mut per_patch_polylines) {
+    if try_pcurve_for_all_patches(
+      ei,
+      edge,
+      patches,
+      table,
+      &mut per_patch_polylines,
+      &mut global_polylines,
+    ) {
       continue;
     }
 
@@ -519,13 +529,25 @@ fn process_trim_curves_for_face(
       // cylinder, cone, sphere, torus — Plane/NURBS/extrusion have no period).
       if let Some(prev) = prev_u {
         if original_surface.is_periodic() && (u - prev).abs() > std::f32::consts::PI {
-          flush_projected_to_patches(ei, &mut projected, patches, &mut per_patch_polylines);
+          flush_projected_to_patches(
+            ei,
+            &mut projected,
+            patches,
+            &mut per_patch_polylines,
+            &mut global_polylines,
+          );
         }
       }
       prev_u = Some(u);
       projected.push(Vec2::new(u, v));
     }
-    flush_projected_to_patches(ei, &mut projected, patches, &mut per_patch_polylines);
+    flush_projected_to_patches(
+      ei,
+      &mut projected,
+      patches,
+      &mut per_patch_polylines,
+      &mut global_polylines,
+    );
   }
 
   // Reverse polylines for edges traversed backwards.
@@ -540,7 +562,7 @@ fn process_trim_curves_for_face(
   // Phase 2: classify empty patches, then reconstruct per-loop trim boundaries.
   let boundary_epsilon = config.fit_tolerance * 10.0;
 
-  let keep_mask = classify_empty_patches(patches, &per_patch_polylines, boundary_epsilon);
+  let keep_mask = classify_empty_patches(patches, global_polylines, &per_patch_polylines);
 
   per_patch_polylines
     .into_iter()
@@ -628,69 +650,12 @@ fn process_trim_curves_for_face(
 /// Returns a bool per patch: `true` = keep, `false` = discard.
 fn classify_empty_patches(
   patches: &[SurfaceSubPatch],
+  global_polylines: Vec<Vec<Vec2<f32>>>,
   per_patch_polylines: &[Vec<Vec<Vec2<f32>>>],
-  boundary_epsilon: f32,
 ) -> Vec<bool> {
-  let n = patches.len();
-
-  // If all patches are empty (no trim data), keep all — untrimmed face.
-  // If all patches are non-empty, keep all — normal case.
-  let empty_count = per_patch_polylines
-    .iter()
-    .filter(|eps| eps.iter().all(|p| p.is_empty()))
-    .count();
-  if empty_count == 0 || empty_count == n {
-    return vec![true; n];
-  }
-
-  // Compute global parameter range
-  let mut u_min = f32::MAX;
-  let mut u_max = f32::MIN;
-  let mut v_min = f32::MAX;
-  let mut v_max = f32::MIN;
-  for p in patches {
-    u_min = u_min.min(p.sub_range.u_range.0);
-    u_max = u_max.max(p.sub_range.u_range.1);
-    v_min = v_min.min(p.sub_range.v_range.0);
-    v_max = v_max.max(p.sub_range.v_range.1);
-  }
-  let du = u_max - u_min;
-  let dv = v_max - v_min;
-  if du < 1e-10 || dv < 1e-10 {
-    return vec![true; n];
-  }
-
-  // Collect all polylines from non-empty patches, mapped to
-  // normalized global [0,1]² space
-  let mut global_polylines: Vec<Vec<Vec2<f32>>> = Vec::new();
-  for (pi, edge_polys) in per_patch_polylines.iter().enumerate() {
-    for poly in edge_polys {
-      if poly.is_empty() {
-        continue;
-      }
-      let mapped: Vec<Vec2<f32>> = poly
-        .iter()
-        .map(|&p_local| {
-          let u_global = patches[pi].sub_range.u_range.0
-            + p_local.x * (patches[pi].sub_range.u_range.1 - patches[pi].sub_range.u_range.0);
-          let v_global = patches[pi].sub_range.v_range.0
-            + p_local.y * (patches[pi].sub_range.v_range.1 - patches[pi].sub_range.v_range.0);
-          Vec2::new((u_global - u_min) / du, (v_global - v_min) / dv)
-        })
-        .collect();
-      global_polylines.push(mapped);
-    }
-  }
-
-  if global_polylines.is_empty() {
-    return vec![true; n];
-  }
-
-  // Build closed global boundary polygon(s)
-  let components = connect_polylines_with_boundary(global_polylines, boundary_epsilon);
-
   // For each empty patch, test if its center is inside the global boundary
-  let mut keep = vec![true; n];
+  let mut keep = vec![true; patches.len()];
+
   for (pi, edge_polys) in per_patch_polylines.iter().enumerate() {
     if edge_polys.iter().any(|p| !p.is_empty()) {
       continue; // non-empty patch → already classified as keep
@@ -699,11 +664,11 @@ fn classify_empty_patches(
     // Map patch center to normalized global space
     let cu = (patches[pi].sub_range.u_range.0 + patches[pi].sub_range.u_range.1) * 0.5;
     let cv = (patches[pi].sub_range.v_range.0 + patches[pi].sub_range.v_range.1) * 0.5;
-    let test_pt = Vec2::new((cu - u_min) / du, (cv - v_min) / dv);
+    let test_pt = Vec2::new(cu, cv);
 
     // Point-in-polygon test against each closed component.
     // If inside any component, keep the patch; otherwise discard.
-    let inside = components
+    let inside = global_polylines
       .iter()
       .any(|comp| point_in_polygon(test_pt, comp));
     keep[pi] = inside;
@@ -720,6 +685,7 @@ fn try_pcurve_for_all_patches(
   patches: &[SurfaceSubPatch],
   table: &Table,
   per_patch_polylines: &mut [Vec<Vec<Vec2<f32>>>],
+  global_polylines: &mut [Vec<Vec2<f32>>],
 ) -> bool {
   if edge.pcurve_entity_ids.is_empty() {
     return false;
@@ -736,6 +702,7 @@ fn try_pcurve_for_all_patches(
 
     let mut any_mapped = false;
     for (pi, patch) in patches.iter().enumerate() {
+      global_polylines[ei] = points_2d.clone();
       let remapped = remap_2d_points_to_patch(&points_2d, &patch.sub_range);
       if !remapped.is_empty() {
         per_patch_polylines[pi][ei] = remapped;
