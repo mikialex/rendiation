@@ -1,6 +1,7 @@
 /target
 /doc
 /temp
+/svg_output_dir
 **/*.rs.bk
 **/*.DS_Store
 

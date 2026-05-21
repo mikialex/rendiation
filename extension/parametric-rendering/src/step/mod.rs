@@ -307,10 +307,40 @@ fn assemble_from_table(
       );
     }
 
+    let surface_type_name = match &face_data.surface {
+      SurfaceAny::Plane(_) => "Plane",
+      SurfaceAny::CylindricalSurface(_) => "Cylinder",
+      SurfaceAny::ConicalSurface(_) => "Cone",
+      SurfaceAny::SphericalSurface(_) => "Sphere",
+      SurfaceAny::ToroidalSurface(_) => "Torus",
+      SurfaceAny::BSplineSurfaceWithKnots(_) => "BSplineSurf",
+      SurfaceAny::BezierSurface(_) => "BezierSurf",
+      SurfaceAny::RationalBSplineSurface(_) => "RationalBSplineSurf",
+      SurfaceAny::SurfaceOfLinearExtrusion(_) => "Extrusion",
+      SurfaceAny::SurfaceOfRevolution(_) => "Revolution",
+      SurfaceAny::OffsetSurface(_) => "Offset",
+    };
+    let n_patches = patches.len();
     for (pi, patch) in patches.iter().enumerate() {
       match &patch_trim_boundaries[pi] {
         Some(trim) => {
+          // fi (face occurrence index) ensures uniqueness when the same
+          // face entity appears in multiple assembly placements.
+          let debug_label = format!(
+            "#{fi} FaceSurface#{}[{}/{}] {} edges={}{}",
+            face_data.face_id,
+            pi,
+            n_patches,
+            surface_type_name,
+            face_data.edges.len(),
+            if face_data.is_back_face {
+              " (flipped)"
+            } else {
+              ""
+            }
+          );
           trimmed_surfaces.push(TrimmedSurface {
+            debug_label,
             surface: patch.surface.clone(),
             trim_boundary: trim.clone(),
             is_back_face: face_data.is_back_face,
@@ -431,6 +461,16 @@ fn process_trim_curves_for_face(
           }
           break;
         }
+      }
+    }
+  }
+
+  // Reverse polylines for edges traversed backwards.
+  // Effective direction: same_sense == orientation → forward, else reverse.
+  for (ei, edge) in edges.iter().enumerate() {
+    if edge.same_sense != edge.orientation {
+      for pi in 0..n_patches {
+        per_patch_polylines[pi][ei].reverse();
       }
     }
   }

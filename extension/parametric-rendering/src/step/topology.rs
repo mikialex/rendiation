@@ -18,13 +18,19 @@ pub struct FaceSurfaceData {
   /// Whether to flip the normal relative to du×dv.
   /// Computed from FaceSurface.same_sense and OrientedFace.orientation.
   pub is_back_face: bool,
+  /// STEP entity ID of the FaceSurface / AdvancedFace.
+  pub face_id: u64,
 }
 
 /// Trim curve data for one edge of a FaceSurface.
 pub struct EdgeData {
   pub curve_3d: CurveAny,
-  #[allow(dead_code)]
+  /// OrientedEdge.orientation — true if the edge is traversed in the same
+  /// direction as the underlying EdgeCurve.
   pub orientation: bool,
+  /// EdgeCurve.same_sense — true if the curve parameterisation agrees with
+  /// the edge direction (start vertex → end vertex).
+  pub same_sense: bool,
   /// 2D curve entity IDs from matching Pcurve(s). Tried in order for lossless
   /// extraction; falls back to numerical projection if empty or all fail.
   pub pcurve_entity_ids: Vec<u64>,
@@ -239,6 +245,7 @@ fn collect_from_oriented_face_id(
     edges,
     placement,
     is_back_face,
+    face_id,
   });
 }
 
@@ -284,6 +291,7 @@ fn collect_from_face_surface_id(
     edges,
     placement,
     is_back_face,
+    face_id,
   });
 }
 
@@ -373,6 +381,7 @@ fn extract_edges_from_face(
       edges.push(EdgeData {
         curve_3d,
         orientation,
+        same_sense: ec.same_sense,
         pcurve_entity_ids,
       });
     }
