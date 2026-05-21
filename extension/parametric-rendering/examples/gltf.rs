@@ -459,14 +459,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     data.curves_3d.len()
   );
 
-  let tri_config = TriangulationConfig::default();
+  let mut tri_config = TriangulationConfig::default();
+  tri_config.ignore_surface_trim = false;
+
   let mut doc = GltfDoc::new();
 
   for (i, trimmed) in data.surfaces.iter().enumerate() {
     println!(
-      "  triangulating surface {}/{}{}",
+      "  triangulating surface {}/{} [{}]{}",
       i + 1,
       data.surfaces.len(),
+      trimmed.debug_label,
       if trimmed.trim_boundary.is_empty() {
         " (untrimmed)"
       } else {
