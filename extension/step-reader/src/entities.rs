@@ -621,6 +621,24 @@ pub enum SurfaceAny {
   OffsetSurface(Box<OffsetSurface>),
 }
 
+impl SurfaceAny {
+  pub fn surface_ty_name(&self) -> &'static str {
+    match self {
+      SurfaceAny::Plane(_) => "Plane",
+      SurfaceAny::CylindricalSurface(_) => "Cylinder",
+      SurfaceAny::ConicalSurface(_) => "Cone",
+      SurfaceAny::SphericalSurface(_) => "Sphere",
+      SurfaceAny::ToroidalSurface(_) => "Torus",
+      SurfaceAny::BSplineSurfaceWithKnots(_) => "BSplineSurf",
+      SurfaceAny::BezierSurface(_) => "BezierSurf",
+      SurfaceAny::RationalBSplineSurface(_) => "RationalBSplineSurf",
+      SurfaceAny::SurfaceOfLinearExtrusion(_) => "Extrusion",
+      SurfaceAny::SurfaceOfRevolution(_) => "Revolution",
+      SurfaceAny::OffsetSurface(_) => "Offset",
+    }
+  }
+}
+
 // ── Topology ────────────────────────────────────────────────────────
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]

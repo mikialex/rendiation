@@ -4,6 +4,7 @@ mod helpers;
 mod parameter_remapping;
 mod placement;
 mod surface_convert;
+mod surface_extent;
 mod surface_project;
 mod topology;
 
@@ -14,6 +15,7 @@ use placement::*;
 use rendiation_step_reader::entities::SurfaceAny;
 use rendiation_step_reader::table::Table;
 use surface_convert::*;
+use surface_extent::*;
 use surface_project::*;
 use topology::*;
 
@@ -111,123 +113,6 @@ pub fn read_parametric_rendering_data_from_table(
   assemble_from_table(table, config)
 }
 
-fn transform_homogeneous_point(cp: &mut Vec4<f32>, placement: &Placement) {
-  let w = cp.w;
-  if w.abs() < 1e-12 {
-    return;
-  }
-  let (origin, x_dir, y_dir, z_dir) = *placement;
-  let p = Vec3::new(cp.x / w, cp.y / w, cp.z / w);
-  let tp = origin + x_dir * p.x + y_dir * p.y + z_dir * p.z;
-  cp.x = tp.x * w;
-  cp.y = tp.y * w;
-  cp.z = tp.z * w;
-}
-
-fn apply_placement_to_surface(
-  surface: &mut crate::surface::RationalBezierSurface<f32>,
-  placement: &Placement,
-) {
-  for cp in surface.control_points_mut() {
-    transform_homogeneous_point(cp, placement);
-  }
-}
-
-fn apply_placement_to_curve(curve: &mut RationalBezierCurve3d<f32>, placement: &Placement) {
-  for cp in curve.control_points_mut() {
-    transform_homogeneous_point(cp, placement);
-  }
-}
-
-/// Compute the U,V extent of a plane face by projecting edge curve points
-/// onto the plane's local coordinate system.
-///
-/// Returns (u_min, u_max, v_min, v_max).
-/// Falls back to (-1, 1, -1, 1) if no points can be obtained.
-fn compute_plane_face_extent(
-  position: &rendiation_step_reader::entities::Axis2Placement3d,
-  edge_loops: &[Vec<EdgeData>],
-  config: &StepReadConfig,
-) -> (f32, f32, f32, f32) {
-  let origin = cartesian_point_to_vec3(&position.location);
-  let normal = direction_to_vec3(&position.axis);
-  let u_dir = axis2_x_dir(position);
-  let v_dir = normal.cross(u_dir).normalize();
-
-  let mut u_min = f32::MAX;
-  let mut u_max = f32::MIN;
-  let mut v_min = f32::MAX;
-  let mut v_max = f32::MIN;
-  let mut any_point = false;
-
-  for edge in edge_loops.iter().flat_map(|l| l.iter()) {
-    let beziers = match convert_any_curve_to_bezier(&edge.curve_3d) {
-      Ok(b) => b,
-      Err(_) => continue,
-    };
-    for curve in &beziers {
-      let pts = adaptive_tessellate_bezier_curve(curve, config.tessellate_tolerance);
-      for p in &pts {
-        let local = *p - origin;
-        let u = local.dot(u_dir);
-        let v = local.dot(v_dir);
-        u_min = u_min.min(u);
-        u_max = u_max.max(u);
-        v_min = v_min.min(v);
-        v_max = v_max.max(v);
-        any_point = true;
-      }
-    }
-  }
-
-  if !any_point {
-    return (-1.0, 1.0, -1.0, 1.0);
-  }
-
-  (u_min, u_max, v_min, v_max)
-}
-
-/// Compute the V-axis extent for cylinder/cone faces by projecting edge
-/// curve points onto the surface's axis direction.
-///
-/// V is the signed distance from the placement origin along the axis.
-/// Returns (v_min, v_max). Falls back to (0.0, 1.0)
-/// if no points can be obtained.
-fn compute_axis_v_extent(
-  position: &rendiation_step_reader::entities::Axis2Placement3d,
-  edge_loops: &[Vec<EdgeData>],
-  config: &StepReadConfig,
-) -> (f64, f64) {
-  let origin = cartesian_point_to_vec3(&position.location);
-  let axis = direction_to_vec3(&position.axis).normalize();
-
-  let mut v_min = f64::MAX;
-  let mut v_max = f64::MIN;
-  let mut any_point = false;
-
-  for edge in edge_loops.iter().flat_map(|l| l.iter()) {
-    let beziers = match convert_any_curve_to_bezier(&edge.curve_3d) {
-      Ok(b) => b,
-      Err(_) => continue,
-    };
-    for curve in &beziers {
-      let pts = adaptive_tessellate_bezier_curve(curve, config.tessellate_tolerance);
-      for p in &pts {
-        let v = (*p - origin).dot(axis) as f64;
-        v_min = v_min.min(v);
-        v_max = v_max.max(v);
-        any_point = true;
-      }
-    }
-  }
-
-  if !any_point {
-    return (0.0, 1.0);
-  }
-
-  (v_min, v_max)
-}
-
 fn assemble_from_table(
   table: &Table,
   config: &StepReadConfig,
@@ -250,6 +135,7 @@ fn assemble_from_table(
       None
     };
 
+    // todo, check u side?
     let v_range = match &face_data.surface {
       SurfaceAny::CylindricalSurface(c) => Some(compute_axis_v_extent(
         &c.position,
@@ -316,19 +202,6 @@ fn assemble_from_table(
       );
     }
 
-    let surface_type_name = match &face_data.surface {
-      SurfaceAny::Plane(_) => "Plane",
-      SurfaceAny::CylindricalSurface(_) => "Cylinder",
-      SurfaceAny::ConicalSurface(_) => "Cone",
-      SurfaceAny::SphericalSurface(_) => "Sphere",
-      SurfaceAny::ToroidalSurface(_) => "Torus",
-      SurfaceAny::BSplineSurfaceWithKnots(_) => "BSplineSurf",
-      SurfaceAny::BezierSurface(_) => "BezierSurf",
-      SurfaceAny::RationalBSplineSurface(_) => "RationalBSplineSurf",
-      SurfaceAny::SurfaceOfLinearExtrusion(_) => "Extrusion",
-      SurfaceAny::SurfaceOfRevolution(_) => "Revolution",
-      SurfaceAny::OffsetSurface(_) => "Offset",
-    };
     let n_patches = patches.len();
     for (pi, patch) in patches.iter().enumerate() {
       match &patch_trim_boundaries[pi] {
@@ -341,7 +214,7 @@ fn assemble_from_table(
             face_data.face_id,
             pi,
             n_patches,
-            surface_type_name,
+            face_data.surface.surface_ty_name(),
             total_edges,
             if face_data.is_back_face {
               " (flipped)"
@@ -643,17 +516,11 @@ fn process_trim_curves_for_face(
       if dist > proj_dist_tolerance {
         continue;
       }
+      // todo, check v?
       // Detect angular wrap-around (only for surfaces with periodic U:
       // cylinder, cone, sphere, torus — Plane/NURBS/extrusion have no period).
       if let Some(prev) = prev_u {
-        let is_periodic = matches!(
-          original_surface,
-          OriginalSurface::Cylinder { .. }
-            | OriginalSurface::Cone { .. }
-            | OriginalSurface::Sphere { .. }
-            | OriginalSurface::Torus { .. }
-        );
-        if is_periodic && (u - prev).abs() > std::f32::consts::PI {
+        if original_surface.is_periodic() && (u - prev).abs() > std::f32::consts::PI {
           flush_projected_to_patches(ei, &mut projected, patches, &mut per_patch_polylines);
         }
       }

@@ -60,6 +60,16 @@ pub enum OriginalSurface {
 }
 
 impl OriginalSurface {
+  pub fn is_periodic(&self) -> bool {
+    matches!(
+      self,
+      OriginalSurface::Cylinder { .. }
+        | OriginalSurface::Cone { .. }
+        | OriginalSurface::Sphere { .. }
+        | OriginalSurface::Torus { .. }
+    )
+  }
+
   /// Project a 3D point onto the surface.
   ///
   /// Returns `(u_global, v_global, distance)` in global parameter space.

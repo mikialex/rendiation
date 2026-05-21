@@ -4428,6 +4428,7 @@ dependencies = [
 name = "rendiation-parametric-rendering"
 version = "0.1.0"
 dependencies = [
+ "fast-hash-collection",
  "gltf-json",
  "pollster",
  "rendiation-algebra",
