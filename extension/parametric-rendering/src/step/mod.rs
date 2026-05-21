@@ -460,6 +460,117 @@ fn build_perimeter_bridge(from: Vec2<f32>, to: Vec2<f32>, snap_eps: f32) -> Opti
   Some(pts)
 }
 
+/// Clip a UV segment `p0 → p1` against an axis-aligned rectangle
+/// `[u_min, u_max] × [v_min, v_max]` (Liang-Barsky).
+///
+/// Returns the clipped endpoints in local `[0,1]²` coordinates, or `None`
+/// if the segment lies entirely outside.
+fn clip_segment_to_range(
+  p0: Vec2<f32>,
+  p1: Vec2<f32>,
+  u_min: f32,
+  u_max: f32,
+  v_min: f32,
+  v_max: f32,
+) -> Option<(Vec2<f32>, Vec2<f32>)> {
+  let dx = p1.x - p0.x;
+  let dy = p1.y - p0.y;
+
+  let mut t_entry = 0.0f32;
+  let mut t_exit = 1.0f32;
+
+  // Check 4 boundaries: left(u_min), right(u_max), bottom(v_min), top(v_max)
+  let p_arr = [-dx, dx, -dy, dy];
+  let q_arr = [p0.x - u_min, u_max - p0.x, p0.y - v_min, v_max - p0.y];
+
+  for i in 0..4 {
+    if p_arr[i] == 0.0 {
+      if q_arr[i] < 0.0 {
+        return None;
+      }
+    } else {
+      let t = q_arr[i] / p_arr[i];
+      if p_arr[i] < 0.0 {
+        t_entry = t_entry.max(t);
+      } else {
+        t_exit = t_exit.min(t);
+      }
+    }
+  }
+
+  if t_entry > t_exit {
+    return None;
+  }
+
+  let cx = p0.x + t_entry * dx;
+  let cy = p0.y + t_entry * dy;
+  let dx2 = p0.x + t_exit * dx;
+  let dy2 = p0.y + t_exit * dy;
+
+  let du = u_max - u_min;
+  let dv = v_max - v_min;
+  if du <= 0.0 || dv <= 0.0 {
+    return None;
+  }
+
+  Some((
+    Vec2::new((cx - u_min) / du, (cy - v_min) / dv),
+    Vec2::new((dx2 - u_min) / du, (dy2 - v_min) / dv),
+  ))
+}
+
+/// Clip a contiguous projected polyline segment-by-segment against each
+/// patch's SubRange, appending clipped sub-polylines.
+fn flush_projected_to_patches(
+  ei: usize,
+  projected: &mut Vec<Vec2<f32>>,
+  patches: &[SurfaceSubPatch],
+  per_patch: &mut [Vec<Vec<Vec2<f32>>>],
+) {
+  if projected.len() < 2 {
+    projected.clear();
+    return;
+  }
+
+  for (pi, patch) in patches.iter().enumerate() {
+    let r = &patch.sub_range;
+    let mut current: Vec<Vec2<f32>> = Vec::new();
+
+    for w in projected.windows(2) {
+      let (p0, p1) = (w[0], w[1]);
+      if let Some((c0, c1)) =
+        clip_segment_to_range(p0, p1, r.u_range.0, r.u_range.1, r.v_range.0, r.v_range.1)
+      {
+        if current.is_empty() {
+          current.push(c0);
+        } else {
+          let last = *current.last().unwrap();
+          if (last - c0).length() > 1e-6 {
+            // Disconnect — start new sub-polyline
+            if current.len() >= 2 {
+              per_patch[pi][ei].extend(current.drain(..));
+            }
+            current.clear();
+            current.push(c0);
+          }
+        }
+        current.push(c1);
+      } else {
+        // Segment outside patch — flush current
+        if current.len() >= 2 {
+          per_patch[pi][ei].extend(current.drain(..));
+        }
+        current.clear();
+      }
+    }
+    if current.len() >= 2 {
+      per_patch[pi][ei].extend(current);
+    }
+  }
+
+  projected.clear();
+}
+
 /// Project 3D tessellation points onto the original surface once, then
 /// distribute the resulting (u,v) coordinates to the correct Bezier patch
 /// by checking each patch's parameter range.
@@ -495,7 +606,7 @@ fn process_trim_curves_for_face(
   let mut per_patch_polylines: Vec<Vec<Vec<Vec2<f32>>>> =
     vec![vec![Vec::new(); n_edges]; n_patches];
 
-  let proj_dist_tolerance = config.project_tolerance * 10.0;
+  let proj_dist_tolerance = 1e-2;
 
   for (ei, edge) in edges.iter().enumerate() {
     if try_pcurve_for_all_patches(ei, edge, patches, table, &mut per_patch_polylines) {
@@ -517,8 +628,11 @@ fn process_trim_curves_for_face(
       continue;
     }
 
+    // Project all 3D points to UV on the original surface.
+    let mut projected: Vec<Vec2<f32>> = Vec::with_capacity(all_3d_points.len());
+    let mut prev_u: Option<f32> = None;
     for &p3 in &all_3d_points {
-      let Some((u_global, v_global, dist)) = original_surface.project_point(
+      let Some((u, v, dist)) = original_surface.project_point(
         p3,
         config.project_grid,
         config.project_tolerance,
@@ -526,29 +640,27 @@ fn process_trim_curves_for_face(
       ) else {
         continue;
       };
-
       if dist > proj_dist_tolerance {
         continue;
       }
-
-      for (pi, patch) in patches.iter().enumerate() {
-        let range = patch.sub_range;
-        if u_global >= range.u_range.0
-          && u_global <= range.u_range.1
-          && v_global >= range.v_range.0
-          && v_global <= range.v_range.1
-        {
-          let du = range.u_range.1 - range.u_range.0;
-          let dv = range.v_range.1 - range.v_range.0;
-          if du > 0.0 && dv > 0.0 {
-            let u_local = ((u_global - range.u_range.0) / du).clamp(0.0, 1.0);
-            let v_local = ((v_global - range.v_range.0) / dv).clamp(0.0, 1.0);
-            per_patch_polylines[pi][ei].push(Vec2::new(u_local, v_local));
-          }
-          break;
+      // Detect angular wrap-around (only for surfaces with periodic U:
+      // cylinder, cone, sphere, torus — Plane/NURBS/extrusion have no period).
+      if let Some(prev) = prev_u {
+        let is_periodic = matches!(
+          original_surface,
+          OriginalSurface::Cylinder { .. }
+            | OriginalSurface::Cone { .. }
+            | OriginalSurface::Sphere { .. }
+            | OriginalSurface::Torus { .. }
+        );
+        if is_periodic && (u - prev).abs() > std::f32::consts::PI {
+          flush_projected_to_patches(ei, &mut projected, patches, &mut per_patch_polylines);
         }
       }
+      prev_u = Some(u);
+      projected.push(Vec2::new(u, v));
     }
+    flush_projected_to_patches(ei, &mut projected, patches, &mut per_patch_polylines);
   }
 
   // Reverse polylines for edges traversed backwards.
@@ -592,22 +704,34 @@ fn process_trim_curves_for_face(
           continue;
         }
 
-        let mut qs = Vec::new();
-        let n_loop = loop_edge_indices.len();
-        for k in 0..n_loop {
-          let ei = loop_edge_indices[k];
-          let poly = &edge_polys[ei];
-          if poly.len() >= 2 {
-            qs.extend(crate::surface_trim::reconstruct_boundary(
-              poly,
-              config.fit_tolerance,
-            ));
-          }
+        // Collect edges that actually have polylines in this patch.
+        let active: Vec<(usize, &Vec<Vec2<f32>>)> = loop_edge_indices
+          .iter()
+          .filter_map(|&ei| {
+            if edge_polys[ei].len() >= 2 {
+              Some((ei, &edge_polys[ei]))
+            } else {
+              None
+            }
+          })
+          .collect();
+        if active.is_empty() {
+          continue;
+        }
 
-          // Bridge to the next edge in the loop if endpoints don't meet.
-          let next_ei = loop_edge_indices[(k + 1) % n_loop];
-          let this_end = edge_polys[ei].last().copied();
-          let next_start = edge_polys[next_ei].first().copied();
+        let mut qs = Vec::new();
+        let n_active = active.len();
+        for k in 0..n_active {
+          let (_ei, poly) = active[k];
+          qs.extend(crate::surface_trim::reconstruct_boundary(
+            poly,
+            config.fit_tolerance,
+          ));
+
+          // Bridge to the next active edge if endpoints don't meet.
+          let (_, next_poly) = active[(k + 1) % n_active];
+          let this_end = poly.last().copied();
+          let next_start = next_poly.first().copied();
           if let (Some(end), Some(start)) = (this_end, next_start) {
             let gap = (end - start).length();
             if gap > boundary_epsilon * 0.5 {

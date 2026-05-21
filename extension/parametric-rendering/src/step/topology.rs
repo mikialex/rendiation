@@ -409,39 +409,55 @@ fn extract_pcurve_ids_from_edge_curve(
     None => return Vec::new(),
   };
 
-  // We need to check if this is a SurfaceCurve by looking up the surface_curve table directly
-  let sc = match table.surface_curve.get(&ec_id) {
-    Some(h) => h,
-    None => return Vec::new(),
-  };
+  // Check SurfaceCurve path: SurfaceCurve → associated_geometry → Pcurve
+  if let Some(sc) = table.surface_curve.get(&ec_id) {
+    let mut ids = Vec::new();
+    for assoc_ph in &sc.associated_geometry {
+      let assoc_id = match entity_id_from_ph(assoc_ph) {
+        Some(id) => id,
+        None => continue,
+      };
+      let pcurve = match table.pcurve.get(&assoc_id) {
+        Some(p) => p,
+        None => continue,
+      };
+      let def_rep_id = match entity_id_from_ph(&pcurve.reference_to_curve) {
+        Some(id) => id,
+        None => continue,
+      };
+      let def_rep = match table.definitional_representation.get(&def_rep_id) {
+        Some(d) => d,
+        None => continue,
+      };
+      for item_ph in &def_rep.representation_item {
+        if let Some(item_id) = entity_id_from_ph(item_ph) {
+          ids.push(item_id);
+        }
+      }
+    }
+    return ids;
+  }
 
-  let mut ids = Vec::new();
-  for assoc_ph in &sc.associated_geometry {
-    let assoc_id = match entity_id_from_ph(assoc_ph) {
-      Some(id) => id,
-      None => continue,
-    };
-    let pcurve = match table.pcurve.get(&assoc_id) {
-      Some(p) => p,
-      None => continue,
-    };
-
+  // Check direct Pcurve path: Pcurve → reference_to_curve → entities
+  if let Some(pcurve) = table.pcurve.get(&ec_id) {
+    let mut ids = Vec::new();
     let def_rep_id = match entity_id_from_ph(&pcurve.reference_to_curve) {
       Some(id) => id,
-      None => continue,
+      None => return Vec::new(),
     };
     let def_rep = match table.definitional_representation.get(&def_rep_id) {
       Some(d) => d,
-      None => continue,
+      None => return Vec::new(),
     };
-
     for item_ph in &def_rep.representation_item {
       if let Some(item_id) = entity_id_from_ph(item_ph) {
         ids.push(item_id);
       }
     }
+    return ids;
   }
-  ids
+
+  Vec::new()
 }
 
 /// Look up a 2D curve Holder by entity ID across all curve tables.
