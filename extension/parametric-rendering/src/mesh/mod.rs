@@ -7,10 +7,22 @@ pub fn triangulate_trimmed_surface(
   trimmed: &TrimmedSurface,
   config: &TriangulationConfig,
 ) -> MeshData {
-  if trimmed.trim_boundary.is_empty() {
-    return triangulate_untrimmed(&trimmed.surface, config.grid_resolution);
+  let mut mesh = if config.ignore_surface_trim || trimmed.trim_boundary.is_empty() {
+    triangulate_untrimmed(&trimmed.surface, config.grid_resolution)
+  } else {
+    triangulate_trimmed(&trimmed.surface, &trimmed.trim_boundary, config)
+  };
+
+  if trimmed.is_back_face {
+    for n in &mut mesh.normals {
+      *n = *n * -1.0;
+    }
+    for idx in &mut mesh.indices {
+      idx.swap(1, 2);
+    }
   }
-  triangulate_trimmed(&trimmed.surface, &trimmed.trim_boundary, config)
+
+  mesh
 }
 
 /// Per-surface triangulation result.
@@ -27,6 +39,8 @@ pub struct TriangulationConfig {
   pub boundary_tolerance: f32,
   /// Interior grid resolution in each parametric direction (default 32).
   pub grid_resolution: usize,
+  /// Skip trimming and uniformly sample the full [0,1]² domain (default false).
+  pub ignore_surface_trim: bool,
 }
 
 impl Default for TriangulationConfig {
@@ -34,6 +48,7 @@ impl Default for TriangulationConfig {
     Self {
       boundary_tolerance: 1e-3,
       grid_resolution: 32,
+      ignore_surface_trim: false,
     }
   }
 }
@@ -364,6 +379,7 @@ mod tests {
     let config = TriangulationConfig {
       boundary_tolerance: 1e-2,
       grid_resolution: 8,
+      ignore_surface_trim: false,
     };
     let mesh = triangulate_trimmed(&surface, &trim, &config);
     // Should produce some triangles inside the triangular region
@@ -382,6 +398,7 @@ mod tests {
     let trimmed = TrimmedSurface {
       surface,
       trim_boundary: Vec::new(),
+      is_back_face: false,
     };
     let config = TriangulationConfig::default();
     let mesh = triangulate_trimmed_surface(&trimmed, &config);

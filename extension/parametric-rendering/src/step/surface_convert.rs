@@ -25,8 +25,15 @@ pub struct SubRange {
 
 /// Convert any STEP surface to Bezier patches with parameter range info,
 /// together with an `OriginalSurface` for single-call point projection.
+///
+/// `plane_extent` is only used for unbounded Plane surfaces — it defines
+/// the (u_min, u_max, v_min, v_max) bounds computed from face edges.
+/// `v_range` is only used for Cylinder/Cone surfaces — it defines the
+/// (v_min, v_max) axial bounds computed from face edges.
 pub fn convert_and_split_any_surface_to_bezier_patches(
   surface: &SurfaceAny,
+  plane_extent: Option<(f32, f32, f32, f32)>,
+  v_range: Option<(f64, f64)>,
 ) -> Result<(Vec<SurfaceSubPatch>, OriginalSurface), StepReadError> {
   match surface {
     SurfaceAny::BSplineSurfaceWithKnots(b) => {
@@ -73,17 +80,17 @@ pub fn convert_and_split_any_surface_to_bezier_patches(
         v_knots,
       ))
     }
-    SurfaceAny::Plane(p) => Ok(convert_plane_to_bezier_patch(&p.position)),
+    SurfaceAny::Plane(p) => Ok(convert_plane_to_bezier_patch(&p.position, plane_extent)),
     SurfaceAny::CylindricalSurface(c) => Ok(convert_cylinder_to_bezier_patches(
       &c.position,
       c.radius,
-      None,
+      v_range,
     )),
     SurfaceAny::ConicalSurface(c) => Ok(convert_cone_to_bezier_patches(
       &c.position,
       c.radius,
       c.semi_angle,
-      None,
+      v_range,
     )),
     SurfaceAny::SphericalSurface(s) => Ok(convert_sphere_to_bezier_patches(&s.position, s.radius)),
     SurfaceAny::ToroidalSurface(t) => Ok(convert_torus_to_bezier_patches(
@@ -308,24 +315,26 @@ fn convert_bezier_surface_to_patch(
 
 /// Convert a plane to a single degree-1 Bezier patch.
 ///
-/// The patch is a bilinear quadrilateral in the plane. The corners are
-/// chosen at (±1, ±1) in the plane's local coordinates — this gives a
-/// finite patch for projection. Trim curves will determine the actual
-/// extent.
+/// The patch is a bilinear quadrilateral in the plane. If `extent` is `None`,
+/// defaults to a ±1 unit patch around the placement origin (fallback for
+/// when edge data is unavailable). When `Some`, uses the computed face
+/// bounding box so that trim curves fall within the patch's SubRange.
 fn convert_plane_to_bezier_patch(
   position: &Axis2Placement3d,
+  extent: Option<(f32, f32, f32, f32)>,
 ) -> (Vec<SurfaceSubPatch>, OriginalSurface) {
   let center = cartesian_point_to_vec3(&position.location);
   let normal = direction_to_vec3(&position.axis);
   let x_dir = axis2_x_dir(position);
   let y_dir = normal.cross(x_dir).normalize();
 
-  let extent = 1.0;
+  let (u_min, u_max, v_min, v_max) = extent.unwrap_or((-1.0, 1.0, -1.0, 1.0));
+
   let corners = [
-    center - x_dir * extent - y_dir * extent,
-    center + x_dir * extent - y_dir * extent,
-    center - x_dir * extent + y_dir * extent,
-    center + x_dir * extent + y_dir * extent,
+    center + x_dir * u_min + y_dir * v_min,
+    center + x_dir * u_max + y_dir * v_min,
+    center + x_dir * u_min + y_dir * v_max,
+    center + x_dir * u_max + y_dir * v_max,
   ];
 
   let cp: Vec<Vec4<f32>> = corners
@@ -337,8 +346,8 @@ fn convert_plane_to_bezier_patch(
   let patch = SurfaceSubPatch {
     surface,
     sub_range: SubRange {
-      u_range: (-extent, extent),
-      v_range: (-extent, extent),
+      u_range: (u_min, u_max),
+      v_range: (v_min, v_max),
     },
   };
   let orig = OriginalSurface::Plane {

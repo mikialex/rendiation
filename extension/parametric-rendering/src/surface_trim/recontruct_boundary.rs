@@ -3,15 +3,14 @@ use crate::*;
 /// Reconstructs a 2D boundary polyline as a minimal sequence of quadratic
 /// Bézier curves.
 ///
+/// Expects the input polyline to be tangent-continuous — sharp corners should
+/// be handled by splitting the polyline at corner vertices before calling this
+/// function.
+///
 /// Uses a greedy bottom-up strategy: starting from the first point, each
 /// curve absorbs as many subsequent points as possible while keeping the
 /// maximum distance from every point to the curve within
-/// `error_distance_tolerance`. This naturally minimizes the output curve
-/// count — each segment is as long as the tolerance permits.
-///
-/// The algorithm is the inverse of `adaptive_tessellate_bezier_curve`:
-/// it converts a point sequence back into a Bézier representation,
-/// sharing the same error-distance semantics.
+/// `error_distance_tolerance`.
 pub fn reconstruct_boundary<T: Scalar>(
   points: &[Vec2<T>],
   error_distance_tolerance: T,
@@ -28,7 +27,6 @@ pub fn reconstruct_boundary<T: Scalar>(
     let mut end = start + 1;
     let mut best_p1 = Vec2::new(T::zero(), T::zero());
 
-    // Grow the window while the fit stays within tolerance
     while end < points.len() {
       let (p1, max_err_sq) = fit_quadratic_bezier_to_points(&points[start..=end]);
       if max_err_sq > tolerance_sq {
