@@ -146,7 +146,7 @@ fn apply_placement_to_curve(curve: &mut RationalBezierCurve3d<f32>, placement: &
 /// Falls back to (-1, 1, -1, 1) if no points can be obtained.
 fn compute_plane_face_extent(
   position: &rendiation_step_reader::entities::Axis2Placement3d,
-  edges: &[EdgeData],
+  edge_loops: &[Vec<EdgeData>],
   config: &StepReadConfig,
 ) -> (f32, f32, f32, f32) {
   let origin = cartesian_point_to_vec3(&position.location);
@@ -160,7 +160,7 @@ fn compute_plane_face_extent(
   let mut v_max = f32::MIN;
   let mut any_point = false;
 
-  for edge in edges {
+  for edge in edge_loops.iter().flat_map(|l| l.iter()) {
     let beziers = match convert_any_curve_to_bezier(&edge.curve_3d) {
       Ok(b) => b,
       Err(_) => continue,
@@ -195,7 +195,7 @@ fn compute_plane_face_extent(
 /// if no points can be obtained.
 fn compute_axis_v_extent(
   position: &rendiation_step_reader::entities::Axis2Placement3d,
-  edges: &[EdgeData],
+  edge_loops: &[Vec<EdgeData>],
   config: &StepReadConfig,
 ) -> (f64, f64) {
   let origin = cartesian_point_to_vec3(&position.location);
@@ -205,7 +205,7 @@ fn compute_axis_v_extent(
   let mut v_max = f64::MIN;
   let mut any_point = false;
 
-  for edge in edges {
+  for edge in edge_loops.iter().flat_map(|l| l.iter()) {
     let beziers = match convert_any_curve_to_bezier(&edge.curve_3d) {
       Ok(b) => b,
       Err(_) => continue,
@@ -243,7 +243,7 @@ fn assemble_from_table(
     let plane_extent = if let SurfaceAny::Plane(ref p) = &face_data.surface {
       Some(compute_plane_face_extent(
         &p.position,
-        &face_data.edges,
+        &face_data.edge_loops,
         config,
       ))
     } else {
@@ -251,12 +251,16 @@ fn assemble_from_table(
     };
 
     let v_range = match &face_data.surface {
-      SurfaceAny::CylindricalSurface(c) => {
-        Some(compute_axis_v_extent(&c.position, &face_data.edges, config))
-      }
-      SurfaceAny::ConicalSurface(c) => {
-        Some(compute_axis_v_extent(&c.position, &face_data.edges, config))
-      }
+      SurfaceAny::CylindricalSurface(c) => Some(compute_axis_v_extent(
+        &c.position,
+        &face_data.edge_loops,
+        config,
+      )),
+      SurfaceAny::ConicalSurface(c) => Some(compute_axis_v_extent(
+        &c.position,
+        &face_data.edge_loops,
+        config,
+      )),
       _ => None,
     };
 
@@ -275,11 +279,16 @@ fn assemble_from_table(
     step_dbg!(
       "step: face #{fi} → {} patches, {} edges",
       patches.len(),
-      face_data.edges.len()
+      face_data.edge_loops.iter().map(|l| l.len()).sum::<usize>()
     );
 
-    let patch_trim_boundaries =
-      process_trim_curves_for_face(&original_surface, &patches, &face_data.edges, config, table);
+    let patch_trim_boundaries = process_trim_curves_for_face(
+      &original_surface,
+      &patches,
+      &face_data.edge_loops,
+      config,
+      table,
+    );
 
     if let Some(placement) = face_data.placement {
       let (origin, x_dir, _y_dir, z_dir) = placement;
@@ -326,13 +335,14 @@ fn assemble_from_table(
         Some(trim) => {
           // fi (face occurrence index) ensures uniqueness when the same
           // face entity appears in multiple assembly placements.
+          let total_edges: usize = face_data.edge_loops.iter().map(|l| l.len()).sum();
           let debug_label = format!(
             "#{fi} FaceSurface#{}[{}/{}] {} edges={}{}",
             face_data.face_id,
             pi,
             n_patches,
             surface_type_name,
-            face_data.edges.len(),
+            total_edges,
             if face_data.is_back_face {
               " (flipped)"
             } else {
@@ -342,7 +352,7 @@ fn assemble_from_table(
           trimmed_surfaces.push(TrimmedSurface {
             debug_label,
             surface: patch.surface.clone(),
-            trim_boundary: trim.clone(),
+            trim_loops: trim.clone(),
             is_back_face: face_data.is_back_face,
           });
         }
@@ -352,7 +362,7 @@ fn assemble_from_table(
       }
     }
 
-    for edge in &face_data.edges {
+    for edge in face_data.edge_loops.iter().flat_map(|l| l.iter()) {
       match convert_any_curve_to_bezier(&edge.curve_3d) {
         Ok(mut beziers) => {
           if let Some(placement) = face_data.placement {
@@ -380,6 +390,76 @@ fn assemble_from_table(
   })
 }
 
+/// Build a perimeter-bridge polyline along the [0,1]² boundary from `from`
+/// to `to`, both snapped to the boundary.
+///
+/// Returns `None` if either point cannot be snapped.
+fn build_perimeter_bridge(from: Vec2<f32>, to: Vec2<f32>, snap_eps: f32) -> Option<Vec<Vec2<f32>>> {
+  let snap = |p: Vec2<f32>| -> Option<(f32, Vec2<f32>)> {
+    let dists: [(f32, f32, Vec2<f32>); 4] = [
+      (
+        p.x.abs(),
+        p.y.clamp(0.0, 1.0),
+        Vec2::new(0.0, p.y.clamp(0.0, 1.0)),
+      ),
+      (
+        (1.0 - p.y).abs(),
+        1.0 + p.x.clamp(0.0, 1.0),
+        Vec2::new(p.x.clamp(0.0, 1.0), 1.0),
+      ),
+      (
+        (1.0 - p.x).abs(),
+        2.0 + (1.0 - p.y.clamp(0.0, 1.0)),
+        Vec2::new(1.0, p.y.clamp(0.0, 1.0)),
+      ),
+      (
+        p.y.abs(),
+        3.0 + (1.0 - p.x.clamp(0.0, 1.0)),
+        Vec2::new(p.x.clamp(0.0, 1.0), 0.0),
+      ),
+    ];
+    let mut best: Option<(f32, Vec2<f32>)> = None;
+    let mut best_dist = f32::MAX;
+    for (dist, t, pt) in &dists {
+      if *dist < snap_eps && *dist < best_dist {
+        best_dist = *dist;
+        best = Some((*t, *pt));
+      }
+    }
+    best
+  };
+
+  let (t_a, _pt_a) = snap(from)?;
+  let (t_b, _pt_b) = snap(to)?;
+
+  let dist = if t_b >= t_a {
+    t_b - t_a
+  } else {
+    4.0 - t_a + t_b
+  };
+  let boundary_samples = 8;
+  let n_samples = (dist * boundary_samples as f32).ceil() as usize;
+  let mut pts = Vec::with_capacity(n_samples + 1);
+  for s in 0..=n_samples {
+    let t = if n_samples == 0 {
+      t_a
+    } else {
+      t_a + (s as f32) * dist / (n_samples as f32)
+    };
+    let t = t % 4.0;
+    pts.push(if t < 1.0 {
+      Vec2::new(0.0, t)
+    } else if t < 2.0 {
+      Vec2::new(t - 1.0, 1.0)
+    } else if t < 3.0 {
+      Vec2::new(1.0, 1.0 - (t - 2.0))
+    } else {
+      Vec2::new(1.0 - (t - 3.0), 0.0)
+    });
+  }
+  Some(pts)
+}
+
 /// Project 3D tessellation points onto the original surface once, then
 /// distribute the resulting (u,v) coordinates to the correct Bezier patch
 /// by checking each patch's parameter range.
@@ -389,31 +469,39 @@ fn assemble_from_table(
 fn process_trim_curves_for_face(
   original_surface: &OriginalSurface,
   patches: &[SurfaceSubPatch],
-  edges: &[EdgeData],
+  edge_loops: &[Vec<EdgeData>],
   config: &StepReadConfig,
   table: &Table,
-) -> Vec<Option<Vec<QuadraticBezierCurve2d<f32>>>> {
+) -> Vec<Option<Vec<Vec<QuadraticBezierCurve2d<f32>>>>> {
   let n_patches = patches.len();
-  if n_patches == 0 || edges.is_empty() {
-    return std::iter::repeat_with(|| Some(Vec::new()))
+  let total_edges: usize = edge_loops.iter().map(|l| l.len()).sum();
+  if n_patches == 0 || total_edges == 0 {
+    return std::iter::repeat_with(|| Some(vec![]))
       .take(n_patches)
       .collect();
   }
 
-  let n_edges = edges.len();
+  // Flatten edges with loop-index tracking for later per-loop reconstruction.
+  let mut edges: Vec<&EdgeData> = Vec::with_capacity(total_edges);
+  let mut edge_loop_idx: Vec<usize> = Vec::with_capacity(total_edges);
+  for (li, loop_edges) in edge_loops.iter().enumerate() {
+    for edge in loop_edges {
+      edges.push(edge);
+      edge_loop_idx.push(li);
+    }
+  }
+
+  let n_edges = total_edges;
   let mut per_patch_polylines: Vec<Vec<Vec<Vec2<f32>>>> =
     vec![vec![Vec::new(); n_edges]; n_patches];
 
   let proj_dist_tolerance = config.project_tolerance * 10.0;
 
   for (ei, edge) in edges.iter().enumerate() {
-    // Try pcurve path first
     if try_pcurve_for_all_patches(ei, edge, patches, table, &mut per_patch_polylines) {
       continue;
     }
 
-    // Numerical path: tessellate edge once, project each 3D point onto
-    // the original surface, then find the correct patch by range check.
     let beziers = match convert_any_curve_to_bezier(&edge.curve_3d) {
       Ok(b) => b,
       Err(_) => continue,
@@ -430,7 +518,6 @@ fn process_trim_curves_for_face(
     }
 
     for &p3 in &all_3d_points {
-      // Project onto the original surface once
       let Some((u_global, v_global, dist)) = original_surface.project_point(
         p3,
         config.project_grid,
@@ -444,7 +531,6 @@ fn process_trim_curves_for_face(
         continue;
       }
 
-      // Find which patch contains this (u, v) — O(P) float comparisons
       for (pi, patch) in patches.iter().enumerate() {
         let range = patch.sub_range;
         if u_global >= range.u_range.0
@@ -466,7 +552,6 @@ fn process_trim_curves_for_face(
   }
 
   // Reverse polylines for edges traversed backwards.
-  // Effective direction: same_sense == orientation → forward, else reverse.
   for (ei, edge) in edges.iter().enumerate() {
     if edge.same_sense != edge.orientation {
       for pi in 0..n_patches {
@@ -475,8 +560,7 @@ fn process_trim_curves_for_face(
     }
   }
 
-  // Phase 2: classify empty patches using a global boundary built from
-  // non-empty patches, then reconstruct boundaries for kept patches.
+  // Phase 2: classify empty patches, then reconstruct per-loop trim boundaries.
   let boundary_epsilon = config.fit_tolerance * 10.0;
 
   let keep_mask = classify_empty_patches(patches, &per_patch_polylines, boundary_epsilon);
@@ -486,25 +570,65 @@ fn process_trim_curves_for_face(
     .enumerate()
     .map(|(pi, edge_polys)| {
       if !keep_mask[pi] {
-        return None; // patch fully outside trimmed region
+        return None;
       }
-      let polylines: Vec<Vec<Vec2<f32>>> =
-        edge_polys.into_iter().filter(|p| !p.is_empty()).collect();
-
-      if polylines.is_empty() {
-        return Some(Vec::new()); // patch fully inside — no trim needed
+      if edge_polys.iter().all(|p| p.is_empty()) {
+        return Some(Vec::new());
       }
 
-      // Each edge polyline is already tangent-continuous; fit independently
-      // so that sharp corners at edge junctions are preserved.
-      let mut quadratics = Vec::new();
-      for polyline in &polylines {
-        if polyline.len() >= 2 {
-          let qs = crate::surface_trim::reconstruct_boundary(polyline, config.fit_tolerance);
-          quadratics.extend(qs);
+      let snap_eps = (boundary_epsilon * 5.0).max(5e-3);
+      let mut loop_quadratics: Vec<Vec<QuadraticBezierCurve2d<f32>>> = Vec::new();
+
+      // Process each loop independently — each loop produces its own vec.
+      for li in 0..edge_loops.len() {
+        let loop_edge_indices: Vec<usize> = edge_loop_idx
+          .iter()
+          .enumerate()
+          .filter(|(_, &l)| l == li)
+          .map(|(ei, _)| ei)
+          .collect();
+
+        if loop_edge_indices.is_empty() {
+          continue;
+        }
+
+        let mut qs = Vec::new();
+        let n_loop = loop_edge_indices.len();
+        for k in 0..n_loop {
+          let ei = loop_edge_indices[k];
+          let poly = &edge_polys[ei];
+          if poly.len() >= 2 {
+            qs.extend(crate::surface_trim::reconstruct_boundary(
+              poly,
+              config.fit_tolerance,
+            ));
+          }
+
+          // Bridge to the next edge in the loop if endpoints don't meet.
+          let next_ei = loop_edge_indices[(k + 1) % n_loop];
+          let this_end = edge_polys[ei].last().copied();
+          let next_start = edge_polys[next_ei].first().copied();
+          if let (Some(end), Some(start)) = (this_end, next_start) {
+            let gap = (end - start).length();
+            if gap > boundary_epsilon * 0.5 {
+              if let Some(bridge) = build_perimeter_bridge(end, start, snap_eps) {
+                if bridge.len() >= 2 {
+                  qs.extend(crate::surface_trim::reconstruct_boundary(
+                    &bridge,
+                    config.fit_tolerance,
+                  ));
+                }
+              }
+            }
+          }
+        }
+
+        if !qs.is_empty() {
+          loop_quadratics.push(qs);
         }
       }
-      Some(quadratics)
+
+      Some(loop_quadratics)
     })
     .collect()
 }

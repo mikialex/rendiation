@@ -47,7 +47,7 @@ fn curve_color(idx: usize, total: usize) -> (u8, u8, u8) {
 fn write_surface_svg(
   dir: &Path,
   label: &str,
-  trim_boundary: &[rendiation_parametric_rendering::QuadraticBezierCurve2d<f32>],
+  trim_loops: &[Vec<rendiation_parametric_rendering::QuadraticBezierCurve2d<f32>>],
 ) -> Result<(), Box<dyn std::error::Error>> {
   // Sanitise filename: replace characters that are awkward in paths.
   let fname = label
@@ -95,16 +95,21 @@ fn write_surface_svg(
   ));
   svg.push('\n');
 
-  // Trim curves
-  for (ci, curve) in trim_boundary.iter().enumerate() {
-    let (sx, sy) = to_svg(curve.start.x, curve.start.y);
-    let (cx, cy) = to_svg(curve.ctrl.x, curve.ctrl.y);
-    let (ex, ey) = to_svg(curve.end.x, curve.end.y);
-    let (r, g, b) = curve_color(ci, trim_boundary.len());
-    svg.push_str(&format!(
-            r#"<path d="M {sx:.4} {sy:.4} Q {cx:.4} {cy:.4} {ex:.4} {ey:.4}" stroke="rgb({r},{g},{b})" stroke-width="1.2" fill="none"/>"#
-        ));
-    svg.push('\n');
+  // Trim curves — flattened across all loops
+  let total = trim_loops.iter().map(|l| l.len()).sum::<usize>();
+  let mut ci = 0usize;
+  for loop_curves in trim_loops {
+    for curve in loop_curves {
+      let (sx, sy) = to_svg(curve.start.x, curve.start.y);
+      let (cx, cy) = to_svg(curve.ctrl.x, curve.ctrl.y);
+      let (ex, ey) = to_svg(curve.end.x, curve.end.y);
+      let (r, g, b) = curve_color(ci, total);
+      ci += 1;
+      svg.push_str(&format!(
+              r#"<path d="M {sx:.4} {sy:.4} Q {cx:.4} {cy:.4} {ex:.4} {ey:.4}" stroke="rgb({r},{g},{b})" stroke-width="1.2" fill="none"/>"#
+          ));
+      svg.push('\n');
+    }
   }
 
   svg.push_str("</svg>\n");
@@ -147,13 +152,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   let mut total_issues = 0usize;
   let mut surfaces_with_issues = 0usize;
   for s in &data.surfaces {
-    if s.trim_boundary.is_empty() {
+    if !s.is_trimmed() {
       continue;
     }
-    let issues = rendiation_parametric_rendering::mesh::validate_trim_boundary(
-      &s.debug_label,
-      &s.trim_boundary,
-    );
+    let issues =
+      rendiation_parametric_rendering::mesh::validate_trim_boundary(&s.debug_label, &s.trim_loops);
     if !issues.is_empty() {
       total_issues += issues.len();
       surfaces_with_issues += 1;
@@ -167,7 +170,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   }
 
   for (i, s) in data.surfaces.iter().enumerate() {
-    if s.trim_boundary.is_empty() {
+    if !s.is_trimmed() {
       println!(
         "  [{}/{}] {} — skipping (untrimmed)",
         i + 1,
@@ -176,14 +179,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       );
       continue;
     }
+    let n_curves: usize = s.trim_loops.iter().map(|l| l.len()).sum();
     println!(
-      "  [{}/{}] {} — {} trim curves",
+      "  [{}/{}] {} — {} trim curves ({} loops)",
       i + 1,
       data.surfaces.len(),
       s.debug_label,
-      s.trim_boundary.len()
+      n_curves,
+      s.trim_loops.len()
     );
-    write_surface_svg(out_dir, &s.debug_label, &s.trim_boundary)?;
+    write_surface_svg(out_dir, &s.debug_label, &s.trim_loops)?;
   }
 
   println!("done.");
