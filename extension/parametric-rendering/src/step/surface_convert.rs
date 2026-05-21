@@ -807,7 +807,7 @@ fn convert_extrusion_surface_to_bezier_patches(
 fn fix_knot_length(mut knots: Vec<f32>, count: usize, degree: usize, dir: &str) -> Vec<f32> {
   let expected = count + degree + 1;
   if knots.len() != expected {
-    crate::step::step_dbg!(
+    step_dbg!(
       "step: {}--knots length mismatch: {} != {} (count={} + degree={} + 1)",
       dir,
       knots.len(),

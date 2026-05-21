@@ -46,7 +46,7 @@ pub fn build_assembly_placement_map(
   if srrwt_count == 0 {
     return HashMap::new();
   }
-  crate::step::step_dbg!("step: assembly placement map — srrwt={srrwt_count}");
+  step_dbg!("step: assembly placement map — srrwt={srrwt_count}");
 
   // 1. Build SR → breps mapping from ShapeRepresentation items
   let mut sr_to_breps: HashMap<u64, Vec<u64>> = HashMap::new();
@@ -150,7 +150,7 @@ pub fn build_assembly_placement_map(
   }
 
   // 5. Report the number of resulting BREP occurrences.
-  crate::step::step_dbg!(
+  step_dbg!(
     "step: assembly placement — sr_to_breps={} representation_links={} brep_occurrences={}",
     sr_to_breps.len(),
     representation_children.len(),
