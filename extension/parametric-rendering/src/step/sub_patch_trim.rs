@@ -1,26 +1,78 @@
 use super::*;
 use crate::*;
 
+// Semantic types for trim polyline data
+
+/// A single continuous polyline in UV space.
+type TrimPolyline = Vec<Vec2<f32>>;
+
+/// Trim segments for one edge within one patch.
+/// May contain multiple polylines (split at clip discontinuities or patch crossings).
+#[derive(Clone, Default)]
+struct EdgeTrimSegments(Vec<TrimPolyline>);
+
+impl EdgeTrimSegments {
+  fn push(&mut self, poly: TrimPolyline) {
+    self.0.push(poly);
+  }
+
+  fn is_empty(&self) -> bool {
+    self.0.iter().all(|p| p.is_empty())
+  }
+
+  fn iter(&self) -> impl Iterator<Item = &TrimPolyline> {
+    self.0.iter()
+  }
+
+  fn iter_mut(&mut self) -> impl Iterator<Item = &mut TrimPolyline> {
+    self.0.iter_mut()
+  }
+}
+
+/// All trim polyline data, indexed as [patch_index][edge_index] → EdgeTrimSegments.
+#[derive(Clone)]
+struct PatchTrimTable(Vec<Vec<EdgeTrimSegments>>);
+
+impl PatchTrimTable {
+  fn new(n_patches: usize, n_edges: usize) -> Self {
+    Self(vec![vec![EdgeTrimSegments::default(); n_edges]; n_patches])
+  }
+
+  fn edge_mut(&mut self, pi: usize, ei: usize) -> &mut EdgeTrimSegments {
+    &mut self.0[pi][ei]
+  }
+}
+
+/// Global trim boundary polylines — one per edge, in surface parameter space.
+type GlobalTrimPolylines = Vec<TrimPolyline>;
+
+/// A surface sub-patch together with its reconstructed trim loops.
+pub struct TrimmedPatch {
+  pub patch: SurfaceSubPatch,
+  pub patch_index: usize,
+  pub trim_loops: Vec<Vec<QuadraticBezierCurve2d<f32>>>,
+}
+
+// Main entry
+
 /// Project 3D tessellation points onto the original surface once, then
 /// distribute the resulting (u,v) coordinates to the correct Bezier patch
 /// by checking each patch's parameter range.
 ///
-/// Returns `Some(trim_boundary)` per patch to keep, or `None` for patches
-/// that are fully outside the trimmed region and should be discarded.
+/// Takes ownership of `patches` and returns kept patches with their
+/// reconstructed trim loops. Discarded patches are logged and filtered out.
 pub fn process_trim_curves_for_face(
   original_surface: &OriginalSurface,
-  patches: &[SurfaceSubPatch],
+  patches: Vec<SurfaceSubPatch>,
   edge_loops: &[Vec<EdgeData>],
   config: &StepReadConfig,
   table: &Table,
   edge_beziers: &[Vec<RationalBezierCurve3d<f32>>],
-) -> Vec<Option<Vec<Vec<QuadraticBezierCurve2d<f32>>>>> {
+) -> Vec<TrimmedPatch> {
   let n_patches = patches.len();
   let total_edges: usize = edge_loops.iter().map(|l| l.len()).sum();
   if n_patches == 0 || total_edges == 0 {
-    return std::iter::repeat_with(|| Some(vec![]))
-      .take(n_patches)
-      .collect();
+    return Vec::new();
   }
 
   // Flatten edges with loop-index tracking for later per-loop reconstruction.
@@ -34,10 +86,8 @@ pub fn process_trim_curves_for_face(
   }
 
   let n_edges = total_edges;
-  let mut per_patch_polylines: Vec<Vec<Vec<Vec2<f32>>>> =
-    vec![vec![Vec::new(); n_edges]; n_patches];
-
-  let mut global_polylines: Vec<Vec<Vec2<f32>>> = vec![Vec::new(); n_edges];
+  let mut per_patch = PatchTrimTable::new(n_patches, n_edges);
+  let mut global_polylines: GlobalTrimPolylines = vec![TrimPolyline::new(); n_edges];
 
   let proj_dist_tolerance = 1e-2;
 
@@ -45,9 +95,10 @@ pub fn process_trim_curves_for_face(
     if try_pcurve_for_all_patches(
       ei,
       edge,
-      patches,
+      &patches,
       table,
-      &mut per_patch_polylines,
+      original_surface,
+      &mut per_patch,
       &mut global_polylines,
     ) {
       continue;
@@ -69,9 +120,8 @@ pub fn process_trim_curves_for_face(
     }
 
     // Project all 3D points to UV on the original surface.
-    let mut projected: Vec<Vec2<f32>> = Vec::with_capacity(all_3d_points.len());
-    let mut prev_u: Option<f32> = None;
-    let mut prev_v: Option<f32> = None;
+    // UV coordinates are in [0,1]² (normalized during projection).
+    let mut projected: TrimPolyline = Vec::with_capacity(all_3d_points.len());
     for &p3 in &all_3d_points {
       let Some((u, v, dist)) = original_surface.project_point(
         p3,
@@ -84,33 +134,13 @@ pub fn process_trim_curves_for_face(
       if dist > proj_dist_tolerance {
         continue;
       }
-      // Detect angular wrap-around at periodic seams (u: cylinder/cone/sphere/torus,
-      // v: torus only). When a polyline crosses the 0/2π boundary, flush accumulated
-      // points so the segments on each side are clipped to the correct patches.
-      let u_wrap = prev_u.is_some_and(|pu| {
-        original_surface.is_u_periodic() && (u - pu).abs() > std::f32::consts::PI
-      });
-      let v_wrap = prev_v.is_some_and(|pv| {
-        original_surface.is_v_periodic() && (v - pv).abs() > std::f32::consts::PI
-      });
-      if u_wrap || v_wrap {
-        flush_projected_to_patches(
-          ei,
-          &mut projected,
-          patches,
-          &mut per_patch_polylines,
-          &mut global_polylines,
-        );
-      }
-      prev_u = Some(u);
-      prev_v = Some(v);
       projected.push(Vec2::new(u, v));
     }
     flush_projected_to_patches(
       ei,
       &mut projected,
-      patches,
-      &mut per_patch_polylines,
+      &patches,
+      &mut per_patch,
       &mut global_polylines,
     );
   }
@@ -119,7 +149,9 @@ pub fn process_trim_curves_for_face(
   for (ei, edge) in edges.iter().enumerate() {
     if edge.same_sense != edge.orientation {
       for pi in 0..n_patches {
-        per_patch_polylines[pi][ei].reverse();
+        for seg in per_patch.edge_mut(pi, ei).iter_mut() {
+          seg.reverse();
+        }
       }
     }
   }
@@ -127,21 +159,29 @@ pub fn process_trim_curves_for_face(
   // Phase 2: classify empty patches, then reconstruct per-loop trim boundaries.
   let boundary_epsilon = config.fit_tolerance * 10.0;
 
-  let keep_mask = classify_empty_patches(patches, global_polylines, &per_patch_polylines);
+  // Build per-loop closed polygons once, for testing empty patches.
+  let loop_polygons = build_loop_polygons(&global_polylines, &edge_loop_idx, edge_loops.len());
 
-  per_patch_polylines
+  per_patch
+    .0
     .into_iter()
     .enumerate()
-    .map(|(pi, edge_polys)| {
-      if !keep_mask[pi] {
-        return None;
-      }
-      if edge_polys.iter().all(|p| p.is_empty()) {
-        return Some(Vec::new());
+    .filter_map(|(pi, edge_polys)| {
+      if edge_polys.iter().all(|e| e.is_empty()) {
+        // Empty patch: test center against trim boundary.
+        if !is_patch_inside_trim(&patches[pi], &loop_polygons) {
+          step_dbg!("step: patch #{pi} discarded (fully trimmed)");
+          return None;
+        }
+        return Some(TrimmedPatch {
+          patch: patches[pi].clone(),
+          patch_index: pi,
+          trim_loops: Vec::new(),
+        });
       }
 
       let snap_eps = (boundary_epsilon * 5.0).max(5e-3);
-      let mut loop_quadratics: Vec<Vec<QuadraticBezierCurve2d<f32>>> = Vec::new();
+      let mut trim_loops: Vec<Vec<QuadraticBezierCurve2d<f32>>> = Vec::new();
 
       // Process each loop independently — each loop produces its own vec.
       for li in 0..edge_loops.len() {
@@ -156,17 +196,15 @@ pub fn process_trim_curves_for_face(
           continue;
         }
 
-        // Collect edges that actually have polylines in this patch.
-        let active: Vec<(usize, &Vec<Vec2<f32>>)> = loop_edge_indices
-          .iter()
-          .filter_map(|&ei| {
-            if edge_polys[ei].len() >= 2 {
-              Some((ei, &edge_polys[ei]))
-            } else {
-              None
+        // Flatten all segments from all edges in loop order.
+        let mut active: Vec<(usize, &TrimPolyline)> = Vec::new();
+        for &ei in &loop_edge_indices {
+          for seg in edge_polys[ei].iter() {
+            if seg.len() >= 2 {
+              active.push((ei, seg));
             }
-          })
-          .collect();
+          }
+        }
         if active.is_empty() {
           continue;
         }
@@ -177,7 +215,7 @@ pub fn process_trim_curves_for_face(
           let (_ei, poly) = active[k];
           qs.extend(reconstruct_boundary(poly, config.fit_tolerance));
 
-          // Bridge to the next active edge if endpoints don't meet.
+          // Bridge to the next active segment if endpoints don't meet.
           let (_, next_poly) = active[(k + 1) % n_active];
           let this_end = poly.last().copied();
           let next_start = next_poly.first().copied();
@@ -194,14 +232,20 @@ pub fn process_trim_curves_for_face(
         }
 
         if !qs.is_empty() {
-          loop_quadratics.push(qs);
+          trim_loops.push(qs);
         }
       }
 
-      Some(loop_quadratics)
+      Some(TrimmedPatch {
+        patch: patches[pi].clone(),
+        patch_index: pi,
+        trim_loops,
+      })
     })
     .collect()
 }
+
+// Pcurve path
 
 /// Try pcurve path for all patches at once (remaps pcurve points to each patch).
 /// Returns true if the pcurve path was used successfully.
@@ -210,8 +254,9 @@ fn try_pcurve_for_all_patches(
   edge: &EdgeData,
   patches: &[SurfaceSubPatch],
   table: &Table,
-  per_patch_polylines: &mut [Vec<Vec<Vec2<f32>>>],
-  global_polylines: &mut [Vec<Vec2<f32>>],
+  original_surface: &OriginalSurface,
+  per_patch: &mut PatchTrimTable,
+  global_polylines: &mut GlobalTrimPolylines,
 ) -> bool {
   if edge.pcurve_entity_ids.is_empty() {
     return false;
@@ -226,12 +271,21 @@ fn try_pcurve_for_all_patches(
       continue;
     }
 
+    // Normalize pcurve points into the same [0,1]² space as projections.
+    let normalized: TrimPolyline = points_2d
+      .iter()
+      .map(|p| {
+        let (nu, nv) = original_surface.normalize_pcurve_uv(p.x, p.y);
+        Vec2::new(nu, nv)
+      })
+      .collect();
+
     let mut any_mapped = false;
     for (pi, patch) in patches.iter().enumerate() {
-      global_polylines[ei] = points_2d.clone();
-      let remapped = remap_2d_points_to_patch(&points_2d, &patch.sub_range);
+      global_polylines[ei] = normalized.clone();
+      let remapped = remap_2d_points_to_patch(&normalized, &patch.sub_range);
       if !remapped.is_empty() {
-        per_patch_polylines[pi][ei] = remapped;
+        per_patch.edge_mut(pi, ei).0 = vec![remapped];
         any_mapped = true;
       }
     }
@@ -242,14 +296,16 @@ fn try_pcurve_for_all_patches(
   false
 }
 
+// Projection flushing
+
 /// Clip a contiguous projected polyline segment-by-segment against each
 /// patch's SubRange, appending clipped sub-polylines.
 fn flush_projected_to_patches(
   ei: usize,
-  projected: &mut Vec<Vec2<f32>>,
+  projected: &mut TrimPolyline,
   patches: &[SurfaceSubPatch],
-  per_patch: &mut [Vec<Vec<Vec2<f32>>>],
-  global_polylines: &mut [Vec<Vec2<f32>>],
+  per_patch: &mut PatchTrimTable,
+  global_polylines: &mut GlobalTrimPolylines,
 ) {
   if projected.len() < 2 {
     projected.clear();
@@ -258,7 +314,7 @@ fn flush_projected_to_patches(
 
   for (pi, patch) in patches.iter().enumerate() {
     let r = &patch.sub_range;
-    let mut current: Vec<Vec2<f32>> = Vec::new();
+    let mut current: TrimPolyline = Vec::new();
 
     for w in projected.windows(2) {
       let (p0, p1) = (w[0], w[1]);
@@ -272,7 +328,9 @@ fn flush_projected_to_patches(
           if (last - c0).length() > 1e-6 {
             // Disconnect — start new sub-polyline
             if current.len() >= 2 {
-              per_patch[pi][ei].extend(current.drain(..));
+              per_patch
+                .edge_mut(pi, ei)
+                .push(std::mem::take(&mut current));
             }
             current.clear();
             current.push(c0);
@@ -282,57 +340,56 @@ fn flush_projected_to_patches(
       } else {
         // Segment outside patch — flush current
         if current.len() >= 2 {
-          per_patch[pi][ei].extend(current.drain(..));
+          per_patch
+            .edge_mut(pi, ei)
+            .push(std::mem::take(&mut current));
         }
         current.clear();
       }
     }
     if current.len() >= 2 {
-      per_patch[pi][ei].extend(current);
+      per_patch.edge_mut(pi, ei).push(current);
     }
   }
 
   global_polylines[ei].extend(projected.drain(..));
 }
 
-/// Build a global trim boundary from non-empty patches and classify empty
-/// patches as inside (keep) or outside (discard) the trimmed region.
-///
-/// Returns a bool per patch: `true` = keep, `false` = discard.
-fn classify_empty_patches(
-  patches: &[SurfaceSubPatch],
-  global_polylines: Vec<Vec<Vec2<f32>>>,
-  per_patch_polylines: &[Vec<Vec<Vec2<f32>>>],
-) -> Vec<bool> {
-  // For each empty patch, test if its center is inside the global boundary
-  let mut keep = vec![true; patches.len()];
+// Empty patch classification
 
-  for (pi, edge_polys) in per_patch_polylines.iter().enumerate() {
-    if edge_polys.iter().any(|p| !p.is_empty()) {
-      continue; // non-empty patch → already classified as keep
+/// Concatenate per-edge polylines into per-loop closed polygons.
+fn build_loop_polygons(
+  global_polylines: &GlobalTrimPolylines,
+  edge_loop_idx: &[usize],
+  n_loops: usize,
+) -> Vec<TrimPolyline> {
+  let mut loop_polygons: Vec<TrimPolyline> = vec![TrimPolyline::new(); n_loops];
+  for (ei, poly) in global_polylines.iter().enumerate() {
+    if poly.len() >= 2 {
+      let li = edge_loop_idx[ei];
+      loop_polygons[li].extend(poly.iter().copied());
     }
-
-    // Map patch center to normalized global space
-    let cu = (patches[pi].sub_range.u_range.0 + patches[pi].sub_range.u_range.1) * 0.5;
-    let cv = (patches[pi].sub_range.v_range.0 + patches[pi].sub_range.v_range.1) * 0.5;
-    let test_pt = Vec2::new(cu, cv);
-
-    // Point-in-polygon test against each closed component.
-    // If inside any component, keep the patch; otherwise discard.
-    let inside = global_polylines
-      .iter()
-      .any(|comp| point_in_polygon(test_pt, comp));
-    keep[pi] = inside;
   }
-
-  keep
+  loop_polygons
 }
+
+/// Test whether an empty patch is inside the trim boundary.
+fn is_patch_inside_trim(patch: &SurfaceSubPatch, loop_polygons: &[TrimPolyline]) -> bool {
+  let cu = (patch.sub_range.u_range.0 + patch.sub_range.u_range.1) * 0.5;
+  let cv = (patch.sub_range.v_range.0 + patch.sub_range.v_range.1) * 0.5;
+  let test_pt = Vec2::new(cu, cv);
+  loop_polygons
+    .iter()
+    .any(|poly| poly.len() >= 3 && point_in_polygon(test_pt, poly))
+}
+
+// Perimeter bridge
 
 /// Build a perimeter-bridge polyline along the [0,1]² boundary from `from`
 /// to `to`, both snapped to the boundary.
 ///
 /// Returns `None` if either point cannot be snapped.
-fn build_perimeter_bridge(from: Vec2<f32>, to: Vec2<f32>, snap_eps: f32) -> Option<Vec<Vec2<f32>>> {
+fn build_perimeter_bridge(from: Vec2<f32>, to: Vec2<f32>, snap_eps: f32) -> Option<TrimPolyline> {
   let snap = |p: Vec2<f32>| -> Option<(f32, Vec2<f32>)> {
     let dists: [(f32, f32, Vec2<f32>); 4] = [
       (
@@ -397,6 +454,8 @@ fn build_perimeter_bridge(from: Vec2<f32>, to: Vec2<f32>, snap_eps: f32) -> Opti
   }
   Some(pts)
 }
+
+// Liang-Barsky UV clipping
 
 /// Clip a UV segment `p0 → p1` against an axis-aligned rectangle
 /// `[u_min, u_max] × [v_min, v_max]` (Liang-Barsky).

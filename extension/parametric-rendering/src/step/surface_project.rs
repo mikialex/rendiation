@@ -60,19 +60,19 @@ pub enum OriginalSurface {
 }
 
 impl OriginalSurface {
-  pub fn is_u_periodic(&self) -> bool {
-    matches!(
-      self,
-      OriginalSurface::Cylinder { .. }
-        | OriginalSurface::Cone { .. }
-        | OriginalSurface::Sphere { .. }
-        | OriginalSurface::Torus { .. }
-    )
-  }
-
-  /// Only the torus is periodic in the v direction.
-  pub fn is_v_periodic(&self) -> bool {
-    matches!(self, OriginalSurface::Torus { .. })
+  /// Normalise raw pcurve UV coordinates into the same [0,1]² space
+  /// used by the projection functions and SubRange.
+  pub fn normalize_pcurve_uv(&self, u: f32, v: f32) -> (f32, f32) {
+    use std::f32::consts::{PI, TAU};
+    match self {
+      OriginalSurface::Cylinder { v_range, .. } | OriginalSurface::Cone { v_range, .. } => {
+        (u / TAU, (v - v_range.0) / (v_range.1 - v_range.0))
+      }
+      OriginalSurface::Sphere { .. } => (u / TAU, v / PI),
+      OriginalSurface::Torus { .. } => (u / TAU, v / TAU),
+      // Plane, NURBS, Extrusion — already in the correct parameter space.
+      _ => (u, v),
+    }
   }
 
   /// Project a 3D point onto the surface.
@@ -174,8 +174,7 @@ fn project_point_plane(
 
 /// Project a 3D point onto a cylindrical surface.
 ///
-/// u ∈ [0, 2π) is the angle around axis from x_dir, v ∈ [v_min, v_max]
-/// is the signed distance along axis from origin.
+/// Returns (u, v, dist) where u, v ∈ [0, 1] are normalised parameters.
 fn project_point_cylinder(
   point: Vec3<f32>,
   origin: Vec3<f32>,
@@ -187,14 +186,16 @@ fn project_point_cylinder(
 ) -> (f32, f32, f32) {
   let d = point - origin;
   let h = d.dot(axis);
-  let v = h.clamp(v_range.0, v_range.1);
+  let v_phys = h.clamp(v_range.0, v_range.1);
   let radial = d - h * axis;
-  let mut u = radial.dot(y_dir).atan2(radial.dot(x_dir));
-  if u < 0.0 {
-    u += std::f32::consts::TAU;
+  let mut u_phys = radial.dot(y_dir).atan2(radial.dot(x_dir));
+  if u_phys < 0.0 {
+    u_phys += std::f32::consts::TAU;
   }
-  let closest = origin + v * axis + radius * (u.cos() * x_dir + u.sin() * y_dir);
+  let closest = origin + v_phys * axis + radius * (u_phys.cos() * x_dir + u_phys.sin() * y_dir);
   let dist = (point - closest).length();
+  let u = u_phys / std::f32::consts::TAU;
+  let v = (v_phys - v_range.0) / (v_range.1 - v_range.0);
   (u, v, dist)
 }
 
@@ -202,7 +203,7 @@ fn project_point_cylinder(
 ///
 /// The cone is defined by its origin, axis, base radius, and semi-angle.
 /// r(v) = radius - v * tan(semi_angle).
-/// u ∈ [0, 2π) is the angle, v ∈ [v_min, v_max] is the height along axis.
+/// Returns (u, v, dist) where u, v ∈ [0, 1] are normalised parameters.
 fn project_point_cone(
   point: Vec3<f32>,
   origin: Vec3<f32>,
@@ -218,23 +219,25 @@ fn project_point_cone(
   let radial = d - p_axial * axis;
   let p_radial = radial.length();
   let cos2 = 1.0 / (1.0 + tan_semi_angle * tan_semi_angle);
-  let mut v = cos2 * (p_axial - tan_semi_angle * (p_radial - radius));
-  v = v.clamp(v_range.0, v_range.1);
+  let mut v_phys = cos2 * (p_axial - tan_semi_angle * (p_radial - radius));
+  v_phys = v_phys.clamp(v_range.0, v_range.1);
 
-  let r_v = radius - v * tan_semi_angle;
-  let mut u = radial.dot(y_dir).atan2(radial.dot(x_dir));
-  if u < 0.0 {
-    u += std::f32::consts::TAU;
+  let r_v = radius - v_phys * tan_semi_angle;
+  let mut u_phys = radial.dot(y_dir).atan2(radial.dot(x_dir));
+  if u_phys < 0.0 {
+    u_phys += std::f32::consts::TAU;
   }
-  let closest = origin + v * axis + r_v * (u.cos() * x_dir + u.sin() * y_dir);
+  let closest = origin + v_phys * axis + r_v * (u_phys.cos() * x_dir + u_phys.sin() * y_dir);
   let dist = (point - closest).length();
+  let u = u_phys / std::f32::consts::TAU;
+  let v = (v_phys - v_range.0) / (v_range.1 - v_range.0);
   (u, v, dist)
 }
 
 /// Project a 3D point onto a spherical surface.
 ///
-/// u ∈ [0, 2π) is longitude from x_dir toward y_dir,
-/// v ∈ [0, π] is colatitude from polar axis.
+/// Returns (u, v, dist) where u, v ∈ [0, 1] are normalised parameters
+/// (u = longitude / 2π, v = colatitude / π).
 /// Returns None only when the point is at the sphere center (degenerate).
 fn project_point_sphere(
   point: Vec3<f32>,
@@ -251,12 +254,14 @@ fn project_point_sphere(
   }
   let dir = d / len;
   let projected = center + radius * dir;
-  let mut u = dir.dot(y_dir).atan2(dir.dot(x_dir));
-  if u < 0.0 {
-    u += std::f32::consts::TAU;
+  let mut u_phys = dir.dot(y_dir).atan2(dir.dot(x_dir));
+  if u_phys < 0.0 {
+    u_phys += std::f32::consts::TAU;
   }
-  let v = dir.dot(polar).clamp(-1.0, 1.0).acos();
+  let v_phys = dir.dot(polar).clamp(-1.0, 1.0).acos();
   let dist = (point - projected).length();
+  let u = u_phys / std::f32::consts::TAU;
+  let v = v_phys / std::f32::consts::PI;
   Some((u, v, dist))
 }
 
@@ -341,11 +346,13 @@ fn project_point_torus(
     }
   }
 
-  // Normalize u to [0, 2π)
+  // Normalize to [0, 2π), then to [0, 1].
   best_u = best_u.rem_euclid(std::f32::consts::TAU);
   best_v = best_v.rem_euclid(std::f32::consts::TAU);
+  let u = best_u / std::f32::consts::TAU;
+  let v = best_v / std::f32::consts::TAU;
 
-  Some((best_u, best_v, best_d2.sqrt()))
+  Some((u, v, best_d2.sqrt()))
 }
 
 /// Project a 3D point onto an extrusion surface.
@@ -449,11 +456,11 @@ mod tests {
     let radius = 2.0;
     let v_range = (0.0, 5.0);
 
-    // Point at angle 0, height 2
+    // Point at angle 0, height 2 → normalised: u=0, v=(2-0)/5=0.4
     let p = origin + x_dir * radius + axis * 2.0;
     let (u, v, dist) = project_point_cylinder(p, origin, axis, x_dir, y_dir, radius, v_range);
     assert!((u - 0.0).abs() < 1e-6, "u={u}");
-    assert!((v - 2.0).abs() < 1e-6, "v={v}");
+    assert!((v - 0.4).abs() < 1e-6, "v={v}");
     assert!(dist < 1e-6, "dist={dist}");
   }
 
@@ -463,11 +470,11 @@ mod tests {
     let radius = 3.0;
     let v_range = (0.0, 10.0);
 
-    // Point at angle π/2
+    // Point at angle π/2, height 5 → normalised: u=0.25, v=0.5
     let p = origin + y_dir * radius + axis * 5.0;
     let (u, v, dist) = project_point_cylinder(p, origin, axis, x_dir, y_dir, radius, v_range);
-    assert!((u - std::f32::consts::FRAC_PI_2).abs() < 1e-6, "u={u}");
-    assert!((v - 5.0).abs() < 1e-6, "v={v}");
+    assert!((u - 0.25).abs() < 1e-6, "u={u}");
+    assert!((v - 0.5).abs() < 1e-6, "v={v}");
     assert!(dist < 1e-6, "dist={dist}");
   }
 
@@ -477,11 +484,12 @@ mod tests {
     let radius = 2.0;
     let v_range = (0.0, 10.0);
 
-    // Point at radius 5.0 (3.0 outside surface) at angle 0
+    // Point at radius 5.0 (3.0 outside surface) at angle 0, height 3
+    // → normalised: u=0, v=0.3
     let p = origin + x_dir * 5.0 + axis * 3.0;
     let (u, v, dist) = project_point_cylinder(p, origin, axis, x_dir, y_dir, radius, v_range);
     assert!(u.abs() < 1e-6, "u should be near 0, got {u}");
-    assert!((v - 3.0).abs() < 1e-6, "v={v}");
+    assert!((v - 0.3).abs() < 1e-6, "v={v}");
     assert!((dist - 3.0).abs() < 1e-6, "dist should be 3.0, got {dist}");
   }
 
@@ -491,12 +499,12 @@ mod tests {
     let radius = 2.0;
     let v_range = (0.0, 5.0);
 
-    // Point at height 20 but clamped v_range goes to 0..5
+    // Point at height 20 but clamped v_range goes to 0..5 → normalised v=1.0
     let p = origin + x_dir * radius + axis * 20.0;
     let (_u, v, _dist) = project_point_cylinder(p, origin, axis, x_dir, y_dir, radius, v_range);
     assert!(
-      (v - 5.0).abs() < 1e-6,
-      "v should be clamped to 5.0, got {v}"
+      (v - 1.0).abs() < 1e-6,
+      "v should be clamped to 1.0, got {v}"
     );
   }
 
@@ -506,13 +514,13 @@ mod tests {
     let radius = 3.0;
     let tan_a = 0.5; // cone narrows by 0.5 per unit height
     let v_range = (0.0, 4.0);
-    // At v=2, radius = 3 - 2*0.5 = 2.0
+    // At v=2, radius = 3 - 2*0.5 = 2.0 → normalised: u=0, v=0.5
     let v_test = 2.0;
     let r_at_v = radius - v_test * tan_a;
     let p = origin + x_dir * r_at_v + axis * v_test;
     let (u, v, dist) = project_point_cone(p, origin, axis, x_dir, y_dir, radius, tan_a, v_range);
     assert!(u.abs() < 1e-6, "u={u}");
-    assert!((v - v_test).abs() < 1e-4, "v={v}");
+    assert!((v - 0.5).abs() < 1e-4, "v={v}");
     assert!(dist < 1e-4, "dist={dist}");
   }
 
@@ -541,13 +549,13 @@ mod tests {
     let radius = 3.0;
     let tan_a = 0.5;
     let v_range = (0.0, 4.0);
-    // Point far above cone, v should clamp to 4.0
+    // Point far above cone, v should clamp to 4.0 → normalised v=1.0
     let r_at_vmax = radius - 4.0 * tan_a; // 3 - 2 = 1.0
     let p = origin + x_dir * r_at_vmax + axis * 10.0;
     let (_u, v, _dist) = project_point_cone(p, origin, axis, x_dir, y_dir, radius, tan_a, v_range);
     assert!(
-      (v - 4.0).abs() < 1e-3,
-      "v should be clamped to 4.0, got {v}"
+      (v - 1.0).abs() < 1e-3,
+      "v should be clamped to 1.0, got {v}"
     );
   }
 
@@ -559,11 +567,11 @@ mod tests {
     let x_dir = Vec3::new(1.0, 0.0, 0.0);
     let y_dir = Vec3::new(0.0, 1.0, 0.0);
 
-    // Point on equator at longitude 0
+    // Point on equator at longitude 0 → normalised: u=0, v=0.5
     let p = center + x_dir * radius + polar * 0.0;
     let (u, v, dist) = project_point_sphere(p, center, radius, polar, x_dir, y_dir).unwrap();
     assert!(u.abs() < 1e-6, "u={u}");
-    assert!((v - std::f32::consts::FRAC_PI_2).abs() < 1e-3, "v={v}");
+    assert!((v - 0.5).abs() < 1e-3, "v={v}");
     assert!(dist < 1e-6, "dist={dist}");
   }
 
@@ -590,10 +598,11 @@ mod tests {
     let y_dir = Vec3::new(0.0, 1.0, 0.0);
 
     // Point at distance 10 from center, sphere radius 3 → dist should be 7
+    // u=π/2 → 0.25, v=π/2 → 0.5
     let p = Vec3::new(0.0, 10.0, 0.0);
     let (u, v, dist) = project_point_sphere(p, center, radius, polar, x_dir, y_dir).unwrap();
-    assert!((u - std::f32::consts::FRAC_PI_2).abs() < 1e-6, "u={u}");
-    assert!((v - std::f32::consts::FRAC_PI_2).abs() < 1e-3, "v={v}");
+    assert!((u - 0.25).abs() < 1e-6, "u={u}");
+    assert!((v - 0.5).abs() < 1e-3, "v={v}");
     assert!((dist - 7.0).abs() < 1e-6, "dist={dist}");
   }
 
@@ -642,10 +651,7 @@ mod tests {
     let (u, v, dist) =
       project_point_torus(p, center, axis, x_dir, y_dir, major_r, minor_r).unwrap();
     assert!(u.abs() < 1e-3, "u should be near 0, got {u}");
-    assert!(
-      (v - std::f32::consts::FRAC_PI_2).abs() < 1e-3,
-      "v should be π/2, got {v}"
-    );
+    assert!((v - 0.25).abs() < 1e-3, "v should be 0.25, got {v}");
     assert!(dist < 1e-4, "dist={dist}");
   }
 

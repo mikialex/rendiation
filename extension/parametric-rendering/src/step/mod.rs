@@ -286,15 +286,27 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       }
     };
 
+    let n_patches = patches.len();
     step_dbg!(
       "step: face #{fi} → {} patches, {} edges",
-      patches.len(),
+      n_patches,
       edge_loops_beziers.len()
     );
 
-    let patch_trim_boundaries = process_trim_curves_for_face(
+    // Surface position debug (first two faces only)
+    if fi < 2 && n_patches > 0 {
+      let p0 = patches[0].surface.evaluate(0.5, 0.5);
+      step_dbg!(
+        "step: face #{fi} patch center: ({:.3},{:.3},{:.3})",
+        p0.x,
+        p0.y,
+        p0.z
+      );
+    }
+
+    let trimmed_patches = process_trim_curves_for_face(
       &original_surface,
-      &patches,
+      patches,
       &face_data.edge_loops,
       config,
       table,
@@ -305,47 +317,28 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       step_dbg!("step: face #{fi} has placement (stored as instance, not baked)");
     }
 
-    // Surface position debug (first two faces only)
-    if fi < 2 && !patches.is_empty() {
-      let p0 = patches[0].surface.evaluate(0.5, 0.5);
-      step_dbg!(
-        "step: face #{fi} patch center: ({:.3},{:.3},{:.3})",
-        p0.x,
-        p0.y,
-        p0.z
-      );
-    }
-
     let surf_start_idx = trimmed_surfaces.len();
-    let n_patches = patches.len();
-    for (pi, patch) in patches.iter().enumerate() {
-      match &patch_trim_boundaries[pi] {
-        Some(trim) => {
-          let total_edges: usize = face_data.edge_loops.iter().map(|l| l.len()).sum();
-          let debug_label = format!(
-            "FaceSurface#{}[{}/{}] {} edges={}{}",
-            face_data.face_id,
-            pi,
-            n_patches,
-            face_data.surface.surface_ty_name(),
-            total_edges,
-            if face_data.is_back_face {
-              " (flipped)"
-            } else {
-              ""
-            }
-          );
-          trimmed_surfaces.push(TrimmedSurface {
-            debug_label,
-            surface: patch.surface.clone(),
-            trim_loops: trim.clone(),
-            is_back_face: face_data.is_back_face,
-          });
+    for tp in trimmed_patches {
+      let total_edges: usize = face_data.edge_loops.iter().map(|l| l.len()).sum();
+      let debug_label = format!(
+        "FaceSurface#{}[{}/{}] {} edges={}{}",
+        face_data.face_id,
+        tp.patch_index,
+        n_patches,
+        face_data.surface.surface_ty_name(),
+        total_edges,
+        if face_data.is_back_face {
+          " (flipped)"
+        } else {
+          ""
         }
-        None => {
-          step_dbg!("step: face #{fi} patch #{pi} discarded (fully trimmed)");
-        }
-      }
+      );
+      trimmed_surfaces.push(TrimmedSurface {
+        debug_label,
+        surface: tp.patch.surface,
+        trim_loops: tp.trim_loops,
+        is_back_face: face_data.is_back_face,
+      });
     }
     let surf_count = trimmed_surfaces.len() - surf_start_idx;
     for offset in 0..surf_count {
