@@ -601,6 +601,13 @@ fn resolve_surface_fallback(
       .ok()
       .map(|s| SurfaceAny::ToroidalSurface(Box::new(s)));
   }
+  if let Some(s) = table.surface_of_linear_extrusion.get(&id) {
+    return s
+      .clone()
+      .into_owned(table)
+      .ok()
+      .map(|s| SurfaceAny::SurfaceOfLinearExtrusion(Box::new(s)));
+  }
 
   None
 }
@@ -646,6 +653,13 @@ fn resolve_edge_geometry_fallback_from_id(id: u64, table: &Table) -> Option<Curv
       .into_owned(table)
       .ok()
       .map(|c| CurveAny::BSplineCurveWithKnots(Box::new(c)));
+  }
+  if let Some(r) = table.rational_b_spline_curve.get(&id) {
+    return r
+      .clone()
+      .into_owned(table)
+      .ok()
+      .map(|c| CurveAny::RationalBSplineCurve(Box::new(c)));
   }
   if let Some(b) = table.bezier_curve.get(&id) {
     return b

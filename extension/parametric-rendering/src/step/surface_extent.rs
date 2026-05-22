@@ -1,14 +1,10 @@
 use super::*;
 use crate::*;
 
-/// Compute the U,V extent of a plane face by projecting edge curve points
-/// onto the plane's local coordinate system.
-///
-/// Returns (u_min, u_max, v_min, v_max).
-/// Falls back to (-1, 1, -1, 1) if no points can be obtained.
-pub fn compute_plane_face_extent(
+/// Compute the U,V extent of a plane face from pre-converted Bezier edge curves.
+pub fn compute_plane_face_extent_from_beziers(
   position: &rendiation_step_reader::entities::Axis2Placement3d,
-  edge_loops: &[Vec<EdgeData>],
+  edge_beziers: &[Vec<RationalBezierCurve3d<f32>>],
   config: &StepReadConfig,
 ) -> (f32, f32, f32, f32) {
   let origin = cartesian_point_to_vec3(&position.location);
@@ -22,12 +18,8 @@ pub fn compute_plane_face_extent(
   let mut v_max = f32::MIN;
   let mut any_point = false;
 
-  for edge in edge_loops.iter().flat_map(|l| l.iter()) {
-    let beziers = match convert_any_curve_to_bezier(&edge.curve_3d) {
-      Ok(b) => b,
-      Err(_) => continue,
-    };
-    for curve in &beziers {
+  for beziers in edge_beziers {
+    for curve in beziers {
       let pts = adaptive_tessellate_bezier_curve(curve, config.tessellate_tolerance);
       for p in &pts {
         let local = *p - origin;
@@ -49,15 +41,10 @@ pub fn compute_plane_face_extent(
   (u_min, u_max, v_min, v_max)
 }
 
-/// Compute the V-axis extent for cylinder/cone faces by projecting edge
-/// curve points onto the surface's axis direction.
-///
-/// V is the signed distance from the placement origin along the axis.
-/// Returns (v_min, v_max). Falls back to (0.0, 1.0)
-/// if no points can be obtained.
-pub fn compute_axis_v_extent(
+/// Compute the V-axis extent for cylinder/cone faces from pre-converted Bezier edge curves.
+pub fn compute_axis_v_extent_from_beziers(
   position: &rendiation_step_reader::entities::Axis2Placement3d,
-  edge_loops: &[Vec<EdgeData>],
+  edge_loop_beziers: &[Vec<RationalBezierCurve3d<f32>>],
   config: &StepReadConfig,
 ) -> (f64, f64) {
   let origin = cartesian_point_to_vec3(&position.location);
@@ -67,12 +54,8 @@ pub fn compute_axis_v_extent(
   let mut v_max = f64::MIN;
   let mut any_point = false;
 
-  for edge in edge_loops.iter().flat_map(|l| l.iter()) {
-    let beziers = match convert_any_curve_to_bezier(&edge.curve_3d) {
-      Ok(b) => b,
-      Err(_) => continue,
-    };
-    for curve in &beziers {
+  for beziers in edge_loop_beziers {
+    for curve in beziers {
       let pts = adaptive_tessellate_bezier_curve(curve, config.tessellate_tolerance);
       for p in &pts {
         let v = (*p - origin).dot(axis) as f64;
