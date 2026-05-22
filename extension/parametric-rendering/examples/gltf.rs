@@ -7,7 +7,7 @@
 //! cargo run -p rendiation-parametric-rendering --example gltf -- input.stp output.glb
 //! ```
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fs;
 use std::io::Write;
@@ -17,7 +17,7 @@ use gltf_json as json;
 use json::validation::{Checked, USize64};
 use rendiation_algebra::*;
 use rendiation_parametric_rendering::mesh::{
-  triangulate_trimmed_surface, MeshData, TriangulationConfig,
+  tessellate_curve, triangulate_trimmed_surface, MeshData, TriangulationConfig,
 };
 use rendiation_parametric_rendering::step::{
   read_parametric_rendering_data_from_step, StepReadConfig,
@@ -58,6 +58,8 @@ struct GltfDoc {
   nodes: Vec<json::Node>,
   root_children: Vec<u32>,
   extensions_used: std::collections::BTreeSet<String>,
+  mesh_cache: HashMap<usize, u32>,
+  curve_mesh_cache: HashMap<usize, u32>,
 }
 
 impl GltfDoc {
@@ -71,6 +73,8 @@ impl GltfDoc {
       nodes: Vec::new(),
       root_children: Vec::new(),
       extensions_used: std::collections::BTreeSet::new(),
+      mesh_cache: HashMap::new(),
+      curve_mesh_cache: HashMap::new(),
     }
   }
 
@@ -252,7 +256,7 @@ impl GltfDoc {
     json::Index::new(idx)
   }
 
-  fn add_surface_mesh(&mut self, mesh: &MeshData, label: &str) {
+  fn create_surface_mesh(&mut self, mesh: &MeshData, label: &str, surf_idx: usize) {
     let pos_acc = self.add_vec3_accessor(&mesh.positions);
     let nrm_acc = self.add_vec3_accessor(&mesh.normals);
     let uv_acc = self.add_vec2_accessor(&mesh.uvs);
@@ -289,16 +293,28 @@ impl GltfDoc {
     });
 
     let mesh_idx = (self.meshes.len() - 1) as u32;
+    self.mesh_cache.insert(surf_idx, mesh_idx);
+  }
+
+  fn add_surface_instance(&mut self, surf_idx: usize, matrix: Mat4<f32>, label: &str) {
+    let Some(&mesh_idx) = self.mesh_cache.get(&surf_idx) else {
+      return; // surface was skipped (empty triangulation)
+    };
+    let matrix_values = [
+      matrix.a1, matrix.a2, matrix.a3, matrix.a4, matrix.b1, matrix.b2, matrix.b3, matrix.b4,
+      matrix.c1, matrix.c2, matrix.c3, matrix.c4, matrix.d1, matrix.d2, matrix.d3, matrix.d4,
+    ];
     let node_idx = self.nodes.len() as u32;
     self.nodes.push(json::Node {
       mesh: Some(json::Index::new(mesh_idx)),
-      name: Some(format!("surface_node_{}", self.nodes.len())),
+      matrix: Some(matrix_values),
+      name: Some(label.to_string()),
       ..Default::default()
     });
     self.root_children.push(node_idx);
   }
 
-  fn add_curve_mesh(&mut self, points: &[Vec3<f32>], curve_idx: usize, use_line_list: bool) {
+  fn create_curve_mesh(&mut self, points: &[Vec3<f32>], curve_idx: usize, use_line_list: bool) {
     if points.len() < 2 {
       return;
     }
@@ -352,10 +368,22 @@ impl GltfDoc {
     });
 
     let mesh_idx = (self.meshes.len() - 1) as u32;
+    self.curve_mesh_cache.insert(curve_idx, mesh_idx);
+  }
+
+  fn add_curve_instance(&mut self, curve_idx: usize, matrix: Mat4<f32>, label: &str) {
+    let Some(&mesh_idx) = self.curve_mesh_cache.get(&curve_idx) else {
+      return; // curve was skipped (empty tessellation)
+    };
+    let matrix_values = [
+      matrix.a1, matrix.a2, matrix.a3, matrix.a4, matrix.b1, matrix.b2, matrix.b3, matrix.b4,
+      matrix.c1, matrix.c2, matrix.c3, matrix.c4, matrix.d1, matrix.d2, matrix.d3, matrix.d4,
+    ];
     let node_idx = self.nodes.len() as u32;
     self.nodes.push(json::Node {
       mesh: Some(json::Index::new(mesh_idx)),
-      name: Some(format!("curve_node_{curve_idx}")),
+      matrix: Some(matrix_values),
+      name: Some(label.to_string()),
       ..Default::default()
     });
     self.root_children.push(node_idx);
@@ -455,20 +483,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   let data = result.data;
 
   println!(
-    "  {} trimmed surfaces, {} 3D curves",
+    "  {} unique surfaces ({} instances), {} unique 3D curves ({} instances)",
     data.surfaces.len(),
-    data.curves_3d.len()
+    data.surfaces_instance.len(),
+    data.curves_3d.len(),
+    data.curves_3d_instance.len()
   );
 
   let mut tri_config = TriangulationConfig::default();
-  tri_config.ignore_surface_trim = true;
+  tri_config.ignore_surface_trim = false;
 
   let mut doc = GltfDoc::new();
 
-  for (i, trimmed) in data.surfaces.iter().enumerate() {
+  // Phase 1: create meshes for unique surfaces (geometry in local coordinates).
+  for (surf_idx, trimmed) in data.surfaces.iter().enumerate() {
     println!(
       "  triangulating surface {}/{} [{}]{}",
-      i + 1,
+      surf_idx + 1,
       data.surfaces.len(),
       trimmed.debug_label,
       if !trimmed.is_trimmed() {
@@ -487,30 +518,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       mesh.positions.len(),
       mesh.indices.len()
     );
-    doc.add_surface_mesh(&mesh, &trimmed.debug_label);
+    doc.create_surface_mesh(&mesh, &trimmed.debug_label, surf_idx);
   }
 
+  // Phase 2: create nodes for surface instances, each with its own matrix.
+  for (inst_idx, &(surf_idx, matrix)) in data.surfaces_instance.iter().enumerate() {
+    let trimmed = &data.surfaces[surf_idx];
+    let label = format!("{}_inst{}", trimmed.debug_label, inst_idx);
+    doc.add_surface_instance(surf_idx, matrix, &label);
+  }
+
+  // Phase 1: create meshes for unique 3D curves.
   if !data.curves_3d.is_empty() {
-    println!("  tessellating {} 3D curves...", data.curves_3d.len());
+    println!(
+      "  tessellating {} unique 3D curves...",
+      data.curves_3d.len()
+    );
   }
-
-  for (i, curve) in data.curves_3d.iter().enumerate() {
-    let pts = rendiation_parametric_rendering::mesh::tessellate_curve(curve, 1e-3);
+  for (curve_idx, curve) in data.curves_3d.iter().enumerate() {
+    let pts = tessellate_curve(curve, 1e-3);
     if pts.len() < 2 {
       println!(
         "    curve {}/{}: skipped (too few points)",
-        i + 1,
+        curve_idx + 1,
         data.curves_3d.len()
       );
       continue;
     }
     println!(
       "    curve {}/{}: {} line points",
-      i + 1,
+      curve_idx + 1,
       data.curves_3d.len(),
       pts.len()
     );
-    doc.add_curve_mesh(&pts, i, use_line_list);
+    doc.create_curve_mesh(&pts, curve_idx, use_line_list);
+  }
+
+  // Phase 2: create nodes for curve instances.
+  for (inst_idx, &(curve_idx, matrix)) in data.curves_3d_instance.iter().enumerate() {
+    let label = format!("curve_{}_inst{}", curve_idx, inst_idx);
+    doc.add_curve_instance(curve_idx, matrix, &label);
   }
 
   let (root, bin) = doc.into_root();

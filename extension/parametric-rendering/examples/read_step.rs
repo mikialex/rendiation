@@ -54,15 +54,21 @@ fn main() {
       match process_file(file_path, &config) {
         ProcessResult::Success {
           surface_count,
+          surface_instance_count,
           curve_count,
+          curve_instance_count,
+          placement_sources,
           duration,
         } => {
           ok += 1;
           println!(
-            "OK  {}  ({} surfaces, {} curves, {:.0}ms)",
+            "OK  {}  ({} surfaces / {} inst, {} curves / {} inst, {} placement srcs, {:.0}ms)",
             file_path.display(),
             surface_count,
+            surface_instance_count,
             curve_count,
+            curve_instance_count,
+            placement_sources,
             duration.as_secs_f64() * 1000.0
           );
         }
@@ -80,14 +86,20 @@ fn main() {
     match process_file(path, &config) {
       ProcessResult::Success {
         surface_count,
+        surface_instance_count,
         curve_count,
+        curve_instance_count,
+        placement_sources,
         duration,
       } => {
         println!("{}", path.display());
-        println!("  trimmed surfaces: {surface_count}");
-        println!("  3D curves:       {curve_count}");
+        println!("  unique surfaces:      {surface_count}");
+        println!("  surface instances:    {surface_instance_count}");
+        println!("  unique 3D curves:     {curve_count}");
+        println!("  curve instances:      {curve_instance_count}");
+        println!("  placement sources:    {placement_sources}");
         println!(
-          "  time:            {:.0}ms",
+          "  time:                {:.0}ms",
           duration.as_secs_f64() * 1000.0
         );
       }
@@ -102,7 +114,10 @@ fn main() {
 enum ProcessResult {
   Success {
     surface_count: usize,
+    surface_instance_count: usize,
     curve_count: usize,
+    curve_instance_count: usize,
+    placement_sources: usize,
     duration: std::time::Duration,
   },
   Error(String),
@@ -122,7 +137,10 @@ fn process_file(path: &Path, config: &StepReadConfig) -> ProcessResult {
   let duration = start.elapsed();
   ProcessResult::Success {
     surface_count: result.data.surfaces.len(),
+    surface_instance_count: result.data.surfaces_instance.len(),
     curve_count: result.data.curves_3d.len(),
+    curve_instance_count: result.data.curves_3d_instance.len(),
+    placement_sources: result.placement_sources.len(),
     duration,
   }
 }

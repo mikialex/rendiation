@@ -11,35 +11,40 @@ use crate::*;
 
 pub type Placement = (Vec3<f32>, Vec3<f32>, Vec3<f32>, Vec3<f32>);
 
-pub fn apply_placement_to_surface(surface: &mut RationalBezierSurface<f32>, placement: &Placement) {
-  for cp in surface.control_points_mut() {
-    transform_homogeneous_point(cp, placement);
-  }
-}
-
-pub fn apply_placement_to_curve(curve: &mut RationalBezierCurve3d<f32>, placement: &Placement) {
-  for cp in curve.control_points_mut() {
-    transform_homogeneous_point(cp, placement);
-  }
-}
-
-fn transform_homogeneous_point(cp: &mut Vec4<f32>, placement: &Placement) {
-  let w = cp.w;
-  if w.abs() < 1e-12 {
-    return;
-  }
+/// Convert a Placement to a column-major Mat4<f32>.
+///
+/// Placement semantics: P_world = origin + x_dir * p.x + y_dir * p.y + z_dir * p.z
+/// Matrix layout matches rendiation_algebra::Mat4's Mul<Vec4> convention.
+pub fn placement_to_mat4(placement: &Placement) -> Mat4<f32> {
   let (origin, x_dir, y_dir, z_dir) = *placement;
-  let p = Vec3::new(cp.x / w, cp.y / w, cp.z / w);
-  let tp = origin + x_dir * p.x + y_dir * p.y + z_dir * p.z;
-  cp.x = tp.x * w;
-  cp.y = tp.y * w;
-  cp.z = tp.z * w;
+  Mat4::new(
+    x_dir.x, x_dir.y, x_dir.z, 0.0, // col 0
+    y_dir.x, y_dir.y, y_dir.z, 0.0, // col 1
+    z_dir.x, z_dir.y, z_dir.z, 0.0, // col 2
+    origin.x, origin.y, origin.z, 1.0, // col 3
+  )
+}
+
+/// Placement from a simple Axis2Placement3d in a ShapeRepresentation.
+pub struct SimplePlacement {
+  pub placement: Placement,
+  pub axis_id: u64,
+  pub shape_rep_id: u64,
+}
+
+/// Placement composed from an assembly transform chain.
+pub struct AssemblyPlacement {
+  pub placement: Placement,
+  pub chain: Vec<crate::AssemblyChainStep>,
 }
 
 pub fn build_assembly_placement_map(
   table: &Table,
-) -> std::collections::HashMap<u64, Vec<Placement>> {
+) -> std::collections::HashMap<u64, Vec<AssemblyPlacement>> {
   use std::collections::{HashMap, HashSet};
+
+  use crate::AssemblyChainStep;
+
   let srrwt_count = table
     .shape_representation_relationship_with_transformation
     .len();
@@ -51,7 +56,6 @@ pub fn build_assembly_placement_map(
   // 1. Build SR → breps mapping from ShapeRepresentation items
   let mut sr_to_breps: HashMap<u64, Vec<u64>> = HashMap::new();
   for (sr_id, sr_holder) in &table.shape_representation {
-    // Check items for brep references
     let mut breps: Vec<u64> = Vec::new();
     for item_ph in &sr_holder.items {
       if let Some(item_id) = entity_id_from_ph(item_ph) {
@@ -84,7 +88,13 @@ pub fn build_assembly_placement_map(
   // 3. Build transform stack from ShapeRepresentationRelationshipWithTransformation.
   // The transform maps rep_1 (child/component coordinates) into rep_2
   // (parent/assembly coordinates), so traversal is rep_2 → rep_1.
-  let mut parent_to_children: HashMap<u64, Vec<(u64, Placement)>> = HashMap::new();
+  struct TransformEdge {
+    child_sr: u64,
+    placement: Placement,
+    step: AssemblyChainStep,
+  }
+
+  let mut parent_to_children: HashMap<u64, Vec<TransformEdge>> = HashMap::new();
   for (_id, srrwt_holder) in &table.shape_representation_relationship_with_transformation {
     let rep1_id = get_holder_ref_id(&srrwt_holder.rep_1);
     let rep2_id = get_holder_ref_id(&srrwt_holder.rep_2);
@@ -93,14 +103,18 @@ pub fn build_assembly_placement_map(
       continue;
     };
 
-    let Some(matrix) = compute_idt_matrix(table, trans_id) else {
+    let Some(idt_info) = compute_idt_info(table, trans_id, rep2, rep1) else {
       continue;
     };
 
     parent_to_children
       .entry(rep2)
       .or_default()
-      .push((rep1, matrix));
+      .push(TransformEdge {
+        child_sr: rep1,
+        placement: idt_info.placement,
+        step: idt_info.step,
+      });
   }
 
   if parent_to_children.is_empty() {
@@ -111,7 +125,7 @@ pub fn build_assembly_placement_map(
   // instanced many times through the same component representation.
   let all_children: HashSet<u64> = parent_to_children
     .values()
-    .flat_map(|v| v.iter().map(|(child, _)| *child))
+    .flat_map(|v| v.iter().map(|e| e.child_sr))
     .collect();
   let roots: Vec<u64> = parent_to_children
     .keys()
@@ -125,25 +139,38 @@ pub fn build_assembly_placement_map(
     Vec3::new(0., 1., 0.),
     Vec3::new(0., 0., 1.),
   );
-  let mut brep_placement: HashMap<u64, Vec<Placement>> = HashMap::new();
+  let mut brep_placement: HashMap<u64, Vec<AssemblyPlacement>> = HashMap::new();
   for root in &roots {
-    let mut stack: Vec<(u64, Placement)> = vec![(*root, identity)];
-    while let Some((sr_id, mat)) = stack.pop() {
+    let mut stack: Vec<(u64, Placement, Vec<AssemblyChainStep>)> =
+      vec![(*root, identity, Vec::new())];
+    while let Some((sr_id, mat, chain)) = stack.pop() {
       if let Some(breps) = sr_to_breps.get(&sr_id) {
         for brep_id in breps {
-          brep_placement.entry(*brep_id).or_default().push(mat);
+          brep_placement
+            .entry(*brep_id)
+            .or_default()
+            .push(AssemblyPlacement {
+              placement: mat,
+              chain: chain.clone(),
+            });
         }
       }
 
       if let Some(children) = representation_children.get(&sr_id) {
         for child_sr in children {
-          stack.push((*child_sr, mat));
+          stack.push((*child_sr, mat, chain.clone()));
         }
       }
 
       if let Some(children) = parent_to_children.get(&sr_id) {
-        for (child_sr, child_mat) in children {
-          stack.push((*child_sr, compose_placement(&mat, child_mat)));
+        for edge in children {
+          let mut child_chain = chain.clone();
+          child_chain.push(edge.step.clone());
+          stack.push((
+            edge.child_sr,
+            compose_placement(&mat, &edge.placement),
+            child_chain,
+          ));
         }
       }
     }
@@ -167,9 +194,22 @@ fn get_holder_ref_id<T>(ph: &PlaceHolder<T>) -> Option<u64> {
   }
 }
 
+struct IdtInfo {
+  placement: Placement,
+  step: crate::AssemblyChainStep,
+}
+
 /// Compute the transform matrix from an ItemDefinedTransformation.
-/// Returns the relative placement matrix = mat2 * mat1⁻¹.
-fn compute_idt_matrix(table: &Table, idt_entity_id: u64) -> Option<Placement> {
+/// Returns the relative placement matrix = mat2 * mat1⁻¹, together with
+/// the entity IDs that produced it.
+fn compute_idt_info(
+  table: &Table,
+  idt_entity_id: u64,
+  parent_sr_id: u64,
+  child_sr_id: u64,
+) -> Option<IdtInfo> {
+  use crate::AssemblyChainStep;
+
   let idt_holder = table.item_defined_transformation.get(&idt_entity_id)?;
   let ax1_id = get_holder_ref_id(&idt_holder.transform_item_1)?;
   let ax2_id = get_holder_ref_id(&idt_holder.transform_item_2)?;
@@ -187,7 +227,16 @@ fn compute_idt_matrix(table: &Table, idt_entity_id: u64) -> Option<Placement> {
     .ok()?;
   let mat1 = axis2_placement_to_transform(&ax1);
   let mat2 = axis2_placement_to_transform(&ax2);
-  Some(compose_placement(&mat2, &invert_placement(&mat1)))
+  Some(IdtInfo {
+    placement: compose_placement(&mat2, &invert_placement(&mat1)),
+    step: AssemblyChainStep {
+      parent_sr_id,
+      child_sr_id,
+      idt_id: idt_entity_id,
+      axis2_1_id: ax1_id,
+      axis2_2_id: ax2_id,
+    },
+  })
 }
 
 fn invert_placement(pl: &Placement) -> Placement {
@@ -211,10 +260,11 @@ fn compose_placement(a: &Placement, b: &Placement) -> Placement {
   (origin, x, y, z)
 }
 
-pub fn build_placement_map(table: &Table) -> std::collections::HashMap<u64, Placement> {
+pub fn build_placement_map(table: &Table) -> std::collections::HashMap<u64, SimplePlacement> {
   use std::collections::HashMap;
   let mut map = HashMap::new();
-  for (_sr_id, sr) in &table.shape_representation {
+  for (&sr_id, sr) in &table.shape_representation {
+    let mut ax_id: Option<u64> = None;
     let mut placement: Option<Placement> = None;
     let mut brep_ids: Vec<u64> = Vec::new();
     for item_ph in &sr.items {
@@ -225,6 +275,7 @@ pub fn build_placement_map(table: &Table) -> std::collections::HashMap<u64, Plac
       if let Some(ax_holder) = table.axis2_placement_3d.get(&item_id) {
         if let Ok(ax) = ax_holder.clone().into_owned(table) {
           placement = Some(axis2_placement_to_transform(&ax));
+          ax_id = Some(item_id);
         }
       }
       if table.manifold_solid_brep.contains_key(&item_id) {
@@ -233,7 +284,14 @@ pub fn build_placement_map(table: &Table) -> std::collections::HashMap<u64, Plac
     }
     if let Some(pl) = placement {
       for bid in brep_ids {
-        map.insert(bid, pl);
+        map.insert(
+          bid,
+          SimplePlacement {
+            placement: pl,
+            axis_id: ax_id.unwrap_or(0),
+            shape_rep_id: sr_id,
+          },
+        );
       }
     }
   }

@@ -103,6 +103,9 @@ pub struct StepConversionResult {
   pub data: ParametricRenderingData,
   pub parse_errors: rendiation_step_reader::table::TableParseErrors,
   pub conversion_errors: Vec<StepReadError>,
+  /// Placement provenance for each face occurrence, parallel to the
+  /// original face occurrence order in the topology walk.
+  pub placement_sources: Vec<PlacementSource>,
 }
 
 impl StepConversionResult {
@@ -175,6 +178,7 @@ pub fn read_parametric_rendering_data_from_step(
     data: conversion_result.data,
     parse_errors,
     conversion_errors: conversion_result.conversion_errors,
+    placement_sources: conversion_result.placement_sources,
   }
 }
 
@@ -186,15 +190,45 @@ pub fn read_parametric_rendering_data_from_table(
 }
 
 fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversionResult {
+  use std::collections::HashMap;
+
   let face_data_list = collect_face_surface_data(table);
 
   step_dbg!("step: {} faces collected", face_data_list.len());
 
   let mut trimmed_surfaces: Vec<TrimmedSurface> = Vec::new();
   let mut curves_3d: Vec<RationalBezierCurve3d<f32>> = Vec::new();
+  let mut surfaces_instance: Vec<(usize, Mat4<f32>)> = Vec::new();
+  let mut curves_3d_instance: Vec<(usize, Mat4<f32>)> = Vec::new();
+  let mut placement_sources: Vec<PlacementSource> = Vec::new();
   let mut errors: Vec<StepReadError> = Vec::new();
 
+  // dedup key = (face_id, is_back_face)
+  // value = (surface_start_idx, surface_count, curve_start_idx, curve_count)
+  let mut face_dedup: HashMap<(u64, bool), (usize, usize, usize, usize)> = HashMap::new();
+
   for (fi, face_data) in face_data_list.iter().enumerate() {
+    let instance_matrix = face_data
+      .placement
+      .as_ref()
+      .map(|p| placement_to_mat4(p))
+      .unwrap_or_else(Mat4::identity);
+
+    placement_sources.push(face_data.placement_source.clone());
+
+    let dedup_key = (face_data.face_id, face_data.is_back_face);
+
+    if let Some(&(surf_start, surf_count, curve_start, curve_count)) = face_dedup.get(&dedup_key) {
+      // Geometry already exists — only push instance entries.
+      for pi in 0..surf_count {
+        surfaces_instance.push((surf_start + pi, instance_matrix));
+      }
+      for ci in 0..curve_count {
+        curves_3d_instance.push((curve_start + ci, instance_matrix));
+      }
+      continue;
+    }
+
     let plane_extent = if let SurfaceAny::Plane(ref p) = &face_data.surface {
       Some(compute_plane_face_extent(
         &p.position,
@@ -220,7 +254,7 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       _ => None,
     };
 
-    let (mut patches, original_surface) = match convert_and_split_any_surface_to_bezier_patches(
+    let (patches, original_surface) = match convert_and_split_any_surface_to_bezier_patches(
       &face_data.surface,
       plane_extent,
       v_range,
@@ -229,6 +263,8 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       Err(e) => {
         step_dbg!("step: face #{fi} surface conversion failed: {e}");
         errors.push(e);
+        // Still record dedup entry so subsequent identical faces get skipped.
+        face_dedup.insert(dedup_key, (0, 0, 0, 0));
         continue;
       }
     };
@@ -247,19 +283,8 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       table,
     );
 
-    if let Some(placement) = face_data.placement {
-      let (origin, x_dir, _y_dir, z_dir) = placement;
-      step_dbg!(
-        "step: face #{fi} placement: origin=({:.3},{:.3},{:.3}) x=({:.3},{:.3},{:.3}) z=({:.3},{:.3},{:.3})",
-        origin.x, origin.y, origin.z,
-        x_dir.x, x_dir.y, x_dir.z,
-        z_dir.x, z_dir.y, z_dir.z,
-      );
-      for patch in &mut patches {
-        apply_placement_to_surface(&mut patch.surface, &placement);
-      }
-    } else {
-      step_dbg!("step: face #{fi} no placement");
+    if face_data.placement.is_some() {
+      step_dbg!("step: face #{fi} has placement (stored as instance, not baked)");
     }
 
     // Surface position debug (first two faces only)
@@ -273,15 +298,14 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       );
     }
 
+    let surf_start_idx = trimmed_surfaces.len();
     let n_patches = patches.len();
     for (pi, patch) in patches.iter().enumerate() {
       match &patch_trim_boundaries[pi] {
         Some(trim) => {
-          // fi (face occurrence index) ensures uniqueness when the same
-          // face entity appears in multiple assembly placements.
           let total_edges: usize = face_data.edge_loops.iter().map(|l| l.len()).sum();
           let debug_label = format!(
-            "#{fi} FaceSurface#{}[{}/{}] {} edges={}{}",
+            "FaceSurface#{}[{}/{}] {} edges={}{}",
             face_data.face_id,
             pi,
             n_patches,
@@ -305,16 +329,21 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
         }
       }
     }
+    let surf_count = trimmed_surfaces.len() - surf_start_idx;
+    for offset in 0..surf_count {
+      surfaces_instance.push((surf_start_idx + offset, instance_matrix));
+    }
 
+    let curve_start_idx = curves_3d.len();
     for edge in face_data.edge_loops.iter().flat_map(|l| l.iter()) {
       match convert_any_curve_to_bezier(&edge.curve_3d) {
-        Ok(mut beziers) => {
-          if let Some(placement) = face_data.placement {
-            for curve in &mut beziers {
-              apply_placement_to_curve(curve, &placement);
-            }
-          }
+        Ok(beziers) => {
+          let bez_count = beziers.len();
+          let curve_inst_start = curves_3d.len();
           curves_3d.extend(beziers);
+          for ci in 0..bez_count {
+            curves_3d_instance.push((curve_inst_start + ci, instance_matrix));
+          }
         }
         Err(e) => {
           step_dbg!("step: convert_any_curve_to_bezier failed: {e:?}");
@@ -322,19 +351,30 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
         }
       }
     }
+    let curve_count = curves_3d.len() - curve_start_idx;
+
+    face_dedup.insert(
+      dedup_key,
+      (surf_start_idx, surf_count, curve_start_idx, curve_count),
+    );
   }
 
   step_dbg!(
-    "step: done — {} trimmed surfaces, {} 3d curves",
+    "step: done — {} trimmed surfaces, {} 3d curves, {} surface instances, {} curve instances",
     trimmed_surfaces.len(),
-    curves_3d.len()
+    curves_3d.len(),
+    surfaces_instance.len(),
+    curves_3d_instance.len()
   );
   StepConversionResult {
     data: ParametricRenderingData {
       surfaces: trimmed_surfaces,
       curves_3d,
+      surfaces_instance,
+      curves_3d_instance,
     },
     parse_errors: rendiation_step_reader::table::TableParseErrors::empty(),
     conversion_errors: errors,
+    placement_sources,
   }
 }
