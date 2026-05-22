@@ -131,11 +131,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   fs::create_dir_all(out_dir)?;
 
   println!("reading STEP: {}", step_path.display());
-  let raw = fs::read_to_string(step_path)?;
-  let step_str = rendiation_step_reader::step_utils::normalize_step(&raw);
+  let step_str = fs::read_to_string(step_path)?;
 
   let config = StepReadConfig::default();
-  let data = read_parametric_rendering_data_from_step(&step_str, config)?;
+  let result = read_parametric_rendering_data_from_step(&step_str, config);
+  result.print_errors();
+  let data = result.data;
 
   println!("  {} trimmed surfaces", data.surfaces.len());
 

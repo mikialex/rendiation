@@ -107,16 +107,96 @@ pub struct Table {
   pub unrecognized: HashMap<u64, UnrecognizedEntityHolder>,
 }
 
+/// A single entity that failed to deserialize during STEP parsing.
+#[derive(Debug, Clone)]
+pub struct TableParseError {
+  /// Human-readable entity identifier (e.g. `#123 = CARTESIAN_POINT(...)`).
+  pub entity_descriptor: String,
+  /// The error message from ruststep.
+  pub message: String,
+}
+
+impl std::fmt::Display for TableParseError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{} — {}", self.entity_descriptor, self.message)
+  }
+}
+
+/// Top-level classification of errors encountered during STEP parsing.
+///
+/// Separate from [`TableParseError`] (which only covers per-entity failures)
+/// so callers can match on whether the file itself failed to parse vs.
+/// whether individual entities had errors during a partial parse.
+#[derive(Debug, Clone)]
+pub enum TableParseErrors {
+  /// The STEP file is invalid and could not be tokenized / parsed.
+  StepSyntaxError(String),
+  /// The STEP file was parsed successfully but contains no data section.
+  NoDataSection,
+  /// One or more entities failed to deserialize (partial parse).
+  /// Empty vec means no errors were encountered.
+  EntityErrors(Vec<TableParseError>),
+}
+
+impl TableParseErrors {
+  /// Convenience: create a `TableParseErrors::EntityErrors` with no errors.
+  pub fn empty() -> Self {
+    TableParseErrors::EntityErrors(Vec::new())
+  }
+}
+
+/// Result of parsing a STEP file into a [`Table`].
+///
+/// The table is always present (empty default if parsing failed entirely),
+/// and errors are classified by [`TableParseErrors`].
+#[derive(Debug, Clone)]
+pub struct TableParseResult {
+  pub table: Table,
+  pub errors: TableParseErrors,
+}
+
 impl Table {
-  /// Parse a STEP exchange structure string into a `Table`.
-  pub fn from_step(step_str: &str) -> Option<Self> {
-    let exchange = ruststep::parser::parse(step_str).ok()?;
-    Some(Self::from_data_section(&exchange.data[0]))
+  /// Parse a STEP exchange structure string into a [`TableParseResult`].
+  ///
+  /// If the initial parse fails, the input is normalized (fixing common
+  /// non-standard formatting like spaces in `ISO - 10303 - 21;`) and the
+  /// parse is retried once.
+  ///
+  /// `data_section_index` selects which data section to process.
+  /// `None` (the common case) uses the first data section.
+  pub fn from_step(step_str: &str, data_section_index: Option<usize>) -> TableParseResult {
+    let result = Self::try_parse(step_str, data_section_index);
+    if matches!(result.errors, TableParseErrors::StepSyntaxError(_)) {
+      let normalized = crate::step_utils::normalize_step(step_str);
+      Self::try_parse(&normalized, data_section_index)
+    } else {
+      result
+    }
   }
 
-  /// Build a `Table` from the first data section of a STEP file.
-  pub fn from_data_section(data_section: &ruststep::ast::DataSection) -> Self {
-    Self::from_iter(&data_section.entities)
+  fn try_parse(step_str: &str, data_section_index: Option<usize>) -> TableParseResult {
+    match ruststep::parser::parse(step_str) {
+      Ok(exchange) => {
+        let idx = data_section_index.unwrap_or(0);
+        if let Some(data_section) = exchange.data.get(idx) {
+          Self::from_data_section(data_section)
+        } else {
+          TableParseResult {
+            table: Table::default(),
+            errors: TableParseErrors::NoDataSection,
+          }
+        }
+      }
+      Err(e) => TableParseResult {
+        table: Table::default(),
+        errors: TableParseErrors::StepSyntaxError(e.to_string()),
+      },
+    }
+  }
+
+  /// Build a [`TableParseResult`] from the first data section of a STEP file.
+  pub fn from_data_section(data_section: &ruststep::ast::DataSection) -> TableParseResult {
+    from_entities(&data_section.entities)
   }
 
   /// Dispatch a single entity instance into the appropriate HashMap.
@@ -140,14 +220,19 @@ fn entity_descriptor(instance: &EntityInstance) -> String {
   }
 }
 
-impl<'a> FromIterator<&'a EntityInstance> for Table {
-  fn from_iter<I: IntoIterator<Item = &'a EntityInstance>>(iter: I) -> Self {
-    let mut table = Table::default();
-    for instance in iter {
-      table
-        .push_instance(instance)
-        .unwrap_or_else(|e| eprintln!("step-reader: {} — {e}", entity_descriptor(instance)));
+fn from_entities(entities: &[EntityInstance]) -> TableParseResult {
+  let mut table = Table::default();
+  let mut errors = Vec::new();
+  for instance in entities {
+    if let Err(e) = table.push_instance(instance) {
+      errors.push(TableParseError {
+        entity_descriptor: entity_descriptor(instance),
+        message: e.to_string(),
+      });
     }
-    table
+  }
+  TableParseResult {
+    table,
+    errors: TableParseErrors::EntityErrors(errors),
   }
 }

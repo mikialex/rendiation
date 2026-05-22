@@ -22,7 +22,6 @@ use rendiation_parametric_rendering::mesh::{
 use rendiation_parametric_rendering::step::{
   read_parametric_rendering_data_from_step, StepReadConfig,
 };
-use rendiation_step_reader::step_utils::normalize_step;
 
 fn color_for_index(idx: usize) -> [f32; 4] {
   let hue = (idx.wrapping_mul(0x9E37_79B9).wrapping_add(0x7F4A_7C15) % 360) as f32 / 360.0;
@@ -253,7 +252,7 @@ impl GltfDoc {
     json::Index::new(idx)
   }
 
-  fn add_surface_mesh(&mut self, mesh: &MeshData) {
+  fn add_surface_mesh(&mut self, mesh: &MeshData, label: &str) {
     let pos_acc = self.add_vec3_accessor(&mesh.positions);
     let nrm_acc = self.add_vec3_accessor(&mesh.normals);
     let uv_acc = self.add_vec2_accessor(&mesh.uvs);
@@ -283,7 +282,7 @@ impl GltfDoc {
 
     self.meshes.push(json::Mesh {
       primitives: vec![prim],
-      name: Some(format!("surface_{}", self.meshes.len())),
+      name: Some(label.to_string()),
       extensions: None,
       extras: Default::default(),
       weights: None,
@@ -448,10 +447,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   println!("reading STEP: {}", step_path.display());
   let raw = fs::read_to_string(step_path)?;
-  let step_str = normalize_step(&raw);
+  let step_str = raw;
 
   let step_config = StepReadConfig::default();
-  let data = read_parametric_rendering_data_from_step(&step_str, step_config)?;
+  let result = read_parametric_rendering_data_from_step(&step_str, step_config);
+  result.print_errors();
+  let data = result.data;
 
   println!(
     "  {} trimmed surfaces, {} 3D curves",
@@ -486,7 +487,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       mesh.positions.len(),
       mesh.indices.len()
     );
-    doc.add_surface_mesh(&mesh);
+    doc.add_surface_mesh(&mesh, &trimmed.debug_label);
   }
 
   if !data.curves_3d.is_empty() {
