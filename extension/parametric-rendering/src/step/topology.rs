@@ -20,6 +20,8 @@ pub struct FaceSurfaceData {
   pub is_back_face: bool,
   /// STEP entity ID of the FaceSurface / AdvancedFace.
   pub face_id: u64,
+  /// STEP entity provenance for the placement transform.
+  pub placement_source: crate::PlacementSource,
 }
 
 /// Trim curve data for one edge of a FaceSurface.
@@ -94,16 +96,16 @@ pub fn collect_face_surface_data(table: &Table) -> Vec<FaceSurfaceData> {
       // Prefer assembly occurrences, fall back to simple
       // ShapeRepresentation-level placement.
       let asm_placements = assembly_placement_map.get(&brep_id);
-      let simple_pl = placement_map.get(&brep_id).copied();
+      let simple_pl = placement_map.get(&brep_id);
       if let (Some(asm), Some(simple)) = (asm_placements.and_then(|p| p.first()), simple_pl) {
         step_dbg!(
           "step: brep #{brep_id}: asm origin=({:.1},{:.1},{:.1}) simple origin=({:.1},{:.1},{:.1})",
-          (asm.0).x,
-          (asm.0).y,
-          (asm.0).z,
-          (simple.0).x,
-          (simple.0).y,
-          (simple.0).z,
+          (asm.placement.0).x,
+          (asm.placement.0).y,
+          (asm.placement.0).z,
+          (simple.placement.0).x,
+          (simple.placement.0).y,
+          (simple.placement.0).z,
         );
       }
 
@@ -112,15 +114,39 @@ pub fn collect_face_surface_data(table: &Table) -> Vec<FaceSurfaceData> {
           "step: brep #{brep_id} → shell #{shell_id} assembly occurrences={}",
           placements.len()
         );
-        for placement in placements {
-          collect_from_shell_id(shell_id, table, &mut faces, Some(*placement));
+        for asm_pl in placements {
+          collect_from_shell_id(
+            shell_id,
+            table,
+            &mut faces,
+            Some(asm_pl.placement),
+            crate::PlacementSource::Assembly {
+              brep_id,
+              chain: asm_pl.chain.clone(),
+            },
+          );
         }
-      } else {
-        step_dbg!(
-          "step: brep #{brep_id} → shell #{shell_id} placement={}",
-          if simple_pl.is_some() { "yes" } else { "no" }
+      } else if let Some(sp) = simple_pl {
+        step_dbg!("step: brep #{brep_id} → shell #{shell_id} placement=yes");
+        collect_from_shell_id(
+          shell_id,
+          table,
+          &mut faces,
+          Some(sp.placement),
+          crate::PlacementSource::Axis2Placement3d {
+            axis_id: sp.axis_id,
+            shape_representation_id: sp.shape_rep_id,
+          },
         );
-        collect_from_shell_id(shell_id, table, &mut faces, simple_pl);
+      } else {
+        step_dbg!("step: brep #{brep_id} → shell #{shell_id} placement=no");
+        collect_from_shell_id(
+          shell_id,
+          table,
+          &mut faces,
+          None,
+          crate::PlacementSource::Identity,
+        );
       }
     } else {
       step_dbg!("step: brep #{brep_id} outer is not a Ref");
@@ -132,7 +158,13 @@ pub fn collect_face_surface_data(table: &Table) -> Vec<FaceSurfaceData> {
     step_dbg!("step: shell_based_surface_model #{model_id}");
     for shell_ph in &model_holder.sbms_boundary {
       if let Some(shell_id) = entity_id_from_ph(shell_ph) {
-        collect_from_shell_id(shell_id, table, &mut faces, None);
+        collect_from_shell_id(
+          shell_id,
+          table,
+          &mut faces,
+          None,
+          crate::PlacementSource::Identity,
+        );
       }
     }
   }
@@ -149,6 +181,7 @@ fn collect_from_shell_id(
   table: &Table,
   faces: &mut Vec<FaceSurfaceData>,
   placement: Option<Placement>,
+  placement_source: crate::PlacementSource,
 ) {
   let shell = match table.shell.get(&shell_id) {
     Some(s) => s,
@@ -168,9 +201,9 @@ fn collect_from_shell_id(
       // table.oriented_face) or an ADVANCED_FACE directly (stored in
       // table.face_surface). Try both.
       if table.oriented_face.contains_key(&oface_id) {
-        collect_from_oriented_face_id(oface_id, table, faces, placement);
+        collect_from_oriented_face_id(oface_id, table, faces, placement, placement_source.clone());
       } else if table.face_surface.contains_key(&oface_id) {
-        collect_from_face_surface_id(oface_id, table, faces, placement);
+        collect_from_face_surface_id(oface_id, table, faces, placement, placement_source.clone());
       } else {
         step_dbg!("step: element #{oface_id} not found in oriented_face or face_surface");
       }
@@ -185,6 +218,7 @@ fn collect_from_oriented_face_id(
   table: &Table,
   faces: &mut Vec<FaceSurfaceData>,
   placement: Option<Placement>,
+  placement_source: crate::PlacementSource,
 ) {
   let oface = match table.oriented_face.get(&oface_id) {
     Some(o) => o,
@@ -243,6 +277,7 @@ fn collect_from_oriented_face_id(
     placement,
     is_back_face,
     face_id,
+    placement_source,
   });
 }
 
@@ -253,6 +288,7 @@ fn collect_from_face_surface_id(
   table: &Table,
   faces: &mut Vec<FaceSurfaceData>,
   placement: Option<Placement>,
+  placement_source: crate::PlacementSource,
 ) {
   let face = match table.face_surface.get(&face_id) {
     Some(f) => f,
@@ -292,6 +328,7 @@ fn collect_from_face_surface_id(
     placement,
     is_back_face,
     face_id,
+    placement_source,
   });
 }
 

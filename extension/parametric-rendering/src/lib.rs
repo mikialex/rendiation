@@ -21,8 +21,43 @@ use surface::*;
 pub use validation::*;
 
 pub struct ParametricRenderingData {
+  /// Unique geometry — control points are in local coordinates (no transform baked in).
   pub surfaces: Vec<TrimmedSurface>,
+  /// Unique geometry — control points are in local coordinates (no transform baked in).
   pub curves_3d: Vec<RationalBezierCurve3d<f32>>,
+  /// (index into `surfaces`, world-space transform matrix).
+  pub surfaces_instance: Vec<(usize, Mat4<f32>)>,
+  /// (index into `curves_3d`, world-space transform matrix).
+  pub curves_3d_instance: Vec<(usize, Mat4<f32>)>,
+}
+
+/// Describes where a placement transform came from in the STEP document.
+#[derive(Debug, Clone)]
+pub enum PlacementSource {
+  /// Simple Axis2Placement3d within a ShapeRepresentation.
+  Axis2Placement3d {
+    axis_id: u64,
+    shape_representation_id: u64,
+  },
+  /// Composed from an assembly transformation chain.
+  Assembly {
+    /// BREP entity ID.
+    brep_id: u64,
+    /// Chain steps: each records (parent_sr_id, child_sr_id, idt_id, ax1_id, ax2_id).
+    chain: Vec<AssemblyChainStep>,
+  },
+  /// No placement (identity matrix).
+  Identity,
+}
+
+/// A single step in an assembly transform chain.
+#[derive(Debug, Clone)]
+pub struct AssemblyChainStep {
+  pub parent_sr_id: u64,
+  pub child_sr_id: u64,
+  pub idt_id: u64,
+  pub axis2_1_id: u64,
+  pub axis2_2_id: u64,
 }
 
 pub struct TrimmedSurface {
