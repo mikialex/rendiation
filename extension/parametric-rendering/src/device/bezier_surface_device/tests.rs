@@ -1,9 +1,4 @@
-use rendiation_algebra::*;
-use rendiation_shader_api::*;
-use rendiation_webgpu::*;
-
-use crate::bezier_surface_device::*;
-use crate::surface::*;
+use crate::*;
 
 fn test_surface_deg1x1() -> RationalBezierSurface<f32> {
   RationalBezierSurface::from_unweighted(

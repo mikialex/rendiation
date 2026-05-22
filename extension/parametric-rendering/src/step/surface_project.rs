@@ -665,7 +665,7 @@ mod tests {
 
   #[test]
   fn extrusion_project_single_segment() {
-    use crate::curve3d::RationalBezierCurve3d;
+    use crate::*;
 
     // Line segment from (0,0,0) to (4,0,0), extruded along Z by mag=3
     let ctrl = vec![Vec4::new(0.0, 0.0, 0.0, 1.0), Vec4::new(4.0, 0.0, 0.0, 1.0)];
@@ -684,7 +684,7 @@ mod tests {
 
   #[test]
   fn extrusion_project_off_surface() {
-    use crate::curve3d::RationalBezierCurve3d;
+    use crate::*;
 
     let ctrl = vec![Vec4::new(0.0, 0.0, 0.0, 1.0), Vec4::new(4.0, 0.0, 0.0, 1.0)];
     let curve = RationalBezierCurve3d::new(ctrl, 1);
@@ -702,7 +702,7 @@ mod tests {
 
   #[test]
   fn extrusion_project_v_clamped() {
-    use crate::curve3d::RationalBezierCurve3d;
+    use crate::*;
 
     let ctrl = vec![Vec4::new(0.0, 0.0, 0.0, 1.0), Vec4::new(2.0, 0.0, 0.0, 1.0)];
     let curve = RationalBezierCurve3d::new(ctrl, 1);
@@ -723,7 +723,7 @@ mod tests {
 
   #[test]
   fn extrusion_project_two_segments() {
-    use crate::curve3d::RationalBezierCurve3d;
+    use crate::*;
 
     // Two line segments: (0,0,0)→(2,0,0) and (2,0,0)→(4,0,0), extruded along Y by mag=2
     let ctrl1 = vec![Vec4::new(0.0, 0.0, 0.0, 1.0), Vec4::new(2.0, 0.0, 0.0, 1.0)];

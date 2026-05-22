@@ -8,7 +8,6 @@ use rendiation_step_reader::ruststep::tables::IntoOwned;
 use rendiation_step_reader::table::Table;
 
 use super::*;
-use crate::step::topology::FoundCurveHolder;
 use crate::*;
 
 /// Extract 2D sample points from a curve entity referenced by `entity_id`.
@@ -20,12 +19,10 @@ pub fn extract_2d_curve_points(
   table: &Table,
   entity_id: u64,
 ) -> Result<Vec<Vec2<f32>>, StepReadError> {
-  let holder = crate::step::topology::find_2d_curve_holder(table, entity_id).ok_or(
-    StepReadError::MissingEntity {
-      entity_type: "2D curve",
-      id: entity_id,
-    },
-  )?;
+  let holder = find_2d_curve_holder(table, entity_id).ok_or(StepReadError::MissingEntity {
+    entity_type: "2D curve",
+    id: entity_id,
+  })?;
 
   match holder {
     FoundCurveHolder::Line(line) => {

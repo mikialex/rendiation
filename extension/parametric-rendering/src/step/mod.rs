@@ -3,6 +3,7 @@ mod curve3d_convert;
 mod helpers;
 mod parameter_remapping;
 mod placement;
+mod recontruct_boundary;
 mod surface_convert;
 mod surface_extent;
 mod surface_project;
@@ -13,6 +14,7 @@ use curve3d_convert::*;
 use helpers::*;
 use parameter_remapping::*;
 use placement::*;
+use recontruct_boundary::*;
 use rendiation_step_reader::entities::SurfaceAny;
 use rendiation_step_reader::table::Table;
 use surface_convert::*;
@@ -610,10 +612,7 @@ fn process_trim_curves_for_face(
         let n_active = active.len();
         for k in 0..n_active {
           let (_ei, poly) = active[k];
-          qs.extend(crate::surface_trim::reconstruct_boundary(
-            poly,
-            config.fit_tolerance,
-          ));
+          qs.extend(reconstruct_boundary(poly, config.fit_tolerance));
 
           // Bridge to the next active edge if endpoints don't meet.
           let (_, next_poly) = active[(k + 1) % n_active];
@@ -624,10 +623,7 @@ fn process_trim_curves_for_face(
             if gap > boundary_epsilon * 0.5 {
               if let Some(bridge) = build_perimeter_bridge(end, start, snap_eps) {
                 if bridge.len() >= 2 {
-                  qs.extend(crate::surface_trim::reconstruct_boundary(
-                    &bridge,
-                    config.fit_tolerance,
-                  ));
+                  qs.extend(reconstruct_boundary(&bridge, config.fit_tolerance));
                 }
               }
             }

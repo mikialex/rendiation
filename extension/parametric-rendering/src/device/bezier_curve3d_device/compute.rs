@@ -1,9 +1,4 @@
-use rendiation_algebra::*;
-use rendiation_shader_api::*;
-use rendiation_webgpu::*;
-
-use crate::bezier_curve3d_device::storage::*;
-use crate::bezier_device_shared::*;
+use crate::*;
 
 /// Evaluate a rational Bézier curve point via Bernstein basis.
 ///

@@ -1,20 +1,24 @@
+use std::hash::Hasher;
+
 use curve3d::RationalBezierCurve3d;
+use rendiation_algebra::*;
+use rendiation_shader_api::*;
+use rendiation_webgpu::*;
 use surface::RationalBezierSurface;
 
-pub mod bezier_curve3d_device;
-pub mod bezier_device_shared;
-pub mod bezier_surface_device;
 pub mod curve3d;
+pub mod device;
 pub mod mesh;
 pub mod step;
 pub mod surface;
-mod surface_trim;
+pub mod validation;
 
 use curve3d::*;
-use rendiation_algebra::*;
+use device::*;
+use mesh::*;
 use rendiation_step_reader;
 use surface::*;
-use surface_trim::*;
+pub use validation::*;
 
 pub struct ParametricRenderingData {
   pub surfaces: Vec<TrimmedSurface>,

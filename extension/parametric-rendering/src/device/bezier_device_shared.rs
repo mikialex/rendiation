@@ -1,5 +1,4 @@
-use rendiation_algebra::*;
-use rendiation_shader_api::*;
+use crate::*;
 
 /// Maximum supported degree for Bernstein evaluation on GPU.
 pub const MAX_GPU_DEGREE: usize = 14;

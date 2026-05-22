@@ -136,7 +136,7 @@ fn convert_bspline_surface_to_bezier_patches(
     .flat_map(|row| row.iter().map(|p| Vec4::new(p.x, p.y, p.z, 1.0)))
     .collect();
 
-  let nurbs = crate::surface::NurbsSurface::new(
+  let nurbs = NurbsSurface::new(
     flat_cp,
     u_count,
     v_count,
@@ -180,7 +180,7 @@ fn convert_rational_bspline_surface_to_bezier_patches(
     })
     .collect();
 
-  let nurbs = crate::surface::NurbsSurface::new(
+  let nurbs = NurbsSurface::new(
     flat_cp,
     u_count,
     v_count,
