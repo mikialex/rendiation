@@ -156,7 +156,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       continue;
     }
     let issues =
-      rendiation_parametric_rendering::mesh::validate_trim_boundary(&s.debug_label, &s.trim_loops);
+      rendiation_parametric_rendering::validate_trim_boundary(&s.debug_label, &s.trim_loops);
     if !issues.is_empty() {
       total_issues += issues.len();
       surfaces_with_issues += 1;

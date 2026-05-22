@@ -1,9 +1,4 @@
-use rendiation_algebra::*;
-use rendiation_shader_api::*;
-
-pub use crate::bezier_device_shared::BINOMIAL_COEFFICIENTS;
-pub use crate::bezier_device_shared::MAX_GPU_DEGREE;
-use crate::surface::RationalBezierSurface;
+use crate::*;
 
 /// Maximum number of control points: (MAX_GPU_DEGREE + 1)².
 pub const MAX_GPU_CONTROL_POINTS: usize = (MAX_GPU_DEGREE + 1) * (MAX_GPU_DEGREE + 1);

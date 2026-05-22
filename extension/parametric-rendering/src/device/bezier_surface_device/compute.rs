@@ -1,11 +1,4 @@
-use std::hash::Hasher;
-
-use rendiation_algebra::*;
-use rendiation_shader_api::*;
-use rendiation_webgpu::*;
-
-use crate::bezier_device_shared::*;
-use crate::bezier_surface_device::storage::*;
+use crate::*;
 
 /// Evaluate a rational Bézier surface point via Bernstein basis tensor product.
 ///

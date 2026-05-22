@@ -1,10 +1,4 @@
-use rendiation_algebra::*;
-use rendiation_shader_api::*;
-use rendiation_webgpu::*;
-
-use crate::bezier_curve3d_device::*;
-use crate::bezier_device_shared::BINOMIAL_COEFFICIENTS;
-use crate::curve3d::*;
+use crate::*;
 
 fn test_curve_deg1() -> RationalBezierCurve3d<f32> {
   RationalBezierCurve3d::from_unweighted(

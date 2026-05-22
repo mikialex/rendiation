@@ -4,7 +4,6 @@ use rendiation_step_reader::entities::{
 };
 
 use super::*;
-use crate::curve3d::RationalBezierCurve3d;
 use crate::step::StepReadError;
 use crate::*;
 
