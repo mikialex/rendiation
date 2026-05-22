@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-use rendiation_step_reader::step_utils::{normalize_step, visit_stp_files};
+use rendiation_step_reader::step_utils::visit_stp_files;
 use rendiation_step_reader::table::Table;
 
 /// Parse STEP files and print entity statistics.
@@ -108,21 +108,18 @@ fn parse_file(path: &Path) -> ParseResult {
     Err(e) => return ParseResult::ParseError(format!("cannot read file: {e}")),
   };
 
-  let step_str = normalize_step(&step_str);
-
   let start = std::time::Instant::now();
 
-  let exchange = match ruststep::parser::parse(&step_str) {
-    Ok(e) => e,
-    Err(e) => return ParseResult::ParseError(format!("{e}")),
-  };
+  let result = Table::from_step(&step_str, None);
 
-  if exchange.data.is_empty() {
+  if matches!(
+    result.errors,
+    rendiation_step_reader::table::TableParseErrors::NoDataSection
+  ) {
     return ParseResult::NoDataSection;
   }
 
-  let table = Table::from_data_section(&exchange.data[0]);
-  let entity_count = count_all(&table);
+  let entity_count = count_all(&result.table);
   let duration = start.elapsed();
 
   ParseResult::Success {
@@ -133,26 +130,15 @@ fn parse_file(path: &Path) -> ParseResult {
 
 fn print_stats(path: &Path) {
   let step_str = match fs::read_to_string(path) {
-    Ok(s) => normalize_step(&s),
+    Ok(s) => s,
     Err(e) => {
       eprintln!("cannot read file: {e}");
       return;
     }
   };
 
-  let exchange = match ruststep::parser::parse(&step_str) {
-    Ok(e) => e,
-    Err(e) => {
-      eprintln!("parse error: {e}");
-      return;
-    }
-  };
-
-  if exchange.data.is_empty() {
-    return;
-  }
-
-  let table = Table::from_data_section(&exchange.data[0]);
+  let result = Table::from_step(&step_str, None);
+  let table = result.table;
 
   macro_rules! stat {
     ($field:ident, $label:expr) => {

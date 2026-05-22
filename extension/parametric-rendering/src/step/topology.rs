@@ -5,8 +5,6 @@ use rendiation_step_reader::ruststep::tables::{IntoOwned, PlaceHolder};
 use rendiation_step_reader::table::Table;
 
 use super::*;
-use crate::step::StepReadError;
-
 /// A face surface together with its edge trim data, extracted from a STEP Table
 /// using Holder-level traversal to preserve pcurve entity IDs.
 pub struct FaceSurfaceData {
@@ -40,7 +38,7 @@ pub struct EdgeData {
 
 /// Collect face surface data from the STEP Table, preserving pcurve entity IDs
 /// via Holder-level navigation.
-pub fn collect_face_surface_data(table: &Table) -> Result<Vec<FaceSurfaceData>, StepReadError> {
+pub fn collect_face_surface_data(table: &Table) -> Vec<FaceSurfaceData> {
   let assembly_placement_map = build_assembly_placement_map(table);
 
   step_dbg!(
@@ -143,7 +141,7 @@ pub fn collect_face_surface_data(table: &Table) -> Result<Vec<FaceSurfaceData>, 
     "step: topology result — {} FaceSurfaceData collected",
     faces.len()
   );
-  Ok(faces)
+  faces
 }
 
 fn collect_from_shell_id(

@@ -6,7 +6,7 @@ use std::time::Instant;
 use rendiation_parametric_rendering::step::{
   read_parametric_rendering_data_from_step, StepReadConfig,
 };
-use rendiation_step_reader::step_utils::{normalize_step, visit_stp_files};
+use rendiation_step_reader::step_utils::visit_stp_files;
 
 /// Parse STEP files and convert to parametric rendering data.
 ///
@@ -110,21 +110,19 @@ enum ProcessResult {
 
 fn process_file(path: &Path, config: &StepReadConfig) -> ProcessResult {
   let step_str = match fs::read_to_string(path) {
-    Ok(s) => normalize_step(&s),
+    Ok(s) => s,
     Err(e) => return ProcessResult::Error(format!("cannot read file: {e}")),
   };
 
   let start = Instant::now();
 
-  match read_parametric_rendering_data_from_step(&step_str, config.clone()) {
-    Ok(data) => {
-      let duration = start.elapsed();
-      ProcessResult::Success {
-        surface_count: data.surfaces.len(),
-        curve_count: data.curves_3d.len(),
-        duration,
-      }
-    }
-    Err(e) => ProcessResult::Error(format!("{e}")),
+  let result = read_parametric_rendering_data_from_step(&step_str, config.clone());
+  result.print_errors();
+
+  let duration = start.elapsed();
+  ProcessResult::Success {
+    surface_count: result.data.surfaces.len(),
+    curve_count: result.data.curves_3d.len(),
+    duration,
   }
 }
