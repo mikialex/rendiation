@@ -60,7 +60,7 @@ pub enum OriginalSurface {
 }
 
 impl OriginalSurface {
-  pub fn is_periodic(&self) -> bool {
+  pub fn is_u_periodic(&self) -> bool {
     matches!(
       self,
       OriginalSurface::Cylinder { .. }
@@ -68,6 +68,11 @@ impl OriginalSurface {
         | OriginalSurface::Sphere { .. }
         | OriginalSurface::Torus { .. }
     )
+  }
+
+  /// Only the torus is periodic in the v direction.
+  pub fn is_v_periodic(&self) -> bool {
+    matches!(self, OriginalSurface::Torus { .. })
   }
 
   /// Project a 3D point onto the surface.

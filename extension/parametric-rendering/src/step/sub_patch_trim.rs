@@ -13,6 +13,7 @@ pub fn process_trim_curves_for_face(
   edge_loops: &[Vec<EdgeData>],
   config: &StepReadConfig,
   table: &Table,
+  edge_beziers: &[Vec<RationalBezierCurve3d<f32>>],
 ) -> Vec<Option<Vec<Vec<QuadraticBezierCurve2d<f32>>>>> {
   let n_patches = patches.len();
   let total_edges: usize = edge_loops.iter().map(|l| l.len()).sum();
@@ -52,13 +53,13 @@ pub fn process_trim_curves_for_face(
       continue;
     }
 
-    let beziers = match convert_any_curve_to_bezier(&edge.curve_3d) {
-      Ok(b) => b,
-      Err(_) => continue,
-    };
+    let beziers = &edge_beziers[ei];
+    if beziers.is_empty() {
+      continue;
+    }
 
     let mut all_3d_points: Vec<Vec3<f32>> = Vec::new();
-    for curve in &beziers {
+    for curve in beziers {
       let pts = adaptive_tessellate_bezier_curve(curve, config.tessellate_tolerance);
       all_3d_points.extend(pts);
     }
@@ -70,6 +71,7 @@ pub fn process_trim_curves_for_face(
     // Project all 3D points to UV on the original surface.
     let mut projected: Vec<Vec2<f32>> = Vec::with_capacity(all_3d_points.len());
     let mut prev_u: Option<f32> = None;
+    let mut prev_v: Option<f32> = None;
     for &p3 in &all_3d_points {
       let Some((u, v, dist)) = original_surface.project_point(
         p3,
@@ -82,21 +84,26 @@ pub fn process_trim_curves_for_face(
       if dist > proj_dist_tolerance {
         continue;
       }
-      // todo, check v?
-      // Detect angular wrap-around (only for surfaces with periodic U:
-      // cylinder, cone, sphere, torus — Plane/NURBS/extrusion have no period).
-      if let Some(prev) = prev_u {
-        if original_surface.is_periodic() && (u - prev).abs() > std::f32::consts::PI {
-          flush_projected_to_patches(
-            ei,
-            &mut projected,
-            patches,
-            &mut per_patch_polylines,
-            &mut global_polylines,
-          );
-        }
+      // Detect angular wrap-around at periodic seams (u: cylinder/cone/sphere/torus,
+      // v: torus only). When a polyline crosses the 0/2π boundary, flush accumulated
+      // points so the segments on each side are clipped to the correct patches.
+      let u_wrap = prev_u.is_some_and(|pu| {
+        original_surface.is_u_periodic() && (u - pu).abs() > std::f32::consts::PI
+      });
+      let v_wrap = prev_v.is_some_and(|pv| {
+        original_surface.is_v_periodic() && (v - pv).abs() > std::f32::consts::PI
+      });
+      if u_wrap || v_wrap {
+        flush_projected_to_patches(
+          ei,
+          &mut projected,
+          patches,
+          &mut per_patch_polylines,
+          &mut global_polylines,
+        );
       }
       prev_u = Some(u);
+      prev_v = Some(v);
       projected.push(Vec2::new(u, v));
     }
     flush_projected_to_patches(

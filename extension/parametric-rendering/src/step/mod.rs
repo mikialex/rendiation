@@ -229,26 +229,43 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       continue;
     }
 
+    // Pre-convert all edge curves to Bezier once per face.
+    let edge_loops_beziers: Vec<Vec<RationalBezierCurve3d<f32>>> = face_data
+      .edge_loops
+      .iter()
+      .flat_map(|l| l.iter())
+      .map(|e| match convert_any_curve_to_bezier(&e.curve_3d) {
+        Ok(b) => b,
+        Err(e) => {
+          errors.push(e);
+          Vec::new()
+        }
+      })
+      .collect();
+
     let plane_extent = if let SurfaceAny::Plane(ref p) = &face_data.surface {
-      Some(compute_plane_face_extent(
+      Some(compute_plane_face_extent_from_beziers(
         &p.position,
-        &face_data.edge_loops,
+        &edge_loops_beziers,
         config,
       ))
     } else {
       None
     };
 
-    // todo, check u side?
+    // Only the axial (v) extent is tightened from edge data. The angular (u)
+    // extent always covers the full [0, 2π) range split into 4 × 90° patches.
+    // Computing a tighter u extent would require handling the 0/2π seam, so
+    // empty patches are discarded downstream by trim classification instead.
     let v_range = match &face_data.surface {
-      SurfaceAny::CylindricalSurface(c) => Some(compute_axis_v_extent(
+      SurfaceAny::CylindricalSurface(c) => Some(compute_axis_v_extent_from_beziers(
         &c.position,
-        &face_data.edge_loops,
+        &edge_loops_beziers,
         config,
       )),
-      SurfaceAny::ConicalSurface(c) => Some(compute_axis_v_extent(
+      SurfaceAny::ConicalSurface(c) => Some(compute_axis_v_extent_from_beziers(
         &c.position,
-        &face_data.edge_loops,
+        &edge_loops_beziers,
         config,
       )),
       _ => None,
@@ -272,7 +289,7 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
     step_dbg!(
       "step: face #{fi} → {} patches, {} edges",
       patches.len(),
-      face_data.edge_loops.iter().map(|l| l.len()).sum::<usize>()
+      edge_loops_beziers.len()
     );
 
     let patch_trim_boundaries = process_trim_curves_for_face(
@@ -281,6 +298,7 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       &face_data.edge_loops,
       config,
       table,
+      &edge_loops_beziers,
     );
 
     if face_data.placement.is_some() {
@@ -335,20 +353,15 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
     }
 
     let curve_start_idx = curves_3d.len();
-    for edge in face_data.edge_loops.iter().flat_map(|l| l.iter()) {
-      match convert_any_curve_to_bezier(&edge.curve_3d) {
-        Ok(beziers) => {
-          let bez_count = beziers.len();
-          let curve_inst_start = curves_3d.len();
-          curves_3d.extend(beziers);
-          for ci in 0..bez_count {
-            curves_3d_instance.push((curve_inst_start + ci, instance_matrix));
-          }
-        }
-        Err(e) => {
-          step_dbg!("step: convert_any_curve_to_bezier failed: {e:?}");
-          errors.push(e);
-        }
+    for beziers in &edge_loops_beziers {
+      if beziers.is_empty() {
+        continue;
+      }
+      let bez_count = beziers.len();
+      let curve_inst_start = curves_3d.len();
+      curves_3d.extend(beziers.clone());
+      for ci in 0..bez_count {
+        curves_3d_instance.push((curve_inst_start + ci, instance_matrix));
       }
     }
     let curve_count = curves_3d.len() - curve_start_idx;
