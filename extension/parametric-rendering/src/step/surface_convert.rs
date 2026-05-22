@@ -417,8 +417,8 @@ fn convert_cylinder_to_bezier_patches(
     patches.push(SurfaceSubPatch {
       surface,
       sub_range: SubRange {
-        u_range: (angle0, angle1),
-        v_range: (v0, v1),
+        u_range: (i as f32 * 0.25, (i + 1) as f32 * 0.25),
+        v_range: (0.0, 1.0),
       },
     });
   }
@@ -497,8 +497,8 @@ fn convert_cone_to_bezier_patches(
     patches.push(SurfaceSubPatch {
       surface,
       sub_range: SubRange {
-        u_range: (angle0, angle1),
-        v_range: (v0, v1),
+        u_range: (i as f32 * 0.25, (i + 1) as f32 * 0.25),
+        v_range: (0.0, 1.0),
       },
     });
   }
@@ -583,10 +583,10 @@ fn convert_sphere_to_bezier_patches(
 
   for h in 0..2 {
     for q in 0..4 {
-      let u0 = q as f32 * std::f32::consts::FRAC_PI_2;
-      let u1 = (q + 1) as f32 * std::f32::consts::FRAC_PI_2;
-      let v0 = h as f32 * std::f32::consts::FRAC_PI_2;
-      let v1 = (h + 1) as f32 * std::f32::consts::FRAC_PI_2;
+      let u0 = q as f32 * 0.25;
+      let u1 = (q + 1) as f32 * 0.25;
+      let v0 = h as f32 * 0.5;
+      let v1 = (h + 1) as f32 * 0.5;
 
       let local_cps: Vec<Vec4<f32>> = ref_cps
         .iter()
@@ -658,13 +658,13 @@ fn convert_torus_to_bezier_patches(
   let mut patches = Vec::with_capacity(16);
 
   for vi in 0..4 {
-    let v0 = vi as f32 * std::f32::consts::FRAC_PI_2;
-    let v1 = (vi + 1) as f32 * std::f32::consts::FRAC_PI_2;
+    let v0 = vi as f32 * 0.25;
+    let v1 = (vi + 1) as f32 * 0.25;
     let v_mid = (v0 + v1) * 0.5;
 
     for ui in 0..4 {
-      let u0 = ui as f32 * std::f32::consts::FRAC_PI_2;
-      let u1 = (ui + 1) as f32 * std::f32::consts::FRAC_PI_2;
+      let u0 = ui as f32 * 0.25;
+      let u1 = (ui + 1) as f32 * 0.25;
       let u_mid = (u0 + u1) * 0.5;
 
       // A point on the torus at (u_big, v_small):
