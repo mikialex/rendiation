@@ -264,9 +264,11 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       &original_surface,
       patches,
       &face_data.edge_loops,
+      face_data.surface_entity_id,
       config,
       table,
       &edge_loops_beziers,
+      &mut errors,
     );
 
     if face_data.placement.is_some() {
