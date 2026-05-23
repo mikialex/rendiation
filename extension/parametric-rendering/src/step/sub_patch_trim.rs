@@ -104,41 +104,36 @@ pub fn process_trim_curves_for_face(
       continue;
     }
 
-    let beziers = &edge_beziers[ei];
-    if beziers.is_empty() {
-      continue;
-    }
-
-    let mut all_3d_points: Vec<Vec3<f32>> = Vec::new();
-    for curve in beziers {
-      let pts = adaptive_tessellate_bezier_curve(curve, config.tessellate_tolerance);
-      all_3d_points.extend(pts);
-    }
-
-    if all_3d_points.is_empty() {
-      continue;
-    }
+    let all_3d_points: Vec<_> = edge_beziers[ei]
+      .iter()
+      .flat_map(|curve| adaptive_tessellate_bezier_curve(curve, config.tessellate_tolerance))
+      .collect();
 
     // Project all 3D points to UV on the original surface.
     // UV coordinates are in [0,1]² (normalized during projection).
-    let mut projected: TrimPolyline = Vec::with_capacity(all_3d_points.len());
-    for &p3 in &all_3d_points {
-      let Some((u, v, dist)) = original_surface.project_point(
-        p3,
-        config.project_grid,
-        config.project_tolerance,
-        config.project_max_iter,
-      ) else {
-        continue;
-      };
-      if dist > proj_dist_tolerance {
-        continue;
-      }
-      projected.push(Vec2::new(u, v));
-    }
+    let projected: TrimPolyline = all_3d_points
+      .into_iter()
+      .filter_map(|p3| {
+        let Some((u, v, dist)) = original_surface.project_point(
+          p3,
+          config.project_grid,
+          config.project_tolerance,
+          config.project_max_iter,
+        ) else {
+          // todo report this case
+          return None;
+        };
+        if dist > proj_dist_tolerance {
+          // todo report this case
+          return None;
+        }
+        Some(Vec2::new(u, v))
+      })
+      .collect();
+
     flush_projected_to_patches(
       ei,
-      &mut projected,
+      projected,
       &patches,
       &mut per_patch,
       &mut global_polylines,
@@ -302,13 +297,12 @@ fn try_pcurve_for_all_patches(
 /// patch's SubRange, appending clipped sub-polylines.
 fn flush_projected_to_patches(
   ei: usize,
-  projected: &mut TrimPolyline,
+  projected: TrimPolyline,
   patches: &[SurfaceSubPatch],
   per_patch: &mut PatchTrimTable,
   global_polylines: &mut GlobalTrimPolylines,
 ) {
   if projected.len() < 2 {
-    projected.clear();
     return;
   }
 
@@ -352,7 +346,7 @@ fn flush_projected_to_patches(
     }
   }
 
-  global_polylines[ei].extend(projected.drain(..));
+  global_polylines[ei].extend(projected);
 }
 
 // Empty patch classification
