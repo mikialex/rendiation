@@ -5,6 +5,18 @@ use rendiation_step_reader::ruststep::tables::{IntoOwned, PlaceHolder};
 use rendiation_step_reader::table::Table;
 
 use super::*;
+
+/// A pcurve 2D curve entity ID paired with the surface entity on which
+/// the pcurve is defined (pcurve.basis_surface). Used to filter pcurves
+/// to only those belonging to the face being processed.
+#[derive(Debug, Clone)]
+pub struct PcurveRef {
+  /// Entity ID of the 2D curve within the pcurve's definitional_representation.
+  pub curve_2d_id: u64,
+  /// Entity ID of the surface this pcurve is defined on (pcurve.basis_surface).
+  pub surface_id: u64,
+}
+
 /// A face surface together with its edge trim data, extracted from a STEP Table
 /// using Holder-level traversal to preserve pcurve entity IDs.
 pub struct FaceSurfaceData {
@@ -18,6 +30,9 @@ pub struct FaceSurfaceData {
   /// Whether to flip the normal relative to du×dv.
   /// Computed from FaceSurface.same_sense and OrientedFace.orientation.
   pub is_back_face: bool,
+  /// Entity ID of the face's surface geometry (from face.face_geometry).
+  /// Used to match pcurves to the correct face.
+  pub surface_entity_id: u64,
   /// STEP entity ID of the FaceSurface / AdvancedFace.
   pub face_id: u64,
   /// STEP entity provenance for the placement transform.
@@ -33,9 +48,11 @@ pub struct EdgeData {
   /// EdgeCurve.same_sense — true if the curve parameterisation agrees with
   /// the edge direction (start vertex → end vertex).
   pub same_sense: bool,
-  /// 2D curve entity IDs from matching Pcurve(s). Tried in order for lossless
-  /// extraction; falls back to numerical projection if empty or all fail.
-  pub pcurve_entity_ids: Vec<u64>,
+  /// Pcurve references from matching Pcurve(s), each paired with its
+  /// basis_surface entity ID. Length ≤ 2 (one per face sharing the edge).
+  /// Tried in order; falls back to numerical projection if empty or all
+  /// filtered out by surface match.
+  pub pcurve_refs: Vec<PcurveRef>,
 }
 
 /// Collect face surface data from the STEP Table, preserving pcurve entity IDs
@@ -228,13 +245,7 @@ fn collect_from_oriented_face_id(
     }
   };
 
-  let face_id = match entity_id_from_ph(&oface.face_element) {
-    Some(id) => id,
-    None => {
-      step_dbg!("step: oriented_face #{oface_id} face_element is not a Ref");
-      return;
-    }
-  };
+  let face_id = entity_id_from_ph(&oface.face_element).unwrap();
 
   let face = match table.face_surface.get(&face_id) {
     Some(f) => f,
@@ -243,6 +254,8 @@ fn collect_from_oriented_face_id(
       return;
     }
   };
+
+  let surface_entity_id = entity_id_from_ph(&face.face_geometry).unwrap();
 
   // Resolve the surface geometry (we need the owned SurfaceAny)
   let surface = match resolve_surface_fallback(&face.face_geometry, table) {
@@ -264,7 +277,7 @@ fn collect_from_oriented_face_id(
     edge_loops
       .iter()
       .flat_map(|l| l.iter())
-      .filter(|e| !e.pcurve_entity_ids.is_empty())
+      .filter(|e| !e.pcurve_refs.is_empty())
       .count()
   );
 
@@ -276,6 +289,7 @@ fn collect_from_oriented_face_id(
     edge_loops,
     placement,
     is_back_face,
+    surface_entity_id,
     face_id,
     placement_source,
   });
@@ -298,6 +312,8 @@ fn collect_from_face_surface_id(
     }
   };
 
+  let surface_entity_id = entity_id_from_ph(&face.face_geometry).unwrap();
+
   let surface = match resolve_surface_fallback(&face.face_geometry, table) {
     Some(s) => s,
     None => {
@@ -316,7 +332,7 @@ fn collect_from_face_surface_id(
     edge_loops
       .iter()
       .flat_map(|l| l.iter())
-      .filter(|e| !e.pcurve_entity_ids.is_empty())
+      .filter(|e| !e.pcurve_refs.is_empty())
       .count()
   );
 
@@ -327,6 +343,7 @@ fn collect_from_face_surface_id(
     edge_loops,
     placement,
     is_back_face,
+    surface_entity_id,
     face_id,
     placement_source,
   });
@@ -413,14 +430,14 @@ fn extract_edges_from_face(
         None => continue,
       };
 
-      // Extract pcurve entity IDs from the edge geometry Holder
-      let pcurve_entity_ids = extract_pcurve_ids_from_edge_curve(&ec.edge_geometry, table);
+      // Extract pcurve references from the edge geometry Holder
+      let pcurve_refs = extract_pcurve_refs_from_edge_curve(&ec.edge_geometry, table);
 
       loop_edges.push(EdgeData {
         curve_3d,
         orientation,
         same_sense: ec.same_sense,
-        pcurve_entity_ids,
+        pcurve_refs,
       });
     }
     loops.push(loop_edges);
@@ -429,14 +446,16 @@ fn extract_edges_from_face(
   loops
 }
 
-/// Extract pcurve 2D curve entity IDs from an edge curve Holder.
+/// Extract pcurve references with basis_surface entity IDs from an edge
+/// curve Holder.
 ///
-/// Navigates SurfaceCurve → associated_geometry → Pcurve → reference_to_curve
-/// → DefinitionalRepresentation → representation_item → entity IDs.
-fn extract_pcurve_ids_from_edge_curve(
+/// Navigates SurfaceCurve → associated_geometry → Pcurve, extracting each
+/// 2D curve entity ID together with the pcurve's basis_surface entity ID.
+/// Surface variants in PcurveOrSurface are skipped (no 2D curve to extract).
+fn extract_pcurve_refs_from_edge_curve(
   curve_ph: &PlaceHolder<CurveAnyHolder>,
   table: &Table,
-) -> Vec<u64> {
+) -> Vec<PcurveRef> {
   let ec_id = match entity_id_from_ph(curve_ph) {
     Some(id) => id,
     None => return Vec::new(),
@@ -444,7 +463,7 @@ fn extract_pcurve_ids_from_edge_curve(
 
   // Check SurfaceCurve path: SurfaceCurve → associated_geometry → Pcurve
   if let Some(sc) = table.surface_curve.get(&ec_id) {
-    let mut ids = Vec::new();
+    let mut refs = Vec::new();
     for assoc_ph in &sc.associated_geometry {
       let assoc_id = match entity_id_from_ph(assoc_ph) {
         Some(id) => id,
@@ -452,8 +471,10 @@ fn extract_pcurve_ids_from_edge_curve(
       };
       let pcurve = match table.pcurve.get(&assoc_id) {
         Some(p) => p,
-        None => continue,
+        None => continue, // skip Surface variants in PcurveOrSurface
       };
+      let surface_id = entity_id_from_ph(&pcurve.basis_surface)
+        .expect("pcurve.basis_surface must be a Ref at Holder level");
       let def_rep_id = match entity_id_from_ph(&pcurve.reference_to_curve) {
         Some(id) => id,
         None => continue,
@@ -464,16 +485,21 @@ fn extract_pcurve_ids_from_edge_curve(
       };
       for item_ph in &def_rep.representation_item {
         if let Some(item_id) = entity_id_from_ph(item_ph) {
-          ids.push(item_id);
+          refs.push(PcurveRef {
+            curve_2d_id: item_id,
+            surface_id,
+          });
         }
       }
     }
-    return ids;
+    return refs;
   }
 
   // Check direct Pcurve path: Pcurve → reference_to_curve → entities
   if let Some(pcurve) = table.pcurve.get(&ec_id) {
-    let mut ids = Vec::new();
+    let mut refs = Vec::new();
+    let surface_id = entity_id_from_ph(&pcurve.basis_surface)
+      .expect("pcurve.basis_surface must be a Ref at Holder level");
     let def_rep_id = match entity_id_from_ph(&pcurve.reference_to_curve) {
       Some(id) => id,
       None => return Vec::new(),
@@ -484,10 +510,13 @@ fn extract_pcurve_ids_from_edge_curve(
     };
     for item_ph in &def_rep.representation_item {
       if let Some(item_id) = entity_id_from_ph(item_ph) {
-        ids.push(item_id);
+        refs.push(PcurveRef {
+          curve_2d_id: item_id,
+          surface_id,
+        });
       }
     }
-    return ids;
+    return refs;
   }
 
   Vec::new()

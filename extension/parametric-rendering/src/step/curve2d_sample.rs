@@ -13,12 +13,11 @@ use crate::*;
 /// Extract 2D sample points from a curve entity referenced by `entity_id`.
 ///
 /// Looks up the entity across all curve tables and samples the curve
-/// uniformly. The resulting `Vec<Vec2<f32>>` is suitable for feeding to
-/// `reconstruct_boundary` for quadratic Bezier fitting.
+/// uniformly.
 pub fn extract_2d_curve_points(
   table: &Table,
   entity_id: u64,
-) -> Result<Vec<Vec2<f32>>, StepReadError> {
+) -> Result<TrimPolyline, StepReadError> {
   let holder = find_2d_curve_holder(table, entity_id).ok_or(StepReadError::MissingEntity {
     entity_type: "2D curve",
     id: entity_id,

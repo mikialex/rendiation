@@ -4,7 +4,7 @@ use crate::*;
 // Semantic types for trim polyline data
 
 /// A single continuous polyline in UV space.
-type TrimPolyline = Vec<Vec2<f32>>;
+pub type TrimPolyline = Vec<Vec2<f32>>;
 
 /// Trim segments for one edge within one patch.
 /// May contain multiple polylines (split at clip discontinuities or patch crossings).
@@ -65,9 +65,11 @@ pub fn process_trim_curves_for_face(
   original_surface: &OriginalSurface,
   patches: Vec<SurfaceSubPatch>,
   edge_loops: &[Vec<EdgeData>],
+  surface_entity_id: u64,
   config: &StepReadConfig,
   table: &Table,
   edge_beziers: &[Vec<RationalBezierCurve3d<f32>>],
+  errors: &mut Vec<StepReadError>,
 ) -> Vec<TrimmedPatch> {
   let n_patches = patches.len();
   let total_edges: usize = edge_loops.iter().map(|l| l.len()).sum();
@@ -98,8 +100,10 @@ pub fn process_trim_curves_for_face(
       &patches,
       table,
       original_surface,
+      surface_entity_id,
       &mut per_patch,
       &mut global_polylines,
+      errors,
     ) {
       continue;
     }
@@ -244,25 +248,44 @@ pub fn process_trim_curves_for_face(
 
 /// Try pcurve path for all patches at once (remaps pcurve points to each patch).
 /// Returns true if the pcurve path was used successfully.
+///
+/// Filters pcurves to only use those whose basis_surface matches the face's
+/// surface (via `surface_entity_id`). Pcurves defined on other surfaces are
+/// skipped — they belong to adjacent faces sharing the same edge.
 fn try_pcurve_for_all_patches(
   ei: usize,
   edge: &EdgeData,
   patches: &[SurfaceSubPatch],
   table: &Table,
   original_surface: &OriginalSurface,
+  surface_entity_id: u64,
   per_patch: &mut PatchTrimTable,
   global_polylines: &mut GlobalTrimPolylines,
+  errors: &mut Vec<StepReadError>,
 ) -> bool {
-  if edge.pcurve_entity_ids.is_empty() {
+  if edge.pcurve_refs.is_empty() {
     return false;
   }
 
-  for &entity_id in &edge.pcurve_entity_ids {
-    let points_2d = match extract_2d_curve_points(table, entity_id) {
+  for pcurve_ref in &edge.pcurve_refs {
+    // Skip pcurves that belong to a different face's surface.
+    if surface_entity_id != pcurve_ref.surface_id {
+      continue;
+    }
+
+    let points_2d = match extract_2d_curve_points(table, pcurve_ref.curve_2d_id) {
       Ok(p) => p,
-      Err(_) => continue,
+      Err(e) => {
+        errors.push(e);
+        continue;
+      }
     };
-    if points_2d.is_empty() {
+    if points_2d.len() < 2 {
+      errors.push(StepReadError::ConversionError(format!(
+        "pcurve entity #{} has fewer than 2 points (got {})",
+        pcurve_ref.curve_2d_id,
+        points_2d.len()
+      )));
       continue;
     }
 
