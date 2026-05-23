@@ -16,7 +16,6 @@ use helpers::*;
 use parameter_remapping::*;
 use placement::*;
 use reconstruct_boundary::*;
-use rendiation_step_reader::entities::SurfaceAny;
 use rendiation_step_reader::table::Table;
 use sub_patch_trim::*;
 use surface_convert::*;
@@ -243,38 +242,10 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       })
       .collect();
 
-    let plane_extent = if let SurfaceAny::Plane(ref p) = &face_data.surface {
-      Some(compute_plane_face_extent_from_beziers(
-        &p.position,
-        &edge_loops_beziers,
-        config,
-      ))
-    } else {
-      None
-    };
-
-    // Only the axial (v) extent is tightened from edge data. The angular (u)
-    // extent always covers the full [0, 2π) range split into 4 × 90° patches.
-    // Computing a tighter u extent would require handling the 0/2π seam, so
-    // empty patches are discarded downstream by trim classification instead.
-    let v_range = match &face_data.surface {
-      SurfaceAny::CylindricalSurface(c) => Some(compute_axis_v_extent_from_beziers(
-        &c.position,
-        &edge_loops_beziers,
-        config,
-      )),
-      SurfaceAny::ConicalSurface(c) => Some(compute_axis_v_extent_from_beziers(
-        &c.position,
-        &edge_loops_beziers,
-        config,
-      )),
-      _ => None,
-    };
-
     let (patches, original_surface) = match convert_and_split_any_surface_to_bezier_patches(
       &face_data.surface,
-      plane_extent,
-      v_range,
+      &edge_loops_beziers,
+      config,
     ) {
       Ok(p) => p,
       Err(e) => {
@@ -286,23 +257,8 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       }
     };
 
-    let n_patches = patches.len();
-    step_dbg!(
-      "step: face #{fi} → {} patches, {} edges",
-      n_patches,
-      edge_loops_beziers.len()
-    );
-
-    // Surface position debug (first two faces only)
-    if fi < 2 && n_patches > 0 {
-      let p0 = patches[0].surface.evaluate(0.5, 0.5);
-      step_dbg!(
-        "step: face #{fi} patch center: ({:.3},{:.3},{:.3})",
-        p0.x,
-        p0.y,
-        p0.z
-      );
-    }
+    let sub_patch_count = patches.len();
+    step_dbg!("step: face #{fi} → {} patches", patches.len(),);
 
     let trimmed_patches = process_trim_curves_for_face(
       &original_surface,
@@ -324,7 +280,7 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
         "FaceSurface#{}[{}/{}] {} edges={}{}",
         face_data.face_id,
         tp.patch_index,
-        n_patches,
+        sub_patch_count,
         face_data.surface.surface_ty_name(),
         total_edges,
         if face_data.is_back_face {

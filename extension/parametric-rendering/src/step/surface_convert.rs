@@ -26,14 +26,12 @@ pub struct SubRange {
 /// Convert any STEP surface to Bezier patches with parameter range info,
 /// together with an `OriginalSurface` for single-call point projection.
 ///
-/// `plane_extent` is only used for unbounded Plane surfaces — it defines
-/// the (u_min, u_max, v_min, v_max) bounds computed from face edges.
-/// `v_range` is only used for Cylinder/Cone surfaces — it defines the
-/// (v_min, v_max) axial bounds computed from face edges.
+/// Extent computation (plane UV bounds, cylinder/cone v_range) is handled
+/// internally from the pre-converted edge Bezier curves.
 pub fn convert_and_split_any_surface_to_bezier_patches(
   surface: &SurfaceAny,
-  plane_extent: Option<(f32, f32, f32, f32)>,
-  v_range: Option<(f64, f64)>,
+  edge_beziers: &[Vec<RationalBezierCurve3d<f32>>],
+  config: &StepReadConfig,
 ) -> Result<(Vec<SurfaceSubPatch>, OriginalSurface), StepReadError> {
   match surface {
     SurfaceAny::BSplineSurfaceWithKnots(b) => {
@@ -80,18 +78,27 @@ pub fn convert_and_split_any_surface_to_bezier_patches(
         v_knots,
       ))
     }
-    SurfaceAny::Plane(p) => Ok(convert_plane_to_bezier_patch(&p.position, plane_extent)),
-    SurfaceAny::CylindricalSurface(c) => Ok(convert_cylinder_to_bezier_patches(
-      &c.position,
-      c.radius,
-      v_range,
-    )),
-    SurfaceAny::ConicalSurface(c) => Ok(convert_cone_to_bezier_patches(
-      &c.position,
-      c.radius,
-      c.semi_angle,
-      v_range,
-    )),
+    SurfaceAny::Plane(p) => {
+      let extent = compute_plane_face_extent_from_beziers(&p.position, edge_beziers, config);
+      Ok(convert_plane_to_bezier_patch(&p.position, Some(extent)))
+    }
+    SurfaceAny::CylindricalSurface(c) => {
+      let v_range = compute_axis_v_extent_from_beziers(&c.position, edge_beziers, config);
+      Ok(convert_cylinder_to_bezier_patches(
+        &c.position,
+        c.radius,
+        Some(v_range),
+      ))
+    }
+    SurfaceAny::ConicalSurface(c) => {
+      let v_range = compute_axis_v_extent_from_beziers(&c.position, edge_beziers, config);
+      Ok(convert_cone_to_bezier_patches(
+        &c.position,
+        c.radius,
+        c.semi_angle,
+        Some(v_range),
+      ))
+    }
     SurfaceAny::SphericalSurface(s) => Ok(convert_sphere_to_bezier_patches(&s.position, s.radius)),
     SurfaceAny::ToroidalSurface(t) => Ok(convert_torus_to_bezier_patches(
       &t.position,
