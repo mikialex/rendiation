@@ -330,6 +330,7 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
     surfaces_instance.len(),
     curves_3d_instance.len()
   );
+
   StepConversionResult {
     data: ParametricRenderingData {
       surfaces: trimmed_surfaces,
