@@ -59,7 +59,6 @@ pub fn build_material(
               .as_ref()
               .and_then(|t| get_texture2d_info(t, 0, reader, textures)),
             extras: Default::default(),
-            others: Default::default(),
           }),
           ..Default::default()
         }),

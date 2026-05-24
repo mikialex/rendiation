@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 rendiation-parametric-rendering = { path = "../parametric-rendering" }
 rendiation-algebra = { path = "../../math/algebra" }
-gltf-json = { version = "1", features = ["names", "KHR_materials_unlit"] }
+gltf-json = { version = "1.4", features = ["names", "KHR_materials_unlit"] }
 serde_json = "1"

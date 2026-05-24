@@ -6,10 +6,11 @@ version = "0.0.1"
 [dependencies]
 bytemuck = { workspace = true }
 fast-hash-collection = { path = "../../../../utility/fast-hash-collection" }
-gltf = { version = "1.2.0", features = [
+gltf = { version = "1.4.1", features = [
     "KHR_materials_pbrSpecularGlossiness",
     "KHR_lights_punctual",
     "KHR_materials_unlit",
+    "extras",
 ] }
 half = { version = "2.6" }
 storage = { path = "../../../../utility/storage" }
