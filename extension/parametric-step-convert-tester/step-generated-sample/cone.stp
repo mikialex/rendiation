@@ -1,0 +1,73 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION((''), '2;1');
+FILE_NAME('test_cone.stp', '2026-05-24', (''), (''), 'Claude', '', '');
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 2 10303 214 0 1 1 1 }'));
+ENDSEC;
+DATA;
+/* === Units & context === */
+#1 = (LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI., .METRE.));
+#2 = DIMENSIONAL_EXPONENTS(0.,0.,0.,0.,0.,0.,0.);
+#3 = (NAMED_UNIT(*) PLANE_ANGLE_UNIT() SI_UNIT($,.RADIAN.));
+#4 = PLANE_ANGLE_MEASURE_WITH_UNIT(PLANE_ANGLE_MEASURE(0.0174532925),#3);
+#5 = (CONVERSION_BASED_UNIT('DEGREE',#4) NAMED_UNIT(#2) PLANE_ANGLE_UNIT());
+#6 = (NAMED_UNIT(*) SI_UNIT($,.STERADIAN.) SOLID_ANGLE_UNIT());
+#7 = UNCERTAINTY_MEASURE_WITH_UNIT(LENGTH_MEASURE(1.E-06),#1,'','');
+#8 = (GEOMETRIC_REPRESENTATION_CONTEXT(3) GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT((#7)) GLOBAL_UNIT_ASSIGNED_CONTEXT((#5,#6,#1)) REPRESENTATION_CONTEXT('',''));
+#9 = APPLICATION_CONTEXT('automotive design');
+#10 = APPLICATION_PROTOCOL_DEFINITION('DRAFT_INTERNATIONAL_STANDARD','automotive_design',1998,#9);
+#11 = PRODUCT_CONTEXT('3D',#9,'mechanical');
+#12 = PRODUCT('TEST_CONE','TEST_CONE','',(#11));
+#13 = PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE('','',#12,.MADE.);
+#14 = PRODUCT_DEFINITION_CONTEXT('part definition',#9,'design');
+#15 = PRODUCT_DEFINITION('','',#13,#14);
+#16 = PRODUCT_DEFINITION_SHAPE('','',#15);
+/* === Surface: CONICAL_SURFACE === */
+/* Location at z=0, axis +Z, radius at location=1.5, semi_angle=0.25rad so */
+/* radius goes from about 1.9 (z=-1.5) to 1.1 (z=1.5), fits in 3x3x3 */
+#20 = CARTESIAN_POINT('',(0.,0.,0.));
+#21 = DIRECTION('',(0.,0.,1.));
+#22 = DIRECTION('',(1.,0.,0.));
+#23 = AXIS2_PLACEMENT_3D('',#20,#21,#22);
+#24 = CONICAL_SURFACE('',#23,1.5,0.25);
+/* === Vertices at seam (theta=0) === */
+#30 = CARTESIAN_POINT('',(1.875,0.,-1.5));
+#31 = CARTESIAN_POINT('',(1.125,0.,1.5));
+#32 = VERTEX_POINT('',#30);
+#33 = VERTEX_POINT('',#31);
+/* === Seam edge: line from bottom to top === */
+#40 = CARTESIAN_POINT('',(1.875,0.,-1.5));
+#41 = DIRECTION('',(-0.25,0.,1.));
+#42 = VECTOR('',#41,3.092);
+#43 = LINE('',#40,#42);
+#44 = EDGE_CURVE('',#32,#33,#43,.T.);
+/* === Top circle === */
+#45 = CARTESIAN_POINT('',(0.,0.,1.5));
+#46 = DIRECTION('',(0.,0.,-1.));
+#47 = DIRECTION('',(1.,0.,0.));
+#48 = AXIS2_PLACEMENT_3D('',#45,#46,#47);
+#49 = CIRCLE('',#48,1.125);
+#50 = EDGE_CURVE('',#33,#33,#49,.T.);
+/* === Bottom circle === */
+#51 = CARTESIAN_POINT('',(0.,0.,-1.5));
+#52 = DIRECTION('',(0.,0.,1.));
+#53 = DIRECTION('',(1.,0.,0.));
+#54 = AXIS2_PLACEMENT_3D('',#51,#52,#53);
+#55 = CIRCLE('',#54,1.875);
+#56 = EDGE_CURVE('',#32,#32,#55,.T.);
+/* === Loop === */
+#60 = ORIENTED_EDGE('',*,*,#44,.T.);
+#61 = ORIENTED_EDGE('',*,*,#50,.F.);
+#62 = ORIENTED_EDGE('',*,*,#44,.F.);
+#63 = ORIENTED_EDGE('',*,*,#56,.T.);
+#64 = EDGE_LOOP('',(#60,#61,#62,#63));
+#65 = FACE_OUTER_BOUND('',#64,.T.);
+#66 = ADVANCED_FACE('',(#65),#24,.F.);
+/* === Shell & model === */
+#70 = CLOSED_SHELL('',(#66));
+#71 = MANIFOLD_SOLID_BREP('',#70);
+/* === Shape representation === */
+#80 = SHAPE_REPRESENTATION('',(#71,#23),#8);
+#81 = SHAPE_DEFINITION_REPRESENTATION(#16,#80);
+ENDSEC;
+END-ISO-10303-21;

@@ -52,6 +52,7 @@ pub struct StepReadConfig {
   pub project_tolerance: f32,
   pub project_max_iter: usize,
   pub fit_tolerance: f32,
+  pub validate_step_input_trim_curve_is_inbound: bool,
 }
 
 impl Default for StepReadConfig {
@@ -62,6 +63,7 @@ impl Default for StepReadConfig {
       project_tolerance: 1e-6,
       project_max_iter: 20,
       fit_tolerance: 1e-4,
+      validate_step_input_trim_curve_is_inbound: true,
     }
   }
 }
