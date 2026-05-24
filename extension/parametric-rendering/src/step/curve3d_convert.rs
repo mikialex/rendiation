@@ -153,6 +153,17 @@ fn convert_circle_to_bezier_curves(
     start_dir = normal.cross(start_dir);
   }
 
+  // Nudge the last arc's endpoint inward by a microscopic amount so the
+  // circle does not close perfectly.  A closed circle produces a wrapped
+  // tessellation polyline whose closing segment (360°→0°) creates a large
+  // Δu jump that breaks downstream UV clipping.
+  if let Some(last) = curves.last_mut() {
+    let cp = last.control_points_mut();
+    let n = cp.len();
+    let eps: f32 = 1e-6 * radius_f32;
+    cp[n - 1].x += eps;
+  }
+
   curves
 }
 
@@ -221,6 +232,14 @@ fn convert_ellipse_to_bezier_curves(
 
     curves.push(RationalBezierCurve3d::new(cp, 2));
     start_dir = end_dir;
+  }
+
+  // Same wrap-avoidance nudge as the circle converter (see comment there).
+  if let Some(last) = curves.last_mut() {
+    let cp = last.control_points_mut();
+    let n = cp.len();
+    let eps: f32 = 1e-6 * a.max(b);
+    cp[n - 1].x += eps;
   }
 
   curves
