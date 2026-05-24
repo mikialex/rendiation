@@ -3270,6 +3270,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "parametric-step-convert-tester"
+version = "0.1.0"
+dependencies = [
+ "gltf-json",
+ "rendiation-algebra",
+ "rendiation-parametric-rendering",
+ "serde_json",
+]
+
+[[package]]
 name = "parking"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4429,7 +4439,6 @@ name = "rendiation-parametric-rendering"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
- "gltf-json",
  "pollster",
  "rendiation-algebra",
  "rendiation-geometry",

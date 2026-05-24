@@ -135,6 +135,15 @@ pub fn process_trim_curves_for_face(
       })
       .collect();
 
+    if config.validate_step_input_trim_curve_is_inbound {
+      for p in &projected {
+        if p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 {
+          println!("projected point out of bounds: {p}");
+          break;
+        }
+      }
+    }
+
     flush_projected_to_patches(
       ei,
       projected,
@@ -343,7 +352,6 @@ fn flush_projected_to_patches(
         } else {
           let last = *current.last().unwrap();
           if (last - c0).length() > 1e-6 {
-            // Disconnect — start new sub-polyline
             if current.len() >= 2 {
               per_patch
                 .edge_mut(pi, ei)
@@ -355,7 +363,6 @@ fn flush_projected_to_patches(
         }
         current.push(c1);
       } else {
-        // Segment outside patch — flush current
         if current.len() >= 2 {
           per_patch
             .edge_mut(pi, ei)

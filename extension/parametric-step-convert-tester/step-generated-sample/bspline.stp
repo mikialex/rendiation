@@ -1,0 +1,80 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION((''), '2;1');
+FILE_NAME('test_bspline.stp', '2026-05-24', (''), (''), 'Claude', '', '');
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 2 10303 214 0 1 1 1 }'));
+ENDSEC;
+DATA;
+/* === Units & context === */
+#1 = (LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI., .METRE.));
+#2 = DIMENSIONAL_EXPONENTS(0.,0.,0.,0.,0.,0.,0.);
+#3 = (NAMED_UNIT(*) PLANE_ANGLE_UNIT() SI_UNIT($,.RADIAN.));
+#4 = PLANE_ANGLE_MEASURE_WITH_UNIT(PLANE_ANGLE_MEASURE(0.0174532925),#3);
+#5 = (CONVERSION_BASED_UNIT('DEGREE',#4) NAMED_UNIT(#2) PLANE_ANGLE_UNIT());
+#6 = (NAMED_UNIT(*) SI_UNIT($,.STERADIAN.) SOLID_ANGLE_UNIT());
+#7 = UNCERTAINTY_MEASURE_WITH_UNIT(LENGTH_MEASURE(1.E-06),#1,'','');
+#8 = (GEOMETRIC_REPRESENTATION_CONTEXT(3) GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT((#7)) GLOBAL_UNIT_ASSIGNED_CONTEXT((#5,#6,#1)) REPRESENTATION_CONTEXT('',''));
+#9 = APPLICATION_CONTEXT('automotive design');
+#10 = APPLICATION_PROTOCOL_DEFINITION('DRAFT_INTERNATIONAL_STANDARD','automotive_design',1998,#9);
+#11 = PRODUCT_CONTEXT('3D',#9,'mechanical');
+#12 = PRODUCT('TEST_BSPLINE','TEST_BSPLINE','',(#11));
+#13 = PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE('','',#12,.MADE.);
+#14 = PRODUCT_DEFINITION_CONTEXT('part definition',#9,'design');
+#15 = PRODUCT_DEFINITION('','',#13,#14);
+#16 = PRODUCT_DEFINITION_SHAPE('','',#15);
+/* === Surface: B_SPLINE_SURFACE_WITH_KNOTS, biquadratic, 3x3 CP === */
+/* Dome shape peaking at z=1.5 in center, corners at z=0 */
+#20 = CARTESIAN_POINT('',(0.,0.,0.));
+#21 = CARTESIAN_POINT('',(1.5,0.,0.));
+#22 = CARTESIAN_POINT('',(3.,0.,0.));
+#23 = CARTESIAN_POINT('',(0.,1.5,1.));
+#24 = CARTESIAN_POINT('',(1.5,1.5,1.5));
+#25 = CARTESIAN_POINT('',(3.,1.5,1.));
+#26 = CARTESIAN_POINT('',(0.,3.,0.));
+#27 = CARTESIAN_POINT('',(1.5,3.,0.));
+#28 = CARTESIAN_POINT('',(3.,3.,0.));
+#30 = B_SPLINE_SURFACE_WITH_KNOTS('',2,2,((#20,#23,#26),(#21,#24,#27),(#22,#25,#28)),.UNSPECIFIED.,.F.,.F.,.F.,(3,3),(3,3),(0.,1.),(0.,1.),.UNSPECIFIED.);
+/* === Vertices (4 corners in 3D) === */
+#40 = CARTESIAN_POINT('',(0.,0.,0.));
+#41 = CARTESIAN_POINT('',(3.,0.,0.));
+#42 = CARTESIAN_POINT('',(3.,3.,0.));
+#43 = CARTESIAN_POINT('',(0.,3.,0.));
+#44 = VERTEX_POINT('',#40);
+#45 = VERTEX_POINT('',#41);
+#46 = VERTEX_POINT('',#42);
+#47 = VERTEX_POINT('',#43);
+/* === Edges: isocurves matching the B-spline surface boundaries === */
+/* E1: v=0 isocurve (straight line along X at z=0) */
+#50 = CARTESIAN_POINT('',(0.,0.,0.));
+#51 = DIRECTION('',(1.,0.,0.));
+#52 = VECTOR('',#51,3.);
+#53 = LINE('',#50,#52);
+#54 = EDGE_CURVE('',#44,#45,#53,.T.);
+/* E2: u=1 isocurve (parabola in XZ plane) */
+#55 = B_SPLINE_CURVE_WITH_KNOTS('',2,(#22,#25,#28),.UNSPECIFIED.,.F.,.F.,(3,3),(0.,1.),.UNSPECIFIED.);
+#56 = EDGE_CURVE('',#45,#46,#55,.T.);
+/* E3: v=1 isocurve (straight line along -X at z=0) */
+#57 = CARTESIAN_POINT('',(3.,3.,0.));
+#58 = DIRECTION('',(-1.,0.,0.));
+#59 = VECTOR('',#58,3.);
+#60 = LINE('',#57,#59);
+#61 = EDGE_CURVE('',#46,#47,#60,.T.);
+/* E4: u=0 isocurve (parabola in XZ plane, reversed) */
+#62 = B_SPLINE_CURVE_WITH_KNOTS('',2,(#20,#23,#26),.UNSPECIFIED.,.F.,.F.,(3,3),(0.,1.),.UNSPECIFIED.);
+#63 = EDGE_CURVE('',#47,#44,#62,.F.);
+/* === Loop & face === */
+#70 = ORIENTED_EDGE('',*,*,#54,.T.);
+#71 = ORIENTED_EDGE('',*,*,#56,.T.);
+#72 = ORIENTED_EDGE('',*,*,#61,.F.);
+#73 = ORIENTED_EDGE('',*,*,#63,.T.);
+#74 = EDGE_LOOP('',(#70,#71,#72,#73));
+#75 = FACE_OUTER_BOUND('',#74,.T.);
+#76 = ADVANCED_FACE('',(#75),#30,.F.);
+/* === Shell & model === */
+#80 = CLOSED_SHELL('',(#76));
+#81 = MANIFOLD_SOLID_BREP('',#80);
+/* === Shape representation === */
+#90 = SHAPE_REPRESENTATION('',(#81),#8);
+#91 = SHAPE_DEFINITION_REPRESENTATION(#16,#90);
+ENDSEC;
+END-ISO-10303-21;
