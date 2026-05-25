@@ -3853,6 +3853,8 @@ name = "rendiation-area-lighting"
 version = "0.1.0"
 dependencies = [
  "database",
+ "fast-hash-collection",
+ "parking_lot",
  "png",
  "rendiation-algebra",
  "rendiation-geometry",

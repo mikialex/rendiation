@@ -334,6 +334,39 @@ pub trait DBHookCxLike: QueryHookCxLike {
       consumer_id,
     )
   }
+
+  // only some in spawn stage
+  fn use_db_entity_any_change<E: EntitySemantic>(&mut self) -> Option<bool> {
+    let (cx, watcher) = self.use_plain_state(|| {
+      let e_id = E::entity_id();
+      let waker = Arc::new(AtomicWaker::new());
+
+      struct AllComponentWatcher {
+        waker: Arc<AtomicWaker>,
+        _remover: Vec<EventSourceDropper<ChangePtr>>,
+      }
+
+      // todo, we should considering the edge case that the entity has no component
+      global_database().access_table_dyn(e_id, move |e| {
+        let components = e.internal.components.read();
+        let _remover = components
+          .iter()
+          .map(|(_, c)| {
+            let waker = waker.clone();
+            let remover = c.data_watchers.on(move |_| {
+              waker.wake();
+              false
+            });
+            EventSourceDropper::new(remover, c.data_watchers.make_weak())
+          })
+          .collect();
+
+        AllComponentWatcher { waker, _remover }
+      })
+    });
+    watcher.waker.register(cx.waker());
+    todo!()
+  }
 }
 
 pub type RevRefForeignKeyRead = RevRefContainerRead<RawEntityHandle, RawEntityHandle>;

@@ -112,7 +112,7 @@ impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayVi
   fn into_shader_iter(self) -> Self::ShaderIter {
     ShaderStaticArrayIter {
       cursor: val(0_u32).make_local_var(),
-      len: self.len,
+      len: val(self.len),
       array: self,
     }
   }
@@ -136,7 +136,7 @@ impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayRe
   fn into_shader_iter(self) -> Self::ShaderIter {
     ShaderStaticArrayReadonlyIter {
       cursor: val(0_u32).make_local_var(),
-      len: self.len,
+      len: val(self.len),
       array: self,
     }
   }
