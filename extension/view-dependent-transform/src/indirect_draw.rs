@@ -73,6 +73,7 @@ struct PerViewGPUResource {
   mapping_change: FastHashMap<RawEntityHandle, u32>,
   index_remap: GPUBufferImpl<u32>,
   overrides_updates: Option<SparseBufferWritesSource>,
+  should_grow_slab: bool,
   should_check_slab_shrink: bool,
 }
 
@@ -105,15 +106,21 @@ impl PerViewGPUResource {
       slab: Default::default(),
       mapping: Default::default(),
       should_check_slab_shrink: false,
+      should_grow_slab: false,
     }
   }
 
   pub fn notify_max_sm_size(&mut self, max_sm_size: usize) {
     self.index_remap.grow_at_least(max_sm_size as u32);
-    if self.should_check_slab_shrink {
-      self.slab.shrink_to_fit();
+    if self.should_check_slab_shrink || self.should_grow_slab {
+      if self.should_check_slab_shrink {
+        self.slab.shrink_to_fit();
+      }
+
       self.overrides.buffer.resize(self.slab.capacity() as u32);
+
       self.should_check_slab_shrink = false;
+      self.should_grow_slab = false;
     }
   }
 
@@ -133,6 +140,7 @@ impl PerViewGPUResource {
       .get_or_insert_with(|| SparseBufferWritesSource::with_capacity(0, 0));
     let sm_data_byte_offset = new_index as u64 * std::mem::size_of::<NodeStorage>() as u64;
     data_writer.collect_write(bytes_of(&node), sm_data_byte_offset);
+    self.should_grow_slab = true;
   }
 
   pub fn remove(&mut self, sm: RawEntityHandle) {

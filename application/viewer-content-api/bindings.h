@@ -771,7 +771,7 @@ void drop_mesh(AttributesMeshEntitiesCommon entities);
 
 void update_mesh_data(AttributesMeshEntitiesCommon *entities,
                       uint32_t byte_size,
-                      const float *data,
+                      const uint8_t *data,
                       MeshAPIDataType vertex_ty);
 
 void set_mesh_topology(ViewerEntityHandle mesh, MeshPrimitiveTopology topo);

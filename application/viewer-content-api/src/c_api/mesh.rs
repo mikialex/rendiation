@@ -183,7 +183,7 @@ pub enum MeshAPIDataType {
 pub extern "C" fn update_mesh_data(
   entities: &mut AttributesMeshEntitiesCommon,
   byte_size: u32,
-  data: *const f32,
+  data: *const u8,
   vertex_ty: MeshAPIDataType,
 ) {
   if byte_size == 0 || data.is_null() {
@@ -203,7 +203,7 @@ pub extern "C" fn update_mesh_data(
     return;
   }
 
-  let data = unsafe { slice::from_raw_parts(data as *const u8, byte_size as usize) };
+  let data = unsafe { slice::from_raw_parts(data, byte_size as usize) };
   let data = ExternalRefPtr::new(MaybeUriData::Living(Arc::new(data.to_vec())));
 
   let mut buffer_writer = global_entity_of::<BufferEntity>().entity_writer();
