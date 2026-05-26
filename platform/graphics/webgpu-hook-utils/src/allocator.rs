@@ -402,7 +402,11 @@ impl RangeAllocateBufferUpdates {
   pub fn write(&self, gpu: &GPU, encoder: &mut GPUCommandEncoder, target: &dyn AbstractBuffer) {
     if self.allocation_changes.has_data_movements() {
       let mut iter = self.allocation_changes.iter_data_movements();
-      target.batch_self_relocate(&mut iter, encoder, &gpu.device);
+      // we must use a standalone encoder, because the below code do queue write
+      // todo, consider impl encoder write buffer to avoid this mental overhead
+      let mut encoder = gpu.create_encoder();
+      target.batch_self_relocate(&mut iter, &mut encoder, &gpu.device);
+      gpu.submit_encoder(encoder);
     }
 
     let item_byte_size = self.allocation_changes.1 * 4;
