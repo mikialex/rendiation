@@ -78,6 +78,7 @@ impl<T: Std140> PerSceneLightArray<T> {
 
 const LIGHT_LIST_LEN: usize = 8;
 
+#[repr(C)]
 #[derive(Default, Clone, Copy, Debug)]
 pub struct UniformArrayWithLengthInfo<T: Std140> {
   pub length: Vec4<u32>, // use vec4 for alignment, only .x is the length info

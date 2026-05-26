@@ -25,9 +25,7 @@ pub fn use_cascade_shadow_map(
     })
     .collect::<FastHashMap<_, _>>();
 
-  let source_world = use_global_node_world_mat(cx)
-    .fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>(), cx)
-    .use_assure_result(cx);
+  let source_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
   cx.when_render(|| {
     let (lights_mapping, _) = lights.as_ref().unwrap();
@@ -51,7 +49,7 @@ pub fn use_cascade_shadow_map(
         return None;
       }
       let node = light_ref_node.access(&light_id).unwrap()?;
-      let source_world = source_world.view.access(&node)?;
+      let source_world = source_world.access(&node)?;
       let size = shadow_map_size.access(&light_id).unwrap();
       let bias = shadow_bias.access(&light_id).unwrap();
       let orth = shadow_proj

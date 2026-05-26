@@ -234,7 +234,7 @@ impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayReadon
     self.cursor.store(current_next + val(1));
     let has_next = current_next.less_than(self.len);
 
-    // we still read the 0 position, but it's ok
+    // if len is 0, we still read the 0 position, but it's ok read the 0 position
     let max_index = self.len.equals(val(0)).select(val(0), self.len - val(1));
 
     let uniform = self.array.index(current_next.min(max_index));
