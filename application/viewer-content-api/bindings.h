@@ -585,7 +585,6 @@ struct Text3dContentInfoC {
   const char *content;
   float font_size;
   float line_height;
-  float scale;
   const char *font;
   uint32_t weight;
   bool has_weight;
@@ -891,6 +890,10 @@ SceneText3dHandleInfo create_text3d(ViewerEntityHandle node, const Text3dContent
 void text3d_set_content(ViewerEntityHandle handle, const Text3dContentInfoC *content);
 
 void drop_text3d(SceneText3dHandleInfo p);
+
+void text3d_query(ViewerAPI *api, ViewerEntityHandle handle, float (*result)[16], bool *has_result);
+
+void text3d_set_local_transform(ViewerEntityHandle handle, const float (*mat)[16]);
 
 ViewerEntityHandle create_dir_light(ViewerEntityHandle node);
 

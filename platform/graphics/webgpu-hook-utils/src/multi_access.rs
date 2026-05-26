@@ -15,8 +15,16 @@ pub fn use_multi_access_gpu(
   source: UseResult<impl TriQueryLike<Key = RawEntityHandle, Value = RawEntityHandle>>,
   label: &str,
 ) -> Option<MultiAccessGPUData> {
+  fn label_impl(label: &str) -> String {
+    format!("multi-access-many-side: {}", label)
+  }
+
   let (cx, allocator) = cx.use_sharable_plain_state(|| {
-    GrowableRangeAllocator::new(init.max_possible_many_count, init.init_many_count_capacity)
+    GrowableRangeAllocator::new(
+      &label_impl(label),
+      init.max_possible_many_count,
+      init.init_many_count_capacity,
+    )
   });
 
   let (cx, many_side_buffer) = cx.use_gpu_init(|gpu, alloc| {
@@ -24,7 +32,7 @@ pub fn use_multi_access_gpu(
       .allocate_readonly::<[u32]>(
         (init.init_many_count_capacity * 4) as u64,
         &gpu.device,
-        Some(&format!("multi-access-many-side: {}", label)),
+        Some(&label_impl(label)),
       )
       .with_direct_resize(gpu);
     Arc::new(RwLock::new(buffer))

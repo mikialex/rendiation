@@ -290,7 +290,6 @@ pub struct Text3dContentInfoC {
   pub content: *const c_char,
   pub font_size: f32,
   pub line_height: f32,
-  pub scale: f32,
   pub font: *const c_char,
   pub weight: u32,
   pub has_weight: bool,
@@ -362,7 +361,6 @@ fn text3d_content_from_c(
     content: parse_optional_c_string(info.content).unwrap_or_default(),
     font_size: info.font_size,
     line_height: info.line_height,
-    scale: info.scale,
     font: parse_optional_c_string(info.font),
     weight: info.has_weight.then_some(info.weight),
     color: info.color.into(),
@@ -383,4 +381,32 @@ pub extern "C" fn drop_text3d(p: SceneText3dHandleInfo) {
   global_entity_of::<SceneModelEntity>()
     .entity_writer()
     .delete_entity(p.scene_model.into());
+}
+
+#[no_mangle]
+pub extern "C" fn text3d_query(
+  api: &mut ViewerAPI,
+  handle: ViewerEntityHandle,
+  result: &mut [f32; 16],
+  has_result: &mut bool,
+) {
+  let mut font_sys = api.core.viewer.font_system.write();
+  if let Some(r) = compute_text_layout_info(handle.into(), &mut font_sys) {
+    let bbox = r.local_bbox;
+    result[0] = bbox.min.x;
+    result[1] = bbox.min.y;
+    result[2] = bbox.min.z;
+    result[3] = bbox.max.x;
+    result[4] = bbox.max.y;
+    result[5] = bbox.max.z;
+    *has_result = true;
+  } else {
+    *has_result = false;
+  }
+}
+
+#[no_mangle]
+pub extern "C" fn text3d_set_local_transform(handle: ViewerEntityHandle, mat: &[f32; 16]) {
+  let mat = Mat4::from(*mat);
+  write_global_db_component::<Text3dLocalTransform>().write(handle.into(), mat);
 }

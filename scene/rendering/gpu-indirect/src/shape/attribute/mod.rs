@@ -154,13 +154,16 @@ fn use_attribute_indices_updates(
     Arc::new(RwLock::new(indices))
   });
 
+  let label = "indirect mesh indices";
+
   cx.if_inspect(|inspector| {
     let buffer_size = gpu_buffer.read().gpu().byte_size();
-    inspector.label_device_memory_usage("bindless index", buffer_size);
+    inspector.label_device_memory_usage(label, buffer_size);
   });
 
-  let (cx, allocator) =
-    cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_item_count, init_item_count));
+  let (cx, allocator) = cx.use_sharable_plain_state(|| {
+    GrowableRangeAllocator::new(label, max_item_count, init_item_count)
+  });
 
   let gpu_buffer_ = gpu_buffer.clone();
 
@@ -246,12 +249,10 @@ fn use_attribute_vertex_updates(
   UseResult<Arc<SparseBufferWritesSource>>,
   AbstractReadonlyStorageBuffer<[u32]>,
 ) {
+  let label = "indirect mesh vertices";
   let (cx, vertex_buffer) = cx.use_gpu_init(|gpu, alloc| {
-    let buffer = alloc.allocate_readonly::<[u32]>(
-      init_u32_count as u64 * 4,
-      &gpu.device,
-      Some("bindless mesh vertex pool"),
-    );
+    let buffer =
+      alloc.allocate_readonly::<[u32]>(init_u32_count as u64 * 4, &gpu.device, Some(label));
 
     let buffer = buffer.with_direct_resize(gpu);
 
@@ -260,11 +261,11 @@ fn use_attribute_vertex_updates(
 
   cx.if_inspect(|inspector| {
     let buffer_size = vertex_buffer.read().gpu().byte_size();
-    inspector.label_device_memory_usage("bindless vertex pool", buffer_size);
+    inspector.label_device_memory_usage(label, buffer_size);
   });
 
-  let (cx, allocator) =
-    cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_u32_count, init_u32_count));
+  let (cx, allocator) = cx
+    .use_sharable_plain_state(|| GrowableRangeAllocator::new(label, max_u32_count, init_u32_count));
 
   let gpu_buffer = vertex_buffer.clone();
 

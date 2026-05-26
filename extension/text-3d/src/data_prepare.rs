@@ -56,9 +56,10 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for Text3dSceneModelLocalBoundin
     let font_system = self.0.clone();
     let local_boxes = cx
       .use_shared_dual_query(Text3dSlugBuffer(self.0.clone()))
+      .dual_query_zip(cx.use_dual_query::<Text3dLocalTransform>())
       .use_dual_query_execute_map(cx, move || {
         let font_system = font_system.make_read_holder();
-        move |_, slug_buffer| slug_buffer.compute_local_bounding(&font_system)
+        move |_, (slug_buffer, mat)| slug_buffer.compute_local_bounding(&font_system, mat)
       });
 
     let relation = cx.use_db_rev_ref_tri_view::<SceneModelText3dPayload>();
@@ -77,13 +78,11 @@ pub struct PositionedGlyph {
 pub struct SlugBuffer {
   pub positions: Vec<PositionedGlyph>,
   pub unique_glyphs: FastHashSet<GlyphKey>,
-  pub scale: f32,
 }
 
 impl SlugBuffer {
-  pub fn compute_local_bounding(&self, font_sys: &FontSystem) -> Box3 {
+  pub fn compute_local_bounding(&self, font_sys: &FontSystem, transform: Mat4<f32>) -> Box3 {
     let mut bbox = Box3::empty();
-    let scale = self.scale;
 
     for pos in &self.positions {
       if let Some(glyph) = font_sys.get_computed_slug_glyph(&pos.glyph_key) {
@@ -92,14 +91,14 @@ impl SlugBuffer {
         let x_max = glyph.bounds.max.x;
         let y_max = glyph.bounds.max.y;
 
-        let ox = pos.relative_x * scale;
-        let oy = pos.relative_y * scale;
-        let x0 = ox + x_min * scale;
-        let y0 = oy + y_min * scale;
-        let x1 = ox + x_max * scale;
-        let y1 = oy + y_max * scale;
-        bbox.expand_by_point(Vec3::new(x0, y0, 0.));
-        bbox.expand_by_point(Vec3::new(x1, y1, 0.));
+        let ox = pos.relative_x;
+        let oy = pos.relative_y;
+        let x0 = ox + x_min;
+        let y0 = oy + y_min;
+        let x1 = ox + x_max;
+        let y1 = oy + y_max;
+        bbox.expand_by_point(transform * Vec3::new(x0, y0, 0.));
+        bbox.expand_by_point(transform * Vec3::new(x1, y1, 0.));
       }
     }
 
@@ -320,7 +319,6 @@ pub fn create_slug_buffer_from_text3d_content(
   SlugBuffer {
     positions: glyph_buffer,
     unique_glyphs,
-    scale: input.scale,
   }
 }
 

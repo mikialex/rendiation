@@ -38,6 +38,7 @@ pub fn register_text3d_data_model(sparse: bool) {
 
   global_database()
     .declare_entity::<Text3dEntity>()
+    .declare_component::<Text3dLocalTransform>()
     .declare_component::<Text3dContent>();
 }
 
@@ -49,8 +50,6 @@ pub struct Text3dContentInfo {
   pub font_size: f32,
   /// in em
   pub line_height: f32,
-  /// the real glyph size(in local space) will be font_size * scale
-  pub scale: f32,
   /// if not provided, a default font will be used(the rendering may not be correct)
   pub font: Option<String>,
   pub weight: Option<u32>,
@@ -78,6 +77,29 @@ declare_component!(
   Text3dEntity,
   Option<ExternalRefPtr<Text3dContentInfo>>
 );
+declare_component!(
+  Text3dLocalTransform,
+  Text3dEntity,
+  Mat4<f32>,
+  Mat4::identity()
+);
+
+pub struct TextQueryResult {
+  /// note, this bbox is not considering the local transform([Text3dLocalTransform])
+  pub local_bbox: Box3<f32>,
+}
+
+pub fn compute_text_layout_info(
+  text: RawEntityHandle,
+  font_sys: &mut FontSystem,
+) -> Option<TextQueryResult> {
+  let text_3d = get_db_view::<Text3dContent>().access(&text)??;
+
+  let slug = create_slug_buffer_from_text3d_content(font_sys, &text_3d);
+  let local_bbox = slug.compute_local_bounding(font_sys, Mat4::identity());
+
+  TextQueryResult { local_bbox }.into()
+}
 
 pub struct FontSystem {
   system: cosmic_text::FontSystem,

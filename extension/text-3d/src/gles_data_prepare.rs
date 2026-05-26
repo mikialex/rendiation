@@ -10,7 +10,6 @@ pub fn prepare_gles_text(input: &SlugBuffer, font_sys: &FontSystem) -> Option<Sl
   let SlugBuffer {
     positions: glyph_buffer,
     unique_glyphs,
-    scale,
   } = input;
 
   let (packed, glyph_data_map) = pack_glyph_data(unique_glyphs, font_sys);
@@ -45,12 +44,12 @@ pub fn prepare_gles_text(input: &SlugBuffer, font_sys: &FontSystem) -> Option<Sl
     let (w, h) = glyph.bounds.size();
 
     // Object-space position (Y-up screen pixels)
-    let ox = positioned_glyph.relative_x * scale;
-    let oy = positioned_glyph.relative_y * scale;
-    let x0 = ox + x_min * scale;
-    let y0 = oy + y_min * scale;
-    let x1 = ox + x_max * scale;
-    let y1 = oy + y_max * scale;
+    let ox = positioned_glyph.relative_x;
+    let oy = positioned_glyph.relative_y;
+    let x0 = ox + x_min;
+    let y0 = oy + y_min;
+    let x1 = ox + x_max;
+    let y1 = oy + y_max;
 
     // Band transform: maps em-space to band indices
     let band_scale_x = if w > 0. {
@@ -75,7 +74,8 @@ pub fn prepare_gles_text(input: &SlugBuffer, font_sys: &FontSystem) -> Option<Sl
     let band_max_packed = f32::from_bits((band_max_y << 16) | band_max_x);
 
     // Inverse Jacobian: d(em)/d(obj) = 1/scale (uniform scaling)
-    let inv_scale = 1. / scale;
+    // let inv_scale = 1. / scale;
+    let inv_scale = 1.;
 
     // 4 corners: (objX, objY, normX, normY, emX, emY)
     let corners = [

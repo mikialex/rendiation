@@ -60,6 +60,10 @@ pub fn use_text3d_indirect_renderer(
   let vertices_range_updates = vertices_range_updates.map(|a| a.allocation_changes.clone());
   vertices_range_updates.update_storage_array_with_host(cx, params, offset);
 
+  let offset = std::mem::offset_of!(TextMeta, local_matrix);
+  let changes = cx.use_changes::<Text3dLocalTransform>();
+  changes.update_storage_array_with_host(cx, params, offset);
+
   params.use_max_item_count_by_db_entity::<Text3dEntity>(cx);
   params.use_update(cx);
 
@@ -315,7 +319,7 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
 
       let pos = quad.obj_space_min + quad.obj_space_size * offset;
       let uv = quad.em_space_min + quad.em_space_size * offset;
-      let local_position = vec3_node((pos, val(0.)));
+      let local_position = (text_meta.local_matrix * vec4_node((pos, val(0.), val(1.)))).xyz();
       let object_world_position = builder.query::<WorldPositionHP>();
       let (clip_position, render_space_position) =
         camera_transform_impl(builder, local_position, object_world_position);
@@ -335,13 +339,8 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
     builder.fragment(|builder, binding| {
       let text_id = builder.query::<Text3DShaderId>();
       let text_meta = text_meta.using(binding);
-      let curve_text_global_offset = text_meta
-        .index(text_id)
-        .load()
-        .expand()
-        .text_curves_range
-        .x()
-        / val(CurveData::u32_size());
+      let curve_text_global_offset =
+        text_meta.index(text_id).text_curves_range().load().x() / val(CurveData::u32_size());
 
       builder.insert_type_tag::<UnlitMaterialTag>();
 
