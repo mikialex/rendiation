@@ -25,6 +25,15 @@ pub fn compute_light_list<T: Std140 + Default>(
     list.push(light, light_data);
   }
 
+  // make sure for scene that has not light, we still get a empty array uniform
+  // do this to reduce the shader variation, and make sure the empty case is correctly synced
+  let scenes = get_db_set_view::<SceneEntity>();
+  for (scene, _) in scenes.iter_key_value() {
+    if !output.lists.contains_key(&scene) {
+      output.lists.insert(scene, PerSceneLightArray::default());
+    }
+  }
+
   output
 }
 

@@ -17,6 +17,7 @@ pub fn use_directional_per_scene_uniform_array_buffers(
 
   cx.skip_if_not_waked(|cx| {
     cx.use_db_entity_any_change::<DirectionalLightEntity>();
+    // todo, this also waked if camera changed
     let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
     if cx.is_in_render() {
@@ -38,9 +39,14 @@ pub fn create_directional_light_uniform(
 
   let ill = get_db_view::<DirectionalLightIlluminance>();
   let follow_camera = get_db_view::<DirectionalLightFollowCamera>();
+  let enabled = get_db_view::<DirectionalLightEnabled>();
 
   let iter_lights = light_ref_scene.iter_key_value().filter_map(|(light, s)| {
     let s = s?;
+    let enabled = enabled.access(&light)?;
+    if !enabled {
+      return None;
+    }
     let world_mat = node_world_mat(light_ref_node.access(&light)??);
     let direction = world_mat.forward().reverse().normalize();
     let light_data = DirectionalLightUniform {

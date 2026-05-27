@@ -38,9 +38,15 @@ pub fn create_point_light_uniform(
 
   let intensity = get_db_view::<PointLightIntensity>();
   let cutoff = get_db_view::<PointLightCutOffDistance>();
+  let enabled = get_db_view::<PointLightEnabled>();
 
   let iter_lights = light_ref_scene.iter_key_value().filter_map(|(light, s)| {
     let s = s?;
+
+    let enabled = enabled.access(&light)?;
+    if !enabled {
+      return None;
+    }
     let world_mat = node_world_mat(light_ref_node.access(&light)??);
     let position = into_hpt(world_mat.position()).into_uniform();
     let light_data = PointLightUniform {

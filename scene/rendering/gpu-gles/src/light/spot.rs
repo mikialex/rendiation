@@ -42,9 +42,14 @@ pub fn create_spot_light_uniform(
   let cutoff = get_db_view::<SpotLightCutOffDistance>();
   let half_cone = get_db_view::<SpotLightHalfConeAngle>();
   let half_penumbra = get_db_view::<SpotLightHalfPenumbraAngle>();
+  let enabled = get_db_view::<SpotLightEnabled>();
 
   let iter_lights = light_ref_scene.iter_key_value().filter_map(|(light, s)| {
     let s = s?;
+    let enabled = enabled.access(&light)?;
+    if !enabled {
+      return None;
+    }
     let world_mat = node_world_mat(light_ref_node.access(&light)??);
     let position = into_hpt(world_mat.position()).into_uniform();
     let direction = world_mat.forward().reverse().normalize().into_f32();

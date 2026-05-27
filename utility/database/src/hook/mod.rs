@@ -352,8 +352,11 @@ pub trait DBHookCxLike: QueryHookCxLike {
           .iter()
           .map(|(_, c)| {
             let waker = waker.clone();
-            let remover = c.data_watchers.on(move |_| {
-              waker.wake();
+            let remover = c.data_watchers.on(move |v| {
+              if let ScopedMessage::Message(_) = v {
+                waker.wake();
+              }
+
               false
             });
             EventSourceDropper::new(remover, c.data_watchers.make_weak())
