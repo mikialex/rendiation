@@ -70,7 +70,8 @@ struct PerViewGPUResource {
   overrides: SparseUpdateStorageBuffer<NodeStorage>,
   slab: Slab<()>,
   mapping: FastHashMap<RawEntityHandle, usize>,
-  mapping_change: FastHashMap<RawEntityHandle, u32>,
+  // use u32 as key because same position can has two different handle(cause range check panic)
+  mapping_change: FastHashMap<u32, u32>,
   index_remap: GPUBufferImpl<u32>,
   overrides_updates: Option<SparseBufferWritesSource>,
   should_grow_slab: bool,
@@ -110,6 +111,7 @@ impl PerViewGPUResource {
     }
   }
 
+  // can we simplify this?
   pub fn notify_max_sm_size(&mut self, max_sm_size: usize) {
     self.index_remap.grow_at_least(max_sm_size as u32);
     if self.should_check_slab_shrink || self.should_grow_slab {
@@ -117,7 +119,19 @@ impl PerViewGPUResource {
         self.slab.shrink_to_fit();
       }
 
-      self.overrides.buffer.resize(self.slab.capacity() as u32);
+      if self.should_grow_slab {
+        self
+          .overrides
+          .buffer
+          .grow_at_least(self.slab.capacity().min(1) as u32);
+      }
+
+      if self.should_check_slab_shrink {
+        self
+          .overrides
+          .buffer
+          .resize(self.slab.capacity().min(1) as u32);
+      }
 
       self.should_check_slab_shrink = false;
       self.should_grow_slab = false;
@@ -131,7 +145,7 @@ impl PerViewGPUResource {
     let new_index = self.slab.insert(());
     self.mapping.insert(sm, new_index);
 
-    self.mapping_change.insert(sm, new_index as u32);
+    self.mapping_change.insert(sm.index(), new_index as u32);
 
     // we are not cache change for this, because the data is not overlap(guaranteed by outside query)
     let node = NodeStorage::from_world_mat(mat);
@@ -147,7 +161,7 @@ impl PerViewGPUResource {
     let old_index = self.mapping.remove(&sm).unwrap();
     self.slab.remove(old_index);
     self.should_check_slab_shrink = true;
-    self.mapping_change.insert(sm, u32::MAX);
+    self.mapping_change.insert(sm.index(), u32::MAX);
   }
 
   // return if should exist
@@ -158,7 +172,7 @@ impl PerViewGPUResource {
     if self.mapping_change.len() > 0 {
       let mut updates = SparseBufferWritesSource::with_capacity(0, 0); // todo, capacity
       for (k, v) in self.mapping_change.drain() {
-        let sm_index_byte_offset = k.index() as u64 * std::mem::size_of::<u32>() as u64;
+        let sm_index_byte_offset = k as u64 * std::mem::size_of::<u32>() as u64;
         updates.collect_write(bytes_of(&v), sm_index_byte_offset);
       }
       updates.write_abstract(gpu, encoder, self.index_remap.gpu());
