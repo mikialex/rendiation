@@ -334,3 +334,66 @@ fn create_key_from_hash_impl<K: std::hash::Hash>(key: &K, key_id: u32) -> SubFun
 
   SubFunctionKeyType::UserDefined(key, key_id)
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  struct DummyCx<'a> {
+    memory: &'a mut FunctionMemory,
+    counter: u32,
+  }
+
+  unsafe impl HooksCxLike for DummyCx<'_> {
+    fn memory_mut(&mut self) -> &mut FunctionMemory {
+      self.memory
+    }
+    fn memory_ref(&self) -> &FunctionMemory {
+      self.memory
+    }
+    fn flush(&mut self) {
+      let drop_cx = &mut () as *mut ();
+      self.memory.flush(drop_cx);
+    }
+    fn is_dynamic_stage(&self) -> bool {
+      true
+    }
+
+    fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
+      let this = self as *mut Self;
+      let state = unsafe {
+        (*this).memory.expect_state_init(f, |_state: &mut T, _: &mut ()| {})
+      };
+      let this = unsafe { &mut *this };
+      (this, state)
+    }
+  }
+
+  #[test]
+  fn test_use_plain_state_no_aliased_mut() {
+    let mut memory = FunctionMemory::default();
+
+    let mut cx = DummyCx {
+      memory: &mut memory,
+      counter: 42,
+    };
+
+    // create state and use both returned &mut Self and &mut T simultaneously;
+    // verifies no aliased &mut UB under Stacked Borrows
+    let (cx, state) = cx.use_plain_state(|| 0u32);
+
+    cx.counter += 1;
+    *state += 1;
+
+    assert_eq!(cx.counter, 43);
+    assert_eq!(*state, 1);
+
+    // second call to exercise the same path again
+    let (cx2, state2) = cx.use_plain_state(|| 100u32);
+    *state2 += 1;
+    cx2.counter += 1;
+
+    assert_eq!(cx2.counter, 44);
+    assert_eq!(*state2, 101);
+  }
+}

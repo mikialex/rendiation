@@ -78,23 +78,25 @@ impl<'a> QueryGPUHookCx<'a> {
     &mut self,
     init: impl FnOnce(QueryGPUHookFeatureCx) -> T,
   ) -> (&mut Self, &mut T) {
-    let s = unsafe { std::mem::transmute_copy(&self) };
-
-    let state = self.memory.expect_state_init(
-      || {
-        init(QueryGPUHookFeatureCx {
-          gpu: self.gpu,
-          shared_ctx: self.shared_ctx,
-          storage_allocator: &self.storage_allocator,
-        })
-      },
-      |state: &mut T, dcx: &mut ()| {
-        let dcx: &mut QueryGPUHookDropCx = unsafe { std::mem::transmute(dcx) };
-        T::drop_from_cx(state, dcx);
-      },
-    );
-
-    (s, state)
+    let this = self as *mut Self;
+    let state = unsafe {
+      (*this).memory.expect_state_init(
+        || {
+          init(QueryGPUHookFeatureCx {
+            gpu: (*this).gpu,
+            shared_ctx: (*this).shared_ctx,
+            storage_allocator: &(*this).storage_allocator,
+          })
+        },
+        |state: &mut T, dcx: &mut QueryGPUHookDropCx| {
+          T::drop_from_cx(state, dcx);
+        },
+      )
+    };
+    // SAFETY: this is derived from a valid &mut self; state points into bump-allocated heap
+    // memory inside memory, not into the struct itself, so no aliased &mut is created.
+    let this = unsafe { &mut *this };
+    (this, state)
   }
 
   pub fn use_state<T: Default + CanCleanUpFrom<QueryGPUHookDropCx> + 'static>(

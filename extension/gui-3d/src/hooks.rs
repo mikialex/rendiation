@@ -158,24 +158,26 @@ impl UI3dCx<'_> {
   where
     T: Any + for<'x> CanCleanUpFrom<UI3dBuildCx<'x>>,
   {
-    // this is safe because user can not access previous retrieved state through returned self.
-    let s = unsafe { std::mem::transmute_copy(&self) };
-
-    let state = self.memory.expect_state_init(
-      || {
-        let mut cx = UI3dBuildCx {
-          writer: self.writer.as_mut().expect("unable to build"),
-          cx: self.dyn_cx,
-          pick_group: self.pick_group,
-        };
-        init(&mut cx)
-      },
-      |state: &mut T, dcx: &mut UI3dBuildCx| {
-        state.do_clean_up(dcx);
-      },
-    );
-
-    (s, state)
+    let this = self as *mut Self;
+    let state = unsafe {
+      (*this).memory.expect_state_init(
+        || {
+          let mut cx = UI3dBuildCx {
+            writer: (*this).writer.as_mut().expect("unable to build"),
+            cx: (*this).dyn_cx,
+            pick_group: (*this).pick_group,
+          };
+          init(&mut cx)
+        },
+        |state: &mut T, dcx: &mut UI3dBuildCx| {
+          state.do_clean_up(dcx);
+        },
+      )
+    };
+    // SAFETY: this is derived from a valid &mut self; state points into bump-allocated heap
+    // memory inside memory, not into the struct itself, so no aliased &mut is created.
+    let this = unsafe { &mut *this };
+    (this, state)
   }
 }
 
