@@ -1,3 +1,5 @@
+use database::RawEntityHandle;
+use fast_hash_collection::FastHashMap;
 use rendiation_texture_packer::{
   pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker, pack_2d_to_3d::MultiLayerTexturePackerRaw,
   TexturePacker, TexturePackerInit,
@@ -7,124 +9,145 @@ use crate::*;
 
 const CASCADE_SHADOW_SPLIT_COUNT: usize = 4;
 
-/// As the cascade shadow map is highly dynamic(the change related to camera) and
-/// the shadow count should be small, the implementation is none-incremental
-pub struct CascadeShadowMapSystemInputs {
-  /// alloc_id => shadow map world
-  pub source_world: BoxedDynQuery<u32, Mat4<f64>>,
-  /// alloc_id => shadow map proj
-  pub source_proj: BoxedDynQuery<u32, Mat4<f32>>,
-  /// alloc_id => shadow map resolution
-  pub size: BoxedDynQuery<u32, Size>,
-  /// alloc_id => shadow map bias
-  pub bias: BoxedDynQuery<u32, ShadowBias>,
-  /// alloc_id => enabled
-  pub enabled: BoxedDynQuery<u32, bool>,
+pub struct CascadeShadowMapLightInput {
+  pub source_world: Mat4<f64>,
+  pub shadow_near_far: (f32, f32),
+  pub size: Size,
+  pub bias: ShadowBias,
+  pub shadow_enabled: bool,
 }
 
 type CascadeShadowPackerImpl = MultiLayerTexturePackerRaw<EtagerePacker>;
 
 pub fn generate_cascade_shadow_info(
-  inputs: &CascadeShadowMapSystemInputs,
+  cascade_info_access: &dyn Fn(RawEntityHandle) -> Option<CascadeShadowMapLightInput>,
   packer_size: SizeWithDepth,
   view_camera_proj: Mat4<f32>,
   view_camera_world: Mat4<f64>,
   ndc: &dyn NDCSpaceMapper<f32>,
   split_linear_log_blend_ratio: f32,
+  light_uniform_array_index_mapping: &LightArrayAllocateResult,
 ) -> CascadeShadowPreparer {
   let mut packer = CascadeShadowPackerImpl::init_by_config(packer_size);
 
-  let mut info = Vec::new();
-  let mut proj_info = Vec::new();
+  let to_opengl_ndc_space = ndc.transform_into_opengl_standard_ndc();
+  let view_camera_proj = to_opengl_ndc_space * view_camera_proj;
 
-  for (k, enabled) in inputs.enabled.iter_key_value() {
-    let gpu_buffer_idx = k as usize;
-    info.resize(info.len().max(gpu_buffer_idx + 1), Default::default());
-    proj_info.resize(proj_info.len().max(gpu_buffer_idx + 1), Default::default());
+  let mut scene_cascade_info =
+    FastHashMap::<RawEntityHandle, Shader140Array<CascadeShadowMapInfo, 8>>::default();
+  let mut light_proj_info =
+    FastHashMap::<RawEntityHandle, (Mat4<f64>, [Mat4<f32>; CASCADE_SHADOW_SPLIT_COUNT])>::default();
+  let mut light_cascade_info = FastHashMap::<RawEntityHandle, CascadeShadowMapInfo>::default();
 
-    if !enabled {
-      continue;
-    }
+  for (scene_id, light_id_mapping) in light_uniform_array_index_mapping.iter() {
+    let mut scene_array = Shader140Array::<CascadeShadowMapInfo, 8>::default();
 
-    let world = inputs.source_world.access(&k).unwrap();
-    let mut sub_proj_info = [Mat4::default(); CASCADE_SHADOW_SPLIT_COUNT];
+    for (light_id, uniform_array_index) in light_id_mapping.iter() {
+      let cascade_uniform = if let Some(input) = cascade_info_access(*light_id) {
+        if !input.shadow_enabled {
+          CascadeShadowMapInfo {
+            enabled: Bool::from(false),
+            ..Default::default()
+          }
+        } else {
+          let mut sub_proj_info = [Mat4::default(); CASCADE_SHADOW_SPLIT_COUNT];
+          let world_to_light = input.source_world.inverse_or_identity();
+          let shadow_near_far = input.shadow_near_far;
 
-    let to_opengl_ndc_space = ndc.transform_into_opengl_standard_ndc();
-    let shadow_camera_proj = to_opengl_ndc_space * inputs.source_proj.access(&k).unwrap();
-    // important note: we must not multiply shadow_camera_proj here, because the left right top bottom
-    // is computed, not used user defined value, if multiplied here, the projected shadow bound
-    // will be scaled incorrectly.
-    let world_to_light = world.inverse_or_identity();
+          let cascades = compute_cascade_split_info(
+            view_camera_world,
+            view_camera_proj,
+            world_to_light,
+            split_linear_log_blend_ratio,
+            shadow_near_far,
+          );
 
-    let view_camera_proj = to_opengl_ndc_space * view_camera_proj;
+          let light_world_inv = input.source_world.inverse_or_identity();
+          let mut cascade_info =
+            Vec::<SingleShadowMapInfo>::with_capacity(CASCADE_SHADOW_SPLIT_COUNT);
+          let mut splits = [0.; CASCADE_SHADOW_SPLIT_COUNT];
 
-    let shadow_near_far = shadow_camera_proj.get_near_far_assume_orthographic();
-    let cascades = compute_cascade_split_info(
-      view_camera_world,
-      view_camera_proj,
-      world_to_light,
-      split_linear_log_blend_ratio,
-      shadow_near_far,
-    );
+          for (idx, (sub_proj, split)) in cascades.iter().enumerate() {
+            if let Ok(pack) = packer.pack(input.size) {
+              let proj = sub_proj.compute_projection_mat(ndc);
+              let shadow_center_without_translation_to_shadowmap_ndc =
+                proj * light_world_inv.remove_position().into_f32();
 
-    let light_world = inputs.source_world.access(&k).unwrap();
-    let light_world_inv = light_world.inverse_or_identity();
+              cascade_info.push(SingleShadowMapInfo {
+                map_info: convert_pack_result(pack),
+                shadow_center_without_translation_to_shadowmap_ndc,
+                split_distance: *split, // this is not used
+                ..Default::default()
+              });
+              splits[idx] = *split;
+              sub_proj_info[idx] = proj;
+            } else {
+              log::warn!("shadow map pack failed");
+            }
+          }
 
-    let mut cascade_info = Vec::<SingleShadowMapInfo>::with_capacity(CASCADE_SHADOW_SPLIT_COUNT);
-    let size = inputs.size.access(&k).unwrap();
-    let mut splits = [0.; CASCADE_SHADOW_SPLIT_COUNT];
+          let shadow_world_position = into_hpt(input.source_world.position()).into_uniform();
 
-    for (idx, (sub_proj, split)) in cascades.iter().enumerate() {
-      if let Ok(pack) = packer.pack(size) {
-        let proj = sub_proj.compute_projection_mat(ndc);
-        let shadow_center_without_translation_to_shadowmap_ndc =
-          proj * light_world_inv.remove_position().into_f32();
+          light_proj_info.insert(*light_id, (input.source_world, sub_proj_info));
 
-        cascade_info.push(SingleShadowMapInfo {
-          map_info: convert_pack_result(pack),
-          shadow_center_without_translation_to_shadowmap_ndc,
-          split_distance: *split, // this is not used
-          ..Default::default()
-        });
-        splits[idx] = *split;
-        sub_proj_info[idx] = proj;
+          let info = CascadeShadowMapInfo {
+            bias: input.bias,
+            shadow_world_position,
+            map_info: Shader140Array::from_slice_clamp_or_default(&cascade_info),
+            splits: splits.into(),
+            enabled: true.into(),
+            ..Default::default()
+          };
+
+          light_cascade_info.insert(*light_id, info);
+          info
+        }
       } else {
-        log::warn!("shadow map pack failed");
-        continue;
-      }
+        CascadeShadowMapInfo {
+          enabled: Bool::from(false),
+          ..Default::default()
+        }
+      };
+
+      scene_array.set(*uniform_array_index as usize, cascade_uniform);
     }
 
-    let shadow_world_position = into_hpt(light_world.position()).into_uniform();
-
-    info[gpu_buffer_idx] = CascadeShadowMapInfo {
-      bias: inputs.bias.access(&k).unwrap(),
-      shadow_world_position,
-      map_info: Shader140Array::from_slice_clamp_or_default(&cascade_info),
-      splits: splits.into(),
-      enabled: true.into(),
-      ..Default::default()
-    };
-
-    proj_info[gpu_buffer_idx] = (world, sub_proj_info);
+    scene_cascade_info.insert(*scene_id, scene_array);
   }
 
   CascadeShadowPreparer {
-    info,
+    scene_cascade_info,
+    light_proj_info,
+    light_cascade_info,
     map_size: packer_size,
-    proj_info,
   }
 }
 
 pub struct CascadeShadowPreparer {
-  info: Vec<CascadeShadowMapInfo>,
-  proj_info: Vec<(Mat4<f64>, [Mat4<f32>; 4])>,
-  map_size: SizeWithDepth,
+  // scene entity -> per-scene cascade uniform array
+  pub scene_cascade_info: FastHashMap<RawEntityHandle, Shader140Array<CascadeShadowMapInfo, 8>>,
+  // light entity -> (world_mat, [4 cascade proj])
+  pub light_proj_info:
+    FastHashMap<RawEntityHandle, (Mat4<f64>, [Mat4<f32>; CASCADE_SHADOW_SPLIT_COUNT])>,
+  // light entity -> cascade info (contains atlas pack addresses)
+  pub light_cascade_info: FastHashMap<RawEntityHandle, CascadeShadowMapInfo>,
+  pub map_size: SizeWithDepth,
 }
 
 #[derive(Default)]
 pub struct CascadeShadowGPUCache {
   texture: Option<ShadowAtlas>,
-  uniforms: Option<UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, 8>>>,
+  // scene entity -> per-scene uniform buffer
+  uniforms:
+    FastHashMap<RawEntityHandle, UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, 8>>>,
+}
+
+pub struct CascadeShadowGPUData {
+  pub shadow_map_atlas: GPU2DArrayDepthTextureView,
+  // scene entity -> per-scene uniform buffer
+  pub uniforms:
+    FastHashMap<RawEntityHandle, UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, 8>>>,
+  pub reversed_depth: bool,
 }
 
 impl CascadeShadowPreparer {
@@ -136,10 +159,8 @@ impl CascadeShadowPreparer {
     // proj, world
     scene_content: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
-  ) -> CascadeShadowMapComponent {
+  ) -> CascadeShadowGPUData {
     let shadow_map_atlas = &mut resource_cache.texture;
-    let uniforms = &mut resource_cache.uniforms;
-
     let shadow_map_atlas = get_or_create_shadow_atlas(
       "cascade-shadow-map-atlas",
       self.map_size,
@@ -149,11 +170,11 @@ impl CascadeShadowPreparer {
     clear_shadow_map(&shadow_map_atlas, frame_ctx, reversed_depth);
 
     // do shadowmap updates
-    for (index, cascade) in self.info.iter().enumerate() {
+    for (light_id, cascade) in self.light_cascade_info.iter() {
       if cascade.enabled == Bool::from(false) {
         continue;
       }
-      let proj_info = self.proj_info[index];
+      let proj_info = self.light_proj_info.get(light_id).unwrap();
       let world = proj_info.0;
 
       for (slice_index, shadow_view) in cascade.map_info.iter().enumerate() {
@@ -185,15 +206,30 @@ impl CascadeShadowPreparer {
       }
     }
 
-    *uniforms = None; // todo, avoid create new buffer reference
-    let info = uniforms.get_or_insert_with(|| {
-      let uniforms = Shader140Array::from_slice_clamp_or_default(&self.info);
-      create_uniform(uniforms, &frame_ctx.gpu.device)
-    });
+    let mut old_uniforms = std::mem::take(&mut resource_cache.uniforms);
 
-    CascadeShadowMapComponent {
+    let uniforms: FastHashMap<
+      RawEntityHandle,
+      UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, 8>>,
+    > = self
+      .scene_cascade_info
+      .iter()
+      .map(|(scene_id, info)| {
+        let uniform = if let Some(existing) = old_uniforms.remove(scene_id) {
+          existing.write_at(&frame_ctx.gpu.queue, info, 0);
+          existing
+        } else {
+          create_uniform(info.clone(), &frame_ctx.gpu.device)
+        };
+        (*scene_id, uniform)
+      })
+      .collect();
+
+    resource_cache.uniforms = uniforms.clone();
+
+    CascadeShadowGPUData {
       shadow_map_atlas: shadow_map_atlas.get_full_view().clone(),
-      info: info.clone(),
+      uniforms,
       reversed_depth,
     }
   }
@@ -321,34 +357,11 @@ impl AbstractBindingSource for CascadeShadowMapComponent {
     ctx.bind(&self.info);
   }
 }
-
-impl RandomAccessShadowProvider for CascadeShadowMapComponent {
-  fn bind_shader(
-    &self,
-    cx: &mut ShaderBindGroupBuilder,
-  ) -> Box<dyn RandomAccessShadowProviderInvocation> {
-    Box::new(AbstractShaderBindingSource::bind_shader(self, cx))
-  }
-
-  fn bind_pass(&self, cx: &mut BindingBuilder) {
-    AbstractBindingSource::bind_pass(self, cx)
-  }
-}
-
 #[derive(Clone)]
 pub struct CascadeShadowMapInvocation {
   shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
   sampler: BindingNode<ShaderCompareSampler>,
   info: ShaderReadonlyPtrOf<Shader140Array<CascadeShadowMapInfo, 8>>,
-}
-
-impl RandomAccessShadowProviderInvocation for CascadeShadowMapInvocation {
-  fn get_shadow_by_light_id(&self, light_id: Node<u32>) -> Box<dyn ShadowOcclusionQuery> {
-    Box::new(CascadeShadowMapSingleInvocation {
-      sys: self.clone(),
-      index: light_id,
-    })
-  }
 }
 
 #[derive(Clone)]

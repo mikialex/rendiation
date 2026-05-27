@@ -115,7 +115,7 @@ pub fn use_scene_dynamic_bvh(
     .use_dual_query_hash_many_to_one(cx)
     .use_assure_result(cx);
 
-  let (cx, bvh) = cx.use_sharable_plain_state(SceneDynamicBvh::default);
+  let bvh = cx.use_sharable_plain_state(SceneDynamicBvh::default);
 
   let bvh_ = bvh.clone();
   let ids = cx

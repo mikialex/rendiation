@@ -161,7 +161,7 @@ fn use_attribute_indices_updates(
     inspector.label_device_memory_usage(label, buffer_size);
   });
 
-  let (cx, allocator) = cx.use_sharable_plain_state(|| {
+  let allocator = cx.use_sharable_plain_state(|| {
     GrowableRangeAllocator::new(label, max_item_count, init_item_count)
   });
 
@@ -264,7 +264,7 @@ fn use_attribute_vertex_updates(
     inspector.label_device_memory_usage(label, buffer_size);
   });
 
-  let (cx, allocator) = cx
+  let allocator = cx
     .use_sharable_plain_state(|| GrowableRangeAllocator::new(label, max_u32_count, init_u32_count));
 
   let gpu_buffer = vertex_buffer.clone();

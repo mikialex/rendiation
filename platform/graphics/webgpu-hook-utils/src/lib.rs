@@ -77,7 +77,7 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
     inspector.label_device_memory_usage(label, buffer_size);
   });
 
-  let (cx, allocator) = cx.use_sharable_plain_state(|| {
+  let allocator = cx.use_sharable_plain_state(|| {
     GrowableRangeAllocator::new(label, max_item_count, init_item_count)
   });
 

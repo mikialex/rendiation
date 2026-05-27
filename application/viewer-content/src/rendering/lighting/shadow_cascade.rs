@@ -1,4 +1,3 @@
-use rendiation_lighting_punctual::DirectionalShaderInfo;
 use rendiation_lighting_shadow_map::*;
 
 use crate::*;
@@ -9,6 +8,7 @@ pub fn use_cascade_shadow_map(
   ndc: ViewerNDC,
   shadow_pool_init_config: &MultiLayerTexturePackerConfig,
   split_linear_log_blend_ratio: f32,
+  lights: &Option<SharedLightUniformInfo<DirectionalLightUniform>>,
 ) -> Option<MultiCascadeShadowMapPreparer> {
   let camera_transform = cx
     .use_shared_dual_query_view(GlobalCameraTransformShare(ndc))
@@ -25,44 +25,41 @@ pub fn use_cascade_shadow_map(
     })
     .collect::<FastHashMap<_, _>>();
 
-  let source_world = use_global_node_world_mat(cx)
-    .fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>(), cx)
-    .use_assure_result(cx);
+  let source_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
   cx.when_render(|| {
-    let enabled =
-      get_db_view_no_generation_check::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>()
-        .into_boxed();
-    let bias =
-      get_db_view_no_generation_check::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
-        .map_value(|bias| bias.into())
-        .into_boxed();
-    let size = get_db_view_no_generation_check::<
-      BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>,
-    >()
-    .map_value(|size| Size::from_u32_pair_min_one(size.into()))
-    .into_boxed();
+    let lights = lights.as_ref().unwrap().read();
+    let mapping = &lights.allocation_info;
 
-    let source_world = source_world
-      .expect_resolve_stage()
-      .view()
-      .skip_generation_check::<DirectionalLightEntity>()
-      .into_boxed();
+    let light_ref_node = get_db_view::<DirectionalRefNode>();
+    let shadow_enabled = get_db_view::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>();
+    let shadow_map_size =
+      get_db_view::<BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>>();
+    let shadow_bias = get_db_view::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>();
+    let shadow_proj = get_db_view::<DirectionLightShadowBound>();
+    let source_world = source_world.expect_resolve_stage();
 
-    let source_proj = get_db_view_no_generation_check::<DirectionLightShadowBound>()
-      .map_value(move |orth| {
-        orth
-          .unwrap_or(DEFAULT_DIR_PROJ)
-          .compute_projection_mat(&ndc)
+    let cascade_info_access = |light_id: RawEntityHandle| -> Option<CascadeShadowMapLightInput> {
+      let enabled = shadow_enabled.access(&light_id).unwrap();
+      if !enabled {
+        return None;
+      }
+      let node = light_ref_node.access(&light_id).unwrap()?;
+      let source_world = source_world.access(&node)?;
+      let size = shadow_map_size.access(&light_id).unwrap();
+      let bias = shadow_bias.access(&light_id).unwrap();
+      let orth = shadow_proj
+        .access(&light_id)
+        .unwrap()
+        .unwrap_or(DEFAULT_DIR_PROJ);
+
+      Some(CascadeShadowMapLightInput {
+        source_world,
+        shadow_near_far: (orth.near, orth.far),
+        size: Size::from_u32_pair_min_one(size.into()),
+        bias: bias.into(),
+        shadow_enabled: true,
       })
-      .into_boxed();
-
-    let inputs = CascadeShadowMapSystemInputs {
-      source_world,
-      source_proj,
-      size,
-      bias,
-      enabled,
     };
 
     let camera_transform = camera_transform.expect_resolve_stage();
@@ -74,12 +71,13 @@ pub fn use_cascade_shadow_map(
         let view_camera_world = transform.world;
         //
         let info = generate_cascade_shadow_info(
-          &inputs,
-          shadow_pool_init_config.init_size, // todo not supported grow
+          &cascade_info_access,
+          shadow_pool_init_config.init_size,
           view_camera_proj,
           view_camera_world,
           &ndc,
           split_linear_log_blend_ratio,
+          &mapping,
         );
         let map = maps.get(&cv.camera).unwrap().clone();
         (cv.camera, (info, map))
@@ -99,20 +97,6 @@ pub struct MultiCascadeShadowMapPreparer {
   >,
 }
 
-pub struct MultiCascadeShadowMapData {
-  per_camera: FastHashMap<EntityHandle<SceneCameraEntity>, CascadeShadowMapComponent>,
-}
-
-impl MultiCascadeShadowMapData {
-  pub fn get_shadow_accessor(
-    &self,
-    camera: EntityHandle<SceneCameraEntity>,
-  ) -> Option<CascadeShadowMapComponent> {
-    let cascade_info = self.per_camera.get(&camera)?.clone();
-    Some(cascade_info)
-  }
-}
-
 impl MultiCascadeShadowMapPreparer {
   pub fn update(
     self,
@@ -125,56 +109,30 @@ impl MultiCascadeShadowMapPreparer {
       .into_iter()
       .map(|(k, (updater, map))| {
         let mut map = map.write();
-        let com = updater.update_shadow_maps(&mut map, frame_ctx, draw, reversed_depth);
-        (k, com)
+        let gpu_data = updater.update_shadow_maps(&mut map, frame_ctx, draw, reversed_depth);
+        (k, gpu_data)
       })
       .collect();
     MultiCascadeShadowMapData { per_camera }
   }
 }
 
-pub struct SceneDirectionalLightingCascadeShadowProvider {
-  pub shadow: Option<MultiCascadeShadowMapData>,
-  pub light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
+pub struct MultiCascadeShadowMapData {
+  pub per_camera: FastHashMap<EntityHandle<SceneCameraEntity>, CascadeShadowGPUData>,
 }
-impl LightSystemSceneProvider for SceneDirectionalLightingCascadeShadowProvider {
-  fn get_scene_lighting(
+
+impl MultiCascadeShadowMapData {
+  pub fn get_shadow_component(
     &self,
-    _scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
-  ) -> Option<Box<dyn LightingComputeComponent>> {
-    if let Some(shadow) = &self.shadow {
-      let shadow = shadow.get_shadow_accessor(camera)?;
-
-      let lights_iter_compute = AbstractShaderBindingIterSourceHelperMap::new(
-        self.light.clone(),
-        shadow,
-        |(light_id, light_uniform): (Node<u32>, ShaderReadonlyPtrOf<DirectionalLightUniform>),
-         shadow: &CascadeShadowMapInvocation| {
-          let light_uniform = light_uniform.load().expand();
-          let light = ENode::<DirectionalShaderInfo> {
-            illuminance: light_uniform.illuminance,
-            direction: light_uniform.direction,
-            follow_camera: light_uniform.follow_camera,
-          }
-          .construct();
-          let shadow = ShadowRandomAccessed {
-            shadow: Arc::new(shadow.clone()),
-            light_id,
-          };
-          ShadowedPunctualLighting { light, shadow }
-        },
-      );
-
-      let com = ArrayLights(lights_iter_compute);
-      Some(Box::new(com))
-    } else {
-      Some(super::punctual::dir_light_no_shadow(&self.light))
-    }
+    scene: RawEntityHandle,
+  ) -> Option<CascadeShadowMapComponent> {
+    let gpu_data = self.per_camera.get(&camera)?;
+    let info = gpu_data.uniforms.get(&scene)?.clone();
+    Some(CascadeShadowMapComponent {
+      shadow_map_atlas: gpu_data.shadow_map_atlas.clone(),
+      info,
+      reversed_depth: gpu_data.reversed_depth,
+    })
   }
-}
-
-pub struct LightWithRandomAccessShadow<L, S> {
-  pub light: L,
-  pub shadow: S,
 }

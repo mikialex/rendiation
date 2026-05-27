@@ -7,9 +7,6 @@ use rendiation_webgpu::*;
 mod group;
 pub use group::*;
 
-mod array;
-pub use array::*;
-
 pub trait LightingComputeComponent: ShaderHashProvider {
   fn build_light_compute_invocation(
     &self,
@@ -144,6 +141,21 @@ pub trait LightingComputeInvocation {
     shading: &dyn LightableSurfaceShading,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult>;
+}
+
+pub fn light_iter_sum(
+  iter: impl ShaderIterator<Item = ENode<ShaderLightingResult>>,
+) -> ENode<ShaderLightingResult> {
+  let specular = val(Vec3::<f32>::splat(0.)).make_local_var();
+  let diffuse = val(Vec3::<f32>::splat(0.)).make_local_var();
+  iter.for_each(|r, _| {
+    specular.store(specular.load() + r.specular);
+    diffuse.store(diffuse.load() + r.diffuse);
+  });
+  ENode::<ShaderLightingResult> {
+    specular: specular.load(),
+    diffuse: diffuse.load(),
+  }
 }
 
 impl LightingComputeInvocation for Box<dyn LightingComputeInvocation> {

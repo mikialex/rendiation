@@ -187,7 +187,7 @@ impl ShaderAbstractLeftValue for ForRange {
 pub struct ShaderStaticArrayIter<AT, T> {
   pub(crate) cursor: ShaderPtrOf<u32>,
   pub(crate) array: StaticLengthArrayView<AT, T>,
-  pub(crate) len: u32,
+  pub(crate) len: Node<u32>,
 }
 
 impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayIter<AT, T> {
@@ -196,11 +196,12 @@ impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayIter<A
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let current_next = self.cursor.load();
     self.cursor.store(current_next + val(1));
-    let has_next = current_next.less_than(val(self.len));
+    let has_next = current_next.less_than(self.len);
 
-    // should we do the clamp by ourselves?
-    assert!(self.len >= 1);
-    let uniform = self.array.index(current_next.min(val(self.len - 1)));
+    // we still read the 0 position, but it's ok
+    let max_index = self.len.equals(val(0)).select(val(0), self.len - val(1));
+
+    let uniform = self.array.index(current_next.min(max_index));
     (has_next, (current_next, uniform))
   }
 }
@@ -209,7 +210,20 @@ impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayIter<A
 pub struct ShaderStaticArrayReadonlyIter<AT, T> {
   pub(crate) cursor: ShaderPtrOf<u32>,
   pub(crate) array: StaticLengthArrayReadonlyView<AT, T>,
-  pub(crate) len: u32,
+  pub(crate) len: Node<u32>,
+}
+
+impl<AT, T> ShaderStaticArrayReadonlyIter<AT, T> {
+  pub fn from_array_clamp_length(
+    array: StaticLengthArrayReadonlyView<AT, T>,
+    length_clamp: Node<u32>,
+  ) -> Self {
+    ShaderStaticArrayReadonlyIter {
+      cursor: val(0_u32).make_local_var(),
+      len: length_clamp,
+      array,
+    }
+  }
 }
 
 impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayReadonlyIter<AT, T> {
@@ -218,11 +232,12 @@ impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayReadon
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let current_next = self.cursor.load();
     self.cursor.store(current_next + val(1));
-    let has_next = current_next.less_than(val(self.len));
+    let has_next = current_next.less_than(self.len);
 
-    // should we do the clamp by ourselves?
-    assert!(self.len >= 1);
-    let uniform = self.array.index(current_next.min(val(self.len - 1)));
+    // if len is 0, we still read the 0 position, but it's ok read the 0 position
+    let max_index = self.len.equals(val(0)).select(val(0), self.len - val(1));
+
+    let uniform = self.array.index(current_next.min(max_index));
     (has_next, (current_next, uniform))
   }
 }

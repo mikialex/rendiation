@@ -1,14 +1,12 @@
 mod debug_channels;
-mod ibl;
 mod light_pass;
-mod punctual;
+mod light_source;
 mod shadow;
 mod shadow_cascade;
 
 use debug_channels::*;
-use ibl::*;
 pub use light_pass::*;
-pub use punctual::*;
+pub use light_source::*;
 pub use shadow::*;
 pub use shadow_cascade::*;
 
@@ -366,38 +364,4 @@ impl GraphicsShaderProvider for DefaultDisplayWriter {
       }
     })
   }
-}
-
-fn use_area_light_uniform(cx: &mut QueryGPUHookCx) -> Option<SceneAreaLightingProvider> {
-  let uniform = use_area_light_uniform_array(cx);
-
-  let (cx, lut) = cx.use_gpu_init(|gpu, _| {
-    let ltc_1 = include_bytes!("./ltc_1.bin");
-    let ltc_1 = create_gpu_texture2d(
-      gpu,
-      &GPUBufferImage {
-        data: ltc_1.as_slice().to_vec(),
-        format: TextureFormat::Rgba16Float,
-        size: Size::from_u32_pair_min_one((64, 64)),
-      },
-    );
-    let ltc_2 = include_bytes!("./ltc_2.bin");
-    let ltc_2 = create_gpu_texture2d(
-      gpu,
-      &GPUBufferImage {
-        data: ltc_2.as_slice().to_vec(),
-        format: TextureFormat::Rgba16Float,
-        size: Size::from_u32_pair_min_one((64, 64)),
-      },
-    );
-    (ltc_1, ltc_2)
-  });
-
-  cx.when_render(|| -> _ {
-    SceneAreaLightingProvider {
-      ltc_1: lut.0.clone(),
-      ltc_2: lut.1.clone(),
-      uniform,
-    }
-  })
 }

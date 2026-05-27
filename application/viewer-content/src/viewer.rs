@@ -61,6 +61,10 @@ pub fn drop_viewer_from_dyn_cx(viewer: &mut Viewer, dyn_cx: &mut DynCx) {
   };
   viewer.memory.cleanup(&mut dcx as *mut _ as *mut ());
 
+  // the current rendering root contains event source event remover,
+  // if we not drop here, it will dead lock because of living writer.
+  drop(dcx);
+
   viewer.rendering_root.cleanup();
 
   log::info!("drop viewer from dyn_cx");

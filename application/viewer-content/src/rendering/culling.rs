@@ -18,7 +18,7 @@ pub fn use_viewer_culling(
       let maps = per_camera_per_viewport(viewports, true)
         .map(|cv| {
           let cache = cx.keyed_scope(&cv.camera, |cx| {
-            let (_, oc) = cx.use_sharable_plain_state(|| {
+            let oc = cx.use_sharable_plain_state(|| {
               GPUTwoPassOcclusionCulling::new(
                 config.occlusion_culling_max_scene_model_count as usize,
                 cx.gpu,

@@ -104,6 +104,9 @@ impl<T: ShaderBindingProvider> GraphicsPairInputNodeAccessor<T> {
   }
 }
 
+/// A restricted subset of `GraphicsShaderProvider` that only allows declaring
+/// shader bindings. Cannot access pass configuration, pipeline state, or shader
+/// stage setup — those are handled by `GraphicsShaderProvider::build()`.
 pub trait AbstractShaderBindingSource {
   type ShaderBindResult;
   fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult;

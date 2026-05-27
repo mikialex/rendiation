@@ -17,6 +17,7 @@ The following things is the current project development direction.
 
 important issue is in bold style.
 
+- skip_if_not_waked not considering inspect stage
 - midc downgrade not support linestrip or triangle strip
 - indirect frustum culling，inside case is wrong?
 - on demand rendering not consider selection state change

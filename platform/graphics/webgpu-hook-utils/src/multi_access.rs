@@ -19,7 +19,7 @@ pub fn use_multi_access_gpu(
     format!("multi-access-many-side: {}", label)
   }
 
-  let (cx, allocator) = cx.use_sharable_plain_state(|| {
+  let allocator = cx.use_sharable_plain_state(|| {
     GrowableRangeAllocator::new(
       &label_impl(label),
       init.max_possible_many_count,
