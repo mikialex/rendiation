@@ -74,13 +74,12 @@ pub(crate) fn prepare_indirect_text(
     let y_max = glyph.bounds.max.y;
     let (w, h) = glyph.bounds.size();
 
-    let scale = input.scale;
-    let ox = positioned_glyph.relative_x * scale;
-    let oy = positioned_glyph.relative_y * scale;
-    let x0 = ox + x_min * scale;
-    let y0 = oy + y_min * scale;
-    let x1 = ox + x_max * scale;
-    let y1 = oy + y_max * scale;
+    let ox = positioned_glyph.relative_x;
+    let oy = positioned_glyph.relative_y;
+    let x0 = ox + x_min;
+    let y0 = oy + y_min;
+    let x1 = ox + x_max;
+    let y1 = oy + y_max;
 
     // Band transform: maps em-space to band indices
     let band_scale_x = if w > 0. {
@@ -176,4 +175,5 @@ pub struct TextMeta {
   pub text_curves_range: Vec2<u32>,
   pub text_band_range: Vec2<u32>,
   pub text_vertices_range: Vec2<u32>,
+  pub local_matrix: Mat4<f32>,
 }

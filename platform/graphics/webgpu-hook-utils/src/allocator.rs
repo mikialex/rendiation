@@ -14,6 +14,7 @@ pub struct GrowableRangeAllocator {
   ranges: FastHashMap<UserHandle, (u32, u32, AllocationHandle)>,
   // todo, try other allocator that support relocate and shrink??
   allocator: xalloc::SysTlsf<u32>,
+  label: String,
 }
 
 type UserHandle = RawEntityHandle;
@@ -142,7 +143,7 @@ impl BatchAllocateResult {
 }
 
 impl GrowableRangeAllocator {
-  pub fn new(max_item_count: u32, init_count: u32) -> Self {
+  pub fn new(label: &str, max_item_count: u32, init_count: u32) -> Self {
     assert!(init_count <= max_item_count);
     Self {
       max_item_count,
@@ -150,6 +151,7 @@ impl GrowableRangeAllocator {
       used_count: 0,
       ranges: FastHashMap::with_capacity_and_hasher(init_count as usize, Default::default()),
       allocator: xalloc::SysTlsf::new(init_count),
+      label: label.to_string(),
     }
   }
 
@@ -254,8 +256,8 @@ impl GrowableRangeAllocator {
   ) {
     assert!(new_size > self.current_count);
     println!(
-      "range allocator try grow from {} to {}, max {}",
-      self.current_count, new_size, self.max_item_count
+      "range allocator {} try grow from {} to {}, max {}",
+      self.label, self.current_count, new_size, self.max_item_count
     );
     self.current_count = new_size;
     results.resize_to = Some(new_size);
@@ -402,7 +404,11 @@ impl RangeAllocateBufferUpdates {
   pub fn write(&self, gpu: &GPU, encoder: &mut GPUCommandEncoder, target: &dyn AbstractBuffer) {
     if self.allocation_changes.has_data_movements() {
       let mut iter = self.allocation_changes.iter_data_movements();
-      target.batch_self_relocate(&mut iter, encoder, &gpu.device);
+      // we must use a standalone encoder, because the below code do queue write
+      // todo, consider impl encoder write buffer to avoid this mental overhead
+      let mut encoder = gpu.create_encoder();
+      target.batch_self_relocate(&mut iter, &mut encoder, &gpu.device);
+      gpu.submit_encoder(encoder);
     }
 
     let item_byte_size = self.allocation_changes.1 * 4;
