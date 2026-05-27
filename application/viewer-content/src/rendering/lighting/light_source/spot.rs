@@ -24,7 +24,7 @@ fn use_basic_shadow_map_uniform(
   cx: &mut QueryGPUHookCx,
   atlas_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
-  lights: &Option<SpotLightUniforms>,
+  lights: &Option<SharedLightUniformInfo<SpotLightUniform>>,
 ) -> Option<BasicShadowMapPreparer> {
   // // let changed = cx.use_db_entity_any_change::<DirectionalLightEntity>(); // todo
   let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
@@ -33,14 +33,6 @@ fn use_basic_shadow_map_uniform(
   let (cx, gpu_data) = cx.use_plain_state_default::<Option<BasicShadowMapGPU>>();
 
   cx.when_render(|| {
-    let (lights_mapping, _) = lights.as_ref().unwrap();
-
-    let mapping = lights_mapping
-      .lists
-      .iter()
-      .map(|(k, v)| (*k, v.mapping.clone()))
-      .collect();
-
     let light_ref_node = get_db_view::<SpotLightRefNode>();
 
     let shadow_enabled = get_db_view::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>();
@@ -77,13 +69,20 @@ fn use_basic_shadow_map_uniform(
       .into()
     };
 
-    prepare_basic_shadow_map_uniform(atlas_config, &mapping, &shadow_info_access, gpu_data, gpu)
+    let lights = lights.as_ref().unwrap().read();
+    prepare_basic_shadow_map_uniform(
+      atlas_config,
+      &lights.allocation_info,
+      &shadow_info_access,
+      gpu_data,
+      gpu,
+    )
   })
 }
 
 pub struct SceneSpotLightingPreparer {
   pub shadow: Option<BasicShadowMapPreparer>,
-  pub light: SpotLightUniforms,
+  pub light: SharedLightUniformInfo<SpotLightUniform>,
 }
 
 impl SceneSpotLightingPreparer {
@@ -98,7 +97,7 @@ impl SceneSpotLightingPreparer {
       .map(|v| v.update_shadow_maps(frame_ctx, draw, reversed_depth));
 
     SceneSpotLightingProvider {
-      lights: self.light.1.make_read_holder(),
+      uniform: self.light.make_read_holder(),
       shadow,
       reversed_depth,
     }
@@ -107,7 +106,7 @@ impl SceneSpotLightingPreparer {
 
 pub struct SceneSpotLightingProvider {
   shadow: Option<BasicShadowMapGPU>,
-  lights: LockReadGuardHolder<PerSceneSpotLightUniform>,
+  uniform: LockReadGuardHolder<LightUniformInfo<SpotLightUniform>>,
   reversed_depth: bool,
 }
 
@@ -117,7 +116,7 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
     scene: EntityHandle<SceneEntity>,
     _camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
-    let lights = self.lights.get(scene.raw_handle_ref())?.clone();
+    let lights = self.uniform.uniform.get(scene.raw_handle_ref())?.clone();
 
     let shadow = self.shadow.as_ref().map(|s| {
       let info = s.uniforms.get(scene.raw_handle_ref()).unwrap().clone();

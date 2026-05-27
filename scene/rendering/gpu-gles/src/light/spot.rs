@@ -12,29 +12,24 @@ pub struct SpotLightUniform {
   pub half_penumbra_cos: f32,
 }
 
-pub type PerSceneSpotLightUniform =
-  FastHashMap<RawEntityHandle, UniformBufferDataView<UniformArrayWithLengthInfo<SpotLightUniform>>>;
-pub type SpotLightUniforms = (
-  PerSceneLightUniformArray<SpotLightUniform>,
-  Arc<RwLock<PerSceneSpotLightUniform>>,
-);
-
 pub fn use_spot_per_scene_uniform_array_buffers(
   cx: &mut QueryGPUHookCx,
-) -> Option<SpotLightUniforms> {
-  // let changed = cx.use_db_entity_any_change::<SpotlightEntity>(); todo
-  let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
+) -> Option<SharedLightUniformInfo<SpotLightUniform>> {
+  let uniform_array_caches = use_shared_light_uniform_info(cx, "spot");
 
-  let uniform_array_caches = cx.use_shared_hash_map("spot light uniform_array_caches");
+  cx.skip_if_not_waked(|cx| {
+    cx.use_db_entity_any_change::<SpotLightEntity>();
+    let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
-  cx.when_render(|| {
-    let world = world_mat.expect_resolve_stage();
-    let r = create_spot_light_uniform(&|node| world.access(&node).unwrap());
+    if cx.is_in_render() {
+      let world = world_mat.expect_resolve_stage();
+      let r = create_spot_light_uniform(&|node| world.access(&node).unwrap());
 
-    sync_per_scene_uniforms(&r, &uniform_array_caches, &cx.gpu);
+      sync_per_scene_uniforms(&r, &uniform_array_caches, &cx.gpu);
+    }
+  });
 
-    (r, uniform_array_caches.clone())
-  })
+  cx.when_render(|| uniform_array_caches.clone())
 }
 
 pub fn create_spot_light_uniform(

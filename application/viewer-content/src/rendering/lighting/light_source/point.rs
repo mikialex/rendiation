@@ -8,12 +8,12 @@ pub fn use_scene_point_light_uniform(
 ) -> Option<ScenePointLightingProvider> {
   let uniform = use_point_per_scene_uniform_array_buffers(cx);
   cx.when_render(|| ScenePointLightingProvider {
-    uniform: uniform.unwrap(),
+    uniform: uniform.unwrap().make_read_holder(),
   })
 }
 
 pub struct ScenePointLightingProvider {
-  uniform: PointLightUniforms,
+  uniform: LockReadGuardHolder<LightUniformInfo<PointLightUniform>>,
 }
 
 impl LightSystemSceneProvider for ScenePointLightingProvider {
@@ -22,7 +22,7 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
     scene: EntityHandle<SceneEntity>,
     _camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
-    let lights = self.uniform.1.read().get(scene.raw_handle_ref())?.clone();
+    let lights = self.uniform.uniform.get(scene.raw_handle_ref())?.clone();
     Some(Box::new(PointLightShader { lights }))
   }
 }

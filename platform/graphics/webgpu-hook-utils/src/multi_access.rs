@@ -15,7 +15,7 @@ pub fn use_multi_access_gpu(
   source: UseResult<impl TriQueryLike<Key = RawEntityHandle, Value = RawEntityHandle>>,
   label: &str,
 ) -> Option<MultiAccessGPUData> {
-  let (cx, allocator) = cx.use_sharable_plain_state(|| {
+  let allocator = cx.use_sharable_plain_state(|| {
     GrowableRangeAllocator::new(init.max_possible_many_count, init.init_many_count_capacity)
   });
 

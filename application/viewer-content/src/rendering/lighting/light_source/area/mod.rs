@@ -29,7 +29,7 @@ pub fn use_area_light_uniform(cx: &mut QueryGPUHookCx) -> Option<SceneAreaLighti
     SceneAreaLightingProvider {
       ltc_1: lut.0.clone(),
       ltc_2: lut.1.clone(),
-      uniform: uniform.unwrap().1.make_read_holder(),
+      uniform: uniform.unwrap().make_read_holder(),
     }
   })
 }

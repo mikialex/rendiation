@@ -112,12 +112,9 @@ pub unsafe trait HooksCxLike: Sized {
     (cx, r.clone())
   }
 
-  fn use_sharable_plain_state<T: 'static>(
-    &mut self,
-    f: impl FnOnce() -> T,
-  ) -> (&mut Self, Arc<RwLock<T>>) {
-    let (cx, r) = self.use_plain_state(|| Arc::new(RwLock::new(f())));
-    (cx, r.clone())
+  fn use_sharable_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> Arc<RwLock<T>> {
+    let (_, r) = self.use_plain_state(|| Arc::new(RwLock::new(f())));
+    r.clone()
   }
 }
 

@@ -522,6 +522,9 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     (r, waked)
   }
 
+  /// the passed in function will not be executed if the function internal not waked
+  ///
+  /// if the function waked, it will executed both spawn and resolve stage
   #[track_caller]
   fn skip_if_not_waked<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> Option<R> {
     self

@@ -335,8 +335,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
     )
   }
 
-  // only some in spawn stage
-  fn use_db_entity_any_change<E: EntitySemantic>(&mut self) -> Option<bool> {
+  fn use_db_entity_any_change<E: EntitySemantic>(&mut self) {
     let (cx, watcher) = self.use_plain_state(|| {
       let e_id = E::entity_id();
       let waker = Arc::new(AtomicWaker::new());
@@ -365,7 +364,6 @@ pub trait DBHookCxLike: QueryHookCxLike {
       })
     });
     watcher.waker.register(cx.waker());
-    todo!()
   }
 }
 

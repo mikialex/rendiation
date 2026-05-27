@@ -54,7 +54,7 @@ fn use_basic_shadow_map_uniform(
   cx: &mut QueryGPUHookCx,
   atlas_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
-  lights: &Option<DirectionalLightUniforms>,
+  lights: &Option<SharedLightUniformInfo<DirectionalLightUniform>>,
 ) -> Option<BasicShadowMapPreparer> {
   // let changed = cx.use_db_entity_any_change::<DirectionalLightEntity>(); // todo
   let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
@@ -63,14 +63,6 @@ fn use_basic_shadow_map_uniform(
   let (cx, gpu_data) = cx.use_plain_state_default::<Option<BasicShadowMapGPU>>();
 
   cx.when_render(|| {
-    let (lights_mapping, _) = lights.as_ref().unwrap();
-
-    let mapping = lights_mapping
-      .lists
-      .iter()
-      .map(|(k, v)| (*k, v.mapping.clone()))
-      .collect();
-
     let light_ref_node = get_db_view::<DirectionalRefNode>();
     let follow_camera = get_db_view::<DirectionalLightFollowCamera>();
 
@@ -108,7 +100,14 @@ fn use_basic_shadow_map_uniform(
       .into()
     };
 
-    prepare_basic_shadow_map_uniform(atlas_config, &mapping, &shadow_info_access, gpu_data, gpu)
+    let lights = lights.as_ref().unwrap().read();
+    prepare_basic_shadow_map_uniform(
+      atlas_config,
+      &lights.allocation_info,
+      &shadow_info_access,
+      gpu_data,
+      gpu,
+    )
   })
 }
 
@@ -120,7 +119,7 @@ enum ViewerDirectionalShadowPreparer {
 
 pub struct SceneDirectionalLightingPreparer {
   shadow: ViewerDirectionalShadowPreparer,
-  light: DirectionalLightUniforms,
+  light: SharedLightUniformInfo<DirectionalLightUniform>,
 }
 
 impl SceneDirectionalLightingPreparer {
@@ -143,7 +142,7 @@ impl SceneDirectionalLightingPreparer {
     };
 
     Box::new(SceneDirectionalLightingProvider {
-      lights: self.light.1.make_read_holder(),
+      lights: self.light.make_read_holder(),
       shadows,
       reversed_depth,
     })
@@ -169,7 +168,7 @@ enum ShadowImplInvocationType {
 }
 
 struct SceneDirectionalLightingProvider {
-  lights: LockReadGuardHolder<PerSceneDirectionalLightUniform>,
+  lights: LockReadGuardHolder<LightUniformInfo<DirectionalLightUniform>>,
   shadows: ShadowImplType,
   reversed_depth: bool,
 }
@@ -180,7 +179,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
-    let lights = self.lights.get(scene.raw_handle_ref())?.clone();
+    let lights = self.lights.uniform.get(scene.raw_handle_ref())?.clone();
 
     let shadows = match &self.shadows {
       ShadowImplType::NoShadow => ShadowImplComType::NoShadow,

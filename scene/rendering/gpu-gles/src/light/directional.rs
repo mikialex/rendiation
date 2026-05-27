@@ -10,32 +10,24 @@ pub struct DirectionalLightUniform {
   pub follow_camera: Bool,
 }
 
-pub type PerSceneDirectionalLightUniform = FastHashMap<
-  RawEntityHandle,
-  UniformBufferDataView<UniformArrayWithLengthInfo<DirectionalLightUniform>>,
->;
-pub type DirectionalLightUniforms = (
-  PerSceneLightUniformArray<DirectionalLightUniform>,
-  Arc<RwLock<PerSceneDirectionalLightUniform>>,
-);
-
 pub fn use_directional_per_scene_uniform_array_buffers(
   cx: &mut QueryGPUHookCx,
-) -> Option<DirectionalLightUniforms> {
-  // let changed = cx.use_db_entity_any_change::<DirectionalLightEntity>();
-  let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
+) -> Option<SharedLightUniformInfo<DirectionalLightUniform>> {
+  let uniform_array_caches = use_shared_light_uniform_info(cx, "directional");
 
-  let uniform_array_caches = cx.use_shared_hash_map("dir light uniform_array_caches");
+  cx.skip_if_not_waked(|cx| {
+    cx.use_db_entity_any_change::<DirectionalLightEntity>();
+    let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
-  cx.when_render(|| {
-    let world = world_mat.expect_resolve_stage();
-    let r = create_directional_light_uniform(&|node| world.access(&node).unwrap().into_f32());
-    // todo!()
+    if cx.is_in_render() {
+      let world = world_mat.expect_resolve_stage();
+      let r = create_directional_light_uniform(&|node| world.access(&node).unwrap().into_f32());
 
-    sync_per_scene_uniforms(&r, &uniform_array_caches, &cx.gpu);
+      sync_per_scene_uniforms(&r, &uniform_array_caches, &cx.gpu);
+    }
+  });
 
-    (r, uniform_array_caches.clone())
-  })
+  cx.when_render(|| uniform_array_caches.clone())
 }
 
 pub fn create_directional_light_uniform(

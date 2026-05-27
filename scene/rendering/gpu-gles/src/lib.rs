@@ -4,7 +4,6 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use database::*;
-use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
 use rendiation_scene_core::*;
 pub use rendiation_scene_rendering_gpu_base::*;

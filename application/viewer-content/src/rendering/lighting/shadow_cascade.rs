@@ -8,7 +8,7 @@ pub fn use_cascade_shadow_map(
   ndc: ViewerNDC,
   shadow_pool_init_config: &MultiLayerTexturePackerConfig,
   split_linear_log_blend_ratio: f32,
-  lights: &Option<DirectionalLightUniforms>,
+  lights: &Option<SharedLightUniformInfo<DirectionalLightUniform>>,
 ) -> Option<MultiCascadeShadowMapPreparer> {
   let camera_transform = cx
     .use_shared_dual_query_view(GlobalCameraTransformShare(ndc))
@@ -28,12 +28,8 @@ pub fn use_cascade_shadow_map(
   let source_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
   cx.when_render(|| {
-    let (lights_mapping, _) = lights.as_ref().unwrap();
-    let mapping: LightArrayAllocateResult = lights_mapping
-      .lists
-      .iter()
-      .map(|(scene_id, light_array)| (*scene_id, light_array.mapping.clone()))
-      .collect();
+    let lights = lights.as_ref().unwrap().read();
+    let mapping = &lights.allocation_info;
 
     let light_ref_node = get_db_view::<DirectionalRefNode>();
     let shadow_enabled = get_db_view::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>();

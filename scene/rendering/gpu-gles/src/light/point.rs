@@ -10,31 +10,24 @@ pub struct PointLightUniform {
   pub cutoff_distance: f32,
 }
 
-pub type PerScenePointLightUniform = FastHashMap<
-  RawEntityHandle,
-  UniformBufferDataView<UniformArrayWithLengthInfo<PointLightUniform>>,
->;
-pub type PointLightUniforms = (
-  PerSceneLightUniformArray<PointLightUniform>,
-  Arc<RwLock<PerScenePointLightUniform>>,
-);
-
 pub fn use_point_per_scene_uniform_array_buffers(
   cx: &mut QueryGPUHookCx,
-) -> Option<PointLightUniforms> {
-  // let changed = cx.use_db_entity_any_change::<SpotlightEntity>(); todo
-  let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
+) -> Option<SharedLightUniformInfo<PointLightUniform>> {
+  let uniform_array_caches = use_shared_light_uniform_info(cx, "point");
 
-  let uniform_array_caches = cx.use_shared_hash_map("point light uniform_array_caches");
+  cx.skip_if_not_waked(|cx| {
+    cx.use_db_entity_any_change::<PointLightEntity>();
+    let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
-  cx.when_render(|| {
-    let world = world_mat.expect_resolve_stage();
-    let r = create_point_light_uniform(&|node| world.access(&node).unwrap());
+    if cx.is_in_render() {
+      let world = world_mat.expect_resolve_stage();
+      let r = create_point_light_uniform(&|node| world.access(&node).unwrap());
 
-    sync_per_scene_uniforms(&r, &uniform_array_caches, &cx.gpu);
+      sync_per_scene_uniforms(&r, &uniform_array_caches, &cx.gpu);
+    }
+  });
 
-    (r, uniform_array_caches.clone())
-  })
+  cx.when_render(|| uniform_array_caches.clone())
 }
 
 pub fn create_point_light_uniform(

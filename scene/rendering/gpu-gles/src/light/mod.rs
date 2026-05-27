@@ -28,21 +28,47 @@ pub fn compute_light_list<T: Std140 + Default>(
   output
 }
 
+pub struct LightUniformInfo<T: Std140> {
+  /// scene id -> per scene uniform array
+  pub uniform: FastHashMap<RawEntityHandle, UniformBufferDataView<UniformArrayWithLengthInfo<T>>>,
+  /// scene id -> light id -> allocation index
+  pub allocation_info: FastHashMap<RawEntityHandle, FastHashMap<RawEntityHandle, u32>>,
+  pub label: String,
+}
+
+pub type SharedLightUniformInfo<T> = Arc<RwLock<LightUniformInfo<T>>>;
+
+pub fn use_shared_light_uniform_info<T: Std140>(
+  cx: &mut QueryGPUHookCx,
+  label: &str,
+) -> SharedLightUniformInfo<T> {
+  cx.use_sharable_plain_state(|| LightUniformInfo {
+    uniform: Default::default(),
+    allocation_info: Default::default(),
+    label: label.to_string(),
+  })
+}
+
 pub fn sync_per_scene_uniforms<T: Std140>(
   new_data: &PerSceneLightUniformArray<T>,
-  uniform_array_caches: &Arc<
-    RwLock<FastHashMap<RawEntityHandle, UniformBufferDataView<UniformArrayWithLengthInfo<T>>>>,
-  >,
+  uniform_array_caches: &SharedLightUniformInfo<T>,
   gpu: &GPU,
 ) {
   let mut uniform_array_caches__ = uniform_array_caches.write();
   let uniform_array_caches_ = &mut *uniform_array_caches__;
 
+  uniform_array_caches_.allocation_info = new_data
+    .lists
+    .iter()
+    .map(|(k, v)| (*k, v.mapping.clone()))
+    .collect();
+
+  let gpu_uniforms = &mut uniform_array_caches_.uniform;
   for (scene_id, uniform_array) in &new_data.lists {
-    if let Some(existing) = uniform_array_caches_.get(scene_id) {
+    if let Some(existing) = gpu_uniforms.get(scene_id) {
       existing.write_at(&gpu.queue, &uniform_array.buffer, 0);
     } else {
-      uniform_array_caches_.insert(
+      gpu_uniforms.insert(
         *scene_id,
         UniformBufferDataView::create(&gpu.device, uniform_array.buffer),
       );
