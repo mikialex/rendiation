@@ -359,7 +359,9 @@ mod tests {
     fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
       let this = self as *mut Self;
       let state = unsafe {
-        (*this).memory.expect_state_init(f, |_state: &mut T, _: &mut ()| {})
+        (*this)
+          .memory
+          .expect_state_init(f, |_state: &mut T, _: &mut ()| {})
       };
       let this = unsafe { &mut *this };
       (this, state)

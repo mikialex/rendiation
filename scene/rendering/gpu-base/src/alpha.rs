@@ -51,7 +51,7 @@ pub fn all_kinds_of_materials_enabled_alpha_blending(
     .chain(material_enabled_alpha_blending::<UnlitMaterialAlphaConfig>())
     .into_boxed();
 
-  get_db_view_typed_foreign::<SceneModelStdModelRenderPayload>().chain(Select([sg, mr, unlit]))
+  get_db_view_typed_foreign::<SceneModelStdModelRenderPayload>().chain(SelectMany([sg, mr, unlit]))
 }
 
 pub struct TransparentHostOrderer {

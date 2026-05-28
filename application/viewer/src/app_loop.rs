@@ -51,7 +51,9 @@ unsafe impl HooksCxLike for ApplicationCx<'_> {
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
     let this = self as *mut Self;
     let state = unsafe {
-      (*this).memory.expect_state_init(f, |_state: &mut T, _: &mut DynCx| {})
+      (*this)
+        .memory
+        .expect_state_init(f, |_state: &mut T, _: &mut DynCx| {})
     };
     // SAFETY: this is derived from a valid &mut self; state points into bump-allocated heap
     // memory inside memory, not into the struct itself, so no aliased &mut is created.

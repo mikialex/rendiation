@@ -234,3 +234,139 @@ impl<V, A: Iterator<Item = V>, B: Iterator<Item = V>> Iterator for EtherIter<A, 
     }
   }
 }
+
+#[test]
+fn test_bookkeeping_hash_relation_insert() {
+  let mut mapping: FastHashMap<u32, FastHashSet<u32>> = FastHashMap::default();
+
+  // insert: many 1->one 100, many 2->one 100
+  let changes: FastHashMap<u32, ValueChange<u32>> = FastHashMap::from_iter([
+    (1u32, ValueChange::Delta(100u32, None)),
+    (2u32, ValueChange::Delta(100u32, None)),
+  ]);
+
+  bookkeeping_hash_relation(&mut mapping, &changes);
+
+  assert_eq!(mapping.len(), 1);
+  assert_eq!(mapping[&100].len(), 2);
+  assert!(mapping[&100].contains(&1));
+  assert!(mapping[&100].contains(&2));
+}
+
+#[test]
+fn test_bookkeeping_hash_relation_update() {
+  let mut mapping: FastHashMap<u32, FastHashSet<u32>> = FastHashMap::default();
+
+  // setup: 1->100, 2->100
+  let changes: FastHashMap<u32, ValueChange<u32>> = FastHashMap::from_iter([
+    (1u32, ValueChange::Delta(100u32, None)),
+    (2u32, ValueChange::Delta(100u32, None)),
+  ]);
+  bookkeeping_hash_relation(&mut mapping, &changes);
+
+  // update: change 1->100 to 1->200
+  let changes2: FastHashMap<u32, ValueChange<u32>> = FastHashMap::from_iter([
+    (1u32, ValueChange::Delta(200u32, Some(100u32))),
+  ]);
+  bookkeeping_hash_relation(&mut mapping, &changes2);
+
+  assert_eq!(mapping[&100].len(), 1);
+  assert!(mapping[&100].contains(&2));
+  assert_eq!(mapping[&200].len(), 1);
+  assert!(mapping[&200].contains(&1));
+}
+
+#[test]
+fn test_bookkeeping_hash_relation_remove() {
+  let mut mapping: FastHashMap<u32, FastHashSet<u32>> = FastHashMap::default();
+
+  // setup: 1->100, 2->100
+  let changes: FastHashMap<u32, ValueChange<u32>> = FastHashMap::from_iter([
+    (1u32, ValueChange::Delta(100u32, None)),
+    (2u32, ValueChange::Delta(100u32, None)),
+  ]);
+  bookkeeping_hash_relation(&mut mapping, &changes);
+
+  // remove: 1->100
+  let changes2: FastHashMap<u32, ValueChange<u32>> =
+    FastHashMap::from_iter([(1u32, ValueChange::Remove(100u32))]);
+  bookkeeping_hash_relation(&mut mapping, &changes2);
+
+  assert_eq!(mapping[&100].len(), 1);
+  assert!(mapping[&100].contains(&2));
+
+  // remove: 2->100 (last one for key 100)
+  let changes3: FastHashMap<u32, ValueChange<u32>> =
+    FastHashMap::from_iter([(2u32, ValueChange::Remove(100u32))]);
+  bookkeeping_hash_relation(&mut mapping, &changes3);
+
+  assert!(!mapping.contains_key(&100));
+}
+
+#[test]
+fn test_dense_index_mapping_basic() {
+  let mut mapping = DenseIndexMapping::<u32, u32>::default();
+
+  // insert many -> one relations: 0->10, 1->10, 2->20
+  let changes: FastHashMap<u32, ValueChange<u32>> = FastHashMap::from_iter([
+    (0u32, ValueChange::Delta(10u32, None)),
+    (1u32, ValueChange::Delta(10u32, None)),
+    (2u32, ValueChange::Delta(20u32, None)),
+  ]);
+  bookkeeping_dense_index_relation(&mut mapping, &changes);
+
+  super::validate_multi_query_consistency(&mapping);
+
+  let many_for_10: FastHashSet<_> = mapping.access_multi(&10).unwrap().collect();
+  assert_eq!(many_for_10.len(), 2);
+  assert!(many_for_10.contains(&0));
+  assert!(many_for_10.contains(&1));
+
+  let many_for_20: FastHashSet<_> = mapping.access_multi(&20).unwrap().collect();
+  assert_eq!(many_for_20.len(), 1);
+  assert!(many_for_20.contains(&2));
+
+  assert!(mapping.access_multi(&30).is_none());
+}
+
+#[test]
+fn test_dense_index_mapping_upgrade_to_fallback() {
+  let mut mapping = DenseIndexMapping::<u32, u32>::default();
+
+  // create >128 entries all pointing to the same "one" (key 0)
+  let count = 150u32;
+  let changes: FastHashMap<u32, ValueChange<u32>> =
+    (0..count).map(|i| (i, ValueChange::Delta(0u32, None))).collect();
+  bookkeeping_dense_index_relation(&mut mapping, &changes);
+
+  super::validate_multi_query_consistency(&mapping);
+
+  let many: Vec<_> = mapping.access_multi(&0).unwrap().collect();
+  assert_eq!(many.len(), count as usize);
+  for i in 0..count {
+    assert!(many.contains(&i));
+  }
+}
+
+#[test]
+fn test_dense_index_mapping_remove() {
+  let mut mapping = DenseIndexMapping::<u32, u32>::default();
+
+  // insert: 0->10, 1->10
+  let changes: FastHashMap<u32, ValueChange<u32>> = FastHashMap::from_iter([
+    (0u32, ValueChange::Delta(10u32, None)),
+    (1u32, ValueChange::Delta(10u32, None)),
+  ]);
+  bookkeeping_dense_index_relation(&mut mapping, &changes);
+
+  // remove: 0->10
+  let changes2: FastHashMap<u32, ValueChange<u32>> =
+    FastHashMap::from_iter([(0u32, ValueChange::Remove(10u32))]);
+  bookkeeping_dense_index_relation(&mut mapping, &changes2);
+
+  super::validate_multi_query_consistency(&mapping);
+
+  let many_for_10: Vec<_> = mapping.access_multi(&10).unwrap().collect();
+  assert_eq!(many_for_10.len(), 1);
+  assert!(many_for_10.contains(&1));
+}
