@@ -32,7 +32,7 @@ pub struct InfinityShaderLineEffect<'a> {
 }
 
 impl ShaderHashProvider for InfinityShaderLineEffect<'_> {
-  shader_hash_type_id! {InfinityShaderPlaneEffect<'static>}
+  shader_hash_type_id! {InfinityShaderLineEffect<'static>}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.camera.hash_pipeline(hasher);

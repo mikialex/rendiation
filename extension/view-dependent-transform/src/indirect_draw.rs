@@ -93,7 +93,6 @@ impl PerViewGPUResource {
       .with_default_grow_behavior(u32::MAX);
 
     Self {
-      // todo, shrink this buffer
       overrides: SparseUpdateStorageBuffer::new(
         "PerViewGPUResource overrides",
         128,
