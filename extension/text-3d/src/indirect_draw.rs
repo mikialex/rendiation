@@ -60,6 +60,12 @@ pub fn use_text3d_indirect_renderer(
   let vertices_range_updates = vertices_range_updates.map(|a| a.allocation_changes.clone());
   vertices_range_updates.update_storage_array_with_host(cx, params, offset);
 
+  let offset = std::mem::offset_of!(TextMeta, color);
+  let changes = cx
+    .use_changes::<Text3dContent>()
+    .map_changes(|v| v.map(|v| v.color).unwrap_or_default());
+  changes.update_storage_array_with_host(cx, params, offset);
+
   let offset = std::mem::offset_of!(TextMeta, local_matrix);
   let changes = cx.use_changes::<Text3dLocalTransform>();
   changes.update_storage_array_with_host(cx, params, offset);
@@ -339,8 +345,9 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
     builder.fragment(|builder, binding| {
       let text_id = builder.query::<Text3DShaderId>();
       let text_meta = text_meta.using(binding);
+      let text_meta = text_meta.index(text_id);
       let curve_text_global_offset =
-        text_meta.index(text_id).text_curves_range().load().x() / val(CurveData::u32_size());
+        text_meta.text_curves_range().load().x() / val(CurveData::u32_size());
 
       builder.insert_type_tag::<UnlitMaterialTag>();
 
@@ -362,8 +369,7 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
       }
       .slug_render(uv, val(0));
 
-      builder
-        .register::<DefaultDisplay>(val(Vec4::new(0., 0., 0., 1.)) * coverage.splat::<Vec4<f32>>());
+      builder.register::<DefaultDisplay>(text_meta.color().load() * coverage.splat::<Vec4<f32>>());
 
       builder.frag_output.iter_mut().for_each(|p| {
         if p.is_blendable() {

@@ -176,4 +176,5 @@ pub struct TextMeta {
   pub text_band_range: Vec2<u32>,
   pub text_vertices_range: Vec2<u32>,
   pub local_matrix: Mat4<f32>,
+  pub color: Vec4<f32>,
 }

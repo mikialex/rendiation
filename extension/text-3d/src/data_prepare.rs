@@ -192,7 +192,10 @@ pub fn create_slug_buffer_from_text3d_content(
   }
   let mut underline_segments: Vec<UnderlineSegment> = Vec::new();
 
+  // we use full text paragraph last line baseline start point as the origin
+  let mut last_line_y = 0.;
   for run in buffer.layout_runs() {
+    last_line_y = run.line_y;
     for glyph in run.glyphs.iter() {
       let cache_key = glyph.physical((0., run.line_y), 1.0).cache_key;
       unique_glyphs.insert(GlyphKey::Real(cache_key));
@@ -222,6 +225,13 @@ pub fn create_slug_buffer_from_text3d_content(
         });
       }
     }
+  }
+
+  for glyph in &mut glyph_buffer {
+    glyph.relative_y += last_line_y;
+  }
+  for line_seg in &mut underline_segments {
+    line_seg.line_y += last_line_y;
   }
 
   // todo, rework underline logic

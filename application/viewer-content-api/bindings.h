@@ -595,6 +595,7 @@ struct Text3dContentInfoC {
   float height;
   bool has_height;
   TextAlignment align;
+  bool underline;
 };
 
 

@@ -198,8 +198,6 @@ fn update_dynamic_bvh(
     if let Some(scene_id) = scene_id(k) {
       let bvh = bvh.get_or_create_bvh(scene_id);
       bvh.remove(k);
-    } else {
-      log::warn!("bounding change unable to access scene id")
     }
   }
 
