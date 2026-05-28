@@ -52,3 +52,28 @@ impl<T, U> DualQuery<T, U> {
     }
   }
 }
+
+#[test]
+fn test_filter_map_query_change() {
+  let mut base = FastHashMap::default();
+  // both new and old pass the filter
+  base.insert(1u32, ValueChange::Delta(10i32, Some(8)));
+  // doesn't pass filter at all
+  base.insert(2, ValueChange::Delta(3, None));
+  // old value passes → Remove
+  base.insert(3, ValueChange::Remove(8));
+
+  let filtered = FilterMapQueryChange {
+    base,
+    mapper: |v: i32| if v > 5 { Some(v * 10) } else { None },
+  };
+
+  validate_query_consistency(&filtered);
+
+  assert_eq!(
+    filtered.access(&1),
+    Some(ValueChange::Delta(100, Some(80)))
+  );
+  assert_eq!(filtered.access(&2), None);
+  assert_eq!(filtered.access(&3), Some(ValueChange::Remove(80)));
+}

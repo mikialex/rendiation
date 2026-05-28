@@ -25,22 +25,6 @@ impl<V: std::fmt::Debug> std::fmt::Debug for ValueChange<V> {
 }
 
 impl<V> ValueChange<V> {
-  pub fn is_not_changed(&self) -> bool
-  where
-    V: PartialEq,
-  {
-    match self {
-      Self::Delta(v, pv) => {
-        if let Some(pv) = pv {
-          v == pv
-        } else {
-          false
-        }
-      }
-      Self::Remove(_) => false,
-    }
-  }
-
   pub fn map<R>(self, mapper: impl Fn(V) -> R) -> ValueChange<R> {
     type Rt<R> = ValueChange<R>;
     match self {
@@ -111,7 +95,13 @@ impl<V> ValueChange<V> {
     use ValueChange::*;
     *self = match (self.clone(), new.clone()) {
       (Delta(_d1, p1), Delta(d2, _p2)) => {
-        // we should also check d1 = d2(validation)
+        // We intentionally do NOT validate that _d1 == _p2 (the previous
+        // delta's new value equals the incoming delta's old value).  For
+        // floats, PartialEq treats NaN != NaN, yet two NaN values in a
+        // change sequence are logically consistent (no real change
+        // occurred).  There is no generic way to express "equal or both
+        // NaN" without a custom trait that would burden all non-float
+        // uses of ValueChange.
         if let Some(p1) = &p1 {
           if p1 == &d2 {
             return false;
@@ -120,7 +110,7 @@ impl<V> ValueChange<V> {
         Delta(d2, p1)
       }
       (Delta(_d1, p1), Remove(_p2)) => {
-        // we should check d1 = d2(validation)
+        // See the Delta+Delta branch for why we skip _d1 == _p2 validation.
         if let Some(p1) = p1 {
           Remove(p1)
         } else {
@@ -236,4 +226,167 @@ pub fn validate_delta<K: CKey, V: CValue>(
       }
     }
   }
+}
+
+#[test]
+fn test_value_change_map() {
+  let c = ValueChange::Delta(10i32, Some(5));
+  let mapped = c.map(|v| v * 2);
+  assert_eq!(mapped, ValueChange::Delta(20, Some(10)));
+
+  let r = ValueChange::<i32>::Remove(5);
+  let mapped = r.map(|v| v * 2);
+  assert_eq!(mapped, ValueChange::Remove(10));
+}
+
+#[test]
+fn test_value_change_merge_delta_delta() {
+  // consecutive deltas: keeps old previous
+  let mut c = ValueChange::Delta(10i32, Some(5));
+  let exists = c.merge(&ValueChange::Delta(15, Some(10)));
+  assert!(exists);
+  assert_eq!(c, ValueChange::Delta(15, Some(5)));
+
+  // redundant: same value cancels out
+  let mut c = ValueChange::Delta(10i32, Some(10));
+  let exists = c.merge(&ValueChange::Delta(10, Some(10)));
+  assert!(!exists);
+}
+
+#[test]
+fn test_value_change_merge_delta_remove() {
+  // delta then remove → stays remove with original previous
+  let mut c = ValueChange::Delta(10i32, Some(5));
+  let exists = c.merge(&ValueChange::Remove(10));
+  assert!(exists);
+  assert_eq!(c, ValueChange::Remove(5));
+
+  // new insert then remove → cancels out entirely
+  let mut c = ValueChange::Delta(10i32, None);
+  let exists = c.merge(&ValueChange::Remove(10));
+  assert!(!exists);
+}
+
+#[test]
+fn test_value_change_merge_remove_delta() {
+  // remove then re-insert (different value) → delta
+  let mut c = ValueChange::<i32>::Remove(5);
+  let exists = c.merge(&ValueChange::Delta(10, None));
+  assert!(exists);
+  assert_eq!(c, ValueChange::Delta(10, Some(5)));
+}
+
+#[test]
+fn test_value_change_accessors() {
+  let insert = ValueChange::Delta(10i32, None);
+  assert!(insert.is_new_insert());
+  assert!(!insert.is_removed());
+  assert_eq!(insert.new_value(), Some(&10));
+  assert_eq!(insert.old_value(), None);
+  assert!(!insert.is_redundant());
+
+  let update = ValueChange::Delta(20i32, Some(10));
+  assert!(!update.is_new_insert());
+  assert_eq!(update.old_value(), Some(&10));
+  assert!(!update.is_redundant());
+
+  let same = ValueChange::Delta(10i32, Some(10));
+  assert!(same.is_redundant());
+  assert!(same.is_redundant());
+
+  let remove = ValueChange::Remove(5i32);
+  assert!(remove.is_removed());
+  assert_eq!(remove.old_value(), Some(&5));
+  assert_eq!(remove.new_value(), None);
+}
+
+#[test]
+fn test_make_checker() {
+  let checker = make_checker(|v: i32| if v > 5 { Some(v * 2) } else { None });
+
+  // delta: both new and old pass
+  assert_eq!(
+    checker(ValueChange::Delta(10, Some(8))),
+    Some(ValueChange::Delta(20, Some(16)))
+  );
+
+  // delta: only new passes → Delta with None previous
+  assert_eq!(
+    checker(ValueChange::Delta(10, Some(3))),
+    Some(ValueChange::Delta(20, None))
+  );
+
+  // delta: only old passes → Remove
+  assert_eq!(
+    checker(ValueChange::Delta(3, Some(8))),
+    Some(ValueChange::Remove(16))
+  );
+
+  // delta: neither passes
+  assert_eq!(checker(ValueChange::Delta(3, Some(2))), None);
+
+  // remove: old passes → Remove
+  assert_eq!(checker(ValueChange::Remove(8)), Some(ValueChange::Remove(16)));
+
+  // remove: old doesn't pass
+  assert_eq!(checker(ValueChange::Remove(3)), None);
+}
+
+#[test]
+fn test_merge_change_fn() {
+  let mut mutations: FastHashMap<u32, ValueChange<i32>> = FastHashMap::default();
+
+  merge_change(&mut mutations, (1, ValueChange::Delta(10, Some(5))));
+  assert_eq!(mutations.len(), 1);
+  assert_eq!(mutations[&1], ValueChange::Delta(10, Some(5)));
+
+  // merge second change to same key → keeps original previous, updates new
+  merge_change(&mut mutations, (1, ValueChange::Delta(15, Some(10))));
+  assert_eq!(mutations.len(), 1);
+  assert_eq!(mutations[&1], ValueChange::Delta(15, Some(5)));
+}
+
+#[test]
+fn test_merge_change_fn_cancel() {
+  let mut mutations: FastHashMap<u32, ValueChange<i32>> = FastHashMap::default();
+
+  merge_change(&mut mutations, (1, ValueChange::Delta(10, Some(5))));
+
+  // second change reverses the first → cancels out entirely
+  merge_change(&mut mutations, (1, ValueChange::Delta(5, Some(10))));
+  assert!(mutations.is_empty());
+}
+
+#[test]
+fn test_integrate_change_fn() {
+  let mut state: FastHashMap<u32, i32> = FastHashMap::default();
+
+  integrate_change(&mut state, (1, ValueChange::Delta(42, None)));
+  assert_eq!(state[&1], 42);
+
+  integrate_change(&mut state, (2, ValueChange::Delta(99, None)));
+  assert_eq!(state[&2], 99);
+
+  integrate_change(&mut state, (1, ValueChange::Remove(42)));
+  assert!(!state.contains_key(&1));
+  assert_eq!(state[&2], 99);
+}
+
+#[test]
+fn test_validate_delta_fn() {
+  let mut state: FastHashMap<u32, i32> = FastHashMap::default();
+  state.insert(1, 10);
+  state.insert(2, 20);
+
+  let delta: FastHashMap<u32, ValueChange<i32>> = FastHashMap::from_iter([
+    (1, ValueChange::Delta(15, Some(10))),
+    (2, ValueChange::Remove(20)),
+    (3, ValueChange::Delta(30, None)),
+  ]);
+
+  validate_delta(&mut state, false, "test", &delta);
+
+  assert_eq!(state[&1], 15);
+  assert!(!state.contains_key(&2));
+  assert_eq!(state[&3], 30);
 }

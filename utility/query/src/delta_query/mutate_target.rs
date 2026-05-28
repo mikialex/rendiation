@@ -96,7 +96,7 @@ where
         self.delta.set_value(k, previous_delta.clone());
       }
     } else {
-      if !new_delta.is_not_changed() {
+      if !new_delta.is_redundant() {
         self.delta.set_value(k, new_delta);
       }
     }
@@ -112,7 +112,7 @@ where
         self.delta.set_value(k, previous_delta.clone());
       }
     } else {
-      if !new_delta.is_not_changed() {
+      if !new_delta.is_redundant() {
         self.delta.set_value(k, new_delta);
       }
     }
@@ -138,4 +138,76 @@ where
 
     previous
   }
+}
+
+#[test]
+fn test_query_mutation_collector_set_value() {
+  let mut target = FastHashMap::default();
+  target.insert(1u32, "hello".to_string());
+
+  let mut delta: FastHashMap<u32, ValueChange<String>> = FastHashMap::default();
+  let mut collector = QueryMutationCollector {
+    delta: &mut delta,
+    target: &mut target,
+  };
+
+  let prev = collector.set_value(1, "world".to_string());
+  assert_eq!(prev, Some("hello".to_string()));
+
+  assert_eq!(delta.len(), 1);
+  assert_eq!(
+    delta[&1],
+    ValueChange::Delta("world".to_string(), Some("hello".to_string()))
+  );
+  assert_eq!(target[&1], "world");
+}
+
+#[test]
+fn test_query_mutation_collector_set_value_no_change() {
+  let mut target = FastHashMap::default();
+  target.insert(1u32, "same".to_string());
+
+  let mut delta: FastHashMap<u32, ValueChange<String>> = FastHashMap::default();
+  let mut collector = QueryMutationCollector {
+    delta: &mut delta,
+    target: &mut target,
+  };
+
+  collector.set_value(1, "same".to_string());
+  // no delta recorded — value didn't change
+  assert!(delta.is_empty());
+}
+
+#[test]
+fn test_query_mutation_collector_remove() {
+  let mut target = FastHashMap::default();
+  target.insert(1u32, "gone".to_string());
+
+  let mut delta: FastHashMap<u32, ValueChange<String>> = FastHashMap::default();
+  let mut collector = QueryMutationCollector {
+    delta: &mut delta,
+    target: &mut target,
+  };
+
+  let prev = collector.remove(1);
+  assert_eq!(prev, Some("gone".to_string()));
+  assert!(target.is_empty());
+  assert_eq!(delta[&1], ValueChange::Remove("gone".to_string()));
+}
+
+#[test]
+fn test_query_mutation_collector_new_insert() {
+  let mut target: FastHashMap<u32, String> = FastHashMap::default();
+  let mut delta: FastHashMap<u32, ValueChange<String>> = FastHashMap::default();
+  let mut collector = QueryMutationCollector {
+    delta: &mut delta,
+    target: &mut target,
+  };
+
+  let prev = collector.set_value(1, "new".to_string());
+  assert_eq!(prev, None);
+  assert_eq!(
+    delta[&1],
+    ValueChange::Delta("new".to_string(), None)
+  );
 }

@@ -212,7 +212,7 @@ pub fn bookkeeping_dense_index_relation<K: CKey + LinearIdentified, V: CKey + Li
   }
 }
 
-enum EtherIter<A, B> {
+pub(super) enum EtherIter<A, B> {
   A(A),
   B(B),
 }

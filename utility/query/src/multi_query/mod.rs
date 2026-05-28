@@ -17,10 +17,10 @@ pub trait MultiQuery: Send + Sync + Clone {
   /// if k is in the query but map to none of v, return empty iterator
   fn access_multi(&self, key: &Self::Key) -> Option<impl Iterator<Item = Self::Value> + '_>;
   fn access_multi_value(&self, key: &Self::Key) -> impl Iterator<Item = Self::Value> + '_ {
-    self
-      .access_multi(key)
-      .map(|v| Box::new(v) as Box<dyn Iterator<Item = Self::Value> + '_>) // todo impl iterator for better performance
-      .unwrap_or_else(|| Box::new(std::iter::empty()))
+    match self.access_multi(key) {
+      Some(v) => EtherIter::A(v),
+      None => EtherIter::B(std::iter::empty()),
+    }
   }
 
   fn access_multi_visitor(&self, key: &Self::Key, visitor: &mut dyn FnMut(Self::Value)) {

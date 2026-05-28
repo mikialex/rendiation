@@ -28,19 +28,21 @@ impl<'a> ViewerAPICx<'a> {
   where
     T: Any + for<'b> CanCleanUpFrom<ViewerAPICxDropCx<'b>>,
   {
-    // this is safe because user can not access previous retrieved state through returned self.
-    let s = unsafe { std::mem::transmute_copy(&self) };
+    let this = self as *mut Self;
 
-    let state = self.memory.expect_state_init(
-      || {
-        init(&mut ViewerAPIInitCx {
-          shared_ctx: &mut self.viewer.shared_ctx,
-        })
-      },
-      |state: &mut T, dcx: &mut ViewerAPICxDropCx| {
-        state.drop_from_cx(dcx);
-      },
-    );
+    let state = unsafe {
+      (*this).memory.expect_state_init(
+        || {
+          init(&mut ViewerAPIInitCx {
+            shared_ctx: &mut self.viewer.shared_ctx,
+          })
+        },
+        |state: &mut T, dcx: &mut ViewerAPICxDropCx| {
+          state.drop_from_cx(dcx);
+        },
+      )
+    };
+    let s = unsafe { &mut *this };
 
     (s, state)
   }

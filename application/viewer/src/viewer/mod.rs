@@ -189,23 +189,24 @@ impl<'a> ViewerCx<'a> {
   where
     T: Any + for<'x> CanCleanUpFrom<ViewerDropCx<'x>>,
   {
-    // this is safe because user can not access previous retrieved state through returned self.
-    let s = unsafe { std::mem::transmute_copy(&self) };
-
-    let state = self.viewer.memory.expect_state_init(
-      || {
-        init(&mut ViewerInitCx {
-          dyn_cx: self.dyn_cx,
-          content: &self.active_surface_content,
-          terminal: &mut self.viewer.terminal,
-          shared_ctx: &mut self.viewer.shared_ctx,
-          surface_id: self.surface_id,
-        })
-      },
-      |state: &mut T, dcx: &mut ViewerDropCx| {
-        state.drop_from_cx(dcx);
-      },
-    );
+    let this = self as *mut Self;
+    let state = unsafe {
+      (*this).viewer.memory.expect_state_init(
+        || {
+          init(&mut ViewerInitCx {
+            dyn_cx: self.dyn_cx,
+            content: &self.active_surface_content,
+            terminal: &mut self.viewer.terminal,
+            shared_ctx: &mut self.viewer.shared_ctx,
+            surface_id: self.surface_id,
+          })
+        },
+        |state: &mut T, dcx: &mut ViewerDropCx| {
+          state.drop_from_cx(dcx);
+        },
+      )
+    };
+    let s = unsafe { &mut *this };
 
     (s, state)
   }

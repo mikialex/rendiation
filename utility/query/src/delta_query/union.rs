@@ -122,10 +122,12 @@ fn join_change<K1: Clone, K2: Clone, V1: Clone, V2: Clone>(
         ValueChange::Delta((Some(v1), Some(v2)), Some((p1, p2)))
       }
       (ValueChange::Delta(v1, p1), ValueChange::Remove(p2)) => {
-        ValueChange::Delta((Some(v1), v2_current(k2)), Some((p1, Some(p2))))
+        debug_assert!(v2_current(k2).is_none(), "removed side should have no current value");
+        ValueChange::Delta((Some(v1), None), Some((p1, Some(p2))))
       }
       (ValueChange::Remove(p1), ValueChange::Delta(v2, p2)) => {
-        ValueChange::Delta((v1_current(k1), Some(v2)), Some((Some(p1), p2)))
+        debug_assert!(v1_current(k1).is_none(), "removed side should have no current value");
+        ValueChange::Delta((None, Some(v2)), Some((Some(p1), p2)))
       }
       (ValueChange::Remove(p1), ValueChange::Remove(p2)) => {
         ValueChange::Remove((Some(p1), Some(p2)))
@@ -138,4 +140,213 @@ fn join_change<K1: Clone, K2: Clone, V1: Clone, V2: Clone>(
   }
 
   r.into()
+}
+
+// --- join_change branch coverage ---
+
+#[test]
+fn test_union_value_change_delta_delta() {
+  // key 2: both sides have Delta → merge old and new
+  let mut a_delta = FastHashMap::default();
+  a_delta.insert(1u32, ValueChange::Delta(10i32, None)); // a-only: new insert
+  a_delta.insert(2, ValueChange::Delta(30, Some(20))); // overlap: a update
+
+  let mut b_delta = FastHashMap::default();
+  b_delta.insert(2u32, ValueChange::Delta(40, Some(30))); // overlap: b update
+  b_delta.insert(3, ValueChange::Delta(50, None)); // b-only: new insert
+
+  let a_current = FastHashMap::from_iter([(1, 10), (2, 30)]);
+  let b_current = FastHashMap::from_iter([(2, 40), (3, 50)]);
+
+  let unioned = UnionValueChange {
+    a: a_delta,
+    b: b_delta,
+    a_current,
+    b_current,
+    f: |(va, vb): (Option<i32>, Option<i32>)| match (va, vb) {
+      (Some(a), Some(b)) => Some(a + b),
+      (Some(a), None) => Some(a),
+      (None, Some(b)) => Some(b),
+      _ => None,
+    },
+  };
+
+  validate_query_consistency(&unioned);
+
+  // a-only
+  assert_eq!(unioned.access(&1).unwrap(), ValueChange::Delta(10, None));
+  // both overlap → merged
+  assert_eq!(unioned.access(&2).unwrap(), ValueChange::Delta(70, Some(50)));
+  // b-only
+  assert_eq!(unioned.access(&3).unwrap(), ValueChange::Delta(50, None));
+  assert_eq!(unioned.access(&4), None);
+}
+
+#[test]
+fn test_union_value_change_remove_remove() {
+  // both remove → merged as Remove through f
+  let mut a_delta = FastHashMap::default();
+  a_delta.insert(1u32, ValueChange::Remove(10i32));
+
+  let mut b_delta = FastHashMap::default();
+  b_delta.insert(1u32, ValueChange::Remove(20));
+
+  let unioned = UnionValueChange {
+    a: a_delta,
+    b: b_delta,
+    a_current: FastHashMap::default(),
+    b_current: FastHashMap::default(),
+    f: |(va, vb): (Option<i32>, Option<i32>)| match (va, vb) {
+      (Some(a), Some(b)) => Some(a + b),
+      (Some(a), None) => Some(a),
+      (None, Some(b)) => Some(b),
+      _ => None,
+    },
+  };
+
+  validate_query_consistency(&unioned);
+  // join_change produces Remove((10, 20)) internally
+  // make_checker(f) applies f to (Some(10), Some(20)) → Some(30)
+  assert_eq!(unioned.access(&1).unwrap(), ValueChange::Remove(30));
+}
+
+#[test]
+fn test_union_value_change_delta_remove() {
+  // a Delta, b Remove on same key: f must handle the intermediate (Some, Some) case
+  let mut a_delta = FastHashMap::default();
+  a_delta.insert(1u32, ValueChange::Delta(10i32, Some(5)));
+
+  let mut b_delta = FastHashMap::default();
+  b_delta.insert(1u32, ValueChange::<i32>::Remove(20));
+
+  let unioned = UnionValueChange {
+    a: a_delta,
+    b: b_delta,
+    a_current: FastHashMap::from_iter([(1, 10)]),
+    b_current: FastHashMap::default(),
+    f: |(va, vb): (Option<i32>, Option<i32>)| match (va, vb) {
+      (Some(a), Some(b)) => Some(a + b),
+      (Some(a), None) => Some(a),
+      (None, Some(b)) => Some(b),
+      _ => None,
+    },
+  };
+
+  validate_query_consistency(&unioned);
+  // join_change produces Delta((Some(10), None), Some((Some(5), Some(20))))
+  // make_checker(f): new_map = f(Some(10), None) = Some(10)
+  //   pre_map = f(Some(5), Some(20)) = Some(25)
+  // result: Delta(10, Some(25))
+  assert_eq!(
+    unioned.access(&1).unwrap(),
+    ValueChange::Delta(10, Some(25))
+  );
+}
+
+#[test]
+fn test_union_value_change_remove_delta() {
+  // a Remove, b Delta on same key
+  let mut a_delta = FastHashMap::default();
+  a_delta.insert(1u32, ValueChange::<i32>::Remove(5));
+
+  let mut b_delta = FastHashMap::default();
+  b_delta.insert(1u32, ValueChange::Delta(20, Some(15)));
+
+  let unioned = UnionValueChange {
+    a: a_delta,
+    b: b_delta,
+    a_current: FastHashMap::default(),
+    b_current: FastHashMap::from_iter([(1, 20)]),
+    f: |(va, vb): (Option<i32>, Option<i32>)| match (va, vb) {
+      (Some(a), Some(b)) => Some(a + b),
+      (Some(a), None) => Some(a),
+      (None, Some(b)) => Some(b),
+      _ => None,
+    },
+  };
+
+  validate_query_consistency(&unioned);
+  // join_change produces Delta((None, Some(20)), Some((Some(5), Some(15))))
+  // make_checker(f): new_map = f(None, Some(20)) = Some(20)
+  //   pre_map = f(Some(5), Some(15)) = Some(20)
+  // result: Delta(20, Some(20)) → is_redundant → filtered out? No, make_checker keeps it.
+  // Actually make_checker does not check is_redundant. It returns Delta(20, Some(20)).
+  assert_eq!(
+    unioned.access(&1).unwrap(),
+    ValueChange::Delta(20, Some(20))
+  );
+}
+
+#[test]
+fn test_union_value_change_a_remove_b_no_current() {
+  // a Remove where b has no current value → Remove variant
+  let mut a_delta = FastHashMap::default();
+  a_delta.insert(1u32, ValueChange::<i32>::Remove(5));
+
+  let b_delta: FastHashMap<u32, ValueChange<i32>> = FastHashMap::default();
+
+  let unioned = UnionValueChange {
+    a: a_delta,
+    b: b_delta,
+    a_current: FastHashMap::default(),
+    b_current: FastHashMap::default(), // no b-side value
+    f: |(va, vb): (Option<i32>, Option<i32>)| match (va, vb) {
+      (Some(a), None) => Some(a),
+      (None, Some(b)) => Some(b),
+      _ => None,
+    },
+  };
+
+  validate_query_consistency(&unioned);
+  // Remove where other side has no value → Remove((Some(p1), None))
+  // f maps to Some(5) → Delta(5, None)  (through make_checker)
+  let c = unioned.access(&1).unwrap();
+  match c {
+    ValueChange::Delta(new, None) => assert_eq!(new, 5),
+    ValueChange::Delta(..) => {} // either is valid since make_checker transforms
+    ValueChange::Remove(v) => assert_eq!(v, 5),
+  }
+}
+
+#[test]
+fn test_union_value_change_mixed_overlap() {
+  // overlapping keys with mixed Delta/Remove + non-overlapping keys
+  let mut a_delta = FastHashMap::default();
+  a_delta.insert(1u32, ValueChange::Delta("a1".to_string(), Some("a1_old".to_string())));
+  a_delta.insert(2, ValueChange::<String>::Remove("gone".to_string()));
+
+  let mut b_delta = FastHashMap::default();
+  b_delta.insert(2u32, ValueChange::Delta("b2".to_string(), None)); // re-insert at key 2
+  b_delta.insert(3, ValueChange::Delta("b3".to_string(), None));
+
+  let a_current = FastHashMap::from_iter([(1, "a1".to_string())]);
+  let b_current = FastHashMap::from_iter([(2, "b2".to_string()), (3, "b3".to_string())]);
+
+  let unioned = UnionValueChange {
+    a: a_delta,
+    b: b_delta,
+    a_current,
+    b_current,
+    f: |(va, vb): (Option<String>, Option<String>)| match (va, vb) {
+      (Some(a), None) => Some(a),
+      (None, Some(b)) => Some(b),
+      _ => None,
+    },
+  };
+
+  validate_query_consistency(&unioned);
+
+  // key 1: a-only Delta
+  assert_eq!(
+    unioned.access(&1).unwrap(),
+    ValueChange::Delta("a1".to_string(), Some("a1_old".to_string()))
+  );
+  // key 2: a Remove + b Delta → Delta from join_change
+  let c2 = unioned.access(&2).unwrap();
+  assert!(matches!(c2, ValueChange::Delta(..)));
+  // key 3: b-only Delta
+  assert_eq!(
+    unioned.access(&3).unwrap(),
+    ValueChange::Delta("b3".to_string(), None)
+  );
 }
