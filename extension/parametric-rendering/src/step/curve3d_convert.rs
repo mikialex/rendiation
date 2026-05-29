@@ -11,7 +11,7 @@ use crate::*;
 ///
 /// Recursively handles `TrimmedCurve`, `CompositeCurve`, and `SurfaceCurve` by
 /// extracting the underlying geometry.
-pub fn convert_any_curve_to_bezier(
+pub fn convert_any_curve_to_beziers(
   curve: &CurveAny,
 ) -> Result<Vec<RationalBezierCurve3d<f32>>, StepReadError> {
   match curve {
@@ -52,12 +52,12 @@ pub fn convert_any_curve_to_bezier(
     CurveAny::TrimmedCurve(t) => {
       // Extract the basis curve and convert it. Trim parameters are ignored
       // for now — they can be used later to clip the resulting Bezier curves.
-      convert_any_curve_to_bezier(&t.basis_curve)
+      convert_any_curve_to_beziers(&t.basis_curve)
     }
     CurveAny::CompositeCurve(c) => {
       let mut result = Vec::new();
       for segment in &c.segments {
-        let mut seg_curves = convert_any_curve_to_bezier(&segment.parent_curve)?;
+        let mut seg_curves = convert_any_curve_to_beziers(&segment.parent_curve)?;
         result.append(&mut seg_curves);
       }
       Ok(result)
@@ -65,7 +65,7 @@ pub fn convert_any_curve_to_bezier(
     CurveAny::SurfaceCurve(sc) => {
       // SurfaceCurve wraps a 3D curve plus pcurves. For 3D curve conversion,
       // we only care about the 3D geometry.
-      convert_any_curve_to_bezier(&sc.curve_3d)
+      convert_any_curve_to_beziers(&sc.curve_3d)
     }
     CurveAny::Polyline(poly) => {
       let mut result = Vec::new();

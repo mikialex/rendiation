@@ -36,6 +36,7 @@
         "BRDF",
         "brep",
         "BSDF",
+        "bspline",
         "bumpalo",
         "bytemuck",
         "Casteljau",
