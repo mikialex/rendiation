@@ -1,9 +1,8 @@
 mod curve2d_sample;
 mod curve3d_convert;
-mod helpers;
-mod parameter_remapping;
+mod line_utils;
 mod placement;
-mod reconstruct_boundary;
+mod step_helpers;
 mod sub_patch_trim;
 mod surface_convert;
 mod surface_extent;
@@ -12,11 +11,10 @@ mod topology;
 
 use curve2d_sample::*;
 use curve3d_convert::*;
-use helpers::*;
-use parameter_remapping::*;
+use line_utils::*;
 use placement::*;
-use reconstruct_boundary::*;
 use rendiation_step_reader::table::Table;
+use step_helpers::*;
 use sub_patch_trim::*;
 use surface_convert::*;
 use surface_extent::*;
@@ -47,22 +45,24 @@ pub(crate) use step_dbg;
 
 #[derive(Debug, Clone)]
 pub struct StepReadConfig {
-  pub tessellate_tolerance: f32,
+  // curve3d to line list 3d
+  pub trim_curve_tessellate_tolerance: f32,
+  // line list 2d to bezier curve list 2d
+  pub trim_curve_reconstruct_tolerance: f32,
   pub project_grid: usize,
   pub project_tolerance: f32,
   pub project_max_iter: usize,
-  pub fit_tolerance: f32,
   pub validate_step_input_trim_curve_is_inbound: bool,
 }
 
 impl Default for StepReadConfig {
   fn default() -> Self {
     Self {
-      tessellate_tolerance: 1e-4,
+      trim_curve_tessellate_tolerance: 1e-4,
+      trim_curve_reconstruct_tolerance: 1e-4,
       project_grid: 8,
       project_tolerance: 1e-6,
       project_max_iter: 20,
-      fit_tolerance: 1e-4,
       validate_step_input_trim_curve_is_inbound: true,
     }
   }
@@ -231,16 +231,20 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
     }
 
     // Pre-convert all edge curves to Bezier once per face.
-    let edge_loops_beziers: Vec<Vec<RationalBezierCurve3d<f32>>> = face_data
+    // per loop -> per edge -> curve list
+    let edge_loops_beziers: Vec<Vec<Vec<RationalBezierCurve3d<f32>>>> = face_data
       .edge_loops
       .iter()
-      .flat_map(|l| l.iter())
-      .map(|e| match convert_any_curve_to_bezier(&e.curve_3d) {
-        Ok(b) => b,
-        Err(e) => {
-          errors.push(e);
-          Vec::new()
-        }
+      .map(|e| {
+        e.iter()
+          .map(|c| match convert_any_curve_to_beziers(&c.curve_3d) {
+            Ok(b) => b,
+            Err(e) => {
+              errors.push(e);
+              Vec::new()
+            }
+          })
+          .collect()
       })
       .collect();
 
@@ -266,10 +270,10 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       &original_surface,
       patches,
       &face_data.edge_loops,
+      &edge_loops_beziers,
       face_data.surface_entity_id,
       config,
       table,
-      &edge_loops_beziers,
       &mut errors,
     );
 
@@ -305,8 +309,10 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       surfaces_instance.push((surf_start_idx + offset, instance_matrix));
     }
 
+    let edge_loops_beziers_flattened: Vec<_> = edge_loops_beziers.into_iter().flatten().collect();
+
     let curve_start_idx = curves_3d.len();
-    for beziers in &edge_loops_beziers {
+    for beziers in &edge_loops_beziers_flattened {
       if beziers.is_empty() {
         continue;
       }

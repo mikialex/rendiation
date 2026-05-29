@@ -23,6 +23,15 @@ pub struct SubRange {
   pub v_range: (f32, f32),
 }
 
+impl SubRange {
+  pub fn center_point(&self) -> Vec2<f32> {
+    Vec2::new(
+      (self.u_range.0 + self.u_range.1) * 0.5,
+      (self.v_range.0 + self.v_range.1) * 0.5,
+    )
+  }
+}
+
 /// Convert any STEP surface to Bezier patches with parameter range info,
 /// together with an `OriginalSurface` for single-call point projection.
 ///
@@ -30,7 +39,7 @@ pub struct SubRange {
 /// internally from the pre-converted edge Bezier curves.
 pub fn convert_and_split_any_surface_to_bezier_patches(
   surface: &SurfaceAny,
-  edge_beziers: &[Vec<RationalBezierCurve3d<f32>>],
+  edge_beziers: &[Vec<Vec<RationalBezierCurve3d<f32>>>],
   config: &StepReadConfig,
 ) -> Result<(Vec<SurfaceSubPatch>, OriginalSurface), StepReadError> {
   match surface {
@@ -744,7 +753,7 @@ fn convert_extrusion_surface_to_bezier_patches(
   swept_curve: &CurveAny,
   extrusion_axis: &entities::Vector,
 ) -> Result<(Vec<SurfaceSubPatch>, OriginalSurface), StepReadError> {
-  let curve_segments = convert_any_curve_to_bezier(swept_curve)?;
+  let curve_segments = convert_any_curve_to_beziers(swept_curve)?;
   let dir = direction_to_vec3(&extrusion_axis.orientation);
   let mag = extrusion_axis.magnitude as f32;
   let extrusion_vec = dir * mag;

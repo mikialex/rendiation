@@ -17,7 +17,7 @@ use crate::*;
 pub fn extract_2d_curve_points(
   table: &Table,
   entity_id: u64,
-) -> Result<TrimPolyline, StepReadError> {
+) -> Result<ContinuousTrimPolyline, StepReadError> {
   let holder = find_2d_curve_holder(table, entity_id).ok_or(StepReadError::MissingEntity {
     entity_type: "2D curve",
     id: entity_id,
@@ -33,55 +33,63 @@ pub fn extract_2d_curve_points(
       let d = direction_to_vec3(&l.dir.orientation);
       let mag = l.dir.magnitude as f32;
       let p1 = Vec2::new(p0.x + d.x * mag, p0.y + d.y * mag);
-      Ok(vec![p0, p1])
+      Ok(ContinuousTrimPolyline::new_by_single_segment(p0, p1))
     }
     FoundCurveHolder::Polyline(poly) => {
       let p: Polyline = poly
         .clone()
         .into_owned(table)
         .map_err(|e| StepReadError::ConversionError(format!("Polyline: {e}")))?;
-      Ok(p.points.iter().map(cartesian_point_to_vec2).collect())
+      Ok(ContinuousTrimPolyline::new_from_hard_polylines(
+        p.points.iter().map(cartesian_point_to_vec2).collect(),
+      ))
     }
     FoundCurveHolder::BSplineCurveWithKnots(b) => {
       let curve: BSplineCurveWithKnots = b
         .clone()
         .into_owned(table)
         .map_err(|e| StepReadError::ConversionError(format!("BSplineCurve: {e}")))?;
-      Ok(sample_2d_bspline_curve(&curve))
+      Ok(ContinuousTrimPolyline::single(sample_2d_bspline_curve(
+        &curve,
+      )))
     }
     FoundCurveHolder::BezierCurve(b) => {
       let curve: BezierCurve = b
         .clone()
         .into_owned(table)
         .map_err(|e| StepReadError::ConversionError(format!("BezierCurve: {e}")))?;
-      Ok(sample_2d_bezier_curve(&curve))
+      Ok(ContinuousTrimPolyline::single(sample_2d_bezier_curve(
+        &curve,
+      )))
     }
     FoundCurveHolder::RationalBSplineCurve(r) => {
       let curve: RationalBSplineCurve = r
         .clone()
         .into_owned(table)
         .map_err(|e| StepReadError::ConversionError(format!("RationalBSpline: {e}")))?;
-      Ok(sample_2d_rational_bspline_curve(&curve))
+      Ok(ContinuousTrimPolyline::single(
+        sample_2d_rational_bspline_curve(&curve),
+      ))
     }
     FoundCurveHolder::Circle(c) => {
       let circle: Circle = c
         .clone()
         .into_owned(table)
         .map_err(|e| StepReadError::ConversionError(format!("Circle: {e}")))?;
-      Ok(sample_2d_circle(&circle))
+      Ok(ContinuousTrimPolyline::single(sample_2d_circle(&circle)))
     }
     FoundCurveHolder::Ellipse(e) => {
       let ellipse: Ellipse = e
         .clone()
         .into_owned(table)
         .map_err(|e| StepReadError::ConversionError(format!("Ellipse: {e}")))?;
-      Ok(sample_2d_ellipse(&ellipse))
+      Ok(ContinuousTrimPolyline::single(sample_2d_ellipse(&ellipse)))
     }
   }
 }
 
 /// Sample a 2D B-spline curve uniformly.
-fn sample_2d_bspline_curve(b: &BSplineCurveWithKnots) -> Vec<Vec2<f32>> {
+fn sample_2d_bspline_curve(b: &BSplineCurveWithKnots) -> NoEdgeContinuousTrimPolyline {
   let points_2d: Vec<Vec2<f32>> = b
     .control_points_list
     .iter()
@@ -90,7 +98,8 @@ fn sample_2d_bspline_curve(b: &BSplineCurveWithKnots) -> Vec<Vec2<f32>> {
   let knots: Vec<f32> = expand_2d_knots(&b.knots, &b.knot_multiplicities);
 
   if points_2d.is_empty() || knots.is_empty() {
-    return points_2d;
+    // todo, is this valid??
+    return NoEdgeContinuousTrimPolyline::from_curve_sample(points_2d);
   }
 
   let degree = b.degree as usize;
@@ -104,6 +113,16 @@ fn sample_2d_bspline_curve(b: &BSplineCurveWithKnots) -> Vec<Vec2<f32>> {
     let t =
       domain_start + (domain_end - domain_start) * (i as f32) / (total_samples as f32).max(1.0);
     result.push(evaluate_2d_bspline(&points_2d, degree, &knots, t));
+  }
+  NoEdgeContinuousTrimPolyline::from_curve_sample(result)
+}
+
+fn expand_2d_knots(knots: &[f64], multiplicities: &[i64]) -> Vec<f32> {
+  let mut result = Vec::new();
+  for (&k, &m) in knots.iter().zip(multiplicities.iter()) {
+    for _ in 0..m {
+      result.push(k as f32);
+    }
   }
   result
 }
@@ -167,7 +186,7 @@ fn basis_functions_2d(span: usize, t: f32, p: usize, knots: &[f32]) -> Vec<f32> 
   n
 }
 
-fn sample_2d_bezier_curve(b: &BezierCurve) -> Vec<Vec2<f32>> {
+fn sample_2d_bezier_curve(b: &BezierCurve) -> NoEdgeContinuousTrimPolyline {
   let points: Vec<Vec2<f32>> = b
     .control_points_list
     .iter()
@@ -179,7 +198,7 @@ fn sample_2d_bezier_curve(b: &BezierCurve) -> Vec<Vec2<f32>> {
     let t = i as f32 / samples as f32;
     result.push(evaluate_2d_bezier(&points, t));
   }
-  result
+  NoEdgeContinuousTrimPolyline::from_curve_sample(points)
 }
 
 fn evaluate_2d_bezier(points: &[Vec2<f32>], t: f32) -> Vec2<f32> {
@@ -194,7 +213,7 @@ fn evaluate_2d_bezier(points: &[Vec2<f32>], t: f32) -> Vec2<f32> {
   q[0]
 }
 
-fn sample_2d_rational_bspline_curve(r: &RationalBSplineCurve) -> Vec<Vec2<f32>> {
+fn sample_2d_rational_bspline_curve(r: &RationalBSplineCurve) -> NoEdgeContinuousTrimPolyline {
   match &r.non_rational_b_spline_curve {
     NonRationalBSplineCurve::BSplineCurveWithKnots(b)
     | NonRationalBSplineCurve::QuasiUniformCurve(b)
@@ -213,7 +232,8 @@ fn sample_2d_rational_bspline_curve(r: &RationalBSplineCurve) -> Vec<Vec2<f32>> 
       };
 
       if points_2d.is_empty() {
-        return points_2d;
+        // todo, report error
+        return NoEdgeContinuousTrimPolyline::from_curve_sample(points_2d);
       }
 
       let samples_per_span = 32;
@@ -229,7 +249,7 @@ fn sample_2d_rational_bspline_curve(r: &RationalBSplineCurve) -> Vec<Vec2<f32>> 
           &points_2d, &weights, degree, &knots, t,
         ));
       }
-      result
+      NoEdgeContinuousTrimPolyline::from_curve_sample(result)
     }
     NonRationalBSplineCurve::BezierCurve(b) => {
       let points: Vec<Vec2<f32>> = b
@@ -248,7 +268,7 @@ fn sample_2d_rational_bspline_curve(r: &RationalBSplineCurve) -> Vec<Vec2<f32>> 
         let t = i as f32 / samples as f32;
         result.push(evaluate_2d_rational_bezier(&points, &weights, t));
       }
-      result
+      NoEdgeContinuousTrimPolyline::from_curve_sample(result)
     }
   }
 }
@@ -300,7 +320,7 @@ fn evaluate_2d_rational_bezier(points: &[Vec2<f32>], weights: &[f32], t: f32) ->
   qw[0].0
 }
 
-fn sample_2d_circle(c: &Circle) -> Vec<Vec2<f32>> {
+fn sample_2d_circle(c: &Circle) -> NoEdgeContinuousTrimPolyline {
   let center = cartesian_point_to_vec2(&c.position.location);
   let r = c.radius as f32;
   let samples = 128;
@@ -312,10 +332,10 @@ fn sample_2d_circle(c: &Circle) -> Vec<Vec2<f32>> {
       center.y + r * angle.sin(),
     ));
   }
-  result
+  NoEdgeContinuousTrimPolyline::from_curve_sample(result)
 }
 
-fn sample_2d_ellipse(e: &Ellipse) -> Vec<Vec2<f32>> {
+fn sample_2d_ellipse(e: &Ellipse) -> NoEdgeContinuousTrimPolyline {
   let center = cartesian_point_to_vec2(&e.position.location);
   let a = e.semi_axis1 as f32;
   let b = e.semi_axis2 as f32;
@@ -328,15 +348,5 @@ fn sample_2d_ellipse(e: &Ellipse) -> Vec<Vec2<f32>> {
       center.y + b * angle.sin(),
     ));
   }
-  result
-}
-
-fn expand_2d_knots(knots: &[f64], multiplicities: &[i64]) -> Vec<f32> {
-  let mut result = Vec::new();
-  for (&k, &m) in knots.iter().zip(multiplicities.iter()) {
-    for _ in 0..m {
-      result.push(k as f32);
-    }
-  }
-  result
+  NoEdgeContinuousTrimPolyline::from_curve_sample(result)
 }
