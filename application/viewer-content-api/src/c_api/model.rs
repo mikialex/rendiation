@@ -384,26 +384,35 @@ pub extern "C" fn drop_text3d(p: SceneText3dHandleInfo) {
     .delete_entity(p.scene_model.into());
 }
 
+#[repr(C)]
+#[derive(Default)]
+pub struct Text3dQueryInfoC {
+  pub min_x: f32,
+  pub min_y: f32,
+  pub max_x: f32,
+  pub max_y: f32,
+  pub x_height: f32,
+  pub has_result: bool,
+}
+
 #[no_mangle]
 pub extern "C" fn text3d_query(
   api: &mut ViewerAPI,
   handle: ViewerEntityHandle,
-  result: &mut [f32; 16],
-  has_result: &mut bool,
-) {
+) -> Text3dQueryInfoC {
+  let mut rr = Text3dQueryInfoC::default();
   let mut font_sys = api.core.viewer.font_system.write();
   if let Some(r) = compute_text_layout_info(handle.into(), &mut font_sys) {
     let bbox = r.local_bbox;
-    result[0] = bbox.min.x;
-    result[1] = bbox.min.y;
-    result[2] = bbox.min.z;
-    result[3] = bbox.max.x;
-    result[4] = bbox.max.y;
-    result[5] = bbox.max.z;
-    *has_result = true;
+    rr.min_x = bbox.min.x;
+    rr.min_y = bbox.min.y;
+    rr.max_x = bbox.max.x;
+    rr.max_y = bbox.max.y;
+    rr.has_result = true;
   } else {
-    *has_result = false;
+    rr.has_result = false;
   }
+  rr
 }
 
 #[no_mangle]

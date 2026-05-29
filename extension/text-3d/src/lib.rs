@@ -87,6 +87,7 @@ declare_component!(
 pub struct TextQueryResult {
   /// note, this bbox is not considering the local transform([Text3dLocalTransform])
   pub local_bbox: Box3<f32>,
+  pub x_height: f32,
 }
 
 pub fn compute_text_layout_info(
@@ -98,7 +99,23 @@ pub fn compute_text_layout_info(
   let slug = create_slug_buffer_from_text3d_content(font_sys, &text_3d);
   let local_bbox = slug.compute_local_bounding(font_sys, Mat4::identity());
 
-  TextQueryResult { local_bbox }.into()
+  let font_id = font_sys.query_font_id(&text_3d)?;
+
+  let x_height = if let Some(font) = font_sys.system.get_font(font_id, cosmic_text::Weight(400)) {
+    let swash_font = font.as_swash();
+    let metrics = swash_font.metrics(&[]);
+
+    metrics.x_height * text_3d.font_size
+  } else {
+    log::warn!("failed to get font metrics");
+    text_3d.font_size
+  };
+
+  TextQueryResult {
+    local_bbox,
+    x_height,
+  }
+  .into()
 }
 
 pub struct FontSystem {
@@ -127,5 +144,23 @@ impl FontSystem {
 
   pub(crate) fn get_computed_slug_glyph(&self, key: &GlyphKey) -> Option<&SlugGlyph> {
     self.slug_glyph_cache.get(key).map(|v| v.as_ref()).flatten()
+  }
+
+  pub fn query_font_id(&self, info: &Text3dContentInfo) -> Option<cosmic_text::fontdb::ID> {
+    let font = info.font.as_ref()?;
+    let style = if info.italic {
+      cosmic_text::Style::Italic
+    } else {
+      cosmic_text::Style::Normal
+    };
+
+    let weight = cosmic_text::Weight(info.weight.unwrap_or(400) as u16);
+
+    self.system.db().query(&cosmic_text::fontdb::Query {
+      families: &[cosmic_text::Family::Name(&font)],
+      weight,
+      stretch: cosmic_text::Stretch::Normal,
+      style,
+    })
   }
 }

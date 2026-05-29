@@ -598,6 +598,15 @@ struct Text3dContentInfoC {
   bool underline;
 };
 
+struct Text3dQueryInfoC {
+  float min_x;
+  float min_y;
+  float max_x;
+  float max_y;
+  float x_height;
+  bool has_result;
+};
+
 
 
 extern "C" {
@@ -892,7 +901,7 @@ void text3d_set_content(ViewerEntityHandle handle, const Text3dContentInfoC *con
 
 void drop_text3d(SceneText3dHandleInfo p);
 
-void text3d_query(ViewerAPI *api, ViewerEntityHandle handle, float (*result)[16], bool *has_result);
+Text3dQueryInfoC text3d_query(ViewerAPI *api, ViewerEntityHandle handle);
 
 void text3d_set_local_transform(ViewerEntityHandle handle, const float (*mat)[16]);
 
