@@ -174,7 +174,7 @@ fn project_point_plane(
 
 /// Project a 3D point onto a cylindrical surface.
 ///
-/// Returns (u, v, dist) where u, v ∈ [0, 1] are normalised parameters.
+/// Returns (u, v, dist) where u, v ∈ [0, 1] are normalized parameters.
 fn project_point_cylinder(
   point: Vec3<f32>,
   origin: Vec3<f32>,
@@ -203,7 +203,7 @@ fn project_point_cylinder(
 ///
 /// The cone is defined by its origin, axis, base radius, and semi-angle.
 /// r(v) = radius - v * tan(semi_angle).
-/// Returns (u, v, dist) where u, v ∈ [0, 1] are normalised parameters.
+/// Returns (u, v, dist) where u, v ∈ [0, 1] are normalized parameters.
 fn project_point_cone(
   point: Vec3<f32>,
   origin: Vec3<f32>,
@@ -236,7 +236,7 @@ fn project_point_cone(
 
 /// Project a 3D point onto a spherical surface.
 ///
-/// Returns (u, v, dist) where u, v ∈ [0, 1] are normalised parameters
+/// Returns (u, v, dist) where u, v ∈ [0, 1] are normalized parameters
 /// (u = longitude / 2π, v = colatitude / π).
 /// Returns None only when the point is at the sphere center (degenerate).
 fn project_point_sphere(
@@ -456,7 +456,7 @@ mod tests {
     let radius = 2.0;
     let v_range = (0.0, 5.0);
 
-    // Point at angle 0, height 2 → normalised: u=0, v=(2-0)/5=0.4
+    // Point at angle 0, height 2 → normalized: u=0, v=(2-0)/5=0.4
     let p = origin + x_dir * radius + axis * 2.0;
     let (u, v, dist) = project_point_cylinder(p, origin, axis, x_dir, y_dir, radius, v_range);
     assert!((u - 0.0).abs() < 1e-6, "u={u}");
@@ -470,7 +470,7 @@ mod tests {
     let radius = 3.0;
     let v_range = (0.0, 10.0);
 
-    // Point at angle π/2, height 5 → normalised: u=0.25, v=0.5
+    // Point at angle π/2, height 5 → normalized: u=0.25, v=0.5
     let p = origin + y_dir * radius + axis * 5.0;
     let (u, v, dist) = project_point_cylinder(p, origin, axis, x_dir, y_dir, radius, v_range);
     assert!((u - 0.25).abs() < 1e-6, "u={u}");
@@ -485,7 +485,7 @@ mod tests {
     let v_range = (0.0, 10.0);
 
     // Point at radius 5.0 (3.0 outside surface) at angle 0, height 3
-    // → normalised: u=0, v=0.3
+    // → normalized: u=0, v=0.3
     let p = origin + x_dir * 5.0 + axis * 3.0;
     let (u, v, dist) = project_point_cylinder(p, origin, axis, x_dir, y_dir, radius, v_range);
     assert!(u.abs() < 1e-6, "u should be near 0, got {u}");
@@ -499,7 +499,7 @@ mod tests {
     let radius = 2.0;
     let v_range = (0.0, 5.0);
 
-    // Point at height 20 but clamped v_range goes to 0..5 → normalised v=1.0
+    // Point at height 20 but clamped v_range goes to 0..5 → normalized v=1.0
     let p = origin + x_dir * radius + axis * 20.0;
     let (_u, v, _dist) = project_point_cylinder(p, origin, axis, x_dir, y_dir, radius, v_range);
     assert!(
@@ -514,7 +514,7 @@ mod tests {
     let radius = 3.0;
     let tan_a = 0.5; // cone narrows by 0.5 per unit height
     let v_range = (0.0, 4.0);
-    // At v=2, radius = 3 - 2*0.5 = 2.0 → normalised: u=0, v=0.5
+    // At v=2, radius = 3 - 2*0.5 = 2.0 → normalized: u=0, v=0.5
     let v_test = 2.0;
     let r_at_v = radius - v_test * tan_a;
     let p = origin + x_dir * r_at_v + axis * v_test;
@@ -549,7 +549,7 @@ mod tests {
     let radius = 3.0;
     let tan_a = 0.5;
     let v_range = (0.0, 4.0);
-    // Point far above cone, v should clamp to 4.0 → normalised v=1.0
+    // Point far above cone, v should clamp to 4.0 → normalized v=1.0
     let r_at_vmax = radius - 4.0 * tan_a; // 3 - 2 = 1.0
     let p = origin + x_dir * r_at_vmax + axis * 10.0;
     let (_u, v, _dist) = project_point_cone(p, origin, axis, x_dir, y_dir, radius, tan_a, v_range);
@@ -567,7 +567,7 @@ mod tests {
     let x_dir = Vec3::new(1.0, 0.0, 0.0);
     let y_dir = Vec3::new(0.0, 1.0, 0.0);
 
-    // Point on equator at longitude 0 → normalised: u=0, v=0.5
+    // Point on equator at longitude 0 → normalized: u=0, v=0.5
     let p = center + x_dir * radius + polar * 0.0;
     let (u, v, dist) = project_point_sphere(p, center, radius, polar, x_dir, y_dir).unwrap();
     assert!(u.abs() < 1e-6, "u={u}");

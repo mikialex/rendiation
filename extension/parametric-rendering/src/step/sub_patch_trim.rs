@@ -50,10 +50,11 @@ pub fn process_trim_curves_for_face(
     .filter_map(|(edge_loop_polyline, edge_loop_step)| {
       let mut c_polyline = ContinuousTrimPolyline::default();
       for (continues_polylines, edge_step) in edge_loop_polyline.iter().zip(edge_loop_step) {
-        let should_reverse = edge_step.same_sense != edge_step.orientation; // todo
+        let should_reverse = edge_step.same_sense != edge_step.orientation;
 
         // if p curve exist , use p curve for better precision
         if !edge_step.pcurve_refs.is_empty() {
+          let mut pcurve_added = false;
           for pcurve_ref in &edge_step.pcurve_refs {
             // Skip pcurves that belong to a different face's surface.
             if surface_entity_id != pcurve_ref.surface_id {
@@ -74,9 +75,20 @@ pub fn process_trim_curves_for_face(
               Vec2::new(nu, nv)
             });
 
+            let normalized = if should_reverse {
+              normalized.reverse()
+            } else {
+              normalized
+            };
             c_polyline.connect_c_polyline(normalized);
+            pcurve_added = true;
           }
+          assert!(
+            pcurve_added,
+            "edge has pcurve_refs but none matched surface {surface_entity_id}"
+          );
         } else {
+          let mut edge_poly = ContinuousTrimPolyline::default();
           for continues_no_edge_polylines in continues_polylines {
             // todo,we don't consider edge case that bezier curve may has shape edge
             let mut line = NoEdgeContinuousTrimPolyline::default();
@@ -93,20 +105,31 @@ pub fn process_trim_curves_for_face(
                 if config.validate_step_input_trim_curve_is_inbound {
                   if p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 {
                     println!("projected point out of bounds: {p}");
-                    break;
+                    // todo report this case
+                    continue;
                   }
                 }
 
                 line.push(p);
               } else {
+                println!("project failed");
                 // todo report this case
               };
             }
 
             if !line.is_degenerate() {
-              c_polyline.push_no_edge_polyline(line);
+              line.fix_periodic_boundary_uv_jump();
+              edge_poly.push_no_edge_polyline(line);
+            } else {
+              println!("degenerate 2d trim line");
+              // todo report this case
             }
           }
+
+          if should_reverse {
+            edge_poly = edge_poly.reverse();
+          }
+          c_polyline.connect_c_polyline(edge_poly);
         }
       }
 
@@ -175,15 +198,43 @@ impl SubPatchTrimBuilder {
   }
 
   fn connect_through_boundary_walk(&mut self, boundary_enter_point: Vec2<f32>) {
-    // assert boundary_enter_point is at boundary
-    // assert last point is at boundary
-    // if they are same point, just skip push
-    todo!()
+    let Some(current) = self.in_building.last_mut() else {
+      return;
+    };
+    let Some(exit_point) = current.last_point() else {
+      return;
+    };
+
+    if exit_point.distance_to(boundary_enter_point) < 1e-6 {
+      return;
+    }
+
+    let t_exit = boundary_param(exit_point);
+    let mut t_entry = boundary_param(boundary_enter_point);
+    if t_entry <= t_exit {
+      t_entry += 4.0;
+    }
+
+    let mut t = t_exit;
+    while t < t_entry {
+      let next_t = next_boundary_corner(t).min(t_entry);
+      let seg_start = point_at_boundary_param(t);
+      let seg_end = point_at_boundary_param(next_t);
+      current.push_no_edge_polyline(NoEdgeContinuousTrimPolyline::line_segment(
+        seg_start, seg_end,
+      ));
+      t = next_t;
+    }
   }
 
   fn push_next_line_point(&mut self, point: Vec2<f32>) {
-    //
-    todo!()
+    if let Some(current) = self.in_building.last_mut() {
+      current.push_point(point);
+    } else {
+      let mut poly = ContinuousTrimPolyline::default();
+      poly.push_point(point);
+      self.in_building.push(poly);
+    }
   }
 
   fn build_loop(&mut self, global_trim2d_polylines: &CompletedTrimPolyline) {
@@ -216,6 +267,7 @@ impl SubPatchTrimBuilder {
               }
               if never_entered {
                 first_open_in_point = Some(next_clip.from);
+                self.push_next_line_point(next_clip.from);
               }
               self.push_next_line_point(next_clip.to);
               is_previous_leaving = true;
@@ -227,6 +279,7 @@ impl SubPatchTrimBuilder {
               }
               if never_entered {
                 first_open_in_point = Some(next_clip.from);
+                self.push_next_line_point(next_clip.from);
               }
               self.push_next_line_point(next_clip.to);
               is_previous_leaving = false;
@@ -245,7 +298,6 @@ impl SubPatchTrimBuilder {
           }
           never_entered = false;
         } else {
-          assert!(!is_previous_leaving);
           *last = new
         }
       } else {
@@ -254,9 +306,44 @@ impl SubPatchTrimBuilder {
     }
 
     if let Some(in_point) = first_open_in_point {
-      assert!(is_previous_leaving);
       self.connect_through_boundary_walk(in_point);
     }
+
+    while let Some(poly) = self.in_building.pop() {
+      if let Some(completed) = CompletedTrimPolyline::check_closed_from(poly) {
+        self.finished.push(completed);
+      }
+    }
+  }
+}
+
+fn boundary_param(p: Vec2<f32>) -> f32 {
+  const EPS: f32 = 1e-5;
+  if p.y.abs() < EPS {
+    p.x.clamp(0.0, 1.0)
+  } else if (p.x - 1.0).abs() < EPS {
+    1.0 + p.y.clamp(0.0, 1.0)
+  } else if (p.y - 1.0).abs() < EPS {
+    3.0 - p.x.clamp(0.0, 1.0)
+  } else {
+    4.0 - p.y.clamp(0.0, 1.0)
+  }
+}
+
+fn next_boundary_corner(t: f32) -> f32 {
+  t.floor() + 1.0
+}
+
+fn point_at_boundary_param(t: f32) -> Vec2<f32> {
+  let t = t % 4.0;
+  if t <= 1.0 {
+    Vec2::new(t, 0.0)
+  } else if t <= 2.0 {
+    Vec2::new(1.0, t - 1.0)
+  } else if t <= 3.0 {
+    Vec2::new(3.0 - t, 1.0)
+  } else {
+    Vec2::new(0.0, 4.0 - t)
   }
 }
 
@@ -267,7 +354,129 @@ struct ClipResult {
   to_clipped: bool,
 }
 
-// Liang-Barsky clipping
 fn clip_line_seg(from: Vec2<f32>, to: Vec2<f32>) -> Option<ClipResult> {
-  todo!()
+  let d = to - from;
+  let mut t_min = 0.0;
+  let mut t_max = 1.0;
+
+  let bounds = [
+    (-d.x, from.x),
+    (d.x, 1.0 - from.x),
+    (-d.y, from.y),
+    (d.y, 1.0 - from.y),
+  ];
+
+  for (p, q) in bounds {
+    if p == 0.0 {
+      if q < 0.0 {
+        return None;
+      }
+    } else {
+      let t = q / p;
+      if p < 0.0 {
+        t_min = t_min.max(t);
+      } else {
+        t_max = t_max.min(t);
+      }
+    }
+  }
+
+  if t_min > t_max {
+    return None;
+  }
+
+  Some(ClipResult {
+    from: from + d * t_min,
+    from_clipped: t_min > 0.0,
+    to: from + d * t_max,
+    to_clipped: t_max < 1.0,
+  })
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn fully_inside() {
+    let r = clip_line_seg(Vec2::new(0.2, 0.3), Vec2::new(0.8, 0.7)).unwrap();
+    assert!(!r.from_clipped);
+    assert!(!r.to_clipped);
+    assert!((r.from - Vec2::new(0.2, 0.3)).length() < 1e-6);
+    assert!((r.to - Vec2::new(0.8, 0.7)).length() < 1e-6);
+  }
+
+  #[test]
+  fn fully_outside() {
+    assert!(clip_line_seg(Vec2::new(-1.0, -1.0), Vec2::new(-0.5, -0.5)).is_none());
+    assert!(clip_line_seg(Vec2::new(2.0, 2.0), Vec2::new(3.0, 3.0)).is_none());
+    assert!(clip_line_seg(Vec2::new(-1.0, 0.5), Vec2::new(-0.5, 0.5)).is_none());
+    assert!(clip_line_seg(Vec2::new(0.5, -1.0), Vec2::new(0.5, -0.5)).is_none());
+  }
+
+  #[test]
+  fn enter_from_left() {
+    let r = clip_line_seg(Vec2::new(-0.5, 0.4), Vec2::new(0.6, 0.4)).unwrap();
+    assert!(r.from_clipped);
+    assert!(!r.to_clipped);
+    assert!((r.from.x - 0.0).abs() < 1e-6);
+    assert!((r.from.y - 0.4).abs() < 1e-6);
+  }
+
+  #[test]
+  fn enter_from_bottom() {
+    let r = clip_line_seg(Vec2::new(0.4, -0.3), Vec2::new(0.4, 0.7)).unwrap();
+    assert!(r.from_clipped);
+    assert!(!r.to_clipped);
+    assert!((r.from.x - 0.4).abs() < 1e-6);
+    assert!((r.from.y - 0.0).abs() < 1e-6);
+  }
+
+  #[test]
+  fn leave_to_right() {
+    let r = clip_line_seg(Vec2::new(0.3, 0.5), Vec2::new(1.5, 0.5)).unwrap();
+    assert!(!r.from_clipped);
+    assert!(r.to_clipped);
+    assert!((r.to.x - 1.0).abs() < 1e-6);
+    assert!((r.to.y - 0.5).abs() < 1e-6);
+  }
+
+  #[test]
+  fn leave_to_top() {
+    let r = clip_line_seg(Vec2::new(0.3, 0.2), Vec2::new(0.3, 1.5)).unwrap();
+    assert!(!r.from_clipped);
+    assert!(r.to_clipped);
+    assert!((r.to.x - 0.3).abs() < 1e-6);
+    assert!((r.to.y - 1.0).abs() < 1e-6);
+  }
+
+  #[test]
+  fn pass_through() {
+    let r = clip_line_seg(Vec2::new(-0.5, 0.4), Vec2::new(1.5, 0.4)).unwrap();
+    assert!(r.from_clipped);
+    assert!(r.to_clipped);
+    assert!((r.from.x - 0.0).abs() < 1e-6);
+    assert!((r.to.x - 1.0).abs() < 1e-6);
+  }
+
+  #[test]
+  fn diagonal_enter_and_leave() {
+    let r = clip_line_seg(Vec2::new(-0.2, -0.2), Vec2::new(1.2, 1.2)).unwrap();
+    assert!(r.from_clipped);
+    assert!(r.to_clipped);
+    assert!((r.from - Vec2::new(0.0, 0.0)).length() < 1e-6);
+    assert!((r.to - Vec2::new(1.0, 1.0)).length() < 1e-6);
+  }
+
+  #[test]
+  fn degenerate_point_inside() {
+    let r = clip_line_seg(Vec2::new(0.5, 0.5), Vec2::new(0.5, 0.5)).unwrap();
+    assert!(!r.from_clipped);
+    assert!(!r.to_clipped);
+  }
+
+  #[test]
+  fn degenerate_point_outside() {
+    assert!(clip_line_seg(Vec2::new(2.0, 2.0), Vec2::new(2.0, 2.0)).is_none());
+  }
 }

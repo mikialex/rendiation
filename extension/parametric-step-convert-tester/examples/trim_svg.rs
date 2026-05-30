@@ -63,7 +63,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   for (i, s) in data.surfaces.iter().enumerate() {
     if !s.is_trimmed() {
-      println!("  [{}/{}] {} — skipping (untrimmed)", i + 1, data.surfaces.len(), s.debug_label);
+      println!(
+        "  [{}/{}] {} — skipping (untrimmed)",
+        i + 1,
+        data.surfaces.len(),
+        s.debug_label
+      );
       continue;
     }
     let n_curves: usize = s.trim_loops.iter().map(|l| l.len()).sum();

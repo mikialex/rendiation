@@ -11,17 +11,20 @@ use std::env;
 use std::path::Path;
 
 use parametric_step_convert_tester::{read_step, write_glb, GltfDoc};
-use rendiation_parametric_rendering::mesh::{tessellate_curve, triangulate_trimmed_surface, TriangulationConfig};
+use rendiation_parametric_rendering::mesh::{
+  tessellate_curve, triangulate_trimmed_surface, TriangulationConfig,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-  let args: Vec<String> = env::args().collect();
-  if args.len() < 3 {
-    println!("usage: {} <input.stp> <output.glb>", args[0]);
-    std::process::exit(1);
-  }
+  // let args: Vec<String> = env::args().collect();
+  // if args.len() < 3 {
+  //   println!("usage: {} <input.stp> <output.glb>", args[0]);
+  //   std::process::exit(1);
+  // }
 
-  let step_path = Path::new(&args[1]);
-  let gltf_path = Path::new(&args[2]);
+  let step_path =
+    Path::new("/Users/mikialex/dev/rendiation/extension/parametric-step-convert-tester/step-generated-sample/cylinder.stp");
+  let gltf_path = Path::new("/Users/mikialex/dev/rendiation/out.glb");
   let use_line_list = true;
 
   println!("reading STEP: {}", step_path.display());
@@ -48,14 +51,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       surf_idx + 1,
       data.surfaces.len(),
       trimmed.debug_label,
-      if !trimmed.is_trimmed() { " (untrimmed)" } else { "" }
+      if !trimmed.is_trimmed() {
+        " (untrimmed)"
+      } else {
+        ""
+      }
     );
     let mesh = triangulate_trimmed_surface(trimmed, &tri_config);
     if mesh.indices.is_empty() {
       println!("    skipped (empty triangulation)");
       continue;
     }
-    println!("    {} vertices, {} triangles", mesh.positions.len(), mesh.indices.len());
+    println!(
+      "    {} vertices, {} triangles",
+      mesh.positions.len(),
+      mesh.indices.len()
+    );
     doc.create_surface_mesh(&mesh, &trimmed.debug_label, surf_idx);
   }
 
@@ -66,15 +77,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   }
 
   if !data.curves_3d.is_empty() {
-    println!("  tessellating {} unique 3D curves...", data.curves_3d.len());
+    println!(
+      "  tessellating {} unique 3D curves...",
+      data.curves_3d.len()
+    );
   }
   for (curve_idx, curve) in data.curves_3d.iter().enumerate() {
     let pts = tessellate_curve(curve, 1e-3);
     if pts.len() < 2 {
-      println!("    curve {}/{}: skipped (too few points)", curve_idx + 1, data.curves_3d.len());
+      println!(
+        "    curve {}/{}: skipped (too few points)",
+        curve_idx + 1,
+        data.curves_3d.len()
+      );
       continue;
     }
-    println!("    curve {}/{}: {} line points", curve_idx + 1, data.curves_3d.len(), pts.len());
+    println!(
+      "    curve {}/{}: {} line points",
+      curve_idx + 1,
+      data.curves_3d.len(),
+      pts.len()
+    );
     doc.create_curve_mesh(&pts, curve_idx, use_line_list);
   }
 
