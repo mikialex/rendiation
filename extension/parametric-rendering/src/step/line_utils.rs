@@ -1,10 +1,14 @@
 use crate::*;
 
 // ContinuousTrimPolyline, but verify loop closed
-pub struct CompletedTrimPolyline(ContinuousTrimPolyline);
+pub struct CompletedTrimPolyline {
+  polyline: ContinuousTrimPolyline,
+  /// Signed area: > 0 for CCW (outer), < 0 for CW (hole).
+  signed_area: f32,
+}
 
 impl CompletedTrimPolyline {
-  // return None if the line only has <= 2 points
+  /// Returns `None` if the line has <= 2 points or is not closed.
   pub fn check_closed_from(line: ContinuousTrimPolyline) -> Option<Self> {
     let first = line.polylines.first()?.points.first().copied()?;
     let last = line.polylines.last()?.points.last().copied()?;
@@ -18,18 +22,21 @@ impl CompletedTrimPolyline {
       return None;
     }
 
-    Some(Self(line))
+    let area = compute_signed_area_inner(&line);
+    Some(Self {
+      polyline: line,
+      signed_area: area,
+    })
   }
 
-  pub fn is_point_inside(&self, point: Vec2<f32>) -> bool {
-    let polygon: Vec<Vec2<f32>> = self.iter_points().collect();
-    point_in_polygon(point, &polygon)
+  pub fn signed_area(&self) -> f32 {
+    self.signed_area
   }
 
   pub fn iter_points(&self) -> impl Iterator<Item = Vec2<f32>> {
     let mut points = Vec::new();
 
-    for (i, poly) in self.0.polylines.iter().enumerate() {
+    for (i, poly) in self.polyline.polylines.iter().enumerate() {
       if i == 0 {
         points.extend_from_slice(&poly.points);
       } else {
@@ -49,9 +56,31 @@ impl CompletedTrimPolyline {
     error_distance_tolerance: f32,
   ) -> Vec<QuadraticBezierCurve2d<f32>> {
     self
-      .0
+      .polyline
       .reconstruct_quadratic_bezier_curves(error_distance_tolerance)
   }
+}
+
+fn compute_signed_area_inner(line: &ContinuousTrimPolyline) -> f32 {
+  let mut points = Vec::new();
+  for (i, poly) in line.polylines.iter().enumerate() {
+    if i == 0 {
+      points.extend_from_slice(&poly.points);
+    } else {
+      points.extend_from_slice(&poly.points[1..]);
+    }
+  }
+  if points.len() < 3 {
+    return 0.0;
+  }
+  if let Some(&first) = points.first() {
+    points.push(first);
+  }
+  let mut area = 0.0;
+  for i in 0..points.len() - 1 {
+    area += points[i].x * points[i + 1].y - points[i + 1].x * points[i].y;
+  }
+  area * 0.5
 }
 
 /// A single continuous(maybe contains edges) point polyline in UV space.
@@ -362,59 +391,39 @@ fn fit_quadratic_bezier_to_points<T: Scalar>(points: &[Vec2<T>]) -> (Vec2<T>, T)
   (p1, max_err_sq)
 }
 
-/// Ray-casting point-in-polygon test for a closed 2D polygon.
+/// True winding number of `point` with respect to a set of trim loops.
 ///
-/// Returns `true` if `point` is inside the polygon (including on edges).
-/// The polygon is assumed closed (last point connects to first).
-pub fn point_in_polygon(point: Vec2<f32>, polygon: &[Vec2<f32>]) -> bool {
-  let n = polygon.len();
-  if n < 3 {
-    return false;
-  }
-  let mut inside = false;
-  let mut j = n - 1;
-  for i in 0..n {
-    let a = polygon[i];
-    let b = polygon[j];
-    // Check if the ray from point to +x crosses edge (a,b)
-    if (a.y > point.y) != (b.y > point.y) {
-      let x_intersect = a.x + (b.x - a.x) * (point.y - a.y) / (b.y - a.y);
-      if point.x < x_intersect {
-        inside = !inside;
+/// Outer (CCW) loops contribute +1, hole (CW) loops contribute -1.
+/// The winding number sums directly over all directed edges using the
+/// standard point-in-polygon winding algorithm, so loop orientation is
+/// handled intrinsically — no separate signed-area pre-classification
+/// is needed. Result > 0 means the point lies inside the face.
+pub fn compute_winding_number(point: Vec2<f32>, loops: &[CompletedTrimPolyline]) -> i32 {
+  let mut wn: i32 = 0;
+  for lp in loops {
+    let points: Vec<Vec2<f32>> = lp.iter_points().collect();
+    if points.len() < 2 {
+      continue;
+    }
+    for i in 0..points.len() - 1 {
+      let a = points[i];
+      let b = points[i + 1];
+      if a.y <= point.y {
+        if b.y > point.y && is_left(a, b, point) > 0.0 {
+          wn += 1;
+        }
+      } else {
+        if b.y <= point.y && is_left(a, b, point) < 0.0 {
+          wn -= 1;
+        }
       }
     }
-    j = i;
   }
-  inside
+  wn
 }
 
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn point_in_square() {
-    let square = vec![
-      Vec2::new(0.0, 0.0),
-      Vec2::new(1.0, 0.0),
-      Vec2::new(1.0, 1.0),
-      Vec2::new(0.0, 1.0),
-    ];
-    assert!(point_in_polygon(Vec2::new(0.5, 0.5), &square));
-    assert!(point_in_polygon(Vec2::new(0.1, 0.1), &square));
-    assert!(!point_in_polygon(Vec2::new(1.5, 0.5), &square));
-    assert!(!point_in_polygon(Vec2::new(-0.1, 0.5), &square));
-  }
-
-  #[test]
-  fn point_outside_polygon() {
-    let triangle = vec![
-      Vec2::new(0.0, 0.0),
-      Vec2::new(1.0, 0.0),
-      Vec2::new(0.5, 1.0),
-    ];
-    assert!(point_in_polygon(Vec2::new(0.5, 0.3), &triangle));
-    assert!(!point_in_polygon(Vec2::new(0.5, -0.3), &triangle));
-    assert!(!point_in_polygon(Vec2::new(1.5, 0.5), &triangle));
-  }
+/// Cross product (b - a) × (p - a): positive when p is left of the
+/// directed edge a → b.
+fn is_left(a: Vec2<f32>, b: Vec2<f32>, p: Vec2<f32>) -> f32 {
+  (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y)
 }
