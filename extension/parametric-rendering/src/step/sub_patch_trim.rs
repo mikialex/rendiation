@@ -148,14 +148,7 @@ pub fn process_trim_curves_for_face(
     let trim_loops = builder.output(config.trim_curve_reconstruct_tolerance);
     if trim_loops.is_empty() {
       let patch_center = patch.sub_range.center_point();
-      let mut is_inside_loop = false;
-      for p in &global_trim2d_polylines {
-        if p.is_point_inside(patch_center) {
-          is_inside_loop = true;
-          break;
-        }
-      }
-      if is_inside_loop {
+      if compute_winding_number(patch_center, &global_trim2d_polylines) != 0 {
         results.push(TrimmedPatch {
           patch,
           patch_index,
@@ -197,7 +190,7 @@ impl SubPatchTrimBuilder {
       .collect()
   }
 
-  fn connect_through_boundary_walk(&mut self, boundary_enter_point: Vec2<f32>) {
+  fn connect_through_boundary_walk(&mut self, boundary_enter_point: Vec2<f32>, ccw: bool) {
     let Some(current) = self.in_building.last_mut() else {
       return;
     };
@@ -210,20 +203,40 @@ impl SubPatchTrimBuilder {
     }
 
     let t_exit = boundary_param(exit_point);
-    let mut t_entry = boundary_param(boundary_enter_point);
-    if t_entry <= t_exit {
-      t_entry += 4.0;
-    }
+    let t_entry = boundary_param(boundary_enter_point);
 
-    let mut t = t_exit;
-    while t < t_entry {
-      let next_t = next_boundary_corner(t).min(t_entry);
-      let seg_start = point_at_boundary_param(t);
-      let seg_end = point_at_boundary_param(next_t);
-      current.push_no_edge_polyline(NoEdgeContinuousTrimPolyline::line_segment(
-        seg_start, seg_end,
-      ));
-      t = next_t;
+    if ccw {
+      let t_end = if t_entry <= t_exit {
+        t_entry + 4.0
+      } else {
+        t_entry
+      };
+      let mut t = t_exit;
+      while t < t_end {
+        let next_t = next_boundary_corner(t).min(t_end);
+        current.push_no_edge_polyline(NoEdgeContinuousTrimPolyline::line_segment(
+          point_at_boundary_param(t),
+          point_at_boundary_param(next_t),
+        ));
+        t = next_t;
+      }
+    } else {
+      // CW walk from exit to entry = CCW walk from entry to exit, reversed.
+      let t_end = if t_exit <= t_entry {
+        t_exit + 4.0
+      } else {
+        t_exit
+      };
+      let mut t = t_entry;
+      let mut segs: Vec<(Vec2<f32>, Vec2<f32>)> = Vec::new();
+      while t < t_end {
+        let next_t = next_boundary_corner(t).min(t_end);
+        segs.push((point_at_boundary_param(t), point_at_boundary_param(next_t)));
+        t = next_t;
+      }
+      for (a, b) in segs.into_iter().rev() {
+        current.push_no_edge_polyline(NoEdgeContinuousTrimPolyline::line_segment(b, a));
+      }
     }
   }
 
@@ -238,6 +251,8 @@ impl SubPatchTrimBuilder {
   }
 
   fn build_loop(&mut self, global_trim2d_polylines: &CompletedTrimPolyline) {
+    let global_ccw = global_trim2d_polylines.signed_area() > 0.0;
+
     // map to sub patch uv space
     let range = self.range;
     let point_iter = global_trim2d_polylines.iter_points().map(|p| {
@@ -246,7 +261,7 @@ impl SubPatchTrimBuilder {
 
       let u_local = (p.x - range.u_range.0) / du;
       let v_local = (p.y - range.v_range.0) / dv;
-      Vec2::new(u_local.clamp(0.0, 1.0), v_local.clamp(0.0, 1.0))
+      Vec2::new(u_local, v_local)
     });
 
     let mut last = None;
@@ -261,9 +276,8 @@ impl SubPatchTrimBuilder {
         if let Some(next_clip) = clip_line_seg(*last, new) {
           match (next_clip.from_clipped, next_clip.to_clipped) {
             (true, true) => {
-              // pass through
               if is_previous_leaving {
-                self.connect_through_boundary_walk(next_clip.from);
+                self.connect_through_boundary_walk(next_clip.from, global_ccw);
               }
               if never_entered {
                 first_open_in_point = Some(next_clip.from);
@@ -273,9 +287,8 @@ impl SubPatchTrimBuilder {
               is_previous_leaving = true;
             }
             (true, false) => {
-              // enter
               if is_previous_leaving {
-                self.connect_through_boundary_walk(next_clip.from);
+                self.connect_through_boundary_walk(next_clip.from, global_ccw);
               }
               if never_entered {
                 first_open_in_point = Some(next_clip.from);
@@ -285,28 +298,30 @@ impl SubPatchTrimBuilder {
               is_previous_leaving = false;
             }
             (false, true) => {
-              // leave
               assert!(!is_previous_leaving);
               self.push_next_line_point(next_clip.to);
               is_previous_leaving = true;
             }
             (false, false) => {
-              // full inside
               assert!(!is_previous_leaving);
               self.push_next_line_point(next_clip.to);
             }
           }
           never_entered = false;
+          *last = new;
         } else {
-          *last = new
+          *last = new;
         }
       } else {
+        let inside = (0.0..=1.0).contains(&new.x) && (0.0..=1.0).contains(&new.y);
+        if inside {
+          self.push_next_line_point(new);
+        }
         last = Some(new)
       }
     }
-
     if let Some(in_point) = first_open_in_point {
-      self.connect_through_boundary_walk(in_point);
+      self.connect_through_boundary_walk(in_point, global_ccw);
     }
 
     while let Some(poly) = self.in_building.pop() {
@@ -317,6 +332,8 @@ impl SubPatchTrimBuilder {
   }
 }
 
+/// Detect whether the segment a→b crosses a corner of [0,1]², i.e.
+/// a and b lie on different edges of the unit square.
 fn boundary_param(p: Vec2<f32>) -> f32 {
   const EPS: f32 = 1e-5;
   if p.y.abs() < EPS {
