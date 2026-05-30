@@ -1,46 +1,6 @@
 use super::*;
 use crate::*;
 
-// /// Trim segments for one edge within one patch.
-// /// May contain multiple polylines (split at clip discontinuities or patch crossings).
-// #[derive(Clone, Default)]
-// struct EdgeTrimSegments(Vec<TrimPolyline>);
-
-// impl EdgeTrimSegments {
-//   fn push(&mut self, poly: TrimPolyline) {
-//     self.0.push(poly);
-//   }
-
-//   fn is_empty(&self) -> bool {
-//     self.0.iter().all(|p| p.is_empty())
-//   }
-
-//   fn iter(&self) -> impl Iterator<Item = &TrimPolyline> {
-//     self.0.iter()
-//   }
-
-//   fn iter_mut(&mut self) -> impl Iterator<Item = &mut TrimPolyline> {
-//     self.0.iter_mut()
-//   }
-// }
-
-// /// All trim polyline data, indexed as [patch_index][edge_index] → EdgeTrimSegments.
-// #[derive(Clone)]
-// struct PatchTrimTable(Vec<Vec<EdgeTrimSegments>>);
-
-// impl PatchTrimTable {
-//   fn new(n_patches: usize, n_edges: usize) -> Self {
-//     Self(vec![vec![EdgeTrimSegments::default(); n_edges]; n_patches])
-//   }
-
-//   fn edge_mut(&mut self, pi: usize, ei: usize) -> &mut EdgeTrimSegments {
-//     &mut self.0[pi][ei]
-//   }
-// }
-
-// /// Global trim boundary polylines — one per edge, in surface parameter space.
-// type GlobalTrimPolylines = Vec<TrimPolyline>;
-
 /// A surface sub-patch together with its reconstructed trim loops.
 pub struct TrimmedPatch {
   pub patch: SurfaceSubPatch,
@@ -67,8 +27,6 @@ pub fn process_trim_curves_for_face(
   errors: &mut Vec<StepReadError>,
 ) -> Vec<TrimmedPatch> {
   // process all loops on original surface
-  let global_trim_polylines: Vec<CompletedTrimPolyline> = Vec::new();
-
   let global_trim3d_polylines = edge_loop_beziers
     .iter()
     .map(|edge_loop| {
@@ -86,7 +44,6 @@ pub fn process_trim_curves_for_face(
     })
     .collect::<Vec<_>>();
 
-  let proj_dist_tolerance = 1e-2;
   let global_trim2d_polylines = global_trim3d_polylines
     .iter()
     .zip(edge_loops)
@@ -126,26 +83,21 @@ pub fn process_trim_curves_for_face(
             for point3d in continues_no_edge_polylines.iter() {
               // Project all 3D points to UV on the original surface.
               // UV coordinates are in [0,1]² (normalized during projection).
-              if let Some((u, v, dist)) = original_surface.project_point(
+              if let Some((u, v, _dist)) = original_surface.project_point(
                 *point3d,
                 config.project_grid,
                 config.project_tolerance,
                 config.project_max_iter,
               ) {
-                if dist <= proj_dist_tolerance {
-                  let p = Vec2::new(u, v);
-                  if config.validate_step_input_trim_curve_is_inbound {
-                    if p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 {
-                      println!("projected point out of bounds: {p}");
-                      break;
-                    }
+                let p = Vec2::new(u, v);
+                if config.validate_step_input_trim_curve_is_inbound {
+                  if p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 {
+                    println!("projected point out of bounds: {p}");
+                    break;
                   }
-
-                  line.push(p);
-                } else {
-                  // todo report this case
                 }
-                //
+
+                line.push(p);
               } else {
                 // todo report this case
               };
@@ -165,25 +117,35 @@ pub fn process_trim_curves_for_face(
   // create trim polylines for each patch
   let mut results = Vec::new();
   for (patch_index, patch) in patches.into_iter().enumerate() {
-    // todo, we may have many patches, we can do patch center test,
-    // if inside, directly add a full bound polyline
-    // if not, skip directly
-    let builder = SubPatchTrimBuilder::new(patch.sub_range);
+    let mut builder = SubPatchTrimBuilder::new(patch.sub_range);
     for polyline_loop in &global_trim2d_polylines {
-      //
+      builder.build_loop(polyline_loop);
     }
 
-    results.push(TrimmedPatch {
-      patch,
-      patch_index,
-      trim_loops: builder.output(config.trim_curve_reconstruct_tolerance),
-    });
-
-    // let center = patch.sub_range.center_point();
-    // global_trim2d_polylines.iter().any(|loop_line|{
-    //   loop_line.is_point_inside(center)
-    // });
-    //
+    let trim_loops = builder.output(config.trim_curve_reconstruct_tolerance);
+    if trim_loops.is_empty() {
+      let patch_center = patch.sub_range.center_point();
+      let mut is_inside_loop = false;
+      for p in &global_trim2d_polylines {
+        if p.is_point_inside(patch_center) {
+          is_inside_loop = true;
+          break;
+        }
+      }
+      if is_inside_loop {
+        results.push(TrimmedPatch {
+          patch,
+          patch_index,
+          trim_loops: Vec::new(),
+        });
+      }
+    } else {
+      results.push(TrimmedPatch {
+        patch,
+        patch_index,
+        trim_loops,
+      });
+    }
   }
 
   results
@@ -212,12 +174,6 @@ impl SubPatchTrimBuilder {
       .collect()
   }
 
-  pub fn build(&mut self, global_trim2d_polylines: Vec<CompletedTrimPolyline>) {
-    for line in global_trim2d_polylines {
-      self.build_loop(line);
-    }
-  }
-
   fn connect_through_boundary_walk(&mut self, boundary_enter_point: Vec2<f32>) {
     // assert boundary_enter_point is at boundary
     // assert last point is at boundary
@@ -230,7 +186,7 @@ impl SubPatchTrimBuilder {
     todo!()
   }
 
-  fn build_loop(&mut self, global_trim2d_polylines: CompletedTrimPolyline) {
+  fn build_loop(&mut self, global_trim2d_polylines: &CompletedTrimPolyline) {
     // map to sub patch uv space
     let range = self.range;
     let point_iter = global_trim2d_polylines.iter_points().map(|p| {
