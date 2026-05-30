@@ -55,12 +55,12 @@ DATA;
 #56 = EDGE_CURVE('',#32,#32,#55,.T.);
 /* === Loop: seam-up, top-circle(rev), seam-down(rev), bottom-circle === */
 #60 = ORIENTED_EDGE('',*,*,#44,.T.);
-#61 = ORIENTED_EDGE('',*,*,#50,.F.);
+#61 = ORIENTED_EDGE('',*,*,#50,.T.);
 #62 = ORIENTED_EDGE('',*,*,#44,.F.);
-#63 = ORIENTED_EDGE('',*,*,#56,.T.);
+#63 = ORIENTED_EDGE('',*,*,#56,.F.);
 #64 = EDGE_LOOP('',(#60,#61,#62,#63));
 #65 = FACE_OUTER_BOUND('',#64,.T.);
-#66 = ADVANCED_FACE('',(#65),#24,.F.);
+#66 = ADVANCED_FACE('',(#65),#24,.T.);
 /* === Shell & model === */
 #70 = CLOSED_SHELL('',(#66));
 #71 = MANIFOLD_SOLID_BREP('',#70);

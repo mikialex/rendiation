@@ -11,7 +11,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use parametric_step_convert_tester::{read_step, write_glb, write_surface_svg, GltfDoc};
-use rendiation_parametric_rendering::mesh::{tessellate_curve, triangulate_trimmed_surface, TriangulationConfig};
+use rendiation_parametric_rendering::mesh::{
+  tessellate_curve, triangulate_trimmed_surface, TriangulationConfig,
+};
 use rendiation_parametric_rendering::validate_trim_boundary;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,7 +37,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
   }
   step_files.sort();
-  println!("found {} STEP files in {}", step_files.len(), sample_dir.display());
+  println!(
+    "found {} STEP files in {}",
+    step_files.len(),
+    sample_dir.display()
+  );
 
   let mut total_issues = 0usize;
   let mut total_surfaces = 0usize;
@@ -106,13 +112,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         write_surface_svg(&step_svg_dir, &s.debug_label, &s.trim_loops)?;
       }
     }
-    println!("  wrote {} SVGs to {}", data.surfaces.iter().filter(|s| s.is_trimmed()).count(), step_svg_dir.display());
+    println!(
+      "  wrote {} SVGs to {}",
+      data.surfaces.iter().filter(|s| s.is_trimmed()).count(),
+      step_svg_dir.display()
+    );
   }
 
   println!("\n=== DONE ===");
-  println!("  {} files processed, {} total surfaces", step_files.len(), total_surfaces);
+  println!(
+    "  {} files processed, {} total surfaces",
+    step_files.len(),
+    total_surfaces
+  );
   if total_issues > 0 {
-    println!("  {} validation issue(s) — see SVG output for details", total_issues);
+    println!(
+      "  {} validation issue(s) — see SVG output for details",
+      total_issues
+    );
   } else {
     println!("  0 validation issues");
   }
