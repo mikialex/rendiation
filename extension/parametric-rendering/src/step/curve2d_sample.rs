@@ -198,7 +198,7 @@ fn sample_2d_bezier_curve(b: &BezierCurve) -> NoEdgeContinuousTrimPolyline {
     let t = i as f32 / samples as f32;
     result.push(evaluate_2d_bezier(&points, t));
   }
-  NoEdgeContinuousTrimPolyline::new_assume_no_edge(points)
+  NoEdgeContinuousTrimPolyline::new_assume_no_edge(result)
 }
 
 fn evaluate_2d_bezier(points: &[Vec2<f32>], t: f32) -> Vec2<f32> {

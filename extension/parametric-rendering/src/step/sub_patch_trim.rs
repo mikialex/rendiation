@@ -119,7 +119,7 @@ pub fn process_trim_curves_for_face(
 
             if !line.is_degenerate() {
               line.fix_periodic_boundary_uv_jump();
-              edge_poly.push_no_edge_polyline(line);
+              edge_poly.push_no_edge_polyline(line, true);
             } else {
               println!("degenerate 2d trim line");
               // todo report this case
@@ -284,8 +284,17 @@ impl SubPatchTrimBuilder {
       for new in no_edge_polylines.iter_points() {
         let new = self.range.map(new);
 
+        // handle the case that between each no_edge_polylines, the end point is same
+        if last == Some(new) {
+          continue;
+        }
+
         if let Some(last) = &mut last {
           if let Some(next_clip) = clip_line_seg(*last, new) {
+            // if next_clip.from == next_clip.to {
+            //   *last = new;
+            //   continue;
+            // }
             match (next_clip.from_clipped, next_clip.to_clipped) {
               (true, true) => {
                 if is_previous_leaving {
