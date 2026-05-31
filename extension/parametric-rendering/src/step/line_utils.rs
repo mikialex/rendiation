@@ -1,6 +1,7 @@
 use crate::*;
 
 // ContinuousTrimPolyline, but verify loop closed
+#[derive(Debug)]
 pub struct CompletedTrimPolyline {
   polyline: ContinuousTrimPolyline,
   /// Signed area: > 0 for CCW (outer), < 0 for CW (hole).
@@ -33,6 +34,11 @@ impl CompletedTrimPolyline {
     self.signed_area
   }
 
+  pub fn iter_no_edge_polylines(&self) -> impl Iterator<Item = &NoEdgeContinuousTrimPolyline> {
+    self.polyline.polylines.iter()
+  }
+
+  // todo, avoid recollect
   pub fn iter_points(&self) -> impl Iterator<Item = Vec2<f32>> {
     let mut points = Vec::new();
 
@@ -42,10 +48,6 @@ impl CompletedTrimPolyline {
       } else {
         points.extend_from_slice(&poly.points[1..]);
       }
-    }
-
-    if let Some(&first) = points.first() {
-      points.push(first);
     }
 
     points.into_iter()
@@ -87,7 +89,7 @@ fn compute_signed_area_inner(line: &ContinuousTrimPolyline) -> f32 {
 /// (will be reconstructed by one of more bezier curves)
 ///
 /// the topology is line-strip
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ContinuousTrimPolyline {
   // between each polyline there is no gap
   polylines: Vec<NoEdgeContinuousTrimPolyline>,
@@ -100,13 +102,25 @@ impl ContinuousTrimPolyline {
     }
   }
 
+  pub fn from_no_edge_list(polylines: Vec<NoEdgeContinuousTrimPolyline>) -> Self {
+    for [a, b] in polylines.array_windows::<2>() {
+      let prev_last = a.points.last().unwrap();
+      let next_first = b.points.first().unwrap();
+      assert!(
+        prev_last.distance_to(*next_first) <= 1e-6,
+        "polylines are not continuous: gap between {prev_last:?} and {next_first:?}"
+      );
+    }
+    Self { polylines }
+  }
+
   pub fn new_from_hard_polylines(points: Vec<Vec2<f32>>) -> Self {
-    if points.len() < 2 {
-      return Self::default();
-    }
-    Self {
-      polylines: vec![NoEdgeContinuousTrimPolyline { points }],
-    }
+    assert!(points.len() >= 2);
+    let polylines = points
+      .array_windows::<2>()
+      .map(|[a, b]| NoEdgeContinuousTrimPolyline::line_segment(*a, *b))
+      .collect();
+    Self { polylines }
   }
 
   pub fn map(mut self, mapper: impl Fn(Vec2<f32>) -> Vec2<f32>) -> Self {
@@ -125,51 +139,43 @@ impl ContinuousTrimPolyline {
   }
   pub fn connect_c_polyline(&mut self, other: ContinuousTrimPolyline) {
     for polyline in other.polylines {
-      self.push_no_edge_polyline(polyline);
+      self.push_no_edge_polyline(polyline, true);
     }
   }
 
-  pub fn push_no_edge_polyline(&mut self, mut polyline: NoEdgeContinuousTrimPolyline) {
+  pub fn push_no_edge_polyline(
+    &mut self,
+    mut polyline: NoEdgeContinuousTrimPolyline,
+    fix_periodic_jump: bool,
+  ) {
     assert!(!polyline.is_degenerate());
     if let Some(last) = self.polylines.last() {
       let old_last = *last.points.last().unwrap();
       let new_start = *polyline.points.first().unwrap();
-      let du = new_start.x - old_last.x;
-      let dv = new_start.y - old_last.y;
 
-      // Same periodic-boundary logic as fix_periodic_boundary_uv_jump,
-      // applied between adjacent sub-polylines. When the previous polyline
-      // ends at u≈1 and this one starts at u≈0 (or vice versa), shift the
-      // entire incoming polyline to keep coordinates continuous rather
-      // than inserting an invalid straight-line bridge across UV space.
-      if du.abs() > 0.99 {
-        for p in &mut polyline.points {
-          p.x -= du.round();
+      if fix_periodic_jump {
+        let du = new_start.x - old_last.x;
+        let dv = new_start.y - old_last.y;
+        if du.abs() > 0.99 {
+          for p in &mut polyline.points {
+            p.x -= du.round();
+          }
+        } else if dv.abs() > 0.99 {
+          for p in &mut polyline.points {
+            p.y -= dv.round();
+          }
         }
-      } else if dv.abs() > 0.99 {
-        for p in &mut polyline.points {
-          p.y -= dv.round();
-        }
-      } else {
-        assert!(
-          old_last.distance_to(new_start) <= 1e-6,
-          "polyline discontinuity: old_last={old_last:?}, new_start={new_start:?}, dist={}",
-          old_last.distance_to(new_start)
-        );
       }
+
+      let new_start = *polyline.points.first().unwrap();
+      assert!(
+        old_last.distance_to(new_start) <= 1e-6,
+        "polyline discontinuity: old_last={old_last:?}, new_start={new_start:?}, dist={}",
+        old_last.distance_to(new_start)
+      );
     }
 
     self.polylines.push(polyline);
-  }
-
-  pub fn push_point(&mut self, point: Vec2<f32>) {
-    if let Some(last) = self.polylines.last_mut() {
-      last.push(point);
-    } else {
-      self.polylines.push(NoEdgeContinuousTrimPolyline {
-        points: vec![point],
-      });
-    }
   }
 
   pub fn last_point(&self) -> Option<Vec2<f32>> {
@@ -200,14 +206,22 @@ impl ContinuousTrimPolyline {
 /// (will be reconstructed by one of more bezier curves)
 ///
 /// the topology is line-strip
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct NoEdgeContinuousTrimPolyline {
   points: Vec<Vec2<f32>>,
 }
 
 impl NoEdgeContinuousTrimPolyline {
-  pub fn from_curve_sample(points: Vec<Vec2<f32>>) -> Self {
+  pub fn new_assume_no_edge(points: Vec<Vec2<f32>>) -> Self {
     Self { points }
+  }
+
+  pub fn iter_points(&self) -> impl Iterator<Item = Vec2<f32>> + '_ {
+    self.points.iter().copied()
+  }
+
+  pub fn last_point(&self) -> Option<Vec2<f32>> {
+    self.points.last().copied()
   }
 
   pub fn line_segment(start: Vec2<f32>, end: Vec2<f32>) -> Self {

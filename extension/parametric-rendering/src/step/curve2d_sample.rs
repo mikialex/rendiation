@@ -99,7 +99,7 @@ fn sample_2d_bspline_curve(b: &BSplineCurveWithKnots) -> NoEdgeContinuousTrimPol
 
   if points_2d.is_empty() || knots.is_empty() {
     // todo, is this valid??
-    return NoEdgeContinuousTrimPolyline::from_curve_sample(points_2d);
+    return NoEdgeContinuousTrimPolyline::new_assume_no_edge(points_2d);
   }
 
   let degree = b.degree as usize;
@@ -114,7 +114,7 @@ fn sample_2d_bspline_curve(b: &BSplineCurveWithKnots) -> NoEdgeContinuousTrimPol
       domain_start + (domain_end - domain_start) * (i as f32) / (total_samples as f32).max(1.0);
     result.push(evaluate_2d_bspline(&points_2d, degree, &knots, t));
   }
-  NoEdgeContinuousTrimPolyline::from_curve_sample(result)
+  NoEdgeContinuousTrimPolyline::new_assume_no_edge(result)
 }
 
 fn expand_2d_knots(knots: &[f64], multiplicities: &[i64]) -> Vec<f32> {
@@ -198,7 +198,7 @@ fn sample_2d_bezier_curve(b: &BezierCurve) -> NoEdgeContinuousTrimPolyline {
     let t = i as f32 / samples as f32;
     result.push(evaluate_2d_bezier(&points, t));
   }
-  NoEdgeContinuousTrimPolyline::from_curve_sample(points)
+  NoEdgeContinuousTrimPolyline::new_assume_no_edge(points)
 }
 
 fn evaluate_2d_bezier(points: &[Vec2<f32>], t: f32) -> Vec2<f32> {
@@ -233,7 +233,7 @@ fn sample_2d_rational_bspline_curve(r: &RationalBSplineCurve) -> NoEdgeContinuou
 
       if points_2d.is_empty() {
         // todo, report error
-        return NoEdgeContinuousTrimPolyline::from_curve_sample(points_2d);
+        return NoEdgeContinuousTrimPolyline::new_assume_no_edge(points_2d);
       }
 
       let samples_per_span = 32;
@@ -249,7 +249,7 @@ fn sample_2d_rational_bspline_curve(r: &RationalBSplineCurve) -> NoEdgeContinuou
           &points_2d, &weights, degree, &knots, t,
         ));
       }
-      NoEdgeContinuousTrimPolyline::from_curve_sample(result)
+      NoEdgeContinuousTrimPolyline::new_assume_no_edge(result)
     }
     NonRationalBSplineCurve::BezierCurve(b) => {
       let points: Vec<Vec2<f32>> = b
@@ -268,7 +268,7 @@ fn sample_2d_rational_bspline_curve(r: &RationalBSplineCurve) -> NoEdgeContinuou
         let t = i as f32 / samples as f32;
         result.push(evaluate_2d_rational_bezier(&points, &weights, t));
       }
-      NoEdgeContinuousTrimPolyline::from_curve_sample(result)
+      NoEdgeContinuousTrimPolyline::new_assume_no_edge(result)
     }
   }
 }
@@ -332,7 +332,7 @@ fn sample_2d_circle(c: &Circle) -> NoEdgeContinuousTrimPolyline {
       center.y + r * angle.sin(),
     ));
   }
-  NoEdgeContinuousTrimPolyline::from_curve_sample(result)
+  NoEdgeContinuousTrimPolyline::new_assume_no_edge(result)
 }
 
 fn sample_2d_ellipse(e: &Ellipse) -> NoEdgeContinuousTrimPolyline {
@@ -348,5 +348,5 @@ fn sample_2d_ellipse(e: &Ellipse) -> NoEdgeContinuousTrimPolyline {
       center.y + b * angle.sin(),
     ));
   }
-  NoEdgeContinuousTrimPolyline::from_curve_sample(result)
+  NoEdgeContinuousTrimPolyline::new_assume_no_edge(result)
 }

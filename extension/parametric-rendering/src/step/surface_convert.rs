@@ -30,6 +30,17 @@ impl SubRange {
       (self.v_range.0 + self.v_range.1) * 0.5,
     )
   }
+
+  // map to sub patch uv space
+  pub fn map(self, p: Vec2<f32>) -> Vec2<f32> {
+    let range = self;
+    let du = range.u_range.1 - range.u_range.0;
+    let dv = range.v_range.1 - range.v_range.0;
+
+    let u_local = (p.x - range.u_range.0) / du;
+    let v_local = (p.y - range.v_range.0) / dv;
+    Vec2::new(u_local, v_local)
+  }
 }
 
 /// Convert any STEP surface to Bezier patches with parameter range info,
