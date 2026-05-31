@@ -270,7 +270,14 @@ pub fn tessellate_quadratic_bezier_2d(
   tolerance: f32,
 ) -> Vec<Vec2<f32>> {
   let mut out = vec![curve.start];
-  subdivide_qbezier(curve.start, curve.ctrl, curve.end, tolerance, surface, &mut out);
+  subdivide_qbezier(
+    curve.start,
+    curve.ctrl,
+    curve.end,
+    tolerance,
+    surface,
+    &mut out,
+  );
   out.push(curve.end);
   out
 }
@@ -319,9 +326,7 @@ fn subdivide_qbezier(
   let p2_3d = surface.evaluate(p2.x, p2.y);
   let tol_sq = tol * tol;
 
-  if point_to_segment_distance_sq(p1_3d, p0_3d, p2_3d)
-    < tol_sq
-  {
+  if point_to_segment_distance_sq(p1_3d, p0_3d, p2_3d) < tol_sq {
     return;
   }
 

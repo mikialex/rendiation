@@ -7,12 +7,16 @@ use crate::*;
 pub enum OriginalSurface {
   /// B-spline / NURBS surface (including single-span Bézier-form NURBS).
   Nurbs(NurbsSurface<f32>),
-  /// Infinite plane parameterized by signed distances along u_dir/v_dir.
+  /// Infinite plane. The actual face region is defined by trim curves;
+  /// `u_range` and `v_range` store the world-unit bounding box of those
+  /// trim curves and are used to normalize UVs into [0,1]².
   Plane {
     origin: Vec3<f32>,
     u_dir: Vec3<f32>,
     v_dir: Vec3<f32>,
     normal: Vec3<f32>,
+    u_range: (f32, f32),
+    v_range: (f32, f32),
   },
   /// Cylinder: u = angle in [0, 2π), v = height in [v_min, v_max].
   Cylinder {
@@ -70,7 +74,14 @@ impl OriginalSurface {
       }
       OriginalSurface::Sphere { .. } => (u / TAU, v / PI),
       OriginalSurface::Torus { .. } => (u / TAU, v / TAU),
-      // Plane, NURBS, Extrusion — already in the correct parameter space.
+      OriginalSurface::Plane {
+        u_range, v_range, ..
+      } => {
+        let u_norm = (u - u_range.0) / (u_range.1 - u_range.0);
+        let v_norm = (v - v_range.0) / (v_range.1 - v_range.0);
+        (u_norm, v_norm)
+      }
+      // NURBS, Extrusion — already in the correct parameter space.
       _ => (u, v),
     }
   }
@@ -94,7 +105,11 @@ impl OriginalSurface {
         u_dir,
         v_dir,
         normal,
-      } => Some(project_point_plane(point, *origin, *u_dir, *v_dir, *normal)),
+        u_range,
+        v_range,
+      } => Some(project_point_plane(
+        point, *origin, *u_dir, *v_dir, *normal, *u_range, *v_range,
+      )),
       OriginalSurface::Cylinder {
         origin,
         axis,
@@ -157,7 +172,8 @@ impl OriginalSurface {
 
 /// Project a 3D point onto a plane.
 ///
-/// u/v are signed distances along u_dir/v_dir from origin.
+/// Returns (u, v, dist) where u, v ∈ [0, 1] are normalized parameters
+/// (linearly remapped from the world-unit extent defined by trim curves).
 /// normal must be unit-length and orthogonal to u_dir, v_dir.
 fn project_point_plane(
   point: Vec3<f32>,
@@ -165,11 +181,17 @@ fn project_point_plane(
   u_dir: Vec3<f32>,
   v_dir: Vec3<f32>,
   normal: Vec3<f32>,
+  u_range: (f32, f32),
+  v_range: (f32, f32),
 ) -> (f32, f32, f32) {
   let t = (point - origin).dot(normal);
   let projected = point - t * normal;
   let d = projected - origin;
-  (d.dot(u_dir), d.dot(v_dir), t.abs())
+  let u_raw = d.dot(u_dir);
+  let v_raw = d.dot(v_dir);
+  let u = (u_raw - u_range.0) / (u_range.1 - u_range.0);
+  let v = (v_raw - v_range.0) / (v_range.1 - v_range.0);
+  (u, v, t.abs())
 }
 
 /// Project a 3D point onto a cylindrical surface.
@@ -427,12 +449,14 @@ mod tests {
     let normal = Vec3::new(0.0, 0.0, 1.0);
     let u_dir = Vec3::new(1.0, 0.0, 0.0);
     let v_dir = Vec3::new(0.0, 1.0, 0.0);
+    let u_range = (0.0, 10.0);
+    let v_range = (0.0, 10.0);
 
-    // Point exactly on the plane
+    // Point exactly on the plane at raw (3,4), normalized → (0.3, 0.4)
     let p = origin + u_dir * 3.0 + v_dir * 4.0;
-    let (u, v, dist) = project_point_plane(p, origin, u_dir, v_dir, normal);
-    assert!((u - 3.0).abs() < 1e-6, "u={u}");
-    assert!((v - 4.0).abs() < 1e-6, "v={v}");
+    let (u, v, dist) = project_point_plane(p, origin, u_dir, v_dir, normal, u_range, v_range);
+    assert!((u - 0.3).abs() < 1e-6, "u={u}");
+    assert!((v - 0.4).abs() < 1e-6, "v={v}");
     assert!(dist < 1e-6, "dist={dist}");
   }
 
@@ -442,11 +466,14 @@ mod tests {
     let normal = Vec3::new(0.0, 0.0, 1.0);
     let u_dir = Vec3::new(1.0, 0.0, 0.0);
     let v_dir = Vec3::new(0.0, 1.0, 0.0);
+    let u_range = (0.0, 10.0);
+    let v_range = (0.0, 10.0);
 
+    // Point at (5,5,10), raw (5,5) → normalized (0.5, 0.5)
     let p = Vec3::new(5.0, 5.0, 10.0);
-    let (u, v, dist) = project_point_plane(p, origin, u_dir, v_dir, normal);
-    assert!((u - 5.0).abs() < 1e-6, "u={u}");
-    assert!((v - 5.0).abs() < 1e-6, "v={v}");
+    let (u, v, dist) = project_point_plane(p, origin, u_dir, v_dir, normal, u_range, v_range);
+    assert!((u - 0.5).abs() < 1e-6, "u={u}");
+    assert!((v - 0.5).abs() < 1e-6, "v={v}");
     assert!((dist - 10.0).abs() < 1e-6, "dist={dist}");
   }
 
