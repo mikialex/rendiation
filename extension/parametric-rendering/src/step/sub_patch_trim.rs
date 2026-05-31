@@ -169,7 +169,8 @@ pub fn process_trim_curves_for_face(
 
 struct SubPatchTrimBuilder {
   finished: Vec<CompletedTrimPolyline>,
-  in_building: Vec<ContinuousTrimPolyline>,
+  in_building_continuous: ContinuousTrimPolyline,
+  in_building_no_edge: Vec<Vec2<f32>>,
   range: SubRange,
 }
 
@@ -177,7 +178,8 @@ impl SubPatchTrimBuilder {
   pub fn new(range: SubRange) -> Self {
     Self {
       finished: Default::default(),
-      in_building: Default::default(),
+      in_building_continuous: ContinuousTrimPolyline::default(),
+      in_building_no_edge: Default::default(),
       range,
     }
   }
@@ -191,16 +193,15 @@ impl SubPatchTrimBuilder {
   }
 
   fn connect_through_boundary_walk(&mut self, boundary_enter_point: Vec2<f32>, ccw: bool) {
-    let Some(current) = self.in_building.last_mut() else {
-      return;
-    };
-    let Some(exit_point) = current.last_point() else {
-      return;
-    };
-
-    if exit_point.distance_to(boundary_enter_point) < 1e-6 {
-      return;
-    }
+    self.flush_no_edge_to_continues();
+    let exit_point = self
+      .in_building_continuous
+      .last_point()
+      .expect("no exit point for boundary walk");
+    assert!(
+      is_on_boundary(exit_point),
+      "exit_point {exit_point:?} is not on [0,1]² boundary"
+    );
 
     let t_exit = boundary_param(exit_point);
     let t_entry = boundary_param(boundary_enter_point);
@@ -214,10 +215,13 @@ impl SubPatchTrimBuilder {
       let mut t = t_exit;
       while t < t_end {
         let next_t = next_boundary_corner(t).min(t_end);
-        current.push_no_edge_polyline(NoEdgeContinuousTrimPolyline::line_segment(
-          point_at_boundary_param(t),
-          point_at_boundary_param(next_t),
-        ));
+        self.in_building_continuous.push_no_edge_polyline(
+          NoEdgeContinuousTrimPolyline::line_segment(
+            point_at_boundary_param(t),
+            point_at_boundary_param(next_t),
+          ),
+          false,
+        );
         t = next_t;
       }
     } else {
@@ -235,34 +239,37 @@ impl SubPatchTrimBuilder {
         t = next_t;
       }
       for (a, b) in segs.into_iter().rev() {
-        current.push_no_edge_polyline(NoEdgeContinuousTrimPolyline::line_segment(b, a));
+        self
+          .in_building_continuous
+          .push_no_edge_polyline(NoEdgeContinuousTrimPolyline::line_segment(b, a), false);
       }
     }
   }
 
-  fn push_next_line_point(&mut self, point: Vec2<f32>) {
-    if let Some(current) = self.in_building.last_mut() {
-      current.push_point(point);
-    } else {
-      let mut poly = ContinuousTrimPolyline::default();
-      poly.push_point(point);
-      self.in_building.push(poly);
+  fn push_next_no_edge_point(&mut self, point: Vec2<f32>) {
+    if self.in_building_no_edge.is_empty() {
+      if let Some(last) = self.in_building_continuous.last_point() {
+        self.in_building_no_edge.push(last);
+      }
+    }
+
+    self.in_building_no_edge.push(point);
+  }
+
+  fn flush_no_edge_to_continues(&mut self) {
+    assert_ne!(self.in_building_no_edge.len(), 1);
+    if self.in_building_no_edge.len() >= 2 {
+      let points = std::mem::take(&mut self.in_building_no_edge);
+      let new_no_edge = NoEdgeContinuousTrimPolyline::new_assume_no_edge(points);
+
+      self
+        .in_building_continuous
+        .push_no_edge_polyline(new_no_edge, false);
     }
   }
 
   fn build_loop(&mut self, global_trim2d_polylines: &CompletedTrimPolyline) {
     let global_ccw = global_trim2d_polylines.signed_area() > 0.0;
-
-    // map to sub patch uv space
-    let range = self.range;
-    let point_iter = global_trim2d_polylines.iter_points().map(|p| {
-      let du = range.u_range.1 - range.u_range.0;
-      let dv = range.v_range.1 - range.v_range.0;
-
-      let u_local = (p.x - range.u_range.0) / du;
-      let v_local = (p.y - range.v_range.0) / dv;
-      Vec2::new(u_local, v_local)
-    });
 
     let mut last = None;
 
@@ -271,69 +278,83 @@ impl SubPatchTrimBuilder {
     let mut first_open_in_point = None;
     let mut never_entered = true;
 
-    for new in point_iter {
-      if let Some(last) = &mut last {
-        if let Some(next_clip) = clip_line_seg(*last, new) {
-          match (next_clip.from_clipped, next_clip.to_clipped) {
-            (true, true) => {
-              if is_previous_leaving {
-                self.connect_through_boundary_walk(next_clip.from, global_ccw);
+    for no_edge_polylines in global_trim2d_polylines.iter_no_edge_polylines() {
+      self.flush_no_edge_to_continues();
+
+      for new in no_edge_polylines.iter_points() {
+        let new = self.range.map(new);
+
+        if let Some(last) = &mut last {
+          if let Some(next_clip) = clip_line_seg(*last, new) {
+            match (next_clip.from_clipped, next_clip.to_clipped) {
+              (true, true) => {
+                if is_previous_leaving {
+                  self.connect_through_boundary_walk(next_clip.from, global_ccw);
+                }
+                if never_entered {
+                  first_open_in_point = Some(next_clip.from);
+                  self.push_next_no_edge_point(next_clip.from);
+                }
+                self.push_next_no_edge_point(next_clip.to);
+                is_previous_leaving = true;
               }
-              if never_entered {
-                first_open_in_point = Some(next_clip.from);
-                self.push_next_line_point(next_clip.from);
+              (true, false) => {
+                if is_previous_leaving {
+                  self.connect_through_boundary_walk(next_clip.from, global_ccw);
+                }
+                if never_entered {
+                  first_open_in_point = Some(next_clip.from);
+                  self.push_next_no_edge_point(next_clip.from);
+                }
+                self.push_next_no_edge_point(next_clip.to);
+                is_previous_leaving = false;
               }
-              self.push_next_line_point(next_clip.to);
-              is_previous_leaving = true;
-            }
-            (true, false) => {
-              if is_previous_leaving {
-                self.connect_through_boundary_walk(next_clip.from, global_ccw);
+              (false, true) => {
+                assert!(!is_previous_leaving);
+                self.push_next_no_edge_point(next_clip.to);
+                is_previous_leaving = true;
               }
-              if never_entered {
-                first_open_in_point = Some(next_clip.from);
-                self.push_next_line_point(next_clip.from);
+              (false, false) => {
+                assert!(!is_previous_leaving);
+                self.push_next_no_edge_point(next_clip.to);
               }
-              self.push_next_line_point(next_clip.to);
-              is_previous_leaving = false;
             }
-            (false, true) => {
-              assert!(!is_previous_leaving);
-              self.push_next_line_point(next_clip.to);
-              is_previous_leaving = true;
-            }
-            (false, false) => {
-              assert!(!is_previous_leaving);
-              self.push_next_line_point(next_clip.to);
-            }
+            never_entered = false;
+            *last = new;
+          } else {
+            *last = new;
           }
-          never_entered = false;
-          *last = new;
         } else {
-          *last = new;
+          let inside = (0.0..=1.0).contains(&new.x) && (0.0..=1.0).contains(&new.y);
+          if inside {
+            self.push_next_no_edge_point(new);
+            never_entered = false;
+          }
+          last = Some(new)
         }
-      } else {
-        let inside = (0.0..=1.0).contains(&new.x) && (0.0..=1.0).contains(&new.y);
-        if inside {
-          self.push_next_line_point(new);
-        }
-        last = Some(new)
       }
     }
     if let Some(in_point) = first_open_in_point {
       self.connect_through_boundary_walk(in_point, global_ccw);
     }
 
-    while let Some(poly) = self.in_building.pop() {
-      if let Some(completed) = CompletedTrimPolyline::check_closed_from(poly) {
-        self.finished.push(completed);
-      }
+    self.flush_no_edge_to_continues();
+    let c_line = std::mem::take(&mut self.in_building_continuous);
+    if let Some(loop_line) = CompletedTrimPolyline::check_closed_from(c_line) {
+      self.finished.push(loop_line);
     }
   }
 }
 
-/// Detect whether the segment a→b crosses a corner of [0,1]², i.e.
-/// a and b lie on different edges of the unit square.
+fn is_on_boundary(p: Vec2<f32>) -> bool {
+  const EPS: f32 = 1e-5;
+  let in_range = |v: f32| v >= -EPS && v <= 1.0 + EPS;
+  (p.x.abs() < EPS && in_range(p.y))
+    || ((p.x - 1.0).abs() < EPS && in_range(p.y))
+    || (p.y.abs() < EPS && in_range(p.x))
+    || ((p.y - 1.0).abs() < EPS && in_range(p.x))
+}
+
 fn boundary_param(p: Vec2<f32>) -> f32 {
   const EPS: f32 = 1e-5;
   if p.y.abs() < EPS {

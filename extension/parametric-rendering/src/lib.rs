@@ -1,3 +1,5 @@
+#![feature(array_windows)]
+
 use std::hash::Hasher;
 
 use curve3d::RationalBezierCurve3d;
