@@ -373,8 +373,8 @@ fn convert_plane_to_bezier_patch(
   let patch = SurfaceSubPatch {
     surface,
     sub_range: SubRange {
-      u_range: (u_min, u_max),
-      v_range: (v_min, v_max),
+      u_range: (0.0, 1.0),
+      v_range: (0.0, 1.0),
     },
   };
   let orig = OriginalSurface::Plane {
@@ -382,6 +382,8 @@ fn convert_plane_to_bezier_patch(
     u_dir: x_dir,
     v_dir: y_dir,
     normal,
+    u_range: (u_min, u_max),
+    v_range: (v_min, v_max),
   };
   (vec![patch], orig)
 }

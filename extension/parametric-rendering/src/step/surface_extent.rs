@@ -40,7 +40,17 @@ pub fn compute_plane_face_extent_from_beziers(
     return (-1.0, 1.0, -1.0, 1.0);
   }
 
-  (u_min, u_max, v_min, v_max)
+  // Guard against zero-span extents (all edge points collinear in one direction).
+  let u_span_raw = u_max - u_min;
+  let v_span_raw = v_max - v_min;
+  let u_span = u_span_raw.max(1e-6);
+  let v_span = v_span_raw.max(1e-6);
+  if u_span_raw < 1e-6 || v_span_raw < 1e-6 {
+    println!(
+      "plane face extent near-degenerate: u_span={u_span_raw:e}, v_span={v_span_raw:e}; clamped to 1e-6"
+    );
+  }
+  (u_min, u_min + u_span, v_min, v_min + v_span)
 }
 
 /// Compute the V-axis extent for cylinder/cone faces from pre-converted Bezier edge curves.

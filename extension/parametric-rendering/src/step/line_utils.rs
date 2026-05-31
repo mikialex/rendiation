@@ -38,19 +38,16 @@ impl CompletedTrimPolyline {
     self.polyline.polylines.iter()
   }
 
-  // todo, avoid recollect
-  pub fn iter_points(&self) -> impl Iterator<Item = Vec2<f32>> {
-    let mut points = Vec::new();
-
-    for (i, poly) in self.polyline.polylines.iter().enumerate() {
-      if i == 0 {
-        points.extend_from_slice(&poly.points);
-      } else {
-        points.extend_from_slice(&poly.points[1..]);
-      }
-    }
-
-    points.into_iter()
+  pub fn iter_points(&self) -> impl Iterator<Item = Vec2<f32>> + '_ {
+    self
+      .polyline
+      .polylines
+      .iter()
+      .enumerate()
+      .flat_map(|(i, poly)| {
+        let start = if i == 0 { 0 } else { 1 };
+        poly.points[start..].iter().copied()
+      })
   }
 
   pub fn reconstruct_quadratic_bezier_curves(
