@@ -131,7 +131,7 @@ fn is_flat_enough<T: Scalar>(curve: &RationalBezierCurve3d<T>, tolerance_sq: T) 
 /// This is important for the flatness test: control points that extend
 /// beyond the segment endpoints would pass a line-distance check but still
 /// cause the curve to bow outside the segment region.
-fn point_to_segment_distance_sq<T: Scalar>(p: Vec3<T>, a: Vec3<T>, b: Vec3<T>) -> T {
+pub(crate) fn point_to_segment_distance_sq<T: Scalar>(p: Vec3<T>, a: Vec3<T>, b: Vec3<T>) -> T {
   let ab = b - a;
   let ap = p - a;
   let ab_len_sq = ab.length2();

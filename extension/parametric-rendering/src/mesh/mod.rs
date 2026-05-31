@@ -110,12 +110,15 @@ fn triangulate_trimmed(
   // 1. Tessellate all boundary curves into a single closed polygon
   let mut boundary_poly: Vec<Vec2<f32>> = Vec::new();
   for curve in trim_boundary {
-    let pts = tessellate_quadratic_bezier_2d(curve, config.boundary_tolerance);
+    let pts = tessellate_quadratic_bezier_2d(surface, curve, config.boundary_tolerance);
     if boundary_poly.is_empty() {
       boundary_poly.extend(pts);
     } else {
       // Skip duplicate start point (same as previous end)
-      let start = if (boundary_poly.last().copied().unwrap_or(pts[0]) - pts[0]).length() < 1e-8 {
+      let start = if boundary_poly
+        .last()
+        .is_some_and(|last| (*last - pts[0]).length() < 1e-8)
+      {
         1
       } else {
         0
@@ -140,10 +143,21 @@ fn triangulate_trimmed(
     std::collections::HashMap::new();
 
   let mut boundary_handles: Vec<FixedVertexHandle> = Vec::new();
+  let mut last_boundary_handle: Option<FixedVertexHandle> = None;
   for &p in &boundary_poly {
-    if let Ok(h) = cdt.insert(SpadePoint::new(p.x as f64, p.y as f64)) {
-      boundary_handles.push(h);
-      vertex_is_interior.insert(h, false);
+    match cdt.insert(SpadePoint::new(p.x as f64, p.y as f64)) {
+      Ok(h) => {
+        boundary_handles.push(h);
+        vertex_is_interior.insert(h, false);
+        last_boundary_handle = Some(h);
+      }
+      Err(_) => {
+        // Duplicate point (within spade tolerance) — reuse previous handle
+        // so constraint edges still follow the original boundary topology.
+        if let Some(h) = last_boundary_handle {
+          boundary_handles.push(h);
+        }
+      }
     }
   }
 
@@ -247,16 +261,49 @@ fn triangulate_trimmed(
   }
 }
 
-/// Adaptively tessellate a 2D quadratic Bézier curve by recursive
-/// subdivision until the chord error is below `tolerance`.
+/// Adaptively tessellate a 2D quadratic Bézier trim curve by recursive
+/// subdivision until the 3D chord error is below `tolerance`.
+/// Uses `surface.evaluate(u, v)` to map 2D points to 3D for the flatness test.
 pub fn tessellate_quadratic_bezier_2d(
+  surface: &RationalBezierSurface<f32>,
   curve: &QuadraticBezierCurve2d<f32>,
   tolerance: f32,
 ) -> Vec<Vec2<f32>> {
   let mut out = vec![curve.start];
-  subdivide_qbezier(curve.start, curve.ctrl, curve.end, tolerance, &mut out);
+  subdivide_qbezier(curve.start, curve.ctrl, curve.end, tolerance, surface, &mut out);
   out.push(curve.end);
   out
+}
+
+/// 2D-only tessellation for validation purposes (OOB/gap checks).
+/// Does not require a surface; uses 2D flatness test.
+pub(crate) fn tessellate_quadratic_bezier_2d_only(
+  curve: &QuadraticBezierCurve2d<f32>,
+  tolerance: f32,
+) -> Vec<Vec2<f32>> {
+  let mut out = vec![curve.start];
+  subdivide_qbezier_2d(curve.start, curve.ctrl, curve.end, tolerance, &mut out);
+  out.push(curve.end);
+  out
+}
+
+fn subdivide_qbezier_2d(
+  p0: Vec2<f32>,
+  p1: Vec2<f32>,
+  p2: Vec2<f32>,
+  tol: f32,
+  out: &mut Vec<Vec2<f32>>,
+) {
+  let mid = (p0 + p2) * 0.5;
+  if (p1 - mid).length() < tol {
+    return;
+  }
+  let q1 = (p0 + p1) * 0.5;
+  let r1 = (p1 + p2) * 0.5;
+  let q2 = (q1 + r1) * 0.5;
+  subdivide_qbezier_2d(p0, q1, q2, tol, out);
+  out.push(q2);
+  subdivide_qbezier_2d(q2, r1, p2, tol, out);
 }
 
 fn subdivide_qbezier(
@@ -264,20 +311,26 @@ fn subdivide_qbezier(
   p1: Vec2<f32>,
   p2: Vec2<f32>,
   tol: f32,
+  surface: &RationalBezierSurface<f32>,
   out: &mut Vec<Vec2<f32>>,
 ) {
-  // Flatness: distance from p1 to the chord midpoint
-  let mid = (p0 + p2) * 0.5;
-  if (p1 - mid).length() < tol {
+  let p0_3d = surface.evaluate(p0.x, p0.y);
+  let p1_3d = surface.evaluate(p1.x, p1.y);
+  let p2_3d = surface.evaluate(p2.x, p2.y);
+  let tol_sq = tol * tol;
+
+  if point_to_segment_distance_sq(p1_3d, p0_3d, p2_3d)
+    < tol_sq
+  {
     return;
   }
-  // De Casteljau subdivision at t = 0.5
+
   let q1 = (p0 + p1) * 0.5;
   let r1 = (p1 + p2) * 0.5;
-  let q2 = (q1 + r1) * 0.5; // B(0.5)
-  subdivide_qbezier(p0, q1, q2, tol, out);
+  let q2 = (q1 + r1) * 0.5;
+  subdivide_qbezier(p0, q1, q2, tol, surface, out);
   out.push(q2);
-  subdivide_qbezier(q2, r1, p2, tol, out);
+  subdivide_qbezier(q2, r1, p2, tol, surface, out);
 }
 
 /// Test if `point` is inside a trim boundary (one closed polygon formed
@@ -348,7 +401,8 @@ mod tests {
       ctrl: Vec2::new(0.5, 1.0),
       end: Vec2::new(1.0, 0.0),
     };
-    let pts = tessellate_quadratic_bezier_2d(&curve, 1e-2);
+    let surface = make_test_surface();
+    let pts = tessellate_quadratic_bezier_2d(&surface, &curve, 1e-2);
     assert!(pts.len() >= 2);
     // First and last points should match curve endpoints
     assert!((pts[0] - curve.start).length() < 1e-6);

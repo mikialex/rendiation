@@ -102,18 +102,6 @@ impl ContinuousTrimPolyline {
     }
   }
 
-  pub fn from_no_edge_list(polylines: Vec<NoEdgeContinuousTrimPolyline>) -> Self {
-    for [a, b] in polylines.array_windows::<2>() {
-      let prev_last = a.points.last().unwrap();
-      let next_first = b.points.first().unwrap();
-      assert!(
-        prev_last.distance_to(*next_first) <= 1e-6,
-        "polylines are not continuous: gap between {prev_last:?} and {next_first:?}"
-      );
-    }
-    Self { polylines }
-  }
-
   pub fn new_from_hard_polylines(points: Vec<Vec2<f32>>) -> Self {
     assert!(points.len() >= 2);
     let polylines = points
@@ -218,10 +206,6 @@ impl NoEdgeContinuousTrimPolyline {
 
   pub fn iter_points(&self) -> impl Iterator<Item = Vec2<f32>> + '_ {
     self.points.iter().copied()
-  }
-
-  pub fn last_point(&self) -> Option<Vec2<f32>> {
-    self.points.last().copied()
   }
 
   pub fn line_segment(start: Vec2<f32>, end: Vec2<f32>) -> Self {

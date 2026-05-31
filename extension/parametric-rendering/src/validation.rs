@@ -40,7 +40,7 @@ pub fn validate_trim_boundary(
 
     // OOB check
     for (ci, c) in loop_curves.iter().enumerate() {
-      let pts = tessellate_quadratic_bezier_2d(c, domain_eps * 0.5);
+      let pts = tessellate_quadratic_bezier_2d_only(c, domain_eps * 0.5);
       for p in &pts {
         if p.x < -domain_eps
           || p.x > 1.0 + domain_eps
