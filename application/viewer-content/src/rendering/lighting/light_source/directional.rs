@@ -207,7 +207,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
 }
 
 struct DirectionalLightingShader {
-  lights: UniformBufferDataView<UniformArrayWithLengthInfo<DirectionalLightUniform>>,
+  lights: UniformBufferCachedDataView<UniformArrayWithLengthInfo<DirectionalLightUniform>>,
   shadows: ShadowImplComType,
 }
 

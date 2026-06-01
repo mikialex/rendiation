@@ -29,7 +29,7 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
 
 #[derive(Clone)]
 struct PointLightShader {
-  lights: UniformBufferDataView<UniformArrayWithLengthInfo<PointLightUniform>>,
+  lights: UniformBufferCachedDataView<UniformArrayWithLengthInfo<PointLightUniform>>,
 }
 
 impl ShaderHashProvider for PointLightShader {

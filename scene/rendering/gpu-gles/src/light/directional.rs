@@ -2,7 +2,7 @@ use crate::*;
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[derive(Copy, Clone, ShaderStruct, Default, PartialEq)]
 pub struct DirectionalLightUniform {
   /// in lx
   pub illuminance: Vec3<f32>,
@@ -17,7 +17,7 @@ pub fn use_directional_per_scene_uniform_array_buffers(
 
   cx.skip_if_not_waked(|cx| {
     cx.use_db_entity_any_change::<DirectionalLightEntity>();
-    // todo, this also waked if camera changed
+    // this also waked if camera changed, currently we only rely on uniform diff to handle this case
     let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
     if cx.is_in_render() {

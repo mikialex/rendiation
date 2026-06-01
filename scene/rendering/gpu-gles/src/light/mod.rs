@@ -39,7 +39,8 @@ pub fn compute_light_list<T: Std140 + Default>(
 
 pub struct LightUniformInfo<T: Std140> {
   /// scene id -> per scene uniform array
-  pub uniform: FastHashMap<RawEntityHandle, UniformBufferDataView<UniformArrayWithLengthInfo<T>>>,
+  pub uniform:
+    FastHashMap<RawEntityHandle, UniformBufferCachedDataView<UniformArrayWithLengthInfo<T>>>,
   /// scene id -> light id -> allocation index
   pub allocation_info: FastHashMap<RawEntityHandle, FastHashMap<RawEntityHandle, u32>>,
   pub label: String,
@@ -58,7 +59,7 @@ pub fn use_shared_light_uniform_info<T: Std140>(
   })
 }
 
-pub fn sync_per_scene_uniforms<T: Std140>(
+pub fn sync_per_scene_uniforms<T: Std140 + PartialEq>(
   new_data: &PerSceneLightUniformArray<T>,
   uniform_array_caches: &SharedLightUniformInfo<T>,
   gpu: &GPU,
@@ -75,11 +76,12 @@ pub fn sync_per_scene_uniforms<T: Std140>(
   let gpu_uniforms = &mut uniform_array_caches_.uniform;
   for (scene_id, uniform_array) in &new_data.lists {
     if let Some(existing) = gpu_uniforms.get(scene_id) {
-      existing.write_at(&gpu.queue, &uniform_array.buffer, 0);
+      existing.set(uniform_array.buffer);
+      existing.upload_with_diff(&gpu.queue);
     } else {
       gpu_uniforms.insert(
         *scene_id,
-        UniformBufferDataView::create(&gpu.device, uniform_array.buffer),
+        UniformBufferCachedDataView::create(&gpu.device, uniform_array.buffer),
       );
     }
   }
@@ -114,7 +116,7 @@ impl<T: Std140> PerSceneLightArray<T> {
 const LIGHT_LIST_LEN: usize = 8;
 
 #[repr(C)]
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub struct UniformArrayWithLengthInfo<T: Std140> {
   pub length: Vec4<u32>, // use vec4 for alignment, only .x is the length info
   pub lights: Shader140Array<T, LIGHT_LIST_LEN>,

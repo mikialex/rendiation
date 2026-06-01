@@ -4,7 +4,7 @@ use crate::*;
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[derive(Copy, Clone, ShaderStruct, Default, PartialEq)]
 pub struct LTCAreaLightUniform {
   /// precalculated vertex in world space.
   pub p1: HighPrecisionTranslationUniform,
@@ -101,7 +101,7 @@ impl LightSystemSceneProvider for SceneAreaLightingProvider {
 pub struct LTCLightingComputeComponent {
   ltc_1: GPU2DTextureView,
   ltc_2: GPU2DTextureView,
-  uniforms: UniformBufferDataView<UniformArrayWithLengthInfo<LTCAreaLightUniform>>,
+  uniforms: UniformBufferCachedDataView<UniformArrayWithLengthInfo<LTCAreaLightUniform>>,
 }
 impl ShaderHashProvider for LTCLightingComputeComponent {
   shader_hash_type_id! {}

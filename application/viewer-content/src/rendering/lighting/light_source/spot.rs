@@ -133,7 +133,7 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
 
 #[derive(Clone)]
 struct SpotLightShader {
-  lights: UniformBufferDataView<UniformArrayWithLengthInfo<SpotLightUniform>>,
+  lights: UniformBufferCachedDataView<UniformArrayWithLengthInfo<SpotLightUniform>>,
   shadow: Option<BasicShadowMapComponent>,
 }
 
