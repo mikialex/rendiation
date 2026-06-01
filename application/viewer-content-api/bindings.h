@@ -604,6 +604,7 @@ struct Text3dQueryInfoC {
   float max_x;
   float max_y;
   float x_height;
+  uint32_t units_per_em;
   bool has_result;
 };
 
