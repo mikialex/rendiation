@@ -132,104 +132,118 @@ impl AbstractCullerInvocation for OcclusionTesterInvocation {
 impl OcclusionTesterInvocation {
   /// return true == occluded
   fn is_occluded(&self, target_world_bounding: TargetWorldBounding) -> Node<bool> {
-    let size = hpt_sub_hpt(target_world_bounding.max, target_world_bounding.min);
+    // we use empty box for box not require cull
+    // we have to use the origin box, as the hpt is not valid
+    let min_x = target_world_bounding.min.expand().f1.x();
+    let max_x = target_world_bounding.max.expand().f1.x();
+    let should_do_cull_test = min_x.less_equal_than(max_x);
 
-    let min_xy: Node<Vec2<f32>> = (val(1.), val(1.)).into();
-    let max_xy: Node<Vec2<f32>> = (val(0.), val(0.)).into();
-    let min_xy = min_xy.make_local_var();
-    let max_xy = max_xy.make_local_var();
+    let is_occlude = val(false).make_local_var();
 
-    let shallowest_bbox_depth = if self.reverse_depth { val(0.) } else { val(1.) }.make_local_var();
+    if_by(should_do_cull_test, || {
+      let size = hpt_sub_hpt(target_world_bounding.max, target_world_bounding.min);
 
-    let camera_world_position = hpt_uniform_to_hpt(self.camera.world_position().load());
-    let render_to_clip = self.camera.view_projection_without_translation().load();
+      let min_xy: Node<Vec2<f32>> = (val(1.), val(1.)).into();
+      let max_xy: Node<Vec2<f32>> = (val(0.), val(0.)).into();
+      let min_xy = min_xy.make_local_var();
+      let max_xy = max_xy.make_local_var();
 
-    val(8).into_shader_iter().for_each(|item, _| {
-      let min_in_render_space = hpt_sub_hpt(target_world_bounding.min, camera_world_position);
+      let shallowest_bbox_depth =
+        if self.reverse_depth { val(0.) } else { val(1.) }.make_local_var();
 
-      let corner_x = min_in_render_space.x().make_local_var();
-      let corner_y = min_in_render_space.y().make_local_var();
-      let corner_z = min_in_render_space.z().make_local_var();
+      let camera_world_position = hpt_uniform_to_hpt(self.camera.world_position().load());
+      let render_to_clip = self.camera.view_projection_without_translation().load();
 
-      switch_by(item)
-        .case(1, || {
-          corner_x.store(corner_x.load() + size.x());
-        })
-        .case(2, || {
-          corner_y.store(corner_y.load() + size.y());
-        })
-        .case(3, || {
-          corner_z.store(corner_z.load() + size.z());
-        })
-        .case(4, || {
-          corner_x.store(corner_x.load() + size.x());
-          corner_y.store(corner_y.load() + size.y());
-        })
-        .case(5, || {
-          corner_y.store(corner_y.load() + size.y());
-          corner_z.store(corner_z.load() + size.z());
-        })
-        .case(6, || {
-          corner_x.store(corner_x.load() + size.x());
-          corner_z.store(corner_z.load() + size.z());
-        })
-        .case(7, || {
-          corner_x.store(corner_x.load() + size.x());
-          corner_y.store(corner_y.load() + size.y());
-          corner_z.store(corner_z.load() + size.z());
-        })
-        .end_with_default(|| {});
+      val(8).into_shader_iter().for_each(|item, _| {
+        let min_in_render_space = hpt_sub_hpt(target_world_bounding.min, camera_world_position);
 
-      let point: Node<Vec4<f32>> =
-        (corner_x.load(), corner_y.load(), corner_z.load(), val(1.)).into();
-      let clip_position = render_to_clip * point;
+        let corner_x = min_in_render_space.x().make_local_var();
+        let corner_y = min_in_render_space.y().make_local_var();
+        let corner_z = min_in_render_space.z().make_local_var();
 
-      let pos_xyz = clip_position.xyz() / clip_position.w().splat();
-      let x = pos_xyz.x().clamp(val(-1.), val(1.0));
-      let y = pos_xyz.y().clamp(val(-1.), val(1.0));
-      let z = pos_xyz.z().clamp(val(0.), val(1.0));
+        switch_by(item)
+          .case(1, || {
+            corner_x.store(corner_x.load() + size.x());
+          })
+          .case(2, || {
+            corner_y.store(corner_y.load() + size.y());
+          })
+          .case(3, || {
+            corner_z.store(corner_z.load() + size.z());
+          })
+          .case(4, || {
+            corner_x.store(corner_x.load() + size.x());
+            corner_y.store(corner_y.load() + size.y());
+          })
+          .case(5, || {
+            corner_y.store(corner_y.load() + size.y());
+            corner_z.store(corner_z.load() + size.z());
+          })
+          .case(6, || {
+            corner_x.store(corner_x.load() + size.x());
+            corner_z.store(corner_z.load() + size.z());
+          })
+          .case(7, || {
+            corner_x.store(corner_x.load() + size.x());
+            corner_y.store(corner_y.load() + size.y());
+            corner_z.store(corner_z.load() + size.z());
+          })
+          .end_with_default(|| {});
 
-      let pos_xy: Node<Vec2<f32>> = (x, y).into();
-      let pos_xy = pos_xy * val(Vec2::new(0.5, -0.5)) + val(Vec2::new(0.5, 0.5));
+        let point: Node<Vec4<f32>> =
+          (corner_x.load(), corner_y.load(), corner_z.load(), val(1.)).into();
+        let clip_position = render_to_clip * point;
 
-      min_xy.store(min_xy.load().min(pos_xy));
-      max_xy.store(max_xy.load().max(pos_xy));
-      if self.reverse_depth {
-        shallowest_bbox_depth.store(shallowest_bbox_depth.load().max(z));
+        let pos_xyz = clip_position.xyz() / clip_position.w().splat();
+        let x = pos_xyz.x().clamp(val(-1.), val(1.0));
+        let y = pos_xyz.y().clamp(val(-1.), val(1.0));
+        let z = pos_xyz.z().clamp(val(0.), val(1.0));
+
+        let pos_xy: Node<Vec2<f32>> = (x, y).into();
+        let pos_xy = pos_xy * val(Vec2::new(0.5, -0.5)) + val(Vec2::new(0.5, 0.5));
+
+        min_xy.store(min_xy.load().min(pos_xy));
+        max_xy.store(max_xy.load().max(pos_xy));
+        if self.reverse_depth {
+          shallowest_bbox_depth.store(shallowest_bbox_depth.load().max(z));
+        } else {
+          shallowest_bbox_depth.store(shallowest_bbox_depth.load().min(z));
+        }
+      });
+
+      let min_xy = min_xy.load();
+      let max_xy = max_xy.load();
+
+      let depth_pyramid_size_0 = self.depth.texture_dimension_2d(Some(val(0))).into_f32();
+
+      let box_size = (max_xy - min_xy) * depth_pyramid_size_0;
+      let mip_level = box_size.x().max(box_size.y()).log2().ceil().into_u32();
+      let mip_level = mip_level.clamp(val(0), self.depth.texture_number_levels() - val(1));
+
+      let depth_pyramid_size = self.depth.texture_dimension_2d(Some(mip_level));
+      let limit_x = depth_pyramid_size.x() - val(1);
+      let limit_y = depth_pyramid_size.y() - val(1);
+      let top_left = (min_xy * depth_pyramid_size.into_f32()).into_u32();
+
+      let l_x = top_left.x().clamp(val(0), limit_x);
+      let t_y = top_left.y().clamp(val(0), limit_y);
+      let r_x = (l_x + val(1)).clamp(val(0), limit_x);
+      let b_y = (t_y + val(1)).clamp(val(0), limit_y);
+
+      let d_0 = self.depth.load_texel((l_x, t_y).into(), mip_level).x();
+      let d_1 = self.depth.load_texel((r_x, t_y).into(), mip_level).x();
+      let d_2 = self.depth.load_texel((l_x, b_y).into(), mip_level).x();
+      let d_3 = self.depth.load_texel((r_x, b_y).into(), mip_level).x();
+      let result = if self.reverse_depth {
+        let deepest_depth = d_0.min(d_1).min(d_2).min(d_3);
+        shallowest_bbox_depth.load().less_than(deepest_depth)
       } else {
-        shallowest_bbox_depth.store(shallowest_bbox_depth.load().min(z));
-      }
+        let deepest_depth = d_0.max(d_1).max(d_2).max(d_3);
+        shallowest_bbox_depth.load().greater_than(deepest_depth)
+      };
+      is_occlude.store(result);
     });
 
-    let min_xy = min_xy.load();
-    let max_xy = max_xy.load();
-
-    let depth_pyramid_size_0 = self.depth.texture_dimension_2d(Some(val(0))).into_f32();
-
-    let box_size = (max_xy - min_xy) * depth_pyramid_size_0;
-    let mip_level = box_size.x().max(box_size.y()).log2().ceil().into_u32();
-    let mip_level = mip_level.clamp(val(0), self.depth.texture_number_levels() - val(1));
-
-    let depth_pyramid_size = self.depth.texture_dimension_2d(Some(mip_level));
-    let limit_x = depth_pyramid_size.x() - val(1);
-    let limit_y = depth_pyramid_size.y() - val(1);
-    let top_left = (min_xy * depth_pyramid_size.into_f32()).into_u32();
-
-    let l_x = top_left.x().clamp(val(0), limit_x);
-    let t_y = top_left.y().clamp(val(0), limit_y);
-    let r_x = (l_x + val(1)).clamp(val(0), limit_x);
-    let b_y = (t_y + val(1)).clamp(val(0), limit_y);
-
-    let d_0 = self.depth.load_texel((l_x, t_y).into(), mip_level).x();
-    let d_1 = self.depth.load_texel((r_x, t_y).into(), mip_level).x();
-    let d_2 = self.depth.load_texel((l_x, b_y).into(), mip_level).x();
-    let d_3 = self.depth.load_texel((r_x, b_y).into(), mip_level).x();
-    if self.reverse_depth {
-      let deepest_depth = d_0.min(d_1).min(d_2).min(d_3);
-      shallowest_bbox_depth.load().less_than(deepest_depth)
-    } else {
-      let deepest_depth = d_0.max(d_1).max(d_2).max(d_3);
-      shallowest_bbox_depth.load().greater_than(deepest_depth)
-    }
+    is_occlude.load()
   }
 }

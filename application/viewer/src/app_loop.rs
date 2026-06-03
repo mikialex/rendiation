@@ -127,10 +127,8 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
 
       #[cfg(target_family = "wasm")]
       {
-        let device = web_sys::window().unwrap().device_pixel_ratio() as f32;
-
-        window_state.device_pixel_ratio = device;
-        window_state.physical_size = (width as f32, height as f32);
+        // todo, is this necessary?
+        window_state.window_state.physical_size = (width as f32, height as f32);
       }
 
       let window = Arc::new(RwLock::new(window));
