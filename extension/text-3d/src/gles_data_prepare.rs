@@ -10,6 +10,7 @@ pub fn prepare_gles_text(input: &SlugBuffer, font_sys: &FontSystem) -> Option<Sl
   let SlugBuffer {
     positions: glyph_buffer,
     unique_glyphs,
+    ..
   } = input;
 
   let (packed, glyph_data_map) = pack_glyph_data(unique_glyphs, font_sys);

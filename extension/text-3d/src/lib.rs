@@ -19,6 +19,7 @@ mod gles_data_prepare;
 mod gles_draw;
 mod indirect_data_prepare;
 mod indirect_draw;
+mod pick;
 mod slug_shader;
 use std::sync::Arc;
 
@@ -30,6 +31,7 @@ use gles_draw::*;
 use indirect_data_prepare::*;
 pub use indirect_draw::use_text3d_indirect_renderer;
 use parking_lot::RwLock;
+pub use pick::{use_text_picker, TextPicker};
 use slug_shader::*;
 
 pub fn register_text3d_data_model(sparse: bool) {

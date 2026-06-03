@@ -76,6 +76,7 @@ pub struct PositionedGlyph {
 }
 
 pub struct SlugBuffer {
+  pub hit_boxes: Vec<Box2<f32>>,
   pub positions: Vec<PositionedGlyph>,
   pub unique_glyphs: FastHashSet<GlyphKey>,
 }
@@ -192,9 +193,13 @@ pub fn create_slug_buffer_from_text3d_content(
   }
   let mut underline_segments: Vec<UnderlineSegment> = Vec::new();
 
+  let mut hit_boxes = Vec::new();
+  let mut previous_same_line_hit_box_right_x;
+
   // we use full text paragraph last line baseline start point as the origin
   let mut last_line_y = 0.;
   for run in buffer.layout_runs() {
+    previous_same_line_hit_box_right_x = None;
     last_line_y = run.line_y;
     for glyph in run.glyphs.iter() {
       let cache_key = glyph.physical((0., run.line_y), 1.0).cache_key;
@@ -204,6 +209,17 @@ pub fn create_slug_buffer_from_text3d_content(
         relative_x: glyph.x,
         relative_y: glyph.y - run.line_y,
       });
+
+      let start = if let Some(p) = previous_same_line_hit_box_right_x {
+        glyph.x.min(p)
+      } else {
+        glyph.x
+      };
+
+      let min = Vec2::new(start, -run.line_top - run.line_height);
+      let max = Vec2::new(glyph.x + glyph.w, -run.line_top);
+      hit_boxes.push(Box2::new(min, max));
+      previous_same_line_hit_box_right_x = Some(glyph.x + glyph.w);
     }
 
     if input.underline {
@@ -229,6 +245,10 @@ pub fn create_slug_buffer_from_text3d_content(
 
   for glyph in &mut glyph_buffer {
     glyph.relative_y += last_line_y;
+  }
+  for hit_box in &mut hit_boxes {
+    hit_box.min.y += last_line_y;
+    hit_box.max.y += last_line_y;
   }
   for line_seg in &mut underline_segments {
     line_seg.line_y -= last_line_y;
@@ -329,6 +349,7 @@ pub fn create_slug_buffer_from_text3d_content(
   SlugBuffer {
     positions: glyph_buffer,
     unique_glyphs,
+    hit_boxes,
   }
 }
 
