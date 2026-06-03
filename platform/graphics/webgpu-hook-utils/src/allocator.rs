@@ -173,12 +173,13 @@ impl GrowableRangeAllocator {
     }
 
     let current_remain_capacity = self.current_count - self.used_count;
-    let size_requirement = new.clone().into_iter().map(|v| v.1).sum::<u32>();
-    let new_init = new.clone().into_iter().count(); // we should merge the loop with the size_requirement
 
-    let new_data_to_write = FastHashMap::with_capacity_and_hasher(new_init, Default::default());
+    let new_size_requirement = new.clone().into_iter().map(|v| v.1).sum::<u32>();
+    let new_init_count = new.clone().into_iter().count(); // we should merge the loop with the size_requirement
+    let new_data_to_write =
+      FastHashMap::with_capacity_and_hasher(new_init_count, Default::default());
 
-    let new_init_for_move = if size_requirement > current_remain_capacity {
+    let new_init_for_move = if new_size_requirement > current_remain_capacity {
       self.ranges.len()
     } else {
       0
@@ -196,13 +197,15 @@ impl GrowableRangeAllocator {
 
     // use a separate hash map to avoid change the self.ranges
     let mut new_metadata_to_write =
-      FastHashMap::with_capacity_and_hasher(new_init, Default::default());
+      FastHashMap::with_capacity_and_hasher(new_init_count, Default::default());
 
-    if size_requirement > current_remain_capacity {
+    if new_size_requirement > current_remain_capacity {
+      let new_size = self.used_count + new_size_requirement;
       //  try to avoid fragmentation caused possible relocate
-      let extra = self.current_count as f32 * 0.1;
-      let new_size =
-        (self.current_count + size_requirement + extra as u32).min(self.max_item_count);
+      let new_size = (new_size as f32 * 1.1) as u32;
+      let new_size = new_size.min(self.max_item_count);
+
+      // if we have reached the limit before, do nothing
       if new_size != self.max_item_count {
         self.relocate(new_size, &mut result, &mut new_metadata_to_write);
       }

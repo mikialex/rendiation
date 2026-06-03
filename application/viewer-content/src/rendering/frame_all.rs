@@ -17,9 +17,9 @@ pub struct Viewer3dRenderingCtx {
   pub(super) gpu: GPU,
   pub(super) prefer_bindless_for_indirect_texture_system: bool,
 
-  pub(super) use_array_clip: bool,
-  pub(super) enable_clip: bool,
-  pub(super) fill_clip_face: bool,
+  pub use_array_clip: bool,
+  pub enable_clip: bool,
+  pub fill_clip_face: bool,
 
   // surface id -> view id -> view state
   pub surface_views: FastHashMap<u32, FastHashMap<u64, Viewer3dViewportRenderingCtx>>,

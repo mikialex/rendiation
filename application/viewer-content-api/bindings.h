@@ -660,6 +660,8 @@ void viewer_surface_set_camera(ViewerAPI *api, uint32_t surface_id, ViewerEntity
 
 void viewer_surface_set_scene(ViewerAPI *api, uint32_t surface_id, ViewerEntityHandle scene);
 
+void viewer_set_enable_clip(ViewerAPI *api, bool enable_clip, bool enable_clip_fill);
+
 /// may return empty handle for error case
 ViewerEntityHandle viewer_read_last_render_result(ViewerAPI *api, uint32_t surface_id);
 
@@ -850,7 +852,8 @@ void scene_model_set_occ_style_view_dep(ViewerEntityHandle handle,
                                         const float (*anchor)[3],
                                         const int32_t (*offset)[2],
                                         uint32_t corner,
-                                        uint32_t mode);
+                                        uint32_t mode,
+                                        const float (*local_mat)[16]);
 
 void scene_model_remove_occ_style_view_dep(ViewerEntityHandle handle);
 

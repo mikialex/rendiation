@@ -83,6 +83,16 @@ pub extern "C" fn viewer_surface_set_scene(
   api.set_surface_scene(surface_id, scene.into());
 }
 
+#[no_mangle]
+pub extern "C" fn viewer_set_enable_clip(
+  api: &mut ViewerAPI,
+  enable_clip: bool,
+  enable_clip_fill: bool,
+) {
+  api.core.viewer.rendering.use_array_clip = enable_clip;
+  api.core.viewer.rendering.fill_clip_face = enable_clip_fill;
+}
+
 /// may return empty handle for error case
 #[no_mangle]
 pub extern "C" fn viewer_read_last_render_result(

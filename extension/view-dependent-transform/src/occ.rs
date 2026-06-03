@@ -140,6 +140,16 @@ impl OccStyleViewDepConfig {
       if let OccStyleTransform::Dimension3 { anchor_point } = self.transform_ty {
         let mut world_view_mat = camera_transform.view * Mat4::translate(anchor_point.into_f64());
         if self.mode.contains(OccStyleMode::NotRotate) {
+          if let Some(mut local_mat) = self.local_mat {
+            let position = local_mat.position();
+            local_mat.d1 = 0.;
+            local_mat.d2 = 0.;
+            local_mat.d3 = 0.;
+            local_mat.d3 = 1.;
+            let position = local_mat * position;
+            world_view_mat = world_view_mat * Mat4::translate(position * scale as f32).into_f64();
+          }
+
           world_view_mat.a1 = 1.0;
           world_view_mat.a2 = 0.0;
           world_view_mat.a3 = 0.0;
@@ -151,7 +161,12 @@ impl OccStyleViewDepConfig {
           world_view_mat.c1 = 0.0;
           world_view_mat.c2 = 0.0;
           world_view_mat.c3 = 1.0;
+        } else {
+          if let Some(local_mat) = self.local_mat {
+            world_view_mat = world_view_mat * local_mat.into_f64();
+          }
         }
+
         if self.mode.contains(OccStyleMode::NotZoom) {
           world_view_mat = world_view_mat * Mat4::scale(Vec3::splat(scale));
         }
@@ -168,6 +183,7 @@ pub struct OccStyleViewDepConfig {
   pub transform_ty: OccStyleTransform,
   #[facet(opaque)]
   pub mode: OccStyleMode,
+  pub local_mat: Option<Mat4<f32>>,
 }
 
 #[repr(C)]

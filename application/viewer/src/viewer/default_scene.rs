@@ -197,6 +197,7 @@ pub fn load_default_scene(
             anchor_point: Vec3::new(0., 0., 0.),
           },
           mode: OccStyleMode::NotZoomRotate,
+          local_mat: None,
         }),
       );
   }

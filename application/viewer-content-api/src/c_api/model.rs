@@ -79,6 +79,7 @@ pub extern "C" fn scene_model_set_occ_style_view_dep(
   offset: &[i32; 2],
   corner: u32,
   mode: u32,
+  local_mat: *const [f32; 16],
 ) {
   let transform_ty = if is_2d {
     OccStyleTransform::Dimension2 {
@@ -91,9 +92,16 @@ pub extern "C" fn scene_model_set_occ_style_view_dep(
     }
   };
 
+  let local_mat = if local_mat.is_null() {
+    None
+  } else {
+    Some(Mat4::from(unsafe { *local_mat }))
+  };
+
   let config = OccStyleViewDepConfig {
     transform_ty,
     mode: OccStyleMode::from_bits_retain(mode),
+    local_mat,
   };
   write_global_db_component::<SceneModelViewDependentTransformOcc>()
     .write(handle.into(), Some(config));
