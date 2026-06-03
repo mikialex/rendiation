@@ -84,10 +84,11 @@ declare_component!(
   Mat4::identity()
 );
 
+#[derive(Debug)]
 pub struct TextQueryResult {
   /// note, this bbox is not considering the local transform([Text3dLocalTransform])
   pub local_bbox: Box3<f32>,
-  pub x_height: f32,
+  pub cap_a_height: f32,
   pub units_per_em: u32,
 }
 
@@ -100,16 +101,20 @@ pub fn compute_text_layout_info(
   let slug = create_slug_buffer_from_text3d_content(font_sys, &text_3d);
   let local_bbox = slug.compute_local_bounding(font_sys, Mat4::identity());
 
-  let mut x_height = 0.0;
+  let mut cap_a_height = 0.0;
   let mut units_per_em = 0;
 
   if let Some(font_id) = font_sys.query_font_id(&text_3d) {
     if let Some(font) = font_sys.system.get_font(font_id, cosmic_text::Weight(400)) {
-      let swash_font = font.as_swash();
-      let metrics = swash_font.metrics(&[]);
+      let font = ttf_parser::Face::parse(&font.data(), 0).expect("failed to parse font");
 
-      x_height = metrics.x_height;
-      units_per_em = metrics.units_per_em as u32;
+      let glyph_id = font.glyph_index('A').expect("failed to get glyph id");
+
+      let bbox = font
+        .glyph_bounding_box(glyph_id)
+        .expect("failed to get glyph bbox");
+      units_per_em = font.units_per_em() as u32;
+      cap_a_height = bbox.y_max as f32;
     } else {
       log::warn!("failed to get font metrics");
     };
@@ -118,7 +123,7 @@ pub fn compute_text_layout_info(
   TextQueryResult {
     local_bbox,
     units_per_em,
-    x_height,
+    cap_a_height,
   }
   .into()
 }

@@ -4681,6 +4681,7 @@ dependencies = [
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
  "serde",
+ "ttf-parser",
 ]
 
 [[package]]

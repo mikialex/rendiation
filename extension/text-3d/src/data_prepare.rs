@@ -231,7 +231,7 @@ pub fn create_slug_buffer_from_text3d_content(
     glyph.relative_y += last_line_y;
   }
   for line_seg in &mut underline_segments {
-    line_seg.line_y += last_line_y;
+    line_seg.line_y -= last_line_y;
   }
 
   // todo, rework underline logic

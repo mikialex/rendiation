@@ -1,15 +1,15 @@
 use crate::*;
 
-pub fn load_text3d_test(s_writer: &mut SceneWriter) {
+pub fn load_text3d_test(s_writer: &mut SceneWriter, font_sys: &mut FontSystem) {
   let mut writer = global_entity_of::<Text3dEntity>().entity_writer();
 
-  {
+  let text_3d = {
     let text_3d = writer.new_entity(|w| {
       w.write::<Text3dContent>(&Some(ExternalRefPtr::new(Text3dContentInfo {
         content: String::from("Hello abcd!\nHello, World! 我是中文"),
         font_size: 12.,
         line_height: 1.2,
-        font: Some(String::from("Cascadia Code")),
+        font: Some(String::from("Arial")),
         weight: None,
         color: Vec4::new(1., 0., 0., 1.),
         italic: false,
@@ -30,7 +30,8 @@ pub fn load_text3d_test(s_writer: &mut SceneWriter) {
         .write::<SceneModelBelongsToScene>(&scene)
         .write::<SceneModelRefNode>(&child.some_handle())
     });
-  }
+    text_3d
+  };
 
   {
     let text_3d = writer.new_entity(|w| {
@@ -60,4 +61,8 @@ pub fn load_text3d_test(s_writer: &mut SceneWriter) {
         .write::<SceneModelRefNode>(&child.some_handle())
     });
   }
+
+  drop(writer);
+  let re = compute_text_layout_info(text_3d.into_raw(), font_sys);
+  println!("{:?}", re);
 }

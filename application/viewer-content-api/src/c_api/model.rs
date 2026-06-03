@@ -391,7 +391,7 @@ pub struct Text3dQueryInfoC {
   pub min_y: f32,
   pub max_x: f32,
   pub max_y: f32,
-  pub x_height: f32,
+  pub cap_a_height: f32,
   pub units_per_em: u32,
   pub has_result: bool,
 }
@@ -410,7 +410,7 @@ pub extern "C" fn text3d_query(
     rr.max_x = bbox.max.x;
     rr.max_y = bbox.max.y;
     rr.units_per_em = r.units_per_em;
-    rr.x_height = r.x_height;
+    rr.cap_a_height = r.cap_a_height;
     rr.has_result = true;
   } else {
     rr.has_result = false;
