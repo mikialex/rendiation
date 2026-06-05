@@ -143,6 +143,10 @@ impl GraphicsShaderProvider for OccStyleMaterialGPU<'_> {
       if builder.try_query::<GeometryUV>().is_none() {
         builder.register::<GeometryUV>(val(Vec2::zero()));
       }
+
+      if let Some(states) = self.states {
+        apply_pipeline_vertex_builder(states, builder);
+      }
     });
 
     builder.fragment(|builder, binding| {
@@ -163,12 +167,17 @@ impl GraphicsShaderProvider for OccStyleMaterialGPU<'_> {
       builder.register::<DefaultDisplay>(uniform.diffuse * diffuse_alpha_tex);
       match self.shade_type {
         OccStyleEffectType::Unlit => {
+          let diffuse = uniform.diffuse * diffuse_alpha_tex;
           builder.insert_type_tag::<UnlitMaterialTag>();
+          builder.register::<ColorChannel>(diffuse.xyz());
+          builder.register::<AlphaChannel>(diffuse.w());
+          builder.register::<DefaultDisplay>(diffuse);
         }
         OccStyleEffectType::Lighted => {
-          let diffuse = uniform.diffuse.xyz() * diffuse_alpha_tex.xyz();
+          let diffuse = uniform.diffuse * diffuse_alpha_tex;
 
-          builder.register::<ColorChannel>(diffuse);
+          builder.register::<ColorChannel>(diffuse.xyz());
+          builder.register::<AlphaChannel>(diffuse.w());
           builder.register::<SpecularChannel>(uniform.specular);
           builder.register::<EmissiveChannel>(uniform.emissive);
           builder.register::<ShininessChannel>(uniform.shininess);
@@ -221,7 +230,7 @@ impl GraphicsShaderProvider for OccStyleMaterialGPU<'_> {
       }
 
       if let Some(states) = self.states {
-        apply_pipeline_builder(states, self.reverse_z, builder);
+        apply_pipeline_frag_builder(states, self.reverse_z, builder);
       }
     });
   }

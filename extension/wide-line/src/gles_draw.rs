@@ -40,6 +40,7 @@ pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineM
     index_buffer: quad.0.clone(),
     vertex_buffer: quad.1.clone(),
     states: read_global_db_component(),
+    transparent: read_global_db_component(),
   })
 }
 
@@ -50,6 +51,7 @@ pub struct WideLineModelGLESRenderer {
   index_buffer: GPUBufferResourceView,
   vertex_buffer: GPUBufferResourceView,
   states: ComponentReadView<WideLineDepthEnable>,
+  transparent: ComponentReadView<WideLineTransparent>,
 }
 
 impl GLESModelRenderImpl for WideLineModelGLESRenderer {
@@ -80,6 +82,7 @@ impl GLESModelRenderImpl for WideLineModelGLESRenderer {
       index_buffer: &self.index_buffer,
       instance_buffer,
       enabled_depth: self.states.get_value(model_idx)?,
+      transparent: self.transparent.get_value(model_idx)?,
     });
     Some((com, draw_command))
   }
@@ -111,6 +114,7 @@ pub struct WideLineGPU<'a> {
   pub vertex_buffer: &'a GPUBufferResourceView,
   pub instance_buffer: &'a GPUBufferResourceView,
   pub enabled_depth: bool,
+  pub transparent: bool,
 }
 
 impl ShaderHashProvider for WideLineGPU<'_> {
@@ -118,6 +122,7 @@ impl ShaderHashProvider for WideLineGPU<'_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     use std::hash::Hash;
     self.enabled_depth.hash(hasher);
+    self.transparent.hash(hasher);
   }
 }
 
@@ -195,6 +200,13 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
           depth.depth_compare = CompareFunction::Always;
           depth.depth_write_enabled = false;
         }
+      }
+      if self.transparent {
+        builder.frag_output.iter_mut().for_each(|p| {
+          if p.is_blendable() {
+            p.states.blend = BlendState::ALPHA_BLENDING.into();
+          }
+        });
       }
     })
   }

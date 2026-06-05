@@ -889,6 +889,8 @@ void wide_line_set_buffer(ViewerEntityHandle handle, uint32_t data_length, const
 
 void wide_line_set_enable_depth_test(ViewerEntityHandle handle, bool enabled);
 
+void wide_line_set_transparent(ViewerEntityHandle handle, bool enabled);
+
 void wide_line_set_color(ViewerEntityHandle handle, const float (*color)[4]);
 
 void wide_line_set_width(ViewerEntityHandle handle, const float *width);

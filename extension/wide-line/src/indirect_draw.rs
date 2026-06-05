@@ -91,6 +91,7 @@ pub fn use_widen_line_indirect_renderer(
     segments,
     params: params.get_gpu_buffer(),
     states: read_global_db_component(),
+    transparent: read_global_db_component(),
     sm_to_wide_line_device: sm_to_wide_line_device.unwrap(),
     params_host: params.buffer.make_read_holder(),
     used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
@@ -100,6 +101,7 @@ pub fn use_widen_line_indirect_renderer(
 pub struct WideLineModelIndirectRenderer {
   model_access: ForeignKeyReadView<SceneModelWideLineRenderPayload>,
   states: ComponentReadView<WideLineDepthEnable>,
+  transparent: ComponentReadView<WideLineTransparent>,
   segments: AbstractReadonlyStorageBuffer<[WideLineVertexStorage]>,
   params: AbstractReadonlyStorageBuffer<[WideLineParameters]>,
   /// we keep the host metadata to support creating draw commands from host
@@ -144,6 +146,8 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
     let wide_line_id = self.model_access.get(any_id)?;
     let enabled = self.states.get_value(wide_line_id)?;
     enabled.hash(hasher);
+    let transparent = self.transparent.get_value(wide_line_id)?;
+    transparent.hash(hasher);
     Some(())
   }
 
@@ -171,6 +175,7 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
       sm_to_wide_line_device: self.sm_to_wide_line_device.clone(),
       bind_state: Default::default(),
       enabled_depth: self.states.get_value(line)?,
+      transparent: self.transparent.get_value(line)?,
     }))
   }
 
@@ -228,12 +233,14 @@ pub struct WideLineIndirectDrawComponent {
   sm_to_wide_line_device: AbstractReadonlyStorageBuffer<[u32]>,
   bind_state: BindingPreparerInternalStage,
   enabled_depth: bool,
+  transparent: bool,
 }
 
 impl ShaderHashProvider for WideLineIndirectDrawComponent {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.enabled_depth.hash(hasher);
+    self.transparent.hash(hasher);
   }
 }
 
@@ -354,6 +361,14 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
           depth.depth_compare = CompareFunction::Always;
           depth.depth_write_enabled = false;
         }
+      }
+
+      if self.transparent {
+        builder.frag_output.iter_mut().for_each(|p| {
+          if p.is_blendable() {
+            p.states.blend = BlendState::ALPHA_BLENDING.into();
+          }
+        });
       }
     })
   }

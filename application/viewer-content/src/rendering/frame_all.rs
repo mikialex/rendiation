@@ -346,13 +346,15 @@ impl Viewer3dRenderingCtx {
             let sm_ref_wide_line = cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>();
             let wide_line_key = cx
               .use_dual_query::<WideLineDepthEnable>()
+              .dual_query_zip(cx.use_dual_query::<WideLineTransparent>())
+              .dual_query_boxed()
               .fanout(sm_ref_wide_line, cx)
-              .dual_query_map(|enable_depth| SceneModelGroupKey::ForeignHash {
+              .dual_query_map(|(enable_depth, trans)| SceneModelGroupKey::ForeignHash {
                 internal: fast_hash_scope(|hasher| {
                   std::any::TypeId::of::<WideLineModelEntity>().hash(hasher);
-                  enable_depth.hash(hasher);
+                  (enable_depth, trans).hash(hasher);
                 }),
-                require_alpha_blend: false,
+                require_alpha_blend: trans,
               })
               .dual_query_boxed();
 

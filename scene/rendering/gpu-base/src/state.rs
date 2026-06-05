@@ -76,7 +76,7 @@ impl<'a> GraphicsShaderProvider for StateGPUImpl<'a> {
       });
 
       builder.fragment(|builder, _| {
-        apply_pipeline_builder(state, self.is_reverse_z, builder);
+        apply_pipeline_frag_builder(state, self.is_reverse_z, builder);
       })
     }
   }
@@ -110,7 +110,7 @@ fn map_depth_stencil_state(
   })
 }
 
-pub fn apply_pipeline_builder(
+pub fn apply_pipeline_frag_builder(
   states: &RasterizationStates,
   reverse_z: bool,
   builder: &mut ShaderFragmentBuilder,
@@ -124,4 +124,12 @@ pub fn apply_pipeline_builder(
   // and depth_stencil if they exist
   let format = builder.depth_stencil.as_ref().map(|s| s.format);
   builder.depth_stencil = map_depth_stencil_state(states, format, reverse_z);
+}
+
+pub fn apply_pipeline_vertex_builder(
+  states: &RasterizationStates,
+  builder: &mut ShaderVertexBuilder,
+) {
+  builder.primitive_state.front_face = states.front_face;
+  builder.primitive_state.cull_mode = states.cull_mode;
 }
