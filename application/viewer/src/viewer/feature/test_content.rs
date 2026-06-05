@@ -3,6 +3,8 @@ use rendiation_csg_sdf_expression::*;
 use crate::*;
 
 pub fn use_test_content_panel(cx: &mut ViewerCx) {
+  let (cx, living_planes) = cx.use_plain_state::<Vec<EntityHandle<ClippingPlaneEntity>>>();
+
   if let ViewerCxStage::Gui {
     egui_ctx, global, ..
   } = &mut cx.stage
@@ -41,13 +43,22 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
         }
 
         if ui.button("test array plane clipping1").clicked() {
-          test_array_plane_clipping_data1(cx.active_surface_content.scene)
+          let planes = test_array_plane_clipping_data1(cx.active_surface_content.scene);
+          living_planes.extend(planes);
+        }
+        if ui.button("clear array plane clipping").clicked() {
+          let mut w = global_entity_of::<ClippingPlaneEntity>().entity_writer();
+          for p in living_planes.drain(..) {
+            w.delete_entity(p);
+          }
         }
       });
   }
 }
 
-fn test_array_plane_clipping_data1(scene: EntityHandle<SceneEntity>) {
+fn test_array_plane_clipping_data1(
+  scene: EntityHandle<SceneEntity>,
+) -> Vec<EntityHandle<ClippingPlaneEntity>> {
   let mut w = global_entity_of::<ClippingPlaneEntity>().entity_writer();
 
   fn write_plane(
@@ -55,17 +66,20 @@ fn test_array_plane_clipping_data1(scene: EntityHandle<SceneEntity>) {
     dir: Vec3<f32>,
     constant: f32,
     scene: EntityHandle<SceneEntity>,
-  ) {
+  ) -> EntityHandle<ClippingPlaneEntity> {
     let dir = dir.normalize();
     w.new_entity(|w| {
       w.write::<ClippingPlaneInfo>(&Vec4::new(dir.x, dir.y, dir.z, constant))
         .write::<ClippingPlaneRefScene>(&scene.some_handle())
-    });
+    })
   }
 
-  write_plane(&mut w, Vec3::new(1., 0., 0.), 0., scene);
-  write_plane(&mut w, Vec3::new(0., 0., 1.), 0., scene);
-  write_plane(&mut w, Vec3::new(0., 1., 0.), 0., scene);
+  [
+    write_plane(&mut w, Vec3::new(1., 0., 0.), 0., scene),
+    write_plane(&mut w, Vec3::new(0., 0., 1.), 0., scene),
+    write_plane(&mut w, Vec3::new(0., 1., 0.), 0., scene),
+  ]
+  .to_vec()
 }
 
 fn test_csg_clipping_data1(scene: EntityHandle<SceneEntity>) {

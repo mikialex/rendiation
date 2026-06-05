@@ -315,8 +315,9 @@ pub fn create_sub_buffer_changes_from_mesh_changes(
     // generate removed vertex from recorded vertex mapping info
     let mut vertex_mapping = vertex_mapping.write();
     for removed_mesh in &mesh_changes.removed {
-      let vertex = vertex_mapping.remove(removed_mesh).unwrap();
-      vertices_changes.removed.extend(vertex);
+      if let Some(vertex) = vertex_mapping.remove(removed_mesh) {
+        vertices_changes.removed.extend(vertex);
+      } // remove none exist vertex is possible as the data changes trait allow us to remove none exist item
     }
 
     for (mesh, mesh_info) in mesh_changes.iter_update_or_insert() {

@@ -103,6 +103,17 @@ pub fn use_multi_access_gpu(
         let change_count = changes.allocation_changes.0.change_count();
         let mut write_src =
           SparseBufferWritesSource::with_capacity(change_count * item_size, change_count);
+        changes.allocation_changes.iter_removed().for_each(|id| {
+          let w_offset = item_size as u32 * id.alloc_index();
+
+          let value = GPURangeInfo {
+            start: 0,
+            len: 0,
+            ..Default::default()
+          };
+          write_src.collect_write(bytes_of(&value), w_offset as u64);
+        });
+
         changes
           .allocation_changes
           .iter_update_or_insert()

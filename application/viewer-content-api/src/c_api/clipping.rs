@@ -5,10 +5,11 @@ pub extern "C" fn create_clipping_plane(
   plane: &[f32; 4],
   scene: *const ViewerEntityHandle,
 ) -> ViewerEntityHandle {
+  let plane = Vec4::from(*plane).reverse();
   global_entity_of::<ClippingPlaneEntity>()
     .entity_writer()
     .new_entity(|w| {
-      let w = w.write::<ClippingPlaneInfo>(&(*plane).into());
+      let w = w.write::<ClippingPlaneInfo>(&plane);
       if !scene.is_null() {
         w.write::<ClippingPlaneRefScene>(&Some(unsafe { *scene }.into()))
       } else {
@@ -27,7 +28,8 @@ pub extern "C" fn drop_clipping_plane(handle: ViewerEntityHandle) {
 
 #[no_mangle]
 pub extern "C" fn clipping_plane_set_plane(handle: ViewerEntityHandle, plane: &[f32; 4]) {
-  write_global_db_component::<ClippingPlaneInfo>().write(handle.into(), (*plane).into());
+  let plane = Vec4::from(*plane).reverse();
+  write_global_db_component::<ClippingPlaneInfo>().write(handle.into(), plane);
 }
 
 #[no_mangle]
