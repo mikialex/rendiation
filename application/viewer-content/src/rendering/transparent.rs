@@ -59,7 +59,13 @@ impl ViewerTransparentRenderer {
         all_transparent_object
       };
 
-    cull_cx.install_frustum_culler(&mut all_transparent_object, camera_gpu, viewport.camera);
+    cull_cx.execute_frustum_culler(
+      ctx,
+      &mut all_transparent_object,
+      camera_gpu,
+      viewport.camera,
+      true,
+    );
 
     match self {
       ViewerTransparentRenderer::NaiveAlphaBlend => {

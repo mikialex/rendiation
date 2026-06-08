@@ -23,13 +23,8 @@ pub fn test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_re
   });
 
   // update the occluder's visibility for the occluder
-
-  // the occluder culler must be flushed
-  assert!(last_frame_visible_batch.stash_culler.is_none());
-
   cx.next_key_scope_root();
   for sub_batch in &last_frame_visible_batch.sub_batches {
-    // update the occluder's visibility for the occluder
     let mut hasher = shader_hasher_from_marker_ty!(OcclusionLastFrameVisibleUpdater);
     // todo, scene_models should hash
     tester.hash_pipeline_with_type_info(&mut hasher);

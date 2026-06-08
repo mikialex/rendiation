@@ -4852,6 +4852,7 @@ dependencies = [
  "rendiation-area-lighting",
  "rendiation-controller",
  "rendiation-csg-sdf-expression",
+ "rendiation-device-parallel-compute",
  "rendiation-device-ray-tracing",
  "rendiation-dynamic-bvh-scene",
  "rendiation-fast-down-sampling-2d",

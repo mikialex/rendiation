@@ -75,10 +75,7 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
       })
       .collect();
 
-    DeviceSceneModelRenderBatch {
-      sub_batches,
-      stash_culler: None,
-    }
+    DeviceSceneModelRenderBatch { sub_batches }
   }
 }
 
@@ -109,8 +106,6 @@ impl SceneRenderer for IndirectSceneRenderer {
           self.create_batch_from_iter(&mut batch.iter_scene_models())
         }
       };
-
-      let batch = ctx.access_parallel_compute(|cx| batch.flush_culler_into_new(cx, false));
 
       ctx.next_key_scope_root();
       let content: Vec<_> = batch

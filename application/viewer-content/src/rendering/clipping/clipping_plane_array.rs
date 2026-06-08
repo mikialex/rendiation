@@ -108,8 +108,7 @@ impl ClippingPlaneArrayRenderer {
       SceneContentKey::default(),
       renderer.scene,
     );
-    filter.install_filter(&mut all_object);
-    // todo flush filter reduce filter cost
+    filter.execute(&mut all_object, frame_ctx);
 
     let planes = self.planes_host_access.access_multi(&scene);
 

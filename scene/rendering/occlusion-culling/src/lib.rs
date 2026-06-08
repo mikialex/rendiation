@@ -46,6 +46,7 @@ impl GPUTwoPassOcclusionCulling {
     &mut self,
     frame_ctx: &mut FrameCtx,
     batch: &DeviceSceneModelRenderBatch,
+    pre_culler: Option<Box<dyn AbstractCullerProvider>>,
     mut target: RenderPassDescription,
     preflight_content: &mut dyn FnMut(ActiveRenderPass) -> ActiveRenderPass,
     scene_renderer: &dyn SceneRenderer,
@@ -56,36 +57,37 @@ impl GPUTwoPassOcclusionCulling {
     // todo,  generate culling result should be optimized
     generate_culling_result: bool,
   ) -> (ActiveRenderPass, Option<GPUTwoPassOcclusionCullingResult>) {
-    let pre_culler = batch.stash_culler.clone().unwrap_or(Box::new(NoopCuller));
+    let pre_culler = pre_culler.unwrap_or(Box::new(NoopCuller));
 
     let last_frame_invisible = &self.last_frame_visibility;
 
     // split the batch in to last frame visible and invisible batch
     // todo, this should be optimized
     let last_frame_visible_batch = frame_ctx.access_parallel_compute(|cx| {
-      batch
-        .clone()
-        .with_override_culler(filter_last_frame_visible_object(last_frame_invisible))
-        .flush_culler_into_new(cx, true)
+      batch.execute_culling(
+        cx,
+        filter_last_frame_visible_object(last_frame_invisible),
+        true,
+      )
     });
 
     let last_frame_invisible_batch = frame_ctx.access_parallel_compute(|cx| {
-      batch
-        .clone()
-        .with_override_culler(filter_last_frame_visible_object(last_frame_invisible).not())
-        .flush_culler_into_new(cx, true)
+      batch.execute_culling(
+        cx,
+        filter_last_frame_visible_object(last_frame_invisible).not(),
+        true,
+      )
     });
 
     // first pass
     // draw all visible object in last frame culling result as the occluder
-    let mut first_pass_batch = last_frame_visible_batch
-      .clone()
-      .with_override_culler(pre_culler.clone());
+    let mut first_pass_batch = last_frame_visible_batch.clone();
 
     if generate_culling_result {
       frame_ctx.scope(|frame_ctx| {
-        first_pass_batch =
-          frame_ctx.access_parallel_compute(|cx| first_pass_batch.flush_culler_into_new(cx, true));
+        first_pass_batch = frame_ctx.access_parallel_compute(|cx| {
+          first_pass_batch.execute_culling(cx, pre_culler.clone(), true)
+        });
       });
     }
 
@@ -160,12 +162,13 @@ impl GPUTwoPassOcclusionCulling {
     // second pass, draw rest but not occluded, and update the visibility states
     // todo, check pre_culler if is ok to set before occlusion_culler
     let second_pass_culler = pre_culler.shortcut_or(occlusion_culler);
-    let mut second_pass_batch = last_frame_invisible_batch.with_override_culler(second_pass_culler);
+    let mut second_pass_batch = last_frame_invisible_batch;
 
     if generate_culling_result {
       frame_ctx.scope(|frame_ctx| {
-        second_pass_batch =
-          frame_ctx.access_parallel_compute(|cx| second_pass_batch.flush_culler_into_new(cx, true));
+        second_pass_batch = frame_ctx.access_parallel_compute(|cx| {
+          second_pass_batch.execute_culling(cx, second_pass_culler, true)
+        });
       });
     }
 

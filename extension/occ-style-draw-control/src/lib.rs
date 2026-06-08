@@ -130,10 +130,7 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
 
     let sub_batches = sub_batches_with_key.into_iter().map(|v| v.0).collect();
 
-    let batches = DeviceSceneModelRenderBatch {
-      sub_batches,
-      stash_culler: None,
-    };
+    let batches = DeviceSceneModelRenderBatch { sub_batches };
     SceneModelRenderBatch::Device(batches)
   }
 }

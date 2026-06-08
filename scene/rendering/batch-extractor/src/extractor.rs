@@ -130,10 +130,7 @@ impl SceneBatchBasicExtractAbility for IncrementalDeviceSceneBatchExtractor<Scen
     } else {
       contents.values().filter_map(|v| v.create_batch()).collect()
     };
-    let batches = DeviceSceneModelRenderBatch {
-      sub_batches,
-      stash_culler: None,
-    };
+    let batches = DeviceSceneModelRenderBatch { sub_batches };
     SceneModelRenderBatch::Device(batches).into()
   }
 }

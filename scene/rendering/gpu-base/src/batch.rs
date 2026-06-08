@@ -15,6 +15,14 @@ pub trait HostRenderBatch: DynClone {
     self.iter_scene_models().collect()
   }
 }
+dyn_clone::clone_trait_object!(HostRenderBatch);
+
+impl HostRenderBatch for Vec<EntityHandle<SceneModelEntity>> {
+  fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
+    Box::new(self.iter().copied())
+  }
+}
+
 #[derive(Clone)]
 pub struct IteratorAsHostRenderBatch<T>(pub T);
 impl<T> HostRenderBatch for IteratorAsHostRenderBatch<T>
@@ -32,36 +40,19 @@ impl HostRenderBatch for Arc<Vec<EntityHandle<SceneModelEntity>>> {
   }
 }
 
-dyn_clone::clone_trait_object!(HostRenderBatch);
-
 #[derive(Clone)]
 pub struct DeviceSceneModelRenderBatch {
   /// each sub batch could be and would be drawn by a multi-indirect-draw.
   pub sub_batches: Vec<DeviceSceneModelRenderSubBatch>,
-  /// the culler for this batch, before the batch content be consumed/used, the culler
-  /// must be considered by [`DeviceSceneModelRenderBatch::flush_culler`]
-  ///
-  /// The reason we have to keep the culler here because the culler logic is subject to compose
-  /// with other cullers for example: [AbstractCullerProviderExt]. It's only possible if the culler
-  /// is stored separately here.
-  pub stash_culler: Option<Box<dyn AbstractCullerProvider>>,
 }
 
 impl DeviceSceneModelRenderBatch {
   pub fn empty() -> Self {
     Self {
       sub_batches: vec![],
-      stash_culler: None,
     }
   }
 }
-
-/// todo, using this to improve the dispatch call count.
-// #[derive(Clone)]
-// pub struct DeviceSceneModelRenderBatchCombined {
-//   pub scene_ids: StorageBufferDataView<[u32]>,
-//   pub sub_batch_ranges: StorageBufferDataView<[Vec2<u32>]>,
-// }
 
 #[derive(Clone)]
 pub struct DeviceSceneModelRenderSubBatch {
@@ -88,69 +79,45 @@ impl SceneModelRenderBatch {
 }
 
 impl DeviceSceneModelRenderBatch {
-  pub fn set_override_culler(&mut self, v: impl AbstractCullerProvider + 'static) -> &mut Self {
-    self.stash_culler = Some(Box::new(v));
-    self
-  }
-
-  pub fn with_override_culler(mut self, v: impl AbstractCullerProvider + 'static) -> Self {
-    self.stash_culler = Some(Box::new(v));
-    self
-  }
-
+  /// require_fully_materialize is to ensure the result list has no reference relation to the self.
   #[track_caller]
-  pub fn flush_culler(
+  pub fn execute_culling(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-    require_materialize: bool,
-  ) -> Vec<DeviceSceneModelRenderSubBatch> {
-    if let Some(culler) = &self.stash_culler {
-      cx.scope(|cx| {
-        self
-          .sub_batches
-          .iter()
-          .map(|sub_batch| {
-            let mask = SceneModelCullingComponent {
-              culler: culler.clone(),
-              input: sub_batch.scene_models.clone(),
-            };
-
-            cx.next_key_scope_root();
-            let scene_models = cx.keyed_scope(&sub_batch.group_key, |cx| {
-              if require_materialize {
-                let scene_models = sub_batch
-                  .scene_models
-                  .clone()
-                  .stream_compaction(mask, cx)
-                  .materialize_storage_buffer(cx);
-                Box::new(scene_models) as Box<dyn ComputeComponentIO<u32>>
-              } else {
-                Box::new(sub_batch.scene_models.clone().stream_compaction(mask, cx))
-              }
-            });
-
-            DeviceSceneModelRenderSubBatch {
-              scene_models,
-              impl_select_id: sub_batch.impl_select_id,
-              group_key: sub_batch.group_key,
-            }
-          })
-          .collect()
-      })
-    } else {
-      self.sub_batches.clone()
-    }
-  }
-
-  #[track_caller]
-  pub fn flush_culler_into_new(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-    require_materialize: bool,
+    culler: Box<dyn AbstractCullerProvider>,
+    require_fully_materialize: bool,
   ) -> Self {
-    Self {
-      sub_batches: self.flush_culler(cx, require_materialize),
-      stash_culler: None,
-    }
+    let sub_batches = self
+      .sub_batches
+      .iter()
+      .map(|sub_batch| {
+        let mask = SceneModelCullingComponent {
+          culler: culler.clone(),
+          input: sub_batch.scene_models.clone(),
+        };
+
+        cx.next_key_scope_root();
+        let scene_models = cx.keyed_scope(&sub_batch.group_key, |cx| {
+          if require_fully_materialize {
+            let scene_models = sub_batch
+              .scene_models
+              .clone()
+              .stream_compaction(mask, cx)
+              .materialize_storage_buffer(cx);
+            Box::new(scene_models) as Box<dyn ComputeComponentIO<u32>>
+          } else {
+            Box::new(sub_batch.scene_models.clone().stream_compaction(mask, cx))
+          }
+        });
+
+        DeviceSceneModelRenderSubBatch {
+          scene_models,
+          impl_select_id: sub_batch.impl_select_id,
+          group_key: sub_batch.group_key,
+        }
+      })
+      .collect();
+
+    Self { sub_batches }
   }
 }
