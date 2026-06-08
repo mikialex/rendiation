@@ -55,6 +55,8 @@ pub struct RasterizationStates {
   pub depth_compare: SemanticCompareFunction,
   #[facet(opaque)]
   pub stencil: StencilState,
+  /// this bias should also be "semantic" that user should assume the reverse z is not enabled.
+  /// (negative bias is nearer)
   #[facet(opaque)]
   pub bias: DepthBiasState,
   #[facet(opaque)]

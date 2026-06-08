@@ -101,6 +101,14 @@ fn map_depth_stencil_state(
   format: Option<TextureFormat>,
   reverse_z: bool,
 ) -> Option<DepthStencilState> {
+  let mut bias = states.bias;
+
+  if reverse_z {
+    bias.clamp = -bias.clamp;
+    bias.constant = -bias.constant;
+    bias.slope_scale = -bias.slope_scale;
+  }
+
   format.map(|format| DepthStencilState {
     format,
     depth_write_enabled: states.depth_write_enabled,
