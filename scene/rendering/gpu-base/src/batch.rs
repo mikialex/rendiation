@@ -9,6 +9,22 @@ pub enum SceneModelRenderBatch {
   Host(Box<dyn HostRenderBatch>),
 }
 
+impl SceneModelRenderBatch {
+  pub fn get_device_batch(&self) -> Option<DeviceSceneModelRenderBatch> {
+    match self {
+      SceneModelRenderBatch::Device(v) => Some(v.clone()),
+      SceneModelRenderBatch::Host(_) => None,
+    }
+  }
+
+  pub fn get_host_batch(&self) -> Option<Box<dyn HostRenderBatch>> {
+    match self {
+      SceneModelRenderBatch::Host(v) => Some(v.clone()),
+      SceneModelRenderBatch::Device(_) => None,
+    }
+  }
+}
+
 pub trait HostRenderBatch: DynClone {
   fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_>;
   fn materialize(&self) -> Vec<EntityHandle<SceneModelEntity>> {
@@ -60,22 +76,6 @@ pub struct DeviceSceneModelRenderSubBatch {
   /// this id is only used for implementation selecting. this may be not included in scene model.
   pub impl_select_id: EntityHandle<SceneModelEntity>,
   pub group_key: u64,
-}
-
-impl SceneModelRenderBatch {
-  pub fn get_device_batch(&self) -> Option<DeviceSceneModelRenderBatch> {
-    match self {
-      SceneModelRenderBatch::Device(v) => Some(v.clone()),
-      SceneModelRenderBatch::Host(_) => None,
-    }
-  }
-
-  pub fn get_host_batch(&self) -> Option<Box<dyn HostRenderBatch>> {
-    match self {
-      SceneModelRenderBatch::Host(v) => Some(v.clone()),
-      SceneModelRenderBatch::Device(_) => None,
-    }
-  }
 }
 
 impl DeviceSceneModelRenderBatch {
