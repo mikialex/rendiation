@@ -4470,6 +4470,7 @@ dependencies = [
  "interning",
  "log",
  "parking_lot",
+ "pollster",
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-device-parallel-compute",

@@ -31,5 +31,8 @@ thiserror = { workspace = true }
 log = { workspace = true }
 interning = { path = "../../../utility/interning" }
 
+[dev-dependencies]
+pollster = { workspace = true }
+
 [lints]
 workspace = true
