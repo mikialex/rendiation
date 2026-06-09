@@ -1,12 +1,11 @@
 use crate::*;
 
-/// Reads the globally prefix-scanned mask positions and scatters surviving elements
-/// into per-sub-list compact regions of the output pool. Threads 0..K-1 additionally
-/// extract boundary values to compute new per-sub-list counts and prefix sums without
-/// any atomic operations.
+/// Reads the globally prefix-scanned positions and scatters surviving elements into
+/// per-sub-list compact regions of the output pool. Survival is derived from the scan
+/// (positions[i] != positions[i-1]), so no separate mask buffer is needed. Threads
+/// 0..K-1 additionally extract boundary values for per-sub-list metadata.
 pub struct SegmentedListScatter {
   pub positions: StorageBufferReadonlyDataView<[u32]>,
-  pub mask: StorageBufferReadonlyDataView<[u32]>,
   pub sub_list_ranges: StorageBufferReadonlyDataView<[Vec4<u32>]>,
   pub draw_list: DeviceDrawList,
   pub output_pool: StorageBufferDataView<[u32]>,
@@ -26,7 +25,6 @@ impl Clone for SegmentedListScatter {
   fn clone(&self) -> Self {
     Self {
       positions: self.positions.clone(),
-      mask: self.mask.clone(),
       sub_list_ranges: self.sub_list_ranges.clone(),
       draw_list: self.draw_list.clone(),
       output_pool: self.output_pool.clone(),
@@ -60,7 +58,6 @@ impl ComputeComponent<Node<u32>> for SegmentedListScatter {
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
     let positions = builder.bind_by(&self.positions);
-    let mask = builder.bind_by(&self.mask);
     let sub_list_ranges = builder.bind_by(&self.sub_list_ranges);
     let output_pool = builder.bind_by(&self.output_pool);
     let output_ranges = builder.bind_by(&self.output_ranges);
@@ -71,7 +68,6 @@ impl ComputeComponent<Node<u32>> for SegmentedListScatter {
     Box::new(SegmentedScatterInvocation {
       draw_list: draw_list_inv,
       positions,
-      mask,
       sub_list_ranges,
       output_pool,
       output_ranges,
@@ -81,7 +77,6 @@ impl ComputeComponent<Node<u32>> for SegmentedListScatter {
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
     builder.bind(&self.positions);
-    builder.bind(&self.mask);
     builder.bind(&self.sub_list_ranges);
     builder.bind(&self.output_pool);
     builder.bind(&self.output_ranges);
@@ -93,7 +88,6 @@ impl ComputeComponent<Node<u32>> for SegmentedListScatter {
 struct SegmentedScatterInvocation {
   draw_list: Box<dyn DeviceInvocation<Node<Vec2<u32>>>>,
   positions: ShaderReadonlyPtrOf<[u32]>,
-  mask: ShaderReadonlyPtrOf<[u32]>,
   sub_list_ranges: ShaderReadonlyPtrOf<[Vec4<u32>]>,
   output_pool: ShaderPtrOf<[u32]>,
   output_ranges: ShaderPtrOf<[Vec4<u32>]>,
@@ -145,11 +139,15 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
     let model_id = vec2.x();
     let list_idx = vec2.y();
 
-    let keep = self.mask.index(i).load().greater_than(val(0u32));
+    let p_i = self.positions.index(i).load();
+    // Derive keep from the inclusive prefix scan: keep[i] ⇔ p[i] != p[i-1] (i>0) or p[0]==1 (i=0)
+    let is_first = i.equals(val(0u32));
+    let keep = is_first.select_branched(
+      || p_i.greater_than(val(0u32)),
+      || p_i.greater_than(self.positions.index(i - val(1u32)).load()),
+    );
 
     if_by(valid.and(keep), || {
-      let p_i = self.positions.index(i).load();
-
       // seg_start = total survivors in sub-lists before this one
       // = positions at the end index of the previous sub-list
       // sub_list_ranges[list_idx].z is the input prefix_sum (start global index),

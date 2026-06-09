@@ -9,7 +9,6 @@ where
   T: Std430 + ShaderSizedValueNodeType + Debug,
 {
   let write_target_positions = filter
-    .clone()
     .map(|v| v.select(1_u32, 0))
     .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx);
 
@@ -18,12 +17,18 @@ where
   }
   .compute_work_size(cx);
 
-  let shuffle_moved = source.clone().shuffle_move(
-    write_target_positions
-      .make_global_scan_exclusive::<AdditionMonoid<u32>>()
-      .zip(filter.clone()),
-    cx,
-  );
+  // Derive exclusive scan position and keep flag from the inclusive scan.
+  // For each element i: p_i = inclusive[i], p_prev = inclusive[i-1] (or 0 at i=0).
+  // keep ⇔ mask[i]==1 ⇔ p_i != p_prev; exclusive_pos = p_prev (the write target index).
+  // This avoids re-evaluating the filter shader a second time.
+  let p_prev = write_target_positions
+    .clone()
+    .offset_access(-1, OutBoundsBehavior::from_const(|| val(0u32)), 1);
+  let shuffle_idx = write_target_positions
+    .zip(p_prev)
+    .map(|(p_i, p_prev)| (p_prev, p_i.equals(p_prev).not()));
+
+  let shuffle_moved = source.shuffle_move(shuffle_idx, cx);
 
   DeviceMaterializeResult {
     buffer: shuffle_moved.buffer,

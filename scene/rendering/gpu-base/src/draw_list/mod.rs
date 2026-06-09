@@ -23,10 +23,6 @@ pub struct MultiRangeDispatchInfo {
   pub sum_all_count_host: u32,
 }
 
-// fn regroup(info: &MultiRangeDispatchInfo) -> MultiRangeDispatchInfo {
-//   todo!()
-// }
-
 #[derive(Clone)]
 pub struct SubListHostInfo {
   /// this id is only used for implementation selecting. itself may be not included in list.
@@ -105,13 +101,10 @@ impl DeviceDrawList {
       draw_list: self.clone(),
       culler: culler.clone(),
     };
-    let mask = predicate.materialize_storage_buffer(cx);
-    let positions = mask
-      .clone()
-      .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx);
+    let positions =
+      predicate.segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx);
     let scatter = SegmentedListScatter {
       positions: positions.buffer.clone(),
-      mask: mask.buffer.clone(),
       sub_list_ranges: self.dispatch_info.sub_list_ranges.clone(),
       draw_list: self.clone(),
       output_pool,
