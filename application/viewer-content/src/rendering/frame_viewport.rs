@@ -536,19 +536,19 @@ impl Viewer3dViewportRenderingCtx {
       camera_transform.world.position(),
     );
 
-    if let Some(mesh_lod_graph_renderer) = &renderer.mesh_lod_graph_renderer {
-      if camera_transform
-        .projection
-        .check_is_perspective_matrix_assume_common_projection()
-      {
-        mesh_lod_graph_renderer.setup_lod_decider(
-          ctx.gpu,
-          camera_transform.projection,
-          camera_transform.world,
-          render_target.size().into_f32().into(),
-        );
-      }
-    }
+    // if let Some(mesh_lod_graph_renderer) = &renderer.mesh_lod_graph_renderer {
+    //   if camera_transform
+    //     .projection
+    //     .check_is_perspective_matrix_assume_common_projection()
+    //   {
+    //     mesh_lod_graph_renderer.setup_lod_decider(
+    //       ctx.gpu,
+    //       camera_transform.projection,
+    //       camera_transform.world,
+    //       render_target.size().into_f32().into(),
+    //     );
+    //   }
+    // }
 
     let hdr_enabled = render_target.format() == TextureFormat::Rgba16Float;
 

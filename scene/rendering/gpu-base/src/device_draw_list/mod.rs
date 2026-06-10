@@ -33,6 +33,17 @@ pub struct SubListHostInfo {
   pub offset: u32,
 }
 
+pub fn compute_gpu_sub_list_ranges(sub_list_infos: &[SubListHostInfo]) -> Vec<Vec4<u32>> {
+  let sub_count = sub_list_infos.len();
+  let mut offset = 0u32;
+  let mut ranges = Vec::with_capacity(sub_count);
+  for info in sub_list_infos.iter() {
+    ranges.push(Vec4::new(offset, info.capacity, 0, 0));
+    offset += info.capacity;
+  }
+  ranges
+}
+
 impl DeviceDrawList {
   /// Creates (or reuses from cache) a DeviceDrawList with pre-allocated output buffers sized
   /// according to per-sub-list capacities. The sub_list_ranges are initialized with zero counts;
@@ -41,13 +52,9 @@ impl DeviceDrawList {
     &self,
     gpu: &GPU,
     cached: &'a mut Option<Self>,
+    sub_list_infos: &[SubListHostInfo],
   ) -> &'a Self {
-    let total_capacity: u32 = self
-      .dispatch_info
-      .sub_list_infos
-      .iter()
-      .map(|info| info.capacity)
-      .sum();
+    let total_capacity: u32 = sub_list_infos.iter().map(|info| info.capacity).sum();
 
     // Reuse cached target if the total capacity matches.
     let needs_create = match cached.as_ref() {
@@ -56,13 +63,7 @@ impl DeviceDrawList {
     };
 
     if needs_create {
-      let sub_count = self.dispatch_info.sub_list_infos.len();
-      let mut offset = 0u32;
-      let mut ranges_init = Vec::with_capacity(sub_count);
-      for info in self.dispatch_info.sub_list_infos.iter() {
-        ranges_init.push(Vec4::new(offset, 0, 0, 0));
-        offset += info.capacity;
-      }
+      let ranges_init = compute_gpu_sub_list_ranges(sub_list_infos);
 
       let sub_list_ranges = create_gpu_readonly_storage(ranges_init.as_slice(), gpu);
       let pool_data = vec![0u32; total_capacity as usize];
@@ -74,7 +75,7 @@ impl DeviceDrawList {
         dispatch_info: MultiRangeDispatchInfo {
           sub_list_ranges,
           sum_all_count,
-          sub_list_infos: self.dispatch_info.sub_list_infos.clone(),
+          sub_list_infos: sub_list_infos.to_vec(),
           sum_all_count_host: total_capacity,
         },
       });
@@ -91,7 +92,11 @@ impl DeviceDrawList {
     let gpu = cx.gpu.clone();
 
     let (cx, target_state) = cx.use_plain_state_default::<Option<DeviceDrawList>>();
-    let target = self.create_or_update_compact_write_target(&gpu, target_state);
+    let target = self.create_or_update_compact_write_target(
+      &gpu,
+      target_state,
+      &self.dispatch_info.sub_list_infos,
+    );
 
     let output_pool = target.scene_model_id_pool.clone().into_rw_view();
     let output_ranges = target.dispatch_info.sub_list_ranges.clone().into_rw_view();

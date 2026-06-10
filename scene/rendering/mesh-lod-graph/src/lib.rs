@@ -1,297 +1,297 @@
-use std::sync::Arc;
+// use std::sync::Arc;
 
-use database::*;
-use parking_lot::RwLock;
-use rendiation_device_parallel_compute::DeviceParallelComputeCtx;
-use rendiation_scene_core::*;
-use rendiation_scene_rendering_gpu_base::*;
-use rendiation_scene_rendering_gpu_indirect::*;
-use rendiation_shader_api::*;
-use rendiation_webgpu::*;
+// use database::*;
+// use parking_lot::RwLock;
+// use rendiation_device_parallel_compute::DeviceParallelComputeCtx;
+// use rendiation_scene_core::*;
+// use rendiation_scene_rendering_gpu_base::*;
+// use rendiation_scene_rendering_gpu_indirect::*;
+// use rendiation_shader_api::*;
+// use rendiation_webgpu::*;
 
-mod scene_integration;
-use rendiation_webgpu_midc_downgrade::*;
-pub use scene_integration::*;
-mod lod;
-use lod::*;
-mod draw_access;
-use draw_access::*;
-mod draw_prepare;
-use draw_prepare::*;
-pub use rendiation_mesh_lod_graph::*;
-use rendiation_webgpu_hook_utils::*;
+// mod scene_integration;
+// use rendiation_webgpu_midc_downgrade::*;
+// pub use scene_integration::*;
+// mod lod;
+// use lod::*;
+// mod draw_access;
+// use draw_access::*;
+// mod draw_prepare;
+// use draw_prepare::*;
+// pub use rendiation_mesh_lod_graph::*;
+// use rendiation_webgpu_hook_utils::*;
 
-declare_entity!(LODGraphMeshEntity);
-declare_component!(
-  LODGraphData,
-  LODGraphMeshEntity,
-  Option<ExternalRefPtr<MeshLODGraph>>
-);
+// declare_entity!(LODGraphMeshEntity);
+// declare_component!(
+//   LODGraphData,
+//   LODGraphMeshEntity,
+//   Option<ExternalRefPtr<MeshLODGraph>>
+// );
 
-pub fn register_mesh_lod_graph_data_model() {
-  global_database()
-    .declare_entity::<LODGraphMeshEntity>()
-    .declare_component::<LODGraphData>();
-}
+// pub fn register_mesh_lod_graph_data_model() {
+//   global_database()
+//     .declare_entity::<LODGraphMeshEntity>()
+//     .declare_component::<LODGraphData>();
+// }
 
-pub fn use_mesh_lod_graph_renderer(cx: &mut QueryGPUHookCx) -> MeshLODGraphRendererShared {
-  let (cx, renderer) =
-    cx.use_gpu_init(|gpu, alloc| Arc::new(RwLock::new(MeshLODGraphRenderer::new(gpu, alloc))));
+// pub fn use_mesh_lod_graph_renderer(cx: &mut QueryGPUHookCx) -> MeshLODGraphRendererShared {
+//   let (cx, renderer) =
+//     cx.use_gpu_init(|gpu, alloc| Arc::new(RwLock::new(MeshLODGraphRenderer::new(gpu, alloc))));
 
-  if let Some(change) = cx.use_query_change::<LODGraphData>().if_ready() {
-    renderer.write().batch_update(change.mark_entity_type());
-  }
+//   if let Some(change) = cx.use_query_change::<LODGraphData>().if_ready() {
+//     renderer.write().batch_update(change.mark_entity_type());
+//   }
 
-  renderer.clone()
-}
+//   renderer.clone()
+// }
 
-pub type MeshLODGraphRendererShared = Arc<RwLock<MeshLODGraphRenderer>>;
+// pub type MeshLODGraphRendererShared = Arc<RwLock<MeshLODGraphRenderer>>;
 
-pub struct MeshLODGraphRenderer {
-  pub scene_model_meshlet_index_vertex_offset: Vec<Vec2<u32>>,
-  pub meshlet_metadata: StorageBufferRangeAllocatePool<MeshletMetaData>,
-  pub scene_model_meshlet_range: CommonStorageBufferImplWithHostBackup<Vec2<u32>>,
-  pub position_buffer: StorageBufferRangeAllocatePool<u32>,
-  pub index_buffer: StorageBufferRangeAllocatePool<u32>,
-  pub enable_midc_downgrade: bool,
-}
+// pub struct MeshLODGraphRenderer {
+//   pub scene_model_meshlet_index_vertex_offset: Vec<Vec2<u32>>,
+//   pub meshlet_metadata: StorageBufferRangeAllocatePool<MeshletMetaData>,
+//   pub scene_model_meshlet_range: CommonStorageBufferImplWithHostBackup<Vec2<u32>>,
+//   pub position_buffer: StorageBufferRangeAllocatePool<u32>,
+//   pub index_buffer: StorageBufferRangeAllocatePool<u32>,
+//   pub enable_midc_downgrade: bool,
+// }
 
-impl MeshLODGraphRenderer {
-  pub fn new(gpu: &GPU, alloc: &dyn AbstractStorageAllocator) -> Self {
-    let max_indices_count = 1_000_000_u32;
-    let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
-      &gpu.device,
-      "mesh lod graph indices pool".into(),
-      ZeroedArrayByArrayLength(max_indices_count as usize).into(),
-      BufferUsages::INDEX,
-    );
-    let indices = indices.into();
+// impl MeshLODGraphRenderer {
+//   pub fn new(gpu: &GPU, alloc: &dyn AbstractStorageAllocator) -> Self {
+//     let max_indices_count = 1_000_000_u32;
+//     let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
+//       &gpu.device,
+//       "mesh lod graph indices pool".into(),
+//       ZeroedArrayByArrayLength(max_indices_count as usize).into(),
+//       BufferUsages::INDEX,
+//     );
+//     let indices = indices.into();
 
-    let indices = create_growable_buffer(gpu, indices, max_indices_count);
-    let index_buffer = GPURangeAllocateMaintainer::new(gpu, indices, max_indices_count);
+//     let indices = create_growable_buffer(gpu, indices, max_indices_count);
+//     let index_buffer = GPURangeAllocateMaintainer::new(gpu, indices, max_indices_count);
 
-    Self {
-      scene_model_meshlet_index_vertex_offset: vec![Default::default(); 100],
-      meshlet_metadata: create_storage_buffer_range_allocate_pool(
-        gpu,
-        alloc,
-        "mesh lod graph meshlet metadata pool",
-        10000,
-        10000,
-      ),
-      scene_model_meshlet_range: create_common_storage_buffer_with_host_backup_container(
-        100,
-        100,
-        alloc,
-        gpu,
-        "mesh lod graph meshlet meshlet ranges",
-      ),
-      position_buffer: create_storage_buffer_range_allocate_pool(
-        gpu,
-        alloc,
-        "mesh lod graph meshlet vertex pool: position",
-        1_000_000,
-        1_000_000,
-      ),
-      index_buffer,
-      enable_midc_downgrade: require_midc_downgrade(&gpu.info, false),
-    }
-  }
+//     Self {
+//       scene_model_meshlet_index_vertex_offset: vec![Default::default(); 100],
+//       meshlet_metadata: create_storage_buffer_range_allocate_pool(
+//         gpu,
+//         alloc,
+//         "mesh lod graph meshlet metadata pool",
+//         10000,
+//         10000,
+//       ),
+//       scene_model_meshlet_range: create_common_storage_buffer_with_host_backup_container(
+//         100,
+//         100,
+//         alloc,
+//         gpu,
+//         "mesh lod graph meshlet meshlet ranges",
+//       ),
+//       position_buffer: create_storage_buffer_range_allocate_pool(
+//         gpu,
+//         alloc,
+//         "mesh lod graph meshlet vertex pool: position",
+//         1_000_000,
+//         1_000_000,
+//       ),
+//       index_buffer,
+//       enable_midc_downgrade: require_midc_downgrade(&gpu.info, false),
+//     }
+//   }
 
-  pub fn batch_update(
-    &mut self,
-    change: impl Query<
-      Key = EntityHandle<LODGraphMeshEntity>,
-      Value = ValueChange<Option<ExternalRefPtr<MeshLODGraph>>>,
-    >,
-  ) {
-    for (key, change) in change.iter_key_value() {
-      match change {
-        ValueChange::Delta(mesh, previous) => {
-          if let Some(Some(_)) = previous {
-            self.remove_mesh(key);
-          }
-          if let Some(mesh) = mesh {
-            self.add_mesh(key, &mesh);
-          }
-        }
-        ValueChange::Remove(_) => self.remove_mesh(key),
-      }
-    }
-  }
+//   pub fn batch_update(
+//     &mut self,
+//     change: impl Query<
+//       Key = EntityHandle<LODGraphMeshEntity>,
+//       Value = ValueChange<Option<ExternalRefPtr<MeshLODGraph>>>,
+//     >,
+//   ) {
+//     for (key, change) in change.iter_key_value() {
+//       match change {
+//         ValueChange::Delta(mesh, previous) => {
+//           if let Some(Some(_)) = previous {
+//             self.remove_mesh(key);
+//           }
+//           if let Some(mesh) = mesh {
+//             self.add_mesh(key, &mesh);
+//           }
+//         }
+//         ValueChange::Remove(_) => self.remove_mesh(key),
+//       }
+//     }
+//   }
 
-  // todo, support other vertex channel
-  pub fn add_mesh(&mut self, key: EntityHandle<LODGraphMeshEntity>, mesh: &MeshLODGraph) {
-    let mut grow_assert = |_| unreachable!("grow is not expected");
+//   // todo, support other vertex channel
+//   pub fn add_mesh(&mut self, key: EntityHandle<LODGraphMeshEntity>, mesh: &MeshLODGraph) {
+//     let mut grow_assert = |_| unreachable!("grow is not expected");
 
-    let mut meshlet_gpu_data: Vec<_> = Default::default();
+//     let mut meshlet_gpu_data: Vec<_> = Default::default();
 
-    let mut index: Vec<_> = Default::default();
-    let mut position: Vec<_> = Default::default();
+//     let mut index: Vec<_> = Default::default();
+//     let mut position: Vec<_> = Default::default();
 
-    for level in &mesh.levels {
-      index.extend(level.mesh.indices.clone());
-      position.extend(level.mesh.vertices.iter().map(|v| v.position));
-    }
+//     for level in &mesh.levels {
+//       index.extend(level.mesh.indices.clone());
+//       position.extend(level.mesh.vertices.iter().map(|v| v.position));
+//     }
 
-    let base_index_offset = self
-      .index_buffer
-      .allocate_values(&index, &mut grow_assert)
-      .unwrap();
+//     let base_index_offset = self
+//       .index_buffer
+//       .allocate_values(&index, &mut grow_assert)
+//       .unwrap();
 
-    let base_position_offset = self
-      .position_buffer
-      .allocate_values(cast_slice(&position), &mut grow_assert)
-      .unwrap();
+//     let base_position_offset = self
+//       .position_buffer
+//       .allocate_values(cast_slice(&position), &mut grow_assert)
+//       .unwrap();
 
-    self.scene_model_meshlet_index_vertex_offset[key.alloc_index() as usize] =
-      vec2(base_index_offset, base_position_offset);
+//     self.scene_model_meshlet_index_vertex_offset[key.alloc_index() as usize] =
+//       vec2(base_index_offset, base_position_offset);
 
-    self.scene_model_meshlet_index_vertex_offset[key.alloc_index() as usize] = vec2(0, 0);
+//     self.scene_model_meshlet_index_vertex_offset[key.alloc_index() as usize] = vec2(0, 0);
 
-    let mut base_index_offset = base_index_offset;
-    let mut base_position_offset = base_position_offset;
+//     let mut base_index_offset = base_index_offset;
+//     let mut base_position_offset = base_position_offset;
 
-    for (level_index, level) in mesh.levels.iter().enumerate() {
-      base_index_offset += level.mesh.indices.len() as u32;
-      base_position_offset += level.mesh.vertices.len() as u32;
+//     for (level_index, level) in mesh.levels.iter().enumerate() {
+//       base_index_offset += level.mesh.indices.len() as u32;
+//       base_position_offset += level.mesh.vertices.len() as u32;
 
-      let meshlet_gpu_data_level = level.meshlets.iter().map(|meshlet| MeshletMetaData {
-        index_offset: base_index_offset + meshlet.index_range.offset,
-        index_count: meshlet.index_range.size,
-        position_offset: base_position_offset,
-        bounds: {
-          let self_group = level.groups[meshlet.group_index as usize];
-          let self_lod = LODBound::new_from_group(&self_group);
-          let parent_lod = if level_index == 0 {
-            LODBound::new(
-              0.,
-              self_group.union_meshlet_bounding_among_meshlet_in_their_parent_group,
-            )
-          } else {
-            let parent_level = &mesh.levels[level_index - 1];
-            let parent_group = parent_level.groups[meshlet.group_index_in_previous_level as usize];
-            LODBound::new_from_group(&parent_group)
-          };
-          LODBoundPair::new(self_lod, parent_lod)
-        },
-        ..Default::default()
-      });
+//       let meshlet_gpu_data_level = level.meshlets.iter().map(|meshlet| MeshletMetaData {
+//         index_offset: base_index_offset + meshlet.index_range.offset,
+//         index_count: meshlet.index_range.size,
+//         position_offset: base_position_offset,
+//         bounds: {
+//           let self_group = level.groups[meshlet.group_index as usize];
+//           let self_lod = LODBound::new_from_group(&self_group);
+//           let parent_lod = if level_index == 0 {
+//             LODBound::new(
+//               0.,
+//               self_group.union_meshlet_bounding_among_meshlet_in_their_parent_group,
+//             )
+//           } else {
+//             let parent_level = &mesh.levels[level_index - 1];
+//             let parent_group = parent_level.groups[meshlet.group_index_in_previous_level as usize];
+//             LODBound::new_from_group(&parent_group)
+//           };
+//           LODBoundPair::new(self_lod, parent_lod)
+//         },
+//         ..Default::default()
+//       });
 
-      meshlet_gpu_data.extend(meshlet_gpu_data_level);
-    }
+//       meshlet_gpu_data.extend(meshlet_gpu_data_level);
+//     }
 
-    let meshlet_offset = self
-      .meshlet_metadata
-      .allocate_values(&meshlet_gpu_data, &mut grow_assert)
-      .unwrap();
+//     let meshlet_offset = self
+//       .meshlet_metadata
+//       .allocate_values(&meshlet_gpu_data, &mut grow_assert)
+//       .unwrap();
 
-    let mesh_range = vec2(
-      meshlet_offset,
-      meshlet_offset + meshlet_gpu_data.len() as u32,
-    );
-    self
-      .scene_model_meshlet_range
-      .set_value(key.alloc_index(), mesh_range)
-      .unwrap();
-  }
+//     let mesh_range = vec2(
+//       meshlet_offset,
+//       meshlet_offset + meshlet_gpu_data.len() as u32,
+//     );
+//     self
+//       .scene_model_meshlet_range
+//       .set_value(key.alloc_index(), mesh_range)
+//       .unwrap();
+//   }
 
-  pub fn remove_mesh(&mut self, key: EntityHandle<LODGraphMeshEntity>) {
-    let mesh_range = *self
-      .scene_model_meshlet_range
-      .get(key.alloc_index())
-      .unwrap();
-    let index_vertex_offset = *self
-      .scene_model_meshlet_index_vertex_offset
-      .get(key.alloc_index() as usize)
-      .unwrap();
+//   pub fn remove_mesh(&mut self, key: EntityHandle<LODGraphMeshEntity>) {
+//     let mesh_range = *self
+//       .scene_model_meshlet_range
+//       .get(key.alloc_index())
+//       .unwrap();
+//     let index_vertex_offset = *self
+//       .scene_model_meshlet_index_vertex_offset
+//       .get(key.alloc_index() as usize)
+//       .unwrap();
 
-    self
-      .scene_model_meshlet_range
-      .set_value(key.alloc_index(), vec2(0, 0))
-      .unwrap();
-    self.scene_model_meshlet_index_vertex_offset[key.alloc_index() as usize] = vec2(0, 0);
+//     self
+//       .scene_model_meshlet_range
+//       .set_value(key.alloc_index(), vec2(0, 0))
+//       .unwrap();
+//     self.scene_model_meshlet_index_vertex_offset[key.alloc_index() as usize] = vec2(0, 0);
 
-    self.meshlet_metadata.deallocate(mesh_range.x);
-    self.index_buffer.deallocate(index_vertex_offset.x);
-    self.position_buffer.deallocate(index_vertex_offset.y);
-  }
+//     self.meshlet_metadata.deallocate(mesh_range.x);
+//     self.index_buffer.deallocate(index_vertex_offset.x);
+//     self.position_buffer.deallocate(index_vertex_offset.y);
+//   }
 
-  pub fn prepare_draw(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    cx: &mut DeviceParallelComputeCtx,
-    lod_decider: UniformBufferDataView<LODDecider>,
-    scene_model_matrix: &dyn DrawUnitWorldTransformProvider,
-    max_meshlet_count: u32,
-  ) -> Box<dyn IndirectDrawProvider> {
-    let expander = MeshLODExpander {
-      meshlet_metadata: self.meshlet_metadata.gpu().clone(),
-      scene_model_meshlet_range: self.scene_model_meshlet_range.gpu().clone(),
-      lod_decider,
-    };
+//   pub fn prepare_draw(
+//     &self,
+//     batch: &DeviceSceneModelRenderSubBatch,
+//     cx: &mut DeviceParallelComputeCtx,
+//     lod_decider: UniformBufferDataView<LODDecider>,
+//     scene_model_matrix: &dyn DrawUnitWorldTransformProvider,
+//     max_meshlet_count: u32,
+//   ) -> Box<dyn IndirectDrawProvider> {
+//     let expander = MeshLODExpander {
+//       meshlet_metadata: self.meshlet_metadata.gpu().clone(),
+//       scene_model_meshlet_range: self.scene_model_meshlet_range.gpu().clone(),
+//       lod_decider,
+//     };
 
-    let batch = expander.expand(batch, scene_model_matrix, cx, max_meshlet_count);
-    into_maybe_downgrade_batch_assume_standard_midc_style(batch, cx, self.enable_midc_downgrade)
-  }
+//     let batch = expander.expand(batch, scene_model_matrix, cx, max_meshlet_count);
+//     into_maybe_downgrade_batch_assume_standard_midc_style(batch, cx, self.enable_midc_downgrade)
+//   }
 
-  pub fn create_mesh_accessor(&self) -> Box<dyn RenderComponent> {
-    let draw_data = MeshletGPURenderData {
-      meshlet_metadata: self.meshlet_metadata.gpu().clone(),
-      position_buffer: self.position_buffer.gpu().clone(),
-      index_buffer: self.index_buffer.gpu().clone(),
-    };
+//   pub fn create_mesh_accessor(&self) -> Box<dyn RenderComponent> {
+//     let draw_data = MeshletGPURenderData {
+//       meshlet_metadata: self.meshlet_metadata.gpu().clone(),
+//       position_buffer: self.position_buffer.gpu().clone(),
+//       index_buffer: self.index_buffer.gpu().clone(),
+//     };
 
-    Box::new(MidcDowngradeWrapperForIndirectMeshSystem {
-      index: Some(draw_data.index_buffer.clone()),
-      mesh_system: draw_data,
-      enable_downgrade: self.enable_midc_downgrade,
-    })
-  }
-}
+//     Box::new(MidcDowngradeWrapperForIndirectMeshSystem {
+//       index: Some(draw_data.index_buffer.clone()),
+//       mesh_system: draw_data,
+//       enable_downgrade: self.enable_midc_downgrade,
+//     })
+//   }
+// }
 
-#[repr(C)]
-#[std430_layout]
-#[derive(Debug, Clone, Copy, ShaderStruct, PartialEq)]
-pub struct MeshletMetaData {
-  pub index_offset: u32,
-  pub index_count: u32,
-  pub position_offset: u32,
-  pub bounds: LODBoundPair,
-}
+// #[repr(C)]
+// #[std430_layout]
+// #[derive(Debug, Clone, Copy, ShaderStruct, PartialEq)]
+// pub struct MeshletMetaData {
+//   pub index_offset: u32,
+//   pub index_count: u32,
+//   pub position_offset: u32,
+//   pub bounds: LODBoundPair,
+// }
 
-impl Default for MeshletMetaData {
-  fn default() -> Self {
-    Self {
-      index_offset: u32::MAX,
-      position_offset: u32::MAX,
-      ..Zeroable::zeroed()
-    }
-  }
-}
+// impl Default for MeshletMetaData {
+//   fn default() -> Self {
+//     Self {
+//       index_offset: u32::MAX,
+//       position_offset: u32::MAX,
+//       ..Zeroable::zeroed()
+//     }
+//   }
+// }
 
-// this is legacy code, and will be reworked in future
-pub type CommonStorageBufferImplWithHostBackup<T> =
-  GrowableHostedDirectQueueUpdateBuffer<AbstractReadonlyStorageBuffer<[T]>>;
+// // this is legacy code, and will be reworked in future
+// pub type CommonStorageBufferImplWithHostBackup<T> =
+//   GrowableHostedDirectQueueUpdateBuffer<AbstractReadonlyStorageBuffer<[T]>>;
 
-pub fn create_common_storage_buffer_with_host_backup_container<T>(
-  init_capacity_item_count: u32,
-  max_item_count: u32,
-  allocator: &dyn AbstractStorageAllocator,
-  gpu_ctx: &GPU,
-  label: &str,
-) -> CommonStorageBufferImplWithHostBackup<T>
-where
-  T: Std430 + ShaderSizedValueNodeType + Default,
-{
-  let data = allocator.allocate_readonly(
-    make_init_size::<T>(init_capacity_item_count),
-    &gpu_ctx.device,
-    Some(label),
-  );
-  create_growable_buffer_with_host_back(gpu_ctx, data, max_item_count, false)
-}
+// pub fn create_common_storage_buffer_with_host_backup_container<T>(
+//   init_capacity_item_count: u32,
+//   max_item_count: u32,
+//   allocator: &dyn AbstractStorageAllocator,
+//   gpu_ctx: &GPU,
+//   label: &str,
+// ) -> CommonStorageBufferImplWithHostBackup<T>
+// where
+//   T: Std430 + ShaderSizedValueNodeType + Default,
+// {
+//   let data = allocator.allocate_readonly(
+//     make_init_size::<T>(init_capacity_item_count),
+//     &gpu_ctx.device,
+//     Some(label),
+//   );
+//   create_growable_buffer_with_host_back(gpu_ctx, data, max_item_count, false)
+// }
 
-pub(crate) fn make_init_size<T: Std430>(size: u32) -> u64 {
-  ((size as usize) * std::mem::size_of::<T>()) as u64
-}
+// pub(crate) fn make_init_size<T: Std430>(size: u32) -> u64 {
+//   ((size as usize) * std::mem::size_of::<T>()) as u64
+// }

@@ -5,7 +5,7 @@ use crate::{viewer::use_scene_reader, *};
 
 pub fn use_mesh_tools(cx: &mut ViewerCx) {
   let (cx, simp_req) = cx.use_plain_state::<Option<SimplifySelectMeshRequest>>();
-  let (cx, lod_graph_req) = cx.use_plain_state::<Option<CreateMeshLodGraphRequest>>();
+  // let (cx, lod_graph_req) = cx.use_plain_state::<Option<CreateMeshLodGraphRequest>>();
   let (cx, seg_req) = cx.use_plain_state::<Option<MeshSegmentationDebugRequest>>();
 
   if let ViewerCxStage::Gui {
@@ -35,9 +35,9 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
           if ui.button("segmentation").clicked() {
             *seg_req = Some(MeshSegmentationDebugRequest(None));
           }
-          if ui.button("create mesh lod graph").clicked() {
-            *lod_graph_req = Some(CreateMeshLodGraphRequest(None));
-          }
+          // if ui.button("create mesh lod graph").clicked() {
+          //   *lod_graph_req = Some(CreateMeshLodGraphRequest(None));
+          // }
         } else {
           ui.label("pick a target to view available mesh tool options");
         }
@@ -97,14 +97,14 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
       }
     }
 
-    if let Some(req) = lod_graph_req {
-      if let Some(target) = cx.viewer.selection.selected_model.if_single() {
-        if let Some(mesh) = get_mesh(reader, target) {
-          let mesh = DefaultMeshLODBuilder {}.build_from_mesh(mesh);
-          req.0 = Some(mesh);
-        }
-      }
-    }
+    // if let Some(req) = lod_graph_req {
+    //   if let Some(target) = cx.viewer.selection.selected_model.if_single() {
+    //     if let Some(mesh) = get_mesh(reader, target) {
+    //       let mesh = DefaultMeshLODBuilder {}.build_from_mesh(mesh);
+    //       req.0 = Some(mesh);
+    //     }
+    //   }
+    // }
 
     if let Some(req) = seg_req {
       if let Some(target) = cx.viewer.selection.selected_model.if_single() {
@@ -122,34 +122,34 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
       }
     }
 
-    if let Some(CreateMeshLodGraphRequest(Some(mesh))) = lod_graph_req.take() {
-      if let Some(target) = cx.viewer.selection.selected_model.if_single() {
-        let mesh = ExternalRefPtr::new(mesh);
+    // if let Some(CreateMeshLodGraphRequest(Some(mesh))) = lod_graph_req.take() {
+    //   if let Some(target) = cx.viewer.selection.selected_model.if_single() {
+    //     let mesh = ExternalRefPtr::new(mesh);
 
-        let mesh = global_entity_of::<LODGraphMeshEntity>()
-          .entity_writer()
-          .new_entity(|w| w.write::<LODGraphData>(&Some(mesh)));
+    //     let mesh = global_entity_of::<LODGraphMeshEntity>()
+    //       .entity_writer()
+    //       .new_entity(|w| w.write::<LODGraphData>(&Some(mesh)));
 
-        let std_model = writer
-          .model_writer
-          .read_foreign_key::<SceneModelStdModelRenderPayload>(target)
-          .unwrap();
-        let std_model = writer.std_model_writer.clone_entity(std_model);
-        writer
-          .std_model_writer
-          .write_foreign_key::<StandardModelRefAttributesMeshEntity>(std_model, None)
-          .write_foreign_key::<StandardModelRefLodGraphMeshEntity>(std_model, mesh.into());
+    //     let std_model = writer
+    //       .model_writer
+    //       .read_foreign_key::<SceneModelStdModelRenderPayload>(target)
+    //       .unwrap();
+    //     let std_model = writer.std_model_writer.clone_entity(std_model);
+    //     writer
+    //       .std_model_writer
+    //       .write_foreign_key::<StandardModelRefAttributesMeshEntity>(std_model, None)
+    //       .write_foreign_key::<StandardModelRefLodGraphMeshEntity>(std_model, mesh.into());
 
-        let child = writer.create_root_child();
+    //     let child = writer.create_root_child();
 
-        SceneModelDataView {
-          model: std_model,
-          scene: writer.expect_target_scene(),
-          node: child,
-        }
-        .write(&mut writer.model_writer);
-      }
-    }
+    //     SceneModelDataView {
+    //       model: std_model,
+    //       scene: writer.expect_target_scene(),
+    //       node: child,
+    //     }
+    //     .write(&mut writer.model_writer);
+    //   }
+    // }
 
     if let Some(MeshSegmentationDebugRequest(Some(meshes))) = seg_req.take() {
       meshes.into_iter().for_each(|mesh| {
@@ -159,7 +159,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
   }
 }
 
-struct CreateMeshLodGraphRequest(Option<MeshLODGraph>);
+// struct CreateMeshLodGraphRequest(Option<MeshLODGraph>);
 
 pub enum MeshToolSimplificationType {
   EdgeCollapse,
