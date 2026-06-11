@@ -82,15 +82,17 @@ impl IsSolidFilter {
   pub fn execute(&self, batch: &mut SceneModelRenderBatch, cx: &mut FrameCtx) {
     match batch {
       SceneModelRenderBatch::Device(batch) => {
-        let culler = GPUIsSolidFilter {
-          is_solid_device: self.is_solid_device.clone(),
-        };
+        if let Some(batch) = batch {
+          let culler = GPUIsSolidFilter {
+            is_solid_device: self.is_solid_device.clone(),
+          };
 
-        cx.access_parallel_compute(|cx| {
-          cx.scope(|cx| {
-            *batch = batch.execute_culling(cx, Box::new(culler), false);
-          })
-        });
+          cx.access_parallel_compute(|cx| {
+            cx.scope(|cx| {
+              *batch = batch.use_culled_list_and_do_culling(cx, Box::new(culler));
+            })
+          });
+        }
       }
       SceneModelRenderBatch::Host(host_render_batch) => {
         *host_render_batch = Box::new(

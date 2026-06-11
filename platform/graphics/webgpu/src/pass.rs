@@ -377,11 +377,25 @@ impl GPURenderPass {
         max_count,
       } => {
         let buffer = &indirect_buffer.resource.gpu;
+        let buffer_offset = indirect_buffer.desc.offset;
         let count_buffer = &indirect_count.resource.gpu;
+        let count_offset = indirect_count.desc.offset;
         if indexed {
-          self.multi_draw_indexed_indirect_count(buffer, 0, count_buffer, 0, max_count)
+          self.multi_draw_indexed_indirect_count(
+            buffer,
+            buffer_offset,
+            count_buffer,
+            count_offset,
+            max_count,
+          )
         } else {
-          self.multi_draw_indirect_count(buffer, 0, count_buffer, 0, max_count)
+          self.multi_draw_indirect_count(
+            buffer,
+            buffer_offset,
+            count_buffer,
+            count_offset,
+            max_count,
+          )
         }
       }
     }

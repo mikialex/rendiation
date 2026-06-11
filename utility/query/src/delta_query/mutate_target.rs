@@ -206,8 +206,5 @@ fn test_query_mutation_collector_new_insert() {
 
   let prev = collector.set_value(1, "new".to_string());
   assert_eq!(prev, None);
-  assert_eq!(
-    delta[&1],
-    ValueChange::Delta("new".to_string(), None)
-  );
+  assert_eq!(delta[&1], ValueChange::Delta("new".to_string(), None));
 }

@@ -188,7 +188,10 @@ fn test_key_dual_mapped_query() {
 fn test_key_dual_mapped_multi_query() {
   let mut base: FastHashMap<u32, FastHashSet<String>> = FastHashMap::default();
   base.insert(1, FastHashSet::from_iter(["a".to_string()]));
-  base.insert(2, FastHashSet::from_iter(["b".to_string(), "c".to_string()]));
+  base.insert(
+    2,
+    FastHashSet::from_iter(["b".to_string(), "c".to_string()]),
+  );
 
   let mapped = KeyDualMappedQuery {
     base,

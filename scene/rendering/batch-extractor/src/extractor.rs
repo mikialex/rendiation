@@ -116,21 +116,22 @@ impl SceneBatchBasicExtractAbility for IncrementalDeviceSceneBatchExtractor<Scen
   ) -> SceneModelRenderBatch {
     let contents = self.contents.get(&scene.into_raw());
     if contents.is_none() {
-      return SceneModelRenderBatch::Device(DeviceSceneModelRenderBatch::empty());
+      return SceneModelRenderBatch::Device(None);
     }
 
-    let contents = contents.unwrap();
+    todo!()
+    // let contents = contents.unwrap();
 
-    let sub_batches = if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
-      contents
-        .iter()
-        .filter(|(k, _)| k.require_alpha_blend() == alpha_blend)
-        .filter_map(|(_, v)| v.create_batch())
-        .collect()
-    } else {
-      contents.values().filter_map(|v| v.create_batch()).collect()
-    };
-    let batches = DeviceSceneModelRenderBatch { sub_batches };
-    SceneModelRenderBatch::Device(batches).into()
+    // let sub_batches = if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
+    //   contents
+    //     .iter()
+    //     .filter(|(k, _)| k.require_alpha_blend() == alpha_blend)
+    //     .filter_map(|(_, v)| v.create_batch())
+    //     .collect()
+    // } else {
+    //   contents.values().filter_map(|v| v.create_batch()).collect()
+    // };
+    // let batches = DeviceSceneModelRenderBatch { sub_batches };
+    // SceneModelRenderBatch::Device(batches).into()
   }
 }

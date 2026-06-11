@@ -452,6 +452,52 @@ impl MeshGPUBindlessImpl {
   }
 }
 
+impl IndirectDrawProviderCreator for MeshGPUBindlessImpl {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    let mesh_id = self.checker.get(id)?;
+    let is_indexed = self.indices_checker.get(mesh_id).is_some();
+    fast_hash_scope(|hasher| {
+      self.type_id().hash(hasher);
+      is_indexed.hash(hasher);
+    })
+    .into()
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    let mesh_id = self.checker.get(id)?;
+
+    let is_indexed = self.indices_checker.get(mesh_id).is_some();
+
+    let creator = BindlessDrawCreator {
+      metadata: self.vertex_address_buffer.clone(),
+      sm_to_mesh_device: self.sm_to_mesh_device.clone(),
+      sm_to_mesh: self.sm_to_mesh.clone(),
+      vertex_address_buffer_host: self.vertex_address_buffer_host.clone(),
+    };
+
+    let cmd_builder = if is_indexed {
+      DrawCommandBuilder::Indexed(Box::new(creator))
+    } else {
+      DrawCommandBuilder::NoneIndexed(Box::new(creator))
+    };
+
+    use_and_create_default_indirect_draw_provider(
+      list,
+      cmd_builder,
+      cx,
+      self.used_in_midc_downgrade,
+    )
+    .into()
+  }
+}
+
 impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
   fn make_component_indirect(
     &self,
@@ -494,48 +540,24 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     self
   }
 
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<DrawCommandBuilder> {
-    // check the given model has attributes mesh
-    let mesh_id = self.checker.get(any_idx)?;
-    // check mesh must have indices.
-    let is_indexed = self.indices_checker.get(mesh_id).is_some();
+  // fn generate_indirect_draw_provider(
+  //   &self,
+  //   batch: &DeviceDrawList,
+  //   any_idx: EntityHandle<StandardModelEntity>,
+  //   ctx: &mut FrameCtx,
+  // ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+  //   let _ = self.checker.get(any_idx)?;
 
-    let creator = BindlessDrawCreator {
-      metadata: self.vertex_address_buffer.clone(),
-      sm_to_mesh_device: self.sm_to_mesh_device.clone(),
-      sm_to_mesh: self.sm_to_mesh.clone(),
-      vertex_address_buffer_host: self.vertex_address_buffer_host.clone(),
-    };
+  //   let draw_command_builder = self.make_draw_command_builder(any_idx).unwrap();
 
-    if is_indexed {
-      DrawCommandBuilder::Indexed(Box::new(creator))
-    } else {
-      DrawCommandBuilder::NoneIndexed(Box::new(creator))
-    }
-    .into()
-  }
-
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    any_idx: EntityHandle<StandardModelEntity>,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>> {
-    let _ = self.checker.get(any_idx)?;
-
-    let draw_command_builder = self.make_draw_command_builder(any_idx).unwrap();
-
-    ctx
-      .access_parallel_compute(|cx| {
-        batch.create_default_indirect_draw_provider(
-          draw_command_builder,
-          cx,
-          self.used_in_midc_downgrade,
-        )
-      })
-      .into()
-  }
+  //   ctx
+  //     .access_parallel_compute(|cx| {
+  //       batch.create_default_indirect_draw_provider(
+  //         draw_command_builder,
+  //         cx,
+  //         self.used_in_midc_downgrade,
+  //       )
+  //     })
+  //     .into()
+  // }
 }

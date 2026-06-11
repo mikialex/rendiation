@@ -1,16 +1,17 @@
 use crate::*;
 
-/// a logical batch of scene models
+/// a list of scene models
 ///
 /// the models are reorderable currently, but may be configurable in future
 #[derive(Clone)]
 pub enum SceneModelRenderBatch {
-  Device(DeviceSceneModelRenderBatch),
+  /// the none case means empty device list, as gpu layer not allow zero length buffer
+  Device(Option<DeviceSceneModelDrawList>),
   Host(Box<dyn HostRenderBatch>),
 }
 
 impl SceneModelRenderBatch {
-  pub fn get_device_batch(&self) -> Option<DeviceSceneModelRenderBatch> {
+  pub fn get_device_batch(&self) -> Option<Option<DeviceSceneModelDrawList>> {
     match self {
       SceneModelRenderBatch::Device(v) => Some(v.clone()),
       SceneModelRenderBatch::Host(_) => None,
@@ -21,6 +22,27 @@ impl SceneModelRenderBatch {
     match self {
       SceneModelRenderBatch::Host(v) => Some(v.clone()),
       SceneModelRenderBatch::Device(_) => None,
+    }
+  }
+}
+
+#[derive(Clone)]
+pub struct DeviceSceneModelDrawList {
+  pub draw_list: DeviceDrawList,
+  /// this id is only used for implementation selecting. itself may be not included in list.
+  pub impl_select_ids: Vec<EntityHandle<SceneModelEntity>>,
+}
+
+impl DeviceSceneModelDrawList {
+  pub fn use_culled_list_and_do_culling(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    culler: Box<dyn AbstractCullerProvider>,
+  ) -> Self {
+    let draw_list_culled = self.draw_list.use_culled_list_and_do_culling(cx, culler);
+    DeviceSceneModelDrawList {
+      draw_list: draw_list_culled,
+      impl_select_ids: self.impl_select_ids.clone(),
     }
   }
 }
@@ -53,71 +75,5 @@ where
 impl HostRenderBatch for Arc<Vec<EntityHandle<SceneModelEntity>>> {
   fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
     Box::new(self.iter().copied())
-  }
-}
-
-#[derive(Clone)]
-pub struct DeviceSceneModelRenderBatch {
-  /// each sub batch could be and would be drawn by a multi-indirect-draw.
-  pub sub_batches: Vec<DeviceSceneModelRenderSubBatch>,
-}
-
-impl DeviceSceneModelRenderBatch {
-  pub fn empty() -> Self {
-    Self {
-      sub_batches: vec![],
-    }
-  }
-}
-
-#[derive(Clone)]
-pub struct DeviceSceneModelRenderSubBatch {
-  pub scene_models: Box<dyn ComputeComponentIO<u32>>,
-  /// this id is only used for implementation selecting. this may be not included in scene model.
-  pub impl_select_id: EntityHandle<SceneModelEntity>,
-  pub group_key: u64,
-}
-
-impl DeviceSceneModelRenderBatch {
-  /// require_fully_materialize is to ensure the result list has no reference relation to the self.
-  #[track_caller]
-  pub fn execute_culling(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-    culler: Box<dyn AbstractCullerProvider>,
-    require_fully_materialize: bool,
-  ) -> Self {
-    let sub_batches = self
-      .sub_batches
-      .iter()
-      .map(|sub_batch| {
-        let mask = SceneModelCullingComponent {
-          culler: culler.clone(),
-          input: sub_batch.scene_models.clone(),
-        };
-
-        cx.next_key_scope_root();
-        let scene_models = cx.keyed_scope(&sub_batch.group_key, |cx| {
-          if require_fully_materialize {
-            let scene_models = sub_batch
-              .scene_models
-              .clone()
-              .stream_compaction(mask, cx)
-              .materialize_storage_buffer(cx);
-            Box::new(scene_models) as Box<dyn ComputeComponentIO<u32>>
-          } else {
-            Box::new(sub_batch.scene_models.clone().stream_compaction(mask, cx))
-          }
-        });
-
-        DeviceSceneModelRenderSubBatch {
-          scene_models,
-          impl_select_id: sub_batch.impl_select_id,
-          group_key: sub_batch.group_key,
-        }
-      })
-      .collect();
-
-    Self { sub_batches }
   }
 }

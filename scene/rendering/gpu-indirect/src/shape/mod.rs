@@ -3,7 +3,7 @@ use crate::*;
 mod attribute;
 pub use attribute::*;
 
-pub trait IndirectModelShapeRenderImpl {
+pub trait IndirectModelShapeRenderImpl: IndirectDrawProviderCreator {
   fn make_component_indirect(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
@@ -25,18 +25,34 @@ pub trait IndirectModelShapeRenderImpl {
   }
 
   fn as_any(&self) -> &dyn Any;
+}
 
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    any_idx: EntityHandle<StandardModelEntity>,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>>;
+impl IndirectDrawProviderCreator for Vec<Box<dyn IndirectModelShapeRenderImpl>> {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    for provider in self {
+      if let Some(v) = provider.get_impl_distinguish_key_by_impl_select_id(id) {
+        return Some(v);
+      }
+    }
+    None
+  }
 
-  fn make_draw_command_builder(
+  fn use_create_or_update_indirect_draw_providers(
     &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<DrawCommandBuilder>;
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    cx.next_key_scope_root();
+    for (i, provider) in self.iter().enumerate() {
+      if let Some(v) = cx.keyed_scope(&i, |cx| {
+        provider.use_create_or_update_indirect_draw_providers(cx, list, id)
+      }) {
+        return Some(v);
+      }
+    }
+    None
+  }
 }
 
 impl IndirectModelShapeRenderImpl for Vec<Box<dyn IndirectModelShapeRenderImpl>> {
@@ -66,34 +82,5 @@ impl IndirectModelShapeRenderImpl for Vec<Box<dyn IndirectModelShapeRenderImpl>>
   }
   fn as_any(&self) -> &dyn Any {
     self
-  }
-
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    any_idx: EntityHandle<StandardModelEntity>,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>> {
-    ctx.next_key_scope_root();
-    for (i, provider) in self.iter().enumerate() {
-      if let Some(v) = ctx.keyed_scope(&i, |ctx| {
-        provider.generate_indirect_draw_provider(batch, any_idx, ctx)
-      }) {
-        return Some(v);
-      }
-    }
-    None
-  }
-
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<DrawCommandBuilder> {
-    for provider in self {
-      if let Some(builder) = provider.make_draw_command_builder(any_idx) {
-        return Some(builder);
-      }
-    }
-    None
   }
 }

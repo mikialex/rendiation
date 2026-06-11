@@ -118,13 +118,15 @@ impl ViewerCulling {
     }
     match batch {
       SceneModelRenderBatch::Device(batch) => {
-        if should_execute {
-          cx.access_parallel_compute(|cx| {
-            cx.scope(|cx| {
-              let culler = self.create_frustum_culler(camera_gpu, camera);
-              *batch = batch.execute_culling(cx, Box::new(culler), false);
+        if let Some(batch) = batch {
+          if should_execute {
+            cx.access_parallel_compute(|cx| {
+              cx.scope(|cx| {
+                let culler = self.create_frustum_culler(camera_gpu, camera);
+                *batch = batch.use_culled_list_and_do_culling(cx, Box::new(culler));
+              })
             })
-          })
+          }
         }
       }
       SceneModelRenderBatch::Host(host_render_batch) => {
@@ -174,14 +176,14 @@ impl ViewerCulling {
           if let Some(previous_oc_batch) = oc.culling_results.get(&oc_debug_camera) {
             return ctx.scope(|ctx| {
               let mut drawn_occluder = renderer.scene.make_scene_batch_pass_content(
-                SceneModelRenderBatch::Device(previous_oc_batch.drawn_occluder.clone()),
+                SceneModelRenderBatch::Device(Some(previous_oc_batch.drawn_occluder.clone())),
                 camera_gpu,
                 scene_pass_dispatcher,
                 ctx,
               );
 
               let mut drawn_not_occluded = renderer.scene.make_scene_batch_pass_content(
-                SceneModelRenderBatch::Device(previous_oc_batch.drawn_not_occluded.clone()),
+                SceneModelRenderBatch::Device(Some(previous_oc_batch.drawn_not_occluded.clone())),
                 camera_gpu,
                 scene_pass_dispatcher,
                 ctx,
@@ -236,8 +238,8 @@ impl ViewerCulling {
   pub fn feedback_culling_result(&self, collector: &mut dyn RenderBatchCollector) {
     if let Some(oc) = &self.oc {
       for (_, r) in &oc.culling_results {
-        collector.collect_batch(&r.drawn_not_occluded);
-        collector.collect_batch(&r.drawn_occluder);
+        collector.collect_batch(&r.drawn_not_occluded.draw_list);
+        collector.collect_batch(&r.drawn_occluder.draw_list);
       }
     }
   }

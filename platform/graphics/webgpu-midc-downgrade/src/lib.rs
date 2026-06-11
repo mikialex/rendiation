@@ -1,5 +1,6 @@
 use std::hash::Hash;
 
+use rendiation_device_draw_list::*;
 use rendiation_device_parallel_compute::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
@@ -18,6 +19,18 @@ pub fn require_midc_downgrade(info: &GPUInfo, force_downgrade: bool) -> bool {
   !info
     .supported_features
     .contains(Features::MULTI_DRAW_INDIRECT_COUNT)
+}
+
+pub struct MIDCListPoolInput {
+  pub command_pool: StorageDrawCommands,
+  pub list_info: MultiRangeDispatchInfo,
+}
+
+pub fn downgrade_multi_indirect_draw_count_list_pool(
+  input: MIDCListPoolInput,
+  cx: &mut DeviceParallelComputeCtx,
+) -> Vec<(DowngradeMultiIndirectDrawCountHelper, DrawCommand)> {
+  todo!()
 }
 
 /// downgrade midc into single none-index indirect draw with helper access data.

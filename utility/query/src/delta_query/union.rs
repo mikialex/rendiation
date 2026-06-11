@@ -122,11 +122,17 @@ fn join_change<K1: Clone, K2: Clone, V1: Clone, V2: Clone>(
         ValueChange::Delta((Some(v1), Some(v2)), Some((p1, p2)))
       }
       (ValueChange::Delta(v1, p1), ValueChange::Remove(p2)) => {
-        debug_assert!(v2_current(k2).is_none(), "removed side should have no current value");
+        debug_assert!(
+          v2_current(k2).is_none(),
+          "removed side should have no current value"
+        );
         ValueChange::Delta((Some(v1), None), Some((p1, Some(p2))))
       }
       (ValueChange::Remove(p1), ValueChange::Delta(v2, p2)) => {
-        debug_assert!(v1_current(k1).is_none(), "removed side should have no current value");
+        debug_assert!(
+          v1_current(k1).is_none(),
+          "removed side should have no current value"
+        );
         ValueChange::Delta((None, Some(v2)), Some((Some(p1), p2)))
       }
       (ValueChange::Remove(p1), ValueChange::Remove(p2)) => {
@@ -176,7 +182,10 @@ fn test_union_value_change_delta_delta() {
   // a-only
   assert_eq!(unioned.access(&1).unwrap(), ValueChange::Delta(10, None));
   // both overlap → merged
-  assert_eq!(unioned.access(&2).unwrap(), ValueChange::Delta(70, Some(50)));
+  assert_eq!(
+    unioned.access(&2).unwrap(),
+    ValueChange::Delta(70, Some(50))
+  );
   // b-only
   assert_eq!(unioned.access(&3).unwrap(), ValueChange::Delta(50, None));
   assert_eq!(unioned.access(&4), None);
@@ -312,7 +321,10 @@ fn test_union_value_change_a_remove_b_no_current() {
 fn test_union_value_change_mixed_overlap() {
   // overlapping keys with mixed Delta/Remove + non-overlapping keys
   let mut a_delta = FastHashMap::default();
-  a_delta.insert(1u32, ValueChange::Delta("a1".to_string(), Some("a1_old".to_string())));
+  a_delta.insert(
+    1u32,
+    ValueChange::Delta("a1".to_string(), Some("a1_old".to_string())),
+  );
   a_delta.insert(2, ValueChange::<String>::Remove("gone".to_string()));
 
   let mut b_delta = FastHashMap::default();

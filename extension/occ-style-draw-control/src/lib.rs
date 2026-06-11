@@ -105,33 +105,34 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
     semantic: SceneContentKey,
     _renderer: &dyn SceneRenderer,
   ) -> SceneModelRenderBatch {
-    let contents = self.internal.contents.get(&scene.into_raw());
-    if contents.is_none() {
-      return SceneModelRenderBatch::Device(DeviceSceneModelRenderBatch::empty());
-    }
+    todo!()
+    // let contents = self.internal.contents.get(&scene.into_raw());
+    // if contents.is_none() {
+    //   return SceneModelRenderBatch::Device(DeviceSceneModelRenderBatch::empty());
+    // }
 
-    let contents = contents.unwrap();
+    // let contents = contents.unwrap();
 
-    let mut sub_batches_with_key: Vec<_> =
-      if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
-        contents
-          .iter()
-          .filter(|(k, _)| k.internal.require_alpha_blend() == alpha_blend)
-          .filter_map(|(k, v)| Some((v.create_batch()?, k.layer)))
-          .collect()
-      } else {
-        contents
-          .iter()
-          .filter_map(|(k, v)| Some((v.create_batch()?, k.layer)))
-          .collect()
-      };
+    // let mut sub_batches_with_key: Vec<_> =
+    //   if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
+    //     contents
+    //       .iter()
+    //       .filter(|(k, _)| k.internal.require_alpha_blend() == alpha_blend)
+    //       .filter_map(|(k, v)| Some((v.create_batch()?, k.layer)))
+    //       .collect()
+    //   } else {
+    //     contents
+    //       .iter()
+    //       .filter_map(|(k, v)| Some((v.create_batch()?, k.layer)))
+    //       .collect()
+    //   };
 
-    sub_batches_with_key.sort_by_key(|v| v.1 as u32);
+    // sub_batches_with_key.sort_by_key(|v| v.1 as u32);
 
-    let sub_batches = sub_batches_with_key.into_iter().map(|v| v.0).collect();
+    // let sub_batches = sub_batches_with_key.into_iter().map(|v| v.0).collect();
 
-    let batches = DeviceSceneModelRenderBatch { sub_batches };
-    SceneModelRenderBatch::Device(batches)
+    // let batches = DeviceSceneModelRenderBatch { sub_batches };
+    // SceneModelRenderBatch::Device(batches)
   }
 }
 

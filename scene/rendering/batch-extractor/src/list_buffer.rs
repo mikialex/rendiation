@@ -44,14 +44,14 @@ impl PersistSceneModelListBufferMutation {
 }
 
 impl PersistSceneModelListBuffer {
-  pub fn create_batch(&self) -> Option<DeviceSceneModelRenderSubBatch> {
-    DeviceSceneModelRenderSubBatch {
-      scene_models: Box::new(self.buffer.clone().unwrap()),
-      impl_select_id: unsafe { EntityHandle::from_raw(*self.host.first()?) }, // maybe empty
-      group_key: self.group_key_hash,
-    }
-    .into()
-  }
+  // pub fn create_batch(&self) -> Option<DeviceSceneModelRenderSubBatch> {
+  //   DeviceSceneModelRenderSubBatch {
+  //     scene_models: Box::new(self.buffer.clone().unwrap()),
+  //     impl_select_id: unsafe { EntityHandle::from_raw(*self.host.first()?) }, // maybe empty
+  //     group_key: self.group_key_hash,
+  //   }
+  //   .into()
+  // }
   pub fn with_capacity(capacity: usize, group_key_hash: u64) -> Self {
     Self {
       buffer: None,

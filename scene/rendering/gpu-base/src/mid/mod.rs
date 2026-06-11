@@ -66,82 +66,180 @@ impl GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'_> {
   }
 }
 
-impl DeviceSceneModelRenderSubBatch {
-  pub fn create_default_indirect_draw_provider(
-    &self,
-    draw_command_builder: DrawCommandBuilder,
-    cx: &mut DeviceParallelComputeCtx,
-    enable_midc_downgrade: bool,
-  ) -> Box<dyn IndirectDrawProvider> {
-    let (draw_command_buffer, draw_count) = match draw_command_builder {
-      DrawCommandBuilder::Indexed(generator) => cx.scope(|cx| {
-        let generator = IndexedDrawCommandGeneratorComponent {
-          scene_models: self.scene_models.clone(),
-          generator,
-        };
-        let size = generator.result_size();
+pub fn use_and_create_default_indirect_draw_provider(
+  list: &DeviceDrawList,
+  draw_command_builder: DrawCommandBuilder,
+  cx: &mut DeviceParallelComputeCtx,
+  _enable_midc_downgrade: bool,
+) -> Vec<Box<dyn IndirectDrawProvider>> {
+  let results = match draw_command_builder {
+    DrawCommandBuilder::Indexed(generator) => cx.scope(|cx| {
+      let generator = IndexedDrawCommandGeneratorComponent {
+        scene_models: list.clone().into_boxed(),
+        generator,
+      };
 
-        let init = ZeroedArrayByArrayLength(size as usize);
-        let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
-          cx.gpu.device.as_ref(),
-          StorageBufferInit::<[DrawIndexedIndirectArgsStorage]>::from(init),
-          BufferUsages::INDIRECT,
-        );
+      let size = generator.result_size();
+      let init = ZeroedArrayByArrayLength(size as usize);
+      let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
+        cx.gpu.device.as_ref(),
+        StorageBufferInit::<[DrawIndexedIndirectArgsStorage]>::from(init),
+        BufferUsages::INDIRECT,
+      );
 
-        let r = generator.materialize_storage_buffer_into(draw_command_buffer, cx);
-        let draw_command_buffer = StorageDrawCommands::Indexed(r.buffer.into());
-        let draw_count = r.size.unwrap_or_else(|| {
-          StorageBufferReadonlyDataView::create_by_with_extra_usage(
-            &cx.gpu.device,
-            "draw_count".into(),
-            StorageBufferInit::WithInit(&Vec4::new(size, 0, 0, 0)),
-            BufferUsages::INDIRECT,
-          )
+      let dispatch_size = generator.compute_work_size(cx);
+      cx.record_pass(|pass, device| {
+        let mut hasher = shader_hasher_from_marker_ty!(WriteIndexDrawCommandStorageBuffer);
+        generator.hash_pipeline_with_type_info(&mut hasher);
+        let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+          // todo, move 256 unwrap into parallel compute trait
+          builder.config_work_group_size(generator.requested_workgroup_size().unwrap_or(256));
+          let generator = generator.build_shader(&mut builder);
+          let list_info = builder.bind_by(&list.dispatch_info.sub_list_ranges);
+          let write_target = builder.bind_by(&draw_command_buffer);
+
+          let ((cmd, list_index), valid) =
+            generator.invocation_logic(builder.global_invocation_id());
+          if_by(valid, || {
+            let range_info = list_info.index(list_index).load();
+            let range_write_offset = range_info.x();
+            let range_base_offset = range_info.z();
+            let range_relative_index = builder.global_invocation_id().x() - range_base_offset;
+            let write_index = range_relative_index + range_write_offset;
+            write_target.index(write_index).store(cmd);
+          });
+
+          builder
         });
-        (draw_command_buffer, draw_count)
-      }),
-      DrawCommandBuilder::NoneIndexed(generator) => cx.scope(|cx| {
-        let generator = DrawCommandGeneratorComponent {
-          scene_models: self.scene_models.clone(),
-          generator,
-        };
-        let size = generator.result_size();
 
-        let init = ZeroedArrayByArrayLength(size as usize);
-        let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
-          cx.gpu.device.as_ref(),
-          StorageBufferInit::<[DrawIndirectArgsStorage]>::from(init),
-          BufferUsages::INDIRECT,
-        );
+        BindingBuilder::default()
+          .with_fn(|b| generator.bind_input(b))
+          .with_bind(&list.dispatch_info.sub_list_ranges)
+          .with_bind(&draw_command_buffer)
+          .setup_compute_pass(pass, device, &pipeline);
 
-        let r = generator.materialize_storage_buffer_into(draw_command_buffer, cx);
-        let draw_command_buffer = StorageDrawCommands::NoneIndexed(r.buffer.into());
-        let draw_count = r.size.unwrap_or_else(|| {
-          StorageBufferReadonlyDataView::create_by_with_extra_usage(
-            &cx.gpu.device,
-            "draw_count".into(),
-            StorageBufferInit::WithInit(&Vec4::new(size, 0, 0, 0)),
-            BufferUsages::INDIRECT,
-          )
+        pass.dispatch_workgroups_indirect_by_buffer_resource_view(&dispatch_size.0);
+      });
+
+      let counts_views = list.create_indirect_count_views();
+      let cmd_views = create_pool_views(
+        draw_command_buffer.into_readonly_view(),
+        &list.dispatch_info.sub_list_infos,
+      );
+
+      counts_views
+        .into_iter()
+        .zip(cmd_views.into_iter())
+        .map(|(draw_count, cmd)| {
+          let cmd = StorageBufferReadonlyDataView::try_from_raw(cmd).unwrap();
+          let provider = MultiIndirectDrawBatch {
+            draw_command_buffer: StorageDrawCommands::Indexed(cmd.into()),
+            draw_count,
+          };
+          Box::new(provider) as Box<dyn IndirectDrawProvider>
+        })
+        .collect()
+    }),
+    DrawCommandBuilder::NoneIndexed(generator) => cx.scope(|cx| {
+      let generator = DrawCommandGeneratorComponent {
+        scene_models: list.clone().into_boxed(),
+        generator,
+      };
+
+      let size = generator.result_size();
+      let init = ZeroedArrayByArrayLength(size as usize);
+      let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
+        cx.gpu.device.as_ref(),
+        StorageBufferInit::<[DrawIndirectArgsStorage]>::from(init),
+        BufferUsages::INDIRECT,
+      );
+
+      let dispatch_size = generator.compute_work_size(cx);
+      cx.record_pass(|pass, device| {
+        let mut hasher = shader_hasher_from_marker_ty!(WriteDrawCommandStorageBuffer);
+        generator.hash_pipeline_with_type_info(&mut hasher);
+        let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+          // todo, move 256 unwrap into parallel compute trait
+          builder.config_work_group_size(generator.requested_workgroup_size().unwrap_or(256));
+          let generator = generator.build_shader(&mut builder);
+          let list_info = builder.bind_by(&list.dispatch_info.sub_list_ranges);
+          let write_target = builder.bind_by(&draw_command_buffer);
+
+          let ((cmd, list_index), valid) =
+            generator.invocation_logic(builder.global_invocation_id());
+          if_by(valid, || {
+            let range_info = list_info.index(list_index).load();
+            let range_write_offset = range_info.x();
+            let range_base_offset = range_info.z();
+            let range_relative_index = builder.global_invocation_id().x() - range_base_offset;
+            let write_index = range_relative_index + range_write_offset;
+            write_target.index(write_index).store(cmd);
+          });
+
+          builder
         });
-        (draw_command_buffer, draw_count)
-      }),
-    };
 
-    into_maybe_downgrade_batch_assume_standard_midc_style(
-      MultiIndirectDrawBatch {
-        draw_command_buffer,
-        draw_count,
-      },
-      cx,
-      enable_midc_downgrade,
-    )
+        BindingBuilder::default()
+          .with_fn(|b| generator.bind_input(b))
+          .with_bind(&list.dispatch_info.sub_list_ranges)
+          .with_bind(&draw_command_buffer)
+          .setup_compute_pass(pass, device, &pipeline);
+
+        pass.dispatch_workgroups_indirect_by_buffer_resource_view(&dispatch_size.0);
+      });
+
+      let counts_views = list.create_indirect_count_views();
+      let cmd_views = create_pool_views(
+        draw_command_buffer.into_readonly_view(),
+        &list.dispatch_info.sub_list_infos,
+      );
+
+      counts_views
+        .into_iter()
+        .zip(cmd_views.into_iter())
+        .map(|(draw_count, cmd)| {
+          let cmd = StorageBufferReadonlyDataView::try_from_raw(cmd).unwrap();
+          let provider = MultiIndirectDrawBatch {
+            draw_command_buffer: StorageDrawCommands::NoneIndexed(cmd.into()),
+            draw_count,
+          };
+          Box::new(provider) as Box<dyn IndirectDrawProvider>
+        })
+        .collect()
+    }),
+  };
+
+  // into_maybe_downgrade_batch_assume_standard_midc_style(
+  //   MultiIndirectDrawBatch {
+  //     draw_command_buffer,
+  //     draw_count,
+  //   },
+  //   cx,
+  //   enable_midc_downgrade,
+  // )
+
+  results
+}
+
+fn create_pool_views<T: Std430>(
+  pool: StorageBufferReadonlyDataView<[T]>,
+  info_list: &[SubListHostInfo],
+) -> Vec<GPUBufferResourceView> {
+  let mut cmd_views = Vec::with_capacity(info_list.len());
+  for info in info_list {
+    let item_size = std::mem::size_of::<T>() as u64;
+    let view = pool.gpu.resource.create_view(GPUBufferViewRange {
+      offset: info.offset as u64 * item_size,
+      size: std::num::NonZeroU64::new(info.capacity as u64 * item_size).into(),
+    });
+    cmd_views.push(view);
   }
+  cmd_views
 }
 
 struct MultiIndirectDrawBatch {
   draw_command_buffer: StorageDrawCommands,
-  draw_count: StorageBufferReadonlyDataView<Vec4<u32>>,
+  draw_count: GPUBufferResourceView,
 }
 
 impl IndirectDrawProvider for MultiIndirectDrawBatch {
@@ -164,7 +262,7 @@ impl IndirectDrawProvider for MultiIndirectDrawBatch {
     DrawCommand::MultiIndirectCount {
       indexed: matches!(&self.draw_command_buffer, StorageDrawCommands::Indexed(_)),
       indirect_buffer: self.draw_command_buffer.indirect_buffer(),
-      indirect_count: self.draw_count.gpu.clone(),
+      indirect_count: self.draw_count.clone(),
       max_count: self.draw_command_buffer.cmd_capacity_count(),
     }
   }

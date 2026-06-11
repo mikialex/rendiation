@@ -1,11 +1,13 @@
-use crate::*;
+use dyn_clone::DynClone;
+use rendiation_device_parallel_compute::*;
+use rendiation_shader_api::*;
+use rendiation_webgpu::*;
+use rendiation_webgpu_hook_utils::*;
+
+mod device_culling;
 mod list_access;
-mod predicate;
-pub use predicate::*;
-mod scatter;
-pub use scatter::*;
-#[cfg(test)]
-mod tests;
+mod stream_compact;
+pub use device_culling::*;
 
 #[derive(Clone)]
 pub struct DeviceDrawList {
@@ -25,8 +27,6 @@ pub struct MultiRangeDispatchInfo {
 
 #[derive(Clone)]
 pub struct SubListHostInfo {
-  /// this id is only used for implementation selecting. itself may be not included in list.
-  pub impl_select_id: EntityHandle<SceneModelEntity>,
   /// this capacity is to allocate the necessary space when do filtering, as we
   /// can not read back real length from gpu in frame.
   pub capacity: u32,
@@ -38,7 +38,8 @@ pub fn compute_gpu_sub_list_ranges(sub_list_infos: &[SubListHostInfo]) -> Vec<Ve
   let mut offset = 0u32;
   let mut ranges = Vec::with_capacity(sub_count);
   for info in sub_list_infos.iter() {
-    ranges.push(Vec4::new(offset, info.capacity, 0, 0));
+    // prefix sum is equal to offset in this case
+    ranges.push(Vec4::new(offset, info.capacity, offset, 0));
     offset += info.capacity;
   }
   ranges
@@ -62,10 +63,16 @@ impl DeviceDrawList {
       None => true,
     };
 
+    // the real count and offsets may be override by compute shader write
+    let ranges_init = compute_gpu_sub_list_ranges(sub_list_infos);
     if needs_create {
-      let ranges_init = compute_gpu_sub_list_ranges(sub_list_infos);
+      let sub_list_ranges = StorageBufferReadonlyDataView::create_by_with_extra_usage(
+        gpu.device.as_ref(),
+        Some("device draw list sub_list_ranges"),
+        StorageBufferInit::<[Vec4<u32>]>::from(ranges_init.as_slice()),
+        BufferUsages::INDIRECT,
+      );
 
-      let sub_list_ranges = create_gpu_readonly_storage(ranges_init.as_slice(), gpu);
       let pool_data = vec![0u32; total_capacity as usize];
       let scene_model_id_pool = create_gpu_readonly_storage(pool_data.as_slice(), gpu);
       let sum_all_count = create_gpu_readonly_storage(&0u32, gpu);
@@ -79,53 +86,29 @@ impl DeviceDrawList {
           sum_all_count_host: total_capacity,
         },
       });
+    } else {
+      // make sure the offset field is always updated.
+      gpu.queue.write_buffer(
+        &self.dispatch_info.sub_list_ranges.buffer.gpu(),
+        0,
+        cast_slice(ranges_init.as_slice()),
+      );
     }
 
     cached.as_ref().unwrap()
   }
 
-  pub fn use_culled_list_and_do_culling(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-    culler: Box<dyn AbstractCullerProvider>,
-  ) -> Self {
-    let gpu = cx.gpu.clone();
-
-    let (cx, target_state) = cx.use_plain_state_default::<Option<DeviceDrawList>>();
-    let target = self.create_or_update_compact_write_target(
-      &gpu,
-      target_state,
-      &self.dispatch_info.sub_list_infos,
-    );
-
-    let output_pool = target.scene_model_id_pool.clone().into_rw_view();
-    let output_ranges = target.dispatch_info.sub_list_ranges.clone().into_rw_view();
-    let total_count_out = target.dispatch_info.sum_all_count.clone().into_rw_view();
-
-    let predicate = ListOfListsCullingPredicate {
-      draw_list: self.clone(),
-      culler: culler.clone(),
-    };
-    let positions =
-      predicate.segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx);
-    let scatter = SegmentedListScatter {
-      positions: positions.buffer.clone(),
-      sub_list_ranges: self.dispatch_info.sub_list_ranges.clone(),
-      draw_list: self.clone(),
-      output_pool,
-      output_ranges,
-      total_count_out,
-    };
-    scatter.dispatch_compute(cx);
-
-    DeviceDrawList {
-      scene_model_id_pool: scatter.output_pool.into_readonly_view(),
-      dispatch_info: MultiRangeDispatchInfo {
-        sub_list_ranges: scatter.output_ranges.into_readonly_view(),
-        sum_all_count: scatter.total_count_out.into_readonly_view(),
-        sub_list_infos: self.dispatch_info.sub_list_infos.clone(),
-        sum_all_count_host: target.dispatch_info.sum_all_count_host,
-      },
+  pub fn create_indirect_count_views(&self) -> Vec<GPUBufferResourceView> {
+    let mut views = Vec::with_capacity(self.dispatch_info.sub_list_infos.len());
+    let buffer = &self.dispatch_info.sub_list_ranges;
+    assert_eq!(buffer.desc.offset, 0); // we could support this case, but we want to keep it simple
+    for i in 0..self.dispatch_info.sub_list_infos.len() {
+      let view = buffer.resource.create_view(GPUBufferViewRange {
+        offset: 4 * 4 * i as u64 + 4,
+        size: std::num::NonZeroU64::new(4).into(),
+      });
+      views.push(view);
     }
+    views
   }
 }

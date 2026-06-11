@@ -21,9 +21,11 @@ where
   // For each element i: p_i = inclusive[i], p_prev = inclusive[i-1] (or 0 at i=0).
   // keep ⇔ mask[i]==1 ⇔ p_i != p_prev; exclusive_pos = p_prev (the write target index).
   // This avoids re-evaluating the filter shader a second time.
-  let p_prev = write_target_positions
-    .clone()
-    .offset_access(-1, OutBoundsBehavior::from_const(|| val(0u32)), 1);
+  let p_prev = write_target_positions.clone().offset_access(
+    -1,
+    OutBoundsBehavior::from_const(|| val(0u32)),
+    1,
+  );
   let shuffle_idx = write_target_positions
     .zip(p_prev)
     .map(|(p_i, p_prev)| (p_prev, p_i.equals(p_prev).not()));

@@ -27,16 +27,7 @@ pub fn use_indirect_scene_model(
   })
 }
 
-pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
-  /// note, this interface can not be merged with [IndirectBatchSceneModelRenderer::render_indirect_batch_models]
-  /// because render_indirect_batch_models will be called inside active renderpass, at that time,
-  /// the encoder will be used by the renderpass exclusively.
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>>;
-
+pub trait IndirectBatchSceneModelRenderer: IndirectDrawProviderCreator {
   /// the caller must guarantee the batch source can be drawn by the implementation selected by any_id
   fn render_indirect_batch_models(
     &self,
@@ -72,11 +63,6 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
   }
 
   fn as_any(&self) -> &dyn Any;
-
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<DrawCommandBuilder>;
 }
 
 pub struct IndirectPreferredComOrderRenderer {
@@ -86,101 +72,26 @@ pub struct IndirectPreferredComOrderRenderer {
   id_inject: DefaultSceneModelIdInject,
 }
 
-impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
-  /// The implementation will try directly create a single draw
-  /// For some advance implementation, this may failed because it requires
-  /// extra compute shader prepare logic, which is impossible to placed here
-  /// because the render pass is active.
-  ///
-  /// If we invent something like preflight encoder, and submit prepare work
-  /// on it, this is possible, but from the perspective of performance, this is
-  /// meaningless. so the current behavior is we will always failed on some advance
-  /// implementation here.
-  ///
-  /// todo, consider buffer the call and submit later?
-  fn render_scene_model(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    camera: &dyn RenderComponent,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) -> Result<(), UnableToRenderSceneModelError> {
-    let scene_model_id = create_uniform(idx.alloc_index(), &cx.gpu.device);
-    let cmd = self
-      .make_draw_command_builder(idx)
-      .unwrap()
-      .draw_command_host_access(idx)
-      .ok_or(UnableToRenderSceneModelError::MeshBufferFailedGetDrawCommand)?;
-
-    struct SingleModelImmediateDraw {
-      scene_model_id: UniformBufferDataView<u32>,
-      cmd: DrawCommand,
-    }
-
-    impl ShaderHashProvider for SingleModelImmediateDraw {
-      shader_hash_type_id! {}
-    }
-
-    impl ShaderPassBuilder for SingleModelImmediateDraw {
-      fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-        ctx.binding.bind(&self.scene_model_id);
-      }
-    }
-
-    impl IndirectDrawProvider for SingleModelImmediateDraw {
-      fn create_indirect_invocation_source(
-        &self,
-        binding: &mut ShaderBindGroupBuilder,
-      ) -> Box<dyn IndirectBatchInvocationSource> {
-        struct SingleModelImmediateDrawInvocation {
-          scene_model_id: ShaderReadonlyPtrOf<u32>,
-        }
-
-        impl IndirectBatchInvocationSource for SingleModelImmediateDrawInvocation {
-          fn current_invocation_scene_model_id(&self, _: &mut ShaderVertexBuilder) -> Node<u32> {
-            self.scene_model_id.load()
-          }
-        }
-
-        Box::new(SingleModelImmediateDrawInvocation {
-          scene_model_id: binding.bind_by(&self.scene_model_id.clone()),
-        })
-      }
-
-      fn draw_command(&self) -> DrawCommand {
-        self.cmd.clone()
-      }
-    }
-
+impl IndirectDrawProviderCreator for IndirectPreferredComOrderRenderer {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
     self
-      .render_indirect_batch_models(
-        &SingleModelImmediateDraw {
-          scene_model_id,
-          cmd,
-        },
-        idx,
-        camera,
-        tex,
-        pass,
-        cx,
-      )
-      .unwrap();
+      .model_impl
+      .get_impl_distinguish_key_by_impl_select_id(id)
+  }
 
-    Ok(())
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    self
+      .model_impl
+      .use_create_or_update_indirect_draw_providers(cx, list, id)
   }
 }
 
 impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>> {
-    self.model_impl.generate_indirect_draw_provider(batch, ctx)
-    // .expect("unable to fine suitable indirect draw provider for this indirect draw batch")
-  }
-
   fn render_indirect_batch_models(
     &self,
     models: &dyn IndirectDrawProvider,
@@ -242,13 +153,6 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
       .model_impl
       .hash_shader_group_key_with_self_type_info(any_id, hasher)?;
     Some(())
-  }
-
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<DrawCommandBuilder> {
-    self.model_impl.make_draw_command_builder(any_idx)
   }
 
   fn as_any(&self) -> &dyn Any {

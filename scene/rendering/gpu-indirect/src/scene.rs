@@ -39,43 +39,83 @@ impl IndirectSceneRenderer {
   }
 }
 
-impl SceneModelRenderer for IndirectSceneRenderer {
-  fn render_scene_model(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    camera: &dyn RenderComponent,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) -> Result<(), UnableToRenderSceneModelError> {
-    self.renderer.render_scene_model(idx, camera, pass, cx, tex)
-  }
-}
-
 impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
+  // todo, use hook cache
   fn create_batch_from_iter(
     &self,
     iter: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-  ) -> DeviceSceneModelRenderBatch {
-    let classifier = self.classify_draws(iter);
+  ) -> Option<DeviceSceneModelDrawList> {
+    let classified = self.classify_draws(iter);
 
-    let sub_batches = classifier
-      .iter()
-      .map(|(group_hash, list)| {
-        let scene_models: Vec<_> = list.iter().map(|sm| sm.alloc_index()).collect();
-        let storage = create_gpu_readonly_storage(scene_models.as_slice(), &self.gpu);
-        let storage = storage_full_into_compute(storage);
-        let scene_models = Box::new(storage);
+    if classified.is_empty() {
+      return None;
+    }
 
-        DeviceSceneModelRenderSubBatch {
-          scene_models,
-          impl_select_id: *list.first().unwrap(),
-          group_key: *group_hash,
-        }
-      })
-      .collect();
+    let model_counts: usize = classified.iter().map(|(_, list)| list.len()).sum();
+    let mut models = Vec::with_capacity(model_counts);
+    let mut list_info = Vec::with_capacity(classified.len());
 
-    DeviceSceneModelRenderBatch { sub_batches }
+    let mut impl_select_ids = Vec::with_capacity(classified.len());
+    for (_, list) in &classified {
+      let offset = models.len() as u32;
+      impl_select_ids.push(*list.first().unwrap());
+      list_info.push(SubListHostInfo {
+        capacity: list.len() as u32,
+        offset,
+      });
+      models.extend(list.iter().map(|sm| sm.alloc_index()));
+    }
+
+    let scene_model_id_pool = create_gpu_readonly_storage(models.as_slice(), &self.gpu);
+    let sub_list_ranges_gpu = compute_gpu_sub_list_ranges(&list_info);
+    let sub_list_ranges = create_gpu_readonly_storage(sub_list_ranges_gpu.as_slice(), &self.gpu);
+    let sum_all_count_host = model_counts as u32;
+    let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, &self.gpu);
+
+    let draw_list = DeviceDrawList {
+      scene_model_id_pool,
+      dispatch_info: MultiRangeDispatchInfo {
+        sub_list_infos: list_info,
+        sub_list_ranges,
+        sum_all_count,
+        sum_all_count_host,
+      },
+    };
+
+    DeviceSceneModelDrawList {
+      draw_list,
+      impl_select_ids,
+    }
+    .into()
+  }
+}
+
+pub trait IndirectDrawProviderCreator {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64>;
+
+  /// the sub_lists's impl_select_id's impl_distinguish_key must be all same for this list
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>>;
+}
+
+impl IndirectDrawProviderCreator for IndirectSceneRenderer {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    self.renderer.get_impl_distinguish_key_by_impl_select_id(id)
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    self
+      .renderer
+      .use_create_or_update_indirect_draw_providers(cx, list, id)
   }
 }
 
@@ -87,43 +127,94 @@ impl SceneRenderer for IndirectSceneRenderer {
       Some(self)
     }
   }
+
   fn make_scene_batch_pass_content<'a>(
     &'a self,
-    batch: SceneModelRenderBatch,
+    list: SceneModelRenderBatch,
     camera: &'a dyn RenderComponent,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
-    ctx.scope(|ctx| {
-      let batch = match batch {
-        SceneModelRenderBatch::Device(batch) => batch,
-        SceneModelRenderBatch::Host(batch) => {
-          if self.using_host_driven_indirect_draw {
-            return ctx.scope(|ctx| {
-              self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass)
-            });
-          }
-          self.create_batch_from_iter(&mut batch.iter_scene_models())
+    let device_list = match list {
+      SceneModelRenderBatch::Device(batch) => batch,
+      SceneModelRenderBatch::Host(batch) => {
+        if self.using_host_driven_indirect_draw {
+          return ctx.scope(|ctx| {
+            self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass)
+          });
         }
-      };
+        self.create_batch_from_iter(&mut batch.iter_scene_models())
+      }
+    };
+
+    let Some(device_list) = device_list else {
+      return Box::new(IndirectScenePassContent {
+        renderer: self,
+        content: Vec::new(),
+        pass,
+        camera,
+        reversed_depth: self.reversed_depth,
+      });
+    };
+
+    ctx.scope(|ctx| {
+      let mut classified: FastHashMap<
+        u64,
+        (Vec<SubListHostInfo>, Vec<EntityHandle<SceneModelEntity>>),
+      > = FastHashMap::default();
+      let mut mappings = Vec::new();
+
+      let sub_list_infos_iter = device_list.draw_list.dispatch_info.sub_list_infos.iter();
+      for (info, impl_select_id) in sub_list_infos_iter.zip(device_list.impl_select_ids.iter()) {
+        if let Some(impl_key) =
+          self.get_impl_distinguish_key_by_impl_select_id(impl_select_id.into_raw())
+        {
+          let (list, list_ids) = classified.entry(impl_key).or_default();
+          let idx = list.len();
+          list.push(info.clone());
+          list_ids.push(*impl_select_id);
+          mappings.push((impl_key, idx, impl_select_id));
+        } else {
+          log::error!("unable to find impl key");
+        }
+      }
+
+      let mut indirect_draw_providers: FastHashMap<
+        u64,
+        FastHashMap<usize, Box<dyn IndirectDrawProvider>>,
+      > = Default::default();
 
       ctx.next_key_scope_root();
-      let content: Vec<_> = batch
-        .sub_batches
-        .iter()
-        .filter_map(|batch| {
-          ctx.keyed_scope(&batch.group_key, |ctx| {
-            let provider = self.renderer.generate_indirect_draw_provider(batch, ctx);
-            if let Some(provider) = provider {
-              Some((provider, batch.impl_select_id))
+      for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
+        ctx.keyed_scope(impl_key, |ctx| {
+          let (ctx, target_state) = ctx.use_plain_state_default::<Option<DeviceDrawList>>();
+          let device_list_sub_list = device_list.draw_list.create_or_update_compact_write_target(
+            &ctx.gpu,
+            target_state,
+            &selected_sub_list,
+          );
+
+          ctx.access_parallel_compute(|cx| {
+            if let Some(result) = self.use_create_or_update_indirect_draw_providers(
+              cx,
+              device_list_sub_list,
+              impl_select_ids[0].into_raw(),
+            ) {
+              // using map is to avoid IndirectDrawProvider impl clone
+              let map = result.into_iter().enumerate().collect();
+              indirect_draw_providers.insert(*impl_key, map);
             } else {
-              log::warn!(
-                "unable to fine suitable indirect draw provider for this indirect draw batch, batch select id: {}",
-                batch.impl_select_id
-              );
-              None
+              log::error!("unable to create indirect draw provider");
             }
           })
+        });
+      }
+
+      let content = mappings
+        .iter()
+        .filter_map(|(impl_id, index, impl_select_sm_id)| {
+          let provider = indirect_draw_providers.get_mut(impl_id)?.remove(index)?;
+          (provider, **impl_select_sm_id).into()
         })
         .collect();
 
