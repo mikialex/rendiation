@@ -1,3 +1,6 @@
+use std::hash::Hash;
+use std::sync::Arc;
+
 use crate::*;
 
 pub type IncrementalDeviceSceneBatchExtractorShared<K> =
@@ -7,12 +10,20 @@ type GroupKeyWithSceneHandle<K> = (K, RawEntityHandle);
 
 pub struct IncrementalDeviceSceneBatchExtractor<K> {
   pub contents: FastHashMap<RawEntityHandle, FastHashMap<K, PersistSceneModelListBuffer>>,
+  pub pool: SceneModelListPool,
 }
 
-impl<K> Default for IncrementalDeviceSceneBatchExtractor<K> {
-  fn default() -> Self {
+/// Snapshot after spawn-stage: entity changes + pool allocation update.
+pub struct ExtractorUpdate {
+  pub groups_with_updates: Vec<(RawEntityHandle, u64)>, // (scene_id, group_key_hash)
+  pub pool_update: PoolAllocationUpdate,
+}
+
+impl<K> IncrementalDeviceSceneBatchExtractor<K> {
+  pub fn new(pool: SceneModelListPool) -> Self {
     Self {
-      contents: Default::default(),
+      contents: FastHashMap::default(),
+      pool,
     }
   }
 }
@@ -47,7 +58,6 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
       .from_key(key)
       .or_insert_with(|| {
         let hash = fast_hash_scope(|hasher| key.hash(hasher));
-
         (
           key.clone(),
           PersistSceneModelListBuffer::with_capacity(1024, hash),
@@ -58,52 +68,84 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
 }
 
 impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
+  /// Spawn-stage: process entity insert/remove, prepare pool allocation update.
   pub fn prepare_updates(
     &mut self,
     delta: impl Query<Key = RawEntityHandle, Value = ValueChange<GroupKeyWithSceneHandle<K>>>,
-  ) -> (
-    FastHashMap<(RawEntityHandle, K), SparseBufferWritesSource>,
-    FastHashSet<GroupKeyWithSceneHandle<K>>,
-  ) {
+    allocator: &Arc<RwLock<GrowableRangeAllocator<u64>>>,
+  ) -> ExtractorUpdate {
     let mut changes_keys = FastHashSet::default();
+
+    // Track old group capacities before changes
+    let mut old_capacities: FastHashMap<u64, u32> = FastHashMap::default();
+
     for (sm, key_change) in delta.iter_key_value() {
       if let Some((key, scene_id)) = key_change.old_value() {
         changes_keys.insert((key.clone(), *scene_id));
         let list = self.get_or_create(scene_id, key);
+        // Record old capacity before removal
+        old_capacities
+          .entry(list.group_key_hash)
+          .or_insert(list.host.len() as u32);
         list.remove(sm);
       }
 
       if let Some((key, scene_id)) = key_change.new_value() {
         changes_keys.insert((key.clone(), *scene_id));
         let list = self.get_or_create(scene_id, key);
+        old_capacities
+          .entry(list.group_key_hash)
+          .or_insert(list.host.len() as u32);
         list.insert(sm);
       }
     }
 
-    let mut updates = FastHashMap::default();
+    // Build changed groups list for allocator update
+    let mut groups_with_updates: Vec<(RawEntityHandle, u64)> = Vec::new();
+    let mut changed_groups: Vec<(u64, bool, u32)> = Vec::new();
+    let mut entity_writes: Vec<(u64, u32, u32)> = Vec::new();
+
     for (key, s_id) in &changes_keys {
-      if let Some(update) = self.get_or_create(s_id, key).updates.take() {
-        if let Some(update) = update.into_sparse_update() {
-          updates.insert((*s_id, key.clone()), update);
+      let buffer = self.get_or_create(s_id, key);
+      let hash = buffer.group_key_hash;
+      let new_size = buffer.host.len() as u32;
+      let new_size_rounded = new_size.next_power_of_two();
+      let old_size = old_capacities.get(&hash).copied().unwrap_or(0);
+      let old_size_rounded = old_size.next_power_of_two();
+
+      if old_size_rounded != new_size_rounded {
+        changed_groups.push((hash, old_size > 0, new_size_rounded));
+      }
+
+      // Collect entity writes
+      if let Some(updates) = buffer.updates.take() {
+        for (pos, val) in updates.mapping_change {
+          entity_writes.push((hash, pos as u32, val));
         }
       }
+
+      groups_with_updates.push((*s_id, hash));
     }
 
-    (updates, changes_keys)
+    let pool_update =
+      SceneModelListPool::prepare_pool_update(allocator, &changed_groups, entity_writes);
+
+    ExtractorUpdate {
+      groups_with_updates,
+      pool_update,
+    }
   }
 
+  /// Render-stage: apply pool allocation changes and write GPU data.
   pub fn do_updates(
     &mut self,
-    updates: &FastHashMap<(RawEntityHandle, K), SparseBufferWritesSource>,
-    alloc: &dyn AbstractStorageAllocator,
+    update: &ExtractorUpdate,
     gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
   ) {
-    for ((scene_id, key), updates) in updates {
-      let list = self.contents.get_mut(scene_id).unwrap();
-      let list = list.get_mut(key).unwrap();
-      list.update_gpu(alloc, gpu, encoder, updates);
-    }
+    self
+      .pool
+      .apply_pool_update(&update.pool_update, gpu, encoder);
   }
 }
 
@@ -115,23 +157,61 @@ impl SceneBatchBasicExtractAbility for IncrementalDeviceSceneBatchExtractor<Scen
     _renderer: &dyn SceneRenderer,
   ) -> SceneModelRenderBatch {
     let contents = self.contents.get(&scene.into_raw());
-    if contents.is_none() {
+    let Some(contents) = contents else {
+      return SceneModelRenderBatch::Device(None);
+    };
+
+    let groups: Vec<(&SceneModelGroupKey, &PersistSceneModelListBuffer)> =
+      if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
+        contents
+          .iter()
+          .filter(|(k, _)| k.require_alpha_blend() == alpha_blend)
+          .collect()
+      } else {
+        contents.iter().collect()
+      };
+
+    if groups.is_empty() {
       return SceneModelRenderBatch::Device(None);
     }
 
-    todo!()
-    // let contents = contents.unwrap();
+    let mut impl_select_ids = Vec::with_capacity(groups.len());
+    let mut sub_list_infos = Vec::with_capacity(groups.len());
 
-    // let sub_batches = if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
-    //   contents
-    //     .iter()
-    //     .filter(|(k, _)| k.require_alpha_blend() == alpha_blend)
-    //     .filter_map(|(_, v)| v.create_batch())
-    //     .collect()
-    // } else {
-    //   contents.values().filter_map(|v| v.create_batch()).collect()
-    // };
-    // let batches = DeviceSceneModelRenderBatch { sub_batches };
-    // SceneModelRenderBatch::Device(batches).into()
+    let alloc = self.pool.allocator.read();
+    for (_key, buffer) in &groups {
+      impl_select_ids.push(buffer.representative().unwrap());
+      let hash = buffer.group_key_hash;
+      if let Some((capacity, offset)) = alloc.get_region(hash) {
+        sub_list_infos.push(SubListHostInfo { capacity, offset });
+      } else {
+        sub_list_infos.push(SubListHostInfo {
+          capacity: 0,
+          offset: 0,
+        });
+      }
+    }
+    drop(alloc);
+
+    let sum_all_count_host: u32 = groups.iter().map(|(_, buf)| buf.host.len() as u32).sum();
+    let gpu = self.pool.gpu();
+    let ranges_gpu = compute_gpu_sub_list_ranges(&sub_list_infos);
+    let sub_list_ranges = create_gpu_readonly_storage(ranges_gpu.as_slice(), gpu);
+    let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, gpu);
+
+    let draw_list = DeviceDrawList {
+      scene_model_id_pool: self.pool.pool_buffer_readonly(),
+      dispatch_info: MultiRangeDispatchInfo {
+        sub_list_ranges,
+        sum_all_count,
+        sub_list_infos,
+        sum_all_count_host,
+      },
+    };
+
+    SceneModelRenderBatch::Device(Some(DeviceSceneModelDrawList {
+      draw_list,
+      impl_select_ids,
+    }))
   }
 }

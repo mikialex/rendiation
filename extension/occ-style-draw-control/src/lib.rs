@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use bytemuck::bytes_of;
 use database::*;
-use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
 use rendiation_scene_batch_extractor::*;
 use rendiation_scene_core::*;
@@ -45,11 +44,9 @@ pub fn use_scene_model_occ_group_key(
   foreign: GroupKeyForeignImpl,
 ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, (OccSceneModelGroupKey, RawEntityHandle)>> {
   let internal = use_scene_model_group_key(cx, foreign);
-
   let layer = cx.use_dual_query::<SceneModelOccStyleLayer>();
-
   internal
-    .dual_query_intersect(layer) // interne impl filter out invisible, so here we use intersect
+    .dual_query_intersect(layer)
     .dual_query_map(|((k, s_id), layer)| {
       let key = OccSceneModelGroupKey { internal: k, layer };
       (key, s_id)
@@ -63,8 +60,11 @@ pub fn use_occ_incremental_device_scene_batch_extractor(
     BoxedDynDualQuery<RawEntityHandle, (OccSceneModelGroupKey, RawEntityHandle)>,
   >,
 ) -> Option<Box<dyn SceneBatchBasicExtractAbility>> {
-  let (cx, extractor) =
-    cx.use_plain_state_default_cloned::<Arc<RwLock<OccStyleOrderControlSceneBatchExtractor>>>();
+  let pool = SceneModelListPool::new(&cx.storage_allocator, cx.gpu, 1024);
+  let allocator = pool.allocator_shared();
+  let extractor = Arc::new(RwLock::new(OccStyleOrderControlSceneBatchExtractor {
+    internal: IncrementalDeviceSceneBatchExtractor::new(pool),
+  }));
 
   cx.if_inspect(|inspector| {
     let bytes = extractor.read().internal.memory_usage();
@@ -75,17 +75,15 @@ pub fn use_occ_incremental_device_scene_batch_extractor(
   let gpu_updates = sm_group_key_with_scene_id
     .map_spawn_stage_in_thread_dual_query(cx, move |v| {
       let change = v.delta();
-      Arc::new(extractor_.write().prepare_updates(change))
+      let update = extractor_.write().prepare_updates(change, &allocator);
+      Arc::new(update)
     })
     .use_assure_result(cx);
 
   if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
-    extractor.write().do_updates(
-      &gpu_updates.expect_resolve_stage(),
-      &cx.storage_allocator,
-      cx.gpu,
-      encoder,
-    );
+    extractor
+      .write()
+      .do_updates(&gpu_updates.expect_resolve_stage(), cx.gpu, encoder);
 
     Some(Box::new(extractor.make_read_holder()))
   } else {
@@ -93,9 +91,8 @@ pub fn use_occ_incremental_device_scene_batch_extractor(
   }
 }
 
-#[derive(Default)]
 pub struct OccStyleOrderControlSceneBatchExtractor {
-  internal: IncrementalDeviceSceneBatchExtractor<OccSceneModelGroupKey>,
+  pub internal: IncrementalDeviceSceneBatchExtractor<OccSceneModelGroupKey>,
 }
 
 impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
@@ -105,35 +102,73 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
     semantic: SceneContentKey,
     _renderer: &dyn SceneRenderer,
   ) -> SceneModelRenderBatch {
-    todo!()
-    // let contents = self.internal.contents.get(&scene.into_raw());
-    // if contents.is_none() {
-    //   return SceneModelRenderBatch::Device(DeviceSceneModelRenderBatch::empty());
-    // }
+    let contents = self.internal.contents.get(&scene.into_raw());
+    let Some(contents) = contents else {
+      return SceneModelRenderBatch::Device(None);
+    };
 
-    // let contents = contents.unwrap();
+    let mut groups: Vec<(&OccSceneModelGroupKey, &PersistSceneModelListBuffer)> =
+      if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
+        contents
+          .iter()
+          .filter(|(k, _)| k.internal.require_alpha_blend() == alpha_blend)
+          .collect()
+      } else {
+        contents.iter().collect()
+      };
 
-    // let mut sub_batches_with_key: Vec<_> =
-    //   if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
-    //     contents
-    //       .iter()
-    //       .filter(|(k, _)| k.internal.require_alpha_blend() == alpha_blend)
-    //       .filter_map(|(k, v)| Some((v.create_batch()?, k.layer)))
-    //       .collect()
-    //   } else {
-    //     contents
-    //       .iter()
-    //       .filter_map(|(k, v)| Some((v.create_batch()?, k.layer)))
-    //       .collect()
-    //   };
+    if groups.is_empty() {
+      return SceneModelRenderBatch::Device(None);
+    }
 
-    // sub_batches_with_key.sort_by_key(|v| v.1 as u32);
+    groups.sort_by_key(|(k, _)| k.layer as u32);
 
-    // let sub_batches = sub_batches_with_key.into_iter().map(|v| v.0).collect();
+    let mut impl_select_ids = Vec::with_capacity(groups.len());
+    let mut sub_list_infos = Vec::with_capacity(groups.len());
 
-    // let batches = DeviceSceneModelRenderBatch { sub_batches };
-    // SceneModelRenderBatch::Device(batches)
+    let alloc = self.internal.pool.allocator.read();
+    for (_key, buffer) in &groups {
+      impl_select_ids.push(buffer.representative().unwrap());
+      let hash = buffer.group_key_hash;
+      if let Some((capacity, offset)) = alloc.get_region(hash) {
+        sub_list_infos.push(SubListHostInfo { capacity, offset });
+      } else {
+        sub_list_infos.push(SubListHostInfo {
+          capacity: 0,
+          offset: 0,
+        });
+      }
+    }
+    drop(alloc);
+
+    let sum_all_count_host: u32 = groups.iter().map(|(_, buf)| buf.host.len() as u32).sum();
+    let gpu = self.internal.pool.gpu();
+    let ranges_gpu = compute_gpu_sub_list_ranges(&sub_list_infos);
+    let sub_list_ranges = create_gpu_readonly_storage(ranges_gpu.as_slice(), gpu);
+    let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, gpu);
+
+    let draw_list = DeviceDrawList {
+      scene_model_id_pool: self.internal.pool.pool_buffer_readonly(),
+      dispatch_info: MultiRangeDispatchInfo {
+        sub_list_ranges,
+        sum_all_count,
+        sub_list_infos,
+        sum_all_count_host,
+      },
+    };
+
+    SceneModelRenderBatch::Device(Some(DeviceSceneModelDrawList {
+      draw_list,
+      impl_select_ids,
+    }))
   }
+}
+
+/// Combined spawn-stage result: base pool update + pre-built sort sparse writes.
+pub struct OccStyleOrderControlSceneBatchUpdates {
+  pub pool_update: PoolAllocationUpdate,
+  /// Pre-built sparse writes for sort reordering, already with pool offsets applied.
+  pub sort_sparse_writes: SparseBufferWritesSource,
 }
 
 impl OccStyleOrderControlSceneBatchExtractor {
@@ -143,68 +178,73 @@ impl OccStyleOrderControlSceneBatchExtractor {
       Key = RawEntityHandle,
       Value = ValueChange<(OccSceneModelGroupKey, RawEntityHandle)>,
     >,
+    allocator: &Arc<RwLock<GrowableRangeAllocator<u64>>>,
   ) -> OccStyleOrderControlSceneBatchUpdates {
-    let (updates, changed_keys) = self.internal.prepare_updates(delta);
-    let mut sort_updates = FastHashMap::default();
+    let base_update = self.internal.prepare_updates(delta, allocator);
+
+    // Build sort writes with pool offsets from allocator result
     let priority_view = read_global_db_component::<SceneModelOccStylePriority>();
-    for (key, scene) in &changed_keys {
-      let list = self.internal.get_or_create(scene, key);
-      if let Some(sort_write) = sort_by_priority(list, &priority_view) {
-        sort_updates.insert((*scene, key.clone()), sort_write);
+    let mut sort_sparse = SparseBufferWritesSource::default();
+
+    let alloc = allocator.read();
+
+    for (scene_id, group_hash) in &base_update.groups_with_updates {
+      if let Some(scene_groups) = self.internal.contents.get_mut(scene_id) {
+        for buffer in scene_groups.values_mut() {
+          if buffer.group_key_hash == *group_hash {
+            if let Some(sort_writes) = sort_by_priority(buffer, &priority_view) {
+              let offset = alloc.get_region(*group_hash).unwrap().1;
+              for (pos, val) in &sort_writes {
+                sort_sparse.collect_write(bytes_of(val), (offset + pos) as u64 * 4);
+              }
+            }
+            break;
+          }
+        }
       }
     }
+
     OccStyleOrderControlSceneBatchUpdates {
-      pre_updates: updates,
-      sort_updates,
+      pool_update: base_update.pool_update,
+      sort_sparse_writes: sort_sparse,
     }
   }
 
   pub fn do_updates(
     &mut self,
     updates: &OccStyleOrderControlSceneBatchUpdates,
-    alloc: &dyn AbstractStorageAllocator,
     gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
   ) {
     self
       .internal
-      .do_updates(&updates.pre_updates, alloc, gpu, encoder);
+      .pool
+      .apply_pool_update(&updates.pool_update, gpu, encoder);
 
-    for ((scene_id, key), updates) in &updates.sort_updates {
-      let list = self.internal.contents.get_mut(scene_id).unwrap();
-      let list = list.get_mut(key).unwrap();
-
-      let buffer = list.buffer.as_ref().unwrap();
-      updates.write_abstract(gpu, encoder, &buffer.buffer);
+    if !updates.sort_sparse_writes.is_empty() {
+      updates
+        .sort_sparse_writes
+        .write_abstract(gpu, encoder, self.internal.pool.pool_buffer());
     }
   }
 }
 
-pub struct OccStyleOrderControlSceneBatchUpdates {
-  pre_updates: FastHashMap<(RawEntityHandle, OccSceneModelGroupKey), SparseBufferWritesSource>,
-  sort_updates: FastHashMap<(RawEntityHandle, OccSceneModelGroupKey), SparseBufferWritesSource>,
-}
-
-// todo-optimize: we should take most used priority into group key to avoid sort large list every time
+// todo-optimize: take most used priority into group key to avoid sort large list every time
 pub fn sort_by_priority(
   buffer: &mut PersistSceneModelListBuffer,
   read_view: &ComponentReadView<SceneModelOccStylePriority>,
-) -> Option<SparseBufferWritesSource> {
+) -> Option<Vec<(u32, u32)>> {
   let host_before = buffer.host.clone();
   buffer.host.sort_by_cached_key(|handle| {
     unsafe { read_view.get_by_untyped_handle(*handle) }
       .copied()
-      .unwrap_or(0);
+      .unwrap_or(0)
   });
-  let mut write_source = SparseBufferWritesSource::default();
+  let mut writes = Vec::new();
   for (i, (new, old)) in buffer.host.iter().zip(host_before.iter()).enumerate() {
     if new.index() != old.index() {
-      write_source.collect_write(
-        bytes_of(&new.index()),
-        (i * std::mem::size_of::<u32>()) as u64,
-      );
+      writes.push((i as u32, new.alloc_index()));
     }
   }
-
-  write_source.is_empty().then_some(write_source)
+  (!writes.is_empty()).then_some(writes)
 }
