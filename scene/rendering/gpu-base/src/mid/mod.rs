@@ -70,7 +70,7 @@ pub fn use_and_create_default_indirect_draw_provider(
   list: &DeviceDrawList,
   draw_command_builder: DrawCommandBuilder,
   cx: &mut DeviceParallelComputeCtx,
-  _enable_midc_downgrade: bool,
+  enable_midc_downgrade: bool,
 ) -> Vec<Box<dyn IndirectDrawProvider>> {
   let results = match draw_command_builder {
     DrawCommandBuilder::Indexed(generator) => cx.scope(|cx| {
@@ -121,24 +121,52 @@ pub fn use_and_create_default_indirect_draw_provider(
         pass.dispatch_workgroups_indirect_by_buffer_resource_view(&dispatch_size.0);
       });
 
+      let command_pool_ro = draw_command_buffer.into_readonly_view();
       let counts_views = list.create_indirect_count_views();
-      let cmd_views = create_pool_views(
-        draw_command_buffer.into_readonly_view(),
-        &list.dispatch_info.sub_list_infos,
-      );
+      let cmd_views =
+        create_pool_views(command_pool_ro.clone(), &list.dispatch_info.sub_list_infos);
 
-      counts_views
-        .into_iter()
-        .zip(cmd_views.into_iter())
-        .map(|(draw_count, cmd)| {
-          let cmd = StorageBufferReadonlyDataView::try_from_raw(cmd).unwrap();
-          let provider = MultiIndirectDrawBatch {
-            draw_command_buffer: StorageDrawCommands::Indexed(cmd.into()),
-            draw_count,
-          };
-          Box::new(provider) as Box<dyn IndirectDrawProvider>
-        })
-        .collect()
+      if enable_midc_downgrade {
+        let command_pool = StorageDrawCommands::Indexed(command_pool_ro.into());
+        let midc_input = rendiation_webgpu_midc_downgrade::MIDCListPoolInput {
+          command_pool,
+          list_info: list.dispatch_info.clone(),
+        };
+        let downgraded =
+          rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count_list_pool(
+            midc_input, cx,
+          );
+        downgraded
+          .into_iter()
+          .zip(counts_views.into_iter())
+          .zip(cmd_views.into_iter())
+          .map(|(((helper, cmd), draw_count), cmd_view)| {
+            let cmd_buf = StorageBufferReadonlyDataView::try_from_raw(cmd_view).unwrap();
+            let internal = MultiIndirectDrawBatch {
+              draw_command_buffer: StorageDrawCommands::Indexed(cmd_buf.into()),
+              draw_count,
+            };
+            Box::new(MIDCDowngradeBatch {
+              helper,
+              cmd,
+              internal,
+            }) as Box<dyn IndirectDrawProvider>
+          })
+          .collect()
+      } else {
+        counts_views
+          .into_iter()
+          .zip(cmd_views.into_iter())
+          .map(|(draw_count, cmd)| {
+            let cmd = StorageBufferReadonlyDataView::try_from_raw(cmd).unwrap();
+            let provider = MultiIndirectDrawBatch {
+              draw_command_buffer: StorageDrawCommands::Indexed(cmd.into()),
+              draw_count,
+            };
+            Box::new(provider) as Box<dyn IndirectDrawProvider>
+          })
+          .collect()
+      }
     }),
     DrawCommandBuilder::NoneIndexed(generator) => cx.scope(|cx| {
       let generator = DrawCommandGeneratorComponent {
@@ -188,35 +216,54 @@ pub fn use_and_create_default_indirect_draw_provider(
         pass.dispatch_workgroups_indirect_by_buffer_resource_view(&dispatch_size.0);
       });
 
+      let command_pool_ro = draw_command_buffer.into_readonly_view();
       let counts_views = list.create_indirect_count_views();
-      let cmd_views = create_pool_views(
-        draw_command_buffer.into_readonly_view(),
-        &list.dispatch_info.sub_list_infos,
-      );
+      let cmd_views =
+        create_pool_views(command_pool_ro.clone(), &list.dispatch_info.sub_list_infos);
 
-      counts_views
-        .into_iter()
-        .zip(cmd_views.into_iter())
-        .map(|(draw_count, cmd)| {
-          let cmd = StorageBufferReadonlyDataView::try_from_raw(cmd).unwrap();
-          let provider = MultiIndirectDrawBatch {
-            draw_command_buffer: StorageDrawCommands::NoneIndexed(cmd.into()),
-            draw_count,
-          };
-          Box::new(provider) as Box<dyn IndirectDrawProvider>
-        })
-        .collect()
+      if enable_midc_downgrade {
+        let command_pool = StorageDrawCommands::NoneIndexed(command_pool_ro.into());
+        let midc_input = rendiation_webgpu_midc_downgrade::MIDCListPoolInput {
+          command_pool,
+          list_info: list.dispatch_info.clone(),
+        };
+        let downgraded =
+          rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count_list_pool(
+            midc_input, cx,
+          );
+        downgraded
+          .into_iter()
+          .zip(counts_views.into_iter())
+          .zip(cmd_views.into_iter())
+          .map(|(((helper, cmd), draw_count), cmd_view)| {
+            let cmd_buf = StorageBufferReadonlyDataView::try_from_raw(cmd_view).unwrap();
+            let internal = MultiIndirectDrawBatch {
+              draw_command_buffer: StorageDrawCommands::NoneIndexed(cmd_buf.into()),
+              draw_count,
+            };
+            Box::new(MIDCDowngradeBatch {
+              helper,
+              cmd,
+              internal,
+            }) as Box<dyn IndirectDrawProvider>
+          })
+          .collect()
+      } else {
+        counts_views
+          .into_iter()
+          .zip(cmd_views.into_iter())
+          .map(|(draw_count, cmd)| {
+            let cmd = StorageBufferReadonlyDataView::try_from_raw(cmd).unwrap();
+            let provider = MultiIndirectDrawBatch {
+              draw_command_buffer: StorageDrawCommands::NoneIndexed(cmd.into()),
+              draw_count,
+            };
+            Box::new(provider) as Box<dyn IndirectDrawProvider>
+          })
+          .collect()
+      }
     }),
   };
-
-  // into_maybe_downgrade_batch_assume_standard_midc_style(
-  //   MultiIndirectDrawBatch {
-  //     draw_command_buffer,
-  //     draw_count,
-  //   },
-  //   cx,
-  //   enable_midc_downgrade,
-  // )
 
   results
 }

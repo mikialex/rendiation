@@ -4973,6 +4973,8 @@ dependencies = [
 name = "rendiation-webgpu-midc-downgrade"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "pollster",
  "rendiation-device-draw-list",
  "rendiation-device-parallel-compute",
  "rendiation-shader-api",

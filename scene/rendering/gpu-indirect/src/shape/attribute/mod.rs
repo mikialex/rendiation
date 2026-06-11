@@ -470,9 +470,21 @@ impl IndirectDrawProviderCreator for MeshGPUBindlessImpl {
     list: &DeviceDrawList,
     id: RawEntityHandle,
   ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    let cmd_builder = self.make_draw_command_builder(id)?;
+    use_and_create_default_indirect_draw_provider(
+      list,
+      cmd_builder,
+      cx,
+      self.used_in_midc_downgrade,
+    )
+    .into()
+  }
+}
+
+impl DrawCommandBuilderCreator for MeshGPUBindlessImpl {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
     let id = unsafe { EntityHandle::from_raw(id) };
     let mesh_id = self.checker.get(id)?;
-
     let is_indexed = self.indices_checker.get(mesh_id).is_some();
 
     let creator = BindlessDrawCreator {
@@ -482,18 +494,11 @@ impl IndirectDrawProviderCreator for MeshGPUBindlessImpl {
       vertex_address_buffer_host: self.vertex_address_buffer_host.clone(),
     };
 
-    let cmd_builder = if is_indexed {
+    if is_indexed {
       DrawCommandBuilder::Indexed(Box::new(creator))
     } else {
       DrawCommandBuilder::NoneIndexed(Box::new(creator))
-    };
-
-    use_and_create_default_indirect_draw_provider(
-      list,
-      cmd_builder,
-      cx,
-      self.used_in_midc_downgrade,
-    )
+    }
     .into()
   }
 }
@@ -539,25 +544,4 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
   fn as_any(&self) -> &dyn Any {
     self
   }
-
-  // fn generate_indirect_draw_provider(
-  //   &self,
-  //   batch: &DeviceDrawList,
-  //   any_idx: EntityHandle<StandardModelEntity>,
-  //   ctx: &mut FrameCtx,
-  // ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-  //   let _ = self.checker.get(any_idx)?;
-
-  //   let draw_command_builder = self.make_draw_command_builder(any_idx).unwrap();
-
-  //   ctx
-  //     .access_parallel_compute(|cx| {
-  //       batch.create_default_indirect_draw_provider(
-  //         draw_command_builder,
-  //         cx,
-  //         self.used_in_midc_downgrade,
-  //       )
-  //     })
-  //     .into()
-  // }
 }

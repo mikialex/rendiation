@@ -102,6 +102,16 @@ pub trait IndirectDrawProviderCreator {
   ) -> Option<Vec<Box<dyn IndirectDrawProvider>>>;
 }
 
+pub trait DrawCommandBuilderCreator {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder>;
+}
+
+impl DrawCommandBuilderCreator for IndirectSceneRenderer {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    self.renderer.make_draw_command_builder(id)
+  }
+}
+
 impl IndirectDrawProviderCreator for IndirectSceneRenderer {
   fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
     self.renderer.get_impl_distinguish_key_by_impl_select_id(id)

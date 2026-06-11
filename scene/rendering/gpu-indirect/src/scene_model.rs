@@ -27,7 +27,9 @@ pub fn use_indirect_scene_model(
   })
 }
 
-pub trait IndirectBatchSceneModelRenderer: IndirectDrawProviderCreator {
+pub trait IndirectBatchSceneModelRenderer:
+  IndirectDrawProviderCreator + DrawCommandBuilderCreator
+{
   /// the caller must guarantee the batch source can be drawn by the implementation selected by any_id
   fn render_indirect_batch_models(
     &self,
@@ -88,6 +90,12 @@ impl IndirectDrawProviderCreator for IndirectPreferredComOrderRenderer {
     self
       .model_impl
       .use_create_or_update_indirect_draw_providers(cx, list, id)
+  }
+}
+
+impl DrawCommandBuilderCreator for IndirectPreferredComOrderRenderer {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    self.model_impl.make_draw_command_builder(id)
   }
 }
 

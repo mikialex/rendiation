@@ -1,6 +1,6 @@
 use crate::*;
 
-pub trait IndirectModelRenderImpl: IndirectDrawProviderCreator {
+pub trait IndirectModelRenderImpl: IndirectDrawProviderCreator + DrawCommandBuilderCreator {
   fn hash_shader_group_key(
     &self,
     any_id: EntityHandle<SceneModelEntity>,
@@ -60,6 +60,17 @@ impl IndirectDrawProviderCreator for Vec<Box<dyn IndirectModelRenderImpl>> {
       if let Some(v) = cx.keyed_scope(&i, |cx| {
         provider.use_create_or_update_indirect_draw_providers(cx, list, id)
       }) {
+        return Some(v);
+      }
+    }
+    None
+  }
+}
+
+impl DrawCommandBuilderCreator for Vec<Box<dyn IndirectModelRenderImpl>> {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    for provider in self {
+      if let Some(v) = provider.make_draw_command_builder(id) {
         return Some(v);
       }
     }
@@ -184,6 +195,14 @@ impl IndirectDrawProviderCreator for SceneStdModelIndirectRenderer {
     self
       .shapes
       .use_create_or_update_indirect_draw_providers(cx, list, model.into_raw())
+  }
+}
+
+impl DrawCommandBuilderCreator for SceneStdModelIndirectRenderer {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    let model = self.model.get(id)?;
+    self.shapes.make_draw_command_builder(model.into_raw())
   }
 }
 

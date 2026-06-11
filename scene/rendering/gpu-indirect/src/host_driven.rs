@@ -10,93 +10,95 @@ impl IndirectSceneRenderer {
     camera: &'a dyn RenderComponent,
     pass: &'a dyn RenderComponent,
   ) -> Box<dyn PassContent + 'a> {
-    todo!()
-    //   let classifier = self.classify_draws(&mut batch.iter_scene_models());
+    let classifier = self.classify_draws(&mut batch.iter_scene_models());
 
-    //   let content = classifier
-    //     .values()
-    //     .filter_map(|list| {
-    //       let (one_id, first_cmd, draw_cmd_builder) = list.iter().find_map(|id| {
-    //         let draw_cmd_builder = self.renderer.make_draw_command_builder(*id).unwrap();
-    //         let first_cmd = draw_cmd_builder.draw_command_host_access(*id);
-    //         first_cmd.map(|c| (id, c, draw_cmd_builder))
-    //       })?;
+    let content = classifier
+      .values()
+      .filter_map(|list| {
+        let (one_id, first_cmd, draw_cmd_builder) = list.iter().find_map(|id| {
+          let draw_cmd_builder = self
+            .renderer
+            .make_draw_command_builder(id.into_raw())
+            .unwrap();
+          let first_cmd = draw_cmd_builder.draw_command_host_access(*id);
+          first_cmd.map(|c| (id, c, draw_cmd_builder))
+        })?;
 
-    //       let batch = match first_cmd {
-    //         DrawCommand::Indexed { .. } => {
-    //           let cmds = list
-    //             .iter()
-    //             .filter_map(|id| {
-    //               let cmd = draw_cmd_builder.draw_command_host_access(*id)?;
-    //               if let DrawCommand::Indexed {
-    //                 base_vertex,
-    //                 indices,
-    //                 instances,
-    //               } = cmd
-    //               {
-    //                 DrawIndexedIndirectArgsStorage::new(
-    //                   indices.len() as u32,
-    //                   instances.len() as u32,
-    //                   indices.start,
-    //                   base_vertex,
-    //                   id.alloc_index(),
-    //                 )
-    //                 .into()
-    //               } else {
-    //                 unreachable!()
-    //               }
-    //             })
-    //             .collect();
+        let batch = match first_cmd {
+          DrawCommand::Indexed { .. } => {
+            let cmds = list
+              .iter()
+              .filter_map(|id| {
+                let cmd = draw_cmd_builder.draw_command_host_access(*id)?;
+                if let DrawCommand::Indexed {
+                  base_vertex,
+                  indices,
+                  instances,
+                } = cmd
+                {
+                  DrawIndexedIndirectArgsStorage::new(
+                    indices.len() as u32,
+                    instances.len() as u32,
+                    indices.start,
+                    base_vertex,
+                    id.alloc_index(),
+                  )
+                  .into()
+                } else {
+                  unreachable!()
+                }
+              })
+              .collect();
 
-    //           HostDrawCommands::Indexed(cmds)
-    //         }
-    //         DrawCommand::Array { .. } => {
-    //           let cmds = list
-    //             .iter()
-    //             .filter_map(|id| {
-    //               let cmd = draw_cmd_builder.draw_command_host_access(*id)?;
-    //               if let DrawCommand::Array {
-    //                 instances,
-    //                 vertices,
-    //               } = cmd
-    //               {
-    //                 DrawIndirectArgsStorage::new(
-    //                   vertices.len() as u32,
-    //                   instances.len() as u32,
-    //                   vertices.start,
-    //                   id.alloc_index(),
-    //                 )
-    //                 .into()
-    //               } else {
-    //                 unreachable!()
-    //               }
-    //             })
-    //             .collect();
+            HostDrawCommands::Indexed(cmds)
+          }
+          DrawCommand::Array { .. } => {
+            let cmds = list
+              .iter()
+              .filter_map(|id| {
+                let cmd = draw_cmd_builder.draw_command_host_access(*id)?;
+                if let DrawCommand::Array {
+                  instances,
+                  vertices,
+                } = cmd
+                {
+                  DrawIndirectArgsStorage::new(
+                    vertices.len() as u32,
+                    instances.len() as u32,
+                    vertices.start,
+                    id.alloc_index(),
+                  )
+                  .into()
+                } else {
+                  unreachable!()
+                }
+              })
+              .collect();
 
-    //           HostDrawCommands::NoneIndexed(cmds)
-    //         }
-    //         _ => unreachable!(),
-    //       };
+            HostDrawCommands::NoneIndexed(cmds)
+          }
+          _ => unreachable!(),
+        };
 
-    //       let alloc = rendiation_webgpu_texture_as_buffer::TextureAsStorageAllocator(ctx.gpu.clone());
-    //       let (helper, cmd) =
-    //         rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count_host_driven(
-    //           batch, ctx.gpu, &alloc,
-    //         );
+        let alloc = rendiation_webgpu_texture_as_buffer::TextureAsStorageAllocator(ctx.gpu.clone());
+        let (helper, cmd) =
+          rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count_host_driven(
+            batch, ctx.gpu, &alloc,
+          );
 
-    //       let provider = HostDrivenIndirectProvider { helper, cmd };
+        let provider = HostDrivenIndirectProvider { helper, cmd };
 
-    //       (Box::new(provider) as Box<dyn IndirectDrawProvider>, *one_id).into()
-    //     })
-    //     .collect();
+        (Box::new(provider) as Box<dyn IndirectDrawProvider>, *one_id).into()
+      })
+      .collect();
 
-    //   Box::new(IndirectScenePassContent {
-    //     renderer: self,
-    //     content,
-    //     pass,
-    //     camera,
-    //     reversed_depth: self.reversed_depth,
-    //   })
+    Box::new(IndirectScenePassContent {
+      renderer: self,
+      content,
+      pass,
+      camera,
+      reversed_depth: self.reversed_depth,
+    })
   }
 }
 

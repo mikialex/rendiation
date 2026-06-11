@@ -2,7 +2,7 @@ use std::{any::Any, hash::Hash};
 
 use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_webgpu_midc_downgrade::{
-  require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
+  VertexIndexForMIDCDowngradeRelative, require_midc_downgrade,
 };
 
 use crate::*;
@@ -125,18 +125,7 @@ impl IndirectDrawProviderCreator for WideStyledPointsIndirectRenderer {
     list: &DeviceDrawList,
     id: RawEntityHandle,
   ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    self.model_access.get(id)?;
-
-    let creator = WidePointsDrawCreator {
-      params: self.params.clone(),
-      params_host: self.params_host.clone(),
-      sm_to_wide_points_device: self.sm_to_wide_points_device.clone(),
-      sm_to_wide: self.model_access.clone(),
-    };
-
-    let cmd_builder = DrawCommandBuilder::NoneIndexed(Box::new(creator));
-
+    let cmd_builder = self.make_draw_command_builder(id)?;
     use_and_create_default_indirect_draw_provider(
       list,
       cmd_builder,
@@ -144,6 +133,20 @@ impl IndirectDrawProviderCreator for WideStyledPointsIndirectRenderer {
       self.used_in_midc_downgrade,
     )
     .into()
+  }
+}
+
+impl DrawCommandBuilderCreator for WideStyledPointsIndirectRenderer {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    self.model_access.get(id)?;
+    let creator = WidePointsDrawCreator {
+      params: self.params.clone(),
+      params_host: self.params_host.clone(),
+      sm_to_wide_points_device: self.sm_to_wide_points_device.clone(),
+      sm_to_wide: self.model_access.clone(),
+    };
+    DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
   }
 }
 

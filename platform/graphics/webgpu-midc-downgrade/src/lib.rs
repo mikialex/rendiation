@@ -26,16 +26,439 @@ pub struct MIDCListPoolInput {
   pub list_info: MultiRangeDispatchInfo,
 }
 
+/// Process all sub-lists in a single batch: one prefix scan dispatch + one output write dispatch.
+/// Returns per-sub-list downgrade results (helper + DrawCommand::Indirect).
 pub fn downgrade_multi_indirect_draw_count_list_pool(
   input: MIDCListPoolInput,
   cx: &mut DeviceParallelComputeCtx,
 ) -> Vec<(DowngradeMultiIndirectDrawCountHelper, DrawCommand)> {
-  todo!()
+  let total_capacity = input.list_info.sum_all_count_host;
+  let num_sub_lists = input.list_info.sub_list_infos.len() as u32;
+
+  if total_capacity == 0 {
+    return Vec::new();
+  }
+
+  let is_indexed = input.command_pool.is_index();
+
+  // ---- Dispatch 1: segmented prefix scan over all vertex counts ----
+  let source = ListPoolVertexCountSource {
+    command_pool: input.command_pool.clone(),
+    sub_list_ranges: input.list_info.sub_list_ranges.clone(),
+    sum_all_count: input.list_info.sum_all_count.clone(),
+    total_capacity,
+  };
+
+  let scan_result = source
+    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx)
+    .make_global_scan_exclusive::<AdditionMonoid<u32>>()
+    .materialize_storage_buffer(cx);
+
+  let global_excl = scan_result.buffer;
+
+  // ---- Allocate flat output buffers ----
+  // Per-sub-list relative exclusive prefix sums: each sub-list gets capacity_i + 1 entries
+  let total_prefix_entries = total_capacity + num_sub_lists;
+  let per_sub_prefix_flat: StorageBufferDataView<[u32]> = create_gpu_read_write_storage(
+    ZeroedArrayByArrayLength(total_prefix_entries as usize),
+    &cx.gpu,
+  );
+
+  // Combined indirect args: one per sub-list (always use DrawIndirectArgsStorage —
+  // the downgraded draw is always non-indexed indirect)
+  let per_sub_indirect_flat: StorageBufferDataView<[DrawIndirectArgsStorage]> =
+    StorageBufferDataView::create_by_with_extra_usage(
+      cx.gpu.device.as_ref(),
+      StorageBufferInit::from(ZeroedArrayByArrayLength(num_sub_lists as usize)),
+      BufferUsages::INDIRECT,
+    );
+
+  // ---- Dispatch 2a: compute indirect dispatch size from sum_all_count ----
+  let dispatch_indirect = StorageBufferDataView::create_by_with_extra_usage(
+    cx.gpu.device.as_ref(),
+    StorageBufferInit::<DispatchIndirectArgsStorage>::from(StorageBufferSizedZeroed::<
+      DispatchIndirectArgsStorage,
+    >::default()),
+    BufferUsages::INDIRECT,
+  );
+
+  cx.record_pass(|pass, device| {
+    let mut hasher = PipelineHasher::default();
+    std::hash::Hash::hash(&"list_pool_downgrade_dispatch_size", &mut hasher);
+
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+      builder.config_work_group_size(1);
+      let sum_all = builder.bind_by(&input.list_info.sum_all_count).load();
+      let output = builder.bind_by(&dispatch_indirect);
+
+      let total_threads = sum_all + val(num_sub_lists);
+      let wg_count = device_compute_dispatch_size(total_threads, val(256u32));
+      output.store(
+        ENode::<DispatchIndirectArgsStorage> {
+          x: wg_count,
+          y: val(1),
+          z: val(1),
+        }
+        .construct(),
+      );
+
+      builder
+    });
+
+    BindingBuilder::default()
+      .with_bind(&input.list_info.sum_all_count)
+      .with_bind(&dispatch_indirect)
+      .setup_compute_pass(pass, device, &pipeline);
+
+    pass.dispatch_workgroups(1, 1, 1);
+  });
+
+  // ---- Dispatch 2b: write per-sub-list prefix sums and indirect args ----
+  let dispatch_indirect_view = dispatch_indirect.gpu.clone();
+  cx.record_pass(|pass, device| {
+    use std::hash::Hash;
+    let mut hasher = PipelineHasher::default();
+    is_indexed.hash(&mut hasher);
+
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+      builder.config_work_group_size(256);
+      let global_excl = builder.bind_by(&global_excl);
+      let sub_list_ranges = builder.bind_by(&input.list_info.sub_list_ranges);
+      let sum_all = builder.bind_by(&input.list_info.sum_all_count).load();
+      let output_prefix = builder.bind_by(&per_sub_prefix_flat);
+      let output_indirect = builder.bind_by(&per_sub_indirect_flat);
+
+      let dispatch_thread_id = builder.global_invocation_id().x();
+      let sub_list_count = sub_list_ranges.array_length();
+
+      // ---- Phase A: write per-sub-list relative prefix sums ----
+      let in_prefix_range = dispatch_thread_id.less_than(sum_all);
+      if_by(in_prefix_range, || {
+        // Binary search for sub-list containing this global index
+        let low = val(0u32).make_local_var();
+        let high = sub_list_count.make_local_var();
+        let found = val(0u32).make_local_var();
+
+        loop_by(|cx| {
+          let lo = low.load();
+          let hi = high.load();
+          let done = lo.greater_than(hi).or(lo.equals(hi));
+          if_by(done, || cx.do_break());
+
+          let mid = (lo + hi) / val(2u32);
+          let z_mid = sub_list_ranges.index(mid).load().z();
+
+          let p_le_id = z_mid
+            .less_than(dispatch_thread_id)
+            .or(z_mid.equals(dispatch_thread_id));
+          if_by(p_le_id, || {
+            found.store(mid);
+            low.store(mid + val(1u32));
+          })
+          .else_by(|| {
+            high.store(mid);
+          });
+        });
+
+        let list_idx = found.load();
+        let range = sub_list_ranges.index(list_idx).load();
+        let seg_start = range.z();
+        let capacity_i = range.y();
+
+        // Compute prefix base offset: sum of (capacity_j + 1) for j < list_idx
+        let prefix_base = val(0u32).make_local_var();
+        let counter = val(0u32).make_local_var();
+        loop_by(|cx| {
+          let c = counter.load();
+          let done = c.greater_equal_than(list_idx);
+          if_by(done, || cx.do_break());
+          let prev = sub_list_ranges.index(c).load();
+          prefix_base.store(prefix_base.load() + prev.y() + val(1u32));
+          counter.store(c + val(1u32));
+        });
+
+        let local_idx = dispatch_thread_id - seg_start;
+
+        // Write relative exclusive prefix: global_excl[global_id] - global_excl[seg_start]
+        let seg_start_excl = seg_start
+          .equals(val(0u32))
+          .select_branched(|| val(0u32), || global_excl.index(seg_start).load());
+        let value = global_excl.index(dispatch_thread_id).load() - seg_start_excl;
+        output_prefix
+          .index(prefix_base.load() + local_idx)
+          .store(value);
+
+        // The last thread in each sub-list also writes the total entry (at index capacity_i)
+        let is_last_in_sub = local_idx.equals(capacity_i - val(1u32));
+        if_by(is_last_in_sub, || {
+          let total_value =
+            global_excl.index(dispatch_thread_id + val(1u32)).load() - seg_start_excl;
+          output_prefix
+            .index(prefix_base.load() + local_idx + val(1u32))
+            .store(total_value);
+        });
+      });
+
+      // ---- Phase B: write per-sub-list combined indirect args ----
+      let phase_b_id = dispatch_thread_id - sum_all;
+      let in_indirect_range = phase_b_id.less_than(sub_list_count);
+      if_by(in_indirect_range, || {
+        let i = phase_b_id;
+        let range = sub_list_ranges.index(i).load();
+        let capacity_i = range.y();
+        let has_draws = capacity_i.greater_than(val(0u32));
+        if_by(has_draws, || {
+          let seg_start = range.z();
+          let seg_start_excl = seg_start
+            .equals(val(0u32))
+            .select_branched(|| val(0u32), || global_excl.index(seg_start).load());
+          let total = global_excl.index(seg_start + capacity_i).load() - seg_start_excl;
+
+          let args = ENode::<DrawIndirectArgsStorage> {
+            vertex_count: total,
+            instance_count: val(1),
+            base_vertex: val(0),
+            base_instance: val(0),
+          }
+          .construct();
+          output_indirect.index(i).store(args);
+        });
+      });
+
+      builder
+    });
+
+    BindingBuilder::default()
+      .with_bind(&global_excl)
+      .with_bind(&input.list_info.sub_list_ranges)
+      .with_bind(&input.list_info.sum_all_count)
+      .with_bind(&per_sub_prefix_flat)
+      .with_bind(&per_sub_indirect_flat)
+      .setup_compute_pass(pass, device, &pipeline);
+
+    pass.dispatch_workgroups_indirect_by_buffer_resource_view(&dispatch_indirect_view);
+  });
+
+  // ---- Build per-sub-list helpers and draw commands ----
+  let mut prefix_offsets = Vec::with_capacity(num_sub_lists as usize);
+  let mut running = 0u32;
+  for info in &input.list_info.sub_list_infos {
+    prefix_offsets.push(running);
+    running += info.capacity + 1;
+  }
+
+  let prefix_buffer_resource = &per_sub_prefix_flat.gpu.resource;
+
+  let mut results = Vec::with_capacity(num_sub_lists as usize);
+  for (i, info) in input.list_info.sub_list_infos.iter().enumerate() {
+    // Create count view: slice the y field from sub_list_ranges[i]
+    let ranges_buffer = &input.list_info.sub_list_ranges;
+    let count_view = ranges_buffer.resource.create_view(GPUBufferViewRange {
+      offset: 16 * i as u64 + 4, // y field = bytes 4-7 of Vec4<u32>
+      size: std::num::NonZeroU64::new(4).into(),
+    });
+
+    // Create prefix sum view: slice the flat prefix buffer
+    let prefix_view = prefix_buffer_resource.create_view(GPUBufferViewRange {
+      offset: prefix_offsets[i] as u64 * 4, // 4 bytes per u32
+      size: std::num::NonZeroU64::new((info.capacity + 1) as u64 * 4).into(),
+    });
+    let prefix_abstract: AbstractReadonlyStorageBuffer<[u32]> =
+      StorageBufferReadonlyDataView::<[u32]>::try_from_raw(prefix_view)
+        .unwrap()
+        .into();
+
+    // Create draw count view as abstract buffer
+    let draw_count_abstract: AbstractReadonlyStorageBuffer<u32> =
+      StorageBufferReadonlyDataView::<u32>::try_from_raw(count_view)
+        .unwrap()
+        .into();
+
+    // Create command pool slice view for this sub-list
+    let cmd_view = create_command_pool_slice_view(&input.command_pool, info.offset, info.capacity);
+
+    let draw_commands = match &input.command_pool {
+      StorageDrawCommands::Indexed(_) => {
+        let view =
+          StorageBufferReadonlyDataView::<[DrawIndexedIndirectArgsStorage]>::try_from_raw(cmd_view)
+            .unwrap();
+        StorageDrawCommands::Indexed(view.into())
+      }
+      StorageDrawCommands::NoneIndexed(_) => {
+        let view =
+          StorageBufferReadonlyDataView::<[DrawIndirectArgsStorage]>::try_from_raw(cmd_view)
+            .unwrap();
+        StorageDrawCommands::NoneIndexed(view.into())
+      }
+    };
+
+    let helper = DowngradeMultiIndirectDrawCountHelper {
+      sub_draw_range_start_prefix_sum: prefix_abstract,
+      draw_count: draw_count_abstract,
+      draw_commands,
+    };
+
+    // Create indirect arg view for this sub-list (1 element)
+    let indirect_view = per_sub_indirect_flat
+      .gpu
+      .resource
+      .create_view(GPUBufferViewRange {
+        offset: i as u64 * std::mem::size_of::<DrawIndirectArgsStorage>() as u64,
+        size: std::num::NonZeroU64::new(std::mem::size_of::<DrawIndirectArgsStorage>() as u64)
+          .into(),
+      });
+
+    let cmd = DrawCommand::Indirect {
+      indirect_buffer: indirect_view,
+      indexed: false, // downgraded draw is always non-indexed indirect
+    };
+
+    results.push((helper, cmd));
+  }
+
+  results
+}
+
+/// Extract the vertex_count of a single draw command, given the global draw command index
+/// within a list pool. Binary-searches sub_list_ranges to find the pool offset.
+#[derive(Clone)]
+struct ListPoolVertexCountSource {
+  command_pool: StorageDrawCommands,
+  sub_list_ranges: StorageBufferReadonlyDataView<[Vec4<u32>]>,
+  sum_all_count: StorageBufferReadonlyDataView<u32>,
+  total_capacity: u32,
+}
+
+impl ShaderHashProvider for ListPoolVertexCountSource {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.command_pool.is_index().hash(hasher);
+  }
+}
+
+impl ComputeComponentIO<u32> for ListPoolVertexCountSource {}
+
+impl ComputeComponent<Node<u32>> for ListPoolVertexCountSource {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<u32>>> {
+    Box::new(self.clone())
+  }
+
+  fn work_size(&self) -> Option<u32> {
+    None
+  }
+
+  fn result_size(&self) -> u32 {
+    self.total_capacity
+  }
+
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    None
+  }
+
+  fn build_shader(
+    &self,
+    builder: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn DeviceInvocation<Node<u32>>> {
+    let command_pool = self.command_pool.build(builder.bindgroups());
+    let sub_list_ranges = builder.bind_by(&self.sub_list_ranges);
+    let sum_all_count = builder.bind_by(&self.sum_all_count);
+
+    Box::new(ListPoolVertexCountInvocation {
+      command_pool,
+      sub_list_ranges,
+      sum_all_count,
+    })
+  }
+
+  fn bind_input(&self, builder: &mut BindingBuilder) {
+    self.command_pool.bind(builder);
+    builder.bind(&self.sub_list_ranges);
+    builder.bind(&self.sum_all_count);
+  }
+}
+
+struct ListPoolVertexCountInvocation {
+  command_pool: StorageDrawCommandsInvocation,
+  sub_list_ranges: ShaderReadonlyPtrOf<[Vec4<u32>]>,
+  sum_all_count: ShaderReadonlyPtrOf<u32>,
+}
+
+impl DeviceInvocation<Node<u32>> for ListPoolVertexCountInvocation {
+  fn invocation_logic(&self, id: Node<Vec3<u32>>) -> (Node<u32>, Node<bool>) {
+    let global_id = id.x();
+    let size_all = self.sum_all_count.load();
+    let in_bound = global_id.less_than(size_all);
+
+    // Binary search for sub-list containing global_id (same pattern as DeviceDrawListInvocation)
+    let sub_list_count = self.sub_list_ranges.array_length();
+    let low = val(0u32).make_local_var();
+    let high = sub_list_count.make_local_var();
+    let found = val(0u32).make_local_var();
+
+    loop_by(|cx| {
+      let lo = low.load();
+      let hi = high.load();
+      let done = lo.greater_than(hi).or(lo.equals(hi));
+      if_by(done, || cx.do_break());
+
+      let mid = (lo + hi) / val(2u32);
+      let z_mid = self.sub_list_ranges.index(mid).load().z();
+
+      let p_le_id = z_mid.less_than(global_id).or(z_mid.equals(global_id));
+      if_by(p_le_id, || {
+        found.store(mid);
+        low.store(mid + val(1u32));
+      })
+      .else_by(|| {
+        high.store(mid);
+      });
+    });
+
+    let list_idx = found.load();
+
+    let result = in_bound.not().select_branched(
+      || zeroed_val(),
+      || {
+        let range = self.sub_list_ranges.index(list_idx).load();
+        let offset = range.x();
+        let base = range.z();
+        let pool_index = global_id - base + offset;
+        self.command_pool.vertex_count(pool_index)
+      },
+    );
+
+    (result, in_bound)
+  }
+
+  fn invocation_size(&self) -> Node<Vec3<u32>> {
+    (self.sum_all_count.load(), val(0), val(0)).into()
+  }
+}
+
+/// Create a GPUBufferResourceView that slices a StorageDrawCommands buffer by offset and count.
+fn create_command_pool_slice_view(
+  pool: &StorageDrawCommands,
+  offset: u32,
+  count: u32,
+) -> GPUBufferResourceView {
+  let item_size = match pool {
+    StorageDrawCommands::Indexed(_) => std::mem::size_of::<DrawIndexedIndirectArgsStorage>(),
+    StorageDrawCommands::NoneIndexed(_) => std::mem::size_of::<DrawIndirectArgsStorage>(),
+  } as u64;
+
+  let raw_view = pool.indirect_buffer();
+  raw_view.resource.create_view(GPUBufferViewRange {
+    offset: offset as u64 * item_size,
+    size: std::num::NonZeroU64::new(count as u64 * item_size).into(),
+  })
 }
 
 /// downgrade midc into single none-index indirect draw with helper access data.
 ///
 /// the sub draw command not support instance count > 1
+///
+/// This is now a thin wrapper around `downgrade_multi_indirect_draw_count_list_pool`
+/// for the single-sub-list case.
 pub fn downgrade_multi_indirect_draw_count(
   draw: DrawCommand,
   cx: &mut DeviceParallelComputeCtx,
@@ -44,7 +467,7 @@ pub fn downgrade_multi_indirect_draw_count(
     indexed,
     indirect_buffer,
     indirect_count,
-    ..
+    max_count,
   } = draw
   {
     let draw_commands = if indexed {
@@ -63,75 +486,27 @@ pub fn downgrade_multi_indirect_draw_count(
     assert!(draw_commands.cmd_capacity_count() > 0);
     let draw_count = StorageBufferReadonlyDataView::try_from_raw(indirect_count).unwrap();
 
-    let DeviceMaterializeResult {
-      buffer: sub_draw_range_start_prefix_sum,
-      ..
-    } = MultiIndirectCountDowngradeSource {
-      indirect_buffer: draw_commands.clone(),
-      indirect_count: draw_count.clone(),
-    }
-    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx)
-    .make_global_scan_exclusive::<AdditionMonoid<u32>>()
-    .materialize_storage_buffer(cx);
+    // Build single-sub-list MultiRangeDispatchInfo
+    let ranges_init = vec![Vec4::new(0, max_count, 0, 0)];
+    let sub_list_ranges = create_gpu_readonly_storage(ranges_init.as_slice(), &cx.gpu);
 
-    // note, this assert is wrong, because the sub_draw_range_start_prefix_sum is cached in hooks
-    // it has standalone size shrink strategy
-    //
-    // because we're using exclusive scan
-    // assert_eq!(
-    //   sub_draw_range_start_prefix_sum.item_count(),
-    //   draw_commands.cmd_capacity_count() + 1
-    // );
+    let list_info = MultiRangeDispatchInfo {
+      sub_list_ranges,
+      sum_all_count: draw_count,
+      sub_list_infos: vec![SubListHostInfo {
+        capacity: max_count,
+        offset: 0,
+      }],
+      sum_all_count_host: max_count,
+    };
 
-    let indirect_buffer = StorageBufferDataView::create_by_with_extra_usage(
-      &cx.gpu.device,
-      StorageBufferSizedZeroed::<DrawIndirectArgsStorage>::default().into(),
-      BufferUsages::INDIRECT,
-    );
+    let input = MIDCListPoolInput {
+      command_pool: draw_commands,
+      list_info,
+    };
 
-    cx.record_pass(|pass, device| {
-      let hasher = shader_hasher_from_marker_ty!(PrepareIndirectDraw);
-      let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
-        builder.config_work_group_size(1);
-        let indirect_buffer = builder.bind_by(&indirect_buffer);
-        let draw_count = builder.bind_by(&draw_count).load();
-        let prefix_buffer = builder.bind_by(&sub_draw_range_start_prefix_sum);
-
-        let vertex_count_all = prefix_buffer.index(draw_count).load();
-
-        let draw_dispatch = ENode::<DrawIndirectArgsStorage> {
-          vertex_count: vertex_count_all,
-          instance_count: val(1),
-          base_vertex: val(0),
-          base_instance: val(0),
-        }
-        .construct();
-
-        indirect_buffer.store(draw_dispatch);
-
-        builder
-      });
-
-      BindingBuilder::default()
-        .with_bind(&indirect_buffer)
-        .with_bind(&draw_count)
-        .with_bind(&sub_draw_range_start_prefix_sum)
-        .setup_compute_pass(pass, device, &pipeline);
-
-      pass.dispatch_workgroups(1, 1, 1);
-    });
-
-    (
-      DowngradeMultiIndirectDrawCountHelper {
-        sub_draw_range_start_prefix_sum: sub_draw_range_start_prefix_sum.into(),
-        draw_count: draw_count.into(),
-        draw_commands,
-      },
-      DrawCommand::Indirect {
-        indirect_buffer: indirect_buffer.gpu,
-        indexed: false,
-      },
-    )
+    let mut results = downgrade_multi_indirect_draw_count_list_pool(input, cx);
+    results.pop().unwrap()
   } else {
     panic!("expect midc draw command");
   }
@@ -253,71 +628,6 @@ impl DowngradeMultiIndirectDrawCountHelperInvocation {
   }
 }
 
-/// a per command vertex count view
-#[derive(Clone)]
-struct MultiIndirectCountDowngradeSource {
-  indirect_buffer: StorageDrawCommands,
-  indirect_count: StorageBufferReadonlyDataView<u32>,
-}
-
-impl ShaderHashProvider for MultiIndirectCountDowngradeSource {
-  shader_hash_type_id! {}
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.indirect_buffer.is_index().hash(hasher);
-  }
-}
-
-impl ComputeComponentIO<u32> for MultiIndirectCountDowngradeSource {}
-impl ComputeComponent<Node<u32>> for MultiIndirectCountDowngradeSource {
-  fn work_size(&self) -> Option<u32> {
-    None
-  }
-  fn result_size(&self) -> u32 {
-    self.indirect_buffer.cmd_capacity_count()
-  }
-
-  fn build_shader(
-    &self,
-    builder: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn DeviceInvocation<Node<u32>>> {
-    struct MultiIndirectCountDowngradeSourceInvocation {
-      indirect_buffer: StorageDrawCommandsInvocation,
-      indirect_count: ShaderReadonlyPtrOf<u32>,
-    }
-
-    impl DeviceInvocation<Node<u32>> for MultiIndirectCountDowngradeSourceInvocation {
-      fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<u32>, Node<bool>) {
-        let idx = logic_global_id.x();
-        let r = idx.less_than(self.indirect_buffer.array_length());
-        let result = r.select_branched(|| self.indirect_buffer.vertex_count(idx), zeroed_val);
-        (result, r)
-      }
-
-      fn invocation_size(&self) -> Node<Vec3<u32>> {
-        (self.indirect_count.load(), val(0), val(0)).into()
-      }
-    }
-
-    Box::new(MultiIndirectCountDowngradeSourceInvocation {
-      indirect_buffer: self.indirect_buffer.build(&mut builder.bindgroups),
-      indirect_count: builder.bind_by(&self.indirect_count),
-    })
-  }
-
-  fn bind_input(&self, builder: &mut BindingBuilder) {
-    self.indirect_buffer.bind(builder);
-    builder.bind(&self.indirect_count);
-  }
-
-  fn requested_workgroup_size(&self) -> Option<u32> {
-    None
-  }
-
-  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<u32>>> {
-    Box::new(self.clone())
-  }
-}
-
 pub struct MidcDowngradeWrapperForIndirectMeshSystem<T> {
   pub mesh_system: T,
   pub enable_downgrade: bool,
@@ -374,3 +684,6 @@ impl<T: ShaderPassBuilder> ShaderPassBuilder for MidcDowngradeWrapperForIndirect
     self.mesh_system.setup_pass(ctx);
   }
 }
+
+#[cfg(test)]
+mod tests;

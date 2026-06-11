@@ -3,7 +3,9 @@ use crate::*;
 mod attribute;
 pub use attribute::*;
 
-pub trait IndirectModelShapeRenderImpl: IndirectDrawProviderCreator {
+pub trait IndirectModelShapeRenderImpl:
+  IndirectDrawProviderCreator + DrawCommandBuilderCreator
+{
   fn make_component_indirect(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
@@ -48,6 +50,17 @@ impl IndirectDrawProviderCreator for Vec<Box<dyn IndirectModelShapeRenderImpl>> 
       if let Some(v) = cx.keyed_scope(&i, |cx| {
         provider.use_create_or_update_indirect_draw_providers(cx, list, id)
       }) {
+        return Some(v);
+      }
+    }
+    None
+  }
+}
+
+impl DrawCommandBuilderCreator for Vec<Box<dyn IndirectModelShapeRenderImpl>> {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    for provider in self {
+      if let Some(v) = provider.make_draw_command_builder(id) {
         return Some(v);
       }
     }
