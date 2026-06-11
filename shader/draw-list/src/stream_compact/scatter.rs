@@ -115,8 +115,8 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
         || val(0u32),
         || {
           let prev_range = self.sub_list_ranges.index(i - val(1u32)).load();
-          let prev_empty = (prev_range.z() + prev_range.y()).equals(val(0u32));
-          prev_empty.select_branched(
+          let prev_is_empty_prefix = (prev_range.z() + prev_range.y()).equals(val(0u32));
+          prev_is_empty_prefix.select_branched(
             || val(0u32),
             || {
               let prev_end = prev_range.z() + prev_range.y() - val(1u32);
