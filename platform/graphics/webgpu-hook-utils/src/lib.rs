@@ -57,7 +57,7 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
   >,
 ) -> (
   AbstractReadonlyStorageBuffer<[T]>,
-  UseResult<Arc<RangeAllocateBufferUpdates>>,
+  UseResult<Arc<RangeAllocateBufferUpdates<RawEntityHandle>>>,
 ) {
   let item_byte_size = std::mem::size_of::<T>() as u32;
   let (cx, gpu_target_buffer) = cx.use_gpu_init(|gpu, alloc| {

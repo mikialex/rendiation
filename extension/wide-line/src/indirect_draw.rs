@@ -1,7 +1,7 @@
 use std::{any::Any, hash::Hash};
 
 use rendiation_webgpu_midc_downgrade::{
-  VertexIndexForMIDCDowngradeRelative, require_midc_downgrade,
+  require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
 };
 
 use crate::*;
