@@ -95,9 +95,11 @@ impl DeviceDrawList {
         },
       });
     } else {
-      // make sure the offset field is always updated.
+      // Reset the cached output's sub_list_ranges counts to zero; the GPU
+      // compute pass will overwrite them with real survival counts.
+      let target = cached.as_ref().unwrap();
       gpu.queue.write_buffer(
-        &self.dispatch_info.sub_list_ranges.buffer.gpu(),
+        &target.dispatch_info.sub_list_ranges.buffer.gpu(),
         0,
         cast_slice(ranges_init.as_slice()),
       );

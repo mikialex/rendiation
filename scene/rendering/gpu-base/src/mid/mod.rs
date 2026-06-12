@@ -66,6 +66,17 @@ impl GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'_> {
   }
 }
 
+fn prepare_gpu_sub_list_out_ranges(sub_list_infos: &[SubListHostInfo]) -> (Vec<Vec2<u32>>, u32) {
+  let sub_count = sub_list_infos.len();
+  let mut offset = 0u32;
+  let mut ranges = Vec::with_capacity(sub_count);
+  for info in sub_list_infos.iter() {
+    ranges.push(Vec2::new(offset, info.capacity));
+    offset += info.capacity;
+  }
+  (ranges, offset)
+}
+
 pub fn use_and_create_default_indirect_draw_provider(
   list: &DeviceDrawList,
   draw_command_builder: DrawCommandBuilder,
@@ -86,9 +97,11 @@ pub fn use_and_create_default_indirect_draw_provider(
         StorageBufferInit::<[DrawIndexedIndirectArgsStorage]>::from(init),
         BufferUsages::INDIRECT,
       );
-      let output_ranges = prepare_gpu_sub_list_ranges(&list.dispatch_info.sub_list_infos, true);
+      let (output_ranges_host, size_all) =
+        prepare_gpu_sub_list_out_ranges(&list.dispatch_info.sub_list_infos);
+      assert_eq!(size_all, size);
       let output_ranges =
-        create_gpu_readonly_storage(output_ranges.as_slice(), cx.gpu.device.as_ref());
+        create_gpu_readonly_storage(output_ranges_host.as_slice(), cx.gpu.device.as_ref());
 
       let dispatch_size = generator.compute_work_size(cx);
       cx.record_pass(|pass, device| {
@@ -99,14 +112,14 @@ pub fn use_and_create_default_indirect_draw_provider(
           builder.config_work_group_size(generator.requested_workgroup_size().unwrap_or(256));
           let generator = generator.build_shader(&mut builder);
           let output_ranges = builder.bind_by(&output_ranges);
+          let input_ranges = builder.bind_by(&list.dispatch_info.sub_list_ranges);
           let write_target = builder.bind_by(&draw_command_buffer);
 
           let ((cmd, list_index), valid) =
             generator.invocation_logic(builder.global_invocation_id());
           if_by(valid, || {
-            let range_out_info = output_ranges.index(list_index).load();
-            let range_write_offset = range_out_info.x();
-            let range_base_offset = range_out_info.z();
+            let range_write_offset = output_ranges.index(list_index).load().x();
+            let range_base_offset = input_ranges.index(list_index).load().z();
             let range_relative_index = builder.global_invocation_id().x() - range_base_offset;
             let write_index = range_relative_index + range_write_offset;
             write_target.index(write_index).store(cmd);
@@ -118,6 +131,7 @@ pub fn use_and_create_default_indirect_draw_provider(
         BindingBuilder::default()
           .with_fn(|b| generator.bind_input(b))
           .with_bind(&output_ranges)
+          .with_bind(&list.dispatch_info.sub_list_ranges)
           .with_bind(&draw_command_buffer)
           .setup_compute_pass(pass, device, &pipeline);
 
@@ -126,8 +140,7 @@ pub fn use_and_create_default_indirect_draw_provider(
 
       let command_pool_ro = draw_command_buffer.into_readonly_view();
       let counts_views = list.create_indirect_count_views();
-      let cmd_views =
-        create_pool_views(command_pool_ro.clone(), &list.dispatch_info.sub_list_infos);
+      let cmd_views = create_pool_views(command_pool_ro.clone(), &output_ranges_host);
 
       if enable_midc_downgrade {
         let command_pool = StorageDrawCommands::Indexed(command_pool_ro.into());
@@ -185,8 +198,9 @@ pub fn use_and_create_default_indirect_draw_provider(
         BufferUsages::INDIRECT,
       );
 
-      let output_ranges_host =
-        prepare_gpu_sub_list_ranges(&list.dispatch_info.sub_list_infos, true);
+      let (output_ranges_host, size_all) =
+        prepare_gpu_sub_list_out_ranges(&list.dispatch_info.sub_list_infos);
+      assert_eq!(size_all, size);
       let output_ranges =
         create_gpu_readonly_storage(output_ranges_host.as_slice(), cx.gpu.device.as_ref());
 
@@ -199,14 +213,15 @@ pub fn use_and_create_default_indirect_draw_provider(
           builder.config_work_group_size(generator.requested_workgroup_size().unwrap_or(256));
           let generator = generator.build_shader(&mut builder);
           let output_ranges = builder.bind_by(&output_ranges);
+          let input_ranges = builder.bind_by(&list.dispatch_info.sub_list_ranges);
           let write_target = builder.bind_by(&draw_command_buffer);
 
           let ((cmd, list_index), valid) =
             generator.invocation_logic(builder.global_invocation_id());
           if_by(valid, || {
-            let range_info = output_ranges.index(list_index).load();
-            let range_write_offset = range_info.x();
-            let range_base_offset = range_info.z();
+            let range_write_offset = output_ranges.index(list_index).load().x();
+            let range_base_offset = input_ranges.index(list_index).load().z();
+
             let range_relative_index = builder.global_invocation_id().x() - range_base_offset;
             let write_index = range_relative_index + range_write_offset;
             write_target.index(write_index).store(cmd);
@@ -218,6 +233,7 @@ pub fn use_and_create_default_indirect_draw_provider(
         BindingBuilder::default()
           .with_fn(|b| generator.bind_input(b))
           .with_bind(&output_ranges)
+          .with_bind(&list.dispatch_info.sub_list_ranges)
           .with_bind(&draw_command_buffer)
           .setup_compute_pass(pass, device, &pipeline);
 
@@ -280,14 +296,14 @@ pub fn use_and_create_default_indirect_draw_provider(
 /// based on the sub-lists offset
 fn create_pool_views<T: Std430>(
   pool: StorageBufferReadonlyDataView<[T]>,
-  info_list: &[SubListHostInfo],
+  offset_count: &[Vec2<u32>],
 ) -> Vec<GPUBufferResourceView> {
-  let mut cmd_views = Vec::with_capacity(info_list.len());
-  for info in info_list {
+  let mut cmd_views = Vec::with_capacity(offset_count.len());
+  for offset_count in offset_count {
     let item_size = std::mem::size_of::<T>() as u64;
     let view = pool.gpu.resource.create_view(GPUBufferViewRange {
-      offset: info.offset as u64 * item_size,
-      size: std::num::NonZeroU64::new(info.capacity as u64 * item_size).into(),
+      offset: offset_count.x() as u64 * item_size,
+      size: std::num::NonZeroU64::new(offset_count.y() as u64 * item_size).into(),
     });
     cmd_views.push(view);
   }

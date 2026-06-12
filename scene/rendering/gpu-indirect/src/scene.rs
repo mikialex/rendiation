@@ -68,14 +68,20 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
 
     let mut impl_select_ids = Vec::with_capacity(classified.len());
     for (_, list) in &classified {
+      let real_len = list.len() as u32;
+      let padded_len = round_up(real_len, align);
       let offset = models.len() as u32;
       impl_select_ids.push(*list.first().unwrap());
-      real_lengths.push(list.len() as u32);
+      real_lengths.push(real_len);
       list_info.push(SubListHostInfo {
-        capacity: round_up(list.len() as u32, align),
+        capacity: padded_len,
         offset,
       });
       models.extend(list.iter().map(|sm| sm.alloc_index()));
+      // Pad the pool to the aligned capacity so that each sub-list's region
+      // starts at its capacity-based offset and buffer views satisfy alignment.
+      let padding = (padded_len - real_len) as usize;
+      models.resize(models.len() + padding, 0);
     }
 
     let scene_model_id_pool = create_gpu_readonly_storage(models.as_slice(), &self.gpu);
@@ -180,20 +186,21 @@ impl SceneRenderer for IndirectSceneRenderer {
     };
 
     ctx.scope(|ctx| {
-      let mut classified: FastHashMap<
-        u64,
-        (Vec<SubListHostInfo>, Vec<EntityHandle<SceneModelEntity>>),
-      > = FastHashMap::default();
+      let mut classified: FastHashMap<u64, (Vec<usize>, Vec<EntityHandle<SceneModelEntity>>)> =
+        FastHashMap::default();
       let mut mappings = Vec::new();
 
-      let sub_list_infos_iter = device_list.draw_list.dispatch_info.sub_list_infos.iter();
-      for (info, impl_select_id) in sub_list_infos_iter.zip(device_list.impl_select_ids.iter()) {
+      assert_eq!(
+        device_list.draw_list.dispatch_info.sub_list_infos.len(),
+        device_list.impl_select_ids.len()
+      );
+      for (i, impl_select_id) in device_list.impl_select_ids.iter().enumerate() {
         if let Some(impl_key) =
           self.get_impl_distinguish_key_by_impl_select_id(impl_select_id.into_raw())
         {
           let (list, list_ids) = classified.entry(impl_key).or_default();
           let idx = list.len();
-          list.push(info.clone());
+          list.push(i);
           list_ids.push(*impl_select_id);
           mappings.push((impl_key, idx, impl_select_id));
         } else {
@@ -209,17 +216,18 @@ impl SceneRenderer for IndirectSceneRenderer {
       ctx.next_key_scope_root();
       for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
         ctx.keyed_scope(impl_key, |ctx| {
-          let (ctx, target_state) = ctx.use_plain_state_default::<Option<DeviceDrawList>>();
-          let device_list_sub_list = device_list.draw_list.create_or_update_compact_write_target(
-            &ctx.gpu,
-            target_state,
-            &selected_sub_list,
-          );
+          let dispatch_info = ctx.access_parallel_compute(|ctx| {
+            compute_selected_sub_list_dispatch_info(ctx, &device_list.draw_list, selected_sub_list)
+          });
+          let device_list_sub_list = DeviceDrawList {
+            scene_model_id_pool: device_list.draw_list.scene_model_id_pool.clone(),
+            dispatch_info,
+          };
 
           ctx.access_parallel_compute(|cx| {
             if let Some(result) = self.use_create_or_update_indirect_draw_providers(
               cx,
-              device_list_sub_list,
+              &device_list_sub_list,
               impl_select_ids[0].into_raw(),
             ) {
               // using map is to avoid IndirectDrawProvider impl clone
@@ -248,6 +256,109 @@ impl SceneRenderer for IndirectSceneRenderer {
         reversed_depth: self.reversed_depth,
       })
     })
+  }
+}
+
+fn compute_selected_sub_list_dispatch_info(
+  cx: &mut DeviceParallelComputeCtx,
+  input: &DeviceDrawList,
+  pick_list: &[usize],
+) -> MultiRangeDispatchInfo {
+  let pick_count = pick_list.len();
+  debug_assert!(pick_count > 0, "pick_list should never be empty");
+
+  // Collect host-side sub_list_infos for the selected sub-lists.
+  // Offsets are recalculated as compact cumulative capacities for correct
+  // output buffer layout downstream (prepare_gpu_sub_list_out_ranges and
+  // MIDC downgrade command-pool slicing). The GPU-side sub_list_ranges.x
+  // preserves the original pool offset for correct scene_model_id_pool indexing.
+  let mut compact_offset = 0u32;
+  let selected_infos: Vec<SubListHostInfo> = pick_list
+    .iter()
+    .map(|&i| {
+      let info = &input.dispatch_info.sub_list_infos[i];
+      let new_info = SubListHostInfo {
+        capacity: info.capacity,
+        offset: compact_offset,
+      };
+      compact_offset += info.capacity;
+      new_info
+    })
+    .collect();
+
+  // sum_all_count_host is set to the sum of capacities (upper bound);
+  // the GPU writes the real total into sum_all_count at runtime.
+  let sum_capacity_host: u32 = selected_infos.iter().map(|info| info.capacity).sum();
+
+  // Upload pick_list indices to the GPU.
+  let pick_list_u32: Vec<u32> = pick_list.iter().map(|&i| i as u32).collect();
+  let pick_list_buffer = create_gpu_readonly_storage(pick_list_u32.as_slice(), &cx.gpu);
+
+  // Output ranges buffer — one Vec4<u32> per selected sub-list.
+  let output_ranges = StorageBufferDataView::create_by_with_extra_usage(
+    cx.gpu.device.as_ref(),
+    StorageBufferInit::<[Vec4<u32>]>::from(ZeroedArrayByArrayLength(pick_count)),
+    BufferUsages::INDIRECT,
+  );
+
+  // Output sum_all_count — GPU writes the real total count.
+  let output_sum_all: StorageBufferDataView<u32> = create_gpu_read_write_storage(
+    StorageBufferSizedZeroed::<u32>::default(),
+    cx.gpu.device.as_ref(),
+  );
+
+  cx.record_pass(|pass, device| {
+    let mut hasher = PipelineHasher::default();
+    "compute_selected_sub_list_dispatch_info".hash(&mut hasher);
+
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+      builder.config_work_group_size(1);
+
+      let input_ranges = builder.bind_by(&input.dispatch_info.sub_list_ranges);
+      let pick_list_storage = builder.bind_by(&pick_list_buffer);
+      let out_ranges = builder.bind_by(&output_ranges);
+      let out_sum_all: ShaderPtrOf<u32> = builder.bind_by(&output_sum_all);
+
+      let total = val(0u32).make_local_var();
+      let prefix = val(0u32).make_local_var();
+
+      pick_list_storage
+        .array_length()
+        .into_shader_iter()
+        .for_each(|i, _| {
+          let src_idx = pick_list_storage.index(i).load();
+          let src = input_ranges.index(src_idx).load();
+          let count = src.y();
+          let offset = src.x();
+
+          out_ranges
+            .index(i)
+            .store(vec4_node((offset, count, prefix.load(), val(0u32))));
+
+          prefix.store(prefix.load() + count);
+          total.store(total.load() + count);
+        });
+
+      out_sum_all.store(total.load());
+
+      builder
+    });
+
+    BindingBuilder::default()
+      .with_bind(&input.dispatch_info.sub_list_ranges)
+      .with_bind(&pick_list_buffer)
+      .with_bind(&output_ranges)
+      .with_bind(&output_sum_all)
+      .setup_compute_pass(pass, device, &pipeline);
+
+    pass.dispatch_workgroups(1, 1, 1);
+  });
+
+  MultiRangeDispatchInfo {
+    sub_list_ranges: output_ranges.into_readonly_view(),
+    sum_all_count: output_sum_all.into_readonly_view(),
+    sub_list_infos: selected_infos,
+    sum_all_count_host: sum_capacity_host,
   }
 }
 
