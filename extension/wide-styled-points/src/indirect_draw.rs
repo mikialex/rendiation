@@ -223,8 +223,6 @@ impl<'a> ShaderPassBuilder for WidePointsIndirectDrawComponent<'a> {
   }
 }
 
-only_vertex!(WidePointsWidthShader, f32);
-
 impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {

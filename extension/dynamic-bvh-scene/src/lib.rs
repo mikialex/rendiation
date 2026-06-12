@@ -21,10 +21,10 @@ impl SceneDynamicBvhImpl {
     self.change_count_since_last_optimize += 1;
     self.bvh.remove(k);
   }
-  fn insert(&mut self, k: u32, aabb: Box3<f64>) {
+  fn insert(&mut self, k: u32, aabb: Box3<f64>, expansion: f32) {
     // todo, support large coord
     let bbox = Box3::new(aabb.min.into_f32(), aabb.max.into_f32());
-    self.bvh.insert(bbox, k);
+    self.bvh.insert(bbox, expansion, k);
     self.change_count_since_last_optimize += 1;
   }
   fn check_optimize(&mut self) {
@@ -176,8 +176,8 @@ fn update_dynamic_bvh(
   scene_id_change: impl Query<Key = RawEntityHandle, Value = ValueChange<RawEntityHandle>>,
   scene_id: impl Fn(u32) -> Option<RawEntityHandle>,
   world_bounding_view: impl Fn(u32) -> Option<Box3<f64>>,
-  _margin_changes: impl DataChanges<Key = u32, Value = f32>,
-  _margin_view: impl Fn(u32) -> f32,
+  margin_changes: impl DataChanges<Key = u32, Value = f32>,
+  margin_view: impl Fn(u32) -> f32,
 ) {
   for (k, scene_id_change) in scene_id_change.iter_key_value() {
     let k = k.index();
@@ -186,8 +186,9 @@ fn update_dynamic_bvh(
     }
     if let Some(new) = scene_id_change.new_value() {
       if let Some(aabb) = world_bounding_view(k) {
+        let margin = margin_view(k);
         if !aabb.is_empty() {
-          bvh.get_or_create_bvh(*new).insert(k, aabb);
+          bvh.get_or_create_bvh(*new).insert(k, aabb, margin);
         }
       }
     }
@@ -204,15 +205,41 @@ fn update_dynamic_bvh(
   for (k, aabb) in world_bounding_changes.iter_update_or_insert() {
     if let Some(scene_id) = scene_id(k) {
       let bvh = bvh.get_or_create_bvh(scene_id);
+      let margin = margin_view(k);
       if aabb.is_empty() {
-        debug_log!("the bounding of item with id: {k} has been downgraded");
         bvh.remove(k);
+        debug_log!("the bounding of item with id: {k} has been downgraded");
       } else {
         debug_log!("pre update with id: {k}, bounding: {aabb:?}");
-        bvh.insert(k, aabb);
+        bvh.insert(k, aabb, margin);
       }
     } else {
       log::warn!("bounding change unable to access scene id")
+    }
+  }
+
+  for k in margin_changes.iter_removed() {
+    debug_log!("remove with id: {k}");
+    if let Some(scene_id) = scene_id(k) {
+      let bvh = bvh.get_or_create_bvh(scene_id);
+      bvh.remove(k);
+    }
+  }
+
+  for (k, margin) in margin_changes.iter_update_or_insert() {
+    if let Some(scene_id) = scene_id(k) {
+      let bvh = bvh.get_or_create_bvh(scene_id);
+      if let Some(aabb) = world_bounding_view(k) {
+        if aabb.is_empty() {
+          bvh.remove(k);
+          debug_log!("the bounding of item with id: {k} has been downgraded");
+        } else {
+          debug_log!("pre update with id: {k}, bounding: {aabb:?}");
+          bvh.insert(k, aabb, margin);
+        }
+      }
+    } else {
+      log::warn!("margin change unable to access scene id")
     }
   }
 

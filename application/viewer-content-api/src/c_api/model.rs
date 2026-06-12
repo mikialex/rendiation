@@ -53,6 +53,11 @@ pub extern "C" fn scene_model_set_visible(handle: ViewerEntityHandle, visible: b
 }
 
 #[no_mangle]
+pub extern "C" fn scene_model_set_skip_clip(handle: ViewerEntityHandle, skip: bool) {
+  write_global_db_component::<ClippingPlaneSceneModelSkip>().write(handle.into(), skip);
+}
+
+#[no_mangle]
 pub extern "C" fn scene_model_set_mesh(handle: SceneModelHandleInfo, mesh: ViewerEntityHandle) {
   write_global_db_component::<StandardModelRefAttributesMeshEntity>()
     .write(handle.std_model.into(), Some(mesh.into()));

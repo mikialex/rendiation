@@ -114,7 +114,7 @@ fn map_depth_stencil_state(
     depth_write_enabled: states.depth_write_enabled,
     depth_compare: states.depth_compare.into_raw(reverse_z),
     stencil: states.stencil.clone(),
-    bias: states.bias,
+    bias,
   })
 }
 

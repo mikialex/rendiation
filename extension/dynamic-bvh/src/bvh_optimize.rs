@@ -100,7 +100,7 @@ impl Bvh {
   ///     Vec3::new(i as f32, 0.0, 0.0),
   ///     Vec3::new(i as f32 + 1.0, 1.0, 1.0),
   ///   );
-  ///   bvh.insert(aabb, i);
+  ///   bvh.insert(aabb, 0., i);
   /// }
   ///
   /// // Game loop
@@ -113,7 +113,7 @@ impl Bvh {
   ///       Vec3::new(i as f32 + offset, 0.0, 0.0),
   ///       Vec3::new(i as f32 + offset + 1.0, 1.0, 1.0),
   ///     );
-  ///     bvh.insert_or_update_partially(aabb, i, 0.0);
+  ///     bvh.insert_or_update_partially(aabb, 0., i, 0.0);
   ///   }
   ///
   ///   // Update AABBs every frame (fast)
@@ -144,7 +144,7 @@ impl Bvh {
   ///   // Update BVH with new rigid body positions
   ///   for body_id in 0..100 {
   ///     let aabb = get_body_aabb(body_id);
-  ///     bvh.insert_or_update_partially(aabb, body_id, 0.0);
+  ///     bvh.insert_or_update_partially(aabb, 0., body_id, 0.0);
   ///   }
   ///
   ///   // Refit tree for new positions
@@ -179,7 +179,7 @@ impl Bvh {
   ///     Vec3::new(i as f32, 0.0, 0.0),
   ///     Vec3::new(i as f32 + 1.0, 1.0, 1.0),
   ///   );
-  ///   bvh.insert(aabb, i);
+  ///   bvh.insert(aabb, 0., i);
   ///
   ///   // Periodically optimize while building
   ///   if i % 100 == 0 && i > 0 {

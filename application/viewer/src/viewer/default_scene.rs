@@ -14,7 +14,7 @@ pub fn load_default_scene(
   // load_parametric_curve_test(writer);
 
   load_widen_line_test(writer);
-  load_widen_points_test(writer);
+  load_widen_points_test(writer, texture_data_source);
 
   load_default_scene_lighting_test(writer);
 

@@ -179,8 +179,8 @@ impl<'a> WidePointPickView<'a> {
       .flat_map(move |(primitive_index, p)| {
         let p_in_ndc = p.position.apply_matrix_into(local_to_ndc);
         p_in_ndc.xy();
-        let width_half = p.width / 2. + extra_screen_space_tolerance;
-        let offset = Vec2::new(width_half, width_half)
+        let real_width = p.width + extra_screen_space_tolerance;
+        let offset = Vec2::new(real_width, real_width)
           / Vec2::from(camera_ctx.camera_view_size_in_logic_pixel.into_f32());
         let max = p_in_ndc.xy() + offset;
         let min = p_in_ndc.xy() - offset;
