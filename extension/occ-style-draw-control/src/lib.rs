@@ -60,11 +60,18 @@ pub fn use_occ_incremental_device_scene_batch_extractor(
     BoxedDynDualQuery<RawEntityHandle, (OccSceneModelGroupKey, RawEntityHandle)>,
   >,
 ) -> Option<Box<dyn SceneBatchBasicExtractAbility>> {
-  let pool = SceneModelListPool::new(&cx.storage_allocator, cx.gpu, 1024);
-  let allocator = pool.allocator_shared();
-  let extractor = Arc::new(RwLock::new(OccStyleOrderControlSceneBatchExtractor {
-    internal: IncrementalDeviceSceneBatchExtractor::new(pool),
-  }));
+  let (cx, (allocator, extractor)) = cx.use_gpu_init(|gpu, allocator| {
+    let pool = SceneModelListPool::new(allocator, gpu, 1024);
+    let allocator = pool.allocator_shared();
+
+    let extractor = Arc::new(RwLock::new(OccStyleOrderControlSceneBatchExtractor {
+      internal: IncrementalDeviceSceneBatchExtractor::new(pool),
+    }));
+    (allocator, extractor)
+  });
+
+  let allocator = allocator.clone();
+  let extractor = extractor.clone();
 
   cx.if_inspect(|inspector| {
     let bytes = extractor.read().internal.memory_usage();
@@ -125,25 +132,21 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
 
     let mut impl_select_ids = Vec::with_capacity(groups.len());
     let mut sub_list_infos = Vec::with_capacity(groups.len());
+    let mut real_lengths = Vec::with_capacity(groups.len());
 
     let alloc = self.internal.pool.allocator.read();
     for (_key, buffer) in &groups {
       impl_select_ids.push(buffer.representative().unwrap());
+      real_lengths.push(buffer.host.len() as u32);
       let hash = buffer.group_key_hash;
-      if let Some((capacity, offset)) = alloc.get_region(hash) {
-        sub_list_infos.push(SubListHostInfo { capacity, offset });
-      } else {
-        sub_list_infos.push(SubListHostInfo {
-          capacity: 0,
-          offset: 0,
-        });
-      }
+      let (capacity, offset) = alloc.get_region(hash).unwrap();
+      sub_list_infos.push(SubListHostInfo { capacity, offset });
     }
     drop(alloc);
 
     let sum_all_count_host: u32 = groups.iter().map(|(_, buf)| buf.host.len() as u32).sum();
     let gpu = self.internal.pool.gpu();
-    let ranges_gpu = compute_gpu_sub_list_ranges(&sub_list_infos);
+    let ranges_gpu = prepare_gpu_sub_list_ranges(&sub_list_infos, &real_lengths);
     let sub_list_ranges = create_gpu_readonly_storage(ranges_gpu.as_slice(), gpu);
     let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, gpu);
 

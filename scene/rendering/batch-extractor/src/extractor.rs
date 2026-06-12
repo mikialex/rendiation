@@ -105,16 +105,28 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
     let mut changed_groups: Vec<(u64, bool, u32)> = Vec::new();
     let mut entity_writes: Vec<(u64, u32, u32)> = Vec::new();
 
+    let limits = &self.pool.gpu().info.supported_limits;
+    let min_size_round_up = limits
+      .min_storage_buffer_offset_alignment
+      .max(limits.min_uniform_buffer_offset_alignment)
+      / 4;
+
     for (key, s_id) in &changes_keys {
       let buffer = self.get_or_create(s_id, key);
       let hash = buffer.group_key_hash;
       let new_size = buffer.host.len() as u32;
-      let new_size_rounded = new_size.next_power_of_two();
-      let old_size = old_capacities.get(&hash).copied().unwrap_or(0);
-      let old_size_rounded = old_size.next_power_of_two();
+      let new_size_rounded = new_size.next_power_of_two().max(min_size_round_up);
+
+      let old_size = old_capacities.get(&hash).copied().unwrap();
+      // handle the edge case
+      if old_size == 0 && new_size_rounded > 0 {
+        changed_groups.push((hash, false, new_size_rounded));
+        continue;
+      }
+      let old_size_rounded = old_size.next_power_of_two().max(min_size_round_up);
 
       if old_size_rounded != new_size_rounded {
-        changed_groups.push((hash, old_size > 0, new_size_rounded));
+        changed_groups.push((hash, true, new_size_rounded));
       }
 
       // Collect entity writes
@@ -177,25 +189,21 @@ impl SceneBatchBasicExtractAbility for IncrementalDeviceSceneBatchExtractor<Scen
 
     let mut impl_select_ids = Vec::with_capacity(groups.len());
     let mut sub_list_infos = Vec::with_capacity(groups.len());
+    let mut real_lengths = Vec::with_capacity(groups.len());
 
     let alloc = self.pool.allocator.read();
     for (_key, buffer) in &groups {
       impl_select_ids.push(buffer.representative().unwrap());
+      real_lengths.push(buffer.host.len() as u32);
       let hash = buffer.group_key_hash;
-      if let Some((capacity, offset)) = alloc.get_region(hash) {
-        sub_list_infos.push(SubListHostInfo { capacity, offset });
-      } else {
-        sub_list_infos.push(SubListHostInfo {
-          capacity: 0,
-          offset: 0,
-        });
-      }
+      let (capacity, offset) = alloc.get_region(hash).unwrap();
+      sub_list_infos.push(SubListHostInfo { capacity, offset });
     }
     drop(alloc);
 
     let sum_all_count_host: u32 = groups.iter().map(|(_, buf)| buf.host.len() as u32).sum();
     let gpu = self.pool.gpu();
-    let ranges_gpu = compute_gpu_sub_list_ranges(&sub_list_infos);
+    let ranges_gpu = prepare_gpu_sub_list_ranges(&sub_list_infos, &real_lengths);
     let sub_list_ranges = create_gpu_readonly_storage(ranges_gpu.as_slice(), gpu);
     let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, gpu);
 

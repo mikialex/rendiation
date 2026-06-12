@@ -15,6 +15,7 @@ pub struct GrowableRangeAllocator<K: Copy + Eq + Hash> {
   ranges: FastHashMap<K, (u32, u32, AllocationHandle)>,
   // todo, try other allocator that support relocate and shrink??
   allocator: xalloc::SysTlsf<u32>,
+  alignment_require: u32,
   label: String,
 }
 
@@ -143,10 +144,11 @@ impl<K: Copy + Eq + Hash> BatchAllocateResult<K> {
 }
 
 impl<K: Copy + Eq + Hash> GrowableRangeAllocator<K> {
-  pub fn new(label: &str, max_item_count: u32, init_count: u32) -> Self {
+  pub fn new(label: &str, max_item_count: u32, init_count: u32, alignment_require: u32) -> Self {
     assert!(init_count <= max_item_count);
     Self {
       max_item_count,
+      alignment_require,
       current_count: init_count,
       used_count: 0,
       ranges: FastHashMap::with_capacity_and_hasher(init_count as usize, Default::default()),
@@ -224,7 +226,7 @@ impl<K: Copy + Eq + Hash> GrowableRangeAllocator<K> {
       // even if we relocate before, we have to loop relocate here to prevent
       // allocated failed due to fragmentation
       loop {
-        if let Some((token, offset)) = self.allocator.alloc(count) {
+        if let Some((token, offset)) = self.allocator.alloc_aligned(count, self.alignment_require) {
           self.used_count += count;
 
           result.new_data_to_write.insert(k, (offset, count));
@@ -274,7 +276,9 @@ impl<K: Copy + Eq + Hash> GrowableRangeAllocator<K> {
     results.resize_to = Some(new_size);
     self.allocator = xalloc::SysTlsf::new(new_size);
     for (k, (count, offset, token)) in self.ranges.iter_mut() {
-      if let Some((new_token, new_offset)) = self.allocator.alloc(*count) {
+      if let Some((new_token, new_offset)) =
+        self.allocator.alloc_aligned(*count, self.alignment_require)
+      {
         results.notify_data_move(
           *k,
           DataMoveMent {
@@ -291,7 +295,9 @@ impl<K: Copy + Eq + Hash> GrowableRangeAllocator<K> {
       }
     }
     for (k, (count, offset, token)) in new_inserted.iter_mut() {
-      if let Some((new_token, new_offset)) = self.allocator.alloc(*count) {
+      if let Some((new_token, new_offset)) =
+        self.allocator.alloc_aligned(*count, self.alignment_require)
+      {
         results.new_data_to_write.insert(*k, (new_offset, *count));
 
         *token = new_token;

@@ -54,20 +54,32 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
     let model_counts: usize = classified.iter().map(|(_, list)| list.len()).sum();
     let mut models = Vec::with_capacity(model_counts);
     let mut list_info = Vec::with_capacity(classified.len());
+    let mut real_lengths = Vec::with_capacity(classified.len());
+
+    let limits = &self.gpu.info.supported_limits;
+    let align = limits
+      .min_storage_buffer_offset_alignment
+      .max(limits.min_uniform_buffer_offset_alignment)
+      / 4;
+
+    fn round_up(value: u32, alignment: u32) -> u32 {
+      (value + alignment - 1) / alignment * alignment
+    }
 
     let mut impl_select_ids = Vec::with_capacity(classified.len());
     for (_, list) in &classified {
       let offset = models.len() as u32;
       impl_select_ids.push(*list.first().unwrap());
+      real_lengths.push(list.len() as u32);
       list_info.push(SubListHostInfo {
-        capacity: list.len() as u32,
+        capacity: round_up(list.len() as u32, align),
         offset,
       });
       models.extend(list.iter().map(|sm| sm.alloc_index()));
     }
 
     let scene_model_id_pool = create_gpu_readonly_storage(models.as_slice(), &self.gpu);
-    let sub_list_ranges_gpu = compute_gpu_sub_list_ranges(&list_info);
+    let sub_list_ranges_gpu = prepare_gpu_sub_list_ranges(&list_info, real_lengths.as_slice());
     let sub_list_ranges = create_gpu_readonly_storage(sub_list_ranges_gpu.as_slice(), &self.gpu);
     let sum_all_count_host = model_counts as u32;
     let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, &self.gpu);

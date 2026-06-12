@@ -16,7 +16,7 @@ impl DeviceDrawList {
     let gpu = cx.gpu.clone();
 
     let (cx, target_state) = cx.use_plain_state_default::<Option<DeviceDrawList>>();
-    let target = self.create_or_update_compact_write_target(
+    let target = self.create_or_update_compact_culling_write_target(
       &gpu,
       target_state,
       &self.dispatch_info.sub_list_infos,

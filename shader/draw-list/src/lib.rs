@@ -33,14 +33,19 @@ pub struct SubListHostInfo {
   pub offset: u32,
 }
 
-pub fn compute_gpu_sub_list_ranges(sub_list_infos: &[SubListHostInfo]) -> Vec<Vec4<u32>> {
+pub fn prepare_gpu_sub_list_ranges(
+  sub_list_infos: &[SubListHostInfo],
+  real_length: &[u32],
+) -> Vec<Vec4<u32>> {
+  assert_eq!(sub_list_infos.len(), real_length.len());
   let sub_count = sub_list_infos.len();
-  let mut offset = 0u32;
+  let mut prefix_sum = 0u32;
   let mut ranges = Vec::with_capacity(sub_count);
-  for info in sub_list_infos.iter() {
-    // prefix sum is equal to offset in this case
-    ranges.push(Vec4::new(offset, info.capacity, offset, 0));
-    offset += info.capacity;
+  for (info, &length) in sub_list_infos.iter().zip(real_length.iter()) {
+    assert!(info.capacity >= length);
+
+    ranges.push(Vec4::new(info.offset, length, prefix_sum, 0));
+    prefix_sum += length;
   }
   ranges
 }
@@ -49,12 +54,14 @@ impl DeviceDrawList {
   /// Creates (or reuses from cache) a DeviceDrawList with pre-allocated output buffers sized
   /// according to per-sub-list capacities. The sub_list_ranges are initialized with zero counts;
   /// the GPU fills in actual survival counts during culling.
-  pub fn create_or_update_compact_write_target<'a>(
+  pub(crate) fn create_or_update_compact_culling_write_target<'a>(
     &self,
     gpu: &GPU,
     cached: &'a mut Option<Self>,
     sub_list_infos: &[SubListHostInfo],
   ) -> &'a Self {
+    // we do not do any storage buffer binding alignment here because
+    // we assume the input list's offset has correctly aligned and capacity has round up
     let total_capacity: u32 = sub_list_infos.iter().map(|info| info.capacity).sum();
 
     // Reuse cached target if the total capacity matches.
@@ -63,8 +70,9 @@ impl DeviceDrawList {
       None => true,
     };
 
-    // the real count and offsets may be override by compute shader write
-    let ranges_init = compute_gpu_sub_list_ranges(sub_list_infos);
+    // the real count and offsets are override by compute shader write
+    let length = vec![0_u32; sub_list_infos.len()];
+    let ranges_init = prepare_gpu_sub_list_ranges(sub_list_infos, &length);
     if needs_create {
       let sub_list_ranges = StorageBufferReadonlyDataView::create_by_with_extra_usage(
         gpu.device.as_ref(),

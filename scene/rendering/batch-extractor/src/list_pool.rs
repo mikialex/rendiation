@@ -31,12 +31,19 @@ impl SceneModelListPool {
       Some("scene_model_pool"),
     );
 
+    let limits = &gpu.info.supported_limits;
+    let bind_alignment_requirement_in_u32 = limits
+      .min_storage_buffer_offset_alignment
+      .max(limits.min_uniform_buffer_offset_alignment)
+      / 4;
+
     Self {
       pool_buffer,
       allocator: Arc::new(RwLock::new(GrowableRangeAllocator::new(
         "scene_model_pool",
         u32::MAX,
         init_capacity,
+        bind_alignment_requirement_in_u32,
       ))),
       gpu: gpu.clone(),
     }
