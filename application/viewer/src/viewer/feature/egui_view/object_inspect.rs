@@ -52,7 +52,7 @@ pub fn inspect_selected(
         c.width = None;
       }
       if let Some(width) = &mut c.width {
-        ui.add(egui::Slider::new(width, 0.0..=100.0).text("width"));
+        ui.add(egui::Slider::new(width, 0.0..=200.0).text("width"));
       }
 
       egui::ComboBox::from_label("alignment")
