@@ -85,20 +85,21 @@ impl PersistSceneModelListBuffer {
       .get_or_insert_with(|| PersistSceneModelListBufferMutation::new(self.host.len()));
 
     let idx = self.mapping.remove(&sm_handle).unwrap();
-    if self.host.len() > 1 {
-      if let Some(tail_item) = self.host.last().cloned() {
-        self.host.swap_remove(idx);
-        self.mapping.insert(tail_item, idx);
+    let old_last_idx = self.host.len() - 1;
+    if idx != old_last_idx {
+      // The removed element was not the last; swap the tail into its place.
+      let tail_item = self.host.last().cloned().unwrap();
+      self.host.swap_remove(idx);
+      self.mapping.insert(tail_item, idx);
 
-        mutations.mapping_change.remove(&self.host.len());
-        mutations
-          .mapping_change
-          .insert(idx, tail_item.alloc_index());
-      }
+      mutations.mapping_change.remove(&old_last_idx);
+      mutations
+        .mapping_change
+        .insert(idx, tail_item.alloc_index());
     } else {
-      assert_eq!(idx, 0);
+      // Removing the last element — just pop, no swap needed.
       self.host.pop();
-      mutations.mapping_change.remove(&0);
+      mutations.mapping_change.remove(&idx);
     }
 
     mutations.new_len = self.host.len();
