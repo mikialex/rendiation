@@ -11,6 +11,10 @@ pub use host_driven::*;
 only_vertex!(VertexIndexForMIDCDowngrade, u32);
 only_vertex!(VertexIndexForMIDCDowngradeRelative, u32);
 
+fn round_up(value: u32, alignment: u32) -> u32 {
+  (value + alignment - 1) / alignment * alignment
+}
+
 pub fn require_midc_downgrade(info: &GPUInfo, force_downgrade: bool) -> bool {
   if force_downgrade {
     return true;
@@ -56,11 +60,32 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
 
   let global_excl = scan_result.buffer;
 
+  // ---- Compute alignment and padded strides ----
+  let limits = &cx.gpu.info.supported_limits;
+  let align_bytes = limits.min_storage_buffer_offset_alignment as u64;
+  let stride_u32 = (align_bytes / 4) as u32;
+
+  let mut padded_stride_info_vec = Vec::with_capacity(num_sub_lists as usize + 1);
+  padded_stride_info_vec.push(stride_u32); // index 0 = count stride
+  let mut total_padded_entries: u32 = 0;
+  for info in &input.list_info.sub_list_infos {
+    let padded = round_up(info.capacity + 1, stride_u32);
+    padded_stride_info_vec.push(padded);
+    total_padded_entries += padded;
+  }
+  let padded_stride_info = create_gpu_readonly_storage(padded_stride_info_vec.as_slice(), &cx.gpu);
+
   // ---- Allocate flat output buffers ----
   // Per-sub-list relative exclusive prefix sums: each sub-list gets capacity_i + 1 entries
-  let total_prefix_entries = total_capacity + num_sub_lists;
+  // followed by padding zeros to satisfy storage buffer offset alignment.
   let per_sub_prefix_flat: StorageBufferDataView<[u32]> = create_gpu_read_write_storage(
-    ZeroedArrayByArrayLength(total_prefix_entries as usize),
+    ZeroedArrayByArrayLength(total_padded_entries as usize),
+    &cx.gpu,
+  );
+
+  // Aligned per-sub-list draw counts: each count occupies one u32 at a stride_u32-aligned offset.
+  let aligned_counts: StorageBufferDataView<[u32]> = create_gpu_read_write_storage(
+    ZeroedArrayByArrayLength(num_sub_lists as usize * stride_u32 as usize),
     &cx.gpu,
   );
 
@@ -127,6 +152,8 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
       let sum_all = builder.bind_by(&input.list_info.sum_all_count).load();
       let output_prefix = builder.bind_by(&per_sub_prefix_flat);
       let output_indirect = builder.bind_by(&per_sub_indirect_flat);
+      let padded_stride_info = builder.bind_by(&padded_stride_info);
+      let aligned_counts = builder.bind_by(&aligned_counts);
 
       let dispatch_thread_id = builder.global_invocation_id().x();
       let sub_list_count = sub_list_ranges.array_length();
@@ -172,8 +199,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
           let c = counter.load();
           let done = c.greater_equal_than(list_idx);
           if_by(done, || cx.do_break());
-          let prev = sub_list_ranges.index(c).load();
-          prefix_base.store(prefix_base.load() + prev.y() + val(1u32));
+          prefix_base.store(prefix_base.load() + padded_stride_info.index(c + val(1u32)).load());
           counter.store(c + val(1u32));
         });
 
@@ -206,6 +232,9 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
         let i = phase_b_id;
         let range = sub_list_ranges.index(i).load();
         let capacity_i = range.y();
+        // Store the per-sub-list draw count into the aligned counts buffer
+        let count_stride = padded_stride_info.index(val(0u32)).load();
+        aligned_counts.index(i * count_stride).store(capacity_i);
         let has_draws = capacity_i.greater_than(val(0u32));
         if_by(has_draws, || {
           let seg_start = range.z();
@@ -234,6 +263,8 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
       .with_bind(&input.list_info.sum_all_count)
       .with_bind(&per_sub_prefix_flat)
       .with_bind(&per_sub_indirect_flat)
+      .with_bind(&padded_stride_info)
+      .with_bind(&aligned_counts)
       .setup_compute_pass(pass, device, &pipeline);
 
     pass.dispatch_workgroups_indirect_by_buffer_resource_view(&dispatch_indirect_view);
@@ -242,25 +273,28 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
   // ---- Build per-sub-list helpers and draw commands ----
   let mut prefix_offsets = Vec::with_capacity(num_sub_lists as usize);
   let mut running = 0u32;
-  for info in &input.list_info.sub_list_infos {
+  for i in 0..num_sub_lists as usize {
     prefix_offsets.push(running);
-    running += info.capacity + 1;
+    running += padded_stride_info_vec[1 + i];
   }
 
   let prefix_buffer_resource = &per_sub_prefix_flat.gpu.resource;
 
   let mut results = Vec::with_capacity(num_sub_lists as usize);
   for (i, info) in input.list_info.sub_list_infos.iter().enumerate() {
-    // Create count view: slice the y field from sub_list_ranges[i]
-    let ranges_buffer = &input.list_info.sub_list_ranges;
-    let count_view = ranges_buffer.resource.create_view(GPUBufferViewRange {
-      offset: 16 * i as u64 + 4, // y field = bytes 4-7 of Vec4<u32>
+    // Create count view: each count is at aligned offset i * align_bytes in the aligned_counts buffer
+    let count_offset = i as u64 * align_bytes;
+    debug_assert!(count_offset.is_multiple_of(align_bytes));
+    let count_view = aligned_counts.gpu.resource.create_view(GPUBufferViewRange {
+      offset: count_offset,
       size: std::num::NonZeroU64::new(4).into(),
     });
 
-    // Create prefix sum view: slice the flat prefix buffer
+    // Create prefix sum view: slice the flat prefix buffer at the padded offset
+    let offset = prefix_offsets[i] as u64 * 4; // 4 bytes per u32;
+    debug_assert!(offset.is_multiple_of(align_bytes));
     let prefix_view = prefix_buffer_resource.create_view(GPUBufferViewRange {
-      offset: prefix_offsets[i] as u64 * 4, // 4 bytes per u32
+      offset,
       size: std::num::NonZeroU64::new((info.capacity + 1) as u64 * 4).into(),
     });
     let prefix_abstract: AbstractReadonlyStorageBuffer<[u32]> =
@@ -275,7 +309,8 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
         .into();
 
     // Create command pool slice view for this sub-list
-    let cmd_view = create_command_pool_slice_view(&input.command_pool, info.offset, info.capacity);
+    let cmd_view =
+      create_command_pool_slice_view(&input.command_pool, info.offset, info.capacity, align_bytes);
 
     let draw_commands = match &input.command_pool {
       StorageDrawCommands::Indexed(_) => {
@@ -440,6 +475,7 @@ fn create_command_pool_slice_view(
   pool: &StorageDrawCommands,
   offset: u32,
   count: u32,
+  align_check: u64,
 ) -> GPUBufferResourceView {
   let item_size = match pool {
     StorageDrawCommands::Indexed(_) => std::mem::size_of::<DrawIndexedIndirectArgsStorage>(),
@@ -447,8 +483,12 @@ fn create_command_pool_slice_view(
   } as u64;
 
   let raw_view = pool.indirect_buffer();
+
+  let offset = offset as u64 * item_size;
+  debug_assert!(offset.is_multiple_of(align_check));
+
   raw_view.resource.create_view(GPUBufferViewRange {
-    offset: offset as u64 * item_size,
+    offset,
     size: std::num::NonZeroU64::new(count as u64 * item_size).into(),
   })
 }

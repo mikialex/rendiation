@@ -140,7 +140,7 @@ pub fn use_and_create_default_indirect_draw_provider(
 
       let command_pool_ro = draw_command_buffer.into_readonly_view();
       let counts_views = list.create_indirect_count_views();
-      let cmd_views = create_pool_views(command_pool_ro.clone(), &output_ranges_host);
+      let cmd_views = create_pool_views(&cx.gpu, command_pool_ro.clone(), &output_ranges_host);
 
       if enable_midc_downgrade {
         let command_pool = StorageDrawCommands::Indexed(command_pool_ro.into());
@@ -242,7 +242,7 @@ pub fn use_and_create_default_indirect_draw_provider(
 
       let command_pool_ro = draw_command_buffer.into_readonly_view();
       let counts_views = list.create_indirect_count_views();
-      let cmd_views = create_pool_views(command_pool_ro.clone(), &output_ranges_host);
+      let cmd_views = create_pool_views(&cx.gpu, command_pool_ro.clone(), &output_ranges_host);
 
       if enable_midc_downgrade {
         let command_pool = StorageDrawCommands::NoneIndexed(command_pool_ro.into());
@@ -295,14 +295,22 @@ pub fn use_and_create_default_indirect_draw_provider(
 /// reference part of the address space. so the offset should be compted
 /// based on the sub-lists offset
 fn create_pool_views<T: Std430>(
+  gpu: &GPU,
   pool: StorageBufferReadonlyDataView<[T]>,
   offset_count: &[Vec2<u32>],
 ) -> Vec<GPUBufferResourceView> {
+  let align = gpu
+    .info
+    .supported_limits
+    .min_storage_buffer_offset_alignment as u64;
+
   let mut cmd_views = Vec::with_capacity(offset_count.len());
   for offset_count in offset_count {
     let item_size = std::mem::size_of::<T>() as u64;
+    let offset = offset_count.x() as u64 * item_size;
+    assert!(offset.is_multiple_of(align));
     let view = pool.gpu.resource.create_view(GPUBufferViewRange {
-      offset: offset_count.x() as u64 * item_size,
+      offset,
       size: std::num::NonZeroU64::new(offset_count.y() as u64 * item_size).into(),
     });
     cmd_views.push(view);
