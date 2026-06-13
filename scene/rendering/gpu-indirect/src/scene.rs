@@ -308,9 +308,7 @@ fn compute_selected_sub_list_dispatch_info(
   );
 
   cx.record_pass(|pass, device| {
-    let mut hasher = PipelineHasher::default();
-    "compute_selected_sub_list_dispatch_info".hash(&mut hasher);
-
+    let hasher = shader_hasher_from_marker_ty!(ComputeSelectedSubListDispatchInfo);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
       builder.config_work_group_size(1);
 
