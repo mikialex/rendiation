@@ -131,7 +131,7 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
     groups.sort_by_key(|(k, _)| k.layer as u32);
 
     let mut impl_select_ids = Vec::with_capacity(groups.len());
-    let mut sub_list_infos = Vec::with_capacity(groups.len());
+    let mut capacity_ranges = Vec::with_capacity(groups.len());
     let mut real_lengths = Vec::with_capacity(groups.len());
 
     let alloc = self.internal.pool.allocator.read();
@@ -140,22 +140,22 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
       real_lengths.push(buffer.host.len() as u32);
       let hash = buffer.group_key_hash;
       let (capacity, offset) = alloc.get_region(hash).unwrap();
-      sub_list_infos.push(SubListHostInfo { capacity, offset });
+      capacity_ranges.push(CapacityRange { capacity, offset });
     }
     drop(alloc);
 
     let sum_all_count_host: u32 = groups.iter().map(|(_, buf)| buf.host.len() as u32).sum();
     let gpu = self.internal.pool.gpu();
-    let ranges_gpu = prepare_gpu_sub_list_ranges(&sub_list_infos, &real_lengths);
+    let ranges_gpu = prepare_gpu_sub_list_ranges(&capacity_ranges, &real_lengths);
     let sub_list_ranges = create_gpu_readonly_storage(ranges_gpu.as_slice(), gpu);
     let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, gpu);
 
     let draw_list = DeviceDrawList {
-      scene_model_id_pool: self.internal.pool.pool_buffer_readonly(),
+      id_pool: self.internal.pool.pool_buffer_readonly(),
       dispatch_info: MultiRangeDispatchInfo {
         sub_list_ranges,
         sum_all_count,
-        sub_list_infos,
+        host_capacity_ranges: capacity_ranges,
         sum_all_count_host,
       },
     };

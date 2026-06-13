@@ -11,29 +11,44 @@ fn build_test_draw_list(gpu: &GPU) -> DeviceDrawList {
   let model_ids: Vec<u32> = vec![10, 20, 30, 40, 50, 60, 70];
   let scene_model_id_pool = create_gpu_readonly_storage(model_ids.as_slice(), gpu);
 
-  let ranges_vec: Vec<Vec4<u32>> = vec![
-    Vec4::new(0, 2, 0, 0), // sub-list 0: offset=0, count=2, prefix_sum=0
-    Vec4::new(2, 3, 2, 0), // sub-list 1: offset=2, count=3, prefix_sum=2
-    Vec4::new(5, 2, 5, 0), // sub-list 2: offset=5, count=2, prefix_sum=5
+  let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 3,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 2,
+      count_prefix_sum: 5,
+      ..Zeroable::zeroed()
+    },
   ];
   let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
   let sum_all_count = create_gpu_readonly_storage(&7u32, gpu);
 
   DeviceDrawList {
-    scene_model_id_pool,
+    id_pool: scene_model_id_pool,
     dispatch_info: MultiRangeDispatchInfo {
       sub_list_ranges,
       sum_all_count,
-      sub_list_infos: vec![
-        SubListHostInfo {
+      host_capacity_ranges: vec![
+        CapacityRange {
           capacity: 2,
           offset: 0,
         },
-        SubListHostInfo {
+        CapacityRange {
           capacity: 3,
           offset: 2,
         },
-        SubListHostInfo {
+        CapacityRange {
           capacity: 2,
           offset: 5,
         },
@@ -72,14 +87,14 @@ async fn read_storage_u32(
   <[u32]>::from_bytes_into_boxed(&fut.await.unwrap().read_raw()).into_vec()
 }
 
-async fn read_storage_vec4_u32(
+async fn read_storage_sub_list_range_info(
   cx: &mut DeviceParallelComputeCtx<'_>,
-  buffer: &StorageBufferReadonlyDataView<[Vec4<u32>]>,
-) -> Vec<Vec4<u32>> {
+  buffer: &StorageBufferReadonlyDataView<[StorageSubListRangeInfo]>,
+) -> Vec<StorageSubListRangeInfo> {
   cx.flush_pass();
   let fut = cx.encoder.read_buffer(&cx.gpu.device, &buffer.gpu);
   cx.submit_recorded_work_and_continue();
-  <[Vec4<u32>]>::from_bytes_into_boxed(&fut.await.unwrap().read_raw()).into_vec()
+  <[StorageSubListRangeInfo]>::from_bytes_into_boxed(&fut.await.unwrap().read_raw()).into_vec()
 }
 
 async fn read_storage_scalar_u32(
@@ -124,18 +139,46 @@ async fn test_draw_list_culling_noop() {
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
 
   // All 7 elements should survive.
-  let pool = read_storage_u32(&mut cx, &result.scene_model_id_pool).await;
+  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(
     pool,
     vec![10, 20, 30, 40, 50, 60, 70],
     "NoopCuller: all elements should survive"
   );
 
-  let ranges = read_storage_vec4_u32(&mut cx, &result.dispatch_info.sub_list_ranges).await;
+  let ranges =
+    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
   assert_eq!(ranges.len(), 3);
-  assert_eq!(ranges[0], Vec4::new(0, 2, 0, 0), "sub-list 0 ranges");
-  assert_eq!(ranges[1], Vec4::new(2, 3, 2, 0), "sub-list 1 ranges");
-  assert_eq!(ranges[2], Vec4::new(5, 2, 5, 0), "sub-list 2 ranges");
+  assert_eq!(
+    ranges[0],
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 0 ranges"
+  );
+  assert_eq!(
+    ranges[1],
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 3,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 1 ranges"
+  );
+  assert_eq!(
+    ranges[2],
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 2,
+      count_prefix_sum: 5,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 2 ranges"
+  );
 
   let total = read_storage_scalar_u32(&mut cx, &result.dispatch_info.sum_all_count).await;
   assert_eq!(total, 7, "total survivor count");
@@ -155,7 +198,7 @@ async fn test_draw_list_culling_partial() {
   // Sub-list 0: [10, 20] → both survive → count=2
   // Sub-list 1: [30, 40, 50] → 30, 40 survive → count=2
   // Sub-list 2: [60, 70] → both culled → count=0
-  let pool = read_storage_u32(&mut cx, &result.scene_model_id_pool).await;
+  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   // The surviving elements are packed at the beginning of each sub-list's region.
   // Zeros fill the unused capacity space.
   assert_eq!(pool[0], 10);
@@ -165,21 +208,37 @@ async fn test_draw_list_culling_partial() {
   // pool[4..7] are garbage/unused in sub-list 1's remaining capacity and sub-list 2's region
   assert_eq!(pool.len(), 7);
 
-  let ranges = read_storage_vec4_u32(&mut cx, &result.dispatch_info.sub_list_ranges).await;
+  let ranges =
+    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
   assert_eq!(ranges.len(), 3);
   assert_eq!(
     ranges[0],
-    Vec4::new(0, 2, 0, 0),
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
     "sub-list 0: offset=0, count=2, excl=0"
   );
   assert_eq!(
     ranges[1],
-    Vec4::new(2, 2, 2, 0),
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 2,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
     "sub-list 1: offset=2, count=2, excl=2"
   );
   assert_eq!(
     ranges[2],
-    Vec4::new(5, 0, 4, 0),
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 0,
+      count_prefix_sum: 4,
+      ..Zeroable::zeroed()
+    },
     "sub-list 2: offset=5, count=0, excl=4"
   );
 
@@ -206,31 +265,46 @@ fn build_test_draw_list_with_empty_first_sub_list(gpu: &GPU) -> DeviceDrawList {
   let model_ids: Vec<u32> = vec![0, 0, 30, 40, 0, 60, 70];
   let scene_model_id_pool = create_gpu_readonly_storage(model_ids.as_slice(), gpu);
 
-  let ranges_vec: Vec<Vec4<u32>> = vec![
-    Vec4::new(0, 0, 0, 0), // sub-list 0: offset=0, count=0, prefix_sum=0
-    Vec4::new(2, 2, 0, 0), // sub-list 1: offset=2, count=2, prefix_sum=0
-    Vec4::new(5, 2, 2, 0), // sub-list 2: offset=5, count=2, prefix_sum=2
+  let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 0,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    }, // sub-list 0: offset=0, count=0, prefix_sum=0
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    }, // sub-list 1: offset=2, count=2, prefix_sum=0
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 2,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    }, // sub-list 2: offset=5, count=2, prefix_sum=2
   ];
   let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
   let sum_all_count = create_gpu_readonly_storage(&4u32, gpu);
 
   DeviceDrawList {
-    scene_model_id_pool,
+    id_pool: scene_model_id_pool,
     dispatch_info: MultiRangeDispatchInfo {
       sub_list_ranges,
       sum_all_count,
       // Capacities must match the original capacities (see build_test_draw_list),
       // not the current survivor counts — offsets are derived from original capacities.
-      sub_list_infos: vec![
-        SubListHostInfo {
+      host_capacity_ranges: vec![
+        CapacityRange {
           capacity: 2,
           offset: 0,
         },
-        SubListHostInfo {
+        CapacityRange {
           capacity: 3,
           offset: 2,
         },
-        SubListHostInfo {
+        CapacityRange {
           capacity: 2,
           offset: 5,
         },
@@ -251,7 +325,7 @@ async fn test_draw_list_culling_empty_first_sub_list_noop() {
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
 
   // All 4 elements should survive: 30, 40, 60, 70
-  let pool = read_storage_u32(&mut cx, &result.scene_model_id_pool).await;
+  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 7, "pool capacity should be 7 (2+3+2)");
   // Survivors packed into their sub-list regions:
   // Sub-list 0: empty → pool[0], pool[1] unused
@@ -262,17 +336,37 @@ async fn test_draw_list_culling_empty_first_sub_list_noop() {
   assert_eq!(pool[5], 60, "sub-list 2 first survivor");
   assert_eq!(pool[6], 70, "sub-list 2 second survivor");
 
-  let ranges = read_storage_vec4_u32(&mut cx, &result.dispatch_info.sub_list_ranges).await;
+  let ranges =
+    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
   assert_eq!(ranges.len(), 3);
-  assert_eq!(ranges[0], Vec4::new(0, 0, 0, 0), "sub-list 0 remains empty");
+  assert_eq!(
+    ranges[0],
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 0,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 0 remains empty"
+  );
   assert_eq!(
     ranges[1],
-    Vec4::new(2, 2, 0, 0),
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
     "sub-list 1: offset=2, 2 survivors, excl=0"
   );
   assert_eq!(
     ranges[2],
-    Vec4::new(5, 2, 2, 0),
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 2,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
     "sub-list 2: offset=5, 2 survivors, excl=2"
   );
 
@@ -293,7 +387,7 @@ async fn test_draw_list_culling_empty_first_sub_list_partial() {
   // Survivors: 30, 40 from sub-list 1; sub-list 2 becomes empty.
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler {}));
 
-  let pool = read_storage_u32(&mut cx, &result.scene_model_id_pool).await;
+  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 7);
   // Sub-list 1: [30, 40] at pool[2], pool[3]
   assert_eq!(pool[2], 30);
@@ -302,13 +396,37 @@ async fn test_draw_list_culling_empty_first_sub_list_partial() {
   assert_eq!(pool[5], 0, "sub-list 2 first slot should be empty");
   assert_eq!(pool[6], 0, "sub-list 2 second slot should be empty");
 
-  let ranges = read_storage_vec4_u32(&mut cx, &result.dispatch_info.sub_list_ranges).await;
+  let ranges =
+    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
   assert_eq!(ranges.len(), 3);
-  assert_eq!(ranges[0], Vec4::new(0, 0, 0, 0), "sub-list 0 still empty");
-  assert_eq!(ranges[1], Vec4::new(2, 2, 0, 0), "sub-list 1: 2 survivors");
+  assert_eq!(
+    ranges[0],
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 0,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 0 still empty"
+  );
+  assert_eq!(
+    ranges[1],
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 1: 2 survivors"
+  );
   assert_eq!(
     ranges[2],
-    Vec4::new(5, 0, 2, 0),
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 0,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
     "sub-list 2: 0 survivors, excl=2"
   );
 
@@ -330,29 +448,44 @@ fn build_test_draw_list_with_two_empty_first_sub_lists(gpu: &GPU) -> DeviceDrawL
   let model_ids: Vec<u32> = vec![0, 0, 0, 0, 0, 60, 70];
   let scene_model_id_pool = create_gpu_readonly_storage(model_ids.as_slice(), gpu);
 
-  let ranges_vec: Vec<Vec4<u32>> = vec![
-    Vec4::new(0, 0, 0, 0), // sub-list 0: empty
-    Vec4::new(2, 0, 0, 0), // sub-list 1: empty, z still 0 (no preceding elements contributed)
-    Vec4::new(5, 2, 0, 0), // sub-list 2: offset=5, count=2, z=0 (no preceding elements)
+  let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 0,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    }, // sub-list 0: empty
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 0,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    }, // sub-list 1: empty, z still 0 (no preceding elements contributed)
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    }, // sub-list 2: offset=5, count=2, z=0 (no preceding elements)
   ];
   let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
   let sum_all_count = create_gpu_readonly_storage(&2u32, gpu);
 
   DeviceDrawList {
-    scene_model_id_pool,
+    id_pool: scene_model_id_pool,
     dispatch_info: MultiRangeDispatchInfo {
       sub_list_ranges,
       sum_all_count,
-      sub_list_infos: vec![
-        SubListHostInfo {
+      host_capacity_ranges: vec![
+        CapacityRange {
           capacity: 2,
           offset: 0,
         },
-        SubListHostInfo {
+        CapacityRange {
           capacity: 3,
           offset: 2,
         },
-        SubListHostInfo {
+        CapacityRange {
           capacity: 2,
           offset: 5,
         },
@@ -373,7 +506,7 @@ async fn test_draw_list_culling_two_empty_first_sub_lists_noop() {
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
 
   // Only 2 elements survive: 60, 70
-  let pool = read_storage_u32(&mut cx, &result.scene_model_id_pool).await;
+  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 7);
   // Sub-list 0: empty — pool[0], pool[1] unused
   // Sub-list 1: empty — pool[2..4] unused
@@ -381,13 +514,37 @@ async fn test_draw_list_culling_two_empty_first_sub_lists_noop() {
   assert_eq!(pool[5], 60, "sub-list 2 first survivor");
   assert_eq!(pool[6], 70, "sub-list 2 second survivor");
 
-  let ranges = read_storage_vec4_u32(&mut cx, &result.dispatch_info.sub_list_ranges).await;
+  let ranges =
+    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
   assert_eq!(ranges.len(), 3);
-  assert_eq!(ranges[0], Vec4::new(0, 0, 0, 0), "sub-list 0 remains empty");
-  assert_eq!(ranges[1], Vec4::new(2, 0, 0, 0), "sub-list 1 remains empty");
+  assert_eq!(
+    ranges[0],
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 0,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 0 remains empty"
+  );
+  assert_eq!(
+    ranges[1],
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 0,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 1 remains empty"
+  );
   assert_eq!(
     ranges[2],
-    Vec4::new(5, 2, 0, 0),
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
     "sub-list 2: offset=5, 2 survivors, excl=0"
   );
 
@@ -408,19 +565,43 @@ async fn test_draw_list_culling_two_empty_first_sub_lists_partial() {
   // Result: all sub-lists become empty.
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler {}));
 
-  let pool = read_storage_u32(&mut cx, &result.scene_model_id_pool).await;
+  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 7);
   // Sub-list 2: both culled → pool[5], pool[6] remain zero
   assert_eq!(pool[5], 0, "sub-list 2 first slot should be empty");
   assert_eq!(pool[6], 0, "sub-list 2 second slot should be empty");
 
-  let ranges = read_storage_vec4_u32(&mut cx, &result.dispatch_info.sub_list_ranges).await;
+  let ranges =
+    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
   assert_eq!(ranges.len(), 3);
-  assert_eq!(ranges[0], Vec4::new(0, 0, 0, 0), "sub-list 0 empty");
-  assert_eq!(ranges[1], Vec4::new(2, 0, 0, 0), "sub-list 1 empty");
+  assert_eq!(
+    ranges[0],
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 0,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 0 empty"
+  );
+  assert_eq!(
+    ranges[1],
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 0,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 1 empty"
+  );
   assert_eq!(
     ranges[2],
-    Vec4::new(5, 0, 0, 0),
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 0,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
     "sub-list 2: 0 survivors, excl still 0 (all preceding empty + current empty)"
   );
 
@@ -442,29 +623,44 @@ fn build_test_draw_list_with_empty_middle_sub_list(gpu: &GPU) -> DeviceDrawList 
   let model_ids: Vec<u32> = vec![10, 20, 0, 0, 0, 60, 70];
   let scene_model_id_pool = create_gpu_readonly_storage(model_ids.as_slice(), gpu);
 
-  let ranges_vec: Vec<Vec4<u32>> = vec![
-    Vec4::new(0, 2, 0, 0), // sub-list 0: offset=0, count=2, prefix_sum=0
-    Vec4::new(2, 0, 2, 0), // sub-list 1: empty, z=2 (>0, guard won't trigger)
-    Vec4::new(5, 2, 2, 0), // sub-list 2: offset=5, count=2, prefix_sum=2
+  let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    }, // sub-list 0: offset=0, count=2, prefix_sum=0
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 0,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    }, // sub-list 1: empty, z=2 (>0, guard won't trigger)
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 2,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    }, // sub-list 2: offset=5, count=2, prefix_sum=2
   ];
   let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
   let sum_all_count = create_gpu_readonly_storage(&4u32, gpu);
 
   DeviceDrawList {
-    scene_model_id_pool,
+    id_pool: scene_model_id_pool,
     dispatch_info: MultiRangeDispatchInfo {
       sub_list_ranges,
       sum_all_count,
-      sub_list_infos: vec![
-        SubListHostInfo {
+      host_capacity_ranges: vec![
+        CapacityRange {
           capacity: 2,
           offset: 0,
         },
-        SubListHostInfo {
+        CapacityRange {
           capacity: 3,
           offset: 2,
         },
-        SubListHostInfo {
+        CapacityRange {
           capacity: 2,
           offset: 5,
         },
@@ -485,7 +681,7 @@ async fn test_draw_list_culling_empty_middle_sub_list_noop() {
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
 
   // 4 survivors: 10, 20, 60, 70
-  let pool = read_storage_u32(&mut cx, &result.scene_model_id_pool).await;
+  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 7);
   // Sub-list 0: [10, 20] at pool[0], pool[1]
   assert_eq!(pool[0], 10);
@@ -495,17 +691,37 @@ async fn test_draw_list_culling_empty_middle_sub_list_noop() {
   assert_eq!(pool[5], 60);
   assert_eq!(pool[6], 70);
 
-  let ranges = read_storage_vec4_u32(&mut cx, &result.dispatch_info.sub_list_ranges).await;
+  let ranges =
+    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
   assert_eq!(ranges.len(), 3);
-  assert_eq!(ranges[0], Vec4::new(0, 2, 0, 0), "sub-list 0: 2 survivors");
+  assert_eq!(
+    ranges[0],
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 0: 2 survivors"
+  );
   assert_eq!(
     ranges[1],
-    Vec4::new(2, 0, 2, 0),
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 0,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
     "sub-list 1: still empty, excl=2"
   );
   assert_eq!(
     ranges[2],
-    Vec4::new(5, 2, 2, 0),
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 2,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
     "sub-list 2: 2 survivors, excl=2"
   );
 
@@ -526,7 +742,7 @@ async fn test_draw_list_culling_empty_middle_sub_list_partial() {
   // Survivors: 10, 20 from sub-list 0; sub-list 1 already empty; sub-list 2 becomes empty.
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler {}));
 
-  let pool = read_storage_u32(&mut cx, &result.scene_model_id_pool).await;
+  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 7);
   assert_eq!(pool[0], 10);
   assert_eq!(pool[1], 20);
@@ -534,13 +750,37 @@ async fn test_draw_list_culling_empty_middle_sub_list_partial() {
   assert_eq!(pool[5], 0);
   assert_eq!(pool[6], 0);
 
-  let ranges = read_storage_vec4_u32(&mut cx, &result.dispatch_info.sub_list_ranges).await;
+  let ranges =
+    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
   assert_eq!(ranges.len(), 3);
-  assert_eq!(ranges[0], Vec4::new(0, 2, 0, 0), "sub-list 0: 2 survivors");
-  assert_eq!(ranges[1], Vec4::new(2, 0, 2, 0), "sub-list 1: still empty");
+  assert_eq!(
+    ranges[0],
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 0: 2 survivors"
+  );
+  assert_eq!(
+    ranges[1],
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 0,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 1: still empty"
+  );
   assert_eq!(
     ranges[2],
-    Vec4::new(5, 0, 2, 0),
+    StorageSubListRangeInfo {
+      offset: 5,
+      count: 0,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
     "sub-list 2: now also empty, excl=2"
   );
 
@@ -563,34 +803,54 @@ fn build_test_draw_list_with_consecutive_empty_middle_sub_lists(gpu: &GPU) -> De
   let model_ids: Vec<u32> = vec![10, 20, 0, 0, 0, 0, 30, 40];
   let scene_model_id_pool = create_gpu_readonly_storage(model_ids.as_slice(), gpu);
 
-  let ranges_vec: Vec<Vec4<u32>> = vec![
-    Vec4::new(0, 2, 0, 0), // sub-list 0: offset=0, count=2, z=0
-    Vec4::new(2, 0, 2, 0), // sub-list 1: empty, z=2
-    Vec4::new(4, 0, 2, 0), // sub-list 2: empty, z=2 (unchanged, no contribution)
-    Vec4::new(6, 2, 2, 0), // sub-list 3: offset=6, count=2, z=2
+  let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    }, // sub-list 0: offset=0, count=2, z=0
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 0,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    }, // sub-list 1: empty, z=2
+    StorageSubListRangeInfo {
+      offset: 4,
+      count: 0,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    }, // sub-list 2: empty, z=2 (unchanged, no contribution)
+    StorageSubListRangeInfo {
+      offset: 6,
+      count: 2,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    }, // sub-list 3: offset=6, count=2, z=2
   ];
   let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
   let sum_all_count = create_gpu_readonly_storage(&4u32, gpu);
 
   DeviceDrawList {
-    scene_model_id_pool,
+    id_pool: scene_model_id_pool,
     dispatch_info: MultiRangeDispatchInfo {
       sub_list_ranges,
       sum_all_count,
-      sub_list_infos: vec![
-        SubListHostInfo {
+      host_capacity_ranges: vec![
+        CapacityRange {
           capacity: 2,
           offset: 0,
         },
-        SubListHostInfo {
+        CapacityRange {
           capacity: 2,
           offset: 2,
         },
-        SubListHostInfo {
+        CapacityRange {
           capacity: 2,
           offset: 4,
         },
-        SubListHostInfo {
+        CapacityRange {
           capacity: 2,
           offset: 6,
         },
@@ -610,7 +870,7 @@ async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_noop() {
   let draw_list = build_test_draw_list_with_consecutive_empty_middle_sub_lists(&gpu);
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
 
-  let pool = read_storage_u32(&mut cx, &result.scene_model_id_pool).await;
+  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 8);
   // Sub-list 0: [10, 20] at pool[0], pool[1]
   assert_eq!(pool[0], 10);
@@ -620,22 +880,47 @@ async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_noop() {
   assert_eq!(pool[6], 30);
   assert_eq!(pool[7], 40);
 
-  let ranges = read_storage_vec4_u32(&mut cx, &result.dispatch_info.sub_list_ranges).await;
+  let ranges =
+    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
   assert_eq!(ranges.len(), 4);
-  assert_eq!(ranges[0], Vec4::new(0, 2, 0, 0), "sub-list 0: 2 survivors");
+  assert_eq!(
+    ranges[0],
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 0: 2 survivors"
+  );
   assert_eq!(
     ranges[1],
-    Vec4::new(2, 0, 2, 0),
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 0,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
     "sub-list 1: empty, excl=2"
   );
   assert_eq!(
     ranges[2],
-    Vec4::new(4, 0, 2, 0),
+    StorageSubListRangeInfo {
+      offset: 4,
+      count: 0,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
     "sub-list 2: empty, excl=2"
   );
   assert_eq!(
     ranges[3],
-    Vec4::new(6, 2, 2, 0),
+    StorageSubListRangeInfo {
+      offset: 6,
+      count: 2,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
     "sub-list 3: 2 survivors, excl=2"
   );
 
@@ -655,21 +940,54 @@ async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_partial() {
   // KeepLeq40Culler: keeps ids <= 40 → all 4 elements survive (10, 20, 30, 40 ≤ 40).
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler {}));
 
-  let pool = read_storage_u32(&mut cx, &result.scene_model_id_pool).await;
+  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 8);
   assert_eq!(pool[0], 10);
   assert_eq!(pool[1], 20);
   assert_eq!(pool[6], 30);
   assert_eq!(pool[7], 40);
 
-  let ranges = read_storage_vec4_u32(&mut cx, &result.dispatch_info.sub_list_ranges).await;
+  let ranges =
+    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
   assert_eq!(ranges.len(), 4);
-  assert_eq!(ranges[0], Vec4::new(0, 2, 0, 0), "sub-list 0: 2 survivors");
-  assert_eq!(ranges[1], Vec4::new(2, 0, 2, 0), "sub-list 1: empty");
-  assert_eq!(ranges[2], Vec4::new(4, 0, 2, 0), "sub-list 2: empty");
+  assert_eq!(
+    ranges[0],
+    StorageSubListRangeInfo {
+      offset: 0,
+      count: 2,
+      count_prefix_sum: 0,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 0: 2 survivors"
+  );
+  assert_eq!(
+    ranges[1],
+    StorageSubListRangeInfo {
+      offset: 2,
+      count: 0,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 1: empty"
+  );
+  assert_eq!(
+    ranges[2],
+    StorageSubListRangeInfo {
+      offset: 4,
+      count: 0,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
+    "sub-list 2: empty"
+  );
   assert_eq!(
     ranges[3],
-    Vec4::new(6, 2, 2, 0),
+    StorageSubListRangeInfo {
+      offset: 6,
+      count: 2,
+      count_prefix_sum: 2,
+      ..Zeroable::zeroed()
+    },
     "sub-list 3: 2 survivors, excl=2"
   );
 

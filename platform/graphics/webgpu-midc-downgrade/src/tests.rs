@@ -40,11 +40,11 @@ fn build_test_input(gpu: &GPU) -> MIDCListPoolInput {
 
   // sub_list_ranges: x = padded pool offset, y = real count, z = prefix sum over real counts
   let mut prefix_sum = 0u32;
-  let ranges_vec: Vec<Vec4<u32>> = real_counts
+  let ranges_vec: Vec<StorageSubListRangeInfo> = real_counts
     .iter()
     .zip(padded_offsets.iter())
     .map(|(&count, &off)| {
-      let r = Vec4::new(off, count, prefix_sum, 0);
+      let r = StorageSubListRangeInfo::new(off, count, prefix_sum);
       prefix_sum += count;
       r
     })
@@ -52,22 +52,20 @@ fn build_test_input(gpu: &GPU) -> MIDCListPoolInput {
   let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
   let sum_all_count = rendiation_webgpu::create_gpu_readonly_storage(&7u32, gpu);
 
-  let sub_list_infos: Vec<SubListHostInfo> = real_counts
+  let host_capacity_ranges = real_counts
     .iter()
     .zip(padded_capacities.iter())
     .zip(padded_offsets.iter())
-    .map(
-      |((_real_count, &padded_cap), &padded_off)| SubListHostInfo {
-        capacity: padded_cap,
-        offset: padded_off,
-      },
-    )
+    .map(|((_real_count, &padded_cap), &padded_off)| CapacityRange {
+      capacity: padded_cap,
+      offset: padded_off,
+    })
     .collect();
 
   let list_info = MultiRangeDispatchInfo {
     sub_list_ranges,
     sum_all_count,
-    sub_list_infos,
+    host_capacity_ranges,
     sum_all_count_host: total_pool_size,
   };
 
@@ -140,14 +138,14 @@ async fn test_downgrade_list_pool_zero_capacity() {
   let command_pool =
     StorageDrawCommands::NoneIndexed(create_gpu_readonly_storage(cmds.as_slice(), &gpu).into());
 
-  let ranges_vec = vec![Vec4::new(0, 1, 0, 0)];
+  let ranges_vec = vec![StorageSubListRangeInfo::new(0, 1, 0)];
   let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), &gpu);
   let sum_all_count = create_gpu_readonly_storage(&1u32, &gpu);
 
   let list_info = MultiRangeDispatchInfo {
     sub_list_ranges,
     sum_all_count,
-    sub_list_infos: vec![SubListHostInfo {
+    host_capacity_ranges: vec![CapacityRange {
       capacity: 1,
       offset: 0,
     }],
@@ -182,14 +180,14 @@ async fn test_downgrade_list_pool_single_sub_list() {
   let command_pool =
     StorageDrawCommands::NoneIndexed(create_gpu_readonly_storage(cmds.as_slice(), &gpu).into());
 
-  let ranges_vec = vec![Vec4::new(0, 3, 0, 0)];
+  let ranges_vec = vec![StorageSubListRangeInfo::new(0, 3, 0)];
   let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), &gpu);
   let sum_all_count = rendiation_webgpu::create_gpu_readonly_storage(&3u32, &gpu);
 
   let list_info = MultiRangeDispatchInfo {
     sub_list_ranges,
     sum_all_count,
-    sub_list_infos: vec![SubListHostInfo {
+    host_capacity_ranges: vec![CapacityRange {
       capacity: 3,
       offset: 0,
     }],

@@ -66,11 +66,13 @@ impl GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'_> {
   }
 }
 
-fn prepare_gpu_sub_list_out_ranges(sub_list_infos: &[SubListHostInfo]) -> (Vec<Vec2<u32>>, u32) {
-  let sub_count = sub_list_infos.len();
+fn prepare_gpu_sub_list_out_ranges(
+  host_capacity_ranges: &[CapacityRange],
+) -> (Vec<Vec2<u32>>, u32) {
+  let sub_count = host_capacity_ranges.len();
   let mut offset = 0u32;
   let mut ranges = Vec::with_capacity(sub_count);
-  for info in sub_list_infos.iter() {
+  for info in host_capacity_ranges.iter() {
     ranges.push(Vec2::new(offset, info.capacity));
     offset += info.capacity;
   }
@@ -98,7 +100,7 @@ pub fn use_and_create_default_indirect_draw_provider(
         BufferUsages::INDIRECT,
       );
       let (output_ranges_host, size_all) =
-        prepare_gpu_sub_list_out_ranges(&list.dispatch_info.sub_list_infos);
+        prepare_gpu_sub_list_out_ranges(&list.dispatch_info.host_capacity_ranges);
       assert_eq!(size_all, size);
       let output_ranges =
         create_gpu_readonly_storage(output_ranges_host.as_slice(), cx.gpu.device.as_ref());
@@ -119,7 +121,7 @@ pub fn use_and_create_default_indirect_draw_provider(
             generator.invocation_logic(builder.global_invocation_id());
           if_by(valid, || {
             let range_write_offset = output_ranges.index(list_index).load().x();
-            let range_base_offset = input_ranges.index(list_index).load().z();
+            let range_base_offset = input_ranges.index(list_index).count_prefix_sum().load();
             let range_relative_index = builder.global_invocation_id().x() - range_base_offset;
             let write_index = range_relative_index + range_write_offset;
             write_target.index(write_index).store(cmd);
@@ -195,7 +197,7 @@ pub fn use_and_create_default_indirect_draw_provider(
       );
 
       let (output_ranges_host, size_all) =
-        prepare_gpu_sub_list_out_ranges(&list.dispatch_info.sub_list_infos);
+        prepare_gpu_sub_list_out_ranges(&list.dispatch_info.host_capacity_ranges);
       assert_eq!(size_all, size);
       let output_ranges =
         create_gpu_readonly_storage(output_ranges_host.as_slice(), cx.gpu.device.as_ref());
@@ -216,7 +218,7 @@ pub fn use_and_create_default_indirect_draw_provider(
             generator.invocation_logic(builder.global_invocation_id());
           if_by(valid, || {
             let range_write_offset = output_ranges.index(list_index).load().x();
-            let range_base_offset = input_ranges.index(list_index).load().z();
+            let range_base_offset = input_ranges.index(list_index).count_prefix_sum().load();
 
             let range_relative_index = builder.global_invocation_id().x() - range_base_offset;
             let write_index = range_relative_index + range_write_offset;

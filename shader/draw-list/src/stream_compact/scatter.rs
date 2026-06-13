@@ -6,10 +6,10 @@ use crate::*;
 /// 0..K-1 additionally extract boundary values for per-sub-list metadata.
 pub struct SegmentedListScatter {
   pub positions: StorageBufferReadonlyDataView<[u32]>,
-  pub sub_list_ranges: StorageBufferReadonlyDataView<[Vec4<u32>]>,
+  pub sub_list_ranges: StorageBufferReadonlyDataView<[StorageSubListRangeInfo]>,
   pub draw_list: DeviceDrawList,
   pub output_pool: StorageBufferDataView<[u32]>,
-  pub output_ranges: StorageBufferDataView<[Vec4<u32>]>,
+  pub output_ranges: StorageBufferDataView<[StorageSubListRangeInfo]>,
   pub total_count_out: StorageBufferDataView<u32>,
 }
 
@@ -88,9 +88,9 @@ impl ComputeComponent<Node<u32>> for SegmentedListScatter {
 struct SegmentedScatterInvocation {
   draw_list: Box<dyn DeviceInvocation<Node<Vec2<u32>>>>,
   positions: ShaderReadonlyPtrOf<[u32]>,
-  sub_list_ranges: ShaderReadonlyPtrOf<[Vec4<u32>]>,
+  sub_list_ranges: ShaderReadonlyPtrOf<[StorageSubListRangeInfo]>,
   output_pool: ShaderPtrOf<[u32]>,
-  output_ranges: ShaderPtrOf<[Vec4<u32>]>,
+  output_ranges: ShaderPtrOf<[StorageSubListRangeInfo]>,
   total_count_out: ShaderPtrOf<u32>,
 }
 
@@ -103,11 +103,13 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
     //
     // Extract boundary values from the prefix-scanned positions to compute
     // per-sub-list survival counts and exclusive prefix sums.
-    // Must guard against empty sub-lists (z + y == 0) to avoid u32 underflow
-    // when reading positions[z + y - 1] — this can happen after a prior culling
-    // pass produces fully-culled sub-lists at the front.
+    // Must guard against empty sub-lists (count_prefix_sum + count == 0) to
+    // avoid u32 underflow when reading positions[count_prefix_sum + count - 1]
+    // — this can happen after a prior culling pass produces fully-culled
+    // sub-lists at the front.
     if_by(i.less_than(sub_list_count), || {
       let range = self.sub_list_ranges.index(i).load();
+      let range = range.expand();
 
       // Compute p_prev first (needed as fallback for p_end on empty sub-lists).
       // p_prev = inclusive prefix sum at end of previous sub-list.
@@ -116,11 +118,13 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
         || val(0u32),
         || {
           let prev_range = self.sub_list_ranges.index(i - val(1u32)).load();
-          let prev_is_empty_prefix = (prev_range.z() + prev_range.y()).equals(val(0u32));
+          let prev_range = prev_range.expand();
+          let prev_is_empty_prefix =
+            (prev_range.count_prefix_sum + prev_range.count).equals(val(0u32));
           prev_is_empty_prefix.select_branched(
             || val(0u32),
             || {
-              let prev_end = prev_range.z() + prev_range.y() - val(1u32);
+              let prev_end = prev_range.count_prefix_sum + prev_range.count - val(1u32);
               self.positions.index(prev_end).load()
             },
           )
@@ -128,25 +132,30 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
       );
 
       // p_end = inclusive prefix sum at end of current sub-list.
-      // If this (and all preceding) sub-lists are empty (z + y == 0),
-      // there are no elements => fall back to p_prev.
-      let is_empty_prefix = (range.z() + range.y()).equals(val(0u32));
+      // If this (and all preceding) sub-lists are empty
+      // (count_prefix_sum + count == 0), there are no elements
+      // => fall back to p_prev.
+      let is_empty_prefix = (range.count_prefix_sum + range.count).equals(val(0u32));
       let p_end = is_empty_prefix.select_branched(
         || p_prev,
         || {
-          let end_idx = range.z() + range.y() - val(1u32);
+          let end_idx = range.count_prefix_sum + range.count - val(1u32);
           self.positions.index(end_idx).load()
         },
       );
 
       let new_count = p_end - p_prev;
       let new_excl = p_prev;
-      let orig_offset = range.x();
+      let orig_offset = range.offset;
 
-      self
-        .output_ranges
-        .index(i)
-        .store(vec4_node((orig_offset, new_count, new_excl, val(0u32))));
+      self.output_ranges.index(i).store(
+        ENode::<StorageSubListRangeInfo> {
+          offset: orig_offset,
+          count: new_count,
+          count_prefix_sum: new_excl,
+        }
+        .construct(),
+      );
 
       // The last sub-list thread also writes the total survivor count.
       let is_last = i.equals(sub_list_count - val(1u32));
@@ -170,16 +179,18 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
 
     if_by(valid.and(keep), || {
       // seg_start = total survivors in sub-lists before this one.
-      // sub_list_ranges[list_idx].z gives the number of input elements before this
-      // sub-list. If z == 0 there are no preceding elements → seg_start = 0.
-      // (z can be 0 for non-first sub-lists when preceding sub-lists are all empty,
-      // e.g. after a prior culling pass removed all elements from earlier sub-lists.)
+      // sub_list_ranges[list_idx].count_prefix_sum gives the number of
+      // input elements before this sub-list. If count_prefix_sum == 0
+      // there are no preceding elements → seg_start = 0.
       let range = self.sub_list_ranges.index(list_idx).load();
-      let no_prev_elements = list_idx.equals(val(0u32)).or(range.z().equals(val(0u32)));
+      let range = range.expand();
+      let no_prev_elements = list_idx
+        .equals(val(0u32))
+        .or(range.count_prefix_sum.equals(val(0u32)));
       let seg_start = no_prev_elements.select_branched(
         || val(0u32),
         || {
-          let prev_end = range.z() - val(1u32);
+          let prev_end = range.count_prefix_sum - val(1u32);
           self.positions.index(prev_end).load()
         },
       );
@@ -187,7 +198,7 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
       let local_pos = p_i - seg_start - val(1u32);
       self
         .output_pool
-        .index(range.x() + local_pos)
+        .index(range.offset + local_pos)
         .store(model_id);
     });
 

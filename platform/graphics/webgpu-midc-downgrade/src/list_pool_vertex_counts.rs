@@ -5,7 +5,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct ListPoolVertexCountSource {
   pub command_pool: StorageDrawCommands,
-  pub sub_list_ranges: StorageBufferReadonlyDataView<[Vec4<u32>]>,
+  pub sub_list_ranges: StorageBufferReadonlyDataView<[StorageSubListRangeInfo]>,
   pub sum_all_count: StorageBufferReadonlyDataView<u32>,
   pub total_capacity: u32,
 }
@@ -60,7 +60,7 @@ impl ComputeComponent<Node<u32>> for ListPoolVertexCountSource {
 
 struct ListPoolVertexCountInvocation {
   command_pool: StorageDrawCommandsInvocation,
-  sub_list_ranges: ShaderReadonlyPtrOf<[Vec4<u32>]>,
+  sub_list_ranges: ShaderReadonlyPtrOf<[StorageSubListRangeInfo]>,
   sum_all_count: ShaderReadonlyPtrOf<u32>,
 }
 
@@ -83,7 +83,7 @@ impl DeviceInvocation<Node<u32>> for ListPoolVertexCountInvocation {
       if_by(done, || cx.do_break());
 
       let mid = (lo + hi) / val(2u32);
-      let z_mid = self.sub_list_ranges.index(mid).load().z();
+      let z_mid = self.sub_list_ranges.index(mid).count_prefix_sum().load();
 
       let p_le_id = z_mid.less_than(global_id).or(z_mid.equals(global_id));
       if_by(p_le_id, || {
@@ -101,8 +101,9 @@ impl DeviceInvocation<Node<u32>> for ListPoolVertexCountInvocation {
       || zeroed_val(),
       || {
         let range = self.sub_list_ranges.index(list_idx).load();
-        let offset = range.x();
-        let base = range.z();
+        let range = range.expand();
+        let offset = range.offset;
+        let base = range.count_prefix_sum;
         let pool_index = global_id - base + offset;
         self.command_pool.vertex_count(pool_index)
       },

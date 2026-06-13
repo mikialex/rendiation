@@ -45,7 +45,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
   cx: &mut DeviceParallelComputeCtx,
 ) -> Vec<(DowngradeMultiIndirectDrawCountHelper, DrawCommand)> {
   let total_capacity = input.list_info.sum_all_count_host;
-  let num_sub_lists = input.list_info.sub_list_infos.len() as u32;
+  let list_count = input.list_info.host_capacity_ranges.len() as u32;
 
   if total_capacity == 0 {
     return Vec::new();
@@ -73,10 +73,10 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
   let align_bytes = limits.min_storage_buffer_offset_alignment as u64;
   let stride_u32 = (align_bytes / 4) as u32;
 
-  let mut padded_stride_info_vec = Vec::with_capacity(num_sub_lists as usize + 1);
+  let mut padded_stride_info_vec = Vec::with_capacity(list_count as usize + 1);
   padded_stride_info_vec.push(stride_u32); // index 0 = count stride
   let mut total_padded_entries: u32 = 0;
-  for info in &input.list_info.sub_list_infos {
+  for info in &input.list_info.host_capacity_ranges {
     let padded = round_up(info.capacity + 1, stride_u32);
     padded_stride_info_vec.push(padded);
     total_padded_entries += padded;
@@ -93,7 +93,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
 
   // Aligned per-sub-list draw counts: each count occupies one u32 at a stride_u32-aligned offset.
   let aligned_counts: StorageBufferDataView<[u32]> = create_gpu_read_write_storage(
-    ZeroedArrayByArrayLength(num_sub_lists as usize * stride_u32 as usize),
+    ZeroedArrayByArrayLength(list_count as usize * stride_u32 as usize),
     &cx.gpu,
   );
 
@@ -102,7 +102,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
   let per_sub_indirect_flat: StorageBufferDataView<[DrawIndirectArgsStorage]> =
     StorageBufferDataView::create_by_with_extra_usage(
       cx.gpu.device.as_ref(),
-      StorageBufferInit::from(ZeroedArrayByArrayLength(num_sub_lists as usize)),
+      StorageBufferInit::from(ZeroedArrayByArrayLength(list_count as usize)),
       BufferUsages::INDIRECT,
     );
 
@@ -123,7 +123,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
       let sum_all = builder.bind_by(&input.list_info.sum_all_count).load();
       let output = builder.bind_by(&dispatch_indirect);
 
-      let total_threads = sum_all + val(num_sub_lists);
+      let total_threads = sum_all + val(list_count);
       let wg_count = device_compute_dispatch_size(total_threads, val(256u32));
       output.store(
         ENode::<DispatchIndirectArgsStorage> {
@@ -178,7 +178,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
           if_by(done, || cx.do_break());
 
           let mid = (lo + hi) / val(2u32);
-          let z_mid = sub_list_ranges.index(mid).load().z();
+          let z_mid = sub_list_ranges.index(mid).count_prefix_sum().load();
 
           let p_le_id = z_mid
             .less_than(dispatch_thread_id)
@@ -194,8 +194,9 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
 
         let list_idx = found.load();
         let range = sub_list_ranges.index(list_idx).load();
-        let seg_start = range.z();
-        let capacity_i = range.y();
+        let range = range.expand();
+        let seg_start = range.count_prefix_sum;
+        let capacity_i = range.count;
 
         // Compute prefix base offset: sum of (capacity_j + 1) for j < list_idx
         let prefix_base = val(0u32).make_local_var();
@@ -236,13 +237,14 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
       if_by(in_indirect_range, || {
         let i = phase_b_id;
         let range = sub_list_ranges.index(i).load();
-        let capacity_i = range.y();
+        let range = range.expand();
+        let capacity_i = range.count;
         // Store the per-sub-list draw count into the aligned counts buffer
         let count_stride = padded_stride_info.index(val(0u32)).load();
         aligned_counts.index(i * count_stride).store(capacity_i);
         let has_draws = capacity_i.greater_than(val(0u32));
         if_by(has_draws, || {
-          let seg_start = range.z();
+          let seg_start = range.count_prefix_sum;
           let seg_start_excl = seg_start
             .equals(val(0u32))
             .select_branched(|| val(0u32), || global_excl.index(seg_start).load());
@@ -276,17 +278,17 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
   });
 
   // Build per-sub-list helpers and draw commands
-  let mut prefix_offsets = Vec::with_capacity(num_sub_lists as usize);
+  let mut prefix_offsets = Vec::with_capacity(list_count as usize);
   let mut running = 0u32;
-  for i in 0..num_sub_lists as usize {
+  for i in 0..list_count as usize {
     prefix_offsets.push(running);
     running += padded_stride_info_vec[1 + i];
   }
 
   let prefix_buffer_resource = &per_sub_prefix_flat.gpu.resource;
 
-  let mut results = Vec::with_capacity(num_sub_lists as usize);
-  for (i, info) in input.list_info.sub_list_infos.iter().enumerate() {
+  let mut results = Vec::with_capacity(list_count as usize);
+  for (i, info) in input.list_info.host_capacity_ranges.iter().enumerate() {
     // Create count view: each count is at aligned offset i * align_bytes in the aligned_counts buffer
     let count_offset = i as u64 * align_bytes;
     debug_assert!(count_offset.is_multiple_of(align_bytes));
@@ -412,13 +414,13 @@ pub fn downgrade_multi_indirect_draw_count(
     let draw_count = StorageBufferReadonlyDataView::try_from_raw(indirect_count).unwrap();
 
     // Build single-sub-list MultiRangeDispatchInfo
-    let ranges_init = vec![Vec4::new(0, max_count, 0, 0)];
+    let ranges_init = vec![StorageSubListRangeInfo::new(0, max_count, 0)];
     let sub_list_ranges = create_gpu_readonly_storage(ranges_init.as_slice(), &cx.gpu);
 
     let list_info = MultiRangeDispatchInfo {
       sub_list_ranges,
       sum_all_count: draw_count,
-      sub_list_infos: vec![SubListHostInfo {
+      host_capacity_ranges: vec![CapacityRange {
         capacity: max_count,
         offset: 0,
       }],

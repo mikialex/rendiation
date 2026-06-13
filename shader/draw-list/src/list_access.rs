@@ -28,23 +28,22 @@ impl ComputeComponent<Node<Vec2<u32>>> for DeviceDrawList {
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<Vec2<u32>>>> {
     Box::new(DeviceDrawListInvocation {
-      scene_id_pool: builder.bind_by(&self.scene_model_id_pool),
+      id_pool: builder.bind_by(&self.id_pool),
       sub_list_ranges: builder.bind_by(&self.dispatch_info.sub_list_ranges),
       size_all: builder.bind_by(&self.dispatch_info.sum_all_count),
     })
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
-    builder.bind(&self.scene_model_id_pool);
+    builder.bind(&self.id_pool);
     builder.bind(&self.dispatch_info.sub_list_ranges);
     builder.bind(&self.dispatch_info.sum_all_count);
   }
 }
 
 struct DeviceDrawListInvocation {
-  scene_id_pool: ShaderReadonlyPtrOf<[u32]>,
-  // (offset, count, count_prefix_sum, _padding) — Vec4 for 16B storage alignment
-  sub_list_ranges: ShaderReadonlyPtrOf<[Vec4<u32>]>,
+  id_pool: ShaderReadonlyPtrOf<[u32]>,
+  sub_list_ranges: ShaderReadonlyPtrOf<[StorageSubListRangeInfo]>,
   size_all: ShaderReadonlyPtrOf<u32>,
 }
 
@@ -68,7 +67,7 @@ impl DeviceInvocation<Node<Vec2<u32>>> for DeviceDrawListInvocation {
       if_by(done, || cx.do_break());
 
       let mid = (lo + hi) / val(2u32);
-      let prefix_sum = self.sub_list_ranges.index(mid).load().z();
+      let prefix_sum = self.sub_list_ranges.index(mid).count_prefix_sum().load();
 
       let p_le_id = prefix_sum
         .less_than(logic_global_id.x())
@@ -88,10 +87,11 @@ impl DeviceInvocation<Node<Vec2<u32>>> for DeviceDrawListInvocation {
       || zeroed_val(),
       || {
         let range = self.sub_list_ranges.index(list_index).load();
-        let offset = range.x();
-        let base = range.z();
+        let range = range.expand();
+        let offset = range.offset;
+        let base = range.count_prefix_sum;
         let id = self
-          .scene_id_pool
+          .id_pool
           .index(logic_global_id.x() - base + offset)
           .load();
 

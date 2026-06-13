@@ -11,40 +11,65 @@ pub use device_culling::*;
 
 #[derive(Clone)]
 pub struct DeviceDrawList {
-  pub scene_model_id_pool: StorageBufferReadonlyDataView<[u32]>,
+  pub id_pool: StorageBufferReadonlyDataView<[u32]>,
   pub dispatch_info: MultiRangeDispatchInfo,
+}
+
+#[repr(C)]
+#[std430_layout]
+#[derive(Clone, Copy, Debug, PartialEq, ShaderStruct)]
+pub struct StorageSubListRangeInfo {
+  /// pool_read_range_offset
+  pub offset: u32,
+  /// count
+  pub count: u32,
+  /// count_prefix_sum(exclusive)
+  pub count_prefix_sum: u32,
+}
+
+impl StorageSubListRangeInfo {
+  pub fn new(offset: u32, count: u32, count_prefix_sum: u32) -> Self {
+    StorageSubListRangeInfo {
+      offset,
+      count,
+      count_prefix_sum,
+      ..Zeroable::zeroed()
+    }
+  }
 }
 
 #[derive(Clone)]
 pub struct MultiRangeDispatchInfo {
-  /// (offset, count, count_prefix_sum, _padding) — Vec4 for 16B storage alignment
-  pub sub_list_ranges: StorageBufferReadonlyDataView<[Vec4<u32>]>,
+  pub sub_list_ranges: StorageBufferReadonlyDataView<[StorageSubListRangeInfo]>,
   // /// sum of all count field of sub_list_ranges, used for computing indirect draw parameter
   pub sum_all_count: StorageBufferReadonlyDataView<u32>,
-  pub sub_list_infos: Vec<SubListHostInfo>,
+  pub host_capacity_ranges: Vec<CapacityRange>,
   pub sum_all_count_host: u32,
 }
 
 #[derive(Clone)]
-pub struct SubListHostInfo {
-  /// this capacity is to allocate the necessary space when do filtering, as we
-  /// can not read back real length from gpu in frame.
+pub struct CapacityRange {
   pub capacity: u32,
   pub offset: u32,
 }
 
 pub fn prepare_gpu_sub_list_ranges(
-  sub_list_infos: &[SubListHostInfo],
+  host_capacity_ranges: &[CapacityRange],
   real_length: &[u32],
-) -> Vec<Vec4<u32>> {
-  assert_eq!(sub_list_infos.len(), real_length.len());
-  let sub_count = sub_list_infos.len();
+) -> Vec<StorageSubListRangeInfo> {
+  assert_eq!(host_capacity_ranges.len(), real_length.len());
+  let sub_count = host_capacity_ranges.len();
   let mut prefix_sum = 0u32;
   let mut ranges = Vec::with_capacity(sub_count);
-  for (info, &length) in sub_list_infos.iter().zip(real_length.iter()) {
+  for (info, &length) in host_capacity_ranges.iter().zip(real_length.iter()) {
     assert!(info.capacity >= length);
 
-    ranges.push(Vec4::new(info.offset, length, prefix_sum, 0));
+    ranges.push(StorageSubListRangeInfo {
+      offset: info.offset,
+      count: length,
+      count_prefix_sum: prefix_sum,
+      ..Zeroable::zeroed()
+    });
     prefix_sum += length;
   }
   ranges
@@ -58,7 +83,7 @@ impl DeviceDrawList {
     &self,
     gpu: &GPU,
     cached: &'a mut Option<Self>,
-    sub_list_infos: &[SubListHostInfo],
+    sub_list_infos: &[CapacityRange],
   ) -> &'a Self {
     // we do not do any storage buffer binding alignment here because
     // we assume the input list's offset has correctly aligned and capacity has round up
@@ -77,7 +102,7 @@ impl DeviceDrawList {
       let sub_list_ranges = StorageBufferReadonlyDataView::create_by_with_extra_usage(
         gpu.device.as_ref(),
         Some("device draw list sub_list_ranges"),
-        StorageBufferInit::<[Vec4<u32>]>::from(ranges_init.as_slice()),
+        StorageBufferInit::<[StorageSubListRangeInfo]>::from(ranges_init.as_slice()),
         BufferUsages::INDIRECT,
       );
 
@@ -86,11 +111,11 @@ impl DeviceDrawList {
       let sum_all_count = create_gpu_readonly_storage(&0u32, gpu);
 
       *cached = Some(DeviceDrawList {
-        scene_model_id_pool,
+        id_pool: scene_model_id_pool,
         dispatch_info: MultiRangeDispatchInfo {
           sub_list_ranges,
           sum_all_count,
-          sub_list_infos: sub_list_infos.to_vec(),
+          host_capacity_ranges: sub_list_infos.to_vec(),
           sum_all_count_host: total_capacity,
         },
       });
@@ -109,12 +134,13 @@ impl DeviceDrawList {
   }
 
   pub fn create_indirect_count_views(&self) -> Vec<GPUBufferResourceView> {
-    let mut views = Vec::with_capacity(self.dispatch_info.sub_list_infos.len());
+    let mut views = Vec::with_capacity(self.dispatch_info.host_capacity_ranges.len());
     let buffer = &self.dispatch_info.sub_list_ranges;
     assert_eq!(buffer.desc.offset, 0); // we could support this case, but we want to keep it simple
-    for i in 0..self.dispatch_info.sub_list_infos.len() {
+    let elem_stride = std::mem::size_of::<StorageSubListRangeInfo>() as u64;
+    for i in 0..self.dispatch_info.host_capacity_ranges.len() {
       let view = buffer.resource.create_view(GPUBufferViewRange {
-        offset: 4 * 4 * i as u64 + 4,
+        offset: elem_stride * i as u64 + 4,
         size: std::num::NonZeroU64::new(4).into(),
       });
       views.push(view);

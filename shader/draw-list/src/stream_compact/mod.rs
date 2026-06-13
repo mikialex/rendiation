@@ -19,10 +19,10 @@ impl DeviceDrawList {
     let target = self.create_or_update_compact_culling_write_target(
       &gpu,
       target_state,
-      &self.dispatch_info.sub_list_infos,
+      &self.dispatch_info.host_capacity_ranges,
     );
 
-    let output_pool = target.scene_model_id_pool.clone().into_rw_view();
+    let output_pool = target.id_pool.clone().into_rw_view();
     let output_ranges = target.dispatch_info.sub_list_ranges.clone().into_rw_view();
     let total_count_out = target.dispatch_info.sum_all_count.clone().into_rw_view();
 
@@ -43,11 +43,11 @@ impl DeviceDrawList {
     scatter.dispatch_compute(cx);
 
     DeviceDrawList {
-      scene_model_id_pool: scatter.output_pool.into_readonly_view(),
+      id_pool: scatter.output_pool.into_readonly_view(),
       dispatch_info: MultiRangeDispatchInfo {
         sub_list_ranges: scatter.output_ranges.into_readonly_view(),
         sum_all_count: scatter.total_count_out.into_readonly_view(),
-        sub_list_infos: self.dispatch_info.sub_list_infos.clone(),
+        host_capacity_ranges: self.dispatch_info.host_capacity_ranges.clone(),
         sum_all_count_host: target.dispatch_info.sum_all_count_host,
       },
     }

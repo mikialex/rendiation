@@ -53,7 +53,7 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
 
     let model_counts: usize = classified.iter().map(|(_, list)| list.len()).sum();
     let mut models = Vec::with_capacity(model_counts);
-    let mut list_info = Vec::with_capacity(classified.len());
+    let mut host_capacity_ranges = Vec::with_capacity(classified.len());
     let mut real_lengths = Vec::with_capacity(classified.len());
 
     let limits = &self.gpu.info.supported_limits;
@@ -73,7 +73,7 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
       let offset = models.len() as u32;
       impl_select_ids.push(*list.first().unwrap());
       real_lengths.push(real_len);
-      list_info.push(SubListHostInfo {
+      host_capacity_ranges.push(CapacityRange {
         capacity: padded_len,
         offset,
       });
@@ -85,15 +85,16 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
     }
 
     let scene_model_id_pool = create_gpu_readonly_storage(models.as_slice(), &self.gpu);
-    let sub_list_ranges_gpu = prepare_gpu_sub_list_ranges(&list_info, real_lengths.as_slice());
+    let sub_list_ranges_gpu =
+      prepare_gpu_sub_list_ranges(&host_capacity_ranges, real_lengths.as_slice());
     let sub_list_ranges = create_gpu_readonly_storage(sub_list_ranges_gpu.as_slice(), &self.gpu);
     let sum_all_count_host = model_counts as u32;
     let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, &self.gpu);
 
     let draw_list = DeviceDrawList {
-      scene_model_id_pool,
+      id_pool: scene_model_id_pool,
       dispatch_info: MultiRangeDispatchInfo {
-        sub_list_infos: list_info,
+        host_capacity_ranges,
         sub_list_ranges,
         sum_all_count,
         sum_all_count_host,
@@ -163,97 +164,107 @@ impl SceneRenderer for IndirectSceneRenderer {
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
-    let device_list = match list {
-      SceneModelRenderBatch::Device(batch) => batch,
-      SceneModelRenderBatch::Host(batch) => {
-        if self.using_host_driven_indirect_draw {
-          return ctx.scope(|ctx| {
-            self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass)
-          });
-        }
-        self.create_batch_from_iter(&mut batch.iter_scene_models())
-      }
-    };
-
-    let Some(device_list) = device_list else {
-      return Box::new(IndirectScenePassContent {
-        renderer: self,
-        content: Vec::new(),
-        pass,
-        camera,
-        reversed_depth: self.reversed_depth,
-      });
-    };
-
     ctx.scope(|ctx| {
-      let mut classified: FastHashMap<u64, (Vec<usize>, Vec<EntityHandle<SceneModelEntity>>)> =
-        FastHashMap::default();
-      let mut mappings = Vec::new();
-
-      assert_eq!(
-        device_list.draw_list.dispatch_info.sub_list_infos.len(),
-        device_list.impl_select_ids.len()
-      );
-      for (i, impl_select_id) in device_list.impl_select_ids.iter().enumerate() {
-        if let Some(impl_key) =
-          self.get_impl_distinguish_key_by_impl_select_id(impl_select_id.into_raw())
-        {
-          let (list, list_ids) = classified.entry(impl_key).or_default();
-          let idx = list.len();
-          list.push(i);
-          list_ids.push(*impl_select_id);
-          mappings.push((impl_key, idx, impl_select_id));
-        } else {
-          log::error!("unable to find impl key");
+      let device_list = match list {
+        SceneModelRenderBatch::Device(batch) => batch,
+        SceneModelRenderBatch::Host(batch) => {
+          if self.using_host_driven_indirect_draw {
+            return ctx.scope(|ctx| {
+              self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass)
+            });
+          }
+          self.create_batch_from_iter(&mut batch.iter_scene_models())
         }
-      }
+      };
 
-      let mut indirect_draw_providers: FastHashMap<
-        u64,
-        FastHashMap<usize, Box<dyn IndirectDrawProvider>>,
-      > = Default::default();
-
-      ctx.next_key_scope_root();
-      for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
-        ctx.keyed_scope(impl_key, |ctx| {
-          let dispatch_info = ctx.access_parallel_compute(|ctx| {
-            compute_selected_sub_list_dispatch_info(ctx, &device_list.draw_list, selected_sub_list)
-          });
-          let device_list_sub_list = DeviceDrawList {
-            scene_model_id_pool: device_list.draw_list.scene_model_id_pool.clone(),
-            dispatch_info,
-          };
-
-          ctx.access_parallel_compute(|cx| {
-            if let Some(result) = self.use_create_or_update_indirect_draw_providers(
-              cx,
-              &device_list_sub_list,
-              impl_select_ids[0].into_raw(),
-            ) {
-              // using map is to avoid IndirectDrawProvider impl clone
-              let map = result.into_iter().enumerate().collect();
-              indirect_draw_providers.insert(*impl_key, map);
-            } else {
-              log::error!("unable to create indirect draw provider");
-            }
-          })
+      let Some(device_list) = device_list else {
+        return Box::new(IndirectScenePassContent {
+          renderer: self,
+          content: Vec::new(),
+          pass,
+          camera,
+          reversed_depth: self.reversed_depth,
         });
-      }
+      };
 
-      let content = mappings
-        .iter()
-        .filter_map(|(impl_id, index, impl_select_sm_id)| {
-          let provider = indirect_draw_providers.get_mut(impl_id)?.remove(index)?;
-          (provider, **impl_select_sm_id).into()
+      ctx.scope(|ctx| {
+        let mut classified: FastHashMap<u64, (Vec<usize>, Vec<EntityHandle<SceneModelEntity>>)> =
+          FastHashMap::default();
+        let mut mappings = Vec::new();
+
+        assert_eq!(
+          device_list
+            .draw_list
+            .dispatch_info
+            .host_capacity_ranges
+            .len(),
+          device_list.impl_select_ids.len()
+        );
+        for (i, impl_select_id) in device_list.impl_select_ids.iter().enumerate() {
+          if let Some(impl_key) =
+            self.get_impl_distinguish_key_by_impl_select_id(impl_select_id.into_raw())
+          {
+            let (list, list_ids) = classified.entry(impl_key).or_default();
+            let idx = list.len();
+            list.push(i);
+            list_ids.push(*impl_select_id);
+            mappings.push((impl_key, idx, impl_select_id));
+          } else {
+            log::error!("unable to find impl key");
+          }
+        }
+
+        let mut indirect_draw_providers: FastHashMap<
+          u64,
+          FastHashMap<usize, Box<dyn IndirectDrawProvider>>,
+        > = Default::default();
+
+        ctx.next_key_scope_root();
+        for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
+          ctx.keyed_scope(impl_key, |ctx| {
+            let dispatch_info = ctx.access_parallel_compute(|ctx| {
+              compute_selected_sub_list_dispatch_info(
+                ctx,
+                &device_list.draw_list,
+                selected_sub_list,
+              )
+            });
+            let device_list_sub_list = DeviceDrawList {
+              id_pool: device_list.draw_list.id_pool.clone(),
+              dispatch_info,
+            };
+
+            ctx.access_parallel_compute(|cx| {
+              if let Some(result) = self.use_create_or_update_indirect_draw_providers(
+                cx,
+                &device_list_sub_list,
+                impl_select_ids[0].into_raw(),
+              ) {
+                // using map is to avoid IndirectDrawProvider impl clone
+                let map = result.into_iter().enumerate().collect();
+                indirect_draw_providers.insert(*impl_key, map);
+              } else {
+                log::error!("unable to create indirect draw provider");
+              }
+            })
+          });
+        }
+
+        let content = mappings
+          .iter()
+          .filter_map(|(impl_id, index, impl_select_sm_id)| {
+            let provider = indirect_draw_providers.get_mut(impl_id)?.remove(index)?;
+            (provider, **impl_select_sm_id).into()
+          })
+          .collect();
+
+        Box::new(IndirectScenePassContent {
+          renderer: self,
+          content,
+          pass,
+          camera,
+          reversed_depth: self.reversed_depth,
         })
-        .collect();
-
-      Box::new(IndirectScenePassContent {
-        renderer: self,
-        content,
-        pass,
-        camera,
-        reversed_depth: self.reversed_depth,
       })
     })
   }
@@ -273,11 +284,11 @@ fn compute_selected_sub_list_dispatch_info(
   // MIDC downgrade command-pool slicing). The GPU-side sub_list_ranges.x
   // preserves the original pool offset for correct scene_model_id_pool indexing.
   let mut compact_offset = 0u32;
-  let selected_infos: Vec<SubListHostInfo> = pick_list
+  let selected_infos: Vec<CapacityRange> = pick_list
     .iter()
     .map(|&i| {
-      let info = &input.dispatch_info.sub_list_infos[i];
-      let new_info = SubListHostInfo {
+      let info = &input.dispatch_info.host_capacity_ranges[i];
+      let new_info = CapacityRange {
         capacity: info.capacity,
         offset: compact_offset,
       };
@@ -294,10 +305,10 @@ fn compute_selected_sub_list_dispatch_info(
   let pick_list_u32: Vec<u32> = pick_list.iter().map(|&i| i as u32).collect();
   let pick_list_buffer = create_gpu_readonly_storage(pick_list_u32.as_slice(), &cx.gpu);
 
-  // Output ranges buffer — one Vec4<u32> per selected sub-list.
+  // Output ranges buffer — one StorageSubListRangeInfo per selected sub-list.
   let output_ranges = StorageBufferDataView::create_by_with_extra_usage(
     cx.gpu.device.as_ref(),
-    StorageBufferInit::<[Vec4<u32>]>::from(ZeroedArrayByArrayLength(pick_count)),
+    StorageBufferInit::<[StorageSubListRangeInfo]>::from(ZeroedArrayByArrayLength(pick_count)),
     BufferUsages::INDIRECT,
   );
 
@@ -315,7 +326,7 @@ fn compute_selected_sub_list_dispatch_info(
       let input_ranges = builder.bind_by(&input.dispatch_info.sub_list_ranges);
       let pick_list_storage = builder.bind_by(&pick_list_buffer);
       let out_ranges = builder.bind_by(&output_ranges);
-      let out_sum_all: ShaderPtrOf<u32> = builder.bind_by(&output_sum_all);
+      let out_sum_all = builder.bind_by(&output_sum_all);
 
       let total = val(0u32).make_local_var();
       let prefix = val(0u32).make_local_var();
@@ -326,12 +337,18 @@ fn compute_selected_sub_list_dispatch_info(
         .for_each(|i, _| {
           let src_idx = pick_list_storage.index(i).load();
           let src = input_ranges.index(src_idx).load();
-          let count = src.y();
-          let offset = src.x();
+          let src = src.expand();
+          let count = src.count;
+          let offset = src.offset;
 
-          out_ranges
-            .index(i)
-            .store(vec4_node((offset, count, prefix.load(), val(0u32))));
+          out_ranges.index(i).store(
+            ENode::<StorageSubListRangeInfo> {
+              offset,
+              count,
+              count_prefix_sum: prefix.load(),
+            }
+            .construct(),
+          );
 
           prefix.store(prefix.load() + count);
           total.store(total.load() + count);
@@ -355,7 +372,7 @@ fn compute_selected_sub_list_dispatch_info(
   MultiRangeDispatchInfo {
     sub_list_ranges: output_ranges.into_readonly_view(),
     sum_all_count: output_sum_all.into_readonly_view(),
-    sub_list_infos: selected_infos,
+    host_capacity_ranges: selected_infos,
     sum_all_count_host: sum_capacity_host,
   }
 }
