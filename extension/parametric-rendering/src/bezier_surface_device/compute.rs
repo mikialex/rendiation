@@ -1,5 +1,3 @@
-use std::hash::Hasher;
-
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
@@ -91,8 +89,7 @@ pub fn build_bezier_bernstein_pipeline(
   sample_count: u32,
   workgroup_size: u32,
 ) -> GPUComputePipeline {
-  let mut hasher = PipelineHasher::default();
-  hasher.write_u32(workgroup_size);
+  let hasher = shader_hasher_from_marker_ty!(BezierSurfaceEval).with_hash(workgroup_size);
 
   gpu
     .device
@@ -119,7 +116,7 @@ pub fn build_bezier_bernstein_pipeline(
       let u_degree = info.u_degree().load();
       let v_degree = info.v_degree().load();
 
-      // --- de Casteljau fast-path for degree 1–3 ---
+      // de Casteljau fast-path for degree 1–3
       if_by(
         u_degree
           .less_than(val(4u32))

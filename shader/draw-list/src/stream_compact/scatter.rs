@@ -99,7 +99,8 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
     let i = id.x();
     let sub_list_count = self.sub_list_ranges.array_length();
 
-    // ---- metadata update (threads 0..K-1) ----
+    // metadata update (threads 0..K-1) :
+    //
     // Extract boundary values from the prefix-scanned positions to compute
     // per-sub-list survival counts and exclusive prefix sums.
     // Must guard against empty sub-lists (z + y == 0) to avoid u32 underflow
@@ -154,7 +155,7 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
       });
     });
 
-    // ---- scatter (all threads) ----
+    //  scatter (all threads)
     let (vec2, valid) = self.draw_list.invocation_logic(id);
     let model_id = vec2.x();
     let list_idx = vec2.y();
