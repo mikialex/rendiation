@@ -352,10 +352,11 @@ impl GPURenderPass {
         indexed,
       } => {
         let buffer = &indirect_buffer.resource.gpu;
+        let offset = indirect_buffer.desc.offset;
         if indexed {
-          self.draw_indexed_indirect(buffer, 0)
+          self.draw_indexed_indirect(buffer, offset)
         } else {
-          self.draw_indirect(buffer, 0)
+          self.draw_indirect(buffer, offset)
         }
       }
       DrawCommand::MultiIndirect {
@@ -364,10 +365,11 @@ impl GPURenderPass {
         count,
       } => {
         let buffer = &indirect_buffer.resource.gpu;
+        let offset = indirect_buffer.desc.offset;
         if indexed {
-          self.multi_draw_indexed_indirect(buffer, 0, count)
+          self.multi_draw_indexed_indirect(buffer, offset, count)
         } else {
-          self.multi_draw_indirect(buffer, 0, count)
+          self.multi_draw_indirect(buffer, offset, count)
         }
       }
       DrawCommand::MultiIndirectCount {

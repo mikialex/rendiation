@@ -196,9 +196,17 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
 
         let local_idx = global_idx - seg_start;
 
-        let seg_start_prefix_scan_inclusive = inclusive_scan_result.index(seg_start).load();
-        let seg_prefix_scan_exclusive =
-          inclusive_scan_result.index(global_idx).load() - seg_start_prefix_scan_inclusive;
+        let seg_start_excl = seg_start.equals(0).select_branched(
+          || val(0),
+          || inclusive_scan_result.index(seg_start - val(1u32)).load(),
+        );
+
+        let global_excl = global_idx.equals(seg_start).select_branched(
+          || seg_start_excl,
+          || inclusive_scan_result.index(global_idx - val(1u32)).load(),
+        );
+
+        let seg_prefix_scan_exclusive = global_excl - seg_start_excl;
         output_prefix
           .index(prefix_write_out_list_base + local_idx)
           .store(seg_prefix_scan_exclusive);
@@ -206,15 +214,10 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
         // The last thread in each sub-list also writes the total and indirect args
         let is_last_in_sub = local_idx.equals(count - val(1u32));
         if_by(is_last_in_sub, || {
-          let first_count = seg_start.equals(0).select_branched(
-            || seg_start_prefix_scan_inclusive,
-            || {
-              seg_start_prefix_scan_inclusive
-                - inclusive_scan_result.index(seg_start - val(1u32)).load()
-            },
+          let total_count = seg_start.equals(0).select_branched(
+            || inclusive_scan_result.index(global_idx).load(),
+            || inclusive_scan_result.index(global_idx).load() - seg_start_excl,
           );
-
-          let total_count = seg_prefix_scan_exclusive + first_count;
           output_prefix
             .index(prefix_write_out_list_base + local_idx + val(1u32))
             .store(total_count);
