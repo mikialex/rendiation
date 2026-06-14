@@ -117,6 +117,7 @@ pub trait IndirectDrawProviderCreator {
     &self,
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
     id: RawEntityHandle,
   ) -> Option<Vec<Box<dyn IndirectDrawProvider>>>;
 }
@@ -140,11 +141,15 @@ impl IndirectDrawProviderCreator for IndirectSceneRenderer {
     &self,
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
     id: RawEntityHandle,
   ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    self
-      .renderer
-      .use_create_or_update_indirect_draw_providers(cx, list, id)
+    self.renderer.use_create_or_update_indirect_draw_providers(
+      cx,
+      list,
+      dispatch_info_device_offset_compacted,
+      id,
+    )
   }
 }
 
@@ -222,13 +227,14 @@ impl SceneRenderer for IndirectSceneRenderer {
         ctx.next_key_scope_root();
         for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
           ctx.keyed_scope(impl_key, |ctx| {
-            let dispatch_info = ctx.access_parallel_compute(|ctx| {
-              compute_selected_sub_list_dispatch_info(
-                ctx,
-                &device_list.draw_list,
-                selected_sub_list,
-              )
-            });
+            let (dispatch_info, dispatch_info_offset_compacted) =
+              ctx.access_parallel_compute(|ctx| {
+                compute_selected_sub_list_dispatch_info(
+                  ctx,
+                  &device_list.draw_list,
+                  selected_sub_list,
+                )
+              });
             let device_list_sub_list = DeviceDrawList {
               id_pool: device_list.draw_list.id_pool.clone(),
               dispatch_info,
@@ -238,6 +244,7 @@ impl SceneRenderer for IndirectSceneRenderer {
               if let Some(result) = self.use_create_or_update_indirect_draw_providers(
                 cx,
                 &device_list_sub_list,
+                &dispatch_info_offset_compacted,
                 impl_select_ids[0].into_raw(),
               ) {
                 // using map is to avoid IndirectDrawProvider impl clone
@@ -270,11 +277,12 @@ impl SceneRenderer for IndirectSceneRenderer {
   }
 }
 
+// return two dispatch infos, (device offset using origin, device offset compacted)
 fn compute_selected_sub_list_dispatch_info(
   cx: &mut DeviceParallelComputeCtx,
   input: &DeviceDrawList,
   pick_list: &[usize],
-) -> MultiRangeDispatchInfo {
+) -> (MultiRangeDispatchInfo, MultiRangeDispatchInfo) {
   let pick_count = pick_list.len();
   debug_assert!(pick_count > 0, "pick_list should never be empty");
 
@@ -284,6 +292,7 @@ fn compute_selected_sub_list_dispatch_info(
   // MIDC downgrade command-pool slicing). The GPU-side sub_list_ranges.x
   // preserves the original pool offset for correct scene_model_id_pool indexing.
   let mut compact_offset = 0u32;
+  let mut compact_offsets = Vec::new();
   let selected_infos: Vec<CapacityRange> = pick_list
     .iter()
     .map(|&i| {
@@ -292,10 +301,13 @@ fn compute_selected_sub_list_dispatch_info(
         capacity: info.capacity,
         offset: compact_offset,
       };
+      compact_offsets.push(compact_offset);
       compact_offset += info.capacity;
       new_info
     })
     .collect();
+
+  let compact_offsets_device = create_gpu_readonly_storage(compact_offsets.as_slice(), &cx.gpu);
 
   // sum_all_count_host is set to the sum of capacities (upper bound);
   // the GPU writes the real total into sum_all_count at runtime.
@@ -307,6 +319,12 @@ fn compute_selected_sub_list_dispatch_info(
 
   // Output ranges buffer — one StorageSubListRangeInfo per selected sub-list.
   let output_ranges = StorageBufferDataView::create_by_with_extra_usage(
+    cx.gpu.device.as_ref(),
+    StorageBufferInit::<[StorageSubListRangeInfo]>::from(ZeroedArrayByArrayLength(pick_count)),
+    BufferUsages::INDIRECT,
+  );
+
+  let output_ranges_offset_compacted = StorageBufferDataView::create_by_with_extra_usage(
     cx.gpu.device.as_ref(),
     StorageBufferInit::<[StorageSubListRangeInfo]>::from(ZeroedArrayByArrayLength(pick_count)),
     BufferUsages::INDIRECT,
@@ -325,10 +343,11 @@ fn compute_selected_sub_list_dispatch_info(
 
       let input_ranges = builder.bind_by(&input.dispatch_info.sub_list_ranges);
       let pick_list_storage = builder.bind_by(&pick_list_buffer);
-      let out_ranges = builder.bind_by(&output_ranges);
-      let out_sum_all = builder.bind_by(&output_sum_all);
+      let output_ranges = builder.bind_by(&output_ranges);
+      let compact_offsets_device = builder.bind_by(&compact_offsets_device);
+      let output_ranges_offset_compacted = builder.bind_by(&output_ranges_offset_compacted);
+      let output_sum_all = builder.bind_by(&output_sum_all);
 
-      let total = val(0u32).make_local_var();
       let prefix = val(0u32).make_local_var();
 
       pick_list_storage
@@ -341,7 +360,7 @@ fn compute_selected_sub_list_dispatch_info(
           let count = src.count;
           let offset = src.offset;
 
-          out_ranges.index(i).store(
+          output_ranges.index(i).store(
             ENode::<StorageSubListRangeInfo> {
               offset,
               count,
@@ -350,11 +369,19 @@ fn compute_selected_sub_list_dispatch_info(
             .construct(),
           );
 
+          output_ranges_offset_compacted.index(i).store(
+            ENode::<StorageSubListRangeInfo> {
+              offset: compact_offsets_device.index(i).load(),
+              count,
+              count_prefix_sum: prefix.load(),
+            }
+            .construct(),
+          );
+
           prefix.store(prefix.load() + count);
-          total.store(total.load() + count);
         });
 
-      out_sum_all.store(total.load());
+      output_sum_all.store(prefix.load());
 
       builder
     });
@@ -363,18 +390,29 @@ fn compute_selected_sub_list_dispatch_info(
       .with_bind(&input.dispatch_info.sub_list_ranges)
       .with_bind(&pick_list_buffer)
       .with_bind(&output_ranges)
+      .with_bind(&compact_offsets_device)
+      .with_bind(&output_ranges_offset_compacted)
       .with_bind(&output_sum_all)
       .setup_compute_pass(pass, device, &pipeline);
 
     pass.dispatch_workgroups(1, 1, 1);
   });
 
-  MultiRangeDispatchInfo {
+  let origin = MultiRangeDispatchInfo {
     sub_list_ranges: output_ranges.into_readonly_view(),
+    sum_all_count: output_sum_all.clone().into_readonly_view(),
+    host_capacity_ranges: selected_infos.clone(),
+    sum_all_count_host: sum_capacity_host,
+  };
+
+  let compacted = MultiRangeDispatchInfo {
+    sub_list_ranges: output_ranges_offset_compacted.into_readonly_view(),
     sum_all_count: output_sum_all.into_readonly_view(),
     host_capacity_ranges: selected_infos,
     sum_all_count_host: sum_capacity_host,
-  }
+  };
+
+  (origin, compacted)
 }
 
 pub struct IndirectScenePassContent<'a> {

@@ -469,11 +469,13 @@ impl IndirectDrawProviderCreator for MeshGPUBindlessImpl {
     &self,
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
     id: RawEntityHandle,
   ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
     let cmd_builder = self.make_draw_command_builder(id)?;
     use_and_create_default_indirect_draw_provider(
       list,
+      dispatch_info_device_offset_compacted,
       cmd_builder,
       cx,
       self.used_in_midc_downgrade,

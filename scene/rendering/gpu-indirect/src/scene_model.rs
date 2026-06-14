@@ -85,11 +85,17 @@ impl IndirectDrawProviderCreator for IndirectPreferredComOrderRenderer {
     &self,
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
     id: RawEntityHandle,
   ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
     self
       .model_impl
-      .use_create_or_update_indirect_draw_providers(cx, list, id)
+      .use_create_or_update_indirect_draw_providers(
+        cx,
+        list,
+        dispatch_info_device_offset_compacted,
+        id,
+      )
   }
 }
 

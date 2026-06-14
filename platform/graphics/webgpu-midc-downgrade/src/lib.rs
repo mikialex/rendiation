@@ -196,7 +196,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
         let range = sub_list_ranges.index(list_idx).load();
         let range = range.expand();
         let seg_start = range.count_prefix_sum;
-        let capacity_i = range.count;
+        let count = range.count;
 
         // Compute prefix base offset: sum of (capacity_j + 1) for j < list_idx
         let prefix_base = val(0u32).make_local_var();
@@ -220,8 +220,8 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
           .index(prefix_base.load() + local_idx)
           .store(value);
 
-        // The last thread in each sub-list also writes the total entry (at index capacity_i)
-        let is_last_in_sub = local_idx.equals(capacity_i - val(1u32));
+        // The last thread in each sub-list also writes the total entry
+        let is_last_in_sub = local_idx.equals(count - val(1u32));
         if_by(is_last_in_sub, || {
           let total_value =
             global_excl.index(dispatch_thread_id + val(1u32)).load() - seg_start_excl;

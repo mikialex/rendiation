@@ -81,6 +81,7 @@ fn prepare_gpu_sub_list_out_ranges(
 
 pub fn use_and_create_default_indirect_draw_provider(
   list: &DeviceDrawList,
+  dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
   draw_command_builder: DrawCommandBuilder,
   cx: &mut DeviceParallelComputeCtx,
   enable_midc_downgrade: bool,
@@ -159,7 +160,7 @@ pub fn use_and_create_default_indirect_draw_provider(
         let command_pool = StorageDrawCommands::Indexed(command_pool_ro.into());
         let midc_input = rendiation_webgpu_midc_downgrade::MIDCListPoolInput {
           command_pool,
-          list_info: list.dispatch_info.clone(),
+          list_info: dispatch_info_device_offset_compacted.clone(),
         };
         let downgraded =
           rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count_list_pool(
@@ -257,7 +258,7 @@ pub fn use_and_create_default_indirect_draw_provider(
         let command_pool = StorageDrawCommands::NoneIndexed(command_pool_ro.into());
         let midc_input = rendiation_webgpu_midc_downgrade::MIDCListPoolInput {
           command_pool,
-          list_info: list.dispatch_info.clone(),
+          list_info: dispatch_info_device_offset_compacted.clone(),
         };
         let downgraded =
           rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count_list_pool(
