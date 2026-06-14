@@ -55,7 +55,7 @@ pub fn use_incremental_device_scene_batch_extractor<K: CKey>(
   if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
     extractor
       .write()
-      .do_updates(&gpu_updates.expect_resolve_stage(), cx.gpu, encoder);
+      .do_updates(&gpu_updates.expect_resolve_stage().0, cx.gpu, encoder);
 
     Some(extractor.make_read_holder())
   } else {

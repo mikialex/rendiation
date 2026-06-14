@@ -4210,27 +4210,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-mesh-lod-graph-rendering"
-version = "0.1.0"
-dependencies = [
- "database",
- "fast-hash-collection",
- "log",
- "parking_lot",
- "rendiation-algebra",
- "rendiation-device-parallel-compute",
- "rendiation-geometry",
- "rendiation-mesh-lod-graph",
- "rendiation-scene-core",
- "rendiation-scene-rendering-gpu-base",
- "rendiation-scene-rendering-gpu-indirect",
- "rendiation-shader-api",
- "rendiation-webgpu",
- "rendiation-webgpu-hook-utils",
- "rendiation-webgpu-midc-downgrade",
-]
-
-[[package]]
 name = "rendiation-mesh-segmentation"
 version = "0.1.0"
 dependencies = [
@@ -4881,7 +4860,6 @@ dependencies = [
  "rendiation-lighting-shadow-map",
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
- "rendiation-mesh-lod-graph-rendering",
  "rendiation-mesh-segmentation",
  "rendiation-mesh-simplification",
  "rendiation-occ-style-draw-control",

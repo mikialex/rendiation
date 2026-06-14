@@ -81,7 +81,7 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
     &mut self,
     delta: impl Query<Key = RawEntityHandle, Value = ValueChange<GroupKeyWithSceneHandle<K>>>,
     allocator: &Arc<RwLock<GrowableRangeAllocator<u64>>>,
-  ) -> ExtractorUpdate {
+  ) -> (ExtractorUpdate, FastHashSet<(K, RawEntityHandle)>) {
     let mut changes_keys = FastHashSet::default();
 
     // Track old group capacities before changes
@@ -166,10 +166,13 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
       self.pool.update_pool_size(new_capacity);
     }
 
-    ExtractorUpdate {
-      groups_with_updates,
-      pool_update,
-    }
+    (
+      ExtractorUpdate {
+        groups_with_updates,
+        pool_update,
+      },
+      changes_keys,
+    )
   }
 
   /// Render-stage: apply pool allocation changes and write GPU data.

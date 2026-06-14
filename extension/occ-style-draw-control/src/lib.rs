@@ -78,13 +78,22 @@ pub fn use_occ_incremental_device_scene_batch_extractor(
     inspector.label_memory_usage("indirect group key", bytes);
   });
 
+  let priority_changes = cx.use_dual_query::<SceneModelOccStylePriority>();
+
   let extractor_ = extractor.clone();
   let gpu_updates = sm_group_key_with_scene_id
-    .map_spawn_stage_in_thread_dual_query(cx, move |v| {
-      let change = v.delta();
-      let update = extractor_.write().prepare_updates(change, &allocator);
-      Arc::new(update)
-    })
+    .join(priority_changes)
+    .map_spawn_stage_in_thread(
+      cx,
+      |(c1, c2)| c1.has_delta_hint() || c2.has_delta_hint(),
+      move |(c1, c2)| {
+        Arc::new(
+          extractor_
+            .write()
+            .prepare_updates(c1, c2.delta(), &allocator),
+        )
+      },
+    )
     .use_assure_result(cx);
 
   if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
@@ -176,17 +185,25 @@ pub struct OccStyleOrderControlSceneBatchUpdates {
 impl OccStyleOrderControlSceneBatchExtractor {
   pub fn prepare_updates(
     &mut self,
-    delta: impl Query<
-      Key = RawEntityHandle,
-      Value = ValueChange<(OccSceneModelGroupKey, RawEntityHandle)>,
-    >,
+    query: impl DualQueryLike<Key = RawEntityHandle, Value = (OccSceneModelGroupKey, RawEntityHandle)>,
+    priority_changes: impl Query<Key = RawEntityHandle, Value = ValueChange<u32>>,
     allocator: &Arc<RwLock<GrowableRangeAllocator<u64>>>,
   ) -> OccStyleOrderControlSceneBatchUpdates {
-    let base_update = self.internal.prepare_updates(delta, allocator);
+    let (view, delta) = query.view_delta();
+    let (base_update, mut changed_keys) = self.internal.prepare_updates(delta, allocator);
 
-    // Build sort writes with pool offsets from allocator result
+    for (sm_id, _) in priority_changes.iter_key_value() {
+      // here we can skip the check that the sm's (key, scene) change's previous value's list update.
+      // because it's already been included in changed_keys.
+      if let Some((key, scene)) = view.access(&sm_id) {
+        changed_keys.insert((key, scene));
+      } else {
+        // this is possible because we impl visible filtering
+      }
+    }
+
     let priority_view = read_global_db_component::<SceneModelOccStylePriority>();
-    let mut sort_sparse = SparseBufferWritesSource::default();
+    let mut sort_sparse_writes = SparseBufferWritesSource::default();
 
     let alloc = allocator.read();
 
@@ -197,7 +214,7 @@ impl OccStyleOrderControlSceneBatchExtractor {
             if let Some(sort_writes) = sort_by_priority(buffer, &priority_view) {
               let offset = alloc.get_region(*group_hash).unwrap().1;
               for (pos, val) in &sort_writes {
-                sort_sparse.collect_write(bytes_of(val), (offset + pos) as u64 * 4);
+                sort_sparse_writes.collect_write(bytes_of(val), (offset + pos) as u64 * 4);
               }
             }
             break;
@@ -208,7 +225,7 @@ impl OccStyleOrderControlSceneBatchExtractor {
 
     OccStyleOrderControlSceneBatchUpdates {
       pool_update: base_update.pool_update,
-      sort_sparse_writes: sort_sparse,
+      sort_sparse_writes,
     }
   }
 
