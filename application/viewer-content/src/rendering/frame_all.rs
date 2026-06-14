@@ -146,7 +146,6 @@ impl Viewer3dRenderingCtx {
       &self.font_system,
     );
 
-    let mut mesh_lod_graph_renderer = None;
     let mut indirect_extractor = None;
 
     let (cx, active_view_control) = cx.use_plain_state_default::<CurrentViewControl>();
@@ -269,14 +268,8 @@ impl Viewer3dRenderingCtx {
           rtx_mesh = mesh.clone();
         }
 
-        mesh_lod_graph_renderer = use_mesh_lod_graph_scene_renderer(cx);
-
-        let mesh = cx.when_render(|| {
-          Box::new(vec![
-            Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRenderImpl>,
-            Box::new(mesh_lod_graph_renderer.clone().unwrap()),
-          ]) as Box<dyn IndirectModelShapeRenderImpl>
-        });
+        let mesh =
+          cx.when_render(|| Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRenderImpl>);
 
         let material_flat = cx.use_changes::<StandardModelRefUnlitMaterial>();
         let material_pbr_mr = cx.use_changes::<StandardModelRefPbrMRMaterial>();
@@ -516,7 +509,6 @@ impl Viewer3dRenderingCtx {
       reversed_depth: self.ndc.enable_reverse_z,
       lighting: lighting.unwrap(),
       culling: culling.unwrap(),
-      mesh_lod_graph_renderer,
       camera_transforms: camera_transforms
         .expect_resolve_stage()
         .mark_entity_type()
@@ -620,7 +612,6 @@ impl Viewer3dRenderingCtx {
       batch_extractor: renderer.batch_extractor,
       rtx_system: renderer.rtx_system,
       culling: renderer.culling,
-      mesh_lod_graph_renderer: renderer.mesh_lod_graph_renderer,
       camera_transforms: renderer.camera_transforms,
       sm_world_bounding: renderer.sm_world_bounding,
       reversed_depth: renderer.reversed_depth,
@@ -682,7 +673,6 @@ pub struct ViewerRendererInstancePreparer {
   pub lighting: LightingRenderingCxPrepareCtx,
   pub clipping: ViewerClippingRenderer,
   pub culling: ViewerCulling,
-  pub mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   pub reversed_depth: bool,
@@ -696,7 +686,6 @@ pub struct ViewerRendererInstance<'a> {
   pub batch_extractor: Box<dyn SceneBatchBasicExtractAbility>,
   pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   pub culling: ViewerCulling,
-  pub mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   pub reversed_depth: bool,

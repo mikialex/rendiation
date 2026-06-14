@@ -60,7 +60,6 @@ members = [
   "scene/rendering/occlusion-culling",
   "scene/rendering/frustum-culling",
   "scene/rendering/gpu-ray-tracing",
-  "scene/rendering/mesh-lod-graph",
   "scene/rendering/oit",
   "scene/rendering/scheduler",
   "scene/io/obj/loader",
