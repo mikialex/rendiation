@@ -93,7 +93,7 @@ pub fn use_and_create_default_indirect_draw_provider(
         generator,
       };
 
-      let size = generator.result_size();
+      let size = generator.result_size(); // this will waster more padding, but it's ok
       let init = ZeroedArrayByArrayLength(size as usize);
       let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
         cx.gpu.device.as_ref(),
@@ -116,7 +116,7 @@ pub fn use_and_create_default_indirect_draw_provider(
           let generator = generator.build_shader(&mut builder);
           let output_ranges = builder.bind_by(&output_ranges);
           let input_ranges = builder.bind_by(&list.dispatch_info.sub_list_ranges);
-          let write_target = builder.bind_by(&draw_command_buffer);
+          let draw_command_buffer = builder.bind_by(&draw_command_buffer);
 
           let ((cmd, list_index), valid) =
             generator.invocation_logic(builder.global_invocation_id());
@@ -125,7 +125,7 @@ pub fn use_and_create_default_indirect_draw_provider(
             let range_base_offset = input_ranges.index(list_index).count_prefix_sum().load();
             let range_relative_index = builder.global_invocation_id().x() - range_base_offset;
             let write_index = range_relative_index + range_write_offset;
-            write_target.index(write_index).store(cmd);
+            draw_command_buffer.index(write_index).store(cmd);
           });
 
           builder
@@ -213,7 +213,7 @@ pub fn use_and_create_default_indirect_draw_provider(
           let generator = generator.build_shader(&mut builder);
           let output_ranges = builder.bind_by(&output_ranges);
           let input_ranges = builder.bind_by(&list.dispatch_info.sub_list_ranges);
-          let write_target = builder.bind_by(&draw_command_buffer);
+          let draw_command_buffer = builder.bind_by(&draw_command_buffer);
 
           let ((cmd, list_index), valid) =
             generator.invocation_logic(builder.global_invocation_id());
@@ -223,7 +223,7 @@ pub fn use_and_create_default_indirect_draw_provider(
 
             let range_relative_index = builder.global_invocation_id().x() - range_base_offset;
             let write_index = range_relative_index + range_write_offset;
-            write_target.index(write_index).store(cmd);
+            draw_command_buffer.index(write_index).store(cmd);
           });
 
           builder

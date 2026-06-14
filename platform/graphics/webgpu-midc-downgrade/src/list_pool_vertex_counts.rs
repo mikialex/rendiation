@@ -100,8 +100,7 @@ impl DeviceInvocation<Node<u32>> for ListPoolVertexCountInvocation {
     let result = in_bound.not().select_branched(
       || zeroed_val(),
       || {
-        let range = self.sub_list_ranges.index(list_idx).load();
-        let range = range.expand();
+        let range = self.sub_list_ranges.index(list_idx).load().expand();
         let offset = range.offset;
         let base = range.count_prefix_sum;
         let pool_index = global_id - base + offset;

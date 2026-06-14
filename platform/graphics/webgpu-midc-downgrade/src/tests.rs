@@ -38,7 +38,6 @@ fn build_test_input(gpu: &GPU) -> MIDCListPoolInput {
   let command_pool =
     StorageDrawCommands::NoneIndexed(create_gpu_readonly_storage(cmds.as_slice(), gpu).into());
 
-  // sub_list_ranges: x = padded pool offset, y = real count, z = prefix sum over real counts
   let mut prefix_sum = 0u32;
   let ranges_vec: Vec<StorageSubListRangeInfo> = real_counts
     .iter()

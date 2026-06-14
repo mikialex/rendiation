@@ -108,8 +108,7 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
     // — this can happen after a prior culling pass produces fully-culled
     // sub-lists at the front.
     if_by(i.less_than(sub_list_count), || {
-      let range = self.sub_list_ranges.index(i).load();
-      let range = range.expand();
+      let range = self.sub_list_ranges.index(i).load().expand();
 
       // Compute p_prev first (needed as fallback for p_end on empty sub-lists).
       // p_prev = inclusive prefix sum at end of previous sub-list.
@@ -182,8 +181,7 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
       // sub_list_ranges[list_idx].count_prefix_sum gives the number of
       // input elements before this sub-list. If count_prefix_sum == 0
       // there are no preceding elements → seg_start = 0.
-      let range = self.sub_list_ranges.index(list_idx).load();
-      let range = range.expand();
+      let range = self.sub_list_ranges.index(list_idx).load().expand();
       let no_prev_elements = list_idx
         .equals(val(0u32))
         .or(range.count_prefix_sum.equals(val(0u32)));

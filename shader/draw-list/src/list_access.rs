@@ -86,8 +86,7 @@ impl DeviceInvocation<Node<Vec2<u32>>> for DeviceDrawListInvocation {
     let r = in_bound.not().select_branched(
       || zeroed_val(),
       || {
-        let range = self.sub_list_ranges.index(list_index).load();
-        let range = range.expand();
+        let range = self.sub_list_ranges.index(list_index).load().expand();
         let offset = range.offset;
         let base = range.count_prefix_sum;
         let id = self

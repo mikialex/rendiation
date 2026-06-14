@@ -54,52 +54,49 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
   let is_indexed = input.command_pool.is_index();
 
   // segmented prefix scan over all vertex counts
-  let source = ListPoolVertexCountSource {
+  let inclusive_scan_result = ListPoolVertexCountSource {
     command_pool: input.command_pool.clone(),
     sub_list_ranges: input.list_info.sub_list_ranges.clone(),
     sum_all_count: input.list_info.sum_all_count.clone(),
     total_capacity,
-  };
+  }
+  .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx)
+  .materialize_storage_buffer(cx);
 
-  let scan_result = source
-    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx)
-    .make_global_scan_exclusive::<AdditionMonoid<u32>>()
-    .materialize_storage_buffer(cx);
+  let inclusive_scan_result = inclusive_scan_result.buffer;
 
-  let global_excl = scan_result.buffer;
-
-  // Compute alignment and padded strides
   let limits = &cx.gpu.info.supported_limits;
   let align_bytes = limits.min_storage_buffer_offset_alignment as u64;
-  let stride_u32 = (align_bytes / 4) as u32;
+  let align_u32 = (align_bytes / 4) as u32;
 
-  let mut padded_stride_info_vec = Vec::with_capacity(list_count as usize + 1);
-  padded_stride_info_vec.push(stride_u32); // index 0 = count stride
-  let mut total_padded_entries: u32 = 0;
+  // (offset, capacity) for each sub prefix output
+  let mut output_prefix_segments_ranges_host = Vec::with_capacity(list_count as usize);
+  let mut offset: u32 = 0;
   for info in &input.list_info.host_capacity_ranges {
-    let padded = round_up(info.capacity + 1, stride_u32);
-    padded_stride_info_vec.push(padded);
-    total_padded_entries += padded;
+    let required_capacity = info.capacity + 1; // + 1 for exclusive prefix sum last entry
+    let padded_required_capacity = round_up(required_capacity, align_u32);
+    output_prefix_segments_ranges_host.push(Vec2::new(offset, padded_required_capacity));
+    offset += padded_required_capacity;
   }
-  let padded_stride_info = create_gpu_readonly_storage(padded_stride_info_vec.as_slice(), &cx.gpu);
+  let total_padded_entries = offset;
+  let output_prefix_segments_ranges =
+    create_gpu_readonly_storage(output_prefix_segments_ranges_host.as_slice(), &cx.gpu);
 
-  // Allocate flat output buffers
   // Per-sub-list relative exclusive prefix sums: each sub-list gets capacity_i + 1 entries
   // followed by padding zeros to satisfy storage buffer offset alignment.
-  let per_sub_prefix_flat: StorageBufferDataView<[u32]> = create_gpu_read_write_storage(
+  let output_prefix: StorageBufferDataView<[u32]> = create_gpu_read_write_storage(
     ZeroedArrayByArrayLength(total_padded_entries as usize),
     &cx.gpu,
   );
 
-  // Aligned per-sub-list draw counts: each count occupies one u32 at a stride_u32-aligned offset.
   let aligned_counts: StorageBufferDataView<[u32]> = create_gpu_read_write_storage(
-    ZeroedArrayByArrayLength(list_count as usize * stride_u32 as usize),
+    ZeroedArrayByArrayLength(list_count as usize * align_u32 as usize),
     &cx.gpu,
   );
 
   // Combined indirect args: one per sub-list (always use DrawIndirectArgsStorage —
   // the downgraded draw is always non-indexed indirect)
-  let per_sub_indirect_flat: StorageBufferDataView<[DrawIndirectArgsStorage]> =
+  let output_indirect: StorageBufferDataView<[DrawIndirectArgsStorage]> =
     StorageBufferDataView::create_by_with_extra_usage(
       cx.gpu.device.as_ref(),
       StorageBufferInit::from(ZeroedArrayByArrayLength(list_count as usize)),
@@ -145,27 +142,27 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
     pass.dispatch_workgroups(1, 1, 1);
   });
 
-  // Dispatch 2b: write per-sub-list prefix sums and indirect args
+  // write per-sub-list prefix sums and indirect args
   let dispatch_indirect_view = dispatch_indirect.gpu.clone();
   cx.record_pass(|pass, device| {
     let hasher = shader_hasher_from_marker_ty!(MidcHelperDataWrite).with_hash(is_indexed);
 
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
       builder.config_work_group_size(256);
-      let global_excl = builder.bind_by(&global_excl);
+      let inclusive_scan_result = builder.bind_by(&inclusive_scan_result);
       let sub_list_ranges = builder.bind_by(&input.list_info.sub_list_ranges);
       let sum_all = builder.bind_by(&input.list_info.sum_all_count).load();
-      let output_prefix = builder.bind_by(&per_sub_prefix_flat);
-      let output_indirect = builder.bind_by(&per_sub_indirect_flat);
-      let padded_stride_info = builder.bind_by(&padded_stride_info);
+      let output_prefix = builder.bind_by(&output_prefix);
+      let output_indirect = builder.bind_by(&output_indirect);
+      let output_prefix_segments_ranges = builder.bind_by(&output_prefix_segments_ranges);
       let aligned_counts = builder.bind_by(&aligned_counts);
 
-      let dispatch_thread_id = builder.global_invocation_id().x();
+      let global_idx = builder.global_invocation_id().x();
       let sub_list_count = sub_list_ranges.array_length();
 
-      // Phase A: write per-sub-list relative prefix sums
-      let in_prefix_range = dispatch_thread_id.less_than(sum_all);
-      if_by(in_prefix_range, || {
+      // write per-sub-list relative prefix sums
+      let is_valid = global_idx.less_than(sum_all);
+      if_by(is_valid, || {
         // Binary search for sub-list containing this global index
         let low = val(0u32).make_local_var();
         let high = sub_list_count.make_local_var();
@@ -180,9 +177,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
           let mid = (lo + hi) / val(2u32);
           let z_mid = sub_list_ranges.index(mid).count_prefix_sum().load();
 
-          let p_le_id = z_mid
-            .less_than(dispatch_thread_id)
-            .or(z_mid.equals(dispatch_thread_id));
+          let p_le_id = z_mid.less_than(global_idx).or(z_mid.equals(global_idx));
           if_by(p_le_id, || {
             found.store(mid);
             low.store(mid + val(1u32));
@@ -193,71 +188,46 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
         });
 
         let list_idx = found.load();
-        let range = sub_list_ranges.index(list_idx).load();
-        let range = range.expand();
+        let range = sub_list_ranges.index(list_idx).load().expand();
         let seg_start = range.count_prefix_sum;
         let count = range.count;
 
-        // Compute prefix base offset: sum of (capacity_j + 1) for j < list_idx
-        let prefix_base = val(0u32).make_local_var();
-        let counter = val(0u32).make_local_var();
-        loop_by(|cx| {
-          let c = counter.load();
-          let done = c.greater_equal_than(list_idx);
-          if_by(done, || cx.do_break());
-          prefix_base.store(prefix_base.load() + padded_stride_info.index(c + val(1u32)).load());
-          counter.store(c + val(1u32));
-        });
+        let prefix_write_out_list_base = output_prefix_segments_ranges.index(list_idx).load().x();
 
-        let local_idx = dispatch_thread_id - seg_start;
+        let local_idx = global_idx - seg_start;
 
-        // Write relative exclusive prefix: global_excl[global_id] - global_excl[seg_start]
-        let seg_start_excl = seg_start
-          .equals(val(0u32))
-          .select_branched(|| val(0u32), || global_excl.index(seg_start).load());
-        let value = global_excl.index(dispatch_thread_id).load() - seg_start_excl;
+        let seg_start_prefix_scan_inclusive = inclusive_scan_result.index(seg_start).load();
+        let seg_prefix_scan_exclusive =
+          inclusive_scan_result.index(global_idx).load() - seg_start_prefix_scan_inclusive;
         output_prefix
-          .index(prefix_base.load() + local_idx)
-          .store(value);
+          .index(prefix_write_out_list_base + local_idx)
+          .store(seg_prefix_scan_exclusive);
 
-        // The last thread in each sub-list also writes the total entry
+        // The last thread in each sub-list also writes the total and indirect args
         let is_last_in_sub = local_idx.equals(count - val(1u32));
         if_by(is_last_in_sub, || {
-          let total_value =
-            global_excl.index(dispatch_thread_id + val(1u32)).load() - seg_start_excl;
-          output_prefix
-            .index(prefix_base.load() + local_idx + val(1u32))
-            .store(total_value);
-        });
-      });
+          let first_count = seg_start.equals(0).select_branched(
+            || seg_start_prefix_scan_inclusive,
+            || {
+              seg_start_prefix_scan_inclusive
+                - inclusive_scan_result.index(seg_start - val(1u32)).load()
+            },
+          );
 
-      // Phase B: write per-sub-list combined indirect args
-      let phase_b_id = dispatch_thread_id - sum_all;
-      let in_indirect_range = phase_b_id.less_than(sub_list_count);
-      if_by(in_indirect_range, || {
-        let i = phase_b_id;
-        let range = sub_list_ranges.index(i).load();
-        let range = range.expand();
-        let capacity_i = range.count;
-        // Store the per-sub-list draw count into the aligned counts buffer
-        let count_stride = padded_stride_info.index(val(0u32)).load();
-        aligned_counts.index(i * count_stride).store(capacity_i);
-        let has_draws = capacity_i.greater_than(val(0u32));
-        if_by(has_draws, || {
-          let seg_start = range.count_prefix_sum;
-          let seg_start_excl = seg_start
-            .equals(val(0u32))
-            .select_branched(|| val(0u32), || global_excl.index(seg_start).load());
-          let total = global_excl.index(seg_start + capacity_i).load() - seg_start_excl;
+          let total_count = seg_prefix_scan_exclusive + first_count;
+          output_prefix
+            .index(prefix_write_out_list_base + local_idx + val(1u32))
+            .store(total_count);
 
           let args = ENode::<DrawIndirectArgsStorage> {
-            vertex_count: total,
+            vertex_count: total_count,
             instance_count: val(1),
             base_vertex: val(0),
             base_instance: val(0),
           }
           .construct();
-          output_indirect.index(i).store(args);
+          output_indirect.index(list_idx).store(args);
+          aligned_counts.index(val(align_u32) * list_idx).store(count);
         });
       });
 
@@ -265,42 +235,30 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
     });
 
     BindingBuilder::default()
-      .with_bind(&global_excl)
+      .with_bind(&inclusive_scan_result)
       .with_bind(&input.list_info.sub_list_ranges)
       .with_bind(&input.list_info.sum_all_count)
-      .with_bind(&per_sub_prefix_flat)
-      .with_bind(&per_sub_indirect_flat)
-      .with_bind(&padded_stride_info)
+      .with_bind(&output_prefix)
+      .with_bind(&output_indirect)
+      .with_bind(&output_prefix_segments_ranges)
       .with_bind(&aligned_counts)
       .setup_compute_pass(pass, device, &pipeline);
 
     pass.dispatch_workgroups_indirect_by_buffer_resource_view(&dispatch_indirect_view);
   });
 
-  // Build per-sub-list helpers and draw commands
-  let mut prefix_offsets = Vec::with_capacity(list_count as usize);
-  let mut running = 0u32;
-  for i in 0..list_count as usize {
-    prefix_offsets.push(running);
-    running += padded_stride_info_vec[1 + i];
-  }
-
-  let prefix_buffer_resource = &per_sub_prefix_flat.gpu.resource;
-
   let mut results = Vec::with_capacity(list_count as usize);
   for (i, info) in input.list_info.host_capacity_ranges.iter().enumerate() {
-    // Create count view: each count is at aligned offset i * align_bytes in the aligned_counts buffer
     let count_offset = i as u64 * align_bytes;
-    debug_assert!(count_offset.is_multiple_of(align_bytes));
     let count_view = aligned_counts.gpu.resource.create_view(GPUBufferViewRange {
       offset: count_offset,
       size: std::num::NonZeroU64::new(4).into(),
     });
 
-    // Create prefix sum view: slice the flat prefix buffer at the padded offset
-    let offset = prefix_offsets[i] as u64 * 4; // 4 bytes per u32;
+    // create prefix sum views
+    let offset = output_prefix_segments_ranges_host[i].x() as u64 * 4; // 4 bytes per u32;
     debug_assert!(offset.is_multiple_of(align_bytes));
-    let prefix_view = prefix_buffer_resource.create_view(GPUBufferViewRange {
+    let prefix_view = output_prefix.gpu.resource.create_view(GPUBufferViewRange {
       offset,
       size: std::num::NonZeroU64::new((info.capacity + 1) as u64 * 4).into(),
     });
@@ -309,26 +267,13 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
         .unwrap()
         .into();
 
-    // Create draw count view as abstract buffer
     let draw_count_abstract: AbstractReadonlyStorageBuffer<u32> =
       StorageBufferReadonlyDataView::<u32>::try_from_raw(count_view)
         .unwrap()
         .into();
 
-    // Create command pool slice view for this sub-list
-    let cmd_view =
-      create_command_pool_slice_view(&input.command_pool, info.offset, info.capacity, align_bytes);
-
-    let draw_commands = match &input.command_pool {
-      StorageDrawCommands::Indexed(_) => {
-        let view = StorageBufferReadonlyDataView::try_from_raw(cmd_view).unwrap();
-        StorageDrawCommands::Indexed(view.into())
-      }
-      StorageDrawCommands::NoneIndexed(_) => {
-        let view = StorageBufferReadonlyDataView::try_from_raw(cmd_view).unwrap();
-        StorageDrawCommands::NoneIndexed(view.into())
-      }
-    };
+    let draw_commands =
+      create_command_pool_view(&input.command_pool, info.offset, info.capacity, align_bytes);
 
     let helper = DowngradeMultiIndirectDrawCountHelper {
       sub_draw_range_start_prefix_sum: prefix_abstract,
@@ -338,7 +283,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
 
     // Create indirect arg view for this sub-list (1 element)
     let item_size = std::mem::size_of::<DrawIndirectArgsStorage>() as u64;
-    let indirect_view = per_sub_indirect_flat
+    let indirect_view = output_indirect
       .gpu
       .resource
       .create_view(GPUBufferViewRange {
@@ -357,13 +302,12 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
   results
 }
 
-/// Create a GPUBufferResourceView that slices a StorageDrawCommands buffer by offset and count.
-fn create_command_pool_slice_view(
+fn create_command_pool_view(
   pool: &StorageDrawCommands,
   offset: u32,
   count: u32,
   align_check: u64,
-) -> GPUBufferResourceView {
+) -> StorageDrawCommands {
   let item_size = match pool {
     StorageDrawCommands::Indexed(_) => std::mem::size_of::<DrawIndexedIndirectArgsStorage>(),
     StorageDrawCommands::NoneIndexed(_) => std::mem::size_of::<DrawIndirectArgsStorage>(),
@@ -374,10 +318,21 @@ fn create_command_pool_slice_view(
   let offset = offset as u64 * item_size;
   debug_assert!(offset.is_multiple_of(align_check));
 
-  raw_view.resource.create_view(GPUBufferViewRange {
+  let cmd_view = raw_view.resource.create_view(GPUBufferViewRange {
     offset,
     size: std::num::NonZeroU64::new(count as u64 * item_size).into(),
-  })
+  });
+
+  match pool {
+    StorageDrawCommands::Indexed(_) => {
+      let view = StorageBufferReadonlyDataView::try_from_raw(cmd_view).unwrap();
+      StorageDrawCommands::Indexed(view.into())
+    }
+    StorageDrawCommands::NoneIndexed(_) => {
+      let view = StorageBufferReadonlyDataView::try_from_raw(cmd_view).unwrap();
+      StorageDrawCommands::NoneIndexed(view.into())
+    }
+  }
 }
 
 /// downgrade midc into single none-index indirect draw with helper access data.
