@@ -43,7 +43,15 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
       + self.contents.allocation_size()
   }
 
-  pub fn get_or_create(
+  fn remove_empty(&mut self, scene: &RawEntityHandle, key: &K) {
+    let lists_of_scene = self.contents.get_mut(scene).unwrap();
+    lists_of_scene.remove(key).unwrap();
+    if lists_of_scene.is_empty() {
+      self.contents.remove(scene).unwrap();
+    }
+  }
+
+  fn get_or_create(
     &mut self,
     scene: &RawEntityHandle,
     key: &K,
@@ -77,7 +85,7 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
     let mut changes_keys = FastHashSet::default();
 
     // Track old group capacities before changes
-    let mut old_capacities: FastHashMap<u64, u32> = FastHashMap::default();
+    let mut old_capacities = FastHashMap::default();
 
     for (sm, key_change) in delta.iter_key_value() {
       if let Some((key, scene_id)) = key_change.old_value() {
@@ -102,7 +110,8 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
 
     // Build changed groups list for allocator update
     let mut groups_with_updates: Vec<(RawEntityHandle, u64)> = Vec::new();
-    let mut changed_groups: Vec<(u64, bool, u32)> = Vec::new();
+    let mut changed_groups: Vec<(u64, u32)> = Vec::new();
+    let mut removed_groups: Vec<u64> = Vec::new();
     let mut entity_writes: Vec<(u64, u32, u32)> = Vec::new();
 
     let limits = &self.pool.gpu().info.supported_limits;
@@ -115,18 +124,25 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
       let buffer = self.get_or_create(s_id, key);
       let hash = buffer.group_key_hash;
       let new_size = buffer.host.len() as u32;
+
+      if new_size == 0 {
+        removed_groups.push(hash);
+        self.remove_empty(s_id, key);
+        continue;
+      }
+
       let new_size_rounded = new_size.next_power_of_two().max(min_size_round_up);
 
       let old_size = old_capacities.get(&hash).copied().unwrap();
       // handle the edge case
-      if old_size == 0 && new_size_rounded > 0 {
-        changed_groups.push((hash, false, new_size_rounded));
+      if old_size == 0 {
+        changed_groups.push((hash, new_size_rounded));
         continue;
       }
       let old_size_rounded = old_size.next_power_of_two().max(min_size_round_up);
 
       if old_size_rounded != new_size_rounded {
-        changed_groups.push((hash, true, new_size_rounded));
+        changed_groups.push((hash, new_size_rounded));
       }
 
       // Collect entity writes
@@ -139,8 +155,16 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
       groups_with_updates.push((*s_id, hash));
     }
 
-    let pool_update =
-      SceneModelListPool::prepare_pool_update(allocator, &changed_groups, entity_writes);
+    let pool_update = SceneModelListPool::prepare_pool_update(
+      allocator,
+      &removed_groups,
+      &changed_groups,
+      entity_writes,
+    );
+
+    if let Some(new_capacity) = pool_update.allocation_result.resize_to {
+      self.pool.update_pool_size(new_capacity);
+    }
 
     ExtractorUpdate {
       groups_with_updates,
@@ -173,15 +197,14 @@ impl SceneBatchBasicExtractAbility for IncrementalDeviceSceneBatchExtractor<Scen
       return SceneModelRenderBatch::Device(None);
     };
 
-    let groups: Vec<(&SceneModelGroupKey, &PersistSceneModelListBuffer)> =
-      if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
-        contents
-          .iter()
-          .filter(|(k, _)| k.require_alpha_blend() == alpha_blend)
-          .collect()
-      } else {
-        contents.iter().collect()
-      };
+    let groups: Vec<_> = if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
+      contents
+        .iter()
+        .filter(|(k, _)| k.require_alpha_blend() == alpha_blend)
+        .collect()
+    } else {
+      contents.iter().collect()
+    };
 
     if groups.is_empty() {
       return SceneModelRenderBatch::Device(None);

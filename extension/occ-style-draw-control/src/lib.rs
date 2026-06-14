@@ -114,15 +114,14 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
       return SceneModelRenderBatch::Device(None);
     };
 
-    let mut groups: Vec<(&OccSceneModelGroupKey, &PersistSceneModelListBuffer)> =
-      if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
-        contents
-          .iter()
-          .filter(|(k, _)| k.internal.require_alpha_blend() == alpha_blend)
-          .collect()
-      } else {
-        contents.iter().collect()
-      };
+    let mut groups: Vec<_> = if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
+      contents
+        .iter()
+        .filter(|(k, _)| k.internal.require_alpha_blend() == alpha_blend)
+        .collect()
+    } else {
+      contents.iter().collect()
+    };
 
     if groups.is_empty() {
       return SceneModelRenderBatch::Device(None);

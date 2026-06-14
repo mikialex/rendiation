@@ -9,7 +9,7 @@ use crate::*;
 /// GPU buffer writes (resize, relocation, sparse write) happen in the render stage.
 pub struct SceneModelListPool {
   /// The pool GPU buffer
-  pool_buffer: AbstractReadonlyStorageBuffer<[u32]>,
+  pool_buffer: ResizableGPUBuffer<AbstractReadonlyStorageBuffer<[u32]>>,
   /// Range allocator — group_hash(u64) → pool region
   pub allocator: Arc<RwLock<GrowableRangeAllocator<u64>>>,
   gpu: GPU,
@@ -25,11 +25,13 @@ pub struct PoolAllocationUpdate {
 
 impl SceneModelListPool {
   pub fn new(alloc: &dyn AbstractStorageAllocator, gpu: &GPU, init_capacity: u32) -> Self {
-    let pool_buffer = alloc.allocate_readonly(
-      init_capacity as u64 * 4,
-      &gpu.device,
-      Some("scene_model_pool"),
-    );
+    let pool_buffer = alloc
+      .allocate_readonly(
+        init_capacity as u64 * 4,
+        &gpu.device,
+        Some("scene_model_id_pool"),
+      )
+      .with_direct_resize(gpu);
 
     let limits = &gpu.info.supported_limits;
     let bind_alignment_requirement_in_u32 = limits
@@ -40,7 +42,7 @@ impl SceneModelListPool {
     Self {
       pool_buffer,
       allocator: Arc::new(RwLock::new(GrowableRangeAllocator::new(
-        "scene_model_pool",
+        "scene_model_id_pool allocator",
         u32::MAX,
         init_capacity,
         bind_alignment_requirement_in_u32,
@@ -49,12 +51,16 @@ impl SceneModelListPool {
     }
   }
 
+  pub fn update_pool_size(&mut self, new_size: u32) {
+    self.pool_buffer.resize(new_size);
+  }
+
   pub fn pool_buffer(&self) -> &AbstractReadonlyStorageBuffer<[u32]> {
-    &self.pool_buffer
+    &self.pool_buffer.gpu
   }
 
   pub fn pool_buffer_readonly(&self) -> StorageBufferReadonlyDataView<[u32]> {
-    let view = self.pool_buffer.get_gpu_buffer_view().unwrap();
+    let view = self.pool_buffer.gpu.get_gpu_buffer_view().unwrap();
     StorageBufferReadonlyDataView::try_from_raw(view).unwrap()
   }
 
@@ -62,32 +68,23 @@ impl SceneModelListPool {
     &self.gpu
   }
 
-  /// Clone the allocator Arc for shared access during spawn stage.
   pub fn allocator_shared(&self) -> Arc<RwLock<GrowableRangeAllocator<u64>>> {
     self.allocator.clone()
   }
 
-  /// Spawn-stage: process group allocation changes and build sparse writes.
-  /// `changed_groups`: iterator of (group_hash, removed_old, new_size)
-  ///   where `removed_old` is true if the group previously had an allocation that should be freed.
   pub fn prepare_pool_update(
     allocator: &Arc<RwLock<GrowableRangeAllocator<u64>>>,
-    changed_groups: &[(u64, bool, u32)],
+    removed_groups: &[u64],
+    changed_groups: &[(u64, u32)],
     entity_writes: Vec<(u64, u32, u32)>, // (group_hash, local_pos, entity_alloc_index)
   ) -> PoolAllocationUpdate {
     let mut alloc = allocator.write();
-    let removed = changed_groups
-      .iter()
-      .filter(|(_, removed_old, _)| *removed_old)
-      .map(|(hash, _, _)| *hash);
-    let new_allocs: Vec<_> = changed_groups
-      .iter()
-      .map(|(hash, _, size)| (*hash, *size))
-      .collect();
 
-    let allocation_result = alloc.update(removed, new_allocs.clone());
+    let allocation_result = alloc.update(
+      removed_groups.iter().copied(),
+      changed_groups.iter().copied(),
+    );
 
-    // Build sparse writes — apply pool offsets from allocator result.
     let mut writes = SparseBufferWritesSource::default();
     for (group_hash, local_pos, value) in &entity_writes {
       let offset = alloc.get_region(*group_hash).unwrap().1;
@@ -100,44 +97,32 @@ impl SceneModelListPool {
     }
   }
 
-  /// Render-stage: apply the allocation update to the GPU.
-  /// Handles pool buffer resize, GPU-side data relocation, and sparse writes.
   pub fn apply_pool_update(
     &mut self,
     update: &PoolAllocationUpdate,
     gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
   ) {
-    // 1. Resize pool buffer if allocator grew
-    if let Some(new_capacity) = update.allocation_result.resize_to {
-      let new_bytes = new_capacity as u64 * 4;
-      if self.pool_buffer.byte_size() < new_bytes {
-        self.pool_buffer.resize_gpu(encoder, &gpu.device, new_bytes);
-      }
-    }
-
-    // 2. Handle data movements (GPU buffer self-relocate)
+    // the pool buffer may have been resized in spawn stage
     if !update.allocation_result.data_movements.is_empty() {
-      let mut reloc_encoder = gpu.create_encoder();
-      let relocations: Vec<BufferRelocate> = update
-        .allocation_result
-        .data_movements
-        .values()
-        .map(|v| BufferRelocate {
-          self_offset: v.old_offset as u64 * 4,
-          target_offset: v.new_offset as u64 * 4,
-          count: v.count as u64 * 4,
-        })
-        .collect();
-      self.pool_buffer.batch_self_relocate(
-        &mut relocations.into_iter(),
-        &mut reloc_encoder,
-        &gpu.device,
-      );
-      gpu.submit_encoder(reloc_encoder);
+      let mut encoder = gpu.create_encoder();
+      let mut relocations =
+        update
+          .allocation_result
+          .data_movements
+          .values()
+          .map(|v| BufferRelocate {
+            self_offset: v.old_offset as u64 * 4,
+            target_offset: v.new_offset as u64 * 4,
+            count: v.count as u64 * 4,
+          });
+      self
+        .pool_buffer
+        .gpu
+        .batch_self_relocate(&mut relocations, &mut encoder, &gpu.device);
+      gpu.submit_encoder(encoder);
     }
 
-    // 3. Write sparse entity data
     if !update.sparse_writes.is_empty() {
       update
         .sparse_writes
