@@ -265,9 +265,8 @@ fn test_bookkeeping_hash_relation_update() {
   bookkeeping_hash_relation(&mut mapping, &changes);
 
   // update: change 1->100 to 1->200
-  let changes2: FastHashMap<u32, ValueChange<u32>> = FastHashMap::from_iter([
-    (1u32, ValueChange::Delta(200u32, Some(100u32))),
-  ]);
+  let changes2: FastHashMap<u32, ValueChange<u32>> =
+    FastHashMap::from_iter([(1u32, ValueChange::Delta(200u32, Some(100u32)))]);
   bookkeeping_hash_relation(&mut mapping, &changes2);
 
   assert_eq!(mapping[&100].len(), 1);
@@ -335,8 +334,9 @@ fn test_dense_index_mapping_upgrade_to_fallback() {
 
   // create >128 entries all pointing to the same "one" (key 0)
   let count = 150u32;
-  let changes: FastHashMap<u32, ValueChange<u32>> =
-    (0..count).map(|i| (i, ValueChange::Delta(0u32, None))).collect();
+  let changes: FastHashMap<u32, ValueChange<u32>> = (0..count)
+    .map(|i| (i, ValueChange::Delta(0u32, None)))
+    .collect();
   bookkeeping_dense_index_relation(&mut mapping, &changes);
 
   super::validate_multi_query_consistency(&mapping);

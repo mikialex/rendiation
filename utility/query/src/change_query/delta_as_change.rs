@@ -70,7 +70,10 @@ fn test_delta_query_as_change_insert() {
 #[test]
 fn test_delta_query_as_change_update() {
   let mut delta = FastHashMap::default();
-  delta.insert(1u32, ValueChange::Delta("new".to_string(), Some("old".to_string())));
+  delta.insert(
+    1u32,
+    ValueChange::Delta("new".to_string(), Some("old".to_string())),
+  );
 
   let change = DeltaQueryAsChange(delta);
 

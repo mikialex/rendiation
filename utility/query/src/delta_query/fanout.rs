@@ -42,8 +42,7 @@ where
   let relational_changes_iter = relational_changes.iter_key_value();
   let upstream_changes_iter = upstream_changes.iter_key_value();
 
-  let output_reserve =
-    relational_changes_iter.size_hint().0 + upstream_changes_iter.size_hint().0;
+  let output_reserve = relational_changes_iter.size_hint().0 + upstream_changes_iter.size_hint().0;
 
   let mut output = FastHashMap::with_capacity_and_hasher(output_reserve, Default::default());
 
@@ -81,25 +80,23 @@ where
             }
           }
         }),
-        ValueChange::Delta(new_x, _p) => {
-          rev_many_view.access_multi_visitor(&a_key, &mut |b_key| {
-            if let Some(prev_a) = one_acc_previous.access(&b_key) {
-              let prev_x = getter_previous.access(&prev_a);
-              if let Some(ValueChange::Remove(_)) = output.get(&b_key) {
-                output.remove(&b_key);
-              } else {
-                output.insert(b_key.clone(), ValueChange::Delta(new_x.clone(), prev_x));
-              }
+        ValueChange::Delta(new_x, _p) => rev_many_view.access_multi_visitor(&a_key, &mut |b_key| {
+          if let Some(prev_a) = one_acc_previous.access(&b_key) {
+            let prev_x = getter_previous.access(&prev_a);
+            if let Some(ValueChange::Remove(_)) = output.get(&b_key) {
+              output.remove(&b_key);
             } else {
-              #[allow(clippy::collapsible_else_if)]
-              if let Some(ValueChange::Remove(_)) = output.get(&b_key) {
-                output.remove(&b_key);
-              } else {
-                output.insert(b_key.clone(), ValueChange::Delta(new_x.clone(), None));
-              }
+              output.insert(b_key.clone(), ValueChange::Delta(new_x.clone(), prev_x));
             }
-          })
-        }
+          } else {
+            #[allow(clippy::collapsible_else_if)]
+            if let Some(ValueChange::Remove(_)) = output.get(&b_key) {
+              output.remove(&b_key);
+            } else {
+              output.insert(b_key.clone(), ValueChange::Delta(new_x.clone(), None));
+            }
+          }
+        }),
       }
     }
   }

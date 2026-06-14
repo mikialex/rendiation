@@ -70,10 +70,7 @@ fn test_filter_map_query_change() {
 
   validate_query_consistency(&filtered);
 
-  assert_eq!(
-    filtered.access(&1),
-    Some(ValueChange::Delta(100, Some(80)))
-  );
+  assert_eq!(filtered.access(&1), Some(ValueChange::Delta(100, Some(80))));
   assert_eq!(filtered.access(&2), None);
   assert_eq!(filtered.access(&3), Some(ValueChange::Remove(80)));
 }

@@ -119,7 +119,10 @@ pub fn validate_multi_query_consistency<Q: MultiQuery>(query: &Q) {
 #[test]
 fn test_fast_hash_map_multi_query() {
   let mut map: FastHashMap<u32, FastHashSet<String>> = FastHashMap::default();
-  map.insert(1, FastHashSet::from_iter(["a".to_string(), "b".to_string()]));
+  map.insert(
+    1,
+    FastHashSet::from_iter(["a".to_string(), "b".to_string()]),
+  );
   map.insert(2, FastHashSet::from_iter(["c".to_string()]));
 
   validate_multi_query_consistency(&map);

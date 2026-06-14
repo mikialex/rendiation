@@ -54,7 +54,10 @@ fn test_query_previous_view() {
 
   // delta: key 1 changed from "a" to "a2", key 2 removed
   let mut delta = FastHashMap::default();
-  delta.insert(1u32, ValueChange::Delta("a2".to_string(), Some("a".to_string())));
+  delta.insert(
+    1u32,
+    ValueChange::Delta("a2".to_string(), Some("a".to_string())),
+  );
   delta.insert(2, ValueChange::Remove("b".to_string()));
 
   let prev = make_previous(&current, &delta);

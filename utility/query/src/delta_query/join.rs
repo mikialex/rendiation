@@ -24,21 +24,18 @@ where
 
   fn iter_key_value(&self) -> impl Iterator<Item = ((K1, K2), ValueChange<(V1, V2)>)> + '_ {
     let cross_section = self.a.iter_key_value().flat_map(move |(k1, v1_change)| {
-      self
-        .b
-        .iter_key_value()
-        .filter_map(move |(k2, v2_change)| {
-          cross_join_change(
-            &k1,
-            &k2,
-            Some(v1_change.clone()),
-            Some(v2_change),
-            &|k| self.a_current.access(k),
-            &|k| self.b_current.access(k),
-          )
-          .and_then(exist_both)
-          .map(|v| ((k1.clone(), k2), v))
-        })
+      self.b.iter_key_value().filter_map(move |(k2, v2_change)| {
+        cross_join_change(
+          &k1,
+          &k2,
+          Some(v1_change.clone()),
+          Some(v2_change),
+          &|k| self.a_current.access(k),
+          &|k| self.b_current.access(k),
+        )
+        .and_then(exist_both)
+        .map(|v| ((k1.clone(), k2), v))
+      })
     });
 
     let a_side_change_with_b = self.a.iter_key_value().flat_map(move |(k1, v1_change)| {
@@ -136,11 +133,17 @@ fn cross_join_change<K1: Clone, K2: Clone, V1: Clone, V2: Clone>(
         ValueChange::Delta((Some(v1), Some(v2)), Some((p1, p2)))
       }
       (ValueChange::Delta(v1, p1), ValueChange::Remove(p2)) => {
-        debug_assert!(v2_current(k2).is_none(), "removed side should have no current value");
+        debug_assert!(
+          v2_current(k2).is_none(),
+          "removed side should have no current value"
+        );
         ValueChange::Delta((Some(v1), None), Some((p1, Some(p2))))
       }
       (ValueChange::Remove(p1), ValueChange::Delta(v2, p2)) => {
-        debug_assert!(v1_current(k1).is_none(), "removed side should have no current value");
+        debug_assert!(
+          v1_current(k1).is_none(),
+          "removed side should have no current value"
+        );
         ValueChange::Delta((None, Some(v2)), Some((Some(p1), p2)))
       }
       (ValueChange::Remove(p1), ValueChange::Remove(p2)) => {
@@ -363,4 +366,3 @@ fn test_cross_join_value_change_mixed() {
     ValueChange::Delta((99, 20), Some((99, 15)))
   );
 }
-

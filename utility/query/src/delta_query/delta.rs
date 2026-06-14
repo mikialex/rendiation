@@ -326,7 +326,10 @@ fn test_make_checker() {
   assert_eq!(checker(ValueChange::Delta(3, Some(2))), None);
 
   // remove: old passes → Remove
-  assert_eq!(checker(ValueChange::Remove(8)), Some(ValueChange::Remove(16)));
+  assert_eq!(
+    checker(ValueChange::Remove(8)),
+    Some(ValueChange::Remove(16))
+  );
 
   // remove: old doesn't pass
   assert_eq!(checker(ValueChange::Remove(3)), None);
