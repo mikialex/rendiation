@@ -23,11 +23,12 @@ impl PersistSceneModelListBufferMutation {
     }
   }
   pub fn into_sparse_update(self) -> Option<SparseBufferWritesSource> {
-    let change_count = self.mapping_change.len();
-    if change_count == 0 {
+    // Even when mapping_change is empty, the length update (index 0) may still be
+    // needed — e.g. when all items were removed and new_len becomes 0.
+    if self.mapping_change.is_empty() && self.len_before_updates == self.new_len {
       return None;
     }
-    let change_count = change_count + 1;
+    let change_count = self.mapping_change.len() + 1;
     let byte_change_capacity = change_count * 4;
     let mut updates = SparseBufferWritesSource::with_capacity(byte_change_capacity, change_count);
 

@@ -222,5 +222,5 @@ pub fn sort_by_priority(
     }
   }
 
-  write_source.is_empty().then_some(write_source)
+  (!write_source.is_empty()).then_some(write_source)
 }
