@@ -108,6 +108,11 @@ impl Viewer3dRenderingCtx {
         ui.checkbox(
           &mut self.culling.enable_debug_occlusion_culling_result,
           "enable_debug_occlusion_culling_result",
+        );
+
+        ui.checkbox(
+          &mut self.use_native_line_for_one_width_line,
+          "use_native_line_for_one_width_line",
         )
       },
     );

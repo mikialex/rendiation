@@ -22,7 +22,6 @@ impl PersistSceneModelListBufferMutation {
     }
   }
 
-  /// Convert to sparse GPU writes. `base_offset` is the group's offset in the shared pool.
   pub fn into_sparse_update(self, base_offset: u32) -> Option<SparseBufferWritesSource> {
     let change_count = self.mapping_change.len();
     if change_count == 0 {
