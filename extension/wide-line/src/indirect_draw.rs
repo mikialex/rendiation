@@ -10,6 +10,7 @@ use crate::*;
 pub fn use_widen_line_indirect_renderer(
   cx: &mut QueryGPUHookCx,
   force_midc_downgrade: bool,
+  use_native_line_for_one_width_line: bool,
 ) -> Option<WideLineModelIndirectRenderer> {
   let data_source = cx
     .use_dual_query::<WideLineMeshBuffer>()
@@ -95,6 +96,7 @@ pub fn use_widen_line_indirect_renderer(
     sm_to_wide_line_device: sm_to_wide_line_device.unwrap(),
     params_host: params.buffer.make_read_holder(),
     used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
+    use_native_line_for_one_width_line,
   })
 }
 
@@ -108,6 +110,7 @@ pub struct WideLineModelIndirectRenderer {
   params_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<WideLineParameters>>,
   sm_to_wide_line_device: AbstractReadonlyStorageBuffer<[u32]>,
   used_in_midc_downgrade: bool,
+  use_native_line_for_one_width_line: bool,
 }
 
 #[repr(C)]
@@ -169,6 +172,9 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
     _cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let line = self.model_access.get(any_idx)?;
+    let param = self.params_host.get(line.alloc_index())?;
+    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
+
     Some(Box::new(WideLineIndirectDrawComponent {
       segments: self.segments.clone(),
       params: self.params.clone(),
@@ -176,6 +182,7 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
       bind_state: Default::default(),
       enabled_depth: self.states.get_value(line)?,
       transparent: self.transparent.get_value(line)?,
+      use_native_line,
     }))
   }
 
@@ -205,13 +212,16 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<DrawCommandBuilder> {
-    self.model_access.get(any_idx)?;
+    let line = self.model_access.get(any_idx)?;
+    let param = self.params_host.get(line.alloc_index())?;
+    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
 
     let creator = WideLineDrawCreator {
       params: self.params.clone(),
       params_host: self.params_host.clone(),
       sm_to_wide_line_device: self.sm_to_wide_line_device.clone(),
       sm_to_wide: self.model_access.clone(),
+      use_native_line,
     };
 
     DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
@@ -234,6 +244,7 @@ pub struct WideLineIndirectDrawComponent {
   bind_state: BindingPreparerInternalStage,
   enabled_depth: bool,
   transparent: bool,
+  use_native_line: bool,
 }
 
 impl ShaderHashProvider for WideLineIndirectDrawComponent {
@@ -241,6 +252,7 @@ impl ShaderHashProvider for WideLineIndirectDrawComponent {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.enabled_depth.hash(hasher);
     self.transparent.hash(hasher);
+    self.use_native_line.hash(hasher);
   }
 }
 
@@ -275,57 +287,85 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
       if let Some(relative) = builder.try_query::<VertexIndexForMIDCDowngradeRelative>() {
         builder.register::<VertexIndex>(relative);
       }
-
       let vertex_index = builder.query::<VertexIndex>();
-      let instance_index = vertex_index / val(18);
-      let vertex_index = vertex_index % val(18);
 
-      let v1 = (val(1) + vertex_index) % val(6); // index in quad
-      let v2 = (val(2) + vertex_index) % val(6); // index in quad
+      let vertex_stride = val(WideLineVertexStorage::u32_size());
+      let stride = if self.use_native_line { 2 } else { 18 };
 
-      let dy = (vertex_index / val(6)).into_f32();
-      let x = v1.less_equal_than(val(2)).select(val(-1.), val(1.));
-      let y = v2.less_equal_than(val(2)).select(val(2.), val(1.));
-
-      let y = y - dy;
-      let y = y.less_equal_than(0.).select(y - val(1.), y);
-
-      let vertex: Node<Vec2<f32>> = (x, y).into();
-      builder.register::<GeometryPosition>(Node::from((vertex, val(0.))));
-      builder.register::<GeometryUV>(vertex);
+      let instance_index = vertex_index / val(stride);
+      let vertex_index = vertex_index % val(stride);
 
       let seg = segments
-        .index(instance_index + line_param.data_range.x() / val(WideLineVertexStorage::u32_size()))
+        .index(instance_index + line_param.data_range.x() / vertex_stride)
         .load()
         .expand();
 
       builder.register::<WideLineStart>(seg.start);
       builder.register::<WideLineEnd>(seg.end);
 
-      let color = seg.color * line_param.color;
-      builder.register::<GeometryColorWithAlpha>(color);
-      builder.set_vertex_out::<DefaultDisplay>(color);
+      if self.use_native_line {
+        let position = vertex_index.equals(0).select(seg.start, seg.end);
+        builder.register::<GeometryPosition>(position);
 
-      builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
-      builder.primitive_state.cull_mode = None;
+        let color = seg.color * line_param.color;
+        builder.register::<GeometryColorWithAlpha>(color);
+        builder.set_vertex_out::<DefaultDisplay>(color);
+
+        builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::LineList;
+      } else {
+        let v1 = (val(1) + vertex_index) % val(6); // index in quad
+        let v2 = (val(2) + vertex_index) % val(6); // index in quad
+
+        let dy = (vertex_index / val(6)).into_f32();
+        let x = v1.less_equal_than(val(2)).select(val(-1.), val(1.));
+        let y = v2.less_equal_than(val(2)).select(val(2.), val(1.));
+
+        let y = y - dy;
+        let y = y.less_equal_than(0.).select(y - val(1.), y);
+
+        let vertex: Node<Vec2<f32>> = (x, y).into();
+        builder.register::<GeometryPosition>(Node::from((vertex, val(0.))));
+        builder.register::<GeometryUV>(vertex);
+
+        let color = seg.color * line_param.color;
+        builder.register::<GeometryColorWithAlpha>(color);
+        builder.set_vertex_out::<DefaultDisplay>(color);
+
+        builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
+        builder.primitive_state.cull_mode = None;
+      }
     });
   }
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
-      let uv = builder.query::<GeometryUV>();
-      let width = builder.query::<WideLineWidthShader>();
+      if self.use_native_line {
+        let position = builder.query::<GeometryPosition>();
+        let object_world_position = builder.query::<WorldPositionHP>();
+        let (clip, position_in_render_space) =
+          camera_transform_impl(builder, position, object_world_position);
 
-      wide_line_vertex(
-        builder.query::<WideLineStart>(),
-        builder.query::<WideLineEnd>(),
-        builder.query::<GeometryPosition>(),
-        builder.query::<ViewportRenderBufferSize>(),
-        width,
-        builder,
-      );
+        builder.register::<ClipPosition>(clip);
+        builder.register::<VertexRenderPosition>(position_in_render_space);
 
-      builder.set_vertex_out::<FragmentUv>(uv);
+        let clip_ndc = clip.xy() / clip.w().splat();
+        let viewport_size = builder.query::<ViewportRenderBufferSize>();
+        builder.set_vertex_out::<WideLineScreenCoord>(clip_ndc * viewport_size);
+      } else {
+        let uv = builder.query::<GeometryUV>();
+        let width = builder.query::<WideLineWidthShader>();
+
+        wide_line_vertex(
+          builder.query::<WideLineStart>(),
+          builder.query::<WideLineEnd>(),
+          builder.query::<GeometryPosition>(),
+          builder.query::<ViewportRenderBufferSize>(),
+          width,
+          builder,
+        );
+
+        builder.set_vertex_out::<FragmentUv>(uv);
+      }
     });
 
     let mut params = BindingPreparer::new_with_state(&self.params, &self.bind_state);
@@ -348,13 +388,16 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
         builder.discard();
       });
 
-      let uv = builder.query::<FragmentUv>();
+      if !self.use_native_line {
+        let uv = builder.query::<FragmentUv>();
+        let enable_round_joint = line_param.enable_round_joint.into_bool();
+        let should_discard_by_joint_style = enable_round_joint.and(discard_by_round_corner_fn(uv));
+        if_by(should_discard_by_joint_style, || {
+          builder.discard();
+        });
+      }
+
       builder.insert_type_tag::<UnlitMaterialTag>();
-      let enable_round_joint = line_param.enable_round_joint.into_bool();
-      let should_discard_by_joint_style = enable_round_joint.and(discard_by_round_corner_fn(uv));
-      if_by(should_discard_by_joint_style, || {
-        builder.discard();
-      });
 
       if !self.enabled_depth {
         if let Some(depth) = &mut builder.depth_stencil {
@@ -380,10 +423,14 @@ struct WideLineDrawCreator {
   sm_to_wide_line_device: AbstractReadonlyStorageBuffer<[u32]>,
   sm_to_wide: ForeignKeyReadView<SceneModelWideLineRenderPayload>,
   params_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<WideLineParameters>>,
+  use_native_line: bool,
 }
 
 impl ShaderHashProvider for WideLineDrawCreator {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.use_native_line.hash(hasher);
+  }
 }
 
 impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
@@ -396,9 +443,11 @@ impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
       return None;
     }
 
+    let stride = if self.use_native_line { 2 } else { 18 };
+
     DrawCommand::Array {
       instances: 0..1,
-      vertices: 0..18 * seg_count,
+      vertices: 0..stride * seg_count,
     }
     .into()
   }
@@ -412,6 +461,7 @@ impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
     Box::new(DrawCmdBuilderInvocation {
       params,
       sm_to_wide_line_device,
+      use_native_line: self.use_native_line,
     })
   }
 
@@ -424,6 +474,7 @@ impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
 struct DrawCmdBuilderInvocation {
   params: ShaderReadonlyPtrOf<[WideLineParameters]>,
   sm_to_wide_line_device: ShaderReadonlyPtrOf<[u32]>,
+  use_native_line: bool,
 }
 
 impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
@@ -436,8 +487,10 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
     let seg_count =
       self.params.index(line_id).data_range().load().y() / val(WideLineVertexStorage::u32_size());
 
+    let stride = if self.use_native_line { 2 } else { 18 };
+
     ENode::<DrawIndirectArgsStorage> {
-      vertex_count: val(18) * seg_count,
+      vertex_count: val(stride) * seg_count,
       instance_count: val(1),
       base_vertex: val(0),
       base_instance: draw_id,
