@@ -19,10 +19,11 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
 
   fn bind_input(&self, builder: &mut BindingBuilder);
 
-  fn dispatch_compute(
+  fn use_dispatch_compute(
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Option<StorageBufferReadonlyDataView<Vec4<u32>>> {
+    cx.next_scope_index();
     if !cx.force_indirect_dispatch && self.work_size().is_some() {
       let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
       self.prepare_main_pass(cx);
@@ -144,7 +145,7 @@ pub trait ComputeComponentIO<T>: ComputeComponent<Node<T>> {
   ///
   /// If the implementation has already materialized the storage buffer internally, a custom implementation
   /// should override this method to expose the result directly and avoid re-materialization cost.
-  fn materialize_storage_buffer(
+  fn use_materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceMaterializeResult<T>
@@ -153,10 +154,10 @@ pub trait ComputeComponentIO<T>: ComputeComponent<Node<T>> {
     Self: Sized,
   {
     let output = cx.use_rw_storage_buffer(self.result_size() as usize);
-    self.materialize_storage_buffer_into(output, cx)
+    self.use_materialize_storage_buffer_into(output, cx)
   }
 
-  fn materialize_storage_buffer_into(
+  fn use_materialize_storage_buffer_into(
     &self,
     target: StorageBufferDataView<[T]>,
     cx: &mut DeviceParallelComputeCtx,
@@ -164,7 +165,7 @@ pub trait ComputeComponentIO<T>: ComputeComponent<Node<T>> {
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    do_write_into_storage_buffer(self, cx, target)
+    use_and_do_write_into_storage_buffer(self, cx, target)
   }
 }
 
@@ -255,7 +256,7 @@ impl<T: 'static> ComputeComponent<Node<T>> for Box<dyn ComputeComponentIO<T>> {
 }
 
 impl<T: 'static> ComputeComponentIO<T> for Box<dyn ComputeComponentIO<T>> {
-  fn materialize_storage_buffer_into(
+  fn use_materialize_storage_buffer_into(
     &self,
     target: StorageBufferDataView<[T]>,
     cx: &mut DeviceParallelComputeCtx,
@@ -264,6 +265,6 @@ impl<T: 'static> ComputeComponentIO<T> for Box<dyn ComputeComponentIO<T>> {
     T: Std430 + ShaderSizedValueNodeType,
     Self: Sized,
   {
-    (**self).materialize_storage_buffer_into(target, cx)
+    (**self).use_materialize_storage_buffer_into(target, cx)
   }
 }

@@ -3,6 +3,7 @@ use rendiation_mesh_generator::*;
 use crate::*;
 
 pub fn use_scene_light_helper(cx: &mut ViewerCx) {
+  cx.next_scope_index();
   let (cx, spot_light_enabled) = cx.use_plain_state::<bool>();
   let (cx, point_light_enabled) = cx.use_plain_state::<bool>();
   let (cx, directional_light_enabled) = cx.use_plain_state::<bool>();

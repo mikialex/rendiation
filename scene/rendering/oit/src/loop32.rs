@@ -97,7 +97,7 @@ impl OitLoop32RendererInstance {
         oit_depth_layers: self.depth.clone(),
         reverse_depth,
       };
-      let mut draw_content = scene_renderer.make_scene_batch_pass_content(
+      let mut draw_content = scene_renderer.use_make_scene_batch_pass_content(
         transparent_content.clone(),
         camera,
         &dispatch,
@@ -120,8 +120,12 @@ impl OitLoop32RendererInstance {
       };
       let dispatch = &dispatch as &dyn RenderComponent;
       let dispatch = RenderArray([dispatch, pass_com]);
-      let mut draw_content =
-        scene_renderer.make_scene_batch_pass_content(transparent_content, camera, &dispatch, ctx);
+      let mut draw_content = scene_renderer.use_make_scene_batch_pass_content(
+        transparent_content,
+        camera,
+        &dispatch,
+        ctx,
+      );
 
       target_desc_without_final_color
         .with_name("loop32 oit color pass")

@@ -572,6 +572,7 @@ impl SceneBoundingComputer {
 }
 
 fn use_bounding_computer(cx: &mut ViewerAPICx) -> Option<SceneBoundingComputer> {
+  cx.next_scope_index();
   let qbvh = if cx.viewer.use_scene_bvh {
     cx.scope(|cx| Some(cx.use_shared_compute(ViewerQbvhShared(cx.viewer.font_system.clone()))))
   } else {

@@ -42,7 +42,7 @@ impl GPUTwoPassOcclusionCulling {
   ///
   /// the preflight_content is used to support draw background without initialize another pass.
   /// the return the render pass is used to support subsequent draw without initialize another pass.
-  pub fn draw(
+  pub fn use_draw(
     &mut self,
     frame_ctx: &mut FrameCtx,
     batch: &Option<DeviceSceneModelDrawList>, // none indicates empty list
@@ -57,6 +57,7 @@ impl GPUTwoPassOcclusionCulling {
     // todo,  generate culling result should be optimized
     generate_culling_result: bool,
   ) -> (ActiveRenderPass, Option<GPUTwoPassOcclusionCullingResult>) {
+    frame_ctx.next_scope_index();
     let Some(batch) = batch else {
       let pass = target
         .with_name("occlusion-culling-dummy-pass")
@@ -95,7 +96,7 @@ impl GPUTwoPassOcclusionCulling {
         });
       }
 
-      let mut first_pass_batch_draw = scene_renderer.make_scene_batch_pass_content(
+      let mut first_pass_batch_draw = scene_renderer.use_make_scene_batch_pass_content(
         SceneModelRenderBatch::Device(Some(first_pass_batch.clone())),
         camera,
         pass_com,
@@ -176,7 +177,7 @@ impl GPUTwoPassOcclusionCulling {
         });
       }
 
-      let mut second_pass_draw = scene_renderer.make_scene_batch_pass_content(
+      let mut second_pass_draw = scene_renderer.use_make_scene_batch_pass_content(
         SceneModelRenderBatch::Device(Some(second_pass_batch.clone())),
         camera,
         pass_com,

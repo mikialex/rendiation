@@ -119,7 +119,7 @@ async fn test_predicate_mask_noop() {
     draw_list,
     culler: Box::new(NoopCuller),
   };
-  let mask = predicate.materialize_storage_buffer(&mut cx);
+  let mask = predicate.use_materialize_storage_buffer(&mut cx);
   let mask_data = read_storage_u32(&mut cx, &mask.buffer).await;
   assert_eq!(
     mask_data[..7],

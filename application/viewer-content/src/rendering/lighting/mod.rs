@@ -89,7 +89,7 @@ impl LightSystem {
 
         frame_ctx.keyed_scope(&shadow_id, |frame_ctx| {
           let mut content =
-            renderer.make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
+            renderer.use_make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
 
           desc.render_ctx(frame_ctx).by(&mut content);
         });

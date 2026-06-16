@@ -57,7 +57,7 @@ pub fn draw_widgets(
     renderer,
   );
 
-  let mut widget_scene_content = renderer.make_scene_batch_pass_content(
+  let mut widget_scene_content = renderer.use_make_scene_batch_pass_content(
     batch,
     main_camera_gpu,
     &DefaultDisplayWriter {

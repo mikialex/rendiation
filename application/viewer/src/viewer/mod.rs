@@ -247,8 +247,8 @@ pub struct FeaturesGlobalUIStates {
 
 /// expand the viewer cx base stage to a series of stages, and call them multiple times
 /// because some logic may have cyclic dependency for example something depend on world matrix
-#[track_caller]
 pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(&mut ViewerCx)) {
+  cx.next_scope_index();
   cx.raw_scope(|cx| {
     if let ViewerCxStage::Gui { inspector, .. } = &mut cx.stage {
       cx.viewer.shared_ctx.flush_drop_queue(&mut |key| {

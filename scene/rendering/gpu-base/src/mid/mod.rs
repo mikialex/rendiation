@@ -86,6 +86,7 @@ pub fn use_and_create_default_indirect_draw_provider(
   cx: &mut DeviceParallelComputeCtx,
   enable_midc_downgrade: bool,
 ) -> Vec<Box<dyn IndirectDrawProvider>> {
+  cx.next_scope_index();
   let results = match draw_command_builder {
     DrawCommandBuilder::Indexed(generator) => cx.scope(|cx| {
       let generator = IndexedDrawCommandGeneratorComponent {

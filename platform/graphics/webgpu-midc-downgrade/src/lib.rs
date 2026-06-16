@@ -60,8 +60,8 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
     sum_all_count: input.list_info.sum_all_count.clone(),
     total_capacity,
   }
-  .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx)
-  .materialize_storage_buffer(cx);
+  .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx)
+  .use_materialize_storage_buffer(cx);
 
   let inclusive_scan_result = inclusive_scan_result.buffer;
 

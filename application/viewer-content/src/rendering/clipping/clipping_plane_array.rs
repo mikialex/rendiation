@@ -122,7 +122,7 @@ impl ClippingPlaneArrayRenderer {
       SceneContentKey::default(),
       renderer.scene,
     );
-    filter.execute(&mut all_object, frame_ctx);
+    filter.use_execute(&mut all_object, frame_ctx);
 
     let planes = self.planes_host_access.access_multi(&scene);
 
@@ -158,7 +158,7 @@ impl ClippingPlaneArrayRenderer {
 
     if let Some(planes) = planes {
       if self.enable && self.fill_face {
-        frame_ctx.next_key_scope_root();
+        frame_ctx.next_scope_index();
         for plane in planes {
           frame_ctx.keyed_scope(&plane, |frame_ctx| {
             let plane_id = create_uniform(
@@ -192,7 +192,7 @@ impl ClippingPlaneArrayRenderer {
             ]);
 
             // todo, try move out side
-            let mut content = renderer.scene.make_scene_batch_pass_content(
+            let mut content = renderer.scene.use_make_scene_batch_pass_content(
               all_object.clone(),
               camera_gpu,
               &clip_dispatcher,

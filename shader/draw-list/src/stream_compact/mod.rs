@@ -31,7 +31,7 @@ impl DeviceDrawList {
       culler: culler.clone(),
     };
     let positions =
-      predicate.segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx);
+      predicate.use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx);
     let scatter = SegmentedListScatter {
       positions: positions.buffer.clone(),
       sub_list_ranges: self.dispatch_info.sub_list_ranges.clone(),
@@ -40,7 +40,7 @@ impl DeviceDrawList {
       output_ranges,
       total_count_out,
     };
-    scatter.dispatch_compute(cx);
+    scatter.use_dispatch_compute(cx);
 
     DeviceDrawList {
       id_pool: scatter.output_pool.into_readonly_view(),

@@ -1,6 +1,7 @@
 use crate::*;
 
 pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
+  cx.next_scope_index();
   let (cx, enabled) = cx.use_plain_state::<bool>();
 
   if let ViewerCxStage::Gui {

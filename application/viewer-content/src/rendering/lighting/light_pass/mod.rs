@@ -17,7 +17,7 @@ pub struct LightingRenderingCx<'a> {
   pub lighting_method: LightingTechniqueKind,
 }
 
-pub fn render_lighting_scene_content(
+pub fn use_render_lighting_scene_content(
   ctx: &mut FrameCtx,
   lighting_cx: &LightingRenderingCx,
   cull_cx: &mut ViewerCulling,
@@ -31,6 +31,7 @@ pub fn render_lighting_scene_content(
   g_buffer: &FrameGeometryBuffer,
   only_draw_g_buffer: bool,
 ) {
+  ctx.next_scope_index();
   let camera = viewport.camera;
   let camera_gpu = renderer.cameras.make_component(camera).unwrap();
   let camera_gpu = &camera_gpu;
@@ -91,7 +92,7 @@ pub fn render_lighting_scene_content(
       ]) as &dyn RenderComponent;
 
       let draw_opaque = |ctx: &mut FrameCtx<'_>, cull_cx: &mut ViewerCulling| {
-        let pass = cull_cx.draw_with_oc_maybe_enabled(
+        let pass = cull_cx.use_draw_with_oc_maybe_enabled(
           ctx,
           renderer,
           opaque_scene_pass_dispatcher,
@@ -104,7 +105,7 @@ pub fn render_lighting_scene_content(
         Some(pass)
       };
 
-      renderer.transparent_content_renderer.render(
+      renderer.transparent_content_renderer.use_render(
         ctx,
         cull_cx,
         g_buffer,
@@ -158,7 +159,7 @@ pub fn render_lighting_scene_content(
           clip_component,
         ]) as &dyn RenderComponent;
 
-        cull_cx.draw_with_oc_maybe_enabled(
+        cull_cx.use_draw_with_oc_maybe_enabled(
           ctx,
           renderer,
           scene_pass_dispatcher,
@@ -228,7 +229,7 @@ pub fn render_lighting_scene_content(
             pass_com,
           ]) as &dyn RenderComponent;
 
-          renderer.transparent_content_renderer.render(
+          renderer.transparent_content_renderer.use_render(
             ctx,
             cull_cx,
             g_buffer,

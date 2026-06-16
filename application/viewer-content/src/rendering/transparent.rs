@@ -24,7 +24,7 @@ impl ViewerTransparentRenderer {
     matches!(self, ViewerTransparentRenderer::NaiveAlphaBlend)
   }
 
-  pub fn render(
+  pub fn use_render(
     &self,
     ctx: &mut FrameCtx,
     cull_cx: &mut ViewerCulling,
@@ -38,6 +38,7 @@ impl ViewerTransparentRenderer {
     opaque_pass_dispatcher: &dyn RenderComponent,
     draw_opaque_content: impl FnOnce(&mut FrameCtx<'_>, &mut ViewerCulling) -> Option<ActiveRenderPass>,
   ) {
+    ctx.next_scope_index();
     let mut all_transparent_object =
       if let SceneModelRenderBatch::Host(all_transparent_object) = all_transparent_object {
         if self.should_reorder_draw_list() {
@@ -59,7 +60,7 @@ impl ViewerTransparentRenderer {
         all_transparent_object
       };
 
-    cull_cx.execute_frustum_culler(
+    cull_cx.use_execute_frustum_culler(
       ctx,
       &mut all_transparent_object,
       camera_gpu,
@@ -71,7 +72,7 @@ impl ViewerTransparentRenderer {
       ViewerTransparentRenderer::NaiveAlphaBlend => {
         ctx.scope(|ctx| {
           let mut all_transparent_object_pass_content =
-            renderer.scene.make_scene_batch_pass_content(
+            renderer.scene.use_make_scene_batch_pass_content(
               all_transparent_object.clone(),
               camera_gpu,
               opaque_pass_dispatcher,

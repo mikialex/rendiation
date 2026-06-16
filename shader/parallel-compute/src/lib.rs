@@ -183,7 +183,7 @@ where
     &self,
     cx: &mut DeviceParallelComputeCtx<'_>,
   ) -> Result<(DeviceMaterializeResult<T>, Option<Vec3<u32>>, Vec<T>), BufferAsyncError> {
-    let output = self.materialize_storage_buffer(cx);
+    let output = self.use_materialize_storage_buffer(cx);
     cx.flush_pass();
     let result = cx.encoder.read_buffer(&cx.gpu.device, &output.buffer);
     let size_result = output
@@ -237,7 +237,7 @@ where
     };
 
     // should size be the atomic max of the shuffle destination?
-    let size = write.dispatch_compute(cx);
+    let size = write.use_dispatch_compute(cx);
     DeviceMaterializeResult {
       buffer: write.output.into_readonly_view(),
       size,
@@ -257,7 +257,7 @@ where
       reduction_logic: Default::default(),
       upstream: Box::new(self),
     }
-    .materialize_storage_buffer(cx)
+    .use_materialize_storage_buffer(cx)
   }
 
   /// the total_work_size should not exceed first_stage_workgroup_size * second_stage_workgroup_size
@@ -296,7 +296,7 @@ where
       histogram_logic: Default::default(),
       upstream: Box::new(self),
     }
-    .materialize_storage_buffer(cx)
+    .use_materialize_storage_buffer(cx)
   }
 
   /// perform device scope histogram compute by workgroup level atomic array and global atomic array
@@ -355,16 +355,16 @@ where
     }
   }
 
-  fn stream_compaction(
+  fn use_stream_compaction(
     self,
     filter: impl ComputeComponentIO<bool> + 'static,
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceMaterializeResult<T> {
-    stream_compaction(Box::new(self), Box::new(filter), cx)
+    use_stream_compaction(Box::new(self), Box::new(filter), cx)
   }
 
   /// this is not very useful but sometimes feel handy, so I will keep it here
-  fn stream_compaction_self_filter(
+  fn use_stream_compaction_self_filter(
     self,
     filter: impl Fn(Node<T>) -> Node<bool> + 'static,
     cx: &mut DeviceParallelComputeCtx,
@@ -373,10 +373,10 @@ where
     Self: Clone,
   {
     let mask = self.clone().map(filter);
-    self.stream_compaction(mask, cx)
+    self.use_stream_compaction(mask, cx)
   }
 
-  fn workgroup_scope_prefix_scan_kogge_stone<S>(
+  fn use_workgroup_scope_prefix_scan_kogge_stone<S>(
     self,
     workgroup_size: u32,
     cx: &mut DeviceParallelComputeCtx,
@@ -389,13 +389,13 @@ where
       scan_logic: Default::default(),
       upstream: Box::new(self),
     }
-    .materialize_storage_buffer(cx)
+    .use_materialize_storage_buffer(cx)
   }
 
   /// the scan is inclusive, using make_global_scan_exclusive to convert it to exclusive
   ///
   /// the total_work_size must not exceed first_stage_workgroup_size * second_stage_workgroup_size
-  fn segmented_prefix_scan_kogge_stone<S>(
+  fn use_segmented_prefix_scan_kogge_stone<S>(
     self,
     first_stage_workgroup_size: u32,
     second_stage_workgroup_size: u32,
@@ -408,7 +408,7 @@ where
     // assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
     let per_workgroup_scanned =
-      self.workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size, cx);
+      self.use_workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size, cx);
 
     let block_wise_scanned = per_workgroup_scanned
       .clone()
@@ -418,14 +418,14 @@ where
         0,
       )
       .stride_reduce_result(first_stage_workgroup_size)
-      .workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size, cx)
+      .use_workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size, cx)
       .make_global_scan_exclusive::<S>()
       .stride_expand_result(first_stage_workgroup_size);
 
     per_workgroup_scanned
       .zip(block_wise_scanned)
       .map(|(block_scan, workgroup_scan)| S::combine(block_scan, workgroup_scan))
-      .materialize_storage_buffer(cx) // todo,remove and  fix compatibility issue
+      .use_materialize_storage_buffer(cx) // todo,remove and  fix compatibility issue
   }
 
   /// should logically be used after global inclusive scan
@@ -445,7 +445,7 @@ where
   where
     S: DeviceRadixSortKeyLogic<Data = T>,
   {
-    device_radix_sort_naive::<T, S>(
+    use_device_radix_sort_naive::<T, S>(
       self,
       per_pass_first_stage_workgroup_size,
       per_pass_second_stage_workgroup_size,

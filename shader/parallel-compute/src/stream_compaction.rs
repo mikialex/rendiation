@@ -1,6 +1,6 @@
 use crate::*;
 
-pub fn stream_compaction<T>(
+pub fn use_stream_compaction<T>(
   source: Box<dyn ComputeComponentIO<T>>,
   filter: Box<dyn ComputeComponentIO<bool>>,
   cx: &mut DeviceParallelComputeCtx,
@@ -10,7 +10,7 @@ where
 {
   let write_target_positions = filter
     .map(|v| v.select(1_u32, 0))
-    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx);
+    .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx);
 
   let (_, size) = PrefixSumTailAsSize {
     prefix_sum_result: Box::new(write_target_positions.clone()),
@@ -101,7 +101,7 @@ async fn test_stream_compaction() {
   let mask = input.clone().map(|v| v.equals(1));
 
   input
-    .stream_compaction(mask, cx)
+    .use_stream_compaction(mask, cx)
     .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
     .await
 }
@@ -113,7 +113,7 @@ async fn test_stream_compaction2() {
   let expect = vec![1, 1, 1, 1, 0, 0, 0];
 
   slice_into_compute(&input, cx)
-    .stream_compaction_self_filter(|v| v.equals(1), cx)
+    .use_stream_compaction_self_filter(|v| v.equals(1), cx)
     .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
     .await;
 }

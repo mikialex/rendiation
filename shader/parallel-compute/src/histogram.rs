@@ -94,7 +94,7 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
 {
-  fn materialize_storage_buffer_into(
+  fn use_materialize_storage_buffer_into(
     &self,
     target: StorageBufferDataView<[u32]>,
     cx: &mut DeviceParallelComputeCtx,
@@ -110,7 +110,7 @@ where
       shader_hash_type_id! {}
     }
 
-    custom_write_into_storage_buffer(
+    use_custom_write_into_storage_buffer(
       self,
       cx,
       move |global_id| {
@@ -205,7 +205,7 @@ where
   where
     u32: Std430 + ShaderSizedValueNodeType,
   {
-    self.dispatch_compute(cx);
+    self.use_dispatch_compute(cx);
     DeviceMaterializeResult::full_buffer(
       self
         .result

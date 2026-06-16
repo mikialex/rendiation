@@ -46,7 +46,7 @@ impl IndirectDrawProviderCreator for Vec<Box<dyn IndirectModelShapeRenderImpl>> 
     dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
     id: RawEntityHandle,
   ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    cx.next_key_scope_root();
+    cx.next_scope_index();
     for (i, provider) in self.iter().enumerate() {
       if let Some(v) = cx.keyed_scope(&i, |cx| {
         provider.use_create_or_update_indirect_draw_providers(

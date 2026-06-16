@@ -97,8 +97,7 @@ pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
 pub trait SceneRenderer {
   /// render batched scene model with given pass component on given pass
   #[must_use]
-  #[track_caller]
-  fn make_scene_batch_pass_content<'a>(
+  fn use_make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
     camera: &'a dyn RenderComponent,

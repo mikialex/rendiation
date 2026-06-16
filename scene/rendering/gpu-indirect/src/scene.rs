@@ -162,13 +162,14 @@ impl SceneRenderer for IndirectSceneRenderer {
     }
   }
 
-  fn make_scene_batch_pass_content<'a>(
+  fn use_make_scene_batch_pass_content<'a>(
     &'a self,
     list: SceneModelRenderBatch,
     camera: &'a dyn RenderComponent,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
+    ctx.next_scope_index();
     ctx.scope(|ctx| {
       let device_list = match list {
         SceneModelRenderBatch::Device(batch) => batch,
@@ -224,7 +225,7 @@ impl SceneRenderer for IndirectSceneRenderer {
           FastHashMap<usize, Box<dyn IndirectDrawProvider>>,
         > = Default::default();
 
-        ctx.next_key_scope_root();
+        ctx.next_scope_index();
         for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
           ctx.keyed_scope(impl_key, |ctx| {
             let (dispatch_info, dispatch_info_offset_compacted) =

@@ -26,7 +26,7 @@ impl ShaderHashProvider for IterIndexHasher {
 }
 
 // todo, impl memory coalesced version for better performance
-pub fn device_radix_sort_naive<T, S>(
+pub fn use_device_radix_sort_naive<T, S>(
   input: impl ComputeComponentIO<T> + 'static,
   per_pass_first_stage_workgroup_size: u32,
   per_pass_second_stage_workgroup_size: u32,
@@ -37,7 +37,7 @@ where
   T: ShaderSizedValueNodeType + Std430 + Debug,
 {
   let mut result: Box<dyn ComputeComponentIO<T>> = Box::new(input);
-  cx.next_key_scope_root();
+  cx.next_scope_index();
   cx.scope(|cx| {
     for iter in 0..S::MAX_BITS {
       cx.keyed_scope(&iter, |cx| {
@@ -51,13 +51,13 @@ where
         let ones_before = is_one
           .clone()
           .map(|is_one| is_one.select(val(1), val(0)))
-          .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(
+          .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(
             per_pass_first_stage_workgroup_size,
             per_pass_second_stage_workgroup_size,
             cx,
           )
           .make_global_scan_exclusive::<AdditionMonoid<u32>>()
-          .materialize_storage_buffer(cx);
+          .use_materialize_storage_buffer(cx);
 
         let shuffle_idx = RadixShuffleMoveCompute {
           ones_before,

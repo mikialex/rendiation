@@ -79,7 +79,8 @@ pub struct IsSolidFilter {
 }
 
 impl IsSolidFilter {
-  pub fn execute(&self, batch: &mut SceneModelRenderBatch, cx: &mut FrameCtx) {
+  pub fn use_execute(&self, batch: &mut SceneModelRenderBatch, cx: &mut FrameCtx) {
+    cx.next_scope_index();
     match batch {
       SceneModelRenderBatch::Device(batch) => {
         if let Some(batch) = batch {
