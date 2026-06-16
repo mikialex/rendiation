@@ -240,11 +240,9 @@ impl OccStyleOrderControlSceneBatchExtractor {
       .pool
       .apply_pool_update(&updates.pool_update, gpu, encoder);
 
-    if !updates.sort_sparse_writes.is_empty() {
-      updates
-        .sort_sparse_writes
-        .write_abstract(gpu, encoder, self.internal.pool.pool_buffer());
-    }
+    updates
+      .sort_sparse_writes
+      .write_abstract(gpu, encoder, self.internal.pool.pool_buffer());
   }
 }
 

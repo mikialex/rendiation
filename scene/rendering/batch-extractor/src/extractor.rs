@@ -134,15 +134,15 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
       let new_size_rounded = new_size.next_power_of_two().max(min_size_round_up);
 
       let old_size = old_capacities.get(&hash).copied().unwrap();
-      // handle the edge case
+      // handle the edge case: new group has no old allocation to compare
       if old_size == 0 {
         changed_groups.push((hash, new_size_rounded));
-        continue;
-      }
-      let old_size_rounded = old_size.next_power_of_two().max(min_size_round_up);
+      } else {
+        let old_size_rounded = old_size.next_power_of_two().max(min_size_round_up);
 
-      if old_size_rounded != new_size_rounded {
-        changed_groups.push((hash, new_size_rounded));
+        if old_size_rounded != new_size_rounded {
+          changed_groups.push((hash, new_size_rounded));
+        }
       }
 
       // Collect entity writes

@@ -123,10 +123,8 @@ impl SceneModelListPool {
       gpu.submit_encoder(encoder);
     }
 
-    if !update.sparse_writes.is_empty() {
-      update
-        .sparse_writes
-        .write_abstract(gpu, encoder, self.pool_buffer());
-    }
+    update
+      .sparse_writes
+      .write_abstract(gpu, encoder, self.pool_buffer());
   }
 }
