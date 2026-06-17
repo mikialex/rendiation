@@ -235,12 +235,12 @@ async fn test_draw_list_culling_partial() {
   assert_eq!(
     ranges[2],
     StorageSubListRangeInfo {
-      offset: 5,
+      offset: 4,
       count: 0,
       count_prefix_sum: 4,
       ..Zeroable::zeroed()
     },
-    "sub-list 2: offset=5, count=0, excl=4"
+    "sub-list 2: offset=4, count=0, excl=4"
   );
 
   let total = read_storage_scalar_u32(&mut cx, &result.dispatch_info.sum_all_count).await;
@@ -327,16 +327,15 @@ async fn test_draw_list_culling_empty_first_sub_list_noop() {
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
 
   // All 4 elements should survive: 30, 40, 60, 70
+  // After compact: sub-list 0 empty → no elements
+  // Sub-list 1: [30, 40] at compact offset 0 → pool[0], pool[1]
+  // Sub-list 2: [60, 70] at compact offset 2 → pool[2], pool[3]
   let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 7, "pool capacity should be 7 (2+3+2)");
-  // Survivors packed into their sub-list regions:
-  // Sub-list 0: empty → pool[0], pool[1] unused
-  // Sub-list 1: [30, 40] at offset 2 → pool[2], pool[3]; pool[4] unused (capacity 3→2 survivors)
-  // Sub-list 2: [60, 70] at offset 5 → pool[5], pool[6]
-  assert_eq!(pool[2], 30, "sub-list 1 first survivor");
-  assert_eq!(pool[3], 40, "sub-list 1 second survivor");
-  assert_eq!(pool[5], 60, "sub-list 2 first survivor");
-  assert_eq!(pool[6], 70, "sub-list 2 second survivor");
+  assert_eq!(pool[0], 30, "sub-list 1 first survivor");
+  assert_eq!(pool[1], 40, "sub-list 1 second survivor");
+  assert_eq!(pool[2], 60, "sub-list 2 first survivor");
+  assert_eq!(pool[3], 70, "sub-list 2 second survivor");
 
   let ranges =
     read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
@@ -354,22 +353,22 @@ async fn test_draw_list_culling_empty_first_sub_list_noop() {
   assert_eq!(
     ranges[1],
     StorageSubListRangeInfo {
-      offset: 2,
+      offset: 0,
       count: 2,
       count_prefix_sum: 0,
       ..Zeroable::zeroed()
     },
-    "sub-list 1: offset=2, 2 survivors, excl=0"
+    "sub-list 1: offset=0, 2 survivors, excl=0"
   );
   assert_eq!(
     ranges[2],
     StorageSubListRangeInfo {
-      offset: 5,
+      offset: 2,
       count: 2,
       count_prefix_sum: 2,
       ..Zeroable::zeroed()
     },
-    "sub-list 2: offset=5, 2 survivors, excl=2"
+    "sub-list 2: offset=2, 2 survivors, excl=2"
   );
 
   let total = read_storage_scalar_u32(&mut cx, &result.dispatch_info.sum_all_count).await;
@@ -391,12 +390,12 @@ async fn test_draw_list_culling_empty_first_sub_list_partial() {
 
   let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 7);
-  // Sub-list 1: [30, 40] at pool[2], pool[3]
-  assert_eq!(pool[2], 30);
-  assert_eq!(pool[3], 40);
-  // Sub-list 2: both culled → pool[5], pool[6] should remain zero
-  assert_eq!(pool[5], 0, "sub-list 2 first slot should be empty");
-  assert_eq!(pool[6], 0, "sub-list 2 second slot should be empty");
+  // Sub-list 1: [30, 40] at compact offset 0 → pool[0], pool[1]
+  assert_eq!(pool[0], 30);
+  assert_eq!(pool[1], 40);
+  // Sub-list 2: both culled → no survivors in compact region
+  assert_eq!(pool[2], 0, "sub-list 2 first compact slot should be empty");
+  assert_eq!(pool[3], 0, "sub-list 2 second compact slot should be empty");
 
   let ranges =
     read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
@@ -414,7 +413,7 @@ async fn test_draw_list_culling_empty_first_sub_list_partial() {
   assert_eq!(
     ranges[1],
     StorageSubListRangeInfo {
-      offset: 2,
+      offset: 0,
       count: 2,
       count_prefix_sum: 0,
       ..Zeroable::zeroed()
@@ -424,7 +423,7 @@ async fn test_draw_list_culling_empty_first_sub_list_partial() {
   assert_eq!(
     ranges[2],
     StorageSubListRangeInfo {
-      offset: 5,
+      offset: 2,
       count: 0,
       count_prefix_sum: 2,
       ..Zeroable::zeroed()
@@ -509,13 +508,11 @@ async fn test_draw_list_culling_two_empty_first_sub_lists_noop() {
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
 
   // Only 2 elements survive: 60, 70
+  // After compact: all preceding sub-lists empty → survivors at offset 0
   let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 7);
-  // Sub-list 0: empty — pool[0], pool[1] unused
-  // Sub-list 1: empty — pool[2..4] unused
-  // Sub-list 2: [60, 70] at offset 5 → pool[5], pool[6]
-  assert_eq!(pool[5], 60, "sub-list 2 first survivor");
-  assert_eq!(pool[6], 70, "sub-list 2 second survivor");
+  assert_eq!(pool[0], 60, "sub-list 2 first survivor");
+  assert_eq!(pool[1], 70, "sub-list 2 second survivor");
 
   let ranges =
     read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
@@ -533,7 +530,7 @@ async fn test_draw_list_culling_two_empty_first_sub_lists_noop() {
   assert_eq!(
     ranges[1],
     StorageSubListRangeInfo {
-      offset: 2,
+      offset: 0,
       count: 0,
       count_prefix_sum: 0,
       ..Zeroable::zeroed()
@@ -543,12 +540,12 @@ async fn test_draw_list_culling_two_empty_first_sub_lists_noop() {
   assert_eq!(
     ranges[2],
     StorageSubListRangeInfo {
-      offset: 5,
+      offset: 0,
       count: 2,
       count_prefix_sum: 0,
       ..Zeroable::zeroed()
     },
-    "sub-list 2: offset=5, 2 survivors, excl=0"
+    "sub-list 2: offset=0, 2 survivors, excl=0"
   );
 
   let total = read_storage_scalar_u32(&mut cx, &result.dispatch_info.sum_all_count).await;
@@ -570,9 +567,9 @@ async fn test_draw_list_culling_two_empty_first_sub_lists_partial() {
 
   let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 7);
-  // Sub-list 2: both culled → pool[5], pool[6] remain zero
-  assert_eq!(pool[5], 0, "sub-list 2 first slot should be empty");
-  assert_eq!(pool[6], 0, "sub-list 2 second slot should be empty");
+  // All sub-lists empty → no survivors in compact region
+  assert_eq!(pool[0], 0, "first compact slot should be empty");
+  assert_eq!(pool[1], 0, "second compact slot should be empty");
 
   let ranges =
     read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
@@ -590,7 +587,7 @@ async fn test_draw_list_culling_two_empty_first_sub_lists_partial() {
   assert_eq!(
     ranges[1],
     StorageSubListRangeInfo {
-      offset: 2,
+      offset: 0,
       count: 0,
       count_prefix_sum: 0,
       ..Zeroable::zeroed()
@@ -600,7 +597,7 @@ async fn test_draw_list_culling_two_empty_first_sub_lists_partial() {
   assert_eq!(
     ranges[2],
     StorageSubListRangeInfo {
-      offset: 5,
+      offset: 0,
       count: 0,
       count_prefix_sum: 0,
       ..Zeroable::zeroed()
@@ -685,15 +682,15 @@ async fn test_draw_list_culling_empty_middle_sub_list_noop() {
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
 
   // 4 survivors: 10, 20, 60, 70
+  // After compact: sub-list 0 at offset 0, sub-list 1 empty, sub-list 2 at offset 2
   let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 7);
-  // Sub-list 0: [10, 20] at pool[0], pool[1]
   assert_eq!(pool[0], 10);
   assert_eq!(pool[1], 20);
-  // Sub-list 1: empty — pool[2..4] unused
-  // Sub-list 2: [60, 70] at pool[5], pool[6]
-  assert_eq!(pool[5], 60);
-  assert_eq!(pool[6], 70);
+  // Sub-list 1: empty — no elements in compact region at offset 2
+  // Sub-list 2: [60, 70] at compact offset 2 → pool[2], pool[3]
+  assert_eq!(pool[2], 60);
+  assert_eq!(pool[3], 70);
 
   let ranges =
     read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
@@ -721,7 +718,7 @@ async fn test_draw_list_culling_empty_middle_sub_list_noop() {
   assert_eq!(
     ranges[2],
     StorageSubListRangeInfo {
-      offset: 5,
+      offset: 2,
       count: 2,
       count_prefix_sum: 2,
       ..Zeroable::zeroed()
@@ -750,9 +747,9 @@ async fn test_draw_list_culling_empty_middle_sub_list_partial() {
   assert_eq!(pool.len(), 7);
   assert_eq!(pool[0], 10);
   assert_eq!(pool[1], 20);
-  // Sub-list 2: both culled → pool[5], pool[6] remain zero
-  assert_eq!(pool[5], 0);
-  assert_eq!(pool[6], 0);
+  // Sub-list 2: both culled → compact slots at offset 2 are empty
+  assert_eq!(pool[2], 0);
+  assert_eq!(pool[3], 0);
 
   let ranges =
     read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
@@ -780,7 +777,7 @@ async fn test_draw_list_culling_empty_middle_sub_list_partial() {
   assert_eq!(
     ranges[2],
     StorageSubListRangeInfo {
-      offset: 5,
+      offset: 2,
       count: 0,
       count_prefix_sum: 2,
       ..Zeroable::zeroed()
@@ -875,15 +872,16 @@ async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_noop() {
   let draw_list = build_test_draw_list_with_consecutive_empty_middle_sub_lists(&gpu);
   let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
 
+  // 4 survivors: 10, 20, 30, 40
+  // After compact: sub-list 0 at offset 0, empty sub-lists 1-2, sub-list 3 at offset 2
   let pool = read_storage_u32(&mut cx, &result.id_pool).await;
   assert_eq!(pool.len(), 8);
-  // Sub-list 0: [10, 20] at pool[0], pool[1]
   assert_eq!(pool[0], 10);
   assert_eq!(pool[1], 20);
-  // Sub-lists 1, 2: empty — pool[2..5] unused
-  // Sub-list 3: [30, 40] at pool[6], pool[7]
-  assert_eq!(pool[6], 30);
-  assert_eq!(pool[7], 40);
+  // Sub-lists 1, 2: empty → no elements in compact region
+  // Sub-list 3: [30, 40] at compact offset 2 → pool[2], pool[3]
+  assert_eq!(pool[2], 30);
+  assert_eq!(pool[3], 40);
 
   let ranges =
     read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
@@ -911,7 +909,7 @@ async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_noop() {
   assert_eq!(
     ranges[2],
     StorageSubListRangeInfo {
-      offset: 4,
+      offset: 2,
       count: 0,
       count_prefix_sum: 2,
       ..Zeroable::zeroed()
@@ -921,7 +919,7 @@ async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_noop() {
   assert_eq!(
     ranges[3],
     StorageSubListRangeInfo {
-      offset: 6,
+      offset: 2,
       count: 2,
       count_prefix_sum: 2,
       ..Zeroable::zeroed()
@@ -949,8 +947,9 @@ async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_partial() {
   assert_eq!(pool.len(), 8);
   assert_eq!(pool[0], 10);
   assert_eq!(pool[1], 20);
-  assert_eq!(pool[6], 30);
-  assert_eq!(pool[7], 40);
+  // Sub-lists 1, 2: empty; sub-list 3 at compact offset 2
+  assert_eq!(pool[2], 30);
+  assert_eq!(pool[3], 40);
 
   let ranges =
     read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.sub_list_ranges).await;
@@ -978,7 +977,7 @@ async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_partial() {
   assert_eq!(
     ranges[2],
     StorageSubListRangeInfo {
-      offset: 4,
+      offset: 2,
       count: 0,
       count_prefix_sum: 2,
       ..Zeroable::zeroed()
@@ -988,7 +987,7 @@ async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_partial() {
   assert_eq!(
     ranges[3],
     StorageSubListRangeInfo {
-      offset: 6,
+      offset: 2,
       count: 2,
       count_prefix_sum: 2,
       ..Zeroable::zeroed()

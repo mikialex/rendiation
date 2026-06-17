@@ -145,11 +145,10 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
 
       let new_count = p_end - p_prev;
       let new_excl = p_prev;
-      let orig_offset = range.offset;
 
       self.output_ranges.index(i).store(
         ENode::<StorageSubListRangeInfo> {
-          offset: orig_offset,
+          offset: new_excl,
           count: new_count,
           count_prefix_sum: new_excl,
         }
@@ -196,7 +195,7 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
       let local_pos = p_i - seg_start - val(1u32);
       self
         .output_pool
-        .index(range.offset + local_pos)
+        .index(seg_start + local_pos)
         .store(model_id);
     });
 
