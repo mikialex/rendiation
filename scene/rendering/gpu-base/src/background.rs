@@ -87,9 +87,13 @@ impl SceneBackgroundRenderer {
     &self,
     scene: EntityHandle<SceneEntity>,
     reversed_depth: bool,
+    target_is_srgb: bool,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
     let color = self.solid_background.get_value(scene).unwrap();
-    let color = color.unwrap_or(Vec3::splat(0.9));
+    let mut color = color.unwrap_or(Vec3::splat(0.9));
+    if target_is_srgb {
+      color = srgb3_to_linear3(color);
+    }
     let color = rendiation_webgpu::Color {
       r: color.x as f64,
       g: color.y as f64,
