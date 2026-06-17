@@ -17,6 +17,7 @@ pub struct ShaderAPINagaImpl {
   outputs_define: Vec<ShaderStructFieldMetaInfo>,
   outputs: Vec<naga::Handle<naga::Expression>>,
   struct_extra_padding_count: FastHashMap<String, usize>,
+  log_build_result: bool,
 }
 
 pub enum BlockBuildingState {
@@ -61,6 +62,7 @@ impl ShaderAPINagaImpl {
       outputs_define: Default::default(),
       outputs: Default::default(),
       struct_extra_padding_count: Default::default(),
+      log_build_result: false,
     };
 
     api.building_fn.push(naga::Function::default());
@@ -337,6 +339,10 @@ impl ShaderAPINagaImpl {
 }
 
 impl ShaderAPI for ShaderAPINagaImpl {
+  fn log_build_result(&mut self) {
+    self.log_build_result = true;
+  }
+
   fn set_workgroup_size(&mut self, size: (u32, u32, u32)) {
     self.module.entry_points[0].workgroup_size = [size.0, size.1, size.2]
   }
@@ -605,6 +611,38 @@ impl ShaderAPI for ShaderAPINagaImpl {
       String::from("frag_depth_out"),
       ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::FragDepth),
     )
+  }
+
+  fn mark_handle_debug_name(&mut self, h: ShaderNodeRawHandle, name: String) {
+    let handle = self.get_expression(h);
+
+    let top_fn = self
+      .building_fn
+      .last_mut()
+      .unwrap();
+    if let Ok(expr) = top_fn
+      .expressions
+      .try_get(handle)
+    {
+      match expr{
+        naga::Expression::GlobalVariable(g)  =>{
+          self.module.global_variables.get_mut(*g).name = Some(name.clone());
+        },
+        naga::Expression::FunctionArgument(idx) => {
+          top_fn.arguments[*idx as usize].name = Some(name.clone());
+        },
+        _ => {
+           self
+            .building_fn
+            .last_mut()
+            .unwrap()
+            .named_expressions
+            .insert(handle, name);
+        }
+      }
+    }
+
+   
   }
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle {
@@ -1649,8 +1687,19 @@ impl ShaderAPI for ShaderAPINagaImpl {
   fn build(&mut self) -> (String, Box<dyn Any>) {
     self.pop_scope();
 
-    (ENTRY_POINT_NAME.to_owned(), Box::new(self.module.clone()))
+    (
+      ENTRY_POINT_NAME.to_owned(),
+      Box::new(NagaModuleBuildResult {
+        log_result: self.log_build_result,
+        module: self.module.clone(),
+      }),
+    )
   }
+}
+
+pub struct NagaModuleBuildResult {
+  pub log_result: bool,
+  pub module: naga::Module,
 }
 
 fn map_binary_op(o: BinaryOperator) -> naga::BinaryOperator {

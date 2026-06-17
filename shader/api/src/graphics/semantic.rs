@@ -48,21 +48,27 @@ impl SemanticRegistry {
     &mut self,
     node: impl Into<Node<<T as SemanticVertexShaderValue>::ValueType>>,
   ) {
-    self.register_raw(TypeId::of::<T>(), node.into().cast_untyped_node());
+    let node = node.into().cast_untyped_node();
+    node.mark_debug_label(get_name::<T>());
+    self.register_raw(TypeId::of::<T>(), node);
   }
 
   pub fn register_vertex_stage<T: SemanticVertexShaderValue>(
     &mut self,
     node: impl Into<Node<T::ValueType>>,
   ) {
-    self.register_raw(TypeId::of::<T>(), node.into().cast_untyped_node());
+    let node = node.into().cast_untyped_node();
+    node.mark_debug_label(get_name::<T>());
+    self.register_raw(TypeId::of::<T>(), node);
   }
 
   pub fn register_fragment_stage<T: SemanticFragmentShaderValue>(
     &mut self,
     node: impl Into<Node<T::ValueType>>,
   ) {
-    self.register_raw(TypeId::of::<T>(), node.into().cast_untyped_node());
+    let node = node.into().cast_untyped_node();
+    node.mark_debug_label(get_name::<T>());
+    self.register_raw(TypeId::of::<T>(), node);
   }
 
   #[track_caller]
@@ -84,6 +90,28 @@ impl SemanticRegistry {
   pub fn register_raw(&mut self, id: TypeId, node: NodeUntyped) {
     self.static_semantic.insert(id, node);
   }
+}
+
+fn get_name<T: Any>() -> String {
+  let name = disqualified::ShortName(std::any::type_name::<T>());
+  let name = name.to_string();
+  camel_to_snake(&name)
+}
+
+fn camel_to_snake(s: &str) -> String {
+  let mut snake = String::with_capacity(s.len() + s.len() / 2);
+
+  for (i, ch) in s.chars().enumerate() {
+    if ch.is_uppercase() {
+      if i > 0 {
+        snake.push('_');
+      }
+      snake.push(ch.to_ascii_lowercase());
+    } else {
+      snake.push(ch);
+    }
+  }
+  snake
 }
 
 #[macro_export]
