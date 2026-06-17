@@ -8,9 +8,15 @@ pub fn use_stream_compaction<T>(
 where
   T: Std430 + ShaderSizedValueNodeType + Debug,
 {
+  let max_width = cx
+    .gpu
+    .info()
+    .supported_limits
+    .max_compute_invocations_per_workgroup;
+
   let write_target_positions = filter
     .map(|v| v.select(1_u32, 0))
-    .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx);
+    .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(max_width, max_width, cx);
 
   let (_, size) = PrefixSumTailAsSize {
     prefix_sum_result: Box::new(write_target_positions.clone()),

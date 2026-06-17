@@ -166,6 +166,11 @@ opt-level = 3
 inherits = "dev"
 debug-assertions = false
 
+# create a separate profile(target folder) for production
+[profile.production]
+inherits = "release"
+
+
 [patch.crates-io]
 # wgpu = { path = "../references/wgpu/wgpu" }
 # wgpu-types = { path = "../references/wgpu/wgpu-types" }

@@ -272,6 +272,7 @@ pub extern "C" fn picker_pick_list(
   x: f32,
   y: f32,
   extra_screen_space_tolerance: f32,
+  sort_near_to_far: bool,
 ) -> *mut ViewerRayPickListResult {
   let mut pick_results = Vec::new();
   api.pick_list(
@@ -284,6 +285,14 @@ pub extern "C" fn picker_pick_list(
   );
 
   let camera_position_world = api.get_camera_position_world(&viewer.core.viewer);
+
+  if sort_near_to_far {
+    let camera_position_world = camera_position_world.into_f32();
+    pick_results.sort_by_cached_key(|a| {
+      let distance_sq = Vec3::from(a.hit_position).distance2_to(camera_position_world);
+      ordered_float::OrderedFloat::from(distance_sq)
+    });
+  }
 
   let r = Box::new(ViewerRayPickListResult {
     pick_results,

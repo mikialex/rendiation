@@ -365,7 +365,15 @@ impl<T: Hasher> PipelineHasher<T> {
     self.hasher.finish()
   }
   pub fn finish_with_label(self) -> (u64, String) {
-    (self.hasher.finish(), self.debug_label)
+    #[cfg(feature = "pipeline-label")]
+    {
+      (self.hasher.finish(), self.debug_label)
+    }
+
+    #[cfg(not(feature = "pipeline-label"))]
+    {
+      (self.hasher.finish(), String::default())
+    }
   }
 }
 

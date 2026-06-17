@@ -36,9 +36,11 @@ pub fn use_render_lighting_scene_content(
   let camera_gpu = renderer.cameras.make_component(camera).unwrap();
   let camera_gpu = &camera_gpu;
 
-  let (color_ops, depth_ops) = renderer
-    .background
-    .init_clear(scene, renderer.reversed_depth);
+  let (color_ops, depth_ops) = renderer.background.init_clear(
+    scene,
+    renderer.reversed_depth,
+    scene_result.format().is_srgb(),
+  );
 
   let mut background = renderer
     .background

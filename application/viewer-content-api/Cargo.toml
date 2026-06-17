@@ -15,7 +15,7 @@ pollster = { workspace = true }
 bytemuck = { workspace = true }
 log = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
-rendiation-viewer-content = { path = "../viewer-content" }
+rendiation-viewer-content = { path = "../viewer-content", default-features = false }
 
 # these dep declare are necessary as we are export c type from them
 rendiation-mesh-core = { path = "../../content/mesh/core" }
@@ -24,11 +24,13 @@ rendiation-occ-style-material = { path = "../../extension/occ-style-material" }
 rendiation-text-3d = { path = "../../extension/text-3d" }
 rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 wgpu-types = { workspace = true }
+ordered-float = "4.6"
 
 [build-dependencies]
 cbindgen = "0.29.2"
 
 [features]
+default = ["extra-checks"]
 extra-checks = ["rendiation-viewer-content/extra-checks"]
 
 [lints]

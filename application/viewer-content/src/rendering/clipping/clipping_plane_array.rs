@@ -1,4 +1,5 @@
 use rendiation_infinity_primitive::InfinityShaderPlaneEffect;
+use rendiation_texture_gpu_process::copy_frame;
 
 use crate::*;
 
@@ -245,12 +246,18 @@ impl ClippingPlaneArrayRenderer {
                   load_and_store(),
                   load_and_store(),
                 );
+                // todo, write g buffer entity id buffer(if exist)
+                // through this, we can support clip cap gpu pick.
+
+                let mut key = scene_result.create_attachment_key();
+                key.sample_count = 1;
+                let color_temp = key.request(frame_ctx);
+
                 let color_writer = DefaultDisplayWriter::extend_pass_desc(
                   &mut pass_base,
-                  scene_result,
-                  load_and_store(),
+                  &color_temp,
+                  clear_and_store(all_zero()),
                 );
-                // todo, write g buffer entity id buffer(if exist)
 
                 let lighting = lighting_sys.get_scene_lighting_component(
                   scene,
@@ -269,6 +276,16 @@ impl ClippingPlaneArrayRenderer {
                 };
 
                 pass_base.render_ctx(frame_ctx).by(&mut filler);
+
+                // we do this copy(and the temp color stuff) to support msaa scene target
+                // this can be skip if the scene target is not msaa, for simplicity here we always do extra copy.
+                pass("copy clip plane cap fill result")
+                  .with_color(scene_result, load_and_store())
+                  .render_ctx(frame_ctx)
+                  .by(&mut copy_frame(
+                    color_temp,
+                    Some(BlendState::ALPHA_BLENDING),
+                  ));
               }
               ClipFillType::Defer(_frame_general_material_buffer) => todo!(),
             }

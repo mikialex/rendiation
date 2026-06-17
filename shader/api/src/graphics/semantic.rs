@@ -226,6 +226,16 @@ impl SemanticShaderValueExt for ShaderFragmentBuilderView<'_> {
   }
 }
 
+pub fn auto_reverse_normal(builder: &mut ShaderFragmentBuilderView) {
+  let normal = builder.get_or_compute_fragment_normal().make_local_var();
+  if_by(builder.query::<FragmentFrontFacing>().not(), || {
+    normal.store(-normal.load());
+  });
+
+  let normal = normal.load();
+  builder.register::<FragmentRenderNormal>(normal);
+}
+
 pub fn compute_normal_by_dxdy(position: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
   // note, webgpu canvas is left handed
   position.dpdy().cross(position.dpdx()).normalize()

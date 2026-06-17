@@ -102,8 +102,8 @@ important issue is in bold style.
   - draw on TextureFormat::R8Unorm when enable blend cause strange effect
   - chrome wgsl not accept f32::MAX float literal
 - known but not fixed yet
+  - dx12 midc <https://github.com/gfx-rs/wgpu/issues/7974>
   - correct hdr rendering, see <https://github.com/gfx-rs/wgpu/issues/2920>;
-  - fxaa crashes on vulkan and dx12 see <https://github.com/gfx-rs/wgpu/issues/7713>
   - huge rust debug symbol cause link or compile failed in reative query(currently workaround by boxing). see:
     - <https://github.com/rust-lang/rust/issues/130729>
     - <https://github.com/rust-lang/rust/issues/135849>

@@ -22,6 +22,11 @@ pub fn require_midc_downgrade(info: &GPUInfo, force_downgrade: bool) -> bool {
     return true;
   }
 
+  if info.adaptor_info.backend == Backend::Dx12 {
+    // https://github.com/gfx-rs/wgpu/issues/7974
+    return true;
+  }
+
   !info
     .supported_features
     .contains(Features::MULTI_DRAW_INDIRECT_COUNT)
@@ -51,6 +56,12 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
 
   let is_indexed = input.command_pool.is_index();
 
+  let max_width = cx
+    .gpu
+    .info()
+    .supported_limits
+    .max_compute_invocations_per_workgroup;
+
   // segmented prefix scan over all vertex counts
   let inclusive_scan_result = ListPoolVertexCountSource {
     command_pool: input.command_pool.clone(),
@@ -58,7 +69,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
     sum_all_count: input.list_info.sum_all_count.clone(),
     total_capacity,
   }
-  .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx)
+  .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(max_width, max_width, cx)
   .use_materialize_storage_buffer(cx);
 
   let inclusive_scan_result = inclusive_scan_result.buffer;

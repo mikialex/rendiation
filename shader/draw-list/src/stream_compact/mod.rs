@@ -26,12 +26,18 @@ impl DeviceDrawList {
     let output_ranges = target.dispatch_info.sub_list_ranges.clone().into_rw_view();
     let total_count_out = target.dispatch_info.sum_all_count.clone().into_rw_view();
 
+    let max_width = cx
+      .gpu
+      .info()
+      .supported_limits
+      .max_compute_invocations_per_workgroup;
+
     let predicate = ListOfListsCullingPredicate {
       draw_list: self.clone(),
       culler: culler.clone(),
     };
-    let positions =
-      predicate.use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx);
+    let positions = predicate
+      .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(max_width, max_width, cx);
     let scatter = SegmentedListScatter {
       positions: positions.buffer.clone(),
       sub_list_ranges: self.dispatch_info.sub_list_ranges.clone(),

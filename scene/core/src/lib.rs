@@ -70,6 +70,7 @@ pub fn register_scene_core_data_model() {
 
 declare_entity!(SceneEntity);
 
+// the color is srgb space
 declare_component!(SceneSolidBackground, SceneEntity, Option<Vec3<f32>>);
 
 declare_component!(
