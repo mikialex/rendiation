@@ -4813,7 +4813,6 @@ dependencies = [
  "database",
  "disqualified",
  "egui",
- "env_logger",
  "event-source",
  "facet",
  "fast-hash-collection",

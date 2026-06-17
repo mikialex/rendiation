@@ -11,6 +11,7 @@ pub extern "C" fn rendiation_init() {
 
   env_logger::builder()
     .filter_level(log::LevelFilter::Info)
+    .filter_module("wgpu_hal::dx12::device", log::LevelFilter::Warn)
     .init();
 
   setup_global_database(Default::default());

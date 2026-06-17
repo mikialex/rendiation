@@ -13,6 +13,11 @@ pub fn require_midc_downgrade(info: &GPUInfo, force_downgrade: bool) -> bool {
     return true;
   }
 
+  if info.adaptor_info.backend == Backend::Dx12 {
+    // https://github.com/gfx-rs/wgpu/issues/7974
+    return true;
+  }
+
   !info
     .supported_features
     .contains(Features::MULTI_DRAW_INDIRECT_COUNT)
@@ -48,6 +53,12 @@ pub fn downgrade_multi_indirect_draw_count(
     assert!(draw_commands.cmd_capacity_count() > 0);
     let draw_count = StorageBufferReadonlyDataView::try_from_raw(indirect_count).unwrap();
 
+    let max_width = cx
+      .gpu
+      .info()
+      .supported_limits
+      .max_compute_invocations_per_workgroup;
+
     let DeviceMaterializeResult {
       buffer: sub_draw_range_start_prefix_sum,
       ..
@@ -55,7 +66,7 @@ pub fn downgrade_multi_indirect_draw_count(
       indirect_buffer: draw_commands.clone(),
       indirect_count: draw_count.clone(),
     }
-    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx)
+    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(max_width, max_width, cx)
     .make_global_scan_exclusive::<AdditionMonoid<u32>>()
     .materialize_storage_buffer(cx);
 
