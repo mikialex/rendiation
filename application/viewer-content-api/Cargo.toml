@@ -24,6 +24,7 @@ rendiation-occ-style-material = { path = "../../extension/occ-style-material" }
 rendiation-text-3d = { path = "../../extension/text-3d" }
 rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 wgpu-types = { workspace = true }
+ordered-float = "4.6"
 
 [build-dependencies]
 cbindgen = "0.29.2"

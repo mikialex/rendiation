@@ -197,6 +197,8 @@ impl GraphicsShaderProvider for OccStyleMaterialStorageGPU<'_> {
         val(Vec4::one()),
       );
 
+      auto_reverse_normal(builder);
+
       match self.shade_type {
         OccStyleEffectType::Unlit => {
           let diffuse = uniform.diffuse * diffuse_alpha_tex;

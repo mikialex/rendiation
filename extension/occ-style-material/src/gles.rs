@@ -164,6 +164,8 @@ impl GraphicsShaderProvider for OccStyleMaterialGPU<'_> {
         val(Vec4::one()),
       );
 
+      auto_reverse_normal(builder);
+
       builder.register::<DefaultDisplay>(uniform.diffuse * diffuse_alpha_tex);
       match self.shade_type {
         OccStyleEffectType::Unlit => {

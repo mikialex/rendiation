@@ -38,7 +38,9 @@ where
       })
     });
 
-    let a_side_change_with_b = self.a.iter_key_value().flat_map(move |(k1, v1_change)| {
+    let a_iter = self.a.iter_key_value();
+    let a_max = a_iter.size_hint().1;
+    let a_side_change_with_b = a_iter.flat_map(move |(k1, v1_change)| {
       self
         .b_current
         .iter_key_value()
@@ -57,7 +59,9 @@ where
         })
     });
 
-    let b_side_change_with_a = self.b.iter_key_value().flat_map(move |(k2, v2_change)| {
+    let b_iter = self.b.iter_key_value();
+    let b_max = b_iter.size_hint().1;
+    let b_side_change_with_a = b_iter.flat_map(move |(k2, v2_change)| {
       self
         .a_current
         .iter_key_value()
@@ -76,9 +80,37 @@ where
         })
     });
 
-    cross_section
+    let iter = cross_section
       .chain(a_side_change_with_b)
-      .chain(b_side_change_with_a)
+      .chain(b_side_change_with_a);
+
+    struct SizeHintOverride<T> {
+      iter: T,
+      max: Option<usize>,
+    }
+
+    impl<T: Iterator> Iterator for SizeHintOverride<T> {
+      type Item = T::Item;
+
+      fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+      }
+
+      fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, self.max)
+      }
+    }
+
+    let mut max = None;
+    if let (Some(a_max), Some(b_max)) = (a_max, b_max) {
+      let a_current_max = self.a_current.iter_key_value().size_hint().1;
+      let b_current_max = self.b_current.iter_key_value().size_hint().1;
+      if let (Some(a_current_max), Some(b_current_max)) = (a_current_max, b_current_max) {
+        max = Some(a_max * b_current_max + b_max * a_current_max);
+      }
+    }
+
+    SizeHintOverride { iter, max }
   }
 
   fn access(&self, (k1, k2): &(K1, K2)) -> Option<ValueChange<(V1, V2)>> {
