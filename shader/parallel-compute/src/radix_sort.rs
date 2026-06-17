@@ -20,7 +20,7 @@ struct IterIndexHasher(u32);
 
 impl ShaderHashProvider for IterIndexHasher {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.0.hash(hasher)
+    hasher.hash(self.0);
   }
   shader_hash_type_id! {}
 }

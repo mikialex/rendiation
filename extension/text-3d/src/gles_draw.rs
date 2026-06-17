@@ -24,7 +24,7 @@ pub fn use_text3d_gles_renderer(
     },
   );
 
-  let uniform = cx.use_uniform_buffers();
+  let uniform = cx.use_uniform_buffers("text3d uniform");
   cx.use_changes::<Text3dLocalTransform>()
     .update_uniforms(&uniform, 0, cx.gpu);
 

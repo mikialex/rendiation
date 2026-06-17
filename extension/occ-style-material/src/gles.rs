@@ -8,7 +8,7 @@ pub fn use_occ_material_uniforms(
   cx: &mut QueryGPUHookCx,
   reverse_z: bool,
 ) -> Option<OccStyleMaterialGlesRenderer> {
-  let uniforms = cx.use_uniform_buffers();
+  let uniforms = cx.use_uniform_buffers("occ style material");
 
   cx.use_changes::<OccStyleMaterialDiffuse>()
     .map(|changes| changes.collective_map(srgb4_to_linear4))
@@ -39,7 +39,7 @@ pub fn use_occ_material_uniforms(
       cx.gpu,
     );
 
-  let tex_uniforms = cx.use_uniform_buffers();
+  let tex_uniforms = cx.use_uniform_buffers("occ style material tex");
 
   let diffuse_tex = offset_of!(OccStyleMaterialTextureHandlesUniform, diffuse_texture);
   use_tex_watcher::<OccStyleMaterialDiffuseTex, _>(cx, diffuse_tex, &tex_uniforms);
@@ -130,9 +130,9 @@ impl ShaderHashProvider for OccStyleMaterialGPU<'_> {
   shader_hash_type_id! {OccStyleMaterialGPU<'static>}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.transparent.hash(hasher);
-    self.shade_type.hash(hasher);
-    self.states.hash(hasher);
+    hasher.hash(self.transparent);
+    hasher.hash(self.shade_type);
+    hasher.hash(self.states);
   }
 }
 

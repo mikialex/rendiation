@@ -1,6 +1,5 @@
 #![feature(stmt_expr_attributes)]
 
-use std::hash::Hash;
 use std::sync::Arc;
 
 use database::*;

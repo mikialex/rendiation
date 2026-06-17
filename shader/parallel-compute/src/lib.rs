@@ -82,7 +82,7 @@ where
     impl ShaderHashProvider for TypeHash {
       shader_hash_type_id! {}
       fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-        self.0.hash(hasher);
+        hasher.hash(self.0);
       }
     }
 
@@ -316,7 +316,7 @@ where
     assert!(S::MAX <= workgroup_privatization);
 
     let init = ZeroedArrayByArrayLength(S::MAX as usize);
-    let result = create_gpu_read_write_storage(init, &cx.gpu.device);
+    let result = create_gpu_read_write_storage(init, &cx.gpu.device, "histogram result");
 
     DeviceHistogramCompute::<T, S> {
       workgroup_level: WorkGroupHistogramCompute {
@@ -331,7 +331,7 @@ where
 
   fn custom_access(
     self,
-    behavior: impl InvocationAccessBehavior<T> + 'static + Hash,
+    behavior: impl InvocationAccessBehavior<T> + 'static + Hash + Debug,
   ) -> impl ComputeComponent<Node<T>> {
     DeviceParallelComputeCustomInvocationBehavior {
       source: Box::new(self),

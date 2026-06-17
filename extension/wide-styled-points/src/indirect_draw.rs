@@ -159,7 +159,7 @@ impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     let idx = self.model_access.get(any_id)?;
-    self.states.get_value(idx)?.hash(hasher);
+    hasher.hash(self.states.get_value(idx)?);
     Some(())
   }
 
@@ -213,7 +213,7 @@ pub struct WidePointsIndirectDrawComponent<'a> {
 impl<'a> ShaderHashProvider for WidePointsIndirectDrawComponent<'a> {
   shader_hash_type_id! {WidePointsIndirectDrawComponent<'static>}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.depth_test_enable.hash(hasher);
+    hasher.hash(self.depth_test_enable);
   }
 }
 

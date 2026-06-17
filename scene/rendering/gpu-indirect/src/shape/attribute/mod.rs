@@ -1,4 +1,4 @@
-use std::{mem::offset_of, sync::Arc};
+use std::{hash::Hash, mem::offset_of, sync::Arc};
 
 use parking_lot::RwLock;
 use rendiation_mesh_core::AttributeSemantic;
@@ -137,14 +137,14 @@ fn use_attribute_indices_updates(
       alloc.allocate_readonly::<[u32]>(
         (4 * init_item_count) as u64,
         &gpu.device,
-        Some("bindless mesh index pool"),
+        "bindless mesh index pool",
       )
     } else {
       StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
         &gpu.device,
-        Some("bindless mesh index pool"),
         ZeroedArrayByArrayLength(init_item_count as usize).into(),
         BufferUsages::INDEX,
+        "bindless mesh index pool",
       )
       .into()
     };
@@ -251,8 +251,7 @@ fn use_attribute_vertex_updates(
 ) {
   let label = "indirect mesh vertices";
   let (cx, vertex_buffer) = cx.use_gpu_init(|gpu, alloc| {
-    let buffer =
-      alloc.allocate_readonly::<[u32]>(init_u32_count as u64 * 4, &gpu.device, Some(label));
+    let buffer = alloc.allocate_readonly::<[u32]>(init_u32_count as u64 * 4, &gpu.device, label);
 
     let buffer = buffer.with_direct_resize(gpu);
 
@@ -538,9 +537,9 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
   ) -> Option<()> {
     let mesh_id = self.checker.get(any_id)?;
     let topology = self.topology_checker.get(mesh_id)?;
-    topology.hash(hasher);
+    hasher.hash(topology);
     let is_index_mesh = self.indices_checker.get(mesh_id).is_some();
-    is_index_mesh.hash(hasher);
+    hasher.hash(is_index_mesh);
     Some(())
   }
 

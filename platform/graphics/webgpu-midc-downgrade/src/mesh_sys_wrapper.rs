@@ -12,7 +12,7 @@ impl<T: ShaderHashProvider + 'static> ShaderHashProvider
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.mesh_system.hash_pipeline(hasher);
-    self.enable_downgrade.hash(hasher);
+    hasher.hash(self.enable_downgrade);
   }
 }
 

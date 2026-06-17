@@ -35,8 +35,9 @@ fn build_test_input(gpu: &GPU) -> MIDCListPoolInput {
   cmds[padded_offsets[2] as usize] = DrawIndirectArgsStorage::new(7, 1, 0, 0);
   cmds[padded_offsets[2] as usize + 1] = DrawIndirectArgsStorage::new(1, 1, 0, 0);
 
-  let command_pool =
-    StorageDrawCommands::NoneIndexed(create_gpu_readonly_storage(cmds.as_slice(), gpu).into());
+  let command_pool = StorageDrawCommands::NoneIndexed(
+    create_gpu_readonly_storage(cmds.as_slice(), gpu, "command_pool").into(),
+  );
 
   let mut prefix_sum = 0u32;
   let ranges_vec: Vec<StorageSubListRangeInfo> = real_counts
@@ -48,8 +49,8 @@ fn build_test_input(gpu: &GPU) -> MIDCListPoolInput {
       r
     })
     .collect();
-  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
-  let sum_all_count = rendiation_webgpu::create_gpu_readonly_storage(&7u32, gpu);
+  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu, "sub_list_ranges");
+  let sum_all_count = rendiation_webgpu::create_gpu_readonly_storage(&7u32, gpu, "sum_all_count");
 
   let host_capacity_ranges = real_counts
     .iter()
@@ -134,12 +135,13 @@ async fn test_downgrade_list_pool_zero_capacity() {
 
   // sum_all_count_host=0 → early return before any GPU work
   let cmds = vec![DrawIndirectArgsStorage::new(1, 1, 0, 0)];
-  let command_pool =
-    StorageDrawCommands::NoneIndexed(create_gpu_readonly_storage(cmds.as_slice(), &gpu).into());
+  let command_pool = StorageDrawCommands::NoneIndexed(
+    create_gpu_readonly_storage(cmds.as_slice(), &gpu, "command_pool").into(),
+  );
 
   let ranges_vec = vec![StorageSubListRangeInfo::new(0, 1, 0)];
-  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), &gpu);
-  let sum_all_count = create_gpu_readonly_storage(&1u32, &gpu);
+  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), &gpu, "sub_list_ranges");
+  let sum_all_count = create_gpu_readonly_storage(&1u32, &gpu, "sum_all_count");
 
   let list_info = MultiRangeDispatchInfo {
     sub_list_ranges,
@@ -176,12 +178,13 @@ async fn test_downgrade_list_pool_single_sub_list() {
     DrawIndirectArgsStorage::new(5, 1, 0, 0),
     DrawIndirectArgsStorage::new(7, 1, 0, 0),
   ];
-  let command_pool =
-    StorageDrawCommands::NoneIndexed(create_gpu_readonly_storage(cmds.as_slice(), &gpu).into());
+  let command_pool = StorageDrawCommands::NoneIndexed(
+    create_gpu_readonly_storage(cmds.as_slice(), &gpu, "command_pool").into(),
+  );
 
   let ranges_vec = vec![StorageSubListRangeInfo::new(0, 3, 0)];
-  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), &gpu);
-  let sum_all_count = rendiation_webgpu::create_gpu_readonly_storage(&3u32, &gpu);
+  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), &gpu, "sub_list_ranges");
+  let sum_all_count = rendiation_webgpu::create_gpu_readonly_storage(&3u32, &gpu, "sum_all_count");
 
   let list_info = MultiRangeDispatchInfo {
     sub_list_ranges,

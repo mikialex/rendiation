@@ -63,6 +63,7 @@ pub fn sync_per_scene_uniforms<T: Std140 + PartialEq>(
   new_data: &PerSceneLightUniformArray<T>,
   uniform_array_caches: &SharedLightUniformInfo<T>,
   gpu: &GPU,
+  label: &str,
 ) {
   let mut uniform_array_caches__ = uniform_array_caches.write();
   let uniform_array_caches_ = &mut *uniform_array_caches__;
@@ -81,7 +82,7 @@ pub fn sync_per_scene_uniforms<T: Std140 + PartialEq>(
     } else {
       gpu_uniforms.insert(
         *scene_id,
-        UniformBufferCachedDataView::create(&gpu.device, uniform_array.buffer),
+        UniformBufferCachedDataView::create(&gpu.device, uniform_array.buffer, label),
       );
     }
   }

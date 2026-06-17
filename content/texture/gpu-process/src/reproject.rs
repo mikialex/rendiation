@@ -8,7 +8,7 @@ pub struct GPUReprojectInfo {
 impl GPUReprojectInfo {
   pub fn new(gpu: &GPU) -> Self {
     Self {
-      reproject: UniformBufferCachedDataView::create_default(&gpu.device),
+      reproject: UniformBufferCachedDataView::create_default(&gpu.device, "reproject info"),
       camera_position: Vec3::zero(),
     }
   }

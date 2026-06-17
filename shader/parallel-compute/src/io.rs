@@ -45,7 +45,7 @@ pub fn slice_into_compute<T: Std430 + ShaderSizedValueNodeType>(
   data: &[T],
   cx: &mut DeviceParallelComputeCtx,
 ) -> DeviceMaterializeResult<T> {
-  let storage = create_gpu_readonly_storage(data, &cx.gpu);
+  let storage = create_gpu_readonly_storage(data, &cx.gpu, "slice_into_compute data input");
   storage_full_into_compute(storage)
 }
 
@@ -125,7 +125,7 @@ impl<T: Std430> ShaderHashProvider for DeviceMaterializeResult<T> {
   shader_hash_type_id! {}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.size.is_some().hash(hasher)
+    hasher.hash(self.size.is_some());
   }
 }
 

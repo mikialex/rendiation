@@ -13,7 +13,7 @@ pub struct ListPoolVertexCountSource {
 impl ShaderHashProvider for ListPoolVertexCountSource {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.command_pool.is_index().hash(hasher);
+    hasher.hash(self.command_pool.is_index());
   }
 }
 

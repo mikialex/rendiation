@@ -28,6 +28,15 @@ impl<T> OutBoundsBehavior<T> {
   }
 }
 
+impl<T> Debug for OutBoundsBehavior<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      OutBoundsBehavior::ClampBorder => f.debug_tuple("ClampBorder").finish(),
+      OutBoundsBehavior::Const(_, id) => f.debug_tuple("Const").field(id).finish(),
+    }
+  }
+}
+
 impl<T> Hash for OutBoundsBehavior<T> {
   fn hash<H: Hasher>(&self, state: &mut H) {
     core::mem::discriminant(self).hash(state);
@@ -46,7 +55,7 @@ impl<T> OutBoundsBehavior<T> {
   }
 }
 
-#[derive_where(Clone, Hash)]
+#[derive_where(Clone, Hash, Debug)]
 pub struct DeviceInvocationOffset<T> {
   pub offset: i32,
   pub ob: OutBoundsBehavior<T>,
@@ -115,11 +124,11 @@ pub struct DeviceParallelComputeCustomInvocationBehavior<T, F> {
   pub behavior: F,
 }
 
-impl<T: 'static, F: Hash + 'static> ShaderHashProvider
+impl<T: 'static, F: Hash + Debug + 'static> ShaderHashProvider
   for DeviceParallelComputeCustomInvocationBehavior<T, F>
 {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.behavior.hash(hasher);
+    hasher.hash(&self.behavior);
     self.source.hash_pipeline_with_type_info(hasher)
   }
   shader_hash_type_id! {}
@@ -128,7 +137,7 @@ impl<T: 'static, F: Hash + 'static> ShaderHashProvider
 impl<T, F> ComputeComponent<Node<T>> for DeviceParallelComputeCustomInvocationBehavior<T, F>
 where
   T: ShaderSizedValueNodeType,
-  F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
+  F: Hash + Clone + Debug + InvocationAccessBehavior<T> + 'static,
 {
   fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<T>>> {
     Box::new(self.clone())
@@ -165,7 +174,7 @@ where
 impl<T, F> ComputeComponentIO<T> for DeviceParallelComputeCustomInvocationBehavior<T, F>
 where
   T: ShaderSizedValueNodeType,
-  F: Hash + Clone + InvocationAccessBehavior<T> + 'static,
+  F: Hash + Clone + Debug + InvocationAccessBehavior<T> + 'static,
 {
 }
 

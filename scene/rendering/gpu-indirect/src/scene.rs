@@ -84,12 +84,18 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
       models.resize(models.len() + padding, 0);
     }
 
-    let scene_model_id_pool = create_gpu_readonly_storage(models.as_slice(), &self.gpu);
+    let scene_model_id_pool = create_gpu_readonly_storage(
+      models.as_slice(),
+      &self.gpu,
+      "scene_model_id_pool from batch-direct",
+    );
     let sub_list_ranges_gpu =
       prepare_gpu_sub_list_ranges(&host_capacity_ranges, real_lengths.as_slice());
-    let sub_list_ranges = create_gpu_readonly_storage(sub_list_ranges_gpu.as_slice(), &self.gpu);
+    let sub_list_ranges =
+      create_gpu_readonly_storage(sub_list_ranges_gpu.as_slice(), &self.gpu, "sub_list_ranges");
     let sum_all_count_host = model_counts as u32;
-    let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, &self.gpu);
+    let sum_all_count =
+      create_gpu_readonly_storage(&sum_all_count_host, &self.gpu, "sum_all_count");
 
     let draw_list = DeviceDrawList {
       id_pool: scene_model_id_pool,
@@ -308,7 +314,8 @@ fn compute_selected_sub_list_dispatch_info(
     })
     .collect();
 
-  let compact_offsets_device = create_gpu_readonly_storage(compact_offsets.as_slice(), &cx.gpu);
+  let compact_offsets_device =
+    create_gpu_readonly_storage(compact_offsets.as_slice(), &cx.gpu, "compact_offset");
 
   // sum_all_count_host is set to the sum of capacities (upper bound);
   // the GPU writes the real total into sum_all_count at runtime.
@@ -316,25 +323,29 @@ fn compute_selected_sub_list_dispatch_info(
 
   // Upload pick_list indices to the GPU.
   let pick_list_u32: Vec<u32> = pick_list.iter().map(|&i| i as u32).collect();
-  let pick_list_buffer = create_gpu_readonly_storage(pick_list_u32.as_slice(), &cx.gpu);
+  let pick_list_buffer =
+    create_gpu_readonly_storage(pick_list_u32.as_slice(), &cx.gpu, "pick_list");
 
   // Output ranges buffer — one StorageSubListRangeInfo per selected sub-list.
   let output_ranges = StorageBufferDataView::create_by_with_extra_usage(
     cx.gpu.device.as_ref(),
     StorageBufferInit::<[StorageSubListRangeInfo]>::from(ZeroedArrayByArrayLength(pick_count)),
     BufferUsages::INDIRECT,
+    "output_ranges",
   );
 
   let output_ranges_offset_compacted = StorageBufferDataView::create_by_with_extra_usage(
     cx.gpu.device.as_ref(),
     StorageBufferInit::<[StorageSubListRangeInfo]>::from(ZeroedArrayByArrayLength(pick_count)),
     BufferUsages::INDIRECT,
+    "output_ranges_offset_compacted",
   );
 
   // Output sum_all_count — GPU writes the real total count.
   let output_sum_all: StorageBufferDataView<u32> = create_gpu_read_write_storage(
     StorageBufferSizedZeroed::<u32>::default(),
     cx.gpu.device.as_ref(),
+    "output_sum_all",
   );
 
   cx.record_pass(|pass, device| {

@@ -26,11 +26,7 @@ pub struct PoolAllocationUpdate {
 impl SceneModelListPool {
   pub fn new(alloc: &dyn AbstractStorageAllocator, gpu: &GPU, init_capacity: u32) -> Self {
     let pool_buffer = alloc
-      .allocate_readonly(
-        init_capacity as u64 * 4,
-        &gpu.device,
-        Some("scene_model_id_pool"),
-      )
+      .allocate_readonly(init_capacity as u64 * 4, &gpu.device, "scene_model_id_pool")
       .with_direct_resize(gpu);
 
     let limits = &gpu.info.supported_limits;

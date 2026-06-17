@@ -102,7 +102,7 @@ pub fn prepare_basic_shadow_map_uniform(
         existing.write_at(&gpu.queue, info, 0);
         existing
       } else {
-        create_uniform(info.clone(), &gpu.device)
+        create_uniform(info.clone(), &gpu.device, "basic-shadow-map-uniform")
       };
       (*scene_id, uniform)
     })

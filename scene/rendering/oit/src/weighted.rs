@@ -67,9 +67,9 @@ struct DrawDispatch {
 impl ShaderHashProvider for DrawDispatch {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.reverse_depth.hash(hasher);
-    self.reveal_buffer_index.hash(hasher);
-    self.accumulates_buffer_index.hash(hasher);
+    hasher.hash(self.reverse_depth);
+    hasher.hash(self.reveal_buffer_index);
+    hasher.hash(self.accumulates_buffer_index);
   }
 }
 

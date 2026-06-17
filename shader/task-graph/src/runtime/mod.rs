@@ -214,7 +214,7 @@ impl DeviceTaskGraphExecutor {
     struct SimpleFnSpawner<T>(T);
     impl<T: 'static> ShaderHashProvider for SimpleFnSpawner<T> {
       fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-        self.0.type_id().hash(hasher)
+        hasher.hash(self.0.type_id());
       }
     }
     impl<P, T> TaskSpawner<P> for SimpleFnSpawner<T>
@@ -260,7 +260,7 @@ impl DeviceTaskGraphExecutor {
 
     let device = &cx.gpu.device;
 
-    let dispatch_size_buffer = create_gpu_readonly_storage(&task_count, device);
+    let dispatch_size_buffer = create_gpu_readonly_storage(&task_count, device, "dispatch_size");
 
     let mut hasher = PipelineHasher::default();
     task_spawner.hash_pipeline_with_type_info(&mut hasher);
@@ -322,10 +322,12 @@ impl DeviceTaskGraphExecutor {
     let wake_task_counts = create_gpu_read_write_storage::<[u32]>(
       ZeroedArrayByArrayLength(self.task_groups.len()),
       &cx.gpu.device,
+      "wake_task_counts",
     );
     let empty_task_counts = create_gpu_read_write_storage::<[u32]>(
       ZeroedArrayByArrayLength(self.task_groups.len()),
       &cx.gpu.device,
+      "empty_task_counts",
     );
 
     for (i, task) in self.task_groups.iter().enumerate() {

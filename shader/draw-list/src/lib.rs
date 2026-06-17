@@ -101,14 +101,18 @@ impl DeviceDrawList {
     if needs_create {
       let sub_list_ranges = StorageBufferReadonlyDataView::create_by_with_extra_usage(
         gpu.device.as_ref(),
-        Some("device draw list sub_list_ranges"),
         StorageBufferInit::<[StorageSubListRangeInfo]>::from(ranges_init.as_slice()),
         BufferUsages::INDIRECT,
+        "device draw list sub_list_ranges",
       );
 
       let pool_data = vec![0u32; total_capacity as usize];
-      let scene_model_id_pool = create_gpu_readonly_storage(pool_data.as_slice(), gpu);
-      let sum_all_count = create_gpu_readonly_storage(&0u32, gpu);
+      let scene_model_id_pool = create_gpu_readonly_storage(
+        pool_data.as_slice(),
+        gpu,
+        "device draw list scene_model_id_pool",
+      );
+      let sum_all_count = create_gpu_readonly_storage(&0u32, gpu, "device draw list sum_count");
 
       *cached = Some(DeviceDrawList {
         id_pool: scene_model_id_pool,

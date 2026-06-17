@@ -95,7 +95,7 @@ impl<T: 'static> ShaderHashProvider for BindingResourceArray<T> {
   shader_hash_type_id! {}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.max_binding_length.hash(hasher)
+    hasher.hash(self.max_binding_length);
   }
 }
 

@@ -27,7 +27,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageBuffer<T> {
     let buffer = allocator.allocate_readonly(
       make_init_size::<T>(init_capacity_item_count),
       &gpu.device,
-      Some(label),
+      label,
     );
 
     let buffer = buffer
@@ -89,7 +89,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> SparseUpdateStorageWithHostBuffer<T> 
     let buffer = allocator.allocate_readonly(
       make_init_size::<T>(init_capacity_item_count),
       &gpu.device,
-      Some(label),
+      label,
     );
 
     let buffer = buffer

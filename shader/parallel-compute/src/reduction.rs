@@ -9,7 +9,7 @@ pub struct WorkGroupReductionCompute<T, S> {
 
 impl<T: 'static, S: 'static> ShaderHashProvider for WorkGroupReductionCompute<T, S> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.workgroup_size.hash(hasher);
+    hasher.hash(self.workgroup_size);
     self.upstream.hash_pipeline_with_type_info(hasher)
   }
   shader_hash_type_id! {}

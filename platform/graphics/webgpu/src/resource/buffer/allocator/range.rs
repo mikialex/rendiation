@@ -208,7 +208,7 @@ pub fn create_storage_buffer_range_allocate_pool<T: Std430 + ShaderSizedValueNod
   assert!(max_item_count >= init_item_count);
 
   let byte_size = init_item_count as usize * std::mem::size_of::<T>();
-  let buffer = allocator.allocate_readonly(byte_size as u64, &gpu.device, Some(label));
+  let buffer = allocator.allocate_readonly(byte_size as u64, &gpu.device, label);
 
   let buffer = create_growable_buffer(gpu, buffer, max_item_count);
   GPURangeAllocateMaintainer::new(gpu, buffer, max_item_count)

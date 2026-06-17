@@ -22,8 +22,8 @@ pub struct BindlessMeshRasterDispatcher {
 impl ShaderHashProvider for BindlessMeshRasterDispatcher {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.is_indexed.hash(hasher);
-    self.topology.hash(hasher);
+    hasher.hash(self.is_indexed);
+    hasher.hash(self.topology);
   }
 }
 

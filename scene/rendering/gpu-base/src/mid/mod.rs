@@ -100,12 +100,16 @@ pub fn use_and_create_default_indirect_draw_provider(
         cx.gpu.device.as_ref(),
         StorageBufferInit::<[DrawIndexedIndirectArgsStorage]>::from(init),
         BufferUsages::INDIRECT,
+        "draw command buffer",
       );
       let (output_ranges_host, size_all) =
         prepare_gpu_sub_list_out_ranges(&list.dispatch_info.host_capacity_ranges);
       assert_eq!(size_all, size);
-      let output_ranges =
-        create_gpu_readonly_storage(output_ranges_host.as_slice(), cx.gpu.device.as_ref());
+      let output_ranges = create_gpu_readonly_storage(
+        output_ranges_host.as_slice(),
+        cx.gpu.device.as_ref(),
+        "ranges",
+      );
 
       let dispatch_size = generator.compute_work_size(cx);
       cx.record_pass(|pass, device| {
@@ -196,13 +200,17 @@ pub fn use_and_create_default_indirect_draw_provider(
         cx.gpu.device.as_ref(),
         StorageBufferInit::<[DrawIndirectArgsStorage]>::from(init),
         BufferUsages::INDIRECT,
+        "draw command buffer",
       );
 
       let (output_ranges_host, size_all) =
         prepare_gpu_sub_list_out_ranges(&list.dispatch_info.host_capacity_ranges);
       assert_eq!(size_all, size);
-      let output_ranges =
-        create_gpu_readonly_storage(output_ranges_host.as_slice(), cx.gpu.device.as_ref());
+      let output_ranges = create_gpu_readonly_storage(
+        output_ranges_host.as_slice(),
+        cx.gpu.device.as_ref(),
+        "ranges",
+      );
 
       let dispatch_size = generator.compute_work_size(cx);
       cx.record_pass(|pass, device| {

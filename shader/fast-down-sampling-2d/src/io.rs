@@ -1,5 +1,3 @@
-use std::{any::TypeId, hash::Hash};
-
 use crate::*;
 
 pub trait FastDownSamplingIO<V>: ShaderHashProvider {
@@ -108,10 +106,10 @@ impl<F: TextureFormatDynamicCheck + 'static, V: 'static> CommonTextureFastDownSa
 
 impl<F: 'static, V: 'static> ShaderHashProvider for CommonTextureFastDownSamplingSource<F, V> {
   fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-    TypeId::of::<Self>().hash(hasher);
-    self.texel_to_reduce_unit.hash(hasher);
-    self.reduce_unit_to_texel.hash(hasher);
-    self.target.desc.format.hash(hasher);
+    hasher.hash_type::<Self>();
+    hasher.hash(self.texel_to_reduce_unit);
+    hasher.hash(self.reduce_unit_to_texel);
+    hasher.hash(self.target.desc.format);
   }
 }
 

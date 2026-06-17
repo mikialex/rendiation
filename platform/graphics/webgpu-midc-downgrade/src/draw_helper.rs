@@ -9,7 +9,7 @@ pub struct DowngradeMultiIndirectDrawCountHelper {
 impl ShaderHashProvider for DowngradeMultiIndirectDrawCountHelper {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.draw_commands.is_index().hash(hasher);
+    hasher.hash(self.draw_commands.is_index());
   }
 }
 

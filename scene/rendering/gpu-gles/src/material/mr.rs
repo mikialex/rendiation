@@ -4,7 +4,7 @@ use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 use crate::*;
 
 pub fn use_pbr_mr_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrMRMaterialGlesRenderer> {
-  let uniforms = cx.use_uniform_buffers();
+  let uniforms = cx.use_uniform_buffers("pbr mr uniform");
 
   cx.use_changes::<PbrMRMaterialBaseColorComponent>()
     .update_uniforms(&uniforms, offset_of!(Uniform, base_color), cx.gpu);
@@ -24,7 +24,7 @@ pub fn use_pbr_mr_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrMRMate
   cx.use_changes::<AlphaOf<PbrMRMaterialAlphaConfig>>()
     .update_uniforms(&uniforms, offset_of!(Uniform, alpha), cx.gpu);
 
-  let tex_uniforms = cx.use_uniform_buffers();
+  let tex_uniforms = cx.use_uniform_buffers("pbr mr tex uniform");
 
   let base_color_alpha = offset_of!(TexUniform, base_color_alpha_texture);
   let emissive = offset_of!(TexUniform, emissive_texture);
@@ -128,7 +128,7 @@ struct PhysicalMetallicRoughnessMaterialGPU<'a> {
 
 impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU<'_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.alpha_mode.hash(hasher);
+    hasher.hash(self.alpha_mode);
   }
   shader_hash_type_id! {PhysicalMetallicRoughnessMaterialGPU<'static>}
 }

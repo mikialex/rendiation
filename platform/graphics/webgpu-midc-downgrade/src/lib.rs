@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use rendiation_device_draw_list::*;
 use rendiation_device_parallel_compute::*;
 use rendiation_shader_api::*;
@@ -79,19 +77,24 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
     offset += padded_required_capacity;
   }
   let total_padded_entries = offset;
-  let output_prefix_segments_ranges =
-    create_gpu_readonly_storage(output_prefix_segments_ranges_host.as_slice(), &cx.gpu);
+  let output_prefix_segments_ranges = create_gpu_readonly_storage(
+    output_prefix_segments_ranges_host.as_slice(),
+    &cx.gpu,
+    "output_prefix_segments_ranges",
+  );
 
   // Per-sub-list relative exclusive prefix sums: each sub-list gets capacity_i + 1 entries
   // followed by padding zeros to satisfy storage buffer offset alignment.
   let output_prefix: StorageBufferDataView<[u32]> = create_gpu_read_write_storage(
     ZeroedArrayByArrayLength(total_padded_entries as usize),
     &cx.gpu,
+    "output_prefix",
   );
 
   let aligned_counts: StorageBufferDataView<[u32]> = create_gpu_read_write_storage(
     ZeroedArrayByArrayLength(list_count as usize * align_u32 as usize),
     &cx.gpu,
+    "aligned_counts",
   );
 
   // Combined indirect args: one per sub-list (always use DrawIndirectArgsStorage —
@@ -101,6 +104,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
       cx.gpu.device.as_ref(),
       StorageBufferInit::from(ZeroedArrayByArrayLength(list_count as usize)),
       BufferUsages::INDIRECT,
+      "output_indirect one draw cmd",
     );
 
   // compute indirect dispatch size from sum_all_count
@@ -110,6 +114,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
       DispatchIndirectArgsStorage,
     >::default()),
     BufferUsages::INDIRECT,
+    "dispatch_indirect cmd",
   );
 
   cx.record_pass(|pass, device| {
@@ -373,7 +378,8 @@ pub fn downgrade_multi_indirect_draw_count(
 
     // Build single-sub-list MultiRangeDispatchInfo
     let ranges_init = vec![StorageSubListRangeInfo::new(0, max_count, 0)];
-    let sub_list_ranges = create_gpu_readonly_storage(ranges_init.as_slice(), &cx.gpu);
+    let sub_list_ranges =
+      create_gpu_readonly_storage(ranges_init.as_slice(), &cx.gpu, "sub_list_ranges");
 
     let list_info = MultiRangeDispatchInfo {
       sub_list_ranges,

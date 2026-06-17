@@ -244,7 +244,7 @@ impl GPURenderPassCtx {
   }
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, Debug)]
 pub struct RenderTargetFormatsInfo {
   pub color_formats: Vec<wgpu::TextureFormat>,
   pub depth_stencil_formats: Option<wgpu::TextureFormat>,

@@ -60,6 +60,7 @@ pub fn generate_pre_filter_map(
         ..Default::default()
       },
       &gpu.device,
+      "DiffuseTaskGenerationConfig",
     );
 
     pass("prefilter diffuse env map")
@@ -94,6 +95,7 @@ pub fn generate_pre_filter_map(
           ..Default::default()
         },
         &gpu.device,
+        "SpecularGenerationConfig",
       );
 
       pass("prefilter specular env map")

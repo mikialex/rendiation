@@ -15,7 +15,7 @@ pub fn use_ibl(cx: &mut QueryGPUHookCx) -> Option<IBLLightingComponentProvider> 
     create_gpu_tex_from_png_buffer(cx, brdf_lut_bitmap_png, TextureFormat::Rgba8Unorm)
   });
 
-  let intensity = cx.use_uniform_buffers();
+  let intensity = cx.use_uniform_buffers("ibl intensity");
   cx.use_changes::<SceneHDRxEnvBackgroundInfo>()
     .filter_map_changes(|v| v.map(|v| v.intensity))
     .update_uniforms(

@@ -33,7 +33,7 @@ pub fn use_multi_access_gpu(
       .allocate_readonly::<[u32]>(
         (init.init_many_count_capacity * 4) as u64,
         &gpu.device,
-        Some(&label_impl(label)),
+        &label_impl(label),
       )
       .with_direct_resize(gpu);
     Arc::new(RwLock::new(buffer))
@@ -140,7 +140,7 @@ pub fn use_multi_access_gpu(
     let buffer = alloc.allocate_readonly::<[GPURangeInfo]>(
       (init.init_one_count_capacity * std::mem::size_of::<GPURangeInfo>() as u32) as u64,
       &gpu.device,
-      Some(&format!("multi-access-one-side: {}", label)),
+      &format!("multi-access-one-side: {}", label),
     );
     Arc::new(RwLock::new(buffer))
   });

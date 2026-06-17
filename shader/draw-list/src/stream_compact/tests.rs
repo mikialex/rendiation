@@ -9,7 +9,8 @@ use crate::{stream_compact::ListOfListsCullingPredicate, *};
 /// Total: 7 elements, 3 sub-lists
 fn build_test_draw_list(gpu: &GPU) -> DeviceDrawList {
   let model_ids: Vec<u32> = vec![10, 20, 30, 40, 50, 60, 70];
-  let scene_model_id_pool = create_gpu_readonly_storage(model_ids.as_slice(), gpu);
+  let scene_model_id_pool =
+    create_gpu_readonly_storage(model_ids.as_slice(), gpu, "scene_model_id_pool");
 
   let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
     StorageSubListRangeInfo {
@@ -31,8 +32,8 @@ fn build_test_draw_list(gpu: &GPU) -> DeviceDrawList {
       ..Zeroable::zeroed()
     },
   ];
-  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
-  let sum_all_count = create_gpu_readonly_storage(&7u32, gpu);
+  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu, "sub_list_ranges");
+  let sum_all_count = create_gpu_readonly_storage(&7u32, gpu, "sum_all_count");
 
   DeviceDrawList {
     id_pool: scene_model_id_pool,
@@ -263,7 +264,8 @@ fn build_test_draw_list_with_empty_first_sub_list(gpu: &GPU) -> DeviceDrawList {
   // Pool layout matches original offsets: [0,1]=sub-list0, [2,3,4]=sub-list1, [5,6]=sub-list2
   // Indices 0,1,4 are unused padding from culled/missing elements
   let model_ids: Vec<u32> = vec![0, 0, 30, 40, 0, 60, 70];
-  let scene_model_id_pool = create_gpu_readonly_storage(model_ids.as_slice(), gpu);
+  let scene_model_id_pool =
+    create_gpu_readonly_storage(model_ids.as_slice(), gpu, "scene_model_id_pool");
 
   let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
     StorageSubListRangeInfo {
@@ -285,8 +287,8 @@ fn build_test_draw_list_with_empty_first_sub_list(gpu: &GPU) -> DeviceDrawList {
       ..Zeroable::zeroed()
     }, // sub-list 2: offset=5, count=2, prefix_sum=2
   ];
-  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
-  let sum_all_count = create_gpu_readonly_storage(&4u32, gpu);
+  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu, "sub_list_ranges");
+  let sum_all_count = create_gpu_readonly_storage(&4u32, gpu, "sum_all_count");
 
   DeviceDrawList {
     id_pool: scene_model_id_pool,
@@ -446,7 +448,8 @@ async fn test_draw_list_culling_empty_first_sub_list_partial() {
 fn build_test_draw_list_with_two_empty_first_sub_lists(gpu: &GPU) -> DeviceDrawList {
   // Pool: [0, 0, 0, 0, 0, 60, 70] — all slots except 5,6 are unused
   let model_ids: Vec<u32> = vec![0, 0, 0, 0, 0, 60, 70];
-  let scene_model_id_pool = create_gpu_readonly_storage(model_ids.as_slice(), gpu);
+  let scene_model_id_pool =
+    create_gpu_readonly_storage(model_ids.as_slice(), gpu, "scene_model_id_pool");
 
   let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
     StorageSubListRangeInfo {
@@ -468,8 +471,8 @@ fn build_test_draw_list_with_two_empty_first_sub_lists(gpu: &GPU) -> DeviceDrawL
       ..Zeroable::zeroed()
     }, // sub-list 2: offset=5, count=2, z=0 (no preceding elements)
   ];
-  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
-  let sum_all_count = create_gpu_readonly_storage(&2u32, gpu);
+  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu, "sub_list_ranges");
+  let sum_all_count = create_gpu_readonly_storage(&2u32, gpu, "sum_all_count");
 
   DeviceDrawList {
     id_pool: scene_model_id_pool,
@@ -621,7 +624,8 @@ async fn test_draw_list_culling_two_empty_first_sub_lists_partial() {
 fn build_test_draw_list_with_empty_middle_sub_list(gpu: &GPU) -> DeviceDrawList {
   // Pool: [10, 20, 0, 0, 0, 60, 70] — sub-list 1 slots (2..4) are unused
   let model_ids: Vec<u32> = vec![10, 20, 0, 0, 0, 60, 70];
-  let scene_model_id_pool = create_gpu_readonly_storage(model_ids.as_slice(), gpu);
+  let scene_model_id_pool =
+    create_gpu_readonly_storage(model_ids.as_slice(), gpu, "scene_model_id_pool");
 
   let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
     StorageSubListRangeInfo {
@@ -643,8 +647,8 @@ fn build_test_draw_list_with_empty_middle_sub_list(gpu: &GPU) -> DeviceDrawList 
       ..Zeroable::zeroed()
     }, // sub-list 2: offset=5, count=2, prefix_sum=2
   ];
-  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
-  let sum_all_count = create_gpu_readonly_storage(&4u32, gpu);
+  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu, "sub_list_ranges");
+  let sum_all_count = create_gpu_readonly_storage(&4u32, gpu, "sum_all_count");
 
   DeviceDrawList {
     id_pool: scene_model_id_pool,
@@ -801,7 +805,8 @@ async fn test_draw_list_culling_empty_middle_sub_list_partial() {
 fn build_test_draw_list_with_consecutive_empty_middle_sub_lists(gpu: &GPU) -> DeviceDrawList {
   // Pool: [10, 20, _, _, _, _, 30, 40] (indices 2..5 unused)
   let model_ids: Vec<u32> = vec![10, 20, 0, 0, 0, 0, 30, 40];
-  let scene_model_id_pool = create_gpu_readonly_storage(model_ids.as_slice(), gpu);
+  let scene_model_id_pool =
+    create_gpu_readonly_storage(model_ids.as_slice(), gpu, "scene_model_id_pool");
 
   let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
     StorageSubListRangeInfo {
@@ -829,8 +834,8 @@ fn build_test_draw_list_with_consecutive_empty_middle_sub_lists(gpu: &GPU) -> De
       ..Zeroable::zeroed()
     }, // sub-list 3: offset=6, count=2, z=2
   ];
-  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu);
-  let sum_all_count = create_gpu_readonly_storage(&4u32, gpu);
+  let sub_list_ranges = create_gpu_readonly_storage(ranges_vec.as_slice(), gpu, "sub_list_ranges");
+  let sum_all_count = create_gpu_readonly_storage(&4u32, gpu, "sum_all_count");
 
   DeviceDrawList {
     id_pool: scene_model_id_pool,

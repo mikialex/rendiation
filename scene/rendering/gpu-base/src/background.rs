@@ -6,7 +6,7 @@ use crate::*;
 pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer> {
   let (env_background_map_gpu, _) = use_gpu_texture_cubes(cx, false);
 
-  let env_background_intensity_uniform = cx.use_uniform_buffers();
+  let env_background_intensity_uniform = cx.use_uniform_buffers("ibl background info");
 
   cx.use_changes::<SceneHDRxEnvBackgroundInfo>()
     .filter_map_changes(|v| {
@@ -18,7 +18,7 @@ pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer
     })
     .update_uniforms(&env_background_intensity_uniform, 0, cx.gpu);
 
-  let solid_background_color_uniform = cx.use_uniform_buffers();
+  let solid_background_color_uniform = cx.use_uniform_buffers("solid background info");
 
   cx.use_changes::<SceneSolidBackground>()
     .map_changes(|v| {
@@ -28,7 +28,7 @@ pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer
     })
     .update_uniforms(&solid_background_color_uniform, 0, cx.gpu);
 
-  let gradient_background_uniform = cx.use_uniform_buffers();
+  let gradient_background_uniform = cx.use_uniform_buffers("gradient background info");
 
   cx.use_changes::<SceneGradientBackgroundInfo>()
     .filter_map_changes(|v| {
@@ -118,8 +118,9 @@ impl SceneBackgroundRenderer {
             .clone(),
           param: self
             .env_background_param
-            .access(&scene.alloc_index())
-            .unwrap(),
+            .get(&scene.alloc_index())
+            .unwrap()
+            .clone(),
           camera,
           tonemap,
         }
@@ -130,8 +131,9 @@ impl SceneBackgroundRenderer {
         GradientBackgroundComponent {
           params: self
             .gradient_background_uniform
-            .access(&scene.alloc_index())
-            .unwrap(),
+            .get(&scene.alloc_index())
+            .unwrap()
+            .clone(),
           camera,
         }
         .draw_quad(),

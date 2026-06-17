@@ -24,7 +24,7 @@ pub fn use_point_per_scene_uniform_array_buffers(
       let world = world_mat.expect_resolve_stage();
       let r = create_point_light_uniform(&|node| world.access(&node).unwrap());
 
-      sync_per_scene_uniforms(&r, &uniform_array_caches, &cx.gpu);
+      sync_per_scene_uniforms(&r, &uniform_array_caches, &cx.gpu, "point");
     }
   });
 

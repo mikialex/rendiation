@@ -29,8 +29,8 @@ pub struct DeviceParallelComputeStrideRead<T> {
 
 impl<T: 'static> ShaderHashProvider for DeviceParallelComputeStrideRead<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.stride.hash(hasher);
-    self.reduce.hash(hasher);
+    hasher.hash(self.stride);
+    hasher.hash(self.reduce);
     self.source.hash_pipeline_with_type_info(hasher)
   }
   shader_hash_type_id! {}

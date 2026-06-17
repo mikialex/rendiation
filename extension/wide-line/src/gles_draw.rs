@@ -3,7 +3,7 @@ use crate::*;
 pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineModelGLESRenderer> {
   let (cx, quad) = cx.use_gpu_init(|g, _| create_wide_line_quad_gpu(g));
 
-  let uniform = cx.use_uniform_buffers();
+  let uniform = cx.use_uniform_buffers("wide line uniform");
 
   let offset = offset_of!(WideLineUniform, width);
   cx.use_changes::<WideLineWidth>()
@@ -120,9 +120,8 @@ pub struct WideLineGPU<'a> {
 impl ShaderHashProvider for WideLineGPU<'_> {
   shader_hash_type_id! {WideLineGPU<'static>}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    use std::hash::Hash;
-    self.enabled_depth.hash(hasher);
-    self.transparent.hash(hasher);
+    hasher.hash(self.enabled_depth);
+    hasher.hash(self.transparent);
   }
 }
 

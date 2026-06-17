@@ -155,8 +155,9 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
     let sum_all_count_host: u32 = groups.iter().map(|(_, buf)| buf.host.len() as u32).sum();
     let gpu = self.internal.pool.gpu();
     let ranges_gpu = prepare_gpu_sub_list_ranges(&capacity_ranges, &real_lengths);
-    let sub_list_ranges = create_gpu_readonly_storage(ranges_gpu.as_slice(), gpu);
-    let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, gpu);
+    let sub_list_ranges =
+      create_gpu_readonly_storage(ranges_gpu.as_slice(), gpu, "sub_list_ranges");
+    let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, gpu, "sum_all_count");
 
     let draw_list = DeviceDrawList {
       id_pool: self.internal.pool.pool_buffer_readonly(),

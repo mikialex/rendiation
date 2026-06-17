@@ -286,7 +286,7 @@ pub fn create_storage_buffer_slab_allocate_pool_with_host<T: Std430 + ShaderSize
   max_size: u32,
 ) -> StorageBufferSlabAllocatePoolWithHost<T> {
   let byte_size = init_size as usize * std::mem::size_of::<T>();
-  let buffer = alloc.allocate_readonly(byte_size as u64, &gpu.device, Some(label));
+  let buffer = alloc.allocate_readonly(byte_size as u64, &gpu.device, label);
 
   let buffer = create_growable_buffer_with_host_back(gpu, buffer, max_size, true);
   GPUSlatAllocateMaintainer::new(buffer)

@@ -93,6 +93,7 @@ impl ClippingPlaneArrayRenderer {
     let scene_id = create_uniform(
       Vec4::new(scene_id.alloc_index(), 0, 0, 0),
       &frame_ctx.gpu.device,
+      "scene id",
     );
 
     Some(Box::new(ClipComponent {
@@ -130,6 +131,7 @@ impl ClippingPlaneArrayRenderer {
     let scene_id = create_uniform(
       Vec4::new(scene.alloc_index(), 0, 0, 0),
       &frame_ctx.gpu.device,
+      "scene id",
     );
 
     let fmt = match g_buffer.depth.format() {
@@ -164,6 +166,7 @@ impl ClippingPlaneArrayRenderer {
             let plane_id = create_uniform(
               Vec4::new(plane.alloc_index(), 0, 0, 0),
               &frame_ctx.gpu.device,
+              "plane id",
             );
             let clip = ClipComponent {
               planes_gpu: &self.planes_gpu,
@@ -211,6 +214,7 @@ impl ClippingPlaneArrayRenderer {
                 plane.w() as f64,
               ),
               &frame_ctx.gpu.device,
+              "plane",
             );
             let plane = InfinityShaderPlaneEffect {
               plane: &plane,
@@ -340,7 +344,7 @@ enum ClipDrawType {
 impl<'a> ShaderHashProvider for ClipComponent<'a> {
   shader_hash_type_id!(ClipComponent<'static>);
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    std::mem::discriminant(&self.ty).hash(hasher);
+    hasher.hash(std::mem::discriminant(&self.ty));
   }
 }
 

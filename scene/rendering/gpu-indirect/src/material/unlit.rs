@@ -62,7 +62,7 @@ impl IndirectModelMaterialRenderImpl for UnlitMaterialIndirectRenderer {
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     let id = self.material_access.get(any_idx)?;
-    self.alpha_mode.get_value(id)?.hash(hasher);
+    hasher.hash(self.alpha_mode.get_value(id)?);
     Some(())
   }
   fn as_any(&self) -> &dyn Any {
@@ -100,7 +100,7 @@ impl ShaderHashProvider for UnlitMaterialStorageGPU<'_> {
   shader_hash_type_id! {UnlitMaterialStorageGPU<'static>}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.alpha_mode.hash(hasher);
+    hasher.hash(self.alpha_mode);
   }
 }
 

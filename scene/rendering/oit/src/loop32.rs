@@ -31,8 +31,8 @@ impl OitLoop32Renderer {
     }
 
     self.cache.get_or_insert_with(|| OitLoop32RendererInstance {
-      depth: AtomicImageDowngrade::new(&gpu.device, size, self.layer_count),
-      color: AtomicImageDowngrade::new(&gpu.device, size, self.layer_count),
+      depth: AtomicImageDowngrade::new(&gpu.device, size, self.layer_count, "oit depth"),
+      color: AtomicImageDowngrade::new(&gpu.device, size, self.layer_count, "oit color"),
       size,
       layer_count: self.layer_count,
     })
@@ -158,7 +158,7 @@ struct Loop32DepthPrePass {
 impl ShaderHashProvider for Loop32DepthPrePass {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.reverse_depth.hash(hasher);
+    hasher.hash(self.reverse_depth);
   }
 }
 impl GraphicsShaderProvider for Loop32DepthPrePass {
@@ -250,8 +250,8 @@ struct OitColorPass {
 impl ShaderHashProvider for OitColorPass {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.reverse_depth.hash(hasher);
-    self.tail_blend_channel_index.hash(hasher);
+    hasher.hash(self.reverse_depth);
+    hasher.hash(self.tail_blend_channel_index);
   }
 }
 impl GraphicsShaderProvider for OitColorPass {
@@ -353,7 +353,7 @@ struct OitResolvePass {
 impl ShaderHashProvider for OitResolvePass {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.reverse_depth.hash(hasher);
+    hasher.hash(self.reverse_depth);
   }
 }
 impl GraphicsShaderProvider for OitResolvePass {

@@ -219,7 +219,11 @@ impl CascadeShadowPreparer {
           existing.write_at(&frame_ctx.gpu.queue, info, 0);
           existing
         } else {
-          create_uniform(info.clone(), &frame_ctx.gpu.device)
+          create_uniform(
+            info.clone(),
+            &frame_ctx.gpu.device,
+            "cascade-shadow-map-uniform",
+          )
         };
         (*scene_id, uniform)
       })
