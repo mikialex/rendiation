@@ -86,23 +86,51 @@ impl GPUDevice {
   pub fn get_or_cache_create_render_pipeline(
     &self,
     hasher: PipelineHasher,
-    creator: impl FnOnce(&Self) -> GPURenderPipeline,
+    creator: impl FnOnce(&Self, &str) -> GPURenderPipeline,
   ) -> GPURenderPipeline {
     let mut cache = self.inner.render_pipeline_cache.write();
 
-    let key = hasher.finish();
-    cache.entry(key).or_insert_with(|| creator(self)).clone()
+    #[cfg(feature = "pipeline-label")]
+    {
+      let (key, label) = hasher.finish_with_label();
+      cache
+        .entry(key)
+        .or_insert_with(|| creator(self, &label))
+        .clone()
+    }
+    #[cfg(not(feature = "pipeline-label"))]
+    {
+      let key = hasher.finish();
+      cache
+        .entry(key)
+        .or_insert_with(|| creator(self, ""))
+        .clone()
+    }
   }
 
   pub fn get_or_cache_create_compute_pipeline(
     &self,
     hasher: PipelineHasher,
-    creator: impl FnOnce(&Self) -> GPUComputePipeline,
+    creator: impl FnOnce(&Self, &str) -> GPUComputePipeline,
   ) -> GPUComputePipeline {
     let mut cache = self.inner.compute_pipeline_cache.write();
 
-    let key = hasher.finish();
-    cache.entry(key).or_insert_with(|| creator(self)).clone()
+    #[cfg(feature = "pipeline-label")]
+    {
+      let (key, label) = hasher.finish_with_label();
+      cache
+        .entry(key)
+        .or_insert_with(|| creator(self, &label))
+        .clone()
+    }
+    #[cfg(not(feature = "pipeline-label"))]
+    {
+      let key = hasher.finish();
+      cache
+        .entry(key)
+        .or_insert_with(|| creator(self, ""))
+        .clone()
+    }
   }
 
   pub fn get_or_cache_create_compute_pipeline_by(
@@ -110,10 +138,10 @@ impl GPUDevice {
     hasher: PipelineHasher,
     creator: impl FnOnce(ShaderComputePipelineBuilder) -> ShaderComputePipelineBuilder,
   ) -> GPUComputePipeline {
-    self.get_or_cache_create_compute_pipeline(hasher, |device| {
+    self.get_or_cache_create_compute_pipeline(hasher, |device, label| {
       let builder = compute_shader_builder(self);
       let builder = creator(builder);
-      builder.create_compute_pipeline(device).unwrap()
+      builder.create_compute_pipeline(device, label).unwrap()
     })
   }
 
@@ -257,31 +285,16 @@ pub trait ShaderHashProvider {
   }
 }
 
-// pub trait ShaderVariantKeyProvider {
-//   type VariantKey: Eq + Hash + Any;
-//   fn create_variant_key(&self) -> Self::VariantKey;
-// }
-// impl<T: ShaderVariantKeyProvider> ShaderHashProvider for T {
-//   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-//     self.create_variant_key().hash(hasher);
-//   }
-//   fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-//     TypeId::of::<T::VariantKey>().hash(hasher)
-//   }
-// }
-
 #[macro_export]
 macro_rules! shader_hash_type_id {
   () => {
     fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-      use std::hash::Hash;
-      std::any::TypeId::of::<Self>().hash(hasher);
+      hasher.hash_type::<Self>();
     }
   };
   {$ty:ty} => {
     fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-      use std::hash::Hash;
-      std::any::TypeId::of::<$ty>().hash(hasher);
+      hasher.hash_type::<$ty>();
     }
   };
 }
@@ -299,60 +312,68 @@ impl<T: ShaderHashProvider> ShaderHashProvider for &T {
   }
 }
 
-/// User could use this to debug if the hashing logic issue
-pub struct DebugHasher<T> {
-  hash_history: Vec<(Vec<u8>, std::backtrace::Backtrace)>,
-  hasher: T,
-}
-
-impl<T> DebugHasher<T> {
-  pub fn debug_print_previous_hash_stacks(&self) {
-    log::info!("{:#?}", self.hash_history);
-  }
-}
-
-impl<T: std::hash::Hasher> std::hash::Hasher for DebugHasher<T> {
-  fn finish(&self) -> u64 {
-    self.hasher.finish()
-  }
-
-  fn write(&mut self, bytes: &[u8]) {
-    self
-      .hash_history
-      .push((Vec::from(bytes), std::backtrace::Backtrace::force_capture()));
-    self.hasher.write(bytes)
-  }
-}
-
 #[derive(Default)]
 pub struct PipelineHasher<T = FastHasher> {
   hasher: T,
+  #[cfg(feature = "pipeline-label")]
+  debug_label: String,
+  // we could further do this:
+  // hash_history: Vec<std::backtrace::Backtrace>,
 }
 
-impl<T> PipelineHasher<T> {
-  pub fn into_debugger(self) -> DebugHasher<Self> {
-    DebugHasher {
-      hasher: self,
-      hash_history: Default::default(),
-    }
-  }
-
-  pub fn with_hash(mut self, h: impl Hash) -> Self
-  where
-    Self: Hasher,
-  {
-    h.hash(&mut self);
+impl<T: Hasher> PipelineHasher<T> {
+  #[inline(always)]
+  pub fn with_hash(mut self, h: impl Hash + Debug) -> Self {
+    self.hash(h);
     self
   }
-}
 
-impl std::hash::Hasher for PipelineHasher {
-  fn finish(&self) -> u64 {
-    self.hasher.finish()
+  #[inline(always)]
+  pub fn with_hash_type<X: 'static>(mut self) -> Self {
+    self.hash_type::<X>();
+    self
   }
 
-  fn write(&mut self, bytes: &[u8]) {
-    self.hasher.write(bytes)
+  pub fn hash(&mut self, h: impl Hash + Debug) -> &mut Self {
+    h.hash(&mut self.hasher);
+    #[cfg(feature = "pipeline-label")]
+    {
+      if !self.debug_label.is_empty() {
+        self.debug_label.push_str("+");
+      }
+      self.debug_label.push_str(&format!("{:?}", h));
+    }
+
+    self
+  }
+
+  pub fn hash_type<X: 'static>(&mut self) -> &mut Self {
+    std::any::TypeId::of::<X>().hash(&mut self.hasher);
+    #[cfg(feature = "pipeline-label")]
+    {
+      if !self.debug_label.is_empty() {
+        self.debug_label.push_str("-");
+      }
+      let name = disqualified::ShortName(std::any::type_name::<X>());
+      self.debug_label.push_str(&format!("{:?}", name));
+    }
+
+    self
+  }
+
+  pub fn finish(self) -> u64 {
+    self.hasher.finish()
+  }
+  pub fn finish_with_label(self) -> (u64, String) {
+    #[cfg(feature = "pipeline-label")]
+    {
+      (self.hasher.finish(), self.debug_label)
+    }
+
+    #[cfg(not(feature = "pipeline-label"))]
+    {
+      (self.hasher.finish(), String::default())
+    }
   }
 }
 
@@ -360,6 +381,6 @@ impl std::hash::Hasher for PipelineHasher {
 macro_rules! shader_hasher_from_marker_ty {
   ($ty: tt) => {{
     struct $ty;
-    PipelineHasher::default().with_hash(std::any::TypeId::of::<$ty>())
+    PipelineHasher::default().with_hash_type::<$ty>()
   }};
 }

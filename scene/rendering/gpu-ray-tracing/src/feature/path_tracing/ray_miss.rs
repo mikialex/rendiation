@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use rendiation_shader_library::transform_dir_fn;
 use rendiation_texture_core::TextureSampler;
 use rendiation_texture_gpu_base::SamplerConvertExt;
@@ -61,13 +59,15 @@ impl PTRayMissCtx {
           .clone(),
         params: renderer
           .env_background_param
-          .access(&scene.alloc_index())
-          .unwrap(),
+          .get(&scene.alloc_index())
+          .unwrap()
+          .clone(),
         sampler,
       }
     } else if let Some(color) = renderer
       .solid_background_uniform
-      .access(&scene.alloc_index())
+      .get(&scene.alloc_index())
+      .cloned()
     {
       PTRayMissCtx::Solid { color }
     } else {
@@ -79,7 +79,7 @@ impl PTRayMissCtx {
 impl ShaderHashProvider for PTRayMissCtx {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    std::mem::discriminant(self).hash(hasher);
+    hasher.hash(std::mem::discriminant(self));
   }
 }
 

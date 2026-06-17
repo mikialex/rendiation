@@ -57,7 +57,7 @@ impl GPURaytracingSystem for GPUWaveFrontComputeRaytracingSystem {
       sbt_sys: self.sbt_sys.clone(),
       tlas_sys: self.tlas_sys.clone(),
       ray_gen_spawner: RangedTaskSpawner {
-        size_offset: create_uniform(Vec4::zero(), &self.gpu.device),
+        size_offset: create_uniform(Vec4::zero(), &self.gpu.device, "size_offset"),
       },
     })
   }
@@ -174,6 +174,7 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
         size_offset: create_uniform(
           Vec4::new(size.0, size.1, offset.0, offset.1),
           &self.gpu.device,
+          "size_offset",
         ),
       };
 

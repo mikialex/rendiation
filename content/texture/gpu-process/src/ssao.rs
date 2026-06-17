@@ -60,9 +60,9 @@ impl SSAO {
       })
       .collect();
     let samples = samples.try_into().unwrap();
-    let samples = create_uniform_with_cache(samples, gpu);
+    let samples = create_uniform_with_cache(samples, gpu, "ssao samples");
 
-    let parameters = create_uniform_with_cache(parameters, gpu);
+    let parameters = create_uniform_with_cache(parameters, gpu, "ssao parameters");
 
     // 4x4 noise texture for per-pixel rotation
     let noise_pixels: Vec<u8> = (0..(NOISE_TEX_SIZE * NOISE_TEX_SIZE) as usize)

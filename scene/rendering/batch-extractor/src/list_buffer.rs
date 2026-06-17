@@ -122,7 +122,7 @@ impl PersistSceneModelListBuffer {
         buffer: alloc.allocate_readonly(
           new_bytes_required,
           &gpu.device,
-          Some("PersistSceneModelListBuffer"),
+          "PersistSceneModelListBuffer",
         ),
       });
 

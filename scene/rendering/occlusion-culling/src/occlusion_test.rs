@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use crate::*;
 
 pub fn test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_return_culler(
@@ -77,7 +75,7 @@ impl ShaderHashProvider for OcclusionTester {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.bounding_provider.hash_pipeline(hasher);
-    self.reverse_depth.hash(hasher);
+    hasher.hash(self.reverse_depth);
   }
 }
 

@@ -124,14 +124,18 @@ impl<'a> QueryGPUHookCx<'a> {
 
   pub fn use_uniform_buffers<K: 'static + Eq + std::hash::Hash, V: Std140 + 'static>(
     &mut self,
+    label: &str,
   ) -> UniformBufferCollection<K, V> {
-    self.use_shared_hash_map("uniform buffers")
+    let (_, r) =
+      self.use_plain_state(|| Arc::new(RwLock::new(UniformBufferCollectionRaw::new(label))));
+    r.clone()
   }
 
   pub fn use_uniform_array_buffers<V: Std140 + Default, const N: usize>(
     &mut self,
+    label: &str,
   ) -> (&mut Self, &mut UniformBufferDataView<Shader140Array<V, N>>) {
-    self.use_gpu_init(|gpu, _| UniformBufferDataView::create_default(&gpu.device))
+    self.use_gpu_init(|gpu, _| UniformBufferDataView::create_default(&gpu.device, label))
   }
 
   pub fn use_storage_buffer<V: Std430 + ShaderSizedValueNodeType>(

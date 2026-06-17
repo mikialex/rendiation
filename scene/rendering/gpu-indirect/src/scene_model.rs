@@ -67,7 +67,7 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     self.hash_shader_group_key(any_id, hasher).map(|_| {
-      self.as_any().type_id().hash(hasher);
+      hasher.hash(self.as_any().type_id());
     })
   }
 
@@ -106,7 +106,7 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) -> Result<(), UnableToRenderSceneModelError> {
-    let scene_model_id = create_uniform(idx.alloc_index(), &cx.gpu.device);
+    let scene_model_id = create_uniform(idx.alloc_index(), &cx.gpu.device, "scene model id");
     let cmd = self
       .make_draw_command_builder(idx)
       .unwrap()

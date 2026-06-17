@@ -96,11 +96,12 @@ pub fn create_storage_buffer_slab_allocate_pool<T: Std430 + ShaderSizedValueNode
   gpu: &GPU,
   init_item_count: u32,
   max_item_count: u32,
+  label: &str,
 ) -> StorageBufferSlabAllocatePool<T> {
   assert!(max_item_count >= init_item_count);
   let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
     &gpu.device,
-    None,
+    label,
     ZeroedArrayByArrayLength(init_item_count as usize).into(),
   );
 

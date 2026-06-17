@@ -2,8 +2,6 @@
 #![feature(impl_trait_in_assoc_type)]
 
 use std::any::Any;
-use std::hash::Hash;
-use std::hash::Hasher;
 
 use database::*;
 use fast_hash_collection::*;

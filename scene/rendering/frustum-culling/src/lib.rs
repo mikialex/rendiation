@@ -16,7 +16,7 @@ pub fn use_camera_gpu_frustum(
   cx: &mut QueryGPUHookCx,
   ndc: impl NDCSpaceMapper + Copy + Hash,
 ) -> Option<CameraGPUFrustums> {
-  let uniforms = cx.use_uniform_buffers();
+  let uniforms = cx.use_uniform_buffers("camera frustum");
 
   let host_camera_frustums = cx
     .use_shared_dual_query(GlobalCameraTransformShare(ndc))

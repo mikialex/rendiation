@@ -219,6 +219,7 @@ impl GPUDevice {
   pub fn build_pipeline_by_shader_api(
     &self,
     builder: ShaderRenderPipelineBuilder,
+    label: &str,
   ) -> Result<GPURenderPipeline, ShaderBuildError> {
     let log_result = builder.log_result;
     let checks = builder.checks;
@@ -246,7 +247,7 @@ impl GPUDevice {
     let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
 
     let pipeline = self.create_render_pipeline(&gpu::RenderPipelineDescriptor {
-      label: None,
+      label: Some(label),
       layout: Some(&pipeline_layout),
       vertex: gpu::VertexState {
         module: &vertex,
@@ -351,6 +352,7 @@ pub trait ComputeIntoPipelineExt {
   fn create_compute_pipeline(
     self,
     device: impl AsRef<GPUDevice>,
+    label: &str,
   ) -> Result<GPUComputePipeline, ShaderBuildError>;
 }
 
@@ -358,6 +360,7 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
   fn create_compute_pipeline(
     self,
     device: impl AsRef<GPUDevice>,
+    label: &str,
   ) -> Result<GPUComputePipeline, ShaderBuildError> {
     let log_result = self.log_result;
     let checks = self.checks;
@@ -373,7 +376,7 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
     let (raw_layouts, layouts, pipeline_layout) = create_layouts(device, &result.bindings);
 
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-      label: None,
+      label: Some(label),
       layout: Some(&pipeline_layout),
       module: &module,
       entry_point: Some(&entry),

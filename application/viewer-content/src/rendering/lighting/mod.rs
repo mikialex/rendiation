@@ -80,6 +80,7 @@ impl LightSystem {
         let camera = UniformBufferDataView::create(
           &frame_ctx.gpu.device,
           CameraGPUTransform::from(CameraTransform::new(proj, world)),
+          "camera for shadow",
         );
 
         // we could just use empty pass dispatcher, because the color channel not exist at all
@@ -338,7 +339,7 @@ impl DefaultDisplayWriter {
 impl ShaderHashProvider for DefaultDisplayWriter {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.write_channel_index.hash(hasher);
+    hasher.hash(self.write_channel_index);
   }
 }
 impl ShaderPassBuilder for DefaultDisplayWriter {}

@@ -64,7 +64,7 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
     let buffer = alloc.allocate_readonly::<[T]>(
       (item_byte_size * init_item_count) as u64,
       &gpu.device,
-      Some(label),
+      label,
     );
 
     let buffer = buffer.with_direct_resize(gpu);

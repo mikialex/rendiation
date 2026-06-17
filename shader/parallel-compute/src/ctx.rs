@@ -69,15 +69,16 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     size_require: usize,
   ) -> StorageBufferDataView<[T]> {
     let gpu = self.gpu.clone();
+    let label = "output storage";
     let (_, output) = self.use_plain_state(|| {
       let init = ZeroedArrayByArrayLength(size_require);
-      create_gpu_read_write_storage::<[T]>(init, &gpu)
+      create_gpu_read_write_storage::<[T]>(init, &gpu, label)
     });
 
     let current_size = output.item_count() as usize;
     if current_size < size_require || current_size > size_require * 2 {
       let init = ZeroedArrayByArrayLength(size_require);
-      *output = create_gpu_read_write_storage::<[T]>(init, &gpu)
+      *output = create_gpu_read_write_storage::<[T]>(init, &gpu, label)
     }
 
     output.clone()

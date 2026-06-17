@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
@@ -39,12 +37,16 @@ pub fn fast_down_sampling<V>(
 
   // we can not read from the texture meta in shader, because we want
   // the mip_count for full texture size
-  let mip_count_buffer = create_uniform(Vec4::new(mip_level_count, 0, 0, 0), device);
+  let mip_count_buffer = create_uniform(
+    Vec4::new(mip_level_count, 0, 0, 0),
+    device,
+    "fast_down_sampling mip_count_info",
+  );
 
   // first pass
   {
     let mut hasher = shader_hasher_from_marker_ty!(SPDxFirstPass);
-    reducer.type_id().hash(&mut hasher);
+    hasher.hash(reducer.type_id());
     io.hash_pipeline_with_type_info(&mut hasher);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
       ctx.config_work_group_size(16 * 16);
@@ -112,7 +114,7 @@ pub fn fast_down_sampling<V>(
   // second pass
   {
     let mut hasher = shader_hasher_from_marker_ty!(SPDxSecondPass);
-    reducer.type_id().hash(&mut hasher);
+    hasher.hash(reducer.type_id());
     io.hash_pipeline_with_type_info(&mut hasher);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
       ctx.config_work_group_size(16 * 16);

@@ -86,6 +86,7 @@ impl DeviceSceneModelRenderSubBatch {
           cx.gpu.device.as_ref(),
           StorageBufferInit::<[DrawIndexedIndirectArgsStorage]>::from(init),
           BufferUsages::INDIRECT,
+          "draw_command_buffer",
         );
 
         let r = generator.materialize_storage_buffer_into(draw_command_buffer, cx);
@@ -93,9 +94,9 @@ impl DeviceSceneModelRenderSubBatch {
         let draw_count = r.size.unwrap_or_else(|| {
           StorageBufferReadonlyDataView::create_by_with_extra_usage(
             &cx.gpu.device,
-            "draw_count".into(),
             StorageBufferInit::WithInit(&Vec4::new(size, 0, 0, 0)),
             BufferUsages::INDIRECT,
+            "draw_count",
           )
         });
         (draw_command_buffer, draw_count)
@@ -112,6 +113,7 @@ impl DeviceSceneModelRenderSubBatch {
           cx.gpu.device.as_ref(),
           StorageBufferInit::<[DrawIndirectArgsStorage]>::from(init),
           BufferUsages::INDIRECT,
+          "draw_command_buffer",
         );
 
         let r = generator.materialize_storage_buffer_into(draw_command_buffer, cx);
@@ -119,9 +121,9 @@ impl DeviceSceneModelRenderSubBatch {
         let draw_count = r.size.unwrap_or_else(|| {
           StorageBufferReadonlyDataView::create_by_with_extra_usage(
             &cx.gpu.device,
-            "draw_count".into(),
             StorageBufferInit::WithInit(&Vec4::new(size, 0, 0, 0)),
             BufferUsages::INDIRECT,
+            "draw_count",
           )
         });
         (draw_command_buffer, draw_count)

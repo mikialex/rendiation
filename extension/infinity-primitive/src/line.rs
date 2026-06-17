@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use crate::*;
 
 pub const LINE_DRAW_CMD: DrawCommand = DrawCommand::Array {
@@ -36,7 +34,7 @@ impl ShaderHashProvider for InfinityShaderLineEffect<'_> {
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.camera.hash_pipeline(hasher);
-    self.reversed_depth.hash(hasher);
+    hasher.hash(self.reversed_depth);
   }
 }
 impl ShaderPassBuilder for InfinityShaderLineEffect<'_> {

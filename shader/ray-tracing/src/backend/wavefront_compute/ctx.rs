@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use crate::*;
 
 #[repr(C)]
@@ -131,8 +129,8 @@ struct TracingCtxProviderTracer {
 
 impl ShaderHashProvider for TracingCtxProviderTracer {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.stage.hash(hasher);
-    self.payload_ty.hash(hasher);
+    hasher.hash(self.stage);
+    hasher.hash(&self.payload_ty);
   }
   shader_hash_type_id! {}
 }

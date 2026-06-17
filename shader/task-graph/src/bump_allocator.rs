@@ -16,9 +16,9 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   ) -> Self {
     let storage_byte_size = std::mem::size_of::<T>() * size;
     Self {
-      storage: allocator.allocate(storage_byte_size as u64, device, None),
-      current_size: allocator.allocate(4, device, None),
-      bump_size: atomic_allocator.allocate_single(device),
+      storage: allocator.allocate(storage_byte_size as u64, device, "bump allocation storage"),
+      current_size: allocator.allocate(4, device, "bump allocation current_size"),
+      bump_size: atomic_allocator.allocate_single(device, "bump allocation bump_size"),
     }
   }
 
@@ -69,7 +69,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   ) -> StorageBufferReadonlyDataView<DispatchIndirectArgsStorage> {
     let size = device.make_indirect_dispatch_size_buffer();
     let hasher = shader_hasher_from_marker_ty!(SizeCompute);
-    let workgroup_size = create_gpu_readonly_storage(&workgroup_size, device);
+    let workgroup_size = create_gpu_readonly_storage(&workgroup_size, device, "workgroup_size");
 
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
       let input_current_size = builder.bind_by(&self.current_size);

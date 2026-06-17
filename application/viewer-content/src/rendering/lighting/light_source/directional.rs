@@ -242,7 +242,7 @@ impl LightingComputeComponent for DirectionalLightingShader {
 impl ShaderHashProvider for DirectionalLightingShader {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    std::mem::discriminant(&self.shadows).hash(hasher);
+    hasher.hash(std::mem::discriminant(&self.shadows));
     match &self.shadows {
       ShadowImplComType::NoShadow => {}
       ShadowImplComType::Basic(_) => {}

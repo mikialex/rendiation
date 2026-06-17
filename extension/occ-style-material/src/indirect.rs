@@ -119,9 +119,9 @@ impl IndirectModelMaterialRenderImpl for OccStyleMaterialIndirectRenderer {
     let effect = self.effect_access.get(m)?;
     let shade_type = self.shade_type.get_value(effect)?;
     let states = self.states.get(effect)?;
-    transparent.hash(hasher);
-    shade_type.hash(hasher);
-    states.hash(hasher);
+    hasher.hash(transparent);
+    hasher.hash(shade_type);
+    hasher.hash(states);
     Some(())
   }
 
@@ -164,9 +164,9 @@ impl ShaderHashProvider for OccStyleMaterialStorageGPU<'_> {
   shader_hash_type_id! {OccStyleMaterialStorageGPU<'static>}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.transparent.hash(hasher);
-    self.shade_type.hash(hasher);
-    self.states.hash(hasher); // we are doing indirect draw so it's ok
+    hasher.hash(self.transparent);
+    hasher.hash(self.shade_type);
+    hasher.hash(self.states); // we are doing indirect draw so it's ok
   }
 }
 

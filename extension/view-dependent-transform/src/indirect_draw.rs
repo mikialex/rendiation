@@ -83,7 +83,7 @@ impl PerViewGPUResource {
     let buffer = alloc.allocate_readonly(
       make_init_size::<u32>(128),
       &gpu.device,
-      Some("PerViewGPUResource index_remap"),
+      "PerViewGPUResource index_remap",
     );
 
     let index_remap = buffer
@@ -220,7 +220,7 @@ pub struct NodeGPUStorageWithOverride<'a> {
 impl<'a> ShaderHashProvider for NodeGPUStorageWithOverride<'a> {
   shader_hash_type_id! {NodeGPUStorageWithOverride<'static>}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.overrides.is_none().hash(hasher);
+    hasher.hash(self.overrides.is_none());
   }
 }
 

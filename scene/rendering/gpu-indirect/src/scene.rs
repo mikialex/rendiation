@@ -63,7 +63,8 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
       .iter()
       .map(|(group_hash, list)| {
         let scene_models: Vec<_> = list.iter().map(|sm| sm.alloc_index()).collect();
-        let storage = create_gpu_readonly_storage(scene_models.as_slice(), &self.gpu);
+        let storage =
+          create_gpu_readonly_storage(scene_models.as_slice(), &self.gpu, "scene_models");
         let storage = storage_full_into_compute(storage);
         let scene_models = Box::new(storage);
 

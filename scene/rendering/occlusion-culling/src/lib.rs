@@ -31,7 +31,7 @@ impl GPUTwoPassOcclusionCulling {
   /// max model index address of the scene.
   pub fn new(max_scene_model_id: usize, gpu: &GPU) -> Self {
     let init = ZeroedArrayByArrayLength(max_scene_model_id);
-    let last_frame_visibility = create_gpu_read_write_storage(init, gpu);
+    let last_frame_visibility = create_gpu_read_write_storage(init, gpu, "last_frame_visibility");
     Self {
       last_frame_visibility,
       depth_pyramid_cache: Default::default(),

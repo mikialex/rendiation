@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
 use rendiation_webgpu_midc_downgrade::{
   require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
@@ -148,9 +146,9 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
   ) -> Option<()> {
     let wide_line_id = self.model_access.get(any_id)?;
     let enabled = self.states.get_value(wide_line_id)?;
-    enabled.hash(hasher);
+    hasher.hash(enabled);
     let transparent = self.transparent.get_value(wide_line_id)?;
-    transparent.hash(hasher);
+    hasher.hash(transparent);
     Some(())
   }
 
@@ -250,9 +248,9 @@ pub struct WideLineIndirectDrawComponent {
 impl ShaderHashProvider for WideLineIndirectDrawComponent {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.enabled_depth.hash(hasher);
-    self.transparent.hash(hasher);
-    self.use_native_line.hash(hasher);
+    hasher.hash(self.enabled_depth);
+    hasher.hash(self.transparent);
+    hasher.hash(self.use_native_line);
   }
 }
 
@@ -429,7 +427,7 @@ struct WideLineDrawCreator {
 impl ShaderHashProvider for WideLineDrawCreator {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.use_native_line.hash(hasher);
+    hasher.hash(self.use_native_line);
   }
 }
 

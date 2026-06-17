@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use rendiation_device_parallel_compute::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
@@ -74,6 +72,7 @@ pub fn downgrade_multi_indirect_draw_count(
       &cx.gpu.device,
       StorageBufferSizedZeroed::<DrawIndirectArgsStorage>::default().into(),
       BufferUsages::INDIRECT,
+      "indirect_buffer",
     );
 
     cx.record_pass(|pass, device| {
@@ -133,7 +132,7 @@ pub struct DowngradeMultiIndirectDrawCountHelper {
 impl ShaderHashProvider for DowngradeMultiIndirectDrawCountHelper {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.draw_commands.is_index().hash(hasher);
+    hasher.hash(self.draw_commands.is_index());
   }
 }
 
@@ -250,7 +249,7 @@ struct MultiIndirectCountDowngradeSource {
 impl ShaderHashProvider for MultiIndirectCountDowngradeSource {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.indirect_buffer.is_index().hash(hasher);
+    hasher.hash(self.indirect_buffer.is_index());
   }
 }
 
@@ -317,7 +316,7 @@ impl<T: ShaderHashProvider + 'static> ShaderHashProvider
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.mesh_system.hash_pipeline(hasher);
-    self.enable_downgrade.hash(hasher);
+    hasher.hash(self.enable_downgrade);
   }
 }
 

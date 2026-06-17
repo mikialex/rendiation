@@ -140,7 +140,7 @@ struct SpotLightShader {
 impl ShaderHashProvider for SpotLightShader {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.shadow.is_some().hash(hasher);
+    hasher.hash(self.shadow.is_some());
   }
 }
 

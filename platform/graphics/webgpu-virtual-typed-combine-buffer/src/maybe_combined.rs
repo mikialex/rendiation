@@ -85,11 +85,15 @@ impl MaybeCombinedAtomicU32StorageAllocator {
     }
   }
 
-  pub fn allocate_single(&self, device: &GPUDevice) -> AbstractStorageBuffer<DeviceAtomic<u32>> {
+  pub fn allocate_single(
+    &self,
+    device: &GPUDevice,
+    label: &str,
+  ) -> AbstractStorageBuffer<DeviceAtomic<u32>> {
     if let Self::Combined(combined) = self {
-      combined.allocate_single(device)
+      combined.allocate_single(device, label)
     } else {
-      DefaultStorageAllocator.allocate(4, device, None)
+      DefaultStorageAllocator.allocate(4, device, label)
     }
   }
 }
@@ -107,17 +111,22 @@ impl<T: AtomicityShaderNodeType> CombinedAtomicArrayStorageBufferAllocator<T> {
     }
   }
 
-  pub fn allocate_single(&self, device: &GPUDevice) -> AbstractStorageBuffer<DeviceAtomic<T>> {
-    self.internal.allocate(4, device, None)
+  pub fn allocate_single(
+    &self,
+    device: &GPUDevice,
+    label: &str,
+  ) -> AbstractStorageBuffer<DeviceAtomic<T>> {
+    self.internal.allocate(4, device, label)
   }
 
   pub fn allocate_atomic_array(
     &self,
     atomic_count: u32,
     device: &GPUDevice,
+    label: &str,
   ) -> AbstractStorageBuffer<[DeviceAtomic<T>]> {
     self
       .internal
-      .allocate(4 * atomic_count as u64, device, None)
+      .allocate(4 * atomic_count as u64, device, label)
   }
 }

@@ -16,7 +16,7 @@ pub struct TaskPool {
 
 impl ShaderHashProvider for TaskPool {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.task_ty_desc.hash(hasher);
+    hasher.hash(&self.task_ty_desc);
   }
 
   shader_hash_type_id! {}

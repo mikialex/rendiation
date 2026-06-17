@@ -399,28 +399,32 @@ impl NaiveSahBvhSource {
     //   box_bvh_forest.extend(nodes);
     // }
 
-    fn create_gpu_buffer<T>(device: &GPUDevice, data: &[T]) -> StorageBufferDataView<[T]>
+    fn create_gpu_buffer<T>(
+      device: &GPUDevice,
+      data: &[T],
+      label: &str,
+    ) -> StorageBufferDataView<[T]>
     where
       [T]: Std430MaybeUnsized,
       T: Zeroable,
     {
       if data.is_empty() {
         let data = vec![T::zeroed()];
-        StorageBufferDataView::create(device, &data)
+        StorageBufferDataView::create(device, label, &data)
       } else {
-        StorageBufferDataView::create(device, data)
+        StorageBufferDataView::create(device, label, data)
       }
     }
     // upload blas
     use bytemuck::cast_slice;
-    let gpu_blas_meta_info = create_gpu_buffer(device, &blas_meta_info);
-    let gpu_tri_bvh_root = create_gpu_buffer(device, &tri_bvh_root);
+    let gpu_blas_meta_info = create_gpu_buffer(device, &blas_meta_info, "blas_meta_info");
+    let gpu_tri_bvh_root = create_gpu_buffer(device, &tri_bvh_root, "tri_bvh_root");
     // let gpu_box_bvh_root = create_gpu_buffer(device, &box_bvh_root);
-    let gpu_tri_bvh_forest = create_gpu_buffer(device, &tri_bvh_forest);
+    let gpu_tri_bvh_forest = create_gpu_buffer(device, &tri_bvh_forest, "tri_bvh_forest");
     // let gpu_box_bvh_forest = create_gpu_buffer(device, &box_bvh_forest);
-    let gpu_indices_redirect = create_gpu_buffer(device, &indices_redirect);
-    let gpu_indices = create_gpu_buffer(device, &indices);
-    let gpu_vertices = create_gpu_buffer(device, cast_slice(&vertices));
+    let gpu_indices_redirect = create_gpu_buffer(device, &indices_redirect, "indices_redirect");
+    let gpu_indices = create_gpu_buffer(device, &indices, "indices");
+    let gpu_vertices = create_gpu_buffer(device, cast_slice(&vertices), "vertices");
     // let gpu_boxes = create_gpu_buffer(device, &cast_slice(&boxes).to_vec());
 
     // build tlas
@@ -452,11 +456,11 @@ impl NaiveSahBvhSource {
 
     // upload tlas
     let tlas_binding = tlas_binding.iter().map(|i| i.0).collect::<Vec<_>>();
-    let gpu_tlas_binding = create_gpu_buffer(device, &tlas_binding);
-    let gpu_tlas_bvh_root = create_gpu_buffer(device, &tlas_bvh_root);
-    let gpu_tlas_bvh_forest = create_gpu_buffer(device, &tlas_bvh_forest);
-    let gpu_tlas_data = create_gpu_buffer(device, &tlas_data);
-    let gpu_tlas_bounding = create_gpu_buffer(device, &tlas_bounding);
+    let gpu_tlas_binding = create_gpu_buffer(device, &tlas_binding, "tlas_binding");
+    let gpu_tlas_bvh_root = create_gpu_buffer(device, &tlas_bvh_root, "tlas_bvh_root");
+    let gpu_tlas_bvh_forest = create_gpu_buffer(device, &tlas_bvh_forest, "tlas_bvh_forest");
+    let gpu_tlas_data = create_gpu_buffer(device, &tlas_data, "tlas_data");
+    let gpu_tlas_bounding = create_gpu_buffer(device, &tlas_bounding, "tlas_bounding");
 
     let cpu = NaiveSahBvhCpu {
       tlas_binding,

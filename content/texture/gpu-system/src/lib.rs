@@ -13,8 +13,8 @@ pub use bindless::*;
 mod gles;
 pub use gles::*;
 mod pool;
+use std::any::Any;
 use std::sync::Arc;
-use std::{any::Any, hash::Hash};
 
 pub use pool::*;
 use query::*;
@@ -275,7 +275,7 @@ impl ShaderPassBuilder for Box<dyn DynAbstractGPUTextureSystem> {
 }
 impl ShaderHashProvider for Box<dyn DynAbstractGPUTextureSystem> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    (**self).type_id().hash(hasher);
+    hasher.hash((**self).type_id());
   }
   shader_hash_type_id! {}
 }

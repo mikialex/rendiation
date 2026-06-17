@@ -83,7 +83,7 @@ impl IndirectModelMaterialRenderImpl for PbrMRMaterialIndirectRenderer {
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     let idx = self.material_access.get(idx)?;
-    self.alpha_mode.get_value(idx)?.hash(hasher);
+    hasher.hash(self.alpha_mode.get_value(idx)?);
     Some(())
   }
   fn as_any(&self) -> &dyn Any {
@@ -129,7 +129,7 @@ pub struct PhysicalMetallicRoughnessMaterialIndirectGPU<'a> {
 
 impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.alpha_mode.hash(hasher);
+    hasher.hash(self.alpha_mode);
   }
   shader_hash_type_id! {PhysicalMetallicRoughnessMaterialIndirectGPU<'static>}
 }

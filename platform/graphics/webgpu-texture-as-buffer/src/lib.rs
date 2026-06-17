@@ -19,7 +19,7 @@ impl AbstractStorageAllocator for TextureAsStorageAllocator {
     _device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
     readonly: bool,
-    _label: Option<&str>,
+    _label: &str,
   ) -> BoxedAbstractBuffer {
     assert!(readonly);
     Box::new(TextureAsReadonlyStorageBuffer::new(

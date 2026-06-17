@@ -60,7 +60,7 @@ pub struct StateGPUImpl<'a> {
 
 impl<'a> ShaderHashProvider for StateGPUImpl<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.state_id.hash(hasher);
+    hasher.hash(self.state_id);
   }
   shader_hash_type_id! {StateGPUImpl<'static>}
 }

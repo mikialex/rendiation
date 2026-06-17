@@ -55,7 +55,7 @@ pub struct FrameGeneralMaterialBufferReadValue {
   pub channel_c: Node<Vec4<f32>>,
 }
 
-#[derive(Hash)]
+#[derive(Hash, Debug)]
 pub struct FrameGeneralMaterialChannelIndices {
   pub material_type_id: usize,
   pub channel_a: usize,
@@ -108,8 +108,8 @@ impl DeferLightingMaterialRegistry {
 impl ShaderHashProvider for FrameGeneralMaterialBufferEncoder<'_> {
   shader_hash_type_id! { FrameGeneralMaterialBufferEncoder<'static> }
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.indices.hash(hasher);
-    self.materials.material_impl_ids.hash(hasher);
+    hasher.hash(&self.indices);
+    hasher.hash(&self.materials.material_impl_ids);
   }
 }
 
