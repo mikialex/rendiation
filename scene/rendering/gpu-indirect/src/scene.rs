@@ -89,20 +89,16 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
       &self.gpu,
       "scene_model_id_pool from batch-direct",
     );
-    let sub_list_ranges_gpu =
-      prepare_gpu_sub_list_ranges(&host_capacity_ranges, real_lengths.as_slice());
     let sub_list_ranges =
-      create_gpu_readonly_storage(sub_list_ranges_gpu.as_slice(), &self.gpu, "sub_list_ranges");
+      prepare_gpu_sub_list_ranges(&host_capacity_ranges, real_lengths.as_slice());
     let sum_all_count_host = model_counts as u32;
-    let sum_all_count =
-      create_gpu_readonly_storage(&sum_all_count_host, &self.gpu, "sum_all_count");
+    let device_ranges = DeviceMultiRangeDispatchInfo::new(&self.gpu, sub_list_ranges.as_slice());
 
     let draw_list = DeviceDrawList {
       id_pool: scene_model_id_pool,
       dispatch_info: MultiRangeDispatchInfo {
         host_capacity_ranges,
-        sub_list_ranges,
-        sum_all_count,
+        device_ranges,
         sum_all_count_host,
       },
     };
@@ -353,7 +349,7 @@ fn compute_selected_sub_list_dispatch_info(
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
       builder.config_work_group_size(1);
 
-      let input_ranges = builder.bind_by(&input.dispatch_info.sub_list_ranges);
+      let input_ranges = builder.bind_by(&input.dispatch_info.device_ranges.sub_list_ranges);
       let pick_list_storage = builder.bind_by(&pick_list_buffer);
       let output_ranges = builder.bind_by(&output_ranges);
       let compact_offsets_device = builder.bind_by(&compact_offsets_device);
@@ -399,7 +395,7 @@ fn compute_selected_sub_list_dispatch_info(
     });
 
     BindingBuilder::default()
-      .with_bind(&input.dispatch_info.sub_list_ranges)
+      .with_bind(&input.dispatch_info.device_ranges.sub_list_ranges)
       .with_bind(&pick_list_buffer)
       .with_bind(&output_ranges)
       .with_bind(&compact_offsets_device)
@@ -411,15 +407,19 @@ fn compute_selected_sub_list_dispatch_info(
   });
 
   let origin = MultiRangeDispatchInfo {
-    sub_list_ranges: output_ranges.into_readonly_view(),
-    sum_all_count: output_sum_all.clone().into_readonly_view(),
+    device_ranges: DeviceMultiRangeDispatchInfo {
+      sub_list_ranges: output_ranges.into_readonly_view(),
+      sum_all_count: output_sum_all.clone().into_readonly_view(),
+    },
     host_capacity_ranges: selected_infos.clone(),
     sum_all_count_host: sum_capacity_host,
   };
 
   let compacted = MultiRangeDispatchInfo {
-    sub_list_ranges: output_ranges_offset_compacted.into_readonly_view(),
-    sum_all_count: output_sum_all.into_readonly_view(),
+    device_ranges: DeviceMultiRangeDispatchInfo {
+      sub_list_ranges: output_ranges_offset_compacted.into_readonly_view(),
+      sum_all_count: output_sum_all.into_readonly_view(),
+    },
     host_capacity_ranges: selected_infos,
     sum_all_count_host: sum_capacity_host,
   };

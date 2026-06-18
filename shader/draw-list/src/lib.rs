@@ -6,8 +6,10 @@ use rendiation_webgpu_hook_utils::*;
 
 mod device_culling;
 mod list_access;
+mod multi_range;
 mod stream_compact;
 pub use device_culling::*;
+pub use multi_range::*;
 
 #[derive(Clone)]
 pub struct DeviceDrawList {
@@ -15,34 +17,9 @@ pub struct DeviceDrawList {
   pub dispatch_info: MultiRangeDispatchInfo,
 }
 
-#[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, Debug, PartialEq, ShaderStruct)]
-pub struct StorageSubListRangeInfo {
-  /// pool_read_range_offset
-  pub offset: u32,
-  /// count
-  pub count: u32,
-  /// count_prefix_sum(exclusive)
-  pub count_prefix_sum: u32,
-}
-
-impl StorageSubListRangeInfo {
-  pub fn new(offset: u32, count: u32, count_prefix_sum: u32) -> Self {
-    StorageSubListRangeInfo {
-      offset,
-      count,
-      count_prefix_sum,
-      ..Zeroable::zeroed()
-    }
-  }
-}
-
 #[derive(Clone)]
 pub struct MultiRangeDispatchInfo {
-  pub sub_list_ranges: StorageBufferReadonlyDataView<[StorageSubListRangeInfo]>,
-  // /// sum of all count field of sub_list_ranges, used for computing indirect draw parameter
-  pub sum_all_count: StorageBufferReadonlyDataView<u32>,
+  pub device_ranges: DeviceMultiRangeDispatchInfo,
   pub host_capacity_ranges: Vec<CapacityRange>,
   pub sum_all_count_host: u32,
 }
@@ -64,12 +41,11 @@ pub fn prepare_gpu_sub_list_ranges(
   for (info, &length) in host_capacity_ranges.iter().zip(real_length.iter()) {
     assert!(info.capacity >= length);
 
-    ranges.push(StorageSubListRangeInfo {
-      offset: info.offset,
-      count: length,
-      count_prefix_sum: prefix_sum,
-      ..Zeroable::zeroed()
-    });
+    ranges.push(StorageSubListRangeInfo::new(
+      info.offset,
+      length,
+      prefix_sum,
+    ));
     prefix_sum += length;
   }
   ranges
@@ -99,12 +75,7 @@ impl DeviceDrawList {
     let length = vec![0_u32; sub_list_infos.len()];
     let ranges_init = prepare_gpu_sub_list_ranges(sub_list_infos, &length);
     if needs_create {
-      let sub_list_ranges = StorageBufferReadonlyDataView::create_by_with_extra_usage(
-        gpu.device.as_ref(),
-        StorageBufferInit::<[StorageSubListRangeInfo]>::from(ranges_init.as_slice()),
-        BufferUsages::INDIRECT,
-        "device draw list sub_list_ranges",
-      );
+      let device_ranges = DeviceMultiRangeDispatchInfo::new(gpu, ranges_init.as_slice());
 
       let pool_data = vec![0u32; total_capacity as usize];
       let scene_model_id_pool = create_gpu_readonly_storage(
@@ -112,43 +83,30 @@ impl DeviceDrawList {
         gpu,
         "device draw list scene_model_id_pool",
       );
-      let sum_all_count = create_gpu_readonly_storage(&0u32, gpu, "device draw list sum_count");
 
       *cached = Some(DeviceDrawList {
         id_pool: scene_model_id_pool,
         dispatch_info: MultiRangeDispatchInfo {
-          sub_list_ranges,
-          sum_all_count,
+          device_ranges,
           host_capacity_ranges: sub_list_infos.to_vec(),
           sum_all_count_host: total_capacity,
         },
       });
     } else {
-      // Reset the cached output's sub_list_ranges counts to zero; the GPU
-      // compute pass will overwrite them with real survival counts.
       let target = cached.as_ref().unwrap();
-      gpu.queue.write_buffer(
-        &target.dispatch_info.sub_list_ranges.buffer.gpu(),
-        0,
-        cast_slice(ranges_init.as_slice()),
-      );
+      target
+        .dispatch_info
+        .device_ranges
+        .update(gpu, ranges_init.as_slice());
     }
 
     cached.as_ref().unwrap()
   }
 
   pub fn create_indirect_count_views(&self) -> Vec<GPUBufferResourceView> {
-    let mut views = Vec::with_capacity(self.dispatch_info.host_capacity_ranges.len());
-    let buffer = &self.dispatch_info.sub_list_ranges;
-    assert_eq!(buffer.desc.offset, 0); // we could support this case, but we want to keep it simple
-    let elem_stride = std::mem::size_of::<StorageSubListRangeInfo>() as u64;
-    for i in 0..self.dispatch_info.host_capacity_ranges.len() {
-      let view = buffer.resource.create_view(GPUBufferViewRange {
-        offset: elem_stride * i as u64 + 4,
-        size: std::num::NonZeroU64::new(4).into(),
-      });
-      views.push(view);
-    }
-    views
+    self
+      .dispatch_info
+      .device_ranges
+      .create_indirect_count_views()
   }
 }

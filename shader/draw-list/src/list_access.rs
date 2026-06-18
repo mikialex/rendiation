@@ -29,70 +29,33 @@ impl ComputeComponent<Node<Vec2<u32>>> for DeviceDrawList {
   ) -> Box<dyn DeviceInvocation<Node<Vec2<u32>>>> {
     Box::new(DeviceDrawListInvocation {
       id_pool: builder.bind_by(&self.id_pool),
-      sub_list_ranges: builder.bind_by(&self.dispatch_info.sub_list_ranges),
-      size_all: builder.bind_by(&self.dispatch_info.sum_all_count),
+      ranges: self.dispatch_info.device_ranges.build_shader(builder),
     })
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
     builder.bind(&self.id_pool);
-    builder.bind(&self.dispatch_info.sub_list_ranges);
-    builder.bind(&self.dispatch_info.sum_all_count);
+    self.dispatch_info.device_ranges.bind_shader(builder);
   }
 }
 
 struct DeviceDrawListInvocation {
   id_pool: ShaderReadonlyPtrOf<[u32]>,
-  sub_list_ranges: ShaderReadonlyPtrOf<[StorageSubListRangeInfo]>,
-  size_all: ShaderReadonlyPtrOf<u32>,
+  ranges: DeviceMultiRangeDispatchInfoInvocation,
 }
 
 impl DeviceInvocation<Node<Vec2<u32>>> for DeviceDrawListInvocation {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<Vec2<u32>>, Node<bool>) {
-    let size_all = self.size_all.load();
-    let in_bound = logic_global_id.x().less_than(size_all);
-
-    let sub_list_count = self.sub_list_ranges.array_length();
-
-    // Binary search for the sub-list containing logic_global_id.x()
-    // Find the last index i where sub_list_ranges[i].z (prefix_sum) <= global_id
-    let low = val(0u32).make_local_var();
-    let high = sub_list_count.make_local_var();
-    let found = val(0u32).make_local_var();
-
-    loop_by(|cx| {
-      let lo = low.load();
-      let hi = high.load();
-      let done = lo.greater_than(hi).or(lo.equals(hi));
-      if_by(done, || cx.do_break());
-
-      let mid = (lo + hi) / val(2u32);
-      let prefix_sum = self.sub_list_ranges.index(mid).count_prefix_sum().load();
-
-      let p_le_id = prefix_sum
-        .less_than(logic_global_id.x())
-        .or(prefix_sum.equals(logic_global_id.x()));
-      if_by(p_le_id, || {
-        found.store(mid);
-        low.store(mid + val(1u32));
-      })
-      .else_by(|| {
-        high.store(mid);
-      });
-    });
-
-    let list_index = found.load();
+    let global_id = logic_global_id.x();
+    let (list_index, in_bound) = self.ranges.compute_list_index(global_id);
 
     let r = in_bound.not().select_branched(
       || zeroed_val(),
       || {
-        let range = self.sub_list_ranges.index(list_index).load().expand();
+        let range = self.ranges.read_range_info(list_index);
         let offset = range.offset;
         let base = range.count_prefix_sum;
-        let id = self
-          .id_pool
-          .index(logic_global_id.x() - base + offset)
-          .load();
+        let id = self.id_pool.index(global_id - base + offset).load();
 
         vec2_node((id, list_index))
       },
@@ -102,6 +65,6 @@ impl DeviceInvocation<Node<Vec2<u32>>> for DeviceDrawListInvocation {
   }
 
   fn invocation_size(&self) -> Node<Vec3<u32>> {
-    (self.size_all.load(), val(0), val(0)).into()
+    (self.ranges.sum_all_count.load(), val(0), val(0)).into()
   }
 }

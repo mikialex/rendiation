@@ -120,7 +120,7 @@ pub fn use_and_create_default_indirect_draw_provider(
           builder.config_work_group_size(generator.requested_workgroup_size().unwrap_or(256));
           let generator = generator.build_shader(&mut builder);
           let output_ranges = builder.bind_by(&output_ranges);
-          let input_ranges = builder.bind_by(&list.dispatch_info.sub_list_ranges);
+          let input_ranges = builder.bind_by(&list.dispatch_info.device_ranges.sub_list_ranges);
           let draw_command_buffer = builder.bind_by(&draw_command_buffer);
 
           let ((cmd, list_index), valid) =
@@ -139,7 +139,7 @@ pub fn use_and_create_default_indirect_draw_provider(
         BindingBuilder::default()
           .with_fn(|b| generator.bind_input(b))
           .with_bind(&output_ranges)
-          .with_bind(&list.dispatch_info.sub_list_ranges)
+          .with_bind(&list.dispatch_info.device_ranges.sub_list_ranges)
           .with_bind(&draw_command_buffer)
           .setup_compute_pass(pass, device, &pipeline);
 
@@ -221,7 +221,7 @@ pub fn use_and_create_default_indirect_draw_provider(
           builder.config_work_group_size(generator.requested_workgroup_size().unwrap_or(256));
           let generator = generator.build_shader(&mut builder);
           let output_ranges = builder.bind_by(&output_ranges);
-          let input_ranges = builder.bind_by(&list.dispatch_info.sub_list_ranges);
+          let input_ranges = builder.bind_by(&list.dispatch_info.device_ranges.sub_list_ranges);
           let draw_command_buffer = builder.bind_by(&draw_command_buffer);
 
           let ((cmd, list_index), valid) =
@@ -241,7 +241,7 @@ pub fn use_and_create_default_indirect_draw_provider(
         BindingBuilder::default()
           .with_fn(|b| generator.bind_input(b))
           .with_bind(&output_ranges)
-          .with_bind(&list.dispatch_info.sub_list_ranges)
+          .with_bind(&list.dispatch_info.device_ranges.sub_list_ranges)
           .with_bind(&draw_command_buffer)
           .setup_compute_pass(pass, device, &pipeline);
 

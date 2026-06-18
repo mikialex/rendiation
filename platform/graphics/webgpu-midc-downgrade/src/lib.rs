@@ -65,8 +65,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
   // segmented prefix scan over all vertex counts
   let inclusive_scan_result = ListPoolVertexCountSource {
     command_pool: input.command_pool.clone(),
-    sub_list_ranges: input.list_info.sub_list_ranges.clone(),
-    sum_all_count: input.list_info.sum_all_count.clone(),
+    ranges: input.list_info.device_ranges.clone(),
     total_capacity,
   }
   .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(max_width, max_width, cx)
@@ -133,7 +132,9 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
 
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
       builder.config_work_group_size(1);
-      let sum_all = builder.bind_by(&input.list_info.sum_all_count).load();
+      let sum_all = builder
+        .bind_by(&input.list_info.device_ranges.sum_all_count)
+        .load();
       let output = builder.bind_by(&dispatch_indirect);
 
       let total_threads = sum_all + val(list_count);
@@ -151,7 +152,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
     });
 
     BindingBuilder::default()
-      .with_bind(&input.list_info.sum_all_count)
+      .with_bind(&input.list_info.device_ranges.sum_all_count)
       .with_bind(&dispatch_indirect)
       .setup_compute_pass(pass, device, &pipeline);
 
@@ -166,45 +167,18 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
       builder.config_work_group_size(256);
       let inclusive_scan_result = builder.bind_by(&inclusive_scan_result);
-      let sub_list_ranges = builder.bind_by(&input.list_info.sub_list_ranges);
-      let sum_all = builder.bind_by(&input.list_info.sum_all_count).load();
+      let ranges = input.list_info.device_ranges.build_shader(&mut builder);
       let output_prefix = builder.bind_by(&output_prefix);
       let output_indirect = builder.bind_by(&output_indirect);
       let output_prefix_segments_ranges = builder.bind_by(&output_prefix_segments_ranges);
       let aligned_counts = builder.bind_by(&aligned_counts);
 
       let global_idx = builder.global_invocation_id().x();
-      let sub_list_count = sub_list_ranges.array_length();
 
       // write per-sub-list relative prefix sums
-      let is_valid = global_idx.less_than(sum_all);
+      let (list_idx, is_valid) = ranges.compute_list_index(global_idx);
       if_by(is_valid, || {
-        // Binary search for sub-list containing this global index
-        let low = val(0u32).make_local_var();
-        let high = sub_list_count.make_local_var();
-        let found = val(0u32).make_local_var();
-
-        loop_by(|cx| {
-          let lo = low.load();
-          let hi = high.load();
-          let done = lo.greater_than(hi).or(lo.equals(hi));
-          if_by(done, || cx.do_break());
-
-          let mid = (lo + hi) / val(2u32);
-          let z_mid = sub_list_ranges.index(mid).count_prefix_sum().load();
-
-          let p_le_id = z_mid.less_than(global_idx).or(z_mid.equals(global_idx));
-          if_by(p_le_id, || {
-            found.store(mid);
-            low.store(mid + val(1u32));
-          })
-          .else_by(|| {
-            high.store(mid);
-          });
-        });
-
-        let list_idx = found.load();
-        let range = sub_list_ranges.index(list_idx).load().expand();
+        let range = ranges.read_range_info(list_idx);
         let seg_start = range.count_prefix_sum;
         let count = range.count;
 
@@ -255,8 +229,7 @@ pub fn downgrade_multi_indirect_draw_count_list_pool(
 
     BindingBuilder::default()
       .with_bind(&inclusive_scan_result)
-      .with_bind(&input.list_info.sub_list_ranges)
-      .with_bind(&input.list_info.sum_all_count)
+      .with_fn(|b| input.list_info.device_ranges.bind_shader(b))
       .with_bind(&output_prefix)
       .with_bind(&output_indirect)
       .with_bind(&output_prefix_segments_ranges)
@@ -367,7 +340,7 @@ pub fn downgrade_multi_indirect_draw_count(
   if let DrawCommand::MultiIndirectCount {
     indexed,
     indirect_buffer,
-    indirect_count,
+    indirect_count: _,
     max_count,
   } = draw
   {
@@ -385,20 +358,19 @@ pub fn downgrade_multi_indirect_draw_count(
       )
     };
     assert!(draw_commands.cmd_capacity_count() > 0);
-    let draw_count = StorageBufferReadonlyDataView::try_from_raw(indirect_count).unwrap();
 
-    // Build single-sub-list MultiRangeDispatchInfo
+    // single list
     let ranges_init = vec![StorageSubListRangeInfo::new(0, max_count, 0)];
-    let sub_list_ranges =
-      create_gpu_readonly_storage(ranges_init.as_slice(), &cx.gpu, "sub_list_ranges");
+    let device_ranges = DeviceMultiRangeDispatchInfo::new(&cx.gpu, &ranges_init);
+
+    let host_capacity_ranges = vec![CapacityRange {
+      capacity: max_count,
+      offset: 0,
+    }];
 
     let list_info = MultiRangeDispatchInfo {
-      sub_list_ranges,
-      sum_all_count: draw_count,
-      host_capacity_ranges: vec![CapacityRange {
-        capacity: max_count,
-        offset: 0,
-      }],
+      device_ranges,
+      host_capacity_ranges,
       sum_all_count_host: max_count,
     };
 

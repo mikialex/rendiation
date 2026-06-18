@@ -230,15 +230,12 @@ impl SceneBatchBasicExtractAbility for IncrementalDeviceSceneBatchExtractor<Scen
     let sum_all_count_host: u32 = groups.iter().map(|(_, buf)| buf.host.len() as u32).sum();
     let gpu = self.pool.gpu();
     let ranges_gpu = prepare_gpu_sub_list_ranges(&host_capacity_ranges, &real_lengths);
-    let sub_list_ranges =
-      create_gpu_readonly_storage(ranges_gpu.as_slice(), gpu, "sub-list ranges");
-    let sum_all_count = create_gpu_readonly_storage(&sum_all_count_host, gpu, "sum_all_count");
+    let device_ranges = DeviceMultiRangeDispatchInfo::new(gpu, ranges_gpu.as_slice());
 
     let draw_list = DeviceDrawList {
       id_pool: self.pool.pool_buffer_readonly(),
       dispatch_info: MultiRangeDispatchInfo {
-        sub_list_ranges,
-        sum_all_count,
+        device_ranges,
         host_capacity_ranges,
         sum_all_count_host,
       },

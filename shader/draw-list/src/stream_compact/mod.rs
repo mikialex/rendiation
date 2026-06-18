@@ -23,8 +23,9 @@ impl DeviceDrawList {
     );
 
     let output_pool = target.id_pool.clone().into_rw_view();
-    let output_ranges = target.dispatch_info.sub_list_ranges.clone().into_rw_view();
-    let total_count_out = target.dispatch_info.sum_all_count.clone().into_rw_view();
+    let device_ranges = &target.dispatch_info.device_ranges;
+    let output_ranges = device_ranges.sub_list_ranges.clone().into_rw_view();
+    let total_count_out = device_ranges.sum_all_count.clone().into_rw_view();
 
     let max_width = cx
       .gpu
@@ -40,7 +41,7 @@ impl DeviceDrawList {
       .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(max_width, max_width, cx);
     let scatter = SegmentedListScatter {
       positions: positions.buffer.clone(),
-      sub_list_ranges: self.dispatch_info.sub_list_ranges.clone(),
+      sub_list_ranges: self.dispatch_info.device_ranges.sub_list_ranges.clone(),
       draw_list: self.clone(),
       output_pool,
       output_ranges,
@@ -51,8 +52,10 @@ impl DeviceDrawList {
     DeviceDrawList {
       id_pool: scatter.output_pool.into_readonly_view(),
       dispatch_info: MultiRangeDispatchInfo {
-        sub_list_ranges: scatter.output_ranges.into_readonly_view(),
-        sum_all_count: scatter.total_count_out.into_readonly_view(),
+        device_ranges: DeviceMultiRangeDispatchInfo {
+          sub_list_ranges: scatter.output_ranges.into_readonly_view(),
+          sum_all_count: scatter.total_count_out.into_readonly_view(),
+        },
         host_capacity_ranges: self.dispatch_info.host_capacity_ranges.clone(),
         sum_all_count_host: target.dispatch_info.sum_all_count_host,
       },
