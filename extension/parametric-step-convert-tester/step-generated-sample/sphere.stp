@@ -1,7 +1,7 @@
 ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION((''), '2;1');
-FILE_NAME('test_sphere.stp', '2026-05-24', (''), (''), 'Claude', '', '');
+FILE_NAME('test_sphere.stp', '2026-05-31', (''), (''), 'Claude', '', '');
 FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 2 10303 214 0 1 1 1 }'));
 ENDSEC;
 DATA;
@@ -22,41 +22,108 @@ DATA;
 #14 = PRODUCT_DEFINITION_CONTEXT('part definition',#9,'design');
 #15 = PRODUCT_DEFINITION('','',#13,#14);
 #16 = PRODUCT_DEFINITION_SHAPE('','',#15);
+#17 = PARAMETRIC_REPRESENTATION_CONTEXT('','');
+
 /* === Surface: SPHERICAL_SURFACE R=1.5 === */
 #20 = CARTESIAN_POINT('',(0.,0.,0.));
 #21 = DIRECTION('',(0.,0.,1.));
 #22 = DIRECTION('',(1.,0.,0.));
 #23 = AXIS2_PLACEMENT_3D('',#20,#21,#22);
 #24 = SPHERICAL_SURFACE('',#23,1.5);
-/* === Vertices (north pole, south pole) === */
+
+/* === Vertices === */
 #30 = CARTESIAN_POINT('',(0.,0.,1.5));
 #31 = CARTESIAN_POINT('',(0.,0.,-1.5));
 #32 = VERTEX_POINT('',#30);
 #33 = VERTEX_POINT('',#31);
-/* === Edges: meridian N->S, degen at S, meridian S->N, degen at N === */
-#40 = CARTESIAN_POINT('',(1.5,0.,0.));
-#41 = DIRECTION('',(0.,0.,-1.));
-#42 = DIRECTION('',(-1.,0.,0.));
+
+/* ─── Seam meridian (full circle in xz-plane) ─── */
+/* P(θ) = (R*sin(θ), 0, R*cos(θ)), θ=0→N, θ=π→S */
+#40 = CARTESIAN_POINT('',(0.,0.,0.));
+#41 = DIRECTION('',(0.,1.,0.));
+#42 = DIRECTION('',(0.,0.,1.));
 #43 = AXIS2_PLACEMENT_3D('',#40,#41,#42);
 #44 = CIRCLE('',#43,1.5);
-#45 = EDGE_CURVE('',#32,#33,#44,.T.);
-#46 = CARTESIAN_POINT('',(-1.5,0.,0.));
-#47 = DIRECTION('',(0.,0.,1.));
-#48 = DIRECTION('',(1.,0.,0.));
-#49 = AXIS2_PLACEMENT_3D('',#46,#47,#48);
-#50 = CIRCLE('',#49,1.5);
-#51 = EDGE_CURVE('',#33,#32,#50,.T.);
-/* === Loop: N->S (meridian theta=0), S->N (meridian theta=pi) === */
-#60 = ORIENTED_EDGE('',*,*,#45,.T.);
-#61 = ORIENTED_EDGE('',*,*,#51,.T.);
-#62 = EDGE_LOOP('',(#60,#61));
-#63 = FACE_OUTER_BOUND('',#62,.T.);
-#64 = ADVANCED_FACE('',(#63),#24,.F.);
+
+/* ─── North-pole tiny circle (v ≈ 0.001 rad) ─── */
+/* On sphere at colatitude ε, R*cos(ε)≈1.499999, R*sin(ε)≈0.0015 */
+#45 = CARTESIAN_POINT('',(0.,0.,1.49999925));
+#46 = DIRECTION('',(0.,0.,1.));
+#47 = DIRECTION('',(1.,0.,0.));
+#48 = AXIS2_PLACEMENT_3D('',#45,#46,#47);
+#49 = CIRCLE('',#48,0.0015);
+/* Edge 2: S→S around south-pole, u:0→2π at v=π-ε → (0,0.9997)→(1,0.9997) norm */
+#50 = CARTESIAN_POINT('',(0.,0.,-1.49999925));
+#51 = DIRECTION('',(0.,0.,1.));
+#52 = DIRECTION('',(1.,0.,0.));
+#53 = AXIS2_PLACEMENT_3D('',#50,#51,#52);
+#54 = CIRCLE('',#53,0.0015);
+
+/* ═══ Pcurve 1: Edge N→S along u=0, v ∈ [ε, π-ε] ═══ */
+/* 2D line at u=0, v-direction, epsilon=0.001 */
+#100 = CARTESIAN_POINT('',(0.,0.001));
+#101 = DIRECTION('',(0.,1.));
+#102 = VECTOR('',#101,3.139592653589793);
+#103 = LINE('',#100,#102);
+#104 = DEFINITIONAL_REPRESENTATION('',(#103),#17);
+#105 = PCURVE('',#24,#104);
+#106 = SURFACE_CURVE('',#44,(#105),.PCURVE_S1.);
+
+/* ═══ Pcurve 2: Edge S→S along v=π-ε, u ∈ [0, 2π] ═══ */
+/* 2D line at v=π-ε, u-direction */
+#110 = CARTESIAN_POINT('',(0.,3.140592653589793));
+#111 = DIRECTION('',(1.,0.));
+#112 = VECTOR('',#111,6.283185307179586);
+#113 = LINE('',#110,#112);
+#114 = DEFINITIONAL_REPRESENTATION('',(#113),#17);
+#115 = PCURVE('',#24,#114);
+#116 = SURFACE_CURVE('',#54,(#115),.PCURVE_S1.);
+
+/* ═══ Pcurve 3: Edge S→N along u=2π, v ∈ [π-ε, ε] ═══ */
+/* 2D line at u=TAU, −v-direction */
+#120 = CARTESIAN_POINT('',(6.283185307179586,3.140592653589793));
+#121 = DIRECTION('',(0.,-1.));
+#122 = VECTOR('',#121,3.139592653589793);
+#123 = LINE('',#120,#122);
+#124 = DEFINITIONAL_REPRESENTATION('',(#123),#17);
+#125 = PCURVE('',#24,#124);
+#126 = SURFACE_CURVE('',#44,(#125),.PCURVE_S1.);
+
+/* ═══ Pcurve 4: Edge N→N along v=ε, u ∈ [2π, 0] ═══ */
+/* 2D line at v=ε, −u-direction */
+#130 = CARTESIAN_POINT('',(6.283185307179586,0.001));
+#131 = DIRECTION('',(-1.,0.));
+#132 = VECTOR('',#131,6.283185307179586);
+#133 = LINE('',#130,#132);
+#134 = DEFINITIONAL_REPRESENTATION('',(#133),#17);
+#135 = PCURVE('',#24,#134);
+#136 = SURFACE_CURVE('',#49,(#135),.PCURVE_S1.);
+
+/* ═══ Edges ═══ */
+/* Edge 1: N→S along u=0 */
+#140 = EDGE_CURVE('',#32,#33,#106,.T.);
+/* Edge 2: S→S along south-pole cap (v=π-ε, u:0→2π) */
+#141 = EDGE_CURVE('',#33,#33,#116,.T.);
+/* Edge 3: S→N along u=2π */
+#142 = EDGE_CURVE('',#33,#32,#126,.T.);
+/* Edge 4: N→N along north-pole cap (v=ε, u:2π→0) */
+#143 = EDGE_CURVE('',#32,#32,#136,.T.);
+
+/* ═══ Loop: (0,ε)→(0,π-ε)→(2π,π-ε)→(2π,ε)→(0,ε) ═══ */
+#150 = ORIENTED_EDGE('',*,*,#140,.T.);
+#151 = ORIENTED_EDGE('',*,*,#141,.T.);
+#152 = ORIENTED_EDGE('',*,*,#142,.T.);
+#153 = ORIENTED_EDGE('',*,*,#143,.T.);
+#154 = EDGE_LOOP('',(#150,#151,#152,#153));
+#155 = FACE_OUTER_BOUND('',#154,.T.);
+#156 = ADVANCED_FACE('',(#155),#24,.F.);
+
 /* === Shell & model === */
-#70 = CLOSED_SHELL('',(#64));
-#71 = MANIFOLD_SOLID_BREP('',#70);
+#160 = CLOSED_SHELL('',(#156));
+#161 = MANIFOLD_SOLID_BREP('',#160);
+
 /* === Shape representation === */
-#80 = SHAPE_REPRESENTATION('',(#71,#23),#8);
-#81 = SHAPE_DEFINITION_REPRESENTATION(#16,#80);
+#170 = SHAPE_REPRESENTATION('',(#161,#23),#8);
+#171 = SHAPE_DEFINITION_REPRESENTATION(#16,#170);
 ENDSEC;
 END-ISO-10303-21;
