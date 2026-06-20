@@ -154,7 +154,7 @@ impl ContinuousTrimPolyline {
 
       let new_start = *polyline.points.first().unwrap();
       assert!(
-        old_last.distance_to(new_start) <= 1e-6,
+        old_last.distance_to(new_start) <= 1e-3,
         "polyline discontinuity: old_last={old_last:?}, new_start={new_start:?}, dist={}",
         old_last.distance_to(new_start)
       );

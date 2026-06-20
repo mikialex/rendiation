@@ -622,13 +622,36 @@ fn convert_sphere_to_bezier_patches(
         .map(|&c| {
           let rot = rotate_z(c, q);
           if h == 1 {
-            // South hemisphere: negate Z
+            // South hemisphere: negate Z (mirror across equator).
             Vec4::new(rot.x, rot.y, -rot.z, rot.w)
           } else {
             rot
           }
         })
         .collect();
+
+      // For the south hemisphere the Z-negation alone would flip the
+      // surface normal (reflection turns a right-handed
+      // parameterization into a left-handed one).  Swap the pole and
+      // equator CP rows so that v still runs from equator (row 0) →
+      // pole (row 2), keeping ∂P/∂u × ∂P/∂v outward.
+      let local_cps = if h == 1 {
+        // ref_cps row 0 = pole, row 1 = mid, row 2 = equator.
+        // South: row 0 = equator, row 1 = mid (negated), row 2 = pole (negated).
+        vec![
+          local_cps[6],
+          local_cps[7],
+          local_cps[8], // equator
+          local_cps[3],
+          local_cps[4],
+          local_cps[5], // mid-latitude
+          local_cps[0],
+          local_cps[1],
+          local_cps[2], // south pole
+        ]
+      } else {
+        local_cps
+      };
 
       // Transform from local (X,Y,Z) to global coordinates.
       // The local frame: X=x_dir, Y=y_dir, Z=polar, origin=center.
