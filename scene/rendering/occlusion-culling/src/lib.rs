@@ -46,7 +46,7 @@ impl GPUTwoPassOcclusionCulling {
     &mut self,
     frame_ctx: &mut FrameCtx,
     batch: &Option<DeviceSceneModelDrawList>, // none indicates empty list
-    pre_culler: Option<Box<dyn AbstractCullerProvider>>,
+    raw_pre_culler: Option<Box<dyn AbstractCullerProvider>>,
     mut target: RenderPassDescription,
     preflight_content: &mut dyn FnMut(ActiveRenderPass) -> ActiveRenderPass,
     scene_renderer: &dyn SceneRenderer,
@@ -65,7 +65,7 @@ impl GPUTwoPassOcclusionCulling {
       return (pass, None);
     };
 
-    let pre_culler = pre_culler.unwrap_or(Box::new(NoopCuller));
+    let pre_culler = raw_pre_culler.unwrap_or(Box::new(NoopCuller));
 
     let last_frame_invisible = &self.last_frame_visibility;
 
@@ -166,15 +166,9 @@ impl GPUTwoPassOcclusionCulling {
     // second pass, draw rest but not occluded, and update the visibility states
     // todo, check pre_culler if is ok to set before occlusion_culler
     let second_pass_culler = pre_culler.shortcut_or(occlusion_culler);
-    let mut second_pass_batch = last_frame_invisible_batch;
-
-    if generate_culling_result {
-      frame_ctx.scope(|frame_ctx| {
-        second_pass_batch = frame_ctx.access_parallel_compute(|cx| {
-          second_pass_batch.use_culled_list_and_do_culling(cx, second_pass_culler)
-        });
-      });
-    }
+    let second_pass_batch = frame_ctx.access_parallel_compute(|cx| {
+      last_frame_invisible_batch.use_culled_list_and_do_culling(cx, second_pass_culler)
+    });
 
     let mut second_pass_draw = scene_renderer.use_make_scene_batch_pass_content(
       SceneModelRenderBatch::Device(Some(second_pass_batch.clone())),

@@ -162,16 +162,9 @@ impl ViewerCulling {
       &mut reorderable_batch,
       camera_gpu,
       camera,
-      // if occlusion culling is enabled, we should do frustum culling with it, not standalone
+      // if occlusion culling is enabled, we should skip frustum culling as it also do the same job as the fc
       self.oc.is_none(),
     );
-
-    let pre_culler = if self.enable_frustum_culling {
-      let culler = self.create_frustum_culler(camera_gpu, camera);
-      Some(Box::new(culler) as Box<dyn AbstractCullerProvider>)
-    } else {
-      None
-    };
 
     if let Some(oc) = &mut self.oc {
       ctx.scope(|ctx| {
@@ -207,7 +200,8 @@ impl ViewerCulling {
         let (pass, cull_result) = oc_state.write().use_draw(
           ctx,
           &reorderable_batch.get_device_batch().unwrap(),
-          pre_culler,
+           // if occlusion culling is enabled, we should skip frustum culling as it also do the same job as the fc
+          None,
           pass_base,
           preflight_content,
           renderer.scene,
