@@ -91,7 +91,6 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
     );
     let sub_list_ranges =
       prepare_gpu_sub_list_ranges(&host_capacity_ranges, real_lengths.as_slice());
-    let sum_all_count_host = model_counts as u32;
     let device_ranges = DeviceMultiRangeDispatchInfo::new(&self.gpu, sub_list_ranges.as_slice());
 
     let draw_list = DeviceDrawList {
@@ -99,7 +98,7 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
       dispatch_info: MultiRangeDispatchInfo {
         host_capacity_ranges,
         device_ranges,
-        sum_all_count_host,
+        total_capacity: model_counts as u32,
       },
     };
 
@@ -315,7 +314,7 @@ fn compute_selected_sub_list_dispatch_info(
 
   // sum_all_count_host is set to the sum of capacities (upper bound);
   // the GPU writes the real total into sum_all_count at runtime.
-  let sum_capacity_host: u32 = selected_infos.iter().map(|info| info.capacity).sum();
+  let total_capacity: u32 = selected_infos.iter().map(|info| info.capacity).sum();
 
   // Upload pick_list indices to the GPU.
   let pick_list_u32: Vec<u32> = pick_list.iter().map(|&i| i as u32).collect();
@@ -412,7 +411,7 @@ fn compute_selected_sub_list_dispatch_info(
       sum_all_count: output_sum_all.clone().into_readonly_view(),
     },
     host_capacity_ranges: selected_infos.clone(),
-    sum_all_count_host: sum_capacity_host,
+    total_capacity,
   };
 
   let compacted = MultiRangeDispatchInfo {
@@ -421,7 +420,7 @@ fn compute_selected_sub_list_dispatch_info(
       sum_all_count: output_sum_all.into_readonly_view(),
     },
     host_capacity_ranges: selected_infos,
-    sum_all_count_host: sum_capacity_host,
+    total_capacity,
   };
 
   (origin, compacted)

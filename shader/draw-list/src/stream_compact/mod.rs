@@ -57,7 +57,7 @@ impl DeviceDrawList {
           sum_all_count: scatter.total_count_out.into_readonly_view(),
         },
         host_capacity_ranges: self.dispatch_info.host_capacity_ranges.clone(),
-        sum_all_count_host: target.dispatch_info.sum_all_count_host,
+        total_capacity: target.dispatch_info.total_capacity,
       },
     }
   }

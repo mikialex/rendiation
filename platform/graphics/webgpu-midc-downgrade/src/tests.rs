@@ -64,7 +64,7 @@ fn build_test_input(gpu: &GPU) -> MIDCListPoolInput {
   let list_info = MultiRangeDispatchInfo {
     device_ranges,
     host_capacity_ranges,
-    sum_all_count_host: total_pool_size,
+    total_capacity: total_pool_size,
   };
 
   MIDCListPoolInput {
@@ -81,7 +81,7 @@ async fn test_downgrade_list_pool_basic() {
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
 
   let input = build_test_input(&gpu);
-  let results = downgrade_multi_indirect_draw_count_list_pool(input, &mut cx);
+  let results = use_downgrade_multi_indirect_draw_count_list_pool(input, &mut cx);
 
   assert_eq!(results.len(), 3, "should produce 3 sub-list results");
 
@@ -146,7 +146,7 @@ async fn test_downgrade_list_pool_zero_capacity() {
       capacity: 1,
       offset: 0,
     }],
-    sum_all_count_host: 0,
+    total_capacity: 0,
   };
 
   let input = MIDCListPoolInput {
@@ -154,7 +154,7 @@ async fn test_downgrade_list_pool_zero_capacity() {
     list_info,
   };
 
-  let results = downgrade_multi_indirect_draw_count_list_pool(input, &mut cx);
+  let results = use_downgrade_multi_indirect_draw_count_list_pool(input, &mut cx);
   assert!(
     results.is_empty(),
     "zero capacity should produce empty results"
@@ -187,7 +187,7 @@ async fn test_downgrade_list_pool_single_sub_list() {
       capacity: 3,
       offset: 0,
     }],
-    sum_all_count_host: 3,
+    total_capacity: 3,
   };
 
   let input = MIDCListPoolInput {
@@ -195,7 +195,7 @@ async fn test_downgrade_list_pool_single_sub_list() {
     list_info,
   };
 
-  let results = downgrade_multi_indirect_draw_count_list_pool(input, &mut cx);
+  let results = use_downgrade_multi_indirect_draw_count_list_pool(input, &mut cx);
   assert_eq!(results.len(), 1, "single sub-list");
 
   let (_helper, cmd) = &results[0];

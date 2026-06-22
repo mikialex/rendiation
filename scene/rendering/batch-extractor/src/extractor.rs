@@ -235,7 +235,7 @@ impl SceneBatchBasicExtractAbility for IncrementalDeviceSceneBatchExtractor<Scen
     }
     drop(alloc);
 
-    let sum_all_count_host: u32 = groups.iter().map(|(_, buf)| buf.host.len() as u32).sum();
+    let total_capacity: u32 = groups.iter().map(|(_, buf)| buf.host.len() as u32).sum();
     let gpu = self.pool.gpu();
     let ranges_gpu = prepare_gpu_sub_list_ranges(&host_capacity_ranges, &real_lengths);
     let device_ranges = DeviceMultiRangeDispatchInfo::new(gpu, ranges_gpu.as_slice());
@@ -245,7 +245,7 @@ impl SceneBatchBasicExtractAbility for IncrementalDeviceSceneBatchExtractor<Scen
       dispatch_info: MultiRangeDispatchInfo {
         device_ranges,
         host_capacity_ranges,
-        sum_all_count_host,
+        total_capacity,
       },
     };
 

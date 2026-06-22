@@ -38,7 +38,7 @@ impl ComputeComponent<Node<u32>> for ListOfListsCullingPredicate {
   }
 
   fn result_size(&self) -> u32 {
-    self.draw_list.dispatch_info.sum_all_count_host
+    self.draw_list.dispatch_info.total_capacity
   }
 
   fn requested_workgroup_size(&self) -> Option<u32> {

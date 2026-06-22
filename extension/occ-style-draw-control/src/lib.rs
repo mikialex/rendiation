@@ -152,7 +152,7 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
     }
     drop(alloc);
 
-    let sum_all_count_host: u32 = groups.iter().map(|(_, buf)| buf.host.len() as u32).sum();
+    let total_capacity: u32 = groups.iter().map(|(_, buf)| buf.host.len() as u32).sum();
     let gpu = self.internal.pool.gpu();
     let ranges = prepare_gpu_sub_list_ranges(&capacity_ranges, &real_lengths);
     let device_ranges = DeviceMultiRangeDispatchInfo::new(gpu, ranges.as_slice());
@@ -162,7 +162,7 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
       dispatch_info: MultiRangeDispatchInfo {
         device_ranges,
         host_capacity_ranges: capacity_ranges,
-        sum_all_count_host,
+        total_capacity,
       },
     };
 

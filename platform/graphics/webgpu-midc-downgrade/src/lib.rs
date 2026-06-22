@@ -43,16 +43,12 @@ pub struct MIDCListPoolInput {
 ///
 /// Process all sub-lists in a single batch: one prefix scan dispatch + one output write dispatch.
 /// Returns per-sub-list downgrade results (helper + DrawCommand::Indirect).
-pub fn downgrade_multi_indirect_draw_count_list_pool(
+pub fn use_downgrade_multi_indirect_draw_count_list_pool(
   input: MIDCListPoolInput,
   cx: &mut DeviceParallelComputeCtx,
 ) -> Vec<(DowngradeMultiIndirectDrawCountHelper, DrawCommand)> {
-  let total_capacity = input.list_info.sum_all_count_host;
+  let total_capacity = input.list_info.total_capacity;
   let list_count = input.list_info.host_capacity_ranges.len() as u32;
-
-  if total_capacity == 0 {
-    return Vec::new();
-  }
 
   let is_indexed = input.command_pool.is_index();
 
@@ -333,7 +329,7 @@ fn create_command_pool_view(
 ///
 /// This is now a thin wrapper around `downgrade_multi_indirect_draw_count_list_pool`
 /// for the single-sub-list case.
-pub fn downgrade_multi_indirect_draw_count(
+pub fn use_downgrade_multi_indirect_draw_count(
   draw: DrawCommand,
   cx: &mut DeviceParallelComputeCtx,
 ) -> (DowngradeMultiIndirectDrawCountHelper, DrawCommand) {
@@ -371,7 +367,7 @@ pub fn downgrade_multi_indirect_draw_count(
     let list_info = MultiRangeDispatchInfo {
       device_ranges,
       host_capacity_ranges,
-      sum_all_count_host: max_count,
+      total_capacity: max_count,
     };
 
     let input = MIDCListPoolInput {
@@ -379,7 +375,7 @@ pub fn downgrade_multi_indirect_draw_count(
       list_info,
     };
 
-    let mut results = downgrade_multi_indirect_draw_count_list_pool(input, cx);
+    let mut results = use_downgrade_multi_indirect_draw_count_list_pool(input, cx);
     results.pop().unwrap()
   } else {
     panic!("expect midc draw command");

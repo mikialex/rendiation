@@ -67,6 +67,7 @@ impl LightSystem {
     extractor: &dyn SceneBatchBasicExtractAbility,
     target_scene: EntityHandle<SceneEntity>,
   ) -> LightingRenderingCx<'_> {
+    frame_ctx.next_scope_index();
     self.tonemap.update(frame_ctx.gpu);
 
     let key = SceneContentKey {

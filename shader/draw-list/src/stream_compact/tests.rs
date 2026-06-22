@@ -37,7 +37,7 @@ fn build_test_draw_list(gpu: &GPU) -> DeviceDrawList {
           offset: 5,
         },
       ],
-      sum_all_count_host: 7,
+      total_capacity: 7,
     },
   }
 }
@@ -251,7 +251,7 @@ fn build_test_draw_list_with_empty_first_sub_list(gpu: &GPU) -> DeviceDrawList {
           offset: 5,
         },
       ],
-      sum_all_count_host: 7, // 2+3+2 = total capacity
+      total_capacity: 7, // 2+3+2 = total capacity
     },
   }
 }
@@ -389,7 +389,7 @@ fn build_test_draw_list_with_two_empty_first_sub_lists(gpu: &GPU) -> DeviceDrawL
           offset: 5,
         },
       ],
-      sum_all_count_host: 7,
+      total_capacity: 7,
     },
   }
 }
@@ -520,7 +520,7 @@ fn build_test_draw_list_with_empty_middle_sub_list(gpu: &GPU) -> DeviceDrawList 
           offset: 5,
         },
       ],
-      sum_all_count_host: 7,
+      total_capacity: 7,
     },
   }
 }
@@ -663,7 +663,7 @@ fn build_test_draw_list_with_consecutive_empty_middle_sub_lists(gpu: &GPU) -> De
           offset: 6,
         },
       ],
-      sum_all_count_host: 8,
+      total_capacity: 8,
     },
   }
 }

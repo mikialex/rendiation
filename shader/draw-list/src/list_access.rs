@@ -16,7 +16,7 @@ impl ComputeComponent<Node<Vec2<u32>>> for DeviceDrawList {
   }
 
   fn result_size(&self) -> u32 {
-    self.dispatch_info.sum_all_count_host
+    self.dispatch_info.total_capacity
   }
 
   fn requested_workgroup_size(&self) -> Option<u32> {

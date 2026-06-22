@@ -334,6 +334,7 @@ impl<T: Hasher> PipelineHasher<T> {
     self
   }
 
+  #[allow(unused)]
   pub fn label_name(&mut self, name: &str) -> &mut Self {
     #[cfg(feature = "pipeline-label")]
     {

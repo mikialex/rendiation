@@ -21,7 +21,7 @@ pub struct DeviceDrawList {
 pub struct MultiRangeDispatchInfo {
   pub device_ranges: DeviceMultiRangeDispatchInfo,
   pub host_capacity_ranges: Vec<CapacityRange>,
-  pub sum_all_count_host: u32,
+  pub total_capacity: u32,
 }
 
 #[derive(Clone)]
@@ -67,7 +67,7 @@ impl DeviceDrawList {
 
     // Reuse cached target if the total capacity matches.
     let needs_create = match cached.as_ref() {
-      Some(existing) => existing.dispatch_info.sum_all_count_host != total_capacity,
+      Some(existing) => existing.dispatch_info.total_capacity != total_capacity,
       None => true,
     };
 
@@ -89,7 +89,7 @@ impl DeviceDrawList {
         dispatch_info: MultiRangeDispatchInfo {
           device_ranges,
           host_capacity_ranges: sub_list_infos.to_vec(),
-          sum_all_count_host: total_capacity,
+          total_capacity,
         },
       });
     } else {
