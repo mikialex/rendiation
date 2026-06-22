@@ -19,6 +19,7 @@ pub struct SceneModelListPool {
 pub struct PoolAllocationUpdate {
   /// The raw allocator result (new_data_to_write, data_movements, resize_to, removed)
   pub allocation_result: BatchAllocateResult<u64>,
+  pub move_writes: Vec<(u64, Vec<u8>)>,
   /// Pre-built sparse writes for entity data (positions already include pool offset)
   pub sparse_writes: SparseBufferWritesSource,
 }
@@ -71,14 +72,21 @@ impl SceneModelListPool {
   pub fn prepare_pool_update(
     allocator: &Arc<RwLock<GrowableRangeAllocator<u64>>>,
     removed_groups: &[u64],
-    changed_groups: &[(u64, u32)],
+    changed_groups: &[(u64, Vec<u8>, u32)],
     entity_writes: Vec<(u64, u32, u32)>, // (group_hash, local_pos, entity_alloc_index)
   ) -> PoolAllocationUpdate {
     let mut alloc = allocator.write();
 
+    // todo, the allocator's update can be improved:
+    // if the changed groups overlaps remove_or_changed, it will not reflected as the data movement.
     let allocation_result = alloc.update(
-      removed_groups.iter().copied(),
-      changed_groups.iter().copied(),
+      removed_groups
+        .iter()
+        .copied()
+        .chain(changed_groups.iter().map(|v| v.0)),
+      changed_groups
+        .iter()
+        .map(|(k, _data, new_len)| (*k, *new_len)),
     );
 
     let mut writes = SparseBufferWritesSource::default();
@@ -87,8 +95,15 @@ impl SceneModelListPool {
       writes.collect_write(bytes_of(value), (offset + local_pos) as u64 * 4);
     }
 
+    let mut move_writes = Vec::with_capacity(changed_groups.len());
+    for group in changed_groups {
+      let offset = alloc.get_region(group.0).unwrap().1;
+      move_writes.push((offset as u64 * 4, group.1.clone()))
+    }
+
     PoolAllocationUpdate {
       allocation_result,
+      move_writes,
       sparse_writes: writes,
     }
   }
@@ -117,6 +132,12 @@ impl SceneModelListPool {
         .gpu
         .batch_self_relocate(&mut relocations, &mut encoder, &gpu.device);
       gpu.submit_encoder(encoder);
+    }
+
+    let buffer = self.pool_buffer.gpu.get_gpu_buffer_view().unwrap();
+    let buffer = buffer.buffer.gpu();
+    for (offset, data) in &update.move_writes {
+      gpu.queue.write_buffer(buffer, *offset, data);
     }
 
     update

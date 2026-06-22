@@ -110,7 +110,7 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
 
     // Build changed groups list for allocator update
     let mut groups_with_updates: Vec<(RawEntityHandle, u64)> = Vec::new();
-    let mut changed_groups: Vec<(u64, u32)> = Vec::new();
+    let mut changed_groups: Vec<(u64, Vec<u8>, u32)> = Vec::new();
     let mut removed_groups: Vec<u64> = Vec::new();
     let mut entity_writes: Vec<(u64, u32, u32)> = Vec::new();
 
@@ -130,18 +130,26 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
         self.remove_empty(s_id, key);
         continue;
       }
+      // the code here is cold path
 
       let new_size_rounded = new_size.next_power_of_two().max(min_size_round_up);
+
+      // if capacity not changed, the data write is processed by sparse write
+      let data: Vec<u8> = buffer
+        .host
+        .iter()
+        .flat_map(|v| v.index().bytes().to_vec())
+        .collect();
 
       let old_size = old_capacities.get(&hash).copied().unwrap();
       // handle the edge case: new group has no old allocation to compare
       if old_size == 0 {
-        changed_groups.push((hash, new_size_rounded));
+        changed_groups.push((hash, data, new_size_rounded));
       } else {
         let old_size_rounded = old_size.next_power_of_two().max(min_size_round_up);
 
         if old_size_rounded != new_size_rounded {
-          changed_groups.push((hash, new_size_rounded));
+          changed_groups.push((hash, data, new_size_rounded));
         }
       }
 
