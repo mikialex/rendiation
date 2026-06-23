@@ -548,7 +548,7 @@ where
   > {
     let map = cx.use_shared_hash_map(label);
     self.map_spawn_stage_in_thread_dual_query(cx, move |query| {
-      let delta = query.delta().materialize();
+      let delta = query.delta().materialize_upper_bound();
       let mut guard = map.write();
       for (k, change) in delta.iter_key_value() {
         match change.clone() {

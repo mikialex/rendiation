@@ -63,7 +63,7 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     let (view, delta) = self.view_delta();
     DualQuery {
       view,
-      delta: delta.materialize(),
+      delta: delta.materialize_upper_bound(),
     }
   }
 
