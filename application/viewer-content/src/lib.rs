@@ -46,7 +46,7 @@ pub use rendiation_occ_style_material::{
   OccStyleEffectStateOverride, OccStyleEffectType, OccStyleMaterialDiffuse,
   OccStyleMaterialDiffuseTex, OccStyleMaterialEffect, OccStyleMaterialEmissive,
   OccStyleMaterialEntity, OccStyleMaterialShininess, OccStyleMaterialSpecular,
-  OccStyleMaterialTransparent, StdModelOccStyleMaterialPayload,
+  StdModelOccStyleMaterialPayload,
 };
 use rendiation_scene_batch_extractor::*;
 pub use rendiation_scene_core::*;

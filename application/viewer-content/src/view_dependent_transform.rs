@@ -7,7 +7,7 @@ pub struct SceneModelViewDependentTransformOccShare(pub ViewerNDC, pub Viewports
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelViewDependentTransformOccShare {
   share_provider_hash_type_id! {}
 
-  type Result = BoxedDynDualQuery<ViewSceneModelKey, Mat4<f64>>;
+  type Result = DualQueryHashMaterialized<ViewSceneModelKey, Mat4<f64>>;
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let view_source = use_compute_incremental_source_by_diffing(cx, &self.1);

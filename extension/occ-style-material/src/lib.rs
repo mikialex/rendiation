@@ -11,12 +11,6 @@ pub mod indirect;
 
 declare_entity!(OccStyleMaterialEntity);
 declare_component!(
-  OccStyleMaterialTransparent,
-  OccStyleMaterialEntity,
-  bool,
-  false
-);
-declare_component!(
   OccStyleMaterialDiffuse,
   OccStyleMaterialEntity,
   Vec4<f32>,
@@ -78,7 +72,6 @@ pub fn register_occ_material_data_model(sparse: bool) {
 
   let table = global_database()
     .declare_entity::<OccStyleMaterialEntity>()
-    .declare_component::<OccStyleMaterialTransparent>()
     .declare_component::<OccStyleMaterialDiffuse>()
     .declare_component::<OccStyleMaterialSpecular>()
     .declare_component::<OccStyleMaterialShininess>()
