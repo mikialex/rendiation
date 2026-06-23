@@ -226,7 +226,7 @@ where
     shuffle_idx: impl ComputeComponent<(Node<u32>, Node<bool>)> + 'static,
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceMaterializeResult<T> {
-    let output = cx.use_rw_storage_buffer(self.result_size() as usize);
+    let output = cx.use_rw_storage_buffer_array(self.result_size() as usize, "shuffle_move output");
     let write = ShuffleWrite {
       input: Box::new(
         self

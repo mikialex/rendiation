@@ -64,24 +64,97 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     }
   }
 
-  pub fn use_rw_storage_buffer<T: Std430>(
+  pub fn use_rw_storage_buffer_array_impl<T: Std430>(
     &mut self,
     size_require: usize,
+    label: &str,
+    extra_usage: BufferUsages,
   ) -> StorageBufferDataView<[T]> {
     let gpu = self.gpu.clone();
-    let label = "output storage";
-    let (_, output) = self.use_plain_state(|| {
+    let (_, cached) = self.use_plain_state(|| {
       let init = ZeroedArrayByArrayLength(size_require);
-      create_gpu_read_write_storage::<[T]>(init, &gpu, label)
+      StorageBufferDataView::create_by_with_extra_usage(
+        gpu.device.as_ref(),
+        StorageBufferInit::from(init),
+        extra_usage,
+        label,
+      )
     });
 
-    let current_size = output.item_count() as usize;
+    let current_size = cached.item_count() as usize;
     if current_size < size_require || current_size > size_require * 2 {
       let init = ZeroedArrayByArrayLength(size_require);
-      *output = create_gpu_read_write_storage::<[T]>(init, &gpu, label)
+      *cached = StorageBufferDataView::create_by_with_extra_usage(
+        gpu.device.as_ref(),
+        StorageBufferInit::from(init),
+        extra_usage,
+        label,
+      )
     }
 
-    output.clone()
+    cached.clone()
+  }
+
+  pub fn use_rw_storage_buffer_impl<T: Std430MaybeUnsized + 'static>(
+    &mut self,
+    init: &T,
+    label: &str,
+    extra_usage: BufferUsages,
+  ) -> StorageBufferDataView<T> {
+    let gpu = self.gpu.clone();
+    let (_, cached) = self.use_plain_state(|| {
+      StorageBufferDataView::create_by_with_extra_usage(
+        gpu.device.as_ref(),
+        StorageBufferInit::WithInit(init),
+        extra_usage,
+        label,
+      )
+    });
+
+    cached.clone()
+  }
+
+  pub fn use_rw_storage_buffer_array<T: Std430>(
+    &mut self,
+    size_require: usize,
+    label: &str,
+  ) -> StorageBufferDataView<[T]> {
+    self.use_rw_storage_buffer_array_impl(size_require, label, BufferUsages::empty())
+  }
+
+  pub fn use_storage_buffer_array<T: Std430>(
+    &mut self,
+    size_require: usize,
+    label: &str,
+  ) -> StorageBufferReadonlyDataView<[T]> {
+    self
+      .use_rw_storage_buffer_array_impl(size_require, label, BufferUsages::empty())
+      .into_readonly_view()
+  }
+
+  pub fn use_storage_buffer_array_with_host_data_queue_write_sync<T>(
+    &mut self,
+    data_to_sync: &[T],
+    label: &str,
+  ) -> StorageBufferReadonlyDataView<[T]>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    let buffer = self.use_storage_buffer_array(data_to_sync.len(), label);
+    buffer.write(cast_slice(data_to_sync), 0, &self.gpu.queue);
+    buffer
+  }
+  pub fn use_rw_storage_buffer_array_with_host_data_queue_write_sync<T>(
+    &mut self,
+    data_to_sync: &[T],
+    label: &str,
+  ) -> StorageBufferDataView<[T]>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    self
+      .use_storage_buffer_array_with_host_data_queue_write_sync(data_to_sync, label)
+      .into_rw_view()
   }
 
   pub fn read_buffer(&mut self, buffer: &GPUBufferResourceView) -> ReadBufferFromStagingBuffer {

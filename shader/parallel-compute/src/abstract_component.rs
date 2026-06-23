@@ -154,7 +154,10 @@ pub trait ComputeComponentIO<T>: ComputeComponent<Node<T>> {
     T: Std430 + ShaderSizedValueNodeType,
     Self: Sized,
   {
-    let output = cx.use_rw_storage_buffer(self.result_size() as usize);
+    let output = cx.use_rw_storage_buffer_array(
+      self.result_size() as usize,
+      "materialize_storage_buffer output",
+    );
     self.use_materialize_storage_buffer_into(output, cx)
   }
 

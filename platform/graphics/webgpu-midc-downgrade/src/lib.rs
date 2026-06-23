@@ -50,6 +50,56 @@ pub fn use_downgrade_multi_indirect_draw_count_list_pool(
   let total_capacity = input.list_info.total_capacity;
   let list_count = input.list_info.host_capacity_ranges.len() as u32;
 
+  let limits = &cx.gpu.info.supported_limits;
+  let align_bytes = limits.min_storage_buffer_offset_alignment as u64;
+  let align_u32 = (align_bytes / 4) as u32;
+
+  // (offset, capacity) for each sub prefix output
+  let mut output_prefix_segments_ranges_host = Vec::with_capacity(list_count as usize);
+  let mut offset: u32 = 0;
+  for info in &input.list_info.host_capacity_ranges {
+    let required_capacity = info.capacity + 1; // + 1 for exclusive prefix sum last entry
+    let padded_required_capacity = round_up(required_capacity, align_u32);
+    output_prefix_segments_ranges_host.push(Vec2::new(offset, padded_required_capacity));
+    offset += padded_required_capacity;
+  }
+  let total_padded_entries = offset as usize;
+
+  let output_prefix_segments_ranges = cx.use_storage_buffer_array_with_host_data_queue_write_sync(
+    &output_prefix_segments_ranges_host,
+    "output_prefix_segments_ranges",
+  );
+
+  // Per-sub-list relative exclusive prefix sums: each sub-list gets capacity_i + 1 entries
+  // followed by padding zeros to satisfy storage buffer offset alignment.
+  let output_prefix = cx.use_rw_storage_buffer_array::<u32>(total_padded_entries, "output_prefix");
+
+  let len = list_count as usize * align_u32 as usize;
+  let aligned_counts = cx.use_rw_storage_buffer_array::<u32>(len, "aligned_counts");
+
+  // Combined indirect args: one per sub-list (always use DrawIndirectArgsStorage —
+  // the downgraded draw is always non-indexed indirect)
+  let output_indirect = cx.use_rw_storage_buffer_array_impl::<DrawIndirectArgsStorage>(
+    list_count as usize,
+    "output_indirect one draw cmd",
+    BufferUsages::INDIRECT,
+  );
+  // When buffer is reused across frames, sub-lists with zero elements retain stale
+  // draw commands from the previous frame. The compute shader's is_last_in_sub
+  // check can never be true for count=0 sub-lists (local_idx == count-1 wraps
+  // to u32::MAX), so those entries are never overwritten. Writing zeros here
+  // ensures clean state before the compute shader runs.
+  cx.flush_pass();
+  cx.encoder
+    .clear_buffer(output_indirect.buffer.gpu(), 0, None);
+
+  // compute indirect dispatch size from sum_all_count
+  let dispatch_indirect = cx.use_rw_storage_buffer_impl(
+    &DispatchIndirectArgsStorage::default(),
+    "dispatch_indirect cmd",
+    BufferUsages::INDIRECT,
+  );
+
   let is_indexed = input.command_pool.is_index();
 
   let max_width = cx
@@ -68,60 +118,6 @@ pub fn use_downgrade_multi_indirect_draw_count_list_pool(
   .use_materialize_storage_buffer(cx);
 
   let inclusive_scan_result = inclusive_scan_result.buffer;
-
-  let limits = &cx.gpu.info.supported_limits;
-  let align_bytes = limits.min_storage_buffer_offset_alignment as u64;
-  let align_u32 = (align_bytes / 4) as u32;
-
-  // (offset, capacity) for each sub prefix output
-  let mut output_prefix_segments_ranges_host = Vec::with_capacity(list_count as usize);
-  let mut offset: u32 = 0;
-  for info in &input.list_info.host_capacity_ranges {
-    let required_capacity = info.capacity + 1; // + 1 for exclusive prefix sum last entry
-    let padded_required_capacity = round_up(required_capacity, align_u32);
-    output_prefix_segments_ranges_host.push(Vec2::new(offset, padded_required_capacity));
-    offset += padded_required_capacity;
-  }
-  let total_padded_entries = offset;
-  let output_prefix_segments_ranges = create_gpu_readonly_storage(
-    output_prefix_segments_ranges_host.as_slice(),
-    &cx.gpu,
-    "output_prefix_segments_ranges",
-  );
-
-  // Per-sub-list relative exclusive prefix sums: each sub-list gets capacity_i + 1 entries
-  // followed by padding zeros to satisfy storage buffer offset alignment.
-  let output_prefix: StorageBufferDataView<[u32]> = create_gpu_read_write_storage(
-    ZeroedArrayByArrayLength(total_padded_entries as usize),
-    &cx.gpu,
-    "output_prefix",
-  );
-
-  let aligned_counts: StorageBufferDataView<[u32]> = create_gpu_read_write_storage(
-    ZeroedArrayByArrayLength(list_count as usize * align_u32 as usize),
-    &cx.gpu,
-    "aligned_counts",
-  );
-
-  // Combined indirect args: one per sub-list (always use DrawIndirectArgsStorage —
-  // the downgraded draw is always non-indexed indirect)
-  let output_indirect: StorageBufferDataView<[DrawIndirectArgsStorage]> =
-    StorageBufferDataView::create_by_with_extra_usage(
-      cx.gpu.device.as_ref(),
-      StorageBufferInit::from(ZeroedArrayByArrayLength(list_count as usize)),
-      BufferUsages::INDIRECT,
-      "output_indirect one draw cmd",
-    );
-
-  // compute indirect dispatch size from sum_all_count
-  let dispatch_indirect = StorageBufferDataView::create_by_with_extra_usage(
-    cx.gpu.device.as_ref(),
-    StorageBufferInit::<DispatchIndirectArgsStorage>::from(StorageBufferSizedZeroed::<
-      DispatchIndirectArgsStorage,
-    >::default()),
-    BufferUsages::INDIRECT,
-    "dispatch_indirect cmd",
-  );
 
   cx.record_pass(|pass, device| {
     let hasher = shader_hasher_from_marker_ty!(ListPoolDowngradeDispatchSize);

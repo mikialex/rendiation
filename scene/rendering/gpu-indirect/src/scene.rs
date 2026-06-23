@@ -171,109 +171,107 @@ impl SceneRenderer for IndirectSceneRenderer {
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
     ctx.next_scope_index();
-    ctx.scope(|ctx| {
-      let device_list = match list {
-        SceneModelRenderBatch::Device(batch) => batch,
-        SceneModelRenderBatch::Host(batch) => {
-          if self.using_host_driven_indirect_draw {
-            return ctx.scope(|ctx| {
-              self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass)
-            });
-          }
-          self.create_batch_from_iter(&mut batch.iter_scene_models())
-        }
-      };
-
-      let Some(device_list) = device_list else {
-        return Box::new(IndirectScenePassContent {
-          renderer: self,
-          content: Vec::new(),
-          pass,
-          camera,
-          reversed_depth: self.reversed_depth,
-        });
-      };
-
-      ctx.scope(|ctx| {
-        let mut classified: FastHashMap<u64, (Vec<usize>, Vec<EntityHandle<SceneModelEntity>>)> =
-          FastHashMap::default();
-        let mut mappings = Vec::new();
-
-        assert_eq!(
-          device_list
-            .draw_list
-            .dispatch_info
-            .host_capacity_ranges
-            .len(),
-          device_list.impl_select_ids.len()
-        );
-        for (i, impl_select_id) in device_list.impl_select_ids.iter().enumerate() {
-          if let Some(impl_key) =
-            self.get_impl_distinguish_key_by_impl_select_id(impl_select_id.into_raw())
-          {
-            let (list, list_ids) = classified.entry(impl_key).or_default();
-            let idx = list.len();
-            list.push(i);
-            list_ids.push(*impl_select_id);
-            mappings.push((impl_key, idx, impl_select_id));
-          } else {
-            log::error!("unable to find impl key");
-          }
-        }
-
-        let mut indirect_draw_providers: FastHashMap<
-          u64,
-          FastHashMap<usize, Box<dyn IndirectDrawProvider>>,
-        > = Default::default();
-
-        ctx.next_scope_index();
-        for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
-          ctx.keyed_scope(impl_key, |ctx| {
-            let (dispatch_info, dispatch_info_offset_compacted) =
-              ctx.access_parallel_compute(|ctx| {
-                compute_selected_sub_list_dispatch_info(
-                  ctx,
-                  &device_list.draw_list,
-                  selected_sub_list,
-                )
-              });
-            let device_list_sub_list = DeviceDrawList {
-              id_pool: device_list.draw_list.id_pool.clone(),
-              dispatch_info,
-            };
-
-            ctx.access_parallel_compute(|cx| {
-              if let Some(result) = self.use_create_or_update_indirect_draw_providers(
-                cx,
-                &device_list_sub_list,
-                &dispatch_info_offset_compacted,
-                impl_select_ids[0].into_raw(),
-              ) {
-                // using map is to avoid IndirectDrawProvider impl clone
-                let map = result.into_iter().enumerate().collect();
-                indirect_draw_providers.insert(*impl_key, map);
-              } else {
-                log::error!("unable to create indirect draw provider");
-              }
-            })
+    let device_list = match list {
+      SceneModelRenderBatch::Device(batch) => batch,
+      SceneModelRenderBatch::Host(batch) => {
+        if self.using_host_driven_indirect_draw {
+          return ctx.scope(|ctx| {
+            self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass)
           });
         }
+        self.create_batch_from_iter(&mut batch.iter_scene_models())
+      }
+    };
 
-        let content = mappings
-          .iter()
-          .filter_map(|(impl_id, index, impl_select_sm_id)| {
-            let provider = indirect_draw_providers.get_mut(impl_id)?.remove(index)?;
-            (provider, **impl_select_sm_id).into()
+    let Some(device_list) = device_list else {
+      return Box::new(IndirectScenePassContent {
+        renderer: self,
+        content: Vec::new(),
+        pass,
+        camera,
+        reversed_depth: self.reversed_depth,
+      });
+    };
+
+    ctx.scope(|ctx| {
+      let mut classified: FastHashMap<u64, (Vec<usize>, Vec<EntityHandle<SceneModelEntity>>)> =
+        FastHashMap::default();
+      let mut mappings = Vec::new();
+
+      assert_eq!(
+        device_list
+          .draw_list
+          .dispatch_info
+          .host_capacity_ranges
+          .len(),
+        device_list.impl_select_ids.len()
+      );
+      for (i, impl_select_id) in device_list.impl_select_ids.iter().enumerate() {
+        if let Some(impl_key) =
+          self.get_impl_distinguish_key_by_impl_select_id(impl_select_id.into_raw())
+        {
+          let (list, list_ids) = classified.entry(impl_key).or_default();
+          let idx = list.len();
+          list.push(i);
+          list_ids.push(*impl_select_id);
+          mappings.push((impl_key, idx, impl_select_id));
+        } else {
+          log::error!("unable to find impl key");
+        }
+      }
+
+      let mut indirect_draw_providers: FastHashMap<
+        u64,
+        FastHashMap<usize, Box<dyn IndirectDrawProvider>>,
+      > = Default::default();
+
+      ctx.next_scope_index();
+      for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
+        ctx.keyed_scope(impl_key, |ctx| {
+          let (dispatch_info, dispatch_info_offset_compacted) =
+            ctx.access_parallel_compute(|ctx| {
+              compute_selected_sub_list_dispatch_info(
+                ctx,
+                &device_list.draw_list,
+                selected_sub_list,
+              )
+            });
+          let device_list_sub_list = DeviceDrawList {
+            id_pool: device_list.draw_list.id_pool.clone(),
+            dispatch_info,
+          };
+
+          ctx.access_parallel_compute(|cx| {
+            if let Some(result) = self.use_create_or_update_indirect_draw_providers(
+              cx,
+              &device_list_sub_list,
+              &dispatch_info_offset_compacted,
+              impl_select_ids[0].into_raw(),
+            ) {
+              // using map is to avoid IndirectDrawProvider impl clone
+              let map = result.into_iter().enumerate().collect();
+              indirect_draw_providers.insert(*impl_key, map);
+            } else {
+              log::error!("unable to create indirect draw provider");
+            }
           })
-          .collect();
+        });
+      }
 
-        Box::new(IndirectScenePassContent {
-          renderer: self,
-          content,
-          pass,
-          camera,
-          reversed_depth: self.reversed_depth,
+      let content = mappings
+        .iter()
+        .filter_map(|(impl_id, index, impl_select_sm_id)| {
+          let provider = indirect_draw_providers.get_mut(impl_id)?.remove(index)?;
+          (provider, **impl_select_sm_id).into()
         })
+        .collect();
+
+      Box::new(IndirectScenePassContent {
+        renderer: self,
+        content,
+        pass,
+        camera,
+        reversed_depth: self.reversed_depth,
       })
     })
   }
