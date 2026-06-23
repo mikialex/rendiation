@@ -6,7 +6,7 @@ pub fn test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_re
   last_frame_invisible: StorageBufferDataView<[Bool]>,
   camera: &CameraGPU,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
-  last_frame_visible_list: DeviceSceneModelDrawList,
+  last_frame_visible_list: &DeviceDrawList,
   reverse_depth: bool,
 ) -> Box<dyn AbstractCullerProvider> {
   let device = cx.gpu.device.clone();
@@ -22,7 +22,6 @@ pub fn test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_re
 
   // update the occluder's visibility for the occluder
   let mut hasher = shader_hasher_from_marker_ty!(OcclusionLastFrameVisibleUpdater);
-  let last_frame_visible_list = &last_frame_visible_list.draw_list;
   last_frame_visible_list.hash_pipeline_with_type_info(&mut hasher);
   tester.hash_pipeline_with_type_info(&mut hasher);
 

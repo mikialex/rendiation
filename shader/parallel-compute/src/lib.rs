@@ -305,7 +305,7 @@ where
   ///
   /// the entire histogram should be able to hold in workgroup
   /// workgroup_size should larger than histogram max
-  fn histogram<S>(
+  fn use_histogram<S>(
     self,
     workgroup_privatization: u32,
     cx: &mut DeviceParallelComputeCtx,
@@ -326,7 +326,7 @@ where
       },
       result,
     }
-    .materialize_storage_buffer(cx)
+    .use_materialize_storage_buffer(cx)
   }
 
   fn custom_access(

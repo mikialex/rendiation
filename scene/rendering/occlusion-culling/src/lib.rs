@@ -158,7 +158,7 @@ impl GPUTwoPassOcclusionCulling {
         last_frame_invisible.clone(),
         camera,
         bounding_provider,
-        last_frame_visible_batch,
+        &last_frame_visible_batch.draw_list,
         reverse_depth,
       )
     });
