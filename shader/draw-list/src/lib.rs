@@ -26,6 +26,7 @@ pub struct MultiRangeDispatchInfo {
 
 #[derive(Clone)]
 pub struct CapacityRange {
+  /// must not equal to zero
   pub capacity: u32,
   pub offset: u32,
 }

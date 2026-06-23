@@ -87,6 +87,13 @@ pub fn use_and_create_default_indirect_draw_provider(
   enable_midc_downgrade: bool,
 ) -> Vec<Box<dyn IndirectDrawProvider>> {
   cx.next_scope_index();
+
+  let (output_ranges_host, size_all) =
+    prepare_gpu_sub_list_out_ranges(&list.dispatch_info.host_capacity_ranges);
+
+  let output_ranges =
+    cx.use_storage_buffer_array_with_host_data_queue_write_sync(&output_ranges_host, "ranges");
+
   let results = match draw_command_builder {
     DrawCommandBuilder::Indexed(generator) => cx.scope(|cx| {
       let generator = IndexedDrawCommandGeneratorComponent {
@@ -94,22 +101,12 @@ pub fn use_and_create_default_indirect_draw_provider(
         generator,
       };
 
-      let size = generator.result_size(); // this will waster more padding, but it's ok
-      let init = ZeroedArrayByArrayLength(size as usize);
-      let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
-        cx.gpu.device.as_ref(),
-        StorageBufferInit::<[DrawIndexedIndirectArgsStorage]>::from(init),
-        BufferUsages::INDIRECT,
-        "draw command buffer",
-      );
-      let (output_ranges_host, size_all) =
-        prepare_gpu_sub_list_out_ranges(&list.dispatch_info.host_capacity_ranges);
-      assert_eq!(size_all, size);
-      let output_ranges = create_gpu_readonly_storage(
-        output_ranges_host.as_slice(),
-        cx.gpu.device.as_ref(),
-        "ranges",
-      );
+      let draw_command_buffer = cx
+        .use_rw_storage_buffer_array_impl::<DrawIndexedIndirectArgsStorage>(
+          size_all as usize,
+          "draw command buffer",
+          BufferUsages::INDIRECT,
+        );
 
       let dispatch_size = generator.compute_work_size(cx);
       cx.record_pass(|pass, device| {
@@ -198,22 +195,10 @@ pub fn use_and_create_default_indirect_draw_provider(
         generator,
       };
 
-      let size = generator.result_size();
-      let init = ZeroedArrayByArrayLength(size as usize);
-      let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
-        cx.gpu.device.as_ref(),
-        StorageBufferInit::<[DrawIndirectArgsStorage]>::from(init),
-        BufferUsages::INDIRECT,
+      let draw_command_buffer = cx.use_rw_storage_buffer_array_impl::<DrawIndirectArgsStorage>(
+        size_all as usize,
         "draw command buffer",
-      );
-
-      let (output_ranges_host, size_all) =
-        prepare_gpu_sub_list_out_ranges(&list.dispatch_info.host_capacity_ranges);
-      assert_eq!(size_all, size);
-      let output_ranges = create_gpu_readonly_storage(
-        output_ranges_host.as_slice(),
-        cx.gpu.device.as_ref(),
-        "ranges",
+        BufferUsages::INDIRECT,
       );
 
       let dispatch_size = generator.compute_work_size(cx);

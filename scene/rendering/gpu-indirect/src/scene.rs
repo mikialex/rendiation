@@ -69,6 +69,7 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
     let mut impl_select_ids = Vec::with_capacity(classified.len());
     for (_, list) in &classified {
       let real_len = list.len() as u32;
+      assert!(real_len > 0);
       let padded_len = round_up(real_len, align);
       let offset = models.len() as u32;
       impl_select_ids.push(*list.first().unwrap());
@@ -225,25 +226,23 @@ impl SceneRenderer for IndirectSceneRenderer {
         FastHashMap<usize, Box<dyn IndirectDrawProvider>>,
       > = Default::default();
 
-      ctx.next_scope_index();
-      for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
-        ctx.keyed_scope(impl_key, |ctx| {
-          let (dispatch_info, dispatch_info_offset_compacted) =
-            ctx.access_parallel_compute(|ctx| {
-              compute_selected_sub_list_dispatch_info(
+      ctx.access_parallel_compute(|ctx| {
+        ctx.next_scope_index();
+        for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
+          ctx.keyed_scope(impl_key, |ctx| {
+            let (dispatch_info, dispatch_info_offset_compacted) =
+              use_compute_selected_sub_list_dispatch_info(
                 ctx,
                 &device_list.draw_list,
                 selected_sub_list,
-              )
-            });
-          let device_list_sub_list = DeviceDrawList {
-            id_pool: device_list.draw_list.id_pool.clone(),
-            dispatch_info,
-          };
+              );
+            let device_list_sub_list = DeviceDrawList {
+              id_pool: device_list.draw_list.id_pool.clone(),
+              dispatch_info,
+            };
 
-          ctx.access_parallel_compute(|cx| {
             if let Some(result) = self.use_create_or_update_indirect_draw_providers(
-              cx,
+              ctx,
               &device_list_sub_list,
               &dispatch_info_offset_compacted,
               impl_select_ids[0].into_raw(),
@@ -254,9 +253,9 @@ impl SceneRenderer for IndirectSceneRenderer {
             } else {
               log::error!("unable to create indirect draw provider");
             }
-          })
-        });
-      }
+          });
+        }
+      });
 
       let content = mappings
         .iter()
@@ -278,7 +277,7 @@ impl SceneRenderer for IndirectSceneRenderer {
 }
 
 // return two dispatch infos, (device offset using origin, device offset compacted)
-fn compute_selected_sub_list_dispatch_info(
+fn use_compute_selected_sub_list_dispatch_info(
   cx: &mut DeviceParallelComputeCtx,
   input: &DeviceDrawList,
   pick_list: &[usize],
@@ -293,7 +292,7 @@ fn compute_selected_sub_list_dispatch_info(
   // preserves the original pool offset for correct scene_model_id_pool indexing.
   let mut compact_offset = 0u32;
   let mut compact_offsets = Vec::new();
-  let selected_infos: Vec<CapacityRange> = pick_list
+  let selected_infos: Vec<_> = pick_list
     .iter()
     .map(|&i| {
       let info = &input.dispatch_info.host_capacity_ranges[i];
@@ -308,7 +307,7 @@ fn compute_selected_sub_list_dispatch_info(
     .collect();
 
   let compact_offsets_device =
-    create_gpu_readonly_storage(compact_offsets.as_slice(), &cx.gpu, "compact_offset");
+    cx.use_storage_buffer_array_with_host_data_queue_write_sync(&compact_offsets, "compact_offset");
 
   // sum_all_count_host is set to the sum of capacities (upper bound);
   // the GPU writes the real total into sum_all_count at runtime.
@@ -317,29 +316,25 @@ fn compute_selected_sub_list_dispatch_info(
   // Upload pick_list indices to the GPU.
   let pick_list_u32: Vec<u32> = pick_list.iter().map(|&i| i as u32).collect();
   let pick_list_buffer =
-    create_gpu_readonly_storage(pick_list_u32.as_slice(), &cx.gpu, "pick_list");
+    cx.use_storage_buffer_array_with_host_data_queue_write_sync(&pick_list_u32, "pick_list");
 
   // Output ranges buffer — one StorageSubListRangeInfo per selected sub-list.
-  let output_ranges = StorageBufferDataView::create_by_with_extra_usage(
-    cx.gpu.device.as_ref(),
-    StorageBufferInit::<[StorageSubListRangeInfo]>::from(ZeroedArrayByArrayLength(pick_count)),
-    BufferUsages::INDIRECT,
+  let output_ranges = cx.use_rw_storage_buffer_array_impl::<StorageSubListRangeInfo>(
+    pick_count,
     "output_ranges",
+    BufferUsages::INDIRECT,
   );
 
-  let output_ranges_offset_compacted = StorageBufferDataView::create_by_with_extra_usage(
-    cx.gpu.device.as_ref(),
-    StorageBufferInit::<[StorageSubListRangeInfo]>::from(ZeroedArrayByArrayLength(pick_count)),
-    BufferUsages::INDIRECT,
-    "output_ranges_offset_compacted",
-  );
+  let output_ranges_offset_compacted = cx
+    .use_rw_storage_buffer_array_impl::<StorageSubListRangeInfo>(
+      pick_count,
+      "output_ranges_offset_compacted",
+      BufferUsages::INDIRECT,
+    );
 
   // Output sum_all_count — GPU writes the real total count.
-  let output_sum_all: StorageBufferDataView<u32> = create_gpu_read_write_storage(
-    StorageBufferSizedZeroed::<u32>::default(),
-    cx.gpu.device.as_ref(),
-    "output_sum_all",
-  );
+  let output_sum_all =
+    cx.use_rw_storage_buffer_impl(&0_u32, "output_sum_all", BufferUsages::empty());
 
   cx.record_pass(|pass, device| {
     let hasher = shader_hasher_from_marker_ty!(ComputeSelectedSubListDispatchInfo);

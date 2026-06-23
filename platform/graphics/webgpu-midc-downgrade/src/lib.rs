@@ -355,6 +355,7 @@ pub fn use_downgrade_multi_indirect_draw_count(
     let ranges_init = vec![StorageSubListRangeInfo::new(0, max_count, 0)];
     let device_ranges = DeviceMultiRangeDispatchInfo::new(&cx.gpu, &ranges_init);
 
+    assert!(max_count > 0);
     let host_capacity_ranges = vec![CapacityRange {
       capacity: max_count,
       offset: 0,
