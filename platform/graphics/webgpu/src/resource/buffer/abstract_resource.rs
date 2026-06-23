@@ -173,7 +173,14 @@ pub struct BufferRelocate {
 /// the clone trait implements ref clone semantic
 pub trait AbstractBuffer: DynClone + Send + Sync {
   fn byte_size(&self) -> u64;
-  fn resize_gpu(&mut self, encoder: &mut GPUCommandEncoder, device: &GPUDevice, new_byte_size: u64);
+  /// return if resize is success
+  #[must_use]
+  fn resize_gpu(
+    &mut self,
+    encoder: &mut GPUCommandEncoder,
+    device: &GPUDevice,
+    new_byte_size: u64,
+  ) -> bool;
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue);
 
   /// as the abstract buffer not able to deep clone itself.
@@ -209,7 +216,7 @@ impl AbstractBuffer for BoxedAbstractBuffer {
     encoder: &mut GPUCommandEncoder,
     device: &GPUDevice,
     new_byte_size: u64,
-  ) {
+  ) -> bool {
     (**self).resize_gpu(encoder, device, new_byte_size)
   }
   fn byte_size(&self) -> u64 {
@@ -302,8 +309,8 @@ impl AbstractBuffer for DynTypedStorageBuffer {
     encoder: &mut GPUCommandEncoder,
     device: &GPUDevice,
     new_byte_size: u64,
-  ) {
-    self.buffer = resize_impl(&self.buffer, encoder, device, new_byte_size as u32);
+  ) -> bool {
+    resize_impl(&mut self.buffer, encoder, device, new_byte_size)
   }
   fn byte_size(&self) -> u64 {
     self.buffer.view_byte_size().into()
@@ -486,8 +493,8 @@ where
     encoder: &mut GPUCommandEncoder,
     device: &GPUDevice,
     new_byte_size: u64,
-  ) {
-    self.gpu = resize_impl(&self.gpu, encoder, device, new_byte_size as u32);
+  ) -> bool {
+    resize_impl(&mut self.gpu, encoder, device, new_byte_size)
   }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
@@ -558,8 +565,8 @@ where
     encoder: &mut GPUCommandEncoder,
     device: &GPUDevice,
     new_byte_size: u64,
-  ) {
-    self.gpu = resize_impl(&self.gpu, encoder, device, new_byte_size as u32);
+  ) -> bool {
+    resize_impl(&mut self.gpu, encoder, device, new_byte_size)
   }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
@@ -620,24 +627,28 @@ where
 
 #[must_use]
 fn resize_impl(
-  buffer: &GPUBufferResourceView,
+  buffer: &mut GPUBufferResourceView,
   encoder: &mut GPUCommandEncoder,
   device: &GPUDevice,
-  byte_new_size: u32,
-) -> GPUBufferResourceView {
+  byte_new_size: u64,
+) -> bool {
+  if byte_new_size > device.info().supported_limits.max_buffer_size {
+    return false;
+  }
+
   let usage = buffer.resource.desc.usage;
-  let new_buffer =
-    create_gpu_buffer_zeroed(byte_new_size as u64, usage, device).create_default_view();
+  let new_buffer = create_gpu_buffer_zeroed(byte_new_size, usage, device).create_default_view();
 
   encoder.copy_buffer_to_buffer(
     &buffer.resource.gpu,
     0,
     &new_buffer.resource.gpu,
     0,
-    Some(buffer.resource.desc.size.get().min(byte_new_size as u64)),
+    Some(buffer.resource.desc.size.get().min(byte_new_size)),
   );
 
-  new_buffer
+  *buffer = new_buffer;
+  true
 }
 
 impl<T> AbstractBuffer for AbstractReadonlyStorageBuffer<T>
@@ -653,8 +664,8 @@ where
     encoder: &mut GPUCommandEncoder,
     device: &GPUDevice,
     new_byte_size: u64,
-  ) {
-    self.buffer.resize_gpu(encoder, device, new_byte_size);
+  ) -> bool {
+    self.buffer.resize_gpu(encoder, device, new_byte_size)
   }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {

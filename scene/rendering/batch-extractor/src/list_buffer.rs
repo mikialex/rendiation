@@ -127,9 +127,10 @@ impl PersistSceneModelListBuffer {
       });
 
     if buffer.buffer.item_count() < new_capacity_required as u32 {
-      buffer
+      let success = buffer
         .buffer
         .resize_gpu(encoder, &gpu.device, new_bytes_required);
+      assert!(success);
     }
 
     updates.write_abstract(gpu, encoder, &buffer.buffer);

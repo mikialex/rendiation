@@ -82,7 +82,8 @@ pub fn use_multi_access_gpu(
 
       if let Some(new_size) = allocation_changes.resize_to {
         // here we do(request) resize at spawn stage to avoid resize again and again
-        many_side_buffer_.write().resize(new_size);
+        let success = many_side_buffer_.write().resize(new_size);
+        assert!(success);
       }
 
       Arc::new(RangeAllocateBufferUpdates {

@@ -212,7 +212,8 @@ fn use_attribute_indices_updates(
 
     if let Some(new_size) = changes.resize_to {
       // here we do(request) resize at spawn stage to avoid resize again and again
-      gpu_buffer_.write().resize(new_size);
+      let resize_success = gpu_buffer_.write().resize(new_size);
+      assert!(resize_success);
     }
 
     Arc::new(RangeAllocateBufferUpdates {
@@ -321,7 +322,8 @@ fn use_attribute_vertex_updates(
 
       if let Some(new_size) = changes.resize_to {
         // here we do(request) resize at spawn stage to avoid resize again and again
-        gpu_buffer.write().resize(new_size);
+        let resize_success = gpu_buffer.write().resize(new_size);
+        assert!(resize_success);
       }
 
       Arc::new(RangeAllocateBufferUpdates {

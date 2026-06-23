@@ -126,10 +126,11 @@ impl PerViewGPUResource {
       }
 
       if self.should_check_slab_shrink {
-        self
+        let resize_success = self
           .overrides
           .buffer
           .resize(self.slab.capacity().max(1) as u32);
+        assert!(resize_success);
       }
 
       self.should_check_slab_shrink = false;

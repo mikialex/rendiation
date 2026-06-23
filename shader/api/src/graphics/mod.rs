@@ -33,7 +33,7 @@ pub struct ShaderRenderPipelineBuilder {
   pub info: Arc<GPUInfo>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GPUInfo {
   pub adaptor_info: wgpu_types::AdapterInfo,
   pub power_preference: wgpu_types::PowerPreference,

@@ -95,6 +95,9 @@ pub trait ResizableLinearStorage: LinearStorageBase {
   /// No growth strategy is applied — the resulting capacity is exactly
   /// `new_size`. Callers should use this only when the exact required capacity
   /// is known (e.g. after an external allocator like a slab has been shrunk).
+  ///
+  /// return false if resize fails
+  #[must_use]
   fn resize(&mut self, new_size: u32) -> bool;
 
   /// Ensure the buffer has at least `new_size` capacity.

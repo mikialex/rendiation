@@ -106,7 +106,8 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
 
     if let Some(new_size) = changes.resize_to {
       // here we do(request) resize at spawn stage to avoid resize again and again
-      gpu_buffer.write().resize(new_size);
+      let success = gpu_buffer.write().resize(new_size);
+      assert!(success);
     }
 
     Arc::new(RangeAllocateBufferUpdates {
