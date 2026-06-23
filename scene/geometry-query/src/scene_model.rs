@@ -328,13 +328,14 @@ fn pre_check_bounding_early_return_and_compute_local_tolerance(
   internal: &impl LocalModelPicker,
   mat: Mat4<f64>,
 ) -> Option<f32> {
+  let max_scale = mat.max_scale();
   let mut local_tolerance = if let Some(tolerance) = internal.bounding_enlarge_tolerance(idx)? {
     let target_world_center = sm_world_bounding.center();
 
     let local_tolerance =
       ctx
         .camera_ctx
-        .compute_local_tolerance(tolerance, mat.max_scale(), target_world_center);
+        .compute_local_tolerance(tolerance, max_scale, target_world_center);
     local_tolerance
   } else {
     0.
@@ -344,13 +345,13 @@ fn pre_check_bounding_early_return_and_compute_local_tolerance(
     let target_world_center = sm_world_bounding.center();
     local_tolerance += ctx.camera_ctx.compute_local_tolerance(
       IntersectTolerance::new(ctx.extra_screen_space_tolerance, ToleranceType::ScreenSpace),
-      mat.max_scale(),
+      max_scale,
       target_world_center,
     );
   }
 
   if local_tolerance > 0. {
-    sm_world_bounding = sm_world_bounding.enlarge(local_tolerance as f64);
+    sm_world_bounding = sm_world_bounding.enlarge(local_tolerance as f64 * max_scale);
   }
 
   let sm_intersected =
