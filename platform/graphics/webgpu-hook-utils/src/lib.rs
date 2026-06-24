@@ -57,7 +57,7 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
   >,
 ) -> (
   AbstractReadonlyStorageBuffer<[T]>,
-  UseResult<Arc<RangeAllocateBufferUpdates>>,
+  UseResult<Arc<RangeAllocateBufferUpdates<RawEntityHandle>>>,
 ) {
   let item_byte_size = std::mem::size_of::<T>() as u32;
   let (cx, gpu_target_buffer) = cx.use_gpu_init(|gpu, alloc| {
@@ -78,7 +78,7 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
   });
 
   let allocator = cx.use_sharable_plain_state(|| {
-    GrowableRangeAllocator::new(label, max_item_count, init_item_count)
+    GrowableRangeAllocator::new(label, max_item_count, init_item_count, 1)
   });
 
   let gpu_buffer = gpu_target_buffer.clone();

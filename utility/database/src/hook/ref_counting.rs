@@ -15,6 +15,7 @@ pub fn use_db_all_foreign_key_change(
   cx: &mut impl DBHookCxLike,
   config: &RevOwnershipForeignKeysConfig,
 ) -> UseResult<DBAllForeignKeyChange> {
+  cx.next_scope_index();
   let mut changes = DBAllForeignKeyChange::default();
 
   cx.skip_if_not_waked(|cx| {

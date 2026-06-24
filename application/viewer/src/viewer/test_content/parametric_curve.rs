@@ -22,7 +22,7 @@ fn sample_curve_to_vertices(
 }
 
 pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
-  // --- Left group: Bezier decomposition of a NURBS curve with interior knots ---
+  // Left group: Bezier decomposition of a NURBS curve with interior knots
   {
     let nurbs = {
       let points = vec![
@@ -72,7 +72,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
     }
   }
 
-  // --- Right group: full NURBS curve for comparison (single wide line) ---
+  // Right group: full NURBS curve for comparison (single wide line)
   {
     let nurbs = {
       let points = vec![
@@ -119,7 +119,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
     });
   }
 
-  // --- Simple degree-3 Bézier curves as control polygon + curve overlay ---
+  // Simple degree-3 Bézier curves as control polygon + curve overlay
   {
     let curves: Vec<(Vec<Vec3<f32>>, Vec4<f32>)> = vec![
       (

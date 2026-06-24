@@ -252,7 +252,7 @@ fn per_camera_per_viewport_scope(
   consider_debug_view_camera_override: bool,
   logic: impl Fn(&mut ViewerCx, &CameraViewportAccess),
 ) {
-  cx.next_key_scope_root();
+  cx.next_scope_index();
 
   let surface_content = &cx.active_surface_content;
 

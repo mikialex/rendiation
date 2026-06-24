@@ -1,4 +1,5 @@
-use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
+use std::{any::Any, hash::Hash};
+
 use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_webgpu_midc_downgrade::{
   require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
@@ -101,6 +102,46 @@ pub struct Text3dIndirectRenderer {
   used_in_midc_downgrade: bool,
 }
 
+impl IndirectDrawProviderCreator for Text3dIndirectRenderer {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    self.access.get(id)?;
+    fast_hash_scope(|hasher| self.type_id().hash(hasher)).into()
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut rendiation_device_parallel_compute::DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    let cmd_builder = self.make_draw_command_builder(id)?;
+    use_and_create_default_indirect_draw_provider(
+      list,
+      dispatch_info_device_offset_compacted,
+      cmd_builder,
+      cx,
+      self.used_in_midc_downgrade,
+    )
+    .into()
+  }
+}
+
+impl DrawCommandBuilderCreator for Text3dIndirectRenderer {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    self.access.get(id)?;
+    let creator = Text3dDrawCreator {
+      params: self.text_meta.clone(),
+      params_host: self.text_meta_host.clone(),
+      sm_to_text_device: self.sm_to_text3d_device.clone(),
+      sm_to_text: self.access.clone(),
+    };
+    DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
+  }
+}
+
 impl IndirectModelRenderImpl for Text3dIndirectRenderer {
   fn hash_shader_group_key(
     &self,
@@ -139,44 +180,6 @@ impl IndirectModelRenderImpl for Text3dIndirectRenderer {
     };
 
     Some(Box::new(c))
-  }
-
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>> {
-    self.access.get(batch.impl_select_id)?;
-
-    let draw_command_builder = self
-      .make_draw_command_builder(batch.impl_select_id)
-      .unwrap();
-
-    ctx
-      .access_parallel_compute(|cx| {
-        batch.create_default_indirect_draw_provider(
-          draw_command_builder,
-          cx,
-          self.used_in_midc_downgrade,
-        )
-      })
-      .into()
-  }
-
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<DrawCommandBuilder> {
-    self.access.get(any_idx)?;
-
-    let creator = Text3dDrawCreator {
-      params: self.text_meta.clone(),
-      params_host: self.text_meta_host.clone(),
-      sm_to_text_device: self.sm_to_text3d_device.clone(),
-      sm_to_text: self.access.clone(),
-    };
-
-    DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
   }
 
   fn material_renderable_indirect<'a>(

@@ -69,8 +69,7 @@ pub fn build_bezier_curve_bernstein_pipeline(
   sample_count: u32,
   workgroup_size: u32,
 ) -> GPUComputePipeline {
-  let mut hasher = PipelineHasher::default();
-  hasher.hash(workgroup_size);
+  let hasher = shader_hasher_from_marker_ty!(BezierCurveEval).with_hash(workgroup_size);
 
   gpu
     .device
@@ -92,7 +91,7 @@ pub fn build_bezier_curve_bernstein_pipeline(
       let t = gid.into_f32() / val((sample_count.max(2) - 1) as f32);
       let degree = info.degree().load();
 
-      // --- de Casteljau fast-path for degree 1–3 ---
+      // de Casteljau fast-path for degree 1–3
       if_by(degree.less_than(val(4u32)), || {
         let cp_data = cp.data();
 

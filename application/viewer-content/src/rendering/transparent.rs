@@ -24,7 +24,7 @@ impl ViewerTransparentRenderer {
     matches!(self, ViewerTransparentRenderer::NaiveAlphaBlend)
   }
 
-  pub fn render(
+  pub fn use_render(
     &self,
     ctx: &mut FrameCtx,
     cull_cx: &mut ViewerCulling,
@@ -36,8 +36,12 @@ impl ViewerTransparentRenderer {
     scene_result: &RenderTargetView,
     pass_com: &dyn RenderComponent,
     opaque_pass_dispatcher: &dyn RenderComponent,
-    draw_opaque_content: impl FnOnce(&mut FrameCtx<'_>, &mut ViewerCulling) -> Option<ActiveRenderPass>,
+    use_draw_opaque_content: impl FnOnce(
+      &mut FrameCtx<'_>,
+      &mut ViewerCulling,
+    ) -> Option<ActiveRenderPass>,
   ) {
+    ctx.next_scope_index();
     let mut all_transparent_object =
       if let SceneModelRenderBatch::Host(all_transparent_object) = all_transparent_object {
         if self.should_reorder_draw_list() {
@@ -59,20 +63,26 @@ impl ViewerTransparentRenderer {
         all_transparent_object
       };
 
-    cull_cx.install_frustum_culler(&mut all_transparent_object, camera_gpu, viewport.camera);
+    cull_cx.use_execute_frustum_culler(
+      ctx,
+      &mut all_transparent_object,
+      camera_gpu,
+      viewport.camera,
+      true,
+    );
 
     match self {
       ViewerTransparentRenderer::NaiveAlphaBlend => {
         ctx.scope(|ctx| {
           let mut all_transparent_object_pass_content =
-            renderer.scene.make_scene_batch_pass_content(
+            renderer.scene.use_make_scene_batch_pass_content(
               all_transparent_object.clone(),
               camera_gpu,
               opaque_pass_dispatcher,
               ctx,
             );
 
-          if let Some(active_pass) = draw_opaque_content(ctx, cull_cx) {
+          if let Some(active_pass) = use_draw_opaque_content(ctx, cull_cx) {
             active_pass.by(&mut all_transparent_object_pass_content);
           } else {
             let mut pass_base = pass("scene forward transparent extra split alpha blend");
@@ -87,7 +97,7 @@ impl ViewerTransparentRenderer {
       }
       ViewerTransparentRenderer::Loop32OIT(oit) => {
         ctx.scope(|ctx| {
-          draw_opaque_content(ctx, cull_cx);
+          use_draw_opaque_content(ctx, cull_cx);
 
           let mut pass_base_transparent = pass("scene forward transparent loop32 oit");
           let g_buffer_base_writer =
@@ -113,7 +123,7 @@ impl ViewerTransparentRenderer {
       }
       ViewerTransparentRenderer::WeightedOIT => {
         ctx.scope(|ctx| {
-          draw_opaque_content(ctx, cull_cx);
+          use_draw_opaque_content(ctx, cull_cx);
 
           let mut pass_base_transparent = pass("scene forward transparent weighted oit");
           let g_buffer_base_writer =
@@ -135,9 +145,9 @@ impl ViewerTransparentRenderer {
           );
         });
       }
-      ViewerTransparentRenderer::Opaque => {
-        draw_opaque_content(ctx, cull_cx);
-      }
+      ViewerTransparentRenderer::Opaque => ctx.scope(|ctx| {
+        use_draw_opaque_content(ctx, cull_cx);
+      }),
     }
   }
 }

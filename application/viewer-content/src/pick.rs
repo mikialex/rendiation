@@ -107,6 +107,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
   viewports_map: ViewportsImmediate,
   use_scene_bvh: bool,
 ) -> Option<ViewerPicker> {
+  cx.next_scope_index();
   let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
   let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
 

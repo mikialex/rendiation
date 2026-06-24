@@ -1,11 +1,9 @@
-use std::hash::Hash;
 use std::sync::Arc;
 
 use database::*;
 use fast_hash_collection::*;
 use interning::InternedId;
 use parking_lot::RwLock;
-use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
@@ -15,20 +13,30 @@ use rendiation_webgpu_hook_utils::*;
 mod list_buffer;
 pub use list_buffer::*;
 
+mod list_pool;
+pub use list_pool::*;
+
 mod default_key_logic;
 pub use default_key_logic::*;
 
 mod extractor;
 pub use extractor::{
-  IncrementalDeviceSceneBatchExtractor, IncrementalDeviceSceneBatchExtractorShared,
+  ExtractorUpdate, IncrementalDeviceSceneBatchExtractor, IncrementalDeviceSceneBatchExtractorShared,
 };
 
 pub fn use_incremental_device_scene_batch_extractor<K: CKey>(
   cx: &mut QueryGPUHookCx,
   sm_group_key_with_scene_id: UseResult<BoxedDynDualQuery<RawEntityHandle, (K, RawEntityHandle)>>,
 ) -> Option<LockReadGuardHolder<IncrementalDeviceSceneBatchExtractor<K>>> {
-  let (cx, extractor) =
-    cx.use_plain_state_default_cloned::<IncrementalDeviceSceneBatchExtractorShared<K>>();
+  let (cx, (allocator, extractor)) = cx.use_gpu_init(|gpu, allocator| {
+    let pool = SceneModelListPool::new(allocator, gpu, 1024);
+    let allocator = pool.allocator_shared();
+    let extractor = Arc::new(RwLock::new(IncrementalDeviceSceneBatchExtractor::new(pool)));
+    (allocator, extractor)
+  });
+
+  let allocator = allocator.clone();
+  let extractor = extractor.clone();
 
   cx.if_inspect(|inspector| {
     let bytes = extractor.read().memory_usage();
@@ -39,17 +47,15 @@ pub fn use_incremental_device_scene_batch_extractor<K: CKey>(
   let gpu_updates = sm_group_key_with_scene_id
     .map_spawn_stage_in_thread_dual_query(cx, move |v| {
       let change = v.delta();
-      Arc::new(extractor_.write().prepare_updates(change).0)
+      let update = extractor_.write().prepare_updates(change, &allocator);
+      Arc::new(update)
     })
     .use_assure_result(cx);
 
   if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
-    extractor.write().do_updates(
-      &gpu_updates.expect_resolve_stage(),
-      &cx.storage_allocator,
-      cx.gpu,
-      encoder,
-    );
+    extractor
+      .write()
+      .do_updates(&gpu_updates.expect_resolve_stage().0, cx.gpu, encoder);
 
     Some(extractor.make_read_holder())
   } else {

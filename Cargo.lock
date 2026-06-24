@@ -3935,6 +3935,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-device-draw-list"
+version = "0.1.0"
+dependencies = [
+ "dyn-clone",
+ "pollster",
+ "rendiation-device-parallel-compute",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
+]
+
+[[package]]
 name = "rendiation-device-parallel-compute"
 version = "0.1.0"
 dependencies = [
@@ -4467,8 +4479,10 @@ dependencies = [
  "interning",
  "log",
  "parking_lot",
+ "pollster",
  "rendiation-algebra",
  "rendiation-color",
+ "rendiation-device-draw-list",
  "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-lighting-gpu-system",
@@ -4848,6 +4862,7 @@ dependencies = [
  "rendiation-area-lighting",
  "rendiation-controller",
  "rendiation-csg-sdf-expression",
+ "rendiation-device-parallel-compute",
  "rendiation-device-ray-tracing",
  "rendiation-dynamic-bvh-scene",
  "rendiation-fast-down-sampling-2d",
@@ -4953,6 +4968,9 @@ dependencies = [
 name = "rendiation-webgpu-midc-downgrade"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "pollster",
+ "rendiation-device-draw-list",
  "rendiation-device-parallel-compute",
  "rendiation-shader-api",
  "rendiation-webgpu",
@@ -4987,6 +5005,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
+ "fast-hash-collection",
  "parking_lot",
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
@@ -5009,6 +5028,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
+ "fast-hash-collection",
  "parking_lot",
  "rendiation-algebra",
  "rendiation-device-parallel-compute",

@@ -56,6 +56,7 @@ impl CSGClippingRenderer {
     Option<Box<dyn RenderComponent>>,
     Option<ViewerClippingHelper>,
   ) {
+    ctx.next_scope_index();
     if !self.enable {
       return (None, None);
     }

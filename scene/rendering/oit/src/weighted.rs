@@ -42,7 +42,7 @@ pub fn draw_weighted_oit(
   let pass_com = RenderArray([dispatch, pass_com]);
 
   let mut draw_content =
-    scene_renderer.make_scene_batch_pass_content(transparent_content, camera, &pass_com, ctx);
+    scene_renderer.use_make_scene_batch_pass_content(transparent_content, camera, &pass_com, ctx);
 
   pass_target.render_ctx(ctx).by(&mut draw_content);
 

@@ -1,6 +1,7 @@
 #![feature(impl_trait_in_assoc_type)]
 
 use database::*;
+use fast_hash_collection::*;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;

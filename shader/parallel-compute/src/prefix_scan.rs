@@ -144,7 +144,7 @@ async fn test_workgroup_prefix_sum_kogge_stone() {
 
   let input = slice_into_compute(&input, cx);
   input
-    .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, cx)
+    .use_workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, cx)
     .run_test(cx, &expect)
     .await
 }
@@ -166,7 +166,7 @@ async fn test_prefix_sum_kogge_stone() {
 
   let input = slice_into_compute(&input, cx);
   input
-    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size, cx)
+    .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size, cx)
     .run_test(cx, &expect)
     .await
 }

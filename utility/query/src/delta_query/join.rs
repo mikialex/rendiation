@@ -203,7 +203,7 @@ fn exist_both<V1, V2>(
   }
 }
 
-// --- cross_join_change helper branch coverage ---
+// cross_join_change helper branch coverage
 
 #[test]
 fn test_cross_join_value_change_delta_delta() {
@@ -291,7 +291,7 @@ fn test_cross_join_value_change_remove_delta() {
   assert_eq!(joined.access(&(1, 100)), None);
 }
 
-// --- iter_key_value stream coverage ---
+// iter_key_value stream coverage
 
 #[test]
 fn test_cross_join_value_change_a_delta_b_static() {

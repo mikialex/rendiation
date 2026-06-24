@@ -19,6 +19,8 @@ pub fn use_gpu_texture_cubes(
   cx: &mut QueryGPUHookCx,
   allocate_mipmap: bool,
 ) -> (Arc<RwLock<FastHashMap<RawEntityHandle, GPUCubeTextureView>>>, CubeMapChanges) {
+  cx.next_scope_index();
+  
   let (cx, env_background_map_gpu) = cx.use_plain_state_default::<Arc<RwLock<FastHashMap<RawEntityHandle, GPUCubeTextureView>>>>();
 
   let mut target = env_background_map_gpu.write();

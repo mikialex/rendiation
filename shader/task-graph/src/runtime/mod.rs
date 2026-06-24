@@ -432,10 +432,11 @@ impl DeviceTaskGraphExecutor {
     let self_task_groups: &'static [TaskGroupExecutor] =
       unsafe { std::mem::transmute(self_task_groups) };
 
+    // todo, note, we are not using scope here to reduce memory(give up caches)
     for _ in 0..dispatch_round_count {
       for (idx, task) in self.task_groups.iter_mut().enumerate() {
         let source = &source.tasks[idx];
-        task.execute(cx, self_task_groups, source);
+        task.use_execute(cx, self_task_groups, source);
       }
 
       if enable_empty_assert {
