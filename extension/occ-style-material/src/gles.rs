@@ -46,7 +46,6 @@ pub fn use_occ_material_uniforms(
 
   cx.when_render(|| OccStyleMaterialGlesRenderer {
     material_access: read_global_db_foreign_key(),
-    transparent: read_global_db_component(),
     effect_access: read_global_db_foreign_key(),
     shade_type: read_global_db_component(),
     uniforms: uniforms.make_read_holder(),
@@ -59,7 +58,6 @@ pub fn use_occ_material_uniforms(
 
 pub struct OccStyleMaterialGlesRenderer {
   material_access: ForeignKeyReadView<StdModelOccStyleMaterialPayload>,
-  transparent: ComponentReadView<OccStyleMaterialTransparent>,
   effect_access: ForeignKeyReadView<OccStyleMaterialEffect>,
   shade_type: ComponentReadView<OccStyleEffectShadeType>,
   states: ComponentReadView<OccStyleEffectStateOverride>,
@@ -76,7 +74,6 @@ impl GLESModelMaterialRenderImpl for OccStyleMaterialGlesRenderer {
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let idx = self.material_access.get(idx)?;
-    let transparent = self.transparent.get_value(idx)?;
     let effect = self.effect_access.get(idx)?;
     let shade_type = self.shade_type.get_value(effect)?;
     Some(Box::new(OccStyleMaterialGPU {
@@ -84,7 +81,6 @@ impl GLESModelMaterialRenderImpl for OccStyleMaterialGlesRenderer {
       tex_uniform: self.tex_uniforms.get(&idx.alloc_index())?,
       diffuse_tex_sampler: self.diffuse_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       binding_sys: cx,
-      transparent,
       shade_type,
       reverse_z: self.reverse_z,
       states: self.states.get(effect)?,
@@ -120,7 +116,6 @@ pub struct OccStyleMaterialGPU<'a> {
   tex_uniform: &'a UniformBufferDataView<OccStyleMaterialTextureHandlesUniform>,
   diffuse_tex_sampler: (u32, u32),
   binding_sys: &'a GPUTextureBindingSystem,
-  transparent: bool,
   shade_type: OccStyleEffectType,
   reverse_z: bool,
   states: &'a Option<RasterizationStates>,
@@ -130,7 +125,6 @@ impl ShaderHashProvider for OccStyleMaterialGPU<'_> {
   shader_hash_type_id! {OccStyleMaterialGPU<'static>}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    hasher.hash(self.transparent);
     hasher.hash(self.shade_type);
     hasher.hash(self.states);
   }
@@ -221,14 +215,6 @@ impl GraphicsShaderProvider for OccStyleMaterialGPU<'_> {
 
           builder.insert_type_tag::<UnlitMaterialTag>();
         }
-      }
-
-      if self.transparent {
-        builder.frag_output.iter_mut().for_each(|p| {
-          if p.is_blendable() {
-            p.states.blend = BlendState::ALPHA_BLENDING.into();
-          }
-        });
       }
 
       if let Some(states) = self.states {

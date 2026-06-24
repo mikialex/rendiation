@@ -26,12 +26,15 @@ rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 wgpu-types = { workspace = true }
 ordered-float = "4.6"
 
+mimalloc = { version = "0.1.52", optional = true }
+
 [build-dependencies]
 cbindgen = "0.29.2"
 
 [features]
-default = ["extra-checks"]
+default = ["extra-checks", "mimalloc"]
 extra-checks = ["rendiation-viewer-content/extra-checks"]
+mimalloc = ["dep:mimalloc"]
 
 [lints]
 workspace = true

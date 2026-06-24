@@ -793,8 +793,6 @@ ViewerEntityHandle create_occ_material();
 
 void drop_occ_material(ViewerEntityHandle handle);
 
-void occ_material_set_transparent(ViewerEntityHandle mat, bool transparent);
-
 void occ_material_set_diffuse(ViewerEntityHandle mat, const float (*color)[4]);
 
 void occ_material_set_specular(ViewerEntityHandle mat, const float (*color)[3]);

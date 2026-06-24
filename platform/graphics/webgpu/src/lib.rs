@@ -224,9 +224,6 @@ impl GPU {
       })
       .await?;
 
-    let device = GPUDevice::new(device, config.default_shader_checks);
-    let queue = GPUQueue::new(queue);
-
     let info = GPUInfo {
       adaptor_info: adaptor.get_info(),
       power_preference: config.power_preference,
@@ -234,6 +231,9 @@ impl GPU {
       supported_limits,
       downgrade_info: adaptor.get_downlevel_capabilities(),
     };
+
+    let device = GPUDevice::new(device, info.clone(), config.default_shader_checks);
+    let queue = GPUQueue::new(queue);
 
     let surface = init_surface.map(|init_surface| {
       GPUSurface::new(

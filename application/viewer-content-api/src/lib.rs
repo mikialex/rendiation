@@ -12,6 +12,10 @@ mod cx;
 use cx::*;
 pub use wgpu_types::TextureFormat;
 
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ViewerEntityHandle {

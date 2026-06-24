@@ -11,7 +11,11 @@ impl AsRef<Self> for GPUDevice {
 }
 
 impl GPUDevice {
-  pub(crate) fn new(device: gpu::Device, default_shader_checks: ShaderRuntimeChecks) -> Self {
+  pub(crate) fn new(
+    device: gpu::Device,
+    info: GPUInfo,
+    default_shader_checks: ShaderRuntimeChecks,
+  ) -> Self {
     let placeholder_bg = device.create_bind_group(&gpu::BindGroupDescriptor {
       layout: &device.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
         label: "PlaceholderBindgroup".into(),
@@ -35,11 +39,16 @@ impl GPUDevice {
         Arc::new(RwLock::new(enabled))
       },
       default_shader_checks,
+      info,
     };
 
     Self {
       inner: Arc::new(inner),
     }
+  }
+
+  pub fn info(&self) -> &GPUInfo {
+    &self.inner.info
   }
 
   pub fn set_binding_ty_check_enabled(&self, v: bool) {
@@ -218,6 +227,8 @@ pub(crate) struct GPUDeviceImpl {
   pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
   pub(crate) enable_binding_ty_check: Arc<RwLock<bool>>,
   pub(crate) default_shader_checks: ShaderRuntimeChecks,
+  /// this info is as same as the gpu, we clone here for easy access
+  info: GPUInfo,
 }
 
 impl Deref for GPUDevice {

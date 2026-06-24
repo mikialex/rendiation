@@ -376,7 +376,7 @@ fn test_gpu_triangle_naive() {
       &self,
       builder: &mut ShaderComputePipelineBuilder,
     ) -> Box<dyn DeviceInvocation<Node<u32>>> {
-      builder.log_result = true;
+      log_shader_build_result();
 
       let upstream_shader = self.upstream.build_shader(builder);
 

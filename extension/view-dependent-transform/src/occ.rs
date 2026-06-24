@@ -17,7 +17,7 @@ pub fn use_occ_style_view_dependent_transform_data(
   cx: &mut impl DBHookCxLike,
   view_source: UseResult<BoxedDynDualQuery<ViewKey, (RawEntityHandle, Vec2<f32>)>>, /* (camera, view_size) */
   camera_transforms: UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = CameraTransform>>,
-) -> UseResult<BoxedDynDualQuery<ViewSceneModelKey, Mat4<f64>>> {
+) -> UseResult<DualQueryHashMaterialized<ViewSceneModelKey, Mat4<f64>>> {
   let source = cx
     .use_dual_query::<SceneModelViewDependentTransformOcc>()
     .dual_query_filter_map(|v| v);
@@ -47,7 +47,7 @@ pub fn use_occ_style_view_dependent_transform_data(
     .dual_query_map(|((view_size, (transform, target)), view_dep)| {
       view_dep.view_dependent_transform(&transform, target, view_size)
     })
-    .dual_query_boxed()
+    .use_dual_query_materialized_hashmap(cx, "view dependent transform")
 }
 
 fn compute_view_dimension(camera_transform: &CameraTransform, look_at: Vec3<f64>) -> Vec3<f64> {

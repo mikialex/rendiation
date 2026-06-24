@@ -49,7 +49,8 @@ impl SceneModelListPool {
   }
 
   pub fn update_pool_size(&mut self, new_size: u32) {
-    self.pool_buffer.resize(new_size);
+    let success = self.pool_buffer.resize(new_size);
+    assert!(success);
   }
 
   pub fn pool_buffer(&self) -> &AbstractReadonlyStorageBuffer<[u32]> {

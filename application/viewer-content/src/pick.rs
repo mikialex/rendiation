@@ -299,6 +299,7 @@ pub fn create_camera_query_ctx_from_vpc(ctx: &ViewportPointerCtx) -> CameraQuery
     pixels_per_unit_calc: ctx.create_ratio_cal(),
     camera_world: ctx.camera_world_mat,
     camera_vp: ctx.projection.into_f64() * ctx.camera_world_mat.inverse_or_identity(),
+    camera_max_scale: ctx.camera_world_mat.max_scale() as f32,
   }
 }
 

@@ -28,15 +28,12 @@ pub struct ShaderRenderPipelineBuilder {
   pub(crate) vertex: ShaderVertexBuilder,
   pub(crate) fragment: ShaderFragmentBuilder,
 
-  /// Log the shader build result when building shader, for debug purpose.
-  pub log_result: bool,
-
   errors: ErrorSink,
   pub debugger: ShaderBuilderDebugger,
   pub info: Arc<GPUInfo>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GPUInfo {
   pub adaptor_info: wgpu_types::AdapterInfo,
   pub power_preference: wgpu_types::PowerPreference,
@@ -70,7 +67,6 @@ impl ShaderRenderPipelineBuilder {
       bindgroups: Default::default(),
       vertex: ShaderVertexBuilder::new(errors.clone()),
       fragment: ShaderFragmentBuilder::new(errors.clone()),
-      log_result: false,
       debugger: Default::default(),
       errors,
       info,
