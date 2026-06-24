@@ -616,23 +616,17 @@ impl ShaderAPI for ShaderAPINagaImpl {
   fn mark_handle_debug_name(&mut self, h: ShaderNodeRawHandle, name: String) {
     let handle = self.get_expression(h);
 
-    let top_fn = self
-      .building_fn
-      .last_mut()
-      .unwrap();
-    if let Ok(expr) = top_fn
-      .expressions
-      .try_get(handle)
-    {
-      match expr{
-        naga::Expression::GlobalVariable(g)  =>{
+    let top_fn = self.building_fn.last_mut().unwrap();
+    if let Ok(expr) = top_fn.expressions.try_get(handle) {
+      match expr {
+        naga::Expression::GlobalVariable(g) => {
           self.module.global_variables.get_mut(*g).name = Some(name.clone());
-        },
+        }
         naga::Expression::FunctionArgument(idx) => {
           top_fn.arguments[*idx as usize].name = Some(name.clone());
-        },
+        }
         _ => {
-           self
+          self
             .building_fn
             .last_mut()
             .unwrap()
@@ -641,8 +635,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
         }
       }
     }
-
-   
   }
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle {

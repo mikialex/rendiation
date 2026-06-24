@@ -7,7 +7,6 @@
 #![allow(clippy::collapsible_match)]
 #![feature(cold_path)]
 
-use std::alloc::System;
 use std::any::Any;
 use std::future::Future;
 use std::hash::Hash;
@@ -44,16 +43,29 @@ use rendiation_texture_core::*;
 use rendiation_webgpu::*;
 pub use viewer::*;
 
+#[cfg(feature = "mimalloc")]
+type AppAllocator = mimalloc::MiMalloc;
+#[cfg(feature = "mimalloc")]
+const APP_ALLOCATOR: AppAllocator = mimalloc::MiMalloc;
+
+#[cfg(not(feature = "mimalloc"))]
+type AppAllocator = std::alloc::System;
+#[cfg(not(feature = "mimalloc"))]
+const APP_ALLOCATOR: AppAllocator = std::alloc::System;
+
 #[cfg(feature = "tracy-heap-debug")]
 #[global_allocator]
 static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<
-  tracing_tracy::client::ProfiledAllocator<System>,
-> = PreciseAllocationStatistics::new(tracing_tracy::client::ProfiledAllocator::new(System, 64));
+  tracing_tracy::client::ProfiledAllocator<AppAllocator>,
+> = PreciseAllocationStatistics::new(tracing_tracy::client::ProfiledAllocator::new(
+  APP_ALLOCATOR,
+  64,
+));
 
 #[cfg(not(feature = "tracy-heap-debug"))]
 #[global_allocator]
-static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<System> =
-  PreciseAllocationStatistics::new(System);
+static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<AppAllocator> =
+  PreciseAllocationStatistics::new(APP_ALLOCATOR);
 
 pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   setup_global_database(Default::default());

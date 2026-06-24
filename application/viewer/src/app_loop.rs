@@ -279,7 +279,9 @@ impl GPUOrGPUCreateFuture {
         if let Poll::Ready(gpu) = future.poll_unpin(ctx) {
           #[cfg(target_family = "wasm")]
           if gpu.gpu.info().adaptor_info.backend == Backend::Gl {
-            log::warn!("selected backend is webgl, major performance issue may happen and features may missing");
+            log::warn!(
+              "selected backend is webgl, major performance issue may happen and features may missing"
+            );
           }
 
           *self = GPUOrGPUCreateFuture::Created(gpu);
