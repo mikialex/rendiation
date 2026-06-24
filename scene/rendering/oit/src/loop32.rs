@@ -1,4 +1,6 @@
-use rendiation_shader_library::color::shader_linear_to_srgb_convert;
+use rendiation_shader_library::color::{
+  shader_linear_to_srgb_convert, shader_srgb_to_linear_convert,
+};
 
 use crate::*;
 
@@ -40,7 +42,8 @@ impl OitLoop32Renderer {
 }
 
 impl OitLoop32RendererInstance {
-  /// OIT_LOOP does not support MSAA at the moment.
+  /// OIT_LOOP does not support MSAA at the moment, but it can draw none msaa on mass input
+  ///
   /// It uses two passes and a resolve pass; the first stores the depths of the
   /// front most OIT_LAYERS fragments per pixel in the A-buffer, in order from
   /// nearest to farthest. Then the second pass writes the sorted colors into
@@ -131,6 +134,7 @@ impl OitLoop32RendererInstance {
 
     pass("loop32 oit resolve pass")
       .with_color(final_color_target, load_and_store())
+      .with_depth(depth, load_and_store(), load_and_store())
       .render_ctx(ctx)
       .by(
         &mut OitResolvePass {
@@ -143,7 +147,7 @@ impl OitLoop32RendererInstance {
   }
 }
 
-const USE_EARLY_DEPTH: bool = true;
+const USE_EARLY_DEPTH: bool = false;
 const OIT_TAILBLEND: bool = true;
 
 struct Loop32DepthPrePass {
@@ -160,6 +164,8 @@ impl ShaderHashProvider for Loop32DepthPrePass {
 impl GraphicsShaderProvider for Loop32DepthPrePass {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|cx, binding| {
+      only_first_sample(cx);
+
       cx.depth_stencil.as_mut().unwrap().depth_write_enabled = false;
 
       let oit_layers = self.oit_depth_layers.build(binding);
@@ -253,6 +259,8 @@ impl ShaderHashProvider for OitColorPass {
 impl GraphicsShaderProvider for OitColorPass {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|cx, binding| {
+      only_first_sample(cx);
+
       let oit_depth_layers = self.oit_depth_layers.build(binding);
       let oit_color_layers = self.oit_color_layers.build(binding);
       let layer_count = oit_depth_layers.info.layer_count();
@@ -341,6 +349,12 @@ impl ShaderPassBuilder for OitColorPass {
   }
 }
 
+fn only_first_sample(builder: &mut ShaderFragmentBuilderView) {
+  if_by(builder.query::<FragmentSampleIndex>().not_equals(0), || {
+    builder.discard();
+  });
+}
+
 struct OitResolvePass {
   oit_depth_layers: AtomicImageDowngrade,
   oit_color_layers: AtomicImageDowngrade,
@@ -366,8 +380,13 @@ impl GraphicsShaderProvider for OitResolvePass {
 
       // Count the number of fragments for this pixel
       let fragments = val(0_u32).make_local_var();
+      let nearest_depth = val(0_u32).make_local_var(); // init value not used
       ForRange::ranged((val(0), layer_count).into()).for_each(|i, cx| {
         let depth = oit_depth_layers.load(coord, i);
+
+        if_by(i.equals(0), || {
+          nearest_depth.store(depth);
+        });
 
         if_by(depth.not_equals(background), || {
           fragments.store(fragments.load() + val(1));
@@ -383,6 +402,17 @@ impl GraphicsShaderProvider for OitResolvePass {
       });
 
       cx.store_fragment_out_vec4f(0, out_color.load());
+
+      cx.register::<FragmentDepthOutput>(nearest_depth.load().bitcast::<f32>());
+
+      if let Some(depth_stencil) = &mut cx.depth_stencil {
+        depth_stencil.depth_write_enabled = false; // todo, this should be synced with global transparent depth behavior?
+        depth_stencil.depth_compare = if self.reverse_depth {
+          CompareFunction::Greater
+        } else {
+          CompareFunction::Less
+        }
+      }
     });
   }
 }
@@ -407,7 +437,7 @@ fn do_blend(color: Node<Vec4<f32>>, base_color: Node<Vec4<f32>>) -> Node<Vec4<f3
 fn do_blend_packed(color: Node<Vec4<f32>>, fragment: Node<u32>) -> Node<Vec4<f32>> {
   let unpacked = fragment.unpack4x8unorm();
   // Convert from unpremultiplied sRGB to premultiplied alpha
-  let base_color = shader_linear_to_srgb_convert(unpacked.xyz()) * unpacked.w();
+  let base_color = shader_srgb_to_linear_convert(unpacked.xyz()) * unpacked.w();
   let base_color = (base_color, unpacked.w()).into();
   do_blend(color, base_color)
 }

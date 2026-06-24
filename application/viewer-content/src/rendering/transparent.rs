@@ -11,6 +11,21 @@ pub enum ViewerTransparentContentRenderStyle {
   Opaque,
 }
 
+impl ViewerTransparentContentRenderStyle {
+  pub fn create_renderer(&self) -> ViewerTransparentRenderer {
+    match self {
+      ViewerTransparentContentRenderStyle::NaiveAlphaBlend => {
+        ViewerTransparentRenderer::NaiveAlphaBlend
+      }
+      ViewerTransparentContentRenderStyle::Loop32OIT => ViewerTransparentRenderer::Loop32OIT(
+        Arc::new(RwLock::new(rendiation_oit::OitLoop32Renderer::new(4))),
+      ),
+      ViewerTransparentContentRenderStyle::WeightedOIT => ViewerTransparentRenderer::WeightedOIT,
+      ViewerTransparentContentRenderStyle::Opaque => ViewerTransparentRenderer::Opaque,
+    }
+  }
+}
+
 #[derive(Clone)]
 pub enum ViewerTransparentRenderer {
   NaiveAlphaBlend,
