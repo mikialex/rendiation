@@ -159,9 +159,9 @@ impl ClippingPlaneArrayRenderer {
 
     let m_buffer = FrameGeneralMaterialBuffer::new(frame_ctx);
 
+    frame_ctx.next_scope_index();
     if let Some(planes) = planes {
       if self.enable && self.fill_face {
-        frame_ctx.next_scope_index();
         for plane in planes {
           frame_ctx.keyed_scope(&plane, |frame_ctx| {
             let plane_id = create_uniform(

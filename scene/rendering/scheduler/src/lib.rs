@@ -6,12 +6,12 @@ use std::{
 
 use fast_hash_collection::FastHashMap;
 use ordered_float::OrderedFloat;
-use rendiation_scene_rendering_gpu_base::DeviceDrawList;
+use rendiation_scene_rendering_gpu_base::DeviceSceneModelDrawList;
 
 pub trait RenderBatchCollector {
   fn is_collecting(&self) -> bool;
   fn will_collecting(&self) -> bool;
-  fn collect_batch(&mut self, batch: &DeviceDrawList);
+  fn collect_batch(&mut self, batch: &DeviceSceneModelDrawList);
   fn flush_frame(&mut self);
 }
 
@@ -24,7 +24,7 @@ impl RenderBatchCollector for DoNothingRenderBatchCollector {
   fn will_collecting(&self) -> bool {
     false
   }
-  fn collect_batch(&mut self, _batch: &DeviceDrawList) {}
+  fn collect_batch(&mut self, _batch: &DeviceSceneModelDrawList) {}
   fn flush_frame(&mut self) {}
 }
 

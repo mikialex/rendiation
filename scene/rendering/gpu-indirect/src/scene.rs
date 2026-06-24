@@ -350,6 +350,7 @@ fn use_compute_selected_sub_list_dispatch_info(
 
       let prefix = val(0u32).make_local_var();
 
+      // todo, for simplicity this dispatch is not parallel
       pick_list_storage
         .array_length()
         .into_shader_iter()

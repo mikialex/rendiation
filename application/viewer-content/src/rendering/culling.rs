@@ -235,8 +235,8 @@ impl ViewerCulling {
   pub fn feedback_culling_result(&self, collector: &mut dyn RenderBatchCollector) {
     if let Some(oc) = &self.oc {
       for (_, r) in &oc.culling_results {
-        collector.collect_batch(&r.drawn_not_occluded.draw_list);
-        collector.collect_batch(&r.drawn_occluder.draw_list);
+        collector.collect_batch(&r.drawn_not_occluded);
+        collector.collect_batch(&r.drawn_occluder);
       }
     }
   }

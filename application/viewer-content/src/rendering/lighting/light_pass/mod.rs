@@ -93,7 +93,7 @@ pub fn use_render_lighting_scene_content(
         pass_com,
       ]) as &dyn RenderComponent;
 
-      let draw_opaque = |ctx: &mut FrameCtx<'_>, cull_cx: &mut ViewerCulling| {
+      let use_draw_opaque = |ctx: &mut FrameCtx<'_>, cull_cx: &mut ViewerCulling| {
         let pass = cull_cx.use_draw_with_oc_maybe_enabled(
           ctx,
           renderer,
@@ -118,7 +118,7 @@ pub fn use_render_lighting_scene_content(
         scene_result,
         pass_com,
         opaque_scene_pass_dispatcher,
-        draw_opaque,
+        use_draw_opaque,
       );
 
       if let Some(clip_helper) = clip_helper.clone() {
