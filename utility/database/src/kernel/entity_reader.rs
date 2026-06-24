@@ -3,7 +3,7 @@ use crate::*;
 pub struct EntityReaderUntyped {
   type_id: EntityId,
   components: smallvec::SmallVec<[(ComponentId, ComponentReadViewUntyped); 6]>,
-  allocator: LockReadGuardHolder<AutoShrinkArena<()>>,
+  allocator: LockReadGuardHolder<TableAllocator>,
 }
 
 impl EntityReaderUntyped {

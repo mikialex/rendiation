@@ -107,7 +107,7 @@ pub type RevRefOfForeignKey<S> = BoxedDynMultiQuery<
 >;
 
 #[derive(Clone)]
-pub struct ArenaAccess<T: CValue>(pub LockReadGuardHolder<AutoShrinkArena<T>>);
+pub(crate) struct ArenaAccess<T: CValue>(pub LockReadGuardHolder<TableAllocatorImpl<T>>);
 
 impl<V: CValue> Query for ArenaAccess<V> {
   type Key = RawEntityHandle;
@@ -132,7 +132,7 @@ impl<V: CValue> Query for ArenaAccess<V> {
   }
 }
 
-pub fn global_entity_arena_access<E: EntitySemantic>() -> LockReadGuardHolder<AutoShrinkArena<()>> {
+pub fn global_entity_arena_access<E: EntitySemantic>() -> LockReadGuardHolder<TableAllocator> {
   global_entity_of::<E>().inner.allocator.make_read_holder()
 }
 
@@ -151,7 +151,7 @@ impl<T: Query> SkipGenerationCheckExt for T {
 
 #[derive(Clone)]
 pub struct SkipGenerationCheck<T> {
-  alloc: LockReadGuardHolder<AutoShrinkArena<()>>,
+  alloc: LockReadGuardHolder<TableAllocator>,
   inner: T,
 }
 

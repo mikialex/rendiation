@@ -38,7 +38,7 @@ impl ArcTable {
     let inner = self.internal.allocator.make_read_holder();
     struct Iter {
       iter: auto_shrink_arena::Iter<'static, ()>,
-      _holder: LockReadGuardHolder<AutoShrinkArena<()>>,
+      _holder: LockReadGuardHolder<TableAllocator>,
     }
 
     impl Iterator for Iter {
@@ -122,12 +122,15 @@ impl ArcTable {
   }
 }
 
+pub type TableAllocatorImpl<T> = AutoShrinkArena<T>;
+pub type TableAllocator = TableAllocatorImpl<()>;
+
 pub struct Table {
   /// the name of this entity, will be unique among all components
   pub(crate) name: String,
   pub(crate) short_name: String,
   pub(crate) type_id: EntityId,
-  pub(crate) allocator: Arc<RwLock<AutoShrinkArena<()>>>,
+  pub(crate) allocator: Arc<RwLock<TableAllocator>>,
   /// The components of entity
   pub(crate) components: RwLock<FastHashMap<ComponentId, ComponentUntyped>>,
   /// The foreign keys of entity, each foreign key express the one-to-many (or possibly one-to-one)

@@ -121,7 +121,7 @@ impl<T: ForeignKeySemantic> Clone for ForeignKeyReadView<T> {
 pub struct ComponentWriteView<T: ComponentSemantic> {
   phantom: PhantomData<T>,
   inner: ComponentWriteViewUntyped,
-  allocator: LockReadGuardHolder<AutoShrinkArena<()>>,
+  allocator: LockReadGuardHolder<TableAllocator>,
 }
 
 impl<T: ComponentSemantic> ComponentWriteView<T> {
