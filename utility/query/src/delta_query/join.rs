@@ -106,7 +106,8 @@ where
       let a_current_max = self.a_current.iter_key_value().size_hint().1;
       let b_current_max = self.b_current.iter_key_value().size_hint().1;
       if let (Some(a_current_max), Some(b_current_max)) = (a_current_max, b_current_max) {
-        max = Some(a_max * b_current_max + b_max * a_current_max - a_max * b_max);
+        // we can not directly remove a_max * b_max, as the current may be zero
+        max = Some(a_max * b_current_max + b_max * a_current_max);
       }
     }
 

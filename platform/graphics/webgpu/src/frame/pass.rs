@@ -57,6 +57,16 @@ pub struct RenderPassDescription {
 }
 
 impl RenderPassDescription {
+  pub fn sample_count(&self) -> Option<u32> {
+    if let Some(first) = self.channels.first() {
+      Some(first.1.sample_count())
+    } else if let Some(d) = self.depth_stencil_target.as_ref() {
+      Some(d.2.sample_count())
+    } else {
+      None
+    }
+  }
+
   pub fn make_all_channel_and_depth_into_load_op(&mut self) {
     for c in self.channels.iter_mut() {
       c.0.load = gpu::LoadOp::Load;
@@ -99,7 +109,7 @@ impl RenderPassDescription {
     op: impl Into<gpu::Operations<gpu::Color>>,
     resolve_target: &RenderTargetView,
   ) -> Self {
-    self.push_color_with_resolve_target(attachment, op, resolve_target);
+    self.push_color_with_resolve_target_some(attachment, op, Some(resolve_target.clone()));
     self
   }
 
@@ -113,16 +123,16 @@ impl RenderPassDescription {
     idx
   }
 
-  pub fn push_color_with_resolve_target(
+  pub fn push_color_with_resolve_target_some(
     &mut self,
     attachment: &RenderTargetView,
     op: impl Into<gpu::Operations<gpu::Color>>,
-    resolve_target: &RenderTargetView,
+    resolve_target: Option<RenderTargetView>,
   ) -> usize {
     let idx = self.channels.len();
     self
       .channels
-      .push((op.into(), attachment.clone(), Some(resolve_target.clone())));
+      .push((op.into(), attachment.clone(), resolve_target));
     idx
   }
 

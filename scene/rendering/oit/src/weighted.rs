@@ -27,16 +27,47 @@ pub fn draw_weighted_oit(
   pass_com: &dyn RenderComponent,
   reverse_depth: bool,
 ) {
-  let reveal_buffer = attachment().format(TextureFormat::R16Float).request(ctx);
-  let accumulate_buffer = attachment().format(TextureFormat::Rgba16Float).request(ctx);
+  let sample_count = target_desc_without_final_color.sample_count().unwrap_or(1);
+  let is_multi_sample = sample_count > 1;
+
+  let reveal_fmt = TextureFormat::R16Float;
+  let accumulate_fmt = TextureFormat::Rgba16Float;
+
+  let reveal_buffer = attachment()
+    .format(reveal_fmt)
+    .sample_count(sample_count)
+    .request(ctx);
+
+  let accumulate_buffer = attachment()
+    .format(accumulate_fmt)
+    .sample_count(sample_count)
+    .request(ctx);
+
+  let reveal_buffer_resolved;
+  let accumulate_buffer_resolved;
+  if is_multi_sample {
+    reveal_buffer_resolved = attachment().format(reveal_fmt).request(ctx);
+    accumulate_buffer_resolved = attachment().format(accumulate_fmt).request(ctx);
+  } else {
+    reveal_buffer_resolved = reveal_buffer.clone();
+    accumulate_buffer_resolved = accumulate_buffer.clone();
+  }
 
   let mut pass_target = target_desc_without_final_color.with_name("weighted_oit encode");
 
+  // todo, this resolve may not correct as it's hdr like?
   let dispatch = DrawDispatch {
     reverse_depth,
-    reveal_buffer_index: pass_target.push_color(&reveal_buffer, clear_and_store(color_same(1.))),
-    accumulates_buffer_index: pass_target
-      .push_color(&accumulate_buffer, clear_and_store(all_zero())),
+    reveal_buffer_index: pass_target.push_color_with_resolve_target_some(
+      &reveal_buffer,
+      clear_and_store(color_same(1.)),
+      is_multi_sample.then_some(reveal_buffer_resolved.clone()),
+    ),
+    accumulates_buffer_index: pass_target.push_color_with_resolve_target_some(
+      &accumulate_buffer,
+      clear_and_store(all_zero()),
+      is_multi_sample.then_some(accumulate_buffer_resolved.clone()),
+    ),
   };
   let dispatch = &dispatch as &dyn RenderComponent;
   let pass_com = RenderArray([dispatch, pass_com]);
@@ -51,8 +82,8 @@ pub fn draw_weighted_oit(
     .render_ctx(ctx)
     .by(
       &mut Composition {
-        accumulates: accumulate_buffer,
-        reveal: reveal_buffer,
+        accumulates: accumulate_buffer_resolved,
+        reveal: reveal_buffer_resolved,
       }
       .draw_quad(),
     );
