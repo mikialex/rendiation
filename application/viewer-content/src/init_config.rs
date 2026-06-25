@@ -29,34 +29,6 @@ pub struct ViewerInitConfig {
   pub always_enable_caching_frame_for_direct_read: bool,
   pub init_only: ViewerStaticInitConfig,
   pub light_surface_ty: ViewerLightSurfaceType,
-  pub features: ViewerFeaturesInitConfig,
-}
-
-#[derive(Serialize, Deserialize, Default, Clone)]
-pub struct ViewerFeaturesInitConfig {
-  pub pick_scene: PickScenePersistConfig,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct PickScenePersistConfig {
-  /// prefer gpu picking for nearest hit query if target platform has correct support
-  pub prefer_gpu_picking: bool,
-  pub enable_hit_debug_log: bool,
-  pub range_query_contains: bool,
-  /// compute and cache frustum edge/corner data for exact SAT intersection tests;
-  /// disabling reduces per-frame cost at the expense of conservative results
-  pub precise_intersection_test: bool,
-}
-
-impl Default for PickScenePersistConfig {
-  fn default() -> Self {
-    Self {
-      prefer_gpu_picking: true,
-      enable_hit_debug_log: true,
-      range_query_contains: false,
-      precise_intersection_test: true,
-    }
-  }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -198,7 +170,6 @@ impl Default for ViewerInitConfig {
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       light_surface_ty: ViewerLightSurfaceType::Pbr,
       init_only: ViewerStaticInitConfig::default(),
-      features: Default::default(),
     }
   }
 }

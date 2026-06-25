@@ -19,7 +19,7 @@ pub fn inject_picker(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)) {
 
 pub fn use_pick_scene(cx: &mut ViewerCx) {
   let is_webgl = cx.viewer.rendering.gpu().info().is_webgl();
-  let prefer_gpu_pick = !is_webgl && cx.viewer.features_config.pick_scene.prefer_gpu_picking;
+  let prefer_gpu_pick = !is_webgl && cx.app_features.pick_scene.prefer_gpu_picking;
 
   let (cx, gpu_pick_future) =
     cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
@@ -40,23 +40,19 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       .vscroll(true)
       .show(egui_ctx, |ui| {
         ui.checkbox(
-          &mut cx.viewer.features_config.pick_scene.prefer_gpu_picking,
+          &mut cx.app_features.pick_scene.prefer_gpu_picking,
           "prefer gpu pick",
         );
         ui.checkbox(
-          &mut cx.viewer.features_config.pick_scene.enable_hit_debug_log,
+          &mut cx.app_features.pick_scene.enable_hit_debug_log,
           "enable pick log",
         );
         ui.checkbox(
-          &mut cx.viewer.features_config.pick_scene.range_query_contains,
+          &mut cx.app_features.pick_scene.range_query_contains,
           "use contain test for range test",
         );
         ui.checkbox(
-          &mut cx
-            .viewer
-            .features_config
-            .pick_scene
-            .precise_intersection_test,
+          &mut cx.app_features.pick_scene.precise_intersection_test,
           "use precise intersection test",
         );
 
@@ -84,13 +80,9 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     }
   }
 
-  let enable_hit_debug_log = cx.viewer.features_config.pick_scene.enable_hit_debug_log;
-  let use_contain_for_range_test = cx.viewer.features_config.pick_scene.range_query_contains;
-  let precise_intersection_test = cx
-    .viewer
-    .features_config
-    .pick_scene
-    .precise_intersection_test;
+  let enable_hit_debug_log = cx.app_features.pick_scene.enable_hit_debug_log;
+  let use_contain_for_range_test = cx.app_features.pick_scene.range_query_contains;
+  let precise_intersection_test = cx.app_features.pick_scene.precise_intersection_test;
 
   let (cx, request_bvh_debug_to_write) = cx.use_plain_state::<Option<Vec<WideLineVertex>>>();
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {

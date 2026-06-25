@@ -28,6 +28,7 @@ pub struct ViewerCx<'a> {
   pub current_window_swapchain: &'a SurfaceWrapper,
   pub surface_id: u32,
   pub active_surface_content: &'a mut ViewerSurfaceContent,
+  pub app_features: &'a mut ViewerAppFeaturesConfig,
 
   pub widget_scene: EntityHandle<SceneEntity>,
 
@@ -410,6 +411,9 @@ pub fn use_viewer<'a>(
       .new_entity(|w| w)
   });
 
+  let (acx, app_features) =
+    acx.use_plain_state(|| ViewerAppFeaturesConfig::from_default_json_or_default());
+
   let (acx, axis) = acx.use_plain_state(|| WorldCoordinateAxis::new(&acx.gpu_and_surface.gpu));
 
   let (acx, tick_timestamp) = acx.use_plain_state(Instant::now);
@@ -455,6 +459,7 @@ pub fn use_viewer<'a>(
     },
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
+    app_features,
   }
   .execute(|viewer| f(viewer));
 
@@ -481,6 +486,7 @@ pub fn use_viewer<'a>(
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
     surface_id: acx.surface_id,
+    app_features,
   }
   .execute(|viewer| f(viewer));
 
