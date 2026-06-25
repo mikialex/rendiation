@@ -980,11 +980,7 @@ mod tests {
     let handles: Vec<_> = (0..100).map(|i| arena.insert(i)).collect();
     check_invariants(&arena);
 
-    let to_remove: Vec<_> = handles
-      .iter()
-      .filter(|h| h.handle >= 50)
-      .copied()
-      .collect();
+    let to_remove: Vec<_> = handles.iter().filter(|h| h.handle >= 50).copied().collect();
     for h in &to_remove {
       arena.remove(*h);
     }

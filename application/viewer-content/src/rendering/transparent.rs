@@ -146,7 +146,6 @@ impl ViewerTransparentRenderer {
             renderer.scene,
             camera_gpu,
             scene_pass_dispatcher,
-            renderer.reversed_depth,
           );
         });
       }

@@ -119,8 +119,8 @@ impl<T> PartialEq for Handle<T> {
   /// let h2: Handle<i32> = Handle::from_raw_parts(1, 10);
   /// let h3: Handle<i32> = Handle::from_raw_parts(1, 20);
   ///
-  /// assert_eq!(h1, h2);   // same index and generation
-  /// assert_ne!(h1, h3);   // same index, different generation
+  /// assert_eq!(h1, h2); // same index and generation
+  /// assert_ne!(h1, h3); // same index, different generation
   /// ```
   fn eq(&self, other: &Self) -> bool {
     self.handle == other.handle && self.generation == other.generation
