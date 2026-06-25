@@ -150,6 +150,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           {
             let config = viewer.export_init_config(cx.current_window_swapchain);
             config.export_to_current_dir();
+            cx.app_features.export_to_current_dir();
           }
           ui.label(format!("{:#?}", viewer.rendering.init_config().init_only));
         });

@@ -427,16 +427,21 @@ impl DeviceTaskGraphExecutor {
     let enable_empty_assert = false;
     let mut states_history_for_debugging = Vec::with_capacity(0);
 
-    let self_task_groups: &[TaskGroupExecutor] = &self.task_groups;
-    // todo, this is unsound
-    let self_task_groups: &'static [TaskGroupExecutor] =
-      unsafe { std::mem::transmute(self_task_groups) };
+    // SAFETY: inside the loop, task.execute() takes &[Self] (all task groups) for
+    // read-only access (reading other groups' spawner resources), while the current
+    // task is the only one being mutated via &mut self. Since iter_mut() guarantees
+    // non-overlapping mutable access, and execute() only reads from sibling groups,
+    // materializing a shared reference from a raw pointer is sound.
+    let all_tasks_ptr = self.task_groups.as_ptr();
+    let all_tasks_len = self.task_groups.len();
 
     // todo, note, we are not using scope here to reduce memory(give up caches)
     for _ in 0..dispatch_round_count {
       for (idx, task) in self.task_groups.iter_mut().enumerate() {
         let source = &source.tasks[idx];
-        task.use_execute(cx, self_task_groups, source);
+        let all_tasks: &[TaskGroupExecutor] =
+          unsafe { std::slice::from_raw_parts(all_tasks_ptr, all_tasks_len) };
+        task.use_execute(cx, all_tasks, source);
       }
 
       if enable_empty_assert {

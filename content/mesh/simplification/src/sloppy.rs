@@ -42,8 +42,7 @@ pub fn simplify_sloppy<V: Positioned<Position = Vec3<f32>>>(
   // when we're error-limited, we compute the triangle count for the min size;
   // this accelerates convergence and provides the correct answer when we can't use a larger grid
 
-  // todo, compare to meshopt, we remove the lock check
-  if min_grid > 1 {
+  if min_grid > 1 || vertex_lock.is_some() {
     compute_vertex_ids(&mut vertex_ids, &vertex_positions, vertex_lock, min_grid);
     min_triangles = count_triangles(&vertex_ids, indices);
   }
@@ -255,7 +254,7 @@ pub fn fill_vertex_cells(vertex_cells: &mut [u32], vertex_ids: &[u32]) -> u32 {
 
 fn filter_triangles(
   destination: &mut [u32],
-  indices: &&[u32],
+  indices: &[u32],
   vertex_cells: &[u32],
   cell_remap: &[u32],
 ) -> usize {
@@ -282,10 +281,10 @@ fn filter_triangles(
       }
 
       if filter.insert((a, b, c)) {
-        result += 1;
         destination[result * 3] = a;
         destination[result * 3 + 1] = b;
         destination[result * 3 + 2] = c;
+        result += 1;
       }
     }
   }

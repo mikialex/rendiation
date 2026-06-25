@@ -172,6 +172,7 @@ impl RenderingRoot {
             dyn_cx,
           }
           .execute(|cx| {
+            selection_info.selected_model.register(cx.waker());
             rendering
               .use_viewer_scene_renderer(cx, surface_content, viewports_map)
               .unwrap()

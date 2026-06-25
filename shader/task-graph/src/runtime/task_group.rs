@@ -247,7 +247,7 @@ impl TaskGroupExecutor {
         },
         ctx,
       )
-      .use_materialize_storage_buffer_into(active_tasks_back_buffer, ctx);
+      .copy_result_into(active_tasks_back_buffer, ctx);
 
     std::mem::swap(
       &mut imp.active_task_idx.storage,

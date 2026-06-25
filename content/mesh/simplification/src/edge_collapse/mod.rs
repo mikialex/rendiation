@@ -536,7 +536,7 @@ fn has_triangle_flips(
     // skip triangles that get collapsed
     // note: this is mathematically redundant as if either of these is true, the dot product in
     // hasTriangleFlip should be 0
-    if a == i1 as u32 || b == i1 as u32 {
+    if a == i1 as u32 || b == i1 as u32 || a == b {
       continue;
     }
 

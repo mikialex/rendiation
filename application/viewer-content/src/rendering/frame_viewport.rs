@@ -112,7 +112,7 @@ impl Viewer3dViewportRenderingCtx {
         .always_enable_caching_frame_for_direct_read,
       cached_frame: None,
       not_any_changed_frame_count: 0,
-      oit: ViewerTransparentRenderer::NaiveAlphaBlend,
+      oit: init_config.transparent_config.create_renderer(),
       rtx_ao: None,
       rtx_pt: None,
       viewport_cache: None,
@@ -205,6 +205,7 @@ impl Viewer3dViewportRenderingCtx {
       modify_color_change(ui, &mut self.outline_background_color);
     });
 
+    let before = self.transparent_config;
     egui::ComboBox::from_label("how to render transparent objects?")
       .selected_text(format!("{:?}", &self.transparent_config,))
       .show_ui_changed(ui, |ui| {
@@ -233,16 +234,9 @@ impl Viewer3dViewportRenderingCtx {
         )
       });
 
-    self.oit = match self.transparent_config {
-      ViewerTransparentContentRenderStyle::NaiveAlphaBlend => {
-        ViewerTransparentRenderer::NaiveAlphaBlend
-      }
-      ViewerTransparentContentRenderStyle::Loop32OIT => ViewerTransparentRenderer::Loop32OIT(
-        Arc::new(RwLock::new(rendiation_oit::OitLoop32Renderer::new(4))),
-      ),
-      ViewerTransparentContentRenderStyle::WeightedOIT => ViewerTransparentRenderer::WeightedOIT,
-      ViewerTransparentContentRenderStyle::Opaque => ViewerTransparentRenderer::Opaque,
-    };
+    if before != self.transparent_config {
+      self.oit = self.transparent_config.create_renderer();
+    }
 
     if rtx_renderer_enabled {
       if ui

@@ -11,7 +11,7 @@ use std::{
   sync::Arc,
 };
 
-use arena::*;
+use auto_shrink_arena::*;
 use bytemuck::*;
 use dyn_clone::*;
 use event_source::*;

@@ -40,6 +40,11 @@ impl Hasher for PositionHasher {
     let b = u32::from_ne_bytes((&bytes[4..8]).try_into().unwrap());
     let c = u32::from_ne_bytes((&bytes[8..12]).try_into().unwrap());
 
+    // replace negative zero with zero
+    let a = if a == 0x80000000 { 0 } else { a };
+    let b = if b == 0x80000000 { 0 } else { b };
+    let c = if c == 0x80000000 { 0 } else { c };
+
     // scramble bits to make sure that integer coordinates have entropy in lower bits
     let a = a ^ (a >> 17);
     let b = b ^ (b >> 17);
