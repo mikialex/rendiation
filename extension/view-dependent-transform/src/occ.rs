@@ -79,7 +79,7 @@ impl OccStyleViewDepConfig {
     }
     let camera_lookat = camera_lookat.unwrap();
 
-    let mut mat = Mat4::identity();
+    let mut mat;
 
     let dist = camera_transform.world.position().distance_to(camera_lookat);
     let view_dimension = compute_view_dimension(camera_transform, camera_lookat);
@@ -94,84 +94,128 @@ impl OccStyleViewDepConfig {
       let s = f.cross(up).normalize();
       let u = s.cross(f).normalize();
 
-      if let OccStyleTransform::Dimension2 { offset, corner } = self.transform_ty {
-        if (corner & (OccStyleCorner::Left | OccStyleCorner::Right)).bits() != 0 {
-          let offset_x = offset.x as f64 * scale;
-          let delta_x = s * (view_dimension.x * 0.5 - offset_x);
-          if (corner & OccStyleCorner::Right).bits() != 0 {
-            center += delta_x;
-          } else {
-            center -= delta_x;
-          }
+      let corner = self.transform_ty.corner;
+      let offset = self.transform_ty.offset;
+
+      if (corner & (OccStyleCorner::Left | OccStyleCorner::Right)).bits() != 0 {
+        let offset_x = offset.x as f64 * scale;
+        let delta_x = s * (view_dimension.x * 0.5 - offset_x);
+        if (corner & OccStyleCorner::Right).bits() != 0 {
+          center += delta_x;
+        } else {
+          center -= delta_x;
         }
-        if (corner & (OccStyleCorner::Top | OccStyleCorner::Bottom)).bits() != 0 {
-          let offset_y = offset.y as f64 * scale;
-          let delta_y = u * (view_dimension.y * 0.5 - offset_y);
-          if (corner & OccStyleCorner::Top).bits() != 0 {
-            center += delta_y;
-          } else {
-            center -= delta_y;
-          }
+      }
+      if (corner & (OccStyleCorner::Top | OccStyleCorner::Bottom)).bits() != 0 {
+        let offset_y = offset.y as f64 * scale;
+        let delta_y = u * (view_dimension.y * 0.5 - offset_y);
+        if (corner & OccStyleCorner::Top).bits() != 0 {
+          center += delta_y;
+        } else {
+          center -= delta_y;
         }
-        mat = Mat4::translate(center) * Mat4::scale(Vec3::splat(scale));
+      }
+      mat = Mat4::translate(center) * Mat4::scale(Vec3::splat(scale));
+
+      if self.transform_ty.anchor_point != Vec3::splat(f32::MAX) {
+        let mut world_view_mat =
+          camera_transform.view * Mat4::translate(self.transform_ty.anchor_point.into_f64());
+        if let Some(mut local_mat) = self.local_mat {
+          let position = local_mat.position();
+          local_mat.d1 = 0.0;
+          local_mat.d2 = 0.0;
+          local_mat.d3 = 0.0;
+          local_mat.d4 = 1.0;
+          let position = local_mat * position;
+          world_view_mat = world_view_mat * Mat4::translate(position * scale as f32).into_f64();
+        }
+        world_view_mat.a1 = 1.0;
+        world_view_mat.a2 = 0.0;
+        world_view_mat.a3 = 0.0;
+
+        world_view_mat.b1 = 0.0;
+        world_view_mat.b2 = 1.0;
+        world_view_mat.b3 = 0.0;
+
+        world_view_mat.c1 = 0.0;
+        world_view_mat.c2 = 0.0;
+        world_view_mat.c3 = 1.0;
+
+        mat = mat * camera_transform.world * world_view_mat;
+      } else if let Some(local_mat) = self.local_mat {
+        mat = mat * local_mat.into_f64()
       }
     } else if self.mode == OccStyleMode::Screen2d {
       let mut center = Vec3::new(0., 0., -dist);
-      if let OccStyleTransform::Dimension2 { offset, corner } = self.transform_ty {
-        if (corner & (OccStyleCorner::Left | OccStyleCorner::Right)).bits() != 0 {
-          center.x = -view_dimension.x * 0.5 + offset.x as f64 * scale;
-          if (corner & OccStyleCorner::Right).bits() != 0 {
-            center.x = -center.x
-          }
+      let corner = self.transform_ty.corner;
+      let offset = self.transform_ty.offset;
+      if (corner & (OccStyleCorner::Left | OccStyleCorner::Right)).bits() != 0 {
+        center.x = -view_dimension.x * 0.5 + offset.x as f64 * scale;
+        if (corner & OccStyleCorner::Right).bits() != 0 {
+          center.x = -center.x
         }
-        if (corner & (OccStyleCorner::Top | OccStyleCorner::Bottom)).bits() != 0 {
-          center.y = -view_dimension.y * 0.5 + offset.y as f64 * scale;
-          if (corner & OccStyleCorner::Top).bits() != 0 {
-            center.y = -center.y
-          }
+      }
+      if (corner & (OccStyleCorner::Top | OccStyleCorner::Bottom)).bits() != 0 {
+        center.y = -view_dimension.y * 0.5 + offset.y as f64 * scale;
+        if (corner & OccStyleCorner::Top).bits() != 0 {
+          center.y = -center.y
         }
       }
 
       let world_view_mat = Mat4::translate(center) * Mat4::scale(Vec3::splat(scale));
       mat = camera_transform.world * world_view_mat;
     } else if self.mode.contains(OccStyleMode::FrontCamera) {
-      mat = camera_transform.world;
-    } else {
-      if let OccStyleTransform::Dimension3 { anchor_point } = self.transform_ty {
-        let mut world_view_mat = camera_transform.view * Mat4::translate(anchor_point.into_f64());
-        if self.mode.contains(OccStyleMode::NotRotate) {
-          if let Some(mut local_mat) = self.local_mat {
-            let position = local_mat.position();
-            local_mat.d1 = 0.;
-            local_mat.d2 = 0.;
-            local_mat.d3 = 0.;
-            local_mat.d3 = 1.;
-            let position = local_mat * position;
-            world_view_mat = world_view_mat * Mat4::translate(position * scale as f32).into_f64();
-          }
+      let p = self.transform_ty.anchor_point.into_f64();
 
-          world_view_mat.a1 = 1.0;
-          world_view_mat.a2 = 0.0;
-          world_view_mat.a3 = 0.0;
+      let eye = camera_transform.world.position();
+      let up = camera_transform.world.up();
 
-          world_view_mat.b1 = 0.0;
-          world_view_mat.b2 = 1.0;
-          world_view_mat.b3 = 0.0;
+      let f = (p - eye).normalize();
+      let s = f.cross(up).normalize();
+      let u = s.cross(f).normalize();
 
-          world_view_mat.c1 = 0.0;
-          world_view_mat.c2 = 0.0;
-          world_view_mat.c3 = 1.0;
-        } else {
-          if let Some(local_mat) = self.local_mat {
-            world_view_mat = world_view_mat * local_mat.into_f64();
-          }
-        }
+      mat = Mat4::new(
+        s.x, s.y, s.z, 0., u.x, u.y, u.z, 0., f.x, f.y, f.z, 0., p.x, p.y, p.z, 1.,
+      );
 
-        if self.mode.contains(OccStyleMode::NotZoom) {
-          world_view_mat = world_view_mat * Mat4::scale(Vec3::splat(scale));
-        }
-        mat = camera_transform.world * world_view_mat;
+      if self.mode.contains(OccStyleMode::NotZoom) {
+        mat = mat * Mat4::scale(Vec3::splat(scale));
       }
+    } else {
+      let mut world_view_mat =
+        camera_transform.view * Mat4::translate(self.transform_ty.anchor_point.into_f64());
+      if self.mode.contains(OccStyleMode::NotRotate) {
+        if let Some(mut local_mat) = self.local_mat {
+          let position = local_mat.position();
+          local_mat.d1 = 0.;
+          local_mat.d2 = 0.;
+          local_mat.d3 = 0.;
+          local_mat.d3 = 1.;
+          let position = local_mat * position;
+          world_view_mat = world_view_mat * Mat4::translate(position * scale as f32).into_f64();
+        }
+
+        world_view_mat.a1 = 1.0;
+        world_view_mat.a2 = 0.0;
+        world_view_mat.a3 = 0.0;
+
+        world_view_mat.b1 = 0.0;
+        world_view_mat.b2 = 1.0;
+        world_view_mat.b3 = 0.0;
+
+        world_view_mat.c1 = 0.0;
+        world_view_mat.c2 = 0.0;
+        world_view_mat.c3 = 1.0;
+      } else {
+        if let Some(local_mat) = self.local_mat {
+          world_view_mat = world_view_mat * local_mat.into_f64();
+        }
+      }
+
+      if self.mode.contains(OccStyleMode::NotZoom) {
+        world_view_mat = world_view_mat * Mat4::scale(Vec3::splat(scale));
+      }
+      mat = camera_transform.world * world_view_mat;
     }
 
     mat
@@ -188,15 +232,11 @@ pub struct OccStyleViewDepConfig {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Facet, PartialEq)]
-pub enum OccStyleTransform {
-  Dimension3 {
-    anchor_point: Vec3<f32>,
-  },
-  Dimension2 {
-    offset: Vec2<i32>,
-    #[facet(opaque)]
-    corner: OccStyleCorner,
-  },
+pub struct OccStyleTransform {
+  pub anchor_point: Vec3<f32>,
+  pub offset: Vec2<i32>,
+  #[facet(opaque)]
+  pub corner: OccStyleCorner,
 }
 
 bitflags! {

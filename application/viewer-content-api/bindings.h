@@ -849,7 +849,6 @@ void scene_model_set_mesh(SceneModelHandleInfo handle, ViewerEntityHandle mesh);
 void scene_model_set_scene(ViewerEntityHandle handle, const ViewerEntityHandle *scene);
 
 void scene_model_set_occ_style_view_dep(ViewerEntityHandle handle,
-                                        bool is_2d,
                                         const float (*anchor)[3],
                                         const int32_t (*offset)[2],
                                         uint32_t corner,
