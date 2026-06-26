@@ -66,6 +66,8 @@ pub enum OccStyleEffectType {
   Zebra,
 }
 
+pub struct OccSurfaceTag;
+
 pub fn register_occ_material_data_model(sparse: bool) {
   global_entity_of::<StandardModelEntity>()
     .declare_sparse_foreign_key_maybe_sparse::<StdModelOccStyleMaterialPayload>(sparse);
