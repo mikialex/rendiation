@@ -172,6 +172,8 @@ fn main() {
 
       sync_camera_view(cx);
 
+      use_viewer_examples(cx);
+
       // this must be called before per_camera_per_viewport
       use_egui_tile_for_viewer_viewports(cx);
 

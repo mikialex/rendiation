@@ -1,5 +1,8 @@
 use crate::*;
 
+mod example;
+pub use example::*;
+
 mod feature;
 pub use feature::*;
 

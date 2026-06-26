@@ -23,13 +23,6 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
           )
         }
 
-        if ui.button("text3d").clicked() {
-          load_text3d_test(
-            &mut SceneWriter::from_global(cx.active_surface_content.scene),
-            &mut cx.viewer.font_system.write(),
-          );
-        }
-
         if ui.button("test csg clipping1").clicked() {
           test_csg_clipping_data1(cx.active_surface_content.scene)
         }

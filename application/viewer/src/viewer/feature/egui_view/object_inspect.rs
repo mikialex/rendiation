@@ -39,29 +39,7 @@ pub fn inspect_selected(
       let content = w.read::<Text3dContent>(text3d).unwrap();
 
       let mut c = (*content).clone();
-      ui.text_edit_multiline(&mut c.content);
-      ui.checkbox(&mut c.italic, "italic");
-
-      let mut has_width = c.width.is_some();
-      ui.checkbox(&mut has_width, "enable_width");
-      if has_width {
-        if c.width.is_none() {
-          c.width = Some(100.);
-        }
-      } else {
-        c.width = None;
-      }
-      if let Some(width) = &mut c.width {
-        ui.add(egui::Slider::new(width, 0.0..=200.0).text("width"));
-      }
-
-      egui::ComboBox::from_label("alignment")
-        .selected_text(format!("{:?}", &c.align))
-        .show_ui(ui, |ui| {
-          ui.selectable_value(&mut c.align, TextAlignment::Left, "left");
-          ui.selectable_value(&mut c.align, TextAlignment::Center, "Center");
-          ui.selectable_value(&mut c.align, TextAlignment::Right, "Right");
-        });
+      crate::viewer::example::text3d_content_edit_ui(ui, &mut c);
 
       if c != *content {
         w.write::<Text3dContent>(text3d, Some(ExternalRefPtr::new(c)));
