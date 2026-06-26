@@ -196,8 +196,8 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
 
       if !self.enabled_depth {
         if let Some(depth) = &mut builder.depth_stencil {
-          depth.depth_compare = CompareFunction::Always;
-          depth.depth_write_enabled = false;
+          depth.depth_compare = Some(CompareFunction::Always);
+          depth.depth_write_enabled = Some(false);
         }
       }
       if self.transparent {

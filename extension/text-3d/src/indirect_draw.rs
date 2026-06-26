@@ -380,7 +380,7 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
         }
       });
       if let Some(depth) = &mut builder.depth_stencil {
-        depth.depth_write_enabled = false;
+        depth.depth_write_enabled = Some(false);
       }
     });
   }

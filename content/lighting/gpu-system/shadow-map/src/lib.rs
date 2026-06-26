@@ -97,7 +97,7 @@ pub fn create_shadow_depth_sampler_desc(reversed_depth: bool) -> SamplerDescript
   SamplerDescriptor {
     mag_filter: rendiation_webgpu::FilterMode::Linear,
     min_filter: rendiation_webgpu::FilterMode::Linear,
-    mipmap_filter: rendiation_webgpu::FilterMode::Nearest,
+    mipmap_filter: rendiation_webgpu::MipmapFilterMode::Nearest,
     compare: Some(if reversed_depth {
       CompareFunction::Greater
     } else {

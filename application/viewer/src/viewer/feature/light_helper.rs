@@ -9,7 +9,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
   let (cx, directional_light_enabled) = cx.use_plain_state::<bool>();
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("light helper").or_insert(false);
@@ -18,7 +18,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
       .open(opened)
       .default_size((100., 100.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         ui.checkbox(spot_light_enabled, "spot light enabled");
         ui.checkbox(point_light_enabled, "point light enabled");
         ui.checkbox(directional_light_enabled, "directional light enabled");

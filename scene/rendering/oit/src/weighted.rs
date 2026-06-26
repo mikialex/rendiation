@@ -183,7 +183,7 @@ impl GraphicsShaderProvider for DrawDispatch {
         },
       });
 
-      cx.depth_stencil.as_mut().unwrap().depth_write_enabled = false;
+      cx.depth_stencil.as_mut().unwrap().depth_write_enabled = Some(false);
     });
   }
 }

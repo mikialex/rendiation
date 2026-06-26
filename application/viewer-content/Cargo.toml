@@ -78,7 +78,7 @@ rendiation-view-dependent-transform = { path = "../../extension/view-dependent-t
 rendiation-device-parallel-compute = { path = "../../shader/parallel-compute" }
 tracing = { workspace = true }
 
-egui = { version = "0.33" }
+egui = { version = "0.34" }
 
 [features]
 default = ["heap-debug", "extra-checks"]

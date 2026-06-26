@@ -29,7 +29,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
   let (cx, request_bvh_debug) = cx.use_plain_state::<bool>();
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("scene picking").or_insert(false);
@@ -38,7 +38,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       .open(opened)
       .default_size((100., 100.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         ui.checkbox(
           &mut cx.app_features.pick_scene.prefer_gpu_picking,
           "prefer gpu pick",
@@ -65,7 +65,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     if let Some((start, end)) = range_state {
       egui::Area::new(egui::Id::new("range_pick"))
         .fixed_pos(egui::pos2(0.0, 0.0))
-        .show(egui_ctx, |ui| {
+        .show(egui_ui, |ui| {
           let width = (start.x - end.x).abs();
           let height = (start.y - end.y).abs();
           let x = start.x.min(end.x);

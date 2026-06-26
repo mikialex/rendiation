@@ -54,8 +54,8 @@ pub use gpu::{
   IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference, Queue,
   RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
   RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor,
-  ShaderSource, ShaderStages, StoreOp, SurfaceError, SurfaceTexture, TextureView,
-  TextureViewDescriptor, Tlas, TlasInstance, VertexBufferLayout, VertexState,
+  ShaderSource, ShaderStages, StoreOp, SurfaceTexture, TextureView, TextureViewDescriptor, Tlas,
+  TlasInstance, VertexBufferLayout, VertexState,
 };
 use heap_tools::*;
 use hook::*;
@@ -102,6 +102,7 @@ pub struct GPUCreateConfig<'a> {
   /// the dxc dll path for dx12 backend, the dll must support shader model 6.7 at least
   /// if None, then using fxc compiler, which is buggy.
   pub dx_compiler_dll_path: Option<String>,
+  pub display: Option<Box<dyn WgpuHasDisplayHandle>>,
 }
 
 impl Default for GPUCreateConfig<'_> {
@@ -116,6 +117,7 @@ impl Default for GPUCreateConfig<'_> {
       enable_backend_validation: None,
       enable_debug_info: None,
       dx_compiler_dll_path: None,
+      display: None,
     }
   }
 }
@@ -144,7 +146,7 @@ impl GPU {
   pub async fn new(
     config: GPUCreateConfig<'_>,
   ) -> Result<(Self, Option<GPUSurface<'_>>), GPUCreateFailure> {
-    let instance = gpu::Instance::new(&gpu::InstanceDescriptor {
+    let instance = gpu::Instance::new(gpu::InstanceDescriptor {
       backends: config.backends,
       flags: {
         let mut r = InstanceFlags::default();
@@ -167,10 +169,7 @@ impl GPU {
       backend_options: BackendOptions {
         dx12: Dx12BackendOptions {
           shader_compiler: if let Some(path) = config.dx_compiler_dll_path {
-            Dx12Compiler::DynamicDxc {
-              dxc_path: path,
-              max_shader_model: DxcShaderModel::V6_7,
-            }
+            Dx12Compiler::DynamicDxc { dxc_path: path }
           } else {
             Default::default()
           },
@@ -179,6 +178,7 @@ impl GPU {
         ..Default::default()
       },
       memory_budget_thresholds: Default::default(),
+      display: config.display,
     });
     let power_preference = gpu::PowerPreference::HighPerformance;
 
@@ -309,5 +309,6 @@ impl AsRef<GPUDevice> for GPU {
 pub fn basic_texture_usages() -> TextureUsages {
   let mut full = TextureUsages::all();
   full.remove(TextureUsages::STORAGE_ATOMIC);
+  full.remove(TextureUsages::TRANSIENT);
   full
 }

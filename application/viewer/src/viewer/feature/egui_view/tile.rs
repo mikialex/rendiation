@@ -23,7 +23,7 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
       .collect::<FastHashSet<RawEntityHandle>>();
   }
 
-  if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {
+  if let ViewerCxStage::Gui { egui_ui, .. } = &mut cx.stage {
     let surface_content = &mut cx.active_surface_content;
 
     let mut behavior = ViewerTileTreeBehavior {
@@ -35,7 +35,7 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
 
     let tree_res = egui::CentralPanel::default()
       .frame(egui::Frame::NONE)
-      .show(egui_ctx, |ui| {
+      .show_inside(egui_ui, |ui| {
         tree.ui(&mut behavior, ui);
       });
 
@@ -54,7 +54,7 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
     }
 
     let tree_layer_id = tree_res.response.layer_id;
-    if is_pointer_over_area_no_view_tree(egui_ctx, tree_layer_id) || behavior.edited.get() {
+    if is_pointer_over_area_no_view_tree(egui_ui, tree_layer_id) || behavior.edited.get() {
       cx.dyn_cx.message.put(CameraControlBlocked);
       cx.dyn_cx.message.put(PickSceneBlocked);
     }

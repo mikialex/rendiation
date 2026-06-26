@@ -115,8 +115,8 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   let gpu_config = init_config.make_gpu_platform_config();
 
   run_application(gpu_config, move |cx| {
-    use_egui_cx(cx, |cx, egui_cx| {
-      use_viewer(cx, egui_cx, &init_config, |cx| {
+    use_egui_cx(cx, |cx, egui_ui| {
+      use_viewer(cx, egui_ui, &init_config, |cx| {
         content_logic(cx);
       });
     });

@@ -150,7 +150,7 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
   });
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("gltf-io").or_insert(false);
@@ -159,7 +159,7 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
       .open(opened)
       .default_size((200., 200.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         if ui.button("export gltf").clicked() {
           cx.viewer
             .terminal

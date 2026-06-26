@@ -37,6 +37,24 @@ impl SurfaceProvider for web_sys::HtmlCanvasElement {
   }
 }
 
+pub enum SurfaceNext {
+  Occluded,
+  Timeout,
+  Success {
+    raw: gpu::SurfaceTexture,
+    target: RenderTargetView,
+    is_sub_optimal: bool,
+  },
+}
+
+#[derive(Debug)]
+pub enum SurfaceError {
+  SurfaceLost,
+  Validation,
+  ReconfiguredSurfaceDirectlyOutdated,
+  ReconfiguredSurfaceDirectlyLost,
+}
+
 pub struct GPUSurface<'a> {
   surface: gpu::Surface<'a>,
   synced_config: gpu::SurfaceConfiguration,
@@ -105,15 +123,39 @@ impl<'a> GPUSurface<'a> {
     self.synced_config = self.config.clone();
   }
 
-  pub fn get_current_frame(&self) -> Result<gpu::SurfaceTexture, gpu::SurfaceError> {
-    self.surface.get_current_texture()
-  }
-
   pub fn get_current_frame_with_render_target_view(
     &self,
     device: &GPUDevice,
-  ) -> Result<(gpu::SurfaceTexture, RenderTargetView), gpu::SurfaceError> {
-    let frame = self.get_current_frame()?;
+  ) -> Result<SurfaceNext, SurfaceError> {
+    use wgpu::CurrentSurfaceTexture;
+
+    let mut is_sub_optimal = false;
+
+    let frame = match self.surface.get_current_texture() {
+      CurrentSurfaceTexture::Success(frame) => frame,
+      CurrentSurfaceTexture::Timeout => return Ok(SurfaceNext::Timeout),
+      CurrentSurfaceTexture::Occluded => return Ok(SurfaceNext::Occluded),
+      // If the surface is outdated or suboptimal, reconfigure and retry.
+      CurrentSurfaceTexture::Suboptimal(_) | CurrentSurfaceTexture::Outdated => {
+        self.surface.configure(device, &self.config);
+        match self.surface.get_current_texture() {
+          CurrentSurfaceTexture::Success(frame) => frame,
+          CurrentSurfaceTexture::Suboptimal(frame) => {
+            is_sub_optimal = true;
+            frame
+          }
+          CurrentSurfaceTexture::Timeout => return Ok(SurfaceNext::Timeout),
+          CurrentSurfaceTexture::Occluded => return Ok(SurfaceNext::Occluded),
+          CurrentSurfaceTexture::Outdated => {
+            return Err(SurfaceError::ReconfiguredSurfaceDirectlyOutdated)
+          }
+          CurrentSurfaceTexture::Lost => return Err(SurfaceError::ReconfiguredSurfaceDirectlyLost),
+          CurrentSurfaceTexture::Validation => return Err(SurfaceError::Validation),
+        }
+      }
+      CurrentSurfaceTexture::Validation => return Err(SurfaceError::Validation),
+      CurrentSurfaceTexture::Lost => return Err(SurfaceError::SurfaceLost),
+    };
 
     let view = frame
       .texture
@@ -122,15 +164,18 @@ impl<'a> GPUSurface<'a> {
 
     let view_id = create_resource_view_guid();
 
-    Ok((
-      frame,
-      RenderTargetView::SurfaceTexture {
-        view,
-        size: self.size(),
-        format: self.config.format,
-        view_id,
-        binding_dropper: Arc::new(device.get_binding_cache().create_dropper(view_id)),
-      },
-    ))
+    let target = RenderTargetView::SurfaceTexture {
+      view,
+      size: self.size(),
+      format: self.config.format,
+      view_id,
+      binding_dropper: Arc::new(device.get_binding_cache().create_dropper(view_id)),
+    };
+
+    Ok(SurfaceNext::Success {
+      raw: frame,
+      target,
+      is_sub_optimal,
+    })
   }
 }

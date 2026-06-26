@@ -60,11 +60,11 @@ rfd = "0.15.4"
 tracing = { workspace = true }
 tracing-subscriber = "0.3.20"
 tracing-tracy = { version = "0.11.4", optional = true }
-egui = { version = "0.33" }
-egui-wgpu = { version = "0.33" }
-egui-winit = { version = "0.33", default-features = false }
-egui_extras = { version = "0.33" }
-egui_tiles = "0.14.0"
+egui = { version = "0.34" }
+egui-wgpu = { version = "0.34" }
+egui-winit = { version = "0.34", default-features = false }
+egui_extras = { version = "0.34" }
+egui_tiles = "0.15.0"
 winit = { workspace = true }
 
 mimalloc = { version = "0.1.52", optional = true }

@@ -5,7 +5,7 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
   let (cx, enabled) = cx.use_plain_state::<bool>();
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("camera helper").or_insert(false);
@@ -14,7 +14,7 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
       .open(opened)
       .default_size((100., 100.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         ui.checkbox(enabled, "enabled");
       });
   }

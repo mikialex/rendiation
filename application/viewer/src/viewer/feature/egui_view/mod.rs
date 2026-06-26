@@ -51,14 +51,14 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
   );
 
   if let ViewerCxStage::Gui {
-    egui_ctx: ui,
+    egui_ui: ui,
     global,
     ..
   } = &mut cx.stage
   {
     let viewer = &mut cx.viewer;
 
-    egui::TopBottomPanel::top("view top menu").show(ui, |ui| {
+    egui::Panel::top("view top menu").show_inside(ui, |ui| {
       ui.horizontal_wrapped(|ui| {
         egui::widgets::global_theme_preference_switch(ui);
         ui.separator();
@@ -218,9 +218,9 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
       });
 
     if ui_state.show_terminal {
-      egui::TopBottomPanel::bottom("view bottom terminal")
+      egui::Panel::bottom("view bottom terminal")
         .resizable(true)
-        .show(ui, |ui| {
+        .show_inside(ui, |ui| {
           console.egui(ui, &mut viewer.terminal);
         });
     }

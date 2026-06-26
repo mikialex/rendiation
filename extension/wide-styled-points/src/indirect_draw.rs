@@ -341,9 +341,9 @@ impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
       });
 
       if let Some(depth) = &mut builder.depth_stencil {
-        depth.depth_write_enabled = false;
+        depth.depth_write_enabled = Some(false);
         if self.depth_test_enable {
-          depth.depth_compare = SemanticCompareFunction::Nearer.into_raw(self.rev_z)
+          depth.depth_compare = Some(SemanticCompareFunction::Nearer.into_raw(self.rev_z));
         }
       }
     })
