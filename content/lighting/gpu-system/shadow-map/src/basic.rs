@@ -15,7 +15,7 @@ pub struct BasicShadowMapInfoInput {
 pub struct BasicShadowMapGPU {
   pub shadow_map: ShadowAtlas,
   // scene entity -> per-scene uniform buffer
-  pub uniforms: FastHashMap<RawEntityHandle, UniformArray<BasicShadowMapInfo, 8>>,
+  pub uniforms: FastHashMap<RawEntityHandle, UniformArray<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
 }
 
 pub type LightArrayAllocateResult = FastHashMap<RawEntityHandle, FastHashMap<RawEntityHandle, u32>>;
@@ -32,57 +32,59 @@ pub fn prepare_basic_shadow_map_uniform(
   let mut source_world_map = FastHashMap::default();
   let mut source_proj_map = FastHashMap::default();
 
-  let new_shadow_info: FastHashMap<RawEntityHandle, Shader140Array<BasicShadowMapInfo, 8>> =
-    light_uniform_array_index_mapping
-      .iter()
-      .map(|(scene_id, light_id_mapping)| {
-        let mut shadow_info_array = Shader140Array::<BasicShadowMapInfo, 8>::default();
+  let new_shadow_info: FastHashMap<
+    RawEntityHandle,
+    Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>,
+  > = light_uniform_array_index_mapping
+    .iter()
+    .map(|(scene_id, light_id_mapping)| {
+      let mut shadow_info_array = Shader140Array::<BasicShadowMapInfo, MAX_SHADOW_COUNT>::default();
 
-        // packer maybe resize, so we have to batch process first
-        let sizes = light_id_mapping.iter().filter_map(|(light_id, _)| {
-          shadow_info_access(*light_id).map(|v| (*light_id, v.map_size))
-        });
-        packer.process([].into_iter(), sizes, |_| {}, |_, _| {});
+      // packer maybe resize, so we have to batch process first
+      let sizes = light_id_mapping
+        .iter()
+        .filter_map(|(light_id, _)| shadow_info_access(*light_id).map(|v| (*light_id, v.map_size)));
+      packer.process([].into_iter(), sizes, |_| {}, |_, _| {});
 
-        //
-        for (light_id, uniform_array_index) in light_id_mapping.iter() {
-          let shadow_uniform = if let Some(shadow_info) = shadow_info_access(*light_id) {
-            // todo, handle allocation fail(warning and handle shader access)
-            let map_info = packer
-              .access(light_id)
-              .unwrap()
-              .map(convert_pack_result)
-              .unwrap_or(Default::default());
+      //
+      for (light_id, uniform_array_index) in light_id_mapping.iter() {
+        let shadow_uniform = if let Some(shadow_info) = shadow_info_access(*light_id) {
+          // todo, handle allocation fail(warning and handle shader access)
+          let map_info = packer
+            .access(light_id)
+            .unwrap()
+            .map(convert_pack_result)
+            .unwrap_or(Default::default());
 
-            source_world_map.insert(*light_id, shadow_info.light_world);
-            source_proj_map.insert(*light_id, shadow_info.proj);
+          source_world_map.insert(*light_id, shadow_info.light_world);
+          source_proj_map.insert(*light_id, shadow_info.proj);
 
-            let world_mat = shadow_info.light_world;
-            let shadow_world_position = into_hpt(world_mat.position()).into_uniform();
+          let world_mat = shadow_info.light_world;
+          let shadow_world_position = into_hpt(world_mat.position()).into_uniform();
 
-            let world_inv = world_mat.inverse_or_identity();
-            let shadow_center_without_translation_to_shadowmap_ndc =
-              shadow_info.proj * world_inv.remove_position().into_f32();
+          let world_inv = world_mat.inverse_or_identity();
+          let shadow_center_without_translation_to_shadowmap_ndc =
+            shadow_info.proj * world_inv.remove_position().into_f32();
 
-            BasicShadowMapInfo {
-              enabled: Bool::from(true),
-              map_info,
-              bias: shadow_info.bias,
-              shadow_world_position,
-              shadow_center_without_translation_to_shadowmap_ndc,
-              ..Default::default()
-            }
-          } else {
-            BasicShadowMapInfo {
-              enabled: Bool::from(false),
-              ..Default::default()
-            }
-          };
-          shadow_info_array.set(*uniform_array_index as usize, shadow_uniform);
-        }
-        (*scene_id, shadow_info_array)
-      })
-      .collect();
+          BasicShadowMapInfo {
+            enabled: Bool::from(true),
+            map_info,
+            bias: shadow_info.bias,
+            shadow_world_position,
+            shadow_center_without_translation_to_shadowmap_ndc,
+            ..Default::default()
+          }
+        } else {
+          BasicShadowMapInfo {
+            enabled: Bool::from(false),
+            ..Default::default()
+          }
+        };
+        shadow_info_array.set(*uniform_array_index as usize, shadow_uniform);
+      }
+      (*scene_id, shadow_info_array)
+    })
+    .collect();
 
   let (old_shadow_map, mut old_uniforms) = match gpu_data.as_ref() {
     Some(g) => (Some(g.shadow_map.clone()), g.uniforms.clone()),
@@ -95,18 +97,19 @@ pub fn prepare_basic_shadow_map_uniform(
     _ => ShadowAtlas::new("basic-shadow-map-atlas", required_size.into_gpu_size(), gpu),
   };
 
-  let uniforms: FastHashMap<RawEntityHandle, UniformArray<BasicShadowMapInfo, 8>> = new_shadow_info
-    .iter()
-    .map(|(scene_id, info)| {
-      let uniform = if let Some(existing) = old_uniforms.remove(scene_id) {
-        existing.write_at(&gpu.queue, info, 0);
-        existing
-      } else {
-        create_uniform(info.clone(), &gpu.device, "basic-shadow-map-uniform")
-      };
-      (*scene_id, uniform)
-    })
-    .collect();
+  let uniforms: FastHashMap<RawEntityHandle, UniformArray<BasicShadowMapInfo, MAX_SHADOW_COUNT>> =
+    new_shadow_info
+      .iter()
+      .map(|(scene_id, info)| {
+        let uniform = if let Some(existing) = old_uniforms.remove(scene_id) {
+          existing.write_at(&gpu.queue, info, 0);
+          existing
+        } else {
+          create_uniform(info.clone(), &gpu.device, "basic-shadow-map-uniform")
+        };
+        (*scene_id, uniform)
+      })
+      .collect();
 
   *gpu_data = Some(BasicShadowMapGPU {
     shadow_map: shadow_map.clone(),
@@ -212,7 +215,7 @@ pub struct BasicShadowMapInfo {
 #[derive(Clone)]
 pub struct BasicShadowMapComponent {
   pub shadow_map_atlas: GPU2DArrayDepthTextureView,
-  pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
+  pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
   pub reversed_depth: bool,
 }
 
@@ -238,7 +241,7 @@ impl AbstractBindingSource for BasicShadowMapComponent {
 pub struct BasicShadowMapInvocation {
   shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
   sampler: BindingNode<ShaderCompareSampler>,
-  info: ShaderReadonlyPtrOf<Shader140Array<BasicShadowMapInfo, 8>>,
+  info: ShaderReadonlyPtrOf<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
 }
 
 impl BasicShadowMapInvocation {
@@ -302,7 +305,10 @@ impl IntoShaderIterator for BasicShadowMapInvocation {
 #[derive(Clone)]
 pub struct BasicShadowMapInvocationIter {
   inner: BasicShadowMapInvocation,
-  iter: ShaderStaticArrayReadonlyIter<Shader140Array<BasicShadowMapInfo, 8>, BasicShadowMapInfo>,
+  iter: ShaderStaticArrayReadonlyIter<
+    Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>,
+    BasicShadowMapInfo,
+  >,
 }
 
 impl ShaderIterator for BasicShadowMapInvocationIter {

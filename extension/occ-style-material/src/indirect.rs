@@ -191,12 +191,13 @@ impl GraphicsShaderProvider for OccStyleMaterialStorageGPU<'_> {
         val(Vec4::one()),
       );
 
+      builder.insert_type_tag::<OccSurfaceTag>();
+
       auto_reverse_normal(builder);
 
       match self.shade_type {
         OccStyleEffectType::Unlit => {
           let diffuse = uniform.diffuse * diffuse_alpha_tex;
-          builder.insert_type_tag::<UnlitMaterialTag>();
           builder.register::<ColorChannel>(diffuse.xyz());
           builder.register::<AlphaChannel>(diffuse.w());
           builder.register::<DefaultDisplay>(diffuse);
@@ -209,7 +210,6 @@ impl GraphicsShaderProvider for OccStyleMaterialStorageGPU<'_> {
           builder.register::<SpecularChannel>(uniform.specular);
           builder.register::<EmissiveChannel>(uniform.emissive);
           builder.register::<ShininessChannel>(uniform.shininess);
-          builder.insert_type_tag::<PbrSGMaterialTag>();
           builder.insert_type_tag::<LightableSurfaceTag>();
         }
         OccStyleEffectType::Zebra => {

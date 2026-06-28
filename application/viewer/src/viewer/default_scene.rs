@@ -192,8 +192,10 @@ pub fn load_default_scene(
       .write::<SceneModelViewDependentTransformOcc>(
         sm,
         Some(OccStyleViewDepConfig {
-          transform_ty: OccStyleTransform::Dimension3 {
+          transform_ty: OccStyleTransform {
             anchor_point: Vec3::new(0., 0., 0.),
+            offset: Vec2::new(0, 0),
+            corner: OccStyleCorner::empty(),
           },
           mode: OccStyleMode::NotZoomRotate,
           local_mat: None,

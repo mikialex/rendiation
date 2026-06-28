@@ -39,8 +39,10 @@ pub fn compute_light_list<T: Std140 + Default>(
 
 pub struct LightUniformInfo<T: Std140> {
   /// scene id -> per scene uniform array
-  pub uniform:
-    FastHashMap<RawEntityHandle, UniformBufferCachedDataView<UniformArrayWithLengthInfo<T>>>,
+  pub uniform: FastHashMap<
+    RawEntityHandle,
+    UniformBufferCachedDataView<UniformArrayWithLengthInfo<T, LIGHT_LIST_LEN>>,
+  >,
   /// scene id -> light id -> allocation index
   pub allocation_info: FastHashMap<RawEntityHandle, FastHashMap<RawEntityHandle, u32>>,
   pub label: String,
@@ -90,7 +92,7 @@ pub fn sync_per_scene_uniforms<T: Std140 + PartialEq>(
 
 #[derive(Default)]
 pub struct PerSceneLightArray<T: Std140> {
-  pub buffer: UniformArrayWithLengthInfo<T>,
+  pub buffer: UniformArrayWithLengthInfo<T, LIGHT_LIST_LEN>,
   // map light id to it's allocate index in array
   pub mapping: FastHashMap<RawEntityHandle, u32>,
 }
@@ -105,7 +107,7 @@ impl<T: Std140> PerSceneLightArray<T> {
       return;
     }
 
-    self.buffer.lights.set(self.buffer.length.x as usize, light);
+    self.buffer.array.set(self.buffer.length.x as usize, light);
     self.buffer.length.x += 1;
 
     self
@@ -114,46 +116,48 @@ impl<T: Std140> PerSceneLightArray<T> {
   }
 }
 
-const LIGHT_LIST_LEN: usize = 8;
+pub const LIGHT_LIST_LEN: usize = 8;
 
+/// this util should move to upstream if others want to use
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
-pub struct UniformArrayWithLengthInfo<T: Std140> {
+pub struct UniformArrayWithLengthInfo<T: Std140, const N: usize> {
   pub length: Vec4<u32>, // use vec4 for alignment, only .x is the length info
-  pub lights: Shader140Array<T, LIGHT_LIST_LEN>,
+  pub array: Shader140Array<T, N>,
 }
 
-unsafe impl<T: Std140 + Zeroable> Zeroable for UniformArrayWithLengthInfo<T> {}
-unsafe impl<T: Std140 + Pod> Pod for UniformArrayWithLengthInfo<T> {}
-unsafe impl<T: Std140> Std140 for UniformArrayWithLengthInfo<T> {
-  const ALIGNMENT: usize = Shader140Array::<T, LIGHT_LIST_LEN>::ALIGNMENT;
+unsafe impl<T: Std140 + Zeroable, const N: usize> Zeroable for UniformArrayWithLengthInfo<T, N> {}
+unsafe impl<T: Std140 + Pod, const N: usize> Pod for UniformArrayWithLengthInfo<T, N> {}
+unsafe impl<T: Std140, const N: usize> Std140 for UniformArrayWithLengthInfo<T, N> {
+  const ALIGNMENT: usize = Shader140Array::<T, N>::ALIGNMENT;
 }
 
 #[derive(Clone)]
-pub struct UniformArrayWithLengthInfoShaderPtr<T> {
+pub struct UniformArrayWithLengthInfoShaderPtr<T, const N: usize> {
   access: BoxedShaderPtr,
   phantom: PhantomData<T>,
 }
 
-impl<T: Std140 + ShaderSizedValueNodeType> IntoShaderIterator
-  for UniformArrayWithLengthInfoShaderPtr<T>
+impl<T: Std140 + ShaderSizedValueNodeType, const N: usize> IntoShaderIterator
+  for UniformArrayWithLengthInfoShaderPtr<T, N>
 {
-  type ShaderIter = ShaderStaticArrayReadonlyIter<Shader140Array<T, 8>, T>;
+  type ShaderIter = ShaderStaticArrayReadonlyIter<Shader140Array<T, N>, T>;
 
   fn into_shader_iter(self) -> Self::ShaderIter {
-    let lights_ptr = self.access.field_index(1);
-    let lights_view = <Shader140Array<T, 8>>::create_readonly_view_from_raw_ptr(lights_ptr);
+    let array_ptr = self.access.field_index(1);
+    let array_view = <Shader140Array<T, N>>::create_readonly_view_from_raw_ptr(array_ptr);
 
     let length = <Vec4<u32>>::create_readonly_view_from_raw_ptr(self.access.field_index(0));
     let length_clamp = length.load().x();
-    ShaderStaticArrayReadonlyIter::from_array_clamp_length(lights_view, length_clamp)
+    ShaderStaticArrayReadonlyIter::from_array_clamp_length(array_view, length_clamp)
   }
 }
 
-impl<T: Std140 + ShaderSizedValueNodeType> ReadonlySizedShaderPtrView
-  for UniformArrayWithLengthInfoShaderPtr<T>
+impl<T, const N: usize> ReadonlySizedShaderPtrView for UniformArrayWithLengthInfoShaderPtr<T, N>
+where
+  T: Std140 + ShaderSizedValueNodeType,
 {
-  type Node = UniformArrayWithLengthInfo<T>;
+  type Node = UniformArrayWithLengthInfo<T, N>;
 
   fn load(&self) -> Node<Self::Node> {
     unsafe { self.access.load().into_node() }
@@ -164,17 +168,18 @@ impl<T: Std140 + ShaderSizedValueNodeType> ReadonlySizedShaderPtrView
   }
 }
 
-impl<T: Std140 + ShaderSizedValueNodeType> SizedShaderPtrView
-  for UniformArrayWithLengthInfoShaderPtr<T>
+impl<T, const N: usize> SizedShaderPtrView for UniformArrayWithLengthInfoShaderPtr<T, N>
+where
+  T: Std140 + ShaderSizedValueNodeType,
 {
   fn store(&self, value: impl Into<Node<Self::Node>>) {
     self.access.store(value.into().handle());
   }
 }
 
-impl<T: Std140> ShaderAbstractPtrAccess for UniformArrayWithLengthInfo<T> {
-  type PtrView = UniformArrayWithLengthInfoShaderPtr<T>;
-  type ReadonlyPtrView = UniformArrayWithLengthInfoShaderPtr<T>;
+impl<T: Std140, const N: usize> ShaderAbstractPtrAccess for UniformArrayWithLengthInfo<T, N> {
+  type PtrView = UniformArrayWithLengthInfoShaderPtr<T, N>;
+  type ReadonlyPtrView = UniformArrayWithLengthInfoShaderPtr<T, N>;
 
   fn create_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::PtrView {
     UniformArrayWithLengthInfoShaderPtr {
@@ -191,20 +196,24 @@ impl<T: Std140> ShaderAbstractPtrAccess for UniformArrayWithLengthInfo<T> {
   }
 }
 
-impl<T: ShaderSizedValueNodeType + Std140> ShaderNodeType for UniformArrayWithLengthInfo<T> {
+impl<T, const N: usize> ShaderNodeType for UniformArrayWithLengthInfo<T, N>
+where
+  T: ShaderSizedValueNodeType + Std140,
+{
   fn ty() -> ShaderValueType {
     ShaderValueType::Single(ShaderValueSingleType::Sized(Self::sized_ty()))
   }
 }
 
-impl<T: ShaderSizedValueNodeType + Std140> ShaderSizedValueNodeType
-  for UniformArrayWithLengthInfo<T>
+impl<T, const N: usize> ShaderSizedValueNodeType for UniformArrayWithLengthInfo<T, N>
+where
+  T: ShaderSizedValueNodeType + Std140,
 {
   fn sized_ty() -> ShaderSizedValueType {
     ShaderSizedValueType::Struct(
       ShaderStructMetaInfo::new("UniformArrayWithLengthInfo")
         .add_field::<Vec4<u32>>("length")
-        .add_field::<Shader140Array<T, LIGHT_LIST_LEN>>("lights"),
+        .add_field::<Shader140Array<T, N>>("array"),
     )
   }
 
@@ -213,7 +222,7 @@ impl<T: ShaderSizedValueNodeType + Std140> ShaderSizedValueNodeType
       ShaderStructFieldInitValue::Primitive(self.length.to_primitive()),
       ShaderStructFieldInitValue::Array(
         self
-          .lights
+          .array
           .inner
           .iter()
           .map(|v| v.inner.to_value())

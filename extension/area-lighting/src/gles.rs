@@ -99,10 +99,13 @@ impl LightSystemSceneProvider for SceneAreaLightingProvider {
   }
 }
 
+pub const MAX_GLES_AREA_LIGHT_COUNT: usize = 8;
+type UniformArray = UniformArrayWithLengthInfo<LTCAreaLightUniform, MAX_GLES_AREA_LIGHT_COUNT>;
+
 pub struct LTCLightingComputeComponent {
   ltc_1: GPU2DTextureView,
   ltc_2: GPU2DTextureView,
-  uniforms: UniformBufferCachedDataView<UniformArrayWithLengthInfo<LTCAreaLightUniform>>,
+  uniforms: UniformBufferCachedDataView<UniformArray>,
 }
 impl ShaderHashProvider for LTCLightingComputeComponent {
   shader_hash_type_id! {}
@@ -133,7 +136,7 @@ impl LightingComputeComponent for LTCLightingComputeComponent {
 }
 
 struct LTCLightingComputeInvocation {
-  uniforms: ShaderReadonlyPtrOf<UniformArrayWithLengthInfo<LTCAreaLightUniform>>,
+  uniforms: ShaderReadonlyPtrOf<UniformArray>,
   lut: LTCxLUTxInvocation,
 }
 

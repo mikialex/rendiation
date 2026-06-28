@@ -79,22 +79,16 @@ pub extern "C" fn scene_model_set_scene(
 #[no_mangle]
 pub extern "C" fn scene_model_set_occ_style_view_dep(
   handle: ViewerEntityHandle,
-  is_2d: bool,
   anchor: &[f32; 3],
   offset: &[i32; 2],
   corner: u32,
   mode: u32,
   local_mat: *const [f32; 16],
 ) {
-  let transform_ty = if is_2d {
-    OccStyleTransform::Dimension2 {
-      offset: (*offset).into(),
-      corner: OccStyleCorner::from_bits_retain(corner),
-    }
-  } else {
-    OccStyleTransform::Dimension3 {
-      anchor_point: (*anchor).into(),
-    }
+  let transform_ty = OccStyleTransform {
+    anchor_point: (*anchor).into(),
+    offset: (*offset).into(),
+    corner: OccStyleCorner::from_bits_retain(corner),
   };
 
   let local_mat = if local_mat.is_null() {

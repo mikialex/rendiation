@@ -18,6 +18,8 @@ pub use cascade::*;
 mod map_utils;
 use map_utils::*;
 
+pub const MAX_SHADOW_COUNT: usize = 8;
+
 pub struct ShadowPassDesc {
   desc: RenderPassDescription,
   address: ShadowMapAddressInfo,

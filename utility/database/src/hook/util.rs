@@ -123,8 +123,9 @@ impl<V: CValue> Query for ArenaAccess<V> {
   }
 
   fn access(&self, key: &RawEntityHandle) -> Option<V> {
-    let handle = self.0.get_handle(key.index() as usize).unwrap();
-    self.0.get(handle).cloned()
+    let key = key.into_handle_impl();
+    let key = unsafe { key.cast_type() };
+    self.0.get(key).cloned()
   }
 
   fn has_item_hint(&self) -> bool {
