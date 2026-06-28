@@ -106,8 +106,11 @@ impl RawEntityHandle {
     self.0.into_raw_parts().1
   }
 
-  pub unsafe fn from_handle(handle: Handle<()>) -> Self {
+  pub unsafe fn from_handle_impl(handle: Handle<()>) -> Self {
     Self(handle)
+  }
+  pub fn into_handle_impl(self) -> Handle<()> {
+    self.0
   }
 
   pub fn create_only_for_testing(index: usize) -> Self {

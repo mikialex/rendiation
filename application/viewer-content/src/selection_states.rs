@@ -3,6 +3,8 @@ use futures::task::AtomicWaker;
 use crate::*;
 
 // todo, we should put this into db
+//
+// the handle may be invalid
 #[derive(Default)]
 pub struct ViewerSelectionStates {
   pub selected_model: ViewerModelSelectionSet,
@@ -25,6 +27,7 @@ impl ViewerModelSelectionSet {
   pub fn iter_selected(
     &self,
   ) -> impl Iterator<Item = EntityHandle<SceneModelEntity>> + Clone + 'static {
+    let checker = global_entity_arena_access::<SceneModelEntity>();
     // todo, improve
     self
       .selected_models
@@ -32,6 +35,7 @@ impl ViewerModelSelectionSet {
       .copied()
       .collect::<Vec<_>>()
       .into_iter()
+      .filter(move |h| checker.contains(h.into_raw().into_handle_impl()))
   }
   pub fn remove_select_if(&mut self, f: impl Fn(EntityHandle<SceneModelEntity>) -> bool) {
     let len = self.selected_models.len();

@@ -37,7 +37,7 @@ impl SceneModelIterProvider for SceneDynamicBvhIterProvider {
       let models = global_entity_arena_access::<SceneModelEntity>();
       let iter = hits.into_iter().map(move |index| {
         let handle = models.get_handle(index as usize).unwrap();
-        unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle(handle)) }
+        unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle_impl(handle)) }
       });
 
       Box::new(iter.chain(base))
@@ -128,7 +128,7 @@ impl SceneModelIterProvider for SceneDynamicBvhIterProvider {
 
       let iter = insider.chain(partial).map(move |(_intersect, idx)| {
         let handle = models.get_handle(idx as usize).unwrap();
-        unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle(handle)) }
+        unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle_impl(handle)) }
       });
       Box::new(iter.chain(base))
     } else {
