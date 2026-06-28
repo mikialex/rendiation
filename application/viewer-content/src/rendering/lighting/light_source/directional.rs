@@ -206,8 +206,10 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
   }
 }
 
+type UniformArray = UniformArrayWithLengthInfo<DirectionalLightUniform, LIGHT_LIST_LEN>;
+
 struct DirectionalLightingShader {
-  lights: UniformBufferCachedDataView<UniformArrayWithLengthInfo<DirectionalLightUniform>>,
+  lights: UniformBufferCachedDataView<UniformArray>,
   shadows: ShadowImplComType,
 }
 
@@ -252,7 +254,7 @@ impl ShaderHashProvider for DirectionalLightingShader {
 }
 
 struct DirectionalLightingInvocation {
-  lights: ShaderReadonlyPtrOf<UniformArrayWithLengthInfo<DirectionalLightUniform>>,
+  lights: ShaderReadonlyPtrOf<UniformArray>,
   shadows: ShadowImplInvocationType,
 }
 

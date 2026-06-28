@@ -33,14 +33,16 @@ pub fn generate_cascade_shadow_info(
   let to_opengl_ndc_space = ndc.transform_into_opengl_standard_ndc();
   let view_camera_proj = to_opengl_ndc_space * view_camera_proj;
 
-  let mut scene_cascade_info =
-    FastHashMap::<RawEntityHandle, Shader140Array<CascadeShadowMapInfo, 8>>::default();
+  let mut scene_cascade_info = FastHashMap::<
+    RawEntityHandle,
+    Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>,
+  >::default();
   let mut light_proj_info =
     FastHashMap::<RawEntityHandle, (Mat4<f64>, [Mat4<f32>; CASCADE_SHADOW_SPLIT_COUNT])>::default();
   let mut light_cascade_info = FastHashMap::<RawEntityHandle, CascadeShadowMapInfo>::default();
 
   for (scene_id, light_id_mapping) in light_uniform_array_index_mapping.iter() {
-    let mut scene_array = Shader140Array::<CascadeShadowMapInfo, 8>::default();
+    let mut scene_array = Shader140Array::<CascadeShadowMapInfo, MAX_SHADOW_COUNT>::default();
 
     for (light_id, uniform_array_index) in light_id_mapping.iter() {
       let cascade_uniform = if let Some(input) = cascade_info_access(*light_id) {
@@ -125,7 +127,8 @@ pub fn generate_cascade_shadow_info(
 
 pub struct CascadeShadowPreparer {
   // scene entity -> per-scene cascade uniform array
-  pub scene_cascade_info: FastHashMap<RawEntityHandle, Shader140Array<CascadeShadowMapInfo, 8>>,
+  pub scene_cascade_info:
+    FastHashMap<RawEntityHandle, Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
   // light entity -> (world_mat, [4 cascade proj])
   pub light_proj_info:
     FastHashMap<RawEntityHandle, (Mat4<f64>, [Mat4<f32>; CASCADE_SHADOW_SPLIT_COUNT])>,
@@ -138,15 +141,19 @@ pub struct CascadeShadowPreparer {
 pub struct CascadeShadowGPUCache {
   texture: Option<ShadowAtlas>,
   // scene entity -> per-scene uniform buffer
-  uniforms:
-    FastHashMap<RawEntityHandle, UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, 8>>>,
+  uniforms: FastHashMap<
+    RawEntityHandle,
+    UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
+  >,
 }
 
 pub struct CascadeShadowGPUData {
   pub shadow_map_atlas: GPU2DArrayDepthTextureView,
   // scene entity -> per-scene uniform buffer
-  pub uniforms:
-    FastHashMap<RawEntityHandle, UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, 8>>>,
+  pub uniforms: FastHashMap<
+    RawEntityHandle,
+    UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
+  >,
   pub reversed_depth: bool,
 }
 
@@ -210,7 +217,7 @@ impl CascadeShadowPreparer {
 
     let uniforms: FastHashMap<
       RawEntityHandle,
-      UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, 8>>,
+      UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
     > = self
       .scene_cascade_info
       .iter()
@@ -336,7 +343,7 @@ pub fn compute_cascade_split_info(
 #[derive(Clone)]
 pub struct CascadeShadowMapComponent {
   pub shadow_map_atlas: GPU2DArrayDepthTextureView,
-  pub info: UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, 8>>,
+  pub info: UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
   pub reversed_depth: bool,
 }
 
@@ -365,7 +372,7 @@ impl AbstractBindingSource for CascadeShadowMapComponent {
 pub struct CascadeShadowMapInvocation {
   shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
   sampler: BindingNode<ShaderCompareSampler>,
-  info: ShaderReadonlyPtrOf<Shader140Array<CascadeShadowMapInfo, 8>>,
+  info: ShaderReadonlyPtrOf<Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
 }
 
 #[derive(Clone)]

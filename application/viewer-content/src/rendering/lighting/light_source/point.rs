@@ -27,9 +27,11 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
   }
 }
 
+type UniformArray = UniformArrayWithLengthInfo<PointLightUniform, LIGHT_LIST_LEN>;
+
 #[derive(Clone)]
 struct PointLightShader {
-  lights: UniformBufferCachedDataView<UniformArrayWithLengthInfo<PointLightUniform>>,
+  lights: UniformBufferCachedDataView<UniformArray>,
 }
 
 impl ShaderHashProvider for PointLightShader {
@@ -53,7 +55,7 @@ impl LightingComputeComponent for PointLightShader {
 }
 
 struct PointLightInvocation {
-  lights: ShaderReadonlyPtrOf<UniformArrayWithLengthInfo<PointLightUniform>>,
+  lights: ShaderReadonlyPtrOf<UniformArray>,
 }
 
 impl LightingComputeInvocation for PointLightInvocation {

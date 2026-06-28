@@ -131,9 +131,11 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
   }
 }
 
+type UniformArray = UniformArrayWithLengthInfo<SpotLightUniform, LIGHT_LIST_LEN>;
+
 #[derive(Clone)]
 struct SpotLightShader {
-  lights: UniformBufferCachedDataView<UniformArrayWithLengthInfo<SpotLightUniform>>,
+  lights: UniformBufferCachedDataView<UniformArray>,
   shadow: Option<BasicShadowMapComponent>,
 }
 
@@ -165,7 +167,7 @@ impl LightingComputeComponent for SpotLightShader {
 }
 
 struct SpotLightInvocation {
-  lights: ShaderReadonlyPtrOf<UniformArrayWithLengthInfo<SpotLightUniform>>,
+  lights: ShaderReadonlyPtrOf<UniformArray>,
   shadow: Option<BasicShadowMapInvocation>,
 }
 
