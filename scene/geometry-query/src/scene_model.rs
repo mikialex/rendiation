@@ -119,19 +119,15 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
   }
 }
 
-pub struct SceneModelPickerBaseImpl<T> {
+#[derive(Clone)]
+pub struct SceneModelPickerBaseImplUtil {
   pub node_world: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
-  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
-  pub sm_local_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
   pub selectable: ComponentReadView<SceneModelSelectable>,
-  pub internal: T,
-  // keep result if return true
-  pub filter: Option<Box<dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool>>,
 }
 
-impl<T> SceneModelPickerBaseImpl<T> {
+impl SceneModelPickerBaseImplUtil {
   pub fn pre_check(
     &self,
     idx: EntityHandle<SceneModelEntity>,
@@ -146,6 +142,18 @@ impl<T> SceneModelPickerBaseImpl<T> {
 
     Some(node)
   }
+  pub fn get_node_mat(&self, node: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f64>> {
+    self.node_world.access(&node)
+  }
+}
+
+pub struct SceneModelPickerBaseImpl<T> {
+  pub util: SceneModelPickerBaseImplUtil,
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
+  pub sm_local_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
+  pub internal: T,
+  // keep result if return true
+  pub filter: Option<Box<dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool>>,
 }
 
 impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
@@ -155,7 +163,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
   ) -> Option<MeshBufferHitPoint<f64>> {
-    let node = self.pre_check(idx)?;
+    let node = self.util.pre_check(idx)?;
 
     let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
       let smb = self
@@ -166,7 +174,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       (*mat, smb)
     } else {
       (
-        self.node_world.access(&node)?,
+        self.util.get_node_mat(node)?,
         self.sm_world_bounding.access(&idx)??,
       )
     };
@@ -221,7 +229,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
   ) -> Option<()> {
-    let node = self.pre_check(idx)?;
+    let node = self.util.pre_check(idx)?;
 
     let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
       let smb = self
@@ -232,7 +240,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       (*mat, smb)
     } else {
       (
-        self.node_world.access(&node)?,
+        self.util.get_node_mat(node)?,
         self.sm_world_bounding.access(&idx)??,
       )
     };
@@ -285,7 +293,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     ctx: &SceneFrustumQuery,
     policy: ObjectTestPolicy,
   ) -> Option<bool> {
-    let node = self.pre_check(idx)?;
+    let node = self.util.pre_check(idx)?;
 
     let (mat, _sm_world_bounding) = if let Some(mat) = override_world_mat {
       let smb = self
@@ -296,7 +304,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       (*mat, smb)
     } else {
       (
-        self.node_world.access(&node)?,
+        self.util.get_node_mat(node)?,
         self.sm_world_bounding.access(&idx)??,
       )
     };
