@@ -9,6 +9,7 @@ pub use none_indexed::*;
 mod midc_downgrade;
 pub use midc_downgrade::*;
 
+#[derive(Clone)]
 pub enum DrawCommandBuilder {
   Indexed(Box<dyn IndexedDrawCommandBuilder>),
   NoneIndexed(Box<dyn NoneIndexedDrawCommandBuilder>),

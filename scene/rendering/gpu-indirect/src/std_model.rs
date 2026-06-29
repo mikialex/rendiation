@@ -18,9 +18,10 @@ pub trait IndirectModelRenderImpl {
 
   fn as_any(&self) -> &dyn Any;
 
-  /// this is actually place to provide self's render component implementation
-  /// this id inject is not necessary if the implementation not required, but still required
-  /// to return Some component.
+  /// This is the place to provide self's render component implementation
+  ///
+  /// This id inject logic is not necessary if the subsequent render component implementation not required
+  /// any id info, but the implementation is still required to return Some(Box::new(())) as the return value.
   fn device_id_injector(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
