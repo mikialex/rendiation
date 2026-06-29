@@ -206,6 +206,22 @@ pub extern "C" fn update_mesh_data(
   let data = unsafe { slice::from_raw_parts(data, byte_size as usize) };
   let data = ExternalRefPtr::new(MaybeUriData::Living(Arc::new(data.to_vec())));
 
+  fn update(pair: &mut VertexPair, data: &ExternalRefPtr<MaybeUriData<Arc<Vec<u8>>>>) {
+    let mut buffer_writer = global_entity_of::<BufferEntity>().entity_writer();
+    let mut relation_writer =
+      global_entity_of::<AttributesMeshEntityVertexBufferRelation>().entity_writer();
+    let new_entity = buffer_writer.new_entity(|w| w.write::<BufferEntityData>(&data));
+    relation_writer.write::<SceneBufferViewBufferId<AttributeVertexRef>>(
+      pair.h1.into(),
+      Some(new_entity.into_raw()),
+    );
+    pair.h2 = new_entity.into();
+    // todo support buffer mutation
+
+    // let buffer_handle: EntityHandle<BufferEntity> = entities.normal.h2.into();
+    // buffer_writer.write::<BufferEntityData>(buffer_handle, data);
+  }
+
   let mut buffer_writer = global_entity_of::<BufferEntity>().entity_writer();
 
   match vertex_ty {
@@ -215,8 +231,7 @@ pub extern "C" fn update_mesh_data(
     }
     MeshAPIDataType::Normal => {
       if entities.has_normal {
-        let buffer_handle: EntityHandle<BufferEntity> = entities.normal.h2.into();
-        buffer_writer.write::<BufferEntityData>(buffer_handle, data);
+        update(&mut entities.normal, &data);
       } else {
         entities.normal = create_vertex_attribute(
           byte_size,
@@ -230,8 +245,7 @@ pub extern "C" fn update_mesh_data(
     }
     MeshAPIDataType::Uv => {
       if entities.has_uv {
-        let buffer_handle: EntityHandle<BufferEntity> = entities.uv.h2.into();
-        buffer_writer.write::<BufferEntityData>(buffer_handle, data);
+        update(&mut entities.uv, &data);
       } else {
         entities.uv = create_vertex_attribute(
           byte_size,
@@ -244,8 +258,19 @@ pub extern "C" fn update_mesh_data(
       }
     }
     MeshAPIDataType::Indices => {
-      let buffer_handle: EntityHandle<BufferEntity> = entities.index.into();
-      buffer_writer.write::<BufferEntityData>(buffer_handle, data);
+      let mut buffer_writer = global_entity_of::<BufferEntity>().entity_writer();
+      let mut mesh_writer = global_entity_of::<AttributesMeshEntity>().entity_writer();
+      let new_entity = buffer_writer.new_entity(|w| w.write::<BufferEntityData>(&data));
+      mesh_writer.write::<SceneBufferViewBufferId<AttributeIndexRef>>(
+        entities.mesh.into(),
+        Some(new_entity.into_raw()),
+      );
+      entities.index = new_entity.into()
+
+      // todo we current not watch buffer changes
+
+      // let buffer_handle: EntityHandle<BufferEntity> = entities.index.into();
+      // buffer_writer.write::<BufferEntityData>(buffer_handle, data);
     }
   }
 }
