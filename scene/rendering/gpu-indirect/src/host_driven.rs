@@ -1,5 +1,3 @@
-use rendiation_webgpu_midc_downgrade::*;
-
 use crate::*;
 
 impl IndirectSceneRenderer {

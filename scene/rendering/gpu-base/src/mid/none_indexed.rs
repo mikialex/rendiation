@@ -11,6 +11,29 @@ pub trait NoneIndexedDrawCommandBuilder: ShaderHashProvider + DynClone {
 }
 dyn_clone::clone_trait_object!(NoneIndexedDrawCommandBuilder);
 
+impl ShaderHashProvider for Box<dyn NoneIndexedDrawCommandBuilder> {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    (**self).hash_pipeline_with_type_info(hasher);
+  }
+}
+impl NoneIndexedDrawCommandBuilder for Box<dyn NoneIndexedDrawCommandBuilder> {
+  fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
+    (**self).draw_command_host_access(id)
+  }
+
+  fn build_invocation(
+    &self,
+    cx: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn NoneIndexedDrawCommandBuilderInvocation> {
+    (**self).build_invocation(cx)
+  }
+
+  fn bind(&self, builder: &mut BindingBuilder) {
+    (**self).bind(builder)
+  }
+}
+
 pub trait NoneIndexedDrawCommandBuilderInvocation {
   /// the implementation must generate an empty drawcall for mesh not allocated case
   ///

@@ -175,6 +175,14 @@ impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
     Some(Box::new(()))
   }
 
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+    self.model_access.get(any_idx)?;
+    Some(None)
+  }
+
   fn shape_renderable_indirect<'a>(
     &'a self,
     any_idx: EntityHandle<SceneModelEntity>,

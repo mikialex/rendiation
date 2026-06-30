@@ -11,6 +11,16 @@ pub trait IndirectModelShapeRenderImpl:
     any_idx: EntityHandle<StandardModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>>;
 
+  /// If the indirect shape implementation using index buffer, then it's buffer must also has
+  /// storage usage and can be accessed here. This api is to expose the ability to convert the
+  /// draw index call into draw array in some case.
+  ///
+  /// Return None if the id not matched
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<StandardModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>>;
+
   fn hash_shader_group_key(
     &self,
     any_id: EntityHandle<StandardModelEntity>,
@@ -99,7 +109,20 @@ impl IndirectModelShapeRenderImpl for Vec<Box<dyn IndirectModelShapeRenderImpl>>
     }
     None
   }
+
   fn as_any(&self) -> &dyn Any {
     self
+  }
+
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<StandardModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+    for provider in self {
+      if let Some(v) = provider.get_index_storage_buffer(any_idx) {
+        return Some(v);
+      }
+    }
+    None
   }
 }

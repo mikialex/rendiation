@@ -158,8 +158,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
       Box::new(text_picker),
     ];
 
-    let scene_model_picker = SceneModelPickerBaseImpl {
-      internal: local_model_pickers,
+    let util = SceneModelPickerBaseImplUtil {
       selectable: read_global_db_component(),
       scene_model_node: read_global_db_foreign_key(),
       node_world: node_world
@@ -170,6 +169,11 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
+    };
+
+    let scene_model_picker = SceneModelPickerBaseImpl {
+      internal: local_model_pickers,
+      util,
       filter: Some(Box::new(create_clip_pick_filter())),
       sm_world_bounding: sm_world_bounding
         .expect_resolve_stage()

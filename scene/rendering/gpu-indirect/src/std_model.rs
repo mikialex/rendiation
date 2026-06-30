@@ -18,9 +18,10 @@ pub trait IndirectModelRenderImpl: IndirectDrawProviderCreator + DrawCommandBuil
 
   fn as_any(&self) -> &dyn Any;
 
-  /// this is actually place to provide self's render component implementation
-  /// this id inject is not necessary if the implementation not required, but still required
-  /// to return Some component.
+  /// This is the place to provide self's render component implementation
+  ///
+  /// This id inject logic is not necessary if the subsequent render component implementation not required
+  /// any id info, but the implementation is still required to return Some(Box::new(())) as the return value.
   fn device_id_injector(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -31,6 +32,12 @@ pub trait IndirectModelRenderImpl: IndirectDrawProviderCreator + DrawCommandBuil
     any_idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>>;
+
+  /// see [IndirectModelShapeRenderImpl::get_index_storage_buffer]
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>>;
 
   fn material_renderable_indirect<'a>(
     &'a self,
@@ -120,6 +127,18 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     for provider in self {
       if let Some(v) = provider.shape_renderable_indirect(any_idx, cx) {
+        return Some(v);
+      }
+    }
+    None
+  }
+
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+    for provider in self {
+      if let Some(v) = provider.get_index_storage_buffer(any_idx) {
         return Some(v);
       }
     }
@@ -296,6 +315,14 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let model = self.model.get(any_idx)?;
     self.materials.make_component_indirect(model, cx)
+  }
+
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+    let model_id = self.model.get(any_idx)?;
+    self.shapes.get_index_storage_buffer(model_id)
   }
 }
 

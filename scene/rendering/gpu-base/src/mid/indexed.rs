@@ -21,6 +21,29 @@ pub trait IndexedDrawCommandBuilderInvocation {
   ) -> Node<DrawIndexedIndirectArgsStorage>;
 }
 
+impl ShaderHashProvider for Box<dyn IndexedDrawCommandBuilder> {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    (**self).hash_pipeline_with_type_info(hasher);
+  }
+}
+impl IndexedDrawCommandBuilder for Box<dyn IndexedDrawCommandBuilder> {
+  fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
+    (**self).draw_command_host_access(id)
+  }
+
+  fn build_invocation(
+    &self,
+    cx: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn IndexedDrawCommandBuilderInvocation> {
+    (**self).build_invocation(cx)
+  }
+
+  fn bind(&self, builder: &mut BindingBuilder) {
+    (**self).bind(builder)
+  }
+}
+
 #[derive(Clone)]
 pub struct IndexedDrawCommandGeneratorComponent {
   pub scene_models: Box<dyn ComputeComponent<Node<Vec2<u32>>>>,
