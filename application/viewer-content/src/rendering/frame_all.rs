@@ -338,7 +338,12 @@ impl Viewer3dRenderingCtx {
           active_view_control.clone(),
         );
 
-        let scene_model = use_indirect_scene_model(cx, node, model_support);
+        let scene_model = use_indirect_scene_model(
+          cx,
+          node,
+          model_support,
+          self.using_host_driven_indirect_draw,
+        );
 
         if !self.using_host_driven_indirect_draw {
           cx.scope(|cx| {

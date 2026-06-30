@@ -4,6 +4,7 @@ pub fn use_indirect_scene_model(
   cx: &mut QueryGPUHookCx,
   node_impl: Option<Box<dyn IndirectNodeRenderImpl>>,
   model_impl: Option<Box<dyn IndirectModelRenderImpl>>,
+  force_midc_downgrade: bool,
 ) -> Option<IndirectPreferredComOrderRenderer> {
   let (cx, scene_model_meta) = cx.use_storage_buffer("scene model metadata", 128, u32::MAX);
 
@@ -24,6 +25,7 @@ pub fn use_indirect_scene_model(
     node: read_global_db_foreign_key(),
     node_render: node_impl.unwrap(),
     id_inject: DefaultSceneModelIdInject(scene_model_meta.get_gpu_buffer()),
+    enable_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
   })
 }
 
@@ -84,6 +86,7 @@ pub struct IndirectPreferredComOrderRenderer {
   node_render: Box<dyn IndirectNodeRenderImpl>,
   node: ForeignKeyReadView<SceneModelRefNode>,
   id_inject: DefaultSceneModelIdInject,
+  enable_midc_downgrade: bool,
 }
 
 impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
@@ -205,6 +208,15 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     let material = self.model_impl.material_renderable_indirect(any_id, tex)?;
     let material = material.as_ref();
 
+    let midc_index_downgrade = if self.enable_midc_downgrade {
+      let index = self.model_impl.get_index_storage_buffer(any_id)?;
+      let override_ = MidcDowngradeWrapperForIndirectMeshSystem { index };
+      OptionRender(Some(Box::new(override_) as Box<dyn RenderComponent>))
+    } else {
+      OptionRender(None)
+    };
+    let midc_index_downgrade = &midc_index_downgrade as &dyn RenderComponent;
+
     let camera = camera as &dyn RenderComponent;
     let pass = pass as &dyn RenderComponent;
     let tex = &GPUTextureSystemAsRenderComponent(tex) as &dyn RenderComponent;
@@ -212,12 +224,13 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
 
     let command = models.draw_command();
 
-    let contents: [BindingController<&dyn RenderComponent>; 9] = [
+    let contents: [BindingController<&dyn RenderComponent>; 10] = [
       draw_source.into_assign_binding_index(1),
       tex.into_assign_binding_index(0),
       pass.into_assign_binding_index(1),
       id_inject.into_assign_binding_index(0),
       sub_id_injector.into_assign_binding_index(2),
+      midc_index_downgrade.into_assign_binding_index(2),
       shape.into_assign_binding_index(2),
       node.into_assign_binding_index(2),
       camera.into_assign_binding_index(1),

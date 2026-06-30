@@ -3,7 +3,6 @@ use std::{mem::offset_of, sync::Arc};
 use parking_lot::RwLock;
 use rendiation_mesh_core::AttributeSemantic;
 use rendiation_shader_api::*;
-use rendiation_webgpu_midc_downgrade::*;
 
 mod draw_cmd;
 pub use draw_cmd::*;
@@ -38,11 +37,11 @@ pub fn use_bindless_mesh(
   cx: &mut QueryGPUHookCx,
   init: &BindlessMeshInit,
   merge_with_vertex_allocator: bool,
-  use_midc_downgrade: bool,
+  force_midc_downgrade: bool,
   index_data_source: AttributeIndexDataSource,
   vertex_data_source: AttributeVertexDataSource,
 ) -> Option<MeshGPUBindlessImpl> {
-  let force_midc_downgrade = use_midc_downgrade || merge_with_vertex_allocator;
+  let force_midc_downgrade = force_midc_downgrade || merge_with_vertex_allocator;
 
   let BindlessMeshInit {
     init_index_count,
@@ -469,12 +468,6 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
       is_indexed,
     };
 
-    let mesh_system = MidcDowngradeWrapperForIndirectMeshSystem {
-      index: is_indexed.then(|| mesh_system.internal.index_pool.clone()),
-      mesh_system,
-      enable_downgrade: self.used_in_midc_downgrade,
-    };
-
     Some(Box::new(mesh_system))
   }
 
@@ -538,5 +531,19 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
         )
       })
       .into()
+  }
+
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<StandardModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+    let mesh_id = self.checker.get(any_idx)?;
+    // check mesh must have indices.
+    let is_indexed = self.indices_checker.get(mesh_id).is_some();
+    if is_indexed {
+      Some(Some(self.indices.clone()))
+    } else {
+      Some(None)
+    }
   }
 }

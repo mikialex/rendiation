@@ -33,6 +33,12 @@ pub trait IndirectModelRenderImpl {
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>>;
 
+  /// see [IndirectModelShapeRenderImpl::get_index_storage_buffer]
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>>;
+
   fn generate_indirect_draw_provider(
     &self,
     batch: &DeviceSceneModelRenderSubBatch,
@@ -87,6 +93,18 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     for provider in self {
       if let Some(v) = provider.shape_renderable_indirect(any_idx, cx) {
+        return Some(v);
+      }
+    }
+    None
+  }
+
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+    for provider in self {
+      if let Some(v) = provider.get_index_storage_buffer(any_idx) {
         return Some(v);
       }
     }
@@ -275,6 +293,14 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
     self
       .shapes
       .generate_indirect_draw_provider(batch, model_id, ctx)
+  }
+
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+    let model_id = self.model.get(any_idx)?;
+    self.shapes.get_index_storage_buffer(model_id)
   }
 }
 
