@@ -220,25 +220,6 @@ pub fn register_attribute_mesh_data_model() {
   register_scene_buffer_view::<AttributeVertexRef>(table);
 }
 
-declare_entity!(InstanceMeshInstanceEntity);
-declare_component!(
-  InstanceMeshWorldMatrix,
-  InstanceMeshInstanceEntity,
-  Mat4<f32>
-);
-declare_foreign_key!(
-  InstanceMeshInstanceEntityRefAttributesMeshEntity,
-  InstanceMeshInstanceEntity,
-  AttributesMeshEntity
-);
-
-pub fn register_instance_mesh_data_model() {
-  global_database()
-    .declare_entity::<InstanceMeshInstanceEntity>()
-    .declare_component::<InstanceMeshWorldMatrix>()
-    .declare_foreign_key::<InstanceMeshInstanceEntityRefAttributesMeshEntity>();
-}
-
 pub struct AttributeMeshLocalBounding<T>(pub T);
 
 impl<Cx, T> SharedResultProvider<Cx> for AttributeMeshLocalBounding<T>
