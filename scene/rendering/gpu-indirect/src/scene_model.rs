@@ -199,8 +199,8 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     let node = self.node_render.make_component_indirect(node)?;
     let node = node.as_ref();
 
-    let sub_id_injector = self.model_impl.device_id_injector(any_id)?;
-    let sub_id_injector = sub_id_injector.as_ref();
+    let model_info = self.model_impl.model_info_injector(any_id)?;
+    let model_info = model_info.as_ref();
 
     let shape = self.model_impl.shape_renderable_indirect(any_id, tex)?;
     let shape = shape.as_ref();
@@ -229,8 +229,8 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
       tex.into_assign_binding_index(0),
       pass.into_assign_binding_index(1),
       id_inject.into_assign_binding_index(0),
-      sub_id_injector.into_assign_binding_index(2),
       midc_index_downgrade.into_assign_binding_index(2),
+      model_info.into_assign_binding_index(2),
       shape.into_assign_binding_index(2),
       node.into_assign_binding_index(2),
       camera.into_assign_binding_index(1),
