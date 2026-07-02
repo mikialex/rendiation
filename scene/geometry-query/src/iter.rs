@@ -21,11 +21,12 @@ pub fn pick_models_all(
   results: &mut Vec<MeshBufferHitPoint<f64>>,
   models_results: &mut Vec<EntityHandle<SceneModelEntity>>,
   local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
+  ignore_pre_check: bool,
 ) {
   for m in models {
     let len = results.len();
     if model_impl
-      .ray_query_all(m, None, cx, results, local_result_scratch)
+      .ray_query_all(m, None, cx, results, local_result_scratch, ignore_pre_check)
       .is_some()
     {
       for _ in len..results.len() {
@@ -39,10 +40,11 @@ pub fn pick_models_nearest(
   model_impl: &dyn SceneModelPicker,
   models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
   cx: &SceneRayQuery,
+  ignore_pre_check: bool,
 ) -> Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> {
   let mut nearest: Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> = None;
   for m in models {
-    if let Some(hit) = model_impl.ray_query_nearest(m, None, cx) {
+    if let Some(hit) = model_impl.ray_query_nearest(m, None, cx, ignore_pre_check) {
       let hit = hit.hit;
       if let Some(n) = nearest {
         if hit.is_near_than(&n.0) {
@@ -62,9 +64,10 @@ pub fn range_pick_models(
   frustum: &SceneFrustumQuery,
   policy: ObjectTestPolicy,
   add_results: &mut dyn FnMut(EntityHandle<SceneModelEntity>),
+  ignore_pre_check: bool,
 ) {
   for m in models {
-    if let Some(true) = model_impl.frustum_query(m, None, frustum, policy) {
+    if let Some(true) = model_impl.frustum_query(m, None, frustum, policy, ignore_pre_check) {
       add_results(m);
     }
   }

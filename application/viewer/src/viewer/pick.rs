@@ -36,6 +36,7 @@ impl ViewerPickerWithCtx {
       frustum,
       ty,
       &mut |r| results.push(r),
+      false,
     );
     results
   }
@@ -50,7 +51,7 @@ impl ViewerPickerWithCtx {
       .picker_impl
       .scene_model_iter_provider
       .create_ray_scene_model_iter(scene, &cx);
-    pick_models_nearest(&self.picker_impl.model_picker, &mut iter, &cx)
+    pick_models_nearest(&self.picker_impl.model_picker, &mut iter, &cx, false)
   }
 
   pub fn pick_models_list_all(
@@ -84,6 +85,7 @@ impl ViewerPickerWithCtx {
       &mut results,
       &mut models_results,
       &mut local_result_scratch,
+      false,
     );
     (results, models_results)
   }
@@ -133,10 +135,12 @@ impl Picker3d for ViewerPickerWithCtx {
     model: EntityHandle<SceneModelEntity>,
     world_ray: Ray3<f64>,
   ) -> Option<MeshBufferHitPoint<f64>> {
-    self
-      .picker_impl
-      .model_picker
-      .ray_query_nearest(model, None, &self.create_ray_ctx(world_ray)?)
+    self.picker_impl.model_picker.ray_query_nearest(
+      model,
+      None,
+      &self.create_ray_ctx(world_ray)?,
+      false,
+    )
   }
 
   fn pick_model_all(
@@ -152,6 +156,7 @@ impl Picker3d for ViewerPickerWithCtx {
       &self.create_ray_ctx(world_ray)?,
       results,
       local_result_scratch,
+      false,
     )
   }
 
@@ -180,6 +185,7 @@ impl Picker3d for ViewerPickerWithCtx {
       &mut results,
       &mut models_results,
       &mut local_result_scratch,
+      false,
     );
     (results, models_results)
   }
@@ -190,7 +196,7 @@ impl Picker3d for ViewerPickerWithCtx {
     world_ray: Ray3<f64>,
   ) -> Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> {
     let cx = self.create_ray_ctx(world_ray)?;
-    pick_models_nearest(&self.picker_impl.model_picker, models, &cx)
+    pick_models_nearest(&self.picker_impl.model_picker, models, &cx, false)
   }
 }
 
