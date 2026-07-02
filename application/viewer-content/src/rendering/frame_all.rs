@@ -11,7 +11,6 @@ pub struct Viewer3dRenderingCtx {
   pub(crate) ndc: ViewerNDC,
   pub(super) culling: ViewerCullingConfig,
   pub(super) using_host_driven_indirect_draw: bool,
-  pub(super) use_native_line_for_one_width_line: bool,
   pub(super) current_renderer_impl_ty: RasterizationRenderBackendType,
   pub(super) rtx_renderer_enabled: bool,
   pub lighting: LightSystem,
@@ -74,7 +73,6 @@ impl Viewer3dRenderingCtx {
   ) -> Self {
     Self {
       font_system,
-      use_native_line_for_one_width_line: init_config.use_native_line_for_one_width_line,
       prefer_bindless_for_indirect_texture_system: init_config
         .prefer_bindless_for_indirect_texture_system,
       using_host_driven_indirect_draw: init_config.using_host_driven_indirect_draw,
@@ -290,10 +288,14 @@ impl Viewer3dRenderingCtx {
           use_viewer_std_model_renderer(cx, materials, mesh, self.ndc.enable_reverse_z);
         let model_buffer_merge = model_buffer_merge.end(cx);
 
+        let use_native_line_for_one_width_line = self
+          .init_config
+          .init_only
+          .use_native_line_for_one_width_line;
         let wide_line = use_widen_line_indirect_renderer(
           cx,
           self.using_host_driven_indirect_draw,
-          self.use_native_line_for_one_width_line,
+          use_native_line_for_one_width_line,
         );
         let wide_point = use_widen_styled_points_indirect_renderer(
           cx,
@@ -331,18 +333,19 @@ impl Viewer3dRenderingCtx {
               .dual_query_zip(cx.use_dual_query::<WideLineWidth>())
               .dual_query_boxed()
               .fanout(sm_ref_wide_line, cx)
-              .dual_query_map(
-                |((enable_depth, trans), width)| SceneModelGroupKey::ForeignHash {
+              .dual_query_map(move |((enable_depth, trans), width)| {
+                SceneModelGroupKey::ForeignHash {
                   internal: fast_hash_scope(|hasher| {
                     std::any::TypeId::of::<WideLineModelEntity>().hash(hasher);
                     (enable_depth, trans).hash(hasher);
-                    // this is for one width line optimization.
-                    // todo, only hash it if the optimization is enabled
+                    // this config is init only(immutable), so we don't need to consider it's change
+                    if use_native_line_for_one_width_line {
                     (width == 1.0).hash(hasher);
+                    }
                   }),
                   require_alpha_blend: trans,
-                },
-              )
+                }
+              })
               .dual_query_boxed();
 
             let sm_ref_wide_point =

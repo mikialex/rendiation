@@ -25,7 +25,6 @@ pub struct ViewerInitConfig {
   pub enable_on_demand_rendering: bool,
   pub use_scene_bvh: bool,
   pub use_array_clip: bool,
-  pub use_native_line_for_one_width_line: bool,
   pub always_enable_caching_frame_for_direct_read: bool,
   pub init_only: ViewerStaticInitConfig,
   pub light_surface_ty: ViewerLightSurfaceType,
@@ -35,6 +34,8 @@ pub struct ViewerInitConfig {
 #[serde(default)] // any missing field will be set to the struct's default
 /// configs that can not be changed dynamically in runtime
 pub struct ViewerStaticInitConfig {
+  /// this config should be changed at runtime, but due to the implementation limitation, we have to put it here for now
+  pub use_native_line_for_one_width_line: bool,
   pub texture_pool_source_init_config: TexturePoolSourceInit,
   /// None means use available parallelism, 1 means no parallelism
   pub thread_pool_thread_count: Option<usize>,
@@ -93,6 +94,7 @@ impl Default for ViewerStaticInitConfig {
       bindless_mesh_init: Default::default(),
       wgpu_backend_select_override: None,
       enable_indirect_storage_combine: true,
+      use_native_line_for_one_width_line: true,
       occlusion_culling_max_scene_model_count: u16::MAX as u32,
       using_texture_as_storage_buffer_for_indirect_rendering: false,
       default_shader_protections: ShaderRuntimeProtection {
@@ -166,7 +168,6 @@ impl Default for ViewerInitConfig {
       use_scene_bvh: false,
       always_enable_caching_frame_for_direct_read: false,
       use_array_clip: false,
-      use_native_line_for_one_width_line: false,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       light_surface_ty: ViewerLightSurfaceType::Pbr,
       init_only: ViewerStaticInitConfig::default(),
