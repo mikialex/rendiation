@@ -1,8 +1,26 @@
+use std::hash::Hash;
+
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
+use rendiation_scene_batch_extractor::SceneModelGroupKey;
 use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
 use crate::*;
+
+pub fn use_text3d_group_key(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>> {
+  let sm_ref_text = cx.use_db_rev_ref_tri_view::<SceneModelText3dPayload>();
+  cx.use_dual_query_set::<Text3dEntity>()
+    .fanout(sm_ref_text, cx)
+    .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
+      internal: fast_hash_scope(|hasher| {
+        std::any::TypeId::of::<Text3dEntity>().hash(hasher);
+      }),
+      require_alpha_blend: true,
+    })
+    .dual_query_boxed()
+}
 
 // todo, the glyph data between the different text are not shared
 pub fn use_text3d_indirect_renderer(

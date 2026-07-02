@@ -325,54 +325,9 @@ impl Viewer3dRenderingCtx {
 
         if !self.using_host_driven_indirect_draw {
           cx.scope(|cx| {
-            let sm_ref_wide_line = cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>();
-            let wide_line_key = cx
-              .use_dual_query::<WideLineDepthEnable>()
-              .dual_query_zip(cx.use_dual_query::<WideLineTransparent>())
-              .dual_query_boxed()
-              .dual_query_zip(cx.use_dual_query::<WideLineWidth>())
-              .dual_query_boxed()
-              .fanout(sm_ref_wide_line, cx)
-              .dual_query_map(move |((enable_depth, trans), width)| {
-                SceneModelGroupKey::ForeignHash {
-                  internal: fast_hash_scope(|hasher| {
-                    std::any::TypeId::of::<WideLineModelEntity>().hash(hasher);
-                    (enable_depth, trans).hash(hasher);
-                    // this config is init only(immutable), so we don't need to consider it's change
-                    if use_native_line_for_one_width_line {
-                    (width == 1.0).hash(hasher);
-                    }
-                  }),
-                  require_alpha_blend: trans,
-                }
-              })
-              .dual_query_boxed();
-
-            let sm_ref_wide_point =
-              cx.use_db_rev_ref_tri_view::<SceneModelWideStyledPointsRenderPayload>();
-            let wide_point_key = cx
-              .use_dual_query::<WideStyledPointsDepthTestEnabled>()
-              .fanout(sm_ref_wide_point, cx)
-              .dual_query_map(|enable_depth_test| SceneModelGroupKey::ForeignHash {
-                internal: fast_hash_scope(|hasher| {
-                  std::any::TypeId::of::<WideStyledPointsEntity>().hash(hasher);
-                  enable_depth_test.hash(hasher);
-                }),
-                require_alpha_blend: true,
-              })
-              .dual_query_boxed();
-
-            let sm_ref_text = cx.use_db_rev_ref_tri_view::<SceneModelText3dPayload>();
-            let text_key = cx
-              .use_dual_query_set::<Text3dEntity>()
-              .fanout(sm_ref_text, cx)
-              .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
-                internal: fast_hash_scope(|hasher| {
-                  std::any::TypeId::of::<Text3dEntity>().hash(hasher);
-                }),
-                require_alpha_blend: true,
-              })
-              .dual_query_boxed();
+            let wide_line_key = use_wide_line_group_key(cx, use_native_line_for_one_width_line);
+            let wide_point_key = use_wide_styled_points_group_key(cx);
+            let text_key = use_text3d_group_key(cx);
 
             let impl_key = wide_line_key
               .dual_query_select(wide_point_key)

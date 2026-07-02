@@ -1,8 +1,27 @@
+use std::hash::Hash;
+
+use fast_hash_collection::fast_hash_scope;
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
+use rendiation_scene_batch_extractor::SceneModelGroupKey;
 use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
 use crate::*;
+pub fn use_wide_styled_points_group_key(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>> {
+  let sm_ref_wide_point = cx.use_db_rev_ref_tri_view::<SceneModelWideStyledPointsRenderPayload>();
+  cx.use_dual_query::<WideStyledPointsDepthTestEnabled>()
+    .fanout(sm_ref_wide_point, cx)
+    .dual_query_map(|enable_depth_test| SceneModelGroupKey::ForeignHash {
+      internal: fast_hash_scope(|hasher| {
+        std::any::TypeId::of::<WideStyledPointsEntity>().hash(hasher);
+        enable_depth_test.hash(hasher);
+      }),
+      require_alpha_blend: true,
+    })
+    .dual_query_boxed()
+}
 
 pub fn use_widen_styled_points_indirect_renderer(
   cx: &mut QueryGPUHookCx,

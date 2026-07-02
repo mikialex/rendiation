@@ -1,7 +1,39 @@
+use std::hash::Hash;
+
+use fast_hash_collection::fast_hash_scope;
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
+use rendiation_scene_batch_extractor::SceneModelGroupKey;
 use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
 use crate::*;
+
+/// use_native_line_for_one_width_line must be immutable in all time
+pub fn use_wide_line_group_key(
+  cx: &mut impl DBHookCxLike,
+  use_native_line_for_one_width_line: bool,
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>> {
+  let sm_ref_wide_line = cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>();
+  cx.use_dual_query::<WideLineDepthEnable>()
+    .dual_query_zip(cx.use_dual_query::<WideLineTransparent>())
+    .dual_query_boxed()
+    .dual_query_zip(cx.use_dual_query::<WideLineWidth>())
+    .dual_query_boxed()
+    .fanout(sm_ref_wide_line, cx)
+    .dual_query_map(move |((enable_depth, trans), width)| {
+      SceneModelGroupKey::ForeignHash {
+        internal: fast_hash_scope(|hasher| {
+          std::any::TypeId::of::<WideLineModelEntity>().hash(hasher);
+          (enable_depth, trans).hash(hasher);
+          // this config is init only(immutable), so we don't need to consider it's change
+          if use_native_line_for_one_width_line {
+            (width == 1.0).hash(hasher);
+          }
+        }),
+        require_alpha_blend: trans,
+      }
+    })
+    .dual_query_boxed()
+}
 
 pub fn use_widen_line_indirect_renderer(
   cx: &mut QueryGPUHookCx,
