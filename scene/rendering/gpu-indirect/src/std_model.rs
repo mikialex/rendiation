@@ -276,6 +276,8 @@ pub fn use_std_model_renderer(
   shapes: Option<Box<dyn IndirectModelShapeRenderImpl>>,
   revere_z: bool,
 ) -> Option<SceneStdModelIndirectRenderer> {
+  let sm_to_std_model_device = use_db_device_foreign_key::<SceneModelStdModelRenderPayload>(cx);
+
   let (cx, std_model) = cx.use_storage_buffer("std model metadata", 128, u32::MAX);
 
   cx.use_changes::<StandardModelRefAttributesMeshEntity>()
@@ -299,12 +301,14 @@ pub fn use_std_model_renderer(
     shapes: shapes.unwrap(),
     std_model: std_model.get_gpu_buffer(),
     states: state_override.unwrap(),
+    sm_to_std_model_device: sm_to_std_model_device.unwrap(),
   })
 }
 
 pub struct SceneStdModelIndirectRenderer {
   model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   std_model: AbstractReadonlyStorageBuffer<[SceneStdModelStorage]>,
+  sm_to_std_model_device: AbstractReadonlyStorageBuffer<[u32]>,
   materials: Box<dyn IndirectModelMaterialRenderImpl>,
   shapes: Box<dyn IndirectModelShapeRenderImpl>,
   states: StateOverrides,
@@ -336,6 +340,7 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
   ) -> Option<Box<dyn RenderComponent + '_>> {
     struct SceneStdModelIdInjector<'a> {
       std_model: AbstractReadonlyStorageBuffer<[SceneStdModelStorage]>,
+      sm_to_std_model_device: AbstractReadonlyStorageBuffer<[u32]>,
       states: StateGPUImpl<'a>,
     }
 
@@ -349,6 +354,7 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
     impl<'a> ShaderPassBuilder for SceneStdModelIdInjector<'a> {
       fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
         ctx.binding.bind(&self.std_model);
+        ctx.binding.bind(&self.sm_to_std_model_device);
       }
     }
 
@@ -356,8 +362,11 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
       fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
         builder.vertex(|builder, binding| {
           let buffer = binding.bind_by(&self.std_model);
-          let sm_id = builder.query::<IndirectSceneStdModelId>();
-          let info = buffer.index(sm_id).load().expand();
+          let sm_to_std_model_device = binding.bind_by(&self.sm_to_std_model_device);
+
+          let current_id = builder.query::<LogicalRenderEntityId>();
+          let std_id = sm_to_std_model_device.index(current_id).load();
+          let info = buffer.index(std_id).load().expand();
           builder.register::<IndirectAbstractMaterialId>(info.material);
           builder.register::<IndirectSkinId>(info.skin);
           builder.set_vertex_out::<IndirectAbstractMaterialId>(info.material);
@@ -371,6 +380,7 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
     Some(Box::new(SceneStdModelIdInjector {
       std_model: self.std_model.clone(),
       states: self.states.get_gpu(model)?,
+      sm_to_std_model_device: self.sm_to_std_model_device.clone(),
     }))
   }
 
@@ -419,8 +429,6 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
     self.shapes.get_index_storage_buffer(model_id)
   }
 }
-
-only_vertex!(IndirectSceneStdModelId, u32);
 
 #[repr(C)]
 #[std430_layout]

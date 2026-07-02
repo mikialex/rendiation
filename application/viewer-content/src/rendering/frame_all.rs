@@ -273,37 +273,23 @@ impl Viewer3dRenderingCtx {
         let mesh =
           cx.when_render(|| Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRenderImpl>);
 
-        let material_flat = cx.use_changes::<StandardModelRefUnlitMaterial>();
-        let material_pbr_mr = cx.use_changes::<StandardModelRefPbrMRMaterial>();
-        let material_pbr_sg = cx.use_changes::<StandardModelRefPbrSGMaterial>();
-        let material_occ = cx.use_changes::<StdModelOccStyleMaterialPayload>();
+        let node = use_node_storage(cx);
+        let view_camera_source = cx.use_shared_dual_query(
+          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map.clone()),
+        );
+        let node = use_view_dependent_transform_indirect_gpu(
+          cx,
+          view_camera_source,
+          node,
+          active_view_control.clone(),
+        );
 
-        let material_key = if cx.is_spawning_stage() {
-          let material_flat = material_flat.into_spawn_stage_ready();
-          let material_pbr_mr = material_pbr_mr.into_spawn_stage_ready();
-          let material_pbr_sg = material_pbr_sg.into_spawn_stage_ready();
-          let material_occ = material_occ.into_spawn_stage_ready();
-
-          let mut r = Vec::new();
-          if let Some(v) = material_flat {
-            r.push(v.map_some_u32_index());
-          }
-          if let Some(v) = material_pbr_mr {
-            r.push(v.map_some_u32_index());
-          }
-          if let Some(v) = material_pbr_sg {
-            r.push(v.map_some_u32_index());
-          }
-          if let Some(v) = material_occ {
-            r.push(v.map_some_u32_index());
-          }
-          UseResult::SpawnStageReady(SelectChanges(r))
-        } else {
-          UseResult::NotInStage
-        };
-
+        let model_buffer_merge =
+          use_readonly_storage_buffer_combine(cx, "indirect model data", enable_combine);
         let std_model =
-          use_std_model_renderer(cx, materials, material_key, mesh, self.ndc.enable_reverse_z);
+          use_viewer_std_model_renderer(cx, materials, mesh, self.ndc.enable_reverse_z);
+        let model_buffer_merge = model_buffer_merge.end(cx);
+
         let wide_line = use_widen_line_indirect_renderer(
           cx,
           self.using_host_driven_indirect_draw,
@@ -326,24 +312,14 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn IndirectModelRenderImpl>
         });
 
-        let node = use_node_storage(cx);
-
-        let view_camera_source = cx.use_shared_dual_query(
-          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map.clone()),
-        );
-        let node = use_view_dependent_transform_indirect_gpu(
-          cx,
-          view_camera_source,
-          node,
-          active_view_control.clone(),
-        );
-
+        let model_buffer_merge = model_buffer_merge.restart(cx);
         let scene_model = use_indirect_scene_model(
           cx,
           node,
           model_support,
           self.using_host_driven_indirect_draw,
         );
+        model_buffer_merge.end(cx);
 
         if !self.using_host_driven_indirect_draw {
           cx.scope(|cx| {

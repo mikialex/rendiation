@@ -6,25 +6,15 @@ pub fn use_indirect_scene_model(
   model_impl: Option<Box<dyn IndirectModelRenderImpl>>,
   force_midc_downgrade: bool,
 ) -> Option<IndirectPreferredComOrderRenderer> {
-  let (cx, scene_model_meta) = cx.use_storage_buffer("scene model metadata", 128, u32::MAX);
-
-  let offset = offset_of!(SceneModelStorage, std_model);
-  cx.use_changes::<SceneModelStdModelRenderPayload>()
-    .map(|c| c.map_u32_index_or_u32_max())
-    .update_storage_array(cx, scene_model_meta, offset);
-
-  cx.use_changes::<SceneModelRefNode>()
-    .map(|c| c.map_some_u32_index())
-    .update_storage_array(cx, scene_model_meta, offset_of!(SceneModelStorage, node));
-
-  scene_model_meta.use_update(cx);
-  scene_model_meta.use_max_item_count_by_db_entity::<SceneModelEntity>(cx);
+  let sm_to_node_device = use_db_device_foreign_key::<SceneModelRefNode>(cx);
 
   cx.when_render(|| IndirectPreferredComOrderRenderer {
     model_impl: model_impl.unwrap(),
     node: read_global_db_foreign_key(),
     node_render: node_impl.unwrap(),
-    id_inject: DefaultSceneModelIdInject(scene_model_meta.get_gpu_buffer()),
+    id_inject: DefaultSceneModelIdInject {
+      sm_to_node: sm_to_node_device.unwrap(),
+    },
     enable_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
   })
 }
@@ -270,7 +260,9 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
 }
 
 #[derive(Clone)]
-pub struct DefaultSceneModelIdInject(AbstractReadonlyStorageBuffer<[SceneModelStorage]>);
+pub struct DefaultSceneModelIdInject {
+  sm_to_node: AbstractReadonlyStorageBuffer<[u32]>,
+}
 
 impl ShaderHashProvider for DefaultSceneModelIdInject {
   shader_hash_type_id! {}
@@ -278,56 +270,17 @@ impl ShaderHashProvider for DefaultSceneModelIdInject {
 
 impl ShaderPassBuilder for DefaultSceneModelIdInject {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.0);
+    ctx.binding.bind(&self.sm_to_node);
   }
 }
 
 impl GraphicsShaderProvider for DefaultSceneModelIdInject {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
-      let buffer = binding.bind_by(&self.0);
+      let buffer = binding.bind_by(&self.sm_to_node);
       let current_id = builder.query::<LogicalRenderEntityId>();
-      let model = buffer.index(current_id).load().expand();
-      builder.register::<IndirectSceneNodeId>(model.node);
-      builder.register::<IndirectSceneStdModelId>(model.std_model);
+      let node = buffer.index(current_id).load();
+      builder.register::<IndirectSceneNodeId>(node);
     })
-  }
-}
-
-#[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, Default, PartialEq, ShaderStruct, Debug)]
-pub struct SceneModelStorage {
-  pub node: u32,
-  pub std_model: u32,
-}
-
-pub struct SceneModelGPUStorage<'a> {
-  pub buffer: &'a StorageBufferReadonlyDataView<[SceneModelStorage]>,
-}
-
-impl ShaderHashProvider for SceneModelGPUStorage<'_> {
-  shader_hash_type_id! {SceneModelGPUStorage<'static>}
-}
-
-impl GraphicsShaderProvider for SceneModelGPUStorage<'_> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.vertex(|builder, binding| {
-      let models = binding.bind_by(self.buffer);
-      let sm_id = builder.query::<LogicalRenderEntityId>();
-      let model = models.index(sm_id).load().expand();
-
-      builder.register::<IndirectSceneNodeId>(model.node);
-
-      // note, even if some implementation is not std model, it's safe because the id
-      // here will not be used
-      builder.register::<IndirectSceneStdModelId>(model.std_model);
-    })
-  }
-}
-
-impl ShaderPassBuilder for SceneModelGPUStorage<'_> {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.buffer);
   }
 }
