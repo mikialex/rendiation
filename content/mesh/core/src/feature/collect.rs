@@ -99,3 +99,51 @@ where
     }
   }
 }
+
+impl AttributesMeshData {
+  /// Collect primitives into a non-indexed mesh.
+  ///
+  /// Unlike [`FromIterator<P> for AttributesMeshData`], vertices are **not**
+  /// deduplicated — every triangle stores three unique vertices and no index
+  /// buffer is produced.
+  pub fn collect_non_indexed<I, P>(iter: I) -> Self
+  where
+    I: IntoIterator<Item = P>,
+    P: Simplex,
+    P::Vertex: AttributeVertex,
+  {
+    let iter = iter.into_iter();
+    let vertex_max_count = iter.size_hint().0 * P::DIMENSION;
+
+    let mut buffers: Option<Vec<Vec<u8>>> = None;
+    let mut layout: Option<Vec<AttributeSemantic>> = None;
+
+    for p in iter {
+      for v in p {
+        if buffers.is_none() {
+          let lay = v.create_layout();
+          let bufs = lay
+            .iter()
+            .map(|k| Vec::with_capacity(vertex_max_count * k.item_byte_size()))
+            .collect();
+          buffers = Some(bufs);
+          layout = Some(lay);
+        }
+        v.write(buffers.as_mut().unwrap());
+      }
+    }
+
+    let attributes = buffers
+      .unwrap_or_default()
+      .into_iter()
+      .zip(layout.unwrap_or_default())
+      .map(|(buffer, s)| (s, buffer))
+      .collect();
+
+    AttributesMeshData {
+      attributes,
+      indices: None,
+      mode: P::TOPOLOGY,
+    }
+  }
+}

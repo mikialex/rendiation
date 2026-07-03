@@ -28,3 +28,17 @@ pub fn build_attributes_mesh(f: impl FnOnce(&mut AttributesMeshBuilder)) -> Attr
   let mesh = builder.finish();
   mesh.mesh.primitive_iter().collect()
 }
+
+/// helper fn to quick build non-indexed attribute mesh.
+///
+/// Unlike [build_attributes_mesh], vertices are **not** deduplicated
+pub fn build_attributes_mesh_non_indexed(
+  f: impl FnOnce(&mut AttributesMeshBuilder),
+) -> AttributesMeshData {
+  let mut builder = AttributesMeshBuilder::default();
+  f(&mut builder);
+  let group_mesh = builder.finish();
+  let indexed = group_mesh.mesh;
+
+  AttributesMeshData::collect_non_indexed(indexed.primitive_iter())
+}
