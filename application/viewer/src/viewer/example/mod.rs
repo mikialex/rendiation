@@ -47,9 +47,10 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
       });
   }
 
+  cx.next_key_scope_root();
   if let Some(active) = &registry.current_active {
     if let Some(f) = registry.examples.get(active) {
-      cx.scope(|cx| {
+      cx.keyed_scope(active, |cx| {
         f(cx);
       })
     } else {
