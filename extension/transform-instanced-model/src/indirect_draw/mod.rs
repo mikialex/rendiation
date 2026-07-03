@@ -110,6 +110,8 @@ pub fn use_transform_instanced_model_indirect_renderer(
 
   let model_to_instance = use_db_device_foreign_key::<SceneModelTransformInstancedModelPayload>(cx);
 
+  let sm_vc = sm_vc.use_assure_result(cx);
+
   cx.when_render(|| TransformInstancedModelIndirectRendererBase {
     source_model_vertices_count: sm_vc.expect_resolve_stage().view().into_boxed(),
     instance_buffer,
