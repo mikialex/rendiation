@@ -4788,6 +4788,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-transform-instanced-model"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "database",
+ "facet",
+ "fast-hash-collection",
+ "log",
+ "parking_lot",
+ "rendiation-algebra",
+ "rendiation-device-parallel-compute",
+ "rendiation-geometry",
+ "rendiation-scene-batch-extractor",
+ "rendiation-scene-core",
+ "rendiation-scene-geometry-query",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-scene-rendering-gpu-indirect",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
+ "rendiation-webgpu-midc-downgrade",
+ "serde",
+]
+
+[[package]]
 name = "rendiation-uri-streaming"
 version = "0.0.1"
 dependencies = [
@@ -4896,6 +4921,7 @@ dependencies = [
  "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-process",
  "rendiation-texture-loader",
+ "rendiation-transform-instanced-model",
  "rendiation-uri-streaming",
  "rendiation-view-dependent-transform",
  "rendiation-webgpu",

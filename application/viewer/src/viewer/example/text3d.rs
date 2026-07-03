@@ -1,5 +1,6 @@
 use rand::Rng;
 
+use super::util::SceneModelWithUniqueNode;
 use crate::*;
 
 pub fn use_text3d_example(cx: &mut ViewerCx) {
@@ -232,16 +233,4 @@ pub fn text3d_content_edit_ui(ui: &mut egui::Ui, c: &mut Text3dContentInfo) {
       ui.selectable_value(&mut c.align, TextAlignment::Center, "Center");
       ui.selectable_value(&mut c.align, TextAlignment::Right, "Right");
     });
-}
-
-struct SceneModelWithUniqueNode {
-  model: EntityHandle<SceneModelEntity>,
-  node: EntityHandle<SceneNodeEntity>,
-}
-
-impl SceneModelWithUniqueNode {
-  pub fn destroy(self, writer: &mut SceneWriter) {
-    writer.model_writer.delete_entity(self.model);
-    writer.node_writer.delete_entity(self.node);
-  }
 }
