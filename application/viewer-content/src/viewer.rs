@@ -12,6 +12,7 @@ pub struct Viewer {
   pub shared_ctx: SharedHooksCtx,
   pub enable_inspection: bool,
   pub use_scene_bvh: bool,
+  pub should_trace_next_frame_allocation_info: bool,
   pub font_system: Arc<RwLock<FontSystem>>,
 }
 
@@ -93,6 +94,7 @@ impl Viewer {
       enable_inspection: false,
       font_system,
       use_scene_bvh: init_config.use_scene_bvh,
+      should_trace_next_frame_allocation_info: false,
     }
   }
 

@@ -68,6 +68,7 @@ egui_tiles = "0.14.0"
 winit = { workspace = true }
 
 mimalloc = { version = "0.1.52", optional = true }
+dhat = { version = "0.3.3", optional = true }
 
 
 [target.'cfg(target_family = "wasm")'.dependencies]
@@ -87,6 +88,7 @@ support-webgl = ["rendiation-webgpu/support-webgl"]
 tracy = ["dep:tracing-tracy"]
 tracy-heap-debug = ["tracy"]
 mimalloc = ["dep:mimalloc"]
+dhat-heap-profiling = ["dep:dhat"]
 
 [lints]
 workspace = true

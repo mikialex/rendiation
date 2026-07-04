@@ -44,28 +44,41 @@ use rendiation_webgpu::*;
 pub use viewer::*;
 
 #[cfg(feature = "mimalloc")]
-type AppAllocator = mimalloc::MiMalloc;
+#[allow(unused)]
+type BaseAllocator = mimalloc::MiMalloc;
 #[cfg(feature = "mimalloc")]
-const APP_ALLOCATOR: AppAllocator = mimalloc::MiMalloc;
+#[allow(unused)]
+const BASE_ALLOCATOR: BaseAllocator = mimalloc::MiMalloc;
 
 #[cfg(not(feature = "mimalloc"))]
-type AppAllocator = std::alloc::System;
+#[allow(unused)]
+type BaseAllocator = std::alloc::System;
 #[cfg(not(feature = "mimalloc"))]
-const APP_ALLOCATOR: AppAllocator = std::alloc::System;
+#[allow(unused)]
+const BASE_ALLOCATOR: BaseAllocator = std::alloc::System;
 
-#[cfg(feature = "tracy-heap-debug")]
+// global_allocator priority: dhat-heap-profiling > tracy-heap-debug > base
+#[cfg(feature = "dhat-heap-profiling")]
+#[global_allocator]
+static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<dhat::Alloc> =
+  PreciseAllocationStatistics::new(dhat::Alloc);
+
+#[cfg(all(not(feature = "dhat-heap-profiling"), feature = "tracy-heap-debug"))]
 #[global_allocator]
 static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<
-  tracing_tracy::client::ProfiledAllocator<AppAllocator>,
+  tracing_tracy::client::ProfiledAllocator<BaseAllocator>,
 > = PreciseAllocationStatistics::new(tracing_tracy::client::ProfiledAllocator::new(
-  APP_ALLOCATOR,
+  BASE_ALLOCATOR,
   64,
 ));
 
-#[cfg(not(feature = "tracy-heap-debug"))]
+#[cfg(all(
+  not(feature = "dhat-heap-profiling"),
+  not(feature = "tracy-heap-debug")
+))]
 #[global_allocator]
-static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<AppAllocator> =
-  PreciseAllocationStatistics::new(APP_ALLOCATOR);
+static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<BaseAllocator> =
+  PreciseAllocationStatistics::new(BASE_ALLOCATOR);
 
 pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   setup_global_database(Default::default());
