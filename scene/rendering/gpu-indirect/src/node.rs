@@ -85,6 +85,10 @@ impl NodeStorage {
       ..Zeroable::zeroed()
     }
   }
+
+  pub fn u32_size() -> u32 {
+    std::mem::size_of::<Self>() as u32 / 4
+  }
 }
 
 impl ShaderHashProvider for NodeGPUStorage<'_> {
@@ -98,9 +102,7 @@ impl GraphicsShaderProvider for NodeGPUStorage<'_> {
       let current_node_id = builder.query::<IndirectSceneNodeId>();
       let node = nodes.index(current_node_id).load().expand();
 
-      builder.register::<WorldNoneTranslationMatrix>(node.world_matrix_none_translation);
-      builder.register::<WorldPositionHP>(hpt_storage_to_hpt(node.world_position_hp));
-      builder.register::<WorldNormalMatrix>(node.normal_matrix);
+      register_or_compose_world_related_info(builder, node);
 
       // the RenderVertexPosition requires camera, so here we only process normal part
       if let Some(normal) = builder.try_query::<GeometryNormal>() {
@@ -113,5 +115,32 @@ impl GraphicsShaderProvider for NodeGPUStorage<'_> {
 impl ShaderPassBuilder for NodeGPUStorage<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.0);
+  }
+}
+
+/// this logic is to support transform instanced model
+pub fn register_or_compose_world_related_info(
+  builder: &mut ShaderVertexBuilder,
+  node: ENode<NodeStorage>,
+) {
+  // note, the branching is not need shader hash, it should be hashed by upstream injector.
+  if let Some(pre_injected) = builder.try_query::<WorldNoneTranslationMatrix>() {
+    builder
+      .register::<WorldNoneTranslationMatrix>(pre_injected * node.world_matrix_none_translation);
+  } else {
+    builder.register::<WorldNoneTranslationMatrix>(node.world_matrix_none_translation);
+  }
+
+  let hpt = hpt_storage_to_hpt(node.world_position_hp);
+  if let Some(pre_injected) = builder.try_query::<WorldPositionHP>() {
+    builder.register::<WorldPositionHP>(hpt_compose_hpt(pre_injected, hpt));
+  } else {
+    builder.register::<WorldPositionHP>(hpt);
+  }
+
+  if let Some(pre_injected) = builder.try_query::<WorldNormalMatrix>() {
+    builder.register::<WorldNormalMatrix>(pre_injected * node.normal_matrix);
+  } else {
+    builder.register::<WorldNormalMatrix>(node.normal_matrix);
   }
 }

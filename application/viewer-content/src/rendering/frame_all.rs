@@ -235,6 +235,8 @@ impl Viewer3dRenderingCtx {
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
 
         let (attribute_vertices, attribute_indices) = viewer_mesh_buffer_input(cx);
+        let (attribute_vertices, attribute_vertices_) = attribute_vertices.fork();
+        let (attribute_indices, attribute_indices_) = attribute_indices.fork();
         let mesh = use_bindless_mesh(
           cx,
           &init_config.bindless_mesh_init,
@@ -315,6 +317,34 @@ impl Viewer3dRenderingCtx {
         });
 
         let model_buffer_merge = model_buffer_merge.restart(cx);
+
+        let wide_line_vertices_count =
+          use_wide_line_vertices_count(cx, use_native_line_for_one_width_line);
+        let att_mesh_vertices_count =
+          use_bindless_mesh_vertex_count(cx, attribute_indices_, attribute_vertices_);
+        let vertices_count = wide_line_vertices_count.dual_query_select(att_mesh_vertices_count);
+
+        let transform_instanced_model_base =
+          rendiation_transform_instanced_model::use_transform_instanced_model_indirect_renderer(
+            cx,
+            self.using_host_driven_indirect_draw,
+            vertices_count,
+          );
+        let model_support = cx.when_render(|| {
+          let internal = Arc::new(model_support.unwrap());
+
+          let instanced =
+            rendiation_transform_instanced_model::TransformInstancedModelIndirectRenderer {
+              internal: internal.clone(),
+              base: transform_instanced_model_base.unwrap(),
+            };
+
+          Box::new(vec![
+            Box::new(internal) as Box<dyn IndirectModelRenderImpl>,
+            Box::new(instanced),
+          ]) as Box<dyn IndirectModelRenderImpl>
+        });
+
         let scene_model = use_indirect_scene_model(
           cx,
           node,
@@ -346,6 +376,11 @@ impl Viewer3dRenderingCtx {
 
             use rendiation_occ_style_draw_control::*;
             let internal = use_scene_model_group_key(cx, key_impl);
+
+            let (internal, internal_) = internal.fork();
+            let instance = use_transform_instanced_model_group_key(cx, internal);
+            let internal = instance.dual_query_select(internal_).dual_query_boxed();
+
             let internal = use_scene_model_group_key_with_scene_id_and_visible_filter(cx, internal);
             let sm_group_key = use_scene_model_occ_group_key(cx, internal);
             indirect_extractor = use_occ_incremental_device_scene_batch_extractor(cx, sm_group_key);

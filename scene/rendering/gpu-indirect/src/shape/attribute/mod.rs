@@ -4,6 +4,9 @@ use parking_lot::RwLock;
 use rendiation_mesh_core::AttributeSemantic;
 use rendiation_shader_api::*;
 
+mod vertex_count;
+pub use vertex_count::*;
+
 mod draw_cmd;
 pub use draw_cmd::*;
 
@@ -240,6 +243,7 @@ fn use_attribute_indices_updates(
 
 pub const ENABLE_VERTEX_RANGE_UPDATE_DEBUG: bool = false;
 
+/// return (each vertex writes, vertex buffer)
 fn use_attribute_vertex_updates(
   cx: &mut QueryGPUHookCx,
   max_u32_count: u32,
