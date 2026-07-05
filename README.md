@@ -102,7 +102,7 @@ All implementation before 2026 is written by hand. Starting from that, LLM-assis
 - Help implementation work and full foreign implementation porting(see below)
 - Design discussion and research assistance, without producing any decisions
 
-For implementation work: if the code is written with the help of LLM tools and it is not a core feature (a feature that is guaranteed to be supported in the future and cannot be disabled in any way), then for that part:
+For implementation work: if the code is written with the help of LLM tools and it is a core feature (a feature that is guaranteed to be supported in the future and cannot be disabled in any way), then for that part:
 
 - The implementation details must be understood line by line by the maintainer and fully and precisely express the maintainer's intent. The maintainer must be able to explain, modify, and extend every line without referring to the LLM session that produced it. The code must be continuously developable as if it were written entirely by the maintainer.
 - The style and *taste* must match the rest of the project.
