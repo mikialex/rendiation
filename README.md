@@ -1,16 +1,16 @@
 # Rendiation Rendering Framework
 
-RRF is a rendering framework focusing on performance and maintainability. "Rendiation" represents the concept of "rendering innovation".
+RRF is a rendering framework focused on performance and maintainability. "Rendiation" represents the concept of "rendering innovation".
 
-For performance, RFF combines the ideas of incremental computation and relational reactive programming, creating an innovative incremental compute solution: the reactive query graph. Leveraging this, RFF reactively manages every derived data, internal state, caches, and GPU resources in the renderer in incremental cost. RFF also implements a state-of-the-art GPU driven rendering pipeline, utilizing hardware advantage, approaching zero driver overhead and minimizing GPU workload.
+For performance, RRF combines the innovative ideas of incremental computation and relational reactive programming, creating an incremental compute solution: the reactive query graph. Leveraging this, RRF reactively manages all derived data, internal state, caches, and GPU resources in the renderer at incremental cost. RRF also implements a state-of-the-art GPU-driven rendering pipeline, utilizing hardware advantages to approach zero driver overhead and minimize GPU workload.
 
-Maintainability comes from simplicity and coherence, revealed as extendability and composability. RRF uses an in-memory relational database to manage source of truth states, combined with the incremental system, reducing accidental complexity to a minimal level. RFF carefully designs and composes axiom-level concepts, resulting in a tower of abstractions that correctly models and solves modern rendering architecture engineering challenges.
+Maintainability comes from simplicity and coherence, manifested as extensibility and composability. RRF uses an in-memory relational database to manage source-of-truth state, combined with the incremental system, reducing accidental complexity to a minimum. RRF carefully designs and composes axiom-level concepts, resulting in layered abstractions that correctly models modern rendering architecture and addresses its engineering challenges.
 
-RRF uses EDSL shader for any device logic, which forms the foundation of how we abstract logic on the GPU. Based on this, many powerful and even magical features or middleware solutions are implemented, such as GPU parallel compute, GPU state machine, GPU reactive compute graph, GPU ray tracing, GPU virtual type system, GPU error handling, and the composability of visual effects. The RRF itself well demonstrates this engineering lost art of shader programming.
+Another innovation is that RRF uses an EDSL shader system for all device logic. This architecture allows us to create highly dynamic, abstractive, and composable shader logic with a productive development experience. On this basis, we have features such as GPU parallel compute, GPU state machine, GPU reactive compute graph, GPU ray tracing, GPU virtual type system, and GPU error handling. These foundations enable a spectrum of capabilities, from low-level type system utilities to high-level application constructs, enriching shader programming to a new level.
 
 ## Project crates structure and scope
 
-RRF is highly modulized, layered, decoupled and well-structured. Users can build, assemble and customize their own featured high-performance viewers, offline data assets pipelines, or any other highly demanded graphics-related tasks. Here is the entry map of the project:
+RRF is highly modular, layered, decoupled, and well-structured. Users can build, assemble, and customize their own high-performance viewers, offline data asset pipelines, or any other demanding graphics-related tasks. Here is the entry map of the project:
 
 - math: foundational math libraries.
   - [algebra](./math/algebra/README.md): vectors, matrixes, transformations, projections, coordinate system definitions and abstract traits like vector space, inner product space.
@@ -90,6 +90,27 @@ RRF is highly modulized, layered, decoupled and well-structured. Users can build
   - viewer
   - viewer-web: the wasm build of the viewer(note: incomplete and buggy)
     - online link: <https://mikialex.github.io/rendiation/viewer-web/index.html>
+
+## Disclaimer and policy on LLM-assisted coding
+
+All implementation before 2026 is written by hand. Starting from that, LLM-assisted coding tools may be used in:
+
+- Code review (including reviewing legacy implementation)
+- Test code generation
+- Documentation
+- Maintenance chore work
+- Help implementation work and full foreign implementation porting(see below)
+- Design discussion and research assistance, without producing any decisions
+
+For implementation work: if the code is written with the help of LLM tools and it is not a core feature (a feature that is guaranteed to be supported in the future and cannot be disabled in any way), then for that part:
+
+- The implementation details must be understood line by line by the maintainer and fully and precisely express the maintainer's intent. The maintainer must be able to explain, modify, and extend every line without referring to the LLM session that produced it. The code must be continuously developable as if it were written entirely by the maintainer.
+- The style and *taste* must match the rest of the project.
+
+If the code is written largely with the help of LLM tools (even if it meets the above criteria), OR the code is written using LLM tools but cannot meet the above criteria (this is allowed if it is in a non-core part), such cases shall be recorded below for transparency. This record reflects the **current status** of each entry — once an entry is added, it is retained permanently even if the feature is later fully digested by the maintainer and no longer falls under this policy; in that case, an annotation may be added to indicate the change.
+
+- Non-core system code written using LLM tools that cannot meet the above criteria:
+  - `extension/dynamic-bvh` is an LLM port from parry's qbvh, using the rendiation math library.
 
 ## Development
 
