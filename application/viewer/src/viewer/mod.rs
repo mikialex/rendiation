@@ -440,6 +440,16 @@ pub fn use_viewer<'a>(
   };
 
   viewer.update_view_ty_immediate();
+
+  #[cfg(all(feature = "dhat-heap-profiling", not(target_family = "wasm")))]
+  let _dhat_profiler = if viewer.should_trace_next_frame_allocation_info {
+    viewer.should_trace_next_frame_allocation_info = false;
+    log::info!("dhat heap profiling started for this frame");
+    Some(dhat::Profiler::builder().trim_backtraces(None).build())
+  } else {
+    None
+  };
+
   let mut active_surface_content = viewer.surfaces_content.remove(&acx.surface_id).unwrap();
   // always sync
   active_surface_content.device_pixel_ratio = acx.input.window_state.device_pixel_ratio;

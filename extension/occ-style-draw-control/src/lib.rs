@@ -41,9 +41,8 @@ pub struct OccSceneModelGroupKey {
 
 pub fn use_scene_model_occ_group_key(
   cx: &mut QueryGPUHookCx,
-  foreign: GroupKeyForeignImpl,
+  internal: UseResult<BoxedDynDualQuery<RawEntityHandle, (SceneModelGroupKey, RawEntityHandle)>>,
 ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, (OccSceneModelGroupKey, RawEntityHandle)>> {
-  let internal = use_scene_model_group_key(cx, foreign);
   let layer = cx.use_dual_query::<SceneModelOccStyleLayer>();
   internal
     .dual_query_intersect(layer)

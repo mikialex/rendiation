@@ -1,11 +1,26 @@
 use std::{any::Any, hash::Hash};
 
+use fast_hash_collection::fast_hash_scope;
+use rendiation_scene_batch_extractor::SceneModelGroupKey;
 use rendiation_scene_rendering_gpu_indirect::*;
-use rendiation_webgpu_midc_downgrade::{
-  require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
-};
+use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
 use crate::*;
+pub fn use_wide_styled_points_group_key(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>> {
+  let sm_ref_wide_point = cx.use_db_rev_ref_tri_view::<SceneModelWideStyledPointsRenderPayload>();
+  cx.use_dual_query::<WideStyledPointsDepthTestEnabled>()
+    .fanout(sm_ref_wide_point, cx)
+    .dual_query_map(|enable_depth_test| SceneModelGroupKey::ForeignHash {
+      internal: fast_hash_scope(|hasher| {
+        std::any::TypeId::of::<WideStyledPointsEntity>().hash(hasher);
+        enable_depth_test.hash(hasher);
+      }),
+      require_alpha_blend: true,
+    })
+    .dual_query_boxed()
+}
 
 pub fn use_widen_styled_points_indirect_renderer(
   cx: &mut QueryGPUHookCx,
@@ -167,7 +182,7 @@ impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
     self
   }
 
-  fn device_id_injector(
+  fn model_info_injector(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
@@ -245,11 +260,6 @@ impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
       let points_range = meta.range;
 
       let points = binding.bind_by(self.points);
-
-      // as we are using none indexed draw, this is easier to integrate the midc downgrade
-      if let Some(relative) = builder.try_query::<VertexIndexForMIDCDowngradeRelative>() {
-        builder.register::<VertexIndex>(relative);
-      }
 
       let vertex_index = builder.query::<VertexIndex>();
       let instance_index = vertex_index / val(6);

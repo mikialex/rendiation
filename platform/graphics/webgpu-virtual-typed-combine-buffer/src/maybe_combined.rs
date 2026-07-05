@@ -9,8 +9,24 @@ pub struct StorageBufferCombineGuard {
 }
 
 impl StorageBufferCombineGuard {
-  pub fn end(self, cx: &mut QueryGPUHookCx) {
-    cx.storage_allocator = self.outside_allocator;
+  pub fn end(mut self, cx: &mut QueryGPUHookCx) -> StorageBufferCombineRestart {
+    std::mem::swap(&mut cx.storage_allocator, &mut self.outside_allocator);
+    StorageBufferCombineRestart {
+      combined_allocator: self.outside_allocator,
+    }
+  }
+}
+
+pub struct StorageBufferCombineRestart {
+  combined_allocator: Box<dyn AbstractStorageAllocator>,
+}
+
+impl StorageBufferCombineRestart {
+  pub fn restart(mut self, cx: &mut QueryGPUHookCx) -> StorageBufferCombineGuard {
+    std::mem::swap(&mut cx.storage_allocator, &mut self.combined_allocator);
+    StorageBufferCombineGuard {
+      outside_allocator: self.combined_allocator,
+    }
   }
 }
 

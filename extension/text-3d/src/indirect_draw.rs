@@ -1,11 +1,25 @@
 use std::{any::Any, hash::Hash};
 
+use rendiation_scene_batch_extractor::SceneModelGroupKey;
 use rendiation_scene_rendering_gpu_indirect::*;
-use rendiation_webgpu_midc_downgrade::{
-  require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
-};
+use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
 use crate::*;
+
+pub fn use_text3d_group_key(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>> {
+  let sm_ref_text = cx.use_db_rev_ref_tri_view::<SceneModelText3dPayload>();
+  cx.use_dual_query_set::<Text3dEntity>()
+    .fanout(sm_ref_text, cx)
+    .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
+      internal: fast_hash_scope(|hasher| {
+        std::any::TypeId::of::<Text3dEntity>().hash(hasher);
+      }),
+      require_alpha_blend: true,
+    })
+    .dual_query_boxed()
+}
 
 // todo, the glyph data between the different text are not shared
 pub fn use_text3d_indirect_renderer(
@@ -156,7 +170,7 @@ impl IndirectModelRenderImpl for Text3dIndirectRenderer {
     self
   }
 
-  fn device_id_injector(
+  fn model_info_injector(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
@@ -192,9 +206,10 @@ impl IndirectModelRenderImpl for Text3dIndirectRenderer {
 
   fn material_renderable_indirect<'a>(
     &'a self,
-    _any_idx: EntityHandle<SceneModelEntity>,
+    any_idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
+    self.access.get(any_idx)?;
     Some(Box::new(())) // no material
   }
 }
@@ -308,11 +323,6 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
 
       let text_meta = text_meta.using(binding);
       let text_meta = text_meta.index(text_id).load().expand();
-
-      // as we are using none indexed draw, this is easier to integrate the midc downgrade
-      if let Some(relative) = builder.try_query::<VertexIndexForMIDCDowngradeRelative>() {
-        builder.register::<VertexIndex>(relative);
-      }
 
       let vertex_index = builder.query::<VertexIndex>();
       let instance_index = vertex_index / val(6);

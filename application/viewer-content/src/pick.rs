@@ -173,7 +173,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
 
     let scene_model_picker = SceneModelPickerBaseImpl {
       internal: local_model_pickers,
-      util,
+      util: util.clone(),
       filter: Some(Box::new(create_clip_pick_filter())),
       sm_world_bounding: sm_world_bounding
         .expect_resolve_stage()
@@ -183,6 +183,15 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
+    };
+
+    let scene_model_picker = TransformInstancedMeshPicker {
+      internal: scene_model_picker,
+      util,
+      instance_model: read_global_db_foreign_key(),
+      source_model: read_global_db_foreign_key(),
+      per_unit_transform: read_global_db_component(),
+      transform_buffer: read_global_db_component(),
     };
 
     let scene_model_picker = SceneModelPickerWithViewDep {

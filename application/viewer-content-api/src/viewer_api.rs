@@ -473,6 +473,7 @@ impl ViewerQueryAPI {
         &mut results,
         &mut model_results,
         &mut local_result_scratch,
+        false,
       );
     }
 
@@ -527,6 +528,7 @@ impl ViewerQueryAPI {
           ObjectTestPolicy::Intersect
         },
         &mut |r| output_results.push(r.into_raw().into()),
+        false,
       );
       //
     }

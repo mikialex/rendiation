@@ -253,9 +253,7 @@ impl GraphicsShaderProvider for NodeGPUStorageWithOverride<'_> {
         nodes.index(current_node_id).load().expand()
       };
 
-      builder.register::<WorldNoneTranslationMatrix>(node.world_matrix_none_translation);
-      builder.register::<WorldPositionHP>(hpt_storage_to_hpt(node.world_position_hp));
-      builder.register::<WorldNormalMatrix>(node.normal_matrix);
+      register_or_compose_world_related_info(builder, node);
 
       // the RenderVertexPosition requires camera, so here we only process normal part
       if let Some(normal) = builder.try_query::<GeometryNormal>() {

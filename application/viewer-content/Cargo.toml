@@ -76,6 +76,7 @@ rendiation-occ-style-draw-control = { path = "../../extension/occ-style-draw-con
 rendiation-occ-style-material = { path = "../../extension/occ-style-material" }
 rendiation-view-dependent-transform = { path = "../../extension/view-dependent-transform" }
 rendiation-device-parallel-compute = { path = "../../shader/parallel-compute" }
+rendiation-transform-instanced-model = { path = "../../extension/transform-instanced-model" }
 tracing = { workspace = true }
 
 egui = { version = "0.34" }

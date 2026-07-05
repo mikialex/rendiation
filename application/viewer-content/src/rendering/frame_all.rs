@@ -11,7 +11,6 @@ pub struct Viewer3dRenderingCtx {
   pub(crate) ndc: ViewerNDC,
   pub(super) culling: ViewerCullingConfig,
   pub(super) using_host_driven_indirect_draw: bool,
-  pub(super) use_native_line_for_one_width_line: bool,
   pub(super) current_renderer_impl_ty: RasterizationRenderBackendType,
   pub(super) rtx_renderer_enabled: bool,
   pub lighting: LightSystem,
@@ -74,7 +73,6 @@ impl Viewer3dRenderingCtx {
   ) -> Self {
     Self {
       font_system,
-      use_native_line_for_one_width_line: init_config.use_native_line_for_one_width_line,
       prefer_bindless_for_indirect_texture_system: init_config
         .prefer_bindless_for_indirect_texture_system,
       using_host_driven_indirect_draw: init_config.using_host_driven_indirect_draw,
@@ -238,6 +236,8 @@ impl Viewer3dRenderingCtx {
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
 
         let (attribute_vertices, attribute_indices) = viewer_mesh_buffer_input(cx);
+        let (attribute_vertices, attribute_vertices_) = attribute_vertices.fork();
+        let (attribute_indices, attribute_indices_) = attribute_indices.fork();
         let mesh = use_bindless_mesh(
           cx,
           &init_config.bindless_mesh_init,
@@ -274,41 +274,31 @@ impl Viewer3dRenderingCtx {
         let mesh =
           cx.when_render(|| Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRenderImpl>);
 
-        let material_flat = cx.use_changes::<StandardModelRefUnlitMaterial>();
-        let material_pbr_mr = cx.use_changes::<StandardModelRefPbrMRMaterial>();
-        let material_pbr_sg = cx.use_changes::<StandardModelRefPbrSGMaterial>();
-        let material_occ = cx.use_changes::<StdModelOccStyleMaterialPayload>();
+        let node = use_node_storage(cx);
+        let view_camera_source = cx.use_shared_dual_query(
+          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map.clone()),
+        );
+        let node = use_view_dependent_transform_indirect_gpu(
+          cx,
+          view_camera_source,
+          node,
+          active_view_control.clone(),
+        );
 
-        let material_key = if cx.is_spawning_stage() {
-          let material_flat = material_flat.into_spawn_stage_ready();
-          let material_pbr_mr = material_pbr_mr.into_spawn_stage_ready();
-          let material_pbr_sg = material_pbr_sg.into_spawn_stage_ready();
-          let material_occ = material_occ.into_spawn_stage_ready();
-
-          let mut r = Vec::new();
-          if let Some(v) = material_flat {
-            r.push(v.map_some_u32_index());
-          }
-          if let Some(v) = material_pbr_mr {
-            r.push(v.map_some_u32_index());
-          }
-          if let Some(v) = material_pbr_sg {
-            r.push(v.map_some_u32_index());
-          }
-          if let Some(v) = material_occ {
-            r.push(v.map_some_u32_index());
-          }
-          UseResult::SpawnStageReady(SelectChanges(r))
-        } else {
-          UseResult::NotInStage
-        };
-
+        let model_buffer_merge =
+          use_readonly_storage_buffer_combine(cx, "indirect model data", enable_combine);
         let std_model =
-          use_std_model_renderer(cx, materials, material_key, mesh, self.ndc.enable_reverse_z);
+          use_viewer_std_model_renderer(cx, materials, mesh, self.ndc.enable_reverse_z);
+        let model_buffer_merge = model_buffer_merge.end(cx);
+
+        let use_native_line_for_one_width_line = self
+          .init_config
+          .init_only
+          .use_native_line_for_one_width_line;
         let wide_line = use_widen_line_indirect_renderer(
           cx,
           self.using_host_driven_indirect_draw,
-          self.use_native_line_for_one_width_line,
+          use_native_line_for_one_width_line,
         );
         let wide_point = use_widen_styled_points_indirect_renderer(
           cx,
@@ -327,17 +317,34 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn IndirectModelRenderImpl>
         });
 
-        let node = use_node_storage(cx);
+        let model_buffer_merge = model_buffer_merge.restart(cx);
 
-        let view_camera_source = cx.use_shared_dual_query(
-          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map.clone()),
-        );
-        let node = use_view_dependent_transform_indirect_gpu(
-          cx,
-          view_camera_source,
-          node,
-          active_view_control.clone(),
-        );
+        let wide_line_vertices_count =
+          use_wide_line_vertices_count(cx, use_native_line_for_one_width_line);
+        let att_mesh_vertices_count =
+          use_bindless_mesh_vertex_count(cx, attribute_indices_, attribute_vertices_);
+        let vertices_count = wide_line_vertices_count.dual_query_select(att_mesh_vertices_count);
+
+        let transform_instanced_model_base =
+          rendiation_transform_instanced_model::use_transform_instanced_model_indirect_renderer(
+            cx,
+            self.using_host_driven_indirect_draw,
+            vertices_count,
+          );
+        let model_support = cx.when_render(|| {
+          let internal = Arc::new(model_support.unwrap());
+
+          let instanced =
+            rendiation_transform_instanced_model::TransformInstancedModelIndirectRenderer {
+              internal: internal.clone(),
+              base: transform_instanced_model_base.unwrap(),
+            };
+
+          Box::new(vec![
+            Box::new(internal) as Box<dyn IndirectModelRenderImpl>,
+            Box::new(instanced),
+          ]) as Box<dyn IndirectModelRenderImpl>
+        });
 
         let scene_model = use_indirect_scene_model(
           cx,
@@ -345,56 +352,13 @@ impl Viewer3dRenderingCtx {
           model_support,
           self.using_host_driven_indirect_draw,
         );
+        model_buffer_merge.end(cx);
 
         if !self.using_host_driven_indirect_draw {
           cx.scope(|cx| {
-            let sm_ref_wide_line = cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>();
-            let wide_line_key = cx
-              .use_dual_query::<WideLineDepthEnable>()
-              .dual_query_zip(cx.use_dual_query::<WideLineTransparent>())
-              .dual_query_boxed()
-              .dual_query_zip(cx.use_dual_query::<WideLineWidth>())
-              .dual_query_boxed()
-              .fanout(sm_ref_wide_line, cx)
-              .dual_query_map(
-                |((enable_depth, trans), width)| SceneModelGroupKey::ForeignHash {
-                  internal: fast_hash_scope(|hasher| {
-                    std::any::TypeId::of::<WideLineModelEntity>().hash(hasher);
-                    (enable_depth, trans).hash(hasher);
-                    // this is for one width line optimization.
-                    // todo, only hash it if the optimization is enabled
-                    (width == 1.0).hash(hasher);
-                  }),
-                  require_alpha_blend: trans,
-                },
-              )
-              .dual_query_boxed();
-
-            let sm_ref_wide_point =
-              cx.use_db_rev_ref_tri_view::<SceneModelWideStyledPointsRenderPayload>();
-            let wide_point_key = cx
-              .use_dual_query::<WideStyledPointsDepthTestEnabled>()
-              .fanout(sm_ref_wide_point, cx)
-              .dual_query_map(|enable_depth_test| SceneModelGroupKey::ForeignHash {
-                internal: fast_hash_scope(|hasher| {
-                  std::any::TypeId::of::<WideStyledPointsEntity>().hash(hasher);
-                  enable_depth_test.hash(hasher);
-                }),
-                require_alpha_blend: true,
-              })
-              .dual_query_boxed();
-
-            let sm_ref_text = cx.use_db_rev_ref_tri_view::<SceneModelText3dPayload>();
-            let text_key = cx
-              .use_dual_query_set::<Text3dEntity>()
-              .fanout(sm_ref_text, cx)
-              .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
-                internal: fast_hash_scope(|hasher| {
-                  std::any::TypeId::of::<Text3dEntity>().hash(hasher);
-                }),
-                require_alpha_blend: true,
-              })
-              .dual_query_boxed();
+            let wide_line_key = use_wide_line_group_key(cx, use_native_line_for_one_width_line);
+            let wide_point_key = use_wide_styled_points_group_key(cx);
+            let text_key = use_text3d_group_key(cx);
 
             let impl_key = wide_line_key
               .dual_query_select(wide_point_key)
@@ -411,14 +375,16 @@ impl Viewer3dRenderingCtx {
               ..Default::default()
             };
 
-            // todo, host version
             use rendiation_occ_style_draw_control::*;
-            let sm_group_key = use_scene_model_occ_group_key(cx, key_impl);
-            indirect_extractor = use_occ_incremental_device_scene_batch_extractor(cx, sm_group_key);
+            let internal = use_scene_model_group_key(cx, key_impl);
 
-            // let sm_group_key = use_scene_model_group_key(cx, key_impl);
-            // indirect_extractor = use_incremental_device_scene_batch_extractor(cx, sm_group_key)
-            //   .map(|v| Box::new(v) as Box<dyn SceneBatchBasicExtractAbility>);
+            let (internal, internal_) = internal.fork();
+            let instance = use_transform_instanced_model_group_key(cx, internal);
+            let internal = instance.dual_query_select(internal_).dual_query_boxed();
+
+            let internal = use_scene_model_group_key_with_scene_id_and_visible_filter(cx, internal);
+            let sm_group_key = use_scene_model_occ_group_key(cx, internal);
+            indirect_extractor = use_occ_incremental_device_scene_batch_extractor(cx, sm_group_key);
           })
         }
 

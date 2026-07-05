@@ -161,6 +161,18 @@ cargo run --bin viewer --features tracy # run viewer enable tracy
 cargo run --bin viewer --features tracy-heap-debug # run viewer enable tracy and tracy-heap-debug
 ```
 
+## dhat frame allocation info
+
+enable "dhat-heap-profiling" feature, build and run, click profile button.
+
+`cargo run -p viewer --no-default-features --features "dhat-heap-profiling"`
+
+generate flamegraph
+
+first install convert tool `cargo install dhat-to-flamegraph`, then:
+
+`dhat-to-flamegraph dhat-heap.json -o result.svg --unit blocks`
+
 ## Testing
 
 Runing test requires [cargo-nextest](https://nexte.st/). We rely on this because some test case modify global variables

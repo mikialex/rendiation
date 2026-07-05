@@ -1,7 +1,6 @@
 #![feature(impl_trait_in_assoc_type)]
 
 use database::*;
-use fast_hash_collection::*;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_gles::*;
@@ -74,4 +73,26 @@ pub struct WideLineVertex {
   pub end: Vec3<f32>,
   #[semantic(GeometryColorWithAlpha)]
   pub color: Vec4<f32>,
+}
+
+/// the one_pixel_native_line_optimization_enabled must be immutable for every call
+pub fn use_wide_line_vertices_count(
+  cx: &mut impl DBHookCxLike,
+  one_pixel_native_line_optimization_enabled: bool,
+) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = u32>> {
+  let wide_line_v_count = cx
+    .use_dual_query::<WideLineMeshBuffer>()
+    .dual_query_zip(cx.use_dual_query::<WideLineWidth>())
+    .dual_query_map(move |(v, width)| {
+      let line_seg_count = v.len() / std::mem::size_of::<WideLineVertex>();
+      let line_seg_count = line_seg_count as u32;
+      if one_pixel_native_line_optimization_enabled && width == 1.0 {
+        line_seg_count * 2
+      } else {
+        line_seg_count * 18
+      }
+    });
+
+  let relation = cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>();
+  wide_line_v_count.fanout(relation, cx)
 }

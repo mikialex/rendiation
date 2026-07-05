@@ -143,6 +143,15 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
         ui.checkbox(&mut viewer.use_scene_bvh, "use_scene_bvh");
 
+        #[cfg(feature = "dhat-heap-profiling")]
+        {
+          if viewer.should_trace_next_frame_allocation_info {
+            ui.label("⏳ will trace next frame...");
+          } else if ui.button("🔍 trace next frame allocation (dhat)").clicked() {
+            viewer.should_trace_next_frame_allocation_info = true;
+          }
+        }
+
         ui.collapsing("Init config(not dynamic configurable)", |ui| {
           if ui
             .button("export first viewport init and current config")

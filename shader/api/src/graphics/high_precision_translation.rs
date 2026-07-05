@@ -98,3 +98,17 @@ pub fn hpt_sub_hpt(
   // currently we have issues on Metal
   (hpt1.f1 - hpt2.f1) + (hpt1.f2 - hpt2.f2)
 }
+
+pub fn hpt_compose_hpt(
+  hpt1: Node<HighPrecisionTranslation>,
+  hpt2: Node<HighPrecisionTranslation>,
+) -> Node<HighPrecisionTranslation> {
+  let hpt1 = hpt1.expand();
+  let hpt2 = hpt2.expand();
+
+  ENode::<HighPrecisionTranslation> {
+    f1: hpt1.f1 + hpt2.f1,
+    f2: hpt1.f2 + hpt2.f2,
+  }
+  .construct()
+}

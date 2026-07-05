@@ -2,6 +2,11 @@ pub use text3d::text3d_content_edit_ui;
 use text3d::use_text3d_example;
 
 mod text3d;
+mod transform_instance;
+mod util;
+
+pub use transform_instance::*;
+pub use util::*;
 
 use crate::*;
 
@@ -22,6 +27,7 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
   let (cx, registry) = cx.use_plain_state_init(|_| {
     let mut registry = ExampleRegistry::default();
     registry.register("Text3d example", use_text3d_example);
+    registry.register("Transform Instance Example", use_transform_instance_example);
     registry
   });
 
@@ -47,9 +53,10 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
       });
   }
 
+  cx.next_scope_index();
   if let Some(active) = &registry.current_active {
     if let Some(f) = registry.examples.get(active) {
-      cx.scope(|cx| {
+      cx.keyed_scope(active, |cx| {
         f(cx);
       })
     } else {
