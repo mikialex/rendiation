@@ -106,7 +106,7 @@ struct TextPickView {
 impl AbstractMesh for TextPickView {
   type Primitive = Triangle<Vec3<f32>>;
   fn primitive_count(&self) -> usize {
-    self.buffer.hit_boxes.len()
+    self.buffer.hit_boxes.len() * 2
   }
 
   fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive> {

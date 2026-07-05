@@ -205,9 +205,10 @@ impl IndirectModelRenderImpl for Text3dIndirectRenderer {
 
   fn material_renderable_indirect<'a>(
     &'a self,
-    _any_idx: EntityHandle<SceneModelEntity>,
+    any_idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
+    self.access.get(any_idx)?;
     Some(Box::new(())) // no material
   }
 }
