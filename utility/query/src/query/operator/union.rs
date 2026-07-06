@@ -1,9 +1,9 @@
 use crate::*;
 
 #[derive(Clone)]
-pub struct Select<T>(pub T);
+pub struct SelectMany<T>(pub T);
 
-impl<T> Query for Select<T>
+impl<T> Query for SelectMany<T>
 where
   T: IteratorProvider + Clone + Send + Sync,
   T::Item: Query,
@@ -28,6 +28,36 @@ where
   fn has_item_hint(&self) -> bool {
     self.0.create_iter().any(|q| q.has_item_hint())
   }
+}
+
+#[test]
+fn test_select_query() {
+  let mut q1 = FastHashMap::default();
+  q1.insert(1u32, "a".to_string());
+
+  let mut q2 = FastHashMap::default();
+  q2.insert(2u32, "b".to_string());
+
+  let mut q3 = FastHashMap::default();
+  q3.insert(3u32, "c".to_string());
+
+  let queries = vec![q1, q2, q3];
+  let select = SelectMany(queries);
+
+  super::validate_query_consistency(&select);
+  assert_eq!(select.access(&1), Some("a".to_string()));
+  assert_eq!(select.access(&2), Some("b".to_string()));
+  assert_eq!(select.access(&3), Some("c".to_string()));
+  assert_eq!(select.access(&4), None);
+}
+
+#[test]
+fn test_select_empty_query() {
+  let queries: Vec<FastHashMap<u32, String>> = vec![];
+  let select = SelectMany(queries);
+
+  super::validate_query_consistency(&select);
+  assert_eq!(select.access(&1), None);
 }
 
 #[derive(Clone)]
@@ -69,4 +99,55 @@ where
   fn has_item_hint(&self) -> bool {
     self.a.has_item_hint() || self.b.has_item_hint()
   }
+}
+
+#[test]
+fn test_union_query() {
+  // a covers {1, 2}, b covers {2, 3} — key 2 overlaps
+  let mut a = FastHashMap::default();
+  a.insert(1u32, 10i32);
+  a.insert(2, 20);
+
+  let mut b = FastHashMap::default();
+  b.insert(2u32, 30);
+  b.insert(3, 40);
+
+  let unioned = UnionQuery {
+    a,
+    b,
+    f: |(va, vb): (Option<i32>, Option<i32>)| match (va, vb) {
+      (Some(a), Some(b)) => Some(a + b),
+      (Some(a), None) => Some(a),
+      (None, Some(b)) => Some(b),
+      (None, None) => None,
+    },
+  };
+
+  super::validate_query_consistency(&unioned);
+  assert_eq!(unioned.access(&1), Some(10));
+  assert_eq!(unioned.access(&2), Some(50));
+  assert_eq!(unioned.access(&3), Some(40));
+  assert_eq!(unioned.access(&4), None);
+}
+
+#[test]
+fn test_union_query_left_only() {
+  let mut a = FastHashMap::default();
+  a.insert(1u32, "left".to_string());
+
+  let b: FastHashMap<u32, String> = FastHashMap::default();
+
+  let unioned = UnionQuery {
+    a,
+    b,
+    f: |(va, vb): (Option<String>, Option<String>)| match (va, vb) {
+      (Some(a), None) => Some(a),
+      (None, Some(b)) => Some(b),
+      _ => None,
+    },
+  };
+
+  super::validate_query_consistency(&unioned);
+  assert_eq!(unioned.access(&1), Some("left".to_string()));
+  assert_eq!(unioned.access(&2), None);
 }

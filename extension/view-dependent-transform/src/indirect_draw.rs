@@ -70,9 +70,11 @@ struct PerViewGPUResource {
   overrides: SparseUpdateStorageBuffer<NodeStorage>,
   slab: Slab<()>,
   mapping: FastHashMap<RawEntityHandle, usize>,
-  mapping_change: FastHashMap<RawEntityHandle, u32>,
+  // use u32 as key because same position can has two different handle(cause range check panic)
+  mapping_change: FastHashMap<u32, u32>,
   index_remap: GPUBufferImpl<u32>,
   overrides_updates: Option<SparseBufferWritesSource>,
+  should_grow_slab: bool,
   should_check_slab_shrink: bool,
 }
 
@@ -81,7 +83,7 @@ impl PerViewGPUResource {
     let buffer = alloc.allocate_readonly(
       make_init_size::<u32>(128),
       &gpu.device,
-      Some("PerViewGPUResource index_remap"),
+      "PerViewGPUResource index_remap",
     );
 
     let index_remap = buffer
@@ -91,7 +93,6 @@ impl PerViewGPUResource {
       .with_default_grow_behavior(u32::MAX);
 
     Self {
-      // todo, shrink this buffer
       overrides: SparseUpdateStorageBuffer::new(
         "PerViewGPUResource overrides",
         128,
@@ -105,15 +106,35 @@ impl PerViewGPUResource {
       slab: Default::default(),
       mapping: Default::default(),
       should_check_slab_shrink: false,
+      should_grow_slab: false,
     }
   }
 
+  // can we simplify this?
   pub fn notify_max_sm_size(&mut self, max_sm_size: usize) {
     self.index_remap.grow_at_least(max_sm_size as u32);
-    if self.should_check_slab_shrink {
-      self.slab.shrink_to_fit();
-      self.overrides.buffer.resize(self.slab.capacity() as u32);
+    if self.should_check_slab_shrink || self.should_grow_slab {
+      if self.should_check_slab_shrink {
+        self.slab.shrink_to_fit();
+      }
+
+      if self.should_grow_slab {
+        self
+          .overrides
+          .buffer
+          .grow_at_least(self.slab.capacity().max(1) as u32);
+      }
+
+      if self.should_check_slab_shrink {
+        let resize_success = self
+          .overrides
+          .buffer
+          .resize(self.slab.capacity().max(1) as u32);
+        assert!(resize_success);
+      }
+
       self.should_check_slab_shrink = false;
+      self.should_grow_slab = false;
     }
   }
 
@@ -124,7 +145,7 @@ impl PerViewGPUResource {
     let new_index = self.slab.insert(());
     self.mapping.insert(sm, new_index);
 
-    self.mapping_change.insert(sm, new_index as u32);
+    self.mapping_change.insert(sm.index(), new_index as u32);
 
     // we are not cache change for this, because the data is not overlap(guaranteed by outside query)
     let node = NodeStorage::from_world_mat(mat);
@@ -133,13 +154,14 @@ impl PerViewGPUResource {
       .get_or_insert_with(|| SparseBufferWritesSource::with_capacity(0, 0));
     let sm_data_byte_offset = new_index as u64 * std::mem::size_of::<NodeStorage>() as u64;
     data_writer.collect_write(bytes_of(&node), sm_data_byte_offset);
+    self.should_grow_slab = true;
   }
 
   pub fn remove(&mut self, sm: RawEntityHandle) {
     let old_index = self.mapping.remove(&sm).unwrap();
     self.slab.remove(old_index);
     self.should_check_slab_shrink = true;
-    self.mapping_change.insert(sm, u32::MAX);
+    self.mapping_change.insert(sm.index(), u32::MAX);
   }
 
   // return if should exist
@@ -150,7 +172,7 @@ impl PerViewGPUResource {
     if self.mapping_change.len() > 0 {
       let mut updates = SparseBufferWritesSource::with_capacity(0, 0); // todo, capacity
       for (k, v) in self.mapping_change.drain() {
-        let sm_index_byte_offset = k.index() as u64 * std::mem::size_of::<u32>() as u64;
+        let sm_index_byte_offset = k as u64 * std::mem::size_of::<u32>() as u64;
         updates.collect_write(bytes_of(&v), sm_index_byte_offset);
       }
       updates.write_abstract(gpu, encoder, self.index_remap.gpu());
@@ -199,7 +221,7 @@ pub struct NodeGPUStorageWithOverride<'a> {
 impl<'a> ShaderHashProvider for NodeGPUStorageWithOverride<'a> {
   shader_hash_type_id! {NodeGPUStorageWithOverride<'static>}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.overrides.is_none().hash(hasher);
+    hasher.hash(self.overrides.is_none());
   }
 }
 
@@ -231,9 +253,7 @@ impl GraphicsShaderProvider for NodeGPUStorageWithOverride<'_> {
         nodes.index(current_node_id).load().expand()
       };
 
-      builder.register::<WorldNoneTranslationMatrix>(node.world_matrix_none_translation);
-      builder.register::<WorldPositionHP>(hpt_storage_to_hpt(node.world_position_hp));
-      builder.register::<WorldNormalMatrix>(node.normal_matrix);
+      register_or_compose_world_related_info(builder, node);
 
       // the RenderVertexPosition requires camera, so here we only process normal part
       if let Some(normal) = builder.try_query::<GeometryNormal>() {

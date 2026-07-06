@@ -9,7 +9,7 @@ pub trait GLESNodeRenderImpl {
 }
 
 pub fn use_node_uniforms(cx: &mut QueryGPUHookCx) -> Option<Box<dyn GLESNodeRenderImpl>> {
-  let uniform = cx.use_uniform_buffers();
+  let uniform = cx.use_uniform_buffers("node uniform");
 
   use_global_node_world_mat(cx)
     .into_delta_change()

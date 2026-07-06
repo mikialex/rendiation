@@ -47,7 +47,7 @@ pub fn compute_triangle_cones<V: Positioned<Position = Vec3<f32>>>(
     let mut normal = p10.cross(p20);
     let area = normal.normalize_self(); // we cal the double side of the triangle are so not need divide 2?
 
-    let center = (p1 + p1 + p2) / 3.;
+    let center = (p0 + p1 + p2) / 3.;
     cones.push(Cone {
       position: center,
       direction: normal,

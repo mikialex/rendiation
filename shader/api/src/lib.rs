@@ -67,6 +67,7 @@ pub trait ShaderAPI {
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle;
   fn make_local_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;
   fn make_zero_val(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;
+  fn mark_handle_debug_name(&mut self, handle: ShaderNodeRawHandle, name: String);
   fn store(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle);
   fn load(&mut self, source: ShaderNodeRawHandle) -> ShaderNodeRawHandle;
   fn texture_store(&mut self, store: ShaderTextureStore);
@@ -97,7 +98,13 @@ pub trait ShaderAPI {
   fn do_return(&mut self, v: Option<ShaderNodeRawHandle>);
   fn end_fn_define(&mut self) -> ShaderUserDefinedFunction;
 
+  fn log_build_result(&mut self);
+
   fn build(&mut self) -> (String, Box<dyn Any>);
+}
+
+pub fn log_shader_build_result() {
+  call_shader_api(|api| api.log_build_result())
 }
 
 pub struct ShaderBuildingCtx {

@@ -7,6 +7,7 @@ pub struct DirectionalLightStorage {
   /// in lx
   pub illuminance: Vec3<f32>,
   pub direction: Vec3<f32>,
+  pub follow_camera: Bool,
 }
 
 pub fn use_directional_light_storage(
@@ -16,6 +17,11 @@ pub fn use_directional_light_storage(
 
   cx.use_changes::<DirectionalLightIlluminance>()
     .update_storage_array(cx, light, offset_of!(DirectionalLightStorage, illuminance));
+
+  let offset = offset_of!(DirectionalLightStorage, follow_camera);
+  cx.use_changes::<DirectionalLightFollowCamera>()
+    .map_changes(|v| Bool::from(v))
+    .update_storage_array(cx, light, offset);
 
   use_global_node_world_mat(cx)
     .fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>(), cx)
@@ -51,6 +57,7 @@ pub fn make_dir_light_storage_component(
       ENode::<DirectionalShaderInfo> {
         illuminance: light.illuminance,
         direction: light.direction,
+        follow_camera: light.follow_camera,
       }
       .construct()
     },

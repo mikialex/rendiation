@@ -1,4 +1,5 @@
 use rendiation_infinity_primitive::InfinityShaderPlaneEffect;
+use rendiation_texture_gpu_process::copy_frame;
 
 use crate::*;
 
@@ -9,6 +10,7 @@ pub fn register_clipping_plane_array_data_model() {
     .declare_foreign_key::<ClippingPlaneRefScene>();
 
   global_entity_of::<AttributesMeshEntity>().declare_component::<AttributeMeshIsSolid>();
+  global_entity_of::<SceneModelEntity>().declare_component::<ClippingPlaneSceneModelSkip>();
 }
 
 declare_entity!(ClippingPlaneEntity);
@@ -16,6 +18,7 @@ declare_component!(ClippingPlaneInfo, ClippingPlaneEntity, Vec4<f32>);
 declare_foreign_key!(ClippingPlaneRefScene, ClippingPlaneEntity, SceneEntity);
 
 declare_component!(AttributeMeshIsSolid, AttributesMeshEntity, bool, false);
+declare_component!(ClippingPlaneSceneModelSkip, SceneModelEntity, bool, false);
 
 pub fn use_array_plane_clipping(
   cx: &mut QueryGPUHookCx,
@@ -43,10 +46,20 @@ pub fn use_array_plane_clipping(
 
   let planes_host_access = cx.use_db_rev_ref_typed::<ClippingPlaneRefScene>();
 
+  let (cx, skip_clip) = cx.use_storage_buffer::<Bool>("scene model skip clip", 128, u32::MAX);
+
+  cx.use_changes::<ClippingPlaneSceneModelSkip>()
+    .map_changes(Bool::from)
+    .update_storage_array(cx, skip_clip, 0);
+
+  skip_clip.use_max_item_count_by_db_entity::<SceneModelEntity>(cx);
+  skip_clip.use_update(cx);
+
   cx.when_render(|| ClippingPlaneArrayRenderer {
     fill_face,
     enable,
     planes_gpu: planes_gpu.get_gpu_buffer(),
+    skip_clip: skip_clip.get_gpu_buffer(),
     planes_gpu_access: planes_gpu_access.unwrap(),
     planes_host: read_global_db_component::<ClippingPlaneInfo>(),
     planes_host_access: planes_host_access.expect_resolve_stage(),
@@ -57,6 +70,7 @@ pub struct ClippingPlaneArrayRenderer {
   fill_face: bool,
   enable: bool,
   planes_gpu: AbstractReadonlyStorageBuffer<[Vec4<f32>]>,
+  skip_clip: AbstractReadonlyStorageBuffer<[Bool]>,
   planes_gpu_access: MultiAccessGPUData,
   planes_host: ComponentReadView<ClippingPlaneInfo>,
   planes_host_access: RevRefForeignKeyReadTyped<ClippingPlaneRefScene>,
@@ -80,6 +94,7 @@ impl ClippingPlaneArrayRenderer {
     let scene_id = create_uniform(
       Vec4::new(scene_id.alloc_index(), 0, 0, 0),
       &frame_ctx.gpu.device,
+      "scene id",
     );
 
     Some(Box::new(ClipComponent {
@@ -87,6 +102,7 @@ impl ClippingPlaneArrayRenderer {
       planes_gpu_access: &self.planes_gpu_access,
       scene_id,
       ty: ClipDrawType::MainPass,
+      skip_clip: &self.skip_clip,
     }))
   }
 
@@ -117,6 +133,7 @@ impl ClippingPlaneArrayRenderer {
     let scene_id = create_uniform(
       Vec4::new(scene.alloc_index(), 0, 0, 0),
       &frame_ctx.gpu.device,
+      "scene id",
     );
 
     let fmt = match g_buffer.depth.format() {
@@ -151,12 +168,14 @@ impl ClippingPlaneArrayRenderer {
             let plane_id = create_uniform(
               Vec4::new(plane.alloc_index(), 0, 0, 0),
               &frame_ctx.gpu.device,
+              "plane id",
             );
             let clip = ClipComponent {
               planes_gpu: &self.planes_gpu,
               planes_gpu_access: &self.planes_gpu_access,
               ty: ClipDrawType::PlaneScenePass(plane_id.clone()),
               scene_id: scene_id.clone(),
+              skip_clip: &self.skip_clip,
             };
 
             let mut pass_base = pass("clip per plane boundary extract").with_depth(
@@ -197,6 +216,7 @@ impl ClippingPlaneArrayRenderer {
                 plane.w() as f64,
               ),
               &frame_ctx.gpu.device,
+              "plane",
             );
             let plane = InfinityShaderPlaneEffect {
               plane: &plane,
@@ -209,6 +229,7 @@ impl ClippingPlaneArrayRenderer {
               planes_gpu_access: &self.planes_gpu_access,
               ty: ClipDrawType::PlaneSelf(plane_id),
               scene_id: scene_id.clone(),
+              skip_clip: &self.skip_clip,
             };
 
             let material_buffer = FrameGeneralMaterialBufferReconstructSurface {
@@ -226,12 +247,18 @@ impl ClippingPlaneArrayRenderer {
                   load_and_store(),
                   load_and_store(),
                 );
+                // todo, write g buffer entity id buffer(if exist)
+                // through this, we can support clip cap gpu pick.
+
+                let mut key = scene_result.create_attachment_key();
+                key.sample_count = 1;
+                let color_temp = key.request(frame_ctx);
+
                 let color_writer = DefaultDisplayWriter::extend_pass_desc(
                   &mut pass_base,
-                  scene_result,
-                  load_and_store(),
+                  &color_temp,
+                  clear_and_store(all_zero()),
                 );
-                // todo, write g buffer entity id buffer(if exist)
 
                 let lighting = lighting_sys.get_scene_lighting_component(
                   scene,
@@ -250,6 +277,16 @@ impl ClippingPlaneArrayRenderer {
                 };
 
                 pass_base.render_ctx(frame_ctx).by(&mut filler);
+
+                // we do this copy(and the temp color stuff) to support msaa scene target
+                // this can be skip if the scene target is not msaa, for simplicity here we always do extra copy.
+                pass("copy clip plane cap fill result")
+                  .with_color(scene_result, load_and_store())
+                  .render_ctx(frame_ctx)
+                  .by(&mut copy_frame(
+                    color_temp,
+                    Some(BlendState::ALPHA_BLENDING),
+                  ));
               }
               ClipFillType::Defer(_frame_general_material_buffer) => todo!(),
             }
@@ -310,6 +347,7 @@ impl ShaderPassBuilder for MaterialInjector {}
 
 struct ClipComponent<'a> {
   planes_gpu: &'a AbstractReadonlyStorageBuffer<[Vec4<f32>]>,
+  skip_clip: &'a AbstractReadonlyStorageBuffer<[Bool]>,
   planes_gpu_access: &'a MultiAccessGPUData,
   scene_id: UniformBufferDataView<Vec4<u32>>,
   ty: ClipDrawType,
@@ -324,7 +362,7 @@ enum ClipDrawType {
 impl<'a> ShaderHashProvider for ClipComponent<'a> {
   shader_hash_type_id!(ClipComponent<'static>);
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    std::mem::discriminant(&self.ty).hash(hasher);
+    hasher.hash(std::mem::discriminant(&self.ty));
   }
 }
 
@@ -347,25 +385,35 @@ impl<'a> GraphicsShaderProvider for ClipComponent<'a> {
       // todo, support high precision
       let position = builder.query::<CameraWorldPositionHP>().expand().f1 + fragment_render;
 
+      let skip_clip = binding.bind_by(self.skip_clip);
+
       match &self.ty {
         ClipDrawType::MainPass => {
+          let sm_id =
+            builder.query_or_interpolate_by::<LogicalRenderEntityId, LogicalRenderEntityId>();
+          let can_clip = skip_clip.index(sm_id).load().into_bool().not();
+
           iter.for_each(|clip_id, _cx| {
             let plane = planes_gpu.index(clip_id).load();
 
             let should_clip = (position.dot(plane.xyz()) + plane.w()).greater_than(val(0.));
-            if_by(should_clip, || {
+            if_by(should_clip.and(can_clip), || {
               builder.discard();
             });
           });
         }
         ClipDrawType::PlaneScenePass(self_plane_id) => {
+          let sm_id =
+            builder.query_or_interpolate_by::<LogicalRenderEntityId, LogicalRenderEntityId>();
+          let can_clip = skip_clip.index(sm_id).load().into_bool().not();
+
           let self_plane_id = binding.bind_by(self_plane_id).load().x();
           iter.for_each(|clip_id, _cx| {
             // todo, this is not optimal
             if_by(self_plane_id.equals(clip_id), || {
               let plane = planes_gpu.index(clip_id).load();
               let should_clip = (position.dot(plane.xyz()) + plane.w()).greater_than(val(0.));
-              if_by(should_clip, || {
+              if_by(should_clip.and(can_clip), || {
                 builder.discard();
               });
             });
@@ -415,6 +463,7 @@ impl<'a> ShaderPassBuilder for ClipComponent<'a> {
     self.planes_gpu_access.bind(&mut ctx.binding);
     ctx.binding.bind(self.planes_gpu);
     ctx.binding.bind(&self.scene_id);
+    ctx.binding.bind(self.skip_clip);
 
     match &self.ty {
       ClipDrawType::MainPass => {}

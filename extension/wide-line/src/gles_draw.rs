@@ -3,7 +3,7 @@ use crate::*;
 pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineModelGLESRenderer> {
   let (cx, quad) = cx.use_gpu_init(|g, _| create_wide_line_quad_gpu(g));
 
-  let uniform = cx.use_uniform_buffers();
+  let uniform = cx.use_uniform_buffers("wide line uniform");
 
   let offset = offset_of!(WideLineUniform, width);
   cx.use_changes::<WideLineWidth>()
@@ -29,7 +29,11 @@ pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineM
   let mesh = cx.use_shared_hash_map("wide line mesh gles");
 
   maintain_shared_map(&mesh, cx.use_changes::<WideLineMeshBuffer>(), |buffer| {
-    let buffer = create_gpu_buffer(&buffer, BufferUsages::VERTEX, &cx.gpu.device);
+    let buffer = create_gpu_buffer(
+      cast_slice(buffer.as_slice()),
+      BufferUsages::VERTEX,
+      &cx.gpu.device,
+    );
     buffer.create_default_view()
   });
 
@@ -40,6 +44,7 @@ pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineM
     index_buffer: quad.0.clone(),
     vertex_buffer: quad.1.clone(),
     states: read_global_db_component(),
+    transparent: read_global_db_component(),
   })
 }
 
@@ -50,6 +55,7 @@ pub struct WideLineModelGLESRenderer {
   index_buffer: GPUBufferResourceView,
   vertex_buffer: GPUBufferResourceView,
   states: ComponentReadView<WideLineDepthEnable>,
+  transparent: ComponentReadView<WideLineTransparent>,
 }
 
 impl GLESModelRenderImpl for WideLineModelGLESRenderer {
@@ -80,6 +86,7 @@ impl GLESModelRenderImpl for WideLineModelGLESRenderer {
       index_buffer: &self.index_buffer,
       instance_buffer,
       enabled_depth: self.states.get_value(model_idx)?,
+      transparent: self.transparent.get_value(model_idx)?,
     });
     Some((com, draw_command))
   }
@@ -111,13 +118,14 @@ pub struct WideLineGPU<'a> {
   pub vertex_buffer: &'a GPUBufferResourceView,
   pub instance_buffer: &'a GPUBufferResourceView,
   pub enabled_depth: bool,
+  pub transparent: bool,
 }
 
 impl ShaderHashProvider for WideLineGPU<'_> {
   shader_hash_type_id! {WideLineGPU<'static>}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    use std::hash::Hash;
-    self.enabled_depth.hash(hasher);
+    hasher.hash(self.enabled_depth);
+    hasher.hash(self.transparent);
   }
 }
 
@@ -195,6 +203,13 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
           depth.depth_compare = CompareFunction::Always;
           depth.depth_write_enabled = false;
         }
+      }
+      if self.transparent {
+        builder.frag_output.iter_mut().for_each(|p| {
+          if p.is_blendable() {
+            p.states.blend = BlendState::ALPHA_BLENDING.into();
+          }
+        });
       }
     })
   }

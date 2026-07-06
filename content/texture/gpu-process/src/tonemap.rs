@@ -10,7 +10,7 @@ impl ToneMap {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       ty: ToneMapType::ACESFilmic,
-      exposure: create_uniform_with_cache(Vec4::splat(1.), gpu),
+      exposure: create_uniform_with_cache(Vec4::splat(1.), gpu, "exposure"),
     }
   }
 
@@ -38,7 +38,7 @@ pub enum ToneMapType {
 }
 impl ShaderHashProvider for ToneMap {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    std::mem::discriminant(&self.ty).hash(hasher)
+    hasher.hash(std::mem::discriminant(&self.ty));
   }
   shader_hash_type_id! {}
 }

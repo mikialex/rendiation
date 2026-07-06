@@ -8,6 +8,7 @@ members = [
   "utility/query",
   "utility/query-hook",
   "utility/arena",
+  "utility/auto-shrink-arena",
   "utility/anymap",
   "utility/storage",
   "utility/abstract-tree",
@@ -60,7 +61,6 @@ members = [
   "scene/rendering/occlusion-culling",
   "scene/rendering/frustum-culling",
   "scene/rendering/gpu-ray-tracing",
-  "scene/rendering/mesh-lod-graph",
   "scene/rendering/oit",
   "scene/rendering/scheduler",
   "scene/io/obj/loader",
@@ -88,6 +88,7 @@ members = [
   "extension/occ-style-material",
   "extension/parametric-rendering",
   "extension/parametric-step-convert-tester",
+  "extension/transform-instanced-model",
   "extension/csg-sdf-expression",
   "extension/dynamic-bvh",
   "extension/dynamic-bvh-scene",
@@ -167,6 +168,11 @@ strip = "symbols" # see https://github.com/rust-lang/rust/issues/139950
 opt-level = 3
 inherits = "dev"
 debug-assertions = false
+
+# create a separate profile(target folder) for production
+[profile.production]
+inherits = "release"
+
 
 [patch.crates-io]
 # wgpu = { path = "../references/wgpu/wgpu" }

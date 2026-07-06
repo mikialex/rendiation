@@ -120,12 +120,12 @@ impl CrossBlurData {
       direction: Vec2::new(0., 1.),
       ..Zeroable::zeroed()
     };
-    let x = create_uniform_with_cache(x, gpu);
-    let y = create_uniform_with_cache(y, gpu);
+    let x = create_uniform_with_cache(x, gpu, "x blur config");
+    let y = create_uniform_with_cache(y, gpu, "y blur config");
 
     let (weights, count) = gaussian(32);
-    let weights = create_uniform_with_cache(weights, gpu);
-    let weight_count = create_uniform_with_cache(Vec4::splat(count), gpu);
+    let weights = create_uniform_with_cache(weights, gpu, "blur weights");
+    let weight_count = create_uniform_with_cache(Vec4::splat(count), gpu, "blur weight count");
 
     Self {
       x,

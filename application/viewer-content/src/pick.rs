@@ -65,7 +65,37 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for ViewerQbvhShared {
       .use_shared_dual_query(SceneModelWorldBounding(self.0.clone()))
       .fork();
 
-    let margin = sm_w.dual_query_map(|_| 0.); // todo, use correct margin source
+    let wide_line_margin = cx.use_dual_query::<WideLineWidth>().fanout(
+      cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>(),
+      cx,
+    );
+    let wide_points_margin = cx
+      .use_dual_query::<WideStyledPointsMeshBuffer>()
+      .use_dual_query_execute_map(cx, || {
+        |_, buffer| {
+          let mut max_width = 0.;
+          let buffer: &[WideStyledPointVertex] = cast_slice(&buffer);
+          for v in buffer {
+            max_width = max_width.max(v.width);
+          }
+          max_width
+        }
+      })
+      .fanout(
+        cx.use_db_rev_ref_tri_view::<SceneModelWideStyledPointsRenderPayload>(),
+        cx,
+      );
+
+    let together = wide_line_margin
+      .dual_query_select(wide_points_margin)
+      .dual_query_boxed();
+
+    let margin = sm_w.dual_query_union(together, |(scope, margin)| match (scope, margin) {
+      (Some(_), None) => Some(0.),
+      (Some(_), Some(v)) => Some(v),
+      _ => None,
+    });
+
     rendiation_dynamic_bvh_scene::use_scene_dynamic_bvh(cx, sm_world_bounding_valid, margin)
   }
 }
@@ -83,6 +113,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
   let use_attribute_mesh_picker = use_attribute_mesh_picker(cx);
   let wide_line_picker = use_wide_line_picker(cx);
   let wide_point_picker = use_wide_points_picker(cx);
+  let text_picker = use_text_picker(cx, &font_system);
 
   let sm_local_bounding = cx
     .use_shared_dual_query_view(SceneModelLocalBounding(font_system.clone()))
@@ -117,15 +148,16 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     let att_mesh_picker = use_attribute_mesh_picker.unwrap();
     let wide_line_picker = wide_line_picker.unwrap();
     let wide_point_picker = wide_point_picker.unwrap();
+    let text_picker = text_picker.unwrap();
 
     let local_model_pickers: Vec<Box<dyn LocalModelPicker>> = vec![
       Box::new(att_mesh_picker),
       Box::new(wide_line_picker),
       Box::new(wide_point_picker),
+      Box::new(text_picker),
     ];
 
-    let scene_model_picker = SceneModelPickerBaseImpl {
-      internal: local_model_pickers,
+    let util = SceneModelPickerBaseImplUtil {
       selectable: read_global_db_component(),
       scene_model_node: read_global_db_foreign_key(),
       node_world: node_world
@@ -136,6 +168,11 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
+    };
+
+    let scene_model_picker = SceneModelPickerBaseImpl {
+      internal: local_model_pickers,
+      util: util.clone(),
       filter: Some(Box::new(create_clip_pick_filter())),
       sm_world_bounding: sm_world_bounding
         .expect_resolve_stage()
@@ -145,6 +182,15 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
+    };
+
+    let scene_model_picker = TransformInstancedMeshPicker {
+      internal: scene_model_picker,
+      util,
+      instance_model: read_global_db_foreign_key(),
+      source_model: read_global_db_foreign_key(),
+      per_unit_transform: read_global_db_component(),
+      transform_buffer: read_global_db_component(),
     };
 
     let scene_model_picker = SceneModelPickerWithViewDep {
@@ -265,6 +311,7 @@ pub fn create_camera_query_ctx_from_vpc(ctx: &ViewportPointerCtx) -> CameraQuery
     pixels_per_unit_calc: ctx.create_ratio_cal(),
     camera_world: ctx.camera_world_mat,
     camera_vp: ctx.projection.into_f64() * ctx.camera_world_mat.inverse_or_identity(),
+    camera_max_scale: ctx.camera_world_mat.max_scale() as f32,
   }
 }
 

@@ -8,7 +8,7 @@ pub fn use_unlit_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<UnlitMater
   let alpha = cx.use_changes::<AlphaOf<UnlitMaterialAlphaConfig>>();
   let alpha_cutoff = cx.use_changes::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>();
 
-  let uniform = cx.use_uniform_buffers();
+  let uniform = cx.use_uniform_buffers("unlit uniform");
 
   color.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, color), cx.gpu);
   alpha.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, alpha), cx.gpu);
@@ -18,7 +18,7 @@ pub fn use_unlit_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<UnlitMater
     cx.gpu,
   );
 
-  let tex_uniform = cx.use_uniform_buffers();
+  let tex_uniform = cx.use_uniform_buffers("unlit tex uniform");
 
   let color_alpha_texture = offset_of!(UnlitMaterialTextureHandlesUniform, color_alpha_texture);
   use_tex_watcher::<UnlitMaterialColorAlphaTex, _>(cx, color_alpha_texture, &tex_uniform);
@@ -90,7 +90,7 @@ impl ShaderHashProvider for UnlitMaterialGPU<'_> {
   shader_hash_type_id! {UnlitMaterialGPU<'static>}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.alpha_mode.hash(hasher);
+    hasher.hash(self.alpha_mode);
   }
 }
 

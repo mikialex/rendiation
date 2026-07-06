@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use rendiation_device_parallel_compute::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
@@ -12,6 +10,11 @@ only_vertex!(VertexIndexForMIDCDowngradeRelative, u32);
 
 pub fn require_midc_downgrade(info: &GPUInfo, force_downgrade: bool) -> bool {
   if force_downgrade {
+    return true;
+  }
+
+  if info.adaptor_info.backend == Backend::Dx12 {
+    // https://github.com/gfx-rs/wgpu/issues/7974
     return true;
   }
 
@@ -50,6 +53,12 @@ pub fn downgrade_multi_indirect_draw_count(
     assert!(draw_commands.cmd_capacity_count() > 0);
     let draw_count = StorageBufferReadonlyDataView::try_from_raw(indirect_count).unwrap();
 
+    let max_width = cx
+      .gpu
+      .info()
+      .supported_limits
+      .max_compute_invocations_per_workgroup;
+
     let DeviceMaterializeResult {
       buffer: sub_draw_range_start_prefix_sum,
       ..
@@ -57,7 +66,7 @@ pub fn downgrade_multi_indirect_draw_count(
       indirect_buffer: draw_commands.clone(),
       indirect_count: draw_count.clone(),
     }
-    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024, cx)
+    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(max_width, max_width, cx)
     .make_global_scan_exclusive::<AdditionMonoid<u32>>()
     .materialize_storage_buffer(cx);
 
@@ -74,6 +83,7 @@ pub fn downgrade_multi_indirect_draw_count(
       &cx.gpu.device,
       StorageBufferSizedZeroed::<DrawIndirectArgsStorage>::default().into(),
       BufferUsages::INDIRECT,
+      "indirect_buffer",
     );
 
     cx.record_pass(|pass, device| {
@@ -133,7 +143,7 @@ pub struct DowngradeMultiIndirectDrawCountHelper {
 impl ShaderHashProvider for DowngradeMultiIndirectDrawCountHelper {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.draw_commands.is_index().hash(hasher);
+    hasher.hash(self.draw_commands.is_index());
   }
 }
 
@@ -250,7 +260,7 @@ struct MultiIndirectCountDowngradeSource {
 impl ShaderHashProvider for MultiIndirectCountDowngradeSource {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.indirect_buffer.is_index().hash(hasher);
+    hasher.hash(self.indirect_buffer.is_index());
   }
 }
 
@@ -305,59 +315,39 @@ impl ComputeComponent<Node<u32>> for MultiIndirectCountDowngradeSource {
   }
 }
 
-pub struct MidcDowngradeWrapperForIndirectMeshSystem<T> {
-  pub mesh_system: T,
-  pub enable_downgrade: bool,
+pub struct MidcDowngradeWrapperForIndirectMeshSystem {
   pub index: Option<AbstractReadonlyStorageBuffer<[u32]>>,
 }
 
-impl<T: ShaderHashProvider + 'static> ShaderHashProvider
-  for MidcDowngradeWrapperForIndirectMeshSystem<T>
-{
+impl ShaderHashProvider for MidcDowngradeWrapperForIndirectMeshSystem {
   shader_hash_type_id! {}
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.mesh_system.hash_pipeline(hasher);
-    self.enable_downgrade.hash(hasher);
-  }
 }
 
-impl<T> GraphicsShaderProvider for MidcDowngradeWrapperForIndirectMeshSystem<T>
-where
-  T: GraphicsShaderProvider,
-{
+impl GraphicsShaderProvider for MidcDowngradeWrapperForIndirectMeshSystem {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|vertex, binding| {
       // here we override the builtin
-      if self.enable_downgrade {
-        if let Some(index) = &self.index {
-          let vertex_real_index = vertex.query::<VertexIndexForMIDCDowngrade>();
-          let index_pool = binding.bind_by(index);
-          let index = index_pool.index(vertex_real_index).load();
-          vertex.register::<VertexIndex>(index);
-        } else {
-          let relative = vertex.query::<VertexIndexForMIDCDowngradeRelative>();
-          vertex.register::<VertexIndex>(relative);
-        }
+      if let Some(index) = &self.index {
+        let vertex_real_index = vertex.query::<VertexIndexForMIDCDowngrade>();
+        let index_pool = binding.bind_by(index);
+        let index = index_pool.index(vertex_real_index).load();
+        vertex.register::<VertexIndex>(index);
+      } else {
+        let relative = vertex.query::<VertexIndexForMIDCDowngradeRelative>();
+        vertex.register::<VertexIndex>(relative);
       }
     });
-    self.mesh_system.build(builder);
   }
 }
 
-impl<T: ShaderPassBuilder> ShaderPassBuilder for MidcDowngradeWrapperForIndirectMeshSystem<T> {
+impl ShaderPassBuilder for MidcDowngradeWrapperForIndirectMeshSystem {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     if let Some(index) = &self.index {
       // when midc downgrade enabled, the index multi draw will be downgraded into single none index draw,
       // so we use storage binding for index buffer
-      if self.enable_downgrade {
-        ctx.binding.bind(index);
-      } else {
-        let index = index.get_gpu_buffer_view().unwrap();
-        ctx
-          .pass
-          .set_index_buffer_by_buffer_resource_view(&index, IndexFormat::Uint32);
-      }
+      //
+      // the subsequent mesh index buffer setting will still applied, but has no effect as we override the draw cmd.
+      ctx.binding.bind(index);
     }
-    self.mesh_system.setup_pass(ctx);
   }
 }

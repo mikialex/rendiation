@@ -398,13 +398,15 @@ enum BindingRecordBuffer {
 
 impl BindingRecordBuffer {
   pub fn new(gpu: &GPU, use_uniform: bool) -> Self {
+    let label = "binding_record_buffer";
     if use_uniform {
-      Self::Uniform(create_uniform(Default::default(), &gpu.device))
+      Self::Uniform(create_uniform(Default::default(), &gpu.device, label))
     } else {
       Self::Storage(
         create_gpu_read_write_storage::<[Vec4<u32>]>(
           ZeroedArrayByArrayLength(MAX_BINDING_COUNT),
           &gpu.device,
+          label,
         )
         .into_readonly_view(),
       )

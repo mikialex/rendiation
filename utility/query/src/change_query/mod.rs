@@ -89,6 +89,14 @@ impl<K: CKey, V: CValue> DataChanges for EmptyQuery<K, V> {
   }
 }
 
+#[test]
+fn test_empty_data_changes() {
+  let q: EmptyQuery<u32, String> = EmptyQuery::default();
+  assert!(!q.has_change());
+  assert_eq!(q.iter_removed().count(), 0);
+  assert_eq!(q.iter_update_or_insert().count(), 0);
+}
+
 #[derive(Clone)]
 struct MapChangesKey<T, F> {
   base: T,
@@ -207,6 +215,63 @@ where
   }
 }
 
+#[test]
+fn test_data_changes_map_key() {
+  let changes = LinearBatchChanges {
+    removed: vec![1u32],
+    update_or_insert: vec![(2u32, "a".to_string())],
+  };
+
+  let mapped = changes.map_changes_key(|k: u32| k + 100);
+
+  let removed: Vec<_> = mapped.iter_removed().collect();
+  assert_eq!(removed, vec![101]);
+
+  let updated: Vec<_> = mapped.iter_update_or_insert().collect();
+  assert_eq!(updated, vec![(102, "a".to_string())]);
+}
+
+#[test]
+fn test_data_changes_collective_map() {
+  let changes = LinearBatchChanges {
+    removed: vec![1u32],
+    update_or_insert: vec![(2u32, "hello".to_string())],
+  };
+
+  let mapped = changes.collective_map(|v: String| v.len());
+
+  assert_eq!(mapped.iter_removed().count(), 1);
+  let updated: Vec<_> = mapped.iter_update_or_insert().collect();
+  assert_eq!(updated, vec![(2u32, 5usize)]);
+}
+
+#[test]
+fn test_data_changes_collective_filter_map() {
+  let changes = LinearBatchChanges {
+    removed: vec![1u32],
+    update_or_insert: vec![(2u32, 10i32), (3, 25), (4, 5)],
+  };
+
+  let filtered = changes.collective_filter_map(|v: i32| if v >= 10 { Some(v * 2) } else { None });
+
+  let updated: Vec<_> = filtered.iter_update_or_insert().collect();
+  assert_eq!(updated, vec![(2u32, 20), (3, 50)]);
+}
+
+#[test]
+fn test_data_changes_collective_filter_kv_map() {
+  let changes = LinearBatchChanges {
+    removed: vec![1u32],
+    update_or_insert: vec![(2u32, 10i32), (3, 20)],
+  };
+
+  let filtered =
+    changes.collective_filter_kv_map(|k: &u32, v: i32| if *k == 2 { Some(v * 100) } else { None });
+
+  let updated: Vec<_> = filtered.iter_update_or_insert().collect();
+  assert_eq!(updated, vec![(2u32, 1000)]);
+}
+
 impl<T: DataChanges> DataChanges for Arc<T> {
   type Key = T::Key;
   type Value = T::Value;
@@ -267,6 +332,34 @@ impl<K: CKey, T: Clone + Send + Sync> DataChanges for LinearBatchChanges<K, T> {
   }
 }
 
+#[test]
+fn test_linear_batch_changes_basic() {
+  let changes = LinearBatchChanges {
+    removed: vec![1u32],
+    update_or_insert: vec![(2u32, "a".to_string()), (3, "b".to_string())],
+  };
+
+  assert!(changes.has_change());
+
+  let removed: Vec<_> = changes.iter_removed().collect();
+  assert_eq!(removed, vec![1]);
+
+  let updated: FastHashMap<_, _> = changes.iter_update_or_insert().collect();
+  assert_eq!(updated.len(), 2);
+  assert_eq!(updated[&2], "a");
+  assert_eq!(updated[&3], "b");
+}
+
+#[test]
+fn test_linear_batch_changes_empty() {
+  let changes: LinearBatchChanges<u32, String> = LinearBatchChanges::default();
+
+  assert!(!changes.has_change());
+  assert!(changes.is_empty());
+  assert_eq!(changes.iter_removed().count(), 0);
+  assert_eq!(changes.iter_update_or_insert().count(), 0);
+}
+
 pub trait IteratorProvider {
   type Item;
   fn create_iter(&self) -> impl Iterator<Item = &Self::Item> + '_;
@@ -311,6 +404,30 @@ where
   }
 }
 
+#[test]
+fn test_select_changes_basic() {
+  let c1 = LinearBatchChanges {
+    removed: vec![1u32],
+    update_or_insert: vec![(2u32, "a".to_string())],
+  };
+  let c2 = LinearBatchChanges {
+    removed: vec![3u32],
+    update_or_insert: vec![(4u32, "b".to_string())],
+  };
+
+  let selects = SelectChanges(vec![c1, c2]);
+
+  let removed: FastHashSet<_> = selects.iter_removed().collect();
+  assert_eq!(removed.len(), 2);
+  assert!(removed.contains(&1));
+  assert!(removed.contains(&3));
+
+  let updated: FastHashMap<_, _> = selects.iter_update_or_insert().collect();
+  assert_eq!(updated.len(), 2);
+  assert_eq!(updated[&2], "a");
+  assert_eq!(updated[&4], "b");
+}
+
 pub fn merge_linear_batch_changes<K: CKey, T: Clone>(
   changes: &mut Vec<Arc<LinearBatchChanges<K, T>>>,
 ) -> Arc<LinearBatchChanges<K, T>> {
@@ -338,4 +455,64 @@ pub fn merge_linear_batch_changes<K: CKey, T: Clone>(
     removed: removes.into_iter().collect(),
     update_or_insert: new_inserts.into_iter().collect(),
   })
+}
+
+#[test]
+fn test_merge_linear_batch_changes_single() {
+  let c1 = Arc::new(LinearBatchChanges {
+    removed: vec![1u32],
+    update_or_insert: vec![(2u32, "a".to_string())],
+  });
+  let mut changes = vec![c1.clone()];
+
+  let merged = merge_linear_batch_changes(&mut changes);
+  assert!(changes.is_empty());
+
+  let removed: Vec<_> = merged.iter_removed().collect();
+  assert_eq!(removed, vec![1]);
+  let updated: Vec<_> = merged.iter_update_or_insert().collect();
+  assert_eq!(updated, vec![(2, "a".to_string())]);
+}
+
+#[test]
+fn test_merge_linear_batch_changes_remove_wins() {
+  // key 2 is updated in c1, then removed in c2 → should be removed only
+  let c1 = Arc::new(LinearBatchChanges {
+    removed: vec![1u32],
+    update_or_insert: vec![(2u32, "a".to_string())],
+  });
+  let c2 = Arc::new(LinearBatchChanges {
+    removed: vec![2u32],
+    update_or_insert: vec![],
+  });
+  let mut changes = vec![c1, c2];
+
+  let merged = merge_linear_batch_changes(&mut changes);
+
+  let removed: Vec<_> = merged.iter_removed().collect();
+  assert_eq!(removed.len(), 2);
+  assert!(removed.contains(&1));
+  assert!(removed.contains(&2));
+
+  assert_eq!(merged.iter_update_or_insert().count(), 0);
+}
+
+#[test]
+fn test_merge_linear_batch_changes_insert_wins() {
+  // key 2 is removed in c1, then re-inserted in c2 → should be inserted
+  let c1 = Arc::new(LinearBatchChanges {
+    removed: vec![2u32],
+    update_or_insert: vec![],
+  });
+  let c2 = Arc::new(LinearBatchChanges {
+    removed: vec![],
+    update_or_insert: vec![(2u32, "new".to_string())],
+  });
+  let mut changes = vec![c1, c2];
+
+  let merged = merge_linear_batch_changes(&mut changes);
+
+  assert_eq!(merged.iter_removed().count(), 0);
+  let updated: Vec<_> = merged.iter_update_or_insert().collect();
+  assert_eq!(updated, vec![(2, "new".to_string())]);
 }

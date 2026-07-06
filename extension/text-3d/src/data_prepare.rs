@@ -56,9 +56,10 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for Text3dSceneModelLocalBoundin
     let font_system = self.0.clone();
     let local_boxes = cx
       .use_shared_dual_query(Text3dSlugBuffer(self.0.clone()))
+      .dual_query_zip(cx.use_dual_query::<Text3dLocalTransform>())
       .use_dual_query_execute_map(cx, move || {
         let font_system = font_system.make_read_holder();
-        move |_, slug_buffer| slug_buffer.compute_local_bounding(&font_system)
+        move |_, (slug_buffer, mat)| slug_buffer.compute_local_bounding(&font_system, mat)
       });
 
     let relation = cx.use_db_rev_ref_tri_view::<SceneModelText3dPayload>();
@@ -75,15 +76,14 @@ pub struct PositionedGlyph {
 }
 
 pub struct SlugBuffer {
+  pub hit_boxes: Vec<Box2<f32>>,
   pub positions: Vec<PositionedGlyph>,
   pub unique_glyphs: FastHashSet<GlyphKey>,
-  pub scale: f32,
 }
 
 impl SlugBuffer {
-  pub fn compute_local_bounding(&self, font_sys: &FontSystem) -> Box3 {
+  pub fn compute_local_bounding(&self, font_sys: &FontSystem, transform: Mat4<f32>) -> Box3 {
     let mut bbox = Box3::empty();
-    let scale = self.scale;
 
     for pos in &self.positions {
       if let Some(glyph) = font_sys.get_computed_slug_glyph(&pos.glyph_key) {
@@ -92,14 +92,14 @@ impl SlugBuffer {
         let x_max = glyph.bounds.max.x;
         let y_max = glyph.bounds.max.y;
 
-        let ox = pos.relative_x * scale;
-        let oy = pos.relative_y * scale;
-        let x0 = ox + x_min * scale;
-        let y0 = oy + y_min * scale;
-        let x1 = ox + x_max * scale;
-        let y1 = oy + y_max * scale;
-        bbox.expand_by_point(Vec3::new(x0, y0, 0.));
-        bbox.expand_by_point(Vec3::new(x1, y1, 0.));
+        let ox = pos.relative_x;
+        let oy = pos.relative_y;
+        let x0 = ox + x_min;
+        let y0 = oy + y_min;
+        let x1 = ox + x_max;
+        let y1 = oy + y_max;
+        bbox.expand_by_point(transform * Vec3::new(x0, y0, 0.));
+        bbox.expand_by_point(transform * Vec3::new(x1, y1, 0.));
       }
     }
 
@@ -113,19 +113,26 @@ impl std::fmt::Debug for SlugBuffer {
   }
 }
 
-pub fn create_slug_buffer_from_text3d_content(
-  system: &mut FontSystem,
-  input: &Text3dContentInfo,
-) -> SlugBuffer {
-  // Text metrics indicate the font size and line height of a buffer
+fn compute_max_line_width(system: &mut FontSystem, input: &Text3dContentInfo) -> f32 {
   let metrics = cosmic_text::Metrics::new(input.font_size, input.font_size * input.line_height);
-
-  // A Buffer provides shaping and layout for a UTF-8 string, create one per text widget
   let mut buffer = cosmic_text::Buffer::new(&mut system.system, metrics);
 
-  // Set a size for the text buffer, in pixels
-  buffer.set_size(&mut system.system, input.width, input.height);
+  // set unbound size
+  buffer.set_size(&mut system.system, None, None);
+  apply_text(&mut buffer, system, input);
 
+  let mut max_line_width = 0.;
+  for run in buffer.layout_runs() {
+    max_line_width = max_line_width.max(run.line_w);
+  }
+  max_line_width + 0.001
+}
+
+fn apply_text(
+  buffer: &mut cosmic_text::Buffer,
+  system: &mut FontSystem,
+  input: &Text3dContentInfo,
+) {
   let style = if input.italic {
     cosmic_text::Style::Italic
   } else {
@@ -178,6 +185,27 @@ pub fn create_slug_buffer_from_text3d_content(
 
   // Perform shaping as desired
   buffer.shape_until_scroll(&mut system.system, true);
+}
+
+pub fn create_slug_buffer_from_text3d_content(
+  system: &mut FontSystem,
+  input: &Text3dContentInfo,
+) -> SlugBuffer {
+  // Text metrics indicate the font size and line height of a buffer
+  let metrics = cosmic_text::Metrics::new(input.font_size, input.font_size * input.line_height);
+
+  // A Buffer provides shaping and layout for a UTF-8 string, create one per text widget
+  let mut buffer = cosmic_text::Buffer::new(&mut system.system, metrics);
+
+  let width = if let Some(width) = input.width {
+    width
+  } else {
+    compute_max_line_width(system, input)
+  };
+
+  // Set a size for the text buffer, in pixels
+  buffer.set_size(&mut system.system, Some(width), input.height);
+  apply_text(&mut buffer, system, input);
 
   let mut unique_glyphs = FastHashSet::default();
   let mut glyph_buffer: Vec<PositionedGlyph> = Vec::new();
@@ -193,7 +221,14 @@ pub fn create_slug_buffer_from_text3d_content(
   }
   let mut underline_segments: Vec<UnderlineSegment> = Vec::new();
 
+  let mut hit_boxes = Vec::new();
+  let mut previous_same_line_hit_box_right_x;
+
+  // we use full text paragraph last line baseline start point as the origin
+  let mut last_line_y = 0.;
   for run in buffer.layout_runs() {
+    previous_same_line_hit_box_right_x = None;
+    last_line_y = run.line_y;
     for glyph in run.glyphs.iter() {
       let cache_key = glyph.physical((0., run.line_y), 1.0).cache_key;
       unique_glyphs.insert(GlyphKey::Real(cache_key));
@@ -202,6 +237,17 @@ pub fn create_slug_buffer_from_text3d_content(
         relative_x: glyph.x,
         relative_y: glyph.y - run.line_y,
       });
+
+      let start = if let Some(p) = previous_same_line_hit_box_right_x {
+        glyph.x.min(p)
+      } else {
+        glyph.x
+      };
+
+      let min = Vec2::new(start, -run.line_top - run.line_height);
+      let max = Vec2::new(glyph.x + glyph.w, -run.line_top);
+      hit_boxes.push(Box2::new(min, max));
+      previous_same_line_hit_box_right_x = Some(glyph.x + glyph.w);
     }
 
     if input.underline {
@@ -223,6 +269,17 @@ pub fn create_slug_buffer_from_text3d_content(
         });
       }
     }
+  }
+
+  for glyph in &mut glyph_buffer {
+    glyph.relative_y += last_line_y;
+  }
+  for hit_box in &mut hit_boxes {
+    hit_box.min.y += last_line_y;
+    hit_box.max.y += last_line_y;
+  }
+  for line_seg in &mut underline_segments {
+    line_seg.line_y -= last_line_y;
   }
 
   // todo, rework underline logic
@@ -320,7 +377,7 @@ pub fn create_slug_buffer_from_text3d_content(
   SlugBuffer {
     positions: glyph_buffer,
     unique_glyphs,
-    scale: input.scale,
+    hit_boxes,
   }
 }
 

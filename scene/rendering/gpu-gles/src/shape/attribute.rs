@@ -159,9 +159,9 @@ impl ShaderHashProvider for AttributesMeshGPU<'_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     for vertex_info_id in self.vertex.multi_access.access_multi_value(&self.mesh_id) {
       let semantic = self.vertex.semantics.get(vertex_info_id).unwrap();
-      semantic.hash(hasher)
+      hasher.hash(semantic);
     }
-    self.mode.hash(hasher);
+    hasher.hash(self.mode);
   }
 }
 impl GraphicsShaderProvider for AttributesMeshGPU<'_> {

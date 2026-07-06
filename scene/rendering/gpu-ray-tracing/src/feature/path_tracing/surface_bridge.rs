@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use rendiation_lighting_transport::*;
 
 use crate::*;
@@ -96,7 +94,7 @@ impl ShaderHashProvider for SceneSurfaceSupport {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.textures.hash_pipeline(hasher);
-    self.material_accessor.len().hash(hasher); // todo, hash internal
+    hasher.hash(self.material_accessor.len()); // todo, hash internal
   }
 }
 

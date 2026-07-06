@@ -15,7 +15,7 @@ pub fn use_ibl(cx: &mut QueryGPUHookCx) -> Option<IBLLightingComponentProvider> 
     create_gpu_tex_from_png_buffer(cx, brdf_lut_bitmap_png, TextureFormat::Rgba8Unorm)
   });
 
-  let intensity = cx.use_uniform_buffers();
+  let intensity = cx.use_uniform_buffers("ibl intensity");
   cx.use_changes::<SceneHDRxEnvBackgroundInfo>()
     .filter_map_changes(|v| v.map(|v| v.intensity))
     .update_uniforms(
@@ -74,7 +74,7 @@ type CubeMapResults = FastHashMap<RawEntityHandle, PreFilterMapGenerationResult>
 pub fn use_prefilter_cube_maps(cx: &mut QueryGPUHookCx) -> Arc<RwLock<CubeMapResults>> {
   let (env_background_map_gpu, changes) = use_gpu_texture_cubes(cx, false);
 
-  let (cx, _cube_map) = cx.use_sharable_plain_state(CubeMapResults::default);
+  let _cube_map = cx.use_sharable_plain_state(CubeMapResults::default);
 
   let mut cube_map = _cube_map.write();
   for k in changes.removed_keys {

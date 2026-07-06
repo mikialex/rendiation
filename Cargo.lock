@@ -39,6 +39,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "addr2line"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b5d307320b3181d6d7954e663bd7c774a838b8220fe0593c86d9fb09f498b4b"
+dependencies = [
+ "gimli",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -458,6 +467,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "auto-shrink-arena"
+version = "0.0.1"
+dependencies = [
+ "bytemuck",
+ "facet",
+ "serde",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -504,6 +522,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47c8fbc0f831f4519fe8b810b6a7a91410ec83031b8233f730a0480029f6a23f"
 dependencies = [
  "arrayvec",
+]
+
+[[package]]
+name = "backtrace"
+version = "0.3.76"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb531853791a215d7c62a30daf0dde835f381ab5de4589cfe7c649d2cbe92bd6"
+dependencies = [
+ "addr2line",
+ "cfg-if",
+ "libc",
+ "miniz_oxide",
+ "object",
+ "rustc-demangle",
+ "windows-link",
 ]
 
 [[package]]
@@ -1054,7 +1087,7 @@ checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 name = "database"
 version = "0.0.1"
 dependencies = [
- "arena",
+ "auto-shrink-arena",
  "bytemuck",
  "criterion",
  "disqualified",
@@ -1106,6 +1139,22 @@ dependencies = [
  "quote",
  "rustc_version",
  "syn 2.0.114",
+]
+
+[[package]]
+name = "dhat"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98cd11d84628e233de0ce467de10b8633f4ddaecafadefc86e13b84b8739b827"
+dependencies = [
+ "backtrace",
+ "lazy_static",
+ "mintex",
+ "parking_lot",
+ "rustc-hash 1.1.0",
+ "serde",
+ "serde_json",
+ "thousands",
 ]
 
 [[package]]
@@ -1901,6 +1950,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "gimli"
+version = "0.32.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
+
+[[package]]
 name = "gl_generator"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2473,6 +2528,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
+name = "libmimalloc-sys"
+version = "0.1.49"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a45a52f43e1c16f667ccfe4dd8c85b7f7c204fd5e3bf46c5b0db9a5c3c0b8e9"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "libredox"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2648,6 +2712,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mimalloc"
+version = "0.1.52"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d4139bb28d14ad1facf21d5eb8825051b326e172d216b39f6d31df53cc97862"
+dependencies = [
+ "libmimalloc-sys",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2680,6 +2753,12 @@ dependencies = [
  "adler2",
  "simd-adler32",
 ]
+
+[[package]]
+name = "mintex"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c505b3e17ed6b70a7ed2e67fbb2c560ee327353556120d6e72f5232b6880d536"
 
 [[package]]
 name = "moxcms"
@@ -3192,6 +3271,15 @@ dependencies = [
  "objc2 0.5.2",
  "objc2-core-location",
  "objc2-foundation 0.2.2",
+]
+
+[[package]]
+name = "object"
+version = "0.37.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff76201f031d8863c38aa7f905eca4f53abbfa15f609db4277d44cd8938f33fe"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -3962,6 +4050,8 @@ name = "rendiation-area-lighting"
 version = "0.1.0"
 dependencies = [
  "database",
+ "fast-hash-collection",
+ "parking_lot",
  "png",
  "rendiation-algebra",
  "rendiation-geometry",
@@ -4302,27 +4392,6 @@ dependencies = [
  "rendiation-mesh-segmentation",
  "rendiation-mesh-simplification",
  "serde",
-]
-
-[[package]]
-name = "rendiation-mesh-lod-graph-rendering"
-version = "0.1.0"
-dependencies = [
- "database",
- "fast-hash-collection",
- "log",
- "parking_lot",
- "rendiation-algebra",
- "rendiation-device-parallel-compute",
- "rendiation-geometry",
- "rendiation-mesh-lod-graph",
- "rendiation-scene-core",
- "rendiation-scene-rendering-gpu-base",
- "rendiation-scene-rendering-gpu-indirect",
- "rendiation-shader-api",
- "rendiation-webgpu",
- "rendiation-webgpu-hook-utils",
- "rendiation-webgpu-midc-downgrade",
 ]
 
 [[package]]
@@ -4789,6 +4858,7 @@ dependencies = [
  "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-mesh-core",
+ "rendiation-scene-batch-extractor",
  "rendiation-scene-core",
  "rendiation-scene-geometry-query",
  "rendiation-scene-rendering-gpu-base",
@@ -4801,6 +4871,7 @@ dependencies = [
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
  "serde",
+ "ttf-parser",
 ]
 
 [[package]]
@@ -4900,6 +4971,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-transform-instanced-model"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "database",
+ "facet",
+ "fast-hash-collection",
+ "log",
+ "parking_lot",
+ "rendiation-algebra",
+ "rendiation-device-parallel-compute",
+ "rendiation-geometry",
+ "rendiation-scene-batch-extractor",
+ "rendiation-scene-core",
+ "rendiation-scene-geometry-query",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-scene-rendering-gpu-indirect",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
+ "rendiation-webgpu-midc-downgrade",
+ "serde",
+]
+
+[[package]]
 name = "rendiation-uri-streaming"
 version = "0.0.1"
 dependencies = [
@@ -4953,7 +5049,6 @@ dependencies = [
  "database",
  "disqualified",
  "egui",
- "env_logger",
  "event-source",
  "facet",
  "fast-hash-collection",
@@ -4985,7 +5080,6 @@ dependencies = [
  "rendiation-lighting-shadow-map",
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
- "rendiation-mesh-lod-graph-rendering",
  "rendiation-mesh-segmentation",
  "rendiation-mesh-simplification",
  "rendiation-occ-style-draw-control",
@@ -5010,6 +5104,7 @@ dependencies = [
  "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-process",
  "rendiation-texture-loader",
+ "rendiation-transform-instanced-model",
  "rendiation-uri-streaming",
  "rendiation-view-dependent-transform",
  "rendiation-webgpu",
@@ -5111,11 +5206,14 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
+ "facet",
+ "fast-hash-collection",
  "parking_lot",
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-mesh-core",
+ "rendiation-scene-batch-extractor",
  "rendiation-scene-core",
  "rendiation-scene-geometry-query",
  "rendiation-scene-rendering-gpu-base",
@@ -5125,6 +5223,7 @@ dependencies = [
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
+ "serde",
 ]
 
 [[package]]
@@ -5133,11 +5232,14 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
+ "facet",
+ "fast-hash-collection",
  "parking_lot",
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-mesh-core",
+ "rendiation-scene-batch-extractor",
  "rendiation-scene-core",
  "rendiation-scene-geometry-query",
  "rendiation-scene-rendering-gpu-base",
@@ -5147,6 +5249,7 @@ dependencies = [
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
+ "serde",
 ]
 
 [[package]]
@@ -5227,6 +5330,12 @@ name = "roxmltree"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
+
+[[package]]
+name = "rustc-demangle"
+version = "0.1.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b50b8869d9fc858ce7266cce0194bd74df58b9d0e3f6df3a9fc8eb470d95c09d"
 
 [[package]]
 name = "rustc-hash"
@@ -5737,6 +5846,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "thousands"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bf63baf9f5039dadc247375c29eb13706706cfde997d0330d05aa63a77d8820"
+
+[[package]]
 name = "thread_local"
 version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6154,6 +6269,7 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "database",
+ "dhat",
  "dirs",
  "disqualified",
  "egui",
@@ -6171,6 +6287,7 @@ dependencies = [
  "humansize",
  "image",
  "log",
+ "mimalloc",
  "parking_lot",
  "pin-project",
  "png",
@@ -6224,6 +6341,8 @@ dependencies = [
  "fast-hash-collection",
  "futures",
  "log",
+ "mimalloc",
+ "ordered-float 4.6.0",
  "pollster",
  "rendiation-mesh-core",
  "rendiation-occ-style-draw-control",

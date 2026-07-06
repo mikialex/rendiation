@@ -5,7 +5,7 @@ pub fn use_gles_scene_model_renderer(
   node: Option<Box<dyn GLESNodeRenderImpl>>,
   model_impl: Option<Box<dyn GLESModelRenderImpl>>,
 ) -> Option<Box<dyn SceneModelRenderer>> {
-  let scene_model_ids = cx.use_uniform_buffers();
+  let scene_model_ids = cx.use_uniform_buffers("scene model id");
 
   cx.use_query_set::<SceneModelEntity>()
     .map(|v| {

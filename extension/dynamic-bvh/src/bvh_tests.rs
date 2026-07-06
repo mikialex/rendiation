@@ -196,7 +196,7 @@ fn bvh_build_and_removal() {
           BuildPattern::Insert => {
             let mut bvh = Bvh::new();
             for i in 0..len {
-              bvh.insert(make_test_aabb(i), i as u32);
+              bvh.insert(make_test_aabb(i), 0., i as u32);
               bvh.assert_well_formed();
             }
             bvh
@@ -236,7 +236,7 @@ fn bvh_build_and_removal() {
 
           // Re-insert everything.
           for (i, leaf) in leaves.iter().enumerate() {
-            bvh.insert(*leaf, i as u32);
+            bvh.insert(*leaf, 0., i as u32);
           }
         }
       }

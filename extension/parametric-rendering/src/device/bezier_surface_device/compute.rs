@@ -85,7 +85,7 @@ pub fn build_bezier_bernstein_pipeline(
   workgroup_size: u32,
 ) -> GPUComputePipeline {
   let mut hasher = PipelineHasher::default();
-  hasher.write_u32(workgroup_size);
+  hasher.hash(workgroup_size);
 
   gpu
     .device

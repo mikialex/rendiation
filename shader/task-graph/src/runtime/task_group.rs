@@ -158,7 +158,9 @@ impl TaskGroupExecutor {
 
     cx.config_work_group_size(TASK_EXECUTION_WORKGROUP_SIZE);
 
-    let polling_pipeline = cx.create_compute_pipeline(&pcx.gpu.device).unwrap();
+    let polling_pipeline = cx
+      .create_compute_pipeline(&pcx.gpu.device, "task group polling")
+      .unwrap();
 
     TaskGroupExecutor {
       polling_pipeline,
@@ -245,7 +247,7 @@ impl TaskGroupExecutor {
         },
         ctx,
       )
-      .materialize_storage_buffer_into(active_tasks_back_buffer, ctx);
+      .copy_result_into(active_tasks_back_buffer, ctx);
 
     std::mem::swap(
       &mut imp.active_task_idx.storage,

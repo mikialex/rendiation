@@ -585,7 +585,6 @@ struct Text3dContentInfoC {
   const char *content;
   float font_size;
   float line_height;
-  float scale;
   const char *font;
   uint32_t weight;
   bool has_weight;
@@ -596,6 +595,17 @@ struct Text3dContentInfoC {
   float height;
   bool has_height;
   TextAlignment align;
+  bool underline;
+};
+
+struct Text3dQueryInfoC {
+  float min_x;
+  float min_y;
+  float max_x;
+  float max_y;
+  float cap_a_height;
+  uint32_t units_per_em;
+  bool has_result;
 };
 
 
@@ -650,6 +660,8 @@ void viewer_surface_set_camera(ViewerAPI *api, uint32_t surface_id, ViewerEntity
 
 void viewer_surface_set_scene(ViewerAPI *api, uint32_t surface_id, ViewerEntityHandle scene);
 
+void viewer_set_enable_clip(ViewerAPI *api, bool enable_clip, bool enable_clip_fill);
+
 /// may return empty handle for error case
 ViewerEntityHandle viewer_read_last_render_result(ViewerAPI *api, uint32_t surface_id);
 
@@ -697,7 +709,8 @@ ViewerRayPickListResult *picker_pick_list(ViewerQueryAPI *api,
                                           ViewerEntityHandle scene,
                                           float x,
                                           float y,
-                                          float extra_screen_space_tolerance);
+                                          float extra_screen_space_tolerance,
+                                          bool sort_near_to_far);
 
 void drop_pick_list_result(ViewerRayPickListResult *r);
 
@@ -771,7 +784,7 @@ void drop_mesh(AttributesMeshEntitiesCommon entities);
 
 void update_mesh_data(AttributesMeshEntitiesCommon *entities,
                       uint32_t byte_size,
-                      const float *data,
+                      const uint8_t *data,
                       MeshAPIDataType vertex_ty);
 
 void set_mesh_topology(ViewerEntityHandle mesh, MeshPrimitiveTopology topo);
@@ -779,8 +792,6 @@ void set_mesh_topology(ViewerEntityHandle mesh, MeshPrimitiveTopology topo);
 ViewerEntityHandle create_occ_material();
 
 void drop_occ_material(ViewerEntityHandle handle);
-
-void occ_material_set_transparent(ViewerEntityHandle mat, bool transparent);
 
 void occ_material_set_diffuse(ViewerEntityHandle mat, const float (*color)[4]);
 
@@ -829,16 +840,20 @@ SceneModelHandleInfo create_scene_model(ViewerEntityHandle material,
 
 void drop_scene_model(SceneModelHandleInfo handle);
 
+void scene_model_set_visible(ViewerEntityHandle handle, bool visible);
+
+void scene_model_set_skip_clip(ViewerEntityHandle handle, bool skip);
+
 void scene_model_set_mesh(SceneModelHandleInfo handle, ViewerEntityHandle mesh);
 
 void scene_model_set_scene(ViewerEntityHandle handle, const ViewerEntityHandle *scene);
 
 void scene_model_set_occ_style_view_dep(ViewerEntityHandle handle,
-                                        bool is_2d,
                                         const float (*anchor)[3],
                                         const int32_t (*offset)[2],
                                         uint32_t corner,
-                                        uint32_t mode);
+                                        uint32_t mode,
+                                        const float (*local_mat)[16]);
 
 void scene_model_remove_occ_style_view_dep(ViewerEntityHandle handle);
 
@@ -874,6 +889,8 @@ void wide_line_set_buffer(ViewerEntityHandle handle, uint32_t data_length, const
 
 void wide_line_set_enable_depth_test(ViewerEntityHandle handle, bool enabled);
 
+void wide_line_set_transparent(ViewerEntityHandle handle, bool enabled);
+
 void wide_line_set_color(ViewerEntityHandle handle, const float (*color)[4]);
 
 void wide_line_set_width(ViewerEntityHandle handle, const float *width);
@@ -890,9 +907,15 @@ void text3d_set_content(ViewerEntityHandle handle, const Text3dContentInfoC *con
 
 void drop_text3d(SceneText3dHandleInfo p);
 
+Text3dQueryInfoC text3d_query(ViewerAPI *api, ViewerEntityHandle handle);
+
+void text3d_set_local_transform(ViewerEntityHandle handle, const float (*mat)[16]);
+
 ViewerEntityHandle create_dir_light(ViewerEntityHandle node);
 
 void set_dir_light_scene(ViewerEntityHandle handle, const ViewerEntityHandle *scene);
+
+void set_dir_light_follow_camera(ViewerEntityHandle node, bool should_follow);
 
 void set_dir_light_illuminance(ViewerEntityHandle node, const float (*illuminance)[3]);
 

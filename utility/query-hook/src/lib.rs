@@ -522,6 +522,9 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     (r, waked)
   }
 
+  /// the passed in function will not be executed if the function internal not waked
+  ///
+  /// if the function waked, it will executed both spawn and resolve stage
   #[track_caller]
   fn skip_if_not_waked<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> Option<R> {
     self
@@ -777,7 +780,17 @@ pub fn finalize_buffered_changes<K: CKey, V: CValue>(
     return changes.pop().unwrap();
   }
 
-  let mut target = FastHashMap::default();
+  // guess a capacity
+  let capacity = changes
+    .iter()
+    .map(|change| {
+      let hint = change.iter_key_value().size_hint();
+      hint.1.unwrap_or(hint.0)
+    })
+    .max()
+    .unwrap_or(0);
+
+  let mut target = FastHashMap::with_capacity_and_hasher(capacity, Default::default());
 
   for c in changes {
     merge_into_hashmap(&mut target, c.iter_key_value());

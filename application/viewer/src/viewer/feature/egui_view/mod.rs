@@ -3,11 +3,13 @@ use crate::*;
 mod console;
 mod db_view;
 mod inspector;
+mod object_inspect;
 mod tile;
 
 pub use console::*;
 use db_view::*;
 pub use inspector::*;
+pub use object_inspect::*;
 pub use tile::*;
 
 pub struct ViewerUIState {
@@ -141,6 +143,15 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
 
         ui.checkbox(&mut viewer.use_scene_bvh, "use_scene_bvh");
 
+        #[cfg(feature = "dhat-heap-profiling")]
+        {
+          if viewer.should_trace_next_frame_allocation_info {
+            ui.label("⏳ will trace next frame...");
+          } else if ui.button("🔍 trace next frame allocation (dhat)").clicked() {
+            viewer.should_trace_next_frame_allocation_info = true;
+          }
+        }
+
         ui.collapsing("Init config(not dynamic configurable)", |ui| {
           if ui
             .button("export first viewport init and current config")
@@ -148,6 +159,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           {
             let config = viewer.export_init_config(cx.current_window_swapchain);
             config.export_to_current_dir();
+            cx.app_features.export_to_current_dir();
           }
           ui.label(format!("{:#?}", viewer.rendering.init_config().init_only));
         });
@@ -237,191 +249,11 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         .open(&mut ui_state.object_inspection)
         .vscroll(true)
         .show(ui, |ui| {
-          let mut scene_writer = SceneWriter::from_global(cx.active_surface_content.scene);
-          if let Some(target) = cx.viewer.selection.selected_model.if_single() {
-            ui.label(format!("SceneModel id: {:?}", target.into_raw()));
-            show_entity_label(&scene_writer.model_writer, target, ui);
-
-            ui.separator();
-            let node = scene_writer
-              .model_writer
-              .read_foreign_key::<SceneModelRefNode>(target)
-              .unwrap();
-
-            ui.label(format!("referenced node id: {:?}", node.into_raw()));
-            show_entity_label(&scene_writer.node_writer, node, ui);
-
-            let parent = scene_writer.node_writer.read::<SceneNodeParentIdx>(node);
-            ui.label(format!("parent node id: {:?}", parent));
-
-            let local_mat = scene_writer
-              .node_writer
-              .read::<SceneNodeLocalMatrixComponent>(node);
-
-            ui.label("local matrix:");
-            local_mat.hover_detail_view(ui);
-
-            ui.separator();
-
-            if let Some(text3d) = scene_writer
-              .model_writer
-              .read_foreign_key::<SceneModelText3dPayload>(target)
-            {
-              let mut w = global_entity_of::<Text3dEntity>().entity_writer();
-              let content = w.read::<Text3dContent>(text3d).unwrap();
-
-              let mut c = (*content).clone();
-              ui.text_edit_multiline(&mut c.content);
-              ui.checkbox(&mut c.italic, "italic");
-
-              let mut has_width = c.width.is_some();
-              ui.checkbox(&mut has_width, "enable_width");
-              if has_width {
-                if c.width.is_none() {
-                  c.width = Some(100.);
-                }
-              } else {
-                c.width = None;
-              }
-              if let Some(width) = &mut c.width {
-                ui.add(egui::Slider::new(width, 0.0..=100.0).text("width"));
-              }
-
-              egui::ComboBox::from_label("alignment")
-                .selected_text(format!("{:?}", &c.align))
-                .show_ui(ui, |ui| {
-                  ui.selectable_value(&mut c.align, TextAlignment::Left, "left");
-                  ui.selectable_value(&mut c.align, TextAlignment::Center, "Center");
-                  ui.selectable_value(&mut c.align, TextAlignment::Right, "Right");
-                });
-
-              if c != *content {
-                w.write::<Text3dContent>(text3d, Some(ExternalRefPtr::new(c)));
-              }
-            }
-
-            let std_model = scene_writer
-              .model_writer
-              .read_foreign_key::<SceneModelStdModelRenderPayload>(target)?;
-
-            ui.label(format!(
-              "referenced std_model id: {:?}",
-              std_model.into_raw()
-            ));
-            show_entity_label(&scene_writer.std_model_writer, std_model, ui);
-
-            ui.separator();
-
-            if ui.button("change to unlit").clicked() {
-              let new_unlit = scene_writer.unlit_mat_writer.new_entity(|w| w);
-              scene_writer
-                .std_model_writer
-                .write_foreign_key::<StandardModelRefPbrMRMaterial>(std_model, None);
-              scene_writer
-                .std_model_writer
-                .write_foreign_key::<StandardModelRefPbrSGMaterial>(std_model, None);
-              scene_writer
-                .std_model_writer
-                .write_foreign_key::<StandardModelRefUnlitMaterial>(std_model, Some(new_unlit));
-            }
-
-            if let Some(mat) = scene_writer
-              .std_model_writer
-              .read_foreign_key::<StandardModelRefPbrMRMaterial>(std_model)
-            {
-              ui.label("pbr mr material");
-              ui.label(format!("material id: {:?}", mat.into_raw()));
-              show_entity_label(&scene_writer.pbr_mr_mat_writer, mat, ui);
-              modify_color_like_com::<PbrMRMaterialBaseColorComponent>(
-                ui,
-                &mut scene_writer.pbr_mr_mat_writer,
-                mat,
-              );
-              modify_normalized_value_like_com::<PbrMRMaterialRoughnessComponent>(
-                ui,
-                &mut scene_writer.pbr_mr_mat_writer,
-                mat,
-              );
-              modify_normalized_value_like_com::<PbrMRMaterialMetallicComponent>(
-                ui,
-                &mut scene_writer.pbr_mr_mat_writer,
-                mat,
-              );
-
-              //
-            } else if let Some(mat) = scene_writer
-              .std_model_writer
-              .read_foreign_key::<StandardModelRefPbrSGMaterial>(std_model)
-            {
-              ui.label("pbr sg material");
-              ui.label(format!("material id: {:?}", mat.into_raw()));
-              show_entity_label(&scene_writer.pbr_sg_mat_writer, mat, ui);
-              modify_color_like_com::<PbrSGMaterialAlbedoComponent>(
-                ui,
-                &mut scene_writer.pbr_sg_mat_writer,
-                mat,
-              );
-              modify_normalized_value_like_com::<PbrSGMaterialGlossinessComponent>(
-                ui,
-                &mut scene_writer.pbr_sg_mat_writer,
-                mat,
-              );
-              modify_color_like_com::<PbrSGMaterialSpecularComponent>(
-                ui,
-                &mut scene_writer.pbr_sg_mat_writer,
-                mat,
-              );
-            } else if let Some(mat) = scene_writer
-              .std_model_writer
-              .read_foreign_key::<StandardModelRefUnlitMaterial>(std_model)
-            {
-              ui.label("unlit material");
-              ui.label(format!("material id: {:?}", mat.into_raw()));
-              show_entity_label(&scene_writer.unlit_mat_writer, mat, ui);
-              //
-            } else {
-              ui.label("unknown material type");
-            }
-
-            //
-          } else if let Some(target) = cx.viewer.selection.selected_spot_light {
-            ui.label(format!("Scene Spotlight id: {:?}", target.into_raw()));
-            show_entity_label(&scene_writer.spot_light_writer, target, ui);
-            ui.label("spotlight half cone angle:");
-            modify_ranged_value_like_slider_com::<SpotLightHalfConeAngle>(
-              ui,
-              &mut scene_writer.spot_light_writer,
-              target,
-              0.0..=(f32::PI() / 4.0),
-            );
-            ui.label("spotlight penumbra angle:");
-            modify_ranged_value_like_slider_com::<SpotLightHalfPenumbraAngle>(
-              ui,
-              &mut scene_writer.spot_light_writer,
-              target,
-              0.0..=(f32::PI() / 4.0),
-            );
-            ui.label("spotlight cutoff distance:");
-            modify_ranged_value_like_slider_com::<SpotLightCutOffDistance>(
-              ui,
-              &mut scene_writer.spot_light_writer,
-              target,
-              0.0..=10.,
-            );
-          } else if let Some(target) = cx.viewer.selection.selected_point_light {
-            ui.label(format!("Scene point light id: {:?}", target.into_raw()));
-            show_entity_label(&scene_writer.point_light_writer, target, ui);
-            ui.label("spotlight cutoff distance:");
-            modify_ranged_value_like_slider_com::<PointLightCutOffDistance>(
-              ui,
-              &mut scene_writer.point_light_writer,
-              target,
-              0.0..=10.,
-            );
-          } else {
-            ui.label("No target selected");
-          }
-
+          inspect_selected(
+            ui,
+            &mut cx.viewer.selection,
+            cx.active_surface_content.scene,
+          );
           Some(())
         });
     }
@@ -446,7 +278,7 @@ pub fn modify_color(ui: &mut egui::Ui, c: &mut Vec3<f32>) {
   *c = color.into();
 }
 
-fn modify_color_like_com<C: ComponentSemantic<Data = Vec3<f32>>>(
+pub fn modify_color_like_com<C: ComponentSemantic<Data = Vec3<f32>>>(
   ui: &mut egui::Ui,
   writer: &mut EntityWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
@@ -456,7 +288,7 @@ fn modify_color_like_com<C: ComponentSemantic<Data = Vec3<f32>>>(
   writer.write::<C>(id, color);
 }
 
-fn modify_normalized_value_like_com<C: ComponentSemantic<Data = f32>>(
+pub fn modify_normalized_value_like_com<C: ComponentSemantic<Data = f32>>(
   ui: &mut egui::Ui,
   writer: &mut EntityWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
@@ -464,7 +296,7 @@ fn modify_normalized_value_like_com<C: ComponentSemantic<Data = f32>>(
   modify_ranged_value_like_slider_com::<C>(ui, writer, id, 0.0..=1.0);
 }
 
-fn modify_ranged_value_like_slider_com<C: ComponentSemantic<Data = f32>>(
+pub fn modify_ranged_value_like_slider_com<C: ComponentSemantic<Data = f32>>(
   ui: &mut egui::Ui,
   writer: &mut EntityWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
@@ -477,7 +309,20 @@ fn modify_ranged_value_like_slider_com<C: ComponentSemantic<Data = f32>>(
   writer.write::<C>(id, v);
 }
 
-fn show_entity_label<E: EntitySemantic>(
+pub fn modify_bool_com<C: ComponentSemantic<Data = bool>>(
+  ui: &mut egui::Ui,
+  writer: &mut EntityWriter<C::Entity>,
+  id: EntityHandle<C::Entity>,
+  label: &str,
+) {
+  let mut v = writer.read::<C>(id);
+
+  ui.checkbox(&mut v, label);
+
+  writer.write::<C>(id, v);
+}
+
+pub fn show_entity_label<E: EntitySemantic>(
   writer: &EntityWriter<E>,
   target: EntityHandle<E>,
   ui: &mut egui::Ui,

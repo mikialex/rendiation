@@ -12,9 +12,9 @@ where
   T::Item: Zeroable,
 {
   fn resize(&mut self, new_size: u32) -> bool {
-    self.inner.resize(new_size);
+    let result = self.inner.resize(new_size);
     self.vec.resize(new_size as usize, self.none_default);
-    true
+    result
   }
 }
 

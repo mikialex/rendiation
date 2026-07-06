@@ -18,7 +18,7 @@ impl PTRenderState {
         TextureFormat::Rgba8Unorm,
       ),
       sample_count_host: Default::default(),
-      config: create_uniform(PTConfig::new(max_path_depth), gpu),
+      config: create_uniform(PTConfig::new(max_path_depth), gpu, "PTConfig"),
     }
   }
   pub fn next_sample(&mut self, gpu: &GPU) {

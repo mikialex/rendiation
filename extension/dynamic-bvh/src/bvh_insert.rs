@@ -40,13 +40,15 @@ impl Bvh {
   /// let mut bvh = Bvh::new();
   ///
   /// // Insert objects with custom IDs
-  /// bvh.insert(Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0)), 100);
+  /// bvh.insert(Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0)), 0., 100);
   /// bvh.insert(
   ///   Box3::new(Vec3::new(5.0, 0.0, 0.0), Vec3::new(6.0, 1.0, 1.0)),
+  ///   0.,
   ///   200,
   /// );
   /// bvh.insert(
   ///   Box3::new(Vec3::new(10.0, 0.0, 0.0), Vec3::new(11.0, 1.0, 1.0)),
+  ///   0.,
   ///   300,
   /// );
   ///
@@ -63,11 +65,12 @@ impl Bvh {
   /// let mut bvh = Bvh::new();
   ///
   /// // Insert an object
-  /// bvh.insert(Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0)), 42);
+  /// bvh.insert(Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0)), 0., 42);
   ///
   /// // Simulate the object moving - just insert with the same ID
   /// bvh.insert(
   ///   Box3::new(Vec3::new(5.0, 0.0, 0.0), Vec3::new(6.0, 1.0, 1.0)),
+  ///   0.,
   ///   42,
   /// );
   ///
@@ -91,7 +94,7 @@ impl Bvh {
   ///     Vec3::new(i as f32, 0.0, 0.0),
   ///     Vec3::new(i as f32 + 1.0, 1.0, 1.0),
   ///   );
-  ///   bvh.insert(aabb, i);
+  ///   bvh.insert(aabb, 0., i);
   /// }
   ///
   /// // For better performance on bulk updates, use insert_or_update_partially
@@ -101,7 +104,7 @@ impl Bvh {
   ///     Vec3::new(i as f32 + 0.1, 0.0, 0.0),
   ///     Vec3::new(i as f32 + 1.1, 1.0, 1.0),
   ///   );
-  ///   bvh.insert_or_update_partially(aabb, i, 0.0);
+  ///   bvh.insert_or_update_partially(aabb, 0., i, 0.0);
   /// }
   /// bvh.refit(&mut workspace); // Update tree in one pass
   /// ```
@@ -126,8 +129,8 @@ impl Bvh {
   /// [`insert_or_update_partially`]: Self::insert_or_update_partially
   /// [`refit`]: Self::refit
   /// [`optimize_incremental`]: Self::optimize_incremental
-  pub fn insert(&mut self, aabb: Box3<f32>, leaf_index: u32) {
-    self.insert_with_change_detection(aabb, leaf_index, 0.0)
+  pub fn insert(&mut self, aabb: Box3<f32>, expansion: f32, leaf_index: u32) {
+    self.insert_with_change_detection(aabb, expansion, leaf_index, 0.0)
   }
 
   /// Inserts a leaf into this BVH, or updates it if already exists.
@@ -138,6 +141,7 @@ impl Bvh {
   pub fn insert_with_change_detection(
     &mut self,
     aabb: Box3<f32>,
+    expansion: f32,
     leaf_index: u32,
     change_detection_margin: f32,
   ) {
@@ -157,6 +161,7 @@ impl Bvh {
         node.min = aabb.min;
         node.max = aabb.max;
       }
+      node.expansion = expansion;
 
       // Propagate up.
       // TODO: maybe we should offer multiple propagation strategy.
@@ -179,13 +184,14 @@ impl Bvh {
       let mut parent = self.parents[wide_node_id];
       loop {
         let node = &mut self.nodes[parent];
-        if node.contains_aabb(&aabb) {
+        if node.contains_aabb(&aabb) && node.expansion >= expansion {
           // No more propagation needed, the parent is big enough.
           break;
         }
 
         node.min = node.min.min(aabb.min);
         node.max = node.max.max(aabb.max);
+        node.expansion = node.expansion.max(expansion);
 
         let wide_node_id = parent.decompose().0;
         if wide_node_id == 0 {
@@ -195,7 +201,7 @@ impl Bvh {
         parent = self.parents[wide_node_id];
       }
     } else {
-      self.insert_new_unchecked(aabb, leaf_index);
+      self.insert_new_unchecked(aabb, expansion, leaf_index);
     }
   }
 
@@ -212,6 +218,7 @@ impl Bvh {
   pub fn insert_or_update_partially(
     &mut self,
     aabb: Box3<f32>,
+    expansion: f32,
     leaf_index: u32,
     change_detection_margin: f32,
   ) {
@@ -229,12 +236,12 @@ impl Bvh {
         node.max = aabb.max;
       }
     } else {
-      self.insert_new_unchecked(aabb, leaf_index);
+      self.insert_new_unchecked(aabb, expansion, leaf_index);
     }
   }
 
   /// Inserts a new leaf into this BVH without checking if it already exists.
-  fn insert_new_unchecked(&mut self, aabb: Box3<f32>, leaf_index: u32) {
+  fn insert_new_unchecked(&mut self, aabb: Box3<f32>, expansion: f32, leaf_index: u32) {
     let _ = self
       .leaf_node_indices
       .insert(leaf_index as usize, BvhNodeIndex::default());
@@ -243,7 +250,7 @@ impl Bvh {
     // If the tree is empty, create the root.
     if self.nodes.is_empty() {
       self.nodes.push(BvhNodeWide {
-        left: BvhNode::leaf(aabb, leaf_index),
+        left: BvhNode::leaf(aabb, expansion, leaf_index),
         right: BvhNode::zeros(),
       });
       self.parents.push(BvhNodeIndex::default());
@@ -253,7 +260,7 @@ impl Bvh {
 
     // If we have a root, but it is partial, just complete it.
     if self.nodes[0].right.leaf_count() == 0 {
-      self.nodes[0].right = BvhNode::leaf(aabb, leaf_index);
+      self.nodes[0].right = BvhNode::leaf(aabb, expansion, leaf_index);
       *leaf_index_mut = BvhNodeIndex::right(0);
       return;
     }
@@ -306,7 +313,7 @@ impl Bvh {
           let new_leaf_id = self.nodes.len();
           let wide_node = BvhNodeWide {
             left: *left,
-            right: BvhNode::leaf(aabb, leaf_index),
+            right: BvhNode::leaf(aabb, expansion, leaf_index),
           };
           self.nodes.push(wide_node);
           self.parents.push(BvhNodeIndex::left(curr_id));
@@ -334,7 +341,7 @@ impl Bvh {
         if right.is_leaf() {
           let new_leaf_id = self.nodes.len();
           let new_node = BvhNodeWide {
-            left: BvhNode::leaf(aabb, leaf_index),
+            left: BvhNode::leaf(aabb, expansion, leaf_index),
             right: *right,
           };
           self.nodes.push(new_node);

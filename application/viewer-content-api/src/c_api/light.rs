@@ -22,6 +22,11 @@ pub extern "C" fn set_dir_light_scene(
 }
 
 #[no_mangle]
+pub extern "C" fn set_dir_light_follow_camera(node: ViewerEntityHandle, should_follow: bool) {
+  write_global_db_component::<DirectionalLightFollowCamera>().write(node.into(), should_follow);
+}
+
+#[no_mangle]
 pub extern "C" fn set_dir_light_illuminance(node: ViewerEntityHandle, illuminance: &[f32; 3]) {
   write_global_db_component::<DirectionalLightIlluminance>()
     .write(node.into(), (*illuminance).into());

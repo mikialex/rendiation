@@ -11,12 +11,6 @@ pub mod indirect;
 
 declare_entity!(OccStyleMaterialEntity);
 declare_component!(
-  OccStyleMaterialTransparent,
-  OccStyleMaterialEntity,
-  bool,
-  false
-);
-declare_component!(
   OccStyleMaterialDiffuse,
   OccStyleMaterialEntity,
   Vec4<f32>,
@@ -72,13 +66,14 @@ pub enum OccStyleEffectType {
   Zebra,
 }
 
+pub struct OccSurfaceTag;
+
 pub fn register_occ_material_data_model(sparse: bool) {
   global_entity_of::<StandardModelEntity>()
     .declare_sparse_foreign_key_maybe_sparse::<StdModelOccStyleMaterialPayload>(sparse);
 
   let table = global_database()
     .declare_entity::<OccStyleMaterialEntity>()
-    .declare_component::<OccStyleMaterialTransparent>()
     .declare_component::<OccStyleMaterialDiffuse>()
     .declare_component::<OccStyleMaterialSpecular>()
     .declare_component::<OccStyleMaterialShininess>()

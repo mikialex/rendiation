@@ -60,7 +60,7 @@ pub fn load_widen_line_test(s_writer: &mut SceneWriter) {
 
 pub fn build_wide_line_mesh(
   f: impl FnOnce(&mut AttributesLineMeshBuilder),
-) -> ExternalRefPtr<Vec<u8>> {
+) -> ExternalRefPtr<Vec<WideLineVertex>> {
   let mut builder = AttributesLineMeshBuilder::default();
 
   f(&mut builder);
@@ -80,6 +80,5 @@ pub fn build_wide_line_mesh(
     })
     .collect();
 
-  let u8s = bytemuck::cast_slice(&mesh);
-  ExternalRefPtr::new(u8s.to_vec())
+  ExternalRefPtr::new(mesh)
 }

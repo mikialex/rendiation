@@ -113,7 +113,7 @@ pub trait IndirectModelMaterialRenderImpl: Any {
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     self.hash_shader_group_key(any_id, hasher).map(|_| {
-      self.as_any().type_id().hash(hasher);
+      hasher.hash(self.as_any().type_id());
     })
   }
 }

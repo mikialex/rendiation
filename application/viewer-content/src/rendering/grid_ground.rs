@@ -83,7 +83,7 @@ impl GraphicsShaderProvider for GridGroundShading<'_> {
         depth_write_enabled: false,
         ..Default::default()
       };
-      apply_pipeline_builder(&state, self.reversed_depth, builder);
+      apply_pipeline_frag_builder(&state, self.reversed_depth, builder);
     })
   }
 }

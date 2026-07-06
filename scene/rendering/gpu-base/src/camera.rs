@@ -4,7 +4,7 @@ pub fn use_camera_uniforms(
   cx: &mut QueryGPUHookCx,
   ndc: impl NDCSpaceMapper + Copy + Hash,
 ) -> Option<CameraRenderer> {
-  let uniforms = cx.use_uniform_buffers();
+  let uniforms = cx.use_uniform_buffers("camera");
 
   cx.use_shared_dual_query(GlobalCameraTransformShare(ndc))
     .into_delta_change()

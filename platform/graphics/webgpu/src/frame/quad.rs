@@ -55,7 +55,7 @@ impl Default for FullScreenQuad {
 impl ShaderPassBuilder for FullScreenQuad {}
 impl ShaderHashProvider for FullScreenQuad {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.blend.hash(hasher)
+    hasher.hash(&self.blend);
   }
   shader_hash_type_id! {}
 }

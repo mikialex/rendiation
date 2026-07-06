@@ -342,7 +342,7 @@ fn test_gpu_triangle_naive() {
   impl GpuTester {
     fn new(upstream: Box<dyn ComputeComponent<Node<u32>>>, gpu: GPU) -> Self {
       let init = ZeroedArrayByArrayLength(1);
-      let payloads = create_gpu_read_write_storage::<[u32]>(init, &gpu);
+      let payloads = create_gpu_read_write_storage::<[u32]>(init, &gpu, "payloads");
       let system = NaiveSahBVHSystem::new(gpu);
       init_default_acceleration_structure(&system);
       let system = system.get_or_build_gpu_data().clone();
@@ -376,7 +376,7 @@ fn test_gpu_triangle_naive() {
       &self,
       builder: &mut ShaderComputePipelineBuilder,
     ) -> Box<dyn DeviceInvocation<Node<u32>>> {
-      builder.log_result = true;
+      log_shader_build_result();
 
       let upstream_shader = self.upstream.build_shader(builder);
 

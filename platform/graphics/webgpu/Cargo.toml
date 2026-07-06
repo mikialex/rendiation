@@ -31,6 +31,9 @@ pollster = { workspace = true }                                             # us
 
 [features]
 support-webgl = ["wgpu/webgl"]
+pipeline-label = []
+
+# default = ["pipeline-label"]
 
 [target.'cfg(target_arch= "wasm32")'.dependencies]
 web-sys = "0.3"

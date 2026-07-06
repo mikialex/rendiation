@@ -30,7 +30,7 @@ impl ArcTable {
 
 pub struct EntityWriterUntyped {
   pub(crate) type_id: EntityId,
-  pub(crate) allocator: LockWriteGuardHolder<Arena<()>>,
+  pub(crate) allocator: LockWriteGuardHolder<TableAllocator>,
   /// this change ptr type is ScopedValueChange<()>, the lifetime of the ptr is only valid
   /// in the callback scope.
   entity_watchers: EventSource<ChangePtr>,
@@ -181,7 +181,7 @@ pub struct EntityComponentWriterImpl {
 }
 
 impl EntityComponentWriterImpl {
-  pub fn get(&self, idx: RawEntityHandle, allocator: &Arena<()>) -> Option<DataPtr> {
+  pub fn get(&self, idx: RawEntityHandle, allocator: &TableAllocator) -> Option<DataPtr> {
     self.component.get(idx, allocator)
   }
 

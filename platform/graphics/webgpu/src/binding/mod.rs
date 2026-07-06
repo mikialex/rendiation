@@ -269,6 +269,9 @@ impl BindingBuilder {
   }
 }
 
+/// A restricted subset of `ShaderPassBuilder` that only allows binding
+/// resources to the pass. Cannot access the pass directly, pipeline state,
+/// or draw commands — those are handled by `ShaderPassBuilder::setup_pass()`.
 pub trait AbstractBindingSource {
   fn bind_pass(&self, ctx: &mut BindingBuilder);
 }
@@ -276,103 +279,5 @@ pub trait AbstractBindingSource {
 impl<T: CacheAbleBindingSource + ShaderBindingProvider> AbstractBindingSource for T {
   fn bind_pass(&self, ctx: &mut BindingBuilder) {
     ctx.bind_single(self);
-  }
-}
-
-pub struct AbstractShaderBindingIterSourceMap<T, F>(pub T, pub F);
-
-impl<T, S, X, Y, F> AbstractShaderBindingSource for AbstractShaderBindingIterSourceMap<T, F>
-where
-  T: AbstractShaderBindingSource,
-  T::ShaderBindResult: IntoShaderIterator<ShaderIter = S> + Clone,
-  S: ShaderIterator<Item = X> + 'static,
-  F: Fn(X) -> Y + Copy + 'static,
-{
-  type ShaderBindResult = ShaderIntoIterMap<T::ShaderBindResult, F>;
-
-  fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
-    let inner = self.0.bind_shader(ctx);
-    inner.map(self.1)
-  }
-}
-
-impl<T, F> AbstractBindingSource for AbstractShaderBindingIterSourceMap<T, F>
-where
-  T: AbstractBindingSource,
-{
-  fn bind_pass(&self, ctx: &mut BindingBuilder) {
-    self.0.bind_pass(ctx);
-  }
-}
-
-pub struct AbstractShaderBindingIterSourceHelperMap<T, T2, F>(pub T, pub T2, pub F);
-
-impl<T, T2, F> AbstractShaderBindingIterSourceHelperMap<T, T2, F> {
-  /// use this method to improve the compile error message
-  pub fn new<S, X, Y>(t: T, t2: T2, f: F) -> Self
-  where
-    T: AbstractShaderBindingSource + AbstractBindingSource,
-    T2: AbstractShaderBindingSource + AbstractBindingSource,
-    T::ShaderBindResult: IntoShaderIterator<ShaderIter = S> + Clone,
-    S: ShaderIterator<Item = X> + 'static,
-    F: Fn(X, &T2::ShaderBindResult) -> Y + Copy + 'static,
-  {
-    Self(t, t2, f)
-  }
-}
-
-impl<T, T2, S, X, Y, F> AbstractShaderBindingSource
-  for AbstractShaderBindingIterSourceHelperMap<T, T2, F>
-where
-  T: AbstractShaderBindingSource,
-  T2: AbstractShaderBindingSource,
-  T::ShaderBindResult: IntoShaderIterator<ShaderIter = S> + Clone,
-  S: ShaderIterator<Item = X> + 'static,
-  F: Fn(X, &T2::ShaderBindResult) -> Y + Copy + 'static,
-{
-  type ShaderBindResult = ShaderIntoIterHelperMap<T::ShaderBindResult, T2::ShaderBindResult, F>;
-
-  fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
-    let inner = self.0.bind_shader(ctx);
-    let mapper = self.1.bind_shader(ctx);
-    inner.map_helper(mapper, self.2)
-  }
-}
-
-impl<T, T2, F> AbstractBindingSource for AbstractShaderBindingIterSourceHelperMap<T, T2, F>
-where
-  T: AbstractBindingSource,
-  T2: AbstractBindingSource,
-{
-  fn bind_pass(&self, ctx: &mut BindingBuilder) {
-    self.0.bind_pass(ctx);
-    self.1.bind_pass(ctx);
-  }
-}
-
-pub struct AbstractShaderBindingIterSourceZip<L, S>(pub L, pub S);
-
-impl<L, S> AbstractShaderBindingSource for AbstractShaderBindingIterSourceZip<L, S>
-where
-  L: AbstractShaderBindingSource,
-  L::ShaderBindResult: IntoShaderIterator,
-  S: AbstractShaderBindingSource,
-  S::ShaderBindResult: IntoShaderIterator,
-{
-  type ShaderBindResult = ShaderIntoIterZip<L::ShaderBindResult, S::ShaderBindResult>;
-
-  fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
-    self.0.bind_shader(ctx).zip(self.1.bind_shader(ctx))
-  }
-}
-
-impl<L, S> AbstractBindingSource for AbstractShaderBindingIterSourceZip<L, S>
-where
-  L: AbstractBindingSource,
-  S: AbstractBindingSource,
-{
-  fn bind_pass(&self, ctx: &mut BindingBuilder) {
-    self.0.bind_pass(ctx);
-    self.1.bind_pass(ctx);
   }
 }

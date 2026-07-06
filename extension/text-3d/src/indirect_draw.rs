@@ -1,10 +1,26 @@
+use std::hash::Hash;
+
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
+use rendiation_scene_batch_extractor::SceneModelGroupKey;
 use rendiation_scene_rendering_gpu_indirect::*;
-use rendiation_webgpu_midc_downgrade::{
-  require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
-};
+use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
 use crate::*;
+
+pub fn use_text3d_group_key(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>> {
+  let sm_ref_text = cx.use_db_rev_ref_tri_view::<SceneModelText3dPayload>();
+  cx.use_dual_query_set::<Text3dEntity>()
+    .fanout(sm_ref_text, cx)
+    .dual_query_map(|_| SceneModelGroupKey::ForeignHash {
+      internal: fast_hash_scope(|hasher| {
+        std::any::TypeId::of::<Text3dEntity>().hash(hasher);
+      }),
+      require_alpha_blend: true,
+    })
+    .dual_query_boxed()
+}
 
 // todo, the glyph data between the different text are not shared
 pub fn use_text3d_indirect_renderer(
@@ -32,12 +48,9 @@ pub fn use_text3d_indirect_renderer(
   let (rr, rrr) = r2.fork();
 
   // todo: avoid extra clone
-  let curve_source =
-    r.map_changes(|v| ExternalRefPtr::new(cast_slice::<_, u8>(v.curves.as_slice()).to_vec()));
-  let band_source =
-    rr.map_changes(|v| ExternalRefPtr::new(cast_slice::<_, u8>(v.bands.as_slice()).to_vec()));
-  let vertices_source =
-    rrr.map_changes(|v| ExternalRefPtr::new(cast_slice::<_, u8>(v.vertices.as_slice()).to_vec()));
+  let curve_source = r.map_changes(|v| ExternalRefPtr::new(v.curves.clone()));
+  let band_source = rr.map_changes(|v| ExternalRefPtr::new(v.bands.clone()));
+  let vertices_source = rrr.map_changes(|v| ExternalRefPtr::new(v.vertices.clone()));
 
   let (curves, curve_range_updates) =
     use_range_allocated_device_buffers(cx, "text_buffer curves", 1024, u32::MAX, curve_source);
@@ -59,6 +72,16 @@ pub fn use_text3d_indirect_renderer(
   let offset = std::mem::offset_of!(TextMeta, text_vertices_range);
   let vertices_range_updates = vertices_range_updates.map(|a| a.allocation_changes.clone());
   vertices_range_updates.update_storage_array_with_host(cx, params, offset);
+
+  let offset = std::mem::offset_of!(TextMeta, color);
+  let changes = cx
+    .use_changes::<Text3dContent>()
+    .map_changes(|v| v.map(|v| v.color).unwrap_or_default());
+  changes.update_storage_array_with_host(cx, params, offset);
+
+  let offset = std::mem::offset_of!(TextMeta, local_matrix);
+  let changes = cx.use_changes::<Text3dLocalTransform>();
+  changes.update_storage_array_with_host(cx, params, offset);
 
   params.use_max_item_count_by_db_entity::<Text3dEntity>(cx);
   params.use_update(cx);
@@ -105,12 +128,20 @@ impl IndirectModelRenderImpl for Text3dIndirectRenderer {
     self
   }
 
-  fn device_id_injector(
+  fn model_info_injector(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     self.access.get(any_idx)?;
     Some(Box::new(()))
+  }
+
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+    self.access.get(any_idx)?;
+    Some(None)
   }
 
   fn shape_renderable_indirect<'a>(
@@ -171,9 +202,10 @@ impl IndirectModelRenderImpl for Text3dIndirectRenderer {
 
   fn material_renderable_indirect<'a>(
     &'a self,
-    _any_idx: EntityHandle<SceneModelEntity>,
+    any_idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
+    self.access.get(any_idx)?;
     Some(Box::new(())) // no material
   }
 }
@@ -194,7 +226,7 @@ impl NoneIndexedDrawCommandBuilder for Text3dDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let model = self.sm_to_text.get(id).unwrap();
     let param = self.params_host.get(model.alloc_index()).unwrap();
-    let quad_count = param.text_vertices_range.y / TextGlyphQuad::u32_size();
+    let quad_count = param.text_vertices_range.y;
 
     if param.text_vertices_range.x == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {
       return None;
@@ -237,8 +269,7 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
   ) -> Node<DrawIndirectArgsStorage> {
     let text_id = self.sm_to_text_device.index(draw_id).load();
     // the implementation of range allocate assure the count is zero if allocation failed
-    let quad_count =
-      self.params.index(text_id).text_vertices_range().load().y() / val(TextGlyphQuad::u32_size());
+    let quad_count = self.params.index(text_id).text_vertices_range().load().y();
 
     ENode::<DrawIndirectArgsStorage> {
       vertex_count: val(6) * quad_count,
@@ -288,16 +319,11 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
       let text_meta = text_meta.using(binding);
       let text_meta = text_meta.index(text_id).load().expand();
 
-      // as we are using none indexed draw, this is easier to integrate the midc downgrade
-      if let Some(relative) = builder.try_query::<VertexIndexForMIDCDowngradeRelative>() {
-        builder.register::<VertexIndex>(relative);
-      }
-
       let vertex_index = builder.query::<VertexIndex>();
       let instance_index = vertex_index / val(6);
       let vertex_index = vertex_index % val(6);
 
-      let vertex_offset = text_meta.text_vertices_range.x() / val(TextGlyphQuad::u32_size());
+      let vertex_offset = text_meta.text_vertices_range.x();
       let vertices = binding.bind_by(self.vertices);
       let quad = vertices.index(instance_index + vertex_offset);
       let quad = quad.load().expand();
@@ -315,7 +341,7 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
 
       let pos = quad.obj_space_min + quad.obj_space_size * offset;
       let uv = quad.em_space_min + quad.em_space_size * offset;
-      let local_position = vec3_node((pos, val(0.)));
+      let local_position = (text_meta.local_matrix * vec4_node((pos, val(0.), val(1.)))).xyz();
       let object_world_position = builder.query::<WorldPositionHP>();
       let (clip_position, render_space_position) =
         camera_transform_impl(builder, local_position, object_world_position);
@@ -335,13 +361,8 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
     builder.fragment(|builder, binding| {
       let text_id = builder.query::<Text3DShaderId>();
       let text_meta = text_meta.using(binding);
-      let curve_text_global_offset = text_meta
-        .index(text_id)
-        .load()
-        .expand()
-        .text_curves_range
-        .x()
-        / val(CurveData::u32_size());
+      let text_meta = text_meta.index(text_id);
+      let curve_text_global_offset = text_meta.text_curves_range().load().x();
 
       builder.insert_type_tag::<UnlitMaterialTag>();
 
@@ -363,8 +384,7 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
       }
       .slug_render(uv, val(0));
 
-      builder
-        .register::<DefaultDisplay>(val(Vec4::new(0., 0., 0., 1.)) * coverage.splat::<Vec4<f32>>());
+      builder.register::<DefaultDisplay>(text_meta.color().load() * coverage.splat::<Vec4<f32>>());
 
       builder.frag_output.iter_mut().for_each(|p| {
         if p.is_blendable() {

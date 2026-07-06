@@ -17,8 +17,15 @@ impl SceneModelIterProvider for SceneDynamicBvhIterProvider {
       let mut hits: Vec<u32> = Vec::new();
 
       bvh.traverse(|node| {
-        // todo, expand node aabb, ctx.extra screen space
-        if node.cast_ray(&ray, f32::MAX) == f32::MAX {
+        let aabb = compute_expand_bbox(
+          &ctx.camera_ctx,
+          node.aabb(),
+          node.expansion() + ctx.extra_screen_space_tolerance,
+        );
+
+        let hit: bool = ray.intersect(&aabb, &());
+
+        if !hit {
           return TraversalAction::Prune;
         }
         if let Some(leaf_id) = node.leaf_data() {
@@ -30,7 +37,7 @@ impl SceneModelIterProvider for SceneDynamicBvhIterProvider {
       let models = global_entity_arena_access::<SceneModelEntity>();
       let iter = hits.into_iter().map(move |index| {
         let handle = models.get_handle(index as usize).unwrap();
-        unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle(handle)) }
+        unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle_impl(handle)) }
       });
 
       Box::new(iter.chain(base))
@@ -60,7 +67,12 @@ impl SceneModelIterProvider for SceneDynamicBvhIterProvider {
           let left = &wide.left;
 
           if left.leaf_count() > 0 {
-            let aabb = left.aabb();
+            let aabb = compute_expand_bbox(
+              &frustum.camera_ctx,
+              left.aabb(),
+              left.expansion() + frustum.extra_screen_space_tolerance,
+            );
+
             match f_intersect_exact(
               frustum.world_helper.as_ref(),
               &frustum.world_frustum,
@@ -80,8 +92,14 @@ impl SceneModelIterProvider for SceneDynamicBvhIterProvider {
             }
           }
 
-          if wide.right.leaf_count() > 0 {
-            let aabb = wide.right.aabb();
+          let right = &wide.right;
+          if right.leaf_count() > 0 {
+            let aabb = compute_expand_bbox(
+              &frustum.camera_ctx,
+              right.aabb(),
+              right.expansion() + frustum.extra_screen_space_tolerance,
+            );
+
             match f_intersect_exact(
               frustum.world_helper.as_ref(),
               &frustum.world_frustum,
@@ -89,13 +107,13 @@ impl SceneModelIterProvider for SceneDynamicBvhIterProvider {
             ) {
               IntersectResult::Outside => {}
               IntersectResult::Inside => {
-                collect_subtree_leaves(bvh, &wide.right, &mut inside_leaves);
+                collect_subtree_leaves(bvh, &right, &mut inside_leaves);
               }
               IntersectResult::Intersect => {
-                if wide.right.is_leaf() {
-                  partial_leaves.push(wide.right.children);
+                if right.is_leaf() {
+                  partial_leaves.push(right.children);
                 } else {
-                  stack.push((wide.right.children, true));
+                  stack.push((right.children, true));
                 }
               }
             }
@@ -110,13 +128,28 @@ impl SceneModelIterProvider for SceneDynamicBvhIterProvider {
 
       let iter = insider.chain(partial).map(move |(_intersect, idx)| {
         let handle = models.get_handle(idx as usize).unwrap();
-        unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle(handle)) }
+        unsafe { EntityHandle::from_raw(RawEntityHandle::from_handle_impl(handle)) }
       });
       Box::new(iter.chain(base))
     } else {
       base
     }
   }
+}
+
+fn compute_expand_bbox(cx: &CameraQueryCtx, mut bbox: Box3<f32>, expansion: f32) -> Box3<f32> {
+  if expansion <= 0.0 {
+    return bbox;
+  }
+
+  let tol = IntersectTolerance::new(expansion, ToleranceType::ScreenSpace);
+  let tol = cx.compute_local_tolerance(tol, 1., bbox.center().into_f64());
+
+  if tol > 0.0 {
+    bbox = bbox.enlarge(tol);
+  }
+
+  bbox
 }
 
 /// Recursively collect all leaf data under a subtree.

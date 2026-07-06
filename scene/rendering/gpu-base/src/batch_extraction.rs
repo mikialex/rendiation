@@ -43,15 +43,15 @@ pub fn use_default_scene_batch_extractor(
 ) -> Option<DefaultSceneBatchExtractor> {
   let model_lookup = cx.use_db_rev_ref_typed::<SceneModelBelongsToScene>();
 
-  let node_net_visible = use_global_node_net_visible(cx).use_assure_result(cx);
+  let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
 
   cx.when_render(|| DefaultSceneBatchExtractor {
     model_lookup: model_lookup.expect_resolve_stage(),
     node_net_visible: node_net_visible
       .expect_resolve_stage()
-      .view()
       .mark_entity_type::<SceneNodeEntity>()
       .into_boxed(),
+    scene_model_visible: read_global_db_component(),
     alpha_blend: all_kinds_of_materials_enabled_alpha_blending().into_boxed(),
     sm_ref_node: read_global_db_foreign_key(),
   })
@@ -59,6 +59,7 @@ pub fn use_default_scene_batch_extractor(
 
 pub struct DefaultSceneBatchExtractor {
   node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  scene_model_visible: ComponentReadView<SceneModelVisible>,
   sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
   alpha_blend: BoxedDynQuery<EntityHandle<SceneModelEntity>, bool>,
   model_lookup: RevRefForeignKeyReadTyped<SceneModelBelongsToScene>,
@@ -77,6 +78,7 @@ impl DefaultSceneBatchExtractor {
       scene_id: scene,
       scene_model_use_alpha_blending: self.alpha_blend.clone(),
       enable_alpha_blending: semantic.only_alpha_blend_objects,
+      scene_model_visible: self.scene_model_visible.clone(),
     }
   }
 }
@@ -102,6 +104,7 @@ impl SceneBatchBasicExtractAbility for DefaultSceneBatchExtractor {
 pub struct HostModelLookUp {
   pub v: RevRefForeignKeyReadTyped<SceneModelBelongsToScene>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  pub scene_model_visible: ComponentReadView<SceneModelVisible>,
   pub scene_model_use_alpha_blending: BoxedDynQuery<EntityHandle<SceneModelEntity>, bool>,
   pub sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
   pub scene_id: EntityHandle<SceneEntity>,
@@ -111,6 +114,10 @@ pub struct HostModelLookUp {
 impl HostRenderBatch for HostModelLookUp {
   fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
     let iter = self.v.access_multi_value_dyn(&self.scene_id).filter(|sm| {
+      let sm_visible = self.scene_model_visible.get_value(*sm).unwrap_or(false);
+      if !sm_visible {
+        return false;
+      }
       let node = self.sm_ref_node.get(*sm).unwrap();
       self.node_net_visible.access(&node).unwrap_or(false)
     });

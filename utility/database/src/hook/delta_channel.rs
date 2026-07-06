@@ -269,9 +269,10 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
       } else {
         if let Some((the_second_change_index, has_change)) = override_mapping.get(handle) {
           if processed_override_second_change_index.insert(*the_second_change_index) {
-            // not processed case
             if *the_second_change_index == current_change_idx {
-              mapping.insert(*handle, change.clone());
+              if *has_change {
+                mapping.insert(*handle, change.clone());
+              }
             } else {
               if *has_change {
                 let (_key, override_change) =
@@ -281,6 +282,8 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
                 if change_to_merge.merge(override_change) {
                   mapping.insert(*handle, change_to_merge);
                 }
+              } else {
+                mapping.insert(*handle, change.clone());
               }
             }
           }
@@ -380,4 +383,62 @@ fn test_same_position_add_remove_edge_case2() {
 
   let v = r.access(&make_handle(3, 1)).unwrap();
   assert_eq!(v, ValueChange::Delta(2, None));
+}
+
+#[test]
+fn test_value_oscillation_same_handle() {
+  let mut collector: FastDeltaChangeCollector<u32> = FastDeltaChangeCollector::new(0, 0);
+  assert!(!collector.has_change());
+
+  // value oscillation within same batch: 10 -> 20 -> 30 -> 20
+  // net effect from original value 10 is Delta(20, Some(10))
+  collector.update_delta(
+    RawEntityHandle::create_only_for_testing(3),
+    ValueChange::Delta(20, Some(10)),
+  );
+  collector.update_delta(
+    RawEntityHandle::create_only_for_testing(3),
+    ValueChange::Delta(30, Some(20)),
+  );
+  collector.update_delta(
+    RawEntityHandle::create_only_for_testing(3),
+    ValueChange::Delta(20, Some(30)),
+  );
+
+  assert_eq!(collector.changes.len(), 2); // fast path 1 + override 1
+  assert!(collector.has_change());
+
+  let r = collector.take().compute_query();
+
+  assert_eq!(r.len(), 1);
+  let v = r
+    .access(&RawEntityHandle::create_only_for_testing(3))
+    .unwrap();
+  assert_eq!(v, ValueChange::Delta(20, Some(10)));
+}
+
+#[test]
+fn test_edge_case3() {
+  fn make_handle(idx: usize, g: u64) -> RawEntityHandle {
+    RawEntityHandle::create_only_for_testing_with_gen(idx, g)
+  }
+
+  let mut collector: FastDeltaChangeCollector<u32> = FastDeltaChangeCollector::new(0, 0);
+  assert!(!collector.has_change());
+
+  collector.update_delta(make_handle(3, 0), ValueChange::Remove(1));
+  collector.update_delta(make_handle(3, 1), ValueChange::Delta(2, None));
+  collector.update_delta(make_handle(3, 1), ValueChange::Remove(2));
+
+  // dbg!(&collector);
+
+  let r = collector.take().compute_query();
+
+  assert_eq!(r.len(), 1);
+
+  let v = r.access(&make_handle(3, 0)).unwrap();
+  assert_eq!(v, ValueChange::Remove(1));
+
+  let v = r.access(&make_handle(3, 1));
+  assert_eq!(v, None);
 }

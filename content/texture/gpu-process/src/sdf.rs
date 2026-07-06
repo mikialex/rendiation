@@ -51,6 +51,7 @@ pub fn compute_sdf(
     let step = create_uniform(
       Vec4::<u32>::new(max_step_width >> i, 0, 0, 0),
       &frame_cx.gpu.device,
+      "jump flooding step",
     );
 
     pass("jump flooding sdf compute iteration")

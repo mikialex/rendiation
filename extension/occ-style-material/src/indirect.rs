@@ -19,15 +19,17 @@ pub fn use_occ_material_indirect_group_key(
     .fanout(effect_ref, cx);
 
   let model_ref = cx.use_db_rev_ref_tri_view::<StdModelOccStyleMaterialPayload>();
-  cx.use_dual_query::<OccStyleMaterialTransparent>()
-    .dual_query_zip(effect)
-    .dual_query_boxed()
-    .dual_query_map(|(is_transparent, effect)| MaterialGroupKey::ForeignHash {
+  effect
+    .dual_query_map(|effect| MaterialGroupKey::ForeignHash {
       internal: fast_hash_scope(|hasher| {
         std::any::TypeId::of::<OccStyleMaterialEntity>().hash(hasher);
         effect.hash(hasher);
       }),
-      require_alpha_blend: is_transparent,
+      require_alpha_blend: if let Some(Some(effect)) = effect.1 {
+        effect.blend.is_some()
+      } else {
+        false
+      },
     })
     .fanout(model_ref, cx)
     .dual_query_boxed()
@@ -65,7 +67,6 @@ pub fn use_occ_material_storage(
 
   cx.when_render(|| OccStyleMaterialIndirectRenderer {
     material_access: read_global_db_foreign_key(),
-    transparent: read_global_db_component(),
     effect_access: read_global_db_foreign_key(),
     shade_type: read_global_db_component(),
     states: read_global_db_component(),
@@ -78,7 +79,6 @@ pub fn use_occ_material_storage(
 #[derive(Clone)]
 pub struct OccStyleMaterialIndirectRenderer {
   material_access: ForeignKeyReadView<StdModelOccStyleMaterialPayload>,
-  transparent: ComponentReadView<OccStyleMaterialTransparent>,
   effect_access: ForeignKeyReadView<OccStyleMaterialEffect>,
   states: ComponentReadView<OccStyleEffectStateOverride>,
   shade_type: ComponentReadView<OccStyleEffectShadeType>,
@@ -94,7 +94,6 @@ impl IndirectModelMaterialRenderImpl for OccStyleMaterialIndirectRenderer {
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let m = self.material_access.get(any_idx)?;
-    let transparent = self.transparent.get_value(m)?;
     let effect = self.effect_access.get(m)?;
     let shade_type = self.shade_type.get_value(effect)?;
     let states = self.states.get(effect)?;
@@ -102,7 +101,6 @@ impl IndirectModelMaterialRenderImpl for OccStyleMaterialIndirectRenderer {
       buffer: self.storages.clone(),
       texture_handles: self.texture_handles.clone(),
       binding_sys: cx,
-      transparent,
       states,
       shade_type,
       reverse_z: self.reverse_z,
@@ -115,13 +113,11 @@ impl IndirectModelMaterialRenderImpl for OccStyleMaterialIndirectRenderer {
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     let m = self.material_access.get(any_idx)?;
-    let transparent = self.transparent.get_value(m)?;
     let effect = self.effect_access.get(m)?;
     let shade_type = self.shade_type.get_value(effect)?;
     let states = self.states.get(effect)?;
-    transparent.hash(hasher);
-    shade_type.hash(hasher);
-    states.hash(hasher);
+    hasher.hash(shade_type);
+    hasher.hash(states);
     Some(())
   }
 
@@ -154,7 +150,6 @@ pub struct OccStyleMaterialStorageGPU<'a> {
   pub buffer: AbstractReadonlyStorageBuffer<[OccStyleMaterialStorage]>,
   pub texture_handles: AbstractReadonlyStorageBuffer<[OccStyleMaterialTextureHandlesStorage]>,
   pub binding_sys: &'a GPUTextureBindingSystem,
-  pub transparent: bool,
   pub states: &'a Option<RasterizationStates>,
   pub shade_type: OccStyleEffectType,
   pub reverse_z: bool,
@@ -164,9 +159,8 @@ impl ShaderHashProvider for OccStyleMaterialStorageGPU<'_> {
   shader_hash_type_id! {OccStyleMaterialStorageGPU<'static>}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.transparent.hash(hasher);
-    self.shade_type.hash(hasher);
-    self.states.hash(hasher); // we are doing indirect draw so it's ok
+    hasher.hash(self.shade_type);
+    hasher.hash(self.states); // we are doing indirect draw so it's ok
   }
 }
 
@@ -176,6 +170,9 @@ impl GraphicsShaderProvider for OccStyleMaterialStorageGPU<'_> {
     builder.vertex(|builder, _| {
       if builder.try_query::<GeometryUV>().is_none() {
         builder.register::<GeometryUV>(val(Vec2::zero()));
+      }
+      if let Some(states) = self.states {
+        apply_pipeline_vertex_builder(states, builder);
       }
     });
     builder.fragment(|builder, binding| {
@@ -194,19 +191,25 @@ impl GraphicsShaderProvider for OccStyleMaterialStorageGPU<'_> {
         val(Vec4::one()),
       );
 
-      builder.register::<DefaultDisplay>(uniform.diffuse * diffuse_alpha_tex);
+      builder.insert_type_tag::<OccSurfaceTag>();
+
+      auto_reverse_normal(builder);
+
       match self.shade_type {
         OccStyleEffectType::Unlit => {
-          builder.insert_type_tag::<UnlitMaterialTag>();
+          let diffuse = uniform.diffuse * diffuse_alpha_tex;
+          builder.register::<ColorChannel>(diffuse.xyz());
+          builder.register::<AlphaChannel>(diffuse.w());
+          builder.register::<DefaultDisplay>(diffuse);
         }
         OccStyleEffectType::Lighted => {
-          let diffuse = uniform.diffuse.xyz() * diffuse_alpha_tex.xyz();
+          let diffuse = uniform.diffuse * diffuse_alpha_tex;
 
-          builder.register::<ColorChannel>(diffuse);
+          builder.register::<ColorChannel>(diffuse.xyz());
+          builder.register::<AlphaChannel>(diffuse.w());
           builder.register::<SpecularChannel>(uniform.specular);
           builder.register::<EmissiveChannel>(uniform.emissive);
           builder.register::<ShininessChannel>(uniform.shininess);
-          builder.insert_type_tag::<PbrSGMaterialTag>();
           builder.insert_type_tag::<LightableSurfaceTag>();
         }
         OccStyleEffectType::Zebra => {
@@ -244,16 +247,8 @@ impl GraphicsShaderProvider for OccStyleMaterialStorageGPU<'_> {
         }
       }
 
-      if self.transparent {
-        builder.frag_output.iter_mut().for_each(|p| {
-          if p.is_blendable() {
-            p.states.blend = BlendState::ALPHA_BLENDING.into();
-          }
-        });
-      }
-
       if let Some(states) = self.states {
-        apply_pipeline_builder(states, self.reverse_z, builder);
+        apply_pipeline_frag_builder(states, self.reverse_z, builder);
       }
     });
   }

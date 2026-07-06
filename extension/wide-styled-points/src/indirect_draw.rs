@@ -1,12 +1,27 @@
 use std::hash::Hash;
 
+use fast_hash_collection::fast_hash_scope;
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
+use rendiation_scene_batch_extractor::SceneModelGroupKey;
 use rendiation_scene_rendering_gpu_indirect::*;
-use rendiation_webgpu_midc_downgrade::{
-  require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
-};
+use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
 use crate::*;
+pub fn use_wide_styled_points_group_key(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>> {
+  let sm_ref_wide_point = cx.use_db_rev_ref_tri_view::<SceneModelWideStyledPointsRenderPayload>();
+  cx.use_dual_query::<WideStyledPointsDepthTestEnabled>()
+    .fanout(sm_ref_wide_point, cx)
+    .dual_query_map(|enable_depth_test| SceneModelGroupKey::ForeignHash {
+      internal: fast_hash_scope(|hasher| {
+        std::any::TypeId::of::<WideStyledPointsEntity>().hash(hasher);
+        enable_depth_test.hash(hasher);
+      }),
+      require_alpha_blend: true,
+    })
+    .dual_query_boxed()
+}
 
 pub fn use_widen_styled_points_indirect_renderer(
   cx: &mut QueryGPUHookCx,
@@ -17,21 +32,15 @@ pub fn use_widen_styled_points_indirect_renderer(
     .use_dual_query::<WideStyledPointsMeshBuffer>()
     .map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
       source_info.delta().into_change().collective_map(|buffer| {
-        // here we assume the buffer is correctly aligned
-        let buffer: &[WideStyledPointVertex] = cast_slice(&buffer);
-        let mut new_buffer =
-          Vec::with_capacity(buffer.len() * std::mem::size_of::<WideStyledPointVertexStorage>());
-        for v in buffer {
-          new_buffer.extend_from_slice(
-            WideStyledPointVertexStorage {
-              position: v.position,
-              style_id: v.style_id,
-              width: v.width,
-              ..Default::default()
-            }
-            .as_bytes(),
-          );
-        }
+        let new_buffer = buffer
+          .iter()
+          .map(|v| WideStyledPointVertexStorage {
+            position: v.position,
+            style_id: v.style_id,
+            width: v.width,
+            ..Default::default()
+          })
+          .collect();
         ExternalRefPtr::new(new_buffer)
       })
     });
@@ -57,7 +66,7 @@ pub fn use_widen_styled_points_indirect_renderer(
     .update_storage_array_with_host(cx, params, offset_of!(WideStyledPointParameters, color));
 
   let color_alpha_texture = offset_of!(WideStyledPointParameters, color_alpha_texture);
-  use_tex_watcher_with_host::<UnlitMaterialColorAlphaTex, _>(cx, params, color_alpha_texture);
+  use_tex_watcher_with_host::<WidePointsColorAlphaTex, _>(cx, params, color_alpha_texture);
 
   params.use_max_item_count_by_db_entity::<WideStyledPointsEntity>(cx);
   params.use_update(cx);
@@ -107,12 +116,6 @@ struct WideStyledPointVertexStorage {
   pub style_id: u32,
 }
 
-impl WideStyledPointVertexStorage {
-  fn u32_size() -> u32 {
-    std::mem::size_of::<Self>() as u32 / 4
-  }
-}
-
 impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
   fn hash_shader_group_key(
     &self,
@@ -120,7 +123,7 @@ impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     let idx = self.model_access.get(any_id)?;
-    self.states.get_value(idx)?.hash(hasher);
+    hasher.hash(self.states.get_value(idx)?);
     Some(())
   }
 
@@ -128,12 +131,20 @@ impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
     self
   }
 
-  fn device_id_injector(
+  fn model_info_injector(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     self.model_access.get(any_idx)?;
     Some(Box::new(()))
+  }
+
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+    self.model_access.get(any_idx)?;
+    Some(None)
   }
 
   fn shape_renderable_indirect<'a>(
@@ -212,7 +223,7 @@ pub struct WidePointsIndirectDrawComponent<'a> {
 impl<'a> ShaderHashProvider for WidePointsIndirectDrawComponent<'a> {
   shader_hash_type_id! {WidePointsIndirectDrawComponent<'static>}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.depth_test_enable.hash(hasher);
+    hasher.hash(self.depth_test_enable);
   }
 }
 
@@ -223,8 +234,6 @@ impl<'a> ShaderPassBuilder for WidePointsIndirectDrawComponent<'a> {
     ctx.binding.bind(self.points);
   }
 }
-
-only_vertex!(WidePointsWidthShader, f32);
 
 impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
@@ -238,11 +247,6 @@ impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
       let points_range = meta.range;
 
       let points = binding.bind_by(self.points);
-
-      // as we are using none indexed draw, this is easier to integrate the midc downgrade
-      if let Some(relative) = builder.try_query::<VertexIndexForMIDCDowngradeRelative>() {
-        builder.register::<VertexIndex>(relative);
-      }
 
       let vertex_index = builder.query::<VertexIndex>();
       let instance_index = vertex_index / val(6);
@@ -264,7 +268,7 @@ impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
       builder.register::<GeometryUV>(vertex);
 
       let point = points
-        .index(instance_index + points_range.x() / val(WideStyledPointVertexStorage::u32_size()))
+        .index(instance_index + points_range.x())
         .load()
         .expand();
 
@@ -367,7 +371,7 @@ impl NoneIndexedDrawCommandBuilder for WidePointsDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let model = self.sm_to_wide.get(id).unwrap();
     let param = self.params_host.get(model.alloc_index()).unwrap().range;
-    let seg_count = param.y / WideStyledPointVertexStorage::u32_size();
+    let seg_count = param.y;
 
     if param.x == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {
       return None;
@@ -410,8 +414,7 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
   ) -> Node<DrawIndirectArgsStorage> {
     let point_id = self.sm_to_wide_points_device.index(draw_id).load();
     // the implementation of range allocate assure the count is zero if allocation failed
-    let seg_count = self.params.index(point_id).load().expand().range.y()
-      / val(WideStyledPointVertexStorage::u32_size());
+    let seg_count = self.params.index(point_id).load().expand().range.y();
 
     ENode::<DrawIndirectArgsStorage> {
       vertex_count: val(6) * seg_count,

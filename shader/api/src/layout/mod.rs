@@ -142,6 +142,12 @@ pub struct Shader140Array<T, const U: usize> {
   pub inner: [Shader140ArrayWrapper<T>; U],
 }
 
+impl<T, const U: usize> Shader140Array<T, U> {
+  pub fn set(&mut self, index: usize, value: T) {
+    self.inner[index].inner = value;
+  }
+}
+
 impl<T: Clone + Default, const U: usize> Shader140Array<T, U> {
   pub fn iter(&self) -> impl Iterator<Item = &T> + '_ {
     self.inner.iter().map(|x| &x.inner)

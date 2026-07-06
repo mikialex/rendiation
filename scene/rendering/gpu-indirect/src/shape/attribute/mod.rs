@@ -3,7 +3,9 @@ use std::{mem::offset_of, sync::Arc};
 use parking_lot::RwLock;
 use rendiation_mesh_core::AttributeSemantic;
 use rendiation_shader_api::*;
-use rendiation_webgpu_midc_downgrade::*;
+
+mod vertex_count;
+pub use vertex_count::*;
 
 mod draw_cmd;
 pub use draw_cmd::*;
@@ -38,11 +40,11 @@ pub fn use_bindless_mesh(
   cx: &mut QueryGPUHookCx,
   init: &BindlessMeshInit,
   merge_with_vertex_allocator: bool,
-  use_midc_downgrade: bool,
+  force_midc_downgrade: bool,
   index_data_source: AttributeIndexDataSource,
   vertex_data_source: AttributeVertexDataSource,
 ) -> Option<MeshGPUBindlessImpl> {
-  let force_midc_downgrade = use_midc_downgrade || merge_with_vertex_allocator;
+  let force_midc_downgrade = force_midc_downgrade || merge_with_vertex_allocator;
 
   let BindlessMeshInit {
     init_index_count,
@@ -137,14 +139,14 @@ fn use_attribute_indices_updates(
       alloc.allocate_readonly::<[u32]>(
         (4 * init_item_count) as u64,
         &gpu.device,
-        Some("bindless mesh index pool"),
+        "bindless mesh index pool",
       )
     } else {
       StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
         &gpu.device,
-        Some("bindless mesh index pool"),
         ZeroedArrayByArrayLength(init_item_count as usize).into(),
         BufferUsages::INDEX,
+        "bindless mesh index pool",
       )
       .into()
     };
@@ -154,13 +156,16 @@ fn use_attribute_indices_updates(
     Arc::new(RwLock::new(indices))
   });
 
+  let label = "indirect mesh indices";
+
   cx.if_inspect(|inspector| {
     let buffer_size = gpu_buffer.read().gpu().byte_size();
-    inspector.label_device_memory_usage("bindless index", buffer_size);
+    inspector.label_device_memory_usage(label, buffer_size);
   });
 
-  let (cx, allocator) =
-    cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_item_count, init_item_count));
+  let allocator = cx.use_sharable_plain_state(|| {
+    GrowableRangeAllocator::new(label, max_item_count, init_item_count)
+  });
 
   let gpu_buffer_ = gpu_buffer.clone();
 
@@ -209,7 +214,8 @@ fn use_attribute_indices_updates(
 
     if let Some(new_size) = changes.resize_to {
       // here we do(request) resize at spawn stage to avoid resize again and again
-      gpu_buffer_.write().resize(new_size);
+      let resize_success = gpu_buffer_.write().resize(new_size);
+      assert!(resize_success);
     }
 
     Arc::new(RangeAllocateBufferUpdates {
@@ -237,6 +243,7 @@ fn use_attribute_indices_updates(
 
 pub const ENABLE_VERTEX_RANGE_UPDATE_DEBUG: bool = false;
 
+/// return (each vertex writes, vertex buffer)
 fn use_attribute_vertex_updates(
   cx: &mut QueryGPUHookCx,
   max_u32_count: u32,
@@ -246,12 +253,9 @@ fn use_attribute_vertex_updates(
   UseResult<Arc<SparseBufferWritesSource>>,
   AbstractReadonlyStorageBuffer<[u32]>,
 ) {
+  let label = "indirect mesh vertices";
   let (cx, vertex_buffer) = cx.use_gpu_init(|gpu, alloc| {
-    let buffer = alloc.allocate_readonly::<[u32]>(
-      init_u32_count as u64 * 4,
-      &gpu.device,
-      Some("bindless mesh vertex pool"),
-    );
+    let buffer = alloc.allocate_readonly::<[u32]>(init_u32_count as u64 * 4, &gpu.device, label);
 
     let buffer = buffer.with_direct_resize(gpu);
 
@@ -260,11 +264,11 @@ fn use_attribute_vertex_updates(
 
   cx.if_inspect(|inspector| {
     let buffer_size = vertex_buffer.read().gpu().byte_size();
-    inspector.label_device_memory_usage("bindless vertex pool", buffer_size);
+    inspector.label_device_memory_usage(label, buffer_size);
   });
 
-  let (cx, allocator) =
-    cx.use_sharable_plain_state(|| GrowableRangeAllocator::new(max_u32_count, init_u32_count));
+  let allocator = cx
+    .use_sharable_plain_state(|| GrowableRangeAllocator::new(label, max_u32_count, init_u32_count));
 
   let gpu_buffer = vertex_buffer.clone();
 
@@ -321,7 +325,8 @@ fn use_attribute_vertex_updates(
 
       if let Some(new_size) = changes.resize_to {
         // here we do(request) resize at spawn stage to avoid resize again and again
-        gpu_buffer.write().resize(new_size);
+        let resize_success = gpu_buffer.write().resize(new_size);
+        assert!(resize_success);
       }
 
       Arc::new(RangeAllocateBufferUpdates {
@@ -467,12 +472,6 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
       is_indexed,
     };
 
-    let mesh_system = MidcDowngradeWrapperForIndirectMeshSystem {
-      index: is_indexed.then(|| mesh_system.internal.index_pool.clone()),
-      mesh_system,
-      enable_downgrade: self.used_in_midc_downgrade,
-    };
-
     Some(Box::new(mesh_system))
   }
 
@@ -483,9 +482,9 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
   ) -> Option<()> {
     let mesh_id = self.checker.get(any_id)?;
     let topology = self.topology_checker.get(mesh_id)?;
-    topology.hash(hasher);
+    hasher.hash(topology);
     let is_index_mesh = self.indices_checker.get(mesh_id).is_some();
-    is_index_mesh.hash(hasher);
+    hasher.hash(is_index_mesh);
     Some(())
   }
 
@@ -536,5 +535,19 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
         )
       })
       .into()
+  }
+
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<StandardModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+    let mesh_id = self.checker.get(any_idx)?;
+    // check mesh must have indices.
+    let is_indexed = self.indices_checker.get(mesh_id).is_some();
+    if is_indexed {
+      Some(Some(self.indices.clone()))
+    } else {
+      Some(None)
+    }
   }
 }

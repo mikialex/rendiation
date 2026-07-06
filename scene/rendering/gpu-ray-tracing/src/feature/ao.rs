@@ -73,7 +73,7 @@ impl AORenderState {
         TextureFormat::Rgba8Unorm,
       ),
       sample_count_host: Default::default(),
-      sample_count: create_uniform(Vec4::zeroed(), gpu),
+      sample_count: create_uniform(Vec4::zeroed(), gpu, "AOSampleCount"),
     }
   }
   fn next_sample(&mut self, gpu: &GPU) {

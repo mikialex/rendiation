@@ -76,7 +76,9 @@ pub fn use_db_all_entity_ref_count_change(
     let mut update_groups = FastHashMap::<EntityId, Vec<ForeignKeyChangeFut>>::default();
     for ((refed_e_id, _), change) in changes {
       let updates = update_groups.entry(refed_e_id).or_default();
-      updates.push(change.expect_spawn_stage_future())
+      if let Some(change) = change.into_spawn_stage_future() {
+        updates.push(change);
+      }
     }
 
     let mut all_entity_updates = Vec::default();

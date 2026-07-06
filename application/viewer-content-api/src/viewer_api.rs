@@ -264,7 +264,7 @@ impl ViewerAPI {
     let (gpu, _) = pollster::block_on(GPU::new(gpu_config)).unwrap();
     let gpu_and_surface = WGPUAndInitSurface { gpu, surface: None };
 
-    let worker = TaskSpawner::new("viewer-api", None);
+    let worker = TaskSpawner::new("viewer-api", init_config.init_only.thread_pool_thread_count);
 
     let viewer = Viewer::new(gpu_and_surface.gpu.clone(), &init_config, worker.clone());
 
@@ -473,6 +473,7 @@ impl ViewerQueryAPI {
         &mut results,
         &mut model_results,
         &mut local_result_scratch,
+        false,
       );
     }
 
@@ -527,6 +528,7 @@ impl ViewerQueryAPI {
           ObjectTestPolicy::Intersect
         },
         &mut |r| output_results.push(r.into_raw().into()),
+        false,
       );
       //
     }

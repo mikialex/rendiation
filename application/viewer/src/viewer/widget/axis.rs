@@ -80,8 +80,9 @@ impl AxisData {
       line: UniformBufferCachedDataView::create(
         &gpu.device,
         ShaderLine::new(ray.origin, ray.direction.value.into_f32()),
+        "axis line",
       ),
-      shading: UniformBufferCachedDataView::create(&gpu.device, color),
+      shading: UniformBufferCachedDataView::create(&gpu.device, color, "axis color"),
     }
   }
 }

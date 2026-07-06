@@ -1,6 +1,7 @@
 /target
 /temp
 /svg_output_dir
+/doc
 **/*.rs.bk
 **/*.DS_Store
 
@@ -10,3 +11,4 @@
 db_save.bin
 
 /viewer_init_config.json
+/viewer_app_init_config.json

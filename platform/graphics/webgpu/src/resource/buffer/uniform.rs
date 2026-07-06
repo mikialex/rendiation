@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use rendiation_shader_api::{Shader140Array, ShaderSizedValueNodeType, Std140};
+use rendiation_shader_api::Std140;
 
 use crate::*;
 
@@ -24,14 +24,14 @@ impl<T: Std140> PartialEq for UniformBufferDataView<T> {
 }
 
 impl<T: Std140> UniformBufferDataView<T> {
-  pub fn create_default(device: &GPUDevice) -> Self
+  pub fn create_default(device: &GPUDevice, debug_label: &str) -> Self
   where
     T: Default,
   {
-    Self::create(device, T::default())
+    Self::create(device, T::default(), debug_label)
   }
 
-  pub fn create(device: &GPUDevice, data: T) -> Self {
+  pub fn create(device: &GPUDevice, data: T, debug_label: &str) -> Self {
     let usage = gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST;
 
     let init = BufferInit::WithInit(data.as_bytes());
@@ -40,7 +40,7 @@ impl<T: Std140> UniformBufferDataView<T> {
       usage,
     };
 
-    let gpu = GPUBuffer::create(device, None, init, usage);
+    let gpu = GPUBuffer::create(device, Some(debug_label), init, usage);
     let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
 
     Self {
@@ -74,8 +74,9 @@ impl<T: Std140> BindableResourceView for UniformBufferDataView<T> {
 pub fn create_uniform<T: Std140>(
   data: T,
   device: impl AsRef<GPUDevice>,
+  debug_label: &str,
 ) -> UniformBufferDataView<T> {
-  UniformBufferDataView::create(device.as_ref(), data)
+  UniformBufferDataView::create(device.as_ref(), data, debug_label)
 }
 
 /// Typed uniform buffer with cpu data cache, which could being diffed when updating to gpu
@@ -95,8 +96,9 @@ impl<T: Std140> PartialEq for UniformBufferCachedDataView<T> {
 pub fn create_uniform_with_cache<T: Std140>(
   data: T,
   device: impl AsRef<GPUDevice>,
+  debug_label: &str,
 ) -> UniformBufferCachedDataView<T> {
-  UniformBufferCachedDataView::create(device.as_ref(), data)
+  UniformBufferCachedDataView::create(device.as_ref(), data, debug_label)
 }
 
 impl<T: Std140> BindableResourceProvider for UniformBufferCachedDataView<T> {
@@ -116,16 +118,16 @@ impl<T: Std140> BindableResourceView for UniformBufferCachedDataView<T> {
 }
 
 impl<T: Std140> UniformBufferCachedDataView<T> {
-  pub fn create_default(device: &GPUDevice) -> Self
+  pub fn create_default(device: &GPUDevice, debug_label: &str) -> Self
   where
     T: Default,
   {
-    Self::create(device, T::default())
+    Self::create(device, T::default(), debug_label)
   }
 
-  pub fn create(device: &GPUDevice, data: T) -> Self {
+  pub fn create(device: &GPUDevice, data: T, debug_label: &str) -> Self {
     Self {
-      gpu: UniformBufferDataView::create(device, data),
+      gpu: UniformBufferDataView::create(device, data, debug_label),
       diff: Arc::new(RwLock::new(DiffState::new(data))),
     }
   }
@@ -197,53 +199,4 @@ impl<T> DiffState<T> {
       changed: false,
     }
   }
-}
-
-pub struct ClampedUniformList<T: Std140, const N: usize> {
-  pub source: Vec<T>,
-  pub gpu: Option<UniformBufferCachedDataView<Shader140Array<T, N>>>,
-}
-
-impl<T: Std140, const N: usize> Default for ClampedUniformList<T, N> {
-  fn default() -> Self {
-    Self {
-      source: Default::default(),
-      gpu: Default::default(),
-    }
-  }
-}
-
-impl<T: Std140 + Default, const N: usize> ClampedUniformList<T, N> {
-  pub fn reset(&mut self) {
-    self.source.clear();
-    self.gpu.take();
-  }
-
-  pub fn update_gpu(&mut self, gpu: &GPUDevice) -> usize {
-    let mut source = vec![T::default(); N];
-    for (i, light) in self.source.iter().enumerate() {
-      if i >= N {
-        break;
-      }
-      source[i] = *light;
-    }
-    let source = source.try_into().unwrap();
-    let lights_gpu = create_uniform_with_cache(source, gpu);
-    self.gpu = lights_gpu.into();
-    self.source.len()
-  }
-}
-
-impl<T, const N: usize> ShaderPassBuilder for ClampedUniformList<T, N>
-where
-  T: Std140 + ShaderSizedValueNodeType,
-{
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.gpu.as_ref().unwrap());
-  }
-}
-
-impl<T: Std140, const N: usize> ShaderHashProvider for ClampedUniformList<T, N> {
-  fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
-  shader_hash_type_id! {}
 }

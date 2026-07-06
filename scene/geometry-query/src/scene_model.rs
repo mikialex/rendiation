@@ -7,6 +7,7 @@ pub trait SceneModelPicker {
     idx: EntityHandle<SceneModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
+    ignore_pre_check: bool,
   ) -> Option<MeshBufferHitPoint<f64>>;
 
   /// if the override_world_mat used, the internal node matrix is ignored
@@ -20,6 +21,7 @@ pub trait SceneModelPicker {
     ctx: &SceneRayQuery,
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
+    ignore_pre_check: bool,
   ) -> Option<()>;
 
   fn frustum_query(
@@ -28,6 +30,7 @@ pub trait SceneModelPicker {
     override_world_mat: Option<&Mat4<f64>>,
     frustum: &SceneFrustumQuery,
     policy: ObjectTestPolicy,
+    ignore_pre_check: bool,
   ) -> Option<bool>;
 }
 
@@ -43,8 +46,9 @@ impl<'a> SceneModelPicker for Box<dyn SceneModelPicker + 'a> {
     idx: EntityHandle<SceneModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
+    ignore_pre_check: bool,
   ) -> Option<MeshBufferHitPoint<f64>> {
-    (**self).ray_query_nearest(idx, override_world_mat, ctx)
+    (**self).ray_query_nearest(idx, override_world_mat, ctx, ignore_pre_check)
   }
 
   fn ray_query_all(
@@ -54,8 +58,16 @@ impl<'a> SceneModelPicker for Box<dyn SceneModelPicker + 'a> {
     ctx: &SceneRayQuery,
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
+    ignore_pre_check: bool,
   ) -> Option<()> {
-    (**self).ray_query_all(idx, override_world_mat, ctx, results, local_result_scratch)
+    (**self).ray_query_all(
+      idx,
+      override_world_mat,
+      ctx,
+      results,
+      local_result_scratch,
+      ignore_pre_check,
+    )
   }
 
   fn frustum_query(
@@ -64,8 +76,9 @@ impl<'a> SceneModelPicker for Box<dyn SceneModelPicker + 'a> {
     override_world_mat: Option<&Mat4<f64>>,
     frustum: &SceneFrustumQuery,
     policy: ObjectTestPolicy,
+    ignore_pre_check: bool,
   ) -> Option<bool> {
-    (**self).frustum_query(idx, override_world_mat, frustum, policy)
+    (**self).frustum_query(idx, override_world_mat, frustum, policy, ignore_pre_check)
   }
 }
 
@@ -75,9 +88,11 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
     idx: EntityHandle<SceneModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
+    ignore_pre_check: bool,
   ) -> Option<MeshBufferHitPoint<f64>> {
     for provider in self {
-      if let Some(hit) = provider.ray_query_nearest(idx, override_world_mat, ctx) {
+      if let Some(hit) = provider.ray_query_nearest(idx, override_world_mat, ctx, ignore_pre_check)
+      {
         return Some(hit);
       }
     }
@@ -91,10 +106,18 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
     ctx: &SceneRayQuery,
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
+    ignore_pre_check: bool,
   ) -> Option<()> {
     for provider in self {
       if provider
-        .ray_query_all(idx, override_world_mat, ctx, results, local_result_scratch)
+        .ray_query_all(
+          idx,
+          override_world_mat,
+          ctx,
+          results,
+          local_result_scratch,
+          ignore_pre_check,
+        )
         .is_some()
       {
         return Some(());
@@ -109,9 +132,12 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
     override_world_mat: Option<&Mat4<f64>>,
     frustum: &SceneFrustumQuery,
     policy: ObjectTestPolicy,
+    ignore_pre_check: bool,
   ) -> Option<bool> {
     for provider in self {
-      if let Some(r) = provider.frustum_query(idx, override_world_mat, frustum, policy) {
+      if let Some(r) =
+        provider.frustum_query(idx, override_world_mat, frustum, policy, ignore_pre_check)
+      {
         return Some(r);
       }
     }
@@ -119,23 +145,24 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
   }
 }
 
-pub struct SceneModelPickerBaseImpl<T> {
+#[derive(Clone)]
+pub struct SceneModelPickerBaseImplUtil {
   pub node_world: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
-  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
-  pub sm_local_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
   pub selectable: ComponentReadView<SceneModelSelectable>,
-  pub internal: T,
-  // keep result if return true
-  pub filter: Option<Box<dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool>>,
 }
 
-impl<T> SceneModelPickerBaseImpl<T> {
+impl SceneModelPickerBaseImplUtil {
   pub fn pre_check(
     &self,
     idx: EntityHandle<SceneModelEntity>,
+    ignore_pre_check: bool,
   ) -> Option<EntityHandle<SceneNodeEntity>> {
+    if ignore_pre_check {
+      return Some(self.scene_model_node.get(idx)?);
+    }
+
     if !self.selectable.get(idx).copied().unwrap() {
       return None;
     }
@@ -146,6 +173,18 @@ impl<T> SceneModelPickerBaseImpl<T> {
 
     Some(node)
   }
+  pub fn get_node_mat(&self, node: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f64>> {
+    self.node_world.access(&node)
+  }
+}
+
+pub struct SceneModelPickerBaseImpl<T> {
+  pub util: SceneModelPickerBaseImplUtil,
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
+  pub sm_local_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
+  pub internal: T,
+  // keep result if return true
+  pub filter: Option<Box<dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool>>,
 }
 
 impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
@@ -154,8 +193,9 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     idx: EntityHandle<SceneModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
+    ignore_pre_check: bool,
   ) -> Option<MeshBufferHitPoint<f64>> {
-    let node = self.pre_check(idx)?;
+    let node = self.util.pre_check(idx, ignore_pre_check)?;
 
     let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
       let smb = self
@@ -166,7 +206,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       (*mat, smb)
     } else {
       (
-        self.node_world.access(&node)?,
+        self.util.get_node_mat(node)?,
         self.sm_world_bounding.access(&idx)??,
       )
     };
@@ -220,8 +260,9 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     ctx: &SceneRayQuery,
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
+    ignore_pre_check: bool,
   ) -> Option<()> {
-    let node = self.pre_check(idx)?;
+    let node = self.util.pre_check(idx, ignore_pre_check)?;
 
     let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
       let smb = self
@@ -232,7 +273,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       (*mat, smb)
     } else {
       (
-        self.node_world.access(&node)?,
+        self.util.get_node_mat(node)?,
         self.sm_world_bounding.access(&idx)??,
       )
     };
@@ -284,8 +325,9 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneFrustumQuery,
     policy: ObjectTestPolicy,
+    ignore_pre_check: bool,
   ) -> Option<bool> {
-    let node = self.pre_check(idx)?;
+    let node = self.util.pre_check(idx, ignore_pre_check)?;
 
     let (mat, _sm_world_bounding) = if let Some(mat) = override_world_mat {
       let smb = self
@@ -296,7 +338,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       (*mat, smb)
     } else {
       (
-        self.node_world.access(&node)?,
+        self.util.get_node_mat(node)?,
         self.sm_world_bounding.access(&idx)??,
       )
     };
@@ -328,13 +370,14 @@ fn pre_check_bounding_early_return_and_compute_local_tolerance(
   internal: &impl LocalModelPicker,
   mat: Mat4<f64>,
 ) -> Option<f32> {
+  let max_scale = mat.max_scale();
   let mut local_tolerance = if let Some(tolerance) = internal.bounding_enlarge_tolerance(idx)? {
     let target_world_center = sm_world_bounding.center();
 
     let local_tolerance =
       ctx
         .camera_ctx
-        .compute_local_tolerance(tolerance, mat.max_scale(), target_world_center);
+        .compute_local_tolerance(tolerance, max_scale, target_world_center);
     local_tolerance
   } else {
     0.
@@ -344,13 +387,13 @@ fn pre_check_bounding_early_return_and_compute_local_tolerance(
     let target_world_center = sm_world_bounding.center();
     local_tolerance += ctx.camera_ctx.compute_local_tolerance(
       IntersectTolerance::new(ctx.extra_screen_space_tolerance, ToleranceType::ScreenSpace),
-      mat.max_scale(),
+      max_scale,
       target_world_center,
     );
   }
 
   if local_tolerance > 0. {
-    sm_world_bounding = sm_world_bounding.enlarge(local_tolerance as f64);
+    sm_world_bounding = sm_world_bounding.enlarge(local_tolerance as f64 * max_scale);
   }
 
   let sm_intersected =

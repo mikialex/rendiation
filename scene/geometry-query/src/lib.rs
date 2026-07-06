@@ -42,6 +42,7 @@ pub struct CameraQueryCtx {
   pub pixels_per_unit_calc: Box<dyn Fn(f32, f32) -> f32>,
   pub camera_world: Mat4<f64>,
   pub camera_vp: Mat4<f64>,
+  pub camera_max_scale: f32,
 }
 
 impl CameraQueryCtx {
@@ -51,8 +52,9 @@ impl CameraQueryCtx {
     target_world_mat_max_scale: f64,
     target_object_center_in_world: Vec3<f64>,
   ) -> f32 {
-    // todo, should we considering camera scale??
-    let mut local_tolerance = tolerance.value / target_world_mat_max_scale as f32;
+    // take care of camera scale is important, user will likely using scale to control the orth camera view range.
+    let mut local_tolerance =
+      tolerance.value * self.camera_max_scale / target_world_mat_max_scale as f32;
 
     if let ToleranceType::ScreenSpace = tolerance.ty {
       let camera_to_target = target_object_center_in_world - self.camera_world.position();

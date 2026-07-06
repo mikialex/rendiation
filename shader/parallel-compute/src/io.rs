@@ -45,7 +45,7 @@ pub fn slice_into_compute<T: Std430 + ShaderSizedValueNodeType>(
   data: &[T],
   cx: &mut DeviceParallelComputeCtx,
 ) -> DeviceMaterializeResult<T> {
-  let storage = create_gpu_readonly_storage(data, &cx.gpu);
+  let storage = create_gpu_readonly_storage(data, &cx.gpu, "slice_into_compute data input");
   storage_full_into_compute(storage)
 }
 
@@ -125,7 +125,7 @@ impl<T: Std430> ShaderHashProvider for DeviceMaterializeResult<T> {
   shader_hash_type_id! {}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.size.is_some().hash(hasher)
+    hasher.hash(self.size.is_some());
   }
 }
 
@@ -138,7 +138,45 @@ impl<T: Std430 + ShaderSizedValueNodeType> ComputeComponentIO<T> for DeviceMater
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
+    // The result is already materialized in self.buffer. Returning self.clone()
+    // avoids an unnecessary GPU copy. Callers that need the data in a specific
+    // buffer should use copy_result_into() instead.
     self.clone()
+  }
+}
+
+impl<T: Std430 + ShaderSizedValueNodeType> DeviceMaterializeResult<T> {
+  /// Copy the already-materialized result into a caller-owned buffer.
+  ///
+  /// This records a GPU buffer-to-buffer copy command, flushing any open
+  /// compute pass first. Returns a new DeviceMaterializeResult backed by
+  /// the target buffer.
+  pub fn copy_result_into(
+    &self,
+    target: StorageBufferDataView<[T]>,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T> {
+    cx.flush_pass();
+
+    let src_size = self.buffer.item_count() as u64 * core::mem::size_of::<T>() as u64;
+    let dst_size = target.item_count() as u64 * core::mem::size_of::<T>() as u64;
+    assert_eq!(
+      src_size, dst_size,
+      "copy_result_into: size mismatch (src={src_size}, dst={dst_size})"
+    );
+
+    cx.encoder.copy_buffer_to_buffer(
+      self.buffer.gpu.resource.gpu(),
+      self.buffer.gpu.range.offset,
+      target.gpu.resource.gpu(),
+      target.gpu.range.offset,
+      src_size,
+    );
+
+    DeviceMaterializeResult {
+      buffer: target.into_readonly_view(),
+      size: self.size.clone(),
+    }
   }
 }
 

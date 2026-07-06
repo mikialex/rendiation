@@ -1,4 +1,4 @@
-use std::{mem::offset_of, sync::Arc};
+use std::sync::Arc;
 
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
@@ -17,6 +17,8 @@ pub use cascade::*;
 
 mod map_utils;
 use map_utils::*;
+
+pub const MAX_SHADOW_COUNT: usize = 8;
 
 pub struct ShadowPassDesc {
   desc: RenderPassDescription,
@@ -104,43 +106,5 @@ pub fn create_shadow_depth_sampler_desc(reversed_depth: bool) -> SamplerDescript
       CompareFunction::Less
     }),
     ..Default::default()
-  }
-}
-
-pub trait RandomAccessShadowProvider: ShaderHashProvider {
-  fn bind_shader(
-    &self,
-    cx: &mut ShaderBindGroupBuilder,
-  ) -> Box<dyn RandomAccessShadowProviderInvocation>;
-  fn bind_pass(&self, cx: &mut BindingBuilder);
-}
-
-pub trait RandomAccessShadowProviderInvocation {
-  fn get_shadow_by_light_id(&self, light_id: Node<u32>) -> Box<dyn ShadowOcclusionQuery>;
-}
-
-#[derive(Clone)]
-pub struct ShadowRandomAccessed {
-  pub shadow: Arc<dyn RandomAccessShadowProviderInvocation>,
-  pub light_id: Node<u32>,
-}
-
-impl ShadowOcclusionQuery for ShadowRandomAccessed {
-  fn query_shadow_occlusion(
-    &self,
-    render_position: Node<Vec3<f32>>,
-    render_normal: Node<Vec3<f32>>,
-    camera_world_position: Node<HighPrecisionTranslation>,
-    camera_world_none_translation_mat: Node<Mat4<f32>>,
-  ) -> Node<f32> {
-    self
-      .shadow
-      .get_shadow_by_light_id(self.light_id)
-      .query_shadow_occlusion(
-        render_position,
-        render_normal,
-        camera_world_position,
-        camera_world_none_translation_mat,
-      )
   }
 }

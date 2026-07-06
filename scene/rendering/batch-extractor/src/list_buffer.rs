@@ -23,11 +23,12 @@ impl PersistSceneModelListBufferMutation {
     }
   }
   pub fn into_sparse_update(self) -> Option<SparseBufferWritesSource> {
-    let change_count = self.mapping_change.len();
-    if change_count == 0 {
+    // Even when mapping_change is empty, the length update (index 0) may still be
+    // needed — e.g. when all items were removed and new_len becomes 0.
+    if self.mapping_change.is_empty() && self.len_before_updates == self.new_len {
       return None;
     }
-    let change_count = change_count + 1;
+    let change_count = self.mapping_change.len() + 1;
     let byte_change_capacity = change_count * 4;
     let mut updates = SparseBufferWritesSource::with_capacity(byte_change_capacity, change_count);
 
@@ -85,20 +86,21 @@ impl PersistSceneModelListBuffer {
       .get_or_insert_with(|| PersistSceneModelListBufferMutation::new(self.host.len()));
 
     let idx = self.mapping.remove(&sm_handle).unwrap();
-    if self.host.len() > 1 {
-      if let Some(tail_item) = self.host.last().cloned() {
-        self.host.swap_remove(idx);
-        self.mapping.insert(tail_item, idx);
+    let old_last_idx = self.host.len() - 1;
+    if idx != old_last_idx {
+      // The removed element was not the last; swap the tail into its place.
+      let tail_item = self.host.last().cloned().unwrap();
+      self.host.swap_remove(idx);
+      self.mapping.insert(tail_item, idx);
 
-        mutations.mapping_change.remove(&self.host.len());
-        mutations
-          .mapping_change
-          .insert(idx, tail_item.alloc_index());
-      }
+      mutations.mapping_change.remove(&old_last_idx);
+      mutations
+        .mapping_change
+        .insert(idx, tail_item.alloc_index());
     } else {
-      assert_eq!(idx, 0);
+      // Removing the last element — just pop, no swap needed.
       self.host.pop();
-      mutations.mapping_change.remove(&0);
+      mutations.mapping_change.remove(&idx);
     }
 
     mutations.new_len = self.host.len();
@@ -120,14 +122,15 @@ impl PersistSceneModelListBuffer {
         buffer: alloc.allocate_readonly(
           new_bytes_required,
           &gpu.device,
-          Some("PersistSceneModelListBuffer"),
+          "PersistSceneModelListBuffer",
         ),
       });
 
     if buffer.buffer.item_count() < new_capacity_required as u32 {
-      buffer
+      let success = buffer
         .buffer
         .resize_gpu(encoder, &gpu.device, new_bytes_required);
+      assert!(success);
     }
 
     updates.write_abstract(gpu, encoder, &buffer.buffer);

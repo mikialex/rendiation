@@ -28,40 +28,14 @@ pub struct ViewerInitConfig {
   pub always_enable_caching_frame_for_direct_read: bool,
   pub init_only: ViewerStaticInitConfig,
   pub light_surface_ty: ViewerLightSurfaceType,
-  pub features: ViewerFeaturesInitConfig,
-}
-
-#[derive(Serialize, Deserialize, Default, Clone)]
-pub struct ViewerFeaturesInitConfig {
-  pub pick_scene: PickScenePersistConfig,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct PickScenePersistConfig {
-  /// prefer gpu picking for nearest hit query if target platform has correct support
-  pub prefer_gpu_picking: bool,
-  pub enable_hit_debug_log: bool,
-  pub range_query_contains: bool,
-  /// compute and cache frustum edge/corner data for exact SAT intersection tests;
-  /// disabling reduces per-frame cost at the expense of conservative results
-  pub precise_intersection_test: bool,
-}
-
-impl Default for PickScenePersistConfig {
-  fn default() -> Self {
-    Self {
-      prefer_gpu_picking: true,
-      enable_hit_debug_log: true,
-      range_query_contains: false,
-      precise_intersection_test: true,
-    }
-  }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)] // any missing field will be set to the struct's default
 /// configs that can not be changed dynamically in runtime
 pub struct ViewerStaticInitConfig {
+  /// this config should be changed at runtime, but due to the implementation limitation, we have to put it here for now
+  pub use_native_line_for_one_width_line: bool,
   pub texture_pool_source_init_config: TexturePoolSourceInit,
   /// None means use available parallelism, 1 means no parallelism
   pub thread_pool_thread_count: Option<usize>,
@@ -120,6 +94,7 @@ impl Default for ViewerStaticInitConfig {
       bindless_mesh_init: Default::default(),
       wgpu_backend_select_override: None,
       enable_indirect_storage_combine: true,
+      use_native_line_for_one_width_line: true,
       occlusion_culling_max_scene_model_count: u16::MAX as u32,
       using_texture_as_storage_buffer_for_indirect_rendering: false,
       default_shader_protections: ShaderRuntimeProtection {
@@ -196,7 +171,6 @@ impl Default for ViewerInitConfig {
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       light_surface_ty: ViewerLightSurfaceType::Pbr,
       init_only: ViewerStaticInitConfig::default(),
-      features: Default::default(),
     }
   }
 }

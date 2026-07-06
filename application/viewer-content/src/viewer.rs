@@ -10,9 +10,9 @@ pub struct Viewer {
   pub started_time: Instant,
   pub memory: FunctionMemory,
   pub shared_ctx: SharedHooksCtx,
-  pub features_config: ViewerFeaturesInitConfig,
   pub enable_inspection: bool,
   pub use_scene_bvh: bool,
+  pub should_trace_next_frame_allocation_info: bool,
   pub font_system: Arc<RwLock<FontSystem>>,
 }
 
@@ -61,6 +61,10 @@ pub fn drop_viewer_from_dyn_cx(viewer: &mut Viewer, dyn_cx: &mut DynCx) {
   };
   viewer.memory.cleanup(&mut dcx as *mut _ as *mut ());
 
+  // the current rendering root contains event source event remover,
+  // if we not drop here, it will dead lock because of living writer.
+  drop(dcx);
+
   viewer.rendering_root.cleanup();
 
   log::info!("drop viewer from dyn_cx");
@@ -87,10 +91,10 @@ impl Viewer {
       started_time: Instant::now(),
       memory: Default::default(),
       shared_ctx: Default::default(),
-      features_config: init_config.features.clone(),
       enable_inspection: false,
       font_system,
       use_scene_bvh: init_config.use_scene_bvh,
+      should_trace_next_frame_allocation_info: false,
     }
   }
 
@@ -143,8 +147,6 @@ impl Viewer {
 
     config.present_mode = surface.internal(|v| v.config.present_mode);
     config.use_scene_bvh = self.use_scene_bvh;
-
-    config.features = self.features_config.clone();
     config
   }
 }

@@ -148,11 +148,14 @@ async fn run_gpu_test(surface: &RationalBezierSurface<f32>, sample_count: u32, e
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let total_samples = (sample_count * sample_count) as usize;
 
-  let info = create_gpu_readonly_storage(&surface.to_gpu_info(), &gpu);
-  let cp = create_gpu_readonly_storage(&surface.to_gpu_control_points(), &gpu);
-  let binomial = create_gpu_readonly_storage(BINOMIAL_COEFFICIENTS.as_slice(), &gpu);
-  let output =
-    create_gpu_read_write_storage::<[Vec4<f32>]>(ZeroedArrayByArrayLength(total_samples), &gpu);
+  let info = create_gpu_readonly_storage(&surface.to_gpu_info(), &gpu, "info");
+  let cp = create_gpu_readonly_storage(&surface.to_gpu_control_points(), &gpu, "cp");
+  let binomial = create_gpu_readonly_storage(BINOMIAL_COEFFICIENTS.as_slice(), &gpu, "binomial");
+  let output = create_gpu_read_write_storage::<[Vec4<f32>]>(
+    ZeroedArrayByArrayLength(total_samples),
+    &gpu,
+    "output",
+  );
 
   let workgroup_size: u32 = 64;
 

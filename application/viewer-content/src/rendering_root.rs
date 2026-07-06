@@ -48,14 +48,13 @@ impl RenderingRoot {
       .cleanup(&mut dcx as *mut _ as *mut ());
 
     for m in self.render_process_memory.values_mut() {
-      m.cleanup(&mut dcx as *mut _ as *mut ());
+      m.cleanup(&mut () as *mut _ as *mut ());
     }
   }
 
   pub fn drop_surface_render_process_memory(&mut self, surface_id: u32) {
     if let Some(mut mem) = self.render_process_memory.remove(&surface_id) {
-      let mut dcx = QueryGPUHookDropCx {};
-      mem.cleanup(&mut dcx as *mut _ as *mut ());
+      mem.cleanup(&mut () as *mut _ as *mut ());
     }
   }
 
@@ -173,6 +172,7 @@ impl RenderingRoot {
             dyn_cx,
           }
           .execute(|cx| {
+            selection_info.selected_model.register(cx.waker());
             rendering
               .use_viewer_scene_renderer(cx, surface_content, viewports_map)
               .unwrap()

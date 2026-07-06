@@ -1,35 +1,58 @@
 use std::hash::Hash;
 
+use fast_hash_collection::fast_hash_scope;
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
-use rendiation_webgpu_midc_downgrade::{
-  require_midc_downgrade, VertexIndexForMIDCDowngradeRelative,
-};
+use rendiation_scene_batch_extractor::SceneModelGroupKey;
+use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
 use crate::*;
+
+/// use_native_line_for_one_width_line must be immutable in all time
+pub fn use_wide_line_group_key(
+  cx: &mut impl DBHookCxLike,
+  use_native_line_for_one_width_line: bool,
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>> {
+  let sm_ref_wide_line = cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>();
+  cx.use_dual_query::<WideLineDepthEnable>()
+    .dual_query_zip(cx.use_dual_query::<WideLineTransparent>())
+    .dual_query_boxed()
+    .dual_query_zip(cx.use_dual_query::<WideLineWidth>())
+    .dual_query_boxed()
+    .fanout(sm_ref_wide_line, cx)
+    .dual_query_map(move |((enable_depth, trans), width)| {
+      SceneModelGroupKey::ForeignHash {
+        internal: fast_hash_scope(|hasher| {
+          std::any::TypeId::of::<WideLineModelEntity>().hash(hasher);
+          (enable_depth, trans).hash(hasher);
+          // this config is init only(immutable), so we don't need to consider it's change
+          if use_native_line_for_one_width_line {
+            (width == 1.0).hash(hasher);
+          }
+        }),
+        require_alpha_blend: trans,
+      }
+    })
+    .dual_query_boxed()
+}
 
 pub fn use_widen_line_indirect_renderer(
   cx: &mut QueryGPUHookCx,
   force_midc_downgrade: bool,
+  use_native_line_for_one_width_line: bool,
 ) -> Option<WideLineModelIndirectRenderer> {
   let data_source = cx
     .use_dual_query::<WideLineMeshBuffer>()
     .map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
       source_info.delta().into_change().collective_map(|buffer| {
-        // here we assume the buffer is correctly aligned
-        let buffer: &[WideLineVertex] = cast_slice(&buffer);
-        let mut new_buffer =
-          Vec::with_capacity(buffer.len() * std::mem::size_of::<WideLineVertexStorage>());
-        for v in buffer {
-          new_buffer.extend_from_slice(
-            WideLineVertexStorage {
-              start: v.start,
-              end: v.end,
-              color: v.color,
-              ..Default::default()
-            }
-            .as_bytes(),
-          );
-        }
+        let new_buffer = buffer
+          .iter()
+          .map(|v| WideLineVertexStorage {
+            start: v.start,
+            end: v.end,
+            color: v.color,
+            ..Default::default()
+          })
+          .collect::<Vec<_>>();
         ExternalRefPtr::new(new_buffer)
       })
     });
@@ -91,21 +114,25 @@ pub fn use_widen_line_indirect_renderer(
     segments,
     params: params.get_gpu_buffer(),
     states: read_global_db_component(),
+    transparent: read_global_db_component(),
     sm_to_wide_line_device: sm_to_wide_line_device.unwrap(),
     params_host: params.buffer.make_read_holder(),
     used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
+    use_native_line_for_one_width_line,
   })
 }
 
 pub struct WideLineModelIndirectRenderer {
   model_access: ForeignKeyReadView<SceneModelWideLineRenderPayload>,
   states: ComponentReadView<WideLineDepthEnable>,
+  transparent: ComponentReadView<WideLineTransparent>,
   segments: AbstractReadonlyStorageBuffer<[WideLineVertexStorage]>,
   params: AbstractReadonlyStorageBuffer<[WideLineParameters]>,
   /// we keep the host metadata to support creating draw commands from host
   params_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<WideLineParameters>>,
   sm_to_wide_line_device: AbstractReadonlyStorageBuffer<[u32]>,
   used_in_midc_downgrade: bool,
+  use_native_line_for_one_width_line: bool,
 }
 
 #[repr(C)]
@@ -129,12 +156,6 @@ struct WideLineVertexStorage {
   pub color: Vec4<f32>,
 }
 
-impl WideLineVertexStorage {
-  fn u32_size() -> u32 {
-    std::mem::size_of::<Self>() as u32 / 4
-  }
-}
-
 impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
   fn hash_shader_group_key(
     &self,
@@ -143,7 +164,9 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
   ) -> Option<()> {
     let wide_line_id = self.model_access.get(any_id)?;
     let enabled = self.states.get_value(wide_line_id)?;
-    enabled.hash(hasher);
+    hasher.hash(enabled);
+    let transparent = self.transparent.get_value(wide_line_id)?;
+    hasher.hash(transparent);
     Some(())
   }
 
@@ -151,12 +174,20 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
     self
   }
 
-  fn device_id_injector(
+  fn model_info_injector(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     self.model_access.get(any_idx)?;
     Some(Box::new(()))
+  }
+
+  fn get_index_storage_buffer(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+    self.model_access.get(any_idx)?;
+    Some(None)
   }
 
   fn shape_renderable_indirect<'a>(
@@ -165,12 +196,17 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
     _cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let line = self.model_access.get(any_idx)?;
+    let param = self.params_host.get(line.alloc_index())?;
+    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
+
     Some(Box::new(WideLineIndirectDrawComponent {
       segments: self.segments.clone(),
       params: self.params.clone(),
       sm_to_wide_line_device: self.sm_to_wide_line_device.clone(),
       bind_state: Default::default(),
       enabled_depth: self.states.get_value(line)?,
+      transparent: self.transparent.get_value(line)?,
+      use_native_line,
     }))
   }
 
@@ -200,13 +236,16 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<DrawCommandBuilder> {
-    self.model_access.get(any_idx)?;
+    let line = self.model_access.get(any_idx)?;
+    let param = self.params_host.get(line.alloc_index())?;
+    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
 
     let creator = WideLineDrawCreator {
       params: self.params.clone(),
       params_host: self.params_host.clone(),
       sm_to_wide_line_device: self.sm_to_wide_line_device.clone(),
       sm_to_wide: self.model_access.clone(),
+      use_native_line,
     };
 
     DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
@@ -228,12 +267,16 @@ pub struct WideLineIndirectDrawComponent {
   sm_to_wide_line_device: AbstractReadonlyStorageBuffer<[u32]>,
   bind_state: BindingPreparerInternalStage,
   enabled_depth: bool,
+  transparent: bool,
+  use_native_line: bool,
 }
 
 impl ShaderHashProvider for WideLineIndirectDrawComponent {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.enabled_depth.hash(hasher);
+    hasher.hash(self.enabled_depth);
+    hasher.hash(self.transparent);
+    hasher.hash(self.use_native_line);
   }
 }
 
@@ -264,61 +307,84 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
 
       let segments = binding.bind_by(&self.segments);
 
-      // as we are using none indexed draw, this is easier to integrate the midc downgrade
-      if let Some(relative) = builder.try_query::<VertexIndexForMIDCDowngradeRelative>() {
-        builder.register::<VertexIndex>(relative);
-      }
-
       let vertex_index = builder.query::<VertexIndex>();
-      let instance_index = vertex_index / val(18);
-      let vertex_index = vertex_index % val(18);
 
-      let v1 = (val(1) + vertex_index) % val(6); // index in quad
-      let v2 = (val(2) + vertex_index) % val(6); // index in quad
+      let stride = if self.use_native_line { 2 } else { 18 };
 
-      let dy = (vertex_index / val(6)).into_f32();
-      let x = v1.less_equal_than(val(2)).select(val(-1.), val(1.));
-      let y = v2.less_equal_than(val(2)).select(val(2.), val(1.));
-
-      let y = y - dy;
-      let y = y.less_equal_than(0.).select(y - val(1.), y);
-
-      let vertex: Node<Vec2<f32>> = (x, y).into();
-      builder.register::<GeometryPosition>(Node::from((vertex, val(0.))));
-      builder.register::<GeometryUV>(vertex);
+      let instance_index = vertex_index / val(stride);
+      let vertex_index = vertex_index % val(stride);
 
       let seg = segments
-        .index(instance_index + line_param.data_range.x() / val(WideLineVertexStorage::u32_size()))
+        .index(instance_index + line_param.data_range.x())
         .load()
         .expand();
 
       builder.register::<WideLineStart>(seg.start);
       builder.register::<WideLineEnd>(seg.end);
 
-      let color = seg.color * line_param.color;
-      builder.register::<GeometryColorWithAlpha>(color);
-      builder.set_vertex_out::<DefaultDisplay>(color);
+      if self.use_native_line {
+        let position = vertex_index.equals(0).select(seg.start, seg.end);
+        builder.register::<GeometryPosition>(position);
 
-      builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
-      builder.primitive_state.cull_mode = None;
+        let color = seg.color * line_param.color;
+        builder.register::<GeometryColorWithAlpha>(color);
+        builder.set_vertex_out::<DefaultDisplay>(color);
+
+        builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::LineList;
+      } else {
+        let v1 = (val(1) + vertex_index) % val(6); // index in quad
+        let v2 = (val(2) + vertex_index) % val(6); // index in quad
+
+        let dy = (vertex_index / val(6)).into_f32();
+        let x = v1.less_equal_than(val(2)).select(val(-1.), val(1.));
+        let y = v2.less_equal_than(val(2)).select(val(2.), val(1.));
+
+        let y = y - dy;
+        let y = y.less_equal_than(0.).select(y - val(1.), y);
+
+        let vertex: Node<Vec2<f32>> = (x, y).into();
+        builder.register::<GeometryPosition>(Node::from((vertex, val(0.))));
+        builder.register::<GeometryUV>(vertex);
+
+        let color = seg.color * line_param.color;
+        builder.register::<GeometryColorWithAlpha>(color);
+        builder.set_vertex_out::<DefaultDisplay>(color);
+
+        builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
+        builder.primitive_state.cull_mode = None;
+      }
     });
   }
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
-      let uv = builder.query::<GeometryUV>();
-      let width = builder.query::<WideLineWidthShader>();
+      if self.use_native_line {
+        let position = builder.query::<GeometryPosition>();
+        let object_world_position = builder.query::<WorldPositionHP>();
+        let (clip, position_in_render_space) =
+          camera_transform_impl(builder, position, object_world_position);
 
-      wide_line_vertex(
-        builder.query::<WideLineStart>(),
-        builder.query::<WideLineEnd>(),
-        builder.query::<GeometryPosition>(),
-        builder.query::<ViewportRenderBufferSize>(),
-        width,
-        builder,
-      );
+        builder.register::<ClipPosition>(clip);
+        builder.register::<VertexRenderPosition>(position_in_render_space);
 
-      builder.set_vertex_out::<FragmentUv>(uv);
+        let clip_ndc = clip.xy() / clip.w().splat();
+        let viewport_size = builder.query::<ViewportRenderBufferSize>();
+        builder.set_vertex_out::<WideLineScreenCoord>(clip_ndc * viewport_size);
+      } else {
+        let uv = builder.query::<GeometryUV>();
+        let width = builder.query::<WideLineWidthShader>();
+
+        wide_line_vertex(
+          builder.query::<WideLineStart>(),
+          builder.query::<WideLineEnd>(),
+          builder.query::<GeometryPosition>(),
+          builder.query::<ViewportRenderBufferSize>(),
+          width,
+          builder,
+        );
+
+        builder.set_vertex_out::<FragmentUv>(uv);
+      }
     });
 
     let mut params = BindingPreparer::new_with_state(&self.params, &self.bind_state);
@@ -341,19 +407,30 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
         builder.discard();
       });
 
-      let uv = builder.query::<FragmentUv>();
+      if !self.use_native_line {
+        let uv = builder.query::<FragmentUv>();
+        let enable_round_joint = line_param.enable_round_joint.into_bool();
+        let should_discard_by_joint_style = enable_round_joint.and(discard_by_round_corner_fn(uv));
+        if_by(should_discard_by_joint_style, || {
+          builder.discard();
+        });
+      }
+
       builder.insert_type_tag::<UnlitMaterialTag>();
-      let enable_round_joint = line_param.enable_round_joint.into_bool();
-      let should_discard_by_joint_style = enable_round_joint.and(discard_by_round_corner_fn(uv));
-      if_by(should_discard_by_joint_style, || {
-        builder.discard();
-      });
 
       if !self.enabled_depth {
         if let Some(depth) = &mut builder.depth_stencil {
           depth.depth_compare = CompareFunction::Always;
           depth.depth_write_enabled = false;
         }
+      }
+
+      if self.transparent {
+        builder.frag_output.iter_mut().for_each(|p| {
+          if p.is_blendable() {
+            p.states.blend = BlendState::ALPHA_BLENDING.into();
+          }
+        });
       }
     })
   }
@@ -365,25 +442,31 @@ struct WideLineDrawCreator {
   sm_to_wide_line_device: AbstractReadonlyStorageBuffer<[u32]>,
   sm_to_wide: ForeignKeyReadView<SceneModelWideLineRenderPayload>,
   params_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<WideLineParameters>>,
+  use_native_line: bool,
 }
 
 impl ShaderHashProvider for WideLineDrawCreator {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.use_native_line);
+  }
 }
 
 impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let model = self.sm_to_wide.get(id).unwrap();
     let param = self.params_host.get(model.alloc_index()).unwrap();
-    let seg_count = param.data_range.y / WideLineVertexStorage::u32_size();
+    let seg_count = param.data_range.y;
 
     if param.data_range.x == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {
       return None;
     }
 
+    let stride = if self.use_native_line { 2 } else { 18 };
+
     DrawCommand::Array {
       instances: 0..1,
-      vertices: 0..18 * seg_count,
+      vertices: 0..stride * seg_count,
     }
     .into()
   }
@@ -397,6 +480,7 @@ impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
     Box::new(DrawCmdBuilderInvocation {
       params,
       sm_to_wide_line_device,
+      use_native_line: self.use_native_line,
     })
   }
 
@@ -409,6 +493,7 @@ impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
 struct DrawCmdBuilderInvocation {
   params: ShaderReadonlyPtrOf<[WideLineParameters]>,
   sm_to_wide_line_device: ShaderReadonlyPtrOf<[u32]>,
+  use_native_line: bool,
 }
 
 impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
@@ -418,11 +503,12 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
   ) -> Node<DrawIndirectArgsStorage> {
     let line_id = self.sm_to_wide_line_device.index(draw_id).load();
     // the implementation of range allocate assure the count is zero if allocation failed
-    let seg_count =
-      self.params.index(line_id).data_range().load().y() / val(WideLineVertexStorage::u32_size());
+    let seg_count = self.params.index(line_id).data_range().load().y();
+
+    let stride = if self.use_native_line { 2 } else { 18 };
 
     ENode::<DrawIndirectArgsStorage> {
-      vertex_count: val(18) * seg_count,
+      vertex_count: val(stride) * seg_count,
       instance_count: val(1),
       base_vertex: val(0),
       base_instance: draw_id,
