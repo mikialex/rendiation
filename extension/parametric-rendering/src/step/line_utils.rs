@@ -16,10 +16,12 @@ impl CompletedTrimPolyline {
 
     let total_points: usize = line.polylines.iter().map(|p| p.points.len()).sum();
     if total_points <= 2 {
+      println!("total_points <= 2");
       return None;
     }
 
     if first.distance_to(last) > 1e-6 {
+      println!("not continue");
       return None;
     }
 
@@ -152,6 +154,10 @@ impl ContinuousTrimPolyline {
         }
       }
 
+      // for p in &mut polyline.points {
+      //   assert!(p.x >= 0.0 && p.x <= 1.0 && p.y >= 0.0 && p.y <= 1.0);
+      // }
+
       let new_start = *polyline.points.first().unwrap();
       assert!(
         old_last.distance_to(new_start) <= 1e-3,
@@ -239,6 +245,10 @@ impl NoEdgeContinuousTrimPolyline {
       self.points[i].x += u_off;
       self.points[i].y += v_off;
     }
+
+    // for p in &mut self.points {
+    //   assert!(p.x >= 0.0 && p.x <= 1.0 && p.y >= 0.0 && p.y <= 1.0);
+    // }
   }
 
   pub fn push(&mut self, point: Vec2<f32>) {

@@ -1,5 +1,6 @@
 {
     "editor.formatOnSave": true,
+    "lldb.library": "/Library/Developer/CommandLineTools/Library/PrivateFrameworks/LLDB.framework/LLDB",
     "cSpell.words": [
         "AABB",
         "aabbs",

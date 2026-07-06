@@ -1,7 +1,7 @@
 //! Batch STEP test runner.
 //!
 //! Reads all `.stp` files from `step-generated-sample/`, converts each to
-//! a `.glb` and SVG trim visualisation, and writes results to `test-output/`.
+//! a `.glb` and SVG trim visualization, and writes results to `test-output/`.
 //!
 //! ```sh
 //! cargo run -p parametric-step-convert-tester --example batch_test
