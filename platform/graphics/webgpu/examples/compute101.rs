@@ -8,9 +8,9 @@ pub async fn main() {
   let workgroup_size: u32 = 64;
 
   let input_data = vec![1_u32; workgroup_size as usize]; // here we only demo workgroup case.
-  let input = create_gpu_readonly_storage(input_data.as_slice(), &gpu);
+  let input = create_gpu_readonly_storage(input_data.as_slice(), &gpu, "input");
   let init = ZeroedArrayByArrayLength(input_data.len());
-  let output = create_gpu_read_write_storage::<[u32]>(init, &gpu);
+  let output = create_gpu_read_write_storage::<[u32]>(init, &gpu, "output");
 
   let pipeline = {
     let mut cx = compute_shader_builder(&gpu).with_config_work_group_size(workgroup_size);
@@ -40,7 +40,7 @@ pub async fn main() {
 
     output.index(global_id).store(value.load());
 
-    cx.create_compute_pipeline(&gpu).unwrap()
+    cx.create_compute_pipeline(&gpu, "compute 101").unwrap()
   };
 
   let mut encoder = gpu.create_encoder().with_compute_pass_scoped(|mut pass| {

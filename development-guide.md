@@ -6,10 +6,6 @@ The following things is the current project development direction.
 
 ### foreign features requirement
 
-- should we remove the msaa handling in fast down sampling crate?
-  - not remove, directly handing msaa has better performance if other feature not use single sample depth
-  - remove, simplify code for this niche case
-  - disable normal and id case for better performance
 - occulsion test not correctly handle the depth test/write configured object
 - fix init_frame not for per surface
   
@@ -17,7 +13,9 @@ The following things is the current project development direction.
 
 important issue is in bold style.
 
-- on demand rendering not consider selection state change
+- skip_if_not_waked not considering inspect stage
+- infinity line not displayed if near point is clipped
+- midc downgrade not support linestrip or triangle strip
 - uniform light containner iter none exist lights
 - fix indirect rendering in windows dx12 native
 - fix mesh lod graph
@@ -26,22 +24,17 @@ important issue is in bold style.
 - support face side control
   - support double side config in gltf loader
   - fix gizmo plane move only one side is visible
-- light uniform array not skip none exist light
-  - missing length info, breaks path tracing light sampling impl
 - disable ssao when channel debug on
 - fix channel debug in defer mode
 - support material emissive larger than one
   - fix defer channel encode decode
   - fix gltf loader support
-- fix parallel compute hash issue(disable the clear cache in test runner to reproduce this issue)
-- fix scene gpu lighting is globally shared in gles mode
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
 - blur pass in ssao is not every effective
 - fix ao should only shadowing diffuse lighting.
 - ibl brdf lut should use higher precision lut
 - fix outline shaking
 - integrate_brdf and ibl lighting shader code should reuse the std micro surface shading code
-- fix oit loop32 depth test and msaa support
 
 ### Implemented but not yet integrated(tested) features
 
@@ -71,9 +64,7 @@ important issue is in bold style.
 
 ### Infra and framework improvements planed
 
-- storage/texture shrink
 - improve bindgroup cache implementation
-- improve indirect draw, reduce dispatch call count (see DeviceSceneModelRenderBatchCombined)
 - viewer async loader
 - ray tracing
   - improve the wavefront dispatch performance
@@ -98,8 +89,8 @@ important issue is in bold style.
   - draw on TextureFormat::R8Unorm when enable blend cause strange effect
   - chrome wgsl not accept f32::MAX float literal
 - known but not fixed yet
+  - dx12 midc <https://github.com/gfx-rs/wgpu/issues/7974>
   - correct hdr rendering, see <https://github.com/gfx-rs/wgpu/issues/2920>;
-  - fxaa crashes on vulkan and dx12 see <https://github.com/gfx-rs/wgpu/issues/7713>
   - huge rust debug symbol cause link or compile failed in reative query(currently workaround by boxing). see:
     - <https://github.com/rust-lang/rust/issues/130729>
     - <https://github.com/rust-lang/rust/issues/135849>
@@ -169,6 +160,18 @@ using and buffering a lot of memory when enabled. The current integration should
 cargo run --bin viewer --features tracy # run viewer enable tracy
 cargo run --bin viewer --features tracy-heap-debug # run viewer enable tracy and tracy-heap-debug
 ```
+
+## dhat frame allocation info
+
+enable "dhat-heap-profiling" feature, build and run, click profile button.
+
+`cargo run -p viewer --no-default-features --features "dhat-heap-profiling"`
+
+generate flamegraph
+
+first install convert tool `cargo install dhat-to-flamegraph`, then:
+
+`dhat-to-flamegraph dhat-heap.json -o result.svg --unit blocks`
 
 ## Testing
 

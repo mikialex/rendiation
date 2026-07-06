@@ -31,7 +31,7 @@ impl ShaderPassBuilder for PostProcess<'_> {
 impl ShaderHashProvider for PostProcess<'_> {
   shader_hash_type_id! {PostProcess< 'static>}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.target_is_srgb.hash(hasher);
+    hasher.hash(self.target_is_srgb);
   }
 }
 

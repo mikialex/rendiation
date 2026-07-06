@@ -48,6 +48,16 @@ pub extern "C" fn drop_scene_model(handle: SceneModelHandleInfo) {
 }
 
 #[no_mangle]
+pub extern "C" fn scene_model_set_visible(handle: ViewerEntityHandle, visible: bool) {
+  write_global_db_component::<SceneModelVisible>().write(handle.into(), visible);
+}
+
+#[no_mangle]
+pub extern "C" fn scene_model_set_skip_clip(handle: ViewerEntityHandle, skip: bool) {
+  write_global_db_component::<ClippingPlaneSceneModelSkip>().write(handle.into(), skip);
+}
+
+#[no_mangle]
 pub extern "C" fn scene_model_set_mesh(handle: SceneModelHandleInfo, mesh: ViewerEntityHandle) {
   write_global_db_component::<StandardModelRefAttributesMeshEntity>()
     .write(handle.std_model.into(), Some(mesh.into()));
@@ -69,26 +79,28 @@ pub extern "C" fn scene_model_set_scene(
 #[no_mangle]
 pub extern "C" fn scene_model_set_occ_style_view_dep(
   handle: ViewerEntityHandle,
-  is_2d: bool,
   anchor: &[f32; 3],
   offset: &[i32; 2],
   corner: u32,
   mode: u32,
+  local_mat: *const [f32; 16],
 ) {
-  let transform_ty = if is_2d {
-    OccStyleTransform::Dimension2 {
-      offset: (*offset).into(),
-      corner: OccStyleCorner::from_bits_retain(corner),
-    }
+  let transform_ty = OccStyleTransform {
+    anchor_point: (*anchor).into(),
+    offset: (*offset).into(),
+    corner: OccStyleCorner::from_bits_retain(corner),
+  };
+
+  let local_mat = if local_mat.is_null() {
+    None
   } else {
-    OccStyleTransform::Dimension3 {
-      anchor_point: (*anchor).into(),
-    }
+    Some(Mat4::from(unsafe { *local_mat }))
   };
 
   let config = OccStyleViewDepConfig {
     transform_ty,
     mode: OccStyleMode::from_bits_retain(mode),
+    local_mat,
   };
   write_global_db_component::<SceneModelViewDependentTransformOcc>()
     .write(handle.into(), Some(config));
@@ -138,6 +150,7 @@ pub extern "C" fn create_wide_points(
   let mut writer = global_entity_of::<WideStyledPointsEntity>().entity_writer();
 
   let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = bytemuck::cast_slice(data);
   let data = data.to_vec();
   let data = ExternalRefPtr::new(data);
 
@@ -163,6 +176,7 @@ pub extern "C" fn wide_points_set_buffer(
   data: *const u8,
 ) {
   let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = bytemuck::cast_slice(data);
   let data = data.to_vec();
   let data = ExternalRefPtr::new(data);
 
@@ -213,6 +227,7 @@ pub extern "C" fn create_wide_line(
   let mut writer = global_entity_of::<WideLineModelEntity>().entity_writer();
 
   let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = bytemuck::cast_slice(data);
   let data = data.to_vec();
   let data = ExternalRefPtr::new(data);
 
@@ -238,6 +253,7 @@ pub extern "C" fn wide_line_set_buffer(
   data: *const u8,
 ) {
   let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = bytemuck::cast_slice(data);
   let data = data.to_vec();
   let data = ExternalRefPtr::new(data);
 
@@ -247,6 +263,11 @@ pub extern "C" fn wide_line_set_buffer(
 #[no_mangle]
 pub extern "C" fn wide_line_set_enable_depth_test(handle: ViewerEntityHandle, enabled: bool) {
   write_global_db_component::<WideLineDepthEnable>().write(handle.into(), enabled);
+}
+
+#[no_mangle]
+pub extern "C" fn wide_line_set_transparent(handle: ViewerEntityHandle, enabled: bool) {
+  write_global_db_component::<WideLineTransparent>().write(handle.into(), enabled);
 }
 
 #[no_mangle]
@@ -285,7 +306,6 @@ pub struct Text3dContentInfoC {
   pub content: *const c_char,
   pub font_size: f32,
   pub line_height: f32,
-  pub scale: f32,
   pub font: *const c_char,
   pub weight: u32,
   pub has_weight: bool,
@@ -296,6 +316,7 @@ pub struct Text3dContentInfoC {
   pub height: f32,
   pub has_height: bool,
   pub align: TextAlignment,
+  pub underline: bool,
 }
 
 #[repr(C)]
@@ -357,7 +378,6 @@ fn text3d_content_from_c(
     content: parse_optional_c_string(info.content).unwrap_or_default(),
     font_size: info.font_size,
     line_height: info.line_height,
-    scale: info.scale,
     font: parse_optional_c_string(info.font),
     weight: info.has_weight.then_some(info.weight),
     color: info.color.into(),
@@ -365,7 +385,7 @@ fn text3d_content_from_c(
     width: info.has_width.then_some(info.width),
     height: info.has_height.then_some(info.height),
     align: info.align.into(),
-    underline: false,
+    underline: info.underline,
   }))
 }
 
@@ -378,4 +398,44 @@ pub extern "C" fn drop_text3d(p: SceneText3dHandleInfo) {
   global_entity_of::<SceneModelEntity>()
     .entity_writer()
     .delete_entity(p.scene_model.into());
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct Text3dQueryInfoC {
+  pub min_x: f32,
+  pub min_y: f32,
+  pub max_x: f32,
+  pub max_y: f32,
+  pub cap_a_height: f32,
+  pub units_per_em: u32,
+  pub has_result: bool,
+}
+
+#[no_mangle]
+pub extern "C" fn text3d_query(
+  api: &mut ViewerAPI,
+  handle: ViewerEntityHandle,
+) -> Text3dQueryInfoC {
+  let mut rr = Text3dQueryInfoC::default();
+  let mut font_sys = api.core.viewer.font_system.write();
+  if let Some(r) = compute_text_layout_info(handle.into(), &mut font_sys) {
+    let bbox = r.local_bbox;
+    rr.min_x = bbox.min.x;
+    rr.min_y = bbox.min.y;
+    rr.max_x = bbox.max.x;
+    rr.max_y = bbox.max.y;
+    rr.units_per_em = r.units_per_em;
+    rr.cap_a_height = r.cap_a_height;
+    rr.has_result = true;
+  } else {
+    rr.has_result = false;
+  }
+  rr
+}
+
+#[no_mangle]
+pub extern "C" fn text3d_set_local_transform(handle: ViewerEntityHandle, mat: &[f32; 16]) {
+  let mat = Mat4::from(*mat);
+  write_global_db_component::<Text3dLocalTransform>().write(handle.into(), mat);
 }

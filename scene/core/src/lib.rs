@@ -59,7 +59,6 @@ pub fn register_scene_core_data_model() {
   register_std_model_data_model();
 
   register_attribute_mesh_data_model();
-  register_instance_mesh_data_model();
 
   register_unlit_material_data_model();
   register_pbr_sg_material_data_model();
@@ -70,6 +69,7 @@ pub fn register_scene_core_data_model() {
 
 declare_entity!(SceneEntity);
 
+// the color is srgb space
 declare_component!(SceneSolidBackground, SceneEntity, Option<Vec3<f32>>);
 
 declare_component!(

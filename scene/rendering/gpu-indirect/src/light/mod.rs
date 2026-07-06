@@ -3,6 +3,11 @@ pub use directional::*;
 mod point;
 pub use point::*;
 mod spot;
+use std::sync::Arc;
+
+use rendiation_lighting_transport::LightableSurfaceShading;
+use rendiation_lighting_transport::ShaderLightingGeometricCtx;
+use rendiation_lighting_transport::ShaderLightingResult;
 pub use spot::*;
 
 use crate::*;
@@ -64,15 +69,12 @@ impl<T: Std430 + ShaderSizedValueNodeType> LightingComputeComponent
     binding: &mut ShaderBindGroupBuilder,
     scene_id: Node<u32>,
   ) -> Box<dyn LightingComputeInvocation> {
-    let compute = self.create_per_light_compute.clone();
-    let lighting = AllInstanceOfGivenTypeLightInSceneInvocation {
+    Box::new(InstanceLightInvocation {
       scene_id,
       light_accessor: self.light_accessor.build(binding),
       light_data: binding.bind_by(&self.light_data),
-    }
-    .map(move |ptr| compute(ptr));
-
-    Box::new(ShaderIntoIterAsLightInvocation(lighting))
+      compute: self.create_per_light_compute.clone(),
+    })
   }
 
   fn setup_pass(&self, ctx: &mut BindingBuilder) {
@@ -82,21 +84,28 @@ impl<T: Std430 + ShaderSizedValueNodeType> LightingComputeComponent
 }
 
 #[derive(Clone)]
-pub struct AllInstanceOfGivenTypeLightInSceneInvocation<T: Std430> {
-  pub scene_id: Node<u32>,
-  pub light_accessor: MultiAccessGPUInvocation,
-  pub light_data: ShaderReadonlyPtrOf<[T]>,
+struct InstanceLightInvocation<T: Std430 + ShaderSizedValueNodeType> {
+  scene_id: Node<u32>,
+  light_accessor: MultiAccessGPUInvocation,
+  light_data: ShaderReadonlyPtrOf<[T]>,
+  compute: Arc<dyn Fn(ShaderReadonlyPtrOf<T>) -> Box<dyn LightingComputeInvocation>>,
 }
 
-impl<T: Std430 + ShaderSizedValueNodeType> IntoShaderIterator
-  for AllInstanceOfGivenTypeLightInSceneInvocation<T>
+impl<T: Std430 + ShaderSizedValueNodeType> LightingComputeInvocation
+  for InstanceLightInvocation<T>
 {
-  type ShaderIter = impl ShaderIterator<Item = ShaderReadonlyPtrOf<T>>;
+  fn compute_lights(
+    &self,
+    shading: &dyn LightableSurfaceShading,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderLightingResult> {
+    let compute = &self.compute;
 
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    self
+    let iter = self
       .light_accessor
       .iter_refed_many_of(self.scene_id)
-      .map(move |id| self.light_data.index(id))
+      .map(move |id| self.light_data.index(id));
+
+    light_iter_sum(iter.map(move |ptr| compute(ptr).compute_lights(shading, geom_ctx)))
   }
 }

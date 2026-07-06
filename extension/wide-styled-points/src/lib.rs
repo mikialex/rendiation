@@ -16,6 +16,7 @@ pub use gles_draw::*;
 pub use indirect_draw::*;
 pub use pick::*;
 use point_style::*;
+use serde::*;
 
 pub fn register_wide_styled_points_data_model(sparse: bool) {
   global_entity_of::<SceneModelEntity>()
@@ -40,7 +41,7 @@ declare_entity!(WideStyledPointsEntity);
 declare_component!(
   WideStyledPointsMeshBuffer,
   WideStyledPointsEntity,
-  ExternalRefPtr<Vec<u8>> // Vec<WideStyledPointVertex>
+  ExternalRefPtr<Vec<WideStyledPointVertex>>
 );
 declare_component!(
   WideStyledPointsDepthTestEnabled,
@@ -55,6 +56,7 @@ impl TextureWithSamplingForeignKeys for WidePointsColorAlphaTex {}
 
 #[repr(C)]
 #[derive(Copy, Clone, Zeroable, Pod, ShaderVertex)]
+#[derive(Facet, Serialize, Deserialize)]
 pub struct WideStyledPointVertex {
   #[semantic(WidePointPosition)]
   pub position: Vec3<f32>,

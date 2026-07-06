@@ -197,14 +197,12 @@ pub trait GraphicsShaderProvider {
         checks: ShaderRuntimeChecks,
     ) -> Result<ShaderRenderPipelineBuilder, Vec<ShaderBuildError>> { ... }
 
-    fn debug_label(&self) -> String { ... }
 }
 ```
 
 - `build` — register the vertex/fragment shader stages. Called first.
 - `post_build` — add final defaults (e.g. auto-write white to fragment output 0). Called after `build`.
 - `build_self` — orchestrates the full build: creates builder, calls `build`, calls `post_build`, collects errors.
-- `debug_label` — auto-derived from the type's short name via `disqualified::ShortName`.
 
 See `shader-edsl-graphics` skill for details on how to write the shader code inside `build`.
 

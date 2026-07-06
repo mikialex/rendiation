@@ -16,6 +16,7 @@ pub struct DirectionalShaderInfo {
   /// in lx
   pub illuminance: Vec3<f32>,
   pub direction: Vec3<f32>,
+  pub follow_camera: Bool,
 }
 
 impl PunctualShaderLight for Node<DirectionalShaderInfo> {
@@ -30,11 +31,16 @@ impl PunctualShaderLight for Node<DirectionalShaderInfo> {
 impl PunctualShaderLight for ENode<DirectionalShaderInfo> {
   fn compute_incident_light(
     &self,
-    _ctx: &ENode<ShaderLightingGeometricCtx>,
+    ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderIncidentLight> {
+    let direction = self.direction.make_local_var();
+    if_by(self.follow_camera.into_bool(), || {
+      direction.store(ctx.camera_world_none_translation_mat.shrink_to_3() * self.direction);
+    });
+
     ENode::<ShaderIncidentLight> {
       color: self.illuminance,
-      direction: self.direction,
+      direction: direction.load(),
     }
   }
 }

@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use rendiation_scene_rendering_gpu_gles::*;
 
 use crate::*;
@@ -10,7 +8,7 @@ pub fn use_widen_points_gles_renderer(
 ) -> Option<WidePointModelGLESRenderer> {
   let (cx, quad) = cx.use_gpu_init(|g, _| create_wide_point_quad_gpu(g));
 
-  let uniform = cx.use_uniform_buffers();
+  let uniform = cx.use_uniform_buffers("wide point uniform");
 
   cx.use_changes::<WideStyledPointsColor>().update_uniforms(
     &uniform,
@@ -27,7 +25,11 @@ pub fn use_widen_points_gles_renderer(
     &mesh,
     cx.use_changes::<WideStyledPointsMeshBuffer>(),
     |buffer| {
-      let buffer = create_gpu_buffer(&buffer, BufferUsages::VERTEX, &cx.gpu.device);
+      let buffer = create_gpu_buffer(
+        cast_slice(buffer.as_slice()),
+        BufferUsages::VERTEX,
+        &cx.gpu.device,
+      );
       buffer.create_default_view()
     },
   );
@@ -122,7 +124,7 @@ pub struct WidePointGPU<'a> {
 impl ShaderHashProvider for WidePointGPU<'_> {
   shader_hash_type_id! {WidePointGPU<'static>}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.depth_test_enable.hash(hasher);
+    hasher.hash(self.depth_test_enable);
   }
 }
 

@@ -125,8 +125,10 @@ impl SparseBufferWritesSource {
     let device = &gpu.device;
 
     let data_to_write = cast_slice(&self.data_to_write); // todo, this may panic because unnecessary alignment check
-    let data_to_write = create_gpu_readonly_storage::<[u32]>(data_to_write, device);
-    let offset_size = create_gpu_readonly_storage::<[u32]>(&self.offset_size, device);
+    let data_to_write =
+      create_gpu_readonly_storage::<[u32]>(data_to_write, device, "data_to_write");
+    let offset_size =
+      create_gpu_readonly_storage::<[u32]>(&self.offset_size, device, "write offset_size");
 
     let target_buffer = StorageBufferDataView::<[u32]>::try_from_raw(target_buffer).unwrap();
     let workgroup_width = gpu

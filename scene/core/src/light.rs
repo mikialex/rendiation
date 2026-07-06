@@ -131,6 +131,16 @@ impl DirectionalLightDataView {
 
 declare_entity!(DirectionalLightEntity);
 declare_component!(DirectionalLightEnabled, DirectionalLightEntity, bool, true);
+
+// if this is enabled, the directional light will follow the camera as if the lighting effect always
+// as same as the camera looking at -z direction
+// todo, shadow not supported yet!
+declare_component!(
+  DirectionalLightFollowCamera,
+  DirectionalLightEntity,
+  bool,
+  false
+);
 declare_foreign_key!(DirectionalRefScene, DirectionalLightEntity, SceneEntity);
 declare_foreign_key!(DirectionalRefNode, DirectionalLightEntity, SceneNodeEntity);
 declare_component!(
@@ -144,6 +154,7 @@ pub fn register_directional_light_data_model() {
   global_database()
     .declare_entity::<DirectionalLightEntity>()
     .declare_component::<DirectionalLightEnabled>()
+    .declare_component::<DirectionalLightFollowCamera>()
     .declare_component::<DirectionalLightIlluminance>()
     .declare_foreign_key::<DirectionalRefScene>()
     .declare_foreign_key::<DirectionalRefNode>();

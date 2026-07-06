@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use crate::*;
 
 pub const PLANE_DRAW_CMD: DrawCommand = QUAD_DRAW_CMD;
@@ -19,7 +17,7 @@ impl ShaderHashProvider for InfinityShaderPlaneEffect<'_> {
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.camera.hash_pipeline(hasher);
-    self.reversed_depth.hash(hasher);
+    hasher.hash(self.reversed_depth);
   }
 }
 impl ShaderPassBuilder for InfinityShaderPlaneEffect<'_> {

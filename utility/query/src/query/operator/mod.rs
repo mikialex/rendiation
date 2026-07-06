@@ -99,3 +99,31 @@ impl<K, K2, F: Fn(K) -> K2> Fn<(K,)> for AutoSomeFnResult<F> {
     Some(self.0(args.0))
   }
 }
+
+pub fn validate_query_consistency<Q: Query>(query: &Q) {
+  let pairs: Vec<(Q::Key, Q::Value)> = query.iter_key_value().collect();
+
+  // verify iter_key_value and access consistency: each key's access result must match the iteration
+  for (key, expected_value) in &pairs {
+    let accessed = query.access(key);
+    assert_eq!(
+      accessed.as_ref(),
+      Some(expected_value),
+      "access returned different value than iter_key_value for key {:?}",
+      key
+    );
+    assert!(
+      query.contains(key),
+      "contains should return true for key {:?} that exists in iter_key_value",
+      key
+    );
+  }
+
+  // verify has_item_hint correctness: when it returns false, the query must be truly empty
+  if !query.has_item_hint() {
+    assert!(
+      pairs.is_empty(),
+      "has_item_hint returned false but iter_key_value returned items"
+    );
+  }
+}

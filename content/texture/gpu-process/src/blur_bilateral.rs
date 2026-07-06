@@ -111,12 +111,12 @@ impl BilateralBlurData {
       direction: Vec2::new(0., 1.),
       ..Default::default()
     };
-    let x = create_uniform_with_cache(x, gpu);
-    let y = create_uniform_with_cache(y, gpu);
+    let x = create_uniform_with_cache(x, gpu, "x bilateral blur config");
+    let y = create_uniform_with_cache(y, gpu, "y bilateral blur config");
 
     let (weights_data, count) = gaussian(8);
-    let weights = create_uniform_with_cache(weights_data, gpu);
-    let weight_count = create_uniform_with_cache(Vec4::splat(count), gpu);
+    let weights = create_uniform_with_cache(weights_data, gpu, "blur weights");
+    let weight_count = create_uniform_with_cache(Vec4::splat(count), gpu, "blur weight count");
 
     Self {
       x,

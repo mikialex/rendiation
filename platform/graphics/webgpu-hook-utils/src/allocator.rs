@@ -14,6 +14,7 @@ pub struct GrowableRangeAllocator {
   ranges: FastHashMap<UserHandle, (u32, u32, AllocationHandle)>,
   // todo, try other allocator that support relocate and shrink??
   allocator: xalloc::SysTlsf<u32>,
+  label: String,
 }
 
 type UserHandle = RawEntityHandle;
@@ -46,8 +47,9 @@ impl BatchAllocateResult {
   }
 }
 
+/// the second u32 is u32_per_item, we need to convert it to u64 byte address at iter_data_movements
 #[derive(Clone)]
-pub struct BatchAllocateResultShared(pub Arc<BatchAllocateResult>, pub u32); // (_, u32_per_item)
+pub struct BatchAllocateResultShared(pub Arc<BatchAllocateResult>, pub u32);
 
 impl BatchAllocateResultShared {
   pub fn has_data_movements(&self) -> bool {
@@ -64,13 +66,12 @@ impl BatchAllocateResultShared {
   }
 
   pub fn access_new_change(&self, k: UserHandle) -> Option<[u32; 2]> {
-    let u32_per_item = self.1;
     if let Some(v) = self.0.new_data_to_write.get(&k) {
-      return Some([v.0 * u32_per_item, v.1 * u32_per_item]);
+      return Some([v.0, v.1]);
     }
 
     if let Some(v) = self.0.data_movements.get(&k) {
-      return Some([v.new_offset * u32_per_item, v.count * u32_per_item]);
+      return Some([v.new_offset, v.count]);
     }
 
     if self.0.failed_to_allocate.contains(&k) {
@@ -98,17 +99,16 @@ impl DataChanges for BatchAllocateResultShared {
   }
 
   fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
-    let u32_per_item = self.1;
     let movements = self
       .0
       .data_movements
       .iter()
-      .map(move |(k, v)| (*k, [v.new_offset * u32_per_item, v.count * u32_per_item]));
+      .map(move |(k, v)| (*k, [v.new_offset, v.count]));
     let new = self
       .0
       .new_data_to_write
       .iter()
-      .map(move |(k, v)| (*k, [v.0 * u32_per_item, v.1 * u32_per_item]));
+      .map(move |(k, v)| (*k, [v.0, v.1]));
 
     // note, return count 0 for failed_to_allocate case is important
     let failed = self
@@ -142,7 +142,7 @@ impl BatchAllocateResult {
 }
 
 impl GrowableRangeAllocator {
-  pub fn new(max_item_count: u32, init_count: u32) -> Self {
+  pub fn new(label: &str, max_item_count: u32, init_count: u32) -> Self {
     assert!(init_count <= max_item_count);
     Self {
       max_item_count,
@@ -150,6 +150,7 @@ impl GrowableRangeAllocator {
       used_count: 0,
       ranges: FastHashMap::with_capacity_and_hasher(init_count as usize, Default::default()),
       allocator: xalloc::SysTlsf::new(init_count),
+      label: label.to_string(),
     }
   }
 
@@ -171,12 +172,13 @@ impl GrowableRangeAllocator {
     }
 
     let current_remain_capacity = self.current_count - self.used_count;
-    let size_requirement = new.clone().into_iter().map(|v| v.1).sum::<u32>();
-    let new_init = new.clone().into_iter().count(); // we should merge the loop with the size_requirement
 
-    let new_data_to_write = FastHashMap::with_capacity_and_hasher(new_init, Default::default());
+    let new_size_requirement = new.clone().into_iter().map(|v| v.1).sum::<u32>();
+    let new_init_count = new.clone().into_iter().count(); // we should merge the loop with the size_requirement
+    let new_data_to_write =
+      FastHashMap::with_capacity_and_hasher(new_init_count, Default::default());
 
-    let new_init_for_move = if size_requirement > current_remain_capacity {
+    let new_init_for_move = if new_size_requirement > current_remain_capacity {
       self.ranges.len()
     } else {
       0
@@ -194,13 +196,15 @@ impl GrowableRangeAllocator {
 
     // use a separate hash map to avoid change the self.ranges
     let mut new_metadata_to_write =
-      FastHashMap::with_capacity_and_hasher(new_init, Default::default());
+      FastHashMap::with_capacity_and_hasher(new_init_count, Default::default());
 
-    if size_requirement > current_remain_capacity {
+    if new_size_requirement > current_remain_capacity {
+      let new_size = self.used_count + new_size_requirement;
       //  try to avoid fragmentation caused possible relocate
-      let extra = self.current_count as f32 * 0.1;
-      let new_size =
-        (self.current_count + size_requirement + extra as u32).min(self.max_item_count);
+      let new_size = (new_size as f32 * 1.1) as u32;
+      let new_size = new_size.min(self.max_item_count);
+
+      // if we have reached the limit before, do nothing
       if new_size != self.max_item_count {
         self.relocate(new_size, &mut result, &mut new_metadata_to_write);
       }
@@ -254,8 +258,8 @@ impl GrowableRangeAllocator {
   ) {
     assert!(new_size > self.current_count);
     println!(
-      "range allocator try grow from {} to {}, max {}",
-      self.current_count, new_size, self.max_item_count
+      "range allocator {} try grow from {} to {}, max {}",
+      self.label, self.current_count, new_size, self.max_item_count
     );
     self.current_count = new_size;
     results.resize_to = Some(new_size);
@@ -402,7 +406,11 @@ impl RangeAllocateBufferUpdates {
   pub fn write(&self, gpu: &GPU, encoder: &mut GPUCommandEncoder, target: &dyn AbstractBuffer) {
     if self.allocation_changes.has_data_movements() {
       let mut iter = self.allocation_changes.iter_data_movements();
-      target.batch_self_relocate(&mut iter, encoder, &gpu.device);
+      // we must use a standalone encoder, because the below code do queue write
+      // todo, consider impl encoder write buffer to avoid this mental overhead
+      let mut encoder = gpu.create_encoder();
+      target.batch_self_relocate(&mut iter, &mut encoder, &gpu.device);
+      gpu.submit_encoder(encoder);
     }
 
     let item_byte_size = self.allocation_changes.1 * 4;

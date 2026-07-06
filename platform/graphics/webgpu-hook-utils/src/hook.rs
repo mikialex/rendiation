@@ -78,23 +78,25 @@ impl<'a> QueryGPUHookCx<'a> {
     &mut self,
     init: impl FnOnce(QueryGPUHookFeatureCx) -> T,
   ) -> (&mut Self, &mut T) {
-    let s = unsafe { std::mem::transmute_copy(&self) };
-
-    let state = self.memory.expect_state_init(
-      || {
-        init(QueryGPUHookFeatureCx {
-          gpu: self.gpu,
-          shared_ctx: self.shared_ctx,
-          storage_allocator: &self.storage_allocator,
-        })
-      },
-      |state: &mut T, dcx: &mut ()| {
-        let dcx: &mut QueryGPUHookDropCx = unsafe { std::mem::transmute(dcx) };
-        T::drop_from_cx(state, dcx);
-      },
-    );
-
-    (s, state)
+    let this = self as *mut Self;
+    let state = unsafe {
+      (*this).memory.expect_state_init(
+        || {
+          init(QueryGPUHookFeatureCx {
+            gpu: (*this).gpu,
+            shared_ctx: (*this).shared_ctx,
+            storage_allocator: &(*this).storage_allocator,
+          })
+        },
+        |state: &mut T, dcx: &mut QueryGPUHookDropCx| {
+          T::drop_from_cx(state, dcx);
+        },
+      )
+    };
+    // SAFETY: this is derived from a valid &mut self; state points into bump-allocated heap
+    // memory inside memory, not into the struct itself, so no aliased &mut is created.
+    let this = unsafe { &mut *this };
+    (this, state)
   }
 
   pub fn use_state<T: Default + CanCleanUpFrom<QueryGPUHookDropCx> + 'static>(
@@ -122,14 +124,18 @@ impl<'a> QueryGPUHookCx<'a> {
 
   pub fn use_uniform_buffers<K: 'static + Eq + std::hash::Hash, V: Std140 + 'static>(
     &mut self,
+    label: &str,
   ) -> UniformBufferCollection<K, V> {
-    self.use_shared_hash_map("uniform buffers")
+    let (_, r) =
+      self.use_plain_state(|| Arc::new(RwLock::new(UniformBufferCollectionRaw::new(label))));
+    r.clone()
   }
 
   pub fn use_uniform_array_buffers<V: Std140 + Default, const N: usize>(
     &mut self,
+    label: &str,
   ) -> (&mut Self, &mut UniformBufferDataView<Shader140Array<V, N>>) {
-    self.use_gpu_init(|gpu, _| UniformBufferDataView::create_default(&gpu.device))
+    self.use_gpu_init(|gpu, _| UniformBufferDataView::create_default(&gpu.device, label))
   }
 
   pub fn use_storage_buffer<V: Std430 + ShaderSizedValueNodeType>(

@@ -195,22 +195,14 @@ impl BvhNodeData {
 
 /// A pair of tree nodes forming a 2-wide BVH node.
 ///
-/// The BVH uses a memory layout where nodes are stored in pairs (left and right children)
-/// to improve cache coherency and enable SIMD optimizations. This structure represents
-/// a single entry in the BVH's node array.
+/// The BVH uses a memory layout where nodes are stored in pairs (left and right children).
+/// This structure represents a single entry in the BVH's node array.
 ///
 /// # Node Validity
 ///
 /// Both `left` and `right` are guaranteed to be valid except for one special case:
 /// - **Single leaf tree**: Only `left` is valid, `right` is zeroed
 /// - **All other cases**: Both `left` and `right` are valid (tree has at least 2 leaves)
-///
-/// # Memory Layout
-///
-/// In 3D with f32 precision and SIMD enabled, this structure is:
-/// - **Size**: 64 bytes (cache line aligned)
-/// - **Alignment**: 64 bytes (matches typical CPU cache lines)
-/// - This alignment improves performance by reducing cache misses
 ///
 /// # Example
 ///
@@ -238,8 +230,6 @@ impl BvhNodeData {
 /// - [`Bvh`] - The main BVH structure
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-// PERF: the size of this struct is 64 bytes but has a default alignment of 16 (in f32 + 3d + simd mode).
-//       Forcing an alignment of 64 won’t add padding, and makes aligns it with most cache lines.
 pub struct BvhNodeWide {
   pub left: BvhNode,
   pub right: BvhNode,
@@ -374,6 +364,9 @@ pub struct BvhNode {
   pub(super) max: Vec3<f32>,
   /// Packed data associated to this node (leaf count and flags).
   pub(super) data: BvhNodeData,
+  /// extra expansion in screen space unit
+  /// todo, this breaks BvhNodeWide size alignment(64) and harmful to performance
+  pub(super) expansion: f32,
 }
 
 impl BvhNode {
@@ -384,6 +377,7 @@ impl BvhNode {
       children: 0,
       max: Vec3::zero(),
       data: BvhNodeData(0),
+      expansion: 0.,
     }
   }
 
@@ -413,7 +407,7 @@ impl BvhNode {
   /// let aabb = Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0));
   ///
   /// // Create a leaf node with index 0
-  /// let leaf = BvhNode::leaf(aabb, 0);
+  /// let leaf = BvhNode::leaf(aabb, 0., 0);
   ///
   /// assert!(leaf.is_leaf());
   /// assert_eq!(leaf.leaf_data(), Some(0));
@@ -425,12 +419,13 @@ impl BvhNode {
   /// - [`is_leaf`](Self::is_leaf) - Check if a node is a leaf
   /// - [`leaf_data`](Self::leaf_data) - Get the leaf data back
   #[inline(always)]
-  pub fn leaf(aabb: Box3<f32>, leaf_data: u32) -> BvhNode {
+  pub fn leaf(aabb: Box3<f32>, expansion: f32, leaf_data: u32) -> BvhNode {
     Self {
       min: aabb.min,
       max: aabb.max,
       children: leaf_data,
       data: BvhNodeData::with_leaf_count_and_pending_change(1),
+      expansion,
     }
   }
 
@@ -453,7 +448,7 @@ impl BvhNode {
   /// use rendiation_geometry::{Box3, ContainAble};
   ///
   /// let aabb = Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0));
-  /// let leaf = BvhNode::leaf(aabb, 42);
+  /// let leaf = BvhNode::leaf(aabb, 0., 42);
   ///
   /// assert_eq!(leaf.leaf_data(), Some(42));
   /// ```
@@ -484,7 +479,7 @@ impl BvhNode {
   /// use rendiation_geometry::{Box3, ContainAble};
   ///
   /// let aabb = Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0));
-  /// let leaf = BvhNode::leaf(aabb, 0);
+  /// let leaf = BvhNode::leaf(aabb, 0., 0);
   ///
   /// assert!(leaf.is_leaf());
   /// ```
@@ -504,12 +499,12 @@ impl BvhNode {
 
   #[inline(always)]
   pub(super) fn merged(&self, other: &Self, children: u32) -> Self {
-    // TODO PERF: simd optimizations?
     Self {
       min: self.min.min(other.min),
       children,
       max: self.max.max(other.max),
       data: self.data.merged(other.data),
+      expansion: self.expansion.max(other.expansion),
     }
   }
 
@@ -530,7 +525,7 @@ impl BvhNode {
   /// use rendiation_geometry::{Box3, ContainAble};
   ///
   /// let aabb = Box3::new(Vec3::new(1.0, 2.0, 3.0), Vec3::new(4.0, 5.0, 6.0));
-  /// let node = BvhNode::leaf(aabb, 0);
+  /// let node = BvhNode::leaf(aabb, 0., 0);
   ///
   /// assert_eq!(node.min(), Vec3::new(1.0, 2.0, 3.0));
   /// ```
@@ -561,7 +556,7 @@ impl BvhNode {
   /// use rendiation_geometry::{Box3, ContainAble};
   ///
   /// let aabb = Box3::new(Vec3::new(1.0, 2.0, 3.0), Vec3::new(4.0, 5.0, 6.0));
-  /// let node = BvhNode::leaf(aabb, 0);
+  /// let node = BvhNode::leaf(aabb, 0., 0);
   ///
   /// assert_eq!(node.max(), Vec3::new(4.0, 5.0, 6.0));
   /// ```
@@ -576,37 +571,17 @@ impl BvhNode {
   }
 
   /// Returns this node's AABB as an `Box3<f32>` struct.
-  ///
-  /// Nodes store their AABBs as separate `mins` and `maxs` points for efficiency.
-  /// This method reconstructs the full `Box3<f32>` structure.
-  ///
-  /// # Returns
-  ///
-  /// An `Box3<f32>` representing this node's bounding box.
-  ///
-  /// # Example
-  ///
-  /// ```
-  /// use dynamic_bvh::BvhNode;
-  /// use rendiation_algebra::{IntoNormalizedVector, Vec3, Vector};
-  /// use rendiation_geometry::{Box3, ContainAble};
-  ///
-  /// let original_aabb = Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0));
-  /// let node = BvhNode::leaf(original_aabb, 0);
-  ///
-  /// assert_eq!(node.aabb(), original_aabb);
-  /// ```
-  ///
-  /// # See Also
-  ///
-  /// - [`mins`](Self::mins) - Get just the minimum corner
-  /// - [`maxs`](Self::maxs) - Get just the maximum corner
   #[inline]
   pub fn aabb(&self) -> Box3<f32> {
     Box3 {
       min: self.min,
       max: self.max,
     }
+  }
+
+  /// Returns this node's screen space expansion unit.
+  pub fn expansion(&self) -> f32 {
+    self.expansion
   }
 
   /// Returns the center point of this node's AABB.
@@ -626,7 +601,7 @@ impl BvhNode {
   /// use rendiation_geometry::{Box3, ContainAble};
   ///
   /// let aabb = Box3::new(Vec3::zero(), Vec3::new(2.0, 4.0, 6.0));
-  /// let node = BvhNode::leaf(aabb, 0);
+  /// let node = BvhNode::leaf(aabb, 0., 0);
   ///
   /// assert_eq!(node.center(), Vec3::new(1.0, 2.0, 3.0));
   /// ```
@@ -653,7 +628,7 @@ impl BvhNode {
   /// use rendiation_geometry::{Box3, ContainAble};
   ///
   /// let aabb = Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0));
-  /// let node = BvhNode::leaf(aabb, 0);
+  /// let node = BvhNode::leaf(aabb, 0., 0);
   ///
   /// // New leaf nodes are marked as changed (pending change)
   /// // This is used internally for tracking modifications
@@ -685,7 +660,7 @@ impl BvhNode {
   /// use rendiation_geometry::{Box3, ContainAble};
   ///
   /// let aabb = Box3::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(2.0, 2.0, 2.0));
-  /// let mut node = BvhNode::leaf(aabb, 0);
+  /// let mut node = BvhNode::leaf(aabb, 0., 0);
   ///
   /// node.scale(Vec3::new(2.0, 2.0, 2.0));
   ///
@@ -721,7 +696,7 @@ impl BvhNode {
   ///
   /// // Create a 2×3×4 box
   /// let aabb = Box3::new(Vec3::zero(), Vec3::new(2.0, 3.0, 4.0));
-  /// let node = BvhNode::leaf(aabb, 0);
+  /// let node = BvhNode::leaf(aabb, 0., 0);
   ///
   /// assert_eq!(node.volume(), 24.0); // 2 * 3 * 4 = 24
   /// ```
@@ -731,7 +706,6 @@ impl BvhNode {
   /// - [`merged_volume`](Self::merged_volume) - Volume of merged AABBs
   #[inline]
   pub fn volume(&self) -> f32 {
-    // TODO PERF: simd optimizations?
     let extents = self.max - self.min;
     extents.x * extents.y * extents.z
   }
@@ -764,8 +738,8 @@ impl BvhNode {
   /// let aabb1 = Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0));
   /// let aabb2 = Box3::new(Vec3::new(2.0, 0.0, 0.0), Vec3::new(3.0, 1.0, 1.0));
   ///
-  /// let node1 = BvhNode::leaf(aabb1, 0);
-  /// let node2 = BvhNode::leaf(aabb2, 1);
+  /// let node1 = BvhNode::leaf(aabb1, 0., 0);
+  /// let node2 = BvhNode::leaf(aabb2, 0., 1);
   ///
   /// // Merged AABB spans from (0,0,0) to (3,1,1) = 3×1×1 = 3
   /// assert_eq!(node1.merged_volume(&node2), 3.0);
@@ -775,7 +749,6 @@ impl BvhNode {
   ///
   /// - [`volume`](Self::volume) - Volume of a single node
   pub fn merged_volume(&self, other: &Self) -> f32 {
-    // TODO PERF: simd optimizations?
     let mins = self.min.min(other.min);
     let maxs = self.max.max(other.max);
     let extents = maxs - mins;
@@ -796,11 +769,6 @@ impl BvhNode {
   ///
   /// `true` if the AABBs intersect, `false` otherwise.
   ///
-  /// # Performance
-  ///
-  /// When SIMD is enabled (3D, f32, simd-is-enabled feature), this uses vectorized
-  /// comparisons for improved performance.
-  ///
   /// # Example
   ///
   /// ```
@@ -812,9 +780,9 @@ impl BvhNode {
   /// let aabb2 = Box3::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(3.0, 3.0, 3.0));
   /// let aabb3 = Box3::new(Vec3::new(5.0, 5.0, 5.0), Vec3::new(6.0, 6.0, 6.0));
   ///
-  /// let node1 = BvhNode::leaf(aabb1, 0);
-  /// let node2 = BvhNode::leaf(aabb2, 1);
-  /// let node3 = BvhNode::leaf(aabb3, 2);
+  /// let node1 = BvhNode::leaf(aabb1, 0., 0);
+  /// let node2 = BvhNode::leaf(aabb2, 0., 1);
+  /// let node3 = BvhNode::leaf(aabb3, 0., 2);
   ///
   /// assert!(node1.intersects(&node2)); // Overlapping
   /// assert!(!node1.intersects(&node3)); // Separated
@@ -837,10 +805,6 @@ impl BvhNode {
   ///
   /// `true` if the AABBs intersect, `false` otherwise.
   ///
-  /// # Performance
-  ///
-  /// This version uses SIMD optimizations for improved performance on supported platforms.
-  ///
   /// # Example
   ///
   /// ```
@@ -852,9 +816,9 @@ impl BvhNode {
   /// let aabb2 = Box3::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(3.0, 3.0, 3.0));
   /// let aabb3 = Box3::new(Vec3::new(5.0, 5.0, 5.0), Vec3::new(6.0, 6.0, 6.0));
   ///
-  /// let node1 = BvhNode::leaf(aabb1, 0);
-  /// let node2 = BvhNode::leaf(aabb2, 1);
-  /// let node3 = BvhNode::leaf(aabb3, 2);
+  /// let node1 = BvhNode::leaf(aabb1, 0., 0);
+  /// let node2 = BvhNode::leaf(aabb2, 0., 1);
+  /// let node3 = BvhNode::leaf(aabb3, 0., 2);
   ///
   /// assert!(node1.intersects(&node2)); // Overlapping
   /// assert!(!node1.intersects(&node3)); // Separated
@@ -877,11 +841,6 @@ impl BvhNode {
   ///
   /// `true` if this AABB fully contains the other AABB, `false` otherwise.
   ///
-  /// # Performance
-  ///
-  /// When SIMD is enabled (3D, f32, simd-is-enabled feature), this uses vectorized
-  /// comparisons for improved performance.
-  ///
   /// # Example
   ///
   /// ```
@@ -892,8 +851,8 @@ impl BvhNode {
   /// let large = Box3::new(Vec3::zero(), Vec3::new(10.0, 10.0, 10.0));
   /// let small = Box3::new(Vec3::new(2.0, 2.0, 2.0), Vec3::new(5.0, 5.0, 5.0));
   ///
-  /// let node_large = BvhNode::leaf(large, 0);
-  /// let node_small = BvhNode::leaf(small, 1);
+  /// let node_large = BvhNode::leaf(large, 0., 0);
+  /// let node_small = BvhNode::leaf(small, 0., 1);
   ///
   /// assert!(node_large.contains(&node_small)); // Large contains small
   /// assert!(!node_small.contains(&node_large)); // Small doesn't contain large
@@ -917,10 +876,6 @@ impl BvhNode {
   ///
   /// `true` if this AABB fully contains the other AABB, `false` otherwise.
   ///
-  /// # Performance
-  ///
-  /// This version uses SIMD optimizations for improved performance on supported platforms.
-  ///
   /// # Example
   ///
   /// ```
@@ -931,8 +886,8 @@ impl BvhNode {
   /// let large = Box3::new(Vec3::zero(), Vec3::new(10.0, 10.0, 10.0));
   /// let small = Box3::new(Vec3::new(2.0, 2.0, 2.0), Vec3::new(5.0, 5.0, 5.0));
   ///
-  /// let node_large = BvhNode::leaf(large, 0);
-  /// let node_small = BvhNode::leaf(small, 1);
+  /// let node_large = BvhNode::leaf(large, 0., 0);
+  /// let node_small = BvhNode::leaf(small, 0., 1);
   ///
   /// assert!(node_large.contains(&node_small)); // Large contains small
   /// assert!(!node_small.contains(&node_large)); // Small doesn't contain large
@@ -966,7 +921,7 @@ impl BvhNode {
   /// let large = Box3::new(Vec3::zero(), Vec3::new(10.0, 10.0, 10.0));
   /// let small = Box3::new(Vec3::new(2.0, 2.0, 2.0), Vec3::new(5.0, 5.0, 5.0));
   ///
-  /// let node = BvhNode::leaf(large, 0);
+  /// let node = BvhNode::leaf(large, 0., 0);
   ///
   /// assert!(node.contains_aabb(&small));
   /// ```
@@ -975,7 +930,6 @@ impl BvhNode {
   ///
   /// - [`contains`](Self::contains) - Contains another `BvhNode`
   pub fn contains_aabb(&self, other: &Box3<f32>) -> bool {
-    // TODO PERF: simd optimizations?
     self.min.x <= other.min.x
       && self.min.y <= other.min.y
       && self.min.z <= other.min.z
@@ -1020,7 +974,7 @@ impl BvhNode {
   /// use rendiation_geometry::{Box3, ContainAble};
   ///
   /// let aabb = Box3::new(Vec3::new(5.0, -1.0, -1.0), Vec3::new(6.0, 1.0, 1.0));
-  /// let node = BvhNode::leaf(aabb, 0);
+  /// let node = BvhNode::leaf(aabb, 0., 0);
   ///
   /// // Ray3<f32> from origin along X axis
   /// let ray = Ray3::new(
@@ -1393,15 +1347,17 @@ impl IndexMut<BvhNodeIndex> for BvhNodeVec {
 /// let mut workspace = BvhWorkspace::default();
 ///
 /// // Add objects dynamically with custom IDs
-/// bvh.insert(Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0)), 100);
+/// bvh.insert(Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0)), 0., 100);
 /// bvh.insert(
 ///   Box3::new(Vec3::new(2.0, 0.0, 0.0), Vec3::new(3.0, 1.0, 1.0)),
+///   0.,
 ///   200,
 /// );
 ///
 /// // Update an object's position (by re-inserting with same ID)
 /// bvh.insert(
 ///   Box3::new(Vec3::new(0.5, 0.5, 0.0), Vec3::new(1.5, 1.5, 1.0)),
+///   0.,
 ///   100,
 /// );
 ///
@@ -1410,43 +1366,6 @@ impl IndexMut<BvhNodeIndex> for BvhNodeVec {
 ///
 /// // Remove an object
 /// bvh.remove(200);
-/// ```
-///
-/// # Ray3<f32> Casting Example
-///
-/// Find the closest object hit by a ray:
-///
-/// ```rust
-/// use dynamic_bvh::{Bvh, BvhBuildStrategy};
-/// use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec3, Vector};
-/// use rendiation_geometry::Ray3;
-/// use rendiation_geometry::{Box3, ContainAble};
-///
-/// let objects = vec![
-///   Box3::new(Vec3::new(0.0, 0.0, 5.0), Vec3::new(1.0, 1.0, 6.0)),
-///   Box3::new(Vec3::new(0.0, 0.0, 10.0), Vec3::new(1.0, 1.0, 11.0)),
-/// ];
-///
-/// let bvh = Bvh::from_leaves(BvhBuildStrategy::default(), &objects);
-///
-/// // Cast a ray forward along the Z axis
-/// let ray = Ray3::new(
-///   Vec3::<f32>::new(0.5, 0.5, 0.0),
-///   Vec3::<f32>::new(0.0, 0.0, 1.0).into_normalized(),
-/// );
-/// let max_distance = 100.0;
-///
-/// // The BVH finds potentially intersecting leaves, then you test actual geometry
-/// if let Some((leaf_id, hit_time)) = bvh.cast_ray(&ray, max_distance, |leaf_id, best_hit| {
-///   // Test ray against the actual geometry for this leaf
-///   // For this example, we test against the AABB itself
-///   let aabb = &objects[leaf_id as usize];
-///   aabb.cast_local_ray(&ray, best_hit, true)
-/// }) {
-///   println!("Ray3<f32> hit object {} at distance {}", leaf_id, hit_time);
-///   let hit_point = ray.at(hit_time);
-///   println!("Hit point: {:?}", hit_point);
-/// }
 /// ```
 ///
 /// # Construction Strategies
@@ -1488,9 +1407,10 @@ impl IndexMut<BvhNodeIndex> for BvhNodeVec {
 /// let mut workspace = BvhWorkspace::default();
 ///
 /// // Insert initial objects
-/// bvh.insert(Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0)), 0);
+/// bvh.insert(Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0)), 0., 0);
 /// bvh.insert(
 ///   Box3::new(Vec3::new(5.0, 0.0, 0.0), Vec3::new(6.0, 1.0, 1.0)),
+///   0.,
 ///   1,
 /// );
 ///
@@ -1502,6 +1422,7 @@ impl IndexMut<BvhNodeIndex> for BvhNodeVec {
 ///       Vec3::new(offset, 0.0, 0.0),
 ///       Vec3::new(1.0 + offset, 1.0, 1.0),
 ///     ),
+///     0.,
 ///     0,
 ///   );
 ///
@@ -1530,7 +1451,7 @@ impl IndexMut<BvhNodeIndex> for BvhNodeVec {
 ///     Vec3::new(i as f32, 0.0, 0.0),
 ///     Vec3::new(i as f32 + 1.0, 1.0, 1.0),
 ///   );
-///   bvh.insert(aabb, i);
+///   bvh.insert(aabb, 0., i);
 /// }
 ///
 /// // In your update loop:
@@ -1588,7 +1509,6 @@ impl IndexMut<BvhNodeIndex> for BvhNodeVec {
 /// - **Insert**: O(log n) average
 /// - **Remove**: O(log n) average
 /// - **Refit**: O(n) but very fast (just updates AABBs)
-/// - **Memory**: ~64 bytes per pair of children (3D f32 SIMD), O(n) total
 ///
 /// # See Also
 ///
@@ -1751,7 +1671,7 @@ impl Bvh {
     for (leaf_id, leaf_aabb) in leaves {
       workspace
         .rebuild_leaves
-        .push(BvhNode::leaf(leaf_aabb, leaf_id as u32));
+        .push(BvhNode::leaf(leaf_aabb, 0., leaf_id as u32));
       let _ = result
         .leaf_node_indices
         .insert(leaf_id, BvhNodeIndex::default());

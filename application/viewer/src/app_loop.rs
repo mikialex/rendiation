@@ -27,12 +27,12 @@ impl<'a> ApplicationCx<'a> {
   where
     T: Any,
   {
-    // this is safe because user can not access previous retrieved state through returned self.
-    let s = unsafe { std::mem::transmute_copy(&self) };
-
-    let state = self.memory.expect_state_init(|| init(), drop_from_cx);
-
-    (s, state)
+    let this = self as *mut Self;
+    let state = unsafe { (*this).memory.expect_state_init(|| init(), drop_from_cx) };
+    // SAFETY: this is derived from a valid &mut self; state points into bump-allocated heap
+    // memory inside memory, not into the struct itself, so no aliased &mut is created.
+    let this = unsafe { &mut *this };
+    (this, state)
   }
 }
 
@@ -49,14 +49,16 @@ unsafe impl HooksCxLike for ApplicationCx<'_> {
   }
 
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
-    // this is safe because user can not access previous retrieved state through returned self.
-    let s = unsafe { std::mem::transmute_copy(&self) };
-
-    let state = self
-      .memory
-      .expect_state_init(f, |_state: &mut T, _: &mut DynCx| {});
-
-    (s, state)
+    let this = self as *mut Self;
+    let state = unsafe {
+      (*this)
+        .memory
+        .expect_state_init(f, |_state: &mut T, _: &mut DynCx| {})
+    };
+    // SAFETY: this is derived from a valid &mut self; state points into bump-allocated heap
+    // memory inside memory, not into the struct itself, so no aliased &mut is created.
+    let this = unsafe { &mut *this };
+    (this, state)
   }
 
   fn is_dynamic_stage(&self) -> bool {
@@ -125,10 +127,8 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
 
       #[cfg(target_family = "wasm")]
       {
-        let device = web_sys::window().unwrap().device_pixel_ratio() as f32;
-
-        window_state.device_pixel_ratio = device;
-        window_state.physical_size = (width as f32, height as f32);
+        // todo, is this necessary?
+        window_state.window_state.physical_size = (width as f32, height as f32);
       }
 
       let window = Arc::new(RwLock::new(window));
@@ -279,7 +279,9 @@ impl GPUOrGPUCreateFuture {
         if let Poll::Ready(gpu) = future.poll_unpin(ctx) {
           #[cfg(target_family = "wasm")]
           if gpu.gpu.info().adaptor_info.backend == Backend::Gl {
-            log::warn!("selected backend is webgl, major performance issue may happen and features may missing");
+            log::warn!(
+              "selected backend is webgl, major performance issue may happen and features may missing"
+            );
           }
 
           *self = GPUOrGPUCreateFuture::Created(gpu);

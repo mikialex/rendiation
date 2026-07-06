@@ -67,6 +67,9 @@ egui_extras = { version = "0.33" }
 egui_tiles = "0.14.0"
 winit = { workspace = true }
 
+mimalloc = { version = "0.1.52", optional = true }
+dhat = { version = "0.3.3", optional = true }
+
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.3", features = ["wasm_js"] }
@@ -78,12 +81,14 @@ wasm-bindgen = "=0.2.108" # the installed cli version must match this, so we loc
 
 
 [features]
-default = ["heap-debug", "extra-checks"]
+default = ["heap-debug", "extra-checks", "mimalloc"]
 extra-checks = ["rendiation-viewer-content/extra-checks"]
 heap-debug = ["heap-tools/enabled"]
 support-webgl = ["rendiation-webgpu/support-webgl"]
 tracy = ["dep:tracing-tracy"]
 tracy-heap-debug = ["tracy"]
+mimalloc = ["dep:mimalloc"]
+dhat-heap-profiling = ["dep:dhat"]
 
 [lints]
 workspace = true

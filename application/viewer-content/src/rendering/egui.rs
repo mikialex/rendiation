@@ -108,7 +108,7 @@ impl Viewer3dRenderingCtx {
         ui.checkbox(
           &mut self.culling.enable_debug_occlusion_culling_result,
           "enable_debug_occlusion_culling_result",
-        )
+        );
       },
     );
 

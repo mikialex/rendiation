@@ -67,6 +67,7 @@ pub fn point_style_entry(
     .end_with_default(|| {});
 
   let alpha = val(1.) - result.load().smoothstep(0.0, 0.1);
+  let alpha = style_type.greater_equal_than(16).select(val(1.), alpha);
 
   (alpha, color_multiplier.load())
 }

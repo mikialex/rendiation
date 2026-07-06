@@ -4,7 +4,7 @@ pub type SceneIdUniformBufferAccess = LockReadGuardHolder<SceneIdUniforms>;
 pub type SceneIdUniforms = UniformBufferCollectionRaw<RawEntityHandle, Vec4<u32>>;
 
 pub fn use_scene_id_provider(cx: &mut QueryGPUHookCx) -> SceneIdUniformBufferAccess {
-  let uniforms = cx.use_uniform_buffers();
+  let uniforms = cx.use_uniform_buffers("scene id");
 
   cx.use_query_set::<SceneEntity>()
     .map(|v| {

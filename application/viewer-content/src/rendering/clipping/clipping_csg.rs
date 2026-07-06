@@ -17,7 +17,7 @@ pub fn use_csg_clipping(
 ) -> Option<CSGClippingRenderer> {
   let expressions = use_csg_device_data(cx);
 
-  let scene_csg = cx.use_uniform_buffers();
+  let scene_csg = cx.use_uniform_buffers("scene csg id");
 
   cx.use_changes::<SceneCSGClipping>()
     .filter_map_changes(|v| {
@@ -71,8 +71,14 @@ impl CSGClippingRenderer {
           }
         }
 
-        let image = image
-          .get_or_insert_with(|| AtomicImageDowngrade::new(&ctx.gpu.device, ctx.frame_size(), 2));
+        let image = image.get_or_insert_with(|| {
+          AtomicImageDowngrade::new(
+            &ctx.gpu.device,
+            ctx.frame_size(),
+            2,
+            "clipping fill face depth helper",
+          )
+        });
 
         let bg_depth = if reverse_z { 0_f32 } else { 1_f32 };
         image.clear(&ctx.gpu.device, &mut ctx.encoder, 0, 2, bg_depth.to_bits());
@@ -136,8 +142,8 @@ struct CSGExpressionClippingComponent {
 impl ShaderHashProvider for CSGExpressionClippingComponent {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.fill_face_depth.is_some().hash(hasher);
-    self.reverse_z.hash(hasher);
+    hasher.hash(self.fill_face_depth.is_some());
+    hasher.hash(self.reverse_z);
   }
 }
 
@@ -315,7 +321,7 @@ struct ForwardCsgSurfaceDraw {
 impl ShaderHashProvider for ForwardCsgSurfaceDraw {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.reverse_z.hash(hasher);
+    hasher.hash(self.reverse_z);
   }
 }
 
@@ -379,7 +385,7 @@ struct RayMarchingCsgExpression {
 impl ShaderHashProvider for RayMarchingCsgExpression {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.reverse_depth.hash(hasher);
+    hasher.hash(self.reverse_depth);
   }
 }
 

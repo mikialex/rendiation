@@ -9,7 +9,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for StateIntern {
   share_provider_hash_type_id! {}
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-    let (cx, intern) = cx.use_sharable_plain_state(ValueInterning::default);
+    let intern = cx.use_sharable_plain_state(ValueInterning::default);
 
     cx.use_dual_query::<StandardModelRasterizationOverride>()
       .dual_query_filter_map(|v| v) // todo, we should use prefilter if state setting is sparse(likely)
@@ -60,7 +60,7 @@ pub struct StateGPUImpl<'a> {
 
 impl<'a> ShaderHashProvider for StateGPUImpl<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.state_id.hash(hasher);
+    hasher.hash(self.state_id);
   }
   shader_hash_type_id! {StateGPUImpl<'static>}
 }
@@ -76,7 +76,7 @@ impl<'a> GraphicsShaderProvider for StateGPUImpl<'a> {
       });
 
       builder.fragment(|builder, _| {
-        apply_pipeline_builder(state, self.is_reverse_z, builder);
+        apply_pipeline_frag_builder(state, self.is_reverse_z, builder);
       })
     }
   }
@@ -101,16 +101,24 @@ fn map_depth_stencil_state(
   format: Option<TextureFormat>,
   reverse_z: bool,
 ) -> Option<DepthStencilState> {
+  let mut bias = states.bias;
+
+  if reverse_z {
+    bias.clamp = -bias.clamp;
+    bias.constant = -bias.constant;
+    bias.slope_scale = -bias.slope_scale;
+  }
+
   format.map(|format| DepthStencilState {
     format,
     depth_write_enabled: states.depth_write_enabled,
     depth_compare: states.depth_compare.into_raw(reverse_z),
     stencil: states.stencil.clone(),
-    bias: states.bias,
+    bias,
   })
 }
 
-pub fn apply_pipeline_builder(
+pub fn apply_pipeline_frag_builder(
   states: &RasterizationStates,
   reverse_z: bool,
   builder: &mut ShaderFragmentBuilder,
@@ -124,4 +132,12 @@ pub fn apply_pipeline_builder(
   // and depth_stencil if they exist
   let format = builder.depth_stencil.as_ref().map(|s| s.format);
   builder.depth_stencil = map_depth_stencil_state(states, format, reverse_z);
+}
+
+pub fn apply_pipeline_vertex_builder(
+  states: &RasterizationStates,
+  builder: &mut ShaderVertexBuilder,
+) {
+  builder.primitive_state.front_face = states.front_face;
+  builder.primitive_state.cull_mode = states.cull_mode;
 }

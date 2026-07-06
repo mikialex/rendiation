@@ -9,8 +9,24 @@ pub struct StorageBufferCombineGuard {
 }
 
 impl StorageBufferCombineGuard {
-  pub fn end(self, cx: &mut QueryGPUHookCx) {
-    cx.storage_allocator = self.outside_allocator;
+  pub fn end(mut self, cx: &mut QueryGPUHookCx) -> StorageBufferCombineRestart {
+    std::mem::swap(&mut cx.storage_allocator, &mut self.outside_allocator);
+    StorageBufferCombineRestart {
+      combined_allocator: self.outside_allocator,
+    }
+  }
+}
+
+pub struct StorageBufferCombineRestart {
+  combined_allocator: Box<dyn AbstractStorageAllocator>,
+}
+
+impl StorageBufferCombineRestart {
+  pub fn restart(mut self, cx: &mut QueryGPUHookCx) -> StorageBufferCombineGuard {
+    std::mem::swap(&mut cx.storage_allocator, &mut self.combined_allocator);
+    StorageBufferCombineGuard {
+      outside_allocator: self.combined_allocator,
+    }
   }
 }
 
@@ -85,11 +101,15 @@ impl MaybeCombinedAtomicU32StorageAllocator {
     }
   }
 
-  pub fn allocate_single(&self, device: &GPUDevice) -> AbstractStorageBuffer<DeviceAtomic<u32>> {
+  pub fn allocate_single(
+    &self,
+    device: &GPUDevice,
+    label: &str,
+  ) -> AbstractStorageBuffer<DeviceAtomic<u32>> {
     if let Self::Combined(combined) = self {
-      combined.allocate_single(device)
+      combined.allocate_single(device, label)
     } else {
-      DefaultStorageAllocator.allocate(4, device, None)
+      DefaultStorageAllocator.allocate(4, device, label)
     }
   }
 }
@@ -107,17 +127,22 @@ impl<T: AtomicityShaderNodeType> CombinedAtomicArrayStorageBufferAllocator<T> {
     }
   }
 
-  pub fn allocate_single(&self, device: &GPUDevice) -> AbstractStorageBuffer<DeviceAtomic<T>> {
-    self.internal.allocate(4, device, None)
+  pub fn allocate_single(
+    &self,
+    device: &GPUDevice,
+    label: &str,
+  ) -> AbstractStorageBuffer<DeviceAtomic<T>> {
+    self.internal.allocate(4, device, label)
   }
 
   pub fn allocate_atomic_array(
     &self,
     atomic_count: u32,
     device: &GPUDevice,
+    label: &str,
   ) -> AbstractStorageBuffer<[DeviceAtomic<T>]> {
     self
       .internal
-      .allocate(4 * atomic_count as u64, device, None)
+      .allocate(4 * atomic_count as u64, device, label)
   }
 }

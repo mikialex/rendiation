@@ -50,7 +50,7 @@ impl PassInfoPool {
 
       let pass_info = RenderPassGPUInfoData::new(buffer_size.map(|v| 1.0 / v), buffer_size);
       (
-        UniformBufferDataView::create(device, pass_info),
+        UniformBufferDataView::create(device, pass_info, "pass_info"),
         self.current_generation_idx,
       )
     });

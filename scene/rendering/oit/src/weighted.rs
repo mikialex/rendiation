@@ -25,18 +25,58 @@ pub fn draw_weighted_oit(
   scene_renderer: &dyn SceneRenderer,
   camera: &dyn RenderComponent,
   pass_com: &dyn RenderComponent,
-  reverse_depth: bool,
 ) {
-  let reveal_buffer = attachment().format(TextureFormat::R16Float).request(ctx);
-  let accumulate_buffer = attachment().format(TextureFormat::Rgba16Float).request(ctx);
+  let sample_count = target_desc_without_final_color.sample_count().unwrap_or(1);
+  let is_multi_sample = sample_count > 1;
+
+  let reveal_fmt = TextureFormat::R16Float;
+  let accumulate_fmt = TextureFormat::Rgba16Float;
+
+  let reveal_buffer = attachment()
+    .format(reveal_fmt)
+    .sample_count(sample_count)
+    .request(ctx);
+
+  let accumulate_buffer = attachment()
+    .format(accumulate_fmt)
+    .sample_count(sample_count)
+    .request(ctx);
+
+  let reveal_buffer_resolved;
+  let accumulate_buffer_resolved;
+  if is_multi_sample {
+    reveal_buffer_resolved = attachment().format(reveal_fmt).request(ctx);
+    accumulate_buffer_resolved = attachment().format(accumulate_fmt).request(ctx);
+  } else {
+    reveal_buffer_resolved = reveal_buffer.clone();
+    accumulate_buffer_resolved = accumulate_buffer.clone();
+  }
 
   let mut pass_target = target_desc_without_final_color.with_name("weighted_oit encode");
 
+  // MSAA resolve ordering note:
+  // The reference implementation (NVIDIA) resolves per-sample AFTER the composite math
+  // (accum.rgb / max(accum.a, 1e-5)), because it uses subpass input attachments and
+  // composites each sample independently. We resolve BEFORE the composite pass: the
+  // encode pass writes to MSAA buffers with an automatic resolve target, and the
+  // composite pass reads the resolved buffers. Since the division is non-linear, the
+  // two approaches are mathematically non-equivalent:
+  //   reference: avg(f(sample_i))  — composite then resolve
+  //   ours:      f(avg(sample_i))  — resolve then composite
+  // For an already-approximate technique like weighted OIT, the visual difference is
+  // expected to be minor. The trade-off is better performance (single composite pass
+  // regardless of sample count) for a slight accuracy difference at MSAA edges.
   let dispatch = DrawDispatch {
-    reverse_depth,
-    reveal_buffer_index: pass_target.push_color(&reveal_buffer, clear_and_store(color_same(1.))),
-    accumulates_buffer_index: pass_target
-      .push_color(&accumulate_buffer, clear_and_store(all_zero())),
+    reveal_buffer_index: pass_target.push_color_with_resolve_target_some(
+      &reveal_buffer,
+      clear_and_store(color_same(1.)),
+      is_multi_sample.then_some(reveal_buffer_resolved.clone()),
+    ),
+    accumulates_buffer_index: pass_target.push_color_with_resolve_target_some(
+      &accumulate_buffer,
+      clear_and_store(all_zero()),
+      is_multi_sample.then_some(accumulate_buffer_resolved.clone()),
+    ),
   };
   let dispatch = &dispatch as &dyn RenderComponent;
   let pass_com = RenderArray([dispatch, pass_com]);
@@ -51,15 +91,14 @@ pub fn draw_weighted_oit(
     .render_ctx(ctx)
     .by(
       &mut Composition {
-        accumulates: accumulate_buffer,
-        reveal: reveal_buffer,
+        accumulates: accumulate_buffer_resolved,
+        reveal: reveal_buffer_resolved,
       }
       .draw_quad(),
     );
 }
 
 struct DrawDispatch {
-  reverse_depth: bool,
   reveal_buffer_index: usize,
   accumulates_buffer_index: usize,
 }
@@ -67,9 +106,8 @@ struct DrawDispatch {
 impl ShaderHashProvider for DrawDispatch {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.reverse_depth.hash(hasher);
-    self.reveal_buffer_index.hash(hasher);
-    self.accumulates_buffer_index.hash(hasher);
+    hasher.hash(self.reveal_buffer_index);
+    hasher.hash(self.accumulates_buffer_index);
   }
 }
 
@@ -81,7 +119,16 @@ impl GraphicsShaderProvider for DrawDispatch {
       let color_output = cx.query::<DefaultDisplay>();
       let color = color_output.xyz() * color_output.w(); // pre-multiply it
 
+      // todo, this should be passed by varying
+      //
+      // Reconstruct view-space linear depth from NDC depth via inverse projection matrix.
+      // This correctly handles both standard and reverse-Z depth conventions,
+      // because the projection matrix encodes the depth mapping.
+      let proj_inv = cx.query::<CameraProjectionInverseMatrix>();
       let depth = cx.query::<FragmentPosition>().z();
+      let ndc = (val(0.0), val(0.0), depth, val(1.0)).into();
+      let view_h = proj_inv * ndc;
+      let view_z = view_h.z() / view_h.w();
 
       // Insert your favorite weighting function here. The color-based factor
       // avoids color pollution from the edges of wispy clouds. The z-based
@@ -92,13 +139,9 @@ impl GraphicsShaderProvider for DrawDispatch {
       // by 10 to get an adjusted depth:
       // todo, expose as a uniform
 
-      let mut depth_z = depth * val(10.0);
-
-      if self.reverse_depth {
-        depth_z *= val(-1.0);
-      }
-
-      let dist_weight = (val(0.03) / (val(1e-5) + depth_z.pow(4.0))).clamp(1e-2, 3e3);
+      let depth_z = view_z * val(10.0);
+      let dist_weight =
+        (val(0.03) / (val(1e-5) + (depth_z / val(200.0)).pow(4.0))).clamp(1e-2, 3e3);
 
       let max_channel = color.max_channel().max(color_output.w());
       let alpha_weight = (max_channel * val(40.0) + val(0.01)).min(val(1.));

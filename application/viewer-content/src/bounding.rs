@@ -23,7 +23,20 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelLocalBounding {
       .dual_query_select(text3d_sm_bounding)
       .dual_query_boxed();
 
-    att_mesh_std_sm_bounding.dual_query_select(extra)
+    let internal = att_mesh_std_sm_bounding.dual_query_select(extra);
+    let (internal, internal_) = internal.fork();
+
+    let instanced_model = use_instanced_model_local_bounding(cx, internal_);
+    internal
+      .dual_query_union(instanced_model, |(internal, instanced)| {
+        match (internal, instanced) {
+          (None, None) => None,
+          (None, Some(m)) => Some(m),
+          (Some(m), None) => Some(m),
+          (Some(_), Some(m)) => Some(m),
+        }
+      })
+      .dual_query_boxed()
   }
 }
 

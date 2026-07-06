@@ -17,7 +17,6 @@ pub struct ShaderComputePipelineBuilder {
   subgroup_id: RwLock<Option<Node<u32>>>,
   subgroup_invocation_id: RwLock<Option<Node<u32>>>,
   subgroup_size: RwLock<Option<Node<u32>>>,
-  pub log_result: bool,
   pub checks: ShaderRuntimeChecks,
 }
 
@@ -96,7 +95,6 @@ impl ShaderComputePipelineBuilder {
       subgroup_id: Default::default(),
       subgroup_invocation_id: Default::default(),
       subgroup_size: Default::default(),
-      log_result: false,
     };
 
     // if user not setting any workgroup size in building process, we use this as default config
@@ -179,15 +177,6 @@ impl ShaderComputePipelineBuilder {
 
   pub fn bind_single_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> T::ShaderInstance {
     self.bindgroups().bind_single_by(instance)
-  }
-
-  pub fn with_log_shader(mut self) -> Self {
-    self.log_result = true;
-    self
-  }
-  pub fn enable_log_shader(&mut self) -> &mut Self {
-    self.log_result = true;
-    self
   }
 
   pub fn build(self) -> Result<ComputeShaderCompileResult, ShaderBuildError> {

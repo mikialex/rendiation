@@ -73,7 +73,16 @@ where
 
   fn access_multi(&self, key: &K2) -> Option<impl Iterator<Item = T::Value> + '_> {
     let k = (self.f2)(key.clone())?;
-    // I believe this is a compiler bug
+    // SAFETY:
+    // `f2` returns an owned T::Key, but base.access_multi expects &T::Key.
+    // The local `k` would not live long enough for the returned impl Iterator's
+    // opaque lifetime — this is a known compiler limitation around impl Trait
+    // lifetime inference, not a semantic lifetime violation. The MultiQuery
+    // trait contract binds the return lifetime to `&self` only; the `key`
+    // parameter has an independent lifetime and is never captured by the
+    // returned iterator in any base implementation. All impls use the key
+    // only for synchronous lookup. Therefore extending `k`'s lifetime is
+    // safe in practice.
     let k: &'static T::Key = unsafe { std::mem::transmute(&k) };
     self.base.access_multi(k)
   }

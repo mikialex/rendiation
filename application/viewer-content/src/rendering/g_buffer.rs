@@ -122,8 +122,8 @@ pub struct FrameGeometryBufferPassEncoder {
 impl ShaderHashProvider for FrameGeometryBufferPassEncoder {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.normal.hash(hasher);
-    self.entity_id.hash(hasher);
+    hasher.hash(self.normal);
+    hasher.hash(self.entity_id);
   }
 }
 
@@ -159,7 +159,7 @@ impl ShaderPassBuilder for FrameGeometryBuffer {
 impl ShaderHashProvider for FrameGeometryBuffer {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.entity_id.is_some().hash(hasher);
+    hasher.hash(self.entity_id.is_some());
   }
 }
 
@@ -259,9 +259,9 @@ impl ShaderHashProvider for MSAAGBufferResolver {
   shader_hash_type_id! {}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.sample_count.hash(hasher);
-    self.reverse_depth.hash(hasher);
-    self.entity_id.is_some().hash(hasher);
+    hasher.hash(self.sample_count);
+    hasher.hash(self.reverse_depth);
+    hasher.hash(self.entity_id.is_some());
   }
 }
 impl ShaderPassBuilder for MSAAGBufferResolver {

@@ -19,8 +19,8 @@ where
   S: DeviceHistogramMappingLogic<Data = T>,
 {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.workgroup_size.hash(hasher);
-    S::MAX.hash(hasher);
+    hasher.hash(self.workgroup_size);
+    hasher.hash(S::MAX);
     self.upstream.hash_pipeline_with_type_info(hasher)
   }
   shader_hash_type_id! {}
@@ -104,8 +104,8 @@ where
     struct HistogramWrite(u32, u32);
     impl ShaderHashProvider for HistogramWrite {
       fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-        self.0.hash(hasher);
-        self.1.hash(hasher);
+        hasher.hash(self.0);
+        hasher.hash(self.1);
       }
       shader_hash_type_id! {}
     }

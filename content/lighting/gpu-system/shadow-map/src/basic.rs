@@ -4,111 +4,131 @@ use rendiation_texture_packer::pack_2d_to_3d::RemappedGrowablePacker;
 
 use crate::*;
 
-pub fn use_basic_shadow_map_uniform(
-  cx: &mut QueryGPUHookCx,
-  source_world: UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = Mat4<f64>>>,
-  source_proj: UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = Mat4<f32>>>,
-  size: UseResult<impl DataChanges<Key = RawEntityHandle, Value = Size> + 'static>,
-  bias: UseResult<impl DataChanges<Key = u32, Value = ShadowBias> + 'static>,
-  enabled: UseResult<impl DataChanges<Key = u32, Value = bool> + 'static>,
-  atlas_config: MultiLayerTexturePackerConfig,
-) -> Option<(BasicShadowMapPreparer, UniformArray<BasicShadowMapInfo, 8>)> {
-  let (cx, uniform) = cx.use_uniform_array_buffers();
-
-  let (source_world1, source_world2) = source_world.fork();
-  let (source_world2, source_world3) = source_world2.fork();
-
-  let (source_proj1, source_proj2) = source_proj.fork();
-
-  let source_world_view = source_world1.use_retain_view_to_resolve_stage(cx);
-
-  source_world2
-    .into_delta_change()
-    .use_assure_result(cx)
-    .map_changes(|world_matrix| into_hpt(world_matrix.position()).into_uniform())
-    .update_uniform_array(
-      uniform,
-      offset_of!(BasicShadowMapInfo, shadow_world_position),
-      cx.gpu,
-    );
-
-  let source_proj_view = source_proj1.use_retain_view_to_resolve_stage(cx);
-
-  source_world3
-    .dual_query_zip(source_proj2)
-    .dual_query_map(|(world_matrix, projection)| {
-      let world_inv = world_matrix.inverse_or_identity();
-      projection * world_inv.remove_position().into_f32()
-    })
-    .use_assure_result(cx)
-    .into_delta_change()
-    .update_uniform_array(
-      uniform,
-      offset_of!(
-        BasicShadowMapInfo,
-        shadow_center_without_translation_to_shadowmap_ndc
-      ),
-      cx.gpu,
-    );
-
-  enabled
-    .map_changes(Bool::from)
-    .use_assure_result(cx)
-    .update_uniform_array(uniform, offset_of!(BasicShadowMapInfo, enabled), cx.gpu);
-
-  bias.use_assure_result(cx).update_uniform_array(
-    uniform,
-    offset_of!(BasicShadowMapInfo, bias),
-    cx.gpu,
-  );
-
-  // todo, spawn a task to pack
-  let (cx, packer) = cx.use_sharable_plain_state(|| RemappedGrowablePacker::new(atlas_config));
-
-  if let Some(size_changes) = size.use_assure_result(cx).if_ready() {
-    let mut new_size = None;
-    let mut buff_changes = FastHashMap::default();
-
-    packer.write().process(
-      size_changes.iter_removed(),
-      size_changes.iter_update_or_insert(),
-      |_new_size| {
-        new_size = Some(_new_size);
-      },
-      |key, delta| {
-        merge_change(&mut buff_changes, (key, delta));
-      },
-    );
-
-    buff_changes
-      .into_change()
-      .collective_map(|v| v.map(convert_pack_result).unwrap_or_default()) // todo, handle allocation fail in shader access
-      .update_uniform_array(uniform, offset_of!(BasicShadowMapInfo, map_info), cx.gpu);
-  }
-
-  let (cx, atlas) = cx.use_plain_state_default::<Option<ShadowAtlas>>();
-
-  cx.when_render(|| {
-    let shadow_map_atlas = get_or_create_shadow_atlas(
-      "basic-shadow-map-atlas",
-      packer.read().current_size(),
-      atlas,
-      cx.gpu,
-    );
-
-    let system = BasicShadowMapPreparer {
-      shadow_map_atlas,
-      source_world: source_world_view.expect_resolve_stage().into_boxed(),
-      source_proj: source_proj_view.expect_resolve_stage().into_boxed(),
-      packing: PackerView(packer.make_read_holder()).into_boxed(),
-    };
-
-    (system, uniform.clone())
-  })
+pub struct BasicShadowMapInfoInput {
+  pub light_world: Mat4<f64>,
+  pub proj: Mat4<f32>,
+  pub map_size: Size,
+  pub bias: ShadowBias,
 }
 
 #[derive(Clone)]
-struct PackerView(LockReadGuardHolder<RemappedGrowablePacker<RawEntityHandle>>);
+pub struct BasicShadowMapGPU {
+  pub shadow_map: ShadowAtlas,
+  // scene entity -> per-scene uniform buffer
+  pub uniforms: FastHashMap<RawEntityHandle, UniformArray<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
+}
+
+pub type LightArrayAllocateResult = FastHashMap<RawEntityHandle, FastHashMap<RawEntityHandle, u32>>;
+
+/// shadow_info_access: light_id -> Option<BasicShadowMapInfo>, return None if no shadow
+pub fn prepare_basic_shadow_map_uniform(
+  atlas_config: &MultiLayerTexturePackerConfig,
+  light_uniform_array_index_mapping: &LightArrayAllocateResult,
+  shadow_info_access: &dyn Fn(RawEntityHandle) -> Option<BasicShadowMapInfoInput>,
+  gpu_data: &mut Option<BasicShadowMapGPU>,
+  gpu: &GPU,
+) -> BasicShadowMapPreparer {
+  let mut packer = RemappedGrowablePacker::<RawEntityHandle>::new(*atlas_config);
+  let mut source_world_map = FastHashMap::default();
+  let mut source_proj_map = FastHashMap::default();
+
+  let new_shadow_info: FastHashMap<
+    RawEntityHandle,
+    Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>,
+  > = light_uniform_array_index_mapping
+    .iter()
+    .map(|(scene_id, light_id_mapping)| {
+      let mut shadow_info_array = Shader140Array::<BasicShadowMapInfo, MAX_SHADOW_COUNT>::default();
+
+      // packer maybe resize, so we have to batch process first
+      let sizes = light_id_mapping
+        .iter()
+        .filter_map(|(light_id, _)| shadow_info_access(*light_id).map(|v| (*light_id, v.map_size)));
+      packer.process([].into_iter(), sizes, |_| {}, |_, _| {});
+
+      //
+      for (light_id, uniform_array_index) in light_id_mapping.iter() {
+        let shadow_uniform = if let Some(shadow_info) = shadow_info_access(*light_id) {
+          // todo, handle allocation fail(warning and handle shader access)
+          let map_info = packer
+            .access(light_id)
+            .unwrap()
+            .map(convert_pack_result)
+            .unwrap_or(Default::default());
+
+          source_world_map.insert(*light_id, shadow_info.light_world);
+          source_proj_map.insert(*light_id, shadow_info.proj);
+
+          let world_mat = shadow_info.light_world;
+          let shadow_world_position = into_hpt(world_mat.position()).into_uniform();
+
+          let world_inv = world_mat.inverse_or_identity();
+          let shadow_center_without_translation_to_shadowmap_ndc =
+            shadow_info.proj * world_inv.remove_position().into_f32();
+
+          BasicShadowMapInfo {
+            enabled: Bool::from(true),
+            map_info,
+            bias: shadow_info.bias,
+            shadow_world_position,
+            shadow_center_without_translation_to_shadowmap_ndc,
+            ..Default::default()
+          }
+        } else {
+          BasicShadowMapInfo {
+            enabled: Bool::from(false),
+            ..Default::default()
+          }
+        };
+        shadow_info_array.set(*uniform_array_index as usize, shadow_uniform);
+      }
+      (*scene_id, shadow_info_array)
+    })
+    .collect();
+
+  let (old_shadow_map, mut old_uniforms) = match gpu_data.as_ref() {
+    Some(g) => (Some(g.shadow_map.clone()), g.uniforms.clone()),
+    None => (None, FastHashMap::default()),
+  };
+
+  let required_size = packer.current_size();
+  let shadow_map = match old_shadow_map {
+    Some(existing) if existing.size() == required_size.into_gpu_size() => existing,
+    _ => ShadowAtlas::new("basic-shadow-map-atlas", required_size.into_gpu_size(), gpu),
+  };
+
+  let uniforms: FastHashMap<RawEntityHandle, UniformArray<BasicShadowMapInfo, MAX_SHADOW_COUNT>> =
+    new_shadow_info
+      .iter()
+      .map(|(scene_id, info)| {
+        let uniform = if let Some(existing) = old_uniforms.remove(scene_id) {
+          existing.write_at(&gpu.queue, info, 0);
+          existing
+        } else {
+          create_uniform(info.clone(), &gpu.device, "basic-shadow-map-uniform")
+        };
+        (*scene_id, uniform)
+      })
+      .collect();
+
+  *gpu_data = Some(BasicShadowMapGPU {
+    shadow_map: shadow_map.clone(),
+    uniforms: uniforms.clone(),
+  });
+
+  BasicShadowMapPreparer {
+    gpu_data: BasicShadowMapGPU {
+      shadow_map,
+      uniforms,
+    },
+    source_world: source_world_map.into_boxed(),
+    source_proj: source_proj_map.into_boxed(),
+    packing: PackerView(Arc::new(packer)).into_boxed(),
+  }
+}
+
+#[derive(Clone)]
+struct PackerView(Arc<RemappedGrowablePacker<RawEntityHandle>>);
 
 impl Query for PackerView {
   type Key = RawEntityHandle;
@@ -131,7 +151,7 @@ impl Query for PackerView {
 }
 
 pub struct BasicShadowMapPreparer {
-  shadow_map_atlas: ShadowAtlas,
+  pub gpu_data: BasicShadowMapGPU,
   source_world: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
   source_proj: BoxedDynQuery<RawEntityHandle, Mat4<f32>>,
   packing: BoxedDynQuery<RawEntityHandle, ShadowMapAddressInfo>,
@@ -144,8 +164,8 @@ impl BasicShadowMapPreparer {
     // proj, world
     scene_content: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
-  ) -> GPU2DArrayDepthTextureView {
-    clear_shadow_map(&self.shadow_map_atlas, frame_ctx, reversed_depth);
+  ) -> BasicShadowMapGPU {
+    clear_shadow_map(&self.gpu_data.shadow_map, frame_ctx, reversed_depth);
 
     // do shadowmap updates
     for (idx, shadow_view) in self.packing.iter_key_value() {
@@ -153,7 +173,8 @@ impl BasicShadowMapPreparer {
       let proj = self.source_proj.access(&idx).unwrap();
 
       let write_view = self
-        .shadow_map_atlas
+        .gpu_data
+        .shadow_map
         .get_layer_view(shadow_view.layer_index as u32)
         .clone();
 
@@ -176,7 +197,7 @@ impl BasicShadowMapPreparer {
       );
     }
 
-    self.shadow_map_atlas.get_full_view().clone()
+    self.gpu_data
   }
 }
 
@@ -194,7 +215,7 @@ pub struct BasicShadowMapInfo {
 #[derive(Clone)]
 pub struct BasicShadowMapComponent {
   pub shadow_map_atlas: GPU2DArrayDepthTextureView,
-  pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
+  pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
   pub reversed_depth: bool,
 }
 
@@ -220,7 +241,7 @@ impl AbstractBindingSource for BasicShadowMapComponent {
 pub struct BasicShadowMapInvocation {
   shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
   sampler: BindingNode<ShaderCompareSampler>,
-  info: ShaderReadonlyPtrOf<Shader140Array<BasicShadowMapInfo, 8>>,
+  info: ShaderReadonlyPtrOf<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
 }
 
 impl BasicShadowMapInvocation {
@@ -284,7 +305,10 @@ impl IntoShaderIterator for BasicShadowMapInvocation {
 #[derive(Clone)]
 pub struct BasicShadowMapInvocationIter {
   inner: BasicShadowMapInvocation,
-  iter: ShaderStaticArrayReadonlyIter<Shader140Array<BasicShadowMapInfo, 8>, BasicShadowMapInfo>,
+  iter: ShaderStaticArrayReadonlyIter<
+    Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>,
+    BasicShadowMapInfo,
+  >,
 }
 
 impl ShaderIterator for BasicShadowMapInvocationIter {

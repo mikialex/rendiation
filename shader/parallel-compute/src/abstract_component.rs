@@ -69,8 +69,8 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
     struct SizeWriter<'a, T: ?Sized>(&'a T);
     impl<T: ShaderHashProvider + ?Sized> ShaderHashProvider for SizeWriter<'_, T> {
       fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-        struct Marker;
-        std::any::TypeId::of::<Marker>().hash(hasher);
+        struct SizeWriterTypeMarker;
+        hasher.hash_type::<SizeWriterTypeMarker>();
         self.0.hash_type_info(hasher)
       }
 
@@ -84,9 +84,9 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
       let size_output = gpu.device.make_indirect_dispatch_size_buffer();
       let work_size_output = StorageBufferReadonlyDataView::create_by_with_extra_usage(
         &gpu.device,
-        Some("work_size_output"),
         StorageBufferInit::WithInit(&Vec4::<u32>::zero()),
         BufferUsages::INDIRECT, // todo, this is necessary??
+        "work_size_output",
       )
       .into_rw_view();
       (size_output, work_size_output)
@@ -94,13 +94,14 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
 
     // requested_workgroup_size should always be respected
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
+    let label = "workgroup_size info";
     let (cx, (workgroup_size_buffer, workgroup_size_cache)) = cx.use_plain_state(|| {
-      let buffer = create_gpu_readonly_storage(&workgroup_size, gpu.device).into_rw_view();
+      let buffer = create_gpu_readonly_storage(&workgroup_size, gpu.device, label).into_rw_view();
       (buffer, workgroup_size)
     });
     if *workgroup_size_cache != workgroup_size {
       *workgroup_size_buffer =
-        create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device).into_rw_view();
+        create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device, label).into_rw_view();
     }
 
     let pipeline = cx.get_or_create_compute_pipeline(&SizeWriter(self), |cx| {

@@ -2,8 +2,26 @@ use std::future::Future;
 
 use crate::*;
 
-pub type UniformBufferCollectionRaw<K, T> = FastHashMap<K, UniformBufferDataView<T>>;
-pub type UniformBufferCollection<K, T> = Arc<RwLock<FastHashMap<K, UniformBufferDataView<T>>>>;
+pub struct UniformBufferCollectionRaw<K, T: Std140> {
+  internal: FastHashMap<K, UniformBufferDataView<T>>,
+  label: String,
+}
+
+impl<K, T: Std140> UniformBufferCollectionRaw<K, T> {
+  pub fn new(label: &str) -> Self {
+    Self {
+      internal: FastHashMap::default(),
+      label: label.to_string(),
+    }
+  }
+  pub fn get(&self, key: &K) -> Option<&UniformBufferDataView<T>>
+  where
+    K: Eq + std::hash::Hash,
+  {
+    self.internal.get(key)
+  }
+}
+pub type UniformBufferCollection<K, T> = Arc<RwLock<UniformBufferCollectionRaw<K, T>>>;
 
 pub trait DataChangeGPUExt<K: LinearIdentified + CKey> {
   fn update_uniforms<U: Std140 + Default>(
@@ -211,21 +229,23 @@ where
     gpu: &GPU,
   ) {
     if self.has_change() {
-      let mut uniform = uniforms.write();
+      let uniform = &mut *uniforms.write();
+      let label = &uniform.label;
+      let map = &mut uniform.internal;
       for id in self.iter_removed() {
-        uniform.remove(&id);
+        map.remove(&id);
       }
 
       for (id, value) in self.iter_update_or_insert() {
-        let buffer = uniform
+        let buffer = map
           .entry(id)
-          .or_insert_with(|| UniformBufferDataView::create_default(&gpu.device));
+          .or_insert_with(|| UniformBufferDataView::create_default(&gpu.device, label));
         // todo, here we should do sophisticated optimization to merge the adjacent writes.
         buffer.write_at(&gpu.queue, &value, offset as u64);
       }
 
-      if uniform.capacity() > uniform.len() * 2 {
-        uniform.shrink_to_fit();
+      if map.capacity() > map.len() * 2 {
+        map.shrink_to_fit();
       }
     }
   }

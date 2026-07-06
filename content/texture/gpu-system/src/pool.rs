@@ -466,7 +466,6 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
   }
 }
 
-// todo, the implementation is not optimal
 #[shader_fn]
 fn texture_pool_sample_impl(
   texture: BindingNode<ShaderTexture2DArray>,
@@ -478,90 +477,182 @@ fn texture_pool_sample_impl(
   let texture_meta = texture_meta.expand();
   let sampler = sampler.expand();
 
-  // todo, we should correct uv after the bilinear offset
+  // Apply address mode to continuous UV (handles global wrapping: fract, clamp, mirror)
   let correct_u = shader_address_mode_fn(sampler.address_mode_u, uv.x());
   let correct_v = shader_address_mode_fn(sampler.address_mode_v, uv.y());
   let uv: Node<Vec2<_>> = (correct_u, correct_v).into();
 
-  let load_position = texture_meta.offset + texture_meta.size * uv;
-  let max_load_position = texture_meta.offset + (texture_meta.size - val(Vec2::one()));
+  // Convert to texel-local continuous coordinates (before per-corner address wrapping)
+  let local_coord = texture_meta.size * uv;
 
-  let max_mip_level = texture_meta.size.x().min(texture_meta.size.y()).log2();
+  let max_mip_level = texture_meta
+    .size
+    .x()
+    .min(texture_meta.size.y())
+    .log2()
+    .floor();
   let base_sample_level = base_sample_level.min(max_mip_level);
 
-  let use_mag_filter = base_sample_level.less_equal_than(val(0.));
+  // LINEAR mipmap: trilinear — sample both levels and interpolate
+  // NEAREST mipmap: pick single level via branch, avoiding unused level sampling
+  sampler.mipmap_filter.equals(LINEAR).select_branched(
+    || {
+      // LINEAR mipmap: trilinear — sample both levels and interpolate
+      let should_use_linear = shader_should_use_linear_filter_fn(
+        sampler.mag_filter,
+        sampler.min_filter,
+        base_sample_level,
+      );
+      let base_result = sample_texture_level_impl_fn(
+        texture,
+        local_coord,
+        texture_meta.offset,
+        texture_meta.size,
+        sampler.address_mode_u,
+        sampler.address_mode_v,
+        base_sample_level.into_u32(),
+        texture_meta.layer_index,
+        should_use_linear,
+      );
+
+      let next_sample_level = base_sample_level.ceil();
+      let should_use_linear = shader_should_use_linear_filter_fn(
+        sampler.mag_filter,
+        sampler.min_filter,
+        next_sample_level,
+      );
+      let next_result = sample_texture_level_impl_fn(
+        texture,
+        local_coord,
+        texture_meta.offset,
+        texture_meta.size,
+        sampler.address_mode_u,
+        sampler.address_mode_v,
+        next_sample_level.into_u32(),
+        texture_meta.layer_index,
+        should_use_linear,
+      );
+
+      base_sample_level.fract().mix(base_result, next_result)
+    },
+    || {
+      // NEAREST mipmap: pick single level based on round(level)
+      base_sample_level
+        .fract()
+        .greater_equal_than(val(0.5))
+        .select_branched(
+          || {
+            let next_sample_level = base_sample_level.ceil();
+            let should_use_linear = shader_should_use_linear_filter_fn(
+              sampler.mag_filter,
+              sampler.min_filter,
+              next_sample_level,
+            );
+            sample_texture_level_impl_fn(
+              texture,
+              local_coord,
+              texture_meta.offset,
+              texture_meta.size,
+              sampler.address_mode_u,
+              sampler.address_mode_v,
+              next_sample_level.into_u32(),
+              texture_meta.layer_index,
+              should_use_linear,
+            )
+          },
+          || {
+            let should_use_linear = shader_should_use_linear_filter_fn(
+              sampler.mag_filter,
+              sampler.min_filter,
+              base_sample_level,
+            );
+            sample_texture_level_impl_fn(
+              texture,
+              local_coord,
+              texture_meta.offset,
+              texture_meta.size,
+              sampler.address_mode_u,
+              sampler.address_mode_v,
+              base_sample_level.into_u32(),
+              texture_meta.layer_index,
+              should_use_linear,
+            )
+          },
+        )
+    },
+  )
+}
+
+#[shader_fn]
+fn shader_should_use_linear_filter(
+  mag_filter: Node<u32>,
+  min_filter: Node<u32>,
+  level: Node<f32>,
+) -> Node<bool> {
+  let use_mag_filter = level.less_equal_than(val(0.));
   let use_min_filter = use_mag_filter.not();
-
-  let should_use_linear = use_mag_filter
-    .and(sampler.mag_filter.equals(LINEAR))
-    .or(use_min_filter.and(sampler.min_filter.equals(LINEAR)));
-
-  let base_sample_level_filter_result = sample_texture_level_impl_fn(
-    texture,
-    load_position,
-    max_load_position,
-    base_sample_level.into_u32(),
-    texture_meta.layer_index,
-    should_use_linear,
-  );
-
-  let next_sample_level = base_sample_level.ceil();
-
-  let use_mag_filter = next_sample_level.less_equal_than(val(0.));
-  let use_min_filter = use_mag_filter.not();
-
-  let should_use_linear = use_mag_filter
-    .and(sampler.mag_filter.equals(LINEAR))
-    .or(use_min_filter.and(sampler.min_filter.equals(LINEAR)));
-
-  let next_sample_level_filter_result = sample_texture_level_impl_fn(
-    texture,
-    load_position,
-    max_load_position,
-    next_sample_level.into_u32(),
-    texture_meta.layer_index,
-    should_use_linear,
-  );
-
-  sampler
-    .mipmap_filter
-    .equals(NEAREST)
-    .select(val(1.), base_sample_level.fract())
-    .mix(
-      base_sample_level_filter_result,
-      next_sample_level_filter_result,
-    )
+  use_mag_filter
+    .and(mag_filter.equals(LINEAR))
+    .or(use_min_filter.and(min_filter.equals(LINEAR)))
 }
 
 #[shader_fn]
 fn sample_texture_level_impl(
   texture: BindingNode<ShaderTexture2DArray>,
-  raw_load_position: Node<Vec2<f32>>, // in atlas coord space
-  max_load_position: Node<Vec2<f32>>, // in atlas coord space
+  local_coord: Node<Vec2<f32>>, // in texel-local space [0, size), after global address wrapping
+  offset: Node<Vec2<f32>>,      // atlas offset for this texture
+  size: Node<Vec2<f32>>,        // texture dimensions in texels
+  address_u: Node<u32>,
+  address_v: Node<u32>,
   level: Node<u32>,
   layer: Node<u32>,
   linear: Node<bool>,
 ) -> Node<Vec4<f32>> {
   linear.select_branched(
     || {
-      let xy_mix = raw_load_position.fract();
-      let raw_load_position = raw_load_position.floor();
+      let xy_mix = local_coord.fract();
+      let base = local_coord.floor();
 
-      let p00 = raw_load_position;
-      let p10 = raw_load_position + val(Vec2::new(1.0, 0.0));
-      let p01 = raw_load_position + val(Vec2::new(0.0, 1.0));
-      let p11 = raw_load_position + val(Vec2::new(1.0, 1.0));
+      let p00 = base;
+      let p10 = base + val(Vec2::new(1.0, 0.0));
+      let p01 = base + val(Vec2::new(0.0, 1.0));
+      let p11 = base + val(Vec2::new(1.0, 1.0));
 
-      let p00 = sample_texture_impl(texture, p00.min(max_load_position), level, layer);
-      let p10 = sample_texture_impl(texture, p10.min(max_load_position), level, layer);
-      let p01 = sample_texture_impl(texture, p01.min(max_load_position), level, layer);
-      let p11 = sample_texture_impl(texture, p11.min(max_load_position), level, layer);
+      // Apply per-corner address mode on integer texel indices, then map to atlas
+      let p00 = sample_texture_impl(
+        texture,
+        shader_texel_address_2d_fn(address_u, address_v, p00, size) + offset,
+        level,
+        layer,
+      );
+      let p10 = sample_texture_impl(
+        texture,
+        shader_texel_address_2d_fn(address_u, address_v, p10, size) + offset,
+        level,
+        layer,
+      );
+      let p01 = sample_texture_impl(
+        texture,
+        shader_texel_address_2d_fn(address_u, address_v, p01, size) + offset,
+        level,
+        layer,
+      );
+      let p11 = sample_texture_impl(
+        texture,
+        shader_texel_address_2d_fn(address_u, address_v, p11, size) + offset,
+        level,
+        layer,
+      );
 
       let p0 = xy_mix.x().mix(p00, p10);
       let p1 = xy_mix.x().mix(p01, p11);
       xy_mix.y().mix(p0, p1)
     },
-    || sample_texture_impl(texture, raw_load_position, level, layer),
+    || {
+      let base = local_coord.floor();
+      let wrapped = shader_texel_address_2d_fn(address_u, address_v, base, size);
+      sample_texture_impl(texture, wrapped + offset, level, layer)
+    },
   )
 }
 
@@ -591,6 +682,46 @@ fn shader_address_mode(mode: Node<u32>, uv: Node<f32>) -> Node<f32> {
   result.load()
 }
 
+/// Apply address mode to integer texel index (non-negative, after global UV address wrapping).
+/// This handles per-corner wrapping for bilinear and edge clamping for nearest.
+#[shader_fn]
+fn shader_texel_address_2d(
+  mode_u: Node<u32>,
+  mode_v: Node<u32>,
+  coord: Node<Vec2<f32>>, // exact integer texel indices (f32)
+  size: Node<Vec2<f32>>,  // texture dimensions
+) -> Node<Vec2<f32>> {
+  let x = shader_texel_address_1d_fn(mode_u, coord.x(), size.x());
+  let y = shader_texel_address_1d_fn(mode_v, coord.y(), size.y());
+  (x, y).into()
+}
+
+#[shader_fn]
+fn shader_texel_address_1d(
+  mode: Node<u32>,
+  i: Node<f32>, // exact integer texel index, non-negative after global address wrapping
+  dim: Node<f32>, // texture dimension
+) -> Node<f32> {
+  let result = i.make_local_var();
+  switch_by(mode)
+    .case(CLAMP_TO_EDGE, || {
+      result.store(i.max(val(0.)).min(dim - val(1.)))
+    })
+    .case(REPEAT, || {
+      // i mod dim for non-negative exact integer
+      result.store(i - (i / dim).floor() * dim)
+    })
+    .case(MIRRORED_REPEAT, || {
+      let tile = (i / dim).floor();
+      let local = i - tile * dim;
+      let is_even = (tile.into_i32() % val(2)).equals(val(0));
+      let mir = dim - val(1.) - local;
+      result.store(is_even.select(local, mir))
+    })
+    .end_with_default(|| {});
+  result.load()
+}
+
 #[shader_fn]
 fn calculate_mip_level_impl(uv: Node<Vec2<f32>>) -> Node<f32> {
   let dx = uv.dpdx();
@@ -603,8 +734,13 @@ fn calculate_mip_level_impl(uv: Node<Vec2<f32>>) -> Node<f32> {
 // https://bgolus.medium.com/distinctive-derivative-differences-cce38d36797b
 #[shader_fn]
 fn calculate_mip_level(uv: Node<Vec2<f32>>, size: Node<Vec2<f32>>) -> Node<f32> {
-  let uv2: Node<Vec2<f32>> = ((uv.x() - val(0.5)).fract(), uv.y()).into();
-  let a = calculate_mip_level_impl(uv2 * size);
-  let b = calculate_mip_level_impl(uv * size);
-  a.min(b)
+  let uv_00 = uv;
+  let uv_10: Node<Vec2<f32>> = ((uv.x() - val(0.5)).fract(), uv.y()).into();
+  let uv_01: Node<Vec2<f32>> = (uv.x(), (uv.y() - val(0.5)).fract()).into();
+  let uv_11: Node<Vec2<f32>> = ((uv.x() - val(0.5)).fract(), (uv.y() - val(0.5)).fract()).into();
+  let a = calculate_mip_level_impl(uv_00 * size);
+  let b = calculate_mip_level_impl(uv_10 * size);
+  let c = calculate_mip_level_impl(uv_01 * size);
+  let d = calculate_mip_level_impl(uv_11 * size);
+  a.min(b).min(c).min(d)
 }

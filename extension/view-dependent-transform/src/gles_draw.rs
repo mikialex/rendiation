@@ -10,9 +10,9 @@ pub fn use_view_dependent_transform_gles_gpu(
 ) -> Option<Box<dyn GLESNodeRenderImpl>> {
   let changes = changes.use_assure_result(cx);
 
-  let overrides = cx.use_shared_hash_map::<ViewSceneModelKey, UniformBufferDataView<NodeUniform>>(
-    "OverrideNodeIndirectGPU",
-  );
+  let label = "override node uniform";
+  let overrides =
+    cx.use_shared_hash_map::<ViewSceneModelKey, UniformBufferDataView<NodeUniform>>(label);
 
   if let GPUQueryHookStage::CreateRender { .. } = &mut cx.stage {
     let query = changes.expect_resolve_stage();
@@ -27,7 +27,7 @@ pub fn use_view_dependent_transform_gles_gpu(
 
     for (vk, mat) in changes.iter_update_or_insert() {
       let node = NodeUniform::from_world_mat(mat);
-      let node = UniformBufferDataView::create(&cx.gpu.device, node);
+      let node = UniformBufferDataView::create(&cx.gpu.device, node, label);
       overrides.insert(vk, node);
     }
   }

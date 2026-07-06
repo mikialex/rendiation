@@ -15,8 +15,16 @@ pub fn use_multi_access_gpu(
   source: UseResult<impl TriQueryLike<Key = RawEntityHandle, Value = RawEntityHandle>>,
   label: &str,
 ) -> Option<MultiAccessGPUData> {
-  let (cx, allocator) = cx.use_sharable_plain_state(|| {
-    GrowableRangeAllocator::new(init.max_possible_many_count, init.init_many_count_capacity)
+  fn label_impl(label: &str) -> String {
+    format!("multi-access-many-side: {}", label)
+  }
+
+  let allocator = cx.use_sharable_plain_state(|| {
+    GrowableRangeAllocator::new(
+      &label_impl(label),
+      init.max_possible_many_count,
+      init.init_many_count_capacity,
+    )
   });
 
   let (cx, many_side_buffer) = cx.use_gpu_init(|gpu, alloc| {
@@ -24,7 +32,7 @@ pub fn use_multi_access_gpu(
       .allocate_readonly::<[u32]>(
         (init.init_many_count_capacity * 4) as u64,
         &gpu.device,
-        Some(&format!("multi-access-many-side: {}", label)),
+        &label_impl(label),
       )
       .with_direct_resize(gpu);
     Arc::new(RwLock::new(buffer))
@@ -74,7 +82,8 @@ pub fn use_multi_access_gpu(
 
       if let Some(new_size) = allocation_changes.resize_to {
         // here we do(request) resize at spawn stage to avoid resize again and again
-        many_side_buffer_.write().resize(new_size);
+        let success = many_side_buffer_.write().resize(new_size);
+        assert!(success);
       }
 
       Arc::new(RangeAllocateBufferUpdates {
@@ -95,6 +104,17 @@ pub fn use_multi_access_gpu(
         let change_count = changes.allocation_changes.0.change_count();
         let mut write_src =
           SparseBufferWritesSource::with_capacity(change_count * item_size, change_count);
+        changes.allocation_changes.iter_removed().for_each(|id| {
+          let w_offset = item_size as u32 * id.alloc_index();
+
+          let value = GPURangeInfo {
+            start: 0,
+            len: 0,
+            ..Default::default()
+          };
+          write_src.collect_write(bytes_of(&value), w_offset as u64);
+        });
+
         changes
           .allocation_changes
           .iter_update_or_insert()
@@ -120,7 +140,7 @@ pub fn use_multi_access_gpu(
     let buffer = alloc.allocate_readonly::<[GPURangeInfo]>(
       (init.init_one_count_capacity * std::mem::size_of::<GPURangeInfo>() as u32) as u64,
       &gpu.device,
-      Some(&format!("multi-access-one-side: {}", label)),
+      &format!("multi-access-one-side: {}", label),
     );
     Arc::new(RwLock::new(buffer))
   });

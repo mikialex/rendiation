@@ -27,6 +27,10 @@ impl<T: ?Sized> Node<T> {
   {
     std::mem::transmute(self)
   }
+
+  pub fn mark_debug_label(&self, label: impl ToString) {
+    call_shader_api(|g| g.mark_handle_debug_name(self.handle(), label.to_string()));
+  }
 }
 
 impl<T> From<T> for Node<T>

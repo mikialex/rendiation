@@ -30,3 +30,56 @@ where
     self.base.has_item_hint()
   }
 }
+
+#[test]
+fn test_filter_map_query() {
+  let mut base = FastHashMap::default();
+  base.insert(1u32, 10);
+  base.insert(2, 15);
+  base.insert(3, 20);
+  base.insert(4, 5);
+
+  let filtered = FilterMapQuery {
+    base,
+    mapper: |v: i32| if v >= 15 { Some(v * 2) } else { None },
+  };
+
+  super::validate_query_consistency(&filtered);
+  assert_eq!(filtered.access(&1), None);
+  assert_eq!(filtered.access(&2), Some(30));
+  assert_eq!(filtered.access(&3), Some(40));
+  assert_eq!(filtered.access(&4), None);
+  assert_eq!(filtered.access(&5), None);
+}
+
+#[test]
+fn test_filter_map_all_passed() {
+  let mut base = FastHashMap::default();
+  base.insert(1u32, "hello".to_string());
+  base.insert(2, "world".to_string());
+
+  let filtered = FilterMapQuery {
+    base,
+    mapper: |v: String| Some(v),
+  };
+
+  super::validate_query_consistency(&filtered);
+  assert_eq!(filtered.access(&1), Some("hello".to_string()));
+  assert_eq!(filtered.access(&2), Some("world".to_string()));
+}
+
+#[test]
+fn test_filter_map_all_filtered() {
+  let mut base = FastHashMap::default();
+  base.insert(1u32, 10);
+  base.insert(2, 20);
+
+  let filtered = FilterMapQuery {
+    base,
+    mapper: |_: i32| -> Option<i32> { None },
+  };
+
+  super::validate_query_consistency(&filtered);
+  assert_eq!(filtered.access(&1), None);
+  assert_eq!(filtered.access(&2), None);
+}

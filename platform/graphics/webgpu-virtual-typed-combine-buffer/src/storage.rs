@@ -13,7 +13,7 @@ impl AbstractStorageAllocator for CombinedStorageBufferAllocator {
     _device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
     readonly: bool,
-    _label: Option<&str>,
+    _label: &str,
   ) -> BoxedAbstractBuffer {
     if !readonly && self.is_readonly() {
       panic!("readonly allocator can not allocate writeable buffer");
@@ -128,6 +128,7 @@ impl SubCombinedStorageBufferDynTyped {
   /// resize the sub buffer to new size, the content will be preserved moved to new place
   ///
   /// once resize, the merged buffer must rebuild;
+  /// todo, this should return if resize success
   pub fn resize(&self, new_u32_size: u32) {
     self
       .internal
@@ -219,8 +220,9 @@ impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
     _encoder: &mut GPUCommandEncoder,
     _device: &GPUDevice,
     new_byte_size: u64,
-  ) {
+  ) -> bool {
     assert!(new_byte_size.is_multiple_of(4));
     self.resize(new_byte_size as u32 / 4);
+    true
   }
 }

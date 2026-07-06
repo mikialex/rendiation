@@ -1,5 +1,7 @@
 use std::any::TypeId;
 
+use rendiation_occ_style_material::OccSurfaceTag;
+
 use crate::*;
 
 pub struct FrameGeneralMaterialBuffer {
@@ -55,7 +57,7 @@ pub struct FrameGeneralMaterialBufferReadValue {
   pub channel_c: Node<Vec4<f32>>,
 }
 
-#[derive(Hash)]
+#[derive(Hash, Debug)]
 pub struct FrameGeneralMaterialChannelIndices {
   pub material_type_id: usize,
   pub channel_a: usize,
@@ -108,8 +110,8 @@ impl DeferLightingMaterialRegistry {
 impl ShaderHashProvider for FrameGeneralMaterialBufferEncoder<'_> {
   shader_hash_type_id! { FrameGeneralMaterialBufferEncoder<'static> }
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.indices.hash(hasher);
-    self.materials.material_impl_ids.hash(hasher);
+    hasher.hash(&self.indices);
+    hasher.hash(&self.materials.material_impl_ids);
   }
 }
 
@@ -333,5 +335,57 @@ impl DeferLightingMaterialBufferReadWrite for UnlitSurfaceEncodeDecode {
 
   fn decode_alpha(instance: &FrameGeneralMaterialBufferReadValue) -> Node<f32> {
     instance.channel_a.w()
+  }
+}
+
+pub struct PhongSurfaceEncodeDecode;
+// alpha is not used because in defer mode transparency is not supported
+// and alpha discard has already done in encoder.
+impl DeferLightingMaterialBufferReadWrite for PhongSurfaceEncodeDecode {
+  fn encode(
+    builder: &mut ShaderFragmentBuilderView,
+    indices: &FrameGeneralMaterialChannelIndices,
+  ) -> bool {
+    if builder.contains_type_tag::<OccSurfaceTag>() {
+      let alpha = builder.try_query::<AlphaChannel>().unwrap_or(val(1.));
+      let diffuse = builder
+        .try_query::<ColorChannel>()
+        .unwrap_or(val(Vec3::one()));
+      let emissive = builder
+        .try_query::<EmissiveChannel>()
+        .unwrap_or(val(Vec3::zero()));
+      let specular = builder
+        .try_query::<SpecularChannel>()
+        .unwrap_or(val(Vec3::zero()));
+      // let shininess = builder.try_query::<ShininessChannel>().unwrap_or(val(0.));
+
+      builder.frag_output[indices.channel_a].store((diffuse, alpha).into());
+      builder.frag_output[indices.channel_b].store((specular, emissive.x()).into());
+      builder.frag_output[indices.channel_c].store((emissive.yz(), alpha, val(1.)).into());
+      true
+    } else {
+      false
+    }
+  }
+
+  fn decode_alpha(instance: &FrameGeneralMaterialBufferReadValue) -> Node<f32> {
+    instance.channel_a.w()
+  }
+
+  fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack {
+    let emissive = vec3_node((
+      instance.channel_a.w(),
+      instance.channel_b.x(),
+      instance.channel_b.y(),
+    ));
+
+    let surface = Box::new(ENode::<ShaderPhongShading> {
+      diffuse: instance.channel_a.xyz(),
+      shininess: val(30.), // todo
+      specular: instance.channel_b.xyz(),
+      emissive,
+    });
+
+    DeferLightingSurfaceReadBack::Lightable(surface)
   }
 }

@@ -29,10 +29,9 @@ impl ScreenChannelDebugger {
 
 impl ShaderHashProvider for ScreenChannelDebugger {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self
-      .channels
-      .iter()
-      .for_each(|c| (**c).type_id().hash(hasher))
+    self.channels.iter().for_each(|c| {
+      hasher.hash((**c).type_id());
+    })
   }
   shader_hash_type_id! {}
 }

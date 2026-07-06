@@ -1,5 +1,8 @@
 use crate::*;
 
+mod example;
+pub use example::*;
+
 mod feature;
 pub use feature::*;
 
@@ -28,6 +31,7 @@ pub struct ViewerCx<'a> {
   pub current_window_swapchain: &'a SurfaceWrapper,
   pub surface_id: u32,
   pub active_surface_content: &'a mut ViewerSurfaceContent,
+  pub app_features: &'a mut ViewerAppFeaturesConfig,
 
   pub widget_scene: EntityHandle<SceneEntity>,
 
@@ -189,23 +193,24 @@ impl<'a> ViewerCx<'a> {
   where
     T: Any + for<'x> CanCleanUpFrom<ViewerDropCx<'x>>,
   {
-    // this is safe because user can not access previous retrieved state through returned self.
-    let s = unsafe { std::mem::transmute_copy(&self) };
-
-    let state = self.viewer.memory.expect_state_init(
-      || {
-        init(&mut ViewerInitCx {
-          dyn_cx: self.dyn_cx,
-          content: &self.active_surface_content,
-          terminal: &mut self.viewer.terminal,
-          shared_ctx: &mut self.viewer.shared_ctx,
-          surface_id: self.surface_id,
-        })
-      },
-      |state: &mut T, dcx: &mut ViewerDropCx| {
-        state.drop_from_cx(dcx);
-      },
-    );
+    let this = self as *mut Self;
+    let state = unsafe {
+      (*this).viewer.memory.expect_state_init(
+        || {
+          init(&mut ViewerInitCx {
+            dyn_cx: self.dyn_cx,
+            content: &self.active_surface_content,
+            terminal: &mut self.viewer.terminal,
+            shared_ctx: &mut self.viewer.shared_ctx,
+            surface_id: self.surface_id,
+          })
+        },
+        |state: &mut T, dcx: &mut ViewerDropCx| {
+          state.drop_from_cx(dcx);
+        },
+      )
+    };
+    let s = unsafe { &mut *this };
 
     (s, state)
   }
@@ -409,6 +414,9 @@ pub fn use_viewer<'a>(
       .new_entity(|w| w)
   });
 
+  let (acx, app_features) =
+    acx.use_plain_state(|| ViewerAppFeaturesConfig::from_default_json_or_default());
+
   let (acx, axis) = acx.use_plain_state(|| WorldCoordinateAxis::new(&acx.gpu_and_surface.gpu));
 
   let (acx, tick_timestamp) = acx.use_plain_state(Instant::now);
@@ -432,6 +440,16 @@ pub fn use_viewer<'a>(
   };
 
   viewer.update_view_ty_immediate();
+
+  #[cfg(all(feature = "dhat-heap-profiling", not(target_family = "wasm")))]
+  let _dhat_profiler = if viewer.should_trace_next_frame_allocation_info {
+    viewer.should_trace_next_frame_allocation_info = false;
+    log::info!("dhat heap profiling started for this frame");
+    Some(dhat::Profiler::builder().trim_backtraces(None).build())
+  } else {
+    None
+  };
+
   let mut active_surface_content = viewer.surfaces_content.remove(&acx.surface_id).unwrap();
   // always sync
   active_surface_content.device_pixel_ratio = acx.input.window_state.device_pixel_ratio;
@@ -454,6 +472,7 @@ pub fn use_viewer<'a>(
     },
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
+    app_features,
   }
   .execute(|viewer| f(viewer));
 
@@ -480,6 +499,7 @@ pub fn use_viewer<'a>(
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
     surface_id: acx.surface_id,
+    app_features,
   }
   .execute(|viewer| f(viewer));
 

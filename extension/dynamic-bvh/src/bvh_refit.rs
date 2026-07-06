@@ -55,7 +55,7 @@ impl Bvh {
   ///     Vec3::new(i as f32, 0.0, 0.0),
   ///     Vec3::new(i as f32 + 1.0, 1.0, 1.0),
   ///   );
-  ///   bvh.insert(aabb, i);
+  ///   bvh.insert(aabb, 0., i);
   /// }
   ///
   /// // Update all objects without tree propagation (faster)
@@ -65,7 +65,7 @@ impl Bvh {
   ///     Vec3::new(i as f32 + offset, 0.0, 0.0),
   ///     Vec3::new(i as f32 + 1.0 + offset, 1.0, 1.0),
   ///   );
-  ///   bvh.insert_or_update_partially(aabb, i, 0.0);
+  ///   bvh.insert_or_update_partially(aabb, 0., i, 0.0);
   /// }
   ///
   /// // Now update the tree in one efficient pass
@@ -88,7 +88,7 @@ impl Bvh {
   ///     Vec3::new(i as f32, 0.0, 0.0),
   ///     Vec3::new(i as f32 + 1.0, 1.0, 1.0),
   ///   );
-  ///   bvh.insert(aabb, i);
+  ///   bvh.insert(aabb, 0., i);
   /// }
   ///
   /// // Game loop - update objects each frame
@@ -101,7 +101,7 @@ impl Bvh {
   ///       Vec3::new(i as f32 + pos, 0.0, 0.0),
   ///       Vec3::new(i as f32 + pos + 1.0, 1.0, 1.0),
   ///     );
-  ///     bvh.insert_or_update_partially(aabb, i, 0.0);
+  ///     bvh.insert_or_update_partially(aabb, 0., i, 0.0);
   ///   }
   ///
   ///   // Refit once per frame for all updates
@@ -123,12 +123,12 @@ impl Bvh {
   ///
   /// // Add an object
   /// let aabb = Box3::new(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0));
-  /// bvh.insert(aabb, 0);
+  /// bvh.insert(aabb, 0., 0);
   ///
   /// // Update with a margin - tree won't update if movement is small
   /// let margin = 0.5;
   /// let new_aabb = Box3::new(Vec3::new(0.1, 0.0, 0.0), Vec3::new(1.1, 1.0, 1.0));
-  /// bvh.insert_or_update_partially(new_aabb, 0, margin);
+  /// bvh.insert_or_update_partially(new_aabb, 0., 0, margin);
   ///
   /// // Refit propagates the change detection flags
   /// bvh.refit(&mut workspace);

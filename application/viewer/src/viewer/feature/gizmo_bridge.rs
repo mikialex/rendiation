@@ -9,10 +9,10 @@ pub fn use_viewer_gizmo(cx: &mut UI3dCx, selected_model: Option<EntityHandle<Sce
 
   let mut node = None;
   cx.on_event(|e, reader, _| {
-    *state = selected_model.map(|target| {
+    *state = selected_model.and_then(|target| {
       node = reader
         .scene_model
-        .read_foreign_key::<SceneModelRefNode>(target);
+        .try_read_foreign_key::<SceneModelRefNode>(target)?; // early return none invalid target
       let node = node.unwrap();
 
       let target_local_mat = reader
@@ -33,6 +33,7 @@ pub fn use_viewer_gizmo(cx: &mut UI3dCx, selected_model: Option<EntityHandle<Sce
         target_parent_world_mat,
         target_world_mat,
       }
+      .into()
     });
   });
 

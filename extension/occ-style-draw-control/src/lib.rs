@@ -42,10 +42,8 @@ pub struct OccSceneModelGroupKey {
 
 pub fn use_scene_model_occ_group_key(
   cx: &mut QueryGPUHookCx,
-  foreign: GroupKeyForeignImpl,
+  internal: UseResult<BoxedDynDualQuery<RawEntityHandle, (SceneModelGroupKey, RawEntityHandle)>>,
 ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, (OccSceneModelGroupKey, RawEntityHandle)>> {
-  let internal = use_scene_model_group_key(cx, foreign);
-
   let layer = cx.use_dual_query::<SceneModelOccStyleLayer>();
 
   internal
@@ -71,12 +69,16 @@ pub fn use_occ_incremental_device_scene_batch_extractor(
     inspector.label_memory_usage("indirect group key", bytes);
   });
 
+  let priority_changes = cx.use_dual_query::<SceneModelOccStylePriority>();
+
   let extractor_ = extractor.clone();
   let gpu_updates = sm_group_key_with_scene_id
-    .map_spawn_stage_in_thread_dual_query(cx, move |v| {
-      let change = v.delta();
-      Arc::new(extractor_.write().prepare_updates(change))
-    })
+    .join(priority_changes)
+    .map_spawn_stage_in_thread(
+      cx,
+      |(c1, c2)| c1.has_delta_hint() || c2.has_delta_hint(),
+      move |(c1, c2)| Arc::new(extractor_.write().prepare_updates(c1, c2.delta())),
+    )
     .use_assure_result(cx);
 
   if let GPUQueryHookStage::CreateRender { encoder, .. } = &mut cx.stage {
@@ -141,12 +143,22 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
 impl OccStyleOrderControlSceneBatchExtractor {
   pub fn prepare_updates(
     &mut self,
-    delta: impl Query<
-      Key = RawEntityHandle,
-      Value = ValueChange<(OccSceneModelGroupKey, RawEntityHandle)>,
-    >,
+    query: impl DualQueryLike<Key = RawEntityHandle, Value = (OccSceneModelGroupKey, RawEntityHandle)>,
+    priority_changes: impl Query<Key = RawEntityHandle, Value = ValueChange<u32>>,
   ) -> OccStyleOrderControlSceneBatchUpdates {
-    let (updates, changed_keys) = self.internal.prepare_updates(delta);
+    let (view, delta) = query.view_delta();
+    let (updates, mut changed_keys) = self.internal.prepare_updates(delta);
+
+    for (sm_id, _) in priority_changes.iter_key_value() {
+      // here we can skip the check that the sm's (key, scene) change's previous value's list update.
+      // because it's already been included in changed_keys.
+      if let Some((key, scene)) = view.access(&sm_id) {
+        changed_keys.insert((key, scene));
+      } else {
+        // this is possible because we impl visible filtering
+      }
+    }
+
     let mut sort_updates = FastHashMap::default();
     let priority_view = read_global_db_component::<SceneModelOccStylePriority>();
     for (key, scene) in &changed_keys {
@@ -208,5 +220,5 @@ pub fn sort_by_priority(
     }
   }
 
-  write_source.is_empty().then_some(write_source)
+  (!write_source.is_empty()).then_some(write_source)
 }

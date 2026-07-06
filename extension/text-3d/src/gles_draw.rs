@@ -24,15 +24,21 @@ pub fn use_text3d_gles_renderer(
     },
   );
 
+  let uniform = cx.use_uniform_buffers("text3d uniform");
+  cx.use_changes::<Text3dLocalTransform>()
+    .update_uniforms(&uniform, 0, cx.gpu);
+
   cx.when_render(|| Text3dGlesRenderer {
     access: global_database().read_foreign_key(),
     texts: text3d_resources.make_read_holder(),
+    uniform: uniform.make_read_holder(),
   })
 }
 
 pub struct Text3dGlesRenderer {
   access: ForeignKeyReadView<SceneModelText3dPayload>,
   texts: SharedHashMapRead<RawEntityHandle, Option<SlugTextGPUData>>,
+  uniform: LockReadGuardHolder<UniformBufferCollectionRaw<u32, Mat4<f32>>>,
 }
 
 impl GLESModelRenderImpl for Text3dGlesRenderer {
@@ -48,7 +54,13 @@ impl GLESModelRenderImpl for Text3dGlesRenderer {
 
     let cmd = text_gpu.draw_command();
 
-    Some((Box::new(text_gpu), cmd))
+    Some((
+      Box::new(Draw {
+        data: text_gpu,
+        uniform: self.uniform.get(&text_id.alloc_index())?,
+      }),
+      cmd,
+    ))
   }
   fn material_renderable<'a>(
     &'a self,
@@ -76,28 +88,34 @@ impl SlugTextGPUData {
   }
 }
 
-impl ShaderHashProvider for SlugTextGPUData {
-  shader_hash_type_id! {}
+struct Draw<'a> {
+  data: &'a SlugTextGPUData,
+  uniform: &'a UniformBufferDataView<Mat4<f32>>,
 }
 
-impl ShaderPassBuilder for SlugTextGPUData {
+impl<'a> ShaderHashProvider for Draw<'a> {
+  shader_hash_type_id! {Draw<'static>}
+}
+
+impl<'a> ShaderPassBuilder for Draw<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.set_vertex_buffer_by_buffer_resource_view_next(&self.vertices);
+    ctx.set_vertex_buffer_by_buffer_resource_view_next(&self.data.vertices);
     ctx
       .pass
-      .set_index_buffer_by_buffer_resource_view(&self.indices, IndexFormat::Uint32);
+      .set_index_buffer_by_buffer_resource_view(&self.data.indices, IndexFormat::Uint32);
   }
 
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.curve_tex_data);
-    ctx.binding.bind(&self.band_tex_data);
+    ctx.binding.bind(self.uniform);
+    ctx.binding.bind(&self.data.curve_tex_data);
+    ctx.binding.bind(&self.data.band_tex_data);
   }
 }
 
 both!(Text3dBandTransform, Vec4<f32>);
 both!(Text3dGlyphData, Vec4<i32>);
 
-impl GraphicsShaderProvider for SlugTextGPUData {
+impl<'a> GraphicsShaderProvider for Draw<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
       builder.register_vertex::<TextGlesVertex>(VertexStepMode::Vertex);
@@ -108,7 +126,8 @@ impl GraphicsShaderProvider for SlugTextGPUData {
   }
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.vertex(|builder, _binding| {
+    builder.vertex(|builder, binding| {
+      let mat = binding.bind_by(self.uniform).load();
       let pos = builder.query::<SlugTextGlesVertexPos>();
       let tex = builder.query::<SlugTextGlesVertexTex>();
       let jac = builder.query::<SlugTextGlesVertexJac>();
@@ -160,7 +179,7 @@ impl GraphicsShaderProvider for SlugTextGPUData {
 
         builder.register::<VertexRenderPosition>(position_in_render_space);
       } else {
-        let local_position = vec3_node((pos.xy(), val(0.)));
+        let local_position = (mat * vec4_node((pos.xy(), val(0.), val(1.)))).xyz();
         let object_world_position = builder.query::<WorldPositionHP>();
         let (clip_position, render_space_position) =
           camera_transform_impl(builder, local_position, object_world_position);
@@ -197,8 +216,8 @@ impl GraphicsShaderProvider for SlugTextGPUData {
       builder.insert_type_tag::<UnlitMaterialTag>();
 
       let uv = builder.query::<FragmentUv>();
-      let curve_tex_data = binding.bind_by(&self.curve_tex_data);
-      let band_tex_data = binding.bind_by(&self.band_tex_data);
+      let curve_tex_data = binding.bind_by(&self.data.curve_tex_data);
+      let band_tex_data = binding.bind_by(&self.data.band_tex_data);
 
       let band_t_transform = builder.query::<Text3dBandTransform>();
       let glyph_data = builder.query::<Text3dGlyphData>();

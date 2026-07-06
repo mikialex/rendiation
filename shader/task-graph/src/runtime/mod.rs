@@ -214,7 +214,7 @@ impl DeviceTaskGraphExecutor {
     struct SimpleFnSpawner<T>(T);
     impl<T: 'static> ShaderHashProvider for SimpleFnSpawner<T> {
       fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-        self.0.type_id().hash(hasher)
+        hasher.hash(self.0.type_id());
       }
     }
     impl<P, T> TaskSpawner<P> for SimpleFnSpawner<T>
@@ -260,7 +260,7 @@ impl DeviceTaskGraphExecutor {
 
     let device = &cx.gpu.device;
 
-    let dispatch_size_buffer = create_gpu_readonly_storage(&task_count, device);
+    let dispatch_size_buffer = create_gpu_readonly_storage(&task_count, device, "dispatch_size");
 
     let mut hasher = PipelineHasher::default();
     task_spawner.hash_pipeline_with_type_info(&mut hasher);
@@ -322,10 +322,12 @@ impl DeviceTaskGraphExecutor {
     let wake_task_counts = create_gpu_read_write_storage::<[u32]>(
       ZeroedArrayByArrayLength(self.task_groups.len()),
       &cx.gpu.device,
+      "wake_task_counts",
     );
     let empty_task_counts = create_gpu_read_write_storage::<[u32]>(
       ZeroedArrayByArrayLength(self.task_groups.len()),
       &cx.gpu.device,
+      "empty_task_counts",
     );
 
     for (i, task) in self.task_groups.iter().enumerate() {
@@ -425,15 +427,20 @@ impl DeviceTaskGraphExecutor {
     let enable_empty_assert = false;
     let mut states_history_for_debugging = Vec::with_capacity(0);
 
-    let self_task_groups: &[TaskGroupExecutor] = &self.task_groups;
-    // todo, this is unsound
-    let self_task_groups: &'static [TaskGroupExecutor] =
-      unsafe { std::mem::transmute(self_task_groups) };
+    // SAFETY: inside the loop, task.execute() takes &[Self] (all task groups) for
+    // read-only access (reading other groups' spawner resources), while the current
+    // task is the only one being mutated via &mut self. Since iter_mut() guarantees
+    // non-overlapping mutable access, and execute() only reads from sibling groups,
+    // materializing a shared reference from a raw pointer is sound.
+    let all_tasks_ptr = self.task_groups.as_ptr();
+    let all_tasks_len = self.task_groups.len();
 
     for _ in 0..dispatch_round_count {
       for (idx, task) in self.task_groups.iter_mut().enumerate() {
         let source = &source.tasks[idx];
-        task.execute(cx, self_task_groups, source);
+        let all_tasks: &[TaskGroupExecutor] =
+          unsafe { std::slice::from_raw_parts(all_tasks_ptr, all_tasks_len) };
+        task.execute(cx, all_tasks, source);
       }
 
       if enable_empty_assert {

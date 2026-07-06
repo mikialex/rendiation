@@ -146,7 +146,7 @@ pub fn use_pool_texture_system(
     );
 
   let (cx, atlas) = cx.use_plain_state_default::<Arc<RwLock<Option<GPU2DArrayTextureView>>>>();
-  let (cx, packer) = cx.use_sharable_plain_state(|| RemappedGrowablePacker::new(init.atlas_config));
+  let packer = cx.use_sharable_plain_state(|| RemappedGrowablePacker::new(init.atlas_config));
 
   let gpu = cx.gpu.clone();
   let packer_ = packer.clone();

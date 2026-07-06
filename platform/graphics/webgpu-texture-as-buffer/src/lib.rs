@@ -19,7 +19,7 @@ impl AbstractStorageAllocator for TextureAsStorageAllocator {
     _device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
     readonly: bool,
-    _label: Option<&str>,
+    _label: &str,
   ) -> BoxedAbstractBuffer {
     assert!(readonly);
     Box::new(TextureAsReadonlyStorageBuffer::new(
@@ -290,7 +290,7 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
     _encoder: &mut GPUCommandEncoder,
     _device: &GPUDevice,
     new_byte_size: u64,
-  ) {
+  ) -> bool {
     let array_len =
       if let MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) =
         &*self.ty_desc
@@ -306,6 +306,8 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
       .host_backup
       .write()
       .resize(new_byte_size as usize, array_len);
+
+    true
   }
 
   fn copy_buffer_to_buffer(

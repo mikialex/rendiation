@@ -86,12 +86,20 @@ impl Viewer3dViewportRenderingCtx {
       enable_outline: false,
       enable_gpu_pick_id_write: false,
       ssao: SSAO::new(gpu),
-      outline_color: UniformBufferCachedDataView::create(&gpu.device, vec4(0., 0., 0., 1.)),
+      outline_color: UniformBufferCachedDataView::create(
+        &gpu.device,
+        vec4(0., 0., 0., 1.),
+        "outline color",
+      ),
       outline_background_color: vec3(1., 1., 1.),
       show_outline_only: false,
-      ground: UniformBufferCachedDataView::create(&gpu.device, ground_like_shader_plane()),
-      grid: UniformBufferCachedDataView::create_default(&gpu.device),
-      post: UniformBufferCachedDataView::create_default(&gpu.device),
+      ground: UniformBufferCachedDataView::create(
+        &gpu.device,
+        ground_like_shader_plane(),
+        "ground",
+      ),
+      grid: UniformBufferCachedDataView::create_default(&gpu.device, "grid"),
+      post: UniformBufferCachedDataView::create_default(&gpu.device, "post process"),
       on_encoding_finished: Default::default(),
       expect_read_back_for_next_render_result: false,
       picker: Default::default(),
@@ -104,7 +112,7 @@ impl Viewer3dViewportRenderingCtx {
         .always_enable_caching_frame_for_direct_read,
       cached_frame: None,
       not_any_changed_frame_count: 0,
-      oit: ViewerTransparentRenderer::NaiveAlphaBlend,
+      oit: init_config.transparent_config.create_renderer(),
       rtx_ao: None,
       rtx_pt: None,
       viewport_cache: None,
@@ -197,6 +205,7 @@ impl Viewer3dViewportRenderingCtx {
       modify_color_change(ui, &mut self.outline_background_color);
     });
 
+    let before = self.transparent_config;
     egui::ComboBox::from_label("how to render transparent objects?")
       .selected_text(format!("{:?}", &self.transparent_config,))
       .show_ui_changed(ui, |ui| {
@@ -225,16 +234,9 @@ impl Viewer3dViewportRenderingCtx {
         )
       });
 
-    self.oit = match self.transparent_config {
-      ViewerTransparentContentRenderStyle::NaiveAlphaBlend => {
-        ViewerTransparentRenderer::NaiveAlphaBlend
-      }
-      ViewerTransparentContentRenderStyle::Loop32OIT => ViewerTransparentRenderer::Loop32OIT(
-        Arc::new(RwLock::new(rendiation_oit::OitLoop32Renderer::new(4))),
-      ),
-      ViewerTransparentContentRenderStyle::WeightedOIT => ViewerTransparentRenderer::WeightedOIT,
-      ViewerTransparentContentRenderStyle::Opaque => ViewerTransparentRenderer::Opaque,
-    };
+    if before != self.transparent_config {
+      self.oit = self.transparent_config.create_renderer();
+    }
 
     if rtx_renderer_enabled {
       if ui
@@ -535,20 +537,6 @@ impl Viewer3dViewportRenderingCtx {
       current_view_projection_inv_no_translation,
       camera_transform.world.position(),
     );
-
-    if let Some(mesh_lod_graph_renderer) = &renderer.mesh_lod_graph_renderer {
-      if camera_transform
-        .projection
-        .check_is_perspective_matrix_assume_common_projection()
-      {
-        mesh_lod_graph_renderer.setup_lod_decider(
-          ctx.gpu,
-          camera_transform.projection,
-          camera_transform.world,
-          render_target.size().into_f32().into(),
-        );
-      }
-    }
 
     let hdr_enabled = render_target.format() == TextureFormat::Rgba16Float;
 

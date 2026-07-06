@@ -24,3 +24,6 @@ use grid_ground::*;
 pub use lighting::*;
 pub use ndc::*;
 pub use post::*;
+
+mod std_model_impl;
+pub use std_model_impl::*;

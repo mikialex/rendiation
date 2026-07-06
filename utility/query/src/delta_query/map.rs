@@ -63,3 +63,27 @@ impl<T, U> DualQuery<T, U> {
     }
   }
 }
+
+#[test]
+fn test_delta_map_value() {
+  let mut base = FastHashMap::default();
+  base.insert(1u32, ValueChange::Delta(10i32, Some(5)));
+  base.insert(2, ValueChange::Remove(20));
+
+  let mapped = base.delta_map_value(|v: i32| v * 2);
+
+  validate_query_consistency(&mapped);
+  assert_eq!(mapped.access(&1), Some(ValueChange::Delta(20, Some(10))));
+  assert_eq!(mapped.access(&2), Some(ValueChange::Remove(40)));
+}
+
+#[test]
+fn test_delta_map_with_key() {
+  let mut base = FastHashMap::default();
+  base.insert(1u32, ValueChange::Delta(10i32, Some(5)));
+
+  let mapped = base.delta_map(|k: &u32, v: i32| *k as i32 + v);
+
+  validate_query_consistency(&mapped);
+  assert_eq!(mapped.access(&1), Some(ValueChange::Delta(11, Some(6))));
+}

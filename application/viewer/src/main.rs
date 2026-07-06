@@ -7,7 +7,6 @@
 #![allow(clippy::collapsible_match)]
 #![feature(cold_path)]
 
-use std::alloc::System;
 use std::any::Any;
 use std::future::Future;
 use std::hash::Hash;
@@ -44,16 +43,42 @@ use rendiation_texture_core::*;
 use rendiation_webgpu::*;
 pub use viewer::*;
 
-#[cfg(feature = "tracy-heap-debug")]
+#[cfg(feature = "mimalloc")]
+#[allow(unused)]
+type BaseAllocator = mimalloc::MiMalloc;
+#[cfg(feature = "mimalloc")]
+#[allow(unused)]
+const BASE_ALLOCATOR: BaseAllocator = mimalloc::MiMalloc;
+
+#[cfg(not(feature = "mimalloc"))]
+#[allow(unused)]
+type BaseAllocator = std::alloc::System;
+#[cfg(not(feature = "mimalloc"))]
+#[allow(unused)]
+const BASE_ALLOCATOR: BaseAllocator = std::alloc::System;
+
+// global_allocator priority: dhat-heap-profiling > tracy-heap-debug > base
+#[cfg(feature = "dhat-heap-profiling")]
+#[global_allocator]
+static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<dhat::Alloc> =
+  PreciseAllocationStatistics::new(dhat::Alloc);
+
+#[cfg(all(not(feature = "dhat-heap-profiling"), feature = "tracy-heap-debug"))]
 #[global_allocator]
 static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<
-  tracing_tracy::client::ProfiledAllocator<System>,
-> = PreciseAllocationStatistics::new(tracing_tracy::client::ProfiledAllocator::new(System, 64));
+  tracing_tracy::client::ProfiledAllocator<BaseAllocator>,
+> = PreciseAllocationStatistics::new(tracing_tracy::client::ProfiledAllocator::new(
+  BASE_ALLOCATOR,
+  64,
+));
 
-#[cfg(not(feature = "tracy-heap-debug"))]
+#[cfg(all(
+  not(feature = "dhat-heap-profiling"),
+  not(feature = "tracy-heap-debug")
+))]
 #[global_allocator]
-static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<System> =
-  PreciseAllocationStatistics::new(System);
+static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<BaseAllocator> =
+  PreciseAllocationStatistics::new(BASE_ALLOCATOR);
 
 pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   setup_global_database(Default::default());
@@ -132,6 +157,7 @@ fn main() {
   {
     env_logger::builder()
       .filter_level(log::LevelFilter::Info)
+      .filter_module("wgpu_hal::dx12::device", log::LevelFilter::Warn)
       .init();
   }
 
@@ -158,6 +184,8 @@ fn main() {
       use_test_content_panel(cx);
 
       sync_camera_view(cx);
+
+      use_viewer_examples(cx);
 
       // this must be called before per_camera_per_viewport
       use_egui_tile_for_viewer_viewports(cx);

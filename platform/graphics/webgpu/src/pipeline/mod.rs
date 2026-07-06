@@ -1,6 +1,6 @@
 use core::num::NonZeroU32;
 
-use rendiation_shader_backend_naga::ShaderAPINagaImpl;
+use rendiation_shader_backend_naga::{NagaModuleBuildResult, ShaderAPINagaImpl};
 
 mod container;
 pub use container::*;
@@ -191,11 +191,11 @@ pub fn map_shader_value_ty_to_binding_layout_type(
 impl GPUDevice {
   pub fn create_shader_module_by_shader_api(
     &self,
-    naga_module: naga::Module,
-    log_result: bool,
+    result: NagaModuleBuildResult,
     checks: ShaderRuntimeChecks,
   ) -> wgpu::ShaderModule {
-    if log_result {
+    let naga_module = result.module;
+    if result.log_result {
       log::info!("");
       log::info!("=== rendiation_shader_api build result ===");
 
@@ -219,8 +219,8 @@ impl GPUDevice {
   pub fn build_pipeline_by_shader_api(
     &self,
     builder: ShaderRenderPipelineBuilder,
+    label: &str,
   ) -> Result<GPURenderPipeline, ShaderBuildError> {
-    let log_result = builder.log_result;
     let checks = builder.checks;
     let compile_result = builder.build()?;
 
@@ -235,18 +235,18 @@ impl GPUDevice {
       multisample,
     } = compile_result;
 
-    let naga_vertex = *vertex_shader.downcast::<naga::Module>().unwrap();
-    let naga_fragment = *frag_shader.downcast::<naga::Module>().unwrap();
+    let naga_vertex = *vertex_shader.downcast::<NagaModuleBuildResult>().unwrap();
+    let naga_fragment = *frag_shader.downcast::<NagaModuleBuildResult>().unwrap();
 
-    let vertex = self.create_shader_module_by_shader_api(naga_vertex, log_result, checks);
-    let fragment = self.create_shader_module_by_shader_api(naga_fragment, log_result, checks);
+    let vertex = self.create_shader_module_by_shader_api(naga_vertex, checks);
+    let fragment = self.create_shader_module_by_shader_api(naga_fragment, checks);
 
     let (raw_layouts, layouts, pipeline_layout) = create_layouts(self, &bindings);
 
     let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
 
     let pipeline = self.create_render_pipeline(&gpu::RenderPipelineDescriptor {
-      label: None,
+      label: Some(label),
       layout: Some(&pipeline_layout),
       vertex: gpu::VertexState {
         module: &vertex,
@@ -351,6 +351,7 @@ pub trait ComputeIntoPipelineExt {
   fn create_compute_pipeline(
     self,
     device: impl AsRef<GPUDevice>,
+    label: &str,
   ) -> Result<GPUComputePipeline, ShaderBuildError>;
 }
 
@@ -358,8 +359,8 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
   fn create_compute_pipeline(
     self,
     device: impl AsRef<GPUDevice>,
+    label: &str,
   ) -> Result<GPUComputePipeline, ShaderBuildError> {
-    let log_result = self.log_result;
     let checks = self.checks;
     let result = self.build()?;
 
@@ -367,13 +368,13 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
 
     let (entry, shader) = result.shader;
 
-    let naga_compute = shader.downcast::<naga::Module>().unwrap();
-    let module = device.create_shader_module_by_shader_api(*naga_compute, log_result, checks);
+    let naga_compute = shader.downcast::<NagaModuleBuildResult>().unwrap();
+    let module = device.create_shader_module_by_shader_api(*naga_compute, checks);
 
     let (raw_layouts, layouts, pipeline_layout) = create_layouts(device, &result.bindings);
 
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-      label: None,
+      label: Some(label),
       layout: Some(&pipeline_layout),
       module: &module,
       entry_point: Some(&entry),

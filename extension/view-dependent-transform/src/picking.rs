@@ -35,9 +35,12 @@ impl<T: SceneModelPicker> SceneModelPicker for SceneModelPickerWithViewDep<T> {
     idx: EntityHandle<SceneModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
     ctx: &SceneRayQuery,
+    ignore_pre_check: bool,
   ) -> Option<MeshBufferHitPoint<f64>> {
     let mat = self.get_mat(idx, override_world_mat);
-    self.internal.ray_query_nearest(idx, mat.as_ref(), ctx)
+    self
+      .internal
+      .ray_query_nearest(idx, mat.as_ref(), ctx, ignore_pre_check)
   }
 
   fn ray_query_all(
@@ -47,11 +50,17 @@ impl<T: SceneModelPicker> SceneModelPicker for SceneModelPickerWithViewDep<T> {
     ctx: &SceneRayQuery,
     results: &mut Vec<MeshBufferHitPoint<f64>>,
     local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
+    ignore_pre_check: bool,
   ) -> Option<()> {
     let mat = self.get_mat(idx, override_world_mat);
-    self
-      .internal
-      .ray_query_all(idx, mat.as_ref(), ctx, results, local_result_scratch)
+    self.internal.ray_query_all(
+      idx,
+      mat.as_ref(),
+      ctx,
+      results,
+      local_result_scratch,
+      ignore_pre_check,
+    )
   }
 
   fn frustum_query(
@@ -60,10 +69,11 @@ impl<T: SceneModelPicker> SceneModelPicker for SceneModelPickerWithViewDep<T> {
     override_world_mat: Option<&Mat4<f64>>,
     frustum: &SceneFrustumQuery,
     policy: ObjectTestPolicy,
+    ignore_pre_check: bool,
   ) -> Option<bool> {
     let mat = self.get_mat(idx, override_world_mat);
     self
       .internal
-      .frustum_query(idx, mat.as_ref(), frustum, policy)
+      .frustum_query(idx, mat.as_ref(), frustum, policy, ignore_pre_check)
   }
 }

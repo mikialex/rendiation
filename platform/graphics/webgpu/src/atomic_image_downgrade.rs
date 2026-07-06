@@ -4,22 +4,29 @@ use crate::*;
 pub struct AtomicImageDowngrade {
   buffer: StorageBufferDataView<[DeviceAtomic<u32>]>,
   size: UniformBufferDataView<Vec4<u32>>,
+  label_for_clearer: String,
   size_: Size,
 }
 
 impl AtomicImageDowngrade {
-  pub fn new(device: &GPUDevice, size: Size, layer_count: u32) -> Self {
+  pub fn new(device: &GPUDevice, size: Size, layer_count: u32, label: &str) -> Self {
     assert!(layer_count > 0);
     let (width, height) = size.into_usize();
     let init = ZeroedArrayByArrayLength(width * height * layer_count as usize);
     let area = width * height;
     Self {
-      buffer: create_gpu_read_write_storage(init, device),
+      buffer: create_gpu_read_write_storage(
+        init,
+        device,
+        &format!("AtomicImageDowngrade <{}> data", label),
+      ),
       size: create_uniform(
         Vec4::new(width as u32, area as u32, layer_count, height as u32),
         device,
+        &format!("AtomicImageDowngrade <{}> size", label),
       ),
       size_: size,
+      label_for_clearer: format!("AtomicImageDowngrade <{}> clear_config", label),
     }
   }
 
@@ -39,7 +46,12 @@ impl AtomicImageDowngrade {
     let area = self.size_.area() as u32;
     let start_offset = layer_start * area;
     let count = layer_count * area;
-    let clear_config = create_uniform(Vec4::new(value, start_offset, count, 0), device);
+    // todo, cache uniform buffer
+    let clear_config = create_uniform(
+      Vec4::new(value, start_offset, count, 0),
+      device,
+      &self.label_for_clearer,
+    );
     // cast to common buffer, as we are not required atomic write in clear
     let buffer = StorageBufferDataView::<[u32]>::try_from_raw(self.buffer.gpu.clone()).unwrap();
     let workgroup_size = 256;

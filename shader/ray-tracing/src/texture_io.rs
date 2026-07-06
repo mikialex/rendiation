@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use crate::*;
 
 #[derive(Default, Clone)]
@@ -12,7 +10,7 @@ impl ShaderHashProvider for RayTracingTextureIO {
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.targets.read().iter().for_each(|(k, _)| {
-      k.hash(hasher);
+      hasher.hash(k);
     });
   }
 }

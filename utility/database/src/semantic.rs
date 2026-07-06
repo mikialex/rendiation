@@ -58,7 +58,9 @@ pub trait ForeignKeySemantic: ComponentSemantic<Data = ForeignKeyComponentData> 
 
 #[macro_export]
 macro_rules! declare_entity {
-  ($Type: tt) => {
+  ($(#[$attr:meta])* $Type: ident) => {
+    #[doc = concat!(stringify!($Type), " entity.\n\n")]
+    $(#[$attr])*
     pub struct $Type;
     impl EntitySemantic for $Type {}
   };
@@ -66,7 +68,9 @@ macro_rules! declare_entity {
 
 #[macro_export]
 macro_rules! declare_entity_associated {
-  ($Type: tt, $EntityTy: ty) => {
+  ($(#[$attr:meta])* $Type: ident, $EntityTy: ty) => {
+    #[doc = concat!(stringify!($Type), " is associated with ", stringify!($EntityTy), ".\n\n")]
+    $(#[$attr])*
     pub struct $Type;
     impl EntityAssociateSemantic for $Type {
       type Entity = $EntityTy;
@@ -76,7 +80,9 @@ macro_rules! declare_entity_associated {
 
 #[macro_export]
 macro_rules! declare_component {
-  ($Type: tt, $EntityTy: ty, $DataTy: ty) => {
+  ($(#[$attr:meta])* $Type: ident, $EntityTy: ty, $DataTy: ty) => {
+    #[doc = concat!(stringify!($Type), " is ", stringify!($EntityTy), "'s component.\n\n")]
+    $(#[$attr])*
     pub struct $Type;
     impl EntityAssociateSemantic for $Type {
       type Entity = $EntityTy;
@@ -86,7 +92,9 @@ macro_rules! declare_component {
     }
   };
 
-  ($Type: tt, $EntityTy: ty, $DataTy: ty, $DefaultOverride: expr) => {
+  ($(#[$attr:meta])* $Type: ident, $EntityTy: ty, $DataTy: ty, $DefaultOverride: expr) => {
+    #[doc = concat!(stringify!($Type), " is ", stringify!($EntityTy), "'s component.\n\n")]
+    $(#[$attr])*
     pub struct $Type;
     impl EntityAssociateSemantic for $Type {
       type Entity = $EntityTy;
@@ -102,7 +110,9 @@ macro_rules! declare_component {
 
 #[macro_export]
 macro_rules! declare_foreign_key {
-  ($Type: tt,  $EntityTy: ty, $ForeignEntityTy: ty) => {
+  ($(#[$attr:meta])* $Type: ident,  $EntityTy: ty, $ForeignEntityTy: ty) => {
+    #[doc = concat!(stringify!($Type), " is ", stringify!($EntityTy), "'s foreign key referencing ", stringify!($ForeignEntityTy), ".\n\n")]
+    $(#[$attr])*
     pub struct $Type;
     impl EntityAssociateSemantic for $Type {
       type Entity = $EntityTy;

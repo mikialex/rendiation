@@ -3,7 +3,7 @@ use rendiation_shader_backend_naga::ShaderAPINagaImpl;
 
 use crate::*;
 
-/// RenderComponent is a type erased composable unit for user to express and compose the rendering logic.
+/// RenderComponent is a composable unit for user to express and compose the rendering logic.
 pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderPassBuilder {
   /// Calling this method to do the real drawcall on given pass. if the implementation is efficient enough to specify a draw logic.
   fn render(&self, ctx: &mut GPURenderPassCtx, com: DrawCommand) {
@@ -13,7 +13,7 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
     let pipeline = ctx
       .gpu
       .device
-      .get_or_cache_create_render_pipeline(hasher, |device| {
+      .get_or_cache_create_render_pipeline(hasher, |device, label| {
         device
           .build_pipeline_by_shader_api(
             self
@@ -23,6 +23,7 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
                 device.inner.default_shader_checks,
               )
               .unwrap(),
+            label,
           )
           .unwrap()
       });
@@ -120,7 +121,7 @@ impl<T: RenderComponent> ShaderHashProvider for RenderSlice<'_, T> {
   }
 
   fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-    TypeId::of::<RenderSlice<'static, ()>>().hash(hasher);
+    hasher.hash_type::<RenderSlice<'static, ()>>();
     // is it ok??
     if let Some(com) = self.0.last() {
       com.hash_type_info(hasher);
@@ -288,7 +289,7 @@ impl<T: ShaderHashProvider> ShaderHashProvider for BindingController<T> {
   }
 
   fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-    TypeId::of::<BindingController<()>>().hash(hasher);
+    hasher.hash_type::<BindingController<()>>();
     self.inner.hash_type_info(hasher)
   }
 }

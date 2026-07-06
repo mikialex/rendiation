@@ -33,11 +33,6 @@ use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_shadow_map::*;
 use rendiation_lighting_transport::*;
 pub use rendiation_mesh_core::*;
-use rendiation_mesh_lod_graph_rendering::*;
-pub use rendiation_mesh_lod_graph_rendering::{
-  DefaultMeshLODBuilder, LODGraphData, LODGraphMeshEntity, MeshLODGraph, MeshLodGraphBuilder,
-  StandardModelRefLodGraphMeshEntity,
-};
 pub use rendiation_occ_style_draw_control::{
   OccFlavorZLayer, SceneModelOccStyleLayer, SceneModelOccStylePriority,
 };
@@ -46,7 +41,7 @@ pub use rendiation_occ_style_material::{
   OccStyleEffectStateOverride, OccStyleEffectType, OccStyleMaterialDiffuse,
   OccStyleMaterialDiffuseTex, OccStyleMaterialEffect, OccStyleMaterialEmissive,
   OccStyleMaterialEntity, OccStyleMaterialShininess, OccStyleMaterialSpecular,
-  OccStyleMaterialTransparent, StdModelOccStyleMaterialPayload,
+  StdModelOccStyleMaterialPayload,
 };
 use rendiation_scene_batch_extractor::*;
 pub use rendiation_scene_core::*;
@@ -61,6 +56,7 @@ use rendiation_texture_core::*;
 pub use rendiation_texture_core::{GPUBufferImage, Size};
 use rendiation_texture_gpu_base::{create_gpu_texture2d, SamplerConvertExt};
 use rendiation_texture_gpu_process::{ForwardLightingEmissiveAdd, ToneMap, ToneMapType};
+pub use rendiation_transform_instanced_model::*;
 use rendiation_view_dependent_transform::*;
 pub use rendiation_view_dependent_transform::{
   OccStyleCorner, OccStyleMode, OccStyleTransform, OccStyleViewDepConfig, SceneCameraLookAt,
@@ -140,10 +136,10 @@ pub fn register_viewer_content_data_model() {
   register_clipping_data_model();
   register_clipping_plane_array_data_model();
   register_area_lighting_data_model();
-  register_scene_mesh_lod_graph_data_model(true);
   register_wide_styled_points_data_model(true);
   register_text3d_data_model(true);
   register_occ_style_view_dependent_data_model();
   rendiation_occ_style_draw_control::register_occ_style_draw_control_data_model();
   register_occ_material_data_model(true);
+  rendiation_transform_instanced_model::register_transform_instanced_model_data_model(true);
 }

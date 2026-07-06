@@ -16,11 +16,6 @@ pub extern "C" fn drop_occ_material(handle: ViewerEntityHandle) {
 }
 
 #[no_mangle]
-pub extern "C" fn occ_material_set_transparent(mat: ViewerEntityHandle, transparent: bool) {
-  write_global_db_component::<OccStyleMaterialTransparent>().write(mat.into(), transparent);
-}
-
-#[no_mangle]
 pub extern "C" fn occ_material_set_diffuse(mat: ViewerEntityHandle, color: &[f32; 4]) {
   write_global_db_component::<OccStyleMaterialDiffuse>().write(mat.into(), (*color).into());
 }
