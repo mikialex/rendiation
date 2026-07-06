@@ -5084,6 +5084,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
+ "facet",
  "fast-hash-collection",
  "parking_lot",
  "rendiation-algebra",
@@ -5100,6 +5101,7 @@ dependencies = [
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
+ "serde",
 ]
 
 [[package]]
@@ -5108,6 +5110,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
+ "facet",
  "fast-hash-collection",
  "parking_lot",
  "rendiation-algebra",
@@ -5124,6 +5127,7 @@ dependencies = [
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
+ "serde",
 ]
 
 [[package]]

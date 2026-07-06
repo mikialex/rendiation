@@ -82,7 +82,7 @@ pub fn use_transform_instance_example(cx: &mut ViewerCx) {
       if group.dirty {
         let buffer = ExternalRefPtr::new(group.instance_transforms.clone());
         transform_instanced_writer
-          .write::<TransformInstancedModelInstanceBuffer>(group.instance_entity, Some(buffer));
+          .write::<TransformInstancedModelInstanceBuffer>(group.instance_entity, buffer);
         group.dirty = false;
       }
     }
@@ -373,7 +373,7 @@ impl TransformInstanceExample {
     let mut transform_instanced_writer =
       global_entity_of::<TransformInstancedModelEntity>().entity_writer();
     let instance_entity = transform_instanced_writer.new_entity(|w| {
-      w.write::<TransformInstancedModelInstanceBuffer>(&Some(buffer))
+      w.write::<TransformInstancedModelInstanceBuffer>(&buffer)
         .write::<TransformInstancedModelRefSceneModel>(scene_model_ref_node)
     });
 

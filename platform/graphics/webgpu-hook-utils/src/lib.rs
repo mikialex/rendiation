@@ -53,7 +53,7 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
   init_item_count: u32,
   max_item_count: u32,
   data_source: UseResult<
-    impl DataChanges<Key = RawEntityHandle, Value = ExternalRefPtr<Vec<u8>>> + 'static,
+    impl DataChanges<Key = RawEntityHandle, Value = ExternalRefPtr<Vec<T>>> + 'static,
   >,
 ) -> (
   AbstractReadonlyStorageBuffer<[T]>,
@@ -61,6 +61,10 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
 ) {
   let item_byte_size = std::mem::size_of::<T>() as u32;
   let (cx, gpu_target_buffer) = cx.use_gpu_init(|gpu, alloc| {
+    assert!(
+      item_byte_size >= 4,
+      "the item size is too small, 4byte is the minimal addressable unit in device memory"
+    );
     let buffer = alloc.allocate_readonly::<[T]>(
       (item_byte_size * init_item_count) as u64,
       &gpu.device,
@@ -95,9 +99,9 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
     for (k, buffer) in change.iter_update_or_insert() {
       let buffer = buffer.ptr.clone();
 
-      let len = buffer.len() as u32;
-      buffers_to_write.collect_direct(k, &buffer);
-      sizes.push((k, len / item_byte_size));
+      let byte_view = cast_slice(buffer.as_slice());
+      buffers_to_write.collect_direct(k, &byte_view);
+      sizes.push((k, buffer.len() as u32));
     }
 
     let changes = allocator.write().update(removed_and_changed_keys, sizes);

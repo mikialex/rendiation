@@ -25,7 +25,11 @@ pub fn use_widen_points_gles_renderer(
     &mesh,
     cx.use_changes::<WideStyledPointsMeshBuffer>(),
     |buffer| {
-      let buffer = create_gpu_buffer(&buffer, BufferUsages::VERTEX, &cx.gpu.device);
+      let buffer = create_gpu_buffer(
+        cast_slice(buffer.as_slice()),
+        BufferUsages::VERTEX,
+        &cx.gpu.device,
+      );
       buffer.create_default_view()
     },
   );

@@ -32,21 +32,15 @@ pub fn use_widen_styled_points_indirect_renderer(
     .use_dual_query::<WideStyledPointsMeshBuffer>()
     .map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
       source_info.delta().into_change().collective_map(|buffer| {
-        // here we assume the buffer is correctly aligned
-        let buffer: &[WideStyledPointVertex] = cast_slice(&buffer);
-        let mut new_buffer =
-          Vec::with_capacity(buffer.len() * std::mem::size_of::<WideStyledPointVertexStorage>());
-        for v in buffer {
-          new_buffer.extend_from_slice(
-            WideStyledPointVertexStorage {
-              position: v.position,
-              style_id: v.style_id,
-              width: v.width,
-              ..Default::default()
-            }
-            .as_bytes(),
-          );
-        }
+        let new_buffer = buffer
+          .iter()
+          .map(|v| WideStyledPointVertexStorage {
+            position: v.position,
+            style_id: v.style_id,
+            width: v.width,
+            ..Default::default()
+          })
+          .collect();
         ExternalRefPtr::new(new_buffer)
       })
     });
@@ -120,12 +114,6 @@ struct WideStyledPointVertexStorage {
   pub position: Vec3<f32>,
   pub width: f32,
   pub style_id: u32,
-}
-
-impl WideStyledPointVertexStorage {
-  fn u32_size() -> u32 {
-    std::mem::size_of::<Self>() as u32 / 4
-  }
 }
 
 impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
@@ -280,7 +268,7 @@ impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
       builder.register::<GeometryUV>(vertex);
 
       let point = points
-        .index(instance_index + points_range.x() / val(WideStyledPointVertexStorage::u32_size()))
+        .index(instance_index + points_range.x())
         .load()
         .expand();
 
@@ -383,7 +371,7 @@ impl NoneIndexedDrawCommandBuilder for WidePointsDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let model = self.sm_to_wide.get(id).unwrap();
     let param = self.params_host.get(model.alloc_index()).unwrap().range;
-    let seg_count = param.y / WideStyledPointVertexStorage::u32_size();
+    let seg_count = param.y;
 
     if param.x == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {
       return None;
@@ -426,8 +414,7 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
   ) -> Node<DrawIndirectArgsStorage> {
     let point_id = self.sm_to_wide_points_device.index(draw_id).load();
     // the implementation of range allocate assure the count is zero if allocation failed
-    let seg_count = self.params.index(point_id).load().expand().range.y()
-      / val(WideStyledPointVertexStorage::u32_size());
+    let seg_count = self.params.index(point_id).load().expand().range.y();
 
     ENode::<DrawIndirectArgsStorage> {
       vertex_count: val(6) * seg_count,

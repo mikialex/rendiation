@@ -19,7 +19,7 @@ declare_component!(
 /// Must contains at least one transform
 TransformInstancedModelInstanceBuffer,
 TransformInstancedModelEntity,
-Option<ExternalRefPtr<Vec<Mat4<f32>>>>
+ExternalRefPtr<Vec<Mat4<f32>>>
 );
 declare_component!(
 /// Each transform unit also affect(multiply) by this matrix.

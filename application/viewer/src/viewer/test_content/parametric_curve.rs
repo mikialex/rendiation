@@ -52,8 +52,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
       let color = palette[i % palette.len()];
 
       let vertices = sample_curve_to_vertices(curve, 64, color);
-      let buffer: ExternalRefPtr<Vec<u8>> =
-        ExternalRefPtr::new(bytemuck::cast_slice(&vertices).to_vec());
+      let buffer = ExternalRefPtr::new(vertices);
 
       let wide_line_model = global_entity_of::<WideLineModelEntity>()
         .entity_writer()
@@ -98,8 +97,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
       });
     }
 
-    let buffer: ExternalRefPtr<Vec<u8>> =
-      ExternalRefPtr::new(bytemuck::cast_slice(&vertices).to_vec());
+    let buffer = ExternalRefPtr::new(vertices);
 
     let wide_line_model = global_entity_of::<WideLineModelEntity>()
       .entity_writer()
@@ -157,8 +155,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
           color: Vec4::new(0.5, 0.5, 0.5, 1.0),
         });
       }
-      let poly_buffer: ExternalRefPtr<Vec<u8>> =
-        ExternalRefPtr::new(bytemuck::cast_slice(&poly_vertices).to_vec());
+      let poly_buffer = ExternalRefPtr::new(poly_vertices);
 
       let poly_model = global_entity_of::<WideLineModelEntity>()
         .entity_writer()
@@ -171,8 +168,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
 
       // Curve
       let curve_vertices = sample_curve_to_vertices(&bezier, 80, *color);
-      let curve_buffer: ExternalRefPtr<Vec<u8>> =
-        ExternalRefPtr::new(bytemuck::cast_slice(&curve_vertices).to_vec());
+      let curve_buffer = ExternalRefPtr::new(curve_vertices);
 
       let curve_model = global_entity_of::<WideLineModelEntity>()
         .entity_writer()

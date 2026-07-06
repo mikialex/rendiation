@@ -78,11 +78,12 @@ impl PointListBuilder {
   }
 }
 
-pub fn build_wide_points_mesh(f: impl FnOnce(&mut PointListBuilder)) -> ExternalRefPtr<Vec<u8>> {
+pub fn build_wide_points_mesh(
+  f: impl FnOnce(&mut PointListBuilder),
+) -> ExternalRefPtr<Vec<WideStyledPointVertex>> {
   let mut builder = PointListBuilder::default();
 
   f(&mut builder);
 
-  let u8s = bytemuck::cast_slice(&builder.points);
-  ExternalRefPtr::new(u8s.to_vec())
+  ExternalRefPtr::new(builder.points)
 }

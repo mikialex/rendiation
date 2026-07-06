@@ -85,10 +85,6 @@ impl NodeStorage {
       ..Zeroable::zeroed()
     }
   }
-
-  pub fn u32_size() -> u32 {
-    std::mem::size_of::<Self>() as u32 / 4
-  }
 }
 
 impl ShaderHashProvider for NodeGPUStorage<'_> {

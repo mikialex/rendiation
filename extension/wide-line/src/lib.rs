@@ -8,6 +8,7 @@ use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
+use serde::*;
 
 mod draw;
 use draw::*;
@@ -61,11 +62,12 @@ declare_component!(WideLineEnableRoundJoint, WideLineModelEntity, bool, false);
 declare_component!(
   WideLineMeshBuffer,
   WideLineModelEntity,
-  ExternalRefPtr<Vec<u8>> // Vec<WideLineVertex>
+  ExternalRefPtr<Vec<WideLineVertex>>
 );
 
 #[repr(C)]
 #[derive(Copy, Clone, Zeroable, Pod, ShaderVertex)]
+#[derive(Facet, Serialize, Deserialize)]
 pub struct WideLineVertex {
   #[semantic(WideLineStart)]
   pub start: Vec3<f32>,
@@ -84,8 +86,7 @@ pub fn use_wide_line_vertices_count(
     .use_dual_query::<WideLineMeshBuffer>()
     .dual_query_zip(cx.use_dual_query::<WideLineWidth>())
     .dual_query_map(move |(v, width)| {
-      let line_seg_count = v.len() / std::mem::size_of::<WideLineVertex>();
-      let line_seg_count = line_seg_count as u32;
+      let line_seg_count = v.len() as u32;
       if one_pixel_native_line_optimization_enabled && width == 1.0 {
         line_seg_count * 2
       } else {

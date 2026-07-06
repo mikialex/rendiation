@@ -150,6 +150,7 @@ pub extern "C" fn create_wide_points(
   let mut writer = global_entity_of::<WideStyledPointsEntity>().entity_writer();
 
   let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = bytemuck::cast_slice(data);
   let data = data.to_vec();
   let data = ExternalRefPtr::new(data);
 
@@ -175,6 +176,7 @@ pub extern "C" fn wide_points_set_buffer(
   data: *const u8,
 ) {
   let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = bytemuck::cast_slice(data);
   let data = data.to_vec();
   let data = ExternalRefPtr::new(data);
 
@@ -225,6 +227,7 @@ pub extern "C" fn create_wide_line(
   let mut writer = global_entity_of::<WideLineModelEntity>().entity_writer();
 
   let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = bytemuck::cast_slice(data);
   let data = data.to_vec();
   let data = ExternalRefPtr::new(data);
 
@@ -250,6 +253,7 @@ pub extern "C" fn wide_line_set_buffer(
   data: *const u8,
 ) {
   let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
+  let data = bytemuck::cast_slice(data);
   let data = data.to_vec();
   let data = ExternalRefPtr::new(data);
 

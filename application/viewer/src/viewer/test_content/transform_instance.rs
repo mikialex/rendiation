@@ -47,7 +47,7 @@ pub fn load_transform_instanced_wide_line_test(s_writer: &mut SceneWriter) {
   let mut transform_instanced_writer =
     global_entity_of::<TransformInstancedModelEntity>().entity_writer();
   let transform_instanced_model = transform_instanced_writer.new_entity(|w| {
-    w.write::<TransformInstancedModelInstanceBuffer>(&Some(instance_buffer))
+    w.write::<TransformInstancedModelInstanceBuffer>(&instance_buffer)
       .write::<TransformInstancedModelRefSceneModel>(&source_scene_model.some_handle())
   });
 

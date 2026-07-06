@@ -48,12 +48,9 @@ pub fn use_text3d_indirect_renderer(
   let (rr, rrr) = r2.fork();
 
   // todo: avoid extra clone
-  let curve_source =
-    r.map_changes(|v| ExternalRefPtr::new(cast_slice::<_, u8>(v.curves.as_slice()).to_vec()));
-  let band_source =
-    rr.map_changes(|v| ExternalRefPtr::new(cast_slice::<_, u8>(v.bands.as_slice()).to_vec()));
-  let vertices_source =
-    rrr.map_changes(|v| ExternalRefPtr::new(cast_slice::<_, u8>(v.vertices.as_slice()).to_vec()));
+  let curve_source = r.map_changes(|v| ExternalRefPtr::new(v.curves.clone()));
+  let band_source = rr.map_changes(|v| ExternalRefPtr::new(v.bands.clone()));
+  let vertices_source = rrr.map_changes(|v| ExternalRefPtr::new(v.vertices.clone()));
 
   let (curves, curve_range_updates) =
     use_range_allocated_device_buffers(cx, "text_buffer curves", 1024, u32::MAX, curve_source);
@@ -229,7 +226,7 @@ impl NoneIndexedDrawCommandBuilder for Text3dDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let model = self.sm_to_text.get(id).unwrap();
     let param = self.params_host.get(model.alloc_index()).unwrap();
-    let quad_count = param.text_vertices_range.y / TextGlyphQuad::u32_size();
+    let quad_count = param.text_vertices_range.y;
 
     if param.text_vertices_range.x == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {
       return None;
@@ -272,8 +269,7 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
   ) -> Node<DrawIndirectArgsStorage> {
     let text_id = self.sm_to_text_device.index(draw_id).load();
     // the implementation of range allocate assure the count is zero if allocation failed
-    let quad_count =
-      self.params.index(text_id).text_vertices_range().load().y() / val(TextGlyphQuad::u32_size());
+    let quad_count = self.params.index(text_id).text_vertices_range().load().y();
 
     ENode::<DrawIndirectArgsStorage> {
       vertex_count: val(6) * quad_count,
@@ -327,7 +323,7 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
       let instance_index = vertex_index / val(6);
       let vertex_index = vertex_index % val(6);
 
-      let vertex_offset = text_meta.text_vertices_range.x() / val(TextGlyphQuad::u32_size());
+      let vertex_offset = text_meta.text_vertices_range.x();
       let vertices = binding.bind_by(self.vertices);
       let quad = vertices.index(instance_index + vertex_offset);
       let quad = quad.load().expand();
@@ -366,8 +362,7 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
       let text_id = builder.query::<Text3DShaderId>();
       let text_meta = text_meta.using(binding);
       let text_meta = text_meta.index(text_id);
-      let curve_text_global_offset =
-        text_meta.text_curves_range().load().x() / val(CurveData::u32_size());
+      let curve_text_global_offset = text_meta.text_curves_range().load().x();
 
       builder.insert_type_tag::<UnlitMaterialTag>();
 
