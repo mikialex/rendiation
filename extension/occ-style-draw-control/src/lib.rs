@@ -59,17 +59,13 @@ pub fn use_occ_incremental_device_scene_batch_extractor(
     BoxedDynDualQuery<RawEntityHandle, (OccSceneModelGroupKey, RawEntityHandle)>,
   >,
 ) -> Option<Box<dyn SceneBatchBasicExtractAbility>> {
-  let (cx, (allocator, extractor)) = cx.use_gpu_init(|gpu, allocator| {
+  let (cx, extractor) = cx.use_gpu_init(|gpu, allocator| {
     let pool = SceneModelListPool::new(allocator, gpu, 1024);
-    let allocator = pool.allocator_shared();
-
-    let extractor = Arc::new(RwLock::new(OccStyleOrderControlSceneBatchExtractor {
+    Arc::new(RwLock::new(OccStyleOrderControlSceneBatchExtractor {
       internal: IncrementalDeviceSceneBatchExtractor::new(pool),
-    }));
-    (allocator, extractor)
+    }))
   });
 
-  let allocator = allocator.clone();
   let extractor = extractor.clone();
 
   cx.if_inspect(|inspector| {
@@ -85,13 +81,7 @@ pub fn use_occ_incremental_device_scene_batch_extractor(
     .map_spawn_stage_in_thread(
       cx,
       |(c1, c2)| c1.has_delta_hint() || c2.has_delta_hint(),
-      move |(c1, c2)| {
-        Arc::new(
-          extractor_
-            .write()
-            .prepare_updates(c1, c2.delta(), &allocator),
-        )
-      },
+      move |(c1, c2)| Arc::new(extractor_.write().prepare_updates(c1, c2.delta())),
     )
     .use_assure_result(cx);
 
@@ -142,11 +132,11 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
     let mut real_lengths = Vec::with_capacity(groups.len());
 
     let alloc = self.internal.pool.allocator.read();
-    for (_key, buffer) in &groups {
+    for (key, buffer) in &groups {
       impl_select_ids.push(buffer.representative().unwrap());
       real_lengths.push(buffer.host.len() as u32);
-      let hash = buffer.group_key_hash;
-      let (capacity, offset) = alloc.get_region(hash).unwrap();
+      let alloc_key = (scene.into_raw(), (*key).clone());
+      let (capacity, offset) = alloc.get_region(&alloc_key).unwrap();
       capacity_ranges.push(CapacityRange { capacity, offset });
     }
     drop(alloc);
@@ -174,7 +164,7 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
 
 /// Combined spawn-stage result: base pool update + pre-built sort sparse writes.
 pub struct OccStyleOrderControlSceneBatchUpdates {
-  pub pool_update: PoolAllocationUpdate,
+  pub pool_update: PoolAllocationUpdate<(RawEntityHandle, OccSceneModelGroupKey)>,
   /// Pre-built sparse writes for sort reordering, already with pool offsets applied.
   pub sort_sparse_writes: SparseBufferWritesSource,
 }
@@ -184,10 +174,9 @@ impl OccStyleOrderControlSceneBatchExtractor {
     &mut self,
     query: impl DualQueryLike<Key = RawEntityHandle, Value = (OccSceneModelGroupKey, RawEntityHandle)>,
     priority_changes: impl Query<Key = RawEntityHandle, Value = ValueChange<u32>>,
-    allocator: &Arc<RwLock<GrowableRangeAllocator<u64>>>,
   ) -> OccStyleOrderControlSceneBatchUpdates {
     let (view, delta) = query.view_delta();
-    let (base_update, mut changed_keys) = self.internal.prepare_updates(delta, allocator);
+    let (base_update, mut changed_keys) = self.internal.prepare_updates(delta);
 
     for (sm_id, _) in priority_changes.iter_key_value() {
       // here we can skip the check that the sm's (key, scene) change's previous value's list update.
@@ -202,19 +191,16 @@ impl OccStyleOrderControlSceneBatchExtractor {
     let priority_view = read_global_db_component::<SceneModelOccStylePriority>();
     let mut sort_sparse_writes = SparseBufferWritesSource::default();
 
-    let alloc = allocator.read();
+    let alloc = self.internal.pool.allocator.read();
 
-    for (scene_id, group_hash) in &base_update.groups_with_updates {
+    for (scene_id, key) in &base_update.groups_with_updates {
       if let Some(scene_groups) = self.internal.contents.get_mut(scene_id) {
-        for buffer in scene_groups.values_mut() {
-          if buffer.group_key_hash == *group_hash {
-            if let Some(sort_writes) = sort_by_priority(buffer, &priority_view) {
-              let offset = alloc.get_region(*group_hash).unwrap().1;
-              for (pos, val) in &sort_writes {
-                sort_sparse_writes.collect_write(bytes_of(val), (offset + pos) as u64 * 4);
-              }
+        if let Some(buffer) = scene_groups.get_mut(key) {
+          if let Some(sort_writes) = sort_by_priority(buffer, &priority_view) {
+            let offset = alloc.get_region(&(*scene_id, key.clone())).unwrap().1;
+            for (pos, val) in &sort_writes {
+              sort_sparse_writes.collect_write(bytes_of(val), (offset + pos) as u64 * 4);
             }
-            break;
           }
         }
       }

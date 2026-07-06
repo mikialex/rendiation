@@ -4,7 +4,6 @@ use crate::*;
 /// The GPU data lives in the shared `SceneModelListPool`, not in an individual buffer.
 pub struct PersistSceneModelListBuffer {
   pub host: Vec<RawEntityHandle>,
-  pub group_key_hash: u64,
   pub mapping: FastHashMap<RawEntityHandle, usize>,
   pub updates: Option<PersistSceneModelListBufferMutation>,
 }
@@ -39,9 +38,8 @@ impl PersistSceneModelListBufferMutation {
 }
 
 impl PersistSceneModelListBuffer {
-  pub fn with_capacity(capacity: usize, group_key_hash: u64) -> Self {
+  pub fn with_capacity(capacity: usize) -> Self {
     Self {
-      group_key_hash,
       host: Vec::with_capacity(capacity),
       mapping: FastHashMap::with_capacity_and_hasher(capacity, Default::default()),
       updates: None,

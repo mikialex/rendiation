@@ -7,7 +7,7 @@ use crate::*;
 
 type AllocationHandle = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
 
-pub struct GrowableRangeAllocator<K: Copy + Eq + Hash> {
+pub struct GrowableRangeAllocator<K> {
   max_item_count: u32,
   current_count: u32,
   used_count: u32,
@@ -30,7 +30,7 @@ pub struct DataMoveMent {
 }
 
 #[derive(Debug)]
-pub struct BatchAllocateResult<K: Copy + Eq + Hash> {
+pub struct BatchAllocateResult<K> {
   pub removed: FastHashSet<K>,
   /// failed_to_allocate may contain previous successful allocated handle
   pub failed_to_allocate: FastHashSet<K>,
@@ -41,7 +41,7 @@ pub struct BatchAllocateResult<K: Copy + Eq + Hash> {
   pub resize_to: Option<u32>,
 }
 
-impl<K: Copy + Eq + Hash> BatchAllocateResult<K> {
+impl<K> BatchAllocateResult<K> {
   /// these three set should be exclusive
   pub fn change_count(&self) -> usize {
     self.removed.len() + self.failed_to_allocate.len() + self.data_movements.len()
@@ -49,13 +49,12 @@ impl<K: Copy + Eq + Hash> BatchAllocateResult<K> {
 }
 
 #[derive(Clone)]
-pub struct BatchAllocateResultShared<K: Copy + Eq + Hash>(pub Arc<BatchAllocateResult<K>>, pub u32); // (_, u32_per_item)
+pub struct BatchAllocateResultShared<K>(pub Arc<BatchAllocateResult<K>>, pub u32); // (_, u32_per_item)
 
-impl<K: Copy + Eq + Hash> BatchAllocateResultShared<K> {
+impl<K> BatchAllocateResultShared<K> {
   pub fn has_data_movements(&self) -> bool {
     !self.0.data_movements.is_empty()
   }
-
   pub fn iter_data_movements(&self) -> impl Iterator<Item = BufferRelocate> + '_ {
     let u32_per_item = self.1 as u64;
     self.0.data_movements.values().map(move |v| BufferRelocate {
@@ -64,7 +63,8 @@ impl<K: Copy + Eq + Hash> BatchAllocateResultShared<K> {
       count: v.count as u64 * u32_per_item * 4,
     })
   }
-
+}
+impl<K: Eq + Hash> BatchAllocateResultShared<K> {
   pub fn access_new_change(&self, k: K) -> Option<[u32; 2]> {
     let u32_per_item = self.1;
     if let Some(v) = self.0.new_data_to_write.get(&k) {
@@ -123,9 +123,9 @@ impl DataChanges for BatchAllocateResultShared<RawEntityHandle> {
   }
 }
 
-impl<K: Copy + Eq + Hash> BatchAllocateResult<K> {
+impl<K: Clone + Eq + Hash> BatchAllocateResult<K> {
   fn notify_failed_to_allocate(&mut self, handle: K) {
-    self.failed_to_allocate.insert(handle);
+    self.failed_to_allocate.insert(handle.clone());
     self.data_movements.remove(&handle);
   }
   fn notify_data_move(&mut self, handle: K, movement: DataMoveMent) {
@@ -143,7 +143,7 @@ impl<K: Copy + Eq + Hash> BatchAllocateResult<K> {
   }
 }
 
-impl<K: Copy + Eq + Hash> GrowableRangeAllocator<K> {
+impl<K: Clone + Eq + Hash> GrowableRangeAllocator<K> {
   pub fn new(label: &str, max_item_count: u32, init_count: u32, alignment_require: u32) -> Self {
     assert!(init_count <= max_item_count);
     Self {
@@ -158,10 +158,10 @@ impl<K: Copy + Eq + Hash> GrowableRangeAllocator<K> {
   }
 
   /// Query a region by key. Returns (size, offset) if allocated.
-  pub fn get_region(&self, key: K) -> Option<(u32, u32)> {
+  pub fn get_region(&self, key: &K) -> Option<(u32, u32)> {
     self
       .ranges
-      .get(&key)
+      .get(key)
       .map(|&(size, offset, _)| (size, offset))
   }
 
@@ -229,7 +229,7 @@ impl<K: Copy + Eq + Hash> GrowableRangeAllocator<K> {
         if let Some((token, offset)) = self.allocator.alloc_aligned(count, self.alignment_require) {
           self.used_count += count;
 
-          result.new_data_to_write.insert(k, (offset, count));
+          result.new_data_to_write.insert(k.clone(), (offset, count));
           result.removed.remove(&k);
           new_metadata_to_write.insert(k, (count, offset, token));
           break;
@@ -280,7 +280,7 @@ impl<K: Copy + Eq + Hash> GrowableRangeAllocator<K> {
         self.allocator.alloc_aligned(*count, self.alignment_require)
       {
         results.notify_data_move(
-          *k,
+          k.clone(),
           DataMoveMent {
             old_offset: *offset,
             new_offset,
@@ -291,32 +291,34 @@ impl<K: Copy + Eq + Hash> GrowableRangeAllocator<K> {
         *token = new_token;
         *offset = new_offset;
       } else {
-        results.notify_failed_to_allocate(*k);
+        results.notify_failed_to_allocate(k.clone());
       }
     }
     for (k, (count, offset, token)) in new_inserted.iter_mut() {
       if let Some((new_token, new_offset)) =
         self.allocator.alloc_aligned(*count, self.alignment_require)
       {
-        results.new_data_to_write.insert(*k, (new_offset, *count));
+        results
+          .new_data_to_write
+          .insert(k.clone(), (new_offset, *count));
 
         *token = new_token;
         *offset = new_offset;
       } else {
-        results.notify_failed_to_allocate(*k);
+        results.notify_failed_to_allocate(k.clone());
       }
     }
   }
 }
 
-pub struct RangeAllocateBufferCollector<K: Copy + Eq + Hash> {
+pub struct RangeAllocateBufferCollector<K> {
   small_buffer_writes: Vec<u8>,
   ///  handle -> small_buffer_writes offset
   small_buffer_mapping: FastHashMap<K, (usize, usize)>,
   large_buffer_writes: FastHashMap<K, (Arc<Vec<u8>>, Option<Range<usize>>)>,
 }
 
-impl<K: Copy + Eq + Hash> Default for RangeAllocateBufferCollector<K> {
+impl<K> Default for RangeAllocateBufferCollector<K> {
   fn default() -> Self {
     Self {
       small_buffer_writes: Vec::new(),
@@ -328,7 +330,7 @@ impl<K: Copy + Eq + Hash> Default for RangeAllocateBufferCollector<K> {
 
 pub const SMALL_BUFFER_THRESHOLD_BYTE_COUNT: usize = 1024 * 5;
 
-impl<K: Copy + Eq + Hash> RangeAllocateBufferCollector<K> {
+impl<K: Clone + Eq + Hash> RangeAllocateBufferCollector<K> {
   pub fn with_capacity(
     small_buffer_byte_writes: usize,
     small_buffer_count: usize,
@@ -416,17 +418,17 @@ impl<K: Copy + Eq + Hash> RangeAllocateBufferCollector<K> {
   }
 }
 
-pub struct RangeAllocateBufferPrepared<K: Copy + Eq + Hash> {
+pub struct RangeAllocateBufferPrepared<K> {
   small_buffer_writes: SparseBufferWritesSource,
   large_buffer_writes: FastHashMap<K, (Arc<Vec<u8>>, Option<Range<usize>>)>,
 }
 
-pub struct RangeAllocateBufferUpdates<K: Copy + Eq + Hash> {
+pub struct RangeAllocateBufferUpdates<K> {
   pub buffers_to_write: RangeAllocateBufferPrepared<K>,
   pub allocation_changes: BatchAllocateResultShared<K>,
 }
 
-impl<K: Copy + Eq + Hash> RangeAllocateBufferUpdates<K> {
+impl<K: Clone + Eq + Hash> RangeAllocateBufferUpdates<K> {
   pub fn write(&self, gpu: &GPU, encoder: &mut GPUCommandEncoder, target: &dyn AbstractBuffer) {
     if self.allocation_changes.has_data_movements() {
       let mut iter = self.allocation_changes.iter_data_movements();

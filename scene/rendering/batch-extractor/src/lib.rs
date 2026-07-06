@@ -28,14 +28,12 @@ pub fn use_incremental_device_scene_batch_extractor<K: CKey>(
   cx: &mut QueryGPUHookCx,
   sm_group_key_with_scene_id: UseResult<BoxedDynDualQuery<RawEntityHandle, (K, RawEntityHandle)>>,
 ) -> Option<LockReadGuardHolder<IncrementalDeviceSceneBatchExtractor<K>>> {
-  let (cx, (allocator, extractor)) = cx.use_gpu_init(|gpu, allocator| {
+  let (cx, extractor) = cx.use_gpu_init(|gpu, allocator| {
     let pool = SceneModelListPool::new(allocator, gpu, 1024);
-    let allocator = pool.allocator_shared();
-    let extractor = Arc::new(RwLock::new(IncrementalDeviceSceneBatchExtractor::new(pool)));
-    (allocator, extractor)
+    let extractor = IncrementalDeviceSceneBatchExtractor::<K>::new(pool);
+    Arc::new(RwLock::new(extractor))
   });
 
-  let allocator = allocator.clone();
   let extractor = extractor.clone();
 
   cx.if_inspect(|inspector| {
@@ -47,7 +45,7 @@ pub fn use_incremental_device_scene_batch_extractor<K: CKey>(
   let gpu_updates = sm_group_key_with_scene_id
     .map_spawn_stage_in_thread_dual_query(cx, move |v| {
       let change = v.delta();
-      let update = extractor_.write().prepare_updates(change, &allocator);
+      let update = extractor_.write().prepare_updates(change);
       Arc::new(update)
     })
     .use_assure_result(cx);

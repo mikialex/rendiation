@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use std::sync::Arc;
 
 use parking_lot::RwLock;
@@ -7,24 +8,24 @@ use crate::*;
 /// Shared pool of scene model entity indices with per-group contiguous regions
 /// managed by a range allocator. Allocator updates happen in the spawn stage;
 /// GPU buffer writes (resize, relocation, sparse write) happen in the render stage.
-pub struct SceneModelListPool {
+pub struct SceneModelListPool<K> {
   /// The pool GPU buffer
   pool_buffer: ResizableGPUBuffer<AbstractReadonlyStorageBuffer<[u32]>>,
-  /// Range allocator — group_hash(u64) → pool region
-  pub allocator: Arc<RwLock<GrowableRangeAllocator<u64>>>,
+  /// Range allocator — K → pool region
+  pub allocator: Arc<RwLock<GrowableRangeAllocator<K>>>,
   gpu: GPU,
 }
 
 /// Result of spawn-stage allocator update. Carried over to the render stage.
-pub struct PoolAllocationUpdate {
+pub struct PoolAllocationUpdate<K> {
   /// The raw allocator result (new_data_to_write, data_movements, resize_to, removed)
-  pub allocation_result: BatchAllocateResult<u64>,
+  pub allocation_result: BatchAllocateResult<K>,
   pub move_writes: Vec<(u64, Vec<u8>)>,
   /// Pre-built sparse writes for entity data (positions already include pool offset)
   pub sparse_writes: SparseBufferWritesSource,
 }
 
-impl SceneModelListPool {
+impl<K: Clone + Eq + Hash> SceneModelListPool<K> {
   pub fn new(alloc: &dyn AbstractStorageAllocator, gpu: &GPU, init_capacity: u32) -> Self {
     let pool_buffer = alloc
       .allocate_readonly(init_capacity as u64 * 4, &gpu.device, "scene_model_id_pool")
@@ -66,39 +67,34 @@ impl SceneModelListPool {
     &self.gpu
   }
 
-  pub fn allocator_shared(&self) -> Arc<RwLock<GrowableRangeAllocator<u64>>> {
-    self.allocator.clone()
-  }
-
   pub fn prepare_pool_update(
-    allocator: &Arc<RwLock<GrowableRangeAllocator<u64>>>,
-    removed_groups: &[u64],
-    changed_groups: &[(u64, Vec<u8>, u32)],
-    entity_writes: Vec<(u64, u32, u32)>, // (group_hash, local_pos, entity_alloc_index)
-  ) -> PoolAllocationUpdate {
-    let mut alloc = allocator.write();
-
+    &mut self,
+    removed_groups: &[K],
+    changed_groups: &[(K, Vec<u8>, u32)],
+    entity_writes: Vec<(K, u32, u32)>, // (K, local_pos, entity_alloc_index)
+  ) -> PoolAllocationUpdate<K> {
+    let mut alloc = self.allocator.write();
     // todo, the allocator's update can be improved:
     // if the changed groups overlaps remove_or_changed, it will not reflected as the data movement.
     let allocation_result = alloc.update(
       removed_groups
         .iter()
-        .copied()
-        .chain(changed_groups.iter().map(|v| v.0)),
+        .cloned()
+        .chain(changed_groups.iter().map(|v| v.0.clone())),
       changed_groups
         .iter()
-        .map(|(k, _data, new_len)| (*k, *new_len)),
+        .map(|(k, _data, new_len)| (k.clone(), *new_len)),
     );
 
     let mut writes = SparseBufferWritesSource::default();
-    for (group_hash, local_pos, value) in &entity_writes {
-      let offset = alloc.get_region(*group_hash).unwrap().1;
+    for (key, local_pos, value) in &entity_writes {
+      let offset = alloc.get_region(key).unwrap().1;
       writes.collect_write(bytes_of(value), (offset + local_pos) as u64 * 4);
     }
 
     let mut move_writes = Vec::with_capacity(changed_groups.len());
     for group in changed_groups {
-      let offset = alloc.get_region(group.0).unwrap().1;
+      let offset = alloc.get_region(&group.0).unwrap().1;
       move_writes.push((offset as u64 * 4, group.1.clone()))
     }
 
@@ -111,7 +107,7 @@ impl SceneModelListPool {
 
   pub fn apply_pool_update(
     &mut self,
-    update: &PoolAllocationUpdate,
+    update: &PoolAllocationUpdate<K>,
     gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
   ) {

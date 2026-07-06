@@ -10,17 +10,17 @@ type GroupKeyWithSceneHandle<K> = (K, RawEntityHandle);
 
 pub struct IncrementalDeviceSceneBatchExtractor<K> {
   pub contents: FastHashMap<RawEntityHandle, FastHashMap<K, PersistSceneModelListBuffer>>,
-  pub pool: SceneModelListPool,
+  pub pool: SceneModelListPool<(RawEntityHandle, K)>,
 }
 
 /// Snapshot after spawn-stage: entity changes + pool allocation update.
-pub struct ExtractorUpdate {
-  pub groups_with_updates: Vec<(RawEntityHandle, u64)>, // (scene_id, group_key_hash)
-  pub pool_update: PoolAllocationUpdate,
+pub struct ExtractorUpdate<K> {
+  pub groups_with_updates: Vec<(RawEntityHandle, K)>, // (scene_id, key)
+  pub pool_update: PoolAllocationUpdate<(RawEntityHandle, K)>,
 }
 
 impl<K> IncrementalDeviceSceneBatchExtractor<K> {
-  pub fn new(pool: SceneModelListPool) -> Self {
+  pub fn new(pool: SceneModelListPool<(RawEntityHandle, K)>) -> Self {
     Self {
       contents: FastHashMap::default(),
       pool,
@@ -65,10 +65,9 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
       .raw_entry_mut()
       .from_key(key)
       .or_insert_with(|| {
-        let hash = fast_hash_scope(|hasher| key.hash(hasher));
         (
           key.clone(),
-          PersistSceneModelListBuffer::with_capacity(1024, hash),
+          PersistSceneModelListBuffer::with_capacity(1024),
         )
       })
       .1
@@ -80,8 +79,7 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
   pub fn prepare_updates(
     &mut self,
     delta: impl Query<Key = RawEntityHandle, Value = ValueChange<GroupKeyWithSceneHandle<K>>>,
-    allocator: &Arc<RwLock<GrowableRangeAllocator<u64>>>,
-  ) -> (ExtractorUpdate, FastHashSet<(K, RawEntityHandle)>) {
+  ) -> (ExtractorUpdate<K>, FastHashSet<(K, RawEntityHandle)>) {
     let mut changes_keys = FastHashSet::default();
 
     // Track old group capacities before changes
@@ -93,7 +91,7 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
         let list = self.get_or_create(scene_id, key);
         // Record old capacity before removal
         old_capacities
-          .entry(list.group_key_hash)
+          .entry((*scene_id, key.clone()))
           .or_insert(list.host.len() as u32);
         list.remove(sm);
       }
@@ -102,17 +100,17 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
         changes_keys.insert((key.clone(), *scene_id));
         let list = self.get_or_create(scene_id, key);
         old_capacities
-          .entry(list.group_key_hash)
+          .entry((*scene_id, key.clone()))
           .or_insert(list.host.len() as u32);
         list.insert(sm);
       }
     }
 
     // Build changed groups list for allocator update
-    let mut groups_with_updates: Vec<(RawEntityHandle, u64)> = Vec::new();
-    let mut changed_groups: Vec<(u64, Vec<u8>, u32)> = Vec::new();
-    let mut removed_groups: Vec<u64> = Vec::new();
-    let mut entity_writes: Vec<(u64, u32, u32)> = Vec::new();
+    let mut groups_with_updates: Vec<(RawEntityHandle, K)> = Vec::new();
+    let mut changed_groups: Vec<((RawEntityHandle, K), Vec<u8>, u32)> = Vec::new();
+    let mut removed_groups: Vec<(RawEntityHandle, K)> = Vec::new();
+    let mut entity_writes: Vec<((RawEntityHandle, K), u32, u32)> = Vec::new();
 
     let limits = &self.pool.gpu().info.supported_limits;
     let min_size_round_up = limits
@@ -122,11 +120,12 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
 
     for (key, s_id) in &changes_keys {
       let buffer = self.get_or_create(s_id, key);
-      let hash = buffer.group_key_hash;
       let new_size = buffer.host.len() as u32;
 
+      let alloc_key = (*s_id, key.clone());
+
       if new_size == 0 {
-        removed_groups.push(hash);
+        removed_groups.push(alloc_key);
         self.remove_empty(s_id, key);
         continue;
       }
@@ -141,34 +140,32 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
         .flat_map(|v| v.index().bytes().to_vec())
         .collect();
 
-      let old_size = old_capacities.get(&hash).copied().unwrap();
+      let old_size = old_capacities.get(&alloc_key).copied().unwrap();
       // handle the edge case: new group has no old allocation to compare
       if old_size == 0 {
-        changed_groups.push((hash, data, new_size_rounded));
+        changed_groups.push((alloc_key.clone(), data, new_size_rounded));
       } else {
         let old_size_rounded = old_size.next_power_of_two().max(min_size_round_up);
 
         if old_size_rounded != new_size_rounded {
-          changed_groups.push((hash, data, new_size_rounded));
+          changed_groups.push((alloc_key.clone(), data, new_size_rounded));
         }
       }
 
       // Collect entity writes
       if let Some(updates) = buffer.updates.take() {
         for (pos, val) in updates.mapping_change {
-          entity_writes.push((hash, pos as u32, val));
+          entity_writes.push((alloc_key.clone(), pos as u32, val));
         }
       }
 
-      groups_with_updates.push((*s_id, hash));
+      groups_with_updates.push(alloc_key);
     }
 
-    let pool_update = SceneModelListPool::prepare_pool_update(
-      allocator,
-      &removed_groups,
-      &changed_groups,
-      entity_writes,
-    );
+    let pool_update =
+      self
+        .pool
+        .prepare_pool_update(&removed_groups, &changed_groups, entity_writes);
 
     if let Some(new_capacity) = pool_update.allocation_result.resize_to {
       self.pool.update_pool_size(new_capacity);
@@ -186,7 +183,7 @@ impl<K: Eq + Hash + Clone> IncrementalDeviceSceneBatchExtractor<K> {
   /// Render-stage: apply pool allocation changes and write GPU data.
   pub fn do_updates(
     &mut self,
-    update: &ExtractorUpdate,
+    update: &ExtractorUpdate<K>,
     gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
   ) {
@@ -226,11 +223,11 @@ impl SceneBatchBasicExtractAbility for IncrementalDeviceSceneBatchExtractor<Scen
     let mut real_lengths = Vec::with_capacity(groups.len());
 
     let alloc = self.pool.allocator.read();
-    for (_key, buffer) in &groups {
+    for (key, buffer) in &groups {
       impl_select_ids.push(buffer.representative().unwrap());
       real_lengths.push(buffer.host.len() as u32);
-      let hash = buffer.group_key_hash;
-      let (capacity, offset) = alloc.get_region(hash).unwrap();
+      let alloc_key = (scene.into_raw(), (*key).clone());
+      let (capacity, offset) = alloc.get_region(&alloc_key).unwrap();
       host_capacity_ranges.push(CapacityRange { capacity, offset });
     }
     drop(alloc);
