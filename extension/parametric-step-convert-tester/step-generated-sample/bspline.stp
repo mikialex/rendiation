@@ -65,7 +65,7 @@ DATA;
 /* === Loop & face === */
 #70 = ORIENTED_EDGE('',*,*,#54,.T.);
 #71 = ORIENTED_EDGE('',*,*,#56,.T.);
-#72 = ORIENTED_EDGE('',*,*,#61,.F.);
+#72 = ORIENTED_EDGE('',*,*,#61,.T.);
 #73 = ORIENTED_EDGE('',*,*,#63,.T.);
 #74 = EDGE_LOOP('',(#70,#71,#72,#73));
 #75 = FACE_OUTER_BOUND('',#74,.T.);

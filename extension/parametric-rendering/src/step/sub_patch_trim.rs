@@ -133,7 +133,12 @@ pub fn process_trim_curves_for_face(
         }
       }
 
-      CompletedTrimPolyline::check_closed_from(c_polyline)
+      if let Some(r) = CompletedTrimPolyline::check_closed_from(c_polyline) {
+        Some(r)
+      } else {
+        println!("CompletedTrimPolyline is not closed");
+        None
+      }
     })
     .collect::<Vec<_>>();
 
