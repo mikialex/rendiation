@@ -53,6 +53,7 @@ pub struct StepReadConfig {
   pub project_tolerance: f32,
   pub project_max_iter: usize,
   pub validate_step_input_trim_curve_is_inbound: bool,
+  pub curve_trim_tolerance: f32,
 }
 
 impl Default for StepReadConfig {
@@ -64,6 +65,7 @@ impl Default for StepReadConfig {
       project_tolerance: 1e-6,
       project_max_iter: 20,
       validate_step_input_trim_curve_is_inbound: true,
+      curve_trim_tolerance: 1e-3,
     }
   }
 }
@@ -242,6 +244,7 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
               &c.curve_3d,
               Some(c.start_vertex),
               Some(c.end_vertex),
+              config.curve_trim_tolerance,
             ) {
               Ok(b) => b,
               Err(e) => {
