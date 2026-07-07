@@ -101,6 +101,7 @@ pub fn process_trim_curves_for_face(
                 config.project_tolerance,
                 config.project_max_iter,
               ) {
+                assert!(!u.is_nan() && !v.is_nan());
                 let p = Vec2::new(u, v);
                 if config.validate_step_input_trim_curve_is_inbound {
                   if p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 {

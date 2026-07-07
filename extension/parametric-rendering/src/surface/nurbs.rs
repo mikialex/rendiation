@@ -382,12 +382,25 @@ impl<T: Scalar> NurbsSurface<T> {
 impl<T: Scalar> NurbsSurface<T> {
   /// Find the knot span index i such that `knots[i] <= u < knots[i+1]`.
   /// `n` is the index of the last control point (`count - 1`), `p` is the degree.
+  ///
+  /// When the returned span has zero length (`knots[i] == knots[i+1]`, typically
+  /// caused by knots with multiplicity > degree+1 at the boundary), the span is
+  /// adjusted to the nearest non-zero span. This avoids division by zero in
+  /// `basis_functions` (Algorithm A2.2) while preserving surface geometry.
   fn find_knot_span(n: usize, p: usize, u: T, knots: &[T]) -> usize {
     if u >= knots[n + 1] {
-      return n;
+      let mut span = n;
+      while span > p && knots[span] == knots[span + 1] {
+        span -= 1;
+      }
+      return span;
     }
     if u <= knots[p] {
-      return p;
+      let mut span = p;
+      while span < n && knots[span] == knots[span + 1] {
+        span += 1;
+      }
+      return span;
     }
 
     let mut low = p;

@@ -263,7 +263,6 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       Err(e) => {
         step_dbg!("step: face #{fi} surface conversion failed: {e}");
         errors.push(e);
-        // Still record dedup entry so subsequent identical faces get skipped.
         face_dedup.insert(dedup_key, (0, 0, 0, 0));
         continue;
       }

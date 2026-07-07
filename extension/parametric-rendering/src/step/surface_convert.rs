@@ -64,13 +64,13 @@ pub fn convert_and_split_any_surface_to_bezier_patches(
         .collect();
       let u_knots = expand_surface_knots(&b.u_knots, &b.u_multiplicities);
       let v_knots = expand_surface_knots(&b.v_knots, &b.v_multiplicities);
-      Ok(convert_bspline_surface_to_bezier_patches(
+      convert_bspline_surface_to_bezier_patches(
         u_degree,
         v_degree,
         control_points,
         u_knots,
         v_knots,
-      ))
+      )
     }
     SurfaceAny::BezierSurface(b) => {
       let control_points: Vec<Vec<Vec3<f32>>> = b
@@ -89,14 +89,14 @@ pub fn convert_and_split_any_surface_to_bezier_patches(
     SurfaceAny::RationalBSplineSurface(r) => {
       let (u_degree, v_degree, control_points, weights, u_knots, v_knots) =
         extract_rational_bspline_surface_data(r)?;
-      Ok(convert_rational_bspline_surface_to_bezier_patches(
+      convert_rational_bspline_surface_to_bezier_patches(
         u_degree,
         v_degree,
         control_points,
         weights,
         u_knots,
         v_knots,
-      ))
+      )
     }
     SurfaceAny::Plane(p) => {
       let extent = compute_plane_face_extent_from_beziers(&p.position, edge_beziers, config);
@@ -144,18 +144,60 @@ pub fn convert_and_split_any_surface_to_bezier_patches(
 /// Each patch covers one knot span with the parameter range recorded.
 /// Control points are a 2D grid: `control_points[row][col]` where `row` = v-index,
 /// `col` = u-index.
+/// Validate and optionally repair a single knot vector direction.
+///
+/// Returns `Ok(knots)` if the vector is safe for evaluation, or `Err(error)`
+/// if it is degenerate and `config.repair_degenerate_knots` is false.
+fn prepare_knots(
+  knots: Vec<f32>,
+  count: usize,
+  degree: usize,
+  dir: &'static str,
+) -> Result<Vec<f32>, KnotValidationError> {
+  let knots = fix_knot_length(knots, count, degree, dir);
+  match validate_knots(&knots, count, degree, dir) {
+    Ok(()) => Ok(knots),
+    Err(err @ KnotValidationError::InsufficientControlPoints { .. }) => {
+      step_dbg!("step: {} — {}", dir, err);
+      Err(err)
+    }
+    Err(err @ KnotValidationError::ZeroLengthSpan { .. }) => {
+      // find_knot_span handles zero-length spans by walking to the nearest
+      // non-zero span, so evaluation is safe. Log for diagnostics only.
+      step_dbg!(
+        "step: {} — {} (non-blocking, find_knot_span handles this)",
+        dir,
+        err
+      );
+      Ok(knots)
+    }
+  }
+}
+
 fn convert_bspline_surface_to_bezier_patches(
   u_degree: usize,
   v_degree: usize,
   control_points: Vec<Vec<Vec3<f32>>>,
   u_knots: Vec<f32>,
   v_knots: Vec<f32>,
-) -> (Vec<SurfaceSubPatch>, OriginalSurface) {
+) -> Result<(Vec<SurfaceSubPatch>, OriginalSurface), StepReadError> {
   let v_count = control_points.len();
   let u_count = control_points[0].len();
 
-  let u_knots = fix_knot_length(u_knots, u_count, u_degree, "u");
-  let v_knots = fix_knot_length(v_knots, v_count, v_degree, "v");
+  let u_knots = match prepare_knots(u_knots, u_count, u_degree, "u") {
+    Ok(k) => k,
+    Err(e) => {
+      step_dbg!("step: skipping B-spline surface — {}", e);
+      return Err(StepReadError::ConversionError(e.to_string()));
+    }
+  };
+  let v_knots = match prepare_knots(v_knots, v_count, v_degree, "v") {
+    Ok(k) => k,
+    Err(e) => {
+      step_dbg!("step: skipping B-spline surface — {}", e);
+      return Err(StepReadError::ConversionError(e.to_string()));
+    }
+  };
 
   // Flatten to row-major Vec<Vec4<f32>> (all weights = 1)
   let flat_cp: Vec<Vec4<f32>> = control_points
@@ -176,7 +218,7 @@ fn convert_bspline_surface_to_bezier_patches(
   let patches = nurbs.to_bezier_patches();
 
   let result = build_patch_param_ranges(patches, &u_knots, &v_knots, u_degree, v_degree);
-  (result, OriginalSurface::Nurbs(nurbs))
+  Ok((result, OriginalSurface::Nurbs(nurbs)))
 }
 
 /// Convert a rational B-spline surface to Bezier patches.
@@ -187,12 +229,24 @@ fn convert_rational_bspline_surface_to_bezier_patches(
   weights: Vec<Vec<f32>>,
   u_knots: Vec<f32>,
   v_knots: Vec<f32>,
-) -> (Vec<SurfaceSubPatch>, OriginalSurface) {
+) -> Result<(Vec<SurfaceSubPatch>, OriginalSurface), StepReadError> {
   let v_count = control_points.len();
   let u_count = control_points[0].len();
 
-  let u_knots = fix_knot_length(u_knots, u_count, u_degree, "u");
-  let v_knots = fix_knot_length(v_knots, v_count, v_degree, "v");
+  let u_knots = match prepare_knots(u_knots, u_count, u_degree, "u") {
+    Ok(k) => k,
+    Err(e) => {
+      step_dbg!("step: skipping rational B-spline surface — {}", e);
+      return Err(StepReadError::ConversionError(e.to_string()));
+    }
+  };
+  let v_knots = match prepare_knots(v_knots, v_count, v_degree, "v") {
+    Ok(k) => k,
+    Err(e) => {
+      step_dbg!("step: skipping rational B-spline surface — {}", e);
+      return Err(StepReadError::ConversionError(e.to_string()));
+    }
+  };
 
   let weights_owned = weights;
   let flat_cp: Vec<Vec4<f32>> = control_points
@@ -219,7 +273,7 @@ fn convert_rational_bspline_surface_to_bezier_patches(
 
   let patches = nurbs.to_bezier_patches();
   let result = build_patch_param_ranges(patches, &u_knots, &v_knots, u_degree, v_degree);
-  (result, OriginalSurface::Nurbs(nurbs))
+  Ok((result, OriginalSurface::Nurbs(nurbs)))
 }
 
 /// Build SurfaceSubPatch from the knot vectors and decomposition result.
@@ -846,6 +900,60 @@ fn convert_extrusion_surface_to_bezier_patches(
 
 // --- Internal helpers ---
 
+/// Errors detected during knot vector validation.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum KnotValidationError {
+  /// The B-spline is mathematically invalid: fewer control points than degree+1.
+  InsufficientControlPoints {
+    dir: &'static str,
+    count: usize,
+    degree: usize,
+  },
+  /// Interior spans in the valid range have zero length, typically because
+  /// interior knot values coincide with a boundary value. This causes NaN in
+  /// basis function evaluation (division by zero in Algorithm A2.2).
+  ZeroLengthSpan {
+    dir: &'static str,
+    zero_span_count: usize,
+    u_min: f32,
+    u_max: f32,
+    start_mult: usize,
+    end_mult: usize,
+    degree: usize,
+  },
+}
+
+impl std::fmt::Display for KnotValidationError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      KnotValidationError::InsufficientControlPoints { dir, count, degree } => {
+        write!(
+          f,
+          "{}-knots B-spline is degenerate: count={} < degree+1={}",
+          dir,
+          count,
+          degree + 1,
+        )
+      }
+      KnotValidationError::ZeroLengthSpan {
+        dir,
+        zero_span_count,
+        u_min,
+        u_max,
+        start_mult,
+        end_mult,
+        degree,
+      } => {
+        write!(
+          f,
+          "{}-knots has {} zero-length span(s) in [{}, {}]; boundary multiplicities start={} end={} (max={})",
+          dir, zero_span_count, u_min, u_max, start_mult, end_mult, degree + 1,
+        )
+      }
+    }
+  }
+}
+
 /// Ensure knot vector length matches `count + degree + 1`.
 ///
 /// STEP exporters disagree on how knot multiplicities are stored:
@@ -875,6 +983,64 @@ fn fix_knot_length(mut knots: Vec<f32>, count: usize, degree: usize, dir: &str) 
     }
   }
   knots
+}
+
+/// Validate a knot vector for NURBS evaluation safety.
+///
+/// Returns `Ok(())` if the knot vector is safe to use, or a
+/// `KnotValidationError` describing the problem.
+fn validate_knots(
+  knots: &[f32],
+  count: usize,
+  degree: usize,
+  dir: &'static str,
+) -> Result<(), KnotValidationError> {
+  // A valid B-spline requires at least degree+1 control points.
+  if count < degree + 1 {
+    return Err(KnotValidationError::InsufficientControlPoints { dir, count, degree });
+  }
+
+  let u_min = knots[degree];
+  let u_max = knots[count];
+
+  // Walk through interior spans (positions degree .. count-1) and detect
+  // zero-length spans.
+  let mut zero_span_count = 0;
+  for i in degree..count {
+    if knots[i + 1] <= knots[i] {
+      zero_span_count += 1;
+    }
+  }
+
+  if zero_span_count > 0 {
+    let mut start_mult = 0;
+    for i in degree..=count {
+      if knots[i] == u_min {
+        start_mult += 1;
+      } else {
+        break;
+      }
+    }
+    let mut end_mult = 0;
+    for i in (degree..=count).rev() {
+      if knots[i] == u_max {
+        end_mult += 1;
+      } else {
+        break;
+      }
+    }
+    return Err(KnotValidationError::ZeroLengthSpan {
+      dir,
+      zero_span_count,
+      u_min,
+      u_max,
+      start_mult,
+      end_mult,
+      degree,
+    });
+  }
+
+  Ok(())
 }
 
 fn expand_surface_knots(knots: &[f64], multiplicities: &[i64]) -> Vec<f32> {
