@@ -789,7 +789,7 @@ fn convert_extrusion_surface_to_bezier_patches(
   swept_curve: &CurveAny,
   extrusion_axis: &entities::Vector,
 ) -> Result<(Vec<SurfaceSubPatch>, OriginalSurface), StepReadError> {
-  let curve_segments = convert_any_curve_to_beziers(swept_curve)?;
+  let curve_segments = convert_any_curve_to_beziers(swept_curve, None, None)?;
   let dir = direction_to_vec3(&extrusion_axis.orientation);
   let mag = extrusion_axis.magnitude as f32;
   let extrusion_vec = dir * mag;

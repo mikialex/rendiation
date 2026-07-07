@@ -53,6 +53,13 @@ pub struct EdgeData {
   /// Tried in order; falls back to numerical projection if empty or all
   /// filtered out by surface match.
   pub pcurve_refs: Vec<PcurveRef>,
+  /// 3D position of the edge's start vertex (from EdgeCurve.edge_start).
+  ///
+  /// if the curve_3d is trimmed curve, this is only used for validation
+  /// in other case, this should act as 3d trim point.
+  pub start_vertex: Vec3<f32>,
+  /// 3D position of the edge's end vertex (from EdgeCurve.edge_end).
+  pub end_vertex: Vec3<f32>,
 }
 
 /// Collect face surface data from the STEP Table, preserving pcurve entity IDs
@@ -433,11 +440,17 @@ fn extract_edges_from_face(
       // Extract pcurve references from the edge geometry Holder
       let pcurve_refs = extract_pcurve_refs_from_edge_curve(&ec.edge_geometry, table);
 
+      // Resolve edge start/end vertex 3D positions
+      let start_vertex = resolve_vertex_point_holder_to_vec3(&ec.edge_start, table).unwrap();
+      let end_vertex = resolve_vertex_point_holder_to_vec3(&ec.edge_end, table).unwrap();
+
       loop_edges.push(EdgeData {
         curve_3d,
         orientation,
         same_sense: ec.same_sense,
         pcurve_refs,
+        start_vertex,
+        end_vertex,
       });
     }
     loops.push(loop_edges);
@@ -734,4 +747,14 @@ pub fn entity_id_from_ph<T>(ph: &PlaceHolder<T>) -> Option<u64> {
     PlaceHolder::Ref(Name::Entity(id)) => Some(*id),
     _ => None,
   }
+}
+
+fn resolve_vertex_point_holder_to_vec3(
+  vp_ph: &PlaceHolder<VertexPointHolder>,
+  table: &Table,
+) -> Option<Vec3<f32>> {
+  let vp_id = entity_id_from_ph(vp_ph)?;
+  let vp_holder = table.vertex_point.get(&vp_id)?;
+  let vp = vp_holder.clone().into_owned(table).ok()?;
+  Some(cartesian_point_to_vec3(&vp.vertex_geometry))
 }
