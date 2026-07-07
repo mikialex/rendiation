@@ -1,5 +1,27 @@
 use crate::*;
 
+/// Choose the periodic equivalent of `value` (value + k) closest to `target`,
+/// where k ∈ {-2, -1, 0, 1, 2}. Used to unwrap UV coordinates on periodic
+/// surfaces so that consecutive projected points form a continuous polyline
+/// rather than jumping at the 0/1 seam.
+pub(crate) fn min_diff(value: f32, target: f32) -> f32 {
+  [0.0f32, -1.0, 1.0, -2.0, 2.0]
+    .iter()
+    .map(|&k| (value + k, k))
+    .min_by(|(a, _), (b, _)| {
+      let da = (a - target).abs();
+      let db = (b - target).abs();
+      if (da - db).abs() < 1e-6 {
+        // Tie — keep current (which is k=0 if it came first)
+        std::cmp::Ordering::Equal
+      } else {
+        da.partial_cmp(&db).unwrap()
+      }
+    })
+    .map(|(v, _)| v)
+    .unwrap()
+}
+
 /// The original (pre-decomposition) surface, used for projecting 3D points
 /// into global parameter space in a single call — avoiding per-patch
 /// projection loops.
@@ -87,11 +109,29 @@ impl OriginalSurface {
     }
   }
 
+  pub fn is_u_periodic(&self) -> bool {
+    matches!(
+      self,
+      OriginalSurface::Cylinder { .. }
+        | OriginalSurface::Cone { .. }
+        | OriginalSurface::Sphere { .. }
+        | OriginalSurface::Torus { .. }
+    )
+  }
+
+  pub fn is_v_periodic(&self) -> bool {
+    matches!(self, OriginalSurface::Torus { .. })
+  }
+
   /// Project a 3D point onto the surface.
   ///
   /// Returns `(u_global, v_global, distance)` in global parameter space.
   /// The returned (u, v) lie in the same coordinate system used by
   /// `SurfaceSubPatch::u_range` / `v_range`.
+  ///
+  /// When `previous_uv` is provided and the surface is periodic in u and/or v,
+  /// the returned UV is unwrapped to be continuous with `previous_uv` — it may
+  /// lie outside [0,1]² for periodic directions.
   pub fn project_point(
     &self,
     point: Vec3<f32>,
@@ -99,14 +139,17 @@ impl OriginalSurface {
     tolerance: f32,
     max_iter: usize,
     fallback_to_grid: bool,
+    previous_uv: Option<Vec2<f32>>,
   ) -> Option<(f32, f32, f32)> {
-    match self {
-      OriginalSurface::Nurbs(n) => n
-        .project_point(point, grid, tolerance, max_iter, fallback_to_grid)
-        .map(|(u, v, dist)| {
-          let (u_norm, v_norm) = n.normalize_uv(u, v);
-          (u_norm, v_norm, dist)
-        }),
+    let is_u_periodic = self.is_u_periodic();
+    let is_v_periodic = self.is_v_periodic();
+
+    let (u_raw, v_raw, dist) = match self {
+      OriginalSurface::Nurbs(n) => {
+        let (u, v, dist) = n.project_point(point, grid, tolerance, max_iter, fallback_to_grid)?;
+        let (u_norm, v_norm) = n.normalize_uv(u, v);
+        (u_norm, v_norm, dist)
+      }
       OriginalSurface::Plane {
         origin,
         u_dir,
@@ -114,9 +157,7 @@ impl OriginalSurface {
         normal,
         u_range,
         v_range,
-      } => Some(project_point_plane(
-        point, *origin, *u_dir, *v_dir, *normal, *u_range, *v_range,
-      )),
+      } => project_point_plane(point, *origin, *u_dir, *v_dir, *normal, *u_range, *v_range),
       OriginalSurface::Cylinder {
         origin,
         axis,
@@ -124,9 +165,7 @@ impl OriginalSurface {
         y_dir,
         radius,
         v_range,
-      } => Some(project_point_cylinder(
-        point, *origin, *axis, *x_dir, *y_dir, *radius, *v_range,
-      )),
+      } => project_point_cylinder(point, *origin, *axis, *x_dir, *y_dir, *radius, *v_range),
       OriginalSurface::Cone {
         origin,
         axis,
@@ -135,7 +174,7 @@ impl OriginalSurface {
         radius,
         tan_semi_angle,
         v_range,
-      } => Some(project_point_cone(
+      } => project_point_cone(
         point,
         *origin,
         *axis,
@@ -144,14 +183,17 @@ impl OriginalSurface {
         *radius,
         *tan_semi_angle,
         *v_range,
-      )),
+      ),
       OriginalSurface::Sphere {
         center,
         radius,
         polar,
         x_dir,
         y_dir,
-      } => project_point_sphere(point, *center, *radius, *polar, *x_dir, *y_dir),
+      } => {
+        let (u, v, dist) = project_point_sphere(point, *center, *radius, *polar, *x_dir, *y_dir)?;
+        (u, v, dist)
+      }
       OriginalSurface::Torus {
         center,
         axis,
@@ -159,21 +201,47 @@ impl OriginalSurface {
         y_dir,
         major_radius,
         minor_radius,
-      } => project_point_torus(
-        point,
-        *center,
-        *axis,
-        *x_dir,
-        *y_dir,
-        *major_radius,
-        *minor_radius,
-      ),
+      } => {
+        let (u, v, dist) = project_point_torus(
+          point,
+          *center,
+          *axis,
+          *x_dir,
+          *y_dir,
+          *major_radius,
+          *minor_radius,
+        )?;
+        (u, v, dist)
+      }
       OriginalSurface::Extrusion {
         curve_segments,
         extrusion_dir,
         extrusion_mag,
-      } => project_point_extrusion(point, curve_segments, *extrusion_dir, *extrusion_mag),
-    }
+      } => {
+        let (u, v, dist) =
+          project_point_extrusion(point, curve_segments, *extrusion_dir, *extrusion_mag)?;
+        (u, v, dist)
+      }
+    };
+
+    // Unwrap periodic coordinates to be continuous with previous_uv.
+    let (u, v) = if let Some(prev) = previous_uv {
+      let u = if is_u_periodic {
+        min_diff(u_raw, prev.x)
+      } else {
+        u_raw
+      };
+      let v = if is_v_periodic {
+        min_diff(v_raw, prev.y)
+      } else {
+        v_raw
+      };
+      (u, v)
+    } else {
+      (u_raw, v_raw)
+    };
+
+    Some((u, v, dist))
   }
 }
 
