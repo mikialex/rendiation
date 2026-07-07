@@ -237,11 +237,17 @@ fn assemble_from_table(table: &Table, config: &StepReadConfig) -> StepConversion
       .iter()
       .map(|e| {
         e.iter()
-          .map(|c| match convert_any_curve_to_beziers(&c.curve_3d) {
-            Ok(b) => b,
-            Err(e) => {
-              errors.push(e);
-              Vec::new()
+          .map(|c| {
+            match convert_any_curve_to_beziers(
+              &c.curve_3d,
+              Some(c.start_vertex),
+              Some(c.end_vertex),
+            ) {
+              Ok(b) => b,
+              Err(e) => {
+                errors.push(e);
+                Vec::new()
+              }
             }
           })
           .collect()

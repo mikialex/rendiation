@@ -284,7 +284,19 @@ pub struct TrimmedCurve {
   pub label: String,
   #[holder(use_place_holder)]
   pub basis_curve: CurveAny,
+  /// Trimming point at the start of the curve.
+  ///
+  /// STEP type: `SET [1:2] OF trimming_select`.
+  /// Each endpoint can be specified as a parameter value (`f64`), a Cartesian
+  /// point, or both. When both are present the WHERE rule `wr1` guarantees
+  /// they have different types — one `parameter_value` and one
+  /// `cartesian_point`. Use [`master_representation`] to determine which is
+  /// authoritative.
+  ///
+  /// See ISO 10303-42: `trimmed_curve` entity.
   pub trim_1: Vec<TrimSelect>,
+  /// Trimming point at the end of the curve. Same `SET [1:2]` semantics as
+  /// [`trim_1`].
   pub trim_2: Vec<TrimSelect>,
   pub sense_agreement: bool,
   pub master_representation: TrimmingPreference,
