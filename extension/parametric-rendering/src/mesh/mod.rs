@@ -48,8 +48,8 @@ pub struct TriangulationConfig {
 impl Default for TriangulationConfig {
   fn default() -> Self {
     Self {
-      boundary_tolerance: 1e-3,
-      grid_resolution: 32,
+      boundary_tolerance: 0.1,
+      grid_resolution: 8,
       ignore_surface_trim: false,
     }
   }

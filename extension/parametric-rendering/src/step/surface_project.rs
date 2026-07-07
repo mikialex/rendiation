@@ -98,10 +98,11 @@ impl OriginalSurface {
     grid: usize,
     tolerance: f32,
     max_iter: usize,
+    fallback_to_grid: bool,
   ) -> Option<(f32, f32, f32)> {
     match self {
       OriginalSurface::Nurbs(n) => n
-        .project_point(point, grid, tolerance, max_iter)
+        .project_point(point, grid, tolerance, max_iter, fallback_to_grid)
         .map(|(u, v, dist)| {
           let (u_norm, v_norm) = n.normalize_uv(u, v);
           (u_norm, v_norm, dist)

@@ -100,16 +100,19 @@ pub fn process_trim_curves_for_face(
                 config.project_grid,
                 config.project_tolerance,
                 config.project_max_iter,
+                config.project_fallback_to_grid,
               ) {
                 assert!(!u.is_nan() && !v.is_nan());
-                let p = Vec2::new(u, v);
-                if config.validate_step_input_trim_curve_is_inbound {
-                  if p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 {
-                    println!("projected point out of bounds: {p}");
-                    // todo report this case
-                    continue;
+                let eps = config.project_oob_clamp_tolerance;
+                let oob = u < -eps || u > 1.0 + eps || v < -eps || v > 1.0 + eps;
+                if oob {
+                  if config.validate_step_input_trim_curve_is_inbound {
+                    println!("projected point out of bounds: ({u},{v})");
+                    unreachable!("projected point out of bounds");
                   }
+                  continue;
                 }
+                let p = Vec2::new(u.clamp(0.0, 1.0), v.clamp(0.0, 1.0));
 
                 line.push(p);
               } else {
@@ -363,7 +366,7 @@ impl SubPatchTrimBuilder {
 }
 
 fn is_on_boundary(p: Vec2<f32>) -> bool {
-  const EPS: f32 = 1e-5;
+  const EPS: f32 = 1e-4;
   let in_range = |v: f32| v >= -EPS && v <= 1.0 + EPS;
   assert!(!p.x.is_nan() && !p.y.is_nan());
 
@@ -374,7 +377,7 @@ fn is_on_boundary(p: Vec2<f32>) -> bool {
 }
 
 fn boundary_param(p: Vec2<f32>) -> f32 {
-  const EPS: f32 = 1e-5;
+  const EPS: f32 = 1e-4;
   if p.y.abs() < EPS {
     p.x.clamp(0.0, 1.0)
   } else if (p.x - 1.0).abs() < EPS {

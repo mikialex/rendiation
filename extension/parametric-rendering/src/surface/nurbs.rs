@@ -141,8 +141,6 @@ impl<T: Scalar> NurbsSurface<T> {
     (u_norm, v_norm)
   }
 
-  // Evaluation
-
   /// Evaluate the surface point at parameters `(u, v)`.
   pub fn evaluate(&self, u: T, v: T) -> Vec3<T> {
     let u_span = Self::find_knot_span(self.u_count - 1, self.u_degree, u, &self.u_knots);
@@ -243,6 +241,7 @@ impl<T: Scalar> NurbsSurface<T> {
     initial_grid: usize,
     tolerance: T,
     max_iterations: usize,
+    fallback_to_grid: bool,
   ) -> Option<(T, T, T)> {
     let (u_min, u_max) = self.u_range();
     let (v_min, v_max) = self.v_range();
@@ -275,7 +274,8 @@ impl<T: Scalar> NurbsSurface<T> {
       }
     }
 
-    let (mut u, mut v) = best?;
+    let (grid_u, grid_v) = best?;
+    let (mut u, mut v) = (grid_u, grid_v);
 
     for _ in 0..max_iterations {
       let (s, su, sv) = self.evaluate_partial(u, v);
@@ -312,13 +312,24 @@ impl<T: Scalar> NurbsSurface<T> {
         v = v_max;
       }
 
-      if du_step.abs() + dv_step.abs() < tolerance {
+      // Converged: step size below Hessian tolerance, or distance
+      // below relaxed threshold (dist² < 1e-4 → dist < 1e-2 in default config).
+      let dist_tol_sq = tolerance * T::from(100usize).expect("100 fits in T");
+      if du_step.abs() + dv_step.abs() < tolerance || d.dot(d) < dist_tol_sq {
         let dist = d.dot(d).sqrt();
         return Some((u, v, dist));
       }
     }
 
-    None
+    // Gauss-Newton did not converge (point is genuinely off the surface,
+    // e.g. a small gap in the STEP geometry).
+    if fallback_to_grid {
+      let (s, _, _) = self.evaluate_partial(grid_u, grid_v);
+      let dist = (s - point).length();
+      Some((grid_u, grid_v, dist))
+    } else {
+      None
+    }
   }
 
   /// Decompose the NURBS surface into a grid of mathematically equivalent
