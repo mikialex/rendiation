@@ -81,7 +81,8 @@ impl OriginalSurface {
         let v_norm = (v - v_range.0) / (v_range.1 - v_range.0);
         (u_norm, v_norm)
       }
-      // NURBS, Extrusion — already in the correct parameter space.
+      OriginalSurface::Nurbs(n) => n.normalize_uv(u, v),
+      // Extrusion and others — already in [0,1].
       _ => (u, v),
     }
   }
@@ -99,7 +100,12 @@ impl OriginalSurface {
     max_iter: usize,
   ) -> Option<(f32, f32, f32)> {
     match self {
-      OriginalSurface::Nurbs(n) => n.project_point(point, grid, tolerance, max_iter),
+      OriginalSurface::Nurbs(n) => n
+        .project_point(point, grid, tolerance, max_iter)
+        .map(|(u, v, dist)| {
+          let (u_norm, v_norm) = n.normalize_uv(u, v);
+          (u_norm, v_norm, dist)
+        }),
       OriginalSurface::Plane {
         origin,
         u_dir,

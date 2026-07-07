@@ -132,6 +132,15 @@ impl<T: Scalar> NurbsSurface<T> {
     (self.v_knots[self.v_degree], self.v_knots[self.v_count])
   }
 
+  /// Normalize knot-domain (u, v) coordinates to [0, 1]².
+  pub fn normalize_uv(&self, u: T, v: T) -> (T, T) {
+    let (u_min, u_max) = self.u_range();
+    let (v_min, v_max) = self.v_range();
+    let u_norm = (u - u_min) / (u_max - u_min);
+    let v_norm = (v - v_min) / (v_max - v_min);
+    (u_norm, v_norm)
+  }
+
   // --- Evaluation ---
 
   /// Evaluate the surface point at parameters `(u, v)`.

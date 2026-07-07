@@ -256,17 +256,15 @@ fn convert_rational_bspline_surface_to_bezier_patches(
   };
 
   let weights_owned = weights;
-  let flat_cp: Vec<Vec4<f32>> = control_points
-    .iter()
-    .enumerate()
-    .flat_map(|(vi, row)| {
-      let w_row = &weights_owned[vi];
-      row.iter().enumerate().map(move |(ui, p)| {
-        let w = w_row[ui];
-        Vec4::new(p.x * w, p.y * w, p.z * w, w)
-      })
-    })
-    .collect();
+  // Build flat array in v-major order: CP[ui][vi] at index vi * u_count + ui
+  let mut flat_cp = Vec::with_capacity(u_count * v_count);
+  for vi in 0..v_count {
+    for ui in 0..u_count {
+      let p = control_points[ui][vi];
+      let w = weights_owned[ui][vi];
+      flat_cp.push(Vec4::new(p.x * w, p.y * w, p.z * w, w));
+    }
+  }
 
   let nurbs = NurbsSurface::new(
     flat_cp,
@@ -303,15 +301,27 @@ fn build_patch_param_ranges(
   let u_bounds = build_span_bounds_from_patches(u_knots, u_degree, u_segments);
   let v_bounds = build_span_bounds_from_patches(v_knots, v_degree, v_segments);
 
+  // Normalize bounds from knot domain to [0,1].
+  let u_min = u_knots[u_degree];
+  let u_max = u_knots[u_knots.len() - u_degree - 1];
+  let v_min = v_knots[v_degree];
+  let v_max = v_knots[v_knots.len() - v_degree - 1];
+  let du = u_max - u_min;
+  let dv = v_max - v_min;
+
   let mut result = Vec::new();
   for (vi, row) in patches.into_iter().enumerate() {
     for (ui, surface) in row.into_iter().enumerate() {
       if ui + 1 < u_bounds.len() && vi + 1 < v_bounds.len() {
+        let u0 = (u_bounds[ui] - u_min) / du;
+        let u1 = (u_bounds[ui + 1] - u_min) / du;
+        let v0 = (v_bounds[vi] - v_min) / dv;
+        let v1 = (v_bounds[vi + 1] - v_min) / dv;
         result.push(SurfaceSubPatch {
           surface,
           sub_range: SubRange {
-            u_range: (u_bounds[ui], u_bounds[ui + 1]),
-            v_range: (v_bounds[vi], v_bounds[vi + 1]),
+            u_range: (u0, u1),
+            v_range: (v0, v1),
           },
         });
       }
@@ -366,13 +376,17 @@ fn convert_bezier_surface_to_patch(
   v_degree: usize,
   control_points: Vec<Vec<Vec3<f32>>>,
 ) -> (Vec<SurfaceSubPatch>, OriginalSurface) {
-  let u_count = control_points[0].len();
-  let v_count = control_points.len();
+  // STEP control_points_list is LIST[0:u_upper] OF LIST[0:v_upper].
+  let u_count = control_points.len();
+  let v_count = control_points[0].len();
 
-  let flat_cp: Vec<Vec4<f32>> = control_points
-    .into_iter()
-    .flat_map(|row| row.into_iter().map(|p| Vec4::new(p.x, p.y, p.z, 1.0)))
-    .collect();
+  let mut flat_cp = Vec::with_capacity(u_count * v_count);
+  for vi in 0..v_count {
+    for ui in 0..u_count {
+      let p = control_points[ui][vi];
+      flat_cp.push(Vec4::new(p.x, p.y, p.z, 1.0));
+    }
+  }
 
   let surface = RationalBezierSurface::new(flat_cp.clone(), u_degree, v_degree);
   let patch = SurfaceSubPatch {
@@ -1146,10 +1160,11 @@ fn extract_surface_from_bspline(
     .iter()
     .map(|row| row.iter().map(cartesian_point_to_vec3).collect())
     .collect();
-  let v_count = control_points.len();
-  let u_count = control_points[0].len();
+  // STEP control_points_list is LIST[0:u_upper] OF LIST[0:v_upper].
+  let u_count = control_points.len();
+  let v_count = control_points[0].len();
   let weights: Vec<Vec<f32>> = if weights_data.is_empty() {
-    vec![vec![1.0; u_count]; v_count]
+    vec![vec![1.0; v_count]; u_count]
   } else {
     weights_data
       .iter()
