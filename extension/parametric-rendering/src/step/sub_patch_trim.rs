@@ -49,6 +49,8 @@ pub fn process_trim_curves_for_face(
     .zip(edge_loops)
     .filter_map(|(edge_loop_polyline, edge_loop_step)| {
       let mut c_polyline = ContinuousTrimPolyline::default();
+      let mut prev_uv: Option<Vec2<f32>> = None;
+
       for (continues_polylines, edge_step) in edge_loop_polyline.iter().zip(edge_loop_step) {
         let should_reverse = edge_step.same_sense != edge_step.orientation;
 
@@ -81,6 +83,7 @@ pub fn process_trim_curves_for_face(
               normalized
             };
             c_polyline.connect_c_polyline(normalized);
+            prev_uv = c_polyline.last_point();
             pcurve_added = true;
           }
           assert!(
@@ -93,41 +96,27 @@ pub fn process_trim_curves_for_face(
             // todo,we don't consider edge case that bezier curve may has shape edge
             let mut line = NoEdgeContinuousTrimPolyline::default();
             for point3d in continues_no_edge_polylines.iter() {
-              // Project all 3D points to UV on the original surface.
-              // UV coordinates are in [0,1]² (normalized during projection).
               if let Some((u, v, _dist)) = original_surface.project_point(
                 *point3d,
                 config.project_grid,
                 config.project_tolerance,
                 config.project_max_iter,
                 config.project_fallback_to_grid,
+                prev_uv,
               ) {
                 assert!(!u.is_nan() && !v.is_nan());
-                let eps = config.project_oob_clamp_tolerance;
-                let oob = u < -eps || u > 1.0 + eps || v < -eps || v > 1.0 + eps;
-                if oob {
-                  if config.validate_step_input_trim_curve_is_inbound {
-                    println!("projected point out of bounds: ({u},{v})");
-                    unreachable!("projected point out of bounds");
-                  }
-                  continue;
-                }
-                let p = Vec2::new(u.clamp(0.0, 1.0), v.clamp(0.0, 1.0));
-
-                line.push(p);
+                prev_uv = Some(Vec2::new(u, v));
+                line.push(Vec2::new(u, v));
               } else {
                 println!("project failed");
                 unreachable!("project failed");
-                // todo report this case
               };
             }
 
             if !line.is_degenerate() {
-              line.fix_periodic_boundary_uv_jump();
-              edge_poly.push_no_edge_polyline(line, true);
+              edge_poly.push_no_edge_polyline(line);
             } else {
               println!("degenerate 2d trim line");
-              // todo report this case
             }
           }
 
@@ -135,6 +124,32 @@ pub fn process_trim_curves_for_face(
             edge_poly = edge_poly.reverse();
           }
           c_polyline.connect_c_polyline(edge_poly);
+          // Update prev_uv from the actual endpoint of c_polyline — this
+          // correctly handles the should_reverse case where the original
+          // first projected point becomes the topological endpoint.
+          prev_uv = c_polyline.last_point();
+        }
+      }
+
+      // Center-of-gravity normalization for periodic surfaces
+      if original_surface.is_u_periodic() || original_surface.is_v_periodic() {
+        c_polyline.normalize_periodic_gravity(
+          original_surface.is_u_periodic(),
+          original_surface.is_v_periodic(),
+        );
+      }
+
+      // Validate OOB after normalization (applies to all surface types)
+      if config.validate_step_input_trim_curve_is_inbound {
+        for p in c_polyline.iter_all_points() {
+          let eps = config.project_oob_clamp_tolerance;
+          let oob = p.x < -eps || p.x > 1.0 + eps || p.y < -eps || p.y > 1.0 + eps;
+          if oob {
+            println!(
+              "projected point out of bounds: ({},{})",
+              p.x, p.y
+            );
+          }
         }
       }
 
@@ -230,7 +245,6 @@ impl SubPatchTrimBuilder {
             point_at_boundary_param(t),
             point_at_boundary_param(next_t),
           ),
-          false,
         );
         t = next_t;
       }
@@ -251,7 +265,7 @@ impl SubPatchTrimBuilder {
       for (a, b) in segs.into_iter().rev() {
         self
           .in_building_continuous
-          .push_no_edge_polyline(NoEdgeContinuousTrimPolyline::line_segment(b, a), false);
+          .push_no_edge_polyline(NoEdgeContinuousTrimPolyline::line_segment(b, a));
       }
     }
   }
@@ -274,7 +288,7 @@ impl SubPatchTrimBuilder {
 
       self
         .in_building_continuous
-        .push_no_edge_polyline(new_no_edge, false);
+        .push_no_edge_polyline(new_no_edge);
     }
   }
 

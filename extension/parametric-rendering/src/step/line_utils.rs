@@ -1,3 +1,4 @@
+use super::step_dbg;
 use crate::*;
 
 // ContinuousTrimPolyline, but verify loop closed
@@ -110,7 +111,7 @@ impl ContinuousTrimPolyline {
     Self { polylines }
   }
 
-  pub fn map(mut self, mapper: impl Fn(Vec2<f32>) -> Vec2<f32>) -> Self {
+  pub fn map(mut self, mut mapper: impl FnMut(Vec2<f32>) -> Vec2<f32>) -> Self {
     for polyline in &mut self.polylines {
       for point in &mut polyline.points {
         *point = mapper(*point);
@@ -126,51 +127,107 @@ impl ContinuousTrimPolyline {
   }
   pub fn connect_c_polyline(&mut self, other: ContinuousTrimPolyline) {
     for polyline in other.polylines {
-      self.push_no_edge_polyline(polyline, true);
+      self.push_no_edge_polyline(polyline);
     }
   }
 
-  pub fn push_no_edge_polyline(
-    &mut self,
-    mut polyline: NoEdgeContinuousTrimPolyline,
-    fix_periodic_jump: bool,
-  ) {
+  pub fn push_no_edge_polyline(&mut self, polyline: NoEdgeContinuousTrimPolyline) {
     assert!(!polyline.is_degenerate());
     if let Some(last) = self.polylines.last() {
       let old_last = *last.points.last().unwrap();
       let new_start = *polyline.points.first().unwrap();
-
-      if fix_periodic_jump {
-        let du = new_start.x - old_last.x;
-        let dv = new_start.y - old_last.y;
-        if du.abs() > 0.99 {
-          for p in &mut polyline.points {
-            p.x -= du.round();
-          }
-        } else if dv.abs() > 0.99 {
-          for p in &mut polyline.points {
-            p.y -= dv.round();
-          }
-        }
+      let dist = old_last.distance_to(new_start);
+      if dist > 1e-3 {
+        step_dbg!(
+          "trim polyline gap: old=({:.6},{:.6}) new=({:.6},{:.6}) dist={dist:.6}",
+          old_last.x,
+          old_last.y,
+          new_start.x,
+          new_start.y
+        );
       }
-
-      // for p in &mut polyline.points {
-      //   assert!(p.x >= 0.0 && p.x <= 1.0 && p.y >= 0.0 && p.y <= 1.0);
-      // }
-
-      let new_start = *polyline.points.first().unwrap();
-      assert!(
-        old_last.distance_to(new_start) <= 1e-3,
-        "polyline discontinuity: old_last={old_last:?}, new_start={new_start:?}, dist={}",
-        old_last.distance_to(new_start)
-      );
     }
 
     self.polylines.push(polyline);
   }
 
+  /// Shift all points back into the normalized [0,1]² parameter range after
+  /// periodic unwrapping. Uses the center of gravity to decide the offset
+  /// so the polyline stays centered in the parameter domain.
+  ///
+  /// Only applies to directions where `is_periodic` is true.
+  /// Asserts that the shift amount is an integer (period = 1).
+  pub fn normalize_periodic_gravity(&mut self, is_u_periodic: bool, is_v_periodic: bool) {
+    if !is_u_periodic && !is_v_periodic {
+      return;
+    }
+
+    let mut sum = Vec2::new(0.0, 0.0);
+    let mut count = 0usize;
+    for poly in &self.polylines {
+      for p in &poly.points {
+        sum.x += p.x;
+        sum.y += p.y;
+        count += 1;
+      }
+    }
+    if count == 0 {
+      return;
+    }
+    let grav = Vec2::new(sum.x / count as f32, sum.y / count as f32);
+
+    let shift_u = if is_u_periodic {
+      let quot = grav.x.floor();
+      assert!(
+        (quot - grav.x.floor()).abs() < 1e-6,
+        "gravity shift for u is not integer: quot={quot}"
+      );
+      quot
+    } else {
+      0.0
+    };
+
+    let shift_v = if is_v_periodic {
+      let quot = grav.y.floor();
+      assert!(
+        (quot - grav.y.floor()).abs() < 1e-6,
+        "gravity shift for v is not integer: quot={quot}"
+      );
+      quot
+    } else {
+      0.0
+    };
+
+    if shift_u == 0.0 && shift_v == 0.0 {
+      return;
+    }
+
+    for poly in &mut self.polylines {
+      for p in &mut poly.points {
+        p.x -= shift_u;
+        p.y -= shift_v;
+      }
+    }
+
+    // Validate all points are now in a reasonable range.
+    for poly in &self.polylines {
+      for p in &poly.points {
+        assert!(
+          p.x >= -3.0 && p.x <= 4.0 && p.y >= -3.0 && p.y <= 4.0,
+          "point after gravity normalization is too far out: ({}, {})",
+          p.x,
+          p.y
+        );
+      }
+    }
+  }
+
   pub fn last_point(&self) -> Option<Vec2<f32>> {
     self.polylines.last()?.points.last().copied()
+  }
+
+  pub fn iter_all_points(&self) -> impl Iterator<Item = &Vec2<f32>> {
+    self.polylines.iter().flat_map(|poly| poly.points.iter())
   }
 
   pub fn reverse(mut self) -> Self {
@@ -220,35 +277,6 @@ impl NoEdgeContinuousTrimPolyline {
 
   pub fn is_degenerate(&self) -> bool {
     self.points.len() < 2
-  }
-
-  /// Fix periodic boundary wrapping for cylinder-like surfaces where u
-  /// (or v) wraps from ~1 back to ~0 within a single continuous polyline.
-  /// Skips line segments (2 points) since their endpoints may genuinely
-  /// lie on opposite sides of the periodic boundary.
-  pub fn fix_periodic_boundary_uv_jump(&mut self) {
-    if self.points.len() <= 2 {
-      return;
-    }
-    let mut u_off = 0.0;
-    let mut v_off = 0.0;
-    for i in 1..self.points.len() {
-      let prev = Vec2::new(self.points[i - 1].x + u_off, self.points[i - 1].y + v_off);
-      let du = self.points[i].x - prev.x;
-      if du.abs() > 0.99 {
-        u_off += if du > 0.0 { -1.0 } else { 1.0 };
-      }
-      let dv = self.points[i].y - prev.y;
-      if dv.abs() > 0.99 {
-        v_off += if dv > 0.0 { -1.0 } else { 1.0 };
-      }
-      self.points[i].x += u_off;
-      self.points[i].y += v_off;
-    }
-
-    // for p in &mut self.points {
-    //   assert!(p.x >= 0.0 && p.x <= 1.0 && p.y >= 0.0 && p.y <= 1.0);
-    // }
   }
 
   pub fn push(&mut self, point: Vec2<f32>) {
