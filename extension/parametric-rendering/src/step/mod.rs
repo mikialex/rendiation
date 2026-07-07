@@ -54,6 +54,13 @@ pub struct StepReadConfig {
   pub project_max_iter: usize,
   pub validate_step_input_trim_curve_is_inbound: bool,
   pub curve_trim_tolerance: f32,
+  /// When true, fall back to grid-search result if Gauss-Newton fails to
+  /// converge. This avoids panics on surfaces with small geometric gaps
+  /// in the STEP data.
+  pub project_fallback_to_grid: bool,
+  /// Projected UV values within this distance of the [0,1]² boundary are
+  /// clamped instead of rejected. Handles minor floating-point overshoot.
+  pub project_oob_clamp_tolerance: f32,
 }
 
 impl Default for StepReadConfig {
@@ -66,6 +73,8 @@ impl Default for StepReadConfig {
       project_max_iter: 40,
       validate_step_input_trim_curve_is_inbound: true,
       curve_trim_tolerance: 1e-3,
+      project_fallback_to_grid: true,
+      project_oob_clamp_tolerance: 1e-4,
     }
   }
 }
