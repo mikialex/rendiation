@@ -63,7 +63,7 @@ impl Default for StepReadConfig {
       trim_curve_reconstruct_tolerance: 1e-4,
       project_grid: 8,
       project_tolerance: 1e-6,
-      project_max_iter: 20,
+      project_max_iter: 40,
       validate_step_input_trim_curve_is_inbound: true,
       curve_trim_tolerance: 1e-3,
     }
