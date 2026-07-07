@@ -15,18 +15,14 @@ pub fn convert_any_curve_to_beziers(
   curve: &CurveAny,
   start_vertex: Option<Vec3<f32>>,
   end_vertex: Option<Vec3<f32>>,
+  curve_trim_tolerance: f32,
 ) -> Result<Vec<RationalBezierCurve3d<f32>>, StepReadError> {
-  match curve {
-    CurveAny::Line(line) => Ok(vec![convert_line_to_bezier(&line.pnt, &line.dir)]),
-    CurveAny::Circle(circle) => Ok(convert_circle_to_bezier_curves(
-      &circle.position,
-      circle.radius,
-    )),
-    CurveAny::Ellipse(ellipse) => Ok(convert_ellipse_to_bezier_curves(
-      &ellipse.position,
-      ellipse.semi_axis1,
-      ellipse.semi_axis2,
-    )),
+  let beziers = match curve {
+    CurveAny::Line(line) => vec![convert_line_to_bezier(&line.pnt, &line.dir)],
+    CurveAny::Circle(circle) => convert_circle_to_bezier_curves(&circle.position, circle.radius),
+    CurveAny::Ellipse(ellipse) => {
+      convert_ellipse_to_bezier_curves(&ellipse.position, ellipse.semi_axis1, ellipse.semi_axis2)
+    }
     CurveAny::BSplineCurveWithKnots(b) => {
       let degree = b.degree as usize;
       let control_points: Vec<Vec3<f32>> = b
@@ -35,32 +31,23 @@ pub fn convert_any_curve_to_beziers(
         .map(cartesian_point_to_vec3)
         .collect();
       let knots: Vec<f32> = b.knots.iter().map(|&k| k as f32).collect();
-      Ok(convert_bspline_curve_to_bezier(
-        degree,
-        control_points,
-        knots,
-      ))
+      convert_bspline_curve_to_bezier(degree, control_points, knots)
     }
-    CurveAny::BezierCurve(b) => Ok(convert_bezier_curve_direct(b)),
+    CurveAny::BezierCurve(b) => convert_bezier_curve_direct(b),
     CurveAny::RationalBSplineCurve(r) => {
       let (degree, control_points, weights, knots) = extract_rational_bspline_curve_data(r)?;
-      Ok(convert_rational_bspline_curve_to_bezier(
-        degree,
-        control_points,
-        weights,
-        knots,
-      ))
+      convert_rational_bspline_curve_to_bezier(degree, control_points, weights, knots)
     }
     CurveAny::TrimmedCurve(t) => {
       // Extract the basis curve and convert it. Trim parameters are ignored
       // for now — they can be used later to clip the resulting Bezier curves.
-      // convert_any_curve_to_beziers(&t.basis_curve)
+      // convert_any_curve_to_beziers(&t.basis_curve, start_vertex, end_vertex, curve_trim_tolerance)?
       todo!()
     }
     CurveAny::CompositeCurve(c) => {
       // let mut result = Vec::new();
       // for segment in &c.segments {
-      //   let mut seg_curves = convert_any_curve_to_beziers(&segment.parent_curve)?;
+      //   let mut seg_curves = convert_any_curve_to_beziers(&segment.parent_curve, None, None, curve_trim_tolerance)?;
       //   result.append(&mut seg_curves);
       // }
       // Ok(result)
@@ -69,7 +56,7 @@ pub fn convert_any_curve_to_beziers(
     CurveAny::SurfaceCurve(sc) => {
       // SurfaceCurve wraps a 3D curve plus pcurves. For 3D curve conversion,
       // we only care about the 3D geometry.
-      // convert_any_curve_to_beziers(&sc.curve_3d)
+      // convert_any_curve_to_beziers(&sc.curve_3d, start_vertex, end_vertex, curve_trim_tolerance)?
       todo!()
     }
     CurveAny::Polyline(poly) => {
@@ -82,28 +69,39 @@ pub fn convert_any_curve_to_beziers(
         ];
         result.push(RationalBezierCurve3d::new(cp, 1));
       }
-      Ok(result)
+      result
     }
     CurveAny::Pcurve(_) => {
-      // Pcurves are 2D parametric curves; they should be handled by
-      // the dedicated pcurve extraction path, not by 3D curve conversion.
-      Err(StepReadError::ConversionError(
+      return Err(StepReadError::ConversionError(
         "Pcurve is 2D; should be handled by pcurve extraction path".into(),
-      ))
+      ));
     }
-    CurveAny::Hyperbola(_) => Err(StepReadError::UnsupportedCurve {
-      entity_type: "Hyperbola",
-      id: 0,
-    }),
-    CurveAny::Parabola(_) => Err(StepReadError::UnsupportedCurve {
-      entity_type: "Parabola",
-      id: 0,
-    }),
-    CurveAny::OffsetCurve3d(_) => Err(StepReadError::UnsupportedCurve {
-      entity_type: "OffsetCurve3d",
-      id: 0,
-    }),
-  }
+    CurveAny::Hyperbola(_) => {
+      return Err(StepReadError::UnsupportedCurve {
+        entity_type: "Hyperbola",
+        id: 0,
+      });
+    }
+    CurveAny::Parabola(_) => {
+      return Err(StepReadError::UnsupportedCurve {
+        entity_type: "Parabola",
+        id: 0,
+      });
+    }
+    CurveAny::OffsetCurve3d(_) => {
+      return Err(StepReadError::UnsupportedCurve {
+        entity_type: "OffsetCurve3d",
+        id: 0,
+      });
+    }
+  };
+
+  Ok(trim_by_vertices(
+    beziers,
+    start_vertex,
+    end_vertex,
+    curve_trim_tolerance,
+  ))
 }
 
 /// Convert a 90° circular arc to a single rational quadratic Bezier curve.
@@ -422,6 +420,146 @@ fn build_clamped_knots(degree: usize, num_cp: usize) -> Vec<f32> {
   }
   result.truncate(n_knots);
   result
+}
+
+// --- Start/end vertex trim utilities ---
+
+/// Project a 3D point onto a list of bezier curve segments.
+///
+/// Returns `(global_t, distance_squared)` where `global_t ∈ [0, 1]` spans all
+/// segments uniformly: segment `i` (0-indexed) covers `[i/n, (i+1)/n)`.
+/// `global_t = (seg_idx + local_t) / n`.
+fn project_onto_beziers(beziers: &[RationalBezierCurve3d<f32>], point: Vec3<f32>) -> (f32, f32) {
+  let n = beziers.len() as f32;
+  let mut best_global_t = 0.0f32;
+  let mut best_d2 = f32::MAX;
+
+  for (seg_idx, bez) in beziers.iter().enumerate() {
+    let (local_t, d2) = bez.project_point(point);
+    let global_t = (seg_idx as f32 + local_t) / n;
+    if d2 < best_d2 {
+      best_d2 = d2;
+      best_global_t = global_t;
+    }
+  }
+
+  (best_global_t, best_d2)
+}
+
+/// Trim a list of bezier segments to the parameter range `[t_start, t_end]`.
+///
+/// Segments fully outside the range are dropped. Boundary segments that
+/// partially overlap are split at the trim parameter using de Casteljau
+/// subdivision, and only the overlapping sub-curve is kept.
+///
+/// `t_start` and `t_end` are global parameters in `[0, 1]` (see
+/// `project_onto_beziers` for the mapping).
+fn trim_beziers(
+  beziers: Vec<RationalBezierCurve3d<f32>>,
+  t_start: f32,
+  t_end: f32,
+) -> Vec<RationalBezierCurve3d<f32>> {
+  let n = beziers.len() as f32;
+  if n < 1.0 || t_start >= t_end {
+    return Vec::new();
+  }
+
+  // Floor-based segment index: seg i covers [i/n, (i+1)/n).
+  // Clamp endpoints to handle floating-point boundary cases (t == 0.0 or 1.0).
+  let seg_start = if t_start <= 0.0 {
+    0
+  } else {
+    beziers
+      .len()
+      .saturating_sub(1)
+      .min((t_start * n).floor() as usize)
+  };
+  let seg_end = if t_end >= 1.0 {
+    beziers.len().saturating_sub(1)
+  } else {
+    beziers
+      .len()
+      .saturating_sub(1)
+      .min((t_end * n).floor() as usize)
+  };
+  let mut result = Vec::new();
+
+  for seg_idx in seg_start..=seg_end {
+    let seg_min = seg_idx as f32 / n;
+    let seg_max = (seg_idx + 1) as f32 / n;
+
+    // local parameter range within this segment's [0,1] domain
+    let local_start = if t_start > seg_min {
+      (t_start - seg_min) / (seg_max - seg_min)
+    } else {
+      0.0
+    };
+    let local_end = if t_end < seg_max {
+      (t_end - seg_min) / (seg_max - seg_min)
+    } else {
+      1.0
+    };
+
+    if local_start <= 0.0 && local_end >= 1.0 {
+      // Fully inside — keep whole segment
+      result.push(beziers[seg_idx].clone());
+    } else if local_start + 1e-12 >= local_end {
+      // Degenerate — segment reduced to a single point, skip
+    } else {
+      // Partially inside — split at boundaries
+      let curve = &beziers[seg_idx];
+      // Split at local_end first, keep left
+      let (left, _right) = if local_end < 1.0 {
+        curve.subdivide_at(local_end)
+      } else {
+        (curve.clone(), curve.clone())
+      };
+      // Split left at adjusted local_start, keep right
+      let local_start_in_left = local_start / local_end.max(1e-12);
+      let (_discard, kept) = if local_start_in_left > 0.0 {
+        left.subdivide_at(local_start_in_left)
+      } else {
+        (left.clone(), left)
+      };
+      result.push(kept);
+    }
+  }
+
+  result
+}
+
+/// Apply vertex-based trimming to bezier curves.
+///
+/// Projects `start_vertex` and `end_vertex` onto the bezier list and trims
+/// to the resulting parameter range. If either vertex is `None` or either
+/// projection exceeds `tolerance`, the original bezier list is returned
+/// unchanged.
+fn trim_by_vertices(
+  beziers: Vec<RationalBezierCurve3d<f32>>,
+  start_vertex: Option<Vec3<f32>>,
+  end_vertex: Option<Vec3<f32>>,
+  tolerance: f32,
+) -> Vec<RationalBezierCurve3d<f32>> {
+  let (Some(sv), Some(ev)) = (start_vertex, end_vertex) else {
+    return beziers;
+  };
+
+  let (t_s, dist_sq_s) = project_onto_beziers(&beziers, sv);
+  let (t_e, dist_sq_e) = project_onto_beziers(&beziers, ev);
+
+  let tol_sq = tolerance * tolerance;
+  if dist_sq_s > tol_sq || dist_sq_e > tol_sq {
+    step_dbg!(
+      "step: curve trim projection exceeds tolerance: start_dist={:.6}, end_dist={:.6}, tol={}",
+      dist_sq_s.sqrt(),
+      dist_sq_e.sqrt(),
+      tolerance
+    );
+    return beziers;
+  }
+
+  let (t_start, t_end) = if t_s < t_e { (t_s, t_e) } else { (t_e, t_s) };
+  trim_beziers(beziers, t_start, t_end)
 }
 
 #[cfg(test)]

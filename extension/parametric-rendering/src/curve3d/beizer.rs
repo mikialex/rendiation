@@ -97,6 +97,115 @@ impl<T: Scalar> RationalBezierCurve3d<T> {
 
     (point, deriv)
   }
+
+  /// Project a 3D point onto the curve.
+  ///
+  /// Uses coarse uniform sampling followed by golden-section refinement.
+  /// Returns `(t, distance_squared)`. The caller decides whether the
+  /// distance is small enough to consider the projection successful.
+  pub fn project_point(&self, point: Vec3<T>) -> (T, T) {
+    let n_samples = 16;
+    let div = T::from(n_samples).expect("n_samples fits in T");
+    let inv_div = T::one() / div;
+    let mut best: Option<(T, T)> = None;
+
+    for i in 0..=n_samples {
+      let t = T::from(i).expect("i fits in T") * inv_div;
+      let p = self.evaluate(t);
+      let d = p - point;
+      let d2 = d.dot(d);
+      match best {
+        None => best = Some((t, d2)),
+        Some((_, prev_d2)) if d2 < prev_d2 => best = Some((t, d2)),
+        _ => {}
+      }
+    }
+
+    let (mut best_t, mut best_d2) = best.expect("grid search always produces at least one sample");
+
+    let half_window = inv_div;
+    let mut a = if best_t > half_window {
+      best_t - half_window
+    } else {
+      T::zero()
+    };
+    let mut b = if best_t + half_window < T::one() {
+      best_t + half_window
+    } else {
+      T::one()
+    };
+
+    let inv_phi: T = T::eval::<{ scalar_transmute(0.6180339887498949) }>();
+    let one_minus_inv_phi = T::one() - inv_phi;
+
+    let mut c = b - inv_phi * (b - a);
+    let mut d = a + inv_phi * (b - a);
+
+    let mut fc_d2 = {
+      let p = self.evaluate(c);
+      let d = p - point;
+      d.dot(d)
+    };
+    let mut fd_d2 = {
+      let p = self.evaluate(d);
+      let d = p - point;
+      d.dot(d)
+    };
+
+    for _ in 0..15 {
+      if fc_d2 < fd_d2 {
+        b = d;
+        d = c;
+        fd_d2 = fc_d2;
+        c = b - inv_phi * (b - a);
+        let p = self.evaluate(c);
+        let dv = p - point;
+        fc_d2 = dv.dot(dv);
+        if fc_d2 < best_d2 {
+          best_d2 = fc_d2;
+          best_t = c;
+        }
+      } else {
+        a = c;
+        c = d;
+        fc_d2 = fd_d2;
+        d = a + inv_phi * (b - a);
+        let p = self.evaluate(d);
+        let dv = p - point;
+        fd_d2 = dv.dot(dv);
+        if fd_d2 < best_d2 {
+          best_d2 = fd_d2;
+          best_t = d;
+        }
+      }
+    }
+
+    (best_t, best_d2)
+  }
+
+  /// Subdivide the curve at parameter `t` using the de Casteljau algorithm.
+  ///
+  /// Returns `(left, right)` — two rational Bezier curves that together
+  /// exactly represent the original curve. Left covers `[0, t]` (remapped
+  /// to `[0, 1]`) and right covers `[t, 1]` (remapped to `[0, 1]`).
+  pub fn subdivide_at(&self, t: T) -> (Self, Self) {
+    let n = self.control_points.len();
+    let one_minus_t = T::one() - t;
+    let mut q = self.control_points.to_vec();
+    let mut left = vec![Vec4::splat(T::zero()); n];
+    let mut right = vec![Vec4::splat(T::zero()); n];
+    left[0] = q[0];
+    for r in 1..n {
+      right[r - 1] = q[n - r];
+      for i in 0..(n - r) {
+        q[i] = q[i] * one_minus_t + q[i + 1] * t;
+      }
+      left[r] = q[0];
+    }
+    right[n - 1] = q[0];
+    right.reverse();
+    (Self::new(left, self.degree), Self::new(right, self.degree))
+  }
 }
 
 // --- Private helpers ---

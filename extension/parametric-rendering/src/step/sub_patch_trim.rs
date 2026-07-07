@@ -114,6 +114,7 @@ pub fn process_trim_curves_for_face(
                 line.push(p);
               } else {
                 println!("project failed");
+                unreachable!("project failed");
                 // todo report this case
               };
             }
@@ -364,6 +365,8 @@ impl SubPatchTrimBuilder {
 fn is_on_boundary(p: Vec2<f32>) -> bool {
   const EPS: f32 = 1e-5;
   let in_range = |v: f32| v >= -EPS && v <= 1.0 + EPS;
+  assert!(!p.x.is_nan() && !p.y.is_nan());
+
   (p.x.abs() < EPS && in_range(p.y))
     || ((p.x - 1.0).abs() < EPS && in_range(p.y))
     || (p.y.abs() < EPS && in_range(p.x))

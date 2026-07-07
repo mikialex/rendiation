@@ -126,7 +126,7 @@ pub fn convert_and_split_any_surface_to_bezier_patches(
       t.minor_radius,
     )),
     SurfaceAny::SurfaceOfLinearExtrusion(e) => {
-      convert_extrusion_surface_to_bezier_patches(&e.swept_curve, &e.extrusion_axis)
+      convert_extrusion_surface_to_bezier_patches(&e.swept_curve, &e.extrusion_axis, config)
     }
     SurfaceAny::SurfaceOfRevolution(_) => Err(StepReadError::UnsupportedSurface {
       entity_type: "SurfaceOfRevolution",
@@ -181,8 +181,10 @@ fn convert_bspline_surface_to_bezier_patches(
   u_knots: Vec<f32>,
   v_knots: Vec<f32>,
 ) -> Result<(Vec<SurfaceSubPatch>, OriginalSurface), StepReadError> {
-  let v_count = control_points.len();
-  let u_count = control_points[0].len();
+  // STEP control_points_list is LIST[0:u_upper] OF LIST[0:v_upper].
+  // Outer dimension = u, inner dimension = v.
+  let u_count = control_points.len();
+  let v_count = control_points[0].len();
 
   let u_knots = match prepare_knots(u_knots, u_count, u_degree, "u") {
     Ok(k) => k,
@@ -199,11 +201,14 @@ fn convert_bspline_surface_to_bezier_patches(
     }
   };
 
-  // Flatten to row-major Vec<Vec4<f32>> (all weights = 1)
-  let flat_cp: Vec<Vec4<f32>> = control_points
-    .iter()
-    .flat_map(|row| row.iter().map(|p| Vec4::new(p.x, p.y, p.z, 1.0)))
-    .collect();
+  // Build flat array in v-major order: CP[ui][vi] at index vi * u_count + ui
+  let mut flat_cp = Vec::with_capacity(u_count * v_count);
+  for vi in 0..v_count {
+    for ui in 0..u_count {
+      let p = control_points[ui][vi];
+      flat_cp.push(Vec4::new(p.x, p.y, p.z, 1.0));
+    }
+  }
 
   let nurbs = NurbsSurface::new(
     flat_cp,
@@ -230,8 +235,10 @@ fn convert_rational_bspline_surface_to_bezier_patches(
   u_knots: Vec<f32>,
   v_knots: Vec<f32>,
 ) -> Result<(Vec<SurfaceSubPatch>, OriginalSurface), StepReadError> {
-  let v_count = control_points.len();
-  let u_count = control_points[0].len();
+  // STEP control_points_list is LIST[0:u_upper] OF LIST[0:v_upper].
+  // Outer dimension = u, inner dimension = v.
+  let u_count = control_points.len();
+  let v_count = control_points[0].len();
 
   let u_knots = match prepare_knots(u_knots, u_count, u_degree, "u") {
     Ok(k) => k,
@@ -842,8 +849,10 @@ fn convert_torus_to_bezier_patches(
 fn convert_extrusion_surface_to_bezier_patches(
   swept_curve: &CurveAny,
   extrusion_axis: &entities::Vector,
+  config: &StepReadConfig,
 ) -> Result<(Vec<SurfaceSubPatch>, OriginalSurface), StepReadError> {
-  let curve_segments = convert_any_curve_to_beziers(swept_curve, None, None)?;
+  let curve_segments =
+    convert_any_curve_to_beziers(swept_curve, None, None, config.curve_trim_tolerance)?;
   let dir = direction_to_vec3(&extrusion_axis.orientation);
   let mag = extrusion_axis.magnitude as f32;
   let extrusion_vec = dir * mag;

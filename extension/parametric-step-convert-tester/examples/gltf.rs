@@ -17,18 +17,23 @@ use rendiation_parametric_rendering::mesh::{
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   let args: Vec<String> = env::args().collect();
-  if args.len() < 3 {
-    println!("usage: {} <input.stp> <output.glb>", args[0]);
-    std::process::exit(1);
-  }
+  // if args.len() < 3 {
+  //   println!("usage: {} <input.stp> <output.glb>", args[0]);
+  //   std::process::exit(1);
+  // }
+
+  // let step_path = Path::new(&args[1]);
+  // let gltf_path = Path::new(&args[2]);
+  let use_line_list = true;
 
   // let step_path =
-  //   Path::new("/Users/mikialex/dev/rendiation/extension/parametric-step-convert-tester/step-generated-sample/cylinder.stp");
+  //   Path::new("/Users/mikialex/dev/rendiation/extension/parametric-step-convert-tester/step-generated-sample/bspline.stp");
+  // let step_path =
+  //   Path::new("/Users/mikialex/dev/rendiation/temp/step-test/step_tests/test_step.stp");
   // let gltf_path = Path::new("/Users/mikialex/dev/rendiation/out.glb");
 
-  let step_path = Path::new(&args[1]);
-  let gltf_path = Path::new(&args[2]);
-  let use_line_list = true;
+  let step_path = Path::new("/Users/mikialex/dev/rendiation/temp/step-test/steam-controller.stp");
+  let gltf_path = Path::new("/Users/mikialex/dev/rendiation/steam.glb");
 
   println!("reading STEP: {}", step_path.display());
   let result = read_step(step_path);
