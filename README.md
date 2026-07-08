@@ -87,7 +87,7 @@ RRF is highly modular, layered, decoupled, and well-structured. Users can build,
   - view-override-model
   - wide-line
 - application: the user facing application for testing, prototyping and demonstrating
-  - viewer
+  - rendiation-viewer
   - viewer-web: the wasm build of the viewer(note: incomplete and buggy)
     - online link: <https://mikialex.github.io/rendiation/viewer-web/index.html>
 

@@ -1,17 +1,17 @@
 [package]
 authors = ["MikiAlex <miikiialexx@gmail.com>"]
 edition = "2021"
-name = "viewer"
+name = "rendiation-viewer"
 version = "0.1.0"
 
-default-run = "viewer"
+default-run = "rendiation-viewer"
 
 [dependencies]
 bytemuck = { workspace = true }
 env_logger = { workspace = true }
 futures = { workspace = true, features = ["thread-pool"] }
 
-rand = "*"
+rand = { workspace = true }
 
 database = { path = "../../utility/database" }
 dirs = "4.0.0"
@@ -92,3 +92,10 @@ dhat-heap-profiling = ["dep:dhat"]
 
 [lints]
 workspace = true
+
+[package.metadata.bundle]
+name = "Rendiation Viewer"
+identifier = "rendiation.viewer"
+# cargo bundle not support relative path to cargo.toml, the cargo bundle cmd must run at project root
+icon = ["application/viewer/assets/256x256@2x.png", "application/viewer/assets/256x256.png"]
+category = "public.app-category.productivity"
