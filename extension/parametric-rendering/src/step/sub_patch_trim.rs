@@ -92,12 +92,24 @@ pub fn process_trim_curves_for_face(
           );
         } else {
           let mut edge_poly = ContinuousTrimPolyline::default();
-          for continues_no_edge_polylines in continues_polylines {
-            // todo,we don't consider edge case that bezier curve may has shape edge
+          // Build an ordered list of 3D point segments in loop direction.
+          // When should_reverse is true, walk the tessellation backwards so
+          // that prev_uv feeds the correct (connecting) endpoint first and
+          // the min_diff unwrapping chain stays aligned with the loop.
+          let segments_in_order: Vec<Vec<Vec3<f32>>> = if should_reverse {
+            continues_polylines
+              .iter()
+              .rev()
+              .map(|seg| seg.iter().rev().copied().collect())
+              .collect()
+          } else {
+            continues_polylines.iter().cloned().collect()
+          };
+          for seg in &segments_in_order {
             let mut line = NoEdgeContinuousTrimPolyline::default();
-            for point3d in continues_no_edge_polylines.iter() {
+            for &point3d in seg {
               if let Some((u, v, _dist)) = original_surface.project_point(
-                *point3d,
+                point3d,
                 config.project_grid,
                 config.project_tolerance,
                 config.project_max_iter,
@@ -112,21 +124,13 @@ pub fn process_trim_curves_for_face(
                 unreachable!("project failed");
               };
             }
-
             if !line.is_degenerate() {
               edge_poly.push_no_edge_polyline(line);
             } else {
               println!("degenerate 2d trim line");
             }
           }
-
-          if should_reverse {
-            edge_poly = edge_poly.reverse();
-          }
           c_polyline.connect_c_polyline(edge_poly);
-          // Update prev_uv from the actual endpoint of c_polyline — this
-          // correctly handles the should_reverse case where the original
-          // first projected point becomes the topological endpoint.
           prev_uv = c_polyline.last_point();
         }
       }
@@ -145,10 +149,7 @@ pub fn process_trim_curves_for_face(
           let eps = config.project_oob_clamp_tolerance;
           let oob = p.x < -eps || p.x > 1.0 + eps || p.y < -eps || p.y > 1.0 + eps;
           if oob {
-            println!(
-              "projected point out of bounds: ({},{})",
-              p.x, p.y
-            );
+            println!("projected point out of bounds: ({},{})", p.x, p.y);
           }
         }
       }
@@ -315,10 +316,6 @@ impl SubPatchTrimBuilder {
 
         if let Some(last) = &mut last {
           if let Some(next_clip) = clip_line_seg(*last, new) {
-            // if next_clip.from == next_clip.to {
-            //   *last = new;
-            //   continue;
-            // }
             match (next_clip.from_clipped, next_clip.to_clipped) {
               (true, true) => {
                 if is_previous_leaving {
@@ -360,7 +357,39 @@ impl SubPatchTrimBuilder {
         } else {
           let inside = (0.0..=1.0).contains(&new.x) && (0.0..=1.0).contains(&new.y);
           if inside {
-            self.push_next_no_edge_point(new);
+            // The first mapped point that falls inside the sub-patch may land
+            // near, but not exactly on, the [0,1]² boundary due to floating-
+            // point imprecision in the projection and SubRange mapping.
+            //
+            // Clamp it to 0.0 or 1.0 so that boundary_param (which uses a
+            // hard EPS=1e-4 to classify which edge a point sits on) sees the
+            // same boundary edge as is_on_boundary (EPS=3e-3). Without this
+            // clamping, e.g. (0.408, 0.00137) is_on_boundary says "bottom"
+            // while boundary_param says "left" (because |0.00137| > 1e-4),
+            // causing connect_through_boundary_walk to wrap the wrong way
+            // around the perimeter.
+            let clamped = {
+              const SNAP_EPS: f32 = 3e-3;
+              let cx = if (new.x - 0.0).abs() < SNAP_EPS {
+                0.0
+              } else if (new.x - 1.0).abs() < SNAP_EPS {
+                1.0
+              } else {
+                new.x
+              };
+              let cy = if (new.y - 0.0).abs() < SNAP_EPS {
+                0.0
+              } else if (new.y - 1.0).abs() < SNAP_EPS {
+                1.0
+              } else {
+                new.y
+              };
+              Vec2::new(cx, cy)
+            };
+            if is_on_boundary(new) {
+              first_open_in_point = Some(clamped);
+            }
+            self.push_next_no_edge_point(clamped);
             never_entered = false;
           }
           last = Some(new)
@@ -380,7 +409,7 @@ impl SubPatchTrimBuilder {
 }
 
 fn is_on_boundary(p: Vec2<f32>) -> bool {
-  const EPS: f32 = 1e-4;
+  const EPS: f32 = 3e-3;
   let in_range = |v: f32| v >= -EPS && v <= 1.0 + EPS;
   assert!(!p.x.is_nan() && !p.y.is_nan());
 

@@ -21,8 +21,18 @@ impl CompletedTrimPolyline {
       return None;
     }
 
-    if first.distance_to(last) > 1e-6 {
-      println!("not continue");
+    let distance = first.distance_to(last);
+    if distance > 1e-3 {
+      println!(
+        "not continue, distance={:.8}, first=({:.8},{:.8}), last=({:.8},{:.8})",
+        distance, first.x, first.y, last.x, last.y
+      );
+      if distance > 0.1 {
+        unreachable!(
+          "not continue, distance={:.8}, first=({:.8},{:.8}), last=({:.8},{:.8})",
+          distance, first.x, first.y, last.x, last.y
+        );
+      }
       return None;
     }
 
