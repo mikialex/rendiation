@@ -534,6 +534,11 @@ fn trim_beziers(
 /// to the resulting parameter range. If either vertex is `None` or either
 /// projection exceeds `tolerance`, the original bezier list is returned
 /// unchanged.
+///
+/// When the underlying curve is parameterized opposite to the edge direction
+/// (t_s > t_e), the trimmed result is reversed so that the first bezier's
+/// start corresponds to `start_vertex` and the last bezier's end corresponds
+/// to `end_vertex`.
 fn trim_by_vertices(
   beziers: Vec<RationalBezierCurve3d<f32>>,
   start_vertex: Option<Vec3<f32>>,
@@ -558,8 +563,20 @@ fn trim_by_vertices(
     return beziers;
   }
 
-  let (t_start, t_end) = if t_s < t_e { (t_s, t_e) } else { (t_e, t_s) };
-  trim_beziers(beziers, t_start, t_end)
+  let needs_reverse = t_s > t_e;
+  let (t_start, t_end) = if needs_reverse {
+    (t_e, t_s)
+  } else {
+    (t_s, t_e)
+  };
+  let mut result = trim_beziers(beziers, t_start, t_end);
+  if needs_reverse {
+    result.reverse();
+    for b in &mut result {
+      b.control_points_mut().reverse();
+    }
+  }
+  result
 }
 
 #[cfg(test)]
