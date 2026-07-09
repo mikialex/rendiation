@@ -14,7 +14,7 @@ pub struct ComponentUntyped {
   pub data: Box<dyn ComponentStorage>,
 
   /// watch this component all change with idx
-  pub(crate) data_watchers: EventSource<ChangePtr>,
+  pub data_watchers: EventSource<ChangePtr>,
 
   /// the allocator that shared between all components of the self entity
   pub allocator: Arc<RwLock<TableAllocator>>,
@@ -22,6 +22,10 @@ pub struct ComponentUntyped {
   pub data_meta: DataTypeMetaInfo,
   pub entity_type_id: EntityId,
   pub component_type_id: ComponentId,
+
+  /// Converts serialized component data to a human-readable debug string.
+  /// Returns `None` if deserialization fails.
+  pub binary_to_debug_string: fn(DBFastSerializeSmallBuffer) -> Option<String>,
 }
 
 impl ComponentUntyped {

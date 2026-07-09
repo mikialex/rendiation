@@ -1091,6 +1091,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "database-tracing"
+version = "0.0.1"
+dependencies = [
+ "database",
+ "fast-hash-collection",
+ "futures",
+ "log",
+ "smallvec",
+]
+
+[[package]]
 name = "derive-where"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3973,6 +3984,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-cell-mesh"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "database",
+ "facet",
+ "fast-hash-collection",
+ "log",
+ "parking_lot",
+ "rendiation-algebra",
+ "rendiation-device-parallel-compute",
+ "rendiation-geometry",
+ "rendiation-scene-batch-extractor",
+ "rendiation-scene-core",
+ "rendiation-scene-geometry-query",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-scene-rendering-gpu-indirect",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
+ "rendiation-webgpu-midc-downgrade",
+ "serde",
+]
+
+[[package]]
 name = "rendiation-color"
 version = "0.1.0"
 dependencies = [
@@ -4927,6 +4963,7 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "database",
+ "database-tracing",
  "dhat",
  "dirs",
  "disqualified",

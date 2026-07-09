@@ -29,6 +29,8 @@ pub use mesh_tools::*;
 mod test_content;
 use serde::*;
 pub use test_content::*;
+mod trace_io;
+pub use trace_io::*;
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 pub struct ViewerAppFeaturesConfig {

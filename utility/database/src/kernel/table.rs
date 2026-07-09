@@ -34,6 +34,15 @@ impl ArcTable {
     assert!(previous.is_none())
   }
 
+  pub fn visit_components(&self, f: impl FnMut(&ComponentUntyped)) {
+    let components = self.internal.components.read_recursive();
+    components.values().for_each(f);
+  }
+
+  pub fn component_define_watchers(&self) -> &EventSource<ComponentUntyped> {
+    &self.internal.components_meta_watchers
+  }
+
   pub fn iter_entity_idx(&self) -> impl Iterator<Item = RawEntityHandle> + 'static {
     let inner = self.internal.allocator.make_read_holder();
     struct Iter {
@@ -162,6 +171,10 @@ impl Table {
     }
   }
 
+  pub fn entity_watchers(&self) -> &EventSource<ChangePtr> {
+    &self.entity_watchers
+  }
+
   #[inline(never)]
   pub fn declare_component_dyn(&self, semantic: ComponentId, com: ComponentUntyped) {
     let mut components = self.components.write();
@@ -226,6 +239,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
       data: Box::new(storage),
       allocator: self.inner.internal.allocator.clone(),
       data_watchers: Default::default(),
+      binary_to_debug_string: create_binary_to_debug_string::<S::Data>(),
     };
     self.inner.declare_component_dyn(S::component_id(), com);
     self

@@ -111,6 +111,7 @@ If the code is written largely with the help of LLM tools (even if it meets the 
 
 - Non-core system code written using LLM tools that cannot meet the above criteria:
   - `extension/dynamic-bvh` is an LLM port from parry's qbvh, using the rendiation math library.
+  - `utility/database-tracing` database debug util
 
 ## Development
 

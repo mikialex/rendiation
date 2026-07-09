@@ -88,6 +88,12 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
 
   let init_config = ViewerInitConfig::from_default_json_or_default();
 
+  if let Some(ref trace_write_path) = init_config.init_only.enable_tracing_and_tracing_write_path {
+    use database_tracing::*;
+    let writer = FileTraceWriter::<TracingMessage<()>>::new(trace_write_path);
+    start_tracing::<()>(&global_database(), writer);
+  }
+
   // we do config override instead of gpu init override to reflect change in the init config
   #[cfg(target_family = "wasm")]
   let init_config = {
@@ -181,6 +187,7 @@ fn main() {
 
       use_enable_gltf_io(cx);
       use_enable_obj_io(cx);
+      use_enable_trace_io(cx);
       use_test_content_panel(cx);
 
       sync_camera_view(cx);

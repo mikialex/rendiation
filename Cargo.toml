@@ -16,6 +16,7 @@ members = [
   "utility/abstract-uri-data",
   "utility/uri-streaming",
   "utility/database",
+  "utility/database-tracing",
   "utility/heap-tools",
   "utility/interning",
   "utility/hook",
