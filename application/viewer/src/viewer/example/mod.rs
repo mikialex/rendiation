@@ -2,9 +2,11 @@ pub use text3d::text3d_content_edit_ui;
 use text3d::use_text3d_example;
 
 mod text3d;
+mod texture_material_share;
 mod transform_instance;
 mod util;
 
+pub use texture_material_share::*;
 pub use transform_instance::*;
 pub use util::*;
 
@@ -27,6 +29,10 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
   let (cx, registry) = cx.use_plain_state_init(|_| {
     let mut registry = ExampleRegistry::default();
     registry.register("Text3d example", use_text3d_example);
+    registry.register(
+      "Texture and Material Share",
+      use_texture_material_share_example,
+    );
     registry.register("Transform Instance Example", use_transform_instance_example);
     registry
   });
