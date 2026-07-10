@@ -53,7 +53,13 @@ pub type ChangeDataPtrPair<'a> = (DataPtr, &'a dyn DataBaseDataTypeDyn);
 /// the lifetime of the ptr is only valid in the callback scope.
 pub type ChangePtr = ScopedValueChange<(DataPtr, *const dyn DataBaseDataTypeDyn)>;
 
-pub type EntityScopeChange = ScopedValueChange<()>;
+pub type EntityChangeMessage = ScopedMessage<EntityChange>;
+
+pub enum EntityChange {
+  NewEntityStartCreate(RawEntityHandle),
+  NewEntityCreated(RawEntityHandle),
+  DeleteEntity(RawEntityHandle),
+}
 
 pub struct ComponentReadViewUntyped {
   pub(crate) allocator: LockReadGuardHolder<TableAllocator>,

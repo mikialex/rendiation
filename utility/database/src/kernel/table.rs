@@ -151,7 +151,7 @@ pub struct Table {
   pub(crate) components_meta_watchers: EventSource<ComponentUntyped>,
   pub(crate) foreign_key_meta_watchers: EventSource<(ComponentId, EntityId)>,
 
-  pub(crate) entity_watchers: EventSource<ChangePtr>,
+  pub(crate) entity_watchers: EventSource<EntityChangeMessage>,
   pub(crate) name_mapping: Arc<RwLock<DBNameMapping>>,
 }
 
@@ -171,7 +171,7 @@ impl Table {
     }
   }
 
-  pub fn entity_watchers(&self) -> &EventSource<ChangePtr> {
+  pub fn entity_watchers(&self) -> &EventSource<EntityChangeMessage> {
     &self.entity_watchers
   }
 

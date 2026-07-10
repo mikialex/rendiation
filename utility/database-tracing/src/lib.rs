@@ -1,4 +1,5 @@
 mod message;
+mod replay;
 mod writer;
 
 use std::fmt::Debug;
@@ -6,6 +7,7 @@ use std::fmt::Debug;
 use database::*;
 use fast_hash_collection::*;
 pub use message::*;
+pub use replay::*;
 pub use writer::*;
 
 /// Build a name table from all currently registered entity types and components
@@ -71,13 +73,14 @@ pub fn start_tracing<T: TraceIO + Send + Sync + 'static>(
         ScopedMessage::Start => {}
         ScopedMessage::End => {}
         ScopedMessage::ReserveSpace(_size) => {}
-        ScopedMessage::Message(change) => match change.change {
-          ValueChange::Delta(_, _) => {
-            let msg = DatabaseTracingMessage::EntityCreated(e_name_id, change.idx);
+        ScopedMessage::Message(change) => match change {
+          EntityChange::NewEntityStartCreate(handle) => {
+            let msg = DatabaseTracingMessage::EntityCreated(e_name_id, *handle);
             writer__.write_message(TracingMessage::DatabaseMutation(msg));
           }
-          ValueChange::Remove(_) => {
-            let msg = DatabaseTracingMessage::EntityDeleted(e_name_id, change.idx);
+          EntityChange::NewEntityCreated(_) => {}
+          EntityChange::DeleteEntity(handle) => {
+            let msg = DatabaseTracingMessage::EntityDeleted(e_name_id, *handle);
             writer__.write_message(TracingMessage::DatabaseMutation(msg));
           }
         },
@@ -94,18 +97,24 @@ pub fn start_tracing<T: TraceIO + Send + Sync + 'static>(
     table.visit_components(|component| {
       let mut writer__ = writer_.clone();
       let c_name_id = name_table.component_name_to_id[&component.component_type_id];
+      let c_is_fk = component.as_foreign_key.is_some();
       component.data_watchers.on(move |change| unsafe {
         match change {
           ScopedMessage::Start => {}
           ScopedMessage::End => {}
           ScopedMessage::ReserveSpace(_size) => {}
           ScopedMessage::Message(change) => match change.change {
-            ValueChange::Delta((_, new), _) => {
-              let new = &*new as &dyn DataBaseDataTypeDyn;
-              // todo move the serialize into writer thread
-              let buffer = new.fast_serialize_into_buffer();
-              let msg =
-                DatabaseTracingMessage::EntityFieldSet(c_name_id, change.idx, buffer.to_vec());
+            ValueChange::Delta((data_ptr, dyn_ptr), _) => {
+              let field_data = if c_is_fk {
+                let fk = (data_ptr as *const Option<RawEntityHandle>).read();
+                EntityFieldData::ForeignKey(fk)
+              } else {
+                let new = &*dyn_ptr as &dyn DataBaseDataTypeDyn;
+                // todo move the serialize into writer thread
+                let buffer = new.fast_serialize_into_buffer();
+                EntityFieldData::Pod(buffer.to_vec())
+              };
+              let msg = DatabaseTracingMessage::EntityFieldSet(c_name_id, change.idx, field_data);
               writer__.write_message(TracingMessage::DatabaseMutation(msg));
             }
             ValueChange::Remove(_) => {}
@@ -193,8 +202,11 @@ fn format_db_msg(msg: &DatabaseTracingMessage, ctx: &FormatCtx) -> String {
         handle.generation()
       )
     }
-    DatabaseTracingMessage::EntityFieldSet(name_id, handle, data) => {
-      let value_str = format_component_value(ctx, *name_id, data);
+    DatabaseTracingMessage::EntityFieldSet(name_id, handle, field_data) => {
+      let value_str = match field_data {
+        EntityFieldData::ForeignKey(fk) => format!("FK={:?}", fk),
+        EntityFieldData::Pod(data) => format_component_value(ctx, *name_id, data),
+      };
       format!(
         "[EntityFieldSet] component=\"{}\" handle=({}, g:{}) {}",
         lookup(ctx.names, *name_id),

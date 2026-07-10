@@ -42,13 +42,21 @@ impl<T: Debug> Debug for TracingMessage<T> {
   }
 }
 
+/// Component data in a trace record, distinguished by whether it is a foreign key.
+pub enum EntityFieldData {
+  /// Normal component data, serialized as msgpack bytes.
+  Pod(Vec<u8>),
+  /// Foreign key data, stored directly as an optional handle for easy remapping.
+  ForeignKey(Option<RawEntityHandle>),
+}
+
 /// name_id is an index into the file's name table.
 /// For EntityCreated/EntityDeleted, name_id refers to an entity type name.
 /// For EntityFieldSet, name_id refers to a component type name.
 pub enum DatabaseTracingMessage {
   EntityCreated(u32, RawEntityHandle),
   EntityDeleted(u32, RawEntityHandle),
-  EntityFieldSet(u32, RawEntityHandle, Vec<u8>),
+  EntityFieldSet(u32, RawEntityHandle, EntityFieldData),
 }
 
 impl Debug for DatabaseTracingMessage {
@@ -60,15 +68,24 @@ impl Debug for DatabaseTracingMessage {
       DatabaseTracingMessage::EntityDeleted(name_id, handle) => {
         write!(f, "EntityDeleted(name_id={}, handle={})", name_id, handle)
       }
-      DatabaseTracingMessage::EntityFieldSet(name_id, handle, data) => {
-        write!(
-          f,
-          "EntityFieldSet(name_id={}, handle={}, data_len={})",
-          name_id,
-          handle,
-          data.len()
-        )
-      }
+      DatabaseTracingMessage::EntityFieldSet(name_id, handle, field_data) => match field_data {
+        EntityFieldData::Pod(data) => {
+          write!(
+            f,
+            "EntityFieldSet(name_id={}, handle={}, data_len={})",
+            name_id,
+            handle,
+            data.len()
+          )
+        }
+        EntityFieldData::ForeignKey(fk) => {
+          write!(
+            f,
+            "EntityFieldSet(name_id={}, handle={}, FK={:?})",
+            name_id, handle, fk
+          )
+        }
+      },
     }
   }
 }
@@ -86,8 +103,12 @@ impl DatabaseTracingMessage {
     match self {
       DatabaseTracingMessage::EntityCreated(_, _) => 16, // name_id(4) + handle(12)
       DatabaseTracingMessage::EntityDeleted(_, _) => 16,
-      DatabaseTracingMessage::EntityFieldSet(_, _, data) => {
-        20 + data.len() // name_id(4) + handle(12) + data_len(4) + data
+      DatabaseTracingMessage::EntityFieldSet(_, _, field_data) => {
+        // name_id(4) + handle(12) + is_fk(1) + ...
+        17 + match field_data {
+          EntityFieldData::Pod(data) => 4 + data.len(), // data_len(4) + data
+          EntityFieldData::ForeignKey(_) => 1 + 12,     // has_fk(1) + fk handle(12)
+        }
       }
     }
   }
@@ -99,11 +120,31 @@ impl DatabaseTracingMessage {
         write_u32_le(w, *name_id)?;
         write_raw_handle(w, *handle)?;
       }
-      DatabaseTracingMessage::EntityFieldSet(name_id, handle, data) => {
+      DatabaseTracingMessage::EntityFieldSet(name_id, handle, field_data) => {
         write_u32_le(w, *name_id)?;
         write_raw_handle(w, *handle)?;
-        write_u32_le(w, data.len() as u32)?;
-        w.write_all(data)?;
+        match field_data {
+          EntityFieldData::Pod(data) => {
+            w.write_all(&[0x00])?;
+            write_u32_le(w, data.len() as u32)?;
+            w.write_all(data)?;
+          }
+          EntityFieldData::ForeignKey(fk) => {
+            w.write_all(&[0x01])?;
+            match fk {
+              Some(h) => {
+                w.write_all(&[0x01])?;
+                write_u32_le(w, h.alloc_index())?;
+                write_u64_le(w, h.generation())?;
+              }
+              None => {
+                w.write_all(&[0x00])?;
+                write_u32_le(w, 0)?;
+                write_u64_le(w, 0)?;
+              }
+            }
+          }
+        }
       }
     }
     Ok(())
@@ -167,11 +208,30 @@ impl TraceIO for DatabaseTracingMessage {
         let idx = read_u32_le(source)?;
         let generation = read_u64_le(source)?;
         let handle = RawEntityHandle::create_only_for_testing_with_gen(idx as usize, generation);
-        let data_len = read_u32_le(source)? as usize;
-        let mut data = vec![0u8; data_len];
-        source.read_exact(&mut data)?;
+        let mut is_fk = [0u8; 1];
+        source.read_exact(&mut is_fk)?;
+        let field_data = if is_fk[0] == 0x00 {
+          let data_len = read_u32_le(source)? as usize;
+          let mut data = vec![0u8; data_len];
+          source.read_exact(&mut data)?;
+          EntityFieldData::Pod(data)
+        } else {
+          let mut has_fk = [0u8; 1];
+          source.read_exact(&mut has_fk)?;
+          let fk = if has_fk[0] == 0x01 {
+            let fk_idx = read_u32_le(source)?;
+            let fk_gen = read_u64_le(source)?;
+            Some(RawEntityHandle::create_only_for_testing_with_gen(
+              fk_idx as usize,
+              fk_gen,
+            ))
+          } else {
+            None
+          };
+          EntityFieldData::ForeignKey(fk)
+        };
         Ok(DatabaseTracingMessage::EntityFieldSet(
-          name_id, handle, data,
+          name_id, handle, field_data,
         ))
       }
       _ => Err(std::io::Error::new(
@@ -390,11 +450,11 @@ mod tests {
   fn test_db_msg_entity_field_set_binary_format() {
     let handle = make_handle(0, 0);
     let data = vec![0xAA, 0xBB, 0xCC];
-    let msg = DatabaseTracingMessage::EntityFieldSet(2, handle, data.clone());
+    let msg = DatabaseTracingMessage::EntityFieldSet(2, handle, EntityFieldData::Pod(data.clone()));
 
-    // write_len: type_tag(1) + name_id(4) + handle(12) + data_len(4) + data(3) = 24
+    // write_len: type_tag(1) + name_id(4) + handle(12) + is_fk(1) + data_len(4) + data(3) = 25
     let len = msg.write_len();
-    assert_eq!(len, 24);
+    assert_eq!(len, 25);
 
     let mut buf = Vec::new();
     let written = msg.write(&mut buf).unwrap();
@@ -404,8 +464,9 @@ mod tests {
     assert_eq!(&buf[1..5], &2u32.to_le_bytes());
     assert_eq!(&buf[5..9], &0u32.to_le_bytes());
     assert_eq!(&buf[9..17], &0u64.to_le_bytes());
-    assert_eq!(&buf[17..21], &3u32.to_le_bytes());
-    assert_eq!(&buf[21..24], &[0xAA, 0xBB, 0xCC]);
+    assert_eq!(buf[17], 0x00); // is_fk = false
+    assert_eq!(&buf[18..22], &3u32.to_le_bytes());
+    assert_eq!(&buf[22..25], &[0xAA, 0xBB, 0xCC]);
   }
 
   #[test]
@@ -484,7 +545,7 @@ mod tests {
   fn test_round_trip_entity_field_set() {
     let handle = make_handle(0, 0);
     let data = vec![0xAA, 0xBB, 0xCC];
-    let original = DatabaseTracingMessage::EntityFieldSet(2, handle, data);
+    let original = DatabaseTracingMessage::EntityFieldSet(2, handle, EntityFieldData::Pod(data));
 
     let mut buf = Vec::new();
     original.write(&mut buf).unwrap();

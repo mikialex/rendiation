@@ -26,13 +26,10 @@ pub fn use_db_scope<Cx: HooksCxLike>(cx: &mut Cx, scope: impl FnOnce(&mut Cx, &m
           }
           ScopedMessage::Message(change) => {
             let set = &mut *set.data_ptr() as &mut EntityScopeSingle;
-            match change.change {
-              ValueChange::Delta(_, _) => {
-                set.insert(change.idx);
-              }
-              ValueChange::Remove(_) => {
-                set.remove(change.idx);
-              }
+            match change {
+              EntityChange::NewEntityStartCreate(_) => {}
+              EntityChange::NewEntityCreated(handle) => set.insert(*handle),
+              EntityChange::DeleteEntity(handle) => set.remove(*handle),
             }
           }
         }

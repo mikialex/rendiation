@@ -93,7 +93,7 @@ where
         value.fast_deserialize(&mut small_vec.as_slice()).unwrap()
       }
       DBFastSerializeSmallBufferOrForeignKey::ForeignKey(handle) => {
-        value = std::mem::transmute_copy(&handle)
+        value = std::mem::transmute_copy(&Some(handle))
       }
     }
     self.set_value(idx, Some(&value as *const _ as DataPtr))
