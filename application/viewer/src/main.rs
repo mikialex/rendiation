@@ -17,6 +17,7 @@ use std::task::Waker;
 
 use bytemuck::*;
 use database::*;
+use database_tracing::TraceWriter;
 use event_source::*;
 use fast_hash_collection::*;
 use futures::FutureExt;
@@ -72,6 +73,49 @@ static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<
   64,
 ));
 
+#[derive(Debug)]
+pub enum ViewerTracingEvent {
+  Render,
+}
+
+impl database_tracing::TraceReplayTarget for ViewerTracingEvent {
+  fn is_replay_target(&self) -> bool {
+    match self {
+      ViewerTracingEvent::Render => true,
+    }
+  }
+}
+
+impl database_tracing::TraceIO for ViewerTracingEvent {
+  fn write_len(&self) -> usize {
+    1
+  }
+
+  fn write(&self, w: &mut impl std::io::prelude::Write) -> std::io::Result<usize> {
+    match self {
+      ViewerTracingEvent::Render => {
+        w.write_all(&[0u8])?;
+        Ok(1)
+      }
+    }
+  }
+
+  fn read(source: &mut impl std::io::prelude::Read) -> std::io::Result<Self>
+  where
+    Self: Sized,
+  {
+    let mut tag = [0u8; 1];
+    source.read_exact(&mut tag)?;
+    match tag[0] {
+      0 => Ok(ViewerTracingEvent::Render),
+      other => Err(std::io::Error::new(
+        std::io::ErrorKind::InvalidData,
+        format!("unknown ViewerTracingEvent tag: {}", other),
+      )),
+    }
+  }
+}
+
 #[cfg(all(
   not(feature = "dhat-heap-profiling"),
   not(feature = "tracy-heap-debug")
@@ -88,11 +132,16 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
 
   let init_config = ViewerInitConfig::from_default_json_or_default();
 
-  if let Some(ref trace_write_path) = init_config.init_only.enable_tracing_and_tracing_write_path {
+  let trace_event_notifier = if let Some(ref trace_write_path) =
+    init_config.init_only.enable_tracing_and_tracing_write_path
+  {
     use database_tracing::*;
-    let writer = FileTraceWriter::<TracingMessage<()>>::new(trace_write_path);
-    start_tracing::<()>(&global_database(), writer);
-  }
+    let writer = FileTraceWriter::<TracingMessage<ViewerTracingEvent>>::new(trace_write_path);
+    let trace_event_notifier = start_tracing(&global_database(), writer);
+    Some(trace_event_notifier)
+  } else {
+    None
+  };
 
   // we do config override instead of gpu init override to reflect change in the init config
   #[cfg(target_family = "wasm")]
@@ -135,9 +184,19 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
 
   run_application(gpu_config, move |cx| {
     use_egui_cx(cx, |cx, egui_cx| {
-      use_viewer(cx, egui_cx, &init_config, |cx| {
-        content_logic(cx);
-      });
+      use_viewer(
+        cx,
+        egui_cx,
+        &init_config,
+        &|message| {
+          if let Some(notifier) = &trace_event_notifier {
+            notifier.write_message(database_tracing::TracingMessage::Event(message));
+          }
+        },
+        |cx| {
+          content_logic(cx);
+        },
+      );
     });
   });
 }

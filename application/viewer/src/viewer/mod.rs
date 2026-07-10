@@ -39,6 +39,7 @@ pub struct ViewerCx<'a> {
   pub time_delta_seconds: f32,
   pub task_spawner: &'a TaskSpawner,
   pub immediate_results: FastHashMap<u32, Arc<dyn Any + Send + Sync>>,
+  pub trace_event_notifier: &'a dyn Fn(ViewerTracingEvent),
   stage: ViewerCxStage<'a>,
   waker: Waker,
 }
@@ -298,6 +299,7 @@ pub fn use_viewer<'a>(
   acx: &'a mut ApplicationCx,
   egui_ctx: &mut egui::Context,
   init_config: &ViewerInitConfig,
+  trace_event_notifier: &dyn Fn(ViewerTracingEvent),
   f: impl Fn(&mut ViewerCx),
 ) -> &'a mut Viewer {
   let (acx, worker_thread_pool) = acx.use_plain_state(|| {
@@ -459,6 +461,7 @@ pub fn use_viewer<'a>(
     },
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
+    trace_event_notifier,
     app_features,
   }
   .execute(|viewer| f(viewer));
@@ -486,6 +489,7 @@ pub fn use_viewer<'a>(
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
     surface_id: acx.surface_id,
+    trace_event_notifier,
     app_features,
   }
   .execute(|viewer| f(viewer));
@@ -493,6 +497,8 @@ pub fn use_viewer<'a>(
   viewer
     .surfaces_content
     .insert(acx.surface_id, active_surface_content);
+
+  trace_event_notifier(ViewerTracingEvent::Render);
 
   viewer.draw_canvas(
     acx.surface_id,

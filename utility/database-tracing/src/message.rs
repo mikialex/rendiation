@@ -43,6 +43,7 @@ impl<T: Debug> Debug for TracingMessage<T> {
 }
 
 /// Component data in a trace record, distinguished by whether it is a foreign key.
+#[derive(Clone)]
 pub enum EntityFieldData {
   /// Normal component data, serialized as msgpack bytes.
   Pod(Vec<u8>),
@@ -226,6 +227,8 @@ impl TraceIO for DatabaseTracingMessage {
               fk_gen,
             ))
           } else {
+            let _zero_idx = read_u32_le(source)?;
+            let _zero_gen = read_u64_le(source)?;
             None
           };
           EntityFieldData::ForeignKey(fk)

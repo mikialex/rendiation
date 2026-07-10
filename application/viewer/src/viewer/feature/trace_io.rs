@@ -48,7 +48,7 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
             .spawn_task(move || {
               let mut output = std::fs::File::create(&output_path)
                 .map_err(|e| format!("failed to create output: {e}"))?;
-              trace_to_text::<()>(&input, &mut output, Some(&db), 1024)
+              trace_to_text::<crate::ViewerTracingEvent>(&input, &mut output, Some(&db), 1024)
                 .map_err(|e| format!("conversion failed: {e}"))?;
               Ok::<_, String>(output_path)
             })
@@ -93,7 +93,7 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
                   .file_name()
                   .map(|n| n.to_string_lossy().to_string())
                   .unwrap_or_else(|| "?".into());
-                match load_replay(&path) {
+                match load_replay::<crate::ViewerTracingEvent>(&path) {
                   Ok(state) => {
                     let count = state.records.len();
                     *replay = Some(TraceReplayState { state, file_name });
@@ -118,7 +118,7 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
                 step_forward(&mut rs.state, &db);
               }
               if ui.button(">|").clicked() {
-                seek_to(&mut rs.state, &db, total);
+                restart_and_run_to(&mut rs.state, &db, total);
               }
               let is_playing = *playing;
               if ui
@@ -148,7 +148,7 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
                   ui.label(&record.summary);
                 });
                 if row.response().clicked() {
-                  seek_to(&mut rs.state, &db, idx);
+                  restart_and_run_to(&mut rs.state, &db, idx);
                 }
               });
             });

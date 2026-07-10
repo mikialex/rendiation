@@ -49,7 +49,7 @@ pub fn build_name_table(database: &Database) -> NameTable {
 /// send over the network).
 pub fn start_tracing<T: TraceIO + Send + Sync + 'static>(
   database: &Database,
-  mut writer: impl TraceWriter<TracingMessage<T>>,
+  writer: impl TraceWriter<TracingMessage<T>>,
 ) -> impl TraceWriter<TracingMessage<T>> {
   let name_table = build_name_table(database);
   writer.write_header(&name_table);
@@ -66,7 +66,7 @@ pub fn start_tracing<T: TraceIO + Send + Sync + 'static>(
 
     let e_id = *e_id;
     let e_name_id = name_table.entity_name_to_id[&e_id];
-    let mut writer__ = writer_.clone();
+    let writer__ = writer_.clone();
 
     table.entity_watchers().on(move |change| {
       match change {
@@ -95,7 +95,7 @@ pub fn start_tracing<T: TraceIO + Send + Sync + 'static>(
     });
 
     table.visit_components(|component| {
-      let mut writer__ = writer_.clone();
+      let writer__ = writer_.clone();
       let c_name_id = name_table.component_name_to_id[&component.component_type_id];
       let c_is_fk = component.as_foreign_key.is_some();
       component.data_watchers.on(move |change| unsafe {

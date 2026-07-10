@@ -9,15 +9,16 @@ pub struct ParsedRecord {
   pub index: usize,
   pub summary: String,
   pub kind: RecordKind,
-  /// The original RawEntityHandle from the trace (needed for handle mapping).
-  pub original_handle: Option<RawEntityHandle>,
+  /// Whether this record is a replay target boundary (user event).
+  pub is_replay_target: bool,
 }
 
 pub enum RecordKind {
-  EntityCreated(u32),
-  EntityDeleted(u32),
+  EntityCreated(u32, RawEntityHandle),
+  EntityDeleted(u32, RawEntityHandle),
   EntityFieldSet {
     name_id: u32,
+    handle: RawEntityHandle,
     field_data: EntityFieldData,
   },
   Event,
@@ -28,25 +29,37 @@ pub struct ReplayState {
   pub records: Vec<ParsedRecord>,
   pub position: usize,
   names: Vec<String>,
-  handle_map: FastHashMap<RawEntityHandle, RawEntityHandle>,
+  /// Per-entity-type handle map: EntityId → (original handle → live handle).
+  /// Each entity type has its own independent handle allocator, so the same
+  /// RawEntityHandle value can appear in different entity types.
+  handle_map: FastHashMap<EntityId, FastHashMap<RawEntityHandle, RawEntityHandle>>,
+}
+
+pub trait TraceReplayTarget {
+  fn is_replay_target(&self) -> bool;
 }
 
 /// Load a trace file and build a `ReplayState`.
-pub fn load_replay(input_path: impl AsRef<std::path::Path>) -> std::io::Result<ReplayState> {
+pub fn load_replay<T: TraceIO + TraceReplayTarget>(
+  input_path: impl AsRef<std::path::Path>,
+) -> std::io::Result<ReplayState> {
   let mut file = std::fs::File::open(input_path)?;
   let name_table = read_trace_file_header(&mut file)?;
 
   let mut records = Vec::new();
   loop {
-    match TracingMessage::<()>::read(&mut file) {
+    match TracingMessage::<T>::read(&mut file) {
       Ok(msg) => {
-        let (kind, original_handle) = extract_kind(&msg);
-        let summary = format_replay_summary(&msg, &name_table.names);
+        let (kind, is_replay_target) = extract_kind(&msg);
+        let mut summary = format_replay_summary(&msg, &name_table.names);
+        if is_replay_target {
+          summary.push_str(" ◀ target");
+        }
         records.push(ParsedRecord {
           index: records.len(),
           summary,
           kind,
-          original_handle,
+          is_replay_target,
         });
       }
       Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
@@ -62,97 +75,95 @@ pub fn load_replay(input_path: impl AsRef<std::path::Path>) -> std::io::Result<R
   })
 }
 
-fn extract_kind(msg: &TracingMessage<()>) -> (RecordKind, Option<RawEntityHandle>) {
+fn extract_kind<T: TraceReplayTarget>(msg: &TracingMessage<T>) -> (RecordKind, bool) {
   match msg {
-    TracingMessage::Event(_) => (RecordKind::Event, None),
+    TracingMessage::Event(e) => (RecordKind::Event, e.is_replay_target()),
     TracingMessage::DatabaseMutation(db_msg) => match db_msg {
       DatabaseTracingMessage::EntityCreated(name_id, handle) => {
-        (RecordKind::EntityCreated(*name_id), Some(*handle))
+        (RecordKind::EntityCreated(*name_id, *handle), false)
       }
       DatabaseTracingMessage::EntityDeleted(name_id, handle) => {
-        (RecordKind::EntityDeleted(*name_id), Some(*handle))
+        (RecordKind::EntityDeleted(*name_id, *handle), false)
       }
       DatabaseTracingMessage::EntityFieldSet(name_id, handle, field_data) => (
         RecordKind::EntityFieldSet {
           name_id: *name_id,
-          field_data: clone_field_data(field_data),
+          handle: *handle,
+          field_data: field_data.clone(),
         },
-        Some(*handle),
+        false,
       ),
     },
   }
 }
 
-fn clone_field_data(data: &EntityFieldData) -> EntityFieldData {
-  match data {
-    EntityFieldData::Pod(bytes) => EntityFieldData::Pod(bytes.clone()),
-    EntityFieldData::ForeignKey(fk) => EntityFieldData::ForeignKey(*fk),
+/// Apply records until the next target event (inclusive).
+/// After this returns, the database is at a consistent frame boundary.
+/// If no target event remains, applies all remaining records.
+pub fn step_forward(state: &mut ReplayState, db: &Database) {
+  loop {
+    if state.position >= state.records.len() {
+      break;
+    }
+    let is_target = state.records[state.position].is_replay_target;
+    step_forward_single(state, db);
+    if is_target {
+      break;
+    }
   }
 }
 
-/// Apply the record at `state.position` and advance.
-pub fn step_forward(state: &mut ReplayState, db: &Database) {
+/// Apply a single record at `state.position` and advance by one.
+/// Use this for fine-grained inspection; prefer `step_forward` for normal replay.
+pub fn step_forward_single(state: &mut ReplayState, db: &Database) {
   if state.position >= state.records.len() {
     return;
   }
   let record = &state.records[state.position];
-  apply_single(
-    db,
-    &state.names,
-    &mut state.handle_map,
-    &record.kind,
-    record.original_handle,
-  );
+  apply_single(db, &state.names, &mut state.handle_map, &record.kind);
   state.position += 1;
 }
 
-/// Apply a single record kind. Public for use by seek_to.
+/// Apply a single record kind.
 fn apply_single(
   db: &Database,
   names: &[String],
-  handle_map: &mut FastHashMap<RawEntityHandle, RawEntityHandle>,
+  handle_map: &mut FastHashMap<EntityId, FastHashMap<RawEntityHandle, RawEntityHandle>>,
   kind: &RecordKind,
-  original_handle: Option<RawEntityHandle>,
 ) {
   match kind {
-    RecordKind::EntityCreated(name_id) => {
+    RecordKind::EntityCreated(name_id, orig) => {
       let e_name = lookup_name(names, *name_id);
       let e_id = resolve_entity_id(db, e_name);
       let live = db.entity_writer_untyped_dyn(e_id).new_entity(|w| w);
-      if let Some(orig) = original_handle {
-        handle_map.insert(orig, live);
-      }
+      handle_map.entry(e_id).or_default().insert(*orig, live);
     }
-    RecordKind::EntityDeleted(name_id) => {
-      if let Some(orig) = original_handle {
-        if let Some(live) = handle_map.get(&orig).copied() {
-          let e_name = lookup_name(names, *name_id);
-          let e_id = resolve_entity_id(db, e_name);
-          db.entity_writer_untyped_dyn(e_id).delete_entity(live);
-        }
+    RecordKind::EntityDeleted(name_id, orig) => {
+      let e_name = lookup_name(names, *name_id);
+      let e_id = resolve_entity_id(db, e_name);
+      if let Some(live) = handle_map.get(&e_id).and_then(|m| m.get(orig)).copied() {
+        db.entity_writer_untyped_dyn(e_id).delete_entity(live);
+        handle_map.get_mut(&e_id).unwrap().remove(orig);
       }
     }
     RecordKind::EntityFieldSet {
       name_id,
+      handle,
       field_data,
     } => {
-      if let Some(orig) = original_handle {
-        if let Some(live) = handle_map.get(&orig).copied() {
-          apply_field_set(db, names, *name_id, field_data, live, handle_map);
-        }
-      }
+      apply_field_set(db, names, *name_id, field_data, *handle, handle_map);
     }
     RecordKind::Event => {}
   }
 }
 
-/// Reset and replay from 0 to `target`.
-pub fn seek_to(state: &mut ReplayState, db: &Database, target: usize) {
+/// Reset and replay from 0 to `target` record index.
+pub fn restart_and_run_to(state: &mut ReplayState, db: &Database, target: usize) {
   let target = target.min(state.records.len());
   state.position = 0;
   state.handle_map.clear();
   while state.position < target {
-    step_forward(state, db);
+    step_forward_single(state, db);
   }
 }
 
@@ -174,7 +185,7 @@ fn apply_field_set(
   name_id: u32,
   field_data: &EntityFieldData,
   live_handle: RawEntityHandle,
-  handle_map: &FastHashMap<RawEntityHandle, RawEntityHandle>,
+  handle_map: &FastHashMap<EntityId, FastHashMap<RawEntityHandle, RawEntityHandle>>,
 ) {
   let component_name = lookup_name(names, name_id);
 
@@ -187,11 +198,6 @@ fn apply_field_set(
     .component_to_entity
     .get(&c_id)
     .unwrap_or_else(|| panic!("entity for component \"{}\" not found", component_name));
-  let is_fk = name_mapping
-    .components
-    .get(&c_id)
-    .map(|_| true)
-    .unwrap_or(false);
   drop(name_mapping);
 
   db.access_table_dyn(e_id, |table| {
@@ -204,8 +210,16 @@ fn apply_field_set(
         }
         EntityFieldData::ForeignKey(fk) => match fk {
           Some(h) => {
-            let remapped = *handle_map
-              .get(h)
+            let target_e_id = component.as_foreign_key.unwrap_or_else(|| {
+              panic!(
+                "FK component \"{}\" missing foreign key target",
+                component_name
+              )
+            });
+            let remapped = handle_map
+              .get(&target_e_id)
+              .and_then(|m| m.get(h))
+              .copied()
               .unwrap_or_else(|| panic!("FK target {:?} not created yet — invalid trace", h));
             DBFastSerializeSmallBufferOrForeignKey::ForeignKey(remapped)
           }
@@ -217,7 +231,6 @@ fn apply_field_set(
           }
         },
       };
-      let _ = is_fk;
       unsafe {
         writer.write_by_small_serialize_data(live_handle, value);
       }
@@ -225,12 +238,12 @@ fn apply_field_set(
   });
 }
 
-fn format_replay_summary(msg: &TracingMessage<()>, names: &[String]) -> String {
+fn format_replay_summary<T>(msg: &TracingMessage<T>, names: &[String]) -> String {
   fn lookup(names: &[String], id: u32) -> &str {
     names.get(id as usize).map(|s| s.as_str()).unwrap_or("?")
   }
   match msg {
-    TracingMessage::Event(()) => "[Event]".to_string(),
+    TracingMessage::Event(_) => "[Event]".to_string(),
     TracingMessage::DatabaseMutation(db_msg) => match db_msg {
       DatabaseTracingMessage::EntityCreated(name_id, handle) => format!(
         "Created entity=\"{}\" ({}, g:{})",
