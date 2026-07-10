@@ -44,19 +44,6 @@ pub struct ViewerCx<'a> {
 }
 
 impl<'a> ViewerCx<'a> {
-  /// this is a workaround for avoid deadlock in use_persistent_db_scope
-  pub fn suppress_scene_writer(&mut self) {
-    if let ViewerCxStage::SceneContentUpdate { .. } = &self.stage {
-      self.stage = ViewerCxStage::SceneContentUpdateSuppressed;
-    };
-  }
-
-  pub fn re_enable_scene_writer(&mut self) {
-    if let ViewerCxStage::SceneContentUpdateSuppressed = &self.stage {
-      self.active_scene_writer();
-    };
-  }
-
   fn active_scene_writer(&mut self) {
     let writer = SceneWriter::from_global(self.active_surface_content.scene);
 
