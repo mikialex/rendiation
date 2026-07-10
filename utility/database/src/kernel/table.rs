@@ -258,15 +258,16 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
 
   pub fn declare_sparse_foreign_key_maybe_sparse<S: ForeignKeySemantic<Entity = E>>(
     mut self,
-    sparse: bool,
+    _sparse: bool,
   ) -> Self {
-    if sparse {
-      let storage = init_sparse_storage::<S>();
-      self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
-    } else {
-      let storage = init_linear_storage::<S>();
-      self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
-    };
+    // todo, fix sparse has bug
+    // // if sparse {
+    //   let storage = init_sparse_storage::<S>();
+    //   self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
+    // } else {
+    let storage = init_linear_storage::<S>();
+    self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
+    // };
 
     self
       .inner

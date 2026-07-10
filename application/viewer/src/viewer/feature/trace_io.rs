@@ -16,6 +16,10 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for TraceIOState {
 struct TraceReplayState {
   state: ReplayState,
   file_name: String,
+  selected_scene: Option<EntityHandle<SceneEntity>>,
+  // todo, this is not safe, because this scene entity may be deleted by other features.
+  // here we not consider this case for now.
+  trace_init_scene_backup: EntityHandle<SceneEntity>,
 }
 
 pub fn use_enable_trace_io(cx: &mut ViewerCx) {
@@ -96,7 +100,12 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
                 match load_replay::<crate::ViewerTracingEvent>(&path) {
                   Ok(state) => {
                     let count = state.records.len();
-                    *replay = Some(TraceReplayState { state, file_name });
+                    *replay = Some(TraceReplayState {
+                      state,
+                      file_name,
+                      selected_scene: None,
+                      trace_init_scene_backup: cx.active_surface_content.scene,
+                    });
                     log::info!("loaded {} records", count);
                   }
                   Err(e) => {
@@ -128,6 +137,19 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
                 *playing = !is_playing;
               }
             });
+
+            egui::ComboBox::from_label("Scene")
+              .selected_text(
+                rs.selected_scene
+                  .map(|h| format!("{:?}", h))
+                  .unwrap_or_else(|| "None".to_string()),
+              )
+              .show_ui(ui, |ui| {
+                ui.selectable_value(&mut rs.selected_scene, None, "None");
+                for scene in iter_current_loaded_scenes(&rs.state) {
+                  ui.selectable_value(&mut rs.selected_scene, Some(scene), format!("{:?}", scene));
+                }
+              });
 
             let table = egui_extras::TableBuilder::new(ui)
               .striped(true)
@@ -166,4 +188,30 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
       }
     }
   }
+
+  // sync selected scene to active_surface_content
+  if let Some(ref mut rs) = replay.as_mut() {
+    if let Some(selected) = rs.selected_scene {
+      let alive = iter_current_loaded_scenes(&rs.state).any(|h| h == selected);
+      if !alive {
+        rs.selected_scene = None;
+      }
+    }
+    if let Some(scene) = rs.selected_scene {
+      cx.active_surface_content.scene = scene;
+    } else {
+      cx.active_surface_content.scene = rs.trace_init_scene_backup;
+    }
+  }
+}
+
+fn iter_current_loaded_scenes(
+  state: &ReplayState,
+) -> impl Iterator<Item = EntityHandle<SceneEntity>> + '_ {
+  state
+    .handle_map
+    .get(&SceneEntity::entity_id())
+    .into_iter()
+    .flat_map(|m| m.values().copied())
+    .map(|h| unsafe { EntityHandle::<SceneEntity>::from_raw(h) })
 }

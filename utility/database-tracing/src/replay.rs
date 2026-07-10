@@ -28,11 +28,11 @@ pub enum RecordKind {
 pub struct ReplayState {
   pub records: Vec<ParsedRecord>,
   pub position: usize,
-  names: Vec<String>,
+  pub names: Vec<String>,
   /// Per-entity-type handle map: EntityId → (original handle → live handle).
   /// Each entity type has its own independent handle allocator, so the same
   /// RawEntityHandle value can appear in different entity types.
-  handle_map: FastHashMap<EntityId, FastHashMap<RawEntityHandle, RawEntityHandle>>,
+  pub handle_map: FastHashMap<EntityId, FastHashMap<RawEntityHandle, RawEntityHandle>>,
 }
 
 pub trait TraceReplayTarget {
@@ -184,7 +184,7 @@ fn apply_field_set(
   names: &[String],
   name_id: u32,
   field_data: &EntityFieldData,
-  live_handle: RawEntityHandle,
+  original_handle: RawEntityHandle,
   handle_map: &FastHashMap<EntityId, FastHashMap<RawEntityHandle, RawEntityHandle>>,
 ) {
   let component_name = lookup_name(names, name_id);
@@ -199,6 +199,17 @@ fn apply_field_set(
     .get(&c_id)
     .unwrap_or_else(|| panic!("entity for component \"{}\" not found", component_name));
   drop(name_mapping);
+
+  let live_handle = handle_map
+    .get(&e_id)
+    .and_then(|m| m.get(&original_handle))
+    .copied()
+    .unwrap_or_else(|| {
+      panic!(
+        "entity owning \"{}\" with original handle {:?} not created yet — invalid trace",
+        component_name, original_handle,
+      )
+    });
 
   db.access_table_dyn(e_id, |table| {
     table.access_component(c_id, |component| {
