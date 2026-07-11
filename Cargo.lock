@@ -4992,7 +4992,7 @@ dependencies = [
  "rfd",
  "rmp-serde",
  "serde",
- "serde_json",
+ "toml",
  "tracing",
  "tracing-subscriber",
  "tracing-tracy",
@@ -5075,7 +5075,7 @@ dependencies = [
  "rendiation-wide-styled-points",
  "rmp-serde",
  "serde",
- "serde_json",
+ "toml",
  "tracing",
  "web-time",
 ]

@@ -29,7 +29,7 @@ humansize = { workspace = true }
 png = "*"
 rmp-serde = { workspace = true }
 pollster = { workspace = true }
-serde_json = "*"
+toml = { workspace = true }
 event-source = { path = "../../utility/event-source" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }

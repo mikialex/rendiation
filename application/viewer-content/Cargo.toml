@@ -22,7 +22,7 @@ humansize = { workspace = true }
 png = "*"
 rmp-serde = { workspace = true }
 pollster = { workspace = true }
-serde_json = "*"
+toml = { workspace = true }
 event-source = { path = "../../utility/event-source" }
 rendiation-animation = { path = "../../content/animation" }
 rendiation-algebra = { path = "../../math/algebra" }

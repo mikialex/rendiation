@@ -43,14 +43,15 @@ pub struct ViewerAppFeaturesConfig {
   pub pick_scene: PickScenePersistConfig,
 }
 
-const INIT_FILE_NAME: &str = "viewer_app_init_config.json";
+const INIT_FILE_NAME: &str = "viewer_app_init_config.toml";
+const EXPORT_FILE_NAME: &str = "viewer_app_init_config_new_exported.toml";
 
 impl ViewerAppFeaturesConfig {
-  pub fn from_default_json_or_default() -> Self {
+  pub fn from_default_toml_or_default() -> Self {
     #[cfg(not(target_family = "wasm"))]
     return {
       let path = std::env::current_dir().unwrap().join(INIT_FILE_NAME);
-      Self::from_json_or_default(path).unwrap_or_default()
+      Self::from_toml_or_default(path).unwrap_or_default()
     };
 
     #[cfg(target_family = "wasm")]
@@ -59,37 +60,26 @@ impl ViewerAppFeaturesConfig {
 
   #[cfg(not(target_family = "wasm"))]
   pub fn export_to_current_dir(&self) {
-    let path = std::env::current_dir().unwrap().join(INIT_FILE_NAME);
-    let json_file = std::fs::File::create_buffered(path).unwrap();
-    serde_json::to_writer_pretty(json_file, self).unwrap();
+    let path = std::env::current_dir().unwrap().join(EXPORT_FILE_NAME);
+    let config_str = toml::to_string_pretty(self).unwrap();
+    std::fs::write(&path, config_str).unwrap();
   }
 
   #[cfg(target_family = "wasm")]
   pub fn export_to_current_dir(&self) {
-    let config_str = serde_json::to_string_pretty(self).unwrap();
+    let config_str = toml::to_string_pretty(self).unwrap();
     log::info!("{}", config_str);
   }
 
-  pub fn from_json_or_default(path: impl AsRef<std::path::Path>) -> Option<Self> {
+  pub fn from_toml_or_default(path: impl AsRef<std::path::Path>) -> Option<Self> {
     let path = path.as_ref();
-
-    let json_file = std::fs::File::open_buffered(path)
-      .inspect_err(|e| {
-        log::warn!(
-          "failed to read app feature config from {:?}, error: {e:?}",
-          path
-        )
-      })
+    let config_str = std::fs::read_to_string(path)
+      .inspect_err(|e| log::warn!("failed to read app config from {:?}, error: {e:?}", path))
       .ok()?;
 
-    serde_json::from_reader(json_file)
-      .inspect(|_| log::info!("successfully load app feature config from {:?}", path))
-      .inspect_err(|e| {
-        log::warn!(
-          "failed to parse app feature  config from {:?}, error: {e:?}",
-          path
-        )
-      })
+    toml::from_str(&config_str)
+      .inspect(|_| log::info!("successfully load app config from {:?}", path))
+      .inspect_err(|e| log::warn!("failed to parse config from {:?}, error: {e:?}", path))
       .ok()
   }
 }
