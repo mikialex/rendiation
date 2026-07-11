@@ -34,6 +34,12 @@ pub use trace_io::*;
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 pub struct ViewerAppFeaturesConfig {
+  /// if Some, then enable db level tracing for viewer if supported.
+  ///
+  /// if use relative path, the tracing write path is relative to current directory
+  ///
+  /// this config is init only
+  pub enable_tracing_and_tracing_write_path: Option<String>,
   pub pick_scene: PickScenePersistConfig,
 }
 

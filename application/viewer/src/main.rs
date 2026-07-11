@@ -131,17 +131,17 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   register_viewer_content_data_model();
 
   let init_config = ViewerInitConfig::from_default_json_or_default();
+  let app_init_config = ViewerAppFeaturesConfig::from_default_json_or_default();
 
-  let trace_event_notifier = if let Some(ref trace_write_path) =
-    init_config.init_only.enable_tracing_and_tracing_write_path
-  {
-    use database_tracing::*;
-    let writer = FileTraceWriter::<TracingMessage<ViewerTracingEvent>>::new(trace_write_path);
-    let trace_event_notifier = start_tracing(&global_database(), writer);
-    Some(trace_event_notifier)
-  } else {
-    None
-  };
+  let trace_event_notifier =
+    if let Some(ref trace_write_path) = app_init_config.enable_tracing_and_tracing_write_path {
+      use database_tracing::*;
+      let writer = FileTraceWriter::<TracingMessage<ViewerTracingEvent>>::new(trace_write_path);
+      let trace_event_notifier = start_tracing(&global_database(), writer);
+      Some(trace_event_notifier)
+    } else {
+      None
+    };
 
   // we do config override instead of gpu init override to reflect change in the init config
   #[cfg(target_family = "wasm")]
@@ -188,6 +188,7 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
         cx,
         egui_cx,
         &init_config,
+        &app_init_config,
         &|message| {
           if let Some(notifier) = &trace_event_notifier {
             notifier.write_message(database_tracing::TracingMessage::Event(message));

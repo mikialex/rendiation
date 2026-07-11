@@ -34,10 +34,6 @@ pub struct ViewerInitConfig {
 #[serde(default)] // any missing field will be set to the struct's default
 /// configs that can not be changed dynamically in runtime
 pub struct ViewerStaticInitConfig {
-  /// if Some, then enable db level tracing for viewer if supported.
-  ///
-  /// if use relative path, the tracing write path is relative to current directory
-  pub enable_tracing_and_tracing_write_path: Option<String>,
   /// this config should be changed at runtime, but due to the implementation limitation, we have to put it here for now
   pub use_native_line_for_one_width_line: bool,
   pub texture_pool_source_init_config: TexturePoolSourceInit,
@@ -92,7 +88,6 @@ impl Default for ViewerStaticInitConfig {
       },
     };
     Self {
-      enable_tracing_and_tracing_write_path: None,
       enable_reverse_z: true,
       texture_pool_source_init_config: init,
       thread_pool_thread_count: None,

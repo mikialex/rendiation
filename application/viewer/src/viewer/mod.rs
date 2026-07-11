@@ -299,6 +299,7 @@ pub fn use_viewer<'a>(
   acx: &'a mut ApplicationCx,
   egui_ctx: &mut egui::Context,
   init_config: &ViewerInitConfig,
+  app_init_config: &ViewerAppFeaturesConfig,
   trace_event_notifier: &dyn Fn(ViewerTracingEvent),
   f: impl Fn(&mut ViewerCx),
 ) -> &'a mut Viewer {
@@ -403,8 +404,7 @@ pub fn use_viewer<'a>(
       .new_entity(|w| w)
   });
 
-  let (acx, app_features) =
-    acx.use_plain_state(|| ViewerAppFeaturesConfig::from_default_json_or_default());
+  let (acx, app_features) = acx.use_plain_state(|| app_init_config.clone());
 
   let (acx, axis) = acx.use_plain_state(|| WorldCoordinateAxis::new(&acx.gpu_and_surface.gpu));
 
