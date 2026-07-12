@@ -955,8 +955,10 @@ void clipping_plane_set_scene(ViewerEntityHandle handle, const ViewerEntityHandl
 
 void attribute_mesh_set_is_solid(ViewerEntityHandle handle, bool is_solid);
 
-/// call this to setup panic message writer when panic happens
-void rendiation_init();
+/// This must be called before any other rendiation c api
+///
+/// if trace_write_path is null_ptr, then the api tracing will be disabled
+void rendiation_init(const char *trace_write_path);
 
 }  // extern "C"
 

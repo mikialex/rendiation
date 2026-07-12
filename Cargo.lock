@@ -6136,6 +6136,8 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "cbindgen",
+ "database",
+ "database-tracing",
  "env_logger",
  "fast-hash-collection",
  "futures",
@@ -6149,6 +6151,8 @@ dependencies = [
  "rendiation-text-3d",
  "rendiation-texture-gpu-process",
  "rendiation-viewer-content",
+ "rmp-serde",
+ "serde",
  "wgpu-types",
 ]
 

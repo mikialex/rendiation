@@ -6,6 +6,7 @@ pub struct ViewerAPI {
   pub(crate) core: ViewerAPICore,
   picker_mem: FunctionMemory,
   world_derive_access_mem: FunctionMemory,
+  event_trace_sender: APITraceEventSender,
 }
 
 pub struct ViewerAPICore {
@@ -81,6 +82,10 @@ impl ViewerAPICore {
 
 impl Drop for ViewerAPI {
   fn drop(&mut self) {
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::DropViewer);
+
     let mut drop_cx = ViewerAPICxDropCx {
       dyn_cx: &mut self.core.dyn_cx,
     };
@@ -200,12 +205,27 @@ impl ViewerAPI {
     };
     self.core.viewer.surfaces_content.insert(surface_id, scene);
 
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::CreateSurface {
+        hwnd: hwnd as u64,
+        hinstance: hinstance as u64,
+        returned_surface_id: surface_id as u64,
+        width,
+        height,
+      });
+
     self.resize(surface_id, width, height);
 
     surface_id
   }
 
   pub fn drop_surface(&mut self, surface_id: u32) {
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::DeleteSurface {
+        surface_id: surface_id as u64,
+      });
     self.core.surfaces.remove(&surface_id);
     self.core.viewer.drop_surface(surface_id);
   }
@@ -286,10 +306,17 @@ impl ViewerAPI {
       core,
       picker_mem: Default::default(),
       world_derive_access_mem: Default::default(),
+      event_trace_sender: expect_tracing_event_emitter(),
     }
   }
 
   pub fn set_device_pixel_ratio(&mut self, surface_id: u32, device_pixel_ratio: f32) {
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::SetDevicePixelRatio {
+        surface_id: surface_id as u64,
+        device_pixel_ratio,
+      });
     if let Some(content) = self.core.viewer.surfaces_content.get_mut(&surface_id) {
       content.device_pixel_ratio = device_pixel_ratio;
     } else {
@@ -299,6 +326,13 @@ impl ViewerAPI {
 
   /// the size is physical resolution
   pub fn resize(&mut self, surface_id: u32, new_width: u32, new_height: u32) {
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::ResizeSurface {
+        surface_id: surface_id as u64,
+        width: new_width,
+        height: new_height,
+      });
     if let Some(surface) = self.core.surfaces.get_mut(&surface_id) {
       surface.set_size(Size::from_u32_pair_min_one((new_width, new_height)));
     } else {
@@ -315,6 +349,12 @@ impl ViewerAPI {
   }
 
   pub fn create_query_api(&mut self, surface_id: u32) -> ViewerQueryAPI {
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::CreatePicker {
+        surface_id: surface_id as u64,
+      });
+
     setup_new_frame_allocator(1 * 1024 * 1024);
     self.core.viewer_api_cx_scope(&mut self.picker_mem, |cx| {
       cx.viewer.update_view_ty_immediate();
@@ -335,6 +375,7 @@ impl ViewerAPI {
         ViewerQueryAPI {
           picker_impl,
           surface_id,
+          event_trace_sender: self.event_trace_sender.clone(),
         }
       })
     })
@@ -343,6 +384,7 @@ impl ViewerAPI {
   pub fn create_world_derive_query_api(&mut self) -> ViewerWorldDeriveQueryAPI {
     setup_new_frame_allocator(1 * 1024 * 1024);
     let font_sys = self.core.viewer.font_system.clone();
+    let event_trace_sender = self.event_trace_sender.clone();
     self
       .core
       .viewer_api_cx_scope(&mut self.world_derive_access_mem, move |cx| {
@@ -367,6 +409,7 @@ impl ViewerAPI {
             sm_world_bound,
             sm_local_bound,
             scene_bounding: scene_bounding.unwrap(),
+            event_trace_sender: event_trace_sender.clone(),
           }
         })
       })
@@ -374,6 +417,11 @@ impl ViewerAPI {
 
   pub fn render_surface(&mut self, surface_id: u32) {
     setup_new_frame_allocator(1 * 1024 * 1024);
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::Render {
+        surface_id: surface_id as u64,
+      });
     let core = &mut self.core;
     core.viewer.update_view_ty_immediate();
     if let Some(surface) = core.surfaces.get(&surface_id) {
@@ -410,12 +458,32 @@ pub struct ViewerWorldDeriveQueryAPI {
   pub world_mats: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
   pub sm_world_bound: BoxedDynQuery<RawEntityHandle, Option<Box3<f64>>>,
   pub sm_local_bound: BoxedDynQuery<RawEntityHandle, Box3<f32>>,
+  event_trace_sender: APITraceEventSender,
   pub scene_bounding: SceneBoundingComputer,
 }
 
+impl Drop for ViewerWorldDeriveQueryAPI {
+  fn drop(&mut self) {
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::DropWorldDeriveQuery);
+  }
+}
+
 pub struct ViewerQueryAPI {
+  event_trace_sender: APITraceEventSender,
   picker_impl: ViewerPicker,
   surface_id: u32,
+}
+
+impl Drop for ViewerQueryAPI {
+  fn drop(&mut self) {
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::DropPicker {
+        surface_id: self.surface_id as u64,
+      });
+  }
 }
 
 #[repr(C)]
@@ -450,6 +518,15 @@ impl ViewerQueryAPI {
     extra_screen_space_tolerance: f32,
     output_results: &mut Vec<ViewerRayPickResult>,
   ) {
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::PickerPickList {
+        surface_id: self.surface_id as u64,
+        scene,
+        x,
+        y,
+        extra_screen_space_tolerance,
+      });
     let mut results = Vec::new();
     let mut model_results = Vec::new();
     let mut local_result_scratch = Vec::new();
@@ -500,6 +577,19 @@ impl ViewerQueryAPI {
     precise_intersection_test: bool,
     extra_screen_space_tolerance: f32,
   ) {
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::PickRange {
+        surface_id: self.surface_id as u64,
+        scene,
+        ax,
+        ay,
+        bx,
+        by,
+        contain,
+        precise_intersection_test,
+        extra_screen_space_tolerance,
+      });
     let scene = unsafe { EntityHandle::from_raw(scene) };
     let a = Vec2::new(ax, ay);
     let b = Vec2::new(bx, by);
@@ -539,6 +629,15 @@ pub struct SceneBoundingComputer {
   qbvh: Option<SceneBVHResultView>,
   sm_to_local_bbox: BoxedDynQuery<RawEntityHandle, Box3<f32>>,
   view_maps: BoxedDynQuery<ViewSceneModelKey, Mat4<f64>>,
+  event_trace_sender: APITraceEventSender,
+}
+
+impl Drop for SceneBoundingComputer {
+  fn drop(&mut self) {
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::DropBoundingComputer);
+  }
 }
 
 impl SceneBoundingComputer {
@@ -547,9 +646,16 @@ impl SceneBoundingComputer {
     scene: EntityHandle<SceneEntity>,
     active_view_id: Option<u64>,
   ) -> Box3<f32> {
+    let scene_raw = scene.into_raw();
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::SceneBoundingQuery {
+        scene: scene_raw,
+        active_view_id,
+      });
     let mut r = Box3::empty();
     if let Some(qbvh) = &self.qbvh {
-      if let Some(aabb) = qbvh.bvh.get_root_aabb(scene.into_raw()) {
+      if let Some(aabb) = qbvh.bvh.get_root_aabb(scene_raw) {
         r = aabb;
       } // the none case is possible if the scene is empty?
     } else {
@@ -574,6 +680,7 @@ impl SceneBoundingComputer {
 }
 
 fn use_bounding_computer(cx: &mut ViewerAPICx) -> Option<SceneBoundingComputer> {
+  expect_tracing_event_emitter().emit(&RendiationCxAPITraceEvent::CreateBoundingComputer);
   let qbvh = if cx.viewer.use_scene_bvh {
     cx.scope(|cx| Some(cx.use_shared_compute(ViewerQbvhShared(cx.viewer.font_system.clone()))))
   } else {
@@ -595,5 +702,6 @@ fn use_bounding_computer(cx: &mut ViewerAPICx) -> Option<SceneBoundingComputer> 
     qbvh: qbvh.map(|v| v.into_resolve_stage()).flatten(),
     sm_to_local_bbox: sm_local_bounding.expect_resolve_stage(),
     view_maps: view_maps.expect_resolve_stage(),
+    event_trace_sender: expect_tracing_event_emitter(),
   })
 }

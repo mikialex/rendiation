@@ -26,6 +26,12 @@ rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 wgpu-types = { workspace = true }
 ordered-float = "4.6"
 
+database = { path = "../../utility/database" }
+database-tracing = { path = "../../utility/database-tracing" }
+
+serde = { workspace = true }
+rmp-serde = { workspace = true }
+
 mimalloc = { version = "0.1.52", optional = true }
 
 [build-dependencies]
