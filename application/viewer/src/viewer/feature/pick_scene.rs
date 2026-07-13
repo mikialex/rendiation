@@ -97,10 +97,11 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
         });
 
       let scene = writer.expect_target_scene().some_handle();
+      let node = writer.create_root_child();
       writer.model_writer.new_entity(|w| {
         w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
           .write::<SceneModelBelongsToScene>(&scene)
-          .write::<SceneModelRefNode>(&cx.active_surface_content.root.some_handle())
+          .write::<SceneModelRefNode>(&node.some_handle())
       });
     }
   }

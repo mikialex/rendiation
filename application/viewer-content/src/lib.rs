@@ -123,7 +123,6 @@ pub struct ViewerSurfaceContent {
 
   // the currently implementation only allows one scene for one surface, not one scene for one viewport
   // todo, lift this restriction
-  pub root: EntityHandle<SceneNodeEntity>,
   pub scene: EntityHandle<SceneEntity>,
   pub background: ViewerBackgroundState,
 }

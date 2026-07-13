@@ -153,10 +153,6 @@ impl ViewerAPI {
 
     self.core.surfaces.insert(surface_id, surface);
 
-    let root = global_entity_of::<SceneNodeEntity>()
-      .entity_writer()
-      .new_entity(|w| w);
-
     let scene = global_entity_of::<SceneEntity>()
       .entity_writer()
       .new_entity(|w| w);
@@ -198,7 +194,6 @@ impl ViewerAPI {
 
     let scene = ViewerSurfaceContent {
       scene,
-      root,
       viewports,
       device_pixel_ratio: 1.0,
       background,

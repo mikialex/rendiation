@@ -325,10 +325,6 @@ pub fn use_viewer<'a>(
         worker_thread_pool.clone(),
       );
 
-      let root = global_entity_of::<SceneNodeEntity>()
-        .entity_writer()
-        .new_entity(|w| w);
-
       let scene = global_entity_of::<SceneEntity>()
         .entity_writer()
         .new_entity(|w| w);
@@ -369,7 +365,6 @@ pub fn use_viewer<'a>(
       let surface_content = ViewerSurfaceContent {
         viewports: vec![viewport],
         device_pixel_ratio: 1.0,
-        root,
         scene,
         background,
       };

@@ -25,7 +25,6 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
   cx.use_state_init(|cx| {
     cx.terminal
       .register_command(CMD_LOAD_WAVEFRONT_OBJ, |ctx, _parameters, tcx| {
-        let load_target_node = ctx.scene.root;
         let load_target_scene = ctx.scene.scene;
         let tcx = tcx.clone();
 
@@ -42,6 +41,8 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
               .spawn_main_thread(move || {
                 let mut writer = SceneWriter::from_global(load_target_scene);
                 let default_mat = writer.pbr_sg_mat_writer.new_entity(|w| w);
+
+                let load_target_node = writer.create_root_child();
 
                 #[cfg(not(target_family = "wasm"))]
                 rendiation_scene_obj_loader::load_obj(

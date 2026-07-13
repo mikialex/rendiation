@@ -16,11 +16,14 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
   let (cx, all_scene_cameras_cached) = cx.use_plain_state();
 
   if cx.is_resolve_stage() {
-    *all_scene_cameras_cached = all_scene_cameras
+    *all_scene_cameras_cached = if let Some(iter) = all_scene_cameras
       .expect_resolve_stage()
       .access_multi(&cx.active_surface_content.scene.into_raw())
-      .unwrap()
-      .collect::<FastHashSet<RawEntityHandle>>();
+    {
+      iter.collect::<FastHashSet<RawEntityHandle>>()
+    } else {
+      Default::default()
+    };
   }
 
   if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {

@@ -64,7 +64,6 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
 
     cx.terminal
       .register_command(CMD_LOAD_GLTF, move |ctx, _parameters, tcx| {
-        let load_target_node = ctx.scene.root;
         let load_target_scene = ctx.scene.scene;
         let tcx = tcx.clone();
         let sender = sender.clone();
@@ -109,6 +108,8 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
                 let _ = trace_span!("write gltf into scene").entered();
                 let mut writer = SceneWriter::from_global(load_target_scene);
                 let mut buffer_backend = mesh_buffer_backend.write();
+
+                let load_target_node = writer.create_root_child();
 
                 let load_result = write_gltf_at_node(
                   load_target_node,
