@@ -60,14 +60,14 @@ pub struct CommonTestLights {
 }
 
 impl CommonTestLights {
-  pub fn new(writer: &mut SceneWriter) -> Self {
+  pub fn new(writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) -> Self {
     let light1 = {
       let node = writer.create_root_child();
       writer.set_local_matrix(node, Mat4::lookat(Vec3::splat(100.), Vec3::splat(0.), UP));
       let entity = DirectionalLightDataView {
         illuminance: Vec3::splat(5.),
         node,
-        scene: writer.expect_target_scene(),
+        scene,
       }
       .write(&mut writer.directional_light_writer);
       DirectionalLightWithNode { entity, node }
@@ -82,7 +82,7 @@ impl CommonTestLights {
       let entity = DirectionalLightDataView {
         illuminance: Vec3::new(5., 3., 2.) * 5.,
         node,
-        scene: writer.expect_target_scene(),
+        scene,
       }
       .write(&mut writer.directional_light_writer);
       DirectionalLightWithNode { entity, node }

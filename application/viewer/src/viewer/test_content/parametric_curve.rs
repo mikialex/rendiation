@@ -21,7 +21,7 @@ fn sample_curve_to_vertices(
   vertices
 }
 
-pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
+pub fn load_parametric_curve_test(writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
   // --- Left group: Bezier decomposition of a NURBS curve with interior knots ---
   {
     let nurbs = {
@@ -62,10 +62,9 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
         });
 
       let child = writer.create_child(root);
-      let scene = writer.expect_target_scene().some_handle();
       writer.model_writer.new_entity(|w| {
         w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
-          .write::<SceneModelBelongsToScene>(&scene)
+          .write::<SceneModelBelongsToScene>(&scene.some_handle())
           .write::<SceneModelRefNode>(&child.some_handle())
       });
     }
@@ -109,10 +108,9 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
     let root = writer.create_root_child();
     writer.set_local_matrix(root, Mat4::translate((3.0, 0., 2.5)).into_f64());
 
-    let scene = writer.expect_target_scene().some_handle();
     writer.model_writer.new_entity(|w| {
       w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
-        .write::<SceneModelBelongsToScene>(&scene)
+        .write::<SceneModelBelongsToScene>(&scene.some_handle())
         .write::<SceneModelRefNode>(&root.some_handle())
     });
   }
@@ -181,15 +179,14 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
       let child = writer.create_child(root);
       writer.set_local_matrix(child, Mat4::translate((offset, 0., 0.)));
 
-      let scene = writer.expect_target_scene().some_handle();
       writer.model_writer.new_entity(|w| {
         w.write::<SceneModelWideLineRenderPayload>(&poly_model.some_handle())
-          .write::<SceneModelBelongsToScene>(&scene)
+          .write::<SceneModelBelongsToScene>(&scene.some_handle())
           .write::<SceneModelRefNode>(&child.some_handle())
       });
       writer.model_writer.new_entity(|w| {
         w.write::<SceneModelWideLineRenderPayload>(&curve_model.some_handle())
-          .write::<SceneModelBelongsToScene>(&scene)
+          .write::<SceneModelBelongsToScene>(&scene.some_handle())
           .write::<SceneModelRefNode>(&child.some_handle())
       });
     }

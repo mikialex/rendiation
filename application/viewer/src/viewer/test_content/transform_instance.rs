@@ -2,7 +2,10 @@ use rendiation_mesh_generator::*;
 
 use crate::*;
 
-pub fn load_transform_instanced_wide_line_test(s_writer: &mut SceneWriter) {
+pub fn load_transform_instanced_wide_line_test(
+  s_writer: &mut SceneWriter,
+  scene: EntityHandle<SceneEntity>,
+) {
   // Build source wide line mesh (sphere)
   let mesh_buffer = build_wide_line_mesh(|builder| {
     builder.build_grid_parametric(
@@ -29,10 +32,9 @@ pub fn load_transform_instanced_wide_line_test(s_writer: &mut SceneWriter) {
   // todo, check if we could set scene model visible?
   s_writer.set_local_matrix(source_node, Mat4::identity());
 
-  let scene = s_writer.expect_target_scene().some_handle();
   let source_scene_model = s_writer.model_writer.new_entity(|w| {
     w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
-      .write::<SceneModelBelongsToScene>(&scene)
+      .write::<SceneModelBelongsToScene>(&scene.some_handle())
       .write::<SceneModelRefNode>(&source_node.some_handle())
   });
 
@@ -57,7 +59,7 @@ pub fn load_transform_instanced_wide_line_test(s_writer: &mut SceneWriter) {
 
   s_writer.model_writer.new_entity(|w| {
     w.write::<SceneModelTransformInstancedModelPayload>(&transform_instanced_model.some_handle())
-      .write::<SceneModelBelongsToScene>(&scene)
+      .write::<SceneModelBelongsToScene>(&scene.some_handle())
       .write::<SceneModelRefNode>(&instanced_node.some_handle())
   });
 }

@@ -112,13 +112,14 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
             tcx
               .spawn_main_thread(move || {
                 let _ = trace_span!("write gltf into scene").entered();
-                let mut writer = SceneWriter::from_global(load_target_scene);
+                let mut writer = SceneWriter::from_global();
                 let mut buffer_backend = mesh_buffer_backend.write();
 
                 let load_target_node = writer.create_root_child();
 
                 let load_result = write_gltf_at_node(
                   load_target_node,
+                  load_target_scene,
                   &mut writer,
                   create_mesh_uri_in_loading.then_some(buffer_backend.as_mut()),
                   gltf

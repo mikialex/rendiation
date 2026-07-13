@@ -94,21 +94,19 @@ pub fn use_immediate_helper_model(
     }
     ViewerCxStage::SceneContentUpdate { writer, .. } => {
       if let Some(lines) = changes.take() {
-        writer.write_other_scene(Some(cx.widget_scene), |writer| {
-          let lines: &[u8] = cast_slice(lines.as_slice());
+        let lines: &[u8] = cast_slice(lines.as_slice());
 
-          let lines = AttributesMeshData {
-            attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
-            indices: None,
-            mode: MeshPrimitiveTopology::LineList,
-          };
+        let lines = AttributesMeshData {
+          attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
+          indices: None,
+          mode: MeshPrimitiveTopology::LineList,
+        };
 
-          if let Some(model) = &mut helper_mesh.internal {
-            model.replace_new_shape_and_cleanup_old(writer, lines);
-          } else {
-            helper_mesh.internal = UIWidgetModel::new(writer, lines).into();
-          }
-        })
+        if let Some(model) = &mut helper_mesh.internal {
+          model.replace_new_shape_and_cleanup_old(writer, lines);
+        } else {
+          helper_mesh.internal = UIWidgetModel::new(writer, cx.widget_scene, lines).into();
+        }
       }
 
       None

@@ -24,7 +24,7 @@ pub fn use_texture_material_share_example(cx: &mut ViewerCx) {
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
     if !example.initialized {
-      example.initialize(writer);
+      example.initialize(writer, cx.active_surface_content.scene);
     }
 
     if example.replace_texture_pending {
@@ -122,7 +122,7 @@ impl TextureAndMaterialShareExample {
     }
   }
 
-  fn initialize(&mut self, writer: &mut SceneWriter) {
+  fn initialize(&mut self, writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
     // Build a shared sphere mesh used by all 8 balls
     let attribute_mesh = build_attributes_mesh(|builder| {
       builder.triangulate_parametric(
@@ -205,6 +205,7 @@ impl TextureAndMaterialShareExample {
         SceneMaterialDataView::PbrMRMaterial(self.mr_materials[i % 2]),
         mesh,
         node,
+        scene,
       );
       self
         .scene_units
@@ -220,6 +221,7 @@ impl TextureAndMaterialShareExample {
         SceneMaterialDataView::PbrSGMaterial(self.sg_materials[i]),
         mesh,
         node,
+        scene,
       );
       self
         .scene_units
@@ -230,7 +232,6 @@ impl TextureAndMaterialShareExample {
     // (OccStyle uses StdModelOccStyleMaterialPayload instead of SceneMaterialDataView)
     let occ_positions = [(-1.5, -6.0, 0.0), (1.5, -6.0, 0.0)];
     // safe: SceneWriter always has a target scene when called from ViewerCx stage
-    let scene = writer.expect_target_scene();
     for (i, &pos) in occ_positions.iter().enumerate() {
       let node = writer.create_root_child();
       writer.set_local_matrix(node, Mat4::translate(pos));
@@ -248,7 +249,7 @@ impl TextureAndMaterialShareExample {
         .push(SceneModelWithUniqueNode { model, node });
     }
 
-    self.lights = Some(CommonTestLights::new(writer));
+    self.lights = Some(CommonTestLights::new(writer, scene));
     self.initialized = true;
   }
 

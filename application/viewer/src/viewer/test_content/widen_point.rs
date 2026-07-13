@@ -2,6 +2,7 @@ use crate::*;
 
 pub fn load_widen_points_test(
   s_writer: &mut SceneWriter,
+  scene: EntityHandle<SceneEntity>,
   texture_data_source: &mut ViewerTextureDataSource,
 ) {
   let mut writer = global_entity_of::<WideStyledPointsEntity>().entity_writer();
@@ -24,11 +25,9 @@ pub fn load_widen_points_test(
   let child = s_writer.create_root_child();
   s_writer.set_local_matrix(child, Mat4::translate((10., 5., 0.)));
 
-  let scene = s_writer.expect_target_scene().some_handle();
-
   s_writer.model_writer.new_entity(|w| {
     w.write::<SceneModelWideStyledPointsRenderPayload>(&wide_points_model.some_handle())
-      .write::<SceneModelBelongsToScene>(&scene)
+      .write::<SceneModelBelongsToScene>(&scene.some_handle())
       .write::<SceneModelRefNode>(&child.some_handle())
   });
 
@@ -54,11 +53,9 @@ pub fn load_widen_points_test(
   let child = s_writer.create_root_child();
   s_writer.set_local_matrix(child, Mat4::translate((15., 5., 0.)));
 
-  let scene = s_writer.expect_target_scene().some_handle();
-
   s_writer.model_writer.new_entity(|w| {
     w.write::<SceneModelWideStyledPointsRenderPayload>(&wide_points_model.some_handle())
-      .write::<SceneModelBelongsToScene>(&scene)
+      .write::<SceneModelBelongsToScene>(&scene.some_handle())
       .write::<SceneModelRefNode>(&child.some_handle())
   });
 }

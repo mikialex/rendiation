@@ -33,6 +33,7 @@ pub struct ViewerCx<'a> {
   pub active_surface_content: &'a mut ViewerSurfaceContent,
   pub app_features: &'a mut ViewerAppFeaturesConfig,
 
+  // this id should be immutable
   pub widget_scene: EntityHandle<SceneEntity>,
 
   pub absolute_seconds_from_start: f32,
@@ -46,7 +47,7 @@ pub struct ViewerCx<'a> {
 
 impl<'a> ViewerCx<'a> {
   fn active_scene_writer(&mut self) {
-    let writer = SceneWriter::from_global(self.active_surface_content.scene);
+    let writer = SceneWriter::from_global();
 
     self.stage = ViewerCxStage::SceneContentUpdate {
       writer: Box::new(writer),
@@ -74,7 +75,7 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
   }
   fn flush(&mut self) {
     if let ViewerCxStage::Gui { .. } = &mut self.stage {
-      let writer = SceneWriter::from_global(self.active_surface_content.scene);
+      let writer = SceneWriter::from_global();
       let mut drop_cx = ViewerDropCx {
         dyn_cx: self.dyn_cx,
         writer,
@@ -330,10 +331,10 @@ pub fn use_viewer<'a>(
         .new_entity(|w| w);
 
       let background = {
-        let mut writer = SceneWriter::from_global(scene);
+        let mut writer = SceneWriter::from_global();
 
         let default_env_background = load_example_cube_tex(&mut writer);
-        ViewerBackgroundState::init(default_env_background, &mut writer)
+        ViewerBackgroundState::init(default_env_background, &mut writer, scene)
       };
 
       let camera_node = global_entity_of::<SceneNodeEntity>()
@@ -380,8 +381,13 @@ pub fn use_viewer<'a>(
       {
         let mut tex_source = data_scheduler.texture_uri_backend.write();
         let mut mesh_source = data_scheduler.mesh_uri_backend.write();
-        let mut writer = SceneWriter::from_global(scene);
-        load_default_scene(&mut writer, tex_source.as_mut(), mesh_source.as_mut());
+        let mut writer = SceneWriter::from_global();
+        load_default_scene(
+          &mut writer,
+          scene,
+          tex_source.as_mut(),
+          mesh_source.as_mut(),
+        );
       };
 
       viewer

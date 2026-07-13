@@ -171,7 +171,7 @@ fn use_axis_interactive_model(
   });
   let (cx, model) = cx.use_state_init(|cx| {
     access_cx!(cx.cx, mesh, AttributesMeshEntities);
-    UIWidgetModelProxy::new(cx.writer, node, material, mesh)
+    UIWidgetModelProxy::new(cx.writer, cx.scene, node, material, mesh)
   });
 
   use_pickable_model(cx, model);

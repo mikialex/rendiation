@@ -16,6 +16,7 @@ pub enum ObjLoadError {
 pub fn load_obj(
   path: impl AsRef<Path> + std::fmt::Debug,
   node: EntityHandle<SceneNodeEntity>,
+  target_scene: EntityHandle<SceneEntity>,
   default_mat: EntityHandle<PbrSGMaterialEntity>,
   writer: &mut SceneWriter,
 ) -> Result<(), ObjLoadError> {
@@ -26,7 +27,7 @@ pub fn load_obj(
 
     let sm = SceneModelDataView {
       model: std_model,
-      scene: writer.expect_target_scene(),
+      scene: target_scene,
       node,
     };
 

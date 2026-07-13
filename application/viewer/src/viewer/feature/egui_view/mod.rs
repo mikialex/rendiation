@@ -249,11 +249,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         .open(&mut ui_state.object_inspection)
         .vscroll(true)
         .show(ui, |ui| {
-          inspect_selected(
-            ui,
-            &mut cx.viewer.selection,
-            cx.active_surface_content.scene,
-          );
+          inspect_selected(ui, &mut cx.viewer.selection);
           Some(())
         });
     }

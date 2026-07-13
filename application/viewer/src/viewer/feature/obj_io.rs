@@ -39,7 +39,7 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
           if let Some(file_handle) = file_handle {
             tcx
               .spawn_main_thread(move || {
-                let mut writer = SceneWriter::from_global(load_target_scene);
+                let mut writer = SceneWriter::from_global();
                 let default_mat = writer.pbr_sg_mat_writer.new_entity(|w| w);
 
                 let load_target_node = writer.create_root_child();
@@ -48,6 +48,7 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
                 rendiation_scene_obj_loader::load_obj(
                   file_handle.path(),
                   load_target_node,
+                  load_target_scene,
                   default_mat,
                   &mut writer,
                 )

@@ -186,10 +186,11 @@ impl ViewerAPI {
     }];
 
     let background = {
-      let mut writer = SceneWriter::from_global(scene);
+      // todo, create this writer is wasteful
+      let mut writer = SceneWriter::from_global();
 
       let default_env_background = load_example_cube_tex(&mut writer);
-      ViewerBackgroundState::init(default_env_background, &mut writer)
+      ViewerBackgroundState::init(default_env_background, &mut writer, scene)
     };
 
     let scene = ViewerSurfaceContent {

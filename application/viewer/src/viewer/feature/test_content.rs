@@ -18,7 +18,8 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
       .show(egui_ctx, |ui| {
         if ui.button("load many cubes").clicked() {
           load_stress_test(
-            &mut SceneWriter::from_global(cx.active_surface_content.scene),
+            &mut SceneWriter::from_global(),
+            cx.active_surface_content.scene,
             true,
           )
         }

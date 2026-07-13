@@ -1,9 +1,9 @@
 use crate::{viewer::use_scene_reader, *};
 
-#[derive(Default)]
 struct UI3DMemory {
   memory: FunctionMemory,
   pick_group: WidgetSceneModelIntersectionGroupConfig,
+  widget_scene: EntityHandle<SceneEntity>,
 }
 
 impl CanCleanUpFrom<ViewerDropCx<'_>> for UI3DMemory {
@@ -12,13 +12,18 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for UI3DMemory {
       writer: &mut cx.writer,
       cx: cx.dyn_cx,
       pick_group: &mut self.pick_group,
+      scene: self.widget_scene,
     } as *mut _ as *mut ());
   }
 }
 
 pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
-  let (viewer_cx, memory) = viewer_cx.use_state_init(|_| UI3DMemory::default());
   let widget_scene = viewer_cx.widget_scene;
+  let (viewer_cx, memory) = viewer_cx.use_state_init(|_| UI3DMemory {
+    memory: Default::default(),
+    pick_group: Default::default(),
+    widget_scene,
+  });
 
   #[allow(unused_assignments)] // false positive?
   let mut interaction = None;
@@ -47,6 +52,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
           widget_env,
         },
         reader,
+        memory.widget_scene,
         viewer_cx.dyn_cx,
         &mut memory.pick_group,
       );
@@ -63,22 +69,12 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
         &mut memory.memory,
         viewer_cx.dyn_cx,
         writer,
+        memory.widget_scene,
         &mut memory.pick_group,
       );
 
-      let mut scene_old = None;
       cx.execute(|cx| {
-        cx.on_update(|w, _| {
-          scene_old = w.replace_target_scene(Some(widget_scene)).into();
-        });
-
         f(cx);
-
-        cx.on_update(|w, _| {
-          if let Some(scene) = scene_old.take() {
-            w.scene = scene
-          }
-        });
       });
     }
     _ => {}

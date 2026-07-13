@@ -103,15 +103,16 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
   }
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
+    let scene = cx.active_surface_content.scene;
     if let Some(SimplifySelectMeshRequest(Some(mesh), _)) = simp_req.take() {
       if let Some(target) = cx.viewer.selection.selected_model.if_single() {
-        create_simplified_mesh(writer, target, mesh);
+        create_simplified_mesh(writer, scene, target, mesh);
       }
     }
 
     if let Some(MeshSegmentationDebugRequest(Some(meshes))) = seg_req.take() {
       meshes.into_iter().for_each(|mesh| {
-        create_segmented_debug_mesh(writer, mesh);
+        create_segmented_debug_mesh(writer, scene, mesh);
       });
     }
   }
@@ -261,7 +262,11 @@ fn create_mesh(
   writer.write_attribute_mesh(attribute_mesh).mesh
 }
 
-fn create_segmented_debug_mesh(writer: &mut SceneWriter, mesh: CommonMeshBuffer) {
+fn create_segmented_debug_mesh(
+  writer: &mut SceneWriter,
+  scene: EntityHandle<SceneEntity>,
+  mesh: CommonMeshBuffer,
+) {
   let mesh = create_mesh(writer, mesh);
 
   let r: f32 = rand::random();
@@ -276,11 +281,12 @@ fn create_segmented_debug_mesh(writer: &mut SceneWriter, mesh: CommonMeshBuffer)
   let material = SceneMaterialDataView::UnlitMaterial(material);
 
   let child = writer.create_root_child();
-  writer.create_scene_model(material, mesh, child);
+  writer.create_scene_model(material, mesh, child, scene);
 }
 
 fn create_simplified_mesh(
   writer: &mut SceneWriter,
+  scene: EntityHandle<SceneEntity>,
   target: EntityHandle<SceneModelEntity>,
   mesh: CommonMeshBuffer,
 ) {
@@ -298,7 +304,7 @@ fn create_simplified_mesh(
 
   SceneModelDataView {
     model: std_model,
-    scene: writer.expect_target_scene(),
+    scene,
     node: child,
   }
   .write(&mut writer.model_writer);
