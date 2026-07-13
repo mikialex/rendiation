@@ -9,7 +9,6 @@
 
 use std::any::Any;
 use std::future::Future;
-use std::hash::Hash;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
