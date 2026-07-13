@@ -58,6 +58,7 @@ pub struct LightingRenderingCxPrepareCtx {
 }
 
 impl LightSystem {
+  // todo, avoid update shadows when using ray tracing backend
   pub fn prepare(
     &self,
     instance: LightingRenderingCxPrepareCtx,

@@ -370,6 +370,7 @@ impl Viewer3dViewportRenderingCtx {
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &mut ViewerRendererInstance,
+    lighting: &LightingRenderingCx,
     content: &ViewerSurfaceContent,
     selection_info: &ViewerSelectionStates,
     viewport: &ViewerViewPort,
@@ -399,7 +400,7 @@ impl Viewer3dViewportRenderingCtx {
           content,
           &render_target,
           camera,
-          renderer.lighting.tonemap,
+          lighting.tonemap,
         );
       });
     } else {
@@ -407,6 +408,7 @@ impl Viewer3dViewportRenderingCtx {
         self.render_raster(
           ctx,
           renderer,
+          lighting,
           content,
           &render_target,
           viewport,
@@ -522,6 +524,7 @@ impl Viewer3dViewportRenderingCtx {
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &mut ViewerRendererInstance,
+    lighting: &LightingRenderingCx,
     content: &ViewerSurfaceContent,
     render_target: &RenderTargetView,
     viewport: &ViewerViewPort,
@@ -584,7 +587,7 @@ impl Viewer3dViewportRenderingCtx {
 
         render_lighting_scene_content(
           ctx,
-          &renderer.lighting,
+          lighting,
           &mut renderer.culling,
           &renderer_c,
           &renderer.clipping,
