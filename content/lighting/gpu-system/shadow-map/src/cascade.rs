@@ -163,8 +163,7 @@ impl CascadeShadowPreparer {
     self,
     resource_cache: &mut CascadeShadowGPUCache,
     frame_ctx: &mut FrameCtx,
-    // proj, world
-    scene_content: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
+    scene_content: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest),
     reversed_depth: bool,
   ) -> CascadeShadowGPUData {
     let shadow_map_atlas = &mut resource_cache.texture;
@@ -182,7 +181,7 @@ impl CascadeShadowPreparer {
         continue;
       }
       let proj_info = self.light_proj_info.get(light_id).unwrap();
-      let world = proj_info.0;
+      let shadow_camera_world = proj_info.0;
 
       for (slice_index, shadow_view) in cascade.map_info.iter().enumerate() {
         let shadow_view = shadow_view.map_info;
@@ -199,15 +198,18 @@ impl CascadeShadowPreparer {
           load_and_store(),
         );
 
-        let proj = proj_info.1[slice_index];
+        let shadow_camera_proj = proj_info.1[slice_index];
 
         scene_content(
-          proj,
-          world,
           frame_ctx,
-          ShadowPassDesc {
-            desc: pass,
-            address: shadow_view,
+          ShadowMapDrawRequest {
+            shadow_camera_proj,
+            shadow_camera_world,
+            light_id: *light_id,
+            map_desc: ShadowPassDesc {
+              desc: pass,
+              address: shadow_view,
+            },
           },
         );
       }

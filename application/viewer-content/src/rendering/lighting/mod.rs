@@ -65,7 +65,6 @@ impl LightSystem {
     reversed_depth: bool,
     renderer: &dyn SceneRenderer,
     extractor: &dyn SceneBatchBasicExtractAbility,
-    target_scene: EntityHandle<SceneEntity>,
   ) -> LightingRenderingCx<'_> {
     self.tonemap.update(frame_ctx.gpu);
 
@@ -73,29 +72,38 @@ impl LightSystem {
       only_alpha_blend_objects: None,
     };
 
-    // this a bit hacky, but it works
+    // it's a bit hacky, but it works
     let mut shadow_id = 0;
-    let mut content =
-      |proj: Mat4<f32>, world: Mat4<f64>, frame_ctx: &mut FrameCtx, desc: ShadowPassDesc| {
-        let camera = UniformBufferDataView::create(
-          &frame_ctx.gpu.device,
-          CameraGPUTransform::from(CameraTransform::new(proj, world)),
-          "camera for shadow",
-        );
 
-        // we could just use empty pass dispatcher, because the color channel not exist at all
-        let depth = ();
-        let camera = Box::new(CameraGPU { ubo: camera }) as Box<dyn RenderComponent>;
-        let batch = extractor.extract_scene_batch(target_scene, key, renderer);
+    let mut content = |frame_ctx: &mut FrameCtx<'_>, request, scene_id| {
+      let ShadowMapDrawRequest {
+        shadow_camera_proj,
+        shadow_camera_world,
+        map_desc,
+        ..
+      } = request;
 
-        frame_ctx.keyed_scope(&shadow_id, |frame_ctx| {
-          let mut content =
-            renderer.make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
+      let camera = UniformBufferDataView::create(
+        &frame_ctx.gpu.device,
+        CameraGPUTransform::from(CameraTransform::new(
+          shadow_camera_proj,
+          shadow_camera_world,
+        )),
+        "camera for shadow",
+      );
 
-          desc.render_ctx(frame_ctx).by(&mut content);
-        });
-        shadow_id += 1;
-      };
+      // we could just use empty pass dispatcher, because the color channel not exist at all
+      let depth = ();
+      let camera = Box::new(CameraGPU { ubo: camera }) as Box<dyn RenderComponent>;
+      let batch = extractor.extract_scene_batch(scene_id, key, renderer);
+
+      frame_ctx.keyed_scope(&shadow_id, |frame_ctx| {
+        let mut content = renderer.make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
+
+        map_desc.render_ctx(frame_ctx).by(&mut content);
+      });
+      shadow_id += 1;
+    };
 
     let ds = instance
       .dir_lights

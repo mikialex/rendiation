@@ -586,7 +586,6 @@ impl Viewer3dRenderingCtx {
       self.ndc.enable_reverse_z,
       renderer.raster_scene_renderer.as_ref(),
       renderer.batch_extractor.as_ref(),
-      surface_content.scene,
     );
 
     let mut renderer = ViewerRendererInstance {

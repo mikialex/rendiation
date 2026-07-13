@@ -47,6 +47,7 @@ pub fn use_directional_light_uniform(
   directional_light_uniforms.map(|light| SceneDirectionalLightingPreparer {
     shadow: shadow.unwrap(),
     light,
+    scene_ref: read_global_db_foreign_key(),
   })
 }
 
@@ -120,22 +121,33 @@ enum ViewerDirectionalShadowPreparer {
 pub struct SceneDirectionalLightingPreparer {
   shadow: ViewerDirectionalShadowPreparer,
   light: SharedLightUniformInfo<DirectionalLightUniform>,
+  scene_ref: ForeignKeyReadView<DirectionalRefScene>,
 }
 
 impl SceneDirectionalLightingPreparer {
   pub fn update_shadow_maps(
     self,
     frame_ctx: &mut FrameCtx,
-    draw: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
+    draw: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest, EntityHandle<SceneEntity>),
     reversed_depth: bool,
   ) -> Box<dyn LightSystemSceneProvider> {
+    let mut draw = |f_ctx: &mut FrameCtx<'_>, param: ShadowMapDrawRequest| {
+      let light_id = unsafe { EntityHandle::from_raw(param.light_id) };
+      let scene_id = self
+        .scene_ref
+        .get(light_id)
+        .expect("lighting missing scene ref");
+
+      draw(f_ctx, param, scene_id);
+    };
+
     let shadows = match self.shadow {
       ViewerDirectionalShadowPreparer::Basic(preparer) => {
-        let shadow_gpu_data = preparer.update_shadow_maps(frame_ctx, draw, reversed_depth);
+        let shadow_gpu_data = preparer.update_shadow_maps(frame_ctx, &mut draw, reversed_depth);
         ShadowImplType::Basic(shadow_gpu_data)
       }
       ViewerDirectionalShadowPreparer::Cascade(cascade_shadow_map_preparer) => {
-        let shadow = cascade_shadow_map_preparer.update(frame_ctx, draw, reversed_depth);
+        let shadow = cascade_shadow_map_preparer.update(frame_ctx, &mut draw, reversed_depth);
         ShadowImplType::Cascade(shadow)
       }
       ViewerDirectionalShadowPreparer::NoShadow => ShadowImplType::NoShadow,

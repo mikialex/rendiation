@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use database::RawEntityHandle;
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
 use rendiation_texture_core::*;
@@ -19,6 +20,13 @@ mod map_utils;
 use map_utils::*;
 
 pub const MAX_SHADOW_COUNT: usize = 8;
+
+pub struct ShadowMapDrawRequest {
+  pub shadow_camera_proj: Mat4<f32>,
+  pub shadow_camera_world: Mat4<f64>,
+  pub light_id: RawEntityHandle,
+  pub map_desc: ShadowPassDesc,
+}
 
 pub struct ShadowPassDesc {
   desc: RenderPassDescription,
