@@ -612,8 +612,8 @@ impl ViewerQueryAPI {
 
 pub struct SceneBoundingComputer {
   qbvh: Option<SceneBVHResultView>,
-  sm_to_local_bbox: BoxedDynQuery<RawEntityHandle, Box3<f32>>,
-  view_maps: BoxedDynQuery<ViewSceneModelKey, Mat4<f64>>,
+  pub sm_to_local_bbox: BoxedDynQuery<RawEntityHandle, Box3<f32>>,
+  pub view_maps: BoxedDynQuery<ViewSceneModelKey, Mat4<f64>>,
   event_trace_sender: APITraceEventSender,
 }
 

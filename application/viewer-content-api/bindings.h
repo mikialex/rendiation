@@ -681,13 +681,18 @@ bool world_derive_query_api_get_world_mat(ViewerWorldDeriveQueryAPI *api,
                                           ViewerEntityHandle node,
                                           double (*r)[16]);
 
+bool world_derive_query_api_get_world_bbox_with_persist(ViewerWorldDeriveQueryAPI *api,
+                                                        ViewerEntityHandle sm,
+                                                        uint64_t surface_id,
+                                                        double (*result)[6]);
+
 bool world_derive_query_api_get_world_bounding(ViewerWorldDeriveQueryAPI *api,
                                                ViewerEntityHandle sm,
                                                double (*result)[6]);
 
 bool world_derive_query_api_get_local_bounding(ViewerWorldDeriveQueryAPI *api,
                                                ViewerEntityHandle sm,
-                                               float (*result)[6]);
+                                               double (*result)[6]);
 
 ViewerQueryAPI *viewer_create_picker_api(ViewerAPI *api, uint32_t surface_id);
 

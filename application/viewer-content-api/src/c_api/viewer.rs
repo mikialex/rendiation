@@ -172,6 +172,29 @@ pub extern "C" fn world_derive_query_api_get_world_mat(
 }
 
 #[no_mangle]
+pub extern "C" fn world_derive_query_api_get_world_bbox_with_persist(
+  api: &mut ViewerWorldDeriveQueryAPI,
+  sm: ViewerEntityHandle,
+  surface_id: u64,
+  result: &mut [f64; 6],
+) -> bool {
+  let key = (surface_id, sm.into());
+  if let Some(mat) = api.scene_bounding.view_maps.access(&key) {
+    if let Some(other) = api.scene_bounding.sm_to_local_bbox.access(&sm.into()) {
+      let bbox = other.into_f64().apply_matrix_into(mat);
+      result[0] = bbox.min.x;
+      result[1] = bbox.min.y;
+      result[2] = bbox.min.z;
+      result[3] = bbox.max.x;
+      result[4] = bbox.max.y;
+      result[5] = bbox.max.z;
+      return true;
+    }
+  }
+  false
+}
+
+#[no_mangle]
 pub extern "C" fn world_derive_query_api_get_world_bounding(
   api: &mut ViewerWorldDeriveQueryAPI,
   sm: ViewerEntityHandle,
@@ -195,9 +218,10 @@ pub extern "C" fn world_derive_query_api_get_world_bounding(
 pub extern "C" fn world_derive_query_api_get_local_bounding(
   api: &mut ViewerWorldDeriveQueryAPI,
   sm: ViewerEntityHandle,
-  result: &mut [f32; 6],
+  result: &mut [f64; 6],
 ) -> bool {
   if let Some(bbox) = api.sm_local_bound.access(&sm.into()) {
+    let bbox = bbox.into_f64();
     result[0] = bbox.min.x;
     result[1] = bbox.min.y;
     result[2] = bbox.min.z;
