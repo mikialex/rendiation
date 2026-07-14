@@ -371,7 +371,6 @@ impl Viewer3dViewportRenderingCtx {
     ctx: &mut FrameCtx,
     renderer: &mut ViewerRendererInstance,
     lighting: &LightingRenderingCx,
-    content: &ViewerSurfaceContent,
     selection_info: &ViewerSelectionStates,
     viewport: &ViewerViewPort,
     final_target: &RenderTargetView,
@@ -397,9 +396,9 @@ impl Viewer3dViewportRenderingCtx {
         self.render_ray_tracing(
           ctx,
           renderer,
-          content,
           &render_target,
           camera,
+          viewport.scene,
           lighting.tonemap,
         );
       });
@@ -409,7 +408,6 @@ impl Viewer3dViewportRenderingCtx {
           ctx,
           renderer,
           lighting,
-          content,
           &render_target,
           viewport,
           selection_info,
@@ -457,9 +455,9 @@ impl Viewer3dViewportRenderingCtx {
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &ViewerRendererInstance,
-    content: &ViewerSurfaceContent,
     final_target: &RenderTargetView,
     camera: EntityHandle<SceneCameraEntity>,
+    scene: EntityHandle<SceneEntity>,
     tonemap: &ToneMap,
   ) {
     if let Some((rtx_renderer, core)) = &renderer.rtx_system {
@@ -477,7 +475,7 @@ impl Viewer3dViewportRenderingCtx {
               ctx,
               core.rtx_system.as_ref(),
               &rtx_renderer.base.0,
-              content.scene,
+              scene,
               camera,
               &rtx_renderer.ao.0,
             );
@@ -501,7 +499,7 @@ impl Viewer3dViewportRenderingCtx {
               ctx,
               core.rtx_system.as_ref(),
               &rtx_renderer.base.0,
-              content.scene,
+              scene,
               camera,
               tonemap,
               &renderer.background,
@@ -525,7 +523,6 @@ impl Viewer3dViewportRenderingCtx {
     ctx: &mut FrameCtx,
     renderer: &mut ViewerRendererInstance,
     lighting: &LightingRenderingCx,
-    content: &ViewerSurfaceContent,
     render_target: &RenderTargetView,
     viewport: &ViewerViewPort,
     selection_info: &ViewerSelectionStates,
@@ -563,7 +560,7 @@ impl Viewer3dViewportRenderingCtx {
     let (clip_component, clip_helper) =
       renderer
         .clipping
-        .use_get_scene_clipping(content.scene, ctx, renderer.reversed_depth);
+        .use_get_scene_clipping(viewport.scene, ctx, renderer.reversed_depth);
     let clip_component = &OptionRender(clip_component) as &dyn RenderComponent;
 
     let mut content_for_taa = ViewerContentForTAA {
@@ -593,7 +590,7 @@ impl Viewer3dViewportRenderingCtx {
           &renderer.clipping,
           clip_component,
           &clip_helper,
-          content.scene,
+          viewport.scene,
           viewport,
           &scene_result,
           &g_buffer,

@@ -612,7 +612,6 @@ impl Viewer3dRenderingCtx {
           ctx,
           &mut renderer,
           &lighting_cx,
-          surface_content,
           selection_info,
           viewport,
           final_target,

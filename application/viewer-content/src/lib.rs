@@ -77,7 +77,6 @@ use serde::{Deserialize, Serialize};
 use tracing::*;
 pub use view_dependent_transform::SceneModelViewDependentTransformOccShare;
 
-mod background;
 mod bounding;
 mod data_source;
 mod egui_helper;
@@ -97,7 +96,6 @@ mod viewport;
 #[cfg(not(target_arch = "wasm32"))]
 pub use std::time::Instant;
 
-pub use background::*;
 pub use bounding::*;
 pub use data_source::*;
 pub use egui_helper::*;
@@ -120,11 +118,6 @@ pub struct ViewerSurfaceContent {
   pub viewports: Vec<ViewerViewPort>,
   /// the viewport is physical size. we store the dpi per surface to help the convert to logic pixel
   pub device_pixel_ratio: f32,
-
-  // the currently implementation only allows one scene for one surface, not one scene for one viewport
-  // todo, lift this restriction
-  pub scene: EntityHandle<SceneEntity>,
-  pub background: ViewerBackgroundState,
 }
 
 pub fn register_viewer_content_data_model() {

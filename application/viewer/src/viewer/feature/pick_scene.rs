@@ -96,7 +96,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
             .write::<WideLineMeshBuffer>(&buffer)
         });
 
-      let scene = cx.active_surface_content.scene.some_handle();
+      let scene = cx.default_scene.scene.some_handle();
       let node = writer.create_root_child();
       writer.model_writer.new_entity(|w| {
         w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
@@ -134,10 +134,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     if *request_bvh_debug {
       access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
       *request_bvh_debug = false;
-      if let Some(bvh_line_buffer) = picker
-        .picker_impl
-        .debug_bvh(cx.active_surface_content.scene)
-      {
+      if let Some(bvh_line_buffer) = picker.picker_impl.debug_bvh(cx.default_scene.scene) {
         let max_depth = bvh_line_buffer.len().saturating_sub(1);
         let vertices: Vec<WideLineVertex> = bvh_line_buffer
           .iter()
@@ -172,7 +169,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
         access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
 
-        if let Some(frustum) = create_range_pick_frustum(
+        if let Some((frustum, scene)) = create_range_pick_frustum(
           a,
           b,
           cx.active_surface_content,
@@ -182,7 +179,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
         ) {
           let r = measure_and_log_time("cpu pick range", || {
             picker.pick_range(
-              cx.active_surface_content.scene,
+              scene,
               &frustum,
               if use_contain_for_range_test {
                 ObjectTestPolicy::Contains
@@ -229,11 +226,9 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     } else {
       let is_request_list_pick = pressed_keys.contains(&winit::keyboard::KeyCode::KeyA);
 
-      let scene = cx.active_surface_content.scene;
-
       access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
 
-      if let Some(pointer_ctx) = &picker.pointer_ctx {
+      if let Some((pointer_ctx, scene)) = &picker.pointer_ctx {
         let mut use_cpu_pick = false;
 
         // todo watch prefer_gpu_pick changed
@@ -269,7 +264,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
         if use_cpu_pick {
           if is_request_list_pick {
             let (results, result_ids) = measure_and_log_time("cpu pick list", || {
-              picker.pick_models_list_all(pointer_ctx.world_ray, scene)
+              picker.pick_models_list_all(pointer_ctx.world_ray, *scene)
             });
             if enable_hit_debug_log {
               log::info!(
@@ -280,7 +275,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
             }
           } else {
             let _hit = measure_and_log_time("cpu pick nearest", || {
-              picker.pick_model_nearest_all(pointer_ctx.world_ray, scene)
+              picker.pick_model_nearest_all(pointer_ctx.world_ray, *scene)
             });
 
             cx.viewer.selection.selected_model.clear();

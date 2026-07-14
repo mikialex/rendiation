@@ -103,7 +103,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
   }
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
-    let scene = cx.active_surface_content.scene;
+    let scene = cx.default_scene.scene;
     if let Some(SimplifySelectMeshRequest(Some(mesh), _)) = simp_req.take() {
       if let Some(target) = cx.viewer.selection.selected_model.if_single() {
         create_simplified_mesh(writer, scene, target, mesh);

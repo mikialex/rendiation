@@ -14,18 +14,24 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
       .vscroll(true)
       .show(egui_ctx, |ui| {
         if ui.button("load obj").clicked() {
-          cx.viewer
-            .terminal
-            .buffered_requests
-            .push_back(CMD_LOAD_WAVEFRONT_OBJ.into())
+          let cmd = format!(
+            "{} {}",
+            CMD_LOAD_WAVEFRONT_OBJ,
+            handle_to_cmd_str(cx.default_scene.scene.into_raw())
+          );
+
+          cx.viewer.terminal.buffered_requests.push_back(cmd)
         }
       });
   }
 
   cx.use_state_init(|cx| {
     cx.terminal
-      .register_command(CMD_LOAD_WAVEFRONT_OBJ, |ctx, _parameters, tcx| {
-        let load_target_scene = ctx.scene.scene;
+      .register_command(CMD_LOAD_WAVEFRONT_OBJ, |ctx, parameters, tcx| {
+        let target_scene = parameters.get(1).expect("should specify target scene");
+        let target_scene = cmd_str_to_handle(target_scene).unwrap();
+        let target_scene = unsafe { EntityHandle::from_raw(target_scene) };
+
         let tcx = tcx.clone();
 
         async move {
@@ -48,7 +54,7 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
                 rendiation_scene_obj_loader::load_obj(
                   file_handle.path(),
                   load_target_node,
-                  load_target_scene,
+                  target_scene,
                   default_mat,
                   &mut writer,
                 )

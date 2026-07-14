@@ -5,9 +5,22 @@ use rendiation_scene_gltf_loader::*;
 
 use crate::{viewer::use_scene_reader, *};
 
-struct ExportGltfTerminalTask;
+struct ExportGltfTerminalTask(EntityHandle<SceneEntity>);
 impl TerminalTask for ExportGltfTerminalTask {
   type Result = ();
+}
+
+pub fn handle_to_cmd_str(handle: RawEntityHandle) -> String {
+  format!("{}-{}", handle.index(), handle.generation())
+}
+
+pub fn cmd_str_to_handle(s: &str) -> Option<RawEntityHandle> {
+  let mut parts = s.split('-');
+  let index = parts.next()?.parse().ok()?;
+  let generation = parts.next()?.parse().ok()?;
+  Some(RawEntityHandle::create_only_for_testing_with_gen(
+    index, generation,
+  ))
 }
 
 pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
@@ -27,9 +40,10 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
             if let Some(ext) = ext.to_str() {
               if ext == "gltf" || ext == "glb" {
                 cx.viewer.terminal.buffered_requests.push_back(format!(
-                  "{} {}",
+                  "{} {} {}",
                   CMD_LOAD_GLTF,
-                  file.to_string_lossy()
+                  handle_to_cmd_str(cx.default_scene.scene.into_raw()),
+                  file.to_string_lossy(),
                 ));
               }
             }
@@ -43,13 +57,8 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
       if let Some(mut dir) = dirs::download_dir() {
         dir.push("gltf_export");
 
-        rendiation_scene_gltf_exporter::build_scene_to_gltf(
-          &reader,
-          cx.active_surface_content.scene,
-          &dir,
-          "scene",
-        )
-        .unwrap();
+        rendiation_scene_gltf_exporter::build_scene_to_gltf(&reader, req.input.0, &dir, "scene")
+          .unwrap();
         req.resolve(());
       } else {
         log::error!("failed to locate the system's default download directory to write file output")
@@ -69,18 +78,21 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
     let create_mesh_uri_in_loading = *create_mesh_uri_in_loading;
 
     cx.terminal
-      .register_command(CMD_LOAD_GLTF, move |ctx, _parameters, tcx| {
-        let load_target_scene = ctx.scene.scene;
+      .register_command(CMD_LOAD_GLTF, move |ctx, parameters, tcx| {
         let tcx = tcx.clone();
         let sender = sender.clone();
         access_cx!(ctx.dyn_cx, data_scheduler, ViewerDataScheduler);
         let mesh_buffer_backend = data_scheduler.mesh_uri_backend.clone();
 
+          let load_target_scene = parameters.get(1).expect("should specify target scene");
+          let load_target_scene = cmd_str_to_handle(load_target_scene).unwrap();
+          let load_target_scene = unsafe{EntityHandle::from_raw(load_target_scene)};
 
-          let file_path = _parameters.iter().nth(1)
+          let file_path = parameters.get(2)
           .map(|v| PathBuf::try_from(v).inspect_err(
             |e| log::error!("the path parameter is invalid in command {}", e)
           ).ok()).flatten();
+
 
         async move {
           let file_content = if let Some(file_path) = file_path {
@@ -139,8 +151,13 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
       });
 
     cx.terminal
-      .register_command(CMD_EXPORT_GLTF, |_ctx, _parameters, tcx| {
-        let task = tcx.spawn_event_task::<ExportGltfTerminalTask>();
+      .register_command(CMD_EXPORT_GLTF, |_ctx, parameters, tcx| {
+
+          let target_scene = parameters.get(1).expect("should specify target scene");
+          let target_scene = cmd_str_to_handle(target_scene).unwrap();
+          let target_scene = unsafe{EntityHandle::from_raw(target_scene)};
+
+        let task = tcx.spawn_event_task(ExportGltfTerminalTask(target_scene));
         async move {
           task.await;
         }
@@ -169,17 +186,23 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
       .vscroll(true)
       .show(egui_ctx, |ui| {
         if ui.button("export gltf").clicked() {
-          cx.viewer
-            .terminal
-            .buffered_requests
-            .push_back(CMD_EXPORT_GLTF.into())
+          cx.viewer.terminal.buffered_requests.push_back(
+            format!(
+              "{} {}",
+              CMD_EXPORT_GLTF,
+              handle_to_cmd_str(cx.default_scene.scene.into_raw())
+            )
+            .into(),
+          );
         }
 
         if ui.button("load gltf").clicked() {
-          cx.viewer
-            .terminal
-            .buffered_requests
-            .push_back(CMD_LOAD_GLTF.into())
+          let cmd = format!(
+            "{} {}",
+            CMD_LOAD_GLTF,
+            handle_to_cmd_str(cx.default_scene.scene.into_raw())
+          );
+          cx.viewer.terminal.buffered_requests.push_back(cmd)
         }
 
         ui.checkbox(create_mesh_uri_in_loading, "create_mesh_uri_in_loading");

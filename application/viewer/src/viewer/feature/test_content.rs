@@ -16,28 +16,25 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
       .default_size((200., 200.))
       .vscroll(true)
       .show(egui_ctx, |ui| {
+        let scene = cx.default_scene.scene;
         if ui.button("load many cubes").clicked() {
-          load_stress_test(
-            &mut SceneWriter::from_global(),
-            cx.active_surface_content.scene,
-            true,
-          )
+          load_stress_test(&mut SceneWriter::from_global(), scene, true)
         }
 
         if ui.button("test csg clipping1").clicked() {
-          test_csg_clipping_data1(cx.active_surface_content.scene)
+          test_csg_clipping_data1(scene)
         }
 
         if ui.button("test csg clipping2").clicked() {
-          test_csg_clipping_data2(cx.active_surface_content.scene)
+          test_csg_clipping_data2(scene)
         }
 
         if ui.button("test csg clipping3").clicked() {
-          test_csg_clipping_data3(cx.active_surface_content.scene)
+          test_csg_clipping_data3(scene)
         }
 
         if ui.button("test array plane clipping1").clicked() {
-          let planes = test_array_plane_clipping_data1(cx.active_surface_content.scene);
+          let planes = test_array_plane_clipping_data1(scene);
           living_planes.extend(planes);
         }
         if ui.button("clear array plane clipping").clicked() {

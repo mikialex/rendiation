@@ -268,7 +268,6 @@ pub extern "C" fn query_scene_bounding(
 pub extern "C" fn picker_pick_list(
   api: &mut ViewerQueryAPI,
   viewer: &mut ViewerAPI,
-  scene: ViewerEntityHandle,
   x: f32,
   y: f32,
   extra_screen_space_tolerance: f32,
@@ -277,7 +276,6 @@ pub extern "C" fn picker_pick_list(
   let mut pick_results = Vec::new();
   api.pick_list(
     &viewer.core.viewer,
-    scene.into(),
     x,
     y,
     extra_screen_space_tolerance,
@@ -317,7 +315,6 @@ pub extern "C" fn drop_pick_list_result(r: *mut ViewerRayPickListResult) {
 pub extern "C" fn picker_pick_range(
   api: &mut ViewerQueryAPI,
   viewer: &mut ViewerAPI,
-  scene: ViewerEntityHandle,
   ax: f32,
   ay: f32,
   bx: f32,
@@ -329,7 +326,6 @@ pub extern "C" fn picker_pick_range(
   let mut pick_results = Vec::new();
   api.pick_range(
     &viewer.core.viewer,
-    scene.into(),
     ax,
     ay,
     bx,

@@ -14,7 +14,7 @@ pub fn use_transform_instance_example(cx: &mut ViewerCx) {
   let (cx, example) = cx.use_state_init(|_| TransformInstanceExample::new());
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
-    let scene = cx.active_surface_content.scene;
+    let scene = cx.default_scene.scene;
     if !example.initialized {
       example.initialize(writer, scene);
     }

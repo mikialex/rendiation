@@ -177,27 +177,22 @@ impl ViewerAPI {
 
     let viewport = Vec4::new(0., 0., width as f32, height as f32);
 
+    {
+      write_global_db_component::<SceneSolidBackground>().write(scene, Some(Vec3::splat(0.5)));
+    };
+
     let viewports = vec![ViewerViewPort {
       id: alloc_global_res_id(),
       viewport,
       camera,
       camera_node,
       debug_camera_for_view_related: None,
+      scene,
     }];
 
-    let background = {
-      // todo, create this writer is wasteful
-      let mut writer = SceneWriter::from_global();
-
-      let default_env_background = load_example_cube_tex(&mut writer);
-      ViewerBackgroundState::init(default_env_background, &mut writer, scene)
-    };
-
     let scene = ViewerSurfaceContent {
-      scene,
       viewports,
       device_pixel_ratio: 1.0,
-      background,
     };
     self.core.viewer.surfaces_content.insert(surface_id, scene);
 
@@ -249,7 +244,7 @@ impl ViewerAPI {
       .get_mut(&surface_id)
       .expect("surface content missing");
 
-    content.scene = unsafe { EntityHandle::from_raw(scene) }
+    content.viewports[0].scene = unsafe { EntityHandle::from_raw(scene) }
   }
 
   pub fn set_surface_camera(&mut self, surface_id: u32, camera: RawEntityHandle) {
@@ -508,7 +503,6 @@ impl ViewerQueryAPI {
   pub fn pick_list(
     &mut self,
     viewer: &Viewer,
-    scene: RawEntityHandle,
     x: f32,
     y: f32,
     extra_screen_space_tolerance: f32,
@@ -518,7 +512,6 @@ impl ViewerQueryAPI {
       .event_trace_sender
       .emit(&RendiationCxAPITraceEvent::PickerPickList {
         surface_id: self.surface_id as u64,
-        scene,
         x,
         y,
         extra_screen_space_tolerance,
@@ -530,10 +523,9 @@ impl ViewerQueryAPI {
     let ctx =
       create_viewport_pointer_ctx(surface_content, (x, y), &self.picker_impl.camera_transforms);
 
-    if let Some(ctx) = ctx {
+    if let Some((ctx, scene)) = ctx {
       let cx = create_ray_query_ctx_from_vpc(&ctx, extra_screen_space_tolerance);
 
-      let scene = unsafe { EntityHandle::from_raw(scene) };
       let mut iter = self
         .picker_impl
         .scene_model_iter_provider
@@ -563,7 +555,6 @@ impl ViewerQueryAPI {
   pub fn pick_range(
     &mut self,
     viewer: &Viewer,
-    scene: RawEntityHandle,
     ax: f32,
     ay: f32,
     bx: f32,
@@ -577,7 +568,6 @@ impl ViewerQueryAPI {
       .event_trace_sender
       .emit(&RendiationCxAPITraceEvent::PickRange {
         surface_id: self.surface_id as u64,
-        scene,
         ax,
         ay,
         bx,
@@ -586,12 +576,11 @@ impl ViewerQueryAPI {
         precise_intersection_test,
         extra_screen_space_tolerance,
       });
-    let scene = unsafe { EntityHandle::from_raw(scene) };
     let a = Vec2::new(ax, ay);
     let b = Vec2::new(bx, by);
 
     let surface_content = viewer.surfaces_content.get(&self.surface_id).unwrap();
-    if let Some(frustum) = create_range_pick_frustum(
+    if let Some((frustum, scene)) = create_range_pick_frustum(
       a,
       b,
       surface_content,

@@ -93,7 +93,7 @@ pub fn create_widget_cx(
 
 struct WidgetEnvAccessImpl {
   world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
-  ptr_ctx: Option<ViewportPointerCtx>,
+  ptr_ctx: Option<(ViewportPointerCtx, EntityHandle<SceneEntity>)>,
 }
 
 impl WidgetEnvAccess for WidgetEnvAccessImpl {
@@ -102,6 +102,6 @@ impl WidgetEnvAccess for WidgetEnvAccessImpl {
   }
 
   fn get_viewport_pointer_ctx(&self) -> Option<&ViewportPointerCtx> {
-    self.ptr_ctx.as_ref()
+    self.ptr_ctx.as_ref().map(|v| &v.0)
   }
 }

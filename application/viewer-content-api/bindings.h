@@ -706,7 +706,6 @@ void query_scene_bounding(ViewerWorldDeriveQueryAPI *api,
 /// all inputs are logic pixel
 ViewerRayPickListResult *picker_pick_list(ViewerQueryAPI *api,
                                           ViewerAPI *viewer,
-                                          ViewerEntityHandle scene,
                                           float x,
                                           float y,
                                           float extra_screen_space_tolerance,
@@ -721,7 +720,6 @@ void drop_pick_list_result(ViewerRayPickListResult *r);
 /// all inputs are logic pixel
 ViewerRayPickRangeResult *picker_pick_range(ViewerQueryAPI *api,
                                             ViewerAPI *viewer,
-                                            ViewerEntityHandle scene,
                                             float ax,
                                             float ay,
                                             float bx,

@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone)]
 pub struct ViewerViewPort {
   pub id: u64,
   /// x relative to surface left, y relative to surface top, width, height
@@ -13,6 +13,8 @@ pub struct ViewerViewPort {
   ///
   /// None as default, if None, then the view related effect compute is using the `camera`.
   pub debug_camera_for_view_related: Option<EntityHandle<SceneCameraEntity>>,
+
+  pub scene: EntityHandle<SceneEntity>,
 }
 
 impl ViewerViewPort {

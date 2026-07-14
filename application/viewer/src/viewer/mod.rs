@@ -21,7 +21,16 @@ pub use widget_bridge::*;
 mod test_content;
 pub use test_content::*;
 
+mod background;
+pub use background::*;
+
 pub const UP: Vec3<f64> = Vec3::new(0., 1., 0.);
+
+pub struct DefaultSceneInfo {
+  /// default scene should not be removed, it will contains examples.
+  pub scene: EntityHandle<SceneEntity>,
+  pub background_state: ViewerBackgroundState,
+}
 
 pub struct ViewerCx<'a> {
   pub viewer: &'a mut Viewer,
@@ -32,6 +41,7 @@ pub struct ViewerCx<'a> {
   pub surface_id: u32,
   pub active_surface_content: &'a mut ViewerSurfaceContent,
   pub app_features: &'a mut ViewerAppFeaturesConfig,
+  pub default_scene: &'a mut DefaultSceneInfo,
 
   // this id should be immutable
   pub widget_scene: EntityHandle<SceneEntity>,
@@ -317,6 +327,23 @@ pub fn use_viewer<'a>(
     ViewerDataScheduler::new(Some(&root))
   });
 
+  let (acx, scene_instances) = acx.use_plain_state(|| {
+    let scene = global_entity_of::<SceneEntity>()
+      .entity_writer()
+      .new_entity(|w| w);
+
+    let background = {
+      let mut writer = SceneWriter::from_global();
+
+      let default_env_background = load_example_cube_tex(&mut writer);
+      ViewerBackgroundState::init(default_env_background, &mut writer, scene)
+    };
+    DefaultSceneInfo {
+      scene,
+      background_state: background,
+    }
+  });
+
   let surface_id = acx.surface_id;
   let (acx, viewer) = acx.use_state_init(
     || {
@@ -325,17 +352,6 @@ pub fn use_viewer<'a>(
         init_config,
         worker_thread_pool.clone(),
       );
-
-      let scene = global_entity_of::<SceneEntity>()
-        .entity_writer()
-        .new_entity(|w| w);
-
-      let background = {
-        let mut writer = SceneWriter::from_global();
-
-        let default_env_background = load_example_cube_tex(&mut writer);
-        ViewerBackgroundState::init(default_env_background, &mut writer, scene)
-      };
 
       let camera_node = global_entity_of::<SceneNodeEntity>()
         .entity_writer()
@@ -351,7 +367,7 @@ pub fn use_viewer<'a>(
         .entity_writer()
         .new_entity(|w| {
           w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
-            .write::<SceneCameraBelongsToScene>(&scene.some_handle())
+            .write::<SceneCameraBelongsToScene>(&scene_instances.scene.some_handle())
             .write::<SceneCameraNode>(&camera_node.some_handle())
         });
 
@@ -361,13 +377,12 @@ pub fn use_viewer<'a>(
         camera: main_camera,
         camera_node,
         debug_camera_for_view_related: None,
+        scene: scene_instances.scene,
       };
 
       let surface_content = ViewerSurfaceContent {
         viewports: vec![viewport],
         device_pixel_ratio: 1.0,
-        scene,
-        background,
       };
       // we construct the default view in our viewer application
       viewer.surfaces_content.insert(surface_id, surface_content);
@@ -384,7 +399,7 @@ pub fn use_viewer<'a>(
         let mut writer = SceneWriter::from_global();
         load_default_scene(
           &mut writer,
-          scene,
+          scene_instances.scene,
           tex_source.as_mut(),
           mesh_source.as_mut(),
         );
@@ -464,6 +479,7 @@ pub fn use_viewer<'a>(
     immediate_results: Default::default(),
     trace_event_notifier,
     app_features,
+    default_scene: scene_instances,
   }
   .execute(|viewer| f(viewer));
 
@@ -492,6 +508,7 @@ pub fn use_viewer<'a>(
     surface_id: acx.surface_id,
     trace_event_notifier,
     app_features,
+    default_scene: scene_instances,
   }
   .execute(|viewer| f(viewer));
 

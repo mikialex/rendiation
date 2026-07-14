@@ -76,7 +76,7 @@ pub fn use_immediate_helper_model(
           access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
           if let Some(ptr_cx) = &picker.pointer_ctx {
             let model = model.model();
-            if let Some(pick_result) = picker.pick_model_nearest(model, ptr_cx.world_ray) {
+            if let Some(pick_result) = picker.pick_model_nearest(model, ptr_cx.0.world_ray) {
               let offsets = offsets.as_ref().unwrap();
               let idx = match offsets.binary_search_by(|v| v.1.cmp(&pick_result.primitive_index)) {
                 Ok(idx) => idx,

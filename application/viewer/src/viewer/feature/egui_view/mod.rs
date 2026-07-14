@@ -133,9 +133,9 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           viewer.rendering_root.notify_change();
         }
 
-        cx.active_surface_content
-          .background
-          .egui(ui, cx.active_surface_content.scene);
+        cx.default_scene
+          .background_state
+          .egui(ui, cx.default_scene.scene);
 
         ui.separator();
 
@@ -235,7 +235,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
     }
     viewer.terminal.tick_execute(
       &mut TerminalInitExecuteCx {
-        scene: &cx.active_surface_content,
+        surface_content: &cx.active_surface_content,
         renderer: &mut viewer.rendering,
         dyn_cx: cx.dyn_cx,
       },

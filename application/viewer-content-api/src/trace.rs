@@ -41,14 +41,12 @@ pub enum RendiationCxAPITraceEvent {
   },
   PickerPickList {
     surface_id: u64,
-    scene: RawEntityHandle,
     x: f32,
     y: f32,
     extra_screen_space_tolerance: f32,
   },
   PickRange {
     surface_id: u64,
-    scene: RawEntityHandle,
     ax: f32,
     ay: f32,
     bx: f32,

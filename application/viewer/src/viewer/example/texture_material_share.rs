@@ -24,7 +24,7 @@ pub fn use_texture_material_share_example(cx: &mut ViewerCx) {
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
     if !example.initialized {
-      example.initialize(writer, cx.active_surface_content.scene);
+      example.initialize(writer, cx.default_scene.scene);
     }
 
     if example.replace_texture_pending {

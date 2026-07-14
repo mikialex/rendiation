@@ -19,12 +19,7 @@ pub fn use_text3d_example(cx: &mut ViewerCx) {
     // process additions
     if !example.pending_additions.is_empty() {
       while let Some(info) = example.pending_additions.pop() {
-        example.create_instance(
-          writer,
-          &mut text3d_writer,
-          cx.active_surface_content.scene,
-          info,
-        );
+        example.create_instance(writer, &mut text3d_writer, cx.default_scene.scene, info);
       }
     }
   }
