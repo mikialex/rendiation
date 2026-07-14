@@ -168,12 +168,6 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
-    };
-
-    let scene_model_picker = SceneModelPickerBaseImpl {
-      internal: local_model_pickers,
-      util: util.clone(),
-      filter: Some(Box::new(create_clip_pick_filter())),
       sm_world_bounding: sm_world_bounding
         .expect_resolve_stage()
         .mark_entity_type()
@@ -182,6 +176,12 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
+    };
+
+    let scene_model_picker = SceneModelPickerBaseImpl {
+      internal: local_model_pickers,
+      util: util.clone(),
+      filter: Some(Box::new(create_clip_pick_filter())),
     };
 
     let scene_model_picker = TransformInstancedMeshPicker {

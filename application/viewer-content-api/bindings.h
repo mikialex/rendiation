@@ -862,6 +862,8 @@ void scene_model_remove_occ_style_view_dep(ViewerEntityHandle handle);
 
 void scene_model_set_z_layer(ViewerEntityHandle handle, OccFlavorZLayer z_layer);
 
+void scene_model_set_scene_model_unbound(ViewerEntityHandle handle, bool is_unbound);
+
 void scene_model_set_priority(ViewerEntityHandle handle, uint32_t priority);
 
 void scene_model_set_selectable(ViewerEntityHandle handle, bool selectable);

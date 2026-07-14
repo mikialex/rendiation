@@ -134,4 +134,6 @@ pub fn register_viewer_content_data_model() {
   rendiation_occ_style_draw_control::register_occ_style_draw_control_data_model();
   register_occ_material_data_model(true);
   rendiation_transform_instanced_model::register_transform_instanced_model_data_model(true);
+
+  global_entity_of::<SceneModelEntity>().declare_component::<SceneModelSkipSceneModelBounding>();
 }

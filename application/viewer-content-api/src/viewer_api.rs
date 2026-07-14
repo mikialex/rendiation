@@ -615,6 +615,8 @@ pub struct SceneBoundingComputer {
   pub sm_to_local_bbox: BoxedDynQuery<RawEntityHandle, Box3<f32>>,
   pub view_maps: BoxedDynQuery<ViewSceneModelKey, Mat4<f64>>,
   event_trace_sender: APITraceEventSender,
+  scene_skip_sm_bounding: BoxedDynMultiQuery<RawEntityHandle, RawEntityHandle>,
+  world_mats: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
 }
 
 impl Drop for SceneBoundingComputer {
@@ -658,6 +660,20 @@ impl SceneBoundingComputer {
           }
         }
       }
+
+      if let Some(iter) = self
+        .scene_skip_sm_bounding
+        .access_multi(scene.raw_handle_ref())
+      {
+        for sm in iter {
+          if let Some(local) = self.sm_to_local_bbox.access(&sm) {
+            if let Some(mat) = self.world_mats.access(&sm) {
+              let world_aabb = local.apply_matrix_into(mat.into_f32());
+              r.expand_by_other(world_aabb);
+            }
+          }
+        }
+      }
     }
 
     r
@@ -683,10 +699,40 @@ fn use_bounding_computer(cx: &mut ViewerAPICx) -> Option<SceneBoundingComputer> 
     ))
     .use_assure_result(cx);
 
+  let skip_sm_bounding = cx
+    .use_dual_query::<SceneModelSkipSceneModelBounding>()
+    .dual_query_filter_map(|v| v.then_some(()));
+
+  let has_view_dep = cx
+    .use_dual_query::<SceneModelViewDependentTransformOcc>()
+    .dual_query_filter_map(|v| v.is_some().then_some(()));
+
+  let scene_skip_sm_bounding = cx
+    .use_dual_query::<SceneModelBelongsToScene>()
+    .dual_query_filter_map(|v| v)
+    .dual_query_boxed()
+    .dual_query_filter_by_set(skip_sm_bounding)
+    .dual_query_boxed()
+    .dual_query_union(has_view_dep, |(s, has_view_dep)| match (s, has_view_dep) {
+      (Some(v), None) => Some(v),
+      _ => None,
+    })
+    .dual_query_boxed()
+    .use_dual_query_hash_many_to_one(cx)
+    .use_assure_result(cx);
+
+  let world_mats = use_global_node_world_mat_view(cx).use_assure_result(cx);
+
   cx.when_resolve_stage(|| SceneBoundingComputer {
     qbvh: qbvh.map(|v| v.into_resolve_stage()).flatten(),
     sm_to_local_bbox: sm_local_bounding.expect_resolve_stage(),
     view_maps: view_maps.expect_resolve_stage(),
     event_trace_sender: expect_tracing_event_emitter(),
+    world_mats: world_mats.expect_resolve_stage(),
+    scene_skip_sm_bounding: scene_skip_sm_bounding
+      .expect_resolve_stage()
+      .inv_view_view_delta()
+      .0
+      .into_boxed_multi(),
   })
 }
