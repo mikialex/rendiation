@@ -91,7 +91,7 @@ pub extern "C" fn occ_effect_control_set_state(
 ) {
   let state = RasterizationStates {
     depth_compare: if simple_config.enable_depth_test {
-      SemanticCompareFunction::Nearer
+      SemanticCompareFunction::NearerEqual
     } else {
       SemanticCompareFunction::Always
     },

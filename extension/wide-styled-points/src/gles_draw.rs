@@ -210,7 +210,7 @@ impl GraphicsShaderProvider for WidePointGPU<'_> {
       if let Some(depth) = &mut builder.depth_stencil {
         depth.depth_write_enabled = false;
         if self.depth_test_enable {
-          depth.depth_compare = SemanticCompareFunction::Nearer.into_raw(self.rev_z)
+          depth.depth_compare = SemanticCompareFunction::NearerEqual.into_raw(self.rev_z)
         }
       }
     })
