@@ -39,9 +39,9 @@ pub use rendiation_occ_style_draw_control::{
 pub use rendiation_occ_style_material::{
   register_occ_material_data_model, OccStyleEffectControlEntity, OccStyleEffectShadeType,
   OccStyleEffectStateOverride, OccStyleEffectType, OccStyleMaterialDiffuse,
-  OccStyleMaterialDiffuseTex, OccStyleMaterialEffect, OccStyleMaterialEmissive,
-  OccStyleMaterialEntity, OccStyleMaterialShininess, OccStyleMaterialSpecular,
-  StdModelOccStyleMaterialPayload,
+  OccStyleMaterialDiffuseBackFace, OccStyleMaterialDiffuseTex, OccStyleMaterialEffect,
+  OccStyleMaterialEmissive, OccStyleMaterialEntity, OccStyleMaterialShininess,
+  OccStyleMaterialSpecular, StdModelOccStyleMaterialPayload,
 };
 use rendiation_scene_batch_extractor::*;
 pub use rendiation_scene_core::*;

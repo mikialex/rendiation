@@ -17,6 +17,12 @@ declare_component!(
   Vec4::new(1.0, 1.0, 1.0, 1.0)
 );
 declare_component!(
+  OccStyleMaterialDiffuseBackFace,
+  OccStyleMaterialEntity,
+  Vec4<f32>,
+  Vec4::new(1.0, 1.0, 1.0, 1.0)
+);
+declare_component!(
   OccStyleMaterialSpecular,
   OccStyleMaterialEntity,
   Vec3<f32>,

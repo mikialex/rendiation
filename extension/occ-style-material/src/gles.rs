@@ -18,6 +18,14 @@ pub fn use_occ_material_uniforms(
       cx.gpu,
     );
 
+  cx.use_changes::<OccStyleMaterialDiffuseBackFace>()
+    .map(|changes| changes.collective_map(srgb4_to_linear4))
+    .update_uniforms(
+      &uniforms,
+      offset_of!(OccStyleMaterialUniform, diffuse_backface),
+      cx.gpu,
+    );
+
   cx.use_changes::<OccStyleMaterialSpecular>()
     .update_uniforms(
       &uniforms,
@@ -95,6 +103,7 @@ type OccStyleMaterialUniforms = UniformBufferCollectionRaw<u32, OccStyleMaterial
 #[derive(Clone, Copy, ShaderStruct, Default)]
 struct OccStyleMaterialUniform {
   pub diffuse: Vec4<f32>,
+  pub diffuse_backface: Vec4<f32>,
   pub specular: Vec3<f32>,
   pub shininess: f32,
   pub emissive: Vec3<f32>,
@@ -158,20 +167,24 @@ impl GraphicsShaderProvider for OccStyleMaterialGPU<'_> {
         val(Vec4::one()),
       );
 
+      let uniform_diffuse = builder
+        .query::<FragmentFrontFacing>()
+        .select(uniform.diffuse, uniform.diffuse_backface);
+
       auto_reverse_normal(builder);
 
       builder.insert_type_tag::<OccSurfaceTag>();
 
-      builder.register::<DefaultDisplay>(uniform.diffuse * diffuse_alpha_tex);
+      builder.register::<DefaultDisplay>(uniform_diffuse * diffuse_alpha_tex);
       match self.shade_type {
         OccStyleEffectType::Unlit => {
-          let diffuse = uniform.diffuse * diffuse_alpha_tex;
+          let diffuse = uniform_diffuse * diffuse_alpha_tex;
           builder.register::<ColorChannel>(diffuse.xyz());
           builder.register::<AlphaChannel>(diffuse.w());
           builder.register::<DefaultDisplay>(diffuse);
         }
         OccStyleEffectType::Lighted => {
-          let diffuse = uniform.diffuse * diffuse_alpha_tex;
+          let diffuse = uniform_diffuse * diffuse_alpha_tex;
 
           builder.register::<ColorChannel>(diffuse.xyz());
           builder.register::<AlphaChannel>(diffuse.w());
@@ -205,11 +218,11 @@ impl GraphicsShaderProvider for OccStyleMaterialGPU<'_> {
             .diffuse
             .w()
             .equals(-1.)
-            .select(zebra_tex.w(), uniform.diffuse.w());
+            .select(zebra_tex.w(), uniform_diffuse.w());
 
           let one_minus_a = val(1.) - alpha;
           let color = zebra_tex.xyz() * alpha.splat::<Vec3<f32>>()
-            + uniform.diffuse.xyz() * one_minus_a.splat::<Vec3<f32>>();
+            + uniform_diffuse.xyz() * one_minus_a.splat::<Vec3<f32>>();
 
           builder.register::<DefaultDisplay>((color, val(1.)));
 

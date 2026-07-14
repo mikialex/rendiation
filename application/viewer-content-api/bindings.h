@@ -800,6 +800,8 @@ void occ_material_set_diffuse(ViewerEntityHandle mat, const float (*color)[4]);
 
 void occ_material_set_specular(ViewerEntityHandle mat, const float (*color)[3]);
 
+void occ_material_set_back_diffuse(ViewerEntityHandle mat, const float (*color)[4]);
+
 void occ_material_set_shininess(ViewerEntityHandle mat, float shininess);
 
 void occ_material_set_emissive(ViewerEntityHandle mat, const float (*color)[3]);
