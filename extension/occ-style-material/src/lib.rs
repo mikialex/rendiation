@@ -29,14 +29,14 @@ declare_component!(
   Vec3::new(1.0, 1.0, 1.0)
 );
 
-declare_component!(OccStyleMaterialShininess, OccStyleMaterialEntity, f32, 0.5);
+declare_component!(OccStyleMaterialShininess, OccStyleMaterialEntity, f32, 30.0);
 declare_entity_associated!(OccStyleMaterialDiffuseTex, OccStyleMaterialEntity);
 impl TextureWithSamplingForeignKeys for OccStyleMaterialDiffuseTex {}
 declare_component!(
   OccStyleMaterialEmissive,
   OccStyleMaterialEntity,
   Vec3<f32>,
-  Vec3::new(1.0, 1.0, 1.0)
+  Vec3::zero()
 );
 declare_foreign_key!(
   OccStyleMaterialEffect,
@@ -81,6 +81,7 @@ pub fn register_occ_material_data_model(sparse: bool) {
   let table = global_database()
     .declare_entity::<OccStyleMaterialEntity>()
     .declare_component::<OccStyleMaterialDiffuse>()
+    .declare_component::<OccStyleMaterialDiffuseBackFace>()
     .declare_component::<OccStyleMaterialSpecular>()
     .declare_component::<OccStyleMaterialShininess>()
     .declare_component::<OccStyleMaterialEmissive>()
