@@ -110,7 +110,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
   let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
   let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
 
-  let use_attribute_mesh_picker = use_attribute_mesh_picker(cx);
+  let attribute_mesh_picker = use_attribute_mesh_picker(cx);
   let wide_line_picker = use_wide_line_picker(cx);
   let wide_point_picker = use_wide_points_picker(cx);
   let text_picker = use_text_picker(cx, &font_system);
@@ -145,13 +145,13 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     .use_assure_result(cx);
 
   cx.when_resolve_stage(|| {
-    let att_mesh_picker = use_attribute_mesh_picker.unwrap();
+    let attribute_mesh_picker = attribute_mesh_picker.unwrap();
     let wide_line_picker = wide_line_picker.unwrap();
     let wide_point_picker = wide_point_picker.unwrap();
     let text_picker = text_picker.unwrap();
 
     let local_model_pickers: Vec<Box<dyn LocalModelPicker>> = vec![
-      Box::new(att_mesh_picker),
+      Box::new(attribute_mesh_picker),
       Box::new(wide_line_picker),
       Box::new(wide_point_picker),
       Box::new(text_picker),
