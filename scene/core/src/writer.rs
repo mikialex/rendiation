@@ -118,7 +118,10 @@ impl SceneWriter {
     mesh: EntityHandle<AttributesMeshEntity>,
     node: EntityHandle<SceneNodeEntity>,
     scene: EntityHandle<SceneEntity>,
-  ) -> EntityHandle<SceneModelEntity> {
+  ) -> (
+    EntityHandle<StandardModelEntity>,
+    EntityHandle<SceneModelEntity>,
+  ) {
     let std_model = StandardModelDataView {
       material,
       mesh,
@@ -131,7 +134,7 @@ impl SceneWriter {
       node,
     };
 
-    sm.write(&mut self.model_writer)
+    (std_model, sm.write(&mut self.model_writer))
   }
 
   pub fn set_local_matrix(&mut self, node: EntityHandle<SceneNodeEntity>, mat: Mat4<f64>) {
