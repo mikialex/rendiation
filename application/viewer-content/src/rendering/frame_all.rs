@@ -270,8 +270,14 @@ impl Viewer3dRenderingCtx {
           rtx_mesh = mesh.clone();
         }
 
-        let mesh =
-          cx.when_render(|| Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRenderImpl>);
+        let cell_mesh = use_cell_mesh_renderer(cx, self.using_host_driven_indirect_draw);
+
+        let mesh = cx.when_render(|| {
+          Box::new(vec![
+            Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRenderImpl>,
+            cell_mesh.unwrap(),
+          ]) as Box<dyn IndirectModelShapeRenderImpl>
+        });
 
         let node = use_node_storage(cx);
         let view_camera_source = cx.use_shared_dual_query(
@@ -368,10 +374,12 @@ impl Viewer3dRenderingCtx {
             let occ_material =
               rendiation_occ_style_material::indirect::use_occ_material_indirect_group_key(cx);
 
+            let cell_mesh = use_cell_mesh_group_key(cx);
+
             let key_impl = GroupKeyForeignImpl {
               model: Some(impl_key),
               material: Some(occ_material),
-              ..Default::default()
+              mesh: Some(cell_mesh),
             };
 
             use rendiation_occ_style_draw_control::*;

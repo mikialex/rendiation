@@ -3984,6 +3984,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-cell-mesh"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "database",
+ "facet",
+ "fast-hash-collection",
+ "log",
+ "parking_lot",
+ "rendiation-algebra",
+ "rendiation-device-parallel-compute",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-scene-batch-extractor",
+ "rendiation-scene-core",
+ "rendiation-scene-geometry-query",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-scene-rendering-gpu-indirect",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
+ "rendiation-webgpu-midc-downgrade",
+ "serde",
+]
+
+[[package]]
 name = "rendiation-color"
 version = "0.1.0"
 dependencies = [
@@ -5024,6 +5050,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-animation",
  "rendiation-area-lighting",
+ "rendiation-cell-mesh",
  "rendiation-controller",
  "rendiation-csg-sdf-expression",
  "rendiation-device-ray-tracing",

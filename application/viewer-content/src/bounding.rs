@@ -24,10 +24,14 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelLocalBounding {
     let text3d_sm_bounding =
       cx.use_shared_dual_query(Text3dSceneModelLocalBounding(self.0.clone()));
 
+    let cell_mesh_bounding = use_cell_mesh_local_bounding(cx);
+
     let extra = wide_line_sm_bounding
       .dual_query_select(wide_point_sm_bounding)
       .dual_query_boxed()
       .dual_query_select(text3d_sm_bounding)
+      .dual_query_boxed()
+      .dual_query_select(cell_mesh_bounding)
       .dual_query_boxed();
 
     let internal = att_mesh_std_sm_bounding.dual_query_select(extra);

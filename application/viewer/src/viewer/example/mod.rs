@@ -1,6 +1,8 @@
+use cell_mesh::use_cell_mesh_example;
 pub use text3d::text3d_content_edit_ui;
 use text3d::use_text3d_example;
 
+mod cell_mesh;
 mod text3d;
 mod texture_material_share;
 mod transform_instance;
@@ -28,6 +30,7 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
   cx.next_key_scope_root();
   let (cx, registry) = cx.use_plain_state_init(|_| {
     let mut registry = ExampleRegistry::default();
+    registry.register("Cell Mesh (FEM)", use_cell_mesh_example);
     registry.register("Text3d example", use_text3d_example);
     registry.register(
       "Texture and Material Share",

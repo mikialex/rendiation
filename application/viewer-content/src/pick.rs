@@ -114,6 +114,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
   let wide_line_picker = use_wide_line_picker(cx);
   let wide_point_picker = use_wide_points_picker(cx);
   let text_picker = use_text_picker(cx, &font_system);
+  let cell_mesh_picker = use_cell_mesh_picker(cx);
 
   let sm_local_bounding = cx
     .use_shared_dual_query_view(SceneModelLocalBounding(font_system.clone()))
@@ -149,12 +150,14 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     let wide_line_picker = wide_line_picker.unwrap();
     let wide_point_picker = wide_point_picker.unwrap();
     let text_picker = text_picker.unwrap();
+    let cell_mesh_picker = cell_mesh_picker.unwrap();
 
     let local_model_pickers: Vec<Box<dyn LocalModelPicker>> = vec![
       Box::new(attribute_mesh_picker),
       Box::new(wide_line_picker),
       Box::new(wide_point_picker),
       Box::new(text_picker),
+      Box::new(cell_mesh_picker),
     ];
 
     let util = SceneModelPickerBaseImplUtil {

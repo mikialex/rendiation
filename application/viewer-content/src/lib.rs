@@ -22,6 +22,7 @@ pub use rendiation_area_lighting::{
   AreaLightEntity, AreaLightIntensity, AreaLightIsDoubleSide, AreaLightIsRound, AreaLightRefNode,
   AreaLightRefScene, AreaLightSize,
 };
+pub use rendiation_cell_mesh::*;
 use rendiation_controller::InputBound;
 pub use rendiation_dynamic_bvh_scene::SceneBVHResultView;
 pub use rendiation_dynamic_bvh_scene::SceneDynamicBvh;
@@ -134,6 +135,7 @@ pub fn register_viewer_content_data_model() {
   rendiation_occ_style_draw_control::register_occ_style_draw_control_data_model();
   register_occ_material_data_model(true);
   rendiation_transform_instanced_model::register_transform_instanced_model_data_model(true);
+  rendiation_cell_mesh::register_cell_mesh_data_model(true);
 
   global_entity_of::<SceneModelEntity>().declare_component::<SceneModelSkipSceneModelBounding>();
 }
