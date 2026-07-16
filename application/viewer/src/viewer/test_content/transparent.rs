@@ -2,7 +2,11 @@ use rendiation_mesh_generator::*;
 
 use crate::*;
 
-pub fn load_transparent_test(writer: &mut SceneWriter, root: EntityHandle<SceneNodeEntity>) {
+pub fn load_transparent_test(
+  writer: &mut SceneWriter,
+  scene: EntityHandle<SceneEntity>,
+  root: EntityHandle<SceneNodeEntity>,
+) {
   // create a plane mesh
   let plane = ParametricPlane;
   let plane = build_attributes_mesh(|builder| {
@@ -16,22 +20,23 @@ pub fn load_transparent_test(writer: &mut SceneWriter, root: EntityHandle<SceneN
     let material = create_alpha_material(Vec3::new(1., 0., 0.), writer);
     let child = writer.create_child(root);
     writer.set_local_matrix(child, Mat4::translate((0., 0., 0.)) * scale);
-    writer.create_scene_model(material, plane, child);
+    writer.create_scene_model(material, plane, child, scene);
 
     let material = create_alpha_material(Vec3::new(0., 1., 0.), writer);
     let child = writer.create_child(root);
     writer.set_local_matrix(child, Mat4::translate((0., 0., 1.)) * scale);
-    writer.create_scene_model(material, plane, child);
+    writer.create_scene_model(material, plane, child, scene);
 
     let material = create_alpha_material(Vec3::new(0., 0., 1.), writer);
     let child = writer.create_child(root);
     writer.set_local_matrix(child, Mat4::translate((0., 0., -1.)) * scale);
-    writer.create_scene_model(material, plane, child);
+    writer.create_scene_model(material, plane, child, scene);
   }
 }
 
 pub fn load_transparent_test_overlap_ball(
   writer: &mut SceneWriter,
+  scene: EntityHandle<SceneEntity>,
   root: EntityHandle<SceneNodeEntity>,
 ) {
   let attribute_mesh = build_attributes_mesh(|builder| {
@@ -49,17 +54,17 @@ pub fn load_transparent_test_overlap_ball(
     let material = create_alpha_material(Vec3::new(1., 0., 0.), writer);
     let child = writer.create_child(root);
     writer.set_local_matrix(child, Mat4::translate((0., 0., 0.)) * scale);
-    writer.create_scene_model(material, ball, child);
+    writer.create_scene_model(material, ball, child, scene);
 
     let material = create_alpha_material(Vec3::new(0., 1., 0.), writer);
     let child = writer.create_child(root);
     writer.set_local_matrix(child, Mat4::translate((0., 0., 1.)) * scale);
-    writer.create_scene_model(material, ball, child);
+    writer.create_scene_model(material, ball, child, scene);
 
     let material = create_alpha_material(Vec3::new(0., 0., 1.), writer);
     let child = writer.create_child(root);
     writer.set_local_matrix(child, Mat4::translate((0., 0., -1.)) * scale);
-    writer.create_scene_model(material, ball, child);
+    writer.create_scene_model(material, ball, child, scene);
   }
 }
 

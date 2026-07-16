@@ -23,6 +23,8 @@ rendiation-device-parallel-compute = { path = "../../shader/parallel-compute" }
 rendiation-webgpu-midc-downgrade = { path = "../../platform/graphics/webgpu-midc-downgrade" }
 parking_lot = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+facet = { workspace = true }
+serde = { workspace = true }
 
 [lints]
 workspace = true

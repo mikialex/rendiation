@@ -102,7 +102,7 @@ impl Viewer3dRenderingCtx {
     cx: &mut QueryGPUHookCx,
     surface_content: &ViewerSurfaceContent,
     viewports_map: &ViewportsImmediate,
-  ) -> Option<ViewerRendererInstancePreparer> {
+  ) -> Option<(ViewerRendererInstance, LightingRenderingCxPrepareCtx)> {
     cx.next_scope_index();
     let viewports = &surface_content.viewports;
     let (cx, change_scope) = cx.use_begin_change_set_collect();
@@ -271,8 +271,14 @@ impl Viewer3dRenderingCtx {
           rtx_mesh = mesh.clone();
         }
 
-        let mesh =
-          cx.when_render(|| Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRenderImpl>);
+        let cell_mesh = use_cell_mesh_renderer(cx, self.using_host_driven_indirect_draw);
+
+        let mesh = cx.when_render(|| {
+          Box::new(vec![
+            Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRenderImpl>,
+            cell_mesh.unwrap(),
+          ]) as Box<dyn IndirectModelShapeRenderImpl>
+        });
 
         let node = use_node_storage(cx);
         let view_camera_source = cx.use_shared_dual_query(
@@ -369,10 +375,12 @@ impl Viewer3dRenderingCtx {
             let occ_material =
               rendiation_occ_style_material::indirect::use_occ_material_indirect_group_key(cx);
 
+            let cell_mesh = use_cell_mesh_group_key(cx);
+
             let key_impl = GroupKeyForeignImpl {
               model: Some(impl_key),
               material: Some(occ_material),
-              ..Default::default()
+              mesh: Some(cell_mesh),
             };
 
             use rendiation_occ_style_draw_control::*;
@@ -482,33 +490,37 @@ impl Viewer3dRenderingCtx {
     let clipping_plane_array = use_array_plane_clipping(cx, self.enable_clip, self.fill_clip_face);
     let filter = use_is_solid_filter(cx);
 
-    cx.when_render(|| ViewerRendererInstancePreparer {
-      camera: camera.unwrap(),
-      background: background.unwrap(),
-      batch_extractor: Box::new(ViewerBatchExtractor {
-        default_extractor: extractor.unwrap(),
-        indirect_extractor,
-      }),
-      raster_scene_renderer: raster_scene_renderer.unwrap(),
-      rtx_system: rtx_scene_renderer,
-      reversed_depth: self.ndc.enable_reverse_z,
-      lighting: lighting.unwrap(),
-      culling: culling.unwrap(),
-      camera_transforms: camera_transforms
-        .expect_resolve_stage()
-        .mark_entity_type()
-        .into_boxed(),
-      sm_world_bounding: sm_world_bounding
-        .expect_resolve_stage()
-        .mark_entity_type()
-        .into_boxed(),
-      clipping: ViewerClippingRenderer {
-        csg: clipping.unwrap(),
-        plane_array: clipping_plane_array.unwrap(),
-        use_array_clip: self.use_array_clip,
-        filter: filter.unwrap(),
-      },
-      active_view_control: active_view_control.clone(),
+    cx.when_render(|| {
+      (
+        ViewerRendererInstance {
+          camera: camera.unwrap(),
+          background: background.unwrap(),
+          batch_extractor: Box::new(ViewerBatchExtractor {
+            default_extractor: extractor.unwrap(),
+            indirect_extractor,
+          }),
+          raster_scene_renderer: raster_scene_renderer.unwrap(),
+          rtx_system: rtx_scene_renderer,
+          reversed_depth: self.ndc.enable_reverse_z,
+          culling: culling.unwrap(),
+          camera_transforms: camera_transforms
+            .expect_resolve_stage()
+            .mark_entity_type()
+            .into_boxed(),
+          sm_world_bounding: sm_world_bounding
+            .expect_resolve_stage()
+            .mark_entity_type()
+            .into_boxed(),
+          clipping: ViewerClippingRenderer {
+            csg: clipping.unwrap(),
+            plane_array: clipping_plane_array.unwrap(),
+            use_array_clip: self.use_array_clip,
+            filter: filter.unwrap(),
+          },
+          active_view_control: active_view_control.clone(),
+        },
+        lighting.unwrap(),
+      )
     })
   }
 
@@ -576,34 +588,19 @@ impl Viewer3dRenderingCtx {
     surface_id: u32,
     selection_info: &ViewerSelectionStates,
     extension: &mut dyn ViewerFrameRenderingExtension,
-    renderer: ViewerRendererInstancePreparer,
+    mut renderer: ViewerRendererInstance,
+    light_preparer: LightingRenderingCxPrepareCtx,
     batch_collector: &mut dyn RenderBatchCollector,
     ctx: &mut FrameCtx,
     waker: &Waker,
   ) {
     let lighting_cx = self.lighting.prepare(
-      renderer.lighting,
+      light_preparer,
       ctx,
       self.ndc.enable_reverse_z,
       renderer.raster_scene_renderer.as_ref(),
       renderer.batch_extractor.as_ref(),
-      surface_content.scene,
     );
-
-    let mut renderer = ViewerRendererInstance {
-      camera: renderer.camera,
-      background: renderer.background,
-      raster_scene_renderer: renderer.raster_scene_renderer,
-      batch_extractor: renderer.batch_extractor,
-      rtx_system: renderer.rtx_system,
-      culling: renderer.culling,
-      camera_transforms: renderer.camera_transforms,
-      sm_world_bounding: renderer.sm_world_bounding,
-      reversed_depth: renderer.reversed_depth,
-      lighting: lighting_cx,
-      clipping: renderer.clipping,
-      active_view_control: renderer.active_view_control,
-    };
 
     renderer
       .culling
@@ -622,7 +619,7 @@ impl Viewer3dRenderingCtx {
         view_renderer.use_render(
           ctx,
           &mut renderer,
-          surface_content,
+          &lighting_cx,
           selection_info,
           viewport,
           final_target,
@@ -649,39 +646,23 @@ impl Viewer3dRenderingCtx {
   }
 }
 
-pub struct ViewerRendererInstancePreparer {
+pub struct ViewerRendererInstance {
   pub camera: CameraRenderer,
   pub background: SceneBackgroundRenderer,
   pub raster_scene_renderer: Box<dyn SceneRenderer>,
   pub batch_extractor: Box<dyn SceneBatchBasicExtractAbility>,
   pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
-  pub lighting: LightingRenderingCxPrepareCtx,
   pub clipping: ViewerClippingRenderer,
   pub culling: ViewerCulling,
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   pub reversed_depth: bool,
-  pub active_view_control: CurrentViewControl,
-}
-
-pub struct ViewerRendererInstance<'a> {
-  pub camera: CameraRenderer,
-  pub background: SceneBackgroundRenderer,
-  pub raster_scene_renderer: Box<dyn SceneRenderer>,
-  pub batch_extractor: Box<dyn SceneBatchBasicExtractAbility>,
-  pub rtx_system: Option<(RayTracingRendererGroup, RtxSystemCore)>,
-  pub culling: ViewerCulling,
-  pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
-  pub reversed_depth: bool,
-  pub lighting: LightingRenderingCx<'a>,
-  pub clipping: ViewerClippingRenderer,
   pub active_view_control: CurrentViewControl,
 }
 
 pub struct ViewerBatchExtractor {
-  default_extractor: Box<dyn SceneBatchBasicExtractAbility>,
-  indirect_extractor: Option<Box<dyn SceneBatchBasicExtractAbility>>,
+  pub default_extractor: Box<dyn SceneBatchBasicExtractAbility>,
+  pub indirect_extractor: Option<Box<dyn SceneBatchBasicExtractAbility>>,
 }
 
 impl SceneBatchBasicExtractAbility for ViewerBatchExtractor {
@@ -698,5 +679,8 @@ impl SceneBatchBasicExtractAbility for ViewerBatchExtractor {
         .default_extractor
         .extract_scene_batch(scene, semantic, renderer)
     }
+  }
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
   }
 }

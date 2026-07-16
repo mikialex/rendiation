@@ -22,7 +22,7 @@ humansize = { workspace = true }
 png = "*"
 rmp-serde = { workspace = true }
 pollster = { workspace = true }
-serde_json = "*"
+toml = { workspace = true }
 event-source = { path = "../../utility/event-source" }
 rendiation-animation = { path = "../../content/animation" }
 rendiation-algebra = { path = "../../math/algebra" }
@@ -77,6 +77,7 @@ rendiation-occ-style-material = { path = "../../extension/occ-style-material" }
 rendiation-view-dependent-transform = { path = "../../extension/view-dependent-transform" }
 rendiation-device-parallel-compute = { path = "../../shader/parallel-compute" }
 rendiation-transform-instanced-model = { path = "../../extension/transform-instanced-model" }
+rendiation-cell-mesh = { path = "../../extension/cell-mesh" }
 tracing = { workspace = true }
 
 egui = { version = "0.34" }

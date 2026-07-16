@@ -337,6 +337,8 @@ pub fn use_std_model_renderer(
   })
 }
 
+both!(IndirectStdModelId, u32);
+
 pub struct SceneStdModelIndirectRenderer {
   model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   std_model: AbstractReadonlyStorageBuffer<[SceneStdModelStorage]>,
@@ -433,6 +435,7 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
 
           let current_id = builder.query::<LogicalRenderEntityId>();
           let std_id = sm_to_std_model_device.index(current_id).load();
+          builder.register::<IndirectStdModelId>(std_id);
           let info = buffer.index(std_id).load().expand();
           builder.register::<IndirectAbstractMaterialId>(info.material);
           builder.register::<IndirectSkinId>(info.skin);

@@ -14,19 +14,24 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
       .vscroll(true)
       .show(egui_ui, |ui| {
         if ui.button("load obj").clicked() {
-          cx.viewer
-            .terminal
-            .buffered_requests
-            .push_back(CMD_LOAD_WAVEFRONT_OBJ.into())
+          let cmd = format!(
+            "{} {}",
+            CMD_LOAD_WAVEFRONT_OBJ,
+            handle_to_cmd_str(cx.default_scene.scene.into_raw())
+          );
+
+          cx.viewer.terminal.buffered_requests.push_back(cmd)
         }
       });
   }
 
   cx.use_state_init(|cx| {
     cx.terminal
-      .register_command(CMD_LOAD_WAVEFRONT_OBJ, |ctx, _parameters, tcx| {
-        let load_target_node = ctx.scene.root;
-        let load_target_scene = ctx.scene.scene;
+      .register_command(CMD_LOAD_WAVEFRONT_OBJ, |ctx, parameters, tcx| {
+        let target_scene = parameters.get(1).expect("should specify target scene");
+        let target_scene = cmd_str_to_handle(target_scene).unwrap();
+        let target_scene = unsafe { EntityHandle::from_raw(target_scene) };
+
         let tcx = tcx.clone();
 
         async move {
@@ -40,13 +45,16 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
           if let Some(file_handle) = file_handle {
             tcx
               .spawn_main_thread(move || {
-                let mut writer = SceneWriter::from_global(load_target_scene);
+                let mut writer = SceneWriter::from_global();
                 let default_mat = writer.pbr_sg_mat_writer.new_entity(|w| w);
+
+                let load_target_node = writer.create_root_child();
 
                 #[cfg(not(target_family = "wasm"))]
                 rendiation_scene_obj_loader::load_obj(
                   file_handle.path(),
                   load_target_node,
+                  target_scene,
                   default_mat,
                   &mut writer,
                 )

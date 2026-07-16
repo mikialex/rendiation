@@ -21,7 +21,16 @@ pub use widget_bridge::*;
 mod test_content;
 pub use test_content::*;
 
+mod background;
+pub use background::*;
+
 pub const UP: Vec3<f64> = Vec3::new(0., 1., 0.);
+
+pub struct DefaultSceneInfo {
+  /// default scene should not be removed, it will contains examples.
+  pub scene: EntityHandle<SceneEntity>,
+  pub background_state: ViewerBackgroundState,
+}
 
 pub struct ViewerCx<'a> {
   pub viewer: &'a mut Viewer,
@@ -32,33 +41,23 @@ pub struct ViewerCx<'a> {
   pub surface_id: u32,
   pub active_surface_content: &'a mut ViewerSurfaceContent,
   pub app_features: &'a mut ViewerAppFeaturesConfig,
+  pub default_scene: &'a mut DefaultSceneInfo,
 
+  // this id should be immutable
   pub widget_scene: EntityHandle<SceneEntity>,
 
   pub absolute_seconds_from_start: f32,
   pub time_delta_seconds: f32,
   pub task_spawner: &'a TaskSpawner,
   pub immediate_results: FastHashMap<u32, Arc<dyn Any + Send + Sync>>,
+  pub trace_event_notifier: &'a dyn Fn(ViewerTracingEvent),
   stage: ViewerCxStage<'a>,
   waker: Waker,
 }
 
 impl<'a> ViewerCx<'a> {
-  /// this is a workaround for avoid deadlock in use_persistent_db_scope
-  pub fn suppress_scene_writer(&mut self) {
-    if let ViewerCxStage::SceneContentUpdate { .. } = &self.stage {
-      self.stage = ViewerCxStage::SceneContentUpdateSuppressed;
-    };
-  }
-
-  pub fn re_enable_scene_writer(&mut self) {
-    if let ViewerCxStage::SceneContentUpdateSuppressed = &self.stage {
-      self.active_scene_writer();
-    };
-  }
-
   fn active_scene_writer(&mut self) {
-    let writer = SceneWriter::from_global(self.active_surface_content.scene);
+    let writer = SceneWriter::from_global();
 
     self.stage = ViewerCxStage::SceneContentUpdate {
       writer: Box::new(writer),
@@ -86,7 +85,7 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
   }
   fn flush(&mut self) {
     if let ViewerCxStage::Gui { .. } = &mut self.stage {
-      let writer = SceneWriter::from_global(self.active_surface_content.scene);
+      let writer = SceneWriter::from_global();
       let mut drop_cx = ViewerDropCx {
         dyn_cx: self.dyn_cx,
         writer,
@@ -311,6 +310,8 @@ pub fn use_viewer<'a>(
   acx: &'a mut ApplicationCx,
   egui_ui: &mut egui::Ui,
   init_config: &ViewerInitConfig,
+  app_init_config: &ViewerAppFeaturesConfig,
+  trace_event_notifier: &dyn Fn(ViewerTracingEvent),
   f: impl Fn(&mut ViewerCx),
 ) -> &'a mut Viewer {
   let (acx, worker_thread_pool) = acx.use_plain_state(|| {
@@ -326,6 +327,23 @@ pub fn use_viewer<'a>(
     ViewerDataScheduler::new(Some(&root))
   });
 
+  let (acx, scene_instances) = acx.use_plain_state(|| {
+    let scene = global_entity_of::<SceneEntity>()
+      .entity_writer()
+      .new_entity(|w| w);
+
+    let background = {
+      let mut writer = SceneWriter::from_global();
+
+      let default_env_background = load_example_cube_tex(&mut writer);
+      ViewerBackgroundState::init(default_env_background, &mut writer, scene)
+    };
+    DefaultSceneInfo {
+      scene,
+      background_state: background,
+    }
+  });
+
   let surface_id = acx.surface_id;
   let (acx, viewer) = acx.use_state_init(
     || {
@@ -334,21 +352,6 @@ pub fn use_viewer<'a>(
         init_config,
         worker_thread_pool.clone(),
       );
-
-      let root = global_entity_of::<SceneNodeEntity>()
-        .entity_writer()
-        .new_entity(|w| w);
-
-      let scene = global_entity_of::<SceneEntity>()
-        .entity_writer()
-        .new_entity(|w| w);
-
-      let background = {
-        let mut writer = SceneWriter::from_global(scene);
-
-        let default_env_background = load_example_cube_tex(&mut writer);
-        ViewerBackgroundState::init(default_env_background, &mut writer)
-      };
 
       let camera_node = global_entity_of::<SceneNodeEntity>()
         .entity_writer()
@@ -364,7 +367,7 @@ pub fn use_viewer<'a>(
         .entity_writer()
         .new_entity(|w| {
           w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
-            .write::<SceneCameraBelongsToScene>(&scene.some_handle())
+            .write::<SceneCameraBelongsToScene>(&scene_instances.scene.some_handle())
             .write::<SceneCameraNode>(&camera_node.some_handle())
         });
 
@@ -374,14 +377,12 @@ pub fn use_viewer<'a>(
         camera: main_camera,
         camera_node,
         debug_camera_for_view_related: None,
+        scene: scene_instances.scene,
       };
 
       let surface_content = ViewerSurfaceContent {
         viewports: vec![viewport],
         device_pixel_ratio: 1.0,
-        root,
-        scene,
-        background,
       };
       // we construct the default view in our viewer application
       viewer.surfaces_content.insert(surface_id, surface_content);
@@ -395,8 +396,13 @@ pub fn use_viewer<'a>(
       {
         let mut tex_source = data_scheduler.texture_uri_backend.write();
         let mut mesh_source = data_scheduler.mesh_uri_backend.write();
-        let mut writer = SceneWriter::from_global(scene);
-        load_default_scene(&mut writer, tex_source.as_mut(), mesh_source.as_mut());
+        let mut writer = SceneWriter::from_global();
+        load_default_scene(
+          &mut writer,
+          scene_instances.scene,
+          tex_source.as_mut(),
+          mesh_source.as_mut(),
+        );
       };
 
       viewer
@@ -414,8 +420,7 @@ pub fn use_viewer<'a>(
       .new_entity(|w| w)
   });
 
-  let (acx, app_features) =
-    acx.use_plain_state(|| ViewerAppFeaturesConfig::from_default_json_or_default());
+  let (acx, app_features) = acx.use_plain_state(|| app_init_config.clone());
 
   let (acx, axis) = acx.use_plain_state(|| WorldCoordinateAxis::new(&acx.gpu_and_surface.gpu));
 
@@ -472,7 +477,9 @@ pub fn use_viewer<'a>(
     },
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
+    trace_event_notifier,
     app_features,
+    default_scene: scene_instances,
   }
   .execute(|viewer| f(viewer));
 
@@ -499,13 +506,17 @@ pub fn use_viewer<'a>(
     waker: futures::task::noop_waker(),
     immediate_results: Default::default(),
     surface_id: acx.surface_id,
+    trace_event_notifier,
     app_features,
+    default_scene: scene_instances,
   }
   .execute(|viewer| f(viewer));
 
   viewer
     .surfaces_content
     .insert(acx.surface_id, active_surface_content);
+
+  trace_event_notifier(ViewerTracingEvent::Render);
 
   viewer.draw_canvas(
     acx.surface_id,
@@ -527,31 +538,23 @@ pub fn use_viewer<'a>(
   viewer
 }
 
-struct QuerySceneReader(EntityHandle<SceneEntity>);
+struct QuerySceneReader;
 
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for QuerySceneReader {
   type Result = Arc<SceneReader>;
-  fn compute_share_key(&self) -> ShareKey {
-    ShareKey::Hash(fast_hash_scope(|hasher| {
-      std::any::TypeId::of::<Self>().hash(hasher);
-      self.0.hash(hasher);
-    }))
-  }
+
+  share_provider_hash_type_id! {}
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
-    use_scene_reader_internal(cx, self.0)
+    use_scene_reader_internal(cx)
   }
 }
 
 fn use_scene_reader(cx: &mut ViewerCx) -> Option<Arc<SceneReader>> {
-  cx.use_shared_compute(QuerySceneReader(cx.active_surface_content.scene))
-    .into_resolve_stage()
+  cx.use_shared_compute(QuerySceneReader).into_resolve_stage()
 }
 
-fn use_scene_reader_internal(
-  cx: &mut impl DBHookCxLike,
-  scene_id: EntityHandle<SceneEntity>,
-) -> UseResult<Arc<SceneReader>> {
+fn use_scene_reader_internal(cx: &mut impl DBHookCxLike) -> UseResult<Arc<SceneReader>> {
   let mesh_ref_vertex = cx
     .use_db_rev_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
     .use_assure_result(cx);
@@ -566,7 +569,6 @@ fn use_scene_reader_internal(
 
   let r = cx.when_resolve_stage(|| {
     let reader = SceneReader::new_from_global(
-      scene_id,
       mesh_ref_vertex
         .expect_resolve_stage()
         .mark_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()

@@ -231,6 +231,7 @@
         "webgpu",
         "wgpu",
         "Wgsl",
+        "wideline",
         "winit",
         "wireframe",
         "workgroups",

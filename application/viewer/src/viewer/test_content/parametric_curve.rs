@@ -21,8 +21,8 @@ fn sample_curve_to_vertices(
   vertices
 }
 
-pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
-  // Left group: Bezier decomposition of a NURBS curve with interior knots
+pub fn load_parametric_curve_test(writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
+  // --- Left group: Bezier decomposition of a NURBS curve with interior knots ---
   {
     let nurbs = {
       let points = vec![
@@ -52,8 +52,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
       let color = palette[i % palette.len()];
 
       let vertices = sample_curve_to_vertices(curve, 64, color);
-      let buffer: ExternalRefPtr<Vec<u8>> =
-        ExternalRefPtr::new(bytemuck::cast_slice(&vertices).to_vec());
+      let buffer = ExternalRefPtr::new(vertices);
 
       let wide_line_model = global_entity_of::<WideLineModelEntity>()
         .entity_writer()
@@ -63,10 +62,9 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
         });
 
       let child = writer.create_child(root);
-      let scene = writer.expect_target_scene().some_handle();
       writer.model_writer.new_entity(|w| {
         w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
-          .write::<SceneModelBelongsToScene>(&scene)
+          .write::<SceneModelBelongsToScene>(&scene.some_handle())
           .write::<SceneModelRefNode>(&child.some_handle())
       });
     }
@@ -98,8 +96,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
       });
     }
 
-    let buffer: ExternalRefPtr<Vec<u8>> =
-      ExternalRefPtr::new(bytemuck::cast_slice(&vertices).to_vec());
+    let buffer = ExternalRefPtr::new(vertices);
 
     let wide_line_model = global_entity_of::<WideLineModelEntity>()
       .entity_writer()
@@ -111,10 +108,9 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
     let root = writer.create_root_child();
     writer.set_local_matrix(root, Mat4::translate((3.0, 0., 2.5)).into_f64());
 
-    let scene = writer.expect_target_scene().some_handle();
     writer.model_writer.new_entity(|w| {
       w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
-        .write::<SceneModelBelongsToScene>(&scene)
+        .write::<SceneModelBelongsToScene>(&scene.some_handle())
         .write::<SceneModelRefNode>(&root.some_handle())
     });
   }
@@ -157,8 +153,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
           color: Vec4::new(0.5, 0.5, 0.5, 1.0),
         });
       }
-      let poly_buffer: ExternalRefPtr<Vec<u8>> =
-        ExternalRefPtr::new(bytemuck::cast_slice(&poly_vertices).to_vec());
+      let poly_buffer = ExternalRefPtr::new(poly_vertices);
 
       let poly_model = global_entity_of::<WideLineModelEntity>()
         .entity_writer()
@@ -171,8 +166,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
 
       // Curve
       let curve_vertices = sample_curve_to_vertices(&bezier, 80, *color);
-      let curve_buffer: ExternalRefPtr<Vec<u8>> =
-        ExternalRefPtr::new(bytemuck::cast_slice(&curve_vertices).to_vec());
+      let curve_buffer = ExternalRefPtr::new(curve_vertices);
 
       let curve_model = global_entity_of::<WideLineModelEntity>()
         .entity_writer()
@@ -185,15 +179,14 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter) {
       let child = writer.create_child(root);
       writer.set_local_matrix(child, Mat4::translate((offset, 0., 0.)));
 
-      let scene = writer.expect_target_scene().some_handle();
       writer.model_writer.new_entity(|w| {
         w.write::<SceneModelWideLineRenderPayload>(&poly_model.some_handle())
-          .write::<SceneModelBelongsToScene>(&scene)
+          .write::<SceneModelBelongsToScene>(&scene.some_handle())
           .write::<SceneModelRefNode>(&child.some_handle())
       });
       writer.model_writer.new_entity(|w| {
         w.write::<SceneModelWideLineRenderPayload>(&curve_model.some_handle())
-          .write::<SceneModelBelongsToScene>(&scene)
+          .write::<SceneModelBelongsToScene>(&scene.some_handle())
           .write::<SceneModelRefNode>(&child.some_handle())
       });
     }

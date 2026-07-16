@@ -25,7 +25,11 @@ pub fn use_widen_points_gles_renderer(
     &mesh,
     cx.use_changes::<WideStyledPointsMeshBuffer>(),
     |buffer| {
-      let buffer = create_gpu_buffer(&buffer, BufferUsages::VERTEX, &cx.gpu.device);
+      let buffer = create_gpu_buffer(
+        cast_slice(buffer.as_slice()),
+        BufferUsages::VERTEX,
+        &cx.gpu.device,
+      );
       buffer.create_default_view()
     },
   );
@@ -206,7 +210,7 @@ impl GraphicsShaderProvider for WidePointGPU<'_> {
       if let Some(depth) = &mut builder.depth_stencil {
         depth.depth_write_enabled = Some(false);
         if self.depth_test_enable {
-          depth.depth_compare = Some(SemanticCompareFunction::Nearer.into_raw(self.rev_z))
+          depth.depth_compare = Some(SemanticCompareFunction::NearerEqual.into_raw(self.rev_z))
         }
       }
     })

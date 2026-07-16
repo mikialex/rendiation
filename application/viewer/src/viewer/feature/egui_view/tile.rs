@@ -1,5 +1,4 @@
 use egui_tiles::*;
-use fast_hash_collection::FastHashSet;
 
 use crate::*;
 
@@ -9,25 +8,15 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
     create_viewer_default_tile_tree(&surface_content.viewports)
   });
 
-  let all_scene_cameras = cx
-    .use_db_rev_ref::<SceneCameraBelongsToScene>()
-    .use_assure_result(cx);
-
-  let (cx, all_scene_cameras_cached) = cx.use_plain_state();
-
-  if cx.is_resolve_stage() {
-    *all_scene_cameras_cached = all_scene_cameras
-      .expect_resolve_stage()
-      .access_multi(&cx.active_surface_content.scene.into_raw())
-      .unwrap()
-      .collect::<FastHashSet<RawEntityHandle>>();
-  }
-
   if let ViewerCxStage::Gui { egui_ui, .. } = &mut cx.stage {
     let surface_content = &mut cx.active_surface_content;
 
+    let all_cameras = get_db_set_view::<SceneCameraEntity>();
+    let all_scenes = get_db_set_view::<SceneEntity>();
+
     let mut behavior = ViewerTileTreeBehavior {
-      camera_handles: all_scene_cameras_cached,
+      all_cameras: all_cameras.clone(),
+      all_scenes: all_scenes.clone(),
       edited: Default::default(),
       add_child_to: Default::default(),
       remove_tile: Default::default(),
@@ -82,13 +71,16 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
         camera: camera_source.camera,
         camera_node: camera_source.camera_node,
         debug_camera_for_view_related: None,
+        scene: cx.default_scene.scene,
       };
       surface_content.viewports.push(new_viewport);
 
-      let any_camera_in_target_scene = *all_scene_cameras_cached.iter().next().unwrap();
-      let new_child = tree
-        .tiles
-        .insert_pane(ViewerPane::new(id, any_camera_in_target_scene));
+      let (any_camera_in_target_scene, _) = all_cameras.iter_key_value().next().unwrap();
+      let new_child = tree.tiles.insert_pane(ViewerPane::new(
+        id,
+        any_camera_in_target_scene,
+        cx.default_scene.scene.into_raw(),
+      ));
       if let Some(root) = tree.root() {
         if let egui_tiles::Tile::Container(egui_tiles::Container::Linear(container)) =
           tree.tiles.get_mut(root).unwrap()
@@ -117,6 +109,7 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
             let height = r.height() * ratio;
             viewport.viewport = (r.min.x * ratio, r.min.y * ratio, width, height).into();
             let camera = unsafe { EntityHandle::from_raw(pane.camera_handle) };
+            viewport.scene = unsafe { EntityHandle::from_raw(pane.scene_handle) };
             viewport.camera = camera;
             viewport.camera_node = camera_nodes.access(&camera).unwrap();
             viewport.debug_camera_for_view_related = pane
@@ -147,7 +140,8 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
 pub struct ViewerPane {
   pub viewport_id: u64,
   pub rect: egui::Rect,
-  pub show_camera_setting: bool,
+  pub show_detail: bool,
+  pub scene_handle: RawEntityHandle,
   pub camera_handle: RawEntityHandle,
   pub debug_view_camera_handle: Option<RawEntityHandle>,
   pub request_switch_proj: bool,
@@ -155,12 +149,17 @@ pub struct ViewerPane {
 }
 
 impl ViewerPane {
-  pub fn new(viewport_id: u64, camera_handle: RawEntityHandle) -> Self {
+  pub fn new(
+    viewport_id: u64,
+    camera_handle: RawEntityHandle,
+    scene_handle: RawEntityHandle,
+  ) -> Self {
     ViewerPane {
       viewport_id,
-      show_camera_setting: false,
+      show_detail: false,
       rect: egui::Rect::from_min_max(egui::pos2(0., 0.), egui::pos2(0., 0.)),
       camera_handle,
+      scene_handle,
       debug_view_camera_handle: None,
       request_switch_proj: false,
       request_screenshot: false,
@@ -168,14 +167,15 @@ impl ViewerPane {
   }
 }
 
-pub struct ViewerTileTreeBehavior<'a> {
-  pub camera_handles: &'a FastHashSet<RawEntityHandle>,
+pub struct ViewerTileTreeBehavior {
+  pub all_scenes: BoxedDynQuery<RawEntityHandle, ()>,
+  pub all_cameras: BoxedDynQuery<RawEntityHandle, ()>,
   pub edited: std::cell::Cell<bool>,
   pub add_child_to: Option<TileId>,
   pub remove_tile: Option<TileId>,
 }
 
-impl<'a> egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior<'a> {
+impl egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior {
   fn simplification_options(&self) -> SimplificationOptions {
     SimplificationOptions {
       prune_empty_tabs: true,
@@ -254,8 +254,8 @@ impl<'a> egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior<'a> {
             self.remove_tile = Some(tile_id);
           }
 
-          if ui.button("camera").clicked() {
-            pane.show_camera_setting = !pane.show_camera_setting;
+          if ui.button("details").clicked() {
+            pane.show_detail = !pane.show_detail;
           }
 
           if ui.button("screenshot").clicked() {
@@ -272,37 +272,43 @@ impl<'a> egui_tiles::Behavior<ViewerPane> for ViewerTileTreeBehavior<'a> {
         })
     });
 
-    if pane.show_camera_setting {
-      ui.horizontal(|ui| {
-        egui::frame::Frame::NONE
-          .inner_margin(egui::Margin::same(3))
-          .show(ui, |ui| {
-            if ui.button("switch_proj").clicked() {
-              pane.request_switch_proj = true;
-            }
+    if pane.show_detail {
+      egui::frame::Frame::NONE
+        .inner_margin(egui::Margin::same(3))
+        .show(ui, |ui| {
+          if ui.button("switch_proj").clicked() {
+            pane.request_switch_proj = true;
+          }
 
-            egui::ComboBox::from_label("camera")
-              .selected_text(format!("{:?}", pane.camera_handle))
-              .show_ui(ui, |ui| {
-                for c in self.camera_handles.iter() {
-                  ui.selectable_value(&mut pane.camera_handle, *c, format!("{:?}", c));
-                }
-              });
+          egui::ComboBox::from_label("scene")
+            .selected_text(format!("{:?}", pane.scene_handle))
+            .show_ui(ui, |ui| {
+              for (c, _) in self.all_scenes.iter_key_value() {
+                ui.selectable_value(&mut pane.scene_handle, c, format!("{:?}", c));
+              }
+            });
 
-            egui::ComboBox::from_label("debug view camera")
-              .selected_text(format!("{:?}", pane.debug_view_camera_handle))
-              .show_ui(ui, |ui| {
-                ui.selectable_value(&mut pane.debug_view_camera_handle, None, "none");
-                for c in self.camera_handles.iter() {
-                  ui.selectable_value(
-                    &mut pane.debug_view_camera_handle,
-                    Some(*c),
-                    format!("{:?}", c),
-                  );
-                }
-              });
-          });
-      });
+          egui::ComboBox::from_label("camera")
+            .selected_text(format!("{:?}", pane.camera_handle))
+            .show_ui(ui, |ui| {
+              for (c, _) in self.all_cameras.iter_key_value() {
+                ui.selectable_value(&mut pane.camera_handle, c, format!("{:?}", c));
+              }
+            });
+
+          egui::ComboBox::from_label("debug view camera")
+            .selected_text(format!("{:?}", pane.debug_view_camera_handle))
+            .show_ui(ui, |ui| {
+              ui.selectable_value(&mut pane.debug_view_camera_handle, None, "none");
+              for (c, _) in self.all_cameras.iter_key_value() {
+                ui.selectable_value(
+                  &mut pane.debug_view_camera_handle,
+                  Some(c),
+                  format!("{:?}", c),
+                );
+              }
+            });
+        });
     }
 
     r
@@ -317,7 +323,11 @@ pub fn create_viewer_default_tile_tree(
   let children = viewports
     .iter()
     .map(|viewport| {
-      let pane = ViewerPane::new(viewport.id, viewport.camera.into_raw());
+      let pane = ViewerPane::new(
+        viewport.id,
+        viewport.camera.into_raw(),
+        viewport.scene.into_raw(),
+      );
       tiles.insert_pane(pane)
     })
     .collect();

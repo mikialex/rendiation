@@ -1,0 +1,11 @@
+[package]
+edition = "2024"
+name = "database-tracing"
+version = "0.0.1"
+
+[dependencies]
+database = { path = "../database" }
+fast-hash-collection = { path = "../fast-hash-collection" }
+futures = { workspace = true }
+log = { workspace = true }
+smallvec = { workspace = true }

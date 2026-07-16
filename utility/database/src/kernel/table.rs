@@ -34,6 +34,15 @@ impl ArcTable {
     assert!(previous.is_none())
   }
 
+  pub fn visit_components(&self, f: impl FnMut(&ComponentUntyped)) {
+    let components = self.internal.components.read_recursive();
+    components.values().for_each(f);
+  }
+
+  pub fn component_define_watchers(&self) -> &EventSource<ComponentUntyped> {
+    &self.internal.components_meta_watchers
+  }
+
   pub fn iter_entity_idx(&self) -> impl Iterator<Item = RawEntityHandle> + 'static {
     let inner = self.internal.allocator.make_read_holder();
     struct Iter {
@@ -142,7 +151,7 @@ pub struct Table {
   pub(crate) components_meta_watchers: EventSource<ComponentUntyped>,
   pub(crate) foreign_key_meta_watchers: EventSource<(ComponentId, EntityId)>,
 
-  pub(crate) entity_watchers: EventSource<ChangePtr>,
+  pub(crate) entity_watchers: EventSource<EntityChangeMessage>,
   pub(crate) name_mapping: Arc<RwLock<DBNameMapping>>,
 }
 
@@ -160,6 +169,10 @@ impl Table {
       entity_watchers: Default::default(),
       name_mapping,
     }
+  }
+
+  pub fn entity_watchers(&self) -> &EventSource<EntityChangeMessage> {
+    &self.entity_watchers
   }
 
   #[inline(never)]
@@ -226,6 +239,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
       data: Box::new(storage),
       allocator: self.inner.internal.allocator.clone(),
       data_watchers: Default::default(),
+      binary_to_debug_string: create_binary_to_debug_string::<S::Data>(),
     };
     self.inner.declare_component_dyn(S::component_id(), com);
     self
@@ -244,15 +258,16 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
 
   pub fn declare_sparse_foreign_key_maybe_sparse<S: ForeignKeySemantic<Entity = E>>(
     mut self,
-    sparse: bool,
+    _sparse: bool,
   ) -> Self {
-    if sparse {
-      let storage = init_sparse_storage::<S>();
-      self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
-    } else {
-      let storage = init_linear_storage::<S>();
-      self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
-    };
+    // todo, fix sparse has bug
+    // // if sparse {
+    //   let storage = init_sparse_storage::<S>();
+    //   self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
+    // } else {
+    let storage = init_linear_storage::<S>();
+    self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
+    // };
 
     self
       .inner

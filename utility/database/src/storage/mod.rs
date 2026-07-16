@@ -18,6 +18,22 @@ pub trait DataBaseDataType: CValue + Default {
 
 pub type DBFastSerializeSmallBuffer = smallvec::SmallVec<[u8; 16]>;
 
+/// Build a closure that deserializes a `DBFastSerializeSmallBuffer` (msgpack bytes)
+/// into the concrete `DataBaseDataType` and formats it via `Debug`.
+/// Returns `None` if deserialization fails.
+pub fn create_binary_to_debug_string<T: DataBaseDataType>(
+) -> fn(DBFastSerializeSmallBuffer) -> Option<String> {
+  |buffer| {
+    let mut value = T::default();
+    let mut cursor = std::io::Cursor::new(buffer.as_ref());
+    if T::fast_deserialize(&mut value, &mut cursor).is_some() {
+      Some(format!("{:?}", value))
+    } else {
+      None
+    }
+  }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum DBFastSerializeSmallBufferOrForeignKey<K> {
   Pod(DBFastSerializeSmallBuffer),

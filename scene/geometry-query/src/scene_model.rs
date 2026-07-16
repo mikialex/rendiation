@@ -150,6 +150,8 @@ pub struct SceneModelPickerBaseImplUtil {
   pub node_world: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
+  pub sm_local_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
   pub selectable: ComponentReadView<SceneModelSelectable>,
 }
 
@@ -173,15 +175,27 @@ impl SceneModelPickerBaseImplUtil {
 
     Some(node)
   }
-  pub fn get_node_mat(&self, node: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f64>> {
-    self.node_world.access(&node)
+  pub fn get_mat_and_world_aabb(
+    &self,
+    node: EntityHandle<SceneNodeEntity>,
+    idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<(Mat4<f64>, Box3<f64>)> {
+    let world = self.node_world.access(&node)?;
+    let world_aabb = if let Some(world_aabb) = self.sm_world_bounding.access(&idx)? {
+      world_aabb
+    } else {
+      self
+        .sm_local_bounding
+        .access(&idx)?
+        .into_f64()
+        .apply_matrix_into(world)
+    };
+    (world, world_aabb).into()
   }
 }
 
 pub struct SceneModelPickerBaseImpl<T> {
   pub util: SceneModelPickerBaseImplUtil,
-  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
-  pub sm_local_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
   pub internal: T,
   // keep result if return true
   pub filter: Option<Box<dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool>>,
@@ -199,16 +213,14 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
 
     let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
       let smb = self
+        .util
         .sm_local_bounding
         .access(&idx)?
         .into_f64()
         .apply_matrix_into(*mat);
       (*mat, smb)
     } else {
-      (
-        self.util.get_node_mat(node)?,
-        self.sm_world_bounding.access(&idx)??,
-      )
+      self.util.get_mat_and_world_aabb(node, idx)?
     };
 
     let local_tolerance = pre_check_bounding_early_return_and_compute_local_tolerance(
@@ -266,16 +278,14 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
 
     let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
       let smb = self
+        .util
         .sm_local_bounding
         .access(&idx)?
         .into_f64()
         .apply_matrix_into(*mat);
       (*mat, smb)
     } else {
-      (
-        self.util.get_node_mat(node)?,
-        self.sm_world_bounding.access(&idx)??,
-      )
+      self.util.get_mat_and_world_aabb(node, idx)?
     };
 
     let local_tolerance = pre_check_bounding_early_return_and_compute_local_tolerance(
@@ -331,16 +341,14 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
 
     let (mat, _sm_world_bounding) = if let Some(mat) = override_world_mat {
       let smb = self
+        .util
         .sm_local_bounding
         .access(&idx)?
         .into_f64()
         .apply_matrix_into(*mat);
       (*mat, smb)
     } else {
-      (
-        self.util.get_node_mat(node)?,
-        self.sm_world_bounding.access(&idx)??,
-      )
+      self.util.get_mat_and_world_aabb(node, idx)?
     };
 
     // todo, early return

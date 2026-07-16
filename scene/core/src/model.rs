@@ -73,7 +73,7 @@ impl Default for RasterizationStates {
   fn default() -> Self {
     Self {
       depth_write_enabled: true,
-      depth_compare: SemanticCompareFunction::Nearer,
+      depth_compare: SemanticCompareFunction::NearerEqual,
       blend: None,
       write_mask: ColorWrites::all(),
       bias: Default::default(),

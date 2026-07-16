@@ -21,6 +21,7 @@ pub enum OccFlavorZLayer {
   #[default]
   Default = 1,
   Top = 2,
+  // the top most layer will be draw in stand alone frame
   TopMost = 3,
   TopOSD = 4,
 }
@@ -100,32 +101,15 @@ pub struct OccStyleOrderControlSceneBatchExtractor {
   pub internal: IncrementalDeviceSceneBatchExtractor<OccSceneModelGroupKey>,
 }
 
-impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
-  fn extract_scene_batch(
+impl OccStyleOrderControlSceneBatchExtractor {
+  fn create_device_list_from_groups(
     &self,
     scene: EntityHandle<SceneEntity>,
-    semantic: SceneContentKey,
-    _renderer: &dyn SceneRenderer,
+    groups: Vec<(&OccSceneModelGroupKey, &PersistSceneModelListBuffer)>,
   ) -> SceneModelRenderBatch {
-    let contents = self.internal.contents.get(&scene.into_raw());
-    let Some(contents) = contents else {
-      return SceneModelRenderBatch::Device(None);
-    };
-
-    let mut groups: Vec<_> = if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
-      contents
-        .iter()
-        .filter(|(k, _)| k.internal.require_alpha_blend() == alpha_blend)
-        .collect()
-    } else {
-      contents.iter().collect()
-    };
-
     if groups.is_empty() {
       return SceneModelRenderBatch::Device(None);
     }
-
-    groups.sort_by_key(|(k, _)| k.layer as u32);
 
     let mut impl_select_ids = Vec::with_capacity(groups.len());
     let mut capacity_ranges = Vec::with_capacity(groups.len());
@@ -159,6 +143,54 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
       draw_list,
       impl_select_ids,
     }))
+  }
+
+  pub fn get_top_most_layer(&self, scene: EntityHandle<SceneEntity>) -> SceneModelRenderBatch {
+    let contents = self.internal.contents.get(&scene.into_raw());
+    if contents.is_none() {
+      return SceneModelRenderBatch::Device(None);
+    }
+    let groups: Vec<_> = contents
+      .unwrap()
+      .iter()
+      .filter(|(k, _)| k.layer == OccFlavorZLayer::TopMost)
+      .collect();
+
+    self.create_device_list_from_groups(scene, groups)
+  }
+}
+
+impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
+  fn extract_scene_batch(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    semantic: SceneContentKey,
+    _renderer: &dyn SceneRenderer,
+  ) -> SceneModelRenderBatch {
+    let contents = self.internal.contents.get(&scene.into_raw());
+    let Some(contents) = contents else {
+      return SceneModelRenderBatch::Device(None);
+    };
+
+    let mut groups: Vec<_> = if let Some(alpha_blend) = semantic.only_alpha_blend_objects {
+      contents
+        .iter()
+        .filter(|(k, _)| k.internal.require_alpha_blend() == alpha_blend)
+        .filter(|(k, _)| k.layer != OccFlavorZLayer::TopMost)
+        .collect()
+    } else {
+      contents
+        .iter()
+        .filter(|(k, _)| k.layer != OccFlavorZLayer::TopMost)
+        .collect()
+    };
+
+    groups.sort_by_key(|(k, _)| k.layer as u32);
+
+    self.create_device_list_from_groups(scene, groups)
+  }
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
   }
 }
 

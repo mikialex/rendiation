@@ -1,4 +1,4 @@
-use rand::RngExt;
+use rand::Rng;
 use rendiation_mesh_generator::*;
 
 use super::util::{CommonTestLights, SceneModelWithUniqueNode};
@@ -14,8 +14,9 @@ pub fn use_transform_instance_example(cx: &mut ViewerCx) {
   let (cx, example) = cx.use_state_init(|_| TransformInstanceExample::new());
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
+    let scene = cx.default_scene.scene;
     if !example.initialized {
-      example.initialize(writer);
+      example.initialize(writer, scene);
     }
 
     // Process group-level deletions
@@ -34,11 +35,11 @@ pub fn use_transform_instance_example(cx: &mut ViewerCx) {
 
     // Process new group creation
     for _ in 0..example.pending_new_wideline_groups {
-      example.create_group(writer, GroupType::WideLine);
+      example.create_group(writer, scene, GroupType::WideLine);
     }
     example.pending_new_wideline_groups = 0;
     for _ in 0..example.pending_new_cube_groups {
-      example.create_group(writer, GroupType::Cube);
+      example.create_group(writer, scene, GroupType::Cube);
     }
     example.pending_new_cube_groups = 0;
 
@@ -82,7 +83,7 @@ pub fn use_transform_instance_example(cx: &mut ViewerCx) {
       if group.dirty {
         let buffer = ExternalRefPtr::new(group.instance_transforms.clone());
         transform_instanced_writer
-          .write::<TransformInstancedModelInstanceBuffer>(group.instance_entity, Some(buffer));
+          .write::<TransformInstancedModelInstanceBuffer>(group.instance_entity, buffer);
         group.dirty = false;
       }
     }
@@ -251,14 +252,14 @@ impl TransformInstanceExample {
     }
   }
 
-  fn initialize(&mut self, writer: &mut SceneWriter) {
-    self.init_wide_line_source(writer);
-    self.init_cube_source(writer);
-    self.lights = Some(CommonTestLights::new(writer));
+  fn initialize(&mut self, writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
+    self.init_wide_line_source(writer, scene);
+    self.init_cube_source(writer, scene);
+    self.lights = Some(CommonTestLights::new(writer, scene));
     self.initialized = true;
   }
 
-  fn init_wide_line_source(&mut self, writer: &mut SceneWriter) {
+  fn init_wide_line_source(&mut self, writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
     let mesh_buffer = build_wide_line_mesh(|builder| {
       builder.build_grid_parametric(
         &SphereMeshParameter::default().make_surface(),
@@ -280,7 +281,7 @@ impl TransformInstanceExample {
       .new_entity(|w| w.write::<SceneNodeVisibleComponent>(&false));
     writer.set_local_matrix(source_node, Mat4::identity());
 
-    let scene = writer.expect_target_scene().some_handle();
+    let scene = scene.some_handle();
     let source_scene_model = writer.model_writer.new_entity(|w| {
       w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
         .write::<SceneModelBelongsToScene>(&scene)
@@ -296,7 +297,7 @@ impl TransformInstanceExample {
     });
   }
 
-  fn init_cube_source(&mut self, writer: &mut SceneWriter) {
+  fn init_cube_source(&mut self, writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
     let cube = CubeMeshParameter {
       width: 1.,
       height: 2.,
@@ -322,7 +323,7 @@ impl TransformInstanceExample {
       .new_entity(|w| w.write::<SceneNodeVisibleComponent>(&false));
     writer.set_local_matrix(source_node, Mat4::identity());
 
-    let scene = writer.expect_target_scene().some_handle();
+    let scene = scene.some_handle();
     let std_model = writer.std_model_writer.new_entity(|w| {
       w.write::<StandardModelRefAttributesMeshEntity>(&attribute_mesh.some_handle())
         .write::<StandardModelRefPbrSGMaterial>(&mat_handle.some_handle())
@@ -343,7 +344,12 @@ impl TransformInstanceExample {
     });
   }
 
-  fn create_group(&mut self, writer: &mut SceneWriter, ty: GroupType) {
+  fn create_group(
+    &mut self,
+    writer: &mut SceneWriter,
+    scene: EntityHandle<SceneEntity>,
+    ty: GroupType,
+  ) {
     let scene_model_ref_node = match ty {
       GroupType::WideLine => &self
         .source_wide_line
@@ -373,11 +379,11 @@ impl TransformInstanceExample {
     let mut transform_instanced_writer =
       global_entity_of::<TransformInstancedModelEntity>().entity_writer();
     let instance_entity = transform_instanced_writer.new_entity(|w| {
-      w.write::<TransformInstancedModelInstanceBuffer>(&Some(buffer))
+      w.write::<TransformInstancedModelInstanceBuffer>(&buffer)
         .write::<TransformInstancedModelRefSceneModel>(scene_model_ref_node)
     });
 
-    let scene = writer.expect_target_scene().some_handle();
+    let scene = scene.some_handle();
     let instanced_node = writer.create_root_child();
     writer.set_local_matrix(instanced_node, Mat4::translate((0., 0., 0.)));
 

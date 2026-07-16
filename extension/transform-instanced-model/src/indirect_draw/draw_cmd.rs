@@ -37,8 +37,7 @@ impl NoneIndexedDrawCommandBuilderInvocation for InstanceNoneIndexedInvocation {
       .instance_meta
       .index(instance_model_id)
       .instance_count()
-      .load()
-      / val(NodeStorage::u32_size());
+      .load();
 
     ENode::<DrawIndirectArgsStorage> {
       vertex_count: inner.vertex_count * instance_count,
@@ -58,8 +57,7 @@ impl NoneIndexedDrawCommandBuilder for InstanceDrawCommandBuilder {
     let instance_count = self
       .instance_meta_host
       .get(instance_model_id.alloc_index())?
-      .instance_count
-      / NodeStorage::u32_size();
+      .instance_count;
 
     match internal_draw {
       DrawCommand::Array {

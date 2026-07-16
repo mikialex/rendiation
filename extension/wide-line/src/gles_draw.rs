@@ -29,7 +29,11 @@ pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineM
   let mesh = cx.use_shared_hash_map("wide line mesh gles");
 
   maintain_shared_map(&mesh, cx.use_changes::<WideLineMeshBuffer>(), |buffer| {
-    let buffer = create_gpu_buffer(&buffer, BufferUsages::VERTEX, &cx.gpu.device);
+    let buffer = create_gpu_buffer(
+      cast_slice(buffer.as_slice()),
+      BufferUsages::VERTEX,
+      &cx.gpu.device,
+    );
     buffer.create_default_view()
   });
 

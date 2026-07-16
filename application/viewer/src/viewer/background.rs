@@ -15,16 +15,16 @@ pub struct ViewerBackgroundState {
 }
 
 impl ViewerBackgroundState {
-  pub fn setup_background(&self, writer: &mut SceneWriter) {
+  pub fn setup_background(&self, writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
     match self.current {
       ViewerBackgroundType::Color => {
-        writer.set_solid_background(Vec3::from(self.solid_background_color));
+        writer.set_solid_background(Vec3::from(self.solid_background_color), scene);
       }
       ViewerBackgroundType::Environment => {
-        writer.set_hdr_env_background(self.default_env_background, 1., Mat4::identity());
+        writer.set_hdr_env_background(self.default_env_background, 1., Mat4::identity(), scene);
       }
       ViewerBackgroundType::Gradient => {
-        writer.set_gradient_background(self.gradient.clone());
+        writer.set_gradient_background(self.gradient.clone(), scene);
       }
     }
   }
@@ -39,6 +39,7 @@ impl ViewerBackgroundState {
   pub fn init(
     default_env_background: EntityHandle<SceneTextureCubeEntity>,
     writer: &mut SceneWriter,
+    scene: EntityHandle<SceneEntity>,
   ) -> Self {
     let s = Self {
       current: ViewerBackgroundType::Color,
@@ -55,7 +56,7 @@ impl ViewerBackgroundState {
         ],
       },
     };
-    s.setup_background(writer);
+    s.setup_background(writer, scene);
     s
   }
 
@@ -83,17 +84,17 @@ impl ViewerBackgroundState {
         });
 
       {
-        let mut writer = SceneWriter::from_global(scene);
+        let mut writer = SceneWriter::from_global();
         match self.current {
           ViewerBackgroundType::Color => {
             ui.color_edit_button_rgb(&mut self.solid_background_color);
-            writer.set_solid_background(Vec3::from(self.solid_background_color))
+            writer.set_solid_background(Vec3::from(self.solid_background_color), scene)
           }
           ViewerBackgroundType::Environment => {} // not editable for now
           ViewerBackgroundType::Gradient => {}    // not editable for now
         }
         if self.current != previous {
-          self.setup_background(&mut writer);
+          self.setup_background(&mut writer, scene);
         }
       }
     });

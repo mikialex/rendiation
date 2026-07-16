@@ -1,4 +1,4 @@
-use rand::RngExt;
+use rand::Rng;
 
 use super::util::SceneModelWithUniqueNode;
 use crate::*;
@@ -19,7 +19,7 @@ pub fn use_text3d_example(cx: &mut ViewerCx) {
     // process additions
     if !example.pending_additions.is_empty() {
       while let Some(info) = example.pending_additions.pop() {
-        example.create_instance(writer, &mut text3d_writer, info);
+        example.create_instance(writer, &mut text3d_writer, cx.default_scene.scene, info);
       }
     }
   }
@@ -135,6 +135,7 @@ impl Text3DExample {
     &mut self,
     writer: &mut SceneWriter,
     text3d_writer: &mut EntityWriter<Text3dEntity>,
+    scene: EntityHandle<SceneEntity>,
     info: Text3dContentInfo,
   ) {
     let mut rng = rand::rng();
@@ -150,7 +151,7 @@ impl Text3DExample {
     let child = writer.create_root_child();
     writer.set_local_matrix(child, Mat4::translate((x, y, z)));
 
-    let scene = writer.expect_target_scene().some_handle();
+    let scene = scene.some_handle();
     let model = writer.model_writer.new_entity(|w| {
       w.write::<SceneModelText3dPayload>(&text.some_handle())
         .write::<SceneModelBelongsToScene>(&scene)

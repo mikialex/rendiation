@@ -130,11 +130,6 @@ pub struct CurveData {
   pub p2: Vec2<f32>,
   pub p3: Vec2<f32>,
 }
-impl CurveData {
-  pub fn u32_size() -> u32 {
-    std::mem::size_of::<Self>() as u32 / 4
-  }
-}
 
 #[repr(C)]
 #[std430_layout]
@@ -150,11 +145,6 @@ pub struct TextGlyphQuad {
   pub band_max: Vec2<u32>,
 
   pub band_transform: Vec4<f32>,
-}
-impl TextGlyphQuad {
-  pub fn u32_size() -> u32 {
-    std::mem::size_of::<Self>() as u32 / 4
-  }
 }
 
 #[repr(C)]

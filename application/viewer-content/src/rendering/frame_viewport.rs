@@ -13,6 +13,7 @@ pub trait ViewerFrameRenderingExtension {
     &mut self,
     frame: &mut FrameCtx,
     renderer: &ViewerRendererInstance,
+    lighting: &LightingRenderingCx,
     camera: EntityHandle<SceneCameraEntity>,
     target: &RenderTargetView,
   );
@@ -23,6 +24,7 @@ impl ViewerFrameRenderingExtension for () {
     &mut self,
     _frame: &mut FrameCtx,
     _renderer: &ViewerRendererInstance,
+    _lighting: &LightingRenderingCx,
     _camera: EntityHandle<SceneCameraEntity>,
     _target: &RenderTargetView,
   ) {
@@ -370,7 +372,7 @@ impl Viewer3dViewportRenderingCtx {
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &mut ViewerRendererInstance,
-    content: &ViewerSurfaceContent,
+    lighting: &LightingRenderingCx,
     selection_info: &ViewerSelectionStates,
     viewport: &ViewerViewPort,
     final_target: &RenderTargetView,
@@ -397,10 +399,10 @@ impl Viewer3dViewportRenderingCtx {
         self.use_render_ray_tracing(
           ctx,
           renderer,
-          content,
           &render_target,
           camera,
-          renderer.lighting.tonemap,
+          viewport.scene,
+          lighting.tonemap,
         );
       });
     } else {
@@ -408,7 +410,7 @@ impl Viewer3dViewportRenderingCtx {
         self.render_raster(
           ctx,
           renderer,
-          content,
+          lighting,
           &render_target,
           viewport,
           selection_info,
@@ -417,7 +419,7 @@ impl Viewer3dViewportRenderingCtx {
       });
     }
 
-    extension.use_draw_content_on_post_frame(ctx, renderer, camera, &render_target);
+    extension.use_draw_content_on_post_frame(ctx, renderer, lighting, camera, &render_target);
 
     // do extra copy to surface texture
     if should_do_extra_copy {
@@ -456,9 +458,9 @@ impl Viewer3dViewportRenderingCtx {
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &ViewerRendererInstance,
-    content: &ViewerSurfaceContent,
     final_target: &RenderTargetView,
     camera: EntityHandle<SceneCameraEntity>,
+    scene: EntityHandle<SceneEntity>,
     tonemap: &ToneMap,
   ) {
     ctx.next_scope_index();
@@ -477,7 +479,7 @@ impl Viewer3dViewportRenderingCtx {
               ctx,
               core.rtx_system.as_ref(),
               &rtx_renderer.base.0,
-              content.scene,
+              scene,
               camera,
               &rtx_renderer.ao.0,
             );
@@ -501,7 +503,7 @@ impl Viewer3dViewportRenderingCtx {
               ctx,
               core.rtx_system.as_ref(),
               &rtx_renderer.base.0,
-              content.scene,
+              scene,
               camera,
               tonemap,
               &renderer.background,
@@ -524,7 +526,7 @@ impl Viewer3dViewportRenderingCtx {
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &mut ViewerRendererInstance,
-    content: &ViewerSurfaceContent,
+    lighting: &LightingRenderingCx,
     render_target: &RenderTargetView,
     viewport: &ViewerViewPort,
     selection_info: &ViewerSelectionStates,
@@ -562,7 +564,7 @@ impl Viewer3dViewportRenderingCtx {
     let (clip_component, clip_helper) =
       renderer
         .clipping
-        .use_get_scene_clipping(content.scene, ctx, renderer.reversed_depth);
+        .use_get_scene_clipping(viewport.scene, ctx, renderer.reversed_depth);
     let clip_component = &OptionRender(clip_component) as &dyn RenderComponent;
 
     let mut content_for_taa = ViewerContentForTAA {
@@ -586,13 +588,13 @@ impl Viewer3dViewportRenderingCtx {
 
         use_render_lighting_scene_content(
           ctx,
-          &renderer.lighting,
+          lighting,
           &mut renderer.culling,
           &renderer_c,
           &renderer.clipping,
           clip_component,
           &clip_helper,
-          content.scene,
+          viewport.scene,
           viewport,
           &scene_result,
           &g_buffer,

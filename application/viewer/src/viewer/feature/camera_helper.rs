@@ -77,7 +77,7 @@ pub fn use_immediate_helper_model(
           access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
           if let Some(ptr_cx) = &picker.pointer_ctx {
             let model = model.model();
-            if let Some(pick_result) = picker.pick_model_nearest(model, ptr_cx.world_ray) {
+            if let Some(pick_result) = picker.pick_model_nearest(model, ptr_cx.0.world_ray) {
               let offsets = offsets.as_ref().unwrap();
               let idx = match offsets.binary_search_by(|v| v.1.cmp(&pick_result.primitive_index)) {
                 Ok(idx) => idx,
@@ -95,21 +95,19 @@ pub fn use_immediate_helper_model(
     }
     ViewerCxStage::SceneContentUpdate { writer, .. } => {
       if let Some(lines) = changes.take() {
-        writer.write_other_scene(Some(cx.widget_scene), |writer| {
-          let lines: &[u8] = cast_slice(lines.as_slice());
+        let lines: &[u8] = cast_slice(lines.as_slice());
 
-          let lines = AttributesMeshData {
-            attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
-            indices: None,
-            mode: MeshPrimitiveTopology::LineList,
-          };
+        let lines = AttributesMeshData {
+          attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
+          indices: None,
+          mode: MeshPrimitiveTopology::LineList,
+        };
 
-          if let Some(model) = &mut helper_mesh.internal {
-            model.replace_new_shape_and_cleanup_old(writer, lines);
-          } else {
-            helper_mesh.internal = UIWidgetModel::new(writer, lines).into();
-          }
-        })
+        if let Some(model) = &mut helper_mesh.internal {
+          model.replace_new_shape_and_cleanup_old(writer, lines);
+        } else {
+          helper_mesh.internal = UIWidgetModel::new(writer, cx.widget_scene, lines).into();
+        }
       }
 
       None

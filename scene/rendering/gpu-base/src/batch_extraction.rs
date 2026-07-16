@@ -25,6 +25,7 @@ pub trait SceneBatchBasicExtractAbility {
     semantic: SceneContentKey,
     renderer: &dyn SceneRenderer,
   ) -> SceneModelRenderBatch;
+  fn as_any(&self) -> &dyn std::any::Any;
 }
 
 impl<T: SceneBatchBasicExtractAbility> SceneBatchBasicExtractAbility for LockReadGuardHolder<T> {
@@ -35,6 +36,10 @@ impl<T: SceneBatchBasicExtractAbility> SceneBatchBasicExtractAbility for LockRea
     renderer: &dyn SceneRenderer,
   ) -> SceneModelRenderBatch {
     (**self).extract_scene_batch(scene, semantic, renderer)
+  }
+
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
   }
 }
 
@@ -97,6 +102,9 @@ impl SceneBatchBasicExtractAbility for DefaultSceneBatchExtractor {
     } else {
       SceneModelRenderBatch::Host(Box::new(batch))
     }
+  }
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
   }
 }
 

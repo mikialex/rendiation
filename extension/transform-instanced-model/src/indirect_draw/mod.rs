@@ -50,11 +50,10 @@ pub fn use_transform_instanced_model_indirect_renderer(
     .use_dual_query::<TransformInstancedModelInstanceBuffer>()
     .map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
       source_info.delta().into_change().collective_map(|buffer| {
-        let buffer = buffer.unwrap();
-        let mut new_buffer = Vec::with_capacity(buffer.len() * std::mem::size_of::<NodeStorage>());
-        for mat in buffer.iter() {
-          new_buffer.extend_from_slice(NodeStorage::from_world_mat(mat.into_f64()).as_bytes());
-        }
+        let new_buffer = buffer
+          .iter()
+          .map(|v| NodeStorage::from_world_mat(v.into_f64()))
+          .collect();
         ExternalRefPtr::new(new_buffer)
       })
     });
@@ -342,7 +341,7 @@ impl<'a> GraphicsShaderProvider for Override<'a> {
       vertex.register::<VertexIndex>(real_vertex_index);
 
       let instance_transform = instance_buffer
-        .index(instance_meta.instance_offset / val(NodeStorage::u32_size()) + real_instance_index)
+        .index(instance_meta.instance_offset + real_instance_index)
         .load();
 
       // todo, we should put this mul at host side to save cost

@@ -24,13 +24,13 @@ impl<T> TransformInstancedMeshPicker<T> {
     let instance_own_transform = if let Some(mat) = override_world_mat {
       *mat
     } else {
-      self.util.get_node_mat(node)?
+      self.util.get_mat_and_world_aabb(node, idx)?.0
     };
 
     let instance_model = self.instance_model.get(idx)?;
     let source_model = self.source_model.get(instance_model)?;
     let per_unit_transform = self.per_unit_transform.get(instance_model)?;
-    let transforms = self.transform_buffer.get(instance_model)?.as_ref()?;
+    let transforms = self.transform_buffer.get(instance_model)?.as_ref();
     Some(TransformPickView {
       transforms,
       per_unit_transform,

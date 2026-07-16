@@ -23,7 +23,6 @@ pub fn use_instanced_model_local_bounding(
         } else {
           source_local_bbox
         };
-        let transform_buffer = transform_buffer.expect("missing transform buffer");
         let bbox: Box3<f32> = transform_buffer
           .iter()
           .map(|m| source_local_bbox.apply_matrix_into(*m))

@@ -1,0 +1,10 @@
+# See ViewerAppFeaturesConfig
+
+# enable this to enable tracing in viewer
+# enable_tracing_and_tracing_write_path = "trace.bin"
+
+[pick_scene]
+prefer_gpu_picking = false
+enable_hit_debug_log = true
+range_query_contains = false
+precise_intersection_test = true

@@ -5,14 +5,14 @@ use crate::*;
 
 pub struct ViewerPickerWithCtx {
   pub picker_impl: ViewerPicker,
-  pub pointer_ctx: Option<ViewportPointerCtx>,
+  pub pointer_ctx: Option<(ViewportPointerCtx, EntityHandle<SceneEntity>)>,
 }
 
 impl ViewerPickerWithCtx {
   fn create_ray_ctx(&self, world_ray: Ray3<f64>) -> Option<SceneRayQuery> {
     let ctx = self.pointer_ctx.as_ref()?;
 
-    let mut ctx = create_ray_query_ctx_from_vpc(ctx, 0.);
+    let mut ctx = create_ray_query_ctx_from_vpc(&ctx.0, 0.);
 
     ctx.world_ray = world_ray;
 
@@ -116,7 +116,7 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerPickerWi
     let mut picker_impl = scene_model_picker.unwrap();
     picker_impl
       .model_picker
-      .set_active_view(pointer_ctx.as_ref().map(|c| c.viewport_id));
+      .set_active_view(pointer_ctx.as_ref().map(|c| c.0.viewport_id));
 
     ViewerPickerWithCtx {
       picker_impl,
@@ -206,7 +206,7 @@ pub fn prepare_picking_state<'a>(
 ) -> Option<Interaction3dCtx<'a>> {
   let pointer_ctx = picker.pointer_ctx.as_ref()?;
   let world_ray_intersected_nearest =
-    picker.pick_models_nearest(&mut g.group.iter().copied(), pointer_ctx.world_ray);
+    picker.pick_models_nearest(&mut g.group.iter().copied(), pointer_ctx.0.world_ray);
 
   Some(Interaction3dCtx {
     picker: picker as &dyn Picker3d,

@@ -152,7 +152,7 @@ impl RenderingRoot {
           pollster::block_on(pool.all_async_task_done())
         };
 
-        let renderer = {
+        let (renderer, light_preparer) = {
           let _ = trace_span!("maintain(gpu) and create renderer instance").entered();
           task_pool_result
             .token_based_result
@@ -192,6 +192,7 @@ impl RenderingRoot {
           selection_info,
           extension,
           renderer,
+          light_preparer,
           scheduler.batch_collector.as_mut(),
           ctx,
           &waker,

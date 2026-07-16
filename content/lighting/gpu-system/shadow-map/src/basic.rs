@@ -161,16 +161,15 @@ impl BasicShadowMapPreparer {
   pub fn update_shadow_maps(
     self,
     frame_ctx: &mut FrameCtx,
-    // proj, world
-    scene_content: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
+    scene_content: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest),
     reversed_depth: bool,
   ) -> BasicShadowMapGPU {
     clear_shadow_map(&self.gpu_data.shadow_map, frame_ctx, reversed_depth);
 
     // do shadowmap updates
-    for (idx, shadow_view) in self.packing.iter_key_value() {
-      let world = self.source_world.access(&idx).unwrap();
-      let proj = self.source_proj.access(&idx).unwrap();
+    for (light_id, shadow_view) in self.packing.iter_key_value() {
+      let shadow_camera_world = self.source_world.access(&light_id).unwrap();
+      let shadow_camera_proj = self.source_proj.access(&light_id).unwrap();
 
       let write_view = self
         .gpu_data
@@ -187,12 +186,15 @@ impl BasicShadowMapPreparer {
       );
 
       scene_content(
-        proj,
-        world,
         frame_ctx,
-        ShadowPassDesc {
-          desc: pass,
-          address: shadow_view,
+        ShadowMapDrawRequest {
+          shadow_camera_proj,
+          shadow_camera_world,
+          light_id,
+          map_desc: ShadowPassDesc {
+            desc: pass,
+            address: shadow_view,
+          },
         },
       );
     }

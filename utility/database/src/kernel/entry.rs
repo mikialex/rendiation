@@ -3,7 +3,7 @@ use crate::*;
 #[derive(Default, Clone)]
 pub struct Database {
   pub tables: Arc<RwLock<FastHashMap<EntityId, ArcTable>>>,
-  pub(crate) entity_meta_watcher: EventSource<ArcTable>,
+  pub entity_meta_watcher: EventSource<ArcTable>,
   pub name_mapping: Arc<RwLock<DBNameMapping>>,
 }
 

@@ -32,11 +32,18 @@ pub enum GLTFLoaderError {
 pub fn load_gltf(
   path: impl AsRef<Path>,
   target: EntityHandle<SceneNodeEntity>,
+  target_scene: EntityHandle<SceneEntity>,
   writer: &mut SceneWriter,
   mesh_buffer_uri_backend: Option<&mut dyn UriDataSourceDyn<Arc<Vec<u8>>>>,
 ) -> Result<GltfLoadResult, GLTFLoaderError> {
   let parse_result = parse_gltf(path)?;
-  let result = write_gltf_at_node(target, writer, mesh_buffer_uri_backend, parse_result);
+  let result = write_gltf_at_node(
+    target,
+    target_scene,
+    writer,
+    mesh_buffer_uri_backend,
+    parse_result,
+  );
   Ok(result)
 }
 
@@ -88,6 +95,7 @@ pub struct GltfParseResult {
 
 pub fn write_gltf_at_node(
   target: EntityHandle<SceneNodeEntity>,
+  target_scene: EntityHandle<SceneEntity>,
   writer: &mut SceneWriter,
   mesh_buffer_uri_backend: Option<&mut dyn UriDataSourceDyn<Arc<Vec<u8>>>>,
   gltf: GltfParseResult,
@@ -108,6 +116,7 @@ pub fn write_gltf_at_node(
       .collect(),
     result: Default::default(),
     io: writer,
+    target_scene,
   };
 
   ctx.result.path = path;
@@ -169,6 +178,7 @@ pub fn write_gltf_at_node(
 
 struct Context<'a, 'b> {
   io: &'a mut SceneWriter,
+  target_scene: EntityHandle<SceneEntity>,
   mesh_buffer_uri_backend: Option<&'b mut dyn UriDataSourceDyn<Arc<Vec<u8>>>>,
   images: Vec<gltf::image::Data>,
   attributes: Vec<ExternalRefPtr<Vec<u8>>>,
@@ -247,13 +257,12 @@ fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
     let color = light.color();
     let intensity = Vec3::from(color) * intensity;
     let cutoff_distance = light.range().unwrap_or(DEFAULT_CUTOFF_DISTANCE);
-    let scene = ctx.io.expect_target_scene();
     match light.kind() {
       gltf::khr_lights_punctual::Kind::Directional => {
         let scene_light = DirectionalLightDataView {
           illuminance: intensity,
           node,
-          scene,
+          scene: ctx.target_scene,
         }
         .write(&mut ctx.io.directional_light_writer);
         ctx
@@ -266,7 +275,7 @@ fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
           intensity,
           cutoff_distance,
           node,
-          scene,
+          scene: ctx.target_scene,
         }
         .write(&mut ctx.io.point_light_writer);
         ctx
@@ -284,7 +293,7 @@ fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
           half_cone_angle: outer_cone_angle,
           half_penumbra_angle: inner_cone_angle,
           node,
-          scene,
+          scene: ctx.target_scene,
         }
         .write(&mut ctx.io.spot_light_writer);
         ctx.result.spot_light_map.insert(light.index(), scene_light);
@@ -402,7 +411,7 @@ fn build_model(
 
   let sm = SceneModelDataView {
     model,
-    scene: ctx.io.expect_target_scene(),
+    scene: ctx.target_scene,
     node,
   };
 
@@ -416,11 +425,11 @@ fn build_model(
 }
 
 fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
-  let scene = ctx.io.expect_target_scene().some_handle();
+  let scene = ctx.target_scene;
   let animation_handle = ctx
     .io
     .animation
-    .new_entity(|w| w.write::<SceneAnimationBelongsToScene>(&scene));
+    .new_entity(|w| w.write::<SceneAnimationBelongsToScene>(&scene.some_handle()));
 
   write_label(&mut ctx.io.animation, animation_handle, animation.name());
 

@@ -1,15 +1,11 @@
 mod changes_channel;
 mod delta_channel;
-mod persistence;
 mod ref_counting;
-mod staged_scope_watch;
 mod util;
 
 pub use changes_channel::*;
 pub use delta_channel::*;
-pub use persistence::*;
 pub use ref_counting::*;
-pub use staged_scope_watch::*;
 pub use util::*;
 
 use crate::*;
@@ -138,7 +134,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
   fn use_entity_set_delta_raw(&mut self, e_id: EntityId) -> UseResult<DBDelta<()>> {
     let (cx, rev) = self.use_plain_state(|| {
       global_database().access_table_dyn(e_id, move |e| {
-        add_delta_listen(
+        add_entity_set_listen(
           e.entity_capacity(),
           ArenaAccess(e.internal.allocator.make_read_holder()),
           &e.internal.entity_watchers,

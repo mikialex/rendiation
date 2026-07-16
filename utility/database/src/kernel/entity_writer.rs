@@ -2,7 +2,7 @@ use crate::*;
 
 impl ArcTable {
   pub fn entity_writer_dyn(&self) -> EntityWriterUntyped {
-    let change: ChangePtr = ScopedValueChange::Start;
+    let change = ScopedMessage::Start;
     self.internal.entity_watchers.emit(&change);
 
     let components = self.internal.components.read_recursive();
@@ -33,7 +33,7 @@ pub struct EntityWriterUntyped {
   pub(crate) allocator: LockWriteGuardHolder<TableAllocator>,
   /// this change ptr type is ScopedValueChange<()>, the lifetime of the ptr is only valid
   /// in the callback scope.
-  entity_watchers: EventSource<ChangePtr>,
+  entity_watchers: EventSource<EntityChangeMessage>,
   components: smallvec::SmallVec<[(ComponentId, EntityComponentWriterImpl); 6]>,
 }
 
@@ -63,7 +63,7 @@ impl<'a> EntityInitWriteView<'a> {
 
 impl Drop for EntityWriterUntyped {
   fn drop(&mut self) {
-    let change: ChangePtr = ScopedValueChange::End;
+    let change = ScopedMessage::End;
     self.components.clear(); // trigger the components writer's dropper first
     self.entity_watchers.emit(&change);
   }
@@ -91,7 +91,7 @@ impl EntityWriterUntyped {
   pub fn notify_reserve_changes(&mut self, count: usize) {
     self
       .entity_watchers
-      .emit(&ScopedValueChange::ReserveSpace(count));
+      .emit(&ScopedMessage::ReserveSpace(count));
 
     for (_, com) in &mut self.components {
       com.component.notify_reserve_changes(count);
@@ -104,6 +104,10 @@ impl EntityWriterUntyped {
   ) -> RawEntityHandle {
     let handle = self.allocator.insert(());
     let handle = RawEntityHandle(handle);
+
+    let change = EntityChange::NewEntityStartCreate(handle);
+    let change = ScopedMessage::Message(change);
+    self.entity_watchers.emit(&change);
 
     writer(EntityInitWriteView {
       components: &mut self.components,
@@ -121,35 +125,33 @@ impl EntityWriterUntyped {
       }
     }
 
-    let new_pair = (&() as DataPtr, &() as &dyn DataBaseDataTypeDyn as *const _);
-    let change = ValueChange::Delta(new_pair, None);
-    let change = IndexValueChange {
-      idx: handle,
-      change,
-    };
-    let change = ScopedValueChange::Message(change);
+    let change = EntityChange::NewEntityCreated(handle);
+    let change = ScopedMessage::Message(change);
     self.entity_watchers.emit(&change);
     handle
   }
 
   pub fn clone_entity(&mut self, src: RawEntityHandle) -> RawEntityHandle {
+    assert!(self.allocator.contains(src.0));
+
     let handle = self.allocator.insert(());
     let handle = RawEntityHandle(handle);
-    assert!(self.allocator.contains(src.0));
+
+    let change = EntityChange::NewEntityStartCreate(handle);
+    let change = ScopedMessage::Message(change);
+    self.entity_watchers.emit(&change);
+
     for com in &mut self.components {
       unsafe {
         // safety, the handle is just created.
         com.1.clone_component_value(src, handle);
       }
     }
-    let new_pair = (&() as DataPtr, &() as &dyn DataBaseDataTypeDyn as *const _);
-    let change = ValueChange::Delta(new_pair, None);
-    let change = IndexValueChange {
-      idx: handle,
-      change,
-    };
-    let change = ScopedValueChange::Message(change);
+
+    let change = EntityChange::NewEntityCreated(handle);
+    let change = ScopedMessage::Message(change);
     self.entity_watchers.emit(&change);
+
     handle
   }
 
@@ -164,13 +166,8 @@ impl EntityWriterUntyped {
       }
     }
 
-    let pair = (&() as DataPtr, &() as &dyn DataBaseDataTypeDyn as *const _);
-    let change = ValueChange::Remove(pair);
-    let change = IndexValueChange {
-      idx: handle,
-      change,
-    };
-    let change = ScopedValueChange::Message(change);
+    let change = EntityChange::DeleteEntity(handle);
+    let change = ScopedMessage::Message(change);
     self.entity_watchers.emit(&change);
   }
 }

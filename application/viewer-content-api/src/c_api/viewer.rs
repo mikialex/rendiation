@@ -9,7 +9,7 @@ use crate::*;
 pub extern "C" fn create_viewer_content_api_instance(config_path: *const c_char) -> *mut ViewerAPI {
   let config_path = unsafe { CStr::from_ptr(config_path) };
   let init_config = if let Ok(config_path) = config_path.to_str() {
-    if let Some(r) = ViewerInitConfig::from_json_or_default(config_path) {
+    if let Some(r) = ViewerInitConfig::from_toml_or_default(config_path) {
       r
     } else {
       log::warn!("unable to read or parse the config file, use default config");
@@ -172,6 +172,29 @@ pub extern "C" fn world_derive_query_api_get_world_mat(
 }
 
 #[no_mangle]
+pub extern "C" fn world_derive_query_api_get_world_bbox_with_persist(
+  api: &mut ViewerWorldDeriveQueryAPI,
+  sm: ViewerEntityHandle,
+  surface_id: u64,
+  result: &mut [f64; 6],
+) -> bool {
+  let key = (surface_id, sm.into());
+  if let Some(mat) = api.scene_bounding.view_maps.access(&key) {
+    if let Some(other) = api.scene_bounding.sm_to_local_bbox.access(&sm.into()) {
+      let bbox = other.into_f64().apply_matrix_into(mat);
+      result[0] = bbox.min.x;
+      result[1] = bbox.min.y;
+      result[2] = bbox.min.z;
+      result[3] = bbox.max.x;
+      result[4] = bbox.max.y;
+      result[5] = bbox.max.z;
+      return true;
+    }
+  }
+  false
+}
+
+#[no_mangle]
 pub extern "C" fn world_derive_query_api_get_world_bounding(
   api: &mut ViewerWorldDeriveQueryAPI,
   sm: ViewerEntityHandle,
@@ -195,9 +218,10 @@ pub extern "C" fn world_derive_query_api_get_world_bounding(
 pub extern "C" fn world_derive_query_api_get_local_bounding(
   api: &mut ViewerWorldDeriveQueryAPI,
   sm: ViewerEntityHandle,
-  result: &mut [f32; 6],
+  result: &mut [f64; 6],
 ) -> bool {
   if let Some(bbox) = api.sm_local_bound.access(&sm.into()) {
+    let bbox = bbox.into_f64();
     result[0] = bbox.min.x;
     result[1] = bbox.min.y;
     result[2] = bbox.min.z;
@@ -233,10 +257,11 @@ pub extern "C" fn query_scene_bounding(
   viewer_api: &mut ViewerAPI,
   scene: ViewerEntityHandle,
   result: &mut [f32; 6],
-  consider_override: bool,
+  consider_view_dep: bool,
+  consider_infinity: bool,
   surface_id: u32,
 ) {
-  let active_view = if consider_override {
+  let active_view = if consider_view_dep {
     let surface_content = viewer_api
       .core
       .viewer
@@ -248,9 +273,10 @@ pub extern "C" fn query_scene_bounding(
     None
   };
 
-  let bbox = api
-    .scene_bounding
-    .get_or_compute_scene_bounding(scene.into(), active_view);
+  let bbox =
+    api
+      .scene_bounding
+      .get_or_compute_scene_bounding(scene.into(), active_view, consider_infinity);
 
   result[0] = bbox.min.x;
   result[1] = bbox.min.y;
@@ -268,7 +294,6 @@ pub extern "C" fn query_scene_bounding(
 pub extern "C" fn picker_pick_list(
   api: &mut ViewerQueryAPI,
   viewer: &mut ViewerAPI,
-  scene: ViewerEntityHandle,
   x: f32,
   y: f32,
   extra_screen_space_tolerance: f32,
@@ -277,7 +302,6 @@ pub extern "C" fn picker_pick_list(
   let mut pick_results = Vec::new();
   api.pick_list(
     &viewer.core.viewer,
-    scene.into(),
     x,
     y,
     extra_screen_space_tolerance,
@@ -317,7 +341,6 @@ pub extern "C" fn drop_pick_list_result(r: *mut ViewerRayPickListResult) {
 pub extern "C" fn picker_pick_range(
   api: &mut ViewerQueryAPI,
   viewer: &mut ViewerAPI,
-  scene: ViewerEntityHandle,
   ax: f32,
   ay: f32,
   bx: f32,
@@ -329,7 +352,6 @@ pub extern "C" fn picker_pick_range(
   let mut pick_results = Vec::new();
   api.pick_range(
     &viewer.core.viewer,
-    scene.into(),
     ax,
     ay,
     bx,

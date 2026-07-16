@@ -5,29 +5,31 @@ use crate::*;
 
 pub fn load_default_scene(
   writer: &mut SceneWriter,
+  scene: EntityHandle<SceneEntity>,
   texture_data_source: &mut ViewerTextureDataSource,
   mesh_source: &mut ViewerMeshDataSource,
 ) {
+  // return;
   // load_text3d_test(writer);
   // test_mesh_lod_graph(writer);
   // load_parametric_surface_test(writer);
   // load_parametric_curve_test(writer);
 
-  load_transform_instanced_wide_line_test(writer);
+  load_transform_instanced_wide_line_test(writer, scene);
 
-  load_widen_line_test(writer);
-  load_widen_points_test(writer, texture_data_source);
+  load_widen_line_test(writer, scene);
+  load_widen_points_test(writer, scene, texture_data_source);
 
-  load_default_scene_lighting_test(writer);
+  load_default_scene_lighting_test(writer, scene);
 
   // test_ltc_lighting(writer);
   let transparent_test_root = writer.create_root_child();
   writer.set_local_matrix(transparent_test_root, Mat4::translate((3., 0., -3.)));
-  load_transparent_test(writer, transparent_test_root);
+  load_transparent_test(writer, scene, transparent_test_root);
 
   let transparent_test_root = writer.create_root_child();
   writer.set_local_matrix(transparent_test_root, Mat4::translate((-3., 0., -3.)));
-  load_transparent_test_overlap_ball(writer, transparent_test_root);
+  load_transparent_test_overlap_ball(writer, scene, transparent_test_root);
 
   // textured ball
   {
@@ -61,7 +63,7 @@ pub fn load_default_scene(
     .write(&mut writer.pbr_mr_mat_writer);
     let material = SceneMaterialDataView::PbrMRMaterial(material);
     let child = writer.create_root_child();
-    writer.create_scene_model(material, attribute_mesh, child);
+    writer.create_scene_model(material, attribute_mesh, child, scene);
   }
 
   {
@@ -103,7 +105,6 @@ pub fn load_default_scene(
     let child = writer.create_root_child();
     writer.set_local_matrix(child, Mat4::translate((-3., -3., 0.)));
 
-    let scene = writer.expect_target_scene().some_handle();
     let std_model = writer.std_model_writer.new_entity(|w| {
       w.write::<StandardModelRefAttributesMeshEntity>(&attribute_mesh.some_handle())
         .write::<StdModelOccStyleMaterialPayload>(&occ_material.some_handle())
@@ -111,7 +112,7 @@ pub fn load_default_scene(
 
     writer.model_writer.new_entity(|w| {
       w.write::<SceneModelStdModelRenderPayload>(&std_model.some_handle())
-        .write::<SceneModelBelongsToScene>(&scene)
+        .write::<SceneModelBelongsToScene>(&scene.some_handle())
         .write::<SceneModelRefNode>(&child.some_handle())
     });
   }
@@ -144,7 +145,7 @@ pub fn load_default_scene(
       Mat4::translate((2., 0., 3.)) * Mat4::scale((2., 1., 1.)),
     );
 
-    writer.create_scene_model(material, attribute_mesh, child);
+    writer.create_scene_model(material, attribute_mesh, child, scene);
   }
   // // face
   // {
@@ -247,10 +248,9 @@ pub fn load_default_scene(
       camera_node,
       Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), UP),
     );
-    let scene = writer.expect_target_scene().into_raw();
     writer.camera_writer.new_entity(|w| {
       w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
-        .write::<SceneCameraBelongsToScene>(&Some(scene))
+        .write::<SceneCameraBelongsToScene>(&Some(scene.into_raw()))
         .write::<SceneCameraNode>(&Some(camera_node.into_raw()))
     });
   }
@@ -280,6 +280,6 @@ pub fn load_default_scene(
     let child = writer.create_root_child();
     writer.set_local_matrix(child, Mat4::translate((0., 0., 60.)));
 
-    writer.create_scene_model(material, attribute_mesh, child);
+    writer.create_scene_model(material, attribute_mesh, child, scene);
   }
 }

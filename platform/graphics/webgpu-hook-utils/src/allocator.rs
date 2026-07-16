@@ -48,8 +48,9 @@ impl<K> BatchAllocateResult<K> {
   }
 }
 
+/// the second u32 is u32_per_item, we need to convert it to u64 byte address at iter_data_movements
 #[derive(Clone)]
-pub struct BatchAllocateResultShared<K>(pub Arc<BatchAllocateResult<K>>, pub u32); // (_, u32_per_item)
+pub struct BatchAllocateResultShared<K>(pub Arc<BatchAllocateResult<K>>, pub u32);
 
 impl<K> BatchAllocateResultShared<K> {
   pub fn has_data_movements(&self) -> bool {
@@ -63,16 +64,17 @@ impl<K> BatchAllocateResultShared<K> {
       count: v.count as u64 * u32_per_item * 4,
     })
   }
-}
-impl<K: Eq + Hash> BatchAllocateResultShared<K> {
-  pub fn access_new_change(&self, k: K) -> Option<[u32; 2]> {
-    let u32_per_item = self.1;
+
+  pub fn access_new_change(&self, k: K) -> Option<[u32; 2]>
+  where
+    K: Eq + Hash,
+  {
     if let Some(v) = self.0.new_data_to_write.get(&k) {
-      return Some([v.0 * u32_per_item, v.1 * u32_per_item]);
+      return Some([v.0, v.1]);
     }
 
     if let Some(v) = self.0.data_movements.get(&k) {
-      return Some([v.new_offset * u32_per_item, v.count * u32_per_item]);
+      return Some([v.new_offset, v.count]);
     }
 
     if self.0.failed_to_allocate.contains(&k) {
@@ -100,17 +102,16 @@ impl DataChanges for BatchAllocateResultShared<RawEntityHandle> {
   }
 
   fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
-    let u32_per_item = self.1;
     let movements = self
       .0
       .data_movements
       .iter()
-      .map(move |(k, v)| (*k, [v.new_offset * u32_per_item, v.count * u32_per_item]));
+      .map(move |(k, v)| (*k, [v.new_offset, v.count]));
     let new = self
       .0
       .new_data_to_write
       .iter()
-      .map(move |(k, v)| (*k, [v.0 * u32_per_item, v.1 * u32_per_item]));
+      .map(move |(k, v)| (*k, [v.0, v.1]));
 
     // note, return count 0 for failed_to_allocate case is important
     let failed = self

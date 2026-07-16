@@ -1,0 +1,45 @@
+# See ViewerInitConfig
+
+raster_backend_type = "Indirect"
+prefer_bindless_for_indirect_texture_system = false
+enable_indirect_occlusion_culling = true
+enable_debug_cull_result = false
+enable_frustum_culling = true
+using_host_driven_indirect_draw = false
+transparent_config = "NaiveAlphaBlend"
+enable_shadow = false
+enable_taa = false
+enable_fxaa = false
+enable_msaa = true
+enable_grid_ground = false
+present_mode = "AutoVsync"
+enable_on_demand_rendering = true
+use_scene_bvh = false
+use_array_clip = false
+always_enable_caching_frame_for_direct_read = false
+light_surface_ty = "Pbr"
+
+[init_only] # See ViewerStaticInitConfig
+use_native_line_for_one_width_line = true
+occlusion_culling_max_scene_model_count = 100_000
+enable_indirect_storage_combine = true
+enable_reverse_z = true
+using_texture_as_storage_buffer_for_indirect_rendering = false
+
+[init_only.texture_pool_source_init_config]
+init_sampler_count_capacity = 128
+init_texture_count_capacity = 128
+
+[init_only.texture_pool_source_init_config.atlas_config]
+max_size = { depth = 16, size = { width = 4096, height = 4096 } }
+init_size = { depth = 2, size = { width = 4096, height = 4096 } }
+
+[init_only.bindless_mesh_init]
+init_index_count = 200_000
+max_index_count = 20_000_000
+init_vertex_u32_size_count = 800_000
+max_vertex_u32_size_count = 80_000_000
+
+[init_only.default_shader_protections]
+bounds_checks = true
+force_loop_bounding = true

@@ -20,6 +20,7 @@ where
 
 pub struct UI3dBuildCx<'a> {
   pub writer: &'a mut SceneWriter,
+  pub scene: EntityHandle<SceneEntity>,
   pub cx: &'a mut DynCx,
   pub pick_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
 }
@@ -27,6 +28,7 @@ pub struct UI3dBuildCx<'a> {
 pub struct UI3dCx<'a> {
   writer: Option<&'a mut SceneWriter>,
   reader: Option<&'a SceneReader>,
+  pub scene: EntityHandle<SceneEntity>,
   memory: &'a mut FunctionMemory,
   pub event: Option<UIEventStageCx<'a>>,
   pub dyn_cx: &'a mut DynCx,
@@ -46,11 +48,13 @@ impl<'a> UI3dCx<'a> {
     root_memory: &'a mut FunctionMemory,
     event: UIEventStageCx<'a>,
     reader: &'a SceneReader,
+    scene: EntityHandle<SceneEntity>,
     dyn_cx: &'a mut DynCx,
     pick_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
   ) -> Self {
     Self {
       writer: None,
+      scene,
       reader: Some(reader),
       memory: root_memory,
       event: Some(event),
@@ -64,9 +68,11 @@ impl<'a> UI3dCx<'a> {
     root_memory: &'a mut FunctionMemory,
     dyn_cx: &'a mut DynCx,
     writer: &'a mut SceneWriter,
+    scene: EntityHandle<SceneEntity>,
     pick_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
   ) -> Self {
     Self {
+      scene,
       writer: Some(writer),
       reader: None,
       memory: root_memory,
@@ -96,6 +102,7 @@ unsafe impl HooksCxLike for UI3dCx<'_> {
         writer,
         cx: self.dyn_cx,
         pick_group: self.pick_group,
+        scene: self.scene,
       };
 
       let drop_cx = &mut drop_cx as *mut _ as *mut ();
@@ -166,6 +173,7 @@ impl UI3dCx<'_> {
             writer: (*this).writer.as_mut().expect("unable to build"),
             cx: (*this).dyn_cx,
             pick_group: (*this).pick_group,
+            scene: (*this).scene,
           };
           init(&mut cx)
         },
@@ -265,6 +273,7 @@ pub fn use_pickable_model(cx: &mut UI3dCx, model: &UIWidgetModelProxy) {
 impl UIWidgetModelProxy {
   pub fn new(
     cx: &mut SceneWriter,
+    target_scene: EntityHandle<SceneEntity>,
     node: &EntityHandle<SceneNodeEntity>,
     material: &EntityHandle<UnlitMaterialEntity>,
     mesh: &AttributesMeshEntities,
@@ -278,7 +287,7 @@ impl UIWidgetModelProxy {
     .write(&mut v.std_model_writer);
     let scene_model = SceneModelDataView {
       model,
-      scene: v.expect_target_scene(),
+      scene: target_scene,
       node: *node,
     }
     .write(&mut v.model_writer);

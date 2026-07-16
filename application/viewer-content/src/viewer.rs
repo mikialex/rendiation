@@ -52,7 +52,7 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for EntityHandle<SceneEntity> {
 }
 
 pub fn drop_viewer_from_dyn_cx(viewer: &mut Viewer, dyn_cx: &mut DynCx) {
-  let writer = SceneWriter::from_global_some(None);
+  let writer = SceneWriter::from_global();
 
   let mut dcx = ViewerDropCx {
     dyn_cx,

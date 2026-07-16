@@ -43,21 +43,15 @@ pub fn use_widen_line_indirect_renderer(
     .use_dual_query::<WideLineMeshBuffer>()
     .map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
       source_info.delta().into_change().collective_map(|buffer| {
-        // here we assume the buffer is correctly aligned
-        let buffer: &[WideLineVertex] = cast_slice(&buffer);
-        let mut new_buffer =
-          Vec::with_capacity(buffer.len() * std::mem::size_of::<WideLineVertexStorage>());
-        for v in buffer {
-          new_buffer.extend_from_slice(
-            WideLineVertexStorage {
-              start: v.start,
-              end: v.end,
-              color: v.color,
-              ..Default::default()
-            }
-            .as_bytes(),
-          );
-        }
+        let new_buffer = buffer
+          .iter()
+          .map(|v| WideLineVertexStorage {
+            start: v.start,
+            end: v.end,
+            color: v.color,
+            ..Default::default()
+          })
+          .collect::<Vec<_>>();
         ExternalRefPtr::new(new_buffer)
       })
     });
@@ -159,12 +153,6 @@ struct WideLineVertexStorage {
   pub start: Vec3<f32>,
   pub end: Vec3<f32>,
   pub color: Vec4<f32>,
-}
-
-impl WideLineVertexStorage {
-  fn u32_size() -> u32 {
-    std::mem::size_of::<Self>() as u32 / 4
-  }
 }
 
 impl IndirectDrawProviderCreator for WideLineModelIndirectRenderer {
@@ -322,14 +310,13 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
 
       let vertex_index = builder.query::<VertexIndex>();
 
-      let vertex_stride = val(WideLineVertexStorage::u32_size());
       let stride = if self.use_native_line { 2 } else { 18 };
 
       let instance_index = vertex_index / val(stride);
       let vertex_index = vertex_index % val(stride);
 
       let seg = segments
-        .index(instance_index + line_param.data_range.x() / vertex_stride)
+        .index(instance_index + line_param.data_range.x())
         .load()
         .expand();
 
@@ -470,7 +457,7 @@ impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let model = self.sm_to_wide.get(id).unwrap();
     let param = self.params_host.get(model.alloc_index()).unwrap();
-    let seg_count = param.data_range.y / WideLineVertexStorage::u32_size();
+    let seg_count = param.data_range.y;
 
     if param.data_range.x == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {
       return None;
@@ -517,8 +504,7 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
   ) -> Node<DrawIndirectArgsStorage> {
     let line_id = self.sm_to_wide_line_device.index(draw_id).load();
     // the implementation of range allocate assure the count is zero if allocation failed
-    let seg_count =
-      self.params.index(line_id).data_range().load().y() / val(WideLineVertexStorage::u32_size());
+    let seg_count = self.params.index(line_id).data_range().load().y();
 
     let stride = if self.use_native_line { 2 } else { 18 };
 

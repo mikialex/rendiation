@@ -108,9 +108,9 @@ most used testing and developing commands (write it down for convenience)
 run main test viewer
 
 ```bash
-cargo run --bin viewer
-cargo run --release --bin viewer # run it in release mode (most common to use)
-cargo run --release --bin viewer --no-default-features # run it in release mode without extra debug overhead(should used to profiling and production)
+cargo run --bin rendiation-viewer
+cargo run --release --bin rendiation-viewer # run it in release mode (most common to use)
+cargo run --release --bin rendiation-viewer --no-default-features # run it in release mode without extra debug overhead(should used to profiling and production)
 ```
 
 run given test when debugging. this is useful to fast relaunch same test in terminal.
@@ -134,8 +134,8 @@ cargo tree -d
 [the samply profiler](https://github.com/mstange/samply) is recommended to investigate cpu performance issue. the most used command is:
 
 ```bash
-cargo build --profile profiling --bin viewer
-samply record ./target/profiling/viewer
+cargo build --profile profiling --bin rendiation-viewer
+samply record ./target/profiling/rendiation-viewer
 ```
 
 For GPU debugging and profiling, the metal gpu capture is recommended to investigate gpu workload on macOS. On the other
@@ -157,15 +157,15 @@ already integrated into viewer application. It is disabled by default behind the
 using and buffering a lot of memory when enabled. The current integration should use tracy 0.11.1 client to connect.
 
 ```bash
-cargo run --bin viewer --features tracy # run viewer enable tracy
-cargo run --bin viewer --features tracy-heap-debug # run viewer enable tracy and tracy-heap-debug
+cargo run --bin rendiation-viewer --features tracy # run viewer enable tracy
+cargo run --bin rendiation-viewer --features tracy-heap-debug # run viewer enable tracy and tracy-heap-debug
 ```
 
 ## dhat frame allocation info
 
 enable "dhat-heap-profiling" feature, build and run, click profile button.
 
-`cargo run -p viewer --no-default-features --features "dhat-heap-profiling"`
+`cargo run -p rendiation-viewer --no-default-features --features "dhat-heap-profiling"`
 
 generate flamegraph
 
@@ -184,6 +184,14 @@ run all test to see if something failed
 ``` bash
 cargo nextest run --no-fail-fast
 ```
+
+## Packaging
+
+install [cargo-bundle](https://github.com/burtonageo/cargo-bundle) `cargo install cargo-bundle`
+
+run `cargo bundle -p rendiation-viewer --release` or production config at project root path
+
+go target/release/bundle to get your package. This only tested on macos
 
 ## Coding style
 

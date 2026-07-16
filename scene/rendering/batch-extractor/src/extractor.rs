@@ -251,4 +251,7 @@ impl SceneBatchBasicExtractAbility for IncrementalDeviceSceneBatchExtractor<Scen
       impl_select_ids,
     }))
   }
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
 }

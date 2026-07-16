@@ -87,7 +87,7 @@ RRF is highly modular, layered, decoupled, and well-structured. Users can build,
   - view-override-model
   - wide-line
 - application: the user facing application for testing, prototyping and demonstrating
-  - viewer
+  - rendiation-viewer
   - viewer-web: the wasm build of the viewer(note: incomplete and buggy)
     - online link: <https://mikialex.github.io/rendiation/viewer-web/index.html>
 
@@ -111,6 +111,7 @@ If the code is written largely with the help of LLM tools (even if it meets the 
 
 - Non-core system code written using LLM tools that cannot meet the above criteria:
   - `extension/dynamic-bvh` is an LLM port from parry's qbvh, using the rendiation math library.
+  - `utility/database-tracing` database debug util
 
 ## Development
 

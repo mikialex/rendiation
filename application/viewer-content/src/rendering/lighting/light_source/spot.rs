@@ -18,7 +18,11 @@ pub fn use_scene_spot_light_uniform(
     None
   };
 
-  spot_light_uniforms.map(|light| SceneSpotLightingPreparer { shadow, light })
+  spot_light_uniforms.map(|light| SceneSpotLightingPreparer {
+    shadow,
+    light,
+    scene_ref: read_global_db_foreign_key(),
+  })
 }
 
 fn use_basic_shadow_map_uniform(
@@ -84,18 +88,29 @@ fn use_basic_shadow_map_uniform(
 pub struct SceneSpotLightingPreparer {
   pub shadow: Option<BasicShadowMapPreparer>,
   pub light: SharedLightUniformInfo<SpotLightUniform>,
+  pub scene_ref: ForeignKeyReadView<SpotLightRefScene>,
 }
 
 impl SceneSpotLightingPreparer {
   pub fn update_shadow_maps(
     self,
     frame_ctx: &mut FrameCtx,
-    draw: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
+    draw: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest, EntityHandle<SceneEntity>),
     reversed_depth: bool,
   ) -> SceneSpotLightingProvider {
+    let mut draw = |f_ctx: &mut FrameCtx<'_>, param: ShadowMapDrawRequest| {
+      let light_id = unsafe { EntityHandle::from_raw(param.light_id) };
+      let scene_id = self
+        .scene_ref
+        .get(light_id)
+        .expect("lighting missing scene ref");
+
+      draw(f_ctx, param, scene_id);
+    };
+
     let shadow = self
       .shadow
-      .map(|v| v.update_shadow_maps(frame_ctx, draw, reversed_depth));
+      .map(|v| v.update_shadow_maps(frame_ctx, &mut draw, reversed_depth));
 
     SceneSpotLightingProvider {
       uniform: self.light.make_read_holder(),

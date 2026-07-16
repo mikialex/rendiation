@@ -156,6 +156,57 @@ pub(crate) fn add_delta_listen<T: CValue>(
   receiver
 }
 
+pub(crate) fn add_entity_set_listen(
+  bitmap_init: usize,
+  query: impl Query<Key = RawEntityHandle, Value = ()>,
+  source: &EventSource<EntityChangeMessage>,
+) -> ChangesMutationReceiver<()> {
+  let (sender, receiver) = delta_channel::<()>(bitmap_init, 0);
+  // expand initial value while first listen.
+  unsafe {
+    sender.lock();
+    let iter = query.iter_key_value();
+
+    let count_hint = iter.size_hint().0;
+    sender.reserve_space(count_hint);
+
+    for (idx, v) in iter {
+      sender.send(idx, ValueChange::Delta(v, None));
+    }
+    sender.unlock();
+  }
+
+  source.on(move |change| unsafe {
+    match change {
+      ScopedMessage::Start => {
+        sender.lock();
+        false
+      }
+      ScopedMessage::End => {
+        sender.unlock();
+        sender.is_closed()
+      }
+      ScopedMessage::ReserveSpace(size) => {
+        sender.reserve_space(*size);
+        false
+      }
+      ScopedMessage::Message(change) => {
+        match change {
+          EntityChange::NewEntityStartCreate(_) => {}
+          EntityChange::NewEntityCreated(handle) => {
+            sender.send(*handle, ValueChange::Delta((), None));
+          }
+          EntityChange::DeleteEntity(handle) => {
+            sender.send(*handle, ValueChange::Remove(()));
+          }
+        }
+        false
+      }
+    }
+  });
+  receiver
+}
+
 /// the optimization assumes: between the updates, one component is only changed once
 /// in this case, this collector can avoid delta merge and data value move
 #[derive(Clone, Debug)]

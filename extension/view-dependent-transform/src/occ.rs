@@ -170,13 +170,23 @@ impl OccStyleViewDepConfig {
       let eye = camera_transform.world.position();
       let up = camera_transform.world.up();
 
-      let f = (p - eye).normalize();
+      let f = (camera_lookat - eye).normalize();
       let s = f.cross(up).normalize();
       let u = s.cross(f).normalize();
 
-      mat = Mat4::new(
-        s.x, s.y, s.z, 0., u.x, u.y, u.z, 0., f.x, f.y, f.z, 0., p.x, p.y, p.z, 1.,
-      );
+      if let Some(local_mat) = self.local_mat {
+        let local_mat = local_mat.into_f64();
+        mat = Mat4::new(
+          s.x, s.y, s.z, 0., u.x, u.y, u.z, 0., f.x, f.y, f.z, 0., 0., 0., 0., 1.,
+        ) * local_mat;
+        mat.d1 = p.x;
+        mat.d2 = p.y;
+        mat.d3 = p.z;
+      } else {
+        mat = Mat4::new(
+          s.x, s.y, s.z, 0., u.x, u.y, u.z, 0., f.x, f.y, f.z, 0., p.x, p.y, p.z, 1.,
+        );
+      }
 
       if self.mode.contains(OccStyleMode::NotZoom) {
         mat = mat * Mat4::scale(Vec3::splat(scale));
