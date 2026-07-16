@@ -42,7 +42,7 @@ pub struct AreaLightDataView {
 }
 
 impl AreaLightDataView {
-  pub fn write(self, writer: &mut EntityWriter<AreaLightEntity>) -> EntityHandle<AreaLightEntity> {
+  pub fn write(self, writer: &mut TableWriter<AreaLightEntity>) -> EntityHandle<AreaLightEntity> {
     writer.new_entity(|w| {
       w.write::<AreaLightSize>(&self.size)
         .write::<AreaLightIntensity>(&self.intensity)

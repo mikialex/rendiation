@@ -194,6 +194,10 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for TransformInstanceExample {
     }
     if let Some(source) = self.source_cube.take() {
       writer_std_model(&mut cx.writer).delete_entity(source.std_model);
+      source
+        .mesh_entities
+        .clean_up(&mut cx.writer.mesh_writer, &mut cx.writer.buffer_writer);
+      cx.writer.pbr_sg_mat_writer.delete_entity(source.material);
       source.scene_model.destroy(&mut cx.writer);
     }
     if let Some(lights) = self.lights.take() {
@@ -202,7 +206,7 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for TransformInstanceExample {
   }
 }
 
-fn writer_std_model(writer: &mut SceneWriter) -> &mut EntityWriter<StandardModelEntity> {
+fn writer_std_model(writer: &mut SceneWriter) -> &mut TableWriter<StandardModelEntity> {
   &mut writer.std_model_writer
 }
 
@@ -223,6 +227,8 @@ struct WideLineSource {
 
 struct CubeSource {
   std_model: EntityHandle<StandardModelEntity>,
+  mesh_entities: AttributesMeshEntities,
+  material: EntityHandle<PbrSGMaterialEntity>,
   scene_model: SceneModelWithUniqueNode,
 }
 
@@ -310,7 +316,7 @@ impl TransformInstanceExample {
     })
     .build();
 
-    let attribute_mesh = writer.write_solid_attribute_mesh(attribute_mesh).mesh;
+    let mesh_entities = writer.write_solid_attribute_mesh(attribute_mesh);
 
     let mat_handle = PhysicalSpecularGlossinessMaterialDataView {
       albedo: Vec3::splat(1.),
@@ -323,20 +329,17 @@ impl TransformInstanceExample {
       .new_entity(|w| w.write::<SceneNodeVisibleComponent>(&false));
     writer.set_local_matrix(source_node, Mat4::identity());
 
-    let scene = scene.some_handle();
-    let std_model = writer.std_model_writer.new_entity(|w| {
-      w.write::<StandardModelRefAttributesMeshEntity>(&attribute_mesh.some_handle())
-        .write::<StandardModelRefPbrSGMaterial>(&mat_handle.some_handle())
-    });
-
-    let source_scene_model = writer.model_writer.new_entity(|w| {
-      w.write::<SceneModelStdModelRenderPayload>(&std_model.some_handle())
-        .write::<SceneModelBelongsToScene>(&scene)
-        .write::<SceneModelRefNode>(&source_node.some_handle())
-    });
+    let (std_model, source_scene_model) = writer.create_scene_model(
+      SceneMaterialDataView::PbrSGMaterial(mat_handle),
+      mesh_entities.mesh,
+      source_node,
+      scene,
+    );
 
     self.source_cube = Some(CubeSource {
       std_model,
+      mesh_entities,
+      material: mat_handle,
       scene_model: SceneModelWithUniqueNode {
         model: source_scene_model,
         node: source_node,

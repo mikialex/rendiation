@@ -210,7 +210,7 @@ pub struct GltfLoadResult {
 }
 
 fn write_label<E: EntitySemantic>(
-  writer: &mut EntityWriter<E>,
+  writer: &mut TableWriter<E>,
   id: EntityHandle<E>,
   label: Option<&str>,
 ) {

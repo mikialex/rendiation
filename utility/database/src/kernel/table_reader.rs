@@ -1,17 +1,17 @@
 use crate::*;
 
-pub struct EntityReaderUntyped {
+pub struct TableReaderUntyped {
   type_id: EntityId,
   components: smallvec::SmallVec<[(ComponentId, ComponentReadViewUntyped); 6]>,
   allocator: LockReadGuardHolder<TableAllocator>,
 }
 
-impl EntityReaderUntyped {
-  pub fn into_typed<E: EntitySemantic>(self) -> Option<EntityReader<E>> {
+impl TableReaderUntyped {
+  pub fn into_typed<E: EntitySemantic>(self) -> Option<TableReader<E>> {
     if self.type_id != E::entity_id() {
       return None;
     }
-    EntityReader {
+    TableReader {
       phantom: Default::default(),
       inner: self,
     }
@@ -25,12 +25,12 @@ impl EntityReaderUntyped {
 }
 
 /// Holder the all components write lock, optimized for batch entity creation and modification
-pub struct EntityReader<E: EntitySemantic> {
+pub struct TableReader<E: EntitySemantic> {
   phantom: PhantomData<E>, //
-  inner: EntityReaderUntyped,
+  inner: TableReaderUntyped,
 }
 
-impl<E: EntitySemantic> EntityReader<E> {
+impl<E: EntitySemantic> TableReader<E> {
   pub fn reconstruct_handle_by_idx(&self, idx: usize) -> Option<EntityHandle<E>> {
     self
       .inner
@@ -122,21 +122,21 @@ impl<E: EntitySemantic> EntityReader<E> {
   }
 }
 
-impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
-  pub fn entity_reader(&self) -> EntityReader<E> {
+impl<E: EntitySemantic> TypedArcTable<E> {
+  pub fn entity_reader(&self) -> TableReader<E> {
     self.inner.entity_reader_dyn().into_typed().unwrap()
   }
 }
 
 impl ArcTable {
-  pub fn entity_reader_dyn(&self) -> EntityReaderUntyped {
+  pub fn entity_reader_dyn(&self) -> TableReaderUntyped {
     let components = self.internal.components.read_recursive();
     let components = components
       .iter()
       .map(|(id, c)| (*id, c.read_untyped()))
       .collect();
 
-    EntityReaderUntyped {
+    TableReaderUntyped {
       type_id: self.internal.type_id,
       components,
       allocator: self.internal.allocator.make_read_holder(),

@@ -7,18 +7,18 @@ pub struct SceneReader {
 
   pub mesh: AttributesMeshReader,
 
-  pub node_reader: EntityReader<SceneNodeEntity>,
+  pub node_reader: TableReader<SceneNodeEntity>,
   pub node_children:
     BoxedDynMultiQuery<EntityHandle<SceneNodeEntity>, EntityHandle<SceneNodeEntity>>,
-  pub camera: EntityReader<SceneCameraEntity>,
-  pub scene_model: EntityReader<SceneModelEntity>,
-  pub std_model: EntityReader<StandardModelEntity>,
-  pub sampler: EntityReader<SceneSamplerEntity>,
-  pub texture: EntityReader<SceneTexture2dEntity>,
+  pub camera: TableReader<SceneCameraEntity>,
+  pub scene_model: TableReader<SceneModelEntity>,
+  pub std_model: TableReader<StandardModelEntity>,
+  pub sampler: TableReader<SceneSamplerEntity>,
+  pub texture: TableReader<SceneTexture2dEntity>,
 
-  pub pbr_mr: EntityReader<PbrMRMaterialEntity>,
-  pub pbr_sg: EntityReader<PbrSGMaterialEntity>,
-  pub unlit: EntityReader<UnlitMaterialEntity>,
+  pub pbr_mr: TableReader<PbrMRMaterialEntity>,
+  pub pbr_sg: TableReader<PbrSGMaterialEntity>,
+  pub unlit: TableReader<UnlitMaterialEntity>,
 }
 
 impl SceneReader {

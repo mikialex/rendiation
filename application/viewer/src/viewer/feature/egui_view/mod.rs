@@ -276,7 +276,7 @@ pub fn modify_color(ui: &mut egui::Ui, c: &mut Vec3<f32>) {
 
 pub fn modify_color_like_com<C: ComponentSemantic<Data = Vec3<f32>>>(
   ui: &mut egui::Ui,
-  writer: &mut EntityWriter<C::Entity>,
+  writer: &mut TableWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
 ) {
   let mut color = writer.read::<C>(id);
@@ -286,7 +286,7 @@ pub fn modify_color_like_com<C: ComponentSemantic<Data = Vec3<f32>>>(
 
 pub fn modify_normalized_value_like_com<C: ComponentSemantic<Data = f32>>(
   ui: &mut egui::Ui,
-  writer: &mut EntityWriter<C::Entity>,
+  writer: &mut TableWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
 ) {
   modify_ranged_value_like_slider_com::<C>(ui, writer, id, 0.0..=1.0);
@@ -294,7 +294,7 @@ pub fn modify_normalized_value_like_com<C: ComponentSemantic<Data = f32>>(
 
 pub fn modify_ranged_value_like_slider_com<C: ComponentSemantic<Data = f32>>(
   ui: &mut egui::Ui,
-  writer: &mut EntityWriter<C::Entity>,
+  writer: &mut TableWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
   range: std::ops::RangeInclusive<f32>,
 ) {
@@ -307,7 +307,7 @@ pub fn modify_ranged_value_like_slider_com<C: ComponentSemantic<Data = f32>>(
 
 pub fn modify_bool_com<C: ComponentSemantic<Data = bool>>(
   ui: &mut egui::Ui,
-  writer: &mut EntityWriter<C::Entity>,
+  writer: &mut TableWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
   label: &str,
 ) {
@@ -319,7 +319,7 @@ pub fn modify_bool_com<C: ComponentSemantic<Data = bool>>(
 }
 
 pub fn show_entity_label<E: EntitySemantic>(
-  writer: &EntityWriter<E>,
+  writer: &TableWriter<E>,
   target: EntityHandle<E>,
   ui: &mut egui::Ui,
 ) {

@@ -217,7 +217,7 @@ fn apply_field_set(
       let value = match field_data {
         EntityFieldData::Pod(data) => {
           let buffer = SmallVec::from_slice(data);
-          DBFastSerializeSmallBufferOrForeignKey::Pod(buffer)
+          DatabaseSerializedFieldBufferOrForeignKey::Pod(buffer)
         }
         EntityFieldData::ForeignKey(fk) => match fk {
           Some(h) => {
@@ -232,13 +232,13 @@ fn apply_field_set(
               .and_then(|m| m.get(h))
               .copied()
               .unwrap_or_else(|| panic!("FK target {:?} not created yet — invalid trace", h));
-            DBFastSerializeSmallBufferOrForeignKey::ForeignKey(remapped)
+            DatabaseSerializedFieldBufferOrForeignKey::ForeignKey(remapped)
           }
           None => {
             let mut buf = Vec::new();
             let none_val: Option<RawEntityHandle> = None;
-            let _ = none_val.fast_serialize(&mut buf);
-            DBFastSerializeSmallBufferOrForeignKey::Pod(SmallVec::from_slice(&buf))
+            let _ = none_val.serialize_to_writer(&mut buf);
+            DatabaseSerializedFieldBufferOrForeignKey::Pod(SmallVec::from_slice(&buf))
           }
         },
       };

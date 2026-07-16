@@ -1,7 +1,7 @@
 use crate::*;
 
 impl ArcTable {
-  pub fn entity_writer_dyn(&self) -> EntityWriterUntyped {
+  pub fn entity_writer_dyn(&self) -> TableWriterUntyped {
     let change = ScopedMessage::Start;
     self.internal.entity_watchers.emit(&change);
 
@@ -11,7 +11,7 @@ impl ArcTable {
       .map(|(id, c)| {
         (
           *id,
-          EntityComponentWriterImpl {
+          TableWriterImpl {
             component: c.write_untyped(),
             has_write_for_new_entity: false,
           },
@@ -19,7 +19,7 @@ impl ArcTable {
       })
       .collect();
 
-    EntityWriterUntyped {
+    TableWriterUntyped {
       type_id: self.internal.type_id,
       components,
       entity_watchers: self.internal.entity_watchers.clone(),
@@ -28,17 +28,17 @@ impl ArcTable {
   }
 }
 
-pub struct EntityWriterUntyped {
+pub struct TableWriterUntyped {
   pub(crate) type_id: EntityId,
   pub(crate) allocator: LockWriteGuardHolder<TableAllocator>,
   /// this change ptr type is ScopedValueChange<()>, the lifetime of the ptr is only valid
   /// in the callback scope.
   entity_watchers: EventSource<EntityChangeMessage>,
-  components: smallvec::SmallVec<[(ComponentId, EntityComponentWriterImpl); 6]>,
+  components: smallvec::SmallVec<[(ComponentId, TableWriterImpl); 6]>,
 }
 
 pub struct EntityInitWriteView<'a> {
-  components: &'a mut [(ComponentId, EntityComponentWriterImpl)],
+  components: &'a mut [(ComponentId, TableWriterImpl)],
   idx: RawEntityHandle,
 }
 
@@ -61,7 +61,7 @@ impl<'a> EntityInitWriteView<'a> {
   }
 }
 
-impl Drop for EntityWriterUntyped {
+impl Drop for TableWriterUntyped {
   fn drop(&mut self) {
     let change = ScopedMessage::End;
     self.components.clear(); // trigger the components writer's dropper first
@@ -69,18 +69,15 @@ impl Drop for EntityWriterUntyped {
   }
 }
 
-impl EntityWriterUntyped {
-  pub fn get_component_by_id_mut(
-    &mut self,
-    id: ComponentId,
-  ) -> Option<&mut EntityComponentWriterImpl> {
+impl TableWriterUntyped {
+  pub fn get_component_by_id_mut(&mut self, id: ComponentId) -> Option<&mut TableWriterImpl> {
     self
       .components
       .iter_mut()
       .find(|(i, _)| *i == id)
       .map(|(_, v)| v)
   }
-  pub fn get_component_by_id(&self, id: ComponentId) -> Option<&EntityComponentWriterImpl> {
+  pub fn get_component_by_id(&self, id: ComponentId) -> Option<&TableWriterImpl> {
     self
       .components
       .iter()
@@ -172,29 +169,29 @@ impl EntityWriterUntyped {
   }
 }
 
-pub struct EntityComponentWriterImpl {
+pub struct TableWriterImpl {
   pub(crate) component: ComponentWriteViewUntyped,
   pub(crate) has_write_for_new_entity: bool,
 }
 
-impl EntityComponentWriterImpl {
+impl TableWriterImpl {
   pub fn get(&self, idx: RawEntityHandle, allocator: &TableAllocator) -> Option<DataPtr> {
     self.component.get(idx, allocator)
   }
 
   /// # Safety
   ///
-  /// idx must point to living data
+  /// See [ComponentStorageReadWriteView::set_value]
   pub unsafe fn write_component(&mut self, idx: RawEntityHandle, src: DataPtr) {
-    self.component.write(idx, false, Some(src));
+    self.component.write(idx, src);
   }
 
   /// # Safety
   ///
-  /// idx must be allocated
+  /// See [ComponentStorageReadWriteView::set_value_init]
   pub unsafe fn write_init_component_value(&mut self, idx: RawEntityHandle, data: Option<DataPtr>) {
     self.component.data.deref_mut().resize(idx.index());
-    self.component.write(idx, true, data);
+    self.component.init(idx, data);
   }
 
   /// # Safety

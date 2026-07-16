@@ -28,7 +28,7 @@ pub struct SceneModelDataView {
 impl SceneModelDataView {
   pub fn write(
     &self,
-    writer: &mut EntityWriter<SceneModelEntity>,
+    writer: &mut TableWriter<SceneModelEntity>,
   ) -> EntityHandle<SceneModelEntity> {
     writer.new_entity(|w| {
       w.write::<SceneModelStdModelRenderPayload>(&self.model.some_handle())
@@ -191,7 +191,7 @@ pub struct StandardModelDataView {
 impl StandardModelDataView {
   pub fn write(
     self,
-    writer: &mut EntityWriter<StandardModelEntity>,
+    writer: &mut TableWriter<StandardModelEntity>,
   ) -> EntityHandle<StandardModelEntity> {
     writer.new_entity(|w| {
       match self.material {

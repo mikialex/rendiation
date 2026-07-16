@@ -2,12 +2,12 @@ use std::ops::DerefMut;
 
 use crate::*;
 
-/// The most common storage type that use a vec as the container.
-/// Expecting dense distributed component data
+/// A dense storage using a `Vec` indexed by entity allocation index. Suitable
+/// for components that most entities hold (the common case).
 pub struct DBLinearStorage<T> {
   pub data: Vec<T>,
   pub default_value: T,
-  pub old_value_out: T, // todo, this value is leaked here, we should cleanup explicitly?
+  pub old_value_out: T,
   pub meta: DataTypeMetaInfo,
 }
 
@@ -82,14 +82,26 @@ impl<T> ComponentStorageReadWriteView for LockWriteGuardHolder<DBLinearStorage<T
 where
   T: DataBaseDataType,
 {
-  unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr, bool) {
+  unsafe fn set_value_init(&mut self, idx: u32, init_value: Option<DataPtr>) -> DataPtr {
     let self_ = self.deref_mut();
-    let target = self_.data.get_unchecked_mut(idx as usize);
-    let source = if let Some(new_value) = new_value {
+
+    let source = if let Some(new_value) = init_value {
       &*(new_value as *const T)
     } else {
       &self_.default_value
     };
+
+    let target = self_.data.get_unchecked_mut(idx as usize);
+    *target = (*source).clone();
+
+    target as *const _ as DataPtr
+  }
+
+  unsafe fn set_value(&mut self, idx: u32, source: DataPtr) -> (DataPtr, DataPtr, bool) {
+    let self_ = self.deref_mut();
+    let target = self_.data.get_unchecked_mut(idx as usize);
+
+    let source = &*(source as *const T);
 
     self_.old_value_out = target.clone();
     *target = (*source).clone();
@@ -101,21 +113,21 @@ where
     (new, old, diff)
   }
 
-  unsafe fn set_value_from_small_serialize_data(
+  unsafe fn set_value_from_serialize_field_data(
     &mut self,
     idx: u32,
-    new_value: DBFastSerializeSmallBufferOrForeignKey<RawEntityHandle>,
+    new_value: DatabaseSerializedFieldBufferOrForeignKey,
   ) -> (DataPtr, DataPtr, bool) {
     let mut value = T::default();
     match new_value {
-      DBFastSerializeSmallBufferOrForeignKey::Pod(small_vec) => {
-        value.fast_deserialize(&mut small_vec.as_slice()).unwrap()
-      }
-      DBFastSerializeSmallBufferOrForeignKey::ForeignKey(handle) => {
+      DatabaseSerializedFieldBufferOrForeignKey::Pod(small_vec) => value
+        .deserialize_from_reader(&mut small_vec.as_slice())
+        .unwrap(),
+      DatabaseSerializedFieldBufferOrForeignKey::ForeignKey(handle) => {
         value = std::mem::transmute_copy(&Some(handle))
       }
     }
-    self.set_value(idx, Some(&value as *const _ as DataPtr))
+    self.set_value(idx, &value as *const _ as DataPtr)
   }
 
   unsafe fn delete(&mut self, idx: u32) -> DataPtr {
@@ -124,11 +136,16 @@ where
     &self.old_value_out as *const _ as DataPtr
   }
 
-  fn resize(&mut self, max_address: u32) {
+  unsafe fn resize(&mut self, max_address: u32) {
     let max_address = max_address as usize;
     if self.data.len() <= max_address {
       let default = self.default_value.clone();
       self.data.resize(max_address + 1, default);
     }
+  }
+
+  fn cleanup_possible_old_ptr_transient_object(&mut self) {
+    let self_ = self.deref_mut();
+    self_.old_value_out = T::default();
   }
 }

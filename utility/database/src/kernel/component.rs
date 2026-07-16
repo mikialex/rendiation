@@ -25,7 +25,7 @@ pub struct ComponentUntyped {
 
   /// Converts serialized component data to a human-readable debug string.
   /// Returns `None` if deserialization fails.
-  pub binary_to_debug_string: fn(DBFastSerializeSmallBuffer) -> Option<String>,
+  pub binary_to_debug_string: fn(DatabaseSerializedFieldBuffer) -> Option<String>,
 }
 
 impl ComponentUntyped {
@@ -48,10 +48,10 @@ impl ComponentUntyped {
   }
 }
 
-pub type ChangeDataPtrPair<'a> = (DataPtr, &'a dyn DataBaseDataTypeDyn);
+pub type ChangeDataPtrPair<'a> = (DataPtr, &'a dyn DynDataBaseDataType);
 
 /// the lifetime of the ptr is only valid in the callback scope.
-pub type ChangePtr = ScopedValueChange<(DataPtr, *const dyn DataBaseDataTypeDyn)>;
+pub type ChangePtr = ScopedValueChange<(DataPtr, *const dyn DynDataBaseDataType)>;
 
 pub type EntityChangeMessage = ScopedMessage<EntityChange>;
 
@@ -94,7 +94,7 @@ impl ComponentReadViewUntyped {
   pub fn get_without_generation_check_dyn_data_type(
     &self,
     idx: u32,
-  ) -> Option<(DataPtr, &dyn DataBaseDataTypeDyn)> {
+  ) -> Option<(DataPtr, &dyn DynDataBaseDataType)> {
     self.allocator.get_handle(idx as usize)?;
     unsafe { Some((self.data.get(idx), self.data.get_as_dyn_storage(idx))) }
   }
@@ -121,7 +121,7 @@ impl ComponentWriteViewUntyped {
 
   /// # Safety
   ///
-  /// idx must point to living data
+  /// See [ComponentStorageReadViewBase::get]
   pub unsafe fn get_unchecked(&self, idx: RawEntityHandle) -> DataPtr {
     unsafe { self.data.get(idx.alloc_index()) }
   }
@@ -132,71 +132,68 @@ impl ComponentWriteViewUntyped {
 
   /// # Safety
   ///
-  /// idx must point to living data, data ptr must valid
+  /// See [ComponentStorageReadWriteView::set_value_init]
+  pub unsafe fn init(&mut self, idx: RawEntityHandle, new: Option<DataPtr>) {
+    let new = self.data.set_value_init(idx.index(), new);
+
+    let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
+    let new_dyn = new_dyn as *const dyn DynDataBaseDataType;
+    let pair = (new, new_dyn);
+    let change = ValueChange::Delta(pair, None);
+    let change = IndexValueChange { idx, change };
+    self.events.emit(&ScopedValueChange::Message(change));
+  }
+
+  unsafe fn emit_delta(&mut self, idx: RawEntityHandle, new: DataPtr, old: DataPtr) {
+    let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
+    let new_dyn = new_dyn as *const dyn DynDataBaseDataType;
+    let new_pair = (new, new_dyn);
+
+    let old_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(old);
+    let old_dyn = old_dyn as *const dyn DynDataBaseDataType;
+    let old_pair = (old, old_dyn);
+
+    let change = ValueChange::Delta(new_pair, Some(old_pair));
+    let change = IndexValueChange { idx, change };
+    self.events.emit(&ScopedValueChange::Message(change));
+  }
+
+  /// # Safety
+  ///
+  /// See [ComponentStorageReadWriteView::set_value]
+  pub unsafe fn write(&mut self, idx: RawEntityHandle, new: DataPtr) {
+    let (new, old, changed) = self.data.set_value(idx.index(), new);
+
+    if changed {
+      self.emit_delta(idx, new, old);
+    }
+  }
+
+  /// # Safety
+  ///
+  /// See [ComponentStorageReadWriteView::set_value]
   pub unsafe fn write_by_small_serialize_data(
     &mut self,
     idx: RawEntityHandle,
-    new: DBFastSerializeSmallBufferOrForeignKey<RawEntityHandle>,
+    new: DatabaseSerializedFieldBufferOrForeignKey,
   ) {
     let (new, old, changed) = self
       .data
-      .set_value_from_small_serialize_data(idx.index(), new);
+      .set_value_from_serialize_field_data(idx.index(), new);
 
     if changed {
-      // todo, currently we have strange bug in application level if we not check changed.
-      // This should not happen because the checking changed flag before event emit
-      // is only an optimization.
-      let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
-      let new_dyn = new_dyn as *const dyn DataBaseDataTypeDyn;
-      let new_pair = (new, new_dyn);
-      let old_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(old);
-      let old_dyn = old_dyn as *const dyn DataBaseDataTypeDyn;
-      let old_pair = (old, old_dyn);
-
-      let change = ValueChange::Delta(new_pair, Some(old_pair));
-      let change = IndexValueChange { idx, change };
-      self.events.emit(&ScopedValueChange::Message(change));
+      self.emit_delta(idx, new, old);
     }
   }
 
   /// # Safety
   ///
-  /// idx must point to living data, data ptr must valid
-  pub unsafe fn write(&mut self, idx: RawEntityHandle, init: bool, new: Option<DataPtr>) {
-    let (new, old, changed) = self.data.set_value(idx.index(), new);
-
-    if init {
-      let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
-      let new_dyn = new_dyn as *const dyn DataBaseDataTypeDyn;
-      let pair = (new, new_dyn);
-      let change = ValueChange::Delta(pair, None);
-      let change = IndexValueChange { idx, change };
-      self.events.emit(&ScopedValueChange::Message(change));
-    } else if changed {
-      // todo, currently we have strange bug in application level if we not check changed.
-      // This should not happen because the checking changed flag before event emit
-      // is only an optimization.
-      let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
-      let new_dyn = new_dyn as *const dyn DataBaseDataTypeDyn;
-      let new_pair = (new, new_dyn);
-      let old_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(old);
-      let old_dyn = old_dyn as *const dyn DataBaseDataTypeDyn;
-      let old_pair = (old, old_dyn);
-
-      let change = ValueChange::Delta(new_pair, Some(old_pair));
-      let change = IndexValueChange { idx, change };
-      self.events.emit(&ScopedValueChange::Message(change));
-    }
-  }
-
-  /// # Safety
-  ///
-  /// idx must point to living data
+  /// See [ComponentStorageReadWriteView::delete]
   pub unsafe fn delete(&mut self, idx: RawEntityHandle) {
     let old = self.data.delete(idx.index());
 
     let old_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(old);
-    let old_dyn = old_dyn as *const dyn DataBaseDataTypeDyn;
+    let old_dyn = old_dyn as *const dyn DynDataBaseDataType;
     let old_pair = (old, old_dyn);
 
     let change = ValueChange::Remove(old_pair);

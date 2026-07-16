@@ -14,9 +14,19 @@ impl std::ops::Deref for ArcTable {
 }
 
 impl ArcTable {
-  pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
+  pub fn new(
+    type_id: EntityId,
+    name: String,
+    name_mapping: Arc<RwLock<DBNameMapping>>,
+    enable_internal_validation: bool,
+  ) -> Self {
     Self {
-      internal: Arc::new(Table::new(type_id, name, name_mapping)),
+      internal: Arc::new(Table::new(
+        type_id,
+        name,
+        name_mapping,
+        enable_internal_validation,
+      )),
     }
   }
 
@@ -119,11 +129,11 @@ impl ArcTable {
     f(&self.internal.components.read());
   }
 
-  pub fn into_typed<E: EntitySemantic>(self) -> Option<EntityComponentGroupTyped<E>> {
+  pub fn into_typed<E: EntitySemantic>(self) -> Option<TypedArcTable<E>> {
     if self.internal.type_id != E::entity_id() {
       return None;
     }
-    EntityComponentGroupTyped {
+    TypedArcTable {
       phantom: Default::default(),
       inner: self,
     }
@@ -153,10 +163,16 @@ pub struct Table {
 
   pub(crate) entity_watchers: EventSource<EntityChangeMessage>,
   pub(crate) name_mapping: Arc<RwLock<DBNameMapping>>,
+  pub(crate) enable_internal_validation: bool,
 }
 
 impl Table {
-  pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
+  pub fn new(
+    type_id: EntityId,
+    name: String,
+    name_mapping: Arc<RwLock<DBNameMapping>>,
+    enable_internal_validation: bool,
+  ) -> Self {
     Self {
       short_name: disqualified::ShortName(&name).to_string(),
       name,
@@ -168,6 +184,7 @@ impl Table {
       foreign_key_meta_watchers: Default::default(),
       entity_watchers: Default::default(),
       name_mapping,
+      enable_internal_validation,
     }
   }
 
@@ -190,12 +207,12 @@ impl Table {
   }
 }
 
-pub struct EntityComponentGroupTyped<E: EntitySemantic> {
+pub struct TypedArcTable<E: EntitySemantic> {
   phantom: PhantomData<E>,
   pub(crate) inner: ArcTable,
 }
 
-impl<E: EntitySemantic> Clone for EntityComponentGroupTyped<E> {
+impl<E: EntitySemantic> Clone for TypedArcTable<E> {
   fn clone(&self) -> Self {
     Self {
       phantom: Default::default(),
@@ -204,11 +221,11 @@ impl<E: EntitySemantic> Clone for EntityComponentGroupTyped<E> {
   }
 }
 
-impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
+impl<E: EntitySemantic> TypedArcTable<E> {
   pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
     Self {
       phantom: Default::default(),
-      inner: ArcTable::new(type_id, name, name_mapping),
+      inner: ArcTable::new(type_id, name, name_mapping, cfg!(debug_assertions)),
     }
   }
 
@@ -229,14 +246,20 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     as_foreign_key: Option<EntityId>,
     storage: impl ComponentStorage + 'static,
   ) -> Self {
+    let storage_impl = Box::new(storage);
+    let data: Box<dyn ComponentStorage> = if self.inner.internal.enable_internal_validation {
+      Box::new(ValidatedStorage::new(storage_impl))
+    } else {
+      storage_impl
+    };
     let com = ComponentUntyped {
       short_name: disqualified::ShortName(S::unique_name()).to_string(),
       name: S::unique_name().to_string(),
       as_foreign_key,
-      data_meta: storage.create_meta(),
+      data_meta: data.create_meta(),
       entity_type_id: S::Entity::entity_id(),
       component_type_id: S::component_id(),
-      data: Box::new(storage),
+      data,
       allocator: self.inner.internal.allocator.clone(),
       data_watchers: Default::default(),
       binary_to_debug_string: create_binary_to_debug_string::<S::Data>(),
@@ -258,16 +281,15 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
 
   pub fn declare_sparse_foreign_key_maybe_sparse<S: ForeignKeySemantic<Entity = E>>(
     mut self,
-    _sparse: bool,
+    sparse: bool,
   ) -> Self {
-    // todo, fix sparse has bug
-    // // if sparse {
-    //   let storage = init_sparse_storage::<S>();
-    //   self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
-    // } else {
-    let storage = init_linear_storage::<S>();
-    self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
-    // };
+    if sparse {
+      let storage = init_sparse_storage::<S>();
+      self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
+    } else {
+      let storage = init_linear_storage::<S>();
+      self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into(), storage);
+    };
 
     self
       .inner

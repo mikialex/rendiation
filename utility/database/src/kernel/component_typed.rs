@@ -141,9 +141,7 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
     let valid = self.allocator.get(idx.handle.0).is_some();
     unsafe {
       if valid {
-        self
-          .inner
-          .write(idx.handle, false, Some(&new as *const _ as DataPtr))
+        self.inner.write(idx.handle, &new as *const _ as DataPtr)
       }
     }
     valid

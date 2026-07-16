@@ -62,6 +62,12 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for TextureAndMaterialShareExample {
     for unit in self.scene_units.drain(..) {
       unit.destroy(&mut cx.writer);
     }
+    for sm in self.std_models.drain(..) {
+      cx.writer.std_model_writer.delete_entity(sm);
+    }
+    if let Some(mesh) = self.mesh_entities.take() {
+      mesh.clean_up(&mut cx.writer.mesh_writer, &mut cx.writer.buffer_writer);
+    }
     for mat in self.mr_materials.drain(..) {
       cx.writer.pbr_mr_mat_writer.delete_entity(mat);
     }
@@ -95,6 +101,8 @@ struct TextureAndMaterialShareExample {
   occ_materials: Vec<EntityHandle<OccStyleMaterialEntity>>,
   occ_effect: Option<EntityHandle<OccStyleEffectControlEntity>>,
   scene_units: Vec<SceneModelWithUniqueNode>,
+  std_models: Vec<EntityHandle<StandardModelEntity>>,
+  mesh_entities: Option<AttributesMeshEntities>,
   shared_texture: Option<Texture2DWithSamplingDataView>,
   lights: Option<CommonTestLights>,
   replace_texture_pending: bool,
@@ -112,6 +120,8 @@ impl TextureAndMaterialShareExample {
       occ_materials: Vec::new(),
       occ_effect: None,
       scene_units: Vec::new(),
+      std_models: Vec::new(),
+      mesh_entities: None,
       shared_texture: None,
       lights: None,
       replace_texture_pending: false,
@@ -132,7 +142,9 @@ impl TextureAndMaterialShareExample {
       );
     })
     .build();
-    let mesh = writer.write_solid_attribute_mesh(attribute_mesh).mesh;
+    let mesh_entities = writer.write_solid_attribute_mesh(attribute_mesh);
+    let mesh = mesh_entities.mesh;
+    self.mesh_entities = Some(mesh_entities);
 
     // Create a single texture entity shared by all materials across all 8 balls
     let texture = Self::create_xor_texture(writer);
@@ -201,12 +213,13 @@ impl TextureAndMaterialShareExample {
     for (i, &pos) in mr_positions.iter().enumerate() {
       let node = writer.create_root_child();
       writer.set_local_matrix(node, Mat4::translate(pos));
-      let model = writer.create_scene_model(
+      let (std_model, model) = writer.create_scene_model(
         SceneMaterialDataView::PbrMRMaterial(self.mr_materials[i % 2]),
         mesh,
         node,
         scene,
       );
+      self.std_models.push(std_model);
       self
         .scene_units
         .push(SceneModelWithUniqueNode { model, node });
@@ -217,12 +230,13 @@ impl TextureAndMaterialShareExample {
     for (i, &pos) in sg_positions.iter().enumerate() {
       let node = writer.create_root_child();
       writer.set_local_matrix(node, Mat4::translate(pos));
-      let model = writer.create_scene_model(
+      let (std_model, model) = writer.create_scene_model(
         SceneMaterialDataView::PbrSGMaterial(self.sg_materials[i]),
         mesh,
         node,
         scene,
       );
+      self.std_models.push(std_model);
       self
         .scene_units
         .push(SceneModelWithUniqueNode { model, node });
@@ -244,6 +258,7 @@ impl TextureAndMaterialShareExample {
           .write::<SceneModelBelongsToScene>(&scene.some_handle())
           .write::<SceneModelRefNode>(&node.some_handle())
       });
+      self.std_models.push(std_model);
       self
         .scene_units
         .push(SceneModelWithUniqueNode { model, node });

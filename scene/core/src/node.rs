@@ -29,7 +29,7 @@ pub struct SceneNodeDataView {
 }
 
 impl SceneNodeDataView {
-  pub fn write(self, writer: &mut EntityWriter<SceneNodeEntity>) -> EntityHandle<SceneNodeEntity> {
+  pub fn write(self, writer: &mut TableWriter<SceneNodeEntity>) -> EntityHandle<SceneNodeEntity> {
     writer.new_entity(|w| {
       w.write::<SceneNodeVisibleComponent>(&self.visible)
         .write::<SceneNodeLocalMatrixComponent>(&self.local_matrix)
