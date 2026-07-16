@@ -38,7 +38,7 @@ impl<T: Scalar> RationalBezierCurve3d<T> {
     Self::new(control_points, degree)
   }
 
-  // --- Accessors ---
+  // Accessors
 
   pub fn degree(&self) -> usize {
     self.degree
@@ -50,7 +50,7 @@ impl<T: Scalar> RationalBezierCurve3d<T> {
     self.control_points[idx]
   }
 
-  // --- Evaluation ---
+  // Evaluation
 
   /// Evaluate the curve point at parameter `t`, in `[0, 1]`.
   pub fn evaluate(&self, t: T) -> Vec3<T> {
@@ -96,7 +96,7 @@ impl<T: Scalar> RationalBezierCurve3d<T> {
   }
 }
 
-// --- Private helpers ---
+// Private helpers
 
 impl<T: Scalar> RationalBezierCurve3d<T> {
   /// Evaluate a rational Bézier curve in homogeneous coordinates

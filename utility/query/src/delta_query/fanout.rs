@@ -107,7 +107,7 @@ where
   DualQuery { view: v, delta: d }
 }
 
-// --- tests ---
+// tests
 
 // Helper types for readable tests:
 // AKey = u32  (the "one" side, upstream key)

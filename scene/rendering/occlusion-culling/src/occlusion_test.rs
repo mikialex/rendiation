@@ -6,7 +6,7 @@ pub fn test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_re
   last_frame_invisible: StorageBufferDataView<[Bool]>,
   camera: &CameraGPU,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
-  last_frame_visible_batch: DeviceSceneModelRenderBatch,
+  last_frame_visible_list: &DeviceDrawList,
   reverse_depth: bool,
 ) -> Box<dyn AbstractCullerProvider> {
   let device = cx.gpu.device.clone();
@@ -21,42 +21,32 @@ pub fn test_and_update_last_frame_visibility_for_last_frame_visible_batch_and_re
   });
 
   // update the occluder's visibility for the occluder
+  let mut hasher = shader_hasher_from_marker_ty!(OcclusionLastFrameVisibleUpdater);
+  last_frame_visible_list.hash_pipeline_with_type_info(&mut hasher);
+  tester.hash_pipeline_with_type_info(&mut hasher);
 
-  // the occluder culler must be flushed
-  assert!(last_frame_visible_batch.stash_culler.is_none());
+  let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
+    let scene_models = last_frame_visible_list.build_shader(&mut ctx);
+    let culler = tester.create_invocation(ctx.bindgroups());
 
-  cx.next_key_scope_root();
-  for sub_batch in &last_frame_visible_batch.sub_batches {
-    // update the occluder's visibility for the occluder
-    let mut hasher = shader_hasher_from_marker_ty!(OcclusionLastFrameVisibleUpdater);
-    // todo, scene_models should hash
-    tester.hash_pipeline_with_type_info(&mut hasher);
-
-    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
-      let scene_models = sub_batch.scene_models.build_shader(&mut ctx);
-      let culler = tester.create_invocation(ctx.bindgroups());
-
-      let (id, valid) = scene_models.invocation_logic(ctx.global_invocation_id());
-      if_by(valid, || {
-        // the result will be written into the visible buffer
-        culler.cull(id);
-      });
-
-      ctx
+    let (id_with_list_idx, valid) = scene_models.invocation_logic(ctx.global_invocation_id());
+    if_by(valid, || {
+      // the result will be written into the visible buffer
+      culler.cull(id_with_list_idx.x());
     });
 
-    cx.keyed_scope(&sub_batch.group_key, |cx| {
-      let (indirect_dispatch_size, _) = sub_batch.scene_models.compute_work_size(cx);
+    ctx
+  });
 
-      cx.record_pass(|pass, _| {
-        let mut binder = BindingBuilder::default();
-        sub_batch.scene_models.bind_input(&mut binder);
-        tester.bind(&mut binder);
-        binder.setup_compute_pass(pass, &device, &pipeline);
-        pass.dispatch_workgroups_indirect_by_buffer_resource_view(&indirect_dispatch_size);
-      });
-    });
-  }
+  let (indirect_dispatch_size, _) = last_frame_visible_list.compute_work_size(cx);
+
+  cx.record_pass(|pass, _| {
+    let mut binder = BindingBuilder::default();
+    last_frame_visible_list.bind_input(&mut binder);
+    tester.bind(&mut binder);
+    binder.setup_compute_pass(pass, &device, &pipeline);
+    pass.dispatch_workgroups_indirect_by_buffer_resource_view(&indirect_dispatch_size);
+  });
 
   // and return it for the rest
   tester

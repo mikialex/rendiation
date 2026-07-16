@@ -1,8 +1,11 @@
-use std::{any::TypeId, hash::Hash, sync::Arc};
+use std::{
+  any::{Any, TypeId},
+  hash::Hash,
+  sync::Arc,
+};
 
 use fast_hash_collection::fast_hash_scope;
 use parking_lot::RwLock;
-use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
 use rendiation_scene_batch_extractor::MeshGroupKey;
 use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
@@ -102,6 +105,49 @@ pub struct CellMeshRenderer {
   std_model_to_cell_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
 }
 
+impl DrawCommandBuilderCreator for CellMeshRenderer {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    let _ = self.std_model_to_cell_mesh_id.get(id)?;
+
+    let creator = CellMeshDrawCreator {
+      params: self.params.clone(),
+      params_host: self.params_host.clone(),
+      std_model_to_cell_mesh_device: self.std_model_to_cell_mesh_device.clone(),
+      std_model_to_cell_mesh_id: self.std_model_to_cell_mesh_id.clone(),
+      sm_to_std_model: read_global_db_foreign_key(),
+    };
+
+    DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
+  }
+}
+
+impl IndirectDrawProviderCreator for CellMeshRenderer {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    self.std_model_to_cell_mesh_id.get(id)?;
+    fast_hash_scope(|hasher| self.type_id().hash(hasher)).into()
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut rendiation_device_parallel_compute::DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    let cmd_builder = self.make_draw_command_builder(id)?;
+    use_and_create_default_indirect_draw_provider(
+      list,
+      dispatch_info_device_offset_compacted,
+      cmd_builder,
+      cx,
+      self.used_in_midc_downgrade,
+    )
+    .into()
+  }
+}
+
 impl IndirectModelShapeRenderImpl for CellMeshRenderer {
   fn make_component_indirect(
     &self,
@@ -135,44 +181,6 @@ impl IndirectModelShapeRenderImpl for CellMeshRenderer {
 
   fn as_any(&self) -> &dyn std::any::Any {
     self
-  }
-
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    any_idx: EntityHandle<StandardModelEntity>,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>> {
-    let _ = self.std_model_to_cell_mesh_id.get(any_idx)?;
-
-    let draw_command_builder = self.make_draw_command_builder(any_idx).unwrap();
-
-    ctx
-      .access_parallel_compute(|cx| {
-        batch.create_default_indirect_draw_provider(
-          draw_command_builder,
-          cx,
-          self.used_in_midc_downgrade,
-        )
-      })
-      .into()
-  }
-
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<DrawCommandBuilder> {
-    let _ = self.std_model_to_cell_mesh_id.get(any_idx)?;
-
-    let creator = CellMeshDrawCreator {
-      params: self.params.clone(),
-      params_host: self.params_host.clone(),
-      std_model_to_cell_mesh_device: self.std_model_to_cell_mesh_device.clone(),
-      std_model_to_cell_mesh_id: self.std_model_to_cell_mesh_id.clone(),
-      sm_to_std_model: read_global_db_foreign_key(),
-    };
-
-    DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
   }
 }
 

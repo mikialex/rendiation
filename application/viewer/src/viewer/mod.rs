@@ -237,7 +237,7 @@ pub enum ViewerCxStage<'a> {
   /// user may read write scene freely
   #[non_exhaustive]
   Gui {
-    egui_ctx: &'a mut egui::Context,
+    egui_ui: &'a mut egui::Ui,
     global: &'a mut FeaturesGlobalUIStates,
     /// if None, then the inspection is disabled
     inspector: Option<&'a mut dyn Inspector>,
@@ -250,8 +250,8 @@ pub struct FeaturesGlobalUIStates {
 
 /// expand the viewer cx base stage to a series of stages, and call them multiple times
 /// because some logic may have cyclic dependency for example something depend on world matrix
-#[track_caller]
 pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(&mut ViewerCx)) {
+  cx.next_scope_index();
   cx.raw_scope(|cx| {
     if let ViewerCxStage::Gui { inspector, .. } = &mut cx.stage {
       cx.viewer.shared_ctx.flush_drop_queue(&mut |key| {
@@ -308,7 +308,7 @@ pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(
 
 pub fn use_viewer<'a>(
   acx: &'a mut ApplicationCx,
-  egui_ctx: &mut egui::Context,
+  egui_ui: &mut egui::Ui,
   init_config: &ViewerInitConfig,
   app_init_config: &ViewerAppFeaturesConfig,
   trace_event_notifier: &dyn Fn(ViewerTracingEvent),
@@ -471,7 +471,7 @@ pub fn use_viewer<'a>(
     surface_id: acx.surface_id,
     task_spawner: worker_thread_pool,
     stage: ViewerCxStage::Gui {
-      egui_ctx,
+      egui_ui,
       global: gui_feature_global_states,
       inspector: inspection.map(|v| v as &mut dyn Inspector),
     },
@@ -484,7 +484,7 @@ pub fn use_viewer<'a>(
   .execute(|viewer| f(viewer));
 
   if viewer.enable_inspection {
-    ins.draw(egui_ctx);
+    ins.draw(egui_ui);
     ins.clear();
   }
 

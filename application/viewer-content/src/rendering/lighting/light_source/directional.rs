@@ -19,6 +19,7 @@ pub fn use_directional_light_uniform(
   lighting_sys: &LightSystem,
   ndc: ViewerNDC,
 ) -> Option<SceneDirectionalLightingPreparer> {
+  cx.next_scope_index();
   let directional_light_uniforms = use_directional_per_scene_uniform_array_buffers(cx);
 
   let shadow = if lighting_sys.enable_shadow {

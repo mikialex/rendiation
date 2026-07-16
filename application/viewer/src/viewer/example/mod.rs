@@ -27,7 +27,7 @@ impl ExampleRegistry {
 }
 
 pub fn use_viewer_examples(cx: &mut ViewerCx) {
-  cx.next_key_scope_root();
+  cx.next_scope_index();
   let (cx, registry) = cx.use_plain_state_init(|_| {
     let mut registry = ExampleRegistry::default();
     registry.register("Cell Mesh (FEM)", use_cell_mesh_example);
@@ -41,7 +41,7 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
   });
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("examples").or_insert(false);
@@ -49,7 +49,7 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
     egui::Window::new("Examples")
       .vscroll(true)
       .open(opened)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         //
         egui::ComboBox::from_label("lists")
           .selected_text(format!("{:?}", &registry.current_active))
@@ -62,7 +62,7 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
       });
   }
 
-  cx.next_key_scope_root();
+  cx.next_scope_index();
   if let Some(active) = &registry.current_active {
     if let Some(f) = registry.examples.get(active) {
       cx.keyed_scope(active, |cx| {

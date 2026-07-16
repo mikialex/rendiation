@@ -1,7 +1,6 @@
-use std::hash::Hash;
+use std::{any::TypeId, hash::Hash};
 
 use fast_hash_collection::fast_hash_scope;
-use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
 use rendiation_scene_batch_extractor::SceneModelGroupKey;
 use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_shader_api::*;
@@ -162,6 +161,73 @@ pub struct TransformInstancedModelIndirectRenderer<T> {
   pub base: TransformInstancedModelIndirectRendererBase,
 }
 
+impl<T: DrawCommandBuilderCreator> DrawCommandBuilderCreator
+  for TransformInstancedModelIndirectRenderer<T>
+{
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    let instance_model = self.base.instance_model.get(id)?;
+    let source_model = self.base.source_model.get(instance_model)?;
+
+    let internal = self
+      .internal
+      .make_draw_command_builder(source_model.into_raw())?;
+
+    let internal = match internal {
+      DrawCommandBuilder::Indexed { .. } => assert_none_indexed(),
+      DrawCommandBuilder::NoneIndexed(r) => r,
+    };
+
+    Some(DrawCommandBuilder::NoneIndexed(Box::new(
+      InstanceDrawCommandBuilder {
+        internal,
+        instance_meta: self.base.instance_meta.clone(),
+        model_to_instance_host: self.base.instance_model.clone(),
+        source_model_host: self.base.source_model.clone(),
+        model_to_instance: self.base.model_to_instance.clone(),
+        instance_meta_host: self.base.instance_meta_host.clone(),
+      },
+    )))
+  }
+}
+
+impl<T: IndirectDrawProviderCreator + DrawCommandBuilderCreator> IndirectDrawProviderCreator
+  for TransformInstancedModelIndirectRenderer<T>
+{
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    let instance_model = self.base.instance_model.get(id)?;
+    let source_model = self.base.source_model.get(instance_model)?;
+    let source_hash = self
+      .internal
+      .get_impl_distinguish_key_by_impl_select_id(source_model.into_raw())?;
+    fast_hash_scope(|hasher| {
+      TypeId::of::<TransformInstancedModelIndirectRenderer<()>>().hash(hasher);
+      source_model.hash(hasher);
+      source_hash.hash(hasher);
+    })
+    .into()
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut rendiation_device_parallel_compute::DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    let cmd_builder = self.make_draw_command_builder(id)?;
+    use_and_create_default_indirect_draw_provider(
+      list,
+      dispatch_info_device_offset_compacted,
+      cmd_builder,
+      cx,
+      self.base.used_in_midc_downgrade,
+    )
+    .into()
+  }
+}
+
 impl<T> IndirectModelRenderImpl for TransformInstancedModelIndirectRenderer<T>
 where
   T: IndirectModelRenderImpl + 'static,
@@ -175,7 +241,7 @@ where
     let source_model = self.base.source_model.get(instance_model)?;
     self.internal.hash_shader_group_key(source_model, hasher)?;
     self.base.assert_base_model_count(source_model);
-    hasher.hash(true); // distinguish between instanced and non-instanced
+    hasher.hash_type::<TransformInstancedModelIndirectRenderer<()>>();
     Some(())
   }
 
@@ -217,50 +283,6 @@ where
     let instance_model = self.base.instance_model.get(any_idx)?;
     let source_model = self.base.source_model.get(instance_model)?;
     self.internal.shape_renderable_indirect(source_model, cx)
-  }
-
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>> {
-    let draw_command_builder = self.make_draw_command_builder(batch.impl_select_id)?;
-
-    ctx
-      .access_parallel_compute(|cx| {
-        batch.create_default_indirect_draw_provider(
-          draw_command_builder,
-          cx,
-          self.base.used_in_midc_downgrade,
-        )
-      })
-      .into()
-  }
-
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<DrawCommandBuilder> {
-    let instance_model = self.base.instance_model.get(any_idx)?;
-    let source_model = self.base.source_model.get(instance_model)?;
-
-    let internal = self.internal.make_draw_command_builder(source_model)?;
-
-    let internal = match internal {
-      DrawCommandBuilder::Indexed { .. } => assert_none_indexed(),
-      DrawCommandBuilder::NoneIndexed(r) => r,
-    };
-
-    Some(DrawCommandBuilder::NoneIndexed(Box::new(
-      InstanceDrawCommandBuilder {
-        internal,
-        instance_meta: self.base.instance_meta.clone(),
-        model_to_instance_host: self.base.instance_model.clone(),
-        source_model_host: self.base.source_model.clone(),
-        model_to_instance: self.base.model_to_instance.clone(),
-        instance_meta_host: self.base.instance_meta_host.clone(),
-      },
-    )))
   }
 
   fn material_renderable_indirect<'a>(

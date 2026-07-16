@@ -103,6 +103,7 @@ impl Viewer3dRenderingCtx {
     surface_content: &ViewerSurfaceContent,
     viewports_map: &ViewportsImmediate,
   ) -> Option<(ViewerRendererInstance, LightingRenderingCxPrepareCtx)> {
+    cx.next_scope_index();
     let viewports = &surface_content.viewports;
     let (cx, change_scope) = cx.use_begin_change_set_collect();
 
@@ -560,7 +561,7 @@ impl Viewer3dRenderingCtx {
     }
     *surface_views = new_views;
 
-    ctx.next_key_scope_root();
+    ctx.next_scope_index();
     views
       .iter()
       .enumerate()
@@ -606,7 +607,7 @@ impl Viewer3dRenderingCtx {
       .set_should_keep_oc_cull_result(batch_collector.will_collecting());
 
     let size_backup = ctx.frame_size;
-    ctx.next_key_scope_root();
+    ctx.next_scope_index();
     for (viewport_id, idx) in requested_render_views {
       ctx.keyed_scope(&viewport_id, |ctx| {
         let surface_views = self.surface_views.get_mut(&surface_id).unwrap();
@@ -615,8 +616,7 @@ impl Viewer3dRenderingCtx {
         ctx.frame_size = viewport.render_pixel_size();
 
         renderer.active_view_control.set(Some(viewport.id));
-
-        view_renderer.render(
+        view_renderer.use_render(
           ctx,
           &mut renderer,
           &lighting_cx,

@@ -22,16 +22,17 @@ pub fn load_stress_test(
   let mesh = writer.write_attribute_mesh(mesh.build()).mesh;
 
   let h_count = 50;
-  let node_count = 100 + 100 * 100 + 100 * 100 * h_count;
-  let model_count = 100 * 100 * h_count;
+  let width_count = 100;
+  let node_count = width_count + width_count * width_count + width_count * width_count * h_count;
+  let model_count = width_count * width_count * h_count;
   writer.node_writer.notify_reserve_changes(node_count);
   writer.std_model_writer.notify_reserve_changes(model_count);
   writer.model_writer.notify_reserve_changes(model_count);
 
-  for i in 0..100 {
+  for i in 0..width_count {
     let i_parent = writer.create_root_child();
     writer.set_local_matrix(i_parent, Mat4::translate((i as f64, 0., 0.)));
-    for j in 0..100 {
+    for j in 0..width_count {
       let j_parent = writer.create_child(i_parent);
       writer.set_local_matrix(j_parent, Mat4::translate((0., 0., j as f64)));
       for k in 0..h_count {

@@ -26,6 +26,7 @@ use database::*;
 use dyn_clone::*;
 use rendiation_algebra::*;
 use rendiation_color::*;
+pub use rendiation_device_draw_list::*;
 use rendiation_device_parallel_compute::*;
 use rendiation_geometry::*;
 pub use rendiation_lighting_gpu_system::LightableSurfaceTag;
@@ -55,8 +56,6 @@ mod scene_id;
 pub use scene_id::*;
 mod alpha;
 pub use alpha::*;
-mod device_culling;
-pub use device_culling::*;
 mod camera;
 pub use camera::*;
 mod light;
@@ -95,11 +94,10 @@ pub enum CameraRenderSource {
 pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
 
 /// A scene renderer that encapsulate the scene rendering ability.
-pub trait SceneRenderer: SceneModelRenderer {
+pub trait SceneRenderer {
   /// render batched scene model with given pass component on given pass
   #[must_use]
-  #[track_caller]
-  fn make_scene_batch_pass_content<'a>(
+  fn use_make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
     camera: &'a dyn RenderComponent,
@@ -116,10 +114,10 @@ pub trait SceneDeviceBatchDirectCreator {
   fn create_batch_from_iter(
     &self,
     iter: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-  ) -> DeviceSceneModelRenderBatch;
+  ) -> Option<DeviceSceneModelDrawList>;
 }
 
-/// A renderer supports rendering in scene model granularity
+/// A renderer supports rendering in scene model granularity, mostly impl for gles-style renderer
 pub trait SceneModelRenderer {
   /// return if render successfully
   fn render_scene_model(

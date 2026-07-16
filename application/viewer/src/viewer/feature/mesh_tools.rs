@@ -8,7 +8,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
   let (cx, seg_req) = cx.use_plain_state::<Option<MeshSegmentationDebugRequest>>();
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("mesh tools").or_insert(false);
@@ -17,7 +17,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
       .open(opened)
       .default_size((100., 100.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         if cx.viewer.selection.selected_model.if_single().is_some() {
           if ui.button("simplification edge collapse").clicked() {
             *simp_req = Some(SimplifySelectMeshRequest(

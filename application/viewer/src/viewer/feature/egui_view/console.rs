@@ -83,7 +83,7 @@ impl Console {
       ui.add_sized(ui.available_size(), |ui: &mut Ui| {
         let widget = egui::TextEdit::multiline(&mut self.buffer)
           .font(egui::TextStyle::Monospace)
-          .frame(false)
+          .frame(egui::Frame::NONE)
           .code_editor()
           .lock_focus(true)
           .desired_width(f32::INFINITY)
@@ -100,7 +100,7 @@ impl Console {
         }
         ui.scroll_to_cursor(Some(Align::BOTTOM));
 
-        output.response
+        output.response.response
       });
     });
 

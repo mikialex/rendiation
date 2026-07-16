@@ -85,10 +85,10 @@ impl InspectedContent {
     self.root.clear();
   }
 
-  pub fn draw(&mut self, egui_ctx: &mut egui::Context) {
+  pub fn draw(&mut self, egui_ui: &mut egui::Ui) {
     egui::Window::new("System Inspection")
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         egui::ComboBox::from_label("filter")
           .selected_text(format!("{:?}", &self.show_config))
           .show_ui(ui, |ui| {

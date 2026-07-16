@@ -208,7 +208,7 @@ impl RenderingRoot {
 
   pub fn egui(
     &mut self,
-    ui: &mut egui::Context,
+    ui: &mut egui::Ui,
     show_frame_info: &mut bool,
     last_frame_cpu_time: f32,
     frame_cpu_time_stat: &mut StatisticStore<f32>,

@@ -288,8 +288,8 @@ impl GraphicsShaderProvider for MSAAGBufferResolver {
       );
 
       let depth_stencil = builder.depth_stencil.as_mut().unwrap();
-      depth_stencil.depth_compare = CompareFunction::Always;
-      depth_stencil.depth_write_enabled = true;
+      depth_stencil.depth_compare = Some(CompareFunction::Always);
+      depth_stencil.depth_write_enabled = Some(true);
       builder.register::<FragmentDepthOutput>(resolved_depth);
 
       let resolved = if ENABLE_MSAA_NORMAL_RESOLVE_DEPTH_AWARE_AVERAGE {

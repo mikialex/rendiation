@@ -176,6 +176,7 @@ impl GPUCommandEncoder {
       depth_stencil_attachment,
       timestamp_writes,
       occlusion_query_set: None,
+      multiview_mask: None,
     };
 
     let formats = RenderTargetFormatsInfo {

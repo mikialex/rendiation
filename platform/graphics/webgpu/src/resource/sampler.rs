@@ -124,7 +124,10 @@ impl From<GPUSamplerDescriptor> for gpu::SamplerDescriptor<'_> {
       address_mode_w: s.address_mode_w,
       mag_filter: s.mag_filter,
       min_filter: s.min_filter,
-      mipmap_filter: s.mipmap_filter,
+      mipmap_filter: match s.mipmap_filter {
+        FilterMode::Nearest => gpu::MipmapFilterMode::Nearest,
+        FilterMode::Linear => gpu::MipmapFilterMode::Linear,
+      },
       compare: s.compare,
       anisotropy_clamp: s.anisotropy_clamp,
       border_color: s.border_color,
@@ -142,7 +145,10 @@ impl<'a> From<gpu::SamplerDescriptor<'a>> for GPUSamplerDescriptor {
       address_mode_w: s.address_mode_w,
       mag_filter: s.mag_filter,
       min_filter: s.min_filter,
-      mipmap_filter: s.mipmap_filter,
+      mipmap_filter: match s.mipmap_filter {
+        MipmapFilterMode::Nearest => FilterMode::Nearest,
+        MipmapFilterMode::Linear => FilterMode::Linear,
+      },
       compare: s.compare,
       anisotropy_clamp: s.anisotropy_clamp,
       border_color: s.border_color,

@@ -14,7 +14,7 @@ pub fn use_cascade_shadow_map(
     .use_shared_dual_query_view(GlobalCameraTransformShare(ndc))
     .use_assure_result(cx);
 
-  cx.next_key_scope_root();
+  cx.next_scope_index();
   let maps = per_camera_per_viewport(viewports, false)
     .map(|cv| {
       let cache = cx.keyed_scope(&cv.camera, |cx| {

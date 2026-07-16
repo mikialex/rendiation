@@ -4,7 +4,7 @@ use crate::*;
 
 pub fn use_enable_obj_io(cx: &mut ViewerCx) {
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("obj-io").or_insert(false);
@@ -12,7 +12,7 @@ pub fn use_enable_obj_io(cx: &mut ViewerCx) {
     egui::Window::new("Obj(wavefront) IO")
       .open(opened)
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         if ui.button("load obj").clicked() {
           let cmd = format!(
             "{} {}",

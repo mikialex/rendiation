@@ -79,20 +79,30 @@ pub struct IsSolidFilter {
 }
 
 impl IsSolidFilter {
-  pub fn install_filter(&self, batch: &mut SceneModelRenderBatch) {
+  pub fn use_execute(&self, batch: &mut SceneModelRenderBatch, cx: &mut FrameCtx) {
+    cx.next_scope_index();
     match batch {
       SceneModelRenderBatch::Device(batch) => {
-        let culler = GPUIsSolidFilter {
-          is_solid_device: self.is_solid_device.clone(),
-        };
+        if let Some(batch) = batch {
+          let culler = GPUIsSolidFilter {
+            is_solid_device: self.is_solid_device.clone(),
+          };
 
-        batch.set_override_culler(culler);
+          cx.access_parallel_compute(|cx| {
+            cx.scope(|cx| {
+              *batch = batch.use_culled_list_and_do_culling(cx, Box::new(culler));
+            })
+          });
+        }
       }
       SceneModelRenderBatch::Host(host_render_batch) => {
-        *host_render_batch = Box::new(HostIsSolidFilter {
-          internal: host_render_batch.clone(),
-          is_solid_host: self.is_solid_host.clone(),
-        })
+        *host_render_batch = Box::new(
+          HostIsSolidFilter {
+            internal: host_render_batch.clone(),
+            is_solid_host: self.is_solid_host.clone(),
+          }
+          .materialize(),
+        )
       }
     }
   }

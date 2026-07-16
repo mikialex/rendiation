@@ -9,6 +9,7 @@ pub fn use_scene_spot_light_uniform(
   lighting_sys: &LightSystem,
   ndc: ViewerNDC,
 ) -> Option<SceneSpotLightingPreparer> {
+  cx.next_scope_index();
   let spot_light_uniforms = use_spot_per_scene_uniform_array_buffers(cx);
 
   let shadow = if lighting_sys.enable_shadow {

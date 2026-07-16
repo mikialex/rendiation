@@ -133,7 +133,7 @@ impl ViewerAPI {
         .gpu
         .instance
         .create_surface_unsafe(raw_gpu::SurfaceTargetUnsafe::RawHandle {
-          raw_display_handle: display_handle,
+          raw_display_handle: Some(display_handle),
           raw_window_handle: window_handle,
         })
     }
@@ -416,7 +416,7 @@ impl ViewerAPI {
     let core = &mut self.core;
     core.viewer.update_view_ty_immediate();
     if let Some(surface) = core.surfaces.get(&surface_id) {
-      if let Ok((canvas, target)) =
+      if let Some((canvas, target)) =
         surface.get_current_frame_with_render_target_view(&core.gpu_and_main_surface.gpu.device)
       {
         unsafe {

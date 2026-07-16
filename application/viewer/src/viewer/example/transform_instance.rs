@@ -89,11 +89,11 @@ pub fn use_transform_instance_example(cx: &mut ViewerCx) {
     }
   }
 
-  if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {
+  if let ViewerCxStage::Gui { egui_ui, .. } = &mut cx.stage {
     egui::Window::new("Transform Instance Example")
       .default_size((420., 600.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         ui.heading("Instance Groups");
 
         ui.horizontal(|ui| {

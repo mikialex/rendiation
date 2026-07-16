@@ -19,6 +19,7 @@ pub struct LTCAreaLightUniform {
 pub fn use_area_per_scene_uniform_array_buffers(
   cx: &mut QueryGPUHookCx,
 ) -> Option<SharedLightUniformInfo<LTCAreaLightUniform>> {
+  cx.next_scope_index();
   let uniform_array_caches = use_shared_light_uniform_info(cx, "area");
 
   cx.skip_if_not_waked(|cx| {

@@ -56,6 +56,7 @@ impl CSGClippingRenderer {
     Option<Box<dyn RenderComponent>>,
     Option<ViewerClippingHelper>,
   ) {
+    ctx.next_scope_index();
     if !self.enable {
       return (None, None);
     }
@@ -356,12 +357,12 @@ impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
 
       // override quad draw config
       let depth_stencil = builder.depth_stencil.as_mut().unwrap();
-      depth_stencil.depth_compare = if self.reverse_z {
+      depth_stencil.depth_compare = Some(if self.reverse_z {
         CompareFunction::Greater
       } else {
         CompareFunction::Less
-      };
-      builder.depth_stencil.as_mut().unwrap().depth_write_enabled = true;
+      });
+      builder.depth_stencil.as_mut().unwrap().depth_write_enabled = Some(true);
 
       let background = if self.reverse_z { val(0.0) } else { val(1.0) };
       if_by(depth.equals(background), || {
@@ -516,7 +517,7 @@ impl GraphicsShaderProvider for RayMarchingCsgExpression {
       });
 
       // override quad draw config
-      builder.depth_stencil.as_mut().unwrap().depth_write_enabled = true;
+      builder.depth_stencil.as_mut().unwrap().depth_write_enabled = Some(true);
       builder.register::<FragmentDepthOutput>(output_depth.load());
     });
   }

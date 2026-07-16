@@ -67,6 +67,7 @@ impl LightSystem {
     renderer: &dyn SceneRenderer,
     extractor: &dyn SceneBatchBasicExtractAbility,
   ) -> LightingRenderingCx<'_> {
+    frame_ctx.next_scope_index();
     self.tonemap.update(frame_ctx.gpu);
 
     let key = SceneContentKey {
@@ -99,7 +100,8 @@ impl LightSystem {
       let batch = extractor.extract_scene_batch(scene_id, key, renderer);
 
       frame_ctx.keyed_scope(&shadow_id, |frame_ctx| {
-        let mut content = renderer.make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
+        let mut content =
+          renderer.use_make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
 
         map_desc.render_ctx(frame_ctx).by(&mut content);
       });

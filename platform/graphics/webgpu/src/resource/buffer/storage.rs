@@ -144,7 +144,7 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
   }
   pub fn into_readonly_view(self) -> StorageBufferReadonlyDataView<T> {
     StorageBufferReadonlyDataView {
-      gpu: self.gpu.clone(),
+      gpu: self.gpu,
       phantom: PhantomData,
     }
   }

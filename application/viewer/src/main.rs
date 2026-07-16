@@ -182,10 +182,10 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   let gpu_config = init_config.make_gpu_platform_config();
 
   run_application(gpu_config, move |cx| {
-    use_egui_cx(cx, |cx, egui_cx| {
+    use_egui_cx(cx, |cx, egui_ui| {
       use_viewer(
         cx,
-        egui_cx,
+        egui_ui,
         &init_config,
         &app_init_config,
         &|message| {
@@ -302,7 +302,7 @@ fn per_camera_per_viewport_scope(
   consider_debug_view_camera_override: bool,
   logic: impl Fn(&mut ViewerCx, &CameraViewportAccess),
 ) {
-  cx.next_key_scope_root();
+  cx.next_scope_index();
 
   let surface_content = &cx.active_surface_content;
 

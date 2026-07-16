@@ -173,7 +173,7 @@ impl TaskGroupExecutor {
     }
   }
 
-  pub fn execute(
+  pub fn use_execute(
     &mut self,
     cx: &mut DeviceParallelComputeCtx,
     all_tasks: &[Self],
@@ -210,14 +210,14 @@ impl TaskGroupExecutor {
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
 
-    self.compact_alive_tasks(cx);
+    self.use_compact_alive_tasks(cx);
 
     if let Some(f) = self.after_execute.as_ref() {
       f(cx, self)
     }
   }
 
-  fn compact_alive_tasks(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+  fn use_compact_alive_tasks(&mut self, ctx: &mut DeviceParallelComputeCtx) {
     // this is required because the task may spawn itself
     ctx.record_pass(|pass, device| {
       let imp = &self.resource;
@@ -239,7 +239,7 @@ impl TaskGroupExecutor {
 
     let re = active_tasks
       .clone()
-      .stream_compaction(
+      .use_stream_compaction(
         ActiveTaskCompact {
           active_size: imp.active_task_idx.current_size.clone(),
           active_tasks: imp.active_task_idx.storage.clone(),
@@ -279,7 +279,7 @@ impl TaskGroupExecutor {
 
   pub fn prepare_execution_and_compact_living_task(&mut self, ctx: &mut DeviceParallelComputeCtx) {
     self.prepare_execution(ctx);
-    self.compact_alive_tasks(ctx);
+    self.use_compact_alive_tasks(ctx);
   }
 
   pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {

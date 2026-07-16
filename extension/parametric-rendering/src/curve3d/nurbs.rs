@@ -47,7 +47,7 @@ impl<T: Scalar> NurbsCurve3d<T> {
     Self::new(control_points, count, degree, knots)
   }
 
-  // --- Accessors ---
+  // Accessors
 
   pub fn count(&self) -> usize {
     self.count
@@ -67,7 +67,7 @@ impl<T: Scalar> NurbsCurve3d<T> {
     (self.knots[self.degree], self.knots[self.count])
   }
 
-  // --- Evaluation ---
+  // Evaluation
 
   /// Evaluate the curve point at parameter `t`.
   pub fn evaluate(&self, t: T) -> Vec3<T> {
@@ -159,7 +159,7 @@ impl<T: Scalar> NurbsCurve3d<T> {
   }
 }
 
-// --- Private helpers ---
+// Private helpers
 
 impl<T: Scalar> NurbsCurve3d<T> {
   /// Find the knot span index i such that `knots[i] <= t < knots[i+1]`.

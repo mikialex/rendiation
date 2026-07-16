@@ -24,6 +24,7 @@ pub use rendiation_area_lighting::{
 };
 pub use rendiation_cell_mesh::*;
 use rendiation_controller::InputBound;
+use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
 pub use rendiation_dynamic_bvh_scene::SceneBVHResultView;
 pub use rendiation_dynamic_bvh_scene::SceneDynamicBvh;
 pub use rendiation_geometry::Box3;

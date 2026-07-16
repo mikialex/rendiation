@@ -3,9 +3,7 @@
 // From https://github.com/DGriffin91/obvhs/tree/main/src/ploc/morton.rs
 // MIT/Apache 2 license.
 
-//---------------------------------------------------
-// --- 21 bit resolution per channel morton curve ---
-//---------------------------------------------------
+// 21 bit resolution per channel morton curve
 
 use rendiation_algebra::Vec3;
 

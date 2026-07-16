@@ -100,7 +100,7 @@ impl OitLoop32RendererInstance {
         oit_depth_layers: self.depth.clone(),
         reverse_depth,
       };
-      let mut draw_content = scene_renderer.make_scene_batch_pass_content(
+      let mut draw_content = scene_renderer.use_make_scene_batch_pass_content(
         transparent_content.clone(),
         camera,
         &dispatch,
@@ -123,8 +123,12 @@ impl OitLoop32RendererInstance {
       };
       let dispatch = &dispatch as &dyn RenderComponent;
       let dispatch = RenderArray([dispatch, pass_com]);
-      let mut draw_content =
-        scene_renderer.make_scene_batch_pass_content(transparent_content, camera, &dispatch, ctx);
+      let mut draw_content = scene_renderer.use_make_scene_batch_pass_content(
+        transparent_content,
+        camera,
+        &dispatch,
+        ctx,
+      );
 
       target_desc_without_final_color
         .with_name("loop32 oit color pass")
@@ -166,7 +170,7 @@ impl GraphicsShaderProvider for Loop32DepthPrePass {
     builder.fragment(|cx, binding| {
       only_first_sample(cx);
 
-      cx.depth_stencil.as_mut().unwrap().depth_write_enabled = false;
+      cx.depth_stencil.as_mut().unwrap().depth_write_enabled = Some(false);
 
       let oit_layers = self.oit_depth_layers.build(binding);
       let layer_count = oit_layers.info.layer_count();
@@ -336,7 +340,7 @@ impl GraphicsShaderProvider for OitColorPass {
       });
 
       cx.store_fragment_out_vec4f(self.tail_blend_channel_index, output_color.load());
-      cx.depth_stencil.as_mut().unwrap().depth_write_enabled = false;
+      cx.depth_stencil.as_mut().unwrap().depth_write_enabled = Some(false);
       cx.frag_output[self.tail_blend_channel_index].states.blend =
         Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING)
     })
@@ -406,12 +410,12 @@ impl GraphicsShaderProvider for OitResolvePass {
       cx.register::<FragmentDepthOutput>(nearest_depth.load().bitcast::<f32>());
 
       if let Some(depth_stencil) = &mut cx.depth_stencil {
-        depth_stencil.depth_write_enabled = false; // todo, this should be synced with global transparent depth behavior?
-        depth_stencil.depth_compare = if self.reverse_depth {
+        depth_stencil.depth_write_enabled = Some(false); // todo, this should be synced with global transparent depth behavior?
+        depth_stencil.depth_compare = Some(if self.reverse_depth {
           CompareFunction::Greater
         } else {
           CompareFunction::Less
-        }
+        })
       }
     });
   }

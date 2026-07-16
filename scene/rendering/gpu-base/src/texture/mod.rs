@@ -18,6 +18,7 @@ pub fn use_texture_system<
   pool_init_config: &TexturePoolSourceInit,
   source_creator: impl FnOnce(&mut QueryGPUHookCx<'_>) -> UseResult<R>,
 ) -> Option<GPUTextureBindingSystem> {
+  cx.next_scope_index();
   // note, we must create source for each scope because if somehow we changed system type,
   // we need the source emit new inits messages
   match ty {
@@ -72,6 +73,7 @@ pub fn use_bindless_texture_system(
   cx: &mut QueryGPUHookCx,
   source: UseResult<impl DataChanges<Key = u32, Value = TextureLoadResult> + 'static>,
 ) -> Option<GPUTextureBindingSystem> {
+  cx.next_scope_index();
   let (cx, (default_2d, default_sampler)) = cx.use_gpu_init(create_default_tex_and_sampler);
 
   let bindless_minimal_effective_count = BINDLESS_EFFECTIVE_COUNT;

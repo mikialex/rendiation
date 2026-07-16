@@ -273,8 +273,8 @@ impl GPUDevice {
       primitive: primitive_state,
       depth_stencil,
       multisample,
-      multiview: None,
       cache: None,
+      multiview_mask: None,
     });
 
     Ok(GPUPipeline::new(pipeline, raw_layouts, layouts))
@@ -312,12 +312,12 @@ fn create_layouts(
     .map(|b| b.bindings.iter().map(|e| e.desc.clone()).collect())
     .collect();
 
-  let layouts_ref: Vec<_> = raw_layouts.iter().map(|l| &l.inner).collect();
+  let layouts_ref: Vec<_> = raw_layouts.iter().map(|l| Some(&l.inner)).collect();
 
   let pipeline_layout = device.create_pipeline_layout(&gpu::PipelineLayoutDescriptor {
     label: None,
     bind_group_layouts: layouts_ref.as_slice(),
-    push_constant_ranges: &[],
+    immediate_size: 0,
   });
   (raw_layouts, layouts, pipeline_layout)
 }

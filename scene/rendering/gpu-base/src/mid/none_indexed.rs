@@ -46,7 +46,7 @@ pub trait NoneIndexedDrawCommandBuilderInvocation {
 
 #[derive(Clone)]
 pub struct DrawCommandGeneratorComponent {
-  pub scene_models: Box<dyn ComputeComponent<Node<u32>>>,
+  pub scene_models: Box<dyn ComputeComponent<Node<Vec2<u32>>>>,
   pub generator: Box<dyn NoneIndexedDrawCommandBuilder>,
 }
 
@@ -59,22 +59,23 @@ impl ShaderHashProvider for DrawCommandGeneratorComponent {
   }
 }
 
-impl ComputeComponentIO<DrawIndirectArgsStorage> for DrawCommandGeneratorComponent {}
-impl ComputeComponent<Node<DrawIndirectArgsStorage>> for DrawCommandGeneratorComponent {
+type NoneIndexedDrawTuple = (Node<DrawIndirectArgsStorage>, Node<u32>);
+
+impl ComputeComponent<NoneIndexedDrawTuple> for DrawCommandGeneratorComponent {
   fn work_size(&self) -> Option<u32> {
     self.scene_models.work_size()
   }
   fn result_size(&self) -> u32 {
     self.scene_models.result_size()
   }
-  fn clone_boxed(&self) -> Box<dyn ComputeComponent<Node<DrawIndirectArgsStorage>>> {
+  fn clone_boxed(&self) -> Box<dyn ComputeComponent<NoneIndexedDrawTuple>> {
     Box::new(self.clone())
   }
 
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn DeviceInvocation<Node<DrawIndirectArgsStorage>>> {
+  ) -> Box<dyn DeviceInvocation<NoneIndexedDrawTuple>> {
     Box::new(DrawCommandGeneratorInvocation {
       scene_models: self.scene_models.build_shader(builder),
       generator: self.generator.build_invocation(builder),
@@ -92,23 +93,23 @@ impl ComputeComponent<Node<DrawIndirectArgsStorage>> for DrawCommandGeneratorCom
 }
 
 struct DrawCommandGeneratorInvocation {
-  scene_models: Box<dyn DeviceInvocation<Node<u32>>>,
+  scene_models: Box<dyn DeviceInvocation<Node<Vec2<u32>>>>,
   generator: Box<dyn NoneIndexedDrawCommandBuilderInvocation>,
 }
 
-impl DeviceInvocation<Node<DrawIndirectArgsStorage>> for DrawCommandGeneratorInvocation {
+impl DeviceInvocation<NoneIndexedDrawTuple> for DrawCommandGeneratorInvocation {
   fn invocation_logic(
     &self,
     logic_global_id: Node<Vec3<u32>>,
-  ) -> (Node<DrawIndirectArgsStorage>, Node<bool>) {
+  ) -> (NoneIndexedDrawTuple, Node<bool>) {
     let (id, valid) = self.scene_models.invocation_logic(logic_global_id);
 
     let draw_command = make_local_var::<DrawIndirectArgsStorage>();
     if_by(valid, || {
-      draw_command.store(self.generator.generate_draw_command(id));
+      draw_command.store(self.generator.generate_draw_command(id.x()));
     });
 
-    (draw_command.load(), valid)
+    ((draw_command.load(), id.y()), valid)
   }
 
   fn invocation_size(&self) -> Node<Vec3<u32>> {

@@ -39,47 +39,119 @@ impl IndirectSceneRenderer {
   }
 }
 
-impl SceneModelRenderer for IndirectSceneRenderer {
-  fn render_scene_model(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    camera: &dyn RenderComponent,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) -> Result<(), UnableToRenderSceneModelError> {
-    self.renderer.render_scene_model(idx, camera, pass, cx, tex)
-  }
-}
-
 impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
+  // todo, use hook cache
   fn create_batch_from_iter(
     &self,
     iter: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-  ) -> DeviceSceneModelRenderBatch {
-    let classifier = self.classify_draws(iter);
+  ) -> Option<DeviceSceneModelDrawList> {
+    let classified = self.classify_draws(iter);
 
-    let sub_batches = classifier
-      .iter()
-      .map(|(group_hash, list)| {
-        let scene_models: Vec<_> = list.iter().map(|sm| sm.alloc_index()).collect();
-        let storage =
-          create_gpu_readonly_storage(scene_models.as_slice(), &self.gpu, "scene_models");
-        let storage = storage_full_into_compute(storage);
-        let scene_models = Box::new(storage);
-
-        DeviceSceneModelRenderSubBatch {
-          scene_models,
-          impl_select_id: *list.first().unwrap(),
-          group_key: *group_hash,
-        }
-      })
-      .collect();
-
-    DeviceSceneModelRenderBatch {
-      sub_batches,
-      stash_culler: None,
+    if classified.is_empty() {
+      return None;
     }
+
+    let model_counts: usize = classified.iter().map(|(_, list)| list.len()).sum();
+    let mut models = Vec::with_capacity(model_counts);
+    let mut host_capacity_ranges = Vec::with_capacity(classified.len());
+    let mut real_lengths = Vec::with_capacity(classified.len());
+
+    let limits = &self.gpu.info.supported_limits;
+    let align = limits
+      .min_storage_buffer_offset_alignment
+      .max(limits.min_uniform_buffer_offset_alignment)
+      / 4;
+
+    fn round_up(value: u32, alignment: u32) -> u32 {
+      (value + alignment - 1) / alignment * alignment
+    }
+
+    let mut impl_select_ids = Vec::with_capacity(classified.len());
+    for (_, list) in &classified {
+      let real_len = list.len() as u32;
+      assert!(real_len > 0);
+      let padded_len = round_up(real_len, align);
+      let offset = models.len() as u32;
+      impl_select_ids.push(*list.first().unwrap());
+      real_lengths.push(real_len);
+      host_capacity_ranges.push(CapacityRange {
+        capacity: padded_len,
+        offset,
+      });
+      models.extend(list.iter().map(|sm| sm.alloc_index()));
+      // Pad the pool to the aligned capacity so that each sub-list's region
+      // starts at its capacity-based offset and buffer views satisfy alignment.
+      let padding = (padded_len - real_len) as usize;
+      models.resize(models.len() + padding, 0);
+    }
+
+    let scene_model_id_pool = create_gpu_readonly_storage(
+      models.as_slice(),
+      &self.gpu,
+      "scene_model_id_pool from batch-direct",
+    );
+    let sub_list_ranges =
+      prepare_gpu_sub_list_ranges(&host_capacity_ranges, real_lengths.as_slice());
+    let device_ranges = DeviceMultiRangeDispatchInfo::new(&self.gpu, sub_list_ranges.as_slice());
+
+    let draw_list = DeviceDrawList {
+      id_pool: scene_model_id_pool,
+      dispatch_info: MultiRangeDispatchInfo {
+        host_capacity_ranges,
+        device_ranges,
+        total_capacity: model_counts as u32,
+      },
+    };
+
+    DeviceSceneModelDrawList {
+      draw_list,
+      impl_select_ids,
+    }
+    .into()
+  }
+}
+
+pub trait IndirectDrawProviderCreator {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64>;
+
+  /// the sub_lists's impl_select_id's impl_distinguish_key must be all same for this list
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>>;
+}
+
+pub trait DrawCommandBuilderCreator {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder>;
+}
+
+impl DrawCommandBuilderCreator for IndirectSceneRenderer {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    self.renderer.make_draw_command_builder(id)
+  }
+}
+
+impl IndirectDrawProviderCreator for IndirectSceneRenderer {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    self.renderer.get_impl_distinguish_key_by_impl_select_id(id)
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    self.renderer.use_create_or_update_indirect_draw_providers(
+      cx,
+      list,
+      dispatch_info_device_offset_compacted,
+      id,
+    )
   }
 }
 
@@ -91,45 +163,105 @@ impl SceneRenderer for IndirectSceneRenderer {
       Some(self)
     }
   }
-  fn make_scene_batch_pass_content<'a>(
+
+  fn use_make_scene_batch_pass_content<'a>(
     &'a self,
-    batch: SceneModelRenderBatch,
+    list: SceneModelRenderBatch,
     camera: &'a dyn RenderComponent,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
-    ctx.scope(|ctx| {
-      let batch = match batch {
-        SceneModelRenderBatch::Device(batch) => batch,
-        SceneModelRenderBatch::Host(batch) => {
-          if self.using_host_driven_indirect_draw {
-            return ctx.scope(|ctx| {
-              self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass)
-            });
-          }
-          self.create_batch_from_iter(&mut batch.iter_scene_models())
+    ctx.next_scope_index();
+    let device_list = match list {
+      SceneModelRenderBatch::Device(batch) => batch,
+      SceneModelRenderBatch::Host(batch) => {
+        if self.using_host_driven_indirect_draw {
+          return ctx.scope(|ctx| {
+            self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass)
+          });
         }
-      };
+        self.create_batch_from_iter(&mut batch.iter_scene_models())
+      }
+    };
 
-      let batch = ctx.access_parallel_compute(|cx| batch.flush_culler_into_new(cx, false));
+    let Some(device_list) = device_list else {
+      return Box::new(IndirectScenePassContent {
+        renderer: self,
+        content: Vec::new(),
+        pass,
+        camera,
+        reversed_depth: self.reversed_depth,
+      });
+    };
 
-      ctx.next_key_scope_root();
-      let content: Vec<_> = batch
-        .sub_batches
-        .iter()
-        .filter_map(|batch| {
-          ctx.keyed_scope(&batch.group_key, |ctx| {
-            let provider = self.renderer.generate_indirect_draw_provider(batch, ctx);
-            if let Some(provider) = provider {
-              Some((provider, batch.impl_select_id))
-            } else {
-              log::warn!(
-                "unable to fine suitable indirect draw provider for this indirect draw batch, batch select id: {}",
-                batch.impl_select_id
+    ctx.scope(|ctx| {
+      let mut classified: FastHashMap<u64, (Vec<usize>, Vec<EntityHandle<SceneModelEntity>>)> =
+        FastHashMap::default();
+      let mut mappings = Vec::new();
+
+      assert_eq!(
+        device_list
+          .draw_list
+          .dispatch_info
+          .host_capacity_ranges
+          .len(),
+        device_list.impl_select_ids.len()
+      );
+      for (i, impl_select_id) in device_list.impl_select_ids.iter().enumerate() {
+        if let Some(impl_key) =
+          self.get_impl_distinguish_key_by_impl_select_id(impl_select_id.into_raw())
+        {
+          let (list, list_ids) = classified.entry(impl_key).or_default();
+          let idx = list.len();
+          list.push(i);
+          list_ids.push(*impl_select_id);
+          mappings.push((impl_key, idx, impl_select_id));
+        } else {
+          log::error!("unable to find impl key");
+        }
+      }
+
+      let mut indirect_draw_providers: FastHashMap<
+        u64,
+        FastHashMap<usize, Box<dyn IndirectDrawProvider>>,
+      > = Default::default();
+
+      ctx.access_parallel_compute(|ctx| {
+        ctx.next_scope_index();
+        for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
+          ctx.keyed_scope(impl_key, |ctx| {
+            let (dispatch_info, dispatch_info_offset_compacted) =
+              use_compute_selected_sub_list_dispatch_info(
+                ctx,
+                &device_list.draw_list,
+                selected_sub_list,
               );
-              None
+            let device_list_sub_list = DeviceDrawList {
+              id_pool: device_list.draw_list.id_pool.clone(),
+              dispatch_info,
+            };
+
+            if let Some(result) = self.use_create_or_update_indirect_draw_providers(
+              ctx,
+              &device_list_sub_list,
+              &dispatch_info_offset_compacted,
+              impl_select_ids[0].into_raw(),
+            ) {
+              // using map is to avoid IndirectDrawProvider impl clone
+              let map = result.into_iter().enumerate().collect();
+              indirect_draw_providers.insert(*impl_key, map);
+            } else {
+              log::error!("unable to create indirect draw provider");
             }
-          })
+          });
+        }
+      });
+
+      let content = mappings
+        .iter()
+        .filter_map(|(impl_id, index, impl_select_sm_id)| {
+          let provider = indirect_draw_providers.get_mut(impl_id)?.remove(index)?;
+          (provider, **impl_select_sm_id).into()
         })
         .collect();
 
@@ -142,6 +274,150 @@ impl SceneRenderer for IndirectSceneRenderer {
       })
     })
   }
+}
+
+// return two dispatch infos, (device offset using origin, device offset compacted)
+fn use_compute_selected_sub_list_dispatch_info(
+  cx: &mut DeviceParallelComputeCtx,
+  input: &DeviceDrawList,
+  pick_list: &[usize],
+) -> (MultiRangeDispatchInfo, MultiRangeDispatchInfo) {
+  let pick_count = pick_list.len();
+  debug_assert!(pick_count > 0, "pick_list should never be empty");
+
+  // Collect host-side sub_list_infos for the selected sub-lists.
+  // Offsets are recalculated as compact cumulative capacities for correct
+  // output buffer layout downstream (prepare_gpu_sub_list_out_ranges and
+  // MIDC downgrade command-pool slicing). The GPU-side sub_list_ranges.x
+  // preserves the original pool offset for correct scene_model_id_pool indexing.
+  let mut compact_offset = 0u32;
+  let mut compact_offsets = Vec::new();
+  let selected_infos: Vec<_> = pick_list
+    .iter()
+    .map(|&i| {
+      let info = &input.dispatch_info.host_capacity_ranges[i];
+      let new_info = CapacityRange {
+        capacity: info.capacity,
+        offset: compact_offset,
+      };
+      compact_offsets.push(compact_offset);
+      compact_offset += info.capacity;
+      new_info
+    })
+    .collect();
+
+  let compact_offsets_device =
+    cx.use_storage_buffer_array_with_host_data_queue_write_sync(&compact_offsets, "compact_offset");
+
+  // sum_all_count_host is set to the sum of capacities (upper bound);
+  // the GPU writes the real total into sum_all_count at runtime.
+  let total_capacity: u32 = selected_infos.iter().map(|info| info.capacity).sum();
+
+  // Upload pick_list indices to the GPU.
+  let pick_list_u32: Vec<u32> = pick_list.iter().map(|&i| i as u32).collect();
+  let pick_list_buffer =
+    cx.use_storage_buffer_array_with_host_data_queue_write_sync(&pick_list_u32, "pick_list");
+
+  // Output ranges buffer — one StorageSubListRangeInfo per selected sub-list.
+  let output_ranges = cx.use_rw_storage_buffer_array_impl::<StorageSubListRangeInfo>(
+    pick_count,
+    "output_ranges",
+    BufferUsages::INDIRECT,
+  );
+
+  let output_ranges_offset_compacted = cx
+    .use_rw_storage_buffer_array_impl::<StorageSubListRangeInfo>(
+      pick_count,
+      "output_ranges_offset_compacted",
+      BufferUsages::INDIRECT,
+    );
+
+  // Output sum_all_count — GPU writes the real total count.
+  let output_sum_all =
+    cx.use_rw_storage_buffer_impl(&0_u32, "output_sum_all", BufferUsages::empty());
+
+  cx.record_pass(|pass, device| {
+    let hasher = shader_hasher_from_marker_ty!(ComputeSelectedSubListDispatchInfo);
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+      builder.config_work_group_size(1);
+
+      let input_ranges = builder.bind_by(&input.dispatch_info.device_ranges.sub_list_ranges);
+      let pick_list_storage = builder.bind_by(&pick_list_buffer);
+      let output_ranges = builder.bind_by(&output_ranges);
+      let compact_offsets_device = builder.bind_by(&compact_offsets_device);
+      let output_ranges_offset_compacted = builder.bind_by(&output_ranges_offset_compacted);
+      let output_sum_all = builder.bind_by(&output_sum_all);
+
+      let prefix = val(0u32).make_local_var();
+
+      // todo, for simplicity this dispatch is not parallel
+      pick_list_storage
+        .array_length()
+        .into_shader_iter()
+        .for_each(|i, _| {
+          let src_idx = pick_list_storage.index(i).load();
+          let src = input_ranges.index(src_idx).load();
+          let src = src.expand();
+          let count = src.count;
+          let offset = src.offset;
+
+          output_ranges.index(i).store(
+            ENode::<StorageSubListRangeInfo> {
+              offset,
+              count,
+              count_prefix_sum: prefix.load(),
+            }
+            .construct(),
+          );
+
+          output_ranges_offset_compacted.index(i).store(
+            ENode::<StorageSubListRangeInfo> {
+              offset: compact_offsets_device.index(i).load(),
+              count,
+              count_prefix_sum: prefix.load(),
+            }
+            .construct(),
+          );
+
+          prefix.store(prefix.load() + count);
+        });
+
+      output_sum_all.store(prefix.load());
+
+      builder
+    });
+
+    BindingBuilder::default()
+      .with_bind(&input.dispatch_info.device_ranges.sub_list_ranges)
+      .with_bind(&pick_list_buffer)
+      .with_bind(&output_ranges)
+      .with_bind(&compact_offsets_device)
+      .with_bind(&output_ranges_offset_compacted)
+      .with_bind(&output_sum_all)
+      .setup_compute_pass(pass, device, &pipeline);
+
+    pass.dispatch_workgroups(1, 1, 1);
+  });
+
+  let origin = MultiRangeDispatchInfo {
+    device_ranges: DeviceMultiRangeDispatchInfo {
+      sub_list_ranges: output_ranges.into_readonly_view(),
+      sum_all_count: output_sum_all.clone().into_readonly_view(),
+    },
+    host_capacity_ranges: selected_infos.clone(),
+    total_capacity,
+  };
+
+  let compacted = MultiRangeDispatchInfo {
+    device_ranges: DeviceMultiRangeDispatchInfo {
+      sub_list_ranges: output_ranges_offset_compacted.into_readonly_view(),
+      sum_all_count: output_sum_all.into_readonly_view(),
+    },
+    host_capacity_ranges: selected_infos,
+    total_capacity,
+  };
+
+  (origin, compacted)
 }
 
 pub struct IndirectScenePassContent<'a> {

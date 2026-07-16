@@ -6,7 +6,7 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
   let (cx, living_planes) = cx.use_plain_state::<Vec<EntityHandle<ClippingPlaneEntity>>>();
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("test-content").or_insert(false);
@@ -15,7 +15,7 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
       .open(opened)
       .default_size((200., 200.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         let scene = cx.default_scene.scene;
         if ui.button("load many cubes").clicked() {
           load_stress_test(&mut SceneWriter::from_global(), scene, true)

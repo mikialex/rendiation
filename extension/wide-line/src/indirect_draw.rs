@@ -1,7 +1,6 @@
-use std::hash::Hash;
+use std::{any::Any, hash::Hash};
 
 use fast_hash_collection::fast_hash_scope;
-use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
 use rendiation_scene_batch_extractor::SceneModelGroupKey;
 use rendiation_webgpu_midc_downgrade::require_midc_downgrade;
 
@@ -156,6 +155,49 @@ struct WideLineVertexStorage {
   pub color: Vec4<f32>,
 }
 
+impl IndirectDrawProviderCreator for WideLineModelIndirectRenderer {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    self.model_access.get(id)?;
+    fast_hash_scope(|hasher| self.type_id().hash(hasher)).into()
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut rendiation_device_parallel_compute::DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    let cmd_builder = self.make_draw_command_builder(id)?;
+    use_and_create_default_indirect_draw_provider(
+      list,
+      dispatch_info_device_offset_compacted,
+      cmd_builder,
+      cx,
+      self.used_in_midc_downgrade,
+    )
+    .into()
+  }
+}
+
+impl DrawCommandBuilderCreator for WideLineModelIndirectRenderer {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    let line = self.model_access.get(id)?;
+    let param = self.params_host.get(line.alloc_index())?;
+    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
+    let creator = WideLineDrawCreator {
+      params: self.params.clone(),
+      params_host: self.params_host.clone(),
+      sm_to_wide_line_device: self.sm_to_wide_line_device.clone(),
+      sm_to_wide: self.model_access.clone(),
+      use_native_line,
+    };
+    DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
+  }
+}
+
 impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
   fn hash_shader_group_key(
     &self,
@@ -208,47 +250,6 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
       transparent: self.transparent.get_value(line)?,
       use_native_line,
     }))
-  }
-
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>> {
-    self.model_access.get(batch.impl_select_id)?;
-
-    let draw_command_builder = self
-      .make_draw_command_builder(batch.impl_select_id)
-      .unwrap();
-
-    ctx
-      .access_parallel_compute(|cx| {
-        batch.create_default_indirect_draw_provider(
-          draw_command_builder,
-          cx,
-          self.used_in_midc_downgrade,
-        )
-      })
-      .into()
-  }
-
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<DrawCommandBuilder> {
-    let line = self.model_access.get(any_idx)?;
-    let param = self.params_host.get(line.alloc_index())?;
-    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
-
-    let creator = WideLineDrawCreator {
-      params: self.params.clone(),
-      params_host: self.params_host.clone(),
-      sm_to_wide_line_device: self.sm_to_wide_line_device.clone(),
-      sm_to_wide: self.model_access.clone(),
-      use_native_line,
-    };
-
-    DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
   }
 
   fn material_renderable_indirect<'a>(
@@ -420,8 +421,8 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
 
       if !self.enabled_depth {
         if let Some(depth) = &mut builder.depth_stencil {
-          depth.depth_compare = CompareFunction::Always;
-          depth.depth_write_enabled = false;
+          depth.depth_compare = Some(CompareFunction::Always);
+          depth.depth_write_enabled = Some(false);
         }
       }
 

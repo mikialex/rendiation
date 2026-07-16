@@ -193,14 +193,12 @@ pub fn use_group(
   cx: &mut UI3dCx,
   children: impl FnOnce(&mut UI3dCx, EntityHandle<SceneNodeEntity>),
 ) {
-  cx.scope(|cx| {
-    let (cx, node) = cx.use_node_entity();
-    let node = *node;
-    let current_parent_backup = cx.current_parent;
-    cx.current_parent = Some(node);
-    children(cx, node);
-    cx.current_parent = current_parent_backup;
-  })
+  let (cx, node) = cx.use_node_entity();
+  let node = *node;
+  let current_parent_backup = cx.current_parent;
+  cx.current_parent = Some(node);
+  children(cx, node);
+  cx.current_parent = current_parent_backup;
 }
 
 impl UI3dCx<'_> {

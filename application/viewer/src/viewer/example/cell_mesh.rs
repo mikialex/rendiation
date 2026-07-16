@@ -35,11 +35,11 @@ pub fn use_cell_mesh_example(cx: &mut ViewerCx) {
     }
   }
 
-  if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {
+  if let ViewerCxStage::Gui { egui_ui, .. } = &mut cx.stage {
     egui::Window::new("Cell Mesh (FEM Visualization)")
       .default_size((360., 520.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         ui.heading("Cell Mesh Example");
         ui.label("Simple FEM cell mesh visualization.");
         ui.label("Each cell is a quad with shrink-to-center effect.");
