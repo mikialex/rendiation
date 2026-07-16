@@ -206,7 +206,7 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for TransformInstanceExample {
   }
 }
 
-fn writer_std_model(writer: &mut SceneWriter) -> &mut EntityWriter<StandardModelEntity> {
+fn writer_std_model(writer: &mut SceneWriter) -> &mut TableWriter<StandardModelEntity> {
   &mut writer.std_model_writer
 }
 

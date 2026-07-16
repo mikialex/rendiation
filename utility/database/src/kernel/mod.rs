@@ -1,24 +1,24 @@
 mod component;
 mod component_typed;
-mod entity_reader;
-mod entity_writer;
-mod entity_writer_typed;
 mod entry;
 mod handle;
 mod lock;
 mod query;
 mod table;
+mod table_reader;
+mod table_writer;
+mod table_writer_typed;
 
 pub use component::*;
 pub use component_typed::*;
-pub use entity_reader::*;
-pub use entity_writer::*;
-pub use entity_writer_typed::*;
 pub use entry::*;
 pub use handle::*;
 pub use lock::*;
 pub use query::*;
 pub use table::*;
+pub use table_reader::*;
+pub use table_writer::*;
+pub use table_writer_typed::*;
 
 use crate::*;
 
@@ -101,7 +101,7 @@ impl<T> std::fmt::Debug for ExternalRefPtr<T> {
   }
 }
 
-pub trait EntityCustomWrite<E: EntitySemantic> {
+pub trait EntityCustomWriter<E: EntitySemantic> {
   type Writer;
   fn create_writer() -> Self::Writer;
   fn write(self, writer: &mut Self::Writer) -> EntityHandle<E>;

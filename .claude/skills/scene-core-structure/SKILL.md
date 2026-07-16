@@ -218,26 +218,26 @@ Defined in [scene/core/src/writer.rs](scene/core/src/writer.rs). Constructed via
 Each entity type has a dedicated writer field:
 
 ```rust
-writer.node_writer           // EntityWriter<SceneNodeEntity>
-writer.std_model_writer      // EntityWriter<StandardModelEntity>
-writer.model_writer          // EntityWriter<SceneModelEntity>
+writer.node_writer           // TableWriter<SceneNodeEntity>
+writer.std_model_writer      // TableWriter<StandardModelEntity>
+writer.model_writer          // TableWriter<SceneModelEntity>
 writer.mesh_writer           // AttributesMeshEntityFromAttributesMeshWriter
-writer.pbr_sg_mat_writer     // EntityWriter<PbrSGMaterialEntity>
-writer.pbr_mr_mat_writer     // EntityWriter<PbrMRMaterialEntity>
-writer.unlit_mat_writer      // EntityWriter<UnlitMaterialEntity>
-writer.camera_writer         // EntityWriter<SceneCameraEntity>
+writer.pbr_sg_mat_writer     // TableWriter<PbrSGMaterialEntity>
+writer.pbr_mr_mat_writer     // TableWriter<PbrMRMaterialEntity>
+writer.unlit_mat_writer      // TableWriter<UnlitMaterialEntity>
+writer.camera_writer         // TableWriter<SceneCameraEntity>
 writer.directional_light_writer
 writer.point_light_writer
 writer.spot_light_writer
-writer.scene_writer          // EntityWriter<SceneEntity>
-writer.tex_writer            // EntityWriter<SceneTexture2dEntity>
-writer.cube_writer           // EntityWriter<SceneTextureCubeEntity>
-writer.sampler_writer        // EntityWriter<SceneSamplerEntity>
-writer.buffer_writer         // EntityWriter<BufferEntity>
-writer.animation             // EntityWriter<SceneAnimationEntity>
-writer.animation_channel     // EntityWriter<SceneAnimationChannelEntity>
-writer.skin_writer           // EntityWriter<SceneSkinEntity>
-writer.joint_writer          // EntityWriter<SceneJointEntity>
+writer.scene_writer          // TableWriter<SceneEntity>
+writer.tex_writer            // TableWriter<SceneTexture2dEntity>
+writer.cube_writer           // TableWriter<SceneTextureCubeEntity>
+writer.sampler_writer        // TableWriter<SceneSamplerEntity>
+writer.buffer_writer         // TableWriter<BufferEntity>
+writer.animation             // TableWriter<SceneAnimationEntity>
+writer.animation_channel     // TableWriter<SceneAnimationChannelEntity>
+writer.skin_writer           // TableWriter<SceneSkinEntity>
+writer.joint_writer          // TableWriter<SceneJointEntity>
 ```
 
 ### Key methods

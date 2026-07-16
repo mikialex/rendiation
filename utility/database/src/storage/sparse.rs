@@ -2,12 +2,16 @@ use std::ops::DerefMut;
 
 use crate::*;
 
-/// The most common storage type that use a vec as the container.
-/// Expecting dense distributed component data
+/// A sparse storage using a HashMap to only allocate for entities that actually
+/// hold this component. Suitable for components that are sparsely distributed
+/// (i.e., only a subset of entities have them).
+///
+/// Values equal to the component's default are not stored in the map, so writing
+/// the default back effectively reclaims the entry's space.
 pub struct DBSparseStorage<T> {
   pub data: FastHashMap<u32, T>,
   pub default_value: T,
-  pub old_value_out: T, // todo, this value is leaked here, we should cleanup explicitly?
+  pub old_value_out: T,
   pub meta: DataTypeMetaInfo,
 }
 
@@ -82,42 +86,54 @@ impl<T> ComponentStorageReadWriteView for LockWriteGuardHolder<DBSparseStorage<T
 where
   T: DataBaseDataType,
 {
-  unsafe fn set_value_from_small_serialize_data(
+  unsafe fn set_value_from_serialize_field_data(
     &mut self,
     idx: u32,
-    new_value: DBFastSerializeSmallBufferOrForeignKey<RawEntityHandle>,
+    new_value: DatabaseSerializedFieldBufferOrForeignKey,
   ) -> (DataPtr, DataPtr, bool) {
     let mut value = T::default();
     match new_value {
-      DBFastSerializeSmallBufferOrForeignKey::Pod(small_vec) => {
-        value.fast_deserialize(&mut small_vec.as_slice()).unwrap()
-      }
-      DBFastSerializeSmallBufferOrForeignKey::ForeignKey(handle) => {
+      DatabaseSerializedFieldBufferOrForeignKey::Pod(small_vec) => value
+        .deserialize_from_reader(&mut small_vec.as_slice())
+        .unwrap(),
+      DatabaseSerializedFieldBufferOrForeignKey::ForeignKey(handle) => {
         value = std::mem::transmute_copy(&Some(handle))
       }
     }
-    self.set_value(idx, Some(&value as *const _ as DataPtr))
+    self.set_value(idx, &value as *const _ as DataPtr)
   }
 
-  unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr, bool) {
+  unsafe fn set_value_init(&mut self, idx: u32, init_value: Option<DataPtr>) -> DataPtr {
     let self_ = self.deref_mut();
-    let new = if let Some(new_value) = new_value {
-      &*(new_value as *const T)
+
+    if let Some(new_value) = init_value {
+      let new_value = &*(new_value as *const T);
+      if new_value == &self_.default_value {
+        &self_.default_value as *const _ as DataPtr
+      } else {
+        let entry = self_.data.entry(idx).insert(new_value.clone());
+        entry.get() as *const _ as DataPtr
+      }
     } else {
-      &self_.default_value
-    };
+      &self_.default_value as *const _ as DataPtr
+    }
+  }
+
+  unsafe fn set_value(&mut self, idx: u32, new_value: DataPtr) -> (DataPtr, DataPtr, bool) {
+    let self_ = self.deref_mut();
+    let new = &*(new_value as *const T);
 
     if new == &self_.default_value {
       let old = self_.data.remove(&idx);
 
       let diff = if let Some(old) = old {
         self_.old_value_out = old;
-        &self_.old_value_out == new
+        &self_.old_value_out != new
       } else {
         false
       };
 
-      let new = &self.default_value as *const _ as DataPtr;
+      let new = &self_.default_value as *const _ as DataPtr;
       let old = &self.old_value_out as *const _ as DataPtr;
       (new, old, diff)
     } else {
@@ -125,12 +141,12 @@ where
 
       let diff = if let Some(old) = old {
         self_.old_value_out = old;
-        &self_.old_value_out == new
+        &self_.old_value_out != new
       } else {
         true
       };
 
-      let new = new as *const _ as DataPtr;
+      let new = self_.data.get(&idx).unwrap() as *const _ as DataPtr;
       let old = &self.old_value_out as *const _ as DataPtr;
       (new, old, diff)
     }
@@ -145,7 +161,12 @@ where
     }
   }
 
-  fn resize(&mut self, _max_address: u32) {
+  unsafe fn resize(&mut self, _max_address: u32) {
     // noop, because it's the sparse storage
+  }
+
+  fn cleanup_possible_old_ptr_transient_object(&mut self) {
+    let self_ = self.deref_mut();
+    self_.old_value_out = T::default();
   }
 }

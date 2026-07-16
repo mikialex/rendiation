@@ -15,7 +15,7 @@ pub fn global_database() -> Database {
   GLOBAL_DATABASE.read().as_ref().unwrap().clone()
 }
 
-pub fn global_entity_of<E: EntitySemantic>() -> EntityComponentGroupTyped<E> {
+pub fn global_entity_of<E: EntitySemantic>() -> TypedArcTable<E> {
   global_database().access_table(|t| t.clone())
 }
 

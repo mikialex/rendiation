@@ -53,7 +53,7 @@ fn test_array_plane_clipping_data1(
   let mut w = global_entity_of::<ClippingPlaneEntity>().entity_writer();
 
   fn write_plane(
-    w: &mut EntityWriter<ClippingPlaneEntity>,
+    w: &mut TableWriter<ClippingPlaneEntity>,
     dir: Vec3<f32>,
     constant: f32,
     scene: EntityHandle<SceneEntity>,
@@ -95,7 +95,7 @@ fn test_csg_clipping_data1(scene: EntityHandle<SceneEntity>) {
 }
 
 fn write_plane(
-  w: &mut EntityWriter<CSGExpressionNodeEntity>,
+  w: &mut TableWriter<CSGExpressionNodeEntity>,
   dir: Vec3<f32>,
   constant: f32,
 ) -> EntityHandle<CSGExpressionNodeEntity> {
@@ -105,7 +105,7 @@ fn write_plane(
 }
 
 fn write_sphere(
-  w: &mut EntityWriter<CSGExpressionNodeEntity>,
+  w: &mut TableWriter<CSGExpressionNodeEntity>,
   center: Vec3<f32>,
   radius: f32,
 ) -> EntityHandle<CSGExpressionNodeEntity> {

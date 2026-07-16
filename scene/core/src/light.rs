@@ -17,10 +17,7 @@ pub struct PointLightDataView {
 }
 
 impl PointLightDataView {
-  pub fn write(
-    self,
-    writer: &mut EntityWriter<PointLightEntity>,
-  ) -> EntityHandle<PointLightEntity> {
+  pub fn write(self, writer: &mut TableWriter<PointLightEntity>) -> EntityHandle<PointLightEntity> {
     writer.new_entity(|w| {
       w.write::<PointLightIntensity>(&self.intensity)
         .write::<PointLightCutOffDistance>(&self.cutoff_distance)
@@ -67,7 +64,7 @@ pub struct SpotLightDataView {
 }
 
 impl SpotLightDataView {
-  pub fn write(self, writer: &mut EntityWriter<SpotLightEntity>) -> EntityHandle<SpotLightEntity> {
+  pub fn write(self, writer: &mut TableWriter<SpotLightEntity>) -> EntityHandle<SpotLightEntity> {
     writer.new_entity(|w| {
       w.write::<SpotLightCutOffDistance>(&self.cutoff_distance)
         .write::<SpotLightHalfConeAngle>(&self.half_cone_angle)
@@ -119,7 +116,7 @@ pub struct DirectionalLightDataView {
 impl DirectionalLightDataView {
   pub fn write(
     self,
-    writer: &mut EntityWriter<DirectionalLightEntity>,
+    writer: &mut TableWriter<DirectionalLightEntity>,
   ) -> EntityHandle<DirectionalLightEntity> {
     writer.new_entity(|w| {
       w.write::<DirectionalLightIlluminance>(&self.illuminance)

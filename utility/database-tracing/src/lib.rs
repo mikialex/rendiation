@@ -109,9 +109,9 @@ pub fn start_tracing<T: TraceIO + Send + Sync + 'static>(
                 let fk = (data_ptr as *const Option<RawEntityHandle>).read();
                 EntityFieldData::ForeignKey(fk)
               } else {
-                let new = &*dyn_ptr as &dyn DataBaseDataTypeDyn;
+                let new = &*dyn_ptr as &dyn DynDataBaseDataType;
                 // todo move the serialize into writer thread
-                let buffer = new.fast_serialize_into_buffer();
+                let buffer = new.serialize_into_buffer();
                 EntityFieldData::Pod(buffer.to_vec())
               };
               let msg = DatabaseTracingMessage::EntityFieldSet(c_name_id, change.idx, field_data);
@@ -242,7 +242,7 @@ fn format_component_value(ctx: &FormatCtx, name_id: u32, data: &[u8]) -> String 
     }
   };
 
-  // convert Vec<u8> → DBFastSerializeSmallBuffer
+  // convert Vec<u8> → DatabaseSerializedFieldBuffer
   let buffer: smallvec::SmallVec<[u8; 16]> = smallvec::SmallVec::from_slice(data);
 
   match debug_fn(buffer) {
@@ -261,7 +261,7 @@ fn format_component_value(ctx: &FormatCtx, name_id: u32, data: &[u8]) -> String 
 fn resolve_component_debugger(
   db: &Database,
   component_name: &str,
-) -> Result<fn(DBFastSerializeSmallBuffer) -> Option<String>, String> {
+) -> Result<fn(DatabaseSerializedFieldBuffer) -> Option<String>, String> {
   let name_mapping = db.name_mapping.read();
   let c_id = *name_mapping
     .components_inv

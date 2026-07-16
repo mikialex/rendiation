@@ -122,7 +122,7 @@ impl CellMeshExample {
   fn create_instance(
     &mut self,
     writer: &mut SceneWriter,
-    cell_mesh_writer: &mut EntityWriter<CellMeshEntity>,
+    cell_mesh_writer: &mut TableWriter<CellMeshEntity>,
     scene: EntityHandle<SceneEntity>,
   ) {
     let mesh_data = make_default_fem_mesh();
@@ -177,7 +177,7 @@ struct CellMeshInstance {
 }
 
 impl CellMeshInstance {
-  fn destroy(self, writer: &mut SceneWriter, cell_mesh_writer: &mut EntityWriter<CellMeshEntity>) {
+  fn destroy(self, writer: &mut SceneWriter, cell_mesh_writer: &mut TableWriter<CellMeshEntity>) {
     writer.model_writer.delete_entity(self.scene_unit.model);
     writer.node_writer.delete_entity(self.scene_unit.node);
     writer.std_model_writer.delete_entity(self.std_model);

@@ -89,8 +89,8 @@ impl<T: TextureWithSamplingForeignKeys> ForeignKeySemantic for SceneSamplerRefOf
 }
 
 pub fn register_texture_with_sampling<T: TextureWithSamplingForeignKeys>(
-  table: EntityComponentGroupTyped<T::Entity>,
-) -> EntityComponentGroupTyped<T::Entity> {
+  table: TypedArcTable<T::Entity>,
+) -> TypedArcTable<T::Entity> {
   table
     .declare_foreign_key::<SceneTexture2dRefOf<T>>()
     .declare_foreign_key::<SceneSamplerRefOf<T>>()
@@ -103,7 +103,7 @@ pub struct Texture2DWithSamplingDataView {
 }
 
 impl Texture2DWithSamplingDataView {
-  pub fn read<T, E>(reader: &EntityReader<E>, id: EntityHandle<E>) -> Option<Self>
+  pub fn read<T, E>(reader: &TableReader<E>, id: EntityHandle<E>) -> Option<Self>
   where
     T: TextureWithSamplingForeignKeys<Entity = E>,
     E: EntitySemantic,
@@ -130,8 +130,8 @@ impl Texture2DWithSamplingDataView {
 }
 
 pub struct TexSamplerWriter<'a> {
-  pub tex_writer: &'a mut EntityWriter<SceneTexture2dEntity>,
-  pub sampler_writer: &'a mut EntityWriter<SceneSamplerEntity>,
+  pub tex_writer: &'a mut TableWriter<SceneTexture2dEntity>,
+  pub sampler_writer: &'a mut TableWriter<SceneSamplerEntity>,
 }
 
 impl TexSamplerWriter<'_> {
@@ -170,8 +170,8 @@ impl TexSamplerWriter<'_> {
 }
 
 pub struct TexCubeWriter<'a> {
-  pub tex_writer: &'a mut EntityWriter<SceneTexture2dEntity>,
-  pub cube_writer: &'a mut EntityWriter<SceneTextureCubeEntity>,
+  pub tex_writer: &'a mut TableWriter<SceneTexture2dEntity>,
+  pub cube_writer: &'a mut TableWriter<SceneTextureCubeEntity>,
 }
 
 impl TexCubeWriter<'_> {

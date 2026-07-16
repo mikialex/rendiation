@@ -134,7 +134,7 @@ impl Text3DExample {
   fn create_instance(
     &mut self,
     writer: &mut SceneWriter,
-    text3d_writer: &mut EntityWriter<Text3dEntity>,
+    text3d_writer: &mut TableWriter<Text3dEntity>,
     scene: EntityHandle<SceneEntity>,
     info: Text3dContentInfo,
   ) {
@@ -167,7 +167,7 @@ impl Text3DExample {
   pub fn destroy(
     &mut self,
     writer: &mut SceneWriter,
-    text3d_writer: &mut EntityWriter<Text3dEntity>,
+    text3d_writer: &mut TableWriter<Text3dEntity>,
   ) {
     for instance in self.instance.drain(..) {
       instance.destroy(writer, text3d_writer);
@@ -184,7 +184,7 @@ struct Text3DTestInstance {
 }
 
 impl Text3DTestInstance {
-  pub fn destroy(self, writer: &mut SceneWriter, text3d_writer: &mut EntityWriter<Text3dEntity>) {
+  pub fn destroy(self, writer: &mut SceneWriter, text3d_writer: &mut TableWriter<Text3dEntity>) {
     text3d_writer.delete_entity(self.text);
     self.scene_unit.destroy(writer);
   }
