@@ -5,6 +5,10 @@ use std::panic::PanicHookInfo;
 
 use crate::*;
 
+declare_component!(
+  /// a special mark for scene level bounding compute
+  SceneModelIsInfinity, SceneModelEntity, bool, false);
+
 /// This must be called before any other rendiation c api
 ///
 /// if trace_write_path is null_ptr, then the api tracing will be disabled
@@ -21,6 +25,7 @@ pub extern "C" fn rendiation_init(trace_write_path: *const c_char) {
   global_database().enable_label_for_all_entity();
 
   register_viewer_content_data_model();
+  global_entity_of::<SceneModelEntity>().declare_component::<SceneModelIsInfinity>();
 
   setup_tracing(trace_write_path);
 }

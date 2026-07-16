@@ -6172,6 +6172,7 @@ dependencies = [
  "mimalloc",
  "ordered-float 4.6.0",
  "pollster",
+ "rendiation-dynamic-bvh-scene",
  "rendiation-mesh-core",
  "rendiation-occ-style-draw-control",
  "rendiation-occ-style-material",

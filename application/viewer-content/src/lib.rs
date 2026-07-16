@@ -136,6 +136,4 @@ pub fn register_viewer_content_data_model() {
   register_occ_material_data_model(true);
   rendiation_transform_instanced_model::register_transform_instanced_model_data_model(true);
   rendiation_cell_mesh::register_cell_mesh_data_model(true);
-
-  global_entity_of::<SceneModelEntity>().declare_component::<SceneModelSkipSceneModelBounding>();
 }

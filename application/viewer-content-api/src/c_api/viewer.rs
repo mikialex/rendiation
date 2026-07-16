@@ -257,10 +257,11 @@ pub extern "C" fn query_scene_bounding(
   viewer_api: &mut ViewerAPI,
   scene: ViewerEntityHandle,
   result: &mut [f32; 6],
-  consider_override: bool,
+  consider_view_dep: bool,
+  consider_infinity: bool,
   surface_id: u32,
 ) {
-  let active_view = if consider_override {
+  let active_view = if consider_view_dep {
     let surface_content = viewer_api
       .core
       .viewer
@@ -272,9 +273,10 @@ pub extern "C" fn query_scene_bounding(
     None
   };
 
-  let bbox = api
-    .scene_bounding
-    .get_or_compute_scene_bounding(scene.into(), active_view);
+  let bbox =
+    api
+      .scene_bounding
+      .get_or_compute_scene_bounding(scene.into(), active_view, consider_infinity);
 
   result[0] = bbox.min.x;
   result[1] = bbox.min.y;

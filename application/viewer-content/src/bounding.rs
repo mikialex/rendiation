@@ -1,12 +1,5 @@
 use crate::*;
 
-declare_component!(
-  SceneModelSkipSceneModelBounding,
-  SceneModelEntity,
-  bool,
-  false
-);
-
 pub struct SceneModelLocalBounding(pub Arc<RwLock<FontSystem>>);
 
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelLocalBounding {
@@ -68,8 +61,6 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
       .use_dual_query::<SceneModelViewDependentTransformOcc>()
       .dual_query_filter_map(|v| v);
 
-    let skip_sm_bounding = cx.use_dual_query::<SceneModelSkipSceneModelBounding>();
-
     scene_model_world_mat
       .dual_query_boxed()
       .dual_query_intersect(all_model_local_bounding)
@@ -82,23 +73,6 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
           (None, Some(_)) => None, // not possible, show we check?
           (Some(bbox), None) => Some(Some(bbox)),
           (Some(_), Some(_)) => Some(None),
-        }
-      })
-      .dual_query_union(skip_sm_bounding, |(bbox, should_skip)| {
-        // do subtraction
-        match (bbox, should_skip) {
-          (Some(bbox), Some(should_skip)) => {
-            if let Some(bbox) = bbox {
-              if should_skip {
-                Some(None)
-              } else {
-                Some(Some(bbox))
-              }
-            } else {
-              Some(None)
-            }
-          }
-          _ => None,
         }
       })
       .use_dual_query_materialized_hashmap(cx, "SceneModelWorldBounding")

@@ -117,11 +117,11 @@ pub extern "C" fn scene_model_set_z_layer(handle: ViewerEntityHandle, z_layer: O
 }
 
 #[no_mangle]
-pub extern "C" fn scene_model_set_scene_model_unbound(
+pub extern "C" fn scene_model_set_scene_model_is_infinity(
   handle: ViewerEntityHandle,
-  is_unbound: bool,
+  is_infinity: bool,
 ) {
-  write_global_db_component::<SceneModelSkipSceneModelBounding>().write(handle.into(), is_unbound);
+  write_global_db_component::<SceneModelIsInfinity>().write(handle.into(), is_infinity);
 }
 
 #[no_mangle]

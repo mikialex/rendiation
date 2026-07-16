@@ -703,7 +703,8 @@ void query_scene_bounding(ViewerWorldDeriveQueryAPI *api,
                           ViewerAPI *viewer_api,
                           ViewerEntityHandle scene,
                           float (*result)[6],
-                          bool consider_override,
+                          bool consider_view_dep,
+                          bool consider_infinity,
                           uint32_t surface_id);
 
 /// the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
@@ -864,7 +865,7 @@ void scene_model_remove_occ_style_view_dep(ViewerEntityHandle handle);
 
 void scene_model_set_z_layer(ViewerEntityHandle handle, OccFlavorZLayer z_layer);
 
-void scene_model_set_scene_model_unbound(ViewerEntityHandle handle, bool is_unbound);
+void scene_model_set_scene_model_is_infinity(ViewerEntityHandle handle, bool is_infinity);
 
 void scene_model_set_priority(ViewerEntityHandle handle, uint32_t priority);
 

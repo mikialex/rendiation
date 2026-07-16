@@ -15,6 +15,9 @@ pub use wgpu_types::TextureFormat;
 mod trace;
 use trace::*;
 
+mod bbox;
+use bbox::*;
+
 mod top_most_standalone_draw;
 use top_most_standalone_draw::*;
 
