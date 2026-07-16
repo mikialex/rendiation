@@ -136,4 +136,7 @@ impl SceneBatchBasicExtractAbility for IncrementalDeviceSceneBatchExtractor<Scen
     };
     SceneModelRenderBatch::Device(batches).into()
   }
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
 }

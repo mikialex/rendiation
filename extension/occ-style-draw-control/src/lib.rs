@@ -22,6 +22,7 @@ pub enum OccFlavorZLayer {
   #[default]
   Default = 1,
   Top = 2,
+  // the top most layer will be draw in stand alone frame
   TopMost = 3,
   TopOSD = 4,
 }
@@ -100,6 +101,27 @@ pub struct OccStyleOrderControlSceneBatchExtractor {
   internal: IncrementalDeviceSceneBatchExtractor<OccSceneModelGroupKey>,
 }
 
+impl OccStyleOrderControlSceneBatchExtractor {
+  pub fn get_top_most_layer(&self, scene: EntityHandle<SceneEntity>) -> SceneModelRenderBatch {
+    let contents = self.internal.contents.get(&scene.into_raw());
+    if contents.is_none() {
+      return SceneModelRenderBatch::Device(DeviceSceneModelRenderBatch::empty());
+    }
+    let sub_batch_with_key: Vec<_> = contents
+      .unwrap()
+      .iter()
+      .filter(|(k, _)| k.layer == OccFlavorZLayer::TopMost)
+      .filter_map(|(_, v)| v.create_batch())
+      .collect();
+
+    let batches = DeviceSceneModelRenderBatch {
+      sub_batches: sub_batch_with_key,
+      stash_culler: None,
+    };
+    SceneModelRenderBatch::Device(batches)
+  }
+}
+
 impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
   fn extract_scene_batch(
     &self,
@@ -119,11 +141,13 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
         contents
           .iter()
           .filter(|(k, _)| k.internal.require_alpha_blend() == alpha_blend)
+          .filter(|(k, _)| k.layer != OccFlavorZLayer::TopMost)
           .filter_map(|(k, v)| Some((v.create_batch()?, k.layer)))
           .collect()
       } else {
         contents
           .iter()
+          .filter(|(k, _)| k.layer != OccFlavorZLayer::TopMost)
           .filter_map(|(k, v)| Some((v.create_batch()?, k.layer)))
           .collect()
       };
@@ -137,6 +161,9 @@ impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractor {
       stash_culler: None,
     };
     SceneModelRenderBatch::Device(batches)
+  }
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
   }
 }
 

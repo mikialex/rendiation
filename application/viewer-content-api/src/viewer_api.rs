@@ -432,7 +432,21 @@ impl ViewerAPI {
           &mut core.data_source,
           &mut core.dyn_cx,
           None,
-          &mut (),
+          &mut TopMostStandaloneDraw {
+            scene: core
+              .viewer
+              .surfaces_content
+              .get(&surface_id)
+              .unwrap()
+              .viewports[0]
+              .scene,
+            reverse_z: core
+              .viewer
+              .rendering
+              .init_config()
+              .init_only
+              .enable_reverse_z,
+          },
         );
 
         unsafe {

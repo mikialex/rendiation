@@ -23,6 +23,7 @@ rendiation-occ-style-draw-control = { path = "../../extension/occ-style-draw-con
 rendiation-occ-style-material = { path = "../../extension/occ-style-material" }
 rendiation-text-3d = { path = "../../extension/text-3d" }
 rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
+rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 wgpu-types = { workspace = true }
 ordered-float = "4.6"
 

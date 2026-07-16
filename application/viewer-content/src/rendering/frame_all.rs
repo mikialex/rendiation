@@ -661,8 +661,8 @@ pub struct ViewerRendererInstance {
 }
 
 pub struct ViewerBatchExtractor {
-  default_extractor: Box<dyn SceneBatchBasicExtractAbility>,
-  indirect_extractor: Option<Box<dyn SceneBatchBasicExtractAbility>>,
+  pub default_extractor: Box<dyn SceneBatchBasicExtractAbility>,
+  pub indirect_extractor: Option<Box<dyn SceneBatchBasicExtractAbility>>,
 }
 
 impl SceneBatchBasicExtractAbility for ViewerBatchExtractor {
@@ -679,5 +679,8 @@ impl SceneBatchBasicExtractAbility for ViewerBatchExtractor {
         .default_extractor
         .extract_scene_batch(scene, semantic, renderer)
     }
+  }
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
   }
 }

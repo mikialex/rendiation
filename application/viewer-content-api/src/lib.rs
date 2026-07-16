@@ -15,6 +15,9 @@ pub use wgpu_types::TextureFormat;
 mod trace;
 use trace::*;
 
+mod top_most_standalone_draw;
+use top_most_standalone_draw::*;
+
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;

@@ -13,6 +13,7 @@ pub trait ViewerFrameRenderingExtension {
     &mut self,
     frame: &mut FrameCtx,
     renderer: &ViewerRendererInstance,
+    lighting: &LightingRenderingCx,
     camera: EntityHandle<SceneCameraEntity>,
     target: &RenderTargetView,
   );
@@ -23,6 +24,7 @@ impl ViewerFrameRenderingExtension for () {
     &mut self,
     _frame: &mut FrameCtx,
     _renderer: &ViewerRendererInstance,
+    _lighting: &LightingRenderingCx,
     _camera: EntityHandle<SceneCameraEntity>,
     _target: &RenderTargetView,
   ) {
@@ -416,7 +418,7 @@ impl Viewer3dViewportRenderingCtx {
       });
     }
 
-    extension.use_draw_content_on_post_frame(ctx, renderer, camera, &render_target);
+    extension.use_draw_content_on_post_frame(ctx, renderer, lighting, camera, &render_target);
 
     // do extra copy to surface texture
     if should_do_extra_copy {

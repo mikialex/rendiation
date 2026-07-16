@@ -15,6 +15,7 @@ impl<'a> ViewerFrameRenderingExtension for ViewerAppFrameRenderingExtension<'a> 
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &ViewerRendererInstance,
+    _lighting: &LightingRenderingCx,
     camera: EntityHandle<SceneCameraEntity>,
     target: &RenderTargetView,
   ) {
