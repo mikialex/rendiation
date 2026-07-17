@@ -54,6 +54,7 @@ impl ViewerBackgroundState {
           GROUND_GREEN.expand_with(0.5),
           GROUND_GREEN.expand_with(1.0),
         ],
+        use_screen_space: false,
       },
     };
     s.setup_background(writer, scene);

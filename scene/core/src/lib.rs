@@ -104,6 +104,7 @@ pub struct SceneGradientBackgroundParam {
   pub transform: Mat4<f32>,
   /// color is srgb space
   pub color_and_stops: Vec<Vec4<f32>>,
+  pub use_screen_space: bool,
 }
 
 declare_component!(
