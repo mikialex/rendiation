@@ -229,14 +229,15 @@ pub struct OccStyleOrderControlSceneBatchUpdates {
 // todo-optimize: we should take most used priority into group key to avoid sort large list every time
 pub fn sort_by_priority(
   buffer: &mut PersistSceneModelListBuffer,
-  read_view: &ComponentReadView<SceneModelOccStylePriority>,
+  _read_view: &ComponentReadView<SceneModelOccStylePriority>,
 ) -> Option<SparseBufferWritesSource> {
   let host_before = buffer.host.clone();
-  buffer.host.sort_by_cached_key(|handle| {
-    unsafe { read_view.get_by_untyped_handle(*handle) }
-      .copied()
-      .unwrap_or(0);
-  });
+  // todo, this is wrong, even if we sort here, the buffer's mapping is not updated
+  // buffer.host.sort_by_cached_key(|handle| {
+  //   unsafe { read_view.get_by_untyped_handle(*handle) }
+  //     .copied()
+  //     .unwrap_or(0)；
+  // });
   let mut write_source = SparseBufferWritesSource::default();
   for (i, (new, old)) in buffer.host.iter().zip(host_before.iter()).enumerate() {
     if new.index() != old.index() {

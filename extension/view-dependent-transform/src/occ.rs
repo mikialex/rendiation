@@ -127,7 +127,7 @@ impl OccStyleViewDepConfig {
           local_mat.d3 = 0.0;
           local_mat.d4 = 1.0;
           let position = local_mat * position;
-          world_view_mat = world_view_mat * Mat4::translate(position * scale as f32).into_f64();
+          world_view_mat = world_view_mat * Mat4::translate(position.into_f64() * scale);
         }
         world_view_mat.a1 = 1.0;
         world_view_mat.a2 = 0.0;

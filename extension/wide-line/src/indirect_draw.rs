@@ -163,8 +163,11 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     let wide_line_id = self.model_access.get(any_id)?;
-    let enabled = self.states.get_value(wide_line_id)?;
-    hasher.hash(enabled);
+    let depth_enabled = self.states.get_value(wide_line_id)?;
+    let param = self.params_host.get(wide_line_id.alloc_index())?;
+    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
+    hasher.hash(depth_enabled);
+    hasher.hash(use_native_line);
     let transparent = self.transparent.get_value(wide_line_id)?;
     hasher.hash(transparent);
     Some(())

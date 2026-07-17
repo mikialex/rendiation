@@ -450,6 +450,7 @@ pub extern "C" fn scene_set_background_gradient(
     Some(SceneGradientBackgroundParam {
       transform: Mat4::identity(),
       color_and_stops: vec![top.expand_with(0.), bottom.expand_with(1.)],
+      use_screen_space: true,
     }),
   );
   write_global_db_component::<SceneSolidBackground>().write(handle.into(), None);
