@@ -158,8 +158,14 @@ struct WideLineVertexStorage {
 impl IndirectDrawProviderCreator for WideLineModelIndirectRenderer {
   fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
     let id = unsafe { EntityHandle::from_raw(id) };
-    self.model_access.get(id)?;
-    fast_hash_scope(|hasher| self.type_id().hash(hasher)).into()
+    let line = self.model_access.get(id)?;
+    let param = self.params_host.get(line.alloc_index())?;
+    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
+    fast_hash_scope(|hasher| {
+      self.type_id().hash(hasher);
+      use_native_line.hash(hasher)
+    })
+    .into()
   }
 
   fn use_create_or_update_indirect_draw_providers(

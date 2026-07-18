@@ -68,7 +68,10 @@ impl DeviceDrawList {
 
     // Reuse cached target if the total capacity matches.
     let needs_create = match cached.as_ref() {
-      Some(existing) => existing.dispatch_info.total_capacity != total_capacity,
+      Some(existing) => {
+        existing.dispatch_info.total_capacity != total_capacity
+          || existing.dispatch_info.host_capacity_ranges.len() != sub_list_infos.len()
+      }
       None => true,
     };
 
