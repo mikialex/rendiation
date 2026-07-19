@@ -103,6 +103,15 @@ impl Viewer3dRenderingCtx {
     surface_content: &ViewerSurfaceContent,
     viewports_map: &ViewportsImmediate,
   ) -> Option<(ViewerRendererInstance, LightingRenderingCxPrepareCtx)> {
+    if self
+      .init_config
+      .enable_db_ref_integrity_check_within_rendering
+    {
+      cx.scope(|cx| {
+        use_database_reference_integrity_checker(cx);
+      })
+    }
+
     let viewports = &surface_content.viewports;
     let (cx, change_scope) = cx.use_begin_change_set_collect();
 

@@ -1080,6 +1080,7 @@ dependencies = [
  "facet",
  "fast-hash-collection",
  "futures",
+ "log",
  "parking_lot",
  "query",
  "query-hook",

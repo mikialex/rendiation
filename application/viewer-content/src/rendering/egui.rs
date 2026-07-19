@@ -6,6 +6,13 @@ impl Viewer3dRenderingCtx {
     let mut ui = UiWithChangeInfo(ui, false);
     let ui = &mut ui;
 
+    ui.checkbox(
+      &mut self
+        .init_config
+        .enable_db_ref_integrity_check_within_rendering,
+      "enable_db_ref_integrity_check_within_rendering",
+    );
+
     let is_target_support_indirect_draw = self.gpu.info.downgrade_info.is_webgpu_compliant()
       || (self
         .init_config

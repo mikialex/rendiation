@@ -78,39 +78,6 @@ impl Database {
   pub fn entity_writer_untyped_dyn(&self, e_id: EntityId) -> TableWriterUntyped {
     self.access_table_dyn(e_id, |e| e.entity_writer_dyn())
   }
-
-  pub fn debug_check_reference_integrity(&self) {
-    // todo, we should hold all lock first to avoid concurrent mutation;
-    let tables = self.tables.read();
-    for (_, table) in tables.iter() {
-      let table_ = &table.internal;
-      let fk = table_.foreign_keys.read();
-      for (c_id, e_id) in fk.iter() {
-        let target_table = &tables.get(e_id).unwrap().internal;
-        let target_table_allocator = target_table.allocator.read();
-        table.access_component(*c_id, |com| {
-          com.read_untyped();
-          let view = IterableComponentReadView::<Option<RawEntityHandle>> {
-            table: table.clone(),
-            read_view: com.read_untyped(),
-            phantom: PhantomData,
-          };
-
-          for (idx, v) in view.iter_key_value() {
-            if let Some(v) = v {
-              if target_table_allocator.get(v.0).is_none() {
-                let handle = table_.allocator.read().get_handle(idx as usize).unwrap();
-                panic!(
-                  "broken reference, {} entity {} reference not exist handle {}, {}",
-                  table_.short_name, handle, target_table.short_name, v
-                );
-              }
-            }
-          }
-        });
-      }
-    }
-  }
 }
 
 #[derive(Default)]

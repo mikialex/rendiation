@@ -28,6 +28,7 @@ bytemuck = { workspace = true }
 rmp-serde = { workspace = true }
 disqualified = { workspace = true }
 smallbox = "0.8"
+log = { workspace = true }
 
 [lints]
 workspace = true

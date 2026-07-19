@@ -28,15 +28,12 @@ fn get_db_view_no_generation_check_internal<T>(
 }
 
 pub fn get_db_set_view<E: EntitySemantic>() -> BoxedDynQuery<RawEntityHandle, ()> {
-  global_database().access_table::<E, _>(|t| {
-    ArenaAccess(
-      t.clone()
-        .into_untyped()
-        .internal
-        .allocator
-        .make_read_holder(),
-    )
-    .into_boxed()
+  get_db_set_view_dyn(E::entity_id())
+}
+
+pub fn get_db_set_view_dyn(e_id: EntityId) -> BoxedDynQuery<RawEntityHandle, ()> {
+  global_database().access_table_dyn(e_id, |t| {
+    ArenaAccess(t.internal.allocator.make_read_holder()).into_boxed()
   })
 }
 

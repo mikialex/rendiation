@@ -18,6 +18,7 @@ use_scene_bvh = false
 use_array_clip = false
 always_enable_caching_frame_for_direct_read = false
 light_surface_ty = "Pbr"
+enable_db_ref_integrity_check_within_rendering = false
 
 [init_only] # See ViewerStaticInitConfig
 use_native_line_for_one_width_line = true
