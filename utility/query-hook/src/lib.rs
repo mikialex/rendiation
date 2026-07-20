@@ -501,6 +501,51 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     )
   }
 
+  fn use_hierarchy_reduce<C, R, OneKey, ManyKey, Value>(
+    &mut self,
+    many_side_changes: UseResult<C>,
+    relation_changes: UseResult<R>,
+    reduce_logic: impl Fn(Value, Value) -> Value + 'static + Send + Sync,
+  ) -> UseResult<impl DualQueryLike<Key = OneKey, Value = Value>>
+  where
+    OneKey: CKey,
+    ManyKey: CKey,
+    Value: CValue,
+    C: DualQueryLike<Key = ManyKey, Value = Value>,
+    R: DualQueryLike<Key = ManyKey, Value = OneKey>,
+  {
+    let (_, reducer) = self.use_plain_state(|| {
+      let reducer = HierarchyMonoidReducerGroup::<OneKey, ManyKey, Value, _>::new(reduce_logic);
+      Arc::new(RwLock::new(reducer))
+    });
+    let reducer = reducer.clone();
+
+    // self.if_inspect(|inspector| {
+    //   let bytes = reducer.read().memory_usage_in_bytes();
+    //   inspector.label_memory_usage("hierarchy_reducer", bytes);
+    // });
+
+    many_side_changes
+      .join(relation_changes)
+      .map_spawn_stage_in_thread(
+        self,
+        |(changes, r_change)| changes.has_delta_hint() || r_change.has_delta_hint(),
+        move |(changes, r_change)| {
+          let mut reducer_ = reducer.write();
+          let delta = reduce_impl(
+            changes,
+            r_change,
+            &mut reducer_ as &mut HierarchyMonoidReducerGroup<OneKey, ManyKey, Value, _>,
+          );
+          drop(reducer_);
+
+          let view = reducer.make_read_holder();
+
+          DualQuery { view, delta }
+        },
+      )
+  }
+
   /// return (R, if_waked)
   #[track_caller]
   fn run_with_waked_info<R>(&mut self, f: impl FnOnce(&mut Self, bool) -> R) -> (R, bool) {

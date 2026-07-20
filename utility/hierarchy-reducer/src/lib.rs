@@ -154,6 +154,11 @@ where
     }
   }
 
+  // return the last reduced result without recomputing
+  pub fn current_value(&self) -> Option<&T> {
+    self.tree[1].as_ref()
+  }
+
   pub fn update(&mut self, reducer: impl Fn(T, T) -> T) -> Option<T> {
     if self.count == 0 {
       return None;

@@ -3632,6 +3632,7 @@ version = "0.0.1"
 dependencies = [
  "dyn-clone",
  "fast-hash-collection",
+ "hierarchy-reducer",
  "parking_lot",
  "rendiation-abstract-tree",
  "serde",

@@ -8,6 +8,7 @@ fast-hash-collection = { path = "../fast-hash-collection" }
 dyn-clone = { workspace = true }
 storage = { path = "../storage" }
 serde = { workspace = true }
+hierarchy-reducer = { path = "../hierarchy-reducer" }
 rendiation-abstract-tree = { path = "../abstract-tree" }
 
 # we use it's rwlock to avoid recursive read deadlock

@@ -22,6 +22,9 @@ pub use join::*;
 mod fanout;
 pub use fanout::*;
 
+mod reduce;
+pub use reduce::*;
+
 use crate::*;
 
 #[derive(Clone)]
