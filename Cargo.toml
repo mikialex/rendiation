@@ -15,6 +15,7 @@ members = [
   "utility/abstract-graph",
   "utility/abstract-uri-data",
   "utility/uri-streaming",
+  "utility/hierarchy-reducer",
   "utility/database",
   "utility/database-tracing",
   "utility/heap-tools",
