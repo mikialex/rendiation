@@ -164,20 +164,23 @@ impl<T: Std140> UniformBufferCachedDataView<T> {
     T: PartialEq,
   {
     let mut state = self.diff.write();
+    let state: &mut DiffState<T> = &mut state;
     if state.changed {
-      let data = state.data;
+      let data = &state.data;
       let should_update;
 
-      // if last is none, means we use init value, not need update
-      if let Some(last) = state.last {
+      if let Some(last) = &mut state.last {
         should_update = last != data;
-        state.last = Some(data);
+        if should_update {
+          state.last = Some(*data);
+        }
       } else {
         should_update = true;
+        state.last = Some(*data);
       }
 
       if should_update {
-        queue.write_buffer(&self.gpu.gpu.resource.gpu, 0, bytemuck::cast_slice(&[data]))
+        queue.write_buffer(&self.gpu.gpu.resource.gpu, 0, data.as_bytes())
       }
 
       state.changed = false;
