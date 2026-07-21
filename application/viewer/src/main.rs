@@ -78,6 +78,9 @@ pub enum ViewerTracingEvent {
 }
 
 impl database_tracing::TraceReplayTarget for ViewerTracingEvent {
+  fn type_discriminant() -> u32 {
+    10
+  }
   fn is_replay_target(&self) -> bool {
     match self {
       ViewerTracingEvent::Render => true,
@@ -99,7 +102,7 @@ impl database_tracing::TraceIO for ViewerTracingEvent {
     }
   }
 
-  fn read(source: &mut impl std::io::prelude::Read) -> std::io::Result<Self>
+  fn read(source: &mut dyn std::io::Read) -> std::io::Result<Self>
   where
     Self: Sized,
   {

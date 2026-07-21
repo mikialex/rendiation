@@ -18,6 +18,7 @@ members = [
   "utility/hierarchy-reducer",
   "utility/database",
   "utility/database-tracing",
+  "application/viewer-content-api-trace-info",
   "utility/heap-tools",
   "utility/interning",
   "utility/hook",

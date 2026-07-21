@@ -25,7 +25,7 @@ pub(crate) const TAG_ENTITY_FIELD_SET: u8 = 0x03;
 // file header constants
 pub(crate) const MAGIC: &[u8; 4] = b"RTRC";
 pub(crate) const VERSION: u32 = 1;
-pub(crate) const HEADER_SIZE: u32 = 16;
+pub(crate) const HEADER_SIZE: u32 = 20;
 
 pub enum TracingMessage<T> {
   /// This is for storing any important message besides db changes
@@ -159,7 +159,7 @@ pub trait TraceIO: Debug {
   /// Writes self to the writer. Returns the number of bytes written.
   fn write(&self, w: &mut impl Write) -> std::io::Result<usize>;
   /// Reads self from the reader. Consumes exactly `write_len()` bytes.
-  fn read(source: &mut impl Read) -> std::io::Result<Self>
+  fn read(source: &mut dyn Read) -> std::io::Result<Self>
   where
     Self: Sized;
 }
@@ -171,7 +171,7 @@ impl TraceIO for () {
   fn write(&self, _w: &mut impl Write) -> std::io::Result<usize> {
     Ok(0)
   }
-  fn read(_source: &mut impl Read) -> std::io::Result<Self> {
+  fn read(_source: &mut dyn Read) -> std::io::Result<Self> {
     Ok(())
   }
 }
@@ -189,7 +189,7 @@ impl TraceIO for DatabaseTracingMessage {
     Ok(len)
   }
 
-  fn read(source: &mut impl Read) -> std::io::Result<Self> {
+  fn read(source: &mut dyn Read) -> std::io::Result<Self> {
     let mut tag = [0u8; 1];
     source.read_exact(&mut tag)?;
     match tag[0] {
@@ -277,7 +277,7 @@ impl<T: TraceIO> TraceIO for TracingMessage<T> {
     Ok(total)
   }
 
-  fn read(source: &mut impl Read) -> std::io::Result<Self> {
+  fn read(source: &mut dyn Read) -> std::io::Result<Self> {
     let record_len = read_u32_le(source)? as usize;
     let mut buf = vec![0u8; record_len];
     source.read_exact(&mut buf)?;
@@ -321,19 +321,19 @@ pub(crate) fn write_raw_handle(w: &mut impl Write, handle: RawEntityHandle) -> s
 
 // binary read helpers
 
-pub(crate) fn read_u16_le(source: &mut impl Read) -> std::io::Result<u16> {
+pub(crate) fn read_u16_le(source: &mut (impl Read + ?Sized)) -> std::io::Result<u16> {
   let mut buf = [0u8; 2];
   source.read_exact(&mut buf)?;
   Ok(u16::from_le_bytes(buf))
 }
 
-pub(crate) fn read_u32_le(source: &mut impl Read) -> std::io::Result<u32> {
+pub(crate) fn read_u32_le(source: &mut (impl Read + ?Sized)) -> std::io::Result<u32> {
   let mut buf = [0u8; 4];
   source.read_exact(&mut buf)?;
   Ok(u32::from_le_bytes(buf))
 }
 
-pub(crate) fn read_u64_le(source: &mut impl Read) -> std::io::Result<u64> {
+pub(crate) fn read_u64_le(source: &mut (impl Read + ?Sized)) -> std::io::Result<u64> {
   let mut buf = [0u8; 8];
   source.read_exact(&mut buf)?;
   Ok(u64::from_le_bytes(buf))
@@ -342,10 +342,15 @@ pub(crate) fn read_u64_le(source: &mut impl Read) -> std::io::Result<u64> {
 // header I/O
 
 /// Write the trace file header (magic, version, name table) to a writer.
-pub fn write_trace_file_header(w: &mut impl Write, name_table: &NameTable) -> std::io::Result<()> {
+pub fn write_trace_file_header(
+  w: &mut impl Write,
+  name_table: &NameTable,
+  type_discriminant: u32,
+) -> std::io::Result<()> {
   w.write_all(MAGIC)?;
   write_u32_le(w, VERSION)?;
   write_u32_le(w, HEADER_SIZE)?;
+  write_u32_le(w, type_discriminant)?;
   write_u32_le(w, name_table.names.len() as u32)?;
 
   for name in &name_table.names {
@@ -362,8 +367,9 @@ pub(crate) fn write_name_table_entry(w: &mut impl Write, name: &str) -> std::io:
 }
 
 /// Read and validate the trace file header. Returns the name table
-/// (with empty debuggers since function pointers cannot be serialized).
-pub fn read_trace_file_header(source: &mut impl Read) -> std::io::Result<NameTable> {
+/// (with empty debuggers since function pointers cannot be serialized)
+/// and the stored type discriminant.
+pub fn read_trace_file_header(source: &mut impl Read) -> std::io::Result<(NameTable, u32)> {
   let mut magic_buf = [0u8; 4];
   source.read_exact(&mut magic_buf)?;
   if &magic_buf != MAGIC {
@@ -386,6 +392,7 @@ pub fn read_trace_file_header(source: &mut impl Read) -> std::io::Result<NameTab
   }
 
   let _header_len = read_u32_le(source)?;
+  let type_discriminant = read_u32_le(source)?;
   let name_count = read_u32_le(source)? as usize;
 
   let mut names = Vec::with_capacity(name_count);
@@ -399,11 +406,14 @@ pub fn read_trace_file_header(source: &mut impl Read) -> std::io::Result<NameTab
     );
   }
 
-  Ok(NameTable {
-    names,
-    entity_name_to_id: FastHashMap::default(),
-    component_name_to_id: FastHashMap::default(),
-  })
+  Ok((
+    NameTable {
+      names,
+      entity_name_to_id: FastHashMap::default(),
+      component_name_to_id: FastHashMap::default(),
+    },
+    type_discriminant,
+  ))
 }
 
 #[cfg(test)]
@@ -598,11 +608,12 @@ mod tests {
         entity_name_to_id: FastHashMap::default(),
         component_name_to_id: FastHashMap::default(),
       },
+      0,
     )
     .unwrap();
 
     let mut cursor = Cursor::new(buf);
-    let read_back = read_trace_file_header(&mut cursor).unwrap();
+    let (read_back, _disc) = read_trace_file_header(&mut cursor).unwrap();
     assert_eq!(name_table, read_back.names);
   }
 }

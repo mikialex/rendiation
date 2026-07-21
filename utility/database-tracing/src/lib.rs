@@ -47,12 +47,12 @@ pub fn build_name_table(database: &Database) -> NameTable {
 /// The writer determines how the header and records are transported
 /// (`FileTraceWriter` writes to a file, custom implementations could
 /// send over the network).
-pub fn start_tracing<T: TraceIO + Send + Sync + 'static>(
+pub fn start_tracing<T: TraceIO + TraceReplayTarget + Send + Sync + 'static>(
   database: &Database,
   writer: impl TraceWriter<TracingMessage<T>>,
 ) -> impl TraceWriter<TracingMessage<T>> {
   let name_table = build_name_table(database);
-  writer.write_header(&name_table);
+  writer.write_header(&name_table, T::type_discriminant());
 
   let tables = database.tables.read();
 
@@ -145,7 +145,7 @@ pub fn trace_to_text<T: TraceIO>(
   max_data_debug_len: usize,
 ) -> std::io::Result<()> {
   let mut file = std::fs::File::open(input_path)?;
-  let name_table = read_trace_file_header(&mut file)?;
+  let (name_table, _discriminant) = read_trace_file_header(&mut file)?;
 
   let ctx = FormatCtx {
     names: &name_table.names,

@@ -1,9 +1,22 @@
+use std::sync::OnceLock;
+
 use database::global_database;
 use database_tracing::*;
 
 use crate::viewer::*;
 
 pub const CMD_CONVERT_TRACE: &str = "convert-trace";
+
+static REPLAY_REGISTRY: OnceLock<ReplayTypeRegistry> = OnceLock::new();
+
+fn replay_registry() -> &'static ReplayTypeRegistry {
+  REPLAY_REGISTRY.get_or_init(|| {
+    let mut registry = ReplayTypeRegistry::new();
+    registry.register::<crate::ViewerTracingEvent>();
+    registry.register::<viewer_content_api_trace_info::RendiationCxAPITraceEvent>();
+    registry
+  })
+}
 
 struct TraceIOState;
 
@@ -14,15 +27,16 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for TraceIOState {
 }
 
 struct TraceReplayState {
-  state: ReplayState,
+  loaded: LoadedReplay,
   file_name: String,
+  scroll_to_current: bool,
 }
 
 pub fn use_enable_trace_io(cx: &mut ViewerCx) {
   let (cx, replay) = cx.use_plain_state::<Option<TraceReplayState>>();
   let db = global_database();
 
-  let _state = cx.use_state_init(|cx| {
+  let (_cx, _state) = cx.use_state_init(|cx| {
     cx.terminal
       .register_command(CMD_CONVERT_TRACE, |_ctx, _parameters, tcx| {
         let tcx = tcx.clone();
@@ -59,6 +73,9 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
         }
       });
 
+    // Ensure the replay registry is initialized (registered types are set up)
+    replay_registry();
+
     TraceIOState
   });
 
@@ -92,10 +109,14 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
                   .file_name()
                   .map(|n| n.to_string_lossy().to_string())
                   .unwrap_or_else(|| "?".into());
-                match load_replay::<crate::ViewerTracingEvent>(&path) {
-                  Ok(state) => {
-                    let count = state.records.len();
-                    *replay = Some(TraceReplayState { state, file_name });
+                match replay_registry().load(&path) {
+                  Ok(loaded) => {
+                    let count = loaded.state.records.len();
+                    *replay = Some(TraceReplayState {
+                      loaded,
+                      file_name,
+                      scroll_to_current: false,
+                    });
                     log::info!("loaded {} records", count);
                   }
                   Err(e) => {
@@ -108,31 +129,39 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
           }
 
           if let Some(ref mut rs) = replay.as_mut() {
-            let total = rs.state.records.len();
-            let pos = rs.state.position;
+            let total = rs.loaded.state.records.len();
+            let pos = rs.loaded.state.position;
             ui.label(format!("{} — {}/{} records", rs.file_name, pos, total));
 
             ui.horizontal(|ui| {
               if ui.button(">").clicked() {
-                step_forward(&mut rs.state, &db);
+                step_forward(&mut rs.loaded.state, &db);
+                rs.scroll_to_current = true;
               }
               if ui.button(">|").clicked() {
-                restart_and_run_to(&mut rs.state, &db, total);
+                restart_and_run_to(&mut rs.loaded.state, &db, total);
+                rs.scroll_to_current = true;
+              }
+              if ui.button("scroll to current").clicked() {
+                rs.scroll_to_current = true;
               }
             });
 
-            let table = egui_extras::TableBuilder::new(ui)
+            let mut table_builder = egui_extras::TableBuilder::new(ui)
               .striped(true)
               .column(egui_extras::Column::auto().resizable(true))
               .column(egui_extras::Column::remainder().clip(true))
               .max_scroll_height(300.)
               .cell_layout(egui::Layout::left_to_right(egui::Align::Center));
-
-            table.body(|body| {
+            if rs.scroll_to_current {
+              table_builder = table_builder.scroll_to_row(pos, Some(egui::Align::Min));
+              rs.scroll_to_current = false;
+            }
+            table_builder.body(|body| {
               body.rows(20.0, total, |mut row| {
                 let idx = row.index();
                 row.set_selected(idx == pos);
-                let record = &rs.state.records[idx];
+                let record = &rs.loaded.state.records[idx];
                 row.col(|ui| {
                   ui.label(format!("#{}", idx));
                 });
@@ -140,7 +169,7 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
                   ui.label(&record.summary);
                 });
                 if row.response().clicked() {
-                  restart_and_run_to(&mut rs.state, &db, idx);
+                  restart_and_run_to(&mut rs.loaded.state, &db, idx);
                 }
               });
             });

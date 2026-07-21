@@ -5031,6 +5031,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tracing-tracy",
+ "viewer-content-api-trace-info",
  "wasm-bindgen",
  "web-sys",
  "winit",
@@ -6191,7 +6192,19 @@ dependencies = [
  "rendiation-webgpu",
  "rmp-serde",
  "serde",
+ "viewer-content-api-trace-info",
  "wgpu-types",
+]
+
+[[package]]
+name = "viewer-content-api-trace-info"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "database-tracing",
+ "log",
+ "rmp-serde",
+ "serde",
 ]
 
 [[package]]

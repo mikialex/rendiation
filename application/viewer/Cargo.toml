@@ -14,7 +14,8 @@ futures = { workspace = true, features = ["thread-pool"] }
 rand = { workspace = true }
 
 database = { path = "../../utility/database" }
-database-tracing ={ path = "../../utility/database-tracing" }
+database-tracing = { path = "../../utility/database-tracing" }
+viewer-content-api-trace-info = { path = "../viewer-content-api-trace-info" }
 dirs = "4.0.0"
 parking_lot = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }

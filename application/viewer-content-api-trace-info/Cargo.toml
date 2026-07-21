@@ -1,0 +1,15 @@
+[package]
+authors = ["MikiAlex <miikiialexx@gmail.com>"]
+edition = "2021"
+name = "viewer-content-api-trace-info"
+version = "0.1.0"
+
+[dependencies]
+database = { path = "../../utility/database" }
+database-tracing = { path = "../../utility/database-tracing" }
+serde = { workspace = true }
+rmp-serde = { workspace = true }
+log = { workspace = true }
+
+[lints]
+workspace = true

@@ -30,6 +30,7 @@ ordered-float = "4.6"
 
 database = { path = "../../utility/database" }
 database-tracing = { path = "../../utility/database-tracing" }
+viewer-content-api-trace-info = { path = "../viewer-content-api-trace-info" }
 
 serde = { workspace = true }
 rmp-serde = { workspace = true }

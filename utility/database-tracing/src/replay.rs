@@ -1,3 +1,5 @@
+use std::io::Read;
+
 use database::*;
 use fast_hash_collection::*;
 use smallvec::SmallVec;
@@ -36,22 +38,108 @@ pub struct ReplayState {
 }
 
 pub trait TraceReplayTarget {
+  /// Returns a u32 discriminant that identifies the concrete replay event type.
+  /// This is stored in the trace file header and checked during `load_replay`
+  /// to ensure the recorded event type matches the expected type.
+  fn type_discriminant() -> u32;
   fn is_replay_target(&self) -> bool;
 }
 
-/// Load a trace file and build a `ReplayState`.
-pub fn load_replay<T: TraceIO + TraceReplayTarget>(
-  input_path: impl AsRef<std::path::Path>,
-) -> std::io::Result<ReplayState> {
-  let mut file = std::fs::File::open(input_path)?;
-  let name_table = read_trace_file_header(&mut file)?;
+/// A type-erased function pointer that reads trace records from a reader.
+type RecordLoader = fn(&mut dyn Read, &NameTable) -> std::io::Result<Vec<ParsedRecord>>;
 
+#[derive(Clone)]
+struct ReplayTypeEntry {
+  type_name: &'static str,
+  loader: RecordLoader,
+}
+
+/// Registry of [`TraceReplayTarget`] types, keyed by [`TraceReplayTarget::type_discriminant`].
+///
+/// Register event types with [`register`](Self::register), then load any compatible trace file
+/// via [`load`](Self::load) — the correct reader is dispatched automatically based on the
+/// type discriminant stored in the file header.
+#[derive(Clone)]
+pub struct ReplayTypeRegistry {
+  entries: FastHashMap<u32, ReplayTypeEntry>,
+}
+
+impl ReplayTypeRegistry {
+  pub fn new() -> Self {
+    Self {
+      entries: FastHashMap::default(),
+    }
+  }
+
+  /// Register a replayable event type so its trace files can be loaded dynamically.
+  ///
+  /// The type must implement both [`TraceIO`] (parsing) and [`TraceReplayTarget`]
+  /// (discriminant + frame boundaries).
+  pub fn register<T: TraceIO + TraceReplayTarget + 'static>(&mut self) {
+    let disc = T::type_discriminant();
+    let entry = ReplayTypeEntry {
+      type_name: std::any::type_name::<T>(),
+      loader: read_records_for::<T>,
+    };
+    self.entries.insert(disc, entry);
+  }
+
+  /// Load a trace file by dispatching to the registered reader for the stored type discriminant.
+  ///
+  /// Returns an error when:
+  /// * The file header is corrupt or has an unsupported version.
+  /// * No type has been registered for the discriminant stored in the file.
+  /// * A record fails to deserialize.
+  pub fn load(&self, input_path: impl AsRef<std::path::Path>) -> std::io::Result<LoadedReplay> {
+    let mut file = std::fs::File::open(input_path.as_ref())?;
+    let (name_table, disc) = read_trace_file_header(&mut file)?;
+    let entry = self.entries.get(&disc).ok_or_else(|| {
+      std::io::Error::new(
+        std::io::ErrorKind::InvalidData,
+        format!(
+          "no replay handler registered for type discriminant {}. \
+           Call ReplayTypeRegistry::register::<T>() first with the correct event type.",
+          disc,
+        ),
+      )
+    })?;
+    let records = (entry.loader)(&mut file, &name_table)?;
+    Ok(LoadedReplay {
+      state: ReplayState {
+        records,
+        position: 0,
+        names: name_table.names,
+        handle_map: FastHashMap::default(),
+      },
+      type_discriminant: disc,
+      type_name: entry.type_name,
+    })
+  }
+}
+
+/// The result of loading a trace file via [`ReplayTypeRegistry::load`].
+pub struct LoadedReplay {
+  /// The ready-to-replay state.
+  pub state: ReplayState,
+  /// The type discriminant from the file header (matches the registered type).
+  pub type_discriminant: u32,
+  /// The `std::any::type_name` of the registered event type that produced this trace.
+  pub type_name: &'static str,
+}
+
+/// Read trace records from a reader that is already positioned past the header.
+/// Returns a `RecordLoader` function pointer when monomorphized for a concrete `T`.
+fn read_records_for<T: TraceIO + TraceReplayTarget>(
+  reader: &mut dyn Read,
+  name_table: &NameTable,
+) -> std::io::Result<Vec<ParsedRecord>> {
+  let names = &name_table.names;
   let mut records = Vec::new();
   loop {
-    match TracingMessage::<T>::read(&mut file) {
+    match TracingMessage::<T>::read(reader) {
       Ok(msg) => {
         let (kind, is_replay_target) = extract_kind(&msg);
-        let mut summary = format_replay_summary(&msg, &name_table.names);
+        let mut summary = format_replay_summary(&msg, names);
         if is_replay_target {
           summary.push_str(" ◀ target");
         }
@@ -66,6 +154,30 @@ pub fn load_replay<T: TraceIO + TraceReplayTarget>(
       Err(e) => return Err(e),
     }
   }
+  Ok(records)
+}
+
+/// Load a trace file and build a `ReplayState`.
+///
+/// Validates that the stored type discriminant matches `T::type_discriminant()`.
+pub fn load_replay<T: TraceIO + TraceReplayTarget>(
+  input_path: impl AsRef<std::path::Path>,
+) -> std::io::Result<ReplayState> {
+  let mut file = std::fs::File::open(input_path)?;
+  let (name_table, stored_disc) = read_trace_file_header(&mut file)?;
+  let expected_disc = T::type_discriminant();
+  if stored_disc != expected_disc {
+    return Err(std::io::Error::new(
+      std::io::ErrorKind::InvalidData,
+      format!(
+        "trace file type discriminant mismatch: expected {} but file has {}. \
+         The trace was recorded with a different event type and cannot be replayed with the current type.",
+        expected_disc, stored_disc,
+      ),
+    ));
+  }
+
+  let records = read_records_for::<T>(&mut file, &name_table)?;
 
   Ok(ReplayState {
     records,
