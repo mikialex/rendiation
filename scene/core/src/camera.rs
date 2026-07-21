@@ -1,7 +1,6 @@
 use crate::*;
 
 declare_entity!(SceneCameraEntity);
-declare_foreign_key!(SceneCameraBelongsToScene, SceneCameraEntity, SceneEntity);
 declare_foreign_key!(SceneCameraNode, SceneCameraEntity, SceneNodeEntity);
 
 declare_component!(
@@ -35,7 +34,6 @@ pub fn register_camera_data_model() {
     .declare_component::<SceneCameraPerspective>()
     .declare_component::<SceneCameraOrthographic>()
     .declare_component::<SceneCameraProjectionCustomOverride>()
-    .declare_foreign_key::<SceneCameraBelongsToScene>()
     .declare_foreign_key::<SceneCameraNode>();
 }
 

@@ -171,7 +171,6 @@ impl ViewerAPI {
       .entity_writer()
       .new_entity(|w| {
         w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
-          .write::<SceneCameraBelongsToScene>(&scene.some_handle())
           .write::<SceneCameraNode>(&camera_node.some_handle())
       });
 

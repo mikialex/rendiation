@@ -367,7 +367,6 @@ pub fn use_viewer<'a>(
         .entity_writer()
         .new_entity(|w| {
           w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
-            .write::<SceneCameraBelongsToScene>(&scene_instances.scene.some_handle())
             .write::<SceneCameraNode>(&camera_node.some_handle())
         });
 

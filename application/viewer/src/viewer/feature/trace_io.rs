@@ -56,12 +56,14 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| std::path::PathBuf::from("."));
           let output_path = output_dir.join("trace.txt");
+          let registry = replay_registry();
           let result = tcx
             .worker
             .spawn_task(move || {
               let mut output = std::fs::File::create(&output_path)
                 .map_err(|e| format!("failed to create output: {e}"))?;
-              trace_to_text::<crate::ViewerTracingEvent>(&input, &mut output, Some(&db), 1024)
+              registry
+                .convert_to_text(&input, &mut output, Some(&db), 1024)
                 .map_err(|e| format!("conversion failed: {e}"))?;
               Ok::<_, String>(output_path)
             })

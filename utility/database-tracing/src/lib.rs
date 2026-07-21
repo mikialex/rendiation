@@ -167,13 +167,13 @@ pub fn trace_to_text<T: TraceIO>(
   Ok(())
 }
 
-struct FormatCtx<'a> {
+pub(crate) struct FormatCtx<'a> {
   names: &'a [String],
   db: Option<&'a Database>,
   max_data_debug_len: usize,
 }
 
-fn format_message<T: Debug>(msg: &TracingMessage<T>, ctx: &FormatCtx) -> String {
+pub(crate) fn format_message<T: Debug>(msg: &TracingMessage<T>, ctx: &FormatCtx) -> String {
   match msg {
     TracingMessage::Event(event) => format!("[Event] {:?}", event),
     TracingMessage::DatabaseMutation(db_msg) => format_db_msg(db_msg, ctx),

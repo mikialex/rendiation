@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{Read, Write};
 
 use database::*;
 use fast_hash_collection::*;
@@ -48,10 +48,15 @@ pub trait TraceReplayTarget {
 /// A type-erased function pointer that reads trace records from a reader.
 type RecordLoader = fn(&mut dyn Read, &NameTable) -> std::io::Result<Vec<ParsedRecord>>;
 
+/// A type-erased function pointer that converts trace records to human-readable text.
+type TextConverter =
+  fn(&mut dyn Read, &[String], Option<&Database>, usize, &mut dyn Write) -> std::io::Result<()>;
+
 #[derive(Clone)]
 struct ReplayTypeEntry {
   type_name: &'static str,
   loader: RecordLoader,
+  text_converter: TextConverter,
 }
 
 /// Registry of [`TraceReplayTarget`] types, keyed by [`TraceReplayTarget::type_discriminant`].
@@ -73,13 +78,14 @@ impl ReplayTypeRegistry {
 
   /// Register a replayable event type so its trace files can be loaded dynamically.
   ///
-  /// The type must implement both [`TraceIO`] (parsing) and [`TraceReplayTarget`]
-  /// (discriminant + frame boundaries).
-  pub fn register<T: TraceIO + TraceReplayTarget + 'static>(&mut self) {
+  /// The type must implement [`TraceIO`] (parsing), [`TraceReplayTarget`]
+  /// (discriminant + frame boundaries), and [`Debug`] (text formatting).
+  pub fn register<T: TraceIO + TraceReplayTarget + std::fmt::Debug + 'static>(&mut self) {
     let disc = T::type_discriminant();
     let entry = ReplayTypeEntry {
       type_name: std::any::type_name::<T>(),
       loader: read_records_for::<T>,
+      text_converter: convert_to_text_for::<T>,
     };
     self.entries.insert(disc, entry);
   }
@@ -114,6 +120,32 @@ impl ReplayTypeRegistry {
       type_discriminant: disc,
       type_name: entry.type_name,
     })
+  }
+
+  /// Convert a trace file to human-readable text by dispatching to the registered
+  /// text converter for the stored type discriminant.
+  ///
+  /// See [`trace_to_text`](crate::trace_to_text) for the generic equivalent.
+  pub fn convert_to_text(
+    &self,
+    input_path: impl AsRef<std::path::Path>,
+    output: &mut impl Write,
+    db: Option<&Database>,
+    max_data_debug_len: usize,
+  ) -> std::io::Result<()> {
+    let mut file = std::fs::File::open(input_path.as_ref())?;
+    let (name_table, disc) = read_trace_file_header(&mut file)?;
+    let entry = self.entries.get(&disc).ok_or_else(|| {
+      std::io::Error::new(
+        std::io::ErrorKind::InvalidData,
+        format!(
+          "no replay handler registered for type discriminant {}. \
+           Call ReplayTypeRegistry::register::<T>() first with the correct event type.",
+          disc,
+        ),
+      )
+    })?;
+    (entry.text_converter)(&mut file, &name_table.names, db, max_data_debug_len, output)
   }
 }
 
@@ -155,6 +187,33 @@ fn read_records_for<T: TraceIO + TraceReplayTarget>(
     }
   }
   Ok(records)
+}
+
+/// Convert trace records to human-readable text.
+/// Returns a `TextConverter` function pointer when monomorphized for a concrete `T`.
+fn convert_to_text_for<T: TraceIO + std::fmt::Debug>(
+  reader: &mut dyn Read,
+  names: &[String],
+  db: Option<&Database>,
+  max_data_debug_len: usize,
+  output: &mut dyn Write,
+) -> std::io::Result<()> {
+  let ctx = crate::FormatCtx {
+    names,
+    db,
+    max_data_debug_len,
+  };
+  loop {
+    match TracingMessage::<T>::read(reader) {
+      Ok(msg) => {
+        let line = crate::format_message(&msg, &ctx);
+        writeln!(output, "{}", line)?;
+      }
+      Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+      Err(e) => return Err(e),
+    }
+  }
+  Ok(())
 }
 
 /// Load a trace file and build a `ReplayState`.
