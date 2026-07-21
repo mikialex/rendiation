@@ -535,6 +535,13 @@ struct TextureFormat {
   };
 };
 
+struct Texture2dMetaInfo {
+  uint32_t width;
+  uint32_t height;
+  uint32_t byte_len;
+  TextureFormat format;
+};
+
 struct VertexPair {
   ViewerEntityHandle h1;
   ViewerEntityHandle h2;
@@ -756,6 +763,8 @@ ViewerEntityHandle create_texture2d(const uint8_t *content,
                                     uint32_t width,
                                     uint32_t height,
                                     TextureFormat format);
+
+Texture2dMetaInfo get_texture2d_info(ViewerEntityHandle handle);
 
 void update_texture2d_content(ViewerEntityHandle handle,
                               const uint8_t *content,

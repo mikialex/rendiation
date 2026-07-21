@@ -42,7 +42,7 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
               Some((camera, transform.view_projection_inv.into_f32()))
             }
           });
-          build_debug_lines_in_camera_space(mats).into()
+          build_debug_lines_in_world_space(mats).into()
         });
 
       use_immediate_helper_model(cx, helper_mesh_lines, false);
@@ -129,7 +129,8 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for HelperLineModel {
   }
 }
 
-fn build_debug_lines_in_camera_space(
+/// view_projection_inv expect webgpu ndc
+fn build_debug_lines_in_world_space(
   view_projection_inv: impl Iterator<Item = (RawEntityHandle, Mat4<f32>)>,
 ) -> (LineBuffer, OffsetBuffer) {
   let mut line_buffer = Vec::new();
@@ -137,12 +138,12 @@ fn build_debug_lines_in_camera_space(
 
   view_projection_inv.for_each(|(id, mat)| {
     offsets.push((id, line_buffer.len()));
-    line_buffer.extend(build_debug_line_in_camera_space(mat));
+    line_buffer.extend(build_debug_line_in_world_space(mat));
   });
   (line_buffer, offsets)
 }
 
-fn build_debug_line_in_camera_space(
+fn build_debug_line_in_world_space(
   view_projection_inv: Mat4<f32>,
 ) -> impl Iterator<Item = [Vec3<f32>; 2]> {
   let zero = 0.0001;
@@ -155,8 +156,10 @@ fn build_debug_line_in_camera_space(
   let top = one;
   let bottom = -one;
 
-  let min = Vec3::new(near, left, bottom);
-  let max = Vec3::new(far, right, top);
+  // line_box takes Vec3(depth, vertical, horizontal) as min/max,
+  // internally reinterprets to standard Vec3(x=horizontal, y=vertical, z=depth)
+  let min = Vec3::new(near, bottom, left);
+  let max = Vec3::new(far, top, right);
 
   line_box(min, max)
     .into_iter()
