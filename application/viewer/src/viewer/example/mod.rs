@@ -17,7 +17,6 @@ use crate::*;
 #[derive(Default)]
 struct ExampleRegistry {
   examples: FastHashMap<String, Box<dyn Fn(&mut ViewerCx)>>,
-  current_active: Option<String>,
 }
 
 impl ExampleRegistry {
@@ -28,7 +27,7 @@ impl ExampleRegistry {
 
 pub fn use_viewer_examples(cx: &mut ViewerCx) {
   cx.next_key_scope_root();
-  let (cx, registry) = cx.use_plain_state_init(|_| {
+  let (cx, registry) = cx.use_plain_state_init(|cx| {
     let mut registry = ExampleRegistry::default();
     registry.register("Cell Mesh (FEM)", use_cell_mesh_example);
     registry.register("Text3d example", use_text3d_example);
@@ -37,6 +36,14 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
       use_texture_material_share_example,
     );
     registry.register("Transform Instance Example", use_transform_instance_example);
+
+    if let Some(current_example) = &mut cx.app_features.active_example {
+      if !registry.examples.contains_key(current_example) {
+        log::warn!("unknown active example: {current_example}");
+        cx.app_features.active_example = None;
+      }
+    }
+
     registry
   });
 
@@ -52,18 +59,22 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
       .show(egui_ctx, |ui| {
         //
         egui::ComboBox::from_label("lists")
-          .selected_text(format!("{:?}", &registry.current_active))
+          .selected_text(format!("{:?}", &cx.app_features.active_example))
           .show_ui(ui, |ui| {
-            ui.selectable_value(&mut registry.current_active, None, "None");
+            ui.selectable_value(&mut cx.app_features.active_example, None, "None");
             for (name, _) in &registry.examples {
-              ui.selectable_value(&mut registry.current_active, Some(name.clone()), name);
+              ui.selectable_value(
+                &mut cx.app_features.active_example,
+                Some(name.clone()),
+                name,
+              );
             }
           });
       });
   }
 
   cx.next_key_scope_root();
-  if let Some(active) = &registry.current_active {
+  if let Some(active) = &cx.app_features.active_example.clone() {
     if let Some(f) = registry.examples.get(active) {
       cx.keyed_scope(active, |cx| {
         f(cx);

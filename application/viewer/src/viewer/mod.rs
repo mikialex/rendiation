@@ -71,6 +71,7 @@ pub struct ViewerInitCx<'a> {
   pub surface_id: u32,
   pub terminal: &'a mut Terminal,
   pub shared_ctx: &'a mut SharedHooksCtx,
+  pub app_features: &'a mut ViewerAppFeaturesConfig,
 }
 
 unsafe impl HooksCxLike for ViewerCx<'_> {
@@ -202,6 +203,7 @@ impl<'a> ViewerCx<'a> {
             terminal: &mut self.viewer.terminal,
             shared_ctx: &mut self.viewer.shared_ctx,
             surface_id: self.surface_id,
+            app_features: &mut self.app_features,
           })
         },
         |state: &mut T, dcx: &mut ViewerDropCx| {

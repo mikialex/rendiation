@@ -272,10 +272,11 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
   }
 
   pub fn take(&mut self) -> Self {
+    let has_change = self.has_change();
     let changes = std::mem::take(&mut self.changes);
     let override_mapping = std::mem::take(&mut self.override_mapping);
 
-    if !self.has_change() {
+    if !has_change {
       return Self {
         has_any_change: Bitmap::with_size(0),
         has_duplicate_changes: Bitmap::with_size(0),
