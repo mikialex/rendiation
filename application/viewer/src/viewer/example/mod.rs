@@ -1,8 +1,10 @@
 use cell_mesh::use_cell_mesh_example;
+use stress_test::use_stress_test_example;
 pub use text3d::text3d_content_edit_ui;
 use text3d::use_text3d_example;
 
 mod cell_mesh;
+mod stress_test;
 mod text3d;
 mod texture_material_share;
 mod transform_instance;
@@ -36,6 +38,7 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
       use_texture_material_share_example,
     );
     registry.register("Transform Instance Example", use_transform_instance_example);
+    registry.register("Stress Test", use_stress_test_example);
 
     if let Some(current_example) = &mut cx.app_features.active_example {
       if !registry.examples.contains_key(current_example) {
