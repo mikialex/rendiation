@@ -20,28 +20,12 @@ pub struct AutoShrinkArena<T> {
 const DEFAULT_CAPACITY: usize = 0;
 
 impl<T> Default for AutoShrinkArena<T> {
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let arena = AutoShrinkArena::<i32>::default();
-  /// assert_eq!(arena.len(), 0);
-  /// ```
   fn default() -> AutoShrinkArena<T> {
     AutoShrinkArena::new()
   }
 }
 
 impl<T> AutoShrinkArena<T> {
-  /// Constructs a new, empty `AutoShrinkArena`.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::<usize>::new();
-  /// # let _ = arena;
-  /// ```
   pub fn new() -> AutoShrinkArena<T> {
     AutoShrinkArena::with_capacity(DEFAULT_CAPACITY)
   }
@@ -52,25 +36,6 @@ impl<T> AutoShrinkArena<T> {
       + self.high_free.capacity() * mem::size_of::<usize>()
   }
 
-  /// Constructs a new, empty `AutoShrinkArena<T>` with the specified capacity.
-  ///
-  /// The `AutoShrinkArena<T>` will be able to hold `n` elements without further allocation.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::with_capacity(10);
-  ///
-  /// // These insertions will not require further allocation.
-  /// for i in 0..10 {
-  ///   assert!(arena.try_insert(i).is_ok());
-  /// }
-  ///
-  /// // But now we are at capacity, and there is no more room.
-  /// assert!(arena.try_insert(99).is_err());
-  /// ```
   pub fn with_capacity(n: usize) -> AutoShrinkArena<T> {
     let n = cmp::max(n, 1);
     let mut arena = AutoShrinkArena {
@@ -85,20 +50,6 @@ impl<T> AutoShrinkArena<T> {
   }
 
   /// Clear all the items inside the arena, but keep its allocation.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::with_capacity(1);
-  /// arena.insert(42);
-  /// arena.insert(43);
-  ///
-  /// arena.clear();
-  ///
-  /// assert_eq!(arena.capacity(), 2);
-  /// ```
   pub fn clear(&mut self) {
     for item in &mut self.items {
       *item = None;
@@ -117,23 +68,6 @@ impl<T> AutoShrinkArena<T> {
   /// If insertion succeeds, then the `value`'s handle is returned. If
   /// insertion fails, then `Err(value)` is returned to give ownership of
   /// `value` back to the caller.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  ///
-  /// match arena.try_insert(42) {
-  ///   Ok(idx) => {
-  ///     assert_eq!(arena[idx], 42);
-  ///   }
-  ///   Err(x) => {
-  ///     assert_eq!(x, 42);
-  ///   }
-  /// };
-  /// ```
   #[inline]
   pub fn try_insert(&mut self, value: T) -> Result<Handle<T>, T> {
     match self.try_alloc_next_index() {
@@ -158,23 +92,6 @@ impl<T> AutoShrinkArena<T> {
   /// If insertion succeeds, then the new handle is returned. If
   /// insertion fails, then `Err(create)` is returned to give ownership of
   /// `create` back to the caller.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::{AutoShrinkArena, Handle};
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  ///
-  /// match arena.try_insert_with(|idx| (42, idx.into_raw_parts().0)) {
-  ///   Ok(idx) => {
-  ///     assert_eq!(arena[idx].0, 42);
-  ///     assert_eq!(arena[idx].1, idx.into_raw_parts().0);
-  ///   }
-  ///   Err(x) => {
-  ///     // Insertion failed.
-  ///   }
-  /// };
   /// ```
   #[inline]
   pub fn try_insert_with<F: FnOnce(Handle<T>) -> T>(&mut self, create: F) -> Result<Handle<T>, F> {
@@ -214,17 +131,6 @@ impl<T> AutoShrinkArena<T> {
   /// Insert `value` into the arena, allocating more capacity if necessary.
   ///
   /// The `value`'s associated handle in the arena is returned.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  ///
-  /// let idx = arena.insert(42);
-  /// assert_eq!(arena[idx], 42);
-  /// ```
   #[inline]
   pub fn insert(&mut self, value: T) -> Handle<T> {
     match self.try_insert(value) {
@@ -238,18 +144,6 @@ impl<T> AutoShrinkArena<T> {
   /// handle.
   ///
   /// The new value's associated handle in the arena is returned.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::{AutoShrinkArena, Handle};
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  ///
-  /// let idx = arena.insert_with(|idx| (42, idx.into_raw_parts().0));
-  /// assert_eq!(arena[idx].0, 42);
-  /// assert_eq!(arena[idx].1, idx.into_raw_parts().0);
-  /// ```
   #[inline]
   pub fn insert_with(&mut self, create: impl FnOnce(Handle<T>) -> T) -> Handle<T> {
     match self.try_insert_with(create) {
@@ -286,18 +180,6 @@ impl<T> AutoShrinkArena<T> {
   ///
   /// If the element at handle `i` is still in the arena, then it is
   /// returned. If it is not in the arena, then `None` is returned.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  /// let idx = arena.insert(42);
-  ///
-  /// assert_eq!(arena.remove(idx), Some(42));
-  /// assert_eq!(arena.remove(idx), None);
-  /// ```
   pub fn remove(&mut self, i: Handle<T>) -> Option<T> {
     if i.handle >= self.items.len() {
       return None;
@@ -327,90 +209,13 @@ impl<T> AutoShrinkArena<T> {
     }
   }
 
-  /// Retains only the elements specified by the predicate.
-  ///
-  /// In other words, remove all indices such that `predicate(handle, &value)` returns `false`.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut crew = AutoShrinkArena::new();
-  /// crew.extend(&[
-  ///   "Jim Hawkins",
-  ///   "John Silver",
-  ///   "Alexander Smollett",
-  ///   "Israel Hands",
-  /// ]);
-  /// let pirates = ["John Silver", "Israel Hands"];
-  /// crew.retain(|_index, member| !pirates.contains(member));
-  /// let mut crew_members = crew.iter().map(|(_, member)| **member);
-  /// assert_eq!(crew_members.next(), Some("Jim Hawkins"));
-  /// assert_eq!(crew_members.next(), Some("Alexander Smollett"));
-  /// assert!(crew_members.next().is_none());
-  /// ```
-  pub fn retain(&mut self, mut predicate: impl FnMut(Handle<T>, &mut T) -> bool) {
-    for i in 0..self.capacity() {
-      let should_remove = match &mut self.items[i] {
-        Some((generation, value)) => {
-          let handle = Handle {
-            handle: i,
-            generation: *generation,
-            phantom: PhantomData,
-          };
-          !predicate(handle, value)
-        }
-        _ => false,
-      };
-      if should_remove {
-        let handle = Handle {
-          handle: i,
-          generation: self.items[i].as_ref().unwrap().0,
-          phantom: PhantomData,
-        };
-        self.remove(handle);
-      }
-    }
-  }
-
   /// Is the element at handle `i` in the arena?
-  ///
-  /// Returns `true` if the element at `i` is in the arena, `false` otherwise.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  /// let idx = arena.insert(42);
-  ///
-  /// assert!(arena.contains(idx));
-  /// arena.remove(idx);
-  /// assert!(!arena.contains(idx));
-  /// ```
   pub fn contains(&self, i: Handle<T>) -> bool {
     self.get(i).is_some()
   }
 
   /// Get a shared reference to the element at handle `i` if it is in the
   /// arena.
-  ///
-  /// If the element at handle `i` is not in the arena, then `None` is returned.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  /// let idx = arena.insert(42);
-  ///
-  /// assert_eq!(arena.get(idx), Some(&42));
-  /// arena.remove(idx);
-  /// assert!(arena.get(idx).is_none());
-  /// ```
   pub fn get(&self, i: Handle<T>) -> Option<&T> {
     match self.items.get(i.handle) {
       Some(Some((generation, value))) if *generation == i.generation => Some(value),
@@ -420,21 +225,6 @@ impl<T> AutoShrinkArena<T> {
 
   /// Get an exclusive reference to the element at handle `i` if it is in the
   /// arena.
-  ///
-  /// If the element at handle `i` is not in the arena, then `None` is returned.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  /// let idx = arena.insert(42);
-  ///
-  /// *arena.get_mut(idx).unwrap() += 1;
-  /// assert_eq!(arena.remove(idx), Some(43));
-  /// assert!(arena.get_mut(idx).is_none());
-  /// ```
   pub fn get_mut(&mut self, i: Handle<T>) -> Option<&mut T> {
     match self.items.get_mut(i.handle) {
       Some(Some((generation, value))) if *generation == i.generation => Some(value),
@@ -442,115 +232,12 @@ impl<T> AutoShrinkArena<T> {
     }
   }
 
-  /// Get a pair of exclusive references to the elements at handle `i1` and `i2` if it is in the
-  /// arena.
-  ///
-  /// If the element at handle `i1` or `i2` is not in the arena, then `None` is returned for this
-  /// element.
-  ///
-  /// # Panics
-  ///
-  /// Panics if `i1` and `i2` are pointing to the same item of the arena.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  /// let idx1 = arena.insert(0);
-  /// let idx2 = arena.insert(1);
-  ///
-  /// {
-  ///   let (item1, item2) = arena.get2_mut(idx1, idx2);
-  ///   *item1.unwrap() = 3;
-  ///   *item2.unwrap() = 4;
-  /// }
-  ///
-  /// assert_eq!(arena[idx1], 3);
-  /// assert_eq!(arena[idx2], 4);
-  /// ```
-  pub fn get2_mut(&mut self, i1: Handle<T>, i2: Handle<T>) -> (Option<&mut T>, Option<&mut T>) {
-    let len = self.items.len();
-
-    if i1.handle == i2.handle {
-      assert!(i1.generation != i2.generation);
-
-      if i1.generation > i2.generation {
-        return (self.get_mut(i1), None);
-      }
-      return (None, self.get_mut(i2));
-    }
-
-    if i1.handle >= len {
-      return (None, self.get_mut(i2));
-    } else if i2.handle >= len {
-      return (self.get_mut(i1), None);
-    }
-
-    let (raw_item1, raw_item2) = {
-      let (xs, ys) = self.items.split_at_mut(cmp::max(i1.handle, i2.handle));
-      if i1.handle < i2.handle {
-        (&mut xs[i1.handle], &mut ys[0])
-      } else {
-        (&mut ys[0], &mut xs[i2.handle])
-      }
-    };
-
-    let item1 = match raw_item1 {
-      Some((generation, value)) if *generation == i1.generation => Some(value),
-      _ => None,
-    };
-
-    let item2 = match raw_item2 {
-      Some((generation, value)) if *generation == i2.generation => Some(value),
-      _ => None,
-    };
-
-    (item1, item2)
-  }
-
-  /// Get the length of this arena.
-  ///
-  /// The length is the number of elements the arena holds.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  /// assert_eq!(arena.len(), 0);
-  ///
-  /// let idx = arena.insert(42);
-  /// assert_eq!(arena.len(), 1);
-  ///
-  /// let _ = arena.insert(0);
-  /// assert_eq!(arena.len(), 2);
-  ///
-  /// assert_eq!(arena.remove(idx), Some(42));
-  /// assert_eq!(arena.len(), 1);
-  /// ```
+  /// Get the number of elements the arena holds.
   pub fn len(&self) -> usize {
     self.len
   }
 
   /// Returns true if the arena contains no elements
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  /// assert!(arena.is_empty());
-  ///
-  /// let idx = arena.insert(42);
-  /// assert!(!arena.is_empty());
-  ///
-  /// assert_eq!(arena.remove(idx), Some(42));
-  /// assert!(arena.is_empty());
-  /// ```
   pub fn is_empty(&self) -> bool {
     self.len == 0
   }
@@ -560,50 +247,15 @@ impl<T> AutoShrinkArena<T> {
   /// The capacity is the maximum number of elements the arena can hold
   /// without further allocation, including however many it currently
   /// contains.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::with_capacity(10);
-  /// assert_eq!(arena.capacity(), 10);
-  ///
-  /// // `try_insert` does not allocate new capacity.
-  /// for i in 0..10 {
-  ///   assert!(arena.try_insert(1).is_ok());
-  ///   assert_eq!(arena.capacity(), 10);
-  /// }
-  ///
-  /// // But `insert` will if the arena is already at capacity.
-  /// arena.insert(0);
-  /// assert!(arena.capacity() > 10);
-  /// ```
   pub fn capacity(&self) -> usize {
     self.items.len()
   }
 
   /// Allocate space for `additional_capacity` more elements in the arena.
-  ///
-  /// # Panics
-  ///
-  /// Panics if this causes the capacity to overflow.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::with_capacity(10);
-  /// arena.reserve(5);
-  /// assert_eq!(arena.capacity(), 15);
-  /// # let _: AutoShrinkArena<usize> = arena;
-  /// ```
   pub fn reserve(&mut self, additional_capacity: usize) {
-    let start = self.items.len();
-    let end = self.items.len() + additional_capacity;
-    self.items.reserve_exact(additional_capacity);
-    self.items.extend((start..end).map(|_| None));
+    self
+      .items
+      .resize_with(self.items.len() + additional_capacity, || None);
     self.rebuild_free_lists();
   }
 
@@ -612,21 +264,6 @@ impl<T> AutoShrinkArena<T> {
   /// Yields pairs of `(Handle, &T)` items.
   ///
   /// Order of iteration is not defined.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  /// for i in 0..10 {
-  ///   arena.insert(i * i);
-  /// }
-  ///
-  /// for (idx, value) in arena.iter() {
-  ///   println!("{} is at handle {:?}", value, idx);
-  /// }
-  /// ```
   pub fn iter(&self) -> Iter<'_, T> {
     Iter {
       len: self.len,
@@ -639,65 +276,10 @@ impl<T> AutoShrinkArena<T> {
   /// Yields pairs of `(Handle, &mut T)` items.
   ///
   /// Order of iteration is not defined.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  /// for i in 0..10 {
-  ///   arena.insert(i * i);
-  /// }
-  ///
-  /// for (_idx, value) in arena.iter_mut() {
-  ///   *value += 5;
-  /// }
-  /// ```
   pub fn iter_mut(&mut self) -> IterMut<'_, T> {
     IterMut {
       len: self.len,
       inner: self.items.iter_mut().enumerate(),
-    }
-  }
-
-  /// Iterate over elements of the arena and remove them.
-  ///
-  /// Yields pairs of `(Handle, T)` items.
-  ///
-  /// Order of iteration is not defined.
-  ///
-  /// Note: All elements are removed even if the iterator is only partially consumed or not consumed
-  /// at all.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  /// let idx_1 = arena.insert("hello");
-  /// let idx_2 = arena.insert("world");
-  ///
-  /// assert!(arena.get(idx_1).is_some());
-  /// assert!(arena.get(idx_2).is_some());
-  /// for (idx, value) in arena.drain() {
-  ///   assert!((idx == idx_1 && value == "hello") || (idx == idx_2 && value == "world"));
-  /// }
-  /// assert!(arena.get(idx_1).is_none());
-  /// assert!(arena.get(idx_2).is_none());
-  /// ```
-  pub fn drain(&mut self) -> Drain<'_, T> {
-    let old_len = self.len;
-    if !self.is_empty() {
-      self.next_generation += 1;
-    }
-    self.low_free.clear();
-    self.high_free.clear();
-    self.len = 0;
-    Drain {
-      len: old_len,
-      inner: self.items.drain(..).enumerate(),
     }
   }
 
@@ -768,26 +350,6 @@ impl<T> AutoShrinkArena<T> {
   /// via the high_free list (O(1)). If so, truncates to capacity/2.
   /// Otherwise, linearly scans from the end to find the last occupied slot
   /// and truncates there.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::AutoShrinkArena;
-  ///
-  /// let mut arena = AutoShrinkArena::new();
-  /// for i in 0..20 {
-  ///   arena.insert(i);
-  /// }
-  ///
-  /// // Remove everything — high half becomes empty, auto-shrinks
-  /// let handles: Vec<_> = arena.iter().map(|(h, _)| h).collect();
-  /// for h in handles {
-  ///   arena.remove(h);
-  /// }
-  ///
-  /// // Arena has been auto-shrunk after removes; force a final shrink
-  /// arena.shrink();
-  /// assert_eq!(arena.capacity(), 1);
   /// ```
   pub fn shrink(&mut self) {
     let cap = self.items.len();

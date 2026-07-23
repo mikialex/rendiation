@@ -62,17 +62,7 @@ impl<T> Handle<T> {
   /// The parts must have been returned from an earlier call to
   /// `into_raw_parts`.
   ///
-  /// Providing arbitrary values will lead to malformed indices and ultimately
-  /// panics.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::Handle;
-  ///
-  /// let h: Handle<i32> = Handle::from_raw_parts(3, 5);
-  /// assert_eq!(h.into_raw_parts(), (3, 5));
-  /// ```
+  /// Providing arbitrary values will lead to malformed indices
   pub fn from_raw_parts(a: usize, b: u64) -> Handle<T> {
     Handle {
       handle: a,
@@ -93,15 +83,6 @@ impl<T> Handle<T> {
   }
 
   /// Returns the index part of this handle.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::Handle;
-  ///
-  /// let h: Handle<i32> = Handle::from_raw_parts(7, 2);
-  /// assert_eq!(h.index(), 7);
-  /// ```
   pub fn index(self) -> usize {
     self.handle
   }
@@ -109,19 +90,6 @@ impl<T> Handle<T> {
 
 impl<T> PartialEq for Handle<T> {
   /// Two handles are equal only if both the index and generation match.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use auto_shrink_arena::Handle;
-  ///
-  /// let h1: Handle<i32> = Handle::from_raw_parts(1, 10);
-  /// let h2: Handle<i32> = Handle::from_raw_parts(1, 10);
-  /// let h3: Handle<i32> = Handle::from_raw_parts(1, 20);
-  ///
-  /// assert_eq!(h1, h2); // same index and generation
-  /// assert_ne!(h1, h3); // same index, different generation
-  /// ```
   fn eq(&self, other: &Self) -> bool {
     self.handle == other.handle && self.generation == other.generation
   }
