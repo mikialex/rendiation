@@ -196,13 +196,14 @@ impl GPUDevice {
   ) -> wgpu::ShaderModule {
     let naga_module = result.module;
     if result.log_result {
-      log::info!("");
-      log::info!("=== rendiation_shader_api build result ===");
+      // not using log::info here, as sometime we don't set logger(for example in unit test)
+      println!("");
+      println!("=== rendiation_shader_api build result ===");
 
       let shader_str = convert_module_by_wgsl(&naga_module, naga::valid::ValidationFlags::all());
-      log::info!("{shader_str}",);
+      println!("{shader_str}",);
 
-      log::info!("=== result output finished ===");
+      println!("=== result output finished ===");
     }
 
     unsafe {

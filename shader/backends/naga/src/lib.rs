@@ -86,34 +86,32 @@ impl ShaderAPINagaImpl {
   fn make_expression_inner_raw(
     &mut self,
     expr: naga::Expression,
+    is_global: bool,
   ) -> naga::Handle<naga::Expression> {
-    let needs_pre_emit = expr.needs_pre_emit();
-    let handle = self
-      .building_fn
-      .last_mut()
-      .unwrap()
-      .expressions
-      .append(expr, Span::UNDEFINED);
+    if is_global {
+      self.module.global_expressions.append(expr, Span::UNDEFINED)
+    } else {
+      let needs_pre_emit = expr.needs_pre_emit();
+      let handle = self
+        .building_fn
+        .last_mut()
+        .unwrap()
+        .expressions
+        .append(expr, Span::UNDEFINED);
 
-    // should we merge these expression emits?
-    if !needs_pre_emit {
-      self.push_top_statement(naga::Statement::Emit(naga::Range::new_from_bounds(
-        handle, handle,
-      )));
+      // should we merge these expression emits?
+      if !needs_pre_emit {
+        self.push_top_statement(naga::Statement::Emit(naga::Range::new_from_bounds(
+          handle, handle,
+        )));
+      }
+
+      handle
     }
-
-    handle
-  }
-
-  fn make_global_expression_inner_raw(
-    &mut self,
-    expr: naga::Expression,
-  ) -> naga::Handle<naga::Expression> {
-    self.module.global_expressions.append(expr, Span::UNDEFINED)
   }
 
   fn make_expression_inner(&mut self, expr: naga::Expression) -> ShaderNodeRawHandle {
-    let handle = self.make_expression_inner_raw(expr);
+    let handle = self.make_expression_inner_raw(expr, false);
     let return_handle = self.make_new_handle();
     self.expression_mapping.insert(return_handle, handle);
     return_handle
@@ -336,6 +334,206 @@ impl ShaderAPINagaImpl {
     self.outputs.push(exp);
     r
   }
+
+  fn create_primitive_expression(
+    &mut self,
+    data: PrimitiveShaderValue,
+    is_global: bool,
+  ) -> naga::Handle<naga::Expression> {
+    // too funky..
+    macro_rules! impl_p {
+      ( $input: ident, $r_ty: ty, $array_size: tt, $literal_ty: tt) => {
+        let arr: [$r_ty; $array_size] = $input.into();
+        let components = arr
+          .iter()
+          .map(|v| {
+            self.make_expression_inner_raw(
+              naga::Expression::Literal(naga::Literal::$literal_ty(*v)),
+              is_global,
+            )
+          })
+          .collect();
+        let ty = self.register_ty_impl(
+          ShaderValueType::Single(ShaderValueSingleType::Sized(
+            ShaderSizedValueType::Primitive(data.into()),
+          )),
+          None,
+        );
+        let expr = naga::Expression::Compose { ty, components };
+        return self.make_expression_inner_raw(expr, is_global);
+      };
+    }
+    macro_rules! impl_p_f {
+      ( $input: ident, $r_ty: ty, $array_size: tt) => {
+        let arr: [$r_ty; $array_size] = $input.into();
+        let components = arr
+          .iter()
+          .map(|v| {
+            self.make_expression_inner_raw(
+              naga::Expression::Literal(naga::Literal::F32(workaround_f32_max(*v))),
+              is_global,
+            )
+          })
+          .collect();
+        let ty = self.register_ty_impl(
+          ShaderValueType::Single(ShaderValueSingleType::Sized(
+            ShaderSizedValueType::Primitive(data.into()),
+          )),
+          None,
+        );
+        let expr = naga::Expression::Compose { ty, components };
+        return self.make_expression_inner_raw(expr, is_global);
+      };
+    }
+
+    // workaround chrome bug
+    fn workaround_f32_max(f: f32) -> f32 {
+      if f == f32::MAX {
+        f.next_down()
+      } else {
+        f
+      }
+    }
+
+    match data {
+      PrimitiveShaderValue::Bool(v) => {
+        self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::Bool(v)), is_global)
+      }
+      PrimitiveShaderValue::Uint32(v) => {
+        self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::U32(v)), is_global)
+      }
+      PrimitiveShaderValue::Int32(v) => {
+        self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::I32(v)), is_global)
+      }
+      PrimitiveShaderValue::Float32(v) => self.make_expression_inner_raw(
+        naga::Expression::Literal(naga::Literal::F32(workaround_f32_max(v))),
+        is_global,
+      ),
+      PrimitiveShaderValue::Vec2Bool(v) => {
+        impl_p!(v, bool, 2, Bool);
+      }
+      PrimitiveShaderValue::Vec3Bool(v) => {
+        impl_p!(v, bool, 3, Bool);
+      }
+      PrimitiveShaderValue::Vec4Bool(v) => {
+        impl_p!(v, bool, 4, Bool);
+      }
+      PrimitiveShaderValue::Vec2Float32(v) => {
+        impl_p_f!(v, f32, 2);
+      }
+      PrimitiveShaderValue::Vec3Float32(v) => {
+        impl_p_f!(v, f32, 3);
+      }
+      PrimitiveShaderValue::Vec4Float32(v) => {
+        impl_p_f!(v, f32, 4);
+      }
+      PrimitiveShaderValue::Vec2Uint32(v) => {
+        impl_p!(v, u32, 2, U32);
+      }
+      PrimitiveShaderValue::Vec3Uint32(v) => {
+        impl_p!(v, u32, 3, U32);
+      }
+      PrimitiveShaderValue::Vec4Uint32(v) => {
+        impl_p!(v, u32, 4, U32);
+      }
+      PrimitiveShaderValue::Vec2Int32(v) => {
+        impl_p!(v, i32, 2, I32);
+      }
+      PrimitiveShaderValue::Vec3Int32(v) => {
+        impl_p!(v, i32, 3, I32);
+      }
+      PrimitiveShaderValue::Vec4Int32(v) => {
+        impl_p!(v, i32, 4, I32);
+      }
+      PrimitiveShaderValue::Mat2Float32(v) => {
+        impl_p_f!(v, f32, 4);
+      }
+      PrimitiveShaderValue::Mat3Float32(v) => {
+        impl_p_f!(v, f32, 9);
+      }
+      PrimitiveShaderValue::Mat4Float32(v) => {
+        impl_p_f!(v, f32, 16);
+      }
+      PrimitiveShaderValue::Mat4x3Float32(v) => {
+        impl_p_f!(v, f32, 12);
+      }
+    }
+  }
+
+  fn define_const_global_expr_impl(
+    &mut self,
+    value: ShaderStructFieldInitValue,
+    raw_ty: &ShaderSizedValueType,
+  ) -> naga::Handle<naga::Expression> {
+    match (value, raw_ty) {
+      (ShaderStructFieldInitValue::Primitive(init), ShaderSizedValueType::Primitive(_)) => {
+        self.create_primitive_expression(init, true)
+      }
+      (ShaderStructFieldInitValue::Struct(init), ShaderSizedValueType::Struct(ty)) => {
+        let init = init
+          .iter()
+          .zip(ty.fields.iter())
+          .map(|(v, f_ty)| self.define_const_global_expr_impl(v.clone(), &f_ty.ty))
+          .collect();
+        let ty = self.register_ty_impl(
+          ShaderValueType::Single(ShaderValueSingleType::Sized(raw_ty.clone())),
+          None,
+        );
+        let expr = naga::Expression::Compose {
+          ty,
+          components: init,
+        };
+        self.make_expression_inner_raw(expr, true)
+      }
+      (ShaderStructFieldInitValue::Array(init), ShaderSizedValueType::FixedSizeArray(f_ty, _)) => {
+        let ty = self.register_ty_impl(
+          ShaderValueType::Single(ShaderValueSingleType::Sized(raw_ty.clone())),
+          None,
+        );
+        let init = init
+          .iter()
+          .map(|v| self.define_const_global_expr_impl(v.clone(), &f_ty))
+          .collect();
+
+        let expr = naga::Expression::Compose {
+          ty,
+          components: init,
+        };
+        self.make_expression_inner_raw(expr, true)
+      }
+      _ => unreachable!("ty not match"),
+    }
+  }
+
+  fn define_const_impl(
+    &mut self,
+    value: ShaderStructFieldInitValue,
+    ty: ShaderSizedValueType,
+    inlined: bool,
+  ) -> naga::Handle<naga::Expression> {
+    let global_expr = self.define_const_global_expr_impl(value, &ty);
+
+    let ty = self.register_ty_impl(
+      ShaderValueType::Single(ShaderValueSingleType::Sized(ty)),
+      None,
+    );
+
+    let constant = self.module.constants.append(
+      naga::Constant {
+        // this name should be set, or naga will inlined the const into function.
+        name: if inlined {
+          None
+        } else {
+          Some(format!("const{}", self.module.constants.len()))
+        },
+        ty,
+        init: global_expr,
+      },
+      Span::UNDEFINED,
+    );
+
+    self.make_expression_inner_raw(naga::Expression::Constant(constant), false)
+  }
 }
 
 impl ShaderAPI for ShaderAPINagaImpl {
@@ -498,7 +696,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           init: None,
         };
         let g = self.module.global_variables.append(g, Span::UNDEFINED);
-        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g));
+        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g), false);
 
         let return_handle = self.make_new_handle();
         self.expression_mapping.insert(return_handle, g);
@@ -540,7 +738,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           init: None,
         };
         let g = self.module.global_variables.append(g, Span::UNDEFINED);
-        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g));
+        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g), false);
 
         let return_handle = self.make_new_handle();
         self.expression_mapping.insert(return_handle, g);
@@ -559,7 +757,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           init: None,
         };
         let g = self.module.global_variables.append(g, Span::UNDEFINED);
-        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g));
+        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g), false);
 
         let return_handle = self.make_new_handle();
         self.expression_mapping.insert(return_handle, g);
@@ -635,6 +833,18 @@ impl ShaderAPI for ShaderAPINagaImpl {
         }
       }
     }
+  }
+
+  fn define_const(
+    &mut self,
+    value: ShaderStructFieldInitValue,
+    ty: ShaderSizedValueType,
+    inlined: bool,
+  ) -> ShaderNodeRawHandle {
+    let handle = self.define_const_impl(value, ty, inlined);
+    let return_handle = self.make_new_handle();
+    self.expression_mapping.insert(return_handle, handle);
+    return_handle
   }
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle {
@@ -914,32 +1124,12 @@ impl ShaderAPI for ShaderAPINagaImpl {
           coordinate: self.get_expression(position),
           array_index: array_index.map(|index| self.get_expression(index)),
           offset: offset.map(|offset| {
-            let ty = self.register_ty_impl(
-              ShaderValueType::Single(ShaderValueSingleType::Sized(
-                ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec2Int32),
-              )),
-              None,
-            );
-            let a = self.make_global_expression_inner_raw(naga::Expression::Literal(
-              naga::Literal::I32(offset.x),
-            ));
-            let b = self.make_global_expression_inner_raw(naga::Expression::Literal(
-              naga::Literal::I32(offset.y),
-            ));
-            let const_expr = self.make_global_expression_inner_raw(naga::Expression::Compose {
-              ty,
-              components: vec![a, b],
-            });
-            // currently this is the only place where the constant must be used
-            let constant = self.module.constants.append(
-              naga::Constant {
-                name: None,
-                ty,
-                init: const_expr,
-              },
-              Span::UNDEFINED,
-            );
-            self.make_expression_inner_raw(naga::Expression::Constant(constant))
+            let data = PrimitiveShaderValue::Vec2Int32(offset);
+            self.define_const_impl(
+              ShaderStructFieldInitValue::Primitive(data),
+              ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec2Int32),
+              true,
+            )
           }),
           level: match level {
             SampleLevel::Auto => naga::SampleLevel::Auto,
@@ -1035,9 +1225,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
           if let ShaderSizedValueType::Struct(meta) = &target {
             let extra = self.struct_extra_padding_count.get(&meta.name).unwrap();
             for _ in 0..*extra {
-              components.push(
-                self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::U32(0))),
-              );
+              components.push(self.make_expression_inner_raw(
+                naga::Expression::Literal(naga::Literal::U32(0)),
+                false,
+              ));
             }
           }
 
@@ -1094,117 +1285,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
           base: self.get_expression(struct_node),
           index: field_index as u32,
         },
-        ShaderNodeExpr::Const { data } => {
-          // too funky..
-          macro_rules! impl_p {
-            ( $input: ident, $r_ty: ty, $array_size: tt, $literal_ty: tt) => {
-              let arr: [$r_ty; $array_size] = $input.into();
-              let components = arr
-                .iter()
-                .map(|v| {
-                  self.make_expression_inner_raw(naga::Expression::Literal(
-                    naga::Literal::$literal_ty(*v),
-                  ))
-                })
-                .collect();
-              let ty = self.register_ty_impl(
-                ShaderValueType::Single(ShaderValueSingleType::Sized(
-                  ShaderSizedValueType::Primitive(data.into()),
-                )),
-                None,
-              );
-              let expr = naga::Expression::Compose { ty, components };
-              return self.make_expression_inner(expr);
-            };
-          }
-          macro_rules! impl_p_f {
-            ( $input: ident, $r_ty: ty, $array_size: tt) => {
-              let arr: [$r_ty; $array_size] = $input.into();
-              let components = arr
-                .iter()
-                .map(|v| {
-                  self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::F32(
-                    workaround_f32_max(*v),
-                  )))
-                })
-                .collect();
-              let ty = self.register_ty_impl(
-                ShaderValueType::Single(ShaderValueSingleType::Sized(
-                  ShaderSizedValueType::Primitive(data.into()),
-                )),
-                None,
-              );
-              let expr = naga::Expression::Compose { ty, components };
-              return self.make_expression_inner(expr);
-            };
-          }
-
-          // workaround chrome bug
-          fn workaround_f32_max(f: f32) -> f32 {
-            if f == f32::MAX {
-              f.next_down()
-            } else {
-              f
-            }
-          }
-
-          match data {
-            PrimitiveShaderValue::Bool(v) => naga::Expression::Literal(naga::Literal::Bool(v)),
-            PrimitiveShaderValue::Uint32(v) => naga::Expression::Literal(naga::Literal::U32(v)),
-            PrimitiveShaderValue::Int32(v) => naga::Expression::Literal(naga::Literal::I32(v)),
-            PrimitiveShaderValue::Float32(v) => {
-              naga::Expression::Literal(naga::Literal::F32(workaround_f32_max(v)))
-            }
-            PrimitiveShaderValue::Vec2Bool(v) => {
-              impl_p!(v, bool, 2, Bool);
-            }
-            PrimitiveShaderValue::Vec3Bool(v) => {
-              impl_p!(v, bool, 3, Bool);
-            }
-            PrimitiveShaderValue::Vec4Bool(v) => {
-              impl_p!(v, bool, 4, Bool);
-            }
-            PrimitiveShaderValue::Vec2Float32(v) => {
-              impl_p_f!(v, f32, 2);
-            }
-            PrimitiveShaderValue::Vec3Float32(v) => {
-              impl_p_f!(v, f32, 3);
-            }
-            PrimitiveShaderValue::Vec4Float32(v) => {
-              impl_p_f!(v, f32, 4);
-            }
-            PrimitiveShaderValue::Vec2Uint32(v) => {
-              impl_p!(v, u32, 2, U32);
-            }
-            PrimitiveShaderValue::Vec3Uint32(v) => {
-              impl_p!(v, u32, 3, U32);
-            }
-            PrimitiveShaderValue::Vec4Uint32(v) => {
-              impl_p!(v, u32, 4, U32);
-            }
-            PrimitiveShaderValue::Vec2Int32(v) => {
-              impl_p!(v, i32, 2, I32);
-            }
-            PrimitiveShaderValue::Vec3Int32(v) => {
-              impl_p!(v, i32, 3, I32);
-            }
-            PrimitiveShaderValue::Vec4Int32(v) => {
-              impl_p!(v, i32, 4, I32);
-            }
-            PrimitiveShaderValue::Mat2Float32(v) => {
-              impl_p_f!(v, f32, 4);
-            }
-            PrimitiveShaderValue::Mat3Float32(v) => {
-              impl_p_f!(v, f32, 9);
-            }
-            PrimitiveShaderValue::Mat4Float32(v) => {
-              impl_p_f!(v, f32, 16);
-            }
-            PrimitiveShaderValue::Mat4x3Float32(v) => {
-              impl_p_f!(v, f32, 12);
-            }
-          }
-        }
         ShaderNodeExpr::RayQueryProceed { ray_query } => {
           let r = self
             .building_fn
@@ -1471,7 +1551,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
           .outputs
           .clone()
           .iter()
-          .map(|local| self.make_expression_inner_raw(naga::Expression::Load { pointer: *local }))
+          .map(|local| {
+            self.make_expression_inner_raw(naga::Expression::Load { pointer: *local }, false)
+          })
           .collect();
 
         let rt = self.make_expression_inner(naga::Expression::Compose { ty, components });
