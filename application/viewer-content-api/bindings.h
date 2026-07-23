@@ -722,7 +722,8 @@ ViewerRayPickListResult *picker_pick_list(ViewerQueryAPI *api,
                                           float x,
                                           float y,
                                           float extra_screen_space_tolerance,
-                                          bool sort_near_to_far);
+                                          bool sort_near_to_far,
+                                          bool remove_clipped);
 
 void drop_pick_list_result(ViewerRayPickListResult *r);
 

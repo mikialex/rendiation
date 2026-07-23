@@ -5,6 +5,7 @@ pub struct ViewerPicker {
   pub scene_model_iter_provider: Box<dyn SceneModelIterProvider>,
   pub scene_bvh: Option<SceneBVHResultView>,
   pub camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
+  pub clip_filter: ArrayClipPickFilter,
   pub ndc: ViewerNDC,
 }
 
@@ -145,6 +146,8 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     .use_shared_dual_query_view(GlobalCameraTransformShare(ndc.clone()))
     .use_assure_result(cx);
 
+  let clip_filter = use_array_clip_pick_filter(cx);
+
   cx.when_resolve_stage(|| {
     let attribute_mesh_picker = attribute_mesh_picker.unwrap();
     let wide_line_picker = wide_line_picker.unwrap();
@@ -184,7 +187,6 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     let scene_model_picker = SceneModelPickerBaseImpl {
       internal: local_model_pickers,
       util: util.clone(),
-      filter: Some(Box::new(create_clip_pick_filter())),
     };
 
     let scene_model_picker = TransformInstancedMeshPicker {
@@ -222,6 +224,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
       camera_transforms: camera_transforms.expect_resolve_stage(),
       scene_bvh,
       ndc,
+      clip_filter: clip_filter.unwrap(),
     }
   })
 }
@@ -298,14 +301,16 @@ pub fn read_common_proj_from_db(
     .or_else(|| po.get_value(camera).flatten().map(CommonProjection::Orth))
 }
 
-pub fn create_ray_query_ctx_from_vpc(
+pub fn create_ray_query_ctx_from_vpc<'a>(
   ctx: &ViewportPointerCtx,
   extra_screen_space_tolerance: f32,
-) -> SceneRayQuery {
+  filter: Option<&'a SceneModelPickFilter>,
+) -> SceneRayQuery<'a> {
   SceneRayQuery {
     world_ray: ctx.world_ray,
     camera_ctx: create_camera_query_ctx_from_vpc(ctx),
     extra_screen_space_tolerance,
+    filter,
   }
 }
 

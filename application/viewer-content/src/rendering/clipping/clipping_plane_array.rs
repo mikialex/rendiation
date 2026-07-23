@@ -477,3 +477,55 @@ impl<'a> ShaderPassBuilder for ClipComponent<'a> {
     }
   }
 }
+
+/// todo, fill cap pick is not correctly supported
+pub fn use_array_clip_pick_filter(cx: &mut impl DBHookCxLike) -> Option<ArrayClipPickFilter> {
+  let scene_ref_clip_planes = cx
+    .use_db_rev_ref::<ClippingPlaneRefScene>()
+    .use_assure_result(cx);
+
+  cx.when_resolve_stage(move || {
+    let sm_skip_clip = read_global_db_component::<ClippingPlaneSceneModelSkip>();
+    let scene_ref_clip_planes = scene_ref_clip_planes.expect_resolve_stage();
+    let planes = read_global_db_component::<ClippingPlaneInfo>();
+
+    ArrayClipPickFilter {
+      sm_skip_clip,
+      scene_ref_clip_planes,
+      planes,
+    }
+  })
+}
+
+pub struct ArrayClipPickFilter {
+  sm_skip_clip: ComponentReadView<ClippingPlaneSceneModelSkip>,
+  scene_ref_clip_planes: RevRefForeignKeyRead,
+  planes: ComponentReadView<ClippingPlaneInfo>,
+}
+
+impl ArrayClipPickFilter {
+  pub fn create_filter(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+  ) -> impl Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool + '_ {
+    move |hit_point: &MeshBufferHitPoint<f64>, sm_id| {
+      if self.sm_skip_clip.get(sm_id) == Some(&true) {
+        return true;
+      }
+      let mut should_clip = false;
+
+      if let Some(iter) = self.scene_ref_clip_planes.access_multi(&scene.into_raw()) {
+        for plane in iter {
+          let plane = unsafe { EntityHandle::from_raw(plane) };
+          let plane = self.planes.get(plane).unwrap();
+          if hit_point.hit.position.into_f32().dot(plane.xyz()) + plane.w() > 0. {
+            should_clip = true;
+            break;
+          }
+        }
+      }
+
+      !should_clip
+    }
+  }
+}

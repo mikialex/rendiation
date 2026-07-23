@@ -197,8 +197,6 @@ impl SceneModelPickerBaseImplUtil {
 pub struct SceneModelPickerBaseImpl<T> {
   pub util: SceneModelPickerBaseImplUtil,
   pub internal: T,
-  // keep result if return true
-  pub filter: Option<Box<dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool>>,
 }
 
 impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
@@ -256,7 +254,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       primitive_index: hit.primitive_index,
     };
 
-    if let Some(filter) = self.filter.as_ref() {
+    if let Some(filter) = ctx.filter.as_ref() {
       if !filter(&point, idx) {
         return None;
       }
@@ -318,7 +316,7 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       .iter()
       .map(|r| transform_hit_point_to_world(*r, mat, ctx.world_ray.origin))
       .filter(|r| {
-        if let Some(filter) = &self.filter {
+        if let Some(filter) = &ctx.filter {
           filter(r, idx)
         } else {
           true

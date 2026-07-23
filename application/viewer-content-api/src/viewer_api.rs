@@ -519,6 +519,7 @@ impl ViewerQueryAPI {
     x: f32,
     y: f32,
     extra_screen_space_tolerance: f32,
+    remove_clipped: bool,
     output_results: &mut Vec<ViewerRayPickResult>,
   ) {
     self
@@ -537,7 +538,13 @@ impl ViewerQueryAPI {
       create_viewport_pointer_ctx(surface_content, (x, y), &self.picker_impl.camera_transforms);
 
     if let Some((ctx, scene)) = ctx {
-      let cx = create_ray_query_ctx_from_vpc(&ctx, extra_screen_space_tolerance);
+      let filter = remove_clipped.then(|| self.picker_impl.clip_filter.create_filter(scene));
+
+      let cx = create_ray_query_ctx_from_vpc(
+        &ctx,
+        extra_screen_space_tolerance,
+        filter.as_ref().map(|v| v as &SceneModelPickFilter),
+      );
 
       let mut iter = self
         .picker_impl
