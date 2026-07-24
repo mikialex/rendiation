@@ -3,7 +3,7 @@
 # enable this to enable tracing in viewer
 # enable_tracing_and_tracing_write_path = "trace.bin"
 
-# active_example = "Texture and Material Share"
+active_example = "Stress Test"
 
 [pick_scene]
 prefer_gpu_picking = false
