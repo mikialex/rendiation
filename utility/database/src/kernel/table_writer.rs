@@ -99,12 +99,21 @@ impl TableWriterUntyped {
     &mut self,
     writer: impl FnOnce(EntityInitWriteView) -> EntityInitWriteView,
   ) -> RawEntityHandle {
+    let cap_before = self.allocator.capacity();
     let handle = self.allocator.insert(());
+    let cap_after = self.allocator.capacity();
+
     let handle = RawEntityHandle(handle);
 
     let change = EntityChange::NewEntityStartCreate(handle);
     let change = ScopedMessage::Message(change);
     self.entity_watchers.emit(&change);
+
+    if cap_after > cap_before {
+      for com in &mut self.components {
+        unsafe { com.1.resize(cap_after as u32) };
+      }
+    }
 
     writer(EntityInitWriteView {
       components: &mut self.components,
@@ -131,7 +140,10 @@ impl TableWriterUntyped {
   pub fn clone_entity(&mut self, src: RawEntityHandle) -> RawEntityHandle {
     assert!(self.allocator.contains(src.0));
 
+    let cap_before = self.allocator.capacity();
     let handle = self.allocator.insert(());
+    let cap_after = self.allocator.capacity();
+
     let handle = RawEntityHandle(handle);
 
     let change = EntityChange::NewEntityStartCreate(handle);
@@ -140,6 +152,9 @@ impl TableWriterUntyped {
 
     for com in &mut self.components {
       unsafe {
+        if cap_after > cap_before {
+          com.1.resize(cap_after as u32);
+        }
         // safety, the handle is just created.
         com.1.clone_component_value(src, handle);
       }
@@ -155,11 +170,16 @@ impl TableWriterUntyped {
   /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
   /// implementations
   pub fn delete_entity(&mut self, handle: RawEntityHandle) {
+    let cap_before = self.allocator.capacity();
     self.allocator.remove(handle.0).unwrap();
+    let cap_after = self.allocator.capacity();
     for com in &mut self.components {
       unsafe {
         // safety, the handle is just got removed, so it's valid for components.
-        com.1.delete_component(handle)
+        com.1.delete_component(handle);
+        if cap_after < cap_before {
+          com.1.resize(cap_after as u32);
+        }
       }
     }
 
@@ -190,7 +210,6 @@ impl TableWriterImpl {
   ///
   /// See [ComponentStorageReadWriteView::set_value_init]
   pub unsafe fn write_init_component_value(&mut self, idx: RawEntityHandle, data: Option<DataPtr>) {
-    self.component.data.deref_mut().resize(idx.index());
     self.component.init(idx, data);
   }
 
@@ -199,11 +218,17 @@ impl TableWriterImpl {
   /// idx must point to living data
   pub unsafe fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
     let src = self.component.get_unchecked(src);
-    self.component.data.deref_mut().resize(dst.index());
     self.write_component(dst, src);
   }
 
   unsafe fn delete_component(&mut self, idx: RawEntityHandle) {
     self.component.delete(idx);
+  }
+
+  /// # Safety
+  ///
+  /// see [ComponentStorageReadViewBase::resize]
+  unsafe fn resize(&mut self, max_cap: u32) {
+    self.component.data.deref_mut().resize(max_cap);
   }
 }

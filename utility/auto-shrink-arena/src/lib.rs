@@ -154,12 +154,12 @@ impl<T> AutoShrinkArena<T> {
 
   #[inline(never)]
   fn insert_slow_path(&mut self, value: T) -> Handle<T> {
-    let len = if self.capacity() == 0 {
-      1
-    } else {
-      self.items.len()
-    };
-    self.reserve(len);
+    // Grow to 2n-1 so the high half is never entirely free after expansion:
+    // new slots fill n-1 of the n high-half positions, leaving one occupied
+    // slot from the old high half. A single insert+remove cycle cannot
+    // satisfy high_free == high_region_size.
+    let additional = (self.items.len() - 1).max(1);
+    self.reserve(additional);
     self
       .try_insert(value)
       .map_err(|_| ())
@@ -168,8 +168,9 @@ impl<T> AutoShrinkArena<T> {
 
   #[inline(never)]
   fn insert_with_slow_path(&mut self, create: impl FnOnce(Handle<T>) -> T) -> Handle<T> {
-    let len = self.items.len();
-    self.reserve(len);
+    // ditto
+    let additional = (self.items.len() - 1).max(1);
+    self.reserve(additional);
     self
       .try_insert_with(create)
       .map_err(|_| ())
@@ -347,7 +348,7 @@ impl<T> AutoShrinkArena<T> {
   /// Attempt to shrink the arena by truncating trailing free slots.
   ///
   /// First checks if the entire high half (indices >= capacity/2) is empty
-  /// via the high_free list (O(1)). If so, truncates to capacity/2.
+  /// via the high_free list (O(1)). If so, truncates to capacity/2 and recurses.
   /// Otherwise, linearly scans from the end to find the last occupied slot
   /// and truncates there.
   /// ```
@@ -360,14 +361,8 @@ impl<T> AutoShrinkArena<T> {
     let mid = cap / 2;
     let high_region_size = cap - mid;
     if self.high_free.len() == high_region_size {
-      if self.is_empty() {
-        self.do_truncate(1);
-      } else {
-        self.items.truncate(mid);
-        self.items.shrink_to_fit();
-        self.high_free.clear();
-        self.high_free.shrink_to_fit();
-      }
+      self.do_truncate(mid);
+      self.shrink();
     } else {
       match self.items.iter().rposition(|x| x.is_some()) {
         Some(last_occupied) => {
@@ -384,7 +379,7 @@ impl<T> AutoShrinkArena<T> {
   }
 
   /// Called after each remove: only shrinks if the entire high half is empty.
-  /// O(1) check, safe to call frequently.
+  /// O(1) check per iteration, recurses to cascade-shrink. Safe to call frequently.
   fn try_auto_shrink(&mut self) {
     let cap = self.items.len();
     if cap <= 1 {
@@ -393,14 +388,8 @@ impl<T> AutoShrinkArena<T> {
     let mid = cap / 2;
     let high_region_size = cap - mid;
     if self.high_free.len() == high_region_size {
-      if self.is_empty() {
-        self.do_truncate(1);
-      } else {
-        self.items.truncate(mid);
-        self.items.shrink_to_fit();
-        self.high_free.clear();
-        self.high_free.shrink_to_fit();
-      }
+      self.do_truncate(mid);
+      self.try_auto_shrink();
     }
   }
 
@@ -647,6 +636,57 @@ mod tests {
       check_invariants(&arena);
       assert_eq!(arena.capacity(), 1);
     }
+  }
+
+  #[test]
+  fn auto_shrink_cascades_recursively_on_remove() {
+    let mut arena: AutoShrinkArena<i32> = AutoShrinkArena::with_capacity(17);
+    let handles: Vec<_> = (0..17).map(|i| arena.insert(i)).collect();
+    check_invariants(&arena);
+    assert_eq!(arena.capacity(), 17);
+    assert_eq!(arena.len(), 17);
+
+    // Remove from high to low so the high half empties first, triggering
+    // try_auto_shrink. After rebuild, the new high half is also entirely
+    // free, so the recursive call shrinks again — cascading to cap=1.
+    for h in handles.iter().rev() {
+      arena.remove(*h);
+      check_invariants(&arena);
+    }
+    assert_eq!(arena.len(), 0);
+    assert_eq!(
+      arena.capacity(),
+      1,
+      "recursive auto-shrink should cascade all the way to minimum capacity"
+    );
+  }
+
+  /// With 2n-1 growth, a single insert+remove cycle must not cause
+  /// capacity oscillation: the expansion leaves at least one occupied
+  /// slot in the new high half, so removing just the newly inserted
+  /// element is not enough to satisfy the shrink condition.
+  #[test]
+  fn insert_remove_cycle_does_not_oscillate() {
+    let mut arena: AutoShrinkArena<i32> = AutoShrinkArena::with_capacity(5);
+    let _handles: Vec<_> = (0..5).map(|i| arena.insert(i)).collect();
+    check_invariants(&arena);
+    assert_eq!(arena.capacity(), 5);
+    assert_eq!(arena.len(), 5);
+
+    // This insert triggers slow-path growth to 2*5-1 = 9.
+    let h = arena.insert(99);
+    let cap_after_growth = arena.capacity();
+    assert!(cap_after_growth > 5, "slow path should have grown capacity");
+    check_invariants(&arena);
+
+    // Removing the element that triggered growth must not shrink back.
+    arena.remove(h);
+    check_invariants(&arena);
+    assert_eq!(
+      arena.capacity(),
+      cap_after_growth,
+      "capacity should not oscillate after a single insert+remove"
+    );
   }
 
   #[test]

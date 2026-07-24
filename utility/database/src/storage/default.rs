@@ -137,11 +137,9 @@ where
   }
 
   unsafe fn resize(&mut self, max_address: u32) {
-    let max_address = max_address as usize;
-    if self.data.len() <= max_address {
-      let default = self.default_value.clone();
-      self.data.resize(max_address + 1, default);
-    }
+    let default = self.default_value.clone();
+    self.data.resize(max_address as usize + 1, default);
+    self.data.shrink_to_fit();
   }
 
   fn cleanup_possible_old_ptr_transient_object(&mut self) {

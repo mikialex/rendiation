@@ -163,6 +163,7 @@ where
 
   unsafe fn resize(&mut self, _max_address: u32) {
     // noop, because it's the sparse storage
+    self.data.shrink_to_fit();
   }
 
   fn cleanup_possible_old_ptr_transient_object(&mut self) {
