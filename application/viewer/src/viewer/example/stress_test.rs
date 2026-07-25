@@ -37,6 +37,7 @@ pub fn use_stress_test_example(cx: &mut ViewerCx) {
         example.use_unique_material,
         example.use_unique_mesh,
         example.h_count,
+        example.reserve_changes,
       );
       example.blocks.push(block);
     }
@@ -71,6 +72,7 @@ pub fn use_stress_test_example(cx: &mut ViewerCx) {
       .show(egui_ctx, |ui| {
         ui.checkbox(&mut example.use_unique_material, "use unique material");
         ui.checkbox(&mut example.use_unique_mesh, "use unique mesh");
+        ui.checkbox(&mut example.reserve_changes, "reserve changes");
 
         let h_count_options = [1u32, 10, 50, 100];
         egui::ComboBox::from_label("h_count")
@@ -140,6 +142,7 @@ struct StressLoadUnloadExample {
   blocks: Vec<StressBlock>,
   use_unique_material: bool,
   use_unique_mesh: bool,
+  reserve_changes: bool,
   h_count: u32,
   pending_loads: u32,
   pending_unload_all: bool,
@@ -152,6 +155,7 @@ impl StressLoadUnloadExample {
       blocks: Vec::new(),
       use_unique_material: false,
       use_unique_mesh: false,
+      reserve_changes: false,
       h_count: 10,
       pending_loads: 0,
       pending_unload_all: false,
@@ -196,6 +200,7 @@ impl StressBlock {
     use_unique_material: bool,
     use_unique_mesh: bool,
     h_count: u32,
+    reserve_changes: bool,
   ) -> Self {
     let h_count = h_count as usize;
 
@@ -226,9 +231,11 @@ impl StressBlock {
 
     let node_count = 1 + 100 + 100 * 100 + 100 * 100 * h_count;
     let model_count = 100 * 100 * h_count;
-    writer.node_writer.notify_reserve_changes(node_count);
-    writer.std_model_writer.notify_reserve_changes(model_count);
-    writer.model_writer.notify_reserve_changes(model_count);
+    if reserve_changes {
+      writer.node_writer.notify_reserve_changes(node_count);
+      writer.std_model_writer.notify_reserve_changes(model_count);
+      writer.model_writer.notify_reserve_changes(model_count);
+    }
 
     let root_node = writer.create_root_child();
     writer.set_local_matrix(root_node, Mat4::identity());

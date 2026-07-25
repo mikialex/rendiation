@@ -26,6 +26,7 @@ occlusion_culling_max_scene_model_count = 100_000
 enable_indirect_storage_combine = true
 enable_reverse_z = true
 using_texture_as_storage_buffer_for_indirect_rendering = false
+# thread_pool_thread_count = 1
 
 [init_only.texture_pool_source_init_config]
 init_sampler_count_capacity = 128
