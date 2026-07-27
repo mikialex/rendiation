@@ -1,7 +1,6 @@
 use crate::*;
 
 /// Encodes a unit normal vector to octahedral 8:8 format packed into u32.
-/// Matches the decode logic in `get_normal` when `enable_normal_quantization` is true.
 ///
 /// The encoding projects the unit normal onto an octahedron via L1 normalization,
 /// then folds the back hemisphere (z < 0) into the front. The resulting 2D coordinates
@@ -30,42 +29,31 @@ pub fn encode_octahedral_normal(normal: Vec3<f32>) -> u32 {
   u | (v << 8)
 }
 
-/// GPU-side octahedral 8:8 decode. Unpacks a u32 into a unit normal vec3.
-/// Called as `decode_octahedral_normal_fn(packed)`.
 #[shader_fn]
 pub fn decode_octahedral_normal(packed: Node<u32>) -> Node<Vec3<f32>> {
   let uv = packed.unpack4x8unorm().xy();
-  let f =
-    uv * val(Vec2 {
-      x: 2.0_f32,
-      y: 2.0_f32,
-    }) - val(Vec2 {
-      x: 1.0_f32,
-      y: 1.0_f32,
-    });
+  let f = uv * val(Vec2 { x: 2.0, y: 2.0 }) - val(Vec2 { x: 1.0, y: 1.0 });
 
-  let z = val(1.0_f32) - f.x().abs() - f.y().abs();
+  let z = val(1.0) - f.x().abs() - f.y().abs();
   let sx = f
     .x()
-    .greater_equal_than(val(0.0_f32))
-    .select(val(1.0_f32), val(-1.0_f32));
+    .greater_equal_than(val(0.0))
+    .select(val(1.0), val(-1.0));
   let sy = f
     .y()
-    .greater_equal_than(val(0.0_f32))
-    .select(val(1.0_f32), val(-1.0_f32));
-  let snz: Node<Vec2<f32>> = (sx, sy).into();
-  let unfolded: Node<Vec2<f32>> = (
-    (val(1.0_f32) - f.y().abs()) * snz.x(),
-    (val(1.0_f32) - f.x().abs()) * snz.y(),
-  )
-    .into();
+    .greater_equal_than(val(0.0))
+    .select(val(1.0), val(-1.0));
+  let snz = vec2_node((sx, sy));
+  let unfolded = vec2_node((
+    (val(1.0) - f.y().abs()) * snz.x(),
+    (val(1.0) - f.x().abs()) * snz.y(),
+  ));
 
-  let p = z.less_than(val(0.0_f32)).select(unfolded, f);
-  let normal: Node<Vec3<f32>> = (p.x(), p.y(), z).into();
-  normal.normalize()
+  let p = z.less_than(val(0.0)).select(unfolded, f);
+  vec3_node((p.x(), p.y(), z)).normalize()
 }
 
-/// CPU-side octahedral 8:8 decode. Matches the GPU decode in `decode_octahedral_normal`.
+/// CPU-side octahedral 8:8 decode.
 pub fn decode_octahedral_normal_cpu(packed: u32) -> Vec3<f32> {
   let u = (packed & 0xFF) as f32 / 255.0;
   let v = ((packed >> 8) & 0xFF) as f32 / 255.0;

@@ -23,8 +23,10 @@ pub struct BindlessMeshInit {
   pub max_index_count: u32,
   pub init_vertex_u32_size_count: u32,
   pub max_vertex_u32_size_count: u32,
-  /// if enabled, normal will be quantized to 8bits
+  /// if enabled, the normal will be considered as octahedral quantized
   pub enable_normal_quantization: bool,
+  /// if enabled, the normal data will be convert to octahedral quantized when upload to gpu
+  pub enable_normal_quantization_convert: bool,
 }
 
 impl Default for BindlessMeshInit {
@@ -35,6 +37,7 @@ impl Default for BindlessMeshInit {
       init_vertex_u32_size_count: 100_000 * 8, // 8: 3+3+2
       max_vertex_u32_size_count: 100_000 * 8 * 100,
       enable_normal_quantization: false,
+      enable_normal_quantization_convert: false,
     }
   }
 }
@@ -55,6 +58,7 @@ pub fn use_bindless_mesh(
     init_vertex_u32_size_count,
     max_vertex_u32_size_count,
     enable_normal_quantization,
+    enable_normal_quantization_convert,
   } = *init;
 
   let (indices_range_change, indices) = use_attribute_indices_updates(
@@ -78,7 +82,7 @@ pub fn use_bindless_mesh(
     max,
     init,
     vertex_data_source,
-    enable_normal_quantization,
+    enable_normal_quantization_convert,
   );
 
   let offset = offset_of!(AttributeMeshMeta, index_offset);
@@ -259,7 +263,7 @@ fn use_attribute_vertex_updates(
   max_u32_count: u32,
   init_u32_count: u32,
   vertex_data_source: AttributeVertexDataSource,
-  enable_normal_quantization: bool,
+  enable_normal_quantization_convert: bool,
 ) -> (
   UseResult<Arc<SparseBufferWritesSource>>,
   AbstractReadonlyStorageBuffer<[u32]>,
@@ -306,7 +310,7 @@ fn use_attribute_vertex_updates(
           .map(|range| range.len())
           .unwrap_or(data.data.len());
 
-        let len = if enable_normal_quantization && semantic == AttributeSemantic::Normals {
+        let len = if enable_normal_quantization_convert && semantic == AttributeSemantic::Normals {
           len / 3
         } else {
           len
@@ -321,7 +325,7 @@ fn use_attribute_vertex_updates(
 
         sizes.push((k, len as u32 / 4));
 
-        if enable_normal_quantization && semantic == AttributeSemantic::Normals {
+        if enable_normal_quantization_convert && semantic == AttributeSemantic::Normals {
           let data = data.data.as_slice();
           let data = if let Some(range) = range {
             data.get(range).unwrap()
