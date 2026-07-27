@@ -124,7 +124,7 @@ impl SceneRenderer for IndirectSceneRenderer {
               Some((provider, batch.impl_select_id))
             } else {
               log::warn!(
-                "unable to fine suitable indirect draw provider for this indirect draw batch, batch select id: {}",
+                "unable to find suitable indirect draw provider for this indirect draw batch, batch select id: {}",
                 batch.impl_select_id
               );
               None
