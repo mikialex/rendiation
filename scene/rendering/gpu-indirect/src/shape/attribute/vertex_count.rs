@@ -12,7 +12,7 @@ pub fn use_bindless_mesh_vertex_count(
     .use_change_to_dual_query_in_spawn_stage(cx);
 
   let vertex_counts = vertex_data_source
-    .map_changes(|v| v.count as u32)
+    .map_changes(|v| v.0.count as u32)
     .use_change_to_dual_query_in_spawn_stage(cx);
 
   let all_position_vertex_relations = cx

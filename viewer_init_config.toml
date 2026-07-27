@@ -41,6 +41,7 @@ init_index_count = 200_000
 max_index_count = 20_000_000
 init_vertex_u32_size_count = 800_000
 max_vertex_u32_size_count = 80_000_000
+enable_normal_quantization = true
 
 [init_only.default_shader_protections]
 bounds_checks = true
