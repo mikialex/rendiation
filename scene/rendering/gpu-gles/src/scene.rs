@@ -25,7 +25,7 @@ impl SceneModelRenderer for GLESSceneRenderer {
 }
 
 impl SceneRenderer for GLESSceneRenderer {
-  fn make_scene_batch_pass_content<'a>(
+  fn use_make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
     camera: &'a dyn RenderComponent,

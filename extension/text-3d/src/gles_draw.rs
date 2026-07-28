@@ -239,7 +239,7 @@ impl<'a> GraphicsShaderProvider for Draw<'a> {
         }
       });
       if let Some(depth) = &mut builder.depth_stencil {
-        depth.depth_write_enabled = false;
+        depth.depth_write_enabled = Some(false);
       }
       //
     })

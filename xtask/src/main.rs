@@ -63,7 +63,7 @@ fn build_wasm_internal(
 
   let mut cmd = cmd!(
     shell,
-    "cargo build --target wasm32-unknown-unknown -p viewer --profile {profile}"
+    "cargo build --target wasm32-unknown-unknown -p rendiation-viewer --profile {profile}"
   );
 
   if enable_webgl_support {
@@ -74,7 +74,7 @@ fn build_wasm_internal(
     .run()
     .context("Failed to build webgpu examples for wasm")?;
 
-  let mut cmd = cmd!(shell, "wasm-bindgen ./target/wasm32-unknown-unknown/{profile}/viewer.wasm --target web --out-dir ./application/viewer-web/generated");
+  let mut cmd = cmd!(shell, "wasm-bindgen ./target/wasm32-unknown-unknown/{profile}/rendiation-viewer.wasm --target web --out-dir ./application/viewer-web/generated");
 
   if enable_profiling {
     cmd = cmd.args(["--keep-debug", "--debug"])
@@ -90,7 +90,7 @@ fn build_wasm_internal(
 }
 
 fn read_wasm_binary_size() -> anyhow::Result<u64> {
-  let file_path = "./application/viewer-web/generated/viewer_bg.wasm";
+  let file_path = "./application/viewer-web/generated/rendiation-viewer_bg.wasm";
   let size = std::fs::metadata(file_path)?.len();
   Ok(size)
 }

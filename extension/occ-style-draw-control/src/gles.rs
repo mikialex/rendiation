@@ -7,7 +7,7 @@ pub fn use_occ_host_scene_batch_extractor(
     let priority = read_global_db_component::<SceneModelOccStylePriority>();
     let layer = read_global_db_component::<SceneModelOccStyleLayer>();
 
-    Box::new(Impl {
+    Box::new(OccStyleOrderControlSceneBatchExtractorGles {
       internal,
       layer,
       priority,
@@ -15,23 +15,23 @@ pub fn use_occ_host_scene_batch_extractor(
   })
 }
 
-struct Impl {
+pub struct OccStyleOrderControlSceneBatchExtractorGles {
   internal: DefaultSceneBatchExtractor,
   layer: ComponentReadView<SceneModelOccStyleLayer>,
   priority: ComponentReadView<SceneModelOccStylePriority>,
 }
 
-impl SceneBatchBasicExtractAbility for Impl {
-  fn extract_scene_batch(
+impl OccStyleOrderControlSceneBatchExtractorGles {
+  pub fn get_top_most_layer(
     &self,
     scene: EntityHandle<SceneEntity>,
-    semantic: SceneContentKey,
     renderer: &dyn SceneRenderer,
   ) -> SceneModelRenderBatch {
     let mut sm: Vec<_> = self
       .internal
-      .extract(scene, semantic)
+      .extract(scene, SceneContentKey::default())
       .iter_scene_models()
+      .filter(|&sm| self.layer.get(sm).copied().unwrap_or_default() == OccFlavorZLayer::TopMost)
       .collect();
 
     sm.sort_by_cached_key(|&sm| {
@@ -49,5 +49,40 @@ impl SceneBatchBasicExtractAbility for Impl {
     } else {
       SceneModelRenderBatch::Host(Box::new(batch))
     }
+  }
+}
+
+impl SceneBatchBasicExtractAbility for OccStyleOrderControlSceneBatchExtractorGles {
+  fn extract_scene_batch(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    semantic: SceneContentKey,
+    renderer: &dyn SceneRenderer,
+  ) -> SceneModelRenderBatch {
+    let mut sm: Vec<_> = self
+      .internal
+      .extract(scene, semantic)
+      .iter_scene_models()
+      .filter(|&sm| self.layer.get(sm).copied().unwrap_or_default() != OccFlavorZLayer::TopMost)
+      .collect();
+
+    sm.sort_by_cached_key(|&sm| {
+      let layer = self.layer.get(sm).copied().unwrap_or_default() as u32;
+      let priority = self.priority.get(sm).copied().unwrap_or_default();
+      let layer = (layer as u64) << 32;
+      let priority = priority as u64;
+      layer | priority
+    });
+
+    let batch = IteratorAsHostRenderBatch(sm.into_iter());
+
+    if let Some(creator) = renderer.indirect_batch_direct_creator() {
+      SceneModelRenderBatch::Device(creator.create_batch_from_iter(&mut batch.iter_scene_models()))
+    } else {
+      SceneModelRenderBatch::Host(Box::new(batch))
+    }
+  }
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
   }
 }

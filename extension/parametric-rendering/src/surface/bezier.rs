@@ -45,7 +45,7 @@ impl<T: Scalar> RationalBezierSurface<T> {
     Self::new(control_points, u_degree, v_degree)
   }
 
-  // --- Accessors ---
+  // Accessors
 
   pub fn u_degree(&self) -> usize {
     self.u_degree
@@ -71,7 +71,7 @@ impl<T: Scalar> RationalBezierSurface<T> {
     self.control_points[v_idx * self.u_count() + u_idx]
   }
 
-  // --- Evaluation ---
+  // Evaluation
 
   /// Evaluate the surface point at parameters `(u, v)`, each in `[0, 1]`.
   pub fn evaluate(&self, u: T, v: T) -> Vec3<T> {
@@ -212,7 +212,7 @@ impl<T: Scalar> RationalBezierSurface<T> {
   }
 }
 
-// --- Private helpers ---
+// Private helpers
 
 impl<T: Scalar> RationalBezierSurface<T> {
   /// Evaluate A, A_u, A_v in homogeneous coordinates, where:
@@ -390,7 +390,7 @@ mod tests {
   }
 }
 
-// --- ParametricSurface impl ---
+// ParametricSurface impl
 
 impl ParametricSurface for RationalBezierSurface<f32> {
   fn position(&self, position: Vec2<f32>) -> Vec3<f32> {

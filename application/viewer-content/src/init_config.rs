@@ -28,6 +28,7 @@ pub struct ViewerInitConfig {
   pub always_enable_caching_frame_for_direct_read: bool,
   pub init_only: ViewerStaticInitConfig,
   pub light_surface_ty: ViewerLightSurfaceType,
+  pub enable_db_ref_integrity_check_within_rendering: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -108,14 +109,15 @@ impl Default for ViewerStaticInitConfig {
   }
 }
 
-pub const INIT_FILE_NAME: &str = "viewer_init_config.json";
+pub const INIT_FILE_NAME: &str = "viewer_init_config.toml";
+pub const EXPORT_FILE_NAME: &str = "viewer_init_config_new_exported.toml";
 
 impl ViewerInitConfig {
-  pub fn from_default_json_or_default() -> Self {
+  pub fn from_default_toml_or_default() -> Self {
     #[cfg(not(target_family = "wasm"))]
     return {
       let path = std::env::current_dir().unwrap().join(INIT_FILE_NAME);
-      Self::from_json_or_default(path).unwrap_or_default()
+      Self::from_toml_or_default(path).unwrap_or_default()
     };
 
     #[cfg(target_family = "wasm")]
@@ -124,27 +126,32 @@ impl ViewerInitConfig {
 
   #[cfg(not(target_family = "wasm"))]
   pub fn export_to_current_dir(&self) {
-    let path = std::env::current_dir().unwrap().join(INIT_FILE_NAME);
-    let json_file = std::fs::File::create_buffered(path).unwrap();
-    serde_json::to_writer_pretty(json_file, self).unwrap();
+    let path = std::env::current_dir().unwrap().join(EXPORT_FILE_NAME);
+    let config_str = toml::to_string_pretty(self).unwrap();
+    std::fs::write(&path, config_str).unwrap();
   }
 
   #[cfg(target_family = "wasm")]
   pub fn export_to_current_dir(&self) {
-    let config_str = serde_json::to_string_pretty(self).unwrap();
+    let config_str = toml::to_string_pretty(self).unwrap();
     log::info!("{}", config_str);
   }
 
-  pub fn from_json_or_default(path: impl AsRef<Path>) -> Option<Self> {
+  pub fn from_toml_or_default(path: impl AsRef<Path>) -> Option<Self> {
     let path = path.as_ref();
 
-    let json_file = std::fs::File::open_buffered(path)
-      .inspect_err(|e| log::warn!("failed to read config from {:?}, error: {e:?}", path))
+    let config_str = std::fs::read_to_string(path)
+      .inspect_err(|e| log::warn!("failed to read viewer config from {:?}, error: {e:?}", path))
       .ok()?;
 
-    serde_json::from_reader(json_file)
-      .inspect(|_| log::info!("successfully load config from {:?}", path))
-      .inspect_err(|e| log::warn!("failed to parse config from {:?}, error: {e:?}", path))
+    toml::from_str(&config_str)
+      .inspect(|_| log::info!("successfully load viewer config from {:?}", path))
+      .inspect_err(|e| {
+        log::warn!(
+          "failed to parse viewer config from {:?}, error: {e:?}",
+          path
+        )
+      })
       .ok()
   }
 }
@@ -171,6 +178,7 @@ impl Default for ViewerInitConfig {
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       light_surface_ty: ViewerLightSurfaceType::Pbr,
       init_only: ViewerStaticInitConfig::default(),
+      enable_db_ref_integrity_check_within_rendering: false,
     }
   }
 }

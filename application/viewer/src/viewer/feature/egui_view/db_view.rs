@@ -10,6 +10,7 @@ pub struct DBInspector {
   inspector: DataDebugger,
   visit_history: Vec<Option<EntityId>>,
   current: usize,
+  table_name_filter: String,
 }
 
 impl Default for DBInspector {
@@ -28,6 +29,7 @@ impl Default for DBInspector {
       inspector,
       visit_history: vec![None],
       current: 0,
+      table_name_filter: "".to_string(),
     }
   }
 }
@@ -305,6 +307,8 @@ impl EGUIDataView for Mat4<f64> {
 fn all_tables(ui: &mut egui::Ui, state: &mut DBInspector) {
   ui.heading("Tables");
 
+  ui.add(egui::TextEdit::singleline(&mut state.table_name_filter).hint_text("table name filter"));
+
   let db = global_database();
   let db_tables = db.tables.read_recursive();
 
@@ -335,7 +339,13 @@ fn all_tables(ui: &mut egui::Ui, state: &mut DBInspector) {
       });
     })
     .body(|mut body| {
-      for (id, db_table) in db_tables.iter() {
+      let table_name_filter = state.table_name_filter.clone().to_ascii_lowercase();
+      for (id, db_table) in db_tables.iter().filter(|(_, table)| {
+        table
+          .short_name()
+          .to_ascii_lowercase()
+          .contains(&table_name_filter)
+      }) {
         body.row(20.0, |mut row| {
           row.col(|ui| {
             if ui.link(db_table.short_name()).clicked() {

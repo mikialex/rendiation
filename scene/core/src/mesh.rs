@@ -48,8 +48,8 @@ declare_foreign_key!(
 );
 
 pub struct AttributesMeshEntityFromAttributesMeshWriter {
-  pub relation: EntityWriter<AttributesMeshEntityVertexBufferRelation>,
-  pub mesh: EntityWriter<AttributesMeshEntity>,
+  pub relation: TableWriter<AttributesMeshEntityVertexBufferRelation>,
+  pub mesh: TableWriter<AttributesMeshEntity>,
 }
 
 impl AttributesMeshEntityFromAttributesMeshWriter {
@@ -60,7 +60,7 @@ impl AttributesMeshEntityFromAttributesMeshWriter {
     }
   }
 
-  pub fn notify_reserve_changes(&mut self, size: usize, buffer: &mut EntityWriter<BufferEntity>) {
+  pub fn notify_reserve_changes(&mut self, size: usize, buffer: &mut TableWriter<BufferEntity>) {
     self.relation.notify_reserve_changes(size * 3); // assume 3 attributes
     buffer.notify_reserve_changes(size * 3);
     self.mesh.notify_reserve_changes(size);
@@ -81,7 +81,7 @@ pub trait AttributesMeshWriter {
   fn write(
     self,
     writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
-    buffer: &mut EntityWriter<BufferEntity>,
+    buffer: &mut TableWriter<BufferEntity>,
   ) -> AttributesMeshEntities;
   fn write_impl(
     self,
@@ -106,7 +106,7 @@ impl AttributesMeshEntities {
   pub fn clean_up(
     &self,
     writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
-    buffer: &mut EntityWriter<BufferEntity>,
+    buffer: &mut TableWriter<BufferEntity>,
   ) {
     for (r, b) in &self.vertices {
       writer.relation.delete_entity(*r);
@@ -131,7 +131,7 @@ impl AttributesMeshWriter for AttributesMesh {
   fn write(
     self,
     writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
-    buffer: &mut EntityWriter<BufferEntity>,
+    buffer: &mut TableWriter<BufferEntity>,
   ) -> AttributesMeshEntities {
     self.write_impl(writer, &mut |data| data.write(buffer))
   }
@@ -268,7 +268,7 @@ where
 }
 
 pub type AttributeVertexDataSource =
-  UseResult<Arc<LinearBatchChanges<RawEntityHandle, AttributeLivingData>>>;
+  UseResult<Arc<LinearBatchChanges<RawEntityHandle, (AttributeLivingData, AttributeSemantic)>>>;
 
 pub type AttributeIndexDataSource =
   UseResult<Arc<LinearBatchChanges<RawEntityHandle, AttributeLivingData>>>;
@@ -313,7 +313,7 @@ pub fn create_sub_buffer_changes_from_mesh_changes(
         for v in mesh_info.vertices {
           vertices_changes
             .update_or_insert
-            .push((v.relation_handle, v.data.clone()));
+            .push((v.relation_handle, (v.data.clone(), v.semantic)));
           vertices_record.push(v.relation_handle)
         }
         vertex_mapping.insert(mesh, vertices_record);

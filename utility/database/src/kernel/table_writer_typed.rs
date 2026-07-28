@@ -2,17 +2,17 @@ use crate::*;
 
 /// This writer holds the all components write lock, and optimized for batch entity
 /// creation and modification
-pub struct EntityWriter<E: EntitySemantic> {
+pub struct TableWriter<E: EntitySemantic> {
   phantom: PhantomData<E>, //
-  inner: EntityWriterUntyped,
+  inner: TableWriterUntyped,
 }
 
-impl EntityWriterUntyped {
-  pub fn into_typed<E: EntitySemantic>(self) -> Option<EntityWriter<E>> {
+impl TableWriterUntyped {
+  pub fn into_typed<E: EntitySemantic>(self) -> Option<TableWriter<E>> {
     if self.type_id != E::entity_id() {
       return None;
     }
-    EntityWriter {
+    TableWriter {
       phantom: Default::default(),
       inner: self,
     }
@@ -20,14 +20,14 @@ impl EntityWriterUntyped {
   }
 }
 
-impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
-  pub fn entity_writer(&self) -> EntityWriter<E> {
+impl<E: EntitySemantic> TypedArcTable<E> {
+  pub fn entity_writer(&self) -> TableWriter<E> {
     self.inner.entity_writer_dyn().into_typed().unwrap()
   }
 }
 
-impl<E: EntitySemantic> EntityWriter<E> {
-  pub fn into_untyped(self) -> EntityWriterUntyped {
+impl<E: EntitySemantic> TableWriter<E> {
+  pub fn into_untyped(self) -> TableWriterUntyped {
     self.inner
   }
 

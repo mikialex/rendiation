@@ -9,7 +9,6 @@ fn evaluate_bernstein_surface(
   v: Node<f32>,
   u_degree: Node<u32>,
   v_degree: Node<u32>,
-  binomial: ShaderReadonlyPtrOf<[f32]>,
   cp_data: ShaderReadonlyPtrOf<[Vec4<f32>; MAX_GPU_CONTROL_POINTS]>,
 ) -> Node<Vec4<f32>> {
   let su = val(1.0_f32) - u;
@@ -38,9 +37,11 @@ fn evaluate_bernstein_surface(
     });
   }
 
+  let binomial = global_const_val(BINOMIAL_COEFFICIENTS);
+
   // binomial[(degree - 1) * 16 + k]
   let get_binomial = |deg: Node<u32>, k: Node<u32>| -> Node<f32> {
-    binomial.index((deg - val(1u32)) * val(16u32) + k).load()
+    binomial.index((deg - val(1u32)) * val(16u32) + k)
   };
 
   // Tensor-product accumulation
@@ -79,13 +80,11 @@ pub fn build_bezier_bernstein_pipeline(
   gpu: &GPU,
   info: &StorageBufferReadonlyDataView<GpuBezierSurfaceInfo>,
   control_points: &StorageBufferReadonlyDataView<GpuBezierControlPoints>,
-  binomial: &StorageBufferReadonlyDataView<[f32]>,
   output: &StorageBufferDataView<[Vec4<f32>]>,
   sample_count: u32,
   workgroup_size: u32,
 ) -> GPUComputePipeline {
-  let mut hasher = PipelineHasher::default();
-  hasher.hash(workgroup_size);
+  let hasher = shader_hasher_from_marker_ty!(BezierSurfaceEval).with_hash(workgroup_size);
 
   gpu
     .device
@@ -94,7 +93,6 @@ pub fn build_bezier_bernstein_pipeline(
 
       let info = builder.bind_by(info);
       let cp = builder.bind_by(control_points);
-      let binomial = builder.bind_by(binomial);
       let output = builder.bind_by(output);
 
       let gid = builder.global_invocation_id().x();
@@ -112,7 +110,7 @@ pub fn build_bezier_bernstein_pipeline(
       let u_degree = info.u_degree().load();
       let v_degree = info.v_degree().load();
 
-      // --- de Casteljau fast-path for degree 1–3 ---
+      // de Casteljau fast-path for degree 1–3
       if_by(
         u_degree
           .less_than(val(4u32))
@@ -187,7 +185,7 @@ pub fn build_bezier_bernstein_pipeline(
         },
       );
 
-      let sw = evaluate_bernstein_surface(u, v, u_degree, v_degree, binomial, cp.data());
+      let sw = evaluate_bernstein_surface(u, v, u_degree, v_degree, cp.data());
 
       // Project from homogeneous to Cartesian
       let w: Node<f32> = sw.w();

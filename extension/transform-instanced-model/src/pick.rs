@@ -24,7 +24,7 @@ impl<T> TransformInstancedMeshPicker<T> {
     let instance_own_transform = if let Some(mat) = override_world_mat {
       *mat
     } else {
-      self.util.get_node_mat(node)?
+      self.util.get_mat_and_world_aabb(node, idx)?.0
     };
 
     let instance_model = self.instance_model.get(idx)?;

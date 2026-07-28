@@ -14,7 +14,7 @@ pub fn use_cascade_shadow_map(
     .use_shared_dual_query_view(GlobalCameraTransformShare(ndc))
     .use_assure_result(cx);
 
-  cx.next_key_scope_root();
+  cx.next_scope_index();
   let maps = per_camera_per_viewport(viewports, false)
     .map(|cv| {
       let cache = cx.keyed_scope(&cv.camera, |cx| {
@@ -101,7 +101,7 @@ impl MultiCascadeShadowMapPreparer {
   pub fn update(
     self,
     frame_ctx: &mut FrameCtx,
-    draw: &mut impl FnMut(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
+    draw: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest),
     reversed_depth: bool,
   ) -> MultiCascadeShadowMapData {
     let per_camera = self

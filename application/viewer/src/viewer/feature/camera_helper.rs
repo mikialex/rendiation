@@ -1,10 +1,11 @@
 use crate::*;
 
 pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
+  cx.next_scope_index();
   let (cx, enabled) = cx.use_plain_state::<bool>();
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("camera helper").or_insert(false);
@@ -13,7 +14,7 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
       .open(opened)
       .default_size((100., 100.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         ui.checkbox(enabled, "enabled");
       });
   }
@@ -42,7 +43,7 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
               Some((camera, transform.view_projection_inv.into_f32()))
             }
           });
-          build_debug_lines_in_camera_space(mats).into()
+          build_debug_lines_in_world_space(mats).into()
         });
 
       use_immediate_helper_model(cx, helper_mesh_lines, false);
@@ -76,7 +77,7 @@ pub fn use_immediate_helper_model(
           access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
           if let Some(ptr_cx) = &picker.pointer_ctx {
             let model = model.model();
-            if let Some(pick_result) = picker.pick_model_nearest(model, ptr_cx.world_ray) {
+            if let Some(pick_result) = picker.pick_model_nearest(model, ptr_cx.0.world_ray) {
               let offsets = offsets.as_ref().unwrap();
               let idx = match offsets.binary_search_by(|v| v.1.cmp(&pick_result.primitive_index)) {
                 Ok(idx) => idx,
@@ -94,21 +95,19 @@ pub fn use_immediate_helper_model(
     }
     ViewerCxStage::SceneContentUpdate { writer, .. } => {
       if let Some(lines) = changes.take() {
-        writer.write_other_scene(Some(cx.widget_scene), |writer| {
-          let lines: &[u8] = cast_slice(lines.as_slice());
+        let lines: &[u8] = cast_slice(lines.as_slice());
 
-          let lines = AttributesMeshData {
-            attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
-            indices: None,
-            mode: MeshPrimitiveTopology::LineList,
-          };
+        let lines = AttributesMeshData {
+          attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
+          indices: None,
+          mode: MeshPrimitiveTopology::LineList,
+        };
 
-          if let Some(model) = &mut helper_mesh.internal {
-            model.replace_new_shape_and_cleanup_old(writer, lines);
-          } else {
-            helper_mesh.internal = UIWidgetModel::new(writer, lines).into();
-          }
-        })
+        if let Some(model) = &mut helper_mesh.internal {
+          model.replace_new_shape_and_cleanup_old(writer, lines);
+        } else {
+          helper_mesh.internal = UIWidgetModel::new(writer, cx.widget_scene, lines).into();
+        }
       }
 
       None
@@ -131,7 +130,8 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for HelperLineModel {
   }
 }
 
-fn build_debug_lines_in_camera_space(
+/// view_projection_inv expect webgpu ndc
+fn build_debug_lines_in_world_space(
   view_projection_inv: impl Iterator<Item = (RawEntityHandle, Mat4<f32>)>,
 ) -> (LineBuffer, OffsetBuffer) {
   let mut line_buffer = Vec::new();
@@ -139,12 +139,12 @@ fn build_debug_lines_in_camera_space(
 
   view_projection_inv.for_each(|(id, mat)| {
     offsets.push((id, line_buffer.len()));
-    line_buffer.extend(build_debug_line_in_camera_space(mat));
+    line_buffer.extend(build_debug_line_in_world_space(mat));
   });
   (line_buffer, offsets)
 }
 
-fn build_debug_line_in_camera_space(
+fn build_debug_line_in_world_space(
   view_projection_inv: Mat4<f32>,
 ) -> impl Iterator<Item = [Vec3<f32>; 2]> {
   let zero = 0.0001;
@@ -157,8 +157,10 @@ fn build_debug_line_in_camera_space(
   let top = one;
   let bottom = -one;
 
-  let min = Vec3::new(near, left, bottom);
-  let max = Vec3::new(far, right, top);
+  // line_box takes Vec3(depth, vertical, horizontal) as min/max,
+  // internally reinterprets to standard Vec3(x=horizontal, y=vertical, z=depth)
+  let min = Vec3::new(near, bottom, left);
+  let max = Vec3::new(far, top, right);
 
   line_box(min, max)
     .into_iter()

@@ -6,7 +6,7 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
   let (cx, living_planes) = cx.use_plain_state::<Vec<EntityHandle<ClippingPlaneEntity>>>();
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("test-content").or_insert(false);
@@ -15,28 +15,23 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
       .open(opened)
       .default_size((200., 200.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
-        if ui.button("load many cubes").clicked() {
-          load_stress_test(
-            &mut SceneWriter::from_global(cx.active_surface_content.scene),
-            true,
-          )
-        }
+      .show(egui_ui, |ui| {
+        let scene = cx.default_scene.scene;
 
         if ui.button("test csg clipping1").clicked() {
-          test_csg_clipping_data1(cx.active_surface_content.scene)
+          test_csg_clipping_data1(scene)
         }
 
         if ui.button("test csg clipping2").clicked() {
-          test_csg_clipping_data2(cx.active_surface_content.scene)
+          test_csg_clipping_data2(scene)
         }
 
         if ui.button("test csg clipping3").clicked() {
-          test_csg_clipping_data3(cx.active_surface_content.scene)
+          test_csg_clipping_data3(scene)
         }
 
         if ui.button("test array plane clipping1").clicked() {
-          let planes = test_array_plane_clipping_data1(cx.active_surface_content.scene);
+          let planes = test_array_plane_clipping_data1(scene);
           living_planes.extend(planes);
         }
         if ui.button("clear array plane clipping").clicked() {
@@ -55,7 +50,7 @@ fn test_array_plane_clipping_data1(
   let mut w = global_entity_of::<ClippingPlaneEntity>().entity_writer();
 
   fn write_plane(
-    w: &mut EntityWriter<ClippingPlaneEntity>,
+    w: &mut TableWriter<ClippingPlaneEntity>,
     dir: Vec3<f32>,
     constant: f32,
     scene: EntityHandle<SceneEntity>,
@@ -97,7 +92,7 @@ fn test_csg_clipping_data1(scene: EntityHandle<SceneEntity>) {
 }
 
 fn write_plane(
-  w: &mut EntityWriter<CSGExpressionNodeEntity>,
+  w: &mut TableWriter<CSGExpressionNodeEntity>,
   dir: Vec3<f32>,
   constant: f32,
 ) -> EntityHandle<CSGExpressionNodeEntity> {
@@ -107,7 +102,7 @@ fn write_plane(
 }
 
 fn write_sphere(
-  w: &mut EntityWriter<CSGExpressionNodeEntity>,
+  w: &mut TableWriter<CSGExpressionNodeEntity>,
   center: Vec3<f32>,
   radius: f32,
 ) -> EntityHandle<CSGExpressionNodeEntity> {

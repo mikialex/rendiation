@@ -14,9 +14,19 @@ impl std::ops::Deref for ArcTable {
 }
 
 impl ArcTable {
-  pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
+  pub fn new(
+    type_id: EntityId,
+    name: String,
+    name_mapping: Arc<RwLock<DBNameMapping>>,
+    enable_internal_validation: bool,
+  ) -> Self {
     Self {
-      internal: Arc::new(Table::new(type_id, name, name_mapping)),
+      internal: Arc::new(Table::new(
+        type_id,
+        name,
+        name_mapping,
+        enable_internal_validation,
+      )),
     }
   }
 
@@ -32,6 +42,15 @@ impl ArcTable {
       .emit(&(semantic, foreign_entity_type_id));
     let previous = foreign_keys.insert(semantic, foreign_entity_type_id);
     assert!(previous.is_none())
+  }
+
+  pub fn visit_components(&self, f: impl FnMut(&ComponentUntyped)) {
+    let components = self.internal.components.read_recursive();
+    components.values().for_each(f);
+  }
+
+  pub fn component_define_watchers(&self) -> &EventSource<ComponentUntyped> {
+    &self.internal.components_meta_watchers
   }
 
   pub fn iter_entity_idx(&self) -> impl Iterator<Item = RawEntityHandle> + 'static {
@@ -110,11 +129,11 @@ impl ArcTable {
     f(&self.internal.components.read());
   }
 
-  pub fn into_typed<E: EntitySemantic>(self) -> Option<EntityComponentGroupTyped<E>> {
+  pub fn into_typed<E: EntitySemantic>(self) -> Option<TypedArcTable<E>> {
     if self.internal.type_id != E::entity_id() {
       return None;
     }
-    EntityComponentGroupTyped {
+    TypedArcTable {
       phantom: Default::default(),
       inner: self,
     }
@@ -142,12 +161,18 @@ pub struct Table {
   pub(crate) components_meta_watchers: EventSource<ComponentUntyped>,
   pub(crate) foreign_key_meta_watchers: EventSource<(ComponentId, EntityId)>,
 
-  pub(crate) entity_watchers: EventSource<ChangePtr>,
+  pub(crate) entity_watchers: EventSource<EntityChangeMessage>,
   pub(crate) name_mapping: Arc<RwLock<DBNameMapping>>,
+  pub(crate) enable_internal_validation: bool,
 }
 
 impl Table {
-  pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
+  pub fn new(
+    type_id: EntityId,
+    name: String,
+    name_mapping: Arc<RwLock<DBNameMapping>>,
+    enable_internal_validation: bool,
+  ) -> Self {
     Self {
       short_name: disqualified::ShortName(&name).to_string(),
       name,
@@ -159,7 +184,12 @@ impl Table {
       foreign_key_meta_watchers: Default::default(),
       entity_watchers: Default::default(),
       name_mapping,
+      enable_internal_validation,
     }
+  }
+
+  pub fn entity_watchers(&self) -> &EventSource<EntityChangeMessage> {
+    &self.entity_watchers
   }
 
   #[inline(never)]
@@ -172,17 +202,24 @@ impl Table {
       .insert_component(semantic, self.type_id, com.name.clone());
 
     self.components_meta_watchers.emit(&com);
+
+    let init_cap = self.allocator.read().capacity();
+    let view = &mut *com.write_untyped().data;
+    unsafe {
+      view.resize(init_cap as u32);
+    }
+
     let previous = components.insert(semantic, com);
     assert!(previous.is_none());
   }
 }
 
-pub struct EntityComponentGroupTyped<E: EntitySemantic> {
+pub struct TypedArcTable<E: EntitySemantic> {
   phantom: PhantomData<E>,
   pub(crate) inner: ArcTable,
 }
 
-impl<E: EntitySemantic> Clone for EntityComponentGroupTyped<E> {
+impl<E: EntitySemantic> Clone for TypedArcTable<E> {
   fn clone(&self) -> Self {
     Self {
       phantom: Default::default(),
@@ -191,11 +228,11 @@ impl<E: EntitySemantic> Clone for EntityComponentGroupTyped<E> {
   }
 }
 
-impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
+impl<E: EntitySemantic> TypedArcTable<E> {
   pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
     Self {
       phantom: Default::default(),
-      inner: ArcTable::new(type_id, name, name_mapping),
+      inner: ArcTable::new(type_id, name, name_mapping, cfg!(debug_assertions)),
     }
   }
 
@@ -216,16 +253,23 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     as_foreign_key: Option<EntityId>,
     storage: impl ComponentStorage + 'static,
   ) -> Self {
+    let storage_impl = Box::new(storage);
+    let data: Box<dyn ComponentStorage> = if self.inner.internal.enable_internal_validation {
+      Box::new(ValidatedStorage::new(storage_impl))
+    } else {
+      storage_impl
+    };
     let com = ComponentUntyped {
       short_name: disqualified::ShortName(S::unique_name()).to_string(),
       name: S::unique_name().to_string(),
       as_foreign_key,
-      data_meta: storage.create_meta(),
+      data_meta: data.create_meta(),
       entity_type_id: S::Entity::entity_id(),
       component_type_id: S::component_id(),
-      data: Box::new(storage),
+      data,
       allocator: self.inner.internal.allocator.clone(),
       data_watchers: Default::default(),
+      binary_to_debug_string: create_binary_to_debug_string::<S::Data>(),
     };
     self.inner.declare_component_dyn(S::component_id(), com);
     self

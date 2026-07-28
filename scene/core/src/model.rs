@@ -28,7 +28,7 @@ pub struct SceneModelDataView {
 impl SceneModelDataView {
   pub fn write(
     &self,
-    writer: &mut EntityWriter<SceneModelEntity>,
+    writer: &mut TableWriter<SceneModelEntity>,
   ) -> EntityHandle<SceneModelEntity> {
     writer.new_entity(|w| {
       w.write::<SceneModelStdModelRenderPayload>(&self.model.some_handle())
@@ -73,7 +73,7 @@ impl Default for RasterizationStates {
   fn default() -> Self {
     Self {
       depth_write_enabled: true,
-      depth_compare: SemanticCompareFunction::Nearer,
+      depth_compare: SemanticCompareFunction::NearerEqual,
       blend: None,
       write_mask: ColorWrites::all(),
       bias: Default::default(),
@@ -191,7 +191,7 @@ pub struct StandardModelDataView {
 impl StandardModelDataView {
   pub fn write(
     self,
-    writer: &mut EntityWriter<StandardModelEntity>,
+    writer: &mut TableWriter<StandardModelEntity>,
   ) -> EntityHandle<StandardModelEntity> {
     writer.new_entity(|w| {
       match self.material {

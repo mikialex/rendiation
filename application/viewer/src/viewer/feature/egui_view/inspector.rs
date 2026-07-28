@@ -6,6 +6,7 @@ pub struct InspectedContent {
   shared_stack: Vec<ShareKey>,
   root: SharedContentState,
   show_config: ShowConfig,
+  sort_shared_scope_by_usage: bool,
 }
 
 #[derive(Default, Debug, PartialEq, Clone, Copy)]
@@ -85,10 +86,10 @@ impl InspectedContent {
     self.root.clear();
   }
 
-  pub fn draw(&mut self, egui_ctx: &mut egui::Context) {
+  pub fn draw(&mut self, egui_ui: &mut egui::Ui) {
     egui::Window::new("System Inspection")
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         egui::ComboBox::from_label("filter")
           .selected_text(format!("{:?}", &self.show_config))
           .show_ui(ui, |ui| {
@@ -137,11 +138,26 @@ impl InspectedContent {
 
         ui.heading("Shared scopes:");
 
+        ui.checkbox(
+          &mut self.sort_shared_scope_by_usage,
+          "sort shared scope by usage",
+        );
+
         if self.root.content.is_empty() {
           ui.label("nothing to show");
         }
 
-        for (unique_k, (k, content)) in &self.contents {
+        let mut all = self.contents.iter().collect::<Vec<_>>();
+        if self.sort_shared_scope_by_usage {
+          all.sort_by_key(|v| {
+            std::cmp::Reverse(match self.show_config {
+              ShowConfig::MemoryUsageOnly => v.1 .1.memory_used,
+              ShowConfig::DeviceMemoryUsageOnly => v.1 .1.device_memory_used,
+              ShowConfig::All => v.1 .1.memory_used + v.1 .1.device_memory_used,
+            })
+          });
+        }
+        for (unique_k, (k, content)) in all {
           egui::CollapsingHeader::new(disqualified::ShortName(k).to_string())
             .id_salt(unique_k)
             .show(ui, |ui| {

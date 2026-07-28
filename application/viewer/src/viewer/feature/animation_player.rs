@@ -32,7 +32,7 @@ pub fn use_animation_player(cx: &mut ViewerCx) {
   }
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("animation").or_insert(false);
@@ -40,22 +40,20 @@ pub fn use_animation_player(cx: &mut ViewerCx) {
     egui::Window::new("Animation")
       .open(opened)
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         let animations = get_db_view_typed_foreign::<SceneAnimationBelongsToScene>();
         let animation_name = get_db_view_typed::<LabelOf<SceneAnimationEntity>>();
 
         if animations.has_item_hint() {
           ui.label("animations in target scene:");
-          for (animation, scene) in animations.iter_key_value() {
-            if scene == cx.active_surface_content.scene {
-              ui.label(animation_name.access(&animation).unwrap());
-              let mut enable = active_animations.contains(&animation);
-              ui.checkbox(&mut enable, "play");
-              if enable {
-                active_animations.insert(animation);
-              } else {
-                active_animations.remove(&animation);
-              }
+          for (animation, _) in animations.iter_key_value() {
+            ui.label(animation_name.access(&animation).unwrap());
+            let mut enable = active_animations.contains(&animation);
+            ui.checkbox(&mut enable, "play");
+            if enable {
+              active_animations.insert(animation);
+            } else {
+              active_animations.remove(&animation);
             }
           }
         } else {

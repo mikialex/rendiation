@@ -42,10 +42,11 @@ impl GPUTwoPassOcclusionCulling {
   ///
   /// the preflight_content is used to support draw background without initialize another pass.
   /// the return the render pass is used to support subsequent draw without initialize another pass.
-  pub fn draw(
+  pub fn use_draw(
     &mut self,
     frame_ctx: &mut FrameCtx,
-    batch: &DeviceSceneModelRenderBatch,
+    batch: &Option<DeviceSceneModelDrawList>, // none indicates empty list
+    raw_pre_culler: Option<Box<dyn AbstractCullerProvider>>,
     mut target: RenderPassDescription,
     preflight_content: &mut dyn FnMut(ActiveRenderPass) -> ActiveRenderPass,
     scene_renderer: &dyn SceneRenderer,
@@ -56,7 +57,15 @@ impl GPUTwoPassOcclusionCulling {
     // todo,  generate culling result should be optimized
     generate_culling_result: bool,
   ) -> (ActiveRenderPass, Option<GPUTwoPassOcclusionCullingResult>) {
-    let pre_culler = batch.stash_culler.clone().unwrap_or(Box::new(NoopCuller));
+    frame_ctx.next_scope_index();
+    let Some(batch) = batch else {
+      let pass = target
+        .with_name("occlusion-culling-dummy-pass")
+        .render_ctx(frame_ctx);
+      return (pass, None);
+    };
+
+    let pre_culler = raw_pre_culler.unwrap_or(Box::new(NoopCuller));
 
     let last_frame_invisible = &self.last_frame_visibility;
 
@@ -64,33 +73,30 @@ impl GPUTwoPassOcclusionCulling {
     // todo, this should be optimized
     let last_frame_visible_batch = frame_ctx.access_parallel_compute(|cx| {
       batch
-        .clone()
-        .with_override_culler(filter_last_frame_visible_object(last_frame_invisible))
-        .flush_culler_into_new(cx, true)
+        .use_culled_list_and_do_culling(cx, filter_last_frame_visible_object(last_frame_invisible))
     });
 
     let last_frame_invisible_batch = frame_ctx.access_parallel_compute(|cx| {
-      batch
-        .clone()
-        .with_override_culler(filter_last_frame_visible_object(last_frame_invisible).not())
-        .flush_culler_into_new(cx, true)
+      batch.use_culled_list_and_do_culling(
+        cx,
+        filter_last_frame_visible_object(last_frame_invisible).not(),
+      )
     });
 
     // first pass
     // draw all visible object in last frame culling result as the occluder
-    let mut first_pass_batch = last_frame_visible_batch
-      .clone()
-      .with_override_culler(pre_culler.clone());
+    let mut first_pass_batch = last_frame_visible_batch.clone();
 
     if generate_culling_result {
       frame_ctx.scope(|frame_ctx| {
-        first_pass_batch =
-          frame_ctx.access_parallel_compute(|cx| first_pass_batch.flush_culler_into_new(cx, true));
+        first_pass_batch = frame_ctx.access_parallel_compute(|cx| {
+          first_pass_batch.use_culled_list_and_do_culling(cx, pre_culler.clone())
+        });
       });
     }
 
-    let mut first_pass_batch_draw = scene_renderer.make_scene_batch_pass_content(
-      SceneModelRenderBatch::Device(first_pass_batch.clone()),
+    let mut first_pass_batch_draw = scene_renderer.use_make_scene_batch_pass_content(
+      SceneModelRenderBatch::Device(Some(first_pass_batch.clone())),
       camera,
       pass_com,
       frame_ctx,
@@ -118,21 +124,21 @@ impl GPUTwoPassOcclusionCulling {
     }
 
     let pyramid = self.depth_pyramid_cache.get_or_insert_with(|| {
-      let tex = GPUTexture::create(
-        TextureDescriptor {
-          label: "gpu-occlusion-culling-depth-pyramid".into(),
-          size: size.into_gpu_size(),
-          mip_level_count: required_mip_level_count,
-          sample_count: 1,
-          dimension: TextureDimension::D2,
-          format: TextureFormat::R32Float, // depth 32 float can not been used in storage texture binding.
-          view_formats: &[],
-          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT | TextureUsages::STORAGE_BINDING,
-        },
-        &frame_ctx.gpu.device,
-      );
-      GPU2DTexture::try_from(tex).unwrap()
-    });
+        let tex = GPUTexture::create(
+          TextureDescriptor {
+            label: "gpu-occlusion-culling-depth-pyramid".into(),
+            size: size.into_gpu_size(),
+            mip_level_count: required_mip_level_count,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::R32Float, // depth 32 float can not been used in storage texture binding.
+            view_formats: &[],
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT | TextureUsages::STORAGE_BINDING,
+          },
+          &frame_ctx.gpu.device,
+        );
+        GPU2DTexture::try_from(tex).unwrap()
+      });
 
     compute_pot_enlarged_hierarchy_depth(
       depth,
@@ -152,7 +158,7 @@ impl GPUTwoPassOcclusionCulling {
         last_frame_invisible.clone(),
         camera,
         bounding_provider,
-        last_frame_visible_batch,
+        &last_frame_visible_batch.draw_list,
         reverse_depth,
       )
     });
@@ -160,17 +166,12 @@ impl GPUTwoPassOcclusionCulling {
     // second pass, draw rest but not occluded, and update the visibility states
     // todo, check pre_culler if is ok to set before occlusion_culler
     let second_pass_culler = pre_culler.shortcut_or(occlusion_culler);
-    let mut second_pass_batch = last_frame_invisible_batch.with_override_culler(second_pass_culler);
+    let second_pass_batch = frame_ctx.access_parallel_compute(|cx| {
+      last_frame_invisible_batch.use_culled_list_and_do_culling(cx, second_pass_culler)
+    });
 
-    if generate_culling_result {
-      frame_ctx.scope(|frame_ctx| {
-        second_pass_batch =
-          frame_ctx.access_parallel_compute(|cx| second_pass_batch.flush_culler_into_new(cx, true));
-      });
-    }
-
-    let mut second_pass_draw = scene_renderer.make_scene_batch_pass_content(
-      SceneModelRenderBatch::Device(second_pass_batch.clone()),
+    let mut second_pass_draw = scene_renderer.use_make_scene_batch_pass_content(
+      SceneModelRenderBatch::Device(Some(second_pass_batch.clone())),
       camera,
       pass_com,
       frame_ctx,
@@ -199,6 +200,6 @@ impl GPUTwoPassOcclusionCulling {
 
 /// The drawn batch debug content
 pub struct GPUTwoPassOcclusionCullingResult {
-  pub drawn_occluder: DeviceSceneModelRenderBatch,
-  pub drawn_not_occluded: DeviceSceneModelRenderBatch,
+  pub drawn_occluder: DeviceSceneModelDrawList,
+  pub drawn_not_occluded: DeviceSceneModelDrawList,
 }

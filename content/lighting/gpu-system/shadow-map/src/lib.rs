@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use database::RawEntityHandle;
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
 use rendiation_texture_core::*;
@@ -19,6 +20,13 @@ mod map_utils;
 use map_utils::*;
 
 pub const MAX_SHADOW_COUNT: usize = 8;
+
+pub struct ShadowMapDrawRequest {
+  pub shadow_camera_proj: Mat4<f32>,
+  pub shadow_camera_world: Mat4<f64>,
+  pub light_id: RawEntityHandle,
+  pub map_desc: ShadowPassDesc,
+}
 
 pub struct ShadowPassDesc {
   desc: RenderPassDescription,
@@ -99,7 +107,7 @@ pub fn create_shadow_depth_sampler_desc(reversed_depth: bool) -> SamplerDescript
   SamplerDescriptor {
     mag_filter: rendiation_webgpu::FilterMode::Linear,
     min_filter: rendiation_webgpu::FilterMode::Linear,
-    mipmap_filter: rendiation_webgpu::FilterMode::Nearest,
+    mipmap_filter: rendiation_webgpu::MipmapFilterMode::Nearest,
     compare: Some(if reversed_depth {
       CompareFunction::Greater
     } else {

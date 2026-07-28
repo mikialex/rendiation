@@ -5,6 +5,7 @@ pub struct ViewerPicker {
   pub scene_model_iter_provider: Box<dyn SceneModelIterProvider>,
   pub scene_bvh: Option<SceneBVHResultView>,
   pub camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
+  pub clip_filter: ArrayClipPickFilter,
   pub ndc: ViewerNDC,
 }
 
@@ -107,13 +108,15 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
   viewports_map: ViewportsImmediate,
   use_scene_bvh: bool,
 ) -> Option<ViewerPicker> {
+  cx.next_scope_index();
   let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
   let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
 
-  let use_attribute_mesh_picker = use_attribute_mesh_picker(cx);
+  let attribute_mesh_picker = use_attribute_mesh_picker(cx);
   let wide_line_picker = use_wide_line_picker(cx);
   let wide_point_picker = use_wide_points_picker(cx);
   let text_picker = use_text_picker(cx, &font_system);
+  let cell_mesh_picker = use_cell_mesh_picker(cx);
 
   let sm_local_bounding = cx
     .use_shared_dual_query_view(SceneModelLocalBounding(font_system.clone()))
@@ -144,17 +147,21 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     .use_shared_dual_query_view(GlobalCameraTransformShare(ndc.clone()))
     .use_assure_result(cx);
 
+  let clip_filter = use_array_clip_pick_filter(cx);
+
   cx.when_resolve_stage(|| {
-    let att_mesh_picker = use_attribute_mesh_picker.unwrap();
+    let attribute_mesh_picker = attribute_mesh_picker.unwrap();
     let wide_line_picker = wide_line_picker.unwrap();
     let wide_point_picker = wide_point_picker.unwrap();
     let text_picker = text_picker.unwrap();
+    let cell_mesh_picker = cell_mesh_picker.unwrap();
 
     let local_model_pickers: Vec<Box<dyn LocalModelPicker>> = vec![
-      Box::new(att_mesh_picker),
+      Box::new(attribute_mesh_picker),
       Box::new(wide_line_picker),
       Box::new(wide_point_picker),
       Box::new(text_picker),
+      Box::new(cell_mesh_picker),
     ];
 
     let util = SceneModelPickerBaseImplUtil {
@@ -168,12 +175,6 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
-    };
-
-    let scene_model_picker = SceneModelPickerBaseImpl {
-      internal: local_model_pickers,
-      util: util.clone(),
-      filter: Some(Box::new(create_clip_pick_filter())),
       sm_world_bounding: sm_world_bounding
         .expect_resolve_stage()
         .mark_entity_type()
@@ -182,6 +183,11 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
         .expect_resolve_stage()
         .mark_entity_type()
         .into_boxed(),
+    };
+
+    let scene_model_picker = SceneModelPickerBaseImpl {
+      internal: local_model_pickers,
+      util: util.clone(),
     };
 
     let scene_model_picker = TransformInstancedMeshPicker {
@@ -219,6 +225,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
       camera_transforms: camera_transforms.expect_resolve_stage(),
       scene_bvh,
       ndc,
+      clip_filter: clip_filter.unwrap(),
     }
   })
 }
@@ -227,7 +234,7 @@ pub fn create_viewport_pointer_ctx(
   surface_content: &ViewerSurfaceContent,
   mouse_position_relative_to_surface_origin: (f32, f32),
   camera_transforms: &dyn DynQuery<Key = RawEntityHandle, Value = CameraTransform>,
-) -> Option<ViewportPointerCtx> {
+) -> Option<(ViewportPointerCtx, EntityHandle<SceneEntity>)> {
   let (viewport, normalized_position_ndc) = find_top_hit(
     surface_content.viewports.iter(),
     mouse_position_relative_to_surface_origin,
@@ -267,18 +274,21 @@ pub fn create_viewport_pointer_ctx(
   let view_logical_pixel_size = Size::from_u32_pair_min_one(view_logical_pixel_size.into());
   let view_logical_pixel_size = view_logical_pixel_size.into_u32().into();
 
-  ViewportPointerCtx {
-    world_ray: current_mouse_ray_in_world,
-    viewport_idx,
-    viewport_id: viewport.id,
-    view_logical_pixel_size,
-    normalized_position: normalized_position_ndc,
-    projection,
-    projection_inv,
-    proj_source: Some(camera_proj),
-    camera_world_mat: camera_world,
-  }
-  .into()
+  (
+    ViewportPointerCtx {
+      world_ray: current_mouse_ray_in_world,
+      viewport_idx,
+      viewport_id: viewport.id,
+      view_logical_pixel_size,
+      normalized_position: normalized_position_ndc,
+      projection,
+      projection_inv,
+      proj_source: Some(camera_proj),
+      camera_world_mat: camera_world,
+    },
+    viewport.scene,
+  )
+    .into()
 }
 
 pub fn read_common_proj_from_db(
@@ -292,14 +302,16 @@ pub fn read_common_proj_from_db(
     .or_else(|| po.get_value(camera).flatten().map(CommonProjection::Orth))
 }
 
-pub fn create_ray_query_ctx_from_vpc(
+pub fn create_ray_query_ctx_from_vpc<'a>(
   ctx: &ViewportPointerCtx,
   extra_screen_space_tolerance: f32,
-) -> SceneRayQuery {
+  filter: Option<&'a SceneModelPickFilter>,
+) -> SceneRayQuery<'a> {
   SceneRayQuery {
     world_ray: ctx.world_ray,
     camera_ctx: create_camera_query_ctx_from_vpc(ctx),
     extra_screen_space_tolerance,
+    filter,
   }
 }
 
@@ -322,7 +334,7 @@ pub fn create_range_pick_frustum(
   picker: &ViewerPicker,
   precise_intersection_test: bool,
   extra_screen_space_tolerance: f32,
-) -> Option<SceneFrustumQuery> {
+) -> Option<(SceneFrustumQuery, EntityHandle<SceneEntity>)> {
   let raw_a = a;
   let a = a * surface_content.device_pixel_ratio;
   let b = b * surface_content.device_pixel_ratio;
@@ -357,7 +369,8 @@ pub fn create_range_pick_frustum(
     picker.ndc.transform_into_opengl_standard_ndc().into_f64() * camera_trans.view_projection;
   let frustum = Frustum::new_from_matrix_ndc(mat, &ndc_arr);
 
-  let ctx = create_viewport_pointer_ctx(surface_content, raw_a.into(), &picker.camera_transforms)?;
+  let (ctx, _) =
+    create_viewport_pointer_ctx(surface_content, raw_a.into(), &picker.camera_transforms)?;
   let camera_ctx = create_camera_query_ctx_from_vpc(&ctx);
 
   let world_helper = if precise_intersection_test {
@@ -366,11 +379,14 @@ pub fn create_range_pick_frustum(
     None
   };
 
-  SceneFrustumQuery {
-    world_frustum: frustum,
-    world_helper,
-    camera_ctx,
-    extra_screen_space_tolerance,
-  }
-  .into()
+  (
+    SceneFrustumQuery {
+      world_frustum: frustum,
+      world_helper,
+      camera_ctx,
+      extra_screen_space_tolerance,
+    },
+    viewport.scene,
+  )
+    .into()
 }

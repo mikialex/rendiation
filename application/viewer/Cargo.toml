@@ -1,19 +1,21 @@
 [package]
 authors = ["MikiAlex <miikiialexx@gmail.com>"]
 edition = "2021"
-name = "viewer"
+name = "rendiation-viewer"
 version = "0.1.0"
 
-default-run = "viewer"
+default-run = "rendiation-viewer"
 
 [dependencies]
 bytemuck = { workspace = true }
 env_logger = { workspace = true }
 futures = { workspace = true, features = ["thread-pool"] }
 
-rand = "*"
+rand = { workspace = true }
 
 database = { path = "../../utility/database" }
+database-tracing = { path = "../../utility/database-tracing" }
+viewer-content-api-trace-info = { path = "../viewer-content-api-trace-info" }
 dirs = "4.0.0"
 parking_lot = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
@@ -28,7 +30,7 @@ humansize = { workspace = true }
 png = "*"
 rmp-serde = { workspace = true }
 pollster = { workspace = true }
-serde_json = "*"
+toml = { workspace = true }
 event-source = { path = "../../utility/event-source" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
@@ -60,11 +62,11 @@ rfd = "0.15.4"
 tracing = { workspace = true }
 tracing-subscriber = "0.3.20"
 tracing-tracy = { version = "0.11.4", optional = true }
-egui = { version = "0.33" }
-egui-wgpu = { version = "0.33" }
-egui-winit = { version = "0.33", default-features = false }
-egui_extras = { version = "0.33" }
-egui_tiles = "0.14.0"
+egui = { version = "0.34" }
+egui-wgpu = { version = "0.34" }
+egui-winit = { version = "0.34", default-features = false }
+egui_extras = { version = "0.34" }
+egui_tiles = "0.15.0"
 winit = { workspace = true }
 
 mimalloc = { version = "0.1.52", optional = true }
@@ -92,3 +94,10 @@ dhat-heap-profiling = ["dep:dhat"]
 
 [lints]
 workspace = true
+
+[package.metadata.bundle]
+name = "Rendiation Viewer"
+identifier = "rendiation.viewer"
+# cargo bundle not support relative path to cargo.toml, the cargo bundle cmd must run at project root
+icon = ["application/viewer/assets/256x256@2x.png", "application/viewer/assets/256x256.png"]
+category = "public.app-category.productivity"

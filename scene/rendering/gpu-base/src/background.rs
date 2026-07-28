@@ -53,6 +53,7 @@ pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer
           transform: param.transform,
           color_and_stops,
           color_and_stops_len,
+          use_screen_space: Bool::from(param.use_screen_space),
           ..Default::default()
         }
       })
@@ -252,6 +253,7 @@ pub struct GradientBackgroundUniform {
   pub transform: Mat4<f32>,
   pub color_and_stops: Shader140Array<Vec4<f32>, MAX_GRADIENT_COLOR_STOPS>,
   pub color_and_stops_len: u32,
+  pub use_screen_space: Bool,
 }
 
 struct GradientBackgroundComponent<'a> {
@@ -278,10 +280,16 @@ impl GraphicsShaderProvider for GradientBackgroundComponent<'_> {
 
       let params = binding.bind_by(&self.params);
       let direction = transform_dir_fn(params.transform().load(), direction);
-      let v = direction_to_uv_fn(direction).y();
+      let v = direction_to_uv_fn(direction).y().make_local_var();
+
+      if_by(params.use_screen_space().load().into_bool(), || {
+        let v2 =
+          builder.query::<FragmentPosition>().y() / builder.query::<ViewportRenderBufferSize>().y();
+        v.store(v2);
+      });
 
       let color = interpolate_gradient(
-        v,
+        v.load(),
         params.color_and_stops(),
         params.color_and_stops_len().load(),
       );

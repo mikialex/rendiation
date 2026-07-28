@@ -1,12 +1,19 @@
 use std::backtrace::Backtrace;
+use std::ffi::c_char;
 use std::io::Write;
 use std::panic::PanicHookInfo;
 
 use crate::*;
 
-/// call this to setup panic message writer when panic happens
+declare_component!(
+  /// a special mark for scene level bounding compute
+  SceneModelIsInfinity, SceneModelEntity, bool, false);
+
+/// This must be called before any other rendiation c api
+///
+/// if trace_write_path is null_ptr, then the api tracing will be disabled
 #[no_mangle]
-pub extern "C" fn rendiation_init() {
+pub extern "C" fn rendiation_init(trace_write_path: *const c_char) {
   std::panic::set_hook(Box::new(on_panic));
 
   env_logger::builder()
@@ -18,6 +25,9 @@ pub extern "C" fn rendiation_init() {
   global_database().enable_label_for_all_entity();
 
   register_viewer_content_data_model();
+  global_entity_of::<SceneModelEntity>().declare_component::<SceneModelIsInfinity>();
+
+  setup_tracing(trace_write_path);
 }
 
 fn on_panic(panic: &PanicHookInfo) {

@@ -156,6 +156,57 @@ pub(crate) fn add_delta_listen<T: CValue>(
   receiver
 }
 
+pub(crate) fn add_entity_set_listen(
+  bitmap_init: usize,
+  query: impl Query<Key = RawEntityHandle, Value = ()>,
+  source: &EventSource<EntityChangeMessage>,
+) -> ChangesMutationReceiver<()> {
+  let (sender, receiver) = delta_channel::<()>(bitmap_init, 0);
+  // expand initial value while first listen.
+  unsafe {
+    sender.lock();
+    let iter = query.iter_key_value();
+
+    let count_hint = iter.size_hint().0;
+    sender.reserve_space(count_hint);
+
+    for (idx, v) in iter {
+      sender.send(idx, ValueChange::Delta(v, None));
+    }
+    sender.unlock();
+  }
+
+  source.on(move |change| unsafe {
+    match change {
+      ScopedMessage::Start => {
+        sender.lock();
+        false
+      }
+      ScopedMessage::End => {
+        sender.unlock();
+        sender.is_closed()
+      }
+      ScopedMessage::ReserveSpace(size) => {
+        sender.reserve_space(*size);
+        false
+      }
+      ScopedMessage::Message(change) => {
+        match change {
+          EntityChange::NewEntityStartCreate(_) => {}
+          EntityChange::NewEntityCreated(handle) => {
+            sender.send(*handle, ValueChange::Delta((), None));
+          }
+          EntityChange::DeleteEntity(handle) => {
+            sender.send(*handle, ValueChange::Remove(()));
+          }
+        }
+        false
+      }
+    }
+  });
+  receiver
+}
+
 /// the optimization assumes: between the updates, one component is only changed once
 /// in this case, this collector can avoid delta merge and data value move
 #[derive(Clone, Debug)]
@@ -178,9 +229,8 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
 
   pub fn reserve(&mut self, additional: usize) {
     self.changes.reserve(additional * 2); // * 2 to avoid reallocation for delta merge case
-    self.has_any_change.reserve(additional);
-    self.has_duplicate_changes.reserve(additional);
     self.override_mapping.reserve(additional);
+    // bitset should not reserved, as we are reserving for change count, not entity address space
   }
 
   pub fn has_change(&self) -> bool {
@@ -222,17 +272,18 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
   }
 
   pub fn take(&mut self) -> Self {
-    if !self.has_change() {
+    let has_change = self.has_change();
+    let changes = std::mem::take(&mut self.changes);
+    let override_mapping = std::mem::take(&mut self.override_mapping);
+
+    if !has_change {
       return Self {
         has_any_change: Bitmap::with_size(0),
         has_duplicate_changes: Bitmap::with_size(0),
-        changes: Vec::new(),
-        override_mapping: FastHashMap::default(),
+        changes,
+        override_mapping,
       };
     }
-
-    let changes = std::mem::take(&mut self.changes);
-    let override_mapping = std::mem::take(&mut self.override_mapping);
 
     // not calling std::take for these bitmaps to preserve allocation
     let has_any_change = self.has_any_change.clone();

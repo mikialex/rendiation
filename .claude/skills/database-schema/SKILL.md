@@ -4,7 +4,7 @@ description: >
   Reference for the rendiation type-safe relational database layer (utility/database).
   Covers defining tables (entity types) and columns (components) with declare_entity!/
   declare_component!, explicit foreign keys between tables, registering schemas with
-  the global database, CRUD via EntityWriter/EntityReader/ComponentReadView, query
+  the global database, CRUD via TableWriter/TableReader/ComponentReadView, query
   patterns, storage backends (linear vs sparse), and the event/hook system.
   Use when defining new entity types, adding components, wiring foreign keys, or
   interacting with the database layer directly.
@@ -78,8 +78,8 @@ Each column gets its own physical store. Two backends:
 
 ### Locking
 
-- `EntityWriter<E>` — acquires write locks on ALL columns of table `E` on construction, releases on drop. One writer per table at a time.
-- `EntityReader<E>` — acquires read locks on ALL columns of table `E`. Multiple concurrent readers allowed.
+- `TableWriter<E>` — acquires write locks on ALL columns of table `E` on construction, releases on drop. One writer per table at a time.
+- `TableReader<E>` — acquires read locks on ALL columns of table `E`. Multiple concurrent readers allowed.
 - `ComponentReadView<C>` — read lock on a single column.
 - `ComponentWriteView<C>` — write lock on a single column.
 
@@ -169,7 +169,7 @@ let handle: EntityHandle<MyEntity> = writer.new_entity(|init| {
 ### Writing columns
 
 ```rust
-// Via EntityWriter (locks all columns of the table)
+// Via TableWriter (locks all columns of the table)
 let mut writer = global_entity_of::<MyEntity>().entity_writer();
 writer.write::<MyColumn>(handle, new_value);
 writer.write_foreign_key::<MyFk>(handle, Some(other_handle));
@@ -183,7 +183,7 @@ view.write(handle, new_value);
 ### Reading columns
 
 ```rust
-// Via EntityReader (locks all columns of the table)
+// Via TableReader (locks all columns of the table)
 let reader = global_entity_of::<MyEntity>().entity_reader();
 let val: &MyColumnData = reader.get::<MyColumn>(handle);
 let opt: Option<&AnotherData> = reader.try_get::<AnotherColumn>(handle);

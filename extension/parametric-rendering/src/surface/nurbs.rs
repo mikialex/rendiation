@@ -94,7 +94,7 @@ impl<T: Scalar> NurbsSurface<T> {
     )
   }
 
-  // --- Accessors ---
+  // Accessors
 
   pub fn u_count(&self) -> usize {
     self.u_count
@@ -140,8 +140,6 @@ impl<T: Scalar> NurbsSurface<T> {
     let v_norm = (v - v_min) / (v_max - v_min);
     (u_norm, v_norm)
   }
-
-  // --- Evaluation ---
 
   /// Evaluate the surface point at parameters `(u, v)`.
   pub fn evaluate(&self, u: T, v: T) -> Vec3<T> {
@@ -399,7 +397,7 @@ impl<T: Scalar> NurbsSurface<T> {
   }
 }
 
-// --- Private helpers ---
+// Private helpers
 
 impl<T: Scalar> NurbsSurface<T> {
   /// Find the knot span index i such that `knots[i] <= u < knots[i+1]`.
@@ -606,7 +604,7 @@ impl<T: Scalar> NurbsSurface<T> {
   }
 }
 
-// --- ParametricSurface impl ---
+// ParametricSurface impl
 
 impl ParametricSurface for NurbsSurface<f32> {
   fn position(&self, uv: Vec2<f32>) -> Vec3<f32> {

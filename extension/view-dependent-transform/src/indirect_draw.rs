@@ -202,8 +202,9 @@ impl IndirectNodeRenderImpl for OverrideNodeIndirectGPU {
   fn hash_shader_group_key(
     &self,
     _any_id: EntityHandle<SceneNodeEntity>,
-    _hasher: &mut PipelineHasher,
+    hasher: &mut PipelineHasher,
   ) -> Option<()> {
+    hasher.hash(self.current_view.get().is_some());
     Some(())
   }
 

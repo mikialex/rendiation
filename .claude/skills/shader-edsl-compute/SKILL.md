@@ -137,8 +137,8 @@ let exclusive: Node<f32> = value.subgroup_exclusive_add();
 
 ```rust
 pub fn build_my_pipeline(gpu: &GPU, ...) -> GPUComputePipeline {
-    let mut hasher = PipelineHasher::default();
-    hasher.write_u32(workgroup_size);
+    let hasher = shader_hasher_from_marker_ty!(MyPipeline) // use a unique struct to provide uniqueness in hash
+    .with_hash((workgroup_size));
 
     gpu.device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
         builder = builder.with_config_work_group_size(workgroup_size);
@@ -231,7 +231,7 @@ fn build_add_pipeline(
     gpu: &GPU,
     output: &StorageBufferDataView<[f32]>,
 ) -> GPUComputePipeline {
-    let mut hasher = PipelineHasher::default();
+    let hasher = shader_hasher_from_marker_ty!(MyPipeline); // use a unique struct to provide uniqueness in hash
     gpu.device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
         let output = builder.bind_by(output);
         let gid = builder.global_invocation_id().x();

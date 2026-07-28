@@ -36,6 +36,7 @@ pub enum GltfExportErr {
 /// a node can have multiple models, so we create a new node for node that has multiple model when exporting.
 pub fn build_scene_to_gltf(
   reader: &SceneReader,
+  scene: EntityHandle<SceneEntity>,
   folder_path: &Path,
   file_name: &str,
 ) -> Result<(), GltfExportErr> {
@@ -49,7 +50,7 @@ pub fn build_scene_to_gltf(
 
     let mut all_nodes = FastHashSet::default();
     let mut batch_writes = Vec::default();
-    for (_, model_info) in reader.std_models() {
+    for (_, model_info) in reader.std_models(&scene) {
       all_nodes.insert(model_info.node);
     }
     let first_batch = all_nodes.iter().copied().collect::<Vec<_>>();
@@ -97,7 +98,7 @@ pub fn build_scene_to_gltf(
 
   let mut has_sg_material = false;
 
-  for (_, model_info) in reader.std_models() {
+  for (_, model_info) in reader.std_models(&scene) {
     let std_model = reader.read_std_model(model_info.model);
     all_mesh_to_write.insert(std_model.mesh);
 
@@ -186,7 +187,7 @@ pub fn build_scene_to_gltf(
     build_material(&mut materials, reader, &m, &textures);
   }
 
-  for (model, model_info) in reader.std_models() {
+  for (model, model_info) in reader.std_models(&scene) {
     let idx = *target_nodes.mapping.get(&model_info.node).unwrap();
     let node = target_nodes.collected.get_mut(idx.value()).unwrap();
     let targe_node_idx = if node.mesh.is_some() {

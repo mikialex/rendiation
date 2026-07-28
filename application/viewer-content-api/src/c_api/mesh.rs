@@ -222,12 +222,9 @@ pub extern "C" fn update_mesh_data(
     // buffer_writer.write::<BufferEntityData>(buffer_handle, data);
   }
 
-  let mut buffer_writer = global_entity_of::<BufferEntity>().entity_writer();
-
   match vertex_ty {
     MeshAPIDataType::Position => {
-      let buffer_handle: EntityHandle<BufferEntity> = entities.position.h2.into();
-      buffer_writer.write::<BufferEntityData>(buffer_handle, data);
+      update(&mut entities.position, &data);
     }
     MeshAPIDataType::Normal => {
       if entities.has_normal {

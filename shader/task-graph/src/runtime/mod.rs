@@ -435,12 +435,13 @@ impl DeviceTaskGraphExecutor {
     let all_tasks_ptr = self.task_groups.as_ptr();
     let all_tasks_len = self.task_groups.len();
 
+    // todo, note, we are not using scope here to reduce memory(give up caches)
     for _ in 0..dispatch_round_count {
       for (idx, task) in self.task_groups.iter_mut().enumerate() {
         let source = &source.tasks[idx];
         let all_tasks: &[TaskGroupExecutor] =
           unsafe { std::slice::from_raw_parts(all_tasks_ptr, all_tasks_len) };
-        task.execute(cx, all_tasks, source);
+        task.use_execute(cx, all_tasks, source);
       }
 
       if enable_empty_assert {

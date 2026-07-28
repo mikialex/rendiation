@@ -196,13 +196,14 @@ impl GPUDevice {
   ) -> wgpu::ShaderModule {
     let naga_module = result.module;
     if result.log_result {
-      log::info!("");
-      log::info!("=== rendiation_shader_api build result ===");
+      // not using log::info here, as sometime we don't set logger(for example in unit test)
+      println!("");
+      println!("=== rendiation_shader_api build result ===");
 
       let shader_str = convert_module_by_wgsl(&naga_module, naga::valid::ValidationFlags::all());
-      log::info!("{shader_str}",);
+      println!("{shader_str}",);
 
-      log::info!("=== result output finished ===");
+      println!("=== result output finished ===");
     }
 
     unsafe {
@@ -273,8 +274,8 @@ impl GPUDevice {
       primitive: primitive_state,
       depth_stencil,
       multisample,
-      multiview: None,
       cache: None,
+      multiview_mask: None,
     });
 
     Ok(GPUPipeline::new(pipeline, raw_layouts, layouts))
@@ -312,12 +313,12 @@ fn create_layouts(
     .map(|b| b.bindings.iter().map(|e| e.desc.clone()).collect())
     .collect();
 
-  let layouts_ref: Vec<_> = raw_layouts.iter().map(|l| &l.inner).collect();
+  let layouts_ref: Vec<_> = raw_layouts.iter().map(|l| Some(&l.inner)).collect();
 
   let pipeline_layout = device.create_pipeline_layout(&gpu::PipelineLayoutDescriptor {
     label: None,
     bind_group_layouts: layouts_ref.as_slice(),
-    push_constant_ranges: &[],
+    immediate_size: 0,
   });
   (raw_layouts, layouts, pipeline_layout)
 }

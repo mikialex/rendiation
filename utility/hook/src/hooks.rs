@@ -23,7 +23,7 @@ pub unsafe trait HooksCxLike: Sized {
   fn execute<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
     let r = f(self);
     self.memory_mut().current_cursor = 0;
-    self.memory_mut().map_scope_cursor = 0;
+    self.memory_mut().scope_index = 0;
 
     self.memory_mut().created = true;
     self.flush();
@@ -35,7 +35,7 @@ pub unsafe trait HooksCxLike: Sized {
     let is_dynamic_stage = self.is_dynamic_stage();
 
     let location = FastLocation(Location::caller());
-    let key = SubFunctionKeyType::CallSite(location);
+    let key = SubFunctionKeyType::CallSite(location, self.memory_ref().scope_index);
     let sub_memory = self.memory_mut().sub_function(is_dynamic_stage, key) as *mut _;
 
     unsafe {
@@ -53,7 +53,7 @@ pub unsafe trait HooksCxLike: Sized {
   ) -> R {
     let is_dynamic_stage = self.is_dynamic_stage();
 
-    let key = create_key_from_hash_impl(key, self.memory_ref().map_scope_cursor);
+    let key = create_key_from_hash_impl(key, self.memory_ref().scope_index);
     let sub_memory = self.memory_mut().sub_function(is_dynamic_stage, key) as *mut _;
 
     unsafe {
@@ -79,19 +79,22 @@ pub unsafe trait HooksCxLike: Sized {
 
   #[track_caller]
   fn skip_call_site_scope(&mut self) {
-    let key = SubFunctionKeyType::CallSite(FastLocation(Location::caller()));
+    let key = SubFunctionKeyType::CallSite(
+      FastLocation(Location::caller()),
+      self.memory_ref().scope_index,
+    );
     let is_dynamic_stage = self.is_dynamic_stage();
     self.memory_mut().sub_function(is_dynamic_stage, key);
   }
 
   fn skip_keyed_scope<K: std::hash::Hash>(&mut self, key: &K) {
-    let key = create_key_from_hash_impl(key, self.memory_ref().map_scope_cursor);
+    let key = create_key_from_hash_impl(key, self.memory_ref().scope_index);
     let is_dynamic_stage = self.is_dynamic_stage();
     self.memory_mut().sub_function(is_dynamic_stage, key);
   }
 
-  fn next_key_scope_root(&mut self) {
-    self.memory_mut().map_scope_cursor += 1;
+  fn next_scope_index(&mut self) {
+    self.memory_mut().scope_index += 1;
   }
 
   #[track_caller]
@@ -149,7 +152,7 @@ pub struct FunctionMemory {
   states: Bump,
   states_meta: Vec<FunctionMemoryState>,
   pub current_cursor: usize,
-  pub map_scope_cursor: u32,
+  pub scope_index: u32,
   sub_functions: FastHashMap<SubFunctionKey, Self>,
   sub_functions_next: FastHashMap<SubFunctionKey, Self>,
 }
@@ -162,7 +165,7 @@ struct SubFunctionKey {
 
 #[derive(Eq, PartialEq, Hash, Debug)]
 pub enum SubFunctionKeyType {
-  CallSite(FastLocation),
+  CallSite(FastLocation, u32),
   UserDefined(smallvec::SmallVec<[u8; 32]>, u32),
 }
 

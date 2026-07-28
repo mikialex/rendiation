@@ -45,6 +45,14 @@ pub fn use_occ_material_storage(
     .map_changes(srgb4_to_linear4)
     .update_storage_array(cx, storages, offset_of!(OccStyleMaterialStorage, diffuse));
 
+  cx.use_changes::<OccStyleMaterialDiffuseBackFace>()
+    .map_changes(srgb4_to_linear4)
+    .update_storage_array(
+      cx,
+      storages,
+      offset_of!(OccStyleMaterialStorage, diffuse_backface),
+    );
+
   cx.use_changes::<OccStyleMaterialSpecular>()
     .update_storage_array(cx, storages, offset_of!(OccStyleMaterialStorage, specular));
 
@@ -133,6 +141,7 @@ type TexStorage = OccStyleMaterialTextureHandlesStorage;
 #[derive(Clone, Copy, ShaderStruct, Default)]
 pub struct OccStyleMaterialStorage {
   pub diffuse: Vec4<f32>,
+  pub diffuse_backface: Vec4<f32>,
   pub specular: Vec3<f32>,
   pub shininess: f32,
   pub emissive: Vec3<f32>,
@@ -182,6 +191,10 @@ impl GraphicsShaderProvider for OccStyleMaterialStorageGPU<'_> {
       let uniform = materials.index(current_material_id).load().expand();
       let tex_storage = tex_handles.index(current_material_id).load().expand();
 
+      let uniform_diffuse = builder
+        .query::<FragmentFrontFacing>()
+        .select(uniform.diffuse, uniform.diffuse_backface);
+
       let uv = builder.get_or_compute_fragment_uv();
       let diffuse_alpha_tex = indirect_sample(
         self.binding_sys,
@@ -197,13 +210,13 @@ impl GraphicsShaderProvider for OccStyleMaterialStorageGPU<'_> {
 
       match self.shade_type {
         OccStyleEffectType::Unlit => {
-          let diffuse = uniform.diffuse * diffuse_alpha_tex;
+          let diffuse = uniform_diffuse * diffuse_alpha_tex;
           builder.register::<ColorChannel>(diffuse.xyz());
           builder.register::<AlphaChannel>(diffuse.w());
           builder.register::<DefaultDisplay>(diffuse);
         }
         OccStyleEffectType::Lighted => {
-          let diffuse = uniform.diffuse * diffuse_alpha_tex;
+          let diffuse = uniform_diffuse * diffuse_alpha_tex;
 
           builder.register::<ColorChannel>(diffuse.xyz());
           builder.register::<AlphaChannel>(diffuse.w());
@@ -235,11 +248,11 @@ impl GraphicsShaderProvider for OccStyleMaterialStorageGPU<'_> {
             .diffuse
             .w()
             .equals(-1.)
-            .select(zebra_tex.w(), uniform.diffuse.w());
+            .select(zebra_tex.w(), uniform_diffuse.w());
 
           let one_minus_a = val(1.) - alpha;
           let color = zebra_tex.xyz() * alpha.splat::<Vec3<f32>>()
-            + uniform.diffuse.xyz() * one_minus_a.splat::<Vec3<f32>>();
+            + uniform_diffuse.xyz() * one_minus_a.splat::<Vec3<f32>>();
 
           builder.register::<DefaultDisplay>((color, val(1.)));
 

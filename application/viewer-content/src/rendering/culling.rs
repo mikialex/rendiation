@@ -12,9 +12,10 @@ pub fn use_viewer_culling(
   viewports: &[ViewerViewPort],
   font_system: &Arc<RwLock<FontSystem>>,
 ) -> Option<ViewerCulling> {
+  cx.next_scope_index();
   let oc_states = if config.enable_indirect_occlusion_culling && is_indirect {
     cx.scope(|cx| {
-      cx.next_key_scope_root();
+      cx.next_scope_index();
       let maps = per_camera_per_viewport(viewports, true)
         .map(|cv| {
           let cache = cx.keyed_scope(&cv.camera, |cx| {
@@ -93,36 +94,57 @@ impl ViewerCulling {
     }
   }
 
-  pub fn install_frustum_culler(
+  fn create_frustum_culler(
     &self,
+    camera_gpu: &CameraGPU,
+    camera: EntityHandle<SceneCameraEntity>,
+  ) -> GPUFrustumCuller {
+    GPUFrustumCuller {
+      bounding_provider: self.bounding_provider.clone().unwrap(),
+      frustum: self.frustums.get_gpu_frustum(camera),
+      camera: camera_gpu.clone(),
+    }
+  }
+
+  pub fn use_execute_frustum_culler(
+    &self,
+    cx: &mut FrameCtx,
     batch: &mut SceneModelRenderBatch,
     camera_gpu: &CameraGPU,
     camera: EntityHandle<SceneCameraEntity>,
+    should_execute: bool,
   ) {
+    cx.next_scope_index();
     if !self.enable_frustum_culling {
       return;
     }
     match batch {
       SceneModelRenderBatch::Device(batch) => {
-        let culler = GPUFrustumCuller {
-          bounding_provider: self.bounding_provider.clone().unwrap(),
-          frustum: self.frustums.get_gpu_frustum(camera),
-          camera: camera_gpu.clone(),
-        };
-
-        batch.set_override_culler(culler);
+        if let Some(batch) = batch {
+          if should_execute {
+            cx.access_parallel_compute(|cx| {
+              cx.scope(|cx| {
+                let culler = self.create_frustum_culler(camera_gpu, camera);
+                *batch = batch.use_culled_list_and_do_culling(cx, Box::new(culler));
+              })
+            })
+          }
+        }
       }
       SceneModelRenderBatch::Host(host_render_batch) => {
-        *host_render_batch = Box::new(HostFrustumCulling {
-          inner: host_render_batch.clone(),
-          sm_world_bounding: self.sm_world_bounding.clone(),
-          frustum: self.frustums.get_frustum(camera),
-        })
+        *host_render_batch = Box::new(
+          HostFrustumCulling {
+            inner: host_render_batch.clone(),
+            sm_world_bounding: self.sm_world_bounding.clone(),
+            frustum: self.frustums.get_frustum(camera),
+          }
+          .materialize(),
+        )
       }
     }
   }
 
-  pub fn draw_with_oc_maybe_enabled(
+  pub fn use_draw_with_oc_maybe_enabled(
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &ViewerSceneRenderer,
@@ -133,23 +155,31 @@ impl ViewerCulling {
     pass_base: RenderPassDescription,
     mut reorderable_batch: SceneModelRenderBatch,
   ) -> ActiveRenderPass {
+    ctx.next_scope_index();
     let camera = viewport.camera;
-    self.install_frustum_culler(&mut reorderable_batch, camera_gpu, camera);
+    self.use_execute_frustum_culler(
+      ctx,
+      &mut reorderable_batch,
+      camera_gpu,
+      camera,
+      // if occlusion culling is enabled, we should skip frustum culling as it also do the same job as the fc
+      self.oc.is_none(),
+    );
 
     if let Some(oc) = &mut self.oc {
       ctx.scope(|ctx| {
         if let Some(oc_debug_camera) = viewport.debug_camera_for_view_related {
           if let Some(previous_oc_batch) = oc.culling_results.get(&oc_debug_camera) {
             return ctx.scope(|ctx| {
-              let mut drawn_occluder = renderer.scene.make_scene_batch_pass_content(
-                SceneModelRenderBatch::Device(previous_oc_batch.drawn_occluder.clone()),
+              let mut drawn_occluder = renderer.scene.use_make_scene_batch_pass_content(
+                SceneModelRenderBatch::Device(Some(previous_oc_batch.drawn_occluder.clone())),
                 camera_gpu,
                 scene_pass_dispatcher,
                 ctx,
               );
 
-              let mut drawn_not_occluded = renderer.scene.make_scene_batch_pass_content(
-                SceneModelRenderBatch::Device(previous_oc_batch.drawn_not_occluded.clone()),
+              let mut drawn_not_occluded = renderer.scene.use_make_scene_batch_pass_content(
+                SceneModelRenderBatch::Device(Some(previous_oc_batch.drawn_not_occluded.clone())),
                 camera_gpu,
                 scene_pass_dispatcher,
                 ctx,
@@ -167,9 +197,11 @@ impl ViewerCulling {
         }
 
         let oc_state = oc.oc_states.get(&camera).unwrap();
-        let (pass, cull_result) = oc_state.write().draw(
+        let (pass, cull_result) = oc_state.write().use_draw(
           ctx,
           &reorderable_batch.get_device_batch().unwrap(),
+           // if occlusion culling is enabled, we should skip frustum culling as it also do the same job as the fc
+          None,
           pass_base,
           preflight_content,
           renderer.scene,
@@ -188,7 +220,7 @@ impl ViewerCulling {
       })
     } else {
       ctx.scope(|ctx| {
-        let mut all_opaque_object = renderer.scene.make_scene_batch_pass_content(
+        let mut all_opaque_object = renderer.scene.use_make_scene_batch_pass_content(
           reorderable_batch,
           camera_gpu,
           scene_pass_dispatcher,

@@ -9,7 +9,6 @@
 
 use std::any::Any;
 use std::future::Future;
-use std::hash::Hash;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
@@ -17,6 +16,7 @@ use std::task::Waker;
 
 use bytemuck::*;
 use database::*;
+use database_tracing::TraceWriter;
 use event_source::*;
 use fast_hash_collection::*;
 use futures::FutureExt;
@@ -72,6 +72,52 @@ static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<
   64,
 ));
 
+#[derive(Debug)]
+pub enum ViewerTracingEvent {
+  Render,
+}
+
+impl database_tracing::TraceReplayTarget for ViewerTracingEvent {
+  fn type_discriminant() -> u32 {
+    10
+  }
+  fn is_replay_target(&self) -> bool {
+    match self {
+      ViewerTracingEvent::Render => true,
+    }
+  }
+}
+
+impl database_tracing::TraceIO for ViewerTracingEvent {
+  fn write_len(&self) -> usize {
+    1
+  }
+
+  fn write(&self, w: &mut impl std::io::prelude::Write) -> std::io::Result<usize> {
+    match self {
+      ViewerTracingEvent::Render => {
+        w.write_all(&[0u8])?;
+        Ok(1)
+      }
+    }
+  }
+
+  fn read(source: &mut dyn std::io::Read) -> std::io::Result<Self>
+  where
+    Self: Sized,
+  {
+    let mut tag = [0u8; 1];
+    source.read_exact(&mut tag)?;
+    match tag[0] {
+      0 => Ok(ViewerTracingEvent::Render),
+      other => Err(std::io::Error::new(
+        std::io::ErrorKind::InvalidData,
+        format!("unknown ViewerTracingEvent tag: {}", other),
+      )),
+    }
+  }
+}
+
 #[cfg(all(
   not(feature = "dhat-heap-profiling"),
   not(feature = "tracy-heap-debug")
@@ -86,7 +132,18 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
 
   register_viewer_content_data_model();
 
-  let init_config = ViewerInitConfig::from_default_json_or_default();
+  let init_config = ViewerInitConfig::from_default_toml_or_default();
+  let app_init_config = ViewerAppFeaturesConfig::from_default_toml_or_default();
+
+  let trace_event_notifier =
+    if let Some(ref trace_write_path) = app_init_config.enable_tracing_and_tracing_write_path {
+      use database_tracing::*;
+      let writer = FileTraceWriter::<TracingMessage<ViewerTracingEvent>>::new(trace_write_path);
+      let trace_event_notifier = start_tracing(&global_database(), writer);
+      Some(trace_event_notifier)
+    } else {
+      None
+    };
 
   // we do config override instead of gpu init override to reflect change in the init config
   #[cfg(target_family = "wasm")]
@@ -128,10 +185,21 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   let gpu_config = init_config.make_gpu_platform_config();
 
   run_application(gpu_config, move |cx| {
-    use_egui_cx(cx, |cx, egui_cx| {
-      use_viewer(cx, egui_cx, &init_config, |cx| {
-        content_logic(cx);
-      });
+    use_egui_cx(cx, |cx, egui_ui| {
+      use_viewer(
+        cx,
+        egui_ui,
+        &init_config,
+        &app_init_config,
+        &|message| {
+          if let Some(notifier) = &trace_event_notifier {
+            notifier.write_message(database_tracing::TracingMessage::Event(message));
+          }
+        },
+        |cx| {
+          content_logic(cx);
+        },
+      );
     });
   });
 }
@@ -181,6 +249,7 @@ fn main() {
 
       use_enable_gltf_io(cx);
       use_enable_obj_io(cx);
+      use_enable_trace_io(cx);
       use_test_content_panel(cx);
 
       sync_camera_view(cx);
@@ -207,9 +276,6 @@ fn main() {
 
       use_animation_player(cx);
 
-      // #[cfg(not(target_family = "wasm"))]
-      // test_persist_scope(cx);
-
       use_mesh_tools(cx);
     });
   });
@@ -225,41 +291,11 @@ fn test_db_rc(cx: &mut ViewerCx) {
     set
   });
 
-  let change = use_db_all_entity_ref_count_change(cx, config).use_assure_result(cx);
+  let fk_change = use_db_all_foreign_key_change(cx, config);
+  let change = use_db_all_entity_ref_count_change(cx, fk_change).use_assure_result(cx);
   if let Some(_change) = change.if_resolve_stage() {
     // println!("ref count change: {:#?}", change.len());
   }
-}
-
-#[allow(dead_code)]
-/// demo of how persistent scope api works
-fn test_persist_scope(cx: &mut ViewerCx) {
-  cx.suppress_scene_writer();
-  use_persistent_db_scope(cx, |cx, persist_api| {
-    cx.re_enable_scene_writer();
-
-    // demo of how hydration works
-    cx.use_state_init(|_| {
-      let label = "root_scene";
-      if let Some(handle) = persist_api.get_hydration_label(label) {
-        println!("retrieve root persistent scene");
-        unsafe { EntityHandle::from_raw(handle) }
-      } else {
-        println!("create new root persistent scene");
-        let node = global_entity_of::<SceneEntity>()
-          .entity_writer()
-          .new_entity(|w| w);
-
-        persist_api.setup_hydration_label(label, node.into_raw());
-        node
-      }
-    });
-
-    core::hint::black_box(());
-
-    cx.suppress_scene_writer();
-  });
-  cx.re_enable_scene_writer();
 }
 
 fn per_camera_per_viewport_scope(
@@ -267,7 +303,7 @@ fn per_camera_per_viewport_scope(
   consider_debug_view_camera_override: bool,
   logic: impl Fn(&mut ViewerCx, &CameraViewportAccess),
 ) {
-  cx.next_key_scope_root();
+  cx.next_scope_index();
 
   let surface_content = &cx.active_surface_content;
 

@@ -2,7 +2,7 @@ use rendiation_mesh_generator::*;
 
 use crate::*;
 
-pub fn load_widen_line_test(s_writer: &mut SceneWriter) {
+pub fn load_widen_line_test(s_writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
   let mut writer = global_entity_of::<WideLineModelEntity>().entity_writer();
 
   let mesh_buffer = build_wide_line_mesh(|builder| {
@@ -23,10 +23,9 @@ pub fn load_widen_line_test(s_writer: &mut SceneWriter) {
   let child = s_writer.create_root_child();
   s_writer.set_local_matrix(child, Mat4::translate((5., 0., 0.)));
 
-  let scene = s_writer.expect_target_scene().some_handle();
   s_writer.model_writer.new_entity(|w| {
     w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
-      .write::<SceneModelBelongsToScene>(&scene)
+      .write::<SceneModelBelongsToScene>(&scene.some_handle())
       .write::<SceneModelRefNode>(&child.some_handle())
   });
 
@@ -50,10 +49,9 @@ pub fn load_widen_line_test(s_writer: &mut SceneWriter) {
   let child = s_writer.create_root_child();
   s_writer.set_local_matrix(child, Mat4::translate((10., 0., 0.)));
 
-  let scene = s_writer.expect_target_scene().some_handle();
   s_writer.model_writer.new_entity(|w| {
     w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
-      .write::<SceneModelBelongsToScene>(&scene)
+      .write::<SceneModelBelongsToScene>(&scene.some_handle())
       .write::<SceneModelRefNode>(&child.some_handle())
   });
 }

@@ -41,8 +41,8 @@ mod unlit_material {
     pub color_alpha_tex: Option<Texture2DWithSamplingDataView>,
     pub alpha: AlphaConfigDataView,
   }
-  impl EntityCustomWrite<UnlitMaterialEntity> for UnlitMaterialDataView {
-    type Writer = EntityWriter<UnlitMaterialEntity>;
+  impl EntityCustomWriter<UnlitMaterialEntity> for UnlitMaterialDataView {
+    type Writer = TableWriter<UnlitMaterialEntity>;
 
     fn create_writer() -> Self::Writer {
       global_entity_of::<UnlitMaterialEntity>().entity_writer()
@@ -145,7 +145,7 @@ mod sg_material {
   impl PhysicalSpecularGlossinessMaterialDataView {
     pub fn write(
       self,
-      writer: &mut EntityWriter<PbrSGMaterialEntity>,
+      writer: &mut TableWriter<PbrSGMaterialEntity>,
     ) -> EntityHandle<PbrSGMaterialEntity> {
       writer.new_entity(|w| {
         let w = w
@@ -271,7 +271,7 @@ mod mr_material {
   impl PhysicalMetallicRoughnessMaterialDataView {
     pub fn write(
       self,
-      writer: &mut EntityWriter<PbrMRMaterialEntity>,
+      writer: &mut TableWriter<PbrMRMaterialEntity>,
     ) -> EntityHandle<PbrMRMaterialEntity> {
       writer.new_entity(|w| {
         let w = w
@@ -323,8 +323,8 @@ pub type NormalTexOf<T> = SceneTexture2dRefOf<NormalTexSamplerOf<T>>;
 pub type NormalSamplerOf<T> = SceneSamplerRefOf<NormalTexSamplerOf<T>>;
 
 pub fn register_normal<T: NormalInfoSemantic>(
-  table: EntityComponentGroupTyped<T::Entity>,
-) -> EntityComponentGroupTyped<T::Entity> {
+  table: TypedArcTable<T::Entity>,
+) -> TypedArcTable<T::Entity> {
   let table = register_texture_with_sampling::<NormalTexSamplerOf<T>>(table);
   table.declare_component::<NormalScaleOf<T>>()
 }
@@ -344,7 +344,7 @@ impl NormalMappingDataView {
     w.write::<NormalScaleOf<C>>(&self.scale)
   }
 
-  pub fn read<T, E>(reader: &EntityReader<E>, id: EntityHandle<E>) -> Option<Self>
+  pub fn read<T, E>(reader: &TableReader<E>, id: EntityHandle<E>) -> Option<Self>
   where
     T: NormalInfoSemantic<Entity = E>,
     E: EntitySemantic,
@@ -386,7 +386,7 @@ impl AlphaConfigDataView {
       .write::<AlphaOf<C>>(&self.alpha)
   }
 
-  pub fn read<T, E>(reader: &EntityReader<E>, id: EntityHandle<E>) -> Self
+  pub fn read<T, E>(reader: &TableReader<E>, id: EntityHandle<E>) -> Self
   where
     T: AlphaInfoSemantic<Entity = E>,
     E: EntitySemantic,
@@ -433,8 +433,8 @@ impl<T: AlphaInfoSemantic> ComponentSemantic for AlphaModeOf<T> {
 }
 
 pub fn register_alpha_config<T: AlphaInfoSemantic>(
-  table: EntityComponentGroupTyped<T::Entity>,
-) -> EntityComponentGroupTyped<T::Entity> {
+  table: TypedArcTable<T::Entity>,
+) -> TypedArcTable<T::Entity> {
   table
     .declare_component::<AlphaOf<T>>()
     .declare_component::<AlphaModeOf<T>>()

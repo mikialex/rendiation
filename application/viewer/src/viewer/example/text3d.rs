@@ -19,16 +19,16 @@ pub fn use_text3d_example(cx: &mut ViewerCx) {
     // process additions
     if !example.pending_additions.is_empty() {
       while let Some(info) = example.pending_additions.pop() {
-        example.create_instance(writer, &mut text3d_writer, info);
+        example.create_instance(writer, &mut text3d_writer, cx.default_scene.scene, info);
       }
     }
   }
 
-  if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {
+  if let ViewerCxStage::Gui { egui_ui, .. } = &mut cx.stage {
     egui::Window::new("Text3d example")
       .default_size((300., 600.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         ui.heading("new text content:");
         text3d_content_edit_ui(ui, &mut example.next_text_to_add);
 
@@ -134,7 +134,8 @@ impl Text3DExample {
   fn create_instance(
     &mut self,
     writer: &mut SceneWriter,
-    text3d_writer: &mut EntityWriter<Text3dEntity>,
+    text3d_writer: &mut TableWriter<Text3dEntity>,
+    scene: EntityHandle<SceneEntity>,
     info: Text3dContentInfo,
   ) {
     let mut rng = rand::rng();
@@ -150,7 +151,7 @@ impl Text3DExample {
     let child = writer.create_root_child();
     writer.set_local_matrix(child, Mat4::translate((x, y, z)));
 
-    let scene = writer.expect_target_scene().some_handle();
+    let scene = scene.some_handle();
     let model = writer.model_writer.new_entity(|w| {
       w.write::<SceneModelText3dPayload>(&text.some_handle())
         .write::<SceneModelBelongsToScene>(&scene)
@@ -166,7 +167,7 @@ impl Text3DExample {
   pub fn destroy(
     &mut self,
     writer: &mut SceneWriter,
-    text3d_writer: &mut EntityWriter<Text3dEntity>,
+    text3d_writer: &mut TableWriter<Text3dEntity>,
   ) {
     for instance in self.instance.drain(..) {
       instance.destroy(writer, text3d_writer);
@@ -183,7 +184,7 @@ struct Text3DTestInstance {
 }
 
 impl Text3DTestInstance {
-  pub fn destroy(self, writer: &mut SceneWriter, text3d_writer: &mut EntityWriter<Text3dEntity>) {
+  pub fn destroy(self, writer: &mut SceneWriter, text3d_writer: &mut TableWriter<Text3dEntity>) {
     text3d_writer.delete_entity(self.text);
     self.scene_unit.destroy(writer);
   }

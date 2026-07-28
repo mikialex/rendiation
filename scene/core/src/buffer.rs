@@ -10,8 +10,8 @@ declare_component!(
   ExternalRefPtr<BufferEntityDataType>
 );
 
-impl EntityCustomWrite<BufferEntity> for Vec<u8> {
-  type Writer = EntityWriter<BufferEntity>;
+impl EntityCustomWriter<BufferEntity> for Vec<u8> {
+  type Writer = TableWriter<BufferEntity>;
 
   fn create_writer() -> Self::Writer {
     global_entity_of::<BufferEntity>().entity_writer()
@@ -23,8 +23,8 @@ impl EntityCustomWrite<BufferEntity> for Vec<u8> {
   }
 }
 
-impl EntityCustomWrite<BufferEntity> for AttributeAccessor {
-  type Writer = EntityWriter<BufferEntity>;
+impl EntityCustomWriter<BufferEntity> for AttributeAccessor {
+  type Writer = TableWriter<BufferEntity>;
 
   fn create_writer() -> Self::Writer {
     global_entity_of::<BufferEntity>().entity_writer()
@@ -37,7 +37,7 @@ impl EntityCustomWrite<BufferEntity> for AttributeAccessor {
 
 pub fn write_attribute_acc_impl(
   att: &AttributeAccessor,
-  writer: &mut EntityWriter<BufferEntity>,
+  writer: &mut TableWriter<BufferEntity>,
   uri_converter: &mut dyn FnMut(Arc<Vec<u8>>) -> MaybeUriData<Arc<Vec<u8>>>,
 ) -> EntityHandle<BufferEntity> {
   let start = att.byte_offset + att.view.range.offset as usize;
@@ -75,8 +75,8 @@ impl SceneBufferViewDataView {
 }
 
 pub fn register_scene_buffer_view<T: SceneBufferView>(
-  table: EntityComponentGroupTyped<T::Entity>,
-) -> EntityComponentGroupTyped<T::Entity> {
+  table: TypedArcTable<T::Entity>,
+) -> TypedArcTable<T::Entity> {
   table
     .declare_foreign_key::<SceneBufferViewBufferId<T>>()
     .declare_component::<SceneBufferViewBufferRange<T>>()

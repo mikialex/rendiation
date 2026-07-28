@@ -27,9 +27,13 @@ rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
 rendiation-texture-gpu-system = { path = "../../../content/texture/gpu-system" }
 rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
 rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
+rendiation-device-draw-list = { path = "../../../shader/draw-list" }
 thiserror = { workspace = true }
 log = { workspace = true }
 interning = { path = "../../../utility/interning" }
+
+[dev-dependencies]
+pollster = { workspace = true }
 
 [lints]
 workspace = true

@@ -535,6 +535,13 @@ struct TextureFormat {
   };
 };
 
+struct Texture2dMetaInfo {
+  uint32_t width;
+  uint32_t height;
+  uint32_t byte_len;
+  TextureFormat format;
+};
+
 struct VertexPair {
   ViewerEntityHandle h1;
   ViewerEntityHandle h2;
@@ -681,13 +688,18 @@ bool world_derive_query_api_get_world_mat(ViewerWorldDeriveQueryAPI *api,
                                           ViewerEntityHandle node,
                                           double (*r)[16]);
 
+bool world_derive_query_api_get_world_bbox_with_persist(ViewerWorldDeriveQueryAPI *api,
+                                                        ViewerEntityHandle sm,
+                                                        uint64_t surface_id,
+                                                        double (*result)[6]);
+
 bool world_derive_query_api_get_world_bounding(ViewerWorldDeriveQueryAPI *api,
                                                ViewerEntityHandle sm,
                                                double (*result)[6]);
 
 bool world_derive_query_api_get_local_bounding(ViewerWorldDeriveQueryAPI *api,
                                                ViewerEntityHandle sm,
-                                               float (*result)[6]);
+                                               double (*result)[6]);
 
 ViewerQueryAPI *viewer_create_picker_api(ViewerAPI *api, uint32_t surface_id);
 
@@ -698,7 +710,8 @@ void query_scene_bounding(ViewerWorldDeriveQueryAPI *api,
                           ViewerAPI *viewer_api,
                           ViewerEntityHandle scene,
                           float (*result)[6],
-                          bool consider_override,
+                          bool consider_view_dep,
+                          bool consider_infinity,
                           uint32_t surface_id);
 
 /// the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
@@ -706,11 +719,11 @@ void query_scene_bounding(ViewerWorldDeriveQueryAPI *api,
 /// all inputs are logic pixel
 ViewerRayPickListResult *picker_pick_list(ViewerQueryAPI *api,
                                           ViewerAPI *viewer,
-                                          ViewerEntityHandle scene,
                                           float x,
                                           float y,
                                           float extra_screen_space_tolerance,
-                                          bool sort_near_to_far);
+                                          bool sort_near_to_far,
+                                          bool remove_clipped);
 
 void drop_pick_list_result(ViewerRayPickListResult *r);
 
@@ -721,7 +734,6 @@ void drop_pick_list_result(ViewerRayPickListResult *r);
 /// all inputs are logic pixel
 ViewerRayPickRangeResult *picker_pick_range(ViewerQueryAPI *api,
                                             ViewerAPI *viewer,
-                                            ViewerEntityHandle scene,
                                             float ax,
                                             float ay,
                                             float bx,
@@ -752,6 +764,8 @@ ViewerEntityHandle create_texture2d(const uint8_t *content,
                                     uint32_t width,
                                     uint32_t height,
                                     TextureFormat format);
+
+Texture2dMetaInfo get_texture2d_info(ViewerEntityHandle handle);
 
 void update_texture2d_content(ViewerEntityHandle handle,
                               const uint8_t *content,
@@ -796,6 +810,8 @@ void drop_occ_material(ViewerEntityHandle handle);
 void occ_material_set_diffuse(ViewerEntityHandle mat, const float (*color)[4]);
 
 void occ_material_set_specular(ViewerEntityHandle mat, const float (*color)[3]);
+
+void occ_material_set_back_diffuse(ViewerEntityHandle mat, const float (*color)[4]);
 
 void occ_material_set_shininess(ViewerEntityHandle mat, float shininess);
 
@@ -858,6 +874,8 @@ void scene_model_set_occ_style_view_dep(ViewerEntityHandle handle,
 void scene_model_remove_occ_style_view_dep(ViewerEntityHandle handle);
 
 void scene_model_set_z_layer(ViewerEntityHandle handle, OccFlavorZLayer z_layer);
+
+void scene_model_set_scene_model_is_infinity(ViewerEntityHandle handle, bool is_infinity);
 
 void scene_model_set_priority(ViewerEntityHandle handle, uint32_t priority);
 
@@ -955,8 +973,10 @@ void clipping_plane_set_scene(ViewerEntityHandle handle, const ViewerEntityHandl
 
 void attribute_mesh_set_is_solid(ViewerEntityHandle handle, bool is_solid);
 
-/// call this to setup panic message writer when panic happens
-void rendiation_init();
+/// This must be called before any other rendiation c api
+///
+/// if trace_write_path is null_ptr, then the api tracing will be disabled
+void rendiation_init(const char *trace_write_path);
 
 }  // extern "C"
 

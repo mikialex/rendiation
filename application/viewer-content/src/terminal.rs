@@ -55,7 +55,7 @@ impl MessageStoreNoSendSync {
 }
 
 pub struct TerminalTaskObject<T: TerminalTask> {
-  phantom: std::marker::PhantomData<T>,
+  pub input: T,
   sender: futures::channel::oneshot::Sender<T::Result>,
 }
 
@@ -73,12 +73,16 @@ impl TerminalTaskStore {
 }
 
 impl TerminalCtx {
-  pub fn spawn_event_task<R: TerminalTask>(&self) -> impl Future<Output = Option<R::Result>> {
+  pub fn spawn_event_task<R: TerminalTask>(
+    &self,
+    input: R,
+  ) -> impl Future<Output = Option<R::Result>> {
     let (s, r) = futures::channel::oneshot::channel();
-    self.store.store.write().put(TerminalTaskObject::<R> {
-      phantom: std::marker::PhantomData,
-      sender: s,
-    });
+    self
+      .store
+      .store
+      .write()
+      .put(TerminalTaskObject::<R> { input, sender: s });
     r.map(|v| v.ok())
   }
 
@@ -121,7 +125,7 @@ type TerminalCommandCb =
   Box<dyn Fn(&mut TerminalInitExecuteCx, &Vec<String>) -> Pin<Box<dyn Future<Output = ()>>>>;
 
 pub struct TerminalInitExecuteCx<'a> {
-  pub scene: &'a ViewerSurfaceContent,
+  pub surface_content: &'a ViewerSurfaceContent,
   pub renderer: &'a mut Viewer3dRenderingCtx,
   pub dyn_cx: &'a mut DynCx,
 }

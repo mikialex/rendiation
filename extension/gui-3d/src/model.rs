@@ -17,7 +17,11 @@ pub struct UiWidgetModelResponse {
 }
 
 impl UIWidgetModel {
-  pub fn new(v: &mut SceneWriter, shape: AttributesMeshData) -> Self {
+  pub fn new(
+    v: &mut SceneWriter,
+    target_scene: EntityHandle<SceneEntity>,
+    shape: AttributesMeshData,
+  ) -> Self {
     let material = v.unlit_mat_writer.new_entity(|w| w);
     let mesh = v.write_attribute_mesh(shape.build());
     let model = StandardModelDataView {
@@ -29,7 +33,7 @@ impl UIWidgetModel {
     let node = v.node_writer.new_entity(|w| w);
     let scene_model = SceneModelDataView {
       model,
-      scene: v.expect_target_scene(),
+      scene: target_scene,
       node,
     }
     .write(&mut v.model_writer);

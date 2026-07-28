@@ -24,6 +24,38 @@ pub extern "C" fn create_texture2d(
     .into()
 }
 
+#[repr(C)]
+pub struct Texture2dMetaInfo {
+  pub width: u32,
+  pub height: u32,
+  pub byte_len: u32,
+  pub format: TextureFormat,
+}
+
+#[no_mangle]
+pub extern "C" fn get_texture2d_info(handle: ViewerEntityHandle) -> Texture2dMetaInfo {
+  let mut r = Texture2dMetaInfo {
+    width: 0,
+    height: 0,
+    byte_len: 0,
+    format: TextureFormat::Rgba8UnormSrgb,
+  };
+
+  if let Some(Some(t)) =
+    read_global_db_component::<SceneTexture2dEntityDirectContent>().get(handle.into())
+  {
+    if let Some(t) = t.as_living() {
+      let (width, height) = t.size.into_u32();
+      r.width = width;
+      r.height = height;
+      r.byte_len = t.data.len() as u32;
+      r.format = t.format;
+    }
+  }
+
+  r
+}
+
 #[no_mangle]
 pub extern "C" fn update_texture2d_content(
   handle: ViewerEntityHandle,

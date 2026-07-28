@@ -130,7 +130,7 @@ impl<T: Std430> ShaderHashProvider for DeviceMaterializeResult<T> {
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> ComputeComponentIO<T> for DeviceMaterializeResult<T> {
-  fn materialize_storage_buffer_into(
+  fn use_materialize_storage_buffer_into(
     &self,
     _target: StorageBufferDataView<[T]>,
     _cx: &mut DeviceParallelComputeCtx,
@@ -249,7 +249,7 @@ where
   }
 }
 
-pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
+pub fn use_custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
   source: &(impl ComputeComponentIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
   write_position_mapper: impl Fn(Node<u32>) -> (Node<u32>, Node<bool>) + 'static,
@@ -265,7 +265,7 @@ pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
     result_write_idx_hasher,
   };
 
-  let size = write.dispatch_compute(cx);
+  let size = write.use_dispatch_compute(cx);
 
   DeviceMaterializeResult {
     buffer: write.output.into_readonly_view(),
@@ -278,12 +278,12 @@ impl ShaderHashProvider for LinearWriterHash {
   shader_hash_type_id! {}
 }
 
-pub fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
+pub fn use_and_do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
   source: &(impl ComputeComponentIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
   write_target: StorageBufferDataView<[T]>,
 ) -> DeviceMaterializeResult<T> {
-  custom_write_into_storage_buffer(
+  use_custom_write_into_storage_buffer(
     source,
     cx,
     |x| (x, val(true)),

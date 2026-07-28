@@ -148,7 +148,7 @@ fn join_change<K1: Clone, K2: Clone, V1: Clone, V2: Clone>(
   r.into()
 }
 
-// --- join_change branch coverage ---
+// join_change branch coverage
 
 #[test]
 fn test_union_value_change_delta_delta() {

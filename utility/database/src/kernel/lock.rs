@@ -1,31 +1,31 @@
 use crate::*;
 
-pub struct EntityComponentGroupExclusiveLock {
-  _locks: EntityWriterUntyped,
+pub struct TableExclusiveLock {
+  _locks: TableWriterUntyped,
 }
-pub struct EntityComponentGroupShareLock {
-  _locks: EntityReaderUntyped,
+pub struct TableShareLock {
+  _locks: TableReaderUntyped,
 }
 
 impl ArcTable {
-  pub fn lock_exclusive(&self) -> EntityComponentGroupExclusiveLock {
-    EntityComponentGroupExclusiveLock {
+  pub fn lock_exclusive(&self) -> TableExclusiveLock {
+    TableExclusiveLock {
       _locks: self.entity_writer_dyn(),
     }
   }
-  pub fn lock_shared(&self) -> EntityComponentGroupShareLock {
-    EntityComponentGroupShareLock {
+  pub fn lock_shared(&self) -> TableShareLock {
+    TableShareLock {
       _locks: self.entity_reader_dyn(),
     }
   }
 }
 
 pub struct DatabaseExclusiveLock {
-  _locks: Vec<EntityComponentGroupExclusiveLock>,
+  _locks: Vec<TableExclusiveLock>,
 }
 
 pub struct DatabaseShareLock {
-  _locks: Vec<EntityComponentGroupShareLock>,
+  _locks: Vec<TableShareLock>,
 }
 
 impl Database {

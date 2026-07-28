@@ -51,14 +51,14 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
   );
 
   if let ViewerCxStage::Gui {
-    egui_ctx: ui,
+    egui_ui: ui,
     global,
     ..
   } = &mut cx.stage
   {
     let viewer = &mut cx.viewer;
 
-    egui::TopBottomPanel::top("view top menu").show(ui, |ui| {
+    egui::Panel::top("view top menu").show_inside(ui, |ui| {
       ui.horizontal_wrapped(|ui| {
         egui::widgets::global_theme_preference_switch(ui);
         ui.separator();
@@ -133,9 +133,9 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           viewer.rendering_root.notify_change();
         }
 
-        cx.active_surface_content
-          .background
-          .egui(ui, cx.active_surface_content.scene);
+        cx.default_scene
+          .background_state
+          .egui(ui, cx.default_scene.scene);
 
         ui.separator();
 
@@ -227,15 +227,15 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
       });
 
     if ui_state.show_terminal {
-      egui::TopBottomPanel::bottom("view bottom terminal")
+      egui::Panel::bottom("view bottom terminal")
         .resizable(true)
-        .show(ui, |ui| {
+        .show_inside(ui, |ui| {
           console.egui(ui, &mut viewer.terminal);
         });
     }
     viewer.terminal.tick_execute(
       &mut TerminalInitExecuteCx {
-        scene: &cx.active_surface_content,
+        surface_content: &cx.active_surface_content,
         renderer: &mut viewer.rendering,
         dyn_cx: cx.dyn_cx,
       },
@@ -249,11 +249,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         .open(&mut ui_state.object_inspection)
         .vscroll(true)
         .show(ui, |ui| {
-          inspect_selected(
-            ui,
-            &mut cx.viewer.selection,
-            cx.active_surface_content.scene,
-          );
+          inspect_selected(ui, &mut cx.viewer.selection);
           Some(())
         });
     }
@@ -280,7 +276,7 @@ pub fn modify_color(ui: &mut egui::Ui, c: &mut Vec3<f32>) {
 
 pub fn modify_color_like_com<C: ComponentSemantic<Data = Vec3<f32>>>(
   ui: &mut egui::Ui,
-  writer: &mut EntityWriter<C::Entity>,
+  writer: &mut TableWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
 ) {
   let mut color = writer.read::<C>(id);
@@ -290,7 +286,7 @@ pub fn modify_color_like_com<C: ComponentSemantic<Data = Vec3<f32>>>(
 
 pub fn modify_normalized_value_like_com<C: ComponentSemantic<Data = f32>>(
   ui: &mut egui::Ui,
-  writer: &mut EntityWriter<C::Entity>,
+  writer: &mut TableWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
 ) {
   modify_ranged_value_like_slider_com::<C>(ui, writer, id, 0.0..=1.0);
@@ -298,7 +294,7 @@ pub fn modify_normalized_value_like_com<C: ComponentSemantic<Data = f32>>(
 
 pub fn modify_ranged_value_like_slider_com<C: ComponentSemantic<Data = f32>>(
   ui: &mut egui::Ui,
-  writer: &mut EntityWriter<C::Entity>,
+  writer: &mut TableWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
   range: std::ops::RangeInclusive<f32>,
 ) {
@@ -311,7 +307,7 @@ pub fn modify_ranged_value_like_slider_com<C: ComponentSemantic<Data = f32>>(
 
 pub fn modify_bool_com<C: ComponentSemantic<Data = bool>>(
   ui: &mut egui::Ui,
-  writer: &mut EntityWriter<C::Entity>,
+  writer: &mut TableWriter<C::Entity>,
   id: EntityHandle<C::Entity>,
   label: &str,
 ) {
@@ -323,7 +319,7 @@ pub fn modify_bool_com<C: ComponentSemantic<Data = bool>>(
 }
 
 pub fn show_entity_label<E: EntitySemantic>(
-  writer: &EntityWriter<E>,
+  writer: &TableWriter<E>,
   target: EntityHandle<E>,
   ui: &mut egui::Ui,
 ) {

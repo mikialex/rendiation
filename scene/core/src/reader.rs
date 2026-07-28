@@ -3,28 +3,26 @@ use rendiation_texture_core::GPUBufferImage;
 use crate::*;
 
 pub struct SceneReader {
-  pub scene_id: EntityHandle<SceneEntity>,
   pub scene_ref_models: RevRefOfForeignKey<SceneModelBelongsToScene>,
 
   pub mesh: AttributesMeshReader,
 
-  pub node_reader: EntityReader<SceneNodeEntity>,
+  pub node_reader: TableReader<SceneNodeEntity>,
   pub node_children:
     BoxedDynMultiQuery<EntityHandle<SceneNodeEntity>, EntityHandle<SceneNodeEntity>>,
-  pub camera: EntityReader<SceneCameraEntity>,
-  pub scene_model: EntityReader<SceneModelEntity>,
-  pub std_model: EntityReader<StandardModelEntity>,
-  pub sampler: EntityReader<SceneSamplerEntity>,
-  pub texture: EntityReader<SceneTexture2dEntity>,
+  pub camera: TableReader<SceneCameraEntity>,
+  pub scene_model: TableReader<SceneModelEntity>,
+  pub std_model: TableReader<StandardModelEntity>,
+  pub sampler: TableReader<SceneSamplerEntity>,
+  pub texture: TableReader<SceneTexture2dEntity>,
 
-  pub pbr_mr: EntityReader<PbrMRMaterialEntity>,
-  pub pbr_sg: EntityReader<PbrSGMaterialEntity>,
-  pub unlit: EntityReader<UnlitMaterialEntity>,
+  pub pbr_mr: TableReader<PbrMRMaterialEntity>,
+  pub pbr_sg: TableReader<PbrSGMaterialEntity>,
+  pub unlit: TableReader<UnlitMaterialEntity>,
 }
 
 impl SceneReader {
   pub fn new_from_global(
-    scene_id: EntityHandle<SceneEntity>,
     mesh_ref_vertex: RevRefOfForeignKey<
       AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity,
     >,
@@ -32,7 +30,6 @@ impl SceneReader {
     scene_ref_models: RevRefOfForeignKey<SceneModelBelongsToScene>,
   ) -> Self {
     Self {
-      scene_id,
       scene_ref_models,
       mesh: AttributesMeshReader::new_from_global(mesh_ref_vertex),
       node_reader: global_entity_of().entity_reader(),
@@ -48,15 +45,20 @@ impl SceneReader {
     }
   }
 
-  pub fn scene_models(&self) -> impl Iterator<Item = EntityHandle<SceneModelEntity>> + '_ {
-    self.scene_ref_models.access_multi(&self.scene_id).unwrap()
+  pub fn scene_models<'a>(
+    &'a self,
+    scene_id: &'a EntityHandle<SceneEntity>,
+  ) -> impl Iterator<Item = EntityHandle<SceneModelEntity>> + 'a {
+    self.scene_ref_models.access_multi(scene_id).unwrap()
   }
-  pub fn std_models(
-    &self,
-  ) -> impl Iterator<Item = (EntityHandle<SceneModelEntity>, SceneModelDataView)> + '_ {
+
+  pub fn std_models<'a>(
+    &'a self,
+    scene_id: &'a EntityHandle<SceneEntity>,
+  ) -> impl Iterator<Item = (EntityHandle<SceneModelEntity>, SceneModelDataView)> + 'a {
     self
       .scene_ref_models
-      .access_multi(&self.scene_id)
+      .access_multi(scene_id)
       .unwrap()
       .filter_map(|id| self.try_read_scene_model(id).map(|r| (id, r)))
   }

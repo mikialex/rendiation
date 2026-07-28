@@ -1,11 +1,7 @@
 use crate::{viewer::feature::egui_view::db_view::EGUIDataView, *};
 
-pub fn inspect_selected(
-  ui: &mut egui::Ui,
-  selection: &mut ViewerSelectionStates,
-  scene: EntityHandle<SceneEntity>,
-) -> Option<()> {
-  let mut scene_writer = SceneWriter::from_global(scene);
+pub fn inspect_selected(ui: &mut egui::Ui, selection: &mut ViewerSelectionStates) -> Option<()> {
+  let mut scene_writer = SceneWriter::from_global();
   if let Some(target) = selection.selected_model.if_single() {
     ui.label(format!("SceneModel id: {:?}", target.into_raw()));
     show_entity_label(&scene_writer.model_writer, target, ui);

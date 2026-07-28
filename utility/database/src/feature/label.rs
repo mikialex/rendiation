@@ -54,6 +54,7 @@ impl Table {
       data: Box::new(data),
       allocator: self.allocator.clone(),
       data_watchers: Default::default(),
+      binary_to_debug_string: create_binary_to_debug_string::<String>(),
     };
 
     self.declare_component_dyn(semantic, com);

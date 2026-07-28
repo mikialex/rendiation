@@ -176,9 +176,6 @@ pub enum ShaderNodeExpr {
     field_index: usize,
     target: ShaderNodeRawHandle,
   },
-  Const {
-    data: PrimitiveShaderValue,
-  },
   RayQueryProceed {
     ray_query: ShaderNodeRawHandle,
   },
@@ -242,9 +239,14 @@ pub enum AtomicFunction {
 #[must_use]
 pub fn val<T>(v: T) -> Node<T>
 where
-  T: PrimitiveShaderNodeType,
+  T: ShaderSizedValueNodeType,
 {
-  v.into()
+  call_shader_api(|api| unsafe {
+    let init_value = v.to_value();
+    api
+      .define_const(init_value, T::sized_ty(), true)
+      .into_node()
+  })
 }
 
 #[must_use]
@@ -256,6 +258,19 @@ where
     target: T::sized_ty(),
   }
   .insert_api()
+}
+
+#[must_use]
+pub fn global_const_val<T>(val: T) -> Node<T>
+where
+  T: ShaderSizedValueNodeType,
+{
+  call_shader_api(|api| unsafe {
+    let init_value = val.to_value();
+    api
+      .define_const(init_value, T::sized_ty(), false)
+      .into_node()
+  })
 }
 
 /// # Safety

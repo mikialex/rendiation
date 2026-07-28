@@ -147,9 +147,13 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         default_shader_checks: ShaderRuntimeChecks {
           bounds_checks: self.config.checks.bounds_checks,
           force_loop_bounding: self.config.checks.force_loop_bounding,
+          ray_query_initialization_tracking: true,
+          task_shader_dispatch_tracking: true,
+          mesh_shader_primitive_indices_clamp: true,
         },
         enable_backend_validation: self.config.enable_backend_validation,
         dx_compiler_dll_path: self.config.dx_compiler_dll_path.clone(),
+        display: Some(Box::new(event_loop.owned_display_handle())),
         ..Default::default()
       };
 
@@ -224,7 +228,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
           WindowEvent::RedrawRequested => {
             // when window resize to zero, the surface will be outdated.
             // but when should we deal with the surface lost case?
-            if let Ok((output, canvas)) =
+            if let Some((output, canvas)) =
               surface.get_current_frame_with_render_target_view(&gpu.device)
             {
               let mut cx = DynCx::default();

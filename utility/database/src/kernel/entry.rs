@@ -1,14 +1,33 @@
 use crate::*;
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Database {
   pub tables: Arc<RwLock<FastHashMap<EntityId, ArcTable>>>,
-  pub(crate) entity_meta_watcher: EventSource<ArcTable>,
+  pub entity_meta_watcher: EventSource<ArcTable>,
   pub name_mapping: Arc<RwLock<DBNameMapping>>,
+  pub(crate) enable_internal_validation: bool,
+}
+
+impl Default for Database {
+  fn default() -> Self {
+    Database {
+      tables: Default::default(),
+      entity_meta_watcher: Default::default(),
+      name_mapping: Default::default(),
+      enable_internal_validation: cfg!(debug_assertions),
+    }
+  }
 }
 
 impl Database {
-  pub fn declare_entity<E: EntitySemantic>(&self) -> EntityComponentGroupTyped<E> {
+  pub fn new(enable_internal_validation: bool) -> Self {
+    Database {
+      enable_internal_validation,
+      ..Default::default()
+    }
+  }
+
+  pub fn declare_entity<E: EntitySemantic>(&self) -> TypedArcTable<E> {
     self
       .declare_entity_dyn(E::entity_id(), E::unique_name().to_string())
       .into_typed()
@@ -18,7 +37,12 @@ impl Database {
   pub fn declare_entity_dyn(&self, e_id: EntityId, name: String) -> ArcTable {
     let mut tables = self.tables.write();
     self.name_mapping.write().insert_entity(e_id, name.clone());
-    let table = ArcTable::new(e_id, name, self.name_mapping.clone());
+    let table = ArcTable::new(
+      e_id,
+      name,
+      self.name_mapping.clone(),
+      self.enable_internal_validation,
+    );
     self.entity_meta_watcher.emit(&table);
     let previous = tables.insert(e_id, table.clone());
     assert!(previous.is_none());
@@ -31,10 +55,7 @@ impl Database {
     f(table)
   }
 
-  pub fn access_table<E: EntitySemantic, R>(
-    &self,
-    f: impl FnOnce(&EntityComponentGroupTyped<E>) -> R,
-  ) -> R {
+  pub fn access_table<E: EntitySemantic, R>(&self, f: impl FnOnce(&TypedArcTable<E>) -> R) -> R {
     self.access_table_dyn(E::entity_id(), |c| f(&c.clone().into_typed().unwrap()))
   }
 
@@ -48,47 +69,14 @@ impl Database {
     self.access_table::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.write()))
   }
 
-  pub fn entity_writer<E: EntitySemantic>(&self) -> EntityWriter<E> {
+  pub fn entity_writer<E: EntitySemantic>(&self) -> TableWriter<E> {
     self.access_table::<E, _>(|e| e.entity_writer())
   }
-  pub fn entity_writer_untyped<E: EntitySemantic>(&self) -> EntityWriterUntyped {
+  pub fn entity_writer_untyped<E: EntitySemantic>(&self) -> TableWriterUntyped {
     self.access_table::<E, _>(|e| e.entity_writer().into_untyped())
   }
-  pub fn entity_writer_untyped_dyn(&self, e_id: EntityId) -> EntityWriterUntyped {
+  pub fn entity_writer_untyped_dyn(&self, e_id: EntityId) -> TableWriterUntyped {
     self.access_table_dyn(e_id, |e| e.entity_writer_dyn())
-  }
-
-  pub fn debug_check_reference_integrity(&self) {
-    // todo, we should hold all lock first to avoid concurrent mutation;
-    let tables = self.tables.read();
-    for (_, table) in tables.iter() {
-      let table_ = &table.internal;
-      let fk = table_.foreign_keys.read();
-      for (c_id, e_id) in fk.iter() {
-        let target_table = &tables.get(e_id).unwrap().internal;
-        let target_table_allocator = target_table.allocator.read();
-        table.access_component(*c_id, |com| {
-          com.read_untyped();
-          let view = IterableComponentReadView::<Option<RawEntityHandle>> {
-            table: table.clone(),
-            read_view: com.read_untyped(),
-            phantom: PhantomData,
-          };
-
-          for (idx, v) in view.iter_key_value() {
-            if let Some(v) = v {
-              if target_table_allocator.get(v.0).is_none() {
-                let handle = table_.allocator.read().get_handle(idx as usize).unwrap();
-                panic!(
-                  "broken reference, {} entity {} reference not exist handle {}, {}",
-                  table_.short_name, handle, target_table.short_name, v
-                );
-              }
-            }
-          }
-        });
-      }
-    }
   }
 }
 

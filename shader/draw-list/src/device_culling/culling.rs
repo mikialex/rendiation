@@ -57,7 +57,7 @@ struct SceneModelCullingInvocation {
 impl DeviceInvocation<Node<bool>> for SceneModelCullingInvocation {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<bool>, Node<bool>) {
     let (id, valid) = self.input.invocation_logic(logic_global_id);
-    let r = val(true).make_local_var();
+    let r = val(false).make_local_var();
     if_by(valid, || r.store(self.culler.cull(id).not()));
     (r.load(), valid)
   }

@@ -26,6 +26,11 @@ pub extern "C" fn occ_material_set_specular(mat: ViewerEntityHandle, color: &[f3
 }
 
 #[no_mangle]
+pub extern "C" fn occ_material_set_back_diffuse(mat: ViewerEntityHandle, color: &[f32; 4]) {
+  write_global_db_component::<OccStyleMaterialDiffuseBackFace>().write(mat.into(), (*color).into());
+}
+
+#[no_mangle]
 pub extern "C" fn occ_material_set_shininess(mat: ViewerEntityHandle, shininess: f32) {
   write_global_db_component::<OccStyleMaterialShininess>().write(mat.into(), shininess);
 }
@@ -91,7 +96,7 @@ pub extern "C" fn occ_effect_control_set_state(
 ) {
   let state = RasterizationStates {
     depth_compare: if simple_config.enable_depth_test {
-      SemanticCompareFunction::Nearer
+      SemanticCompareFunction::NearerEqual
     } else {
       SemanticCompareFunction::Always
     },

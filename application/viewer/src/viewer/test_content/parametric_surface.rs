@@ -4,7 +4,7 @@ use rendiation_parametric_rendering::surface::*;
 
 use crate::*;
 
-pub fn load_parametric_surface_test(writer: &mut SceneWriter) {
+pub fn load_parametric_surface_test(writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
   // Build a degree-3 NURBS surface with a 6×6 control net.
   // Interior knots at 1/3 and 2/3 produce a 3×3 Bézier decomposition.
   let nurbs = {
@@ -32,7 +32,7 @@ pub fn load_parametric_surface_test(writer: &mut SceneWriter) {
 
   let patches: Vec<Vec<RationalBezierSurface<f32>>> = nurbs.to_bezier_patches();
 
-  // --- Left side: Bézier decomposition — all patches at the same position ---
+  // Left side: Bézier decomposition — all patches at the same position
   // Each patch's ParametricSurface impl evaluates to its correct sub-region
   // of the NURBS surface, so they naturally form a continuous surface.
   {
@@ -70,12 +70,12 @@ pub fn load_parametric_surface_test(writer: &mut SceneWriter) {
 
         // All patches at identity relative to root — they join seamlessly
         let child = writer.create_child(root);
-        writer.create_scene_model(material, mesh, child);
+        writer.create_scene_model(material, mesh, child, scene);
       }
     }
   }
 
-  // --- Right side: the full NURBS surface for comparison ---
+  // Right side: the full NURBS surface for comparison
   {
     let mesh = build_attributes_mesh(|builder| {
       builder.triangulate_parametric(&nurbs, TessellationConfig { u: 48, v: 48 }, true);
@@ -92,6 +92,6 @@ pub fn load_parametric_surface_test(writer: &mut SceneWriter) {
 
     let child = writer.create_root_child();
     writer.set_local_matrix(child, Mat4::translate((-2.5, 0., 1.5)).into_f64());
-    writer.create_scene_model(material, mesh, child);
+    writer.create_scene_model(material, mesh, child, scene);
   }
 }
