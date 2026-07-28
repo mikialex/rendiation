@@ -109,6 +109,11 @@ impl<K: CKey + LinearIdentified, V: CValue> MultiQuery for DenseIndexMapping<K, 
   }
 }
 
+// todo, the input changes may contains such case:
+// the k in changes is unique, but there alloc_index is not, (different raw entity handle that has same index)
+// so it's possible that we get a same index double insert first then removal.
+//
+// the current impl **seems** support such case, but should be tested further.
 pub fn bookkeeping_dense_index_relation<K: CKey + LinearIdentified, V: CKey + LinearIdentified>(
   mapping: &mut DenseIndexMapping<V, K>,
   changes: impl Query<Key = K, Value = ValueChange<V>>,
