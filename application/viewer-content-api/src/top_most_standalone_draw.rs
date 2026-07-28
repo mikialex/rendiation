@@ -52,7 +52,7 @@ impl TopMostStandaloneDraw {
 
     let mut top_most_scene_content = renderer
       .raster_scene_renderer
-      .make_scene_batch_pass_content(batch, &main_camera_gpu, pass_dispatcher, ctx);
+      .use_make_scene_batch_pass_content(batch, &main_camera_gpu, pass_dispatcher, ctx);
 
     // should we consider msaa config?
     let top_most_result = attachment().request(ctx);

@@ -54,12 +54,12 @@ impl GraphicsShaderProvider for DefaultPassDispatcher {
         .depth_stencil_formats
         .map(|format| DepthStencilState {
           format,
-          depth_write_enabled: true,
-          depth_compare: if self.reversed_depth {
+          depth_write_enabled: Some(true),
+          depth_compare: Some(if self.reversed_depth {
             CompareFunction::GreaterEqual
           } else {
             CompareFunction::LessEqual
-          },
+          }),
           stencil: Default::default(),
           bias: Default::default(),
         });

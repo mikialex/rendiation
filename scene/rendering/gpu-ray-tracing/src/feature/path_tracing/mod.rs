@@ -27,6 +27,7 @@ mod frame_state;
 use frame_state::*;
 
 pub fn use_rtx_pt_sbt(cx: &mut QueryGPUHookCx, rtx: &RtxSystemCore) -> Option<(GPUSbt, bool)> {
+  cx.next_scope_index();
   let (cx, sbt) = cx.use_plain_state(|| {
     let handles = PathTracingShaderHandles::default();
     let mut sbt = rtx

@@ -2,27 +2,7 @@ use rendiation_webgpu_midc_downgrade::*;
 
 use crate::*;
 
-/// if the T using VertexInstanceIndex as draw id, this function can be used
-pub fn into_maybe_downgrade_batch_assume_standard_midc_style<T: IndirectDrawProvider + 'static>(
-  batch: T,
-  cx: &mut DeviceParallelComputeCtx,
-  enable_midc_downgrade: bool,
-) -> Box<dyn IndirectDrawProvider> {
-  if enable_midc_downgrade {
-    let (helper, cmd) = rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count(
-      batch.draw_command(),
-      cx,
-    );
-    Box::new(MIDCDowngradeBatch {
-      helper,
-      cmd,
-      internal: batch,
-    })
-  } else {
-    Box::new(batch)
-  }
-}
-
+/// assuming T using VertexInstanceIndex as draw id
 pub struct MIDCDowngradeBatch<T> {
   pub helper: DowngradeMultiIndirectDrawCountHelper,
   pub cmd: DrawCommand,

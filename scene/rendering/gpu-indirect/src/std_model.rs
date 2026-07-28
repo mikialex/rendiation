@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use crate::*;
 
-pub trait IndirectModelRenderImpl {
+pub trait IndirectModelRenderImpl: IndirectDrawProviderCreator + DrawCommandBuilderCreator {
   fn hash_shader_group_key(
     &self,
     any_id: EntityHandle<SceneModelEntity>,
@@ -37,22 +39,83 @@ pub trait IndirectModelRenderImpl {
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>>;
 
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>>;
-
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<DrawCommandBuilder>;
-
   fn material_renderable_indirect<'a>(
     &'a self,
     any_idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>>;
+}
+
+impl IndirectDrawProviderCreator for Vec<Box<dyn IndirectModelRenderImpl>> {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    for provider in self {
+      if let Some(v) = provider.get_impl_distinguish_key_by_impl_select_id(id) {
+        return Some(v);
+      }
+    }
+    None
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    cx.next_scope_index();
+    for (i, provider) in self.iter().enumerate() {
+      if let Some(v) = cx.keyed_scope(&i, |cx| {
+        provider.use_create_or_update_indirect_draw_providers(
+          cx,
+          list,
+          dispatch_info_device_offset_compacted,
+          id,
+        )
+      }) {
+        return Some(v);
+      }
+    }
+    None
+  }
+}
+
+impl DrawCommandBuilderCreator for Vec<Box<dyn IndirectModelRenderImpl>> {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    for provider in self {
+      if let Some(v) = provider.make_draw_command_builder(id) {
+        return Some(v);
+      }
+    }
+    None
+  }
+}
+
+impl IndirectDrawProviderCreator for Box<dyn IndirectModelRenderImpl> {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    (**self).get_impl_distinguish_key_by_impl_select_id(id)
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    (**self).use_create_or_update_indirect_draw_providers(
+      cx,
+      list,
+      dispatch_info_device_offset_compacted,
+      id,
+    )
+  }
+}
+
+impl DrawCommandBuilderCreator for Box<dyn IndirectModelRenderImpl> {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    (**self).make_draw_command_builder(id)
+  }
 }
 
 impl IndirectModelRenderImpl for Box<dyn IndirectModelRenderImpl> {
@@ -90,21 +153,6 @@ impl IndirectModelRenderImpl for Box<dyn IndirectModelRenderImpl> {
     (**self).get_index_storage_buffer(any_idx)
   }
 
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>> {
-    (**self).generate_indirect_draw_provider(batch, ctx)
-  }
-
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<DrawCommandBuilder> {
-    (**self).make_draw_command_builder(any_idx)
-  }
-
   fn material_renderable_indirect<'a>(
     &'a self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -114,7 +162,34 @@ impl IndirectModelRenderImpl for Box<dyn IndirectModelRenderImpl> {
   }
 }
 
-impl<T: IndirectModelRenderImpl + 'static> IndirectModelRenderImpl for std::sync::Arc<T> {
+impl<T: IndirectDrawProviderCreator> IndirectDrawProviderCreator for Arc<T> {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    (**self).get_impl_distinguish_key_by_impl_select_id(id)
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    (**self).use_create_or_update_indirect_draw_providers(
+      cx,
+      list,
+      dispatch_info_device_offset_compacted,
+      id,
+    )
+  }
+}
+
+impl<T: DrawCommandBuilderCreator> DrawCommandBuilderCreator for Arc<T> {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    (**self).make_draw_command_builder(id)
+  }
+}
+
+impl<T: IndirectModelRenderImpl + 'static> IndirectModelRenderImpl for Arc<T> {
   fn hash_shader_group_key(
     &self,
     any_id: EntityHandle<SceneModelEntity>,
@@ -147,21 +222,6 @@ impl<T: IndirectModelRenderImpl + 'static> IndirectModelRenderImpl for std::sync
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
     (**self).get_index_storage_buffer(any_idx)
-  }
-
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>> {
-    (**self).generate_indirect_draw_provider(batch, ctx)
-  }
-
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<DrawCommandBuilder> {
-    (**self).make_draw_command_builder(any_idx)
   }
 
   fn material_renderable_indirect<'a>(
@@ -227,34 +287,6 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
     None
   }
 
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<DrawCommandBuilder> {
-    for provider in self {
-      if let Some(v) = provider.make_draw_command_builder(any_idx) {
-        return Some(v);
-      }
-    }
-    None
-  }
-
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>> {
-    ctx.next_key_scope_root();
-    for (i, provider) in self.iter().enumerate() {
-      if let Some(v) = ctx.keyed_scope(&i, |ctx| {
-        provider.generate_indirect_draw_provider(batch, ctx)
-      }) {
-        return Some(v);
-      }
-    }
-    None
-  }
-
   fn material_renderable_indirect<'a>(
     &'a self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -314,6 +346,41 @@ pub struct SceneStdModelIndirectRenderer {
   materials: Box<dyn IndirectModelMaterialRenderImpl>,
   shapes: Box<dyn IndirectModelShapeRenderImpl>,
   states: StateOverrides,
+}
+
+impl IndirectDrawProviderCreator for SceneStdModelIndirectRenderer {
+  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    let model = self.model.get(id)?;
+    self
+      .shapes
+      .get_impl_distinguish_key_by_impl_select_id(model.into_raw())
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
+    id: RawEntityHandle,
+  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    let model = self.model.get(id)?;
+    self.shapes.use_create_or_update_indirect_draw_providers(
+      cx,
+      list,
+      dispatch_info_device_offset_compacted,
+      model.into_raw(),
+    )
+  }
+}
+
+impl DrawCommandBuilderCreator for SceneStdModelIndirectRenderer {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    let id = unsafe { EntityHandle::from_raw(id) };
+    let model = self.model.get(id)?;
+    self.shapes.make_draw_command_builder(model.into_raw())
+  }
 }
 
 impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
@@ -396,14 +463,6 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
     self.shapes.make_component_indirect(model)
   }
 
-  fn make_draw_command_builder(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<DrawCommandBuilder> {
-    let model = self.model.get(any_idx)?;
-    self.shapes.make_draw_command_builder(model)
-  }
-
   fn material_renderable_indirect<'a>(
     &'a self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -411,17 +470,6 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let model = self.model.get(any_idx)?;
     self.materials.make_component_indirect(model, cx)
-  }
-
-  fn generate_indirect_draw_provider(
-    &self,
-    batch: &DeviceSceneModelRenderSubBatch,
-    ctx: &mut FrameCtx,
-  ) -> Option<Box<dyn IndirectDrawProvider>> {
-    let model_id = self.model.get(batch.impl_select_id)?;
-    self
-      .shapes
-      .generate_indirect_draw_provider(batch, model_id, ctx)
   }
 
   fn get_index_storage_buffer(

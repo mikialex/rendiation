@@ -14,7 +14,10 @@ impl IndirectSceneRenderer {
       .values()
       .filter_map(|list| {
         let (one_id, first_cmd, draw_cmd_builder) = list.iter().find_map(|id| {
-          let draw_cmd_builder = self.renderer.make_draw_command_builder(*id).unwrap();
+          let draw_cmd_builder = self
+            .renderer
+            .make_draw_command_builder(id.into_raw())
+            .unwrap();
           let first_cmd = draw_cmd_builder.draw_command_host_access(*id);
           first_cmd.map(|c| (id, c, draw_cmd_builder))
         })?;

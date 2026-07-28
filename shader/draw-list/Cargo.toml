@@ -1,0 +1,17 @@
+[package]
+authors = ["mikialex <miikiialexx@gmail.com>"]
+edition = "2021"
+name = "rendiation-device-draw-list"
+version = "0.1.0"
+
+[dependencies]
+dyn-clone = { workspace = true }
+rendiation-shader-api = { path = "../api" }
+rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+rendiation-device-parallel-compute = { path = "../parallel-compute" }
+rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
+
+pollster = { workspace = true } # used in examples
+
+[lints]
+workspace = true

@@ -12,7 +12,7 @@ pub struct EguiContext {
   renderer: Option<(egui_wgpu::Renderer, TextureFormat)>,
 }
 
-pub fn use_egui_cx(cx: &mut ApplicationCx, f: impl Fn(&mut ApplicationCx, &mut egui::Context)) {
+pub fn use_egui_cx(cx: &mut ApplicationCx, f: impl Fn(&mut ApplicationCx, &mut egui::Ui)) {
   let (cx, egui_cx) = cx.use_plain_state_default::<EguiContext>();
 
   let state = egui_cx.state.get_or_insert_with(|| {
@@ -28,7 +28,17 @@ pub fn use_egui_cx(cx: &mut ApplicationCx, f: impl Fn(&mut ApplicationCx, &mut e
 
   egui_cx.begin_frame(cx.window);
 
-  f(cx, &mut egui_cx.context);
+  let viewport_id = egui_cx.context.viewport_id();
+  let content_rect = egui_cx.context.content_rect();
+  let mut root_ui = egui::Ui::new(
+    egui_cx.context.clone(),
+    egui::Id::new((viewport_id, "root")),
+    egui::UiBuilder::new()
+      .layer_id(egui::LayerId::background())
+      .max_rect(content_rect),
+  );
+
+  f(cx, &mut root_ui);
 
   egui_cx.end_frame_and_draw(&cx.gpu_and_surface.gpu, cx.window, &cx.draw_target_canvas);
 }

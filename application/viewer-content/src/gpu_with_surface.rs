@@ -19,6 +19,9 @@ impl GPUPlatformConfig {
       default_shader_checks: ShaderRuntimeChecks {
         bounds_checks: self.checks.bounds_checks,
         force_loop_bounding: self.checks.force_loop_bounding,
+        ray_query_initialization_tracking: true,
+        task_shader_dispatch_tracking: true,
+        mesh_shader_primitive_indices_clamp: true,
       },
       enable_backend_validation: self.enable_backend_validation,
       enable_debug_info: self.enable_hal_debug_info,
@@ -90,11 +93,34 @@ impl SurfaceWrapper {
   pub fn get_current_frame_with_render_target_view(
     &self,
     device: &GPUDevice,
-  ) -> Result<(SurfaceTexture, RenderTargetView), SurfaceError> {
+  ) -> Option<(SurfaceTexture, RenderTargetView)> {
     self.surface.write().re_config_if_changed(device);
-    self
+    match self
       .surface
       .write()
       .get_current_frame_with_render_target_view(device)
+    {
+      Ok(r) => match r {
+        SurfaceNext::Occluded => None,
+        SurfaceNext::Timeout => {
+          log::warn!("surface frame target failed to get(timeout)");
+          None
+        }
+        SurfaceNext::Success {
+          raw,
+          target,
+          is_sub_optimal,
+        } => {
+          if is_sub_optimal {
+            log::warn!("surface frame target is suboptimal")
+          }
+          Some((raw, target))
+        }
+      },
+      Err(err) => {
+        log::error!("surface error: {:?}", err);
+        None
+      }
+    }
   }
 }

@@ -65,11 +65,11 @@ pub fn use_stress_test_example(cx: &mut ViewerCx) {
     }
   }
 
-  if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {
+  if let ViewerCxStage::Gui { egui_ui, .. } = &mut cx.stage {
     egui::Window::new("Stress Test")
       .default_size((360., 400.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         ui.checkbox(&mut example.use_unique_material, "use unique material");
         ui.checkbox(&mut example.use_unique_mesh, "use unique mesh");
         ui.checkbox(&mut example.reserve_changes, "reserve changes");

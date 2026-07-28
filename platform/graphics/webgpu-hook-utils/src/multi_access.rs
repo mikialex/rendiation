@@ -24,6 +24,7 @@ pub fn use_multi_access_gpu(
       &label_impl(label),
       init.max_possible_many_count,
       init.init_many_count_capacity,
+      1,
     )
   });
 

@@ -82,7 +82,7 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
   });
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("trace-io").or_insert(false);
@@ -90,7 +90,7 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
     egui::Window::new("Trace IO")
       .open(opened)
       .default_size((500., 400.))
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         ui.collapsing("Convert", |ui| {
           if ui.button("select .bin and convert to .txt").clicked() {
             cx.viewer

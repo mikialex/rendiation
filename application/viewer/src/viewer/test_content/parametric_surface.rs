@@ -32,7 +32,7 @@ pub fn load_parametric_surface_test(writer: &mut SceneWriter, scene: EntityHandl
 
   let patches: Vec<Vec<RationalBezierSurface<f32>>> = nurbs.to_bezier_patches();
 
-  // --- Left side: Bézier decomposition — all patches at the same position ---
+  // Left side: Bézier decomposition — all patches at the same position
   // Each patch's ParametricSurface impl evaluates to its correct sub-region
   // of the NURBS surface, so they naturally form a continuous surface.
   {
@@ -75,7 +75,7 @@ pub fn load_parametric_surface_test(writer: &mut SceneWriter, scene: EntityHandl
     }
   }
 
-  // --- Right side: the full NURBS surface for comparison ---
+  // Right side: the full NURBS surface for comparison
   {
     let mesh = build_attributes_mesh(|builder| {
       builder.triangulate_parametric(&nurbs, TessellationConfig { u: 48, v: 48 }, true);

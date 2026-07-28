@@ -24,11 +24,11 @@ pub fn use_text3d_example(cx: &mut ViewerCx) {
     }
   }
 
-  if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {
+  if let ViewerCxStage::Gui { egui_ui, .. } = &mut cx.stage {
     egui::Window::new("Text3d example")
       .default_size((300., 600.))
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         ui.heading("new text content:");
         text3d_content_edit_ui(ui, &mut example.next_text_to_add);
 

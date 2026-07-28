@@ -38,10 +38,10 @@ pub fn use_texture_material_share_example(cx: &mut ViewerCx) {
     }
   }
 
-  if let ViewerCxStage::Gui { egui_ctx, .. } = &mut cx.stage {
+  if let ViewerCxStage::Gui { egui_ui, .. } = &mut cx.stage {
     egui::Window::new("Texture and Material Share")
       .default_size((400., 100.))
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         ui.heading("Eight Balls Sharing One Texture, Multiple Material Types");
         if ui.button("Replace Shared Texture").clicked() {
           example.replace_texture_pending = true;

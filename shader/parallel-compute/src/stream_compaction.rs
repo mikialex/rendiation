@@ -1,6 +1,6 @@
 use crate::*;
 
-pub fn stream_compaction<T>(
+pub fn use_stream_compaction<T>(
   source: Box<dyn ComputeComponentIO<T>>,
   filter: Box<dyn ComputeComponentIO<bool>>,
   cx: &mut DeviceParallelComputeCtx,
@@ -15,21 +15,28 @@ where
     .max_compute_invocations_per_workgroup;
 
   let write_target_positions = filter
-    .clone()
     .map(|v| v.select(1_u32, 0))
-    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(max_width, max_width, cx);
+    .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(max_width, max_width, cx);
 
   let (_, size) = PrefixSumTailAsSize {
     prefix_sum_result: Box::new(write_target_positions.clone()),
   }
   .compute_work_size(cx);
 
-  let shuffle_moved = source.clone().shuffle_move(
-    write_target_positions
-      .make_global_scan_exclusive::<AdditionMonoid<u32>>()
-      .zip(filter.clone()),
-    cx,
+  // Derive exclusive scan position and keep flag from the inclusive scan.
+  // For each element i: p_i = inclusive[i], p_prev = inclusive[i-1] (or 0 at i=0).
+  // keep ⇔ mask[i]==1 ⇔ p_i != p_prev; exclusive_pos = p_prev (the write target index).
+  // This avoids re-evaluating the filter shader a second time.
+  let p_prev = write_target_positions.clone().offset_access(
+    -1,
+    OutBoundsBehavior::from_const(|| val(0u32)),
+    1,
   );
+  let shuffle_idx = write_target_positions
+    .zip(p_prev)
+    .map(|(p_i, p_prev)| (p_prev, p_i.equals(p_prev).not()));
+
+  let shuffle_moved = source.shuffle_move(shuffle_idx, cx);
 
   DeviceMaterializeResult {
     buffer: shuffle_moved.buffer,
@@ -100,7 +107,7 @@ async fn test_stream_compaction() {
   let mask = input.clone().map(|v| v.equals(1));
 
   input
-    .stream_compaction(mask, cx)
+    .use_stream_compaction(mask, cx)
     .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
     .await
 }
@@ -112,7 +119,7 @@ async fn test_stream_compaction2() {
   let expect = vec![1, 1, 1, 1, 0, 0, 0];
 
   slice_into_compute(&input, cx)
-    .stream_compaction_self_filter(|v| v.equals(1), cx)
+    .use_stream_compaction_self_filter(|v| v.equals(1), cx)
     .run_test_with_size_test(cx, &expect, Some(Vec3::new(4, 0, 0)))
     .await;
 }

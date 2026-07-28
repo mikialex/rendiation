@@ -345,6 +345,15 @@ impl<T: Hasher> PipelineHasher<T> {
     self
   }
 
+  #[allow(unused)]
+  pub fn label_name(&mut self, name: &str) -> &mut Self {
+    #[cfg(feature = "pipeline-label")]
+    {
+      self.debug_label = format!("{} {}", name, self.debug_label);
+    }
+    self
+  }
+
   pub fn hash(&mut self, h: impl Hash + Debug) -> &mut Self {
     h.hash(&mut self.hasher);
     #[cfg(feature = "pipeline-label")]

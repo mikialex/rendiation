@@ -32,7 +32,7 @@ pub fn use_animation_player(cx: &mut ViewerCx) {
   }
 
   if let ViewerCxStage::Gui {
-    egui_ctx, global, ..
+    egui_ui, global, ..
   } = &mut cx.stage
   {
     let opened = global.features.entry("animation").or_insert(false);
@@ -40,7 +40,7 @@ pub fn use_animation_player(cx: &mut ViewerCx) {
     egui::Window::new("Animation")
       .open(opened)
       .vscroll(true)
-      .show(egui_ctx, |ui| {
+      .show(egui_ui, |ui| {
         let animations = get_db_view_typed_foreign::<SceneAnimationBelongsToScene>();
         let animation_name = get_db_view_typed::<LabelOf<SceneAnimationEntity>>();
 

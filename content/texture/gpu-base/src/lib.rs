@@ -15,6 +15,7 @@ pub trait SamplerConvertExt<'a> {
 
 impl<'a> SamplerConvertExt<'a> for rendiation_texture_core::TextureSampler {
   fn into_gpu(self) -> SamplerDescriptor<'a> {
+    use rendiation_texture_core::FilterMode::*;
     SamplerDescriptor {
       label: None,
       address_mode_u: convert_wrap(self.address_mode_u),
@@ -22,7 +23,10 @@ impl<'a> SamplerConvertExt<'a> for rendiation_texture_core::TextureSampler {
       address_mode_w: convert_wrap(self.address_mode_w),
       mag_filter: convert_filter(self.mag_filter),
       min_filter: convert_filter(self.min_filter),
-      mipmap_filter: convert_filter(self.mipmap_filter),
+      mipmap_filter: match self.mipmap_filter {
+        Nearest => rendiation_webgpu::MipmapFilterMode::Nearest,
+        Linear => rendiation_webgpu::MipmapFilterMode::Linear,
+      },
       ..Default::default()
     }
   }

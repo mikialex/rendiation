@@ -10,6 +10,11 @@ version = "0.1.0"
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-webgpu = { path = "../webgpu" }
 rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
+rendiation-device-draw-list = { path = "../../../shader/draw-list" }
+
+[dev-dependencies]
+pollster = { workspace = true }
+bytemuck = { workspace = true }
 
 [lints]
 workspace = true

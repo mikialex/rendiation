@@ -368,7 +368,7 @@ impl Viewer3dViewportRenderingCtx {
     }
   }
 
-  pub fn render(
+  pub fn use_render(
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &mut ViewerRendererInstance,
@@ -379,6 +379,7 @@ impl Viewer3dViewportRenderingCtx {
     extension: &mut dyn ViewerFrameRenderingExtension,
     waker: &Waker,
   ) {
+    ctx.next_scope_index();
     let camera = viewport.camera;
 
     let should_do_extra_copy = self.should_do_extra_copy(final_target, viewport);
@@ -395,7 +396,7 @@ impl Viewer3dViewportRenderingCtx {
 
     if self.rtx_rendering_enabled {
       ctx.scope(|ctx| {
-        self.render_ray_tracing(
+        self.use_render_ray_tracing(
           ctx,
           renderer,
           &render_target,
@@ -453,7 +454,7 @@ impl Viewer3dViewportRenderingCtx {
     });
   }
 
-  fn render_ray_tracing(
+  fn use_render_ray_tracing(
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &ViewerRendererInstance,
@@ -462,6 +463,7 @@ impl Viewer3dViewportRenderingCtx {
     scene: EntityHandle<SceneEntity>,
     tonemap: &ToneMap,
   ) {
+    ctx.next_scope_index();
     if let Some((rtx_renderer, core)) = &renderer.rtx_system {
       match self.rtx_effect_mode {
         RayTracingEffectMode::AO => {
@@ -584,7 +586,7 @@ impl Viewer3dViewportRenderingCtx {
 
         let _span = span!(Level::INFO, "main scene content encode pass");
 
-        render_lighting_scene_content(
+        use_render_lighting_scene_content(
           ctx,
           lighting,
           &mut renderer.culling,
@@ -726,7 +728,7 @@ impl Viewer3dViewportRenderingCtx {
         let batch = SceneModelRenderBatch::Host(batch);
         let masked_content = renderer
           .raster_scene_renderer
-          .make_scene_batch_pass_content(batch, &camera_gpu, &highlight_dispatch, ctx);
+          .use_make_scene_batch_pass_content(batch, &camera_gpu, &highlight_dispatch, ctx);
         self.highlight.draw(ctx, masked_content)
       })
     });

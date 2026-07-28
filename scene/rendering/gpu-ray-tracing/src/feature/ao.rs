@@ -7,6 +7,7 @@ use crate::*;
 const MAX_SAMPLE: u32 = 256;
 
 pub fn use_scene_ao_sbt(cx: &mut QueryGPUHookCx, rtx: &RtxSystemCore) -> Option<(GPUSbt, bool)> {
+  cx.next_scope_index();
   let (cx, sbt) = cx.use_plain_state(|| {
     let handles = AOShaderHandles::default();
     let mut sbt = rtx

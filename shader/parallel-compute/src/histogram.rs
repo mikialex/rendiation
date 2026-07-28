@@ -94,7 +94,7 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
 {
-  fn materialize_storage_buffer_into(
+  fn use_materialize_storage_buffer_into(
     &self,
     target: StorageBufferDataView<[u32]>,
     cx: &mut DeviceParallelComputeCtx,
@@ -110,7 +110,7 @@ where
       shader_hash_type_id! {}
     }
 
-    custom_write_into_storage_buffer(
+    use_custom_write_into_storage_buffer(
       self,
       cx,
       move |global_id| {
@@ -198,14 +198,14 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
 {
-  pub fn materialize_storage_buffer(
+  pub fn use_materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceMaterializeResult<u32>
   where
     u32: Std430 + ShaderSizedValueNodeType,
   {
-    self.dispatch_compute(cx);
+    self.use_dispatch_compute(cx);
     DeviceMaterializeResult::full_buffer(
       self
         .result
@@ -259,7 +259,7 @@ async fn test_histogram() {
   let input = slice_into_compute(&input, cx);
 
   input
-    .histogram::<TestRangedU32>(32, cx)
+    .use_histogram::<TestRangedU32>(32, cx)
     .run_test(cx, &expect)
     .await
 }
@@ -283,7 +283,7 @@ async fn test_histogram_clamp_behavior() {
   let input = slice_into_compute(&input, cx);
 
   input
-    .histogram::<TestRangedU32>(32, cx)
+    .use_histogram::<TestRangedU32>(32, cx)
     .run_test(cx, &expect)
     .await
 }

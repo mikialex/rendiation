@@ -13,6 +13,7 @@ pub struct PointLightUniform {
 pub fn use_point_per_scene_uniform_array_buffers(
   cx: &mut QueryGPUHookCx,
 ) -> Option<SharedLightUniformInfo<PointLightUniform>> {
+  cx.next_scope_index();
   let uniform_array_caches = use_shared_light_uniform_info(cx, "point");
 
   cx.skip_if_not_waked(|cx| {

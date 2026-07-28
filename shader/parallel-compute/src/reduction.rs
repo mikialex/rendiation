@@ -90,7 +90,7 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
-  fn materialize_storage_buffer_into(
+  fn use_materialize_storage_buffer_into(
     &self,
     target: StorageBufferDataView<[T]>,
     cx: &mut DeviceParallelComputeCtx,
@@ -98,7 +98,7 @@ where
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    custom_write_into_storage_buffer(
+    use_custom_write_into_storage_buffer(
       self,
       cx,
       move |global_id| (global_id, val(true)),

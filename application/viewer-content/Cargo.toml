@@ -75,11 +75,12 @@ rendiation-dynamic-bvh-scene = { path = "../../extension/dynamic-bvh-scene" }
 rendiation-occ-style-draw-control = { path = "../../extension/occ-style-draw-control" }
 rendiation-occ-style-material = { path = "../../extension/occ-style-material" }
 rendiation-view-dependent-transform = { path = "../../extension/view-dependent-transform" }
+rendiation-device-parallel-compute = { path = "../../shader/parallel-compute" }
 rendiation-transform-instanced-model = { path = "../../extension/transform-instanced-model" }
 rendiation-cell-mesh = { path = "../../extension/cell-mesh" }
 tracing = { workspace = true }
 
-egui = { version = "0.33" }
+egui = { version = "0.34" }
 
 [features]
 default = ["heap-debug", "extra-checks"]

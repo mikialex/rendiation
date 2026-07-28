@@ -2,7 +2,7 @@ use core::num::NonZeroU32;
 use std::any::Any;
 
 use fast_hash_collection::*;
-use naga::{RayQueryFunction, Span};
+use naga::{MemoryDecorations, RayQueryFunction, Span};
 use rendiation_shader_api::*;
 
 pub struct ShaderAPINagaImpl {
@@ -47,6 +47,9 @@ impl ShaderAPINagaImpl {
       workgroup_size: [0, 0, 0],
       function: Default::default(),
       workgroup_size_overrides: None,
+      mesh_info: None,
+      task_payload: None,
+      incoming_ray_payload: None,
     };
     module.entry_points.push(entry);
 
@@ -694,6 +697,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           .into(),
           ty,
           init: None,
+          memory_decorations: MemoryDecorations::empty(),
         };
         let g = self.module.global_variables.append(g, Span::UNDEFINED);
         let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g), false);
@@ -721,6 +725,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             interpolation: interpolation.map(map_interpolation),
             sampling: None,
             blend_src: None,
+            per_primitive: false,
           }
           .into(),
         })
@@ -736,6 +741,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           binding: None,
           ty,
           init: None,
+          memory_decorations: MemoryDecorations::empty(),
         };
         let g = self.module.global_variables.append(g, Span::UNDEFINED);
         let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g), false);
@@ -755,6 +761,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           binding: None,
           ty,
           init: None,
+          memory_decorations: MemoryDecorations::empty(),
         };
         let g = self.module.global_variables.append(g, Span::UNDEFINED);
         let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g), false);
@@ -1918,6 +1925,7 @@ fn struct_member(
         interpolation: interpolation.map(map_interpolation),
         sampling: None,
         blend_src: None,
+        per_primitive: false,
       },
     });
 

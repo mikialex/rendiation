@@ -24,6 +24,14 @@ impl Resource for GPUBuffer {
   type ViewDescriptor = GPUBufferViewRange;
 
   fn create_view(&self, des: &Self::ViewDescriptor) -> Self::View {
+    #[cfg(debug_assertions)] // wgpu validation is too late to locate the bug
+    {
+      if let Some(size) = des.size {
+        assert!(des.offset + size.get() <= self.gpu.size());
+      }
+      assert!(des.offset < self.gpu.size());
+    }
+
     GPUBufferView {
       buffer: self.clone(),
       range: *des,

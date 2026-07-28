@@ -111,8 +111,8 @@ fn map_depth_stencil_state(
 
   format.map(|format| DepthStencilState {
     format,
-    depth_write_enabled: states.depth_write_enabled,
-    depth_compare: states.depth_compare.into_raw(reverse_z),
+    depth_write_enabled: Some(states.depth_write_enabled),
+    depth_compare: Some(states.depth_compare.into_raw(reverse_z)),
     stencil: states.stencil.clone(),
     bias,
   })
