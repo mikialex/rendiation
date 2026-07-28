@@ -32,48 +32,30 @@ impl<T> SceneModelPickerWithViewDep<T> {
 impl<T: SceneModelPicker> SceneModelPicker for SceneModelPickerWithViewDep<T> {
   fn ray_query_nearest(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    ctx: &SceneRayQuery,
-    ignore_pre_check: bool,
+    request: SceneModelRayNearestQueryRequest,
   ) -> Option<MeshBufferHitPoint<f64>> {
-    let mat = self.get_mat(idx, override_world_mat);
+    let mat = self.get_mat(request.idx, request.override_world_mat);
     self
       .internal
-      .ray_query_nearest(idx, mat.as_ref(), ctx, ignore_pre_check)
+      .ray_query_nearest(SceneModelRayNearestQueryRequest {
+        override_world_mat: mat.as_ref(),
+        ..request
+      })
   }
 
-  fn ray_query_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    ctx: &SceneRayQuery,
-    results: &mut Vec<MeshBufferHitPoint<f64>>,
-    local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
-    ignore_pre_check: bool,
-  ) -> Option<()> {
-    let mat = self.get_mat(idx, override_world_mat);
-    self.internal.ray_query_all(
-      idx,
-      mat.as_ref(),
-      ctx,
-      results,
-      local_result_scratch,
-      ignore_pre_check,
-    )
+  fn ray_query_all(&self, request: SceneModelRayAllQueryRequest) -> Option<()> {
+    let mat = self.get_mat(request.idx, request.override_world_mat);
+    self.internal.ray_query_all(SceneModelRayAllQueryRequest {
+      override_world_mat: mat.as_ref(),
+      ..request
+    })
   }
 
-  fn frustum_query(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    frustum: &SceneFrustumQuery,
-    policy: ObjectTestPolicy,
-    ignore_pre_check: bool,
-  ) -> Option<bool> {
-    let mat = self.get_mat(idx, override_world_mat);
-    self
-      .internal
-      .frustum_query(idx, mat.as_ref(), frustum, policy, ignore_pre_check)
+  fn frustum_query(&self, request: SceneModelFrustumQueryRequest) -> Option<bool> {
+    let mat = self.get_mat(request.idx, request.override_world_mat);
+    self.internal.frustum_query(SceneModelFrustumQueryRequest {
+      override_world_mat: mat.as_ref(),
+      ..request
+    })
   }
 }

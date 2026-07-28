@@ -26,7 +26,14 @@ pub fn pick_models_all(
   for m in models {
     let len = results.len();
     if model_impl
-      .ray_query_all(m, None, cx, results, local_result_scratch, ignore_pre_check)
+      .ray_query_all(SceneModelRayAllQueryRequest {
+        idx: m,
+        override_world_mat: None,
+        ctx: cx,
+        results,
+        local_result_scratch,
+        ignore_pre_check,
+      })
       .is_some()
     {
       for _ in len..results.len() {
@@ -44,7 +51,12 @@ pub fn pick_models_nearest(
 ) -> Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> {
   let mut nearest: Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> = None;
   for m in models {
-    if let Some(hit) = model_impl.ray_query_nearest(m, None, cx, ignore_pre_check) {
+    if let Some(hit) = model_impl.ray_query_nearest(SceneModelRayNearestQueryRequest {
+      idx: m,
+      override_world_mat: None,
+      ctx: cx,
+      ignore_pre_check,
+    }) {
       let hit = hit.hit;
       if let Some(n) = nearest {
         if hit.is_near_than(&n.0) {
@@ -67,7 +79,13 @@ pub fn range_pick_models(
   ignore_pre_check: bool,
 ) {
   for m in models {
-    if let Some(true) = model_impl.frustum_query(m, None, frustum, policy, ignore_pre_check) {
+    if let Some(true) = model_impl.frustum_query(SceneModelFrustumQueryRequest {
+      idx: m,
+      override_world_mat: None,
+      frustum,
+      policy,
+      ignore_pre_check,
+    }) {
       add_results(m);
     }
   }
