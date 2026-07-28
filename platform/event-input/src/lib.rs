@@ -76,6 +76,12 @@ impl WindowEventStates {
 
   pub fn end_frame(&mut self) {
     self.accumulate_events.clear();
+    // this is possible if some how the application logic not triggered.
+    // (on macos when window minimized but mouse not active other window yet, the device event still get pushed in)
+    // we should impl event/delta compression for this case
+    if self.accumulate_events.capacity() > 100 {
+      self.accumulate_events.shrink_to_fit();
+    }
 
     self.previous_frame_window_state = self.window_state.clone();
     self.window_state.reset_in_frame_states();

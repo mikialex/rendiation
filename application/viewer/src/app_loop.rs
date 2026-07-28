@@ -210,10 +210,15 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         let window_state = self
           .platform_states
           .get_or_init_window_state(window_id, window);
-        window_state.queue_event(Event::WindowEvent {
-          event: event.clone(),
-          window_id: window.id(),
-        });
+        // on macos, when window closed, this event will be pushed continuously.
+        // so we directly filter it to avoid queue unbounded this kind of events
+        if event != WindowEvent::RedrawRequested {
+          window_state.queue_event(Event::WindowEvent {
+            event: event.clone(),
+            window_id: window.id(),
+          });
+        }
+
         match &event {
           WindowEvent::CloseRequested => {
             let mut cx = DynCx::default();
