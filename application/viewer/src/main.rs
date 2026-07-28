@@ -17,6 +17,7 @@ use std::task::Waker;
 use bytemuck::*;
 use database::*;
 use database_tracing::TraceWriter;
+use db_tracing::*;
 use event_source::*;
 use fast_hash_collection::*;
 use futures::FutureExt;
@@ -25,7 +26,6 @@ use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_gui_3d::*;
 use rendiation_viewer_content::*;
-use tracing::*;
 use winit::{
   event::{Event, WindowEvent},
   event_loop::EventLoop,
@@ -33,98 +33,73 @@ use winit::{
 };
 
 mod app_loop;
+mod db_tracing;
 mod egui_cx;
+mod global_allocator;
+use global_allocator::GLOBAL_ALLOCATOR;
 mod viewer;
 
 use app_loop::*;
 use egui_cx::use_egui_cx;
-use heap_tools::*;
 use rendiation_texture_core::*;
 use rendiation_webgpu::*;
+use tracing::*;
 pub use viewer::*;
 
-#[cfg(feature = "mimalloc")]
-#[allow(unused)]
-type BaseAllocator = mimalloc::MiMalloc;
-#[cfg(feature = "mimalloc")]
-#[allow(unused)]
-const BASE_ALLOCATOR: BaseAllocator = mimalloc::MiMalloc;
+fn main() {
+  setup_logger_or_tracing();
 
-#[cfg(not(feature = "mimalloc"))]
-#[allow(unused)]
-type BaseAllocator = std::alloc::System;
-#[cfg(not(feature = "mimalloc"))]
-#[allow(unused)]
-const BASE_ALLOCATOR: BaseAllocator = std::alloc::System;
+  run_viewer_app(|cx| {
+    setup_new_frame_allocator(10 * 1024 * 1024);
 
-// global_allocator priority: dhat-heap-profiling > tracy-heap-debug > base
-#[cfg(feature = "dhat-heap-profiling")]
-#[global_allocator]
-static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<dhat::Alloc> =
-  PreciseAllocationStatistics::new(dhat::Alloc);
+    use_viewer_egui(cx);
 
-#[cfg(all(not(feature = "dhat-heap-profiling"), feature = "tracy-heap-debug"))]
-#[global_allocator]
-static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<
-  tracing_tracy::client::ProfiledAllocator<BaseAllocator>,
-> = PreciseAllocationStatistics::new(tracing_tracy::client::ProfiledAllocator::new(
-  BASE_ALLOCATOR,
-  64,
-));
+    use_enable_screenshot(cx);
 
-#[derive(Debug)]
-pub enum ViewerTracingEvent {
-  Render,
+    stage_of_update(cx, 2, |cx| {
+      // todo, support group
+      let select = cx.viewer.selection.selected_model.if_single();
+      widget_root(cx, |cx| {
+        use_viewer_gizmo(cx, select);
+      });
+    });
+
+    stage_of_update(cx, 1, |cx| {
+      // test_db_rc(cx);
+
+      use_enable_gltf_io(cx);
+      use_enable_obj_io(cx);
+      use_enable_trace_io(cx);
+      use_test_content_panel(cx);
+
+      sync_camera_view(cx);
+
+      use_viewer_examples(cx);
+
+      // this must be called before per_camera_per_viewport
+      use_egui_tile_for_viewer_viewports(cx);
+
+      inject_picker(cx, |cx| {
+        use_pick_scene(cx);
+        use_scene_camera_helper(cx);
+        use_scene_light_helper(cx);
+      });
+
+      per_camera_per_viewport_scope(cx, false, |cx, camera_with_viewports| {
+        let cv = camera_with_viewports;
+        use_smooth_camera_motion(cx, cv.camera_node, cv.camera, |cx| {
+          use_fit_camera_view(cx, cv.camera, cv.camera_node);
+          use_camera_control(cx, cv);
+          use_camera_proj_switch(cx);
+        });
+      });
+
+      use_animation_player(cx);
+
+      use_mesh_tools(cx);
+    });
+  });
 }
-
-impl database_tracing::TraceReplayTarget for ViewerTracingEvent {
-  fn type_discriminant() -> u32 {
-    10
-  }
-  fn is_replay_target(&self) -> bool {
-    match self {
-      ViewerTracingEvent::Render => true,
-    }
-  }
-}
-
-impl database_tracing::TraceIO for ViewerTracingEvent {
-  fn write_len(&self) -> usize {
-    1
-  }
-
-  fn write(&self, w: &mut impl std::io::prelude::Write) -> std::io::Result<usize> {
-    match self {
-      ViewerTracingEvent::Render => {
-        w.write_all(&[0u8])?;
-        Ok(1)
-      }
-    }
-  }
-
-  fn read(source: &mut dyn std::io::Read) -> std::io::Result<Self>
-  where
-    Self: Sized,
-  {
-    let mut tag = [0u8; 1];
-    source.read_exact(&mut tag)?;
-    match tag[0] {
-      0 => Ok(ViewerTracingEvent::Render),
-      other => Err(std::io::Error::new(
-        std::io::ErrorKind::InvalidData,
-        format!("unknown ViewerTracingEvent tag: {}", other),
-      )),
-    }
-  }
-}
-
-#[cfg(all(
-  not(feature = "dhat-heap-profiling"),
-  not(feature = "tracy-heap-debug")
-))]
-#[global_allocator]
-static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<BaseAllocator> =
-  PreciseAllocationStatistics::new(BASE_ALLOCATOR);
 
 pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   setup_global_database(Default::default());
@@ -204,83 +179,6 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   });
 }
 
-fn main() {
-  #[cfg(feature = "tracy")]
-  {
-    use tracing_subscriber::prelude::*;
-    tracing::subscriber::set_global_default(
-      tracing_subscriber::registry().with(tracing_tracy::TracyLayer::default()),
-    )
-    .expect("setting tracing default failed");
-  }
-
-  #[cfg(target_family = "wasm")]
-  {
-    console_error_panic_hook::set_once();
-    console_log::init_with_level(log::Level::Info).unwrap();
-    log::info!("init wasm");
-  }
-
-  #[cfg(not(target_family = "wasm"))]
-  {
-    env_logger::builder()
-      .filter_level(log::LevelFilter::Info)
-      .filter_module("wgpu_hal::dx12::device", log::LevelFilter::Warn)
-      .init();
-  }
-
-  run_viewer_app(|cx| {
-    setup_new_frame_allocator(10 * 1024 * 1024);
-
-    use_viewer_egui(cx);
-
-    use_enable_screenshot(cx);
-
-    stage_of_update(cx, 2, |cx| {
-      // todo, support group
-      let select = cx.viewer.selection.selected_model.if_single();
-      widget_root(cx, |cx| {
-        use_viewer_gizmo(cx, select);
-      });
-    });
-
-    stage_of_update(cx, 1, |cx| {
-      // test_db_rc(cx);
-
-      use_enable_gltf_io(cx);
-      use_enable_obj_io(cx);
-      use_enable_trace_io(cx);
-      use_test_content_panel(cx);
-
-      sync_camera_view(cx);
-
-      use_viewer_examples(cx);
-
-      // this must be called before per_camera_per_viewport
-      use_egui_tile_for_viewer_viewports(cx);
-
-      inject_picker(cx, |cx| {
-        use_pick_scene(cx);
-        use_scene_camera_helper(cx);
-        use_scene_light_helper(cx);
-      });
-
-      per_camera_per_viewport_scope(cx, false, |cx, camera_with_viewports| {
-        let cv = camera_with_viewports;
-        use_smooth_camera_motion(cx, cv.camera_node, cv.camera, |cx| {
-          use_fit_camera_view(cx, cv.camera, cv.camera_node);
-          use_camera_control(cx, cv);
-          use_camera_proj_switch(cx);
-        });
-      });
-
-      use_animation_player(cx);
-
-      use_mesh_tools(cx);
-    });
-  });
-}
-
 #[allow(dead_code)]
 fn test_db_rc(cx: &mut ViewerCx) {
   let (cx, config) = cx.use_plain_state_init(|_| {
@@ -314,5 +212,31 @@ fn per_camera_per_viewport_scope(
     cx.keyed_scope(&cv.camera, |cx| {
       logic(cx, &cv);
     });
+  }
+}
+
+fn setup_logger_or_tracing() {
+  #[cfg(feature = "tracy")]
+  {
+    use tracing_subscriber::prelude::*;
+    tracing::subscriber::set_global_default(
+      tracing_subscriber::registry().with(tracing_tracy::TracyLayer::default()),
+    )
+    .expect("setting tracing default failed");
+  }
+
+  #[cfg(target_family = "wasm")]
+  {
+    console_error_panic_hook::set_once();
+    console_log::init_with_level(log::Level::Info).unwrap();
+    log::info!("init wasm");
+  }
+
+  #[cfg(not(target_family = "wasm"))]
+  {
+    env_logger::builder()
+      .filter_level(log::LevelFilter::Info)
+      .filter_module("wgpu_hal::dx12::device", log::LevelFilter::Warn)
+      .init();
   }
 }

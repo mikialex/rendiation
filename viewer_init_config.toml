@@ -27,6 +27,9 @@ enable_indirect_storage_combine = true
 enable_reverse_z = true
 using_texture_as_storage_buffer_for_indirect_rendering = false
 # thread_pool_thread_count = 1
+# enable_hal_debug_info = true
+# enable_backend_validation = false
+# wgpu_backend_select_override = "DX12"
 
 [init_only.texture_pool_source_init_config]
 init_sampler_count_capacity = 128

@@ -582,7 +582,8 @@ impl Viewer3dViewportRenderingCtx {
           .use_hdr_if_enabled(hdr_enabled) // todo msaa with hdr need special handling
           .request(ctx);
 
-        let g_buffer = FrameGeometryBuffer::new(ctx, sample_count, self.enable_gpu_pick_id_write);
+        let require_entity_id_draw = self.enable_gpu_pick_id_write || self.enable_outline;
+        let g_buffer = FrameGeometryBuffer::new(ctx, sample_count, require_entity_id_draw);
 
         let _span = span!(Level::INFO, "main scene content encode pass");
 
