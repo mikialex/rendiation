@@ -63,6 +63,12 @@ pub trait ShaderAPI {
   ) -> ShaderNodeRawHandle;
   fn define_vertex_position_output(&mut self) -> ShaderNodeRawHandle;
   fn define_frag_depth_output(&mut self) -> ShaderNodeRawHandle;
+  fn define_const(
+    &mut self,
+    init_value: ShaderStructFieldInitValue,
+    ty: ShaderSizedValueType,
+    inlined: bool,
+  ) -> ShaderNodeRawHandle;
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle;
   fn make_local_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;

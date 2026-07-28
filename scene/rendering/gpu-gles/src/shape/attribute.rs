@@ -27,7 +27,7 @@ pub fn use_attribute_mesh_renderer(
 
   let source = vertex_data_source.use_assure_result(cx);
 
-  let f = |data: AttributeLivingData| {
+  let f = |(data, _): (AttributeLivingData, AttributeSemantic)| {
     let buffer = create_gpu_buffer(data.data.as_slice(), BufferUsages::VERTEX, &cx.gpu.device);
     buffer.create_view(map_view(data.range))
   };

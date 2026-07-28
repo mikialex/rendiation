@@ -3,6 +3,7 @@ use rendiation_shader_api::*;
 pub mod color;
 pub mod cube;
 pub mod normal_mapping;
+pub mod octahedral;
 pub mod plane;
 pub mod sampling;
 pub mod sky;

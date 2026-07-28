@@ -78,6 +78,9 @@ pub enum ViewerTracingEvent {
 }
 
 impl database_tracing::TraceReplayTarget for ViewerTracingEvent {
+  fn type_discriminant() -> u32 {
+    10
+  }
   fn is_replay_target(&self) -> bool {
     match self {
       ViewerTracingEvent::Render => true,
@@ -99,7 +102,7 @@ impl database_tracing::TraceIO for ViewerTracingEvent {
     }
   }
 
-  fn read(source: &mut impl std::io::prelude::Read) -> std::io::Result<Self>
+  fn read(source: &mut dyn std::io::Read) -> std::io::Result<Self>
   where
     Self: Sized,
   {
@@ -273,9 +276,6 @@ fn main() {
 
       use_animation_player(cx);
 
-      // #[cfg(not(target_family = "wasm"))]
-      // test_persist_scope(cx);
-
       use_mesh_tools(cx);
     });
   });
@@ -291,7 +291,8 @@ fn test_db_rc(cx: &mut ViewerCx) {
     set
   });
 
-  let change = use_db_all_entity_ref_count_change(cx, config).use_assure_result(cx);
+  let fk_change = use_db_all_foreign_key_change(cx, config);
+  let change = use_db_all_entity_ref_count_change(cx, fk_change).use_assure_result(cx);
   if let Some(_change) = change.if_resolve_stage() {
     // println!("ref count change: {:#?}", change.len());
   }

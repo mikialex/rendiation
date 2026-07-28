@@ -35,13 +35,10 @@ impl<T: ?Sized> Node<T> {
 
 impl<T> From<T> for Node<T>
 where
-  T: PrimitiveShaderNodeType,
+  T: ShaderSizedValueNodeType,
 {
   fn from(input: T) -> Self {
-    ShaderNodeExpr::Const {
-      data: input.to_primitive(),
-    }
-    .insert_api()
+    val(input)
   }
 }
 

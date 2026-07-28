@@ -13,7 +13,7 @@ use crate::message::*;
 pub trait TraceWriter<T>: Send + Sync + 'static + Clone {
   /// Write the protocol-specific header.
   /// Called once before any `write_message` calls.
-  fn write_header(&self, name_table: &NameTable);
+  fn write_header(&self, name_table: &NameTable, type_discriminant: u32);
   fn write_message(&self, message: T);
 }
 
@@ -61,8 +61,13 @@ impl<T: TraceIO + Send + Sync + 'static> FileTraceWriter<T> {
 }
 
 impl<T: Send + Sync + 'static> TraceWriter<T> for FileTraceWriter<T> {
-  fn write_header(&self, name_table: &NameTable) {
-    write_trace_file_header(&mut *self.file.lock().unwrap(), name_table).unwrap();
+  fn write_header(&self, name_table: &NameTable, type_discriminant: u32) {
+    write_trace_file_header(
+      &mut *self.file.lock().unwrap(),
+      name_table,
+      type_discriminant,
+    )
+    .unwrap();
   }
 
   fn write_message(&self, message: T) {
@@ -97,7 +102,7 @@ mod tests {
       component_name_to_id: FastHashMap::default(),
     };
     let writer = FileTraceWriter::<TracingMessage<()>>::new(&tmp);
-    writer.write_header(&name_table);
+    writer.write_header(&name_table, 0);
 
     // give background thread time
     std::thread::sleep(std::time::Duration::from_millis(50));

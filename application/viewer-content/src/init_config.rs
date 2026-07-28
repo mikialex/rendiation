@@ -28,6 +28,7 @@ pub struct ViewerInitConfig {
   pub always_enable_caching_frame_for_direct_read: bool,
   pub init_only: ViewerStaticInitConfig,
   pub light_surface_ty: ViewerLightSurfaceType,
+  pub enable_db_ref_integrity_check_within_rendering: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -177,6 +178,7 @@ impl Default for ViewerInitConfig {
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       light_surface_ty: ViewerLightSurfaceType::Pbr,
       init_only: ViewerStaticInitConfig::default(),
+      enable_db_ref_integrity_check_within_rendering: false,
     }
   }
 }

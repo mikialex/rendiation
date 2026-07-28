@@ -18,10 +18,14 @@ pub fn compute_tree_derive<K: CKey, T: CValue>(
   let mut update_roots = FastHashSet::default();
   let mut update_path_not_skipable = FastHashSet::default();
 
-  let payload_change_range =
-    payload_change
-      .iter_key_value()
-      .filter_map(|(k, change)| if change.is_removed() { None } else { Some(k) });
+  let payload_change_range = payload_change.iter_key_value().filter_map(|(k, change)| {
+    if change.is_removed() {
+      derive.remove(k);
+      None
+    } else {
+      Some(k)
+    }
+  });
 
   let connectivity_change_range = connectivity_change
     .iter_key_value()

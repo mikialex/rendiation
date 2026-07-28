@@ -298,6 +298,7 @@ pub extern "C" fn picker_pick_list(
   y: f32,
   extra_screen_space_tolerance: f32,
   sort_near_to_far: bool,
+  remove_clipped: bool,
 ) -> *mut ViewerRayPickListResult {
   let mut pick_results = Vec::new();
   api.pick_list(
@@ -305,6 +306,7 @@ pub extern "C" fn picker_pick_list(
     x,
     y,
     extra_screen_space_tolerance,
+    remove_clipped,
     &mut pick_results,
   );
 

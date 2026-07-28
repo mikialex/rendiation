@@ -1046,6 +1046,7 @@ dependencies = [
  "facet",
  "fast-hash-collection",
  "futures",
+ "log",
  "parking_lot",
  "query",
  "query-hook",
@@ -2115,6 +2116,13 @@ name = "hexf-parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
+
+[[package]]
+name = "hierarchy-reducer"
+version = "0.0.1"
+dependencies = [
+ "fast-hash-collection",
+]
 
 [[package]]
 name = "hook"
@@ -3705,6 +3713,7 @@ version = "0.0.1"
 dependencies = [
  "dyn-clone",
  "fast-hash-collection",
+ "hierarchy-reducer",
  "parking_lot",
  "rendiation-abstract-tree",
  "serde",
@@ -5135,6 +5144,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tracing-tracy",
+ "viewer-content-api-trace-info",
  "wasm-bindgen",
  "web-sys",
  "winit",
@@ -6365,7 +6375,19 @@ dependencies = [
  "rendiation-webgpu",
  "rmp-serde",
  "serde",
+ "viewer-content-api-trace-info",
  "wgpu-types",
+]
+
+[[package]]
+name = "viewer-content-api-trace-info"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "database-tracing",
+ "log",
+ "rmp-serde",
+ "serde",
 ]
 
 [[package]]

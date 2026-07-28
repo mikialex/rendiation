@@ -41,6 +41,7 @@ pub struct ViewerAppFeaturesConfig {
   /// this config is init only
   pub enable_tracing_and_tracing_write_path: Option<String>,
   pub pick_scene: PickScenePersistConfig,
+  pub active_example: Option<String>,
 }
 
 const INIT_FILE_NAME: &str = "viewer_app_init_config.toml";

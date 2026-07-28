@@ -1,11 +1,13 @@
 mod changes_channel;
 mod delta_channel;
 mod ref_counting;
+mod ref_integrity_checker;
 mod util;
 
 pub use changes_channel::*;
 pub use delta_channel::*;
 pub use ref_counting::*;
+pub use ref_integrity_checker::*;
 pub use util::*;
 
 use crate::*;

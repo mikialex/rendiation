@@ -250,7 +250,6 @@ pub fn load_default_scene(
     );
     writer.camera_writer.new_entity(|w| {
       w.write::<SceneCameraPerspective>(&Some(PerspectiveProjection::default()))
-        .write::<SceneCameraBelongsToScene>(&Some(scene.into_raw()))
         .write::<SceneCameraNode>(&Some(camera_node.into_raw()))
     });
   }

@@ -1,8 +1,10 @@
 use cell_mesh::use_cell_mesh_example;
+use stress_test::use_stress_test_example;
 pub use text3d::text3d_content_edit_ui;
 use text3d::use_text3d_example;
 
 mod cell_mesh;
+mod stress_test;
 mod text3d;
 mod texture_material_share;
 mod transform_instance;
@@ -17,7 +19,6 @@ use crate::*;
 #[derive(Default)]
 struct ExampleRegistry {
   examples: FastHashMap<String, Box<dyn Fn(&mut ViewerCx)>>,
-  current_active: Option<String>,
 }
 
 impl ExampleRegistry {
@@ -28,7 +29,7 @@ impl ExampleRegistry {
 
 pub fn use_viewer_examples(cx: &mut ViewerCx) {
   cx.next_scope_index();
-  let (cx, registry) = cx.use_plain_state_init(|_| {
+  let (cx, registry) = cx.use_plain_state_init(|cx| {
     let mut registry = ExampleRegistry::default();
     registry.register("Cell Mesh (FEM)", use_cell_mesh_example);
     registry.register("Text3d example", use_text3d_example);
@@ -37,6 +38,15 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
       use_texture_material_share_example,
     );
     registry.register("Transform Instance Example", use_transform_instance_example);
+    registry.register("Stress Test", use_stress_test_example);
+
+    if let Some(current_example) = &mut cx.app_features.active_example {
+      if !registry.examples.contains_key(current_example) {
+        log::warn!("unknown active example: {current_example}");
+        cx.app_features.active_example = None;
+      }
+    }
+
     registry
   });
 
@@ -52,18 +62,22 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
       .show(egui_ui, |ui| {
         //
         egui::ComboBox::from_label("lists")
-          .selected_text(format!("{:?}", &registry.current_active))
+          .selected_text(format!("{:?}", &cx.app_features.active_example))
           .show_ui(ui, |ui| {
-            ui.selectable_value(&mut registry.current_active, None, "None");
+            ui.selectable_value(&mut cx.app_features.active_example, None, "None");
             for (name, _) in &registry.examples {
-              ui.selectable_value(&mut registry.current_active, Some(name.clone()), name);
+              ui.selectable_value(
+                &mut cx.app_features.active_example,
+                Some(name.clone()),
+                name,
+              );
             }
           });
       });
   }
 
   cx.next_scope_index();
-  if let Some(active) = &registry.current_active {
+  if let Some(active) = &cx.app_features.active_example.clone() {
     if let Some(f) = registry.examples.get(active) {
       cx.keyed_scope(active, |cx| {
         f(cx);

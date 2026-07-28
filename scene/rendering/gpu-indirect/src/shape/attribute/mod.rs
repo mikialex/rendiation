@@ -23,6 +23,10 @@ pub struct BindlessMeshInit {
   pub max_index_count: u32,
   pub init_vertex_u32_size_count: u32,
   pub max_vertex_u32_size_count: u32,
+  /// if enabled, the normal will be considered as octahedral quantized
+  pub enable_normal_quantization: bool,
+  /// if enabled, the normal data will be convert to octahedral quantized when upload to gpu
+  pub enable_normal_quantization_convert: bool,
 }
 
 impl Default for BindlessMeshInit {
@@ -32,6 +36,8 @@ impl Default for BindlessMeshInit {
       max_index_count: 200_000 * 100,
       init_vertex_u32_size_count: 100_000 * 8, // 8: 3+3+2
       max_vertex_u32_size_count: 100_000 * 8 * 100,
+      enable_normal_quantization: false,
+      enable_normal_quantization_convert: false,
     }
   }
 }
@@ -51,6 +57,8 @@ pub fn use_bindless_mesh(
     max_index_count,
     init_vertex_u32_size_count,
     max_vertex_u32_size_count,
+    enable_normal_quantization,
+    enable_normal_quantization_convert,
   } = *init;
 
   let (indices_range_change, indices) = use_attribute_indices_updates(
@@ -69,8 +77,13 @@ pub fn use_bindless_mesh(
 
   let max = max_vertex_u32_size_count;
   let init = init_vertex_u32_size_count;
-  let (vertex_range_writes, vertices) =
-    use_attribute_vertex_updates(cx, max, init, vertex_data_source);
+  let (vertex_range_writes, vertices) = use_attribute_vertex_updates(
+    cx,
+    max,
+    init,
+    vertex_data_source,
+    enable_normal_quantization_convert,
+  );
 
   let offset = offset_of!(AttributeMeshMeta, index_offset);
   indices_range_change.update_storage_array_with_host(cx, metadata, offset);
@@ -120,6 +133,7 @@ pub fn use_bindless_mesh(
       sm_to_mesh_device: sm_to_mesh_device.get_gpu_buffer(),
       sm_to_mesh: sm_to_mesh.expect_resolve_stage(),
       used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
+      enable_normal_quantization,
     }
   })
 }
@@ -249,6 +263,7 @@ fn use_attribute_vertex_updates(
   max_u32_count: u32,
   init_u32_count: u32,
   vertex_data_source: AttributeVertexDataSource,
+  enable_normal_quantization_convert: bool,
 ) -> (
   UseResult<Arc<SparseBufferWritesSource>>,
   AbstractReadonlyStorageBuffer<[u32]>,
@@ -289,12 +304,18 @@ fn use_attribute_vertex_updates(
 
       // iter is slow to iter, do this is much faster
       let mut access_result = Vec::with_capacity(size_cap);
-      for (k, data) in iter {
+      for (k, (data, semantic)) in iter {
         let range = data.range.map(|range| range.into_range(data.data.len()));
         let len = range
           .clone()
           .map(|range| range.len())
           .unwrap_or(data.data.len());
+
+        let len = if enable_normal_quantization_convert && semantic == AttributeSemantic::Normals {
+          len / 3
+        } else {
+          len
+        };
 
         if len <= SMALL_BUFFER_THRESHOLD_BYTE_COUNT {
           small_buffer_count += 1;
@@ -304,7 +325,24 @@ fn use_attribute_vertex_updates(
         }
 
         sizes.push((k, len as u32 / 4));
-        access_result.push((k, data.data, range));
+
+        if enable_normal_quantization_convert && semantic == AttributeSemantic::Normals {
+          let data = data.data.as_slice();
+          let data = if let Some(range) = range {
+            data.get(range).unwrap()
+          } else {
+            data
+          };
+          let normal: &[Vec3<f32>] = bytemuck::cast_slice(data);
+          let mut quantized_bytes: Vec<u8> = Vec::with_capacity(normal.len() * 4);
+          for v in normal {
+            let quantized = rendiation_shader_library::octahedral::encode_octahedral_normal(*v);
+            quantized_bytes.extend_from_slice(bytes_of(&quantized));
+          }
+          access_result.push((k, Arc::new(quantized_bytes), None));
+        } else {
+          access_result.push((k, data.data, range));
+        };
       }
 
       let removed_and_changed_keys = change
@@ -444,6 +482,7 @@ pub struct MeshGPUBindlessImpl {
   indices_checker: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
   topology_checker: ComponentReadView<AttributesMeshEntityTopology>,
   used_in_midc_downgrade: bool,
+  enable_normal_quantization: bool,
 }
 
 impl MeshGPUBindlessImpl {
@@ -453,6 +492,7 @@ impl MeshGPUBindlessImpl {
       vertex_address_buffer: self.vertex_address_buffer.clone(),
       vertices: self.vertices.clone(),
       index_pool: self.indices.clone(),
+      enable_normal_quantization: self.enable_normal_quantization,
     }
   }
 }

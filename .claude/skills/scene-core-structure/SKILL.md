@@ -155,7 +155,6 @@ declare_entity!(SceneCameraEntity)
 
 | Component | Type | Purpose |
 |-----------|------|---------|
-| `SceneCameraBelongsToScene` | FK → `SceneEntity` | Owning scene |
 | `SceneCameraNode` | FK → `SceneNodeEntity` | Camera transform (from node world matrix) |
 | `SceneCameraPerspective` | `Option<PerspectiveProjection<f32>>` | Perspective projection |
 | `SceneCameraOrthographic` | `Option<OrthographicProjection<f32>>` | Orthographic projection |

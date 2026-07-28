@@ -24,11 +24,16 @@ pub fn register_selectable_data_model() {
   global_entity_of::<SceneModelEntity>().declare_component::<SceneModelSelectable>();
 }
 
-pub struct SceneRayQuery {
+pub struct SceneRayQuery<'a> {
   pub world_ray: Ray3<f64>,
   pub camera_ctx: CameraQueryCtx,
   pub extra_screen_space_tolerance: f32,
+  pub filter: Option<&'a SceneModelPickFilter<'a>>,
 }
+
+/// keep result if return true
+pub type SceneModelPickFilter<'a> =
+  dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool + 'a;
 
 pub struct SceneFrustumQuery {
   pub world_frustum: Frustum<f64>,

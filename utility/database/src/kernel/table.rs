@@ -202,6 +202,13 @@ impl Table {
       .insert_component(semantic, self.type_id, com.name.clone());
 
     self.components_meta_watchers.emit(&com);
+
+    let init_cap = self.allocator.read().capacity();
+    let view = &mut *com.write_untyped().data;
+    unsafe {
+      view.resize(init_cap as u32);
+    }
+
     let previous = components.insert(semantic, com);
     assert!(previous.is_none());
   }

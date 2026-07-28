@@ -18,6 +18,7 @@ use_scene_bvh = false
 use_array_clip = false
 always_enable_caching_frame_for_direct_read = false
 light_surface_ty = "Pbr"
+enable_db_ref_integrity_check_within_rendering = false
 
 [init_only] # See ViewerStaticInitConfig
 use_native_line_for_one_width_line = true
@@ -25,6 +26,7 @@ occlusion_culling_max_scene_model_count = 100_000
 enable_indirect_storage_combine = true
 enable_reverse_z = true
 using_texture_as_storage_buffer_for_indirect_rendering = false
+# thread_pool_thread_count = 1
 
 [init_only.texture_pool_source_init_config]
 init_sampler_count_capacity = 128
@@ -39,6 +41,8 @@ init_index_count = 200_000
 max_index_count = 20_000_000
 init_vertex_u32_size_count = 800_000
 max_vertex_u32_size_count = 80_000_000
+enable_normal_quantization = true
+enable_normal_quantization_convert = true
 
 [init_only.default_shader_protections]
 bounds_checks = true

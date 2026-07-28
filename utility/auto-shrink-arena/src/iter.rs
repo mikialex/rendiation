@@ -209,41 +209,6 @@ impl<T> ExactSizeIterator for IterMut<'_, T> {
 
 impl<T> FusedIterator for IterMut<'_, T> {}
 
-#[derive(Debug)]
-pub struct Drain<'a, T: 'a> {
-  pub(crate) len: usize,
-  pub(crate) inner: iter::Enumerate<vec::Drain<'a, Option<(u64, T)>>>,
-}
-
-impl<T> Iterator for Drain<'_, T> {
-  type Item = (Handle<T>, T);
-
-  fn next(&mut self) -> Option<Self::Item> {
-    loop {
-      match self.inner.next() {
-        Some((_, None)) => continue,
-        Some((handle, Some((generation, value)))) => {
-          let idx = Handle {
-            handle,
-            generation,
-            phantom: PhantomData,
-          };
-          self.len -= 1;
-          return Some((idx, value));
-        }
-        None => {
-          debug_assert_eq!(self.len, 0);
-          return None;
-        }
-      }
-    }
-  }
-
-  fn size_hint(&self) -> (usize, Option<usize>) {
-    (self.len, Some(self.len))
-  }
-}
-
 impl<T> Extend<T> for AutoShrinkArena<T> {
   fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
     for t in iter {

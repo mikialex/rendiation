@@ -61,6 +61,10 @@ impl<K: CKey, V: CValue> Query for Arc<FastHashMap<K, V>> {
     self.clone()
   }
 
+  fn materialize_upper_bound(&self) -> Arc<QueryMaterialized<Self::Key, Self::Value>> {
+    self.clone()
+  }
+
   fn has_item_hint(&self) -> bool {
     !self.is_empty()
   }

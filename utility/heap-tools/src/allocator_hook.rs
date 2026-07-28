@@ -68,8 +68,8 @@ unsafe impl<T: GlobalAlloc> GlobalAlloc for PreciseAllocationStatistics<T> {
       self
         .allocation_real_bytes_count
         .increase(layout.size() as u64);
+      self.allocation_event_count.fetch_add(1, SeqCst);
     }
-    self.allocation_event_count.fetch_add(1, SeqCst);
 
     self.allocator.alloc(layout)
   }

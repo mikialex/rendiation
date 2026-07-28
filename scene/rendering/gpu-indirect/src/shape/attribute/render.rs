@@ -1,3 +1,5 @@
+use rendiation_shader_library::octahedral::decode_octahedral_normal_fn;
+
 use crate::*;
 
 #[derive(Clone)]
@@ -6,10 +8,14 @@ pub struct BindlessMeshDispatcher {
   pub vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   pub index_pool: AbstractReadonlyStorageBuffer<[u32]>,
   pub vertices: AbstractReadonlyStorageBuffer<[u32]>,
+  pub enable_normal_quantization: bool,
 }
 
 impl ShaderHashProvider for BindlessMeshDispatcher {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.enable_normal_quantization);
+  }
 }
 
 #[derive(Clone)]
@@ -22,6 +28,7 @@ pub struct BindlessMeshRasterDispatcher {
 impl ShaderHashProvider for BindlessMeshRasterDispatcher {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.internal.hash_pipeline(hasher);
     hasher.hash(self.is_indexed);
     hasher.hash(self.topology);
   }
@@ -67,6 +74,7 @@ impl GraphicsShaderProvider for BindlessMeshRasterDispatcher {
 pub struct BindlessMeshDispatcherBaseInvocation {
   pub vertex_address_buffer: ShaderReadonlyPtrOf<[AttributeMeshMeta]>,
   pub vertices: ShaderReadonlyPtrOf<[u32]>,
+  pub enable_normal_quantization: bool,
 }
 
 impl BindlessMeshDispatcherBaseInvocation {
@@ -88,11 +96,15 @@ impl BindlessMeshDispatcherBaseInvocation {
     normal_offset.equals(u32::MAX).select_branched(
       || val(Vec3::zero()),
       || {
-        let layout = StructLayoutTarget::Packed;
-        unsafe {
-          Vec3::<f32>::sized_ty()
-            .load_from_u32_buffer(&self.vertices, normal_offset + vertex_id * val(3), layout)
-            .into_node::<Vec3<f32>>()
+        if self.enable_normal_quantization {
+          decode_octahedral_normal_fn(self.vertices.index(normal_offset + vertex_id).load())
+        } else {
+          let layout = StructLayoutTarget::Packed;
+          unsafe {
+            Vec3::<f32>::sized_ty()
+              .load_from_u32_buffer(&self.vertices, normal_offset + vertex_id * val(3), layout)
+              .into_node::<Vec3<f32>>()
+          }
         }
       },
     )
@@ -136,6 +148,7 @@ impl BindlessMeshDispatcher {
     BindlessMeshDispatcherBaseInvocation {
       vertex_address_buffer: cx.bind_by(&self.vertex_address_buffer),
       vertices: cx.bind_by(&self.vertices),
+      enable_normal_quantization: self.enable_normal_quantization,
     }
   }
   pub fn bind_base_invocation(&self, cx: &mut BindingBuilder) {

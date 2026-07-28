@@ -155,7 +155,6 @@ async fn run_gpu_test(surface: &RationalBezierSurface<f32>, sample_count: u32, e
 
   let info = create_gpu_readonly_storage(&surface.to_gpu_info(), &gpu, "info");
   let cp = create_gpu_readonly_storage(&surface.to_gpu_control_points(), &gpu, "cp");
-  let binomial = create_gpu_readonly_storage(BINOMIAL_COEFFICIENTS.as_slice(), &gpu, "binomial");
   let output = create_gpu_read_write_storage::<[Vec4<f32>]>(
     ZeroedArrayByArrayLength(total_samples),
     &gpu,
@@ -164,22 +163,14 @@ async fn run_gpu_test(surface: &RationalBezierSurface<f32>, sample_count: u32, e
 
   let workgroup_size: u32 = 64;
 
-  let pipeline = build_bezier_bernstein_pipeline(
-    &gpu,
-    &info,
-    &cp,
-    &binomial,
-    &output,
-    sample_count,
-    workgroup_size,
-  );
+  let pipeline =
+    build_bezier_bernstein_pipeline(&gpu, &info, &cp, &output, sample_count, workgroup_size);
 
   let dispatch_x = (total_samples as u32 + workgroup_size - 1) / workgroup_size;
   let mut encoder = gpu.create_encoder().with_compute_pass_scoped(|mut pass| {
     BindingBuilder::default()
       .with_bind(&info)
       .with_bind(&cp)
-      .with_bind(&binomial)
       .with_bind(&output)
       .setup_compute_pass(&mut pass, &gpu.device, &pipeline);
     pass.dispatch_workgroups(dispatch_x, 1, 1);
