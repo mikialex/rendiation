@@ -4,9 +4,6 @@ use parking_lot::RwLock;
 use rendiation_mesh_core::AttributeSemantic;
 use rendiation_shader_api::*;
 
-mod vertex_count;
-pub use vertex_count::*;
-
 mod draw_cmd;
 pub use draw_cmd::*;
 
@@ -136,6 +133,24 @@ pub fn use_bindless_mesh(
       enable_normal_quantization,
     }
   })
+}
+
+pub fn use_bindless_mesh_vertex_count(
+  cx: &mut impl DBHookCxLike,
+  mesh_changes: UseResult<AttributesMeshDataChangeInput>,
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, u32>> {
+  mesh_changes
+    .filter_map_changes(|v| v.if_loaded().map(|v| v.vertices_count() as u32))
+    .use_change_to_dual_query_in_spawn_stage(cx)
+    .fanout(
+      cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>(),
+      cx,
+    )
+    .fanout(
+      cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>(),
+      cx,
+    )
+    .dual_query_boxed()
 }
 
 fn use_attribute_indices_updates(

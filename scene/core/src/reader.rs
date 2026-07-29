@@ -408,6 +408,24 @@ pub struct AttributesMeshWithVertexRelationInfo {
 }
 
 impl AttributesMeshWithVertexRelationInfo {
+  pub fn vertices_count(&self) -> usize {
+    if let Some(indices) = &self.indices {
+      indices.count
+    } else {
+      self
+        .vertices
+        .iter()
+        .find_map(|v| {
+          if v.semantic == AttributeSemantic::Positions {
+            Some(v.data.count)
+          } else {
+            None
+          }
+        })
+        .expect("mesh is invalid, no position vertices in mesh")
+    }
+  }
+
   pub fn into_attributes_mesh(self) -> AttributesMesh {
     let AttributesMeshWithVertexRelationInfo {
       mode,

@@ -110,13 +110,6 @@ where
   use_uri_data_changes(cx, DBMeshInput, &scheduler, loader_creator)
 }
 
-pub fn viewer_mesh_buffer_input(
-  cx: &mut QueryGPUHookCx<'_>,
-) -> (AttributeVertexDataSource, AttributeIndexDataSource) {
-  let mesh_changes = viewer_mesh_input(cx);
-  create_sub_buffer_changes_from_mesh_changes(cx, mesh_changes)
-}
-
 fn load_uri_mesh(
   mesh: &AttributesMeshWithUri,
   buffer_backend: &mut dyn UriDataSourceDyn<Arc<Vec<u8>>>,
