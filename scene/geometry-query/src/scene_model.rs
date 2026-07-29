@@ -33,14 +33,15 @@ pub struct SceneModelFrustumQueryRequest<'a> {
 }
 
 pub struct SceneModelFrustumSubPrimitiveQueryRequest<'a> {
-  pub idx: EntityHandle<SceneModelEntity>,
-  /// if the override_world_mat used, the internal node matrix is ignored
-  pub override_world_mat: Option<&'a Mat4<f64>>,
-  pub frustum: &'a SceneFrustumQuery,
-  pub policy: ObjectTestPolicy,
-  /// ignore selectable or visible states
-  pub ignore_pre_check: bool,
+  pub internal: SceneModelFrustumQueryRequest<'a>,
   pub results: &'a mut Vec<u32>,
+}
+
+impl<'a> std::ops::Deref for SceneModelFrustumSubPrimitiveQueryRequest<'a> {
+  type Target = SceneModelFrustumQueryRequest<'a>;
+  fn deref(&self) -> &Self::Target {
+    &self.internal
+  }
 }
 
 pub trait SceneModelPicker {
@@ -202,6 +203,42 @@ pub struct SceneModelPickerBaseImpl<T> {
   pub internal: T,
 }
 
+impl<T: LocalModelPicker> SceneModelPickerBaseImpl<T> {
+  fn prepare_frustum_test(
+    &self,
+    request: &SceneModelFrustumQueryRequest,
+  ) -> Option<(
+    Mat4<f64>,
+    Frustum<f32>,
+    Option<FrustumIntersectionTestHelper<f32>>,
+  )> {
+    let node = self.util.pre_check(request.idx, request.ignore_pre_check)?;
+
+    let (mat, _sm_world_bounding) = if let Some(mat) = request.override_world_mat {
+      let smb = self
+        .util
+        .sm_local_bounding
+        .access(&request.idx)?
+        .into_f64()
+        .apply_matrix_into(*mat);
+      (*mat, smb)
+    } else {
+      self.util.get_mat_and_world_aabb(node, request.idx)?
+    };
+
+    // todo, early return
+
+    let frustum = request
+      .frustum
+      .world_frustum
+      .apply_matrix_into(mat.inverse_or_identity());
+    let frustum = frustum.into_f32();
+    let helper = FrustumIntersectionTestHelper::new(&frustum);
+
+    Some((mat, frustum, helper))
+  }
+}
+
 impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
   fn ray_query_nearest(
     &self,
@@ -240,14 +277,16 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       .apply_matrix_into(mat.inverse_or_identity()) // todo, cache inverse mat
       .into_f32();
 
-    let hit = self.internal.ray_query_local_nearest(
-      idx,
-      local_ray,
-      local_tolerance,
-      ctx.extra_screen_space_tolerance,
-      &mat,
-      &ctx.camera_ctx,
-    )?;
+    let hit = self
+      .internal
+      .ray_query_local_nearest(LocalRayQueryRequest {
+        idx,
+        local_ray,
+        local_tolerance,
+        extra_screen_space_tolerance: ctx.extra_screen_space_tolerance,
+        world_mat: &mat,
+        camera_ctx: &ctx.camera_ctx,
+      })?;
 
     let position = hit.hit.position.into_f64();
     let world_hit_position = position.apply_matrix_into(mat);
@@ -307,15 +346,17 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
 
     local_result_scratch.clear();
 
-    self.internal.ray_query_local_all(
-      idx,
-      local_ray,
-      local_tolerance,
-      ctx.extra_screen_space_tolerance,
-      local_result_scratch,
-      &mat,
-      &ctx.camera_ctx,
-    )?;
+    self.internal.ray_query_local_all(LocalRayAllQueryRequest {
+      internal: LocalRayQueryRequest {
+        idx,
+        local_ray,
+        local_tolerance,
+        extra_screen_space_tolerance: ctx.extra_screen_space_tolerance,
+        world_mat: &mat,
+        camera_ctx: &ctx.camera_ctx,
+      },
+      results: local_result_scratch,
+    })?;
 
     results.reserve(local_result_scratch.len());
     local_result_scratch
@@ -334,90 +375,39 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
   }
 
   fn frustum_query(&self, request: SceneModelFrustumQueryRequest) -> Option<bool> {
-    let SceneModelFrustumQueryRequest {
-      idx,
-      override_world_mat,
-      frustum: ctx,
-      policy,
-      ignore_pre_check,
-    } = request;
-    let node = self.util.pre_check(idx, ignore_pre_check)?;
+    let (mat, frustum, helper) = self.prepare_frustum_test(&request)?;
 
-    let (mat, _sm_world_bounding) = if let Some(mat) = override_world_mat {
-      let smb = self
-        .util
-        .sm_local_bounding
-        .access(&idx)?
-        .into_f64()
-        .apply_matrix_into(*mat);
-      (*mat, smb)
-    } else {
-      self.util.get_mat_and_world_aabb(node, idx)?
-    };
-
-    // todo, early return
-
-    let frustum = ctx
-      .world_frustum
-      .apply_matrix_into(mat.inverse_or_identity());
-    let frustum = frustum.into_f32();
-    let helper = FrustumIntersectionTestHelper::new(&frustum);
-
-    self.internal.frustum_query_local(
-      idx,
-      &frustum,
-      helper.as_ref(),
-      policy,
-      ctx.extra_screen_space_tolerance,
-      &mat,
-      &ctx.camera_ctx,
-    )
+    self.internal.frustum_query_local(LocalFrustumQueryRequest {
+      idx: request.idx,
+      local_frustum: &frustum,
+      helper: helper.as_ref(),
+      policy: request.policy,
+      extra_screen_space_tolerance: request.frustum.extra_screen_space_tolerance,
+      world_mat: &mat,
+      camera_ctx: &request.frustum.camera_ctx,
+    })
   }
 
   fn frustum_query_sub_primitives(
     &self,
     request: SceneModelFrustumSubPrimitiveQueryRequest,
   ) -> Option<()> {
-    let SceneModelFrustumSubPrimitiveQueryRequest {
-      idx,
-      override_world_mat,
-      frustum: ctx,
-      policy,
-      ignore_pre_check,
-      results,
-    } = request;
-    let node = self.util.pre_check(idx, ignore_pre_check)?;
+    let (mat, frustum, helper) = self.prepare_frustum_test(&request)?;
 
-    let (mat, _sm_world_bounding) = if let Some(mat) = override_world_mat {
-      let smb = self
-        .util
-        .sm_local_bounding
-        .access(&idx)?
-        .into_f64()
-        .apply_matrix_into(*mat);
-      (*mat, smb)
-    } else {
-      self.util.get_mat_and_world_aabb(node, idx)?
-    };
-
-    // todo, early return
-
-    let frustum = ctx
-      .world_frustum
-      .apply_matrix_into(mat.inverse_or_identity());
-    let frustum = frustum.into_f32();
-    let helper = FrustumIntersectionTestHelper::new(&frustum);
-
-    self.internal.frustum_query_local_sub_primitives(
-      idx,
-      &frustum,
-      helper.as_ref(),
-      policy,
-      ctx.extra_screen_space_tolerance,
-      &mat,
-      &ctx.camera_ctx,
-      results,
-    )
+    self
+      .internal
+      .frustum_query_local_sub_primitives(LocalFrustumSubPrimitiveQueryRequest {
+        internal: LocalFrustumQueryRequest {
+          idx: request.idx,
+          local_frustum: &frustum,
+          helper: helper.as_ref(),
+          policy: request.policy,
+          extra_screen_space_tolerance: request.frustum.extra_screen_space_tolerance,
+          world_mat: &mat,
+          camera_ctx: &request.frustum.camera_ctx,
+        },
+        results: request.results,
+      })
   }
 }
 

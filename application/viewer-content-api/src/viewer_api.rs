@@ -627,11 +627,13 @@ impl ViewerQueryAPI {
           .picker_impl
           .model_picker
           .frustum_query_sub_primitives(SceneModelFrustumSubPrimitiveQueryRequest {
-            idx,
-            override_world_mat: None,
-            frustum: &frustum,
-            policy,
-            ignore_pre_check: false,
+            internal: SceneModelFrustumQueryRequest {
+              idx,
+              override_world_mat: None,
+              frustum: &frustum,
+              policy,
+              ignore_pre_check: false,
+            },
             results: &mut sub_results,
           })
           .is_some()

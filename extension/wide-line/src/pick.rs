@@ -61,49 +61,46 @@ impl LocalModelPicker for WideLinePicker {
     Some(Some(pick_line_tolerance))
   }
 
-  fn ray_query_local_nearest(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    local_tolerance: f32,
-    // already considered in local_tolerance
-    _extra_screen_space_tolerance: f32,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<MeshBufferHitPoint> {
+  fn ray_query_local_nearest(&self, request: LocalRayQueryRequest) -> Option<MeshBufferHitPoint> {
+    let LocalRayQueryRequest {
+      idx,
+      local_ray,
+      local_tolerance,
+      ..
+    } = request;
+    // todo extra_screen_space_tolerance
     *self
       .mesh_view(idx)?
       .ray_intersect_nearest(local_ray, &local_tolerance)
   }
 
-  fn ray_query_local_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    local_tolerance: f32,
-    // already considered in local_tolerance
-    _extra_screen_space_tolerance: f32,
-    results: &mut Vec<MeshBufferHitPoint>,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<()> {
+  fn ray_query_local_all(&self, request: LocalRayAllQueryRequest) -> Option<()> {
+    let LocalRayAllQueryRequest {
+      internal:
+        LocalRayQueryRequest {
+          idx,
+          local_ray,
+          local_tolerance,
+          ..
+        },
+      results,
+    } = request;
+    // todo extra_screen_space_tolerance
     self
       .mesh_view(idx)?
       .ray_intersect_all(local_ray, &local_tolerance, results);
     Some(())
   }
 
-  fn frustum_query_local(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    f: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    // todo missing
-    _extra_screen_space_tolerance: f32,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<bool> {
+  fn frustum_query_local(&self, request: LocalFrustumQueryRequest) -> Option<bool> {
+    let LocalFrustumQueryRequest {
+      idx,
+      local_frustum: f,
+      helper,
+      policy,
+      ..
+    } = request;
+    // todo extra_screen_space_tolerance
     let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |line| {
       frustum_test_line(line, policy, f, helper)
     });
@@ -113,15 +110,19 @@ impl LocalModelPicker for WideLinePicker {
 
   fn frustum_query_local_sub_primitives(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    _extra_screen_space_tolerance: f32,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-    results: &mut Vec<u32>,
+    request: LocalFrustumSubPrimitiveQueryRequest,
   ) -> Option<()> {
+    let LocalFrustumSubPrimitiveQueryRequest {
+      internal:
+        LocalFrustumQueryRequest {
+          idx,
+          local_frustum: frustum,
+          helper,
+          policy,
+          ..
+        },
+      results,
+    } = request;
     let view = self.mesh_view(idx)?;
 
     for (i, line) in view.primitive_iter().enumerate() {

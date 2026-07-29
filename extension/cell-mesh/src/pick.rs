@@ -100,48 +100,34 @@ impl LocalModelPicker for CellMeshPicker {
     Some(None)
   }
 
-  fn ray_query_local_nearest(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    _local_tolerance: f32,
-    _extra_screen_space_tolerance: f32,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<MeshBufferHitPoint> {
+  fn ray_query_local_nearest(&self, request: LocalRayQueryRequest) -> Option<MeshBufferHitPoint> {
+    let LocalRayQueryRequest { idx, local_ray, .. } = request;
+    // todo extra_screen_space_tolerance
     *self
       .mesh_view(idx)?
       .ray_intersect_nearest(local_ray, &FaceSide::Double)
   }
 
-  fn ray_query_local_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    _local_tolerance: f32,
-    _extra_screen_space_tolerance: f32,
-    results: &mut Vec<MeshBufferHitPoint>,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<()> {
+  fn ray_query_local_all(&self, request: LocalRayAllQueryRequest) -> Option<()> {
+    let LocalRayAllQueryRequest { internal, results } = request;
+    // todo extra_screen_space_tolerance
     self
-      .mesh_view(idx)?
-      .ray_intersect_all(local_ray, &FaceSide::Double, results);
+      .mesh_view(internal.idx)?
+      .ray_intersect_all(internal.local_ray, &FaceSide::Double, results);
     Some(())
   }
 
-  fn frustum_query_local(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    f: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    _extra_screen_space_tolerance: f32,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<bool> {
+  fn frustum_query_local(&self, request: LocalFrustumQueryRequest) -> Option<bool> {
+    let LocalFrustumQueryRequest {
+      idx,
+      local_frustum,
+      helper,
+      policy,
+      ..
+    } = request;
+    // todo extra_screen_space_tolerance
     let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |t| {
-      frustum_test_tri(helper, f, &t, policy)
+      frustum_test_tri(helper, local_frustum, &t, policy)
     });
 
     Some(r)
@@ -149,20 +135,20 @@ impl LocalModelPicker for CellMeshPicker {
 
   fn frustum_query_local_sub_primitives(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    _extra_screen_space_tolerance: f32,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-    results: &mut Vec<u32>,
+    request: LocalFrustumSubPrimitiveQueryRequest,
   ) -> Option<()> {
-    let view = self.mesh_view(idx)?;
+    let LocalFrustumSubPrimitiveQueryRequest { internal, results } = request;
+    let view = self.mesh_view(internal.idx)?;
 
-    frustum_test_abstract_mesh_as_quad_all(&view, policy, helper, frustum, |i| {
-      results.push(i as u32);
-    });
+    frustum_test_abstract_mesh_as_quad_all(
+      &view,
+      internal.policy,
+      internal.helper,
+      internal.local_frustum,
+      |i| {
+        results.push(i as u32);
+      },
+    );
 
     Some(())
   }

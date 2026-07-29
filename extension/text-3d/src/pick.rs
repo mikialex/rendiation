@@ -45,51 +45,27 @@ impl LocalModelPicker for TextPicker {
     Some(None)
   }
 
-  fn ray_query_local_nearest(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    _local_tolerance: f32,
-    // already considered in local_tolerance
-    _extra_screen_space_tolerance: f32,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<MeshBufferHitPoint> {
+  fn ray_query_local_nearest(&self, request: LocalRayQueryRequest) -> Option<MeshBufferHitPoint> {
+    // todo extra_screen_space_tolerance
     *self
-      .mesh_view(idx)?
-      .ray_intersect_nearest(local_ray, &FaceSide::Double)
+      .mesh_view(request.idx)?
+      .ray_intersect_nearest(request.local_ray, &FaceSide::Double)
   }
 
-  fn ray_query_local_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    _local_tolerance: f32,
-    // already considered in local_tolerance
-    _extra_screen_space_tolerance: f32,
-    results: &mut Vec<MeshBufferHitPoint>,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<()> {
-    self
-      .mesh_view(idx)?
-      .ray_intersect_all(local_ray, &FaceSide::Double, results);
+  fn ray_query_local_all(&self, request: LocalRayAllQueryRequest) -> Option<()> {
+    // todo extra_screen_space_tolerance
+    self.mesh_view(request.idx)?.ray_intersect_all(
+      request.local_ray,
+      &FaceSide::Double,
+      request.results,
+    );
     Some(())
   }
 
-  fn frustum_query_local(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    f: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    // todo missing
-    _extra_screen_space_tolerance: f32,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<bool> {
-    let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |t| {
-      frustum_test_tri(helper, f, &t, policy)
+  fn frustum_query_local(&self, request: LocalFrustumQueryRequest) -> Option<bool> {
+    // todo extra_screen_space_tolerance
+    let r = frustum_test_abstract_mesh(&self.mesh_view(request.idx)?, request.policy, |t| {
+      frustum_test_tri(request.helper, request.local_frustum, &t, request.policy)
     });
 
     Some(r)
@@ -97,20 +73,19 @@ impl LocalModelPicker for TextPicker {
 
   fn frustum_query_local_sub_primitives(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    _extra_screen_space_tolerance: f32,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-    results: &mut Vec<u32>,
+    request: LocalFrustumSubPrimitiveQueryRequest,
   ) -> Option<()> {
-    let view = self.mesh_view(idx)?;
+    let view = self.mesh_view(request.idx)?;
 
-    frustum_test_abstract_mesh_as_quad_all(&view, policy, helper, frustum, |i| {
-      results.push(i as u32);
-    });
+    frustum_test_abstract_mesh_as_quad_all(
+      &view,
+      request.policy,
+      request.helper,
+      request.local_frustum,
+      |i| {
+        request.results.push(i as u32);
+      },
+    );
 
     Some(())
   }

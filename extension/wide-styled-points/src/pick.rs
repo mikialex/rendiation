@@ -81,21 +81,17 @@ impl LocalModelPicker for WidePointsPicker {
     )))
   }
 
-  fn ray_query_local_nearest(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    _local_tolerance: f32,
-    extra_screen_space_tolerance: f32,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<MeshBufferHitPoint> {
+  fn ray_query_local_nearest(&self, request: LocalRayQueryRequest) -> Option<MeshBufferHitPoint> {
     let mut nearest = OptionalNearest::none();
-    let view = self.create_view(idx)?;
-    let mesh = view.into_tri_mesh(world_mat, camera_ctx, extra_screen_space_tolerance);
+    let view = self.create_view(request.idx)?;
+    let mesh = view.into_tri_mesh(
+      request.world_mat,
+      request.camera_ctx,
+      request.extra_screen_space_tolerance,
+    );
 
     for (tri_index, tri) in mesh.primitive_iter().enumerate() {
-      if let Some(hit) = local_ray.intersect(&tri, &FaceSide::Double).0 {
+      if let Some(hit) = request.local_ray.intersect(&tri, &FaceSide::Double).0 {
         nearest.refresh_nearest(OptionalNearest::some(MeshBufferHitPoint {
           hit,
           primitive_index: tri_index / 2,
@@ -106,22 +102,17 @@ impl LocalModelPicker for WidePointsPicker {
     *nearest
   }
 
-  fn ray_query_local_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    _local_tolerance: f32,
-    extra_screen_space_tolerance: f32,
-    results: &mut Vec<MeshBufferHitPoint>,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<()> {
-    let view = self.create_view(idx)?;
-    let mesh = view.into_tri_mesh(world_mat, camera_ctx, extra_screen_space_tolerance);
+  fn ray_query_local_all(&self, request: LocalRayAllQueryRequest) -> Option<()> {
+    let view = self.create_view(request.idx)?;
+    let mesh = view.into_tri_mesh(
+      request.world_mat,
+      request.camera_ctx,
+      request.extra_screen_space_tolerance,
+    );
 
     for (tri_index, tri) in mesh.primitive_iter().enumerate() {
-      if let Some(hit) = local_ray.intersect(&tri, &FaceSide::Double).0 {
-        results.push(MeshBufferHitPoint {
+      if let Some(hit) = request.local_ray.intersect(&tri, &FaceSide::Double).0 {
+        request.results.push(MeshBufferHitPoint {
           hit,
           primitive_index: tri_index / 2,
         });
@@ -131,20 +122,15 @@ impl LocalModelPicker for WidePointsPicker {
     Some(())
   }
 
-  fn frustum_query_local(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    extra_screen_space_tolerance: f32,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<bool> {
-    let view = self.create_view(idx)?;
-    let mesh = view.into_tri_mesh(world_mat, camera_ctx, extra_screen_space_tolerance);
-    let r = frustum_test_abstract_mesh(&mesh, policy, |t| {
-      frustum_test_tri(helper, frustum, &t, policy)
+  fn frustum_query_local(&self, request: LocalFrustumQueryRequest) -> Option<bool> {
+    let view = self.create_view(request.idx)?;
+    let mesh = view.into_tri_mesh(
+      request.world_mat,
+      request.camera_ctx,
+      request.extra_screen_space_tolerance,
+    );
+    let r = frustum_test_abstract_mesh(&mesh, request.policy, |t| {
+      frustum_test_tri(request.helper, request.local_frustum, &t, request.policy)
     });
 
     Some(r)
@@ -152,21 +138,24 @@ impl LocalModelPicker for WidePointsPicker {
 
   fn frustum_query_local_sub_primitives(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    extra_screen_space_tolerance: f32,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-    results: &mut Vec<u32>,
+    request: LocalFrustumSubPrimitiveQueryRequest,
   ) -> Option<()> {
-    let view = self.create_view(idx)?;
-    let mesh = view.into_tri_mesh(world_mat, camera_ctx, extra_screen_space_tolerance);
+    let view = self.create_view(request.idx)?;
+    let mesh = view.into_tri_mesh(
+      request.world_mat,
+      request.camera_ctx,
+      request.extra_screen_space_tolerance,
+    );
 
-    frustum_test_abstract_mesh_as_quad_all(&mesh, policy, helper, frustum, |i| {
-      results.push(i as u32);
-    });
+    frustum_test_abstract_mesh_as_quad_all(
+      &mesh,
+      request.policy,
+      request.helper,
+      request.local_frustum,
+      |i| {
+        request.results.push(i as u32);
+      },
+    );
 
     Some(())
   }
