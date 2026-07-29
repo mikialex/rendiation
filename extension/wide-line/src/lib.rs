@@ -73,8 +73,8 @@ pub struct WideLineVertex {
   pub start: Vec3<f32>,
   #[semantic(WideLineEnd)]
   pub end: Vec3<f32>,
-  #[semantic(GeometryColorWithAlpha)]
-  pub color: Vec4<f32>,
+  #[semantic(WideLineVertexColor)]
+  pub color: u32,
 }
 
 /// the one_pixel_native_line_optimization_enabled must be immutable for every call

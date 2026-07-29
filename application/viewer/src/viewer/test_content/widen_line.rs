@@ -74,7 +74,7 @@ pub fn build_wide_line_mesh(
     .map(|(i, line)| WideLineVertex {
       start: line.start.position,
       end: line.end.position,
-      color: Vec4::new(1., i as f32 / line_count, 0., 1.0),
+      color: pack_color((1., i as f32 / line_count, 0., 1.0)),
     })
     .collect();
 

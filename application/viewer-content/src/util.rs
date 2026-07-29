@@ -95,3 +95,12 @@ pub fn load_example_cube_tex(writer: &mut SceneWriter) -> EntityHandle<SceneText
     tex.clone(),
   )
 }
+
+pub fn pack_color(color: impl Into<Vec4<f32>>) -> u32 {
+  let color = color.into();
+  let r = (color.x * 255.) as u32;
+  let g = (color.y * 255.) as u32;
+  let b = (color.z * 255.) as u32;
+  let a = (color.w * 255.) as u32;
+  (a << 24) | (b << 16) | (g << 8) | r
+}

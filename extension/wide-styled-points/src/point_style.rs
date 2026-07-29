@@ -33,6 +33,7 @@ pub fn wide_line_vertex(
 }
 
 only_vertex!(WidePointPosition, Vec3<f32>);
+only_vertex!(WidePointColor, u32);
 only_vertex!(WidePointSize, f32);
 both!(WidePointStyleId, u32);
 both!(WidePointTextureId, Vec2<u32>);

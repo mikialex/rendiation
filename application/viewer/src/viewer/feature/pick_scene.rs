@@ -155,7 +155,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
             lines.iter().map(move |(start, end)| WideLineVertex {
               start: *start,
               end: *end,
-              color,
+              color: pack_color(color),
             })
           })
           .collect();

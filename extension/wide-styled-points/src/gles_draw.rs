@@ -143,6 +143,8 @@ impl ShaderPassBuilder for WidePointGPU<'_> {
   }
 }
 
+both!(PointVertexColorGles, Vec4<f32>);
+
 impl GraphicsShaderProvider for WidePointGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
@@ -170,6 +172,9 @@ impl GraphicsShaderProvider for WidePointGPU<'_> {
       );
 
       builder.set_vertex_out::<FragmentUv>(uv);
+
+      let point_color = builder.query::<WidePointColor>().unpack4x8unorm();
+      builder.set_vertex_out::<PointVertexColorGles>(point_color);
     });
 
     builder.fragment(|builder, binding| {
@@ -181,7 +186,7 @@ impl GraphicsShaderProvider for WidePointGPU<'_> {
       let style_id = builder.query::<WidePointStyleId>();
 
       let uniform = binding.bind_by(&self.uniform).load().expand();
-      let color = uniform.color;
+      let color = uniform.color * builder.query::<PointVertexColorGles>();
 
       let (alpha, color_multiplier) = point_style_entry(coord, style_id);
 

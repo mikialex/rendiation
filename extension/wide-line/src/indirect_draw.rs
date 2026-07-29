@@ -152,7 +152,7 @@ struct WideLineParameters {
 struct WideLineVertexStorage {
   pub start: Vec3<f32>,
   pub end: Vec3<f32>,
-  pub color: Vec4<f32>,
+  pub color: u32,
 }
 
 impl IndirectDrawProviderCreator for WideLineModelIndirectRenderer {
@@ -332,11 +332,13 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
       builder.register::<WideLineStart>(seg.start);
       builder.register::<WideLineEnd>(seg.end);
 
+      let seg_color = seg.color.unpack4x8unorm();
+
       if self.use_native_line {
         let position = vertex_index.equals(0).select(seg.start, seg.end);
         builder.register::<GeometryPosition>(position);
 
-        let color = seg.color * line_param.color;
+        let color = seg_color * line_param.color;
         builder.register::<GeometryColorWithAlpha>(color);
         builder.set_vertex_out::<DefaultDisplay>(color);
 
@@ -356,7 +358,7 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
         builder.register::<GeometryPosition>(Node::from((vertex, val(0.))));
         builder.register::<GeometryUV>(vertex);
 
-        let color = seg.color * line_param.color;
+        let color = seg_color * line_param.color;
         builder.register::<GeometryColorWithAlpha>(color);
         builder.set_vertex_out::<DefaultDisplay>(color);
 

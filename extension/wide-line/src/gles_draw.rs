@@ -158,7 +158,7 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
 
     builder.vertex(|builder, binding| {
       let uv = builder.query::<GeometryUV>();
-      let color_with_alpha = builder.query::<GeometryColorWithAlpha>();
+      let color_with_alpha = builder.query::<WideLineVertexColor>().unpack4x8unorm();
       let uniform = uniform.using(binding).load().expand();
 
       wide_line_vertex(

@@ -15,7 +15,7 @@ fn sample_curve_to_vertices(
     vertices.push(WideLineVertex {
       start: curve.evaluate(t0),
       end: curve.evaluate(t1),
-      color,
+      color: pack_color(color),
     });
   }
   vertices
@@ -92,7 +92,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter, scene: EntityHandle<
       vertices.push(WideLineVertex {
         start: nurbs.evaluate(t0),
         end: nurbs.evaluate(t1),
-        color: Vec4::new(0.8, 0.8, 0.8, 1.0),
+        color: pack_color((0.8, 0.8, 0.8, 1.0)),
       });
     }
 
@@ -150,7 +150,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter, scene: EntityHandle<
         poly_vertices.push(WideLineVertex {
           start: points[j],
           end: points[j + 1],
-          color: Vec4::new(0.5, 0.5, 0.5, 1.0),
+          color: pack_color((0.5, 0.5, 0.5, 1.0)),
         });
       }
       let poly_buffer = ExternalRefPtr::new(poly_vertices);

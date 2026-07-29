@@ -60,6 +60,8 @@ impl TextureWithSamplingForeignKeys for WidePointsColorAlphaTex {}
 pub struct WideStyledPointVertex {
   #[semantic(WidePointPosition)]
   pub position: Vec3<f32>,
+  #[semantic(WidePointColor)]
+  pub color: u32,
   #[semantic(WidePointSize)]
   pub width: f32,
   #[semantic(WidePointStyleId)]
