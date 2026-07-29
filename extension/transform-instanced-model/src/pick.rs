@@ -76,8 +76,8 @@ impl<T: SceneModelPicker> SceneModelPicker for TransformInstancedMeshPicker<T> {
     )?;
 
     let mut nearest: Option<MeshBufferHitPoint<f64>> = None;
-    for m in view.iter_mats() {
-      if let Some(h) = self
+    for (i, m) in view.iter_mats().enumerate() {
+      if let Some(mut h) = self
         .internal
         .ray_query_nearest(SceneModelRayNearestQueryRequest {
           idx: view.source_model,
@@ -86,6 +86,7 @@ impl<T: SceneModelPicker> SceneModelPicker for TransformInstancedMeshPicker<T> {
           ignore_pre_check: true,
         })
       {
+        h.primitive_index = i;
         let hit = h.hit;
         if let Some(n) = nearest {
           if hit.is_near_than(&n.hit) {
@@ -112,19 +113,22 @@ impl<T: SceneModelPicker> SceneModelPicker for TransformInstancedMeshPicker<T> {
       request.override_world_mat,
       request.ignore_pre_check,
     )?;
-    for m in view.iter_mats() {
-      if self
-        .internal
-        .ray_query_all(SceneModelRayAllQueryRequest {
-          idx: view.source_model,
-          override_world_mat: Some(&m),
-          results: request.results,
-          local_result_scratch: request.local_result_scratch,
-          ignore_pre_check: true,
-          ..request
-        })
-        .is_none()
-      {
+    for (i, m) in view.iter_mats().enumerate() {
+      let start = request.results.len();
+      let internal_test = self.internal.ray_query_all(SceneModelRayAllQueryRequest {
+        idx: view.source_model,
+        override_world_mat: Some(&m),
+        results: request.results,
+        local_result_scratch: request.local_result_scratch,
+        ignore_pre_check: true,
+        ..request
+      });
+
+      for r in &mut request.results[start..] {
+        r.primitive_index = i;
+      }
+
+      if internal_test.is_none() {
         return None;
       }
     }
@@ -180,5 +184,45 @@ impl<T: SceneModelPicker> SceneModelPicker for TransformInstancedMeshPicker<T> {
         Some(true)
       }
     }
+  }
+
+  fn frustum_query_sub_primitives(
+    &self,
+    request: SceneModelFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()> {
+    if let Some(internal) =
+      self
+        .internal
+        .frustum_query_sub_primitives(SceneModelFrustumSubPrimitiveQueryRequest {
+          results: request.results,
+          ..request
+        })
+    {
+      return Some(internal);
+    }
+
+    let view = self.get_view(
+      request.idx,
+      request.override_world_mat,
+      request.ignore_pre_check,
+    )?;
+
+    for (i, m) in view.iter_mats().enumerate() {
+      if let Some(positive) = self.internal.frustum_query(SceneModelFrustumQueryRequest {
+        idx: view.source_model,
+        override_world_mat: Some(&m),
+        policy: request.policy,
+        ignore_pre_check: true,
+        frustum: request.frustum,
+      }) {
+        if positive {
+          request.results.push(i as u32);
+        }
+      } else {
+        return None;
+      }
+    }
+
+    Some(())
   }
 }

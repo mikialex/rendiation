@@ -32,19 +32,35 @@ pub struct SceneModelFrustumQueryRequest<'a> {
   pub ignore_pre_check: bool,
 }
 
+pub struct SceneModelFrustumSubPrimitiveQueryRequest<'a> {
+  pub idx: EntityHandle<SceneModelEntity>,
+  /// if the override_world_mat used, the internal node matrix is ignored
+  pub override_world_mat: Option<&'a Mat4<f64>>,
+  pub frustum: &'a SceneFrustumQuery,
+  pub policy: ObjectTestPolicy,
+  /// ignore selectable or visible states
+  pub ignore_pre_check: bool,
+  pub results: &'a mut Vec<u32>,
+}
+
 pub trait SceneModelPicker {
   fn ray_query_nearest(
     &self,
     request: SceneModelRayNearestQueryRequest,
   ) -> Option<MeshBufferHitPoint<f64>>;
 
-  /// if the override_world_mat used, the internal node matrix is ignored
-  ///
   /// return None if errored
   /// todo, this should be improved
   fn ray_query_all(&self, request: SceneModelRayAllQueryRequest) -> Option<()>;
 
   fn frustum_query(&self, request: SceneModelFrustumQueryRequest) -> Option<bool>;
+
+  /// return None if errored
+  /// todo, this should be improved
+  fn frustum_query_sub_primitives(
+    &self,
+    request: SceneModelFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()>;
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -68,6 +84,12 @@ impl<'a> SceneModelPicker for Box<dyn SceneModelPicker + 'a> {
   fn frustum_query(&self, request: SceneModelFrustumQueryRequest) -> Option<bool> {
     (**self).frustum_query(request)
   }
+  fn frustum_query_sub_primitives(
+    &self,
+    request: SceneModelFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()> {
+    (**self).frustum_query_sub_primitives(request)
+  }
 }
 
 impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
@@ -87,12 +109,9 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
     for provider in self {
       if provider
         .ray_query_all(SceneModelRayAllQueryRequest {
-          idx: request.idx,
-          override_world_mat: request.override_world_mat,
-          ctx: request.ctx,
-          results: &mut *request.results,
-          local_result_scratch: &mut *request.local_result_scratch,
-          ignore_pre_check: request.ignore_pre_check,
+          results: request.results,
+          local_result_scratch: request.local_result_scratch,
+          ..request
         })
         .is_some()
       {
@@ -105,6 +124,23 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
   fn frustum_query(&self, request: SceneModelFrustumQueryRequest) -> Option<bool> {
     for provider in self {
       if let Some(r) = provider.frustum_query(request) {
+        return Some(r);
+      }
+    }
+    None
+  }
+
+  fn frustum_query_sub_primitives(
+    &self,
+    request: SceneModelFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()> {
+    for provider in self {
+      if let Some(r) =
+        provider.frustum_query_sub_primitives(SceneModelFrustumSubPrimitiveQueryRequest {
+          results: request.results,
+          ..request
+        })
+      {
         return Some(r);
       }
     }
@@ -335,6 +371,52 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       ctx.extra_screen_space_tolerance,
       &mat,
       &ctx.camera_ctx,
+    )
+  }
+
+  fn frustum_query_sub_primitives(
+    &self,
+    request: SceneModelFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()> {
+    let SceneModelFrustumSubPrimitiveQueryRequest {
+      idx,
+      override_world_mat,
+      frustum: ctx,
+      policy,
+      ignore_pre_check,
+      results,
+    } = request;
+    let node = self.util.pre_check(idx, ignore_pre_check)?;
+
+    let (mat, _sm_world_bounding) = if let Some(mat) = override_world_mat {
+      let smb = self
+        .util
+        .sm_local_bounding
+        .access(&idx)?
+        .into_f64()
+        .apply_matrix_into(*mat);
+      (*mat, smb)
+    } else {
+      self.util.get_mat_and_world_aabb(node, idx)?
+    };
+
+    // todo, early return
+
+    let frustum = ctx
+      .world_frustum
+      .apply_matrix_into(mat.inverse_or_identity());
+    let frustum = frustum.into_f32();
+    let helper = FrustumIntersectionTestHelper::new(&frustum);
+
+    self.internal.frustum_query_local_sub_primitives(
+      idx,
+      &frustum,
+      helper.as_ref(),
+      policy,
+      ctx.extra_screen_space_tolerance,
+      &mat,
+      &ctx.camera_ctx,
+      results,
     )
   }
 }

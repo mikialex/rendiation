@@ -58,4 +58,17 @@ impl<T: SceneModelPicker> SceneModelPicker for SceneModelPickerWithViewDep<T> {
       ..request
     })
   }
+
+  fn frustum_query_sub_primitives(
+    &self,
+    request: SceneModelFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()> {
+    let mat = self.get_mat(request.idx, request.override_world_mat);
+    self
+      .internal
+      .frustum_query_sub_primitives(SceneModelFrustumSubPrimitiveQueryRequest {
+        override_world_mat: mat.as_ref(),
+        ..request
+      })
+  }
 }

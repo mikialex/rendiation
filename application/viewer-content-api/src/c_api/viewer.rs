@@ -1,6 +1,7 @@
 use std::{
   ffi::{c_char, CStr},
   path::Path,
+  slice,
 };
 
 use crate::*;
@@ -390,6 +391,84 @@ pub extern "C" fn get_ray_pick_range_info(
 ) -> ViewerRayPickRangeResultInfo {
   let r = unsafe { &*r };
   ViewerRayPickRangeResultInfo {
+    len: r.pick_results.len(),
+    ptr: r.pick_results.as_ptr(),
+  }
+}
+
+/// the returned result should be dropped by [drop_pick_sub_primitive_result] after read
+///
+/// all inputs are logic pixel
+#[no_mangle]
+pub extern "C" fn picker_pick_range_sub_primitive(
+  api: &mut ViewerQueryAPI,
+  viewer: &mut ViewerAPI,
+  ax: f32,
+  ay: f32,
+  bx: f32,
+  by: f32,
+  items_to_range_pick: *const ViewerEntityHandle,
+  items_count: u32,
+  contains: bool,
+  precise_intersection_test: bool,
+  extra_screen_space_tolerance: f32,
+) -> *mut ViewerRayPickSubPrimitiveResult {
+  let items = unsafe { slice::from_raw_parts(items_to_range_pick, items_count as usize) };
+  let mut tuple_results = Vec::new();
+  api.pick_range_sub_primitive(
+    &viewer.core.viewer,
+    ax,
+    ay,
+    bx,
+    by,
+    items,
+    &mut tuple_results,
+    contains,
+    precise_intersection_test,
+    extra_screen_space_tolerance,
+  );
+
+  let pick_results = tuple_results
+    .iter()
+    .map(|(handle, idx)| ViewerSubPrimitivePickResult {
+      scene_model_handle: *handle,
+      primitive_index: *idx,
+    })
+    .collect();
+
+  let r = Box::new(ViewerRayPickSubPrimitiveResult { pick_results });
+  Box::leak(r)
+}
+
+#[no_mangle]
+pub extern "C" fn drop_pick_sub_primitive_result(r: *mut ViewerRayPickSubPrimitiveResult) {
+  unsafe {
+    let _ = Box::from_raw(r);
+  };
+}
+
+pub struct ViewerRayPickSubPrimitiveResult {
+  pick_results: Vec<ViewerSubPrimitivePickResult>,
+}
+
+#[repr(C)]
+pub struct ViewerSubPrimitivePickResult {
+  pub scene_model_handle: ViewerEntityHandle,
+  pub primitive_index: u32,
+}
+
+#[repr(C)]
+pub struct ViewerRayPickSubPrimitiveResultInfo {
+  pub len: usize,
+  pub ptr: *const ViewerSubPrimitivePickResult,
+}
+
+#[no_mangle]
+pub extern "C" fn get_pick_sub_primitive_info(
+  r: *mut ViewerRayPickSubPrimitiveResult,
+) -> ViewerRayPickSubPrimitiveResultInfo {
+  let r = unsafe { &*r };
+  ViewerRayPickSubPrimitiveResultInfo {
     len: r.pick_results.len(),
     ptr: r.pick_results.as_ptr(),
   }

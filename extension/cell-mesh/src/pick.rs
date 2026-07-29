@@ -140,11 +140,30 @@ impl LocalModelPicker for CellMeshPicker {
     _world_mat: &Mat4<f64>,
     _camera_ctx: &CameraQueryCtx,
   ) -> Option<bool> {
-    let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |t| match policy {
-      ObjectTestPolicy::Intersect => frustum_intersect_triangle(helper, f, t.a, t.b, t.c),
-      ObjectTestPolicy::Contains => f.contains(&t.a) && f.contains(&t.b) && f.contains(&t.c),
+    let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |t| {
+      frustum_test_tri(helper, f, &t, policy)
     });
 
     Some(r)
+  }
+
+  fn frustum_query_local_sub_primitives(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    frustum: &Frustum,
+    helper: Option<&FrustumIntersectionTestHelper<f32>>,
+    policy: ObjectTestPolicy,
+    _extra_screen_space_tolerance: f32,
+    _world_mat: &Mat4<f64>,
+    _camera_ctx: &CameraQueryCtx,
+    results: &mut Vec<u32>,
+  ) -> Option<()> {
+    let view = self.mesh_view(idx)?;
+
+    frustum_test_abstract_mesh_as_quad_all(&view, policy, helper, frustum, |i| {
+      results.push(i as u32);
+    });
+
+    Some(())
   }
 }

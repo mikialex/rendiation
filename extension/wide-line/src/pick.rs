@@ -104,14 +104,45 @@ impl LocalModelPicker for WideLinePicker {
     _world_mat: &Mat4<f64>,
     _camera_ctx: &CameraQueryCtx,
   ) -> Option<bool> {
-    let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |line| match policy {
-      ObjectTestPolicy::Intersect => {
-        frustum_intersect_line_segment(helper, f, line.start, line.end)
-      }
-      ObjectTestPolicy::Contains => f.contains(&line.start) && f.contains(&line.end),
+    let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |line| {
+      frustum_test_line(line, policy, f, helper)
     });
 
     Some(r)
+  }
+
+  fn frustum_query_local_sub_primitives(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    frustum: &Frustum,
+    helper: Option<&FrustumIntersectionTestHelper<f32>>,
+    policy: ObjectTestPolicy,
+    _extra_screen_space_tolerance: f32,
+    _world_mat: &Mat4<f64>,
+    _camera_ctx: &CameraQueryCtx,
+    results: &mut Vec<u32>,
+  ) -> Option<()> {
+    let view = self.mesh_view(idx)?;
+
+    for (i, line) in view.primitive_iter().enumerate() {
+      if frustum_test_line(line, policy, frustum, helper) {
+        results.push(i as u32);
+      }
+    }
+
+    Some(())
+  }
+}
+
+fn frustum_test_line(
+  line: LineSegment3D,
+  policy: ObjectTestPolicy,
+  f: &Frustum,
+  helper: Option<&FrustumIntersectionTestHelper<f32>>,
+) -> bool {
+  match policy {
+    ObjectTestPolicy::Intersect => frustum_intersect_line_segment(helper, f, line.start, line.end),
+    ObjectTestPolicy::Contains => f.contains(&line.start) && f.contains(&line.end),
   }
 }
 

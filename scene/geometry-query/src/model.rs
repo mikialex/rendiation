@@ -39,6 +39,18 @@ pub trait LocalModelPicker {
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
   ) -> Option<bool>;
+
+  fn frustum_query_local_sub_primitives(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    local_frustum: &Frustum,
+    helper: Option<&FrustumIntersectionTestHelper<f32>>,
+    policy: ObjectTestPolicy,
+    extra_screen_space_tolerance: f32,
+    world_mat: &Mat4<f64>,
+    camera_ctx: &CameraQueryCtx,
+    results: &mut Vec<u32>,
+  ) -> Option<()>;
 }
 
 impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
@@ -126,6 +138,34 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
         extra_screen_space_tolerance,
         world_mat,
         camera_ctx,
+      ) {
+        return Some(r);
+      }
+    }
+    None
+  }
+
+  fn frustum_query_local_sub_primitives(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    local_frustum: &Frustum,
+    helper: Option<&FrustumIntersectionTestHelper<f32>>,
+    policy: ObjectTestPolicy,
+    extra_screen_space_tolerance: f32,
+    world_mat: &Mat4<f64>,
+    camera_ctx: &CameraQueryCtx,
+    results: &mut Vec<u32>,
+  ) -> Option<()> {
+    for provider in self {
+      if let Some(r) = provider.frustum_query_local_sub_primitives(
+        idx,
+        local_frustum,
+        helper,
+        policy,
+        extra_screen_space_tolerance,
+        world_mat,
+        camera_ctx,
+        results,
       ) {
         return Some(r);
       }
@@ -309,6 +349,29 @@ impl LocalModelPicker for AttributeMeshPicker {
 
     Some(r)
   }
+
+  fn frustum_query_local_sub_primitives(
+    &self,
+    idx: EntityHandle<SceneModelEntity>,
+    local_frustum: &Frustum,
+    helper: Option<&FrustumIntersectionTestHelper<f32>>,
+    policy: ObjectTestPolicy,
+    // todo, missing support
+    _extra_screen_space_tolerance: f32,
+    _world_mat: &Mat4<f64>,
+    _camera_ctx: &CameraQueryCtx,
+    results: &mut Vec<u32>,
+  ) -> Option<()> {
+    let mesh = self.query_local_read_view(idx)?;
+
+    for (i, p) in mesh.primitive_iter().enumerate() {
+      if frustum_test_primitive(&p, helper, &local_frustum, policy) {
+        results.push(i as u32);
+      }
+    }
+
+    Some(())
+  }
 }
 
 pub fn frustum_test_abstract_mesh<G: AbstractMesh>(
@@ -357,6 +420,30 @@ pub fn frustum_test_tri(
     }
     ObjectTestPolicy::Contains => {
       f.contains(&triangle.a) && f.contains(&triangle.b) && f.contains(&triangle.c)
+    }
+  }
+}
+
+pub fn frustum_test_abstract_mesh_as_quad_all<G: AbstractMesh<Primitive = Triangle3D>>(
+  mesh: &G,
+  policy: ObjectTestPolicy,
+  helper: Option<&FrustumIntersectionTestHelper<f32>>,
+  frustum: &Frustum,
+  mut collector: impl FnMut(usize),
+) {
+  for (i, [p1, p2]) in mesh.primitive_iter().array_chunks::<2>().enumerate() {
+    let r = match policy {
+      ObjectTestPolicy::Intersect => {
+        frustum_test_tri(helper, frustum, &p1, policy)
+          || frustum_test_tri(helper, frustum, &p2, policy)
+      }
+      ObjectTestPolicy::Contains => {
+        frustum_test_tri(helper, frustum, &p1, policy)
+          && frustum_test_tri(helper, frustum, &p2, policy)
+      }
+    };
+    if r {
+      collector(i);
     }
   }
 }
