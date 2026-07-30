@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct BindlessMeshRtxAccessInvocation {
-  base: BindlessMeshDispatcherBaseInvocation,
+  base: IndirectAttributeMeshDispatcherBaseInvocation,
   sm_to_mesh: ShaderReadonlyPtrOf<[u32]>,
   indices: ShaderReadonlyPtrOf<[u32]>,
 }
@@ -130,7 +130,7 @@ pub trait BindlessMeshDispatcherRtxEXT {
   fn bind_bindless_mesh_rtx_access(&self, cx: &mut BindingBuilder);
 }
 
-impl BindlessMeshDispatcherRtxEXT for BindlessMeshDispatcher {
+impl BindlessMeshDispatcherRtxEXT for AttributeMeshIndirectDispatcher {
   fn build_bindless_mesh_rtx_access(
     &self,
     cx: &mut ShaderBindGroupBuilder,

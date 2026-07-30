@@ -15,7 +15,7 @@ only_vertex!(IndirectAbstractMeshId, u32);
 use crate::*;
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
-pub struct BindlessMeshInit {
+pub struct IndirectAttributeMeshInitConfig {
   pub init_index_count: u32,
   pub max_index_count: u32,
   pub init_vertex_u32_size_count: u32,
@@ -26,7 +26,7 @@ pub struct BindlessMeshInit {
   pub enable_normal_quantization_convert: bool,
 }
 
-impl Default for BindlessMeshInit {
+impl Default for IndirectAttributeMeshInitConfig {
   fn default() -> Self {
     Self {
       init_index_count: 200_000,
@@ -39,17 +39,17 @@ impl Default for BindlessMeshInit {
   }
 }
 
-pub fn use_bindless_mesh(
+pub fn use_attribute_mesh_indirect_renderer(
   cx: &mut QueryGPUHookCx,
-  init: &BindlessMeshInit,
+  init: &IndirectAttributeMeshInitConfig,
   merge_with_vertex_allocator: bool,
   force_midc_downgrade: bool,
   index_data_source: AttributeIndexDataSource,
   vertex_data_source: AttributeVertexDataSource,
-) -> Option<MeshGPUBindlessImpl> {
+) -> Option<AttributeMeshIndirectRenderer> {
   let force_midc_downgrade = force_midc_downgrade || merge_with_vertex_allocator;
 
-  let BindlessMeshInit {
+  let IndirectAttributeMeshInitConfig {
     init_index_count,
     max_index_count,
     init_vertex_u32_size_count,
@@ -119,7 +119,7 @@ pub fn use_bindless_mesh(
 
   cx.when_render(|| {
     let vertex_address_buffer = metadata.get_gpu_buffer();
-    MeshGPUBindlessImpl {
+    AttributeMeshIndirectRenderer {
       indices,
       vertices,
       checker: read_global_db_foreign_key(),
@@ -135,7 +135,7 @@ pub fn use_bindless_mesh(
   })
 }
 
-pub fn use_bindless_mesh_vertex_count(
+pub fn use_attribute_mesh_indirect_render_vertex_count(
   cx: &mut impl DBHookCxLike,
   mesh_changes: UseResult<AttributesMeshDataChangeInput>,
 ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, u32>> {
@@ -168,14 +168,14 @@ fn use_attribute_indices_updates(
       alloc.allocate_readonly::<[u32]>(
         (4 * init_item_count) as u64,
         &gpu.device,
-        "bindless mesh index pool",
+        "indirect attribute mesh index pool",
       )
     } else {
       StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
         &gpu.device,
         ZeroedArrayByArrayLength(init_item_count as usize).into(),
         BufferUsages::INDEX,
-        "bindless mesh index pool",
+        "indirect attribute mesh index pool",
       )
       .into()
     };
@@ -484,7 +484,7 @@ pub struct AttributeMeshMeta {
 }
 
 #[derive(Clone)]
-pub struct MeshGPUBindlessImpl {
+pub struct AttributeMeshIndirectRenderer {
   indices: AbstractReadonlyStorageBuffer<[u32]>,
   vertices: AbstractReadonlyStorageBuffer<[u32]>,
   vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
@@ -500,9 +500,9 @@ pub struct MeshGPUBindlessImpl {
   enable_normal_quantization: bool,
 }
 
-impl MeshGPUBindlessImpl {
-  pub fn make_bindless_dispatcher(&self) -> BindlessMeshDispatcher {
-    BindlessMeshDispatcher {
+impl AttributeMeshIndirectRenderer {
+  pub fn make_dispatcher(&self) -> AttributeMeshIndirectDispatcher {
+    AttributeMeshIndirectDispatcher {
       sm_to_mesh: self.sm_to_mesh_device.clone(),
       vertex_address_buffer: self.vertex_address_buffer.clone(),
       vertices: self.vertices.clone(),
@@ -512,7 +512,7 @@ impl MeshGPUBindlessImpl {
   }
 }
 
-impl IndirectDrawProviderCreator for MeshGPUBindlessImpl {
+impl IndirectDrawProviderCreator for AttributeMeshIndirectRenderer {
   fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
     let id = unsafe { EntityHandle::from_raw(id) };
     let mesh_id = self.checker.get(id)?;
@@ -543,13 +543,13 @@ impl IndirectDrawProviderCreator for MeshGPUBindlessImpl {
   }
 }
 
-impl DrawCommandBuilderCreator for MeshGPUBindlessImpl {
+impl DrawCommandBuilderCreator for AttributeMeshIndirectRenderer {
   fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
     let id = unsafe { EntityHandle::from_raw(id) };
     let mesh_id = self.checker.get(id)?;
     let is_indexed = self.indices_checker.get(mesh_id).is_some();
 
-    let creator = BindlessDrawCreator {
+    let creator = AttributeMeshIndirectDrawCreator {
       metadata: self.vertex_address_buffer.clone(),
       sm_to_mesh_device: self.sm_to_mesh_device.clone(),
       sm_to_mesh: self.sm_to_mesh.clone(),
@@ -565,7 +565,7 @@ impl DrawCommandBuilderCreator for MeshGPUBindlessImpl {
   }
 }
 
-impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
+impl IndirectModelShapeRenderImpl for AttributeMeshIndirectRenderer {
   fn make_component_indirect(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
@@ -575,8 +575,8 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     let is_indexed = self.indices_checker.get(mesh).is_some();
     let topology = self.topology_checker.get(mesh)?;
 
-    let mesh_system = BindlessMeshRasterDispatcher {
-      internal: self.make_bindless_dispatcher(),
+    let mesh_system = AttributeMeshIndirectRasterDispatcher {
+      internal: self.make_dispatcher(),
       topology: map_topology(*topology),
       is_indexed,
     };

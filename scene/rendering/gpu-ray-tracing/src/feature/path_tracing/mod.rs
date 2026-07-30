@@ -184,7 +184,7 @@ impl DeviceReferencePathTracingRenderer {
     let closest = build_ray_hit_shader(
       &trace_base_builder,
       PTRayClosestCtx {
-        bindless_mesh: base.mesh.make_bindless_dispatcher(),
+        bindless_mesh: base.mesh.make_dispatcher(),
         surface: Box::new(base.material.clone()),
         config: state.config.clone(),
         lighting: Box::new(lighting),

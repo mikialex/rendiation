@@ -251,9 +251,9 @@ impl Viewer3dRenderingCtx {
         let (attribute_vertices, attribute_indices) =
           create_sub_buffer_changes_from_mesh_changes(cx, mesh_changes);
 
-        let mesh = use_bindless_mesh(
+        let mesh = use_attribute_mesh_indirect_renderer(
           cx,
-          &init_config.bindless_mesh_init,
+          &init_config.indirect_attribute_mesh_init,
           init_config.using_texture_as_storage_buffer_for_indirect_rendering,
           self.using_host_driven_indirect_draw,
           attribute_indices,
@@ -340,7 +340,8 @@ impl Viewer3dRenderingCtx {
 
         let wide_line_vertices_count =
           use_wide_line_vertices_count(cx, use_native_line_for_one_width_line);
-        let att_mesh_vertices_count = use_bindless_mesh_vertex_count(cx, mesh_changes_);
+        let att_mesh_vertices_count =
+          use_attribute_mesh_indirect_render_vertex_count(cx, mesh_changes_);
         let vertices_count = wide_line_vertices_count.dual_query_select(att_mesh_vertices_count);
 
         let transform_instanced_model_base =
@@ -447,9 +448,9 @@ impl Viewer3dRenderingCtx {
             scope.end(cx);
 
             let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
-            let mesh = use_bindless_mesh(
+            let mesh = use_attribute_mesh_indirect_renderer(
               cx,
-              &init_config.bindless_mesh_init,
+              &init_config.indirect_attribute_mesh_init,
               false,
               false,
               attribute_indices,

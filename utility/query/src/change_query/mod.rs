@@ -41,7 +41,7 @@ pub trait DataChanges: Send + Sync + Clone {
     }
   }
 
-  fn collective_map<V: CValue>(
+  fn collective_map<V>(
     self,
     f: impl Fn(Self::Value) -> V + Clone + Send + Sync + 'static,
   ) -> impl DataChanges<Key = Self::Key, Value = V> {
@@ -135,7 +135,6 @@ struct DataChangesMap<T, F> {
 impl<T, V, F> DataChanges for DataChangesMap<T, F>
 where
   T: DataChanges,
-  V: CValue,
   F: Fn(T::Value) -> V + Clone + Send + Sync,
 {
   type Key = T::Key;

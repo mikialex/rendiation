@@ -29,7 +29,7 @@ impl RtxSystemCore {
 pub struct SceneRayTracingRendererBase {
   pub camera: Box<dyn RtxCameraRenderImpl>,
   pub scene_tlas: BoxedDynQuery<RawEntityHandle, TlASInstance>,
-  pub mesh: MeshGPUBindlessImpl,
+  pub mesh: AttributeMeshIndirectRenderer,
   pub material: SceneSurfaceSupport,
   pub lighting: ScenePTLightingSceneDataGroup,
   pub scene_ids: SceneIdUniformBufferAccess,
@@ -39,7 +39,7 @@ pub fn use_scene_rtx_renderer_base(
   cx: &mut QueryGPUHookCx,
   system: &RtxSystemCore,
   camera: Option<Box<dyn RtxCameraRenderImpl>>,
-  mesh: Option<MeshGPUBindlessImpl>,
+  mesh: Option<AttributeMeshIndirectRenderer>,
   materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
   tex: Option<GPUTextureBindingSystem>,
   mesh_input: UseResult<AttributesMeshDataChangeInput>,

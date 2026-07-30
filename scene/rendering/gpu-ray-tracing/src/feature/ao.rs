@@ -245,7 +245,7 @@ impl SceneRayTracingAORenderer {
       });
 
     type RayGenTracePayload = f32; // occlusion
-    let bindless_mesh = base.mesh.make_bindless_dispatcher();
+    let bindless_mesh = base.mesh.make_dispatcher();
     let ao_closest = trace_base_builder
       .create_closest_hit_shader_base::<RayGenTracePayload>()
       .inject_ctx(RayTracingAORayClosestCtx {
@@ -359,7 +359,7 @@ struct RayTracingAORayGenCtxInvocation {
 
 #[derive(Clone)]
 struct RayTracingAORayClosestCtx {
-  bindless_mesh: BindlessMeshDispatcher,
+  bindless_mesh: AttributeMeshIndirectDispatcher,
   ao_sample_count: UniformBufferDataView<Vec4<u32>>,
 }
 

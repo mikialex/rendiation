@@ -1,14 +1,14 @@
 use crate::*;
 
 #[derive(Clone)]
-pub(super) struct BindlessDrawCreator {
+pub(super) struct AttributeMeshIndirectDrawCreator {
   pub(super) metadata: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   pub(super) sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
   pub(super) sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
   pub(super) vertex_address_buffer_host:
     LockReadGuardHolder<SparseStorageBufferWithHostRaw<AttributeMeshMeta>>,
 }
-impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
+impl NoneIndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let mesh_id = self.sm_to_mesh.access(&id.into_raw()).unwrap();
     let address_info = self
@@ -33,7 +33,7 @@ impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
   ) -> Box<dyn NoneIndexedDrawCommandBuilderInvocation> {
     let metadata = cx.bind_by(&self.metadata);
     let sm_to_mesh_device = cx.bind_by(&self.sm_to_mesh_device);
-    Box::new(BindlessDrawCreatorInDevice {
+    Box::new(AttributeMeshIndirectDrawCreatorInvocation {
       metadata,
       sm_to_mesh_device,
     })
@@ -45,7 +45,7 @@ impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
   }
 }
 
-impl IndexedDrawCommandBuilder for BindlessDrawCreator {
+impl IndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let mesh_id = self.sm_to_mesh.access(&id.into_raw()).unwrap();
     let address_info = self
@@ -73,7 +73,7 @@ impl IndexedDrawCommandBuilder for BindlessDrawCreator {
   ) -> Box<dyn IndexedDrawCommandBuilderInvocation> {
     let node = cx.bind_by(&self.metadata);
     let sm_to_mesh_device = cx.bind_by(&self.sm_to_mesh_device);
-    Box::new(BindlessDrawCreatorInDevice {
+    Box::new(AttributeMeshIndirectDrawCreatorInvocation {
       metadata: node,
       sm_to_mesh_device,
     })
@@ -85,16 +85,16 @@ impl IndexedDrawCommandBuilder for BindlessDrawCreator {
   }
 }
 
-impl ShaderHashProvider for BindlessDrawCreator {
+impl ShaderHashProvider for AttributeMeshIndirectDrawCreator {
   shader_hash_type_id! {}
 }
 
-pub struct BindlessDrawCreatorInDevice {
+pub struct AttributeMeshIndirectDrawCreatorInvocation {
   metadata: ShaderReadonlyPtrOf<[AttributeMeshMeta]>,
   sm_to_mesh_device: ShaderReadonlyPtrOf<[u32]>,
 }
 
-impl IndexedDrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
+impl IndexedDrawCommandBuilderInvocation for AttributeMeshIndirectDrawCreatorInvocation {
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // aka sm id
@@ -114,7 +114,7 @@ impl IndexedDrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
   }
 }
 
-impl NoneIndexedDrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
+impl NoneIndexedDrawCommandBuilderInvocation for AttributeMeshIndirectDrawCreatorInvocation {
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // aka sm id
