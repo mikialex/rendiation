@@ -20,9 +20,10 @@ pub struct IndirectAttributeMeshInitConfig {
   pub max_index_count: u32,
   pub init_vertex_u32_size_count: u32,
   pub max_vertex_u32_size_count: u32,
-  /// if enabled, the normal will be considered as octahedral quantized
+  /// if enabled, the normal data will be treated as octahedral quantized [u32] instead of [Vec3<f32>]
   pub enable_normal_quantization: bool,
-  /// if enabled, the normal data will be convert to octahedral quantized when upload to gpu
+  /// if enabled, the normal data will be convert to octahedral quantized when upload to gpu, expect
+  /// input normal be [Vec3<f32>]
   pub enable_normal_quantization_convert: bool,
 }
 
@@ -122,9 +123,9 @@ pub fn use_attribute_mesh_indirect_renderer(
     AttributeMeshIndirectRenderer {
       indices,
       vertices,
-      checker: read_global_db_foreign_key(),
-      indices_checker: read_global_db_foreign_key(),
-      topology_checker: read_global_db_component(),
+      std_to_mesh: read_global_db_foreign_key(),
+      has_indices: read_global_db_foreign_key(),
+      topology: read_global_db_component(),
       vertex_address_buffer,
       vertex_address_buffer_host: metadata.buffer.make_read_holder(),
       sm_to_mesh_device: sm_to_mesh_device.get_gpu_buffer(),
@@ -485,19 +486,19 @@ pub struct AttributeMeshMeta {
 
 #[derive(Clone)]
 pub struct AttributeMeshIndirectRenderer {
-  indices: AbstractReadonlyStorageBuffer<[u32]>,
-  vertices: AbstractReadonlyStorageBuffer<[u32]>,
-  vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
+  pub indices: AbstractReadonlyStorageBuffer<[u32]>,
+  pub vertices: AbstractReadonlyStorageBuffer<[u32]>,
+  pub vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   /// we keep the host metadata to support creating draw commands from host
-  vertex_address_buffer_host:
+  pub vertex_address_buffer_host:
     LockReadGuardHolder<SparseStorageBufferWithHostRaw<AttributeMeshMeta>>,
-  sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
-  sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
-  checker: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
-  indices_checker: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
-  topology_checker: ComponentReadView<AttributesMeshEntityTopology>,
-  used_in_midc_downgrade: bool,
-  enable_normal_quantization: bool,
+  pub sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
+  pub sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
+  pub std_to_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
+  pub has_indices: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
+  pub topology: ComponentReadView<AttributesMeshEntityTopology>,
+  pub used_in_midc_downgrade: bool,
+  pub enable_normal_quantization: bool,
 }
 
 impl AttributeMeshIndirectRenderer {
@@ -515,8 +516,8 @@ impl AttributeMeshIndirectRenderer {
 impl IndirectDrawProviderCreator for AttributeMeshIndirectRenderer {
   fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
     let id = unsafe { EntityHandle::from_raw(id) };
-    let mesh_id = self.checker.get(id)?;
-    let is_indexed = self.indices_checker.get(mesh_id).is_some();
+    let mesh_id = self.std_to_mesh.get(id)?;
+    let is_indexed = self.has_indices.get(mesh_id).is_some();
     fast_hash_scope(|hasher| {
       self.type_id().hash(hasher);
       is_indexed.hash(hasher);
@@ -546,8 +547,8 @@ impl IndirectDrawProviderCreator for AttributeMeshIndirectRenderer {
 impl DrawCommandBuilderCreator for AttributeMeshIndirectRenderer {
   fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
     let id = unsafe { EntityHandle::from_raw(id) };
-    let mesh_id = self.checker.get(id)?;
-    let is_indexed = self.indices_checker.get(mesh_id).is_some();
+    let mesh_id = self.std_to_mesh.get(id)?;
+    let is_indexed = self.has_indices.get(mesh_id).is_some();
 
     let creator = AttributeMeshIndirectDrawCreator {
       metadata: self.vertex_address_buffer.clone(),
@@ -571,9 +572,9 @@ impl IndirectModelShapeRenderImpl for AttributeMeshIndirectRenderer {
     any_idx: EntityHandle<StandardModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     // check the given model has attributes mesh
-    let mesh = self.checker.get(any_idx)?;
-    let is_indexed = self.indices_checker.get(mesh).is_some();
-    let topology = self.topology_checker.get(mesh)?;
+    let mesh = self.std_to_mesh.get(any_idx)?;
+    let is_indexed = self.has_indices.get(mesh).is_some();
+    let topology = self.topology.get(mesh)?;
 
     let mesh_system = AttributeMeshIndirectRasterDispatcher {
       internal: self.make_dispatcher(),
@@ -588,9 +589,9 @@ impl IndirectModelShapeRenderImpl for AttributeMeshIndirectRenderer {
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
   ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
-    let mesh_id = self.checker.get(any_idx)?;
+    let mesh_id = self.std_to_mesh.get(any_idx)?;
     // check mesh must have indices.
-    let is_indexed = self.indices_checker.get(mesh_id).is_some();
+    let is_indexed = self.has_indices.get(mesh_id).is_some();
     if is_indexed {
       Some(Some(self.indices.clone()))
     } else {
@@ -603,11 +604,12 @@ impl IndirectModelShapeRenderImpl for AttributeMeshIndirectRenderer {
     any_id: EntityHandle<StandardModelEntity>,
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
-    let mesh_id = self.checker.get(any_id)?;
-    let topology = self.topology_checker.get(mesh_id)?;
+    let mesh_id = self.std_to_mesh.get(any_id)?;
+    let topology = self.topology.get(mesh_id)?;
     hasher.hash(topology);
-    let is_index_mesh = self.indices_checker.get(mesh_id).is_some();
+    let is_index_mesh = self.has_indices.get(mesh_id).is_some();
     hasher.hash(is_index_mesh);
+    // enable_normal_quantization is not mutable at runtime, so hash can be skipped
     Some(())
   }
 

@@ -71,10 +71,10 @@ impl IndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
     &self,
     cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn IndexedDrawCommandBuilderInvocation> {
-    let node = cx.bind_by(&self.metadata);
+    let metadata = cx.bind_by(&self.metadata);
     let sm_to_mesh_device = cx.bind_by(&self.sm_to_mesh_device);
     Box::new(AttributeMeshIndirectDrawCreatorInvocation {
-      metadata: node,
+      metadata,
       sm_to_mesh_device,
     })
   }
