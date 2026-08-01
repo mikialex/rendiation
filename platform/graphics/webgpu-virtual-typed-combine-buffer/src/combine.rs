@@ -174,10 +174,11 @@ impl CombinedBufferAllocatorInternal {
     if let Some(old_buffer) = &self.buffer {
       let mut encoder = gpu.create_encoder();
       for (i, source_offset) in self.sub_buffer_allocation_u32_offset.iter().enumerate() {
-        let size = if let Some(size) = self.previous_sub_buffer_size.get(&i) {
-          *size
+        let current_size = self.sub_buffer_u32_size_requirements[i];
+        let copy_size = if let Some(size) = self.previous_sub_buffer_size.get(&i) {
+          current_size.min(*size)
         } else {
-          self.sub_buffer_u32_size_requirements[i]
+          current_size
         };
         let new_offset = sub_buffer_allocation_u32_offset[i];
 
@@ -185,7 +186,7 @@ impl CombinedBufferAllocatorInternal {
           &new_buffer,
           (source_offset * 4) as u64,
           (new_offset * 4) as u64,
-          (size * 4) as u64,
+          (copy_size * 4) as u64,
           &mut encoder,
         );
       }
