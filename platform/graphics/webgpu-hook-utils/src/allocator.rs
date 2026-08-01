@@ -53,16 +53,36 @@ impl<K> BatchAllocateResult<K> {
 pub struct BatchAllocateResultShared<K>(pub Arc<BatchAllocateResult<K>>, pub u32);
 
 impl<K> BatchAllocateResultShared<K> {
-  pub fn has_data_movements(&self) -> bool {
-    !self.0.data_movements.is_empty()
+  pub fn apply_resize(&self, gpu_buffer: &mut impl RelocationResizableLinearStorage) {
+    if let Some(new_size) = self.0.resize_to {
+      // here we do(request) resize at spawn stage to avoid resize again and again(with use of combined buffer)
+      let resize_success = gpu_buffer.resize_with_relocations(
+        new_size,
+        self.iter_data_movements().as_mut().map(|v| v as _),
+      );
+      assert!(resize_success);
+    } else {
+      assert!(self.iter_data_movements().is_none());
+    }
   }
-  pub fn iter_data_movements(&self) -> impl Iterator<Item = BufferRelocate> + '_ {
-    let u32_per_item = self.1 as u64;
-    self.0.data_movements.values().map(move |v| BufferRelocate {
-      self_offset: v.old_offset as u64 * u32_per_item * 4,
-      target_offset: v.new_offset as u64 * u32_per_item * 4,
-      count: v.count as u64 * u32_per_item * 4,
-    })
+
+  // explicitly return Option to avoid encoder create cost when there is no movement at all
+  fn iter_data_movements(&self) -> Option<impl Iterator<Item = BufferRelocate> + '_> {
+    if !self.0.data_movements.is_empty() {
+      let u32_per_item = self.1 as u64;
+      self
+        .0
+        .data_movements
+        .values()
+        .map(move |v| BufferRelocate {
+          self_offset: v.old_offset as u64 * u32_per_item * 4,
+          target_offset: v.new_offset as u64 * u32_per_item * 4,
+          count: v.count as u64 * u32_per_item * 4,
+        })
+        .into()
+    } else {
+      None
+    }
   }
 
   pub fn access_new_change(&self, k: K) -> Option<[u32; 2]>
@@ -430,16 +450,9 @@ pub struct RangeAllocateBufferUpdates<K> {
 }
 
 impl<K: Clone + Eq + Hash> RangeAllocateBufferUpdates<K> {
+  /// relocation is handled within resize, so the caller must call resize
+  /// before this write
   pub fn write(&self, gpu: &GPU, encoder: &mut GPUCommandEncoder, target: &dyn AbstractBuffer) {
-    if self.allocation_changes.has_data_movements() {
-      let mut iter = self.allocation_changes.iter_data_movements();
-      // we must use a standalone encoder, because the below code do queue write
-      // todo, consider impl encoder write buffer to avoid this mental overhead
-      let mut encoder = gpu.create_encoder();
-      target.batch_self_relocate(&mut iter, &mut encoder, &gpu.device);
-      gpu.submit_encoder(encoder);
-    }
-
     let item_byte_size = self.allocation_changes.1 * 4;
 
     self

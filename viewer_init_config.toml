@@ -40,9 +40,9 @@ max_size = { depth = 16, size = { width = 4096, height = 4096 } }
 init_size = { depth = 2, size = { width = 4096, height = 4096 } }
 
 [init_only.indirect_attribute_mesh_init]
-init_index_count = 200_000
+init_index_count = 1
 max_index_count = 20_000_000
-init_vertex_u32_size_count = 800_000
+init_vertex_u32_size_count = 1
 max_vertex_u32_size_count = 80_000_000
 enable_normal_quantization = true
 enable_normal_quantization_convert = true

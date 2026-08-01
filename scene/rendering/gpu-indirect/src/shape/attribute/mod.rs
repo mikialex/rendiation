@@ -242,15 +242,12 @@ fn use_attribute_indices_updates(
 
     let buffers_to_write = buffers_to_write.prepare(&changes, 4);
 
-    if let Some(new_size) = changes.resize_to {
-      // here we do(request) resize at spawn stage to avoid resize again and again
-      let resize_success = gpu_buffer_.write().resize(new_size);
-      assert!(resize_success);
-    }
+    let allocation_changes = BatchAllocateResultShared(Arc::new(changes), 1);
+    allocation_changes.apply_resize(&mut *gpu_buffer_.write());
 
     Arc::new(RangeAllocateBufferUpdates {
       buffers_to_write,
-      allocation_changes: BatchAllocateResultShared(Arc::new(changes), 1),
+      allocation_changes,
     })
   });
 
@@ -378,15 +375,12 @@ fn use_attribute_vertex_updates(
 
       let buffers_to_write = buffers_to_write.prepare(&changes, 4);
 
-      if let Some(new_size) = changes.resize_to {
-        // here we do(request) resize at spawn stage to avoid resize again and again
-        let resize_success = gpu_buffer.write().resize(new_size);
-        assert!(resize_success);
-      }
+      let allocation_changes = BatchAllocateResultShared(Arc::new(changes), 1);
+      allocation_changes.apply_resize(&mut *gpu_buffer.write());
 
       Arc::new(RangeAllocateBufferUpdates {
         buffers_to_write,
-        allocation_changes: BatchAllocateResultShared(Arc::new(changes), 1),
+        allocation_changes,
       })
     });
 

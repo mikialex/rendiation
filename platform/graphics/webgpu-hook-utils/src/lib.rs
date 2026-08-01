@@ -108,15 +108,12 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
 
     let buffers_to_write = buffers_to_write.prepare(&changes, item_byte_size);
 
-    if let Some(new_size) = changes.resize_to {
-      // here we do(request) resize at spawn stage to avoid resize again and again
-      let success = gpu_buffer.write().resize(new_size);
-      assert!(success);
-    }
+    let allocation_changes = BatchAllocateResultShared(Arc::new(changes), item_byte_size / 4);
+    allocation_changes.apply_resize(&mut *gpu_buffer.write());
 
     Arc::new(RangeAllocateBufferUpdates {
       buffers_to_write,
-      allocation_changes: BatchAllocateResultShared(Arc::new(changes), item_byte_size / 4),
+      allocation_changes,
     })
   });
 

@@ -5298,6 +5298,7 @@ dependencies = [
  "bytemuck",
  "dyn-clone",
  "fast-hash-collection",
+ "log",
  "parking_lot",
  "rendiation-shader-api",
  "rendiation-webgpu",

@@ -80,16 +80,13 @@ pub fn use_multi_access_gpu(
         .update(dirtied_one.iter().copied(), sizes.iter().copied());
 
       let buffers_to_write = buffers_to_write.prepare(&allocation_changes, 4);
+      let allocation_changes = BatchAllocateResultShared(Arc::new(allocation_changes), 1);
 
-      if let Some(new_size) = allocation_changes.resize_to {
-        // here we do(request) resize at spawn stage to avoid resize again and again
-        let success = many_side_buffer_.write().resize(new_size);
-        assert!(success);
-      }
+      allocation_changes.apply_resize(&mut *many_side_buffer_.write());
 
       Arc::new(RangeAllocateBufferUpdates {
         buffers_to_write,
-        allocation_changes: BatchAllocateResultShared(Arc::new(allocation_changes), 1),
+        allocation_changes,
       })
     },
   );
