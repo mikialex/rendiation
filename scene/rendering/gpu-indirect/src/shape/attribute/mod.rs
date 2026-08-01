@@ -242,7 +242,7 @@ fn use_attribute_indices_updates(
 
     let buffers_to_write = buffers_to_write.prepare(&changes, 4);
 
-    let allocation_changes = BatchAllocateResultShared(Arc::new(changes), 1);
+    let allocation_changes = BatchAllocateResultShared::new(changes, 1);
     allocation_changes.apply_resize(&mut *gpu_buffer_.write());
 
     Arc::new(RangeAllocateBufferUpdates {
@@ -375,7 +375,7 @@ fn use_attribute_vertex_updates(
 
       let buffers_to_write = buffers_to_write.prepare(&changes, 4);
 
-      let allocation_changes = BatchAllocateResultShared(Arc::new(changes), 1);
+      let allocation_changes = BatchAllocateResultShared::new(changes, 1);
       allocation_changes.apply_resize(&mut *gpu_buffer.write());
 
       Arc::new(RangeAllocateBufferUpdates {

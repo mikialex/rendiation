@@ -15,8 +15,8 @@ parking_lot = { workspace = true }
 hook = { path = "../../../utility/hook" }
 query-hook = { path = "../../../utility/query-hook" }
 database = { path = "../../../utility/database" }
+growable-range-allocator = { path = "../../../utility/growable-range-allocator" }
 futures = { workspace = true }
-xalloc = "0.2.7"
 
 # used for debug sparse writes not overlap
 rangemap = { version = "1.7.0", optional = true }

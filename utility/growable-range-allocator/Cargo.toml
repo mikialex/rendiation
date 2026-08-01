@@ -1,0 +1,12 @@
+[package]
+edition = "2024"
+name = "growable-range-allocator"
+version = "0.0.1"
+
+[dependencies]
+fast-hash-collection = { path = "../fast-hash-collection" }
+xalloc = "0.2.7"
+
+
+[lints]
+workspace = true

@@ -108,7 +108,7 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
 
     let buffers_to_write = buffers_to_write.prepare(&changes, item_byte_size);
 
-    let allocation_changes = BatchAllocateResultShared(Arc::new(changes), item_byte_size / 4);
+    let allocation_changes = BatchAllocateResultShared::new(changes, item_byte_size / 4);
     allocation_changes.apply_resize(&mut *gpu_buffer.write());
 
     Arc::new(RangeAllocateBufferUpdates {

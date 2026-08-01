@@ -80,7 +80,7 @@ pub fn use_multi_access_gpu(
         .update(dirtied_one.iter().copied(), sizes.iter().copied());
 
       let buffers_to_write = buffers_to_write.prepare(&allocation_changes, 4);
-      let allocation_changes = BatchAllocateResultShared(Arc::new(allocation_changes), 1);
+      let allocation_changes = BatchAllocateResultShared::new(allocation_changes, 1);
 
       allocation_changes.apply_resize(&mut *many_side_buffer_.write());
 
@@ -99,7 +99,7 @@ pub fn use_multi_access_gpu(
       |changes| changes.allocation_changes.has_change(),
       |changes| {
         let item_size = std::mem::size_of::<GPURangeInfo>();
-        let change_count = changes.allocation_changes.0.change_count();
+        let change_count = changes.allocation_changes.change_count();
         let mut write_src =
           SparseBufferWritesSource::with_capacity(change_count * item_size, change_count);
         changes.allocation_changes.iter_removed().for_each(|id| {

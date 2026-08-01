@@ -24,6 +24,7 @@ members = [
   "utility/hook",
   "utility/fast-hash-collection",
   "utility/reuse-pool",
+  "utility/growable-range-allocator",
   "content/animation",
   "content/color",
   "content/mesh/core",

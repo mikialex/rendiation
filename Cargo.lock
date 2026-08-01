@@ -2030,6 +2030,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "growable-range-allocator"
+version = "0.0.1"
+dependencies = [
+ "fast-hash-collection",
+ "xalloc",
+]
+
+[[package]]
 name = "half"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5268,6 +5276,7 @@ dependencies = [
  "database",
  "fast-hash-collection",
  "futures",
+ "growable-range-allocator",
  "hook",
  "parking_lot",
  "query-hook",
@@ -5276,7 +5285,6 @@ dependencies = [
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-webgpu",
- "xalloc",
 ]
 
 [[package]]
