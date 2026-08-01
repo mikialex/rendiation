@@ -36,7 +36,7 @@ pub fn load_default_scene(
     let attribute_mesh = build_attributes_mesh(|builder| {
       builder.triangulate_parametric(
         &SphereMeshParameter::default().make_surface(),
-        TessellationConfig { u: 16, v: 16 },
+        TessellationConfig { u: 256, v: 256 },
         true,
       );
     })

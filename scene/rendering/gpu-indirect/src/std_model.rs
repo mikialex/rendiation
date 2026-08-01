@@ -37,7 +37,7 @@ pub trait IndirectModelRenderImpl: IndirectDrawProviderCreator + DrawCommandBuil
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>>;
+  ) -> Option<Option<IndicesBufferInfo>>;
 
   fn material_renderable_indirect<'a>(
     &'a self,
@@ -149,7 +149,7 @@ impl IndirectModelRenderImpl for Box<dyn IndirectModelRenderImpl> {
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     (**self).get_index_storage_buffer(any_idx)
   }
 
@@ -220,7 +220,7 @@ impl<T: IndirectModelRenderImpl + 'static> IndirectModelRenderImpl for Arc<T> {
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     (**self).get_index_storage_buffer(any_idx)
   }
 
@@ -278,7 +278,7 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     for provider in self {
       if let Some(v) = provider.get_index_storage_buffer(any_idx) {
         return Some(v);
@@ -475,7 +475,7 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     let model_id = self.model.get(any_idx)?;
     self.shapes.get_index_storage_buffer(model_id)
   }

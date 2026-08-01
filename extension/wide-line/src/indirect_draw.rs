@@ -236,7 +236,7 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     self.model_access.get(any_idx)?;
     Some(None)
   }

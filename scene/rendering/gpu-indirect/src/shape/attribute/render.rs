@@ -21,7 +21,7 @@ impl ShaderHashProvider for AttributeMeshIndirectDispatcher {
 #[derive(Clone)]
 pub struct AttributeMeshIndirectRasterDispatcher {
   pub internal: AttributeMeshIndirectDispatcher,
-  pub is_indexed: bool,
+  pub indices_ty: Option<IndexFormat>,
   pub topology: rendiation_webgpu::PrimitiveTopology,
 }
 
@@ -29,7 +29,7 @@ impl ShaderHashProvider for AttributeMeshIndirectRasterDispatcher {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.internal.hash_pipeline(hasher);
-    hasher.hash(self.is_indexed);
+    hasher.hash(self.indices_ty);
     hasher.hash(self.topology);
   }
 }
@@ -38,12 +38,12 @@ impl ShaderPassBuilder for AttributeMeshIndirectRasterDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     let mesh = &self.internal;
 
-    if self.is_indexed {
+    if let Some(fmt) = self.indices_ty {
       // may be failed if we are using texture as storage
       if let Some(index) = mesh.index_pool.get_gpu_buffer_view() {
         ctx
           .pass
-          .set_index_buffer_by_buffer_resource_view(&index, IndexFormat::Uint32);
+          .set_index_buffer_by_buffer_resource_view(&index, fmt);
       }
     }
 

@@ -125,7 +125,9 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
 
     let midc_index_downgrade = if self.enable_midc_downgrade {
       let index = self.model_impl.get_index_storage_buffer(any_id)?;
-      let override_ = MidcDowngradeWrapperForIndirectMeshSystem { index };
+      let override_ = MidcDowngradeWrapperForIndirectMeshSystem {
+        index: index.map(|v| (v.buffer, v.should_access_as_u16)),
+      };
       OptionRender(Some(Box::new(override_) as Box<dyn RenderComponent>))
     } else {
       OptionRender(None)

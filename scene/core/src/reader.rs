@@ -475,6 +475,15 @@ pub struct AttributeLivingData {
 }
 
 impl AttributeLivingData {
+  pub fn byte_view(&self) -> &[u8] {
+    if let Some(range) = self.range {
+      let range = range.into_range(self.data.len());
+      &self.data.get(range).unwrap()
+    } else {
+      &self.data
+    }
+  }
+
   pub fn into_accessor(self) -> AttributeAccessor {
     let range = self.range.unwrap_or_default();
     let count = self.count;

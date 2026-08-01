@@ -7,6 +7,7 @@ pub(super) struct AttributeMeshIndirectDrawCreator {
   pub(super) sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
   pub(super) vertex_address_buffer_host:
     LockReadGuardHolder<SparseStorageBufferWithHostRaw<AttributeMeshMeta>>,
+  pub(super) used_in_midc_downgrade: bool,
 }
 impl NoneIndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
@@ -36,6 +37,7 @@ impl NoneIndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
     Box::new(AttributeMeshIndirectDrawCreatorInvocation {
       metadata,
       sm_to_mesh_device,
+      used_in_midc_downgrade: self.used_in_midc_downgrade,
     })
   }
 
@@ -58,7 +60,17 @@ impl IndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
     }
 
     let start = address_info.index_offset;
-    let end = start + address_info.count;
+    // the host driven path expands the vertex stream per index, u16 count is in u16 units
+    let count = if address_info.is_u16_indices.into() {
+      if address_info.is_u16_indices_padded.into() {
+        address_info.count * 2 - 1
+      } else {
+        address_info.count * 2
+      }
+    } else {
+      address_info.count
+    };
+    let end = start + count;
     DrawCommand::Indexed {
       base_vertex: 0,
       indices: start..end,
@@ -76,6 +88,7 @@ impl IndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
     Box::new(AttributeMeshIndirectDrawCreatorInvocation {
       metadata,
       sm_to_mesh_device,
+      used_in_midc_downgrade: self.used_in_midc_downgrade,
     })
   }
 
@@ -87,11 +100,15 @@ impl IndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
 
 impl ShaderHashProvider for AttributeMeshIndirectDrawCreator {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.used_in_midc_downgrade);
+  }
 }
 
 pub struct AttributeMeshIndirectDrawCreatorInvocation {
   metadata: ShaderReadonlyPtrOf<[AttributeMeshMeta]>,
   sm_to_mesh_device: ShaderReadonlyPtrOf<[u32]>,
+  used_in_midc_downgrade: bool,
 }
 
 impl IndexedDrawCommandBuilderInvocation for AttributeMeshIndirectDrawCreatorInvocation {
@@ -102,11 +119,32 @@ impl IndexedDrawCommandBuilderInvocation for AttributeMeshIndirectDrawCreatorInv
     let mesh_handle: Node<u32> = self.sm_to_mesh_device.index(draw_id).load();
     // shader_assert(mesh_handle.not_equals(val(u32::MAX)));
 
-    let meta = self.metadata.index(mesh_handle).load().expand();
+    let meta = self.metadata.index(mesh_handle);
+
+    // the implementation of range allocate assure the count is zero if allocation failed
+    let vertex_count = meta.count().load();
+    let base_index = meta.index_offset().load();
+
+    let is_u16 = meta.is_u16_indices().load().into_bool();
+    let is_u16_padded = meta.is_u16_indices_padded().load().into_bool();
+
+    // u16 indices are packed two per u32, an odd count leaves the last u32 holding only
+    // one index plus 2 padding bytes, so the real index count is 2 * count - 1
+    let vertex_count = is_u16.select(vertex_count * val(2), vertex_count);
+    let vertex_count = is_u16_padded.select(vertex_count - val(1), vertex_count);
+
+    // in midc downgrade mode the pool is read on device with u32 indices, in native midc
+    // draw the index buffer is bound as u16, so the first index is in u16 units, so it should be multiplied by 2
+    let base_index = if self.used_in_midc_downgrade {
+      base_index
+    } else {
+      is_u16.select(base_index * val(2), base_index)
+    };
+
     ENode::<DrawIndexedIndirectArgsStorage> {
-      vertex_count: meta.count, // the implementation of range allocate assure the count is zero if allocation failed
+      vertex_count,
       instance_count: val(1),
-      base_index: meta.index_offset,
+      base_index,
       vertex_offset: val(0),
       base_instance: draw_id,
     }

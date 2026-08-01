@@ -13,15 +13,27 @@ impl BindlessMeshRtxAccessInvocation {
 
     let meta = self.base.vertex_address_buffer.index(mesh_id);
     let index_offset = meta.index_offset().load();
+    let is_u16 = meta.is_u16_indices().load().into_bool();
 
     index_offset.equals(u32::MAX).select_branched(
       || (vertex_id, vertex_id + val(1), vertex_id + val(2)).into(),
       || {
-        let offset = index_offset + vertex_id;
+        let read_index = |idx: Node<u32>| {
+          // little-endian, the first u16 of each pair lives in the low half
+          is_u16.select(
+            {
+              let read = self.indices.index(index_offset + idx / val(2)).load();
+              let low = read & val(0xffff);
+              let high = read >> val(16);
+              (idx % val(2)).equals(0).select(low, high)
+            },
+            self.indices.index(index_offset + idx).load(),
+          )
+        };
         (
-          self.indices.index(offset).load(),
-          self.indices.index(offset + val(1)).load(),
-          self.indices.index(offset + val(2)).load(),
+          read_index(vertex_id),
+          read_index(vertex_id + val(1)),
+          read_index(vertex_id + val(2)),
         )
           .into()
       },

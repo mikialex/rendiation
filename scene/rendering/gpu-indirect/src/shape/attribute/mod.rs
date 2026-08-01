@@ -59,6 +59,26 @@ pub fn use_attribute_mesh_indirect_renderer(
     enable_normal_quantization_convert,
   } = *init;
 
+  let (index_data_source, index_data_source_) = index_data_source.fork();
+  let (index_data_source_, index_data_source__) = index_data_source_.fork();
+
+  let indices_ty = index_data_source_
+    .map_changes(|data| {
+      let byte_size = data.byte_view().len();
+      let byte_per_item = byte_size / data.count;
+      assert!(byte_size.is_multiple_of(data.count));
+      if byte_per_item == 2 {
+        IndexFormat::Uint16
+      } else if byte_per_item == 4 {
+        IndexFormat::Uint32
+      } else {
+        unreachable!("index count must be multiple of 2(u16) or 4(u32)")
+      }
+    })
+    .use_change_to_dual_query_in_spawn_stage(cx)
+    .dual_query_boxed()
+    .use_assure_result(cx);
+
   let (indices_range_change, indices) = use_attribute_indices_updates(
     cx,
     max_index_count,
@@ -72,6 +92,21 @@ pub fn use_attribute_mesh_indirect_renderer(
     128,
     u32::MAX,
   );
+
+  let indices_marker = index_data_source__.map_changes(|data| {
+    let byte_size = data.byte_view().len();
+    let byte_per_item = byte_size / data.count;
+    assert!(byte_size.is_multiple_of(data.count));
+    let is_u16 = Bool::from(byte_per_item == 2);
+    let padded = Bool::from(!byte_size.is_multiple_of(4));
+
+    [is_u16, padded]
+  });
+
+  // note, if the mesh change from index to none indexed, this flag in gpu will not be update, but it's ok
+  // as the logic should not access this data on device anymore.
+  let offset = offset_of!(AttributeMeshMeta, is_u16_indices);
+  indices_marker.update_storage_array_with_host(cx, metadata, offset);
 
   let max = max_vertex_u32_size_count;
   let init = init_vertex_u32_size_count;
@@ -124,7 +159,7 @@ pub fn use_attribute_mesh_indirect_renderer(
       indices,
       vertices,
       std_to_mesh: read_global_db_foreign_key(),
-      has_indices: read_global_db_foreign_key(),
+      indices_ty: indices_ty.expect_resolve_stage().view,
       topology: read_global_db_component(),
       vertex_address_buffer,
       vertex_address_buffer_host: metadata.buffer.make_read_holder(),
@@ -211,29 +246,24 @@ fn use_attribute_indices_updates(
     for (k, data) in change.iter_update_or_insert() {
       let range = data.range.map(|range| range.into_range(data.data.len()));
 
-      let byte_per_item = data.data.len() / data.count;
-      if byte_per_item != 4 && byte_per_item != 2 {
-        unreachable!("index count must be multiple of 2(u16) or 4(u32)")
-      }
+      let byte_size = data.byte_view().len();
+      let byte_per_item = byte_size / data.count;
 
-      if byte_per_item == 2 {
-        let mut buffer = data.data.as_slice();
-        if let Some(range) = range {
-          buffer = &buffer[range];
-        }
-        let buffer = bytemuck::cast_slice::<_, u16>(buffer);
-        let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
-        let buffer = bytemuck::cast_slice(&buffer).to_vec();
-        let buffer = Arc::new(buffer);
-
-        let size = buffer.len() as u32 / 4;
-        buffers_to_write.collect_shared(k, (&buffer, None));
-        new_sizes.push((k, size));
+      let mut allocate_request_u32_size = byte_size as u32 / 4;
+      // the upload path requires 4-byte aligned chunks, pad the data tail with 2 zero bytes
+      // to fill the extra u32 allocated above
+      let padded_shared_buffer;
+      let (buffer, range) = if byte_per_item == 2 && !byte_size.is_multiple_of(4) {
+        allocate_request_u32_size += 1;
+        let mut padded = data.byte_view().to_vec();
+        padded.resize(padded.len().next_multiple_of(4), 0);
+        padded_shared_buffer = Some(Arc::new(padded));
+        (padded_shared_buffer.as_ref().unwrap(), None)
       } else {
-        let size = range.clone().map(|v| v.len()).unwrap_or(data.data.len()) as u32 / 4;
-        buffers_to_write.collect_shared(k, (&data.data, range));
-        new_sizes.push((k, size));
+        (&data.data, range)
       };
+      buffers_to_write.collect_shared(k, (buffer, range));
+      new_sizes.push((k, allocate_request_u32_size));
     }
 
     let changes = allocator
@@ -470,6 +500,10 @@ fn write_field_offset(semantic: AttributeSemantic) -> Option<u32> {
 pub struct AttributeMeshMeta {
   pub index_offset: u32,
   pub count: u32,
+  pub is_u16_indices: Bool,
+  // set when the u16 index data is not 4-byte aligned, the data tail is padded to
+  // fill the last allocated u32 which then holds only one real index
+  pub is_u16_indices_padded: Bool,
   pub position_offset: u32,
   pub position_count: u32,
   pub normal_offset: u32,
@@ -489,7 +523,8 @@ pub struct AttributeMeshIndirectRenderer {
   pub sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
   pub sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
   pub std_to_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
-  pub has_indices: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
+  /// mesh id => indices type (None is not indexed)
+  pub indices_ty: BoxedDynQuery<RawEntityHandle, IndexFormat>,
   pub topology: ComponentReadView<AttributesMeshEntityTopology>,
   pub used_in_midc_downgrade: bool,
   pub enable_normal_quantization: bool,
@@ -511,10 +546,10 @@ impl IndirectDrawProviderCreator for AttributeMeshIndirectRenderer {
   fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
     let id = unsafe { EntityHandle::from_raw(id) };
     let mesh_id = self.std_to_mesh.get(id)?;
-    let is_indexed = self.has_indices.get(mesh_id).is_some();
+    let indices_ty = self.indices_ty.access(mesh_id.raw_handle_ref());
     fast_hash_scope(|hasher| {
       self.type_id().hash(hasher);
-      is_indexed.hash(hasher);
+      indices_ty.hash(hasher);
     })
     .into()
   }
@@ -542,13 +577,14 @@ impl DrawCommandBuilderCreator for AttributeMeshIndirectRenderer {
   fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
     let id = unsafe { EntityHandle::from_raw(id) };
     let mesh_id = self.std_to_mesh.get(id)?;
-    let is_indexed = self.has_indices.get(mesh_id).is_some();
+    let is_indexed = self.indices_ty.access(mesh_id.raw_handle_ref()).is_some();
 
     let creator = AttributeMeshIndirectDrawCreator {
       metadata: self.vertex_address_buffer.clone(),
       sm_to_mesh_device: self.sm_to_mesh_device.clone(),
       sm_to_mesh: self.sm_to_mesh.clone(),
       vertex_address_buffer_host: self.vertex_address_buffer_host.clone(),
+      used_in_midc_downgrade: self.used_in_midc_downgrade,
     };
 
     if is_indexed {
@@ -567,13 +603,13 @@ impl IndirectModelShapeRenderImpl for AttributeMeshIndirectRenderer {
   ) -> Option<Box<dyn RenderComponent + '_>> {
     // check the given model has attributes mesh
     let mesh = self.std_to_mesh.get(any_idx)?;
-    let is_indexed = self.has_indices.get(mesh).is_some();
+    let indices_ty = self.indices_ty.access(mesh.raw_handle_ref());
     let topology = self.topology.get(mesh)?;
 
     let mesh_system = AttributeMeshIndirectRasterDispatcher {
       internal: self.make_dispatcher(),
       topology: map_topology(*topology),
-      is_indexed,
+      indices_ty,
     };
 
     Some(Box::new(mesh_system))
@@ -582,15 +618,18 @@ impl IndirectModelShapeRenderImpl for AttributeMeshIndirectRenderer {
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     let mesh_id = self.std_to_mesh.get(any_idx)?;
-    // check mesh must have indices.
-    let is_indexed = self.has_indices.get(mesh_id).is_some();
-    if is_indexed {
-      Some(Some(self.indices.clone()))
+    let indices_ty = self.indices_ty.access(mesh_id.raw_handle_ref());
+    if let Some(indices_ty) = indices_ty {
+      Some(IndicesBufferInfo {
+        buffer: self.indices.clone(),
+        should_access_as_u16: matches!(indices_ty, IndexFormat::Uint16),
+      })
     } else {
-      Some(None)
+      None
     }
+    .into()
   }
 
   fn hash_shader_group_key(
@@ -601,8 +640,8 @@ impl IndirectModelShapeRenderImpl for AttributeMeshIndirectRenderer {
     let mesh_id = self.std_to_mesh.get(any_id)?;
     let topology = self.topology.get(mesh_id)?;
     hasher.hash(topology);
-    let is_index_mesh = self.has_indices.get(mesh_id).is_some();
-    hasher.hash(is_index_mesh);
+    let indices_ty = self.indices_ty.access(mesh_id.raw_handle_ref());
+    hasher.hash(indices_ty);
     // enable_normal_quantization is not mutable at runtime, so hash can be skipped
     Some(())
   }
