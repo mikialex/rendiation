@@ -1,11 +1,11 @@
 use crate::*;
 
-/// Encodes a unit normal vector to octahedral 8:8 format packed into u32.
+/// Encodes a unit normal vector to octahedral 16:16 format packed into u32.
 ///
 /// The encoding projects the unit normal onto an octahedron via L1 normalization,
 /// then folds the back hemisphere (z < 0) into the front. The resulting 2D coordinates
-/// are quantized to 8-bit unorm each and packed into the low 16 bits of a u32
-/// (`pack4x8unorm` compatible layout: byte 0 = x, byte 1 = y, bytes 2,3 = 0).
+/// are quantized to 16-bit unorm each and packed into a u32 (`pack2x16unorm` compatible
+/// layout: low 16 bits = x, high 16 bits = y).
 pub fn encode_octahedral_normal(normal: Vec3<f32>) -> u32 {
   let n = normal.normalize();
   let d = n.x.abs() + n.y.abs() + n.z.abs();
@@ -22,16 +22,16 @@ pub fn encode_octahedral_normal(normal: Vec3<f32>) -> u32 {
     y = ny;
   }
 
-  // map from [-1, 1] to [0, 1] and quantize to 8-bit unorm
-  let u = ((x * 0.5 + 0.5) * 255.0).round().clamp(0.0, 255.0) as u32;
-  let v = ((y * 0.5 + 0.5) * 255.0).round().clamp(0.0, 255.0) as u32;
-  // pack4x8unorm layout: byte 0 = x, byte 1 = y, bytes 2,3 = 0
-  u | (v << 8)
+  // map from [-1, 1] to [0, 1] and quantize to 16-bit unorm
+  let u = ((x * 0.5 + 0.5) * 65535.0).round().clamp(0.0, 65535.0) as u32;
+  let v = ((y * 0.5 + 0.5) * 65535.0).round().clamp(0.0, 65535.0) as u32;
+  // pack2x16unorm layout: low 16 bits = x, high 16 bits = y
+  u | (v << 16)
 }
 
 #[shader_fn]
 pub fn decode_octahedral_normal(packed: Node<u32>) -> Node<Vec3<f32>> {
-  let uv = packed.unpack4x8unorm().xy();
+  let uv = packed.unpack2x16unorm();
   let f = uv * val(Vec2 { x: 2.0, y: 2.0 }) - val(Vec2 { x: 1.0, y: 1.0 });
 
   let z = val(1.0) - f.x().abs() - f.y().abs();
@@ -53,10 +53,10 @@ pub fn decode_octahedral_normal(packed: Node<u32>) -> Node<Vec3<f32>> {
   vec3_node((p.x(), p.y(), z)).normalize()
 }
 
-/// CPU-side octahedral 8:8 decode.
+/// CPU-side octahedral 16:16 decode.
 pub fn decode_octahedral_normal_cpu(packed: u32) -> Vec3<f32> {
-  let u = (packed & 0xFF) as f32 / 255.0;
-  let v = ((packed >> 8) & 0xFF) as f32 / 255.0;
+  let u = (packed & 0xFFFF) as f32 / 65535.0;
+  let v = ((packed >> 16) & 0xFFFF) as f32 / 65535.0;
 
   let mut x = u * 2.0 - 1.0;
   let mut y = v * 2.0 - 1.0;
@@ -85,7 +85,7 @@ mod tests {
 
     let dot = normal.x * decoded.x + normal.y * decoded.y + normal.z * decoded.z;
     assert!(
-      dot > 0.99,
+      dot > 0.99999,
       "normal: {:?}, decoded: {:?}, dot: {}",
       normal,
       decoded,
@@ -94,7 +94,7 @@ mod tests {
   }
 
   #[test]
-  fn octahedral_8x8_px() {
+  fn octahedral_16x16_px() {
     run_roundtrip(Vec3 {
       x: 1.0,
       y: 0.0,
@@ -103,7 +103,7 @@ mod tests {
   }
 
   #[test]
-  fn octahedral_8x8_nx() {
+  fn octahedral_16x16_nx() {
     run_roundtrip(Vec3 {
       x: -1.0,
       y: 0.0,
@@ -112,7 +112,7 @@ mod tests {
   }
 
   #[test]
-  fn octahedral_8x8_py() {
+  fn octahedral_16x16_py() {
     run_roundtrip(Vec3 {
       x: 0.0,
       y: 1.0,
@@ -121,7 +121,7 @@ mod tests {
   }
 
   #[test]
-  fn octahedral_8x8_ny() {
+  fn octahedral_16x16_ny() {
     run_roundtrip(Vec3 {
       x: 0.0,
       y: -1.0,
@@ -130,7 +130,7 @@ mod tests {
   }
 
   #[test]
-  fn octahedral_8x8_pz() {
+  fn octahedral_16x16_pz() {
     run_roundtrip(Vec3 {
       x: 0.0,
       y: 0.0,
@@ -139,7 +139,7 @@ mod tests {
   }
 
   #[test]
-  fn octahedral_8x8_nz() {
+  fn octahedral_16x16_nz() {
     run_roundtrip(Vec3 {
       x: 0.0,
       y: 0.0,
@@ -148,7 +148,7 @@ mod tests {
   }
 
   #[test]
-  fn octahedral_8x8_diagonal() {
+  fn octahedral_16x16_diagonal() {
     run_roundtrip(
       Vec3 {
         x: 1.0,
@@ -160,7 +160,7 @@ mod tests {
   }
 
   #[test]
-  fn octahedral_8x8_arbitrary() {
+  fn octahedral_16x16_arbitrary() {
     run_roundtrip(
       Vec3 {
         x: -0.3,
@@ -172,7 +172,7 @@ mod tests {
   }
 
   #[test]
-  fn octahedral_8x8_edge_grazing() {
+  fn octahedral_16x16_edge_grazing() {
     run_roundtrip(
       Vec3 {
         x: 0.99,
