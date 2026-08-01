@@ -2034,6 +2034,7 @@ name = "growable-range-allocator"
 version = "0.0.1"
 dependencies = [
  "fast-hash-collection",
+ "log",
  "xalloc",
 ]
 

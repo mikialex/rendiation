@@ -6,28 +6,52 @@ type AllocationHandle = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
 
 pub struct GrowableRangeAllocator<K> {
   max_item_count: u32,
+  init_count: u32,
   current_count: u32,
   used_count: u32,
   // user_handle => (size, offset, handle)
   ranges: FastHashMap<K, (u32, u32, AllocationHandle)>,
-  // todo, try other allocator that support relocate and shrink??
   allocator: xalloc::SysTlsf<u32>,
   alignment_require: u32,
+  enable_shrink: bool,
   label: String,
+}
+
+pub const DEFAULT_ENABLE_SHRINK: bool = true;
+fn warn_shrink(label: &str) {
+  // shrink is skipped when alignment is enabled, the aligned footprint
+  // may exceed the nominal used count and fail the relocation
+  log::warn!(
+    "range allocator {label}: shrink is enabled with alignment > 1, the shrink will be skipped"
+  );
 }
 
 impl<K: Clone + Eq + Hash> GrowableRangeAllocator<K> {
   pub fn new(label: &str, max_item_count: u32, init_count: u32, alignment_require: u32) -> Self {
     assert!(init_count <= max_item_count);
+    if DEFAULT_ENABLE_SHRINK && alignment_require > 1 {
+      warn_shrink(label);
+    }
     Self {
       max_item_count,
+      init_count,
       alignment_require,
+      enable_shrink: DEFAULT_ENABLE_SHRINK,
       current_count: init_count,
       used_count: 0,
       ranges: FastHashMap::with_capacity_and_hasher(init_count as usize, Default::default()),
       allocator: xalloc::SysTlsf::new(init_count),
       label: label.to_string(),
     }
+  }
+
+  /// toggle shrink, shrink is enabled by default
+  pub fn with_shrink(mut self, enabled: bool) -> Self {
+    if enabled && self.alignment_require > 1 {
+      warn_shrink(&self.label);
+    }
+    self.enable_shrink = enabled;
+    self
   }
 
   /// Query a region by key. Returns (size, offset) if allocated.
@@ -134,6 +158,10 @@ impl<K: Clone + Eq + Hash> GrowableRangeAllocator<K> {
       }
     }
 
+    // shrink after all allocations are done, only when the capacity is under
+    // utilized, the 2x target prevents grow/shrink oscillation
+    self.maybe_shrink(&mut result, &mut new_metadata_to_write);
+
     self.ranges.reserve(new_metadata_to_write.len());
     for (k, v) in new_metadata_to_write {
       self.ranges.insert(k, v);
@@ -149,15 +177,40 @@ impl<K: Clone + Eq + Hash> GrowableRangeAllocator<K> {
     result
   }
 
+  /// shrink the capacity when it is under utilized, relocate all ranges into
+  /// a fresh allocator of the smaller size
+  ///
+  /// the 2x target guarantees the shrunk capacity still holds the nominal
+  /// used count, and the shrink stops at the init count
+  ///
+  /// shrink is enabled by default, disable it with [Self::with_shrink]
+  ///
+  /// shrink is skipped when the alignment is not 1, because with alignment
+  /// the real footprint may exceed the nominal used count and a too small
+  /// target would fail the relocation
+  fn maybe_shrink(
+    &mut self,
+    results: &mut BatchAllocateResult<K>,
+    new_inserted: &mut FastHashMap<K, (Size, Offset, AllocationHandle)>,
+  ) {
+    if self.enable_shrink && self.alignment_require == 1 && self.used_count * 2 < self.current_count
+    {
+      let new_size = (self.used_count * 2).max(self.init_count);
+      if new_size < self.current_count {
+        self.relocate(new_size, results, new_inserted);
+      }
+    }
+  }
+
   fn relocate(
     &mut self,
     new_size: u32,
     results: &mut BatchAllocateResult<K>,
     new_inserted: &mut FastHashMap<K, (Size, Offset, AllocationHandle)>,
   ) {
-    assert!(new_size > self.current_count);
+    assert!(new_size != self.current_count);
     println!(
-      "range allocator {} try grow from {} to {}, max {}",
+      "range allocator {} try resize from {} to {}, max {}",
       self.label, self.current_count, new_size, self.max_item_count
     );
     self.current_count = new_size;

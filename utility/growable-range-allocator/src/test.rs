@@ -236,6 +236,100 @@ fn alignment_used_count_still_matches_ranges() {
 }
 
 #[test]
+fn shrink_releases_capacity_when_under_utilized() {
+  let mut alloc = new_alloc(8, 64);
+  alloc.update([].into_iter(), (1..=20).map(|k| (k, 1)));
+  let r = alloc.update((2..=17).into_iter(), []);
+  assert_eq!(r.resize_to, Some(8));
+  assert_eq!(r.data_movements.len(), 4);
+  assert_eq!(alloc.current_count, 8);
+  let mut offsets = Vec::new();
+  for k in [1, 18, 19, 20] {
+    let (size, offset) = alloc.get_region(&k).unwrap();
+    assert_eq!(size, 1);
+    assert!(offset < 8);
+    offsets.push(offset);
+  }
+  offsets.sort();
+  assert_eq!(offsets, [0, 1, 2, 3]);
+  assert_exclusive(&r);
+}
+
+#[test]
+fn shrink_disabled_by_config() {
+  let mut alloc = new_alloc(8, 64).with_shrink(false);
+  alloc.update([].into_iter(), (1..=20).map(|k| (k, 1)));
+  let r = alloc.update((2..=17).into_iter(), []);
+  assert_eq!(r.resize_to, None);
+  assert!(r.data_movements.is_empty());
+  assert_eq!(alloc.current_count, 22);
+}
+
+#[test]
+fn shrink_stops_at_init_count() {
+  let mut alloc = new_alloc(16, 64);
+  alloc.update([].into_iter(), (1..=32).map(|k| (k, 1)));
+  let r = alloc.update((2..=31).into_iter(), []);
+  assert_eq!(r.resize_to, Some(16));
+  let r = alloc.update([2].into_iter(), []);
+  assert_eq!(r.resize_to, None);
+  assert_eq!(alloc.current_count, 16);
+}
+
+#[test]
+fn shrink_not_triggered_when_capacity_used() {
+  let mut alloc = new_alloc(8, 64);
+  alloc.update([].into_iter(), (1..=8).map(|k| (k, 1)));
+  let r = alloc.update((2..=5).into_iter(), []);
+  assert_eq!(r.resize_to, None);
+  assert_eq!(alloc.current_count, 8);
+}
+
+#[test]
+fn shrink_with_new_allocations_same_update() {
+  let mut alloc = new_alloc(4, 64);
+  alloc.update([].into_iter(), [(1, 1), (2, 1), (3, 1), (4, 1)]);
+  alloc.update([].into_iter(), [(5, 1), (6, 1), (7, 1), (8, 1)]);
+  let r = alloc.update((2..=7).into_iter(), [(9, 1)]);
+  assert_eq!(r.resize_to, Some(6));
+  assert_eq!(alloc.current_count, 6);
+  for k in [1, 8, 9] {
+    let (size, offset) = alloc.get_region(&k).unwrap();
+    assert_eq!(size, 1);
+    assert!(offset < 6);
+  }
+  assert_eq!(
+    r.new_data_to_write.get(&9).unwrap().0,
+    alloc.get_region(&9).unwrap().1
+  );
+  assert_exclusive(&r);
+}
+
+#[test]
+fn shrink_then_grow_again() {
+  let mut alloc = new_alloc(4, 64);
+  alloc.update([].into_iter(), (1..=8).map(|k| (k, 1)));
+  alloc.update((2..=8).into_iter(), []);
+  assert_eq!(alloc.current_count, 4);
+  alloc.update([].into_iter(), (9..=12).map(|k| (k, 1)));
+  assert_eq!(alloc.current_count, 5);
+  for k in [1, 9, 10, 11, 12] {
+    assert_eq!(alloc.get_region(&k).unwrap().0, 1);
+  }
+  assert_eq!(alloc.used_count, 5);
+}
+
+#[test]
+fn alignment_shrink_is_exempt() {
+  let mut alloc = new_aligned_alloc(8, 64);
+  alloc.update([].into_iter(), [(1, 3), (2, 3), (3, 3), (4, 3)]);
+  let r = alloc.update((2..=4).into_iter(), []);
+  assert_eq!(r.resize_to, None);
+  // 13 slots only fit three 3-byte items aligned to 4, the fourth triggers grow to 26
+  assert_eq!(alloc.current_count, 26);
+}
+
+#[test]
 fn result_iterators_match_final_state() {
   let mut alloc = new_alloc(4, 64);
   alloc.update([].into_iter(), [(1, 2)]);
