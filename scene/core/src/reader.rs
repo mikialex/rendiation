@@ -114,6 +114,7 @@ impl SceneReader {
       material,
       mesh: m.read_expected_foreign_key::<StandardModelRefAttributesMeshEntity>(id),
       skin: m.read_foreign_key::<StandardModelRefSkin>(id),
+      states_override: m.read::<StandardModelRasterizationOverride>(id),
     }
   }
 
