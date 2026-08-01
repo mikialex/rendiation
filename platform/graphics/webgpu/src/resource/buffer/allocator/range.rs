@@ -1,120 +1,79 @@
+use growable_range_allocator::*;
+
 use crate::*;
 
-type AllocationHandle = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
-
 pub struct GPURangeAllocateMaintainer<T> {
-  max_item_count: u32,
-  used_count: u32,
-  // todo, remove this if we can get offset from handle in allocator
-  // offset => (size, handle)
-  ranges: FastHashMap<u32, (u32, AllocationHandle)>,
-  // todo, try other allocator that support relocate and shrink??
-  allocator: xalloc::SysTlsf<u32>,
+  // the key of the inner allocator is a monotonically increasing id,
+  // the caller uses the offset as the handle, so we keep a reverse
+  // offset => id map for deallocate and relocation
+  allocator: GrowableRangeAllocator<u32>,
+  next_id: u32,
+  offset_to_id: FastHashMap<u32, u32>,
   buffer: T,
-  gpu: GPU,
 }
 
 impl<T> GPURangeAllocateMaintainer<T>
 where
-  T: ResizableLinearStorage + GPULinearStorage + LinearStorageDirectAccess,
+  T: RelocationResizableLinearStorage + GPULinearStorage + LinearStorageDirectAccess,
 {
-  pub fn new(gpu: &GPU, buffer: T, max_item_count: u32) -> Self {
+  pub fn new(buffer: T, max_item_count: u32, label: &str) -> Self {
     let current_size = buffer.max_size();
     assert!(current_size <= max_item_count);
     Self {
-      max_item_count,
-      allocator: xalloc::SysTlsf::new(current_size),
+      allocator: GrowableRangeAllocator::new(label, max_item_count, current_size, 1),
+      next_id: 0,
+      offset_to_id: Default::default(),
       buffer,
-      gpu: gpu.clone(),
-      used_count: 0,
-      ranges: Default::default(),
     }
   }
 
-  /// return if grow success
-  fn relocate(
+  fn apply_resize_and_relocations(
     &mut self,
-    new_size: u32,
+    result: &BatchAllocateResult<u32>,
     relocation_handler: &mut dyn FnMut(RelocationMessage),
-  ) -> bool {
-    // resize the underlayer buffer
-    // do this before the resize, make sure we hold the old buffer reference here.
-    let src = self.buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
-    if !self.buffer.resize(new_size) {
-      return false;
-    }
-    assert!(self.buffer.max_size() >= new_size);
-    let target = self.buffer.abstract_gpu().get_gpu_buffer_view().unwrap();
-
-    // move the data
-    let mut encoder = self.gpu.device.create_encoder();
-    let mut new_allocator = xalloc::SysTlsf::new(new_size);
-
-    let item_byte_width = std::mem::size_of::<T::Item>() as u32;
-    let mut new_ranges = FastHashMap::default();
-    self.ranges.iter_mut().for_each(|(old_offset, (size, _))| {
-      let (new_token, new_offset) = new_allocator
-        .alloc(*size)
-        .expect("allocation after grow should success");
-
-      // we currently do not use the abstract buffer's copy buffer to buffer
-      // because the abstract buffer's resize maybe has lazy implementation, that will not guarantee
-      // to create new buffer and may cause copy buffer to buffer fail due to same buffer reference
-      //
-      // using temp buffer to work around is not an option, because the copy range may overlap
-
-      // todo: abstract buffer's copy buffer to buffer
-      encoder.copy_buffer_to_buffer(
-        src.resource.gpu(),
-        src.desc.offset + *old_offset as u64 * item_byte_width as u64,
-        target.resource.gpu(),
-        target.desc.offset + new_offset as u64 * item_byte_width as u64,
-        *size as u64 * item_byte_width as u64,
+  ) {
+    if let Some(new_size) = result.resize_to {
+      let item_byte_width = std::mem::size_of::<T::Item>() as u64;
+      let resize_success = self.buffer.resize_with_relocations(
+        new_size,
+        Some(
+          &mut result.data_movements.values().map(move |m| BufferRelocate {
+            self_offset: m.old_offset as u64 * item_byte_width,
+            target_offset: m.new_offset as u64 * item_byte_width,
+            count: m.count as u64 * item_byte_width,
+          }) as _,
+        ),
       );
-
-      new_ranges.insert(new_offset, (*size, new_token));
-      relocation_handler(RelocationMessage {
-        previous_offset: *old_offset,
-        new_offset,
-      })
-    });
-
-    self.gpu.queue.submit_encoder(encoder);
-
-    self.allocator = new_allocator;
-    self.ranges = new_ranges;
-
-    true
+      assert!(resize_success);
+      for m in result.data_movements.values() {
+        let id = self.offset_to_id.remove(&m.old_offset).unwrap();
+        self.offset_to_id.insert(m.new_offset, id);
+        relocation_handler(RelocationMessage {
+          previous_offset: m.old_offset,
+          new_offset: m.new_offset,
+        })
+      }
+    } else {
+      assert!(result.data_movements.is_empty());
+    }
   }
 
   fn allocate_range_impl(
     &mut self,
     count: u32,
     relocation_handler: &mut dyn FnMut(RelocationMessage),
-  ) -> Option<u32>
-  where
-    Self: LinearStorageDirectAccess,
-  {
+  ) -> Option<u32> {
     assert!(count > 0);
-    loop {
-      if let Some((token, offset)) = self.allocator.alloc(count) {
-        self.ranges.insert(offset, (count, token));
-        self.used_count += count;
-
-        break Some(offset);
-      } else {
-        let current_size = self.buffer.max_size();
-        let next_allocate = (current_size * 2).max(count).min(self.max_item_count);
-        assert!(next_allocate > current_size);
-        log::info!(
-          "range allocator try grow from {current_size} to {next_allocate}, max {}",
-          self.max_item_count
-        );
-        if !self.relocate(next_allocate, relocation_handler) {
-          return None;
-        }
-      }
+    let id = self.next_id;
+    self.next_id += 1;
+    let result = self.allocator.update([].into_iter(), [(id, count)]);
+    if result.failed_to_allocate.contains(&id) {
+      return None;
     }
+    self.apply_resize_and_relocations(&result, relocation_handler);
+    let offset = result.new_data_to_write.get(&id).unwrap().0;
+    self.offset_to_id.insert(offset, id);
+    Some(offset)
   }
 }
 
@@ -157,19 +116,19 @@ impl<T: GPULinearStorage> GPULinearStorage for GPURangeAllocateMaintainer<T> {
 
 impl<T: LinearStorageBase> AllocatorStorageBase for GPURangeAllocateMaintainer<T> {
   fn current_used(&self) -> u32 {
-    self.used_count
+    self.allocator.current_used()
   }
 }
 
 impl<T> RangeAllocatorStorage for GPURangeAllocateMaintainer<T>
 where
-  T: ResizableLinearStorage + LinearStorageDirectAccess + GPULinearStorage,
+  T: RelocationResizableLinearStorage + LinearStorageDirectAccess + GPULinearStorage,
 {
   fn deallocate(&mut self, offset: u32) {
-    let (size, token) = self.ranges.remove(&offset).unwrap();
-    self.allocator.dealloc(token).unwrap();
+    let id = self.offset_to_id.remove(&offset).unwrap();
+    let (size, _) = self.allocator.get_region(&id).unwrap();
+    self.allocator.update([id].into_iter(), []);
     self.buffer.removes(offset, size);
-    self.used_count -= size;
   }
 
   fn allocate_values(
@@ -177,13 +136,9 @@ where
     v: &[Self::Item],
     relocation_handler: &mut dyn FnMut(RelocationMessage),
   ) -> Option<u32> {
-    let offset = self.allocate_range_impl(v.len() as u32, relocation_handler);
-
-    if let Some(offset) = offset {
-      self.buffer.set_values(offset, v)?;
-    }
-
-    offset
+    let offset = self.allocate_range_impl(v.len() as u32, relocation_handler)?;
+    self.buffer.set_values(offset, v)?;
+    Some(offset)
   }
 
   fn allocate_range(
@@ -211,5 +166,5 @@ pub fn create_storage_buffer_range_allocate_pool<T: Std430 + ShaderSizedValueNod
   let buffer = allocator.allocate_readonly(byte_size as u64, &gpu.device, label);
 
   let buffer = create_growable_buffer(gpu, buffer, max_item_count);
-  GPURangeAllocateMaintainer::new(gpu, buffer, max_item_count)
+  GPURangeAllocateMaintainer::new(buffer, max_item_count, label)
 }

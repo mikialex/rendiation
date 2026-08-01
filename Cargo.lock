@@ -5249,6 +5249,7 @@ dependencies = [
  "event-source",
  "fast-hash-collection",
  "futures",
+ "growable-range-allocator",
  "heap-tools",
  "hook",
  "log",
@@ -5266,7 +5267,6 @@ dependencies = [
  "wgpu",
  "wgpu-types",
  "winit",
- "xalloc",
 ]
 
 [[package]]

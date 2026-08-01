@@ -23,7 +23,7 @@ thiserror = { workspace = true }
 wgpu = { workspace = true }
 wgpu-types = { workspace = true }
 winit = { workspace = true }
-xalloc = "0.2.7"
+growable-range-allocator = { path = "../../../utility/growable-range-allocator" }
 slab = { workspace = true }
 log = { workspace = true }
 hook = { path = "../../../utility/hook" }

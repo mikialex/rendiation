@@ -38,6 +38,10 @@ impl<K: Clone + Eq + Hash> GrowableRangeAllocator<K> {
       .map(|&(size, offset, _)| (size, offset))
   }
 
+  pub fn current_used(&self) -> u32 {
+    self.used_count
+  }
+
   pub fn update(
     &mut self,
     change_or_removed_keys: impl Iterator<Item = K>,
