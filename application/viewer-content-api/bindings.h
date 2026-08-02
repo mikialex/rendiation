@@ -932,9 +932,13 @@ void drop_wide_points(SceneWidePointsHandleInfo p);
 
 SceneWideLineHandleInfo create_wide_line(ViewerEntityHandle node,
                                          uint32_t data_length,
-                                         const uint8_t *data);
+                                         const uint8_t *data,
+                                         bool is_line_strip);
 
-void wide_line_set_buffer(ViewerEntityHandle handle, uint32_t data_length, const uint8_t *data);
+void wide_line_set_buffer(ViewerEntityHandle handle,
+                          uint32_t data_length,
+                          const uint8_t *data,
+                          bool is_line_strip);
 
 void wide_line_set_enable_depth_test(ViewerEntityHandle handle, bool enabled);
 

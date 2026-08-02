@@ -71,10 +71,18 @@ pub fn build_wide_line_mesh(
     .mesh
     .primitive_iter()
     .enumerate()
-    .map(|(i, line)| WideLineVertex {
-      start: line.start.position,
-      end: line.end.position,
-      color: pack_color((1., i as f32 / line_count, 0., 1.0)),
+    .flat_map(|(i, line)| {
+      let color = pack_color((1., i as f32 / line_count, 0., 1.0));
+      [
+        WideLineVertex {
+          position: line.start.position,
+          color,
+        },
+        WideLineVertex {
+          position: line.end.position,
+          color,
+        },
+      ]
     })
     .collect();
 

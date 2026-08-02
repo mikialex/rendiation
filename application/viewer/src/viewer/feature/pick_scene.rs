@@ -152,10 +152,18 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
               (t * 2.0 - 1.0).max(0.0),
               1.0,
             );
-            lines.iter().map(move |(start, end)| WideLineVertex {
-              start: *start,
-              end: *end,
-              color: pack_color(color),
+            lines.iter().flat_map(move |(start, end)| {
+              let color = pack_color(color);
+              [
+                WideLineVertex {
+                  position: *start,
+                  color,
+                },
+                WideLineVertex {
+                  position: *end,
+                  color,
+                },
+              ]
             })
           })
           .collect();

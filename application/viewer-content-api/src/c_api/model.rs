@@ -231,6 +231,7 @@ pub extern "C" fn create_wide_line(
   node: ViewerEntityHandle,
   data_length: u32,
   data: *const u8,
+  is_line_strip: bool,
 ) -> SceneWideLineHandleInfo {
   let mut writer = global_entity_of::<WideLineModelEntity>().entity_writer();
 
@@ -239,7 +240,10 @@ pub extern "C" fn create_wide_line(
   let data = data.to_vec();
   let data = ExternalRefPtr::new(data);
 
-  let line = writer.new_entity(|w| w.write::<WideLineMeshBuffer>(&data));
+  let line = writer.new_entity(|w| {
+    w.write::<WideLineMeshBuffer>(&data)
+      .write::<WideLineIsLineStrip>(&is_line_strip)
+  });
 
   let scene_model = global_entity_of::<SceneModelEntity>()
     .entity_writer()
@@ -259,6 +263,7 @@ pub extern "C" fn wide_line_set_buffer(
   handle: ViewerEntityHandle,
   data_length: u32,
   data: *const u8,
+  is_line_strip: bool,
 ) {
   let data = unsafe { slice::from_raw_parts(data, data_length as usize) };
   let data = bytemuck::cast_slice(data);
@@ -266,6 +271,7 @@ pub extern "C" fn wide_line_set_buffer(
   let data = ExternalRefPtr::new(data);
 
   write_global_db_component::<WideLineMeshBuffer>().write(handle.into(), data.into());
+  write_global_db_component::<WideLineIsLineStrip>().write(handle.into(), is_line_strip);
 }
 
 #[no_mangle]

@@ -35,6 +35,7 @@ pub fn register_wide_line_data_model(sparse: bool) {
     .declare_component::<WideLineEnableRoundJoint>()
     .declare_component::<WideLineDepthEnable>()
     .declare_component::<WideLineTransparent>()
+    .declare_component::<WideLineIsLineStrip>()
     .declare_component::<WideLineMeshBuffer>();
 }
 
@@ -53,6 +54,7 @@ declare_component!(
   Vec4::new(1.0, 1.0, 1.0, 1.0)
 );
 
+declare_component!(WideLineIsLineStrip, WideLineModelEntity, bool, false);
 declare_component!(WideLineTransparent, WideLineModelEntity, bool, false);
 declare_component!(WideLineDepthEnable, WideLineModelEntity, bool, true);
 declare_component!(WideLineStyleFactor, WideLineModelEntity, f32, 1.0);
@@ -69,10 +71,8 @@ declare_component!(
 #[derive(Copy, Clone, Zeroable, Pod, ShaderVertex)]
 #[derive(Facet, Serialize, Deserialize)]
 pub struct WideLineVertex {
-  #[semantic(WideLineStart)]
-  pub start: Vec3<f32>,
-  #[semantic(WideLineEnd)]
-  pub end: Vec3<f32>,
+  #[semantic(WideLinePosition)]
+  pub position: Vec3<f32>,
   #[semantic(WideLineVertexColor)]
   pub color: u32,
 }
@@ -85,8 +85,13 @@ pub fn use_wide_line_vertices_count(
   let wide_line_v_count = cx
     .use_dual_query::<WideLineMeshBuffer>()
     .dual_query_zip(cx.use_dual_query::<WideLineWidth>())
-    .dual_query_map(move |(v, width)| {
-      let line_seg_count = v.len() as u32;
+    .dual_query_zip(cx.use_dual_query::<WideLineIsLineStrip>())
+    .dual_query_map(move |((v, width), is_line_strip)| {
+      let line_seg_count = if is_line_strip {
+        v.len().saturating_sub(1)
+      } else {
+        v.len() / 2
+      } as u32;
       if one_pixel_native_line_optimization_enabled && width == 1.0 {
         line_seg_count * 2
       } else {

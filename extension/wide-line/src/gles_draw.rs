@@ -28,7 +28,21 @@ pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineM
 
   let mesh = cx.use_shared_hash_map("wide line mesh gles");
 
-  maintain_shared_map(&mesh, cx.use_changes::<WideLineMeshBuffer>(), |buffer| {
+  let data = cx
+    .use_dual_query::<WideLineMeshBuffer>()
+    .dual_query_zip(cx.use_dual_query::<WideLineIsLineStrip>())
+    .map_spawn_stage_in_thread_dual_query(cx, |source_info| {
+      source_info
+        .delta()
+        .into_change()
+        .collective_map(|(buffer, is_line_strip)| {
+          let expanded = expand_wide_line_segments(&buffer, is_line_strip);
+          ExternalRefPtr::new(expanded)
+        })
+    })
+    .map(|v| v.map_changes_key(|k| k.index()));
+
+  maintain_shared_map(&mesh, data, |buffer| {
     let buffer = create_gpu_buffer(
       cast_slice(buffer.as_slice()),
       BufferUsages::VERTEX,
@@ -71,8 +85,8 @@ impl GLESModelRenderImpl for WideLineModelGLESRenderer {
       .access_ref(&model_idx.alloc_index())
       .unwrap();
 
-    let instance_count =
-      u64::from(instance_buffer.view_byte_size()) as usize / std::mem::size_of::<WideLineVertex>();
+    let instance_count = u64::from(instance_buffer.view_byte_size()) as usize
+      / std::mem::size_of::<WideLineSegmentInstance>();
 
     let draw_command = DrawCommand::Indexed {
       instances: 0..instance_count as u32,
@@ -147,7 +161,7 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
       builder.register_vertex::<CommonVertex>(VertexStepMode::Vertex);
-      builder.register_vertex::<WideLineVertex>(VertexStepMode::Instance);
+      builder.register_vertex::<WideLineSegmentInstance>(VertexStepMode::Instance);
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
     });
@@ -213,6 +227,47 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
       }
     })
   }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Zeroable, Pod, ShaderVertex)]
+struct WideLineSegmentInstance {
+  #[semantic(WideLineStart)]
+  pub start: Vec3<f32>,
+  #[semantic(WideLineEnd)]
+  pub end: Vec3<f32>,
+  #[semantic(WideLineVertexColor)]
+  pub color: u32,
+}
+
+/// expand the vertex list into per-segment instance data
+/// the vertex list is either line strip(consecutive vertices) or
+/// discrete segments(every two vertices), determined by is_line_strip
+fn expand_wide_line_segments(
+  buffer: &[WideLineVertex],
+  is_line_strip: bool,
+) -> Vec<WideLineSegmentInstance> {
+  let mut expanded = Vec::with_capacity(buffer.len() / 2 + 1);
+  if is_line_strip {
+    for pair in buffer.windows(2) {
+      expanded.push(WideLineSegmentInstance {
+        start: pair[0].position,
+        end: pair[1].position,
+        color: pair[0].color,
+      });
+    }
+  } else {
+    for pair in buffer.chunks(2) {
+      if let [a, b] = pair {
+        expanded.push(WideLineSegmentInstance {
+          start: a.position,
+          end: b.position,
+          color: a.color,
+        });
+      }
+    }
+  }
+  expanded
 }
 
 fn create_wide_line_quad() -> IndexedMesh<TriangleList, Vec<CommonVertex>, Vec<u16>> {
