@@ -248,7 +248,7 @@ where
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     let instance_model = self.base.instance_model.get(any_idx)?;
     let _ = self.base.source_model.get(instance_model)?;
     // as we force use draw array, return none in any case

@@ -15,14 +15,27 @@ impl<T: LinearStorageBase> LinearStorageBase for ResizableGPUBuffer<T> {
 
 impl<T: GPULinearStorage> ResizableLinearStorage for ResizableGPUBuffer<T> {
   fn resize(&mut self, new_size: u32) -> bool {
+    self.resize_with_relocations(new_size, None)
+  }
+}
+
+impl<T: GPULinearStorage> RelocationResizableLinearStorage for ResizableGPUBuffer<T> {
+  fn resize_with_relocations(
+    &mut self,
+    new_size: u32,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
+  ) -> bool {
     let mut success = true;
-    if self.gpu.max_size() != new_size {
+    // relocations may be required even if the size is unchanged, in that case we still
+    // go through the resize path so they are applied on a fresh copy safely
+    if self.gpu.max_size() != new_size || relocations.is_some() {
       let device = self.ctx.device.clone();
       let mut encoder = self.ctx.create_encoder();
       success = self.abstract_gpu().resize_gpu(
         &mut encoder,
         &device,
         (new_size * std::mem::size_of::<T::Item>() as u32) as u64,
+        relocations,
       );
       self.ctx.queue.submit_encoder(encoder);
     }

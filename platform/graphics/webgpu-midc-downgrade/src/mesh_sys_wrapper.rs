@@ -1,24 +1,37 @@
 use crate::*;
 
 pub struct MidcDowngradeWrapperForIndirectMeshSystem {
-  pub index: Option<AbstractReadonlyStorageBuffer<[u32]>>,
+  /// (index data pool, should_access_as_u16)
+  pub index: Option<(AbstractReadonlyStorageBuffer<[u32]>, bool)>,
 }
 
 impl ShaderHashProvider for MidcDowngradeWrapperForIndirectMeshSystem {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.index.as_ref().map(|v| v.1));
+  }
 }
 
 impl GraphicsShaderProvider for MidcDowngradeWrapperForIndirectMeshSystem {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|vertex, binding| {
       // here we override the builtin
-      if let Some(index) = &self.index {
-        let vertex_real_index = vertex.query::<VertexIndexForMIDCDowngrade>();
+      let relative = vertex.query::<VertexIndexForMIDCDowngradeRelativeInSubDraw>();
+      if let Some((index, should_access_as_u16)) = &self.index {
+        let base_index = vertex.query::<VertexIndexForMIDCDowngradeBaseIndex>();
         let index_pool = binding.bind_by(index);
-        let index = index_pool.index(vertex_real_index).load();
+        let index = if *should_access_as_u16 {
+          let read = index_pool.index(base_index + relative / val(2)).load();
+          // little-endian, the first u16 of each pair lives in the low half
+          let low = read & val(0xffff);
+          let high = read >> val(16);
+          (relative % val(2)).equals(0).select(low, high)
+        } else {
+          index_pool.index(base_index + relative).load()
+        };
+
         vertex.register::<VertexIndex>(index);
       } else {
-        let relative = vertex.query::<VertexIndexForMIDCDowngradeRelative>();
         vertex.register::<VertexIndex>(relative);
       }
     });
@@ -27,7 +40,7 @@ impl GraphicsShaderProvider for MidcDowngradeWrapperForIndirectMeshSystem {
 
 impl ShaderPassBuilder for MidcDowngradeWrapperForIndirectMeshSystem {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    if let Some(index) = &self.index {
+    if let Some((index, _)) = &self.index {
       // when midc downgrade enabled, the index multi draw will be downgraded into single none index draw,
       // so we use storage binding for index buffer
       //

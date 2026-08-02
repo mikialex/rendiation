@@ -186,9 +186,29 @@ pub struct StandardModelDataView {
   pub material: SceneMaterialDataView,
   pub mesh: EntityHandle<AttributesMeshEntity>,
   pub skin: Option<EntityHandle<SceneSkinEntity>>,
+  pub states_override: Option<RasterizationStates>,
 }
 
 impl StandardModelDataView {
+  pub fn new(material: SceneMaterialDataView, mesh: EntityHandle<AttributesMeshEntity>) -> Self {
+    Self {
+      material,
+      mesh,
+      skin: None,
+      states_override: None,
+    }
+  }
+
+  pub fn with_skin(mut self, skin: EntityHandle<SceneSkinEntity>) -> Self {
+    self.skin = Some(skin);
+    self
+  }
+
+  pub fn with_states_override(mut self, states_override: RasterizationStates) -> Self {
+    self.states_override = Some(states_override);
+    self
+  }
+
   pub fn write(
     self,
     writer: &mut TableWriter<StandardModelEntity>,
@@ -207,6 +227,7 @@ impl StandardModelDataView {
         SceneMaterialDataView::Other => w,
       }
       .write::<StandardModelRefAttributesMeshEntity>(&self.mesh.some_handle())
+      .write::<StandardModelRasterizationOverride>(&self.states_override)
       .write::<StandardModelRefSkin>(&self.skin.map(|v| v.into_raw()))
     })
   }

@@ -4,6 +4,8 @@ use crate::*;
 
 only_vertex!(WideLineStart, Vec3<f32>);
 only_vertex!(WideLineEnd, Vec3<f32>);
+only_vertex!(WideLinePosition, Vec3<f32>);
+only_vertex!(WideLineVertexColor, u32);
 
 pub fn wide_line_vertex(
   wide_line_start: Node<Vec3<f32>>,

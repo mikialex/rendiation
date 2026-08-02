@@ -121,6 +121,21 @@ pub struct AttributesMeshData {
 }
 
 impl AttributesMeshData {
+  pub fn try_shrink_indices_to_u16(mut self) -> Self {
+    let Some((fmt, buffer)) = &mut self.indices else {
+      return self;
+    };
+    if *fmt == AttributeIndexFormat::Uint32 {
+      let u32_indices = bytemuck::cast_slice::<u8, u32>(buffer);
+      if u32_indices.iter().all(|v| *v <= u16::MAX as u32) {
+        let u16_indices = u32_indices.iter().map(|v| *v as u16).collect::<Vec<_>>();
+        *fmt = AttributeIndexFormat::Uint16;
+        *buffer = bytemuck::cast_slice(&u16_indices).to_vec();
+      }
+    }
+    self
+  }
+
   pub fn build(self) -> AttributesMesh {
     let attributes = self
       .attributes

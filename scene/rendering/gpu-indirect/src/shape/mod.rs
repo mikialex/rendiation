@@ -3,6 +3,11 @@ use crate::*;
 mod attribute;
 pub use attribute::*;
 
+pub struct IndicesBufferInfo {
+  pub buffer: AbstractReadonlyStorageBuffer<[u32]>,
+  pub should_access_as_u16: bool,
+}
+
 pub trait IndirectModelShapeRenderImpl:
   IndirectDrawProviderCreator + DrawCommandBuilderCreator
 {
@@ -19,7 +24,7 @@ pub trait IndirectModelShapeRenderImpl:
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>>;
+  ) -> Option<Option<IndicesBufferInfo>>;
 
   fn hash_shader_group_key(
     &self,
@@ -117,7 +122,7 @@ impl IndirectModelShapeRenderImpl for Vec<Box<dyn IndirectModelShapeRenderImpl>>
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     for provider in self {
       if let Some(v) = provider.get_index_storage_buffer(any_idx) {
         return Some(v);

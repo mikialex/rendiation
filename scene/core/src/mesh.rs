@@ -267,9 +267,11 @@ where
   }
 }
 
+/// relation -> vertex
 pub type AttributeVertexDataSource =
   UseResult<Arc<LinearBatchChanges<RawEntityHandle, (AttributeLivingData, AttributeSemantic)>>>;
 
+/// mesh -> indices
 pub type AttributeIndexDataSource =
   UseResult<Arc<LinearBatchChanges<RawEntityHandle, AttributeLivingData>>>;
 

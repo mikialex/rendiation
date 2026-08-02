@@ -88,6 +88,22 @@ pub trait LinearStorageDirectAccess: LinearStorageBase {
   ) -> Option<()>;
 }
 
+pub trait RelocationResizableLinearStorage {
+  /// Same as [ResizableLinearStorage::resize]
+  ///
+  /// When relocations are passed in, they are applied during the resize.
+  /// The implementation does a full copy first, then applies the relocations.
+  /// This is used by range allocator grow, to avoid an extra copy in standalone relocation
+  ///
+  /// returns false if the resize fails
+  #[must_use]
+  fn resize_with_relocations(
+    &mut self,
+    new_size: u32,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
+  ) -> bool;
+}
+
 pub trait ResizableLinearStorage: LinearStorageBase {
   /// Set the buffer capacity to exactly `new_size`.
   ///

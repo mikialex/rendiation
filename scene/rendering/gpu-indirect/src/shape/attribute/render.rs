@@ -3,7 +3,7 @@ use rendiation_shader_library::octahedral::decode_octahedral_normal_fn;
 use crate::*;
 
 #[derive(Clone)]
-pub struct BindlessMeshDispatcher {
+pub struct AttributeMeshIndirectDispatcher {
   pub sm_to_mesh: AbstractReadonlyStorageBuffer<[u32]>,
   pub vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   pub index_pool: AbstractReadonlyStorageBuffer<[u32]>,
@@ -11,7 +11,7 @@ pub struct BindlessMeshDispatcher {
   pub enable_normal_quantization: bool,
 }
 
-impl ShaderHashProvider for BindlessMeshDispatcher {
+impl ShaderHashProvider for AttributeMeshIndirectDispatcher {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(self.enable_normal_quantization);
@@ -19,31 +19,31 @@ impl ShaderHashProvider for BindlessMeshDispatcher {
 }
 
 #[derive(Clone)]
-pub struct BindlessMeshRasterDispatcher {
-  pub internal: BindlessMeshDispatcher,
-  pub is_indexed: bool,
+pub struct AttributeMeshIndirectRasterDispatcher {
+  pub internal: AttributeMeshIndirectDispatcher,
+  pub indices_ty: Option<IndexFormat>,
   pub topology: rendiation_webgpu::PrimitiveTopology,
 }
 
-impl ShaderHashProvider for BindlessMeshRasterDispatcher {
+impl ShaderHashProvider for AttributeMeshIndirectRasterDispatcher {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.internal.hash_pipeline(hasher);
-    hasher.hash(self.is_indexed);
+    hasher.hash(self.indices_ty);
     hasher.hash(self.topology);
   }
 }
 
-impl ShaderPassBuilder for BindlessMeshRasterDispatcher {
+impl ShaderPassBuilder for AttributeMeshIndirectRasterDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     let mesh = &self.internal;
 
-    if self.is_indexed {
+    if let Some(fmt) = self.indices_ty {
       // may be failed if we are using texture as storage
       if let Some(index) = mesh.index_pool.get_gpu_buffer_view() {
         ctx
           .pass
-          .set_index_buffer_by_buffer_resource_view(&index, IndexFormat::Uint32);
+          .set_index_buffer_by_buffer_resource_view(&index, fmt);
       }
     }
 
@@ -51,7 +51,7 @@ impl ShaderPassBuilder for BindlessMeshRasterDispatcher {
   }
 }
 
-impl GraphicsShaderProvider for BindlessMeshRasterDispatcher {
+impl GraphicsShaderProvider for AttributeMeshIndirectRasterDispatcher {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|vertex, binding| {
       let mesh_handle = vertex.query::<IndirectAbstractMeshId>();
@@ -71,13 +71,13 @@ impl GraphicsShaderProvider for BindlessMeshRasterDispatcher {
 }
 
 #[derive(Clone)]
-pub struct BindlessMeshDispatcherBaseInvocation {
+pub struct IndirectAttributeMeshDispatcherBaseInvocation {
   pub vertex_address_buffer: ShaderReadonlyPtrOf<[AttributeMeshMeta]>,
   pub vertices: ShaderReadonlyPtrOf<[u32]>,
   pub enable_normal_quantization: bool,
 }
 
-impl BindlessMeshDispatcherBaseInvocation {
+impl IndirectAttributeMeshDispatcherBaseInvocation {
   pub fn get_position_normal_uv(
     &self,
     mesh_handle: Node<u32>,
@@ -140,12 +140,12 @@ impl BindlessMeshDispatcherBaseInvocation {
   }
 }
 
-impl BindlessMeshDispatcher {
+impl AttributeMeshIndirectDispatcher {
   pub fn build_base_invocation(
     &self,
     cx: &mut ShaderBindGroupBuilder,
-  ) -> BindlessMeshDispatcherBaseInvocation {
-    BindlessMeshDispatcherBaseInvocation {
+  ) -> IndirectAttributeMeshDispatcherBaseInvocation {
+    IndirectAttributeMeshDispatcherBaseInvocation {
       vertex_address_buffer: cx.bind_by(&self.vertex_address_buffer),
       vertices: cx.bind_by(&self.vertices),
       enable_normal_quantization: self.enable_normal_quantization,

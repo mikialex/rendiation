@@ -1,3 +1,4 @@
+#![feature(iter_array_chunks)]
 use bytemuck::cast_slice;
 use database::*;
 use rendiation_algebra::*;

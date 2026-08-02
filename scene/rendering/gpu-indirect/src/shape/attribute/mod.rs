@@ -4,9 +4,6 @@ use parking_lot::RwLock;
 use rendiation_mesh_core::AttributeSemantic;
 use rendiation_shader_api::*;
 
-mod vertex_count;
-pub use vertex_count::*;
-
 mod draw_cmd;
 pub use draw_cmd::*;
 
@@ -18,18 +15,19 @@ only_vertex!(IndirectAbstractMeshId, u32);
 use crate::*;
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
-pub struct BindlessMeshInit {
+pub struct IndirectAttributeMeshInitConfig {
   pub init_index_count: u32,
   pub max_index_count: u32,
   pub init_vertex_u32_size_count: u32,
   pub max_vertex_u32_size_count: u32,
-  /// if enabled, the normal will be considered as octahedral quantized
+  /// if enabled, the normal data will be treated as octahedral quantized [u32] instead of [Vec3<f32>]
   pub enable_normal_quantization: bool,
-  /// if enabled, the normal data will be convert to octahedral quantized when upload to gpu
+  /// if enabled, the normal data will be convert to octahedral quantized when upload to gpu, expect
+  /// input normal be [Vec3<f32>]
   pub enable_normal_quantization_convert: bool,
 }
 
-impl Default for BindlessMeshInit {
+impl Default for IndirectAttributeMeshInitConfig {
   fn default() -> Self {
     Self {
       init_index_count: 200_000,
@@ -42,17 +40,17 @@ impl Default for BindlessMeshInit {
   }
 }
 
-pub fn use_bindless_mesh(
+pub fn use_attribute_mesh_indirect_renderer(
   cx: &mut QueryGPUHookCx,
-  init: &BindlessMeshInit,
+  init: &IndirectAttributeMeshInitConfig,
   merge_with_vertex_allocator: bool,
   force_midc_downgrade: bool,
   index_data_source: AttributeIndexDataSource,
   vertex_data_source: AttributeVertexDataSource,
-) -> Option<MeshGPUBindlessImpl> {
+) -> Option<AttributeMeshIndirectRenderer> {
   let force_midc_downgrade = force_midc_downgrade || merge_with_vertex_allocator;
 
-  let BindlessMeshInit {
+  let IndirectAttributeMeshInitConfig {
     init_index_count,
     max_index_count,
     init_vertex_u32_size_count,
@@ -60,6 +58,26 @@ pub fn use_bindless_mesh(
     enable_normal_quantization,
     enable_normal_quantization_convert,
   } = *init;
+
+  let (index_data_source, index_data_source_) = index_data_source.fork();
+  let (index_data_source_, index_data_source__) = index_data_source_.fork();
+
+  let indices_ty = index_data_source_
+    .map_changes(|data| {
+      let byte_size = data.byte_view().len();
+      let byte_per_item = byte_size / data.count;
+      assert!(byte_size.is_multiple_of(data.count));
+      if byte_per_item == 2 {
+        IndexFormat::Uint16
+      } else if byte_per_item == 4 {
+        IndexFormat::Uint32
+      } else {
+        unreachable!("index count must be multiple of 2(u16) or 4(u32)")
+      }
+    })
+    .use_change_to_dual_query_in_spawn_stage(cx)
+    .dual_query_boxed()
+    .use_assure_result(cx);
 
   let (indices_range_change, indices) = use_attribute_indices_updates(
     cx,
@@ -74,6 +92,21 @@ pub fn use_bindless_mesh(
     128,
     u32::MAX,
   );
+
+  let indices_marker = index_data_source__.map_changes(|data| {
+    let byte_size = data.byte_view().len();
+    let byte_per_item = byte_size / data.count;
+    assert!(byte_size.is_multiple_of(data.count));
+    let is_u16 = Bool::from(byte_per_item == 2);
+    let padded = Bool::from(!byte_size.is_multiple_of(4));
+
+    [is_u16, padded]
+  });
+
+  // note, if the mesh change from index to none indexed, this flag in gpu will not be update, but it's ok
+  // as the logic should not access this data on device anymore.
+  let offset = offset_of!(AttributeMeshMeta, is_u16_indices);
+  indices_marker.update_storage_array_with_host(cx, metadata, offset);
 
   let max = max_vertex_u32_size_count;
   let init = init_vertex_u32_size_count;
@@ -122,12 +155,12 @@ pub fn use_bindless_mesh(
 
   cx.when_render(|| {
     let vertex_address_buffer = metadata.get_gpu_buffer();
-    MeshGPUBindlessImpl {
+    AttributeMeshIndirectRenderer {
       indices,
       vertices,
-      checker: read_global_db_foreign_key(),
-      indices_checker: read_global_db_foreign_key(),
-      topology_checker: read_global_db_component(),
+      std_to_mesh: read_global_db_foreign_key(),
+      indices_ty: indices_ty.expect_resolve_stage().view,
+      topology: read_global_db_component(),
       vertex_address_buffer,
       vertex_address_buffer_host: metadata.buffer.make_read_holder(),
       sm_to_mesh_device: sm_to_mesh_device.get_gpu_buffer(),
@@ -136,6 +169,24 @@ pub fn use_bindless_mesh(
       enable_normal_quantization,
     }
   })
+}
+
+pub fn use_attribute_mesh_indirect_render_vertex_count(
+  cx: &mut impl DBHookCxLike,
+  mesh_changes: UseResult<AttributesMeshDataChangeInput>,
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, u32>> {
+  mesh_changes
+    .filter_map_changes(|v| v.if_loaded().map(|v| v.vertices_count() as u32))
+    .use_change_to_dual_query_in_spawn_stage(cx)
+    .fanout(
+      cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>(),
+      cx,
+    )
+    .fanout(
+      cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>(),
+      cx,
+    )
+    .dual_query_boxed()
 }
 
 fn use_attribute_indices_updates(
@@ -153,14 +204,14 @@ fn use_attribute_indices_updates(
       alloc.allocate_readonly::<[u32]>(
         (4 * init_item_count) as u64,
         &gpu.device,
-        "bindless mesh index pool",
+        "indirect attribute mesh index pool",
       )
     } else {
       StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
         &gpu.device,
         ZeroedArrayByArrayLength(init_item_count as usize).into(),
         BufferUsages::INDEX,
-        "bindless mesh index pool",
+        "indirect attribute mesh index pool",
       )
       .into()
     };
@@ -195,29 +246,24 @@ fn use_attribute_indices_updates(
     for (k, data) in change.iter_update_or_insert() {
       let range = data.range.map(|range| range.into_range(data.data.len()));
 
-      let byte_per_item = data.data.len() / data.count;
-      if byte_per_item != 4 && byte_per_item != 2 {
-        unreachable!("index count must be multiple of 2(u16) or 4(u32)")
-      }
+      let byte_size = data.byte_view().len();
+      let byte_per_item = byte_size / data.count;
 
-      if byte_per_item == 2 {
-        let mut buffer = data.data.as_slice();
-        if let Some(range) = range {
-          buffer = &buffer[range];
-        }
-        let buffer = bytemuck::cast_slice::<_, u16>(buffer);
-        let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
-        let buffer = bytemuck::cast_slice(&buffer).to_vec();
-        let buffer = Arc::new(buffer);
-
-        let size = buffer.len() as u32 / 4;
-        buffers_to_write.collect_shared(k, (&buffer, None));
-        new_sizes.push((k, size));
+      let mut allocate_request_u32_size = byte_size as u32 / 4;
+      // the upload path requires 4-byte aligned chunks, pad the data tail with 2 zero bytes
+      // to fill the extra u32 allocated above
+      let padded_shared_buffer;
+      let (buffer, range) = if byte_per_item == 2 && !byte_size.is_multiple_of(4) {
+        allocate_request_u32_size += 1;
+        let mut padded = data.byte_view().to_vec();
+        padded.resize(padded.len().next_multiple_of(4), 0);
+        padded_shared_buffer = Some(Arc::new(padded));
+        (padded_shared_buffer.as_ref().unwrap(), None)
       } else {
-        let size = range.clone().map(|v| v.len()).unwrap_or(data.data.len()) as u32 / 4;
-        buffers_to_write.collect_shared(k, (&data.data, range));
-        new_sizes.push((k, size));
+        (&data.data, range)
       };
+      buffers_to_write.collect_shared(k, (buffer, range));
+      new_sizes.push((k, allocate_request_u32_size));
     }
 
     let changes = allocator
@@ -226,15 +272,12 @@ fn use_attribute_indices_updates(
 
     let buffers_to_write = buffers_to_write.prepare(&changes, 4);
 
-    if let Some(new_size) = changes.resize_to {
-      // here we do(request) resize at spawn stage to avoid resize again and again
-      let resize_success = gpu_buffer_.write().resize(new_size);
-      assert!(resize_success);
-    }
+    let allocation_changes = BatchAllocateResultShared::new(changes, 1);
+    allocation_changes.apply_resize(&mut *gpu_buffer_.write());
 
     Arc::new(RangeAllocateBufferUpdates {
       buffers_to_write,
-      allocation_changes: BatchAllocateResultShared(Arc::new(changes), 1),
+      allocation_changes,
     })
   });
 
@@ -362,15 +405,12 @@ fn use_attribute_vertex_updates(
 
       let buffers_to_write = buffers_to_write.prepare(&changes, 4);
 
-      if let Some(new_size) = changes.resize_to {
-        // here we do(request) resize at spawn stage to avoid resize again and again
-        let resize_success = gpu_buffer.write().resize(new_size);
-        assert!(resize_success);
-      }
+      let allocation_changes = BatchAllocateResultShared::new(changes, 1);
+      allocation_changes.apply_resize(&mut *gpu_buffer.write());
 
       Arc::new(RangeAllocateBufferUpdates {
         buffers_to_write,
-        allocation_changes: BatchAllocateResultShared(Arc::new(changes), 1),
+        allocation_changes,
       })
     });
 
@@ -460,6 +500,10 @@ fn write_field_offset(semantic: AttributeSemantic) -> Option<u32> {
 pub struct AttributeMeshMeta {
   pub index_offset: u32,
   pub count: u32,
+  pub is_u16_indices: Bool,
+  // set when the u16 index data is not 4-byte aligned, the data tail is padded to
+  // fill the last allocated u32 which then holds only one real index
+  pub is_u16_indices_padded: Bool,
   pub position_offset: u32,
   pub position_count: u32,
   pub normal_offset: u32,
@@ -469,25 +513,26 @@ pub struct AttributeMeshMeta {
 }
 
 #[derive(Clone)]
-pub struct MeshGPUBindlessImpl {
-  indices: AbstractReadonlyStorageBuffer<[u32]>,
-  vertices: AbstractReadonlyStorageBuffer<[u32]>,
-  vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
+pub struct AttributeMeshIndirectRenderer {
+  pub indices: AbstractReadonlyStorageBuffer<[u32]>,
+  pub vertices: AbstractReadonlyStorageBuffer<[u32]>,
+  pub vertex_address_buffer: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
   /// we keep the host metadata to support creating draw commands from host
-  vertex_address_buffer_host:
+  pub vertex_address_buffer_host:
     LockReadGuardHolder<SparseStorageBufferWithHostRaw<AttributeMeshMeta>>,
-  sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
-  sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
-  checker: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
-  indices_checker: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
-  topology_checker: ComponentReadView<AttributesMeshEntityTopology>,
-  used_in_midc_downgrade: bool,
-  enable_normal_quantization: bool,
+  pub sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
+  pub sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
+  pub std_to_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
+  /// mesh id => indices type (None is not indexed)
+  pub indices_ty: BoxedDynQuery<RawEntityHandle, IndexFormat>,
+  pub topology: ComponentReadView<AttributesMeshEntityTopology>,
+  pub used_in_midc_downgrade: bool,
+  pub enable_normal_quantization: bool,
 }
 
-impl MeshGPUBindlessImpl {
-  pub fn make_bindless_dispatcher(&self) -> BindlessMeshDispatcher {
-    BindlessMeshDispatcher {
+impl AttributeMeshIndirectRenderer {
+  pub fn make_dispatcher(&self) -> AttributeMeshIndirectDispatcher {
+    AttributeMeshIndirectDispatcher {
       sm_to_mesh: self.sm_to_mesh_device.clone(),
       vertex_address_buffer: self.vertex_address_buffer.clone(),
       vertices: self.vertices.clone(),
@@ -497,14 +542,14 @@ impl MeshGPUBindlessImpl {
   }
 }
 
-impl IndirectDrawProviderCreator for MeshGPUBindlessImpl {
+impl IndirectDrawProviderCreator for AttributeMeshIndirectRenderer {
   fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
     let id = unsafe { EntityHandle::from_raw(id) };
-    let mesh_id = self.checker.get(id)?;
-    let is_indexed = self.indices_checker.get(mesh_id).is_some();
+    let mesh_id = self.std_to_mesh.get(id)?;
+    let indices_ty = self.indices_ty.access(mesh_id.raw_handle_ref());
     fast_hash_scope(|hasher| {
       self.type_id().hash(hasher);
-      is_indexed.hash(hasher);
+      indices_ty.hash(hasher);
     })
     .into()
   }
@@ -528,17 +573,18 @@ impl IndirectDrawProviderCreator for MeshGPUBindlessImpl {
   }
 }
 
-impl DrawCommandBuilderCreator for MeshGPUBindlessImpl {
+impl DrawCommandBuilderCreator for AttributeMeshIndirectRenderer {
   fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
     let id = unsafe { EntityHandle::from_raw(id) };
-    let mesh_id = self.checker.get(id)?;
-    let is_indexed = self.indices_checker.get(mesh_id).is_some();
+    let mesh_id = self.std_to_mesh.get(id)?;
+    let is_indexed = self.indices_ty.access(mesh_id.raw_handle_ref()).is_some();
 
-    let creator = BindlessDrawCreator {
+    let creator = AttributeMeshIndirectDrawCreator {
       metadata: self.vertex_address_buffer.clone(),
       sm_to_mesh_device: self.sm_to_mesh_device.clone(),
       sm_to_mesh: self.sm_to_mesh.clone(),
       vertex_address_buffer_host: self.vertex_address_buffer_host.clone(),
+      used_in_midc_downgrade: self.used_in_midc_downgrade,
     };
 
     if is_indexed {
@@ -550,20 +596,20 @@ impl DrawCommandBuilderCreator for MeshGPUBindlessImpl {
   }
 }
 
-impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
+impl IndirectModelShapeRenderImpl for AttributeMeshIndirectRenderer {
   fn make_component_indirect(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     // check the given model has attributes mesh
-    let mesh = self.checker.get(any_idx)?;
-    let is_indexed = self.indices_checker.get(mesh).is_some();
-    let topology = self.topology_checker.get(mesh)?;
+    let mesh = self.std_to_mesh.get(any_idx)?;
+    let indices_ty = self.indices_ty.access(mesh.raw_handle_ref());
+    let topology = self.topology.get(mesh)?;
 
-    let mesh_system = BindlessMeshRasterDispatcher {
-      internal: self.make_bindless_dispatcher(),
+    let mesh_system = AttributeMeshIndirectRasterDispatcher {
+      internal: self.make_dispatcher(),
       topology: map_topology(*topology),
-      is_indexed,
+      indices_ty,
     };
 
     Some(Box::new(mesh_system))
@@ -572,15 +618,18 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
-    let mesh_id = self.checker.get(any_idx)?;
-    // check mesh must have indices.
-    let is_indexed = self.indices_checker.get(mesh_id).is_some();
-    if is_indexed {
-      Some(Some(self.indices.clone()))
+  ) -> Option<Option<IndicesBufferInfo>> {
+    let mesh_id = self.std_to_mesh.get(any_idx)?;
+    let indices_ty = self.indices_ty.access(mesh_id.raw_handle_ref());
+    if let Some(indices_ty) = indices_ty {
+      Some(IndicesBufferInfo {
+        buffer: self.indices.clone(),
+        should_access_as_u16: matches!(indices_ty, IndexFormat::Uint16),
+      })
     } else {
-      Some(None)
+      None
     }
+    .into()
   }
 
   fn hash_shader_group_key(
@@ -588,11 +637,12 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     any_id: EntityHandle<StandardModelEntity>,
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
-    let mesh_id = self.checker.get(any_id)?;
-    let topology = self.topology_checker.get(mesh_id)?;
+    let mesh_id = self.std_to_mesh.get(any_id)?;
+    let topology = self.topology.get(mesh_id)?;
     hasher.hash(topology);
-    let is_index_mesh = self.indices_checker.get(mesh_id).is_some();
-    hasher.hash(is_index_mesh);
+    let indices_ty = self.indices_ty.access(mesh_id.raw_handle_ref());
+    hasher.hash(indices_ty);
+    // enable_normal_quantization is not mutable at runtime, so hash can be skipped
     Some(())
   }
 

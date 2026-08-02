@@ -255,7 +255,7 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
     _encoder: &mut GPUCommandEncoder,
     _device: &GPUDevice,
   ) {
-    println!("TextureAsReadonlyStorageBuffer relocate");
+    log::info!("TextureAsReadonlyStorageBuffer relocate");
     let relocations: Vec<_> = iter.collect();
 
     let min = relocations.iter().map(|v| v.self_offset + 4).min().unwrap();
@@ -290,6 +290,7 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
     _encoder: &mut GPUCommandEncoder,
     _device: &GPUDevice,
     new_byte_size: u64,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
   ) -> bool {
     let array_len =
       if let MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) =
@@ -306,6 +307,10 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
       .host_backup
       .write()
       .resize(new_byte_size as usize, array_len);
+
+    if let Some(relocations) = relocations {
+      self.batch_self_relocate(relocations, _encoder, _device);
+    }
 
     true
   }

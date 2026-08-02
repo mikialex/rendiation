@@ -164,6 +164,7 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
 
 pub type BoxedAbstractBuffer = Box<dyn AbstractBuffer>;
 
+/// All units in bytes
 pub struct BufferRelocate {
   pub self_offset: u64,
   pub target_offset: u64,
@@ -180,11 +181,14 @@ pub trait AbstractBuffer: DynClone + Send + Sync {
     encoder: &mut GPUCommandEncoder,
     device: &GPUDevice,
     new_byte_size: u64,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
   ) -> bool;
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue);
 
   /// as the abstract buffer not able to deep clone itself.
   /// we use this api to express the self may overlapped in batch relocate logic.
+  ///
+  /// todo, remove this?
   fn batch_self_relocate(
     &self,
     iter: &mut dyn Iterator<Item = BufferRelocate>,
@@ -216,8 +220,9 @@ impl AbstractBuffer for BoxedAbstractBuffer {
     encoder: &mut GPUCommandEncoder,
     device: &GPUDevice,
     new_byte_size: u64,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
   ) -> bool {
-    (**self).resize_gpu(encoder, device, new_byte_size)
+    (**self).resize_gpu(encoder, device, new_byte_size, relocations)
   }
   fn byte_size(&self) -> u64 {
     (**self).byte_size()
@@ -309,8 +314,15 @@ impl AbstractBuffer for DynTypedStorageBuffer {
     encoder: &mut GPUCommandEncoder,
     device: &GPUDevice,
     new_byte_size: u64,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
   ) -> bool {
-    resize_impl(&mut self.buffer, encoder, device, new_byte_size)
+    resize_impl(
+      &mut self.buffer,
+      encoder,
+      device,
+      new_byte_size,
+      relocations,
+    )
   }
   fn byte_size(&self) -> u64 {
     self.buffer.view_byte_size().into()
@@ -493,8 +505,9 @@ where
     encoder: &mut GPUCommandEncoder,
     device: &GPUDevice,
     new_byte_size: u64,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
   ) -> bool {
-    resize_impl(&mut self.gpu, encoder, device, new_byte_size)
+    resize_impl(&mut self.gpu, encoder, device, new_byte_size, relocations)
   }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
@@ -565,8 +578,9 @@ where
     encoder: &mut GPUCommandEncoder,
     device: &GPUDevice,
     new_byte_size: u64,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
   ) -> bool {
-    resize_impl(&mut self.gpu, encoder, device, new_byte_size)
+    resize_impl(&mut self.gpu, encoder, device, new_byte_size, relocations)
   }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
@@ -631,6 +645,7 @@ fn resize_impl(
   encoder: &mut GPUCommandEncoder,
   device: &GPUDevice,
   byte_new_size: u64,
+  relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
 ) -> bool {
   if byte_new_size > device.info().supported_limits.max_buffer_size {
     return false;
@@ -639,6 +654,9 @@ fn resize_impl(
   let usage = buffer.resource.desc.usage;
   let new_buffer = create_gpu_buffer_zeroed(byte_new_size, usage, device).create_default_view();
 
+  // this can not be skipped even if relocations are requested, as we can not guarantee
+  // that the relocations cover the whole buffer.
+  // todo, we could add an option to skip this step
   encoder.copy_buffer_to_buffer(
     &buffer.resource.gpu,
     0,
@@ -646,6 +664,18 @@ fn resize_impl(
     0,
     Some(buffer.resource.desc.size.get().min(byte_new_size)),
   );
+
+  if let Some(iter) = relocations {
+    iter.for_each(|relocate| {
+      encoder.copy_buffer_to_buffer(
+        buffer.resource.gpu(),
+        buffer.desc.offset + relocate.self_offset,
+        new_buffer.resource.gpu(),
+        new_buffer.desc.offset + relocate.target_offset,
+        relocate.count,
+      );
+    });
+  }
 
   *buffer = new_buffer;
   true
@@ -664,8 +694,11 @@ where
     encoder: &mut GPUCommandEncoder,
     device: &GPUDevice,
     new_byte_size: u64,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
   ) -> bool {
-    self.buffer.resize_gpu(encoder, device, new_byte_size)
+    self
+      .buffer
+      .resize_gpu(encoder, device, new_byte_size, relocations)
   }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {

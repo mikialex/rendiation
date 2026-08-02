@@ -1,37 +1,67 @@
 use crate::*;
 
-pub trait SceneModelPicker {
+#[derive(Clone, Copy)]
+pub struct SceneModelRayNearestQueryRequest<'a> {
+  pub idx: EntityHandle<SceneModelEntity>,
   /// if the override_world_mat used, the internal node matrix is ignored
+  pub override_world_mat: Option<&'a Mat4<f64>>,
+  pub ctx: &'a SceneRayQuery<'a>,
+  /// ignore selectable or visible states
+  pub ignore_pre_check: bool,
+}
+
+pub struct SceneModelRayAllQueryRequest<'a> {
+  pub idx: EntityHandle<SceneModelEntity>,
+  /// if the override_world_mat used, the internal node matrix is ignored
+  pub override_world_mat: Option<&'a Mat4<f64>>,
+  pub ctx: &'a SceneRayQuery<'a>,
+  pub results: &'a mut Vec<MeshBufferHitPoint<f64>>,
+  pub local_result_scratch: &'a mut Vec<MeshBufferHitPoint<f32>>,
+  /// ignore selectable or visible states
+  pub ignore_pre_check: bool,
+}
+
+#[derive(Clone, Copy)]
+pub struct SceneModelFrustumQueryRequest<'a> {
+  pub idx: EntityHandle<SceneModelEntity>,
+  /// if the override_world_mat used, the internal node matrix is ignored
+  pub override_world_mat: Option<&'a Mat4<f64>>,
+  pub frustum: &'a SceneFrustumQuery,
+  pub policy: ObjectTestPolicy,
+  /// ignore selectable or visible states
+  pub ignore_pre_check: bool,
+}
+
+pub struct SceneModelFrustumSubPrimitiveQueryRequest<'a> {
+  pub internal: SceneModelFrustumQueryRequest<'a>,
+  pub results: &'a mut Vec<u32>,
+}
+
+impl<'a> std::ops::Deref for SceneModelFrustumSubPrimitiveQueryRequest<'a> {
+  type Target = SceneModelFrustumQueryRequest<'a>;
+  fn deref(&self) -> &Self::Target {
+    &self.internal
+  }
+}
+
+pub trait SceneModelPicker {
   fn ray_query_nearest(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    ctx: &SceneRayQuery,
-    ignore_pre_check: bool,
+    request: SceneModelRayNearestQueryRequest,
   ) -> Option<MeshBufferHitPoint<f64>>;
 
-  /// if the override_world_mat used, the internal node matrix is ignored
-  ///
   /// return None if errored
   /// todo, this should be improved
-  fn ray_query_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    ctx: &SceneRayQuery,
-    results: &mut Vec<MeshBufferHitPoint<f64>>,
-    local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
-    ignore_pre_check: bool,
-  ) -> Option<()>;
+  fn ray_query_all(&self, request: SceneModelRayAllQueryRequest) -> Option<()>;
 
-  fn frustum_query(
+  fn frustum_query(&self, request: SceneModelFrustumQueryRequest) -> Option<bool>;
+
+  /// return None if errored
+  /// todo, this should be improved
+  fn frustum_query_sub_primitives(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    frustum: &SceneFrustumQuery,
-    policy: ObjectTestPolicy,
-    ignore_pre_check: bool,
-  ) -> Option<bool>;
+    request: SceneModelFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()>;
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -43,81 +73,47 @@ pub enum ObjectTestPolicy {
 impl<'a> SceneModelPicker for Box<dyn SceneModelPicker + 'a> {
   fn ray_query_nearest(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    ctx: &SceneRayQuery,
-    ignore_pre_check: bool,
+    request: SceneModelRayNearestQueryRequest,
   ) -> Option<MeshBufferHitPoint<f64>> {
-    (**self).ray_query_nearest(idx, override_world_mat, ctx, ignore_pre_check)
+    (**self).ray_query_nearest(request)
   }
 
-  fn ray_query_all(
+  fn ray_query_all(&self, request: SceneModelRayAllQueryRequest) -> Option<()> {
+    (**self).ray_query_all(request)
+  }
+
+  fn frustum_query(&self, request: SceneModelFrustumQueryRequest) -> Option<bool> {
+    (**self).frustum_query(request)
+  }
+  fn frustum_query_sub_primitives(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    ctx: &SceneRayQuery,
-    results: &mut Vec<MeshBufferHitPoint<f64>>,
-    local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
-    ignore_pre_check: bool,
+    request: SceneModelFrustumSubPrimitiveQueryRequest,
   ) -> Option<()> {
-    (**self).ray_query_all(
-      idx,
-      override_world_mat,
-      ctx,
-      results,
-      local_result_scratch,
-      ignore_pre_check,
-    )
-  }
-
-  fn frustum_query(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    frustum: &SceneFrustumQuery,
-    policy: ObjectTestPolicy,
-    ignore_pre_check: bool,
-  ) -> Option<bool> {
-    (**self).frustum_query(idx, override_world_mat, frustum, policy, ignore_pre_check)
+    (**self).frustum_query_sub_primitives(request)
   }
 }
 
 impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
   fn ray_query_nearest(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    ctx: &SceneRayQuery,
-    ignore_pre_check: bool,
+    request: SceneModelRayNearestQueryRequest,
   ) -> Option<MeshBufferHitPoint<f64>> {
     for provider in self {
-      if let Some(hit) = provider.ray_query_nearest(idx, override_world_mat, ctx, ignore_pre_check)
-      {
+      if let Some(hit) = provider.ray_query_nearest(request) {
         return Some(hit);
       }
     }
     None
   }
 
-  fn ray_query_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    ctx: &SceneRayQuery,
-    results: &mut Vec<MeshBufferHitPoint<f64>>,
-    local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
-    ignore_pre_check: bool,
-  ) -> Option<()> {
+  fn ray_query_all(&self, request: SceneModelRayAllQueryRequest) -> Option<()> {
     for provider in self {
       if provider
-        .ray_query_all(
-          idx,
-          override_world_mat,
-          ctx,
-          results,
-          local_result_scratch,
-          ignore_pre_check,
-        )
+        .ray_query_all(SceneModelRayAllQueryRequest {
+          results: request.results,
+          local_result_scratch: request.local_result_scratch,
+          ..request
+        })
         .is_some()
       {
         return Some(());
@@ -126,17 +122,25 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
     None
   }
 
-  fn frustum_query(
+  fn frustum_query(&self, request: SceneModelFrustumQueryRequest) -> Option<bool> {
+    for provider in self {
+      if let Some(r) = provider.frustum_query(request) {
+        return Some(r);
+      }
+    }
+    None
+  }
+
+  fn frustum_query_sub_primitives(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    frustum: &SceneFrustumQuery,
-    policy: ObjectTestPolicy,
-    ignore_pre_check: bool,
-  ) -> Option<bool> {
+    request: SceneModelFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()> {
     for provider in self {
       if let Some(r) =
-        provider.frustum_query(idx, override_world_mat, frustum, policy, ignore_pre_check)
+        provider.frustum_query_sub_primitives(SceneModelFrustumSubPrimitiveQueryRequest {
+          results: request.results,
+          ..request
+        })
       {
         return Some(r);
       }
@@ -199,14 +203,53 @@ pub struct SceneModelPickerBaseImpl<T> {
   pub internal: T,
 }
 
+impl<T: LocalModelPicker> SceneModelPickerBaseImpl<T> {
+  fn prepare_frustum_test(
+    &self,
+    request: &SceneModelFrustumQueryRequest,
+  ) -> Option<(
+    Mat4<f64>,
+    Frustum<f32>,
+    Option<FrustumIntersectionTestHelper<f32>>,
+  )> {
+    let node = self.util.pre_check(request.idx, request.ignore_pre_check)?;
+
+    let (mat, _sm_world_bounding) = if let Some(mat) = request.override_world_mat {
+      let smb = self
+        .util
+        .sm_local_bounding
+        .access(&request.idx)?
+        .into_f64()
+        .apply_matrix_into(*mat);
+      (*mat, smb)
+    } else {
+      self.util.get_mat_and_world_aabb(node, request.idx)?
+    };
+
+    // todo, early return
+
+    let frustum = request
+      .frustum
+      .world_frustum
+      .apply_matrix_into(mat.inverse_or_identity());
+    let frustum = frustum.into_f32();
+    let helper = FrustumIntersectionTestHelper::new(&frustum);
+
+    Some((mat, frustum, helper))
+  }
+}
+
 impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
   fn ray_query_nearest(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    ctx: &SceneRayQuery,
-    ignore_pre_check: bool,
+    request: SceneModelRayNearestQueryRequest,
   ) -> Option<MeshBufferHitPoint<f64>> {
+    let SceneModelRayNearestQueryRequest {
+      idx,
+      override_world_mat,
+      ctx,
+      ignore_pre_check,
+    } = request;
     let node = self.util.pre_check(idx, ignore_pre_check)?;
 
     let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
@@ -234,14 +277,16 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       .apply_matrix_into(mat.inverse_or_identity()) // todo, cache inverse mat
       .into_f32();
 
-    let hit = self.internal.ray_query_local_nearest(
-      idx,
-      local_ray,
-      local_tolerance,
-      ctx.extra_screen_space_tolerance,
-      &mat,
-      &ctx.camera_ctx,
-    )?;
+    let hit = self
+      .internal
+      .ray_query_local_nearest(LocalRayQueryRequest {
+        idx,
+        local_ray,
+        local_tolerance,
+        extra_screen_space_tolerance: ctx.extra_screen_space_tolerance,
+        world_mat: &mat,
+        camera_ctx: &ctx.camera_ctx,
+      })?;
 
     let position = hit.hit.position.into_f64();
     let world_hit_position = position.apply_matrix_into(mat);
@@ -263,15 +308,15 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     point.into()
   }
 
-  fn ray_query_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    ctx: &SceneRayQuery,
-    results: &mut Vec<MeshBufferHitPoint<f64>>,
-    local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
-    ignore_pre_check: bool,
-  ) -> Option<()> {
+  fn ray_query_all(&self, request: SceneModelRayAllQueryRequest) -> Option<()> {
+    let SceneModelRayAllQueryRequest {
+      idx,
+      override_world_mat,
+      ctx,
+      results,
+      local_result_scratch,
+      ignore_pre_check,
+    } = request;
     let node = self.util.pre_check(idx, ignore_pre_check)?;
 
     let (mat, sm_world_bounding) = if let Some(mat) = override_world_mat {
@@ -301,15 +346,17 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
 
     local_result_scratch.clear();
 
-    self.internal.ray_query_local_all(
-      idx,
-      local_ray,
-      local_tolerance,
-      ctx.extra_screen_space_tolerance,
-      local_result_scratch,
-      &mat,
-      &ctx.camera_ctx,
-    )?;
+    self.internal.ray_query_local_all(LocalRayAllQueryRequest {
+      internal: LocalRayQueryRequest {
+        idx,
+        local_ray,
+        local_tolerance,
+        extra_screen_space_tolerance: ctx.extra_screen_space_tolerance,
+        world_mat: &mat,
+        camera_ctx: &ctx.camera_ctx,
+      },
+      results: local_result_scratch,
+    })?;
 
     results.reserve(local_result_scratch.len());
     local_result_scratch
@@ -327,45 +374,40 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
     Some(())
   }
 
-  fn frustum_query(
+  fn frustum_query(&self, request: SceneModelFrustumQueryRequest) -> Option<bool> {
+    let (mat, frustum, helper) = self.prepare_frustum_test(&request)?;
+
+    self.internal.frustum_query_local(LocalFrustumQueryRequest {
+      idx: request.idx,
+      local_frustum: &frustum,
+      helper: helper.as_ref(),
+      policy: request.policy,
+      extra_screen_space_tolerance: request.frustum.extra_screen_space_tolerance,
+      world_mat: &mat,
+      camera_ctx: &request.frustum.camera_ctx,
+    })
+  }
+
+  fn frustum_query_sub_primitives(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    override_world_mat: Option<&Mat4<f64>>,
-    ctx: &SceneFrustumQuery,
-    policy: ObjectTestPolicy,
-    ignore_pre_check: bool,
-  ) -> Option<bool> {
-    let node = self.util.pre_check(idx, ignore_pre_check)?;
+    request: SceneModelFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()> {
+    let (mat, frustum, helper) = self.prepare_frustum_test(&request)?;
 
-    let (mat, _sm_world_bounding) = if let Some(mat) = override_world_mat {
-      let smb = self
-        .util
-        .sm_local_bounding
-        .access(&idx)?
-        .into_f64()
-        .apply_matrix_into(*mat);
-      (*mat, smb)
-    } else {
-      self.util.get_mat_and_world_aabb(node, idx)?
-    };
-
-    // todo, early return
-
-    let frustum = ctx
-      .world_frustum
-      .apply_matrix_into(mat.inverse_or_identity());
-    let frustum = frustum.into_f32();
-    let helper = FrustumIntersectionTestHelper::new(&frustum);
-
-    self.internal.frustum_query_local(
-      idx,
-      &frustum,
-      helper.as_ref(),
-      policy,
-      ctx.extra_screen_space_tolerance,
-      &mat,
-      &ctx.camera_ctx,
-    )
+    self
+      .internal
+      .frustum_query_local_sub_primitives(LocalFrustumSubPrimitiveQueryRequest {
+        internal: LocalFrustumQueryRequest {
+          idx: request.idx,
+          local_frustum: &frustum,
+          helper: helper.as_ref(),
+          policy: request.policy,
+          extra_screen_space_tolerance: request.frustum.extra_screen_space_tolerance,
+          world_mat: &mat,
+          camera_ctx: &request.frustum.camera_ctx,
+        },
+        results: request.results,
+      })
   }
 }
 

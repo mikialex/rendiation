@@ -165,7 +165,7 @@ impl IndirectModelShapeRenderImpl for CellMeshRenderer {
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     let _ = self.std_model_to_cell_mesh_id.get(any_idx)?;
     Some(None)
   }

@@ -202,9 +202,18 @@ impl FrameGeometryBufferReadInvocation {
     let normal = self.normal.sample(self.sampler, uv).xyz().normalize();
     (depth, normal)
   }
+  /// if the id not supported on current platform, always return 0.
+  /// Also make sure the id is enabled in [FrameGeometryBuffer::new]
   pub fn read_id(&self, uv: Node<Vec2<f32>>) -> Node<u32> {
     let u32_uv = (self.input_size * uv).floor().into_u32();
-    self.ids.as_ref().unwrap().load_texel(u32_uv, 0).x()
+    if let Some(ids) = &self.ids {
+      ids.load_texel(u32_uv, 0).x()
+    } else {
+      log::warn!(
+        "id not supported on current platform/or not correctly enabled in g buffer config"
+      );
+      val(0)
+    }
   }
 }
 

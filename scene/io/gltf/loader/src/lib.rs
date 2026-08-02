@@ -393,17 +393,13 @@ fn build_model(
 
   let material = build_material(primitive.material(), ctx);
 
-  let mut model = StandardModelDataView {
-    material,
-    mesh: mesh.mesh,
-    skin: None,
-  };
+  let mut model = StandardModelDataView::new(material, mesh.mesh);
 
   ctx.result.meshes.push(mesh);
 
   if let Some(skin) = gltf_node.skin() {
     let sk = ctx.result.skin_map.get(skin.index());
-    model.skin = Some(*sk)
+    model = model.with_skin(*sk)
   }
 
   let model = model.write(&mut ctx.io.std_model_writer);

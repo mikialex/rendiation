@@ -572,6 +572,81 @@ impl ViewerQueryAPI {
   }
 
   /// all inputs are logic pixel
+  pub fn pick_range_sub_primitive(
+    &mut self,
+    viewer: &Viewer,
+    ax: f32,
+    ay: f32,
+    bx: f32,
+    by: f32,
+    items_to_range_pick: &[ViewerEntityHandle],
+    output_results: &mut Vec<(ViewerEntityHandle, u32)>,
+    contain: bool,
+    precise_intersection_test: bool,
+    extra_screen_space_tolerance: f32,
+  ) {
+    let raw_handles: Vec<RawEntityHandle> =
+      items_to_range_pick.iter().map(|h| (*h).into()).collect();
+    self
+      .event_trace_sender
+      .emit(&RendiationCxAPITraceEvent::PickSubPrimitiveRanges {
+        surface_id: self.surface_id as u64,
+        ax,
+        ay,
+        bx,
+        by,
+        items_to_range_pick: raw_handles,
+        contain,
+        precise_intersection_test,
+        extra_screen_space_tolerance,
+      });
+
+    let a = Vec2::new(ax, ay);
+    let b = Vec2::new(bx, by);
+
+    let surface_content = viewer.surfaces_content.get(&self.surface_id).unwrap();
+    if let Some((frustum, _scene)) = create_range_pick_frustum(
+      a,
+      b,
+      surface_content,
+      &self.picker_impl,
+      precise_intersection_test,
+      extra_screen_space_tolerance,
+    ) {
+      let policy = if contain {
+        ObjectTestPolicy::Contains
+      } else {
+        ObjectTestPolicy::Intersect
+      };
+
+      let mut sub_results = Vec::new();
+      for &item in items_to_range_pick {
+        sub_results.clear();
+        let idx: EntityHandle<SceneModelEntity> = item.into();
+        if self
+          .picker_impl
+          .model_picker
+          .frustum_query_sub_primitives(SceneModelFrustumSubPrimitiveQueryRequest {
+            internal: SceneModelFrustumQueryRequest {
+              idx,
+              override_world_mat: None,
+              frustum: &frustum,
+              policy,
+              ignore_pre_check: false,
+            },
+            results: &mut sub_results,
+          })
+          .is_some()
+        {
+          for &primitive_index in sub_results.iter() {
+            output_results.push((item, primitive_index));
+          }
+        }
+      }
+    }
+  }
+
+  /// all inputs are logic pixel
   pub fn pick_range(
     &mut self,
     viewer: &Viewer,

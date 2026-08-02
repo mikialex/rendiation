@@ -157,6 +157,8 @@ struct ViewerRayPickListResult;
 
 struct ViewerRayPickRangeResult;
 
+struct ViewerRayPickSubPrimitiveResult;
+
 struct ViewerWorldDeriveQueryAPI;
 
 struct ViewerEntityHandle {
@@ -167,6 +169,16 @@ struct ViewerEntityHandle {
 struct ViewerRayPickRangeResultInfo {
   uintptr_t len;
   const ViewerEntityHandle *ptr;
+};
+
+struct ViewerSubPrimitivePickResult {
+  ViewerEntityHandle scene_model_handle;
+  uint32_t primitive_index;
+};
+
+struct ViewerRayPickSubPrimitiveResultInfo {
+  uintptr_t len;
+  const ViewerSubPrimitivePickResult *ptr;
 };
 
 struct ViewerRayPickResult {
@@ -746,6 +758,25 @@ void drop_pick_range_result(ViewerRayPickRangeResult *r);
 
 ViewerRayPickRangeResultInfo get_ray_pick_range_info(ViewerRayPickRangeResult *r);
 
+/// the returned result should be dropped by [drop_pick_sub_primitive_result] after read
+///
+/// all inputs are logic pixel
+ViewerRayPickSubPrimitiveResult *picker_pick_range_sub_primitive(ViewerQueryAPI *api,
+                                                                 ViewerAPI *viewer,
+                                                                 float ax,
+                                                                 float ay,
+                                                                 float bx,
+                                                                 float by,
+                                                                 const ViewerEntityHandle *items_to_range_pick,
+                                                                 uint32_t items_count,
+                                                                 bool contains,
+                                                                 bool precise_intersection_test,
+                                                                 float extra_screen_space_tolerance);
+
+void drop_pick_sub_primitive_result(ViewerRayPickSubPrimitiveResult *r);
+
+ViewerRayPickSubPrimitiveResultInfo get_pick_sub_primitive_info(ViewerRayPickSubPrimitiveResult *r);
+
 ViewerRayPickListResultInfo get_ray_pick_list_info(ViewerRayPickListResult *r);
 
 ViewerEntityHandle create_scene();
@@ -901,9 +932,13 @@ void drop_wide_points(SceneWidePointsHandleInfo p);
 
 SceneWideLineHandleInfo create_wide_line(ViewerEntityHandle node,
                                          uint32_t data_length,
-                                         const uint8_t *data);
+                                         const uint8_t *data,
+                                         bool is_line_strip);
 
-void wide_line_set_buffer(ViewerEntityHandle handle, uint32_t data_length, const uint8_t *data);
+void wide_line_set_buffer(ViewerEntityHandle handle,
+                          uint32_t data_length,
+                          const uint8_t *data,
+                          bool is_line_strip);
 
 void wide_line_set_enable_depth_test(ViewerEntityHandle handle, bool enabled);
 

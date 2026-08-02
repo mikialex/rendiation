@@ -19,7 +19,6 @@ important issue is in bold style.
 - improve multi format support in texture pool system
 - support face side control
   - support double side config in gltf loader
-  - fix gizmo plane move only one side is visible
 - disable ssao when channel debug on
 - fix channel debug in defer mode
 - support material emissive larger than one

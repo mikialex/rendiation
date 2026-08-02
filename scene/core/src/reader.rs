@@ -114,6 +114,7 @@ impl SceneReader {
       material,
       mesh: m.read_expected_foreign_key::<StandardModelRefAttributesMeshEntity>(id),
       skin: m.read_foreign_key::<StandardModelRefSkin>(id),
+      states_override: m.read::<StandardModelRasterizationOverride>(id),
     }
   }
 
@@ -408,6 +409,24 @@ pub struct AttributesMeshWithVertexRelationInfo {
 }
 
 impl AttributesMeshWithVertexRelationInfo {
+  pub fn vertices_count(&self) -> usize {
+    if let Some(indices) = &self.indices {
+      indices.count
+    } else {
+      self
+        .vertices
+        .iter()
+        .find_map(|v| {
+          if v.semantic == AttributeSemantic::Positions {
+            Some(v.data.count)
+          } else {
+            None
+          }
+        })
+        .expect("mesh is invalid, no position vertices in mesh")
+    }
+  }
+
   pub fn into_attributes_mesh(self) -> AttributesMesh {
     let AttributesMeshWithVertexRelationInfo {
       mode,
@@ -456,6 +475,15 @@ pub struct AttributeLivingData {
 }
 
 impl AttributeLivingData {
+  pub fn byte_view(&self) -> &[u8] {
+    if let Some(range) = self.range {
+      let range = range.into_range(self.data.len());
+      &self.data.get(range).unwrap()
+    } else {
+      &self.data
+    }
+  }
+
   pub fn into_accessor(self) -> AttributeAccessor {
     let range = self.range.unwrap_or_default();
     let count = self.count;

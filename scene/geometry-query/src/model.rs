@@ -1,5 +1,50 @@
 use crate::*;
 
+#[derive(Clone, Copy)]
+pub struct LocalFrustumQueryRequest<'a> {
+  pub idx: EntityHandle<SceneModelEntity>,
+  pub local_frustum: &'a Frustum,
+  pub helper: Option<&'a FrustumIntersectionTestHelper<f32>>,
+  pub policy: ObjectTestPolicy,
+  pub extra_screen_space_tolerance: f32,
+  pub world_mat: &'a Mat4<f64>,
+  pub camera_ctx: &'a CameraQueryCtx,
+}
+
+pub struct LocalFrustumSubPrimitiveQueryRequest<'a> {
+  pub internal: LocalFrustumQueryRequest<'a>,
+  pub results: &'a mut Vec<u32>,
+}
+
+impl<'a> std::ops::Deref for LocalFrustumSubPrimitiveQueryRequest<'a> {
+  type Target = LocalFrustumQueryRequest<'a>;
+  fn deref(&self) -> &Self::Target {
+    &self.internal
+  }
+}
+
+#[derive(Clone, Copy)]
+pub struct LocalRayQueryRequest<'a> {
+  pub idx: EntityHandle<SceneModelEntity>,
+  pub local_ray: Ray3<f32>,
+  pub local_tolerance: f32,
+  pub extra_screen_space_tolerance: f32,
+  pub world_mat: &'a Mat4<f64>,
+  pub camera_ctx: &'a CameraQueryCtx,
+}
+
+pub struct LocalRayAllQueryRequest<'a> {
+  pub internal: LocalRayQueryRequest<'a>,
+  pub results: &'a mut Vec<MeshBufferHitPoint>,
+}
+
+impl<'a> std::ops::Deref for LocalRayAllQueryRequest<'a> {
+  type Target = LocalRayQueryRequest<'a>;
+  fn deref(&self) -> &Self::Target {
+    &self.internal
+  }
+}
+
 pub trait LocalModelPicker {
   fn bounding_enlarge_tolerance(
     &self,
@@ -7,38 +52,17 @@ pub trait LocalModelPicker {
   ) -> Option<Option<IntersectTolerance>>;
 
   /// should return hit result in local space
-  fn ray_query_local_nearest(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    local_tolerance: f32,
-    extra_screen_space_tolerance: f32,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<MeshBufferHitPoint>;
+  fn ray_query_local_nearest(&self, request: LocalRayQueryRequest) -> Option<MeshBufferHitPoint>;
 
   /// should return hit result in local space
-  fn ray_query_local_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    local_tolerance: f32,
-    extra_screen_space_tolerance: f32,
-    results: &mut Vec<MeshBufferHitPoint>,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<()>;
+  fn ray_query_local_all(&self, request: LocalRayAllQueryRequest) -> Option<()>;
 
-  fn frustum_query_local(
+  fn frustum_query_local(&self, request: LocalFrustumQueryRequest) -> Option<bool>;
+
+  fn frustum_query_local_sub_primitives(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_frustum: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    extra_screen_space_tolerance: f32,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<bool>;
+    request: LocalFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()>;
 }
 
 impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
@@ -54,51 +78,22 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
     None
   }
 
-  fn ray_query_local_nearest(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    local_tolerance: f32,
-    extra_screen_space_tolerance: f32,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<MeshBufferHitPoint> {
+  fn ray_query_local_nearest(&self, request: LocalRayQueryRequest) -> Option<MeshBufferHitPoint> {
     for provider in self {
-      if let Some(hit) = provider.ray_query_local_nearest(
-        idx,
-        local_ray,
-        local_tolerance,
-        extra_screen_space_tolerance,
-        world_mat,
-        camera_ctx,
-      ) {
+      if let Some(hit) = provider.ray_query_local_nearest(request) {
         return Some(hit);
       }
     }
     None
   }
 
-  fn ray_query_local_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    local_tolerance: f32,
-    extra_screen_space_tolerance: f32,
-    results: &mut Vec<MeshBufferHitPoint>,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<()> {
+  fn ray_query_local_all(&self, request: LocalRayAllQueryRequest) -> Option<()> {
     for provider in self {
       if provider
-        .ray_query_local_all(
-          idx,
-          local_ray,
-          local_tolerance,
-          extra_screen_space_tolerance,
-          results,
-          world_mat,
-          camera_ctx,
-        )
+        .ray_query_local_all(LocalRayAllQueryRequest {
+          results: request.results,
+          ..request
+        })
         .is_some()
       {
         return Some(());
@@ -107,26 +102,26 @@ impl LocalModelPicker for Vec<Box<dyn LocalModelPicker>> {
     None
   }
 
-  fn frustum_query_local(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    extra_screen_space_tolerance: f32,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<bool> {
+  fn frustum_query_local(&self, request: LocalFrustumQueryRequest) -> Option<bool> {
     for provider in self {
-      if let Some(r) = provider.frustum_query_local(
-        idx,
-        frustum,
-        helper,
-        policy,
-        extra_screen_space_tolerance,
-        world_mat,
-        camera_ctx,
-      ) {
+      if let Some(r) = provider.frustum_query_local(request) {
+        return Some(r);
+      }
+    }
+    None
+  }
+
+  fn frustum_query_local_sub_primitives(
+    &self,
+    request: LocalFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()> {
+    for provider in self {
+      if let Some(r) =
+        provider.frustum_query_local_sub_primitives(LocalFrustumSubPrimitiveQueryRequest {
+          results: request.results,
+          ..request
+        })
+      {
         return Some(r);
       }
     }
@@ -247,67 +242,59 @@ impl LocalModelPicker for AttributeMeshPicker {
     Some(Some(tor))
   }
 
-  fn ray_query_local_nearest(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    local_tolerance: f32,
-    // already applied in considered in local_tolerance
-    _extra_screen_space_tolerance: f32,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<MeshBufferHitPoint> {
+  fn ray_query_local_nearest(&self, request: LocalRayQueryRequest) -> Option<MeshBufferHitPoint> {
+    // todo extra_screen_space_tolerance
     let config = MeshBufferIntersectConfig {
-      tolerance_local: local_tolerance,
+      tolerance_local: request.local_tolerance,
       triangle_face: FaceSide::Double,
     };
 
     *self
-      .query_local_read_view(idx)?
-      .ray_intersect_nearest(local_ray, &config)
+      .query_local_read_view(request.idx)?
+      .ray_intersect_nearest(request.local_ray, &config)
   }
 
   /// should return hit result in local space
-  fn ray_query_local_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    local_tolerance: f32,
-    // already applied in considered in local_tolerance
-    _extra_screen_space_tolerance: f32,
-    results: &mut Vec<MeshBufferHitPoint>,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<()> {
+  fn ray_query_local_all(&self, request: LocalRayAllQueryRequest) -> Option<()> {
+    // todo extra_screen_space_tolerance
     let config = MeshBufferIntersectConfig {
-      tolerance_local: local_tolerance,
+      tolerance_local: request.local_tolerance,
       triangle_face: FaceSide::Double,
     };
-    self
-      .query_local_read_view(idx)?
-      .ray_intersect_all(local_ray, &config, results);
+    self.query_local_read_view(request.idx)?.ray_intersect_all(
+      request.local_ray,
+      &config,
+      request.results,
+    );
 
     Some(())
   }
 
-  fn frustum_query_local(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    // todo, missing support
-    _extra_screen_space_tolerance: f32,
-    _world_mat: &Mat4<f64>,
-    _camera_ctx: &CameraQueryCtx,
-  ) -> Option<bool> {
-    let mesh = self.query_local_read_view(idx)?;
+  fn frustum_query_local(&self, request: LocalFrustumQueryRequest) -> Option<bool> {
+    let mesh = self.query_local_read_view(request.idx)?;
 
-    let r = frustum_test_abstract_mesh(&mesh, policy, |p| {
-      frustum_test_primitive(&p, helper, &frustum, policy)
+    // todo extra_screen_space_tolerance
+    let r = frustum_test_abstract_mesh(&mesh, request.policy, |p| {
+      frustum_test_primitive(&p, request.helper, &request.local_frustum, request.policy)
     });
 
     Some(r)
+  }
+
+  fn frustum_query_local_sub_primitives(
+    &self,
+    request: LocalFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()> {
+    let mesh = self.query_local_read_view(request.idx)?;
+
+    // todo extra_screen_space_tolerance
+    for (i, p) in mesh.primitive_iter().enumerate() {
+      if frustum_test_primitive(&p, request.helper, &request.local_frustum, request.policy) {
+        request.results.push(i as u32);
+      }
+    }
+
+    Some(())
   }
 }
 
@@ -357,6 +344,30 @@ pub fn frustum_test_tri(
     }
     ObjectTestPolicy::Contains => {
       f.contains(&triangle.a) && f.contains(&triangle.b) && f.contains(&triangle.c)
+    }
+  }
+}
+
+pub fn frustum_test_abstract_mesh_as_quad_all<G: AbstractMesh<Primitive = Triangle3D>>(
+  mesh: &G,
+  policy: ObjectTestPolicy,
+  helper: Option<&FrustumIntersectionTestHelper<f32>>,
+  frustum: &Frustum,
+  mut collector: impl FnMut(usize),
+) {
+  for (i, [p1, p2]) in mesh.primitive_iter().array_chunks::<2>().enumerate() {
+    let r = match policy {
+      ObjectTestPolicy::Intersect => {
+        frustum_test_tri(helper, frustum, &p1, policy)
+          || frustum_test_tri(helper, frustum, &p2, policy)
+      }
+      ObjectTestPolicy::Contains => {
+        frustum_test_tri(helper, frustum, &p1, policy)
+          && frustum_test_tri(helper, frustum, &p2, policy)
+      }
+    };
+    if r {
+      collector(i);
     }
   }
 }

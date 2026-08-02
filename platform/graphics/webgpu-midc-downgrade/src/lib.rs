@@ -14,8 +14,8 @@ pub use mesh_sys_wrapper::*;
 mod draw_helper;
 pub use draw_helper::*;
 
-only_vertex!(VertexIndexForMIDCDowngrade, u32);
-only_vertex!(VertexIndexForMIDCDowngradeRelative, u32);
+only_vertex!(VertexIndexForMIDCDowngradeBaseIndex, u32);
+only_vertex!(VertexIndexForMIDCDowngradeRelativeInSubDraw, u32);
 
 pub fn require_midc_downgrade(info: &GPUInfo, force_downgrade: bool) -> bool {
   if force_downgrade {

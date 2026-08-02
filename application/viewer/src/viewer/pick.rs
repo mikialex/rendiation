@@ -138,7 +138,12 @@ impl Picker3d for ViewerPickerWithCtx {
     self
       .picker_impl
       .model_picker
-      .ray_query_nearest(model, None, &ctx, false)
+      .ray_query_nearest(SceneModelRayNearestQueryRequest {
+        idx: model,
+        override_world_mat: None,
+        ctx: &ctx,
+        ignore_pre_check: false,
+      })
   }
 
   fn pick_model_all(
@@ -152,14 +157,17 @@ impl Picker3d for ViewerPickerWithCtx {
     let filter = self.picker_impl.clip_filter.create_filter(ctx.1);
     let mut ctx = create_ray_query_ctx_from_vpc(&ctx.0, 0., Some(&filter));
     ctx.world_ray = world_ray;
-    self.picker_impl.model_picker.ray_query_all(
-      idx,
-      None,
-      &ctx,
-      results,
-      local_result_scratch,
-      false,
-    )
+    self
+      .picker_impl
+      .model_picker
+      .ray_query_all(SceneModelRayAllQueryRequest {
+        idx,
+        override_world_mat: None,
+        ctx: &ctx,
+        results,
+        local_result_scratch,
+        ignore_pre_check: false,
+      })
   }
 
   fn pick_models_all(

@@ -55,10 +55,9 @@ impl DowngradeMultiIndirectDrawCountHelperInvocation {
       base_instance,
     } = self.get_current_vertex_draw_info(vertex_index);
 
-    builder.register::<VertexIndexForMIDCDowngrade>(
-      vertex_index_inside_sub_draw + base_vertex_or_index_offset_for_sub_draw,
-    );
-    builder.register::<VertexIndexForMIDCDowngradeRelative>(vertex_index_inside_sub_draw);
+    builder
+      .register::<VertexIndexForMIDCDowngradeBaseIndex>(base_vertex_or_index_offset_for_sub_draw);
+    builder.register::<VertexIndexForMIDCDowngradeRelativeInSubDraw>(vertex_index_inside_sub_draw);
 
     builder.register::<VertexInstanceIndex>(base_instance);
 

@@ -26,7 +26,11 @@ pub fn build_attributes_mesh(f: impl FnOnce(&mut AttributesMeshBuilder)) -> Attr
   let mut builder = AttributesMeshBuilder::default();
   f(&mut builder);
   let mesh = builder.finish();
-  mesh.mesh.primitive_iter().collect()
+  mesh
+    .mesh
+    .primitive_iter()
+    .collect::<AttributesMeshData>()
+    .try_shrink_indices_to_u16()
 }
 
 /// helper fn to quick build non-indexed attribute mesh.
@@ -40,5 +44,5 @@ pub fn build_attributes_mesh_non_indexed(
   let group_mesh = builder.finish();
   let indexed = group_mesh.mesh;
 
-  AttributesMeshData::collect_non_indexed(indexed.primitive_iter())
+  AttributesMeshData::collect_non_indexed(indexed.primitive_iter()).try_shrink_indices_to_u16()
 }

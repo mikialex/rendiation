@@ -1,7 +1,6 @@
 use rendiation_geometry::*;
 use rendiation_scene_geometry_query::*;
 
-// use rendiation_scene_geometry_query::LocalModelPicker;
 use crate::*;
 
 pub struct WideStyledPointsSceneModelLocalBounding;
@@ -82,78 +81,83 @@ impl LocalModelPicker for WidePointsPicker {
     )))
   }
 
-  fn ray_query_local_nearest(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    _local_tolerance: f32,
-    extra_screen_space_tolerance: f32,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<MeshBufferHitPoint> {
+  fn ray_query_local_nearest(&self, request: LocalRayQueryRequest) -> Option<MeshBufferHitPoint> {
     let mut nearest = OptionalNearest::none();
+    let view = self.create_view(request.idx)?;
+    let mesh = view.into_tri_mesh(
+      request.world_mat,
+      request.camera_ctx,
+      request.extra_screen_space_tolerance,
+    );
 
-    self
-      .create_view(idx)?
-      .iter_pick_test(
-        local_ray,
-        world_mat,
-        camera_ctx,
-        extra_screen_space_tolerance,
-      )
-      .for_each(|r| {
-        nearest.refresh_nearest(OptionalNearest::some(r));
-      });
+    for (tri_index, tri) in mesh.primitive_iter().enumerate() {
+      if let Some(hit) = request.local_ray.intersect(&tri, &FaceSide::Double).0 {
+        nearest.refresh_nearest(OptionalNearest::some(MeshBufferHitPoint {
+          hit,
+          primitive_index: tri_index / 2,
+        }));
+      }
+    }
 
     *nearest
   }
 
-  fn ray_query_local_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    local_ray: Ray3<f32>,
-    _local_tolerance: f32,
-    extra_screen_space_tolerance: f32,
-    results: &mut Vec<MeshBufferHitPoint>,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<()> {
-    self
-      .create_view(idx)?
-      .iter_pick_test(
-        local_ray,
-        world_mat,
-        camera_ctx,
-        extra_screen_space_tolerance,
-      )
-      .for_each(|r| results.push(r));
+  fn ray_query_local_all(&self, request: LocalRayAllQueryRequest) -> Option<()> {
+    let view = self.create_view(request.idx)?;
+    let mesh = view.into_tri_mesh(
+      request.world_mat,
+      request.camera_ctx,
+      request.extra_screen_space_tolerance,
+    );
+
+    for (tri_index, tri) in mesh.primitive_iter().enumerate() {
+      if let Some(hit) = request.local_ray.intersect(&tri, &FaceSide::Double).0 {
+        request.results.push(MeshBufferHitPoint {
+          hit,
+          primitive_index: tri_index / 2,
+        });
+      }
+    }
 
     Some(())
   }
 
-  fn frustum_query_local(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    frustum: &Frustum,
-    helper: Option<&FrustumIntersectionTestHelper<f32>>,
-    policy: ObjectTestPolicy,
-    extra_screen_space_tolerance: f32,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &CameraQueryCtx,
-  ) -> Option<bool> {
-    let mut iter =
-      self
-        .create_view(idx)?
-        .iter_tri_in_local(world_mat, camera_ctx, extra_screen_space_tolerance);
-
-    let tester = |(_, tri): (usize, Triangle3D)| frustum_test_tri(helper, frustum, &tri, policy);
-
-    let r = match policy {
-      ObjectTestPolicy::Intersect => iter.any(tester),
-      ObjectTestPolicy::Contains => iter.all(tester),
-    };
+  fn frustum_query_local(&self, request: LocalFrustumQueryRequest) -> Option<bool> {
+    let view = self.create_view(request.idx)?;
+    let mesh = view.into_tri_mesh(
+      request.world_mat,
+      request.camera_ctx,
+      request.extra_screen_space_tolerance,
+    );
+    let r = frustum_test_abstract_mesh(&mesh, request.policy, |t| {
+      frustum_test_tri(request.helper, request.local_frustum, &t, request.policy)
+    });
 
     Some(r)
+  }
+
+  fn frustum_query_local_sub_primitives(
+    &self,
+    request: LocalFrustumSubPrimitiveQueryRequest,
+  ) -> Option<()> {
+    let view = self.create_view(request.idx)?;
+    let mesh = view.into_tri_mesh(
+      request.world_mat,
+      request.camera_ctx,
+      request.extra_screen_space_tolerance,
+    );
+
+    frustum_test_abstract_mesh_as_quad_all(
+      &mesh,
+      request.policy,
+      request.helper,
+      request.local_frustum,
+      |i| {
+        request.results.push(i as u32);
+      },
+    );
+
+    Some(())
   }
 }
 
@@ -162,61 +166,64 @@ struct WidePointPickView<'a> {
 }
 
 impl<'a> WidePointPickView<'a> {
-  pub fn iter_tri_in_local(
-    &self,
+  fn into_tri_mesh(
+    self,
     world_mat: &Mat4<f64>,
-    camera_ctx: &'a CameraQueryCtx,
+    camera_ctx: &CameraQueryCtx,
     extra_screen_space_tolerance: f32,
-  ) -> impl Iterator<Item = (usize, Triangle3D)> + 'a {
-    // todo, support high precision
+  ) -> WidePointTriMeshView<'a> {
     let local_to_ndc = (camera_ctx.camera_vp * *world_mat).into_f32();
     let ndc_to_local = local_to_ndc.inverse_or_identity();
+    let view_size_inv =
+      Vec2::new(1., 1.) / Vec2::from(camera_ctx.camera_view_size_in_logic_pixel.into_f32());
 
-    self
-      .points
-      .iter()
-      .enumerate()
-      .flat_map(move |(primitive_index, p)| {
-        let p_in_ndc = p.position.apply_matrix_into(local_to_ndc);
-        p_in_ndc.xy();
-        let real_width = p.width + extra_screen_space_tolerance;
-        let offset = Vec2::new(real_width, real_width)
-          / Vec2::from(camera_ctx.camera_view_size_in_logic_pixel.into_f32());
-        let max = p_in_ndc.xy() + offset;
-        let min = p_in_ndc.xy() - offset;
-        let z = p_in_ndc.z();
-
-        let max = Vec3::new(max.x, max.y, z);
-        let min = Vec3::new(min.x, min.y, z);
-        let left_up = Vec3::new(min.x, max.y, z);
-        let right_bottom = Vec3::new(max.x, min.y, z);
-
-        let tri_a = Triangle::new(left_up, right_bottom, max);
-        let tri_b = Triangle::new(left_up, min, right_bottom);
-
-        let tri_a = tri_a.apply_matrix_into(ndc_to_local);
-        let tri_b = tri_b.apply_matrix_into(ndc_to_local);
-
-        [(primitive_index, tri_a), (primitive_index, tri_b)]
-      })
+    WidePointTriMeshView {
+      points: self.points,
+      local_to_ndc,
+      ndc_to_local,
+      view_size_inv,
+      extra_screen_space_tolerance,
+    }
   }
-  pub fn iter_pick_test(
-    &self,
-    local_ray: Ray3<f32>,
-    world_mat: &Mat4<f64>,
-    camera_ctx: &'a CameraQueryCtx,
-    extra_screen_space_tolerance: f32,
-  ) -> impl Iterator<Item = MeshBufferHitPoint> + 'a {
-    self
-      .iter_tri_in_local(world_mat, camera_ctx, extra_screen_space_tolerance)
-      .filter_map(move |(primitive_index, tri)| {
-        local_ray
-          .intersect(&tri, &FaceSide::Double)
-          .0
-          .map(|hit| MeshBufferHitPoint {
-            hit,
-            primitive_index,
-          })
-      })
+}
+
+struct WidePointTriMeshView<'a> {
+  points: &'a [WideStyledPointVertex],
+  local_to_ndc: Mat4<f32>,
+  ndc_to_local: Mat4<f32>,
+  view_size_inv: Vec2<f32>,
+  extra_screen_space_tolerance: f32,
+}
+
+impl AbstractMesh for WidePointTriMeshView<'_> {
+  type Primitive = Triangle3D;
+
+  fn primitive_count(&self) -> usize {
+    self.points.len() * 2
+  }
+
+  fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive> {
+    let point_index = primitive_index / 2;
+    let p = self.points.get(point_index)?;
+
+    let p_in_ndc = p.position.apply_matrix_into(self.local_to_ndc);
+    let real_width = p.width + self.extra_screen_space_tolerance;
+    let offset = real_width * self.view_size_inv;
+    let max = p_in_ndc.xy() + offset;
+    let min = p_in_ndc.xy() - offset;
+    let z = p_in_ndc.z();
+
+    let max = Vec3::new(max.x, max.y, z);
+    let min = Vec3::new(min.x, min.y, z);
+    let left_up = Vec3::new(min.x, max.y, z);
+    let right_bottom = Vec3::new(max.x, min.y, z);
+
+    let tri = if primitive_index % 2 == 0 {
+      Triangle::new(left_up, right_bottom, max)
+    } else {
+      Triangle::new(left_up, min, right_bottom)
+    };
+
+    Some(tri.apply_matrix_into(self.ndc_to_local))
   }
 }

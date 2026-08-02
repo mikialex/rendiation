@@ -9,16 +9,22 @@ pub fn load_widen_points_test(
 
   let mesh_buffer = build_wide_points_mesh(|builder| {
     let mut style_id = 0;
-    for i in 0..4 {
-      for j in 0..4 {
-        builder.push(Vec3::new(i as f32, j as f32, 0.), 30., style_id);
+    let n = 4;
+    for i in 0..n {
+      for j in 0..n {
+        builder.push(
+          Vec3::new(i as f32, j as f32, 0.),
+          30.,
+          style_id,
+          Vec4::new(i as f32 / n as f32, 1., 1., 1.),
+        );
         style_id += 1;
       }
     }
   });
 
   let wide_points_model = writer.new_entity(|w| {
-    w.write::<WideStyledPointsColor>(&Vec4::new(0., 0., 1., 1.))
+    w.write::<WideStyledPointsColor>(&Vec4::new(1., 0., 1., 1.))
       .write::<WideStyledPointsMeshBuffer>(&mesh_buffer)
   });
 
@@ -34,9 +40,15 @@ pub fn load_widen_points_test(
   ///// test textured case
 
   let mesh_buffer = build_wide_points_mesh(|builder| {
-    for i in 0..4 {
-      for j in 0..4 {
-        builder.push(Vec3::new(i as f32, j as f32, 0.), 30., 16);
+    let n = 5;
+    for i in 0..n {
+      for j in 0..n {
+        builder.push(
+          Vec3::new(i as f32, j as f32, 0.),
+          30.,
+          16,
+          Vec4::new(i as f32 / n as f32, 1., 1., i as f32 / n as f32),
+        );
       }
     }
   });
@@ -66,11 +78,12 @@ pub struct PointListBuilder {
 }
 
 impl PointListBuilder {
-  pub fn push(&mut self, position: Vec3<f32>, width: f32, style_id: u32) {
+  pub fn push(&mut self, position: Vec3<f32>, width: f32, style_id: u32, color: Vec4<f32>) {
     self.points.push(WideStyledPointVertex {
       position,
       width,
       style_id,
+      color: pack_color(color),
     })
   }
 }

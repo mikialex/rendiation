@@ -1,7 +1,7 @@
 use std::{num::NonZeroU32, path::Path};
 
 use rendiation_lighting_shadow_map::MultiLayerTexturePackerConfig;
-use rendiation_scene_rendering_gpu_indirect::BindlessMeshInit;
+use rendiation_scene_rendering_gpu_indirect::IndirectAttributeMeshInitConfig;
 
 use crate::*;
 
@@ -41,7 +41,7 @@ pub struct ViewerStaticInitConfig {
   /// None means use available parallelism, 1 means no parallelism
   pub thread_pool_thread_count: Option<usize>,
   pub occlusion_culling_max_scene_model_count: u32,
-  pub bindless_mesh_init: BindlessMeshInit,
+  pub indirect_attribute_mesh_init: IndirectAttributeMeshInitConfig,
   pub enable_indirect_storage_combine: bool,
   pub enable_reverse_z: bool,
   /// if not provided, the backend select will be automatically based on platform available
@@ -92,7 +92,7 @@ impl Default for ViewerStaticInitConfig {
       enable_reverse_z: true,
       texture_pool_source_init_config: init,
       thread_pool_thread_count: None,
-      bindless_mesh_init: Default::default(),
+      indirect_attribute_mesh_init: Default::default(),
       wgpu_backend_select_override: None,
       enable_indirect_storage_combine: true,
       use_native_line_for_one_width_line: true,

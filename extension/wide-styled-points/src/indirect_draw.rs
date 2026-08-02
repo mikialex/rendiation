@@ -37,6 +37,7 @@ pub fn use_widen_styled_points_indirect_renderer(
             position: v.position,
             style_id: v.style_id,
             width: v.width,
+            per_point_color_alpha: v.color,
             ..Default::default()
           })
           .collect();
@@ -113,6 +114,7 @@ struct WideStyledPointVertexStorage {
   pub position: Vec3<f32>,
   pub width: f32,
   pub style_id: u32,
+  pub per_point_color_alpha: u32,
 }
 
 impl IndirectDrawProviderCreator for WideStyledPointsIndirectRenderer {
@@ -181,7 +183,7 @@ impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     self.model_access.get(any_idx)?;
     Some(None)
   }
@@ -276,7 +278,8 @@ impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
       builder.register::<WidePointPosition>(point.position);
       builder.register::<WidePointSize>(point.width);
       builder.set_vertex_out::<WidePointStyleId>(point.style_id);
-      builder.register::<GeometryColorWithAlpha>(meta.color);
+      let per_point_color_alpha = point.per_point_color_alpha.unpack4x8unorm();
+      builder.register::<GeometryColorWithAlpha>(meta.color * per_point_color_alpha);
       let tex_id = meta.color_alpha_texture.expand();
       // not very decent, but ok
       builder.set_vertex_out::<WidePointTextureId>(vec2_node((

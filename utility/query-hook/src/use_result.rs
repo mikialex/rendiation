@@ -167,7 +167,6 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   ) -> UseResult<impl DataChanges<Key = T::Key, Value = U>>
   where
     T: DataChanges<Value = X>,
-    U: CValue,
   {
     self.map(|t| t.collective_filter_map(f))
   }

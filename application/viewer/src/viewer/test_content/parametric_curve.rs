@@ -2,23 +2,22 @@ use rendiation_parametric_rendering::curve3d::*;
 
 use crate::*;
 
-/// Sample a curve into line segments.
+/// Sample a curve into line strip vertices.
 fn sample_curve_to_vertices(
   curve: &RationalBezierCurve3d<f32>,
   sample_count: usize,
   color: Vec4<f32>,
 ) -> Vec<WideLineVertex> {
-  let mut vertices = Vec::with_capacity(sample_count - 1);
-  for i in 0..sample_count - 1 {
-    let t0 = i as f32 / (sample_count - 1) as f32;
-    let t1 = (i + 1) as f32 / (sample_count - 1) as f32;
-    vertices.push(WideLineVertex {
-      start: curve.evaluate(t0),
-      end: curve.evaluate(t1),
-      color,
-    });
-  }
-  vertices
+  let color = pack_color(color);
+  (0..sample_count)
+    .map(|i| {
+      let t = i as f32 / (sample_count - 1) as f32;
+      WideLineVertex {
+        position: curve.evaluate(t),
+        color,
+      }
+    })
+    .collect()
 }
 
 pub fn load_parametric_curve_test(writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
@@ -58,6 +57,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter, scene: EntityHandle<
         .entity_writer()
         .new_entity(|w| {
           w.write::<WideLineWidth>(&1.5)
+            .write::<WideLineIsLineStrip>(&true)
             .write::<WideLineMeshBuffer>(&buffer)
         });
 
@@ -85,16 +85,16 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter, scene: EntityHandle<
       NurbsCurve3d::from_unweighted(points, 3, knots)
     };
 
-    let mut vertices = Vec::with_capacity(127);
-    for i in 0..127 {
-      let t0 = i as f32 / 127.;
-      let t1 = (i + 1) as f32 / 127.;
-      vertices.push(WideLineVertex {
-        start: nurbs.evaluate(t0),
-        end: nurbs.evaluate(t1),
-        color: Vec4::new(0.8, 0.8, 0.8, 1.0),
-      });
-    }
+    let color = pack_color((0.8, 0.8, 0.8, 1.0));
+    let vertices: Vec<WideLineVertex> = (0..128)
+      .map(|i| {
+        let t = i as f32 / 127.;
+        WideLineVertex {
+          position: nurbs.evaluate(t),
+          color,
+        }
+      })
+      .collect();
 
     let buffer = ExternalRefPtr::new(vertices);
 
@@ -102,6 +102,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter, scene: EntityHandle<
       .entity_writer()
       .new_entity(|w| {
         w.write::<WideLineWidth>(&3.0)
+          .write::<WideLineIsLineStrip>(&true)
           .write::<WideLineMeshBuffer>(&buffer)
       });
 
@@ -145,14 +146,14 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter, scene: EntityHandle<
       let bezier = RationalBezierCurve3d::from_unweighted(points.clone(), 3);
 
       // Control polygon
-      let mut poly_vertices = Vec::new();
-      for j in 0..points.len() - 1 {
-        poly_vertices.push(WideLineVertex {
-          start: points[j],
-          end: points[j + 1],
-          color: Vec4::new(0.5, 0.5, 0.5, 1.0),
-        });
-      }
+      let poly_color = pack_color((0.5, 0.5, 0.5, 1.0));
+      let poly_vertices: Vec<WideLineVertex> = points
+        .iter()
+        .map(|p| WideLineVertex {
+          position: *p,
+          color: poly_color,
+        })
+        .collect();
       let poly_buffer = ExternalRefPtr::new(poly_vertices);
 
       let poly_model = global_entity_of::<WideLineModelEntity>()
@@ -161,6 +162,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter, scene: EntityHandle<
           w.write::<WideLineWidth>(&1.0)
             .write::<WideLineStylePattern>(&0x0F0F)
             .write::<WideLineStyleFactor>(&8.0)
+            .write::<WideLineIsLineStrip>(&true)
             .write::<WideLineMeshBuffer>(&poly_buffer)
         });
 
@@ -172,6 +174,7 @@ pub fn load_parametric_curve_test(writer: &mut SceneWriter, scene: EntityHandle<
         .entity_writer()
         .new_entity(|w| {
           w.write::<WideLineWidth>(&2.5)
+            .write::<WideLineIsLineStrip>(&true)
             .write::<WideLineMeshBuffer>(&curve_buffer)
         });
 

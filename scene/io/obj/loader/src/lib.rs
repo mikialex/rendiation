@@ -61,11 +61,10 @@ pub fn load_obj_content(
       }
       let material = material.unwrap_or(default_mat);
 
-      StandardModelDataView {
-        material: SceneMaterialDataView::PbrSGMaterial(material),
-        mesh: attribute_mesh,
-        skin: None,
-      }
+      StandardModelDataView::new(
+        SceneMaterialDataView::PbrSGMaterial(material),
+        attribute_mesh,
+      )
     })
     .collect();
   Ok(models)

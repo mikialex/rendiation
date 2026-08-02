@@ -1,9 +1,12 @@
-//! when wgpu used in web target, resource is not destroyed immediately when wgpu object dropped but
+//! When wgpu used in web target, resource is not destroyed immediately when wgpu object dropped but
 //! waiting for browser GC. If huge resource create and destroy in high frequency and due to the GC
 //! uncertainty trigger time, huge memory will be consumed even OOM. In this case, we need to do
 //! explicit destroy but not rely on wgpu's object drop to clean up resource.
 //!
 //! see https://github.com/gfx-rs/wgpu/issues/4092
+//!
+//! This feature is disabled on non-web target, because it will increase the resource lifetime a bit
+//! that cause potential high peak memory usage in some case.
 
 use std::mem::ManuallyDrop;
 
@@ -55,6 +58,7 @@ impl DeferExplicitDestroy {
   pub fn new_resource<T: ExplicitGPUResourceDestroy>(&self, r: T) -> ResourceExplicitDestroy<T> {
     ResourceExplicitDestroy {
       resource: ManuallyDrop::new(r),
+      #[cfg(target_family = "wasm")]
       defer_drop: self.clone(),
     }
   }
@@ -62,6 +66,7 @@ impl DeferExplicitDestroy {
 
 pub struct ResourceExplicitDestroy<T: ExplicitGPUResourceDestroy> {
   resource: ManuallyDrop<T>,
+  #[cfg(target_family = "wasm")]
   defer_drop: DeferExplicitDestroy,
 }
 
@@ -74,6 +79,7 @@ impl<T: ExplicitGPUResourceDestroy> Deref for ResourceExplicitDestroy<T> {
 }
 
 impl<T: ExplicitGPUResourceDestroy> Drop for ResourceExplicitDestroy<T> {
+  #[cfg(target_family = "wasm")]
   fn drop(&mut self) {
     let count = self.defer_drop.in_recording_command_buffer_count.read();
     let count: &usize = &count;
@@ -83,6 +89,13 @@ impl<T: ExplicitGPUResourceDestroy> Drop for ResourceExplicitDestroy<T> {
     } else {
       resource.destroy();
     }
+  }
+
+  #[cfg(not(target_family = "wasm"))]
+  fn drop(&mut self) {
+    let resource = unsafe { ManuallyDrop::take(&mut self.resource) };
+    // note, not destroy, let wgpu do it
+    drop(resource);
   }
 }
 

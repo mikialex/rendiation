@@ -178,7 +178,7 @@ impl IndirectModelRenderImpl for Text3dIndirectRenderer {
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     self.access.get(any_idx)?;
     Some(None)
   }

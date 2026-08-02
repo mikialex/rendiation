@@ -61,3 +61,15 @@ impl<T: ResizableLinearStorage> ResizableLinearStorage for GPUStorageDirectQueue
     self.inner.resize(new_size)
   }
 }
+
+impl<T: RelocationResizableLinearStorage> RelocationResizableLinearStorage
+  for GPUStorageDirectQueueUpdate<T>
+{
+  fn resize_with_relocations(
+    &mut self,
+    new_size: u32,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
+  ) -> bool {
+    self.inner.resize_with_relocations(new_size, relocations)
+  }
+}

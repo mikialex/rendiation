@@ -220,9 +220,15 @@ impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
     _encoder: &mut GPUCommandEncoder,
     _device: &GPUDevice,
     new_byte_size: u64,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
   ) -> bool {
     assert!(new_byte_size.is_multiple_of(4));
     self.resize(new_byte_size as u32 / 4);
+
+    if let Some(relocations) = relocations {
+      self.batch_self_relocate(relocations, _encoder, _device);
+    }
+
     true
   }
 }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
-use rendiation_scene_rendering_gpu_indirect::MeshGPUBindlessImpl;
+use rendiation_scene_rendering_gpu_indirect::AttributeMeshIndirectRenderer;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_webgpu_hook_utils::*;
 
@@ -17,7 +17,7 @@ pub fn use_viewer_rtx(
   cx: &mut QueryGPUHookCx,
   camera: Option<Box<dyn RtxCameraRenderImpl>>,
   materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
-  mesh: Option<MeshGPUBindlessImpl>,
+  mesh: Option<AttributeMeshIndirectRenderer>,
   tex: Option<GPUTextureBindingSystem>,
   request_reset_sample: bool,
 ) -> Option<(RayTracingRendererGroup, RtxSystemCore)> {

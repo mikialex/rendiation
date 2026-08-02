@@ -168,7 +168,9 @@ impl Viewer3dRenderingCtx {
         let wide_points_renderer_gles =
           use_widen_points_gles_renderer(cx, self.ndc.enable_reverse_z);
 
-        let (attribute_vertices, attribute_indices) = viewer_mesh_buffer_input(cx);
+        let mesh_changes = viewer_mesh_input(cx);
+        let (attribute_vertices, attribute_indices) =
+          create_sub_buffer_changes_from_mesh_changes(cx, mesh_changes);
 
         let mesh = use_attribute_mesh_renderer(
           cx,
@@ -244,12 +246,14 @@ impl Viewer3dRenderingCtx {
 
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
 
-        let (attribute_vertices, attribute_indices) = viewer_mesh_buffer_input(cx);
-        let (attribute_vertices, attribute_vertices_) = attribute_vertices.fork();
-        let (attribute_indices, attribute_indices_) = attribute_indices.fork();
-        let mesh = use_bindless_mesh(
+        let mesh_changes = viewer_mesh_input(cx);
+        let (mesh_changes, mesh_changes_) = mesh_changes.fork();
+        let (attribute_vertices, attribute_indices) =
+          create_sub_buffer_changes_from_mesh_changes(cx, mesh_changes);
+
+        let mesh = use_attribute_mesh_indirect_renderer(
           cx,
-          &init_config.bindless_mesh_init,
+          &init_config.indirect_attribute_mesh_init,
           init_config.using_texture_as_storage_buffer_for_indirect_rendering,
           self.using_host_driven_indirect_draw,
           attribute_indices,
@@ -337,7 +341,7 @@ impl Viewer3dRenderingCtx {
         let wide_line_vertices_count =
           use_wide_line_vertices_count(cx, use_native_line_for_one_width_line);
         let att_mesh_vertices_count =
-          use_bindless_mesh_vertex_count(cx, attribute_indices_, attribute_vertices_);
+          use_attribute_mesh_indirect_render_vertex_count(cx, mesh_changes_);
         let vertices_count = wide_line_vertices_count.dual_query_select(att_mesh_vertices_count);
 
         let transform_instanced_model_base =
@@ -426,7 +430,9 @@ impl Viewer3dRenderingCtx {
 
     let rtx_scene_renderer = if self.rtx_renderer_enabled {
       cx.scope(|cx| {
-        let (attribute_vertices, attribute_indices) = viewer_mesh_buffer_input(cx);
+        let mesh_changes = viewer_mesh_input(cx);
+        let (attribute_vertices, attribute_indices) =
+          create_sub_buffer_changes_from_mesh_changes(cx, mesh_changes);
 
         // when indirect raster render is not enabled, we create necessary resource by ourselves.
         if self.current_renderer_impl_ty == RasterizationRenderBackendType::Gles {
@@ -442,9 +448,9 @@ impl Viewer3dRenderingCtx {
             scope.end(cx);
 
             let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
-            let mesh = use_bindless_mesh(
+            let mesh = use_attribute_mesh_indirect_renderer(
               cx,
-              &init_config.bindless_mesh_init,
+              &init_config.indirect_attribute_mesh_init,
               false,
               false,
               attribute_indices,

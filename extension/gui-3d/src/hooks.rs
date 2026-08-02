@@ -279,12 +279,15 @@ impl UIWidgetModelProxy {
     mesh: &AttributesMeshEntities,
   ) -> Self {
     let v = cx;
-    let model = StandardModelDataView {
-      material: SceneMaterialDataView::UnlitMaterial(*material),
-      mesh: mesh.mesh,
-      skin: None,
-    }
-    .write(&mut v.std_model_writer);
+
+    let mut states_override = RasterizationStates::default();
+    states_override.cull_mode = None;
+
+    let model =
+      StandardModelDataView::new(SceneMaterialDataView::UnlitMaterial(*material), mesh.mesh)
+        .with_states_override(states_override)
+        .write(&mut v.std_model_writer);
+
     let scene_model = SceneModelDataView {
       model,
       scene: target_scene,

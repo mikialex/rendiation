@@ -1,314 +1,98 @@
 use std::hash::Hash;
 use std::ops::Range;
 
-use database::RawEntityHandle;
+pub use growable_range_allocator::*;
 
 use crate::*;
 
-type AllocationHandle = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
-
-pub struct GrowableRangeAllocator<K> {
-  max_item_count: u32,
-  current_count: u32,
-  used_count: u32,
-  // user_handle => (size, offset, handle)
-  ranges: FastHashMap<K, (u32, u32, AllocationHandle)>,
-  // todo, try other allocator that support relocate and shrink??
-  allocator: xalloc::SysTlsf<u32>,
-  alignment_require: u32,
-  label: String,
-}
-
-type Offset = u32;
-type Size = u32;
-
-#[derive(Debug)]
-pub struct DataMoveMent {
-  pub old_offset: u32,
-  pub new_offset: u32,
-  pub count: u32,
-}
-
-#[derive(Debug)]
-pub struct BatchAllocateResult<K> {
-  pub removed: FastHashSet<K>,
-  /// failed_to_allocate may contain previous successful allocated handle
-  pub failed_to_allocate: FastHashSet<K>,
-  /// only contains previous allocated handle
-  pub data_movements: FastHashMap<K, DataMoveMent>,
-  /// only contains new allocated handle
-  pub new_data_to_write: FastHashMap<K, (Offset, Size)>,
-  pub resize_to: Option<u32>,
-}
-
-impl<K> BatchAllocateResult<K> {
-  /// these three set should be exclusive
-  pub fn change_count(&self) -> usize {
-    self.removed.len() + self.failed_to_allocate.len() + self.data_movements.len()
-  }
-}
-
-/// the second u32 is u32_per_item, we need to convert it to u64 byte address at iter_data_movements
 #[derive(Clone)]
-pub struct BatchAllocateResultShared<K>(pub Arc<BatchAllocateResult<K>>, pub u32);
+pub struct BatchAllocateResultShared<K> {
+  // wrap in arc to make it cheap to clone
+  internal: Arc<BatchAllocateResult<K>>,
+  // deliberately not use byte per item because gpu as minimal 4 byte alignment in copy cmd.
+  u32_per_item: u32,
+}
 
 impl<K> BatchAllocateResultShared<K> {
-  pub fn has_data_movements(&self) -> bool {
-    !self.0.data_movements.is_empty()
+  pub fn new(internal: BatchAllocateResult<K>, u32_per_item: u32) -> Self {
+    Self {
+      internal: Arc::new(internal),
+      u32_per_item,
+    }
   }
-  pub fn iter_data_movements(&self) -> impl Iterator<Item = BufferRelocate> + '_ {
-    let u32_per_item = self.1 as u64;
-    self.0.data_movements.values().map(move |v| BufferRelocate {
-      self_offset: v.old_offset as u64 * u32_per_item * 4,
-      target_offset: v.new_offset as u64 * u32_per_item * 4,
-      count: v.count as u64 * u32_per_item * 4,
-    })
+}
+
+impl<K> BatchAllocateResultShared<K> {
+  pub fn change_count(&self) -> usize {
+    self.internal.change_count()
+  }
+
+  pub fn apply_resize(&self, gpu_buffer: &mut impl RelocationResizableLinearStorage) {
+    if let Some(new_size) = self.internal.resize_to {
+      // here we do(request) resize at spawn stage to avoid resize again and again(with use of combined buffer)
+      let resize_success = gpu_buffer.resize_with_relocations(
+        new_size,
+        self.iter_data_movements().as_mut().map(|v| v as _),
+      );
+      assert!(resize_success);
+    } else {
+      assert!(self.iter_data_movements().is_none());
+    }
+  }
+
+  // explicitly return Option to avoid encoder create cost when there is no movement at all
+  fn iter_data_movements(&self) -> Option<impl Iterator<Item = BufferRelocate> + '_> {
+    if !self.internal.data_movements.is_empty() {
+      let u32_per_item = self.u32_per_item as u64;
+      self
+        .internal
+        .data_movements
+        .values()
+        .map(move |v| BufferRelocate {
+          self_offset: v.old_offset as u64 * u32_per_item * 4,
+          target_offset: v.new_offset as u64 * u32_per_item * 4,
+          count: v.count as u64 * u32_per_item * 4,
+        })
+        .into()
+    } else {
+      None
+    }
   }
 
   pub fn access_new_change(&self, k: K) -> Option<[u32; 2]>
   where
     K: Eq + Hash,
   {
-    if let Some(v) = self.0.new_data_to_write.get(&k) {
-      return Some([v.0, v.1]);
-    }
-
-    if let Some(v) = self.0.data_movements.get(&k) {
-      return Some([v.new_offset, v.count]);
-    }
-
-    if self.0.failed_to_allocate.contains(&k) {
-      return Some([DEVICE_RANGE_ALLOCATE_FAIL_MARKER, 0]);
-    }
-
-    None
+    self.internal.access_new_change(k).map(convert_failed_alloc)
   }
 }
 
 pub const DEVICE_RANGE_ALLOCATE_FAIL_MARKER: u32 = u32::MAX;
 
-impl DataChanges for BatchAllocateResultShared<RawEntityHandle> {
-  type Key = RawEntityHandle;
+fn convert_failed_alloc(change: AllocateChangeType) -> [u32; 2] {
+  match change {
+    AllocateChangeType::FailedToAllocate => [DEVICE_RANGE_ALLOCATE_FAIL_MARKER, 0],
+    AllocateChangeType::Allocated(r) => r,
+  }
+}
+
+impl<K: CKey + Copy> DataChanges for BatchAllocateResultShared<K> {
+  type Key = K;
   type Value = [u32; 2];
 
   fn has_change(&self) -> bool {
-    !self.0.failed_to_allocate.is_empty()
-      || !self.0.data_movements.is_empty()
-      || !self.0.new_data_to_write.is_empty()
+    self.internal.change_count() != 0
   }
 
   fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
-    self.0.removed.iter().copied()
+    self.internal.removed.iter().copied()
   }
 
   fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
-    let movements = self
-      .0
-      .data_movements
-      .iter()
-      .map(move |(k, v)| (*k, [v.new_offset, v.count]));
-    let new = self
-      .0
-      .new_data_to_write
-      .iter()
-      .map(move |(k, v)| (*k, [v.0, v.1]));
-
-    // note, return count 0 for failed_to_allocate case is important
-    let failed = self
-      .0
-      .failed_to_allocate
-      .iter()
-      .map(|k| (*k, [DEVICE_RANGE_ALLOCATE_FAIL_MARKER, 0]));
-
-    movements.chain(new).chain(failed)
-  }
-}
-
-impl<K: Clone + Eq + Hash> BatchAllocateResult<K> {
-  fn notify_failed_to_allocate(&mut self, handle: K) {
-    self.failed_to_allocate.insert(handle.clone());
-    self.data_movements.remove(&handle);
-  }
-  fn notify_data_move(&mut self, handle: K, movement: DataMoveMent) {
-    self.failed_to_allocate.remove(&handle);
-    if let Some(previous_movement) = self.data_movements.remove(&handle) {
-      let movement = DataMoveMent {
-        old_offset: previous_movement.old_offset,
-        new_offset: movement.new_offset,
-        count: movement.count,
-      };
-      self.data_movements.insert(handle, movement);
-    } else {
-      self.data_movements.insert(handle, movement);
-    }
-  }
-}
-
-impl<K: Clone + Eq + Hash> GrowableRangeAllocator<K> {
-  pub fn new(label: &str, max_item_count: u32, init_count: u32, alignment_require: u32) -> Self {
-    assert!(init_count <= max_item_count);
-    Self {
-      max_item_count,
-      alignment_require,
-      current_count: init_count,
-      used_count: 0,
-      ranges: FastHashMap::with_capacity_and_hasher(init_count as usize, Default::default()),
-      allocator: xalloc::SysTlsf::new(init_count),
-      label: label.to_string(),
-    }
-  }
-
-  /// Query a region by key. Returns (size, offset) if allocated.
-  pub fn get_region(&self, key: &K) -> Option<(u32, u32)> {
     self
-      .ranges
-      .get(key)
-      .map(|&(size, offset, _)| (size, offset))
-  }
-
-  pub fn update(
-    &mut self,
-    change_or_removed_keys: impl Iterator<Item = K>,
-    new: impl IntoIterator<Item = (K, Size)> + Clone,
-  ) -> BatchAllocateResult<K> {
-    let mut removed = FastHashSet::with_capacity_and_hasher(
-      change_or_removed_keys.size_hint().1.unwrap_or(0),
-      Default::default(),
-    );
-    for k in change_or_removed_keys {
-      if let Some((size, _offset, token)) = self.ranges.remove(&k) {
-        self.allocator.dealloc(token).unwrap();
-        self.used_count -= size;
-        removed.insert(k);
-      }
-    }
-
-    let current_remain_capacity = self.current_count - self.used_count;
-
-    let new_size_requirement = new.clone().into_iter().map(|v| v.1).sum::<u32>();
-    let new_init_count = new.clone().into_iter().count(); // we should merge the loop with the size_requirement
-    let new_data_to_write =
-      FastHashMap::with_capacity_and_hasher(new_init_count, Default::default());
-
-    let new_init_for_move = if new_size_requirement > current_remain_capacity {
-      self.ranges.len()
-    } else {
-      0
-    };
-    let data_movements =
-      FastHashMap::with_capacity_and_hasher(new_init_for_move, Default::default());
-
-    let mut result = BatchAllocateResult {
-      failed_to_allocate: Default::default(),
-      data_movements,
-      new_data_to_write,
-      resize_to: None,
-      removed,
-    };
-
-    // use a separate hash map to avoid change the self.ranges
-    let mut new_metadata_to_write =
-      FastHashMap::with_capacity_and_hasher(new_init_count, Default::default());
-
-    if new_size_requirement > current_remain_capacity {
-      let new_size = self.used_count + new_size_requirement;
-      //  try to avoid fragmentation caused possible relocate
-      let new_size = (new_size as f32 * 1.1) as u32;
-      let new_size = new_size.min(self.max_item_count);
-
-      // if we have reached the limit before, do nothing
-      if new_size != self.max_item_count {
-        self.relocate(new_size, &mut result, &mut new_metadata_to_write);
-      }
-    }
-
-    for (k, count) in new {
-      assert!(count > 0);
-      // even if we relocate before, we have to loop relocate here to prevent
-      // allocated failed due to fragmentation
-      loop {
-        if let Some((token, offset)) = self.allocator.alloc_aligned(count, self.alignment_require) {
-          self.used_count += count;
-
-          result.new_data_to_write.insert(k.clone(), (offset, count));
-          result.removed.remove(&k);
-          new_metadata_to_write.insert(k, (count, offset, token));
-          break;
-        } else {
-          let next_allocate = (self.current_count * 2).max(count).min(self.max_item_count);
-          if next_allocate == self.current_count {
-            result.notify_failed_to_allocate(k);
-            println!("range allocator reach max allocation size",);
-            break;
-          }
-          self.relocate(next_allocate, &mut result, &mut new_metadata_to_write);
-          continue;
-        }
-      }
-    }
-
-    self.ranges.reserve(new_metadata_to_write.len());
-    for (k, v) in new_metadata_to_write {
-      self.ranges.insert(k, v);
-    }
-
-    for k in &result.failed_to_allocate {
-      // the failed allocated key may also fail to allocated before
-      if let Some((count, _, _)) = self.ranges.remove(k) {
-        self.used_count -= count;
-      }
-    }
-
-    result
-  }
-
-  fn relocate(
-    &mut self,
-    new_size: u32,
-    results: &mut BatchAllocateResult<K>,
-    new_inserted: &mut FastHashMap<K, (Size, Offset, AllocationHandle)>,
-  ) {
-    assert!(new_size > self.current_count);
-    println!(
-      "range allocator {} try grow from {} to {}, max {}",
-      self.label, self.current_count, new_size, self.max_item_count
-    );
-    self.current_count = new_size;
-    results.resize_to = Some(new_size);
-    self.allocator = xalloc::SysTlsf::new(new_size);
-    for (k, (count, offset, token)) in self.ranges.iter_mut() {
-      if let Some((new_token, new_offset)) =
-        self.allocator.alloc_aligned(*count, self.alignment_require)
-      {
-        results.notify_data_move(
-          k.clone(),
-          DataMoveMent {
-            old_offset: *offset,
-            new_offset,
-            count: *count,
-          },
-        );
-
-        *token = new_token;
-        *offset = new_offset;
-      } else {
-        results.notify_failed_to_allocate(k.clone());
-      }
-    }
-    for (k, (count, offset, token)) in new_inserted.iter_mut() {
-      if let Some((new_token, new_offset)) =
-        self.allocator.alloc_aligned(*count, self.alignment_require)
-      {
-        results
-          .new_data_to_write
-          .insert(k.clone(), (new_offset, *count));
-
-        *token = new_token;
-        *offset = new_offset;
-      } else {
-        results.notify_failed_to_allocate(k.clone());
-      }
-    }
+      .internal
+      .iter_update_or_insert()
+      .map(|(k, v)| (k, convert_failed_alloc(v)))
   }
 }
 
@@ -430,17 +214,10 @@ pub struct RangeAllocateBufferUpdates<K> {
 }
 
 impl<K: Clone + Eq + Hash> RangeAllocateBufferUpdates<K> {
+  /// relocation is handled within resize, so the caller must call resize
+  /// before this write
   pub fn write(&self, gpu: &GPU, encoder: &mut GPUCommandEncoder, target: &dyn AbstractBuffer) {
-    if self.allocation_changes.has_data_movements() {
-      let mut iter = self.allocation_changes.iter_data_movements();
-      // we must use a standalone encoder, because the below code do queue write
-      // todo, consider impl encoder write buffer to avoid this mental overhead
-      let mut encoder = gpu.create_encoder();
-      target.batch_self_relocate(&mut iter, &mut encoder, &gpu.device);
-      gpu.submit_encoder(encoder);
-    }
-
-    let item_byte_size = self.allocation_changes.1 * 4;
+    let item_byte_size = self.allocation_changes.u32_per_item * 4;
 
     self
       .buffers_to_write
@@ -448,7 +225,8 @@ impl<K: Clone + Eq + Hash> RangeAllocateBufferUpdates<K> {
       .write_abstract(gpu, encoder, target);
 
     for (k, (buffer, range)) in &self.buffers_to_write.large_buffer_writes {
-      if let Some((write_offset, size)) = self.allocation_changes.0.new_data_to_write.get(k) {
+      if let Some((write_offset, size)) = self.allocation_changes.internal.new_data_to_write.get(k)
+      {
         let buffer = if let Some(range) = range {
           &buffer[range.clone()]
         } else {

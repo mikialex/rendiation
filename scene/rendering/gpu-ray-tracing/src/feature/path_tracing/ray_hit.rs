@@ -107,7 +107,7 @@ pub fn build_ray_hit_shader(
 
 #[derive(Clone)]
 pub struct PTRayClosestCtx {
-  pub bindless_mesh: BindlessMeshDispatcher,
+  pub bindless_mesh: AttributeMeshIndirectDispatcher,
   pub surface: Box<dyn DevicePathTracingSurface>,
   pub lighting: Box<dyn DevicePathTracingLighting>,
   pub config: UniformBufferDataView<PTConfig>,

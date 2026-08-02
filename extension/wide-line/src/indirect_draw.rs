@@ -46,8 +46,7 @@ pub fn use_widen_line_indirect_renderer(
         let new_buffer = buffer
           .iter()
           .map(|v| WideLineVertexStorage {
-            start: v.start,
-            end: v.end,
+            position: v.position,
             color: v.color,
             ..Default::default()
           })
@@ -99,6 +98,13 @@ pub fn use_widen_line_indirect_renderer(
   let offset = std::mem::offset_of!(WideLineParameters, enable_round_joint);
   change.update_storage_array_with_host(cx, params, offset);
 
+  let change = cx
+    .use_dual_query::<WideLineIsLineStrip>()
+    .into_delta_change()
+    .map_changes(Bool::from);
+  let offset = std::mem::offset_of!(WideLineParameters, is_line_strip);
+  change.update_storage_array_with_host(cx, params, offset);
+
   let change = cx.use_dual_query::<WideLineColor>().into_delta_change();
   let offset = std::mem::offset_of!(WideLineParameters, color);
   change.update_storage_array_with_host(cx, params, offset);
@@ -143,6 +149,7 @@ struct WideLineParameters {
   pub style_factor: f32,
   pub style_pattern: u32,
   pub enable_round_joint: Bool,
+  pub is_line_strip: Bool,
   pub color: Vec4<f32>,
 }
 
@@ -150,9 +157,8 @@ struct WideLineParameters {
 #[std430_layout]
 #[derive(Copy, Clone, ShaderStruct, Default)]
 struct WideLineVertexStorage {
-  pub start: Vec3<f32>,
-  pub end: Vec3<f32>,
-  pub color: Vec4<f32>,
+  pub position: Vec3<f32>,
+  pub color: u32,
 }
 
 impl IndirectDrawProviderCreator for WideLineModelIndirectRenderer {
@@ -236,7 +242,7 @@ impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
   fn get_index_storage_buffer(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<AbstractReadonlyStorageBuffer<[u32]>>> {
+  ) -> Option<Option<IndicesBufferInfo>> {
     self.model_access.get(any_idx)?;
     Some(None)
   }
@@ -324,19 +330,25 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
       let instance_index = vertex_index / val(stride);
       let vertex_index = vertex_index % val(stride);
 
-      let seg = segments
-        .index(instance_index + line_param.data_range.x())
-        .load()
-        .expand();
+      let is_line_strip = line_param.is_line_strip.into_bool();
+      let seg_base = is_line_strip.select(instance_index, instance_index * val(2));
+      let seg_base = seg_base + line_param.data_range.x();
 
-      builder.register::<WideLineStart>(seg.start);
-      builder.register::<WideLineEnd>(seg.end);
+      let seg = segments.index(seg_base).load().expand();
+      let next_seg = segments.index(seg_base + val(1)).load().expand();
+
+      let start = seg.position;
+      let end = next_seg.position;
+      builder.register::<WideLineStart>(start);
+      builder.register::<WideLineEnd>(end);
+
+      let seg_color = seg.color.unpack4x8unorm();
 
       if self.use_native_line {
-        let position = vertex_index.equals(0).select(seg.start, seg.end);
+        let position = vertex_index.equals(0).select(start, end);
         builder.register::<GeometryPosition>(position);
 
-        let color = seg.color * line_param.color;
+        let color = seg_color * line_param.color;
         builder.register::<GeometryColorWithAlpha>(color);
         builder.set_vertex_out::<DefaultDisplay>(color);
 
@@ -356,7 +368,7 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
         builder.register::<GeometryPosition>(Node::from((vertex, val(0.))));
         builder.register::<GeometryUV>(vertex);
 
-        let color = seg.color * line_param.color;
+        let color = seg_color * line_param.color;
         builder.register::<GeometryColorWithAlpha>(color);
         builder.set_vertex_out::<DefaultDisplay>(color);
 
@@ -466,12 +478,17 @@ impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let model = self.sm_to_wide.get(id).unwrap();
     let param = self.params_host.get(model.alloc_index()).unwrap();
-    let seg_count = param.data_range.y;
+    let vertex_count = param.data_range.y;
 
     if param.data_range.x == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {
       return None;
     }
 
+    let seg_count = if bool::from(param.is_line_strip) {
+      vertex_count.saturating_sub(1)
+    } else {
+      vertex_count / 2
+    };
     let stride = if self.use_native_line { 2 } else { 18 };
 
     DrawCommand::Array {
@@ -513,7 +530,10 @@ impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
   ) -> Node<DrawIndirectArgsStorage> {
     let line_id = self.sm_to_wide_line_device.index(draw_id).load();
     // the implementation of range allocate assure the count is zero if allocation failed
-    let seg_count = self.params.index(line_id).data_range().load().y();
+    let params = self.params.index(line_id);
+    let vertex_count = params.data_range().load().y();
+    let is_line_strip = params.is_line_strip().load().into_bool();
+    let seg_count = is_line_strip.select(vertex_count.max(val(1)) - val(1), vertex_count / val(2));
 
     let stride = if self.use_native_line { 2 } else { 18 };
 

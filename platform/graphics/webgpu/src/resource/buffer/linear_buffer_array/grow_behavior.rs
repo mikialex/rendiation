@@ -23,6 +23,18 @@ impl<T: ResizableLinearStorage> ResizableLinearStorage for CustomGrowBehaviorMai
   }
 }
 
+impl<T: RelocationResizableLinearStorage> RelocationResizableLinearStorage
+  for CustomGrowBehaviorMaintainer<T>
+{
+  fn resize_with_relocations(
+    &mut self,
+    new_size: u32,
+    relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
+  ) -> bool {
+    self.inner.resize_with_relocations(new_size, relocations)
+  }
+}
+
 impl<T> CustomGrowBehaviorMaintainer<T>
 where
   T: LinearStorageBase + ResizableLinearStorage,
