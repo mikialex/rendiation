@@ -45,9 +45,11 @@ pub fn use_attribute_mesh_indirect_renderer(
   init: &IndirectAttributeMeshInitConfig,
   merge_with_vertex_allocator: bool,
   force_midc_downgrade: bool,
-  index_data_source: AttributeIndexDataSource,
-  vertex_data_source: AttributeVertexDataSource,
+  mesh_changes: UseResult<AttributesMeshDataChangeInput>,
 ) -> Option<AttributeMeshIndirectRenderer> {
+  let (vertex_data_source, index_data_source) =
+    create_sub_buffer_changes_from_mesh_changes(cx, mesh_changes);
+
   let force_midc_downgrade = force_midc_downgrade || merge_with_vertex_allocator;
 
   let IndirectAttributeMeshInitConfig {
