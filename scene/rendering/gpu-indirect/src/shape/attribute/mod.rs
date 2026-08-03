@@ -575,8 +575,11 @@ impl IndirectDrawProviderCreator for AttributeMeshIndirectRenderer {
   }
 }
 
-impl DrawCommandBuilderCreator for AttributeMeshIndirectRenderer {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+impl AttributeMeshIndirectRenderer {
+  pub fn make_draw_command_builder_impl(
+    &self,
+    id: RawEntityHandle,
+  ) -> Option<(AttributeMeshIndirectDrawCreator, bool)> {
     let id = unsafe { EntityHandle::from_raw(id) };
     let mesh_id = self.std_to_mesh.get(id)?;
     let is_indexed = self.indices_ty.access(mesh_id.raw_handle_ref()).is_some();
@@ -588,6 +591,13 @@ impl DrawCommandBuilderCreator for AttributeMeshIndirectRenderer {
       vertex_address_buffer_host: self.vertex_address_buffer_host.clone(),
       used_in_midc_downgrade: self.used_in_midc_downgrade,
     };
+    (creator, is_indexed).into()
+  }
+}
+
+impl DrawCommandBuilderCreator for AttributeMeshIndirectRenderer {
+  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
+    let (creator, is_indexed) = self.make_draw_command_builder_impl(id)?;
 
     if is_indexed {
       DrawCommandBuilder::Indexed(Box::new(creator))

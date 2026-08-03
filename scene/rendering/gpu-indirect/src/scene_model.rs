@@ -6,15 +6,10 @@ pub fn use_indirect_scene_model(
   model_impl: Option<Box<dyn IndirectModelRenderImpl>>,
   force_midc_downgrade: bool,
 ) -> Option<IndirectPreferredComOrderRenderer> {
-  let sm_to_node_device = use_db_device_foreign_key::<SceneModelRefNode>(cx);
-
   cx.when_render(|| IndirectPreferredComOrderRenderer {
     model_impl: model_impl.unwrap(),
     node: read_global_db_foreign_key(),
     node_render: node_impl.unwrap(),
-    id_inject: DefaultSceneModelIdInject {
-      sm_to_node: sm_to_node_device.unwrap(),
-    },
     enable_midc_downgrade: require_midc_downgrade(&cx.gpu.info, force_midc_downgrade),
   })
 }
@@ -63,7 +58,6 @@ pub struct IndirectPreferredComOrderRenderer {
   model_impl: Box<dyn IndirectModelRenderImpl>,
   node_render: Box<dyn IndirectNodeRenderImpl>,
   node: ForeignKeyReadView<SceneModelRefNode>,
-  id_inject: DefaultSceneModelIdInject,
   enable_midc_downgrade: bool,
 }
 
@@ -108,11 +102,9 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
   ) -> Option<()> {
-    let id_inject = &self.id_inject as &dyn RenderComponent;
-
     let node = self.node.get(any_id)?;
     let node = self.node_render.make_component_indirect(node)?;
-    let node = node.as_ref();
+    let node = &NodeRenderComponent(node.as_ref()) as &dyn RenderComponent;
 
     let model_info = self.model_impl.model_info_injector(any_id)?;
     let model_info = model_info.as_ref();
@@ -141,11 +133,10 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
 
     let command = models.draw_command();
 
-    let contents: [BindingController<&dyn RenderComponent>; 10] = [
+    let contents: [BindingController<&dyn RenderComponent>; _] = [
       draw_source.into_assign_binding_index(1),
       tex.into_assign_binding_index(0),
       pass.into_assign_binding_index(1),
-      id_inject.into_assign_binding_index(0),
       midc_index_downgrade.into_assign_binding_index(2),
       model_info.into_assign_binding_index(2),
       shape.into_assign_binding_index(2),
@@ -176,31 +167,5 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
 
   fn as_any(&self) -> &dyn Any {
     self
-  }
-}
-
-#[derive(Clone)]
-pub struct DefaultSceneModelIdInject {
-  sm_to_node: AbstractReadonlyStorageBuffer<[u32]>,
-}
-
-impl ShaderHashProvider for DefaultSceneModelIdInject {
-  shader_hash_type_id! {}
-}
-
-impl ShaderPassBuilder for DefaultSceneModelIdInject {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.sm_to_node);
-  }
-}
-
-impl GraphicsShaderProvider for DefaultSceneModelIdInject {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.vertex(|builder, binding| {
-      let buffer = binding.bind_by(&self.sm_to_node);
-      let current_id = builder.query::<LogicalRenderEntityId>();
-      let node = buffer.index(current_id).load();
-      builder.register::<IndirectSceneNodeId>(node);
-    })
   }
 }

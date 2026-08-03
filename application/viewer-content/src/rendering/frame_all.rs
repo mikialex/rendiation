@@ -290,10 +290,16 @@ impl Viewer3dRenderingCtx {
           ]) as Box<dyn IndirectModelShapeRenderImpl>
         });
 
+        let model_buffer_merge =
+          use_readonly_storage_buffer_combine(cx, "indirect model data", enable_combine);
+
         let node = use_node_storage(cx);
         let view_camera_source = cx.use_shared_dual_query(
           SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map.clone()),
         );
+
+        let model_buffer_merge = model_buffer_merge.end(cx);
+
         let node = use_view_dependent_transform_indirect_gpu(
           cx,
           view_camera_source,
@@ -301,8 +307,8 @@ impl Viewer3dRenderingCtx {
           active_view_control.clone(),
         );
 
-        let model_buffer_merge =
-          use_readonly_storage_buffer_combine(cx, "indirect model data", enable_combine);
+        let model_buffer_merge = model_buffer_merge.restart(cx);
+
         let std_model =
           use_viewer_std_model_renderer(cx, materials, mesh, self.ndc.enable_reverse_z);
         let model_buffer_merge = model_buffer_merge.end(cx);

@@ -184,8 +184,9 @@ impl PerViewGPUResource {
 impl IndirectNodeRenderImpl for OverrideNodeIndirectGPU {
   fn make_component_indirect(
     &self,
-    _any_idx: EntityHandle<SceneNodeEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+    any_idx: EntityHandle<SceneNodeEntity>,
+  ) -> Option<Box<dyn IndirectNodeInfoSceneModelAccess + '_>> {
+    let internal = self.internal.make_component_indirect(any_idx)?;
     let overrides = if let Some(current_view) = self.current_view.get() {
       // the override view can not be found, if there is no a single view dep object in scene,
       // so we must not early return here
@@ -194,7 +195,7 @@ impl IndirectNodeRenderImpl for OverrideNodeIndirectGPU {
       None
     };
     Some(Box::new(NodeGPUStorageWithOverride {
-      base: &self.internal.0,
+      base: internal,
       overrides,
     }))
   }
@@ -213,63 +214,74 @@ impl IndirectNodeRenderImpl for OverrideNodeIndirectGPU {
   }
 }
 
-pub struct NodeGPUStorageWithOverride<'a> {
-  base: &'a AbstractReadonlyStorageBuffer<[NodeStorage]>,
+pub struct NodeGPUStorageWithOverride<'a, T> {
+  base: T,
   // this is optional, as in some case(shadow pass), it not exist any override data.
   overrides: Option<&'a PerViewGPUResource>,
 }
 
-impl<'a> ShaderHashProvider for NodeGPUStorageWithOverride<'a> {
-  shader_hash_type_id! {NodeGPUStorageWithOverride<'static>}
+impl<'a, T: ShaderHashProvider> ShaderHashProvider for NodeGPUStorageWithOverride<'a, T> {
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    self.base.hash_type_info(hasher);
+    hasher.hash_type::<NodeGPUStorageWithOverride<()>>();
+  }
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(self.overrides.is_none());
+    self.base.hash_pipeline(hasher);
   }
 }
+impl<'a, T: IndirectNodeInfoSceneModelAccess> IndirectNodeInfoSceneModelAccess
+  for NodeGPUStorageWithOverride<'a, T>
+{
+  fn build(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn IndirectNodeInfoSceneModelAccessInvocation> {
+    struct Impl {
+      internal: Box<dyn IndirectNodeInfoSceneModelAccessInvocation>,
+      overrides: Option<(
+        ShaderReadonlyPtrOf<[u32]>,
+        ShaderReadonlyPtrOf<[NodeStorage]>,
+      )>,
+    }
 
-impl GraphicsShaderProvider for NodeGPUStorageWithOverride<'_> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.vertex(|builder, binding| {
-      let nodes = binding.bind_by(self.base);
+    impl IndirectNodeInfoSceneModelAccessInvocation for Impl {
+      fn get_node_info(
+        &self,
+        scene_model_id: Node<u32>,
+        v: &mut dyn Fn(ShaderReadonlyPtrOf<NodeStorage>),
+      ) {
+        if let Some((remap, overrides)) = &self.overrides {
+          let remap_index = remap.index(scene_model_id).load();
 
-      let current_node_id = builder.query::<IndirectSceneNodeId>();
-      let sm_id = builder.query::<LogicalRenderEntityId>();
-
-      let node = if let Some(overrides) = &self.overrides {
-        let remap = binding.bind_by(overrides.index_remap.gpu());
-        let overrides = binding.bind_by(&overrides.overrides.get_gpu_buffer());
-
-        let remap_index = remap.index(sm_id).load();
-
-        let node = zeroed_val::<NodeStorage>().make_local_var();
-
-        if_by(remap_index.not_equals(val(u32::MAX)), || {
-          node.store(overrides.index(remap_index).load());
-        })
-        .else_by(|| {
-          node.store(nodes.index(current_node_id).load());
-        });
-
-        node.load().expand()
-      } else {
-        nodes.index(current_node_id).load().expand()
-      };
-
-      register_or_compose_world_related_info(builder, node);
-
-      // the RenderVertexPosition requires camera, so here we only process normal part
-      if let Some(normal) = builder.try_query::<GeometryNormal>() {
-        builder.register::<VertexRenderNormal>(node.normal_matrix * normal);
+          if_by(remap_index.not_equals(val(u32::MAX)), || {
+            v(overrides.index(remap_index));
+          })
+          .else_by(|| {
+            self.internal.get_node_info(scene_model_id, v);
+          });
+        } else {
+          self.internal.get_node_info(scene_model_id, v);
+        };
       }
+    }
+
+    Box::new(Impl {
+      internal: self.base.build(cx),
+      overrides: self.overrides.map(|o| {
+        (
+          cx.bind_by(o.index_remap.gpu()),
+          cx.bind_by(&o.overrides.get_gpu_buffer()),
+        )
+      }),
     })
   }
-}
 
-impl ShaderPassBuilder for NodeGPUStorageWithOverride<'_> {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.base);
+  fn bind(&self, builder: &mut BindingBuilder) {
+    self.base.bind(builder);
     if let Some(overrides) = &self.overrides {
-      ctx.binding.bind(overrides.index_remap.gpu());
-      ctx.binding.bind(&overrides.overrides.get_gpu_buffer());
+      builder.bind(overrides.index_remap.gpu());
+      builder.bind(&overrides.overrides.get_gpu_buffer());
     }
   }
 }

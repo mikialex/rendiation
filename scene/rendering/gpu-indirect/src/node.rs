@@ -1,10 +1,108 @@
 use crate::*;
 
+pub trait IndirectNodeInfoSceneModelAccess: ShaderHashProvider {
+  fn build(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn IndirectNodeInfoSceneModelAccessInvocation>;
+  fn bind(&self, builder: &mut BindingBuilder);
+}
+
+pub trait IndirectNodeInfoSceneModelAccessInvocation {
+  fn get_node_info(
+    &self,
+    scene_model_id: Node<u32>,
+    v: &mut dyn Fn(ShaderReadonlyPtrOf<NodeStorage>),
+  );
+
+  fn get_node_info_value(&self, scene_model_id: Node<u32>) -> Node<NodeStorage> {
+    let node = zeroed_val::<NodeStorage>().make_local_var();
+    self.get_node_info(scene_model_id, &mut |v| node.store(v.load()));
+    node.load()
+  }
+}
+
+impl<'a> ShaderHashProvider for &'a dyn IndirectNodeInfoSceneModelAccess {
+  shader_hash_type_id!(&'static dyn IndirectNodeInfoSceneModelAccess);
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    (**self).hash_pipeline_with_type_info(hasher);
+  }
+}
+
+impl<'a> IndirectNodeInfoSceneModelAccess for &'a dyn IndirectNodeInfoSceneModelAccess {
+  fn build(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn IndirectNodeInfoSceneModelAccessInvocation> {
+    (**self).build(cx)
+  }
+
+  fn bind(&self, builder: &mut BindingBuilder) {
+    (**self).bind(builder);
+  }
+}
+
+impl<'a> ShaderHashProvider for Box<dyn IndirectNodeInfoSceneModelAccess + 'a> {
+  shader_hash_type_id!(&'static dyn IndirectNodeInfoSceneModelAccess);
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    (**self).hash_pipeline_with_type_info(hasher);
+  }
+}
+
+impl<'a> IndirectNodeInfoSceneModelAccess for Box<dyn IndirectNodeInfoSceneModelAccess + 'a> {
+  fn build(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn IndirectNodeInfoSceneModelAccessInvocation> {
+    (**self).build(cx)
+  }
+
+  fn bind(&self, builder: &mut BindingBuilder) {
+    (**self).bind(builder);
+  }
+}
+
+/// Bridge [IndirectNodeInfoSceneModelAccess] to [RenderComponent]
+pub struct NodeRenderComponent<T>(pub T);
+
+impl<T: ShaderHashProvider> ShaderHashProvider for NodeRenderComponent<T> {
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    self.0.hash_type_info(hasher);
+    hasher.hash_type::<NodeRenderComponent<()>>();
+  }
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.0.hash_pipeline(hasher);
+  }
+}
+
+impl<T: IndirectNodeInfoSceneModelAccess> ShaderPassBuilder for NodeRenderComponent<T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.0.bind(&mut ctx.binding);
+  }
+}
+
+impl<T: IndirectNodeInfoSceneModelAccess> GraphicsShaderProvider for NodeRenderComponent<T> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.vertex(|builder, binding| {
+      let accessor = self.0.build(binding);
+      let scene_model_id = builder.query::<RootLogicalRenderEntityId>();
+      let node = accessor.get_node_info_value(scene_model_id).expand();
+
+      register_or_compose_world_related_info(builder, node);
+
+      // the RenderVertexPosition requires camera, so here we only process normal part
+      if let Some(normal) = builder.try_query::<GeometryNormal>() {
+        builder.register::<VertexRenderNormal>(node.normal_matrix * normal);
+      }
+    })
+  }
+}
+
 pub trait IndirectNodeRenderImpl {
   fn make_component_indirect(
     &self,
     any_idx: EntityHandle<SceneNodeEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>>;
+  ) -> Option<Box<dyn IndirectNodeInfoSceneModelAccess + '_>>;
 
   fn hash_shader_group_key(
     &self,
@@ -35,17 +133,28 @@ pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<IndirectNodeRenderer>
   nodes.use_update(cx);
   nodes.use_max_item_count_by_db_entity::<SceneNodeEntity>(cx);
 
-  cx.when_render(|| IndirectNodeRenderer(nodes.get_gpu_buffer()))
+  let sm_to_node_device = use_db_device_foreign_key::<SceneModelRefNode>(cx);
+
+  cx.when_render(|| IndirectNodeRenderer {
+    sm_to_node: sm_to_node_device.unwrap(),
+    node_to_node_data: nodes.get_gpu_buffer(),
+  })
 }
 
-pub struct IndirectNodeRenderer(pub AbstractReadonlyStorageBuffer<[NodeStorage]>);
+pub struct IndirectNodeRenderer {
+  pub sm_to_node: AbstractReadonlyStorageBuffer<[u32]>,
+  pub node_to_node_data: AbstractReadonlyStorageBuffer<[NodeStorage]>,
+}
 
 impl IndirectNodeRenderImpl for IndirectNodeRenderer {
   fn make_component_indirect(
     &self,
     _any_idx: EntityHandle<SceneNodeEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    let node = NodeGPUStorage(&self.0);
+  ) -> Option<Box<dyn IndirectNodeInfoSceneModelAccess + '_>> {
+    let node = NodeGPUStorage {
+      sm_to_node: &self.sm_to_node,
+      node_to_node_data: &self.node_to_node_data,
+    };
     Some(Box::new(node))
   }
   fn hash_shader_group_key(
@@ -60,10 +169,6 @@ impl IndirectNodeRenderImpl for IndirectNodeRenderer {
     self
   }
 }
-
-only_vertex!(IndirectSceneNodeId, u32);
-
-pub struct NodeGPUStorage<'a>(&'a AbstractReadonlyStorageBuffer<[NodeStorage]>);
 
 #[repr(C)]
 #[std430_layout]
@@ -87,30 +192,44 @@ impl NodeStorage {
   }
 }
 
-impl ShaderHashProvider for NodeGPUStorage<'_> {
+pub struct NodeGPUStorage<'a> {
+  sm_to_node: &'a AbstractReadonlyStorageBuffer<[u32]>,
+  node_to_node_data: &'a AbstractReadonlyStorageBuffer<[NodeStorage]>,
+}
+
+impl<'a> ShaderHashProvider for NodeGPUStorage<'a> {
   shader_hash_type_id! {NodeGPUStorage<'static>}
 }
 
-impl GraphicsShaderProvider for NodeGPUStorage<'_> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.vertex(|builder, binding| {
-      let nodes = binding.bind_by(self.0);
-      let current_node_id = builder.query::<IndirectSceneNodeId>();
-      let node = nodes.index(current_node_id).load().expand();
-
-      register_or_compose_world_related_info(builder, node);
-
-      // the RenderVertexPosition requires camera, so here we only process normal part
-      if let Some(normal) = builder.try_query::<GeometryNormal>() {
-        builder.register::<VertexRenderNormal>(node.normal_matrix * normal);
+impl<'a> IndirectNodeInfoSceneModelAccess for NodeGPUStorage<'a> {
+  fn build(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn IndirectNodeInfoSceneModelAccessInvocation> {
+    struct Impl {
+      sm_to_node: ShaderReadonlyPtrOf<[u32]>,
+      node_to_node_data: ShaderReadonlyPtrOf<[NodeStorage]>,
+    }
+    impl IndirectNodeInfoSceneModelAccessInvocation for Impl {
+      fn get_node_info(
+        &self,
+        scene_model_id: Node<u32>,
+        v: &mut dyn Fn(ShaderReadonlyPtrOf<NodeStorage>),
+      ) {
+        let node_id = self.sm_to_node.index(scene_model_id).load();
+        v(self.node_to_node_data.index(node_id))
       }
+    }
+
+    Box::new(Impl {
+      sm_to_node: cx.bind_by(self.sm_to_node),
+      node_to_node_data: cx.bind_by(self.node_to_node_data),
     })
   }
-}
 
-impl ShaderPassBuilder for NodeGPUStorage<'_> {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.0);
+  fn bind(&self, builder: &mut BindingBuilder) {
+    builder.bind(self.sm_to_node);
+    builder.bind(self.node_to_node_data);
   }
 }
 
