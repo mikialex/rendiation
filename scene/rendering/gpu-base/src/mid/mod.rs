@@ -62,6 +62,7 @@ impl GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'_> {
       let invocation = self.0.create_indirect_invocation_source(binder);
       let scene_model_id = invocation.current_invocation_scene_model_id(builder);
       builder.register::<LogicalRenderEntityId>(scene_model_id);
+      builder.register::<RootLogicalRenderEntityId>(scene_model_id);
       invocation.extra_register(builder);
     })
   }

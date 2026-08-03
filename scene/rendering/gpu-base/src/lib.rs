@@ -70,6 +70,7 @@ mod mid;
 pub use mid::*;
 
 both!(LogicalRenderEntityId, u32);
+both!(RootLogicalRenderEntityId, u32);
 
 pub struct UnlitMaterialTag;
 pub struct PbrMRMaterialTag;

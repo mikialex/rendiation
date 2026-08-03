@@ -331,7 +331,7 @@ impl<'a> GraphicsShaderProvider for Override<'a> {
       let instance_model_id = model_to_instance.index(instance_scene_model_id).load();
 
       let instance_meta = instance_meta.index(instance_model_id).load().expand();
-      vertex.register::<LogicalRenderEntityId>(instance_meta.origin_model); // todo, the std model has issue
+      vertex.register::<LogicalRenderEntityId>(instance_meta.origin_model);
 
       let origin_object_vertex_count = instance_meta.instance_vertices_count;
 

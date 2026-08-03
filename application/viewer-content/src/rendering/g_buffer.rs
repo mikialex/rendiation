@@ -133,7 +133,8 @@ impl GraphicsShaderProvider for FrameGeometryBufferPassEncoder {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
       if let Some(entity_id) = self.entity_id {
-        let id = builder.query_or_interpolate_by::<LogicalRenderEntityId, LogicalRenderEntityId>();
+        let id =
+          builder.query_or_interpolate_by::<RootLogicalRenderEntityId, RootLogicalRenderEntityId>();
         builder.frag_output[entity_id].store(id);
       }
 

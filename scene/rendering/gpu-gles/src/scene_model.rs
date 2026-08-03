@@ -46,7 +46,9 @@ impl GraphicsShaderProvider for SceneModelIdWriter<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       let id = binding.bind_by(&self.id);
-      builder.register::<LogicalRenderEntityId>(id.load().x());
+      let id = id.load().x();
+      builder.register::<LogicalRenderEntityId>(id);
+      builder.register::<RootLogicalRenderEntityId>(id);
     })
   }
 }

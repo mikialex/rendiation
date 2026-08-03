@@ -353,6 +353,7 @@ impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
 
       // todo, use max-1 to distinguish the background,but need fix gpu picking
       builder.register::<LogicalRenderEntityId>(val(u32::MAX));
+      builder.register::<RootLogicalRenderEntityId>(val(u32::MAX));
       builder.register::<FragmentRenderNormal>(normal);
 
       // override quad draw config
