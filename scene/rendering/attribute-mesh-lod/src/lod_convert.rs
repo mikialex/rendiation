@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use rayon::prelude::*;
 use rendiation_geometry::Box3;
 use rendiation_mesh_core::{AttributeSemantic, MeshPrimitiveTopology};
 use rendiation_mesh_simplification::*;
@@ -34,24 +35,35 @@ pub fn process_attribute_mesh_lod(
   mesh_changes: UseResult<AttributesMeshDataChangeInput>,
   lod_config: &AttributeLODConfig,
 ) -> AttributeMeshLODConvertResult {
+  let spawner = cx.spawner();
   let lod_config = lod_config.clone();
   let (converted, converted_) = mesh_changes
     .map_spawn_stage_in_thread_data_changes(cx, move |meshes_changes| {
-      let mut processed_meshes = Vec::new();
-      let mut level_infos = Vec::new();
-
       let meshes_changes = meshes_changes.materialize();
 
-      for (id, new_mesh) in meshes_changes.iter_update_or_insert() {
-        if let Some(new_mesh_) = new_mesh.if_loaded_ref() {
-          let processed = process_lod_attribute_mesh(&new_mesh_, &lod_config);
-          processed_meshes.push((id, UriLoadResult::LivingOrLoaded(processed.content)));
-          level_infos.push((id, processed.lod_levels));
-        } else {
-          processed_meshes.push((id, new_mesh.clone()));
-          // level's output is skipped for this case
-        }
-      }
+      let spawner = spawner.unwrap();
+
+      // the simplification of each mesh is independent, run them in parallel
+      // in the project's own rayon pool instead of the global one
+      let items: Vec<_> = meshes_changes.iter_update_or_insert().collect();
+      let (processed_meshes, level_infos): (Vec<_>, Vec<_>) = spawner.install(|| {
+        items
+          .into_par_iter()
+          .map(|(id, new_mesh)| {
+            if let Some(new_mesh_) = new_mesh.if_loaded_ref() {
+              let processed = process_lod_attribute_mesh(&new_mesh_, &lod_config);
+              (
+                (id, UriLoadResult::LivingOrLoaded(processed.content)),
+                Some((id, processed.lod_levels)),
+              )
+            } else {
+              // level's output is skipped for this case
+              ((id, new_mesh.clone()), None)
+            }
+          })
+          .unzip()
+      });
+      let level_infos: Vec<_> = level_infos.into_iter().flatten().collect();
 
       let processed_meshes = Arc::new(LinearBatchChanges {
         removed: meshes_changes.removed.clone(),

@@ -2,12 +2,12 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct AttributeMeshIndirectDrawCreator {
-  pub(crate) metadata: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
-  pub(crate) sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
-  pub(crate) sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
-  pub(crate) vertex_address_buffer_host:
+  pub metadata: AbstractReadonlyStorageBuffer<[AttributeMeshMeta]>,
+  pub sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
+  pub sm_to_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
+  pub vertex_address_buffer_host:
     LockReadGuardHolder<SparseStorageBufferWithHostRaw<AttributeMeshMeta>>,
-  pub(crate) used_in_midc_downgrade: bool,
+  pub used_in_midc_downgrade: bool,
 }
 impl NoneIndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
