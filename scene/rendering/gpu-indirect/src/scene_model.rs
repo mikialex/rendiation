@@ -102,8 +102,8 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
   ) -> Option<()> {
-    let node = self.node.get(any_id)?;
-    let node = self.node_render.make_component_indirect(node)?;
+    let _ = self.node.get(any_id)?;
+    let node = self.node_render.make_component_indirect()?;
     let node = &NodeRenderComponent(node.as_ref()) as &dyn RenderComponent;
 
     let model_info = self.model_impl.model_info_injector(any_id)?;
@@ -155,10 +155,10 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     any_id: EntityHandle<SceneModelEntity>,
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
-    let node = self.node.get(any_id)?;
+    let _ = self.node.get(any_id)?;
     self
       .node_render
-      .hash_shader_group_key_with_self_type_info(node, hasher)?;
+      .hash_shader_group_key_with_self_type_info(hasher)?;
     self
       .model_impl
       .hash_shader_group_key_with_self_type_info(any_id, hasher)?;

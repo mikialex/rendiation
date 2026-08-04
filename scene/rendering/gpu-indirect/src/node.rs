@@ -99,29 +99,18 @@ impl<T: IndirectNodeInfoSceneModelAccess> GraphicsShaderProvider for NodeRenderC
   }
 }
 
-pub trait IndirectNodeRenderImpl {
-  fn make_component_indirect(
-    &self,
-    any_idx: EntityHandle<SceneNodeEntity>,
-  ) -> Option<Box<dyn IndirectNodeInfoSceneModelAccess + '_>>;
-
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<SceneNodeEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()>;
-  fn hash_shader_group_key_with_self_type_info(
-    &self,
-    any_id: EntityHandle<SceneNodeEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    self.hash_shader_group_key(any_id, hasher).map(|_| {
+pub trait IndirectNodeRenderImpl: dyn_clone::DynClone {
+  fn make_component_indirect(&self) -> Option<Box<dyn IndirectNodeInfoSceneModelAccess>>;
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher) -> Option<()>;
+  fn hash_shader_group_key_with_self_type_info(&self, hasher: &mut PipelineHasher) -> Option<()> {
+    self.hash_shader_group_key(hasher).map(|_| {
       hasher.hash(self.as_any().type_id());
     })
   }
 
   fn as_any(&self) -> &dyn Any;
 }
+dyn_clone::clone_trait_object!(IndirectNodeRenderImpl);
 
 pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<IndirectNodeRenderer> {
   let (cx, nodes) = cx.use_storage_buffer("nodes data", 128, u32::MAX);
@@ -142,27 +131,21 @@ pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<IndirectNodeRenderer>
   })
 }
 
+#[derive(Clone)]
 pub struct IndirectNodeRenderer {
   pub sm_to_node: AbstractReadonlyStorageBuffer<[u32]>,
   pub node_to_node_data: AbstractReadonlyStorageBuffer<[NodeStorage]>,
 }
 
 impl IndirectNodeRenderImpl for IndirectNodeRenderer {
-  fn make_component_indirect(
-    &self,
-    _any_idx: EntityHandle<SceneNodeEntity>,
-  ) -> Option<Box<dyn IndirectNodeInfoSceneModelAccess + '_>> {
+  fn make_component_indirect(&self) -> Option<Box<dyn IndirectNodeInfoSceneModelAccess>> {
     let node = NodeGPUStorage {
-      sm_to_node: &self.sm_to_node,
-      node_to_node_data: &self.node_to_node_data,
+      sm_to_node: self.sm_to_node.clone(),
+      node_to_node_data: self.node_to_node_data.clone(),
     };
     Some(Box::new(node))
   }
-  fn hash_shader_group_key(
-    &self,
-    _: EntityHandle<SceneNodeEntity>,
-    _: &mut PipelineHasher,
-  ) -> Option<()> {
+  fn hash_shader_group_key(&self, _: &mut PipelineHasher) -> Option<()> {
     Some(())
   }
 
@@ -194,16 +177,16 @@ impl NodeStorage {
 }
 
 #[derive(Clone)]
-pub struct NodeGPUStorage<'a> {
-  sm_to_node: &'a AbstractReadonlyStorageBuffer<[u32]>,
-  node_to_node_data: &'a AbstractReadonlyStorageBuffer<[NodeStorage]>,
+pub struct NodeGPUStorage {
+  sm_to_node: AbstractReadonlyStorageBuffer<[u32]>,
+  node_to_node_data: AbstractReadonlyStorageBuffer<[NodeStorage]>,
 }
 
-impl<'a> ShaderHashProvider for NodeGPUStorage<'a> {
-  shader_hash_type_id! {NodeGPUStorage<'static>}
+impl ShaderHashProvider for NodeGPUStorage {
+  shader_hash_type_id! {}
 }
 
-impl<'a> IndirectNodeInfoSceneModelAccess for NodeGPUStorage<'a> {
+impl IndirectNodeInfoSceneModelAccess for NodeGPUStorage {
   fn build(
     &self,
     cx: &mut ShaderBindGroupBuilder,
@@ -224,14 +207,14 @@ impl<'a> IndirectNodeInfoSceneModelAccess for NodeGPUStorage<'a> {
     }
 
     Box::new(Impl {
-      sm_to_node: cx.bind_by(self.sm_to_node),
-      node_to_node_data: cx.bind_by(self.node_to_node_data),
+      sm_to_node: cx.bind_by(&self.sm_to_node),
+      node_to_node_data: cx.bind_by(&self.node_to_node_data),
     })
   }
 
   fn bind(&self, builder: &mut BindingBuilder) {
-    builder.bind(self.sm_to_node);
-    builder.bind(self.node_to_node_data);
+    builder.bind(&self.sm_to_node);
+    builder.bind(&self.node_to_node_data);
   }
 }
 

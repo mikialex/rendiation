@@ -53,6 +53,7 @@ pub fn use_view_dependent_transform_indirect_gpu(
   })
 }
 
+#[derive(Clone)]
 pub struct OverrideNodeIndirectGPU {
   internal: IndirectNodeRenderer,
   overrides: LockReadGuardHolder<FastHashMap<ViewKey, PerViewGPUResource>>,
@@ -182,29 +183,16 @@ impl PerViewGPUResource {
 }
 
 impl IndirectNodeRenderImpl for OverrideNodeIndirectGPU {
-  fn make_component_indirect(
-    &self,
-    any_idx: EntityHandle<SceneNodeEntity>,
-  ) -> Option<Box<dyn IndirectNodeInfoSceneModelAccess + '_>> {
-    let internal = self.internal.make_component_indirect(any_idx)?;
-    let overrides = if let Some(current_view) = self.current_view.get() {
-      // the override view can not be found, if there is no a single view dep object in scene,
-      // so we must not early return here
-      self.overrides.get(&current_view)
-    } else {
-      None
-    };
+  fn make_component_indirect(&self) -> Option<Box<dyn IndirectNodeInfoSceneModelAccess>> {
+    let internal = self.internal.make_component_indirect()?;
     Some(Box::new(NodeGPUStorageWithOverride {
       base: internal,
-      overrides,
+      current_view: self.current_view.get(),
+      overrides: self.overrides.clone(),
     }))
   }
 
-  fn hash_shader_group_key(
-    &self,
-    _any_id: EntityHandle<SceneNodeEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher) -> Option<()> {
     hasher.hash(self.current_view.get().is_some());
     Some(())
   }
@@ -215,23 +203,25 @@ impl IndirectNodeRenderImpl for OverrideNodeIndirectGPU {
 }
 
 #[derive(Clone)]
-pub struct NodeGPUStorageWithOverride<'a, T> {
+pub struct NodeGPUStorageWithOverride<T> {
   base: T,
-  // this is optional, as in some case(shadow pass), it not exist any override data.
-  overrides: Option<&'a PerViewGPUResource>,
+  // overrides: Option<&'a PerViewGPUResource>, todo remove
+  overrides: LockReadGuardHolder<FastHashMap<ViewKey, PerViewGPUResource>>,
+  // // this is optional, as in some case(shadow pass), it not exist any override data.
+  current_view: Option<ViewKey>,
 }
 
-impl<'a, T: ShaderHashProvider> ShaderHashProvider for NodeGPUStorageWithOverride<'a, T> {
+impl<T: ShaderHashProvider> ShaderHashProvider for NodeGPUStorageWithOverride<T> {
   fn hash_type_info(&self, hasher: &mut PipelineHasher) {
     self.base.hash_type_info(hasher);
     hasher.hash_type::<NodeGPUStorageWithOverride<()>>();
   }
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    hasher.hash(self.overrides.is_none());
+    hasher.hash(self.current_view.is_none());
     self.base.hash_pipeline(hasher);
   }
 }
-impl<'a, T> IndirectNodeInfoSceneModelAccess for NodeGPUStorageWithOverride<'a, T>
+impl<T> IndirectNodeInfoSceneModelAccess for NodeGPUStorageWithOverride<T>
 where
   T: IndirectNodeInfoSceneModelAccess + Clone,
 {
@@ -270,20 +260,27 @@ where
 
     Box::new(Impl {
       internal: self.base.build(cx),
-      overrides: self.overrides.map(|o| {
+      overrides: self.current_view.and_then(|view| {
+        // the override view can not be found, if there is no a single view dep object in scene,
+        // so we must not early return here
+        let o = self.overrides.get(&view)?;
         (
           cx.bind_by(o.index_remap.gpu()),
           cx.bind_by(&o.overrides.get_gpu_buffer()),
         )
+          .into()
       }),
     })
   }
 
   fn bind(&self, builder: &mut BindingBuilder) {
     self.base.bind(builder);
-    if let Some(overrides) = &self.overrides {
-      builder.bind(overrides.index_remap.gpu());
-      builder.bind(&overrides.overrides.get_gpu_buffer());
+    if let Some(view) = &self.current_view {
+      // ditto
+      if let Some(overrides) = self.overrides.get(view) {
+        builder.bind(overrides.index_remap.gpu());
+        builder.bind(&overrides.overrides.get_gpu_buffer());
+      }
     }
   }
 }
