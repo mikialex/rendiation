@@ -36,6 +36,21 @@ impl TaskSpawner {
     self.num_threads
   }
 
+  /// run the closure inside the pool, the parallel iterators created inside
+  /// will use this pool instead of the global one
+  #[allow(unused_variables)]
+  pub fn install<R: Send>(&self, f: impl FnOnce() -> R + Send) -> R {
+    #[cfg(not(target_family = "wasm"))]
+    {
+      self.pool.install(f)
+    }
+
+    #[cfg(target_family = "wasm")]
+    {
+      f()
+    }
+  }
+
   pub fn spawn_task<R: Send + Sync + 'static>(
     &self,
     f: impl FnOnce() -> R + Send + 'static,

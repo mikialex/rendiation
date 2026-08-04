@@ -1,35 +1,33 @@
 [package]
 authors = ["MikiAlex <miikiialexx@gmail.com>"]
 edition = "2021"
-name = "rendiation-scene-rendering-gpu-indirect"
+name = "rendiation-scene-indirect-attribute-mesh-lod"
 version = "0.1.0"
 
 [dependencies]
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 database = { path = "../../../utility/database" }
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 log = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-geometry = { path = "../../../math/geometry" }
-rendiation-mesh-core = { path = "../../../content/mesh/core" }
 rendiation-mesh-simplification = { path = "../../../content/mesh/simplification" }
 rendiation-scene-core = { path = "../../core" }
+rendiation-mesh-core = { path = "../../../content/mesh/core" }
 rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
+rendiation-scene-rendering-gpu-indirect = { path = "../../rendering/gpu-indirect" }
 rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-shader-library = { path = "../../../shader/library" }
-rendiation-texture-core = { path = "../../../content/texture/core" }
-rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
-rendiation-lighting-punctual = { path = "../../../content/lighting/punctual" }
 rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
 
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-webgpu-hook-utils = { path = "../../../platform/graphics/webgpu-hook-utils" }
+query-hook = { path = "../../../utility/query-hook" }
 rendiation-webgpu-midc-downgrade = { path = "../../../platform/graphics/webgpu-midc-downgrade" }
-rendiation-webgpu-texture-as-buffer = { path = "../../../platform/graphics/webgpu-texture-as-buffer" }
-rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
 bytemuck = { workspace = true }
 dyn-clone = { workspace = true }
+
+rayon = { workspace = true }
 
 [lints]
 workspace = true

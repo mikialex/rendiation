@@ -48,6 +48,7 @@ pub use rendiation_occ_style_material::{
 use rendiation_scene_batch_extractor::*;
 pub use rendiation_scene_core::*;
 pub use rendiation_scene_geometry_query::*;
+use rendiation_scene_indirect_attribute_mesh_lod::*;
 use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_scene_rendering_gpu_ray_tracing::*;

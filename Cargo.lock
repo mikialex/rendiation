@@ -4678,6 +4678,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-indirect-attribute-mesh-lod"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "database",
+ "dyn-clone",
+ "fast-hash-collection",
+ "log",
+ "parking_lot",
+ "query-hook",
+ "rayon",
+ "rendiation-algebra",
+ "rendiation-device-parallel-compute",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-mesh-simplification",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-scene-rendering-gpu-indirect",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
+ "rendiation-webgpu-midc-downgrade",
+ "serde",
+]
+
+[[package]]
 name = "rendiation-scene-obj-loader"
 version = "0.1.0"
 dependencies = [
@@ -4765,6 +4792,7 @@ dependencies = [
  "rendiation-lighting-punctual",
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
+ "rendiation-mesh-simplification",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
@@ -5212,6 +5240,7 @@ dependencies = [
  "rendiation-scene-geometry-query",
  "rendiation-scene-gltf-exporter",
  "rendiation-scene-gltf-loader",
+ "rendiation-scene-indirect-attribute-mesh-lod",
  "rendiation-scene-obj-loader",
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-scene-rendering-gpu-indirect",

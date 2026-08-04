@@ -52,6 +52,14 @@ impl Viewer3dRenderingCtx {
       "using_host_driven_indirect_draw",
     );
 
+    ui.add(
+      egui::Slider::new(
+        &mut self.init_config.attribute_mesh_lod_threshold_pixels,
+        1.0..=4.0,
+      )
+      .text("attribute mesh lod threshold pixels"),
+    );
+
     if self.current_renderer_impl_ty == RasterizationRenderBackendType::Indirect {
       let is_target_support_indirect_draw_cmd_natively = self
         .gpu

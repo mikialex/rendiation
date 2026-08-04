@@ -65,6 +65,7 @@ members = [
   "scene/rendering/batch-extractor",
   "scene/rendering/occlusion-culling",
   "scene/rendering/frustum-culling",
+  "scene/rendering/attribute-mesh-lod",
   "scene/rendering/gpu-ray-tracing",
   "scene/rendering/oit",
   "scene/rendering/scheduler",

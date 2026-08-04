@@ -159,6 +159,7 @@ impl Viewer3dRenderingCtx {
     let mut indirect_extractor = None;
 
     let (cx, active_view_control) = cx.use_plain_state_default::<CurrentViewControl>();
+    let (cx, lod_camera_control) = cx.use_plain_state_default::<CurrentLODCameraControl>();
     let (cx, model_error_state) = cx.use_plain_state_default::<SceneModelErrorRecorder>();
 
     let raster_scene_renderer = match self.current_renderer_impl_ty {
@@ -244,17 +245,38 @@ impl Viewer3dRenderingCtx {
         );
         scope.end(cx);
 
+        let model_buffer_merge =
+          use_readonly_storage_buffer_combine(cx, "indirect model data", enable_combine);
+
+        let node = use_node_storage(cx);
+        let view_camera_source = cx.use_shared_dual_query(
+          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map.clone()),
+        );
+
+        let model_buffer_merge = model_buffer_merge.end(cx);
+
+        let node = use_view_dependent_transform_indirect_gpu(
+          cx,
+          view_camera_source,
+          node,
+          active_view_control.clone(),
+        );
+
         let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", enable_combine);
 
         let mesh_changes = viewer_mesh_input(cx);
         let (mesh_changes, mesh_changes_) = mesh_changes.fork();
 
-        let mesh = use_attribute_mesh_indirect_renderer(
+        let mesh = use_attribute_lod_mesh_indirect_renderer(
           cx,
           &init_config.indirect_attribute_mesh_init,
+          &init_config.indirect_attribute_mesh_lod_config,
           init_config.using_texture_as_storage_buffer_for_indirect_rendering,
           self.using_host_driven_indirect_draw,
           mesh_changes,
+          node.clone(),
+          culling.as_ref().map(|v| v.bounding_provider.clone()),
+          lod_camera_control.clone(),
         );
 
         scope.end(cx);
@@ -278,7 +300,7 @@ impl Viewer3dRenderingCtx {
         });
 
         if self.rtx_renderer_enabled {
-          rtx_mesh = mesh.clone();
+          rtx_mesh = mesh.as_ref().map(|mesh| mesh.internal.clone());
         }
 
         let cell_mesh = use_cell_mesh_renderer(cx, self.using_host_driven_indirect_draw);
@@ -289,23 +311,6 @@ impl Viewer3dRenderingCtx {
             cell_mesh.unwrap(),
           ]) as Box<dyn IndirectModelShapeRenderImpl>
         });
-
-        let model_buffer_merge =
-          use_readonly_storage_buffer_combine(cx, "indirect model data", enable_combine);
-
-        let node = use_node_storage(cx);
-        let view_camera_source = cx.use_shared_dual_query(
-          SceneModelViewDependentTransformOccShare(*self.ndc(), viewports_map.clone()),
-        );
-
-        let model_buffer_merge = model_buffer_merge.end(cx);
-
-        let node = use_view_dependent_transform_indirect_gpu(
-          cx,
-          view_camera_source,
-          node,
-          active_view_control.clone(),
-        );
 
         let model_buffer_merge = model_buffer_merge.restart(cx);
 
@@ -533,6 +538,7 @@ impl Viewer3dRenderingCtx {
             filter: filter.unwrap(),
           },
           active_view_control: active_view_control.clone(),
+          lod_camera_control: lod_camera_control.clone(),
         },
         lighting.unwrap(),
       )
@@ -615,6 +621,8 @@ impl Viewer3dRenderingCtx {
       self.ndc.enable_reverse_z,
       renderer.raster_scene_renderer.as_ref(),
       renderer.batch_extractor.as_ref(),
+      &renderer.lod_camera_control,
+      self.init_config.attribute_mesh_lod_threshold_pixels,
     );
 
     renderer
@@ -630,6 +638,26 @@ impl Viewer3dRenderingCtx {
         let viewport = &surface_content.viewports[*idx];
         ctx.frame_size = viewport.render_pixel_size();
 
+        let camera = renderer.camera.make_component(viewport.camera).unwrap().ubo;
+        renderer.lod_camera_control.set(Some(LODCameraInfo {
+          camera,
+          view_resolution: create_uniform(
+            // todo, avoid recreate
+            Vec4::new(viewport.viewport.z as u32, viewport.viewport.w as u32, 0, 0),
+            &ctx.gpu.device,
+            "viewport resolution",
+          ),
+          lod_error_threshold: create_uniform(
+            Vec4::new(
+              self.init_config.attribute_mesh_lod_threshold_pixels,
+              0.,
+              0.,
+              0.,
+            ),
+            &ctx.gpu.device,
+            "lod error threshold",
+          ),
+        }));
         renderer.active_view_control.set(Some(viewport.id));
         // view dep view control is not set in shadow pass, we could but we didn't do it
         // because it means the shadow map can not be shared for each view.
@@ -644,6 +672,7 @@ impl Viewer3dRenderingCtx {
           waker,
         );
         renderer.active_view_control.set(None);
+        renderer.lod_camera_control.set(None);
       });
     }
 
@@ -675,6 +704,7 @@ pub struct ViewerRendererInstance {
   pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   pub reversed_depth: bool,
   pub active_view_control: CurrentViewControl,
+  pub lod_camera_control: CurrentLODCameraControl,
 }
 
 pub struct ViewerBatchExtractor {
