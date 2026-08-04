@@ -210,6 +210,7 @@ only_vertex!(VertexRenderPosition, Vec3<f32>);
 only_vertex!(VertexRenderNormal, Vec3<f32>);
 
 pub trait SemanticShaderValueExt {
+  fn will_normal_computed_by_dxdy(&mut self) -> bool;
   /// gltf spec:
   ///
   /// When normals are not specified, client implementations MUST calculate flat normals and
@@ -222,6 +223,11 @@ pub trait SemanticShaderValueExt {
 }
 
 impl SemanticShaderValueExt for ShaderFragmentBuilderView<'_> {
+  fn will_normal_computed_by_dxdy(&mut self) -> bool {
+    self.try_query::<FragmentRenderNormal>().is_none()
+      && self.has_vertex_value::<VertexRenderNormal>()
+  }
+
   fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
     // check first and avoid unnecessary renormalize
     if let Some(normal) = self.try_query::<FragmentRenderNormal>() {
@@ -255,13 +261,17 @@ impl SemanticShaderValueExt for ShaderFragmentBuilderView<'_> {
 }
 
 pub fn auto_reverse_normal(builder: &mut ShaderFragmentBuilderView) {
-  let normal = builder.get_or_compute_fragment_normal().make_local_var();
-  if_by(builder.query::<FragmentFrontFacing>().not(), || {
-    normal.store(-normal.load());
-  });
+  if !builder.will_normal_computed_by_dxdy() {
+    let normal = builder.get_or_compute_fragment_normal().make_local_var();
+    if_by(builder.query::<FragmentFrontFacing>().not(), || {
+      normal.store(-normal.load());
+    });
 
-  let normal = normal.load();
-  builder.register::<FragmentRenderNormal>(normal);
+    let normal = normal.load();
+    builder.register::<FragmentRenderNormal>(normal);
+  } else {
+    builder.get_or_compute_fragment_normal();
+  }
 }
 
 pub fn compute_normal_by_dxdy(position: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
