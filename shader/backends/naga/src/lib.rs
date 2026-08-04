@@ -120,6 +120,58 @@ impl ShaderAPINagaImpl {
     return_handle
   }
 
+  // root cause: this works around a bug in naga's spirv backend. when a compose
+  // expression is const-folded into an OpConstantComposite, the backend flattens
+  // nested compose/splat expressions but does not flatten Expression::Constant
+  // components, so composing a constant value with scalars (e.g. vec4(v3_const, 1.0))
+  // produces an OpConstantComposite whose constituent count does not match the vector
+  // size, which spirv-val rejects. naga's own wgsl parser never hits this because it
+  // deep-copies a constant's init expression into the function arena whenever the
+  // constant is referenced in function code, so we mirror that behavior here.
+  fn get_compose_component(
+    &mut self,
+    handle: ShaderNodeRawHandle,
+  ) -> naga::Handle<naga::Expression> {
+    let expr = self.get_expression(handle);
+    let constant = match self.building_fn.last().unwrap().expressions.try_get(expr) {
+      Ok(naga::Expression::Constant(c)) => Some(c),
+      _ => None,
+    };
+    match constant {
+      Some(c) => self.inline_constant_value_into_fn(*c),
+      None => expr,
+    }
+  }
+
+  fn inline_constant_value_into_fn(
+    &mut self,
+    constant: naga::Handle<naga::Constant>,
+  ) -> naga::Handle<naga::Expression> {
+    let init = self.module.constants[constant].init;
+    self.copy_global_expr_into_fn(init)
+  }
+
+  fn copy_global_expr_into_fn(
+    &mut self,
+    handle: naga::Handle<naga::Expression>,
+  ) -> naga::Handle<naga::Expression> {
+    let expr = self.module.global_expressions[handle].clone();
+    match expr {
+      naga::Expression::Literal(_) | naga::Expression::ZeroValue(_) => {
+        self.make_expression_inner_raw(expr, false)
+      }
+      naga::Expression::Compose { ty, components } => {
+        let components = components
+          .iter()
+          .map(|c| self.copy_global_expr_into_fn(*c))
+          .collect();
+        self.make_expression_inner_raw(naga::Expression::Compose { ty, components }, false)
+      }
+      naga::Expression::Constant(c) => self.copy_global_expr_into_fn(self.module.constants[c].init),
+      other => unreachable!("unexpected global expression in constant init: {other:?}"),
+    }
+  }
+
   fn register_ty_impl(
     &mut self,
     ty: ShaderValueType,
@@ -391,11 +443,7 @@ impl ShaderAPINagaImpl {
 
     // workaround chrome bug
     fn workaround_f32_max(f: f32) -> f32 {
-      if f == f32::MAX {
-        f.next_down()
-      } else {
-        f
-      }
+      if f == f32::MAX { f.next_down() } else { f }
     }
 
     match data {
@@ -472,16 +520,22 @@ impl ShaderAPINagaImpl {
       (ShaderStructFieldInitValue::Primitive(init), ShaderSizedValueType::Primitive(_)) => {
         self.create_primitive_expression(init, true)
       }
-      (ShaderStructFieldInitValue::Struct(init), ShaderSizedValueType::Struct(ty)) => {
-        let init = init
+      (ShaderStructFieldInitValue::Struct(init), ShaderSizedValueType::Struct(meta)) => {
+        let mut init: Vec<_> = init
           .iter()
-          .zip(ty.fields.iter())
+          .zip(meta.fields.iter())
           .map(|(v, f_ty)| self.define_const_global_expr_impl(v.clone(), &f_ty.ty))
           .collect();
         let ty = self.register_ty_impl(
           ShaderValueType::Single(ShaderValueSingleType::Sized(raw_ty.clone())),
           None,
         );
+        let extra = self.struct_extra_padding_count.get(&meta.name).unwrap();
+        for _ in 0..*extra {
+          init.push(
+            self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::U32(0)), true),
+          );
+        }
         let expr = naga::Expression::Compose {
           ty,
           components: init,
@@ -968,7 +1022,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
                     condition: self.get_expression(parameters[2]),
                     accept: self.get_expression(parameters[1]),
                     reject: self.get_expression(parameters[0]),
-                  }
+                  };
                 }
                 ShaderBuiltInFunction::Min => naga::MathFunction::Min,
                 ShaderBuiltInFunction::Max => naga::MathFunction::Max,
@@ -980,28 +1034,28 @@ impl ShaderAPI for ShaderAPINagaImpl {
                   break naga::Expression::Relational {
                     fun: naga::RelationalFunction::All,
                     argument: self.get_expression(parameters[0]),
-                  }
+                  };
                 }
                 ShaderBuiltInFunction::Any => {
                   break naga::Expression::Relational {
                     fun: naga::RelationalFunction::Any,
                     argument: self.get_expression(parameters[0]),
-                  }
+                  };
                 }
                 ShaderBuiltInFunction::IsNan => {
                   break naga::Expression::Relational {
                     fun: naga::RelationalFunction::IsNan,
                     argument: self.get_expression(parameters[0]),
-                  }
+                  };
                 }
                 ShaderBuiltInFunction::IsInf => {
                   break naga::Expression::Relational {
                     fun: naga::RelationalFunction::IsInf,
                     argument: self.get_expression(parameters[0]),
-                  }
+                  };
                 }
                 ShaderBuiltInFunction::ArrayLength => {
-                  break naga::Expression::ArrayLength(self.get_expression(parameters[0]))
+                  break naga::Expression::ArrayLength(self.get_expression(parameters[0]));
                 }
                 ShaderBuiltInFunction::Cos => naga::MathFunction::Cos,
                 ShaderBuiltInFunction::Cosh => naga::MathFunction::Cosh,
@@ -1223,7 +1277,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
           convert,
         },
         ShaderNodeExpr::Compose { target, parameters } => {
-          let mut components: Vec<_> = parameters.iter().map(|f| self.get_expression(*f)).collect();
+          let mut components: Vec<_> = parameters
+            .iter()
+            .map(|f| self.get_compose_component(*f))
+            .collect();
 
           let ty = self.register_ty_impl(
             ShaderValueType::Single(ShaderValueSingleType::Sized(target.clone())),

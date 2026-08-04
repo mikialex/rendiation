@@ -180,7 +180,11 @@ fn check_full_lod_chain() {
         extent,
         true,
       );
-      (fallback.result_count, fallback.result_error, &sloppy_dst[..])
+      (
+        fallback.result_count,
+        fallback.result_error,
+        &sloppy_dst[..],
+      )
     };
 
     if count >= prev_count || count < 32 * 3 {
