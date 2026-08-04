@@ -41,14 +41,10 @@ pub fn use_viewer_culling(
     .use_shared_dual_query_view(SceneModelWorldBounding(font_system.clone()))
     .use_assure_result(cx);
 
-  let bounding_provider = if is_indirect {
-    cx.scope(|cx| {
-      let bounding = cx.use_shared_dual_query(SceneModelWorldBounding(font_system.clone()));
-      use_scene_model_device_world_bounding(cx, bounding).map(|b| Box::new(b) as Box<_>)
-    })
-  } else {
-    None
-  };
+  let bounding = cx.use_shared_dual_query(SceneModelWorldBounding(font_system.clone()));
+  let bounding_provider =
+    use_scene_model_device_world_bounding(cx, bounding).map(|b| Box::new(b) as Box<_>);
+
   let camera_frustums = use_camera_gpu_frustum(cx, ndc);
 
   cx.when_render(|| ViewerCulling {
@@ -58,7 +54,7 @@ pub fn use_viewer_culling(
       should_keep_cull_result: false,
       culling_results: Default::default(),
     }),
-    bounding_provider,
+    bounding_provider: bounding_provider.unwrap(),
     sm_world_bounding: sm_world_bounding
       .expect_resolve_stage()
       .mark_entity_type()
@@ -80,7 +76,7 @@ pub struct ViewerOcclusionCulling {
 
 pub struct ViewerCulling {
   oc: Option<ViewerOcclusionCulling>,
-  pub(crate) bounding_provider: Option<Box<dyn DrawUnitWorldBoundingProvider>>,
+  pub(crate) bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
   sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Option<Box3<f64>>>,
   frustums: CameraGPUFrustums,
   enable_frustum_culling: bool,
@@ -100,7 +96,7 @@ impl ViewerCulling {
     camera: EntityHandle<SceneCameraEntity>,
   ) -> GPUFrustumCuller {
     GPUFrustumCuller {
-      bounding_provider: self.bounding_provider.clone().unwrap(),
+      bounding_provider: self.bounding_provider.clone(),
       frustum: self.frustums.get_gpu_frustum(camera),
       camera: camera_gpu.clone(),
     }
@@ -207,7 +203,7 @@ impl ViewerCulling {
           renderer.scene,
           camera_gpu,
           scene_pass_dispatcher,
-          self.bounding_provider.clone().unwrap(),
+          self.bounding_provider.clone(),
           renderer.reversed_depth,
           oc.always_keep_cull_result || oc.should_keep_cull_result,
         );

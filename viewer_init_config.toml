@@ -1,4 +1,4 @@
-# See ViewerInitConfig
+# See ViewerInitConfig for detail information
 
 raster_backend_type = "Indirect"
 prefer_bindless_for_indirect_texture_system = false
@@ -6,6 +6,7 @@ enable_indirect_occlusion_culling = true
 enable_debug_cull_result = false
 enable_frustum_culling = true
 using_host_driven_indirect_draw = false
+# options:   NaiveAlphaBlend, Loop32OIT, WeightedOIT, Opaque,
 transparent_config = "NaiveAlphaBlend"
 enable_shadow = false
 enable_taa = false
@@ -19,6 +20,7 @@ use_array_clip = false
 always_enable_caching_frame_for_direct_read = false
 light_surface_ty = "Pbr"
 enable_db_ref_integrity_check_within_rendering = false
+attribute_mesh_lod_threshold_pixels = 2.0
 
 [init_only] # See ViewerStaticInitConfig
 use_native_line_for_one_width_line = true
@@ -46,6 +48,16 @@ init_vertex_u32_size_count = 1
 max_vertex_u32_size_count = 80_000_000
 enable_normal_quantization = true
 enable_normal_quantization_convert = true
+
+[init_only.indirect_attribute_mesh_lod_config]
+# options: Disabled, HalfCount, ErrorDoubling
+lod_conversion_mode = "ErrorDoubling"
+min_lod_triangle_count = 32
+
+[init_only.indirect_attribute_mesh_lod_config.error_double_mode_config]
+base_error_factor = 0.001
+max_error_factor = 0.1
+
 
 [init_only.default_shader_protections]
 bounds_checks = true

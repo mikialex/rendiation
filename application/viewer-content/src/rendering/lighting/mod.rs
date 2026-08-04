@@ -67,6 +67,7 @@ impl LightSystem {
     renderer: &dyn SceneRenderer,
     extractor: &dyn SceneBatchBasicExtractAbility,
     current_lod_camera: &CurrentLODCameraControl,
+    lod_error_threshold_pixels: f32,
   ) -> LightingRenderingCx<'_> {
     frame_ctx.next_scope_index();
     self.tonemap.update(frame_ctx.gpu);
@@ -115,6 +116,11 @@ impl LightSystem {
             ),
             &frame_ctx.gpu.device,
             "viewport resolution",
+          ),
+          lod_error_threshold: create_uniform(
+            Vec4::new(lod_error_threshold_pixels, 0., 0., 0.),
+            &frame_ctx.gpu.device,
+            "lod error threshold",
           ),
         }));
 

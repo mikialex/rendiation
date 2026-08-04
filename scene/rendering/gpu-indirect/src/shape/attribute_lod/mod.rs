@@ -9,9 +9,31 @@ mod draw_cmd;
 pub use draw_cmd::*;
 use parking_lot::Mutex;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttributeLODConfig {
+  /// the current conversion mode
+  pub lod_conversion_mode: LODConversionMode,
+
+  /// meshes with less triangles than this are not converted, the benefit is too low
+  pub min_lod_triangle_count: usize,
+
+  pub error_double_mode_config: ErrorDoublingConfig,
+}
+
+impl Default for AttributeLODConfig {
+  fn default() -> Self {
+    Self {
+      lod_conversion_mode: LODConversionMode::HalfCount,
+      min_lod_triangle_count: 32,
+      error_double_mode_config: Default::default(),
+    }
+  }
+}
+
 pub fn use_attribute_lod_mesh_indirect_renderer(
   cx: &mut QueryGPUHookCx,
   init_config: &IndirectAttributeMeshInitConfig,
+  lod_init_config: &AttributeLODConfig,
   merge_with_vertex_allocator: bool,
   force_midc_downgrade: bool,
   mesh_input: UseResult<AttributesMeshDataChangeInput>,
@@ -22,7 +44,7 @@ pub fn use_attribute_lod_mesh_indirect_renderer(
   let AttributeMeshLODConvertResult {
     processed_meshes,
     lod_metadata,
-  } = process_attribute_mesh_lod(cx, mesh_input);
+  } = process_attribute_mesh_lod(cx, mesh_input, lod_init_config);
 
   let internal = use_attribute_mesh_indirect_renderer(
     cx,
@@ -31,6 +53,8 @@ pub fn use_attribute_lod_mesh_indirect_renderer(
     force_midc_downgrade,
     processed_meshes,
   );
+
+  let (lod_metadata, lod_metadata_) = lod_metadata.fork();
 
   let (lod_levels, allocation_info) = use_range_allocated_device_buffers::<LODLevelInfo>(
     cx,
@@ -42,9 +66,31 @@ pub fn use_attribute_lod_mesh_indirect_renderer(
   let range_change =
     allocation_info.map(|allocation_info| allocation_info.allocation_changes.clone());
 
-  let (cx, level_meta) =
-    cx.use_storage_buffer::<Vec2<u32>>("attribute lod mesh levels range info", 128, u32::MAX);
-  range_change.update_storage_array(cx, level_meta, 0);
+  // the level meta contains (levels offset, level count, root level count),
+  // the root level count is used by the host access to draw the origin mesh without lod
+  let (cx, level_meta) = cx.use_storage_buffer_with_host_backup::<Vec3<u32>>(
+    "attribute lod mesh levels range info",
+    128,
+    u32::MAX,
+  );
+  range_change.update_storage_array_with_host(cx, level_meta, 0);
+
+  let root_count_changes = lod_metadata_.map(|changes| {
+    let mut root_counts = Vec::new();
+    for (k, levels) in changes.iter_update_or_insert() {
+      let root_count = levels.first().map(|l| l.count).unwrap_or(0);
+      root_counts.push((k, root_count));
+    }
+    Arc::new(LinearBatchChanges {
+      removed: changes.removed.clone(),
+      update_or_insert: root_counts,
+    })
+  });
+  root_count_changes.update_storage_array_with_host(
+    cx,
+    level_meta,
+    std::mem::offset_of!(Vec3<u32>, z),
+  );
 
   level_meta.use_max_item_count_by_db_entity::<AttributesMeshEntity>(cx);
   level_meta.use_update(cx);
@@ -53,6 +99,7 @@ pub fn use_attribute_lod_mesh_indirect_renderer(
     //
     AttributeLODMeshIndirectRenderer {
       level_meta: level_meta.get_gpu_buffer(),
+      level_meta_host: level_meta.buffer.make_read_holder(),
       lod_levels,
       sm_node_info: node_info.unwrap(),
       current_lod_camera,
@@ -63,7 +110,8 @@ pub fn use_attribute_lod_mesh_indirect_renderer(
 }
 
 pub struct AttributeLODMeshIndirectRenderer {
-  level_meta: AbstractReadonlyStorageBuffer<[Vec2<u32>]>,
+  level_meta: AbstractReadonlyStorageBuffer<[Vec3<u32>]>,
+  level_meta_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<Vec3<u32>>>,
   lod_levels: AbstractReadonlyStorageBuffer<[LODLevelInfo]>,
   sm_node_info: Box<dyn IndirectNodeRenderImpl>,
   sm_world_aabb_info: Box<dyn DrawUnitWorldBoundingProvider>,
@@ -79,6 +127,7 @@ impl DrawCommandBuilderCreator for AttributeLODMeshIndirectRenderer {
       let creator = AttributeLODMeshIndirectDrawCreator {
         internal,
         level_meta: self.level_meta.clone(),
+        level_meta_host: self.level_meta_host.clone(),
         lod_levels: self.lod_levels.clone(),
         sm_node_info: self.sm_node_info.make_component_indirect().unwrap().clone(),
         sm_world_aabb_info: self.sm_world_aabb_info.clone(),

@@ -270,13 +270,12 @@ impl Viewer3dRenderingCtx {
         let mesh = use_attribute_lod_mesh_indirect_renderer(
           cx,
           &init_config.indirect_attribute_mesh_init,
+          &init_config.indirect_attribute_mesh_lod_config,
           init_config.using_texture_as_storage_buffer_for_indirect_rendering,
           self.using_host_driven_indirect_draw,
           mesh_changes,
           node.clone(),
-          culling
-            .as_ref()
-            .map(|v| v.bounding_provider.clone().unwrap()),
+          culling.as_ref().map(|v| v.bounding_provider.clone()),
           lod_camera_control.clone(),
         );
 
@@ -623,6 +622,7 @@ impl Viewer3dRenderingCtx {
       renderer.raster_scene_renderer.as_ref(),
       renderer.batch_extractor.as_ref(),
       &renderer.lod_camera_control,
+      self.init_config.attribute_mesh_lod_threshold_pixels,
     );
 
     renderer
@@ -646,6 +646,16 @@ impl Viewer3dRenderingCtx {
             Vec4::new(viewport.viewport.z as u32, viewport.viewport.w as u32, 0, 0),
             &ctx.gpu.device,
             "viewport resolution",
+          ),
+          lod_error_threshold: create_uniform(
+            Vec4::new(
+              self.init_config.attribute_mesh_lod_threshold_pixels,
+              0.,
+              0.,
+              0.,
+            ),
+            &ctx.gpu.device,
+            "lod error threshold",
           ),
         }));
         renderer.active_view_control.set(Some(viewport.id));

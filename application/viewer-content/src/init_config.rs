@@ -29,6 +29,7 @@ pub struct ViewerInitConfig {
   pub init_only: ViewerStaticInitConfig,
   pub light_surface_ty: ViewerLightSurfaceType,
   pub enable_db_ref_integrity_check_within_rendering: bool,
+  pub attribute_mesh_lod_threshold_pixels: f32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -42,6 +43,7 @@ pub struct ViewerStaticInitConfig {
   pub thread_pool_thread_count: Option<usize>,
   pub occlusion_culling_max_scene_model_count: u32,
   pub indirect_attribute_mesh_init: IndirectAttributeMeshInitConfig,
+  pub indirect_attribute_mesh_lod_config: AttributeLODConfig,
   pub enable_indirect_storage_combine: bool,
   pub enable_reverse_z: bool,
   /// if not provided, the backend select will be automatically based on platform available
@@ -93,6 +95,7 @@ impl Default for ViewerStaticInitConfig {
       texture_pool_source_init_config: init,
       thread_pool_thread_count: None,
       indirect_attribute_mesh_init: Default::default(),
+      indirect_attribute_mesh_lod_config: Default::default(),
       wgpu_backend_select_override: None,
       enable_indirect_storage_combine: true,
       use_native_line_for_one_width_line: true,
@@ -179,6 +182,7 @@ impl Default for ViewerInitConfig {
       light_surface_ty: ViewerLightSurfaceType::Pbr,
       init_only: ViewerStaticInitConfig::default(),
       enable_db_ref_integrity_check_within_rendering: false,
+      attribute_mesh_lod_threshold_pixels: 2.0,
     }
   }
 }

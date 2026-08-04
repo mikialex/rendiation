@@ -1,12 +1,10 @@
 use crate::*;
 
-/// the screen space error threshold to switch to a coarser level, in pixels
-const LOD_ERROR_THRESHOLD_PIXELS: f32 = 2.;
-
 #[derive(Clone)]
 pub(super) struct AttributeLODMeshIndirectDrawCreator {
   pub(super) internal: AttributeMeshIndirectDrawCreator,
-  pub(super) level_meta: AbstractReadonlyStorageBuffer<[Vec2<u32>]>,
+  pub(super) level_meta: AbstractReadonlyStorageBuffer<[Vec3<u32>]>,
+  pub(super) level_meta_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<Vec3<u32>>>,
   pub(super) lod_levels: AbstractReadonlyStorageBuffer<[LODLevelInfo]>,
   // used to scale the error metrics
   pub(super) sm_node_info: Box<dyn IndirectNodeInfoSceneModelAccess>,
@@ -19,12 +17,39 @@ pub struct LODCameraInfo {
   pub camera: UniformBufferDataView<CameraGPUTransform>,
   // (width, height, padding, padding)
   pub view_resolution: UniformBufferDataView<Vec4<u32>>,
+  /// the screen space error threshold to switch to a coarser level, in pixels,
+  /// only the x component is used, the rest is padding
+  pub lod_error_threshold: UniformBufferDataView<Vec4<f32>>,
 }
 
 impl IndexedDrawCommandBuilder for AttributeLODMeshIndirectDrawCreator {
-  fn draw_command_host_access(&self, _id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
-    // not supported yet.
-    None
+  fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
+    // the host access only draws the root level(the origin mesh), no lod selection is done here
+    // todo, we could do lod selection in future
+    let mesh_id = self.internal.sm_to_mesh.access(&id.into_raw()).unwrap();
+    let address_info = self
+      .internal
+      .vertex_address_buffer_host
+      .get(mesh_id.alloc_index())
+      .unwrap();
+
+    if address_info.index_offset == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {
+      return None;
+    }
+
+    let level_info = self.level_meta_host.get(mesh_id.alloc_index()).unwrap();
+
+    let start = address_info.index_offset;
+    // the root level count is the origin index element count, same as the count
+    // semantics in the non-lod draw command host access
+    let count = level_info.z;
+    let end = start + count;
+    DrawCommand::Indexed {
+      base_vertex: 0,
+      indices: start..end,
+      instances: 0..1,
+    }
+    .into()
   }
 
   fn build_invocation(
@@ -38,6 +63,7 @@ impl IndexedDrawCommandBuilder for AttributeLODMeshIndirectDrawCreator {
       lod_levels: cx.bind_by(&self.lod_levels),
       camera: cx.bind_by(&self.lod_camera_info.camera),
       view_resolution: cx.bind_by(&self.lod_camera_info.view_resolution),
+      lod_error_threshold: cx.bind_by(&self.lod_camera_info.lod_error_threshold),
       sm_node_info: self.sm_node_info.build(&mut cx.bindgroups),
       sm_world_aabb_info: self
         .sm_world_aabb_info
@@ -53,6 +79,7 @@ impl IndexedDrawCommandBuilder for AttributeLODMeshIndirectDrawCreator {
     builder.bind(&self.lod_levels);
     builder.bind(&self.lod_camera_info.camera);
     builder.bind(&self.lod_camera_info.view_resolution);
+    builder.bind(&self.lod_camera_info.lod_error_threshold);
     self.sm_node_info.bind(builder);
     self.sm_world_aabb_info.bind(builder);
   }
@@ -60,15 +87,21 @@ impl IndexedDrawCommandBuilder for AttributeLODMeshIndirectDrawCreator {
 
 impl ShaderHashProvider for AttributeLODMeshIndirectDrawCreator {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.internal.hash_pipeline(hasher);
+    self.sm_node_info.hash_pipeline_with_type_info(hasher);
+    self.sm_world_aabb_info.hash_pipeline_with_type_info(hasher);
+  }
 }
 
 pub struct AttributeMeshLODIndirectDrawCreatorInvocation {
   metadata: ShaderReadonlyPtrOf<[AttributeMeshMeta]>,
-  level_meta: ShaderReadonlyPtrOf<[Vec2<u32>]>,
+  level_meta: ShaderReadonlyPtrOf<[Vec3<u32>]>,
   lod_levels: ShaderReadonlyPtrOf<[LODLevelInfo]>,
   sm_to_mesh_device: ShaderReadonlyPtrOf<[u32]>,
   camera: ShaderReadonlyPtrOf<CameraGPUTransform>,
   view_resolution: ShaderReadonlyPtrOf<Vec4<u32>>,
+  lod_error_threshold: ShaderReadonlyPtrOf<Vec4<f32>>,
   sm_node_info: Box<dyn IndirectNodeInfoSceneModelAccessInvocation>,
   sm_world_aabb_info: Box<dyn DrawUnitWorldBoundingInvocationProvider>,
   used_in_midc_downgrade: bool,
@@ -147,6 +180,7 @@ impl IndexedDrawCommandBuilderInvocation for AttributeMeshLODIndirectDrawCreator
 
     let selected_offset = val(0u32).make_local_var();
     let selected_count = fallback_count.make_local_var();
+    let error_threshold = self.lod_error_threshold.load().x();
 
     if_by(has_lod, || {
       let level_index = (level_count - val(1)).make_local_var();
@@ -158,7 +192,7 @@ impl IndexedDrawCommandBuilderInvocation for AttributeMeshLODIndirectDrawCreator
           .expand();
         let projected_error = info.error * world_scale * pixel_per_unit;
         let should_select = projected_error
-          .less_equal_than(val(LOD_ERROR_THRESHOLD_PIXELS))
+          .less_equal_than(error_threshold)
           .or(level_index.load().equals(val(0)));
         if_by(should_select, || {
           selected_offset.store(info.index_offset);

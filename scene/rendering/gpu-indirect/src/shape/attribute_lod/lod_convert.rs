@@ -32,9 +32,11 @@ pub struct AttributeMeshLODConvertResult {
 pub fn process_attribute_mesh_lod(
   cx: &mut impl QueryHookCxLike,
   mesh_changes: UseResult<AttributesMeshDataChangeInput>,
+  lod_config: &AttributeLODConfig,
 ) -> AttributeMeshLODConvertResult {
+  let lod_config = lod_config.clone();
   let (converted, converted_) = mesh_changes
-    .map_spawn_stage_in_thread_data_changes(cx, |meshes_changes| {
+    .map_spawn_stage_in_thread_data_changes(cx, move |meshes_changes| {
       let mut processed_meshes = Vec::new();
       let mut level_infos = Vec::new();
 
@@ -42,7 +44,7 @@ pub fn process_attribute_mesh_lod(
 
       for (id, new_mesh) in meshes_changes.iter_update_or_insert() {
         if let Some(new_mesh_) = new_mesh.if_loaded_ref() {
-          let processed = process_lod_attribute_mesh(&new_mesh_);
+          let processed = process_lod_attribute_mesh(&new_mesh_, &lod_config);
           processed_meshes.push((id, UriLoadResult::LivingOrLoaded(processed.content)));
           level_infos.push((id, processed.lod_levels));
         } else {
@@ -74,36 +76,39 @@ pub fn process_attribute_mesh_lod(
   }
 }
 
-// the inactive mode is a dead code by design, switched by the const below
-#[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, Eq)]
-enum LODConversionMode {
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Serialize, Deserialize)]
+pub enum LODConversionMode {
+  /// disable the lod conversion (as well as the lod effect)
+  Disabled,
   /// each level's index count is the half of the previous level, edge collapse first, sloppy as fallback
   HalfCount,
   /// each level's error is doubled, edge collapse is dominated by the error limit
   ErrorDoubling,
 }
 
-/// the current conversion mode
-const LOD_CONVERSION_MODE: LODConversionMode = LODConversionMode::HalfCount;
+#[derive(Copy, Clone, Debug)]
+#[derive(Serialize, Deserialize)]
+pub struct ErrorDoublingConfig {
+  /// base error factor, relative to the mesh's bounding box extent
+  pub base_error_factor: f32,
+  /// max error factor
+  pub max_error_factor: f32,
+}
 
-/// meshes with less triangles than this are not converted, the benefit is too low
-const MIN_LOD_TRIANGLE_COUNT: usize = 32;
-
-/// error doubling mode's base error factor, relative to the mesh's bounding box extent
-const ERROR_DOUBLING_BASE_ERROR_FACTOR: f32 = 1e-3;
-
-/// error doubling mode's max error factor
-const ERROR_DOUBLING_MAX_ERROR_FACTOR: f32 = 0.1;
-
-struct SimplifiedLevel {
-  indices: Vec<u32>,
-  error: f32,
+impl Default for ErrorDoublingConfig {
+  fn default() -> Self {
+    Self {
+      base_error_factor: 1e-3,
+      max_error_factor: 0.1,
+    }
+  }
 }
 
 /// if the mesh is not able to do lod for some reason, just output the origin index as the only level
 fn process_lod_attribute_mesh(
   input_mesh: &AttributesMeshWithVertexRelationInfo,
+  lod_config: &AttributeLODConfig,
 ) -> AttributeLODMeshData {
   let Some(indices) = &input_mesh.indices else {
     return only_origin_level(input_mesh);
@@ -131,7 +136,7 @@ fn process_lod_attribute_mesh(
   };
 
   let triangle_count = indices.count / 3;
-  if triangle_count < MIN_LOD_TRIANGLE_COUNT {
+  if triangle_count < lod_config.min_lod_triangle_count {
     return only_origin_level(input_mesh);
   }
 
@@ -170,15 +175,26 @@ fn process_lod_attribute_mesh(
     return only_origin_level(input_mesh);
   }
 
-  let levels = match LOD_CONVERSION_MODE {
-    LODConversionMode::HalfCount => simplify_half_count(&indices_u32, positions, extent),
-    LODConversionMode::ErrorDoubling => simplify_error_doubling(&indices_u32, positions, extent),
+  let levels = match lod_config.lod_conversion_mode {
+    LODConversionMode::HalfCount => {
+      simplify_half_count(lod_config, &indices_u32, positions, extent)
+    }
+    LODConversionMode::ErrorDoubling => {
+      simplify_error_doubling(lod_config, &indices_u32, positions, extent)
+    }
+    LODConversionMode::Disabled => return only_origin_level(input_mesh),
   };
 
   build_merged_lod_mesh(input_mesh, &indices_u32, vertex_count, &levels)
 }
 
+struct SimplifiedLevel {
+  indices: Vec<u32>,
+  error: f32,
+}
+
 fn simplify_half_count(
+  lod_config: &AttributeLODConfig,
   indices: &[u32],
   positions: &[Vec3<f32>],
   extent: f32,
@@ -191,7 +207,7 @@ fn simplify_half_count(
 
   loop {
     let target = prev_count / 2;
-    if target < MIN_LOD_TRIANGLE_COUNT * 3 {
+    if target < lod_config.min_lod_triangle_count * 3 {
       break;
     }
 
@@ -231,7 +247,7 @@ fn simplify_half_count(
       )
     };
 
-    if result_count >= prev_count || result_count < MIN_LOD_TRIANGLE_COUNT * 3 {
+    if result_count >= prev_count || result_count < lod_config.min_lod_triangle_count * 3 {
       break;
     }
 
@@ -251,6 +267,7 @@ fn simplify_half_count(
 }
 
 fn simplify_error_doubling(
+  lod_config: &AttributeLODConfig,
   indices: &[u32],
   positions: &[Vec3<f32>],
   extent: f32,
@@ -260,11 +277,11 @@ fn simplify_error_doubling(
   let mut prev_error = 0.;
   let mut dst = vec![0u32; indices.len()];
 
-  let mut target_error = extent * ERROR_DOUBLING_BASE_ERROR_FACTOR;
-  let max_error = extent * ERROR_DOUBLING_MAX_ERROR_FACTOR;
+  let mut target_error = extent * lod_config.error_double_mode_config.base_error_factor;
+  let max_error = extent * lod_config.error_double_mode_config.max_error_factor;
 
   loop {
-    if target_error > max_error || prev_count < MIN_LOD_TRIANGLE_COUNT * 3 {
+    if target_error > max_error || prev_count < lod_config.min_lod_triangle_count * 3 {
       break;
     }
 
@@ -275,14 +292,16 @@ fn simplify_error_doubling(
       None,
       EdgeCollapseConfig {
         // the error limit dominates the simplification
-        target_index_count: MIN_LOD_TRIANGLE_COUNT * 3,
+        target_index_count: lod_config.min_lod_triangle_count * 3,
         target_error,
         use_absolute_error: true,
         lock_border: true,
       },
     );
 
-    if result.result_count >= prev_count || result.result_count < MIN_LOD_TRIANGLE_COUNT * 3 {
+    if result.result_count >= prev_count
+      || result.result_count < lod_config.min_lod_triangle_count * 3
+    {
       break;
     }
 
