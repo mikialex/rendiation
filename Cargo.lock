@@ -4765,6 +4765,7 @@ dependencies = [
  "rendiation-lighting-punctual",
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
+ "rendiation-mesh-simplification",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",

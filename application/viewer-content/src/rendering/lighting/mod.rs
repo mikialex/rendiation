@@ -66,6 +66,7 @@ impl LightSystem {
     reversed_depth: bool,
     renderer: &dyn SceneRenderer,
     extractor: &dyn SceneBatchBasicExtractAbility,
+    current_lod_camera: &CurrentLODCameraControl,
   ) -> LightingRenderingCx<'_> {
     frame_ctx.next_scope_index();
     self.tonemap.update(frame_ctx.gpu);
@@ -85,7 +86,7 @@ impl LightSystem {
         ..
       } = request;
 
-      let camera = UniformBufferDataView::create(
+      let camera_uniform = UniformBufferDataView::create(
         &frame_ctx.gpu.device,
         CameraGPUTransform::from(CameraTransform::new(
           shadow_camera_proj,
@@ -96,14 +97,33 @@ impl LightSystem {
 
       // we could just use empty pass dispatcher, because the color channel not exist at all
       let depth = ();
-      let camera = Box::new(CameraGPU { ubo: camera }) as Box<dyn RenderComponent>;
+      let camera = Box::new(CameraGPU {
+        ubo: camera_uniform.clone(),
+      }) as Box<dyn RenderComponent>;
       let batch = extractor.extract_scene_batch(scene_id, key, renderer);
 
       frame_ctx.keyed_scope(&shadow_id, |frame_ctx| {
+        current_lod_camera.set(Some(LODCameraInfo {
+          camera: camera_uniform,
+          view_resolution: create_uniform(
+            // todo, avoid recreate
+            Vec4::new(
+              map_desc.address.size.x as u32,
+              map_desc.address.size.y as u32,
+              0,
+              0,
+            ),
+            &frame_ctx.gpu.device,
+            "viewport resolution",
+          ),
+        }));
+
         let mut content =
           renderer.use_make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
 
         map_desc.render_ctx(frame_ctx).by(&mut content);
+
+        current_lod_camera.set(None);
       });
       shadow_id += 1;
     };

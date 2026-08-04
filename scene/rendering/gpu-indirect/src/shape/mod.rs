@@ -3,6 +3,9 @@ use crate::*;
 mod attribute;
 pub use attribute::*;
 
+mod attribute_lod;
+pub use attribute_lod::*;
+
 pub struct IndicesBufferInfo {
   pub buffer: AbstractReadonlyStorageBuffer<[u32]>,
   pub should_access_as_u16: bool,
