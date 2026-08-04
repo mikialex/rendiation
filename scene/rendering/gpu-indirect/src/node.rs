@@ -1,12 +1,13 @@
 use crate::*;
 
-pub trait IndirectNodeInfoSceneModelAccess: ShaderHashProvider {
+pub trait IndirectNodeInfoSceneModelAccess: ShaderHashProvider + dyn_clone::DynClone {
   fn build(
     &self,
     cx: &mut ShaderBindGroupBuilder,
   ) -> Box<dyn IndirectNodeInfoSceneModelAccessInvocation>;
   fn bind(&self, builder: &mut BindingBuilder);
 }
+dyn_clone::clone_trait_object!(IndirectNodeInfoSceneModelAccess);
 
 pub trait IndirectNodeInfoSceneModelAccessInvocation {
   fn get_node_info(
@@ -192,6 +193,7 @@ impl NodeStorage {
   }
 }
 
+#[derive(Clone)]
 pub struct NodeGPUStorage<'a> {
   sm_to_node: &'a AbstractReadonlyStorageBuffer<[u32]>,
   node_to_node_data: &'a AbstractReadonlyStorageBuffer<[NodeStorage]>,

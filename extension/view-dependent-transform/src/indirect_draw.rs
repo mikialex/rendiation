@@ -214,6 +214,7 @@ impl IndirectNodeRenderImpl for OverrideNodeIndirectGPU {
   }
 }
 
+#[derive(Clone)]
 pub struct NodeGPUStorageWithOverride<'a, T> {
   base: T,
   // this is optional, as in some case(shadow pass), it not exist any override data.
@@ -230,8 +231,9 @@ impl<'a, T: ShaderHashProvider> ShaderHashProvider for NodeGPUStorageWithOverrid
     self.base.hash_pipeline(hasher);
   }
 }
-impl<'a, T: IndirectNodeInfoSceneModelAccess> IndirectNodeInfoSceneModelAccess
-  for NodeGPUStorageWithOverride<'a, T>
+impl<'a, T> IndirectNodeInfoSceneModelAccess for NodeGPUStorageWithOverride<'a, T>
+where
+  T: IndirectNodeInfoSceneModelAccess + Clone,
 {
   fn build(
     &self,

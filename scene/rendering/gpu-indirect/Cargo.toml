@@ -28,5 +28,7 @@ rendiation-webgpu-midc-downgrade = { path = "../../../platform/graphics/webgpu-m
 rendiation-webgpu-texture-as-buffer = { path = "../../../platform/graphics/webgpu-texture-as-buffer" }
 rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
 bytemuck = { workspace = true }
+dyn-clone = { workspace = true }
+
 [lints]
 workspace = true

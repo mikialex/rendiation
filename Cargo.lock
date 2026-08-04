@@ -4754,6 +4754,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
+ "dyn-clone",
  "fast-hash-collection",
  "log",
  "parking_lot",
