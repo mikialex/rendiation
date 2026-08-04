@@ -29,8 +29,8 @@ pub struct ShadowMapDrawRequest {
 }
 
 pub struct ShadowPassDesc {
-  desc: RenderPassDescription,
-  address: ShadowMapAddressInfo,
+  pub desc: RenderPassDescription,
+  pub address: ShadowMapAddressInfo,
 }
 
 impl ShadowPassDesc {

@@ -631,6 +631,8 @@ impl Viewer3dRenderingCtx {
         ctx.frame_size = viewport.render_pixel_size();
 
         renderer.active_view_control.set(Some(viewport.id));
+        // view dep view control is not set in shadow pass, we could but we didn't do it
+        // because it means the shadow map can not be shared for each view.
         view_renderer.use_render(
           ctx,
           &mut renderer,

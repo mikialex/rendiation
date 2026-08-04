@@ -205,7 +205,6 @@ impl IndirectNodeRenderImpl for OverrideNodeIndirectGPU {
 #[derive(Clone)]
 pub struct NodeGPUStorageWithOverride<T> {
   base: T,
-  // overrides: Option<&'a PerViewGPUResource>, todo remove
   overrides: LockReadGuardHolder<FastHashMap<ViewKey, PerViewGPUResource>>,
   // // this is optional, as in some case(shadow pass), it not exist any override data.
   current_view: Option<ViewKey>,
