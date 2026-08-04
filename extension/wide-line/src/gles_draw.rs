@@ -40,7 +40,8 @@ pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineM
           ExternalRefPtr::new(expanded)
         })
     })
-    .map(|v| v.map_changes_key(|k| k.index()));
+    .map(|v| v.map_changes_key(|k| k.index()))
+    .use_assure_result(cx); // maintain_shared_map require readied result.
 
   maintain_shared_map(&mesh, data, |buffer| {
     let buffer = create_gpu_buffer(
