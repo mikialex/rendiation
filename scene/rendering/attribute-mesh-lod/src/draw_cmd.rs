@@ -3,8 +3,8 @@ use crate::*;
 #[derive(Clone)]
 pub(super) struct AttributeLODMeshIndirectDrawCreator {
   pub(super) internal: AttributeMeshIndirectDrawCreator,
-  pub(super) level_meta: AbstractReadonlyStorageBuffer<[Vec3<u32>]>,
-  pub(super) level_meta_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<Vec3<u32>>>,
+  pub(super) level_meta: AbstractReadonlyStorageBuffer<[Vec4<u32>]>,
+  pub(super) level_meta_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<Vec4<u32>>>,
   pub(super) lod_levels: AbstractReadonlyStorageBuffer<[LODLevelInfo]>,
   // used to scale the error metrics
   pub(super) sm_node_info: Box<dyn IndirectNodeInfoSceneModelAccess>,
@@ -96,7 +96,7 @@ impl ShaderHashProvider for AttributeLODMeshIndirectDrawCreator {
 
 pub struct AttributeMeshLODIndirectDrawCreatorInvocation {
   metadata: ShaderReadonlyPtrOf<[AttributeMeshMeta]>,
-  level_meta: ShaderReadonlyPtrOf<[Vec3<u32>]>,
+  level_meta: ShaderReadonlyPtrOf<[Vec4<u32>]>,
   lod_levels: ShaderReadonlyPtrOf<[LODLevelInfo]>,
   sm_to_mesh_device: ShaderReadonlyPtrOf<[u32]>,
   camera: ShaderReadonlyPtrOf<CameraGPUTransform>,
@@ -115,15 +115,30 @@ impl IndexedDrawCommandBuilderInvocation for AttributeMeshLODIndirectDrawCreator
     let mesh_handle: Node<u32> = self.sm_to_mesh_device.index(draw_id).load();
     let meta = self.metadata.index(mesh_handle);
 
-    // the fallback is the origin level draw, same as the mesh without any lod
+    // the level meta contains (levels offset, level count, root level count),
+    // the root level count is the origin mesh's real index element count,
+    // same as the count semantics of the host access
+    let level_range = self.level_meta.index(mesh_handle).load();
+    let level_start = level_range.x();
+    let level_count = level_range.y();
+    let root_count = level_range.z();
+
     let is_u16 = meta.is_u16_indices().load().into_bool();
     let is_u16_padded = meta.is_u16_indices_padded().load().into_bool();
 
+    // the fallback draws the root level(the origin mesh), same as the host access,
+    // and the root count is already the real index element count, no u16 expansion needed.
+    // if the mesh has no level metadata(for example the mesh data is still loading),
+    // fall back to the whole mesh as a non-lod mesh instead
+    let meta_count = meta.count().load();
+    let mesh_count = is_u16.select(meta_count * val(2), meta_count);
     // u16 indices are packed two per u32, an odd count leaves the last u32 holding only
     // one index plus 2 padding bytes, so the real index count is 2 * count - 1
-    let meta_count = meta.count().load();
-    let fallback_count = is_u16.select(meta_count * val(2), meta_count);
-    let fallback_count = is_u16_padded.select(fallback_count - val(1), fallback_count);
+    let mesh_count = is_u16_padded.select(mesh_count - val(1), mesh_count);
+    let has_level_meta = level_count
+      .greater_than(val(0))
+      .and(level_start.not_equals(val(DEVICE_RANGE_ALLOCATE_FAIL_MARKER)));
+    let fallback_count = has_level_meta.select(root_count, mesh_count);
 
     // the projected screen space error of a level:
     //   projected = world_error * viewport_height * focal_y / (2 * distance)   [perspective]
@@ -169,10 +184,6 @@ impl IndexedDrawCommandBuilderInvocation for AttributeMeshLODIndirectDrawCreator
     // the level selection: iterate from the coarsest level to the finest,
     // pick the first one whose projected error is under the threshold,
     // the level 0 is always the fallback
-    let level_range = self.level_meta.index(mesh_handle).load();
-    let level_start = level_range.x();
-    let level_count = level_range.y();
-
     // the allocation is failed if the offset is the fail marker
     let has_lod = level_count
       .greater_than(val(1))

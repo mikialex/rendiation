@@ -77,7 +77,7 @@ pub fn use_attribute_lod_mesh_indirect_renderer(
 
   // the level meta contains (levels offset, level count, root level count),
   // the root level count is used by the host access to draw the origin mesh without lod
-  let (cx, level_meta) = cx.use_storage_buffer_with_host_backup::<Vec3<u32>>(
+  let (cx, level_meta) = cx.use_storage_buffer_with_host_backup::<Vec4<u32>>(
     "attribute lod mesh levels range info",
     128,
     u32::MAX,
@@ -98,7 +98,7 @@ pub fn use_attribute_lod_mesh_indirect_renderer(
   root_count_changes.update_storage_array_with_host(
     cx,
     level_meta,
-    std::mem::offset_of!(Vec3<u32>, z),
+    std::mem::offset_of!(Vec4<u32>, z),
   );
 
   level_meta.use_max_item_count_by_db_entity::<AttributesMeshEntity>(cx);
@@ -119,8 +119,8 @@ pub fn use_attribute_lod_mesh_indirect_renderer(
 }
 
 pub struct AttributeLODMeshIndirectRenderer {
-  level_meta: AbstractReadonlyStorageBuffer<[Vec3<u32>]>,
-  level_meta_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<Vec3<u32>>>,
+  level_meta: AbstractReadonlyStorageBuffer<[Vec4<u32>]>,
+  level_meta_host: LockReadGuardHolder<SparseStorageBufferWithHostRaw<Vec4<u32>>>,
   lod_levels: AbstractReadonlyStorageBuffer<[LODLevelInfo]>,
   sm_node_info: Box<dyn IndirectNodeRenderImpl>,
   sm_world_aabb_info: Box<dyn DrawUnitWorldBoundingProvider>,

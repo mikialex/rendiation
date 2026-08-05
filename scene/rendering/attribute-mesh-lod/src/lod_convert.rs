@@ -358,6 +358,12 @@ fn build_merged_lod_mesh(
   let content = if use_u16 {
     let mut merged = Vec::<u16>::with_capacity(origin_indices.len() + simplified_levels.len() * 2);
     merged.extend(origin_indices.iter().map(|v| *v as u16));
+    // pad the origin level's tail to an even element count as well, otherwise when the
+    // origin element count is odd the first level's offset would fall on a u32 slot that
+    // crosses the origin/level1 boundary, and the device base index can not express it
+    if merged.len() % 2 == 1 {
+      merged.push(0);
+    }
     for level in simplified_levels {
       // the level's offset must be aligned to the u32 slot, otherwise in the midc downgrade
       // mode the u16 index pool is read as u32 slots on device and the base index can not
