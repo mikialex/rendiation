@@ -20,7 +20,9 @@ pub fn use_occ_style_view_dependent_transform_data(
 ) -> UseResult<DualQueryHashMaterialized<ViewSceneModelKey, Mat4<f64>>> {
   let source = cx
     .use_dual_query::<SceneModelViewDependentTransformOcc>()
-    .dual_query_filter_map(|v| v);
+    .dual_query_filter_map(|v| v)
+    // todo, eagerly materialize to avoid huge delta size hint to cross join
+    .use_dual_query_materialized_hashmap(cx, "SceneModelViewDependentTransformOcc materialized");
 
   let camera_target = cx.use_dual_query::<SceneCameraLookAt>();
   let camera_transforms = camera_transforms

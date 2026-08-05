@@ -24,6 +24,7 @@ pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineM
 
   let offset = offset_of!(WideLineUniform, color);
   cx.use_changes::<WideLineColor>()
+    .map_changes(srgb4_to_linear4)
     .update_uniforms(&uniform, offset, cx.gpu);
 
   let mesh = cx.use_shared_hash_map("wide line mesh gles");

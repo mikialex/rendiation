@@ -59,7 +59,9 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
 
     let models_contains_view_dep = cx
       .use_dual_query::<SceneModelViewDependentTransformOcc>()
-      .dual_query_filter_map(|v| v);
+      .dual_query_filter_map(|v| v)
+      // todo, eagerly materialize to avoid huge delta size hint to cross join
+      .use_dual_query_materialized_hashmap(cx, "SceneModelViewDependentTransformOcc materialized");
 
     scene_model_world_mat
       .dual_query_boxed()

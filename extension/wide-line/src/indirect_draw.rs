@@ -105,7 +105,10 @@ pub fn use_widen_line_indirect_renderer(
   let offset = std::mem::offset_of!(WideLineParameters, is_line_strip);
   change.update_storage_array_with_host(cx, params, offset);
 
-  let change = cx.use_dual_query::<WideLineColor>().into_delta_change();
+  let change = cx
+    .use_dual_query::<WideLineColor>()
+    .into_delta_change()
+    .map_changes(srgb4_to_linear4);
   let offset = std::mem::offset_of!(WideLineParameters, color);
   change.update_storage_array_with_host(cx, params, offset);
 
