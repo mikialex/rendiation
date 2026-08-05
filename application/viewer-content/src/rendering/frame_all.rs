@@ -266,6 +266,7 @@ impl Viewer3dRenderingCtx {
 
         let mesh_changes = viewer_mesh_input(cx);
         let (mesh_changes, mesh_changes_) = mesh_changes.fork();
+        let (mesh_changes_, mesh_changes__) = mesh_changes_.fork();
 
         let mesh = use_attribute_lod_mesh_indirect_renderer(
           cx,
@@ -381,6 +382,8 @@ impl Viewer3dRenderingCtx {
         );
         model_buffer_merge.end(cx);
 
+        let mesh_key = attribute_mesh_group_key(cx, mesh_changes__);
+
         if !self.using_host_driven_indirect_draw {
           cx.scope(|cx| {
             let wide_line_key = use_wide_line_group_key(cx, use_native_line_for_one_width_line);
@@ -405,7 +408,7 @@ impl Viewer3dRenderingCtx {
             };
 
             use rendiation_occ_style_draw_control::*;
-            let internal = use_scene_model_group_key(cx, key_impl);
+            let internal = use_scene_model_group_key(cx, key_impl, mesh_key);
 
             let (internal, internal_) = internal.fork();
             let instance = use_transform_instanced_model_group_key(cx, internal);

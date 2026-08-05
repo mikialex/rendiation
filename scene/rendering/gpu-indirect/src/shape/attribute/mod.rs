@@ -551,7 +551,8 @@ impl IndirectDrawProviderCreator for AttributeMeshIndirectRenderer {
     let indices_ty = self.indices_ty.access(mesh_id.raw_handle_ref());
     fast_hash_scope(|hasher| {
       self.type_id().hash(hasher);
-      indices_ty.hash(hasher);
+      // index type not matters
+      indices_ty.is_some().hash(hasher);
     })
     .into()
   }

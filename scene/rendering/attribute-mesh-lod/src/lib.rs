@@ -162,7 +162,8 @@ impl IndirectDrawProviderCreator for AttributeLODMeshIndirectRenderer {
 
     fast_hash_scope(|hasher| {
       self.type_id().hash(hasher);
-      indices_ty.hash(hasher);
+      // index type not matters
+      indices_ty.is_some().hash(hasher);
     })
     .into()
   }

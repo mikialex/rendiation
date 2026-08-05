@@ -43,7 +43,7 @@ pub fn use_scene_model_group_key_with_scene_id_and_visible_filter(
     .use_dual_query::<SceneModelBelongsToScene>()
     .dual_query_filter_map(|v| v);
 
-  let group_key = internal.dual_query_zip(scene_id).dual_query_boxed();
+  let group_key = internal.dual_query_intersect(scene_id).dual_query_boxed();
 
   let visible_scene_models = use_global_node_net_visible(cx)
     .fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>(), cx)
@@ -52,7 +52,7 @@ pub fn use_scene_model_group_key_with_scene_id_and_visible_filter(
   let visible_scene_models_db = cx.use_dual_query::<SceneModelVisible>();
 
   let visible_scene_models = visible_scene_models
-    .dual_query_zip(visible_scene_models_db)
+    .dual_query_intersect(visible_scene_models_db)
     .dual_query_filter_map(|(v, visible)| (v & visible).then_some(()))
     .dual_query_boxed();
 
@@ -64,6 +64,7 @@ pub fn use_scene_model_group_key_with_scene_id_and_visible_filter(
 pub fn use_scene_model_group_key(
   cx: &mut QueryGPUHookCx,
   foreign: GroupKeyForeignImpl,
+  att_mesh: UseResult<BoxedDynDualQuery<RawEntityHandle, AttributeMeshRenderHashKey>>,
 ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, SceneModelGroupKey>> {
   let material = use_indirect_material_indirect_group_key(cx);
   let material = if let Some(foreign) = foreign.material {
@@ -72,7 +73,9 @@ pub fn use_scene_model_group_key(
     material
   };
 
-  let mesh = attribute_mesh_group_key(cx);
+  let mesh = att_mesh
+    .dual_query_map(MeshGroupKey::Attribute)
+    .dual_query_boxed();
   let mesh = if let Some(foreign) = foreign.mesh {
     mesh.dual_query_select(foreign).dual_query_boxed()
   } else {
@@ -83,8 +86,9 @@ pub fn use_scene_model_group_key(
 
   let state_id = cx.use_shared_dual_query(StateIntern);
 
+  // mesh maybe not loaded at all, so we must use intersect. so did other intersect logic
   let r = material
-    .dual_query_zip(mesh)
+    .dual_query_intersect(mesh)
     .dual_query_union(state_id, |(a, s)| Some((a?, s)))
     .dual_query_map(
       |((material, mesh), state_id)| SceneModelGroupKey::Standard {
@@ -105,27 +109,39 @@ pub fn use_scene_model_group_key(
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum MeshGroupKey {
-  Attribute {
-    is_index: bool,
-    topology: rendiation_scene_core::MeshPrimitiveTopology,
-  },
+  Attribute(AttributeMeshRenderHashKey),
   ForeignHash(u64),
 }
 
-fn attribute_mesh_group_key(
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct AttributeMeshRenderHashKey {
+  index_ty: Option<IndexFormat>,
+  topology: MeshPrimitiveTopology,
+}
+
+/// std -> mesh key
+pub fn attribute_mesh_group_key(
   cx: &mut QueryGPUHookCx,
-) -> UseResult<BoxedDynDualQuery<RawEntityHandle, MeshGroupKey>> {
-  let is_index = cx
-    .use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>()
-    .dual_query_map(|v| v.is_some());
-
-  let topology = cx.use_dual_query::<AttributesMeshEntityTopology>();
-  let model_ref = cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>();
-
-  is_index
-    .dual_query_zip(topology)
-    .dual_query_map(|(is_index, topology)| MeshGroupKey::Attribute { is_index, topology })
-    .fanout(model_ref, cx)
+  mesh_input: UseResult<AttributesMeshDataChangeInput>,
+) -> UseResult<BoxedDynDualQuery<RawEntityHandle, AttributeMeshRenderHashKey>> {
+  mesh_input
+    .filter_map_changes(|v| {
+      v.if_loaded_ref().map(|v| AttributeMeshRenderHashKey {
+        index_ty: v.indices.as_ref().map(|v| {
+          if v.byte_view().len() / v.count == 4 {
+            IndexFormat::Uint32
+          } else {
+            IndexFormat::Uint16
+          }
+        }),
+        topology: v.mode,
+      })
+    })
+    .use_change_to_dual_query_in_spawn_stage(cx)
+    .fanout(
+      cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>(),
+      cx,
+    )
     .dual_query_boxed()
 }
 
