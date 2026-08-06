@@ -77,7 +77,7 @@ impl TraceReplayTarget for RendiationCxAPITraceEvent {
     11
   }
   fn is_replay_target(&self) -> bool {
-    false
+    true
   }
 }
 

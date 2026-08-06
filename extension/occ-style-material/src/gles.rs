@@ -171,7 +171,7 @@ impl GraphicsShaderProvider for OccStyleMaterialGPU<'_> {
         .query::<FragmentFrontFacing>()
         .select(uniform.diffuse, uniform.diffuse_backface);
 
-      auto_reverse_normal(builder);
+      auto_reverse_normal_by_face_order(builder);
 
       builder.insert_type_tag::<OccSurfaceTag>();
 

@@ -136,12 +136,12 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
             ui.label(format!("{} — {}/{} records", rs.file_name, pos, total));
 
             ui.horizontal(|ui| {
-              if ui.button(">").clicked() {
+              if ui.button("step").clicked() {
                 step_forward(&mut rs.loaded.state, &db);
                 rs.scroll_to_current = true;
               }
-              if ui.button(">|").clicked() {
-                restart_and_run_to(&mut rs.loaded.state, &db, total);
+              if ui.button(">").is_pointer_button_down_on() {
+                step_forward(&mut rs.loaded.state, &db);
                 rs.scroll_to_current = true;
               }
               if ui.button("scroll to current").clicked() {

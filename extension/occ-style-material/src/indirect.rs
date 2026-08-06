@@ -206,7 +206,7 @@ impl GraphicsShaderProvider for OccStyleMaterialStorageGPU<'_> {
 
       builder.insert_type_tag::<OccSurfaceTag>();
 
-      auto_reverse_normal(builder);
+      auto_reverse_normal_by_face_order(builder);
 
       match self.shade_type {
         OccStyleEffectType::Unlit => {

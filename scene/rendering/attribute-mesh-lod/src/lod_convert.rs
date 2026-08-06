@@ -117,6 +117,8 @@ impl Default for ErrorDoublingConfig {
   }
 }
 
+// todo return error type and warn invalid input
+//
 /// if the mesh is not able to do lod for some reason, just output the origin index as the only level
 fn process_lod_attribute_mesh(
   input_mesh: &AttributesMeshWithVertexRelationInfo,
@@ -197,7 +199,7 @@ fn process_lod_attribute_mesh(
     LODConversionMode::Disabled => return only_origin_level(input_mesh),
   };
 
-  build_merged_lod_mesh(input_mesh, &indices_u32, vertex_count, &levels)
+  build_merged_lod_mesh(input_mesh, &indices_u32, byte_per_item == 2, &levels)
 }
 
 struct SimplifiedLevel {
@@ -297,6 +299,7 @@ fn simplify_error_doubling(
       break;
     }
 
+    // todo, we should optimize this to do multi level at once?
     let result = simplify_by_edge_collapse(
       &mut dst,
       indices,
@@ -340,13 +343,9 @@ fn simplify_error_doubling(
 fn build_merged_lod_mesh(
   input_mesh: &AttributesMeshWithVertexRelationInfo,
   origin_indices: &[u32],
-  vertex_count: usize,
+  is_origin_mesh_u16: bool,
   simplified_levels: &[SimplifiedLevel],
 ) -> AttributeLODMeshData {
-  // the simplified levels always reference the origin vertex buffer, so the index format
-  // is only decided by the vertex count
-  let use_u16 = vertex_count <= u16::MAX as usize;
-
   let mut levels = Vec::with_capacity(simplified_levels.len() + 1);
   levels.push(LODLevelInfo {
     index_offset: 0,
@@ -355,7 +354,9 @@ fn build_merged_lod_mesh(
     ..Default::default()
   });
 
-  let content = if use_u16 {
+  // we do not do u32 to u16 convert even the data fits, because the draw dispatcher
+  // read origin mesh's index type to emit draw, here we must match.
+  let content = if is_origin_mesh_u16 {
     let mut merged = Vec::<u16>::with_capacity(origin_indices.len() + simplified_levels.len() * 2);
     merged.extend(origin_indices.iter().map(|v| *v as u16));
     // pad the origin level's tail to an even element count as well, otherwise when the

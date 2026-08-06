@@ -225,7 +225,7 @@ pub trait SemanticShaderValueExt {
 impl SemanticShaderValueExt for ShaderFragmentBuilderView<'_> {
   fn will_normal_computed_by_dxdy(&mut self) -> bool {
     self.try_query::<FragmentRenderNormal>().is_none()
-      && self.has_vertex_value::<VertexRenderNormal>()
+      && !self.has_vertex_value::<VertexRenderNormal>()
   }
 
   fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
@@ -260,7 +260,7 @@ impl SemanticShaderValueExt for ShaderFragmentBuilderView<'_> {
   }
 }
 
-pub fn auto_reverse_normal(builder: &mut ShaderFragmentBuilderView) {
+pub fn auto_reverse_normal_by_face_order(builder: &mut ShaderFragmentBuilderView) {
   if !builder.will_normal_computed_by_dxdy() {
     let normal = builder.get_or_compute_fragment_normal().make_local_var();
     if_by(builder.query::<FragmentFrontFacing>().not(), || {
