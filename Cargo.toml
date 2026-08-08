@@ -158,6 +158,7 @@ web-time = "1.1.0"
 
 [profile.dev]
 panic = "abort"
+debug = "line-tables-only"
 
 [profile.dev.package.zune-jpeg]
 opt-level = 3

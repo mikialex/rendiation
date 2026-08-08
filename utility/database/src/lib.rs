@@ -1,6 +1,3 @@
-#![feature(alloc_layout_extra)]
-#![feature(impl_trait_in_assoc_type)]
-
 use std::hash::Hash;
 use std::ops::DerefMut;
 use std::pin::Pin;

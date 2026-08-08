@@ -6,24 +6,27 @@ type MutationData<T> = FastChangeCollector<T>;
 pub fn changes_channel<T>(
   bitmap_init: usize,
   change_init: usize,
-) -> (ChangesMutationSender<T>, ChangesMutationReceiver<T>) {
+) -> (
+  ChangesMutationSenderDataChange<T>,
+  ChangesMutationReceiverDataChange<T>,
+) {
   let inner = Arc::new((
     RwLock::new(MutationData::new(bitmap_init, change_init)),
     AtomicWaker::new(),
   ));
-  let sender = ChangesMutationSender {
+  let sender = ChangesMutationSenderDataChange {
     inner: inner.clone(),
   };
-  let receiver = ChangesMutationReceiver { inner };
+  let receiver = ChangesMutationReceiverDataChange { inner };
 
   (sender, receiver)
 }
 
-pub struct ChangesMutationSender<T> {
+pub struct ChangesMutationSenderDataChange<T> {
   inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)>,
 }
 
-impl<T> Clone for ChangesMutationSender<T> {
+impl<T> Clone for ChangesMutationSenderDataChange<T> {
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
@@ -32,7 +35,7 @@ impl<T> Clone for ChangesMutationSender<T> {
 }
 
 use parking_lot::lock_api::RawRwLock;
-impl<T: CValue> ChangesMutationSender<T> {
+impl<T: CValue> ChangesMutationSenderDataChange<T> {
   /// # Safety
   ///
   /// this should be called before send
@@ -79,17 +82,17 @@ impl<T: CValue> ChangesMutationSender<T> {
 }
 
 /// this is not likely to be triggered because component type is not get removed in any time
-impl<T> Drop for ChangesMutationSender<T> {
+impl<T> Drop for ChangesMutationSenderDataChange<T> {
   fn drop(&mut self) {
     self.inner.1.wake()
   }
 }
 
-pub struct ChangesMutationReceiver<T> {
+pub struct ChangesMutationReceiverDataChange<T> {
   inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)>,
 }
 
-impl<T: CValue> ChangesMutationReceiver<T> {
+impl<T: CValue> ChangesMutationReceiverDataChange<T> {
   pub fn poll_impl(&self, cx: &mut Context) -> Poll<Option<MutationData<T>>> {
     self.inner.1.register(cx.waker());
     let mut changes = self.inner.0.write();
@@ -110,7 +113,7 @@ impl<T: CValue> ChangesMutationReceiver<T> {
   }
 }
 
-impl<T: CValue> Stream for ChangesMutationReceiver<T> {
+impl<T: CValue> Stream for ChangesMutationReceiverDataChange<T> {
   type Item = MutationData<T>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
@@ -122,7 +125,7 @@ pub(crate) fn add_changes_listen<T: CValue>(
   bitmap_init: usize,
   query: impl Query<Key = RawEntityHandle, Value = T>,
   source: &EventSource<ChangePtr>,
-) -> ChangesMutationReceiver<T> {
+) -> ChangesMutationReceiverDataChange<T> {
   let (sender, receiver) = changes_channel::<T>(bitmap_init, 0);
   // expand initial value while first listen.
   unsafe {

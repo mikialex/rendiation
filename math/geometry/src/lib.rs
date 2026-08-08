@@ -1,5 +1,4 @@
 #![feature(type_alias_impl_trait)]
-#![feature(trait_alias)]
 
 use std::iter::FromIterator;
 use std::iter::once;

@@ -3,7 +3,6 @@ use std::sync::Arc;
 use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
 use rendiation_lighting_ibl::*;
-use rendiation_webgpu_hook_utils::*;
 
 use crate::*;
 

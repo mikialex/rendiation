@@ -1,5 +1,3 @@
-#![feature(mapped_lock_guards)]
-
 use std::any::Any;
 use std::any::TypeId;
 use std::marker::PhantomData;

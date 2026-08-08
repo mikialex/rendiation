@@ -1,11 +1,6 @@
-#![feature(impl_trait_in_assoc_type)]
 #![feature(file_buffered)]
-#![feature(stmt_expr_attributes)]
-#![feature(type_alias_impl_trait)]
-#![feature(ptr_metadata)]
 #![feature(iter_array_chunks)]
 #![allow(clippy::collapsible_match)]
-#![feature(cold_path)]
 
 use std::any::Any;
 use std::future::Future;

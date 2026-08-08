@@ -1,5 +1,3 @@
-#![feature(type_alias_impl_trait)]
-
 mod atomic_image_downgrade;
 mod binding;
 mod device;

@@ -1,5 +1,3 @@
-#![feature(hash_set_entry)]
-
 use std::any::Any;
 use std::fmt::Debug;
 use std::marker::PhantomData;

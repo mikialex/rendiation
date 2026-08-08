@@ -10,7 +10,6 @@ mod traverse_gpu;
 use std::ops::{BitAnd, Deref};
 
 use flag::*;
-use parking_lot::*;
 use rendiation_geometry::Box3;
 use rendiation_space_algorithm::bvh::*;
 use rendiation_space_algorithm::utils::TreeBuildOption;

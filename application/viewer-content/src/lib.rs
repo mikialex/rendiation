@@ -1,5 +1,4 @@
 #![feature(impl_trait_in_assoc_type)]
-#![feature(file_buffered)]
 
 use std::any::Any;
 use std::future::Future;

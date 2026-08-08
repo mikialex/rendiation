@@ -1,5 +1,3 @@
-use ::hook::*;
-
 use crate::*;
 
 pub struct QueryGPUHookFeatureCx<'a> {

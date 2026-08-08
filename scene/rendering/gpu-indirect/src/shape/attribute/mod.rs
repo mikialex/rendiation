@@ -2,7 +2,6 @@ use std::{hash::Hash, mem::offset_of, sync::Arc};
 
 use parking_lot::RwLock;
 use rendiation_mesh_core::AttributeSemantic;
-use rendiation_shader_api::*;
 
 mod draw_cmd;
 pub use draw_cmd::*;

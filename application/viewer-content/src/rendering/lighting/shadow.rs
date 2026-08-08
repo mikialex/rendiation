@@ -1,6 +1,3 @@
-use facet::*;
-use serde::*;
-
 use crate::*;
 
 pub trait BasicShadowMapConfigurable: EntityAssociateSemantic {}

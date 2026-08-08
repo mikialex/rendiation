@@ -35,6 +35,7 @@ pub struct DualQuery<T, U> {
 
 pub type BoxedDynDualQuery<K, V> = DualQuery<BoxedDynQuery<K, V>, BoxedDynQuery<K, ValueChange<V>>>;
 
+#[allow(type_alias_bounds)]
 pub type MaterializedDeltaDualQuery<Q: DualQueryLike> =
   DualQuery<Q::View, Arc<QueryMaterialized<Q::Key, ValueChange<Q::Value>>>>;
 

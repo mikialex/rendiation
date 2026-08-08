@@ -1,5 +1,3 @@
-#![feature(stmt_expr_attributes)]
-
 use std::sync::Arc;
 
 use database::*;

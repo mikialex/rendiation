@@ -1,4 +1,3 @@
-#![feature(impl_trait_in_assoc_type)]
 #![allow(clippy::borrowed_box)]
 use std::{ops::DerefMut, sync::Arc};
 

@@ -1,6 +1,3 @@
-use rendiation_gui_3d::*;
-use rendiation_scene_geometry_query::*;
-
 use crate::*;
 
 pub struct ViewerPickerWithCtx {

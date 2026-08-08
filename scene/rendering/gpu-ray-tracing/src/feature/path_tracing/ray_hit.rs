@@ -1,5 +1,3 @@
-use core::f32;
-
 use rendiation_device_ray_tracing::RayFlagConfigRaw::RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
 
 use super::*;
