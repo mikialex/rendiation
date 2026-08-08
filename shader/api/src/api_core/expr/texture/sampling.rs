@@ -207,6 +207,17 @@ impl<D, F> DepthTextureSamplingAction<D, F> {
   pub fn sample(self) -> Node<f32> {
     ShaderNodeExpr::TextureSampling(self.info).insert_api()
   }
+  /// do texture gather compare, fetch the compare result of the four texels around
+  /// the sample position, the level will be override as zero
+  pub fn gather(mut self, channel: GatherChannel) -> Node<Vec4<f32>>
+  where
+    D: D2LikeTextureType,
+  {
+    // gather level can only be zero
+    self.info.level = SampleLevel::Zero;
+    self.info.gather_channel = Some(channel);
+    ShaderNodeExpr::TextureSampling(self.info).insert_api()
+  }
 }
 
 impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<D, F>> {
