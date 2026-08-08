@@ -27,6 +27,7 @@ pub fn generate_cascade_shadow_info(
   ndc: &dyn NDCSpaceMapper<f32>,
   split_linear_log_blend_ratio: f32,
   light_uniform_array_index_mapping: &LightArrayAllocateResult,
+  pcf_config: ShadowPCFConfig,
 ) -> CascadeShadowPreparer {
   let mut packer = CascadeShadowPackerImpl::init_by_config(packer_size);
 
@@ -69,16 +70,21 @@ pub fn generate_cascade_shadow_info(
             Vec::<SingleShadowMapInfo>::with_capacity(CASCADE_SHADOW_SPLIT_COUNT);
           let mut splits = [0.; CASCADE_SHADOW_SPLIT_COUNT];
 
+          let mut base_cascade_range = None;
           for (idx, (sub_proj, split)) in cascades.iter().enumerate() {
             if let Ok(pack) = packer.pack(input.size) {
               let proj = sub_proj.compute_projection_mat(ndc);
               let shadow_center_without_translation_to_shadowmap_ndc =
                 proj * light_world_inv.remove_position().into_f32();
 
+              let cascade_range = sub_proj.right - sub_proj.left;
+              let base_range = base_cascade_range.get_or_insert(cascade_range);
+              let cascade_scale = *base_range / cascade_range;
+
               cascade_info.push(SingleShadowMapInfo {
                 map_info: convert_pack_result(pack),
                 shadow_center_without_translation_to_shadowmap_ndc,
-                split_distance: *split, // this is not used
+                cascade_scale,
                 ..Default::default()
               });
               splits[idx] = *split;
@@ -98,6 +104,10 @@ pub fn generate_cascade_shadow_info(
             map_info: Shader140Array::from_slice_clamp_or_default(&cascade_info),
             splits: splits.into(),
             enabled: true.into(),
+            pcf_filter_size: pcf_config.filter_size,
+            pcf_num_disc_samples: pcf_config
+              .num_disc_samples
+              .min(POISSON_SAMPLES.len() as u32),
             ..Default::default()
           };
 
@@ -257,6 +267,10 @@ pub struct CascadeShadowMapInfo {
   pub map_info: Shader140Array<SingleShadowMapInfo, CASCADE_SHADOW_SPLIT_COUNT>,
   pub splits: Vec4<f32>,
   pub enabled: Bool,
+  /// the PCF filter size in texels
+  pub pcf_filter_size: f32,
+  /// the sample count of the random disc PCF
+  pub pcf_num_disc_samples: u32,
 }
 
 #[repr(C)]
@@ -265,7 +279,9 @@ pub struct CascadeShadowMapInfo {
 pub struct SingleShadowMapInfo {
   pub map_info: ShadowMapAddressInfo,
   pub shadow_center_without_translation_to_shadowmap_ndc: Mat4<f32>,
-  pub split_distance: f32,
+  /// the world space coverage ratio relative to the first cascade,
+  /// used to scale the PCF filter size so that it covers the same world space area
+  pub cascade_scale: f32,
 }
 
 /// return per sub frustum orth proj and split distance in light space
@@ -347,10 +363,18 @@ pub struct CascadeShadowMapComponent {
   pub shadow_map_atlas: GPU2DArrayDepthTextureView,
   pub info: UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
   pub reversed_depth: bool,
+  pub pcf_config: ShadowPCFConfig,
+  /// blend the current cascade with the next one to smooth the transition
+  pub filter_across_cascades: bool,
 }
 
 impl ShaderHashProvider for CascadeShadowMapComponent {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(&self.reversed_depth);
+    hasher.hash(&self.pcf_config);
+    hasher.hash(&self.filter_across_cascades);
+  }
 }
 
 impl AbstractShaderBindingSource for CascadeShadowMapComponent {
@@ -360,6 +384,9 @@ impl AbstractShaderBindingSource for CascadeShadowMapComponent {
       shadow_map_atlas: cx.bind_by(&self.shadow_map_atlas),
       sampler: cx.bind_by(&ImmediateGPUCompareSamplerViewBind),
       info: cx.bind_by(&self.info),
+      pcf_config: self.pcf_config,
+      filter_across_cascades: self.filter_across_cascades,
+      reversed_depth: self.reversed_depth,
     }
   }
 }
@@ -375,6 +402,9 @@ pub struct CascadeShadowMapInvocation {
   shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
   sampler: BindingNode<ShaderCompareSampler>,
   info: ShaderReadonlyPtrOf<Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
+  pcf_config: ShadowPCFConfig,
+  filter_across_cascades: bool,
+  reversed_depth: bool,
 }
 
 #[derive(Clone)]
@@ -388,6 +418,7 @@ impl ShadowOcclusionQuery for CascadeShadowMapSingleInvocation {
     &self,
     render_position: Node<Vec3<f32>>,
     render_normal: Node<Vec3<f32>>,
+    screen_position: Node<Vec2<f32>>,
     camera_world_position: Node<HighPrecisionTranslation>,
     camera_world_none_translation_mat: Node<Mat4<f32>>,
   ) -> Node<f32> {
@@ -395,6 +426,7 @@ impl ShadowOcclusionQuery for CascadeShadowMapSingleInvocation {
       render_position,
       render_normal,
       self.index,
+      screen_position,
       camera_world_position,
       camera_world_none_translation_mat,
     )
@@ -407,6 +439,7 @@ impl CascadeShadowMapInvocation {
     render_position: Node<Vec3<f32>>,
     render_normal: Node<Vec3<f32>>,
     shadow_idx: Node<u32>,
+    screen_position: Node<Vec2<f32>>,
     camera_world_position: Node<HighPrecisionTranslation>,
     camera_world_none_translation_mat: Node<Mat4<f32>>,
   ) -> Node<f32> {
@@ -417,9 +450,6 @@ impl CascadeShadowMapInvocation {
 
         let bias = shadow_info.bias().load().expand();
 
-        // apply normal bias
-        let render_position = render_position + bias.normal_bias * render_normal;
-
         let shadow_center_in_render_space = hpt_sub_hpt(
           hpt_uniform_to_hpt(shadow_info.shadow_world_position().load()),
           camera_world_position,
@@ -428,23 +458,36 @@ impl CascadeShadowMapInvocation {
         let position_in_shadow_center_without_translation_space =
           render_position - shadow_center_in_render_space;
 
+        let split_distances = shadow_info.splits().load();
         let cascade_index = compute_cascade_index(
           render_position,
           camera_world_none_translation_mat,
-          shadow_info.splits().load(),
+          split_distances,
         );
 
         let cascade_info = shadow_info.map_info().index(cascade_index).load().expand();
 
-        let shadow_position = cascade_info.shadow_center_without_translation_to_shadowmap_ndc
-          * (position_in_shadow_center_without_translation_space, val(1.)).into();
+        // the normal bias is in texel units, so that it scales with the shadow
+        // map resolution and the cascade coverage
+        let texel_world_size = shadow_texel_world_size_fn(
+          cascade_info.shadow_center_without_translation_to_shadowmap_ndc,
+          position_in_shadow_center_without_translation_space,
+          cascade_info.map_info,
+        );
 
-        let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
+        // apply normal bias, optionally scaled by (1 - nDotL) to be smaller on the lit side
+        let normal_offset = compute_normal_offset_fn(
+          position_in_shadow_center_without_translation_space,
+          render_normal,
+          texel_world_size,
+          bias.normal_bias,
+          val(self.pcf_config.use_n_dot_l_normal_offset),
+        );
 
-        // convert to uv space and apply offset bias
-        let shadow_position = shadow_position * val(Vec3::new(0.5, -0.5, 1.))
-          + val(Vec3::new(0.5, 0.5, 0.))
-          + (val(0.), val(0.), bias.bias).into();
+        let shadow_position = project_to_shadow_uv(
+          cascade_info.shadow_center_without_translation_to_shadowmap_ndc,
+          position_in_shadow_center_without_translation_space + normal_offset,
+        );
 
         if DEBUG_SHADOW_UV {
           let debug = vec3_node((shadow_position.xy(), val(0.)));
@@ -455,12 +498,96 @@ impl CascadeShadowMapInvocation {
           });
         }
 
-        sample_shadow_pcf_x36_by_offset(
+        let (light_depth_bias, receiver_plane_depth_bias) =
+          self
+            .pcf_config
+            .compute_pcf_depth_bias(shadow_position, bias.bias, self.reversed_depth);
+
+        let current_occlusion = self.pcf_config.sample_shadow_pcf(
           self.shadow_map_atlas,
-          shadow_position,
           self.sampler,
-          cascade_info.map_info.expand(),
-        )
+          shadow_position,
+          screen_position,
+          cascade_info.map_info,
+          // scale the filter size with the cascade scale, so that the filter
+          // covers the same world space area in every cascade
+          shadow_info.pcf_filter_size().load() * cascade_info.cascade_scale,
+          shadow_info.pcf_num_disc_samples().load(),
+          light_depth_bias,
+          receiver_plane_depth_bias,
+          val(self.reversed_depth),
+        );
+
+        if self.filter_across_cascades {
+          // sample the next cascade and blend between the two results to
+          // smooth the transition
+          let blend_threshold = val(0.1);
+
+          let distance = render_position
+            .dot((camera_world_none_translation_mat.forward() * val(Vec3::splat(-1.))).normalize());
+          let next_split = split_at_fn(split_distances, cascade_index);
+          let prev_split = cascade_index.equals(val(0_u32)).select_branched(
+            || val(0.),
+            || split_at_fn(split_distances, cascade_index - val(1_u32)),
+          );
+          let fade_factor = (next_split - distance) / (next_split - prev_split);
+
+          let should_fade = fade_factor
+            .less_equal_than(blend_threshold)
+            .and(cascade_index.less_than(val(CASCADE_SHADOW_SPLIT_COUNT as u32 - 1)));
+
+          should_fade.select_branched(
+            || {
+              let next_index = cascade_index + val(1_u32);
+              let next_cascade_info = shadow_info.map_info().index(next_index).load().expand();
+
+              // the normal offset scales with the texel size of the sampled cascade
+              let next_texel_world_size = shadow_texel_world_size_fn(
+                next_cascade_info.shadow_center_without_translation_to_shadowmap_ndc,
+                position_in_shadow_center_without_translation_space,
+                next_cascade_info.map_info,
+              );
+              let next_normal_offset = compute_normal_offset_fn(
+                position_in_shadow_center_without_translation_space,
+                render_normal,
+                next_texel_world_size,
+                bias.normal_bias,
+                val(self.pcf_config.use_n_dot_l_normal_offset),
+              );
+
+              let next_shadow_position = project_to_shadow_uv(
+                next_cascade_info.shadow_center_without_translation_to_shadowmap_ndc,
+                position_in_shadow_center_without_translation_space + next_normal_offset,
+              );
+
+              // the receiver plane depth bias is derived from the shadow map uv
+              // derivatives, which are per-cascade, so it has to be recomputed
+              // for the next cascade instead of reusing the current one
+              let (next_light_depth_bias, next_receiver_plane_depth_bias) = self
+                .pcf_config
+                .compute_pcf_depth_bias(next_shadow_position, bias.bias, self.reversed_depth);
+
+              let next_occlusion = self.pcf_config.sample_shadow_pcf(
+                self.shadow_map_atlas,
+                self.sampler,
+                next_shadow_position,
+                screen_position,
+                next_cascade_info.map_info,
+                shadow_info.pcf_filter_size().load() * next_cascade_info.cascade_scale,
+                shadow_info.pcf_num_disc_samples().load(),
+                next_light_depth_bias,
+                next_receiver_plane_depth_bias,
+                val(self.reversed_depth),
+              );
+
+              let lerp_amt = fade_factor.smoothstep(val(0.), blend_threshold);
+              lerp_amt.mix(next_occlusion, current_occlusion)
+            },
+            || current_occlusion,
+          )
+        } else {
+          current_occlusion
+        }
       },
       || val(1.0),
     )
@@ -469,6 +596,26 @@ impl CascadeShadowMapInvocation {
 
 pub const DEBUG_SHADOW_UV: bool = false;
 pub const DEBUG_CASCADE_INDEX: bool = false;
+
+/// project the position into the shadow map uv space
+fn project_to_shadow_uv(proj: Node<Mat4<f32>>, position: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+  let shadow_position = proj * (position, val(1.)).into();
+  let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
+  shadow_position * val(Vec3::new(0.5, -0.5, 1.)) + val(Vec3::new(0.5, 0.5, 0.))
+}
+
+/// get the split distance at the given cascade index
+#[shader_fn]
+fn split_at(splits: Node<Vec4<f32>>, index: Node<u32>) -> Node<f32> {
+  let result = zeroed_val::<f32>().make_local_var();
+  switch_by(index)
+    .case(0, || result.store(splits.x()))
+    .case(1, || result.store(splits.y()))
+    .case(2, || result.store(splits.z()))
+    .case(3, || result.store(splits.w()))
+    .end_with_default(|| result.store(splits.w()));
+  result.load()
+}
 
 /// compute the current shading point in which sub frustum
 #[shader_fn]

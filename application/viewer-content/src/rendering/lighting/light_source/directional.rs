@@ -33,12 +33,19 @@ pub fn use_directional_light_uniform(
             shadow_packer_config,
             lighting_sys.cascade_shadow_split_linear_log_blend_ratio,
             &directional_light_uniforms,
+            lighting_sys.pcf_config,
           )
           .map(ViewerDirectionalShadowPreparer::Cascade)
         })
       } else {
-        use_basic_shadow_map_uniform(cx, shadow_packer_config, ndc, &directional_light_uniforms)
-          .map(ViewerDirectionalShadowPreparer::Basic)
+        use_basic_shadow_map_uniform(
+          cx,
+          shadow_packer_config,
+          ndc,
+          &directional_light_uniforms,
+          lighting_sys.pcf_config,
+        )
+        .map(ViewerDirectionalShadowPreparer::Basic)
       }
     })
   } else {
@@ -49,6 +56,8 @@ pub fn use_directional_light_uniform(
     shadow: shadow.unwrap(),
     light,
     scene_ref: read_global_db_foreign_key(),
+    pcf_config: lighting_sys.pcf_config,
+    filter_across_cascades: lighting_sys.filter_across_cascades,
   })
 }
 
@@ -57,6 +66,7 @@ fn use_basic_shadow_map_uniform(
   atlas_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
   lights: &Option<SharedLightUniformInfo<DirectionalLightUniform>>,
+  pcf_config: ShadowPCFConfig,
 ) -> Option<BasicShadowMapPreparer> {
   // let changed = cx.use_db_entity_any_change::<DirectionalLightEntity>(); // todo
   let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
@@ -109,6 +119,7 @@ fn use_basic_shadow_map_uniform(
       &shadow_info_access,
       gpu_data,
       gpu,
+      pcf_config,
     )
   })
 }
@@ -123,6 +134,8 @@ pub struct SceneDirectionalLightingPreparer {
   shadow: ViewerDirectionalShadowPreparer,
   light: SharedLightUniformInfo<DirectionalLightUniform>,
   scene_ref: ForeignKeyReadView<DirectionalRefScene>,
+  pcf_config: ShadowPCFConfig,
+  filter_across_cascades: bool,
 }
 
 impl SceneDirectionalLightingPreparer {
@@ -148,7 +161,13 @@ impl SceneDirectionalLightingPreparer {
         ShadowImplType::Basic(shadow_gpu_data)
       }
       ViewerDirectionalShadowPreparer::Cascade(cascade_shadow_map_preparer) => {
-        let shadow = cascade_shadow_map_preparer.update(frame_ctx, &mut draw, reversed_depth);
+        let shadow = cascade_shadow_map_preparer.update(
+          frame_ctx,
+          &mut draw,
+          reversed_depth,
+          self.pcf_config,
+          self.filter_across_cascades,
+        );
         ShadowImplType::Cascade(shadow)
       }
       ViewerDirectionalShadowPreparer::NoShadow => ShadowImplType::NoShadow,
@@ -158,6 +177,8 @@ impl SceneDirectionalLightingPreparer {
       lights: self.light.make_read_holder(),
       shadows,
       reversed_depth,
+      pcf_config: self.pcf_config,
+      filter_across_cascades: self.filter_across_cascades,
     })
   }
 }
@@ -184,6 +205,8 @@ struct SceneDirectionalLightingProvider {
   lights: LockReadGuardHolder<LightUniformInfo<DirectionalLightUniform>>,
   shadows: ShadowImplType,
   reversed_depth: bool,
+  pcf_config: ShadowPCFConfig,
+  filter_across_cascades: bool,
 }
 
 impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
@@ -202,6 +225,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
           shadow_map_atlas: s.shadow_map.get_full_view().clone(),
           info,
           reversed_depth: self.reversed_depth,
+          pcf_config: self.pcf_config,
         })
       }
       ShadowImplType::Cascade(data) => {
@@ -211,6 +235,8 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
           shadow_map_atlas: gpu_data.shadow_map_atlas.clone(),
           info,
           reversed_depth: self.reversed_depth,
+          pcf_config: self.pcf_config,
+          filter_across_cascades: self.filter_across_cascades,
         })
       }
     };
@@ -260,7 +286,7 @@ impl ShaderHashProvider for DirectionalLightingShader {
     hasher.hash(std::mem::discriminant(&self.shadows));
     match &self.shadows {
       ShadowImplComType::NoShadow => {}
-      ShadowImplComType::Basic(_) => {}
+      ShadowImplComType::Basic(c) => c.hash_pipeline(hasher),
       ShadowImplComType::Cascade(c) => c.hash_pipeline(hasher),
     }
   }
@@ -294,12 +320,14 @@ impl LightingComputeInvocation for DirectionalLightingInvocation {
             geom_ctx.position,
             geom_ctx.normal,
             shadow_idx,
+            geom_ctx.fragment_position.xy(),
             geom_ctx.camera_world_position,
           ),
           ShadowImplInvocationType::Cascade(s) => s.query_shadow_occlusion_by_idx(
             geom_ctx.position,
             geom_ctx.normal,
             shadow_idx,
+            geom_ctx.fragment_position.xy(),
             geom_ctx.camera_world_position,
             geom_ctx.camera_world_none_translation_mat,
           ),

@@ -13,7 +13,15 @@ pub fn use_scene_spot_light_uniform(
   let spot_light_uniforms = use_spot_per_scene_uniform_array_buffers(cx);
 
   let shadow = if lighting_sys.enable_shadow {
-    cx.scope(|cx| use_basic_shadow_map_uniform(cx, shadow_packer_config, ndc, &spot_light_uniforms))
+    cx.scope(|cx| {
+      use_basic_shadow_map_uniform(
+        cx,
+        shadow_packer_config,
+        ndc,
+        &spot_light_uniforms,
+        lighting_sys.pcf_config,
+      )
+    })
   } else {
     None
   };
@@ -22,6 +30,7 @@ pub fn use_scene_spot_light_uniform(
     shadow,
     light,
     scene_ref: read_global_db_foreign_key(),
+    pcf_config: lighting_sys.pcf_config,
   })
 }
 
@@ -30,6 +39,7 @@ fn use_basic_shadow_map_uniform(
   atlas_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
   lights: &Option<SharedLightUniformInfo<SpotLightUniform>>,
+  pcf_config: ShadowPCFConfig,
 ) -> Option<BasicShadowMapPreparer> {
   // // let changed = cx.use_db_entity_any_change::<DirectionalLightEntity>(); // todo
   let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
@@ -81,6 +91,7 @@ fn use_basic_shadow_map_uniform(
       &shadow_info_access,
       gpu_data,
       gpu,
+      pcf_config,
     )
   })
 }
@@ -89,6 +100,7 @@ pub struct SceneSpotLightingPreparer {
   pub shadow: Option<BasicShadowMapPreparer>,
   pub light: SharedLightUniformInfo<SpotLightUniform>,
   pub scene_ref: ForeignKeyReadView<SpotLightRefScene>,
+  pub pcf_config: ShadowPCFConfig,
 }
 
 impl SceneSpotLightingPreparer {
@@ -116,6 +128,7 @@ impl SceneSpotLightingPreparer {
       uniform: self.light.make_read_holder(),
       shadow,
       reversed_depth,
+      pcf_config: self.pcf_config,
     }
   }
 }
@@ -124,6 +137,7 @@ pub struct SceneSpotLightingProvider {
   shadow: Option<BasicShadowMapGPU>,
   uniform: LockReadGuardHolder<LightUniformInfo<SpotLightUniform>>,
   reversed_depth: bool,
+  pcf_config: ShadowPCFConfig,
 }
 
 impl LightSystemSceneProvider for SceneSpotLightingProvider {
@@ -140,6 +154,7 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
         shadow_map_atlas: s.shadow_map.get_full_view().clone(),
         info,
         reversed_depth: self.reversed_depth,
+        pcf_config: self.pcf_config,
       }
     });
 
@@ -159,6 +174,9 @@ impl ShaderHashProvider for SpotLightShader {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(self.shadow.is_some());
+    if let Some(shadow) = &self.shadow {
+      shadow.hash_pipeline(hasher);
+    }
   }
 }
 
@@ -212,6 +230,7 @@ impl LightingComputeInvocation for SpotLightInvocation {
             geom_ctx.position,
             geom_ctx.normal,
             shadow_idx,
+            geom_ctx.fragment_position.xy(),
             geom_ctx.camera_world_position,
           ),
           None => val(1.0),

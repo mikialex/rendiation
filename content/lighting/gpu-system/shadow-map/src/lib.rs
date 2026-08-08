@@ -17,7 +17,10 @@ mod cascade;
 pub use cascade::*;
 
 mod map_utils;
-use map_utils::*;
+pub use map_utils::*;
+
+mod sampling;
+pub use sampling::*;
 
 pub const MAX_SHADOW_COUNT: usize = 8;
 
@@ -98,11 +101,16 @@ pub trait ShadowOcclusionQuery {
     &self,
     render_position: Node<Vec3<f32>>,
     render_normal: Node<Vec3<f32>>,
+    screen_position: Node<Vec2<f32>>,
     camera_world_position: Node<HighPrecisionTranslation>,
     camera_world_none_translation_mat: Node<Mat4<f32>>,
   ) -> Node<f32>;
 }
 
+/// all pcf modes use the linear filter, note the grid pcf coverage weights
+/// assume single texel comparisons and the MJP reference uses a point filter
+/// for it, but the point filter makes the single sample fallback completely
+/// hard edged, so we keep the linear filter for all modes
 pub fn create_shadow_depth_sampler_desc(reversed_depth: bool) -> SamplerDescriptor<'static> {
   SamplerDescriptor {
     mag_filter: rendiation_webgpu::FilterMode::Linear,

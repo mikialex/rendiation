@@ -207,6 +207,7 @@ where
       occlusion.store(shadow.query_shadow_occlusion(
         geom_ctx.position,
         geom_ctx.normal,
+        geom_ctx.fragment_position.xy(),
         geom_ctx.camera_world_position,
         geom_ctx.camera_world_none_translation_mat,
       ));

@@ -19,6 +19,10 @@ pub fn use_lighting(
   viewports: &[ViewerViewPort],
 ) -> Option<LightingRenderingCxPrepareCtx> {
   let size = Size::from_u32_pair_min_one((2048, 2048));
+  // note: the atlas is packed without padding, and the comparison sampler clamps
+  // to the atlas edge instead of the shadow map region edge. pcf samples that
+  // fall outside of a shadow map region can therefore bleed into the neighboring
+  // regions, we do not handle this case for now
   let config = MultiLayerTexturePackerConfig {
     max_size: SizeWithDepth {
       depth: NonZeroU32::new(3).unwrap(),
@@ -197,6 +201,8 @@ pub struct LightSystem {
   pub enable_shadow: bool,
   pub use_cascade_shadowmap_for_directional_lights: bool,
   pub cascade_shadow_split_linear_log_blend_ratio: f32,
+  pub pcf_config: ShadowPCFConfig,
+  pub filter_across_cascades: bool,
 }
 
 impl LightSystem {
@@ -209,6 +215,8 @@ impl LightSystem {
       cascade_shadow_split_linear_log_blend_ratio: 0.95,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       use_cascade_shadowmap_for_directional_lights: false,
+      pcf_config: ShadowPCFConfig::default(),
+      filter_across_cascades: false,
       tonemap: ToneMap::new(gpu),
       material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
         .register_material_impl::<PbrSurfaceEncodeDecode>()
@@ -234,7 +242,90 @@ impl LightSystem {
         .step_by(0.01)
         .text("split_linear_log_blend_ratio"),
       );
+      ui.checkbox(&mut self.filter_across_cascades, "filter across cascades");
     }
+
+    egui::ComboBox::from_label("Shadow PCF mode")
+      .selected_text(format!("{:?}", &self.pcf_config.pcf_mode))
+      .show_ui_changed(ui, |ui| {
+        ui.selectable_value(&mut self.pcf_config.pcf_mode, ShadowPCFMode::Naive, "Naive");
+        ui.selectable_value(
+          &mut self.pcf_config.pcf_mode,
+          ShadowPCFMode::FixedSizePCF,
+          "FixedSizePCF",
+        );
+
+        ui.selectable_value(
+          &mut self.pcf_config.pcf_mode,
+          ShadowPCFMode::OptimizedPCF,
+          "OptimizedPCF",
+        );
+        ui.selectable_value(
+          &mut self.pcf_config.pcf_mode,
+          ShadowPCFMode::GridPCF,
+          "GridPCF",
+        );
+        ui.selectable_value(
+          &mut self.pcf_config.pcf_mode,
+          ShadowPCFMode::RandomDiscPCF,
+          "RandomDiscPCF",
+        );
+      });
+
+    if matches!(self.pcf_config.pcf_mode, ShadowPCFMode::FixedSizePCF) {
+      egui::ComboBox::from_label("Fixed filter size")
+        .selected_text(format!("{:?}", &self.pcf_config.fixed_filter_size))
+        .show_ui_changed(ui, |ui| {
+          ui.selectable_value(
+            &mut self.pcf_config.fixed_filter_size,
+            FixedFilterSize::Filter3x3,
+            "3x3",
+          );
+          ui.selectable_value(
+            &mut self.pcf_config.fixed_filter_size,
+            FixedFilterSize::Filter5x5,
+            "5x5",
+          );
+          ui.selectable_value(
+            &mut self.pcf_config.fixed_filter_size,
+            FixedFilterSize::Filter7x7,
+            "7x7",
+          );
+          ui.selectable_value(
+            &mut self.pcf_config.fixed_filter_size,
+            FixedFilterSize::Filter9x9,
+            "9x9",
+          );
+        });
+    }
+
+    if matches!(
+      self.pcf_config.pcf_mode,
+      ShadowPCFMode::GridPCF | ShadowPCFMode::RandomDiscPCF
+    ) {
+      ui.add(
+        egui::Slider::new(&mut self.pcf_config.filter_size, 1.0..=MAX_PCF_FILTER_SIZE)
+          .step_by(0.5)
+          .text("filter size"),
+      );
+    }
+
+    if matches!(self.pcf_config.pcf_mode, ShadowPCFMode::RandomDiscPCF) {
+      ui.add(
+        egui::Slider::new(&mut self.pcf_config.num_disc_samples, 4..=64)
+          .step_by(4.0)
+          .text("disc samples"),
+      );
+    }
+
+    ui.checkbox(
+      &mut self.pcf_config.use_receiver_plane_depth_bias,
+      "receiver plane depth bias",
+    );
+    ui.checkbox(
+      &mut self.pcf_config.use_n_dot_l_normal_offset,
+      "nDotL normal offset",
+    );
 
     let old = self.lighting_surface_ty_value;
     egui::ComboBox::from_label("Light surface ty")

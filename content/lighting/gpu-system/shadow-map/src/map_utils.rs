@@ -95,35 +95,3 @@ pub fn get_or_create_shadow_atlas(
     .get_or_insert_with(|| ShadowAtlas::new(debug_label, required_size_gpu, gpu))
     .clone()
 }
-
-pub fn sample_shadow_pcf_x36_by_offset(
-  map: BindingNode<ShaderDepthTexture2DArray>,
-  shadow_position: Node<Vec3<f32>>,
-  d_sampler: BindingNode<ShaderCompareSampler>,
-  info: ENode<ShadowMapAddressInfo>,
-) -> Node<f32> {
-  let uv = shadow_position.xy();
-  let depth = shadow_position.z();
-  let layer = info.layer_index;
-  let mut ratio = val(0.0);
-
-  let map_size = map.texture_dimension_2d(None).into_f32();
-  let extra_scale = info.size / map_size;
-
-  let uv = uv * extra_scale + info.offset / map_size;
-
-  let s = 2_i32; // we should write a for here?
-
-  for i in -1..=1 {
-    for j in -1..=1 {
-      let result = map
-        .build_compare_sample_call(d_sampler, uv, depth)
-        .with_offset((s * i, s * j).into())
-        .with_array_index(layer)
-        .sample();
-      ratio += result;
-    }
-  }
-
-  ratio / val(9.)
-}

@@ -18,10 +18,21 @@ impl<T: BasicShadowMapConfigurable> ComponentSemantic for BasicShadowMapResoluti
 }
 
 #[derive(Serialize, Deserialize)]
-#[derive(Clone, Copy, Default, Debug, PartialEq, Facet)]
+#[derive(Clone, Copy, Debug, PartialEq, Facet)]
 pub struct ShadowBiasConfig {
+  /// the bias is in shadow map ndc depth units
   pub bias: f32,
+  /// the normal_bias is in texel units, the default 1 means one texel world size
   pub normal_bias: f32,
+}
+
+impl Default for ShadowBiasConfig {
+  fn default() -> Self {
+    Self {
+      bias: 0.,
+      normal_bias: 1.,
+    }
+  }
 }
 
 use rendiation_lighting_shadow_map::ShadowBias;

@@ -27,6 +27,7 @@ pub fn prepare_basic_shadow_map_uniform(
   shadow_info_access: &dyn Fn(RawEntityHandle) -> Option<BasicShadowMapInfoInput>,
   gpu_data: &mut Option<BasicShadowMapGPU>,
   gpu: &GPU,
+  pcf_config: ShadowPCFConfig,
 ) -> BasicShadowMapPreparer {
   let mut packer = RemappedGrowablePacker::<RawEntityHandle>::new(*atlas_config);
   let mut source_world_map = FastHashMap::default();
@@ -72,6 +73,10 @@ pub fn prepare_basic_shadow_map_uniform(
             bias: shadow_info.bias,
             shadow_world_position,
             shadow_center_without_translation_to_shadowmap_ndc,
+            pcf_filter_size: pcf_config.filter_size,
+            pcf_num_disc_samples: pcf_config
+              .num_disc_samples
+              .min(POISSON_SAMPLES.len() as u32),
             ..Default::default()
           }
         } else {
@@ -212,6 +217,10 @@ pub struct BasicShadowMapInfo {
   pub shadow_world_position: HighPrecisionTranslationUniform,
   pub bias: ShadowBias,
   pub map_info: ShadowMapAddressInfo,
+  /// the PCF filter size in texels
+  pub pcf_filter_size: f32,
+  /// the sample count of the random disc PCF
+  pub pcf_num_disc_samples: u32,
 }
 
 #[derive(Clone)]
@@ -219,6 +228,15 @@ pub struct BasicShadowMapComponent {
   pub shadow_map_atlas: GPU2DArrayDepthTextureView,
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
   pub reversed_depth: bool,
+  pub pcf_config: ShadowPCFConfig,
+}
+
+impl ShaderHashProvider for BasicShadowMapComponent {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(&self.reversed_depth);
+    hasher.hash(&self.pcf_config);
+  }
 }
 
 impl AbstractShaderBindingSource for BasicShadowMapComponent {
@@ -228,6 +246,8 @@ impl AbstractShaderBindingSource for BasicShadowMapComponent {
       shadow_map_atlas: cx.bind_by(&self.shadow_map_atlas),
       sampler: cx.bind_by(&ImmediateGPUCompareSamplerViewBind),
       info: cx.bind_by(&self.info),
+      pcf_config: self.pcf_config,
+      reversed_depth: self.reversed_depth,
     }
   }
 }
@@ -244,6 +264,8 @@ pub struct BasicShadowMapInvocation {
   shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
   sampler: BindingNode<ShaderCompareSampler>,
   info: ShaderReadonlyPtrOf<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
+  pcf_config: ShadowPCFConfig,
+  reversed_depth: bool,
 }
 
 impl BasicShadowMapInvocation {
@@ -252,6 +274,7 @@ impl BasicShadowMapInvocation {
     render_position: Node<Vec3<f32>>,
     render_normal: Node<Vec3<f32>>,
     shadow_idx: Node<u32>,
+    screen_position: Node<Vec2<f32>>,
     camera_world_position: Node<HighPrecisionTranslation>,
   ) -> Node<f32> {
     let enabled = self.info.index(shadow_idx).enabled().load();
@@ -259,9 +282,6 @@ impl BasicShadowMapInvocation {
       || {
         let shadow_info = self.info.index(shadow_idx).load().expand();
         let bias = shadow_info.bias.expand();
-
-        // apply normal bias
-        let render_position = render_position + bias.normal_bias * render_normal;
 
         let shadow_center_in_render_space = hpt_sub_hpt(
           hpt_uniform_to_hpt(shadow_info.shadow_world_position),
@@ -271,21 +291,55 @@ impl BasicShadowMapInvocation {
         let position_in_shadow_center_without_translation_space =
           render_position - shadow_center_in_render_space;
 
+        // the normal bias is in texel units, so that it scales with the shadow
+        // map resolution, note for perspective projections this is the texel
+        // size at the near plane
+        let texel_world_size = shadow_texel_world_size_fn(
+          shadow_info.shadow_center_without_translation_to_shadowmap_ndc,
+          position_in_shadow_center_without_translation_space,
+          shadow_info.map_info,
+        );
+
+        // apply normal bias, optionally scaled by (1 - nDotL) to be smaller on the lit side
+        let normal_offset = compute_normal_offset_fn(
+          position_in_shadow_center_without_translation_space,
+          render_normal,
+          texel_world_size,
+          bias.normal_bias,
+          val(self.pcf_config.use_n_dot_l_normal_offset),
+        );
+
         let shadow_position = shadow_info.shadow_center_without_translation_to_shadowmap_ndc
-          * (position_in_shadow_center_without_translation_space, val(1.)).into();
+          * (
+            position_in_shadow_center_without_translation_space + normal_offset,
+            val(1.),
+          )
+            .into();
 
         let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
 
-        // convert to uv space and apply offset bias
-        let shadow_position = shadow_position * val(Vec3::new(0.5, -0.5, 1.))
-          + val(Vec3::new(0.5, 0.5, 0.))
-          + (val(0.), val(0.), bias.bias).into();
+        // convert to uv space
+        let shadow_position =
+          shadow_position * val(Vec3::new(0.5, -0.5, 1.)) + val(Vec3::new(0.5, 0.5, 0.));
 
-        sample_shadow_pcf_x36_by_offset(
+        let (light_depth_bias, receiver_plane_depth_bias) =
+          self
+            .pcf_config
+            .compute_pcf_depth_bias(shadow_position, bias.bias, self.reversed_depth);
+
+        self.pcf_config.sample_shadow_pcf(
           self.shadow_map_atlas,
-          shadow_position,
           self.sampler,
-          shadow_info.map_info.expand(),
+          shadow_position,
+          screen_position,
+          shadow_info.map_info,
+          shadow_info.pcf_filter_size,
+          shadow_info
+            .pcf_num_disc_samples
+            .min(POISSON_SAMPLES.len() as u32),
+          light_depth_bias,
+          receiver_plane_depth_bias,
+          val(self.reversed_depth),
         )
       },
       || val(1.),
@@ -339,6 +393,7 @@ impl ShadowOcclusionQuery for BasicShadowMapSingleInvocation {
     &self,
     render_position: Node<Vec3<f32>>,
     render_normal: Node<Vec3<f32>>,
+    screen_position: Node<Vec2<f32>>,
     camera_world_position: Node<HighPrecisionTranslation>,
     _camera_world_none_translation_mat: Node<Mat4<f32>>,
   ) -> Node<f32> {
@@ -346,6 +401,7 @@ impl ShadowOcclusionQuery for BasicShadowMapSingleInvocation {
       render_position,
       render_normal,
       self.index,
+      screen_position,
       camera_world_position,
     )
   }
