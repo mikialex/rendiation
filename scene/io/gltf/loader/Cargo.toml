@@ -1,5 +1,5 @@
 [package]
-edition = "2021"
+edition = "2024"
 name = "rendiation-scene-gltf-loader"
 version = "0.0.1"
 

@@ -45,7 +45,9 @@ where
 
   #[inline(always)]
   unsafe fn primitive_at_unchecked(&self, primitive_index: usize) -> Self::Primitive {
-    let index = primitive_index * T::STEP;
-    T::Primitive::from_data_unchecked(&self.data, index)
+    unsafe {
+      let index = primitive_index * T::STEP;
+      T::Primitive::from_data_unchecked(&self.data, index)
+    }
   }
 }

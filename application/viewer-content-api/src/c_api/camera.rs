@@ -1,26 +1,26 @@
 use crate::*;
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_camera(node: ViewerEntityHandle) -> ViewerEntityHandle {
   global_entity_of::<SceneCameraEntity>()
     .entity_writer()
     .new_entity(|w| w.write::<SceneCameraNode>(&Some(node.into())))
     .into()
 }
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_camera(handle: ViewerEntityHandle) {
   global_entity_of::<SceneCameraEntity>()
     .entity_writer()
     .delete_entity(handle.into());
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn camera_set_lookat_position(handle: ViewerEntityHandle, position: &[f32; 3]) {
   let position = Vec3::new(position[0], position[1], position[2]);
   write_global_db_component::<SceneCameraLookAt>().write(handle.into(), Some(position.into_f64()));
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn camera_set_proj_perspective(
   handle: ViewerEntityHandle,
   near: f32,
@@ -42,7 +42,7 @@ pub extern "C" fn camera_set_proj_perspective(
   );
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn camera_set_proj_orth(
   handle: ViewerEntityHandle,
   near: f32,

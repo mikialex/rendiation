@@ -2,7 +2,7 @@ use std::process::ExitCode;
 
 use anyhow::*;
 use pico_args::Arguments;
-use xshell::{cmd, Shell};
+use xshell::{Shell, cmd};
 
 fn main() -> anyhow::Result<ExitCode> {
   let args = std::env::args_os().skip(1).collect::<Vec<_>>();
@@ -74,7 +74,10 @@ fn build_wasm_internal(
     .run()
     .context("Failed to build webgpu examples for wasm")?;
 
-  let mut cmd = cmd!(shell, "wasm-bindgen ./target/wasm32-unknown-unknown/{profile}/rendiation-viewer.wasm --target web --out-dir ./application/viewer-web/generated");
+  let mut cmd = cmd!(
+    shell,
+    "wasm-bindgen ./target/wasm32-unknown-unknown/{profile}/rendiation-viewer.wasm --target web --out-dir ./application/viewer-web/generated"
+  );
 
   if enable_profiling {
     cmd = cmd.args(["--keep-debug", "--debug"])

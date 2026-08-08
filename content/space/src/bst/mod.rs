@@ -1,8 +1,8 @@
 use std::{iter::FromIterator, marker::PhantomData, ops::Range};
 
 use crate::{
-  utils::{bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption},
   AbstractTreeNode,
+  utils::{BuildPrimitive, CenterAblePrimitive, TreeBuildOption, bounding_from_build_source},
 };
 
 mod apply;
@@ -61,11 +61,7 @@ where
     }
   }
   fn children_count(&self) -> usize {
-    if self.has_children() {
-      N
-    } else {
-      0
-    }
+    if self.has_children() { N } else { 0 }
   }
   fn has_children(&self) -> bool {
     self.node.child.is_some()

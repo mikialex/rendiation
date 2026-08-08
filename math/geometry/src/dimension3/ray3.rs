@@ -41,11 +41,7 @@ impl<T: Scalar> Ray3<T> {
     let t = -(self.origin.dot(plane.normal) + plane.constant) / denominator;
 
     // Return if the ray never intersects the plane
-    if t >= T::zero() {
-      t.into()
-    } else {
-      None
-    }
+    if t >= T::zero() { t.into() } else { None }
   }
 
   // this distance to can not be expressed by DistanceSquareTo trait

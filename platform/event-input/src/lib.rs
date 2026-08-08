@@ -126,11 +126,7 @@ impl WindowState {
   }
   pub fn compare(&self, old: &WindowState) -> WindowStateChange {
     fn compare_button_state(old: ElementState, new: ElementState) -> Option<ElementState> {
-      if old == new {
-        None
-      } else {
-        Some(new)
-      }
+      if old == new { None } else { Some(new) }
     }
 
     let mut key_state_changes = FastHashMap::<KeyCode, ElementState>::default();

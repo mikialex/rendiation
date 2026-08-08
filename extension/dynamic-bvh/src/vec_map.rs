@@ -6,7 +6,7 @@
 //! A simple map based on a vector for small integer keys. Space requirements
 //! are **O(highest integer key)**.
 
-use std::cmp::{max, Ordering};
+use std::cmp::{Ordering, max};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::iter::{Enumerate, FilterMap, FromIterator};

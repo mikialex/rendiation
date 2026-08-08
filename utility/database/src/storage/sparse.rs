@@ -91,64 +91,70 @@ where
     idx: u32,
     new_value: DatabaseSerializedFieldBufferOrForeignKey,
   ) -> (DataPtr, DataPtr, bool) {
-    let mut value = T::default();
-    match new_value {
-      DatabaseSerializedFieldBufferOrForeignKey::Pod(small_vec) => value
-        .deserialize_from_reader(&mut small_vec.as_slice())
-        .unwrap(),
-      DatabaseSerializedFieldBufferOrForeignKey::ForeignKey(handle) => {
-        value = std::mem::transmute_copy(&Some(handle))
+    unsafe {
+      let mut value = T::default();
+      match new_value {
+        DatabaseSerializedFieldBufferOrForeignKey::Pod(small_vec) => value
+          .deserialize_from_reader(&mut small_vec.as_slice())
+          .unwrap(),
+        DatabaseSerializedFieldBufferOrForeignKey::ForeignKey(handle) => {
+          value = std::mem::transmute_copy(&Some(handle))
+        }
       }
+      self.set_value(idx, &value as *const _ as DataPtr)
     }
-    self.set_value(idx, &value as *const _ as DataPtr)
   }
 
   unsafe fn set_value_init(&mut self, idx: u32, init_value: Option<DataPtr>) -> DataPtr {
-    let self_ = self.deref_mut();
+    unsafe {
+      let self_ = self.deref_mut();
 
-    if let Some(new_value) = init_value {
-      let new_value = &*(new_value as *const T);
-      if new_value == &self_.default_value {
-        &self_.default_value as *const _ as DataPtr
+      if let Some(new_value) = init_value {
+        let new_value = &*(new_value as *const T);
+        if new_value == &self_.default_value {
+          &self_.default_value as *const _ as DataPtr
+        } else {
+          let entry = self_.data.entry(idx).insert(new_value.clone());
+          entry.get() as *const _ as DataPtr
+        }
       } else {
-        let entry = self_.data.entry(idx).insert(new_value.clone());
-        entry.get() as *const _ as DataPtr
+        &self_.default_value as *const _ as DataPtr
       }
-    } else {
-      &self_.default_value as *const _ as DataPtr
     }
   }
 
   unsafe fn set_value(&mut self, idx: u32, new_value: DataPtr) -> (DataPtr, DataPtr, bool) {
-    let self_ = self.deref_mut();
-    let new = &*(new_value as *const T);
+    unsafe {
+      let self_ = self.deref_mut();
+      let new = &*(new_value as *const T);
 
-    if new == &self_.default_value {
-      let old = self_.data.remove(&idx);
+      if new == &self_.default_value {
+        let old = self_.data.remove(&idx);
 
-      let diff = if let Some(old) = old {
-        self_.old_value_out = old;
-        &self_.old_value_out != new
+        let diff = if let Some(old) = old {
+          self_.old_value_out = old;
+          &self_.old_value_out != new
+        } else {
+          false
+        };
+
+        let new = &self_.default_value as *const _ as DataPtr;
+        let old = &self.old_value_out as *const _ as DataPtr;
+        (new, old, diff)
       } else {
-        false
-      };
+        let old = self_.data.insert(idx, new.clone());
 
-      let new = &self_.default_value as *const _ as DataPtr;
-      let old = &self.old_value_out as *const _ as DataPtr;
-      (new, old, diff)
-    } else {
-      let old = self_.data.insert(idx, new.clone());
+        let diff = if let Some(old) = old {
+          self_.old_value_out = old;
+          &self_.old_value_out != new
+        } else {
+          true
+        };
 
-      let diff = if let Some(old) = old {
-        self_.old_value_out = old;
-        &self_.old_value_out != new
-      } else {
-        true
-      };
-
-      let new = self_.data.get(&idx).unwrap() as *const _ as DataPtr;
-      let old = &self.old_value_out as *const _ as DataPtr;
-      (new, old, diff)
+        let new = self_.data.get(&idx).unwrap() as *const _ as DataPtr;
+        let old = &self.old_value_out as *const _ as DataPtr;
+        (new, old, diff)
+      }
     }
   }
 

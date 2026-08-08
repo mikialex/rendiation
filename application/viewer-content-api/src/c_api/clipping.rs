@@ -1,6 +1,6 @@
 use crate::*;
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_clipping_plane(
   plane: &[f32; 4],
   scene: *const ViewerEntityHandle,
@@ -19,20 +19,20 @@ pub extern "C" fn create_clipping_plane(
     .into()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_clipping_plane(handle: ViewerEntityHandle) {
   global_entity_of::<ClippingPlaneEntity>()
     .entity_writer()
     .delete_entity(handle.into());
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn clipping_plane_set_plane(handle: ViewerEntityHandle, plane: &[f32; 4]) {
   let plane = Vec4::from(*plane).reverse();
   write_global_db_component::<ClippingPlaneInfo>().write(handle.into(), plane);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn clipping_plane_set_scene(
   handle: ViewerEntityHandle,
   scene: *const ViewerEntityHandle,
@@ -45,7 +45,7 @@ pub extern "C" fn clipping_plane_set_scene(
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn attribute_mesh_set_is_solid(handle: ViewerEntityHandle, is_solid: bool) {
   write_global_db_component::<AttributeMeshIsSolid>().write(handle.into(), is_solid);
 }

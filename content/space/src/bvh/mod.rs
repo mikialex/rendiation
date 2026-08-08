@@ -12,8 +12,8 @@ pub use strategy::*;
 pub use test::*;
 
 use crate::{
-  utils::{bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption},
   AbstractTreeNode,
+  utils::{BuildPrimitive, CenterAblePrimitive, TreeBuildOption, bounding_from_build_source},
 };
 
 pub trait BVHBounding:
@@ -44,11 +44,7 @@ impl<B: BVHBounding> AbstractTreeNode for BVHTreeNodeRef<'_, B> {
     }
   }
   fn children_count(&self) -> usize {
-    if self.has_children() {
-      2
-    } else {
-      0
-    }
+    if self.has_children() { 2 } else { 0 }
   }
   fn has_children(&self) -> bool {
     self.node.left_child_offset().is_some()

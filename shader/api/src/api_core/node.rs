@@ -25,7 +25,7 @@ impl<T: ?Sized> Node<T> {
   where
     X: ShaderNodeType,
   {
-    std::mem::transmute(self)
+    unsafe { std::mem::transmute(self) }
   }
 
   pub fn mark_debug_label(&self, label: impl ToString) {

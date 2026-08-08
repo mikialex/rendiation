@@ -240,11 +240,7 @@ where
   pub fn set_derive(&mut self, d: T) -> bool {
     let derive = &mut (unsafe { &mut *self.ctx }).derive;
     let p = derive.set_value(self.idx.clone(), d.clone());
-    if let Some(p) = p {
-      p != d
-    } else {
-      true
-    }
+    if let Some(p) = p { p != d } else { true }
   }
   /// return has actually changed
   pub fn update(&mut self, parent: Option<&Self>) -> bool {

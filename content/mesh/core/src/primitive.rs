@@ -49,10 +49,12 @@ where
   }
   #[inline(always)]
   unsafe fn from_data_unchecked(data: &U, offset: usize) -> Self {
-    let a = data.index_get(offset).unwrap_unchecked();
-    let b = data.index_get(offset + 1).unwrap_unchecked();
-    let c = data.index_get(offset + 2).unwrap_unchecked();
-    Triangle { a, b, c }
+    unsafe {
+      let a = data.index_get(offset).unwrap_unchecked();
+      let b = data.index_get(offset + 1).unwrap_unchecked();
+      let c = data.index_get(offset + 2).unwrap_unchecked();
+      Triangle { a, b, c }
+    }
   }
 }
 
@@ -69,9 +71,11 @@ where
   }
   #[inline(always)]
   unsafe fn from_data_unchecked(data: &U, offset: usize) -> Self {
-    let start = data.index_get(offset).unwrap_unchecked();
-    let end = data.index_get(offset + 1).unwrap_unchecked();
-    LineSegment::new(start, end)
+    unsafe {
+      let start = data.index_get(offset).unwrap_unchecked();
+      let end = data.index_get(offset + 1).unwrap_unchecked();
+      LineSegment::new(start, end)
+    }
   }
 }
 
@@ -86,7 +90,7 @@ where
   }
   #[inline(always)]
   unsafe fn from_data_unchecked(data: &U, offset: usize) -> Self {
-    Point(data.index_get(offset).unwrap_unchecked())
+    unsafe { Point(data.index_get(offset).unwrap_unchecked()) }
   }
 }
 

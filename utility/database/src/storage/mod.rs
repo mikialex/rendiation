@@ -35,8 +35,8 @@ pub type DatabaseSerializedFieldBuffer = smallvec::SmallVec<[u8; 16]>;
 /// Build a closure that deserializes a serialized field buffer
 /// into the concrete `DataBaseDataType` and formats it via `Debug`.
 /// Returns `None` if deserialization fails.
-pub fn create_binary_to_debug_string<T: DataBaseDataType>(
-) -> fn(DatabaseSerializedFieldBuffer) -> Option<String> {
+pub fn create_binary_to_debug_string<T: DataBaseDataType>()
+-> fn(DatabaseSerializedFieldBuffer) -> Option<String> {
   |buffer| {
     let mut value = T::default();
     let mut cursor = std::io::Cursor::new(buffer.as_ref());
@@ -156,7 +156,7 @@ impl DataTypeMetaInfo {
     &self,
     ptr: DataPtr,
   ) -> &'a dyn DynDataBaseDataType {
-    &*(self.create_dyn_data_ptr_readonly)(ptr) as &dyn DynDataBaseDataType
+    unsafe { &*(self.create_dyn_data_ptr_readonly)(ptr) as &dyn DynDataBaseDataType }
   }
 
   /// Construct a [DataTypeMetaInfo] for a type T that implements [DataBaseDataType].
@@ -212,9 +212,11 @@ pub trait ComponentStorageReadViewBase: Send + Sync {
   /// get the data located in idx
   #[inline(always)]
   unsafe fn get_as_dyn_storage(&self, idx: u32) -> &dyn DynDataBaseDataType {
-    self
-      .meta()
-      .construct_dyn_datatype_from_raw_ptr(self.get(idx))
+    unsafe {
+      self
+        .meta()
+        .construct_dyn_datatype_from_raw_ptr(self.get(idx))
+    }
   }
 }
 

@@ -72,7 +72,6 @@ where
   A: Query,
   B: Query<Key = A::Key>,
   F: Fn((Option<A::Value>, Option<B::Value>)) -> Option<O> + Send + Sync + Clone + 'static,
-
   O: CValue,
 {
   type Key = A::Key;

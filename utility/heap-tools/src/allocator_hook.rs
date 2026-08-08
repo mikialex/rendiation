@@ -62,27 +62,31 @@ impl<T> PreciseAllocationStatistics<T> {
 
 unsafe impl<T: GlobalAlloc> GlobalAlloc for PreciseAllocationStatistics<T> {
   unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
-    #[cfg(feature = "enabled")]
-    {
-      self.allocation_instance_count.increase(1);
-      self
-        .allocation_real_bytes_count
-        .increase(layout.size() as u64);
-      self.allocation_event_count.fetch_add(1, SeqCst);
-    }
+    unsafe {
+      #[cfg(feature = "enabled")]
+      {
+        self.allocation_instance_count.increase(1);
+        self
+          .allocation_real_bytes_count
+          .increase(layout.size() as u64);
+        self.allocation_event_count.fetch_add(1, SeqCst);
+      }
 
-    self.allocator.alloc(layout)
+      self.allocator.alloc(layout)
+    }
   }
 
   unsafe fn dealloc(&self, ptr: *mut u8, layout: std::alloc::Layout) {
-    #[cfg(feature = "enabled")]
-    {
-      self.allocation_instance_count.decrease(1);
-      self
-        .allocation_real_bytes_count
-        .decrease(layout.size() as u64);
-    }
+    unsafe {
+      #[cfg(feature = "enabled")]
+      {
+        self.allocation_instance_count.decrease(1);
+        self
+          .allocation_real_bytes_count
+          .decrease(layout.size() as u64);
+      }
 
-    self.allocator.dealloc(ptr, layout)
+      self.allocator.dealloc(ptr, layout)
+    }
   }
 }

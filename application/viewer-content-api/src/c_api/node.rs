@@ -1,6 +1,6 @@
 use crate::*;
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_node() -> ViewerEntityHandle {
   global_entity_of::<SceneNodeEntity>()
     .entity_writer()
@@ -8,14 +8,14 @@ pub extern "C" fn create_node() -> ViewerEntityHandle {
     .into()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn delete_node(node: ViewerEntityHandle) {
   global_entity_of::<SceneNodeEntity>()
     .entity_writer()
     .delete_entity(node.into());
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn node_set_local_mat(node: ViewerEntityHandle, mat4: *const [f64; 16]) {
   let mat4 = unsafe { *mat4 };
   let mat4 = Mat4::from(mat4);
@@ -24,7 +24,7 @@ pub extern "C" fn node_set_local_mat(node: ViewerEntityHandle, mat4: *const [f64
 }
 
 /// set parent to null_ptr to detach
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn node_attach_parent(node: ViewerEntityHandle, parent: *mut ViewerEntityHandle) {
   let mut writer = global_entity_component_of::<SceneNodeParentIdx, _>(|c| c.write());
 

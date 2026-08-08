@@ -51,15 +51,17 @@ where
     field_byte_offset: usize,
     v: &[u8],
   ) -> Option<()> {
-    let view = self.vec.get_mut(idx as usize)?;
-    let view = bytes_of_mut(view);
-    let offset = idx as usize * std::mem::size_of::<T::Item>() + field_byte_offset;
-    let view = view.get_mut(offset..(offset + v.len()))?;
-    if self.diff && view == v {
-      return Some(());
+    unsafe {
+      let view = self.vec.get_mut(idx as usize)?;
+      let view = bytes_of_mut(view);
+      let offset = idx as usize * std::mem::size_of::<T::Item>() + field_byte_offset;
+      let view = view.get_mut(offset..(offset + v.len()))?;
+      if self.diff && view == v {
+        return Some(());
+      }
+      view.copy_from_slice(v);
+      self.inner.set_value_sub_bytes(idx, field_byte_offset, v)
     }
-    view.copy_from_slice(v);
-    self.inner.set_value_sub_bytes(idx, field_byte_offset, v)
   }
 
   fn set_values(&mut self, offset: u32, v: &[Self::Item]) -> Option<()> {

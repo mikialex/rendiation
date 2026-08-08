@@ -73,7 +73,7 @@ impl<T: LinearStorageDirectAccess> LinearStorageDirectAccess for GPUSlatAllocate
     self.buffer.set_values(offset, v)
   }
   unsafe fn set_value_sub_bytes(&mut self, idx: u32, field_offset: usize, v: &[u8]) -> Option<()> {
-    self.buffer.set_value_sub_bytes(idx, field_offset, v)
+    unsafe { self.buffer.set_value_sub_bytes(idx, field_offset, v) }
   }
 }
 

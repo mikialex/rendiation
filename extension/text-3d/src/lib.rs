@@ -31,7 +31,7 @@ use gles_draw::*;
 use indirect_data_prepare::*;
 pub use indirect_draw::{use_text3d_group_key, use_text3d_indirect_renderer};
 use parking_lot::RwLock;
-pub use pick::{use_text_picker, TextPicker};
+pub use pick::{TextPicker, use_text_picker};
 use slug_shader::*;
 
 pub fn register_text3d_data_model(sparse: bool) {

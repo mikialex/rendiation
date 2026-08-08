@@ -157,7 +157,6 @@ impl TextReadBufferInfo {
 }
 
 impl GPUCommandEncoder {
-  #[define_opaque(ReadBufferFromStagingBuffer)]
   pub fn read_buffer(
     &mut self,
     device: &GPUDevice,
@@ -180,17 +179,19 @@ impl GPUCommandEncoder {
       size,
     );
 
-    self
-      .on_submit
-      .once_future(|_| {})
-      .then(|_| ReadBufferTask::new(output_buffer, ..))
+    Box::new(
+      self
+        .on_submit
+        .once_future(|_| {})
+        .then(move |_| ReadBufferTask::new(output_buffer, ..)),
+    )
   }
 
   pub fn read_buffer_bytes(
     &mut self,
     device: &GPUDevice,
     buffer: &GPUBufferResourceView,
-  ) -> impl Future<Output = Result<Vec<u8>, gpu::BufferAsyncError>> {
+  ) -> impl Future<Output = Result<Vec<u8>, gpu::BufferAsyncError>> + use<> {
     self
       .read_buffer(device, buffer)
       .map(|buffer| buffer.map(|buffer| from_bytes_into_boxed_slice(&buffer.read_raw()).into_vec()))
@@ -200,7 +201,7 @@ impl GPUCommandEncoder {
     &mut self,
     device: &GPUDevice,
     buffer: &StorageBufferDataView<[T]>,
-  ) -> impl Future<Output = Result<Vec<T>, gpu::BufferAsyncError>> {
+  ) -> impl Future<Output = Result<Vec<T>, gpu::BufferAsyncError>> + use<T> {
     self.read_buffer(device, buffer).map(|buffer| {
       buffer.map(|buffer| <[T]>::from_bytes_into_boxed(&buffer.read_raw()).into_vec())
     })
@@ -210,7 +211,7 @@ impl GPUCommandEncoder {
     &mut self,
     device: &GPUDevice,
     buffer: &StorageBufferDataView<[DeviceAtomic<T>]>,
-  ) -> impl Future<Output = Result<Vec<T>, gpu::BufferAsyncError>> {
+  ) -> impl Future<Output = Result<Vec<T>, gpu::BufferAsyncError>> + use<T> {
     self.read_buffer(device, buffer).map(|buffer| {
       buffer.map(|buffer| <[T]>::from_bytes_into_boxed(&buffer.read_raw()).into_vec())
     })
@@ -220,7 +221,7 @@ impl GPUCommandEncoder {
     &mut self,
     device: &GPUDevice,
     buffer: &StorageBufferDataView<T>,
-  ) -> impl Future<Output = Result<T, gpu::BufferAsyncError>> {
+  ) -> impl Future<Output = Result<T, gpu::BufferAsyncError>> + use<T> {
     self
       .read_buffer(device, buffer)
       .map(|buffer| buffer.map(|buffer| T::from_bytes(&buffer.read_raw())))
@@ -283,5 +284,10 @@ pub type ReadTextureFromStagingBuffer = Box<
     + 'static,
 >;
 
-pub type ReadBufferFromStagingBuffer =
-  impl Future<Output = Result<ReadableBuffer, gpu::BufferAsyncError>> + 'static;
+pub type ReadBufferFromStagingBuffer = Box<
+  dyn Future<Output = Result<ReadableBuffer, gpu::BufferAsyncError>>
+    + Send
+    + Sync
+    + Unpin
+    + 'static,
+>;

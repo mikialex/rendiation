@@ -17,7 +17,7 @@ use rendiation_space_algorithm::utils::TreeBuildOption;
 use traverse_cpu::*;
 use traverse_gpu::*;
 
-use crate::backend::wavefront_compute::geometry::{intersect_ray_triangle_gpu, Ray};
+use crate::backend::wavefront_compute::geometry::{Ray, intersect_ray_triangle_gpu};
 use crate::*;
 
 #[repr(C)]

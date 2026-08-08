@@ -97,11 +97,7 @@ pub const fn align_offset(offset: usize, alignment: usize) -> usize {
 /// Max of two `usize`. Implemented because the `max` method from `Ord` cannot
 /// be used in const fns.
 pub const fn max(a: usize, b: usize) -> usize {
-  if a > b {
-    a
-  } else {
-    b
-  }
+  if a > b { a } else { b }
 }
 
 /// Max of an array of `usize`. This function's implementation is funky because

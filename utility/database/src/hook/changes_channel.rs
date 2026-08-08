@@ -37,32 +37,38 @@ impl<T: CValue> ChangesMutationSender<T> {
   ///
   /// this should be called before send
   pub unsafe fn lock(&self) {
-    self.inner.0.raw().lock_exclusive()
+    unsafe { self.inner.0.raw().lock_exclusive() }
   }
   /// # Safety
   ///
   /// this should be called after send
   pub unsafe fn unlock(&self) {
-    let mutations = &mut *self.inner.0.data_ptr();
-    if mutations.has_change() {
-      self.inner.1.wake();
+    unsafe {
+      let mutations = &mut *self.inner.0.data_ptr();
+      if mutations.has_change() {
+        self.inner.1.wake();
+      }
+      self.inner.0.raw().unlock_exclusive()
     }
-    self.inner.0.raw().unlock_exclusive()
   }
   /// # Safety
   ///
   /// this should be called when locked
   pub unsafe fn send(&self, idx: u32, change: Option<T>) {
-    let mutations = &mut *self.inner.0.data_ptr();
+    unsafe {
+      let mutations = &mut *self.inner.0.data_ptr();
 
-    mutations.update_change(idx, change);
+      mutations.update_change(idx, change);
+    }
   }
   /// # Safety
   ///
   /// this should be called when locked
   pub unsafe fn reserve_space(&self, size: usize) {
-    let mutations = &mut *self.inner.0.data_ptr();
-    mutations.reserve(size);
+    unsafe {
+      let mutations = &mut *self.inner.0.data_ptr();
+      mutations.reserve(size);
+    }
   }
 
   pub fn is_closed(&self) -> bool {
@@ -367,10 +373,12 @@ impl Bitmap {
   /// idx must in bound
   #[inline(always)]
   pub unsafe fn get(&self, idx: usize) -> bool {
-    let byte_idx = idx >> 3; // idx / 8
-    let offset = idx & 0b111; // idx % 8
-    let byte = self.bits.get_unchecked(byte_idx);
-    (byte >> (7 - offset)) & 1 == 1
+    unsafe {
+      let byte_idx = idx >> 3; // idx / 8
+      let offset = idx & 0b111; // idx % 8
+      let byte = self.bits.get_unchecked(byte_idx);
+      (byte >> (7 - offset)) & 1 == 1
+    }
   }
 
   /// # Safety
@@ -378,16 +386,18 @@ impl Bitmap {
   /// idx must in bound
   #[inline(always)]
   pub unsafe fn set(&mut self, idx: usize, value: bool) {
-    let byte_idx = idx >> 3; // idx / 8
-    let offset = idx & 0b111; // idx % 8
+    unsafe {
+      let byte_idx = idx >> 3; // idx / 8
+      let offset = idx & 0b111; // idx % 8
 
-    let byte_ref = self.bits.get_unchecked_mut(byte_idx);
+      let byte_ref = self.bits.get_unchecked_mut(byte_idx);
 
-    let byte = *byte_ref;
+      let byte = *byte_ref;
 
-    let curval = (byte >> (7 - offset)) & 1;
-    let mask = if value { 1 ^ curval } else { curval };
+      let curval = (byte >> (7 - offset)) & 1;
+      let mask = if value { 1 ^ curval } else { curval };
 
-    *byte_ref = byte ^ (mask << (7 - offset)); // Bit flipping
+      *byte_ref = byte ^ (mask << (7 - offset)); // Bit flipping
+    }
   }
 }

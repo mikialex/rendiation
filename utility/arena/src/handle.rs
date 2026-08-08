@@ -45,7 +45,7 @@ impl<T> Handle<T> {
   ///
   /// force type conversion
   pub unsafe fn cast_type<U>(&self) -> Handle<U> {
-    let t: &Handle<U> = std::mem::transmute(self);
+    let t: &Handle<U> = unsafe { std::mem::transmute(self) };
     *t
   }
 

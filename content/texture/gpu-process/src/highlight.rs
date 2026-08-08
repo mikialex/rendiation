@@ -32,14 +32,22 @@ impl HighLighter {
 
 impl HighLighter {
   /// This fn is public because this allows user use any mask (maybe from the cached one)
-  pub fn draw_result(&self, mask: RenderTargetView, ctx: &mut FrameCtx) -> impl PassContent + '_ {
+  pub fn draw_result<'a>(
+    &'a self,
+    mask: RenderTargetView,
+    ctx: &mut FrameCtx,
+  ) -> impl PassContent + use<'a> {
     let sdf = compute_sdf_for_frame_render(ctx, mask, Some(self.data.get().width));
 
     HighLightComputer { sdf, lighter: self }.draw_quad_with_alpha_blending()
   }
 
   /// the passed in content should draw by `HighLightMaskDispatcher`
-  pub fn draw(&self, ctx: &mut FrameCtx, mut content: impl PassContent) -> impl PassContent + '_ {
+  pub fn draw<'a, P: PassContent>(
+    &'a self,
+    ctx: &mut FrameCtx,
+    mut content: P,
+  ) -> impl PassContent + use<'a, P> {
     let selected_mask = attachment()
       .format(HIGH_LIGHT_MASK_TARGET_FORMAT)
       .request(ctx);

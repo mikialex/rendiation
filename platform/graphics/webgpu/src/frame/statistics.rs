@@ -3,8 +3,8 @@ use std::task::Context;
 use std::task::Poll;
 
 use event_source::noop_ctx;
-use futures::channel::mpsc::*;
 use futures::StreamExt;
+use futures::channel::mpsc::*;
 
 pub struct FramePassMeasure<T> {
   pub info: T,

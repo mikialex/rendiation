@@ -1,8 +1,8 @@
 #[allow(unused_imports)]
 use fast_hash_collection::FastHashMap;
-use rendiation_mesh_segmentation::{build_meshlets, build_meshlets_bound, ClusteringConfig};
+use rendiation_mesh_segmentation::{ClusteringConfig, build_meshlets, build_meshlets_bound};
 use rendiation_mesh_simplification::{
-  simplify_by_edge_collapse, simplify_sloppy, EdgeCollapseConfig,
+  EdgeCollapseConfig, simplify_by_edge_collapse, simplify_sloppy,
 };
 
 use crate::*;

@@ -1,9 +1,9 @@
 use rendiation_geometry::Box3;
 
-use super::bvh_tree::{BvhNodeIndex, BvhNodeWide};
 use super::BvhNode;
-use crate::morton;
+use super::bvh_tree::{BvhNodeIndex, BvhNodeWide};
 use crate::Bvh;
+use crate::morton;
 
 impl Bvh {
   pub(crate) fn rebuild_range_ploc(&mut self, target_node_id: u32, leaves: &mut Vec<BvhNode>) {

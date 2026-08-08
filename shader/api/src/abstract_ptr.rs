@@ -92,9 +92,9 @@ pub trait SizedShaderPtrView: ReadonlySizedShaderPtrView {
 
 pub trait SizedShaderAbstractPtrAccess:
   ShaderAbstractPtrAccess<
-  PtrView: SizedShaderPtrView<Node = Self>,
-  ReadonlyPtrView: ReadonlySizedShaderPtrView<Node = Self>,
->
+    PtrView: SizedShaderPtrView<Node = Self>,
+    ReadonlyPtrView: ReadonlySizedShaderPtrView<Node = Self>,
+  >
 {
 }
 impl<T> SizedShaderAbstractPtrAccess for T

@@ -1,7 +1,7 @@
 use crate::*;
 
 /// the content format expects Rgba8UnormSrgb
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_texture2d(
   content: *const u8,
   len: usize,
@@ -32,7 +32,7 @@ pub struct Texture2dMetaInfo {
   pub format: TextureFormat,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn get_texture2d_info(handle: ViewerEntityHandle) -> Texture2dMetaInfo {
   let mut r = Texture2dMetaInfo {
     width: 0,
@@ -56,7 +56,7 @@ pub extern "C" fn get_texture2d_info(handle: ViewerEntityHandle) -> Texture2dMet
   r
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn update_texture2d_content(
   handle: ViewerEntityHandle,
   content: *const u8,
@@ -77,7 +77,7 @@ pub extern "C" fn update_texture2d_content(
   write_global_db_component::<SceneTexture2dEntityDirectContent>().write(handle.into(), Some(data));
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_texture_cube() -> ViewerEntityHandle {
   global_entity_of::<SceneTextureCubeEntity>()
     .entity_writer()
@@ -85,14 +85,14 @@ pub extern "C" fn create_texture_cube() -> ViewerEntityHandle {
     .into()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_texture_cube(handle: ViewerEntityHandle) {
   global_entity_of::<SceneTextureCubeEntity>()
     .entity_writer()
     .delete_entity(handle.into())
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn texture_cube_set_face(
   cube: ViewerEntityHandle,
   face_index: u32,
@@ -115,21 +115,21 @@ pub extern "C" fn texture_cube_set_face(
   };
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_texture2d(handle: ViewerEntityHandle) {
   global_entity_of::<SceneTexture2dEntity>()
     .entity_writer()
     .delete_entity(handle.into());
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_sampler() -> ViewerEntityHandle {
   global_entity_of::<SceneSamplerEntity>()
     .entity_writer()
     .new_entity(|w| w)
     .into()
 }
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_sampler(handle: ViewerEntityHandle) {
   global_entity_of::<SceneSamplerEntity>()
     .entity_writer()

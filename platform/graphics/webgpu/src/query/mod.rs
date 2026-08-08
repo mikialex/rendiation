@@ -10,7 +10,7 @@ pub(crate) fn read_back_query<T: Pod>(
   query_range: Range<u32>,
   device: &GPUDevice,
   encoder: &mut GPUCommandEncoder,
-) -> impl Future<Output = Option<T>> + Unpin {
+) -> impl Future<Output = Option<T>> + Unpin + use<T> {
   let size = std::mem::size_of::<T>().max(QUERY_RESOLVE_BUFFER_ALIGNMENT as usize) as u64;
   let usage = BufferUsages::COPY_SRC | BufferUsages::QUERY_RESOLVE;
   let result = create_gpu_buffer_zeroed(size, usage, device).create_default_view();

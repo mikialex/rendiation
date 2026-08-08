@@ -5,7 +5,7 @@ pub trait GPURaytracingSystem: DynClone {
   fn create_raytracing_device(&self) -> Box<dyn GPURayTracingDeviceProvider>;
   fn create_raytracing_encoder(&self) -> Box<dyn RayTracingEncoderProvider>;
   fn create_acceleration_structure_system(&self)
-    -> Box<dyn GPUAccelerationStructureSystemProvider>;
+  -> Box<dyn GPUAccelerationStructureSystemProvider>;
 }
 clone_trait_object!(GPURaytracingSystem);
 

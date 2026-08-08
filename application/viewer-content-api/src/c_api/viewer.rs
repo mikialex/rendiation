@@ -1,12 +1,12 @@
 use std::{
-  ffi::{c_char, CStr},
+  ffi::{CStr, c_char},
   path::Path,
   slice,
 };
 
 use crate::*;
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_viewer_content_api_instance(config_path: *const c_char) -> *mut ViewerAPI {
   let config_path = unsafe { CStr::from_ptr(config_path) };
   let init_config = if let Ok(config_path) = config_path.to_str() {
@@ -28,12 +28,12 @@ pub extern "C" fn create_viewer_content_api_instance(config_path: *const c_char)
   Box::leak(api)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_viewer_content_api_instance(api: *mut ViewerAPI) {
   let _ = unsafe { Box::from_raw(api) };
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_set_tonemap_ty_value(
   api: &mut ViewerAPI,
   ty: rendiation_texture_gpu_process::ToneMapType,
@@ -50,7 +50,7 @@ pub extern "C" fn viewer_set_tonemap_ty_value(
 }
 
 /// hinstance can be null_ptr
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_create_surface(
   api: &mut ViewerAPI,
   hwnd: *mut c_void,
@@ -61,12 +61,12 @@ pub extern "C" fn viewer_create_surface(
   api.create_surface(hwnd, hinstance, width, height)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_drop_surface(api: &mut ViewerAPI, surface_id: u32) {
   api.drop_surface(surface_id)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_surface_set_camera(
   api: &mut ViewerAPI,
   surface_id: u32,
@@ -75,7 +75,7 @@ pub extern "C" fn viewer_surface_set_camera(
   api.set_surface_camera(surface_id, camera.into());
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_surface_set_scene(
   api: &mut ViewerAPI,
   surface_id: u32,
@@ -84,7 +84,7 @@ pub extern "C" fn viewer_surface_set_scene(
   api.set_surface_scene(surface_id, scene.into());
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_set_enable_clip(
   api: &mut ViewerAPI,
   enable_clip: bool,
@@ -95,7 +95,7 @@ pub extern "C" fn viewer_set_enable_clip(
 }
 
 /// may return empty handle for error case
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_read_last_render_result(
   api: &mut ViewerAPI,
   surface_id: u32,
@@ -113,7 +113,7 @@ pub extern "C" fn viewer_read_last_render_result(
 }
 
 /// the size is physical resolution
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_resize(
   api: &mut ViewerAPI,
   surface_id: u32,
@@ -123,7 +123,7 @@ pub extern "C" fn viewer_resize(
   api.resize(surface_id, new_width, new_height);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_load_font(api: &mut ViewerAPI, font_path: *const c_char) {
   let font_path = unsafe { CStr::from_ptr(font_path) };
   if let Ok(s) = font_path.to_str() {
@@ -138,12 +138,12 @@ pub extern "C" fn viewer_load_font(api: &mut ViewerAPI, font_path: *const c_char
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_render_surface(api: &mut ViewerAPI, surface_id: u32) {
   api.render_surface(surface_id);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_create_world_derive_query_api(
   api: &mut ViewerAPI,
 ) -> *mut ViewerWorldDeriveQueryAPI {
@@ -153,12 +153,12 @@ pub extern "C" fn viewer_create_world_derive_query_api(
 }
 
 /// api must be dropped before any scene related modifications, or deadlock will occur
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_drop_world_derive_query_api(api: *mut ViewerWorldDeriveQueryAPI) {
   let _ = unsafe { Box::from_raw(api) };
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn world_derive_query_api_get_world_mat(
   api: &mut ViewerWorldDeriveQueryAPI,
   node: ViewerEntityHandle,
@@ -172,7 +172,7 @@ pub extern "C" fn world_derive_query_api_get_world_mat(
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn world_derive_query_api_get_world_bbox_with_persist(
   api: &mut ViewerWorldDeriveQueryAPI,
   sm: ViewerEntityHandle,
@@ -195,7 +195,7 @@ pub extern "C" fn world_derive_query_api_get_world_bbox_with_persist(
   false
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn world_derive_query_api_get_world_bounding(
   api: &mut ViewerWorldDeriveQueryAPI,
   sm: ViewerEntityHandle,
@@ -215,7 +215,7 @@ pub extern "C" fn world_derive_query_api_get_world_bounding(
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn world_derive_query_api_get_local_bounding(
   api: &mut ViewerWorldDeriveQueryAPI,
   sm: ViewerEntityHandle,
@@ -236,7 +236,7 @@ pub extern "C" fn world_derive_query_api_get_local_bounding(
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_create_picker_api(
   api: &mut ViewerAPI,
   surface_id: u32,
@@ -247,12 +247,12 @@ pub extern "C" fn viewer_create_picker_api(
 }
 
 /// api must be dropped before any scene related modifications, or deadlock will occur
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn viewer_drop_picker_api(api: *mut ViewerQueryAPI) {
   let _ = unsafe { Box::from_raw(api) };
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn query_scene_bounding(
   api: &mut ViewerWorldDeriveQueryAPI,
   viewer_api: &mut ViewerAPI,
@@ -291,7 +291,7 @@ pub extern "C" fn query_scene_bounding(
 /// the returned pick list's should be dropped by  [drop_pick_list_result] after read the result
 ///
 /// all inputs are logic pixel
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn picker_pick_list(
   api: &mut ViewerQueryAPI,
   viewer: &mut ViewerAPI,
@@ -328,7 +328,7 @@ pub extern "C" fn picker_pick_list(
   Box::leak(r)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_pick_list_result(r: *mut ViewerRayPickListResult) {
   unsafe {
     let _ = Box::from_raw(r);
@@ -340,7 +340,7 @@ pub extern "C" fn drop_pick_list_result(r: *mut ViewerRayPickListResult) {
 /// the a, b point can be swapped without order limits.
 ///
 /// all inputs are logic pixel
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn picker_pick_range(
   api: &mut ViewerQueryAPI,
   viewer: &mut ViewerAPI,
@@ -369,7 +369,7 @@ pub extern "C" fn picker_pick_range(
   Box::leak(r)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_pick_range_result(r: *mut ViewerRayPickRangeResult) {
   unsafe {
     let _ = Box::from_raw(r);
@@ -385,7 +385,7 @@ pub struct ViewerRayPickRangeResultInfo {
   pub ptr: *const ViewerEntityHandle,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn get_ray_pick_range_info(
   r: *mut ViewerRayPickRangeResult,
 ) -> ViewerRayPickRangeResultInfo {
@@ -399,7 +399,7 @@ pub extern "C" fn get_ray_pick_range_info(
 /// the returned result should be dropped by [drop_pick_sub_primitive_result] after read
 ///
 /// all inputs are logic pixel
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn picker_pick_range_sub_primitive(
   api: &mut ViewerQueryAPI,
   viewer: &mut ViewerAPI,
@@ -440,7 +440,7 @@ pub extern "C" fn picker_pick_range_sub_primitive(
   Box::leak(r)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_pick_sub_primitive_result(r: *mut ViewerRayPickSubPrimitiveResult) {
   unsafe {
     let _ = Box::from_raw(r);
@@ -463,7 +463,7 @@ pub struct ViewerRayPickSubPrimitiveResultInfo {
   pub ptr: *const ViewerSubPrimitivePickResult,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn get_pick_sub_primitive_info(
   r: *mut ViewerRayPickSubPrimitiveResult,
 ) -> ViewerRayPickSubPrimitiveResultInfo {
@@ -486,7 +486,7 @@ pub struct ViewerRayPickListResultInfo {
   pub camera_position_world: [f64; 3],
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn get_ray_pick_list_info(
   r: *mut ViewerRayPickListResult,
 ) -> ViewerRayPickListResultInfo {
@@ -498,27 +498,27 @@ pub extern "C" fn get_ray_pick_list_info(
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_scene() -> ViewerEntityHandle {
   global_entity_of::<SceneEntity>()
     .entity_writer()
     .new_entity(|w| w)
     .into()
 }
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_scene(handle: ViewerEntityHandle) {
   global_entity_of::<SceneEntity>()
     .entity_writer()
     .delete_entity(handle.into());
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_set_background_solid(handle: ViewerEntityHandle, color: &[f32; 3]) {
   write_global_db_component::<SceneSolidBackground>().write(handle.into(), Some((*color).into()));
   write_global_db_component::<SceneGradientBackgroundInfo>().write(handle.into(), None);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_set_background_gradient(
   handle: ViewerEntityHandle,
   top: &[f32; 3],

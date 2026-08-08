@@ -1,4 +1,4 @@
-use std::ffi::{c_char, CStr};
+use std::ffi::{CStr, c_char};
 
 use crate::*;
 
@@ -8,7 +8,7 @@ pub struct SceneModelHandleInfo {
   std_model: ViewerEntityHandle,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_scene_model(
   material: ViewerEntityHandle,
   mesh: ViewerEntityHandle,
@@ -36,7 +36,7 @@ pub extern "C" fn create_scene_model(
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_scene_model(handle: SceneModelHandleInfo) {
   global_entity_of::<StandardModelEntity>()
     .entity_writer()
@@ -47,23 +47,23 @@ pub extern "C" fn drop_scene_model(handle: SceneModelHandleInfo) {
     .delete_entity(handle.scene_model.into());
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_visible(handle: ViewerEntityHandle, visible: bool) {
   write_global_db_component::<SceneModelVisible>().write(handle.into(), visible);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_skip_clip(handle: ViewerEntityHandle, skip: bool) {
   write_global_db_component::<ClippingPlaneSceneModelSkip>().write(handle.into(), skip);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_mesh(handle: SceneModelHandleInfo, mesh: ViewerEntityHandle) {
   write_global_db_component::<StandardModelRefAttributesMeshEntity>()
     .write(handle.std_model.into(), Some(mesh.into()));
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_scene(
   handle: ViewerEntityHandle,
   scene: *const ViewerEntityHandle,
@@ -76,7 +76,7 @@ pub extern "C" fn scene_model_set_scene(
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_occ_style_view_dep(
   handle: ViewerEntityHandle,
   anchor: &[f32; 3],
@@ -106,17 +106,17 @@ pub extern "C" fn scene_model_set_occ_style_view_dep(
     .write(handle.into(), Some(config));
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_remove_occ_style_view_dep(handle: ViewerEntityHandle) {
   write_global_db_component::<SceneModelViewDependentTransformOcc>().write(handle.into(), None);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_z_layer(handle: ViewerEntityHandle, z_layer: OccFlavorZLayer) {
   write_global_db_component::<SceneModelOccStyleLayer>().write(handle.into(), z_layer);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_scene_model_is_infinity(
   handle: ViewerEntityHandle,
   is_infinity: bool,
@@ -124,17 +124,17 @@ pub extern "C" fn scene_model_set_scene_model_is_infinity(
   write_global_db_component::<SceneModelIsInfinity>().write(handle.into(), is_infinity);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_priority(handle: ViewerEntityHandle, priority: u32) {
   write_global_db_component::<SceneModelOccStylePriority>().write(handle.into(), priority);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_selectable(handle: ViewerEntityHandle, selectable: bool) {
   write_global_db_component::<SceneModelSelectable>().write(handle.into(), selectable);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_material(
   handle: SceneModelHandleInfo,
   material: ViewerEntityHandle,
@@ -149,7 +149,7 @@ pub struct SceneWidePointsHandleInfo {
   points: ViewerEntityHandle,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_wide_points(
   node: ViewerEntityHandle,
   data_length: u32,
@@ -177,7 +177,7 @@ pub extern "C" fn create_wide_points(
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wide_points_set_buffer(
   handle: ViewerEntityHandle,
   data_length: u32,
@@ -191,16 +191,16 @@ pub extern "C" fn wide_points_set_buffer(
   write_global_db_component::<WideStyledPointsMeshBuffer>().write(handle.into(), data.into());
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wide_points_set_color(handle: ViewerEntityHandle, color: &[f32; 4]) {
   write_global_db_component::<WideStyledPointsColor>().write(handle.into(), (*color).into());
 }
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wide_points_set_depth_test(handle: ViewerEntityHandle, bool: bool) {
   write_global_db_component::<WideLineDepthEnable>().write(handle.into(), bool);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wide_points_set_pattern_texture(
   handle: ViewerEntityHandle,
   texture: ViewerEntityHandle,
@@ -209,7 +209,7 @@ pub extern "C" fn wide_points_set_pattern_texture(
   write_tex_sampler::<WidePointsColorAlphaTex>(handle, texture, sampler)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_wide_points(p: SceneWidePointsHandleInfo) {
   global_entity_of::<WideStyledPointsEntity>()
     .entity_writer()
@@ -226,7 +226,7 @@ pub struct SceneWideLineHandleInfo {
   line: ViewerEntityHandle,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_wide_line(
   node: ViewerEntityHandle,
   data_length: u32,
@@ -258,7 +258,7 @@ pub extern "C" fn create_wide_line(
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wide_line_set_buffer(
   handle: ViewerEntityHandle,
   data_length: u32,
@@ -274,37 +274,37 @@ pub extern "C" fn wide_line_set_buffer(
   write_global_db_component::<WideLineIsLineStrip>().write(handle.into(), is_line_strip);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wide_line_set_enable_depth_test(handle: ViewerEntityHandle, enabled: bool) {
   write_global_db_component::<WideLineDepthEnable>().write(handle.into(), enabled);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wide_line_set_transparent(handle: ViewerEntityHandle, enabled: bool) {
   write_global_db_component::<WideLineTransparent>().write(handle.into(), enabled);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wide_line_set_color(handle: ViewerEntityHandle, color: &[f32; 4]) {
   write_global_db_component::<WideLineColor>().write(handle.into(), (*color).into());
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wide_line_set_width(handle: ViewerEntityHandle, width: &f32) {
   write_global_db_component::<WideLineWidth>().write(handle.into(), *width);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wide_line_set_pattern(handle: ViewerEntityHandle, pattern: u32) {
   write_global_db_component::<WideLineStylePattern>().write(handle.into(), pattern);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wide_line_set_factor(handle: ViewerEntityHandle, factor: f32) {
   write_global_db_component::<WideLineStyleFactor>().write(handle.into(), factor);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_wide_line(p: SceneWideLineHandleInfo) {
   global_entity_of::<WideLineModelEntity>()
     .entity_writer()
@@ -339,7 +339,7 @@ pub struct SceneText3dHandleInfo {
   text3d: ViewerEntityHandle,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_text3d(
   node: ViewerEntityHandle,
   content: *const Text3dContentInfoC,
@@ -362,7 +362,7 @@ pub extern "C" fn create_text3d(
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn text3d_set_content(
   handle: ViewerEntityHandle,
   content: *const Text3dContentInfoC,
@@ -403,7 +403,7 @@ fn text3d_content_from_c(
   }))
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_text3d(p: SceneText3dHandleInfo) {
   global_entity_of::<Text3dEntity>()
     .entity_writer()
@@ -426,7 +426,7 @@ pub struct Text3dQueryInfoC {
   pub has_result: bool,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn text3d_query(
   api: &mut ViewerAPI,
   handle: ViewerEntityHandle,
@@ -448,7 +448,7 @@ pub extern "C" fn text3d_query(
   rr
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn text3d_set_local_transform(handle: ViewerEntityHandle, mat: &[f32; 16]) {
   let mat = Mat4::from(*mat);
   write_global_db_component::<Text3dLocalTransform>().write(handle.into(), mat);

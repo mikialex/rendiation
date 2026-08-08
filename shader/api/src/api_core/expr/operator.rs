@@ -68,7 +68,7 @@ pub unsafe fn index_access_field_as_ptr(
   struct_node: ShaderNodeRawHandle,
   field_index: usize,
 ) -> BoxedShaderPtr {
-  Box::new(index_access_field(struct_node, field_index))
+  unsafe { Box::new(index_access_field(struct_node, field_index)) }
 }
 
 impl OperatorNode {

@@ -1,4 +1,4 @@
-use syn::{punctuated::Punctuated, spanned::Spanned, Data, Field, Ident, Type, Visibility};
+use syn::{Data, Field, Ident, Type, Visibility, punctuated::Punctuated, spanned::Spanned};
 
 #[allow(dead_code)]
 pub struct StructInfo {

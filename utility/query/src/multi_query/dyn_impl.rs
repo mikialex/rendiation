@@ -8,7 +8,7 @@ pub trait DynMultiQuery: Send + Sync + DynClone {
   /// if k is not in the query at all, return None.
   /// if k is in the query but map to none of v, return empty iterator
   fn access_multi_dyn(&self, key: &Self::Key)
-    -> Option<Box<dyn Iterator<Item = Self::Value> + '_>>;
+  -> Option<Box<dyn Iterator<Item = Self::Value> + '_>>;
   fn access_multi_value_dyn(&self, key: &Self::Key) -> Box<dyn Iterator<Item = Self::Value> + '_> {
     self
       .access_multi_dyn(key)

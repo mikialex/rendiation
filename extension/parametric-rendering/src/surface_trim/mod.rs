@@ -2,7 +2,7 @@ mod bezier_curve_tessellate;
 mod recontruct_boundary;
 
 use bezier_curve_tessellate::adaptive_tessellate_bezier_curve;
-use recontruct_boundary::{reconstruct_boundary, QuadraticBezierCurve2d};
+use recontruct_boundary::{QuadraticBezierCurve2d, reconstruct_boundary};
 use rendiation_algebra::*;
 
 use crate::{curve3d::RationalBezierCurve3d, surface::RationalBezierSurface};

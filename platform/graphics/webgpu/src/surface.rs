@@ -147,7 +147,7 @@ impl<'a> GPUSurface<'a> {
           CurrentSurfaceTexture::Timeout => return Ok(SurfaceNext::Timeout),
           CurrentSurfaceTexture::Occluded => return Ok(SurfaceNext::Occluded),
           CurrentSurfaceTexture::Outdated => {
-            return Err(SurfaceError::ReconfiguredSurfaceDirectlyOutdated)
+            return Err(SurfaceError::ReconfiguredSurfaceDirectlyOutdated);
           }
           CurrentSurfaceTexture::Lost => return Err(SurfaceError::ReconfiguredSurfaceDirectlyLost),
           CurrentSurfaceTexture::Validation => return Err(SurfaceError::Validation),

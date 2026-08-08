@@ -1,4 +1,4 @@
-use futures::{future::join_all, FutureExt};
+use futures::{FutureExt, future::join_all};
 
 use crate::*;
 

@@ -12,7 +12,7 @@ declare_component!(
 /// This must be called before any other rendiation c api
 ///
 /// if trace_write_path is null_ptr, then the api tracing will be disabled
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn rendiation_init(trace_write_path: *const c_char) {
   std::panic::set_hook(Box::new(on_panic));
 

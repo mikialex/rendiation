@@ -49,16 +49,18 @@ impl GPUInstance {
       let dropped_clone = dropped.clone();
       let polling_frequency_clone = polling_frequency.clone();
 
-      std::thread::spawn(move || loop {
-        if dropped_clone.load(Ordering::Relaxed) {
-          break;
-        }
-        let polling_frequency = polling_frequency_clone.load(Ordering::Relaxed);
-        if polling_frequency == 0 {
-          instance_clone.poll_all(false);
-        } else {
-          std::thread::sleep(std::time::Duration::from_millis(polling_frequency as u64));
-          instance_clone.poll_all(false);
+      std::thread::spawn(move || {
+        loop {
+          if dropped_clone.load(Ordering::Relaxed) {
+            break;
+          }
+          let polling_frequency = polling_frequency_clone.load(Ordering::Relaxed);
+          if polling_frequency == 0 {
+            instance_clone.poll_all(false);
+          } else {
+            std::thread::sleep(std::time::Duration::from_millis(polling_frequency as u64));
+            instance_clone.poll_all(false);
+          }
         }
       });
     }

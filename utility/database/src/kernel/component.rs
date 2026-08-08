@@ -134,38 +134,44 @@ impl ComponentWriteViewUntyped {
   ///
   /// See [ComponentStorageReadWriteView::set_value_init]
   pub unsafe fn init(&mut self, idx: RawEntityHandle, new: Option<DataPtr>) {
-    let new = self.data.set_value_init(idx.index(), new);
+    unsafe {
+      let new = self.data.set_value_init(idx.index(), new);
 
-    let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
-    let new_dyn = new_dyn as *const dyn DynDataBaseDataType;
-    let pair = (new, new_dyn);
-    let change = ValueChange::Delta(pair, None);
-    let change = IndexValueChange { idx, change };
-    self.events.emit(&ScopedValueChange::Message(change));
+      let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
+      let new_dyn = new_dyn as *const dyn DynDataBaseDataType;
+      let pair = (new, new_dyn);
+      let change = ValueChange::Delta(pair, None);
+      let change = IndexValueChange { idx, change };
+      self.events.emit(&ScopedValueChange::Message(change));
+    }
   }
 
   unsafe fn emit_delta(&mut self, idx: RawEntityHandle, new: DataPtr, old: DataPtr) {
-    let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
-    let new_dyn = new_dyn as *const dyn DynDataBaseDataType;
-    let new_pair = (new, new_dyn);
+    unsafe {
+      let new_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(new);
+      let new_dyn = new_dyn as *const dyn DynDataBaseDataType;
+      let new_pair = (new, new_dyn);
 
-    let old_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(old);
-    let old_dyn = old_dyn as *const dyn DynDataBaseDataType;
-    let old_pair = (old, old_dyn);
+      let old_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(old);
+      let old_dyn = old_dyn as *const dyn DynDataBaseDataType;
+      let old_pair = (old, old_dyn);
 
-    let change = ValueChange::Delta(new_pair, Some(old_pair));
-    let change = IndexValueChange { idx, change };
-    self.events.emit(&ScopedValueChange::Message(change));
+      let change = ValueChange::Delta(new_pair, Some(old_pair));
+      let change = IndexValueChange { idx, change };
+      self.events.emit(&ScopedValueChange::Message(change));
+    }
   }
 
   /// # Safety
   ///
   /// See [ComponentStorageReadWriteView::set_value]
   pub unsafe fn write(&mut self, idx: RawEntityHandle, new: DataPtr) {
-    let (new, old, changed) = self.data.set_value(idx.index(), new);
+    unsafe {
+      let (new, old, changed) = self.data.set_value(idx.index(), new);
 
-    if changed {
-      self.emit_delta(idx, new, old);
+      if changed {
+        self.emit_delta(idx, new, old);
+      }
     }
   }
 
@@ -177,12 +183,14 @@ impl ComponentWriteViewUntyped {
     idx: RawEntityHandle,
     new: DatabaseSerializedFieldBufferOrForeignKey,
   ) {
-    let (new, old, changed) = self
-      .data
-      .set_value_from_serialize_field_data(idx.index(), new);
+    unsafe {
+      let (new, old, changed) = self
+        .data
+        .set_value_from_serialize_field_data(idx.index(), new);
 
-    if changed {
-      self.emit_delta(idx, new, old);
+      if changed {
+        self.emit_delta(idx, new, old);
+      }
     }
   }
 
@@ -190,14 +198,16 @@ impl ComponentWriteViewUntyped {
   ///
   /// See [ComponentStorageReadWriteView::delete]
   pub unsafe fn delete(&mut self, idx: RawEntityHandle) {
-    let old = self.data.delete(idx.index());
+    unsafe {
+      let old = self.data.delete(idx.index());
 
-    let old_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(old);
-    let old_dyn = old_dyn as *const dyn DynDataBaseDataType;
-    let old_pair = (old, old_dyn);
+      let old_dyn = self.data.meta().construct_dyn_datatype_from_raw_ptr(old);
+      let old_dyn = old_dyn as *const dyn DynDataBaseDataType;
+      let old_pair = (old, old_dyn);
 
-    let change = ValueChange::Remove(old_pair);
-    let change = IndexValueChange { idx, change };
-    self.events.emit(&ScopedValueChange::Message(change));
+      let change = ValueChange::Remove(old_pair);
+      let change = IndexValueChange { idx, change };
+      self.events.emit(&ScopedValueChange::Message(change));
+    }
   }
 }

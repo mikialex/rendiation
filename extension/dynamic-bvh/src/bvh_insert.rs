@@ -1,8 +1,8 @@
 use rendiation_algebra::{RealVector, Vec3, Vector};
 use rendiation_geometry::Box3;
 
-use super::bvh_tree::{BvhNodeIndex, BvhNodeWide};
 use super::BvhNode;
+use super::bvh_tree::{BvhNodeIndex, BvhNodeWide};
 use crate::Bvh;
 
 impl Bvh {

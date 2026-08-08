@@ -101,10 +101,6 @@ impl<V> LineSegment<V> {
   where
     Self: Copy,
   {
-    if prediction(self) {
-      self.swap()
-    } else {
-      self
-    }
+    if prediction(self) { self.swap() } else { self }
   }
 }

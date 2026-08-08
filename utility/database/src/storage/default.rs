@@ -58,8 +58,10 @@ where
 
   #[inline(always)]
   unsafe fn get(&self, idx: u32) -> DataPtr {
-    let data: &Vec<T> = &self.data;
-    data.get_unchecked(idx as usize) as *const _ as DataPtr
+    unsafe {
+      let data: &Vec<T> = &self.data;
+      data.get_unchecked(idx as usize) as *const _ as DataPtr
+    }
   }
 }
 
@@ -73,8 +75,10 @@ where
   }
   #[inline(always)]
   unsafe fn get(&self, idx: u32) -> DataPtr {
-    let data: &Vec<T> = &self.data;
-    data.get_unchecked(idx as usize) as *const _ as DataPtr
+    unsafe {
+      let data: &Vec<T> = &self.data;
+      data.get_unchecked(idx as usize) as *const _ as DataPtr
+    }
   }
 }
 
@@ -83,34 +87,38 @@ where
   T: DataBaseDataType,
 {
   unsafe fn set_value_init(&mut self, idx: u32, init_value: Option<DataPtr>) -> DataPtr {
-    let self_ = self.deref_mut();
+    unsafe {
+      let self_ = self.deref_mut();
 
-    let source = if let Some(new_value) = init_value {
-      &*(new_value as *const T)
-    } else {
-      &self_.default_value
-    };
+      let source = if let Some(new_value) = init_value {
+        &*(new_value as *const T)
+      } else {
+        &self_.default_value
+      };
 
-    let target = self_.data.get_unchecked_mut(idx as usize);
-    *target = (*source).clone();
+      let target = self_.data.get_unchecked_mut(idx as usize);
+      *target = (*source).clone();
 
-    target as *const _ as DataPtr
+      target as *const _ as DataPtr
+    }
   }
 
   unsafe fn set_value(&mut self, idx: u32, source: DataPtr) -> (DataPtr, DataPtr, bool) {
-    let self_ = self.deref_mut();
-    let target = self_.data.get_unchecked_mut(idx as usize);
+    unsafe {
+      let self_ = self.deref_mut();
+      let target = self_.data.get_unchecked_mut(idx as usize);
 
-    let source = &*(source as *const T);
+      let source = &*(source as *const T);
 
-    self_.old_value_out = target.clone();
-    *target = (*source).clone();
+      self_.old_value_out = target.clone();
+      *target = (*source).clone();
 
-    let diff = &self_.old_value_out != target;
+      let diff = &self_.old_value_out != target;
 
-    let new = target as *const _ as DataPtr;
-    let old = &self.old_value_out as *const _ as DataPtr;
-    (new, old, diff)
+      let new = target as *const _ as DataPtr;
+      let old = &self.old_value_out as *const _ as DataPtr;
+      (new, old, diff)
+    }
   }
 
   unsafe fn set_value_from_serialize_field_data(
@@ -118,22 +126,26 @@ where
     idx: u32,
     new_value: DatabaseSerializedFieldBufferOrForeignKey,
   ) -> (DataPtr, DataPtr, bool) {
-    let mut value = T::default();
-    match new_value {
-      DatabaseSerializedFieldBufferOrForeignKey::Pod(small_vec) => value
-        .deserialize_from_reader(&mut small_vec.as_slice())
-        .unwrap(),
-      DatabaseSerializedFieldBufferOrForeignKey::ForeignKey(handle) => {
-        value = std::mem::transmute_copy(&Some(handle))
+    unsafe {
+      let mut value = T::default();
+      match new_value {
+        DatabaseSerializedFieldBufferOrForeignKey::Pod(small_vec) => value
+          .deserialize_from_reader(&mut small_vec.as_slice())
+          .unwrap(),
+        DatabaseSerializedFieldBufferOrForeignKey::ForeignKey(handle) => {
+          value = std::mem::transmute_copy(&Some(handle))
+        }
       }
+      self.set_value(idx, &value as *const _ as DataPtr)
     }
-    self.set_value(idx, &value as *const _ as DataPtr)
   }
 
   unsafe fn delete(&mut self, idx: u32) -> DataPtr {
-    let target = self.data.get_unchecked_mut(idx as usize);
-    self.old_value_out = target.clone();
-    &self.old_value_out as *const _ as DataPtr
+    unsafe {
+      let target = self.data.get_unchecked_mut(idx as usize);
+      self.old_value_out = target.clone();
+      &self.old_value_out as *const _ as DataPtr
+    }
   }
 
   unsafe fn resize(&mut self, max_address: u32) {

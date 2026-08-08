@@ -56,13 +56,13 @@ pub(crate) fn get_db_view_internal<T>(e_id: EntityId, c_id: ComponentId) -> DBVi
 }
 
 #[inline(always)]
-pub fn get_db_view_typed<C: ComponentSemantic>(
-) -> impl Query<Key = EntityHandle<C::Entity>, Value = C::Data> {
+pub fn get_db_view_typed<C: ComponentSemantic>()
+-> impl Query<Key = EntityHandle<C::Entity>, Value = C::Data> {
   get_db_view_internal(C::Entity::entity_id(), C::component_id()).mark_entity_type::<C::Entity>()
 }
 
-pub fn get_db_view_typed_foreign<C: ForeignKeySemantic>(
-) -> impl Query<Key = EntityHandle<C::Entity>, Value = EntityHandle<C::ForeignEntity>> {
+pub fn get_db_view_typed_foreign<C: ForeignKeySemantic>()
+-> impl Query<Key = EntityHandle<C::Entity>, Value = EntityHandle<C::ForeignEntity>> {
   get_db_view_typed::<C>()
     .filter_map(|v| v.map(|v| unsafe { EntityHandle::<C::ForeignEntity>::from_raw(v) }))
 }

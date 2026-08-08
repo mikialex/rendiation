@@ -88,22 +88,26 @@ impl ComponentStorageReadViewBase for ValidatedWriteView {
   }
 
   unsafe fn get(&self, idx: u32) -> DataPtr {
-    self.inner.get(idx)
+    unsafe { self.inner.get(idx) }
   }
 }
 
 impl ComponentStorageReadWriteView for ValidatedWriteView {
   unsafe fn set_value_init(&mut self, idx: u32, init_value: Option<DataPtr>) -> DataPtr {
-    let mut guard = self.slots.lock().unwrap();
-    guard.check_init(idx);
-    let result = self.inner.set_value_init(idx, init_value);
-    guard.mark_occupied(idx);
-    result
+    unsafe {
+      let mut guard = self.slots.lock().unwrap();
+      guard.check_init(idx);
+      let result = self.inner.set_value_init(idx, init_value);
+      guard.mark_occupied(idx);
+      result
+    }
   }
 
   unsafe fn set_value(&mut self, idx: u32, new_value: DataPtr) -> (DataPtr, DataPtr, bool) {
-    self.slots.lock().unwrap().check_write(idx);
-    self.inner.set_value(idx, new_value)
+    unsafe {
+      self.slots.lock().unwrap().check_write(idx);
+      self.inner.set_value(idx, new_value)
+    }
   }
 
   unsafe fn set_value_from_serialize_field_data(
@@ -111,23 +115,29 @@ impl ComponentStorageReadWriteView for ValidatedWriteView {
     idx: u32,
     new_value: DatabaseSerializedFieldBufferOrForeignKey,
   ) -> (DataPtr, DataPtr, bool) {
-    self.slots.lock().unwrap().check_write(idx);
-    self
-      .inner
-      .set_value_from_serialize_field_data(idx, new_value)
+    unsafe {
+      self.slots.lock().unwrap().check_write(idx);
+      self
+        .inner
+        .set_value_from_serialize_field_data(idx, new_value)
+    }
   }
 
   unsafe fn delete(&mut self, idx: u32) -> DataPtr {
-    let mut guard = self.slots.lock().unwrap();
-    guard.check_delete(idx);
-    let result = self.inner.delete(idx);
-    guard.mark_vacant(idx);
-    result
+    unsafe {
+      let mut guard = self.slots.lock().unwrap();
+      guard.check_delete(idx);
+      let result = self.inner.delete(idx);
+      guard.mark_vacant(idx);
+      result
+    }
   }
 
   unsafe fn resize(&mut self, max_address: u32) {
-    <dyn ComponentStorageReadWriteView>::resize(&mut *self.inner, max_address);
-    self.slots.lock().unwrap().handle_resize(max_address);
+    unsafe {
+      <dyn ComponentStorageReadWriteView>::resize(&mut *self.inner, max_address);
+      self.slots.lock().unwrap().handle_resize(max_address);
+    }
   }
 
   fn cleanup_possible_old_ptr_transient_object(&mut self) {

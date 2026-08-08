@@ -17,7 +17,7 @@ use dyn_clone::*;
 use event_source::*;
 pub use facet::*;
 use fast_hash_collection::*;
-use futures::{task::AtomicWaker, Stream};
+use futures::{Stream, task::AtomicWaker};
 use parking_lot::RwLock;
 pub use query::*;
 pub use query_hook::*;

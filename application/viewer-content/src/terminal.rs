@@ -1,7 +1,7 @@
 use std::{any::TypeId, collections::VecDeque};
 
 use fast_hash_collection::FastHashMap;
-use futures::{executor::LocalPool, task::LocalSpawnExt, Future};
+use futures::{Future, executor::LocalPool, task::LocalSpawnExt};
 
 use crate::*;
 
@@ -76,7 +76,7 @@ impl TerminalCtx {
   pub fn spawn_event_task<R: TerminalTask>(
     &self,
     input: R,
-  ) -> impl Future<Output = Option<R::Result>> {
+  ) -> impl Future<Output = Option<R::Result>> + use<R> {
     let (s, r) = futures::channel::oneshot::channel();
     self
       .store
@@ -86,10 +86,10 @@ impl TerminalCtx {
     r.map(|v| v.ok())
   }
 
-  pub fn spawn_main_thread<R: 'static>(
+  pub fn spawn_main_thread<R: 'static, F: FnOnce() -> R + 'static>(
     &self,
-    task: impl FnOnce() -> R + 'static,
-  ) -> impl Future<Output = Option<R>> {
+    task: F,
+  ) -> impl Future<Output = Option<R>> + use<R, F> {
     let (s, r) = futures::channel::oneshot::channel();
     self
       .channel

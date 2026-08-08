@@ -37,15 +37,15 @@ impl SampleStorage {
 
 impl SampleStorage {
   pub fn generate<G: SampleGenerator>(request: SamplePrecomputedRequest) -> Self {
-    let gen = G::default();
-    let spp = gen.override_spp(request.min_spp);
+    let generator = G::default();
+    let spp = generator.override_spp(request.min_spp);
 
     let mut samples_1d_arrays: Vec<Vec<f32>> = (0..request.max_1d_dimension)
-      .map(|_| (0..spp).map(|i| gen.gen_1d(i)).collect())
+      .map(|_| (0..spp).map(|i| generator.gen_1d(i)).collect())
       .collect();
 
     let mut samples_2d_arrays: Vec<Vec<(f32, f32)>> = (0..request.max_2d_dimension)
-      .map(|_| (0..spp).map(|i| gen.gen_2d(i)).collect())
+      .map(|_| (0..spp).map(|i| generator.gen_2d(i)).collect())
       .collect();
 
     let mut rng = ThreadRng::default();

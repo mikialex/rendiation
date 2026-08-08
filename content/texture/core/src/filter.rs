@@ -31,11 +31,7 @@ pub struct Nearest;
 impl<T: Scalar, P> TextureFilterMode<T, P> for Nearest {
   const ENUM: FilterMode = FilterMode::Nearest;
   fn interpolate(t: T, one: P, other: P) -> P {
-    if t > T::half() {
-      other
-    } else {
-      one
-    }
+    if t > T::half() { other } else { one }
   }
 }
 

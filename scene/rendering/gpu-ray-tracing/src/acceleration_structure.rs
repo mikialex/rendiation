@@ -63,7 +63,7 @@ pub fn use_attribute_mesh_to_blas(
   cx: &mut QueryGPUHookCx,
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
   mesh_input: UseResult<AttributesMeshDataChangeInput>,
-) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = BlasInstance>> {
+) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = BlasInstance> + use<>> {
   let acc_sys_ = acc_sys.clone();
 
   mesh_input
@@ -127,7 +127,8 @@ pub fn use_scene_model_to_blas_instance(
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
   mesh_input: UseResult<AttributesMeshDataChangeInput>,
   // SceneModelEntity
-) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = (BlasInstance, Mat4<f64>)>> {
+) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = (BlasInstance, Mat4<f64>)> + use<>>
+{
   let scene_model_world_matrix = cx.use_shared_dual_query(GlobalSceneModelWorldMatrix);
 
   let std_model_ref_mesh = cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>();
@@ -144,7 +145,7 @@ pub fn use_scene_to_tlas(
   acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
   mesh_input: UseResult<AttributesMeshDataChangeInput>,
   // SceneEntity
-) -> Option<impl Query<Key = RawEntityHandle, Value = TlASInstance>> {
+) -> Option<impl Query<Key = RawEntityHandle, Value = TlASInstance> + use<>> {
   let tlas_store = cx.use_shared_hash_map::<RawEntityHandle, TlASInstance>("scene map tlas");
 
   let scene_sm = cx

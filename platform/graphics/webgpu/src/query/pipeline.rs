@@ -70,7 +70,7 @@ impl PipelineQueryResult {
     self,
     device: &GPUDevice,
     encoder: &mut GPUCommandEncoder,
-  ) -> impl Future<Output = Option<DeviceDrawStatistics>> + Unpin {
+  ) -> impl Future<Output = Option<DeviceDrawStatistics>> + Unpin + use<> {
     read_back_query::<DeviceDrawStatistics>(&self.result, 0..1, device, encoder)
   }
 }

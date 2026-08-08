@@ -50,7 +50,7 @@ impl TimeQuery {
     self,
     device: &GPUDevice,
     encoder: &mut GPUCommandEncoder,
-  ) -> impl Future<Output = Option<TimestampPair>> + Unpin {
+  ) -> impl Future<Output = Option<TimestampPair>> + Unpin + use<> {
     encoder.write_timestamp(&self.query_set, 1);
     self.read_back(device, encoder)
   }
@@ -59,7 +59,7 @@ impl TimeQuery {
     self,
     device: &GPUDevice,
     encoder: &mut GPUCommandEncoder,
-  ) -> impl Future<Output = Option<TimestampPair>> + Unpin {
+  ) -> impl Future<Output = Option<TimestampPair>> + Unpin + use<> {
     read_back_query::<TimestampPair>(&self.query_set, 0..2, device, encoder)
   }
 }

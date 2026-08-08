@@ -1,6 +1,6 @@
 use crate::*;
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn create_mesh(
   indices_length: u32,
   indices: *const u32,
@@ -121,7 +121,7 @@ pub struct AttributesMeshEntitiesCommon {
   has_uv: bool,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_mesh(entities: AttributesMeshEntitiesCommon) {
   let mut writer = AttributesMeshEntityFromAttributesMeshWriter::from_global();
   let mut buffer = global_entity_of::<BufferEntity>().entity_writer();
@@ -179,7 +179,7 @@ pub enum MeshAPIDataType {
   Indices,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn update_mesh_data(
   entities: &mut AttributesMeshEntitiesCommon,
   byte_size: u32,
@@ -272,7 +272,7 @@ pub extern "C" fn update_mesh_data(
   }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn set_mesh_topology(mesh: ViewerEntityHandle, topo: MeshPrimitiveTopology) {
   write_global_db_component::<AttributesMeshEntityTopology>().write(mesh.into(), topo);
 }

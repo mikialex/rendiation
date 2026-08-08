@@ -76,7 +76,7 @@ pub struct CameraViewportAccess {
 pub fn per_camera_per_viewport(
   view_ports: &[ViewerViewPort],
   consider_debug_view_camera_override: bool,
-) -> impl Iterator<Item = CameraViewportAccess> {
+) -> impl Iterator<Item = CameraViewportAccess> + use<> {
   let mut mapping = FastHashMap::<_, Vec<_>>::default();
   for (index, vp) in view_ports.iter().enumerate() {
     let view_camera = if consider_debug_view_camera_override {

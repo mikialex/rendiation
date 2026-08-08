@@ -28,8 +28,8 @@ use std::{
   borrow::Cow,
   hash::{Hash, Hasher},
   ops::{Deref, DerefMut, Range},
-  sync::atomic::{AtomicUsize, Ordering},
   sync::Arc,
+  sync::atomic::{AtomicUsize, Ordering},
 };
 
 pub use atomic_image_downgrade::*;
@@ -45,17 +45,17 @@ use futures::{Future, FutureExt};
 use gpu::RenderPassTimestampWrites;
 // note: we can not just use * because it will cause core conflict
 pub use gpu::{
-  util, util::DeviceExt, vertex_attr_array, AccelerationStructureFlags,
-  AccelerationStructureGeometryFlags, AccelerationStructureUpdateMode, AddressMode, Backends,
-  BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-  BindingResource, Blas, BlasBuildEntry, BlasGeometries, BlasGeometrySizeDescriptors,
-  BlasTriangleGeometry, BlasTriangleGeometrySizeDescriptor, Buffer, BufferAsyncError, Color,
-  CommandEncoder, CompareFunction, CreateSurfaceError, Device, Features, FilterMode, FragmentState,
-  IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference, Queue,
-  RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-  RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor,
-  ShaderSource, ShaderStages, StoreOp, SurfaceTexture, TextureView, TextureViewDescriptor, Tlas,
-  TlasInstance, VertexBufferLayout, VertexState,
+  AccelerationStructureFlags, AccelerationStructureGeometryFlags, AccelerationStructureUpdateMode,
+  AddressMode, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+  BindGroupLayoutDescriptor, BindingResource, Blas, BlasBuildEntry, BlasGeometries,
+  BlasGeometrySizeDescriptors, BlasTriangleGeometry, BlasTriangleGeometrySizeDescriptor, Buffer,
+  BufferAsyncError, Color, CommandEncoder, CompareFunction, CreateSurfaceError, Device, Features,
+  FilterMode, FragmentState, IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor,
+  PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+  RenderPipelineDescriptor, RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor,
+  ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, SurfaceTexture, TextureView,
+  TextureViewDescriptor, Tlas, TlasInstance, VertexBufferLayout, VertexState, util,
+  util::DeviceExt, vertex_attr_array,
 };
 use heap_tools::*;
 use hook::*;

@@ -1,4 +1,4 @@
-use rendiation_oit::{draw_weighted_oit, OitLoop32Renderer};
+use rendiation_oit::{OitLoop32Renderer, draw_weighted_oit};
 
 use crate::*;
 

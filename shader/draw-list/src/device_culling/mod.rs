@@ -8,7 +8,7 @@ pub use culling::*;
 
 pub trait AbstractCullerProvider: ShaderHashProvider + DynClone {
   fn create_invocation(&self, cx: &mut ShaderBindGroupBuilder)
-    -> Box<dyn AbstractCullerInvocation>;
+  -> Box<dyn AbstractCullerInvocation>;
   fn bind(&self, cx: &mut BindingBuilder);
 }
 

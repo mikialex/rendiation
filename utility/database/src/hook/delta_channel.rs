@@ -37,32 +37,38 @@ impl<T: CValue> ChangesMutationSender<T> {
   ///
   /// this should be called before send
   pub unsafe fn lock(&self) {
-    self.inner.0.raw().lock_exclusive()
+    unsafe { self.inner.0.raw().lock_exclusive() }
   }
   /// # Safety
   ///
   /// this should be called after send
   pub unsafe fn unlock(&self) {
-    let mutations = &mut *self.inner.0.data_ptr();
-    if mutations.has_change() {
-      self.inner.1.wake();
+    unsafe {
+      let mutations = &mut *self.inner.0.data_ptr();
+      if mutations.has_change() {
+        self.inner.1.wake();
+      }
+      self.inner.0.raw().unlock_exclusive()
     }
-    self.inner.0.raw().unlock_exclusive()
   }
   /// # Safety
   ///
   /// this should be called when locked
   pub unsafe fn send(&self, idx: RawEntityHandle, change: ValueChange<T>) {
-    let mutations = &mut *self.inner.0.data_ptr();
+    unsafe {
+      let mutations = &mut *self.inner.0.data_ptr();
 
-    mutations.update_delta(idx, change);
+      mutations.update_delta(idx, change);
+    }
   }
   /// # Safety
   ///
   /// this should be called when locked
   pub unsafe fn reserve_space(&self, size: usize) {
-    let mutations = &mut *self.inner.0.data_ptr();
-    mutations.reserve(size);
+    unsafe {
+      let mutations = &mut *self.inner.0.data_ptr();
+      mutations.reserve(size);
+    }
   }
 
   pub fn is_closed(&self) -> bool {

@@ -147,9 +147,11 @@ impl Bvh {
     let node = &self.nodes[node_id as usize];
 
     let left_count = if node.left.is_leaf() {
-      assert!(self
-        .leaf_node_indices
-        .contains_key(node.left.children as usize));
+      assert!(
+        self
+          .leaf_node_indices
+          .contains_key(node.left.children as usize)
+      );
       1
     } else {
       let calculated_leaf_count = self.assert_well_formed_topology_only_recurse(node.left.children);
@@ -167,9 +169,11 @@ impl Bvh {
     };
 
     let right_count = if node.right.is_leaf() {
-      assert!(self
-        .leaf_node_indices
-        .contains_key(node.right.children as usize));
+      assert!(
+        self
+          .leaf_node_indices
+          .contains_key(node.right.children as usize)
+      );
       1
     } else {
       let calculated_leaf_count =

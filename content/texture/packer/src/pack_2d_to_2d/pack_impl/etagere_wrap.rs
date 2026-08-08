@@ -1,4 +1,4 @@
-use etagere::{size2, AllocId, AtlasAllocator};
+use etagere::{AllocId, AtlasAllocator, size2};
 
 use super::super::*;
 

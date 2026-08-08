@@ -32,13 +32,13 @@ impl ShaderAlphaConfig {
   }
 }
 
-pub fn material_enabled_alpha_blending<S: AlphaInfoSemantic>(
-) -> impl Query<Key = EntityHandle<S::Entity>, Value = bool> {
+pub fn material_enabled_alpha_blending<S: AlphaInfoSemantic>()
+-> impl Query<Key = EntityHandle<S::Entity>, Value = bool> {
   get_db_view_typed::<AlphaModeOf<S>>().map_value(|mode| mode == AlphaMode::Blend)
 }
 
-pub fn all_kinds_of_materials_enabled_alpha_blending(
-) -> impl Query<Key = EntityHandle<SceneModelEntity>, Value = bool> {
+pub fn all_kinds_of_materials_enabled_alpha_blending()
+-> impl Query<Key = EntityHandle<SceneModelEntity>, Value = bool> {
   let sg = get_db_view_typed_foreign::<StandardModelRefPbrSGMaterial>()
     .chain(material_enabled_alpha_blending::<PbrSGMaterialAlphaConfig>())
     .into_boxed(); // these boxes can be removed maybe

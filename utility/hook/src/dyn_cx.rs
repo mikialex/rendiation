@@ -119,23 +119,27 @@ impl DynCx {
   }
 
   pub unsafe fn get_cx_ref<T: 'static>(&self) -> &T {
-    if let Some(ptr) = self.get_cx_ptr::<T>() {
-      &*ptr
-    } else {
-      panic!(
-        "dyn cx access failed, {} typed cx not exist",
-        std::any::type_name::<T>()
-      )
+    unsafe {
+      if let Some(ptr) = self.get_cx_ptr::<T>() {
+        &*ptr
+      } else {
+        panic!(
+          "dyn cx access failed, {} typed cx not exist",
+          std::any::type_name::<T>()
+        )
+      }
     }
   }
   pub unsafe fn get_cx_mut<T: 'static>(&mut self) -> &mut T {
-    if let Some(ptr) = self.get_cx_ptr::<T>() {
-      &mut *ptr
-    } else {
-      panic!(
-        "dyn cx access failed, {} typed cx not exist",
-        std::any::type_name::<T>()
-      )
+    unsafe {
+      if let Some(ptr) = self.get_cx_ptr::<T>() {
+        &mut *ptr
+      } else {
+        panic!(
+          "dyn cx access failed, {} typed cx not exist",
+          std::any::type_name::<T>()
+        )
+      }
     }
   }
 
@@ -167,7 +171,7 @@ impl DynCx {
   }
 
   pub unsafe fn unregister_cx<T: 'static>(&mut self) -> *mut T {
-    self.get_ptr_stack::<T>().unwrap().pop().unwrap_unchecked() as *mut T
+    unsafe { self.get_ptr_stack::<T>().unwrap().pop().unwrap_unchecked() as *mut T }
   }
 
   pub fn try_pop_cx<T: 'static>(&mut self) -> Option<*mut T> {

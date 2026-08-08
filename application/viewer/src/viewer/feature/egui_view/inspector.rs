@@ -151,9 +151,9 @@ impl InspectedContent {
         if self.sort_shared_scope_by_usage {
           all.sort_by_key(|v| {
             std::cmp::Reverse(match self.show_config {
-              ShowConfig::MemoryUsageOnly => v.1 .1.memory_used,
-              ShowConfig::DeviceMemoryUsageOnly => v.1 .1.device_memory_used,
-              ShowConfig::All => v.1 .1.memory_used + v.1 .1.device_memory_used,
+              ShowConfig::MemoryUsageOnly => v.1.1.memory_used,
+              ShowConfig::DeviceMemoryUsageOnly => v.1.1.device_memory_used,
+              ShowConfig::All => v.1.1.memory_used + v.1.1.device_memory_used,
             })
           });
         }

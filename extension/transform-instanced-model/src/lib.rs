@@ -9,8 +9,8 @@ mod pick;
 
 pub use bounding::use_instanced_model_local_bounding;
 pub use indirect_draw::{
-  use_transform_instanced_model_group_key, use_transform_instanced_model_indirect_renderer,
-  TransformInstancedModelIndirectRenderer,
+  TransformInstancedModelIndirectRenderer, use_transform_instanced_model_group_key,
+  use_transform_instanced_model_indirect_renderer,
 };
 pub use pick::TransformInstancedMeshPicker;
 

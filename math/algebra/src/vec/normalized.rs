@@ -40,7 +40,7 @@ impl<T: Scalar, V: InnerProductSpace<T>> IntoNormalizedVector<T, V> for V {
   }
   #[inline(always)]
   unsafe fn into_normalized_unchecked(self) -> NormalizedVector<T, V> {
-    NormalizedVector::wrap(self)
+    unsafe { NormalizedVector::wrap(self) }
   }
 }
 

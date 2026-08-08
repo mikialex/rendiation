@@ -2,8 +2,8 @@ use std::{iter::FromIterator, ops::Range};
 
 use rendiation_geometry::SurfaceAreaMeasurable;
 
-use super::{node::FlattenBVHNode, BVHBounding, BuildPrimitive, FlattenBVHNodeChildInfo};
-use crate::utils::{bounding_from_build_source, CenterAblePrimitive, TreeBuildOption};
+use super::{BVHBounding, BuildPrimitive, FlattenBVHNodeChildInfo, node::FlattenBVHNode};
+use crate::utils::{CenterAblePrimitive, TreeBuildOption, bounding_from_build_source};
 
 pub trait BVHBuildStrategy<B: BVHBounding> {
   /// build the bvh tree in given range of primitive source and index.

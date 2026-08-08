@@ -87,11 +87,7 @@ impl<T: Copy, S: Scalar> SpringSystem<T, S> {
 }
 
 fn partial_min<T: PartialOrd>(a: T, b: T) -> T {
-  if a < b {
-    a
-  } else {
-    b
-  }
+  if a < b { a } else { b }
 }
 
 impl<T, S> SpringSystem<T, S>

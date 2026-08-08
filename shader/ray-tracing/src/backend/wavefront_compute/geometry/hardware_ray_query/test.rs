@@ -2,16 +2,16 @@ use std::sync::Arc;
 
 #[test]
 fn test_gpu_triangle() {
-  use rendiation_algebra::{vec2, vec3, Vec3};
+  use rendiation_algebra::{Vec3, vec2, vec3};
   use rendiation_device_parallel_compute::*;
-  use rendiation_shader_api::{val, Node, ShaderComputePipelineBuilder};
+  use rendiation_shader_api::{Node, ShaderComputePipelineBuilder, val};
   use rendiation_webgpu::{
-    create_gpu_read_write_storage, shader_hash_type_id, BindingBuilder, PipelineHasher,
-    ShaderHashProvider, StorageBufferDataView, ZeroedArrayByArrayLength, GPU,
+    BindingBuilder, GPU, PipelineHasher, ShaderHashProvider, StorageBufferDataView,
+    ZeroedArrayByArrayLength, create_gpu_read_write_storage, shader_hash_type_id,
   };
 
-  use crate::backend::{init_default_acceleration_structure, TEST_ANYHIT_BEHAVIOR};
   use crate::INLINE_RAY_TRACING_REQUIRED_FEATURES;
+  use crate::backend::{TEST_ANYHIT_BEHAVIOR, init_default_acceleration_structure};
   use crate::{
     GPUAccelerationStructureSystemCompImplInstance, HardwareInlineRayQueryInstance,
     HardwareInlineRayQuerySystem, RayFlagConfigRaw,

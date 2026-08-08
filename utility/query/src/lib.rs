@@ -4,8 +4,8 @@
 
 use std::marker::PhantomData;
 use std::panic::Location;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::{hash::Hash, ops::Deref};
 
 use dyn_clone::DynClone;

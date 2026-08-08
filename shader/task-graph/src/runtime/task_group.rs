@@ -2,9 +2,9 @@ use super::*;
 
 pub type OpaqueTask = Box<
   dyn ShaderFuture<
-    Output = Box<dyn Any>,
-    Invocation = Box<dyn ShaderFutureInvocation<Output = Box<dyn Any>>>,
-  >,
+      Output = Box<dyn Any>,
+      Invocation = Box<dyn ShaderFutureInvocation<Output = Box<dyn Any>>>,
+    >,
 >;
 
 pub struct TaskGroupExecutor {

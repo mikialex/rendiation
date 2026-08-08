@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
-  parse::Parser, AttrStyle, Attribute, Data, DeriveInput, Field, Fields, Type, Visibility,
+  AttrStyle, Attribute, Data, DeriveInput, Field, Fields, Type, Visibility, parse::Parser,
 };
 
 /// get a simple #[foo(bar)] attribute, returning "bar"

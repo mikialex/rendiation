@@ -1,8 +1,8 @@
 use database::RawEntityHandle;
 use fast_hash_collection::FastHashMap;
 use rendiation_texture_packer::{
-  pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker, pack_2d_to_3d::MultiLayerTexturePackerRaw,
-  TexturePacker, TexturePackerInit,
+  TexturePacker, TexturePackerInit, pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker,
+  pack_2d_to_3d::MultiLayerTexturePackerRaw,
 };
 
 use crate::*;

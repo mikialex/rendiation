@@ -69,7 +69,7 @@ where
     field_byte_offset: usize,
     v: &[u8],
   ) -> Option<()> {
-    self.inner.set_value_sub_bytes(idx, field_byte_offset, v)
+    unsafe { self.inner.set_value_sub_bytes(idx, field_byte_offset, v) }
   }
 }
 

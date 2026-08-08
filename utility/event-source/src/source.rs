@@ -114,37 +114,47 @@ impl<T: 'static> EventSource<T> {
     self.unbound_listen_by(|v| v.clone(), |_| {})
   }
 
-  pub fn unbound_listen_by<U>(
+  pub fn unbound_listen_by<U, M, I>(
     &self,
-    mapper: impl Fn(&T) -> U + Send + Sync + 'static,
-    init: impl FnOnce(&dyn Fn(U)),
-  ) -> impl futures::Stream<Item = U>
+    mapper: M,
+    init: I,
+  ) -> impl futures::Stream<Item = U> + use<T, U, M, I>
   where
+    M: Fn(&T) -> U + Send + Sync + 'static,
+    I: FnOnce(&dyn Fn(U)),
     U: Send + Sync + 'static,
   {
-    self.listen_by::<U, _, _>(mapper, init, &mut DefaultUnboundChannel)
+    self.listen_by::<DefaultUnboundChannel, U, M, I>(mapper, init, &mut DefaultUnboundChannel)
   }
 
-  pub fn single_listen_by<U>(
+  pub fn single_listen_by<U, M, I>(
     &self,
-    mapper: impl Fn(&T) -> U + Send + Sync + 'static,
-    init: impl FnOnce(&dyn Fn(U)),
-  ) -> impl futures::Stream<Item = U> + 'static
+    mapper: M,
+    init: I,
+  ) -> impl futures::Stream<Item = U> + use<T, U, M, I>
   where
+    M: Fn(&T) -> U + Send + Sync + 'static,
+    I: FnOnce(&dyn Fn(U)),
     U: Send + Sync + 'static,
   {
-    self.listen_by::<U, _, _>(mapper, init, &mut DefaultSingleValueChannel)
+    self.listen_by::<DefaultSingleValueChannel, U, M, I>(
+      mapper,
+      init,
+      &mut DefaultSingleValueChannel,
+    )
   }
 
-  pub fn listen_by<N, C, U>(
+  pub fn listen_by<C, U, M, I>(
     &self,
-    mapper: impl Fn(&T) -> U + Send + Sync + 'static,
-    init: impl FnOnce(&dyn Fn(U)),
+    mapper: M,
+    init: I,
     channel_builder: &mut C,
-  ) -> impl futures::Stream<Item = N> + 'static
+  ) -> impl futures::Stream<Item = C::Message> + use<T, C, U, M, I>
   where
+    M: Fn(&T) -> U + Send + Sync + 'static,
+    I: FnOnce(&dyn Fn(U)),
     U: Send + Sync + 'static,
-    C: ChannelLike<U, Message = N>,
+    C: ChannelLike<U>,
   {
     let (sender, receiver) = channel_builder.build();
     let init_sends = |to_send| {
@@ -159,11 +169,9 @@ impl<T: 'static> EventSource<T> {
     DropperAttachedStream::new(dropper, receiver)
   }
 
-  pub fn once_future<R>(
-    &self,
-    f: impl FnOnce(&T) -> R + Send + Sync + 'static,
-  ) -> impl Future<Output = R>
+  pub fn once_future<F, R>(&self, f: F) -> impl Future<Output = R> + use<T, F, R>
   where
+    F: FnOnce(&T) -> R + Send + Sync + 'static,
     T: Send + Sync,
     R: Send + Sync + 'static,
   {

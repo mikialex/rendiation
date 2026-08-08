@@ -164,14 +164,14 @@ impl<'a> DeviceParallelComputeCtx<'a> {
   pub fn read_buffer_bytes(
     &mut self,
     buffer: &GPUBufferResourceView,
-  ) -> impl Future<Output = Result<Vec<u8>, rendiation_webgpu::BufferAsyncError>> {
+  ) -> impl Future<Output = Result<Vec<u8>, rendiation_webgpu::BufferAsyncError>> + use<> {
     self.encoder.read_buffer_bytes(&self.gpu.device, buffer)
   }
 
   pub fn read_storage_array<T: Std430>(
     &mut self,
     buffer: &StorageBufferDataView<[T]>,
-  ) -> impl Future<Output = Result<Vec<T>, rendiation_webgpu::BufferAsyncError>> {
+  ) -> impl Future<Output = Result<Vec<T>, rendiation_webgpu::BufferAsyncError>> + use<T> {
     self
       .encoder
       .read_storage_array::<T>(&self.gpu.device, buffer)
@@ -179,7 +179,7 @@ impl<'a> DeviceParallelComputeCtx<'a> {
   pub fn read_sized_storage_array<T: Std430>(
     &mut self,
     buffer: &StorageBufferDataView<T>,
-  ) -> impl Future<Output = Result<T, rendiation_webgpu::BufferAsyncError>> {
+  ) -> impl Future<Output = Result<T, rendiation_webgpu::BufferAsyncError>> + use<T> {
     self
       .encoder
       .read_sized_storage_buffer::<T>(&self.gpu.device, buffer)
@@ -224,7 +224,7 @@ impl<'a> DeviceParallelComputeCtx<'a> {
 
 pub trait FrameCtxParallelComputeExt {
   fn access_parallel_compute<R>(&mut self, f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R)
-    -> R;
+  -> R;
 }
 
 impl FrameCtxParallelComputeExt for FrameCtx<'_> {

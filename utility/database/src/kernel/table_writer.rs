@@ -203,32 +203,42 @@ impl TableWriterImpl {
   ///
   /// See [ComponentStorageReadWriteView::set_value]
   pub unsafe fn write_component(&mut self, idx: RawEntityHandle, src: DataPtr) {
-    self.component.write(idx, src);
+    unsafe {
+      self.component.write(idx, src);
+    }
   }
 
   /// # Safety
   ///
   /// See [ComponentStorageReadWriteView::set_value_init]
   pub unsafe fn write_init_component_value(&mut self, idx: RawEntityHandle, data: Option<DataPtr>) {
-    self.component.init(idx, data);
+    unsafe {
+      self.component.init(idx, data);
+    }
   }
 
   /// # Safety
   ///
   /// idx must point to living data
   pub unsafe fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
-    let src = self.component.get_unchecked(src);
-    self.write_component(dst, src);
+    unsafe {
+      let src = self.component.get_unchecked(src);
+      self.write_component(dst, src);
+    }
   }
 
   unsafe fn delete_component(&mut self, idx: RawEntityHandle) {
-    self.component.delete(idx);
+    unsafe {
+      self.component.delete(idx);
+    }
   }
 
   /// # Safety
   ///
   /// see [ComponentStorageReadViewBase::resize]
   unsafe fn resize(&mut self, max_cap: u32) {
-    self.component.data.deref_mut().resize(max_cap);
+    unsafe {
+      self.component.data.deref_mut().resize(max_cap);
+    }
   }
 }

@@ -5,7 +5,7 @@ use rendiation_shader_library::plane::ShaderPlaneUniform;
 use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
 
-use super::{outline::ViewerOutlineSourceProvider, GridEffect, GridGround};
+use super::{GridEffect, GridGround, outline::ViewerOutlineSourceProvider};
 use crate::*;
 
 pub trait ViewerFrameRenderingExtension {
@@ -278,7 +278,8 @@ impl Viewer3dViewportRenderingCtx {
 
   pub fn read_next_render_result(
     &mut self,
-  ) -> impl Future<Output = Result<ReadableTextureBuffer, ViewerRenderResultReadBackErr>> {
+  ) -> impl Future<Output = Result<ReadableTextureBuffer, ViewerRenderResultReadBackErr>> + use<>
+  {
     self.expect_read_back_for_next_render_result = true;
     use futures::FutureExt;
     self
