@@ -13,15 +13,7 @@ pub fn use_scene_spot_light_uniform(
   let spot_light_uniforms = use_spot_per_scene_uniform_array_buffers(cx);
 
   let shadow = if lighting_sys.enable_shadow {
-    cx.scope(|cx| {
-      use_basic_shadow_map_uniform(
-        cx,
-        shadow_packer_config,
-        ndc,
-        &spot_light_uniforms,
-        lighting_sys.pcf_config,
-      )
-    })
+    cx.scope(|cx| use_basic_shadow_map_uniform(cx, shadow_packer_config, ndc, &spot_light_uniforms))
   } else {
     None
   };
@@ -31,6 +23,7 @@ pub fn use_scene_spot_light_uniform(
     light,
     scene_ref: read_global_db_foreign_key(),
     pcf_config: lighting_sys.pcf_config,
+    pcf_config_parameter: create_pcf_parameter(cx.gpu, lighting_sys.pcf_config),
   })
 }
 
@@ -39,7 +32,6 @@ fn use_basic_shadow_map_uniform(
   atlas_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
   lights: &Option<SharedLightUniformInfo<SpotLightUniform>>,
-  pcf_config: ShadowPCFConfig,
 ) -> Option<BasicShadowMapPreparer> {
   // // let changed = cx.use_db_entity_any_change::<DirectionalLightEntity>(); // todo
   let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
@@ -91,7 +83,6 @@ fn use_basic_shadow_map_uniform(
       &shadow_info_access,
       gpu_data,
       gpu,
-      pcf_config,
     )
   })
 }
@@ -100,6 +91,7 @@ pub struct SceneSpotLightingPreparer {
   pub shadow: Option<BasicShadowMapPreparer>,
   pub light: SharedLightUniformInfo<SpotLightUniform>,
   pub scene_ref: ForeignKeyReadView<SpotLightRefScene>,
+  pub pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   pub pcf_config: ShadowPCFConfig,
 }
 
@@ -126,6 +118,7 @@ impl SceneSpotLightingPreparer {
 
     SceneSpotLightingProvider {
       uniform: self.light.make_read_holder(),
+      pcf_config_parameter: self.pcf_config_parameter,
       shadow,
       reversed_depth,
       pcf_config: self.pcf_config,
@@ -136,6 +129,7 @@ impl SceneSpotLightingPreparer {
 pub struct SceneSpotLightingProvider {
   shadow: Option<BasicShadowMapGPU>,
   uniform: LockReadGuardHolder<LightUniformInfo<SpotLightUniform>>,
+  pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   reversed_depth: bool,
   pcf_config: ShadowPCFConfig,
 }
@@ -152,6 +146,7 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
       let info = s.uniforms.get(scene.raw_handle_ref()).unwrap().clone();
       BasicShadowMapComponent {
         shadow_map_atlas: s.shadow_map.get_full_view().clone(),
+        pcf_config_parameter: self.pcf_config_parameter.clone(),
         info,
         reversed_depth: self.reversed_depth,
         pcf_config: self.pcf_config,

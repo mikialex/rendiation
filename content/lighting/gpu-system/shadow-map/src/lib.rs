@@ -19,8 +19,8 @@ pub use cascade::*;
 mod map_utils;
 pub use map_utils::*;
 
-mod sampling;
-pub use sampling::*;
+mod pcf_sampling;
+pub use pcf_sampling::*;
 
 pub const MAX_SHADOW_COUNT: usize = 8;
 

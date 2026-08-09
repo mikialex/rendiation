@@ -7,7 +7,6 @@ pub fn use_cascade_shadow_map(
   shadow_pool_init_config: &MultiLayerTexturePackerConfig,
   split_linear_log_blend_ratio: f32,
   lights: &Option<SharedLightUniformInfo<DirectionalLightUniform>>,
-  pcf_config: ShadowPCFConfig,
 ) -> Option<MultiCascadeShadowMapPreparer> {
   let camera_transform = cx
     .use_shared_dual_query_view(GlobalCameraTransformShare(ndc))
@@ -77,7 +76,6 @@ pub fn use_cascade_shadow_map(
           &ndc,
           split_linear_log_blend_ratio,
           &mapping,
-          pcf_config,
         );
         let map = maps.get(&cv.camera).unwrap().clone();
         (cv.camera, (info, map))
@@ -104,6 +102,7 @@ impl MultiCascadeShadowMapPreparer {
     draw: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest),
     reversed_depth: bool,
     pcf_config: ShadowPCFConfig,
+    pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
     filter_across_cascades: bool,
   ) -> MultiCascadeShadowMapData {
     let per_camera = self
@@ -118,6 +117,7 @@ impl MultiCascadeShadowMapPreparer {
     MultiCascadeShadowMapData {
       per_camera,
       pcf_config,
+      pcf_config_parameter,
       filter_across_cascades,
     }
   }
@@ -126,6 +126,7 @@ impl MultiCascadeShadowMapPreparer {
 pub struct MultiCascadeShadowMapData {
   pub per_camera: FastHashMap<EntityHandle<SceneCameraEntity>, CascadeShadowGPUData>,
   pcf_config: ShadowPCFConfig,
+  pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   filter_across_cascades: bool,
 }
 
@@ -142,6 +143,7 @@ impl MultiCascadeShadowMapData {
       info,
       reversed_depth: gpu_data.reversed_depth,
       pcf_config: self.pcf_config,
+      pcf_config_parameter: self.pcf_config_parameter.clone(),
       filter_across_cascades: self.filter_across_cascades,
     })
   }

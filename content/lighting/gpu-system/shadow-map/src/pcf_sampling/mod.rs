@@ -32,6 +32,36 @@ pub enum ShadowPCFMode {
   RandomDiscPCF,
 }
 
+#[repr(C)]
+#[std140_layout]
+#[derive(Clone, Copy, Default, ShaderStruct, Debug)]
+pub struct PCFConfigParameter {
+  /// the PCF filter size in texels
+  pub pcf_filter_size: f32,
+  /// the sample count of the random disc PCF
+  pub pcf_num_disc_samples: u32,
+}
+
+pub fn create_pcf_parameter(
+  gpu: &GPU,
+  pcf_config: ShadowPCFConfig,
+) -> UniformBufferDataView<PCFConfigParameter> {
+  // todo cache
+  let pcf_parameter = create_uniform(
+    PCFConfigParameter {
+      pcf_filter_size: pcf_config.filter_size,
+      pcf_num_disc_samples: pcf_config
+        .num_disc_samples
+        .min(POISSON_SAMPLES.len() as u32),
+      ..Default::default()
+    },
+    &gpu.device,
+    "pcf_parameter",
+  );
+
+  pcf_parameter
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ShadowPCFConfig {
   pub pcf_mode: ShadowPCFMode,

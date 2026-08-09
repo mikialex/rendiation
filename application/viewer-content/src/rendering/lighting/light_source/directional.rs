@@ -33,19 +33,12 @@ pub fn use_directional_light_uniform(
             shadow_packer_config,
             lighting_sys.cascade_shadow_split_linear_log_blend_ratio,
             &directional_light_uniforms,
-            lighting_sys.pcf_config,
           )
           .map(ViewerDirectionalShadowPreparer::Cascade)
         })
       } else {
-        use_basic_shadow_map_uniform(
-          cx,
-          shadow_packer_config,
-          ndc,
-          &directional_light_uniforms,
-          lighting_sys.pcf_config,
-        )
-        .map(ViewerDirectionalShadowPreparer::Basic)
+        use_basic_shadow_map_uniform(cx, shadow_packer_config, ndc, &directional_light_uniforms)
+          .map(ViewerDirectionalShadowPreparer::Basic)
       }
     })
   } else {
@@ -58,6 +51,7 @@ pub fn use_directional_light_uniform(
     scene_ref: read_global_db_foreign_key(),
     pcf_config: lighting_sys.pcf_config,
     filter_across_cascades: lighting_sys.filter_across_cascades,
+    pcf_config_parameter: create_pcf_parameter(cx.gpu, lighting_sys.pcf_config),
   })
 }
 
@@ -66,7 +60,6 @@ fn use_basic_shadow_map_uniform(
   atlas_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
   lights: &Option<SharedLightUniformInfo<DirectionalLightUniform>>,
-  pcf_config: ShadowPCFConfig,
 ) -> Option<BasicShadowMapPreparer> {
   // let changed = cx.use_db_entity_any_change::<DirectionalLightEntity>(); // todo
   let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
@@ -119,7 +112,6 @@ fn use_basic_shadow_map_uniform(
       &shadow_info_access,
       gpu_data,
       gpu,
-      pcf_config,
     )
   })
 }
@@ -135,6 +127,7 @@ pub struct SceneDirectionalLightingPreparer {
   light: SharedLightUniformInfo<DirectionalLightUniform>,
   scene_ref: ForeignKeyReadView<DirectionalRefScene>,
   pcf_config: ShadowPCFConfig,
+  pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   filter_across_cascades: bool,
 }
 
@@ -166,6 +159,7 @@ impl SceneDirectionalLightingPreparer {
           &mut draw,
           reversed_depth,
           self.pcf_config,
+          self.pcf_config_parameter.clone(),
           self.filter_across_cascades,
         );
         ShadowImplType::Cascade(shadow)
@@ -179,6 +173,7 @@ impl SceneDirectionalLightingPreparer {
       reversed_depth,
       pcf_config: self.pcf_config,
       filter_across_cascades: self.filter_across_cascades,
+      pcf_config_parameter: self.pcf_config_parameter,
     })
   }
 }
@@ -206,6 +201,7 @@ struct SceneDirectionalLightingProvider {
   shadows: ShadowImplType,
   reversed_depth: bool,
   pcf_config: ShadowPCFConfig,
+  pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   filter_across_cascades: bool,
 }
 
@@ -226,6 +222,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
           info,
           reversed_depth: self.reversed_depth,
           pcf_config: self.pcf_config,
+          pcf_config_parameter: self.pcf_config_parameter.clone(),
         })
       }
       ShadowImplType::Cascade(data) => {
@@ -236,6 +233,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
           info,
           reversed_depth: self.reversed_depth,
           pcf_config: self.pcf_config,
+          pcf_config_parameter: self.pcf_config_parameter.clone(),
           filter_across_cascades: self.filter_across_cascades,
         })
       }
