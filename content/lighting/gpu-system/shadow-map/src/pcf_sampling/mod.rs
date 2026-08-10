@@ -108,23 +108,13 @@ impl Default for ShadowPCFConfig {
 }
 
 impl ShadowBiasBehaviorConfig {
-  /// compute the depth bias and the receiver plane depth bias for the PCF sampling
-  pub fn compute_pcf_depth_bias(
-    self,
-    shadow_position: Node<Vec3<f32>>,
-    bias: Node<f32>,
-    reversed_depth: bool,
-  ) -> (Node<f32>, Node<Vec2<f32>>) {
+  pub fn compute_pcf_depth_bias(self, shadow_position: Node<Vec3<f32>>) -> Node<Vec2<f32>> {
     if self.use_receiver_plane_depth_bias {
       let shadow_pos_dx = shadow_position.dpdx_fine();
       let shadow_pos_dy = shadow_position.dpdy_fine();
-      (
-        val(0.),
-        compute_receiver_plane_depth_bias_fn(shadow_pos_dx, shadow_pos_dy),
-      )
+      compute_receiver_plane_depth_bias_fn(shadow_pos_dx, shadow_pos_dy)
     } else {
-      let bias = if reversed_depth { bias } else { -bias };
-      (bias, val(Vec2::zero()))
+      val(Vec2::zero())
     }
   }
 }
@@ -139,14 +129,11 @@ impl ShadowPCFConfig {
     map_info: Node<ShadowMapAddressInfo>,
     filter_size: Node<f32>,
     num_disc_samples: Node<u32>,
-    light_depth_bias: Node<f32>,
     receiver_plane_depth_bias: Node<Vec2<f32>>,
     reversed_depth: Node<bool>,
   ) -> Node<f32> {
     match self.pcf_mode {
       ShadowPCFMode::Naive => {
-        // the depth bias sign is already resolved by the caller, add it to the depth
-        let shadow_position = shadow_position + (val(0.), val(0.), light_depth_bias).into();
         sample_shadow_pcf_x36_by_offset(map, shadow_position, sampler, map_info.expand())
       }
       ShadowPCFMode::FixedSizePCF => sample_shadow_pcf_fixed_size(
@@ -154,7 +141,6 @@ impl ShadowPCFConfig {
         sampler,
         shadow_position,
         map_info,
-        light_depth_bias,
         receiver_plane_depth_bias,
         self.fixed_filter_size,
         reversed_depth,
@@ -164,7 +150,6 @@ impl ShadowPCFConfig {
         sampler,
         shadow_position,
         map_info,
-        light_depth_bias,
         receiver_plane_depth_bias,
         reversed_depth,
       ),
@@ -174,7 +159,6 @@ impl ShadowPCFConfig {
         shadow_position,
         map_info,
         filter_size.splat(),
-        light_depth_bias,
         receiver_plane_depth_bias,
         reversed_depth,
       ),
@@ -186,7 +170,6 @@ impl ShadowPCFConfig {
         map_info,
         filter_size.splat(),
         num_disc_samples,
-        light_depth_bias,
         receiver_plane_depth_bias,
         reversed_depth,
       ),

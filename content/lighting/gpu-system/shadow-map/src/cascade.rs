@@ -497,9 +497,12 @@ impl CascadeShadowMapInvocation {
           });
         }
 
-        let (light_depth_bias, receiver_plane_depth_bias) = self
+        let receiver_plane_depth_bias = self
           .pcf_bias_behavior
-          .compute_pcf_depth_bias(shadow_position, bias.bias, self.reversed_depth);
+          .compute_pcf_depth_bias(shadow_position);
+
+        let shadow_position =
+          apply_direct_depth_bias(self.reversed_depth, bias.bias, shadow_position);
 
         let current_occlusion = self.pcf_config.sample_shadow_pcf(
           self.shadow_map_atlas,
@@ -511,7 +514,6 @@ impl CascadeShadowMapInvocation {
           // covers the same world space area in every cascade
           self.pcf_config_parameter.pcf_filter_size * cascade_info.cascade_scale,
           self.pcf_config_parameter.pcf_num_disc_samples,
-          light_depth_bias,
           receiver_plane_depth_bias,
           val(self.reversed_depth),
         );
@@ -561,9 +563,12 @@ impl CascadeShadowMapInvocation {
               // the receiver plane depth bias is derived from the shadow map uv
               // derivatives, which are per-cascade, so it has to be recomputed
               // for the next cascade instead of reusing the current one
-              let (next_light_depth_bias, next_receiver_plane_depth_bias) = self
+              let next_receiver_plane_depth_bias = self
                 .pcf_bias_behavior
-                .compute_pcf_depth_bias(next_shadow_position, bias.bias, self.reversed_depth);
+                .compute_pcf_depth_bias(next_shadow_position);
+
+              let next_shadow_position =
+                apply_direct_depth_bias(self.reversed_depth, bias.bias, next_shadow_position);
 
               let next_occlusion = self.pcf_config.sample_shadow_pcf(
                 self.shadow_map_atlas,
@@ -573,7 +578,6 @@ impl CascadeShadowMapInvocation {
                 next_cascade_info.map_info,
                 self.pcf_config_parameter.pcf_filter_size * next_cascade_info.cascade_scale,
                 self.pcf_config_parameter.pcf_num_disc_samples,
-                next_light_depth_bias,
                 next_receiver_plane_depth_bias,
                 val(self.reversed_depth),
               );

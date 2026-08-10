@@ -321,9 +321,12 @@ impl BasicShadowMapInvocation {
         let shadow_position =
           shadow_position * val(Vec3::new(0.5, -0.5, 1.)) + val(Vec3::new(0.5, 0.5, 0.));
 
-        let (light_depth_bias, receiver_plane_depth_bias) = self
+        let receiver_plane_depth_bias = self
           .pcf_bias_behavior
-          .compute_pcf_depth_bias(shadow_position, bias.bias, self.reversed_depth);
+          .compute_pcf_depth_bias(shadow_position);
+
+        let shadow_position =
+          apply_direct_depth_bias(self.reversed_depth, bias.bias, shadow_position);
 
         self.pcf_config.sample_shadow_pcf(
           self.shadow_map_atlas,
@@ -333,7 +336,6 @@ impl BasicShadowMapInvocation {
           shadow_info.map_info,
           self.pcf_config_parameter.pcf_filter_size,
           self.pcf_config_parameter.pcf_num_disc_samples,
-          light_depth_bias,
           receiver_plane_depth_bias,
           val(self.reversed_depth),
         )
@@ -341,4 +343,13 @@ impl BasicShadowMapInvocation {
       || val(1.),
     )
   }
+}
+
+pub(crate) fn apply_direct_depth_bias(
+  reversed_depth: bool,
+  bias: Node<f32>,
+  shadow_position: Node<Vec3<f32>>,
+) -> Node<Vec3<f32>> {
+  let bias = if reversed_depth { bias } else { -bias };
+  shadow_position + (val(0.), val(0.), bias).into()
 }

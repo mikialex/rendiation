@@ -13,7 +13,6 @@ pub fn sample_shadow_pcf_random_disc(
   info: Node<ShadowMapAddressInfo>,
   filter_size: Node<Vec2<f32>>,
   num_disc_samples: Node<u32>,
-  light_depth_bias: Node<f32>,
   receiver_plane_depth_bias: Node<Vec2<f32>>,
   reversed_depth: Node<bool>,
 ) -> Node<f32> {
@@ -25,8 +24,7 @@ pub fn sample_shadow_pcf_random_disc(
   let filter_size = filter_size.clamp(val(Vec2::new(1., 1.)), max_filter_size);
 
   let layer = info.layer_index;
-  // the depth bias is signed by the caller to move the reference away from the light
-  let shadow_depth = shadow_position.z() + light_depth_bias;
+  let shadow_depth = shadow_position.z();
 
   // static depth biasing to make up for incorrect fractional sampling on the shadow map grid
   let fractional_sampling_error =

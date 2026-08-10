@@ -41,7 +41,6 @@ pub fn sample_shadow_pcf_fixed_size(
   d_sampler: BindingNode<ShaderCompareSampler>,
   shadow_position: Node<Vec3<f32>>,
   info: Node<ShadowMapAddressInfo>,
-  light_depth_bias: Node<f32>,
   receiver_plane_depth_bias: Node<Vec2<f32>>,
   fixed_filter_size: FixedFilterSize,
   reversed_depth: Node<bool>,
@@ -52,8 +51,7 @@ pub fn sample_shadow_pcf_fixed_size(
 
   let map_size = map.texture_dimension_2d(None).into_f32();
 
-  // the depth bias is signed by the caller to move the reference away from the light
-  let light_depth = shadow_position.z() + light_depth_bias;
+  let light_depth = shadow_position.z();
 
   // static depth biasing to make up for incorrect fractional sampling on the shadow map grid
   let fractional_sampling_error =
