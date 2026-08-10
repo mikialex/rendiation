@@ -93,7 +93,8 @@ impl<T: IndirectNodeInfoSceneModelAccess> GraphicsShaderProvider for NodeRenderC
 
       // the RenderVertexPosition requires camera, so here we only process normal part
       if let Some(normal) = builder.try_query::<GeometryNormal>() {
-        builder.register::<VertexRenderNormal>(node.normal_matrix * normal);
+        let normal_mat = builder.query::<WorldNormalMatrix>();
+        builder.register::<VertexRenderNormal>(normal_mat * normal);
       }
     })
   }
