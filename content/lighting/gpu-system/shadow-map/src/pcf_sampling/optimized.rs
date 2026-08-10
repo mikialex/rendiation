@@ -17,10 +17,10 @@ pub fn sample_shadow_pcf_optimized(
   let info = info_node.expand();
   let layer = info.layer_index;
 
+  let map_size = map.texture_dimension_2d(None).into_f32();
+
   // the depth bias is signed by the caller to move the reference away from the light
   let light_depth = shadow_position.z() + light_depth_bias;
-
-  let map_size = map.texture_dimension_2d(None).into_f32();
 
   // static depth biasing to make up for incorrect fractional sampling on the shadow map grid
   // the optimized PCF samples at offsets up to 1.5 texels, so the error is doubled

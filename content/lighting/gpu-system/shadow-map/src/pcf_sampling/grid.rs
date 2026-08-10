@@ -19,10 +19,11 @@ pub fn sample_shadow_pcf_grid(
   let filter_size = filter_size.clamp(val(Vec2::new(1., 1.)), max_filter_size);
 
   let layer = info.layer_index;
-  // the depth bias is signed by the caller to move the reference away from the light
-  let shadow_depth = shadow_position.z() + light_depth_bias;
 
   let map_size = map.texture_dimension_2d(None).into_f32();
+
+  // the depth bias is signed by the caller to move the reference away from the light
+  let shadow_depth = shadow_position.z() + light_depth_bias;
 
   // static depth biasing to make up for incorrect fractional sampling on the shadow map grid
   let fractional_sampling_error =

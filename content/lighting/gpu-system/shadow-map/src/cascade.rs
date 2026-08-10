@@ -356,6 +356,7 @@ pub struct CascadeShadowMapComponent {
   pub pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   pub reversed_depth: bool,
   pub pcf_config: ShadowPCFConfig,
+  pub pcf_bias_behavior: ShadowBiasBehaviorConfig,
   /// blend the current cascade with the next one to smooth the transition
   pub filter_across_cascades: bool,
 }
@@ -365,6 +366,7 @@ impl ShaderHashProvider for CascadeShadowMapComponent {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(&self.reversed_depth);
     hasher.hash(&self.pcf_config);
+    hasher.hash(&self.pcf_bias_behavior);
     hasher.hash(&self.filter_across_cascades);
   }
 }
@@ -378,6 +380,7 @@ impl AbstractShaderBindingSource for CascadeShadowMapComponent {
       info: cx.bind_by(&self.info),
       pcf_config_parameter: cx.bind_by(&self.pcf_config_parameter).load().expand(),
       pcf_config: self.pcf_config,
+      pcf_bias_behavior: self.pcf_bias_behavior,
       filter_across_cascades: self.filter_across_cascades,
       reversed_depth: self.reversed_depth,
     }
@@ -398,6 +401,7 @@ pub struct CascadeShadowMapInvocation {
   info: ShaderReadonlyPtrOf<Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
   pcf_config_parameter: ENode<PCFConfigParameter>,
   pcf_config: ShadowPCFConfig,
+  pcf_bias_behavior: ShadowBiasBehaviorConfig,
   filter_across_cascades: bool,
   reversed_depth: bool,
 }
@@ -476,7 +480,7 @@ impl CascadeShadowMapInvocation {
           render_normal,
           texel_world_size,
           bias.normal_bias,
-          val(self.pcf_config.use_n_dot_l_normal_offset),
+          val(self.pcf_bias_behavior.use_n_dot_l_normal_offset),
         );
 
         let shadow_position = project_to_shadow_uv(
@@ -493,10 +497,9 @@ impl CascadeShadowMapInvocation {
           });
         }
 
-        let (light_depth_bias, receiver_plane_depth_bias) =
-          self
-            .pcf_config
-            .compute_pcf_depth_bias(shadow_position, bias.bias, self.reversed_depth);
+        let (light_depth_bias, receiver_plane_depth_bias) = self
+          .pcf_bias_behavior
+          .compute_pcf_depth_bias(shadow_position, bias.bias, self.reversed_depth);
 
         let current_occlusion = self.pcf_config.sample_shadow_pcf(
           self.shadow_map_atlas,
@@ -547,7 +550,7 @@ impl CascadeShadowMapInvocation {
                 render_normal,
                 next_texel_world_size,
                 bias.normal_bias,
-                val(self.pcf_config.use_n_dot_l_normal_offset),
+                val(self.pcf_bias_behavior.use_n_dot_l_normal_offset),
               );
 
               let next_shadow_position = project_to_shadow_uv(
@@ -559,7 +562,7 @@ impl CascadeShadowMapInvocation {
               // derivatives, which are per-cascade, so it has to be recomputed
               // for the next cascade instead of reusing the current one
               let (next_light_depth_bias, next_receiver_plane_depth_bias) = self
-                .pcf_config
+                .pcf_bias_behavior
                 .compute_pcf_depth_bias(next_shadow_position, bias.bias, self.reversed_depth);
 
               let next_occlusion = self.pcf_config.sample_shadow_pcf(

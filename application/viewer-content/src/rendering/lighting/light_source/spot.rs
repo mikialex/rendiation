@@ -23,6 +23,7 @@ pub fn use_scene_spot_light_uniform(
     light,
     scene_ref: read_global_db_foreign_key(),
     pcf_config: lighting_sys.pcf_config,
+    pcf_bias_behavior: lighting_sys.pcf_bias_behavior,
     pcf_config_parameter: create_pcf_parameter(cx.gpu, lighting_sys.pcf_config),
   })
 }
@@ -93,6 +94,7 @@ pub struct SceneSpotLightingPreparer {
   pub scene_ref: ForeignKeyReadView<SpotLightRefScene>,
   pub pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   pub pcf_config: ShadowPCFConfig,
+  pub pcf_bias_behavior: ShadowBiasBehaviorConfig,
 }
 
 impl SceneSpotLightingPreparer {
@@ -122,6 +124,7 @@ impl SceneSpotLightingPreparer {
       shadow,
       reversed_depth,
       pcf_config: self.pcf_config,
+      pcf_bias_behavior: self.pcf_bias_behavior,
     }
   }
 }
@@ -132,6 +135,7 @@ pub struct SceneSpotLightingProvider {
   pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   reversed_depth: bool,
   pcf_config: ShadowPCFConfig,
+  pcf_bias_behavior: ShadowBiasBehaviorConfig,
 }
 
 impl LightSystemSceneProvider for SceneSpotLightingProvider {
@@ -150,6 +154,7 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
         info,
         reversed_depth: self.reversed_depth,
         pcf_config: self.pcf_config,
+        pcf_bias_behavior: self.pcf_bias_behavior,
       }
     });
 

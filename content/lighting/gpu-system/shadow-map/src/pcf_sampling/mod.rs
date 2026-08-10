@@ -62,15 +62,26 @@ pub fn create_pcf_parameter(
   pcf_parameter
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct ShadowBiasBehaviorConfig {
+  /// use receiver plane depth bias instead of static depth bias
+  pub use_receiver_plane_depth_bias: bool,
+  /// scale the normal offset by (1 - nDotL), so that the offset is smaller on the lit side
+  pub use_n_dot_l_normal_offset: bool,
+}
+
+impl std::hash::Hash for ShadowBiasBehaviorConfig {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.use_receiver_plane_depth_bias.hash(state);
+    self.use_n_dot_l_normal_offset.hash(state);
+  }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ShadowPCFConfig {
   pub pcf_mode: ShadowPCFMode,
   /// the filter kernel size of the fixed size PCF
   pub fixed_filter_size: FixedFilterSize,
-  /// use receiver plane depth bias instead of static depth bias
-  pub use_receiver_plane_depth_bias: bool,
-  /// scale the normal offset by (1 - nDotL), so that the offset is smaller on the lit side
-  pub use_n_dot_l_normal_offset: bool,
   /// the filter size in texels for GridPCF and RandomDiscPCF,
   /// passed as uniform so it can be adjusted at runtime without recompiling the shader
   pub filter_size: f32,
@@ -82,8 +93,6 @@ impl std::hash::Hash for ShadowPCFConfig {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     self.pcf_mode.hash(state);
     self.fixed_filter_size.hash(state);
-    self.use_receiver_plane_depth_bias.hash(state);
-    self.use_n_dot_l_normal_offset.hash(state);
   }
 }
 
@@ -92,28 +101,21 @@ impl Default for ShadowPCFConfig {
     Self {
       pcf_mode: ShadowPCFMode::Naive,
       fixed_filter_size: FixedFilterSize::Filter3x3,
-      use_receiver_plane_depth_bias: false,
-      use_n_dot_l_normal_offset: false,
       filter_size: 3.0,
       num_disc_samples: 32,
     }
   }
 }
 
-impl ShadowPCFConfig {
-  /// compute the depth bias and the receiver plane depth bias for the PCF sampling,
-  /// the receiver plane depth bias is only used by the improved modes, the naive
-  /// implementation always uses the static depth bias.
-  /// the returned depth bias is signed by the depth space: added to the reference
-  /// depth in reversed depth space (larger depth is closer) and subtracted in the
-  /// standard depth space, so that the reference is always moved away from the light
+impl ShadowBiasBehaviorConfig {
+  /// compute the depth bias and the receiver plane depth bias for the PCF sampling
   pub fn compute_pcf_depth_bias(
     self,
     shadow_position: Node<Vec3<f32>>,
     bias: Node<f32>,
     reversed_depth: bool,
   ) -> (Node<f32>, Node<Vec2<f32>>) {
-    if self.use_receiver_plane_depth_bias && self.pcf_mode != ShadowPCFMode::Naive {
+    if self.use_receiver_plane_depth_bias {
       let shadow_pos_dx = shadow_position.dpdx_fine();
       let shadow_pos_dy = shadow_position.dpdy_fine();
       (
@@ -125,7 +127,9 @@ impl ShadowPCFConfig {
       (bias, val(Vec2::zero()))
     }
   }
+}
 
+impl ShadowPCFConfig {
   pub fn sample_shadow_pcf(
     self,
     map: BindingNode<ShaderDepthTexture2DArray>,

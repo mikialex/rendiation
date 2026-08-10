@@ -220,6 +220,7 @@ pub struct BasicShadowMapComponent {
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
   pub pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   pub pcf_config: ShadowPCFConfig,
+  pub pcf_bias_behavior: ShadowBiasBehaviorConfig,
   pub reversed_depth: bool,
 }
 
@@ -228,6 +229,7 @@ impl ShaderHashProvider for BasicShadowMapComponent {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(&self.reversed_depth);
     hasher.hash(&self.pcf_config);
+    hasher.hash(&self.pcf_bias_behavior);
   }
 }
 
@@ -240,6 +242,7 @@ impl AbstractShaderBindingSource for BasicShadowMapComponent {
       info: cx.bind_by(&self.info),
       pcf_config_parameter: cx.bind_by(&self.pcf_config_parameter).load().expand(),
       pcf_config: self.pcf_config,
+      pcf_bias_behavior: self.pcf_bias_behavior,
       reversed_depth: self.reversed_depth,
     }
   }
@@ -260,6 +263,7 @@ pub struct BasicShadowMapInvocation {
   info: ShaderReadonlyPtrOf<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
   pcf_config_parameter: ENode<PCFConfigParameter>,
   pcf_config: ShadowPCFConfig,
+  pcf_bias_behavior: ShadowBiasBehaviorConfig,
   reversed_depth: bool,
 }
 
@@ -301,7 +305,7 @@ impl BasicShadowMapInvocation {
           render_normal,
           texel_world_size,
           bias.normal_bias,
-          val(self.pcf_config.use_n_dot_l_normal_offset),
+          val(self.pcf_bias_behavior.use_n_dot_l_normal_offset),
         );
 
         let shadow_position = shadow_info.shadow_center_without_translation_to_shadowmap_ndc
@@ -317,10 +321,9 @@ impl BasicShadowMapInvocation {
         let shadow_position =
           shadow_position * val(Vec3::new(0.5, -0.5, 1.)) + val(Vec3::new(0.5, 0.5, 0.));
 
-        let (light_depth_bias, receiver_plane_depth_bias) =
-          self
-            .pcf_config
-            .compute_pcf_depth_bias(shadow_position, bias.bias, self.reversed_depth);
+        let (light_depth_bias, receiver_plane_depth_bias) = self
+          .pcf_bias_behavior
+          .compute_pcf_depth_bias(shadow_position, bias.bias, self.reversed_depth);
 
         self.pcf_config.sample_shadow_pcf(
           self.shadow_map_atlas,
