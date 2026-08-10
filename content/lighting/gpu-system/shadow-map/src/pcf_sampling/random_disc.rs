@@ -2,6 +2,9 @@ use rendiation_shader_library::sampling::random_fn;
 
 use super::*;
 
+/// the maximum kernel size of the dynamic PCF filters, in texels
+pub const MAX_PCF_FILTER_SIZE: f32 = 9.0;
+
 /// Samples the shadow map using a PCF kernel made up from random points on a disc
 /// aligns with SampleShadowMapRandomDiscPCF in the MJP Shadows sample
 #[shader_fn]

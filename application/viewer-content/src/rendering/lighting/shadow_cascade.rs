@@ -102,7 +102,7 @@ impl MultiCascadeShadowMapPreparer {
     draw: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest),
     reversed_depth: bool,
     pcf_config: ShadowPCFConfig,
-    pcf_bias_behavior: ShadowBiasBehaviorConfig,
+    bias_behavior: ShadowBiasBehaviorConfig,
     pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
     filter_across_cascades: bool,
   ) -> MultiCascadeShadowMapData {
@@ -118,7 +118,7 @@ impl MultiCascadeShadowMapPreparer {
     MultiCascadeShadowMapData {
       per_camera,
       pcf_config,
-      pcf_bias_behavior,
+      bias_behavior,
       pcf_config_parameter,
       filter_across_cascades,
     }
@@ -128,7 +128,7 @@ impl MultiCascadeShadowMapPreparer {
 pub struct MultiCascadeShadowMapData {
   pub per_camera: FastHashMap<EntityHandle<SceneCameraEntity>, CascadeShadowGPUData>,
   pcf_config: ShadowPCFConfig,
-  pcf_bias_behavior: ShadowBiasBehaviorConfig,
+  bias_behavior: ShadowBiasBehaviorConfig,
   pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   filter_across_cascades: bool,
 }
@@ -146,7 +146,7 @@ impl MultiCascadeShadowMapData {
       info,
       reversed_depth: gpu_data.reversed_depth,
       pcf_config: self.pcf_config,
-      pcf_bias_behavior: self.pcf_bias_behavior,
+      bias_behavior: self.bias_behavior,
       pcf_config_parameter: self.pcf_config_parameter.clone(),
       filter_across_cascades: self.filter_across_cascades,
     })

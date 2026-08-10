@@ -16,6 +16,9 @@ pub use basic::*;
 mod cascade;
 pub use cascade::*;
 
+mod bias;
+pub use bias::*;
+
 mod map_utils;
 pub use map_utils::*;
 
@@ -64,24 +67,6 @@ fn convert_pack_result(r: PackResult2dWithDepth) -> ShadowMapAddressInfo {
       r.result.range.origin.y as f32,
     ),
     ..Default::default()
-  }
-}
-
-#[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
-pub struct ShadowBias {
-  pub bias: f32,
-  pub normal_bias: f32,
-}
-
-impl ShadowBias {
-  pub fn new(bias: f32, normal_bias: f32) -> Self {
-    Self {
-      bias,
-      normal_bias,
-      ..Zeroable::zeroed()
-    }
   }
 }
 

@@ -202,7 +202,7 @@ pub struct LightSystem {
   pub use_cascade_shadowmap_for_directional_lights: bool,
   pub cascade_shadow_split_linear_log_blend_ratio: f32,
   pub pcf_config: ShadowPCFConfig,
-  pub pcf_bias_behavior: ShadowBiasBehaviorConfig,
+  pub bias_behavior: ShadowBiasBehaviorConfig,
   pub filter_across_cascades: bool,
 }
 
@@ -217,7 +217,7 @@ impl LightSystem {
       channel_debugger: ScreenChannelDebugger::default_useful(),
       use_cascade_shadowmap_for_directional_lights: false,
       pcf_config: ShadowPCFConfig::default(),
-      pcf_bias_behavior: ShadowBiasBehaviorConfig::default(),
+      bias_behavior: ShadowBiasBehaviorConfig::default(),
       filter_across_cascades: false,
       tonemap: ToneMap::new(gpu),
       material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
@@ -250,7 +250,6 @@ impl LightSystem {
     egui::ComboBox::from_label("Shadow PCF mode")
       .selected_text(format!("{:?}", &self.pcf_config.pcf_mode))
       .show_ui_changed(ui, |ui| {
-        ui.selectable_value(&mut self.pcf_config.pcf_mode, ShadowPCFMode::Naive, "Naive");
         ui.selectable_value(
           &mut self.pcf_config.pcf_mode,
           ShadowPCFMode::FixedSizePCF,
@@ -321,11 +320,11 @@ impl LightSystem {
     }
 
     ui.checkbox(
-      &mut self.pcf_bias_behavior.use_receiver_plane_depth_bias,
-      "receiver plane depth bias",
+      &mut self.pcf_config.use_receiver_plane_depth_bias,
+      "PCF receiver plane depth bias",
     );
     ui.checkbox(
-      &mut self.pcf_bias_behavior.use_n_dot_l_normal_offset,
+      &mut self.bias_behavior.use_n_dot_l_normal_offset,
       "nDotL normal offset",
     );
 

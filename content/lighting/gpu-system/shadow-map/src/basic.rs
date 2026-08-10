@@ -220,7 +220,7 @@ pub struct BasicShadowMapComponent {
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
   pub pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   pub pcf_config: ShadowPCFConfig,
-  pub pcf_bias_behavior: ShadowBiasBehaviorConfig,
+  pub bias_behavior: ShadowBiasBehaviorConfig,
   pub reversed_depth: bool,
 }
 
@@ -229,7 +229,7 @@ impl ShaderHashProvider for BasicShadowMapComponent {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(&self.reversed_depth);
     hasher.hash(&self.pcf_config);
-    hasher.hash(&self.pcf_bias_behavior);
+    hasher.hash(&self.bias_behavior);
   }
 }
 
@@ -242,7 +242,7 @@ impl AbstractShaderBindingSource for BasicShadowMapComponent {
       info: cx.bind_by(&self.info),
       pcf_config_parameter: cx.bind_by(&self.pcf_config_parameter).load().expand(),
       pcf_config: self.pcf_config,
-      pcf_bias_behavior: self.pcf_bias_behavior,
+      bias_behavior: self.bias_behavior,
       reversed_depth: self.reversed_depth,
     }
   }
@@ -263,7 +263,7 @@ pub struct BasicShadowMapInvocation {
   info: ShaderReadonlyPtrOf<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
   pcf_config_parameter: ENode<PCFConfigParameter>,
   pcf_config: ShadowPCFConfig,
-  pcf_bias_behavior: ShadowBiasBehaviorConfig,
+  bias_behavior: ShadowBiasBehaviorConfig,
   reversed_depth: bool,
 }
 
@@ -280,53 +280,18 @@ impl BasicShadowMapInvocation {
     enabled.into_bool().select_branched(
       || {
         let shadow_info = self.info.index(shadow_idx).load().expand();
-        let bias = shadow_info.bias.expand();
 
-        let shadow_center_in_render_space = hpt_sub_hpt(
-          hpt_uniform_to_hpt(shadow_info.shadow_world_position),
-          camera_world_position,
-        );
-
-        let position_in_shadow_center_without_translation_space =
-          render_position - shadow_center_in_render_space;
-
-        // the normal bias is in texel units, so that it scales with the shadow
-        // map resolution, note for perspective projections this is the texel
-        // size at the near plane
-        let texel_world_size = shadow_texel_world_size_fn(
-          shadow_info.shadow_center_without_translation_to_shadowmap_ndc,
-          position_in_shadow_center_without_translation_space,
-          shadow_info.map_info,
-        );
-
-        // apply normal bias, optionally scaled by (1 - nDotL) to be smaller on the lit side
-        let normal_offset = compute_normal_offset_fn(
-          position_in_shadow_center_without_translation_space,
+        let shadow_position = compute_shadow_position(
+          render_position,
           render_normal,
-          texel_world_size,
-          bias.normal_bias,
-          val(self.pcf_bias_behavior.use_n_dot_l_normal_offset),
+          shadow_info.shadow_world_position,
+          camera_world_position,
+          shadow_info.bias,
+          shadow_info.map_info,
+          shadow_info.shadow_center_without_translation_to_shadowmap_ndc,
+          self.bias_behavior.use_n_dot_l_normal_offset,
+          self.reversed_depth,
         );
-
-        let shadow_position = shadow_info.shadow_center_without_translation_to_shadowmap_ndc
-          * (
-            position_in_shadow_center_without_translation_space + normal_offset,
-            val(1.),
-          )
-            .into();
-
-        let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
-
-        // convert to uv space
-        let shadow_position =
-          shadow_position * val(Vec3::new(0.5, -0.5, 1.)) + val(Vec3::new(0.5, 0.5, 0.));
-
-        let receiver_plane_depth_bias = self
-          .pcf_bias_behavior
-          .compute_pcf_depth_bias(shadow_position);
-
-        let shadow_position =
-          apply_direct_depth_bias(self.reversed_depth, bias.bias, shadow_position);
 
         self.pcf_config.sample_shadow_pcf(
           self.shadow_map_atlas,
@@ -336,7 +301,6 @@ impl BasicShadowMapInvocation {
           shadow_info.map_info,
           self.pcf_config_parameter.pcf_filter_size,
           self.pcf_config_parameter.pcf_num_disc_samples,
-          receiver_plane_depth_bias,
           val(self.reversed_depth),
         )
       },
@@ -345,11 +309,57 @@ impl BasicShadowMapInvocation {
   }
 }
 
-pub(crate) fn apply_direct_depth_bias(
+pub fn compute_shadow_position(
+  render_position: Node<Vec3<f32>>,
+  render_normal: Node<Vec3<f32>>,
+  shadow_world_position: Node<HighPrecisionTranslationUniform>,
+  camera_world_position: Node<HighPrecisionTranslation>,
+  bias: Node<ShadowBias>,
+  map_info: Node<ShadowMapAddressInfo>,
+  shadow_center_without_translation_to_shadowmap_ndc: Node<Mat4<f32>>,
+  use_n_dot_l_normal_offset: bool,
   reversed_depth: bool,
-  bias: Node<f32>,
-  shadow_position: Node<Vec3<f32>>,
 ) -> Node<Vec3<f32>> {
-  let bias = if reversed_depth { bias } else { -bias };
-  shadow_position + (val(0.), val(0.), bias).into()
+  let bias = bias.expand();
+
+  let shadow_center_in_render_space = hpt_sub_hpt(
+    hpt_uniform_to_hpt(shadow_world_position),
+    camera_world_position,
+  );
+
+  let position_in_shadow_center_without_translation_space =
+    render_position - shadow_center_in_render_space;
+
+  // the normal bias is in texel units, so that it scales with the shadow
+  // map resolution, note for perspective projections this is the texel
+  // size at the near plane
+  let texel_world_size = shadow_texel_world_size_fn(
+    shadow_center_without_translation_to_shadowmap_ndc,
+    position_in_shadow_center_without_translation_space,
+    map_info,
+  );
+
+  // apply normal bias, optionally scaled by (1 - nDotL) to be smaller on the lit side
+  let normal_offset = compute_normal_offset(
+    position_in_shadow_center_without_translation_space,
+    render_normal,
+    texel_world_size,
+    bias.normal_bias,
+    use_n_dot_l_normal_offset,
+  );
+
+  let shadow_position = shadow_center_without_translation_to_shadowmap_ndc
+    * (
+      position_in_shadow_center_without_translation_space + normal_offset,
+      val(1.),
+    )
+      .into();
+
+  let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
+
+  // convert to uv space
+  let shadow_position =
+    shadow_position * val(Vec3::new(0.5, -0.5, 1.)) + val(Vec3::new(0.5, 0.5, 0.));
+
+  apply_direct_depth_bias(reversed_depth, bias.bias, shadow_position)
 }

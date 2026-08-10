@@ -1,5 +1,8 @@
 use super::*;
 
+/// the filter kernel size of the optimized PCF
+pub const OPTIMIZED_PCF_FILTER_SIZE: u32 = 3;
+
 /// Samples the shadow map with a fixed-size PCF kernel optimized with bilinear weighted samples
 /// uses the method from The Witness
 /// aligns with SampleShadowMapOptimizedPCF in the MJP Shadows sample

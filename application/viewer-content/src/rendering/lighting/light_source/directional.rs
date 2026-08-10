@@ -50,7 +50,7 @@ pub fn use_directional_light_uniform(
     light,
     scene_ref: read_global_db_foreign_key(),
     pcf_config: lighting_sys.pcf_config,
-    pcf_bias_behavior: lighting_sys.pcf_bias_behavior,
+    bias_behavior: lighting_sys.bias_behavior,
     filter_across_cascades: lighting_sys.filter_across_cascades,
     pcf_config_parameter: create_pcf_parameter(cx.gpu, lighting_sys.pcf_config),
   })
@@ -128,7 +128,7 @@ pub struct SceneDirectionalLightingPreparer {
   light: SharedLightUniformInfo<DirectionalLightUniform>,
   scene_ref: ForeignKeyReadView<DirectionalRefScene>,
   pcf_config: ShadowPCFConfig,
-  pcf_bias_behavior: ShadowBiasBehaviorConfig,
+  bias_behavior: ShadowBiasBehaviorConfig,
   pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   filter_across_cascades: bool,
 }
@@ -161,7 +161,7 @@ impl SceneDirectionalLightingPreparer {
           &mut draw,
           reversed_depth,
           self.pcf_config,
-          self.pcf_bias_behavior,
+          self.bias_behavior,
           self.pcf_config_parameter.clone(),
           self.filter_across_cascades,
         );
@@ -175,7 +175,7 @@ impl SceneDirectionalLightingPreparer {
       shadows,
       reversed_depth,
       pcf_config: self.pcf_config,
-      pcf_bias_behavior: self.pcf_bias_behavior,
+      bias_behavior: self.bias_behavior,
       filter_across_cascades: self.filter_across_cascades,
       pcf_config_parameter: self.pcf_config_parameter,
     })
@@ -205,7 +205,7 @@ struct SceneDirectionalLightingProvider {
   shadows: ShadowImplType,
   reversed_depth: bool,
   pcf_config: ShadowPCFConfig,
-  pcf_bias_behavior: ShadowBiasBehaviorConfig,
+  bias_behavior: ShadowBiasBehaviorConfig,
   pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   filter_across_cascades: bool,
 }
@@ -227,7 +227,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
           info,
           reversed_depth: self.reversed_depth,
           pcf_config: self.pcf_config,
-          pcf_bias_behavior: self.pcf_bias_behavior,
+          bias_behavior: self.bias_behavior,
           pcf_config_parameter: self.pcf_config_parameter.clone(),
         })
       }
@@ -239,7 +239,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
           info,
           reversed_depth: self.reversed_depth,
           pcf_config: self.pcf_config,
-          pcf_bias_behavior: self.pcf_bias_behavior,
+          bias_behavior: self.bias_behavior,
           pcf_config_parameter: self.pcf_config_parameter.clone(),
           filter_across_cascades: self.filter_across_cascades,
         })
