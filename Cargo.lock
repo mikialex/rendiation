@@ -4388,6 +4388,7 @@ name = "rendiation-lighting-shadow-map"
 version = "0.1.0"
 dependencies = [
  "database",
+ "dyn-clone",
  "fast-hash-collection",
  "log",
  "parking_lot",

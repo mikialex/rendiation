@@ -126,7 +126,6 @@ pub fn generate_cascade_shadow_info(
     scene_cascade_info,
     light_proj_info,
     light_cascade_info,
-    map_size: packer_size,
   }
 }
 
@@ -139,12 +138,10 @@ pub struct CascadeShadowPreparer {
     FastHashMap<RawEntityHandle, (Mat4<f64>, [Mat4<f32>; CASCADE_SHADOW_SPLIT_COUNT])>,
   // light entity -> cascade info (contains atlas pack addresses)
   pub light_cascade_info: FastHashMap<RawEntityHandle, CascadeShadowMapInfo>,
-  pub map_size: SizeWithDepth,
 }
 
 #[derive(Default)]
 pub struct CascadeShadowGPUCache {
-  texture: Option<ShadowAtlas>,
   // scene entity -> per-scene uniform buffer
   uniforms: FastHashMap<
     RawEntityHandle,
@@ -153,13 +150,11 @@ pub struct CascadeShadowGPUCache {
 }
 
 pub struct CascadeShadowGPUData {
-  pub shadow_map_atlas: GPU2DArrayDepthTextureView,
   // scene entity -> per-scene uniform buffer
   pub uniforms: FastHashMap<
     RawEntityHandle,
     UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
   >,
-  pub reversed_depth: bool,
 }
 
 impl CascadeShadowPreparer {
@@ -168,17 +163,10 @@ impl CascadeShadowPreparer {
     self,
     resource_cache: &mut CascadeShadowGPUCache,
     frame_ctx: &mut FrameCtx,
+    shadow_map: &mut dyn AbstractShadowMapGPUData,
     scene_content: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest),
-    reversed_depth: bool,
   ) -> CascadeShadowGPUData {
-    let shadow_map_atlas = &mut resource_cache.texture;
-    let shadow_map_atlas = get_or_create_shadow_atlas(
-      "cascade-shadow-map-atlas",
-      self.map_size,
-      shadow_map_atlas,
-      frame_ctx.gpu,
-    );
-    clear_shadow_map(&shadow_map_atlas, frame_ctx, reversed_depth);
+    shadow_map.clear_shadow_map(frame_ctx);
 
     // do shadowmap updates
     for (light_id, cascade) in self.light_cascade_info.iter() {
@@ -189,34 +177,13 @@ impl CascadeShadowPreparer {
       let shadow_camera_world = proj_info.0;
 
       for (slice_index, shadow_view) in cascade.map_info.iter().enumerate() {
-        let shadow_view = shadow_view.map_info;
-
-        let write_view = shadow_map_atlas
-          .get_layer_view(shadow_view.layer_index as u32)
-          .clone();
-
-        // todo, consider merge the pass within the same layer
-        // custom dispatcher is not required because we only have depth output.
-        let pass = pass("cascade-shadow-map").with_depth(
-          &RenderTargetView::from_texture_view(write_view),
-          load_and_store(),
-          load_and_store(),
-        );
-
-        let shadow_camera_proj = proj_info.1[slice_index];
-
-        scene_content(
-          frame_ctx,
-          ShadowMapDrawRequest {
-            shadow_camera_proj,
-            shadow_camera_world,
-            light_id: *light_id,
-            map_desc: ShadowPassDesc {
-              desc: pass,
-              address: shadow_view,
-            },
-          },
-        );
+        let request = ShadowMapUpdateRequest {
+          shadow_camera_proj: proj_info.1[slice_index],
+          shadow_camera_world,
+          light_id: *light_id,
+          address: shadow_view.map_info,
+        };
+        shadow_map.update_shadow_map(frame_ctx, request, scene_content);
       }
     }
 
@@ -245,11 +212,7 @@ impl CascadeShadowPreparer {
 
     resource_cache.uniforms = uniforms.clone();
 
-    CascadeShadowGPUData {
-      shadow_map_atlas: shadow_map_atlas.get_full_view().clone(),
-      uniforms,
-      reversed_depth,
-    }
+    CascadeShadowGPUData { uniforms }
   }
 }
 

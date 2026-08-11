@@ -13,7 +13,11 @@ pub fn use_scene_spot_light_uniform(
   let spot_light_uniforms = use_spot_per_scene_uniform_array_buffers(cx);
 
   let shadow = if lighting_sys.enable_shadow {
-    cx.scope(|cx| use_basic_shadow_map_uniform(cx, shadow_packer_config, ndc, &spot_light_uniforms))
+    cx.scope(|cx| {
+      let shadow_info =
+        use_basic_shadow_map_uniform(cx, shadow_packer_config, ndc, &spot_light_uniforms);
+      use_basic_shadow_map_entry(cx, lighting_sys, ndc, shadow_info)
+    })
   } else {
     None
   };
@@ -22,9 +26,7 @@ pub fn use_scene_spot_light_uniform(
     shadow,
     light,
     scene_ref: read_global_db_foreign_key(),
-    pcf_config: lighting_sys.pcf_config,
     bias_behavior: lighting_sys.bias_behavior,
-    pcf_config_parameter: create_pcf_parameter(cx.gpu, lighting_sys.pcf_config),
   })
 }
 
@@ -33,12 +35,12 @@ fn use_basic_shadow_map_uniform(
   atlas_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
   lights: &Option<SharedLightUniformInfo<SpotLightUniform>>,
-) -> Option<BasicShadowMapPreparer> {
-  // // let changed = cx.use_db_entity_any_change::<DirectionalLightEntity>(); // todo
+) -> Option<(BasicShadowMapPreparer, SizeWithDepth)> {
+  // let changed = cx.use_db_entity_any_change::<DirectionalLightEntity>(); // todo reactive
   let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
   let gpu = cx.gpu;
-  let (cx, gpu_data) = cx.use_plain_state_default::<Option<BasicShadowMapGPU>>();
+  let (cx, gpu_data) = cx.use_plain_state_default::<Option<BasicShadowMapInfoGPU>>();
 
   cx.when_render(|| {
     let light_ref_node = get_db_view::<SpotLightRefNode>();
@@ -89,11 +91,9 @@ fn use_basic_shadow_map_uniform(
 }
 
 pub struct SceneSpotLightingPreparer {
-  pub shadow: Option<BasicShadowMapPreparer>,
+  pub shadow: Option<ShadowMapPreparerEntry>,
   pub light: SharedLightUniformInfo<SpotLightUniform>,
   pub scene_ref: ForeignKeyReadView<SpotLightRefScene>,
-  pub pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
-  pub pcf_config: ShadowPCFConfig,
   pub bias_behavior: ShadowBiasBehaviorConfig,
 }
 
@@ -114,27 +114,30 @@ impl SceneSpotLightingPreparer {
       draw(f_ctx, param, scene_id);
     };
 
-    let shadow = self
-      .shadow
-      .map(|v| v.update_shadow_maps(frame_ctx, &mut draw, reversed_depth));
+    let shadow = self.shadow.map(|mut entry| {
+      let shadow_info =
+        entry
+          .preparer
+          .update_shadow_maps(frame_ctx, entry.shadow_map.as_mut(), &mut draw);
+      ShadowMapGPUDataEntry {
+        gpu_data: shadow_info,
+        shadow_map: entry.shadow_map,
+      }
+    });
 
     SceneSpotLightingProvider {
       uniform: self.light.make_read_holder(),
-      pcf_config_parameter: self.pcf_config_parameter,
       shadow,
       reversed_depth,
-      pcf_config: self.pcf_config,
       bias_behavior: self.bias_behavior,
     }
   }
 }
 
 pub struct SceneSpotLightingProvider {
-  shadow: Option<BasicShadowMapGPU>,
+  shadow: Option<ShadowMapGPUDataEntry>,
   uniform: LockReadGuardHolder<LightUniformInfo<SpotLightUniform>>,
-  pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   reversed_depth: bool,
-  pcf_config: ShadowPCFConfig,
   bias_behavior: ShadowBiasBehaviorConfig,
 }
 
@@ -146,15 +149,15 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let lights = self.uniform.uniform.get(scene.raw_handle_ref())?.clone();
 
-    let shadow = self.shadow.as_ref().map(|s| {
-      let info = s.uniforms.get(scene.raw_handle_ref()).unwrap().clone();
+    let shadow = self.shadow.as_ref().map(|entry| {
+      let info = entry
+        .gpu_data
+        .uniforms
+        .get(scene.raw_handle_ref())
+        .unwrap()
+        .clone();
       BasicShadowMapComponent {
-        shadow_computer: Arc::new(PCFComputer {
-          shadow_map_atlas: s.shadow_map.get_full_view().clone(),
-          pcf_config_parameter: self.pcf_config_parameter.clone(),
-          pcf_config: self.pcf_config,
-          reversed_depth: self.reversed_depth,
-        }),
+        shadow_computer: entry.shadow_map.create_abstract_shadow_computer(),
         info,
         reversed_depth: self.reversed_depth,
         bias_behavior: self.bias_behavior,

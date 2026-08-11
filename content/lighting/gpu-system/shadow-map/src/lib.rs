@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use database::RawEntityHandle;
+use dyn_clone::*;
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
 use rendiation_texture_core::*;
@@ -19,8 +20,8 @@ pub use cascade::*;
 mod bias;
 pub use bias::*;
 
-mod map_utils;
-pub use map_utils::*;
+mod depth_atlas;
+pub use depth_atlas::*;
 
 mod pcf_sampling;
 pub use pcf_sampling::*;
@@ -47,6 +48,26 @@ pub trait AbstractShadowComputerInvocation {
     cascade_scale: Node<f32>,
   ) -> Node<f32>;
 }
+
+pub struct ShadowMapUpdateRequest {
+  pub shadow_camera_proj: Mat4<f32>,
+  pub shadow_camera_world: Mat4<f64>,
+  pub light_id: RawEntityHandle,
+  pub address: ShadowMapAddressInfo,
+}
+
+pub trait AbstractShadowMapGPUData: DynClone {
+  fn check_rebuild(&mut self, required_size: SizeWithDepth, gpu: &GPU);
+  fn clear_shadow_map(&self, frame_ctx: &mut FrameCtx);
+  fn update_shadow_map(
+    &mut self,
+    frame_ctx: &mut FrameCtx,
+    request: ShadowMapUpdateRequest,
+    scene_content: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest),
+  );
+  fn create_abstract_shadow_computer(&self) -> Arc<dyn AbstractShadowComputer>;
+}
+dyn_clone::clone_trait_object!(AbstractShadowMapGPUData);
 
 pub const MAX_SHADOW_COUNT: usize = 8;
 

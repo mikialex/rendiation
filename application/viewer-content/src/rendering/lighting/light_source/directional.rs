@@ -31,13 +31,15 @@ pub fn use_directional_light_uniform(
             viewports,
             ndc,
             shadow_packer_config,
-            lighting_sys.cascade_shadow_split_linear_log_blend_ratio,
+            lighting_sys,
             &directional_light_uniforms,
           )
           .map(ViewerDirectionalShadowPreparer::Cascade)
         })
       } else {
-        use_basic_shadow_map_uniform(cx, shadow_packer_config, ndc, &directional_light_uniforms)
+        let shadow_info =
+          use_basic_shadow_map_uniform(cx, shadow_packer_config, ndc, &directional_light_uniforms);
+        use_basic_shadow_map_entry(cx, lighting_sys, ndc, shadow_info)
           .map(ViewerDirectionalShadowPreparer::Basic)
       }
     })
@@ -49,10 +51,8 @@ pub fn use_directional_light_uniform(
     shadow: shadow.unwrap(),
     light,
     scene_ref: read_global_db_foreign_key(),
-    pcf_config: lighting_sys.pcf_config,
     bias_behavior: lighting_sys.bias_behavior,
     filter_across_cascades: lighting_sys.filter_across_cascades,
-    pcf_config_parameter: create_pcf_parameter(cx.gpu, lighting_sys.pcf_config),
   })
 }
 
@@ -61,12 +61,12 @@ fn use_basic_shadow_map_uniform(
   atlas_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
   lights: &Option<SharedLightUniformInfo<DirectionalLightUniform>>,
-) -> Option<BasicShadowMapPreparer> {
+) -> Option<(BasicShadowMapPreparer, SizeWithDepth)> {
   // let changed = cx.use_db_entity_any_change::<DirectionalLightEntity>(); // todo
   let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
   let gpu = cx.gpu;
-  let (cx, gpu_data) = cx.use_plain_state_default::<Option<BasicShadowMapGPU>>();
+  let (cx, gpu_data) = cx.use_plain_state_default::<Option<BasicShadowMapInfoGPU>>();
 
   cx.when_render(|| {
     let light_ref_node = get_db_view::<DirectionalRefNode>();
@@ -118,7 +118,7 @@ fn use_basic_shadow_map_uniform(
 }
 
 enum ViewerDirectionalShadowPreparer {
-  Basic(BasicShadowMapPreparer),
+  Basic(ShadowMapPreparerEntry),
   Cascade(MultiCascadeShadowMapPreparer),
   NoShadow,
 }
@@ -127,9 +127,7 @@ pub struct SceneDirectionalLightingPreparer {
   shadow: ViewerDirectionalShadowPreparer,
   light: SharedLightUniformInfo<DirectionalLightUniform>,
   scene_ref: ForeignKeyReadView<DirectionalRefScene>,
-  pcf_config: ShadowPCFConfig,
   bias_behavior: ShadowBiasBehaviorConfig,
-  pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   filter_across_cascades: bool,
 }
 
@@ -151,12 +149,18 @@ impl SceneDirectionalLightingPreparer {
     };
 
     let shadows = match self.shadow {
-      ViewerDirectionalShadowPreparer::Basic(preparer) => {
-        let shadow_gpu_data = preparer.update_shadow_maps(frame_ctx, &mut draw, reversed_depth);
-        ShadowImplType::Basic(shadow_gpu_data)
+      ViewerDirectionalShadowPreparer::Basic(mut entry) => {
+        let shadow_gpu_data =
+          entry
+            .preparer
+            .update_shadow_maps(frame_ctx, entry.shadow_map.as_mut(), &mut draw);
+        ShadowImplType::Basic(ShadowMapGPUDataEntry {
+          gpu_data: shadow_gpu_data,
+          shadow_map: entry.shadow_map,
+        })
       }
       ViewerDirectionalShadowPreparer::Cascade(cascade_shadow_map_preparer) => {
-        let shadow = cascade_shadow_map_preparer.update(frame_ctx, &mut draw, reversed_depth);
+        let shadow = cascade_shadow_map_preparer.update(frame_ctx, &mut draw);
         ShadowImplType::Cascade(shadow)
       }
       ViewerDirectionalShadowPreparer::NoShadow => ShadowImplType::NoShadow,
@@ -166,17 +170,15 @@ impl SceneDirectionalLightingPreparer {
       lights: self.light.make_read_holder(),
       shadows,
       reversed_depth,
-      pcf_config: self.pcf_config,
       bias_behavior: self.bias_behavior,
       filter_across_cascades: self.filter_across_cascades,
-      pcf_config_parameter: self.pcf_config_parameter,
     })
   }
 }
 
 enum ShadowImplType {
   NoShadow,
-  Basic(BasicShadowMapGPU),
+  Basic(ShadowMapGPUDataEntry),
   Cascade(MultiCascadeShadowMapData),
 }
 
@@ -196,9 +198,7 @@ struct SceneDirectionalLightingProvider {
   lights: LockReadGuardHolder<LightUniformInfo<DirectionalLightUniform>>,
   shadows: ShadowImplType,
   reversed_depth: bool,
-  pcf_config: ShadowPCFConfig,
   bias_behavior: ShadowBiasBehaviorConfig,
-  pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   filter_across_cascades: bool,
 }
 
@@ -212,30 +212,29 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
 
     let shadows = match &self.shadows {
       ShadowImplType::NoShadow => ShadowImplComType::NoShadow,
-      ShadowImplType::Basic(s) => {
-        let info = s.uniforms.get(scene.raw_handle_ref()).unwrap().clone();
+      ShadowImplType::Basic(entry) => {
+        let info = entry
+          .gpu_data
+          .uniforms
+          .get(scene.raw_handle_ref())
+          .unwrap()
+          .clone();
         ShadowImplComType::Basic(BasicShadowMapComponent {
-          shadow_computer: Arc::new(PCFComputer {
-            shadow_map_atlas: s.shadow_map.get_full_view().clone(),
-            pcf_config_parameter: self.pcf_config_parameter.clone(),
-            pcf_config: self.pcf_config,
-            reversed_depth: self.reversed_depth,
-          }),
+          shadow_computer: entry.shadow_map.create_abstract_shadow_computer(),
           info,
           reversed_depth: self.reversed_depth,
           bias_behavior: self.bias_behavior,
         })
       }
       ShadowImplType::Cascade(data) => {
-        let gpu_data = data.per_camera.get(&camera)?;
-        let info = gpu_data.uniforms.get(scene.raw_handle_ref())?.clone();
+        let per_camera = data.per_camera.get(&camera)?;
+        let info = per_camera
+          .gpu_data
+          .uniforms
+          .get(scene.raw_handle_ref())?
+          .clone();
         ShadowImplComType::Cascade(CascadeShadowMapComponent {
-          shadow_computer: Arc::new(PCFComputer {
-            shadow_map_atlas: gpu_data.shadow_map_atlas.clone(),
-            pcf_config_parameter: self.pcf_config_parameter.clone(),
-            pcf_config: self.pcf_config,
-            reversed_depth: self.reversed_depth,
-          }),
+          shadow_computer: per_camera.shadow_map.create_abstract_shadow_computer(),
           info,
           reversed_depth: self.reversed_depth,
           bias_behavior: self.bias_behavior,

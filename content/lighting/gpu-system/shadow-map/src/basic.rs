@@ -11,9 +11,8 @@ pub struct BasicShadowMapInfoInput {
   pub bias: ShadowBias,
 }
 
-#[derive(Clone)]
-pub struct BasicShadowMapGPU {
-  pub shadow_map: ShadowAtlas,
+#[derive(Clone, Default)]
+pub struct BasicShadowMapInfoGPU {
   // scene entity -> per-scene uniform buffer
   pub uniforms: FastHashMap<RawEntityHandle, UniformArray<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
 }
@@ -21,13 +20,15 @@ pub struct BasicShadowMapGPU {
 pub type LightArrayAllocateResult = FastHashMap<RawEntityHandle, FastHashMap<RawEntityHandle, u32>>;
 
 /// shadow_info_access: light_id -> Option<BasicShadowMapInfo>, return None if no shadow
+///
+/// return (preparer, shadow_map_atlas_size_require)
 pub fn prepare_basic_shadow_map_uniform(
   atlas_config: &MultiLayerTexturePackerConfig,
   light_uniform_array_index_mapping: &LightArrayAllocateResult,
   shadow_info_access: &dyn Fn(RawEntityHandle) -> Option<BasicShadowMapInfoInput>,
-  gpu_data: &mut Option<BasicShadowMapGPU>,
+  gpu_data: &mut Option<BasicShadowMapInfoGPU>,
   gpu: &GPU,
-) -> BasicShadowMapPreparer {
+) -> (BasicShadowMapPreparer, SizeWithDepth) {
   let mut packer = RemappedGrowablePacker::<RawEntityHandle>::new(*atlas_config);
   let mut source_world_map = FastHashMap::default();
   let mut source_proj_map = FastHashMap::default();
@@ -86,22 +87,13 @@ pub fn prepare_basic_shadow_map_uniform(
     })
     .collect();
 
-  let (old_shadow_map, mut old_uniforms) = match gpu_data.as_ref() {
-    Some(g) => (Some(g.shadow_map.clone()), g.uniforms.clone()),
-    None => (None, FastHashMap::default()),
-  };
-
-  let required_size = packer.current_size();
-  let shadow_map = match old_shadow_map {
-    Some(existing) if existing.size() == required_size.into_gpu_size() => existing,
-    _ => ShadowAtlas::new("basic-shadow-map-atlas", required_size.into_gpu_size(), gpu),
-  };
+  let uniforms = gpu_data.get_or_insert_default();
 
   let uniforms: FastHashMap<RawEntityHandle, UniformArray<BasicShadowMapInfo, MAX_SHADOW_COUNT>> =
     new_shadow_info
       .iter()
       .map(|(scene_id, info)| {
-        let uniform = if let Some(existing) = old_uniforms.remove(scene_id) {
+        let uniform = if let Some(existing) = uniforms.uniforms.remove(scene_id) {
           existing.write_at(&gpu.queue, info, 0);
           existing
         } else {
@@ -111,20 +103,21 @@ pub fn prepare_basic_shadow_map_uniform(
       })
       .collect();
 
-  *gpu_data = Some(BasicShadowMapGPU {
-    shadow_map: shadow_map.clone(),
+  *gpu_data = Some(BasicShadowMapInfoGPU {
     uniforms: uniforms.clone(),
   });
 
-  BasicShadowMapPreparer {
-    gpu_data: BasicShadowMapGPU {
-      shadow_map,
-      uniforms,
+  let required_size = packer.current_size();
+
+  (
+    BasicShadowMapPreparer {
+      gpu_data: BasicShadowMapInfoGPU { uniforms },
+      source_world: source_world_map.into_boxed(),
+      source_proj: source_proj_map.into_boxed(),
+      packing: PackerView(Arc::new(packer)).into_boxed(),
     },
-    source_world: source_world_map.into_boxed(),
-    source_proj: source_proj_map.into_boxed(),
-    packing: PackerView(Arc::new(packer)).into_boxed(),
-  }
+    required_size,
+  )
 }
 
 #[derive(Clone)]
@@ -151,7 +144,7 @@ impl Query for PackerView {
 }
 
 pub struct BasicShadowMapPreparer {
-  pub gpu_data: BasicShadowMapGPU,
+  pub gpu_data: BasicShadowMapInfoGPU,
   source_world: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
   source_proj: BoxedDynQuery<RawEntityHandle, Mat4<f32>>,
   packing: BoxedDynQuery<RawEntityHandle, ShadowMapAddressInfo>,
@@ -161,42 +154,25 @@ impl BasicShadowMapPreparer {
   pub fn update_shadow_maps(
     self,
     frame_ctx: &mut FrameCtx,
+    shadow_map: &mut dyn AbstractShadowMapGPUData,
     scene_content: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest),
-    reversed_depth: bool,
-  ) -> BasicShadowMapGPU {
-    clear_shadow_map(&self.gpu_data.shadow_map, frame_ctx, reversed_depth);
+  ) -> BasicShadowMapInfoGPU {
+    shadow_map.clear_shadow_map(frame_ctx);
 
     // do shadowmap updates
-    for (light_id, shadow_view) in self.packing.iter_key_value() {
+    for (light_id, address) in self.packing.iter_key_value() {
       let shadow_camera_world = self.source_world.access(&light_id).unwrap();
       let shadow_camera_proj = self.source_proj.access(&light_id).unwrap();
 
-      let write_view = self
-        .gpu_data
-        .shadow_map
-        .get_layer_view(shadow_view.layer_index as u32)
-        .clone();
+      let request = ShadowMapUpdateRequest {
+        shadow_camera_proj,
+        shadow_camera_world,
+        light_id,
+        address,
+      };
 
       // todo, consider merge the pass within the same layer
-      // custom dispatcher is not required because we only have depth output.
-      let pass = pass("shadow-map").with_depth(
-        &RenderTargetView::from_texture_view(write_view),
-        load_and_store(),
-        load_and_store(),
-      );
-
-      scene_content(
-        frame_ctx,
-        ShadowMapDrawRequest {
-          shadow_camera_proj,
-          shadow_camera_world,
-          light_id,
-          map_desc: ShadowPassDesc {
-            desc: pass,
-            address: shadow_view,
-          },
-        },
-      );
+      shadow_map.update_shadow_map(frame_ctx, request, scene_content);
     }
 
     self.gpu_data

@@ -5,7 +5,7 @@ pub fn use_cascade_shadow_map(
   viewports: &[ViewerViewPort],
   ndc: ViewerNDC,
   shadow_pool_init_config: &MultiLayerTexturePackerConfig,
-  split_linear_log_blend_ratio: f32,
+  lighting_sys: &LightSystem,
   lights: &Option<SharedLightUniformInfo<DirectionalLightUniform>>,
 ) -> Option<MultiCascadeShadowMapPreparer> {
   let camera_transform = cx
@@ -15,11 +15,19 @@ pub fn use_cascade_shadow_map(
   cx.next_scope_index();
   let maps = per_camera_per_viewport(viewports, false)
     .map(|cv| {
-      let cache = cx.keyed_scope(&cv.camera, |cx| {
-        cx.use_plain_state_default_cloned::<CascadeShadowGPUCacheShared>()
-          .1
+      let (cache, shadow_map) = cx.keyed_scope(&cv.camera, |cx| {
+        let cache = cx
+          .use_plain_state_default_cloned::<CascadeShadowGPUCacheShared>()
+          .1;
+        let shadow_map = use_shadow_map(
+          cx,
+          lighting_sys,
+          ndc.enable_reverse_z,
+          Some(shadow_pool_init_config.init_size),
+        );
+        (cache, shadow_map)
       });
-      (cv.camera, cache)
+      (cv.camera, (cache, shadow_map))
     })
     .collect::<FastHashMap<_, _>>();
 
@@ -74,11 +82,18 @@ pub fn use_cascade_shadow_map(
           view_camera_proj,
           view_camera_world,
           &ndc,
-          split_linear_log_blend_ratio,
+          lighting_sys.cascade_shadow_split_linear_log_blend_ratio,
           &mapping,
         );
-        let map = maps.get(&cv.camera).unwrap().clone();
-        (cv.camera, (info, map))
+        let (cache, shadow_map) = maps.get(&cv.camera).unwrap();
+        (
+          cv.camera,
+          PerCameraCascadeShadowPreparer {
+            updater: info,
+            cache: cache.clone(),
+            shadow_map: shadow_map.clone(),
+          },
+        )
       })
       .collect();
 
@@ -88,11 +103,14 @@ pub fn use_cascade_shadow_map(
 
 type CascadeShadowGPUCacheShared = Arc<RwLock<CascadeShadowGPUCache>>;
 
+pub struct PerCameraCascadeShadowPreparer {
+  updater: CascadeShadowPreparer,
+  cache: CascadeShadowGPUCacheShared,
+  shadow_map: Box<dyn AbstractShadowMapGPUData>,
+}
+
 pub struct MultiCascadeShadowMapPreparer {
-  per_camera: FastHashMap<
-    EntityHandle<SceneCameraEntity>,
-    (CascadeShadowPreparer, CascadeShadowGPUCacheShared),
-  >,
+  per_camera: FastHashMap<EntityHandle<SceneCameraEntity>, PerCameraCascadeShadowPreparer>,
 }
 
 impl MultiCascadeShadowMapPreparer {
@@ -100,21 +118,36 @@ impl MultiCascadeShadowMapPreparer {
     self,
     frame_ctx: &mut FrameCtx,
     draw: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest),
-    reversed_depth: bool,
   ) -> MultiCascadeShadowMapData {
     let per_camera = self
       .per_camera
       .into_iter()
-      .map(|(k, (updater, map))| {
-        let mut map = map.write();
-        let gpu_data = updater.update_shadow_maps(&mut map, frame_ctx, draw, reversed_depth);
-        (k, gpu_data)
+      .map(|(k, mut per_camera)| {
+        let mut cache = per_camera.cache.write();
+        let gpu_data = per_camera.updater.update_shadow_maps(
+          &mut cache,
+          frame_ctx,
+          per_camera.shadow_map.as_mut(),
+          draw,
+        );
+        (
+          k,
+          PerCameraCascadeShadowData {
+            gpu_data,
+            shadow_map: per_camera.shadow_map,
+          },
+        )
       })
       .collect();
     MultiCascadeShadowMapData { per_camera }
   }
 }
 
+pub struct PerCameraCascadeShadowData {
+  pub gpu_data: CascadeShadowGPUData,
+  pub shadow_map: Box<dyn AbstractShadowMapGPUData>,
+}
+
 pub struct MultiCascadeShadowMapData {
-  pub per_camera: FastHashMap<EntityHandle<SceneCameraEntity>, CascadeShadowGPUData>,
+  pub per_camera: FastHashMap<EntityHandle<SceneCameraEntity>, PerCameraCascadeShadowData>,
 }
