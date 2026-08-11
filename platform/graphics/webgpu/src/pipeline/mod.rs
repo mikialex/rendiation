@@ -232,7 +232,7 @@ impl GPUDevice {
       vertex_layouts,
       primitive_state,
       color_states,
-      depth_stencil,
+      mut depth_stencil,
       multisample,
     } = compile_result;
 
@@ -245,6 +245,14 @@ impl GPUDevice {
     let (raw_layouts, layouts, pipeline_layout) = create_layouts(self, &bindings);
 
     let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
+
+    // avoid wgpu validation error in this case.
+    if let Some(depth_stencil) = &mut depth_stencil {
+      if !primitive_state.topology.is_triangles() && depth_stencil.bias != Default::default() {
+        depth_stencil.bias = Default::default();
+        log::warn!("depth bias is ignored for non-triangle topology");
+      }
+    }
 
     let pipeline = self.create_render_pipeline(&gpu::RenderPipelineDescriptor {
       label: Some(label),
