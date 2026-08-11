@@ -149,11 +149,14 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
     let shadow = self.shadow.as_ref().map(|s| {
       let info = s.uniforms.get(scene.raw_handle_ref()).unwrap().clone();
       BasicShadowMapComponent {
-        shadow_map_atlas: s.shadow_map.get_full_view().clone(),
-        pcf_config_parameter: self.pcf_config_parameter.clone(),
+        shadow_computer: Arc::new(PCFComputer {
+          shadow_map_atlas: s.shadow_map.get_full_view().clone(),
+          pcf_config_parameter: self.pcf_config_parameter.clone(),
+          pcf_config: self.pcf_config,
+          reversed_depth: self.reversed_depth,
+        }),
         info,
         reversed_depth: self.reversed_depth,
-        pcf_config: self.pcf_config,
         bias_behavior: self.bias_behavior,
       }
     });

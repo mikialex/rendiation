@@ -7,7 +7,7 @@ use rendiation_texture_packer::{
 
 use crate::*;
 
-const CASCADE_SHADOW_SPLIT_COUNT: usize = 4;
+pub const CASCADE_SHADOW_SPLIT_COUNT: usize = 4;
 
 pub struct CascadeShadowMapLightInput {
   pub source_world: Mat4<f64>,
@@ -351,11 +351,9 @@ pub fn compute_cascade_split_info(
 
 #[derive(Clone)]
 pub struct CascadeShadowMapComponent {
-  pub shadow_map_atlas: GPU2DArrayDepthTextureView,
+  pub shadow_computer: Arc<dyn AbstractShadowComputer>,
   pub info: UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
-  pub pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
   pub reversed_depth: bool,
-  pub pcf_config: ShadowPCFConfig,
   pub bias_behavior: ShadowBiasBehaviorConfig,
   /// blend the current cascade with the next one to smooth the transition
   pub filter_across_cascades: bool,
@@ -365,7 +363,7 @@ impl ShaderHashProvider for CascadeShadowMapComponent {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(&self.reversed_depth);
-    hasher.hash(&self.pcf_config);
+    self.shadow_computer.hash_pipeline(hasher);
     hasher.hash(&self.bias_behavior);
     hasher.hash(&self.filter_across_cascades);
   }
@@ -375,11 +373,8 @@ impl AbstractShaderBindingSource for CascadeShadowMapComponent {
   type ShaderBindResult = CascadeShadowMapInvocation;
   fn bind_shader(&self, cx: &mut ShaderBindGroupBuilder) -> CascadeShadowMapInvocation {
     CascadeShadowMapInvocation {
-      shadow_map_atlas: cx.bind_by(&self.shadow_map_atlas),
-      sampler: cx.bind_by(&ImmediateGPUCompareSamplerViewBind),
+      shadow_computer: self.shadow_computer.bind_shader(cx),
       info: cx.bind_by(&self.info),
-      pcf_config_parameter: cx.bind_by(&self.pcf_config_parameter).load().expand(),
-      pcf_config: self.pcf_config,
       bias_behavior: self.bias_behavior,
       filter_across_cascades: self.filter_across_cascades,
       reversed_depth: self.reversed_depth,
@@ -388,25 +383,19 @@ impl AbstractShaderBindingSource for CascadeShadowMapComponent {
 }
 impl AbstractBindingSource for CascadeShadowMapComponent {
   fn bind_pass(&self, ctx: &mut BindingBuilder) {
-    ctx.bind(&self.shadow_map_atlas);
-    ctx.bind_immediate_sampler(&create_shadow_depth_sampler_desc(self.reversed_depth));
+    self.shadow_computer.bind_pass(ctx);
     ctx.bind(&self.info);
-    ctx.bind(&self.pcf_config_parameter);
   }
 }
-#[derive(Clone)]
+
 pub struct CascadeShadowMapInvocation {
-  shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
-  sampler: BindingNode<ShaderCompareSampler>,
+  shadow_computer: Box<dyn AbstractShadowComputerInvocation>,
   info: ShaderReadonlyPtrOf<Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
-  pcf_config_parameter: ENode<PCFConfigParameter>,
-  pcf_config: ShadowPCFConfig,
   bias_behavior: ShadowBiasBehaviorConfig,
   filter_across_cascades: bool,
   reversed_depth: bool,
 }
 
-#[derive(Clone)]
 pub struct CascadeShadowMapSingleInvocation {
   sys: CascadeShadowMapInvocation,
   index: Node<u32>,
@@ -479,17 +468,11 @@ impl CascadeShadowMapInvocation {
           });
         }
 
-        let current_occlusion = self.pcf_config.sample_shadow_pcf(
-          self.shadow_map_atlas,
-          self.sampler,
+        let current_occlusion = self.shadow_computer.compute_shadow(
           shadow_position,
           screen_position,
           cascade_info.map_info,
-          // scale the filter size with the cascade scale, so that the filter
-          // covers the same world space area in every cascade
-          self.pcf_config_parameter.pcf_filter_size * cascade_info.cascade_scale,
-          self.pcf_config_parameter.pcf_num_disc_samples,
-          val(self.reversed_depth),
+          cascade_info.cascade_scale,
         );
 
         if self.filter_across_cascades {
@@ -527,15 +510,11 @@ impl CascadeShadowMapInvocation {
                 self.reversed_depth,
               );
 
-              let next_occlusion = self.pcf_config.sample_shadow_pcf(
-                self.shadow_map_atlas,
-                self.sampler,
+              let next_occlusion = self.shadow_computer.compute_shadow(
                 next_shadow_position,
                 screen_position,
                 next_cascade_info.map_info,
-                self.pcf_config_parameter.pcf_filter_size * next_cascade_info.cascade_scale,
-                self.pcf_config_parameter.pcf_num_disc_samples,
-                val(self.reversed_depth),
+                next_cascade_info.cascade_scale,
               );
 
               let lerp_amt = fade_factor.smoothstep(val(0.), blend_threshold);
@@ -557,7 +536,7 @@ pub const DEBUG_CASCADE_INDEX: bool = false;
 
 /// get the split distance at the given cascade index
 #[shader_fn]
-fn split_at(splits: Node<Vec4<f32>>, index: Node<u32>) -> Node<f32> {
+pub fn split_at(splits: Node<Vec4<f32>>, index: Node<u32>) -> Node<f32> {
   let result = zeroed_val::<f32>().make_local_var();
   switch_by(index)
     .case(0, || result.store(splits.x()))

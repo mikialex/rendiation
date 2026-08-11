@@ -9,13 +9,70 @@ pub use grid::*;
 pub use optimized::*;
 pub use random_disc::*;
 
-/// the filter kernel size of the [ShadowPCFMode::FixedSizePCF]
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub enum FixedFilterSize {
-  Filter3x3,
-  Filter5x5,
-  Filter7x7,
-  Filter9x9,
+pub struct PCFComputer {
+  pub shadow_map_atlas: GPU2DArrayDepthTextureView,
+  pub pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
+  pub pcf_config: ShadowPCFConfig,
+  pub reversed_depth: bool,
+}
+
+impl ShaderHashProvider for PCFComputer {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(&self.reversed_depth);
+    hasher.hash(&self.pcf_config);
+  }
+}
+
+impl AbstractShaderBindingSource for PCFComputer {
+  type ShaderBindResult = Box<dyn AbstractShadowComputerInvocation>;
+
+  fn bind_shader(&self, cx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
+    Box::new(PCFComputerInvocation {
+      shadow_map_atlas: cx.bind_by(&self.shadow_map_atlas),
+      sampler: cx.bind_by(&ImmediateGPUCompareSamplerViewBind),
+      pcf_config_parameter: cx.bind_by(&self.pcf_config_parameter).load().expand(),
+      pcf_config: self.pcf_config,
+      reversed_depth: self.reversed_depth,
+    })
+  }
+}
+
+impl AbstractBindingSource for PCFComputer {
+  fn bind_pass(&self, ctx: &mut BindingBuilder) {
+    ctx.bind(&self.shadow_map_atlas);
+    ctx.bind_immediate_sampler(&create_shadow_depth_sampler_desc(self.reversed_depth));
+    ctx.bind(&self.pcf_config_parameter);
+  }
+}
+
+struct PCFComputerInvocation {
+  shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
+  sampler: BindingNode<ShaderCompareSampler>,
+  pcf_config_parameter: ENode<PCFConfigParameter>,
+  pcf_config: ShadowPCFConfig,
+  reversed_depth: bool,
+}
+
+impl AbstractShadowComputerInvocation for PCFComputerInvocation {
+  fn compute_shadow(
+    &self,
+    shadow_position: Node<Vec3<f32>>,
+    screen_position: Node<Vec2<f32>>,
+    map_info: Node<ShadowMapAddressInfo>,
+    cascade_scale: Node<f32>,
+  ) -> Node<f32> {
+    self.pcf_config.sample_shadow_pcf(
+      self.shadow_map_atlas,
+      self.sampler,
+      shadow_position,
+      screen_position,
+      map_info,
+      self.pcf_config_parameter.pcf_filter_size * cascade_scale,
+      self.pcf_config_parameter.pcf_num_disc_samples,
+      val(self.reversed_depth),
+    )
+  }
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]

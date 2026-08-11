@@ -1,5 +1,14 @@
 use super::*;
 
+/// the filter kernel size of the [ShadowPCFMode::FixedSizePCF]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub enum FixedFilterSize {
+  Filter3x3,
+  Filter5x5,
+  Filter7x7,
+  Filter9x9,
+}
+
 /// the filter weight kernels, from the MJP Shadows sample (PCFKernels.hlsl)
 const W3: [[f32; 3]; 3] = [[0.5, 1.0, 0.5], [1.0, 1.0, 1.0], [0.5, 1.0, 0.5]];
 

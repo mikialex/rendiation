@@ -156,15 +156,7 @@ impl SceneDirectionalLightingPreparer {
         ShadowImplType::Basic(shadow_gpu_data)
       }
       ViewerDirectionalShadowPreparer::Cascade(cascade_shadow_map_preparer) => {
-        let shadow = cascade_shadow_map_preparer.update(
-          frame_ctx,
-          &mut draw,
-          reversed_depth,
-          self.pcf_config,
-          self.bias_behavior,
-          self.pcf_config_parameter.clone(),
-          self.filter_across_cascades,
-        );
+        let shadow = cascade_shadow_map_preparer.update(frame_ctx, &mut draw, reversed_depth);
         ShadowImplType::Cascade(shadow)
       }
       ViewerDirectionalShadowPreparer::NoShadow => ShadowImplType::NoShadow,
@@ -223,24 +215,30 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
       ShadowImplType::Basic(s) => {
         let info = s.uniforms.get(scene.raw_handle_ref()).unwrap().clone();
         ShadowImplComType::Basic(BasicShadowMapComponent {
-          shadow_map_atlas: s.shadow_map.get_full_view().clone(),
+          shadow_computer: Arc::new(PCFComputer {
+            shadow_map_atlas: s.shadow_map.get_full_view().clone(),
+            pcf_config_parameter: self.pcf_config_parameter.clone(),
+            pcf_config: self.pcf_config,
+            reversed_depth: self.reversed_depth,
+          }),
           info,
           reversed_depth: self.reversed_depth,
-          pcf_config: self.pcf_config,
           bias_behavior: self.bias_behavior,
-          pcf_config_parameter: self.pcf_config_parameter.clone(),
         })
       }
       ShadowImplType::Cascade(data) => {
         let gpu_data = data.per_camera.get(&camera)?;
         let info = gpu_data.uniforms.get(scene.raw_handle_ref())?.clone();
         ShadowImplComType::Cascade(CascadeShadowMapComponent {
-          shadow_map_atlas: gpu_data.shadow_map_atlas.clone(),
+          shadow_computer: Arc::new(PCFComputer {
+            shadow_map_atlas: gpu_data.shadow_map_atlas.clone(),
+            pcf_config_parameter: self.pcf_config_parameter.clone(),
+            pcf_config: self.pcf_config,
+            reversed_depth: self.reversed_depth,
+          }),
           info,
           reversed_depth: self.reversed_depth,
-          pcf_config: self.pcf_config,
           bias_behavior: self.bias_behavior,
-          pcf_config_parameter: self.pcf_config_parameter.clone(),
           filter_across_cascades: self.filter_across_cascades,
         })
       }

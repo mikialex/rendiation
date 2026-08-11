@@ -216,20 +216,18 @@ pub struct BasicShadowMapInfo {
 
 #[derive(Clone)]
 pub struct BasicShadowMapComponent {
-  pub shadow_map_atlas: GPU2DArrayDepthTextureView,
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
-  pub pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
-  pub pcf_config: ShadowPCFConfig,
   pub bias_behavior: ShadowBiasBehaviorConfig,
   pub reversed_depth: bool,
+  pub shadow_computer: Arc<dyn AbstractShadowComputer>,
 }
 
 impl ShaderHashProvider for BasicShadowMapComponent {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(&self.reversed_depth);
-    hasher.hash(&self.pcf_config);
     hasher.hash(&self.bias_behavior);
+    self.shadow_computer.hash_pipeline(hasher);
   }
 }
 
@@ -237,32 +235,24 @@ impl AbstractShaderBindingSource for BasicShadowMapComponent {
   type ShaderBindResult = BasicShadowMapInvocation;
   fn bind_shader(&self, cx: &mut ShaderBindGroupBuilder) -> BasicShadowMapInvocation {
     BasicShadowMapInvocation {
-      shadow_map_atlas: cx.bind_by(&self.shadow_map_atlas),
-      sampler: cx.bind_by(&ImmediateGPUCompareSamplerViewBind),
+      shadow_computer: self.shadow_computer.bind_shader(cx),
       info: cx.bind_by(&self.info),
-      pcf_config_parameter: cx.bind_by(&self.pcf_config_parameter).load().expand(),
-      pcf_config: self.pcf_config,
       bias_behavior: self.bias_behavior,
       reversed_depth: self.reversed_depth,
     }
   }
 }
+
 impl AbstractBindingSource for BasicShadowMapComponent {
   fn bind_pass(&self, ctx: &mut BindingBuilder) {
-    ctx.bind(&self.shadow_map_atlas);
-    ctx.bind_immediate_sampler(&create_shadow_depth_sampler_desc(self.reversed_depth));
+    self.shadow_computer.bind_pass(ctx);
     ctx.bind(&self.info);
-    ctx.bind(&self.pcf_config_parameter);
   }
 }
 
-#[derive(Clone)]
 pub struct BasicShadowMapInvocation {
-  shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
-  sampler: BindingNode<ShaderCompareSampler>,
+  shadow_computer: Box<dyn AbstractShadowComputerInvocation>,
   info: ShaderReadonlyPtrOf<Shader140Array<BasicShadowMapInfo, MAX_SHADOW_COUNT>>,
-  pcf_config_parameter: ENode<PCFConfigParameter>,
-  pcf_config: ShadowPCFConfig,
   bias_behavior: ShadowBiasBehaviorConfig,
   reversed_depth: bool,
 }
@@ -293,15 +283,11 @@ impl BasicShadowMapInvocation {
           self.reversed_depth,
         );
 
-        self.pcf_config.sample_shadow_pcf(
-          self.shadow_map_atlas,
-          self.sampler,
+        self.shadow_computer.compute_shadow(
           shadow_position,
           screen_position,
           shadow_info.map_info,
-          self.pcf_config_parameter.pcf_filter_size,
-          self.pcf_config_parameter.pcf_num_disc_samples,
-          val(self.reversed_depth),
+          val(1.),
         )
       },
       || val(1.),

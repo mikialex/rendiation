@@ -25,6 +25,29 @@ pub use map_utils::*;
 mod pcf_sampling;
 pub use pcf_sampling::*;
 
+pub trait AbstractShadowComputer:
+  AbstractBindingSource
+  + ShaderHashProvider
+  + AbstractShaderBindingSource<ShaderBindResult = Box<dyn AbstractShadowComputerInvocation>>
+{
+}
+impl<T> AbstractShadowComputer for T where
+  T: AbstractBindingSource
+    + ShaderHashProvider
+    + AbstractShaderBindingSource<ShaderBindResult = Box<dyn AbstractShadowComputerInvocation>>
+{
+}
+
+pub trait AbstractShadowComputerInvocation {
+  fn compute_shadow(
+    &self,
+    shadow_position: Node<Vec3<f32>>,
+    screen_position: Node<Vec2<f32>>,
+    map_info: Node<ShadowMapAddressInfo>,
+    cascade_scale: Node<f32>,
+  ) -> Node<f32>;
+}
+
 pub const MAX_SHADOW_COUNT: usize = 8;
 
 pub struct ShadowMapDrawRequest {

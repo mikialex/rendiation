@@ -101,10 +101,6 @@ impl MultiCascadeShadowMapPreparer {
     frame_ctx: &mut FrameCtx,
     draw: &mut dyn FnMut(&mut FrameCtx, ShadowMapDrawRequest),
     reversed_depth: bool,
-    pcf_config: ShadowPCFConfig,
-    bias_behavior: ShadowBiasBehaviorConfig,
-    pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
-    filter_across_cascades: bool,
   ) -> MultiCascadeShadowMapData {
     let per_camera = self
       .per_camera
@@ -115,40 +111,10 @@ impl MultiCascadeShadowMapPreparer {
         (k, gpu_data)
       })
       .collect();
-    MultiCascadeShadowMapData {
-      per_camera,
-      pcf_config,
-      bias_behavior,
-      pcf_config_parameter,
-      filter_across_cascades,
-    }
+    MultiCascadeShadowMapData { per_camera }
   }
 }
 
 pub struct MultiCascadeShadowMapData {
   pub per_camera: FastHashMap<EntityHandle<SceneCameraEntity>, CascadeShadowGPUData>,
-  pcf_config: ShadowPCFConfig,
-  bias_behavior: ShadowBiasBehaviorConfig,
-  pcf_config_parameter: UniformBufferDataView<PCFConfigParameter>,
-  filter_across_cascades: bool,
-}
-
-impl MultiCascadeShadowMapData {
-  pub fn get_shadow_component(
-    &self,
-    camera: EntityHandle<SceneCameraEntity>,
-    scene: RawEntityHandle,
-  ) -> Option<CascadeShadowMapComponent> {
-    let gpu_data = self.per_camera.get(&camera)?;
-    let info = gpu_data.uniforms.get(&scene)?.clone();
-    Some(CascadeShadowMapComponent {
-      shadow_map_atlas: gpu_data.shadow_map_atlas.clone(),
-      info,
-      reversed_depth: gpu_data.reversed_depth,
-      pcf_config: self.pcf_config,
-      bias_behavior: self.bias_behavior,
-      pcf_config_parameter: self.pcf_config_parameter.clone(),
-      filter_across_cascades: self.filter_across_cascades,
-    })
-  }
 }
