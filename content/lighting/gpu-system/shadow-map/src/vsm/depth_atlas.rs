@@ -13,8 +13,6 @@ pub struct VSMConfig {
 
 impl Default for VSMConfig {
   fn default() -> Self {
-    // aligned with the defaults of the MJP Shadows sample, the bias is
-    // scaled by 0.01 in the shader so the min variance is 0.0001
     Self {
       filter_size: 3.,
       vsm_bias: 0.,

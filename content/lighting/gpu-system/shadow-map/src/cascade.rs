@@ -152,7 +152,7 @@ pub struct CascadeShadowPreparer {
   // scene entity -> per-scene cascade uniform array
   pub scene_cascade_info:
     FastHashMap<RawEntityHandle, Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
-  // light entity -> (world_mat, [4 cascade proj])
+  // light entity -> (world_mat, [cascade proj])
   pub light_proj_info: FastHashMap<RawEntityHandle, CascadeLightProjInfo>,
   // light entity -> cascade info (contains atlas pack addresses)
   pub light_cascade_info: FastHashMap<RawEntityHandle, CascadeShadowMapInfo>,

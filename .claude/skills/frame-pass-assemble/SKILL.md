@@ -52,7 +52,7 @@ pass("my-pass")                     // RenderPassDescription
 
 | Function | Behavior |
 |----------|----------|
-| `store_full_frame()` | Clear at load, store at end |
+| `store_full_frame()` | Clear at load, store at end, must be sure the store is full frame |
 | `load_and_store()` | Preserve existing content, store at end |
 | `load_once_and_discard()` | Preserve content, discard after pass |
 | `clear_and_store(v)` | Clear to specific value, store at end |
