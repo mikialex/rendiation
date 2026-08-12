@@ -1,5 +1,6 @@
 use database::RawEntityHandle;
 use fast_hash_collection::FastHashMap;
+use rendiation_algebra::OpenGLxNDC;
 use rendiation_texture_packer::{
   TexturePacker, TexturePackerInit, pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker,
   pack_2d_to_3d::MultiLayerTexturePackerRaw,
@@ -37,8 +38,13 @@ pub fn generate_cascade_shadow_info(
     RawEntityHandle,
     Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>,
   >::default();
-  let mut light_proj_info =
-    FastHashMap::<RawEntityHandle, (Mat4<f64>, [Mat4<f32>; CASCADE_SHADOW_SPLIT_COUNT])>::default();
+  let mut light_proj_info = FastHashMap::<
+    RawEntityHandle,
+    (
+      Mat4<f64>,
+      [ShadowCameraProjectionMatrixes; CASCADE_SHADOW_SPLIT_COUNT],
+    ),
+  >::default();
   let mut light_cascade_info = FastHashMap::<RawEntityHandle, CascadeShadowMapInfo>::default();
 
   for (scene_id, light_id_mapping) in light_uniform_array_index_mapping.iter() {
@@ -52,7 +58,8 @@ pub fn generate_cascade_shadow_info(
             ..Default::default()
           }
         } else {
-          let mut sub_proj_info = [Mat4::default(); CASCADE_SHADOW_SPLIT_COUNT];
+          let mut sub_proj_info =
+            [ShadowCameraProjectionMatrixes::default(); CASCADE_SHADOW_SPLIT_COUNT];
           let world_to_light = input.source_world.inverse_or_identity();
           let shadow_near_far = input.shadow_near_far;
 
@@ -72,9 +79,10 @@ pub fn generate_cascade_shadow_info(
           let mut base_cascade_range = None;
           for (idx, (sub_proj, split)) in cascades.iter().enumerate() {
             if let Ok(pack) = packer.pack(input.size) {
-              let proj = sub_proj.compute_projection_mat(ndc);
+              let render_matrix = sub_proj.compute_projection_mat(ndc);
+              let opengl_ndc_matrix = sub_proj.compute_projection_mat(&OpenGLxNDC);
               let shadow_center_without_translation_to_shadowmap_ndc =
-                proj * light_world_inv.remove_position().into_f32();
+                render_matrix * light_world_inv.remove_position().into_f32();
 
               let cascade_range = sub_proj.right - sub_proj.left;
               let base_range = base_cascade_range.get_or_insert(cascade_range);
@@ -84,10 +92,16 @@ pub fn generate_cascade_shadow_info(
                 map_info: convert_pack_result(pack),
                 shadow_center_without_translation_to_shadowmap_ndc,
                 cascade_scale,
+                proj_linear_depth_recover_helper: extract_shadow_proj_linear_depth_recover_helper(
+                  opengl_ndc_matrix,
+                ),
                 ..Default::default()
               });
               splits[idx] = *split;
-              sub_proj_info[idx] = proj;
+              sub_proj_info[idx] = ShadowCameraProjectionMatrixes {
+                render_matrix,
+                opengl_ndc_matrix,
+              };
             } else {
               log::warn!("shadow map pack failed");
             }
@@ -129,13 +143,17 @@ pub fn generate_cascade_shadow_info(
   }
 }
 
+type CascadeLightProjInfo = (
+  Mat4<f64>,
+  [ShadowCameraProjectionMatrixes; CASCADE_SHADOW_SPLIT_COUNT],
+);
+
 pub struct CascadeShadowPreparer {
   // scene entity -> per-scene cascade uniform array
   pub scene_cascade_info:
     FastHashMap<RawEntityHandle, Shader140Array<CascadeShadowMapInfo, MAX_SHADOW_COUNT>>,
   // light entity -> (world_mat, [4 cascade proj])
-  pub light_proj_info:
-    FastHashMap<RawEntityHandle, (Mat4<f64>, [Mat4<f32>; CASCADE_SHADOW_SPLIT_COUNT])>,
+  pub light_proj_info: FastHashMap<RawEntityHandle, CascadeLightProjInfo>,
   // light entity -> cascade info (contains atlas pack addresses)
   pub light_cascade_info: FastHashMap<RawEntityHandle, CascadeShadowMapInfo>,
 }
@@ -236,6 +254,7 @@ pub struct SingleShadowMapInfo {
   /// the world space coverage ratio relative to the first cascade,
   /// used to scale the PCF filter size so that it covers the same world space area
   pub cascade_scale: f32,
+  pub proj_linear_depth_recover_helper: ProjLinearDepthRecoverHelper,
 }
 
 /// return per sub frustum orth proj and split distance in light space
@@ -408,7 +427,8 @@ impl CascadeShadowMapInvocation {
           split_distances,
         );
 
-        let cascade_info = shadow_info.map_info().index(cascade_index).load().expand();
+        let cascade_info = shadow_info.map_info().index(cascade_index);
+        let map_info = cascade_info.map_info().load();
 
         let shadow_position = compute_shadow_position(
           render_position,
@@ -416,10 +436,20 @@ impl CascadeShadowMapInvocation {
           shadow_world_position,
           camera_world_position,
           bias,
-          cascade_info.map_info,
-          cascade_info.shadow_center_without_translation_to_shadowmap_ndc,
+          map_info,
+          cascade_info
+            .shadow_center_without_translation_to_shadowmap_ndc()
+            .load(),
           self.bias_behavior.use_n_dot_l_normal_offset,
           self.reversed_depth,
+        );
+
+        let current_occlusion = self.shadow_computer.compute_shadow(
+          shadow_position,
+          screen_position,
+          map_info,
+          cascade_info.cascade_scale().load(),
+          cascade_info.proj_linear_depth_recover_helper(),
         );
 
         if DEBUG_SHADOW_UV {
@@ -430,13 +460,6 @@ impl CascadeShadowMapInvocation {
             }
           });
         }
-
-        let current_occlusion = self.shadow_computer.compute_shadow(
-          shadow_position,
-          screen_position,
-          cascade_info.map_info,
-          cascade_info.cascade_scale,
-        );
 
         if self.filter_across_cascades {
           // sample the next cascade and blend between the two results to
@@ -459,7 +482,8 @@ impl CascadeShadowMapInvocation {
           should_fade.select_branched(
             || {
               let next_index = cascade_index + val(1_u32);
-              let next_cascade_info = shadow_info.map_info().index(next_index).load().expand();
+              let next_cascade_info = shadow_info.map_info().index(next_index);
+              let map_info_next = next_cascade_info.map_info().load();
 
               let next_shadow_position = compute_shadow_position(
                 render_position,
@@ -467,8 +491,10 @@ impl CascadeShadowMapInvocation {
                 shadow_world_position,
                 camera_world_position,
                 bias,
-                next_cascade_info.map_info,
-                next_cascade_info.shadow_center_without_translation_to_shadowmap_ndc,
+                map_info_next,
+                next_cascade_info
+                  .shadow_center_without_translation_to_shadowmap_ndc()
+                  .load(),
                 self.bias_behavior.use_n_dot_l_normal_offset,
                 self.reversed_depth,
               );
@@ -476,8 +502,9 @@ impl CascadeShadowMapInvocation {
               let next_occlusion = self.shadow_computer.compute_shadow(
                 next_shadow_position,
                 screen_position,
-                next_cascade_info.map_info,
-                next_cascade_info.cascade_scale,
+                map_info_next,
+                next_cascade_info.cascade_scale().load(),
+                next_cascade_info.proj_linear_depth_recover_helper(),
               );
 
               let lerp_amt = fade_factor.smoothstep(val(0.), blend_threshold);

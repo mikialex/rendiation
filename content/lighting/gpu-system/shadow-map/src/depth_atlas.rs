@@ -55,7 +55,7 @@ impl AbstractShadowMapGPUData for PCFShadowMapGPUData {
     scene_content(
       frame_ctx,
       ShadowMapDrawRequest {
-        shadow_camera_proj: request.shadow_camera_proj,
+        shadow_camera_proj: request.shadow_camera_proj.render_matrix,
         shadow_camera_world: request.shadow_camera_world,
         light_id: request.light_id,
         map_desc: ShadowPassDesc {

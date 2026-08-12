@@ -17,6 +17,9 @@ pub use basic::*;
 mod cascade;
 pub use cascade::*;
 
+mod vsm;
+pub use vsm::*;
+
 mod bias;
 pub use bias::*;
 
@@ -46,11 +49,12 @@ pub trait AbstractShadowComputerInvocation {
     screen_position: Node<Vec2<f32>>,
     map_info: Node<ShadowMapAddressInfo>,
     cascade_scale: Node<f32>,
+    proj_linear_depth_recover_helper: ShaderReadonlyPtrOf<ProjLinearDepthRecoverHelper>,
   ) -> Node<f32>;
 }
 
 pub struct ShadowMapUpdateRequest {
-  pub shadow_camera_proj: Mat4<f32>,
+  pub shadow_camera_proj: ShadowCameraProjectionMatrixes,
   pub shadow_camera_world: Mat4<f64>,
   pub light_id: RawEntityHandle,
   pub address: ShadowMapAddressInfo,
@@ -123,6 +127,20 @@ pub struct ShadowMapAddressInfo {
   pub size: Vec2<f32>,
   /// in pixel unit
   pub offset: Vec2<f32>,
+}
+
+/// the data for recovering the linear depth from the render space ndc depth,
+/// see recover_linear_depth
+#[repr(C)]
+#[std140_layout]
+#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
+pub struct ProjLinearDepthRecoverHelper {
+  /// the near and far plane distances of the shadow projection
+  pub near: f32,
+  pub far: f32,
+  /// the w row of the opengl ndc projection, 0/1 for the orthographic
+  /// projection and -1/0 for the perspective projection
+  pub w_row: Vec2<f32>,
 }
 
 pub trait ShadowOcclusionQuery {

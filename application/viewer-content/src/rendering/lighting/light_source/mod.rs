@@ -31,24 +31,42 @@ pub fn use_shadow_map(
   reversed_depth: bool,
   rebuild: Option<SizeWithDepth>,
 ) -> Box<dyn AbstractShadowMapGPUData> {
-  let (cx, shadow) = cx.use_plain_state(|| PCFShadowMapGPUData {
-    atlas: None,
-    pcf_config_parameter: create_pcf_parameter(cx.gpu, lighting_sys.pcf_config),
-    pcf_config: lighting_sys.pcf_config,
-    reversed_depth,
-  });
+  match lighting_sys.filter_ty {
+    ViewerShadowFilterType::PCF => cx.scope(|cx| {
+      let (cx, shadow) = cx.use_plain_state(|| PCFShadowMapGPUData {
+        atlas: None,
+        pcf_config_parameter: create_pcf_parameter(cx.gpu, lighting_sys.pcf_config),
+        pcf_config: lighting_sys.pcf_config,
+        reversed_depth,
+      });
 
-  if cx.is_in_render() {
-    // todo diff update
-    shadow.pcf_config_parameter = create_pcf_parameter(cx.gpu, lighting_sys.pcf_config);
-    shadow.pcf_config = lighting_sys.pcf_config;
+      if cx.is_in_render() {
+        // todo diff update
+        shadow.pcf_config_parameter = create_pcf_parameter(cx.gpu, lighting_sys.pcf_config);
+        shadow.pcf_config = lighting_sys.pcf_config;
+      }
+
+      if let Some(rebuild) = rebuild {
+        shadow.check_rebuild(rebuild, cx.gpu);
+      }
+
+      Box::new(shadow.clone())
+    }),
+    ViewerShadowFilterType::VSM => cx.scope(|cx| {
+      let (cx, shadow) =
+        cx.use_plain_state(|| VSMShadowMap::new(lighting_sys.vsm_config, reversed_depth, cx.gpu));
+
+      if cx.is_in_render() {
+        shadow.update_config(lighting_sys.vsm_config, cx.gpu);
+      }
+
+      if let Some(rebuild) = rebuild {
+        shadow.check_rebuild(rebuild, cx.gpu);
+      }
+
+      Box::new(shadow.clone())
+    }),
   }
-
-  if let Some(rebuild) = rebuild {
-    shadow.check_rebuild(rebuild, cx.gpu);
-  }
-
-  Box::new(shadow.clone())
 }
 
 pub fn use_basic_shadow_map_entry(

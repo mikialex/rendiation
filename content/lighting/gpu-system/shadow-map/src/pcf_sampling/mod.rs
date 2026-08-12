@@ -61,6 +61,7 @@ impl AbstractShadowComputerInvocation for PCFComputerInvocation {
     screen_position: Node<Vec2<f32>>,
     map_info: Node<ShadowMapAddressInfo>,
     cascade_scale: Node<f32>,
+    _proj_linear_depth_recover_helper: ShaderReadonlyPtrOf<ProjLinearDepthRecoverHelper>,
   ) -> Node<f32> {
     self.pcf_config.sample_shadow_pcf(
       self.shadow_map_atlas,

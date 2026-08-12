@@ -6,7 +6,7 @@ use crate::*;
 
 pub struct BasicShadowMapInfoInput {
   pub light_world: Mat4<f64>,
-  pub proj: Mat4<f32>,
+  pub proj: ShadowCameraProjectionMatrixes,
   pub map_size: Size,
   pub bias: ShadowBias,
 }
@@ -65,7 +65,7 @@ pub fn prepare_basic_shadow_map_uniform(
 
           let world_inv = world_mat.inverse_or_identity();
           let shadow_center_without_translation_to_shadowmap_ndc =
-            shadow_info.proj * world_inv.remove_position().into_f32();
+            shadow_info.proj.render_matrix * world_inv.remove_position().into_f32();
 
           BasicShadowMapInfo {
             enabled: Bool::from(true),
@@ -73,6 +73,8 @@ pub fn prepare_basic_shadow_map_uniform(
             bias: shadow_info.bias,
             shadow_world_position,
             shadow_center_without_translation_to_shadowmap_ndc,
+            shadow_proj_linear_depth_recover_helper:
+              extract_shadow_proj_linear_depth_recover_helper(shadow_info.proj.opengl_ndc_matrix),
             ..Default::default()
           }
         } else {
@@ -143,10 +145,33 @@ impl Query for PackerView {
   }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct ShadowCameraProjectionMatrixes {
+  /// ndc is webgpu and considered reverse depth config
+  pub render_matrix: Mat4<f32>,
+  pub opengl_ndc_matrix: Mat4<f32>,
+}
+
+/// extract the helper for recovering the linear depth from the render space
+/// ndc depth, the proj must be the opengl ndc projection of the shadow camera,
+/// the w row values are 0/1 for the orthographic projection and -1/0 for the
+/// perspective projection, see recover_linear_depth
+pub fn extract_shadow_proj_linear_depth_recover_helper(
+  proj: Mat4<f32>,
+) -> ProjLinearDepthRecoverHelper {
+  let (near, far) = proj.get_near_far_assume_is_common_projection();
+  ProjLinearDepthRecoverHelper {
+    near,
+    far,
+    w_row: Vec2::new(proj.c4, proj.d4),
+    ..Default::default()
+  }
+}
+
 pub struct BasicShadowMapPreparer {
   pub gpu_data: BasicShadowMapInfoGPU,
   source_world: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
-  source_proj: BoxedDynQuery<RawEntityHandle, Mat4<f32>>,
+  source_proj: BoxedDynQuery<RawEntityHandle, ShadowCameraProjectionMatrixes>,
   packing: BoxedDynQuery<RawEntityHandle, ShadowMapAddressInfo>,
 }
 
@@ -184,6 +209,7 @@ impl BasicShadowMapPreparer {
 #[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct BasicShadowMapInfo {
   pub enabled: Bool,
+  pub shadow_proj_linear_depth_recover_helper: ProjLinearDepthRecoverHelper,
   pub shadow_center_without_translation_to_shadowmap_ndc: Mat4<f32>,
   pub shadow_world_position: HighPrecisionTranslationUniform,
   pub bias: ShadowBias,
@@ -245,16 +271,19 @@ impl BasicShadowMapInvocation {
     let enabled = self.info.index(shadow_idx).enabled().load();
     enabled.into_bool().select_branched(
       || {
-        let shadow_info = self.info.index(shadow_idx).load().expand();
+        let shadow_info = self.info.index(shadow_idx);
+        let map_info = shadow_info.map_info().load();
 
         let shadow_position = compute_shadow_position(
           render_position,
           render_normal,
-          shadow_info.shadow_world_position,
+          shadow_info.shadow_world_position().load(),
           camera_world_position,
-          shadow_info.bias,
-          shadow_info.map_info,
-          shadow_info.shadow_center_without_translation_to_shadowmap_ndc,
+          shadow_info.bias().load(),
+          map_info,
+          shadow_info
+            .shadow_center_without_translation_to_shadowmap_ndc()
+            .load(),
           self.bias_behavior.use_n_dot_l_normal_offset,
           self.reversed_depth,
         );
@@ -262,8 +291,9 @@ impl BasicShadowMapInvocation {
         self.shadow_computer.compute_shadow(
           shadow_position,
           screen_position,
-          shadow_info.map_info,
+          map_info,
           val(1.),
+          shadow_info.shadow_proj_linear_depth_recover_helper(),
         )
       },
       || val(1.),

@@ -62,13 +62,16 @@ fn use_basic_shadow_map_uniform(
       let bias = shadow_bias.access(&light_id).unwrap();
 
       let half_cone_angle = half_cone.access(&light_id).unwrap();
-      let proj = PerspectiveProjection {
+      let projection = PerspectiveProjection {
         near: 0.1,
         far: 2000.,
         fov: Deg::from_rad(half_cone_angle * 2.),
         aspect: 1.,
-      }
-      .compute_projection_mat(&ndc);
+      };
+      let proj = ShadowCameraProjectionMatrixes {
+        render_matrix: projection.compute_projection_mat(&ndc),
+        opengl_ndc_matrix: projection.compute_projection_mat(&OpenGLxNDC),
+      };
 
       BasicShadowMapInfoInput {
         light_world,

@@ -95,7 +95,10 @@ fn use_basic_shadow_map_uniform(
         .access(&light_id)
         .unwrap()
         .unwrap_or(DEFAULT_DIR_PROJ);
-      let proj = orth.compute_projection_mat(&ndc);
+      let proj = ShadowCameraProjectionMatrixes {
+        render_matrix: orth.compute_projection_mat(&ndc),
+        opengl_ndc_matrix: orth.compute_projection_mat(&OpenGLxNDC),
+      };
 
       BasicShadowMapInfoInput {
         light_world,

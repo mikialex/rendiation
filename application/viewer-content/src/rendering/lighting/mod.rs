@@ -190,6 +190,13 @@ impl ViewerLightSurfaceType {
   }
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
+pub enum ViewerShadowFilterType {
+  #[default]
+  PCF,
+  VSM,
+}
+
 pub struct LightSystem {
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
@@ -201,6 +208,8 @@ pub struct LightSystem {
   pub enable_shadow: bool,
   pub use_cascade_shadowmap_for_directional_lights: bool,
   pub cascade_shadow_split_linear_log_blend_ratio: f32,
+  pub filter_ty: ViewerShadowFilterType,
+  pub vsm_config: VSMConfig,
   pub pcf_config: ShadowPCFConfig,
   pub bias_behavior: ShadowBiasBehaviorConfig,
   pub filter_across_cascades: bool,
@@ -217,6 +226,7 @@ impl LightSystem {
       channel_debugger: ScreenChannelDebugger::default_useful(),
       use_cascade_shadowmap_for_directional_lights: false,
       pcf_config: ShadowPCFConfig::default(),
+      vsm_config: Default::default(),
       bias_behavior: ShadowBiasBehaviorConfig::default(),
       filter_across_cascades: false,
       tonemap: ToneMap::new(gpu),
@@ -225,6 +235,7 @@ impl LightSystem {
         .register_material_impl::<UnlitSurfaceEncodeDecode>()
         .register_material_impl::<PhongSurfaceEncodeDecode>(),
       opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
+      filter_ty: Default::default(),
     }
   }
 
@@ -247,82 +258,110 @@ impl LightSystem {
       ui.checkbox(&mut self.filter_across_cascades, "filter across cascades");
     }
 
-    egui::ComboBox::from_label("Shadow PCF mode")
-      .selected_text(format!("{:?}", &self.pcf_config.pcf_mode))
+    egui::ComboBox::from_label("Shadow filter type")
+      .selected_text(format!("{:?}", &self.filter_ty))
       .show_ui_changed(ui, |ui| {
-        ui.selectable_value(
-          &mut self.pcf_config.pcf_mode,
-          ShadowPCFMode::FixedSizePCF,
-          "FixedSizePCF",
-        );
-
-        ui.selectable_value(
-          &mut self.pcf_config.pcf_mode,
-          ShadowPCFMode::OptimizedPCF,
-          "OptimizedPCF",
-        );
-        ui.selectable_value(
-          &mut self.pcf_config.pcf_mode,
-          ShadowPCFMode::GridPCF,
-          "GridPCF",
-        );
-        ui.selectable_value(
-          &mut self.pcf_config.pcf_mode,
-          ShadowPCFMode::RandomDiscPCF,
-          "RandomDiscPCF",
-        );
+        ui.selectable_value(&mut self.filter_ty, ViewerShadowFilterType::PCF, "PCF");
+        ui.selectable_value(&mut self.filter_ty, ViewerShadowFilterType::VSM, "VSM");
       });
 
-    if matches!(self.pcf_config.pcf_mode, ShadowPCFMode::FixedSizePCF) {
-      egui::ComboBox::from_label("Fixed filter size")
-        .selected_text(format!("{:?}", &self.pcf_config.fixed_filter_size))
+    if matches!(self.filter_ty, ViewerShadowFilterType::VSM) {
+      ui.add(
+        egui::Slider::new(&mut self.vsm_config.filter_size, 1.0..=MAX_VSM_FILTER_SIZE)
+          .step_by(0.5)
+          .text("VSM filter size"),
+      );
+      ui.add(
+        egui::Slider::new(&mut self.vsm_config.vsm_bias, 0.0..=1.0)
+          .step_by(0.01)
+          .text("VSM bias"),
+      );
+      ui.add(
+        egui::Slider::new(&mut self.vsm_config.light_bleeding_reduction, 0.0..=1.0)
+          .step_by(0.01)
+          .text("VSM light bleeding reduction"),
+      );
+    }
+
+    if matches!(self.filter_ty, ViewerShadowFilterType::PCF) {
+      egui::ComboBox::from_label("Shadow PCF mode")
+        .selected_text(format!("{:?}", &self.pcf_config.pcf_mode))
         .show_ui_changed(ui, |ui| {
           ui.selectable_value(
-            &mut self.pcf_config.fixed_filter_size,
-            FixedFilterSize::Filter3x3,
-            "3x3",
+            &mut self.pcf_config.pcf_mode,
+            ShadowPCFMode::FixedSizePCF,
+            "FixedSizePCF",
+          );
+
+          ui.selectable_value(
+            &mut self.pcf_config.pcf_mode,
+            ShadowPCFMode::OptimizedPCF,
+            "OptimizedPCF",
           );
           ui.selectable_value(
-            &mut self.pcf_config.fixed_filter_size,
-            FixedFilterSize::Filter5x5,
-            "5x5",
+            &mut self.pcf_config.pcf_mode,
+            ShadowPCFMode::GridPCF,
+            "GridPCF",
           );
           ui.selectable_value(
-            &mut self.pcf_config.fixed_filter_size,
-            FixedFilterSize::Filter7x7,
-            "7x7",
-          );
-          ui.selectable_value(
-            &mut self.pcf_config.fixed_filter_size,
-            FixedFilterSize::Filter9x9,
-            "9x9",
+            &mut self.pcf_config.pcf_mode,
+            ShadowPCFMode::RandomDiscPCF,
+            "RandomDiscPCF",
           );
         });
-    }
 
-    if matches!(
-      self.pcf_config.pcf_mode,
-      ShadowPCFMode::GridPCF | ShadowPCFMode::RandomDiscPCF
-    ) {
-      ui.add(
-        egui::Slider::new(&mut self.pcf_config.filter_size, 1.0..=MAX_PCF_FILTER_SIZE)
-          .step_by(0.5)
-          .text("filter size"),
+      if matches!(self.pcf_config.pcf_mode, ShadowPCFMode::FixedSizePCF) {
+        egui::ComboBox::from_label("Fixed filter size")
+          .selected_text(format!("{:?}", &self.pcf_config.fixed_filter_size))
+          .show_ui_changed(ui, |ui| {
+            ui.selectable_value(
+              &mut self.pcf_config.fixed_filter_size,
+              FixedFilterSize::Filter3x3,
+              "3x3",
+            );
+            ui.selectable_value(
+              &mut self.pcf_config.fixed_filter_size,
+              FixedFilterSize::Filter5x5,
+              "5x5",
+            );
+            ui.selectable_value(
+              &mut self.pcf_config.fixed_filter_size,
+              FixedFilterSize::Filter7x7,
+              "7x7",
+            );
+            ui.selectable_value(
+              &mut self.pcf_config.fixed_filter_size,
+              FixedFilterSize::Filter9x9,
+              "9x9",
+            );
+          });
+      }
+
+      if matches!(
+        self.pcf_config.pcf_mode,
+        ShadowPCFMode::GridPCF | ShadowPCFMode::RandomDiscPCF
+      ) {
+        ui.add(
+          egui::Slider::new(&mut self.pcf_config.filter_size, 1.0..=MAX_PCF_FILTER_SIZE)
+            .step_by(0.5)
+            .text("filter size"),
+        );
+      }
+
+      if matches!(self.pcf_config.pcf_mode, ShadowPCFMode::RandomDiscPCF) {
+        ui.add(
+          egui::Slider::new(&mut self.pcf_config.num_disc_samples, 4..=64)
+            .step_by(4.0)
+            .text("disc samples"),
+        );
+      }
+
+      ui.checkbox(
+        &mut self.pcf_config.use_receiver_plane_depth_bias,
+        "PCF receiver plane depth bias",
       );
     }
 
-    if matches!(self.pcf_config.pcf_mode, ShadowPCFMode::RandomDiscPCF) {
-      ui.add(
-        egui::Slider::new(&mut self.pcf_config.num_disc_samples, 4..=64)
-          .step_by(4.0)
-          .text("disc samples"),
-      );
-    }
-
-    ui.checkbox(
-      &mut self.pcf_config.use_receiver_plane_depth_bias,
-      "PCF receiver plane depth bias",
-    );
     ui.checkbox(
       &mut self.bias_behavior.use_n_dot_l_normal_offset,
       "nDotL normal offset",
