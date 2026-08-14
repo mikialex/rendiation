@@ -37,14 +37,14 @@ pub fn apply_normal_mapping(
   let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
   let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
 
-  let face = builder.query::<FragmentFrontFacing>().select(0., 1.);
+  let face = builder.query::<FragmentFrontFacing>().select(1., -1.);
 
   let q0 = position.dpdx();
   let q1 = position.dpdy();
   let st0 = uv.dpdx();
   let st1 = uv.dpdy();
 
-  let normal = perturb_normal_2_arb(q0, q1, st0, st1, normal, normal_adjust, face);
+  let normal = perturb_normal_2_arb_fn(q0, q1, st0, st1, normal, normal_adjust, face);
   builder.register::<FragmentRenderNormal>(normal);
 
   normal
@@ -64,14 +64,14 @@ pub fn apply_normal_mapping_conditional(
     let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
     let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
 
-    let face = builder.query::<FragmentFrontFacing>().select(0., 1.);
+    let face = builder.query::<FragmentFrontFacing>().select(1., -1.);
 
     let q0 = position.dpdx();
     let q1 = position.dpdy();
     let st0 = uv.dpdx();
     let st1 = uv.dpdy();
 
-    let n = perturb_normal_2_arb(q0, q1, st0, st1, normal.load(), normal_adjust, face);
+    let n = perturb_normal_2_arb_fn(q0, q1, st0, st1, normal.load(), normal_adjust, face);
     normal.store(n);
   });
 
@@ -99,9 +99,9 @@ pub fn apply_normal_mapping_conditional_uniform_cfg(
     let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
     let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
 
-    let face = builder.query::<FragmentFrontFacing>().select(0., 1.);
+    let face = builder.query::<FragmentFrontFacing>().select(1., -1.);
 
-    let n = perturb_normal_2_arb(q0, q1, st0, st1, normal.load(), normal_adjust, face);
+    let n = perturb_normal_2_arb_fn(q0, q1, st0, st1, normal.load(), normal_adjust, face);
     normal.store(n);
   });
 
