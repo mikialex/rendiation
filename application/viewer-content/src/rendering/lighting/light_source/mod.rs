@@ -6,13 +6,13 @@ pub use directional::*;
 mod spot;
 pub use spot::*;
 
-pub struct ShadowMapPreparerEntry {
-  pub preparer: BasicShadowMapPreparer,
+pub struct ShadowMapPreparerEntry<P> {
+  pub preparer: P,
   pub shadow_map: Box<dyn AbstractShadowMapGPUData>,
 }
 
-pub struct ShadowMapGPUDataEntry {
-  pub gpu_data: BasicShadowMapInfoGPU,
+pub struct ShadowMapGPUDataEntry<P> {
+  pub gpu_data: P,
   pub shadow_map: Box<dyn AbstractShadowMapGPUData>,
 }
 
@@ -69,12 +69,12 @@ pub fn use_shadow_map(
   }
 }
 
-pub fn use_basic_shadow_map_entry(
+pub fn use_shadow_map_entry<P>(
   cx: &mut QueryGPUHookCx,
   lighting_sys: &LightSystem,
   ndc: ViewerNDC,
-  shadow_info: Option<(BasicShadowMapPreparer, SizeWithDepth)>,
-) -> Option<ShadowMapPreparerEntry> {
+  shadow_info: Option<(P, SizeWithDepth)>,
+) -> Option<ShadowMapPreparerEntry<P>> {
   let shadowmap = use_shadow_map(
     cx,
     lighting_sys,

@@ -80,6 +80,9 @@ impl BasicShadowMapConfigurable for DirectionLightBasicShadowInfo {}
 declare_entity_associated!(SpotLightBasicShadowInfo, SpotLightEntity);
 impl BasicShadowMapConfigurable for SpotLightBasicShadowInfo {}
 
+declare_entity_associated!(PointLightBasicShadowInfo, PointLightEntity);
+impl BasicShadowMapConfigurable for PointLightBasicShadowInfo {}
+
 pub fn register_light_shadow_config() {
   let directional_light =
     global_entity_of::<DirectionalLightEntity>().declare_component::<DirectionLightShadowBound>();
@@ -87,4 +90,7 @@ pub fn register_light_shadow_config() {
 
   let spot_light = global_entity_of::<SpotLightEntity>();
   register_basic_shadow_map_for_light::<SpotLightBasicShadowInfo>(spot_light);
+
+  let point_light = global_entity_of::<PointLightEntity>();
+  register_basic_shadow_map_for_light::<PointLightBasicShadowInfo>(point_light);
 }

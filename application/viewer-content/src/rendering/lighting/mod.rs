@@ -36,7 +36,7 @@ pub fn use_lighting(
 
   let dir_lights = use_directional_light_uniform(cx, &config, viewports, lighting_sys, ndc);
   let spot_lights = use_scene_spot_light_uniform(cx, &config, lighting_sys, ndc);
-  let point_lights = use_scene_point_light_uniform(cx);
+  let point_lights = use_scene_point_light_uniform(cx, &config, lighting_sys, ndc);
   let area_lights = use_area_light_uniform(cx);
   let ibl = use_ibl(cx);
 
@@ -55,7 +55,7 @@ pub fn use_lighting(
 pub struct LightingRenderingCxPrepareCtx {
   dir_lights: SceneDirectionalLightingPreparer,
   spot_lights: SceneSpotLightingPreparer,
-  point_lights: ScenePointLightingProvider,
+  point_lights: ScenePointLightingPreparer,
   area_lights: SceneAreaLightingProvider,
   ibl: IBLLightingComponentProvider,
   scene_ids: SceneIdUniformBufferAccess,
@@ -146,11 +146,15 @@ impl LightSystem {
       .spot_lights
       .update_shadow_maps(frame_ctx, &mut content, reversed_depth);
 
+    let ps = instance
+      .point_lights
+      .update_shadow_maps(frame_ctx, &mut content, reversed_depth);
+
     let imp = Box::new(LightingComputeComponentGroupProvider {
       lights: vec![
         ds,
         Box::new(ss),
-        Box::new(instance.point_lights),
+        Box::new(ps),
         Box::new(instance.area_lights),
         Box::new(instance.ibl),
       ],

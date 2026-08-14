@@ -17,6 +17,9 @@ pub use basic::*;
 mod cascade;
 pub use cascade::*;
 
+mod cube;
+pub use cube::*;
+
 mod vsm;
 pub use vsm::*;
 

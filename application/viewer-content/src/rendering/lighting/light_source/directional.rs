@@ -39,7 +39,7 @@ pub fn use_directional_light_uniform(
       } else {
         let shadow_info =
           use_basic_shadow_map_uniform(cx, shadow_packer_config, ndc, &directional_light_uniforms);
-        use_basic_shadow_map_entry(cx, lighting_sys, ndc, shadow_info)
+        use_shadow_map_entry(cx, lighting_sys, ndc, shadow_info)
           .map(ViewerDirectionalShadowPreparer::Basic)
       }
     })
@@ -121,7 +121,7 @@ fn use_basic_shadow_map_uniform(
 }
 
 enum ViewerDirectionalShadowPreparer {
-  Basic(ShadowMapPreparerEntry),
+  Basic(ShadowMapPreparerEntry<BasicShadowMapPreparer>),
   Cascade(MultiCascadeShadowMapPreparer),
   NoShadow,
 }
@@ -181,7 +181,7 @@ impl SceneDirectionalLightingPreparer {
 
 enum ShadowImplType {
   NoShadow,
-  Basic(ShadowMapGPUDataEntry),
+  Basic(ShadowMapGPUDataEntry<BasicShadowMapInfoGPU>),
   Cascade(MultiCascadeShadowMapData),
 }
 

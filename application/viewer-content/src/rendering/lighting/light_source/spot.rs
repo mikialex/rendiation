@@ -16,7 +16,7 @@ pub fn use_scene_spot_light_uniform(
     cx.scope(|cx| {
       let shadow_info =
         use_basic_shadow_map_uniform(cx, shadow_packer_config, ndc, &spot_light_uniforms);
-      use_basic_shadow_map_entry(cx, lighting_sys, ndc, shadow_info)
+      use_shadow_map_entry(cx, lighting_sys, ndc, shadow_info)
     })
   } else {
     None
@@ -94,7 +94,7 @@ fn use_basic_shadow_map_uniform(
 }
 
 pub struct SceneSpotLightingPreparer {
-  pub shadow: Option<ShadowMapPreparerEntry>,
+  pub shadow: Option<ShadowMapPreparerEntry<BasicShadowMapPreparer>>,
   pub light: SharedLightUniformInfo<SpotLightUniform>,
   pub scene_ref: ForeignKeyReadView<SpotLightRefScene>,
   pub bias_behavior: ShadowBiasBehaviorConfig,
@@ -138,7 +138,7 @@ impl SceneSpotLightingPreparer {
 }
 
 pub struct SceneSpotLightingProvider {
-  shadow: Option<ShadowMapGPUDataEntry>,
+  shadow: Option<ShadowMapGPUDataEntry<BasicShadowMapInfoGPU>>,
   uniform: LockReadGuardHolder<LightUniformInfo<SpotLightUniform>>,
   reversed_depth: bool,
   bias_behavior: ShadowBiasBehaviorConfig,
