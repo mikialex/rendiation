@@ -71,7 +71,7 @@ impl LightingComputeInvocation for IBLLighting {
 
     let ENode::<ShaderPhysicalShading> {
       albedo,
-      linear_roughness,
+      perceptual_roughness,
       f0,
       ..
     } = shading.cloned().unwrap();
@@ -88,16 +88,17 @@ impl LightingComputeInvocation for IBLLighting {
 
     let diffuse = diffuse.xyz() * uniform.diffuse_illuminance * albedo;
 
-    let lod = linear_roughness * (self.specular.texture_number_levels() - val(1)).into_f32();
+    let lod = perceptual_roughness * (self.specular.texture_number_levels() - val(1)).into_f32();
     let specular = self
       .specular
       .build_sample_call(self.sampler, sample_reflect)
       .with_level(lod)
       .sample();
 
+    // the lut layout: x axis is perceptual roughness, y axis is n dot v
     let brdf_lut = self
       .brdf_lut
-      .sample_zero_level(self.sampler, (n_dot_v, linear_roughness));
+      .sample_zero_level(self.sampler, (perceptual_roughness, n_dot_v));
 
     let specular =
       (f0 * brdf_lut.x() + brdf_lut.y().splat()) * specular.xyz() * uniform.specular_illuminance;

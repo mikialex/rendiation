@@ -60,7 +60,7 @@ impl SceneMaterialSurfaceSupportInvocation for PbrMRMaterialRtxInvocation {
       val(Vec4::one()),
     );
 
-    metallic *= metallic_roughness_tex.x();
+    metallic *= metallic_roughness_tex.z();
     roughness *= metallic_roughness_tex.y();
 
     let mut emissive = storage.emissive;
@@ -76,6 +76,6 @@ impl SceneMaterialSurfaceSupportInvocation for PbrMRMaterialRtxInvocation {
     reg.register_fragment_stage::<ColorChannel>(base_color);
     reg.register_fragment_stage::<EmissiveChannel>(emissive);
     reg.register_fragment_stage::<MetallicChannel>(metallic);
-    reg.register_fragment_stage::<RoughnessChannel>(roughness * roughness);
+    reg.register_fragment_stage::<RoughnessChannel>(roughness);
   }
 }

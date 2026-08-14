@@ -1,4 +1,4 @@
-use rendiation_lighting_transport::{GlossinessChannel, SpecularChannel};
+use rendiation_lighting_transport::{RoughnessChannel, SpecularChannel};
 use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional_uniform_cfg;
 
 use crate::*;
@@ -11,6 +11,9 @@ pub fn use_pbr_sg_material_storage(
   cx.use_changes::<PbrSGMaterialAlbedoComponent>()
     .update_storage_array(cx, storages, offset_of!(Storage, albedo));
 
+  cx.use_changes::<PbrSGMaterialSpecularComponent>()
+    .update_storage_array(cx, storages, offset_of!(Storage, specular));
+
   cx.use_changes::<PbrSGMaterialEmissiveComponent>()
     .update_storage_array(cx, storages, offset_of!(Storage, emissive));
 
@@ -22,6 +25,9 @@ pub fn use_pbr_sg_material_storage(
 
   cx.use_changes::<AlphaOf<PbrSGMaterialAlphaConfig>>()
     .update_storage_array(cx, storages, offset_of!(Storage, alpha));
+
+  cx.use_changes::<AlphaCutoffOf<PbrSGMaterialAlphaConfig>>()
+    .update_storage_array(cx, storages, offset_of!(Storage, alpha_cutoff));
 
   storages.use_max_item_count_by_db_entity::<PbrSGMaterialEntity>(cx);
   storages.use_update(cx);
@@ -211,7 +217,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
       builder.register::<ColorChannel>(base_color);
       builder.register::<SpecularChannel>(specular);
       builder.register::<EmissiveChannel>(emissive);
-      builder.register::<GlossinessChannel>(glossiness * glossiness);
+      builder.register::<RoughnessChannel>(val(1.0) - glossiness);
 
       builder.register::<DefaultDisplay>((albedo.xyz(), val(1.)));
       builder.insert_type_tag::<PbrSGMaterialTag>();

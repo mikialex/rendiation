@@ -74,6 +74,6 @@ impl SceneMaterialSurfaceSupportInvocation for PbrSGMaterialRtxInvocation {
     reg.register_fragment_stage::<ColorChannel>(base_color);
     reg.register_fragment_stage::<SpecularChannel>(specular);
     reg.register_fragment_stage::<EmissiveChannel>(emissive);
-    reg.register_fragment_stage::<GlossinessChannel>(glossiness);
+    reg.register_fragment_stage::<RoughnessChannel>(val(1.0) - glossiness);
   }
 }

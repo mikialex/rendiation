@@ -267,12 +267,12 @@ impl DeferLightingMaterialBufferReadWrite for PbrSurfaceEncodeDecode {
     {
       let ENode::<ShaderPhysicalShading> {
         albedo,
-        linear_roughness,
+        perceptual_roughness,
         f0,
         emissive,
       } = PhysicalShading::construct_shading_impl(builder.registry());
 
-      let albedo_roughness: Node<Vec4<_>> = (albedo, linear_roughness).into();
+      let albedo_roughness: Node<Vec4<_>> = (albedo, perceptual_roughness).into();
       let f0_emissive_x: Node<Vec4<_>> = (f0, emissive.x()).into();
 
       let alpha = builder.try_query::<AlphaChannel>().unwrap_or(val(1.));
@@ -304,7 +304,7 @@ impl DeferLightingMaterialBufferReadWrite for PbrSurfaceEncodeDecode {
 
     let surface = Box::new(ENode::<ShaderPhysicalShading> {
       albedo: albedo_roughness.xyz(),
-      linear_roughness: albedo_roughness.w(),
+      perceptual_roughness: albedo_roughness.w(),
       f0: f0_emissive_x.xyz(),
       emissive,
     });

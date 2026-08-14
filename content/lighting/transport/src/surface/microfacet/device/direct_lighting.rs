@@ -2,26 +2,19 @@ use crate::*;
 
 both!(SpecularChannel, Vec3<f32>);
 
-// This is the alpha, which is the square of the perceptual roughness
-// (perceptual roughness is artist friendly so usually used in material parameters)
+// the perceptual roughness, in the same space as the gltf roughness factor,
+// squaring it gives the alpha roughness used in the microfacet brdf
 both!(RoughnessChannel, f32);
 both!(MetallicChannel, f32);
-// This is the inverse alpha, also linear
-both!(GlossinessChannel, f32);
 both!(ReflectanceChannel, f32);
 
 pub struct PhysicalShading;
 
 impl PhysicalShading {
   pub fn construct_shading_impl(builder: &SemanticRegistry) -> ENode<ShaderPhysicalShading> {
-    let linear_roughness = builder
+    let perceptual_roughness = builder
       .try_query_fragment_stage::<RoughnessChannel>()
-      .or_else(|_| {
-        builder
-          .try_query_fragment_stage::<GlossinessChannel>()
-          .map(|v| val(1.0) - v)
-      })
-      .unwrap_or_else(|_| val(0.3));
+      .unwrap_or_else(|_| val(0.5));
 
     let base_color = builder
       .try_query_fragment_stage::<ColorChannel>()
@@ -55,7 +48,7 @@ impl PhysicalShading {
     ENode::<ShaderPhysicalShading> {
       albedo,
       f0,
-      linear_roughness,
+      perceptual_roughness,
       emissive,
     }
   }
@@ -114,11 +107,15 @@ fn physical_shading_fn(
       }
       .bsdf(geometry.view_dir, -light.direction, geometry.normal);
 
-      let roughness = shading.linear_roughness;
+      let alpha_roughness = shading.perceptual_roughness * shading.perceptual_roughness;
       let direct_specular_brdf = ShaderSpecular {
         f0: shading.f0,
-        normal_distribution_model: ShaderGGX { roughness },
-        geometric_shadow_model: ShaderSmithGGXCorrelatedGeometryShadow { roughness },
+        normal_distribution_model: ShaderGGX {
+          roughness: alpha_roughness,
+        },
+        geometric_shadow_model: ShaderSmithGGXCorrelatedGeometryShadow {
+          roughness: alpha_roughness,
+        },
         fresnel_model: ShaderSchlick,
       }
       .bsdf(geometry.view_dir, -light.direction, geometry.normal);
@@ -138,7 +135,7 @@ fn physical_shading_fn(
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct ShaderPhysicalShading {
   pub albedo: Vec3<f32>,
-  pub linear_roughness: f32,
+  pub perceptual_roughness: f32,
   pub f0: Vec3<f32>,
   pub emissive: Vec3<f32>,
 }
@@ -151,25 +148,25 @@ use rendiation_shader_library::sampling::hammersley_2d_fn;
 
 /// for ibl
 pub fn integrate_brdf(
-  roughness: Node<f32>, // perceptual roughness
+  perceptual_roughness: Node<f32>, // perceptual roughness
   n_dot_v: Node<f32>,
   sample_count: Node<u32>,
 ) -> Node<Vec2<f32>> {
-  let roughness2 = roughness * roughness;
+  let alpha_roughness = perceptual_roughness * perceptual_roughness;
   let view = vec3_node(((val(1.) - n_dot_v * n_dot_v).sqrt(), val(0.), n_dot_v));
 
   let sum = sample_count
     .into_shader_iter()
     .map(|index| {
       let random = hammersley_2d_fn(index, sample_count);
-      let half = hemisphere_importance_sample_dggx(random, roughness2);
+      let half = hemisphere_importance_sample_dggx(random, alpha_roughness);
 
       let light = val(2.0) * view.dot(half) * half - view;
       let n_dot_l = light.z().saturate();
       let n_dot_h = half.z().saturate();
       let v_dot_h = view.dot(half).saturate();
 
-      let g = g_smith(n_dot_l, n_dot_v, roughness2);
+      let g = g_smith(n_dot_l, n_dot_v, alpha_roughness);
       let g_vis = (g * v_dot_h / (n_dot_h * n_dot_v)).max(0.);
       let fc = (val(1.) - v_dot_h).pow(5.0);
 

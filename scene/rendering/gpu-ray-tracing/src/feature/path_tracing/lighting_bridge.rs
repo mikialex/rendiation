@@ -1,3 +1,5 @@
+use rendiation_lighting_punctual::punctual_light_intensity_to_illuminance_factor_fn;
+
 use crate::*;
 
 pub trait DevicePathTracingLighting: ShaderHashProvider + DynClone {
@@ -100,7 +102,10 @@ impl ShaderLightSource for PointLightStorageShaderAPIInstance {
   ) -> Node<Vec3<f32>> {
     let sampling_dir = self.position.expand().f1 - surface_position;
     let distance = sampling_dir.length();
-    self.luminance_intensity / (distance * distance).splat()
+    // although we are compute radiance here, but it's a dirac distribution, so we have to do
+    // the distance factor
+    let factor = punctual_light_intensity_to_illuminance_factor_fn(distance, self.cutoff_distance);
+    self.luminance_intensity * factor / (distance * distance).splat()
   }
 
   /// override the default because it's dirac distributed
@@ -165,7 +170,15 @@ impl ShaderLightSource for SpotLightStorageShaderAPIInstance {
   ) -> Node<Vec3<f32>> {
     let sampling_dir = self.position.expand().f1 - surface_position;
     let distance = sampling_dir.length();
-    self.luminance_intensity / (distance * distance).splat()
+    // although we are compute radiance here, but it's a dirac distribution, so we have to do
+    // the distance factor
+    let distance_factor =
+      punctual_light_intensity_to_illuminance_factor_fn(distance, self.cutoff_distance);
+    // the sampling direction is from surface to light, while the cone is defined in the
+    // light to surface direction, so negate it here
+    let angle_cos = sampling_dir.dot(self.direction) * val(-1.0);
+    let angle_factor = angle_cos.smoothstep(self.half_cone_cos, self.half_penumbra_cos);
+    self.luminance_intensity * (distance_factor * angle_factor) / (distance * distance).splat()
   }
 
   /// override the default because it's dirac distributed

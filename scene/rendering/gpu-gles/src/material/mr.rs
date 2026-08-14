@@ -24,6 +24,9 @@ pub fn use_pbr_mr_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrMRMate
   cx.use_changes::<AlphaOf<PbrMRMaterialAlphaConfig>>()
     .update_uniforms(&uniforms, offset_of!(Uniform, alpha), cx.gpu);
 
+  cx.use_changes::<AlphaCutoffOf<PbrMRMaterialAlphaConfig>>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, alpha_cutoff), cx.gpu);
+
   let tex_uniforms = cx.use_uniform_buffers("pbr mr tex uniform");
 
   let base_color_alpha = offset_of!(TexUniform, base_color_alpha_texture);
@@ -89,7 +92,6 @@ struct PhysicalMetallicRoughnessMaterialUniform {
   pub emissive: Vec3<f32>,
   pub roughness: f32,
   pub metallic: f32,
-  pub reflectance: f32,
   pub normal_mapping_scale: f32,
   pub alpha_cutoff: f32,
   pub alpha: f32,
@@ -180,7 +182,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'_> {
         val(Vec4::one()),
       );
 
-      metallic *= metallic_roughness_tex.x();
+      metallic *= metallic_roughness_tex.z();
       roughness *= metallic_roughness_tex.y();
 
       let mut emissive = uniform.emissive;
@@ -224,7 +226,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'_> {
       builder.register::<ColorChannel>(base_color);
       builder.register::<EmissiveChannel>(emissive);
       builder.register::<MetallicChannel>(metallic);
-      builder.register::<RoughnessChannel>(roughness * roughness);
+      builder.register::<RoughnessChannel>(roughness);
 
       builder.register::<DefaultDisplay>((base_color, val(1.)));
       builder.insert_type_tag::<PbrMRMaterialTag>();

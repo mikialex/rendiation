@@ -14,6 +14,7 @@ impl GraphicsShaderProvider for BrdfLUTGenerator {
     builder.fragment(|builder, _| {
       let sample_count = val(128);
       let uv = builder.query::<FragmentUv>();
+      // lut layout: x axis is perceptual roughness, y axis is n dot v
       let result = integrate_brdf(uv.x(), uv.y(), sample_count);
       builder.store_fragment_out_vec4f(0, (result, val(0.), val(1.)))
     })

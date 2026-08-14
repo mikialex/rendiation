@@ -26,6 +26,9 @@ pub fn use_pbr_mr_material_storage(
   cx.use_changes::<AlphaOf<PbrMRMaterialAlphaConfig>>()
     .update_storage_array(cx, storages, offset_of!(Storage, alpha));
 
+  cx.use_changes::<AlphaCutoffOf<PbrMRMaterialAlphaConfig>>()
+    .update_storage_array(cx, storages, offset_of!(Storage, alpha_cutoff));
+
   storages.use_max_item_count_by_db_entity::<PbrMRMaterialEntity>(cx);
   storages.use_update(cx);
 
@@ -99,7 +102,6 @@ pub struct PhysicalMetallicRoughnessMaterialStorage {
   pub emissive: Vec3<f32>,
   pub roughness: f32,
   pub metallic: f32,
-  pub reflectance: f32,
   pub normal_mapping_scale: f32,
   pub alpha_cutoff: f32,
   pub alpha: f32,
@@ -178,7 +180,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
         val(Vec4::one()),
       );
 
-      metallic *= metallic_roughness_tex.x();
+      metallic *= metallic_roughness_tex.z();
       roughness *= metallic_roughness_tex.y();
 
       let mut emissive = storage.emissive;
@@ -218,7 +220,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
       builder.register::<ColorChannel>(base_color);
       builder.register::<EmissiveChannel>(emissive);
       builder.register::<MetallicChannel>(metallic);
-      builder.register::<RoughnessChannel>(roughness * roughness);
+      builder.register::<RoughnessChannel>(roughness);
 
       builder.register::<DefaultDisplay>((base_color, val(1.)));
       builder.insert_type_tag::<PbrMRMaterialTag>();

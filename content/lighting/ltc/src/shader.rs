@@ -77,7 +77,7 @@ impl LTCxLightEval {
     );
 
     // BRDF shadowing and Fresnel
-    spec *= specular_color * t2.x() + (val(1.0).splat() - diffuse_color) * t2.y();
+    spec *= specular_color * t2.x() + (val(1.0).splat() - specular_color) * t2.y();
 
     let identity = (
       val(vec3(1., 0., 0.)),

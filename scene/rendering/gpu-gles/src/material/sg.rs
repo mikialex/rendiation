@@ -1,4 +1,4 @@
-use rendiation_lighting_transport::{GlossinessChannel, SpecularChannel};
+use rendiation_lighting_transport::{RoughnessChannel, SpecularChannel};
 use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
@@ -8,6 +8,9 @@ pub fn use_pbr_sg_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrSGMate
 
   cx.use_changes::<PbrSGMaterialAlbedoComponent>()
     .update_uniforms(&uniforms, offset_of!(Uniform, albedo), cx.gpu);
+
+  cx.use_changes::<PbrSGMaterialSpecularComponent>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, specular), cx.gpu);
 
   cx.use_changes::<PbrSGMaterialEmissiveComponent>()
     .update_uniforms(&uniforms, offset_of!(Uniform, emissive), cx.gpu);
@@ -20,6 +23,9 @@ pub fn use_pbr_sg_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrSGMate
 
   cx.use_changes::<AlphaOf<PbrSGMaterialAlphaConfig>>()
     .update_uniforms(&uniforms, offset_of!(Uniform, alpha), cx.gpu);
+
+  cx.use_changes::<AlphaCutoffOf<PbrSGMaterialAlphaConfig>>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, alpha_cutoff), cx.gpu);
 
   let tex_uniforms = cx.use_uniform_buffers("pbr sg tex uniform");
 
@@ -221,7 +227,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
       builder.register::<ColorChannel>(base_color);
       builder.register::<SpecularChannel>(specular);
       builder.register::<EmissiveChannel>(emissive);
-      builder.register::<GlossinessChannel>(glossiness * glossiness);
+      builder.register::<RoughnessChannel>(val(1.0) - glossiness);
 
       builder.register::<DefaultDisplay>((albedo_alpha.xyz(), val(1.)));
       builder.insert_type_tag::<PbrSGMaterialTag>();

@@ -202,11 +202,15 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
 
     let physical_desc = physical_desc.load().expand();
 
-    let roughness = physical_desc.linear_roughness;
+    let alpha_roughness = physical_desc.perceptual_roughness * physical_desc.perceptual_roughness;
     let specular = ShaderSpecular {
       f0: physical_desc.f0,
-      normal_distribution_model: ShaderGGX { roughness },
-      geometric_shadow_model: ShaderSmithGGXCorrelatedGeometryShadow { roughness },
+      normal_distribution_model: ShaderGGX {
+        roughness: alpha_roughness,
+      },
+      geometric_shadow_model: ShaderSmithGGXCorrelatedGeometryShadow {
+        roughness: alpha_roughness,
+      },
       fresnel_model: ShaderSchlick,
     };
 

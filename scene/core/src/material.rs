@@ -74,6 +74,8 @@ mod sg_material {
     Vec3::zero()
   );
   declare_component!(
+    /// perceptual, 1.0 for full mirror, 0.0 for fully rough,
+    /// converted to the alpha roughness used in shading by (1 - glossiness)^2
     PbrSGMaterialGlossinessComponent,
     PbrSGMaterialEntity,
     f32,
@@ -195,6 +197,8 @@ mod mr_material {
     0.0
   );
   declare_component!(
+    /// perceptual, 0.0 for full mirror, 1.0 for fully rough,
+    /// converted to the alpha roughness used in shading by squaring this value
     PbrMRMaterialRoughnessComponent,
     PbrMRMaterialEntity,
     f32,
@@ -242,7 +246,6 @@ mod mr_material {
     pub base_color: Vec3<f32>,
     pub roughness: f32,
     pub metallic: f32,
-    // pub reflectance: f32,
     pub emissive: Vec3<f32>,
     pub alpha: AlphaConfigDataView,
     pub base_color_texture: Option<Texture2DWithSamplingDataView>,
@@ -262,7 +265,6 @@ mod mr_material {
         base_color_texture: None,
         metallic_roughness_texture: None,
         emissive_texture: None,
-        // reflectance: 0.5,
         normal_texture: None,
       }
     }
