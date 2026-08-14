@@ -199,6 +199,8 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
         enabled,
       );
 
+      auto_reverse_normal_by_face_order(builder);
+
       ShaderAlphaConfig {
         alpha_mode: self.alpha_mode,
         alpha_cutoff: storage.alpha_cutoff,
