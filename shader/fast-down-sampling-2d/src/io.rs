@@ -220,13 +220,13 @@ pub trait SourceImageWriter<V: ShaderSizedValueNodeType> {
   fn write(&self, coord: Node<Vec2<u32>>, value: Node<V>);
 }
 
-impl<D, F> SourceImageLoader<ChannelOutputOf<F>> for BindingNode<ShaderTexture<D, F>>
+impl<D, F> SourceImageLoader<TexelOutputOf<F>> for BindingNode<ShaderTexture<D, F>>
 where
   D: ShaderTextureDimension + SingleLayerTarget + DirectAccessTarget,
   F: ShaderTextureKind + SingleSampleTarget,
   Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
 {
-  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<ChannelOutputOf<F>> {
+  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<TexelOutputOf<F>> {
     self.load_texel(coord.into(), 0)
   }
 }

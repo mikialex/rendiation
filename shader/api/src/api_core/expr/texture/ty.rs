@@ -70,21 +70,24 @@ impl DirectAccessTarget for TextureDimension3 {}
 impl ShaderTextureKind for f32 {
   const SAMPLING_TYPE: TextureSampleType = TextureSampleType::Float { filterable: true };
   const IS_MULTI_SAMPLE: bool = false;
-  type ChannelOutput = Vec4<f32>;
+  type ChannelOutput = f32;
+  type TexelOutput = Vec4<f32>;
 }
 impl SingleSampleTarget for f32 {}
 
 impl ShaderTextureKind for u32 {
   const SAMPLING_TYPE: TextureSampleType = TextureSampleType::Uint;
   const IS_MULTI_SAMPLE: bool = false;
-  type ChannelOutput = Vec4<u32>;
+  type ChannelOutput = u32;
+  type TexelOutput = Vec4<u32>;
 }
 impl SingleSampleTarget for u32 {}
 
 impl ShaderTextureKind for i32 {
   const SAMPLING_TYPE: TextureSampleType = TextureSampleType::Sint;
   const IS_MULTI_SAMPLE: bool = false;
-  type ChannelOutput = Vec4<i32>;
+  type ChannelOutput = i32;
+  type TexelOutput = Vec4<i32>;
 }
 impl SingleSampleTarget for i32 {}
 
@@ -94,6 +97,7 @@ impl ShaderTextureKind for TextureSampleDepth {
   const SAMPLING_TYPE: TextureSampleType = TextureSampleType::Depth;
   const IS_MULTI_SAMPLE: bool = false;
   type ChannelOutput = f32;
+  type TexelOutput = f32;
 }
 impl DepthSampleTarget for TextureSampleDepth {}
 impl SingleSampleTarget for TextureSampleDepth {}
@@ -103,5 +107,6 @@ impl<T: ShaderTextureKind> ShaderTextureKind for MultiSampleOf<T> {
   const SAMPLING_TYPE: TextureSampleType = T::SAMPLING_TYPE;
   const IS_MULTI_SAMPLE: bool = true;
   type ChannelOutput = T::ChannelOutput;
+  type TexelOutput = T::TexelOutput;
 }
 impl<T> MultiSampleTarget for MultiSampleOf<T> {}

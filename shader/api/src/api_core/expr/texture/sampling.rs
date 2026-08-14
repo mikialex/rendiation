@@ -58,13 +58,21 @@ where
     };
     self
   }
-  pub fn sample(self) -> Node<ChannelOutputOf<F>> {
+
+  pub fn with_offset(mut self, offset: Vec2<i32>) -> Self {
+    self.info.offset = Some(offset);
+    self
+  }
+
+  pub fn sample(self) -> Node<TexelOutputOf<F>> {
     ShaderNodeExpr::TextureSampling(self.info).insert_api()
   }
+
   /// do texture gather, the level will be override as zero
-  pub fn gather(mut self, channel: GatherChannel) -> Node<Vec4<f32>>
+  pub fn gather(mut self, channel: GatherChannel) -> Node<Vec4<ChannelOutputOf<F>>>
   where
     D: D2LikeTextureType,
+    Vec4<ChannelOutputOf<F>>: ShaderSizedValueNodeType,
   {
     // gather level can only be zero
     self.info.level = SampleLevel::Zero;
@@ -79,7 +87,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
     &self,
     sampler: BindingNode<ShaderSampler>,
     position: impl Into<Node<TextureSampleInputOf<D, f32>>>,
-  ) -> Node<ChannelOutputOf<F>>
+  ) -> Node<TexelOutputOf<F>>
   where
     F: SingleSampleTarget,
   {
@@ -90,7 +98,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
     &self,
     sampler: BindingNode<ShaderSampler>,
     position: impl Into<Node<TextureSampleInputOf<D, f32>>>,
-  ) -> Node<ChannelOutputOf<F>>
+  ) -> Node<TexelOutputOf<F>>
   where
     F: SingleSampleTarget,
   {
@@ -104,7 +112,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
     &self,
     position: Node<TextureSampleInputOf<D, u32>>,
     level: impl Into<Node<u32>>,
-  ) -> Node<ChannelOutputOf<F>>
+  ) -> Node<TexelOutputOf<F>>
   where
     F: SingleSampleTarget,
     D: SingleLayerTarget + DirectAccessTarget,
@@ -124,7 +132,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
     position: Node<TextureSampleInputOf<D, u32>>,
     layer: Node<u32>,
     level: Node<u32>,
-  ) -> Node<ChannelOutputOf<F>>
+  ) -> Node<TexelOutputOf<F>>
   where
     D: ArrayLayerTarget + DirectAccessTarget,
     F: SingleSampleTarget,
@@ -143,7 +151,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
     &self,
     position: Node<TextureSampleInputOf<D, u32>>,
     sample_index: impl Into<Node<u32>>,
-  ) -> Node<ChannelOutputOf<F>>
+  ) -> Node<TexelOutputOf<F>>
   where
     F: MultiSampleTarget,
     D: SingleLayerTarget + DirectAccessTarget,
@@ -209,9 +217,11 @@ impl<D, F> DepthTextureSamplingAction<D, F> {
   }
   /// do texture gather compare, fetch the compare result of the four texels around
   /// the sample position, the level will be override as zero
-  pub fn gather(mut self, channel: GatherChannel) -> Node<Vec4<f32>>
+  pub fn gather<C>(mut self, channel: GatherChannel) -> Node<Vec4<C>>
   where
     D: D2LikeTextureType,
+    C: ShaderNodeType,
+    Vec4<C>: ShaderNodeType,
   {
     // gather level can only be zero
     self.info.level = SampleLevel::Zero;
