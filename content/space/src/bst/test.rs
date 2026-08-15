@@ -80,12 +80,8 @@ pub fn test_bst_build() {
     ranges.push(child.node.primitive_range.clone());
   });
 
-  for slice in ranges.chunks_exact(2) {
-    if let [a, b, ..] = slice {
-      assert_eq!(a.end, b.start);
-    } else {
-      unreachable!()
-    }
+  for [a, b, ..] in ranges.as_chunks::<2>().0 {
+    assert_eq!(a.end, b.start);
   }
 
   // sorted_primitive_index not corrupted

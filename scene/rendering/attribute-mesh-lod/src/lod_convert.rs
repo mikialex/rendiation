@@ -185,7 +185,7 @@ fn process_lod_attribute_mesh(
   let box_size = bbox.size();
   let extent = box_size.x.max(box_size.y).max(box_size.z);
   // the simplify rescales the mesh into unit cube, zero extent will break the scale
-  if !(extent > 1e-6) {
+  if extent <= 1e-6 {
     return only_origin_level(input_mesh);
   }
 

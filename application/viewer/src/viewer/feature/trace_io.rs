@@ -105,26 +105,26 @@ pub fn use_enable_trace_io(cx: &mut ViewerCx) {
             && let Some(path) = rfd::FileDialog::new()
               .add_filter("trace", &["bin"])
               .pick_file()
-            {
-              let file_name = path
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| "?".into());
-              match replay_registry().load(&path) {
-                Ok(loaded) => {
-                  let count = loaded.state.records.len();
-                  *replay = Some(TraceReplayState {
-                    loaded,
-                    file_name,
-                    scroll_to_current: false,
-                  });
-                  log::info!("loaded {} records", count);
-                }
-                Err(e) => {
-                  log::error!("failed to load replay: {e}");
-                }
+          {
+            let file_name = path
+              .file_name()
+              .map(|n| n.to_string_lossy().to_string())
+              .unwrap_or_else(|| "?".into());
+            match replay_registry().load(&path) {
+              Ok(loaded) => {
+                let count = loaded.state.records.len();
+                *replay = Some(TraceReplayState {
+                  loaded,
+                  file_name,
+                  scroll_to_current: false,
+                });
+                log::info!("loaded {} records", count);
+              }
+              Err(e) => {
+                log::error!("failed to load replay: {e}");
               }
             }
+          }
 
           if let Some(ref mut rs) = replay.as_mut() {
             let total = rs.loaded.state.records.len();

@@ -2,11 +2,12 @@ use std::{
   fs::{File, OpenOptions},
   io::Write,
   path::Path,
-  sync::{Arc, Mutex},
+  sync::Arc,
 };
 
 use futures::StreamExt;
 use futures::channel::mpsc::UnboundedSender;
+use parking_lot::Mutex;
 
 use crate::message::*;
 
@@ -51,9 +52,9 @@ impl<T: TraceIO + Send + Sync + 'static> FileTraceWriter<T> {
 
     std::thread::spawn(move || {
       while let Some(data) = futures::executor::block_on(receiver.next()) {
-        data.write(&mut *file_clone.lock().unwrap()).unwrap();
+        data.write(&mut *file_clone.lock()).unwrap();
       }
-      file_clone.lock().unwrap().flush().unwrap();
+      file_clone.lock().flush().unwrap();
     });
 
     FileTraceWriter { sender, file }
@@ -62,12 +63,7 @@ impl<T: TraceIO + Send + Sync + 'static> FileTraceWriter<T> {
 
 impl<T: Send + Sync + 'static> TraceWriter<T> for FileTraceWriter<T> {
   fn write_header(&self, name_table: &NameTable, type_discriminant: u32) {
-    write_trace_file_header(
-      &mut *self.file.lock().unwrap(),
-      name_table,
-      type_discriminant,
-    )
-    .unwrap();
+    write_trace_file_header(&mut *self.file.lock(), name_table, type_discriminant).unwrap();
   }
 
   fn write_message(&self, message: T) {

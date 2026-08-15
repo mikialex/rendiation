@@ -186,7 +186,7 @@ async fn test_wavefront_compute() {
 
   let mut write_buffer = format!("P3\n{} {}\n255\n", canvas_size, canvas_size);
   buffer.read_raw_unpadded_bytes_slices(&mut |line| {
-    line.chunks_exact(4).for_each(|pixel| {
+    line.as_chunks::<4>().0.iter().for_each(|pixel| {
       let (r, g, b, _a) = (pixel[0], pixel[1], pixel[2], pixel[3]);
       write_buffer.push_str(&format!("{r} {g} {b} "));
     });

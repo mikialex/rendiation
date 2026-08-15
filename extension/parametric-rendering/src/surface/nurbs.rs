@@ -129,12 +129,11 @@ impl<T: Scalar> NurbsSurface<T> {
     let nv = Self::basis_functions(v_span, v, self.v_degree, &self.v_knots);
 
     let mut sum = Vec4::splat(T::zero());
-    for l in 0..=self.v_degree {
+    for (l, &nv_val) in nv.iter().enumerate() {
       let v_idx = v_span - self.v_degree + l;
-      let nv_val = nv[l];
-      for k in 0..=self.u_degree {
+      for (k, &nu_val) in nu.iter().enumerate() {
         let u_idx = u_span - self.u_degree + k;
-        let basis = nu[k] * nv_val;
+        let basis = nu_val * nv_val;
         let cp = self.control_points[v_idx * self.u_count + u_idx];
         sum.x += basis * cp.x;
         sum.y += basis * cp.y;
@@ -258,6 +257,7 @@ impl<T: Scalar> NurbsSurface<T> {
         let u_start = us * pu;
         let v_start = vs * pv;
         let mut cp = Vec::with_capacity((pu + 1) * (pv + 1));
+        #[allow(clippy::needless_range_loop)]
         for vi in v_start..=v_start + pv {
           for ui in u_start..=u_start + pu {
             cp.push(grid[vi][ui]);
@@ -381,7 +381,7 @@ impl<T: Scalar> NurbsSurface<T> {
 
   /// Insert a knot `u` into the u direction (each row is a curve).
   /// Algorithm A5.1 from *The NURBS Book* (Piegl & Tiller).
-  fn insert_knot_u(grid: &mut Vec<Vec<Vec4<T>>>, knots: &mut Vec<T>, degree: usize, u: T) {
+  fn insert_knot_u(grid: &mut [Vec<Vec4<T>>], knots: &mut Vec<T>, degree: usize, u: T) {
     let n = grid[0].len() - 1;
     let k = Self::find_knot_span(n, degree, u, knots);
 
@@ -404,8 +404,8 @@ impl<T: Scalar> NurbsSurface<T> {
       let mut new_cp = Vec::with_capacity(old_len + 1);
 
       // Unchanged: indices 0 .. k-degree+1
-      for i in 0..start {
-        new_cp.push(row[i]);
+      for &c in row.iter().take(start) {
+        new_cp.push(c);
       }
       // Modified: indices k-degree+1 .. k
       for i in start..=k {
@@ -445,8 +445,8 @@ impl<T: Scalar> NurbsSurface<T> {
     let mut new_grid = Vec::with_capacity(old_len + 1);
 
     // Unchanged: rows 0 .. k-degree+1
-    for i in 0..start {
-      new_grid.push(grid[i].clone());
+    for row in grid.iter().take(start) {
+      new_grid.push(row.clone());
     }
     // Modified: rows k-degree+1 .. k
     for i in start..=k {
@@ -554,9 +554,8 @@ mod tests {
     let u_seg = patches[0].len();
     let v_seg = patches.len();
 
-    for vs in 0..v_seg {
-      for us in 0..u_seg {
-        let patch = &patches[vs][us];
+    for (vs, row) in patches.iter().enumerate() {
+      for (us, patch) in row.iter().enumerate() {
         let u0 = u_min + (u_max - u_min) * (us as f32 / u_seg as f32);
         let u1 = u_min + (u_max - u_min) * ((us + 1) as f32 / u_seg as f32);
         let v0 = v_min + (v_max - v_min) * (vs as f32 / v_seg as f32);
@@ -581,10 +580,9 @@ mod tests {
 
     // Continuity check: adjacent patches should share boundary points.
     // u-seam: left patch (us, vs) u=1 edge ≡ right patch (us+1, vs) u=0 edge
-    for vs in 0..v_seg {
-      for us in 0..u_seg - 1 {
-        let left = &patches[vs][us];
-        let right = &patches[vs][us + 1];
+    for row in patches.iter() {
+      for (us, left) in row.iter().enumerate().take(u_seg - 1) {
+        let right = &row[us + 1];
         for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
           let lp = left.evaluate(1.0, t);
           let rp = right.evaluate(0.0, t);
@@ -596,9 +594,8 @@ mod tests {
       }
     }
     // v-seam: bottom patch (us, vs) v=1 edge ≡ top patch (us, vs+1) v=0 edge
-    for vs in 0..v_seg - 1 {
-      for us in 0..u_seg {
-        let bottom = &patches[vs][us];
+    for (vs, row) in patches.iter().enumerate().take(v_seg - 1) {
+      for (us, bottom) in row.iter().enumerate() {
         let top = &patches[vs + 1][us];
         for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
           let bp = bottom.evaluate(t, 1.0);

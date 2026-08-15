@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use fast_hash_collection::FastHashSet;
 
 use crate::Bvh;
 use crate::BvhNodeIndex;
@@ -68,11 +68,11 @@ impl Bvh {
       return;
     }
 
-    let mut loop_detection = HashSet::default();
+    let mut loop_detection = FastHashSet::default();
     let _ = self.assert_well_formed_recurse(0, &mut loop_detection);
   }
 
-  fn assert_well_formed_recurse(&self, node_id: u32, loop_detection: &mut HashSet<u32>) -> u32 {
+  fn assert_well_formed_recurse(&self, node_id: u32, loop_detection: &mut FastHashSet<u32>) -> u32 {
     let node = &self.nodes[node_id as usize];
 
     if !loop_detection.insert(node_id) {

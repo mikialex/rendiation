@@ -285,6 +285,19 @@ impl<T: Scalar> RationalBezierSurface<T> {
   }
 }
 
+// ParametricSurface impl
+
+impl ParametricSurface for RationalBezierSurface<f32> {
+  fn position(&self, position: Vec2<f32>) -> Vec3<f32> {
+    self.evaluate(position.x, position.y)
+  }
+
+  fn normal_dir(&self, position: Vec2<f32>) -> Vec3<f32> {
+    let (_, du, dv) = self.evaluate_partial(position.x, position.y);
+    du.cross(dv)
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -383,18 +396,5 @@ mod tests {
       assert!((u - u0).abs() < 0.01, "u mismatch at ({u0},{v0}): got {u}");
       assert!((v - v0).abs() < 0.01, "v mismatch at ({u0},{v0}): got {v}");
     }
-  }
-}
-
-// ParametricSurface impl
-
-impl ParametricSurface for RationalBezierSurface<f32> {
-  fn position(&self, position: Vec2<f32>) -> Vec3<f32> {
-    self.evaluate(position.x, position.y)
-  }
-
-  fn normal_dir(&self, position: Vec2<f32>) -> Vec3<f32> {
-    let (_, du, dv) = self.evaluate_partial(position.x, position.y);
-    du.cross(dv)
   }
 }

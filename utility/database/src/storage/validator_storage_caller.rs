@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use parking_lot::Mutex;
 
 use crate::*;
 
@@ -95,7 +95,7 @@ impl ComponentStorageReadViewBase for ValidatedWriteView {
 impl ComponentStorageReadWriteView for ValidatedWriteView {
   unsafe fn set_value_init(&mut self, idx: u32, init_value: Option<DataPtr>) -> DataPtr {
     unsafe {
-      let mut guard = self.slots.lock().unwrap();
+      let mut guard = self.slots.lock();
       guard.check_init(idx);
       let result = self.inner.set_value_init(idx, init_value);
       guard.mark_occupied(idx);
@@ -105,7 +105,7 @@ impl ComponentStorageReadWriteView for ValidatedWriteView {
 
   unsafe fn set_value(&mut self, idx: u32, new_value: DataPtr) -> (DataPtr, DataPtr, bool) {
     unsafe {
-      self.slots.lock().unwrap().check_write(idx);
+      self.slots.lock().check_write(idx);
       self.inner.set_value(idx, new_value)
     }
   }
@@ -116,7 +116,7 @@ impl ComponentStorageReadWriteView for ValidatedWriteView {
     new_value: DatabaseSerializedFieldBufferOrForeignKey,
   ) -> (DataPtr, DataPtr, bool) {
     unsafe {
-      self.slots.lock().unwrap().check_write(idx);
+      self.slots.lock().check_write(idx);
       self
         .inner
         .set_value_from_serialize_field_data(idx, new_value)
@@ -125,7 +125,7 @@ impl ComponentStorageReadWriteView for ValidatedWriteView {
 
   unsafe fn delete(&mut self, idx: u32) -> DataPtr {
     unsafe {
-      let mut guard = self.slots.lock().unwrap();
+      let mut guard = self.slots.lock();
       guard.check_delete(idx);
       let result = self.inner.delete(idx);
       guard.mark_vacant(idx);
@@ -136,7 +136,7 @@ impl ComponentStorageReadWriteView for ValidatedWriteView {
   unsafe fn resize(&mut self, max_address: u32) {
     unsafe {
       <dyn ComponentStorageReadWriteView>::resize(&mut *self.inner, max_address);
-      self.slots.lock().unwrap().handle_resize(max_address);
+      self.slots.lock().handle_resize(max_address);
     }
   }
 
@@ -183,7 +183,7 @@ impl ComponentStorage for ValidatedStorage {
   }
 
   fn memory_usage_in_bytes(&self) -> usize {
-    let tracker_mem = self.slots.lock().unwrap().memory_usage();
+    let tracker_mem = self.slots.lock().memory_usage();
     self.inner.memory_usage_in_bytes() + tracker_mem
   }
 }

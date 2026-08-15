@@ -95,8 +95,11 @@ pub(crate) fn init_default_acceleration_structure(
     20,21,22,  22,23,20,    // v4-v7-v6, v6-v5-v4 (back)
   ];
   let cube_position = CUBE_POSITION
-    .chunks_exact(3)
-    .map(|abc| vec3(abc[0], abc[1], abc[2]))
+    .as_chunks::<3>()
+    .0
+    .iter()
+    .copied()
+    .map(Vec3::from)
     .collect();
   let cube_index = CUBE_INDEX.map(|i| i as u32).into_iter().collect();
   #[allow(unused)]

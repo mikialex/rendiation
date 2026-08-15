@@ -77,7 +77,7 @@ pub fn use_fill_surface(
 
         let mut pass_base = pass("clip per plane boundary extract").with_depth(
           &temp_depth_stencil,
-          clear_and_store(if reverse_z { 0. } else { 0. }),
+          clear_and_store(if reverse_z { 0. } else { 1. }),
           clear_and_store(0),
         );
 

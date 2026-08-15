@@ -106,6 +106,10 @@ impl RawEntityHandle {
     self.0.into_raw_parts().1
   }
 
+  /// # Safety
+  ///
+  /// `handle` must be a semantically correct handle for the entity this
+  /// `RawEntityHandle` will be used to refer to.
   pub unsafe fn from_handle_impl(handle: Handle<()>) -> Self {
     Self(handle)
   }

@@ -135,6 +135,7 @@ where
         2 * map_old_idx(i / 2) + 1
       }
     }
+    #[allow(clippy::needless_range_loop)]
     for i in 1..new_pot {
       new_tree[i] = self.tree[map_old_idx(i)].take();
     }

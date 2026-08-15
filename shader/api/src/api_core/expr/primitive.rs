@@ -89,6 +89,7 @@ pub enum ScalarValueArray<T> {
 }
 
 impl<T> ScalarValueArray<T> {
+  #[allow(clippy::len_without_is_empty)]
   pub fn len(&self) -> usize {
     match self {
       ScalarValueArray::Bi(_) => 2,

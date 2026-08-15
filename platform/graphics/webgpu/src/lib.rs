@@ -129,11 +129,11 @@ pub enum GPUCreateFailure {
   #[error(
     "Failed to create device because the the adaptor can not meet the minimal feature requirement"
   )]
-  UnableToMeetFeatureMinimalRequirement(Features),
+  UnableToMeetFeatureMinimalRequirement(Box<Features>),
   #[error(
     "Failed to create device because the the adaptor can not meet the minimal limit requirement"
   )]
-  UnableToMeetLimitMinimalRequirement(Limits),
+  UnableToMeetLimitMinimalRequirement(Box<Limits>),
   #[error("Failed to create device, reasons unknown")]
   DeviceQueueCreateFailedUnknownReason(#[from] RequestDeviceError),
 }
@@ -202,12 +202,12 @@ impl GPU {
     {
       // todo, list unsatisfied limits
       return Err(GPUCreateFailure::UnableToMeetLimitMinimalRequirement(
-        supported_limits,
+        Box::new(supported_limits),
       ));
     }
     if !supported_features.contains(config.minimal_required_features) {
       return Err(GPUCreateFailure::UnableToMeetFeatureMinimalRequirement(
-        config.minimal_required_features - supported_features,
+        Box::new(config.minimal_required_features - supported_features),
       ));
     }
 

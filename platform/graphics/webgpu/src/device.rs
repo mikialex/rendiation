@@ -359,7 +359,7 @@ impl<T: Hasher> PipelineHasher<T> {
     #[cfg(feature = "pipeline-label")]
     {
       if !self.debug_label.is_empty() {
-        self.debug_label.push_str("+");
+        self.debug_label.push('+');
       }
       self.debug_label.push_str(&format!("{:?}", h));
     }
@@ -372,7 +372,7 @@ impl<T: Hasher> PipelineHasher<T> {
     #[cfg(feature = "pipeline-label")]
     {
       if !self.debug_label.is_empty() {
-        self.debug_label.push_str("-");
+        self.debug_label.push('-');
       }
       let name = disqualified::ShortName(std::any::type_name::<X>());
       self.debug_label.push_str(&format!("{:?}", name));

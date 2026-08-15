@@ -756,148 +756,6 @@ impl BvhNode {
     extents.x * extents.y * extents.z
   }
 
-  /// Tests if this node's AABB intersects another node's AABB.
-  ///
-  /// Two AABBs intersect if they overlap on all axes. This includes cases where
-  /// they only touch at their boundaries.
-  ///
-  /// # Arguments
-  ///
-  /// * `other` - The other node to test intersection with
-  ///
-  /// # Returns
-  ///
-  /// `true` if the AABBs intersect, `false` otherwise.
-  ///
-  /// # Example
-  ///
-  /// ```
-  /// use dynamic_bvh::BvhNode;
-  /// use rendiation_algebra::{IntoNormalizedVector, Vec3, Vector};
-  /// use rendiation_geometry::{Box3, ContainAble};
-  ///
-  /// let aabb1 = Box3::new(Vec3::zero(), Vec3::new(2.0, 2.0, 2.0));
-  /// let aabb2 = Box3::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(3.0, 3.0, 3.0));
-  /// let aabb3 = Box3::new(Vec3::new(5.0, 5.0, 5.0), Vec3::new(6.0, 6.0, 6.0));
-  ///
-  /// let node1 = BvhNode::leaf(aabb1, 0., 0);
-  /// let node2 = BvhNode::leaf(aabb2, 0., 1);
-  /// let node3 = BvhNode::leaf(aabb3, 0., 2);
-  ///
-  /// assert!(node1.intersects(&node2)); // Overlapping
-  /// assert!(!node1.intersects(&node3)); // Separated
-  /// ```
-  ///
-  /// # See Also
-  ///
-  /// - [`contains`](Self::contains) - Check full containment
-
-  /// Tests if this node's AABB intersects another node's AABB.
-  ///
-  /// Two AABBs intersect if they overlap on all axes. This includes cases where
-  /// they only touch at their boundaries.
-  ///
-  /// # Arguments
-  ///
-  /// * `other` - The other node to test intersection with
-  ///
-  /// # Returns
-  ///
-  /// `true` if the AABBs intersect, `false` otherwise.
-  ///
-  /// # Example
-  ///
-  /// ```
-  /// use dynamic_bvh::BvhNode;
-  /// use rendiation_algebra::{IntoNormalizedVector, Vec3, Vector};
-  /// use rendiation_geometry::{Box3, ContainAble};
-  ///
-  /// let aabb1 = Box3::new(Vec3::zero(), Vec3::new(2.0, 2.0, 2.0));
-  /// let aabb2 = Box3::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(3.0, 3.0, 3.0));
-  /// let aabb3 = Box3::new(Vec3::new(5.0, 5.0, 5.0), Vec3::new(6.0, 6.0, 6.0));
-  ///
-  /// let node1 = BvhNode::leaf(aabb1, 0., 0);
-  /// let node2 = BvhNode::leaf(aabb2, 0., 1);
-  /// let node3 = BvhNode::leaf(aabb3, 0., 2);
-  ///
-  /// assert!(node1.intersects(&node2)); // Overlapping
-  /// assert!(!node1.intersects(&node3)); // Separated
-  /// ```
-  ///
-  /// # See Also
-  ///
-  /// - [`contains`](Self::contains) - Check full containment
-
-  /// Tests if this node's AABB fully contains another node's AABB.
-  ///
-  /// One AABB contains another if the other AABB is completely inside or on the
-  /// boundary of this AABB on all axes.
-  ///
-  /// # Arguments
-  ///
-  /// * `other` - The other node to test containment of
-  ///
-  /// # Returns
-  ///
-  /// `true` if this AABB fully contains the other AABB, `false` otherwise.
-  ///
-  /// # Example
-  ///
-  /// ```
-  /// use dynamic_bvh::BvhNode;
-  /// use rendiation_algebra::{IntoNormalizedVector, Vec3, Vector};
-  /// use rendiation_geometry::{Box3, ContainAble};
-  ///
-  /// let large = Box3::new(Vec3::zero(), Vec3::new(10.0, 10.0, 10.0));
-  /// let small = Box3::new(Vec3::new(2.0, 2.0, 2.0), Vec3::new(5.0, 5.0, 5.0));
-  ///
-  /// let node_large = BvhNode::leaf(large, 0., 0);
-  /// let node_small = BvhNode::leaf(small, 0., 1);
-  ///
-  /// assert!(node_large.contains(&node_small)); // Large contains small
-  /// assert!(!node_small.contains(&node_large)); // Small doesn't contain large
-  /// ```
-  ///
-  /// # See Also
-  ///
-  /// - [`intersects`](Self::intersects) - Check any overlap
-  /// - [`contains_aabb`](Self::contains_aabb) - Contains an `Box3<f32>` directly
-
-  /// Tests if this node's AABB fully contains another node's AABB.
-  ///
-  /// One AABB contains another if the other AABB is completely inside or on the
-  /// boundary of this AABB on all axes.
-  ///
-  /// # Arguments
-  ///
-  /// * `other` - The other node to test containment of
-  ///
-  /// # Returns
-  ///
-  /// `true` if this AABB fully contains the other AABB, `false` otherwise.
-  ///
-  /// # Example
-  ///
-  /// ```
-  /// use dynamic_bvh::BvhNode;
-  /// use rendiation_algebra::{IntoNormalizedVector, Vec3, Vector};
-  /// use rendiation_geometry::{Box3, ContainAble};
-  ///
-  /// let large = Box3::new(Vec3::zero(), Vec3::new(10.0, 10.0, 10.0));
-  /// let small = Box3::new(Vec3::new(2.0, 2.0, 2.0), Vec3::new(5.0, 5.0, 5.0));
-  ///
-  /// let node_large = BvhNode::leaf(large, 0., 0);
-  /// let node_small = BvhNode::leaf(small, 0., 1);
-  ///
-  /// assert!(node_large.contains(&node_small)); // Large contains small
-  /// assert!(!node_small.contains(&node_large)); // Small doesn't contain large
-  /// ```
-  ///
-  /// # See Also
-  ///
-  /// - [`intersects`](Self::intersects) - Check any overlap
-  /// - [`contains_aabb`](Self::contains_aabb) - Contains an `Box3<f32>` directly
-
   /// Tests if this node's AABB fully contains the given AABB.
   ///
   /// This is similar to [`contains`](Self::contains) but takes an `Box3<f32>` directly
@@ -939,12 +797,79 @@ impl BvhNode {
   }
 
   /// Tests if this node's AABB intersects another node's AABB.
+  ///
+  /// Two AABBs intersect if they overlap on all axes. This includes cases where
+  /// they only touch at their boundaries.
+  ///
+  /// # Arguments
+  ///
+  /// * `other` - The other node to test intersection with
+  ///
+  /// # Returns
+  ///
+  /// `true` if the AABBs intersect, `false` otherwise.
+  ///
+  /// # Example
+  ///
+  /// ```
+  /// use dynamic_bvh::BvhNode;
+  /// use rendiation_algebra::{IntoNormalizedVector, Vec3, Vector};
+  /// use rendiation_geometry::{Box3, ContainAble};
+  ///
+  /// let aabb1 = Box3::new(Vec3::zero(), Vec3::new(2.0, 2.0, 2.0));
+  /// let aabb2 = Box3::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(3.0, 3.0, 3.0));
+  /// let aabb3 = Box3::new(Vec3::new(5.0, 5.0, 5.0), Vec3::new(6.0, 6.0, 6.0));
+  ///
+  /// let node1 = BvhNode::leaf(aabb1, 0., 0);
+  /// let node2 = BvhNode::leaf(aabb2, 0., 1);
+  /// let node3 = BvhNode::leaf(aabb3, 0., 2);
+  ///
+  /// assert!(node1.intersects(&node2)); // Overlapping
+  /// assert!(!node1.intersects(&node3)); // Separated
+  /// ```
+  ///
+  /// # See Also
+  ///
+  /// - [`contains`](Self::contains) - Check full containment
   #[inline]
   pub fn intersects(&self, other: &Self) -> bool {
     self.aabb().intersects(&other.aabb())
   }
 
   /// Tests if this node's AABB fully contains another node's AABB.
+  ///
+  /// One AABB contains another if the other AABB is completely inside or on the
+  /// boundary of this AABB on all axes.
+  ///
+  /// # Arguments
+  ///
+  /// * `other` - The other node to test containment of
+  ///
+  /// # Returns
+  ///
+  /// `true` if this AABB fully contains the other AABB, `false` otherwise.
+  ///
+  /// # Example
+  ///
+  /// ```
+  /// use dynamic_bvh::BvhNode;
+  /// use rendiation_algebra::{IntoNormalizedVector, Vec3, Vector};
+  /// use rendiation_geometry::{Box3, ContainAble};
+  ///
+  /// let large = Box3::new(Vec3::zero(), Vec3::new(10.0, 10.0, 10.0));
+  /// let small = Box3::new(Vec3::new(2.0, 2.0, 2.0), Vec3::new(5.0, 5.0, 5.0));
+  ///
+  /// let node_large = BvhNode::leaf(large, 0., 0);
+  /// let node_small = BvhNode::leaf(small, 0., 1);
+  ///
+  /// assert!(node_large.contains(&node_small)); // Large contains small
+  /// assert!(!node_small.contains(&node_large)); // Small doesn't contain large
+  /// ```
+  ///
+  /// # See Also
+  ///
+  /// - [`intersects`](Self::intersects) - Check any overlap
+  /// - [`contains_aabb`](Self::contains_aabb) - Contains an `Box3<f32>` directly
   #[inline]
   pub fn contains(&self, other: &Self) -> bool {
     self.aabb().contains(&other.aabb())

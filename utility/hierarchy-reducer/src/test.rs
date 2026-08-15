@@ -197,8 +197,8 @@ fn shrink_preserves_internals_correctly() {
   let mut sum = 0;
   for i in 0..9 {
     let key = format!("k{i}");
-    reducer.notify_insert_or_update(key, (i + 1) as i32);
-    sum += (i + 1) as i32;
+    reducer.notify_insert_or_update(key, i + 1);
+    sum += i + 1;
   }
   assert_eq!(reducer.update(|a, b| a + b), Some(sum)); // 45
 
@@ -256,7 +256,7 @@ fn large_insert_stress() {
   let n = 100;
 
   for i in 0..n {
-    reducer.notify_insert_or_update(i, i as i64);
+    reducer.notify_insert_or_update(i, i);
   }
 
   let expected_sum: i64 = (0..n).sum();

@@ -75,9 +75,8 @@ impl<T: Scalar> NurbsCurve3d<T> {
     let n = Self::basis_functions(span, t, self.degree, &self.knots);
 
     let mut sum = Vec4::splat(T::zero());
-    for i in 0..=self.degree {
+    for (i, &basis) in n.iter().enumerate() {
       let idx = span - self.degree + i;
-      let basis = n[i];
       let cp = self.control_points[idx];
       sum.x += basis * cp.x;
       sum.y += basis * cp.y;
@@ -286,8 +285,8 @@ impl<T: Scalar> NurbsCurve3d<T> {
     let mut new_cp = Vec::with_capacity(old_len + 1);
 
     // Unchanged: indices 0 .. start
-    for i in 0..start {
-      new_cp.push(cp[i]);
+    for &c in cp.iter().take(start) {
+      new_cp.push(c);
     }
     // Modified: indices start .. k
     for i in start..=k {

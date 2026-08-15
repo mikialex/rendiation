@@ -8,4 +8,5 @@ database = { path = "../database" }
 fast-hash-collection = { path = "../fast-hash-collection" }
 futures = { workspace = true }
 log = { workspace = true }
+parking_lot = { workspace = true }
 smallvec = { workspace = true }

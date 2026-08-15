@@ -85,10 +85,7 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
           let load_target_scene = cmd_str_to_handle(load_target_scene).unwrap();
           let load_target_scene = unsafe{EntityHandle::from_raw(load_target_scene)};
 
-          let file_path = parameters.get(2)
-          .and_then(|v| PathBuf::try_from(v).inspect_err(
-            |e| log::error!("the path parameter is invalid in command {}", e)
-          ).ok());
+          let file_path = parameters.get(2).map(PathBuf::from);
 
 
         async move {

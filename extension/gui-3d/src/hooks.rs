@@ -280,8 +280,10 @@ impl UIWidgetModelProxy {
   ) -> Self {
     let v = cx;
 
-    let mut states_override = RasterizationStates::default();
-    states_override.cull_mode = None;
+    let states_override = RasterizationStates {
+      cull_mode: None,
+      ..Default::default()
+    };
 
     let model =
       StandardModelDataView::new(SceneMaterialDataView::UnlitMaterial(*material), mesh.mesh)

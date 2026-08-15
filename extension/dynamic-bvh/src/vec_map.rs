@@ -734,8 +734,9 @@ fn assert_properties() {
 
 #[cfg(test)]
 mod test {
-  use std::collections::hash_map::DefaultHasher;
   use std::hash::{Hash, Hasher};
+
+  use fast_hash_collection::FastHasher;
 
   use super::Entry::{Occupied, Vacant};
   use super::VecMap;
@@ -1120,7 +1121,7 @@ mod test {
   #[test]
   fn test_hash() {
     fn hash<T: Hash>(t: &T) -> u64 {
-      let mut s = DefaultHasher::new();
+      let mut s = FastHasher::default();
       t.hash(&mut s);
       s.finish()
     }

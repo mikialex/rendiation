@@ -221,8 +221,10 @@ impl PointLightShadowExample {
     let mesh_entities = writer.write_solid_attribute_mesh(mesh);
 
     let std_model = if double_sided {
-      let mut states_override = RasterizationStates::default();
-      states_override.cull_mode = None;
+      let states_override = RasterizationStates {
+        cull_mode: None,
+        ..Default::default()
+      };
 
       StandardModelDataView::new(
         SceneMaterialDataView::PbrMRMaterial(material),

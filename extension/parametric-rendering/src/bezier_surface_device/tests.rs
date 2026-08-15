@@ -166,7 +166,7 @@ async fn run_gpu_test(surface: &RationalBezierSurface<f32>, sample_count: u32, e
   let pipeline =
     build_bezier_bernstein_pipeline(&gpu, &info, &cp, &output, sample_count, workgroup_size);
 
-  let dispatch_x = (total_samples as u32 + workgroup_size - 1) / workgroup_size;
+  let dispatch_x = (total_samples as u32).div_ceil(workgroup_size);
   let mut encoder = gpu.create_encoder().with_compute_pass_scoped(|mut pass| {
     BindingBuilder::default()
       .with_bind(&info)

@@ -25,8 +25,10 @@ impl UIWidgetModel {
     let material = v.unlit_mat_writer.new_entity(|w| w);
     let mesh = v.write_attribute_mesh(shape.build());
 
-    let mut states_override = RasterizationStates::default();
-    states_override.cull_mode = None;
+    let states_override = RasterizationStates {
+      cull_mode: None,
+      ..Default::default()
+    };
 
     let model =
       StandardModelDataView::new(SceneMaterialDataView::UnlitMaterial(material), mesh.mesh)
