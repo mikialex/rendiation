@@ -56,7 +56,7 @@ rendiation-csg-clip = { path = "../../effect/csg_clip" }
 rendiation-plane-array-clip = { path = "../../effect/plane_array_clip" }
 rendiation-occlusion-culling = { path = "../../scene/rendering/occlusion-culling" }
 rendiation-frustum-culling = { path = "../../scene/rendering/frustum-culling" }
-rendiation-oit = { path = "../../scene/rendering/oit" }
+rendiation-oit = { path = "../../effect/oit" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-shader-library = { path = "../../shader/library" }
 rendiation-fast-down-sampling-2d = { path = "../../shader/fast-down-sampling-2d" }
