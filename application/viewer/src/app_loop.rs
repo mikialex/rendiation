@@ -28,7 +28,7 @@ impl<'a> ApplicationCx<'a> {
     T: Any,
   {
     let this = self as *mut Self;
-    let state = unsafe { (*this).memory.expect_state_init(|| init(), drop_from_cx) };
+    let state = unsafe { (*this).memory.expect_state_init(init, drop_from_cx) };
     // SAFETY: this is derived from a valid &mut self; state points into bump-allocated heap
     // memory inside memory, not into the struct itself, so no aliased &mut is created.
     let this = unsafe { &mut *this };

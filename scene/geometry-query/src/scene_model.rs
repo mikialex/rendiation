@@ -166,7 +166,7 @@ impl SceneModelPickerBaseImplUtil {
     ignore_pre_check: bool,
   ) -> Option<EntityHandle<SceneNodeEntity>> {
     if ignore_pre_check {
-      return Some(self.scene_model_node.get(idx)?);
+      return self.scene_model_node.get(idx);
     }
 
     if !self.selectable.get(idx).copied().unwrap() {
@@ -299,10 +299,10 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       primitive_index: hit.primitive_index,
     };
 
-    if let Some(filter) = ctx.filter.as_ref() {
-      if !filter(&point, idx) {
-        return None;
-      }
+    if let Some(filter) = ctx.filter.as_ref()
+      && !filter(&point, idx)
+    {
+      return None;
     }
 
     point.into()
@@ -422,11 +422,9 @@ fn pre_check_bounding_early_return_and_compute_local_tolerance(
   let mut local_tolerance = if let Some(tolerance) = internal.bounding_enlarge_tolerance(idx)? {
     let target_world_center = sm_world_bounding.center();
 
-    let local_tolerance =
-      ctx
-        .camera_ctx
-        .compute_local_tolerance(tolerance, max_scale, target_world_center);
-    local_tolerance
+    ctx
+      .camera_ctx
+      .compute_local_tolerance(tolerance, max_scale, target_world_center)
   } else {
     0.
   };
@@ -448,7 +446,7 @@ fn pre_check_bounding_early_return_and_compute_local_tolerance(
     IntersectAble::<_, bool, _>::intersect(&ctx.world_ray, &sm_world_bounding, &());
 
   if sm_intersected {
-    return Some(local_tolerance);
+    Some(local_tolerance)
   } else {
     None
   }

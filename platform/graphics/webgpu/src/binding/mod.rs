@@ -181,10 +181,10 @@ impl BindingBuilder {
             {
               *filterable = false;
             }
-            if let ShaderValueType::Single(ShaderValueSingleType::Sampler(s_ty)) = &mut x.ty {
-              if let SamplerBindingType::NonFiltering | SamplerBindingType::Filtering = s_ty {
-                *s_ty = SamplerBindingType::NonFiltering;
-              }
+            if let ShaderValueType::Single(ShaderValueSingleType::Sampler(s_ty)) = &mut x.ty
+              && let SamplerBindingType::NonFiltering | SamplerBindingType::Filtering = s_ty
+            {
+              *s_ty = SamplerBindingType::NonFiltering;
             }
           }
           normalize(&mut a);
@@ -199,7 +199,7 @@ impl BindingBuilder {
       if !is_layout_match(&desc, &layout[target_idx]) {
         panic!(
           "binding mismatch: \n binding is: \n {:#?}, \n pipeline expect: \n {:#?}",
-          &desc, &layout[target_idx]
+          desc, layout[target_idx]
         );
       }
     }

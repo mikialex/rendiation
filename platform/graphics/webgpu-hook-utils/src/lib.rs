@@ -98,7 +98,7 @@ pub fn use_range_allocated_device_buffers<T: Std430 + ShaderSizedValueNodeType>(
       let buffer = buffer.ptr.clone();
 
       let byte_view = cast_slice(buffer.as_slice());
-      buffers_to_write.collect_direct(k, &byte_view);
+      buffers_to_write.collect_direct(k, byte_view);
       sizes.push((k, buffer.len() as u32));
     }
 

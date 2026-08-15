@@ -88,13 +88,13 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerPickerWi
   let scene_model_picker = use_viewer_scene_model_picker_impl(
     cx,
     cx.viewer.font_system.clone(),
-    cx.viewer.ndc().clone(),
+    *cx.viewer.ndc(),
     cx.viewer.viewport_map.clone(),
     cx.viewer.use_scene_bvh,
   );
 
   let camera_transforms = cx
-    .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.ndc().clone()))
+    .use_shared_dual_query_view(GlobalCameraTransformShare(*cx.viewer.ndc()))
     .use_assure_result(cx);
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {

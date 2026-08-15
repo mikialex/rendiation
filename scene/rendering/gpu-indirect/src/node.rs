@@ -23,14 +23,14 @@ pub trait IndirectNodeInfoSceneModelAccessInvocation {
   }
 }
 
-impl<'a> ShaderHashProvider for &'a dyn IndirectNodeInfoSceneModelAccess {
+impl ShaderHashProvider for &dyn IndirectNodeInfoSceneModelAccess {
   shader_hash_type_id!(&'static dyn IndirectNodeInfoSceneModelAccess);
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     (**self).hash_pipeline_with_type_info(hasher);
   }
 }
 
-impl<'a> IndirectNodeInfoSceneModelAccess for &'a dyn IndirectNodeInfoSceneModelAccess {
+impl IndirectNodeInfoSceneModelAccess for &dyn IndirectNodeInfoSceneModelAccess {
   fn build(
     &self,
     cx: &mut ShaderBindGroupBuilder,

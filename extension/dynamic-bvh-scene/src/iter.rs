@@ -107,7 +107,7 @@ impl SceneModelIterProvider for SceneDynamicBvhIterProvider {
             ) {
               IntersectResult::Outside => {}
               IntersectResult::Inside => {
-                collect_subtree_leaves(bvh, &right, &mut inside_leaves);
+                collect_subtree_leaves(bvh, right, &mut inside_leaves);
               }
               IntersectResult::Intersect => {
                 if right.is_leaf() {

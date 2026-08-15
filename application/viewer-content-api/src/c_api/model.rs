@@ -188,7 +188,7 @@ pub extern "C" fn wide_points_set_buffer(
   let data = data.to_vec();
   let data = ExternalRefPtr::new(data);
 
-  write_global_db_component::<WideStyledPointsMeshBuffer>().write(handle.into(), data.into());
+  write_global_db_component::<WideStyledPointsMeshBuffer>().write(handle.into(), data);
 }
 
 #[unsafe(no_mangle)]
@@ -270,7 +270,7 @@ pub extern "C" fn wide_line_set_buffer(
   let data = data.to_vec();
   let data = ExternalRefPtr::new(data);
 
-  write_global_db_component::<WideLineMeshBuffer>().write(handle.into(), data.into());
+  write_global_db_component::<WideLineMeshBuffer>().write(handle.into(), data);
   write_global_db_component::<WideLineIsLineStrip>().write(handle.into(), is_line_strip);
 }
 
@@ -398,7 +398,7 @@ fn text3d_content_from_c(
     italic: info.italic,
     width: info.has_width.then_some(info.width),
     height: info.has_height.then_some(info.height),
-    align: info.align.into(),
+    align: info.align,
     underline: info.underline,
   }))
 }

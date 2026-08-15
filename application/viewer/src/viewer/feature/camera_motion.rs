@@ -57,16 +57,16 @@ pub fn use_smooth_camera_motion(
       .camera_writer
       .write::<SceneCameraLookAt>(camera, Some(look_at));
 
-    if let Some(orth_scale) = orth_scale_to_apply.take() {
-      if let Some(mut orth) = writer.camera_writer.read::<SceneCameraOrthographic>(camera) {
-        if orth_scale > 0. {
-          orth.scale_from_center(Vec2::splat(orth_scale as f32));
-          writer
-            .camera_writer
-            .write::<SceneCameraOrthographic>(camera, Some(orth));
-        } else {
-          log::warn!("orth_scale_to_apply should not be negative, {}", orth_scale);
-        }
+    if let Some(orth_scale) = orth_scale_to_apply.take()
+      && let Some(mut orth) = writer.camera_writer.read::<SceneCameraOrthographic>(camera)
+    {
+      if orth_scale > 0. {
+        orth.scale_from_center(Vec2::splat(orth_scale as f32));
+        writer
+          .camera_writer
+          .write::<SceneCameraOrthographic>(camera, Some(orth));
+      } else {
+        log::warn!("orth_scale_to_apply should not be negative, {}", orth_scale);
       }
     }
   }
@@ -114,24 +114,23 @@ pub fn use_fit_camera_view(
 
   let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
 
-  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
-    if let Some(ElementState::Pressed) = cx
+  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage
+    && let Some(ElementState::Pressed) = cx
       .input
       .state_delta
       .key_state_changes
       .get(&winit::keyboard::KeyCode::KeyF)
-    {
-      let world_mat = world_mat.expect_resolve_stage().mark_entity_type();
-      let sm_world_bounding = sm_world_bounding.expect_resolve_stage().mark_entity_type();
-      if let Some(action) = fit_camera_view_for_viewer(
-        camera,
-        camera_node,
-        &cx.viewer.selection.selected_model,
-        world_mat,
-        sm_world_bounding,
-      ) {
-        cx.dyn_cx.message.put(action);
-      }
+  {
+    let world_mat = world_mat.expect_resolve_stage().mark_entity_type();
+    let sm_world_bounding = sm_world_bounding.expect_resolve_stage().mark_entity_type();
+    if let Some(action) = fit_camera_view_for_viewer(
+      camera,
+      camera_node,
+      &cx.viewer.selection.selected_model,
+      world_mat,
+      sm_world_bounding,
+    ) {
+      cx.dyn_cx.message.put(action);
     }
   }
 }

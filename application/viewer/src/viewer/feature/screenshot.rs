@@ -8,8 +8,8 @@ pub fn use_enable_screenshot(cx: &mut ViewerCx) {
   cx.use_state_init(|cx| {
     cx.terminal.register_command(CMD_SCREENSHOT, |ctx, parameters, _| {
 
-      let surface_id = parameters.iter().nth(1).and_then(|v|v.parse::<u32>().ok()).expect("missing surface id");
-      let viewport_id = parameters.iter().nth(2).and_then(|v|v.parse::<u64>().ok()).expect("missing viewport id");
+      let surface_id = parameters.get(1).and_then(|v|v.parse::<u32>().ok()).expect("missing surface id");
+      let viewport_id = parameters.get(2).and_then(|v|v.parse::<u64>().ok()).expect("missing viewport id");
 
         let surface_view = ctx
          . renderer

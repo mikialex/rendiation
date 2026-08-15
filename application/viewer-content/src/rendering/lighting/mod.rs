@@ -263,7 +263,7 @@ impl LightSystem {
     }
 
     egui::ComboBox::from_label("Shadow filter type")
-      .selected_text(format!("{:?}", &self.filter_ty))
+      .selected_text(format!("{:?}", self.filter_ty))
       .show_ui_changed(ui, |ui| {
         ui.selectable_value(&mut self.filter_ty, ViewerShadowFilterType::PCF, "PCF");
         ui.selectable_value(&mut self.filter_ty, ViewerShadowFilterType::VSM, "VSM");
@@ -289,7 +289,7 @@ impl LightSystem {
 
     if matches!(self.filter_ty, ViewerShadowFilterType::PCF) {
       egui::ComboBox::from_label("Shadow PCF mode")
-        .selected_text(format!("{:?}", &self.pcf_config.pcf_mode))
+        .selected_text(format!("{:?}", self.pcf_config.pcf_mode))
         .show_ui_changed(ui, |ui| {
           ui.selectable_value(
             &mut self.pcf_config.pcf_mode,
@@ -316,7 +316,7 @@ impl LightSystem {
 
       if matches!(self.pcf_config.pcf_mode, ShadowPCFMode::FixedSizePCF) {
         egui::ComboBox::from_label("Fixed filter size")
-          .selected_text(format!("{:?}", &self.pcf_config.fixed_filter_size))
+          .selected_text(format!("{:?}", self.pcf_config.fixed_filter_size))
           .show_ui_changed(ui, |ui| {
             ui.selectable_value(
               &mut self.pcf_config.fixed_filter_size,
@@ -373,7 +373,7 @@ impl LightSystem {
 
     let old = self.lighting_surface_ty_value;
     egui::ComboBox::from_label("Light surface ty")
-      .selected_text(format!("{:?}", &self.lighting_surface_ty_value))
+      .selected_text(format!("{:?}", self.lighting_surface_ty_value))
       .show_ui_changed(ui, |ui| {
         ui.selectable_value(
           &mut self.lighting_surface_ty_value,
@@ -399,7 +399,7 @@ impl LightSystem {
         self.tonemap.ty = ToneMapType::ACESFilmic;
       }
       egui::ComboBox::from_label("Tone mapping type")
-        .selected_text(format!("{:?}", &self.tonemap.ty))
+        .selected_text(format!("{:?}", self.tonemap.ty))
         .show_ui_changed(ui, |ui| {
           ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Linear, "Linear");
           ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Cineon, "Cineon");

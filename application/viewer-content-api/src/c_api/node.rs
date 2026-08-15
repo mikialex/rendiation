@@ -30,7 +30,6 @@ pub extern "C" fn node_attach_parent(node: ViewerEntityHandle, parent: *mut View
 
   if parent.is_null() {
     writer.write(node.into(), None);
-    return;
   } else {
     let parent = unsafe { *parent };
     writer.write(node.into(), Some(parent.into()));

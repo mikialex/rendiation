@@ -181,8 +181,8 @@ impl<T: Scalar> RationalBezierSurface<T> {
       let du = (h01 * g1 - h11 * g0) / det;
       let dv = (h01 * g0 - h00 * g1) / det;
 
-      u = u + du;
-      v = v + dv;
+      u += du;
+      v += dv;
 
       // Clamp to parameter domain
       if u < T::zero() {

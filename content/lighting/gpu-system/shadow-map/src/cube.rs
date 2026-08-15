@@ -162,7 +162,7 @@ pub fn prepare_cube_shadow_map_uniform(
           existing.write_at(&gpu.queue, info, 0);
           existing
         } else {
-          create_uniform(info.clone(), &gpu.device, "cube-shadow-map-uniform")
+          create_uniform(*info, &gpu.device, "cube-shadow-map-uniform")
         };
         (*scene_id, uniform)
       })
@@ -255,8 +255,8 @@ pub struct CubeShadowMapComponent {
 impl ShaderHashProvider for CubeShadowMapComponent {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    hasher.hash(&self.reversed_depth);
-    hasher.hash(&self.bias_behavior);
+    hasher.hash(self.reversed_depth);
+    hasher.hash(self.bias_behavior);
     self.shadow_computer.hash_pipeline(hasher);
   }
 }

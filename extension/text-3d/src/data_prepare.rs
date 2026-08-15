@@ -343,7 +343,7 @@ pub fn create_slug_buffer_from_text3d_content(
             .get_outline_commands(&mut system.system, *cache_key)
           {
             let mut curves = Vec::new();
-            if let Some(bounds) = extract_curves(&outline_cmds, &mut curves) {
+            if let Some(bounds) = extract_curves(outline_cmds, &mut curves) {
               let bands = build_bands(&curves, bounds, 8);
 
               let mut slug = SlugGlyph {
@@ -414,7 +414,7 @@ fn build_bands(curves: &[f32], bounds: Box2, band_count: u32) -> GlyphBands {
 
     if height > 0. {
       let b0 = (cy_min - y_min) / height * band_count as f32;
-      let b0 = (b0.floor() as u32).max(0);
+      let b0 = b0.floor() as u32;
 
       let b1 = (cy_max - y_min) / height * band_count as f32;
       let b1 = (b1.floor() as u32).min(band_count - 1);
@@ -425,7 +425,7 @@ fn build_bands(curves: &[f32], bounds: Box2, band_count: u32) -> GlyphBands {
 
     if width > 0. {
       let b0 = (cx_min - x_min) / width * band_count as f32;
-      let b0 = (b0.floor() as u32).max(0);
+      let b0 = b0.floor() as u32;
 
       let b1 = (cx_max - x_min) / width * band_count as f32;
       let b1 = (b1.floor() as u32).min(band_count - 1);

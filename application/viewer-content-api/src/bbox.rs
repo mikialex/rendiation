@@ -95,7 +95,7 @@ pub fn use_bounding_computer(cx: &mut ViewerAPICx) -> Option<SceneBoundingComput
 
   let view_maps = cx
     .use_shared_dual_query_view(SceneModelViewDependentTransformOccShare(
-      cx.viewer.ndc().clone(),
+      *cx.viewer.ndc(),
       cx.viewer.viewport_map.clone(),
     ))
     .use_assure_result(cx);
@@ -173,7 +173,7 @@ fn use_bvh(
 ) -> UseResult<SceneBVHResultView> {
   let (bounding, b) = bounding.fork();
   let margin = b.dual_query_map(|_| 0.);
-  let bounding = bounding.dual_query_map(|v| Some(v));
+  let bounding = bounding.dual_query_map(Some);
 
   rendiation_dynamic_bvh_scene::use_scene_dynamic_bvh(cx, bounding, margin)
 }

@@ -14,7 +14,7 @@ impl DeviceMultiRangeDispatchInfo {
     let sum_all_count = create_gpu_readonly_storage(&sum, gpu, "sum count of multi range");
 
     let sub_list_ranges = StorageBufferReadonlyDataView::create_by_with_extra_usage(
-      device.as_ref(),
+      device,
       StorageBufferInit::<[StorageSubListRangeInfo]>::from(init),
       BufferUsages::INDIRECT,
       "multi range info",
@@ -29,11 +29,11 @@ impl DeviceMultiRangeDispatchInfo {
     let sum: u32 = ranges.iter().map(|v| v.count).sum();
     gpu
       .queue
-      .write_buffer(&self.sub_list_ranges.buffer.gpu(), 0, cast_slice(ranges));
+      .write_buffer(self.sub_list_ranges.buffer.gpu(), 0, cast_slice(ranges));
 
     gpu
       .queue
-      .write_buffer(&self.sum_all_count.buffer.gpu(), 0, cast_slice(&[sum]));
+      .write_buffer(self.sum_all_count.buffer.gpu(), 0, cast_slice(&[sum]));
   }
 
   pub fn create_indirect_count_views(&self) -> Vec<GPUBufferResourceView> {
@@ -45,7 +45,7 @@ impl DeviceMultiRangeDispatchInfo {
     for i in 0..list_count {
       let view = buffer.resource.create_view(GPUBufferViewRange {
         offset: elem_stride * i as u64 + 4,
-        size: std::num::NonZeroU64::new(4).into(),
+        size: std::num::NonZeroU64::new(4),
       });
       views.push(view);
     }

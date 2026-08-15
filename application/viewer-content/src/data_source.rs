@@ -28,7 +28,7 @@ impl ViewerDataScheduler {
     let texture_uri_backend = {
       if let Some(disk_backend_path) = disk_backend_path {
         if disk_backend_path.is_dir() {
-          std::fs::remove_dir_all(&disk_backend_path).unwrap(); // clean up old, if last run not exit normally
+          std::fs::remove_dir_all(disk_backend_path).unwrap(); // clean up old, if last run not exit normally
         }
 
         let texture_uri_backend = URIDiskSyncSource::<Arc<GPUBufferImage>>::new(
@@ -184,10 +184,9 @@ fn load_uri_mesh(
   Box::new(Box::pin(async move {
     let indices = if let Some(indices) = indices {
       let indices = indices.await;
-      if let Some(indices) = indices {
+      {
+        let indices = indices?;
         Some(indices)
-      } else {
-        return None;
       }
     } else {
       None

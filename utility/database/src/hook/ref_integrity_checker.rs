@@ -27,11 +27,10 @@ pub fn use_database_reference_integrity_checker(cx: &mut impl DBHookCxLike) {
           if let Some(rc) = db_ref_counts.ref_counts.get(&c.entity_id){
             let rc = rc.read();
             for (entity_handle, change) in c.change.iter_key_value() {
-              if change.is_removed(){
-                if rc.contains_key(&entity_handle) {
+              if change.is_removed()
+                && rc.contains_key(&entity_handle) {
                   panic!("reference integrity checker failed: entity {entity_handle} is deleted but still referenced");
                 }
-              }
             }
           }  // none is possible if no foreign key refed this kind of entity
         }
@@ -45,13 +44,12 @@ pub fn use_database_reference_integrity_checker(cx: &mut impl DBHookCxLike) {
     for c in fk_changes.iter() {
       let ref_entity_set_reader = get_db_set_view_dyn(c.refed_entity_id);
       for (item_handle, ref_handle_change) in c.change.iter_key_value() {
-        if let Some(new_ref) = ref_handle_change.new_value() {
-          if !ref_entity_set_reader.contains(new_ref) {
+        if let Some(new_ref) = ref_handle_change.new_value()
+          && !ref_entity_set_reader.contains(new_ref) {
             panic!(
               "reference integrity checker failed: entity {item_handle} ref to a entity {new_ref} that not exist"
             );
           }
-        }
       }
     }
   });
@@ -97,9 +95,7 @@ fn use_db_all_entity_deletions(cx: &mut impl DBHookCxLike) -> UseResult<DBAllEnt
         changes_to_waits.push(change.map(move |change| EntityDeletionChange { entity_id, change }));
       }
     }
-    UseResult::SpawnStageFuture(pin_box_in_frame(
-      join_all(changes_to_waits).map(|v| Arc::new(v)),
-    ))
+    UseResult::SpawnStageFuture(pin_box_in_frame(join_all(changes_to_waits).map(Arc::new)))
   } else {
     UseResult::NotInStage
   }

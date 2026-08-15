@@ -20,7 +20,7 @@ pub fn use_directional_light_storage(
 
   let offset = offset_of!(DirectionalLightStorage, follow_camera);
   cx.use_changes::<DirectionalLightFollowCamera>()
-    .map_changes(|v| Bool::from(v))
+    .map_changes(Bool::from)
     .update_storage_array(cx, light, offset);
 
   use_global_node_world_mat(cx)

@@ -96,7 +96,7 @@ pub fn use_and_create_default_indirect_draw_provider(
   let output_ranges =
     cx.use_storage_buffer_array_with_host_data_queue_write_sync(&output_ranges_host, "ranges");
 
-  let results = match draw_command_builder {
+  match draw_command_builder {
     DrawCommandBuilder::Indexed(generator) => cx.scope(|cx| {
       let generator = IndexedDrawCommandGeneratorComponent {
         scene_models: list.clone().into_boxed(),
@@ -151,7 +151,7 @@ pub fn use_and_create_default_indirect_draw_provider(
 
       let origin = counts_views
         .into_iter()
-        .zip(cmd_views.into_iter())
+        .zip(cmd_views)
         .map(|(draw_count, cmd)| {
           let cmd = StorageBufferReadonlyDataView::try_from_raw(cmd).unwrap();
           MultiIndirectDrawBatch {
@@ -245,7 +245,7 @@ pub fn use_and_create_default_indirect_draw_provider(
 
       let origin = counts_views
         .into_iter()
-        .zip(cmd_views.into_iter())
+        .zip(cmd_views)
         .map(|(draw_count, cmd)| {
           let cmd = StorageBufferReadonlyDataView::try_from_raw(cmd).unwrap();
           MultiIndirectDrawBatch {
@@ -285,9 +285,7 @@ pub fn use_and_create_default_indirect_draw_provider(
           .collect()
       }
     }),
-  };
-
-  results
+  }
 }
 
 /// the pool size is the sum of all sub-lists capacity, but the the sub list if only
@@ -310,7 +308,7 @@ fn create_pool_views<T: Std430>(
     assert!(offset.is_multiple_of(align));
     let view = pool.gpu.resource.create_view(GPUBufferViewRange {
       offset,
-      size: std::num::NonZeroU64::new(offset_count.y() as u64 * item_size).into(),
+      size: std::num::NonZeroU64::new(offset_count.y() as u64 * item_size),
     });
     cmd_views.push(view);
   }

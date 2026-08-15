@@ -144,7 +144,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     .use_assure_result(cx);
 
   let camera_transforms = cx
-    .use_shared_dual_query_view(GlobalCameraTransformShare(ndc.clone()))
+    .use_shared_dual_query_view(GlobalCameraTransformShare(ndc))
     .use_assure_result(cx);
 
   let clip_filter = use_array_clip_pick_filter(cx);

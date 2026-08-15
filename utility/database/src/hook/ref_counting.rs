@@ -87,9 +87,7 @@ pub fn use_db_all_foreign_key_change(
         }));
       }
     }
-    UseResult::SpawnStageFuture(pin_box_in_frame(
-      join_all(changes_to_waits).map(|v| Arc::new(v)),
-    ))
+    UseResult::SpawnStageFuture(pin_box_in_frame(join_all(changes_to_waits).map(Arc::new)))
   } else {
     UseResult::NotInStage
   }

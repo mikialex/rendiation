@@ -1,3 +1,5 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
 use core::slice;
 use std::{ffi::c_void, num::NonZeroIsize, sync::Arc};
 

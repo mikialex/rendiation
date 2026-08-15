@@ -62,7 +62,7 @@ fn fit_quadratic_bezier_to_points<T: Scalar>(points: &[Vec2<T>]) -> (Vec2<T>, T)
     let one_minus_t = T::one() - t;
     let a = T::two() * one_minus_t * t;
     let c = p0 * (one_minus_t * one_minus_t) + p2 * (t * t);
-    numerator = numerator + (points[i] - c) * a;
+    numerator += (points[i] - c) * a;
     denominator += a * a;
   }
 

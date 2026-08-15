@@ -137,11 +137,11 @@ pub fn update_atlas<'a>(
   current_pack: impl Fn(u32) -> Option<PackResult2dWithDepth>,
 ) {
   let mut old_atlas = None;
-  if let Some(a) = atlas {
-    if a.resource.desc.size != size_request.into_gpu_size() {
-      old_atlas = a.clone().into();
-      *atlas = None;
-    }
+  if let Some(a) = atlas
+    && a.resource.desc.size != size_request.into_gpu_size()
+  {
+    old_atlas = a.clone().into();
+    *atlas = None;
   }
 
   let target = atlas.get_or_insert_with(|| {
@@ -178,46 +178,45 @@ pub fn update_atlas<'a>(
     // extract the movement case, we actually not know if it is move or write new, so
     // if the we have old new change and their size is same, we assume it's move
     // this is convective for many case but it works.
-    if let ValueChange::Delta(Some(new), Some(Some(previous))) = change {
-      if new.result.range.size == previous.result.range.size {
-        if let Some(old_atlas) = &old_atlas {
-          // copy from old atlas to new atlas
-          copy_tex(
-            encoder,
-            &old_atlas.resource,
-            &target.resource,
-            &previous,
-            &new,
-          );
-        } else {
-          // copy from same atlas
-          // in this case we must do an temp copy.
-          //
-          // todo, we could find the max temp size and reuse the temp texture
-          let temp_texture = GPUTexture::create(
-            TextureDescriptor {
-              label: "texture-copy-temp-buffer".into(),
-              size: previous.result.range.size.into_gpu_size(),
-              mip_level_count: MipLevelCount::BySize
-                .get_level_count_wgpu(previous.result.range.size),
-              sample_count: 1,
-              dimension: TextureDimension::D2,
-              format,
-              view_formats: &[],
-              usage: TextureUsages::COPY_DST | TextureUsages::COPY_SRC,
-            },
-            &gpu.device,
-          );
-          let temp_origin = create_zero_origin_pack_info(previous.result.range.size);
-          copy_tex(
-            encoder,
-            &target.resource,
-            &temp_texture,
-            &previous,
-            &temp_origin,
-          );
-          copy_tex(encoder, &temp_texture, &target.resource, &temp_origin, &new);
-        }
+    if let ValueChange::Delta(Some(new), Some(Some(previous))) = change
+      && new.result.range.size == previous.result.range.size
+    {
+      if let Some(old_atlas) = &old_atlas {
+        // copy from old atlas to new atlas
+        copy_tex(
+          encoder,
+          &old_atlas.resource,
+          &target.resource,
+          &previous,
+          &new,
+        );
+      } else {
+        // copy from same atlas
+        // in this case we must do an temp copy.
+        //
+        // todo, we could find the max temp size and reuse the temp texture
+        let temp_texture = GPUTexture::create(
+          TextureDescriptor {
+            label: "texture-copy-temp-buffer".into(),
+            size: previous.result.range.size.into_gpu_size(),
+            mip_level_count: MipLevelCount::BySize.get_level_count_wgpu(previous.result.range.size),
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format,
+            view_formats: &[],
+            usage: TextureUsages::COPY_DST | TextureUsages::COPY_SRC,
+          },
+          &gpu.device,
+        );
+        let temp_origin = create_zero_origin_pack_info(previous.result.range.size);
+        copy_tex(
+          encoder,
+          &target.resource,
+          &temp_texture,
+          &previous,
+          &temp_origin,
+        );
+        copy_tex(encoder, &temp_texture, &target.resource, &temp_origin, &new);
       }
     }
   }

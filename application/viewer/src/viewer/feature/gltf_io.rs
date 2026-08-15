@@ -34,21 +34,18 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
   } = &mut cx.stage
   {
     for e in &cx.input.accumulate_events {
-      if let Event::WindowEvent { event, .. } = e {
-        if let WindowEvent::DroppedFile(file) = event {
-          if let Some(ext) = file.extension() {
-            if let Some(ext) = ext.to_str() {
-              if ext == "gltf" || ext == "glb" {
-                cx.viewer.terminal.buffered_requests.push_back(format!(
-                  "{} {} {}",
-                  CMD_LOAD_GLTF,
-                  handle_to_cmd_str(cx.default_scene.scene.into_raw()),
-                  file.to_string_lossy(),
-                ));
-              }
-            }
-          }
-        }
+      if let Event::WindowEvent { event, .. } = e
+        && let WindowEvent::DroppedFile(file) = event
+        && let Some(ext) = file.extension()
+        && let Some(ext) = ext.to_str()
+        && (ext == "gltf" || ext == "glb")
+      {
+        cx.viewer.terminal.buffered_requests.push_back(format!(
+          "{} {} {}",
+          CMD_LOAD_GLTF,
+          handle_to_cmd_str(cx.default_scene.scene.into_raw()),
+          file.to_string_lossy(),
+        ));
       }
     }
 
@@ -89,9 +86,9 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
           let load_target_scene = unsafe{EntityHandle::from_raw(load_target_scene)};
 
           let file_path = parameters.get(2)
-          .map(|v| PathBuf::try_from(v).inspect_err(
+          .and_then(|v| PathBuf::try_from(v).inspect_err(
             |e| log::error!("the path parameter is invalid in command {}", e)
-          ).ok()).flatten();
+          ).ok());
 
 
         async move {
@@ -139,7 +136,7 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
                 if !load_result.used_but_not_supported_extensions.is_empty() {
                   println!(
                     "warning: gltf load finished but some used(but not required) extensions are not supported: {:#?}",
-                    &load_result.used_but_not_supported_extensions
+                    load_result.used_but_not_supported_extensions
                   );
                 }
 
@@ -186,14 +183,11 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
       .vscroll(true)
       .show(egui_ui, |ui| {
         if ui.button("export gltf").clicked() {
-          cx.viewer.terminal.buffered_requests.push_back(
-            format!(
-              "{} {}",
-              CMD_EXPORT_GLTF,
-              handle_to_cmd_str(cx.default_scene.scene.into_raw())
-            )
-            .into(),
-          );
+          cx.viewer.terminal.buffered_requests.push_back(format!(
+            "{} {}",
+            CMD_EXPORT_GLTF,
+            handle_to_cmd_str(cx.default_scene.scene.into_raw())
+          ));
         }
 
         if ui.button("load gltf").clicked() {

@@ -226,14 +226,13 @@ impl OccStyleOrderControlSceneBatchExtractor {
     let alloc = self.internal.pool.allocator.read();
 
     for (scene_id, key) in &base_update.groups_with_updates {
-      if let Some(scene_groups) = self.internal.contents.get_mut(scene_id) {
-        if let Some(buffer) = scene_groups.get_mut(key) {
-          if let Some(sort_writes) = sort_by_priority(buffer, &priority_view) {
-            let offset = alloc.get_region(&(*scene_id, key.clone())).unwrap().1;
-            for (pos, val) in &sort_writes {
-              sort_sparse_writes.collect_write(bytes_of(val), (offset + pos) as u64 * 4);
-            }
-          }
+      if let Some(scene_groups) = self.internal.contents.get_mut(scene_id)
+        && let Some(buffer) = scene_groups.get_mut(key)
+        && let Some(sort_writes) = sort_by_priority(buffer, &priority_view)
+      {
+        let offset = alloc.get_region(&(*scene_id, key.clone())).unwrap().1;
+        for (pos, val) in &sort_writes {
+          sort_sparse_writes.collect_write(bytes_of(val), (offset + pos) as u64 * 4);
         }
       }
     }

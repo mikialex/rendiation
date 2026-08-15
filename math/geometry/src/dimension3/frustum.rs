@@ -80,10 +80,8 @@ impl<T: Scalar> Frustum<T> {
               .planes
               .iter()
               .all(|plane| plane.distance_to(&p) >= -eps);
-            if valid {
-              if !vertices.iter().any(|v: &Vec3<T>| (*v - p).length2() < eps) {
-                vertices.push(p);
-              }
+            if valid && !vertices.iter().any(|v: &Vec3<T>| (*v - p).length2() < eps) {
+              vertices.push(p);
             }
           }
         }
@@ -107,7 +105,7 @@ impl<T: Scalar> Frustum<T> {
     let ref_point = {
       let mut sum = Vec3::new(T::zero(), T::zero(), T::zero());
       for v in &vertices {
-        sum = sum + *v;
+        sum += *v;
       }
       sum / T::by_usize_div(n_verts, 1)
     };
@@ -159,10 +157,10 @@ impl<T: Scalar> Frustum<T> {
         let triple = (a - ref_point).dot((b - ref_point).cross(c - ref_point));
         let vol_tet = triple.abs() / (T::two() * T::three());
 
-        total_volume = total_volume + vol_tet;
+        total_volume += vol_tet;
 
         let tet_centroid = (ref_point + a + b + c) * (T::half() * T::half());
-        centroid_accum = centroid_accum + tet_centroid * vol_tet;
+        centroid_accum += tet_centroid * vol_tet;
       }
     }
 

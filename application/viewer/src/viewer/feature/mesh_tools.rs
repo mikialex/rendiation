@@ -44,70 +44,68 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     let reader = &reader.unwrap();
-    if let Some(simp_req) = simp_req {
-      if let Some(target) = cx.viewer.selection.selected_model.if_single() {
-        if let Some(mesh) = get_mesh(reader, target) {
-          let mut dest_idx = vec![0; mesh.indices.len()];
+    if let Some(simp_req) = simp_req
+      && let Some(target) = cx.viewer.selection.selected_model.if_single()
+      && let Some(mesh) = get_mesh(reader, target)
+    {
+      let mut dest_idx = vec![0; mesh.indices.len()];
 
-          let SimplificationResult {
-            result_error,
-            result_count,
-          } = match simp_req.1 {
-            MeshToolSimplificationType::EdgeCollapse => {
-              let config = EdgeCollapseConfig {
-                target_index_count: mesh.indices.len() / 2,
-                target_error: f32::INFINITY,
-                lock_border: false,
-                use_absolute_error: true,
-              };
-
-              simplify_by_edge_collapse(&mut dest_idx, &mesh.indices, &mesh.vertices, None, config)
-            }
-            MeshToolSimplificationType::Sloppy => simplify_sloppy(
-              &mut dest_idx,
-              &mesh.indices,
-              &mesh.vertices,
-              None,
-              mesh.indices.len() as u32 / 2,
-              f32::INFINITY,
-              true,
-            ),
+      let SimplificationResult {
+        result_error,
+        result_count,
+      } = match simp_req.1 {
+        MeshToolSimplificationType::EdgeCollapse => {
+          let config = EdgeCollapseConfig {
+            target_index_count: mesh.indices.len() / 2,
+            target_error: f32::INFINITY,
+            lock_border: false,
+            use_absolute_error: true,
           };
 
-          println!("result_error: {result_error}, result_index_count: {result_count}");
-
-          dest_idx.resize(result_count, 0);
-
-          let mesh = CommonMeshBuffer {
-            vertices: mesh.vertices,
-            indices: dest_idx,
-          }
-          .deduplicate_indices_and_remove_unused_vertices();
-
-          if mesh.indices.is_empty() {
-            println!("mesh is simplified to nothing, this may be a bug");
-          } else {
-            simp_req.0 = Some(mesh);
-          }
+          simplify_by_edge_collapse(&mut dest_idx, &mesh.indices, &mesh.vertices, None, config)
         }
+        MeshToolSimplificationType::Sloppy => simplify_sloppy(
+          &mut dest_idx,
+          &mesh.indices,
+          &mesh.vertices,
+          None,
+          mesh.indices.len() as u32 / 2,
+          f32::INFINITY,
+          true,
+        ),
+      };
+
+      println!("result_error: {result_error}, result_index_count: {result_count}");
+
+      dest_idx.resize(result_count, 0);
+
+      let mesh = CommonMeshBuffer {
+        vertices: mesh.vertices,
+        indices: dest_idx,
+      }
+      .deduplicate_indices_and_remove_unused_vertices();
+
+      if mesh.indices.is_empty() {
+        println!("mesh is simplified to nothing, this may be a bug");
+      } else {
+        simp_req.0 = Some(mesh);
       }
     }
 
-    if let Some(req) = seg_req {
-      if let Some(target) = cx.viewer.selection.selected_model.if_single() {
-        if let Some(mesh) = get_mesh(reader, target) {
-          req.0 = Some(mesh_segmentation_debug(mesh));
-        }
-      }
+    if let Some(req) = seg_req
+      && let Some(target) = cx.viewer.selection.selected_model.if_single()
+      && let Some(mesh) = get_mesh(reader, target)
+    {
+      req.0 = Some(mesh_segmentation_debug(mesh));
     }
   }
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
     let scene = cx.default_scene.scene;
-    if let Some(SimplifySelectMeshRequest(Some(mesh), _)) = simp_req.take() {
-      if let Some(target) = cx.viewer.selection.selected_model.if_single() {
-        create_simplified_mesh(writer, scene, target, mesh);
-      }
+    if let Some(SimplifySelectMeshRequest(Some(mesh), _)) = simp_req.take()
+      && let Some(target) = cx.viewer.selection.selected_model.if_single()
+    {
+      create_simplified_mesh(writer, scene, target, mesh);
     }
 
     if let Some(MeshSegmentationDebugRequest(Some(meshes))) = seg_req.take() {

@@ -116,11 +116,11 @@ impl GPUTwoPassOcclusionCulling {
 
     let required_mip_level_count = MipLevelCount::BySize.get_level_count_wgpu(size);
 
-    if let Some(cache) = &self.depth_pyramid_cache {
-      if cache.size() != size.into_gpu_size() || cache.mip_level_count() != required_mip_level_count
-      {
-        self.depth_pyramid_cache = None;
-      }
+    if let Some(cache) = &self.depth_pyramid_cache
+      && (cache.size() != size.into_gpu_size()
+        || cache.mip_level_count() != required_mip_level_count)
+    {
+      self.depth_pyramid_cache = None;
     }
 
     let pyramid = self.depth_pyramid_cache.get_or_insert_with(|| {

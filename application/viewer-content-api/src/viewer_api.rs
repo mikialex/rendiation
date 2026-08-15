@@ -345,13 +345,13 @@ impl ViewerAPI {
         surface_id: surface_id as u64,
       });
 
-    setup_new_frame_allocator(1 * 1024 * 1024);
+    setup_new_frame_allocator(1024 * 1024);
     self.core.viewer_api_cx_scope(&mut self.picker_mem, |cx| {
       cx.viewer.update_view_ty_immediate();
       let picker_impl = use_viewer_scene_model_picker_impl(
         cx,
         cx.viewer.font_system.clone(),
-        cx.viewer.ndc().clone(),
+        *cx.viewer.ndc(),
         cx.viewer.viewport_map.clone(),
         cx.viewer.use_scene_bvh,
       );
@@ -372,7 +372,7 @@ impl ViewerAPI {
   }
 
   pub fn create_world_derive_query_api(&mut self) -> ViewerWorldDeriveQueryAPI {
-    setup_new_frame_allocator(1 * 1024 * 1024);
+    setup_new_frame_allocator(1024 * 1024);
     let font_sys = self.core.viewer.font_system.clone();
     let event_trace_sender = self.event_trace_sender.clone();
     self
@@ -406,7 +406,7 @@ impl ViewerAPI {
   }
 
   pub fn render_surface(&mut self, surface_id: u32) {
-    setup_new_frame_allocator(1 * 1024 * 1024);
+    setup_new_frame_allocator(1024 * 1024);
     self
       .event_trace_sender
       .emit(&RendiationCxAPITraceEvent::Render {
@@ -414,46 +414,45 @@ impl ViewerAPI {
       });
     let core = &mut self.core;
     core.viewer.update_view_ty_immediate();
-    if let Some(surface) = core.surfaces.get(&surface_id) {
-      if let Some((canvas, target)) =
+    if let Some(surface) = core.surfaces.get(&surface_id)
+      && let Some((canvas, target)) =
         surface.get_current_frame_with_render_target_view(&core.gpu_and_main_surface.gpu.device)
-      {
-        unsafe {
-          core
-            .dyn_cx
-            .register_cx::<ViewerDataScheduler>(&mut core.data_source);
-        };
+    {
+      unsafe {
+        core
+          .dyn_cx
+          .register_cx::<ViewerDataScheduler>(&mut core.data_source);
+      };
 
-        core.viewer.draw_canvas(
-          surface_id,
-          &target,
-          &core.task_spawner,
-          &mut core.data_source,
-          &mut core.dyn_cx,
-          None,
-          &mut TopMostStandaloneDraw {
-            scene: core
-              .viewer
-              .surfaces_content
-              .get(&surface_id)
-              .unwrap()
-              .viewports[0]
-              .scene,
-            reverse_z: core
-              .viewer
-              .rendering
-              .init_config()
-              .init_only
-              .enable_reverse_z,
-          },
-        );
+      core.viewer.draw_canvas(
+        surface_id,
+        &target,
+        &core.task_spawner,
+        &mut core.data_source,
+        &mut core.dyn_cx,
+        None,
+        &mut TopMostStandaloneDraw {
+          scene: core
+            .viewer
+            .surfaces_content
+            .get(&surface_id)
+            .unwrap()
+            .viewports[0]
+            .scene,
+          reverse_z: core
+            .viewer
+            .rendering
+            .init_config()
+            .init_only
+            .enable_reverse_z,
+        },
+      );
 
-        unsafe {
-          core.dyn_cx.unregister_cx::<ViewerDataScheduler>();
-        };
+      unsafe {
+        core.dyn_cx.unregister_cx::<ViewerDataScheduler>();
+      };
 
-        canvas.present();
-      }
+      canvas.present();
     }
   }
 }

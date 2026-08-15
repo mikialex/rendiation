@@ -206,7 +206,7 @@ impl Viewer3dViewportRenderingCtx {
 
     let before = self.transparent_config;
     egui::ComboBox::from_label("how to render transparent objects?")
-      .selected_text(format!("{:?}", &self.transparent_config,))
+      .selected_text(format!("{:?}", self.transparent_config,))
       .show_ui_changed(ui, |ui| {
         ui.selectable_value(
           &mut self.transparent_config,
@@ -251,7 +251,7 @@ impl Viewer3dViewportRenderingCtx {
       }
 
       egui::ComboBox::from_label("ray tracing mode")
-        .selected_text(format!("{:?}", &self.rtx_effect_mode))
+        .selected_text(format!("{:?}", self.rtx_effect_mode))
         .show_ui_changed(ui, |ui| {
           ui.selectable_value(
             &mut self.rtx_effect_mode,
@@ -344,10 +344,10 @@ impl Viewer3dViewportRenderingCtx {
       self.cached_frame = None;
     }
 
-    if let Some(cached_frame) = &self.cached_frame {
-      if cached_frame.size() != target.size() {
-        self.cached_frame = None;
-      }
+    if let Some(cached_frame) = &self.cached_frame
+      && cached_frame.size() != target.size()
+    {
+      self.cached_frame = None;
     }
 
     if let Some(cached_frame) = &self.cached_frame {

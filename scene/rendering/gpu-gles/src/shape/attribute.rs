@@ -73,7 +73,8 @@ impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
     let mesh_id = self.mesh_access.get(idx)?;
 
     let index = if self.index_ref.get(mesh_id).is_some() {
-      if let Some(index_buffer) = self.index.access_ref(&mesh_id.into_raw()) {
+      {
+        let index_buffer = self.index.access_ref(&mesh_id.into_raw())?;
         let count = self.count.get_value(mesh_id).unwrap() as u64;
         let stride = u64::from(index_buffer.view_byte_size()) / count;
         let fmt = match stride {
@@ -82,8 +83,6 @@ impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
           _ => unreachable!("invalid index format, computed stride size {}", stride),
         };
         (fmt, count as u32, index_buffer).into()
-      } else {
-        return None;
       }
     } else {
       None

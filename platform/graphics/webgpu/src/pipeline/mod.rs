@@ -94,10 +94,8 @@ pub fn map_shader_value_ty_to_binding_layout_type(
       } => {
         let mut sample_type = sample_type;
         // disable the filterable for multisampled texture
-        if multi_sampled {
-          if let TextureSampleType::Float { filterable } = &mut sample_type {
-            *filterable = false;
-          }
+        if multi_sampled && let TextureSampleType::Float { filterable } = &mut sample_type {
+          *filterable = false;
         }
         gpu::BindingType::Texture {
           multisampled: multi_sampled,
@@ -197,7 +195,7 @@ impl GPUDevice {
     let naga_module = result.module;
     if result.log_result {
       // not using log::info here, as sometime we don't set logger(for example in unit test)
-      println!("");
+      println!();
       println!("=== rendiation_shader_api build result ===");
 
       let shader_str = convert_module_by_wgsl(&naga_module, naga::valid::ValidationFlags::all());
@@ -247,11 +245,12 @@ impl GPUDevice {
     let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
 
     // avoid wgpu validation error in this case.
-    if let Some(depth_stencil) = &mut depth_stencil {
-      if !primitive_state.topology.is_triangles() && depth_stencil.bias != Default::default() {
-        depth_stencil.bias = Default::default();
-        log::warn!("depth bias is ignored for non-triangle topology");
-      }
+    if let Some(depth_stencil) = &mut depth_stencil
+      && !primitive_state.topology.is_triangles()
+      && depth_stencil.bias != Default::default()
+    {
+      depth_stencil.bias = Default::default();
+      log::warn!("depth bias is ignored for non-triangle topology");
     }
 
     let pipeline = self.create_render_pipeline(&gpu::RenderPipelineDescriptor {

@@ -18,13 +18,12 @@ pub fn use_viewer_culling(
       let maps = per_camera_per_viewport(viewports, true)
         .map(|cv| {
           let cache = cx.keyed_scope(&cv.camera, |cx| {
-            let oc = cx.use_sharable_plain_state(|| {
+            cx.use_sharable_plain_state(|| {
               GPUTwoPassOcclusionCulling::new(
                 config.occlusion_culling_max_scene_model_count as usize,
                 cx.gpu,
               )
-            });
-            oc
+            })
           });
           (cv.camera, cache)
         })
@@ -115,15 +114,15 @@ impl ViewerCulling {
     }
     match batch {
       SceneModelRenderBatch::Device(batch) => {
-        if let Some(batch) = batch {
-          if should_execute {
-            cx.access_parallel_compute(|cx| {
-              cx.scope(|cx| {
-                let culler = self.create_frustum_culler(camera_gpu, camera);
-                *batch = batch.use_culled_list_and_do_culling(cx, Box::new(culler));
-              })
+        if let Some(batch) = batch
+          && should_execute
+        {
+          cx.access_parallel_compute(|cx| {
+            cx.scope(|cx| {
+              let culler = self.create_frustum_culler(camera_gpu, camera);
+              *batch = batch.use_culled_list_and_do_culling(cx, Box::new(culler));
             })
-          }
+          })
         }
       }
       SceneModelRenderBatch::Host(host_render_batch) => {

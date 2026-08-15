@@ -55,7 +55,7 @@ pub fn prepare_basic_shadow_map_uniform(
             .access(light_id)
             .unwrap()
             .map(convert_pack_result)
-            .unwrap_or(Default::default());
+            .unwrap_or_default();
 
           source_world_map.insert(*light_id, shadow_info.light_world);
           source_proj_map.insert(*light_id, shadow_info.proj);
@@ -99,7 +99,7 @@ pub fn prepare_basic_shadow_map_uniform(
           existing.write_at(&gpu.queue, info, 0);
           existing
         } else {
-          create_uniform(info.clone(), &gpu.device, "basic-shadow-map-uniform")
+          create_uniform(*info, &gpu.device, "basic-shadow-map-uniform")
         };
         (*scene_id, uniform)
       })
@@ -227,8 +227,8 @@ pub struct BasicShadowMapComponent {
 impl ShaderHashProvider for BasicShadowMapComponent {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    hasher.hash(&self.reversed_depth);
-    hasher.hash(&self.bias_behavior);
+    hasher.hash(self.reversed_depth);
+    hasher.hash(self.bias_behavior);
     self.shadow_computer.hash_pipeline(hasher);
   }
 }

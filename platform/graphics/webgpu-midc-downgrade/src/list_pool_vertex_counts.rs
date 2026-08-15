@@ -64,16 +64,13 @@ impl DeviceInvocation<Node<u32>> for ListPoolVertexCountInvocation {
     let global_id = id.x();
     let (list_idx, in_bound) = self.ranges.compute_list_index(global_id);
 
-    let result = in_bound.not().select_branched(
-      || zeroed_val(),
-      || {
-        let range = self.ranges.read_range_info(list_idx);
-        let offset = range.offset;
-        let base = range.count_prefix_sum;
-        let pool_index = global_id - base + offset;
-        self.command_pool.vertex_count(pool_index)
-      },
-    );
+    let result = in_bound.not().select_branched(zeroed_val, || {
+      let range = self.ranges.read_range_info(list_idx);
+      let offset = range.offset;
+      let base = range.count_prefix_sum;
+      let pool_index = global_id - base + offset;
+      self.command_pool.vertex_count(pool_index)
+    });
 
     (result, in_bound)
   }

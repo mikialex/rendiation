@@ -62,8 +62,7 @@ impl SceneDynamicBvh {
     self.internal.get(&scene).map(|v| &v.bvh)
   }
   fn get_or_create_bvh(&mut self, scene: RawEntityHandle) -> &mut SceneDynamicBvhImpl {
-    let bvh = self.internal.entry(scene).or_default();
-    bvh
+    (self.internal.entry(scene).or_default()) as _
   }
 
   fn check_optimize(&mut self) {
@@ -184,12 +183,12 @@ fn update_dynamic_bvh(
     if let Some(old) = scene_id_change.old_value() {
       bvh.get_or_create_bvh(*old).remove(k);
     }
-    if let Some(new) = scene_id_change.new_value() {
-      if let Some(aabb) = world_bounding_view(k) {
-        let margin = margin_view(k);
-        if !aabb.is_empty() {
-          bvh.get_or_create_bvh(*new).insert(k, aabb, margin);
-        }
+    if let Some(new) = scene_id_change.new_value()
+      && let Some(aabb) = world_bounding_view(k)
+    {
+      let margin = margin_view(k);
+      if !aabb.is_empty() {
+        bvh.get_or_create_bvh(*new).insert(k, aabb, margin);
       }
     }
   }

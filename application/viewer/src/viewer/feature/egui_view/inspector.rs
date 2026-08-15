@@ -91,7 +91,7 @@ impl InspectedContent {
       .vscroll(true)
       .show(egui_ui, |ui| {
         egui::ComboBox::from_label("filter")
-          .selected_text(format!("{:?}", &self.show_config))
+          .selected_text(format!("{:?}", self.show_config))
           .show_ui(ui, |ui| {
             ui.selectable_value(&mut self.show_config, ShowConfig::All, "All");
             ui.selectable_value(
@@ -221,7 +221,7 @@ impl Inspector for InspectedContent {
       .content
       .push(InspectionItem::HostMemoryUsage {
         label: label.to_string(),
-        usage: bytes as u64,
+        usage: bytes,
       });
     self.current_content().device_memory_used += bytes;
   }

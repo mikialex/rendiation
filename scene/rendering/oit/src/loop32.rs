@@ -26,10 +26,10 @@ impl OitLoop32Renderer {
   }
 
   pub fn get_renderer_instance(&mut self, size: Size, gpu: &GPU) -> &mut OitLoop32RendererInstance {
-    if let Some(cache) = &mut self.cache {
-      if cache.size != size || cache.layer_count != self.layer_count {
-        self.cache = None;
-      }
+    if let Some(cache) = &mut self.cache
+      && (cache.size != size || cache.layer_count != self.layer_count)
+    {
+      self.cache = None;
     }
 
     self.cache.get_or_insert_with(|| OitLoop32RendererInstance {

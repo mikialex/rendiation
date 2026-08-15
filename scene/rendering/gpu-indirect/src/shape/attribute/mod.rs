@@ -456,10 +456,10 @@ fn use_attribute_vertex_updates(
         }
 
         for (k, v) in ref_change_iter {
-          if let Some(range) = alloc_side.access_new_change(k) {
-            if let ValueChange::Delta((Some(new_mesh), se), _) = v {
-              writes.insert((new_mesh, se), range);
-            }
+          if let Some(range) = alloc_side.access_new_change(k)
+            && let ValueChange::Delta((Some(new_mesh), se), _) = v
+          {
+            writes.insert((new_mesh, se), range);
           }
         }
 
@@ -633,15 +633,12 @@ impl IndirectModelShapeRenderImpl for AttributeMeshIndirectRenderer {
   ) -> Option<Option<IndicesBufferInfo>> {
     let mesh_id = self.std_to_mesh.get(any_idx)?;
     let indices_ty = self.indices_ty.access(mesh_id.raw_handle_ref());
-    if let Some(indices_ty) = indices_ty {
-      Some(IndicesBufferInfo {
+    indices_ty
+      .map(|indices_ty| IndicesBufferInfo {
         buffer: self.indices.clone(),
         should_access_as_u16: matches!(indices_ty, IndexFormat::Uint16),
       })
-    } else {
-      None
-    }
-    .into()
+      .into()
   }
 
   fn hash_shader_group_key(

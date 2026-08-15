@@ -30,7 +30,7 @@ impl TextPicker {
   fn mesh_view(&self, idx: EntityHandle<SceneModelEntity>) -> Option<TextPickView> {
     let text = self.relation.get(idx)?;
     let buffer = self.text.access(text.raw_handle_ref())?;
-    let mat = self.mat.get(text)?.clone();
+    let mat = *self.mat.get(text)?;
 
     Some(TextPickView { buffer, mat })
   }
@@ -105,7 +105,7 @@ impl AbstractMesh for TextPickView {
 
   fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive> {
     let bbox = self.buffer.hit_boxes.get(primitive_index / 2)?;
-    let tri = if primitive_index % 2 == 0 {
+    let tri = if primitive_index.is_multiple_of(2) {
       let a = Vec3::new(bbox.min.x, bbox.min.y, 0.);
       let b = Vec3::new(bbox.max.x, bbox.max.y, 0.);
       let c = Vec3::new(bbox.min.x, bbox.max.y, 0.);

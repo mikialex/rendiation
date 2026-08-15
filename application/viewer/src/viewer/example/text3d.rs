@@ -48,7 +48,7 @@ pub fn use_text3d_example(cx: &mut ViewerCx) {
               .push(example.next_text_to_add.clone());
           }
           if ui.button("clear all").clicked() {
-            example.pending_deletions.extend(example.instance.drain(..));
+            example.pending_deletions.append(&mut example.instance);
           }
         });
 
@@ -228,7 +228,7 @@ pub fn text3d_content_edit_ui(ui: &mut egui::Ui, c: &mut Text3dContentInfo) {
   c.color = Vec4::new(rgba[0], rgba[1], rgba[2], rgba[3]);
 
   egui::ComboBox::from_label("alignment")
-    .selected_text(format!("{:?}", &c.align))
+    .selected_text(format!("{:?}", c.align))
     .show_ui(ui, |ui| {
       ui.selectable_value(&mut c.align, TextAlignment::Left, "left");
       ui.selectable_value(&mut c.align, TextAlignment::Center, "Center");

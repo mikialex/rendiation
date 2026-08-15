@@ -18,10 +18,10 @@ fn get_simple_attr(attributes: &[Attribute], attr_name: &str) -> Option<Ident> {
         })
         .ok();
 
-      if let Some(inner) = inner {
-        if *outer_ident == attr_name {
-          return Some(inner);
-        }
+      if let Some(inner) = inner
+        && *outer_ident == attr_name
+      {
+        return Some(inner);
       }
     }
   }

@@ -57,7 +57,7 @@ where
 
       let loader_creator = loader_creator.clone();
 
-      let re = changes.map_spawn_stage_in_thread(
+      changes.map_spawn_stage_in_thread(
         cx,
         |changes| changes.changes.has_change(),
         move |changes| {
@@ -121,9 +121,7 @@ where
 
           (reconciler, changes.iter_living_full)
         },
-      );
-
-      re
+      )
     },
     share_key,
     debug_label,

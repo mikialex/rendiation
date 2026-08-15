@@ -51,22 +51,22 @@ impl BasicScheduler {
   }
 
   pub fn poll_feedback(&mut self, cx: &mut Context) {
-    if let Some(fut) = &mut self.feedback_query {
-      if let Poll::Ready(r) = Pin::new(fut).poll(cx) {
-        // todo, ordered weights update is costly, one thing we can do is to split the feedback write into multiple
-        // frames to avoid blocking in one frame
-        let mut has_nan = false;
-        for (id, new_weight) in r.results {
-          if new_weight.is_nan() {
-            has_nan = true;
-          }
-          let new_weight = OrderedFloat(new_weight);
-          self.weights.update_or_insert(id, new_weight);
+    if let Some(fut) = &mut self.feedback_query
+      && let Poll::Ready(r) = Pin::new(fut).poll(cx)
+    {
+      // todo, ordered weights update is costly, one thing we can do is to split the feedback write into multiple
+      // frames to avoid blocking in one frame
+      let mut has_nan = false;
+      for (id, new_weight) in r.results {
+        if new_weight.is_nan() {
+          has_nan = true;
         }
-        self.feedback_query = None;
-        if has_nan {
-          log::warn!("schedule feedback has nan");
-        }
+        let new_weight = OrderedFloat(new_weight);
+        self.weights.update_or_insert(id, new_weight);
+      }
+      self.feedback_query = None;
+      if has_nan {
+        log::warn!("schedule feedback has nan");
       }
     }
   }

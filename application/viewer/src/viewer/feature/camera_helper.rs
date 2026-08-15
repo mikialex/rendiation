@@ -22,7 +22,7 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
   if *enabled {
     cx.scope(|cx| {
       let camera_transforms =
-        cx.use_shared_dual_query(GlobalCameraTransformShare(cx.viewer.ndc().clone()));
+        cx.use_shared_dual_query(GlobalCameraTransformShare(*cx.viewer.ndc()));
 
       // due to multi view support, we disabled the filter for now
       // let main_camera = cx.viewer.scene.main_camera.into_raw();
@@ -72,21 +72,22 @@ pub fn use_immediate_helper_model(
         *offsets = Some(c.1);
       }
 
-      if pick && cx.input.state_delta.is_left_mouse_pressing() {
-        if let Some(model) = &helper_mesh.internal {
-          access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
-          if let Some(ptr_cx) = &picker.pointer_ctx {
-            let model = model.model();
-            if let Some(pick_result) = picker.pick_model_nearest(model, ptr_cx.0.world_ray) {
-              let offsets = offsets.as_ref().unwrap();
-              let idx = match offsets.binary_search_by(|v| v.1.cmp(&pick_result.primitive_index)) {
-                Ok(idx) => idx,
-                Err(idx) => idx - 1,
-              };
-              return Some(Some(offsets[idx].0));
-            } else {
-              return Some(None);
-            }
+      if pick
+        && cx.input.state_delta.is_left_mouse_pressing()
+        && let Some(model) = &helper_mesh.internal
+      {
+        access_cx!(cx.dyn_cx, picker, ViewerPickerWithCtx);
+        if let Some(ptr_cx) = &picker.pointer_ctx {
+          let model = model.model();
+          if let Some(pick_result) = picker.pick_model_nearest(model, ptr_cx.0.world_ray) {
+            let offsets = offsets.as_ref().unwrap();
+            let idx = match offsets.binary_search_by(|v| v.1.cmp(&pick_result.primitive_index)) {
+              Ok(idx) => idx,
+              Err(idx) => idx - 1,
+            };
+            return Some(Some(offsets[idx].0));
+          } else {
+            return Some(None);
           }
         }
       }

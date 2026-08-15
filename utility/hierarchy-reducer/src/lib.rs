@@ -129,7 +129,7 @@ where
     fn map_old_idx(i: usize) -> usize {
       if i == 1 {
         2
-      } else if i % 2 == 0 {
+      } else if i.is_multiple_of(2) {
         2 * map_old_idx(i / 2)
       } else {
         2 * map_old_idx(i / 2) + 1

@@ -74,7 +74,7 @@ impl LocalModelPicker for WidePointsPicker {
     idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Option<IntersectTolerance>> {
     let point = self.relation.get(idx)?;
-    let size = self.max_size.access(&point.raw_handle_ref())?;
+    let size = self.max_size.access(point.raw_handle_ref())?;
     Some(Some(IntersectTolerance::new(
       size,
       ToleranceType::ScreenSpace,
@@ -218,7 +218,7 @@ impl AbstractMesh for WidePointTriMeshView<'_> {
     let left_up = Vec3::new(min.x, max.y, z);
     let right_bottom = Vec3::new(max.x, min.y, z);
 
-    let tri = if primitive_index % 2 == 0 {
+    let tri = if primitive_index.is_multiple_of(2) {
       Triangle::new(left_up, right_bottom, max)
     } else {
       Triangle::new(left_up, min, right_bottom)

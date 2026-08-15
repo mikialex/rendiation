@@ -87,8 +87,7 @@ impl TraceIO for RendiationCxAPITraceEvent {
   }
 
   fn write(&self, w: &mut impl Write) -> std::io::Result<usize> {
-    let buf =
-      rmp_serde::to_vec(self).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let buf = rmp_serde::to_vec(self).map_err(std::io::Error::other)?;
     let len = buf.len();
     w.write_all(&buf)?;
     Ok(len)

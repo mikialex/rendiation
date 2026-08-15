@@ -68,11 +68,11 @@ pub enum ViewerAPICxStage<'a> {
 
 unsafe impl<'a> HooksCxLike for ViewerAPICx<'a> {
   fn memory_mut(&mut self) -> &mut FunctionMemory {
-    &mut self.memory
+    self.memory
   }
 
   fn memory_ref(&self) -> &FunctionMemory {
-    &self.memory
+    self.memory
   }
 
   fn flush(&mut self) {

@@ -108,7 +108,7 @@ pub fn compute_text_layout_info(
 
   if let Some(font_id) = font_sys.query_font_id(&text_3d) {
     if let Some(font) = font_sys.system.get_font(font_id, cosmic_text::Weight(400)) {
-      let font = ttf_parser::Face::parse(&font.data(), 0).expect("failed to parse font");
+      let font = ttf_parser::Face::parse(font.data(), 0).expect("failed to parse font");
 
       let glyph_id = font.glyph_index('A').expect("failed to get glyph id");
 
@@ -155,7 +155,7 @@ impl FontSystem {
   }
 
   pub(crate) fn get_computed_slug_glyph(&self, key: &GlyphKey) -> Option<&SlugGlyph> {
-    self.slug_glyph_cache.get(key).map(|v| v.as_ref()).flatten()
+    self.slug_glyph_cache.get(key).and_then(|v| v.as_ref())
   }
 
   pub fn query_font_id(&self, info: &Text3dContentInfo) -> Option<cosmic_text::fontdb::ID> {
@@ -169,10 +169,16 @@ impl FontSystem {
     let weight = cosmic_text::Weight(info.weight.unwrap_or(400) as u16);
 
     self.system.db().query(&cosmic_text::fontdb::Query {
-      families: &[cosmic_text::Family::Name(&font)],
+      families: &[cosmic_text::Family::Name(font)],
       weight,
       stretch: cosmic_text::Stretch::Normal,
       style,
     })
+  }
+}
+
+impl Default for FontSystem {
+  fn default() -> Self {
+    Self::new()
   }
 }

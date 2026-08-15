@@ -166,7 +166,7 @@ fn pack_glyph_data(
       // Texel 0: (p0x, p0y, p1x, p1y)
       let i0 = curve_texel_idx;
       let x0 = i0 % TEX_WIDTH;
-      let y0 = (i0 / TEX_WIDTH) | 0;
+      let y0 = i0 / TEX_WIDTH;
       let off0 = (y0 * TEX_WIDTH + x0) * 4;
       curve_tex_data[off0] = *p0x;
       curve_tex_data[off0 + 1] = *p0y;
@@ -176,7 +176,7 @@ fn pack_glyph_data(
       // Texel 1: (p2x, p2y, 0, 0)
       let i1 = curve_texel_idx + 1;
       let x1 = i1 % TEX_WIDTH;
-      let y1 = (i1 / TEX_WIDTH) | 0;
+      let y1 = i1 / TEX_WIDTH;
       let off1 = (y1 * TEX_WIDTH + x1) * 4;
       curve_tex_data[off1] = *p2x;
       curve_tex_data[off1 + 1] = *p2y;
@@ -222,11 +222,11 @@ fn pack_glyph_data(
     // Ensure headers don't straddle a row boundary
     let cur_x = band_texel_idx % TEX_WIDTH;
     if cur_x + header_count as usize > TEX_WIDTH {
-      band_texel_idx = (((band_texel_idx / TEX_WIDTH) | 0) + 1) * TEX_WIDTH;
+      band_texel_idx = ((band_texel_idx / TEX_WIDTH) + 1) * TEX_WIDTH;
     }
 
     let glyph_loc_x = band_texel_idx % TEX_WIDTH;
-    let glyph_loc_y = (band_texel_idx / TEX_WIDTH) | 0;
+    let glyph_loc_y = band_texel_idx / TEX_WIDTH;
 
     glyph_data_map.insert(
       g.glyph_key,
@@ -258,7 +258,7 @@ fn pack_glyph_data(
     for (i, band) in all_bands.iter().enumerate() {
       let tl = glyph_start + i;
       let tx = tl % TEX_WIDTH;
-      let ty = (tl / TEX_WIDTH) | 0;
+      let ty = tl / TEX_WIDTH;
       let di = (ty * TEX_WIDTH + tx) * 4;
       band_tex_data[di] = band.len() as u32;
       band_tex_data[di + 1] = band_offsets[i];
@@ -270,11 +270,11 @@ fn pack_glyph_data(
       for (j, &ci) in band.iter().enumerate() {
         let curve_texel = glyph_curve_start + ci as usize * 2;
         let c_tex_x = curve_texel % TEX_WIDTH;
-        let c_tex_y = (curve_texel / TEX_WIDTH) | 0;
+        let c_tex_y = curve_texel / TEX_WIDTH;
 
         let tl = list_start + j;
         let tx = tl % TEX_WIDTH;
-        let ty = (tl / TEX_WIDTH) | 0;
+        let ty = tl / TEX_WIDTH;
         let di = (ty * TEX_WIDTH + tx) * 4;
         band_tex_data[di] = c_tex_x as u32;
         band_tex_data[di + 1] = c_tex_y as u32;

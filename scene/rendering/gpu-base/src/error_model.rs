@@ -17,12 +17,12 @@ impl SceneModelErrorRecorder {
     handle: EntityHandle<SceneModelEntity>,
     re: &Result<R, E>,
   ) {
-    if let Err(e) = re {
-      if self.errored.write().insert(handle) {
-        log::error!(
-          "unable to render scene model {handle}: {e:?}, no more errors will report for this model"
-        );
-      }
+    if let Err(e) = re
+      && self.errored.write().insert(handle)
+    {
+      log::error!(
+        "unable to render scene model {handle}: {e:?}, no more errors will report for this model"
+      );
     }
   }
 }

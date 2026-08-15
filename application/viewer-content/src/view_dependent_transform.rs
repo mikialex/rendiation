@@ -11,7 +11,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelViewDependentTrans
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let view_source = use_compute_incremental_source_by_diffing(cx, &self.1);
-    let camera_transforms = cx.use_shared_dual_query(GlobalCameraTransformShare(self.0.clone()));
+    let camera_transforms = cx.use_shared_dual_query(GlobalCameraTransformShare(self.0));
 
     use_occ_style_view_dependent_transform_data(cx, view_source, camera_transforms)
   }

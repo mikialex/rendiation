@@ -15,7 +15,7 @@ pub struct SSAO {
 }
 
 fn radical_inverse_vdc(bits: u32) -> f32 {
-  let bits = (bits << 16) | (bits >> 16);
+  let bits = bits.rotate_right(16);
   let bits = ((bits & 0x55555555) << 1) | ((bits & 0xAAAAAAAA) >> 1);
   let bits = ((bits & 0x33333333) << 2) | ((bits & 0xCCCCCCCC) >> 2);
   let bits = ((bits & 0x0F0F0F0F) << 4) | ((bits & 0xF0F0F0F0) >> 4);

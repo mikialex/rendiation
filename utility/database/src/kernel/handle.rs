@@ -64,7 +64,7 @@ impl<T: EntitySemantic> std::fmt::Debug for EntityHandle<T> {
     write!(
       f,
       "({}, {})",
-      &disqualified::ShortName(T::unique_name()),
+      disqualified::ShortName(T::unique_name()),
       self.handle
     )
   }

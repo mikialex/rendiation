@@ -275,7 +275,7 @@ impl LocalModelPicker for AttributeMeshPicker {
 
     // todo extra_screen_space_tolerance
     let r = frustum_test_abstract_mesh(&mesh, request.policy, |p| {
-      frustum_test_primitive(&p, request.helper, &request.local_frustum, request.policy)
+      frustum_test_primitive(&p, request.helper, request.local_frustum, request.policy)
     });
 
     Some(r)
@@ -289,7 +289,7 @@ impl LocalModelPicker for AttributeMeshPicker {
 
     // todo extra_screen_space_tolerance
     for (i, p) in mesh.primitive_iter().enumerate() {
-      if frustum_test_primitive(&p, request.helper, &request.local_frustum, request.policy) {
+      if frustum_test_primitive(&p, request.helper, request.local_frustum, request.policy) {
         request.results.push(i as u32);
       }
     }
@@ -321,12 +321,12 @@ fn frustum_test_primitive(
       AttributeDynPrimitive::LineSegment(line) => {
         frustum_intersect_line_segment(helper, f, line.start, line.end)
       }
-      AttributeDynPrimitive::Triangle(triangle) => frustum_test_tri(helper, f, &triangle, policy),
+      AttributeDynPrimitive::Triangle(triangle) => frustum_test_tri(helper, f, triangle, policy),
     },
     ObjectTestPolicy::Contains => match p {
       AttributeDynPrimitive::Points(point) => f.contains(&point.0),
       AttributeDynPrimitive::LineSegment(line) => f.contains(&line.start) && f.contains(&line.end),
-      AttributeDynPrimitive::Triangle(triangle) => frustum_test_tri(helper, f, &triangle, policy),
+      AttributeDynPrimitive::Triangle(triangle) => frustum_test_tri(helper, f, triangle, policy),
     },
   }
 }

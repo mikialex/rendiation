@@ -347,13 +347,13 @@ fn build_model(
         }
       }
 
-      if let AttributeSemantic::Weights(_) = &semantic {
-        if att.item_byte_size != 16 {
-          panic!(
-            "current implementation only supports vec4<f32>, item_byte_size: {}",
-            att.item_byte_size
-          )
-        }
+      if let AttributeSemantic::Weights(_) = &semantic
+        && att.item_byte_size != 16
+      {
+        panic!(
+          "current implementation only supports vec4<f32>, item_byte_size: {}",
+          att.item_byte_size
+        )
       }
 
       (semantic, att)

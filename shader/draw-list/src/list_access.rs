@@ -49,17 +49,14 @@ impl DeviceInvocation<Node<Vec2<u32>>> for DeviceDrawListInvocation {
     let global_id = logic_global_id.x();
     let (list_index, in_bound) = self.ranges.compute_list_index(global_id);
 
-    let r = in_bound.not().select_branched(
-      || zeroed_val(),
-      || {
-        let range = self.ranges.read_range_info(list_index);
-        let offset = range.offset;
-        let base = range.count_prefix_sum;
-        let id = self.id_pool.index(global_id - base + offset).load();
+    let r = in_bound.not().select_branched(zeroed_val, || {
+      let range = self.ranges.read_range_info(list_index);
+      let offset = range.offset;
+      let base = range.count_prefix_sum;
+      let id = self.id_pool.index(global_id - base + offset).load();
 
-        vec2_node((id, list_index))
-      },
-    );
+      vec2_node((id, list_index))
+    });
 
     (r, in_bound)
   }

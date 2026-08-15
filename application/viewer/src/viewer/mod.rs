@@ -199,11 +199,11 @@ impl<'a> ViewerCx<'a> {
         || {
           init(&mut ViewerInitCx {
             dyn_cx: self.dyn_cx,
-            content: &self.active_surface_content,
+            content: self.active_surface_content,
             terminal: &mut self.viewer.terminal,
             shared_ctx: &mut self.viewer.shared_ctx,
             surface_id: self.surface_id,
-            app_features: &mut self.app_features,
+            app_features: self.app_features,
           })
         },
         |state: &mut T, dcx: &mut ViewerDropCx| {

@@ -149,6 +149,12 @@ impl ReplayTypeRegistry {
   }
 }
 
+impl Default for ReplayTypeRegistry {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 /// The result of loading a trace file via [`ReplayTypeRegistry::load`].
 pub struct LoadedReplay {
   /// The ready-to-replay state.

@@ -51,7 +51,7 @@ pub fn process_attribute_mesh_lod(
           .into_par_iter()
           .map(|(id, new_mesh)| {
             if let Some(new_mesh_) = new_mesh.if_loaded_ref() {
-              let processed = process_lod_attribute_mesh(&new_mesh_, &lod_config);
+              let processed = process_lod_attribute_mesh(new_mesh_, &lod_config);
               (
                 (id, UriLoadResult::LivingOrLoaded(processed.content)),
                 Some((id, processed.lod_levels)),
@@ -181,7 +181,7 @@ fn process_lod_attribute_mesh(
     return only_origin_level(input_mesh);
   }
 
-  let bbox: Box3 = positions.iter().map(|p| *p).collect();
+  let bbox: Box3 = positions.iter().copied().collect();
   let box_size = bbox.size();
   let extent = box_size.x.max(box_size.y).max(box_size.z);
   // the simplify rescales the mesh into unit cube, zero extent will break the scale

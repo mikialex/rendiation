@@ -11,10 +11,10 @@ pub struct PCFShadowMapGPUData {
 impl AbstractShadowMapGPUData for PCFShadowMapGPUData {
   fn check_rebuild(&mut self, required_size: SizeWithDepth, gpu: &GPU) {
     let mut need_rebuild = self.atlas.is_none();
-    if let Some(atlas) = &mut self.atlas {
-      if atlas.size() != required_size.into_gpu_size() {
-        need_rebuild = true;
-      }
+    if let Some(atlas) = &mut self.atlas
+      && atlas.size() != required_size.into_gpu_size()
+    {
+      need_rebuild = true;
     }
 
     if need_rebuild {
@@ -28,7 +28,7 @@ impl AbstractShadowMapGPUData for PCFShadowMapGPUData {
 
   fn clear_shadow_map(&self, frame_ctx: &mut FrameCtx) {
     clear_shadow_map(
-      &self.atlas.as_ref().expect("missing check_rebuild"),
+      self.atlas.as_ref().expect("missing check_rebuild"),
       frame_ctx,
       self.reversed_depth,
     );

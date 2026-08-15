@@ -54,10 +54,10 @@ impl Viewer3dRenderingCtx {
     init_config.light_surface_ty = self.lighting.lighting_surface_ty_value;
     init_config.use_array_clip = self.use_array_clip;
 
-    if let Some(first_surface) = self.surface_views.values().next() {
-      if let Some(first_view) = first_surface.values().next() {
-        first_view.setup_init_config(init_config);
-      }
+    if let Some(first_surface) = self.surface_views.values().next()
+      && let Some(first_view) = first_surface.values().next()
+    {
+      first_view.setup_init_config(init_config);
     }
   }
 

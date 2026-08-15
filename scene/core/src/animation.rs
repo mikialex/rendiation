@@ -117,9 +117,8 @@ impl AnimationChannelDataView {
         .write::<SceneAnimationChannelBelongToAnimation>(&self.animation.some_handle());
 
       let w = input.write::<SceneAnimationChannelInput>(w);
-      let w = output.write::<SceneAnimationChannelOutput>(w);
 
-      w
+      output.write::<SceneAnimationChannelOutput>(w)
     });
 
     AnimationChannelEntities {

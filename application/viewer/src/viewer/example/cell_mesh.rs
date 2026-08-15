@@ -51,9 +51,7 @@ pub fn use_cell_mesh_example(cx: &mut ViewerCx) {
             example.pending_additions.push(());
           }
           if ui.button("clear all").clicked() {
-            example
-              .pending_deletions
-              .extend(example.instances.drain(..));
+            example.pending_deletions.append(&mut example.instances);
           }
         });
 

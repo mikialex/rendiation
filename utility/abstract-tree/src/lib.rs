@@ -163,10 +163,8 @@ pub trait AbstractParentAddressableTreeNode: Sized {
   /// return if we should visit parent
   fn traverse_parent(&self, mut visitor: impl FnMut(&Self) -> bool) {
     let should_visit_parent = visitor(self);
-    if should_visit_parent {
-      if let Some(parent) = self.get_parent() {
-        parent.traverse_parent(visitor)
-      }
+    if should_visit_parent && let Some(parent) = self.get_parent() {
+      parent.traverse_parent(visitor)
     }
   }
 
@@ -193,10 +191,8 @@ pub trait AbstractParentAddressableMutTreeNode: Sized {
   /// return if we should visit parent
   fn traverse_parent_mut(&mut self, mut visitor: impl FnMut(&mut Self) -> bool) {
     let should_visit_parent = visitor(self);
-    if should_visit_parent {
-      if let Some(mut parent) = self.get_parent_mut() {
-        parent.traverse_parent_mut(visitor)
-      }
+    if should_visit_parent && let Some(mut parent) = self.get_parent_mut() {
+      parent.traverse_parent_mut(visitor)
     }
   }
 

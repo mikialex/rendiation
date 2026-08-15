@@ -96,42 +96,40 @@ pub fn use_egui_tile_for_viewer_viewports(cx: &mut ViewerCx) {
     let camera_nodes = get_db_view_typed_foreign::<SceneCameraNode>();
 
     for tile_id in tree.active_tiles() {
-      if let Some(tile) = tree.tiles.get_mut(tile_id) {
-        if let egui_tiles::Tile::Pane(pane) = tile {
-          if let Some(viewport) = surface_content
-            .viewports
-            .iter_mut()
-            .find(|viewport| viewport.id == pane.viewport_id)
-          {
-            let r = pane.rect;
-            let ratio = cx.input.window_state.device_pixel_ratio;
-            let width = r.width() * ratio;
-            let height = r.height() * ratio;
-            viewport.viewport = (r.min.x * ratio, r.min.y * ratio, width, height).into();
-            let camera = unsafe { EntityHandle::from_raw(pane.camera_handle) };
-            viewport.scene = unsafe { EntityHandle::from_raw(pane.scene_handle) };
-            viewport.camera = camera;
-            viewport.camera_node = camera_nodes.access(&camera).unwrap();
-            viewport.debug_camera_for_view_related = pane
-              .debug_view_camera_handle
-              .map(|h| unsafe { EntityHandle::from_raw(h) });
+      if let Some(tile) = tree.tiles.get_mut(tile_id)
+        && let egui_tiles::Tile::Pane(pane) = tile
+        && let Some(viewport) = surface_content
+          .viewports
+          .iter_mut()
+          .find(|viewport| viewport.id == pane.viewport_id)
+      {
+        let r = pane.rect;
+        let ratio = cx.input.window_state.device_pixel_ratio;
+        let width = r.width() * ratio;
+        let height = r.height() * ratio;
+        viewport.viewport = (r.min.x * ratio, r.min.y * ratio, width, height).into();
+        let camera = unsafe { EntityHandle::from_raw(pane.camera_handle) };
+        viewport.scene = unsafe { EntityHandle::from_raw(pane.scene_handle) };
+        viewport.camera = camera;
+        viewport.camera_node = camera_nodes.access(&camera).unwrap();
+        viewport.debug_camera_for_view_related = pane
+          .debug_view_camera_handle
+          .map(|h| unsafe { EntityHandle::from_raw(h) });
 
-            if pane.request_switch_proj {
-              pane.request_switch_proj = false;
-              cx.dyn_cx.message.put(RequestSwitchCameraProjType(camera));
-            }
-
-            if pane.request_screenshot {
-              pane.request_screenshot = false;
-
-              cx.viewer
-                .terminal
-                .buffered_requests
-                .push_back(format!("{} {}", CMD_SCREENSHOT, viewport.id));
-            }
-          } // or else tile get removed(viewport get removed)
+        if pane.request_switch_proj {
+          pane.request_switch_proj = false;
+          cx.dyn_cx.message.put(RequestSwitchCameraProjType(camera));
         }
-      } // or else new get removed
+
+        if pane.request_screenshot {
+          pane.request_screenshot = false;
+
+          cx.viewer
+            .terminal
+            .buffered_requests
+            .push_back(format!("{} {}", CMD_SCREENSHOT, viewport.id));
+        }
+      } // or else tile get removed(viewport get removed) // or else new get removed
     }
   }
 }

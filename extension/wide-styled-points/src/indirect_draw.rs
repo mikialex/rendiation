@@ -329,7 +329,7 @@ impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
       .construct();
 
       let color_alpha_tex = indirect_sample(
-        &self.binding_sys,
+        self.binding_sys,
         builder.registry(),
         tex_id,
         uv,

@@ -132,10 +132,10 @@ impl UI3dCx<'_> {
     updater: impl FnOnce(&mut SceneWriter, &mut DynCx, &Option<EntityHandle<SceneNodeEntity>>),
   ) {
     let is_creating = self.is_creating();
-    if let Some(w) = &mut self.writer {
-      if is_creating {
-        updater(w, self.dyn_cx, &self.current_parent)
-      }
+    if let Some(w) = &mut self.writer
+      && is_creating
+    {
+      updater(w, self.dyn_cx, &self.current_parent)
     }
   }
   pub fn on_event<R>(
@@ -143,10 +143,10 @@ impl UI3dCx<'_> {
     updater: impl FnOnce(&UIEventStageCx, &SceneReader, &mut DynCx) -> R,
   ) -> Option<R> {
     let mut re = None;
-    if let Some(r) = self.reader {
-      if let Some(e) = &self.event {
-        re = updater(e, r, self.dyn_cx).into();
-      }
+    if let Some(r) = self.reader
+      && let Some(e) = &self.event
+    {
+      re = updater(e, r, self.dyn_cx).into();
     }
     re
   }
@@ -358,10 +358,10 @@ pub fn use_interactive_ui_widget_model(
       let is_releasing = window_state.state_delta.is_left_mouse_releasing();
 
       let mut current_frame_hitting = None;
-      if let Some(interaction_cx) = event.interaction_cx {
-        if let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest {
-          current_frame_hitting = (model == target.model).then_some(hit);
-        }
+      if let Some(interaction_cx) = event.interaction_cx
+        && let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest
+      {
+        current_frame_hitting = (model == target.model).then_some(hit);
       }
 
       if let Some(hitting) = current_frame_hitting {

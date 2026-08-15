@@ -170,7 +170,7 @@ impl PerViewGPUResource {
     if let Some(updates) = self.overrides_updates.take() {
       updates.write_abstract(gpu, encoder, &self.overrides.get_gpu_buffer());
     }
-    if self.mapping_change.len() > 0 {
+    if !self.mapping_change.is_empty() {
       let mut updates = SparseBufferWritesSource::with_capacity(0, 0); // todo, capacity
       for (k, v) in self.mapping_change.drain() {
         let sm_index_byte_offset = k as u64 * std::mem::size_of::<u32>() as u64;
@@ -178,7 +178,7 @@ impl PerViewGPUResource {
       }
       updates.write_abstract(gpu, encoder, self.index_remap.gpu());
     }
-    self.mapping.len() > 0
+    !self.mapping.is_empty()
   }
 }
 

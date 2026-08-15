@@ -70,13 +70,13 @@ where
     for (a_key, delta) in upstream_changes_iter {
       match delta {
         ValueChange::Remove(_p) => rev_many_view.access_multi_visitor(&a_key, &mut |b_key| {
-          if let Some(prev_a) = one_acc_previous.access(&b_key) {
-            if let Some(prev_x) = getter_previous.access(&prev_a) {
-              if let Some(ValueChange::Delta(_, _)) = output.get(&b_key) {
-                output.remove(&b_key);
-              } else {
-                output.insert(b_key.clone(), ValueChange::Remove(prev_x));
-              }
+          if let Some(prev_a) = one_acc_previous.access(&b_key)
+            && let Some(prev_x) = getter_previous.access(&prev_a)
+          {
+            if let Some(ValueChange::Delta(_, _)) = output.get(&b_key) {
+              output.remove(&b_key);
+            } else {
+              output.insert(b_key.clone(), ValueChange::Remove(prev_x));
             }
           }
         }),

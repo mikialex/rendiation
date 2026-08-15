@@ -157,7 +157,7 @@ impl CombinedBufferAllocatorInternal {
         &self.gpu.device,
         heap_ty,
         self.readonly,
-        self.label.as_str().into(),
+        self.label.as_str(),
       )
     };
 

@@ -36,11 +36,11 @@ impl GPUWaveFrontComputeRaytracingExecutorInternal {
   ) {
     let current_hash = source.compute_hash(size);
     // todo, optimization size only change by skip shader recompile.
-    if let Some((hash, _)) = &mut self.executor {
-      if current_hash != *hash {
-        self.executor = None;
-        self.resource = None;
-      }
+    if let Some((hash, _)) = &mut self.executor
+      && current_hash != *hash
+    {
+      self.executor = None;
+      self.resource = None;
     }
 
     let (task_graph, trace_resource) =
@@ -101,16 +101,15 @@ fn create_task_graph<'a>(
   let trace_resource = trace_resource.get_or_insert_with(|| {
     let info = source.compute_trace_meta_info();
 
-    let target_sbt_buffer =
-      StorageBufferReadonlyDataView::create(device, "target_sbt_buffer".into(), &0);
+    let target_sbt_buffer = StorageBufferReadonlyDataView::create(device, "target_sbt_buffer", &0);
     let sbt_task_mapping_buffer = StorageBufferReadonlyDataView::create(
       device,
-      "sbt_task_mapping_buffer".into(),
+      "sbt_task_mapping_buffer",
       &info.create_sbt_mapping(),
     );
     // written in trace_ray. see RayLaunchSizeBuffer
     let launch_size_buffer =
-      StorageBufferReadonlyDataView::create(device, "launch_size_buffer".into(), &vec3(0, 0, 0));
+      StorageBufferReadonlyDataView::create(device, "launch_size_buffer", &vec3(0, 0, 0));
 
     let payload_u32_len = size as usize * (info.payload_max_u32_count as usize);
 

@@ -218,11 +218,7 @@ impl CascadeShadowPreparer {
           existing.write_at(&frame_ctx.gpu.queue, info, 0);
           existing
         } else {
-          create_uniform(
-            info.clone(),
-            &frame_ctx.gpu.device,
-            "cascade-shadow-map-uniform",
-          )
+          create_uniform(*info, &frame_ctx.gpu.device, "cascade-shadow-map-uniform")
         };
         (*scene_id, uniform)
       })
@@ -344,10 +340,10 @@ pub struct CascadeShadowMapComponent {
 impl ShaderHashProvider for CascadeShadowMapComponent {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    hasher.hash(&self.reversed_depth);
+    hasher.hash(self.reversed_depth);
     self.shadow_computer.hash_pipeline(hasher);
-    hasher.hash(&self.bias_behavior);
-    hasher.hash(&self.filter_across_cascades);
+    hasher.hash(self.bias_behavior);
+    hasher.hash(self.filter_across_cascades);
   }
 }
 

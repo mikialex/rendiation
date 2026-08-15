@@ -56,137 +56,138 @@ pub fn use_fill_surface(
   let m_buffer = FrameGeneralMaterialBuffer::new(frame_ctx);
 
   frame_ctx.next_scope_index();
-  if let Some(planes) = planes {
-    if plane_renderer.enable && plane_renderer.fill_face {
-      for plane in planes {
-        frame_ctx.keyed_scope(&plane, |frame_ctx| {
-          let plane_id = create_uniform(
-            Vec4::new(plane.alloc_index(), 0, 0, 0),
-            &frame_ctx.gpu.device,
-            "plane id",
-          );
-          let clip = ClipComponent {
-            planes_gpu: &plane_renderer.planes_gpu,
-            planes_gpu_access: &plane_renderer.planes_gpu_access,
-            ty: ClipDrawType::PlaneScenePass(plane_id.clone()),
-            scene_id: scene_id.clone(),
-            skip_clip: &plane_renderer.skip_clip,
-          };
+  if let Some(planes) = planes
+    && plane_renderer.enable
+    && plane_renderer.fill_face
+  {
+    for plane in planes {
+      frame_ctx.keyed_scope(&plane, |frame_ctx| {
+        let plane_id = create_uniform(
+          Vec4::new(plane.alloc_index(), 0, 0, 0),
+          &frame_ctx.gpu.device,
+          "plane id",
+        );
+        let clip = ClipComponent {
+          planes_gpu: &plane_renderer.planes_gpu,
+          planes_gpu_access: &plane_renderer.planes_gpu_access,
+          ty: ClipDrawType::PlaneScenePass(plane_id.clone()),
+          scene_id: scene_id.clone(),
+          skip_clip: &plane_renderer.skip_clip,
+        };
 
-          let mut pass_base = pass("clip per plane boundary extract").with_depth(
-            &temp_depth_stencil,
-            clear_and_store(if reverse_z { 0. } else { 0. }),
-            clear_and_store(0),
-          );
+        let mut pass_base = pass("clip per plane boundary extract").with_depth(
+          &temp_depth_stencil,
+          clear_and_store(if reverse_z { 0. } else { 0. }),
+          clear_and_store(0),
+        );
 
-          let indices = m_buffer.extend_pass_desc(&mut pass_base);
-          let material_writer = FrameGeneralMaterialBufferEncoder {
-            indices,
-            materials: &lighting_sys.system.material_defer_lighting_supports,
-          };
+        let indices = m_buffer.extend_pass_desc(&mut pass_base);
+        let material_writer = FrameGeneralMaterialBufferEncoder {
+          indices,
+          materials: &lighting_sys.system.material_defer_lighting_supports,
+        };
 
-          let clip_dispatcher = RenderArray([
-            &clip as &dyn RenderComponent,
-            &material_writer,
-            &DisableAllChannelBlend,
-          ]);
+        let clip_dispatcher = RenderArray([
+          &clip as &dyn RenderComponent,
+          &material_writer,
+          &DisableAllChannelBlend,
+        ]);
 
-          // todo, try move out side
-          let mut content = renderer.scene.use_make_scene_batch_pass_content(
-            all_object.clone(),
-            camera_gpu,
-            &clip_dispatcher,
-            frame_ctx,
-          );
+        // todo, try move out side
+        let mut content = renderer.scene.use_make_scene_batch_pass_content(
+          all_object.clone(),
+          camera_gpu,
+          &clip_dispatcher,
+          frame_ctx,
+        );
 
-          pass_base.render_ctx(frame_ctx).by(&mut content);
+        pass_base.render_ctx(frame_ctx).by(&mut content);
 
-          ////
+        ////
 
-          let plane = plane_renderer.planes_host.get(plane).unwrap();
-          // todo cache
-          let plane = create_uniform_with_cache(
-            rendiation_shader_library::plane::ShaderPlaneUniform::new(
-              plane.xyz().into_f64(),
-              plane.w() as f64,
-            ),
-            &frame_ctx.gpu.device,
-            "plane",
-          );
-          let plane = InfinityShaderPlaneEffect {
-            plane: &plane,
-            camera: camera_gpu,
-            reversed_depth: reverse_z,
-          };
+        let plane = plane_renderer.planes_host.get(plane).unwrap();
+        // todo cache
+        let plane = create_uniform_with_cache(
+          rendiation_shader_library::plane::ShaderPlaneUniform::new(
+            plane.xyz().into_f64(),
+            plane.w() as f64,
+          ),
+          &frame_ctx.gpu.device,
+          "plane",
+        );
+        let plane = InfinityShaderPlaneEffect {
+          plane: &plane,
+          camera: camera_gpu,
+          reversed_depth: reverse_z,
+        };
 
-          let clip = ClipComponent {
-            planes_gpu: &plane_renderer.planes_gpu,
-            planes_gpu_access: &plane_renderer.planes_gpu_access,
-            ty: ClipDrawType::PlaneSelf(plane_id),
-            scene_id: scene_id.clone(),
-            skip_clip: &plane_renderer.skip_clip,
-          };
+        let clip = ClipComponent {
+          planes_gpu: &plane_renderer.planes_gpu,
+          planes_gpu_access: &plane_renderer.planes_gpu_access,
+          ty: ClipDrawType::PlaneSelf(plane_id),
+          scene_id: scene_id.clone(),
+          skip_clip: &plane_renderer.skip_clip,
+        };
 
-          let material_buffer = FrameGeneralMaterialBufferReconstructSurface {
-            m_buffer: &m_buffer,
-            registry: &lighting_sys.system.material_defer_lighting_supports,
-          };
+        let material_buffer = FrameGeneralMaterialBufferReconstructSurface {
+          m_buffer: &m_buffer,
+          registry: &lighting_sys.system.material_defer_lighting_supports,
+        };
 
-          match target {
-            ClipFillType::Forward {
-              scene_result,
-              forward_lighting: _,
-            } => {
-              let mut pass_base = pass("draw clip plane").with_depth(
-                &temp_depth_stencil,
-                load_and_store(),
-                load_and_store(),
-              );
-              // todo, write g buffer entity id buffer(if exist)
-              // through this, we can support clip cap gpu pick.
+        match target {
+          ClipFillType::Forward {
+            scene_result,
+            forward_lighting: _,
+          } => {
+            let mut pass_base = pass("draw clip plane").with_depth(
+              &temp_depth_stencil,
+              load_and_store(),
+              load_and_store(),
+            );
+            // todo, write g buffer entity id buffer(if exist)
+            // through this, we can support clip cap gpu pick.
 
-              let mut key = scene_result.create_attachment_key();
-              key.sample_count = 1;
-              let color_temp = key.request(frame_ctx);
+            let mut key = scene_result.create_attachment_key();
+            key.sample_count = 1;
+            let color_temp = key.request(frame_ctx);
 
-              let color_writer = DefaultDisplayWriter::extend_pass_desc(
-                &mut pass_base,
-                &color_temp,
-                clear_and_store(all_zero()),
-              );
+            let color_writer = DefaultDisplayWriter::extend_pass_desc(
+              &mut pass_base,
+              &color_temp,
+              clear_and_store(all_zero()),
+            );
 
-              let lighting = lighting_sys.get_scene_lighting_component(
-                scene,
-                camera,
-                Box::new(DirectGeometryProvider),
-                &material_buffer,
-              );
+            let lighting = lighting_sys.get_scene_lighting_component(
+              scene,
+              camera,
+              Box::new(DirectGeometryProvider),
+              &material_buffer,
+            );
 
-              let mut filler = PlaneCapDrawer {
-                writer: &color_writer,
-                clip: &clip,
-                plane: &plane,
-                material_injector: &MaterialInjector {},
-                lighting: &lighting,
-                reversed_depth: reverse_z,
-              };
+            let mut filler = PlaneCapDrawer {
+              writer: &color_writer,
+              clip: &clip,
+              plane: &plane,
+              material_injector: &MaterialInjector {},
+              lighting: &lighting,
+              reversed_depth: reverse_z,
+            };
 
-              pass_base.render_ctx(frame_ctx).by(&mut filler);
+            pass_base.render_ctx(frame_ctx).by(&mut filler);
 
-              // we do this copy(and the temp color stuff) to support msaa scene target
-              // this can be skip if the scene target is not msaa, for simplicity here we always do extra copy.
-              pass("copy clip plane cap fill result")
-                .with_color(scene_result, load_and_store())
-                .render_ctx(frame_ctx)
-                .by(&mut copy_frame(
-                  color_temp,
-                  Some(BlendState::ALPHA_BLENDING),
-                ));
-            }
-            ClipFillType::Defer(_frame_general_material_buffer) => todo!(),
+            // we do this copy(and the temp color stuff) to support msaa scene target
+            // this can be skip if the scene target is not msaa, for simplicity here we always do extra copy.
+            pass("copy clip plane cap fill result")
+              .with_color(scene_result, load_and_store())
+              .render_ctx(frame_ctx)
+              .by(&mut copy_frame(
+                color_temp,
+                Some(BlendState::ALPHA_BLENDING),
+              ));
           }
-        })
-      }
+          ClipFillType::Defer(_frame_general_material_buffer) => todo!(),
+        }
+      })
     }
   }
 }

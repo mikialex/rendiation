@@ -103,12 +103,10 @@ pub fn use_transform_instance_example(cx: &mut ViewerCx) {
           if ui.button("➕ new cube group").clicked() {
             example.pending_new_cube_groups += 1;
           }
-          if !example.groups.is_empty() {
-            if ui.button("🗑 delete all groups").clicked() {
-              example
-                .pending_group_deletions
-                .extend(0..example.groups.len());
-            }
+          if !example.groups.is_empty() && ui.button("🗑 delete all groups").clicked() {
+            example
+              .pending_group_deletions
+              .extend(0..example.groups.len());
           }
         });
 

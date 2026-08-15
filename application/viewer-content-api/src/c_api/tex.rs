@@ -43,14 +43,13 @@ pub extern "C" fn get_texture2d_info(handle: ViewerEntityHandle) -> Texture2dMet
 
   if let Some(Some(t)) =
     read_global_db_component::<SceneTexture2dEntityDirectContent>().get(handle.into())
+    && let Some(t) = t.as_living()
   {
-    if let Some(t) = t.as_living() {
-      let (width, height) = t.size.into_u32();
-      r.width = width;
-      r.height = height;
-      r.byte_len = t.data.len() as u32;
-      r.format = t.format;
-    }
+    let (width, height) = t.size.into_u32();
+    r.width = width;
+    r.height = height;
+    r.byte_len = t.data.len() as u32;
+    r.format = t.format;
   }
 
   r

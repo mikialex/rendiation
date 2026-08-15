@@ -65,7 +65,7 @@ impl ViewerBackgroundState {
     ui.collapsing("Background", |ui| {
       let previous = self.current;
       egui::ComboBox::from_label("background type")
-        .selected_text(format!("{:?}", &self.current))
+        .selected_text(format!("{:?}", self.current))
         .show_ui(ui, |ui| {
           ui.selectable_value(
             &mut self.current,

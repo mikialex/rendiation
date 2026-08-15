@@ -150,10 +150,10 @@ impl DeviceReferencePathTracingRenderer {
 
     let mut state = self.frame_state.write();
     let state = state.deref_mut();
-    if let Some(s) = &state {
-      if s.radiance_buffer.size() != render_size {
-        *state = None;
-      }
+    if let Some(s) = &state
+      && s.radiance_buffer.size() != render_size
+    {
+      *state = None;
     }
 
     let mut state = state

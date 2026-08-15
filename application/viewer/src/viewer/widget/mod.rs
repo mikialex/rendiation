@@ -28,14 +28,14 @@ impl<'a> ViewerFrameRenderingExtension for ViewerAppFrameRenderingExtension<'a> 
       self.widget_scene,
       renderer.reversed_depth,
       &main_camera_gpu,
-      &self.axis,
+      self.axis,
     );
     let mut copy_scene_msaa_widgets = copy_frame(
       widgets_result,
       BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
     );
     pass("copy_scene_msaa_widgets")
-      .with_color(&target, load_and_store())
+      .with_color(target, load_and_store())
       .render_ctx(ctx)
       .by(&mut copy_scene_msaa_widgets);
   }

@@ -102,10 +102,10 @@ impl<V> ValueChange<V> {
         // occurred).  There is no generic way to express "equal or both
         // NaN" without a custom trait that would burden all non-float
         // uses of ValueChange.
-        if let Some(p1) = &p1 {
-          if p1 == &d2 {
-            return false;
-          }
+        if let Some(p1) = &p1
+          && p1 == &d2
+        {
+          return false;
         }
         Delta(d2, p1)
       }

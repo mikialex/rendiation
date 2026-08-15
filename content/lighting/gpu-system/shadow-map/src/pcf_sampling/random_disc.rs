@@ -1,3 +1,5 @@
+use core::f32;
+
 use rendiation_shader_library::sampling::random_fn;
 
 use super::*;
@@ -37,7 +39,7 @@ pub fn sample_shadow_pcf_random_disc(
 
   // get a value to randomly rotate the kernel by, the rotation is stable
   // across frames only if the caller provides a seed that is stable across frames
-  let theta = random_fn(random_seed) * val(6.283_185_3);
+  let theta = random_fn(random_seed) * val(f32::consts::TAU);
   let cos_theta = theta.cos();
   let sin_theta = theta.sin();
 

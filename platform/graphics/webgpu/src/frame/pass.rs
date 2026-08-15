@@ -60,10 +60,11 @@ impl RenderPassDescription {
   pub fn sample_count(&self) -> Option<u32> {
     if let Some(first) = self.channels.first() {
       Some(first.1.sample_count())
-    } else if let Some(d) = self.depth_stencil_target.as_ref() {
-      Some(d.2.sample_count())
     } else {
-      None
+      self
+        .depth_stencil_target
+        .as_ref()
+        .map(|d| d.2.sample_count())
     }
   }
 

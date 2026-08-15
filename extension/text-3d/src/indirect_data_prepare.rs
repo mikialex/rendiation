@@ -51,8 +51,8 @@ pub(crate) fn prepare_indirect_text(
       offset += v_band.len();
     }
 
-    band_data.extend(g.bands.h_bands.iter().flat_map(|v| v));
-    band_data.extend(g.bands.v_bands.iter().flat_map(|v| v));
+    band_data.extend(g.bands.h_bands.iter().flatten());
+    band_data.extend(g.bands.v_bands.iter().flatten());
   }
 
   let mut vertices = Vec::new();

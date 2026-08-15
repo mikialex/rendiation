@@ -85,25 +85,25 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
   let precise_intersection_test = cx.app_features.pick_scene.precise_intersection_test;
 
   let (cx, request_bvh_debug_to_write) = cx.use_plain_state::<Option<Vec<WideLineVertex>>>();
-  if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
-    if let Some(vertices) = request_bvh_debug_to_write.take() {
-      let buffer = ExternalRefPtr::new(bytemuck::cast_slice(&vertices).to_vec());
+  if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage
+    && let Some(vertices) = request_bvh_debug_to_write.take()
+  {
+    let buffer = ExternalRefPtr::new(bytemuck::cast_slice(&vertices).to_vec());
 
-      let wide_line_model = global_entity_of::<WideLineModelEntity>()
-        .entity_writer()
-        .new_entity(|w| {
-          w.write::<WideLineWidth>(&2.0)
-            .write::<WideLineMeshBuffer>(&buffer)
-        });
-
-      let scene = cx.default_scene.scene.some_handle();
-      let node = writer.create_root_child();
-      writer.model_writer.new_entity(|w| {
-        w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
-          .write::<SceneModelBelongsToScene>(&scene)
-          .write::<SceneModelRefNode>(&node.some_handle())
+    let wide_line_model = global_entity_of::<WideLineModelEntity>()
+      .entity_writer()
+      .new_entity(|w| {
+        w.write::<WideLineWidth>(&2.0)
+          .write::<WideLineMeshBuffer>(&buffer)
       });
-    }
+
+    let scene = cx.default_scene.scene.some_handle();
+    let node = writer.create_root_child();
+    writer.model_writer.new_entity(|w| {
+      w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
+        .write::<SceneModelBelongsToScene>(&scene)
+        .write::<SceneModelRefNode>(&node.some_handle())
+    });
   }
 
   if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
@@ -117,13 +117,12 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
         cx.viewer.selection.selected_model.clear();
         if let Some(hit_entity_idx) = r {
           // skip the background
-          if hit_entity_idx != u32::MAX {
-            if let Some(hit) = global_entity_of::<SceneModelEntity>()
+          if hit_entity_idx != u32::MAX
+            && let Some(hit) = global_entity_of::<SceneModelEntity>()
               .entity_reader()
               .reconstruct_handle_by_idx(hit_entity_idx as usize)
-            {
-              cx.viewer.selection.selected_model.add_select(hit);
-            }
+          {
+            cx.viewer.selection.selected_model.add_select(hit);
           }
         }
 
@@ -204,11 +203,11 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       }
       *range_state = None;
     }
-    if cx.input.state_delta.mouse_position_change {
-      if let Some((_start, end)) = range_state {
-        let position = cx.input.window_state.mouse_position_in_logic_pixel();
-        *end = position.into();
-      }
+    if cx.input.state_delta.mouse_position_change
+      && let Some((_start, end)) = range_state
+    {
+      let position = cx.input.window_state.mouse_position_in_logic_pixel();
+      *end = position.into();
     }
 
     if range_state.is_some() {

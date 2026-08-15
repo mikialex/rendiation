@@ -74,7 +74,7 @@ impl<'a> AbstractMesh for CellMeshPickView<'a> {
     let unit_index = primitive_index / 2;
     let unit = self.lines.get(unit_index)?;
     let sr = self.shrink_ratio;
-    let tri = if primitive_index % 2 == 0 {
+    let tri = if primitive_index.is_multiple_of(2) {
       Triangle::new(
         unit.center.lerp(unit.p1, sr),
         unit.center.lerp(unit.p4, sr),

@@ -42,7 +42,7 @@ impl Table {
 
     let data = init_sparse_storage_by_data::<String>(Default::default());
 
-    let display_name = format!("{}-Label", &self.name);
+    let display_name = format!("{}-Label", self.name);
 
     let com = ComponentUntyped {
       short_name: disqualified::ShortName(&display_name).to_string(),

@@ -478,7 +478,7 @@ impl AttributeLivingData {
   pub fn byte_view(&self) -> &[u8] {
     if let Some(range) = self.range {
       let range = range.into_range(self.data.len());
-      &self.data.get(range).unwrap()
+      self.data.get(range).unwrap()
     } else {
       &self.data
     }
@@ -515,10 +515,10 @@ impl AttributesMeshWithUri {
       }
     }
 
-    if let Some(indices) = &self.indices {
-      if indices.data.as_living().is_none() {
-        return MaybeUriData::Uri(self);
-      }
+    if let Some(indices) = &self.indices
+      && indices.data.as_living().is_none()
+    {
+      return MaybeUriData::Uri(self);
     }
 
     let attributes = self

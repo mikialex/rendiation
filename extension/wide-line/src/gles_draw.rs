@@ -214,11 +214,11 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
         builder.discard();
       });
 
-      if !self.enabled_depth {
-        if let Some(depth) = &mut builder.depth_stencil {
-          depth.depth_compare = Some(CompareFunction::Always);
-          depth.depth_write_enabled = Some(false);
-        }
+      if !self.enabled_depth
+        && let Some(depth) = &mut builder.depth_stencil
+      {
+        depth.depth_compare = Some(CompareFunction::Always);
+        depth.depth_write_enabled = Some(false);
       }
       if self.transparent {
         builder.frag_output.iter_mut().for_each(|p| {

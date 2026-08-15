@@ -163,7 +163,7 @@ impl NaiveSahBvhSource {
 
             geometry_vertices.extend_from_slice(positions);
 
-            let boxes = indices.chunks_exact(3).map(|triangle| {
+            let boxes = indices.as_chunks::<3>().0.iter().map(|triangle| {
               triangle
                 .iter()
                 .map(|idx| positions[*idx as usize])
@@ -183,7 +183,7 @@ impl NaiveSahBvhSource {
             for &primitive_idx in &bvh.sorted_primitive_index {
               geometry_indices_redirect.push(raw_primitive_start + primitive_idx as u32);
             }
-            indices.chunks_exact(3).for_each(|triangle| {
+            indices.as_chunks::<3>().0.iter().for_each(|triangle| {
               geometry_indices.push(vertex_start + triangle[0]);
               geometry_indices.push(vertex_start + triangle[1]);
               geometry_indices.push(vertex_start + triangle[2]);

@@ -50,14 +50,13 @@ pub fn load_obj_content(
       let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
 
       let mut material = None;
-      if let Some(material_id) = m.mesh.material_id {
-        if let Ok(materials) = &materials {
-          if let Some(m) = materials.get(material_id) {
-            material = into_rff_material(m, writer)
-              .write(&mut writer.pbr_sg_mat_writer)
-              .into();
-          }
-        }
+      if let Some(material_id) = m.mesh.material_id
+        && let Ok(materials) = &materials
+        && let Some(m) = materials.get(material_id)
+      {
+        material = into_rff_material(m, writer)
+          .write(&mut writer.pbr_sg_mat_writer)
+          .into();
       }
       let material = material.unwrap_or(default_mat);
 

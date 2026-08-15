@@ -144,7 +144,7 @@ pub fn build_texture2d(
 
     let mut png_buffer = Vec::new(); // todo avoid extra copy
     let texture = if let Some(tex) = texture.as_living() {
-      &tex
+      tex
     } else {
       // todo, we should support read back as a better way to handle this case
       log::warn!("none living texture is not supported in gltf export yet");

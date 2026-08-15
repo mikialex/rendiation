@@ -130,24 +130,23 @@ impl SkylinePacker {
 
     // keep the `bottom` and `width` as small as possible
     for i in 0..self.skylines.len() {
-      if let Some(r) = self.can_put(i, w, h) {
-        if r.bottom() < bottom || (r.bottom() == bottom && self.skylines[i].w < width) {
-          bottom = r.bottom();
-          width = self.skylines[i].w;
-          index = Some(i);
-          rect = r;
-        }
+      if let Some(r) = self.can_put(i, w, h)
+        && (r.bottom() < bottom || (r.bottom() == bottom && self.skylines[i].w < width))
+      {
+        bottom = r.bottom();
+        width = self.skylines[i].w;
+        index = Some(i);
+        rect = r;
       }
 
-      if self.config.allow_90_rotation {
-        if let Some(r) = self.can_put(i, h, w) {
-          if r.bottom() < bottom || (r.bottom() == bottom && self.skylines[i].w < width) {
-            bottom = r.bottom();
-            width = self.skylines[i].w;
-            index = Some(i);
-            rect = r;
-          }
-        }
+      if self.config.allow_90_rotation
+        && let Some(r) = self.can_put(i, h, w)
+        && (r.bottom() < bottom || (r.bottom() == bottom && self.skylines[i].w < width))
+      {
+        bottom = r.bottom();
+        width = self.skylines[i].w;
+        index = Some(i);
+        rect = r;
       }
     }
 

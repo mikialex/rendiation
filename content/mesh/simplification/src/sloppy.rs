@@ -139,7 +139,7 @@ pub fn simplify_sloppy<V: Positioned<Position = Vec3<f32>>>(
   }
 
   // vertex collapses often result in duplicate triangles; we need filter them out
-  let write = filter_triangles(destination, &indices, &vertex_cells, &cell_remap);
+  let write = filter_triangles(destination, indices, &vertex_cells, &cell_remap);
 
   SimplificationResult {
     result_error: result_error.sqrt() * error_scale,

@@ -83,7 +83,7 @@ pub fn use_cascade_shadow_map(
           view_camera_world,
           &ndc,
           lighting_sys.cascade_shadow_split_linear_log_blend_ratio,
-          &mapping,
+          mapping,
         );
         let (cache, shadow_map) = maps.get(&cv.camera).unwrap();
         (

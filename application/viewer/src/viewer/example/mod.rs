@@ -43,11 +43,11 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
     registry.register("Transform Instance Example", use_transform_instance_example);
     registry.register("Stress Test", use_stress_test_example);
 
-    if let Some(current_example) = &mut cx.app_features.active_example {
-      if !registry.examples.contains_key(current_example) {
-        log::warn!("unknown active example: {current_example}");
-        cx.app_features.active_example = None;
-      }
+    if let Some(current_example) = &mut cx.app_features.active_example
+      && !registry.examples.contains_key(current_example)
+    {
+      log::warn!("unknown active example: {current_example}");
+      cx.app_features.active_example = None;
     }
 
     registry
@@ -65,7 +65,7 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
       .show(egui_ui, |ui| {
         //
         egui::ComboBox::from_label("lists")
-          .selected_text(format!("{:?}", &cx.app_features.active_example))
+          .selected_text(format!("{:?}", cx.app_features.active_example))
           .show_ui(ui, |ui| {
             ui.selectable_value(&mut cx.app_features.active_example, None, "None");
             for (name, _) in &registry.examples {

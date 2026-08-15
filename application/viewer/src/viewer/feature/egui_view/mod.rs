@@ -235,7 +235,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
     }
     viewer.terminal.tick_execute(
       &mut TerminalInitExecuteCx {
-        surface_content: &cx.active_surface_content,
+        surface_content: cx.active_surface_content,
         renderer: &mut viewer.rendering,
         dyn_cx: cx.dyn_cx,
       },

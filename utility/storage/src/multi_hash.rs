@@ -33,15 +33,15 @@ impl<K: Eq + std::hash::Hash, V: Eq> MultiHash<K, V> {
   pub fn remove(&mut self, k: &K, v: &V) {
     if let Some((id, count)) = self.keys.get_mut(k) {
       for i in 0..*count {
-        if let Some(v_stored) = self.secondary.get(&(*id, i)) {
-          if v_stored == v {
-            self.secondary.remove(&(*id, i)).unwrap();
-            *count -= 1;
-            // move the tail to fill the hole.
-            if i != *count {
-              let tail = self.secondary.remove(&(*id, *count)).unwrap();
-              self.secondary.insert((*id, i), tail);
-            }
+        if let Some(v_stored) = self.secondary.get(&(*id, i))
+          && v_stored == v
+        {
+          self.secondary.remove(&(*id, i)).unwrap();
+          *count -= 1;
+          // move the tail to fill the hole.
+          if i != *count {
+            let tail = self.secondary.remove(&(*id, *count)).unwrap();
+            self.secondary.insert((*id, i), tail);
           }
         }
       }

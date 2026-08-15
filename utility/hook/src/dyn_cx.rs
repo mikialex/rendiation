@@ -42,12 +42,11 @@ impl TypeIndexRegistry {
     self.type_idx.get(&TypeId::of::<T>()).cloned()
   }
   pub fn get_or_register_ty<T: Any>(&mut self) -> usize {
-    let index = *self.type_idx.entry(TypeId::of::<T>()).or_insert_with(|| {
+    *self.type_idx.entry(TypeId::of::<T>()).or_insert_with(|| {
       let r = self.next;
       self.next += 1;
       r
-    });
-    index
+    })
   }
 }
 

@@ -77,7 +77,7 @@ impl<KOne: CKey, K: CKey, T: CValue, F: Send + Sync> Query
   }
 
   fn has_item_hint(&self) -> bool {
-    self.mapping.len() > 0
+    !self.mapping.is_empty()
   }
 }
 

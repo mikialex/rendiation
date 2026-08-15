@@ -19,8 +19,8 @@ pub struct PCFComputer {
 impl ShaderHashProvider for PCFComputer {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    hasher.hash(&self.reversed_depth);
-    hasher.hash(&self.pcf_config);
+    hasher.hash(self.reversed_depth);
+    hasher.hash(self.pcf_config);
   }
 }
 
@@ -103,7 +103,8 @@ pub fn create_pcf_parameter(
   pcf_config: ShadowPCFConfig,
 ) -> UniformBufferDataView<PCFConfigParameter> {
   // todo cache
-  let pcf_parameter = create_uniform(
+
+  create_uniform(
     PCFConfigParameter {
       pcf_filter_size: pcf_config.filter_size,
       pcf_num_disc_samples: pcf_config
@@ -113,9 +114,7 @@ pub fn create_pcf_parameter(
     },
     &gpu.device,
     "pcf_parameter",
-  );
-
-  pcf_parameter
+  )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

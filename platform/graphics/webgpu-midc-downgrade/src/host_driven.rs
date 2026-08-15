@@ -54,21 +54,21 @@ pub fn downgrade_multi_indirect_draw_count_host_driven(
   let sub_draw_range_start_prefix_sum = alloc.allocate_readonly_init(
     sub_draw_range_start_prefix_sum.as_slice(),
     gpu,
-    "draw cmd count prefix sum".into(),
+    "draw cmd count prefix sum",
   );
 
   let draw_commands = match draw {
     HostDrawCommands::Indexed(args) => {
-      let cmds = alloc.allocate_readonly_init(args.as_slice(), gpu, "draw commands".into());
+      let cmds = alloc.allocate_readonly_init(args.as_slice(), gpu, "draw commands");
       StorageDrawCommands::Indexed(cmds)
     }
     HostDrawCommands::NoneIndexed(args) => {
-      let cmds = alloc.allocate_readonly_init(args.as_slice(), gpu, "draw commands".into());
+      let cmds = alloc.allocate_readonly_init(args.as_slice(), gpu, "draw commands");
       StorageDrawCommands::NoneIndexed(cmds)
     }
   };
 
-  let draw_count = alloc.allocate_readonly_init(&draw_count, gpu, "draw count".into());
+  let draw_count = alloc.allocate_readonly_init(&draw_count, gpu, "draw count");
 
   let helper = DowngradeMultiIndirectDrawCountHelper {
     sub_draw_range_start_prefix_sum,

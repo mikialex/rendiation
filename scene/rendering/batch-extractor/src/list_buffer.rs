@@ -37,6 +37,12 @@ impl PersistSceneModelListBufferMutation {
   }
 }
 
+impl Default for PersistSceneModelListBufferMutation {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl PersistSceneModelListBuffer {
   pub fn with_capacity(capacity: usize) -> Self {
     Self {

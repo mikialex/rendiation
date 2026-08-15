@@ -16,18 +16,18 @@ pub fn for_each_test_mesh_in_folder(
       continue;
     }
 
-    if let Some(extension) = entry.path().extension().and_then(OsStr::to_str) {
-      if extension == "obj" {
-        let mesh = match load_common_mesh(entry.path()) {
-          Ok(mesh) => mesh,
-          Err(err) => {
-            println!("# Obj parse error:<{:?}>: {}", entry.path(), err);
-            continue;
-          }
-        };
+    if let Some(extension) = entry.path().extension().and_then(OsStr::to_str)
+      && extension == "obj"
+    {
+      let mesh = match load_common_mesh(entry.path()) {
+        Ok(mesh) => mesh,
+        Err(err) => {
+          println!("# Obj parse error:<{:?}>: {}", entry.path(), err);
+          continue;
+        }
+      };
 
-        f(mesh, entry.path().to_str().unwrap());
-      }
+      f(mesh, entry.path().to_str().unwrap());
     }
   }
 }

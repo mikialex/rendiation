@@ -24,13 +24,12 @@ pub fn use_translation_gizmo(cx: &mut UI3dCx) {
         access_cx!(cx, axis, AxisActiveState);
         access_cx!(cx, start_states, Option::<DragStartState>);
 
-        if let Some(start_states) = start_states {
-          if let Some(target) = target {
-            if let Some(action) = handle_translating(start_states, target, axis, drag_action) {
-              debug_print("handle translating");
-              cx.message.put(GizmoUpdateTargetLocal(action))
-            }
-          }
+        if let Some(start_states) = start_states
+          && let Some(target) = target
+          && let Some(action) = handle_translating(start_states, target, axis, drag_action)
+        {
+          debug_print("handle translating");
+          cx.message.put(GizmoUpdateTargetLocal(action))
         }
       }
     });

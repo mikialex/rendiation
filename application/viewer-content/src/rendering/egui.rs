@@ -22,7 +22,7 @@ impl Viewer3dRenderingCtx {
         && self.using_host_driven_indirect_draw);
 
     egui::ComboBox::from_label("RasterizationRender Backend")
-      .selected_text(format!("{:?}", &self.current_renderer_impl_ty))
+      .selected_text(format!("{:?}", self.current_renderer_impl_ty))
       .show_ui_changed(ui, |ui| {
         ui.selectable_value(
           &mut self.current_renderer_impl_ty,
@@ -82,7 +82,7 @@ impl Viewer3dRenderingCtx {
     egui::ComboBox::from_label("how to lighting opaque objects?")
       .selected_text(format!(
         "{:?}",
-        &self.lighting.opaque_scene_content_lighting_technique
+        self.lighting.opaque_scene_content_lighting_technique
       ))
       .show_ui_changed(ui, |ui| {
         ui.selectable_value(

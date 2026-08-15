@@ -236,7 +236,7 @@ pub fn use_downgrade_multi_indirect_draw_count_list_pool(
     let count_offset = i as u64 * align_bytes;
     let count_view = aligned_counts.gpu.resource.create_view(GPUBufferViewRange {
       offset: count_offset,
-      size: std::num::NonZeroU64::new(4).into(),
+      size: std::num::NonZeroU64::new(4),
     });
 
     // create prefix sum views
@@ -244,7 +244,7 @@ pub fn use_downgrade_multi_indirect_draw_count_list_pool(
     debug_assert!(offset.is_multiple_of(align_bytes));
     let prefix_view = output_prefix.gpu.resource.create_view(GPUBufferViewRange {
       offset,
-      size: std::num::NonZeroU64::new((info.capacity + 1) as u64 * 4).into(),
+      size: std::num::NonZeroU64::new((info.capacity + 1) as u64 * 4),
     });
     let prefix_abstract: AbstractReadonlyStorageBuffer<[u32]> =
       StorageBufferReadonlyDataView::<[u32]>::try_from_raw(prefix_view)
@@ -272,7 +272,7 @@ pub fn use_downgrade_multi_indirect_draw_count_list_pool(
       .resource
       .create_view(GPUBufferViewRange {
         offset: i as u64 * item_size,
-        size: std::num::NonZeroU64::new(item_size).into(),
+        size: std::num::NonZeroU64::new(item_size),
       });
 
     let cmd = DrawCommand::Indirect {
@@ -304,7 +304,7 @@ fn create_command_pool_view(
 
   let cmd_view = raw_view.resource.create_view(GPUBufferViewRange {
     offset,
-    size: std::num::NonZeroU64::new(count as u64 * item_size).into(),
+    size: std::num::NonZeroU64::new(count as u64 * item_size),
   });
 
   match pool {
@@ -380,7 +380,7 @@ pub fn use_downgrade_multi_indirect_draw_count(
 }
 
 pub(crate) fn round_up(value: u32, alignment: u32) -> u32 {
-  (value + alignment - 1) / alignment * alignment
+  value.div_ceil(alignment) * alignment
 }
 
 #[cfg(test)]

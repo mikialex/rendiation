@@ -110,9 +110,7 @@ impl<T: Std140> PerSceneLightArray<T> {
     self.buffer.array.set(self.buffer.length.x as usize, light);
     self.buffer.length.x += 1;
 
-    self
-      .mapping
-      .insert(light_id, self.buffer.length.x as u32 - 1);
+    self.mapping.insert(light_id, self.buffer.length.x - 1);
   }
 }
 

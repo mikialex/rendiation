@@ -196,7 +196,7 @@ pub extern "C" fn update_mesh_data(
     MeshAPIDataType::Uv => 8,
     MeshAPIDataType::Indices => 4,
   };
-  if byte_size % element_byte_size != 0 {
+  if !byte_size.is_multiple_of(element_byte_size) {
     log::warn!(
       "update_mesh_data: byte_size {byte_size} is not divisible by element size {element_byte_size}"
     );
@@ -210,7 +210,7 @@ pub extern "C" fn update_mesh_data(
     let mut buffer_writer = global_entity_of::<BufferEntity>().entity_writer();
     let mut relation_writer =
       global_entity_of::<AttributesMeshEntityVertexBufferRelation>().entity_writer();
-    let new_entity = buffer_writer.new_entity(|w| w.write::<BufferEntityData>(&data));
+    let new_entity = buffer_writer.new_entity(|w| w.write::<BufferEntityData>(data));
     relation_writer.write::<SceneBufferViewBufferId<AttributeVertexRef>>(
       pair.h1.into(),
       Some(new_entity.into_raw()),

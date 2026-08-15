@@ -22,14 +22,14 @@ pub fn use_rotation_gizmo(cx: &mut UI3dCx) {
         access_cx!(cx, rotate_view, AxisActiveState);
         access_cx!(cx, start_states, Option::<DragStartState>);
 
-        if let Some(start_states) = start_states {
-          if let Some(target) = target {
-            debug_print("handle rotation");
-            if let Some(action) =
-              handle_rotating(start_states, target, rotate_state, rotate_view, drag_action)
-            {
-              cx.message.put(GizmoUpdateTargetLocal(action))
-            }
+        if let Some(start_states) = start_states
+          && let Some(target) = target
+        {
+          debug_print("handle rotation");
+          if let Some(action) =
+            handle_rotating(start_states, target, rotate_state, rotate_view, drag_action)
+          {
+            cx.message.put(GizmoUpdateTargetLocal(action))
           }
         }
       }

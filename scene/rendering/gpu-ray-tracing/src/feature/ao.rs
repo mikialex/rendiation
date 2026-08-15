@@ -161,10 +161,10 @@ impl SceneRayTracingAORenderer {
 
     let mut ao_state = self.ao_state.write();
     let ao_state = ao_state.deref_mut();
-    if let Some(ao) = &ao_state {
-      if ao.ao_buffer.size() != render_size {
-        *ao_state = None;
-      }
+    if let Some(ao) = &ao_state
+      && ao.ao_buffer.size() != render_size
+    {
+      *ao_state = None;
     }
 
     let mut ao_state = ao_state

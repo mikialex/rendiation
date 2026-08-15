@@ -72,10 +72,10 @@ impl CSGClippingRenderer {
       ctx.scope(|ctx| {
         let (ctx, image) = ctx.use_plain_state_default::<Option<AtomicImageDowngrade>>();
 
-        if let Some(i) = image {
-          if i.size() != ctx.frame_size() {
-            *image = None;
-          }
+        if let Some(i) = image
+          && i.size() != ctx.frame_size()
+        {
+          *image = None;
         }
 
         let image = image.get_or_insert_with(|| {
@@ -137,9 +137,7 @@ impl CSGClippingRenderer {
       .get(&scene.alloc_index())
       .map(|root| ClippingRootDirectProvide { root: root.clone() });
 
-    if root.is_none() {
-      return None;
-    }
+    root.as_ref()?;
     let root = &root.unwrap() as &dyn RenderComponent;
 
     // first, fill the face, write the depth buffer.

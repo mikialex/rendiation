@@ -59,11 +59,11 @@ pub fn build_scene_to_gltf(
     loop {
       let mut new_batch = Vec::default();
       for node in batch_writes.last().unwrap() {
-        if let Some(parent) = reader.read_node_parent(*node) {
-          if !all_nodes.contains(&parent) {
-            all_nodes.insert(parent);
-            new_batch.push(parent);
-          }
+        if let Some(parent) = reader.read_node_parent(*node)
+          && !all_nodes.contains(&parent)
+        {
+          all_nodes.insert(parent);
+          new_batch.push(parent);
         }
       }
       if new_batch.is_empty() {

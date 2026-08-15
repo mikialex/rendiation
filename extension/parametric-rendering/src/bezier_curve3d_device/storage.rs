@@ -11,17 +11,9 @@ pub const MAX_GPU_CURVE_CONTROL_POINTS: usize = MAX_GPU_DEGREE + 1;
 #[repr(C)]
 #[std430_layout]
 #[derive(Debug, Clone, Copy, ShaderStruct)]
+#[derive(Default)]
 pub struct GpuBezierCurveInfo {
   pub degree: u32,
-}
-
-impl Default for GpuBezierCurveInfo {
-  fn default() -> Self {
-    Self {
-      degree: 0,
-      ..unsafe { core::mem::zeroed() }
-    }
-  }
 }
 
 /// GPU-side Bézier curve control points: homogeneous `Vec4` array.

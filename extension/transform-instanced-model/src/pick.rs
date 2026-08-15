@@ -101,11 +101,15 @@ impl<T: SceneModelPicker> SceneModelPicker for TransformInstancedMeshPicker<T> {
   }
 
   fn ray_query_all(&self, request: SceneModelRayAllQueryRequest) -> Option<()> {
-    if let Some(_) = self.internal.ray_query_all(SceneModelRayAllQueryRequest {
-      results: request.results,
-      local_result_scratch: request.local_result_scratch,
-      ..request
-    }) {
+    if self
+      .internal
+      .ray_query_all(SceneModelRayAllQueryRequest {
+        results: request.results,
+        local_result_scratch: request.local_result_scratch,
+        ..request
+      })
+      .is_some()
+    {
       return Some(());
     }
     let view = self.get_view(
@@ -128,9 +132,7 @@ impl<T: SceneModelPicker> SceneModelPicker for TransformInstancedMeshPicker<T> {
         r.primitive_index = i;
       }
 
-      if internal_test.is_none() {
-        return None;
-      }
+      internal_test?;
     }
     Some(())
   }
@@ -149,36 +151,34 @@ impl<T: SceneModelPicker> SceneModelPicker for TransformInstancedMeshPicker<T> {
     match request.policy {
       ObjectTestPolicy::Intersect => {
         for m in view.iter_mats() {
-          if let Some(intersected) = self.internal.frustum_query(SceneModelFrustumQueryRequest {
-            idx: view.source_model,
-            override_world_mat: Some(&m),
-            policy: ObjectTestPolicy::Intersect,
-            ignore_pre_check: true,
-            ..request
-          }) {
+          {
+            let intersected = self.internal.frustum_query(SceneModelFrustumQueryRequest {
+              idx: view.source_model,
+              override_world_mat: Some(&m),
+              policy: ObjectTestPolicy::Intersect,
+              ignore_pre_check: true,
+              ..request
+            })?;
             if intersected {
               return Some(true);
             }
-          } else {
-            return None;
           }
         }
         Some(false)
       }
       ObjectTestPolicy::Contains => {
         for m in view.iter_mats() {
-          if let Some(contains) = self.internal.frustum_query(SceneModelFrustumQueryRequest {
-            idx: view.source_model,
-            override_world_mat: Some(&m),
-            policy: ObjectTestPolicy::Contains,
-            ignore_pre_check: true,
-            ..request
-          }) {
+          {
+            let contains = self.internal.frustum_query(SceneModelFrustumQueryRequest {
+              idx: view.source_model,
+              override_world_mat: Some(&m),
+              policy: ObjectTestPolicy::Contains,
+              ignore_pre_check: true,
+              ..request
+            })?;
             if !contains {
               return Some(false);
             }
-          } else {
-            return None;
           }
         }
         Some(true)
@@ -208,18 +208,17 @@ impl<T: SceneModelPicker> SceneModelPicker for TransformInstancedMeshPicker<T> {
     )?;
 
     for (i, m) in view.iter_mats().enumerate() {
-      if let Some(positive) = self.internal.frustum_query(SceneModelFrustumQueryRequest {
-        idx: view.source_model,
-        override_world_mat: Some(&m),
-        policy: request.policy,
-        ignore_pre_check: true,
-        frustum: request.frustum,
-      }) {
+      {
+        let positive = self.internal.frustum_query(SceneModelFrustumQueryRequest {
+          idx: view.source_model,
+          override_world_mat: Some(&m),
+          policy: request.policy,
+          ignore_pre_check: true,
+          frustum: request.frustum,
+        })?;
         if positive {
           request.results.push(i as u32);
         }
-      } else {
-        return None;
       }
     }
 

@@ -501,7 +501,7 @@ impl ShaderAPINagaImpl {
         );
         let init = init
           .iter()
-          .map(|v| self.define_const_global_expr_impl(v.clone(), &f_ty))
+          .map(|v| self.define_const_global_expr_impl(v.clone(), f_ty))
           .collect();
 
         let expr = naga::Expression::Compose {

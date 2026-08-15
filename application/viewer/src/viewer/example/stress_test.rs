@@ -89,10 +89,8 @@ pub fn use_stress_test_example(cx: &mut ViewerCx) {
           if ui.button("Load").clicked() {
             example.pending_loads += 1;
           }
-          if !example.blocks.is_empty() {
-            if ui.button("Unload All").clicked() {
-              example.pending_unload_all = true;
-            }
+          if !example.blocks.is_empty() && ui.button("Unload All").clicked() {
+            example.pending_unload_all = true;
           }
         });
 
@@ -299,10 +297,8 @@ impl StressBlock {
       }
     }
 
-    if !use_unique_material {
-      if let SceneMaterialDataView::PbrSGMaterial(h) = shared_material {
-        material_entities.push(h);
-      }
+    if !use_unique_material && let SceneMaterialDataView::PbrSGMaterial(h) = shared_material {
+      material_entities.push(h);
     }
 
     Self {

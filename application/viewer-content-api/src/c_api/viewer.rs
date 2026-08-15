@@ -129,7 +129,7 @@ pub extern "C" fn viewer_load_font(api: &mut ViewerAPI, font_path: *const c_char
   if let Ok(s) = font_path.to_str() {
     let font_path = Path::new(s);
 
-    match std::fs::read(&font_path) {
+    match std::fs::read(font_path) {
       Ok(data) => api.core.viewer.load_font(data),
       Err(e) => log::error!("failed to read font from {:?}, error: {e:?}", font_path),
     }
@@ -180,17 +180,17 @@ pub extern "C" fn world_derive_query_api_get_world_bbox_with_persist(
   result: &mut [f64; 6],
 ) -> bool {
   let key = (surface_id, sm.into());
-  if let Some(mat) = api.scene_bounding.view_maps.access(&key) {
-    if let Some(other) = api.scene_bounding.sm_to_local_bbox.access(&sm.into()) {
-      let bbox = other.into_f64().apply_matrix_into(mat);
-      result[0] = bbox.min.x;
-      result[1] = bbox.min.y;
-      result[2] = bbox.min.z;
-      result[3] = bbox.max.x;
-      result[4] = bbox.max.y;
-      result[5] = bbox.max.z;
-      return true;
-    }
+  if let Some(mat) = api.scene_bounding.view_maps.access(&key)
+    && let Some(other) = api.scene_bounding.sm_to_local_bbox.access(&sm.into())
+  {
+    let bbox = other.into_f64().apply_matrix_into(mat);
+    result[0] = bbox.min.x;
+    result[1] = bbox.min.y;
+    result[2] = bbox.min.z;
+    result[3] = bbox.max.x;
+    result[4] = bbox.max.y;
+    result[5] = bbox.max.z;
+    return true;
   }
   false
 }

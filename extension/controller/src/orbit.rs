@@ -177,10 +177,10 @@ impl OrbitController {
     match event {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::MouseInput { button, state, .. } => {
-          if let ElementState::Pressed = state {
-            if !bound.is_point_in(s.mouse_position) {
-              return;
-            }
+          if let ElementState::Pressed = state
+            && !bound.is_point_in(s.mouse_position)
+          {
+            return;
           }
 
           match button {
@@ -199,11 +199,11 @@ impl OrbitController {
           if !self.use_mouse_motion {
             let delta = s.mouse_position - Vec2::new(position.x as f32, position.y as f32);
             if s.is_left_mouse_down {
-              self.rotate(Vec2::new(delta.x as f32, delta.y as f32))
+              self.rotate(Vec2::new(delta.x, delta.y))
             }
 
             if s.is_right_mouse_down {
-              self.pan(Vec2::new(delta.x as f32, delta.y as f32))
+              self.pan(Vec2::new(delta.x, delta.y))
             }
           }
           s.mouse_position.x = position.x as f32;

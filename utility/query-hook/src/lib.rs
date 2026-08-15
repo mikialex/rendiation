@@ -194,7 +194,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
     let waked = notifier.update(cx.waker());
     let waker = futures::task::waker(notifier.clone());
 
-    let waker_backup = cx.waker().clone().into();
+    let waker_backup = cx.waker().clone();
     *cx.waker() = waker;
 
     (cx, move |cx| {
@@ -335,10 +335,8 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
         Default::default()
       });
       let mut shared = shared.write();
-      if DEBUG_LOG_SHARED_HOOK {
-        if !shared.consumer.contains(&consumer_id) {
-          println!("create shared_ctx consumer {}", debug_label);
-        }
+      if DEBUG_LOG_SHARED_HOOK && !shared.consumer.contains(&consumer_id) {
+        println!("create shared_ctx consumer {}", debug_label);
       }
 
       shared.consumer.insert(consumer_id);
@@ -412,7 +410,8 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
 
     // if we enter this, the logic has already been executed in this stage before, so
     // we just share the task or clone the result.
-    let r = match self.stage() {
+
+    match self.stage() {
       QueryHookStage::SpawnTask {
         pool,
         immediate_results,
@@ -435,9 +434,7 @@ pub trait QueryHookCxLike: HooksCxLike + InspectableCx {
         }
       }
       _ => UseResult::NotInStage,
-    };
-
-    r
+    }
   }
 
   fn use_shared_consumer(&mut self, key: ShareKey, debug_label: &str) -> u32;
@@ -762,7 +759,7 @@ impl<K: CKey, V: CValue> DeltaQueryReconciler for SharedQueryChangeReconciler<K,
           if v.len() > DEBUG_CHANNEL_LEAK_THRESHOLD {
             println!(
               "leaked: {}, current_count: {}, downstream_id: {} {}",
-              &internal.debug_label,
+              internal.debug_label,
               v.len(),
               id,
               debug_info
