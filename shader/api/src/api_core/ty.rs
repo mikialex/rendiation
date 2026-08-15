@@ -258,7 +258,7 @@ pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType + ShaderAbstractPtrAcc
 pub trait PrimitiveShaderNodeType:
   ShaderSizedValueNodeType + SizedShaderAbstractPtrAccess + ShaderNodeType + Default
 {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType;
+  fn primitive_ty() -> PrimitiveShaderValueType;
   type Shape<T>;
   fn to_primitive(&self) -> PrimitiveShaderValue;
 }

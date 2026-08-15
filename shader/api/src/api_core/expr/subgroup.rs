@@ -22,7 +22,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
       SubgroupOperation::Add,
       SubgroupCollectiveOperation::Reduce,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
 
@@ -35,7 +35,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
       SubgroupOperation::Add,
       SubgroupCollectiveOperation::ExclusiveScan,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
 
@@ -48,7 +48,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
       SubgroupOperation::Add,
       SubgroupCollectiveOperation::InclusiveScan,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
 
@@ -58,7 +58,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
       SubgroupOperation::Mul,
       SubgroupCollectiveOperation::Reduce,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
 
@@ -71,7 +71,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
       SubgroupOperation::Mul,
       SubgroupCollectiveOperation::ExclusiveScan,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
 
@@ -84,7 +84,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
       SubgroupOperation::Mul,
       SubgroupCollectiveOperation::InclusiveScan,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
 
@@ -96,7 +96,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
     make_subgroup_gather_op(
       SubgroupGatherMode::Broadcast(val(id).handle()),
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
   /// Returns the value of e from the invocation that has the lowest subgroup invocation
@@ -105,7 +105,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
     make_subgroup_gather_op(
       SubgroupGatherMode::BroadcastFirst,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
   /// Returns self from the invocation whose subgroup invocation ID matches id.
@@ -114,7 +114,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
     make_subgroup_gather_op(
       SubgroupGatherMode::Shuffle(id.into().handle()),
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
   /// Returns self from the invocation whose subgroup invocation ID
@@ -125,7 +125,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
     make_subgroup_gather_op(
       SubgroupGatherMode::ShuffleUp(delta.into().handle()),
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
 
@@ -137,7 +137,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
     make_subgroup_gather_op(
       SubgroupGatherMode::ShuffleDown(delta.into().handle()),
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
 
@@ -147,7 +147,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
       SubgroupOperation::Max,
       SubgroupCollectiveOperation::Reduce,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
 
@@ -157,7 +157,7 @@ impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
       SubgroupOperation::Min,
       SubgroupCollectiveOperation::Reduce,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
 }
@@ -169,7 +169,7 @@ impl Node<bool> {
       SubgroupOperation::All,
       SubgroupCollectiveOperation::Reduce,
       self.handle(),
-      bool::PRIMITIVE_TYPE,
+      bool::primitive_ty(),
     )
   }
 
@@ -179,7 +179,7 @@ impl Node<bool> {
       SubgroupOperation::Any,
       SubgroupCollectiveOperation::Reduce,
       self.handle(),
-      bool::PRIMITIVE_TYPE,
+      bool::primitive_ty(),
     )
   }
 
@@ -220,7 +220,7 @@ impl<T: IntScalarOrVector + PrimitiveShaderNodeType> Node<T> {
       SubgroupOperation::And,
       SubgroupCollectiveOperation::Reduce,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
   /// Returns the bitwise or (|) of self among all active invocations in the subgroup.
@@ -229,7 +229,7 @@ impl<T: IntScalarOrVector + PrimitiveShaderNodeType> Node<T> {
       SubgroupOperation::Or,
       SubgroupCollectiveOperation::Reduce,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
   /// Returns the bitwise xor (^) of self among all active invocations in the subgroup.
@@ -238,7 +238,7 @@ impl<T: IntScalarOrVector + PrimitiveShaderNodeType> Node<T> {
       SubgroupOperation::Xor,
       SubgroupCollectiveOperation::Reduce,
       self.handle(),
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
     )
   }
 }

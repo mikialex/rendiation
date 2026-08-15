@@ -446,7 +446,7 @@ impl<T: ExpDecomposableShaderNodeType> Node<T> {
   pub fn frexp(self) -> (Node<T::Fract>, Node<T::Exp>) {
     let raw = make_builtin_call_with_ty_helper::<AnyType>(
       ShaderBuiltInFunction::Frexp,
-      T::PRIMITIVE_TYPE,
+      T::primitive_ty(),
       vec![self.handle()],
     )
     .handle();

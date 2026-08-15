@@ -148,29 +148,36 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
     let ptr = match &self.ty {
       ShaderValueSingleType::Sized(ty) => match ty {
         ShaderSizedValueType::Primitive(ty) => {
-          use PrimitiveShaderValueType::*;
           let (offset, fty) = match ty {
-            Bool | Int32 | Float32 => unreachable!("single primitive does not have fields"),
-            Mat2Float32 => (2 * field_index as u32, Vec2Float32),
-            Mat3Float32 => (
-              if matches!(meta.layout, StructLayoutTarget::Packed) {
-                3
-              } else {
-                4
-              } * field_index as u32,
-              Vec3Float32,
-            ),
-            Mat4Float32 => (4 * field_index as u32, Vec4Float32),
-            _ => (
+            PrimitiveShaderValueType::Scalar(_) => {
+              unreachable!("single primitive does not have fields")
+            }
+            PrimitiveShaderValueType::Vector { scalar, .. } => (
               field_index as u32,
-              match ty {
-                Vec2Bool | Vec3Bool | Vec4Bool => Bool,
-                Vec2Float32 | Vec3Float32 | Vec4Float32 => Float32,
-                Vec2Int32 | Vec3Int32 | Vec4Int32 => Int32,
-                Vec2Uint32 | Vec3Uint32 | Vec4Uint32 => Uint32,
-                _ => unreachable!(),
-              },
+              PrimitiveShaderValueType::Scalar(*scalar),
             ),
+            PrimitiveShaderValueType::Matrix {
+              columns,
+              rows,
+              scalar,
+            } => {
+              let stride = match (columns, rows) {
+                (VectorSize::Bi, VectorSize::Bi) => 2,
+                (VectorSize::Tri, VectorSize::Tri) => {
+                  if matches!(meta.layout, StructLayoutTarget::Packed) {
+                    3
+                  } else {
+                    4
+                  }
+                }
+                (VectorSize::Quad, VectorSize::Quad) => 4,
+                _ => unreachable!("{err}"),
+              };
+              (
+                stride * field_index as u32,
+                PrimitiveShaderValueType::vector(*rows, *scalar),
+              )
+            }
           };
           Self {
             ptr: self.ptr.advance(offset),

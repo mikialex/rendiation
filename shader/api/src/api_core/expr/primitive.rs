@@ -1,218 +1,483 @@
 use crate::*;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-pub enum PrimitiveShaderValueType {
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+pub enum ScalarType {
+  F32,
+  U32,
+  I32,
   Bool,
-  Int32,
-  Uint32,
-  Float32,
-  Vec2Bool,
-  Vec3Bool,
-  Vec4Bool,
-  Vec2Float32,
-  Vec3Float32,
-  Vec4Float32,
-  Vec2Uint32,
-  Vec3Uint32,
-  Vec4Uint32,
-  Vec2Int32,
-  Vec3Int32,
-  Vec4Int32,
-  Mat2Float32,
-  Mat3Float32,
-  Mat4Float32,
-  Mat4x3Float32,
+}
+
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+pub enum VectorSize {
+  /// 2D vector
+  Bi = 2,
+  /// 3D vector
+  Tri = 3,
+  /// 4D vector
+  Quad = 4,
+}
+
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+pub enum PrimitiveShaderValueType {
+  Scalar(ScalarType),
+  Vector {
+    size: VectorSize,
+    scalar: ScalarType,
+  },
+  Matrix {
+    columns: VectorSize,
+    rows: VectorSize,
+    scalar: ScalarType,
+  },
 }
 
 impl PrimitiveShaderValueType {
+  pub const fn vector(size: VectorSize, scalar: ScalarType) -> Self {
+    Self::Vector { size, scalar }
+  }
+
+  pub const fn square_matrix(size: VectorSize, scalar: ScalarType) -> Self {
+    Self::Matrix {
+      columns: size,
+      rows: size,
+      scalar,
+    }
+  }
+
+  pub fn scalar(self) -> ScalarType {
+    match self {
+      PrimitiveShaderValueType::Scalar(scalar) => scalar,
+      PrimitiveShaderValueType::Vector { scalar, .. } => scalar,
+      PrimitiveShaderValueType::Matrix { scalar, .. } => scalar,
+    }
+  }
+
   pub fn vertex_out_could_interpolated(self) -> bool {
-    matches!(
-      self,
-      PrimitiveShaderValueType::Float32
-        | PrimitiveShaderValueType::Vec2Float32
-        | PrimitiveShaderValueType::Vec3Float32
-        | PrimitiveShaderValueType::Vec4Float32
-    )
+    match self {
+      PrimitiveShaderValueType::Scalar(scalar)
+      | PrimitiveShaderValueType::Vector { scalar, .. } => scalar == ScalarType::F32,
+      PrimitiveShaderValueType::Matrix { .. } => false,
+    }
   }
 }
 
-#[derive(Clone, Copy)]
-pub enum PrimitiveShaderValue {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ScalarValue {
+  F32(f32),
+  U32(u32),
+  I32(i32),
   Bool(bool),
-  Uint32(u32),
-  Int32(i32),
-  Float32(f32),
-  Vec2Bool(Vec2<bool>),
-  Vec3Bool(Vec3<bool>),
-  Vec4Bool(Vec4<bool>),
-  Vec2Float32(Vec2<f32>),
-  Vec3Float32(Vec3<f32>),
-  Vec4Float32(Vec4<f32>),
-  Vec2Uint32(Vec2<u32>),
-  Vec3Uint32(Vec3<u32>),
-  Vec4Uint32(Vec4<u32>),
-  Vec2Int32(Vec2<i32>),
-  Vec3Int32(Vec3<i32>),
-  Vec4Int32(Vec4<i32>),
-  Mat2Float32(Mat2<f32>),
-  Mat3Float32(Mat3<f32>),
-  Mat4Float32(Mat4<f32>),
-  Mat4x3Float32(Mat4x3<f32>),
+}
+
+impl ScalarValue {
+  pub fn ty(self) -> ScalarType {
+    match self {
+      ScalarValue::F32(_) => ScalarType::F32,
+      ScalarValue::U32(_) => ScalarType::U32,
+      ScalarValue::I32(_) => ScalarType::I32,
+      ScalarValue::Bool(_) => ScalarType::Bool,
+    }
+  }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ScalarValueArray<T> {
+  Bi([T; 2]),
+  Tri([T; 3]),
+  Quad([T; 4]),
+}
+
+impl<T> ScalarValueArray<T> {
+  pub fn len(&self) -> usize {
+    match self {
+      ScalarValueArray::Bi(_) => 2,
+      ScalarValueArray::Tri(_) => 3,
+      ScalarValueArray::Quad(_) => 4,
+    }
+  }
+
+  pub fn as_slice(&self) -> &[T] {
+    match self {
+      ScalarValueArray::Bi(v) => v,
+      ScalarValueArray::Tri(v) => v,
+      ScalarValueArray::Quad(v) => v,
+    }
+  }
+
+  pub fn iter(&self) -> impl Iterator<Item = &T> {
+    self.as_slice().iter()
+  }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PrimitiveShaderValue {
+  Scalar(ScalarValue),
+  Vector {
+    size: VectorSize,
+    scalar: ScalarType,
+    data: ScalarValueArray<ScalarValue>,
+  },
+  Matrix {
+    columns: VectorSize,
+    rows: VectorSize,
+    scalar: ScalarType,
+    data: ScalarValueArray<ScalarValueArray<ScalarValue>>,
+  },
 }
 
 impl PrimitiveShaderValue {
-  pub fn into_raw_node(self) -> ShaderNodeRawHandle {
+  pub fn ty(&self) -> PrimitiveShaderValueType {
     match self {
-      PrimitiveShaderValue::Bool(v) => val(v).handle(),
-      PrimitiveShaderValue::Uint32(v) => val(v).handle(),
-      PrimitiveShaderValue::Int32(v) => val(v).handle(),
-      PrimitiveShaderValue::Float32(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec2Bool(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec3Bool(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec4Bool(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec2Float32(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec3Float32(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec4Float32(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec2Uint32(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec3Uint32(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec4Uint32(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec2Int32(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec3Int32(v) => val(v).handle(),
-      PrimitiveShaderValue::Vec4Int32(v) => val(v).handle(),
-      PrimitiveShaderValue::Mat2Float32(v) => val(v).handle(),
-      PrimitiveShaderValue::Mat3Float32(v) => val(v).handle(),
-      PrimitiveShaderValue::Mat4Float32(v) => val(v).handle(),
-      PrimitiveShaderValue::Mat4x3Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Scalar(v) => PrimitiveShaderValueType::Scalar(v.ty()),
+      PrimitiveShaderValue::Vector { size, scalar, .. } => {
+        PrimitiveShaderValueType::vector(*size, *scalar)
+      }
+      PrimitiveShaderValue::Matrix {
+        columns,
+        rows,
+        scalar,
+        ..
+      } => PrimitiveShaderValueType::Matrix {
+        columns: *columns,
+        rows: *rows,
+        scalar: *scalar,
+      },
+    }
+  }
+
+  pub fn into_raw_node(self) -> ShaderNodeRawHandle {
+    fn scalar_raw_node(v: ScalarValue) -> ShaderNodeRawHandle {
+      match v {
+        ScalarValue::Bool(v) => val(v).handle(),
+        ScalarValue::U32(v) => val(v).handle(),
+        ScalarValue::I32(v) => val(v).handle(),
+        ScalarValue::F32(v) => val(v).handle(),
+      }
+    }
+
+    match self {
+      PrimitiveShaderValue::Scalar(v) => scalar_raw_node(v),
+      PrimitiveShaderValue::Vector { size, scalar, data } => {
+        let target =
+          ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(size, scalar));
+        ShaderNodeExpr::Compose {
+          target,
+          parameters: data.iter().map(|v| scalar_raw_node(*v)).collect(),
+        }
+        .insert_api_raw()
+      }
+      PrimitiveShaderValue::Matrix {
+        columns,
+        rows,
+        scalar,
+        data,
+      } => {
+        let target = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Matrix {
+          columns,
+          rows,
+          scalar,
+        });
+        ShaderNodeExpr::Compose {
+          target,
+          parameters: data
+            .iter()
+            .flat_map(|column| column.iter())
+            .map(|v| scalar_raw_node(*v))
+            .collect(),
+        }
+        .insert_api_raw()
+      }
     }
   }
 }
 
 impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
   fn from(v: PrimitiveShaderValue) -> Self {
-    match v {
-      PrimitiveShaderValue::Bool(_) => PrimitiveShaderValueType::Bool,
-      PrimitiveShaderValue::Int32(_) => PrimitiveShaderValueType::Int32,
-      PrimitiveShaderValue::Uint32(_) => PrimitiveShaderValueType::Uint32,
-      PrimitiveShaderValue::Float32(_) => PrimitiveShaderValueType::Float32,
-      PrimitiveShaderValue::Vec2Bool(_) => PrimitiveShaderValueType::Vec2Bool,
-      PrimitiveShaderValue::Vec3Bool(_) => PrimitiveShaderValueType::Vec3Bool,
-      PrimitiveShaderValue::Vec4Bool(_) => PrimitiveShaderValueType::Vec4Bool,
-      PrimitiveShaderValue::Vec2Float32(_) => PrimitiveShaderValueType::Vec2Float32,
-      PrimitiveShaderValue::Vec3Float32(_) => PrimitiveShaderValueType::Vec3Float32,
-      PrimitiveShaderValue::Vec4Float32(_) => PrimitiveShaderValueType::Vec4Float32,
-      PrimitiveShaderValue::Mat2Float32(_) => PrimitiveShaderValueType::Mat2Float32,
-      PrimitiveShaderValue::Mat3Float32(_) => PrimitiveShaderValueType::Mat3Float32,
-      PrimitiveShaderValue::Mat4Float32(_) => PrimitiveShaderValueType::Mat4Float32,
-      PrimitiveShaderValue::Mat4x3Float32(_) => PrimitiveShaderValueType::Mat4x3Float32,
-      PrimitiveShaderValue::Vec2Uint32(_) => PrimitiveShaderValueType::Vec2Uint32,
-      PrimitiveShaderValue::Vec3Uint32(_) => PrimitiveShaderValueType::Vec3Uint32,
-      PrimitiveShaderValue::Vec4Uint32(_) => PrimitiveShaderValueType::Vec4Uint32,
-      PrimitiveShaderValue::Vec2Int32(_) => PrimitiveShaderValueType::Vec2Int32,
-      PrimitiveShaderValue::Vec3Int32(_) => PrimitiveShaderValueType::Vec3Int32,
-      PrimitiveShaderValue::Vec4Int32(_) => PrimitiveShaderValueType::Vec4Int32,
-    }
+    v.ty()
   }
 }
 
-// Impl Notes:
-//
-// impl<T: PrimitiveShaderNodeType> ShaderNodeType for T {
-//   const TYPE: ShaderValueSingleType =
-//     ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(T::PRIMITIVE_TYPE));
-// }
-// impl<T: PrimitiveShaderNodeType> ShaderSizedValueNodeType for T {
-//   const TYPE: ShaderSizedValueType =
-//     ShaderSizedValueType::Primitive(T::PRIMITIVE_TYPE);
-// }
-//
-// We can not use above auto impl but the macro because rust not support trait associate const
-// specialization
+pub trait ScalarTypeOf {
+  fn scalar_type() -> ScalarType;
+}
+impl ScalarTypeOf for bool {
+  fn scalar_type() -> ScalarType {
+    ScalarType::Bool
+  }
+}
+impl ScalarTypeOf for u32 {
+  fn scalar_type() -> ScalarType {
+    ScalarType::U32
+  }
+}
+impl ScalarTypeOf for i32 {
+  fn scalar_type() -> ScalarType {
+    ScalarType::I32
+  }
+}
+impl ScalarTypeOf for f32 {
+  fn scalar_type() -> ScalarType {
+    ScalarType::F32
+  }
+}
 
-/// Impl note: why we not use the follow code instead of macro?
-macro_rules! primitive_ty {
-  ($ty: ty, $primitive_ty_value: expr, $to_primitive: expr) => {
-    sg_node_impl!(
-      $ty,
-      ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive($primitive_ty_value))
-    );
+impl From<bool> for ScalarValue {
+  fn from(v: bool) -> Self {
+    ScalarValue::Bool(v)
+  }
+}
+impl From<u32> for ScalarValue {
+  fn from(v: u32) -> Self {
+    ScalarValue::U32(v)
+  }
+}
+impl From<i32> for ScalarValue {
+  fn from(v: i32) -> Self {
+    ScalarValue::I32(v)
+  }
+}
+impl From<f32> for ScalarValue {
+  fn from(v: f32) -> Self {
+    ScalarValue::F32(v)
+  }
+}
 
-    impl ShaderSizedValueNodeType for $ty {
-      fn sized_ty() -> ShaderSizedValueType {
-        ShaderSizedValueType::Primitive($primitive_ty_value)
-      }
-      fn to_value(&self) -> ShaderStructFieldInitValue {
-        ShaderStructFieldInitValue::Primitive(self.to_primitive())
-      }
-    }
+impl From<bool> for PrimitiveShaderValue {
+  fn from(v: bool) -> Self {
+    PrimitiveShaderValue::Scalar(v.into())
+  }
+}
+impl From<u32> for PrimitiveShaderValue {
+  fn from(v: u32) -> Self {
+    PrimitiveShaderValue::Scalar(v.into())
+  }
+}
+impl From<i32> for PrimitiveShaderValue {
+  fn from(v: i32) -> Self {
+    PrimitiveShaderValue::Scalar(v.into())
+  }
+}
+impl From<f32> for PrimitiveShaderValue {
+  fn from(v: f32) -> Self {
+    PrimitiveShaderValue::Scalar(v.into())
+  }
+}
 
-    impl PrimitiveShaderNodeType for $ty {
-      const PRIMITIVE_TYPE: PrimitiveShaderValueType = $primitive_ty_value;
-      type Shape<T> = T;
-      fn to_primitive(&self) -> PrimitiveShaderValue {
-        $to_primitive(*self)
-      }
-    }
-  };
-  ($ty: ty, $primitive_ty_value: expr, $to_primitive: expr, $shape: tt) => {
-    sg_node_impl!(
-      $ty,
-      ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive($primitive_ty_value))
-    );
-
-    impl ShaderSizedValueNodeType for $ty {
-      fn sized_ty() -> ShaderSizedValueType {
-        ShaderSizedValueType::Primitive($primitive_ty_value)
-      }
-      fn to_value(&self) -> ShaderStructFieldInitValue {
-        ShaderStructFieldInitValue::Primitive(self.to_primitive())
-      }
-    }
-
-    impl PrimitiveShaderNodeType for $ty {
-      const PRIMITIVE_TYPE: PrimitiveShaderValueType = $primitive_ty_value;
-      type Shape<T> = $shape<T>;
-      fn to_primitive(&self) -> PrimitiveShaderValue {
-        $to_primitive(*self)
+macro_rules! primitive_value_from_vector {
+  ($ty: ty, $size: ident, $array_len: tt) => {
+    impl<T: ScalarTypeOf + Copy + Into<ScalarValue>> From<$ty> for PrimitiveShaderValue {
+      fn from(v: $ty) -> Self {
+        let arr: [T; $array_len] = v.into();
+        let data = ScalarValueArray::$size(arr.map(Into::into));
+        PrimitiveShaderValue::Vector {
+          size: VectorSize::$size,
+          scalar: T::scalar_type(),
+          data,
+        }
       }
     }
   };
 }
 
-// we group them together just to skip rustfmt entirely
-#[rustfmt::skip]
-mod impls {
-  use crate::*;
-  primitive_ty!(bool, PrimitiveShaderValueType::Bool,  PrimitiveShaderValue::Bool);
-  primitive_ty!(u32, PrimitiveShaderValueType::Uint32,  PrimitiveShaderValue::Uint32);
-  primitive_ty!(i32, PrimitiveShaderValueType::Int32,  PrimitiveShaderValue::Int32);
-  primitive_ty!(f32, PrimitiveShaderValueType::Float32,  PrimitiveShaderValue::Float32);
-  primitive_ty!(Vec2<bool>, PrimitiveShaderValueType::Vec2Bool,  PrimitiveShaderValue::Vec2Bool, Vec2);
-  primitive_ty!(Vec3<bool>, PrimitiveShaderValueType::Vec3Bool,  PrimitiveShaderValue::Vec3Bool, Vec3);
-  primitive_ty!(Vec4<bool>, PrimitiveShaderValueType::Vec4Bool,  PrimitiveShaderValue::Vec4Bool, Vec4);
-  primitive_ty!(Vec2<f32>, PrimitiveShaderValueType::Vec2Float32,  PrimitiveShaderValue::Vec2Float32, Vec2);
-  primitive_ty!(Vec3<f32>, PrimitiveShaderValueType::Vec3Float32,  PrimitiveShaderValue::Vec3Float32, Vec3);
-  primitive_ty!(Vec4<f32>, PrimitiveShaderValueType::Vec4Float32,  PrimitiveShaderValue::Vec4Float32, Vec4);
-  primitive_ty!(Vec2<u32>, PrimitiveShaderValueType::Vec2Uint32,  PrimitiveShaderValue::Vec2Uint32, Vec2);
-  primitive_ty!(Vec3<u32>, PrimitiveShaderValueType::Vec3Uint32,  PrimitiveShaderValue::Vec3Uint32, Vec3);
-  primitive_ty!(Vec4<u32>, PrimitiveShaderValueType::Vec4Uint32,  PrimitiveShaderValue::Vec4Uint32, Vec4);
-  primitive_ty!(Vec2<i32>, PrimitiveShaderValueType::Vec2Int32,  PrimitiveShaderValue::Vec2Int32, Vec2);
-  primitive_ty!(Vec3<i32>, PrimitiveShaderValueType::Vec3Int32,  PrimitiveShaderValue::Vec3Int32, Vec3);
-  primitive_ty!(Vec4<i32>, PrimitiveShaderValueType::Vec4Int32,  PrimitiveShaderValue::Vec4Int32, Vec4);
-  primitive_ty!(Mat2<f32>, PrimitiveShaderValueType::Mat2Float32,  PrimitiveShaderValue::Mat2Float32, Mat2);
-  primitive_ty!(Mat3<f32>, PrimitiveShaderValueType::Mat3Float32,  PrimitiveShaderValue::Mat3Float32, Mat3);
-  primitive_ty!(Mat4<f32>, PrimitiveShaderValueType::Mat4Float32,  PrimitiveShaderValue::Mat4Float32, Mat4);
-  primitive_ty!(Mat4x3<f32>, PrimitiveShaderValueType::Mat4x3Float32,  PrimitiveShaderValue::Mat4x3Float32, Mat4x3);
+macro_rules! primitive_value_from_matrix {
+  ($ty: ty, $columns: ident, $column_len: tt, $rows: ident, $row_len: tt) => {
+    impl<T: ScalarTypeOf + Copy + Into<ScalarValue>> From<$ty> for PrimitiveShaderValue {
+      fn from(v: $ty) -> Self {
+        let arr: [ScalarValue; $column_len * $row_len] = {
+          let arr: [T; $column_len * $row_len] = v.into();
+          arr.map(Into::into)
+        };
+        let columns: [[ScalarValue; $row_len]; $column_len] = arr
+          .chunks_exact($row_len)
+          .map(|c| <[ScalarValue; $row_len]>::try_from(c).unwrap())
+          .collect::<Vec<_>>()
+          .try_into()
+          .unwrap();
+        let data = ScalarValueArray::$columns(columns.map(ScalarValueArray::$rows));
+        PrimitiveShaderValue::Matrix {
+          columns: VectorSize::$columns,
+          rows: VectorSize::$rows,
+          scalar: T::scalar_type(),
+          data,
+        }
+      }
+    }
+  };
 }
+
+primitive_value_from_vector!(Vec2<T>, Bi, 2);
+primitive_value_from_vector!(Vec3<T>, Tri, 3);
+primitive_value_from_vector!(Vec4<T>, Quad, 4);
+primitive_value_from_matrix!(Mat2<T>, Bi, 2, Bi, 2);
+primitive_value_from_matrix!(Mat3<T>, Tri, 3, Tri, 3);
+primitive_value_from_matrix!(Mat4<T>, Quad, 4, Quad, 4);
+primitive_value_from_matrix!(Mat4x3<T>, Quad, 4, Tri, 3);
+
+// scalars are concrete types so they can not be grouped into one generic impl,
+// vec and mat use generic impl over T: ScalarTypeOf to cover all supported scalar types.
+macro_rules! impl_scalar_primitive_node_type {
+  ($ty: ty, $scalar: ident) => {
+    impl ShaderNodeSingleType for $ty {
+      fn single_ty() -> ShaderValueSingleType {
+        ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(
+          PrimitiveShaderValueType::Scalar(ScalarType::$scalar),
+        ))
+      }
+    }
+    impl ShaderNodeType for $ty {
+      fn ty() -> ShaderValueType {
+        ShaderValueType::Single(Self::single_ty())
+      }
+    }
+    impl ShaderSizedValueNodeType for $ty {
+      fn sized_ty() -> ShaderSizedValueType {
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Scalar(ScalarType::$scalar))
+      }
+      fn to_value(&self) -> ShaderStructFieldInitValue {
+        ShaderStructFieldInitValue::Primitive(self.to_primitive())
+      }
+    }
+    impl PrimitiveShaderNodeType for $ty {
+      fn primitive_ty() -> PrimitiveShaderValueType {
+        PrimitiveShaderValueType::Scalar(ScalarType::$scalar)
+      }
+      type Shape<X> = X;
+      fn to_primitive(&self) -> PrimitiveShaderValue {
+        PrimitiveShaderValue::from(*self)
+      }
+    }
+  };
+}
+
+macro_rules! impl_vector_primitive_node_type {
+  ($ty: ident, $size: ident) => {
+    impl<T> ShaderNodeSingleType for $ty<T>
+    where
+      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+    {
+      fn single_ty() -> ShaderValueSingleType {
+        ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(
+          PrimitiveShaderValueType::vector(VectorSize::$size, T::scalar_type()),
+        ))
+      }
+    }
+    impl<T> ShaderNodeType for $ty<T>
+    where
+      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+    {
+      fn ty() -> ShaderValueType {
+        ShaderValueType::Single(Self::single_ty())
+      }
+    }
+    impl<T> ShaderSizedValueNodeType for $ty<T>
+    where
+      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+    {
+      fn sized_ty() -> ShaderSizedValueType {
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(
+          VectorSize::$size,
+          T::scalar_type(),
+        ))
+      }
+      fn to_value(&self) -> ShaderStructFieldInitValue {
+        ShaderStructFieldInitValue::Primitive(self.to_primitive())
+      }
+    }
+    impl<T> PrimitiveShaderNodeType for $ty<T>
+    where
+      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+    {
+      fn primitive_ty() -> PrimitiveShaderValueType {
+        PrimitiveShaderValueType::vector(VectorSize::$size, T::scalar_type())
+      }
+      type Shape<X> = $ty<X>;
+      fn to_primitive(&self) -> PrimitiveShaderValue {
+        PrimitiveShaderValue::from(*self)
+      }
+    }
+  };
+}
+
+macro_rules! impl_matrix_primitive_node_type {
+  ($ty: ident, $columns: ident, $rows: ident) => {
+    impl<T> ShaderNodeSingleType for $ty<T>
+    where
+      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+    {
+      fn single_ty() -> ShaderValueSingleType {
+        ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(
+          PrimitiveShaderValueType::Matrix {
+            columns: VectorSize::$columns,
+            rows: VectorSize::$rows,
+            scalar: T::scalar_type(),
+          },
+        ))
+      }
+    }
+    impl<T> ShaderNodeType for $ty<T>
+    where
+      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+    {
+      fn ty() -> ShaderValueType {
+        ShaderValueType::Single(Self::single_ty())
+      }
+    }
+    impl<T> ShaderSizedValueNodeType for $ty<T>
+    where
+      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+    {
+      fn sized_ty() -> ShaderSizedValueType {
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Matrix {
+          columns: VectorSize::$columns,
+          rows: VectorSize::$rows,
+          scalar: T::scalar_type(),
+        })
+      }
+      fn to_value(&self) -> ShaderStructFieldInitValue {
+        ShaderStructFieldInitValue::Primitive(self.to_primitive())
+      }
+    }
+    impl<T> PrimitiveShaderNodeType for $ty<T>
+    where
+      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+    {
+      fn primitive_ty() -> PrimitiveShaderValueType {
+        PrimitiveShaderValueType::Matrix {
+          columns: VectorSize::$columns,
+          rows: VectorSize::$rows,
+          scalar: T::scalar_type(),
+        }
+      }
+      type Shape<X> = $ty<X>;
+      fn to_primitive(&self) -> PrimitiveShaderValue {
+        PrimitiveShaderValue::from(*self)
+      }
+    }
+  };
+}
+
+impl_scalar_primitive_node_type!(bool, Bool);
+impl_scalar_primitive_node_type!(u32, U32);
+impl_scalar_primitive_node_type!(i32, I32);
+impl_scalar_primitive_node_type!(f32, F32);
+impl_vector_primitive_node_type!(Vec2, Bi);
+impl_vector_primitive_node_type!(Vec3, Tri);
+impl_vector_primitive_node_type!(Vec4, Quad);
+impl_matrix_primitive_node_type!(Mat2, Bi, Bi);
+impl_matrix_primitive_node_type!(Mat3, Tri, Tri);
+impl_matrix_primitive_node_type!(Mat4, Quad, Quad);
+impl_matrix_primitive_node_type!(Mat4x3, Quad, Tri);
 
 sg_node_impl!(
   Bool,
   ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(
-    PrimitiveShaderValueType::Uint32
+    PrimitiveShaderValueType::Scalar(ScalarType::U32)
   ))
 );
 impl ShaderSizedValueNodeType for Bool {
   fn sized_ty() -> ShaderSizedValueType {
-    ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32)
+    ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Scalar(ScalarType::U32))
   }
   fn to_value(&self) -> ShaderStructFieldInitValue {
     ShaderStructFieldInitValue::Primitive(self.to_primitive())
@@ -220,10 +485,12 @@ impl ShaderSizedValueNodeType for Bool {
 }
 
 impl PrimitiveShaderNodeType for Bool {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Uint32;
+  fn primitive_ty() -> PrimitiveShaderValueType {
+    PrimitiveShaderValueType::Scalar(ScalarType::U32)
+  }
   type Shape<T> = Bool;
   fn to_primitive(&self) -> PrimitiveShaderValue {
-    PrimitiveShaderValue::Uint32(self.0)
+    PrimitiveShaderValue::Scalar(ScalarValue::U32(self.0))
   }
 }
 impl Node<Bool> {

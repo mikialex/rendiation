@@ -173,57 +173,36 @@ impl PrimitiveShaderValueType {
       return 4;
     }
     match self {
-      PrimitiveShaderValueType::Bool => 4,
-      PrimitiveShaderValueType::Int32 => 4,
-      PrimitiveShaderValueType::Uint32 => 4,
-      PrimitiveShaderValueType::Float32 => 4,
-      PrimitiveShaderValueType::Vec2Bool => 8,
-      PrimitiveShaderValueType::Vec3Bool => 16,
-      PrimitiveShaderValueType::Vec4Bool => 16,
-      PrimitiveShaderValueType::Vec2Float32 => 8,
-      PrimitiveShaderValueType::Vec3Float32 => 16,
-      PrimitiveShaderValueType::Vec4Float32 => 16,
-      PrimitiveShaderValueType::Mat2Float32 => 8,
-      PrimitiveShaderValueType::Mat3Float32 => 16,
-      PrimitiveShaderValueType::Mat4Float32 => 16,
-      PrimitiveShaderValueType::Mat4x3Float32 => 16,
-      PrimitiveShaderValueType::Vec2Uint32 => 8,
-      PrimitiveShaderValueType::Vec3Uint32 => 16,
-      PrimitiveShaderValueType::Vec4Uint32 => 16,
-      PrimitiveShaderValueType::Vec2Int32 => 8,
-      PrimitiveShaderValueType::Vec3Int32 => 16,
-      PrimitiveShaderValueType::Vec4Int32 => 16,
+      PrimitiveShaderValueType::Scalar(_) => 4,
+      PrimitiveShaderValueType::Vector {
+        size: VectorSize::Bi,
+        ..
+      } => 8,
+      PrimitiveShaderValueType::Vector { .. } => 16,
+      PrimitiveShaderValueType::Matrix { rows, .. } => match rows {
+        VectorSize::Bi => 8,
+        VectorSize::Tri | VectorSize::Quad => 16,
+      },
     }
   }
 
   pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
-      PrimitiveShaderValueType::Bool => 4,
-      PrimitiveShaderValueType::Int32 => 4,
-      PrimitiveShaderValueType::Uint32 => 4,
-      PrimitiveShaderValueType::Float32 => 4,
-      PrimitiveShaderValueType::Vec2Bool => 8,
-      PrimitiveShaderValueType::Vec3Bool => 12,
-      PrimitiveShaderValueType::Vec4Bool => 16,
-      PrimitiveShaderValueType::Vec2Float32 => 8,
-      PrimitiveShaderValueType::Vec3Float32 => 12,
-      PrimitiveShaderValueType::Vec4Float32 => 16,
-      PrimitiveShaderValueType::Vec2Uint32 => 8,
-      PrimitiveShaderValueType::Vec3Uint32 => 12,
-      PrimitiveShaderValueType::Vec4Uint32 => 16,
-      PrimitiveShaderValueType::Vec2Int32 => 8,
-      PrimitiveShaderValueType::Vec3Int32 => 12,
-      PrimitiveShaderValueType::Vec4Int32 => 16,
-      PrimitiveShaderValueType::Mat2Float32 => 16,
-      PrimitiveShaderValueType::Mat3Float32 => {
-        if target == StructLayoutTarget::Packed {
-          3 * 3 * 4
-        } else {
-          3 * 4 * 4
+      PrimitiveShaderValueType::Scalar(_) => 4,
+      PrimitiveShaderValueType::Vector { size, .. } => 4 * *size as usize,
+      PrimitiveShaderValueType::Matrix { columns, rows, .. } => match (columns, rows) {
+        (VectorSize::Bi, VectorSize::Bi) => 16,
+        (VectorSize::Tri, VectorSize::Tri) => {
+          if target == StructLayoutTarget::Packed {
+            3 * 3 * 4
+          } else {
+            3 * 4 * 4
+          }
         }
-      }
-      PrimitiveShaderValueType::Mat4Float32 => 64,
-      PrimitiveShaderValueType::Mat4x3Float32 => 48,
+        (VectorSize::Quad, VectorSize::Quad) => 64,
+        (VectorSize::Quad, VectorSize::Tri) => 48,
+        _ => unreachable!(),
+      },
     }
   }
 }

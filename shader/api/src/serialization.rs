@@ -2,59 +2,32 @@ use crate::*;
 
 impl PrimitiveShaderValueType {
   pub fn channel_ty(&self) -> ValueKind {
-    match self {
-      PrimitiveShaderValueType::Bool => ValueKind::Bool,
-      PrimitiveShaderValueType::Int32 => ValueKind::Int,
-      PrimitiveShaderValueType::Uint32 => ValueKind::Uint,
-      PrimitiveShaderValueType::Float32 => ValueKind::Float,
-      PrimitiveShaderValueType::Vec2Bool => ValueKind::Bool,
-      PrimitiveShaderValueType::Vec3Bool => ValueKind::Bool,
-      PrimitiveShaderValueType::Vec4Bool => ValueKind::Bool,
-      PrimitiveShaderValueType::Vec2Float32 => ValueKind::Float,
-      PrimitiveShaderValueType::Vec3Float32 => ValueKind::Float,
-      PrimitiveShaderValueType::Vec4Float32 => ValueKind::Float,
-      PrimitiveShaderValueType::Vec2Uint32 => ValueKind::Uint,
-      PrimitiveShaderValueType::Vec3Uint32 => ValueKind::Uint,
-      PrimitiveShaderValueType::Vec4Uint32 => ValueKind::Uint,
-      PrimitiveShaderValueType::Vec2Int32 => ValueKind::Int,
-      PrimitiveShaderValueType::Vec3Int32 => ValueKind::Int,
-      PrimitiveShaderValueType::Vec4Int32 => ValueKind::Int,
-      PrimitiveShaderValueType::Mat2Float32 => ValueKind::Float,
-      PrimitiveShaderValueType::Mat3Float32 => ValueKind::Float,
-      PrimitiveShaderValueType::Mat4Float32 => ValueKind::Float,
-      PrimitiveShaderValueType::Mat4x3Float32 => ValueKind::Float,
+    match self.scalar() {
+      ScalarType::Bool => ValueKind::Bool,
+      ScalarType::I32 => ValueKind::Int,
+      ScalarType::U32 => ValueKind::Uint,
+      ScalarType::F32 => ValueKind::Float,
     }
   }
 
   pub fn u32_count_of_self(&self, layout: StructLayoutTarget) -> usize {
     let is_packed = matches!(layout, StructLayoutTarget::Packed);
     match self {
-      PrimitiveShaderValueType::Bool => 1,
-      PrimitiveShaderValueType::Int32 => 1,
-      PrimitiveShaderValueType::Uint32 => 1,
-      PrimitiveShaderValueType::Float32 => 1,
-      PrimitiveShaderValueType::Vec2Bool => 2,
-      PrimitiveShaderValueType::Vec3Bool => 3,
-      PrimitiveShaderValueType::Vec4Bool => 4,
-      PrimitiveShaderValueType::Vec2Float32 => 2,
-      PrimitiveShaderValueType::Vec3Float32 => 3,
-      PrimitiveShaderValueType::Vec4Float32 => 4,
-      PrimitiveShaderValueType::Vec2Uint32 => 2,
-      PrimitiveShaderValueType::Vec3Uint32 => 3,
-      PrimitiveShaderValueType::Vec4Uint32 => 4,
-      PrimitiveShaderValueType::Vec2Int32 => 2,
-      PrimitiveShaderValueType::Vec3Int32 => 3,
-      PrimitiveShaderValueType::Vec4Int32 => 4,
-      PrimitiveShaderValueType::Mat2Float32 => 4,
-      PrimitiveShaderValueType::Mat3Float32 => {
-        if is_packed {
-          9
-        } else {
-          16
+      PrimitiveShaderValueType::Scalar(_) => 1,
+      PrimitiveShaderValueType::Vector { size, .. } => *size as usize,
+      PrimitiveShaderValueType::Matrix { columns, rows, .. } => match (columns, rows) {
+        (VectorSize::Bi, VectorSize::Bi) => 4,
+        (VectorSize::Tri, VectorSize::Tri) => {
+          if is_packed {
+            9
+          } else {
+            16
+          }
         }
-      }
-      PrimitiveShaderValueType::Mat4Float32 => 16,
-      PrimitiveShaderValueType::Mat4x3Float32 => 12,
+        (VectorSize::Quad, VectorSize::Quad) => 16,
+        (VectorSize::Quad, VectorSize::Tri) => 12,
+        _ => unreachable!(),
+      },
     }
   }
 
@@ -66,29 +39,31 @@ impl PrimitiveShaderValueType {
   /// calculate row count by f32_count / row_stride
   pub fn mat_row_info(&self, target: StructLayoutTarget) -> Option<(usize, ShaderSizedValueType)> {
     match self {
-      PrimitiveShaderValueType::Mat2Float32 => (
-        2,
-        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec2Float32),
-      ),
-      PrimitiveShaderValueType::Mat3Float32 => (
-        if target == StructLayoutTarget::Packed {
-          3
-        } else {
-          4
-        },
-        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec3Float32),
-      ),
-      PrimitiveShaderValueType::Mat4Float32 => (
-        4,
-        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec4Float32),
-      ),
-      PrimitiveShaderValueType::Mat4x3Float32 => (
-        3,
-        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec3Float32),
-      ),
-      _ => return None,
+      PrimitiveShaderValueType::Matrix {
+        columns,
+        rows,
+        scalar,
+      } => {
+        let stride = match (columns, rows) {
+          (VectorSize::Bi, VectorSize::Bi) => 2,
+          (VectorSize::Tri, VectorSize::Tri) => {
+            if target == StructLayoutTarget::Packed {
+              3
+            } else {
+              4
+            }
+          }
+          (VectorSize::Quad, VectorSize::Quad) => 4,
+          (VectorSize::Quad, VectorSize::Tri) => 3,
+          _ => unreachable!(),
+        };
+        Some((
+          stride,
+          ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(*rows, *scalar)),
+        ))
+      }
+      _ => None,
     }
-    .into()
   }
 }
 

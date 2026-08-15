@@ -32,7 +32,7 @@ impl TaskPool {
     allocator: &dyn AbstractStorageAllocator,
   ) -> Self {
     let mut task_ty_desc = ShaderStructMetaInfo::new(&format!("TaskType{index}"));
-    let u32_ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32);
+    let u32_ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Scalar(ScalarType::U32));
 
     task_ty_desc.push_field_dyn("is_finished", u32_ty.clone());
     task_ty_desc.push_field_dyn("payload", payload_ty);

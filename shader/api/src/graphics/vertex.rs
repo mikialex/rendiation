@@ -152,7 +152,7 @@ impl ShaderVertexBuilder {
     T: SemanticVertexShaderValue,
     T::ValueType: PrimitiveShaderNodeType,
   {
-    self.register_vertex_in_inner(T::ValueType::PRIMITIVE_TYPE, TypeId::of::<T>())
+    self.register_vertex_in_inner(T::ValueType::primitive_ty(), TypeId::of::<T>())
   }
 
   /// untyped version
@@ -214,7 +214,7 @@ impl ShaderVertexBuilder {
       .vertex_out
       .entry(id)
       .or_insert_with(|| {
-        let ty = T::ValueType::PRIMITIVE_TYPE;
+        let ty = T::ValueType::primitive_ty();
         if !ty.vertex_out_could_interpolated() {
           interpolation = ShaderInterpolation::Flat
         }

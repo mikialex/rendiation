@@ -395,120 +395,45 @@ impl ShaderAPINagaImpl {
     data: PrimitiveShaderValue,
     is_global: bool,
   ) -> naga::Handle<naga::Expression> {
-    // too funky..
-    macro_rules! impl_p {
-      ( $input: ident, $r_ty: ty, $array_size: tt, $literal_ty: tt) => {
-        let arr: [$r_ty; $array_size] = $input.into();
-        let components = arr
-          .iter()
-          .map(|v| {
-            self.make_expression_inner_raw(
-              naga::Expression::Literal(naga::Literal::$literal_ty(*v)),
-              is_global,
-            )
-          })
-          .collect();
-        let ty = self.register_ty_impl(
-          ShaderValueType::Single(ShaderValueSingleType::Sized(
-            ShaderSizedValueType::Primitive(data.into()),
-          )),
-          None,
-        );
-        let expr = naga::Expression::Compose { ty, components };
-        return self.make_expression_inner_raw(expr, is_global);
-      };
-    }
-    macro_rules! impl_p_f {
-      ( $input: ident, $r_ty: ty, $array_size: tt) => {
-        let arr: [$r_ty; $array_size] = $input.into();
-        let components = arr
-          .iter()
-          .map(|v| {
-            self.make_expression_inner_raw(
-              naga::Expression::Literal(naga::Literal::F32(workaround_f32_max(*v))),
-              is_global,
-            )
-          })
-          .collect();
-        let ty = self.register_ty_impl(
-          ShaderValueType::Single(ShaderValueSingleType::Sized(
-            ShaderSizedValueType::Primitive(data.into()),
-          )),
-          None,
-        );
-        let expr = naga::Expression::Compose { ty, components };
-        return self.make_expression_inner_raw(expr, is_global);
-      };
-    }
-
-    // workaround chrome bug
-    fn workaround_f32_max(f: f32) -> f32 {
-      if f == f32::MAX { f.next_down() } else { f }
-    }
-
+    let ty = data.ty();
     match data {
-      PrimitiveShaderValue::Bool(v) => {
-        self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::Bool(v)), is_global)
-      }
-      PrimitiveShaderValue::Uint32(v) => {
-        self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::U32(v)), is_global)
-      }
-      PrimitiveShaderValue::Int32(v) => {
-        self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::I32(v)), is_global)
-      }
-      PrimitiveShaderValue::Float32(v) => self.make_expression_inner_raw(
-        naga::Expression::Literal(naga::Literal::F32(workaround_f32_max(v))),
+      PrimitiveShaderValue::Scalar(v) => self.make_expression_inner_raw(
+        naga::Expression::Literal(scalar_value_to_naga_literal(v)),
         is_global,
       ),
-      PrimitiveShaderValue::Vec2Bool(v) => {
-        impl_p!(v, bool, 2, Bool);
+      PrimitiveShaderValue::Vector { data, .. } => {
+        self.compose_primitive_expression(ty, data.iter(), is_global)
       }
-      PrimitiveShaderValue::Vec3Bool(v) => {
-        impl_p!(v, bool, 3, Bool);
-      }
-      PrimitiveShaderValue::Vec4Bool(v) => {
-        impl_p!(v, bool, 4, Bool);
-      }
-      PrimitiveShaderValue::Vec2Float32(v) => {
-        impl_p_f!(v, f32, 2);
-      }
-      PrimitiveShaderValue::Vec3Float32(v) => {
-        impl_p_f!(v, f32, 3);
-      }
-      PrimitiveShaderValue::Vec4Float32(v) => {
-        impl_p_f!(v, f32, 4);
-      }
-      PrimitiveShaderValue::Vec2Uint32(v) => {
-        impl_p!(v, u32, 2, U32);
-      }
-      PrimitiveShaderValue::Vec3Uint32(v) => {
-        impl_p!(v, u32, 3, U32);
-      }
-      PrimitiveShaderValue::Vec4Uint32(v) => {
-        impl_p!(v, u32, 4, U32);
-      }
-      PrimitiveShaderValue::Vec2Int32(v) => {
-        impl_p!(v, i32, 2, I32);
-      }
-      PrimitiveShaderValue::Vec3Int32(v) => {
-        impl_p!(v, i32, 3, I32);
-      }
-      PrimitiveShaderValue::Vec4Int32(v) => {
-        impl_p!(v, i32, 4, I32);
-      }
-      PrimitiveShaderValue::Mat2Float32(v) => {
-        impl_p_f!(v, f32, 4);
-      }
-      PrimitiveShaderValue::Mat3Float32(v) => {
-        impl_p_f!(v, f32, 9);
-      }
-      PrimitiveShaderValue::Mat4Float32(v) => {
-        impl_p_f!(v, f32, 16);
-      }
-      PrimitiveShaderValue::Mat4x3Float32(v) => {
-        impl_p_f!(v, f32, 12);
-      }
+      PrimitiveShaderValue::Matrix { data, .. } => self.compose_primitive_expression(
+        ty,
+        data.iter().flat_map(|column| column.iter()),
+        is_global,
+      ),
     }
+  }
+
+  fn compose_primitive_expression<'a>(
+    &mut self,
+    ty: PrimitiveShaderValueType,
+    scalars: impl Iterator<Item = &'a ScalarValue>,
+    is_global: bool,
+  ) -> naga::Handle<naga::Expression> {
+    let components = scalars
+      .map(|v| {
+        self.make_expression_inner_raw(
+          naga::Expression::Literal(scalar_value_to_naga_literal(*v)),
+          is_global,
+        )
+      })
+      .collect();
+    let ty = self.register_ty_impl(
+      ShaderValueType::Single(ShaderValueSingleType::Sized(
+        ShaderSizedValueType::Primitive(ty),
+      )),
+      None,
+    );
+    let expr = naga::Expression::Compose { ty, components };
+    self.make_expression_inner_raw(expr, is_global)
   }
 
   fn define_const_global_expr_impl(
@@ -858,7 +783,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
   fn define_vertex_position_output(&mut self) -> ShaderNodeRawHandle {
     self.define_out(
-      PrimitiveShaderValueType::Vec4Float32,
+      PrimitiveShaderValueType::vector(VectorSize::Quad, ScalarType::F32),
       String::from("vertex_point_out"),
       ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::VertexPositionOut),
     )
@@ -866,7 +791,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
   fn define_frag_depth_output(&mut self) -> ShaderNodeRawHandle {
     self.define_out(
-      PrimitiveShaderValueType::Float32,
+      PrimitiveShaderValueType::Scalar(ScalarType::F32),
       String::from("frag_depth_out"),
       ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::FragDepth),
     )
@@ -941,8 +866,8 @@ impl ShaderAPI for ShaderAPINagaImpl {
           };
 
           let primitive = match ty {
-            ShaderAtomicValueType::I32 => PrimitiveShaderValueType::Int32,
-            ShaderAtomicValueType::U32 => PrimitiveShaderValueType::Uint32,
+            ShaderAtomicValueType::I32 => PrimitiveShaderValueType::Scalar(ScalarType::I32),
+            ShaderAtomicValueType::U32 => PrimitiveShaderValueType::Scalar(ScalarType::U32),
           };
 
           let ty = if let AtomicFunction::Exchange { weak: true, .. } = function {
@@ -1185,10 +1110,13 @@ impl ShaderAPI for ShaderAPINagaImpl {
           coordinate: self.get_expression(position),
           array_index: array_index.map(|index| self.get_expression(index)),
           offset: offset.map(|offset| {
-            let data = PrimitiveShaderValue::Vec2Int32(offset);
+            let data = PrimitiveShaderValue::from(offset);
             self.define_const_impl(
               ShaderStructFieldInitValue::Primitive(data),
-              ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec2Int32),
+              ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(
+                VectorSize::Bi,
+                ScalarType::I32,
+              )),
               true,
             )
           }),
@@ -1865,42 +1793,58 @@ fn map_binary_op(o: BinaryOperator) -> naga::BinaryOperator {
 
 fn map_primitive_vec_size(t: PrimitiveShaderValueType) -> Option<naga::VectorSize> {
   match t {
-    PrimitiveShaderValueType::Float32 => None,
-    PrimitiveShaderValueType::Vec2Float32 => Some(naga::VectorSize::Bi),
-    PrimitiveShaderValueType::Vec3Float32 => Some(naga::VectorSize::Tri),
-    PrimitiveShaderValueType::Vec4Float32 => Some(naga::VectorSize::Quad),
-    _ => unreachable!(),
+    PrimitiveShaderValueType::Vector { size, .. } => Some(map_vector_size(size)),
+    _ => None,
   }
 }
 
-#[rustfmt::skip]
 fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
-  use PrimitiveShaderValueType::*;
-  use naga::TypeInner::*;
-  use naga::VectorSize::*;
-  
-
   match t {
-    Bool => Scalar(naga::Scalar::BOOL),
-    Int32 => Scalar(naga::Scalar::I32),
-    Uint32 => Scalar(naga::Scalar::U32),
-    Float32 => Scalar(naga::Scalar::F32),
-    Vec2Bool => Vector { size: Bi, scalar: naga::Scalar::BOOL },
-    Vec3Bool => Vector { size: Tri, scalar: naga::Scalar::BOOL },
-    Vec4Bool => Vector { size: Quad, scalar: naga::Scalar::BOOL },
-    Vec2Float32 => Vector { size: Bi, scalar: naga::Scalar::F32 },
-    Vec3Float32 => Vector { size: Tri, scalar: naga::Scalar::F32 },
-    Vec4Float32 => Vector { size: Quad, scalar: naga::Scalar::F32 },
-    Vec2Uint32 => Vector { size: Bi, scalar: naga::Scalar::U32 },
-    Vec3Uint32 => Vector { size: Tri, scalar: naga::Scalar::U32 },
-    Vec4Uint32 => Vector { size: Quad, scalar: naga::Scalar::U32 },
-    Vec2Int32 => Vector { size: Bi, scalar: naga::Scalar::I32 },
-    Vec3Int32 => Vector { size: Tri, scalar: naga::Scalar::I32 },
-    Vec4Int32 => Vector { size: Quad, scalar: naga::Scalar::I32} ,
-    Mat2Float32 => Matrix { columns: Bi, rows: Bi, scalar: naga::Scalar::F32 },
-    Mat3Float32 => Matrix { columns: Tri, rows: Tri, scalar: naga::Scalar::F32 },
-    Mat4Float32 => Matrix { columns: Quad, rows: Quad, scalar: naga::Scalar::F32 },
-    Mat4x3Float32 => Matrix { columns: Quad, rows: Tri, scalar: naga::Scalar::F32 },
+    PrimitiveShaderValueType::Scalar(scalar) => naga::TypeInner::Scalar(map_scalar_type(scalar)),
+    PrimitiveShaderValueType::Vector { size, scalar } => naga::TypeInner::Vector {
+      size: map_vector_size(size),
+      scalar: map_scalar_type(scalar),
+    },
+    PrimitiveShaderValueType::Matrix {
+      columns,
+      rows,
+      scalar,
+    } => naga::TypeInner::Matrix {
+      columns: map_vector_size(columns),
+      rows: map_vector_size(rows),
+      scalar: map_scalar_type(scalar),
+    },
+  }
+}
+
+fn map_scalar_type(t: ScalarType) -> naga::Scalar {
+  match t {
+    ScalarType::F32 => naga::Scalar::F32,
+    ScalarType::U32 => naga::Scalar::U32,
+    ScalarType::I32 => naga::Scalar::I32,
+    ScalarType::Bool => naga::Scalar::BOOL,
+  }
+}
+
+fn map_vector_size(t: VectorSize) -> naga::VectorSize {
+  match t {
+    VectorSize::Bi => naga::VectorSize::Bi,
+    VectorSize::Tri => naga::VectorSize::Tri,
+    VectorSize::Quad => naga::VectorSize::Quad,
+  }
+}
+
+// workaround chrome bug
+fn workaround_f32_max(f: f32) -> f32 {
+  if f == f32::MAX { f.next_down() } else { f }
+}
+
+fn scalar_value_to_naga_literal(v: ScalarValue) -> naga::Literal {
+  match v {
+    ScalarValue::F32(v) => naga::Literal::F32(workaround_f32_max(v)),
+    ScalarValue::U32(v) => naga::Literal::U32(v),
+    ScalarValue::I32(v) => naga::Literal::I32(v),
+    ScalarValue::Bool(v) => naga::Literal::Bool(v),
   }
 }
 
@@ -2005,7 +1949,7 @@ fn struct_member(
     // not using array here because I do not want hit another strange layout issue!
     for i in 0..pad_count {
       let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(
-        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32),
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Scalar(ScalarType::U32)),
       ));
       let ty = api.register_ty_impl(ty, l);
       extra_explicit_padding_count += 1;

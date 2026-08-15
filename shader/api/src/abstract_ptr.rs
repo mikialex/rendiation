@@ -368,24 +368,6 @@ where
   }
 }
 
-macro_rules! impl_primitive_with_vec_direct {
-  ($ty: ty) => {
-    impl_primitive_direct!($ty);
-    impl_primitive_direct!(Vec2<$ty>);
-    impl_primitive_direct!(Vec3<$ty>);
-    impl_primitive_direct!(Vec4<$ty>);
-  };
-}
-
-macro_rules! impl_primitive_mat_direct {
-  ($ty: ty) => {
-    impl_primitive_direct!(Mat2<$ty>);
-    impl_primitive_direct!(Mat3<$ty>);
-    impl_primitive_direct!(Mat4<$ty>);
-    impl_primitive_direct!(Mat4x3<$ty>);
-  };
-}
-
 macro_rules! impl_primitive_direct {
   ($ty: ty) => {
     impl ShaderAbstractPtrAccess for $ty {
@@ -401,12 +383,36 @@ macro_rules! impl_primitive_direct {
   };
 }
 
+macro_rules! impl_primitive_compound_direct {
+  ($ty: ident) => {
+    impl<T> ShaderAbstractPtrAccess for $ty<T>
+    where
+      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+    {
+      type PtrView = DirectPrimitivePtrView<$ty<T>>;
+      type ReadonlyPtrView = ReadonlyDirectPrimitivePtrView<$ty<T>>;
+      fn create_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::PtrView {
+        DirectPrimitivePtrView(PhantomData, ptr)
+      }
+      fn create_readonly_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyPtrView {
+        ReadonlyDirectPrimitivePtrView(PhantomData, ptr)
+      }
+    }
+  };
+}
+
 impl_primitive_direct!(Bool);
-impl_primitive_with_vec_direct!(bool);
-impl_primitive_with_vec_direct!(i32);
-impl_primitive_with_vec_direct!(u32);
-impl_primitive_with_vec_direct!(f32);
-impl_primitive_mat_direct!(f32);
+impl_primitive_direct!(bool);
+impl_primitive_direct!(i32);
+impl_primitive_direct!(u32);
+impl_primitive_direct!(f32);
+impl_primitive_compound_direct!(Vec2);
+impl_primitive_compound_direct!(Vec3);
+impl_primitive_compound_direct!(Vec4);
+impl_primitive_compound_direct!(Mat2);
+impl_primitive_compound_direct!(Mat3);
+impl_primitive_compound_direct!(Mat4);
+impl_primitive_compound_direct!(Mat4x3);
 
 pub struct AtomicPtrView<T>(PhantomData<T>, BoxedShaderPtr);
 
