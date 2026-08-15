@@ -27,22 +27,36 @@ impl PointLightDataView {
   }
 }
 
-declare_entity!(PointLightEntity);
-declare_component!(PointLightEnabled, PointLightEntity, bool, true);
-declare_foreign_key!(PointLightRefScene, PointLightEntity, SceneEntity);
-declare_foreign_key!(PointLightRefNode, PointLightEntity, SceneNodeEntity);
+declare_entity!(
+  /// A point light source.
+  PointLightEntity);
 declare_component!(
+  /// Whether the point light is enabled.
+  PointLightEnabled, PointLightEntity, bool, true);
+declare_foreign_key!(
+  /// Associates this light source with a [SceneEntity].
+  ///
+  /// The renderer lights the scene with this light source (along with any other associated
+  /// light sources) when this association exists.
+  PointLightRefScene, PointLightEntity, SceneEntity);
+declare_foreign_key!(
+  /// Determines the position of the light source. The position is the world space origin of the
+  /// associated [SceneNodeEntity].
+  PointLightRefNode, PointLightEntity, SceneNodeEntity);
+declare_component!(
+  /// The effective falloff distance of the light source, in meters.
   PointLightCutOffDistance,
   PointLightEntity,
   f32,
   DEFAULT_CUTOFF_DISTANCE
-); // in meter
+);
 declare_component!(
+  /// The intensity of the light source, in [cd](https://en.wikipedia.org/wiki/Candela).
   PointLightIntensity,
   PointLightEntity,
   Vec3<f32>,
   Vec3::splat(100.)
-); // in cd
+);
 
 pub fn register_point_light_data_model() {
   global_database()
@@ -76,24 +90,39 @@ impl SpotLightDataView {
   }
 }
 
-declare_entity!(SpotLightEntity);
-declare_component!(SpotLightEnabled, SpotLightEntity, bool, true);
-declare_foreign_key!(SpotLightRefScene, SpotLightEntity, SceneEntity);
-declare_foreign_key!(SpotLightRefNode, SpotLightEntity, SceneNodeEntity);
+declare_entity!(
+  /// A spot light source.
+  SpotLightEntity);
 declare_component!(
+  /// Whether the spot light is enabled.
+  SpotLightEnabled, SpotLightEntity, bool, true);
+declare_foreign_key!(
+  /// Associates this light source with a [SceneEntity].
+  SpotLightRefScene, SpotLightEntity, SceneEntity);
+declare_foreign_key!(
+  /// Determines the position and direction of the light source from the world space transform of
+  /// the associated [SceneNodeEntity].
+  SpotLightRefNode, SpotLightEntity, SceneNodeEntity);
+declare_component!(
+  /// The effective falloff distance of the light source, in meters.
   SpotLightCutOffDistance,
   SpotLightEntity,
   f32,
   DEFAULT_CUTOFF_DISTANCE
-); // in meter
-declare_component!(SpotLightHalfConeAngle, SpotLightEntity, f32, 0.5); // in rad
-declare_component!(SpotLightHalfPenumbraAngle, SpotLightEntity, f32, 0.5); // in rad
+);
 declare_component!(
+  /// The half angle of the light cone, in radians.
+  SpotLightHalfConeAngle, SpotLightEntity, f32, 0.5);
+declare_component!(
+  /// The half angle of the penumbra, in radians.
+  SpotLightHalfPenumbraAngle, SpotLightEntity, f32, 0.5);
+declare_component!(
+  /// The intensity of the light source, in [cd](https://en.wikipedia.org/wiki/Candela).
   SpotLightIntensity,
   SpotLightEntity,
   Vec3<f32>,
   Vec3::splat(100.)
-); // in cd
+);
 
 pub fn register_spot_light_data_model() {
   global_database()
@@ -126,26 +155,36 @@ impl DirectionalLightDataView {
   }
 }
 
-declare_entity!(DirectionalLightEntity);
-declare_component!(DirectionalLightEnabled, DirectionalLightEntity, bool, true);
-
-// if this is enabled, the directional light will follow the camera as if the lighting effect always
-// as same as the camera looking at -z direction
-// todo, shadow not supported yet!
+declare_entity!(
+  /// A directional light source.
+  DirectionalLightEntity);
 declare_component!(
+  /// Whether the directional light is enabled.
+  DirectionalLightEnabled, DirectionalLightEntity, bool, true);
+
+declare_component!(
+  /// When enabled, the directional light follows the camera forward direction.
+  ///
+  /// todo, shadow not supported in this mode.
   DirectionalLightFollowCamera,
   DirectionalLightEntity,
   bool,
   false
 );
-declare_foreign_key!(DirectionalRefScene, DirectionalLightEntity, SceneEntity);
-declare_foreign_key!(DirectionalRefNode, DirectionalLightEntity, SceneNodeEntity);
+declare_foreign_key!(
+  /// Associates this light source with a [SceneEntity].
+  DirectionalRefScene, DirectionalLightEntity, SceneEntity);
+declare_foreign_key!(
+  /// Determines the direction of the light source from the world space transform of the
+  /// associated [SceneNodeEntity].
+  DirectionalRefNode, DirectionalLightEntity, SceneNodeEntity);
 declare_component!(
+  /// The illuminance of the light source, in [lux](https://en.wikipedia.org/wiki/Lux).
   DirectionalLightIlluminance,
   DirectionalLightEntity,
   Vec3<f32>,
   Vec3::splat(100.)
-); // in lux
+);
 
 pub fn register_directional_light_data_model() {
   global_database()

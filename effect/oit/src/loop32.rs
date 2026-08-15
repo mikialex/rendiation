@@ -41,16 +41,6 @@ impl OitLoop32Renderer {
   }
 }
 
-/// this trait is a workaround for lifetime issue, act as a closure
-pub trait TransparentPassContentProvider {
-  fn use_pass_content<'a>(
-    &'a mut self,
-    ctx: &mut FrameCtx,
-    camera: &'a dyn RenderComponent,
-    dispatcher: &'a dyn RenderComponent,
-  ) -> Box<dyn PassContent + 'a>;
-}
-
 impl OitLoop32RendererInstance {
   /// OIT_LOOP does not support MSAA at the moment, but it can draw none msaa on mass input
   ///

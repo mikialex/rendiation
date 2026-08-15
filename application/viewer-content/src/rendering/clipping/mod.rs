@@ -2,9 +2,7 @@ pub use rendiation_csg_clip::*;
 pub use rendiation_plane_array_clip::*;
 
 use crate::*;
-mod is_solid_filter;
 mod plane_array_fill_surface;
-pub use is_solid_filter::*;
 pub use plane_array_fill_surface::*;
 
 pub struct ViewerClippingRenderer {

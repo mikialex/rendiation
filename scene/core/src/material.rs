@@ -185,7 +185,12 @@ mod mr_material {
   use crate::*;
   declare_entity!(PbrMRMaterialEntity);
   declare_component!(
-    PbrMRMaterialBaseColorComponent, // linear
+    /// in conductor case will act as specular color,
+    /// in dielectric case will act as diffuse color,
+    /// which is decided by metallic property.
+    ///
+    /// in linear space.
+    PbrMRMaterialBaseColorComponent,
     PbrMRMaterialEntity,
     Vec3<f32>,
     Vec3::one()
@@ -197,8 +202,9 @@ mod mr_material {
     0.0
   );
   declare_component!(
-    /// perceptual, 0.0 for full mirror, 1.0 for fully rough,
-    /// converted to the alpha roughness used in shading by squaring this value
+    /// Perceptual roughness, 0.0 for full mirror, 1.0 for fully rough.
+    ///
+    /// In rendering, it will converted to the alpha roughness by squaring this value
     PbrMRMaterialRoughnessComponent,
     PbrMRMaterialEntity,
     f32,
@@ -240,9 +246,6 @@ mod mr_material {
 
   #[derive(Clone)]
   pub struct PhysicalMetallicRoughnessMaterialDataView {
-    /// in conductor case will act as specular color,
-    /// in dielectric case will act as diffuse color,
-    /// which is decided by metallic property
     pub base_color: Vec3<f32>,
     pub roughness: f32,
     pub metallic: f32,

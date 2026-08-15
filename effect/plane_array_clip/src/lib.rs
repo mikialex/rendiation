@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use database::*;
 use rendiation_algebra::*;
+use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
 use rendiation_infinity_primitive::{InfinityShaderPlaneEffect, PLANE_DRAW_CMD};
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
@@ -7,6 +10,9 @@ use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
+
+mod filter_fill_clip;
+pub use filter_fill_clip::*;
 
 pub fn register_clipping_plane_array_data_model() {
   global_database()
@@ -18,12 +24,31 @@ pub fn register_clipping_plane_array_data_model() {
   global_entity_of::<SceneModelEntity>().declare_component::<ClippingPlaneSceneModelSkip>();
 }
 
-declare_entity!(ClippingPlaneEntity);
-declare_component!(ClippingPlaneInfo, ClippingPlaneEntity, Vec4<f32>);
+declare_entity!(
+  /// A clipping plane.
+  ///
+  /// Each plane is associated with a [SceneEntity] through [ClippingPlaneRefScene].
+  ///
+  /// The renderer clips all content in a scene by every clipping plane associated with that scene.
+  ClippingPlaneEntity
+);
+declare_component!(
+  /// Stores the plane as a [Vec4] `[normal.x, normal.y, normal.z, constant]` in world space.
+  ClippingPlaneInfo, ClippingPlaneEntity, Vec4<f32>);
 declare_foreign_key!(ClippingPlaneRefScene, ClippingPlaneEntity, SceneEntity);
 
-declare_component!(AttributeMeshIsSolid, AttributesMeshEntity, bool, false);
-declare_component!(ClippingPlaneSceneModelSkip, SceneModelEntity, bool, false);
+declare_component!(
+  /// Marks this [AttributesMeshEntity] as part of a "solid" object, meaning a water-tight manifold.
+  /// Note that a single mesh itself does not need to be solid, as long as multiple meshes
+  /// can be combined into a logical solid group.
+  ///
+  /// Implementation note: the attribute mesh is currently the only supported type; we are
+  /// considering moving this flag to the scene model level in the future.
+  AttributeMeshIsSolid, AttributesMeshEntity, bool, false);
+
+declare_component!(
+  /// Marks this [SceneModelEntity] as exempt from clipping by any clipping planes, as an escape hatch.
+  ClippingPlaneSceneModelSkip, SceneModelEntity, bool, false);
 
 pub fn use_array_plane_clipping(
   cx: &mut QueryGPUHookCx,

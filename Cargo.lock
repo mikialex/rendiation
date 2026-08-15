@@ -4591,6 +4591,7 @@ version = "0.1.0"
 dependencies = [
  "database",
  "rendiation-algebra",
+ "rendiation-device-parallel-compute",
  "rendiation-infinity-primitive",
  "rendiation-mesh-core",
  "rendiation-scene-core",

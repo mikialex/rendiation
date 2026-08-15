@@ -1,19 +1,33 @@
 use crate::*;
 
 declare_entity!(SceneNodeEntity);
-declare_foreign_key!(SceneNodeParentIdx, SceneNodeEntity, SceneNodeEntity);
 
-// using f64 float for better precision(at least for computing)
-// the underlayer world space position also using f64.
-//
-// the render precision is based on f32 around camera.
+declare_foreign_key!(
+  /// Each node has a parent node, forming a node forest.
+  ///
+  /// Some properties, such as the world matrix (defined by [SceneNodeLocalMatrixComponent]) and
+  /// net visibility (defined by [SceneNodeVisibleComponent]), are determined by the node
+  /// hierarchy defined by this relation.
+  SceneNodeParentIdx, SceneNodeEntity, SceneNodeEntity);
+
 declare_component!(
+  /// The local transform matrix of the node, relative to its parent.
+  ///
+  /// Uses f64 for better precision (at least for computation); the underlying world space
+  /// position also uses f64. Render precision is based on f32 around the camera.
   SceneNodeLocalMatrixComponent,
   SceneNodeEntity,
   Mat4<f64>,
   Mat4::identity()
 );
-declare_component!(SceneNodeVisibleComponent, SceneNodeEntity, bool, true);
+
+declare_component!(
+  /// Whether the node and its child tree are visible.
+  ///
+  /// The node's net visibility is the logical AND of this value and its
+  /// [parent](SceneNodeParentIdx)'s visibility.
+  SceneNodeVisibleComponent, SceneNodeEntity, bool, true);
+
 pub fn register_scene_node_data_model() {
   global_database()
     .declare_entity::<SceneNodeEntity>()

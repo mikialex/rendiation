@@ -8,6 +8,7 @@ version = "0.1.0"
 database = { path = "../../utility/database" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-infinity-primitive = { path = "../../extension/infinity-primitive" }
+rendiation-device-parallel-compute = { path = "../../shader/parallel-compute" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-scene-core = { path = "../../scene/core" }
 rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
