@@ -53,8 +53,7 @@ impl GraphicsShaderProvider for InfinityShaderLineEffect<'_> {
 
       let line = bind.bind_by(&self.line).load().expand();
 
-      builder
-        .register::<WorldNoneTranslationMatrix>(rendiation_shader_library::shader_identity_mat4());
+      builder.register::<WorldNoneTranslationMatrix>(val(Mat4::identity()));
 
       let (origin_in_ndc, _) =
         camera_transform_impl(builder, val(Vec3::zero()), hpt_uniform_to_hpt(line.point));

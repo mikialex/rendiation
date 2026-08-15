@@ -37,29 +37,6 @@ pub fn shader_render_space_to_uv_space(
   (uv, ndc.z())
 }
 
-// todo, fix upstream
-pub fn shader_identity_mat4() -> Node<Mat4<f32>> {
-  let a = val(Vec4::new(1., 0., 0., 0.));
-  let b = val(Vec4::new(0., 1., 0., 0.));
-  let c = val(Vec4::new(0., 0., 1., 0.));
-  let d = val(Vec4::new(0., 0., 0., 1.));
-  (a, b, c, d).into()
-}
-
-// todo, fix upstream
-pub fn shader_identity_mat3() -> Node<Mat3<f32>> {
-  let a = val(Vec3::new(1., 0., 0.));
-  let b = val(Vec3::new(0., 1., 0.));
-  let c = val(Vec3::new(0., 0., 1.));
-  (a, b, c).into()
-}
-
-pub fn shader_identity_mat2() -> Node<Mat2<f32>> {
-  let a = val(Vec2::new(1., 0.));
-  let b = val(Vec2::new(0., 1.));
-  (a, b).into()
-}
-
 #[shader_fn]
 pub fn mat4_equal(mat: Node<Mat4<f32>>, ref_mat: Node<Mat4<f32>>) -> Node<bool> {
   let x = mat.x().equals(ref_mat.x()).all();

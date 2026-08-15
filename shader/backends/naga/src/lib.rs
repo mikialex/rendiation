@@ -395,20 +395,38 @@ impl ShaderAPINagaImpl {
     data: PrimitiveShaderValue,
     is_global: bool,
   ) -> naga::Handle<naga::Expression> {
-    let ty = data.ty();
     match data {
       PrimitiveShaderValue::Scalar(v) => self.make_expression_inner_raw(
         naga::Expression::Literal(scalar_value_to_naga_literal(v)),
         is_global,
       ),
-      PrimitiveShaderValue::Vector { data, .. } => {
-        self.compose_primitive_expression(ty, data.iter(), is_global)
-      }
-      PrimitiveShaderValue::Matrix { data, .. } => self.compose_primitive_expression(
-        ty,
-        data.iter().flat_map(|column| column.iter()),
+      PrimitiveShaderValue::Vector { size, scalar, data } => self.compose_primitive_expression(
+        PrimitiveShaderValueType::vector(size, scalar),
+        data.iter(),
         is_global,
       ),
+      PrimitiveShaderValue::Matrix {
+        columns,
+        rows,
+        scalar,
+        data,
+      } => {
+        // naga requires matrix compose from column vectors
+        let column_ty = PrimitiveShaderValueType::vector(rows, scalar);
+        let components = data
+          .iter()
+          .map(|column| self.compose_primitive_expression(column_ty, column.iter(), is_global))
+          .collect();
+        self.compose_expression(
+          PrimitiveShaderValueType::Matrix {
+            columns,
+            rows,
+            scalar,
+          },
+          components,
+          is_global,
+        )
+      }
     }
   }
 
@@ -426,6 +444,15 @@ impl ShaderAPINagaImpl {
         )
       })
       .collect();
+    self.compose_expression(ty, components, is_global)
+  }
+
+  fn compose_expression(
+    &mut self,
+    ty: PrimitiveShaderValueType,
+    components: Vec<naga::Handle<naga::Expression>>,
+    is_global: bool,
+  ) -> naga::Handle<naga::Expression> {
     let ty = self.register_ty_impl(
       ShaderValueType::Single(ShaderValueSingleType::Sized(
         ShaderSizedValueType::Primitive(ty),
