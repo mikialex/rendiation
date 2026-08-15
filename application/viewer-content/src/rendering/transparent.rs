@@ -1,4 +1,4 @@
-use rendiation_oit::{OitLoop32Renderer, draw_weighted_oit};
+use rendiation_oit::{OitLoop32Renderer, TransparentPassContentProvider, draw_weighted_oit};
 
 use crate::*;
 
@@ -86,6 +86,11 @@ impl ViewerTransparentRenderer {
       true,
     );
 
+    let mut use_pass_content = ViewerScenePassContentProvider {
+      scene: renderer.scene,
+      batch: all_transparent_object.clone(),
+    };
+
     match self {
       ViewerTransparentRenderer::NaiveAlphaBlend => {
         ctx.scope(|ctx| {
@@ -124,12 +129,12 @@ impl ViewerTransparentRenderer {
 
           let mut oit = oit.write();
           let oit = oit.get_renderer_instance(ctx.frame_size(), ctx.gpu);
+
           oit.draw_loop32_oit(
             ctx,
-            all_transparent_object,
+            &mut use_pass_content,
             pass_base_transparent,
             scene_result,
-            renderer.scene,
             camera_gpu,
             scene_pass_dispatcher,
             renderer.reversed_depth,
@@ -150,10 +155,9 @@ impl ViewerTransparentRenderer {
 
           draw_weighted_oit(
             ctx,
-            all_transparent_object,
+            &mut use_pass_content,
             pass_base_transparent,
             scene_result,
-            renderer.scene,
             camera_gpu,
             scene_pass_dispatcher,
           );
@@ -163,6 +167,24 @@ impl ViewerTransparentRenderer {
         use_draw_opaque_content(ctx, cull_cx);
       }),
     }
+  }
+}
+
+pub struct ViewerScenePassContentProvider<'a> {
+  scene: &'a dyn SceneRenderer,
+  batch: SceneModelRenderBatch,
+}
+
+impl<'b> TransparentPassContentProvider for ViewerScenePassContentProvider<'b> {
+  fn use_pass_content<'a>(
+    &'a mut self,
+    ctx: &mut FrameCtx,
+    camera: &'a dyn RenderComponent,
+    dispatcher: &'a dyn RenderComponent,
+  ) -> Box<dyn PassContent + 'a> {
+    self
+      .scene
+      .use_make_scene_batch_pass_content(self.batch.clone(), camera, dispatcher, ctx)
   }
 }
 

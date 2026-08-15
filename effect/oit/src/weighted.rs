@@ -19,10 +19,9 @@ use crate::*;
 /// onto the image.
 pub fn draw_weighted_oit(
   ctx: &mut FrameCtx,
-  transparent_content: SceneModelRenderBatch,
+  use_transparent_pass_content: &mut dyn TransparentPassContentProvider,
   target_desc_without_final_color: RenderPassDescription,
   final_color_target: &RenderTargetView,
-  scene_renderer: &dyn SceneRenderer,
   camera: &dyn RenderComponent,
   pass_com: &dyn RenderComponent,
 ) {
@@ -81,8 +80,7 @@ pub fn draw_weighted_oit(
   let dispatch = &dispatch as &dyn RenderComponent;
   let pass_com = RenderArray([dispatch, pass_com]);
 
-  let mut draw_content =
-    scene_renderer.use_make_scene_batch_pass_content(transparent_content, camera, &pass_com, ctx);
+  let mut draw_content = use_transparent_pass_content.use_pass_content(ctx, camera, &pass_com);
 
   pass_target.render_ctx(ctx).by(&mut draw_content);
 

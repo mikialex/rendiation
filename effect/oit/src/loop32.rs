@@ -41,6 +41,16 @@ impl OitLoop32Renderer {
   }
 }
 
+/// this trait is a workaround for lifetime issue, act as a closure
+pub trait TransparentPassContentProvider {
+  fn use_pass_content<'a>(
+    &'a mut self,
+    ctx: &mut FrameCtx,
+    camera: &'a dyn RenderComponent,
+    dispatcher: &'a dyn RenderComponent,
+  ) -> Box<dyn PassContent + 'a>;
+}
+
 impl OitLoop32RendererInstance {
   /// OIT_LOOP does not support MSAA at the moment, but it can draw none msaa on mass input
   ///
@@ -68,10 +78,9 @@ impl OitLoop32RendererInstance {
   pub fn draw_loop32_oit(
     &self,
     ctx: &mut FrameCtx,
-    transparent_content: SceneModelRenderBatch,
+    use_transparent_pass_content: &mut dyn TransparentPassContentProvider,
     mut target_desc_without_final_color: RenderPassDescription,
     final_color_target: &RenderTargetView,
-    scene_renderer: &dyn SceneRenderer,
     camera: &dyn RenderComponent,
     pass_com: &dyn RenderComponent,
     reverse_depth: bool,
@@ -100,12 +109,7 @@ impl OitLoop32RendererInstance {
         oit_depth_layers: self.depth.clone(),
         reverse_depth,
       };
-      let mut draw_content = scene_renderer.use_make_scene_batch_pass_content(
-        transparent_content.clone(),
-        camera,
-        &dispatch,
-        ctx,
-      );
+      let mut draw_content = use_transparent_pass_content.use_pass_content(ctx, camera, &dispatch);
 
       pass("loop32 oit depth pre pass")
         .with_depth(depth, load_and_store(), load_and_store())
@@ -123,12 +127,8 @@ impl OitLoop32RendererInstance {
       };
       let dispatch = &dispatch as &dyn RenderComponent;
       let dispatch = RenderArray([dispatch, pass_com]);
-      let mut draw_content = scene_renderer.use_make_scene_batch_pass_content(
-        transparent_content,
-        camera,
-        &dispatch,
-        ctx,
-      );
+
+      let mut draw_content = use_transparent_pass_content.use_pass_content(ctx, camera, &dispatch);
 
       target_desc_without_final_color
         .with_name("loop32 oit color pass")
