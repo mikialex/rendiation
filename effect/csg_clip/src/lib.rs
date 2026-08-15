@@ -1,7 +1,13 @@
+use database::*;
+use rendiation_algebra::*;
 use rendiation_csg_sdf_expression::*;
+use rendiation_mesh_core::*;
+use rendiation_scene_core::*;
+use rendiation_scene_rendering_gpu_base::*;
+use rendiation_shader_api::*;
 use rendiation_shader_library::shader_uv_space_to_render_space;
-
-use crate::*;
+use rendiation_webgpu::*;
+use rendiation_webgpu_hook_utils::*;
 
 pub fn register_clipping_data_model() {
   register_csg_sdf_data_model();
@@ -34,6 +40,9 @@ pub fn use_csg_clipping(
   })
 }
 
+#[derive(Clone)]
+pub struct CSGClippingHelper(pub Option<AtomicImageDowngrade>);
+
 pub struct CSGClippingRenderer {
   expressions: AbstractReadonlyStorageBuffer<[u32]>,
   scene_csg: LockReadGuardHolder<UniformBufferCollectionRaw<u32, Vec4<u32>>>,
@@ -52,10 +61,7 @@ impl CSGClippingRenderer {
     scene_id: EntityHandle<SceneEntity>,
     ctx: &mut FrameCtx,
     reverse_z: bool,
-  ) -> (
-    Option<Box<dyn RenderComponent>>,
-    Option<ViewerClippingHelper>,
-  ) {
+  ) -> (Option<Box<dyn RenderComponent>>, Option<CSGClippingHelper>) {
     ctx.next_scope_index();
     if !self.enable {
       return (None, None);
@@ -108,9 +114,55 @@ impl CSGClippingRenderer {
       Box::new(compose) as Box<dyn RenderComponent>
     });
 
-    let fill_face_depth = fill_face_depth.map(|v| ViewerClippingHelper(Some(v)));
+    (r, fill_face_depth.map(|v| CSGClippingHelper(Some(v))))
+  }
 
-    (r, fill_face_depth)
+  /// fill the clip surface depth, return the filled depth for the following surface draw
+  pub fn draw_csg_fill_surface(
+    &self,
+    frame_ctx: &mut FrameCtx,
+    clip_normal: &GPU2DTextureView,
+    clip_depth: &GPU2DDepthTextureView,
+    fill_depth_info: AtomicImageDowngrade,
+    camera_gpu: &CameraGPU,
+    scene: EntityHandle<SceneEntity>,
+    reverse_z: bool,
+  ) -> Option<RenderTargetView> {
+    if !self.fill_face {
+      return None;
+    }
+
+    let root = self
+      .scene_csg
+      .get(&scene.alloc_index())
+      .map(|root| ClippingRootDirectProvide { root: root.clone() });
+
+    if root.is_none() {
+      return None;
+    }
+    let root = &root.unwrap() as &dyn RenderComponent;
+
+    // first, fill the face, write the depth buffer.
+    let draw = RayMarchingCsgExpression {
+      expressions: self.expressions.clone(),
+      camera_gpu: camera_gpu.clone(),
+      fill_depth_info,
+      clip_normal: clip_normal.clone(),
+      clip_depth: clip_depth.clone(),
+      reverse_depth: reverse_z,
+    };
+
+    let mut draw = RenderArray([root, &draw]).draw_quad();
+
+    let fill_depth = depth_attachment().request(frame_ctx);
+
+    let depth_op = clear_and_store(if reverse_z { 0. } else { 1. });
+    pass("csg fill surface")
+      .with_depth(&fill_depth, depth_op, load_and_store())
+      .render_ctx(frame_ctx)
+      .by(&mut draw);
+
+    Some(fill_depth)
   }
 }
 
@@ -233,90 +285,10 @@ pub fn create_clip_pick_filter()
   }
 }
 
-impl CSGClippingRenderer {
-  pub fn draw_csg_surface(
-    &self,
-    frame_ctx: &mut FrameCtx,
-    g_buffer_target: &FrameGeometryBuffer,
-    fill_depth_info: AtomicImageDowngrade,
-    target: ClipFillType,
-    camera_gpu: &CameraGPU,
-    scene: EntityHandle<SceneEntity>,
-    reverse_z: bool,
-  ) {
-    if !self.fill_face {
-      return;
-    }
-
-    let root = self
-      .scene_csg
-      .get(&scene.alloc_index())
-      .map(|root| ClippingRootDirectProvide { root: root.clone() });
-
-    if root.is_none() {
-      return;
-    }
-    let root = &root.unwrap() as &dyn RenderComponent;
-
-    // first, fill the face, write the depth buffer.
-    let draw = RayMarchingCsgExpression {
-      expressions: self.expressions.clone(),
-      camera_gpu: camera_gpu.clone(),
-      fill_depth_info,
-      clip_normal: g_buffer_target.normal.expect_texture_view(),
-      clip_depth: g_buffer_target.depth.expect_texture_view(),
-      reverse_depth: reverse_z,
-    };
-
-    let mut draw = RenderArray([root, &draw]).draw_quad();
-
-    let fill_depth = depth_attachment().request(frame_ctx);
-
-    let depth_op = clear_and_store(if reverse_z { 0. } else { 1. });
-    pass("csg fill surface")
-      .with_depth(&fill_depth, depth_op, load_and_store())
-      .render_ctx(frame_ctx)
-      .by(&mut draw);
-
-    // then, copy filled depth to targets, and compute normal in image space only for filled surface.
-    // and write other necessary info or directly compute the result in targets
-
-    match target {
-      ClipFillType::Forward {
-        forward_lighting,
-        scene_result,
-      } => {
-        let mut pass = pass("csg fill surface direct forward shading");
-
-        let color_writer =
-          DefaultDisplayWriter::extend_pass_desc(&mut pass, scene_result, load_and_store());
-        let g_buffer_base_writer = g_buffer_target.extend_pass_desc_for_subsequent_draw(&mut pass);
-
-        let draw = ForwardCsgSurfaceDraw {
-          filled_depth: fill_depth.expect_texture_view(),
-          reverse_z,
-          camera: camera_gpu.clone(),
-        };
-
-        let mut draw = RenderArray([
-          &color_writer as &dyn RenderComponent,
-          &g_buffer_base_writer as &dyn RenderComponent,
-          forward_lighting,
-          &draw,
-        ])
-        .draw_quad();
-
-        pass.render_ctx(frame_ctx).by(&mut draw);
-      }
-      ClipFillType::Defer(_frame_general_material_buffer) => todo!(),
-    }
-  }
-}
-
-struct ForwardCsgSurfaceDraw {
-  filled_depth: GPU2DDepthTextureView,
-  camera: CameraGPU,
-  reverse_z: bool,
+pub struct ForwardCsgSurfaceDraw {
+  pub filled_depth: GPU2DDepthTextureView,
+  pub camera: CameraGPU,
+  pub reverse_z: bool,
 }
 
 impl ShaderHashProvider for ForwardCsgSurfaceDraw {
@@ -375,7 +347,7 @@ impl GraphicsShaderProvider for ForwardCsgSurfaceDraw {
   }
 }
 
-struct RayMarchingCsgExpression {
+pub struct RayMarchingCsgExpression {
   camera_gpu: CameraGPU,
   expressions: AbstractReadonlyStorageBuffer<[u32]>,
   clip_depth: GPU2DDepthTextureView,

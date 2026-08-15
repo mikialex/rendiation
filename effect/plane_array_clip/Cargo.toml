@@ -1,0 +1,19 @@
+[package]
+authors = ["MikiAlex <miikiialexx@gmail.com>"]
+edition = "2024"
+name = "rendiation-plane-array-clip"
+version = "0.1.0"
+
+[dependencies]
+database = { path = "../../utility/database" }
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-infinity-primitive = { path = "../../extension/infinity-primitive" }
+rendiation-mesh-core = { path = "../../content/mesh/core" }
+rendiation-scene-core = { path = "../../scene/core" }
+rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
+rendiation-shader-api = { path = "../../shader/api" }
+rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
+
+[lints]
+workspace = true

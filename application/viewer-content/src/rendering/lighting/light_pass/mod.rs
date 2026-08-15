@@ -24,7 +24,7 @@ pub fn use_render_lighting_scene_content(
   renderer: &ViewerSceneRenderer,
   clipping: &ViewerClippingRenderer,
   clip_component: &dyn RenderComponent,
-  clip_helper: &Option<ViewerClippingHelper>,
+  clip_helper: &Option<CSGClippingHelper>,
   scene: EntityHandle<SceneEntity>,
   viewport: &ViewerViewPort,
   scene_result: &RenderTargetView,

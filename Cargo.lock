@@ -4144,6 +4144,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-csg-clip"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "rendiation-algebra",
+ "rendiation-csg-sdf-expression",
+ "rendiation-mesh-core",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
+]
+
+[[package]]
 name = "rendiation-csg-sdf-expression"
 version = "0.1.0"
 dependencies = [
@@ -4572,6 +4588,21 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-derives",
  "rendiation-webgpu",
+]
+
+[[package]]
+name = "rendiation-plane-array-clip"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "rendiation-algebra",
+ "rendiation-infinity-primitive",
+ "rendiation-mesh-core",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
 ]
 
 [[package]]
@@ -5214,6 +5245,7 @@ dependencies = [
  "rendiation-area-lighting",
  "rendiation-cell-mesh",
  "rendiation-controller",
+ "rendiation-csg-clip",
  "rendiation-csg-sdf-expression",
  "rendiation-device-parallel-compute",
  "rendiation-device-ray-tracing",
@@ -5236,6 +5268,7 @@ dependencies = [
  "rendiation-occ-style-material",
  "rendiation-occlusion-culling",
  "rendiation-oit",
+ "rendiation-plane-array-clip",
  "rendiation-scene-batch-extractor",
  "rendiation-scene-core",
  "rendiation-scene-geometry-query",

@@ -98,6 +98,8 @@ members = [
   "extension/cell-mesh",
   "extension/dynamic-bvh",
   "extension/dynamic-bvh-scene",
+  "effect/csg_clip",
+  "effect/plane_array_clip",
   "application/viewer-content",
   "application/viewer-content-api",
   "application/viewer",
