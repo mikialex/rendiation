@@ -127,7 +127,7 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
 
     let render = Box::new(RenderArray(contents)) as Box<dyn RenderComponent>;
 
-    render.render(cx, draw);
+    render.render(cx, draw, false);
     Ok(())
   }
 }

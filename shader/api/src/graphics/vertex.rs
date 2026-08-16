@@ -1,5 +1,3 @@
-use anymap::ClonableAnyMap;
-
 use crate::*;
 
 pub trait SemanticVertexShaderValue: Any {
@@ -18,7 +16,59 @@ pub struct ShaderVertexBufferLayout {
   pub attributes: Vec<VertexAttribute>,
 }
 
-pub struct ShaderVertexBuilder {
+pub struct ShaderVertexBuilder<'a> {
+  pub(crate) internal: &'a mut dyn AbstractShaderVertexBuilder,
+}
+
+impl<'a> AbstractShaderVertexBuilder for ShaderVertexBuilder<'a> {
+  fn set_current_building(&mut self) {
+    self.internal.set_current_building();
+  }
+  fn vertex_shader(&mut self) -> Option<&mut ShaderRawVertexBuilder> {
+    self.internal.vertex_shader()
+  }
+
+  fn register_impl(&mut self, ty_id: TypeId, node: NodeUntyped) {
+    self.internal.register_impl(ty_id, node);
+  }
+
+  fn try_query_impl(&mut self, ty_id: TypeId) -> Option<NodeUntyped> {
+    self.internal.try_query_impl(ty_id)
+  }
+
+  fn finalize_write(&mut self) {
+    self.internal.finalize_write();
+  }
+  fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder) {
+    self.internal.sync_fragment_out(fragment);
+  }
+
+  fn set_vertex_out_impl(
+    &mut self,
+    ty_id: TypeId,
+    ty: PrimitiveShaderValueType,
+    node: NodeUntyped,
+    interpolation: ShaderInterpolation,
+  ) {
+    self
+      .internal
+      .set_vertex_out_impl(ty_id, ty, node, interpolation);
+  }
+
+  fn primitive_state(&mut self) -> &mut PrimitiveState {
+    self.internal.primitive_state()
+  }
+
+  fn registry(&mut self) -> &mut SemanticRegistry {
+    self.internal.registry()
+  }
+
+  fn error(&mut self, err: ShaderBuildError) {
+    self.internal.error(err);
+  }
+}
+
+pub struct ShaderRawVertexBuilder {
   // user vertex in
   pub vertex_in: FastHashMap<TypeId, VertexIOInfo>,
   pub vertex_layouts: Vec<ShaderVertexBufferLayout>,
@@ -40,7 +90,7 @@ pub struct VertexIOInfo {
   pub location: usize,
 }
 
-impl ShaderVertexBuilder {
+impl ShaderRawVertexBuilder {
   pub(crate) fn new(errors: ErrorSink) -> Self {
     Self {
       vertex_in: Default::default(),
@@ -80,70 +130,14 @@ impl ShaderVertexBuilder {
       })
   }
 
-  pub fn registry(&self) -> &SemanticRegistry {
-    &self.registry
-  }
-  pub fn registry_any_map(&mut self) -> &mut ClonableAnyMap {
-    &mut self.registry.any_map
-  }
-
-  #[track_caller]
-  pub fn query<T: SemanticVertexShaderValue>(&mut self) -> Node<T::ValueType> {
-    let location = *Location::caller();
-    self.try_query::<T>().unwrap_or_else(|| unsafe {
-      self
-        .errors
-        .push(ShaderBuildError::MissingRequiredDependency(
-          T::NAME,
-          location,
-        ));
-      fake_val()
-    })
-  }
-
-  pub fn try_query<T: SemanticVertexShaderValue>(&mut self) -> Option<Node<T::ValueType>> {
-    if self.registry.try_query_vertex_stage::<T>().is_err() {
-      let id = TypeId::of::<T>();
-      if id == TypeId::of::<VertexIndex>() {
-        let vertex_index =
-          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexIndex).insert_api();
-        self.register::<VertexIndex>(vertex_index);
-      }
-
-      if id == TypeId::of::<VertexInstanceIndex>() {
-        let instance_index =
-          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexInstanceIndex).insert_api();
-        self.register::<VertexInstanceIndex>(instance_index);
-      }
-    }
-
-    self.registry.try_query_vertex_stage::<T>().ok()
-  }
-
-  pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
-  where
-    T: SemanticVertexShaderValue,
-    T::ValueType: PrimitiveShaderNodeType,
-  {
-    self.query_or_insert_by::<T>(Default::default)
-  }
-
-  pub fn query_or_insert_by<T>(&mut self, by: impl FnOnce() -> T::ValueType) -> Node<T::ValueType>
-  where
-    T: SemanticVertexShaderValue,
-    T::ValueType: PrimitiveShaderNodeType,
-  {
-    if let Some(n) = self.try_query::<T>() {
-      n
-    } else {
-      let default: T::ValueType = by();
-      self.register::<T>(default);
-      self.query::<T>()
-    }
-  }
-
-  pub fn register<T: SemanticVertexShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
-    self.registry.register_vertex_stage::<T>(node);
+  /// currently we all depend on ClipPosition in semantic registry to provide the final result
+  /// this behavior will be changed in the future;
+  pub fn finalize_position_write(&mut self) {
+    let position = self.query_or_insert_default::<ClipPosition>();
+    call_shader_api(|api| {
+      let target = api.define_vertex_position_output();
+      api.store(position.handle(), target)
+    });
   }
 
   /// return registered location
@@ -191,30 +185,70 @@ impl ShaderVertexBuilder {
     builder.build(self, step_mode);
   }
 
-  /// default using perspective interpolation
-  pub fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
+  pub fn register_vertex<V>(&mut self, step_mode: VertexStepMode)
   where
-    T: SemanticFragmentShaderValue,
-    T::ValueType: PrimitiveShaderNodeType,
+    V: ShaderVertexInProvider,
   {
-    self.set_vertex_out_with_given_interpolate::<T>(node, ShaderInterpolation::Perspective)
+    V::provide_layout_and_vertex_in(self, step_mode)
+  }
+}
+
+impl AbstractShaderVertexBuilder for ShaderRawVertexBuilder {
+  fn set_current_building(&mut self) {
+    set_current_building(ShaderStage::Vertex.into());
   }
 
-  pub fn set_vertex_out_with_given_interpolate<T>(
+  fn vertex_shader(&mut self) -> Option<&mut ShaderRawVertexBuilder> {
+    Some(self)
+  }
+
+  fn register_impl(&mut self, ty_id: TypeId, node: NodeUntyped) {
+    self.registry.register_raw(ty_id, node);
+  }
+
+  fn try_query_impl(&mut self, ty_id: TypeId) -> Option<NodeUntyped> {
+    if self.registry.static_semantic.get(&ty_id).is_none() {
+      if ty_id == TypeId::of::<VertexIndex>() {
+        let vertex_index =
+          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexIndex).insert_api();
+        vertex_index.mark_debug_label(get_name::<VertexIndex>());
+        self
+          .registry
+          .register_raw(TypeId::of::<VertexIndex>(), vertex_index);
+      }
+
+      if ty_id == TypeId::of::<VertexInstanceIndex>() {
+        let instance_index =
+          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexInstanceIndex).insert_api();
+        instance_index.mark_debug_label(get_name::<VertexInstanceIndex>());
+        self
+          .registry
+          .register_raw(TypeId::of::<VertexInstanceIndex>(), instance_index);
+      }
+    }
+
+    self.registry.static_semantic.get(&ty_id).copied()
+  }
+
+  fn finalize_write(&mut self) {
+    self.finalize_position_write();
+  }
+  fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder) {
+    self.sync_fragment_out(fragment);
+  }
+
+  fn set_vertex_out_impl(
     &mut self,
-    node: impl Into<Node<T::ValueType>>,
+    ty_id: TypeId,
+    ty: PrimitiveShaderValueType,
+    node: NodeUntyped,
     mut interpolation: ShaderInterpolation,
-  ) where
-    T: SemanticFragmentShaderValue,
-    T::ValueType: PrimitiveShaderNodeType,
-  {
+  ) {
     let location = self.vertex_out.len();
-    let id = TypeId::of::<T>();
     let target = self
       .vertex_out
-      .entry(id)
+      .entry(ty_id)
       .or_insert_with(|| {
-        let ty = T::ValueType::primitive_ty();
         if !ty.vertex_out_could_interpolated() {
           interpolation = ShaderInterpolation::Flat
         }
@@ -224,35 +258,26 @@ impl ShaderVertexBuilder {
       })
       .0
       .node;
-    call_shader_api(|api| api.store(node.into().handle(), target));
+    call_shader_api(|api| api.store(node.handle(), target));
 
-    self.vertex_out_not_synced_to_fragment.insert(id);
+    self.vertex_out_not_synced_to_fragment.insert(ty_id);
   }
 
-  pub fn register_vertex<V>(&mut self, step_mode: VertexStepMode)
-  where
-    V: ShaderVertexInProvider,
-  {
-    V::provide_layout_and_vertex_in(self, step_mode)
+  fn primitive_state(&mut self) -> &mut PrimitiveState {
+    &mut self.primitive_state
   }
 
-  /// currently we all depend on ClipPosition in semantic registry to provide the final result
-  /// this behavior will be changed in the future;
-  pub fn finalize_position_write(&mut self) {
-    let position = self.query_or_insert_default::<ClipPosition>();
-    call_shader_api(|api| {
-      let target = api.define_vertex_position_output();
-      api.store(position.handle(), target)
-    });
+  fn registry(&mut self) -> &mut SemanticRegistry {
+    &mut self.registry
   }
 
-  pub fn error(&mut self, err: ShaderBuildError) {
+  fn error(&mut self, err: ShaderBuildError) {
     self.errors.push(err);
   }
 }
 
 pub trait ShaderVertexInProvider {
-  fn provide_layout_and_vertex_in(builder: &mut ShaderVertexBuilder, step_mode: VertexStepMode);
+  fn provide_layout_and_vertex_in(builder: &mut ShaderRawVertexBuilder, step_mode: VertexStepMode);
 }
 
 #[derive(Default)]
@@ -273,7 +298,7 @@ impl AttributesListBuilder {
     self.byte_size_all += size;
   }
 
-  pub fn build(self, builder: &mut ShaderVertexBuilder, step_mode: VertexStepMode) {
+  pub fn build(self, builder: &mut ShaderRawVertexBuilder, step_mode: VertexStepMode) {
     let layout = ShaderVertexBufferLayout {
       array_stride: self.byte_size_all,
       step_mode,
@@ -286,7 +311,7 @@ impl AttributesListBuilder {
 pub trait VertexInBuilder {
   fn build_attribute<S>(
     builder: &mut AttributesListBuilder,
-    vertex_builder: &mut ShaderVertexBuilder,
+    vertex_builder: &mut ShaderRawVertexBuilder,
   ) where
     S: SemanticVertexShaderValue<ValueType = Self>;
 }
@@ -318,7 +343,7 @@ vertex_input_node_impl!(Vec4<u32>, VertexFormat::Uint32x4);
 impl<T: VertexInShaderNodeType> VertexInBuilder for T {
   fn build_attribute<S>(
     builder: &mut AttributesListBuilder,
-    vertex_builder: &mut ShaderVertexBuilder,
+    vertex_builder: &mut ShaderRawVertexBuilder,
   ) where
     S: SemanticVertexShaderValue<ValueType = Self>,
   {
@@ -333,7 +358,7 @@ impl VertexInBuilder for Mat4<f32> {
   #[rustfmt::skip]
   fn build_attribute<S>(
     builder: &mut AttributesListBuilder,
-    vertex_builder: &mut ShaderVertexBuilder,
+    vertex_builder: &mut ShaderRawVertexBuilder,
   ) where
     S: SemanticVertexShaderValue<ValueType = Self>,
   {

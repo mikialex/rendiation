@@ -148,6 +148,7 @@ both!(PointVertexColorGles, Vec4<f32>);
 impl GraphicsShaderProvider for WidePointGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
+      let builder = builder.expect_vertex_shader();
       builder.register_vertex::<CommonVertex>(VertexStepMode::Vertex);
       builder.register_vertex::<WideStyledPointVertex>(VertexStepMode::Instance);
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;

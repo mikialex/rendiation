@@ -8,7 +8,7 @@ pub fn use_attribute_mesh_renderer(
   cx: &mut QueryGPUHookCx,
   index_data_source: AttributeIndexDataSource,
   vertex_data_source: AttributeVertexDataSource,
-  foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
+  foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderRawVertexBuilder)>,
 ) -> Option<GLESAttributesMeshRenderer> {
   let index = cx.use_shared_hash_map("gles index buffer");
 
@@ -61,7 +61,7 @@ pub struct GLESAttributesMeshRenderer {
   index: BufferCollectionRead,
   index_ref: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
   vertex: AttributesMeshEntityVertexAccessView,
-  foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
+  foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderRawVertexBuilder)>,
 }
 
 impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
@@ -131,7 +131,7 @@ pub struct AttributesMeshGPU<'a> {
   pub index: Option<(AttributeIndexFormat, u32, &'a GPUBufferResourceView)>,
   pub mesh_id: EntityHandle<AttributesMeshEntity>,
   pub vertex: &'a AttributesMeshEntityVertexAccessView,
-  pub foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
+  pub foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderRawVertexBuilder)>,
 }
 
 impl ShaderPassBuilder for AttributesMeshGPU<'_> {
@@ -167,6 +167,7 @@ impl GraphicsShaderProvider for AttributesMeshGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let mode = VertexStepMode::Vertex;
     builder.vertex(|builder, _| {
+      let builder = builder.expect_vertex_shader();
       for vertex_info_id in self.vertex.multi_access.access_multi_value(&self.mesh_id) {
         let s = self.vertex.semantics.get(vertex_info_id).unwrap();
 
@@ -207,7 +208,7 @@ impl GraphicsShaderProvider for AttributesMeshGPU<'_> {
           }
         }
       }
-      builder.primitive_state.topology = map_topology(self.mode);
+      builder.primitive_state().topology = map_topology(self.mode);
     })
   }
 }

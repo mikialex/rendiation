@@ -43,6 +43,7 @@ impl ClonableAnyMap {
   pub fn register<T: Any>(&mut self, value: T) {
     self.map.insert(TypeId::of::<T>(), Arc::new(value));
   }
+
   pub fn get<T: Any>(&self) -> Option<&T> {
     self
       .map

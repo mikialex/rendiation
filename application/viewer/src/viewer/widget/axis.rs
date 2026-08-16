@@ -110,7 +110,7 @@ impl PassContent for DrawAxis<'_> {
     let com: [&dyn RenderComponent; 3] = [&base, &line, &shading];
     let com = RenderArray(com);
 
-    com.render(&mut pass.ctx, LINE_DRAW_CMD)
+    com.render(&mut pass.ctx, LINE_DRAW_CMD, false)
   }
 }
 

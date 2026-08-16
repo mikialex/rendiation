@@ -162,6 +162,7 @@ impl ShaderPassBuilder for WideLineGPU<'_> {
 impl GraphicsShaderProvider for WideLineGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
+      let builder = builder.expect_vertex_shader();
       builder.register_vertex::<CommonVertex>(VertexStepMode::Vertex);
       builder.register_vertex::<WideLineSegmentInstance>(VertexStepMode::Instance);
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;

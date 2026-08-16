@@ -159,7 +159,7 @@ impl PassContent for PlaneCapDrawer<'_> {
     ];
     let com = RenderArray(com);
 
-    com.render(&mut pass.ctx, PLANE_DRAW_CMD)
+    com.render(&mut pass.ctx, PLANE_DRAW_CMD, false)
   }
 }
 
@@ -210,7 +210,7 @@ impl<'a> GraphicsShaderProvider for ClipComponent<'a> {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     if let ClipDrawType::PlaneScenePass(_) = &self.ty {
       builder.vertex(|builder, _| {
-        builder.primitive_state.cull_mode = None;
+        builder.primitive_state().cull_mode = None;
       });
     }
 

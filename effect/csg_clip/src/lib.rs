@@ -216,7 +216,7 @@ impl GraphicsShaderProvider for CSGExpressionClippingComponent {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
       if self.fill_face_depth.is_some() {
-        builder.primitive_state.cull_mode = None;
+        builder.primitive_state().cull_mode = None;
       }
     });
 

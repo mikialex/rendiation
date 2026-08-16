@@ -131,6 +131,8 @@ pub(crate) fn call_shader_api<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T)
       ShaderStage::Vertex => &mut api.vertex,
       ShaderStage::Fragment => &mut api.fragment,
       ShaderStage::Compute => &mut api.compute,
+      ShaderStage::Task => todo!(),
+      ShaderStage::Mesh => todo!(),
     }
     .as_mut();
 

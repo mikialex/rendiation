@@ -37,6 +37,8 @@ impl ShaderAPINagaImpl {
       ShaderStage::Vertex => naga::ShaderStage::Vertex,
       ShaderStage::Fragment => naga::ShaderStage::Fragment,
       ShaderStage::Compute => naga::ShaderStage::Compute,
+      ShaderStage::Task => naga::ShaderStage::Task,
+      ShaderStage::Mesh => naga::ShaderStage::Mesh,
     };
 
     let mut module = naga::Module::default();

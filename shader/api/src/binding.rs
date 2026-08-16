@@ -78,9 +78,9 @@ impl<T: AbstractShaderBindingSource> BindingPreparer<'_, T> {
       get_current_stage().is_none(),
       "using_graphics_pair must be called outside any graphics sub shader stage"
     );
-    set_current_building(ShaderStage::Vertex.into());
+    builder.shape.set_current_building();
     let vertex = self.using(builder);
-    register(&mut builder.vertex.registry, &vertex);
+    register(builder.shape.registry(), &vertex);
     set_current_building(ShaderStage::Fragment.into());
     let fragment = self.using(builder);
     register(&mut builder.fragment.registry, &fragment);
@@ -153,6 +153,8 @@ impl ShaderBindGroupBuilder {
         visibility: ShaderStages::empty(),
         entry_index,
         bindgroup_index,
+        task_node: None,
+        mesh_node: None,
       };
 
       if let BindingReEnter::Recording(info) = &mut self.binding_re_enter {

@@ -65,6 +65,8 @@ pub struct ShaderBindEntry {
   pub vertex_node: Option<ShaderNodeRawHandle>,
   pub fragment_node: Option<ShaderNodeRawHandle>,
   pub compute_node: Option<ShaderNodeRawHandle>,
+  pub task_node: Option<ShaderNodeRawHandle>,
+  pub mesh_node: Option<ShaderNodeRawHandle>,
 }
 
 impl ShaderBindEntry {
@@ -75,6 +77,8 @@ impl ShaderBindEntry {
       ShaderStage::Vertex => &mut self.vertex_node,
       ShaderStage::Fragment => &mut self.fragment_node,
       ShaderStage::Compute => &mut self.compute_node,
+      ShaderStage::Task => &mut self.task_node,
+      ShaderStage::Mesh => &mut self.mesh_node,
     };
 
     *node.get_or_insert_with(|| {
@@ -82,6 +86,8 @@ impl ShaderBindEntry {
         ShaderStage::Vertex => ShaderStages::VERTEX,
         ShaderStage::Fragment => ShaderStages::FRAGMENT,
         ShaderStage::Compute => ShaderStages::COMPUTE,
+        ShaderStage::Task => ShaderStages::TASK,
+        ShaderStage::Mesh => ShaderStages::MESH,
       };
 
       self.visibility.insert(bit);

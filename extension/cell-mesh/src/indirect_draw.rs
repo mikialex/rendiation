@@ -250,7 +250,7 @@ impl GraphicsShaderProvider for CellMeshShape {
 
       builder.register::<GeometryPosition>(position);
       // todo, use triangle stripe
-      builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
+      builder.primitive_state().topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
     })
   }
 }

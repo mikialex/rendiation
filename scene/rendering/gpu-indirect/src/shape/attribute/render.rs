@@ -65,7 +65,7 @@ impl GraphicsShaderProvider for AttributeMeshIndirectRasterDispatcher {
       vertex.register::<GeometryNormal>(normal);
       vertex.register::<GeometryUV>(uv);
 
-      vertex.primitive_state.topology = self.topology;
+      vertex.primitive_state().topology = self.topology;
     })
   }
 }

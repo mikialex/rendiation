@@ -71,8 +71,8 @@ impl<'a> GraphicsShaderProvider for StateGPUImpl<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     if let Some(state) = &self.states {
       builder.vertex(|builder, _| {
-        builder.primitive_state.front_face = state.front_face;
-        builder.primitive_state.cull_mode = state.cull_mode;
+        builder.primitive_state().front_face = state.front_face;
+        builder.primitive_state().cull_mode = state.cull_mode;
       });
 
       builder.fragment(|builder, _| {
@@ -138,6 +138,6 @@ pub fn apply_pipeline_vertex_builder(
   states: &RasterizationStates,
   builder: &mut ShaderVertexBuilder,
 ) {
-  builder.primitive_state.front_face = states.front_face;
-  builder.primitive_state.cull_mode = states.cull_mode;
+  builder.primitive_state().front_face = states.front_face;
+  builder.primitive_state().cull_mode = states.cull_mode;
 }

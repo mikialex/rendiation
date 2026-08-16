@@ -92,7 +92,7 @@ impl SemanticRegistry {
   }
 }
 
-fn get_name<T: Any>() -> String {
+pub(crate) fn get_name<T: Any>() -> String {
   let name = disqualified::ShortName(std::any::type_name::<T>());
   let name = name.to_string();
   camel_to_snake(&name)
