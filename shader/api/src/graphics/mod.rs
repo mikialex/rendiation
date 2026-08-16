@@ -59,16 +59,21 @@ impl GPUInfo {
 
 impl ShaderRenderPipelineBuilder {
   fn new(
-    use_mesh_shader: bool,
+    shape_ty: VertexOrTaskMesh<()>,
     api: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
     info: Arc<GPUInfo>,
     checks: ShaderRuntimeChecks,
   ) -> Self {
-    set_build_api_by(api);
+    let layout = ShaderStageGroup::Render {
+      shape: shape_ty,
+      fragment: (),
+    };
+    set_build_api_by(layout, api);
+
     let errors = ErrorSink::new(true);
     Self {
-      bindgroups: Default::default(),
-      shape: if use_mesh_shader {
+      bindgroups: ShaderBindGroupBuilder::new(layout),
+      shape: if let VertexOrTaskMesh::TaskMesh { .. } = shape_ty {
         unimplemented!()
       } else {
         Box::new(ShaderRawVertexBuilder::new(errors.clone()))
@@ -270,13 +275,16 @@ impl ShaderRenderPipelineBuilder {
     };
 
     let ShaderBuildingCtx {
-      mut vertex,
-      mut fragment,
-      ..
+      stage_instances, ..
     } = take_build_api();
 
+    let (shape, mut fragment) = match stage_instances {
+      ShaderStageGroup::Render { shape, fragment } => (shape, fragment),
+      _ => unreachable!(),
+    };
+
     Ok(GraphicsShaderCompileResult {
-      vertex_shader: vertex.build(),
+      shape_shader: shape.map(|mut shader, _| shader.build()),
       frag_shader: fragment.build(),
       bindings: self.bindgroups,
       vertex_layouts,
@@ -308,9 +316,9 @@ pub trait GraphicsShaderProvider {
     api_builder: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
     info: Arc<GPUInfo>,
     checks: ShaderRuntimeChecks,
-    use_mesh_shader: bool,
+    shape_ty: VertexOrTaskMesh<()>,
   ) -> Result<ShaderRenderPipelineBuilder, Vec<ShaderBuildError>> {
-    let mut builder = ShaderRenderPipelineBuilder::new(use_mesh_shader, api_builder, info, checks);
+    let mut builder = ShaderRenderPipelineBuilder::new(shape_ty, api_builder, info, checks);
     self.build(&mut builder);
     self.post_build(&mut builder);
     let errors = builder.errors.finish();
@@ -338,7 +346,7 @@ impl<T: GraphicsShaderProvider> GraphicsShaderProvider for &T {
 }
 
 pub struct GraphicsShaderCompileResult {
-  pub vertex_shader: (String, Box<dyn Any>),
+  pub shape_shader: VertexOrTaskMesh<(String, Box<dyn Any>)>,
   pub frag_shader: (String, Box<dyn Any>),
   pub bindings: ShaderBindGroupBuilder,
   pub vertex_layouts: Vec<ShaderVertexBufferLayout>,
@@ -346,4 +354,78 @@ pub struct GraphicsShaderCompileResult {
   pub color_states: Vec<ColorTargetState>,
   pub depth_stencil: Option<DepthStencilState>,
   pub multisample: MultisampleState,
+}
+
+#[derive(Copy, Clone)]
+pub enum VertexOrTaskMesh<T> {
+  Vertex(T),
+  TaskMesh { task: Option<T>, mesh: T },
+}
+
+impl<T> VertexOrTaskMesh<T> {
+  pub fn map<U>(self, logic: impl Fn(T, ShaderStage) -> U) -> VertexOrTaskMesh<U> {
+    match self {
+      VertexOrTaskMesh::Vertex(v) => VertexOrTaskMesh::Vertex(logic(v, ShaderStage::Vertex)),
+      VertexOrTaskMesh::TaskMesh { task, mesh } => VertexOrTaskMesh::TaskMesh {
+        task: task.map(|t| logic(t, ShaderStage::Task)),
+        mesh: logic(mesh, ShaderStage::Mesh),
+      },
+    }
+  }
+}
+
+impl VertexOrTaskMesh<()> {
+  pub const VERTEX: Self = VertexOrTaskMesh::Vertex(());
+}
+
+#[derive(Copy, Clone)]
+pub enum ShaderStageGroup<T> {
+  Render {
+    shape: VertexOrTaskMesh<T>,
+    fragment: T,
+  },
+  Compute(T),
+}
+
+impl<T> ShaderStageGroup<T> {
+  pub fn map<U>(self, logic: impl Fn(T, ShaderStage) -> U) -> ShaderStageGroup<U> {
+    match self {
+      ShaderStageGroup::Render { shape, fragment } => ShaderStageGroup::Render {
+        shape: shape.map(&logic),
+        fragment: logic(fragment, ShaderStage::Fragment),
+      },
+      ShaderStageGroup::Compute(c) => ShaderStageGroup::Compute(logic(c, ShaderStage::Compute)),
+    }
+  }
+
+  pub fn expect_stage_mut(&mut self, stage: ShaderStage) -> &mut T {
+    match (self, stage) {
+      (
+        ShaderStageGroup::Render {
+          shape: VertexOrTaskMesh::Vertex(v),
+          ..
+        },
+        ShaderStage::Vertex,
+      ) => v,
+      (
+        ShaderStageGroup::Render {
+          shape: VertexOrTaskMesh::TaskMesh { task, .. },
+          ..
+        },
+        ShaderStage::Task,
+      ) => task
+        .as_mut()
+        .expect("expect task stage but task shader is absent"),
+      (
+        ShaderStageGroup::Render {
+          shape: VertexOrTaskMesh::TaskMesh { mesh, .. },
+          ..
+        },
+        ShaderStage::Mesh,
+      ) => mesh,
+      (ShaderStageGroup::Render { fragment, .. }, ShaderStage::Fragment) => fragment,
+      (ShaderStageGroup::Compute(c), ShaderStage::Compute) => c,
+      _ => panic!("shader stage not compatible with stage group"),
+    }
+  }
 }

@@ -5,23 +5,13 @@ pub struct ShaderBindGroupBuilder {
   pub current_index: usize,
   pub custom_states: FastHashMap<u64, Arc<dyn Any>>,
   binding_re_enter: BindingReEnter,
+  stage_layout: ShaderStageGroup<()>,
 }
 
 enum BindingReEnter {
   None,
   Recording(Vec<(usize, usize)>),
   ReEnter(Vec<(usize, usize)>, usize),
-}
-
-impl Default for ShaderBindGroupBuilder {
-  fn default() -> Self {
-    Self {
-      bindings: vec![Default::default(); 5],
-      current_index: 0,
-      custom_states: Default::default(),
-      binding_re_enter: BindingReEnter::None,
-    }
-  }
 }
 
 #[derive(Default, Clone)]
@@ -79,25 +69,25 @@ impl<T: AbstractShaderBindingSource> BindingPreparer<'_, T> {
       "using_graphics_pair must be called outside any graphics sub shader stage"
     );
     builder.shape.set_current_building();
-    let vertex = self.using(builder);
-    register(builder.shape.registry(), &vertex);
+    let shape = self.using(builder);
+    register(builder.shape.registry(), &shape);
     set_current_building(ShaderStage::Fragment.into());
     let fragment = self.using(builder);
     register(&mut builder.fragment.registry, &fragment);
     set_current_building(None);
-    GraphicsPairInputNodeAccessor { vertex, fragment }
+    GraphicsPairInputNodeAccessor { shape, fragment }
   }
 }
 
 pub struct GraphicsPairInputNodeAccessor<T: AbstractShaderBindingSource> {
-  pub vertex: T::ShaderBindResult,
+  pub shape: T::ShaderBindResult,
   pub fragment: T::ShaderBindResult,
 }
 
 impl<T: ShaderBindingProvider> GraphicsPairInputNodeAccessor<T> {
   pub fn get(&self) -> T::ShaderInstance {
     match get_current_stage() {
-      Some(ShaderStage::Vertex) => self.vertex.clone(),
+      Some(ShaderStage::Vertex) | Some(ShaderStage::Mesh) => self.shape.clone(),
       Some(ShaderStage::Fragment) => self.fragment.clone(),
       _ => unreachable!("expect in graphics stage"),
     }
@@ -120,6 +110,16 @@ impl<T: ShaderBindingProvider> AbstractShaderBindingSource for T {
 }
 
 impl ShaderBindGroupBuilder {
+  pub fn new(stage_layout: ShaderStageGroup<()>) -> Self {
+    Self {
+      bindings: vec![Default::default(); 5],
+      current_index: 0,
+      custom_states: Default::default(),
+      binding_re_enter: BindingReEnter::None,
+      stage_layout,
+    }
+  }
+
   pub fn set_binding_slot(&mut self, new: usize) -> usize {
     std::mem::replace(&mut self.current_index, new)
   }
@@ -147,14 +147,10 @@ impl ShaderBindGroupBuilder {
 
       let entry = ShaderBindEntry {
         desc,
-        vertex_node: None,
-        fragment_node: None,
-        compute_node: None,
         visibility: ShaderStages::empty(),
         entry_index,
         bindgroup_index,
-        task_node: None,
-        mesh_node: None,
+        multi_stage_node_instance: self.stage_layout.map(|_, _| None),
       };
 
       if let BindingReEnter::Recording(info) = &mut self.binding_re_enter {

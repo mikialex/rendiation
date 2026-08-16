@@ -62,24 +62,16 @@ pub struct ShaderBindEntry {
   pub visibility: ShaderStages,
   pub bindgroup_index: usize,
   pub entry_index: usize,
-  pub vertex_node: Option<ShaderNodeRawHandle>,
-  pub fragment_node: Option<ShaderNodeRawHandle>,
-  pub compute_node: Option<ShaderNodeRawHandle>,
-  pub task_node: Option<ShaderNodeRawHandle>,
-  pub mesh_node: Option<ShaderNodeRawHandle>,
+  pub multi_stage_node_instance: ShaderStageGroup<Option<ShaderNodeRawHandle>>,
 }
 
 impl ShaderBindEntry {
   pub fn using(&mut self) -> ShaderNodeRawHandle {
     let current_stage = get_current_stage().expect("must in shader building");
 
-    let node = match current_stage {
-      ShaderStage::Vertex => &mut self.vertex_node,
-      ShaderStage::Fragment => &mut self.fragment_node,
-      ShaderStage::Compute => &mut self.compute_node,
-      ShaderStage::Task => &mut self.task_node,
-      ShaderStage::Mesh => &mut self.mesh_node,
-    };
+    let node = self
+      .multi_stage_node_instance
+      .expect_stage_mut(current_stage);
 
     *node.get_or_insert_with(|| {
       let bit = match current_stage {

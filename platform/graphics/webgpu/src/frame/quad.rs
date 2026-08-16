@@ -143,7 +143,7 @@ where
     let mut base = default_dispatcher(pass, false);
     base.auto_write = false;
     let components: [&dyn RenderComponent; 3] = [&base, &self.quad, &self.content];
-    RenderArray(components).render(&mut pass.ctx, QUAD_DRAW_CMD, false);
+    RenderArray(components).render(&mut pass.ctx, QUAD_DRAW_CMD, VertexOrTaskMesh::VERTEX);
 
     if self.viewport.is_some() {
       let (w, h) = pass.size().into_f32();

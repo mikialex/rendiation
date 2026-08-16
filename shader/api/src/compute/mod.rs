@@ -77,15 +77,19 @@ pub fn workgroup_uniform_load<T: ShaderSizedValueNodeType>(p: ShaderPtrOf<T>) ->
 }
 
 impl ShaderComputePipelineBuilder {
-  pub fn new(api: &dyn Fn(ShaderStage) -> DynamicShaderAPI, checks: ShaderRuntimeChecks) -> Self {
-    set_build_api_by(api);
+  pub fn new(
+    api_creator: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
+    checks: ShaderRuntimeChecks,
+  ) -> Self {
+    let stage_layout = ShaderStageGroup::Compute(());
+    set_build_api_by(stage_layout, api_creator);
 
     set_current_building(ShaderStage::Compute.into());
 
     use ShaderBuiltInDecorator::*;
     let r = Self {
       checks,
-      bindgroups: Default::default(),
+      bindgroups: ShaderBindGroupBuilder::new(stage_layout),
       registry: Default::default(),
       global_invocation_id: ShaderInputNode::BuiltIn(CompGlobalInvocationId).insert_api(),
       local_invocation_id: ShaderInputNode::BuiltIn(CompLocalInvocationId).insert_api(),
@@ -180,7 +184,15 @@ impl ShaderComputePipelineBuilder {
   }
 
   pub fn build(self) -> Result<ComputeShaderCompileResult, ShaderBuildError> {
-    let ShaderBuildingCtx { mut compute, .. } = take_build_api();
+    let ShaderBuildingCtx {
+      stage_instances, ..
+    } = take_build_api();
+
+    let mut compute = if let ShaderStageGroup::Compute(compute) = stage_instances {
+      compute
+    } else {
+      unreachable!("expect compute stage")
+    };
 
     Ok(ComputeShaderCompileResult {
       shader: compute.build(),

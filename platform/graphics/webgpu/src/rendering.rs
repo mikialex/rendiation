@@ -6,7 +6,7 @@ use crate::*;
 /// RenderComponent is a composable unit for user to express and compose the rendering logic.
 pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderPassBuilder {
   /// Calling this method to do the real drawcall on given pass. if the implementation is efficient enough to specify a draw logic.
-  fn render(&self, ctx: &mut GPURenderPassCtx, com: DrawCommand, use_mesh_shader: bool) {
+  fn render(&self, ctx: &mut GPURenderPassCtx, com: DrawCommand, shape_ty: VertexOrTaskMesh<()>) {
     let mut hasher = PipelineHasher::default();
     self.hash_pipeline(&mut hasher);
 
@@ -21,7 +21,7 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
                 &|stage| Box::new(ShaderAPINagaImpl::new(stage)),
                 ctx.gpu.info.clone(),
                 device.inner.default_shader_checks,
-                use_mesh_shader,
+                shape_ty,
               )
               .unwrap(),
             label,
