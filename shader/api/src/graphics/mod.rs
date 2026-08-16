@@ -73,8 +73,11 @@ impl ShaderRenderPipelineBuilder {
     let errors = ErrorSink::new(true);
     Self {
       bindgroups: ShaderBindGroupBuilder::new(layout),
-      shape: if let VertexOrTaskMesh::TaskMesh { .. } = shape_ty {
-        unimplemented!()
+      shape: if let VertexOrTaskMesh::TaskMesh { task, .. } = shape_ty {
+        Box::new(ShaderTaskMeshBuilderGroup::new(
+          task.is_some(),
+          errors.clone(),
+        ))
       } else {
         Box::new(ShaderRawVertexBuilder::new(errors.clone()))
       },
@@ -102,6 +105,7 @@ impl std::ops::DerefMut for ShaderRenderPipelineBuilder {
 }
 
 pub trait AbstractShaderVertexBuilder {
+  fn task_mesh_shader(&mut self) -> Option<&mut ShaderTaskMeshBuilderGroup>;
   fn vertex_shader(&mut self) -> Option<&mut ShaderRawVertexBuilder>;
   fn expect_vertex_shader(&mut self) -> &mut ShaderRawVertexBuilder {
     self.vertex_shader().expect(
@@ -111,8 +115,6 @@ pub trait AbstractShaderVertexBuilder {
   fn set_current_building(&mut self);
   fn finalize_write(&mut self);
   fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder);
-  fn register_impl(&mut self, ty_id: TypeId, node: NodeUntyped);
-  fn try_query_impl(&mut self, ty_id: TypeId) -> Option<NodeUntyped>;
   fn set_vertex_out_impl(
     &mut self,
     ty_id: TypeId,
@@ -123,6 +125,31 @@ pub trait AbstractShaderVertexBuilder {
   fn primitive_state(&mut self) -> &mut PrimitiveState;
   fn registry(&mut self) -> &mut SemanticRegistry;
   fn error(&mut self, err: ShaderBuildError);
+
+  fn register_impl(&mut self, ty_id: TypeId, node: NodeUntyped) {
+    self.registry().register_raw(ty_id, node);
+  }
+
+  fn try_query_impl(&mut self, ty_id: TypeId) -> Option<NodeUntyped> {
+    let registry = self.registry();
+    if registry.static_semantic.get(&ty_id).is_none() {
+      if ty_id == TypeId::of::<VertexIndex>() {
+        let vertex_index =
+          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexIndex).insert_api();
+        vertex_index.mark_debug_label(get_name::<VertexIndex>());
+        registry.register_raw(TypeId::of::<VertexIndex>(), vertex_index);
+      }
+
+      if ty_id == TypeId::of::<VertexInstanceIndex>() {
+        let instance_index =
+          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexInstanceIndex).insert_api();
+        instance_index.mark_debug_label(get_name::<VertexInstanceIndex>());
+        registry.register_raw(TypeId::of::<VertexInstanceIndex>(), instance_index);
+      }
+    }
+
+    registry.static_semantic.get(&ty_id).copied()
+  }
 }
 
 pub trait AbstractShaderVertexBuilderTypedExt {

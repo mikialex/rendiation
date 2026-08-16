@@ -21,19 +21,14 @@ pub struct ShaderVertexBuilder<'a> {
 }
 
 impl<'a> AbstractShaderVertexBuilder for ShaderVertexBuilder<'a> {
+  fn task_mesh_shader(&mut self) -> Option<&mut ShaderTaskMeshBuilderGroup> {
+    self.internal.task_mesh_shader()
+  }
   fn set_current_building(&mut self) {
     self.internal.set_current_building();
   }
   fn vertex_shader(&mut self) -> Option<&mut ShaderRawVertexBuilder> {
     self.internal.vertex_shader()
-  }
-
-  fn register_impl(&mut self, ty_id: TypeId, node: NodeUntyped) {
-    self.internal.register_impl(ty_id, node);
-  }
-
-  fn try_query_impl(&mut self, ty_id: TypeId) -> Option<NodeUntyped> {
-    self.internal.try_query_impl(ty_id)
   }
 
   fn finalize_write(&mut self) {
@@ -75,7 +70,7 @@ pub struct ShaderRawVertexBuilder {
   pub primitive_state: PrimitiveState,
 
   // user semantic vertex
-  pub(crate) registry: SemanticRegistry,
+  registry: SemanticRegistry,
 
   // user vertex out
   pub vertex_out: FastHashMap<TypeId, (VertexIOInfo, ShaderInterpolation)>,
@@ -90,6 +85,13 @@ pub struct VertexIOInfo {
   pub location: usize,
 }
 
+pub fn default_primitive_state() -> PrimitiveState {
+  PrimitiveState {
+    cull_mode: Some(Face::Back),
+    ..Default::default()
+  }
+}
+
 impl ShaderRawVertexBuilder {
   pub(crate) fn new(errors: ErrorSink) -> Self {
     Self {
@@ -97,10 +99,7 @@ impl ShaderRawVertexBuilder {
       registry: Default::default(),
       vertex_out: Default::default(),
       vertex_layouts: Default::default(),
-      primitive_state: PrimitiveState {
-        cull_mode: Some(Face::Back),
-        ..Default::default()
-      },
+      primitive_state: default_primitive_state(),
       vertex_out_not_synced_to_fragment: Default::default(),
       errors,
     }
@@ -194,40 +193,15 @@ impl ShaderRawVertexBuilder {
 }
 
 impl AbstractShaderVertexBuilder for ShaderRawVertexBuilder {
+  fn task_mesh_shader(&mut self) -> Option<&mut ShaderTaskMeshBuilderGroup> {
+    None
+  }
   fn set_current_building(&mut self) {
     set_current_building(ShaderStage::Vertex.into());
   }
 
   fn vertex_shader(&mut self) -> Option<&mut ShaderRawVertexBuilder> {
     Some(self)
-  }
-
-  fn register_impl(&mut self, ty_id: TypeId, node: NodeUntyped) {
-    self.registry.register_raw(ty_id, node);
-  }
-
-  fn try_query_impl(&mut self, ty_id: TypeId) -> Option<NodeUntyped> {
-    if self.registry.static_semantic.get(&ty_id).is_none() {
-      if ty_id == TypeId::of::<VertexIndex>() {
-        let vertex_index =
-          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexIndex).insert_api();
-        vertex_index.mark_debug_label(get_name::<VertexIndex>());
-        self
-          .registry
-          .register_raw(TypeId::of::<VertexIndex>(), vertex_index);
-      }
-
-      if ty_id == TypeId::of::<VertexInstanceIndex>() {
-        let instance_index =
-          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexInstanceIndex).insert_api();
-        instance_index.mark_debug_label(get_name::<VertexInstanceIndex>());
-        self
-          .registry
-          .register_raw(TypeId::of::<VertexInstanceIndex>(), instance_index);
-      }
-    }
-
-    self.registry.static_semantic.get(&ty_id).copied()
   }
 
   fn finalize_write(&mut self) {
