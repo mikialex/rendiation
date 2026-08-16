@@ -59,13 +59,21 @@ impl GPUInfo {
 
 impl ShaderRenderPipelineBuilder {
   fn new(
-    shape_ty: VertexOrTaskMesh<()>,
     api: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
+    mesh_shading: Option<&dyn MeshShaderLogic>,
     info: Arc<GPUInfo>,
     checks: ShaderRuntimeChecks,
   ) -> Self {
+    let shape = if let Some(mesh_shading) = &mesh_shading {
+      VertexOrTaskMesh::TaskMesh {
+        task: mesh_shading.has_task_stage().then_some(()),
+        mesh: (),
+      }
+    } else {
+      VertexOrTaskMesh::Vertex(())
+    };
     let layout = ShaderStageGroup::Render {
-      shape: shape_ty,
+      shape,
       fragment: (),
     };
     set_build_api_by(layout, api);
@@ -73,11 +81,10 @@ impl ShaderRenderPipelineBuilder {
     let errors = ErrorSink::new(true);
     Self {
       bindgroups: ShaderBindGroupBuilder::new(layout),
-      shape: if let VertexOrTaskMesh::TaskMesh { task, .. } = shape_ty {
-        Box::new(ShaderTaskMeshBuilderGroup::new(
-          task.is_some(),
-          errors.clone(),
-        ))
+      shape: if let VertexOrTaskMesh::TaskMesh { task, .. } = shape {
+        let task_mesh = ShaderTaskMeshBuilderGroup::new(task.is_some(), errors.clone());
+        let mesh_shading = mesh_shading.unwrap();
+        mesh_shading.create_abstract_vertex_shader_cx(task_mesh)
       } else {
         Box::new(ShaderRawVertexBuilder::new(errors.clone()))
       },
@@ -341,11 +348,11 @@ pub trait GraphicsShaderProvider {
   fn build_self(
     &self,
     api_builder: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
+    mesh_shading: Option<&dyn MeshShaderLogic>,
     info: Arc<GPUInfo>,
     checks: ShaderRuntimeChecks,
-    shape_ty: VertexOrTaskMesh<()>,
   ) -> Result<ShaderRenderPipelineBuilder, Vec<ShaderBuildError>> {
-    let mut builder = ShaderRenderPipelineBuilder::new(shape_ty, api_builder, info, checks);
+    let mut builder = ShaderRenderPipelineBuilder::new(api_builder, mesh_shading, info, checks);
     self.build(&mut builder);
     self.post_build(&mut builder);
     let errors = builder.errors.finish();
@@ -399,10 +406,6 @@ impl<T> VertexOrTaskMesh<T> {
       },
     }
   }
-}
-
-impl VertexOrTaskMesh<()> {
-  pub const VERTEX: Self = VertexOrTaskMesh::Vertex(());
 }
 
 #[derive(Copy, Clone)]

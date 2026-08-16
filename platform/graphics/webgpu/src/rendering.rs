@@ -3,12 +3,36 @@ use rendiation_shader_backend_naga::ShaderAPINagaImpl;
 
 use crate::*;
 
+pub enum RenderMethod<'a> {
+  TraditionalDraw(DrawCommand),
+  MeshPipelineDraw(&'a dyn MeshComponent),
+}
+
+pub enum MeshDispatchCommand {
+  Direct(DispatchIndirectArgs),
+  Indirect(GPUBufferResourceView),
+}
+
+pub trait MeshComponent: MeshShaderLogic + ShaderHashProvider {
+  fn bind_shader(&self, cx: &mut GPURenderPassCtx);
+  fn dispatch_command(&self) -> MeshDispatchCommand;
+  fn as_shading_logic(&self) -> &dyn MeshShaderLogic;
+}
+
 /// RenderComponent is a composable unit for user to express and compose the rendering logic.
 pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderPassBuilder {
   /// Calling this method to do the real drawcall on given pass. if the implementation is efficient enough to specify a draw logic.
-  fn render(&self, ctx: &mut GPURenderPassCtx, com: DrawCommand, shape_ty: VertexOrTaskMesh<()>) {
+  fn render(&self, ctx: &mut GPURenderPassCtx, draw: RenderMethod) {
     let mut hasher = PipelineHasher::default();
-    self.hash_pipeline(&mut hasher);
+    self.hash_pipeline_with_type_info(&mut hasher);
+
+    let (draw_cmd, mesh_shading) = match &draw {
+      RenderMethod::TraditionalDraw(draw_command) => (Some(draw_command), None),
+      RenderMethod::MeshPipelineDraw(mesh_shading_logic) => {
+        mesh_shading_logic.hash_pipeline_with_type_info(&mut hasher);
+        (None, Some(mesh_shading_logic.as_shading_logic()))
+      }
+    };
 
     let pipeline = ctx
       .gpu
@@ -19,9 +43,9 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
             self
               .build_self(
                 &|stage| Box::new(ShaderAPINagaImpl::new(stage)),
+                mesh_shading,
                 ctx.gpu.info.clone(),
                 device.inner.default_shader_checks,
-                shape_ty,
               )
               .unwrap(),
             label,
@@ -36,13 +60,21 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
       ctx.binding.setup_checking_layout(&pipeline.bg_layouts);
     }
 
+    if let RenderMethod::MeshPipelineDraw(draw) = draw {
+      draw.bind_shader(ctx);
+    }
+
     self.setup_pass_self(ctx);
 
     ctx
       .binding
       .setup_render_pass(&mut ctx.pass, &ctx.gpu.device, &pipeline);
 
-    ctx.pass.draw_by_command(com)
+    if let Some(draw_cmd) = draw_cmd {
+      ctx.pass.draw_by_command(draw_cmd.clone())
+    } else if let RenderMethod::MeshPipelineDraw(draw) = draw {
+      ctx.pass.dispatch_mesh_draw_command(draw.dispatch_command())
+    }
   }
 }
 

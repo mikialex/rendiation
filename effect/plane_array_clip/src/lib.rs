@@ -159,7 +159,7 @@ impl PassContent for PlaneCapDrawer<'_> {
     ];
     let com = RenderArray(com);
 
-    com.render(&mut pass.ctx, PLANE_DRAW_CMD, VertexOrTaskMesh::VERTEX)
+    com.render(&mut pass.ctx, RenderMethod::TraditionalDraw(PLANE_DRAW_CMD))
   }
 }
 

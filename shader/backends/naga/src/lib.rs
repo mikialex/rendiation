@@ -565,6 +565,22 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.push_top_statement(naga::Statement::ControlBarrier(b));
   }
 
+  fn define_mesh_info(&mut self, mesh_info: MeshStageInfo) {
+    self.module.entry_points[0].mesh_info = Some(naga::MeshStageInfo {
+      topology: todo!(),
+      max_vertices: todo!(),
+      max_vertices_override: None,
+      max_primitives: todo!(),
+      max_primitives_override: None,
+      vertex_output_type: todo!(),
+      primitive_output_type: todo!(),
+      output_variable: todo!(),
+    });
+  }
+  fn setup_task_payload_output(&mut self, payload: ShaderNodeRawHandle) {
+    self.module.entry_points[0].task_payload = Some(todo!());
+  }
+
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle {
     assert!(self.building_fn.len() == 1);
     match input {

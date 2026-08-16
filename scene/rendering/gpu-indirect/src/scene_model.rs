@@ -146,7 +146,7 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     ];
 
     let render = Box::new(RenderArray(contents)) as Box<dyn RenderComponent>;
-    render.render(cx, command, VertexOrTaskMesh::VERTEX);
+    render.render(cx, RenderMethod::TraditionalDraw(command));
     Some(())
   }
 
