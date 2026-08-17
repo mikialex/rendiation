@@ -33,6 +33,37 @@ pub enum PrimitiveShaderValueType {
 }
 
 impl PrimitiveShaderValueType {
+  pub fn u32() -> Self {
+    Self::Scalar(ScalarType::U32)
+  }
+  pub fn i32() -> Self {
+    Self::Scalar(ScalarType::I32)
+  }
+  pub fn f32() -> Self {
+    Self::Scalar(ScalarType::F32)
+  }
+  pub fn bool() -> Self {
+    Self::Scalar(ScalarType::Bool)
+  }
+  pub fn vec2<T: ScalarTypeOf>() -> Self {
+    Self::vector(VectorSize::Bi, T::scalar_type())
+  }
+  pub fn vec3<T: ScalarTypeOf>() -> Self {
+    Self::vector(VectorSize::Tri, T::scalar_type())
+  }
+  pub fn vec4<T: ScalarTypeOf>() -> Self {
+    Self::vector(VectorSize::Quad, T::scalar_type())
+  }
+  pub fn mat2<T: ScalarTypeOf>() -> Self {
+    Self::square_matrix(VectorSize::Bi, T::scalar_type())
+  }
+  pub fn mat3<T: ScalarTypeOf>() -> Self {
+    Self::square_matrix(VectorSize::Tri, T::scalar_type())
+  }
+  pub fn mat4<T: ScalarTypeOf>() -> Self {
+    Self::square_matrix(VectorSize::Quad, T::scalar_type())
+  }
+
   pub const fn vector(size: VectorSize, scalar: ScalarType) -> Self {
     Self::Vector { size, scalar }
   }

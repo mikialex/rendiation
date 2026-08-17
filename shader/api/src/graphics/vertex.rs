@@ -73,8 +73,8 @@ pub struct ShaderRawVertexBuilder {
   registry: SemanticRegistry,
 
   // user vertex out
-  pub vertex_out: FastHashMap<TypeId, (VertexIOInfo, ShaderInterpolation)>,
-  pub(crate) vertex_out_not_synced_to_fragment: FastHashSet<TypeId>,
+  vertex_out: FastHashMap<TypeId, (VertexIOInfo, ShaderInterpolation)>,
+  vertex_out_not_synced_to_fragment: FastHashSet<TypeId>,
   pub(crate) errors: ErrorSink,
 }
 

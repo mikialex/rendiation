@@ -49,6 +49,51 @@ pub enum ShaderBuiltInDecorator {
   CompWorkgroupId,
   CompNumWorkgroup,
   CompSubgroupSize,
+  MeshPrimitiveTriangleIndex,
+  MeshPrimitiveLineIndex,
+  MeshPrimitivePointIndex,
+  MeshPrimitiveCount,
+  MeshVertexCount,
+  MeshVerticesOutput,
+  MeshPrimitiveOutput,
+}
+
+impl ShaderBuiltInDecorator {
+  pub fn data_ty(&self) -> Option<PrimitiveShaderValueType> {
+    use ShaderBuiltInDecorator::*;
+    let bool = PrimitiveShaderValueType::bool();
+    let u32 = PrimitiveShaderValueType::u32();
+    let vec2_u32 = PrimitiveShaderValueType::vec2::<u32>();
+    let vec3_u32 = PrimitiveShaderValueType::vec3::<u32>();
+    let f32 = PrimitiveShaderValueType::f32();
+    let vec4_f32 = PrimitiveShaderValueType::vec4::<f32>();
+    match self {
+      VertexIndex => u32,
+      VertexInstanceIndex => u32,
+      VertexPositionOut => vec4_f32,
+      FragPositionIn => vec4_f32,
+      FragFrontFacing => bool,
+      FragDepth => f32,
+      FragSampleIndex => u32,
+      FragSampleMask => u32,
+      CompSubgroupInvocationId => u32,
+      CompLocalInvocationId => vec3_u32,
+      CompGlobalInvocationId => vec3_u32,
+      CompLocalInvocationIndex => u32,
+      CompSubgroupId => u32,
+      CompWorkgroupId => vec3_u32,
+      CompNumWorkgroup => vec3_u32,
+      CompSubgroupSize => u32,
+      MeshPrimitiveTriangleIndex => vec3_u32,
+      MeshPrimitiveLineIndex => vec2_u32,
+      MeshPrimitivePointIndex => u32,
+      MeshPrimitiveCount => u32,
+      MeshVertexCount => u32,
+      MeshVerticesOutput => return None,
+      MeshPrimitiveOutput => return None,
+    }
+    .into()
+  }
 }
 
 #[derive(Default, Clone)]

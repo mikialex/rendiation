@@ -79,7 +79,7 @@ pub trait ShaderAPI {
   fn barrier(&mut self, scope: BarrierScope);
 
   fn define_mesh_info(&mut self, mesh_info: MeshStageInfo);
-  fn setup_task_payload_output(&mut self, payload: ShaderNodeRawHandle);
+  fn define_task_payload_io(&mut self, payload: ShaderNodeRawHandle);
 
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
   fn define_next_frag_out(&mut self, ty: ShaderSizedValueType) -> ShaderNodeRawHandle;

@@ -18,6 +18,7 @@ pub struct ShaderAPINagaImpl {
   outputs: Vec<naga::Handle<naga::Expression>>,
   struct_extra_padding_count: FastHashMap<String, usize>,
   log_build_result: bool,
+  global_var_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::GlobalVariable>>,
 }
 
 pub enum BlockBuildingState {
@@ -68,6 +69,7 @@ impl ShaderAPINagaImpl {
       outputs: Default::default(),
       struct_extra_padding_count: Default::default(),
       log_build_result: false,
+      global_var_mapping: Default::default(),
     };
 
     api.building_fn.push(naga::Function::default());
@@ -566,120 +568,57 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn define_mesh_info(&mut self, mesh_info: MeshStageInfo) {
+    let vertex_output_type = self.register_ty_impl(
+      ShaderValueType::Single(ShaderValueSingleType::Sized(mesh_info.vertex_output_type)),
+      None,
+    );
+
+    let primitive_output_type = self.register_ty_impl(
+      ShaderValueType::Single(ShaderValueSingleType::Sized(
+        mesh_info.primitive_output_type,
+      )),
+      None,
+    );
+
+    let output_variable = *self
+      .global_var_mapping
+      .get(&mesh_info.output_variable)
+      .unwrap();
+
     self.module.entry_points[0].mesh_info = Some(naga::MeshStageInfo {
-      topology: todo!(),
-      max_vertices: todo!(),
+      topology: match mesh_info.topology {
+        MeshOutputTopology::Points => naga::MeshOutputTopology::Points,
+        MeshOutputTopology::Lines => naga::MeshOutputTopology::Lines,
+        MeshOutputTopology::Triangles => naga::MeshOutputTopology::Triangles,
+      },
+      max_vertices: mesh_info.max_vertices,
       max_vertices_override: None,
-      max_primitives: todo!(),
+      max_primitives: mesh_info.max_primitives,
       max_primitives_override: None,
-      vertex_output_type: todo!(),
-      primitive_output_type: todo!(),
-      output_variable: todo!(),
+      vertex_output_type,
+      primitive_output_type,
+      output_variable,
     });
   }
-  fn setup_task_payload_output(&mut self, payload: ShaderNodeRawHandle) {
-    self.module.entry_points[0].task_payload = Some(todo!());
+  fn define_task_payload_io(&mut self, payload: ShaderNodeRawHandle) {
+    let output_variable = *self.global_var_mapping.get(&payload).unwrap();
+    self.module.entry_points[0].task_payload = Some(output_variable);
   }
 
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle {
     assert!(self.building_fn.len() == 1);
     match input {
       ShaderInputNode::BuiltIn(ty) => {
+        let data_ty = ty
+          .data_ty()
+          .expect("mesh output relative should defined by shared var");
+        let data_ty = ShaderValueType::Single(ShaderValueSingleType::Sized(
+          ShaderSizedValueType::Primitive(data_ty),
+        ));
+
         let bt = match_built_in(ty);
 
-        let ty = match ty {
-          ShaderBuiltInDecorator::VertexIndex => naga::TypeInner::Scalar(naga::Scalar {
-            kind: naga::ScalarKind::Uint,
-            width: 4,
-          }),
-          ShaderBuiltInDecorator::VertexInstanceIndex => naga::TypeInner::Scalar(naga::Scalar {
-            kind: naga::ScalarKind::Uint,
-            width: 4,
-          }),
-          ShaderBuiltInDecorator::FragFrontFacing => naga::TypeInner::Scalar(naga::Scalar {
-            kind: naga::ScalarKind::Bool,
-            width: naga::BOOL_WIDTH,
-          }),
-          ShaderBuiltInDecorator::FragSampleIndex => naga::TypeInner::Scalar(naga::Scalar {
-            kind: naga::ScalarKind::Uint,
-            width: 4,
-          }),
-          ShaderBuiltInDecorator::FragSampleMask => naga::TypeInner::Scalar(naga::Scalar {
-            kind: naga::ScalarKind::Uint,
-            width: 4,
-          }),
-          ShaderBuiltInDecorator::FragPositionIn => naga::TypeInner::Vector {
-            size: naga::VectorSize::Quad,
-            scalar: naga::Scalar {
-              kind: naga::ScalarKind::Float,
-              width: 4,
-            },
-          },
-          ShaderBuiltInDecorator::VertexPositionOut => naga::TypeInner::Vector {
-            size: naga::VectorSize::Quad,
-            scalar: naga::Scalar {
-              kind: naga::ScalarKind::Float,
-              width: 4,
-            },
-          },
-          ShaderBuiltInDecorator::FragDepth => naga::TypeInner::Scalar(naga::Scalar {
-            kind: naga::ScalarKind::Float,
-            width: 4,
-          }),
-          ShaderBuiltInDecorator::CompLocalInvocationId => naga::TypeInner::Vector {
-            size: naga::VectorSize::Tri,
-            scalar: naga::Scalar {
-              kind: naga::ScalarKind::Uint,
-              width: 4,
-            },
-          },
-          ShaderBuiltInDecorator::CompGlobalInvocationId => naga::TypeInner::Vector {
-            size: naga::VectorSize::Tri,
-            scalar: naga::Scalar {
-              kind: naga::ScalarKind::Uint,
-              width: 4,
-            },
-          },
-          ShaderBuiltInDecorator::CompLocalInvocationIndex => {
-            naga::TypeInner::Scalar(naga::Scalar {
-              kind: naga::ScalarKind::Uint,
-              width: 4,
-            })
-          }
-          ShaderBuiltInDecorator::CompWorkgroupId => naga::TypeInner::Vector {
-            size: naga::VectorSize::Tri,
-            scalar: naga::Scalar {
-              kind: naga::ScalarKind::Uint,
-              width: 4,
-            },
-          },
-          ShaderBuiltInDecorator::CompNumWorkgroup => naga::TypeInner::Vector {
-            size: naga::VectorSize::Tri,
-            scalar: naga::Scalar {
-              kind: naga::ScalarKind::Uint,
-              width: 4,
-            },
-          },
-          ShaderBuiltInDecorator::CompSubgroupInvocationId => {
-            naga::TypeInner::Scalar(naga::Scalar {
-              kind: naga::ScalarKind::Uint,
-              width: 4,
-            })
-          }
-          ShaderBuiltInDecorator::CompSubgroupId => naga::TypeInner::Scalar(naga::Scalar {
-            kind: naga::ScalarKind::Uint,
-            width: 4,
-          }),
-          ShaderBuiltInDecorator::CompSubgroupSize => naga::TypeInner::Scalar(naga::Scalar {
-            kind: naga::ScalarKind::Uint,
-            width: 4,
-          }),
-        };
-        let ty = naga::Type {
-          name: None,
-          inner: ty,
-        };
-        let ty = self.module.types.insert(ty, Span::UNDEFINED);
+        let ty = self.register_ty_impl(data_ty, None);
 
         self.add_fn_input_inner(naga::FunctionArgument {
           name: None,
@@ -723,11 +662,12 @@ impl ShaderAPI for ShaderAPINagaImpl {
           init: None,
           memory_decorations: MemoryDecorations::empty(),
         };
-        let g = self.module.global_variables.append(g, Span::UNDEFINED);
-        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g), false);
+        let g_h = self.module.global_variables.append(g, Span::UNDEFINED);
+        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g_h), false);
 
         let return_handle = self.make_new_handle();
         self.expression_mapping.insert(return_handle, g);
+        self.global_var_mapping.insert(return_handle, g_h);
         return_handle
       }
       ShaderInputNode::UserDefinedIn {
@@ -767,11 +707,12 @@ impl ShaderAPI for ShaderAPINagaImpl {
           init: None,
           memory_decorations: MemoryDecorations::empty(),
         };
-        let g = self.module.global_variables.append(g, Span::UNDEFINED);
-        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g), false);
+        let g_h = self.module.global_variables.append(g, Span::UNDEFINED);
+        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g_h), false);
 
         let return_handle = self.make_new_handle();
         self.expression_mapping.insert(return_handle, g);
+        self.global_var_mapping.insert(return_handle, g_h);
         return_handle
       }
       ShaderInputNode::Private { ty } => {
@@ -787,11 +728,12 @@ impl ShaderAPI for ShaderAPINagaImpl {
           init: None,
           memory_decorations: MemoryDecorations::empty(),
         };
-        let g = self.module.global_variables.append(g, Span::UNDEFINED);
-        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g), false);
+        let g_h = self.module.global_variables.append(g, Span::UNDEFINED);
+        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g_h), false);
 
         let return_handle = self.make_new_handle();
         self.expression_mapping.insert(return_handle, g);
+        self.global_var_mapping.insert(return_handle, g_h);
         return_handle
       }
     }
@@ -2031,5 +1973,12 @@ fn match_built_in(bt: ShaderBuiltInDecorator) -> naga::BuiltIn {
     ShaderBuiltInDecorator::CompSubgroupInvocationId => naga::BuiltIn::SubgroupInvocationId,
     ShaderBuiltInDecorator::CompSubgroupId => naga::BuiltIn::SubgroupId,
     ShaderBuiltInDecorator::CompSubgroupSize => naga::BuiltIn::SubgroupSize,
+    ShaderBuiltInDecorator::MeshPrimitiveTriangleIndex => naga::BuiltIn::TriangleIndices,
+    ShaderBuiltInDecorator::MeshPrimitiveLineIndex => naga::BuiltIn::LineIndices,
+    ShaderBuiltInDecorator::MeshPrimitivePointIndex => naga::BuiltIn::PointIndex,
+    ShaderBuiltInDecorator::MeshPrimitiveCount => naga::BuiltIn::PrimitiveCount,
+    ShaderBuiltInDecorator::MeshVertexCount => naga::BuiltIn::VertexCount,
+    ShaderBuiltInDecorator::MeshVerticesOutput => naga::BuiltIn::Vertices,
+    ShaderBuiltInDecorator::MeshPrimitiveOutput => naga::BuiltIn::Primitives,
   }
 }

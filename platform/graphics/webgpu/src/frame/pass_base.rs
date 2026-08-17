@@ -74,10 +74,7 @@ impl GraphicsShaderProvider for DefaultPassDispatcher {
         && !self.formats.color_formats.is_empty()
         && let Some(first) = self.formats.color_formats.first()
         && get_suitable_shader_write_ty_from_texture_format(*first).unwrap()
-          == ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(
-            VectorSize::Quad,
-            ScalarType::F32,
-          ))
+          == ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vec4::<f32>())
       {
         let default = builder.query_or_insert_default::<DefaultDisplay>();
         builder.store_fragment_out(0, default)
