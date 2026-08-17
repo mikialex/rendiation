@@ -36,7 +36,7 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
       builder.set_vertex_out::<FragmentUv>(out.uv);
       builder.register::<ClipPosition>((out.position.xyz(), val(1.)));
 
-      builder.primitive_state = PrimitiveState {
+      *builder.primitive_state() = PrimitiveState {
         topology: PrimitiveTopology::TriangleStrip,
         front_face: FrontFace::Cw,
         ..Default::default()

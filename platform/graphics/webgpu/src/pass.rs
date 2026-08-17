@@ -336,6 +336,19 @@ impl GPURenderPass {
     }
   }
 
+  pub fn dispatch_mesh_draw_command(&mut self, com: MeshDispatchCommand) {
+    match com {
+      MeshDispatchCommand::Direct(cmd) => {
+        self.draw_mesh_tasks(cmd.x, cmd.y, cmd.z);
+      }
+      MeshDispatchCommand::Indirect(indirect_buffer) => {
+        let buffer = &indirect_buffer.resource.gpu;
+        let offset = indirect_buffer.desc.offset;
+        self.draw_mesh_tasks_indirect(buffer, offset);
+      }
+    }
+  }
+
   pub fn draw_by_command(&mut self, com: DrawCommand) {
     match com {
       DrawCommand::Indexed {

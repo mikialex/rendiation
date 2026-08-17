@@ -1,5 +1,7 @@
 use crate::*;
 
+mod task_mesh;
+pub use task_mesh::*;
 mod vertex;
 pub use vertex::*;
 mod fragment;
@@ -25,7 +27,7 @@ pub struct ShaderRenderPipelineBuilder {
   bindgroups: ShaderBindGroupBuilder,
   pub checks: ShaderRuntimeChecks,
 
-  pub(crate) vertex: ShaderVertexBuilder,
+  pub(crate) shape: Box<dyn AbstractShaderVertexBuilder>,
   pub(crate) fragment: ShaderFragmentBuilder,
 
   errors: ErrorSink,
@@ -58,14 +60,34 @@ impl GPUInfo {
 impl ShaderRenderPipelineBuilder {
   fn new(
     api: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
+    mesh_shading: Option<&dyn MeshShaderLogic>,
     info: Arc<GPUInfo>,
     checks: ShaderRuntimeChecks,
   ) -> Self {
-    set_build_api_by(api);
+    let shape = if let Some(mesh_shading) = &mesh_shading {
+      VertexOrTaskMesh::TaskMesh {
+        task: mesh_shading.has_task_stage().then_some(()),
+        mesh: (),
+      }
+    } else {
+      VertexOrTaskMesh::Vertex(())
+    };
+    let layout = ShaderStageGroup::Render {
+      shape,
+      fragment: (),
+    };
+    set_build_api_by(layout, api);
+
     let errors = ErrorSink::new(true);
     Self {
-      bindgroups: Default::default(),
-      vertex: ShaderVertexBuilder::new(errors.clone()),
+      bindgroups: ShaderBindGroupBuilder::new(layout),
+      shape: if let VertexOrTaskMesh::TaskMesh { task, .. } = shape {
+        let task_mesh = ShaderTaskMeshBuilderGroup::new(task.is_some());
+        let mesh_shading = mesh_shading.unwrap();
+        mesh_shading.create_abstract_vertex_shader_cx(task_mesh)
+      } else {
+        Box::new(ShaderRawVertexBuilder::new(errors.clone()))
+      },
       fragment: ShaderFragmentBuilder::new(errors.clone()),
       debugger: Default::default(),
       errors,
@@ -89,13 +111,167 @@ impl std::ops::DerefMut for ShaderRenderPipelineBuilder {
   }
 }
 
+pub trait AbstractShaderVertexBuilder {
+  fn task_mesh_shader(&mut self) -> Option<&mut ShaderTaskMeshBuilderGroup>;
+  fn vertex_shader(&mut self) -> Option<&mut ShaderRawVertexBuilder>;
+  fn expect_vertex_shader(&mut self) -> &mut ShaderRawVertexBuilder {
+    self.vertex_shader().expect(
+      "unable to get vertex-shader-only ability (such as vertex buffer) in mesh-task shader stages",
+    )
+  }
+  fn set_current_building(&mut self);
+  fn finalize_write(&mut self);
+  fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder);
+  fn set_vertex_out_impl(
+    &mut self,
+    ty_id: TypeId,
+    ty: PrimitiveShaderValueType,
+    node: NodeUntyped,
+    interpolation: ShaderInterpolation,
+  );
+  fn primitive_state(&mut self) -> &mut PrimitiveState;
+  fn registry(&mut self) -> &mut SemanticRegistry;
+  fn error(&mut self, err: ShaderBuildError);
+
+  fn register_impl(&mut self, ty_id: TypeId, node: NodeUntyped) {
+    self.registry().register_raw(ty_id, node);
+  }
+
+  fn try_query_impl(&mut self, ty_id: TypeId) -> Option<NodeUntyped> {
+    let registry = self.registry();
+    if registry.static_semantic.get(&ty_id).is_none() {
+      if ty_id == TypeId::of::<VertexIndex>() {
+        let vertex_index =
+          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexIndex).insert_api();
+        vertex_index.mark_debug_label(get_name::<VertexIndex>());
+        registry.register_raw(TypeId::of::<VertexIndex>(), vertex_index);
+      }
+
+      if ty_id == TypeId::of::<VertexInstanceIndex>() {
+        let instance_index =
+          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexInstanceIndex).insert_api();
+        instance_index.mark_debug_label(get_name::<VertexInstanceIndex>());
+        registry.register_raw(TypeId::of::<VertexInstanceIndex>(), instance_index);
+      }
+    }
+
+    registry.static_semantic.get(&ty_id).copied()
+  }
+}
+
+pub trait AbstractShaderVertexBuilderTypedExt {
+  fn register<T: SemanticVertexShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>);
+  fn try_query<T: SemanticVertexShaderValue>(&mut self) -> Option<Node<T::ValueType>>;
+  fn query<T: SemanticVertexShaderValue>(&mut self) -> Node<T::ValueType>;
+  fn query_or_insert_by<T>(&mut self, by: impl FnOnce() -> T::ValueType) -> Node<T::ValueType>
+  where
+    T: SemanticVertexShaderValue,
+    T::ValueType: PrimitiveShaderNodeType;
+  fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
+  where
+    T: SemanticVertexShaderValue,
+    T::ValueType: PrimitiveShaderNodeType;
+  fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
+  where
+    T: SemanticFragmentShaderValue,
+    T::ValueType: PrimitiveShaderNodeType;
+  fn set_vertex_out_with_given_interpolate<T>(
+    &mut self,
+    node: impl Into<Node<T::ValueType>>,
+    interpolation: ShaderInterpolation,
+  ) where
+    T: SemanticFragmentShaderValue,
+    T::ValueType: PrimitiveShaderNodeType;
+  fn register_any<T: Any>(&mut self, value: T);
+}
+
+impl<B: AbstractShaderVertexBuilder + ?Sized> AbstractShaderVertexBuilderTypedExt for B {
+  fn register<T: SemanticVertexShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
+    let node = node.into().cast_untyped_node();
+    node.mark_debug_label(get_name::<T>());
+    self.register_impl(TypeId::of::<T>(), node);
+  }
+
+  fn try_query<T: SemanticVertexShaderValue>(&mut self) -> Option<Node<T::ValueType>> {
+    self
+      .try_query_impl(TypeId::of::<T>())
+      .map(|n| unsafe { n.cast_type() })
+  }
+
+  #[track_caller]
+  fn query<T: SemanticVertexShaderValue>(&mut self) -> Node<T::ValueType> {
+    let location = *Location::caller();
+    self.try_query::<T>().unwrap_or_else(|| unsafe {
+      self.error(ShaderBuildError::MissingRequiredDependency(
+        T::NAME,
+        location,
+      ));
+      fake_val()
+    })
+  }
+
+  fn query_or_insert_by<T>(&mut self, by: impl FnOnce() -> T::ValueType) -> Node<T::ValueType>
+  where
+    T: SemanticVertexShaderValue,
+    T::ValueType: PrimitiveShaderNodeType,
+  {
+    if let Some(n) = self.try_query::<T>() {
+      n
+    } else {
+      let default: T::ValueType = by();
+      self.register::<T>(default);
+      self.query::<T>()
+    }
+  }
+
+  fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
+  where
+    T: SemanticVertexShaderValue,
+    T::ValueType: PrimitiveShaderNodeType,
+  {
+    self.query_or_insert_by::<T>(Default::default)
+  }
+
+  fn set_vertex_out_with_given_interpolate<T>(
+    &mut self,
+    node: impl Into<Node<T::ValueType>>,
+    interpolation: ShaderInterpolation,
+  ) where
+    T: SemanticFragmentShaderValue,
+    T::ValueType: PrimitiveShaderNodeType,
+  {
+    let node = node.into().cast_untyped_node();
+    self.set_vertex_out_impl(
+      TypeId::of::<T>(),
+      T::ValueType::primitive_ty(),
+      node,
+      interpolation,
+    );
+  }
+
+  fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
+  where
+    T: SemanticFragmentShaderValue,
+    T::ValueType: PrimitiveShaderNodeType,
+  {
+    self.set_vertex_out_with_given_interpolate::<T>(node, ShaderInterpolation::Perspective)
+  }
+
+  fn register_any<T: Any>(&mut self, value: T) {
+    self.registry().any_map.register(value);
+  }
+}
+
 impl ShaderRenderPipelineBuilder {
   pub fn vertex<T>(
     &mut self,
     logic: impl FnOnce(&mut ShaderVertexBuilder, &mut ShaderBindGroupBuilder) -> T,
   ) -> T {
-    set_current_building(ShaderStage::Vertex.into());
-    let result = logic(&mut self.vertex, &mut self.bindgroups);
+    self.shape.set_current_building();
+    let mut builder = ShaderVertexBuilder {
+      internal: self.shape.as_mut(),
+    };
+    let result = logic(&mut builder, &mut self.bindgroups);
     set_current_building(None);
     result
   }
@@ -104,11 +280,11 @@ impl ShaderRenderPipelineBuilder {
     &mut self,
     logic: impl FnOnce(&mut ShaderFragmentBuilderView, &mut ShaderBindGroupBuilder) -> T,
   ) -> T {
-    self.vertex.sync_fragment_out(&mut self.fragment);
+    self.shape.sync_fragment_out(&mut self.fragment);
     set_current_building(ShaderStage::Fragment.into());
     let mut builder = ShaderFragmentBuilderView {
       base: &mut self.fragment,
-      vertex: &mut self.vertex,
+      shape: self.shape.as_mut(),
     };
     let result = logic(&mut builder, &mut self.bindgroups);
     set_current_building(None);
@@ -116,28 +292,37 @@ impl ShaderRenderPipelineBuilder {
   }
 
   pub fn build(mut self) -> Result<GraphicsShaderCompileResult, ShaderBuildError> {
-    self.vertex.sync_fragment_out(&mut self.fragment);
+    self.shape.sync_fragment_out(&mut self.fragment);
 
-    set_current_building(ShaderStage::Vertex.into());
-    self.vertex.finalize_position_write();
+    self.shape.set_current_building();
+    self.shape.finalize_write();
     set_current_building(None);
 
     set_current_building(ShaderStage::Fragment.into());
     self.fragment.finalize_depth_write();
     set_current_building(None);
 
+    let vertex_layouts = if let Some(raw_vertex) = self.shape.vertex_shader() {
+      raw_vertex.vertex_layouts.clone()
+    } else {
+      Vec::new()
+    };
+
     let ShaderBuildingCtx {
-      mut vertex,
-      mut fragment,
-      ..
+      stage_instances, ..
     } = take_build_api();
 
+    let (shape, mut fragment) = match stage_instances {
+      ShaderStageGroup::Render { shape, fragment } => (shape, fragment),
+      _ => unreachable!(),
+    };
+
     Ok(GraphicsShaderCompileResult {
-      vertex_shader: vertex.build(),
+      shape_shader: shape.map(|mut shader, _| shader.build()),
       frag_shader: fragment.build(),
       bindings: self.bindgroups,
-      vertex_layouts: self.vertex.vertex_layouts,
-      primitive_state: self.vertex.primitive_state,
+      vertex_layouts,
+      primitive_state: *self.shape.primitive_state(),
       color_states: self
         .fragment
         .frag_output
@@ -151,8 +336,6 @@ impl ShaderRenderPipelineBuilder {
   }
 }
 
-/// The reason why we use two function is that the build process
-/// require to generate two separate root scope: two entry main function;
 pub trait GraphicsShaderProvider {
   fn build(&self, _builder: &mut ShaderRenderPipelineBuilder) {
     // do nothing in default
@@ -165,10 +348,11 @@ pub trait GraphicsShaderProvider {
   fn build_self(
     &self,
     api_builder: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
+    mesh_shading: Option<&dyn MeshShaderLogic>,
     info: Arc<GPUInfo>,
     checks: ShaderRuntimeChecks,
   ) -> Result<ShaderRenderPipelineBuilder, Vec<ShaderBuildError>> {
-    let mut builder = ShaderRenderPipelineBuilder::new(api_builder, info, checks);
+    let mut builder = ShaderRenderPipelineBuilder::new(api_builder, mesh_shading, info, checks);
     self.build(&mut builder);
     self.post_build(&mut builder);
     let errors = builder.errors.finish();
@@ -196,7 +380,7 @@ impl<T: GraphicsShaderProvider> GraphicsShaderProvider for &T {
 }
 
 pub struct GraphicsShaderCompileResult {
-  pub vertex_shader: (String, Box<dyn Any>),
+  pub shape_shader: VertexOrTaskMesh<(String, Box<dyn Any>)>,
   pub frag_shader: (String, Box<dyn Any>),
   pub bindings: ShaderBindGroupBuilder,
   pub vertex_layouts: Vec<ShaderVertexBufferLayout>,
@@ -204,4 +388,74 @@ pub struct GraphicsShaderCompileResult {
   pub color_states: Vec<ColorTargetState>,
   pub depth_stencil: Option<DepthStencilState>,
   pub multisample: MultisampleState,
+}
+
+#[derive(Copy, Clone)]
+pub enum VertexOrTaskMesh<T> {
+  Vertex(T),
+  TaskMesh { task: Option<T>, mesh: T },
+}
+
+impl<T> VertexOrTaskMesh<T> {
+  pub fn map<U>(self, logic: impl Fn(T, ShaderStage) -> U) -> VertexOrTaskMesh<U> {
+    match self {
+      VertexOrTaskMesh::Vertex(v) => VertexOrTaskMesh::Vertex(logic(v, ShaderStage::Vertex)),
+      VertexOrTaskMesh::TaskMesh { task, mesh } => VertexOrTaskMesh::TaskMesh {
+        task: task.map(|t| logic(t, ShaderStage::Task)),
+        mesh: logic(mesh, ShaderStage::Mesh),
+      },
+    }
+  }
+}
+
+#[derive(Copy, Clone)]
+pub enum ShaderStageGroup<T> {
+  Render {
+    shape: VertexOrTaskMesh<T>,
+    fragment: T,
+  },
+  Compute(T),
+}
+
+impl<T> ShaderStageGroup<T> {
+  pub fn map<U>(self, logic: impl Fn(T, ShaderStage) -> U) -> ShaderStageGroup<U> {
+    match self {
+      ShaderStageGroup::Render { shape, fragment } => ShaderStageGroup::Render {
+        shape: shape.map(&logic),
+        fragment: logic(fragment, ShaderStage::Fragment),
+      },
+      ShaderStageGroup::Compute(c) => ShaderStageGroup::Compute(logic(c, ShaderStage::Compute)),
+    }
+  }
+
+  pub fn expect_stage_mut(&mut self, stage: ShaderStage) -> &mut T {
+    match (self, stage) {
+      (
+        ShaderStageGroup::Render {
+          shape: VertexOrTaskMesh::Vertex(v),
+          ..
+        },
+        ShaderStage::Vertex,
+      ) => v,
+      (
+        ShaderStageGroup::Render {
+          shape: VertexOrTaskMesh::TaskMesh { task, .. },
+          ..
+        },
+        ShaderStage::Task,
+      ) => task
+        .as_mut()
+        .expect("expect task stage but task shader is absent"),
+      (
+        ShaderStageGroup::Render {
+          shape: VertexOrTaskMesh::TaskMesh { mesh, .. },
+          ..
+        },
+        ShaderStage::Mesh,
+      ) => mesh,
+      (ShaderStageGroup::Render { fragment, .. }, ShaderStage::Fragment) => fragment,
+      (ShaderStageGroup::Compute(c), ShaderStage::Compute) => c,
+      _ => panic!("shader stage not compatible with stage group"),
+    }
+  }
 }

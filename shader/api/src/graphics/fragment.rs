@@ -7,13 +7,13 @@ pub trait SemanticFragmentShaderValue: Any {
 
 pub struct ShaderFragmentBuilderView<'a> {
   pub(crate) base: &'a mut ShaderFragmentBuilder,
-  pub(crate) vertex: &'a mut ShaderVertexBuilder,
+  pub(crate) shape: &'a mut dyn AbstractShaderVertexBuilder,
 }
 
 impl ShaderFragmentBuilderView<'_> {
   pub fn has_vertex_value<T: SemanticVertexShaderValue>(&mut self) -> bool {
-    set_current_building(ShaderStage::Vertex.into());
-    let r = self.vertex.try_query::<T>().is_some();
+    self.shape.set_current_building();
+    let r = self.shape.try_query::<T>().is_some();
     set_current_building(ShaderStage::Fragment.into());
     r
   }
@@ -31,18 +31,18 @@ impl ShaderFragmentBuilderView<'_> {
       return r;
     }
 
-    set_current_building(ShaderStage::Vertex.into());
+    self.shape.set_current_building();
     let is_ok = {
-      let v_node = self.vertex.try_query::<V>();
+      let v_node = self.shape.try_query::<V>();
       if let Some(v_node) = v_node {
-        self.vertex.set_vertex_out::<T>(v_node);
+        self.shape.set_vertex_out::<T>(v_node);
         true
       } else {
         false
       }
     };
     set_current_building(None);
-    self.vertex.sync_fragment_out(self.base);
+    self.shape.sync_fragment_out(self.base);
     set_current_building(ShaderStage::Fragment.into());
 
     if is_ok {

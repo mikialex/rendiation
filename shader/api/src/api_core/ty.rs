@@ -4,6 +4,8 @@ use crate::*;
 pub enum ShaderStage {
   Vertex,
   Fragment,
+  Task,
+  Mesh,
   Compute,
 }
 

@@ -355,7 +355,7 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
         builder.register::<GeometryColorWithAlpha>(color);
         builder.set_vertex_out::<DefaultDisplay>(color);
 
-        builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::LineList;
+        builder.primitive_state().topology = rendiation_webgpu::PrimitiveTopology::LineList;
       } else {
         let v1 = (val(1) + vertex_index) % val(6); // index in quad
         let v2 = (val(2) + vertex_index) % val(6); // index in quad
@@ -375,8 +375,8 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
         builder.register::<GeometryColorWithAlpha>(color);
         builder.set_vertex_out::<DefaultDisplay>(color);
 
-        builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
-        builder.primitive_state.cull_mode = None;
+        builder.primitive_state().topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
+        builder.primitive_state().cull_mode = None;
       }
     });
   }

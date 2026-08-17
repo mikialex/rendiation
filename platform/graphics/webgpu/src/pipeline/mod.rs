@@ -224,7 +224,7 @@ impl GPUDevice {
     let compile_result = builder.build()?;
 
     let GraphicsShaderCompileResult {
-      vertex_shader: (vertex_entry, vertex_shader),
+      shape_shader,
       frag_shader: (frag_entry, frag_shader),
       bindings,
       vertex_layouts,
@@ -234,15 +234,24 @@ impl GPUDevice {
       multisample,
     } = compile_result;
 
-    let naga_vertex = *vertex_shader.downcast::<NagaModuleBuildResult>().unwrap();
+    let compilation_options = wgpu::PipelineCompilationOptions {
+      constants: &[],
+      zero_initialize_workgroup_memory: false,
+    };
+
     let naga_fragment = *frag_shader.downcast::<NagaModuleBuildResult>().unwrap();
-
-    let vertex = self.create_shader_module_by_shader_api(naga_vertex, checks);
     let fragment = self.create_shader_module_by_shader_api(naga_fragment, checks);
+    let frag_targets = color_states
+      .iter()
+      .map(|s| Some(s.clone()))
+      .collect::<Vec<_>>();
 
-    let (raw_layouts, layouts, pipeline_layout) = create_layouts(self, &bindings);
-
-    let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
+    let fragment_stage_desc = gpu::FragmentState {
+      module: &fragment,
+      entry_point: Some(&frag_entry),
+      targets: frag_targets.as_slice(),
+      compilation_options: compilation_options.clone(),
+    };
 
     // avoid wgpu validation error in this case.
     if let Some(depth_stencil) = &mut depth_stencil
@@ -253,37 +262,67 @@ impl GPUDevice {
       log::warn!("depth bias is ignored for non-triangle topology");
     }
 
-    let pipeline = self.create_render_pipeline(&gpu::RenderPipelineDescriptor {
-      label: Some(label),
-      layout: Some(&pipeline_layout),
-      vertex: gpu::VertexState {
-        module: &vertex,
-        entry_point: Some(&vertex_entry),
-        buffers: vertex_buffers.as_slice(),
-        compilation_options: wgpu::PipelineCompilationOptions {
-          constants: &[],
-          zero_initialize_workgroup_memory: false,
-        },
-      },
-      fragment: Some(gpu::FragmentState {
-        module: &fragment,
-        entry_point: Some(&frag_entry),
-        targets: color_states
-          .iter()
-          .map(|s| Some(s.clone()))
-          .collect::<Vec<_>>()
-          .as_slice(),
-        compilation_options: wgpu::PipelineCompilationOptions {
-          constants: &[],
-          zero_initialize_workgroup_memory: false,
-        },
-      }),
-      primitive: primitive_state,
-      depth_stencil,
-      multisample,
-      cache: None,
-      multiview_mask: None,
-    });
+    let (raw_layouts, layouts, pipeline_layout) = create_layouts(self, &bindings);
+
+    let pipeline = match shape_shader {
+      VertexOrTaskMesh::Vertex((vertex_entry, vertex_shader)) => {
+        let naga_vertex = *vertex_shader.downcast::<NagaModuleBuildResult>().unwrap();
+        let vertex = self.create_shader_module_by_shader_api(naga_vertex, checks);
+
+        let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
+
+        self.create_render_pipeline(&gpu::RenderPipelineDescriptor {
+          label: Some(label),
+          layout: Some(&pipeline_layout),
+          vertex: gpu::VertexState {
+            module: &vertex,
+            entry_point: Some(&vertex_entry),
+            buffers: vertex_buffers.as_slice(),
+            compilation_options,
+          },
+          fragment: Some(fragment_stage_desc),
+          primitive: primitive_state,
+          depth_stencil,
+          multisample,
+          cache: None,
+          multiview_mask: None,
+        })
+      }
+      VertexOrTaskMesh::TaskMesh {
+        task,
+        mesh: (mesh_entry, mesh_shader),
+      } => {
+        let task = task.map(|(task_entry, task_shader)| {
+          let naga_task = *task_shader.downcast::<NagaModuleBuildResult>().unwrap();
+          let module = self.create_shader_module_by_shader_api(naga_task, checks);
+          (task_entry, module)
+        });
+
+        let naga_mesh = *mesh_shader.downcast::<NagaModuleBuildResult>().unwrap();
+        let naga_mesh = self.create_shader_module_by_shader_api(naga_mesh, checks);
+
+        self.create_mesh_pipeline(&wgpu::MeshPipelineDescriptor {
+          label: Some(label),
+          layout: Some(&pipeline_layout),
+          task: task.as_ref().map(|(entry, shader)| wgpu::TaskState {
+            module: shader,
+            entry_point: Some(entry),
+            compilation_options: compilation_options.clone(),
+          }),
+          mesh: wgpu::MeshState {
+            module: &naga_mesh,
+            entry_point: Some(&mesh_entry),
+            compilation_options,
+          },
+          primitive: primitive_state,
+          depth_stencil,
+          multisample,
+          fragment: Some(fragment_stage_desc),
+          multiview: None,
+          cache: None,
+        })
+      }
+    };
 
     Ok(GPUPipeline::new(pipeline, raw_layouts, layouts))
   }

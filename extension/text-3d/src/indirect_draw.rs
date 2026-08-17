@@ -306,8 +306,8 @@ impl<'a> GraphicsShaderProvider for Text3dIndirectRender<'a> {
       builder.set_vertex_out::<Text3DShaderId>(text_id);
       builder.register::<Text3DShaderId>(text_id);
 
-      builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
-      builder.primitive_state.cull_mode = None;
+      builder.primitive_state().topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
+      builder.primitive_state().cull_mode = None;
     });
   }
 

@@ -35,9 +35,11 @@ impl Hash for FullReaderReadWithBarycentric<'_> {
 
 pub const BARYCENTRIC_COORD_SEMANTIC_ID: u32 = 100;
 
-pub fn barycentric_shader_inject(id: u32, vertex: &mut ShaderVertexBuilder) {
+pub fn barycentric_shader_inject(id: u32, vertex: &mut ShaderRawVertexBuilder) {
   if id == BARYCENTRIC_COORD_SEMANTIC_ID {
-    vertex.push_single_vertex_layout::<BarycentricCoord>(VertexStepMode::Vertex);
+    vertex
+      .expect_vertex_shader()
+      .push_single_vertex_layout::<BarycentricCoord>(VertexStepMode::Vertex);
   }
 }
 

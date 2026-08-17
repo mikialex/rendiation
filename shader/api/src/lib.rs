@@ -54,6 +54,10 @@ pub trait ShaderAPI {
   fn set_workgroup_size(&mut self, size: (u32, u32, u32));
   fn barrier(&mut self, scope: BarrierScope);
 
+  fn define_mesh_info(&mut self, mesh_info: MeshStageInfo);
+  fn define_task_payload_io(&mut self, payload: ShaderNodeRawHandle);
+  fn set_output_mesh_task_size(&mut self, size: ShaderNodeRawHandle);
+
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
   fn define_next_frag_out(&mut self, ty: ShaderSizedValueType) -> ShaderNodeRawHandle;
   fn define_next_vertex_output(
@@ -114,9 +118,7 @@ pub fn log_shader_build_result() {
 }
 
 pub struct ShaderBuildingCtx {
-  vertex: DynamicShaderAPI,
-  fragment: DynamicShaderAPI,
-  compute: DynamicShaderAPI,
+  stage_instances: ShaderStageGroup<DynamicShaderAPI>,
   current: Option<ShaderStage>,
 }
 
@@ -127,12 +129,11 @@ thread_local! {
 pub(crate) fn call_shader_api<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T) -> T {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
     let api = api.as_mut().unwrap();
-    let api = match api.current.unwrap() {
-      ShaderStage::Vertex => &mut api.vertex,
-      ShaderStage::Fragment => &mut api.fragment,
-      ShaderStage::Compute => &mut api.compute,
-    }
-    .as_mut();
+    let current_active_stage = api.current.unwrap();
+    let api = api
+      .stage_instances
+      .expect_stage_mut(current_active_stage)
+      .as_mut();
 
     modifier(api)
   })
@@ -149,11 +150,12 @@ pub fn get_current_stage() -> Option<ShaderStage> {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.as_mut().unwrap().current)
 }
 
-pub fn set_build_api_by(api_builder: &dyn Fn(ShaderStage) -> DynamicShaderAPI) {
+pub fn set_build_api_by(
+  stage_layout: ShaderStageGroup<()>,
+  api_builder: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
+) {
   set_build_api(ShaderBuildingCtx {
-    vertex: api_builder(ShaderStage::Vertex),
-    fragment: api_builder(ShaderStage::Fragment),
-    compute: api_builder(ShaderStage::Compute),
+    stage_instances: stage_layout.map(|_, stage| api_builder(stage)),
     current: None,
   });
 }

@@ -28,7 +28,7 @@ impl PassContent for GridGround<'_> {
     let com: [&dyn RenderComponent; 3] = [&base, &plane, &grid];
     let com = RenderArray(com);
 
-    com.render(&mut pass.ctx, PLANE_DRAW_CMD)
+    com.render(&mut pass.ctx, RenderMethod::TraditionalDraw(PLANE_DRAW_CMD))
   }
 }
 

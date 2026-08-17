@@ -287,8 +287,8 @@ impl<'a> GraphicsShaderProvider for WidePointsIndirectDrawComponent<'a> {
         tex_id.sampler_handle,
       )));
 
-      builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
-      builder.primitive_state.cull_mode = None;
+      builder.primitive_state().topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
+      builder.primitive_state().cull_mode = None;
     });
   }
 

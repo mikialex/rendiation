@@ -16,6 +16,9 @@ pub enum ShaderInputNode {
   WorkGroupShared {
     ty: ShaderSizedValueType,
   },
+  TaskPayload {
+    ty: ShaderSizedValueType,
+  },
   Private {
     ty: ShaderSizedValueType,
   },
@@ -49,6 +52,51 @@ pub enum ShaderBuiltInDecorator {
   CompWorkgroupId,
   CompNumWorkgroup,
   CompSubgroupSize,
+  MeshPrimitiveTriangleIndex,
+  MeshPrimitiveLineIndex,
+  MeshPrimitivePointIndex,
+  MeshPrimitiveCount,
+  MeshVertexCount,
+  MeshVerticesOutput,
+  MeshPrimitiveOutput,
+}
+
+impl ShaderBuiltInDecorator {
+  pub fn data_ty(&self) -> Option<PrimitiveShaderValueType> {
+    use ShaderBuiltInDecorator::*;
+    let bool = PrimitiveShaderValueType::bool();
+    let u32 = PrimitiveShaderValueType::u32();
+    let vec2_u32 = PrimitiveShaderValueType::vec2::<u32>();
+    let vec3_u32 = PrimitiveShaderValueType::vec3::<u32>();
+    let f32 = PrimitiveShaderValueType::f32();
+    let vec4_f32 = PrimitiveShaderValueType::vec4::<f32>();
+    match self {
+      VertexIndex => u32,
+      VertexInstanceIndex => u32,
+      VertexPositionOut => vec4_f32,
+      FragPositionIn => vec4_f32,
+      FragFrontFacing => bool,
+      FragDepth => f32,
+      FragSampleIndex => u32,
+      FragSampleMask => u32,
+      CompSubgroupInvocationId => u32,
+      CompLocalInvocationId => vec3_u32,
+      CompGlobalInvocationId => vec3_u32,
+      CompLocalInvocationIndex => u32,
+      CompSubgroupId => u32,
+      CompWorkgroupId => vec3_u32,
+      CompNumWorkgroup => vec3_u32,
+      CompSubgroupSize => u32,
+      MeshPrimitiveTriangleIndex => vec3_u32,
+      MeshPrimitiveLineIndex => vec2_u32,
+      MeshPrimitivePointIndex => u32,
+      MeshPrimitiveCount => u32,
+      MeshVertexCount => u32,
+      MeshVerticesOutput => return None,
+      MeshPrimitiveOutput => return None,
+    }
+    .into()
+  }
 }
 
 #[derive(Default, Clone)]
@@ -62,26 +110,24 @@ pub struct ShaderBindEntry {
   pub visibility: ShaderStages,
   pub bindgroup_index: usize,
   pub entry_index: usize,
-  pub vertex_node: Option<ShaderNodeRawHandle>,
-  pub fragment_node: Option<ShaderNodeRawHandle>,
-  pub compute_node: Option<ShaderNodeRawHandle>,
+  pub multi_stage_node_instance: ShaderStageGroup<Option<ShaderNodeRawHandle>>,
 }
 
 impl ShaderBindEntry {
   pub fn using(&mut self) -> ShaderNodeRawHandle {
     let current_stage = get_current_stage().expect("must in shader building");
 
-    let node = match current_stage {
-      ShaderStage::Vertex => &mut self.vertex_node,
-      ShaderStage::Fragment => &mut self.fragment_node,
-      ShaderStage::Compute => &mut self.compute_node,
-    };
+    let node = self
+      .multi_stage_node_instance
+      .expect_stage_mut(current_stage);
 
     *node.get_or_insert_with(|| {
       let bit = match current_stage {
         ShaderStage::Vertex => ShaderStages::VERTEX,
         ShaderStage::Fragment => ShaderStages::FRAGMENT,
         ShaderStage::Compute => ShaderStages::COMPUTE,
+        ShaderStage::Task => ShaderStages::TASK,
+        ShaderStage::Mesh => ShaderStages::MESH,
       };
 
       self.visibility.insert(bit);

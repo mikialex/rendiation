@@ -101,7 +101,7 @@ impl GraphicsShaderProvider for InfinityShaderLineEffect<'_> {
 
       builder.register::<ClipPosition>((position.load(), val(1.)));
 
-      builder.primitive_state = PrimitiveState {
+      *builder.primitive_state() = PrimitiveState {
         topology: PrimitiveTopology::LineList,
         ..Default::default()
       };

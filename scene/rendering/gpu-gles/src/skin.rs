@@ -39,7 +39,7 @@ impl GraphicsShaderProvider for BoneMatrixProvider {
       let bone_data = bind.bind_by(&self.data);
       let bone_impl = BoneMatrixInvocationProvider { data: bone_data };
       let bone_impl = Box::new(bone_impl) as Box<dyn BoneMatrixAccessInvocation>;
-      builder.registry_any_map().register(bone_impl);
+      builder.registry().any_map.register(bone_impl);
     })
   }
 }

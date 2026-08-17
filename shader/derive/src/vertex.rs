@@ -28,7 +28,7 @@ pub fn derive_vertex_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
   quote! {
     impl rendiation_shader_api::ShaderVertexInProvider for #struct_name {
       fn provide_layout_and_vertex_in(
-        builder: &mut rendiation_shader_api::ShaderVertexBuilder,
+        builder: &mut rendiation_shader_api::ShaderRawVertexBuilder,
         step_mode: rendiation_shader_api::VertexStepMode
       ) {
         use rendiation_shader_api::*;

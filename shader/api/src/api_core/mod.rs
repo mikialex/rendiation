@@ -10,6 +10,9 @@ pub use io::*;
 mod expr;
 pub use expr::*;
 
+mod mesh;
+pub use mesh::*;
+
 mod control;
 pub use control::*;
 

@@ -33,6 +33,37 @@ pub enum PrimitiveShaderValueType {
 }
 
 impl PrimitiveShaderValueType {
+  pub fn u32() -> Self {
+    Self::Scalar(ScalarType::U32)
+  }
+  pub fn i32() -> Self {
+    Self::Scalar(ScalarType::I32)
+  }
+  pub fn f32() -> Self {
+    Self::Scalar(ScalarType::F32)
+  }
+  pub fn bool() -> Self {
+    Self::Scalar(ScalarType::Bool)
+  }
+  pub fn vec2<T: ScalarTypeOf>() -> Self {
+    Self::vector(VectorSize::Bi, T::scalar_type())
+  }
+  pub fn vec3<T: ScalarTypeOf>() -> Self {
+    Self::vector(VectorSize::Tri, T::scalar_type())
+  }
+  pub fn vec4<T: ScalarTypeOf>() -> Self {
+    Self::vector(VectorSize::Quad, T::scalar_type())
+  }
+  pub fn mat2<T: ScalarTypeOf>() -> Self {
+    Self::square_matrix(VectorSize::Bi, T::scalar_type())
+  }
+  pub fn mat3<T: ScalarTypeOf>() -> Self {
+    Self::square_matrix(VectorSize::Tri, T::scalar_type())
+  }
+  pub fn mat4<T: ScalarTypeOf>() -> Self {
+    Self::square_matrix(VectorSize::Quad, T::scalar_type())
+  }
+
   pub const fn vector(size: VectorSize, scalar: ScalarType) -> Self {
     Self::Vector { size, scalar }
   }
@@ -473,12 +504,12 @@ impl_matrix_primitive_node_type!(Mat4x3, Quad, Tri);
 sg_node_impl!(
   Bool,
   ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(
-    PrimitiveShaderValueType::Scalar(ScalarType::U32)
+    PrimitiveShaderValueType::u32()
   ))
 );
 impl ShaderSizedValueNodeType for Bool {
   fn sized_ty() -> ShaderSizedValueType {
-    ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Scalar(ScalarType::U32))
+    ShaderSizedValueType::Primitive(PrimitiveShaderValueType::u32())
   }
   fn to_value(&self) -> ShaderStructFieldInitValue {
     ShaderStructFieldInitValue::Primitive(self.to_primitive())
@@ -487,7 +518,7 @@ impl ShaderSizedValueNodeType for Bool {
 
 impl PrimitiveShaderNodeType for Bool {
   fn primitive_ty() -> PrimitiveShaderValueType {
-    PrimitiveShaderValueType::Scalar(ScalarType::U32)
+    PrimitiveShaderValueType::u32()
   }
   type Shape<T> = Bool;
   fn to_primitive(&self) -> PrimitiveShaderValue {

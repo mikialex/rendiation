@@ -118,6 +118,7 @@ both!(Text3dGlyphData, Vec4<i32>);
 impl<'a> GraphicsShaderProvider for Draw<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
+      let builder = builder.expect_vertex_shader();
       builder.register_vertex::<TextGlesVertex>(VertexStepMode::Vertex);
 
       builder.primitive_state.topology = PrimitiveTopology::TriangleList;
