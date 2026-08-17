@@ -14,15 +14,12 @@ pub struct ShaderTaskMeshBuilderGroup {
 }
 
 impl ShaderTaskMeshBuilderGroup {
-  pub(crate) fn new(has_task_stage: bool, errors: ErrorSink) -> Self {
+  pub(crate) fn new(has_task_stage: bool) -> Self {
     Self {
-      task: has_task_stage.then(|| ShaderTaskBuilder {}),
+      task: has_task_stage.then_some(ShaderTaskBuilder {}),
       mesh: ShaderMeshBuilder {
         registry: Default::default(),
         primitive_state: default_primitive_state(),
-        errors,
-        vertex_out: Default::default(),
-        vertex_out_not_synced_to_fragment: Default::default(),
       },
     }
   }
@@ -43,112 +40,67 @@ impl ShaderTaskMeshBuilderGroup {
 pub struct ShaderTaskBuilder {}
 
 impl ShaderTaskBuilder {
-  pub fn define_task_output<T: ShaderSizedValueNodeType>(&mut self) -> ShaderPtrOf<T> {
-    call_shader_api(|api| {
-      api.define_task_payload_io(todo!());
-    });
-    todo!()
+  /// assume called in task scope
+  pub fn define_task_payload_output<P: ShaderSizedValueNodeType>(&mut self) -> ShaderPtrOf<P> {
+    define_task_payload::<P>()
   }
 }
 
 pub struct ShaderMeshBuilder {
-  registry: SemanticRegistry,
-  errors: ErrorSink,
-  primitive_state: PrimitiveState,
-
-  vertex_out: FastHashMap<TypeId, (VertexIOInfo, ShaderInterpolation)>,
-  vertex_out_not_synced_to_fragment: FastHashSet<TypeId>,
+  pub registry: SemanticRegistry,
+  pub primitive_state: PrimitiveState,
 }
 
-// struct PendingMeshOutputInfo {
-//   topology: MeshOutputTopology,
-//   max_vertices: u32,
-//   max_primitives: u32,
-//   vertex_output_var: ShaderNodeRawHandle,
-//   primitive_output_var: ShaderNodeRawHandle,
-//   vertex_count_var: ShaderNodeRawHandle,
-//   primitive_count_var: ShaderNodeRawHandle,
-// }
+fn define_task_payload<P: ShaderSizedValueNodeType>() -> ShaderPtrOf<P> {
+  let output_variable = ShaderInputNode::TaskPayload { ty: P::sized_ty() }.insert_api_raw();
+
+  call_shader_api(|api| {
+    api.define_task_payload_io(output_variable);
+  });
+  P::create_view_from_raw_ptr(Box::new(output_variable))
+}
 
 impl ShaderMeshBuilder {
   /// the P must match the task shader defined output
-  pub fn expect_task_input<P: ShaderSizedValueNodeType>(&mut self) -> ShaderPtrOf<P> {
-    call_shader_api(|api| {
-      api.define_task_payload_io(todo!());
-    });
-    todo!()
+  ///
+  /// assume called in mesh scope
+  pub fn expect_task_input_input<P: ShaderSizedValueNodeType>(&mut self) -> ShaderPtrOf<P> {
+    define_task_payload::<P>()
   }
 
+  /// return the handle to shared-mem node for data write
+  ///
+  /// assume called in mesh scope
   pub fn define_mesh_output_info(
     &mut self,
     topology: MeshOutputTopology,
     max_vertices: u32,
     max_primitives: u32,
-  ) {
-    let (primitive_output_name, primitive_output_size, primitive_output_deco) = match topology {
-      MeshOutputTopology::Points => (
-        "point_indices",
-        None,
-        ShaderBuiltInDecorator::MeshPrimitivePointIndex,
-      ),
-      MeshOutputTopology::Lines => (
-        "line_indices",
-        Some(VectorSize::Bi),
-        ShaderBuiltInDecorator::MeshPrimitiveLineIndex,
-      ),
-      MeshOutputTopology::Triangles => (
-        "triangle_indices",
-        Some(VectorSize::Tri),
-        ShaderBuiltInDecorator::MeshPrimitiveTriangleIndex,
-      ),
-    };
-
+    vertex_output_type: ShaderStructMetaInfo,
+  ) -> ShaderNodeRawHandle {
     // todo, support user defined per primitive output
-    let hardcoded_primitive_output_ty = ShaderSizedValueType::Struct(ShaderStructMetaInfo {
+    let primitive_output_type = ShaderSizedValueType::Struct(ShaderStructMetaInfo {
       name: "MeshShaderPrimitiveOutput".into(),
       fields: vec![ShaderStructFieldMetaInfo {
-        name: primitive_output_name.into(),
-        ty: ShaderSizedValueType::Primitive(
-          if let Some(primitive_output_size) = primitive_output_size {
-            PrimitiveShaderValueType::Vector {
-              size: primitive_output_size,
-              scalar: ScalarType::U32,
-            }
-          } else {
-            PrimitiveShaderValueType::Scalar(ScalarType::U32)
-          },
-        ),
-        ty_deco: Some(ShaderFieldDecorator::BuiltIn(primitive_output_deco)),
+        name: topology.as_struct_field_name().into(),
+        ty: ShaderSizedValueType::Primitive(topology.data_type()),
+        ty_deco: Some(ShaderFieldDecorator::BuiltIn(topology.deco())),
       }],
     });
 
-    let vertex_output_type = ShaderSizedValueType::Struct(ShaderStructMetaInfo {
-      name: "MeshShaderVertexOutput".into(),
-      fields: self
-        .vertex_out
-        .iter()
-        .map(|(_, (info, interpolation))| ShaderStructFieldMetaInfo {
-          name: format!("field_{}", info.location),
-          ty: ShaderSizedValueType::Primitive(info.ty),
-          ty_deco: Some(ShaderFieldDecorator::Location(
-            info.location,
-            Some(*interpolation),
-          )),
-        })
-        .collect(),
-    });
+    let vertex_output_type = ShaderSizedValueType::Struct(vertex_output_type);
 
     let mesh_shader_output_all_ty = ShaderSizedValueType::Struct(ShaderStructMetaInfo {
       name: "MeshShaderOutput".into(),
       fields: vec![
         ShaderStructFieldMetaInfo {
           name: "vertices".into(),
-          ty: todo!(),
+          ty: vertex_output_type.clone(),
           ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::MeshVerticesOutput).into(),
         },
         ShaderStructFieldMetaInfo {
           name: "primitives".into(),
-          ty: todo!(),
+          ty: primitive_output_type.clone(),
           ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::MeshPrimitiveOutput)
             .into(),
         },
@@ -176,10 +128,12 @@ impl ShaderMeshBuilder {
         max_vertices,
         max_primitives,
         vertex_output_type,
-        primitive_output_type: hardcoded_primitive_output_ty,
-        output_variable: todo!(),
+        primitive_output_type,
+        output_variable,
       })
     });
+
+    output_variable
   }
 }
 
@@ -190,9 +144,7 @@ pub struct MeshShaderVertexHelper {
   pub vertices_count: Node<u32>,
   pub primitives_count: Node<u32>,
 
-  // user defined vertex out
-  vertex_out: FastHashMap<TypeId, (VertexIOInfo, ShaderInterpolation)>,
-  vertex_out_not_synced_to_fragment: FastHashSet<TypeId>,
+  pub io_mapping: ShapeFragmentIOMapping,
 }
 
 impl MeshShaderVertexHelper {
@@ -207,38 +159,32 @@ impl MeshShaderVertexHelper {
       max_primitives,
       vertices_count,
       primitives_count,
-      vertex_out: Default::default(),
-      vertex_out_not_synced_to_fragment: Default::default(),
+      io_mapping: Default::default(),
     }
   }
 
-  pub fn finalize_write(&mut self) {
-    // do the real mesh output write.
-    // mesh.define_mesh_output_info(topology, max_vertices, max_primitives);
+  /// the passed in output node is shaderPtrOf<VertexOutputType>
+  pub fn finalize_write(&mut self, output: ShaderNodeRawHandle) {
+    call_shader_api(|api| {
+      let mut parameters =
+        vec![ShaderNodeRawHandle { handle: usize::MAX }; self.io_mapping.vertex_out.len()];
+
+      for (node, _) in self.io_mapping.vertex_out.values() {
+        parameters[node.location] = node.node;
+      }
+
+      let vertex = api.make_expression(ShaderNodeExpr::Compose {
+        target: ShaderSizedValueType::Struct(create_output_struct_for_mesh_vertices_output(
+          &self.io_mapping,
+        )),
+        parameters,
+      });
+      api.store(vertex, output);
+    });
   }
 
   pub fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder) {
-    let vertex_out = &mut self.vertex_out;
-    self
-      .vertex_out_not_synced_to_fragment
-      .drain()
-      .for_each(|id| {
-        let (VertexIOInfo { ty, location, .. }, interpolation) = *vertex_out.get(&id).unwrap();
-
-        set_current_building(ShaderStage::Fragment.into());
-        let node = ShaderInputNode::UserDefinedIn {
-          ty,
-          location,
-          interpolation: Some(interpolation),
-        }
-        .insert_api();
-        fragment.registry.register_raw(id, node);
-        set_current_building(None);
-
-        fragment
-          .fragment_in
-          .insert(id, (node, ty, interpolation, location));
-      })
+    self.io_mapping.sync_fragment_out(fragment);
   }
 
   pub fn set_vertex_out_impl(
@@ -246,30 +192,40 @@ impl MeshShaderVertexHelper {
     ty_id: TypeId,
     ty: PrimitiveShaderValueType,
     node: NodeUntyped,
-    mut interpolation: ShaderInterpolation,
+    interpolation: ShaderInterpolation,
   ) {
-    let location = self.vertex_out.len();
-    let target = self
-      .vertex_out
-      .entry(ty_id)
-      .or_insert_with(|| {
-        if !ty.vertex_out_could_interpolated() {
-          interpolation = ShaderInterpolation::Flat
-        }
-        // using a local var instead of define vertex shader output natively
-        let node = call_shader_api(|api| {
+    self
+      .io_mapping
+      .set_vertex_out_impl(ty_id, ty, interpolation, &|_interpolation| {
+        call_shader_api(|api| {
           let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(
             ShaderSizedValueType::Primitive(ty),
           ));
-          api.make_local_var(ty)
-        });
+          let target = api.make_local_var(ty);
+          api.store(node.handle(), target);
 
-        (VertexIOInfo { node, ty, location }, interpolation)
+          target
+        })
+      });
+  }
+}
+
+pub fn create_output_struct_for_mesh_vertices_output(
+  io_mapping: &ShapeFragmentIOMapping,
+) -> ShaderStructMetaInfo {
+  ShaderStructMetaInfo {
+    name: "MeshShaderVertexOutput".into(),
+    fields: io_mapping
+      .vertex_out
+      .iter()
+      .map(|(_, (info, interpolation))| ShaderStructFieldMetaInfo {
+        name: format!("field_{}", info.location),
+        ty: ShaderSizedValueType::Primitive(info.ty),
+        ty_deco: Some(ShaderFieldDecorator::Location(
+          info.location,
+          Some(*interpolation),
+        )),
       })
-      .0
-      .node;
-    call_shader_api(|api| api.store(node.handle(), target));
-
-    self.vertex_out_not_synced_to_fragment.insert(ty_id);
+      .collect(),
   }
 }

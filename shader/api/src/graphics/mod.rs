@@ -82,7 +82,7 @@ impl ShaderRenderPipelineBuilder {
     Self {
       bindgroups: ShaderBindGroupBuilder::new(layout),
       shape: if let VertexOrTaskMesh::TaskMesh { task, .. } = shape {
-        let task_mesh = ShaderTaskMeshBuilderGroup::new(task.is_some(), errors.clone());
+        let task_mesh = ShaderTaskMeshBuilderGroup::new(task.is_some());
         let mesh_shading = mesh_shading.unwrap();
         mesh_shading.create_abstract_vertex_shader_cx(task_mesh)
       } else {

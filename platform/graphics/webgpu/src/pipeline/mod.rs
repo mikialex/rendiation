@@ -305,8 +305,8 @@ impl GPUDevice {
           label: Some(label),
           layout: Some(&pipeline_layout),
           task: task.as_ref().map(|(entry, shader)| wgpu::TaskState {
-            module: &shader,
-            entry_point: Some(&entry),
+            module: shader,
+            entry_point: Some(entry),
             compilation_options: compilation_options.clone(),
           }),
           mesh: wgpu::MeshState {

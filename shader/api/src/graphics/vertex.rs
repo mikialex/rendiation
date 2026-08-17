@@ -72,9 +72,8 @@ pub struct ShaderRawVertexBuilder {
   // user semantic vertex
   registry: SemanticRegistry,
 
+  io_mapping: ShapeFragmentIOMapping,
   // user vertex out
-  vertex_out: FastHashMap<TypeId, (VertexIOInfo, ShaderInterpolation)>,
-  vertex_out_not_synced_to_fragment: FastHashSet<TypeId>,
   pub(crate) errors: ErrorSink,
 }
 
@@ -97,36 +96,11 @@ impl ShaderRawVertexBuilder {
     Self {
       vertex_in: Default::default(),
       registry: Default::default(),
-      vertex_out: Default::default(),
       vertex_layouts: Default::default(),
       primitive_state: default_primitive_state(),
-      vertex_out_not_synced_to_fragment: Default::default(),
+      io_mapping: Default::default(),
       errors,
     }
-  }
-
-  pub fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder) {
-    let vertex_out = &mut self.vertex_out;
-    self
-      .vertex_out_not_synced_to_fragment
-      .drain()
-      .for_each(|id| {
-        let (VertexIOInfo { ty, location, .. }, interpolation) = *vertex_out.get(&id).unwrap();
-
-        set_current_building(ShaderStage::Fragment.into());
-        let node = ShaderInputNode::UserDefinedIn {
-          ty,
-          location,
-          interpolation: Some(interpolation),
-        }
-        .insert_api();
-        fragment.registry.register_raw(id, node);
-        set_current_building(None);
-
-        fragment
-          .fragment_in
-          .insert(id, (node, ty, interpolation, location));
-      })
   }
 
   /// currently we all depend on ClipPosition in semantic registry to provide the final result
@@ -192,6 +166,58 @@ impl ShaderRawVertexBuilder {
   }
 }
 
+#[derive(Default)]
+pub struct ShapeFragmentIOMapping {
+  pub vertex_out: FastHashMap<TypeId, (VertexIOInfo, ShaderInterpolation)>,
+  pub vertex_out_not_synced_to_fragment: FastHashSet<TypeId>,
+}
+
+impl ShapeFragmentIOMapping {
+  pub fn set_vertex_out_impl(
+    &mut self,
+    ty_id: TypeId,
+    ty: PrimitiveShaderValueType,
+    mut interpolation: ShaderInterpolation,
+    create_node: &dyn Fn(ShaderInterpolation) -> ShaderNodeRawHandle,
+  ) {
+    let location = self.vertex_out.len();
+    self.vertex_out.entry(ty_id).or_insert_with(|| {
+      if !ty.vertex_out_could_interpolated() {
+        interpolation = ShaderInterpolation::Flat
+      }
+      let node = create_node(interpolation);
+
+      (VertexIOInfo { node, ty, location }, interpolation)
+    });
+
+    self.vertex_out_not_synced_to_fragment.insert(ty_id);
+  }
+
+  pub fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder) {
+    let vertex_out = &mut self.vertex_out;
+    self
+      .vertex_out_not_synced_to_fragment
+      .drain()
+      .for_each(|id| {
+        let (VertexIOInfo { ty, location, .. }, interpolation) = *vertex_out.get(&id).unwrap();
+
+        set_current_building(ShaderStage::Fragment.into());
+        let node = ShaderInputNode::UserDefinedIn {
+          ty,
+          location,
+          interpolation: Some(interpolation),
+        }
+        .insert_api();
+        fragment.registry.register_raw(id, node);
+        set_current_building(None);
+
+        fragment
+          .fragment_in
+          .insert(id, (node, ty, interpolation, location));
+      })
+  }
+}
+
 impl AbstractShaderVertexBuilder for ShaderRawVertexBuilder {
   fn task_mesh_shader(&mut self) -> Option<&mut ShaderTaskMeshBuilderGroup> {
     None
@@ -208,7 +234,7 @@ impl AbstractShaderVertexBuilder for ShaderRawVertexBuilder {
     self.finalize_position_write();
   }
   fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder) {
-    self.sync_fragment_out(fragment);
+    self.io_mapping.sync_fragment_out(fragment);
   }
 
   fn set_vertex_out_impl(
@@ -216,25 +242,15 @@ impl AbstractShaderVertexBuilder for ShaderRawVertexBuilder {
     ty_id: TypeId,
     ty: PrimitiveShaderValueType,
     node: NodeUntyped,
-    mut interpolation: ShaderInterpolation,
+    interpolation: ShaderInterpolation,
   ) {
-    let location = self.vertex_out.len();
-    let target = self
-      .vertex_out
-      .entry(ty_id)
-      .or_insert_with(|| {
-        if !ty.vertex_out_could_interpolated() {
-          interpolation = ShaderInterpolation::Flat
-        }
-        let node = call_shader_api(|api| api.define_next_vertex_output(ty, Some(interpolation)));
-
-        (VertexIOInfo { node, ty, location }, interpolation)
-      })
-      .0
-      .node;
-    call_shader_api(|api| api.store(node.handle(), target));
-
-    self.vertex_out_not_synced_to_fragment.insert(ty_id);
+    self
+      .io_mapping
+      .set_vertex_out_impl(ty_id, ty, interpolation, &|interpolation| {
+        let target = call_shader_api(|api| api.define_next_vertex_output(ty, Some(interpolation)));
+        call_shader_api(|api| api.store(node.handle(), target));
+        target
+      });
   }
 
   fn primitive_state(&mut self) -> &mut PrimitiveState {

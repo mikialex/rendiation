@@ -736,6 +736,27 @@ impl ShaderAPI for ShaderAPINagaImpl {
         self.global_var_mapping.insert(return_handle, g_h);
         return_handle
       }
+      ShaderInputNode::TaskPayload { ty } => {
+        let ty = self.register_ty_impl(
+          ShaderValueType::Single(ShaderValueSingleType::Sized(ty)),
+          None,
+        );
+        let g = naga::GlobalVariable {
+          name: None,
+          space: naga::AddressSpace::TaskPayload,
+          binding: None,
+          ty,
+          init: None,
+          memory_decorations: MemoryDecorations::empty(),
+        };
+        let g_h = self.module.global_variables.append(g, Span::UNDEFINED);
+        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g_h), false);
+
+        let return_handle = self.make_new_handle();
+        self.expression_mapping.insert(return_handle, g);
+        self.global_var_mapping.insert(return_handle, g_h);
+        return_handle
+      }
     }
   }
 

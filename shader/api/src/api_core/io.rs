@@ -16,6 +16,9 @@ pub enum ShaderInputNode {
   WorkGroupShared {
     ty: ShaderSizedValueType,
   },
+  TaskPayload {
+    ty: ShaderSizedValueType,
+  },
   Private {
     ty: ShaderSizedValueType,
   },
