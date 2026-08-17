@@ -56,6 +56,7 @@ pub trait ShaderAPI {
 
   fn define_mesh_info(&mut self, mesh_info: MeshStageInfo);
   fn define_task_payload_io(&mut self, payload: ShaderNodeRawHandle);
+  fn set_output_mesh_task_size(&mut self, size: ShaderNodeRawHandle);
 
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
   fn define_next_frag_out(&mut self, ty: ShaderSizedValueType) -> ShaderNodeRawHandle;

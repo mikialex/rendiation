@@ -19,6 +19,7 @@ pub struct ShaderAPINagaImpl {
   struct_extra_padding_count: FastHashMap<String, usize>,
   log_build_result: bool,
   global_var_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::GlobalVariable>>,
+  output_mesh_task_size: Option<ShaderNodeRawHandle>,
 }
 
 pub enum BlockBuildingState {
@@ -70,6 +71,7 @@ impl ShaderAPINagaImpl {
       struct_extra_padding_count: Default::default(),
       log_build_result: false,
       global_var_mapping: Default::default(),
+      output_mesh_task_size: Default::default(),
     };
 
     api.building_fn.push(naga::Function::default());
@@ -605,6 +607,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.module.entry_points[0].task_payload = Some(output_variable);
   }
 
+  fn set_output_mesh_task_size(&mut self, size: ShaderNodeRawHandle) {
+    self.output_mesh_task_size = Some(size);
+  }
+
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle {
     assert!(self.building_fn.len() == 1);
     match input {
@@ -799,7 +805,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
   fn define_frag_depth_output(&mut self) -> ShaderNodeRawHandle {
     self.define_out(
-      PrimitiveShaderValueType::Scalar(ScalarType::F32),
+      PrimitiveShaderValueType::f32(),
       String::from("frag_depth_out"),
       ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::FragDepth),
     )
@@ -874,8 +880,8 @@ impl ShaderAPI for ShaderAPINagaImpl {
           };
 
           let primitive = match ty {
-            ShaderAtomicValueType::I32 => PrimitiveShaderValueType::Scalar(ScalarType::I32),
-            ShaderAtomicValueType::U32 => PrimitiveShaderValueType::Scalar(ScalarType::U32),
+            ShaderAtomicValueType::I32 => PrimitiveShaderValueType::i32(),
+            ShaderAtomicValueType::U32 => PrimitiveShaderValueType::u32(),
           };
 
           let ty = if let AtomicFunction::Exchange { weak: true, .. } = function {
@@ -1534,8 +1540,25 @@ impl ShaderAPI for ShaderAPINagaImpl {
     // pre check module level
     let (_, ty) = self.block.last().unwrap();
     if let BlockBuildingState::Function = ty {
-      // empty output is possible, for example depth only render target
-      if self.building_fn.len() == 1 && !self.outputs_define.is_empty() {
+      if self.building_fn.len() == 1
+        && let Some(size) = self.output_mesh_task_size
+      {
+        // task stage must return @builtin(mesh_task_size) vec3<u32> directly,
+        // unlike other stages which return a composed output struct
+        self.do_return(Some(size));
+        let ty = self.register_ty_impl(
+          ShaderValueType::Single(ShaderValueSingleType::Sized(
+            ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vec3::<u32>()),
+          )),
+          None,
+        );
+        let bf = self.building_fn.last_mut().unwrap();
+        bf.result = Some(naga::FunctionResult {
+          ty,
+          binding: Some(naga::Binding::BuiltIn(naga::BuiltIn::MeshTaskSize)),
+        });
+      } else if self.building_fn.len() == 1 && !self.outputs_define.is_empty() {
+        // empty output is possible, for example depth only render target
         let ty = ShaderStructMetaInfo {
           name: String::from("ModuleOutput"),
           fields: self.outputs_define.clone(),
@@ -1957,7 +1980,7 @@ fn struct_member(
     // not using array here because I do not want hit another strange layout issue!
     for i in 0..pad_count {
       let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(
-        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Scalar(ScalarType::U32)),
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::u32()),
       ));
       let ty = api.register_ty_impl(ty, l);
       extra_explicit_padding_count += 1;

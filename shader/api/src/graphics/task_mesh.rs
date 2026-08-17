@@ -44,6 +44,10 @@ impl ShaderTaskBuilder {
   pub fn define_task_payload_output<P: ShaderSizedValueNodeType>(&mut self) -> ShaderPtrOf<P> {
     define_task_payload::<P>()
   }
+
+  pub fn set_output_mesh_task_size(&mut self, size: Node<Vec3<u32>>) {
+    call_shader_api(|api| api.set_output_mesh_task_size(size.handle()));
+  }
 }
 
 pub struct ShaderMeshBuilder {
@@ -88,7 +92,15 @@ impl ShaderMeshBuilder {
       }],
     });
 
+    let primitive_output_type = ShaderSizedValueType::FixedSizeArray(
+      Box::new(primitive_output_type),
+      max_primitives as usize,
+    );
+
     let vertex_output_type = ShaderSizedValueType::Struct(vertex_output_type);
+
+    let vertex_output_type =
+      ShaderSizedValueType::FixedSizeArray(Box::new(vertex_output_type), max_vertices as usize);
 
     let mesh_shader_output_all_ty = ShaderSizedValueType::Struct(ShaderStructMetaInfo {
       name: "MeshShaderOutput".into(),
@@ -106,12 +118,12 @@ impl ShaderMeshBuilder {
         },
         ShaderStructFieldMetaInfo {
           name: "vertex_count".into(),
-          ty: ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Scalar(ScalarType::U32)),
+          ty: ShaderSizedValueType::Primitive(PrimitiveShaderValueType::u32()),
           ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::MeshVertexCount).into(),
         },
         ShaderStructFieldMetaInfo {
           name: "primitive_count".into(),
-          ty: ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Scalar(ScalarType::U32)),
+          ty: ShaderSizedValueType::Primitive(PrimitiveShaderValueType::u32()),
           ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::MeshPrimitiveCount).into(),
         },
       ],
@@ -164,7 +176,11 @@ impl MeshShaderVertexHelper {
   }
 
   /// the passed in output node is shaderPtrOf<VertexOutputType>
-  pub fn finalize_write(&mut self, output: ShaderNodeRawHandle) {
+  pub fn finalize_write(
+    &mut self,
+    output: ShaderNodeRawHandle,
+    clip_position: ShaderNodeRawHandle,
+  ) {
     call_shader_api(|api| {
       let mut parameters =
         vec![ShaderNodeRawHandle { handle: usize::MAX }; self.io_mapping.vertex_out.len()];
@@ -172,6 +188,7 @@ impl MeshShaderVertexHelper {
       for (node, _) in self.io_mapping.vertex_out.values() {
         parameters[node.location] = node.node;
       }
+      parameters.push(clip_position);
 
       let vertex = api.make_expression(ShaderNodeExpr::Compose {
         target: ShaderSizedValueType::Struct(create_output_struct_for_mesh_vertices_output(
@@ -213,19 +230,32 @@ impl MeshShaderVertexHelper {
 pub fn create_output_struct_for_mesh_vertices_output(
   io_mapping: &ShapeFragmentIOMapping,
 ) -> ShaderStructMetaInfo {
+  // fields must be ordered by location to match the compose parameters order in finalize_write,
+  // since vertex_out is a hash map with nondeterministic iteration order.
+  let mut entries: Vec<_> = io_mapping.vertex_out.values().collect();
+  entries.sort_by_key(|(info, _)| info.location);
+
+  let mut fields: Vec<_> = entries
+    .into_iter()
+    .map(|(info, interpolation)| ShaderStructFieldMetaInfo {
+      name: format!("field_{}", info.location),
+      ty: ShaderSizedValueType::Primitive(info.ty),
+      ty_deco: Some(ShaderFieldDecorator::Location(
+        info.location,
+        Some(*interpolation),
+      )),
+    })
+    .collect();
+
+  let p = ShaderBuiltInDecorator::VertexPositionOut;
+  fields.push(ShaderStructFieldMetaInfo {
+    name: "position".into(),
+    ty: ShaderSizedValueType::Primitive(p.data_ty().unwrap()),
+    ty_deco: Some(ShaderFieldDecorator::BuiltIn(p)),
+  });
+
   ShaderStructMetaInfo {
     name: "MeshShaderVertexOutput".into(),
-    fields: io_mapping
-      .vertex_out
-      .iter()
-      .map(|(_, (info, interpolation))| ShaderStructFieldMetaInfo {
-        name: format!("field_{}", info.location),
-        ty: ShaderSizedValueType::Primitive(info.ty),
-        ty_deco: Some(ShaderFieldDecorator::Location(
-          info.location,
-          Some(*interpolation),
-        )),
-      })
-      .collect(),
+    fields,
   }
 }
