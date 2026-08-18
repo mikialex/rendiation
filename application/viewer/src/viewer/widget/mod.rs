@@ -58,13 +58,12 @@ pub fn draw_widgets(
     renderer,
   );
 
-  let mut widget_scene_content = renderer.use_make_scene_batch_pass_content(
-    batch,
+  let widget_scene_content = renderer.use_make_scene_batch_pass_content(batch, ctx);
+  let mut widget_scene_content = widget_scene_content.as_pass_content(
     main_camera_gpu,
     &DefaultDisplayWriter {
       write_channel_index: 0,
     },
-    ctx,
   );
 
   // msaa can be enabled in webgl, if we restrict the texture usage to attachment only

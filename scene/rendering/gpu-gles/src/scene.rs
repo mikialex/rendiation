@@ -28,31 +28,45 @@ impl SceneRenderer for GLESSceneRenderer {
   fn use_make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
-    camera: &'a dyn RenderComponent,
-    pass: &'a dyn RenderComponent,
     _ctx: &mut FrameCtx,
-  ) -> Box<dyn PassContent + 'a> {
-    Box::new(GLESScenePassContent {
+  ) -> Box<dyn SceneRendererPassContentSource + 'a> {
+    Box::new(GLESScenePassContentSource {
       renderer: self,
       batch: batch.get_host_batch().unwrap(),
+    })
+  }
+}
+
+struct GLESScenePassContentSource<'a> {
+  renderer: &'a GLESSceneRenderer,
+  batch: Box<dyn HostRenderBatch>,
+}
+
+impl<'x> SceneRendererPassContentSource for GLESScenePassContentSource<'x> {
+  fn as_pass_content<'a>(
+    &'a self,
+    camera: &'a dyn RenderComponent,
+    pass: &'a dyn RenderComponent,
+  ) -> Box<dyn PassContent + 'a> {
+    Box::new(GLESScenePassContent {
+      renderer: self.renderer,
+      batch: self.batch.as_ref(),
       pass,
       camera,
-      reversed_depth: self.reversed_depth,
     })
   }
 }
 
 struct GLESScenePassContent<'a> {
   renderer: &'a GLESSceneRenderer,
-  batch: Box<dyn HostRenderBatch>,
+  batch: &'a dyn HostRenderBatch,
   pass: &'a dyn RenderComponent,
   camera: &'a dyn RenderComponent,
-  reversed_depth: bool,
 }
 
 impl PassContent for GLESScenePassContent<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
-    let base = default_dispatcher(pass, self.reversed_depth).disable_auto_write();
+    let base = default_dispatcher(pass, self.renderer.reversed_depth).disable_auto_write();
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
     for sm in self.batch.iter_scene_models() {

@@ -80,7 +80,7 @@ pub fn draw_weighted_oit(
   let dispatch = &dispatch as &dyn RenderComponent;
   let pass_com = RenderArray([dispatch, pass_com]);
 
-  let mut draw_content = use_transparent_pass_content.use_pass_content(ctx, camera, &pass_com);
+  let mut draw_content = use_transparent_pass_content.get_pass_content(camera, &pass_com);
 
   pass_target.render_ctx(ctx).by(&mut draw_content);
 

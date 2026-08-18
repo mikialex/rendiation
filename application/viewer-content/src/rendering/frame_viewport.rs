@@ -727,8 +727,9 @@ impl Viewer3dViewportRenderingCtx {
         let batch = SceneModelRenderBatch::Host(batch);
         let masked_content = renderer
           .raster_scene_renderer
-          .use_make_scene_batch_pass_content(batch, &camera_gpu, &highlight_dispatch, ctx);
-        self.highlight.draw(ctx, masked_content)
+          .use_make_scene_batch_pass_content(batch, ctx);
+        let mut mask_content = masked_content.as_pass_content(&camera_gpu, &highlight_dispatch);
+        self.highlight.draw(ctx, &mut mask_content)
       })
     });
 

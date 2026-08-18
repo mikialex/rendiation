@@ -106,11 +106,10 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
 
     if let Some(req) = normal_req
       && let Some(target) = cx.viewer.selection.selected_model.if_single()
+      && let Some((positions, normals, node)) = get_mesh_positions_normals(reader, target)
     {
-      if let Some((positions, normals, node)) = get_mesh_positions_normals(reader, target) {
-        req.transforms = Some(build_normal_debug_transforms(&positions, &normals));
-        req.node = Some(node);
-      }
+      req.transforms = Some(build_normal_debug_transforms(&positions, &normals));
+      req.node = Some(node);
     }
   }
 
@@ -128,15 +127,14 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
       });
     }
 
-    if let Some(req) = normal_req.take() {
-      if let Some(transforms) = req.transforms
-        && let Some(node) = req.node
-      {
-        if transforms.is_empty() {
-          log::warn!("mesh has no valid normal to visualize");
-        } else {
-          create_normal_debug_helper(writer, scene, node, transforms);
-        }
+    if let Some(req) = normal_req.take()
+      && let Some(transforms) = req.transforms
+      && let Some(node) = req.node
+    {
+      if transforms.is_empty() {
+        log::warn!("mesh has no valid normal to visualize");
+      } else {
+        create_normal_debug_helper(writer, scene, node, transforms);
       }
     }
   }
@@ -335,18 +333,10 @@ fn create_simplified_mesh(
   .write(&mut writer.model_writer);
 }
 
+#[derive(Default)]
 struct NormalDebugRequest {
   transforms: Option<Vec<Mat4<f32>>>,
   node: Option<EntityHandle<SceneNodeEntity>>,
-}
-
-impl Default for NormalDebugRequest {
-  fn default() -> Self {
-    Self {
-      transforms: None,
-      node: None,
-    }
-  }
 }
 
 fn read_mesh_normals(mesh: &AttributesMesh) -> Option<Vec<Vec3<f32>>> {

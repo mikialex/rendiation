@@ -60,8 +60,13 @@ pub fn use_fill_surface(
     && plane_renderer.enable
     && plane_renderer.fill_face
   {
+    let content = renderer
+      .scene
+      .use_make_scene_batch_pass_content(all_object.clone(), frame_ctx);
+
     for plane in planes {
       frame_ctx.keyed_scope(&plane, |frame_ctx| {
+        // todo cache
         let plane_id = create_uniform(
           Vec4::new(plane.alloc_index(), 0, 0, 0),
           &frame_ctx.gpu.device,
@@ -93,17 +98,9 @@ pub fn use_fill_surface(
           &DisableAllChannelBlend,
         ]);
 
-        // todo, try move out side
-        let mut content = renderer.scene.use_make_scene_batch_pass_content(
-          all_object.clone(),
-          camera_gpu,
-          &clip_dispatcher,
-          frame_ctx,
-        );
-
-        pass_base.render_ctx(frame_ctx).by(&mut content);
-
-        ////
+        pass_base
+          .render_ctx(frame_ctx)
+          .by(&mut content.as_pass_content(camera_gpu, &clip_dispatcher));
 
         let plane = plane_renderer.planes_host.get(plane).unwrap();
         // todo cache

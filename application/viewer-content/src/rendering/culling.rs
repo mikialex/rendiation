@@ -165,25 +165,21 @@ impl ViewerCulling {
         if let Some(oc_debug_camera) = viewport.debug_camera_for_view_related {
           if let Some(previous_oc_batch) = oc.culling_results.get(&oc_debug_camera) {
             return ctx.scope(|ctx| {
-              let mut drawn_occluder = renderer.scene.use_make_scene_batch_pass_content(
+              let drawn_occluder = renderer.scene.use_make_scene_batch_pass_content(
                 SceneModelRenderBatch::Device(Some(previous_oc_batch.drawn_occluder.clone())),
-                camera_gpu,
-                scene_pass_dispatcher,
                 ctx,
               );
 
-              let mut drawn_not_occluded = renderer.scene.use_make_scene_batch_pass_content(
+              let drawn_not_occluded = renderer.scene.use_make_scene_batch_pass_content(
                 SceneModelRenderBatch::Device(Some(previous_oc_batch.drawn_not_occluded.clone())),
-                camera_gpu,
-                scene_pass_dispatcher,
                 ctx,
               );
 
               pass_base
                 .with_name("occlusion-culling-debug-for-other-view")
                 .render_ctx(ctx)
-                .by(&mut drawn_occluder)
-                .by(&mut drawn_not_occluded)
+                .by(&mut drawn_occluder.as_pass_content(camera_gpu, scene_pass_dispatcher))
+                .by(&mut drawn_not_occluded.as_pass_content(camera_gpu, scene_pass_dispatcher))
             });
           } else {
             log::warn!("the oc debug info can not be found, make sure the debug is enabled or adjust the viewport rendering order to make sure the oc is drawn before the debug camera");
@@ -214,14 +210,12 @@ impl ViewerCulling {
       })
     } else {
       ctx.scope(|ctx| {
-        let mut all_opaque_object = renderer.scene.use_make_scene_batch_pass_content(
-          reorderable_batch,
-          camera_gpu,
-          scene_pass_dispatcher,
-          ctx,
-        );
+        let all_opaque_object = renderer
+          .scene
+          .use_make_scene_batch_pass_content(reorderable_batch, ctx);
 
-        preflight_content(pass_base.render_ctx(ctx)).by(&mut all_opaque_object)
+        preflight_content(pass_base.render_ctx(ctx))
+          .by(&mut all_opaque_object.as_pass_content(camera_gpu, scene_pass_dispatcher))
       })
     }
   }

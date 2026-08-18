@@ -46,8 +46,8 @@ impl HighLighter {
   pub fn draw<'a, P: PassContent>(
     &'a self,
     ctx: &mut FrameCtx,
-    mut content: P,
-  ) -> impl PassContent + use<'a, P> {
+    content: &mut P,
+  ) -> Box<dyn PassContent + 'a> {
     let selected_mask = attachment()
       .format(HIGH_LIGHT_MASK_TARGET_FORMAT)
       .request(ctx);
@@ -55,9 +55,9 @@ impl HighLighter {
     pass("highlight-selected-mask")
       .with_color(&selected_mask, clear_and_store(color_same(0.)))
       .render_ctx(ctx)
-      .by(&mut content);
+      .by(content);
 
-    self.draw_result(selected_mask, ctx)
+    Box::new(self.draw_result(selected_mask, ctx))
   }
 }
 

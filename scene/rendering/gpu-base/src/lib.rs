@@ -92,6 +92,14 @@ pub enum CameraRenderSource {
 
 pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
 
+pub trait SceneRendererPassContentSource {
+  fn as_pass_content<'a>(
+    &'a self,
+    camera: &'a dyn RenderComponent,
+    pass: &'a dyn RenderComponent,
+  ) -> Box<dyn PassContent + 'a>;
+}
+
 /// A scene renderer that encapsulate the scene rendering ability.
 pub trait SceneRenderer {
   /// render batched scene model with given pass component on given pass
@@ -99,10 +107,8 @@ pub trait SceneRenderer {
   fn use_make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
-    camera: &'a dyn RenderComponent,
-    pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
-  ) -> Box<dyn PassContent + 'a>;
+  ) -> Box<dyn SceneRendererPassContentSource + 'a>;
 
   fn indirect_batch_direct_creator(&self) -> Option<&dyn SceneDeviceBatchDirectCreator> {
     None

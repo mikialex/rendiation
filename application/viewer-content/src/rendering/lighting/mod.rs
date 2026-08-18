@@ -128,10 +128,11 @@ impl LightSystem {
           ),
         }));
 
-        let mut content =
-          renderer.use_make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
+        let content = renderer.use_make_scene_batch_pass_content(batch, frame_ctx);
 
-        map_desc.render_ctx(frame_ctx).by(&mut content);
+        map_desc
+          .render_ctx(frame_ctx)
+          .by(&mut content.as_pass_content(&camera, &depth));
 
         current_lod_camera.set(None);
       });

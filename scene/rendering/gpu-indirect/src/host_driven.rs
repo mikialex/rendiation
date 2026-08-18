@@ -5,9 +5,7 @@ impl IndirectSceneRenderer {
     &'a self,
     batch: &dyn HostRenderBatch,
     ctx: &mut FrameCtx,
-    camera: &'a dyn RenderComponent,
-    pass: &'a dyn RenderComponent,
-  ) -> Box<dyn PassContent + 'a> {
+  ) -> Box<dyn SceneRendererPassContentSource + 'a> {
     let classifier = self.classify_draws(&mut batch.iter_scene_models());
 
     let content = classifier
@@ -90,12 +88,9 @@ impl IndirectSceneRenderer {
       })
       .collect();
 
-    Box::new(IndirectScenePassContent {
+    Box::new(IndirectScenePassContentSource {
       renderer: self,
       content,
-      pass,
-      camera,
-      reversed_depth: self.reversed_depth,
     })
   }
 }

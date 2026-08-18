@@ -95,10 +95,8 @@ impl GPUTwoPassOcclusionCulling {
       });
     }
 
-    let mut first_pass_batch_draw = scene_renderer.use_make_scene_batch_pass_content(
+    let first_pass_batch_draw = scene_renderer.use_make_scene_batch_pass_content(
       SceneModelRenderBatch::Device(Some(first_pass_batch.clone())),
-      camera,
-      pass_com,
       frame_ctx,
     );
 
@@ -106,7 +104,7 @@ impl GPUTwoPassOcclusionCulling {
       .clone()
       .with_name("occlusion-culling-first-pass")
       .render_ctx(frame_ctx);
-    preflight_content(pass).by(&mut first_pass_batch_draw);
+    preflight_content(pass).by(&mut first_pass_batch_draw.as_pass_content(camera, pass_com));
 
     // then generate depth pyramid for the occluder
     let (_, _, depth) = target.depth_stencil_target.clone().unwrap();
@@ -170,10 +168,8 @@ impl GPUTwoPassOcclusionCulling {
       last_frame_invisible_batch.use_culled_list_and_do_culling(cx, second_pass_culler)
     });
 
-    let mut second_pass_draw = scene_renderer.use_make_scene_batch_pass_content(
+    let second_pass_draw = scene_renderer.use_make_scene_batch_pass_content(
       SceneModelRenderBatch::Device(Some(second_pass_batch.clone())),
-      camera,
-      pass_com,
       frame_ctx,
     );
 
@@ -183,7 +179,7 @@ impl GPUTwoPassOcclusionCulling {
     let pass = target
       .with_name("occlusion-culling-second-pass")
       .render_ctx(frame_ctx)
-      .by(&mut second_pass_draw);
+      .by(&mut second_pass_draw.as_pass_content(camera, pass_com));
 
     let debug_result = if generate_culling_result {
       Some(GPUTwoPassOcclusionCullingResult {

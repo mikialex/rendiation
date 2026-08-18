@@ -167,30 +167,23 @@ impl SceneRenderer for IndirectSceneRenderer {
   fn use_make_scene_batch_pass_content<'a>(
     &'a self,
     list: SceneModelRenderBatch,
-    camera: &'a dyn RenderComponent,
-    pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
-  ) -> Box<dyn PassContent + 'a> {
+  ) -> Box<dyn SceneRendererPassContentSource + 'a> {
     ctx.next_scope_index();
     let device_list = match list {
       SceneModelRenderBatch::Device(batch) => batch,
       SceneModelRenderBatch::Host(batch) => {
         if self.using_host_driven_indirect_draw {
-          return ctx.scope(|ctx| {
-            self.process_host_driven_indirect_draws(batch.as_ref(), ctx, camera, pass)
-          });
+          return ctx.scope(|ctx| self.process_host_driven_indirect_draws(batch.as_ref(), ctx));
         }
         self.create_batch_from_iter(&mut batch.iter_scene_models())
       }
     };
 
     let Some(device_list) = device_list else {
-      return Box::new(IndirectScenePassContent {
+      return Box::new(IndirectScenePassContentSource {
         renderer: self,
         content: Vec::new(),
-        pass,
-        camera,
-        reversed_depth: self.reversed_depth,
       });
     };
 
@@ -265,12 +258,9 @@ impl SceneRenderer for IndirectSceneRenderer {
         })
         .collect();
 
-      Box::new(IndirectScenePassContent {
+      Box::new(IndirectScenePassContentSource {
         renderer: self,
         content,
-        pass,
-        camera,
-        reversed_depth: self.reversed_depth,
       })
     })
   }
@@ -420,24 +410,46 @@ fn use_compute_selected_sub_list_dispatch_info(
   (origin, compacted)
 }
 
-pub struct IndirectScenePassContent<'a> {
+pub struct IndirectScenePassContentSource<'a> {
   pub renderer: &'a IndirectSceneRenderer,
   pub content: Vec<(
     Box<dyn IndirectDrawProvider>,
     EntityHandle<SceneModelEntity>,
   )>,
+}
+
+impl SceneRendererPassContentSource for IndirectScenePassContentSource<'_> {
+  fn as_pass_content<'a>(
+    &'a self,
+    camera: &'a dyn RenderComponent,
+    pass: &'a dyn RenderComponent,
+  ) -> Box<dyn PassContent + 'a> {
+    Box::new(IndirectScenePassContent {
+      renderer: self.renderer,
+      content: &self.content,
+      pass,
+      camera,
+    })
+  }
+}
+
+pub struct IndirectScenePassContent<'a> {
+  pub renderer: &'a IndirectSceneRenderer,
+  pub content: &'a [(
+    Box<dyn IndirectDrawProvider>,
+    EntityHandle<SceneModelEntity>,
+  )],
 
   pub pass: &'a dyn RenderComponent,
   pub camera: &'a dyn RenderComponent,
-  pub reversed_depth: bool,
 }
 
 impl PassContent for IndirectScenePassContent<'_> {
   fn render(&mut self, cx: &mut FrameRenderPass) {
-    let base = default_dispatcher(cx, self.reversed_depth).disable_auto_write();
+    let base = default_dispatcher(cx, self.renderer.reversed_depth).disable_auto_write();
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
-    for (content, any_scene_model) in &self.content {
+    for (content, any_scene_model) in self.content {
       self.renderer.renderer.render_indirect_batch_models(
         content.as_ref(),
         *any_scene_model,

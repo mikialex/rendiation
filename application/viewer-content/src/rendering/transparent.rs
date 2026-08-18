@@ -86,21 +86,19 @@ impl ViewerTransparentRenderer {
       true,
     );
 
+    let all_transparent_object_pass_source = renderer
+      .scene
+      .use_make_scene_batch_pass_content(all_transparent_object.clone(), ctx);
+
     let mut use_pass_content = ViewerScenePassContentProvider {
-      scene: renderer.scene,
-      batch: all_transparent_object.clone(),
+      pass_source: all_transparent_object_pass_source.as_ref(),
     };
 
     match self {
       ViewerTransparentRenderer::NaiveAlphaBlend => {
         ctx.scope(|ctx| {
           let mut all_transparent_object_pass_content =
-            renderer.scene.use_make_scene_batch_pass_content(
-              all_transparent_object.clone(),
-              camera_gpu,
-              opaque_pass_dispatcher,
-              ctx,
-            );
+            all_transparent_object_pass_source.as_pass_content(camera_gpu, opaque_pass_dispatcher);
 
           if let Some(active_pass) = use_draw_opaque_content(ctx, cull_cx) {
             active_pass.by(&mut all_transparent_object_pass_content);
@@ -171,20 +169,16 @@ impl ViewerTransparentRenderer {
 }
 
 pub struct ViewerScenePassContentProvider<'a> {
-  scene: &'a dyn SceneRenderer,
-  batch: SceneModelRenderBatch,
+  pass_source: &'a (dyn SceneRendererPassContentSource + 'a),
 }
 
 impl<'b> TransparentPassContentProvider for ViewerScenePassContentProvider<'b> {
-  fn use_pass_content<'a>(
+  fn get_pass_content<'a>(
     &'a mut self,
-    ctx: &mut FrameCtx,
     camera: &'a dyn RenderComponent,
     dispatcher: &'a dyn RenderComponent,
   ) -> Box<dyn PassContent + 'a> {
-    self
-      .scene
-      .use_make_scene_batch_pass_content(self.batch.clone(), camera, dispatcher, ctx)
+    self.pass_source.as_pass_content(camera, dispatcher)
   }
 }
 

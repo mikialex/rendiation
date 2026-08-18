@@ -50,9 +50,9 @@ impl TopMostStandaloneDraw {
 
     let main_camera_gpu = renderer.camera.make_component(camera)?;
 
-    let mut top_most_scene_content = renderer
+    let top_most_scene_content = renderer
       .raster_scene_renderer
-      .use_make_scene_batch_pass_content(batch, &main_camera_gpu, pass_dispatcher, ctx);
+      .use_make_scene_batch_pass_content(batch, ctx);
 
     // should we consider msaa config?
     let top_most_result = attachment().request(ctx);
@@ -69,7 +69,7 @@ impl TopMostStandaloneDraw {
         load_and_store(),
       )
       .render_ctx(ctx)
-      .by(&mut top_most_scene_content);
+      .by(&mut top_most_scene_content.as_pass_content(&main_camera_gpu, pass_dispatcher));
 
     let mut copy = copy_frame(
       top_most_result,
