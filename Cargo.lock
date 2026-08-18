@@ -5196,6 +5196,7 @@ dependencies = [
  "rendiation-scene-obj-loader",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-texture-core",
  "rendiation-texture-exporter",
  "rendiation-texture-gpu-base",

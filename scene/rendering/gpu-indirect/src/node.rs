@@ -224,24 +224,66 @@ pub fn register_or_compose_world_related_info(
   builder: &mut ShaderVertexBuilder,
   node: ENode<NodeStorage>,
 ) {
+  let new_hpt = hpt_storage_to_hpt(node.world_position_hp);
   // note, the branching is not need shader hash, it should be hashed by upstream injector.
-  if let Some(pre_injected) = builder.try_query::<WorldNoneTranslationMatrix>() {
-    builder
-      .register::<WorldNoneTranslationMatrix>(pre_injected * node.world_matrix_none_translation);
+  // the high precision rendering is not effective in this case
+  if let (Some(pre_injected_world_position), Some(pre_injected_mat)) = (
+    builder.try_query::<WorldPositionHP>(),
+    builder.try_query::<WorldNoneTranslationMatrix>(),
+  ) {
+    let pre_injected =
+      compute_low_precision_world_matrix(pre_injected_world_position, pre_injected_mat);
+
+    let current = compute_low_precision_world_matrix(new_hpt, node.world_matrix_none_translation);
+
+    let compose = current * pre_injected;
+
+    let (hpt, mat) = world_mat_to_dual(compose);
+
+    builder.register::<WorldPositionHP>(hpt);
+    builder.register::<WorldNoneTranslationMatrix>(mat);
   } else {
     builder.register::<WorldNoneTranslationMatrix>(node.world_matrix_none_translation);
-  }
-
-  let hpt = hpt_storage_to_hpt(node.world_position_hp);
-  if let Some(pre_injected) = builder.try_query::<WorldPositionHP>() {
-    builder.register::<WorldPositionHP>(hpt_compose_hpt(pre_injected, hpt));
-  } else {
-    builder.register::<WorldPositionHP>(hpt);
+    builder.register::<WorldPositionHP>(new_hpt);
   }
 
   if let Some(pre_injected) = builder.try_query::<WorldNormalMatrix>() {
-    builder.register::<WorldNormalMatrix>(pre_injected * node.normal_matrix);
+    builder.register::<WorldNormalMatrix>(node.normal_matrix * pre_injected);
   } else {
     builder.register::<WorldNormalMatrix>(node.normal_matrix);
   }
+}
+
+fn compute_low_precision_world_matrix(
+  hpt: Node<HighPrecisionTranslation>,
+  no_translation_matrix: Node<Mat4<f32>>,
+) -> Node<Mat4<f32>> {
+  let position: Node<Vec4<f32>> = (hpt.expand().f1, val(1.)).into();
+  (
+    no_translation_matrix.x(),
+    no_translation_matrix.y(),
+    no_translation_matrix.z(),
+    position,
+  )
+    .into()
+}
+
+fn world_mat_to_dual(
+  world_mat: Node<Mat4<f32>>,
+) -> (Node<HighPrecisionTranslation>, Node<Mat4<f32>>) {
+  let mat = (
+    world_mat.x(),
+    world_mat.y(),
+    world_mat.z(),
+    val(Vec4::new(0., 0., 0., 1.)),
+  )
+    .into();
+
+  let position = ENode::<HighPrecisionTranslation> {
+    f1: world_mat.position(),
+    f2: val(Vec3::zero()),
+  }
+  .construct();
+
+  (position, mat)
 }

@@ -33,6 +33,7 @@ pollster = { workspace = true }
 toml = { workspace = true }
 event-source = { path = "../../utility/event-source" }
 rendiation-shader-api = { path = "../../shader/api" }
+rendiation-shader-library = { path = "../../shader/library" }
 rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
 rendiation-infinity-primitive = { path = "../../extension/infinity-primitive" }
 rendiation-animation = { path = "../../content/animation" }

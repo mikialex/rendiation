@@ -1,11 +1,13 @@
 use rendiation_mesh_segmentation::*;
 use rendiation_mesh_simplification::*;
+use rendiation_shader_library::octahedral::decode_octahedral_normal_cpu;
 
 use crate::{viewer::use_scene_reader, *};
 
 pub fn use_mesh_tools(cx: &mut ViewerCx) {
   let (cx, simp_req) = cx.use_plain_state::<Option<SimplifySelectMeshRequest>>();
   let (cx, seg_req) = cx.use_plain_state::<Option<MeshSegmentationDebugRequest>>();
+  let (cx, normal_req) = cx.use_plain_state::<Option<NormalDebugRequest>>();
 
   if let ViewerCxStage::Gui {
     egui_ui, global, ..
@@ -33,6 +35,9 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
           }
           if ui.button("segmentation").clicked() {
             *seg_req = Some(MeshSegmentationDebugRequest(None));
+          }
+          if ui.button("show vertex normals").clicked() {
+            *normal_req = Some(NormalDebugRequest::default());
           }
         } else {
           ui.label("pick a target to view available mesh tool options");
@@ -98,6 +103,15 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
     {
       req.0 = Some(mesh_segmentation_debug(mesh));
     }
+
+    if let Some(req) = normal_req
+      && let Some(target) = cx.viewer.selection.selected_model.if_single()
+    {
+      if let Some((positions, normals, node)) = get_mesh_positions_normals(reader, target) {
+        req.transforms = Some(build_normal_debug_transforms(&positions, &normals));
+        req.node = Some(node);
+      }
+    }
   }
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
@@ -112,6 +126,18 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
       meshes.into_iter().for_each(|mesh| {
         create_segmented_debug_mesh(writer, scene, mesh);
       });
+    }
+
+    if let Some(req) = normal_req.take() {
+      if let Some(transforms) = req.transforms
+        && let Some(node) = req.node
+      {
+        if transforms.is_empty() {
+          log::warn!("mesh has no valid normal to visualize");
+        } else {
+          create_normal_debug_helper(writer, scene, node, transforms);
+        }
+      }
     }
   }
 }
@@ -186,15 +212,16 @@ fn get_mesh(
   let (fmt, indices) = mesh.indices.clone().unwrap();
   assert!(fmt == AttributeIndexFormat::Uint32);
 
-  let position = mesh.get_attribute(&AttributeSemantic::Positions).unwrap();
-  let normals = mesh.get_attribute(&AttributeSemantic::Normals).unwrap();
+  let position = mesh.get_position_slice().to_vec();
+  let Some(normals) = read_mesh_normals(&mesh) else {
+    log::warn!("mesh has no supported normal attribute, skip");
+    return None;
+  };
   let uvs = mesh
     .get_attribute(&AttributeSemantic::TexCoords(0))
+    .unwrap()
+    .visit_slice::<Vec2<f32>>()
     .unwrap();
-
-  let position = position.visit_slice::<Vec3<f32>>().unwrap();
-  let normals = normals.visit_slice::<Vec3<f32>>().unwrap();
-  let uvs = uvs.visit_slice::<Vec2<f32>>().unwrap();
 
   let vertices = position
     .iter()
@@ -306,4 +333,183 @@ fn create_simplified_mesh(
     node: child,
   }
   .write(&mut writer.model_writer);
+}
+
+struct NormalDebugRequest {
+  transforms: Option<Vec<Mat4<f32>>>,
+  node: Option<EntityHandle<SceneNodeEntity>>,
+}
+
+impl Default for NormalDebugRequest {
+  fn default() -> Self {
+    Self {
+      transforms: None,
+      node: None,
+    }
+  }
+}
+
+fn read_mesh_normals(mesh: &AttributesMesh) -> Option<Vec<Vec3<f32>>> {
+  let normal = mesh.get_attribute(&AttributeSemantic::Normals)?;
+  match normal.item_byte_size {
+    12 => normal.visit_slice::<Vec3<f32>>().map(|v| v.to_vec()),
+    4 => normal.visit_slice::<u32>().map(|v| {
+      v.iter()
+        .map(|&packed| decode_octahedral_normal_cpu(packed))
+        .collect()
+    }),
+    other => {
+      log::warn!("unsupported normal format, item byte size: {other}");
+      None
+    }
+  }
+}
+
+fn get_mesh_positions_normals(
+  reader: &SceneReader,
+  target: EntityHandle<SceneModelEntity>,
+) -> Option<(
+  Vec<Vec3<f32>>,
+  Vec<Vec3<f32>>,
+  EntityHandle<SceneNodeEntity>,
+)> {
+  let std_model = reader.try_read_scene_model(target);
+  if std_model.is_none() {
+    log::warn!("not a std mesh");
+  }
+  let std_model = std_model?;
+  let node = std_model.node;
+  let mesh = reader.read_std_model(std_model.model).mesh;
+  let mesh = reader
+    .read_attribute_mesh(mesh)
+    .into_living()?
+    .into_attributes_mesh();
+
+  let positions = mesh.get_position_slice().to_vec();
+  let Some(normals) = read_mesh_normals(&mesh) else {
+    log::warn!("mesh has no normal attribute, skip");
+    return None;
+  };
+  Some((positions, normals, node))
+}
+
+fn build_normal_debug_transforms(positions: &[Vec3<f32>], normals: &[Vec3<f32>]) -> Vec<Mat4<f32>> {
+  let length = compute_normal_arrow_length(positions);
+
+  let z = Vec3::new(0., 0., 1.);
+  positions
+    .iter()
+    .zip(normals.iter())
+    .filter_map(|(&position, &normal)| {
+      let normal = normal.normalize();
+      let length2 = normal.length2();
+      if !length2.is_finite() || length2 == 0. {
+        return None;
+      }
+
+      let rotation = if normal.z < -0.999999 {
+        // Quat::direction degenerates when the target is opposite to +z
+        Quat::rotation(Vec3::new(1., 0., 0.), std::f32::consts::PI)
+      } else {
+        Quat::direction(&z, &normal)
+      };
+
+      Some(Mat4::compose(position, rotation, Vec3::new(1., 1., length)))
+    })
+    .collect()
+}
+
+fn compute_normal_arrow_length(positions: &[Vec3<f32>]) -> f32 {
+  let mut min = Vec3::splat(f32::INFINITY);
+  let mut max = Vec3::splat(f32::NEG_INFINITY);
+  for &p in positions {
+    min.x = min.x.min(p.x);
+    min.y = min.y.min(p.y);
+    min.z = min.z.min(p.z);
+    max.x = max.x.max(p.x);
+    max.y = max.y.max(p.y);
+    max.z = max.z.max(p.z);
+  }
+  let diagonal = (max - min).length2().sqrt();
+  (diagonal * 0.05).max(1e-3)
+}
+
+fn build_arrow_wide_line_mesh() -> ExternalRefPtr<Vec<WideLineVertex>> {
+  let head = 0.15;
+  let head_half_width = 0.08;
+
+  let segments = [
+    (Vec3::new(0., 0., 0.), Vec3::new(0., 0., 1.)),
+    (
+      Vec3::new(0., 0., 1.),
+      Vec3::new(0., head_half_width, 1. - head),
+    ),
+    (
+      Vec3::new(0., 0., 1.),
+      Vec3::new(0., -head_half_width, 1. - head),
+    ),
+  ];
+
+  let color = pack_color((0.9, 0.9, 0.3, 1.));
+
+  let vertices = segments
+    .iter()
+    .flat_map(|&(start, end)| {
+      [
+        WideLineVertex {
+          position: start,
+          color,
+        },
+        WideLineVertex {
+          position: end,
+          color,
+        },
+      ]
+    })
+    .collect();
+
+  ExternalRefPtr::new(vertices)
+}
+
+fn create_normal_debug_helper(
+  writer: &mut SceneWriter,
+  scene: EntityHandle<SceneEntity>,
+  node: EntityHandle<SceneNodeEntity>,
+  transforms: Vec<Mat4<f32>>,
+) {
+  let mesh_buffer = build_arrow_wide_line_mesh();
+
+  let mut wide_line_writer = global_entity_of::<WideLineModelEntity>().entity_writer();
+  let wide_line_entity = wide_line_writer.new_entity(|w| {
+    w.write::<WideLineWidth>(&2.)
+      .write::<WideLineMeshBuffer>(&mesh_buffer)
+  });
+
+  let source_node = writer
+    .node_writer
+    .new_entity(|w| w.write::<SceneNodeVisibleComponent>(&false));
+  writer.set_local_matrix(source_node, Mat4::identity());
+
+  let scene = scene.some_handle();
+  let source_scene_model = writer.model_writer.new_entity(|w| {
+    w.write::<SceneModelWideLineRenderPayload>(&wide_line_entity.some_handle())
+      .write::<SceneModelBelongsToScene>(&scene)
+      .write::<SceneModelRefNode>(&source_node.some_handle())
+  });
+
+  let buffer = ExternalRefPtr::new(transforms);
+  let mut transform_instanced_writer =
+    global_entity_of::<TransformInstancedModelEntity>().entity_writer();
+  let instance_entity = transform_instanced_writer.new_entity(|w| {
+    w.write::<TransformInstancedModelInstanceBuffer>(&buffer)
+      .write::<TransformInstancedModelRefSceneModel>(&source_scene_model.some_handle())
+  });
+
+  let instanced_node = writer.create_child(node);
+
+  writer.model_writer.new_entity(|w| {
+    w.write::<SceneModelTransformInstancedModelPayload>(&instance_entity.some_handle())
+      .write::<SceneModelBelongsToScene>(&scene)
+      .write::<SceneModelRefNode>(&instanced_node.some_handle())
+  });
 }
