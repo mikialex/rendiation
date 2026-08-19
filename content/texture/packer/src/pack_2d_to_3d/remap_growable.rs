@@ -108,14 +108,16 @@ impl<K: Copy + Eq + Hash + std::fmt::Debug> RemappedGrowablePacker<K> {
 
     // do all remove first
     for id in iter_removed {
-      let previous = if let Some(Some(pack_id)) = rev_mapping.remove(&id) {
-        mapping.remove(&pack_id);
-        Some(packer.unpack(pack_id).unwrap())
-      } else {
-        None
-      };
-      let delta = ValueChange::Remove(previous);
-      notify_change(id, delta);
+      if let Some(previous_pack) = rev_mapping.remove(&id) {
+        let previous = if let Some(pack_id) = previous_pack {
+          mapping.remove(&pack_id);
+          Some(packer.unpack(pack_id).unwrap())
+        } else {
+          None
+        };
+        let delta = ValueChange::Remove(previous);
+        notify_change(id, delta);
+      } // in else case, means iter_removed yield double remove(this is allowed)
     }
 
     for (id, size) in iter_changed_or_insert {
