@@ -1,3 +1,5 @@
+use std::hint::cold_path;
+
 use rendiation_shader_api::ShaderBindingProvider;
 
 use crate::*;
@@ -162,8 +164,8 @@ impl BindingBuilder {
   {
     // check if the layout match, or panic directly, this is helpful to debug binding mismatch because the wgpu
     // validation is too late to catch where the miss match happens.
-    // todo, move this to cold path
     if let Some(checking_layouts) = &mut self.checking_layouts {
+      cold_path();
       let desc = item.binding_desc();
       let layout = &checking_layouts[self.current_index];
       let target_idx = self.groups[self.current_index].items.len();
@@ -237,6 +239,13 @@ impl BindingBuilder {
 
       let cache = device.get_binding_cache();
       let mut binding_cache = cache.cache.write();
+
+      // check length is matched
+      if let Some(checking) = &self.checking_layouts {
+        cold_path();
+        let checking = &checking[group_index];
+        assert_eq!(checking.len(), group.items.len());
+      }
 
       let bindgroup = binding_cache.get_or_create(
         hash,

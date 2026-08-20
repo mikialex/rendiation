@@ -216,7 +216,12 @@ impl<T: ShaderHashProvider> ShaderHashProvider for NodeGPUStorageWithOverride<T>
     hasher.hash_type::<NodeGPUStorageWithOverride<()>>();
   }
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    hasher.hash(self.current_view.is_none());
+    let has_override = if let Some(view) = &self.current_view {
+      self.overrides.contains_key(view)
+    } else {
+      false
+    };
+    hasher.hash(has_override);
     self.base.hash_pipeline(hasher);
   }
 }
