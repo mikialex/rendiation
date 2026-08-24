@@ -5,13 +5,18 @@ use database_tracing::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ViewerAPIInit {
+  Offscreen,
+  Surface { hwnd: u64, hinstance: u64 },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RendiationCxAPITraceEvent {
   Render {
     surface_id: u64,
   },
   CreateSurface {
-    hwnd: u64,
-    hinstance: u64,
+    init: ViewerAPIInit,
     returned_surface_id: u64,
     width: u32,
     height: u32,

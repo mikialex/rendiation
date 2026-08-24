@@ -61,7 +61,6 @@ pub struct Viewer3dViewportRenderingCtx {
   pub rtx_ao: Option<SceneRayTracingAORenderer>,
   pub rtx_pt: Option<DeviceReferencePathTracingRenderer>,
 
-  pub always_enable_caching_frame_for_direct_read: bool,
   pub(super) enable_on_demand_rendering: bool,
   pub(super) cached_frame: Option<RenderTargetView>,
   pub(super) not_any_changed_frame_count: u32,
@@ -107,8 +106,6 @@ impl Viewer3dViewportRenderingCtx {
       rtx_rendering_enabled: false,
       request_reset_rtx_sample: true,
       enable_on_demand_rendering: init_config.enable_on_demand_rendering,
-      always_enable_caching_frame_for_direct_read: init_config
-        .always_enable_caching_frame_for_direct_read,
       cached_frame: None,
       not_any_changed_frame_count: 0,
       oit: init_config.transparent_config.create_renderer(),
@@ -125,8 +122,6 @@ impl Viewer3dViewportRenderingCtx {
     init_config.enable_fxaa = self.enable_fxaa;
     init_config.enable_msaa = self.enable_msaa;
     init_config.enable_grid_ground = self.enable_ground;
-    init_config.always_enable_caching_frame_for_direct_read =
-      self.always_enable_caching_frame_for_direct_read;
   }
 
   pub fn egui(&mut self, ui: &mut UiWithChangeInfo, rtx_renderer_enabled: bool) {
@@ -283,28 +278,6 @@ impl Viewer3dViewportRenderingCtx {
       .on_encoding_finished
       .once_future(|result| result.clone().read())
       .flatten()
-  }
-
-  /// read the last rendered frame result, return None if the viewer never rendered or sth wrong.
-  ///
-  /// the always_enable_caching_frame_for_direct_read must set true
-  ///
-  /// this feature is not recommend to use
-  pub fn direct_read_cached_frame_sync(&self, gpu: &GPU) -> Option<ReadableTextureBuffer> {
-    let cached: GPU2DTextureView = self.cached_frame.as_ref()?.expect_texture_view();
-    let mut encoder = gpu.create_encoder();
-    let fut = encoder.read_texture_2d(
-      &gpu.device,
-      &cached,
-      ReadRange {
-        size: cached.size(),
-        offset_x: 0,
-        offset_y: 0,
-      },
-    );
-    gpu.submit_encoder(encoder);
-
-    pollster::block_on(fut).ok()
   }
 
   pub fn check_should_render_and_copy_cached(
@@ -775,8 +748,7 @@ impl Viewer3dViewportRenderingCtx {
   }
 
   fn should_do_frame_caching(&self) -> bool {
-    self.always_enable_caching_frame_for_direct_read
-      || (self.enable_on_demand_rendering && !self.rtx_rendering_enabled)
+    self.enable_on_demand_rendering && !self.rtx_rendering_enabled
   }
 
   fn should_do_extra_copy(

@@ -673,6 +673,8 @@ uint32_t viewer_create_surface(ViewerAPI *api,
                                uint32_t width,
                                uint32_t height);
 
+uint32_t viewer_create_offscreen_surface(ViewerAPI *api, uint32_t width, uint32_t height);
+
 void viewer_drop_surface(ViewerAPI *api, uint32_t surface_id);
 
 void viewer_surface_set_camera(ViewerAPI *api, uint32_t surface_id, ViewerEntityHandle camera);

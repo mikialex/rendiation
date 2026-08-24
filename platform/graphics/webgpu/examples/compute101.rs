@@ -14,7 +14,6 @@ pub async fn main() {
 
   let pipeline = {
     let mut cx = compute_shader_builder(&gpu).with_config_work_group_size(workgroup_size);
-    // .with_log_shader();
 
     let shared = cx.define_workgroup_shared_var_host_size_array::<u32>(workgroup_size);
     let input = cx.bind_by(&input);

@@ -1,5 +1,9 @@
 use std::any::Any;
 
+use rendiation_webgpu::{GPU2DTextureView, RenderTargetView};
+use viewer_content_api_trace_info::ViewerAPIInit;
+use wgpu_types::TextureUsages;
+
 use crate::*;
 
 pub struct ViewerAPI {
@@ -9,10 +13,25 @@ pub struct ViewerAPI {
   event_trace_sender: APITraceEventSender,
 }
 
+pub enum ViewerCanvas {
+  Surface(SurfaceWrapper),
+  Offscreen(RenderTargetView),
+}
+
+impl ViewerCanvas {
+  pub fn set_size(&mut self, gpu: &GPU, size: Size) {
+    match self {
+      ViewerCanvas::Surface(surface) => surface.set_size(size),
+      // todo, we should add a size diff
+      ViewerCanvas::Offscreen(texture) => *texture = create_offscreen_target(gpu, size),
+    }
+  }
+}
+
 pub struct ViewerAPICore {
   gpu_and_main_surface: WGPUAndInitSurface,
   /// the api supports multiple surface, the main surfaces also stored(cloned) here
-  surfaces: FastHashMap<u32, SurfaceWrapper>,
+  surfaces: FastHashMap<u32, ViewerCanvas>,
   next_new_surface_id: u32,
   pub(crate) viewer: Viewer,
   task_spawner: TaskSpawner,
@@ -102,52 +121,70 @@ impl Drop for ViewerAPI {
   }
 }
 
+fn create_offscreen_target(gpu: &GPU, size: Size) -> RenderTargetView {
+  let res = rendiation_webgpu::PooledTextureKey {
+    size,
+    format: TextureFormat::Rgba8UnormSrgb,
+    sample_count: 1,
+    require_mipmaps: false,
+    usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
+  }
+  .create_directly(gpu);
+  RenderTargetView::Texture(res)
+}
+
 impl ViewerAPI {
   /// note, in surface creation logic, we create default node and scene and camera, these
   /// entity will leaked if we not handle it well, but not a big problem
   /// todo fix
-  pub fn create_surface(
-    &mut self,
-    hwnd: *mut c_void,
-    hinstance: *mut c_void,
-    width: u32,
-    height: u32,
-  ) -> u32 {
+  pub fn create_surface(&mut self, init: ViewerAPIInit, width: u32, height: u32) -> u32 {
     let init_size = Size::from_u32_pair_min_one((width, height));
 
-    let mut window_handle =
-      raw_gpu::rwh::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
+    let gpu = &self.core.gpu_and_main_surface.gpu;
 
-    if !hinstance.is_null() {
-      window_handle.hinstance = Some(NonZeroIsize::new(hinstance as isize).unwrap());
-    }
-    let window_handle = raw_gpu::rwh::RawWindowHandle::Win32(window_handle);
+    let surface = match init {
+      ViewerAPIInit::Offscreen => {
+        let texture = create_offscreen_target(gpu, init_size);
+        ViewerCanvas::Offscreen(texture)
+      }
+      ViewerAPIInit::Surface { hwnd, hinstance } => {
+        let mut window_handle =
+          raw_gpu::rwh::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
 
-    // display handle in windows is always default.
-    let display_handle =
-      raw_gpu::rwh::RawDisplayHandle::Windows(raw_gpu::rwh::WindowsDisplayHandle::new());
-    let surface = unsafe {
-      self
-        .core
-        .gpu_and_main_surface
-        .gpu
-        .instance
-        .create_surface_unsafe(raw_gpu::SurfaceTargetUnsafe::RawHandle {
-          raw_display_handle: Some(display_handle),
-          raw_window_handle: window_handle,
-        })
-    }
-    .unwrap();
+        if hinstance != 0 {
+          window_handle.hinstance = Some(NonZeroIsize::new(hinstance as isize).unwrap());
+        }
+        let window_handle = raw_gpu::rwh::RawWindowHandle::Win32(window_handle);
 
-    let surface = GPUSurface::new(
-      &self.core.gpu_and_main_surface.gpu.adaptor,
-      &self.core.gpu_and_main_surface.gpu.device,
-      surface,
-      init_size,
-    );
+        // display handle in windows is always default.
+        let display_handle =
+          raw_gpu::rwh::RawDisplayHandle::Windows(raw_gpu::rwh::WindowsDisplayHandle::new());
+        let surface = unsafe {
+          self
+            .core
+            .gpu_and_main_surface
+            .gpu
+            .instance
+            .create_surface_unsafe(raw_gpu::SurfaceTargetUnsafe::RawHandle {
+              raw_display_handle: Some(display_handle),
+              raw_window_handle: window_handle,
+            })
+        }
+        .unwrap();
 
-    // here we pray the caller not drop the window!
-    let surface = SurfaceWrapper::new(surface, Arc::new(hwnd));
+        let surface = GPUSurface::new(
+          &self.core.gpu_and_main_surface.gpu.adaptor,
+          &self.core.gpu_and_main_surface.gpu.device,
+          surface,
+          init_size,
+        );
+
+        // here we pray the caller not drop the window!
+        let surface = SurfaceWrapper::new(surface, Arc::new(hwnd));
+        ViewerCanvas::Surface(surface)
+      }
+    };
+
     let surface_id = self.core.next_new_surface_id;
     self.core.next_new_surface_id += 1;
 
@@ -198,8 +235,7 @@ impl ViewerAPI {
     self
       .event_trace_sender
       .emit(&RendiationCxAPITraceEvent::CreateSurface {
-        hwnd: hwnd as u64,
-        hinstance: hinstance as u64,
+        init,
         returned_surface_id: surface_id as u64,
         width,
         height,
@@ -221,9 +257,28 @@ impl ViewerAPI {
   }
 
   pub fn read_last_render_result(&mut self, surface_id: u32) -> Option<GPUBufferImage> {
-    let view = self.core.viewer.rendering.surface_views.get(&surface_id)?;
-    let view = view.values().next()?; // we only have one view
-    let result = view.direct_read_cached_frame_sync(&self.core.gpu_and_main_surface.gpu)?;
+    let surface = self.core.surfaces.get(&surface_id)?;
+    let target = if let ViewerCanvas::Offscreen(target) = surface {
+      target
+    } else {
+      return None;
+    };
+
+    let gpu = &self.core.gpu_and_main_surface.gpu;
+    let target: GPU2DTextureView = target.expect_texture_view();
+    let mut encoder = gpu.create_encoder();
+    let fut = encoder.read_texture_2d(
+      &gpu.device,
+      &target,
+      rendiation_webgpu::ReadRange {
+        size: target.size(),
+        offset_x: 0,
+        offset_y: 0,
+      },
+    );
+    gpu.submit_encoder(encoder);
+
+    let result = pollster::block_on(fut).ok()?;
 
     let data = result.read_into_raw_unpadded_buffer();
 
@@ -263,10 +318,7 @@ impl ViewerAPI {
     }
   }
 
-  pub fn new(mut init_config: ViewerInitConfig) -> Self {
-    // setup some necessary config for viewer api's use case
-    init_config.always_enable_caching_frame_for_direct_read = true;
-
+  pub fn new(init_config: ViewerInitConfig) -> Self {
     let gpu_platform_config = init_config.make_gpu_platform_config();
 
     let gpu_config = gpu_platform_config.make_gpu_create_config(None);
@@ -324,7 +376,8 @@ impl ViewerAPI {
         height: new_height,
       });
     if let Some(surface) = self.core.surfaces.get_mut(&surface_id) {
-      surface.set_size(Size::from_u32_pair_min_one((new_width, new_height)));
+      let gpu = &self.core.gpu_and_main_surface.gpu;
+      surface.set_size(gpu, Size::from_u32_pair_min_one((new_width, new_height)));
     } else {
       log::warn!("unable to find surface")
     }
@@ -414,45 +467,53 @@ impl ViewerAPI {
       });
     let core = &mut self.core;
     core.viewer.update_view_ty_immediate();
-    if let Some(surface) = core.surfaces.get(&surface_id)
-      && let Some((canvas, target)) =
-        surface.get_current_frame_with_render_target_view(&core.gpu_and_main_surface.gpu.device)
-    {
-      unsafe {
-        core
-          .dyn_cx
-          .register_cx::<ViewerDataScheduler>(&mut core.data_source);
+    if let Some(surface) = core.surfaces.get(&surface_id) {
+      let target = match surface {
+        ViewerCanvas::Surface(surface) => surface
+          .get_current_frame_with_render_target_view(&core.gpu_and_main_surface.gpu.device)
+          .map(|r| (Some(r.0), r.1)),
+        ViewerCanvas::Offscreen(target) => Some((None, target.clone())),
       };
 
-      core.viewer.draw_canvas(
-        surface_id,
-        &target,
-        &core.task_spawner,
-        &mut core.data_source,
-        &mut core.dyn_cx,
-        None,
-        &mut TopMostStandaloneDraw {
-          scene: core
-            .viewer
-            .surfaces_content
-            .get(&surface_id)
-            .unwrap()
-            .viewports[0]
-            .scene,
-          reverse_z: core
-            .viewer
-            .rendering
-            .init_config()
-            .init_only
-            .enable_reverse_z,
-        },
-      );
+      if let Some((canvas, target)) = target {
+        unsafe {
+          core
+            .dyn_cx
+            .register_cx::<ViewerDataScheduler>(&mut core.data_source);
+        };
 
-      unsafe {
-        core.dyn_cx.unregister_cx::<ViewerDataScheduler>();
-      };
+        core.viewer.draw_canvas(
+          surface_id,
+          &target,
+          &core.task_spawner,
+          &mut core.data_source,
+          &mut core.dyn_cx,
+          None,
+          &mut TopMostStandaloneDraw {
+            scene: core
+              .viewer
+              .surfaces_content
+              .get(&surface_id)
+              .unwrap()
+              .viewports[0]
+              .scene,
+            reverse_z: core
+              .viewer
+              .rendering
+              .init_config()
+              .init_only
+              .enable_reverse_z,
+          },
+        );
 
-      canvas.present();
+        unsafe {
+          core.dyn_cx.unregister_cx::<ViewerDataScheduler>();
+        };
+
+        if let Some(canvas) = canvas {
+          canvas.present();
+        }
+      }
     }
   }
 }

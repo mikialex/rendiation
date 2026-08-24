@@ -58,7 +58,21 @@ pub extern "C" fn viewer_create_surface(
   width: u32,
   height: u32,
 ) -> u32 {
-  api.create_surface(hwnd, hinstance, width, height)
+  let init = viewer_content_api_trace_info::ViewerAPIInit::Surface {
+    hwnd: hwnd as u64,
+    hinstance: hinstance as u64,
+  };
+  api.create_surface(init, width, height)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn viewer_create_offscreen_surface(
+  api: &mut ViewerAPI,
+  width: u32,
+  height: u32,
+) -> u32 {
+  let init = viewer_content_api_trace_info::ViewerAPIInit::Offscreen;
+  api.create_surface(init, width, height)
 }
 
 #[unsafe(no_mangle)]
