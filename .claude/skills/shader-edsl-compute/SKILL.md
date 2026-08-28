@@ -104,7 +104,7 @@ val(256_u32).into_shader_iter().for_each(|i, _| {
 ### Iterate over storage buffer array
 
 ```rust
-let buffer: BindingNode<ShaderStorageBufferRW<[Item]>> = builder.bind_by(&resource);
+let buffer: ShaderPtrOf<[Item]> = builder.bind_by(&resource);
 buffer.into_shader_iter().for_each(|item, _| {
     let data = item.load();
     // process data...

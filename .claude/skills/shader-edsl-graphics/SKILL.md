@@ -279,7 +279,7 @@ builder.store_fragment_out_vec4f(0, color);
 ### 6.2 Uniform struct
 
 ```rust
-let uniform: BindingNode<ShaderUniformBuffer<Params>> = binding.bind_by(&self.params);
+let uniform: ShaderReadonlyPtrOf<Params> = binding.bind_by(&self.params);
 let f = uniform.load().expand();
 let value = f.field * val(2.0);
 ```

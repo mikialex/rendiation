@@ -73,8 +73,10 @@ Note: referential integrity is NOT enforced by the kernel — it's the applicati
 
 Each column gets its own physical store. Two backends:
 
-- **Linear** (default, `DBLinearStorage<T>`) — Vec-backed, dense. Every row occupies a slot; deleted rows leave holes. Use `declare_component!`.
-- **Sparse** (`DBSparseStorage<T>`) — HashMap-backed, only stores rows that have been written. Use `declare_sparse_component` for columns that are rarely populated.
+- **Linear** (default, `DBLinearStorage<T>`) — Vec-backed, dense. Every row occupies a slot; deleted rows leave holes. Registered via `declare_component::<S>()`.
+- **Sparse** (`DBSparseStorage<T>`) — HashMap-backed, only stores rows that have been written. Registered via `declare_sparse_component::<S>()` for columns that are rarely populated.
+
+The storage backend is selected at registration time (see the Registration section below), not in the `declare_component!` declaration macro.
 
 ### Locking
 
@@ -147,7 +149,7 @@ global_database()
     .declare_foreign_key::<MyForeignKey>();
 ```
 
-For larger subsystems, there's typically a `register_xxx_data_model()` function that registers all tables and columns at init time (see [scene/core/src/lib.rs](scene/core/src/lib.rs#L44): `register_scene_core_data_model()`).
+For larger subsystems, there's typically a `register_xxx_data_model()` function that registers all tables and columns at init time (see [scene/core/src/lib.rs](scene/core/src/lib.rs#L43): `register_scene_core_data_model()`).
 
 ## CRUD operations
 

@@ -210,7 +210,7 @@ All have `AlphaConfig` (mode/blend/cutoff) and `EmissiveComponent` + emissive te
 
 ## SceneWriter API
 
-Defined in [scene/core/src/writer.rs](scene/core/src/writer.rs). Constructed via `SceneWriter::from_global(scene)`.
+Defined in [scene/core/src/writer.rs](scene/core/src/writer.rs). Constructed via `SceneWriter::from_global()`.
 
 ### Entity writers (public fields)
 
@@ -241,20 +241,20 @@ writer.joint_writer          // TableWriter<SceneJointEntity>
 
 ### Key methods
 
+Note: the current version has no "target scene" concept — the scene handle `EntityHandle<SceneEntity>` is held explicitly by the caller and passed into every scene-related method (the former `expect_target_scene()` / `replace_target_scene()` are removed).
+
 | Method | Purpose |
 |--------|---------|
-| `expect_target_scene()` → `EntityHandle<SceneEntity>` | Get the active scene (panics if none) |
-| `replace_target_scene(Option<...>)` | Switch target scene temporarily |
 | `create_root_child()` → `EntityHandle<SceneNodeEntity>` | Create a node with no parent |
 | `create_child(parent)` → `EntityHandle<SceneNodeEntity>` | Create a node parented to `parent` |
 | `set_local_matrix(node, Mat4<f64>)` | Set node's local transform |
 | `get_local_mat(node)` → `Option<Mat4<f64>>` | Read node's local transform |
-| `create_scene_model(material, mesh, node)` | Create StandardModel + SceneModel, wire to node |
-| `write_solid_attribute_mesh(mesh)` | Write `AttributesMesh` data, return handles |
-| `write_attribute_mesh(mesh)` | Write non-solid mesh |
-| `set_solid_background(color: Vec3<f32>)` | Set solid background |
-| `set_gradient_background(param)` | Set gradient background |
-| `set_hdr_env_background(cube, intensity, transform)` | Set HDR environment |
+| `create_scene_model(material, mesh, node, scene)` → `(EntityHandle<StandardModelEntity>, EntityHandle<SceneModelEntity>)` | Create StandardModel + SceneModel, wire to node and scene |
+| `write_attribute_mesh(mesh)` → `AttributesMeshEntities` | Write `AttributesMesh` data, return handles |
+| `write_attribute_mesh_data_uri(mesh, buffer_source)` → `AttributesMeshEntities` | Write mesh via data URIs (tracked by the asset system) |
+| `set_solid_background(solid: Vec3<f32>, scene)` | Set solid background |
+| `set_gradient_background(gradient, scene)` | Set gradient background |
+| `set_hdr_env_background(cube_map, intensity, transform, scene)` | Set HDR environment |
 | `texture_sample_pair_writer()` | Helper for creating texture + sampler pairs |
 
 ## StandardModel pattern
@@ -262,11 +262,11 @@ writer.joint_writer          // TableWriter<SceneJointEntity>
 The standard path for creating a renderable object:
 
 ```
-1. Create AttributesMesh (GPU mesh data)
-2. Create material entity (Unlit/PbrSG/PbrMR)
-3. Create SceneNodeEntity (position via transform)
-4. SceneWriter::create_scene_model(material, mesh, node)
-   → internally creates StandardModelEntity + SceneModelEntity
+- Create AttributesMesh (GPU mesh data)
+- Create material entity (Unlit/PbrSG/PbrMR)
+- Create SceneNodeEntity (position via transform)
+- `SceneWriter::create_scene_model(material, mesh, node, scene)`
+  - internally creates StandardModelEntity + SceneModelEntity
 ```
 
 `create_scene_model` accepts a `SceneMaterialDataView` enum:
@@ -289,4 +289,4 @@ At read time (`SceneReader::read_std_model`), materials are resolved by priority
 
 ## Registration
 
-All entities, components, and foreign keys for the scene model are registered in `register_scene_core_data_model()` ([scene/core/src/lib.rs](scene/core/src/lib.rs#L44)). This function must be called during application initialization before any scene data is written.
+All entities, components, and foreign keys for the scene model are registered in `register_scene_core_data_model()` ([scene/core/src/lib.rs](scene/core/src/lib.rs#L43)). This function must be called during application initialization before any scene data is written.

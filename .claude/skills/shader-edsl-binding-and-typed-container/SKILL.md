@@ -44,8 +44,8 @@ pub struct UniformBufferDataView<T: Std140> {
 }
 
 // Creation
-let uniform = create_uniform(MyParams { ... }, &gpu);
-let uniform = create_uniform_with_cache(MyParams { ... }, &gpu); // with CPU-side diff tracking
+let uniform = create_uniform(MyParams { ... }, &gpu, "my_uniform");
+let uniform = create_uniform_with_cache(MyParams { ... }, &gpu, "my_uniform"); // with CPU-side diff tracking
 ```
 
 Shader-side binding:
@@ -62,8 +62,8 @@ pub struct StorageBufferReadonlyDataView<T: Std430MaybeUnsized + ?Sized> { pub g
 pub struct StorageBufferDataView<T: Std430MaybeUnsized + ?Sized> { pub gpu: GPUBufferResourceView; }
 
 // Creation
-let ro = create_gpu_readonly_storage(data.as_slice(), &gpu);        // [T], read-only
-let rw = create_gpu_read_write_storage(StorageBufferInit::Zeroed(NonZeroU64::new(1024).unwrap()), &gpu);  // [T], read-write
+let ro = create_gpu_readonly_storage(data.as_slice(), &gpu, "my_ro_storage");        // [T], read-only
+let rw = create_gpu_read_write_storage(StorageBufferInit::Zeroed(NonZeroU64::new(1024).unwrap()), &gpu, "my_rw_storage");  // [T], read-write
 ```
 
 Shader-side binding:
@@ -77,7 +77,8 @@ let output: ShaderPtrOf<[MyItem]> = builder.bind_by(&rw);
 output.index(idx).store(value);
 
 // Atomic access (via .into_device_atomic_array())
-let atomic: ShaderAtomicPtrOf<[DeviceAtomic<u32>]> = rw.into_device_atomic_array();
+let atomic_view = rw.into_device_atomic_array();  // StorageBufferDataView<[DeviceAtomic<u32>]>
+let atomic: ShaderPtrOf<[DeviceAtomic<u32>]> = builder.bind_by(&atomic_view);
 atomic.index(idx).atomic_add(val(1));
 ```
 
@@ -136,13 +137,13 @@ let val = stor.load_texel(coord);
 ### Dual binding example
 
 ```rust
-// 1. Create the typed container
-let uniform: UniformBufferDataView<Params> = create_uniform(params, &gpu.device);
+// Create the typed container
+let uniform: UniformBufferDataView<Params> = create_uniform(params, &gpu.device, "params_uniform");
 
-// 2. Shader side (in GraphicsShaderProvider::build or ShaderComputePipelineBuilder)
+// Shader side (in GraphicsShaderProvider::build or ShaderComputePipelineBuilder)
 let params_ptr: ShaderReadonlyPtrOf<Params> = builder.bind_by(&uniform);
 
-// 3. Pass side (in ShaderPassBuilder::setup_pass or compute pass setup)
+// Pass side (in ShaderPassBuilder::setup_pass or compute pass setup)
 ctx.binding.bind(&uniform);
 ```
 
@@ -152,7 +153,7 @@ for each container, matching bind group indices.
 
 ## Shader-side binding reference
 
-`binding` is the second argument in `builder.fragment(|builder, binding| {})`, `builder.vertex(|builder, binding| {})`, or accessed via `ShaderComputePipelineBuilder` (which derefs to `ShaderBindGroupBuilder`).
+`binding` is the second argument in `builder.fragment(|builder, binding| {})`, `builder.vertex(|builder, binding| {})`, or accessed via `ShaderComputePipelineBuilder::bindgroups()` (returns `&mut ShaderBindGroupBuilder`).
 
 ```rust
 // Texture

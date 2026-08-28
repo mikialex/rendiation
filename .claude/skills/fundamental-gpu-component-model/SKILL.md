@@ -209,22 +209,35 @@ See `shader-edsl-graphics` skill for details on how to write the shader code ins
 
 ## How RenderComponent::render works
 
-When `RenderComponent::render(ctx, draw_command)` is called, the framework executes this sequence:
+When `RenderComponent::render(ctx, draw)` is called, with `draw: RenderMethod` deciding how drawing
+happens, the framework executes this sequence:
 
-1. **Hash** — calls `self.hash_pipeline_with_type_info(hasher)` to get a cache key
-2. **Pipeline lookup or build** — `ctx.gpu.device.get_or_cache_create_render_pipeline(hasher, |device| { ... })`
-   - On cache miss: calls `self.build_self(...)` → triggers `build()` then `post_build()` (onion forward then reverse)
-   - On cache hit: returns the cached pipeline
-3. **Reset state** — clears `ctx.binding` and resets vertex binding index
-4. **Set pipeline** — binds the compiled `GPURenderPipeline` on the wgpu render pass
-5. **Binding check** — if enabled, validates accumulated bind group layouts against the pipeline's expected layouts
-6. **Setup pass** — calls `self.setup_pass_self(ctx)` which runs `setup_pass()` then `post_setup_pass()`.
-   For `RenderSlice` this is where the onion traversal happens: `setup_pass` forward (A→B→C),
-   then `post_setup_pass` reverse (C→B→A).
-7. **Flush bindings** — `ctx.binding.setup_render_pass(&mut ctx.pass, ...)` commits all accumulated bind groups to the wgpu render pass
-8. **Draw** — `ctx.pass.draw_by_command(draw_command)` issues the GPU draw call
+- **Hash** — calls `self.hash_pipeline_with_type_info(hasher)` to get a cache key; for
+  `RenderMethod::MeshPipelineDraw`, the mesh shading logic's hash is mixed in as well
+- **Pipeline lookup or build** — `ctx.gpu.device.get_or_cache_create_render_pipeline(hasher, |device| { ... })`
+  - On cache miss: calls `self.build_self(...)` → triggers `build()` then `post_build()` (onion forward then reverse)
+  - On cache hit: returns the cached pipeline
+- **Reset state** — clears `ctx.binding` and resets vertex binding index
+- **Set pipeline** — binds the compiled `GPURenderPipeline` on the wgpu render pass; for
+  `RenderMethod::MeshPipelineDraw`, also calls `draw.bind_shader(ctx)`
+- **Binding check** — if enabled, validates accumulated bind group layouts against the pipeline's expected layouts
+- **Setup pass** — calls `self.setup_pass_self(ctx)` which runs `setup_pass()` then `post_setup_pass()`.
+  For `RenderSlice` this is where the onion traversal happens: `setup_pass` forward (A→B→C),
+  then `post_setup_pass` reverse (C→B→A).
+- **Flush bindings** — `ctx.binding.setup_render_pass(&mut ctx.pass, &ctx.gpu.device, &pipeline)` commits
+  all accumulated bind groups to the wgpu render pass
+- **Draw** — for `RenderMethod::TraditionalDraw`, `ctx.pass.draw_by_command(draw_cmd)` issues the GPU draw
+  call; for `RenderMethod::MeshPipelineDraw`, `ctx.pass.dispatch_mesh_draw_command(draw.dispatch_command())`
+  dispatches the mesh draw
 
 This all happens inside a single `.by()` call on an `ActiveRenderPass`.
+
+`RenderMethod` is the second argument to `render`:
+
+| Variant | Use |
+|---------|-----|
+| `RenderMethod::TraditionalDraw(DrawCommand)` | Traditional vertex/index buffer drawing (see DrawCommand variants below) |
+| `RenderMethod::MeshPipelineDraw(&dyn MeshComponent)` | Mesh pipeline drawing: uses a `MeshComponent` (mesh shading logic + dispatch command) for GPU-driven mesh drawing |
 
 
 ## The onion model — middleware composition via `RenderSlice`
@@ -269,7 +282,8 @@ just like middleware stacks in HTTP frameworks or Rust's `tower::Service` layers
 
 The convenience wrappers (`RenderSlice`, `RenderArray`, `RenderVec`) are the combinators that enable this
 pattern — they call each element in forward order for the `pre` method, then in **reverse** order for the
-`post` method. `RenderSlice` is the canonical implementation; `RenderArray` and `RenderVec` delegate to it.
+`post` method. `RenderSlice` is the canonical implementation; `RenderArray` and `RenderVec` delegate to it
+via `as_slice()`.
 
 
 ## DefaultPassDispatcher — per-pass base component
@@ -281,7 +295,8 @@ Every render pass typically includes this as its first component. It:
 
 - Binds the `pass_info` uniform buffer (viewport size, texel size) so shaders can query `ViewportRenderBufferSize` / `TexelSize`
 - Registers the render target formats, depth-stencil state, and multisample count
-- Optionally auto-writes white to fragment output 0 (`auto_write: bool` — default `true`, set to `false` when you write your own output)
+- Optionally auto-writes white to fragment output 0 (`auto_write: bool` — default `true`, set to `false`
+  when you write your own output, or use the `disable_auto_write()` convenience method)
 
 Usage inside `PassContent::render`:
 
@@ -290,7 +305,7 @@ fn render(&mut self, pass: &mut FrameRenderPass) {
     let mut base = default_dispatcher(pass, false);
     base.auto_write = false;  // I'll write my own output
     let components: [&dyn RenderComponent; 3] = [&base, &self.quad, &self.content];
-    RenderArray(components).render(&mut pass.ctx, QUAD_DRAW_CMD);
+    RenderArray(components).render(&mut pass.ctx, RenderMethod::TraditionalDraw(QUAD_DRAW_CMD));
 }
 ```
 

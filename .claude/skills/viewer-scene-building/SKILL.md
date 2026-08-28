@@ -77,6 +77,8 @@ let mesh = writer
     .mesh;
 ```
 
+`write_solid_attribute_mesh` and `write_solid_attribute_mesh_data_uri` come from the `WriteSolidAttributeMesh` trait (`effect/plane_array_clip` crate, implemented for `SceneWriter`), brought into scope via `use crate::*` in the viewer. Both return `AttributesMeshEntities`; the `.mesh` field is the `EntityHandle<AttributesMeshEntity>`.
+
 ## Material creation patterns
 
 ### PBR Specular-Glossiness (simplest for colored objects)
@@ -148,7 +150,7 @@ occ_writer.write::<OccStyleMaterialEffect>(occ_material, effect.some_handle());
 ```rust
 let child = writer.create_root_child();
 writer.set_local_matrix(child, Mat4::translate((x, y, z)).into_f64());
-writer.create_scene_model(material, mesh, child);
+writer.create_scene_model(material, mesh, child, scene);
 ```
 
 Internally: creates `StandardModelEntity` (mesh + material) and `SceneModelEntity` (model → node → scene).
@@ -157,7 +159,7 @@ Internally: creates `StandardModelEntity` (mesh + material) and `SceneModelEntit
 
 ```rust
 let child = writer.create_root_child();
-let scene = writer.expect_target_scene().some_handle();
+let scene = scene.some_handle();
 
 let std_model = writer.std_model_writer.new_entity(|w| {
     w.write::<StandardModelRefAttributesMeshEntity>(&mesh.some_handle())
@@ -173,6 +175,8 @@ writer.model_writer.new_entity(|w| {
 
 ## Lights
 
+The `scene` handle in the examples below comes from the test function's parameter (see "Test content module pattern" below).
+
 ### Directional light
 
 ```rust
@@ -181,7 +185,7 @@ writer.set_local_matrix(node, Mat4::lookat(Vec3::splat(100.), Vec3::splat(0.), U
 DirectionalLightDataView {
     illuminance: Vec3::splat(5.),
     node,
-    scene: writer.expect_target_scene(),
+    scene,
 }
 .write(&mut writer.directional_light_writer);
 ```
@@ -195,7 +199,7 @@ PointLightDataView {
     intensity: Vec3::new(1., 1., 1.) * 100.,  // candela
     cutoff_distance: 40.,
     node,
-    scene: writer.expect_target_scene(),
+    scene,
 }
 .write(&mut writer.point_light_writer);
 ```
@@ -211,7 +215,7 @@ SpotLightDataView {
     half_cone_angle: Deg::by(30.).to_rad(),
     half_penumbra_angle: Deg::by(25.).to_rad(),
     node,
-    scene: writer.expect_target_scene(),
+    scene,
 }
 .write(&mut writer.spot_light_writer);
 ```
@@ -251,17 +255,17 @@ Custom implementations like `NurbsSurface<f32>` and `RationalBezierSurface<f32>`
 
 ## Test content module pattern
 
-1. Create `application/viewer/src/viewer/test_content/your_test.rs`
-2. Define a `pub fn load_xxx_test(writer: &mut SceneWriter)` (or with additional params)
-3. Register in `test_content/mod.rs`:
-   ```rust
-   mod your_test;
-   pub use your_test::*;
-   ```
-4. Call from `default_scene.rs`:
-   ```rust
-   load_xxx_test(writer);
-   ```
+- Create `application/viewer/src/viewer/test_content/your_test.rs`
+- Define a `pub fn load_xxx_test(writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>)` (or with additional params, e.g. texture/mesh data sources)
+- Register in `test_content/mod.rs`:
+  ```rust
+  mod your_test;
+  pub use your_test::*;
+  ```
+- Call from `default_scene.rs`:
+  ```rust
+  load_xxx_test(writer, scene);
+  ```
 
 ## Build pipeline example
 
@@ -272,20 +276,20 @@ use rendiation_algebra::*;
 use rendiation_mesh_generator::*;
 use crate::*;
 
-pub fn load_my_geometry_test(writer: &mut SceneWriter) {
-    // 1. Define or obtain a parametric surface
+pub fn load_my_geometry_test(writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
+    // Define or obtain a parametric surface
     let surface = /* impl ParametricSurface */;
 
-    // 2. Triangulate into a mesh
+    // Triangulate into a mesh
     let mesh = build_attributes_mesh(|builder| {
         builder.triangulate_parametric(&surface, TessellationConfig { u: 32, v: 32 }, true);
     })
     .build();
 
-    // 3. Write mesh to scene
+    // Write mesh to scene
     let mesh = writer.write_solid_attribute_mesh(mesh).mesh;
 
-    // 4. Create material
+    // Create material
     let material = PhysicalSpecularGlossinessMaterialDataView {
         albedo: Vec3::new(0.7, 0.7, 0.8),
         ..Default::default()
@@ -293,10 +297,10 @@ pub fn load_my_geometry_test(writer: &mut SceneWriter) {
     .write(&mut writer.pbr_sg_mat_writer);
     let material = SceneMaterialDataView::PbrSGMaterial(material);
 
-    // 5. Create node, set transform, wire together
+    // Create node, set transform, wire together
     let child = writer.create_root_child();
     writer.set_local_matrix(child, Mat4::translate((0., 0., 0.)).into_f64());
-    writer.create_scene_model(material, mesh, child);
+    writer.create_scene_model(material, mesh, child, scene);
 }
 ```
 
@@ -366,7 +370,7 @@ let wide_line_model = global_entity_of::<WideLineModelEntity>()
 let child = writer.create_root_child();
 writer.set_local_matrix(child, Mat4::translate((x, y, z)).into_f64());
 
-let scene = writer.expect_target_scene().some_handle();
+let scene = scene.some_handle();
 writer.model_writer.new_entity(|w| {
     w.write::<SceneModelWideLineRenderPayload>(&wide_line_model.some_handle())
       .write::<SceneModelBelongsToScene>(&scene)

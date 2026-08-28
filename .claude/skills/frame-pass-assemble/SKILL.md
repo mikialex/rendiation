@@ -39,7 +39,8 @@ ctx.frame_size   // Size
 
 ## pass() — creating a render pass
 
-`pass(name)` returns a `RenderPassDescription` builder.
+`pass(name)` returns a `RenderPassDescription` builder. The description also has a `.with_name(name)`
+method to rename it afterwards.
 
 ```rust
 pass("my-pass")                     // RenderPassDescription
@@ -163,7 +164,9 @@ let mut compose = pass("compose")
 
 ## PassContent trait
 
-Any type rendered via `.by()`. Two main paths:
+Any type rendered via `.by()`. Every `PassContent` gets a default `debug_label()` (derived from the short
+type name); `render_with_scope_label()` wraps `render()` in a named debug group, and you can override
+`debug_label()` to rename that scope. Two main paths:
 
 ```rust
 // 1. QuadDraw<T> — fullscreen quad (most common for post-processing)
@@ -203,7 +206,9 @@ convenience wrappers, onion middleware model), see `fundamental-gpu-component-mo
 
 ## Complete frame example
 
-From [application/viewer-content/src/rendering/frame_viewport.rs](application/viewer-content/src/rendering/frame_viewport.rs):
+From [application/viewer-content/src/rendering/frame_viewport.rs](application/viewer-content/src/rendering/frame_viewport.rs)
+(simplified illustration — the current implementation of that file has been refactored into a
+TAA/SSAO/GBuffer workflow; every API used below is still valid):
 
 ```rust
 fn render(&mut self, ctx: &mut FrameCtx) {

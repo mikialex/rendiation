@@ -366,7 +366,7 @@ storage_tex.write_texel_index(coord, index, value); // array layer
 ```rust
 let layers: Node<u32> = texture.texture_number_layers();
 let levels: Node<u32> = texture.texture_number_levels();
-let dims: Node<Vec2<u32>> = texture.texture_dimension_2d();
+let dims: Node<Vec2<u32>> = texture.texture_dimension_2d(None);  // None means base level
 ```
 
 
