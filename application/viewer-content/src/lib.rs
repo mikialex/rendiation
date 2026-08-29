@@ -53,6 +53,7 @@ use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_scene_scheduler::*;
 use rendiation_shader_api::*;
+use rendiation_shader_library::*;
 pub use rendiation_text_3d::*;
 use rendiation_texture_core::*;
 pub use rendiation_texture_core::{GPUBufferImage, Size};

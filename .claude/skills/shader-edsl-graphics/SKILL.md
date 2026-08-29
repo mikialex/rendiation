@@ -8,13 +8,14 @@ description: >
   and shader-edsl-binding-and-typed-container for resource binding.
 metadata:
   version: "1.0"
-  updated: "2026-05-16"
+  updated: "2026-08-29"
 ---
 
 Rendiation graphics pipeline reference. For the core language see `shader-edsl-core`. For resource binding see `shader-edsl-binding-and-typed-container`. For compute pipelines see `shader-edsl-compute`.
 
 ```rust
-use rendiation_shader_api::*;
+use rendiation_shader_api::*;       // EDSL core + wgsl builtin semantic
+use rendiation_shader_library::*;   // framework custom semantic + shader helpers
 ```
 
 
@@ -114,6 +115,16 @@ builder.register::<ClipPosition>(clip_pos);
 
 ### Custom semantics
 
+Semantic types are split across two crates. `rendiation_shader_api` keeps only the wgsl
+builtin semantic (`VertexIndex`, `VertexInstanceIndex`, `ClipPosition`, `FragmentFrontFacing`,
+`FragmentPosition`, `FragmentSampleIndex`, `FragmentSampleMaskInput`, `FragmentDepthOutput`,
+`FragmentSampleMaskOutput`). Everything else (`GeometryPosition`, `FragmentUv`, camera matrices,
+lighting channels, ...) lives in `rendiation_shader_library` (the `semantic` module, re-exported
+at the crate root) — add it as a dependency and import it alongside `rendiation_shader_api`.
+
+Define your own semantics with the `only_vertex!` / `only_fragment!` / `both!` macros, which
+are exported from `rendiation_shader_api`:
+
 ```rust
 only_vertex!(MyVertexData, Vec4<f32>);    // vertex stage only
 only_fragment!(MyFragData, Vec3<f32>);    // fragment stage only
@@ -179,6 +190,11 @@ builder.store_fragment_out_vec4f(1, normal_and_roughness);
 ```
 
 ## Semantics Quick Reference
+
+All table entries below except the two `Vertex Built-in`, the wgsl builtins used in
+`Fragment Input` / `Fragment Output`, and `DefaultDisplay` come from
+`rendiation_shader_library`; the rest come from `rendiation_shader_api`
+(`ENABLE_DEFAULT_DISPLAY_DEBUG` / `DEFAULT_DISPLAY_DEBUG` live in `rendiation_shader_api` too).
 
 ### Vertex Input (geometry data, CPU-uploaded)
 

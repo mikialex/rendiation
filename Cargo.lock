@@ -4084,6 +4084,7 @@ dependencies = [
  "rendiation-scene-rendering-gpu-base",
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-webgpu",
@@ -4099,6 +4100,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-mesh-core",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-webgpu",
 ]
 
@@ -4122,6 +4124,7 @@ dependencies = [
  "rendiation-scene-rendering-gpu-base",
  "rendiation-scene-rendering-gpu-indirect",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
@@ -4269,6 +4272,7 @@ version = "0.1.0"
 dependencies = [
  "pollster",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-webgpu",
 ]
 
@@ -4358,6 +4362,7 @@ dependencies = [
  "rendiation-lighting-shadow-map",
  "rendiation-lighting-transport",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-webgpu",
 ]
 
@@ -4389,6 +4394,7 @@ dependencies = [
  "rendiation-lighting-gpu-system",
  "rendiation-lighting-transport",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-texture-core",
 ]
 
@@ -4399,6 +4405,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-lighting-transport",
  "rendiation-shader-api",
+ "rendiation-shader-library",
 ]
 
 [[package]]
@@ -4441,6 +4448,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-space-algorithm",
  "serde",
  "smallvec",
@@ -4597,6 +4605,7 @@ dependencies = [
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
 ]
@@ -4726,6 +4735,7 @@ dependencies = [
  "rendiation-scene-rendering-gpu-base",
  "rendiation-scene-rendering-gpu-indirect",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
@@ -4968,6 +4978,7 @@ dependencies = [
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-scene-rendering-gpu-indirect",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-webgpu",
@@ -5010,6 +5021,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-fast-down-sampling-2d",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-texture-core",
  "rendiation-webgpu",
 ]
@@ -5321,6 +5333,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-shader-api",
  "rendiation-shader-backend-naga",
+ "rendiation-shader-library",
  "rendiation-texture-types",
  "reuse-pool",
  "slab",
@@ -5405,6 +5418,7 @@ dependencies = [
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-scene-rendering-gpu-indirect",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
@@ -5431,6 +5445,7 @@ dependencies = [
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-scene-rendering-gpu-indirect",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",

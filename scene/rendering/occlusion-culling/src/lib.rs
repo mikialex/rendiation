@@ -4,6 +4,7 @@ use rendiation_device_parallel_compute::*;
 use rendiation_fast_down_sampling_2d::*;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
+use rendiation_shader_library::*;
 use rendiation_webgpu::*;
 
 mod filter;

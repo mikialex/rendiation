@@ -10,6 +10,7 @@ use rendiation_geometry::Box2;
 use rendiation_geometry::Box3;
 use rendiation_scene_core::SceneModelEntity;
 use rendiation_shader_api::*;
+use rendiation_shader_library::*;
 use rendiation_texture_core::GPUBufferImage;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;

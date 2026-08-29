@@ -312,7 +312,8 @@ fn render(&mut self, pass: &mut FrameRenderPass) {
 
 ## Putting it all together
 
-A typical renderable component:
+A typical renderable component (requires `use rendiation_shader_api::*;` plus
+`use rendiation_shader_library::*;` for the semantic types like `FragmentUv`):
 
 ```rust
 // 1. Define the shader

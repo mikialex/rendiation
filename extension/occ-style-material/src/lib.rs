@@ -5,6 +5,7 @@ use fast_hash_collection::*;
 use rendiation_lighting_transport::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
+use rendiation_shader_library::*;
 use serde::*;
 pub mod gles;
 pub mod indirect;

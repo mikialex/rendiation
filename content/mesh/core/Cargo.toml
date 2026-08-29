@@ -14,6 +14,7 @@ rendiation-space-algorithm = { path = "../../space" }
 
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-shader-library = { path = "../../../shader/library" }
 smallvec = { workspace = true }
 facet = { workspace = true }
 serde = { workspace = true }

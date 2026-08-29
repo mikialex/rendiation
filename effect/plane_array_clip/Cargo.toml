@@ -13,6 +13,7 @@ rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-scene-core = { path = "../../scene/core" }
 rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
 rendiation-shader-api = { path = "../../shader/api" }
+rendiation-shader-library = { path = "../../shader/library" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
 

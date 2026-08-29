@@ -2,6 +2,7 @@ use rendiation_algebra::*;
 use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_transport::*;
 use rendiation_shader_api::*;
+use rendiation_shader_library::*;
 use rendiation_texture_core::Texture2DBuffer;
 
 mod brdf;

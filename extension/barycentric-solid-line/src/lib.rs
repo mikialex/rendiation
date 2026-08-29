@@ -4,6 +4,7 @@ use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_mesh_core::*;
 use rendiation_shader_api::*;
+use rendiation_shader_library::*;
 use rendiation_webgpu::*;
 
 /// solid lined mesh is a way to draw on mesh edge line.

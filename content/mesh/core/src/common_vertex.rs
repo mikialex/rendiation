@@ -2,6 +2,7 @@ use std::hash::Hash;
 
 use rendiation_algebra::*;
 use rendiation_geometry::Positioned;
+use rendiation_shader_library::*;
 use serde::*;
 
 use crate::{AttributeSemantic, AttributeVertex};

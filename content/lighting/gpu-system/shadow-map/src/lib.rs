@@ -4,6 +4,7 @@ use database::RawEntityHandle;
 use dyn_clone::*;
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
+use rendiation_shader_library::*;
 use rendiation_texture_core::*;
 pub use rendiation_texture_packer::pack_2d_to_3d::{
   MultiLayerTexturePackerConfig, PackResult2dWithDepth,

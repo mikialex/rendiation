@@ -2,6 +2,7 @@ use rendiation_lighting_punctual::*;
 use rendiation_lighting_shadow_map::*;
 use rendiation_lighting_transport::*;
 use rendiation_shader_api::*;
+use rendiation_shader_library::*;
 use rendiation_webgpu::*;
 
 mod group;

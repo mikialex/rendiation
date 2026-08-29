@@ -31,6 +31,7 @@ pub use rendiation_lighting_gpu_system::LightableSurfaceTag;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
+use rendiation_shader_library::*;
 use rendiation_texture_core::*;
 use rendiation_texture_gpu_base::*;
 pub use rendiation_texture_gpu_system::TexturePoolSourceInit;

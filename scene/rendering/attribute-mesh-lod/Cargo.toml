@@ -18,6 +18,7 @@ rendiation-mesh-core = { path = "../../../content/mesh/core" }
 rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
 rendiation-scene-rendering-gpu-indirect = { path = "../../rendering/gpu-indirect" }
 rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-shader-library = { path = "../../../shader/library" }
 rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
 
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }

@@ -9,6 +9,12 @@ pub mod sampling;
 pub mod sky;
 pub mod z_order;
 
+mod high_precision_translation;
+pub use high_precision_translation::*;
+
+mod semantic;
+pub use semantic::*;
+
 #[shader_fn]
 pub fn transform_dir(transform: Node<Mat4<f32>>, dir: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
   let dir = transform * vec4_node((dir, val(1.)));

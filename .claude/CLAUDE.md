@@ -1,7 +1,6 @@
 # Rendiation Project Instructions
 
-**Before writing code, check skills first**, This project maintains skill documents under `.claude/skills/` that cover all major subsystems.Before reading source code or using any project-specific API, scan the available skill list and
-invoke matching skills. Only explore source files for details the skills don't cover.
+Before writing code, check skills first, This project maintains skill documents under `.claude/skills/` that cover major subsystems. Before reading source code or using any project-specific API, scan the available skill list and invoke matching skills. Only explore source files for details the skills don't cover. Any relative code change should update these doc if required.
 
 Do not use any form of long `======` or `------` in comment.
 

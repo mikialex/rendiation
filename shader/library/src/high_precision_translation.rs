@@ -1,6 +1,4 @@
-// https://users.rust-lang.org/t/proc-macro-referencing-self-module/49582
-use crate as rendiation_shader_api;
-use crate::*;
+use rendiation_shader_api::*;
 
 #[derive(Debug, Clone, Copy, ShaderStruct, Default)]
 pub struct HighPrecisionTranslation {

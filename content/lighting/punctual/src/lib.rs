@@ -1,6 +1,7 @@
 use rendiation_algebra::*;
 use rendiation_lighting_transport::*;
 use rendiation_shader_api::*;
+use rendiation_shader_library::*;
 
 /// Punctual lights are defined as parameterized, infinitely small points that
 /// emit light in well-defined directions and intensities.

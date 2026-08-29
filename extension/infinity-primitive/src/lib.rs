@@ -1,5 +1,6 @@
 use rendiation_shader_api::*;
 use rendiation_shader_library::plane::*;
+use rendiation_shader_library::*;
 use rendiation_webgpu::*;
 
 mod line;

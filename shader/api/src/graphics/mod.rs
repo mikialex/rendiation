@@ -12,8 +12,6 @@ mod debugger;
 pub use debugger::*;
 mod error_sink;
 pub(crate) use error_sink::*;
-mod high_precision_translation;
-pub use high_precision_translation::*;
 
 #[derive(Debug, Clone)]
 pub enum ShaderBuildError {

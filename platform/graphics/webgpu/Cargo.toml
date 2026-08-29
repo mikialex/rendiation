@@ -17,6 +17,7 @@ event-source = { path = "../../../utility/event-source" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-shader-backend-naga = { path = "../../../shader/backends/naga" }
+rendiation-shader-library = { path = "../../../shader/library" }
 rendiation-texture-types = { path = "../../../content/texture/types" }
 reuse-pool = { path = "../../../utility/reuse-pool" }
 thiserror = { workspace = true }
