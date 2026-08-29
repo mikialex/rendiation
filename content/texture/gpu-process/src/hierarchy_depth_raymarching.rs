@@ -31,7 +31,7 @@ pub fn hierarchical_raymarch(
   // Offset to the bounding boxes uv space to intersect the ray with the center of the next pixel.
   // This means we ever so slightly over shoot into the next region.
   let uv_offset =
-    (val(0.005) * (most_detailed_mip).exp2().into_f32()).splat() / screen_size.into_f32();
+    (val(0.005) * (most_detailed_mip).into_f32().exp2()).splat() / screen_size.into_f32();
   let uv_offset = vec2_node((
     direction
       .x()

@@ -55,33 +55,68 @@ impl ValueType for bool {
 pub trait ShaderFloatType: ShaderScalarType {}
 impl ShaderFloatType for f32 {}
 
-pub trait ShaderVec {
+pub trait ShaderIntType: ShaderScalarType {}
+impl ShaderIntType for i32 {}
+impl ShaderIntType for u32 {}
+
+pub trait ShaderSignedType: ShaderScalarType {}
+impl ShaderSignedType for i32 {}
+impl ShaderSignedType for f32 {}
+
+pub trait ShaderVec: PrimitiveShaderNodeType {
   type Item: ShaderScalarType;
+  type Container<S: ShaderScalarType>;
 }
-impl<T: ShaderScalarType> ShaderVec for Vec2<T> {
+impl<T: ShaderScalarType> ShaderVec for Vec2<T>
+where
+  Self: PrimitiveShaderNodeType,
+{
   type Item = T;
+  type Container<S: ShaderScalarType> = Vec2<S>;
 }
-impl<T: ShaderScalarType> ShaderVec for Vec3<T> {
+impl<T: ShaderScalarType> ShaderVec for Vec3<T>
+where
+  Self: PrimitiveShaderNodeType,
+{
   type Item = T;
+  type Container<S: ShaderScalarType> = Vec3<S>;
 }
-impl<T: ShaderScalarType> ShaderVec for Vec4<T> {
+impl<T: ShaderScalarType> ShaderVec for Vec4<T>
+where
+  Self: PrimitiveShaderNodeType,
+{
   type Item = T;
+  type Container<S: ShaderScalarType> = Vec4<S>;
 }
 
-pub trait ShaderScalarOrVec<T: ShaderScalarType> {
-  type Item<S: ShaderScalarType>;
+pub trait ShaderScalarOrVec: PrimitiveShaderNodeType {
+  type Item: ShaderScalarType;
+  type Container<S: ShaderScalarType>;
 }
-impl<T: ShaderScalarType> ShaderScalarOrVec<T> for T {
-  type Item<S: ShaderScalarType> = S;
+impl<T: ShaderScalarType> ShaderScalarOrVec for T {
+  type Item = T;
+  type Container<S: ShaderScalarType> = S;
 }
-impl<T: ShaderScalarType> ShaderScalarOrVec<T> for Vec2<T> {
-  type Item<S: ShaderScalarType> = Vec2<S>;
+impl<T: ShaderScalarType> ShaderScalarOrVec for Vec2<T>
+where
+  Self: PrimitiveShaderNodeType,
+{
+  type Item = T;
+  type Container<S: ShaderScalarType> = Vec2<S>;
 }
-impl<T: ShaderScalarType> ShaderScalarOrVec<T> for Vec3<T> {
-  type Item<S: ShaderScalarType> = Vec3<S>;
+impl<T: ShaderScalarType> ShaderScalarOrVec for Vec3<T>
+where
+  Self: PrimitiveShaderNodeType,
+{
+  type Item = T;
+  type Container<S: ShaderScalarType> = Vec3<S>;
 }
-impl<T: ShaderScalarType> ShaderScalarOrVec<T> for Vec4<T> {
-  type Item<S: ShaderScalarType> = Vec4<S>;
+impl<T: ShaderScalarType> ShaderScalarOrVec for Vec4<T>
+where
+  Self: PrimitiveShaderNodeType,
+{
+  type Item = T;
+  type Container<S: ShaderScalarType> = Vec4<S>;
 }
 pub trait ShaderAnyScalarOrVec: PrimitiveShaderNodeType {}
 impl<T: ShaderScalarType + PrimitiveShaderNodeType> ShaderAnyScalarOrVec for T {}

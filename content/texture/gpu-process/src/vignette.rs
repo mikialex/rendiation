@@ -40,5 +40,5 @@ pub fn compute_vignette(
     .saturate()
     .pow(config.feather * val(5.0))
     .splat::<Vec3<f32>>();
-  color * amount.mix(config.color, val(Vec3::one()))
+  color * amount.mix_per_channel(config.color, val(Vec3::one()))
 }

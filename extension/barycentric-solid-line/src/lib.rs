@@ -122,7 +122,7 @@ impl<T: RenderComponent> GraphicsShaderProvider for SolidLinedMeshGPU<T> {
       let deltas = barycentric.fwidth();
       let smoothing = deltas * smoothing;
       let thickness = deltas * thickness;
-      let ratio = barycentric.smoothstep(thickness, thickness + smoothing);
+      let ratio = barycentric.smoothstep_per_channel(thickness, thickness + smoothing);
       let ratio = ratio.x().min(ratio.y()).min(ratio.z());
 
       if let Some(color) = builder.try_query::<ColorChannel>() {

@@ -178,19 +178,26 @@ impl<T: ShaderFloatType> Node<Vec3<T>> {
 
 impl<T> Node<T>
 where
-  T: ShaderVec + PrimitiveShaderNodeType,
+  T: ShaderScalarOrVec,
   T::Item: ShaderFloatType,
 {
-  // todo, wgsl spec say length can be called on scalar(return scalar's abs)
+  /// Evaluates to the absolute value of self if T is scalar.
   pub fn length(self) -> Node<f32> {
     make_builtin_call(ShaderBuiltInFunction::Length, [self.handle()])
+  }
+
+  /// `(self - other).length`
+  pub fn distance(self, other: impl Into<Self>) -> Node<T::Item> {
+    make_builtin_call(
+      ShaderBuiltInFunction::Distance,
+      [self.handle(), other.into().handle()],
+    )
   }
 }
 
 impl<T> Node<T>
 where
-  T: PrimitiveShaderNodeType, /* where
-                               * T: RealVector<f32> + PrimitiveShaderNodeType, */
+  T: ShaderScalarOrVec,
 {
   pub fn min(self, other: impl Into<Self>) -> Self {
     make_builtin_call(
@@ -210,19 +217,45 @@ where
       [self.handle(), min.into().handle(), max.into().handle()],
     )
   }
+  /// `self.clamp(0.0, 1.0)`
+  pub fn saturate(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Saturate, [self.handle()])
+  }
 }
 
-// adhoc component-wise compute
 impl<T> Node<T>
 where
-  T: PrimitiveShaderNodeType,
+  T: ShaderScalarOrVec,
+  T::Item: ShaderFloatType,
 {
-  pub fn abs(self) -> Self {
-    make_builtin_call(ShaderBuiltInFunction::Abs, [self.handle()])
+  pub fn ceil(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Ceil, [self.handle()])
+  }
+  pub fn floor(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Floor, [self.handle()])
+  }
+  pub fn round(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Round, [self.handle()])
+  }
+  pub fn fract(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Fract, [self.handle()])
+  }
+  pub fn trunc(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Trunc, [self.handle()])
   }
 
-  pub fn sign(self) -> Self {
-    make_builtin_call(ShaderBuiltInFunction::Sign, [self.handle()])
+  pub fn smoothstep_per_channel(self, low: impl Into<Self>, high: impl Into<Self>) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::SmoothStep,
+      [low.into().handle(), high.into().handle(), self.handle()],
+    )
+  }
+
+  pub fn mix_per_channel(self, low: impl Into<Self>, high: impl Into<Self>) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Mix,
+      [low.into().handle(), high.into().handle(), self.handle()],
+    )
   }
 
   /// e^self
@@ -248,36 +281,49 @@ where
       [self.handle(), e.into().handle()],
     )
   }
-
-  pub fn saturate(self) -> Self {
-    make_builtin_call(ShaderBuiltInFunction::Saturate, [self.handle()])
-  }
 }
 
-// todo fix bound
 impl<T> Node<T>
 where
-  T: PrimitiveShaderNodeType,
+  T: ShaderFloatType,
 {
-  pub fn smoothstep(self, low: impl Into<Self>, high: impl Into<Self>) -> Self {
+  pub fn smoothstep<V>(self, low: impl Into<Node<V>>, high: impl Into<Node<V>>) -> Node<V>
+  where
+    V: ShaderScalarOrVec,
+    V::Item: ShaderFloatType,
+  {
     make_builtin_call(
       ShaderBuiltInFunction::SmoothStep,
       [low.into().handle(), high.into().handle(), self.handle()],
     )
   }
-}
 
-// todo fix bound
-impl<T: PrimitiveShaderNodeType> Node<T> {
-  pub fn mix<V: PrimitiveShaderNodeType>(
-    self,
-    low: impl Into<Node<V>>,
-    high: impl Into<Node<V>>,
-  ) -> Node<V> {
+  pub fn mix<V>(self, low: impl Into<Node<V>>, high: impl Into<Node<V>>) -> Node<V>
+  where
+    V: ShaderScalarOrVec,
+    V::Item: ShaderFloatType,
+  {
     make_builtin_call(
       ShaderBuiltInFunction::Mix,
       [low.into().handle(), high.into().handle(), self.handle()],
     )
+  }
+}
+
+impl<T: ShaderScalarOrVec> Node<T> {
+  pub fn abs(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Abs, [self.handle()])
+  }
+}
+
+impl<T> Node<T>
+where
+  T: ShaderScalarOrVec,
+  T::Item: ShaderSignedType,
+{
+  /// return per component 1 when self>0, 0 when self==0, -1 when self<0
+  pub fn sign(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Sign, [self.handle()])
   }
 }
 
@@ -308,15 +354,15 @@ impl Node<Mat4<f32>> {
   }
 }
 
-impl<Bools: ShaderScalarOrVec<bool>> Node<Bools> {
-  pub fn select_component_wise<T: ShaderScalarType>(
+impl<Bools: ShaderScalarOrVec<Item = bool>> Node<Bools> {
+  pub fn select_per_channel<T: ShaderScalarType>(
     &self,
-    true_case: impl Into<Node<Bools::Item<T>>>,
-    false_case: impl Into<Node<Bools::Item<T>>>,
-  ) -> Node<Bools::Item<T>>
+    true_case: impl Into<Node<Bools::Container<T>>>,
+    false_case: impl Into<Node<Bools::Container<T>>>,
+  ) -> Node<Bools::Container<T>>
   where
     T: ShaderScalarType,
-    Bools::Item<T>: ShaderNodeType,
+    Bools::Container<T>: ShaderNodeType,
   {
     make_builtin_call(
       ShaderBuiltInFunction::Select,
@@ -346,7 +392,7 @@ impl Node<bool> {
   }
 }
 
-impl<T: ShaderScalarOrVec<bool>> Node<T> {
+impl<T: ShaderScalarOrVec<Item = bool>> Node<T> {
   pub fn all(self) -> Node<bool> {
     make_builtin_call(ShaderBuiltInFunction::All, [self.handle()])
   }
@@ -355,7 +401,8 @@ impl<T: ShaderScalarOrVec<bool>> Node<T> {
   }
 }
 
-impl<T: ShaderScalarOrVec<f32> + ShaderNodeType> Node<T> {
+/// in wgsl spec, the item must be f32, not [ShaderFloatType]
+impl<T: ShaderScalarOrVec<Item = f32> + ShaderNodeType> Node<T> {
   pub fn derivative(self, axis: DerivativeAxis, ctrl: DerivativeControl) -> Node<T> {
     ShaderNodeExpr::Derivative {
       axis,
@@ -394,8 +441,11 @@ impl<T: ShaderScalarOrVec<f32> + ShaderNodeType> Node<T> {
   }
 }
 
-// todo restrict
-impl<T: ShaderNodeType> Node<T> {
+impl<T> Node<T>
+where
+  T: ShaderScalarOrVec,
+  T::Item: ShaderFloatType,
+{
   pub fn sqrt(self) -> Node<T> {
     make_builtin_call(ShaderBuiltInFunction::Sqrt, [self.handle()])
   }
@@ -428,22 +478,37 @@ impl<T: ShaderNodeType> Node<T> {
     )
   }
 
-  pub fn ceil(self) -> Node<T> {
-    make_builtin_call(ShaderBuiltInFunction::Ceil, [self.handle()])
+  pub fn sinh(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Sinh, [self.handle()])
   }
-  pub fn floor(self) -> Node<T> {
-    make_builtin_call(ShaderBuiltInFunction::Floor, [self.handle()])
+  pub fn cosh(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Cosh, [self.handle()])
   }
-  pub fn round(self) -> Node<T> {
-    make_builtin_call(ShaderBuiltInFunction::Round, [self.handle()])
-  }
-  pub fn fract(self) -> Node<T> {
-    make_builtin_call(ShaderBuiltInFunction::Fract, [self.handle()])
-  }
-  pub fn trunc(self) -> Node<T> {
-    make_builtin_call(ShaderBuiltInFunction::Trunc, [self.handle()])
+  pub fn tanh(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Tanh, [self.handle()])
   }
 
+  pub fn asinh(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Asinh, [self.handle()])
+  }
+  pub fn acosh(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Acosh, [self.handle()])
+  }
+  pub fn atanh(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Atanh, [self.handle()])
+  }
+
+  /// Returns 1.0 if edge ≤ x, and 0.0 otherwise
+  pub fn step(self, edge: Node<T>) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Step, [self.handle(), edge.handle()])
+  }
+}
+
+impl<T> Node<T>
+where
+  T: ShaderScalarOrVec,
+  T::Item: ShaderIntType,
+{
   pub fn extract_bits(self, offset: Node<u32>, count: Node<u32>) -> Node<T> {
     make_builtin_call(
       ShaderBuiltInFunction::ExtractBits,
@@ -463,28 +528,12 @@ impl<T: ShaderNodeType> Node<T> {
   }
 }
 
-pub trait ExpDecomposableShaderNodeType: PrimitiveShaderNodeType {
-  type Fract: PrimitiveShaderNodeType;
-  type Exp: PrimitiveShaderNodeType;
-}
-impl ExpDecomposableShaderNodeType for f32 {
-  type Fract = f32;
-  type Exp = i32;
-}
-macro_rules! impl_exp_decompose {
-  ($t: tt) => {
-    impl ExpDecomposableShaderNodeType for $t<f32> {
-      type Fract = $t<f32>;
-      type Exp = $t<i32>;
-    }
-  };
-}
-impl_exp_decompose!(Vec2);
-impl_exp_decompose!(Vec3);
-impl_exp_decompose!(Vec4);
-
-impl<T: ExpDecomposableShaderNodeType> Node<T> {
-  pub fn frexp(self) -> (Node<T::Fract>, Node<T::Exp>) {
+impl<T> Node<T>
+where
+  T: ShaderScalarOrVec,
+  T::Item: ShaderFloatType,
+{
+  pub fn frexp(self) -> (Node<T::Container<T::Item>>, Node<i32>) {
     let raw = make_builtin_call_with_ty_helper::<AnyType>(
       ShaderBuiltInFunction::Frexp,
       T::primitive_ty(),

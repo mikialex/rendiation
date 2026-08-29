@@ -1,18 +1,7 @@
 //! corresponding spec: https://www.w3.org/TR/WGSL/#subgroup-builtin-functions
 use crate::*;
 
-pub trait ShaderNumericScalar {}
-impl ShaderNumericScalar for f32 {}
-impl ShaderNumericScalar for u32 {}
-impl ShaderNumericScalar for i32 {}
-
-pub trait NumericScalarOrVector {}
-impl<T> NumericScalarOrVector for T where T: ShaderNumericScalar {}
-impl<T: ShaderNumericScalar> NumericScalarOrVector for Vec2<T> {}
-impl<T: ShaderNumericScalar> NumericScalarOrVector for Vec3<T> {}
-impl<T: ShaderNumericScalar> NumericScalarOrVector for Vec4<T> {}
-
-impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
+impl<T: ShaderScalarOrVec> Node<T> {
   /// Returns the sum of self among all active invocations in the subgroup
   pub fn subgroup_add(&self) -> Self {
     make_subgroup_collective_op(
@@ -200,18 +189,11 @@ impl Node<bool> {
   }
 }
 
-pub trait ShaderIntScalar: ShaderNumericScalar {}
-impl ShaderIntScalar for u32 {}
-impl ShaderIntScalar for i32 {}
-
-pub trait IntScalarOrVector {}
-
-impl<T> IntScalarOrVector for T where T: ShaderIntScalar {}
-impl<T: ShaderIntScalar> IntScalarOrVector for Vec2<T> {}
-impl<T: ShaderIntScalar> IntScalarOrVector for Vec3<T> {}
-impl<T: ShaderIntScalar> IntScalarOrVector for Vec4<T> {}
-
-impl<T: IntScalarOrVector + PrimitiveShaderNodeType> Node<T> {
+impl<T> Node<T>
+where
+  T: ShaderScalarOrVec,
+  T::Item: ShaderIntType,
+{
   /// Returns the bitwise and (&) of self among all active invocations in the subgroup.
   pub fn subgroup_and(&self) -> Self {
     make_subgroup_collective_op(
