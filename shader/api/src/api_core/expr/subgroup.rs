@@ -1,19 +1,16 @@
-/// corresponding spec: https://www.w3.org/TR/WGSL/#subgroup-builtin-functions
+//! corresponding spec: https://www.w3.org/TR/WGSL/#subgroup-builtin-functions
 use crate::*;
 
+pub trait ShaderNumericScalar {}
+impl ShaderNumericScalar for f32 {}
+impl ShaderNumericScalar for u32 {}
+impl ShaderNumericScalar for i32 {}
+
 pub trait NumericScalarOrVector {}
-impl NumericScalarOrVector for f32 {}
-impl NumericScalarOrVector for Vec2<f32> {}
-impl NumericScalarOrVector for Vec3<f32> {}
-impl NumericScalarOrVector for Vec4<f32> {}
-impl NumericScalarOrVector for u32 {}
-impl NumericScalarOrVector for Vec2<u32> {}
-impl NumericScalarOrVector for Vec3<u32> {}
-impl NumericScalarOrVector for Vec4<u32> {}
-impl NumericScalarOrVector for i32 {}
-impl NumericScalarOrVector for Vec2<i32> {}
-impl NumericScalarOrVector for Vec3<i32> {}
-impl NumericScalarOrVector for Vec4<i32> {}
+impl<T> NumericScalarOrVector for T where T: ShaderNumericScalar {}
+impl<T: ShaderNumericScalar> NumericScalarOrVector for Vec2<T> {}
+impl<T: ShaderNumericScalar> NumericScalarOrVector for Vec3<T> {}
+impl<T: ShaderNumericScalar> NumericScalarOrVector for Vec4<T> {}
 
 impl<T: NumericScalarOrVector + PrimitiveShaderNodeType> Node<T> {
   /// Returns the sum of self among all active invocations in the subgroup
@@ -203,15 +200,16 @@ impl Node<bool> {
   }
 }
 
+pub trait ShaderIntScalar: ShaderNumericScalar {}
+impl ShaderIntScalar for u32 {}
+impl ShaderIntScalar for i32 {}
+
 pub trait IntScalarOrVector {}
-impl IntScalarOrVector for u32 {}
-impl IntScalarOrVector for Vec2<u32> {}
-impl IntScalarOrVector for Vec3<u32> {}
-impl IntScalarOrVector for Vec4<u32> {}
-impl IntScalarOrVector for i32 {}
-impl IntScalarOrVector for Vec2<i32> {}
-impl IntScalarOrVector for Vec3<i32> {}
-impl IntScalarOrVector for Vec4<i32> {}
+
+impl<T> IntScalarOrVector for T where T: ShaderIntScalar {}
+impl<T: ShaderIntScalar> IntScalarOrVector for Vec2<T> {}
+impl<T: ShaderIntScalar> IntScalarOrVector for Vec3<T> {}
+impl<T: ShaderIntScalar> IntScalarOrVector for Vec4<T> {}
 
 impl<T: IntScalarOrVector + PrimitiveShaderNodeType> Node<T> {
   /// Returns the bitwise and (&) of self among all active invocations in the subgroup.

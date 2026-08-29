@@ -14,7 +14,7 @@ sg_node_impl!(
   ShaderValueSingleType::Sampler(SamplerBindingType::Comparison)
 );
 
-pub trait ShaderArrayTextureSampleIndexType: ShaderNodeType {}
+pub trait ShaderArrayTextureSampleIndexType {}
 impl ShaderArrayTextureSampleIndexType for u32 {}
 impl ShaderArrayTextureSampleIndexType for i32 {}
 

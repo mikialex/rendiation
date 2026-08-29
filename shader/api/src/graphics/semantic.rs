@@ -118,7 +118,7 @@ fn camel_to_snake(s: &str) -> String {
 #[macro_export]
 macro_rules! only_vertex {
   ($(#[$attr:meta])* $Type: ident, $NodeType: ty) => {
-    #[doc = concat!(stringify!($Type), " is a vertex stage only shader semantic, its value type is ", stringify!($NodeType), ".\n\n")]
+    #[doc = concat!(stringify!($Type), " is a vertex stage only shader semantic.\n\n")]
     $(#[$attr])*
     pub struct $Type;
     impl SemanticVertexShaderValue for $Type {
@@ -131,7 +131,7 @@ macro_rules! only_vertex {
 #[macro_export]
 macro_rules! only_fragment {
   ($(#[$attr:meta])* $Type: ident, $NodeType: ty) => {
-    #[doc = concat!(stringify!($Type), " is a fragment stage only shader semantic, its value type is ", stringify!($NodeType), ".\n\n")]
+    #[doc = concat!(stringify!($Type), " is a fragment stage only shader semantic.\n\n")]
     $(#[$attr])*
     pub struct $Type;
     impl SemanticFragmentShaderValue for $Type {
@@ -144,7 +144,7 @@ macro_rules! only_fragment {
 #[macro_export]
 macro_rules! both {
   ($(#[$attr:meta])* $Type: ident, $NodeType: ty) => {
-    #[doc = concat!(stringify!($Type), " is a shader semantic shared by the vertex and fragment stages, its value type is ", stringify!($NodeType), ".\n\n")]
+    #[doc = concat!(stringify!($Type), " is a shader semantic shared by the vertex and fragment stages.\n\n")]
     $(#[$attr])*
     pub struct $Type;
     impl SemanticVertexShaderValue for $Type {
