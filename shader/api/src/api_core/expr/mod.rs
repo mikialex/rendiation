@@ -52,6 +52,22 @@ impl ValueType for bool {
   const BYTE_WIDTH: u8 = 1;
 }
 
+pub trait ShaderFloatType: ShaderScalarType {}
+impl ShaderFloatType for f32 {}
+
+pub trait ShaderVec {
+  type Item: ShaderScalarType;
+}
+impl<T: ShaderScalarType> ShaderVec for Vec2<T> {
+  type Item = T;
+}
+impl<T: ShaderScalarType> ShaderVec for Vec3<T> {
+  type Item = T;
+}
+impl<T: ShaderScalarType> ShaderVec for Vec4<T> {
+  type Item = T;
+}
+
 pub trait ShaderScalarOrVec<T: ShaderScalarType> {
   type Item<S: ShaderScalarType>;
 }
@@ -67,11 +83,11 @@ impl<T: ShaderScalarType> ShaderScalarOrVec<T> for Vec3<T> {
 impl<T: ShaderScalarType> ShaderScalarOrVec<T> for Vec4<T> {
   type Item<S: ShaderScalarType> = Vec4<S>;
 }
-pub trait ShaderAnyScalarOrVec: ShaderSizedValueNodeType {}
-impl<T: ShaderScalarType> ShaderAnyScalarOrVec for T {}
-impl<T: ShaderScalarType> ShaderAnyScalarOrVec for Vec2<T> where Self: ShaderSizedValueNodeType {}
-impl<T: ShaderScalarType> ShaderAnyScalarOrVec for Vec3<T> where Self: ShaderSizedValueNodeType {}
-impl<T: ShaderScalarType> ShaderAnyScalarOrVec for Vec4<T> where Self: ShaderSizedValueNodeType {}
+pub trait ShaderAnyScalarOrVec: PrimitiveShaderNodeType {}
+impl<T: ShaderScalarType + PrimitiveShaderNodeType> ShaderAnyScalarOrVec for T {}
+impl<T: ShaderScalarType> ShaderAnyScalarOrVec for Vec2<T> where Self: PrimitiveShaderNodeType {}
+impl<T: ShaderScalarType> ShaderAnyScalarOrVec for Vec3<T> where Self: PrimitiveShaderNodeType {}
+impl<T: ShaderScalarType> ShaderAnyScalarOrVec for Vec4<T> where Self: PrimitiveShaderNodeType {}
 
 #[derive(Clone, Copy)]
 pub enum SampleLevel {

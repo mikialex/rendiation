@@ -127,24 +127,21 @@ impl Node<f32> {
 
 impl<T> Node<T>
 where
-  T: InnerProductSpace<f32> + PrimitiveShaderNodeType,
+  T: ShaderVec + PrimitiveShaderNodeType,
+  T::Item: ShaderFloatType,
 {
   pub fn normalize(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Normalize, [self.handle()])
   }
 
-  pub fn length(self) -> Node<f32> {
-    make_builtin_call(ShaderBuiltInFunction::Length, [self.handle()])
-  }
-
-  pub fn dot(self, other: impl Into<Self>) -> Node<f32> {
+  pub fn dot(self, other: impl Into<Self>) -> Node<T::Item> {
     make_builtin_call(
       ShaderBuiltInFunction::Dot,
       [self.handle(), other.into().handle()],
     )
   }
 
-  /// note, self is normal
+  /// return `incident_direction - 2 * dot(self, incident_direction) * self`.
   pub fn reflect(self, incident_direction: impl Into<Self>) -> Self {
     make_builtin_call(
       ShaderBuiltInFunction::Reflect,
@@ -152,11 +149,41 @@ where
     )
   }
 
-  pub fn cross(self, other: impl Into<Self>) -> Node<Vec3<f32>> {
+  /// For the incident vector (incident_direction) and surface normal (self), and the ratio of indices
+  /// of refraction (ior), let `k = 1.0 - ior * ior * (1.0 - dot(self, incident_direction) * dot(self, incident_direction))`.
+  /// If `k < 0.0`, returns the refraction vector 0.0, otherwise return the refraction
+  /// vector `ior * incident_direction - (ior * dot(self, incident_direction) + sqrt(k)) * self`. The incident_direction
+  /// and the normal (self) should be normalized for desired results according to Snell’s Law;
+  /// otherwise, the results may not conform to expected physical behavior.
+  pub fn refract(self, incident_direction: impl Into<Self>, ior: impl Into<Node<T::Item>>) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Refract,
+      [
+        incident_direction.into().handle(),
+        self.handle(),
+        ior.into().handle(),
+      ],
+    )
+  }
+}
+
+impl<T: ShaderFloatType> Node<Vec3<T>> {
+  pub fn cross(self, other: impl Into<Self>) -> Node<Vec3<T>> {
     make_builtin_call(
       ShaderBuiltInFunction::Cross,
       [self.handle(), other.into().handle()],
     )
+  }
+}
+
+impl<T> Node<T>
+where
+  T: ShaderVec + PrimitiveShaderNodeType,
+  T::Item: ShaderFloatType,
+{
+  // todo, wgsl spec say length can be called on scalar(return scalar's abs)
+  pub fn length(self) -> Node<f32> {
+    make_builtin_call(ShaderBuiltInFunction::Length, [self.handle()])
   }
 }
 

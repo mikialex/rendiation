@@ -230,7 +230,7 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
   }
 }
 
-pub trait ShaderScalarType: ShaderSizedValueNodeType + Copy {
+pub trait ShaderScalarType: PrimitiveShaderNodeType + Copy {
   fn scalar_type() -> ScalarType;
 }
 impl ShaderScalarType for bool {
