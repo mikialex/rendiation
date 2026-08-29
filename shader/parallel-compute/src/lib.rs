@@ -251,6 +251,7 @@ where
   ) -> DeviceMaterializeResult<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
+    T: ShaderAnyScalarOrVec,
   {
     WorkGroupReductionCompute::<T, S> {
       workgroup_size,
@@ -269,6 +270,7 @@ where
   ) -> impl ComputeComponentIO<T> + 'static
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
+    T: ShaderAnyScalarOrVec,
   {
     // assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
@@ -383,6 +385,7 @@ where
   ) -> DeviceMaterializeResult<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
+    T: ShaderScalarType,
   {
     WorkGroupPrefixScanKoggeStoneCompute::<T, S> {
       workgroup_size,
@@ -403,6 +406,7 @@ where
   ) -> DeviceMaterializeResult<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
+    T: ShaderScalarType,
   {
     // todo, impl another way to check if it's ok to run compute
     // assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);

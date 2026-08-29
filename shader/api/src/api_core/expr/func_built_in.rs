@@ -281,9 +281,29 @@ impl Node<Mat4<f32>> {
   }
 }
 
+impl<Bools: ShaderScalarOrVec<bool>> Node<Bools> {
+  pub fn select_component_wise<T: ShaderScalarType>(
+    &self,
+    true_case: impl Into<Node<Bools::Item<T>>>,
+    false_case: impl Into<Node<Bools::Item<T>>>,
+  ) -> Node<Bools::Item<T>>
+  where
+    T: ShaderScalarType,
+    Bools::Item<T>: ShaderNodeType,
+  {
+    make_builtin_call(
+      ShaderBuiltInFunction::Select,
+      [
+        false_case.into().handle(),
+        true_case.into().handle(),
+        self.handle(),
+      ],
+    )
+  }
+}
+
 impl Node<bool> {
-  // todo, support component wise select
-  pub fn select<T: ShaderNodeType>(
+  pub fn select<T: ShaderAnyScalarOrVec>(
     &self,
     true_case: impl Into<Node<T>>,
     false_case: impl Into<Node<T>>,
@@ -299,12 +319,7 @@ impl Node<bool> {
   }
 }
 
-pub trait BoolLikeShaderNodeType {}
-impl BoolLikeShaderNodeType for bool {}
-impl BoolLikeShaderNodeType for Vec2<bool> {}
-impl BoolLikeShaderNodeType for Vec3<bool> {}
-impl BoolLikeShaderNodeType for Vec4<bool> {}
-impl<T: BoolLikeShaderNodeType> Node<T> {
+impl<T: ShaderScalarOrVec<bool>> Node<T> {
   pub fn all(self) -> Node<bool> {
     make_builtin_call(ShaderBuiltInFunction::All, [self.handle()])
   }
@@ -313,8 +328,7 @@ impl<T: BoolLikeShaderNodeType> Node<T> {
   }
 }
 
-// todo restrict
-impl<T: ShaderNodeType> Node<T> {
+impl<T: ShaderScalarOrVec<f32> + ShaderNodeType> Node<T> {
   pub fn derivative(self, axis: DerivativeAxis, ctrl: DerivativeControl) -> Node<T> {
     ShaderNodeExpr::Derivative {
       axis,

@@ -45,22 +45,22 @@ impl PrimitiveShaderValueType {
   pub fn bool() -> Self {
     Self::Scalar(ScalarType::Bool)
   }
-  pub fn vec2<T: ScalarTypeOf>() -> Self {
+  pub fn vec2<T: ShaderScalarType>() -> Self {
     Self::vector(VectorSize::Bi, T::scalar_type())
   }
-  pub fn vec3<T: ScalarTypeOf>() -> Self {
+  pub fn vec3<T: ShaderScalarType>() -> Self {
     Self::vector(VectorSize::Tri, T::scalar_type())
   }
-  pub fn vec4<T: ScalarTypeOf>() -> Self {
+  pub fn vec4<T: ShaderScalarType>() -> Self {
     Self::vector(VectorSize::Quad, T::scalar_type())
   }
-  pub fn mat2<T: ScalarTypeOf>() -> Self {
+  pub fn mat2<T: ShaderScalarType>() -> Self {
     Self::square_matrix(VectorSize::Bi, T::scalar_type())
   }
-  pub fn mat3<T: ScalarTypeOf>() -> Self {
+  pub fn mat3<T: ShaderScalarType>() -> Self {
     Self::square_matrix(VectorSize::Tri, T::scalar_type())
   }
-  pub fn mat4<T: ScalarTypeOf>() -> Self {
+  pub fn mat4<T: ShaderScalarType>() -> Self {
     Self::square_matrix(VectorSize::Quad, T::scalar_type())
   }
 
@@ -230,25 +230,25 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
   }
 }
 
-pub trait ScalarTypeOf: Copy {
+pub trait ShaderScalarType: ShaderSizedValueNodeType + Copy {
   fn scalar_type() -> ScalarType;
 }
-impl ScalarTypeOf for bool {
+impl ShaderScalarType for bool {
   fn scalar_type() -> ScalarType {
     ScalarType::Bool
   }
 }
-impl ScalarTypeOf for u32 {
+impl ShaderScalarType for u32 {
   fn scalar_type() -> ScalarType {
     ScalarType::U32
   }
 }
-impl ScalarTypeOf for i32 {
+impl ShaderScalarType for i32 {
   fn scalar_type() -> ScalarType {
     ScalarType::I32
   }
 }
-impl ScalarTypeOf for f32 {
+impl ShaderScalarType for f32 {
   fn scalar_type() -> ScalarType {
     ScalarType::F32
   }
@@ -298,7 +298,7 @@ impl From<f32> for PrimitiveShaderValue {
 
 macro_rules! primitive_value_from_vector {
   ($ty: ty, $size: ident, $array_len: tt) => {
-    impl<T: ScalarTypeOf + Copy + Into<ScalarValue>> From<$ty> for PrimitiveShaderValue {
+    impl<T: ShaderScalarType + Copy + Into<ScalarValue>> From<$ty> for PrimitiveShaderValue {
       fn from(v: $ty) -> Self {
         let arr: [T; $array_len] = v.into();
         let data = ScalarValueArray::$size(arr.map(Into::into));
@@ -314,7 +314,7 @@ macro_rules! primitive_value_from_vector {
 
 macro_rules! primitive_value_from_matrix {
   ($ty: ty, $columns: ident, $column_len: tt, $rows: ident, $row_len: tt) => {
-    impl<T: ScalarTypeOf + Copy + Into<ScalarValue>> From<$ty> for PrimitiveShaderValue {
+    impl<T: ShaderScalarType + Copy + Into<ScalarValue>> From<$ty> for PrimitiveShaderValue {
       fn from(v: $ty) -> Self {
         let arr: [ScalarValue; $column_len * $row_len] = {
           let arr: [T; $column_len * $row_len] = v.into();
@@ -347,7 +347,7 @@ primitive_value_from_matrix!(Mat4<T>, Quad, 4, Quad, 4);
 primitive_value_from_matrix!(Mat4x3<T>, Quad, 4, Tri, 3);
 
 // scalars are concrete types so they can not be grouped into one generic impl,
-// vec and mat use generic impl over T: ScalarTypeOf to cover all supported scalar types.
+// vec and mat use generic impl over T: ShaderScalarType to cover all supported scalar types.
 macro_rules! impl_scalar_primitive_node_type {
   ($ty: ty, $scalar: ident) => {
     impl ShaderNodeSingleType for $ty {
@@ -386,7 +386,7 @@ macro_rules! impl_vector_primitive_node_type {
   ($ty: ident, $size: ident) => {
     impl<T> ShaderNodeSingleType for $ty<T>
     where
-      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+      T: ShaderScalarType,
     {
       fn single_ty() -> ShaderValueSingleType {
         ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(
@@ -396,7 +396,7 @@ macro_rules! impl_vector_primitive_node_type {
     }
     impl<T> ShaderNodeType for $ty<T>
     where
-      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+      T: ShaderScalarType,
     {
       fn ty() -> ShaderValueType {
         ShaderValueType::Single(Self::single_ty())
@@ -404,7 +404,7 @@ macro_rules! impl_vector_primitive_node_type {
     }
     impl<T> ShaderSizedValueNodeType for $ty<T>
     where
-      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+      T: ShaderScalarType + Into<ScalarValue>,
     {
       fn sized_ty() -> ShaderSizedValueType {
         ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(
@@ -418,7 +418,7 @@ macro_rules! impl_vector_primitive_node_type {
     }
     impl<T> PrimitiveShaderNodeType for $ty<T>
     where
-      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+      T: ShaderScalarType + Into<ScalarValue>,
     {
       fn primitive_ty() -> PrimitiveShaderValueType {
         PrimitiveShaderValueType::vector(VectorSize::$size, T::scalar_type())
@@ -435,7 +435,7 @@ macro_rules! impl_matrix_primitive_node_type {
   ($ty: ident, $columns: ident, $rows: ident) => {
     impl<T> ShaderNodeSingleType for $ty<T>
     where
-      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+      T: ShaderScalarType + Copy + Into<ScalarValue> + 'static,
     {
       fn single_ty() -> ShaderValueSingleType {
         ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(
@@ -449,7 +449,7 @@ macro_rules! impl_matrix_primitive_node_type {
     }
     impl<T> ShaderNodeType for $ty<T>
     where
-      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+      T: ShaderScalarType + Copy + Into<ScalarValue> + 'static,
     {
       fn ty() -> ShaderValueType {
         ShaderValueType::Single(Self::single_ty())
@@ -457,7 +457,7 @@ macro_rules! impl_matrix_primitive_node_type {
     }
     impl<T> ShaderSizedValueNodeType for $ty<T>
     where
-      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+      T: ShaderScalarType + Copy + Into<ScalarValue> + 'static,
     {
       fn sized_ty() -> ShaderSizedValueType {
         ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Matrix {
@@ -472,7 +472,7 @@ macro_rules! impl_matrix_primitive_node_type {
     }
     impl<T> PrimitiveShaderNodeType for $ty<T>
     where
-      T: ScalarTypeOf + Copy + Into<ScalarValue> + Default + 'static,
+      T: ShaderScalarType + Copy + Into<ScalarValue> + 'static,
     {
       fn primitive_ty() -> PrimitiveShaderValueType {
         PrimitiveShaderValueType::Matrix {

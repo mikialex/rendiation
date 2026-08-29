@@ -387,7 +387,7 @@ macro_rules! impl_primitive_compound_direct {
   ($ty: ident) => {
     impl<T> ShaderAbstractPtrAccess for $ty<T>
     where
-      T: ScalarTypeOf + Copy + Into<ScalarValue> + 'static,
+      T: ShaderScalarType + Copy + Into<ScalarValue> + 'static,
     {
       type PtrView = DirectPrimitivePtrView<$ty<T>>;
       type ReadonlyPtrView = ReadonlyDirectPrimitivePtrView<$ty<T>>;

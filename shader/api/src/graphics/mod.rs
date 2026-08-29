@@ -168,7 +168,7 @@ pub trait AbstractShaderVertexBuilderTypedExt {
   fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticVertexShaderValue,
-    T::ValueType: PrimitiveShaderNodeType;
+    T::ValueType: PrimitiveShaderNodeType + Default;
   fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
   where
     T: SemanticFragmentShaderValue,
@@ -225,7 +225,7 @@ impl<B: AbstractShaderVertexBuilder + ?Sized> AbstractShaderVertexBuilderTypedEx
   fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticVertexShaderValue,
-    T::ValueType: PrimitiveShaderNodeType,
+    T::ValueType: PrimitiveShaderNodeType + Default,
   {
     self.query_or_insert_by::<T>(Default::default)
   }

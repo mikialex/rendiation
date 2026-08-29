@@ -23,7 +23,7 @@ impl ShaderFragmentBuilderView<'_> {
   where
     T: SemanticFragmentShaderValue,
     T: SemanticFragmentShaderValue<ValueType = <V as SemanticVertexShaderValue>::ValueType>,
-    T::ValueType: PrimitiveShaderNodeType,
+    T::ValueType: PrimitiveShaderNodeType + Default,
     V: SemanticVertexShaderValue,
     V::ValueType: PrimitiveShaderNodeType,
   {
@@ -218,7 +218,7 @@ impl ShaderFragmentBuilder {
   pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticFragmentShaderValue,
-    T::ValueType: PrimitiveShaderNodeType,
+    T::ValueType: PrimitiveShaderNodeType + Default,
   {
     self.query_or_insert_by::<T>(Default::default)
   }
