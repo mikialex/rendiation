@@ -17,7 +17,7 @@ impl<T: 'static, S: 'static> ShaderHashProvider for WorkGroupReductionCompute<T,
 
 impl<T, S> ComputeComponent<Node<T>> for WorkGroupReductionCompute<T, S>
 where
-  T: ShaderSizedValueNodeType + ShaderAnyScalarOrVec,
+  T: ShaderScalarOrVec,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
   fn result_size(&self) -> u32 {
@@ -87,7 +87,7 @@ where
 
 impl<T, S> ComputeComponentIO<T> for WorkGroupReductionCompute<T, S>
 where
-  T: ShaderSizedValueNodeType + ShaderAnyScalarOrVec,
+  T: ShaderScalarOrVec,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
   fn use_materialize_storage_buffer_into(

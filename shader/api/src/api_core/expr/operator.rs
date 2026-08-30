@@ -167,14 +167,14 @@ where
   }
 }
 
-impl<T> Shl for Node<T>
+impl<T> Shl<Node<T::Shape<u32>>> for Node<T>
 where
-  T: Shl<T, Output = T>,
-  T: ShaderNodeType,
+  T: ShaderScalarOrVec,
+  T::Item: ShaderIntType,
 {
   type Output = Self;
 
-  fn shl(self, rhs: Self) -> Self::Output {
+  fn shl(self, rhs: Node<T::Shape<u32>>) -> Self::Output {
     OperatorNode::Binary {
       left: self.handle(),
       right: rhs.handle(),
@@ -184,26 +184,14 @@ where
   }
 }
 
-impl Node<i32> {
-  // todo, we have great work to do for solve this issue
-  // wgsl only accept. i32 >> u32, not i32 >> i32
-  pub fn right_shift_u32(self, rhs: Node<u32>) -> Node<i32> {
-    OperatorNode::Binary {
-      left: self.handle(),
-      right: rhs.handle(),
-      operator: BinaryOperator::ShiftRight,
-    }
-    .insert_api()
-  }
-}
-
-impl<T> Shr for Node<T>
+impl<T> Shr<Node<T::Shape<u32>>> for Node<T>
 where
-  T: ShaderNodeType,
+  T: ShaderScalarOrVec,
+  T::Item: ShaderIntType,
 {
   type Output = Self;
 
-  fn shr(self, rhs: Self) -> Self::Output {
+  fn shr(self, rhs: Node<T::Shape<u32>>) -> Self::Output {
     OperatorNode::Binary {
       left: self.handle(),
       right: rhs.handle(),
@@ -215,10 +203,10 @@ where
 
 impl<T> BitAnd for Node<T>
 where
-  T: BitAnd<T, Output = T>,
-  T: ShaderNodeType,
+  T: ShaderScalarOrVec,
+  T::Item: ShaderIntType,
 {
-  type Output = Node<T>;
+  type Output = Self;
 
   fn bitand(self, rhs: Self) -> Self::Output {
     OperatorNode::Binary {
@@ -232,10 +220,10 @@ where
 
 impl<T> BitOr for Node<T>
 where
-  T: BitOr<T, Output = T>,
-  T: ShaderNodeType,
+  T: ShaderScalarOrVec,
+  T::Item: ShaderIntType,
 {
-  type Output = Node<T>;
+  type Output = Self;
 
   fn bitor(self, rhs: Self) -> Self::Output {
     OperatorNode::Binary {
@@ -250,8 +238,8 @@ where
 // note, we not impl the Not trait, because we have not impl for Node<bool>
 impl<T> Node<T>
 where
-  T: Not<Output = T>,
-  T: ShaderNodeType,
+  T: ShaderScalarOrVec,
+  T::Item: ShaderIntType,
 {
   pub fn bitwise_not(self) -> Self {
     OperatorNode::Unary {
@@ -264,10 +252,10 @@ where
 
 impl<T> BitXor for Node<T>
 where
-  T: BitXor<T, Output = T>,
-  T: ShaderNodeType,
+  T: ShaderScalarOrVec,
+  T::Item: ShaderIntType,
 {
-  type Output = Node<T>;
+  type Output = Self;
 
   fn bitxor(self, rhs: Self) -> Self::Output {
     OperatorNode::Binary {
@@ -329,8 +317,8 @@ impl<T: ShaderNodeType> Neg for Node<T> {
 
 impl<T> Node<T>
 where
-  T::Shape<bool>: ShaderNodeType,
-  T: PrimitiveShaderNodeType,
+  T: ShaderScalarOrVec,
+  T::Shape<bool>: PrimitiveShaderNodeType,
 {
   pub fn equals(&self, other: impl Into<Self>) -> Node<T::Shape<bool>> {
     OperatorNode::Binary {
@@ -353,8 +341,9 @@ where
 
 impl<T> Node<T>
 where
+  T: ShaderScalarOrVec,
+  T::Item: ShaderNumericScalarType,
   T::Shape<bool>: ShaderNodeType,
-  T: PrimitiveShaderNodeType,
 {
   pub fn less_than(&self, other: impl Into<Self>) -> Node<T::Shape<bool>> {
     OperatorNode::Binary {

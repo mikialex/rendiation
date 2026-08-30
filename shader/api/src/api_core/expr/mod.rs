@@ -65,64 +65,59 @@ impl ShaderSignedType for f32 {}
 
 pub trait ShaderVec: PrimitiveShaderNodeType {
   type Item: ShaderScalarType;
-  type Container<S: ShaderScalarType>;
+  type Shape<S: ShaderScalarType>;
 }
 impl<T: ShaderScalarType> ShaderVec for Vec2<T>
 where
   Self: PrimitiveShaderNodeType,
 {
   type Item = T;
-  type Container<S: ShaderScalarType> = Vec2<S>;
+  type Shape<S: ShaderScalarType> = Vec2<S>;
 }
 impl<T: ShaderScalarType> ShaderVec for Vec3<T>
 where
   Self: PrimitiveShaderNodeType,
 {
   type Item = T;
-  type Container<S: ShaderScalarType> = Vec3<S>;
+  type Shape<S: ShaderScalarType> = Vec3<S>;
 }
 impl<T: ShaderScalarType> ShaderVec for Vec4<T>
 where
   Self: PrimitiveShaderNodeType,
 {
   type Item = T;
-  type Container<S: ShaderScalarType> = Vec4<S>;
+  type Shape<S: ShaderScalarType> = Vec4<S>;
 }
 
 pub trait ShaderScalarOrVec: PrimitiveShaderNodeType {
   type Item: ShaderScalarType;
-  type Container<S: ShaderScalarType>;
+  type Shape<S: ShaderScalarType>;
 }
 impl<T: ShaderScalarType> ShaderScalarOrVec for T {
   type Item = T;
-  type Container<S: ShaderScalarType> = S;
+  type Shape<S: ShaderScalarType> = S;
 }
 impl<T: ShaderScalarType> ShaderScalarOrVec for Vec2<T>
 where
   Self: PrimitiveShaderNodeType,
 {
   type Item = T;
-  type Container<S: ShaderScalarType> = Vec2<S>;
+  type Shape<S: ShaderScalarType> = Vec2<S>;
 }
 impl<T: ShaderScalarType> ShaderScalarOrVec for Vec3<T>
 where
   Self: PrimitiveShaderNodeType,
 {
   type Item = T;
-  type Container<S: ShaderScalarType> = Vec3<S>;
+  type Shape<S: ShaderScalarType> = Vec3<S>;
 }
 impl<T: ShaderScalarType> ShaderScalarOrVec for Vec4<T>
 where
   Self: PrimitiveShaderNodeType,
 {
   type Item = T;
-  type Container<S: ShaderScalarType> = Vec4<S>;
+  type Shape<S: ShaderScalarType> = Vec4<S>;
 }
-pub trait ShaderAnyScalarOrVec: PrimitiveShaderNodeType {}
-impl<T: ShaderScalarType + PrimitiveShaderNodeType> ShaderAnyScalarOrVec for T {}
-impl<T: ShaderScalarType> ShaderAnyScalarOrVec for Vec2<T> where Self: PrimitiveShaderNodeType {}
-impl<T: ShaderScalarType> ShaderAnyScalarOrVec for Vec3<T> where Self: PrimitiveShaderNodeType {}
-impl<T: ShaderScalarType> ShaderAnyScalarOrVec for Vec4<T> where Self: PrimitiveShaderNodeType {}
 
 #[derive(Clone, Copy)]
 pub enum SampleLevel {

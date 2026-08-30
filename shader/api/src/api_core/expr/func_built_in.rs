@@ -361,12 +361,12 @@ impl Node<Mat4<f32>> {
 impl<Bools: ShaderScalarOrVec<Item = bool>> Node<Bools> {
   pub fn select_per_channel<T>(
     &self,
-    true_case: impl Into<Node<Bools::Container<T>>>,
-    false_case: impl Into<Node<Bools::Container<T>>>,
-  ) -> Node<Bools::Container<T>>
+    true_case: impl Into<Node<Bools::Shape<T>>>,
+    false_case: impl Into<Node<Bools::Shape<T>>>,
+  ) -> Node<Bools::Shape<T>>
   where
     T: ShaderScalarType,
-    Bools::Container<T>: ShaderNodeType,
+    Bools::Shape<T>: ShaderNodeType,
   {
     make_builtin_call(
       ShaderBuiltInFunction::Select,
@@ -380,7 +380,7 @@ impl<Bools: ShaderScalarOrVec<Item = bool>> Node<Bools> {
 }
 
 impl Node<bool> {
-  pub fn select<T: ShaderAnyScalarOrVec>(
+  pub fn select<T: ShaderScalarOrVec>(
     &self,
     true_case: impl Into<Node<T>>,
     false_case: impl Into<Node<T>>,
@@ -537,7 +537,7 @@ where
   T: ShaderScalarOrVec,
   T::Item: ShaderFloatType,
 {
-  pub fn frexp(self) -> (Node<T::Container<T::Item>>, Node<i32>) {
+  pub fn frexp(self) -> (Node<T::Shape<T::Item>>, Node<i32>) {
     let raw = make_builtin_call_with_ty_helper::<AnyType>(
       ShaderBuiltInFunction::Frexp,
       T::primitive_ty(),

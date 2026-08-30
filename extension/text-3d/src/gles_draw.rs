@@ -332,7 +332,7 @@ fn calc_band_loc(glyph_loc: Node<Vec2<i32>>, offset: Node<u32>) -> Node<Vec2<i32
   // If the offset causes the x coordinate to exceed the texture width, then wrap to the next line.
 
   let band_loc = vec2_node((glyph_loc.x() + offset.into_i32(), glyph_loc.y()));
-  let y = band_loc.y() + (band_loc.x().right_shift_u32(val(K_LOG_BAND_TEXTURE_WIDTH)));
+  let y = band_loc.y() + (band_loc.x() >> val(K_LOG_BAND_TEXTURE_WIDTH));
   let x = band_loc.x() & val((1 << K_LOG_BAND_TEXTURE_WIDTH) - 1);
 
   (x, y).into()

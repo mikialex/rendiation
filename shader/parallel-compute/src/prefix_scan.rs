@@ -52,7 +52,7 @@ impl<T: 'static, S: 'static> ShaderHashProvider for WorkGroupPrefixScanKoggeSton
 
 impl<T, S> ComputeComponent<Node<T>> for WorkGroupPrefixScanKoggeStoneCompute<T, S>
 where
-  T: ShaderAnyScalarOrVec,
+  T: ShaderScalarOrVec,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
   fn result_size(&self) -> u32 {

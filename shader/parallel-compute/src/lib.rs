@@ -251,7 +251,7 @@ where
   ) -> DeviceMaterializeResult<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
-    T: ShaderAnyScalarOrVec,
+    T: ShaderScalarOrVec,
   {
     WorkGroupReductionCompute::<T, S> {
       workgroup_size,
@@ -270,7 +270,7 @@ where
   ) -> impl ComputeComponentIO<T> + 'static
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
-    T: ShaderAnyScalarOrVec,
+    T: ShaderScalarOrVec,
   {
     // assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 

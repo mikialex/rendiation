@@ -74,7 +74,7 @@ impl<T: Std430> ShaderHashProvider for ShuffleAccess<T> {
 
 impl<T> ComputeComponent<Node<T>> for ShuffleAccess<T>
 where
-  T: Std430 + ShaderSizedValueNodeType + ShaderAnyScalarOrVec,
+  T: Std430 + ShaderScalarOrVec,
 {
   fn result_size(&self) -> u32 {
     self.shuffle_idx.result_size()

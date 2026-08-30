@@ -380,7 +380,6 @@ macro_rules! impl_scalar_primitive_node_type {
       fn primitive_ty() -> PrimitiveShaderValueType {
         PrimitiveShaderValueType::Scalar(ScalarType::$scalar)
       }
-      type Shape<X> = X;
       fn to_primitive(&self) -> PrimitiveShaderValue {
         PrimitiveShaderValue::from(*self)
       }
@@ -429,7 +428,6 @@ macro_rules! impl_vector_primitive_node_type {
       fn primitive_ty() -> PrimitiveShaderValueType {
         PrimitiveShaderValueType::vector(VectorSize::$size, T::scalar_type())
       }
-      type Shape<X> = $ty<X>;
       fn to_primitive(&self) -> PrimitiveShaderValue {
         PrimitiveShaderValue::from(*self)
       }
@@ -487,7 +485,6 @@ macro_rules! impl_matrix_primitive_node_type {
           scalar: T::scalar_type(),
         }
       }
-      type Shape<X> = $ty<X>;
       fn to_primitive(&self) -> PrimitiveShaderValue {
         PrimitiveShaderValue::from(*self)
       }
@@ -526,7 +523,6 @@ impl PrimitiveShaderNodeType for Bool {
   fn primitive_ty() -> PrimitiveShaderValueType {
     PrimitiveShaderValueType::u32()
   }
-  type Shape<T> = Bool;
   fn to_primitive(&self) -> PrimitiveShaderValue {
     PrimitiveShaderValue::Scalar(ScalarValue::U32(self.0))
   }
