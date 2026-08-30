@@ -198,6 +198,7 @@ where
 impl<T> Node<T>
 where
   T: ShaderScalarOrVec,
+  T::Item: ShaderNumericScalarType,
 {
   pub fn min(self, other: impl Into<Self>) -> Self {
     make_builtin_call(
@@ -310,7 +311,10 @@ where
   }
 }
 
-impl<T: ShaderScalarOrVec> Node<T> {
+impl<T: ShaderScalarOrVec> Node<T>
+where
+  T::Item: ShaderNumericScalarType,
+{
   pub fn abs(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Abs, [self.handle()])
   }
@@ -355,7 +359,7 @@ impl Node<Mat4<f32>> {
 }
 
 impl<Bools: ShaderScalarOrVec<Item = bool>> Node<Bools> {
-  pub fn select_per_channel<T: ShaderScalarType>(
+  pub fn select_per_channel<T>(
     &self,
     true_case: impl Into<Node<Bools::Container<T>>>,
     false_case: impl Into<Node<Bools::Container<T>>>,
@@ -549,15 +553,37 @@ where
   }
 }
 
-// todo expand to more type
-impl Node<Vec3<f32>> {
-  pub fn max_channel(self) -> Node<f32> {
-    self.x().max(self.y()).max(self.z())
+impl<T> Node<Vec2<T>>
+where
+  T: ShaderNumericScalarType,
+{
+  pub fn max_channel(self) -> Node<T> {
+    self.x().max(self.y())
+  }
+  pub fn min_channel(self) -> Node<T> {
+    self.x().min(self.y())
   }
 }
-impl Node<Vec3<f32>> {
-  pub fn min_channel(self) -> Node<f32> {
+impl<T> Node<Vec3<T>>
+where
+  T: ShaderNumericScalarType,
+{
+  pub fn max_channel(self) -> Node<T> {
+    self.x().max(self.y()).max(self.z())
+  }
+  pub fn min_channel(self) -> Node<T> {
     self.x().min(self.y()).min(self.z())
+  }
+}
+impl<T> Node<Vec4<T>>
+where
+  T: ShaderNumericScalarType,
+{
+  pub fn max_channel(self) -> Node<T> {
+    self.x().max(self.y()).max(self.z()).max(self.w())
+  }
+  pub fn min_channel(self) -> Node<T> {
+    self.x().min(self.y()).min(self.z()).min(self.w())
   }
 }
 

@@ -254,6 +254,12 @@ impl ShaderScalarType for f32 {
   }
 }
 
+/// marker trait for numeric scalar types, excluding bool
+pub trait ShaderNumericScalarType: ShaderScalarType {}
+impl ShaderNumericScalarType for u32 {}
+impl ShaderNumericScalarType for i32 {}
+impl ShaderNumericScalarType for f32 {}
+
 impl From<bool> for ScalarValue {
   fn from(v: bool) -> Self {
     ScalarValue::Bool(v)
@@ -564,10 +570,13 @@ where
 }
 
 macro_rules! swizzle {
-  ($IVec: ty, $OVec: ty, $Swi: ident) => {
+  ($IVec: ident, $OVec: ident, $Swi: ident) => {
     paste::item! {
-      impl Node<$IVec> {
-        pub fn [< $Swi >](&self) -> Node<$OVec> {
+      impl<T> Node<$IVec<T>>
+      where
+        T: ShaderScalarType,
+      {
+        pub fn [< $Swi >](&self) -> Node<$OVec<T>> {
           swizzle_node::<_, _>(self, stringify!{$Swi})
         }
       }
@@ -575,138 +584,150 @@ macro_rules! swizzle {
   };
 }
 
-macro_rules! swizzle_all {
-  ($t: ty) => {
-    swizzle!(Vec4<$t>, Vec3<$t>, xxy);
-    swizzle!(Vec4<$t>, Vec3<$t>, xxz);
-    swizzle!(Vec4<$t>, Vec3<$t>, xxx);
-    swizzle!(Vec4<$t>, Vec3<$t>, xxw);
-    swizzle!(Vec4<$t>, Vec3<$t>, xyx);
-    swizzle!(Vec4<$t>, Vec3<$t>, xyz);
-    swizzle!(Vec4<$t>, Vec3<$t>, xyy);
-    swizzle!(Vec4<$t>, Vec3<$t>, xyw);
-    swizzle!(Vec4<$t>, Vec3<$t>, xzx);
-    swizzle!(Vec4<$t>, Vec3<$t>, xzy);
-    swizzle!(Vec4<$t>, Vec3<$t>, xzz);
-    swizzle!(Vec4<$t>, Vec3<$t>, xzw);
-    swizzle!(Vec4<$t>, Vec3<$t>, xwx);
-    swizzle!(Vec4<$t>, Vec3<$t>, xwy);
-    swizzle!(Vec4<$t>, Vec3<$t>, xwz);
-    swizzle!(Vec4<$t>, Vec3<$t>, xww);
-
-    swizzle!(Vec4<$t>, Vec3<$t>, yxy);
-    swizzle!(Vec4<$t>, Vec3<$t>, yxz);
-    swizzle!(Vec4<$t>, Vec3<$t>, yxx);
-    swizzle!(Vec4<$t>, Vec3<$t>, yxw);
-    swizzle!(Vec4<$t>, Vec3<$t>, yyx);
-    swizzle!(Vec4<$t>, Vec3<$t>, yyz);
-    swizzle!(Vec4<$t>, Vec3<$t>, yyy);
-    swizzle!(Vec4<$t>, Vec3<$t>, yyw);
-    swizzle!(Vec4<$t>, Vec3<$t>, yzx);
-    swizzle!(Vec4<$t>, Vec3<$t>, yzy);
-    swizzle!(Vec4<$t>, Vec3<$t>, yzz);
-    swizzle!(Vec4<$t>, Vec3<$t>, yzw);
-    swizzle!(Vec4<$t>, Vec3<$t>, ywx);
-    swizzle!(Vec4<$t>, Vec3<$t>, ywy);
-    swizzle!(Vec4<$t>, Vec3<$t>, ywz);
-    swizzle!(Vec4<$t>, Vec3<$t>, yww);
-
-    swizzle!(Vec4<$t>, Vec3<$t>, zxy);
-    swizzle!(Vec4<$t>, Vec3<$t>, zxz);
-    swizzle!(Vec4<$t>, Vec3<$t>, zxx);
-    swizzle!(Vec4<$t>, Vec3<$t>, zxw);
-    swizzle!(Vec4<$t>, Vec3<$t>, zyx);
-    swizzle!(Vec4<$t>, Vec3<$t>, zyz);
-    swizzle!(Vec4<$t>, Vec3<$t>, zyy);
-    swizzle!(Vec4<$t>, Vec3<$t>, zyw);
-    swizzle!(Vec4<$t>, Vec3<$t>, zzx);
-    swizzle!(Vec4<$t>, Vec3<$t>, zzy);
-    swizzle!(Vec4<$t>, Vec3<$t>, zzz);
-    swizzle!(Vec4<$t>, Vec3<$t>, zzw);
-    swizzle!(Vec4<$t>, Vec3<$t>, zwx);
-    swizzle!(Vec4<$t>, Vec3<$t>, zwy);
-    swizzle!(Vec4<$t>, Vec3<$t>, zwz);
-    swizzle!(Vec4<$t>, Vec3<$t>, zww);
-
-    swizzle!(Vec4<$t>, Vec3<$t>, wxy);
-    swizzle!(Vec4<$t>, Vec3<$t>, wxz);
-    swizzle!(Vec4<$t>, Vec3<$t>, wxx);
-    swizzle!(Vec4<$t>, Vec3<$t>, wxw);
-    swizzle!(Vec4<$t>, Vec3<$t>, wyx);
-    swizzle!(Vec4<$t>, Vec3<$t>, wyz);
-    swizzle!(Vec4<$t>, Vec3<$t>, wyy);
-    swizzle!(Vec4<$t>, Vec3<$t>, wyw);
-    swizzle!(Vec4<$t>, Vec3<$t>, wzx);
-    swizzle!(Vec4<$t>, Vec3<$t>, wzy);
-    swizzle!(Vec4<$t>, Vec3<$t>, wzz);
-    swizzle!(Vec4<$t>, Vec3<$t>, www);
-    swizzle!(Vec4<$t>, Vec3<$t>, wwx);
-    swizzle!(Vec4<$t>, Vec3<$t>, wwy);
-    swizzle!(Vec4<$t>, Vec3<$t>, wwz);
-
-    swizzle!(Vec4<$t>, Vec2<$t>, xy);
-    swizzle!(Vec4<$t>, Vec2<$t>, xz);
-    swizzle!(Vec4<$t>, Vec2<$t>, xx);
-    swizzle!(Vec4<$t>, Vec2<$t>, xw);
-    swizzle!(Vec4<$t>, Vec2<$t>, yx);
-    swizzle!(Vec4<$t>, Vec2<$t>, yz);
-    swizzle!(Vec4<$t>, Vec2<$t>, yy);
-    swizzle!(Vec4<$t>, Vec2<$t>, yw);
-    swizzle!(Vec4<$t>, Vec2<$t>, zx);
-    swizzle!(Vec4<$t>, Vec2<$t>, zy);
-    swizzle!(Vec4<$t>, Vec2<$t>, zz);
-    swizzle!(Vec4<$t>, Vec2<$t>, zw);
-
-    swizzle!(Vec4<$t>, $t, x);
-    swizzle!(Vec4<$t>, $t, y);
-    swizzle!(Vec4<$t>, $t, z);
-    swizzle!(Vec4<$t>, $t, w);
-
-    swizzle!(Vec3<$t>, Vec2<$t>, xy);
-    swizzle!(Vec3<$t>, Vec2<$t>, xx);
-    swizzle!(Vec3<$t>, Vec2<$t>, xz);
-    swizzle!(Vec3<$t>, Vec2<$t>, yx);
-    swizzle!(Vec3<$t>, Vec2<$t>, yy);
-    swizzle!(Vec3<$t>, Vec2<$t>, yz);
-    swizzle!(Vec3<$t>, Vec2<$t>, zx);
-    swizzle!(Vec3<$t>, Vec2<$t>, zy);
-    swizzle!(Vec3<$t>, Vec2<$t>, zz);
-    swizzle!(Vec3<$t>, $t, x);
-    swizzle!(Vec3<$t>, $t, y);
-    swizzle!(Vec3<$t>, $t, z);
-
-    swizzle!(Vec2<$t>, $t, x);
-    swizzle!(Vec2<$t>, $t, y);
+macro_rules! swizzle_scalar {
+  ($IVec: ident, $Swi: ident) => {
+    paste::item! {
+      impl<T> Node<$IVec<T>>
+      where
+        T: ShaderScalarType,
+      {
+        pub fn [< $Swi >](&self) -> Node<T> {
+          swizzle_node::<_, _>(self, stringify!{$Swi})
+        }
+      }
+    }
   };
 }
 
-swizzle_all!(f32);
-swizzle_all!(u32);
-swizzle_all!(i32);
-// swizzle_all!(bool);
+swizzle!(Vec4, Vec3, xxy);
+swizzle!(Vec4, Vec3, xxz);
+swizzle!(Vec4, Vec3, xxx);
+swizzle!(Vec4, Vec3, xxw);
+swizzle!(Vec4, Vec3, xyx);
+swizzle!(Vec4, Vec3, xyz);
+swizzle!(Vec4, Vec3, xyy);
+swizzle!(Vec4, Vec3, xyw);
+swizzle!(Vec4, Vec3, xzx);
+swizzle!(Vec4, Vec3, xzy);
+swizzle!(Vec4, Vec3, xzz);
+swizzle!(Vec4, Vec3, xzw);
+swizzle!(Vec4, Vec3, xwx);
+swizzle!(Vec4, Vec3, xwy);
+swizzle!(Vec4, Vec3, xwz);
+swizzle!(Vec4, Vec3, xww);
+
+swizzle!(Vec4, Vec3, yxy);
+swizzle!(Vec4, Vec3, yxz);
+swizzle!(Vec4, Vec3, yxx);
+swizzle!(Vec4, Vec3, yxw);
+swizzle!(Vec4, Vec3, yyx);
+swizzle!(Vec4, Vec3, yyz);
+swizzle!(Vec4, Vec3, yyy);
+swizzle!(Vec4, Vec3, yyw);
+swizzle!(Vec4, Vec3, yzx);
+swizzle!(Vec4, Vec3, yzy);
+swizzle!(Vec4, Vec3, yzz);
+swizzle!(Vec4, Vec3, yzw);
+swizzle!(Vec4, Vec3, ywx);
+swizzle!(Vec4, Vec3, ywy);
+swizzle!(Vec4, Vec3, ywz);
+swizzle!(Vec4, Vec3, yww);
+
+swizzle!(Vec4, Vec3, zxy);
+swizzle!(Vec4, Vec3, zxz);
+swizzle!(Vec4, Vec3, zxx);
+swizzle!(Vec4, Vec3, zxw);
+swizzle!(Vec4, Vec3, zyx);
+swizzle!(Vec4, Vec3, zyz);
+swizzle!(Vec4, Vec3, zyy);
+swizzle!(Vec4, Vec3, zyw);
+swizzle!(Vec4, Vec3, zzx);
+swizzle!(Vec4, Vec3, zzy);
+swizzle!(Vec4, Vec3, zzz);
+swizzle!(Vec4, Vec3, zzw);
+swizzle!(Vec4, Vec3, zwx);
+swizzle!(Vec4, Vec3, zwy);
+swizzle!(Vec4, Vec3, zwz);
+swizzle!(Vec4, Vec3, zww);
+
+swizzle!(Vec4, Vec3, wxy);
+swizzle!(Vec4, Vec3, wxz);
+swizzle!(Vec4, Vec3, wxx);
+swizzle!(Vec4, Vec3, wxw);
+swizzle!(Vec4, Vec3, wyx);
+swizzle!(Vec4, Vec3, wyz);
+swizzle!(Vec4, Vec3, wyy);
+swizzle!(Vec4, Vec3, wyw);
+swizzle!(Vec4, Vec3, wzx);
+swizzle!(Vec4, Vec3, wzy);
+swizzle!(Vec4, Vec3, wzz);
+swizzle!(Vec4, Vec3, www);
+swizzle!(Vec4, Vec3, wwx);
+swizzle!(Vec4, Vec3, wwy);
+swizzle!(Vec4, Vec3, wwz);
+
+swizzle!(Vec4, Vec2, xy);
+swizzle!(Vec4, Vec2, xz);
+swizzle!(Vec4, Vec2, xx);
+swizzle!(Vec4, Vec2, xw);
+swizzle!(Vec4, Vec2, yx);
+swizzle!(Vec4, Vec2, yz);
+swizzle!(Vec4, Vec2, yy);
+swizzle!(Vec4, Vec2, yw);
+swizzle!(Vec4, Vec2, zx);
+swizzle!(Vec4, Vec2, zy);
+swizzle!(Vec4, Vec2, zz);
+swizzle!(Vec4, Vec2, zw);
+
+swizzle_scalar!(Vec4, x);
+swizzle_scalar!(Vec4, y);
+swizzle_scalar!(Vec4, z);
+swizzle_scalar!(Vec4, w);
+
+swizzle!(Vec3, Vec2, xy);
+swizzle!(Vec3, Vec2, xx);
+swizzle!(Vec3, Vec2, xz);
+swizzle!(Vec3, Vec2, yx);
+swizzle!(Vec3, Vec2, yy);
+swizzle!(Vec3, Vec2, yz);
+swizzle!(Vec3, Vec2, zx);
+swizzle!(Vec3, Vec2, zy);
+swizzle!(Vec3, Vec2, zz);
+swizzle_scalar!(Vec3, x);
+swizzle_scalar!(Vec3, y);
+swizzle_scalar!(Vec3, z);
+
+swizzle_scalar!(Vec2, x);
+swizzle_scalar!(Vec2, y);
 
 macro_rules! swizzle_mat {
-  ($t: ty) => {
-    swizzle!(Mat4<$t>, Vec4<$t>, x);
-    swizzle!(Mat4<$t>, Vec4<$t>, y);
-    swizzle!(Mat4<$t>, Vec4<$t>, z);
-    swizzle!(Mat4<$t>, Vec4<$t>, w);
-
-    swizzle!(Mat3<$t>, Vec3<$t>, x);
-    swizzle!(Mat3<$t>, Vec3<$t>, y);
-    swizzle!(Mat3<$t>, Vec3<$t>, z);
-
-    swizzle!(Mat2<$t>, Vec2<$t>, x);
-    swizzle!(Mat2<$t>, Vec2<$t>, y);
+  ($IVec: ident, $OVec: ident, $Swi: ident) => {
+    paste::item! {
+      impl<T> Node<$IVec<T>>
+      where
+        T: ShaderScalarType + Copy + Into<ScalarValue> + 'static,
+      {
+        pub fn [< $Swi >](&self) -> Node<$OVec<T>> {
+          swizzle_node::<_, _>(self, stringify!{$Swi})
+        }
+      }
+    }
   };
 }
 
-swizzle_mat!(f32);
-
-swizzle!(Mat4x3<f32>, Vec3<f32>, x);
-swizzle!(Mat4x3<f32>, Vec3<f32>, y);
-swizzle!(Mat4x3<f32>, Vec3<f32>, z);
-swizzle!(Mat4x3<f32>, Vec3<f32>, w);
+swizzle_mat!(Mat4, Vec4, x);
+swizzle_mat!(Mat4, Vec4, y);
+swizzle_mat!(Mat4, Vec4, z);
+swizzle_mat!(Mat4, Vec4, w);
+swizzle_mat!(Mat3, Vec3, x);
+swizzle_mat!(Mat3, Vec3, y);
+swizzle_mat!(Mat3, Vec3, z);
+swizzle_mat!(Mat2, Vec2, x);
+swizzle_mat!(Mat2, Vec2, y);
+swizzle_mat!(Mat4x3, Vec3, x);
+swizzle_mat!(Mat4x3, Vec3, y);
+swizzle_mat!(Mat4x3, Vec3, z);
+swizzle_mat!(Mat4x3, Vec3, w);
 
 macro_rules! num_convert {
   ($src: ty, $dst: ty) => {
