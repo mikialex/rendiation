@@ -88,6 +88,8 @@ pub enum RenderTargetView {
   SurfaceTexture {
     size: Size,
     format: gpu::TextureFormat,
+    // keep the Arc here: unlike other wgpu handles(8 bytes), TextureView is 88 bytes because it
+    // inlines its owning Texture, so boxing keeps this frequently cloned enum small
     view: Arc<gpu::TextureView>,
     view_id: usize,
     binding_dropper: Arc<BindGroupCacheInvalidation>,
@@ -253,7 +255,7 @@ pub struct RenderTargetFormatsInfo {
 
 pub struct GPURenderPass {
   pub pass: gpu::RenderPass<'static>,
-  pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
+  pub(crate) placeholder_bg: gpu::BindGroup,
   pub(crate) size: Size,
   pub(crate) formats: RenderTargetFormatsInfo,
   pub(crate) time_measuring: Option<TimeQuery>,
@@ -261,9 +263,7 @@ pub struct GPURenderPass {
 
 impl AbstractPassBinding for GPURenderPass {
   fn set_bind_group_placeholder(&mut self, index: u32) {
-    self
-      .pass
-      .set_bind_group(index, self.placeholder_bg.as_ref(), &[]);
+    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
   }
 
   fn set_bind_group(&mut self, index: u32, bind_group: &BindGroup, offsets: &[DynamicOffset]) {
@@ -447,14 +447,12 @@ pub enum DrawCommand {
 
 pub struct GPUComputePass {
   pub(crate) pass: gpu::ComputePass<'static>,
-  pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
+  pub(crate) placeholder_bg: gpu::BindGroup,
 }
 
 impl AbstractPassBinding for GPUComputePass {
   fn set_bind_group_placeholder(&mut self, index: u32) {
-    self
-      .pass
-      .set_bind_group(index, self.placeholder_bg.as_ref(), &[]);
+    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
   }
 
   fn set_bind_group(&mut self, index: u32, bind_group: &BindGroup, offsets: &[DynamicOffset]) {

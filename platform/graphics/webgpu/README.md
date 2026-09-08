@@ -2,7 +2,8 @@
 
 Contents and Responsibility:
 
-* Provide clone-able and thread-safe wrapper for resource type.
+* ~~Provide clone-able and thread-safe wrapper for resource type.~~
+  * the later wgpu update make it's types all cloneable.
 * Record all related info with resource wrapper for convenience.
 * Provide bindgroup cache and binding encapsulation, user could not care bindgroup management at all.
 * Provide async functions for resource async read.

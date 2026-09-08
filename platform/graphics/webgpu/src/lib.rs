@@ -81,7 +81,7 @@ pub use wgpu_types::*;
 #[derive(Clone)]
 pub struct GPU {
   pub instance: GPUInstance,
-  pub adaptor: Arc<gpu::Adapter>,
+  pub adaptor: gpu::Adapter,
   pub info: Arc<GPUInfo>,
   pub device: GPUDevice,
   pub queue: GPUQueue,
@@ -247,7 +247,7 @@ impl GPU {
 
     let gpu = Self {
       instance,
-      adaptor: Arc::new(adaptor),
+      adaptor,
       info: Arc::new(info),
       device,
       queue,

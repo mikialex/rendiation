@@ -27,9 +27,9 @@ impl BindingResourceOwned {
       BindingResourceOwned::Sampler(sampler) => {
         BindingResourceOwnedRef::Sampler(&sampler.resource.0)
       }
-      BindingResourceOwned::SamplerArray(samplers) => BindingResourceOwnedRef::SamplerArray(
-        samplers.iter().map(|s| s.resource.0.as_ref()).collect(),
-      ),
+      BindingResourceOwned::SamplerArray(samplers) => {
+        BindingResourceOwnedRef::SamplerArray(samplers.iter().map(|s| &s.resource.0).collect())
+      }
       BindingResourceOwned::RawTextureView(view, _) => {
         BindingResourceOwnedRef::TextureView(view.as_ref())
       }

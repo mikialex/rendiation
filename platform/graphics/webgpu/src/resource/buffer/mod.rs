@@ -52,7 +52,7 @@ impl BindableResourceProvider for GPUBufferResourceView {
 
 #[derive(Clone)]
 pub struct GPUBuffer {
-  pub(crate) gpu: Arc<gpu::Buffer>,
+  pub(crate) gpu: gpu::Buffer,
 }
 
 pub enum BufferInit<'a> {
@@ -89,7 +89,7 @@ impl GPUBuffer {
         mapped_at_creation: false,
       }),
     };
-    Self { gpu: Arc::new(gpu) }
+    Self { gpu }
   }
 
   pub fn update(&self, queue: &gpu::Queue, bytes: &[u8]) {

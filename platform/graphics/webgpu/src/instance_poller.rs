@@ -32,15 +32,12 @@ impl GPUInstance {
   #[cfg(target_family = "wasm")]
   pub fn new(instance: gpu::Instance) -> Self {
     Self {
-      instance: Arc::new(GPUInstanceInner {
-        instance: Arc::new(instance),
-      }),
+      instance: Arc::new(GPUInstanceInner { instance }),
     }
   }
 
   #[cfg(not(target_family = "wasm"))]
   pub fn new(instance: gpu::Instance) -> Self {
-    let instance = Arc::new(instance);
     let polling_frequency = Arc::new(AtomicU32::new(16));
     let dropped = Arc::new(AtomicBool::new(false));
 
@@ -76,7 +73,7 @@ impl GPUInstance {
 }
 
 pub struct GPUInstanceInner {
-  instance: Arc<gpu::Instance>,
+  instance: gpu::Instance,
   #[cfg(not(target_family = "wasm"))]
   is_dropped: Arc<AtomicBool>,
   #[cfg(not(target_family = "wasm"))]

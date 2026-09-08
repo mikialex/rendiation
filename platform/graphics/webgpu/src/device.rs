@@ -32,12 +32,9 @@ impl GPUDevice {
       bindgroup_layout_cache: Default::default(),
       render_pipeline_cache: Default::default(),
       compute_pipeline_cache: Default::default(),
-      placeholder_bg: Arc::new(placeholder_bg),
+      placeholder_bg,
       deferred_explicit_destroy: Default::default(),
-      enable_binding_ty_check: {
-        let enabled = cfg!(debug_assertions);
-        Arc::new(RwLock::new(enabled))
-      },
+      enable_binding_ty_check: RwLock::new(cfg!(debug_assertions)),
       default_shader_checks,
       info,
     };
@@ -224,8 +221,8 @@ pub(crate) struct GPUDeviceImpl {
   render_pipeline_cache: RwLock<FastHashMap<u64, GPURenderPipeline>>,
   compute_pipeline_cache: RwLock<FastHashMap<u64, GPUComputePipeline>>,
   pub(crate) deferred_explicit_destroy: DeferExplicitDestroy,
-  pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
-  pub(crate) enable_binding_ty_check: Arc<RwLock<bool>>,
+  pub(crate) placeholder_bg: gpu::BindGroup,
+  pub(crate) enable_binding_ty_check: RwLock<bool>,
   pub(crate) default_shader_checks: ShaderRuntimeChecks,
   /// this info is as same as the gpu, we clone here for easy access
   info: GPUInfo,
@@ -258,7 +255,7 @@ impl SamplerCache {
       .or_insert_with(|| {
         (
           desc.clone(),
-          RawSampler(Arc::new(device.create_sampler(&desc.clone().into()))),
+          RawSampler(device.create_sampler(&desc.clone().into())),
         )
       })
       .1

@@ -7,11 +7,11 @@ impl BindableResourceView for gpu::Sampler {
 }
 
 #[derive(Clone)]
-pub struct RawSampler(pub Arc<gpu::Sampler>);
+pub struct RawSampler(pub gpu::Sampler);
 
 impl BindableResourceView for RawSampler {
   fn as_bindable(&self) -> gpu::BindingResource<'_> {
-    gpu::BindingResource::Sampler(self.0.as_ref())
+    gpu::BindingResource::Sampler(&self.0)
   }
 }
 

@@ -2,14 +2,12 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct GPUQueue {
-  inner: Arc<wgpu::Queue>,
+  inner: wgpu::Queue,
 }
 
 impl GPUQueue {
   pub fn new(queue: wgpu::Queue) -> Self {
-    Self {
-      inner: Arc::new(queue),
-    }
+    Self { inner: queue }
   }
 
   pub fn submit_encoder(&self, encoder: GPUCommandEncoder) {

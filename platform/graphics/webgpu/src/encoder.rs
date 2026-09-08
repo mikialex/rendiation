@@ -3,7 +3,7 @@ use crate::*;
 pub struct GPUCommandEncoder {
   pub(crate) encoder: gpu::CommandEncoder,
   active_pass_target_holder: Option<RenderPassDescription>,
-  placeholder_bg: Arc<gpu::BindGroup>,
+  placeholder_bg: gpu::BindGroup,
   deferred_explicit_destroy: CommandBufferDeferExplicitDestroyFlusher,
   pub(crate) on_submit: EventSource<()>,
 }
