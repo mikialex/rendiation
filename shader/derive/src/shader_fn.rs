@@ -1,7 +1,9 @@
+use crate::shader_name_marked::mark_all_lets_in_block;
 use crate::*;
 
 pub fn shader_api_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStream {
-  let func = parse_macro_input!(input as syn::ItemFn);
+  let mut func = parse_macro_input!(input as syn::ItemFn);
+  *func.block = mark_all_lets_in_block(*func.block);
 
   let sig = &func.sig;
   let vis = &func.vis;
@@ -25,8 +27,12 @@ pub fn shader_api_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStream
       _ => None,
     })
     .map(|(name, ty)| {
-      let name = quote::format_ident!("n_{}", name);
-      quote::quote! {let #name = builder.push_fn_parameter::<<#ty as rendiation_shader_api::ProcMacroNodeHelper>::NodeType>(); }
+      let node = quote::format_ident!("n_{}", name);
+      let label = syn::LitStr::new(&name.to_string(), name.span());
+      quote::quote! {
+        let #node = builder.push_fn_parameter::<<#ty as rendiation_shader_api::ProcMacroNodeHelper>::NodeType>();
+        rendiation_shader_api::DebugLabelMarkExt::mark_label(&#node, #label);
+      }
     })
     .collect();
 

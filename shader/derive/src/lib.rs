@@ -3,11 +3,13 @@ use syn::parse_macro_input;
 
 mod shader_align;
 mod shader_fn;
+mod shader_name_marked;
 mod shader_struct;
 mod utils;
 mod vertex;
 use shader_align::*;
 use shader_fn::*;
+use shader_name_marked::*;
 use shader_struct::*;
 use vertex::*;
 
@@ -71,7 +73,24 @@ pub fn std430_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
   TokenStream::from(expanded)
 }
 
+/// Mark the function callable on the GPU side, auto-deduplicated by its unique name.
+///
+/// Every `let` binding in the function body and every parameter is automatically debug name
+/// marked with its Rust variable name, same behavior as `shader_name_marked`.
 #[proc_macro_attribute]
 pub fn shader_fn(_args: TokenStream, input: TokenStream) -> TokenStream {
   shader_api_fn_impl(_args, input)
+}
+
+/// Mark every `let` binding in the function body with its Rust variable name, so the name shows
+/// up in generated WGSL as debug labels for the underlying shader node.
+///
+/// The inserted mark is a no-op for non shader node values, only `Node<T>` bindings are really
+/// named, in a best effort way. `shader_fn` already applies this marking to its body, applying
+/// this attribute additionally on top of it is allowed but redundant, and if combined it must be
+/// written on the outer side, because `shader_fn` expansion discards the other attributes on the
+/// function.
+#[proc_macro_attribute]
+pub fn shader_name_marked(_args: TokenStream, input: TokenStream) -> TokenStream {
+  shader_name_marked_impl(_args, input)
 }

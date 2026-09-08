@@ -3,7 +3,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct U32BufferLoadStoreSource {
   /// internal structure when used as the implementation of AbstractShaderPtr
-  /// ```
+  /// ```txt
   /// [
   ///   u32: how many subdata does this combine buffer contains
   ///   *u32: these subdata start offset in u32

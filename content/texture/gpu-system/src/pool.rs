@@ -740,9 +740,9 @@ fn calculate_mip_level(uv: Node<Vec2<f32>>, size: Node<Vec2<f32>>) -> Node<f32> 
   let uv_10: Node<Vec2<f32>> = ((uv.x() - val(0.5)).fract(), uv.y()).into();
   let uv_01: Node<Vec2<f32>> = (uv.x(), (uv.y() - val(0.5)).fract()).into();
   let uv_11: Node<Vec2<f32>> = ((uv.x() - val(0.5)).fract(), (uv.y() - val(0.5)).fract()).into();
-  let a = calculate_mip_level_impl(uv_00 * size);
-  let b = calculate_mip_level_impl(uv_10 * size);
-  let c = calculate_mip_level_impl(uv_01 * size);
-  let d = calculate_mip_level_impl(uv_11 * size);
+  let a = calculate_mip_level_impl_fn(uv_00 * size);
+  let b = calculate_mip_level_impl_fn(uv_10 * size);
+  let c = calculate_mip_level_impl_fn(uv_01 * size);
+  let d = calculate_mip_level_impl_fn(uv_11 * size);
   a.min(b).min(c).min(d)
 }

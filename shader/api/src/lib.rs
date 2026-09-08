@@ -2,6 +2,7 @@
 #![feature(associated_type_defaults)]
 #![feature(generic_const_exprs)]
 #![feature(impl_trait_in_assoc_type)]
+#![feature(min_specialization)]
 
 mod abstract_load_store;
 mod abstract_ptr;
@@ -46,6 +47,22 @@ pub enum BarrierScope {
   Storage,
   WorkGroup,
   SubGroup,
+}
+
+pub trait DebugLabelMarkExt {
+  fn mark_label(&self, label: &str);
+}
+
+impl<T> DebugLabelMarkExt for T {
+  #[inline(always)]
+  default fn mark_label(&self, _label: &str) {}
+}
+
+impl<T> DebugLabelMarkExt for Node<T> {
+  #[inline(always)]
+  fn mark_label(&self, label: &str) {
+    self.mark_debug_label(label);
+  }
 }
 
 /// In current design, the implementation should not panic when the shader is building
@@ -127,15 +144,18 @@ thread_local! {
 }
 
 pub(crate) fn call_shader_api<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T) -> T {
+  try_call_shader_api(modifier).unwrap()
+}
+
+pub(crate) fn try_call_shader_api<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T) -> Option<T> {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
-    let api = api.as_mut().unwrap();
-    let current_active_stage = api.current.unwrap();
+    let api = api.as_mut()?;
+    let current_active_stage = api.current?;
     let api = api
       .stage_instances
       .expect_stage_mut(current_active_stage)
       .as_mut();
-
-    modifier(api)
+    Some(modifier(api))
   })
 }
 

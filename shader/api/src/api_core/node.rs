@@ -28,8 +28,9 @@ impl<T: ?Sized> Node<T> {
     unsafe { std::mem::transmute(self) }
   }
 
+  #[inline(always)]
   pub fn mark_debug_label(&self, label: impl ToString) {
-    call_shader_api(|g| g.mark_handle_debug_name(self.handle(), label.to_string()));
+    try_call_shader_api(|g| g.mark_handle_debug_name(self.handle(), label.to_string()));
   }
 }
 
