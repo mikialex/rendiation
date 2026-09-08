@@ -5,6 +5,9 @@ use fast_hash_collection::*;
 use naga::{MemoryDecorations, RayQueryFunction, Span};
 use rendiation_shader_api::*;
 
+mod conv;
+use conv::*;
+
 pub struct ShaderAPINagaImpl {
   module: naga::Module,
   handle_id: usize,
@@ -35,13 +38,7 @@ const ENTRY_POINT_NAME: &str = "main";
 
 impl ShaderAPINagaImpl {
   pub fn new(stage: ShaderStage) -> Self {
-    let stage = match stage {
-      ShaderStage::Vertex => naga::ShaderStage::Vertex,
-      ShaderStage::Fragment => naga::ShaderStage::Fragment,
-      ShaderStage::Compute => naga::ShaderStage::Compute,
-      ShaderStage::Task => naga::ShaderStage::Task,
-      ShaderStage::Mesh => naga::ShaderStage::Mesh,
-    };
+    let stage = map_stage(stage);
 
     let mut module = naga::Module::default();
     let entry = naga::EntryPoint {
@@ -192,16 +189,7 @@ impl ShaderAPINagaImpl {
     let naga_ty = match &ty {
       ShaderValueType::Single(v) => match v {
         ShaderValueSingleType::Sized(f) => match f {
-          ShaderSizedValueType::Atomic(t) => naga::TypeInner::Atomic(naga::Scalar {
-            kind: match t {
-              ShaderAtomicValueType::I32 => naga::ScalarKind::Sint,
-              ShaderAtomicValueType::U32 => naga::ScalarKind::Uint,
-            },
-            width: match t {
-              ShaderAtomicValueType::I32 => 4,
-              ShaderAtomicValueType::U32 => 4,
-            },
-          }),
+          ShaderSizedValueType::Atomic(t) => naga::TypeInner::Atomic(map_atomic_scalar(*t)),
           ShaderSizedValueType::Primitive(p) => map_primitive_type(*p),
           ShaderSizedValueType::Struct(st) => {
             name = st.name.to_owned().into();
@@ -238,31 +226,8 @@ impl ShaderAPINagaImpl {
           sample_type,
           multi_sampled,
         } => {
-          let (dim, arrayed) = match dimension {
-            TextureViewDimension::D1 => (naga::ImageDimension::D1, false),
-            TextureViewDimension::D2 => (naga::ImageDimension::D2, false),
-            TextureViewDimension::D2Array => (naga::ImageDimension::D2, true),
-            TextureViewDimension::Cube => (naga::ImageDimension::Cube, false),
-            TextureViewDimension::CubeArray => (naga::ImageDimension::Cube, true),
-            TextureViewDimension::D3 => (naga::ImageDimension::D3, false),
-          };
-          let class = match sample_type {
-            TextureSampleType::Float { .. } => naga::ImageClass::Sampled {
-              kind: naga::ScalarKind::Float,
-              multi: *multi_sampled,
-            },
-            TextureSampleType::Depth => naga::ImageClass::Depth {
-              multi: *multi_sampled,
-            },
-            TextureSampleType::Sint => naga::ImageClass::Sampled {
-              kind: naga::ScalarKind::Sint,
-              multi: *multi_sampled,
-            },
-            TextureSampleType::Uint => naga::ImageClass::Sampled {
-              kind: naga::ScalarKind::Uint,
-              multi: *multi_sampled,
-            },
-          };
+          let (dim, arrayed) = map_image_dimension(*dimension);
+          let class = map_texture_sample_type(*sample_type, *multi_sampled);
           naga::TypeInner::Image {
             dim,
             arrayed,
@@ -274,63 +239,15 @@ impl ShaderAPINagaImpl {
           format,
           access,
         } => {
-          let (dim, arrayed) = match dimension {
-            TextureViewDimension::D1 => (naga::ImageDimension::D1, false),
-            TextureViewDimension::D2 => (naga::ImageDimension::D2, false),
-            TextureViewDimension::D2Array => (naga::ImageDimension::D2, true),
-            TextureViewDimension::D3 => (naga::ImageDimension::D3, false),
-            _ => panic!("Unsupported storage texture dimension"),
-          };
-
-          let format = match format {
-            StorageFormat::R8Unorm => naga::StorageFormat::R8Unorm,
-            StorageFormat::R8Snorm => naga::StorageFormat::R8Snorm,
-            StorageFormat::R8Uint => naga::StorageFormat::R8Uint,
-            StorageFormat::R8Sint => naga::StorageFormat::R8Sint,
-            StorageFormat::R16Uint => naga::StorageFormat::R16Uint,
-            StorageFormat::R16Sint => naga::StorageFormat::R16Sint,
-            StorageFormat::R16Float => naga::StorageFormat::R16Float,
-            StorageFormat::Rg8Unorm => naga::StorageFormat::Rg8Unorm,
-            StorageFormat::Rg8Snorm => naga::StorageFormat::Rg8Snorm,
-            StorageFormat::Rg8Uint => naga::StorageFormat::Rg8Uint,
-            StorageFormat::Rg8Sint => naga::StorageFormat::Rg8Sint,
-            StorageFormat::R32Uint => naga::StorageFormat::R32Uint,
-            StorageFormat::R32Sint => naga::StorageFormat::R32Sint,
-            StorageFormat::R32Float => naga::StorageFormat::R32Float,
-            StorageFormat::Rg16Uint => naga::StorageFormat::Rg16Uint,
-            StorageFormat::Rg16Sint => naga::StorageFormat::Rg16Sint,
-            StorageFormat::Rg16Float => naga::StorageFormat::Rg16Float,
-            StorageFormat::Rgba8Unorm => naga::StorageFormat::Rgba8Unorm,
-            StorageFormat::Rgba8Snorm => naga::StorageFormat::Rgba8Snorm,
-            StorageFormat::Rgba8Uint => naga::StorageFormat::Rgba8Uint,
-            StorageFormat::Rgba8Sint => naga::StorageFormat::Rgba8Sint,
-            StorageFormat::Bgra8Unorm => naga::StorageFormat::Bgra8Unorm,
-            StorageFormat::Rgb10a2Uint => naga::StorageFormat::Rgb10a2Uint,
-            StorageFormat::Rgb10a2Unorm => naga::StorageFormat::Rgb10a2Unorm,
-            StorageFormat::Rg32Uint => naga::StorageFormat::Rg32Uint,
-            StorageFormat::Rg32Sint => naga::StorageFormat::Rg32Sint,
-            StorageFormat::Rg32Float => naga::StorageFormat::Rg32Float,
-            StorageFormat::Rgba16Uint => naga::StorageFormat::Rgba16Uint,
-            StorageFormat::Rgba16Sint => naga::StorageFormat::Rgba16Sint,
-            StorageFormat::Rgba16Float => naga::StorageFormat::Rgba16Float,
-            StorageFormat::Rgba32Uint => naga::StorageFormat::Rgba32Uint,
-            StorageFormat::Rgba32Sint => naga::StorageFormat::Rgba32Sint,
-            StorageFormat::Rgba32Float => naga::StorageFormat::Rgba32Float,
-            StorageFormat::R16Unorm => naga::StorageFormat::R16Unorm,
-            StorageFormat::R16Snorm => naga::StorageFormat::R16Snorm,
-            StorageFormat::Rg16Unorm => naga::StorageFormat::Rg16Unorm,
-            StorageFormat::Rg16Snorm => naga::StorageFormat::Rg16Snorm,
-            StorageFormat::Rgba16Unorm => naga::StorageFormat::Rgba16Unorm,
-            StorageFormat::Rgba16Snorm => naga::StorageFormat::Rgba16Snorm,
-          };
-
-          let access = match access {
-            StorageTextureAccess::Load => naga::StorageAccess::LOAD,
-            StorageTextureAccess::Store => naga::StorageAccess::STORE,
-            StorageTextureAccess::LoadStore => {
-              naga::StorageAccess::LOAD | naga::StorageAccess::STORE
-            }
-          };
+          if matches!(
+            dimension,
+            TextureViewDimension::Cube | TextureViewDimension::CubeArray
+          ) {
+            panic!("Unsupported storage texture dimension");
+          }
+          let (dim, arrayed) = map_image_dimension(*dimension);
+          let format = map_storage_format(*format);
+          let access = map_storage_access(*access);
 
           let class = naga::ImageClass::Storage { format, access };
 
@@ -561,11 +478,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn barrier(&mut self, scope: BarrierScope) {
-    let b = match scope {
-      BarrierScope::Storage => naga::Barrier::STORAGE,
-      BarrierScope::WorkGroup => naga::Barrier::WORK_GROUP,
-      BarrierScope::SubGroup => naga::Barrier::SUB_GROUP,
-    };
+    let b = map_barrier(scope);
     self.push_top_statement(naga::Statement::ControlBarrier(b));
   }
 
@@ -588,11 +501,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
       .unwrap();
 
     self.module.entry_points[0].mesh_info = Some(naga::MeshStageInfo {
-      topology: match mesh_info.topology {
-        MeshOutputTopology::Points => naga::MeshOutputTopology::Points,
-        MeshOutputTopology::Lines => naga::MeshOutputTopology::Lines,
-        MeshOutputTopology::Triangles => naga::MeshOutputTopology::Triangles,
-      },
+      topology: map_mesh_output_topology(mesh_info.topology),
       max_vertices: mesh_info.max_vertices,
       max_vertices_override: None,
       max_primitives: mesh_info.max_primitives,
@@ -622,7 +531,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           ShaderSizedValueType::Primitive(data_ty),
         ));
 
-        let bt = match_built_in(ty);
+        let bt = map_built_in(ty);
 
         let ty = self.register_ty_impl(data_ty, None);
 
@@ -640,20 +549,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
         let layout = desc.get_buffer_layout();
 
         let space = desc.get_address_space().unwrap();
-        let space = match space {
-          AddressSpace::Function => naga::AddressSpace::Function,
-          AddressSpace::Private => naga::AddressSpace::Private,
-          AddressSpace::WorkGroup => naga::AddressSpace::WorkGroup,
-          AddressSpace::Uniform => naga::AddressSpace::Uniform,
-          AddressSpace::Storage { writeable } => naga::AddressSpace::Storage {
-            access: if writeable {
-              naga::StorageAccess::LOAD | naga::StorageAccess::STORE
-            } else {
-              naga::StorageAccess::LOAD
-            },
-          },
-          AddressSpace::Handle => naga::AddressSpace::Handle,
-        };
+        let space = map_address_space(space);
 
         let ty = self.register_ty_impl(desc.ty, layout);
         let g = naga::GlobalVariable {
@@ -863,21 +759,14 @@ impl ShaderAPI for ShaderAPINagaImpl {
           value,
         } => {
           let mut comparison = false;
-          let fun = match function {
-            AtomicFunction::Add => naga::AtomicFunction::Add,
-            AtomicFunction::Subtract => naga::AtomicFunction::Subtract,
-            AtomicFunction::And => naga::AtomicFunction::And,
-            AtomicFunction::ExclusiveOr => naga::AtomicFunction::ExclusiveOr,
-            AtomicFunction::InclusiveOr => naga::AtomicFunction::InclusiveOr,
-            AtomicFunction::Min => naga::AtomicFunction::Min,
-            AtomicFunction::Max => naga::AtomicFunction::Max,
-            AtomicFunction::Exchange { compare, .. } => naga::AtomicFunction::Exchange {
-              compare: compare.map(|c| {
-                comparison = true;
-                self.get_expression(c)
-              }),
-            },
+          let compare = match function {
+            AtomicFunction::Exchange { compare, .. } => compare.map(|c| {
+              comparison = true;
+              self.get_expression(c)
+            }),
+            _ => None,
           };
+          let fun = map_atomic_function(function, compare);
 
           let primitive = match ty {
             ShaderAtomicValueType::I32 => PrimitiveShaderValueType::i32(),
@@ -885,10 +774,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           };
 
           let ty = if let AtomicFunction::Exchange { weak: true, .. } = function {
-            let scalar_ty = match ty {
-              ShaderAtomicValueType::I32 => naga::Scalar::I32,
-              ShaderAtomicValueType::U32 => naga::Scalar::U32,
-            };
+            let scalar_ty = map_atomic_scalar(ty);
             self.module.generate_predeclared_type(
               naga::PredeclaredType::AtomicCompareExchangeWeakResult(scalar_ty),
             )
@@ -950,12 +836,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
               ty_help_info,
             } => {
               let fun = match f {
-                ShaderBuiltInFunction::Transpose => naga::MathFunction::Transpose,
-                ShaderBuiltInFunction::Normalize => naga::MathFunction::Normalize,
-                ShaderBuiltInFunction::Length => naga::MathFunction::Length,
-                ShaderBuiltInFunction::Dot => naga::MathFunction::Dot,
-                ShaderBuiltInFunction::Cross => naga::MathFunction::Cross,
-                ShaderBuiltInFunction::SmoothStep => naga::MathFunction::SmoothStep,
                 ShaderBuiltInFunction::Select => {
                   break naga::Expression::Select {
                     condition: self.get_expression(parameters[2]),
@@ -963,12 +843,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
                     reject: self.get_expression(parameters[0]),
                   };
                 }
-                ShaderBuiltInFunction::Min => naga::MathFunction::Min,
-                ShaderBuiltInFunction::Max => naga::MathFunction::Max,
-                ShaderBuiltInFunction::Clamp => naga::MathFunction::Clamp,
-                ShaderBuiltInFunction::Abs => naga::MathFunction::Abs,
-                ShaderBuiltInFunction::Pow => naga::MathFunction::Pow,
-                ShaderBuiltInFunction::Saturate => naga::MathFunction::Saturate,
                 ShaderBuiltInFunction::All => {
                   break naga::Expression::Relational {
                     fun: naga::RelationalFunction::All,
@@ -996,26 +870,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
                 ShaderBuiltInFunction::ArrayLength => {
                   break naga::Expression::ArrayLength(self.get_expression(parameters[0]));
                 }
-                ShaderBuiltInFunction::Cos => naga::MathFunction::Cos,
-                ShaderBuiltInFunction::Cosh => naga::MathFunction::Cosh,
-                ShaderBuiltInFunction::Sin => naga::MathFunction::Sin,
-                ShaderBuiltInFunction::Sinh => naga::MathFunction::Sinh,
-                ShaderBuiltInFunction::Tan => naga::MathFunction::Tan,
-                ShaderBuiltInFunction::Tanh => naga::MathFunction::Tanh,
-                ShaderBuiltInFunction::Acos => naga::MathFunction::Acos,
-                ShaderBuiltInFunction::Asin => naga::MathFunction::Asin,
-                ShaderBuiltInFunction::Atan => naga::MathFunction::Atan,
-                ShaderBuiltInFunction::Atan2 => naga::MathFunction::Atan2,
-                ShaderBuiltInFunction::Asinh => naga::MathFunction::Asinh,
-                ShaderBuiltInFunction::Acosh => naga::MathFunction::Acosh,
-                ShaderBuiltInFunction::Atanh => naga::MathFunction::Atanh,
-                ShaderBuiltInFunction::Radians => naga::MathFunction::Radians,
-                ShaderBuiltInFunction::Degrees => naga::MathFunction::Degrees,
-                ShaderBuiltInFunction::Ceil => naga::MathFunction::Ceil,
-                ShaderBuiltInFunction::Floor => naga::MathFunction::Floor,
-                ShaderBuiltInFunction::Round => naga::MathFunction::Round,
-                ShaderBuiltInFunction::Fract => naga::MathFunction::Fract,
-                ShaderBuiltInFunction::Trunc => naga::MathFunction::Trunc,
                 ShaderBuiltInFunction::Modf => {
                   let ty_help_info = ty_help_info.unwrap();
                   let size = map_primitive_vec_size(ty_help_info);
@@ -1029,7 +883,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
                       },
                     });
 
-                  naga::MathFunction::Modf
+                  map_math_function(f)
                 }
                 ShaderBuiltInFunction::Frexp => {
                   let ty_help_info = ty_help_info.unwrap();
@@ -1044,42 +898,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
                       },
                     });
 
-                  naga::MathFunction::Frexp
+                  map_math_function(f)
                 }
-                ShaderBuiltInFunction::Ldexp => naga::MathFunction::Ldexp,
-                ShaderBuiltInFunction::Exp => naga::MathFunction::Exp,
-                ShaderBuiltInFunction::Exp2 => naga::MathFunction::Exp2,
-                ShaderBuiltInFunction::Log => naga::MathFunction::Log,
-                ShaderBuiltInFunction::Log2 => naga::MathFunction::Log2,
-                ShaderBuiltInFunction::Outer => naga::MathFunction::Outer,
-                ShaderBuiltInFunction::Distance => naga::MathFunction::Distance,
-                ShaderBuiltInFunction::FaceForward => naga::MathFunction::FaceForward,
-                ShaderBuiltInFunction::Reflect => naga::MathFunction::Reflect,
-                ShaderBuiltInFunction::Refract => naga::MathFunction::Refract,
-                ShaderBuiltInFunction::Sign => naga::MathFunction::Sign,
-                ShaderBuiltInFunction::Fma => naga::MathFunction::Fma,
-                ShaderBuiltInFunction::Mix => naga::MathFunction::Mix,
-                ShaderBuiltInFunction::Step => naga::MathFunction::Step,
-                ShaderBuiltInFunction::Sqrt => naga::MathFunction::Sqrt,
-                ShaderBuiltInFunction::InverseSqrt => naga::MathFunction::InverseSqrt,
-                ShaderBuiltInFunction::Inverse => naga::MathFunction::Inverse,
-                ShaderBuiltInFunction::Determinant => naga::MathFunction::Determinant,
-                ShaderBuiltInFunction::CountTrailingZeros => naga::MathFunction::CountTrailingZeros,
-                ShaderBuiltInFunction::CountLeadingZeros => naga::MathFunction::CountLeadingZeros,
-                ShaderBuiltInFunction::CountOneBits => naga::MathFunction::CountOneBits,
-                ShaderBuiltInFunction::ReverseBits => naga::MathFunction::ReverseBits,
-                ShaderBuiltInFunction::ExtractBits => naga::MathFunction::ExtractBits,
-                ShaderBuiltInFunction::InsertBits => naga::MathFunction::InsertBits,
-                ShaderBuiltInFunction::Pack4x8snorm => naga::MathFunction::Pack4x8snorm,
-                ShaderBuiltInFunction::Pack4x8unorm => naga::MathFunction::Pack4x8unorm,
-                ShaderBuiltInFunction::Pack2x16snorm => naga::MathFunction::Pack2x16snorm,
-                ShaderBuiltInFunction::Pack2x16unorm => naga::MathFunction::Pack2x16unorm,
-                ShaderBuiltInFunction::Pack2x16float => naga::MathFunction::Pack2x16float,
-                ShaderBuiltInFunction::Unpack4x8snorm => naga::MathFunction::Unpack4x8snorm,
-                ShaderBuiltInFunction::Unpack4x8unorm => naga::MathFunction::Unpack4x8unorm,
-                ShaderBuiltInFunction::Unpack2x16snorm => naga::MathFunction::Unpack2x16snorm,
-                ShaderBuiltInFunction::Unpack2x16unorm => naga::MathFunction::Unpack2x16unorm,
-                ShaderBuiltInFunction::Unpack2x16float => naga::MathFunction::Unpack2x16float,
+                f => map_math_function(f),
               };
 
               naga::Expression::Math {
@@ -1092,17 +913,16 @@ impl ShaderAPI for ShaderAPINagaImpl {
             }
           }
         }
-        ShaderNodeExpr::TextureQuery(texture, info) => naga::Expression::ImageQuery {
-          image: self.get_expression(texture),
-          query: match info {
-            TextureQuery::Size { level } => naga::ImageQuery::Size {
-              level: level.map(|v| self.get_expression(v)),
-            },
-            TextureQuery::NumLevels => naga::ImageQuery::NumLevels,
-            TextureQuery::NumLayers => naga::ImageQuery::NumLayers,
-            TextureQuery::NumSamples => naga::ImageQuery::NumSamples,
-          },
-        },
+        ShaderNodeExpr::TextureQuery(texture, info) => {
+          let level = match info {
+            TextureQuery::Size { level } => level.map(|v| self.get_expression(v)),
+            _ => None,
+          };
+          naga::Expression::ImageQuery {
+            image: self.get_expression(texture),
+            query: map_texture_query(info, level),
+          }
+        }
         ShaderNodeExpr::TextureSampling(ShaderTextureSampling {
           texture,
           sampler,
@@ -1115,12 +935,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
         }) => naga::Expression::ImageSample {
           image: self.get_expression(texture),
           sampler: self.get_expression(sampler),
-          gather: gather_channel.map(|v| match v {
-            GatherChannel::X => naga::SwizzleComponent::X,
-            GatherChannel::Y => naga::SwizzleComponent::Y,
-            GatherChannel::Z => naga::SwizzleComponent::Z,
-            GatherChannel::W => naga::SwizzleComponent::W,
-          }),
+          gather: gather_channel.map(map_gather_channel),
           coordinate: self.get_expression(position),
           array_index: array_index.map(|index| self.get_expression(index)),
           offset: offset.map(|offset| {
@@ -1134,16 +949,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
               true,
             )
           }),
-          level: match level {
-            SampleLevel::Auto => naga::SampleLevel::Auto,
-            SampleLevel::Zero => naga::SampleLevel::Zero,
-            SampleLevel::Exact(e) => naga::SampleLevel::Exact(self.get_expression(e)),
-            SampleLevel::Bias(e) => naga::SampleLevel::Bias(self.get_expression(e)),
-            SampleLevel::Gradient { x, y } => naga::SampleLevel::Gradient {
-              x: self.get_expression(x),
-              y: self.get_expression(y),
-            },
-          },
+          level: map_sample_level(level, |handle| self.get_expression(handle)),
           depth_ref: reference.map(|r| self.get_expression(r)),
           clamp_to_edge: false,
         },
@@ -1210,12 +1016,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           convert,
         } => naga::Expression::As {
           expr: self.get_expression(source),
-          kind: match convert_to {
-            ScalarType::U32 => naga::ScalarKind::Uint,
-            ScalarType::I32 => naga::ScalarKind::Sint,
-            ScalarType::F32 => naga::ScalarKind::Float,
-            ScalarType::Bool => naga::ScalarKind::Bool,
-          },
+          kind: map_scalar_kind(convert_to),
           convert,
         },
         ShaderNodeExpr::Compose { target, parameters } => {
@@ -1240,35 +1041,16 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
           naga::Expression::Compose { ty, components }
         }
-        ShaderNodeExpr::Derivative { axis, ctrl, source } => {
-          let axis = match axis {
-            DerivativeAxis::X => naga::DerivativeAxis::X,
-            DerivativeAxis::Y => naga::DerivativeAxis::Y,
-            DerivativeAxis::Width => naga::DerivativeAxis::Width,
-          };
-          let ctrl = match ctrl {
-            DerivativeControl::Coarse => naga::DerivativeControl::Coarse,
-            DerivativeControl::Fine => naga::DerivativeControl::Fine,
-            DerivativeControl::None => naga::DerivativeControl::None,
-          };
-          naga::Expression::Derivative {
-            axis,
-            ctrl,
-            expr: self.get_expression(source),
-          }
-        }
+        ShaderNodeExpr::Derivative { axis, ctrl, source } => naga::Expression::Derivative {
+          axis: map_derivative_axis(axis),
+          ctrl: map_derivative_control(ctrl),
+          expr: self.get_expression(source),
+        },
         ShaderNodeExpr::Operator(op) => match op {
-          OperatorNode::Unary { one, operator } => {
-            let op = match operator {
-              UnaryOperator::LogicalNot => naga::UnaryOperator::LogicalNot,
-              UnaryOperator::BitwiseNot => naga::UnaryOperator::BitwiseNot,
-              UnaryOperator::Neg => naga::UnaryOperator::Negate,
-            };
-            naga::Expression::Unary {
-              op,
-              expr: self.get_expression(one),
-            }
-          }
+          OperatorNode::Unary { one, operator } => naga::Expression::Unary {
+            op: map_unary_operator(operator),
+            expr: self.get_expression(one),
+          },
           OperatorNode::Binary {
             left,
             right,
@@ -1378,26 +1160,8 @@ impl ShaderAPI for ShaderAPINagaImpl {
           self.expression_mapping.insert(r_handle, r);
 
           self.push_top_statement(naga::Statement::SubgroupCollectiveOperation {
-            op: match operation {
-              SubgroupOperation::All => naga::SubgroupOperation::All,
-              SubgroupOperation::Any => naga::SubgroupOperation::Any,
-              SubgroupOperation::Add => naga::SubgroupOperation::Add,
-              SubgroupOperation::Mul => naga::SubgroupOperation::Mul,
-              SubgroupOperation::Min => naga::SubgroupOperation::Min,
-              SubgroupOperation::Max => naga::SubgroupOperation::Max,
-              SubgroupOperation::And => naga::SubgroupOperation::And,
-              SubgroupOperation::Or => naga::SubgroupOperation::Or,
-              SubgroupOperation::Xor => naga::SubgroupOperation::Xor,
-            },
-            collective_op: match collective_operation {
-              SubgroupCollectiveOperation::Reduce => naga::CollectiveOperation::Reduce,
-              SubgroupCollectiveOperation::InclusiveScan => {
-                naga::CollectiveOperation::InclusiveScan
-              }
-              SubgroupCollectiveOperation::ExclusiveScan => {
-                naga::CollectiveOperation::ExclusiveScan
-              }
-            },
+            op: map_subgroup_operation(operation),
+            collective_op: map_collective_operation(collective_operation),
             argument: self.get_expression(argument),
             result: r,
           });
@@ -1419,22 +1183,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           self.expression_mapping.insert(r_handle, r);
 
           self.push_top_statement(naga::Statement::SubgroupGather {
-            mode: match mode {
-              SubgroupGatherMode::BroadcastFirst => naga::GatherMode::BroadcastFirst,
-              SubgroupGatherMode::Broadcast(h) => {
-                naga::GatherMode::Broadcast(self.get_expression(h))
-              }
-              SubgroupGatherMode::Shuffle(h) => naga::GatherMode::Shuffle(self.get_expression(h)),
-              SubgroupGatherMode::ShuffleDown(h) => {
-                naga::GatherMode::ShuffleDown(self.get_expression(h))
-              }
-              SubgroupGatherMode::ShuffleUp(h) => {
-                naga::GatherMode::ShuffleUp(self.get_expression(h))
-              }
-              SubgroupGatherMode::ShuffleXor(h) => {
-                naga::GatherMode::ShuffleXor(self.get_expression(h))
-              }
-            },
+            mode: map_subgroup_gather_mode(mode, |handle| self.get_expression(handle)),
             argument: self.get_expression(argument),
             result: r,
           });
@@ -1594,11 +1343,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
       BlockBuildingState::SwitchCase(case) => {
         let switch = self.control_structure.last_mut().unwrap();
         if let naga::Statement::Switch { cases, .. } = switch {
-          let value = match case {
-            SwitchCaseCondition::U32(v) => naga::SwitchValue::U32(v),
-            SwitchCaseCondition::I32(v) => naga::SwitchValue::I32(v),
-            SwitchCaseCondition::Default => naga::SwitchValue::Default,
-          };
+          let value = map_switch_value(case);
           let case = naga::SwitchCase {
             value,
             body: b,
@@ -1799,86 +1544,6 @@ pub struct NagaModuleBuildResult {
   pub module: naga::Module,
 }
 
-fn map_binary_op(o: BinaryOperator) -> naga::BinaryOperator {
-  match o {
-    BinaryOperator::Add => naga::BinaryOperator::Add,
-    BinaryOperator::Sub => naga::BinaryOperator::Subtract,
-    BinaryOperator::Mul => naga::BinaryOperator::Multiply,
-    BinaryOperator::Div => naga::BinaryOperator::Divide,
-    BinaryOperator::Rem => naga::BinaryOperator::Modulo,
-    BinaryOperator::Eq => naga::BinaryOperator::Equal,
-    BinaryOperator::NotEq => naga::BinaryOperator::NotEqual,
-    BinaryOperator::GreaterThan => naga::BinaryOperator::Greater,
-    BinaryOperator::LessThan => naga::BinaryOperator::Less,
-    BinaryOperator::GreaterEqualThan => naga::BinaryOperator::GreaterEqual,
-    BinaryOperator::LessEqualThan => naga::BinaryOperator::LessEqual,
-    BinaryOperator::LogicalOr => naga::BinaryOperator::LogicalOr,
-    BinaryOperator::LogicalAnd => naga::BinaryOperator::LogicalAnd,
-    BinaryOperator::BitAnd => naga::BinaryOperator::And,
-    BinaryOperator::BitOr => naga::BinaryOperator::InclusiveOr,
-    BinaryOperator::BitXor => naga::BinaryOperator::ExclusiveOr,
-    BinaryOperator::ShiftLeft => naga::BinaryOperator::ShiftLeft,
-    BinaryOperator::ShiftRight => naga::BinaryOperator::ShiftRight,
-  }
-}
-
-fn map_primitive_vec_size(t: PrimitiveShaderValueType) -> Option<naga::VectorSize> {
-  match t {
-    PrimitiveShaderValueType::Vector { size, .. } => Some(map_vector_size(size)),
-    _ => None,
-  }
-}
-
-fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
-  match t {
-    PrimitiveShaderValueType::Scalar(scalar) => naga::TypeInner::Scalar(map_scalar_type(scalar)),
-    PrimitiveShaderValueType::Vector { size, scalar } => naga::TypeInner::Vector {
-      size: map_vector_size(size),
-      scalar: map_scalar_type(scalar),
-    },
-    PrimitiveShaderValueType::Matrix {
-      columns,
-      rows,
-      scalar,
-    } => naga::TypeInner::Matrix {
-      columns: map_vector_size(columns),
-      rows: map_vector_size(rows),
-      scalar: map_scalar_type(scalar),
-    },
-  }
-}
-
-fn map_scalar_type(t: ScalarType) -> naga::Scalar {
-  match t {
-    ScalarType::F32 => naga::Scalar::F32,
-    ScalarType::U32 => naga::Scalar::U32,
-    ScalarType::I32 => naga::Scalar::I32,
-    ScalarType::Bool => naga::Scalar::BOOL,
-  }
-}
-
-fn map_vector_size(t: VectorSize) -> naga::VectorSize {
-  match t {
-    VectorSize::Bi => naga::VectorSize::Bi,
-    VectorSize::Tri => naga::VectorSize::Tri,
-    VectorSize::Quad => naga::VectorSize::Quad,
-  }
-}
-
-// workaround chrome bug
-fn workaround_f32_max(f: f32) -> f32 {
-  if f == f32::MAX { f.next_down() } else { f }
-}
-
-fn scalar_value_to_naga_literal(v: ScalarValue) -> naga::Literal {
-  match v {
-    ScalarValue::F32(v) => naga::Literal::F32(workaround_f32_max(v)),
-    ScalarValue::U32(v) => naga::Literal::U32(v),
-    ScalarValue::I32(v) => naga::Literal::I32(v),
-    ScalarValue::Bool(v) => naga::Literal::Bool(v),
-  }
-}
-
 fn gen_struct_define(
   api: &mut ShaderAPINagaImpl,
   meta: ShaderStructMetaInfo,
@@ -1929,14 +1594,6 @@ fn gen_unsized_struct_define(
   }
 }
 
-fn map_interpolation(interpolation: ShaderInterpolation) -> naga::Interpolation {
-  match interpolation {
-    ShaderInterpolation::Perspective => naga::Interpolation::Perspective,
-    ShaderInterpolation::Linear => naga::Interpolation::Linear,
-    ShaderInterpolation::Flat => naga::Interpolation::Flat,
-  }
-}
-
 fn struct_member(
   name: &str,
   api: &mut ShaderAPINagaImpl,
@@ -1951,7 +1608,7 @@ fn struct_member(
     let ty = api.register_ty_impl(ty, l);
 
     let binding = fty.ty_deco.map(|deco| match deco {
-      ShaderFieldDecorator::BuiltIn(bt) => naga::Binding::BuiltIn(match_built_in(bt)),
+      ShaderFieldDecorator::BuiltIn(bt) => naga::Binding::BuiltIn(map_built_in(bt)),
       ShaderFieldDecorator::Location(location, interpolation) => naga::Binding::Location {
         location: location as u32,
         interpolation: interpolation.map(map_interpolation),
@@ -1997,32 +1654,4 @@ fn struct_member(
     .struct_extra_padding_count
     .insert(name.to_string(), extra_explicit_padding_count);
   members
-}
-
-fn match_built_in(bt: ShaderBuiltInDecorator) -> naga::BuiltIn {
-  match bt {
-    ShaderBuiltInDecorator::VertexIndex => naga::BuiltIn::VertexIndex,
-    ShaderBuiltInDecorator::VertexInstanceIndex => naga::BuiltIn::InstanceIndex,
-    ShaderBuiltInDecorator::FragFrontFacing => naga::BuiltIn::FrontFacing,
-    ShaderBuiltInDecorator::FragSampleIndex => naga::BuiltIn::SampleIndex,
-    ShaderBuiltInDecorator::FragSampleMask => naga::BuiltIn::SampleMask,
-    ShaderBuiltInDecorator::FragPositionIn => naga::BuiltIn::Position { invariant: false },
-    ShaderBuiltInDecorator::VertexPositionOut => naga::BuiltIn::Position { invariant: false },
-    ShaderBuiltInDecorator::FragDepth => naga::BuiltIn::FragDepth,
-    ShaderBuiltInDecorator::CompLocalInvocationId => naga::BuiltIn::LocalInvocationId,
-    ShaderBuiltInDecorator::CompGlobalInvocationId => naga::BuiltIn::GlobalInvocationId,
-    ShaderBuiltInDecorator::CompLocalInvocationIndex => naga::BuiltIn::LocalInvocationIndex,
-    ShaderBuiltInDecorator::CompWorkgroupId => naga::BuiltIn::WorkGroupId,
-    ShaderBuiltInDecorator::CompNumWorkgroup => naga::BuiltIn::NumWorkGroups,
-    ShaderBuiltInDecorator::CompSubgroupInvocationId => naga::BuiltIn::SubgroupInvocationId,
-    ShaderBuiltInDecorator::CompSubgroupId => naga::BuiltIn::SubgroupId,
-    ShaderBuiltInDecorator::CompSubgroupSize => naga::BuiltIn::SubgroupSize,
-    ShaderBuiltInDecorator::MeshPrimitiveTriangleIndex => naga::BuiltIn::TriangleIndices,
-    ShaderBuiltInDecorator::MeshPrimitiveLineIndex => naga::BuiltIn::LineIndices,
-    ShaderBuiltInDecorator::MeshPrimitivePointIndex => naga::BuiltIn::PointIndex,
-    ShaderBuiltInDecorator::MeshPrimitiveCount => naga::BuiltIn::PrimitiveCount,
-    ShaderBuiltInDecorator::MeshVertexCount => naga::BuiltIn::VertexCount,
-    ShaderBuiltInDecorator::MeshVerticesOutput => naga::BuiltIn::Vertices,
-    ShaderBuiltInDecorator::MeshPrimitiveOutput => naga::BuiltIn::Primitives,
-  }
 }
