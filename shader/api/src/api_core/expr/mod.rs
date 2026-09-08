@@ -24,34 +24,6 @@ pub use func_built_in::*;
 mod ray_query;
 pub use ray_query::*;
 
-pub enum ValueKind {
-  Uint,
-  Int,
-  Float,
-  Bool,
-}
-
-pub trait ValueType {
-  const KIND: ValueKind;
-  const BYTE_WIDTH: u8;
-}
-impl ValueType for u32 {
-  const KIND: ValueKind = ValueKind::Uint;
-  const BYTE_WIDTH: u8 = 4;
-}
-impl ValueType for i32 {
-  const KIND: ValueKind = ValueKind::Int;
-  const BYTE_WIDTH: u8 = 4;
-}
-impl ValueType for f32 {
-  const KIND: ValueKind = ValueKind::Float;
-  const BYTE_WIDTH: u8 = 4;
-}
-impl ValueType for bool {
-  const KIND: ValueKind = ValueKind::Bool;
-  const BYTE_WIDTH: u8 = 1;
-}
-
 pub trait ShaderFloatType: ShaderScalarType {}
 impl ShaderFloatType for f32 {}
 
@@ -208,7 +180,7 @@ pub enum ShaderNodeExpr {
   },
   Convert {
     source: ShaderNodeRawHandle,
-    convert_to: ValueKind,
+    convert_to: ScalarType,
     /// this is channel wise byte size, if not specified, it will be bitcast conversion.
     convert: Option<u8>,
   },

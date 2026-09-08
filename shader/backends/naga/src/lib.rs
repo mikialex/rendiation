@@ -1211,10 +1211,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
         } => naga::Expression::As {
           expr: self.get_expression(source),
           kind: match convert_to {
-            ValueKind::Uint => naga::ScalarKind::Uint,
-            ValueKind::Int => naga::ScalarKind::Sint,
-            ValueKind::Float => naga::ScalarKind::Float,
-            ValueKind::Bool => naga::ScalarKind::Bool,
+            ScalarType::U32 => naga::ScalarKind::Uint,
+            ScalarType::I32 => naga::ScalarKind::Sint,
+            ScalarType::F32 => naga::ScalarKind::Float,
+            ScalarType::Bool => naga::ScalarKind::Bool,
           },
           convert,
         },

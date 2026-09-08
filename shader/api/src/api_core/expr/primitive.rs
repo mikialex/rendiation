@@ -8,6 +8,15 @@ pub enum ScalarType {
   Bool,
 }
 
+impl ScalarType {
+  pub fn byte_count(self) -> u32 {
+    match self {
+      ScalarType::Bool => 1,
+      ScalarType::F32 | ScalarType::U32 | ScalarType::I32 => 4,
+    }
+  }
+}
+
 #[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub enum VectorSize {
   /// 2D vector
@@ -725,51 +734,36 @@ swizzle_mat!(Mat4x3, Vec3, y);
 swizzle_mat!(Mat4x3, Vec3, z);
 swizzle_mat!(Mat4x3, Vec3, w);
 
+fn convert_num<D: ShaderScalarType>(source: ShaderNodeRawHandle) -> ShaderNodeExpr {
+  let convert_to = D::scalar_type();
+  ShaderNodeExpr::Convert {
+    source,
+    convert_to,
+    convert: Some(convert_to.byte_count() as u8),
+  }
+}
+
 macro_rules! num_convert {
   ($src: ty, $dst: ty) => {
     paste::item! {
       impl Node<$src> {
         pub fn [< into_ $dst >](&self) -> Node<$dst> {
-          let a = self.handle();
-          ShaderNodeExpr::Convert {
-            source: a,
-            convert_to: $dst::KIND,
-            convert: Some($dst::BYTE_WIDTH),
-          }
-          .insert_api()
+          convert_num::<$dst>(self.handle()).insert_api()
         }
       }
       impl Node<Vec2<$src>> {
         pub fn [< into_ $dst >](&self) -> Node<Vec2<$dst>> {
-          let a = self.handle();
-          ShaderNodeExpr::Convert {
-            source: a,
-            convert_to: $dst::KIND,
-            convert: Some($dst::BYTE_WIDTH),
-          }
-          .insert_api()
+          convert_num::<$dst>(self.handle()).insert_api()
         }
       }
       impl Node<Vec3<$src>> {
         pub fn [< into_ $dst >](&self) -> Node<Vec3<$dst>> {
-          let a = self.handle();
-          ShaderNodeExpr::Convert {
-            source: a,
-            convert_to: $dst::KIND,
-            convert: Some($dst::BYTE_WIDTH),
-          }
-          .insert_api()
+          convert_num::<$dst>(self.handle()).insert_api()
         }
       }
       impl Node<Vec4<$src>> {
         pub fn [< into_ $dst >](&self) -> Node<Vec4<$dst>> {
-          let a = self.handle();
-          ShaderNodeExpr::Convert {
-            source: a,
-            convert_to: $dst::KIND,
-            convert: Some($dst::BYTE_WIDTH),
-          }
-          .insert_api()
+          convert_num::<$dst>(self.handle()).insert_api()
         }
       }
     }
@@ -787,7 +781,7 @@ num_convert!(bool, u32);
 num_convert!(bool, i32);
 
 pub trait DeviceRawBitCast {
-  type Value: ValueType;
+  type Value: ShaderScalarType;
 }
 impl DeviceRawBitCast for f32 {
   type Value = Self;
@@ -798,13 +792,13 @@ impl DeviceRawBitCast for u32 {
 impl DeviceRawBitCast for i32 {
   type Value = Self;
 }
-impl<T: ValueType> DeviceRawBitCast for Vec2<T> {
+impl<T: ShaderScalarType> DeviceRawBitCast for Vec2<T> {
   type Value = T;
 }
-impl<T: ValueType> DeviceRawBitCast for Vec3<T> {
+impl<T: ShaderScalarType> DeviceRawBitCast for Vec3<T> {
   type Value = T;
 }
-impl<T: ValueType> DeviceRawBitCast for Vec4<T> {
+impl<T: ShaderScalarType> DeviceRawBitCast for Vec4<T> {
   type Value = T;
 }
 
@@ -817,12 +811,12 @@ impl<T: DeviceRawBitCast + PrimitiveShaderNodeType> Node<T> {
   #[allow(private_bounds)]
   pub fn bitcast<V>(self) -> Node<V>
   where
-    V: DeviceRawBitCast + ValueType + PrimitiveShaderNodeType,
+    V: DeviceRawBitCast + ShaderScalarType + PrimitiveShaderNodeType,
     If<{ std::mem::size_of::<T>() == std::mem::size_of::<V>() }>: True,
   {
     ShaderNodeExpr::Convert {
       source: self.handle(),
-      convert_to: V::KIND,
+      convert_to: V::Value::scalar_type(),
       convert: None,
     }
     .insert_api()

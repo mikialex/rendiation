@@ -1,15 +1,6 @@
 use crate::*;
 
 impl PrimitiveShaderValueType {
-  pub fn channel_ty(&self) -> ValueKind {
-    match self.scalar() {
-      ScalarType::Bool => ValueKind::Bool,
-      ScalarType::I32 => ValueKind::Int,
-      ScalarType::U32 => ValueKind::Uint,
-      ScalarType::F32 => ValueKind::Float,
-    }
-  }
-
   pub fn u32_count_of_self(&self, layout: StructLayoutTarget) -> usize {
     let is_packed = matches!(layout, StructLayoutTarget::Packed);
     match self {
@@ -88,7 +79,7 @@ impl ShaderSizedValueType {
           offset += val(1);
           let handle = ShaderNodeExpr::Convert {
             source: u32_read.handle(),
-            convert_to: p.channel_ty(),
+            convert_to: p.scalar(),
             convert: None,
           }
           .insert_api_raw();
@@ -187,7 +178,7 @@ impl ShaderSizedValueType {
 
           let converted = ShaderNodeExpr::Convert {
             source: channel,
-            convert_to: ValueKind::Uint,
+            convert_to: ScalarType::U32,
             convert: None,
           }
           .insert_api();
