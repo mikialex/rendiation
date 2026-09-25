@@ -28,7 +28,7 @@ Key files:
 | [utility/query/src/multi_query/bookkeeping.rs](utility/query/src/multi_query/bookkeeping.rs) | Reverse-relation maintenance utilities |
 | [utility/query/src/delta_query/mod.rs](utility/query/src/delta_query/mod.rs) | `DualQuery`, `DualQueryLike`, `TriQuery`, `TriQueryLike` |
 | [utility/query/src/delta_query/delta.rs](utility/query/src/delta_query/delta.rs) | `ValueChange<V>` enum and merge/integrate/validate utilities |
-| [utility/query/src/delta_query/fanout.rs](utility/query/src/delta_query/fanout.rs) | `fanout_impl` — FK-based incremental change propagation |
+| [utility/query/src/delta_query/fanout.rs](utility/query/src/delta_query/fanout.rs) | `FanoutValueChange` — FK-based incremental change propagation |
 | [utility/query/src/delta_query/join.rs](utility/query/src/delta_query/join.rs) | `CrossJoinValueChange` for cross-join delta computation |
 | [utility/query/src/delta_query/union.rs](utility/query/src/delta_query/union.rs) | `UnionValueChange` for union delta computation |
 | [utility/query/src/delta_query/filter.rs](utility/query/src/delta_query/filter.rs) | `FilterMapQueryChange` for delta filtering |
@@ -253,22 +253,30 @@ Applies to any `Query<Value = ValueChange<V>>`:
 
 ### fanout
 
-The most important and complex combinator. Signature:
+The most important combinator. Signature:
 
 ```rust
-fn fanout<R: TriQueryLike<Value = Self::Key>>(self, other: R)
-    -> DualQuery<ChainQuery<R::View, Self::View>, Arc<FastHashMap<R::Key, ValueChange<Self::Value>>>>
+fn fanout<R: TriQueryLike<Value = Self::Key>>(self, other: R) -> FanoutDualQuery<Self, R>
+// = DualQuery<ChainQuery<R::View, Self::View>, FanoutValueChange<...>>
 ```
 
 Input:
 - `self`: upstream data keyed on A (view + delta of X values)
 - `other`: a `TriQuery` for the A↔B relationship (FK view + delta + reverse multi-index)
 
-Output: data keyed on B (view = chain through FK, delta = materialized incremental changes)
+Output: data keyed on B (view = chain through FK, delta = `FanoutValueChange`, a lazy
+`Query<Key = B, Value = ValueChange<X>>` in the same style as `UnionValueChange`).
 
-The delta computation runs in two phases:
-1. **Relational changes**: when the FK mapping changes (B→A), look up the new/old X values
-2. **Upstream value changes**: when X changes, fan out through reverse relation to affected B keys. Entries that cancel with Phase 1 results are removed.
+`FanoutValueChange::access(b)` is a pure function of the key: it resolves the previous
+and current A key of `b` (from the relation delta, or from the relation view when only
+the upstream changed), looks up the previous and current X value through them, and
+emits `Delta`/`Remove`/nothing by comparing the two. `iter_key_value` enumerates the
+candidate B keys (keys of the relation delta, plus the reverse relation of every changed
+A key, deduplicated) and reuses `access`, so iteration and access agree by construction.
+
+The `UseResult::fanout` hook wrapper (query-hook) materializes this lazy delta inside its
+spawned compute stage, so downstream consumers still receive an `Arc<FastHashMap>` delta
+and do not retain the upstream views.
 
 ### Lock Helpers
 

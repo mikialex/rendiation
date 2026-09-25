@@ -255,20 +255,20 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     DualQuery { view, delta }.into_boxed_void_huge_symbol_in_debug_build()
   }
 
-  fn fanout<R: TriQueryLike<Value = Self::Key>>(
-    self,
-    other: R,
-  ) -> DualQuery<ChainQuery<R::View, Self::View>, Arc<FastHashMap<R::Key, ValueChange<Self::Value>>>>
-  {
-    let (getter, upstream_changes) = self.view_delta();
-    let (rev_many_view, relation_access, relational_changes) = other.inv_view_view_delta();
-    fanout_impl(
-      getter,
-      upstream_changes,
-      rev_many_view,
-      relation_access,
-      relational_changes,
-    )
+  fn fanout<R: TriQueryLike<Value = Self::Key>>(self, other: R) -> FanoutDualQuery<Self, R> {
+    let (upstream, upstream_delta) = self.view_delta();
+    let (rev_relation, relation, relation_delta) = other.inv_view_view_delta();
+
+    DualQuery {
+      view: relation.clone().chain(upstream.clone()),
+      delta: FanoutValueChange {
+        upstream,
+        upstream_delta,
+        rev_relation,
+        relation,
+        relation_delta,
+      },
+    }
   }
 }
 

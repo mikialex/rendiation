@@ -377,10 +377,12 @@ where
   ) -> UseResult<
     DualQuery<ChainQuery<U::View, T::View>, Arc<FastHashMap<U::Key, ValueChange<T::Value>>>>,
   > {
+    // the fanout delta is lazy, materialize it here so the work happens once in the
+    // spawned stage and the downstream does not retain the upstream views
     self.join(other).map_spawn_stage_in_thread(
       cx,
       |(a, b)| a.has_delta_hint() || b.has_delta_hint(),
-      |(a, b)| a.fanout(b),
+      |(a, b)| a.fanout(b).materialize_delta(),
     )
   }
 

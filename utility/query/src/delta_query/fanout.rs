@@ -2,109 +2,94 @@ use crate::*;
 
 /// Incremental fan-out: propagates changes through a 1:N relationship.
 ///
-/// Given:
-/// - `getter`:         AKey → XValue  (the value of each A-key)
-/// - `upstream_changes`:  (AKey, ValueChange<XValue>)  (how A-key values changed)
-/// - `rev_many_view`:  MultiQuery<AKey, BKey>  (reverse: which B-keys relate to which A-key)
-/// - `relation_access`:   BKey → AKey  (the current relation mapping)
-/// - `relational_changes`: (BKey, ValueChange<AKey>)  (how relations changed)
+/// The upstream maps AKey to XValue. The relation maps each BKey to one AKey and the
+/// rev relation is its inverse, mapping AKey to the set of BKey. The fan-out result is
+/// the chain relation -> upstream, keyed by BKey, and this type is the delta of it.
 ///
-/// Produces a DualQuery from BKey → XValue, where the delta captures net
-/// changes induced by both relation mutations and upstream value mutations.
-///
-/// The algorithm runs in two phases:
-/// 1. Process relational changes — for each changed relation, look up the
-///    getter to produce output Delta/Remove entries.
-/// 2. Process upstream value changes — for each changed A-key, fan out
-///    through the reverse relation to affected B-keys, producing output
-///    entries.  Entries that cancel with Phase 1 results are removed.
-#[inline(always)]
-pub fn fanout_impl<AKey, BKey, XValue, Getter, GetterDelta, RevMany, RelAccess, RelDelta>(
-  getter: Getter,
-  upstream_changes: GetterDelta,
-  rev_many_view: RevMany,
-  relation_access: RelAccess,
-  relational_changes: RelDelta,
-) -> DualQuery<ChainQuery<RelAccess, Getter>, Arc<FastHashMap<BKey, ValueChange<XValue>>>>
+/// The change of a BKey is fully determined by its previous chained value and its
+/// current chained value, so `access` is a pure function of the key. A BKey can only
+/// have changed if its relation changed, or if the AKey it currently relates to has an
+/// upstream change. `iter_key_value` enumerates exactly these candidates and reuses
+/// `access` for the value, which keeps the two consistent by construction.
+#[derive(Clone)]
+pub struct FanoutValueChange<Up, UpD, Rev, Rel, RelD> {
+  pub upstream: Up,
+  pub upstream_delta: UpD,
+  pub rev_relation: Rev,
+  pub relation: Rel,
+  pub relation_delta: RelD,
+}
+
+#[allow(type_alias_bounds)]
+pub type FanoutDualQuery<S: DualQueryLike, R: TriQueryLike> = DualQuery<
+  ChainQuery<R::View, S::View>,
+  FanoutValueChange<S::View, S::Delta, R::InvView, R::View, R::Delta>,
+>;
+
+impl<A, B, X, Up, UpD, Rev, Rel, RelD> Query for FanoutValueChange<Up, UpD, Rev, Rel, RelD>
 where
-  AKey: CKey,
-  BKey: CKey,
-  XValue: CValue,
-  Getter: Query<Key = AKey, Value = XValue> + Clone + 'static,
-  GetterDelta: Query<Key = AKey, Value = ValueChange<XValue>> + Clone + 'static,
-  RevMany: MultiQuery<Key = AKey, Value = BKey> + Clone + 'static,
-  RelAccess: Query<Key = BKey, Value = AKey> + Clone + 'static,
-  RelDelta: Query<Key = BKey, Value = ValueChange<AKey>> + Clone + 'static,
+  A: CKey,
+  B: CKey,
+  X: CValue,
+  Up: Query<Key = A, Value = X>,
+  UpD: Query<Key = A, Value = ValueChange<X>>,
+  Rev: MultiQuery<Key = A, Value = B>,
+  Rel: Query<Key = B, Value = A>,
+  RelD: Query<Key = B, Value = ValueChange<A>>,
 {
-  let getter_previous = make_previous(&getter, &upstream_changes);
-  let one_acc_previous = make_previous(&relation_access, &relational_changes);
+  type Key = B;
+  type Value = ValueChange<X>;
 
-  let relational_changes_iter = relational_changes.iter_key_value();
-  let upstream_changes_iter = upstream_changes.iter_key_value();
+  fn iter_key_value(&self) -> impl Iterator<Item = (B, ValueChange<X>)> + '_ {
+    let relation_changed = self.relation_delta.iter_key_value().map(|(b, _)| b);
 
-  let output_reserve = relational_changes_iter.size_hint().0 + upstream_changes_iter.size_hint().0;
+    // the iterator returned by access_multi borrows its key, so the affected b keys
+    // are collected first. each b relates to exactly one a, so the only possible
+    // duplication is with the relation changed part, which is filtered out here
+    let mut upstream_changed = Vec::new();
+    for (a, _) in self.upstream_delta.iter_key_value() {
+      self
+        .rev_relation
+        .access_multi_visitor(&a, &mut |b| upstream_changed.push(b));
+    }
+    let upstream_changed = upstream_changed
+      .into_iter()
+      .filter(|b| !self.relation_delta.contains(b));
 
-  let mut output = FastHashMap::with_capacity_and_hasher(output_reserve, Default::default());
+    let iter = relation_changed
+      .chain(upstream_changed)
+      .filter_map(|b| self.access(&b).map(|change| (b, change)));
 
-  // Phase 1: relational changes
-  {
-    relational_changes_iter.for_each(|(b_key, change)| match change {
-      ValueChange::Delta(new_a, old_a) => {
-        let prev_x = old_a.and_then(|old_a| getter_previous.access(&old_a));
-        if let Some(new_x) = getter.access(&new_a) {
-          output.insert(b_key.clone(), ValueChange::Delta(new_x, prev_x));
-        } else if let Some(prev_x) = prev_x {
-          output.insert(b_key.clone(), ValueChange::Remove(prev_x));
-        }
-      }
-      ValueChange::Remove(old_a) => {
-        if let Some(prev_x) = getter_previous.access(&old_a) {
-          output.insert(b_key.clone(), ValueChange::Remove(prev_x));
-        }
-      }
-    });
+    avoid_huge_debug_symbols_by_boxing_iter(iter)
   }
 
-  // Phase 2: upstream value changes
-  {
-    for (a_key, delta) in upstream_changes_iter {
-      match delta {
-        ValueChange::Remove(_p) => rev_many_view.access_multi_visitor(&a_key, &mut |b_key| {
-          if let Some(prev_a) = one_acc_previous.access(&b_key)
-            && let Some(prev_x) = getter_previous.access(&prev_a)
-          {
-            if let Some(ValueChange::Delta(_, _)) = output.get(&b_key) {
-              output.remove(&b_key);
-            } else {
-              output.insert(b_key.clone(), ValueChange::Remove(prev_x));
-            }
-          }
-        }),
-        ValueChange::Delta(new_x, _p) => rev_many_view.access_multi_visitor(&a_key, &mut |b_key| {
-          if let Some(prev_a) = one_acc_previous.access(&b_key) {
-            let prev_x = getter_previous.access(&prev_a);
-            if let Some(ValueChange::Remove(_)) = output.get(&b_key) {
-              output.remove(&b_key);
-            } else {
-              output.insert(b_key.clone(), ValueChange::Delta(new_x.clone(), prev_x));
-            }
-          } else {
-            #[allow(clippy::collapsible_else_if)]
-            if let Some(ValueChange::Remove(_)) = output.get(&b_key) {
-              output.remove(&b_key);
-            } else {
-              output.insert(b_key.clone(), ValueChange::Delta(new_x.clone(), None));
-            }
-          }
-        }),
+  fn access(&self, b: &B) -> Option<ValueChange<X>> {
+    let (previous_a, current_a) = match self.relation_delta.access(b) {
+      Some(ValueChange::Delta(a, previous_a)) => (previous_a, Some(a)),
+      Some(ValueChange::Remove(previous_a)) => (Some(previous_a), None),
+      None => {
+        let a = self.relation.access(b)?;
+        if !self.upstream_delta.contains(&a) {
+          return None;
+        }
+        (Some(a.clone()), Some(a))
       }
+    };
+
+    let previous_upstream = make_previous(&self.upstream, &self.upstream_delta);
+    let previous_x = previous_a.and_then(|a| previous_upstream.access(&a));
+    let current_x = current_a.and_then(|a| self.upstream.access(&a));
+
+    match (previous_x, current_x) {
+      (previous_x, Some(x)) => Some(ValueChange::Delta(x, previous_x)),
+      (Some(previous_x), None) => Some(ValueChange::Remove(previous_x)),
+      (None, None) => None,
     }
   }
 
-  let d = Arc::new(output);
-  let v = relation_access.chain(getter);
-
-  DualQuery { view: v, delta: d }
+  fn has_item_hint(&self) -> bool {
+    self.relation_delta.has_item_hint() || self.upstream_delta.has_item_hint()
+  }
 }
 
 // tests
@@ -113,328 +98,291 @@ where
 // AKey = u32  (the "one" side, upstream key)
 // BKey = u32  (the "many" side, downstream key)
 // XValue = i32 (the payload value)
+//
+// every test describes a consistent state: upstream and relation are the current
+// views, the deltas describe how they reached this state, and rev_relation is the
+// inverse of relation.
 
-// === Phase 1: relational changes ===
+#[cfg(test)]
+fn fanout_changes(
+  upstream: FastHashMap<u32, i32>,
+  upstream_delta: FastHashMap<u32, ValueChange<i32>>,
+  rev_relation: FastHashMap<u32, FastHashSet<u32>>,
+  relation: FastHashMap<u32, u32>,
+  relation_delta: FastHashMap<u32, ValueChange<u32>>,
+) -> FastHashMap<u32, ValueChange<i32>> {
+  let changes = FanoutValueChange {
+    upstream,
+    upstream_delta,
+    rev_relation,
+    relation,
+    relation_delta,
+  };
+
+  validate_query_consistency(&changes);
+
+  let pairs: Vec<_> = changes.iter_key_value().collect();
+  let collected: FastHashMap<_, _> = pairs.iter().cloned().collect();
+  assert_eq!(
+    pairs.len(),
+    collected.len(),
+    "iter_key_value should not yield duplicate keys"
+  );
+  collected
+}
+
+// === relation changes ===
 
 #[test]
 fn test_fanout_relational_insert() {
-  // B-key 100 now relates to A-key 1 (was unrelated); getter(1) = 10
-  let getter = FastHashMap::from_iter([(1u32, 10i32)]);
-  let mut rel_changes = FastHashMap::default();
-  rel_changes.insert(100u32, ValueChange::Delta(1u32, None));
-
-  let result = fanout_impl(
-    getter,
+  // B-key 100 now relates to A-key 1 (was unrelated); upstream(1) = 10
+  let delta = fanout_changes(
+    FastHashMap::from_iter([(1, 10)]),
     FastHashMap::default(),
-    FastHashMap::default(),
-    FastHashMap::default(), // relation_access (not needed for Phase 1)
-    rel_changes,
+    FastHashMap::from_iter([(1, FastHashSet::from_iter([100]))]),
+    FastHashMap::from_iter([(100, 1)]),
+    FastHashMap::from_iter([(100, ValueChange::Delta(1, None))]),
   );
 
-  let delta = result.delta;
   assert_eq!(delta.len(), 1);
   assert_eq!(delta[&100], ValueChange::Delta(10, None));
 }
 
 #[test]
 fn test_fanout_relational_update() {
-  // B-key 200: relation changed from A=1 to A=2; getter(1)=10, getter(2)=20
-  let getter = FastHashMap::from_iter([(1u32, 10i32), (2, 20)]);
-  let mut rel_changes = FastHashMap::default();
-  rel_changes.insert(200u32, ValueChange::Delta(2u32, Some(1u32)));
-
-  let result = fanout_impl(
-    getter,
+  // B-key 200: relation changed from A=1 to A=2; upstream(1)=10, upstream(2)=20
+  let delta = fanout_changes(
+    FastHashMap::from_iter([(1, 10), (2, 20)]),
     FastHashMap::default(),
-    FastHashMap::default(),
-    FastHashMap::default(),
-    rel_changes,
+    FastHashMap::from_iter([(2, FastHashSet::from_iter([200]))]),
+    FastHashMap::from_iter([(200, 2)]),
+    FastHashMap::from_iter([(200, ValueChange::Delta(2, Some(1)))]),
   );
 
-  let delta = result.delta;
   assert_eq!(delta.len(), 1);
   assert_eq!(delta[&200], ValueChange::Delta(20, Some(10)));
 }
 
 #[test]
 fn test_fanout_relational_update_new_a_missing() {
-  // B-key 100: relation changed from A=1 to A=2; getter(1)=10, getter(2) missing
-  let getter = FastHashMap::from_iter([(1u32, 10i32)]);
-  let mut rel_changes = FastHashMap::default();
-  rel_changes.insert(100u32, ValueChange::Delta(2u32, Some(1u32)));
-
-  let result = fanout_impl(
-    getter,
+  // B-key 100: relation changed from A=1 to A=2; upstream(1)=10, upstream(2) missing
+  let delta = fanout_changes(
+    FastHashMap::from_iter([(1, 10)]),
     FastHashMap::default(),
-    FastHashMap::default(),
-    FastHashMap::default(),
-    rel_changes,
+    FastHashMap::from_iter([(2, FastHashSet::from_iter([100]))]),
+    FastHashMap::from_iter([(100, 2)]),
+    FastHashMap::from_iter([(100, ValueChange::Delta(2, Some(1)))]),
   );
 
-  let delta = result.delta;
   assert_eq!(delta.len(), 1);
-  // new A has no getter value, old A has getter value 10 → Remove(10)
   assert_eq!(delta[&100], ValueChange::Remove(10));
 }
 
 #[test]
-fn test_fanout_relational_remove() {
-  // B-key 300: relation removed (was A=1); getter(1)=10
-  let getter = FastHashMap::from_iter([(1u32, 10i32)]);
-  let mut rel_changes = FastHashMap::default();
-  rel_changes.insert(300u32, ValueChange::Remove(1u32));
-
-  let result = fanout_impl(
-    getter,
+fn test_fanout_relational_update_both_a_missing() {
+  // B-key 100: relation changed from A=1 to A=2; neither has an upstream value
+  let delta = fanout_changes(
     FastHashMap::default(),
     FastHashMap::default(),
-    FastHashMap::default(),
-    rel_changes,
+    FastHashMap::from_iter([(2, FastHashSet::from_iter([100]))]),
+    FastHashMap::from_iter([(100, 2)]),
+    FastHashMap::from_iter([(100, ValueChange::Delta(2, Some(1)))]),
   );
 
-  let delta = result.delta;
+  assert!(delta.is_empty());
+}
+
+#[test]
+fn test_fanout_relational_remove() {
+  // B-key 300: relation removed (was A=1); upstream(1)=10
+  let delta = fanout_changes(
+    FastHashMap::from_iter([(1, 10)]),
+    FastHashMap::default(),
+    FastHashMap::default(),
+    FastHashMap::default(),
+    FastHashMap::from_iter([(300, ValueChange::Remove(1))]),
+  );
+
   assert_eq!(delta.len(), 1);
   assert_eq!(delta[&300], ValueChange::Remove(10));
 }
 
 #[test]
-fn test_fanout_relational_remove_missing_getter() {
-  // B-key 300: relation removed (was A=1); getter(1) no longer exists
-  let getter: FastHashMap<u32, i32> = FastHashMap::default();
-  let mut rel_changes = FastHashMap::default();
-  rel_changes.insert(300u32, ValueChange::Remove(1u32));
-
-  let result = fanout_impl(
-    getter,
+fn test_fanout_relational_remove_missing_upstream() {
+  // B-key 300: relation removed (was A=1); upstream(1) does not exist
+  let delta = fanout_changes(
     FastHashMap::default(),
     FastHashMap::default(),
     FastHashMap::default(),
-    rel_changes,
+    FastHashMap::default(),
+    FastHashMap::from_iter([(300, ValueChange::Remove(1))]),
   );
 
-  let delta = result.delta;
-  // getter_previous has no entry for A=1 → no output
   assert!(delta.is_empty());
 }
 
 #[test]
 fn test_fanout_relational_multiple() {
-  // B-key 100: new → A=1 (getter(1)=10)
-  // B-key 200: A=1→A=2 (getter(1)=10, getter(2)=20)
-  // B-key 300: remove A=1 (getter(1)=10)
-  let getter = FastHashMap::from_iter([(1u32, 10i32), (2, 20)]);
-  let mut rel_changes = FastHashMap::default();
-  rel_changes.insert(100u32, ValueChange::Delta(1u32, None));
-  rel_changes.insert(200u32, ValueChange::Delta(2u32, Some(1u32)));
-  rel_changes.insert(300u32, ValueChange::Remove(1u32));
-
-  let result = fanout_impl(
-    getter,
+  // B-key 100: new → A=1 (upstream(1)=10)
+  // B-key 200: A=1→A=2 (upstream(1)=10, upstream(2)=20)
+  // B-key 300: remove A=1 (upstream(1)=10)
+  let delta = fanout_changes(
+    FastHashMap::from_iter([(1, 10), (2, 20)]),
     FastHashMap::default(),
-    FastHashMap::default(),
-    FastHashMap::default(),
-    rel_changes,
+    FastHashMap::from_iter([
+      (1, FastHashSet::from_iter([100])),
+      (2, FastHashSet::from_iter([200])),
+    ]),
+    FastHashMap::from_iter([(100, 1), (200, 2)]),
+    FastHashMap::from_iter([
+      (100, ValueChange::Delta(1, None)),
+      (200, ValueChange::Delta(2, Some(1))),
+      (300, ValueChange::Remove(1)),
+    ]),
   );
 
-  let delta = result.delta;
   assert_eq!(delta.len(), 3);
   assert_eq!(delta[&100], ValueChange::Delta(10, None));
   assert_eq!(delta[&200], ValueChange::Delta(20, Some(10)));
   assert_eq!(delta[&300], ValueChange::Remove(10));
 }
 
-// === Phase 2: upstream value changes ===
+// === upstream changes ===
 
 #[test]
 fn test_fanout_upstream_delta() {
-  // A-key 1's value changed from 10 to 15
-  // B-keys 100, 101 both relate to A-key 1
-  let getter = FastHashMap::from_iter([(1u32, 15i32)]);
-  let mut up_changes = FastHashMap::default();
-  up_changes.insert(1u32, ValueChange::Delta(15i32, Some(10)));
-
-  let mut rev_many = FastHashMap::default();
-  rev_many.insert(1u32, FastHashSet::from_iter([100u32, 101]));
-
-  let rel_access = FastHashMap::from_iter([(100u32, 1u32), (101, 1)]);
-
-  let result = fanout_impl(
-    getter,
-    up_changes,
-    rev_many,
-    rel_access,
+  // A-key 1's value changed from 10 to 15, B-keys 100, 101 relate to A-key 1
+  // B-key 200 relates to the unchanged A-key 2 and must not appear
+  let delta = fanout_changes(
+    FastHashMap::from_iter([(1, 15), (2, 20)]),
+    FastHashMap::from_iter([(1, ValueChange::Delta(15, Some(10)))]),
+    FastHashMap::from_iter([
+      (1, FastHashSet::from_iter([100, 101])),
+      (2, FastHashSet::from_iter([200])),
+    ]),
+    FastHashMap::from_iter([(100, 1), (101, 1), (200, 2)]),
     FastHashMap::default(),
   );
 
-  let delta = result.delta;
   assert_eq!(delta.len(), 2);
   assert_eq!(delta[&100], ValueChange::Delta(15, Some(10)));
   assert_eq!(delta[&101], ValueChange::Delta(15, Some(10)));
 }
 
 #[test]
-fn test_fanout_upstream_delta_new_relation() {
-  // A-key 1's value changed, but B-key 100 has no previous relation record
-  let getter = FastHashMap::from_iter([(1u32, 15i32)]);
-  let mut up_changes = FastHashMap::default();
-  up_changes.insert(1u32, ValueChange::Delta(15i32, None));
-
-  let mut rev_many = FastHashMap::default();
-  rev_many.insert(1u32, FastHashSet::from_iter([100u32]));
-
-  // rel_access has no entry for 100 (new relation)
-  let rel_access: FastHashMap<u32, u32> = FastHashMap::default();
-
-  let result = fanout_impl(
-    getter,
-    up_changes,
-    rev_many,
-    rel_access,
+fn test_fanout_upstream_insert() {
+  // B-key 100 already relates to A-key 1, and A-key 1 now gets its first value
+  let delta = fanout_changes(
+    FastHashMap::from_iter([(1, 15)]),
+    FastHashMap::from_iter([(1, ValueChange::Delta(15, None))]),
+    FastHashMap::from_iter([(1, FastHashSet::from_iter([100]))]),
+    FastHashMap::from_iter([(100, 1)]),
     FastHashMap::default(),
   );
 
-  let delta = result.delta;
   assert_eq!(delta.len(), 1);
   assert_eq!(delta[&100], ValueChange::Delta(15, None));
 }
 
 #[test]
 fn test_fanout_upstream_remove() {
-  // A-key 1's value was removed (X gone)
-  // B-keys 100, 101 relate to A-key 1
-  let getter: FastHashMap<u32, i32> = FastHashMap::default();
-  let mut up_changes = FastHashMap::default();
-  up_changes.insert(1u32, ValueChange::Remove(10i32));
-
-  let mut rev_many = FastHashMap::default();
-  rev_many.insert(1u32, FastHashSet::from_iter([100u32, 101]));
-
-  let rel_access = FastHashMap::from_iter([(100u32, 1u32), (101, 1)]);
-
-  let result = fanout_impl(
-    getter,
-    up_changes,
-    rev_many,
-    rel_access,
+  // A-key 1's value was removed, B-keys 100, 101 relate to A-key 1
+  let delta = fanout_changes(
+    FastHashMap::default(),
+    FastHashMap::from_iter([(1, ValueChange::Remove(10))]),
+    FastHashMap::from_iter([(1, FastHashSet::from_iter([100, 101]))]),
+    FastHashMap::from_iter([(100, 1), (101, 1)]),
     FastHashMap::default(),
   );
 
-  let delta = result.delta;
   assert_eq!(delta.len(), 2);
   assert_eq!(delta[&100], ValueChange::Remove(10));
   assert_eq!(delta[&101], ValueChange::Remove(10));
 }
 
-// === Cancel: Phase 1 + Phase 2 interaction ===
+// === relation and upstream change at the same time ===
 
 #[test]
-fn test_fanout_cancel_delta_remove() {
-  // Phase 1: relational change inserts Delta at B-key 100
-  // Phase 2: upstream Remove at the same B-key 100 → cancels out
-  let getter = FastHashMap::from_iter([(1u32, 10i32), (2, 20)]);
-
-  // Relational change: B-key 100 changes from A=1 to A=2
-  // Phase 1 → Delta(20, Some(10))
-  let mut rel_changes = FastHashMap::default();
-  rel_changes.insert(100u32, ValueChange::Delta(2u32, Some(1u32)));
-
-  // Upstream: A-key 2's value is removed
-  // Phase 2: for B-key 100 (which relates to A=2 via prev relation), emit Remove(20)
-  // But output already has Delta(20, _) → cancel!
-  let mut up_changes = FastHashMap::default();
-  up_changes.insert(2u32, ValueChange::Remove(20i32));
-
-  let mut rev_many = FastHashMap::default();
-  rev_many.insert(2u32, FastHashSet::from_iter([100u32]));
-
-  // relation_access: B-key 100 currently relates to A=2
-  let rel_access = FastHashMap::from_iter([(100u32, 2u32)]);
-
-  let result = fanout_impl(getter, up_changes, rev_many, rel_access, rel_changes);
-
-  let delta = result.delta;
-  // Phase 1 inserted Delta(20, Some(10)) for key 100
-  // Phase 2 tried to insert Remove(20) but found Delta → removed
-  assert!(delta.is_empty());
-}
-
-#[test]
-fn test_fanout_cancel_remove_delta() {
-  // Phase 1: relational change inserts Remove at B-key 100
-  // Phase 2: upstream Delta at the same B-key 100 → cancels out
-  let getter = FastHashMap::from_iter([(1u32, 10i32), (2, 20)]);
-
-  // Relational change: B-key 100 was related to A=1, now removed
-  // Phase 1 → Remove(10)
-  let mut rel_changes = FastHashMap::default();
-  rel_changes.insert(100u32, ValueChange::Remove(1u32));
-
-  // Upstream: A-key 2's value changed
-  // Phase 2: B-key 100 is related to A=2 (new relation, no previous A)
-  // → Delta(20, None)
-  let mut up_changes = FastHashMap::default();
-  up_changes.insert(2u32, ValueChange::Delta(20i32, None));
-
-  let mut rev_many = FastHashMap::default();
-  rev_many.insert(2u32, FastHashSet::from_iter([100u32]));
-
-  // rel_access has no history for B=100; it's a new relation through A=2
-  let rel_access: FastHashMap<u32, u32> = FastHashMap::default();
-
-  let result = fanout_impl(getter, up_changes, rev_many, rel_access, rel_changes);
-
-  let delta = result.delta;
-  // Phase 1 inserted Remove(10) for key 100
-  // Phase 2 tried Delta(20, None) for key 100; found Remove → removed
-  assert!(delta.is_empty());
-}
-
-#[test]
-fn test_fanout_cancel_partial() {
-  // Phase 1: Delta at B-key 100, Delta at B-key 101
-  // Phase 2: upstream Remove cancels only B-key 100
-  let getter = FastHashMap::from_iter([(1u32, 10i32), (2, 20)]);
-
-  // Relational: 100 changes A=1→A=2, 101 changes A=1→A=2
-  let mut rel_changes = FastHashMap::default();
-  rel_changes.insert(100u32, ValueChange::Delta(2u32, Some(1u32)));
-  rel_changes.insert(101u32, ValueChange::Delta(2u32, Some(1u32)));
-
-  // Upstream: A=2 removed
-  let mut up_changes = FastHashMap::default();
-  up_changes.insert(2u32, ValueChange::Remove(20i32));
-
-  // B-keys 100 and 101 both relate to A=2
-  let mut rev_many = FastHashMap::default();
-  rev_many.insert(1u32, FastHashSet::from_iter([100u32, 101]));
-  rev_many.insert(2u32, FastHashSet::from_iter([100u32, 101]));
-
-  let rel_access = FastHashMap::from_iter([(100u32, 2u32), (101, 2)]);
-
-  let result = fanout_impl(getter, up_changes, rev_many, rel_access, rel_changes);
-
-  let delta = result.delta;
-  // Both B-keys 100 and 101 should be cancelled
-  assert!(delta.is_empty());
-}
-
-#[test]
-fn test_fanout_view_returns_composed_query() {
-  // Verify the view is correctly composed (rel_access chain getter)
-  let getter = FastHashMap::from_iter([(1u32, 10i32), (2, 20)]);
-  let rel_access = FastHashMap::from_iter([(100u32, 1u32), (200, 2)]);
-
-  let result = fanout_impl(
-    getter,
-    FastHashMap::default(),
-    FastHashMap::default(),
-    rel_access,
-    FastHashMap::default(),
+fn test_fanout_overlap_relation_update_and_upstream_insert() {
+  // B-key 100: relation changed from A=1 to A=2, and A=2 got its first value 20
+  // B-key 100 is reachable from both the relation delta and the rev relation of A=2,
+  // it must be reported once, comparing previous chained value 10 with current 20
+  let delta = fanout_changes(
+    FastHashMap::from_iter([(1, 10), (2, 20)]),
+    FastHashMap::from_iter([(2, ValueChange::Delta(20, None))]),
+    FastHashMap::from_iter([(2, FastHashSet::from_iter([100]))]),
+    FastHashMap::from_iter([(100, 2)]),
+    FastHashMap::from_iter([(100, ValueChange::Delta(2, Some(1)))]),
   );
 
-  let view = result.view;
-  // view = rel_access.chain(getter): B-key 100 → A-key 1 → value 10
-  assert_eq!(view.access(&100), Some(10));
-  assert_eq!(view.access(&200), Some(20));
-  assert_eq!(view.access(&300), None);
+  assert_eq!(delta.len(), 1);
+  assert_eq!(delta[&100], ValueChange::Delta(20, Some(10)));
+}
+
+#[test]
+fn test_fanout_overlap_relation_update_and_upstream_remove() {
+  // B-key 100: relation changed from A=1 to A=2, and A=2's value 20 was removed
+  let delta = fanout_changes(
+    FastHashMap::from_iter([(1, 10)]),
+    FastHashMap::from_iter([(2, ValueChange::Remove(20))]),
+    FastHashMap::from_iter([(2, FastHashSet::from_iter([100]))]),
+    FastHashMap::from_iter([(100, 2)]),
+    FastHashMap::from_iter([(100, ValueChange::Delta(2, Some(1)))]),
+  );
+
+  assert_eq!(delta.len(), 1);
+  assert_eq!(delta[&100], ValueChange::Remove(10));
+}
+
+#[test]
+fn test_fanout_overlap_relation_remove_and_upstream_change() {
+  // B-key 100: relation to A=1 removed while A=1's value changed from 10 to 15
+  // B-key 101 keeps relating to A=1 and sees the value change
+  let delta = fanout_changes(
+    FastHashMap::from_iter([(1, 15)]),
+    FastHashMap::from_iter([(1, ValueChange::Delta(15, Some(10)))]),
+    FastHashMap::from_iter([(1, FastHashSet::from_iter([101]))]),
+    FastHashMap::from_iter([(101, 1)]),
+    FastHashMap::from_iter([(100, ValueChange::Remove(1))]),
+  );
+
+  assert_eq!(delta.len(), 2);
+  assert_eq!(delta[&100], ValueChange::Remove(10));
+  assert_eq!(delta[&101], ValueChange::Delta(15, Some(10)));
+}
+
+#[test]
+fn test_fanout_dual_query() {
+  // exercise the DualQueryLike::fanout entry, view is relation chain upstream
+  let upstream = DualQuery {
+    view: FastHashMap::from_iter([(1, 15), (2, 20)]),
+    delta: FastHashMap::from_iter([(1, ValueChange::Delta(15, Some(10)))]),
+  };
+  let relation = TriQuery {
+    base: DualQuery {
+      view: FastHashMap::from_iter([(100, 1), (200, 2)]),
+      delta: FastHashMap::from_iter([(200, ValueChange::Delta(2, None))]),
+    },
+    rev_many_view: FastHashMap::from_iter([
+      (1, FastHashSet::from_iter([100])),
+      (2, FastHashSet::from_iter([200])),
+    ]),
+  };
+
+  let result = upstream.fanout(relation);
+
+  assert_eq!(result.view.access(&100), Some(15));
+  assert_eq!(result.view.access(&200), Some(20));
+  assert_eq!(result.view.access(&300), None);
+
+  validate_query_consistency(&result.delta);
+  assert_eq!(
+    result.delta.access(&100),
+    Some(ValueChange::Delta(15, Some(10)))
+  );
+  assert_eq!(
+    result.delta.access(&200),
+    Some(ValueChange::Delta(20, None))
+  );
+  assert_eq!(result.delta.access(&300), None);
 }
