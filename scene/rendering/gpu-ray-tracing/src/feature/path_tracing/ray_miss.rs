@@ -48,8 +48,7 @@ impl PTRayMissCtx {
   ) -> Self {
     if let Some(env) = renderer.env_background_map.get(scene) {
       let sampler_desc = TextureSampler::default().with_double_linear().into_gpu();
-      let sampler = GPUSampler::create(sampler_desc, &gpu.device);
-      let sampler = sampler.create_default_view();
+      let sampler = gpu.device.create_and_cache_sampler_view(sampler_desc);
 
       PTRayMissCtx::EnvCube {
         map: renderer

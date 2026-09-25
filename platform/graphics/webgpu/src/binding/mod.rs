@@ -135,16 +135,13 @@ impl BindingBuilder {
     &mut self,
     sampler: &(impl Into<gpu::SamplerDescriptor<'static>> + Clone),
   ) {
-    let sampler_desc = sampler.clone().into();
+    let sampler_desc: gpu::SamplerDescriptor = sampler.clone().into();
     let is_compare = sampler_desc.compare.is_some();
-    let sampler = GPUSampler::create(
-      sampler_desc,
-      self
-        .device
-        .as_ref()
-        .expect("using sampler bind requires new_with_device"),
-    );
-    let sampler = sampler.create_default_view();
+    let sampler = self
+      .device
+      .as_ref()
+      .expect("using sampler bind requires new_with_device")
+      .create_and_cache_sampler_view(sampler_desc);
     if is_compare {
       let sampler = GPUComparisonSamplerView(sampler);
       self.bind(&sampler);

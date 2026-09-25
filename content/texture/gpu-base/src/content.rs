@@ -1,8 +1,7 @@
 use crate::*;
 
 pub fn create_gpu_sampler(cx: &GPU, s: &TextureSampler) -> GPUSamplerView {
-  let gpu_sampler = GPUSampler::create(s.into_gpu(), &cx.device);
-  gpu_sampler.create_default_view()
+  cx.device.create_and_cache_sampler_view(s.into_gpu())
 }
 
 pub fn create_gpu_texture2d(cx: &GPU, texture: &GPUBufferImage) -> GPU2DTextureView {

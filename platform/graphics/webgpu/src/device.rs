@@ -86,7 +86,16 @@ impl GPUDevice {
   }
 
   pub fn create_and_cache_sampler(&self, desc: impl Into<GPUSamplerDescriptor>) -> RawSampler {
-    self.inner.sampler_cache.retrieve(&self.inner.device, desc)
+    self.create_and_cache_sampler_view(desc).view.clone()
+  }
+
+  /// the returned view is shared for the same sampler descriptor, so the view id is stable and the
+  /// bindgroup cache can be hit. prefer this over creating new sampler view each time.
+  pub fn create_and_cache_sampler_view(
+    &self,
+    desc: impl Into<GPUSamplerDescriptor>,
+  ) -> GPUSamplerView {
+    self.inner.sampler_cache.retrieve(self, desc)
   }
 
   pub fn get_or_cache_create_render_pipeline(
@@ -238,25 +247,29 @@ impl Deref for GPUDevice {
 
 #[derive(Default)]
 pub struct SamplerCache {
-  cache: RwLock<FastHashMap<GPUSamplerDescriptor, RawSampler>>,
+  cache: RwLock<FastHashMap<GPUSamplerDescriptor, GPUSamplerView>>,
 }
 
 impl SamplerCache {
   pub fn retrieve(
     &self,
-    device: &gpu::Device,
+    device: &GPUDevice,
     desc: impl Into<GPUSamplerDescriptor>,
-  ) -> RawSampler {
-    let mut map = self.cache.write();
+  ) -> GPUSamplerView {
     let desc = desc.into();
+    if let Some(view) = self.cache.read().get(&desc) {
+      return view.clone();
+    }
+
+    let mut map = self.cache.write();
     map
       .raw_entry_mut()
       .from_key(&desc)
       .or_insert_with(|| {
-        (
-          desc.clone(),
-          RawSampler(device.create_sampler(&desc.clone().into())),
-        )
+        let raw_desc: gpu::SamplerDescriptor<'static> = desc.clone().into();
+        let raw = RawSampler(device.create_sampler(&raw_desc));
+        let view = GPUSampler::create_with_raw(raw, raw_desc, device).create_default_view();
+        (desc.clone(), view)
       })
       .1
       .clone()
