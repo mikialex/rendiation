@@ -24,6 +24,7 @@ Key files:
 | [platform/graphics/webgpu/src/resource/sampler.rs](platform/graphics/webgpu/src/resource/sampler.rs) | `GPUSamplerView`, `GPUComparisonSamplerView` |
 | [platform/graphics/webgpu/src/pipeline/container.rs](platform/graphics/webgpu/src/pipeline/container.rs) | `ShaderBindingProvider` impls connecting containers to shader IR |
 | [platform/graphics/webgpu/src/binding/dynamic_offset.rs](platform/graphics/webgpu/src/binding/dynamic_offset.rs) | `DynamicOffsetBinding<T>`, `UniformBufferDynamicOffsetArray<T>` |
+| [platform/graphics/webgpu/src/binding/declare.rs](platform/graphics/webgpu/src/binding/declare.rs) | `BindingDeclare`, `Binder`, `BindKind`: declare bindings once for both sides |
 
 
 ## Typed resource containers
@@ -248,3 +249,50 @@ let params = binding.bind_by(&per_draw.bind_at(0)).load();
 // pass side, per draw
 ctx.binding.bind(&per_draw.bind_at(i));
 ```
+
+## Declare bindings once (BindingDeclare)
+
+The `bind_by` order in shader building must match the `bind` order in pass setup. Implement
+`BindingDeclare` to write the binding list once; both sides run the same `declare`, so the order is
+guaranteed by construction, and the shader side still gets fully typed instances. No macro needed.
+
+- `BindKind` decides what each item produces: `ShaderKind` (shader instance), `GraphicsPairKind`
+  (`GraphicsPairInputNodeAccessor`, use `.get()` in vertex/fragment), `PassKind` (`()`).
+- `Binder` does the binding: `ShaderBinder` (inside a stage), `GraphicsPairBinder` (outside any
+  stage, binds to both vertex and fragment; not for writeable storage), `PassBinder`.
+- `with_group(idx, |b| ...)` assigns the bindgroup index on both sides, replacing `BindingController`.
+- The result type depends only on the kind, not the binder, so it does not keep the builder borrowed.
+- Optional bindings use `Option<K::Out<T>>`; nested components embed the child's `Bindings<K>`.
+- Existing components keep working and can be mixed in the same pipeline.
+
+```rust
+pub struct MaterialBindings<K: BindKind> {
+  pub color: K::Out<UniformBufferDataView<Vec4<f32>>>,
+  pub tex: Option<(K::Out<GPU2DTextureView>, K::Out<GPUSamplerView>)>,
+}
+
+impl BindingDeclare for Material {
+  type Bindings<K: BindKind> = MaterialBindings<K>;
+  fn declare<B: Binder>(&self, b: &mut B) -> MaterialBindings<B::Kind> {
+    MaterialBindings {
+      color: b.bind(&self.color),
+      tex: self.tex.as_ref().map(|t| (b.bind(t), b.bind(&self.sampler))),
+    }
+  }
+}
+
+// shader side, inside the fragment stage
+builder.fragment(|builder, binding| {
+  let b = self.declare(&mut ShaderBinder(binding));
+  let color = b.color.load();
+});
+
+// pass side
+fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+  self.declare(&mut PassBinder(&mut ctx.binding));
+}
+```
+
+The full sample (nesting, `with_group`, `GraphicsPairBinder`, render verification) is the test
+module in `binding/declare.rs`. Samplers can be declared as a cached `GPUSamplerView` from
+`GPUDevice::create_and_cache_sampler_view`, so no immediate sampler wrapper is needed.

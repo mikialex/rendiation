@@ -16,6 +16,9 @@ pub use owned::*;
 mod dynamic_offset;
 pub use dynamic_offset::*;
 
+mod declare;
+pub use declare::*;
+
 pub trait BindableResourceProvider {
   fn get_bindable(&self) -> BindingResourceOwned;
 }
