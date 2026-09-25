@@ -137,7 +137,7 @@ impl TextureAsReadonlyStorageBuffer {
 
     let array_len =
       if let MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &ty_desc {
-        let size = ty.u32_size_count(StructLayoutTarget::Std430);
+        let size = array_stride_of_element(ty, StructLayoutTarget::Std430) as u32 / 4;
         let array_len = init_u32_size / size;
         Some(array_len)
       } else {
@@ -296,7 +296,7 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
       if let MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) =
         &*self.ty_desc
       {
-        let size = ty.u32_size_count(StructLayoutTarget::Std430);
+        let size = array_stride_of_element(ty, StructLayoutTarget::Std430) as u32 / 4;
         let array_len = new_byte_size as u32 / 4 / size;
         Some(array_len)
       } else {

@@ -4,8 +4,8 @@ use rendiation_texture_gpu_process::*;
 use crate::*;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Default, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, PartialEq)]
 pub struct PostEffects {
   pub enable_vignette: Bool,
   pub vignette: VignetteEffect,

@@ -98,7 +98,8 @@ impl RtxCameraRenderInvocation for DefaultRtxCameraInvocation {
   }
 }
 
-#[derive(Clone, Copy, ShaderStruct)]
+#[shader_struct]
+#[derive(Clone, Copy)]
 pub struct PhysicalCameraGPUInfo {
   pub lens_radius: f32,
   pub focal_length: f32,

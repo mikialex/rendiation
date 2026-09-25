@@ -235,7 +235,8 @@ impl DeviceReferencePathTracingRenderer {
   }
 }
 
-#[derive(Clone, Copy, ShaderStruct, Default)]
+#[shader_struct]
+#[derive(Clone, Copy, Default)]
 struct CorePathPayload {
   pub sampled_radiance: Vec3<f32>,
   pub surface_radiance: Vec3<f32>,
@@ -247,15 +248,16 @@ struct CorePathPayload {
   pub missed: Bool,
 }
 
-#[derive(Clone, Copy, ShaderStruct, Default)]
+#[shader_struct]
+#[derive(Clone, Copy, Default)]
 struct ShaderTestPayload {
   pub radiance: Vec3<f32>,
   pub light_sample_dir: Vec3<f32>,
 }
 
-#[std140_layout]
+#[shader_struct(std140)]
 #[repr(C)]
-#[derive(Clone, Copy, ShaderStruct)]
+#[derive(Clone, Copy)]
 struct PTConfig {
   pub current_sample_count: u32,
   pub max_path_depth: u32,

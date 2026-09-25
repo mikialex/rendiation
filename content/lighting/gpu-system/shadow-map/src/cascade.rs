@@ -231,8 +231,8 @@ impl CascadeShadowPreparer {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct CascadeShadowMapInfo {
   pub bias: ShadowBias,
   pub shadow_world_position: HighPrecisionTranslationUniform,
@@ -242,8 +242,8 @@ pub struct CascadeShadowMapInfo {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct SingleShadowMapInfo {
   pub map_info: ShadowMapAddressInfo,
   pub shadow_center_without_translation_to_shadowmap_ndc: Mat4<f32>,

@@ -1,8 +1,8 @@
 use crate::*;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy)]
 pub struct LinearBlurConfig {
   pub direction: Vec2<f32>,
 }

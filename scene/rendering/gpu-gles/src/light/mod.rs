@@ -211,7 +211,15 @@ where
     ShaderSizedValueType::Struct(
       ShaderStructMetaInfo::new("UniformArrayWithLengthInfo")
         .add_field::<Vec4<u32>>("length")
-        .add_field::<Shader140Array<T, N>>("array"),
+        .add_field::<Shader140Array<T, N>>("array")
+        .with_host_layout(ShaderStructHostLayout {
+          target: ShaderHostLayoutTarget::Std140,
+          field_offsets: vec![
+            core::mem::offset_of!(Self, length),
+            core::mem::offset_of!(Self, array),
+          ],
+          size: size_of::<Self>(),
+        }),
     )
   }
 

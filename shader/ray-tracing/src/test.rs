@@ -91,7 +91,8 @@ async fn test_wavefront_compute() {
       );
     });
 
-  #[derive(Copy, Clone, Debug, Default, ShaderStruct)]
+  #[shader_struct]
+  #[derive(Copy, Clone, Debug, Default)]
   pub struct RayCustomPayload {
     pub color: u32,
   }

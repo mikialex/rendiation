@@ -1,8 +1,8 @@
 use crate::*;
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Debug)]
 pub struct DrawIndexedIndirectArgsStorage {
   /// The number of vertices to draw.
   pub vertex_count: u32,
@@ -37,8 +37,8 @@ impl DrawIndexedIndirectArgsStorage {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Debug)]
 pub struct DrawIndirectArgsStorage {
   /// The number of vertices to draw.
   pub vertex_count: u32,
@@ -65,8 +65,8 @@ impl DrawIndirectArgsStorage {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, Debug, Default, ShaderStruct)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct DispatchIndirectArgsStorage {
   /// The number of work groups in X dimension.
   pub x: u32,

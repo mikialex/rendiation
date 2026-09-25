@@ -10,16 +10,16 @@ use crate::*;
 pub const TEXTURE_POOL_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct TexturePoolTextureMeta {
   pub layout: TexturePoolTextureMetaLayoutInfo,
   pub require_srgb_to_linear_convert: Bool,
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct TexturePoolTextureMetaLayoutInfo {
   pub layer_index: u32,
   pub size: Vec2<f32>,
@@ -58,8 +58,8 @@ impl TexturePoolTextureMetaLayoutInfo {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct TextureSamplerShaderInfo {
   pub address_mode_u: u32,
   pub address_mode_v: u32,

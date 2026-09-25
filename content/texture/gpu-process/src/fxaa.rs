@@ -85,7 +85,8 @@ fn sample_luminance_offset(
   sample_luminance(input, sampler, uv)
 }
 
-#[derive(ShaderStruct, Clone, Copy)]
+#[shader_struct]
+#[derive(Clone, Copy)]
 struct LuminanceData {
   pub m: f32,
   pub n: f32,
@@ -193,7 +194,8 @@ fn determine_pixel_blend_factor(l: &ENode<LuminanceData>) -> Node<f32> {
   blend_factor * blend_factor * subpixel_blending
 }
 
-#[derive(ShaderStruct, Clone, Copy)]
+#[shader_struct]
+#[derive(Clone, Copy)]
 struct EdgeData {
   pub is_horizontal: Bool,
   pub pixel_step: f32,

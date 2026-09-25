@@ -132,7 +132,8 @@ fn physical_shading_fn(
     .call()
 }
 
-#[derive(Copy, Clone, ShaderStruct)]
+#[shader_struct]
+#[derive(Copy, Clone)]
 pub struct ShaderPhysicalShading {
   pub albedo: Vec3<f32>,
   pub perceptual_roughness: f32,

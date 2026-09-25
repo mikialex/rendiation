@@ -2,7 +2,8 @@
 
 use crate::*;
 
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct]
+#[derive(Copy, Clone, Default)]
 pub struct LTCRectLight {
   /// pre calculated vertex in world space.
   pub p1: HighPrecisionTranslation,

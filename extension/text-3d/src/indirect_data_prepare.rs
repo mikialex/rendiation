@@ -123,8 +123,8 @@ pub(crate) fn prepare_indirect_text(
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Default)]
 pub struct CurveData {
   pub p1: Vec2<f32>,
   pub p2: Vec2<f32>,
@@ -132,8 +132,8 @@ pub struct CurveData {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Default)]
 pub struct TextGlyphQuad {
   pub obj_space_min: Vec2<f32>,
   pub obj_space_size: Vec2<f32>,
@@ -148,8 +148,8 @@ pub struct TextGlyphQuad {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Default)]
 pub struct GlyphMetadata {
   pub curve_start: u32,
   pub curve_count: u32,
@@ -159,8 +159,8 @@ pub struct GlyphMetadata {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Default)]
 pub struct TextMeta {
   pub text_curves_range: Vec2<u32>,
   pub text_band_range: Vec2<u32>,

@@ -63,16 +63,16 @@ type TexUniform = UnlitMaterialTextureHandlesUniform;
 type UnlitMaterialTexUniforms = UniformBufferCollectionRaw<u32, TexUniform>;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default)]
 struct UnlitMaterialUniform {
   pub color: Vec4<f32>,
   pub alpha_cutoff: f32,
   pub alpha: f32,
 }
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 struct UnlitMaterialTextureHandlesUniform {
   pub color_alpha_texture: TextureSamplerHandlePair,
 }

@@ -52,8 +52,8 @@ impl ShaderBindingTableProvider for ShaderBindingTableInfo {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, PartialEq)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct DeviceSBTTableMeta {
   pub hit_group_start: u32,
   pub miss_start: u32,
@@ -61,8 +61,8 @@ pub struct DeviceSBTTableMeta {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy)]
 pub struct DeviceHitGroupShaderRecord {
   pub closest_hit: u32,
   pub any_hit: u32,

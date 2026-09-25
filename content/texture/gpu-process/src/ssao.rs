@@ -93,8 +93,8 @@ impl SSAO {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy)]
 pub struct SSAOParameter {
   pub sample_count: u32,
   pub radius: f32,

@@ -4,7 +4,8 @@ both!(ShininessChannel, f32);
 
 pub struct PhongShading;
 
-#[derive(Copy, Clone, ShaderStruct)]
+#[shader_struct]
+#[derive(Copy, Clone)]
 pub struct ShaderPhongShading {
   pub diffuse: Vec3<f32>,
   pub shininess: f32,

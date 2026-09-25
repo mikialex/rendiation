@@ -82,7 +82,8 @@ impl Default for SkyBackgroundParameter {
   }
 }
 
-#[derive(Debug, Copy, Clone, ShaderStruct)]
+#[shader_struct]
+#[derive(Debug, Copy, Clone)]
 pub struct SkyBackgroundUniform {
   pub beta_r: Vec3<f32>,
   pub beta_m: Vec3<f32>,

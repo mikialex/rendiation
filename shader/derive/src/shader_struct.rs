@@ -1,16 +1,39 @@
-use quote::TokenStreamExt;
 use quote::{format_ident, quote};
 
+use crate::shader_align::shader_align_gen;
 use crate::utils::StructInfo;
 
-pub fn derive_shader_struct_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-  let s = StructInfo::new(input);
-  let mut generated = proc_macro2::TokenStream::new();
-  generated.append_all(derive_shader_struct(&s));
-  generated
+/// The entry of `#[shader_struct]`, `#[shader_struct(std140)]` and `#[shader_struct(std430)]`.
+pub fn shader_struct_attr_impl(
+  args: proc_macro2::TokenStream,
+  input: syn::DeriveInput,
+) -> proc_macro2::TokenStream {
+  if args.is_empty() {
+    let shader_struct = derive_shader_struct(&StructInfo::new(&input), None);
+    return quote! {
+      #input
+      #shader_struct
+    };
+  }
+
+  match syn::parse2::<syn::Ident>(args) {
+    Ok(layout) if layout == "std140" => shader_align_gen(input, "Std140", 16),
+    Ok(layout) if layout == "std430" => shader_align_gen(input, "Std430", 0),
+    Ok(other) => syn::Error::new(
+      other.span(),
+      "expect `std140`(for uniform buffer) or `std430`(for storage buffer)",
+    )
+    .into_compile_error(),
+    Err(e) => e.into_compile_error(),
+  }
 }
 
-fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
+/// Generate the ShaderStruct implementation. The `host_layout_target` is only provided for the
+/// host shareable struct, in this case the rust layout is attached as the host layout.
+pub fn derive_shader_struct(
+  s: &StructInfo,
+  host_layout_target: Option<syn::Ident>,
+) -> proc_macro2::TokenStream {
   let struct_name = &s.struct_name;
   let shader_api_instance_name = format_ident!("{}ShaderAPIInstance", struct_name);
 
@@ -20,6 +43,19 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     let field_str = format!("{field_name}");
     quote! {
       .add_field::<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType>(#field_str)
+    }
+  });
+
+  let host_layout = host_layout_target.map(|target| {
+    let offsets = s.map_collect_visible_fields(|(field_name, _ty)| {
+      quote! { ::core::mem::offset_of!(Self, #field_name), }
+    });
+    quote! {
+      .with_host_layout(rendiation_shader_api::ShaderStructHostLayout {
+        target: rendiation_shader_api::ShaderHostLayoutTarget::#target,
+        field_offsets: vec![#(#offsets)*],
+        size: ::core::mem::size_of::<Self>(),
+      })
     }
   });
 
@@ -172,6 +208,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
       fn meta_info() -> rendiation_shader_api::ShaderStructMetaInfo{
         ShaderStructMetaInfo::new(#struct_name_str)
         #(#meta_info_fields)*
+        #host_layout
       }
       fn expand(node: rendiation_shader_api::Node<Self>) -> Self::Instance{
         #shader_api_instance_name{

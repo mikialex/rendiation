@@ -8,8 +8,8 @@ mod sg;
 pub use sg::*;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Default, Debug, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct TextureSamplerHandlePair {
   pub texture_handle: u32,
   pub sampler_handle: u32,

@@ -169,29 +169,6 @@ pub struct ShaderBindingDescriptor {
 }
 
 impl ShaderBindingDescriptor {
-  pub fn get_buffer_layout(&self) -> Option<StructLayoutTarget> {
-    match &self.ty {
-      ShaderValueType::Single(ty) => match ty {
-        ShaderValueSingleType::Sized(_) => if self.should_as_storage_buffer_if_is_buffer_like {
-          StructLayoutTarget::Std430
-        } else {
-          StructLayoutTarget::Std140
-        }
-        .into(),
-        ShaderValueSingleType::Unsized(_) => StructLayoutTarget::Std430.into(),
-        _ => None,
-      },
-      ShaderValueType::BindingArray { ty, .. } => ShaderBindingDescriptor {
-        should_as_storage_buffer_if_is_buffer_like: self.should_as_storage_buffer_if_is_buffer_like,
-        writeable_if_storage: false,
-        has_dynamic_offset: false,
-        ty: ShaderValueType::Single(ty.clone()),
-      }
-      .get_buffer_layout(),
-      ShaderValueType::Never => None,
-    }
-  }
-
   pub fn get_address_space(&self) -> Option<AddressSpace> {
     match &self.ty {
       ShaderValueType::Single(ty) => match ty {

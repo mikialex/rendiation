@@ -156,8 +156,8 @@ impl IndirectNodeRenderImpl for IndirectNodeRenderer {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, Default, PartialEq, ShaderStruct, Debug)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
 pub struct NodeStorage {
   pub world_matrix_none_translation: Mat4<f32>,
   pub world_position_hp: HighPrecisionTranslationStorage,

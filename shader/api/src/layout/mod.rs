@@ -25,6 +25,7 @@ pub unsafe trait Std140: Send + Sync + Copy + Zeroable + Pod + 'static {
   /// This is always safe due to the requirements of [`bytemuck::Pod`] being a
   /// prerequisite for this trait.
   fn as_bytes(&self) -> &[u8] {
+    const { assert_layout_alignment(Self::ALIGNMENT) };
     cast_slice::<Self, u8>(core::slice::from_ref(self))
   }
 }
@@ -73,9 +74,9 @@ unsafe impl Std140 for Vec4<u32> {
   const ALIGNMENT: usize = 16;
 }
 
-unsafe impl Std140 for Shader16PaddedMat2 {
-  const ALIGNMENT: usize = 16;
-}
+// Mat2<f32> is intentionally not supported in std140. In WGSL uniform, the column stride of
+// matCx2 is 8 bytes, but the naga glsl backend writes it into a std140 uniform block directly,
+// where the column stride is 16 bytes. No host layout is correct for all backends.
 
 unsafe impl Std140 for Shader16PaddedMat3 {
   const ALIGNMENT: usize = 16;
@@ -83,6 +84,15 @@ unsafe impl Std140 for Shader16PaddedMat3 {
 
 unsafe impl Std140 for Mat4<f32> {
   const ALIGNMENT: usize = 16;
+}
+
+/// Referencing the ALIGNMENT in a monomorphized fn body forces it to be evaluated, the layout
+/// checks are embedded in ALIGNMENT's const expr.
+pub const fn assert_layout_alignment(alignment: usize) {
+  assert!(
+    alignment.is_power_of_two(),
+    "layout alignment must be a power of two"
+  );
 }
 
 /// Gives the number of bytes needed to make `offset` be aligned to `alignment`.
@@ -193,7 +203,17 @@ unsafe impl<T: Zeroable, const U: usize> Zeroable for Shader140Array<T, U> {}
 unsafe impl<T: Pod, const U: usize> Pod for Shader140Array<T, U> {}
 
 unsafe impl<T: Std140, const U: usize> Std140 for Shader140Array<T, U> {
-  const ALIGNMENT: usize = max(16, T::ALIGNMENT);
+  const ALIGNMENT: usize = {
+    // The WGSL array stride is roundUp(AlignOf(T), SizeOf(T)), and the uniform address space
+    // requires it to be a multiple of 16. WGSL never pads the element for us, so array<f32, N>
+    // is simply invalid in uniform, rather than having a 16 bytes stride like GLSL std140.
+    assert!(
+      round_up(T::ALIGNMENT, size_of::<T>()).is_multiple_of(16),
+      "the element of Shader140Array must have a stride that is a multiple of 16 bytes \
+       (for example use Vec4 instead of f32/Vec2)"
+    );
+    max(16, T::ALIGNMENT)
+  };
 }
 
 /// Trait implemented for all `std430` primitives. Generally should not be
@@ -218,11 +238,13 @@ pub unsafe trait Std430: Send + Sync + Copy + Zeroable + Pod {
   /// This is always safe due to the requirements of [`bytemuck::Pod`] being a
   /// prerequisite for this trait.
   fn as_bytes(&self) -> &[u8] {
+    const { assert_layout_alignment(Self::ALIGNMENT) };
     bytes_of(self)
   }
 
   /// we not require this method on std140 because we never need to read back from uniform buffer
   fn from_bytes(bytes: &[u8]) -> Self {
+    const { assert_layout_alignment(Self::ALIGNMENT) };
     // should we do copy unaligned?
     *bytemuck::from_bytes(bytes)
   }
@@ -288,7 +310,21 @@ unsafe impl<T: Std430, const U: usize> Std430 for [T; U]
 where
   Self: Pod,
 {
-  const ALIGNMENT: usize = T::ALIGNMENT;
+  const ALIGNMENT: usize = {
+    assert_std430_array_element::<T>();
+    T::ALIGNMENT
+  };
+}
+
+/// The rust array has no padding between elements, so the rust stride is SizeOf(T) but the
+/// WGSL stride is roundUp(AlignOf(T), SizeOf(T)), for example, the vec3 in rust is 12 bytes
+/// but the array<vec3> stride is 16 bytes in WGSL.
+const fn assert_std430_array_element<T: Std430>() {
+  assert!(
+    size_of::<T>().is_multiple_of(T::ALIGNMENT),
+    "the size of the array element must be a multiple of its alignment, \
+     so the rust array stride can match the WGSL one (for example use Vec4 instead of Vec3)"
+  );
 }
 
 /// # Safety
@@ -308,9 +344,11 @@ unsafe impl<T: Std430 + Send + Sync> Std430MaybeUnsized for T {
 }
 unsafe impl<T: Std430 + Send + Sync> Std430MaybeUnsized for [T] {
   fn bytes(&self) -> &[u8] {
+    const { assert_std430_array_element::<T>() };
     bytemuck::cast_slice(self)
   }
   fn from_bytes_into_boxed(bytes: &[u8]) -> Box<Self> {
+    const { assert_std430_array_element::<T>() };
     from_bytes_into_boxed_slice(bytes)
   }
 }

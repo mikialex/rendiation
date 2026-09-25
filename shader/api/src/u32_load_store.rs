@@ -90,36 +90,70 @@ impl ShaderU32StructMetaData {
       MaybeUnsizedValueType::Sized(ty) => self.register_sized(ty),
       MaybeUnsizedValueType::Unsized(ty) => match ty {
         ShaderUnSizedValueType::UnsizedArray(ty) => self.register_sized(ty),
-        ShaderUnSizedValueType::UnsizedStruct(ty) => {
-          self.register_struct(&ty.name, &ty.sized_fields);
-        }
+        ShaderUnSizedValueType::UnsizedStruct(ty) => self.register_unsized_struct(ty),
       },
     }
   }
+
+  /// The runtime sized array is treated as the last field, so its offset can be accessed by the
+  /// field index that equals to the sized field count.
+  fn register_unsized_struct(&mut self, ty: &ShaderUnSizedStructMetaInfo) {
+    let array_ty = &ty.last_dynamic_array_field.1;
+    ty.sized_fields.iter().for_each(|f| {
+      self.register_sized(&f.ty);
+    });
+    self.register_sized(array_ty);
+
+    let layout = self.layout;
+    self.ty_mapping.entry_ref(&ty.name).or_insert_with(|| {
+      let mut sub_field_u32_offsets: Vec<_> =
+        struct_fields_layout_by_rule(&ty.sized_fields, layout)
+          .offsets
+          .iter()
+          .map(|byte_offset| {
+            assert!(byte_offset.is_multiple_of(4));
+            *byte_offset as u32 / 4
+          })
+          .collect();
+      let (array_offset, _) = ty.runtime_array_layout(layout);
+      assert!(array_offset.is_multiple_of(4));
+      sub_field_u32_offsets.push(array_offset as u32 / 4);
+      StructPrecomputeOffsetMetaData {
+        // only the sized part is counted
+        u32_count: array_offset as u32 / 4,
+        sub_field_u32_offsets,
+      }
+    });
+  }
   fn register_sized(&mut self, ty: &ShaderSizedValueType) {
     match ty {
-      ShaderSizedValueType::Struct(ty) => self.register_struct(&ty.name, &ty.fields),
+      ShaderSizedValueType::Struct(ty) => self.register_struct(ty),
       ShaderSizedValueType::FixedSizeArray(ty, _) => self.register_sized(ty),
       _ => {}
     }
   }
 
-  fn register_struct(&mut self, struct_name: &str, fields: &[ShaderStructFieldMetaInfo]) {
-    fields.iter().for_each(|f| {
+  /// For std430 layout, the struct host layout is used if exists, so the host data is
+  /// able to be shared with the shader directly.
+  fn register_struct(&mut self, ty: &ShaderStructMetaInfo) {
+    ty.fields.iter().for_each(|f| {
       self.register_sized(&f.ty);
     });
 
-    self.ty_mapping.entry_ref(struct_name).or_insert_with(|| {
-      let mut sub_field_u32_offsets = Vec::with_capacity(fields.len());
-      let tail = iter_field_start_offset_in_bytes(fields, self.layout, &mut |byte_offset, _| {
-        assert!(byte_offset % 4 == 0);
-        sub_field_u32_offsets.push(byte_offset as u32 / 4);
-      });
-      let struct_size = size_of_struct_sized_fields(fields, self.layout);
-      assert!(struct_size.is_multiple_of(4));
-      assert!(tail.is_none());
+    let layout = self.layout;
+    self.ty_mapping.entry_ref(&ty.name).or_insert_with(|| {
+      let fields_layout = ty.fields_layout(layout);
+      let sub_field_u32_offsets = fields_layout
+        .offsets
+        .iter()
+        .map(|byte_offset| {
+          assert!(byte_offset.is_multiple_of(4));
+          *byte_offset as u32 / 4
+        })
+        .collect();
+      assert!(fields_layout.size.is_multiple_of(4));
       StructPrecomputeOffsetMetaData {
-        u32_count: struct_size as u32 / 4,
+        u32_count: fields_layout.size as u32 / 4,
         sub_field_u32_offsets,
       }
     });
@@ -156,23 +190,8 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
               field_index as u32,
               PrimitiveShaderValueType::Scalar(*scalar),
             ),
-            PrimitiveShaderValueType::Matrix {
-              columns,
-              rows,
-              scalar,
-            } => {
-              let stride = match (columns, rows) {
-                (VectorSize::Bi, VectorSize::Bi) => 2,
-                (VectorSize::Tri, VectorSize::Tri) => {
-                  if matches!(meta.layout, StructLayoutTarget::Packed) {
-                    3
-                  } else {
-                    4
-                  }
-                }
-                (VectorSize::Quad, VectorSize::Quad) => 4,
-                _ => unreachable!("{err}"),
-              };
+            PrimitiveShaderValueType::Matrix { rows, scalar, .. } => {
+              let stride = matrix_column_stride(*rows, meta.layout) as u32 / 4;
               (
                 stride * field_index as u32,
                 PrimitiveShaderValueType::vector(*rows, *scalar),
@@ -196,9 +215,9 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
           }
         }
         ShaderSizedValueType::FixedSizeArray(ty, _) => {
-          let size = ty.u32_size_count(meta.layout);
+          let stride = array_stride_of_element(ty, meta.layout) as u32 / 4;
           Self {
-            ptr: self.ptr.advance(val(size) * val(field_index as u32)),
+            ptr: self.ptr.advance(val(stride) * val(field_index as u32)),
             ty: ShaderValueSingleType::Sized((**ty).clone()),
             meta: self.meta.clone(),
             array_length: None,
@@ -234,9 +253,9 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
     let meta = self.meta.read();
     if let ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &self.ty {
       // note, the array bound check will be done automatically at outside if enabled.
-      let size = ty.u32_size_count(meta.layout);
+      let stride = array_stride_of_element(ty, meta.layout) as u32 / 4;
       Box::new(Self {
-        ptr: self.ptr.advance(val(size) * index),
+        ptr: self.ptr.advance(val(stride) * index),
         ty: ShaderValueSingleType::Sized((**ty).clone()),
         meta: self.meta.clone(),
         array_length: None,
@@ -336,5 +355,36 @@ impl U32HeapHeapSource {
       U32HeapHeapSource::AtomicU32(ptr) => ptr.index(index).get_raw_ptr().get_self_atomic_ptr(),
       U32HeapHeapSource::AtomicI32(ptr) => ptr.index(index).get_raw_ptr().get_self_atomic_ptr(),
     }
+  }
+}
+
+#[test]
+fn unsized_struct_runtime_array_offset() {
+  let ty: &'static _ = Box::leak(Box::new(ShaderUnSizedStructMetaInfo {
+    name: "UnsizedStructForTest".into(),
+    sized_fields: vec![ShaderStructFieldMetaInfo {
+      name: "count".into(),
+      ty: u32::sized_ty(),
+      ty_deco: None,
+    }],
+    last_dynamic_array_field: ("data".into(), Box::new(Vec4::<f32>::sized_ty())),
+  }));
+  let ty = MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedStruct(ty));
+
+  let expect = [
+    (StructLayoutTarget::Std430, 4),
+    (StructLayoutTarget::Packed, 1),
+  ];
+  for (layout, array_u32_offset) in expect {
+    let mut meta = ShaderU32StructMetaData::new(layout);
+    meta.register_ty(&ty);
+    assert_eq!(
+      meta.get_struct_sub_field_u32_offset("UnsizedStructForTest", 0),
+      0
+    );
+    assert_eq!(
+      meta.get_struct_sub_field_u32_offset("UnsizedStructForTest", 1),
+      array_u32_offset
+    );
   }
 }

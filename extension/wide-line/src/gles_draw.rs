@@ -118,8 +118,8 @@ impl GLESModelRenderImpl for WideLineModelGLESRenderer {
 type WideLineUniforms = UniformBufferCollectionRaw<u32, WideLineUniform>;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default)]
 pub struct WideLineUniform {
   pub width: f32,
   pub style_factor: f32,

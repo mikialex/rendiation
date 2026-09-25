@@ -7,7 +7,6 @@ mod shader_name_marked;
 mod shader_struct;
 mod utils;
 mod vertex;
-use shader_align::*;
 use shader_fn::*;
 use shader_name_marked::*;
 use shader_struct::*;
@@ -25,52 +24,31 @@ pub fn derive_vertex(input: TokenStream) -> TokenStream {
   derive_vertex_impl(input).into()
 }
 
-/// Mark the struct could be expressed in rendiation_shader_api type API
+/// Mark the struct could be expressed in rendiation_shader_api type API.
 ///
-/// Implementation will add static struct meta info for reflection
-/// and define a shader api instance type and convert methods for rendiation_shader_api usage.
-#[proc_macro_derive(ShaderStruct)]
-pub fn derive_shader_struct(input: TokenStream) -> TokenStream {
-  let input = parse_macro_input!(input as syn::DeriveInput);
-  derive_shader_struct_impl(&input).into()
-}
-
-/// Validate the struct if possible to create std140 memory layout version.
+/// The implementation adds static struct meta info for reflection, and defines the shader api
+/// instance types and convert methods for rendiation_shader_api usage.
 ///
-/// Convert the struct into std140 version by type mapping and insert correct paddings between
-/// fields
+/// - `#[shader_struct]`: for shader internal struct, which is not shared with host.
+/// - `#[shader_struct(std140)]`: host shareable struct for uniform buffer (the WGSL uniform address
+///   space layout).
+/// - `#[shader_struct(std430)]`: host shareable struct for storage buffer (the WGSL storage address
+///   space layout).
 ///
-/// Note: some primitive types, like bool, Mat3<f32> have totally different memory layouts that we
-/// can't insert padding into type itself. In this situation, the user should use their pre
-/// converted type like Bool, Shader16PaddedMat3 instead of the original one.
-///
-/// The other design choice is, theoretically we could directly convert the field into the std140
-/// one for bool and mat3, but we don't, because this will cause too many confusions in users' code.
-#[proc_macro_attribute]
-pub fn std140_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
-  let input = parse_macro_input!(input as syn::DeriveInput);
-  let expanded = shader_align_gen(input, "Std140", 16);
-
-  TokenStream::from(expanded)
-}
-
-/// Validate the struct if possible to create std430 memory layout version.
-///
-/// Convert the struct into std430 version by type mapping and insert correct paddings between
-/// fields
+/// For the host shareable struct, the macro inserts correct paddings between fields, asserts the
+/// rust layout at compile time, and attaches the rust layout to the struct meta info as the host
+/// layout, so the shader side layout is always identical to the host data. The struct must be
+/// `#[repr(C)]`, all fields must be public, and generic is not supported.
 ///
 /// Note: some primitive types, like bool, Mat3<f32> have totally different memory layouts that we
 /// can't insert padding into type itself. In this situation, the user should use their pre
-/// converted type like Bool, Shader16PaddedMat3 instead of the original one.
-///
-/// The other design choice is, theoretically we could directly convert the field into the 430
-/// one for bool and mat3, but we don't, because this will cause too many confusions in users' code.
+/// converted type like Bool, Shader16PaddedMat3 instead of the original one. Theoretically we
+/// could directly convert the field type, but we don't, because this will cause too many
+/// confusions in users' code.
 #[proc_macro_attribute]
-pub fn std430_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn shader_struct(args: TokenStream, input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
-  let expanded = shader_align_gen(input, "Std430", 0);
-
-  TokenStream::from(expanded)
+  shader_struct_attr_impl(args.into(), input).into()
 }
 
 /// Mark the function callable on the GPU side, auto-deduplicated by its unique name.

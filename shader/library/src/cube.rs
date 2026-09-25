@@ -1,6 +1,7 @@
 use crate::*;
 
-#[derive(Copy, Clone, ShaderStruct)]
+#[shader_struct]
+#[derive(Copy, Clone)]
 pub struct CubeFaceInfo {
   pub face_id: i32,
   pub uv: Vec2<f32>,

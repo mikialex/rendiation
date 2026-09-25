@@ -5,8 +5,8 @@ pub struct HighLighter {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy)]
 pub struct HighLightData {
   pub color: Vec4<f32>,
   pub width: u32,

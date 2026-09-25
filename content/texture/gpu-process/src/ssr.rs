@@ -2,7 +2,8 @@ use rendiation_shader_library::{shader_render_space_to_uv_space, shader_uv_space
 
 use crate::*;
 
-#[derive(Clone, Copy, ShaderStruct)]
+#[shader_struct]
+#[derive(Clone, Copy)]
 pub struct NaiveScreenSpaceReflectionConfig {
   pub trace_check_step_count: u32,
   pub max_distance: f32,

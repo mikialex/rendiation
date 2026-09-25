@@ -1,8 +1,8 @@
 use crate::*;
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy)]
 pub struct BuiltInTriangleHitAttribute {
   pub bary_coord: Vec2<f32>,
 }

@@ -34,8 +34,8 @@ impl GPUReprojectInfo {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default)]
 pub struct ReprojectInfo {
   pub current_camera_view_projection: Mat4<f32>,
   pub current_camera_view_projection_inv: Mat4<f32>,

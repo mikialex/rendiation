@@ -123,8 +123,8 @@ fn convert_pack_result(r: PackResult2dWithDepth) -> ShadowMapAddressInfo {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct ShadowMapAddressInfo {
   pub layer_index: i32,
   /// in pixel unit
@@ -136,8 +136,8 @@ pub struct ShadowMapAddressInfo {
 /// the data for recovering the linear depth from the render space ndc depth,
 /// see recover_linear_depth
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct ProjLinearDepthRecoverHelper {
   /// the near and far plane distances of the shadow projection
   pub near: f32,

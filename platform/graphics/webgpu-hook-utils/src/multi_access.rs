@@ -189,8 +189,8 @@ impl MultiAccessGPUData {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, PartialEq, Debug)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct GPURangeInfo {
   pub start: u32,
   pub len: u32,

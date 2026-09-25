@@ -73,8 +73,8 @@ impl IndirectModelMaterialRenderImpl for UnlitMaterialIndirectRenderer {
 type TexStorage = UnlitMaterialTextureHandlesStorage;
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Default)]
 struct UnlitMaterialStorage {
   pub color: Vec4<f32>,
   pub alpha_cutoff: f32,
@@ -82,8 +82,8 @@ struct UnlitMaterialStorage {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 struct UnlitMaterialTextureHandlesStorage {
   pub color_alpha_texture: TextureSamplerHandlePair,
 }

@@ -95,8 +95,8 @@ impl IndirectModelMaterialRenderImpl for PbrSGMaterialIndirectRenderer {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct PhysicalSpecularGlossinessMaterialStorage {
   pub albedo: Vec3<f32>,
   pub specular: Vec3<f32>,
@@ -110,8 +110,8 @@ pub struct PhysicalSpecularGlossinessMaterialStorage {
 type Storage = PhysicalSpecularGlossinessMaterialStorage;
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct PhysicalSpecularGlossinessMaterialTextureHandlesStorage {
   pub albedo_texture: TextureSamplerHandlePair,
   pub specular_glossiness_texture: TextureSamplerHandlePair,

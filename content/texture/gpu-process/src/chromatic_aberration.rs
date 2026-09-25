@@ -1,8 +1,8 @@
 use crate::*;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct ChromaticAberration {
   pub normalized_screen_focus_point: Vec2<f32>,
   pub color_offset: Vec3<f32>,

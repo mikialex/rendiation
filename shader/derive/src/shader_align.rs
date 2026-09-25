@@ -1,233 +1,227 @@
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{
-  AttrStyle, Attribute, Data, DeriveInput, Field, Fields, Type, Visibility, parse::Parser,
-};
+use syn::{Data, DeriveInput, Field, Fields, Visibility, parse::Parser, spanned::Spanned};
 
-/// get a simple #[foo(bar)] attribute, returning "bar"
-fn get_simple_attr(attributes: &[Attribute], attr_name: &str) -> Option<Ident> {
-  for attr in attributes {
-    if let (AttrStyle::Outer, Some(outer_ident)) = (&attr.style, attr.path().get_ident()) {
-      let mut inner = None;
-      attr
-        .parse_nested_meta(|meta| {
-          if let Some(i) = meta.path.get_ident() {
-            inner = Some(i.clone());
-          }
-          Ok(())
-        })
-        .ok();
+use crate::shader_struct::derive_shader_struct;
+use crate::utils::StructInfo;
 
-      if let Some(inner) = inner
-        && *outer_ident == attr_name
-      {
-        return Some(inner);
-      }
+/// Only `#[repr(C)]` is accepted. Other repr hints like `align` or `packed` change the rust
+/// layout, the generated layout assertions will reject them anyway, but rejecting them here
+/// gives a better error message.
+fn check_repr(input: &DeriveInput) -> syn::Result<()> {
+  let mut has_repr_c = false;
+  for attr in &input.attrs {
+    if !attr.path().is_ident("repr") {
+      continue;
     }
+    attr.parse_nested_meta(|meta| {
+      if meta.path.is_ident("C") {
+        has_repr_c = true;
+        Ok(())
+      } else {
+        Err(meta.error("host shareable shader struct only supports #[repr(C)]"))
+      }
+    })?;
   }
 
-  None
-}
-
-fn get_repr(attributes: &[Attribute]) -> Option<String> {
-  get_simple_attr(attributes, "repr").map(|ident| ident.to_string())
-}
-
-fn check_attributes(attributes: &[Attribute]) -> Result<(), &'static str> {
-  let repr = get_repr(attributes);
-  match repr.as_deref() {
-    Some("C") => Ok(()),
-    Some("transparent") => Ok(()),
-    _ => Err("Implementation requires the struct to be #[repr(C)] or #[repr(transparent)]"),
+  if has_repr_c {
+    Ok(())
+  } else {
+    Err(syn::Error::new(
+      input.ident.span(),
+      "host shareable shader struct requires #[repr(C)]",
+    ))
   }
 }
 
 pub fn shader_align_gen(
-  mut input: DeriveInput,
+  input: DeriveInput,
   trait_name_str: &'static str,
   min_struct_alignment: usize,
 ) -> TokenStream {
-  check_attributes(&input.attrs).unwrap();
-  let trait_name = format_ident!("{}", trait_name_str);
-  let trait_name = quote! {rendiation_shader_api::#trait_name};
+  shader_align_gen_impl(input, trait_name_str, min_struct_alignment)
+    .unwrap_or_else(syn::Error::into_compile_error)
+}
 
-  let input_name = &input.ident;
-  let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+/// The generated code inserts explicit padding fields so the rust repr(C) layout matches the
+/// shader side layout, and then asserts at compile time that every field offset, the struct size
+/// and the struct alignment are exactly what we expected. This makes sure no implicit rust
+/// padding exists(which is required by the Pod impl), and the layout never silently mismatches.
+fn shader_align_gen_impl(
+  mut input: DeriveInput,
+  trait_name_str: &'static str,
+  min_struct_alignment: usize,
+) -> syn::Result<TokenStream> {
+  check_repr(&input)?;
+  if !input.generics.params.is_empty() {
+    return Err(syn::Error::new(
+      input.generics.span(),
+      "generic struct is not supported by host shareable shader struct",
+    ));
+  }
 
-  //  We could potentially
-  // support transparent tuple structs in the future.
+  let trait_ident = format_ident!("{}", trait_name_str);
+  let trait_name = quote! {rendiation_shader_api::#trait_ident};
+  let input_name = input.ident.clone();
+
   let fields = match &mut input.data {
     Data::Struct(data) => match &mut data.fields {
       Fields::Named(fields) => &mut fields.named,
-      Fields::Unnamed(_) => panic!("Tuple structs are not supported"),
-      Fields::Unit => panic!("Unit structs are not supported"),
+      other => {
+        return Err(syn::Error::new(
+          other.span(),
+          "only struct with named fields is supported by host shareable shader struct",
+        ));
+      }
     },
-    Data::Enum(_) | Data::Union(_) => panic!("Only structs are supported"),
+    _ => {
+      return Err(syn::Error::new(
+        input_name.span(),
+        "only struct is supported by host shareable shader struct",
+      ));
+    }
   };
 
-  fields.iter().for_each(|f| {
-    if matches!(f.vis, Visibility::Inherited) {
-      panic!("private field not allowed")
+  if fields.is_empty() {
+    return Err(syn::Error::new(
+      input_name.span(),
+      "empty struct is not supported by host shareable shader struct",
+    ));
+  }
+
+  if let Some(f) = fields
+    .iter()
+    .find(|f| matches!(f.vis, Visibility::Inherited))
+  {
+    return Err(syn::Error::new(
+      f.span(),
+      "private field is not allowed, private fields are reserved for the generated paddings",
+    ));
+  }
+
+  let field_names: Vec<_> = fields.iter().map(|f| f.ident.clone().unwrap()).collect();
+  let field_tys: Vec<_> = fields.iter().map(|f| f.ty.clone()).collect();
+  let field_count = fields.len();
+
+  let prefix = format!("__{input_name}_{trait_name_str}");
+  let align_const = format_ident!("{prefix}_ALIGN");
+  let size_const = format_ident!("{prefix}_SIZE");
+  let offset_consts: Vec<_> = (0..field_count)
+    .map(|i| format_ident!("{prefix}_OFFSET_{i}"))
+    .collect();
+  let pad_consts: Vec<_> = (0..field_count)
+    .map(|i| format_ident!("{prefix}_PAD_{i}"))
+    .collect();
+
+  // Every padding and offset is a separate const item and each one only depends on the previous
+  // one, const items are evaluated only once, so the evaluation cost is linear to the field
+  // count. (Using const fn here is exponential because const fn calls are not memoized)
+  let layout_consts = (0..field_count).map(|i| {
+    let offset_const = &offset_consts[i];
+    let pad_const = &pad_consts[i];
+    let ty = &field_tys[i];
+
+    let offset = if i == 0 {
+      quote! { 0 }
+    } else {
+      let prev_offset = &offset_consts[i - 1];
+      let prev_ty = &field_tys[i - 1];
+      let prev_pad = &pad_consts[i - 1];
+      quote! { #prev_offset + ::core::mem::size_of::<#prev_ty>() + #prev_pad }
+    };
+
+    let next_alignment = if i + 1 == field_count {
+      quote! { #align_const }
+    } else {
+      let next_ty = &field_tys[i + 1];
+      quote! { <#next_ty as #trait_name>::ALIGNMENT }
+    };
+
+    quote! {
+      #[doc(hidden)]
+      #[allow(non_upper_case_globals)]
+      const #offset_const: usize = #offset;
+      #[doc(hidden)]
+      #[allow(non_upper_case_globals)]
+      const #pad_const: usize = rendiation_shader_api::align_offset(
+        #offset_const + ::core::mem::size_of::<#ty>(),
+        #next_alignment,
+      );
     }
   });
 
-  // Gives an expression returning the layout-specific alignment for the type.
-  let layout_alignment_of_ty = |ty: &Type| {
-    quote! {
-        <#ty as #trait_name>::ALIGNMENT
-    }
+  let last_offset = &offset_consts[field_count - 1];
+  let last_ty = &field_tys[field_count - 1];
+  let last_pad = &pad_consts[field_count - 1];
+
+  let layout_consts = quote! {
+    #[doc(hidden)]
+    #[allow(non_upper_case_globals)]
+    const #align_const: usize = rendiation_shader_api::max_arr([
+      #min_struct_alignment,
+      #(<#field_tys as #trait_name>::ALIGNMENT,)*
+    ]);
+    #(#layout_consts)*
+    #[doc(hidden)]
+    #[allow(non_upper_case_globals)]
+    const #size_const: usize = #last_offset + ::core::mem::size_of::<#last_ty>() + #last_pad;
   };
 
-  let field_alignments = fields.iter().map(|field| layout_alignment_of_ty(&field.ty));
-  let struct_alignment = quote! {
-      rendiation_shader_api::max_arr([
-          #min_struct_alignment,
-          #(#field_alignments,)*
-      ])
+  let layout_assertions = quote! {
+    const _: () = {
+      #(
+        assert!(
+          ::core::mem::offset_of!(#input_name, #field_names) == #offset_consts,
+          concat!(
+            "shader layout mismatch: unexpected offset of field `",
+            stringify!(#field_names), "` in `", stringify!(#input_name), "`"
+          )
+        );
+      )*
+      assert!(
+        ::core::mem::size_of::<#input_name>() == #size_const,
+        concat!(
+          "shader layout mismatch: unexpected size of `", stringify!(#input_name),
+          "`, the rust layout contains implicit padding"
+        )
+      );
+      assert!(
+        ::core::mem::align_of::<#input_name>() <= #align_const,
+        concat!(
+          "shader layout mismatch: the rust alignment of `", stringify!(#input_name),
+          "` is larger than the shader alignment"
+        )
+      );
+    };
   };
-
-  // Generate names for each padding calculation function.
-  let pad_fns: Vec<_> = (0..fields.len())
-    .map(|index| format_ident!("_{}__{}Pad{}", input_name, trait_name_str, index))
-    .collect();
-
-  // Computes the offset immediately AFTER the field with the given index.
-  //
-  // This function depends on the generated padding calculation functions to
-  // do correct alignment. Be careful not to cause recursion!
-  let offset_after_field = |target: usize| {
-    let mut output = vec![quote!(0usize)];
-
-    for index in 0..=target {
-      let field_ty = &fields[index].ty;
-
-      output.push(quote! {
-          + ::core::mem::size_of::<#field_ty>()
-      });
-
-      // For every field except our target field, also add the generated
-      // padding. Padding occurs after each field, so it isn't included in
-      // this value.
-      if index < target {
-        let pad_fn = &pad_fns[index];
-        output.push(quote! {
-            + #pad_fn()
-        });
-      }
-    }
-
-    output.into_iter().collect::<TokenStream>()
-  };
-
-  let pad_fn_impls: TokenStream = pad_fns
-    .iter()
-    .enumerate()
-    .map(|(index, pad_fn)| {
-      let starting_offset = offset_after_field(index);
-
-      let next_field_or_self_alignment = if index + 1 == fields.len() {
-        quote!(#struct_alignment)
-      } else {
-        layout_alignment_of_ty(&fields[index + 1].ty)
-      };
-
-      quote! {
-          /// Tells how many bytes of padding have to be inserted after
-          /// the field with index #index.
-          #[allow(non_snake_case)]
-          const fn #pad_fn() -> usize {
-              // First up, calculate our offset into the struct so far.
-              // We'll use this value to figure out how far out of
-              // alignment we are.
-              let starting_offset = #starting_offset;
-
-              // We set our target alignment to the larger of the
-              // alignment due to the previous field and the alignment
-              // requirement of the next field.
-              let alignment = #next_field_or_self_alignment;
-
-              // Using everything we've got, compute our padding amount.
-              rendiation_shader_api::align_offset(starting_offset, alignment)
-          }
-      }
-    })
-    .collect();
 
   let mut new_fields = fields.clone();
   new_fields.clear();
-  fields.iter().enumerate().for_each(|(index, f)| {
+  for (index, f) in fields.iter().enumerate() {
     new_fields.push(f.clone());
 
     let pad_field_name = format_ident!("_pad{}", index);
-    let pad_fn = &pad_fns[index];
-    let pad_field = Field::parse_named
-      .parse2(quote! { #pad_field_name: [u8; #pad_fn()] })
-      .unwrap();
+    let pad_const = &pad_consts[index];
+    let pad_field = Field::parse_named.parse2(quote! { #pad_field_name: [u8; #pad_const] })?;
     new_fields.push(pad_field);
-  });
-  *fields = new_fields.clone();
-
-  let trait_impl = quote! {
-      #pad_fn_impls
-
-      unsafe impl #impl_generics rendiation_shader_api::Zeroable for #input_name #ty_generics #where_clause {}
-      unsafe impl #impl_generics rendiation_shader_api::Pod for #input_name #ty_generics #where_clause {}
-
-      unsafe impl #impl_generics #trait_name for #input_name #ty_generics #where_clause {
-          const ALIGNMENT: usize = #struct_alignment;
-      }
-  };
-
-  let debug_fields: TokenStream = fields
-    .iter()
-    .map(|field| {
-      let field_name = field.ident.as_ref().unwrap();
-      let field_ty = &field.ty;
-
-      quote! {
-          fields.push(Field {
-              name: stringify!(#field_name),
-              size: ::core::mem::size_of::<#field_ty>(),
-              offset: (&zeroed.#field_name as *const _ as usize)
-                  - (&zeroed as *const _ as usize),
-          });
-      }
-    })
-    .collect();
-
-  let debug = quote! {
-    impl #impl_generics #input_name #ty_generics #where_clause {
-        fn debug_metrics() -> String {
-            let size = ::core::mem::size_of::<Self>();
-            let align = <Self as #trait_name>::ALIGNMENT;
-
-            let zeroed: Self = rendiation_shader_api::Zeroable::zeroed();
-
-            #[derive(Debug)]
-            struct Field {
-                name: &'static str,
-                offset: usize,
-                size: usize,
-            }
-            let mut fields = Vec::new();
-
-            #debug_fields
-
-            format!("Size {}, Align {}, fields: {:#?}", size, align, fields)
-        }
-
-        fn debug_definitions() -> &'static str {
-            stringify!(
-                #new_fields
-                #pad_fn_impls
-            )
-        }
-    }
-  };
-
-  quote! {
-    #input
-    #trait_impl
-    #debug
   }
+  *fields = new_fields;
+
+  // the padding fields are private, so they are not visible to the shader struct
+  let shader_struct = derive_shader_struct(&StructInfo::new(&input), Some(trait_ident));
+
+  Ok(quote! {
+    #input
+    #layout_consts
+    #layout_assertions
+
+    unsafe impl rendiation_shader_api::Zeroable for #input_name {}
+    unsafe impl rendiation_shader_api::Pod for #input_name {}
+
+    unsafe impl #trait_name for #input_name {
+      const ALIGNMENT: usize = #align_const;
+    }
+
+    #shader_struct
+  })
 }

@@ -1,14 +1,12 @@
 # Infra Backlog
 
-Source: the full review of `platform/graphics/webgpu` on 2026-09-25, plus issues found while fixing it. Only **unresolved** issues are listed here; anything already fixed has been removed.
-
 Code locations are given as "file path + symbol name", not line numbers.
 
 ---
 
-## 1. Correctness risks
+## Correctness risks
 
-### 1.1 Buffer resize is submitted immediately on a separate encoder, with no ordering against the encoder currently being recorded
+### Buffer resize is submitted immediately on a separate encoder, with no ordering against the encoder currently being recorded
 
 - Location:
   - `platform/graphics/webgpu/src/resource/buffer/linear_buffer_array/gpu_raw.rs`: `ResizableGPUBuffer::resize_with_relocations`
@@ -16,25 +14,25 @@ Code locations are given as "file path + symbol name", not line numbers.
 - Problem: the resize/relocation copies always execute before the outer, not-yet-submitted encoder. If the outer encoder has already recorded GPU commands (e.g. compute) that write into the old buffer, those writes never reach the new buffer and the data is lost.
 - Suggestion: make resize/relocation record into the encoder passed in by the caller. This changes the `ResizableLinearStorage` family of trait interfaces, so the change is fairly wide and should be scheduled separately.
 
-### 1.2 `list_pool` writes to the underlying buffer at absolute offsets
+### `list_pool` writes to the underlying buffer at absolute offsets
 
 - Location: `scene/rendering/batch-extractor/src/list_pool.rs`: the `queue.write_buffer` call for `move_writes` in `apply_pool_update`
 - Problem: it takes the underlying `gpu::Buffer` via `get_gpu_buffer_view()` and writes at an absolute offset, ignoring the view offset. If `pool_buffer` is a sub-buffer of a combined buffer, the data lands in the wrong place.
 - Suggestion: use `AbstractBuffer::write`, which writes at an offset relative to the view.
 
-### 1.3 SBT allocation leaks when it only partly succeeds
+### SBT allocation leaks when it only partly succeeds
 
 - Location: `shader/ray-tracing/src/backend/wavefront_compute/sbt.rs`: `ShaderBindingTableDeviceInfo::allocate`
 - Problem: the hit, miss and gen ranges are allocated one after another, and any failure returns `None` straight away via `?`. The ranges that were already allocated are never freed, and `offset_map` has no record of them.
 - Suggestion: when one range fails, roll back (free) the ranges already allocated.
 
-### 1.4 The range allocator can only panic when resize fails
+### The range allocator can only panic when resize fails
 
 - Location: `platform/graphics/webgpu/src/resource/buffer/allocator/range.rs`: `GPURangeAllocateMaintainer::apply_resize_and_relocations`
 - Problem: by the time this runs, `GrowableRangeAllocator` has already committed the new allocation and the data movements. If the GPU buffer resize then fails, the two sides are out of sync, so for now the only option is `assert!`.
 - Suggestion: to fail gracefully, `GrowableRangeAllocator` needs rollback support. Alternatively, check before allocating that the target size is within device limits.
 
-### 1.5 Zero-length buffer behavior is undefined
+### Zero-length buffer behavior is undefined
 
 - Location:
   - `platform/graphics/webgpu/src/resource/buffer/storage.rs`: `From<ZeroedArrayByArrayLength> for StorageBufferInit`
@@ -42,7 +40,7 @@ Code locations are given as "file path + symbol name", not line numbers.
 - Problem: `NonZeroU64::new(0).unwrap()` panics. midc-downgrade had a zero-capacity test (`test_downgrade_list_pool_zero_capacity`) that had always been failing; it has been deleted.
 - Suggestion: decide the semantics of an empty buffer first: either allocate a minimum-size buffer, or require callers to guarantee the size is never 0. Then add a test for it.
 
-### 1.6 `TryFrom` for `GPUTypedTexture` performs no checks
+### `TryFrom` for `GPUTypedTexture` performs no checks
 
 - Location: `platform/graphics/webgpu/src/resource/texture/mod.rs`: `impl TryFrom<GPUTexture> for GPUTypedTexture<D, F>`
 - Problem: the check code is commented out, so any texture converts to a typed texture of any dimension and format. The view-level check has been fixed; the texture level has not.
@@ -50,34 +48,34 @@ Code locations are given as "file path + symbol name", not line numbers.
 
 ---
 
-## 2. Design issues
+## Design issues
 
-### 2.1 The device requests every adapter feature and limit, and enables experimental features
+### The device requests every adapter feature and limit, and enables experimental features
 
 - Location: `platform/graphics/webgpu/src/lib.rs`: where `GPU::new` builds the `DeviceDescriptor`
 - Problem: `required_features` and `required_limits` are set to everything the adapter supports, and `experimental_features` is enabled. `minimal_required_*` then only acts as a check, and code can silently come to depend on features that only some machines have, so it breaks on another machine.
 - Suggestion: this needs an owner decision. One option is to request only `minimal_required_*` plus explicitly declared optional features.
 
-### 2.2 The acceleration structure layout hardcodes `vertex_return: true`
+### The acceleration structure layout hardcodes `vertex_return: true`
 
 - Location: `platform/graphics/webgpu/src/pipeline/mod.rs`: the `AccelerationStructure` branch of `map_shader_value_ty_to_binding_layout_type`
 - Problem: this requires the experimental ray hit vertex return feature. On devices without it, layout creation fails.
 - Suggestion: choose the value based on whether the feature is available, or pass it in from the shader-side descriptor.
 
-### 2.3 The pipeline cache keys on a 64-bit hash only, with no equality check
+### The pipeline cache keys on a 64-bit hash only, with no equality check
 
 - Location: `platform/graphics/webgpu/src/device.rs`: `get_or_cache_create_render_pipeline`, `get_or_cache_create_compute_pipeline`
 - Problem: `PipelineHasher` is a 64-bit FxHash, and there is no full key to compare against. The chance of a real collision is negligible. The more realistic risk is a component forgetting to hash a field that affects the pipeline; the earlier `reversed_depth` and `BindingController.target` bugs were exactly this and have been fixed. Both kinds of error fail silently.
 - Suggestion: add an opt-in debug validation mode. On a cache hit, rebuild the shader from the current component and compare the output (WGSL or naga module, plus pipeline state) with what was recorded when the pipeline was cached. On a mismatch, panic and print the component type info. This catches both collisions and missing hash fields. Keep it off by default; if it is too slow, validate only a sample of hits.
 - Note: the BindGroup and BindGroupLayout caches already compare full keys; on the BindGroup side this is controlled by `BINDGROUP_CACHE_FULL_KEY_COMPARE`.
 
-### 2.4 The two resource id namespaces overlap
+### The two resource id namespaces overlap
 
 - Location: `platform/graphics/webgpu/src/resource/array.rs`: `BindingResourceArray::new` uses `get_new_resource_guid()`, while regular views use `create_resource_view_guid()`
 - Problem: both counters start at 0, so a binding array's pseudo view id can equal a real view's id. Cache keys are now compared in full, so a wrong bindgroup is never returned. But the view-to-bindgroup reverse index gets crossed: when one side is dropped, it also evicts the other side's bindgroups, causing unnecessary cache invalidation.
 - Suggestion: generate the pseudo view id with `create_resource_view_guid()` as well.
 
-### 2.5 Deferred destruction on wasm uses a global counter
+### Deferred destruction on wasm uses a global counter
 
 - Location: `platform/graphics/webgpu/src/resource/defer_explicit_destroy.rs`: `DeferExplicitDestroy`
 - Problem:
@@ -85,17 +83,41 @@ Code locations are given as "file path + symbol name", not line numbers.
   - `ResourceExplicitDestroy::drop` reads the counter and then pushes the resource onto the pending-destroy list; there is a race between those two steps, so destruction can be delayed until the next time the counter reaches zero.
 - Suggestion: track per command buffer which pending-destroy resources it references, or at least guard the counter read and the push with a single lock.
 
-### 2.6 Shader build failure during pipeline creation panics
+### Shader build failure during pipeline creation panics
 
 - Location: `platform/graphics/webgpu/src/rendering.rs`: `RenderComponent::render`; `platform/graphics/webgpu/src/device.rs`: `get_or_cache_create_compute_pipeline_by`
 - Problem: the results of `build_self(...)`, `build_pipeline_by_shader_api(...)` and `create_compute_pipeline(...)` are all `unwrap`ped, with no error return path.
 - Suggestion: at minimum, print the error together with the component type info; then consider a recoverable path.
 
+### The host layout is only validated against the WGSL layout rules at shader build time
+
+- Location: `shader/backends/naga/src/lib.rs`: `build_struct_members`, `gen_struct_define`
+- Problem: the rust layout of a host shareable struct is locked by compile time assertions, but whether it is valid for WGSL (host offset >= natural offset, aligned to the natural alignment) is only checked when a shader using the type is built, and the failure is a panic.
+- Suggestion: add a natural alignment constant to `Std140`/`Std430` (for example `NATURAL_ALIGNMENT`), then `#[shader_struct(std140/std430)]` can assert it at compile time. Every hand written impl needs one more constant.
+
+### Struct field index remapping depends on the naga typifier
+
+- Location: `shader/backends/naga/src/lib.rs`: `map_struct_field_index`
+- Problem: when a struct contains explicit padding members, the field index must be mapped to the member index. The backend resolves the base expression type with `naga::front::Typifier`, which panics if any expression in the function can not be resolved. It is only enabled when the module contains padded structs, and all current tests pass, but it is an implicit dependency on naga internals.
+- Suggestion: let `ShaderNodeExpr::IndexStatic` carry the struct type from the API side, so the backend does not need type resolution. This changes every field access path, so it is a wide change.
+
+### Writing host data into a packed combined buffer is only rejected at runtime
+
+- Location: `platform/graphics/webgpu-virtual-typed-combine-buffer/src/storage.rs`: `SubCombinedStorageBufferDynTyped::write`
+- Problem: host data is always std430, so writing it into a `Packed` layout buffer is rejected by an assert. The check is at runtime, and no test currently covers it.
+- Suggestion: express the layout in the allocator type, so a packed allocator does not expose host write APIs at all.
+
+### The layout names follow GLSL rather than WGSL
+
+- Location: `shader/api/src/layout/mod.rs`: `Std140`, `Std430`, `Shader140Array`; the `std140`/`std430` arguments of `#[shader_struct]`
+- Problem: the layouts are actually the WGSL uniform and storage address space layouts, which differ from GLSL std140 (for example matCx2 and scalar arrays). The GLSL names already led to the wrong `Shader16PaddedMat2` design.
+- Suggestion: rename to `UniformLayout` / `StorageLayout` / `UniformArray` and `#[shader_struct(uniform/storage)]`. The change is wide, schedule it separately.
+
 ---
 
-## 3. Performance issues
+## Performance issues
 
-### 3.1 The hot path takes global write locks every time
+### The hot path takes global write locks every time
 
 - Location:
   - `GPUDevice::get_or_cache_create_render_pipeline`: takes the write lock on every draw, even on a cache hit, and runs `creator` (i.e. compiles the shader) while holding it
@@ -103,33 +125,33 @@ Code locations are given as "file path + symbol name", not line numbers.
 - Status: everything is single-threaded today, so this is low priority and deferred for now.
 - Suggestion: look up under a read lock first; on a miss, take the write lock and look up again. Compile outside the lock.
 
-### 3.2 `CacheAbleBindingBuildSource` is built eagerly on every bind
+### `CacheAbleBindingBuildSource` is built eagerly on every bind
 
 - Location: `platform/graphics/webgpu/src/binding/bind_source.rs`, and `get_binding_build_source` for typed texture arrays in `resource/array.rs`
 - Problem: even when the bindgroup cache hits, every bind clones an Arc, and typed texture arrays also allocate a new Vec each time.
 - Suggestion: record only the view ids up front, and build `BindingResourceOwned` only on a cache miss.
 
-### 3.3 `min_binding_size` is always `None`
-
-- Location: `platform/graphics/webgpu/src/pipeline/mod.rs`: `map_shader_value_ty_to_binding_layout_type`
-- Problem: wgpu therefore validates binding sizes late, on every draw, and errors are reported later too.
-- Suggestion: for sized types, compute the minimum size when creating the layout and fill it in.
-
-### 3.4 With statistics enabled, new GPU objects are created per pass, per frame
+### With statistics enabled, new GPU objects are created per pass, per frame
 
 - Location: `platform/graphics/webgpu/src/query/`, `frame/statistics.rs`
 - Problem: each pass creates a new `QuerySet` every frame, plus a resolve buffer and a staging buffer. The cost only applies when statistics are enabled.
 - Suggestion: pool and reuse the query sets and buffers.
 
-### 3.5 `AtomicImageDowngrade::clear` creates a new uniform on every call
+### `AtomicImageDowngrade::clear` creates a new uniform on every call
 
 - Location: `platform/graphics/webgpu/src/atomic_image_downgrade.rs`: `AtomicImageDowngrade::clear`
 - Problem: a new uniform per call means a new bindgroup per call. It cannot simply share one uniform, though: `queue.write_buffer` calls all take effect before submit, so multiple clears in the same encoder would all read the same parameters.
 - Suggestion: pass the parameters through a dynamic offset array (`UniformBufferDynamicOffsetArray`) or immediates.
 
+### Shader struct meta info is rebuilt on every call
+
+- Location: `shader/derive/src/shader_struct.rs`: the generated `meta_info`; `ShaderSizedValueType::Struct` owns a `ShaderStructMetaInfo`
+- Problem: every `meta_info()` call allocates the field names and nested metas again, and the naga backend `ty_mapping` hashes the whole nested meta as the key. This costs shader build time.
+- Suggestion: measure first. If it matters, cache the meta in a `OnceLock` and share it by `Arc`.
+
 ---
 
-## 4. Minor issues
+## Minor issues
 
 - **Unclear errors when the bindgroup count does not match the pipeline**: `BindingBuilder::setup_binding` skips trailing empty groups. So when the pipeline expects more groups than were bound, the layout check does not cover them and wgpu only reports an error at draw time. Conversely, binding more groups than the pipeline has makes `layouts[group_index]` panic with an index out of bounds, with no readable message.
 - **The clear dispatch can exceed the limit**: `AtomicImageDowngrade::clear` dispatches `count.div_ceil(256)` workgroups in x, which can exceed `max_compute_workgroups_per_dimension` (65535) for large images or many layers.
@@ -140,10 +162,13 @@ Code locations are given as "file path + symbol name", not line numbers.
   - `iter_history_from_oldest_latest` actually iterates from newest to oldest, the opposite of its name, and skips the record at index 0.
   - `history_average` only exists for f32, while timing statistics use `StatisticStore<f64>`, so it cannot be used for them.
 - **`basic_texture_usages()` may produce invalid usages (to confirm)**: it includes `STORAGE_BINDING`, but many formats (e.g. sRGB formats) do not support storage binding, so creating a texture with these usages triggers a validation error. Need to check which formats the callers use.
+- **Reading std430 data from unaligned bytes panics**: `Std430::from_bytes` and `from_bytes_into_boxed_slice` in `shader/api/src/layout/mod.rs` use `bytemuck::from_bytes` / `cast_slice`, which panic when the byte slice is not aligned to the rust type. Use `pod_read_unaligned` / `pod_collect_to_vec` instead.
+- **Host shareable structs are hard to construct**: `#[shader_struct(std140/std430)]` inserts private padding fields, so outside the defining module neither the struct literal nor the `..base` syntax works, the only way is `zeroed()` then assign each field. Consider generating a `new(..)` constructor or a builder.
+- **`Shader16PaddedMat2` is dead code**: `math/algebra/src/shader_aligned.rs`. It follows the GLSL std140 layout, which is wrong for WGSL, and it is no longer usable in any shader layout. Delete it.
 
 ---
 
-## 5. Follow-ups
+## Follow-ups
 
 - **No convenience container for storage buffers with dynamic offsets**: only `UniformBufferDynamicOffsetArray` exists. A storage buffer can be used by wrapping a sub-range view with an explicit size in `DynamicOffsetBinding`, but there is no matching array container.
 - **The stricter dimension check needs validating in real scenes**: `DimensionDynamicViewCheck` used to always pass and is now strict. A static review of callers using Cube / 2DArray / CubeArray types found that they all set a matching `dimension` explicitly. Still, run the viewer and the shadow, IBL and texture pool scenes to confirm no caller relied on the old permissive check. The most likely breakage: a single-layer texture using its default view and then being converted to a `*2DArray*` type.
@@ -155,3 +180,5 @@ Code locations are given as "file path + symbol name", not line numbers.
   - `view_byte_size`, `write` and indirect dispatch on sub-range views
   - BindGroup cache full-key comparison, and correct cache cleanup after a view is dropped
   - Sampler view cache
+- **The shader layout tests only run on Metal**: `platform/graphics/webgpu/src/pipeline/layout_test.rs` covers the naga IR path and the WGSL text path (the browser WebGPU path). Run it on Linux CI with lavapipe (Vulkan) and llvmpipe (GL) to really cover the naga GLSL backend. Also add a GPU free test that reparses the generated WGSL with the naga wgsl frontend and compares the struct member offsets.
+- **Missing shader layout features**: there is no host shareable unsized struct (a sized header followed by a runtime sized array, `ShaderUnsizedStructuralNodeType` has no implementor), and f16 is not supported.

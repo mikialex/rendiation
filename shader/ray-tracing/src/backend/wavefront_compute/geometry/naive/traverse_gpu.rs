@@ -401,7 +401,8 @@ impl RayRange {
 }
 
 #[repr(C)]
-#[derive(ShaderStruct, Clone, Copy)]
+#[shader_struct]
+#[derive(Clone, Copy)]
 struct RayBlas {
   pub ray: Ray,
   pub blas: BlasMetaInfo,

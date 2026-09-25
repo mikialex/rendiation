@@ -271,7 +271,8 @@ pub trait SlugShaderBandDataSource {
   ) -> Box<dyn ShaderIterator<Item = (Node<Vec4<f32>>, Node<Vec2<f32>>)> + '_>;
 }
 
-#[derive(Clone, Copy, ShaderStruct)]
+#[shader_struct]
+#[derive(Clone, Copy)]
 pub struct SlugDilateResult {
   pub texcoord: Vec2<f32>,
   pub vpos: Vec2<f32>,

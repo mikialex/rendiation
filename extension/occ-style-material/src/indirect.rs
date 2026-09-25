@@ -137,8 +137,8 @@ impl IndirectModelMaterialRenderImpl for OccStyleMaterialIndirectRenderer {
 type TexStorage = OccStyleMaterialTextureHandlesStorage;
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Default)]
 pub struct OccStyleMaterialStorage {
   pub diffuse: Vec4<f32>,
   pub diffuse_backface: Vec4<f32>,
@@ -148,8 +148,8 @@ pub struct OccStyleMaterialStorage {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct OccStyleMaterialTextureHandlesStorage {
   pub diffuse_texture: TextureSamplerHandlePair,
 }

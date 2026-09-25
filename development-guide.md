@@ -83,6 +83,15 @@ important issue is in bold style.
       padding in struct end).
   - draw on TextureFormat::R8Unorm when enable blend cause strange effect
   - chrome wgsl not accept f32::MAX float literal
+  - naga wgsl backend does not preserve the struct layout in naga IR. The member offset, struct span and array stride
+      are dropped (no `@align`/`@size` emitted), the layout is recomputed from the member types. This affects browser
+      WebGPU because wgpu converts the naga IR into wgsl text on web. Workaround: our naga backend always generates the
+      natural layout IR by inserting explicit padding members (see `build_struct_members` in shader/backends/naga).
+  - naga glsl backend also ignores the member offset, span and array stride, and relies on the std140/std430 rules of
+      the driver. It does not insert padding members like the msl and hlsl backends do. Covered by the same workaround.
+  - naga glsl backend has no matCx2 workaround in uniform buffer (the spirv and hlsl backends have), the column stride
+      is 16 bytes in glsl std140 but 8 bytes in wgsl uniform layout. Workaround: `Mat2<f32>` is not supported in
+      std140 layout.
 - known but not fixed yet
   - dx12 midc <https://github.com/gfx-rs/wgpu/issues/7974>
   - correct hdr rendering, see <https://github.com/gfx-rs/wgpu/issues/2920>;

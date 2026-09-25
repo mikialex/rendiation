@@ -135,8 +135,8 @@ pub fn camera_transform_impl(
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct CameraGPUTransform {
   pub projection: Mat4<f32>,
   pub projection_inv: Mat4<f32>,

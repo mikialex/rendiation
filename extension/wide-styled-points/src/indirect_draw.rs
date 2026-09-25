@@ -99,8 +99,8 @@ pub struct WideStyledPointsIndirectRenderer {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Default)]
 struct WideStyledPointParameters {
   pub range: Vec2<u32>,
   pub color: Vec4<f32>,
@@ -108,8 +108,8 @@ struct WideStyledPointParameters {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Default)]
 struct WideStyledPointVertexStorage {
   pub position: Vec3<f32>,
   pub width: f32,

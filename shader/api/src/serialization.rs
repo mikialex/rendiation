@@ -2,57 +2,21 @@ use crate::*;
 
 impl PrimitiveShaderValueType {
   pub fn u32_count_of_self(&self, layout: StructLayoutTarget) -> usize {
-    let is_packed = matches!(layout, StructLayoutTarget::Packed);
-    match self {
-      PrimitiveShaderValueType::Scalar(_) => 1,
-      PrimitiveShaderValueType::Vector { size, .. } => *size as usize,
-      PrimitiveShaderValueType::Matrix { columns, rows, .. } => match (columns, rows) {
-        (VectorSize::Bi, VectorSize::Bi) => 4,
-        (VectorSize::Tri, VectorSize::Tri) => {
-          if is_packed {
-            9
-          } else {
-            16
-          }
-        }
-        (VectorSize::Quad, VectorSize::Quad) => 16,
-        (VectorSize::Quad, VectorSize::Tri) => 12,
-        _ => unreachable!(),
-      },
-    }
+    self.size_of_self(layout) / 4
   }
 
   pub fn is_single_primitive(&self) -> bool {
     self.u32_count_of_self(StructLayoutTarget::Packed) == 1
   }
 
-  /// returns (row stride, row type)
-  /// calculate row count by f32_count / row_stride
+  /// returns (column stride in u32 count, column type)
+  /// calculate column count by u32_count / column_stride
   pub fn mat_row_info(&self, target: StructLayoutTarget) -> Option<(usize, ShaderSizedValueType)> {
     match self {
-      PrimitiveShaderValueType::Matrix {
-        columns,
-        rows,
-        scalar,
-      } => {
-        let stride = match (columns, rows) {
-          (VectorSize::Bi, VectorSize::Bi) => 2,
-          (VectorSize::Tri, VectorSize::Tri) => {
-            if target == StructLayoutTarget::Packed {
-              3
-            } else {
-              4
-            }
-          }
-          (VectorSize::Quad, VectorSize::Quad) => 4,
-          (VectorSize::Quad, VectorSize::Tri) => 3,
-          _ => unreachable!(),
-        };
-        Some((
-          stride,
-          ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(*rows, *scalar)),
-        ))
-      }
+      PrimitiveShaderValueType::Matrix { rows, scalar, .. } => Some((
+        matrix_column_stride(*rows, target) / 4,
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(*rows, *scalar)),
+      )),
       _ => None,
     }
   }
@@ -113,23 +77,15 @@ impl ShaderSizedValueType {
         }
       }
       ShaderSizedValueType::Struct(f) => {
-        let offset = offset;
-        let mut parameters = Vec::new();
-        let tail_pad = iter_field_start_offset_in_bytes(&f.fields, layout, &mut |f_offset, fty| {
-          let offset = offset + val(f_offset as u32 / 4);
-          parameters.push(fty.ty.load_from_u32_buffer(target, offset, layout));
-        });
-
-        if let Some(TailPaddingInfo {
-          pad_size_in_bytes, ..
-        }) = tail_pad
-        {
-          let pad_count = pad_size_in_bytes / 4;
-          // not using array here because I do not want hit another strange layout issue!
-          for _ in 0..pad_count {
-            parameters.push(val(0_u32).handle());
-          }
-        }
+        let parameters = f
+          .fields
+          .iter()
+          .zip(f.fields_layout(layout).offsets)
+          .map(|(fty, f_offset)| {
+            let offset = offset + val(f_offset as u32 / 4);
+            fty.ty.load_from_u32_buffer(target, offset, layout)
+          })
+          .collect();
 
         ShaderNodeExpr::Compose {
           target: self.clone(),
@@ -139,7 +95,7 @@ impl ShaderSizedValueType {
       }
       ShaderSizedValueType::FixedSizeArray(ty, size) => {
         let mut offset = offset;
-        let stride = val(ty.u32_size_count(layout));
+        let stride = val(array_stride_of_element(ty, layout) as u32 / 4);
         let mut parameters = Vec::new();
         for _ in 0..*size {
           parameters.push(ty.load_from_u32_buffer(target, offset, layout));
@@ -211,19 +167,18 @@ impl ShaderSizedValueType {
         }
       }
       ShaderSizedValueType::Struct(f) => {
-        let mut i = 0;
-        iter_field_start_offset_in_bytes(&f.fields, layout, &mut |f_offset, fty| {
+        let offsets = f.fields_layout(layout).offsets;
+        for (i, (fty, f_offset)) in f.fields.iter().zip(offsets).enumerate() {
           fty.ty.store_into_u32_buffer(
             unsafe { index_access_field(source, i) },
             target,
             offset + val(f_offset as u32 / 4),
             layout,
           );
-          i += 1;
-        });
+        }
       }
       ShaderSizedValueType::FixedSizeArray(ty, size) => {
-        let stride = val(ty.u32_size_count(layout));
+        let stride = val(array_stride_of_element(ty, layout) as u32 / 4);
         for i in 0..*size {
           ty.store_into_u32_buffer(
             unsafe { index_access_field(source, i) },

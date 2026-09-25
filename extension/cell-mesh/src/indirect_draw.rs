@@ -185,8 +185,8 @@ impl IndirectModelShapeRenderImpl for CellMeshRenderer {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Debug, Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct CellMeshUnitDataStorage {
   // the position of the four vertices
   pub p1: Vec3<f32>,
@@ -201,8 +201,8 @@ pub struct CellMeshUnitDataStorage {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Default)]
 struct CellMeshParameters {
   pub data_range: Vec2<u32>,
   pub shrink_ratio: f32,

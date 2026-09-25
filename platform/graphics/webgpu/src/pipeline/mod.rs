@@ -5,6 +5,9 @@ use rendiation_shader_backend_naga::{NagaModuleBuildResult, ShaderAPINagaImpl};
 mod container;
 pub use container::*;
 
+#[cfg(test)]
+mod layout_test;
+
 pub type GPURenderPipeline = GPUPipeline<wgpu::RenderPipeline>;
 pub type GPUComputePipeline = GPUPipeline<wgpu::ComputePipeline>;
 
@@ -90,14 +93,14 @@ pub fn map_shader_value_ty_to_binding_layout_type(
           gpu::BufferBindingType::Uniform
         },
         has_dynamic_offset: v.has_dynamic_offset,
-        min_binding_size: None,
+        min_binding_size: ty.min_binding_size(),
       },
       Unsized(_) => gpu::BindingType::Buffer {
         ty: gpu::BufferBindingType::Storage {
           read_only: !v.writeable_if_storage,
         },
         has_dynamic_offset: v.has_dynamic_offset,
-        min_binding_size: None,
+        min_binding_size: ty.min_binding_size(),
       },
       Sampler(ty) => gpu::BindingType::Sampler(ty),
       Texture {

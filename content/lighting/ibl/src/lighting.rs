@@ -40,8 +40,8 @@ impl LightingComputeComponent for IBLLightingComponent {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default)]
 pub struct IblShaderInfo {
   pub transform: Mat4<f32>,
   pub diffuse_illuminance: f32,

@@ -20,8 +20,8 @@ use crate::backend::wavefront_compute::geometry::{Ray, intersect_ray_triangle_gp
 use crate::*;
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct TopLevelAccelerationStructureSourceDeviceInstance {
   pub transform: Mat4<f32>,
   pub transform_inv: Mat4<f32>,
@@ -31,8 +31,8 @@ pub struct TopLevelAccelerationStructureSourceDeviceInstance {
   pub acceleration_structure_handle: u32, // blas index
 }
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct TlasBounding {
   pub world_min: Vec3<f32>,
   pub mask: u32,
@@ -41,8 +41,8 @@ pub struct TlasBounding {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 struct DeviceBVHNode {
   pub aabb_min: Vec3<f32>,
   pub hit_next: u32,
@@ -53,16 +53,16 @@ struct DeviceBVHNode {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 struct BlasMetaInfo {
   pub tri_root_range: Vec2<u32>,
   // pub box_root_range: Vec2<u32>,
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 struct GeometryMetaInfo {
   pub bvh_root_idx: u32,
   pub geometry_idx: u32,

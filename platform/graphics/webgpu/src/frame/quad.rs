@@ -1,6 +1,7 @@
 use crate::*;
 
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct]
+#[derive(Copy, Clone, Default)]
 pub struct QuadVertexOut {
   pub position: Vec4<f32>,
   pub uv: Vec2<f32>,

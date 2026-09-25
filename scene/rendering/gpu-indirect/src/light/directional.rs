@@ -1,8 +1,8 @@
 use crate::*;
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Default)]
 pub struct DirectionalLightStorage {
   /// in lx
   pub illuminance: Vec3<f32>,

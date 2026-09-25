@@ -1,8 +1,8 @@
 use crate::*;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std140)]
+#[derive(Copy, Clone, Default)]
 pub struct ShaderPlaneUniform {
   pub normal: Vec3<f32>,
   // todo, consider using one single HighPrecisionFloat
@@ -34,7 +34,8 @@ impl ShaderPlaneUniform {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, ShaderStruct)]
+#[shader_struct]
+#[derive(Copy, Clone)]
 pub struct ShaderPlane {
   pub normal: Vec3<f32>,
   pub constant: f32,

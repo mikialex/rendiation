@@ -1,8 +1,8 @@
 use crate::*;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, ShaderStruct, Default, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Copy, Clone, Default, PartialEq)]
 pub struct PointLightUniform {
   /// in cd
   pub luminance_intensity: Vec3<f32>,

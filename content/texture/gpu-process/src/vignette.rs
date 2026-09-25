@@ -1,8 +1,8 @@
 use crate::*;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct VignetteEffect {
   pub mid_point: f32,
   pub radius: f32,

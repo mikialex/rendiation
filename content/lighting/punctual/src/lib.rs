@@ -12,7 +12,8 @@ pub trait PunctualShaderLight {
   ) -> ENode<ShaderIncidentLight>;
 }
 
-#[derive(Copy, Clone, ShaderStruct)]
+#[shader_struct]
+#[derive(Copy, Clone)]
 pub struct DirectionalShaderInfo {
   /// in lx
   pub illuminance: Vec3<f32>,
@@ -46,7 +47,8 @@ impl PunctualShaderLight for ENode<DirectionalShaderInfo> {
   }
 }
 
-#[derive(Copy, Clone, ShaderStruct)]
+#[shader_struct]
+#[derive(Copy, Clone)]
 pub struct PointLightShaderInfo {
   /// in cd
   pub luminance_intensity: Vec3<f32>,
@@ -80,7 +82,8 @@ impl PunctualShaderLight for ENode<PointLightShaderInfo> {
   }
 }
 
-#[derive(Copy, Clone, ShaderStruct)]
+#[shader_struct]
+#[derive(Copy, Clone)]
 pub struct SpotLightShaderInfo {
   pub luminance_intensity: Vec3<f32>,
   pub position: HighPrecisionTranslation,

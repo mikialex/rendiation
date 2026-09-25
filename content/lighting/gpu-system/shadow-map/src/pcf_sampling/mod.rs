@@ -89,8 +89,8 @@ pub enum ShadowPCFMode {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct PCFConfigParameter {
   /// the PCF filter size in texels
   pub pcf_filter_size: f32,

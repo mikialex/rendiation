@@ -99,8 +99,8 @@ impl GLESModelMaterialRenderImpl for OccStyleMaterialGlesRenderer {
 type OccStyleMaterialUniforms = UniformBufferCollectionRaw<u32, OccStyleMaterialUniform>;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default)]
 struct OccStyleMaterialUniform {
   pub diffuse: Vec4<f32>,
   pub diffuse_backface: Vec4<f32>,
@@ -113,8 +113,8 @@ type OccStyleMaterialTexUniforms =
   UniformBufferCollectionRaw<u32, OccStyleMaterialTextureHandlesUniform>;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 struct OccStyleMaterialTextureHandlesUniform {
   pub diffuse_texture: TextureSamplerHandlePair,
 }

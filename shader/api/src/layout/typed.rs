@@ -1,117 +1,124 @@
 use crate::*;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+/// The memory layout rules used to compute the offset and size of the shader types.
+///
+/// For the uniform buffer, the host shareable struct always carries its host layout (see
+/// [ShaderStructHostLayout]), and the shader side follows it directly, so there is no dedicated
+/// std140 rule here.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum StructLayoutTarget {
-  Std140,
+  /// The natural WGSL layout, which is the storage address space layout. The layout is fully
+  /// determined by the type itself. If the struct has a host layout, the host layout is used.
   Std430,
+  /// All types are 4 bytes aligned and no padding exists, only used in shader side u32
+  /// serialization, the host layout is ignored.
   Packed,
 }
 
-pub struct TailPaddingInfo {
-  pub start_byte_offset: usize,
-  pub pad_size_in_bytes: usize,
+/// The layout of the struct fields.
+pub struct StructFieldsLayout {
+  /// the start byte offset of each field
+  pub offsets: Vec<usize>,
+  /// the byte offset right after the last field
+  pub end: usize,
+  pub alignment: usize,
+  /// the end rounded up to the alignment
+  pub size: usize,
 }
 
-/// return (iter, extra_explicit_padding_count)
-pub fn iter_field_start_offset_in_bytes(
-  fields: &[ShaderStructFieldMetaInfo],
-  layout: StructLayoutTarget,
-  offsets_access: &mut impl FnMut(usize, &ShaderStructFieldMetaInfo),
-) -> Option<TailPaddingInfo> {
-  let mut tail_padding = None;
-
-  let mut current_byte_used = 0;
-  for (index, field) in fields.iter().enumerate() {
-    let ShaderStructFieldMetaInfo { ty, .. } = field;
-    let next_align_requirement = if index + 1 == fields.len() {
-      align_of_struct_sized_fields(fields, layout)
-    } else {
-      fields[index + 1].ty.align_of_self(layout)
-    };
-
-    let field_offset = current_byte_used;
-    let type_size = ty.size_of_self(layout);
-
-    current_byte_used += type_size;
-    let padding_size = align_offset(current_byte_used, next_align_requirement);
-    current_byte_used += padding_size;
-
-    offsets_access(field_offset, field);
-
-    // 140 struct requires 16 alignment, when the struct used in array, it's size is divisible by
-    // 16 but when use struct in struct it is not necessarily divisible by 16. in upper level api
-    // (our std140 auto padding macro), we always make sure the size is round up to 16, so we
-    // have to solve the struct in struct case.
-    //
-    // I tried set the naga struct span, but has no effect, so here we add padding explicitly..
-    if layout == StructLayoutTarget::Std140 && index + 1 == fields.len() && padding_size > 0 {
-      let pad_byte_start = field_offset + type_size;
-      tail_padding = TailPaddingInfo {
-        start_byte_offset: pad_byte_start,
-        pad_size_in_bytes: padding_size,
-      }
-      .into();
-    }
-  }
-
-  tail_padding
-}
-
-pub fn align_of_struct_sized_fields(
+/// Compute the fields layout by layout rules, the host layout is not considered at this level,
+/// see [ShaderStructMetaInfo::fields_layout].
+pub fn struct_fields_layout_by_rule(
   fields: &[ShaderStructFieldMetaInfo],
   target: StructLayoutTarget,
-) -> usize {
-  let align = fields
-    .iter()
-    .map(|field| field.ty.align_of_self(target))
-    .max()
-    .unwrap_or(1);
-
-  match target {
-    StructLayoutTarget::Std140 => round_up(16, align),
-    StructLayoutTarget::Std430 => align,
+) -> StructFieldsLayout {
+  let mut offsets = Vec::with_capacity(fields.len());
+  let mut end = 0;
+  let mut alignment = match target {
+    StructLayoutTarget::Std430 => 1,
     StructLayoutTarget::Packed => 4,
+  };
+  for field in fields {
+    let field_align = field.ty.align_of_self(target);
+    let offset = round_up(field_align, end);
+    offsets.push(offset);
+    end = offset + field.ty.size_of_self(target);
+    alignment = alignment.max(field_align);
   }
-}
-
-pub fn size_of_struct_sized_fields(
-  fields: &[ShaderStructFieldMetaInfo],
-  target: StructLayoutTarget,
-) -> usize {
-  let mut offset = 0;
-  for (index, field) in fields.iter().enumerate() {
-    let size = field.ty.size_of_self(target);
-    let alignment = if index + 1 == fields.len() {
-      align_of_struct_sized_fields(fields, target)
-    } else {
-      fields[index + 1].ty.align_of_self(target)
-    };
-    offset += size;
-    let pad_size = align_offset(offset, alignment);
-    offset += pad_size;
-  }
-  let size = offset;
-
-  // we always make sure the struct size is round up to struct align, this is different!
-  match target {
-    StructLayoutTarget::Std140 => round_up(16, size),
-    StructLayoutTarget::Std430 => size,
-    StructLayoutTarget::Packed => size,
+  StructFieldsLayout {
+    offsets,
+    end,
+    alignment,
+    size: round_up(alignment, end),
   }
 }
 
 impl ShaderStructMetaInfo {
+  pub fn fields_layout(&self, target: StructLayoutTarget) -> StructFieldsLayout {
+    let by_rule = struct_fields_layout_by_rule(&self.fields, target);
+    match (&self.host_layout, target) {
+      (Some(host_layout), StructLayoutTarget::Std430) => {
+        // the natural alignment is not affected by the host layout, the shader backend only
+        // insert u32 paddings to follow the host layout.
+        StructFieldsLayout {
+          offsets: host_layout.field_offsets.clone(),
+          end: host_layout.size,
+          alignment: by_rule.alignment,
+          size: host_layout.size,
+        }
+      }
+      _ => by_rule,
+    }
+  }
+
   pub fn align_of_self(&self, target: StructLayoutTarget) -> usize {
-    align_of_struct_sized_fields(&self.fields, target)
+    struct_fields_layout_by_rule(&self.fields, target).alignment
   }
 
   pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
-    size_of_struct_sized_fields(&self.fields, target)
+    match (&self.host_layout, target) {
+      (Some(host_layout), StructLayoutTarget::Std430) => host_layout.size,
+      _ => struct_fields_layout_by_rule(&self.fields, target).size,
+    }
+  }
+}
+
+impl ShaderUnSizedStructMetaInfo {
+  /// return (the byte offset of the runtime sized array field, the struct alignment)
+  pub fn runtime_array_layout(&self, target: StructLayoutTarget) -> (usize, usize) {
+    let sized = struct_fields_layout_by_rule(&self.sized_fields, target);
+    let array_ty = &self.last_dynamic_array_field.1;
+    let array_align = array_align_of_element(array_ty, target);
+    (
+      round_up(array_align, sized.end),
+      sized.alignment.max(array_align),
+    )
+  }
+}
+
+impl ShaderValueSingleType {
+  /// The minimal byte size required for the buffer binding of this type. For the runtime sized
+  /// array, it is assumed to have one element, which is same as the WebGPU spec.
+  pub fn min_binding_size(&self) -> Option<core::num::NonZeroU64> {
+    let layout = StructLayoutTarget::Std430;
+    let size = match self {
+      ShaderValueSingleType::Sized(ty) => ty.size_of_self(layout),
+      ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) => {
+        array_stride_of_element(ty, layout)
+      }
+      ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedStruct(meta)) => {
+        let (array_offset, alignment) = meta.runtime_array_layout(layout);
+        let stride = array_stride_of_element(&meta.last_dynamic_array_field.1, layout);
+        round_up(alignment, array_offset + stride)
+      }
+      _ => return None,
+    };
+    core::num::NonZeroU64::new(size as u64)
   }
 }
 
 /// Round `n` up to the nearest alignment boundary.
-pub fn round_up(k: usize, n: usize) -> usize {
+pub const fn round_up(k: usize, n: usize) -> usize {
   // equivalent to:
   // match n % k {
   //     0 => n,
@@ -121,20 +128,30 @@ pub fn round_up(k: usize, n: usize) -> usize {
   (n + mask) & !mask
 }
 
+/// The alignment of an array(fixed size or runtime sized) whose element type is `element`
+pub fn array_align_of_element(element: &ShaderSizedValueType, target: StructLayoutTarget) -> usize {
+  element.align_of_self(target)
+}
+
+/// The byte distance between adjacent elements of an array(fixed size or runtime sized) whose
+/// element type is `element`.
+pub fn array_stride_of_element(
+  element: &ShaderSizedValueType,
+  target: StructLayoutTarget,
+) -> usize {
+  round_up(
+    array_align_of_element(element, target),
+    element.size_of_self(target),
+  )
+}
+
 impl ShaderSizedValueType {
   pub fn align_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
       ShaderSizedValueType::Atomic(t) => t.align_of_self(),
       ShaderSizedValueType::Primitive(t) => t.align_of_self(target),
       ShaderSizedValueType::Struct(t) => t.align_of_self(target),
-      ShaderSizedValueType::FixedSizeArray(t, _) => {
-        let align = t.align_of_self(target);
-        match target {
-          StructLayoutTarget::Std140 => round_up(16, align),
-          StructLayoutTarget::Std430 => align,
-          StructLayoutTarget::Packed => 4,
-        }
-      }
+      ShaderSizedValueType::FixedSizeArray(t, _) => array_align_of_element(t, target),
     }
   }
 
@@ -143,9 +160,7 @@ impl ShaderSizedValueType {
       ShaderSizedValueType::Atomic(t) => t.size_of_self(),
       ShaderSizedValueType::Primitive(t) => t.size_of_self(target),
       ShaderSizedValueType::Struct(t) => t.size_of_self(target),
-      ShaderSizedValueType::FixedSizeArray(ty, size) => {
-        size * round_up(self.align_of_self(target), ty.size_of_self(target))
-      }
+      ShaderSizedValueType::FixedSizeArray(ty, size) => size * array_stride_of_element(ty, target),
     }
   }
 }
@@ -190,19 +205,23 @@ impl PrimitiveShaderValueType {
     match self {
       PrimitiveShaderValueType::Scalar(_) => 4,
       PrimitiveShaderValueType::Vector { size, .. } => 4 * *size as usize,
-      PrimitiveShaderValueType::Matrix { columns, rows, .. } => match (columns, rows) {
-        (VectorSize::Bi, VectorSize::Bi) => 16,
-        (VectorSize::Tri, VectorSize::Tri) => {
-          if target == StructLayoutTarget::Packed {
-            3 * 3 * 4
-          } else {
-            3 * 4 * 4
-          }
-        }
-        (VectorSize::Quad, VectorSize::Quad) => 64,
-        (VectorSize::Quad, VectorSize::Tri) => 48,
-        _ => unreachable!(),
-      },
+      PrimitiveShaderValueType::Matrix { columns, rows, .. } => {
+        *columns as usize * matrix_column_stride(*rows, target)
+      }
     }
   }
+}
+
+/// The byte distance between adjacent columns of a matrix, the matrix is treated as an array of
+/// column vectors, so for example the column of mat3x3 is padded to 16 bytes (except packed).
+pub fn matrix_column_stride(rows: VectorSize, target: StructLayoutTarget) -> usize {
+  let column_size = 4 * rows as usize;
+  if target == StructLayoutTarget::Packed {
+    return column_size;
+  }
+  let column_align = match rows {
+    VectorSize::Bi => 8,
+    VectorSize::Tri | VectorSize::Quad => 16,
+  };
+  round_up(column_align, column_size)
 }

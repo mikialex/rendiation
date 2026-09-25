@@ -11,8 +11,8 @@ pub type AttributesLODMeshMetadataChange =
   Arc<LinearBatchChanges<RawEntityHandle, ExternalRefPtr<Vec<LODLevelInfo>>>>;
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Debug, Clone, PartialEq, Copy, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Debug, Clone, PartialEq, Copy, Default)]
 pub struct LODLevelInfo {
   /// Relative to the mesh itself's all lod level's indices, not the global indices pool.
   /// The offset unit is u32 slots(4 bytes), same as [AttributeMeshMeta::index_offset],

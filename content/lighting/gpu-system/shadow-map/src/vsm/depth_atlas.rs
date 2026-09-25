@@ -23,8 +23,8 @@ impl Default for VSMConfig {
 
 /// See [VSMConfig]
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Debug, PartialEq, ShaderStruct)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct VSMConfigUniform {
   pub filter_size: f32,
   pub vsm_bias: f32,
@@ -165,8 +165,8 @@ impl AbstractShadowMapGPUData for VSMShadowMap {
 pub const MAX_VSM_FILTER_SIZE: f32 = 9.0;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct VsmMapProcessor {
   pub proj_linear_depth_recover_helper: ProjLinearDepthRecoverHelper,
   /// the blur kernel size in texels, clamped to [1, MAX_VSM_FILTER_SIZE]

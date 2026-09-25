@@ -123,8 +123,8 @@ pub fn use_transform_instanced_model_indirect_renderer(
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Default)]
 struct InstanceMetaData {
   pub owned_transform: NodeStorage,
   pub instance_offset: u32,

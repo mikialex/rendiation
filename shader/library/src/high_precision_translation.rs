@@ -1,22 +1,23 @@
 use rendiation_shader_api::*;
 
-#[derive(Debug, Clone, Copy, ShaderStruct, Default)]
+#[shader_struct]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct HighPrecisionTranslation {
   pub f1: Vec3<f32>,
   pub f2: Vec3<f32>,
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Debug, Clone, Copy, ShaderStruct, Default, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct HighPrecisionTranslationUniform {
   pub f1: Vec3<f32>,
   pub f2: Vec3<f32>,
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Debug, Clone, Copy, ShaderStruct, Default, PartialEq)]
+#[shader_struct(std430)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct HighPrecisionTranslationStorage {
   pub f1: Vec3<f32>,
   pub f2: Vec3<f32>,

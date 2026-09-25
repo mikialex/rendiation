@@ -58,8 +58,8 @@ impl NodeGPUUniform<'_> {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, PartialEq, ShaderStruct, Debug)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
 pub struct NodeUniform {
   pub world_matrix_none_translation: Mat4<f32>,
   pub world_position_hp: HighPrecisionTranslationUniform,

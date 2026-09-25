@@ -54,8 +54,8 @@ impl DeviceMultiRangeDispatchInfo {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, Debug, PartialEq, ShaderStruct)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StorageSubListRangeInfo {
   /// pool_read_range_offset
   pub offset: u32,

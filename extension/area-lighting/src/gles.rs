@@ -3,8 +3,8 @@ use rendiation_scene_rendering_gpu_gles::*;
 use crate::*;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, ShaderStruct, Default, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Copy, Clone, Default, PartialEq)]
 pub struct LTCAreaLightUniform {
   /// precalculated vertex in world space.
   pub p1: HighPrecisionTranslationUniform,

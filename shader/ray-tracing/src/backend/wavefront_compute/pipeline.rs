@@ -258,8 +258,8 @@ impl GPURaytracingPipelineAndBindingSource {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Debug, Copy, Clone, ShaderStruct)]
+#[shader_struct(std430)]
+#[derive(Debug, Copy, Clone)]
 pub struct SbtTaskMapping {
   pub ray_gen_start: u32, // handle k -> task id (k + ray_gen_start)
   pub closest_start: u32, // handle k -> task id (k + closest_start)

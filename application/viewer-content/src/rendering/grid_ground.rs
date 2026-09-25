@@ -33,8 +33,8 @@ impl PassContent for GridGround<'_> {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, ShaderStruct)]
+#[shader_struct(std140)]
+#[derive(Copy, Clone)]
 pub struct GridEffect {
   pub scale: Vec2<f32>,
   pub color: Vec4<f32>,

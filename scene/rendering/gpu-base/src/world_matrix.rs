@@ -40,8 +40,8 @@ pub fn use_scene_model_device_world_transform(
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct WorldMatrixStorage {
   // todo use mat3
   pub matrix_none_translation: Mat4<f32>,

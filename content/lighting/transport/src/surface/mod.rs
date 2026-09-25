@@ -51,7 +51,8 @@ pub trait LightTransportSurface {
   }
 }
 
-#[derive(Copy, Clone, ShaderStruct)]
+#[shader_struct]
+#[derive(Copy, Clone)]
 pub struct ShaderLightingGeometricCtx {
   /// in render space
   pub position: Vec3<f32>,
@@ -131,7 +132,8 @@ pub trait ShaderLightTransportSurface {
   }
 }
 
-#[derive(Copy, Clone, ShaderStruct)]
+#[shader_struct]
+#[derive(Copy, Clone)]
 pub struct ShaderIncidentLight {
   pub color: Vec3<f32>,
   /// from light source to surface
@@ -155,7 +157,8 @@ pub trait LightableSurfaceShading {
   fn as_any(&self) -> &dyn std::any::Any;
 }
 
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct]
+#[derive(Copy, Clone, Default)]
 pub struct ShaderLightingResult {
   pub diffuse: Vec3<f32>,
   pub specular: Vec3<f32>,

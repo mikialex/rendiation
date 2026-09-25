@@ -6,8 +6,8 @@ pub const LINE_DRAW_CMD: DrawCommand = DrawCommand::Array {
 };
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, ShaderStruct)]
+#[shader_struct(std140)]
+#[derive(Copy, Clone)]
 pub struct ShaderLine {
   pub point: HighPrecisionTranslationUniform,
   pub direction: Vec3<f32>,

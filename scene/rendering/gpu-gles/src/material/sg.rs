@@ -88,8 +88,8 @@ impl GLESModelMaterialRenderImpl for PbrSGMaterialGlesRenderer {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 struct PhysicalSpecularGlossinessMaterialUniform {
   pub albedo: Vec3<f32>,
   pub specular: Vec3<f32>,
@@ -104,8 +104,8 @@ type Uniform = PhysicalSpecularGlossinessMaterialUniform;
 type PbrSGMaterialUniforms = UniformBufferCollectionRaw<u32, Uniform>;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 struct PhysicalSpecularGlossinessMaterialTextureHandlesUniform {
   pub albedo_alpha_texture: TextureSamplerHandlePair,
   pub specular_texture: TextureSamplerHandlePair,

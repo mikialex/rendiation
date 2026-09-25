@@ -85,8 +85,8 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialGlesRenderer {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 struct PhysicalMetallicRoughnessMaterialUniform {
   pub base_color: Vec3<f32>,
   pub emissive: Vec3<f32>,
@@ -101,8 +101,8 @@ type Uniform = PhysicalMetallicRoughnessMaterialUniform;
 type PbrMRMaterialUniforms = UniformBufferCollectionRaw<u32, Uniform>;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 struct PhysicalMetallicRoughnessMaterialTextureHandlesUniform {
   pub base_color_alpha_texture: TextureSamplerHandlePair,
   pub emissive_texture: TextureSamplerHandlePair,

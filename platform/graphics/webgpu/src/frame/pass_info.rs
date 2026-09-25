@@ -1,8 +1,8 @@
 use crate::*;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, PartialEq, ShaderStruct, Default)]
+#[shader_struct(std140)]
+#[derive(Copy, Clone, PartialEq, Default)]
 pub struct RenderPassGPUInfoData {
   pub texel_size: Vec2<f32>,
   pub buffer_size: Vec2<f32>,

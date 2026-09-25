@@ -482,8 +482,8 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, Default, PartialEq, ShaderStruct, Debug)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
 pub struct SceneStdModelStorage {
   pub mesh: u32, // todo, improve: this data is duplicate with the mesh dispatcher sm-ref-mesh data
   pub material: u32,

@@ -205,8 +205,8 @@ impl BasicShadowMapPreparer {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct BasicShadowMapInfo {
   pub enabled: Bool,
   pub shadow_proj_linear_depth_recover_helper: ProjLinearDepthRecoverHelper,

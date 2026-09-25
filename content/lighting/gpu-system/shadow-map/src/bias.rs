@@ -13,8 +13,8 @@ impl std::hash::Hash for ShadowBiasBehaviorConfig {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct ShadowBias {
   pub bias: f32,
   pub normal_bias: f32,

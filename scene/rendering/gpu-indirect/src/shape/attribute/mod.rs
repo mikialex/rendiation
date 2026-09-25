@@ -496,8 +496,8 @@ fn write_field_offset(semantic: AttributeSemantic) -> Option<u32> {
 
 ///  note the attribute's count should be same for one mesh, will keep it here for simplicity
 #[repr(C)]
-#[std430_layout]
-#[derive(Debug, Clone, PartialEq, Copy, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Debug, Clone, PartialEq, Copy, Default)]
 pub struct AttributeMeshMeta {
   pub index_offset: u32,
   pub count: u32,

@@ -90,6 +90,7 @@ impl ShaderMeshBuilder {
         ty: ShaderSizedValueType::Primitive(topology.data_type()),
         ty_deco: Some(ShaderFieldDecorator::BuiltIn(topology.deco())),
       }],
+      host_layout: None,
     });
 
     let primitive_output_type = ShaderSizedValueType::FixedSizeArray(
@@ -127,6 +128,7 @@ impl ShaderMeshBuilder {
           ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::MeshPrimitiveCount).into(),
         },
       ],
+      host_layout: None,
     });
 
     let output_variable = ShaderInputNode::WorkGroupShared {
@@ -257,5 +259,6 @@ pub fn create_output_struct_for_mesh_vertices_output(
   ShaderStructMetaInfo {
     name: "MeshShaderVertexOutput".into(),
     fields,
+    host_layout: None,
   }
 }

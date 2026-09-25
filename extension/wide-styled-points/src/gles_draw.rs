@@ -103,8 +103,8 @@ impl GLESModelRenderImpl for WidePointModelGLESRenderer {
 type WidePointUniforms = UniformBufferCollectionRaw<u32, WidePointUniform>;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Default)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default)]
 pub struct WidePointUniform {
   pub color: Vec4<f32>,
   pub color_alpha_texture: TextureSamplerHandlePair,

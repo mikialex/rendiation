@@ -95,8 +95,8 @@ impl IndirectModelMaterialRenderImpl for PbrMRMaterialIndirectRenderer {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct PhysicalMetallicRoughnessMaterialStorage {
   pub base_color: Vec3<f32>,
   pub emissive: Vec3<f32>,
@@ -110,8 +110,8 @@ pub struct PhysicalMetallicRoughnessMaterialStorage {
 type Storage = PhysicalMetallicRoughnessMaterialStorage;
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
+#[shader_struct(std430)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct PhysicalMetallicRoughnessMaterialTextureHandlesStorage {
   pub base_color_alpha_texture: TextureSamplerHandlePair,
   pub emissive_texture: TextureSamplerHandlePair,

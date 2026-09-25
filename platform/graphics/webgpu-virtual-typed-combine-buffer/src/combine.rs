@@ -16,7 +16,7 @@ pub struct CombinedBufferAllocatorInternal {
   pub(crate) sub_buffer_allocation_u32_offset: Vec<u32>,
   pub(crate) layout: StructLayoutTarget,
   // use none for none atomic heap
-  atomic: Option<ShaderAtomicValueType>,
+  pub(crate) atomic: Option<ShaderAtomicValueType>,
   enable_debug_log_for_binding: bool,
   enable_debug_log_for_updating: bool,
   /// if this allocator allow to allocate writeable buffer
@@ -340,7 +340,7 @@ impl CombinedBufferAllocatorInternal {
         let sub_buffer_count = ptr.array.bitcast_read_u32_at(0);
         let size_info_position = val(1) + sub_buffer_count + buffer_bind_index;
         let sub_buffer_u32_length = ptr.array.bitcast_read_u32_at(size_info_position);
-        let width = ty.u32_size_count(meta.read().layout);
+        let width = array_stride_of_element(ty, meta.read().layout) as u32 / 4;
         Some(sub_buffer_u32_length / val(width))
       } else {
         None

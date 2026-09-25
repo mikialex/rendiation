@@ -144,8 +144,8 @@ pub struct WideLineModelIndirectRenderer {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Default)]
 struct WideLineParameters {
   pub data_range: Vec2<u32>,
   pub width: f32,
@@ -157,8 +157,8 @@ struct WideLineParameters {
 }
 
 #[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[shader_struct(std430)]
+#[derive(Copy, Clone, Default)]
 struct WideLineVertexStorage {
   pub position: Vec3<f32>,
   pub color: u32,

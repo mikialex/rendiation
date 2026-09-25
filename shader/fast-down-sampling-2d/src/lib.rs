@@ -186,7 +186,8 @@ const TILE_SIZE: u32 = 64;
 const SHARED_SIZE: usize = 16;
 type SharedMemory<T> = [[T; SHARED_SIZE]; SHARED_SIZE];
 
-#[derive(Clone, Copy, ShaderStruct)]
+#[shader_struct]
+#[derive(Clone, Copy)]
 struct SampleCtx {
   pub coord: Vec2<u32>,
   pub group_id: Vec2<u32>,

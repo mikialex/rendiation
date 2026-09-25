@@ -143,10 +143,16 @@ impl AbstractBuffer for SubCombinedStorageBufferDynTyped {
   }
 
   fn write(&self, content: &[u8], offset: u64, _queue: &GPUQueue) {
-    self
-      .internal
-      .write()
-      .write_content(self.buffer_index, content, offset);
+    let mut internal = self.internal.write();
+    // The host data is always in std430 layout, the packed layout is only able to be written by
+    // the shader side u32 serialization. The atomic heap is the exception because it only
+    // contains the atomic u32 or i32, which has the same layout in both case.
+    assert!(
+      internal.layout == StructLayoutTarget::Std430 || internal.atomic.is_some(),
+      "host data(std430 layout) is not allowed to be written into the {:?} layout combined buffer",
+      internal.layout
+    );
+    internal.write_content(self.buffer_index, content, offset);
   }
 
   fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr {

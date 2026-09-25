@@ -166,8 +166,8 @@ impl PassContent for BackGroundDrawPassContent<'_> {
 }
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, PartialEq, Debug)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
 pub struct IblShaderInfoForBackground {
   pub transform: Mat4<f32>,
   pub intensity: f32,
@@ -247,8 +247,8 @@ impl GraphicsShaderProvider for CubeEnvComponent<'_> {
 pub const MAX_GRADIENT_COLOR_STOPS: usize = 8;
 
 #[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
+#[shader_struct(std140)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct GradientBackgroundUniform {
   pub transform: Mat4<f32>,
   pub color_and_stops: Shader140Array<Vec4<f32>, MAX_GRADIENT_COLOR_STOPS>,

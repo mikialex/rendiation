@@ -88,7 +88,8 @@ let modified = ENode::<MyUniform> {
 
 ```rust
 #[repr(C)]
-#[derive(Clone, Copy, Debug, ShaderStruct)]
+#[shader_struct]
+#[derive(Clone, Copy, Debug)]
 struct MyMaterial {
     pub base_color: Vec3<f32>,
     pub roughness: f32,
@@ -96,7 +97,7 @@ struct MyMaterial {
 }
 ```
 
-`#[derive(ShaderStruct)]` auto-generates:
+`#[shader_struct]` auto-generates:
 
 ```rust
 struct MyMaterialShaderInstance {
@@ -142,16 +143,16 @@ let color: Node<Vec3<f32>> = MyMaterial::base_color(mat);
 
 ```rust
 #[repr(C)]
-#[std140_layout]     // must mark for uniform buffer
-#[derive(Clone, Copy, ShaderStruct)]
+#[shader_struct(std140)] // must mark for uniform buffer
+#[derive(Clone, Copy)]
 struct MyUniform {
     pub color: Vec3<f32>,
     pub scale: f32,
 }
 
 #[repr(C)]
-#[std430_layout]     // must mark for storage buffer
-#[derive(Clone, Copy, ShaderStruct)]
+#[shader_struct(std430)] // must mark for storage buffer
+#[derive(Clone, Copy)]
 struct MyStorage {
     pub data: Vec4<f32>,
 }
@@ -159,15 +160,22 @@ struct MyStorage {
 
 | Annotation | Alignment | Use case |
 |------------|-----------|----------|
-| `#[std140_layout]` | 16 bytes | Uniform Buffer |
-| `#[std430_layout]` | Natural | Storage Buffer |
-| None | — | Shader-internal use (non-buffer) |
+| `#[shader_struct(std140)]` | 16 bytes | Uniform Buffer |
+| `#[shader_struct(std430)]` | Natural | Storage Buffer |
+| `#[shader_struct]` | — | Shader-internal use (non-buffer) |
+
+The macro must be placed before `#[derive(...)]`, because it inserts private padding fields for the host shareable struct.
 
 ### std140 specials
 
+- "std140" here means the WGSL uniform address space layout, which is not GLSL std140
+- `Mat2<f32>` is not supported in std140 (its WGSL uniform layout differs from the naga GLSL backend output), use `Vec4<f32>` instead
 - **Bool**: cannot be used directly as a field in std140 and std430;  use `Bool` instead.
 - use `Shader16PaddedMat3` instead of `Mat3<f32>` for std140-compatible mat3
-- use `Shader140Array<T, N>` instead of `[T, N]` for std140-compatible fixed-size array
+- use `Shader140Array<T, N>` instead of `[T, N]` for std140-compatible fixed-size array; the element stride must be a multiple of 16 (`Vec4`, `Vec3`, structs, `Mat4` are fine; `f32`/`u32`/`Vec2` are rejected at compile time, pack them into `Vec4`)
+- std430 fixed-size arrays and runtime arrays (`[T; N]`, `[T]`) can not use `Vec3` as element (rust stride 12 vs WGSL stride 16), rejected at compile time
+- `#[shader_struct(std140)]` and `#[shader_struct(std430)]` require `#[repr(C)]` only (no `align`/`packed`), named public fields, no generics. Every field offset, the struct size and alignment are asserted at compile time, so a layout mismatch is always a compile error
+- The rust layout is the source of truth: `#[shader_struct(std140)]`/`#[shader_struct(std430)]` attaches the rust field offsets to the struct meta info (`ShaderStructHostLayout`), the naga backend and the u32 serialization(std430) use them directly and inserts explicit padding members so the generated IR is always the natural WGSL layout (required by backends that ignore IR offsets, like WGSL text output for browser WebGPU and GLSL). Hand written host types should attach it by `ShaderStructMetaInfo::with_host_layout`
 
 
 ## Control Flow
