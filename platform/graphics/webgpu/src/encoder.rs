@@ -68,16 +68,6 @@ impl GPUCommandEncoder {
     }
   }
 
-  pub fn do_u_hear_the_people_sing(&mut self, mut des: RenderPassDescription) {
-    des.channels.iter_mut().for_each(|c| {
-      c.0 = gpu::Operations {
-        load: gpu::LoadOp::Clear(gpu::Color::WHITE),
-        store: gpu::StoreOp::Store,
-      }
-    });
-    self.begin_render_pass(des, None);
-  }
-
   pub fn begin_render_pass_with_info(
     &mut self,
     des: RenderPassDescription,
