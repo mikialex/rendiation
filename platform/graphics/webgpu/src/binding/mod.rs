@@ -27,6 +27,7 @@ pub trait BindableResourceView {
 #[derive(Clone)]
 pub struct GPUBindGroupLayout {
   pub(crate) inner: gpu::BindGroupLayout,
+  /// unique id of the layout, used as a part of bindgroup cache key
   pub(crate) cache_id: u64,
 }
 
@@ -295,8 +296,9 @@ impl BindingBuilder {
 
       let bindgroup = binding_cache.get_or_create(
         hash,
-        || CacheAbleBindingBuildSource::build_bindgroup(group.items.as_slice(), device, layout),
+        layout.cache_id,
         group.items.iter().map(|item| item.view_id),
+        || CacheAbleBindingBuildSource::build_bindgroup(group.items.as_slice(), device, layout),
       );
 
       pass.set_bind_group(group_index as u32, bindgroup, &group.dynamic_offsets);

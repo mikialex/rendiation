@@ -1,7 +1,25 @@
+use std::sync::atomic::AtomicU64;
+
 use crate::*;
 
 type BindgroupHashKey = u64;
 type ViewId = usize;
+type BindGroupCacheId = u64;
+
+/// If enabled, the bindgroup cache hit is decided by comparing the full key(layout id and all
+/// view ids) rather than only the hash, which prevents the hash collision returns a wrong
+/// bindgroup. The compare cost is small because the key is just a few ids.
+pub const BINDGROUP_CACHE_FULL_KEY_COMPARE: bool = true;
+
+struct CachedBindGroup {
+  hash: BindgroupHashKey,
+  /// unique id to identify the entry, the hash can not be used because it may collide
+  id: BindGroupCacheId,
+  layout_id: u64,
+  view_ids: Vec<ViewId>,
+  bindgroup: gpu::BindGroup,
+  _counter: Counted<gpu::BindGroup>,
+}
 
 /// Key point of the cache control logic:
 /// - bindgroup and resource_view is many-to-many relation.
@@ -10,9 +28,10 @@ type ViewId = usize;
 // todo, merge per item allocation into single one.
 #[derive(Default)]
 pub struct BindGroupCacheInternal {
-  bindgroups: FastHashMap<BindgroupHashKey, (gpu::BindGroup, Counted<gpu::BindGroup>, Vec<ViewId>)>,
+  bindgroups: HashTable<CachedBindGroup>,
+  next_id: BindGroupCacheId,
   // todo, fix potential O(n) remove
-  resource_views_bindgroups: FastHashMap<ViewId, Vec<BindgroupHashKey>>,
+  resource_views_bindgroups: FastHashMap<ViewId, Vec<(BindgroupHashKey, BindGroupCacheId)>>,
 }
 
 impl BindGroupCacheInternal {
@@ -25,47 +44,66 @@ impl BindGroupCacheInternal {
     self.resource_views_bindgroups.clear();
   }
 
-  #[allow(clippy::manual_inspect)]
+  /// the hash must be computed from the layout_id and view ids
   pub fn get_or_create(
     &mut self,
-    key: BindgroupHashKey,
+    hash: BindgroupHashKey,
+    layout_id: u64,
+    view_ids: impl Iterator<Item = ViewId> + Clone,
     create: impl FnOnce() -> gpu::BindGroup,
-    iter_view_id: impl Iterator<Item = ViewId>,
   ) -> &gpu::BindGroup {
-    let (bindgroup, _, _) = self.bindgroups.entry(key).or_insert_with(|| {
-      let bindgroup = create();
-      let list = iter_view_id
-        .map(|view_id| {
+    let is_match = |cached: &CachedBindGroup| {
+      cached.hash == hash
+        && (!BINDGROUP_CACHE_FULL_KEY_COMPARE
+          || (cached.layout_id == layout_id
+            && cached.view_ids.iter().copied().eq(view_ids.clone())))
+    };
+
+    let entry = self
+      .bindgroups
+      .entry(hash, is_match, |cached| cached.hash)
+      .or_insert_with(|| {
+        let id = self.next_id;
+        self.next_id += 1;
+        let view_ids: Vec<_> = view_ids.clone().collect();
+        for view_id in &view_ids {
           self
             .resource_views_bindgroups
-            .entry(view_id)
+            .entry(*view_id)
             .or_default()
-            .push(key);
+            .push((hash, id));
+        }
+        CachedBindGroup {
+          hash,
+          id,
+          layout_id,
+          view_ids,
+          bindgroup: create(),
+          _counter: Default::default(),
+        }
+      });
 
-          view_id
-        })
-        .collect();
-      (bindgroup, Default::default(), list)
-    });
-    bindgroup
+    &entry.into_mut().bindgroup
   }
 
   pub fn notify_view_drop(&mut self, view_id: ViewId) {
     if let Some(all_referenced_bindings) = self.resource_views_bindgroups.remove(&view_id) {
-      for binding in all_referenced_bindings {
-        if let Some((_, _, binding_referenced_views)) = self.bindgroups.remove(&binding) {
-          for view_id in binding_referenced_views {
+      for (hash, id) in all_referenced_bindings {
+        // none is possible because we allow cache clear
+        if let Ok(entry) = self.bindgroups.find_entry(hash, |cached| cached.id == id) {
+          let (removed, _) = entry.remove();
+          for view_id in removed.view_ids {
             if let Some(bindings) = self.resource_views_bindgroups.get_mut(&view_id) {
               bindings
                 .iter()
-                .position(|v| *v == binding)
+                .position(|v| v.1 == id)
                 .map(|v| bindings.swap_remove(v));
               if bindings.is_empty() {
                 self.resource_views_bindgroups.remove(&view_id);
               }
             }
           }
-        } // none is possible because we allow cache clear
+        }
       }
     }
   }
@@ -101,7 +139,14 @@ impl Drop for BindGroupCacheInvalidation {
 
 #[derive(Clone, Default)]
 pub struct BindGroupLayoutCache {
-  pub cache: Arc<RwLock<FastHashMap<u64, GPUBindGroupLayout>>>,
+  /// keyed by the full layout entries to avoid hash collision
+  pub cache: Arc<RwLock<FastHashMap<Vec<gpu::BindGroupLayoutEntry>, GPUBindGroupLayout>>>,
+}
+
+static BINDGROUP_LAYOUT_ID: AtomicU64 = AtomicU64::new(0);
+/// the id is never reused, so it can be used as the exact identity of the layout
+pub(crate) fn new_bindgroup_layout_id() -> u64 {
+  BINDGROUP_LAYOUT_ID.fetch_add(1, Ordering::Relaxed)
 }
 
 impl BindGroupLayoutCache {

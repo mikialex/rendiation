@@ -170,22 +170,20 @@ impl GPUDevice {
       .map(|(i, (ty, vis))| map_shader_value_ty_to_binding_layout_type(ty, i, vis))
       .collect();
 
-    let key = fast_hash_scope(|hasher| raw_layouts.hash(hasher));
-
     self
       .inner
       .bindgroup_layout_cache
       .cache
       .write()
-      .entry(key)
-      .or_insert_with(|| {
+      .entry(raw_layouts)
+      .or_insert_with_key(|raw_layouts| {
         let inner = self.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
           label: None,
-          entries: &raw_layouts,
+          entries: raw_layouts,
         });
         GPUBindGroupLayout {
           inner,
-          cache_id: key,
+          cache_id: new_bindgroup_layout_id(),
         }
       })
       .clone()
