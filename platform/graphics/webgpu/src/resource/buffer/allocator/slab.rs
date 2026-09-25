@@ -1,12 +1,12 @@
 use crate::*;
 
-pub struct GPUSlatAllocateMaintainer<T> {
+pub struct GPUSlabAllocateMaintainer<T> {
   used_count: u32,
   allocator: slab::Slab<()>,
   buffer: T,
 }
 
-impl<T: LinearStorageBase> GPUSlatAllocateMaintainer<T> {
+impl<T: LinearStorageBase> GPUSlabAllocateMaintainer<T> {
   pub fn new(buffer: T) -> Self {
     Self {
       used_count: 0,
@@ -17,16 +17,22 @@ impl<T: LinearStorageBase> GPUSlatAllocateMaintainer<T> {
 }
 
 impl<T: LinearStorageBase + LinearStorageDirectAccess> LinearAllocatorStorage
-  for GPUSlatAllocateMaintainer<T>
+  for GPUSlabAllocateMaintainer<T>
 {
   fn deallocate(&mut self, idx: u32) {
     self.allocator.remove(idx as usize);
     self.buffer.remove(idx);
+    self.used_count -= 1;
   }
 
   fn allocate_value(&mut self, v: Self::Item) -> Option<u32> {
     let idx = self.allocator.insert(()) as u32;
-    self.buffer.set_value(idx, v)?; // the under layer should handle the resize and propagate resize failure
+    // the under layer should handle the resize and propagate resize failure
+    if self.buffer.set_value(idx, v).is_none() {
+      self.allocator.remove(idx as usize);
+      return None;
+    }
+    self.used_count += 1;
     Some(idx)
   }
 
@@ -40,26 +46,26 @@ impl<T: LinearStorageBase + LinearStorageDirectAccess> LinearAllocatorStorage
   }
 }
 
-impl<T: LinearStorageBase> LinearStorageBase for GPUSlatAllocateMaintainer<T> {
+impl<T: LinearStorageBase> LinearStorageBase for GPUSlabAllocateMaintainer<T> {
   type Item = T::Item;
   fn max_size(&self) -> u32 {
     self.buffer.max_size()
   }
 }
 
-impl<T: LinearStorageBase> AllocatorStorageBase for GPUSlatAllocateMaintainer<T> {
+impl<T: LinearStorageBase> AllocatorStorageBase for GPUSlabAllocateMaintainer<T> {
   fn current_used(&self) -> u32 {
     self.used_count
   }
 }
 
-impl<T: LinearStorageViewAccess> LinearStorageViewAccess for GPUSlatAllocateMaintainer<T> {
+impl<T: LinearStorageViewAccess> LinearStorageViewAccess for GPUSlabAllocateMaintainer<T> {
   fn view(&self) -> &[Self::Item] {
     self.buffer.view()
   }
 }
 
-impl<T: LinearStorageDirectAccess> LinearStorageDirectAccess for GPUSlatAllocateMaintainer<T> {
+impl<T: LinearStorageDirectAccess> LinearStorageDirectAccess for GPUSlabAllocateMaintainer<T> {
   fn remove(&mut self, idx: u32) -> Option<()> {
     self.buffer.remove(idx)
   }
@@ -77,7 +83,7 @@ impl<T: LinearStorageDirectAccess> LinearStorageDirectAccess for GPUSlatAllocate
   }
 }
 
-impl<T: GPULinearStorage> GPULinearStorage for GPUSlatAllocateMaintainer<T> {
+impl<T: GPULinearStorage> GPULinearStorage for GPUSlabAllocateMaintainer<T> {
   type GPUType = T::GPUType;
 
   fn gpu(&self) -> &Self::GPUType {
@@ -90,7 +96,7 @@ impl<T: GPULinearStorage> GPULinearStorage for GPUSlatAllocateMaintainer<T> {
 }
 
 pub type StorageBufferSlabAllocatePool<T> = SlabAllocatePool<StorageBufferReadonlyDataView<[T]>>;
-pub type SlabAllocatePool<T> = GPUSlatAllocateMaintainer<GrowableDirectQueueUpdateBuffer<T>>;
+pub type SlabAllocatePool<T> = GPUSlabAllocateMaintainer<GrowableDirectQueueUpdateBuffer<T>>;
 
 pub fn create_storage_buffer_slab_allocate_pool<T: Std430 + ShaderSizedValueNodeType>(
   gpu: &GPU,
@@ -106,5 +112,5 @@ pub fn create_storage_buffer_slab_allocate_pool<T: Std430 + ShaderSizedValueNode
   );
 
   let buffer = create_growable_buffer(gpu, buffer, max_item_count);
-  GPUSlatAllocateMaintainer::new(buffer)
+  GPUSlabAllocateMaintainer::new(buffer)
 }

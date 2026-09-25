@@ -137,49 +137,37 @@ impl ShaderBindingTableDeviceInfo {
   ) -> Option<u32> {
     let mut inner = self.inner.write();
     let inner: &mut ShaderBindingTableDeviceInfoImpl = &mut inner;
+    let mut relocations = Vec::new();
     let hit_group_start = inner.ray_hit.allocate_range(
       max_geometry_count_in_blas * max_tlas_offset * ray_type_count,
-      &mut |r| unsafe {
-        let meta = inner.hit_offset_map.remove(&r.previous_offset).unwrap();
-        inner.hit_offset_map.insert(r.new_offset, meta);
-        inner
-          .meta
-          .set_value_sub_bytes(
-            meta,
-            std::mem::offset_of!(DeviceSBTTableMeta, hit_group_start),
-            bytes_of(&r.new_offset),
-          )
-          .unwrap();
-      },
+      &mut |r| relocations.push(r),
     )?;
+    apply_sbt_relocations(
+      &mut inner.hit_offset_map,
+      &mut inner.meta,
+      relocations.drain(..),
+      std::mem::offset_of!(DeviceSBTTableMeta, hit_group_start),
+    );
+
     let miss_start = inner
       .ray_miss
-      .allocate_range(ray_type_count, &mut |r| unsafe {
-        let meta = inner.miss_offset_map.remove(&r.previous_offset).unwrap();
-        inner.miss_offset_map.insert(r.new_offset, meta);
-        inner
-          .meta
-          .set_value_sub_bytes(
-            meta,
-            std::mem::offset_of!(DeviceSBTTableMeta, miss_start),
-            bytes_of(&r.new_offset),
-          )
-          .unwrap();
-      })?;
+      .allocate_range(ray_type_count, &mut |r| relocations.push(r))?;
+    apply_sbt_relocations(
+      &mut inner.miss_offset_map,
+      &mut inner.meta,
+      relocations.drain(..),
+      std::mem::offset_of!(DeviceSBTTableMeta, miss_start),
+    );
+
     let gen_start = inner
       .ray_gen
-      .allocate_range(ray_type_count, &mut |r| unsafe {
-        let meta = inner.gen_offset_map.remove(&r.previous_offset).unwrap();
-        inner.gen_offset_map.insert(r.new_offset, meta);
-        inner
-          .meta
-          .set_value_sub_bytes(
-            meta,
-            std::mem::offset_of!(DeviceSBTTableMeta, gen_start),
-            bytes_of(&r.new_offset),
-          )
-          .unwrap();
-      })?;
+      .allocate_range(ray_type_count, &mut |r| relocations.push(r))?;
+    apply_sbt_relocations(
+      &mut inner.gen_offset_map,
+      &mut inner.meta,
+      relocations.drain(..),
+      std::mem::offset_of!(DeviceSBTTableMeta, gen_start),
+    );
 
     let meta = DeviceSBTTableMeta {
       hit_group_start,
@@ -273,10 +261,33 @@ impl ShaderBindingTableDeviceInfoInvocation {
   }
 }
 
+/// the offset_map maps the range offset to the meta index, after the relocation, the meta's
+/// offset field is updated.
+fn apply_sbt_relocations(
+  offset_map: &mut FastHashMap<u32, u32>,
+  meta: &mut StorageBufferSlabAllocatePoolWithHost<DeviceSBTTableMeta>,
+  relocations: impl Iterator<Item = RelocationMessage>,
+  field_offset: usize,
+) {
+  // the new offset may equal to other relocation's previous offset, so we must remove all
+  // previous offsets first, then insert the new ones.
+  let relocated: Vec<_> = relocations
+    .map(|r| (offset_map.remove(&r.previous_offset).unwrap(), r.new_offset))
+    .collect();
+  for (meta_idx, new_offset) in relocated {
+    offset_map.insert(new_offset, meta_idx);
+    unsafe {
+      meta
+        .set_value_sub_bytes(meta_idx, field_offset, bytes_of(&new_offset))
+        .unwrap();
+    }
+  }
+}
+
 pub type StorageBufferSlabAllocatePoolWithHost<T> =
   SlabAllocatePoolWithHost<AbstractReadonlyStorageBuffer<[T]>>;
 pub type SlabAllocatePoolWithHost<T> =
-  GPUSlatAllocateMaintainer<GrowableHostedDirectQueueUpdateBuffer<T>>;
+  GPUSlabAllocateMaintainer<GrowableHostedDirectQueueUpdateBuffer<T>>;
 
 pub fn create_storage_buffer_slab_allocate_pool_with_host<T: Std430 + ShaderSizedValueNodeType>(
   gpu: &GPU,
@@ -289,5 +300,5 @@ pub fn create_storage_buffer_slab_allocate_pool_with_host<T: Std430 + ShaderSize
   let buffer = alloc.allocate_readonly(byte_size as u64, &gpu.device, label);
 
   let buffer = create_growable_buffer_with_host_back(gpu, buffer, max_size, true);
-  GPUSlatAllocateMaintainer::new(buffer)
+  GPUSlabAllocateMaintainer::new(buffer)
 }

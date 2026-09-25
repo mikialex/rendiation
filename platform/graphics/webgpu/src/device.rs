@@ -34,7 +34,7 @@ impl GPUDevice {
       compute_pipeline_cache: Default::default(),
       placeholder_bg,
       deferred_explicit_destroy: Default::default(),
-      enable_binding_ty_check: RwLock::new(cfg!(debug_assertions)),
+      enable_binding_ty_check: AtomicBool::new(cfg!(debug_assertions)),
       default_shader_checks,
       info,
     };
@@ -49,11 +49,14 @@ impl GPUDevice {
   }
 
   pub fn set_binding_ty_check_enabled(&self, v: bool) {
-    *self.inner.enable_binding_ty_check.write() = v;
+    self
+      .inner
+      .enable_binding_ty_check
+      .store(v, Ordering::Relaxed);
   }
 
   pub fn get_binding_ty_check_enabled(&self) -> bool {
-    *self.inner.enable_binding_ty_check.read()
+    self.inner.enable_binding_ty_check.load(Ordering::Relaxed)
   }
 
   pub fn create_cache_report(&self) -> GPUResourceCacheSizeReport {
@@ -229,7 +232,7 @@ pub(crate) struct GPUDeviceImpl {
   compute_pipeline_cache: RwLock<FastHashMap<u64, GPUComputePipeline>>,
   pub(crate) deferred_explicit_destroy: DeferExplicitDestroy,
   pub(crate) placeholder_bg: gpu::BindGroup,
-  pub(crate) enable_binding_ty_check: RwLock<bool>,
+  pub(crate) enable_binding_ty_check: AtomicBool,
   pub(crate) default_shader_checks: ShaderRuntimeChecks,
   /// this info is as same as the gpu, we clone here for easy access
   info: GPUInfo,
@@ -283,7 +286,7 @@ impl SamplerCache {
 /// Another strong version of the similar idea is: This approach could avoid accidental missing
 /// hashing
 ///
-/// ```
+/// ```ignore
 /// pub trait GraphicsPipelineVariant: GraphicsShaderProvider + Hash + Eq {}
 /// pub trait GraphicsPipelineVariantProvider {
 ///   fn create_pipeline_variant(&self) -> Box<dyn GraphicsPipelineVariant>;

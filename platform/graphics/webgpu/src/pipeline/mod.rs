@@ -185,11 +185,11 @@ pub fn map_shader_value_ty_to_binding_layout_type(
     _ => None,
   };
 
-  if visibility == ShaderStages::empty() {
-    dbg!(&v.ty);
-  }
-
-  assert!(visibility != ShaderStages::empty());
+  assert!(
+    visibility != ShaderStages::empty(),
+    "binding visibility is empty, the binding is declared but never used in any stage: {:#?}",
+    v.ty
+  );
 
   gpu::BindGroupLayoutEntry {
     binding: id as u32,

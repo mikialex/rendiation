@@ -273,6 +273,7 @@ impl BindingBuilder {
           continue;
         } else {
           pass.set_bind_group_placeholder(group_index as u32);
+          continue;
         }
       }
       is_visiting_empty_tail = false;

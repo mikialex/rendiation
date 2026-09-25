@@ -660,11 +660,20 @@ fn resize_impl(
     "only the view that covers the entire buffer can be resized"
   );
 
-  if byte_new_size > device.info().supported_limits.max_buffer_size {
+  let limits = &device.info().supported_limits;
+  if byte_new_size > limits.max_buffer_size {
     return false;
   }
 
   let usage = buffer.resource.desc.usage;
+  if usage.contains(BufferUsages::STORAGE) && byte_new_size > limits.max_storage_buffer_binding_size
+  {
+    return false;
+  }
+  if usage.contains(BufferUsages::UNIFORM) && byte_new_size > limits.max_uniform_buffer_binding_size
+  {
+    return false;
+  }
   let new_buffer = create_gpu_buffer_zeroed(byte_new_size, usage, device).create_default_view();
 
   // this can not be skipped even if relocations are requested, as we can not guarantee

@@ -13,7 +13,9 @@ where
 {
   fn resize(&mut self, new_size: u32) -> bool {
     let result = self.inner.resize(new_size);
-    self.vec.resize(new_size as usize, self.none_default);
+    if result {
+      self.vec.resize(new_size as usize, self.none_default);
+    }
     result
   }
 }

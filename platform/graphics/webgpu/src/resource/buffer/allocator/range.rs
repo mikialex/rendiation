@@ -45,9 +45,15 @@ where
         ),
       );
       assert!(resize_success);
+      // the new offset may equal to other movement's old offset, so we must remove all old
+      // offsets first, then insert the new ones.
       for m in result.data_movements.values() {
-        let id = self.offset_to_id.remove(&m.old_offset).unwrap();
-        self.offset_to_id.insert(m.new_offset, id);
+        self.offset_to_id.remove(&m.old_offset).unwrap();
+      }
+      for (id, m) in &result.data_movements {
+        self.offset_to_id.insert(m.new_offset, *id);
+      }
+      for m in result.data_movements.values() {
         relocation_handler(RelocationMessage {
           previous_offset: m.old_offset,
           new_offset: m.new_offset,

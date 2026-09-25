@@ -144,8 +144,16 @@ impl TextReadBufferInfo {
 }
 
 impl TextReadBufferInfo {
-  fn new(width: usize, height: usize, format: gpu::TextureFormat) -> Self {
-    let bytes_per_pixel = format.block_copy_size(None).unwrap() as usize;
+  fn new(
+    width: usize,
+    height: usize,
+    format: gpu::TextureFormat,
+    aspect: gpu::TextureAspect,
+  ) -> Self {
+    let bytes_per_pixel = format
+      .block_copy_size(Some(aspect))
+      .unwrap_or_else(|| panic!("texture format {format:?} with {aspect:?} is not copyable"))
+      as usize;
     let unpadded_bytes_per_row = width * bytes_per_pixel;
     let align = gpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
     let padded_bytes_per_row_padding = (align - unpadded_bytes_per_row % align) % align;
@@ -238,7 +246,15 @@ impl GPUCommandEncoder {
     range: ReadRange,
   ) -> ReadTextureFromStagingBuffer {
     let (width, height) = range.size.into_usize();
-    let buffer_dimensions = TextReadBufferInfo::new(width, height, texture.resource.desc.format);
+    let format = texture.resource.desc.format;
+    // copy requires a single aspect, so we resolve the combined depth stencil format to depth
+    let aspect = match texture.desc.aspect {
+      gpu::TextureAspect::All if format.is_combined_depth_stencil_format() => {
+        gpu::TextureAspect::DepthOnly
+      }
+      aspect => aspect,
+    };
+    let buffer_dimensions = TextReadBufferInfo::new(width, height, format, aspect);
 
     let output_buffer = device.create_buffer(&gpu::BufferDescriptor {
       label: None,
@@ -256,7 +272,7 @@ impl GPUCommandEncoder {
           y: range.offset_y as u32,
           z: texture.desc.base_array_layer,
         },
-        aspect: gpu::TextureAspect::All,
+        aspect,
       },
       gpu::TexelCopyBufferInfo {
         buffer: &output_buffer,
