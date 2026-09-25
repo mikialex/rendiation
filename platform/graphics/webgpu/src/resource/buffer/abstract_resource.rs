@@ -333,7 +333,11 @@ impl AbstractBuffer for DynTypedStorageBuffer {
   }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
-    queue.write_buffer(self.buffer.resource.gpu(), offset, content);
+    queue.write_buffer(
+      self.buffer.resource.gpu(),
+      offset + self.buffer.desc.offset,
+      content,
+    );
   }
 
   fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr {
@@ -650,6 +654,12 @@ fn resize_impl(
   byte_new_size: u64,
   relocations: Option<&mut dyn Iterator<Item = BufferRelocate>>,
 ) -> bool {
+  // resize a sub range view is not possible because the underlying buffer may be shared.
+  assert!(
+    buffer.is_full_view(),
+    "only the view that covers the entire buffer can be resized"
+  );
+
   if byte_new_size > device.info().supported_limits.max_buffer_size {
     return false;
   }

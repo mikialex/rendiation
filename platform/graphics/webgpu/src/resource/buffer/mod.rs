@@ -126,8 +126,14 @@ impl GPUBufferResourceView {
     if let Some(size) = self.range.size {
       size
     } else {
-      self.entire_buffer_size()
+      // if the size is not specified, the view covers the rest of the buffer from the view offset
+      NonZeroU64::new(self.entire_buffer_size().get() - self.range.offset).unwrap()
     }
+  }
+
+  /// if the view covers the entire buffer
+  pub fn is_full_view(&self) -> bool {
+    self.range.offset == 0 && self.view_byte_size() == self.entire_buffer_size()
   }
 
   pub fn entire_buffer_size(&self) -> NonZeroU64 {

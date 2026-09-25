@@ -49,8 +49,13 @@ impl<T: Std140> UniformBufferDataView<T> {
     }
   }
 
+  /// the offset is relative to the view
   pub fn write_at<D: Pod>(&self, queue: &gpu::Queue, data: &D, offset: u64) {
-    queue.write_buffer(&self.gpu.resource.gpu, offset, bytemuck::bytes_of(data));
+    queue.write_buffer(
+      &self.gpu.resource.gpu,
+      offset + self.gpu.desc.offset,
+      bytemuck::bytes_of(data),
+    );
   }
 }
 
@@ -153,7 +158,7 @@ impl<T: Std140> UniformBufferCachedDataView<T> {
     let mut state = self.diff.write();
     if state.changed {
       let data = state.data;
-      queue.write_buffer(&self.gpu.gpu.resource.gpu, 0, bytemuck::cast_slice(&[data]));
+      self.gpu.write_at(queue, &data, 0);
       state.changed = false;
       state.last = Some(data);
     }
@@ -180,7 +185,7 @@ impl<T: Std140> UniformBufferCachedDataView<T> {
       }
 
       if should_update {
-        queue.write_buffer(&self.gpu.gpu.resource.gpu, 0, data.as_bytes())
+        self.gpu.write_at(queue, data, 0);
       }
 
       state.changed = false;

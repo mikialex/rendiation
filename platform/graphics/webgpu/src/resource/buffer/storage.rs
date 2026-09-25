@@ -102,8 +102,9 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadonlyDataView<T> {
   }
 
   // maybe here we should do sophisticated optimization to merge the adjacent writes.
+  /// the offset is relative to the view
   pub fn write_at(&self, offset: u64, data: &[u8], queue: &GPUQueue) {
-    queue.write_buffer(&self.gpu.buffer.gpu, offset, data);
+    queue.write_buffer(&self.gpu.buffer.gpu, offset + self.gpu.desc.offset, data);
   }
 }
 

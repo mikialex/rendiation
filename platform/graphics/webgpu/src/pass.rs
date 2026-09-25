@@ -483,6 +483,6 @@ impl GPUComputePass {
     &mut self,
     indirect_buffer: &GPUBufferResourceView,
   ) {
-    self.dispatch_workgroups_indirect(&indirect_buffer.resource.gpu, 0)
+    self.dispatch_workgroups_indirect(&indirect_buffer.resource.gpu, indirect_buffer.desc.offset)
   }
 }

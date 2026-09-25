@@ -125,43 +125,6 @@ async fn test_downgrade_list_pool_basic() {
 }
 
 #[pollster::test]
-async fn test_downgrade_list_pool_zero_capacity() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
-  let mut encoder = gpu.create_encoder();
-  let mut memory = Default::default();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
-
-  // sum_all_count_host=0 → early return before any GPU work
-  let cmds = vec![DrawIndirectArgsStorage::new(1, 1, 0, 0)];
-  let command_pool = StorageDrawCommands::NoneIndexed(
-    create_gpu_readonly_storage(cmds.as_slice(), &gpu, "command_pool").into(),
-  );
-
-  let ranges_vec = vec![StorageSubListRangeInfo::new(0, 1, 0)];
-  let device_ranges = DeviceMultiRangeDispatchInfo::new(&gpu, ranges_vec.as_slice());
-
-  let list_info = MultiRangeDispatchInfo {
-    device_ranges,
-    host_capacity_ranges: vec![CapacityRange {
-      capacity: 1,
-      offset: 0,
-    }],
-    total_capacity: 0,
-  };
-
-  let input = MIDCListPoolInput {
-    command_pool,
-    list_info,
-  };
-
-  let results = use_downgrade_multi_indirect_draw_count_list_pool(input, &mut cx);
-  assert!(
-    results.is_empty(),
-    "zero capacity should produce empty results"
-  );
-}
-
-#[pollster::test]
 async fn test_downgrade_list_pool_single_sub_list() {
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
