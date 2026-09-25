@@ -318,6 +318,7 @@ impl<T> BindingSlotAssign for T {}
 
 impl<T: ShaderHashProvider> ShaderHashProvider for BindingController<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.target);
     self.inner.hash_pipeline(hasher)
   }
 

@@ -189,9 +189,9 @@ impl ShaderBindingTableDeviceInfo {
     };
     let idx = inner.meta.allocate_value(meta)?;
 
-    inner.miss_offset_map.insert(idx, meta.miss_start);
-    inner.hit_offset_map.insert(idx, meta.hit_group_start);
-    inner.gen_offset_map.insert(idx, meta.gen_start);
+    inner.miss_offset_map.insert(meta.miss_start, idx);
+    inner.hit_offset_map.insert(meta.hit_group_start, idx);
+    inner.gen_offset_map.insert(meta.gen_start, idx);
 
     Some(idx)
   }

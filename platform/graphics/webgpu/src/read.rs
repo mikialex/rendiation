@@ -98,7 +98,11 @@ impl ReadBufferTask {
   pub fn new<S: RangeBounds<gpu::BufferAddress>>(buffer: gpu::Buffer, range: S) -> Self {
     let buffer_slice = buffer.slice(range);
     let (sender, receiver) = futures::channel::oneshot::channel();
-    buffer_slice.map_async(gpu::MapMode::Read, move |v| sender.send(v).unwrap());
+    // the receiver may be dropped if the read task is canceled, panic here will kill the polling
+    // thread, so we just ignore the send error.
+    buffer_slice.map_async(gpu::MapMode::Read, move |v| {
+      sender.send(v).ok();
+    });
 
     Self {
       inner: receiver,

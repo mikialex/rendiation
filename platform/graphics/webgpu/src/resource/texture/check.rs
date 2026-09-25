@@ -5,94 +5,47 @@ use crate::*;
 pub trait DimensionDynamicViewCheck {
   fn check(view_desc: &gpu::TextureViewDescriptor, desc: &gpu::TextureDescriptor) -> bool;
 }
-impl DimensionDynamicViewCheck for TextureDimension1 {
-  fn check(view_desc: &gpu::TextureViewDescriptor, desc: &gpu::TextureDescriptor) -> bool {
-    let mut valid = true;
 
-    if let Some(layer_count) = view_desc.array_layer_count {
-      valid |= layer_count == 1;
+/// the same logic as wgpu resolves the view dimension when the view desc not specify it.
+///
+/// the array layer count is not checked here, because the wgpu will validate the layer count
+/// against the resolved view dimension when creating the view.
+fn resolve_view_dimension(
+  view_desc: &gpu::TextureViewDescriptor,
+  desc: &gpu::TextureDescriptor,
+) -> gpu::TextureViewDimension {
+  view_desc.dimension.unwrap_or(match desc.dimension {
+    gpu::TextureDimension::D1 => gpu::TextureViewDimension::D1,
+    gpu::TextureDimension::D2 => {
+      if desc.array_layer_count() == 1 {
+        gpu::TextureViewDimension::D2
+      } else {
+        gpu::TextureViewDimension::D2Array
+      }
     }
-
-    if let Some(dimension) = view_desc.dimension {
-      valid |= dimension == gpu::TextureViewDimension::D1
-    } else {
-      valid |= desc.dimension == gpu::TextureDimension::D1
-    }
-    valid
-  }
+    gpu::TextureDimension::D3 => gpu::TextureViewDimension::D3,
+  })
 }
-impl DimensionDynamicViewCheck for TextureDimension2 {
-  fn check(view_desc: &gpu::TextureViewDescriptor, desc: &gpu::TextureDescriptor) -> bool {
-    let mut valid = true;
 
-    if let Some(layer_count) = view_desc.array_layer_count {
-      valid |= layer_count == 1;
+macro_rules! impl_dimension_check {
+  ($ty: ty, $view_dimension: expr) => {
+    impl DimensionDynamicViewCheck for $ty {
+      fn check(view_desc: &gpu::TextureViewDescriptor, desc: &gpu::TextureDescriptor) -> bool {
+        resolve_view_dimension(view_desc, desc) == $view_dimension
+      }
     }
-
-    if let Some(dimension) = view_desc.dimension {
-      valid |= dimension == gpu::TextureViewDimension::D2
-    } else {
-      valid |= desc.dimension == gpu::TextureDimension::D2
-    }
-    valid
-  }
+  };
 }
-impl DimensionDynamicViewCheck for TextureDimension3 {
-  fn check(view_desc: &gpu::TextureViewDescriptor, desc: &gpu::TextureDescriptor) -> bool {
-    let mut valid = true;
 
-    if let Some(dimension) = view_desc.dimension {
-      valid |= dimension == gpu::TextureViewDimension::D3
-    } else {
-      valid |= desc.dimension == gpu::TextureDimension::D3
-    }
-    valid
-  }
-}
-impl DimensionDynamicViewCheck for TextureDimension2Array {
-  fn check(view_desc: &gpu::TextureViewDescriptor, desc: &gpu::TextureDescriptor) -> bool {
-    let mut valid = true;
-
-    if let Some(dimension) = view_desc.dimension {
-      valid |= dimension == gpu::TextureViewDimension::D2Array
-    } else {
-      valid |= desc.dimension == gpu::TextureDimension::D2
-    }
-    valid
-  }
-}
-impl DimensionDynamicViewCheck for TextureDimensionCube {
-  fn check(view_desc: &gpu::TextureViewDescriptor, desc: &gpu::TextureDescriptor) -> bool {
-    let mut valid = true;
-
-    if let Some(layer_count) = view_desc.array_layer_count {
-      valid |= layer_count == 6;
-    }
-
-    if let Some(dimension) = view_desc.dimension {
-      valid |= dimension == gpu::TextureViewDimension::Cube
-    } else {
-      valid |= desc.dimension == gpu::TextureDimension::D2
-    }
-    valid
-  }
-}
-impl DimensionDynamicViewCheck for TextureDimensionCubeArray {
-  fn check(view_desc: &gpu::TextureViewDescriptor, desc: &gpu::TextureDescriptor) -> bool {
-    let mut valid = true;
-
-    if let Some(layer_count) = view_desc.array_layer_count {
-      valid |= layer_count >= 6 && layer_count % 6 == 0;
-    }
-
-    if let Some(dimension) = view_desc.dimension {
-      valid |= dimension == gpu::TextureViewDimension::Cube
-    } else {
-      valid |= desc.dimension == gpu::TextureDimension::D2
-    }
-    valid
-  }
-}
+impl_dimension_check!(TextureDimension1, gpu::TextureViewDimension::D1);
+impl_dimension_check!(TextureDimension2, gpu::TextureViewDimension::D2);
+impl_dimension_check!(TextureDimension3, gpu::TextureViewDimension::D3);
+impl_dimension_check!(TextureDimension2Array, gpu::TextureViewDimension::D2Array);
+impl_dimension_check!(TextureDimensionCube, gpu::TextureViewDimension::Cube);
+impl_dimension_check!(
+  TextureDimensionCubeArray,
+  gpu::TextureViewDimension::CubeArray
+);
 
 pub trait TextureFormatDynamicCheck {
   // todo, we should record the device features info in desc

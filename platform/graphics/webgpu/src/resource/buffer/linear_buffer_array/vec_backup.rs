@@ -54,8 +54,7 @@ where
     unsafe {
       let view = self.vec.get_mut(idx as usize)?;
       let view = bytes_of_mut(view);
-      let offset = idx as usize * std::mem::size_of::<T::Item>() + field_byte_offset;
-      let view = view.get_mut(offset..(offset + v.len()))?;
+      let view = view.get_mut(field_byte_offset..(field_byte_offset + v.len()))?;
       if self.diff && view == v {
         return Some(());
       }

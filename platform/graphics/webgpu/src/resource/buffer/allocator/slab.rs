@@ -35,7 +35,7 @@ impl<T: LinearStorageBase + LinearStorageDirectAccess> LinearAllocatorStorage
     Self: LinearStorageViewAccess,
   {
     let value = *self.get(idx)?;
-    self.deallocate_back(idx);
+    self.deallocate(idx);
     Some(value)
   }
 }

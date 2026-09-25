@@ -27,6 +27,7 @@ impl ShaderHashProvider for DefaultPassDispatcher {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(&self.formats);
     hasher.hash(self.auto_write);
+    hasher.hash(self.reversed_depth);
   }
   shader_hash_type_id! {}
 }

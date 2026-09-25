@@ -179,8 +179,6 @@ impl GPU {
       memory_budget_thresholds: Default::default(),
       display: config.display,
     });
-    let power_preference = gpu::PowerPreference::HighPerformance;
-
     let init_surface = config
       .surface_for_compatible_check_init
       .map(|s| s.0.create_surface(&instance))
@@ -188,7 +186,7 @@ impl GPU {
 
     let adaptor = instance
       .request_adapter(&gpu::RequestAdapterOptions {
-        power_preference,
+        power_preference: config.power_preference,
         compatible_surface: init_surface.as_ref(),
         force_fallback_adapter: false,
       })

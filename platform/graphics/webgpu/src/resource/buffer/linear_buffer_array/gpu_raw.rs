@@ -34,7 +34,7 @@ impl<T: GPULinearStorage> RelocationResizableLinearStorage for ResizableGPUBuffe
       success = self.abstract_gpu().resize_gpu(
         &mut encoder,
         &device,
-        (new_size * std::mem::size_of::<T::Item>() as u32) as u64,
+        new_size as u64 * std::mem::size_of::<T::Item>() as u64,
         relocations,
       );
       self.ctx.queue.submit_encoder(encoder);
