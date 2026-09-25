@@ -65,6 +65,19 @@ pub fn map_shader_value_ty_to_binding_layout_type(
   visibility: ShaderStages,
 ) -> gpu::BindGroupLayoutEntry {
   use ShaderValueSingleType::*;
+
+  if v.has_dynamic_offset {
+    let is_single_buffer = matches!(
+      v.ty,
+      ShaderValueType::Single(Sized(_)) | ShaderValueType::Single(Unsized(_))
+    );
+    assert!(
+      is_single_buffer,
+      "dynamic offset is only supported for single(not binding array) uniform or storage buffer binding, got: {:#?}",
+      v.ty
+    );
+  }
+
   let ty = v
     .ty
     .visit_single(|ty| match *ty {
@@ -76,14 +89,14 @@ pub fn map_shader_value_ty_to_binding_layout_type(
         } else {
           gpu::BufferBindingType::Uniform
         },
-        has_dynamic_offset: false,
+        has_dynamic_offset: v.has_dynamic_offset,
         min_binding_size: None,
       },
       Unsized(_) => gpu::BindingType::Buffer {
         ty: gpu::BufferBindingType::Storage {
           read_only: !v.writeable_if_storage,
         },
-        has_dynamic_offset: false,
+        has_dynamic_offset: v.has_dynamic_offset,
         min_binding_size: None,
       },
       Sampler(ty) => gpu::BindingType::Sampler(ty),

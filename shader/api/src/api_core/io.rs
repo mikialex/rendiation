@@ -152,6 +152,7 @@ pub trait ShaderBindingProvider {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,
       writeable_if_storage: false,
+      has_dynamic_offset: false,
       ty: Self::Node::ty(),
     }
   }
@@ -162,6 +163,9 @@ pub struct ShaderBindingDescriptor {
   pub should_as_storage_buffer_if_is_buffer_like: bool,
   pub ty: ShaderValueType,
   pub writeable_if_storage: bool,
+  /// only valid for buffer like binding, this only affects the binding layout, not the shader
+  /// code. the actual offset is provided when setting the bindgroup.
+  pub has_dynamic_offset: bool,
 }
 
 impl ShaderBindingDescriptor {
@@ -180,6 +184,7 @@ impl ShaderBindingDescriptor {
       ShaderValueType::BindingArray { ty, .. } => ShaderBindingDescriptor {
         should_as_storage_buffer_if_is_buffer_like: self.should_as_storage_buffer_if_is_buffer_like,
         writeable_if_storage: false,
+        has_dynamic_offset: false,
         ty: ShaderValueType::Single(ty.clone()),
       }
       .get_buffer_layout(),

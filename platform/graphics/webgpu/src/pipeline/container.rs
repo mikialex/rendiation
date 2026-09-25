@@ -43,6 +43,7 @@ where
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
       writeable_if_storage: false,
+      has_dynamic_offset: false,
       ty: Self::Node::ty(),
     }
   }
@@ -62,6 +63,7 @@ where
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
       writeable_if_storage: true,
+      has_dynamic_offset: false,
       ty: Self::Node::ty(),
     }
   }

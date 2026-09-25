@@ -23,6 +23,7 @@ Key files:
 | [platform/graphics/webgpu/src/resource/texture/storage.rs](platform/graphics/webgpu/src/resource/texture/storage.rs) | `StorageTextureView<A,D,F>` |
 | [platform/graphics/webgpu/src/resource/sampler.rs](platform/graphics/webgpu/src/resource/sampler.rs) | `GPUSamplerView`, `GPUComparisonSamplerView` |
 | [platform/graphics/webgpu/src/pipeline/container.rs](platform/graphics/webgpu/src/pipeline/container.rs) | `ShaderBindingProvider` impls connecting containers to shader IR |
+| [platform/graphics/webgpu/src/binding/dynamic_offset.rs](platform/graphics/webgpu/src/binding/dynamic_offset.rs) | `DynamicOffsetBinding<T>`, `UniformBufferDynamicOffsetArray<T>` |
 
 
 ## Typed resource containers
@@ -219,3 +220,31 @@ fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
 
 `ctx.binding` is a `BindingBuilder`. The `.bind()` calls must follow the **same order** as the
 shader-side `bind_by()` calls, since both determine bind group index assignment.
+
+## Dynamic offset buffer binding
+
+`DynamicOffsetBinding<T>` wraps any uniform/storage buffer container (`UniformBufferDataView`,
+`StorageBufferReadonlyDataView`, `StorageBufferDataView`, ...) and binds it with
+`has_dynamic_offset: true` in the bindgroup layout. The inner view range decides the bindgroup
+entry's base offset and size, `offset` is passed at `set_bind_group` time. The offset is **not**
+part of the bindgroup cache key, so switching offset per draw reuses one bindgroup.
+
+- Use the wrapper on **both** sides — layout differs from the non-dynamic binding. The offset is ignored on the shader side.
+- The inner view should have an explicit size (`GPUBufferViewRange::size`), otherwise only offset 0 is valid.
+- The offset must be aligned to `min_uniform_buffer_offset_alignment` / `min_storage_buffer_offset_alignment`; `dynamic_offset_stride(item_size, alignment)` helps.
+- Not supported for binding arrays (asserted when creating the layout).
+- Low level: `ShaderBindingDescriptor::has_dynamic_offset` on the shader side, `BindingBuilder::bind_dyn_with_dynamic_offset` on the pass side (call `check_binding_layout` first for custom sources).
+
+`UniformBufferDynamicOffsetArray<T>` is a convenience container: one uniform buffer with `count`
+aligned slots of `T`.
+
+```rust
+let per_draw = UniformBufferDynamicOffsetArray::<MyParams>::create(&gpu.device, count, "per_draw");
+per_draw.write_at(&gpu.queue, i, &params);
+
+// shader side, any index works
+let params = binding.bind_by(&per_draw.bind_at(0)).load();
+
+// pass side, per draw
+ctx.binding.bind(&per_draw.bind_at(i));
+```

@@ -342,6 +342,7 @@ impl AbstractBuffer for DynTypedStorageBuffer {
       should_as_storage_buffer_if_is_buffer_like: true,
       ty: ShaderValueType::Single(ty),
       writeable_if_storage: !self.readonly,
+      has_dynamic_offset: false,
     };
     let node = bind_builder.binding_dyn(desc).using();
     Box::new(node)
@@ -548,6 +549,7 @@ where
       should_as_storage_buffer_if_is_buffer_like: true,
       ty: ShaderValueType::Single(ty),
       writeable_if_storage: true,
+      has_dynamic_offset: false,
     };
     let node = bind_builder.binding_dyn(desc).using();
     Box::new(node)
@@ -621,6 +623,7 @@ where
       should_as_storage_buffer_if_is_buffer_like: true,
       ty: ShaderValueType::Single(ty),
       writeable_if_storage: false,
+      has_dynamic_offset: false,
     };
     let node = bind_builder.binding_dyn(desc).using();
     Box::new(node)

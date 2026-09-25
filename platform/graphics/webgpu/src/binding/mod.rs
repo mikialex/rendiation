@@ -13,6 +13,9 @@ pub use bind_source::*;
 mod owned;
 pub use owned::*;
 
+mod dynamic_offset;
+pub use dynamic_offset::*;
+
 pub trait BindableResourceProvider {
   fn get_bindable(&self) -> BindingResourceOwned;
 }
@@ -38,6 +41,8 @@ impl Deref for GPUBindGroupLayout {
 #[derive(Default)]
 pub struct BindGroupBuilder {
   items: Vec<CacheAbleBindingBuildSource>,
+  /// the offsets are ordered by binding index, as the binding index is allocated by bind order
+  dynamic_offsets: Vec<DynamicOffset>,
 }
 
 impl BindGroupBuilder {
@@ -47,6 +52,7 @@ impl BindGroupBuilder {
 
   pub fn reset(&mut self) {
     self.items.clear();
+    self.dynamic_offsets.clear();
   }
 
   pub fn is_empty(&self) -> bool {
@@ -55,6 +61,34 @@ impl BindGroupBuilder {
 
   pub fn bind(&mut self, source: CacheAbleBindingBuildSource) {
     self.items.push(source);
+  }
+
+  /// the dynamic offset is not a part of bindgroup cache key, so change the offset will reuse the
+  /// same bindgroup.
+  pub fn bind_with_dynamic_offset(
+    &mut self,
+    source: CacheAbleBindingBuildSource,
+    offset: DynamicOffset,
+  ) {
+    #[cfg(debug_assertions)] // wgpu validation is too late to locate the bug
+    if let BindingResourceOwned::Buffer(view) = &source.source {
+      let buffer_size = view.entire_buffer_size().get();
+      // if the size is not specified, the binding size is the rest of the buffer from the view offset
+      let binding_size = view
+        .range
+        .size
+        .map(|s| s.get())
+        .unwrap_or(buffer_size - view.range.offset);
+      let window_end = view.range.offset + binding_size + offset as u64;
+      assert!(
+        window_end <= buffer_size,
+        "dynamic offset binding out of range, the view window end with dynamic offset is {}, but the buffer size is {}",
+        window_end,
+        view.entire_buffer_size()
+      );
+    }
+    self.items.push(source);
+    self.dynamic_offsets.push(offset);
   }
 
   fn hash_binding_ids(&self, hasher: &mut impl Hasher) {
@@ -162,11 +196,18 @@ impl BindingBuilder {
   where
     T: CacheAbleBindingSource + ShaderBindingProvider,
   {
-    // check if the layout match, or panic directly, this is helpful to debug binding mismatch because the wgpu
-    // validation is too late to catch where the miss match happens.
-    if let Some(checking_layouts) = &mut self.checking_layouts {
+    self.check_binding_layout(|| item.binding_desc());
+    self.bind_dyn(item.get_binding_build_source())
+  }
+
+  /// check if the layout match, or panic directly, this is helpful to debug binding mismatch
+  /// because the wgpu validation is too late to catch where the miss match happens.
+  ///
+  /// this should be called before the actual binding.
+  pub fn check_binding_layout(&self, desc: impl FnOnce() -> ShaderBindingDescriptor) {
+    if let Some(checking_layouts) = &self.checking_layouts {
       cold_path();
-      let desc = item.binding_desc();
+      let desc = desc();
       let layout = &checking_layouts[self.current_index];
       let target_idx = self.groups[self.current_index].items.len();
 
@@ -205,11 +246,19 @@ impl BindingBuilder {
         );
       }
     }
-    self.bind_dyn(item.get_binding_build_source())
   }
 
   pub fn bind_dyn(&mut self, source: CacheAbleBindingBuildSource) -> &mut Self {
     self.groups[self.current_index].bind(source);
+    self
+  }
+
+  pub fn bind_dyn_with_dynamic_offset(
+    &mut self,
+    source: CacheAbleBindingBuildSource,
+    offset: DynamicOffset,
+  ) -> &mut Self {
+    self.groups[self.current_index].bind_with_dynamic_offset(source, offset);
     self
   }
 
@@ -253,7 +302,7 @@ impl BindingBuilder {
         group.items.iter().map(|item| item.view_id),
       );
 
-      pass.set_bind_group(group_index as u32, bindgroup, &[]);
+      pass.set_bind_group(group_index as u32, bindgroup, &group.dynamic_offsets);
     }
   }
 
