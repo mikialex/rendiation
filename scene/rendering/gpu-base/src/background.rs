@@ -316,7 +316,7 @@ fn interpolate_gradient(
     color.store(pivot_start.xyz());
   });
 
-  ForRange::ranged(vec2_node((val(0), count))).for_each(|i, cx| {
+  (val(0)..count).into_shader_iter().for_each(|i, cx| {
     let curr = stops.index(i).load();
     let next = stops.index(i + val(1)).load();
 

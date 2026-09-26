@@ -270,6 +270,8 @@ It's rare to use, only allowed in function ctx
 ## GPU-Side Iteration (`into_shader_iter`)
 
 Convert counts, ranges and uniform/storage/local arrays into GPU-side iterables.
+`IntoShaderIterator` is the iterable (creates a new iteration state each time), every
+`ShaderIterator` is also an `IntoShaderIterator`.
 
 ### Basic usage
 
@@ -278,6 +280,9 @@ Convert counts, ranges and uniform/storage/local arrays into GPU-side iterables.
 val(10_u32).into_shader_iter().for_each(|i, _| {
     // i: Node<u32>, from 0 to 9
 });
+
+// Range loop, start inclusive and end exclusive, empty if start >= end
+(start..end).into_shader_iter().for_each(|i, _| {}); // start, end: Node<u32> or u32
 
 // Iterate over storage buffer array, the array item is (index, pointer)
 items.into_shader_iter().for_each(|(i, item), _| {
@@ -304,40 +309,112 @@ samples
 | Method | Purpose |
 |--------|---------|
 | `.map(f)` | Map |
-| `.filter(pred)` | Filter, the item must be a right value (`Node<T>` or tuple of them) |
-| `.filter_map(f)` | Filter + map, `f` returns `(Node<bool>, Node<O>)`, the input item must be `Node<T>` |
-| `.zip(other)` | Zip two iterators |
+| `.filter(pred)` | Filter, the item must be a right value |
+| `.filter_map(f)` | Filter + map, `f` returns `(Node<bool>, O)`, `O` must be a right value, the input item can be any type (pointer included) |
+| `.zip(other)` | Zip with any `IntoShaderIterator` |
 | `.enumerate()` | With index |
-| `.take_while(pred)` | Conditional truncation |
-| `.clamp_by(count)` | Limit iteration count, the item must be `(Node<u32>, T)` indexed from 0 |
-| `.flat_map(f)` | Flat map, `f` returns the inner iterator state, currently `ForRangeState` |
-| `.for_each(f)` | Iterate, `f` gets the item and the `LoopCtx` of the iteration loop |
-| `.sum()` | Sum |
+| `.take(count)` | Take the first `count` items |
+| `.take_while(pred)` | Conditional truncation, the item must be a right value |
+| `.clamp_by(count)` | Same as `take(count)`, for the `(index, item)` sources like the arrays |
+| `.flat_map(f)` | Flat map, `f` returns the inner iterator state (`ShaderIterState`, like `ShaderRange`), the inner item must be a right value |
 
-The filtered item is stored in a variable to carry it out of the internal search loop, the pointer
-item can not be stored, map it to the value first: `.map(|(i, p)| (i, p.load())).filter(..)`.
+### Consumers
+
+| Method | Result |
+|--------|--------|
+| `.for_each(f)` | Iterate, `f` gets the item and the `LoopCtx` of the iteration loop |
+| `.fold(init, f)` | Accumulate, the state must be a right value |
+| `.sum()` | Sum of `Node<T>` items |
+| `.count()` | `Node<u32>`, the items are not constructed (the map closure does not run) |
+| `.any(pred)` / `.all(pred)` | `Node<bool>`, stops at the first matched / unmatched item |
+| `.find(pred)` | `ShaderOption<Item>`, the item must be a right value |
+| `.position(pred)` | `ShaderOption<Node<u32>>` |
+
+`ShaderOption<T> { is_some, payload }` is the optional value, the payload is only meaningful when
+`is_some` is true, `.unwrap_or(default)` selects the default otherwise.
+
+The right values (`ShaderAbstractRightValue`) are `Node<T>`, the tuples of them (up to 8), and the
+expanded shader struct `ENode<T>` (implemented by `#[shader_struct]`). The adaptors marked above
+store the item in a variable to carry it out of the region where it is constructed, the pointer
+item can not be stored, map it to the value first: `.map(|(i, p)| (i, p.load())).filter(..)`, or
+use `take` / `filter_map` which do not store the input item.
 
 ### Iteration sources
 
 | Type | `into_shader_iter()` source |
 |------|---------------------------|
 | `u32` / `Node<u32>` | 0..n counting loop |
-| `Node<Vec2<u32>>` | `ForRange`: from..to, empty if from >= to |
+| `Range<Node<u32>>` / `Range<u32>` / `ShaderRange` | `ShaderRangeIter`: start..end, empty if start >= end |
+| `Node<Vec2<u32>>` | `ShaderRangeIter`: (start, end), prefer `Range` which is more explicit |
 | StaticLengthArrayView | Compile-time known length array |
 | DynLengthArrayView | Runtime-length array |
 
-`ShaderStaticArrayReadonlyIter::from_array_clamp_length(array, len)` iterates the first `len`
-items of a fixed size array (clamped by the array length).
+The arrays are iterated by `ShaderIndexIter<A>` over the `ShaderIndexable` trait (`shader_len` and
+`shader_index`), implement it to iterate a custom random accessible collection.
+`ShaderIndexIter::with_len_clamp(array, len)` iterates the first `len` items (clamped by the
+collection length).
+
+### Lazy item and custom iterator
+
+`shader_next` advances the state and returns `ShaderIterNext { has_next, item }`, the item is a
+lazy closure, constructed only in the region that `has_next` is true. So the item construction and
+the adaptor logic (the map closure, the array index, the load in the item) run exactly once for
+each valid item, and never run for the poll that ends the iteration. The side effects in the map
+closure are fine.
+
+```rust
+struct MyRangeIter {
+  cursor: ShaderPtrOf<u32>,
+  end: Node<u32>,
+  data: ShaderReadonlyPtrOf<[u32]>,
+  scope: ShaderIterScope, // ShaderIterScope::capture() when the cursor is created
+}
+
+impl ShaderIterator for MyRangeIter {
+  type Item = Node<u32>;
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
+    let index = self.cursor.load();
+    self.cursor.store(index + val(1));
+    // use less than, so the source keeps returning false after it is exhausted
+    ShaderIterNext::new(index.less_than(self.end), move || self.data.index(index).load())
+  }
+  fn check_iter_scope(&self) {
+    self.scope.check() // the adaptor forwards it to the inner iterators instead
+  }
+}
+```
+
+For the iterator that searches the next item in a loop (like `filter`, or a BVH traversal), use
+`ShaderIterNext::search`, the found item must be a right value:
+
+```rust
+fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
+  ShaderIterNext::search(|cx, found| {
+    let next = self.inner.shader_next();
+    if_by(next.has_next.not(), || cx.do_break()); // nothing found
+    let item = next.item();
+    if_by(is_wanted(&item), || found(item)); // take the item and exit the loop
+  })
+}
+```
+
+When implementing an adaptor: call `next.item()` only in the region guarded by `next.has_next`, and
+in the block where the inner iterator is polled or its child blocks.
+
+The inner iterator state of `flat_map` is a `ShaderIterState`: a right value whose left value is
+the iterator (`ShaderRange` for `ShaderRangeIter`), storing a new state resets the iterator, and the
+left value created by the builder must be an exhausted iterator.
 
 ### Iteration gotchas
 
 - The iterator state is initialized where the iterator is created, create it right where the
-  iteration starts. To pass the iterable around or iterate multiple times, pass the array view or
-  anything implementing `IntoShaderIterator`. The stateful iterators are not `Clone` because the
-  clone would share the same cursor variable.
-- The `map` closure (and the `take_while` predicate) is also evaluated once for the final poll
-  that ends the iteration, with the out of range index and the clamped array pointer. Do not put
-  side effects (store, atomic) in them, put them in `for_each`.
+  iteration starts. The consumers (`for_each`, `count`, `find`, `position` and the ones based on
+  them) panic at build time if a loop (or function) is entered after the state is created, for
+  example the iterator created outside of a loop (or another iteration) and iterated inside it.
+  Iterating inside a branch or switch case is fine. To pass the iterable around or iterate
+  multiple times, pass the array view or anything implementing `IntoShaderIterator`, and call
+  `into_shader_iter()` right before the iteration.
+- The stateful iterators are not `Clone` because the clone would share the same cursor variable.
 
 ## Texture Operations
 

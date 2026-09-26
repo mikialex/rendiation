@@ -1,159 +1,93 @@
+use std::ops::Range;
+
 use crate::*;
 
+/// The iterable, which creates a new [ShaderIterator] (with the new iteration state) each time.
 pub trait IntoShaderIterator {
-  type ShaderIter: ShaderIterator;
+  type Item;
+  type ShaderIter: ShaderIterator<Item = Self::Item>;
   fn into_shader_iter(self) -> Self::ShaderIter;
 }
 
-pub type ItemOfIntoShaderIter<T> = <<T as IntoShaderIterator>::ShaderIter as ShaderIterator>::Item;
-
-pub trait IntoShaderIteratorExt: IntoShaderIterator + Sized {
-  fn map<U, F: Fn(ItemOfIntoShaderIter<Self>) -> U>(self, map: F) -> ShaderIntoIterMap<Self, F> {
-    ShaderIntoIterMap {
-      internal: self,
-      map,
-    }
-  }
-  fn map_helper<T2, U, F: Fn(ItemOfIntoShaderIter<Self>, &T2) -> U>(
-    self,
-    any: T2,
-    map: F,
-  ) -> ShaderIntoIterHelperMap<Self, T2, F> {
-    ShaderIntoIterHelperMap {
-      internal: self,
-      any,
-      map,
-    }
-  }
-  fn zip<U>(self, other: U) -> ShaderIntoIterZip<Self, U> {
-    ShaderIntoIterZip { a: self, b: other }
-  }
-}
-impl<T: IntoShaderIterator> IntoShaderIteratorExt for T {}
-
-#[derive(Clone)]
-pub struct ShaderIntoIterMap<T, F> {
-  internal: T,
-  map: F,
-}
-
-impl<T, F, U> IntoShaderIterator for ShaderIntoIterMap<T, F>
-where
-  T: IntoShaderIterator,
-  F: Fn(ItemOfIntoShaderIter<T>) -> U,
-{
-  type ShaderIter = impl ShaderIterator<Item = U>;
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    self.internal.into_shader_iter().map(self.map)
-  }
-}
-
-#[derive(Clone)]
-pub struct ShaderIntoIterHelperMap<T, T2, F> {
-  internal: T,
-  any: T2,
-  map: F,
-}
-
-impl<T, T2, F, U> IntoShaderIterator for ShaderIntoIterHelperMap<T, T2, F>
-where
-  T: IntoShaderIterator,
-  F: Fn(ItemOfIntoShaderIter<T>, &T2) -> U,
-{
-  type ShaderIter = impl ShaderIterator<Item = U>;
+impl<T: ShaderIterator> IntoShaderIterator for T {
+  type Item = T::Item;
+  type ShaderIter = T;
   fn into_shader_iter(self) -> Self::ShaderIter {
     self
-      .internal
-      .into_shader_iter()
-      .map(move |v| (self.map)(v, &self.any))
   }
 }
 
-#[derive(Clone)]
-pub struct ShaderIntoIterZip<T, U> {
-  a: T,
-  b: U,
-}
-
-impl<T, U> IntoShaderIterator for ShaderIntoIterZip<T, U>
-where
-  T: IntoShaderIterator,
-  U: IntoShaderIterator,
-{
-  type ShaderIter = impl ShaderIterator<Item = (ItemOfIntoShaderIter<T>, ItemOfIntoShaderIter<U>)>;
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    self.a.into_shader_iter().zip(self.b.into_shader_iter())
-  }
-}
-
+/// 0..n
 impl IntoShaderIterator for u32 {
-  type ShaderIter = StepTo;
-
+  type Item = Node<u32>;
+  type ShaderIter = ShaderRangeIter;
   fn into_shader_iter(self) -> Self::ShaderIter {
-    StepTo::new(val(self))
+    ShaderRangeIter::new(ShaderRange::new(val(0), val(self)))
   }
 }
 
+/// 0..n
 impl IntoShaderIterator for Node<u32> {
-  type ShaderIter = StepTo;
-
+  type Item = Node<u32>;
+  type ShaderIter = ShaderRangeIter;
   fn into_shader_iter(self) -> Self::ShaderIter {
-    StepTo::new(self)
+    ShaderRangeIter::new(ShaderRange::new(val(0), self))
   }
 }
 
+/// (start, end) range, prefer the [Range] which is more explicit
 impl IntoShaderIterator for Node<Vec2<u32>> {
-  type ShaderIter = ForRange;
-
+  type Item = Node<u32>;
+  type ShaderIter = ShaderRangeIter;
   fn into_shader_iter(self) -> Self::ShaderIter {
-    ForRange::ranged(self)
+    ShaderRangeIter::new(ShaderRange::from_vec2(self))
+  }
+}
+
+impl IntoShaderIterator for Range<Node<u32>> {
+  type Item = Node<u32>;
+  type ShaderIter = ShaderRangeIter;
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    ShaderRangeIter::new(ShaderRange::new(self.start, self.end))
+  }
+}
+
+impl IntoShaderIterator for Range<u32> {
+  type Item = Node<u32>;
+  type ShaderIter = ShaderRangeIter;
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    ShaderRangeIter::new(ShaderRange::new(val(self.start), val(self.end)))
   }
 }
 
 impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayView<AT, T> {
-  type ShaderIter = ShaderStaticArrayIter<AT, T>;
-
+  type Item = (Node<u32>, ShaderPtrOf<T>);
+  type ShaderIter = ShaderIndexIter<Self>;
   fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderStaticArrayIter {
-      cursor: val(0_u32).make_local_var(),
-      len: val(self.len),
-      array: self,
-    }
-  }
-}
-
-impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayView<T> {
-  type ShaderIter = ShaderDynArrayIter<T>;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderDynArrayIter {
-      cursor: val(0_u32).make_local_var(),
-      len: self.array_length(),
-      array: self,
-    }
+    ShaderIndexIter::new(self)
   }
 }
 
 impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayReadonlyView<AT, T> {
-  type ShaderIter = ShaderStaticArrayReadonlyIter<AT, T>;
-
+  type Item = (Node<u32>, ShaderReadonlyPtrOf<T>);
+  type ShaderIter = ShaderIndexIter<Self>;
   fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderStaticArrayReadonlyIter {
-      cursor: val(0_u32).make_local_var(),
-      len: val(self.len),
-      array: self,
-    }
+    ShaderIndexIter::new(self)
+  }
+}
+
+impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayView<T> {
+  type Item = (Node<u32>, ShaderPtrOf<T>);
+  type ShaderIter = ShaderIndexIter<Self>;
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    ShaderIndexIter::new(self)
   }
 }
 
 impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayReadonlyView<T> {
-  type ShaderIter = ShaderDynArrayReadonlyIter<T>;
-
+  type Item = (Node<u32>, ShaderReadonlyPtrOf<T>);
+  type ShaderIter = ShaderIndexIter<Self>;
   fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderDynArrayReadonlyIter {
-      cursor: val(0_u32).make_local_var(),
-      len: self.array_length(),
-      array: self,
-    }
+    ShaderIndexIter::new(self)
   }
 }

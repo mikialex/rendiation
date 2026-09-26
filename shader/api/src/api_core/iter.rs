@@ -1,47 +1,184 @@
 use crate::*;
 
+/// The result of polling a [ShaderIterator].
+///
+/// We do not have sum type(enum) in shader, so the flag indicates if the item is valid. The item is
+/// constructed lazily in the region that the flag is true, so the item construction and the logic
+/// of the adaptors (like the map closure) never run for the poll that ends the iteration.
+pub struct ShaderIterNext<'a, T> {
+  pub has_next: Node<bool>,
+  item: Box<dyn FnOnce() -> T + 'a>,
+}
+
+impl<'a, T> ShaderIterNext<'a, T> {
+  pub fn new(has_next: Node<bool>, item: impl FnOnce() -> T + 'a) -> Self {
+    Self {
+      has_next,
+      item: Box::new(item),
+    }
+  }
+
+  /// Construct the item. It must be called in the region that the `has_next` is true, and in the
+  /// block where the iterator is polled or its child blocks, because the item may reference the
+  /// expressions created by the poll.
+  pub fn item(self) -> T {
+    (self.item)()
+  }
+}
+
+impl<'a, T: 'a> ShaderIterNext<'a, T> {
+  /// Map the lazy item, the `f` is called when the item is constructed.
+  pub fn map<U>(self, f: impl FnOnce(T) -> U + 'a) -> ShaderIterNext<'a, U> {
+    ShaderIterNext::new(self.has_next, move || f(self.item()))
+  }
+}
+
+impl<'a, T> ShaderIterNext<'a, T>
+where
+  T: ShaderAbstractRightValue,
+  T::AbstractLeftValue: 'a,
+{
+  /// Search the next item in a loop. The `body` is the loop body, it calls the `found` with the
+  /// item to take it and exit the loop, or exits the loop by the loop ctx when nothing is found.
+  ///
+  /// The found item is carried out of the loop by a local variable, so it must be a right value.
+  pub fn search(body: impl FnOnce(&LoopCtx, &dyn Fn(T))) -> Self {
+    let has_next = val(false).make_local_var();
+    let item = T::create_left_value_from_builder(&mut LocalLeftValueBuilder);
+    loop_by(|cx| {
+      body(&cx, &|value: T| {
+        has_next.store(val(true));
+        item.abstract_store(value);
+        cx.do_break();
+      });
+    });
+    Self::new(has_next.load(), move || item.abstract_load())
+  }
+}
+
 /// The iterator state is stored in shader variables and initialized where the iterator is
 /// created, so the iterator should be created right where the iteration starts. To pass the
 /// iterable around or iterate it multiple times, use the [IntoShaderIterator].
 pub trait ShaderIterator {
   type Item;
-  /// we do not have sum type(enum) in shader, so we have to return extra flag to indicate if the
-  /// value is valid.
+  /// Advance the iterator state and return the lazy item, see [ShaderIterNext].
   ///
   /// Once the flag is false the iteration ends, and the iterator should not be polled again. The
   /// provided sources keep returning false after they are exhausted (fused), so the misuse does
   /// not loop forever.
-  fn shader_next(&self) -> (Node<bool>, Self::Item);
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item>;
+
+  /// Check the iterator is iterated in the scope where its state is created, called by the
+  /// consumers before the iteration starts. The iterator that has state checks the
+  /// [ShaderIterScope] captured when the state is created, the adaptor forwards it to the inner
+  /// iterators.
+  fn check_iter_scope(&self);
 }
 
 impl<'a, T> ShaderIterator for Box<dyn ShaderIterator<Item = T> + 'a> {
   type Item = T;
 
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
     (**self).shader_next()
+  }
+
+  fn check_iter_scope(&self) {
+    (**self).check_iter_scope()
   }
 }
 
 pub trait ShaderIteratorExt: ShaderIterator + Sized {
   fn for_each(self, visitor: impl FnOnce(Self::Item, &LoopCtx)) {
+    self.check_iter_scope();
     loop_by(|cx| {
-      let (has_next, next) = self.shader_next();
-      if_by(has_next.not(), || {
+      let next = self.shader_next();
+      if_by(next.has_next.not(), || {
         cx.do_break();
       });
-      visitor(next, &cx);
+      visitor(next.item(), &cx);
     });
   }
 
-  fn sum<T>(self) -> Self::Item
+  /// accumulate the items into the state, the state must be a right value
+  fn fold<S: ShaderAbstractRightValue>(self, init: S, f: impl FnOnce(S, Self::Item) -> S) -> S {
+    let state = LocalLeftValueBuilder.create_left_value(init);
+    self.for_each(|item, _| state.abstract_store(f(state.abstract_load(), item)));
+    state.abstract_load()
+  }
+
+  fn sum<T>(self) -> Node<T>
   where
     Self: ShaderIterator<Item = Node<T>>,
     T: ShaderSizedValueNodeType,
     Node<T>: Add<Output = Node<T>>,
   {
-    let value = zeroed_val::<T>().make_local_var();
-    self.for_each(|item, _| value.store(value.load() + item));
-    value.load()
+    self.fold(zeroed_val(), |sum, item| sum + item)
+  }
+
+  /// count the items, the items are not constructed, so the lazy logic like the map closure does
+  /// not run
+  fn count(self) -> Node<u32> {
+    self.check_iter_scope();
+    let count = val(0_u32).make_local_var();
+    loop_by(|cx| {
+      let next = self.shader_next();
+      if_by(next.has_next.not(), || {
+        cx.do_break();
+      });
+      count.store(count.load() + val(1));
+    });
+    count.load()
+  }
+
+  /// if any item matches the predicate, the iteration stops at the first matched item
+  fn any(self, f: impl FnOnce(Self::Item) -> Node<bool>) -> Node<bool> {
+    let result = val(false).make_local_var();
+    self.for_each(|item, cx| {
+      if_by(f(item), || {
+        result.store(val(true));
+        cx.do_break();
+      });
+    });
+    result.load()
+  }
+
+  /// if all items match the predicate, the iteration stops at the first unmatched item
+  fn all(self, f: impl FnOnce(Self::Item) -> Node<bool>) -> Node<bool> {
+    self.any(|item| f(item).not()).not()
+  }
+
+  /// the first item that matches the predicate, the item must be a right value
+  fn find(self, f: impl FnOnce(&Self::Item) -> Node<bool>) -> ShaderOption<Self::Item>
+  where
+    Self::Item: ShaderAbstractRightValue,
+  {
+    self.check_iter_scope();
+    let next = ShaderIterNext::search(|cx, found| {
+      let next = self.shader_next();
+      if_by(next.has_next.not(), || {
+        cx.do_break();
+      });
+      let item = next.item();
+      if_by(f(&item), || found(item));
+    });
+    // loading the search result variable is always valid, the payload is only meaningful when
+    // is_some is true
+    ShaderOption::new(next.has_next, next.item())
+  }
+
+  /// the index of the first item that matches the predicate
+  fn position(self, f: impl FnOnce(Self::Item) -> Node<bool>) -> ShaderOption<Node<u32>> {
+    let iter = self.enumerate();
+    iter.check_iter_scope();
+    let next = ShaderIterNext::search(|cx, found| {
+      let next = iter.shader_next();
+      if_by(next.has_next.not(), || {
+        cx.do_break();
+      });
+      let (index, item) = next.item();
+      if_by(f(item), || found(index));
+    });
+    ShaderOption::new(next.has_next, next.item())
   }
 
   fn map<O, F: Fn(Self::Item) -> O>(self, f: F) -> ShaderMapIter<Self, F> {
@@ -54,14 +191,16 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
     ShaderFilterIter { iter: self, f }
   }
 
-  fn zip<T: ShaderIterator>(self, other: T) -> ShaderZipIter<Self, T> {
+  fn zip<T: IntoShaderIterator>(self, other: T) -> ShaderZipIter<Self, T::ShaderIter> {
     ShaderZipIter {
       iter1: self,
-      iter2: other,
+      iter2: other.into_shader_iter(),
     }
   }
 
-  fn filter_map<O, F: Fn(Self::Item) -> (Node<bool>, Node<O>)>(
+  /// the `f` returns if the item is kept and the mapped item, the mapped item must be a right value
+  /// because it is carried out of the internal search loop, the input item has no requirement.
+  fn filter_map<O, F: Fn(Self::Item) -> (Node<bool>, O)>(
     self,
     f: F,
   ) -> ShaderFilterMapIter<Self, F> {
@@ -72,25 +211,43 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
     ShaderEnumeratorIter {
       iter: self,
       counter: val(0_u32).make_local_var(),
+      scope: ShaderIterScope::capture(),
     }
   }
 
+  /// the item must be a right value, because the predicate requires the item constructed, the
+  /// item is stored and carried out of the region that the inner iterator has next.
   fn take_while<F: Fn(&Self::Item) -> Node<bool>>(self, f: F) -> ShaderTakeWhileIter<Self, F> {
     ShaderTakeWhileIter { iter: self, f }
   }
 
-  fn clamp_by<T>(self, count: Node<u32>) -> impl ShaderIterator<Item = (Node<u32>, T)>
+  /// take the first `count` items. When the count is reached, the inner iterator is still polled
+  /// once but its item is not constructed.
+  fn take(self, count: Node<u32>) -> ShaderTakeIter<Self> {
+    ShaderTakeIter {
+      iter: self,
+      count,
+      taken: val(0_u32).make_local_var(),
+      scope: ShaderIterScope::capture(),
+    }
+  }
+
+  /// limit the iteration by the item index, the same as `take(count)` because the item index of
+  /// the sources (like the arrays) starts from 0.
+  fn clamp_by<T>(self, count: Node<u32>) -> ShaderTakeIter<Self>
   where
     Self: ShaderIterator<Item = (Node<u32>, T)>,
   {
-    self.take_while(move |&(idx, _): &(Node<u32>, T)| idx.less_than(count))
+    self.take(count)
   }
 
-  fn flat_map<TT, F, I>(self, f: F) -> ShaderFlatMapIter<Self, I, TT, F>
+  /// The `f` creates the inner iterator state ([ShaderIterState], like the [ShaderRange]) from
+  /// the outer item, the state is stored into the inner iterator to reset it. The inner item must
+  /// be a right value, because it is carried out of the internal search loop.
+  fn flat_map<I, F>(self, f: F) -> ShaderFlatMapIter<Self, I, F>
   where
     F: Fn(Self::Item) -> I,
-    I: ShaderAbstractRightValue,
-    I::AbstractLeftValue: ShaderIterator<Item = Node<TT>>,
+    I: ShaderIterState,
   {
     ShaderFlatMapIter {
       outer: self,
@@ -101,189 +258,190 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
 }
 impl<T: ShaderIterator + Sized> ShaderIteratorExt for T {}
 
-pub struct StepTo {
-  to: Node<u32>,
-  current: ShaderPtrOf<u32>,
+/// The iterator state as a right value, the iterator is its left value, so storing a new state
+/// resets the iterator. The flat_map creates the inner iterator state from the outer item.
+///
+/// The left value created by the [LeftValueBuilder] must be an exhausted iterator.
+pub trait ShaderIterState: ShaderAbstractRightValue<AbstractLeftValue: ShaderIterator> {}
+
+/// The range from start (inclusive) to end (exclusive), empty if start >= end. Iterated by the
+/// [ShaderRangeIter], and it is the [ShaderIterState] of it.
+#[derive(Clone, Copy)]
+pub struct ShaderRange {
+  pub start: Node<u32>,
+  pub end: Node<u32>,
 }
 
-impl StepTo {
-  pub fn new(to: Node<u32>) -> Self {
-    Self {
-      to,
-      current: val(0_u32).make_local_var(),
-    }
+impl ShaderRange {
+  pub fn new(start: Node<u32>, end: Node<u32>) -> Self {
+    Self { start, end }
+  }
+  /// the range is (start, end)
+  pub fn from_vec2(range: Node<Vec2<u32>>) -> Self {
+    Self::new(range.x(), range.y())
   }
 }
 
-impl ShaderIterator for StepTo {
+impl ShaderAbstractRightValue for ShaderRange {
+  type AbstractLeftValue = ShaderRangeIter;
+
+  /// the created range is empty, as the [ShaderIterState] requires
+  fn create_left_value_from_builder<B: LeftValueBuilder>(
+    builder: &mut B,
+  ) -> Self::AbstractLeftValue {
+    ShaderRangeIter::new_from(ShaderRange::new(val(0), val(0)), builder)
+  }
+}
+impl ShaderIterState for ShaderRange {}
+
+impl IntoShaderIterator for ShaderRange {
   type Item = Node<u32>;
-
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let current = self.current.load();
-    self.current.store(current + val(1));
-    (current.less_than(self.to), current)
+  type ShaderIter = ShaderRangeIter;
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    ShaderRangeIter::new(self)
   }
 }
 
-pub struct ForRange {
-  to: BoxedShaderLoadStore<Node<u32>>,
+/// Iterate the [ShaderRange].
+pub struct ShaderRangeIter {
   current: BoxedShaderLoadStore<Node<u32>>,
+  end: BoxedShaderLoadStore<Node<u32>>,
+  scope: ShaderIterScope,
 }
-impl ForRange {
-  pub fn ranged(range: Node<Vec2<u32>>) -> Self {
-    Self::ranged_from(range, &mut LocalLeftValueBuilder)
+
+impl ShaderRangeIter {
+  pub fn new(range: ShaderRange) -> Self {
+    Self::new_from(range, &mut LocalLeftValueBuilder)
   }
-  pub fn ranged_from(range: Node<Vec2<u32>>, builder: &mut impl LeftValueBuilder) -> Self {
+  /// the iteration state is created by the builder
+  pub fn new_from(range: ShaderRange, builder: &mut impl LeftValueBuilder) -> Self {
     Self {
-      to: builder.create_left_value(range.y()),
-      current: builder.create_left_value(range.x()),
+      current: builder.create_left_value(range.start),
+      end: builder.create_left_value(range.end),
+      scope: ShaderIterScope::capture(),
     }
   }
 }
 
-impl ShaderIterator for ForRange {
+impl ShaderIterator for ShaderRangeIter {
   type Item = Node<u32>;
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
     let current = self.current.abstract_load();
     self.current.abstract_store(current + val(1));
     // use less than instead of not equal, so the empty range(start >= end) does not loop forever,
     // and the exhausted range keeps returning false
-    (current.less_than(self.to.abstract_load()), current)
+    let has_next = current.less_than(self.end.abstract_load());
+    ShaderIterNext::new(has_next, move || current)
+  }
+
+  fn check_iter_scope(&self) {
+    self.scope.check()
   }
 }
 
-#[derive(Clone)]
-pub struct ForRangeState {
-  pub to: Node<u32>,
-  pub current: Node<u32>,
-}
-
-impl ForRangeState {
-  pub fn from_range(from_range: Node<Vec2<u32>>) -> Self {
-    Self {
-      current: from_range.x(),
-      to: from_range.y(),
-    }
-  }
-}
-impl ShaderAbstractRightValue for ForRangeState {
-  type AbstractLeftValue = ForRange;
-
-  fn create_left_value_from_builder<B: LeftValueBuilder>(
-    builder: &mut B,
-  ) -> Self::AbstractLeftValue {
-    ForRange {
-      to: builder.create_left_value(val(0_u32)),
-      current: builder.create_left_value(val(0)),
-    }
-  }
-}
-impl ShaderAbstractLeftValue for ForRange {
-  type RightValue = ForRangeState;
+impl ShaderAbstractLeftValue for ShaderRangeIter {
+  type RightValue = ShaderRange;
 
   fn abstract_load(&self) -> Self::RightValue {
-    ForRangeState {
-      to: self.to.abstract_load(),
-      current: self.current.abstract_load(),
-    }
+    ShaderRange::new(self.current.abstract_load(), self.end.abstract_load())
   }
 
   fn abstract_store(&self, payload: Self::RightValue) {
-    self.to.abstract_store(payload.to);
-    self.current.abstract_store(payload.current);
+    self.current.abstract_store(payload.start);
+    self.end.abstract_store(payload.end);
   }
 }
 
-/// The array item is created even when the iteration ends, so the index is clamped to keep the
-/// item pointer in bounds. For the empty array the 0 position is still used, it should never be
-/// loaded when the iteration ends.
-fn clamp_iter_index(index: Node<u32>, len: Node<u32>) -> Node<u32> {
-  index.min(len.max(val(1)) - val(1))
+/// The random accessible collection, iterated by the [ShaderIndexIter].
+pub trait ShaderIndexable {
+  type Item;
+  fn shader_len(&self) -> Node<u32>;
+  /// the index is in bounds when it is called by the iterator
+  fn shader_index(&self, index: Node<u32>) -> Self::Item;
 }
 
-pub struct ShaderStaticArrayIter<AT, T> {
-  pub(crate) cursor: ShaderPtrOf<u32>,
-  pub(crate) array: StaticLengthArrayView<AT, T>,
-  pub(crate) len: Node<u32>,
-}
-
-impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayIter<AT, T> {
-  type Item = (Node<u32>, ShaderPtrOf<T>);
-
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let current_next = self.cursor.load();
-    self.cursor.store(current_next + val(1));
-    let has_next = current_next.less_than(self.len);
-    let uniform = self.array.index(clamp_iter_index(current_next, self.len));
-    (has_next, (current_next, uniform))
+impl<AT, T: ShaderSizedValueNodeType> ShaderIndexable for StaticLengthArrayView<AT, T> {
+  type Item = ShaderPtrOf<T>;
+  fn shader_len(&self) -> Node<u32> {
+    val(self.len)
+  }
+  fn shader_index(&self, index: Node<u32>) -> Self::Item {
+    self.index(index)
   }
 }
 
-pub struct ShaderStaticArrayReadonlyIter<AT, T> {
-  pub(crate) cursor: ShaderPtrOf<u32>,
-  pub(crate) array: StaticLengthArrayReadonlyView<AT, T>,
-  pub(crate) len: Node<u32>,
+impl<AT, T: ShaderSizedValueNodeType> ShaderIndexable for StaticLengthArrayReadonlyView<AT, T> {
+  type Item = ShaderReadonlyPtrOf<T>;
+  fn shader_len(&self) -> Node<u32> {
+    val(self.len)
+  }
+  fn shader_index(&self, index: Node<u32>) -> Self::Item {
+    self.index(index)
+  }
 }
 
-impl<AT, T> ShaderStaticArrayReadonlyIter<AT, T> {
-  /// iterate the first `length_clamp` items, the `length_clamp` is clamped by the array length
-  pub fn from_array_clamp_length(
-    array: StaticLengthArrayReadonlyView<AT, T>,
-    length_clamp: Node<u32>,
-  ) -> Self {
-    ShaderStaticArrayReadonlyIter {
+impl<T: ShaderSizedValueNodeType> ShaderIndexable for DynLengthArrayView<T> {
+  type Item = ShaderPtrOf<T>;
+  fn shader_len(&self) -> Node<u32> {
+    self.array_length()
+  }
+  fn shader_index(&self, index: Node<u32>) -> Self::Item {
+    self.index(index)
+  }
+}
+
+impl<T: ShaderSizedValueNodeType> ShaderIndexable for DynLengthArrayReadonlyView<T> {
+  type Item = ShaderReadonlyPtrOf<T>;
+  fn shader_len(&self) -> Node<u32> {
+    self.array_length()
+  }
+  fn shader_index(&self, index: Node<u32>) -> Self::Item {
+    self.index(index)
+  }
+}
+
+/// Iterate the [ShaderIndexable] collection, the item is `(index, item)`.
+pub struct ShaderIndexIter<A> {
+  cursor: ShaderPtrOf<u32>,
+  len: Node<u32>,
+  array: A,
+  scope: ShaderIterScope,
+}
+
+impl<A: ShaderIndexable> ShaderIndexIter<A> {
+  pub fn new(array: A) -> Self {
+    Self {
       cursor: val(0_u32).make_local_var(),
-      len: length_clamp.min(val(array.len)),
+      len: array.shader_len(),
       array,
+      scope: ShaderIterScope::capture(),
+    }
+  }
+
+  /// iterate the first `len` items, the `len` is clamped by the collection length
+  pub fn with_len_clamp(array: A, len: Node<u32>) -> Self {
+    Self {
+      cursor: val(0_u32).make_local_var(),
+      len: len.min(array.shader_len()),
+      array,
+      scope: ShaderIterScope::capture(),
     }
   }
 }
 
-impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayReadonlyIter<AT, T> {
-  type Item = (Node<u32>, ShaderReadonlyPtrOf<T>);
+impl<A: ShaderIndexable> ShaderIterator for ShaderIndexIter<A> {
+  type Item = (Node<u32>, A::Item);
 
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let current_next = self.cursor.load();
-    self.cursor.store(current_next + val(1));
-    let has_next = current_next.less_than(self.len);
-    let uniform = self.array.index(clamp_iter_index(current_next, self.len));
-    (has_next, (current_next, uniform))
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
+    let index = self.cursor.load();
+    self.cursor.store(index + val(1));
+    ShaderIterNext::new(index.less_than(self.len), move || {
+      (index, self.array.shader_index(index))
+    })
   }
-}
 
-pub struct ShaderDynArrayIter<T> {
-  pub(crate) cursor: ShaderPtrOf<u32>,
-  pub(crate) array: DynLengthArrayView<T>,
-  pub(crate) len: Node<u32>,
-}
-
-impl<T: ShaderSizedValueNodeType> ShaderIterator for ShaderDynArrayIter<T> {
-  type Item = (Node<u32>, ShaderPtrOf<T>);
-
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let current_next = self.cursor.load();
-    self.cursor.store(current_next + val(1));
-    let has_next = current_next.less_than(self.len);
-    let data = self.array.index(clamp_iter_index(current_next, self.len));
-    (has_next, (current_next, data))
-  }
-}
-
-pub struct ShaderDynArrayReadonlyIter<T> {
-  pub(crate) cursor: ShaderPtrOf<u32>,
-  pub(crate) array: DynLengthArrayReadonlyView<T>,
-  pub(crate) len: Node<u32>,
-}
-
-impl<T: ShaderSizedValueNodeType> ShaderIterator for ShaderDynArrayReadonlyIter<T> {
-  type Item = (Node<u32>, ShaderReadonlyPtrOf<T>);
-
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let current_next = self.cursor.load();
-    self.cursor.store(current_next + val(1));
-    let has_next = current_next.less_than(self.len);
-    let data = self.array.index(clamp_iter_index(current_next, self.len));
-    (has_next, (current_next, data))
+  fn check_iter_scope(&self) {
+    self.scope.check()
   }
 }
 
@@ -300,23 +458,19 @@ where
 {
   type Item = T::Item;
 
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let has_next = val(false).make_local_var();
-    let item = <T::Item as ShaderAbstractRightValue>::create_left_value_from_builder(
-      &mut LocalLeftValueBuilder,
-    );
-    loop_by(|cx| {
-      let (inner_has_next, inner) = self.iter.shader_next();
-      if_by(inner_has_next.not(), || {
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
+    ShaderIterNext::search(|cx, found| {
+      let next = self.iter.shader_next();
+      if_by(next.has_next.not(), || {
         cx.do_break();
       });
-      if_by((self.f)(&inner), || {
-        has_next.store(val(true));
-        item.abstract_store(inner);
-        cx.do_break();
-      });
-    });
-    (has_next.load(), item.abstract_load())
+      let item = next.item();
+      if_by((self.f)(&item), || found(item));
+    })
+  }
+
+  fn check_iter_scope(&self) {
+    self.iter.check_iter_scope()
   }
 }
 
@@ -325,31 +479,27 @@ pub struct ShaderFilterMapIter<T, F> {
   f: F,
 }
 
-impl<T, F, TT, O> ShaderIterator for ShaderFilterMapIter<T, F>
+impl<T, F, O> ShaderIterator for ShaderFilterMapIter<T, F>
 where
-  T: ShaderIterator<Item = Node<TT>>,
-  TT: ShaderSizedValueNodeType,
-  O: ShaderSizedValueNodeType,
-  F: Fn(T::Item) -> (Node<bool>, Node<O>),
+  T: ShaderIterator,
+  O: ShaderAbstractRightValue,
+  F: Fn(T::Item) -> (Node<bool>, O),
 {
-  type Item = Node<O>;
+  type Item = O;
 
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let has_next = val(false).make_local_var();
-    let item = zeroed_val::<O>().make_local_var();
-    loop_by(|cx| {
-      let (inner_has_next, inner) = self.iter.shader_next();
-      if_by(inner_has_next.not(), || {
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
+    ShaderIterNext::search(|cx, found| {
+      let next = self.iter.shader_next();
+      if_by(next.has_next.not(), || {
         cx.do_break();
       });
-      let (n, mapped) = (self.f)(inner);
-      if_by(n, || {
-        has_next.store(val(true));
-        item.store(mapped);
-        cx.do_break();
-      });
-    });
-    (has_next.load(), item.load())
+      let (keep, mapped) = (self.f)(next.item());
+      if_by(keep, || found(mapped));
+    })
+  }
+
+  fn check_iter_scope(&self) {
+    self.iter.check_iter_scope()
   }
 }
 
@@ -365,10 +515,12 @@ where
 {
   type Item = TT;
 
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let (inner_has_next, inner) = self.iter.shader_next();
-    let mapped = (self.f)(inner);
-    (inner_has_next, mapped)
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
+    self.iter.shader_next().map(|item| (self.f)(item))
+  }
+
+  fn check_iter_scope(&self) {
+    self.iter.check_iter_scope()
   }
 }
 
@@ -384,30 +536,37 @@ where
 {
   type Item = (T1::Item, T2::Item);
 
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let (inner1_has_next, inner1) = self.iter1.shader_next();
-    let (inner2_has_next, inner2) = self.iter2.shader_next();
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
+    let next1 = self.iter1.shader_next();
+    let next2 = self.iter2.shader_next();
+    let has_next = next1.has_next.and(next2.has_next);
+    ShaderIterNext::new(has_next, move || (next1.item(), next2.item()))
+  }
 
-    let has_next = inner1_has_next.and(inner2_has_next);
-    let next = (inner1, inner2);
-
-    (has_next, next)
+  fn check_iter_scope(&self) {
+    self.iter1.check_iter_scope();
+    self.iter2.check_iter_scope();
   }
 }
 
 pub struct ShaderEnumeratorIter<T> {
   iter: T,
   counter: ShaderPtrOf<u32>,
+  scope: ShaderIterScope,
 }
 
 impl<T: ShaderIterator> ShaderIterator for ShaderEnumeratorIter<T> {
   type Item = (Node<u32>, T::Item);
 
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let next = self.counter.load();
-    self.counter.store(next + val(1));
-    let (inner_has_next, inner_next) = self.iter.shader_next();
-    (inner_has_next, (next, inner_next))
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
+    let index = self.counter.load();
+    self.counter.store(index + val(1));
+    self.iter.shader_next().map(move |item| (index, item))
+  }
+
+  fn check_iter_scope(&self) {
+    self.scope.check();
+    self.iter.check_iter_scope();
   }
 }
 
@@ -419,61 +578,89 @@ pub struct ShaderTakeWhileIter<T, F> {
 impl<T, F> ShaderIterator for ShaderTakeWhileIter<T, F>
 where
   T: ShaderIterator,
+  T::Item: ShaderAbstractRightValue,
   F: Fn(&T::Item) -> Node<bool>,
 {
   type Item = T::Item;
 
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let (inner_has_next, inner) = self.iter.shader_next();
-    (inner_has_next.and((self.f)(&inner)), inner)
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
+    let has_next = val(false).make_local_var();
+    let item = T::Item::create_left_value_from_builder(&mut LocalLeftValueBuilder);
+    let next = self.iter.shader_next();
+    if_by(next.has_next, || {
+      let inner = next.item();
+      if_by((self.f)(&inner), || {
+        has_next.store(val(true));
+        item.abstract_store(inner);
+      });
+    });
+    ShaderIterNext::new(has_next.load(), move || item.abstract_load())
+  }
+
+  fn check_iter_scope(&self) {
+    self.iter.check_iter_scope()
   }
 }
 
-pub struct ShaderFlatMapIter<Outer, Inner, IItem, F>
-where
-  Outer: ShaderIterator,
-  Inner: ShaderAbstractRightValue,
-  Inner::AbstractLeftValue: ShaderIterator<Item = Node<IItem>>,
-  F: Fn(Outer::Item) -> Inner,
-{
+pub struct ShaderTakeIter<T> {
+  iter: T,
+  count: Node<u32>,
+  taken: ShaderPtrOf<u32>,
+  scope: ShaderIterScope,
+}
+
+impl<T: ShaderIterator> ShaderIterator for ShaderTakeIter<T> {
+  type Item = T::Item;
+
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
+    let taken = self.taken.load();
+    self.taken.store(taken + val(1));
+    let next = self.iter.shader_next();
+    ShaderIterNext {
+      has_next: next.has_next.and(taken.less_than(self.count)),
+      item: next.item,
+    }
+  }
+
+  fn check_iter_scope(&self) {
+    self.scope.check();
+    self.iter.check_iter_scope();
+  }
+}
+
+pub struct ShaderFlatMapIter<Outer, Inner: ShaderIterState, F> {
   outer: Outer,
-  // initial inner must return has_next=false, Inner::create_left_value_from_builder(&mut LocalLeftValueBuilder);
+  /// the initial inner iterator is exhausted, it is reset by the state created from the outer item
   inner: Inner::AbstractLeftValue,
-  // create inner from outer item, overwrite inner
   f: F,
 }
 
-impl<Outer, Inner, IItem, F> ShaderIterator for ShaderFlatMapIter<Outer, Inner, IItem, F>
+impl<Outer, Inner, F> ShaderIterator for ShaderFlatMapIter<Outer, Inner, F>
 where
   Outer: ShaderIterator,
-  Inner: ShaderAbstractRightValue,
-  Inner::AbstractLeftValue: ShaderIterator<Item = Node<IItem>>,
-  IItem: ShaderSizedValueNodeType,
+  Inner: ShaderIterState,
+  <Inner::AbstractLeftValue as ShaderIterator>::Item: ShaderAbstractRightValue,
   F: Fn(Outer::Item) -> Inner,
 {
   type Item = <Inner::AbstractLeftValue as ShaderIterator>::Item;
 
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let has_next = val(false).make_local_var();
-    let next = zeroed_val::<IItem>().make_local_var();
-
+  fn shader_next(&self) -> ShaderIterNext<'_, Self::Item> {
     // poll the inner, if it is exhausted, poll the outer to reset the inner and retry, until the
     // inner has next or the outer is exhausted, so the empty inner is skipped
-    loop_by(|cx| {
-      let (inner_has_next, inner_next) = self.inner.shader_next();
-      if_by(inner_has_next, || {
-        has_next.store(val(true));
-        next.store(inner_next);
+    ShaderIterNext::search(|cx, found| {
+      let inner = self.inner.shader_next();
+      if_by(inner.has_next, || found(inner.item()));
+
+      let outer = self.outer.shader_next();
+      if_by(outer.has_next.not(), || {
         cx.do_break();
       });
+      self.inner.abstract_store((self.f)(outer.item()));
+    })
+  }
 
-      let (outer_has_next, outer_next) = self.outer.shader_next();
-      if_by(outer_has_next.not(), || {
-        cx.do_break();
-      });
-      self.inner.abstract_store((self.f)(outer_next));
-    });
-
-    (has_next.load(), next.load())
+  fn check_iter_scope(&self) {
+    self.outer.check_iter_scope();
+    self.inner.check_iter_scope();
   }
 }

@@ -231,6 +231,15 @@ pub fn derive_shader_struct(
       }
     }
 
+    impl rendiation_shader_api::ShaderAbstractRightValue for #shader_api_instance_name {
+      type AbstractLeftValue = rendiation_shader_api::ENodeLeftValue<#struct_name>;
+      fn create_left_value_from_builder<B: rendiation_shader_api::LeftValueBuilder>(
+        builder: &mut B,
+      ) -> Self::AbstractLeftValue {
+        rendiation_shader_api::ENodeLeftValue(builder.create_single_left_value())
+      }
+    }
+
     impl From<#shader_api_instance_name> for rendiation_shader_api::Node<#struct_name>{
       fn from(v: #shader_api_instance_name) -> Self {
         v.construct()

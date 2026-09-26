@@ -139,7 +139,8 @@ pub struct UniformArrayWithLengthInfoShaderPtr<T, const N: usize> {
 impl<T: Std140 + ShaderSizedValueNodeType, const N: usize> IntoShaderIterator
   for UniformArrayWithLengthInfoShaderPtr<T, N>
 {
-  type ShaderIter = ShaderStaticArrayReadonlyIter<Shader140Array<T, N>, T>;
+  type Item = (Node<u32>, ShaderReadonlyPtrOf<T>);
+  type ShaderIter = ShaderIndexIter<StaticLengthArrayReadonlyView<Shader140Array<T, N>, T>>;
 
   fn into_shader_iter(self) -> Self::ShaderIter {
     let array_ptr = self.access.field_index(1);
@@ -147,7 +148,7 @@ impl<T: Std140 + ShaderSizedValueNodeType, const N: usize> IntoShaderIterator
 
     let length = <Vec4<u32>>::create_readonly_view_from_raw_ptr(self.access.field_index(0));
     let length_clamp = length.load().x();
-    ShaderStaticArrayReadonlyIter::from_array_clamp_length(array_view, length_clamp)
+    ShaderIndexIter::with_len_clamp(array_view, length_clamp)
   }
 }
 

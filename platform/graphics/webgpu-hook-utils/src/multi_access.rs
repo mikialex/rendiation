@@ -213,38 +213,34 @@ pub struct MultiAccessGPUInvocation {
 }
 
 impl MultiAccessGPUInvocation {
-  pub fn iter_refed_many_of(&self, one: Node<u32>) -> impl ShaderIterator<Item = Node<u32>> {
-    MultiAccessGPUIter {
+  fn refed_many_of(&self, one: Node<u32>) -> MultiAccessGPURefs {
+    MultiAccessGPURefs {
       indices: self.indices.clone(),
       meta: self.meta.index(one).load().expand(),
-      cursor: val(0_u32).make_local_var(),
     }
   }
+  pub fn iter_refed_many_of(&self, one: Node<u32>) -> impl ShaderIterator<Item = Node<u32>> {
+    ShaderIndexIter::new(self.refed_many_of(one)).map(|(_, many)| many)
+  }
   pub fn get_n_th(&self, one: Node<u32>, n: Node<u32>) -> Node<u32> {
-    let offset = self.meta.index(one).load().expand().start;
-    self.indices.index(offset + n).load()
+    self.refed_many_of(one).shader_index(n)
   }
 }
 
-struct MultiAccessGPUIter {
+/// the many side indices referenced by one
+struct MultiAccessGPURefs {
   indices: ShaderReadonlyPtrOf<[u32]>,
   meta: ENode<GPURangeInfo>,
-  cursor: ShaderPtrOf<u32>,
 }
 
-impl ShaderIterator for MultiAccessGPUIter {
+impl ShaderIndexable for MultiAccessGPURefs {
   type Item = Node<u32>;
 
-  fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let current_next = self.cursor.load();
-    self.cursor.store(current_next + val(1));
-    let has_next = current_next.less_than(self.meta.len);
-    // the item is created even when the iteration ends, only load it when it is valid, because
-    // the start of the empty range is u32::MAX
-    let data = has_next.select_branched(
-      || self.indices.index(self.meta.start + current_next).load(),
-      zeroed_val,
-    );
-    (has_next, data)
+  fn shader_len(&self) -> Node<u32> {
+    self.meta.len
+  }
+
+  fn shader_index(&self, index: Node<u32>) -> Self::Item {
+    self.indices.index(self.meta.start + index).load()
   }
 }

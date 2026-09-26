@@ -25,7 +25,7 @@ fn evaluate_bernstein_curve(
 
   {
     let max_deg = val((MAX_GPU_DEGREE + 1) as u32);
-    let pow_range = ForRange::ranged((val(1u32), max_deg).into());
+    let pow_range = (val(1u32)..max_deg).into_shader_iter();
     pow_range.for_each(|i, _| {
       let prev = i - val(1u32);
       t_pow.index(i).store(t_pow.index(prev).load() * t);
@@ -45,7 +45,7 @@ fn evaluate_bernstein_curve(
   let limit: Node<u32> = degree + val(1u32);
 
   {
-    let range = ForRange::ranged((val(0u32), limit).into());
+    let range = (val(0u32)..limit).into_shader_iter();
     range.for_each(|i, _| {
       let b = get_binomial(degree, i) * t_pow.index(i).load() * s_pow.index(degree - i).load();
       let c = cp_data.index(i).load();

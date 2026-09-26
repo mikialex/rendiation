@@ -24,12 +24,6 @@ pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
   ) -> ShaderOption<RayClosestHitCtx>;
 }
 
-#[derive(Clone, Copy)]
-pub struct ShaderOption<T> {
-  pub is_some: Node<bool>,
-  pub payload: T,
-}
-
 #[repr(C)]
 #[shader_struct(std430)]
 #[derive(Clone, Copy)]

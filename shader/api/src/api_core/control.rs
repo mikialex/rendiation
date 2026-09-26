@@ -60,6 +60,43 @@ impl ControlScopes {
   }
 }
 
+/// The control scope where a shader iterator state is created. The state is initialized when it
+/// is created, so the iteration must start in the same loop and function scope, otherwise the
+/// state is not reset for each execution of the loop entered after the creation.
+#[derive(Clone)]
+pub struct ShaderIterScope {
+  scopes: Vec<ControlScope>,
+}
+
+impl ShaderIterScope {
+  pub fn capture() -> Self {
+    with_control_scopes(|s| Self {
+      scopes: s.scopes.clone(),
+    })
+  }
+
+  /// panic if a loop or function is entered after the capture, or the captured scope has exited
+  pub fn check(&self) {
+    with_control_scopes(|s| {
+      assert!(
+        s.scopes.starts_with(&self.scopes),
+        "the shader iterator is iterated out of the scope where it is created"
+      );
+      for entered in &s.scopes[self.scopes.len()..] {
+        match entered {
+          ControlScope::Loop(_) => panic!(
+            "the shader iterator is created outside of the loop and iterated inside the loop, its state is not reset for each loop execution, create the iterator inside the loop"
+          ),
+          ControlScope::Function => {
+            panic!("the shader iterator is created outside of the function and iterated inside it")
+          }
+          ControlScope::Switch => {}
+        }
+      }
+    })
+  }
+}
+
 pub(crate) fn push_function_control_scope() {
   with_control_scopes(|s| s.scopes.push(ControlScope::Function));
 }

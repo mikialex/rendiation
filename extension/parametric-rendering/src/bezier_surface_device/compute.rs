@@ -32,7 +32,7 @@ fn evaluate_bernstein_surface(
 
   {
     let max_deg = val((MAX_GPU_DEGREE + 1) as u32);
-    let pow_range = ForRange::ranged((val(1u32), max_deg).into());
+    let pow_range = (val(1u32)..max_deg).into_shader_iter();
     pow_range.for_each(|i, _| {
       let prev = i - val(1u32);
       u_pow.index(i).store(u_pow.index(prev).load() * u);
@@ -56,11 +56,11 @@ fn evaluate_bernstein_surface(
   let u_limit: Node<u32> = u_degree + val(1u32);
 
   {
-    let v_range = ForRange::ranged((val(0u32), v_limit).into());
+    let v_range = (val(0u32)..v_limit).into_shader_iter();
     v_range.for_each(|v_j, _| {
       let bv =
         get_binomial(v_degree, v_j) * v_pow.index(v_j).load() * sv_pow.index(v_degree - v_j).load();
-      let u_range = ForRange::ranged((val(0u32), u_limit).into());
+      let u_range = (val(0u32)..u_limit).into_shader_iter();
       u_range.for_each(|u_i, _| {
         let bu = get_binomial(u_degree, u_i)
           * u_pow.index(u_i).load()
@@ -129,7 +129,7 @@ pub fn build_bezier_bernstein_pipeline(
           let intermediates: ShaderPtrOf<[Vec4<f32>; 4]> = make_local_var::<[Vec4<f32>; 4]>();
           let row_result: ShaderPtrOf<Vec4<f32>> = make_local_var::<Vec4<f32>>();
 
-          let v_range = ForRange::ranged((val(0u32), v_n).into());
+          let v_range = (val(0u32)..v_n).into_shader_iter();
           v_range.for_each(|v_j, _| {
             let base = v_j * u_n;
 

@@ -1,7 +1,6 @@
 #![feature(const_type_name)]
 #![feature(associated_type_defaults)]
 #![feature(generic_const_exprs)]
-#![feature(impl_trait_in_assoc_type)]
 #![feature(min_specialization)]
 
 mod abstract_load_store;

@@ -261,31 +261,33 @@ fn insert_depth_layer(
   // Try to insert z_current in the place of the first element of the array that
   // is greater than or equal to it. In the former case, shift all of
   // remaining elements in the array down.
-  ForRange::ranged((i.load(), layer_count).into()).for_each(|i, cx| {
-    if reverse_depth {
-      let z_test = oit_layers.atomic_max(coord, i, z_current.load());
-      if_by(
-        z_test
-          .equals(val::<u32>(0_f32.to_bits()))
-          .or(z_test.equals(z_current.load())),
-        || {
-          cx.do_break();
-        },
-      );
-      z_current.store(z_test.min(z_current.load()));
-    } else {
-      let z_test = oit_layers.atomic_min(coord, i, z_current.load());
-      if_by(
-        z_test
-          .equals(val::<u32>(1_f32.to_bits()))
-          .or(z_test.equals(z_current.load())),
-        || {
-          cx.do_break();
-        },
-      );
-      z_current.store(z_test.max(z_current.load()));
-    }
-  });
+  (i.load()..layer_count)
+    .into_shader_iter()
+    .for_each(|i, cx| {
+      if reverse_depth {
+        let z_test = oit_layers.atomic_max(coord, i, z_current.load());
+        if_by(
+          z_test
+            .equals(val::<u32>(0_f32.to_bits()))
+            .or(z_test.equals(z_current.load())),
+          || {
+            cx.do_break();
+          },
+        );
+        z_current.store(z_test.min(z_current.load()));
+      } else {
+        let z_test = oit_layers.atomic_min(coord, i, z_current.load());
+        if_by(
+          z_test
+            .equals(val::<u32>(1_f32.to_bits()))
+            .or(z_test.equals(z_current.load())),
+          || {
+            cx.do_break();
+          },
+        );
+        z_current.store(z_test.max(z_current.load()));
+      }
+    });
 }
 
 struct OitColorPass {
@@ -452,7 +454,7 @@ impl GraphicsShaderProvider for OitResolvePass {
       // Count the number of fragments for this pixel. All the stored fragments have passed the
       // depth test, so no depth test is required here.
       let fragments = val(0_u32).make_local_var();
-      ForRange::ranged((val(0), layer_count).into()).for_each(|i, cx| {
+      (val(0)..layer_count).into_shader_iter().for_each(|i, cx| {
         let depth = oit_depth_layers.load(coord, i);
 
         if_by(depth.not_equals(background), || {
@@ -463,10 +465,12 @@ impl GraphicsShaderProvider for OitResolvePass {
         });
       });
 
-      ForRange::ranged((val(0), fragments.load()).into()).for_each(|i, _| {
-        let packed_color = oit_color_layers.load(coord, i);
-        out_color.store(do_blend_packed(out_color.load(), packed_color));
-      });
+      (val(0)..fragments.load())
+        .into_shader_iter()
+        .for_each(|i, _| {
+          let packed_color = oit_color_layers.load(coord, i);
+          out_color.store(do_blend_packed(out_color.load(), packed_color));
+        });
 
       cx.store_fragment_out_vec4f(0, out_color.load());
     });

@@ -97,35 +97,60 @@ impl LeftValueBuilder for LocalLeftValueBuilder {
   fn create_single_left_value<T: ShaderSizedValueNodeType>(
     &mut self,
   ) -> BoxedShaderLoadStore<Node<T>> {
-    Box::new(ShaderAccessorAsAbstractLeftValue(
-      zeroed_val::<T>().make_local_var(),
-    ))
+    // the initial value can not be assumed, so the explicit zero store is not required
+    Box::new(ShaderAccessorAsAbstractLeftValue(make_local_var::<T>()))
   }
 }
 
-// should impl for other tuple!
-impl<A: ShaderAbstractLeftValue, B: ShaderAbstractLeftValue> ShaderAbstractLeftValue for (A, B) {
-  type RightValue = (A::RightValue, B::RightValue);
+/// The left value of the expanded shader struct ([ENode]), stored as the struct node. The
+/// `#[shader_struct]` implements the [ShaderAbstractRightValue] for the [ENode] by it.
+pub struct ENodeLeftValue<T>(pub BoxedShaderLoadStore<Node<T>>);
+
+impl<T> ShaderAbstractLeftValue for ENodeLeftValue<T>
+where
+  T: ShaderStructuralNodeType + ShaderSizedValueNodeType,
+{
+  type RightValue = ENode<T>;
 
   fn abstract_load(&self) -> Self::RightValue {
-    (self.0.abstract_load(), self.1.abstract_load())
+    T::expand(self.0.abstract_load())
   }
 
   fn abstract_store(&self, payload: Self::RightValue) {
-    self.0.abstract_store(payload.0);
-    self.1.abstract_store(payload.1);
+    self.0.abstract_store(T::construct(payload))
   }
 }
 
-impl<A: ShaderAbstractRightValue, B: ShaderAbstractRightValue> ShaderAbstractRightValue for (A, B) {
-  type AbstractLeftValue = (A::AbstractLeftValue, B::AbstractLeftValue);
+macro_rules! impl_tuple_abstract_value {
+  ($($name: ident $index: tt),+) => {
+    impl<$($name: ShaderAbstractLeftValue),+> ShaderAbstractLeftValue for ($($name,)+) {
+      type RightValue = ($($name::RightValue,)+);
 
-  fn create_left_value_from_builder<Builder: LeftValueBuilder>(
-    builder: &mut Builder,
-  ) -> Self::AbstractLeftValue {
-    (
-      A::create_left_value_from_builder(builder),
-      B::create_left_value_from_builder(builder),
-    )
-  }
+      fn abstract_load(&self) -> Self::RightValue {
+        ($(self.$index.abstract_load(),)+)
+      }
+
+      fn abstract_store(&self, payload: Self::RightValue) {
+        $(self.$index.abstract_store(payload.$index);)+
+      }
+    }
+
+    impl<$($name: ShaderAbstractRightValue),+> ShaderAbstractRightValue for ($($name,)+) {
+      type AbstractLeftValue = ($($name::AbstractLeftValue,)+);
+
+      fn create_left_value_from_builder<Builder: LeftValueBuilder>(
+        builder: &mut Builder,
+      ) -> Self::AbstractLeftValue {
+        ($($name::create_left_value_from_builder(builder),)+)
+      }
+    }
+  };
 }
+
+impl_tuple_abstract_value!(A 0, B 1);
+impl_tuple_abstract_value!(A 0, B 1, C 2);
+impl_tuple_abstract_value!(A 0, B 1, C 2, D 3);
+impl_tuple_abstract_value!(A 0, B 1, C 2, D 3, E 4);
+impl_tuple_abstract_value!(A 0, B 1, C 2, D 3, E 4, F 5);
+impl_tuple_abstract_value!(A 0, B 1, C 2, D 3, E 4, F 5, G 6);
+impl_tuple_abstract_value!(A 0, B 1, C 2, D 3, E 4, F 5, G 6, H 7);

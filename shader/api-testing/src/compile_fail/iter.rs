@@ -11,11 +11,24 @@
 /// ```
 pub struct FilterPointerItem;
 
-/// the zipped value must be a shader iterator, call into_shader_iter first
+/// the zipped value must be iterable
 /// ```compile_fail,E0277
 /// use rendiation_shader_api::*;
-/// fn case(n: Node<u32>) {
-///   n.into_shader_iter().zip(n);
+/// fn case(n: Node<u32>, f: Node<f32>) {
+///   n.into_shader_iter().zip(f);
 /// }
 /// ```
-pub struct ZipIntoShaderIterator;
+pub struct ZipNotIterable;
+
+/// the take_while predicate requires the item constructed, the item is stored to carry it out of
+/// the branch, the pointer item can not be stored, use take or map it to the value first
+/// ```compile_fail,E0599
+/// use rendiation_shader_api::*;
+/// fn case(array: ShaderPtrOf<[u32; 4]>) {
+///   array
+///     .into_shader_iter()
+///     .take_while(|_| val(true))
+///     .for_each(|_, _| {});
+/// }
+/// ```
+pub struct TakeWhilePointerItem;
