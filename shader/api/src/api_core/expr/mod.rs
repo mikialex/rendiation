@@ -45,6 +45,8 @@ impl ShaderAndOrScalarType for bool {}
 pub trait ShaderVec: PrimitiveShaderNodeType {
   type Item: ShaderScalarType;
   type Shape<S: ShaderScalarType>;
+  /// the component count
+  const SIZE: u8;
 }
 impl<T: ShaderScalarType> ShaderVec for Vec2<T>
 where
@@ -52,6 +54,7 @@ where
 {
   type Item = T;
   type Shape<S: ShaderScalarType> = Vec2<S>;
+  const SIZE: u8 = 2;
 }
 impl<T: ShaderScalarType> ShaderVec for Vec3<T>
 where
@@ -59,6 +62,7 @@ where
 {
   type Item = T;
   type Shape<S: ShaderScalarType> = Vec3<S>;
+  const SIZE: u8 = 3;
 }
 impl<T: ShaderScalarType> ShaderVec for Vec4<T>
 where
@@ -66,6 +70,7 @@ where
 {
   type Item = T;
   type Shape<S: ShaderScalarType> = Vec4<S>;
+  const SIZE: u8 = 4;
 }
 
 pub trait ShaderScalarOrVec: PrimitiveShaderNodeType {
@@ -206,9 +211,12 @@ pub enum ShaderNodeExpr {
   TextureSampling(ShaderTextureSampling),
   TextureLoad(ShaderTextureLoad),
   TextureQuery(ShaderNodeRawHandle, TextureQuery),
+  /// the multiple components swizzle, the single component selection is IndexStatic
   Swizzle {
-    ty: &'static str,
     source: ShaderNodeRawHandle,
+    size: VectorSize,
+    /// the component indices, only the first `size` ones are used
+    pattern: [u8; 4],
   },
   Derivative {
     axis: DerivativeAxis,

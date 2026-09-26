@@ -96,3 +96,31 @@ pub struct NonSquareMatrixMulVectorMismatch;
 /// let v = zeroed_val::<Mat3x4<f32>>() * zeroed_val::<Mat3x4<f32>>();
 /// ```
 pub struct NonSquareMatrixMulMatrixMismatch;
+
+/// vec3 has no w component
+/// ```compile_fail,E0599
+/// use rendiation_shader_api::*;
+/// let v = zeroed_val::<Vec3<f32>>().xyw();
+/// ```
+pub struct Vec3SwizzleW;
+
+/// the xyzw and rgba names can not be mixed
+/// ```compile_fail,E0599
+/// use rendiation_shader_api::*;
+/// let v = zeroed_val::<Vec4<f32>>().xg();
+/// ```
+pub struct SwizzleMixedNames;
+
+/// the swizzle component index must be less than the vector size
+/// ```compile_fail,E0080
+/// use rendiation_shader_api::*;
+/// let v = zeroed_val::<Vec3<f32>>().swizzle2::<0, 3>();
+/// ```
+pub struct SwizzleComponentOutOfRange;
+
+/// the component index must be less than the vector size
+/// ```compile_fail,E0080
+/// use rendiation_shader_api::*;
+/// let v = zeroed_val::<Vec2<f32>>().component::<2>();
+/// ```
+pub struct ComponentOutOfRange;

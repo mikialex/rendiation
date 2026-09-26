@@ -1048,50 +1048,21 @@ impl ShaderAPI for ShaderAPINagaImpl {
           level: level.map(|level| self.get_expression(level)),
           sample: sample_index.map(|sample_index| self.get_expression(sample_index)),
         },
-        ShaderNodeExpr::Swizzle { ty, source } => {
-          let source = self.get_expression(source);
-
-          fn letter_component(letter: char) -> Option<naga::SwizzleComponent> {
-            use naga::SwizzleComponent as Sc;
-            match letter {
-              'x' | 'r' => Some(Sc::X),
-              'y' | 'g' => Some(Sc::Y),
-              'z' | 'b' => Some(Sc::Z),
-              'w' | 'a' => Some(Sc::W),
-              _ => None,
-            }
-          }
-
-          let size = match ty.len() {
-            1 => {
-              let index = match ty.chars().next().unwrap() {
-                'x' | 'r' => 0,
-                'y' | 'g' => 1,
-                'z' | 'b' => 2,
-                'w' | 'a' => 3,
-                _ => panic!("invalid swizzle"),
-              };
-              break naga::Expression::AccessIndex {
-                base: source,
-                index,
-              };
-            }
-            2 => naga::VectorSize::Bi,
-            3 => naga::VectorSize::Tri,
-            4 => naga::VectorSize::Quad,
-            _ => panic!("invalid swizzle size"),
-          };
-          let mut pattern = [naga::SwizzleComponent::X; 4];
-          for (comp, ch) in pattern.iter_mut().zip(ty.chars()) {
-            *comp = letter_component(ch).unwrap();
-          }
-
-          naga::Expression::Swizzle {
-            size,
-            vector: source,
-            pattern,
-          }
-        }
+        ShaderNodeExpr::Swizzle {
+          source,
+          size,
+          pattern,
+        } => naga::Expression::Swizzle {
+          size: map_vector_size(size),
+          vector: self.get_expression(source),
+          pattern: pattern.map(|component| match component {
+            0 => naga::SwizzleComponent::X,
+            1 => naga::SwizzleComponent::Y,
+            2 => naga::SwizzleComponent::Z,
+            3 => naga::SwizzleComponent::W,
+            _ => unreachable!("invalid swizzle component"),
+          }),
+        },
         ShaderNodeExpr::Convert {
           source,
           convert_to,

@@ -700,20 +700,25 @@ let v: Node<Vec4<f32>> = (val(1.0), val(2.0), val(3.0), val(1.0)).into();
 ### Swizzle
 
 ```rust
-// Vector swizzle (x/y/z/w components)
+// Vector swizzle, the full WGSL set with both the xyzw and rgba names (can not be mixed)
 let xy: Node<Vec2<f32>> = vec3.xy();
-let xyz: Node<Vec3<f32>> = vec4.xyz();
-let yz: Node<Vec2<f32>> = vec4.yz();
+let zyx: Node<Vec3<f32>> = vec3.zyx();
+let bgra: Node<Vec4<f32>> = vec4.bgra();
+let xyxy: Node<Vec4<f32>> = vec2.xyxy();
 let x: Node<f32> = vec4.x();
+
+// By component indices, the out of range index is a compile error
+let z: Node<f32> = vec4.component::<2>();
+let wx: Node<Vec2<f32>> = vec4.swizzle2::<3, 0>();
 
 // Splat (broadcast), works for any scalar type
 let v4 = val(1.0).splat::<Vec4<f32>>();  // (1, 1, 1, 1)
 ```
 
-Only the shrinking swizzles are implemented: `Vec4 -> Vec3/Vec2` (not starting with `w` for
-`Vec2`), `Vec3 -> Vec2` and single component access. Same size swizzles (`vec2.yx()`,
-`vec3.zyx()`, `vec4.wzyx()`) and the rgba names are not available yet, compose from components
-instead.
+All the swizzles of 1 to 4 components are generated for `Vec2`, `Vec3` and `Vec4` of any scalar
+(by `impl_shader_swizzles!` in `rendiation-shader-derives`), they are `#[inline(always)]` wrappers
+of `component` / `swizzle2` / `swizzle3` / `swizzle4`. The single component selection is an index
+access, not a swizzle. Swizzle assignment (`v.xy = ...`) is not supported yet.
 
 ### Matrix construction
 

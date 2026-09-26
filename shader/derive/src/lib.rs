@@ -5,11 +5,13 @@ mod shader_align;
 mod shader_fn;
 mod shader_name_marked;
 mod shader_struct;
+mod swizzle;
 mod utils;
 mod vertex;
 use shader_fn::*;
 use shader_name_marked::*;
 use shader_struct::*;
+use swizzle::*;
 use vertex::*;
 
 /// Mark the struct could be used as vertex input type in rendiation_shader_api
@@ -71,4 +73,12 @@ pub fn shader_fn(_args: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn shader_name_marked(_args: TokenStream, input: TokenStream) -> TokenStream {
   shader_name_marked_impl(_args, input)
+}
+
+/// Internal use only, generate all the vector component selections and swizzles (`.x()`,
+/// `.zyx()`, `.bgra()`, ...) on `Node<Vec2<T>>`, `Node<Vec3<T>>` and `Node<Vec4<T>>` in
+/// rendiation_shader_api.
+#[proc_macro]
+pub fn impl_shader_swizzles(_input: TokenStream) -> TokenStream {
+  impl_shader_swizzles_impl().into()
 }

@@ -174,3 +174,33 @@ fn conversion_and_construction() {
     keep(bv);
   });
 }
+
+/// the component selection and swizzle, for both the xyzw and rgba names
+#[test]
+fn component_selection_and_swizzle() {
+  check_compute(|builder| {
+    let RuntimeValues { u, i, f } = runtime_values(builder);
+    let v2 = f.splat::<Vec2<f32>>();
+    let v3 = i.splat::<Vec3<i32>>();
+    let v4 = u.splat::<Vec4<u32>>();
+    let b4 = u.equals(0).splat::<Vec4<bool>>();
+
+    keep(v2.x() + v2.g());
+    keep(v2.yx() + v2.gr());
+    keep(v2.xyx() + v2.rrg());
+    keep(v2.yyxx() + v2.grgr());
+    keep(v3.z() + v3.b());
+    keep(v3.zy() + v3.bg());
+    keep(v3.zyx() + v3.bgr());
+    keep(v3.zzzx() + v3.bbbr());
+    keep(v4.w() + v4.a());
+    keep(v4.wx() + v4.ar());
+    keep(v4.wzy() + v4.abg());
+    keep(v4.wzyx() + v4.abgr());
+    keep(b4.wzy());
+
+    keep(v3.component::<2>());
+    keep(v4.swizzle2::<3, 0>() + v4.swizzle3::<1, 1, 2>().xy());
+    keep(v2.swizzle4::<1, 0, 1, 0>());
+  });
+}
