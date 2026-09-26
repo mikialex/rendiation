@@ -439,7 +439,7 @@ fn hit_ctx_from_ray_query_hit(
   let object_to_world = intersection.object_to_world().expand_to_4();
   let world_to_object = intersection.world_to_object().expand_to_4();
   let object_ray_origin = world_to_object * (trace_payload.ray_origin, val(1.)).into();
-  let object_ray_origin = object_ray_origin.xyz() / object_ray_origin.w().splat();
+  let object_ray_origin = object_ray_origin.xyz() / object_ray_origin.w();
   let object_ray_direction =
     (world_to_object.shrink_to_3() * trace_payload.ray_direction).normalize();
 

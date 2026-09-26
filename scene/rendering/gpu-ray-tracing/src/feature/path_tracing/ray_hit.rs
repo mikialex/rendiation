@@ -44,10 +44,7 @@ pub fn build_ray_hit_shader(
       };
 
       let payload = ENode::<ShaderTestPayload> {
-        radiance: should_sample.select(
-          light_sample.radiance / light_sample.pdf.splat(),
-          zeroed_val(),
-        ),
+        radiance: should_sample.select(light_sample.radiance / light_sample.pdf, zeroed_val()),
         light_sample_dir: light_sample.sampling_dir,
       }
       .construct();

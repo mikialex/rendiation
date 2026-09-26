@@ -381,5 +381,5 @@ fn resolve_normal_from_depth_cluster(
     });
   }
 
-  (normal_sum.load() / sample_hit_count.load().splat()).normalize()
+  (normal_sum.load() / sample_hit_count.load()).normalize()
 }

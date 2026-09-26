@@ -57,11 +57,11 @@ impl GraphicsShaderProvider for InfinityShaderLineEffect<'_> {
 
       let (origin_in_ndc, _) =
         camera_transform_impl(builder, val(Vec3::zero()), hpt_uniform_to_hpt(line.point));
-      let origin_in_ndc = origin_in_ndc.xyz() / origin_in_ndc.w().splat();
+      let origin_in_ndc = origin_in_ndc.xyz() / origin_in_ndc.w();
 
       let (test_point_in_ndc, _) =
         camera_transform_impl(builder, line.direction, hpt_uniform_to_hpt(line.point));
-      let test_point_in_ndc = test_point_in_ndc.xyz() / test_point_in_ndc.w().splat();
+      let test_point_in_ndc = test_point_in_ndc.xyz() / test_point_in_ndc.w();
 
       let direction_in_ndc = (test_point_in_ndc - origin_in_ndc).normalize();
 

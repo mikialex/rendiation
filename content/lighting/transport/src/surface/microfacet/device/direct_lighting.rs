@@ -36,7 +36,7 @@ impl PhysicalShading {
 
       let dielectric_f0 = compute_dielectric_f0(reflectance);
 
-      let f0 = base_color * metallic + (dielectric_f0 * (val(1.) - metallic)).splat();
+      let f0 = base_color * metallic + dielectric_f0 * (val(1.) - metallic);
 
       (base_color * (val(1.) - metallic), f0)
     };
@@ -175,7 +175,7 @@ pub fn integrate_brdf(
     })
     .sum();
 
-  sum / sample_count.into_f32().splat()
+  sum / sample_count.into_f32()
 }
 
 pub fn g1_ggx_schlick(n_dot_v: Node<f32>, a: Node<f32>) -> Node<f32> {

@@ -22,8 +22,8 @@ pub fn wide_line_vertex(
   let aspect = view_size.x() / view_size.y();
 
   // ndc space
-  let ndc_start = clip_start.xy() / clip_start.w().splat();
-  let ndc_end = clip_end.xy() / clip_end.w().splat();
+  let ndc_start = clip_start.xy() / clip_start.w();
+  let ndc_end = clip_end.xy() / clip_end.w();
 
   // direction
   let dir = ndc_end - ndc_start;
@@ -57,16 +57,16 @@ pub fn wide_line_vertex(
   let mut offset = offset.load();
 
   // adjust for width
-  offset *= width.splat();
+  offset *= width;
   // adjust for clip-space to screen-space conversion
   // maybe resolution should be based on viewport ...
-  offset /= view_size.y().splat();
+  offset /= view_size.y();
 
   // select end
   let clip_no_offset = position.y().less_than(0.5).select(clip_start, clip_end);
 
   // back to clip space
-  offset = offset * clip_no_offset.w();
+  offset *= clip_no_offset.w();
   let clip: Node<Vec4<f32>> = (clip_no_offset.xy() + offset, clip_no_offset.zw()).into();
 
   builder.register::<ClipPosition>(clip);
@@ -81,7 +81,7 @@ pub fn wide_line_vertex(
   {
     let view_proj_inv = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
     let position = view_proj_inv * clip;
-    let position = position.xyz() / position.w().splat();
+    let position = position.xyz() / position.w();
     builder.register::<VertexRenderPosition>(position);
   }
 }

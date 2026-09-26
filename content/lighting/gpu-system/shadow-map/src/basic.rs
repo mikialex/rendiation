@@ -347,7 +347,7 @@ pub fn compute_shadow_position(
     )
       .into();
 
-  let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
+  let shadow_position = shadow_position.xyz() / shadow_position.w();
 
   // convert to uv space
   let shadow_position =

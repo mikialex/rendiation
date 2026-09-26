@@ -35,7 +35,7 @@ where
     let n_dot_l = l.dot(n).max(EPSILON_SHADING);
     let n_dot_v = v.dot(n).max(EPSILON_SHADING);
 
-    (d * g * f) / (val(4.0) * n_dot_l * n_dot_v).splat()
+    (d * g * f) / (val(4.0) * n_dot_l * n_dot_v)
   }
 
   fn sample_light_dir_use_bsdf_importance_impl(

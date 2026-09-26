@@ -10,7 +10,7 @@ pub fn wide_line_vertex(
   let object_world_position = builder.query::<WorldPositionHP>();
   let (clip, _) = camera_transform_impl(builder, logic_point_position, object_world_position);
 
-  let ndc = clip.xyz() / clip.w().splat();
+  let ndc = clip.xyz() / clip.w();
 
   let width: Node<Vec2<f32>> = width.splat::<Vec2<f32>>() / view_size;
 
@@ -27,7 +27,7 @@ pub fn wide_line_vertex(
   {
     let view_proj_inv = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
     let position = view_proj_inv * clip;
-    let position = position.xyz() / position.w().splat();
+    let position = position.xyz() / position.w();
     builder.register::<VertexRenderPosition>(position);
   }
 }

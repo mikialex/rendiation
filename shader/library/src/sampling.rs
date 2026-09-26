@@ -15,7 +15,7 @@ pub fn random(seed: Node<Vec2<f32>>) -> Node<f32> {
 #[shader_fn]
 pub fn random2(seed: Node<Vec2<f32>>) -> Node<Vec2<f32>> {
   let x = random(seed);
-  let y = random((seed + random(seed).splat()).sin());
+  let y = random((seed + random(seed)).sin());
   (x, y).into()
 }
 
@@ -23,8 +23,8 @@ pub fn random2(seed: Node<Vec2<f32>>) -> Node<Vec2<f32>> {
 #[shader_fn]
 pub fn random3(seed: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
   let x = random(seed);
-  let y = random((seed + random(seed).splat()).sin());
-  let z = random(seed + random(seed).cos().splat() + random(seed).splat());
+  let y = random((seed + random(seed)).sin());
+  let z = random(seed + random(seed).cos() + random(seed));
   (x, y, z).into()
 }
 

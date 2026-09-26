@@ -61,6 +61,56 @@ fn component_wise_arithmetic() {
   });
 }
 
+/// vector and scalar mixed arithmetic in both order, and the compound assignments
+#[test]
+fn vector_scalar_mixed_arithmetic() {
+  check_compute(|builder| {
+    let RuntimeValues { u, i, f } = runtime_values(builder);
+
+    macro_rules! mixed {
+      ($s: expr, $($vec: ty),+) => {
+        $(
+          let s = $s;
+          let v = s.splat::<$vec>();
+          keep(v + s);
+          keep(s + v);
+          keep(v - s);
+          keep(s - v);
+          keep(v * s);
+          keep(s * v);
+          keep(v / s);
+          keep(s / v);
+          keep(v % s);
+          keep(s % v);
+
+          let mut a = v;
+          a += s;
+          a -= s;
+          a *= s;
+          a /= s;
+          a += v;
+          keep(a);
+        )+
+      };
+    }
+
+    mixed!(f, Vec2<f32>, Vec3<f32>, Vec4<f32>);
+    mixed!(i, Vec2<i32>, Vec3<i32>, Vec4<i32>);
+    mixed!(u, Vec2<u32>, Vec3<u32>, Vec4<u32>);
+
+    let v3 = f.splat::<Vec3<f32>>();
+    let m3: Node<Mat3<f32>> = (v3, v3, v3).into();
+    let mut a = v3;
+    a *= m3;
+    keep(a);
+    let mut m = m3;
+    m += m3;
+    m *= f;
+    m *= m3;
+    keep(m);
+  });
+}
+
 /// logical and bitwise operators
 #[test]
 fn logical_and_bitwise() {

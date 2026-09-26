@@ -392,7 +392,7 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
         builder.register::<ClipPosition>(clip);
         builder.register::<VertexRenderPosition>(position_in_render_space);
 
-        let clip_ndc = clip.xy() / clip.w().splat();
+        let clip_ndc = clip.xy() / clip.w();
         let viewport_size = builder.query::<ViewportRenderBufferSize>();
         builder.set_vertex_out::<WideLineScreenCoord>(clip_ndc * viewport_size);
       } else {

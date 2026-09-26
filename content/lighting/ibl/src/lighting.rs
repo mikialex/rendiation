@@ -101,7 +101,7 @@ impl LightingComputeInvocation for IBLLighting {
       .sample_zero_level(self.sampler, (perceptual_roughness, n_dot_v));
 
     let specular =
-      (f0 * brdf_lut.x() + brdf_lut.y().splat()) * specular.xyz() * uniform.specular_illuminance;
+      (f0 * brdf_lut.x() + brdf_lut.y()) * specular.xyz() * uniform.specular_illuminance;
 
     ENode::<ShaderLightingResult> { diffuse, specular }
   }

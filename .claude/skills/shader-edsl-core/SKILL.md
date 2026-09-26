@@ -55,8 +55,8 @@ library's operator impls (which contain WGSL-invalid ones like the homogeneous `
 
 | Operator | Valid operands |
 |----------|----------------|
-| `+ -` | same type numeric scalar/vector (`ShaderAddSubType`), same type f32 matrix |
-| `/ %` | same type numeric scalar/vector (`ShaderComponentWiseArithmeticType`) |
+| `+ -` | see `ShaderAddSub<Rhs>`: same type numeric scalar/vector, `vec ± scalar`, `scalar ± vec`, same type f32 matrix |
+| `/ %` | see `ShaderDivRem<Rhs>`: same type numeric scalar/vector, `vec / scalar`, `scalar / vec` (same for `%`) |
 | `*` | see `ShaderMul<Rhs>`: same type numeric scalar/vector, `vec * scalar`, `scalar * vec`, `mat * f32`, `f32 * mat`, `matCxR * vecC -> vecR`, `vecR * matCxR -> vecC`, `matKxR * matCxK -> matCxR` |
 | unary `-` | i32/f32 scalar or vector (unsigned, bool and matrix are rejected) |
 | `& \|` | integer or bool scalar/vector (non short circuit for bool) |
@@ -64,8 +64,11 @@ library's operator impls (which contain WGSL-invalid ones like the homogeneous `
 | `.and(v) .or(v)` | `Node<bool>`, short circuit |
 | `.not()` | `Node<bool>` and `Node<VecN<bool>>` |
 
-`vec ± scalar` and `vec / scalar` are not supported yet, splat the scalar first. Matrix element
-type must be `f32`.
+In the mixed vector and scalar form the scalar must be the vector component type, it applies to
+every component, There is no need to `.splat()` the scalar operand manually. Matrix element type must be `f32`.
+
+The compound assignments `+= -= *= /=` accept any right operand as long as the result type is the
+left operand type, for example `v += s`, `v *= m` (vector times matrix), `m *= s`.
 
 ### Array types and indexing
 

@@ -275,7 +275,7 @@ pub fn prefilter_specular(
     })
     .sum();
 
-  result.xyz() / result.w().splat()
+  result.xyz() / result.w()
 }
 
 struct PreFilterDiffuseTask {
@@ -342,5 +342,5 @@ pub fn prefilter_diffuse(
       )
     })
     .sum()
-    / sampler_count.into_f32().splat()
+    / sampler_count.into_f32()
 }

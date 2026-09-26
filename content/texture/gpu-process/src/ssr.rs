@@ -37,7 +37,7 @@ pub fn screen_space_reflection(
   let uv_space_trace_dir = ray_end_point_in_uv - uv;
   let uv_space_trace_length = uv_space_trace_dir.length();
   let uv_space_trace_step_length = uv_space_trace_length / config.trace_check_step_count.into_f32();
-  let uv_space_trace_step_dir = uv_space_trace_dir / uv_space_trace_step_length.splat();
+  let uv_space_trace_step_dir = uv_space_trace_dir / uv_space_trace_step_length;
 
   let current_test_point_var = uv.make_local_var();
   let sampled_radiance = zeroed_val::<Vec3<f32>>().make_local_var();

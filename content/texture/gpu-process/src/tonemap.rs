@@ -180,7 +180,7 @@ fn aces_filmic_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node
   ));
 
   let mut color = color;
-  color *= (exposure / val(0.6)).splat();
+  color *= exposure / val(0.6);
 
   color = aces_input_mat * color;
 

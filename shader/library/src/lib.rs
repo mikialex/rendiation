@@ -18,7 +18,7 @@ pub use semantic::*;
 #[shader_fn]
 pub fn transform_dir(transform: Node<Mat4<f32>>, dir: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
   let dir = transform * vec4_node((dir, val(1.)));
-  dir.xyz() / dir.w().splat()
+  dir.xyz() / dir.w()
 }
 
 pub fn shader_uv_space_to_render_space(
@@ -30,7 +30,7 @@ pub fn shader_uv_space_to_render_space(
   let xy = xy * val(Vec2::new(1., -1.));
   let ndc = (xy, ndc_depth, val(1.)).into();
   let render = ndc_space_to_render_space * ndc;
-  render.xyz() / render.w().splat()
+  render.xyz() / render.w()
 }
 
 pub fn shader_render_space_to_uv_space(
@@ -38,7 +38,7 @@ pub fn shader_render_space_to_uv_space(
   render: Node<Vec3<f32>>,
 ) -> (Node<Vec2<f32>>, Node<f32>) {
   let clip = render_space_to_ndc_space * (render, val(1.)).into();
-  let ndc = clip.xyz() / clip.w().splat();
+  let ndc = clip.xyz() / clip.w();
   let uv = ndc.xy() * val(Vec2::new(0.5, -0.5)) + val(Vec2::splat(0.5));
   (uv, ndc.z())
 }

@@ -506,7 +506,7 @@ fn compute_start_point(
   let uv = uv * val(Vec2::new(1., -1.));
   let ndc = (uv, depth, val(1.)).into();
   let render = ndc_to_render * ndc;
-  let render = render.xyz() / render.w().splat();
+  let render = render.xyz() / render.w();
   render + camera_position_world
 }
 

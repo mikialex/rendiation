@@ -62,7 +62,7 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
       };
 
       let far = view_proj_inv_none_translation * (ndc_xy, far, val(1.)).into();
-      let far = far.xyz() / far.w().splat();
+      let far = far.xyz() / far.w();
 
       // we should skip this when if we know the projection is perspective
       let near = if self.reversed_depth {
@@ -71,7 +71,7 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
         val(0.)
       };
       let near = view_proj_inv_none_translation * (ndc_xy, near, val(1.)).into();
-      let near = near.xyz() / near.w().splat();
+      let near = near.xyz() / near.w();
 
       let direction = (far - near).normalize();
 

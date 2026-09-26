@@ -214,7 +214,7 @@ impl GraphicsShaderProvider for Composition {
       let accumulates = accumulates.sample(sampler, uv);
       let reveal = reveal.sample(sampler, uv).x();
 
-      let color = accumulates.xyz() / accumulates.w().max(1e-5).splat();
+      let color = accumulates.xyz() / accumulates.w().max(1e-5);
 
       cx.store_fragment_out_vec4f(0, vec4_node((color, reveal)));
 

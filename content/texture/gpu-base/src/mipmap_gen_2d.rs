@@ -119,7 +119,7 @@ impl Mipmap2dReducer for DefaultMipmapReducer {
     r        += source.sample_zero_level(sampler, current + texel_size * val(Vec2::new(-0.5, -0.5)));
     r        += source.sample_zero_level(sampler, current + texel_size * val(Vec2::new(-0.5,  0.5)));
     r        += source.sample_zero_level(sampler, current + texel_size * val(Vec2::new( 0.5, -0.5)));
-    r / val(4.).splat()
+    r / val(4.)
   }
 }
 

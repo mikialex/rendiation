@@ -56,7 +56,7 @@ impl LTCxLightEval {
     let n_dot_v = normal.dot(view_dir).saturate();
 
     let uv = vec2_node((roughness, (val(1.0) - n_dot_v).sqrt()));
-    let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
+    let uv = uv * val(LUT_SCALE) + val(LUT_BIAS);
 
     let t1 = ltc_1.sample_zero_level(sampler, uv);
     let t2 = ltc_2.sample_zero_level(sampler, uv);
@@ -78,7 +78,7 @@ impl LTCxLightEval {
     );
 
     // BRDF shadowing and Fresnel
-    spec *= specular_color * t2.x() + (val(1.0).splat() - specular_color) * t2.y();
+    spec *= specular_color * t2.x() + (val(1.0) - specular_color) * t2.y();
 
     let identity = (
       val(vec3(1., 0., 0.)),
@@ -160,7 +160,7 @@ pub fn ltc_evaluate_rect(
       let z = z * behind.select(-1., 1.);
 
       let uv = vec2_node((z * val(0.5) + val(0.5), len));
-      let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
+      let uv = uv * val(LUT_SCALE) + val(LUT_BIAS);
       let scale = ltc_2.sample_zero_level(sampler, uv).w();
 
       (len * scale).splat()
@@ -317,7 +317,7 @@ pub fn ltc_evaluate_disk(
 
       // use tabulated horizon-clipped sphere
       let uv = vec2_node((avg_dir.z() * val(0.5) + val(0.5), form_factor));
-      let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
+      let uv = uv * val(LUT_SCALE) + val(LUT_BIAS);
       let scale = ltc_2.sample_zero_level(sampler, uv).w();
 
       let spec = form_factor * scale;
@@ -334,9 +334,9 @@ pub fn ltc_evaluate_disk(
 #[shader_fn]
 pub fn solve_cubic(coef: Node<Vec4<f32>>) -> Node<Vec3<f32>> {
   // Normalize the polynomial
-  let coef = vec4_node((coef.xyz() / coef.w().splat(), coef.w()));
+  let coef = vec4_node((coef.xyz() / coef.w(), coef.w()));
   // Divide middle coefficients by three
-  let coef = vec4_node((coef.x(), coef.yz() / val(3.).splat(), coef.w()));
+  let coef = vec4_node((coef.x(), coef.yz() / val(3.), coef.w()));
 
   let a = coef.w();
   let b = coef.z();

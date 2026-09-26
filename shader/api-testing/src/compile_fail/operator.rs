@@ -46,3 +46,39 @@ pub struct Mat3MulVec2;
 /// let v: Node<Vec4<f32>> = zeroed_val::<Mat4x3<f32>>() * zeroed_val::<Vec4<f32>>();
 /// ```
 pub struct Mat4x3MulVec4IsVec3;
+
+/// the scalar of the vector and scalar mixed arithmetic must be the component type
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// let v = zeroed_val::<Vec3<f32>>() + zeroed_val::<u32>();
+/// ```
+pub struct VectorAddMismatchedScalar;
+
+/// the vector operands must have the same size
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// let v = zeroed_val::<Vec3<f32>>() / zeroed_val::<Vec2<f32>>();
+/// ```
+pub struct VectorDivMismatchedSize;
+
+/// matrix and scalar can only be multiplied
+/// ```compile_fail,E0308
+/// use rendiation_shader_api::*;
+/// let v = zeroed_val::<Mat4<f32>>() + zeroed_val::<f32>();
+/// ```
+pub struct MatrixAddScalar;
+
+/// matrix does not support division
+/// ```compile_fail,E0369
+/// use rendiation_shader_api::*;
+/// let v = zeroed_val::<Mat4<f32>>() / zeroed_val::<Mat4<f32>>();
+/// ```
+pub struct MatrixDivMatrix;
+
+/// the result of the compound assignment must be the left operand type
+/// ```compile_fail,E0271
+/// use rendiation_shader_api::*;
+/// let mut s = zeroed_val::<f32>();
+/// s += zeroed_val::<Vec3<f32>>();
+/// ```
+pub struct ScalarAddAssignVector;

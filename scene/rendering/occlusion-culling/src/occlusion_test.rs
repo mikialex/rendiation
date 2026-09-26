@@ -182,7 +182,7 @@ impl OcclusionTesterInvocation {
           (corner_x.load(), corner_y.load(), corner_z.load(), val(1.)).into();
         let clip_position = render_to_clip * point;
 
-        let pos_xyz = clip_position.xyz() / clip_position.w().splat();
+        let pos_xyz = clip_position.xyz() / clip_position.w();
         let x = pos_xyz.x().clamp(val(-1.), val(1.0));
         let y = pos_xyz.y().clamp(val(-1.), val(1.0));
         let z = pos_xyz.z().clamp(val(0.), val(1.0));

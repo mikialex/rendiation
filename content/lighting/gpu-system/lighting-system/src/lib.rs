@@ -213,7 +213,7 @@ where
         geom_ctx.camera_world_none_translation_mat,
       ));
     });
-    incident.color = incident.color * occlusion.load();
+    incident.color *= occlusion.load();
 
     shading.compute_lighting_by_incident(&incident, geom_ctx)
   }

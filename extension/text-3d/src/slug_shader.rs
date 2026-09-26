@@ -164,7 +164,7 @@ pub trait SlugShaderComputer {
     // independently for x and y directions with texcoord derivatives.
 
     let ems_per_pixel = render_coord.fwidth();
-    let pixels_per_em = val(1.0).splat() / ems_per_pixel;
+    let pixels_per_em = val(1.0) / ems_per_pixel;
 
     let xcov = val(0.0).make_local_var();
     let xwgt = val(0.0).make_local_var();

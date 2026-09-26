@@ -145,7 +145,7 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
 
         let cos = next_ray_dir.dot(normal);
         let pdf = pdf.max(0.0001);
-        let throughput = throughput * cos * brdf / pdf.splat();
+        let throughput = throughput * cos * brdf / pdf;
         self.current_throughput.abstract_store(throughput);
 
         let output_radiance = throughput * sampled_radiance + radiance.load();
@@ -203,7 +203,7 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
 
       let sample_count = sample_count.into_f32();
       let updated_average =
-        (averaged_result * sample_count + ldr_result) / (sample_count + val(1.)).splat();
+        (averaged_result * sample_count + ldr_result) / (sample_count + val(1.));
 
       result_buffer.write_texel(image_position, (updated_average, val(1.)).into());
     });

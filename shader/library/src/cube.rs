@@ -56,7 +56,7 @@ pub fn screen_position_to_cube_face(position: Node<Vec2<f32>>) -> Node<CubeFaceI
 #[shader_fn]
 pub fn direction_for(face: Node<i32>, uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
   let result = val(Vec3::<f32>::zero()).make_local_var();
-  let uv = val(2.) * uv - val(1.).splat();
+  let uv = val(2.) * uv - val(1.);
 
   switch_by(face)
     .case(0, || {

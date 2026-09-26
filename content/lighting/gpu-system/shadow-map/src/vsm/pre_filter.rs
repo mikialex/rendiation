@@ -58,7 +58,7 @@ impl GraphicsShaderProvider for VsmBlurTask<'_> {
         if_by(next.greater_than(sample_radius), || cx.do_break());
       });
 
-      builder.store_fragment_out(0, sum.load() / filter_size.splat());
+      builder.store_fragment_out(0, sum.load() / filter_size);
     });
   }
 }

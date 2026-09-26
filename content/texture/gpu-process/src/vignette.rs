@@ -32,7 +32,7 @@ pub fn compute_vignette(
   color: Node<Vec3<f32>>,
 ) -> Node<Vec3<f32>> {
   let config = config.expand();
-  let distance = (uv - val(0.5).splat()).abs() * config.mid_point.splat::<Vec2<f32>>();
+  let distance = (uv - val(0.5)).abs() * config.mid_point.splat::<Vec2<f32>>();
   let distance = vec2_node((distance.x() * config.aspect, distance.y()));
   let distance = distance.saturate().pow(config.radius.splat());
 

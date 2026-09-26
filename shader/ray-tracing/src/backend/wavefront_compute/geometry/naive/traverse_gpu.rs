@@ -426,7 +426,7 @@ fn iterate_tlas_blas_gpu(
 
     // transform ray to blas space
     let blas_ray_origin = tlas_data.transform_inv * (ray.origin, val(1.)).into();
-    let blas_ray_origin = blas_ray_origin.xyz() / blas_ray_origin.w().splat();
+    let blas_ray_origin = blas_ray_origin.xyz() / blas_ray_origin.w();
     let blas_ray_direction = tlas_data.transform_inv.shrink_to_3() * ray.direction;
     let distance_scaling = blas_ray_direction.length();
     let blas_ray_direction = blas_ray_direction.normalize();

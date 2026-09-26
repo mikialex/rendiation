@@ -90,7 +90,7 @@ impl ShaderLightSource for PointLightStorageShaderAPIInstance {
   ) -> (Node<Vec3<f32>>, Node<f32>) {
     let position_to_light = self.position.expand().f1 - surface_position;
     let distance = position_to_light.length();
-    (position_to_light / distance.splat(), distance)
+    (position_to_light / distance, distance)
   }
 
   /// this function should never be called other than importance_sampling_light, because it's
@@ -105,7 +105,7 @@ impl ShaderLightSource for PointLightStorageShaderAPIInstance {
     // although we are compute radiance here, but it's a dirac distribution, so we have to do
     // the distance factor
     let factor = punctual_light_intensity_to_illuminance_factor_fn(distance, self.cutoff_distance);
-    self.luminance_intensity * factor / (distance * distance).splat()
+    self.luminance_intensity * factor / (distance * distance)
   }
 
   /// override the default because it's dirac distributed
@@ -158,7 +158,7 @@ impl ShaderLightSource for SpotLightStorageShaderAPIInstance {
   ) -> (Node<Vec3<f32>>, Node<f32>) {
     let position_to_light = self.position.expand().f1 - surface_position;
     let distance = position_to_light.length();
-    (position_to_light / distance.splat(), distance)
+    (position_to_light / distance, distance)
   }
 
   /// this function should never be called other than importance_sampling_light, because it's
@@ -178,7 +178,7 @@ impl ShaderLightSource for SpotLightStorageShaderAPIInstance {
     // light to surface direction, so negate it here
     let angle_cos = sampling_dir.dot(self.direction) * val(-1.0);
     let angle_factor = angle_cos.smoothstep(self.half_cone_cos, self.half_penumbra_cos);
-    self.luminance_intensity * (distance_factor * angle_factor) / (distance * distance).splat()
+    self.luminance_intensity * (distance_factor * angle_factor) / (distance * distance)
   }
 
   /// override the default because it's dirac distributed
