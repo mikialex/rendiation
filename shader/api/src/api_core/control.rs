@@ -1,18 +1,95 @@
 use crate::*;
 
-pub struct LoopCtx;
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ControlScope {
+  Loop(usize),
+  Switch,
+  /// the loop outside of a function can not be targeted inside the function
+  Function,
+}
+
+/// The loop, switch and function scopes in building, used to check the target of the break and
+/// continue statements.
+#[derive(Default)]
+pub(crate) struct ControlScopes {
+  scopes: Vec<ControlScope>,
+  next_loop_id: usize,
+}
+
+impl ControlScopes {
+  fn push_loop(&mut self) -> usize {
+    let id = self.next_loop_id;
+    self.next_loop_id += 1;
+    self.scopes.push(ControlScope::Loop(id));
+    id
+  }
+
+  fn pop(&mut self, scope: ControlScope) {
+    let popped = self.scopes.pop();
+    assert!(popped == Some(scope), "control scope mismatch");
+  }
+
+  /// WGSL break exits the nearest loop or switch
+  fn check_break_target(&self, loop_id: usize) {
+    match self.scopes.last() {
+      Some(ControlScope::Loop(id)) if *id == loop_id => {}
+      Some(ControlScope::Switch) => panic!(
+        "break a loop inside the switch case is not supported, the WGSL break statement only exits the switch"
+      ),
+      Some(ControlScope::Loop(_)) => panic!(
+        "break an outer loop inside the inner loop is not supported, the WGSL break statement only exits the inner loop"
+      ),
+      _ => panic!("break a loop outside of the loop"),
+    }
+  }
+
+  /// WGSL continue targets the nearest loop, the switch in between does not matter
+  fn check_continue_target(&self, loop_id: usize) {
+    let target = self
+      .scopes
+      .iter()
+      .rev()
+      .find(|scope| **scope != ControlScope::Switch);
+    match target {
+      Some(ControlScope::Loop(id)) if *id == loop_id => {}
+      Some(ControlScope::Loop(_)) => panic!(
+        "continue an outer loop inside the inner loop is not supported, the WGSL continue statement only targets the inner loop"
+      ),
+      _ => panic!("continue a loop outside of the loop"),
+    }
+  }
+}
+
+pub(crate) fn push_function_control_scope() {
+  with_control_scopes(|s| s.scopes.push(ControlScope::Function));
+}
+
+pub(crate) fn pop_function_control_scope() {
+  with_control_scopes(|s| s.pop(ControlScope::Function));
+}
+
+pub struct LoopCtx {
+  id: usize,
+}
 
 pub fn loop_by(f: impl FnOnce(LoopCtx)) {
+  let id = with_control_scopes(|s| s.push_loop());
   call_shader_api(|g| g.push_loop_scope());
-  f(LoopCtx);
+  f(LoopCtx { id });
   call_shader_api(|g| g.pop_scope());
+  with_control_scopes(|s| s.pop(ControlScope::Loop(id)));
 }
 
 impl LoopCtx {
+  /// panic if the nearest loop is not this loop, WGSL can not continue an outer loop
   pub fn do_continue(&self) {
+    with_control_scopes(|s| s.check_continue_target(self.id));
     call_shader_api(|g| g.do_continue());
   }
+  /// panic if the nearest loop or switch is not this loop, WGSL can not break an outer loop, and
+  /// the break inside the switch case only exits the switch
   pub fn do_break(&self) {
+    with_control_scopes(|s| s.check_break_target(self.id));
     call_shader_api(|g| g.do_break());
   }
 }
@@ -143,6 +220,7 @@ impl<T: SwitchableShaderType> SwitchBuilder<T> {
       g.pop_scope();
       g.end_switch();
     });
+    with_control_scopes(|s| s.pop(ControlScope::Switch));
     self.ended = true;
   }
 }
@@ -150,6 +228,7 @@ impl<T: SwitchableShaderType> SwitchBuilder<T> {
 #[must_use]
 pub fn switch_by<T: SwitchableShaderType>(selector: Node<T>) -> SwitchBuilder<T> {
   call_shader_api(|g| g.begin_switch(selector.handle()));
+  with_control_scopes(|s| s.scopes.push(ControlScope::Switch));
   SwitchBuilder {
     phantom: PhantomData,
     ended: false,

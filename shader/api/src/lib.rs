@@ -140,6 +140,7 @@ pub fn log_shader_build_result() {
 pub struct ShaderBuildingCtx {
   stage_instances: ShaderStageGroup<DynamicShaderAPI>,
   current: Option<ShaderStage>,
+  control_scopes: ControlScopes,
 }
 
 thread_local! {
@@ -162,6 +163,15 @@ pub(crate) fn try_call_shader_api<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -
   })
 }
 
+pub(crate) fn with_control_scopes<R>(f: impl FnOnce(&mut ControlScopes) -> R) -> R {
+  IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
+    f(&mut api
+      .as_mut()
+      .expect("must be in shader building")
+      .control_scopes)
+  })
+}
+
 pub(crate) fn set_current_building(current: Option<ShaderStage>) {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
     let api = api.as_mut().unwrap();
@@ -180,6 +190,7 @@ pub fn set_build_api_by(
   set_build_api(ShaderBuildingCtx {
     stage_instances: stage_layout.map(|_, stage| api_builder(stage)),
     current: None,
+    control_scopes: Default::default(),
   });
 }
 

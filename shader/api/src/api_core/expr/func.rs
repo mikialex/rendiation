@@ -96,6 +96,7 @@ impl<T: ShaderNodeType> FunctionBuildCtx<T> {
       _ => Some(ty),
     };
     call_shader_api(|g| g.begin_define_fn(name, ty));
+    push_function_control_scope();
     Self(Default::default())
   }
 
@@ -115,6 +116,7 @@ impl<T: ShaderNodeType> FunctionBuildCtx<T> {
   }
 
   pub fn end_fn_define(self) -> ShaderUserDefinedFunction {
+    pop_function_control_scope();
     call_shader_api(|g| g.end_fn_define())
   }
 }

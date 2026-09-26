@@ -238,6 +238,11 @@ loop_by(|cx| {
 });
 ```
 
+WGSL has no labeled break, so `cx.do_break()` and `cx.do_continue()` panic at build time when `cx` is
+not the nearest loop: calling the outer loop's ctx inside an inner loop, `do_break()` inside a
+`switch_by` case (the WGSL break only exits the switch), or inside a function defined in the loop.
+`do_continue()` inside a switch case is fine.
+
 ### switch_by
 
 ```rust
