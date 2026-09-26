@@ -50,6 +50,7 @@ members = [
   "content/lighting/gpu-system/lighting-system",
   "content/space",
   "shader/api",
+  "shader/api-testing",
   "shader/derive",
   "shader/backends/naga",
   "shader/library",

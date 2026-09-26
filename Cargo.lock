@@ -4911,6 +4911,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-shader-api-testing"
+version = "0.1.0"
+dependencies = [
+ "naga",
+ "rendiation-shader-api",
+ "rendiation-shader-backend-naga",
+]
+
+[[package]]
 name = "rendiation-shader-backend-naga"
 version = "0.1.0"
 dependencies = [

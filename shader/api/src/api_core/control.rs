@@ -115,7 +115,8 @@ pub struct SwitchBuilder<T> {
 
 impl<T> Drop for SwitchBuilder<T> {
   fn drop(&mut self) {
-    if !self.ended {
+    // avoid the double panic abort when the builder is dropped by unwinding
+    if !self.ended && !std::thread::panicking() {
       panic!("SwitchBuilder dropped without end_with_default")
     }
   }

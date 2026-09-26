@@ -1,0 +1,15 @@
+[package]
+authors = ["mikialex <miikiialexx@gmail.com>"]
+edition = "2024"
+name = "rendiation-shader-api-testing"
+version = "0.1.0"
+
+# All the tests are unit tests of this crate, so the normal build of this crate is empty and never
+# affects the compile time of other crates. This crate should not depend on any GPU.
+[dev-dependencies]
+rendiation-shader-api = { path = "../api" }
+rendiation-shader-backend-naga = { path = "../backends/naga" }
+naga = { workspace = true }
+
+[lints]
+workspace = true
