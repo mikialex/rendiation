@@ -481,7 +481,7 @@ impl SlugShaderBandDataSource for IndirectSlugShaderBandDataSource {
     let iter = self
       .h_band_range
       .into_shader_iter()
-      .map(move |curve_index: Node<u32>| {
+      .map(move |curve_index| {
         let curve_index = self.bands.index(curve_index).load();
         let abs_curve_idx = self.curve_text_global_offset + curve_index;
         let curve = self.curves.index(abs_curve_idx).load();
@@ -497,7 +497,7 @@ impl SlugShaderBandDataSource for IndirectSlugShaderBandDataSource {
     let iter = self
       .v_band_range
       .into_shader_iter()
-      .map(move |curve_index: Node<u32>| {
+      .map(move |curve_index| {
         let curve_index = self.bands.index(curve_index).load();
         let abs_curve_idx = self.curve_text_global_offset + curve_index;
         let curve = self.curves.index(abs_curve_idx).load();

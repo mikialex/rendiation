@@ -269,7 +269,7 @@ It's rare to use, only allowed in function ctx
 
 ## GPU-Side Iteration (`into_shader_iter`)
 
-Convert uniform/storage buffer arrays into GPU-side iterables.
+Convert counts, ranges and uniform/storage/local arrays into GPU-side iterables.
 
 ### Basic usage
 
@@ -279,8 +279,8 @@ val(10_u32).into_shader_iter().for_each(|i, _| {
     // i: Node<u32>, from 0 to 9
 });
 
-// Iterate over storage buffer array
-items.into_shader_iter().for_each(|item, _| {
+// Iterate over storage buffer array, the array item is (index, pointer)
+items.into_shader_iter().for_each(|(i, item), _| {
     let data = item.load();
     // ...
 });
@@ -292,8 +292,8 @@ items.into_shader_iter().for_each(|item, _| {
 samples
     .into_shader_iter()
     .clamp_by(sample_count.x())   // dynamically limit iteration count
-    .map(|(i, sample): (_, ShaderReadonlyPtrOf<Vec4<f32>>)| {
-        // i: Node<u32>, sample: ptr
+    .map(|(i, sample)| {
+        // i: Node<u32>, sample: ptr, the closure parameter types are inferred
         sample.load()
     })
     .sum()  // accumulate
@@ -304,25 +304,40 @@ samples
 | Method | Purpose |
 |--------|---------|
 | `.map(f)` | Map |
-| `.filter(pred)` | Filter |
-| `.filter_map(f)` | Filter + map |
+| `.filter(pred)` | Filter, the item must be a right value (`Node<T>` or tuple of them) |
+| `.filter_map(f)` | Filter + map, `f` returns `(Node<bool>, Node<O>)`, the input item must be `Node<T>` |
 | `.zip(other)` | Zip two iterators |
 | `.enumerate()` | With index |
 | `.take_while(pred)` | Conditional truncation |
-| `.clamp_by(count)` | Limit iteration count |
-| `.flat_map(f)` | Flat map |
-| `.for_each(f)` | Iterate |
+| `.clamp_by(count)` | Limit iteration count, the item must be `(Node<u32>, T)` indexed from 0 |
+| `.flat_map(f)` | Flat map, `f` returns the inner iterator state, currently `ForRangeState` |
+| `.for_each(f)` | Iterate, `f` gets the item and the `LoopCtx` of the iteration loop |
 | `.sum()` | Sum |
+
+The filtered item is stored in a variable to carry it out of the internal search loop, the pointer
+item can not be stored, map it to the value first: `.map(|(i, p)| (i, p.load())).filter(..)`.
 
 ### Iteration sources
 
 | Type | `into_shader_iter()` source |
 |------|---------------------------|
 | `u32` / `Node<u32>` | 0..n counting loop |
-| `Node<Vec2<u32>>` | `ForRange`: from..to |
+| `Node<Vec2<u32>>` | `ForRange`: from..to, empty if from >= to |
 | StaticLengthArrayView | Compile-time known length array |
 | DynLengthArrayView | Runtime-length array |
 
+`ShaderStaticArrayReadonlyIter::from_array_clamp_length(array, len)` iterates the first `len`
+items of a fixed size array (clamped by the array length).
+
+### Iteration gotchas
+
+- The iterator state is initialized where the iterator is created, create it right where the
+  iteration starts. To pass the iterable around or iterate multiple times, pass the array view or
+  anything implementing `IntoShaderIterator`. The stateful iterators are not `Clone` because the
+  clone would share the same cursor variable.
+- The `map` closure (and the `take_while` predicate) is also evaluated once for the final poll
+  that ends the iteration, with the out of range index and the clamped array pointer. Do not put
+  side effects (store, atomic) in them, put them in `for_each`.
 
 ## Texture Operations
 
@@ -773,6 +788,9 @@ All the WGSL matrix types are available: `Mat2`, `Mat3`, `Mat4`, `Mat2x3`, `Mat2
 ## Testing
 
 EDSL tests live in `shader/api-testing`, see its README before adding tests.
+
+When the result values matter (for example the iterator semantics), the test runs the shader on
+the GPU by `gpu_map` of the `shader/api-testing` harness, and compares with the cpu reference logic.
 
 ## Gotchas
 

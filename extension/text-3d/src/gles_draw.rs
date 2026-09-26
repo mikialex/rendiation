@@ -355,7 +355,7 @@ impl SlugShaderBandDataSource for GlesSlugShaderBandDataSource {
       .hband_data
       .x()
       .into_shader_iter()
-      .map(move |curve_index: Node<u32>| {
+      .map(move |curve_index| {
         let curve_index = curve_index.into_i32();
         // Fetch the location of the current curve from the index texture.
         let curve_loc = vec2_node((self.hband_loc.x() + curve_index, self.hband_loc.y()));
@@ -377,7 +377,7 @@ impl SlugShaderBandDataSource for GlesSlugShaderBandDataSource {
       .vband_data
       .x()
       .into_shader_iter()
-      .map(move |curve_index: Node<u32>| {
+      .map(move |curve_index| {
         let curve_index = curve_index.into_i32();
         let curve_loc = vec2_node((self.vband_loc.x() + curve_index, self.vband_loc.y()));
         let curve_loc = self.band_data.load_texel(curve_loc.into_u32(), 0).xy();

@@ -4916,8 +4916,10 @@ version = "0.1.0"
 dependencies = [
  "naga",
  "parking_lot",
+ "pollster",
  "rendiation-shader-api",
  "rendiation-shader-backend-naga",
+ "rendiation-webgpu",
  "wgpu-types",
 ]
 

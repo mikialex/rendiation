@@ -4,6 +4,7 @@ use naga::valid::{Capabilities, ValidationFlags, Validator};
 use parking_lot::RwLock;
 use rendiation_shader_api::*;
 use rendiation_shader_backend_naga::*;
+use rendiation_webgpu::*;
 
 /// Build a compute shader module by the naga backend, the logic is written in the entry function.
 pub fn build_compute(logic: impl FnOnce(&ShaderComputePipelineBuilder)) -> naga::Module {
@@ -31,6 +32,51 @@ pub fn validate(module: &naga::Module) {
 /// Build a compute shader and validate it.
 pub fn check_compute(logic: impl FnOnce(&ShaderComputePipelineBuilder)) {
   validate(&build_compute(logic))
+}
+
+/// Run the shader logic on the GPU for each input value (one invocation for each value), and read
+/// back the results in the input order. A GPU adapter is required.
+pub async fn gpu_map<I, O, F>(input: &[I], logic: F) -> Vec<O>
+where
+  I: Std430 + ShaderSizedValueNodeType,
+  O: Std430 + ShaderSizedValueNodeType,
+  F: Fn(Node<I>) -> Node<O> + 'static,
+{
+  const WORKGROUP_SIZE: u32 = 64;
+
+  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let input_buffer = create_gpu_readonly_storage(input, &gpu, "gpu_map input");
+  let output_buffer = create_gpu_read_write_storage::<[O]>(
+    ZeroedArrayByArrayLength(input.len()),
+    &gpu,
+    "gpu_map output",
+  );
+
+  let hasher = shader_hasher_from_marker_ty!(GpuMap).with_hash(std::any::TypeId::of::<F>());
+  let pipeline = gpu
+    .device
+    .get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+      builder = builder.with_config_work_group_size(WORKGROUP_SIZE);
+      let input = builder.bind_by(&input_buffer);
+      let output = builder.bind_by(&output_buffer);
+      let id = builder.global_invocation_id().x();
+      if_by(id.greater_equal_than(input.array_length()), do_return);
+      output.index(id).store(logic(input.index(id).load()));
+      builder
+    });
+
+  let mut encoder = gpu.create_encoder().with_compute_pass_scoped(|mut pass| {
+    BindingBuilder::default()
+      .with_bind(&input_buffer)
+      .with_bind(&output_buffer)
+      .setup_compute_pass(&mut pass, &gpu.device, &pipeline);
+    pass.dispatch_workgroups((input.len() as u32).div_ceil(WORKGROUP_SIZE), 1, 1);
+  });
+
+  let result = encoder.read_buffer(&gpu.device, &output_buffer);
+  gpu.submit_encoder(encoder);
+  let result = result.await.unwrap();
+  <[O]>::from_bytes_into_boxed(&result.read_raw()).into_vec()
 }
 
 /// Build a graphics shader by the naga backend, return the vertex and fragment shader module.

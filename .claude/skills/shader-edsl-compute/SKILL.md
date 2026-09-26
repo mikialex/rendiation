@@ -109,7 +109,7 @@ val(256_u32).into_shader_iter().for_each(|i, _| {
 
 ```rust
 let buffer: ShaderPtrOf<[Item]> = builder.bind_by(&resource);
-buffer.into_shader_iter().for_each(|item, _| {
+buffer.into_shader_iter().for_each(|(i, item), _| {
     let data = item.load();
     // process data...
 });
@@ -121,7 +121,7 @@ buffer.into_shader_iter().for_each(|item, _| {
 let result = samples
     .into_shader_iter()
     .clamp_by(sample_count)
-    .map(|(_, sample): (_, ShaderReadonlyPtrOf<Vec4<f32>>)| {
+    .map(|(_, sample)| {
         let s = sample.load();
         // process sample ...
         val(0.0)

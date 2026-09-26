@@ -1,12 +1,13 @@
 # Rendiation Shader API Testing
 
-Tests of the shader EDSL (`rendiation-shader-api`) and its naga backend. No GPU is required, all
-dependencies are dev-dependencies, so the normal build of this crate is empty and never affects the
-compile time of other crates.
+Tests of the shader EDSL (`rendiation-shader-api`) and its naga backend. All dependencies are
+dev-dependencies, so the normal build of this crate is empty and never affects the compile time of
+other crates. Only the GPU execution tests require a GPU adapter.
 
 Run by `cargo test -p rendiation-shader-api-testing` (`--lib` skips the doctests).
 
-The tests are grouped by topic, each topic is tested in two ways.
+The tests are grouped by topic, each topic is tested in two ways, plus the GPU execution when the
+result values matter.
 
 ## Compile fail
 
@@ -48,6 +49,24 @@ Helpers in `src/harness.rs`:
   implementation of the combined buffer, to test the non native pointer.
 
 The build time checks of the EDSL are tested by `#[should_panic]`.
+
+## GPU execution
+
+The validation only proves the shader is valid, when the result values matter (for example the
+iterator semantics), run the shader on the GPU by `gpu_map(input, logic)` in `src/harness.rs`. It
+dispatches one invocation for each input value, runs the `logic` on it and reads back the results
+in the input order. Compare them with the cpu reference logic, and put these tests in the topic file
+as `#[pollster::test]` async tests.
+
+```rust
+#[pollster::test]
+async fn iter_gpu_count() {
+  let input = [0, 1, 5];
+  let result = gpu_map(&input, |v: Node<u32>| v.into_shader_iter().sum()).await;
+  let expect: Vec<u32> = input.iter().map(|v| (0..*v).sum()).collect();
+  assert_eq!(result, expect);
+}
+```
 
 ## When changing the EDSL
 

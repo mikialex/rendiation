@@ -8,13 +8,17 @@ pub trait IntoShaderIterator {
 pub type ItemOfIntoShaderIter<T> = <<T as IntoShaderIterator>::ShaderIter as ShaderIterator>::Item;
 
 pub trait IntoShaderIteratorExt: IntoShaderIterator + Sized {
-  fn map<F>(self, map: F) -> ShaderIntoIterMap<Self, F> {
+  fn map<U, F: Fn(ItemOfIntoShaderIter<Self>) -> U>(self, map: F) -> ShaderIntoIterMap<Self, F> {
     ShaderIntoIterMap {
       internal: self,
       map,
     }
   }
-  fn map_helper<T2, F>(self, any: T2, map: F) -> ShaderIntoIterHelperMap<Self, T2, F> {
+  fn map_helper<T2, U, F: Fn(ItemOfIntoShaderIter<Self>, &T2) -> U>(
+    self,
+    any: T2,
+    map: F,
+  ) -> ShaderIntoIterHelperMap<Self, T2, F> {
     ShaderIntoIterHelperMap {
       internal: self,
       any,

@@ -417,7 +417,7 @@ fn iterate_tlas_blas_gpu(
   blas_data: ShaderPtrOf<[BlasMetaInfo]>,
   ray: Node<Ray>,
 ) -> impl ShaderIterator<Item = Node<RayBlas>> {
-  tlas_iter.map(move |idx: Node<u32>| {
+  tlas_iter.map(move |idx| {
     let ray = ray.expand();
     let tlas_data = tlas_data.index(idx).load().expand();
 

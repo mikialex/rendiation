@@ -3,6 +3,7 @@
 
 pub mod builtin;
 pub mod graphics;
+pub mod iter;
 pub mod operator;
 pub mod reference;
 pub mod subgroup;

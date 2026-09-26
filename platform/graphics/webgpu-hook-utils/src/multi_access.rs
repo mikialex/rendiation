@@ -239,10 +239,12 @@ impl ShaderIterator for MultiAccessGPUIter {
     let current_next = self.cursor.load();
     self.cursor.store(current_next + val(1));
     let has_next = current_next.less_than(self.meta.len);
-    let data = self
-      .indices
-      .index(current_next.min(self.meta.len - val(1)) + self.meta.start)
-      .load();
+    // the item is created even when the iteration ends, only load it when it is valid, because
+    // the start of the empty range is u32::MAX
+    let data = has_next.select_branched(
+      || self.indices.index(self.meta.start + current_next).load(),
+      zeroed_val,
+    );
     (has_next, data)
   }
 }

@@ -67,7 +67,7 @@ impl GraphicsShaderProvider for BilateralBlurTask<'_> {
       let combined = weights
         .into_shader_iter()
         .clamp_by(weight_count)
-        .map(|(i, weight): (Node<u32>, ShaderReadonlyPtrOf<Vec4<f32>>)| {
+        .map(|(i, weight)| {
           let weight = weight.load();
           let offset = i.into_f32() - radius;
           let sample_uv = uv + offset * sample_offset;
