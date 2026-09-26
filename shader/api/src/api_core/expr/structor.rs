@@ -65,6 +65,12 @@ shader_field_ty_mapper!(Vec4<u32>);
 shader_field_ty_mapper!(Mat2<f32>);
 shader_field_ty_mapper!(Mat3<f32>);
 shader_field_ty_mapper!(Mat4<f32>);
+shader_field_ty_mapper!(Mat2x3<f32>);
+shader_field_ty_mapper!(Mat2x4<f32>);
+shader_field_ty_mapper!(Mat3x2<f32>);
+shader_field_ty_mapper!(Mat3x4<f32>);
+shader_field_ty_mapper!(Mat4x2<f32>);
+shader_field_ty_mapper!(Mat4x3<f32>);
 shader_field_ty_mapper!(Bool);
 
 // std140

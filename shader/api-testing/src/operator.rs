@@ -2,43 +2,73 @@ use rendiation_shader_api::*;
 
 use crate::harness::*;
 
-/// all the WGSL matrix multiplications
+/// all the WGSL matrix types: construction from columns, column access, transpose, and the
+/// arithmetic operators including all the matrix multiplications
 #[test]
-fn matrix_multiplication() {
+fn matrix_types() {
   check_compute(|builder| {
     let f = runtime_values(builder).f;
     let v2 = f.splat::<Vec2<f32>>();
     let v3 = f.splat::<Vec3<f32>>();
     let v4 = f.splat::<Vec4<f32>>();
-    let m2: Node<Mat2<f32>> = (v2, v2).into();
-    let m3: Node<Mat3<f32>> = (v3, v3, v3).into();
-    let m4: Node<Mat4<f32>> = (v4, v4, v4, v4).into();
-    // Mat4x3 can not be composed from columns yet
-    let m43 = zeroed_val::<Mat4x3<f32>>();
 
-    // matCxR * vecC -> vecR
-    keep(m2 * v2);
-    keep(m3 * v3);
-    keep(m4 * v4);
-    let r: Node<Vec3<f32>> = m43 * v4;
+    let m2x2: Node<Mat2<f32>> = (v2, v2).into();
+    let m2x3: Node<Mat2x3<f32>> = (v3, v3).into();
+    let m2x4: Node<Mat2x4<f32>> = (v4, v4).into();
+    let m3x2: Node<Mat3x2<f32>> = (v2, v2, v2).into();
+    let m3x3: Node<Mat3<f32>> = (v3, v3, v3).into();
+    let m3x4: Node<Mat3x4<f32>> = (v4, v4, v4).into();
+    let m4x2: Node<Mat4x2<f32>> = (v2, v2, v2, v2).into();
+    let m4x3: Node<Mat4x3<f32>> = (v3, v3, v3, v3).into();
+    let m4x4: Node<Mat4<f32>> = (v4, v4, v4, v4).into();
+
+    // the rhs of matCxR * vecC and vecR * matCxR, and all the matNxC
+    macro_rules! check_matrix {
+      ($m: expr, $vec_c: expr, $vec_r: expr, [$($mat_nxc: expr),+]) => {{
+        let m = $m;
+        keep(m.x());
+        keep(m.transpose());
+        keep(m + m - m);
+        keep(m * f);
+        keep(f * m);
+        keep(m * $vec_c);
+        keep($vec_r * m);
+        $(keep(m * $mat_nxc);)+
+
+        let mut a = m;
+        a += m;
+        a -= m;
+        a *= f;
+        keep(a);
+      }};
+    }
+
+    check_matrix!(m2x2, v2, v2, [m2x2, m3x2, m4x2]);
+    check_matrix!(m2x3, v2, v3, [m2x2, m3x2, m4x2]);
+    check_matrix!(m2x4, v2, v4, [m2x2, m3x2, m4x2]);
+    check_matrix!(m3x2, v3, v2, [m2x3, m3x3, m4x3]);
+    check_matrix!(m3x3, v3, v3, [m2x3, m3x3, m4x3]);
+    check_matrix!(m3x4, v3, v4, [m2x3, m3x3, m4x3]);
+    check_matrix!(m4x2, v4, v2, [m2x4, m3x4, m4x4]);
+    check_matrix!(m4x3, v4, v3, [m2x4, m3x4, m4x4]);
+    check_matrix!(m4x4, v4, v4, [m2x4, m3x4, m4x4]);
+
+    // the result types
+    let r: Node<Vec3<f32>> = m4x3 * v4;
+    keep(r);
+    let r: Node<Vec4<f32>> = v3 * m4x3;
+    keep(r);
+    let r: Node<Mat3<f32>> = m4x3 * m3x4;
+    keep(r);
+    let r: Node<Mat4x2<f32>> = m3x2 * m4x3;
+    keep(r);
+    let r: Node<Mat3x2<f32>> = m2x3.transpose();
     keep(r);
 
-    // vecR * matCxR -> vecC
-    keep(v2 * m2);
-    keep(v3 * m3);
-    keep(v4 * m4);
-    let r: Node<Vec4<f32>> = v3 * m43;
-    keep(r);
-
-    // matKxR * matCxK -> matCxR
-    keep(m4 * m4);
-    keep(m43 * m4);
-    keep(m3 * m43);
-
-    // matrix and scalar
-    keep(m4 * f);
-    keep(f * m4);
-    keep(m4 + m4 - m4);
+    let mut v = v3;
+    v *= m3x3;
+    keep(v);
+    keep(m4x4.determinant());
   });
 }
 

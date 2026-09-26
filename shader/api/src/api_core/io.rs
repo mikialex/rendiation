@@ -43,19 +43,25 @@ pub enum ShaderBuiltInDecorator {
   VertexPositionOut {
     invariant: bool,
   },
+  /// `array<f32, N>` output, N in [1, 8], see [ShaderRawVertexBuilder::set_clip_distances]
+  VertexClipDistances,
   FragPositionIn,
   FragFrontFacing,
   FragDepth,
   FragSampleIndex,
   FragSampleMask,
-  CompSubgroupInvocationId,
+  FragPrimitiveIndex,
+  /// compute or fragment stage
+  SubgroupInvocationId,
+  /// compute or fragment stage
+  SubgroupSize,
   CompLocalInvocationId,
   CompGlobalInvocationId,
   CompLocalInvocationIndex,
   CompSubgroupId,
   CompWorkgroupId,
   CompNumWorkgroup,
-  CompSubgroupSize,
+  CompNumSubgroups,
   MeshPrimitiveTriangleIndex,
   MeshPrimitiveLineIndex,
   MeshPrimitivePointIndex,
@@ -66,6 +72,7 @@ pub enum ShaderBuiltInDecorator {
 }
 
 impl ShaderBuiltInDecorator {
+  /// return None if the data type is not primitive
   pub fn data_ty(&self) -> Option<PrimitiveShaderValueType> {
     use ShaderBuiltInDecorator::*;
     let bool = PrimitiveShaderValueType::bool();
@@ -78,19 +85,22 @@ impl ShaderBuiltInDecorator {
       VertexIndex => u32,
       VertexInstanceIndex => u32,
       VertexPositionOut { .. } => vec4_f32,
+      VertexClipDistances => return None,
       FragPositionIn => vec4_f32,
       FragFrontFacing => bool,
       FragDepth => f32,
       FragSampleIndex => u32,
       FragSampleMask => u32,
-      CompSubgroupInvocationId => u32,
+      FragPrimitiveIndex => u32,
+      SubgroupInvocationId => u32,
+      SubgroupSize => u32,
       CompLocalInvocationId => vec3_u32,
       CompGlobalInvocationId => vec3_u32,
       CompLocalInvocationIndex => u32,
       CompSubgroupId => u32,
       CompWorkgroupId => vec3_u32,
       CompNumWorkgroup => vec3_u32,
-      CompSubgroupSize => u32,
+      CompNumSubgroups => u32,
       MeshPrimitiveTriangleIndex => vec3_u32,
       MeshPrimitiveLineIndex => vec2_u32,
       MeshPrimitivePointIndex => u32,

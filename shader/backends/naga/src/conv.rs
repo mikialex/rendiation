@@ -229,15 +229,18 @@ pub fn map_built_in(bt: ShaderBuiltInDecorator) -> naga::BuiltIn {
     ShaderBuiltInDecorator::VertexPositionOut { invariant } => {
       naga::BuiltIn::Position { invariant }
     }
+    ShaderBuiltInDecorator::VertexClipDistances => naga::BuiltIn::ClipDistance,
+    ShaderBuiltInDecorator::FragPrimitiveIndex => naga::BuiltIn::PrimitiveIndex,
     ShaderBuiltInDecorator::FragDepth => naga::BuiltIn::FragDepth,
     ShaderBuiltInDecorator::CompLocalInvocationId => naga::BuiltIn::LocalInvocationId,
     ShaderBuiltInDecorator::CompGlobalInvocationId => naga::BuiltIn::GlobalInvocationId,
     ShaderBuiltInDecorator::CompLocalInvocationIndex => naga::BuiltIn::LocalInvocationIndex,
     ShaderBuiltInDecorator::CompWorkgroupId => naga::BuiltIn::WorkGroupId,
     ShaderBuiltInDecorator::CompNumWorkgroup => naga::BuiltIn::NumWorkGroups,
-    ShaderBuiltInDecorator::CompSubgroupInvocationId => naga::BuiltIn::SubgroupInvocationId,
+    ShaderBuiltInDecorator::SubgroupInvocationId => naga::BuiltIn::SubgroupInvocationId,
+    ShaderBuiltInDecorator::SubgroupSize => naga::BuiltIn::SubgroupSize,
     ShaderBuiltInDecorator::CompSubgroupId => naga::BuiltIn::SubgroupId,
-    ShaderBuiltInDecorator::CompSubgroupSize => naga::BuiltIn::SubgroupSize,
+    ShaderBuiltInDecorator::CompNumSubgroups => naga::BuiltIn::NumSubgroups,
     ShaderBuiltInDecorator::MeshPrimitiveTriangleIndex => naga::BuiltIn::TriangleIndices,
     ShaderBuiltInDecorator::MeshPrimitiveLineIndex => naga::BuiltIn::LineIndices,
     ShaderBuiltInDecorator::MeshPrimitivePointIndex => naga::BuiltIn::PointIndex,

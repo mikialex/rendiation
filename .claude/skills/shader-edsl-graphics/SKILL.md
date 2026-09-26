@@ -111,7 +111,15 @@ builder.set_vertex_out_with_given_interpolate::<FragmentColor>(color);
 
 // Built-in vertex output — must write (x, y, z, w)
 builder.register::<ClipPosition>(clip_pos);
+
+// Built-in clip_distances output (vertex shader only, requires the CLIP_DISTANCES feature), N in
+// [1, 8] is checked at compile time, the primitive is clipped where the distance is negative
+let distances: Node<[f32; 2]> = ...;
+builder.expect_vertex_shader().set_clip_distances(distances);
 ```
+
+Like `ClipPosition`, the clip distances are written at the end of the vertex shader, so create the
+value in the root scope.
 
 The value type of the vertex outputs and vertex inputs must be `ShaderLocationIOType`, which is the
 numeric scalar or numeric vector (f32, u32, i32), bool and matrix are rejected at compile time.
@@ -122,7 +130,8 @@ Integer outputs are always flat interpolated. A `Mat4<f32>` vertex attribute is 
 
 Semantic types are split across two crates. `rendiation_shader_api` keeps only the wgsl
 builtin semantic (`VertexIndex`, `VertexInstanceIndex`, `ClipPosition`, `FragmentFrontFacing`,
-`FragmentPosition`, `FragmentSampleIndex`, `FragmentSampleMaskInput`, `FragmentDepthOutput`,
+`FragmentPosition`, `FragmentSampleIndex`, `FragmentSampleMaskInput`, `FragmentPrimitiveIndex`,
+`FragmentSubgroupSize`, `FragmentSubgroupInvocationId`, `FragmentDepthOutput`,
 `FragmentSampleMaskOutput`). Everything else (`GeometryPosition`, `FragmentUv`, camera matrices,
 lighting channels, ...) lives in `rendiation_shader_library` (the `semantic` module, re-exported
 at the crate root) — add it as a dependency and import it alongside `rendiation_shader_api`.
@@ -240,6 +249,9 @@ All table entries below except the two `Vertex Built-in`, the wgsl builtins used
 | `FragmentPosition` | `Vec4<f32>` | (x,y) = framebuffer coords |
 | `FragmentSampleIndex` | `u32` | |
 | `FragmentSampleMaskInput` | `u32` | |
+| `FragmentPrimitiveIndex` | `u32` | requires the `PRIMITIVE_INDEX` feature |
+| `FragmentSubgroupSize` | `u32` | requires the `SUBGROUP` feature |
+| `FragmentSubgroupInvocationId` | `u32` | requires the `SUBGROUP` feature, may not be dense in fragment |
 
 ### Fragment Shared (Vertex writes, Fragment reads)
 

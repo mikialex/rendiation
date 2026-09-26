@@ -382,13 +382,17 @@ where
   }
 }
 
+impl<T: ShaderMatrixType> Node<T> {
+  /// matCxR to matRxC
+  pub fn transpose(self) -> Node<T::Transposed> {
+    make_builtin_call(ShaderBuiltInFunction::Transpose, [self.handle()])
+  }
+}
+
 impl<T> Node<T>
 where
   T: SquareMatrix<f32> + PrimitiveShaderNodeType,
 {
-  pub fn transpose(self) -> Self {
-    make_builtin_call(ShaderBuiltInFunction::Transpose, [self.handle()])
-  }
   pub fn determinant(self) -> Node<f32> {
     make_builtin_call(ShaderBuiltInFunction::Determinant, [self.handle()])
   }

@@ -37,3 +37,25 @@ fn user_defined_io() {
     });
   });
 }
+
+/// the built-in values: clip distances, primitive index, and the fragment subgroup values
+#[test]
+fn builtin_values() {
+  check_graphics(|builder| {
+    builder.vertex(|builder, _| {
+      let index = builder.query::<VertexIndex>().into_f32();
+      let distances = make_local_var::<[f32; 2]>();
+      distances.index(0).store(index);
+      distances.index(1).store(-index);
+      builder
+        .expect_vertex_shader()
+        .set_clip_distances(distances.load());
+    });
+    builder.fragment(|builder, _| {
+      let index = builder.query::<FragmentPrimitiveIndex>();
+      let size = builder.query::<FragmentSubgroupSize>();
+      let id = builder.query::<FragmentSubgroupInvocationId>();
+      keep(index + size + id);
+    });
+  });
+}

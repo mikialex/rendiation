@@ -277,6 +277,37 @@ only_fragment!(
   u32
 );
 
+only_fragment!(
+  /// WGSL built-in `primitive_index` (see <https://www.w3.org/TR/WGSL/#builtin-value-names>).
+  ///
+  /// Per-primitive index based on the number of primitives processed for the current instance
+  /// since the beginning of the current draw operation. Begins at 0 and increments by 1 after
+  /// every point, line, or triangle primitive is processed. Resets to 0 between each instance
+  /// drawn. The index is uniform across all fragments of the primitive.
+  ///
+  /// Requires the device feature `PRIMITIVE_INDEX`.
+  FragmentPrimitiveIndex,
+  u32
+);
+
+only_fragment!(
+  /// WGSL built-in `subgroup_size` in the fragment stage (see <https://www.w3.org/TR/WGSL/#builtin-value-names>).
+  ///
+  /// The subgroup size of current invocation's subgroup. Requires the device feature `SUBGROUP`.
+  FragmentSubgroupSize,
+  u32
+);
+
+only_fragment!(
+  /// WGSL built-in `subgroup_invocation_id` in the fragment stage (see <https://www.w3.org/TR/WGSL/#builtin-value-names>).
+  ///
+  /// The current invocation's subgroup invocation ID, in the range [0, subgroup_size - 1].
+  /// Unlike the compute stage, the ID may not be dense, the implementation may assign some lower
+  /// numbered IDs to the helper invocations. Requires the device feature `SUBGROUP`.
+  FragmentSubgroupInvocationId,
+  u32
+);
+
 // fragment output
 only_fragment!(
   /// WGSL built-in `frag_depth` (see <https://www.w3.org/TR/WGSL/#builtin-value-names>).

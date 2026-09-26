@@ -413,6 +413,11 @@ impl_primitive_compound_direct!(Mat2);
 impl_primitive_compound_direct!(Mat3);
 impl_primitive_compound_direct!(Mat4);
 impl_primitive_compound_direct!(Mat4x3);
+impl_primitive_compound_direct!(Mat2x3);
+impl_primitive_compound_direct!(Mat2x4);
+impl_primitive_compound_direct!(Mat3x2);
+impl_primitive_compound_direct!(Mat3x4);
+impl_primitive_compound_direct!(Mat4x2);
 
 pub struct AtomicPtrView<T>(PhantomData<T>, BoxedShaderPtr);
 

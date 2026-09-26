@@ -360,6 +360,11 @@ primitive_value_from_matrix!(Mat2<T>, Bi, 2, Bi, 2);
 primitive_value_from_matrix!(Mat3<T>, Tri, 3, Tri, 3);
 primitive_value_from_matrix!(Mat4<T>, Quad, 4, Quad, 4);
 primitive_value_from_matrix!(Mat4x3<T>, Quad, 4, Tri, 3);
+primitive_value_from_matrix!(Mat2x3<T>, Bi, 2, Tri, 3);
+primitive_value_from_matrix!(Mat2x4<T>, Bi, 2, Quad, 4);
+primitive_value_from_matrix!(Mat3x2<T>, Tri, 3, Bi, 2);
+primitive_value_from_matrix!(Mat3x4<T>, Tri, 3, Quad, 4);
+primitive_value_from_matrix!(Mat4x2<T>, Quad, 4, Bi, 2);
 
 // scalars are concrete types so they can not be grouped into one generic impl,
 // vec and mat use generic impl over T: ShaderScalarType to cover all supported scalar types.
@@ -444,9 +449,20 @@ macro_rules! impl_vector_primitive_node_type {
   };
 }
 
+/// The WGSL matrix types (matCxR, C columns and R rows), `Transposed` is the matRxC type.
+pub trait ShaderMatrixType: PrimitiveShaderNodeType {
+  type Transposed: PrimitiveShaderNodeType;
+}
+
 // matrix element type can only be float in WGSL
 macro_rules! impl_matrix_primitive_node_type {
-  ($ty: ident, $columns: ident, $rows: ident) => {
+  ($ty: ident, $columns: ident, $rows: ident, $transposed: ident) => {
+    impl<T> ShaderMatrixType for $ty<T>
+    where
+      T: ShaderFloatType + Into<ScalarValue>,
+    {
+      type Transposed = $transposed<T>;
+    }
     impl<T> ShaderNodeSingleType for $ty<T>
     where
       T: ShaderFloatType + Into<ScalarValue>,
@@ -509,10 +525,15 @@ impl_scalar_primitive_node_type!(f32, F32);
 impl_vector_primitive_node_type!(Vec2, Bi);
 impl_vector_primitive_node_type!(Vec3, Tri);
 impl_vector_primitive_node_type!(Vec4, Quad);
-impl_matrix_primitive_node_type!(Mat2, Bi, Bi);
-impl_matrix_primitive_node_type!(Mat3, Tri, Tri);
-impl_matrix_primitive_node_type!(Mat4, Quad, Quad);
-impl_matrix_primitive_node_type!(Mat4x3, Quad, Tri);
+impl_matrix_primitive_node_type!(Mat2, Bi, Bi, Mat2);
+impl_matrix_primitive_node_type!(Mat3, Tri, Tri, Mat3);
+impl_matrix_primitive_node_type!(Mat4, Quad, Quad, Mat4);
+impl_matrix_primitive_node_type!(Mat2x3, Bi, Tri, Mat3x2);
+impl_matrix_primitive_node_type!(Mat2x4, Bi, Quad, Mat4x2);
+impl_matrix_primitive_node_type!(Mat3x2, Tri, Bi, Mat2x3);
+impl_matrix_primitive_node_type!(Mat3x4, Tri, Quad, Mat4x3);
+impl_matrix_primitive_node_type!(Mat4x2, Quad, Bi, Mat2x4);
+impl_matrix_primitive_node_type!(Mat4x3, Quad, Tri, Mat3x4);
 
 sg_node_impl!(
   Bool,
@@ -735,6 +756,20 @@ swizzle_mat!(Mat4x3, Vec3, x);
 swizzle_mat!(Mat4x3, Vec3, y);
 swizzle_mat!(Mat4x3, Vec3, z);
 swizzle_mat!(Mat4x3, Vec3, w);
+swizzle_mat!(Mat2x3, Vec3, x);
+swizzle_mat!(Mat2x3, Vec3, y);
+swizzle_mat!(Mat2x4, Vec4, x);
+swizzle_mat!(Mat2x4, Vec4, y);
+swizzle_mat!(Mat3x2, Vec2, x);
+swizzle_mat!(Mat3x2, Vec2, y);
+swizzle_mat!(Mat3x2, Vec2, z);
+swizzle_mat!(Mat3x4, Vec4, x);
+swizzle_mat!(Mat3x4, Vec4, y);
+swizzle_mat!(Mat3x4, Vec4, z);
+swizzle_mat!(Mat4x2, Vec2, x);
+swizzle_mat!(Mat4x2, Vec2, y);
+swizzle_mat!(Mat4x2, Vec2, z);
+swizzle_mat!(Mat4x2, Vec2, w);
 
 fn convert_num<D: ShaderScalarType>(source: ShaderNodeRawHandle) -> ShaderNodeExpr {
   let convert_to = D::scalar_type();
@@ -785,43 +820,29 @@ num_convert!(i32, bool);
 num_convert!(f32, bool);
 num_convert!(bool, f32);
 
-pub trait DeviceRawBitCast {
-  type Value: ShaderScalarType;
-}
-impl DeviceRawBitCast for f32 {
-  type Value = Self;
-}
-impl DeviceRawBitCast for u32 {
-  type Value = Self;
-}
-impl DeviceRawBitCast for i32 {
-  type Value = Self;
-}
-impl<T: ShaderScalarType> DeviceRawBitCast for Vec2<T> {
-  type Value = T;
-}
-impl<T: ShaderScalarType> DeviceRawBitCast for Vec3<T> {
-  type Value = T;
-}
-impl<T: ShaderScalarType> DeviceRawBitCast for Vec4<T> {
-  type Value = T;
-}
+/// The 32 bit numeric scalar types, their scalars or vectors can be bitcast to each other.
+///
+/// see <https://www.w3.org/TR/WGSL/#bitcast-builtin>
+pub trait ShaderBitcastScalarType: ShaderNumericScalarType {}
+impl ShaderBitcastScalarType for f32 {}
+impl ShaderBitcastScalarType for u32 {}
+impl ShaderBitcastScalarType for i32 {}
 
-struct If<const B: bool>;
-trait True {}
-impl True for If<true> {}
-
-impl<T: DeviceRawBitCast + PrimitiveShaderNodeType> Node<T> {
-  // todo, impl vec bitcast
-  #[allow(private_bounds)]
+impl<T> Node<T>
+where
+  T: ShaderScalarOrVec,
+  T::Item: ShaderBitcastScalarType,
+{
+  /// Reinterpret the bits as `V`, which must be the same shape of scalar or vector, for example
+  /// `bitcast::<u32>()` for f32, and `bitcast::<Vec3<u32>>()` for `Vec3<f32>`.
   pub fn bitcast<V>(self) -> Node<V>
   where
-    V: DeviceRawBitCast + ShaderScalarType + PrimitiveShaderNodeType,
-    If<{ std::mem::size_of::<T>() == std::mem::size_of::<V>() }>: True,
+    V: ShaderScalarOrVec<Shape<T::Item> = T>,
+    V::Item: ShaderBitcastScalarType,
   {
     ShaderNodeExpr::Convert {
       source: self.handle(),
-      convert_to: V::Value::scalar_type(),
+      convert_to: V::Item::scalar_type(),
       convert: None,
     }
     .insert_api()
@@ -869,6 +890,12 @@ macro_rules! compose_all_mat {
     impl_from!({ A: Vec4<$t>, B: Vec4<$t>, C: Vec4<$t>, D:Vec4<$t> }, Mat4<$t>);
     impl_from!({ A: Vec3<$t>, B: Vec3<$t>, C: Vec3<$t> }, Mat3<$t>);
     impl_from!({ A: Vec2<$t>, B: Vec2<$t> }, Mat2<$t>);
+    impl_from!({ A: Vec3<$t>, B: Vec3<$t> }, Mat2x3<$t>);
+    impl_from!({ A: Vec4<$t>, B: Vec4<$t> }, Mat2x4<$t>);
+    impl_from!({ A: Vec2<$t>, B: Vec2<$t>, C: Vec2<$t> }, Mat3x2<$t>);
+    impl_from!({ A: Vec4<$t>, B: Vec4<$t>, C: Vec4<$t> }, Mat3x4<$t>);
+    impl_from!({ A: Vec2<$t>, B: Vec2<$t>, C: Vec2<$t>, D: Vec2<$t> }, Mat4x2<$t>);
+    impl_from!({ A: Vec3<$t>, B: Vec3<$t>, C: Vec3<$t>, D: Vec3<$t> }, Mat4x3<$t>);
   }
 }
 

@@ -255,6 +255,23 @@ impl ShaderFragmentBuilder {
         let mask = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragSampleMask).insert_api();
         self.register::<FragmentSampleMaskInput>(mask);
       }
+
+      if id == TypeId::of::<FragmentPrimitiveIndex>() {
+        let index =
+          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragPrimitiveIndex).insert_api();
+        self.register::<FragmentPrimitiveIndex>(index);
+      }
+
+      if id == TypeId::of::<FragmentSubgroupSize>() {
+        let size = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::SubgroupSize).insert_api();
+        self.register::<FragmentSubgroupSize>(size);
+      }
+
+      if id == TypeId::of::<FragmentSubgroupInvocationId>() {
+        let id =
+          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::SubgroupInvocationId).insert_api();
+        self.register::<FragmentSubgroupInvocationId>(id);
+      }
     }
 
     self.registry.try_query_fragment_stage::<T>().ok()

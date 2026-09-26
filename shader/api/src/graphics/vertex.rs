@@ -76,6 +76,8 @@ pub struct ShaderRawVertexBuilder {
   registry: SemanticRegistry,
 
   io_mapping: ShapeFragmentIOMapping,
+  /// the clip distances array node and its length
+  clip_distances: Option<(ShaderNodeRawHandle, usize)>,
   // user vertex out
   pub(crate) errors: ErrorSink,
 }
@@ -102,6 +104,7 @@ impl ShaderRawVertexBuilder {
       vertex_layouts: Default::default(),
       primitive_state: default_primitive_state(),
       io_mapping: Default::default(),
+      clip_distances: None,
       errors,
     }
   }
@@ -115,6 +118,27 @@ impl ShaderRawVertexBuilder {
       let target = api.define_vertex_position_output(invariant);
       api.store(position.handle(), target)
     });
+  }
+
+  /// Write the WGSL built-in `clip_distances` output, each value is the distance to a user
+  /// defined clip plane, the primitive is clipped where the distance is negative. Calling it again
+  /// overrides the previous value.
+  ///
+  /// The count N must be in [1, 8], and the device feature `CLIP_DISTANCES` is required. Like the
+  /// [ClipPosition], the value is written at the end of the vertex shader, so the node should be
+  /// created in the root scope.
+  pub fn set_clip_distances<const N: usize>(&mut self, distances: Node<[f32; N]>) {
+    const { assert_clip_distances_count(N) };
+    self.clip_distances = Some((distances.handle(), N));
+  }
+
+  fn finalize_clip_distances_write(&mut self) {
+    if let Some((distances, count)) = self.clip_distances {
+      call_shader_api(|api| {
+        let target = api.define_vertex_clip_distances_output(count);
+        api.store(distances, target)
+      });
+    }
   }
 
   /// return registered location
@@ -168,6 +192,13 @@ impl ShaderRawVertexBuilder {
   {
     V::provide_layout_and_vertex_in(self, step_mode)
   }
+}
+
+const fn assert_clip_distances_count(count: usize) {
+  assert!(
+    count >= 1 && count <= 8,
+    "the clip distances count must be in [1, 8]"
+  );
 }
 
 #[derive(Default)]
@@ -238,6 +269,7 @@ impl AbstractShaderVertexBuilder for ShaderRawVertexBuilder {
 
   fn finalize_write(&mut self) {
     self.finalize_position_write();
+    self.finalize_clip_distances_write();
   }
   fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder) {
     self.io_mapping.sync_fragment_out(fragment);

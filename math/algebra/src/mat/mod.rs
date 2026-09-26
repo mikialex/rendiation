@@ -2,7 +2,7 @@ mod dimension;
 mod mat2;
 mod mat3;
 mod mat4;
-mod mat4x3;
+mod non_square;
 
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
@@ -11,7 +11,7 @@ pub use dimension::*;
 pub use mat2::*;
 pub use mat3::*;
 pub use mat4::*;
-pub use mat4x3::*;
+pub use non_square::*;
 
 use crate::*;
 
@@ -127,6 +127,16 @@ impl_matrix!(Mat4 { a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, 
 #[rustfmt::skip]
 impl_matrix!(Mat4x3 { a1, a2, a3, b1, b2, b3, c1, c2, c3, d1, d2, d3 }, 12, mat4x3);
 #[rustfmt::skip]
+impl_matrix!(Mat2x3 { a1, a2, a3, b1, b2, b3 }, 6, mat2x3);
+#[rustfmt::skip]
+impl_matrix!(Mat2x4 { a1, a2, a3, a4, b1, b2, b3, b4 }, 8, mat2x4);
+#[rustfmt::skip]
+impl_matrix!(Mat3x2 { a1, a2, b1, b2, c1, c2 }, 6, mat3x2);
+#[rustfmt::skip]
+impl_matrix!(Mat3x4 { a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4 }, 12, mat3x4);
+#[rustfmt::skip]
+impl_matrix!(Mat4x2 { a1, a2, b1, b2, c1, c2, d1, d2 }, 8, mat4x2);
+#[rustfmt::skip]
 impl_fixed_array_conversions!(Mat2<T> { a1: 0, a2: 1, b1: 2, b2: 3 }, 4);
 #[rustfmt::skip]
 impl_fixed_array_conversions!(Mat3<T> { 
@@ -148,3 +158,32 @@ impl_fixed_array_conversions!(Mat4x3<T> {
   c1: 6, c2:  7, c3:  8,
   d1: 9, d2: 10, d3: 11
 }, 12);
+#[rustfmt::skip]
+impl_fixed_array_conversions!(Mat2x3<T> {
+  a1: 0, a2: 1, a3: 2,
+  b1: 3, b2: 4, b3: 5
+}, 6);
+#[rustfmt::skip]
+impl_fixed_array_conversions!(Mat2x4<T> {
+  a1: 0, a2: 1, a3: 2, a4: 3,
+  b1: 4, b2: 5, b3: 6, b4: 7
+}, 8);
+#[rustfmt::skip]
+impl_fixed_array_conversions!(Mat3x2<T> {
+  a1: 0, a2: 1,
+  b1: 2, b2: 3,
+  c1: 4, c2: 5
+}, 6);
+#[rustfmt::skip]
+impl_fixed_array_conversions!(Mat3x4<T> {
+  a1: 0, a2: 1, a3:  2, a4:  3,
+  b1: 4, b2: 5, b3:  6, b4:  7,
+  c1: 8, c2: 9, c3: 10, c4: 11
+}, 12);
+#[rustfmt::skip]
+impl_fixed_array_conversions!(Mat4x2<T> {
+  a1: 0, a2: 1,
+  b1: 2, b2: 3,
+  c1: 4, c2: 5,
+  d1: 6, d2: 7
+}, 8);

@@ -21,6 +21,9 @@ fn subgroup_and_quad_operations() {
 
     keep(f.quad_broadcast(1));
     keep(f.quad_swap_x() + f.quad_swap_y() + f.quad_swap_diagonal());
+
+    keep(builder.subgroup_id() + builder.num_subgroups());
+    keep(builder.subgroup_size() + builder.subgroup_invocation_id());
   });
 }
 

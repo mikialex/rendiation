@@ -88,3 +88,16 @@ fn packing() {
     keep(u.unpack4x8snorm());
   });
 }
+
+/// bitcast between the 32 bit numeric scalars or vectors of the same shape
+#[test]
+fn bitcast() {
+  check_compute(|builder| {
+    let RuntimeValues { u, i, f } = runtime_values(builder);
+    keep(f.bitcast::<u32>() + u.bitcast::<f32>().bitcast::<u32>());
+    keep(i.bitcast::<f32>().bitcast::<f32>());
+    keep(u.splat::<Vec2<u32>>().bitcast::<Vec2<i32>>());
+    keep(f.splat::<Vec3<f32>>().bitcast::<Vec3<u32>>());
+    keep(i.splat::<Vec4<i32>>().bitcast::<Vec4<f32>>());
+  });
+}

@@ -86,6 +86,8 @@ pub trait ShaderAPI {
     interpolation: Option<ShaderInterpolation>,
   ) -> ShaderNodeRawHandle;
   fn define_vertex_position_output(&mut self, invariant: bool) -> ShaderNodeRawHandle;
+  /// define the `array<f32, count>` clip distances output
+  fn define_vertex_clip_distances_output(&mut self, count: usize) -> ShaderNodeRawHandle;
   fn define_frag_depth_output(&mut self) -> ShaderNodeRawHandle;
   fn define_const(
     &mut self,

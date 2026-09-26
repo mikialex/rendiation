@@ -74,15 +74,26 @@ unsafe impl Std140 for Vec4<u32> {
   const ALIGNMENT: usize = 16;
 }
 
-// Mat2<f32> is intentionally not supported in std140. In WGSL uniform, the column stride of
-// matCx2 is 8 bytes, but the naga glsl backend writes it into a std140 uniform block directly,
-// where the column stride is 16 bytes. No host layout is correct for all backends.
+// Mat2<f32> (and other matCx2) is intentionally not supported in std140. In WGSL uniform, the
+// column stride of matCx2 is 8 bytes, but the naga glsl backend writes it into a std140 uniform
+// block directly, where the column stride is 16 bytes. No host layout is correct for all backends.
+//
+// The matCx3 (except the Shader16PaddedMat3) is not supported in both std140 and std430, the
+// column stride is 12 bytes in rust but 16 bytes in WGSL.
 
 unsafe impl Std140 for Shader16PaddedMat3 {
   const ALIGNMENT: usize = 16;
 }
 
 unsafe impl Std140 for Mat4<f32> {
+  const ALIGNMENT: usize = 16;
+}
+
+unsafe impl Std140 for Mat2x4<f32> {
+  const ALIGNMENT: usize = 16;
+}
+
+unsafe impl Std140 for Mat3x4<f32> {
   const ALIGNMENT: usize = 16;
 }
 
@@ -303,6 +314,22 @@ unsafe impl Std430 for Shader16PaddedMat3 {
 }
 
 unsafe impl Std430 for Mat4<f32> {
+  const ALIGNMENT: usize = 16;
+}
+
+unsafe impl Std430 for Mat3x2<f32> {
+  const ALIGNMENT: usize = 8;
+}
+
+unsafe impl Std430 for Mat4x2<f32> {
+  const ALIGNMENT: usize = 8;
+}
+
+unsafe impl Std430 for Mat2x4<f32> {
+  const ALIGNMENT: usize = 16;
+}
+
+unsafe impl Std430 for Mat3x4<f32> {
   const ALIGNMENT: usize = 16;
 }
 

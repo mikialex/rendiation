@@ -380,14 +380,13 @@ impl ShaderAPINagaImpl {
 
   fn define_out(
     &mut self,
-    ty: PrimitiveShaderValueType,
+    ty: ShaderSizedValueType,
     name: String,
     ty_deco: ShaderFieldDecorator,
   ) -> ShaderNodeRawHandle {
     assert!(self.block.len() == 1); // we should define input in root scope
     assert!(self.building_fn.len() == 1);
 
-    let ty = ShaderSizedValueType::Primitive(ty);
     self.outputs_define.push(ShaderStructFieldMetaInfo {
       name,
       ty: ty.clone(),
@@ -746,7 +745,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     interpolation: Option<ShaderInterpolation>,
   ) -> ShaderNodeRawHandle {
     self.define_out(
-      ty,
+      ShaderSizedValueType::Primitive(ty),
       format!("vertex_out_{}", self.outputs_define.len()),
       ShaderFieldDecorator::Location(self.outputs.len(), interpolation),
     )
@@ -754,15 +753,28 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
   fn define_vertex_position_output(&mut self, invariant: bool) -> ShaderNodeRawHandle {
     self.define_out(
-      PrimitiveShaderValueType::vector(VectorSize::Quad, ScalarType::F32),
+      ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vec4::<f32>()),
       String::from("vertex_point_out"),
       ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::VertexPositionOut { invariant }),
     )
   }
 
+  fn define_vertex_clip_distances_output(&mut self, count: usize) -> ShaderNodeRawHandle {
+    self.define_out(
+      ShaderSizedValueType::FixedSizeArray(
+        Box::new(ShaderSizedValueType::Primitive(
+          PrimitiveShaderValueType::f32(),
+        )),
+        count,
+      ),
+      String::from("vertex_clip_distances_out"),
+      ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::VertexClipDistances),
+    )
+  }
+
   fn define_frag_depth_output(&mut self) -> ShaderNodeRawHandle {
     self.define_out(
-      PrimitiveShaderValueType::f32(),
+      ShaderSizedValueType::Primitive(PrimitiveShaderValueType::f32()),
       String::from("frag_depth_out"),
       ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::FragDepth),
     )

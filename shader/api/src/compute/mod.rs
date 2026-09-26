@@ -17,6 +17,7 @@ pub struct ShaderComputePipelineBuilder {
   subgroup_id: RwLock<Option<Node<u32>>>,
   subgroup_invocation_id: RwLock<Option<Node<u32>>>,
   subgroup_size: RwLock<Option<Node<u32>>>,
+  num_subgroups: RwLock<Option<Node<u32>>>,
   pub checks: ShaderRuntimeChecks,
 }
 
@@ -99,6 +100,7 @@ impl ShaderComputePipelineBuilder {
       subgroup_id: Default::default(),
       subgroup_invocation_id: Default::default(),
       subgroup_size: Default::default(),
+      num_subgroups: Default::default(),
     };
 
     // if user not setting any workgroup size in building process, we use this as default config
@@ -138,7 +140,7 @@ impl ShaderComputePipelineBuilder {
 
   pub fn subgroup_invocation_id(&self) -> Node<u32> {
     *self.subgroup_invocation_id.write().get_or_insert_with(|| {
-      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::CompSubgroupInvocationId).insert_api()
+      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::SubgroupInvocationId).insert_api()
     })
   }
   pub fn subgroup_id(&self) -> Node<u32> {
@@ -148,7 +150,13 @@ impl ShaderComputePipelineBuilder {
   }
   pub fn subgroup_size(&self) -> Node<u32> {
     *self.subgroup_size.write().get_or_insert_with(|| {
-      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::CompSubgroupSize).insert_api()
+      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::SubgroupSize).insert_api()
+    })
+  }
+  /// the number of subgroups in the current workgroup
+  pub fn num_subgroups(&self) -> Node<u32> {
+    *self.num_subgroups.write().get_or_insert_with(|| {
+      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::CompNumSubgroups).insert_api()
     })
   }
 

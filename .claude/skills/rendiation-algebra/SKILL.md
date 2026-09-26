@@ -96,6 +96,12 @@ Vector arithmetic works element-wise: `a + b`, `a - b`, `a * scalar`, `a / scala
 
 `Mat2<T>`, `Mat3<T>`, `Mat4<T>` — square matrices. `Mat4::identity()` for identity.
 
+Non square matrices are named `MatCxR` (C columns and R rows, column major, same as WGSL), all
+defined in [mat/non_square.rs](math/algebra/src/mat/non_square.rs): `Mat2x3`, `Mat2x4`, `Mat3x2`,
+`Mat3x4`, `Mat4x2` are mainly shader data types and only provide `new_from_column`, the
+component-wise operators and array conversions, `Mat4x3<T>` is also used as the affine transform
+and has the transform helpers.
+
 ## Quaternion
 
 `Quat<T>` — quaternion for rotations.
@@ -129,5 +135,5 @@ pub trait SpaceEntity<T: Scalar, const D: usize> {
 | [math/algebra/src/vec/dimension.rs](math/algebra/src/vec/dimension.rs) | `InnerProductSpace`, `VectorSpace`, `Vector` traits |
 | [math/algebra/src/vec/vec3.rs](math/algebra/src/vec/vec3.rs) | `Vec3` struct, `dot_impl` |
 | [math/algebra/src/vec/vec4.rs](math/algebra/src/vec/vec4.rs) | `Vec4` struct |
-| [math/algebra/src/mat/](math/algebra/src/mat/) | `Mat2`, `Mat3`, `Mat4` |
+| [math/algebra/src/mat/](math/algebra/src/mat/) | `Mat2`, `Mat3`, `Mat4`, `Mat4x3`, the other non square matrices |
 | [math/algebra/src/quat.rs](math/algebra/src/quat.rs) | `Quat` |

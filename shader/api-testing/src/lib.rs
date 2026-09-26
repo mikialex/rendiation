@@ -23,6 +23,8 @@ mod control_flow;
 #[cfg(test)]
 mod graphics;
 #[cfg(test)]
+mod layout;
+#[cfg(test)]
 mod operator;
 #[cfg(test)]
 mod subgroup;

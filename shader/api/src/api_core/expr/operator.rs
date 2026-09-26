@@ -190,36 +190,57 @@ impl_scalar_vector_arithmetic!(f32);
 impl_scalar_vector_arithmetic!(u32);
 impl_scalar_vector_arithmetic!(i32);
 
-macro_rules! impl_matrix_scalar_arithmetic {
-  ($($mat: ty),+) => {
+// the f32 vecN type
+macro_rules! vec_ty {
+  (2) => { Vec2<f32> };
+  (3) => { Vec3<f32> };
+  (4) => { Vec4<f32> };
+}
+
+// the f32 matCxR type, C columns and R rows
+macro_rules! mat_ty {
+  (2, 2) => { Mat2<f32> };
+  (2, 3) => { Mat2x3<f32> };
+  (2, 4) => { Mat2x4<f32> };
+  (3, 2) => { Mat3x2<f32> };
+  (3, 3) => { Mat3<f32> };
+  (3, 4) => { Mat3x4<f32> };
+  (4, 2) => { Mat4x2<f32> };
+  (4, 3) => { Mat4x3<f32> };
+  (4, 4) => { Mat4<f32> };
+}
+
+macro_rules! impl_matrix_arithmetic {
+  ($(($c: tt, $r: tt)),+) => {
     $(
-      impl_same_type_operands!($mat);
-      impl_shader_mul!($mat, f32, $mat);
-      impl_shader_mul!(f32, $mat, $mat);
+      impl_same_type_operands!(mat_ty!($c, $r));
+      impl_shader_mul!(mat_ty!($c, $r), f32, mat_ty!($c, $r));
+      impl_shader_mul!(f32, mat_ty!($c, $r), mat_ty!($c, $r));
+
+      // matCxR * vecC -> vecR
+      impl_shader_mul!(mat_ty!($c, $r), vec_ty!($c), vec_ty!($r));
+      // vecR * matCxR -> vecC
+      impl_shader_mul!(vec_ty!($r), mat_ty!($c, $r), vec_ty!($c));
+
+      // matCxR * matNxC -> matNxR
+      impl_shader_mul!(mat_ty!($c, $r), mat_ty!(2, $c), mat_ty!(2, $r));
+      impl_shader_mul!(mat_ty!($c, $r), mat_ty!(3, $c), mat_ty!(3, $r));
+      impl_shader_mul!(mat_ty!($c, $r), mat_ty!(4, $c), mat_ty!(4, $r));
     )+
   };
 }
 
-impl_matrix_scalar_arithmetic!(Mat2<f32>, Mat3<f32>, Mat4<f32>, Mat4x3<f32>);
-
-// matCxR * vecC -> vecR
-impl_shader_mul!(Mat2<f32>, Vec2<f32>, Vec2<f32>);
-impl_shader_mul!(Mat3<f32>, Vec3<f32>, Vec3<f32>);
-impl_shader_mul!(Mat4<f32>, Vec4<f32>, Vec4<f32>);
-impl_shader_mul!(Mat4x3<f32>, Vec4<f32>, Vec3<f32>);
-
-// vecR * matCxR -> vecC
-impl_shader_mul!(Vec2<f32>, Mat2<f32>, Vec2<f32>);
-impl_shader_mul!(Vec3<f32>, Mat3<f32>, Vec3<f32>);
-impl_shader_mul!(Vec4<f32>, Mat4<f32>, Vec4<f32>);
-impl_shader_mul!(Vec3<f32>, Mat4x3<f32>, Vec4<f32>);
-
-// matKxR * matCxK -> matCxR
-impl_shader_mul!(Mat2<f32>, Mat2<f32>, Mat2<f32>);
-impl_shader_mul!(Mat3<f32>, Mat3<f32>, Mat3<f32>);
-impl_shader_mul!(Mat4<f32>, Mat4<f32>, Mat4<f32>);
-impl_shader_mul!(Mat4x3<f32>, Mat4<f32>, Mat4x3<f32>);
-impl_shader_mul!(Mat3<f32>, Mat4x3<f32>, Mat4x3<f32>);
+impl_matrix_arithmetic!(
+  (2, 2),
+  (2, 3),
+  (2, 4),
+  (3, 2),
+  (3, 3),
+  (3, 4),
+  (4, 2),
+  (4, 3),
+  (4, 4)
+);
 
 fn component_wise_binary<T, R>(
   lhs: Node<T>,

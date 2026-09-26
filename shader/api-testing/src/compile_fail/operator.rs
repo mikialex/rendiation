@@ -82,3 +82,17 @@ pub struct MatrixDivMatrix;
 /// s += zeroed_val::<Vec3<f32>>();
 /// ```
 pub struct ScalarAddAssignVector;
+
+/// matCxR can only multiply vecC
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// let v = zeroed_val::<Mat2x3<f32>>() * zeroed_val::<Vec3<f32>>();
+/// ```
+pub struct NonSquareMatrixMulVectorMismatch;
+
+/// matCxR can only multiply matNxC
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// let v = zeroed_val::<Mat3x4<f32>>() * zeroed_val::<Mat3x4<f32>>();
+/// ```
+pub struct NonSquareMatrixMulMatrixMismatch;

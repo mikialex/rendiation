@@ -27,3 +27,13 @@ pub struct VertexOutMatrix;
 /// }
 /// ```
 pub struct VertexInBool;
+
+/// the clip distances count must be in [1, 8]
+/// ```compile_fail,E0080
+/// use rendiation_shader_api::*;
+/// fn case(builder: &mut ShaderRawVertexBuilder) {
+///   builder.set_clip_distances(zeroed_val::<[f32; 9]>());
+/// }
+/// let _: fn(&mut ShaderRawVertexBuilder) = case;
+/// ```
+pub struct ClipDistancesTooMany;

@@ -31,6 +31,7 @@ use rendiation_shader_api::*;
 | `.subgroup_invocation_id()` | `Node<u32>` (requires subgroup support) |
 | `.subgroup_id()` | `Node<u32>` (requires subgroup support) |
 | `.subgroup_size()` | `Node<u32>` (requires subgroup support) |
+| `.num_subgroups()` | `Node<u32>` (requires subgroup support) |
 
 **Workgroup size config**: `IntoWorkgroupSize` trait, implemented for `u32`, `(u32, u32)`, `(u32, u32, u32)`
 

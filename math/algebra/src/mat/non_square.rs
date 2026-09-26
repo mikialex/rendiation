@@ -2,16 +2,58 @@ use std::ops::{Add, Div, Mul};
 
 use crate::*;
 
-#[repr(C)]
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
-#[rustfmt::skip]
-pub struct Mat4x3<T> {
-  pub a1: T, pub a2: T, pub a3: T,
-  pub b1: T, pub b2: T, pub b3: T,
-  pub c1: T, pub c2: T, pub c3: T,
-  pub d1: T, pub d2: T, pub d3: T,
+// The non square matrices, named as MatCxR (C columns and R rows) like WGSL. They are mainly used
+// as the shader data types, so only the basic component-wise operations are provided, except the
+// Mat4x3 which is also used as the affine transform.
+
+macro_rules! impl_non_square_matrix {
+  ($MatrixN: ident, $rows: expr, { $($column: ident: [$($field: ident),+]),+ }) => {
+    #[repr(C)]
+    #[derive(Serialize, Deserialize)]
+    #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
+    pub struct $MatrixN<T> {
+      $($(pub $field: T,)+)+
+    }
+
+    unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for $MatrixN<T> {}
+    unsafe impl<T: bytemuck::Pod> bytemuck::Pod for $MatrixN<T> {}
+
+    impl<T> $MatrixN<T> {
+      pub fn new_from_column($($column: [T; $rows]),+) -> Self {
+        $(let [$($field),+] = $column;)+
+        Self { $($($field),+),+ }
+      }
+    }
+
+    impl<T> AsRef<$MatrixN<T>> for $MatrixN<T> {
+      fn as_ref(&self) -> &$MatrixN<T> {
+        self
+      }
+    }
+
+    impl<T> AsMut<$MatrixN<T>> for $MatrixN<T> {
+      fn as_mut(&mut self) -> &mut $MatrixN<T> {
+        self
+      }
+    }
+  };
 }
+
+impl_non_square_matrix!(Mat2x3, 3, { a: [a1, a2, a3], b: [b1, b2, b3] });
+impl_non_square_matrix!(Mat2x4, 4, { a: [a1, a2, a3, a4], b: [b1, b2, b3, b4] });
+impl_non_square_matrix!(Mat3x2, 2, { a: [a1, a2], b: [b1, b2], c: [c1, c2] });
+impl_non_square_matrix!(Mat3x4, 4, {
+  a: [a1, a2, a3, a4],
+  b: [b1, b2, b3, b4],
+  c: [c1, c2, c3, c4]
+});
+impl_non_square_matrix!(Mat4x2, 2, { a: [a1, a2], b: [b1, b2], c: [c1, c2], d: [d1, d2] });
+impl_non_square_matrix!(Mat4x3, 3, {
+  a: [a1, a2, a3],
+  b: [b1, b2, b3],
+  c: [c1, c2, c3],
+  d: [d1, d2, d3]
+});
 
 impl<T> Mat4x3<T> {
   pub fn to_mat3(self) -> Mat3<T> {
@@ -29,9 +71,6 @@ impl<T: Scalar> Mat4x3<T> {
     self.to_mat3().inverse_or_identity().transpose()
   }
 }
-
-unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat4x3<T> {}
-unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat4x3<T> {}
 
 impl<T> Mul<Vec3<T>> for Mat4x3<T>
 where
@@ -74,18 +113,6 @@ impl<T: Sized> Mat4x3<T> {
       b1: m21, b2: m22, b3: m23,
       c1: m31, c2: m32, c3: m33,
       d1: m41, d2: m42, d3: m43,
-    }
-  }
-}
-
-impl<T: Copy> Mat4x3<T> {
-  pub fn new_from_column(c1: [T; 3], c2: [T; 3], c3: [T; 3], c4: [T; 3]) -> Self {
-    #[rustfmt::skip]
-    Self {
-      a1: c1[0], a2: c1[1], a3: c1[2],
-      b1: c2[0], b2: c2[1], b3: c2[2],
-      c1: c3[0], c2: c3[1], c3: c3[2],
-      d1: c4[0], d2: c4[1], d3: c4[2],
     }
   }
 }
@@ -154,17 +181,5 @@ impl<T: Scalar> From<Mat3<T>> for Mat4x3<T> {
       c1: m.c1,      c2: m.c2,      c3: m.c3,
       d1: T::zero(), d2: T::zero(), d3: T::zero(),
     }
-  }
-}
-
-impl<T> AsRef<Mat4x3<T>> for Mat4x3<T> {
-  fn as_ref(&self) -> &Mat4x3<T> {
-    self
-  }
-}
-
-impl<T> AsMut<Mat4x3<T>> for Mat4x3<T> {
-  fn as_mut(&mut self) -> &mut Mat4x3<T> {
-    self
   }
 }

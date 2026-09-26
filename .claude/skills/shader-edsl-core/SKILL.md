@@ -57,7 +57,7 @@ library's operator impls (which contain WGSL-invalid ones like the homogeneous `
 |----------|----------------|
 | `+ -` | see `ShaderAddSub<Rhs>`: same type numeric scalar/vector, `vec ± scalar`, `scalar ± vec`, same type f32 matrix |
 | `/ %` | see `ShaderDivRem<Rhs>`: same type numeric scalar/vector, `vec / scalar`, `scalar / vec` (same for `%`) |
-| `*` | see `ShaderMul<Rhs>`: same type numeric scalar/vector, `vec * scalar`, `scalar * vec`, `mat * f32`, `f32 * mat`, `matCxR * vecC -> vecR`, `vecR * matCxR -> vecC`, `matKxR * matCxK -> matCxR` |
+| `*` | see `ShaderMul<Rhs>`: same type numeric scalar/vector, `vec * scalar`, `scalar * vec`, `mat * f32`, `f32 * mat`, `matCxR * vecC -> vecR`, `vecR * matCxR -> vecC`, `matCxR * matNxC -> matNxR` |
 | unary `-` | i32/f32 scalar or vector (unsigned, bool and matrix are rejected) |
 | `& \|` | integer or bool scalar/vector (non short circuit for bool) |
 | `^ << >>`, `.bitwise_not()` | integer scalar/vector |
@@ -192,6 +192,7 @@ The macro must be placed before `#[derive(...)]`, because it inserts private pad
 
 - "std140" here means the WGSL uniform address space layout, which is not GLSL std140
 - `Mat2<f32>` is not supported in std140 (its WGSL uniform layout differs from the naga GLSL backend output), use `Vec4<f32>` instead
+- host shareable matrices: std140 supports `Mat4`, `Mat2x4`, `Mat3x4` (and `Shader16PaddedMat3`); std430 additionally supports `Mat2`, `Mat3x2`, `Mat4x2`. The matCx3 types (`Mat3`, `Mat2x3`, `Mat4x3`) are not host shareable because the rust column stride is 12 bytes but 16 in WGSL
 - **Bool**: cannot be used directly as a field in std140 and std430;  use `Bool` instead.
 - use `Shader16PaddedMat3` instead of `Mat3<f32>` for std140-compatible mat3
 - use `Shader140Array<T, N>` instead of `[T, N]` for std140-compatible fixed-size array; the element stride must be a multiple of 16 (`Vec4`, `Vec3`, structs, `Mat4` are fine; `f32`/`u32`/`Vec2` are rejected at compile time, pack them into `Vec4`)
@@ -619,7 +620,7 @@ All methods are called directly on `Node<T>`.
 
 | Method | Description |
 |--------|-------------|
-| `.transpose()` | Matrix transpose (square matrix only) |
+| `.transpose()` | Matrix transpose, `matCxR -> matRxC` |
 | `.determinant()` | Determinant (square matrix only) |
 
 ### Math functions
@@ -670,7 +671,9 @@ let f: Node<f32> = int_val.into_f32();
 let u: Node<u32> = float_val.into_u32();
 let i: Node<i32> = float_val.into_i32();
 let b: Node<bool> = float_val.into_bool(); // u32/i32/f32 <-> bool are all supported
-let bits: Node<u32> = float_val.bitcast::<u32>(); // scalar only for now
+// 32 bit numeric (f32/u32/i32) scalar or vector, the shape must be the same
+let bits: Node<u32> = float_val.bitcast::<u32>();
+let bits: Node<Vec3<u32>> = float_vec3.bitcast::<Vec3<u32>>();
 ```
 
 ### Vector boolean operations
@@ -726,7 +729,16 @@ let col: Node<Vec4<f32>> = mat.x();
 let pos: Node<Vec3<f32>> = mat.position();   // mat4 last column(position)
 let fwd: Node<Vec3<f32>> = mat.forward();    // mat4 3rd column (z)
 let rot: Node<Mat3<f32>> = mat.shrink_to_3(); // mat4 -> mat3
+
+// Non square matrix, named MatCxR (C columns and R rows) like WGSL
+let m: Node<Mat2x3<f32>> = (vec3_col0, vec3_col1).into();
+let t: Node<Mat3x2<f32>> = m.transpose();
+let v: Node<Vec3<f32>> = m * vec2_value; // matCxR * vecC -> vecR
 ```
+
+All the WGSL matrix types are available: `Mat2`, `Mat3`, `Mat4`, `Mat2x3`, `Mat2x4`, `Mat3x2`,
+`Mat3x4`, `Mat4x2`, `Mat4x3`, all of them can be composed from columns and support column access
+(`.x()` `.y()` ...). `.determinant()` is square matrix only.
 
 
 ## Testing
