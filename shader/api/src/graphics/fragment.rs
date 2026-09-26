@@ -23,9 +23,9 @@ impl ShaderFragmentBuilderView<'_> {
   where
     T: SemanticFragmentShaderValue,
     T: SemanticFragmentShaderValue<ValueType = <V as SemanticVertexShaderValue>::ValueType>,
-    T::ValueType: PrimitiveShaderNodeType + Default,
+    T::ValueType: ShaderLocationIOType + Default,
     V: SemanticVertexShaderValue,
-    V::ValueType: PrimitiveShaderNodeType,
+    V::ValueType: ShaderLocationIOType,
   {
     if let Some(r) = self.try_query::<T>() {
       return r;

@@ -113,6 +113,11 @@ builder.set_vertex_out_with_given_interpolate::<FragmentColor>(color);
 builder.register::<ClipPosition>(clip_pos);
 ```
 
+The value type of the vertex outputs and vertex inputs must be `ShaderLocationIOType`, which is the
+numeric scalar or numeric vector (f32, u32, i32), bool and matrix are rejected at compile time.
+Integer outputs are always flat interpolated. A `Mat4<f32>` vertex attribute is supported by
+`push_single_vertex_layout`, which splits it into four vec4 attributes.
+
 ### Custom semantics
 
 Semantic types are split across two crates. `rendiation_shader_api` keeps only the wgsl

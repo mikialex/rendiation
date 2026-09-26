@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use naga::valid::{Capabilities, ValidationFlags, Validator};
 use rendiation_shader_api::*;
 use rendiation_shader_backend_naga::*;
@@ -28,6 +30,63 @@ pub fn validate(module: &naga::Module) {
 /// Build a compute shader and validate it.
 pub fn check_compute(logic: impl FnOnce(&ShaderComputePipelineBuilder)) {
   validate(&build_compute(logic))
+}
+
+/// Build a graphics shader by the naga backend, return the vertex and fragment shader module.
+pub fn build_graphics(logic: impl Fn(&mut ShaderRenderPipelineBuilder)) -> [naga::Module; 2] {
+  struct Logic<F>(F);
+  impl<F: Fn(&mut ShaderRenderPipelineBuilder)> GraphicsShaderProvider for Logic<F> {
+    fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+      (self.0)(builder)
+    }
+  }
+
+  let builder = Logic(logic)
+    .build_self(
+      &|stage| Box::new(ShaderAPINagaImpl::new(stage)),
+      None,
+      Arc::new(fake_gpu_info()),
+      ShaderRuntimeChecks::default(),
+    )
+    .unwrap_or_else(|e| panic!("failed to build shader: {e:?}"));
+  let result = builder.build().expect("failed to build shader");
+
+  let VertexOrTaskMesh::Vertex(vertex) = result.shape_shader else {
+    unreachable!("expect vertex shader")
+  };
+  [vertex, result.frag_shader].map(|(_, shader)| {
+    shader
+      .downcast::<NagaModuleBuildResult>()
+      .expect("expect naga backend build result")
+      .module
+  })
+}
+
+/// Build a graphics shader and validate the vertex and fragment shader.
+pub fn check_graphics(logic: impl Fn(&mut ShaderRenderPipelineBuilder)) {
+  build_graphics(logic).iter().for_each(validate);
+}
+
+fn fake_gpu_info() -> GPUInfo {
+  GPUInfo {
+    adaptor_info: wgpu_types::AdapterInfo {
+      name: String::new(),
+      vendor: 0,
+      device: 0,
+      device_type: wgpu_types::DeviceType::Other,
+      device_pci_bus_id: String::new(),
+      driver: String::new(),
+      driver_info: String::new(),
+      backend: wgpu_types::Backend::Noop,
+      subgroup_min_size: 4,
+      subgroup_max_size: 128,
+      transient_saves_memory: false,
+    },
+    power_preference: Default::default(),
+    supported_features: wgpu_types::Features::all(),
+    supported_limits: Default::default(),
+    downgrade_info: Default::default(),
+  }
 }
 
 /// Store the value into a local variable, so the expression is used by a statement.

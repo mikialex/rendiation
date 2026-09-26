@@ -121,7 +121,7 @@ impl ShaderRawVertexBuilder {
   pub fn register_vertex_in<T>(&mut self) -> u32
   where
     T: SemanticVertexShaderValue,
-    T::ValueType: PrimitiveShaderNodeType,
+    T::ValueType: ShaderLocationIOType,
   {
     self.register_vertex_in_inner(T::ValueType::primitive_ty(), TypeId::of::<T>())
   }
@@ -316,7 +316,7 @@ pub trait VertexInBuilder {
 }
 
 /// Mark self type could use as vertex buffer input
-pub trait VertexInShaderNodeType: PrimitiveShaderNodeType {
+pub trait VertexInShaderNodeType: ShaderLocationIOType {
   fn to_vertex_format() -> VertexFormat;
 }
 

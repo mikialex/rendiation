@@ -723,19 +723,7 @@ let rot: Node<Mat3<f32>> = mat.shrink_to_3(); // mat4 -> mat3
 
 ## Testing
 
-EDSL tests live in `shader/api-testing` (no GPU required), grouped by topic:
-
-- `src/compile_fail/<topic>.rs` (only compiled for doctest): WGSL invalid code that must be rejected by the type
-  system. Each case is a `compile_fail,E0xxx` doctest attached to a unit struct named after the case, it is compiled
-  independently and the error code is checked (nightly only). Keep each case minimal so the error code can only come
-  from the tested usage, and keep a valid twin of it in the validation tests.
-- `src/<topic>.rs`: WGSL valid code, built by `check_compute(|builder| ..)` which runs the naga validation
-  (naga is only used as the validator here, do not assert the generated shader source). Use `keep(node)`
-  to make the expression used, `runtime_values(builder)` for non constant inputs, `fake_binding(index)`
-  for textures/samplers, and `#[should_panic]` for build time checks.
-
-Run by `cargo test -p rendiation-shader-api-testing` (`--lib` skips the doctests). When an API bound is changed, add a
-compile fail case for the rejected usage and a validation case for the valid usage.
+EDSL tests live in `shader/api-testing`, see its README before adding tests.
 
 ## Gotchas
 

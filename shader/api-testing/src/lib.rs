@@ -21,6 +21,8 @@ mod builtin;
 #[cfg(test)]
 mod control_flow;
 #[cfg(test)]
+mod graphics;
+#[cfg(test)]
 mod operator;
 #[cfg(test)]
 mod subgroup;

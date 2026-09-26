@@ -4917,6 +4917,7 @@ dependencies = [
  "naga",
  "rendiation-shader-api",
  "rendiation-shader-backend-naga",
+ "wgpu-types",
 ]
 
 [[package]]

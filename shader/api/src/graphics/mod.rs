@@ -167,6 +167,25 @@ pub trait AbstractShaderVertexBuilder {
   }
 }
 
+/// The types that can be used as the user defined shader IO (the vertex input and the inter stage
+/// variables with the `@location` attribute), which are the numeric scalars and numeric vectors.
+#[diagnostic::on_unimplemented(
+  message = "`{Self}` can not be used as the user defined shader IO, only numeric scalar or numeric vector is allowed"
+)]
+pub trait ShaderLocationIOType: PrimitiveShaderNodeType {}
+
+macro_rules! impl_location_io_type {
+  ($($ty: ty),+) => {
+    $(
+      impl ShaderLocationIOType for $ty {}
+      impl ShaderLocationIOType for Vec2<$ty> {}
+      impl ShaderLocationIOType for Vec3<$ty> {}
+      impl ShaderLocationIOType for Vec4<$ty> {}
+    )+
+  };
+}
+impl_location_io_type!(f32, u32, i32);
+
 pub trait AbstractShaderVertexBuilderTypedExt {
   fn register<T: SemanticVertexShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>);
   fn try_query<T: SemanticVertexShaderValue>(&mut self) -> Option<Node<T::ValueType>>;
@@ -182,14 +201,14 @@ pub trait AbstractShaderVertexBuilderTypedExt {
   fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
   where
     T: SemanticFragmentShaderValue,
-    T::ValueType: PrimitiveShaderNodeType;
+    T::ValueType: ShaderLocationIOType;
   fn set_vertex_out_with_given_interpolate<T>(
     &mut self,
     node: impl Into<Node<T::ValueType>>,
     interpolation: ShaderInterpolation,
   ) where
     T: SemanticFragmentShaderValue,
-    T::ValueType: PrimitiveShaderNodeType;
+    T::ValueType: ShaderLocationIOType;
   fn register_any<T: Any>(&mut self, value: T);
 }
 
@@ -246,7 +265,7 @@ impl<B: AbstractShaderVertexBuilder + ?Sized> AbstractShaderVertexBuilderTypedEx
     interpolation: ShaderInterpolation,
   ) where
     T: SemanticFragmentShaderValue,
-    T::ValueType: PrimitiveShaderNodeType,
+    T::ValueType: ShaderLocationIOType,
   {
     let node = node.into().cast_untyped_node();
     self.set_vertex_out_impl(
@@ -260,7 +279,7 @@ impl<B: AbstractShaderVertexBuilder + ?Sized> AbstractShaderVertexBuilderTypedEx
   fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
   where
     T: SemanticFragmentShaderValue,
-    T::ValueType: PrimitiveShaderNodeType,
+    T::ValueType: ShaderLocationIOType,
   {
     self.set_vertex_out_with_given_interpolate::<T>(node, ShaderInterpolation::Perspective)
   }

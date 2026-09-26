@@ -2,6 +2,7 @@
 //! name. Keep each case minimal, so the expected error code can only come from the tested usage.
 
 pub mod builtin;
+pub mod graphics;
 pub mod operator;
 pub mod subgroup;
 pub mod texture;
