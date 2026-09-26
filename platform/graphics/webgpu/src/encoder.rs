@@ -121,8 +121,8 @@ impl GPUCommandEncoder {
         .as_ref()
         .map(|(depth_ops, stencil_ops, view)| {
           size = Some(view.size());
-          let depth_ops = view.format().has_depth_aspect().then_some(*depth_ops);
-          let stencil_ops = view.format().has_stencil_aspect().then_some(*stencil_ops);
+          let depth_ops = depth_ops.filter(|_| view.format().has_depth_aspect());
+          let stencil_ops = stencil_ops.filter(|_| view.format().has_stencil_aspect());
 
           gpu::RenderPassDepthStencilAttachment {
             view: view.as_render_view(),

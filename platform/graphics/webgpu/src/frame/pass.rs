@@ -52,8 +52,13 @@ pub struct RenderPassDescription {
     RenderTargetView,
     Option<RenderTargetView>,
   )>,
-  /// (depth_op, stencil_op, attachment)
-  pub depth_stencil_target: Option<(gpu::Operations<f32>, gpu::Operations<u32>, RenderTargetView)>,
+  /// (depth_op, stencil_op, attachment), None op means the aspect is read only, see
+  /// [RenderPassDescription::with_depth]
+  pub depth_stencil_target: Option<(
+    Option<gpu::Operations<f32>>,
+    Option<gpu::Operations<u32>>,
+    RenderTargetView,
+  )>,
 }
 
 impl RenderPassDescription {
@@ -72,8 +77,12 @@ impl RenderPassDescription {
     for c in self.channels.iter_mut() {
       c.0.load = gpu::LoadOp::Load;
     }
-    if let Some(c) = self.depth_stencil_target.as_mut() {
-      c.0.load = gpu::LoadOp::Load;
+    if let Some(op) = self
+      .depth_stencil_target
+      .as_mut()
+      .and_then(|c| c.0.as_mut())
+    {
+      op.load = gpu::LoadOp::Load;
     }
   }
 
@@ -138,23 +147,27 @@ impl RenderPassDescription {
   }
 
   /// if the attachment has no stencil, stencil_op will be ignored, same as the depth_op
+  ///
+  /// passing None op makes the aspect read only in this pass, the content is loaded and kept. The
+  /// read only attachment can be bound as texture and accessed in the same pass at the same time,
+  /// and all pipelines used in this pass must not write it.
   #[must_use]
   pub fn with_depth(
     mut self,
     attachment: &RenderTargetView,
-    depth_op: impl Into<gpu::Operations<f32>>,
-    stencil_op: impl Into<gpu::Operations<u32>>,
+    depth_op: impl Into<Option<gpu::Operations<f32>>>,
+    stencil_op: impl Into<Option<gpu::Operations<u32>>>,
   ) -> Self {
     self.set_depth(attachment, depth_op, stencil_op);
     self
   }
 
-  /// if the attachment has no stencil, stencil_op will be ignored, same as the depth_op
+  /// see [RenderPassDescription::with_depth]
   pub fn set_depth(
     &mut self,
     attachment: &RenderTargetView,
-    depth_op: impl Into<gpu::Operations<f32>>,
-    stencil_op: impl Into<gpu::Operations<u32>>,
+    depth_op: impl Into<Option<gpu::Operations<f32>>>,
+    stencil_op: impl Into<Option<gpu::Operations<u32>>>,
   ) {
     self
       .depth_stencil_target

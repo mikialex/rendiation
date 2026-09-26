@@ -196,6 +196,19 @@ pub fn map_primitive_vec_size(t: PrimitiveShaderValueType) -> Option<naga::Vecto
   }
 }
 
+pub fn map_early_depth_test(test: ShaderEarlyDepthTest) -> naga::EarlyDepthTest {
+  match test {
+    ShaderEarlyDepthTest::Force => naga::EarlyDepthTest::Force,
+    ShaderEarlyDepthTest::Allow { conservative } => naga::EarlyDepthTest::Allow {
+      conservative: match conservative {
+        ShaderConservativeDepth::GreaterEqual => naga::ConservativeDepth::GreaterEqual,
+        ShaderConservativeDepth::LessEqual => naga::ConservativeDepth::LessEqual,
+        ShaderConservativeDepth::Unchanged => naga::ConservativeDepth::Unchanged,
+      },
+    },
+  }
+}
+
 pub fn map_interpolation(interpolation: ShaderInterpolation) -> naga::Interpolation {
   match interpolation {
     ShaderInterpolation::Perspective => naga::Interpolation::Perspective,
@@ -212,7 +225,9 @@ pub fn map_built_in(bt: ShaderBuiltInDecorator) -> naga::BuiltIn {
     ShaderBuiltInDecorator::FragSampleIndex => naga::BuiltIn::SampleIndex,
     ShaderBuiltInDecorator::FragSampleMask => naga::BuiltIn::SampleMask,
     ShaderBuiltInDecorator::FragPositionIn => naga::BuiltIn::Position { invariant: false },
-    ShaderBuiltInDecorator::VertexPositionOut => naga::BuiltIn::Position { invariant: false },
+    ShaderBuiltInDecorator::VertexPositionOut { invariant } => {
+      naga::BuiltIn::Position { invariant }
+    }
     ShaderBuiltInDecorator::FragDepth => naga::BuiltIn::FragDepth,
     ShaderBuiltInDecorator::CompLocalInvocationId => naga::BuiltIn::LocalInvocationId,
     ShaderBuiltInDecorator::CompGlobalInvocationId => naga::BuiltIn::GlobalInvocationId,

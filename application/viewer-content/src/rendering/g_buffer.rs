@@ -45,8 +45,8 @@ impl FrameGeometryBuffer {
   pub fn extend_pass_desc(
     &self,
     desc: &mut RenderPassDescription,
-    depth_op: impl Into<Operations<f32>>,
-    stencil_op: impl Into<Operations<u32>>,
+    depth_op: impl Into<Option<Operations<f32>>>,
+    stencil_op: impl Into<Option<Operations<u32>>>,
   ) -> FrameGeometryBufferPassEncoder {
     desc.set_depth(&self.depth, depth_op, stencil_op);
 

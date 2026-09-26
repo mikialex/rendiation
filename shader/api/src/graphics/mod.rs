@@ -120,6 +120,16 @@ pub trait AbstractShaderVertexBuilder {
   fn set_current_building(&mut self);
   fn finalize_write(&mut self);
   fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder);
+  /// Mark the output clip position as invariant. The invariant position is guaranteed to be
+  /// computed identically (bit exact) across different pipelines, as long as they use the same
+  /// position computation logic and inputs. Without it, the compiler may optimize the position
+  /// computation differently for different pipelines (for example, the pipelines only differ in
+  /// the vertex outputs or fragment logic), and produce slightly different depth values.
+  ///
+  /// The multi pass technique that relies on the exact depth equality between passes (for example
+  /// depth pre pass + depth equal test, or the depth list matching in loop32 oit) should mark it
+  /// in all relative pipelines.
+  fn mark_position_invariant(&mut self);
   fn set_vertex_out_impl(
     &mut self,
     ty_id: TypeId,

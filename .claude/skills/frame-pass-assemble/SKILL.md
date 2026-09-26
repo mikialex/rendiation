@@ -66,6 +66,13 @@ Same functions, applied separately to depth and stencil ops:
 //                        ^ depth op         ^ stencil op
 ```
 
+Passing `None` as the op makes that aspect read only: the content is loaded and kept, and the same
+depth texture can be bound and read in shader in this pass at the same time. All pipelines in the
+pass must not write the read only aspect.
+```rust
+.with_depth(&depth_view, None, None)
+```
+
 ### Resolving MSAA
 
 ```rust

@@ -170,6 +170,7 @@ builder.store_fragment_out(1, another_color);  // write to slot 1
 // Special operations
 builder.discard();                              // discard fragment
 builder.register::<FragmentDepthOutput>(depth); // write depth
+builder.set_early_depth_test(ShaderEarlyDepthTest::Force); // test before shading, see gotchas
 
 // Convenience methods
 builder.get_or_compute_fragment_uv();           // auto-get or compute UV
@@ -362,6 +363,29 @@ let sum = weights
 
 - Vertex outputs auto-sync to Fragment inputs (same `both!` semantic)
 - Use `builder.query_or_interpolate_by::<FragType, VertType>()` to declare the dependency
+
+### Fragment side effects and depth test
+
+- If the fragment shader has side effects (storage write, atomics), the depth stencil test runs
+  **after** the shader by default, so the side effects still happen for fragments that fail the test.
+- `builder.set_early_depth_test(ShaderEarlyDepthTest::Force)` (fragment stage) forces the test
+  before shading, discard or depth write in shader has no effect on the test in this mode.
+  `ShaderEarlyDepthTest::Allow { conservative }` only allows an extra early test and keeps the late
+  test, with a `ShaderConservativeDepth` restriction for shaders that write depth. Both require
+  `Features::SHADER_EARLY_DEPTH_TEST` (vulkan and gles only), check `gpu.info().supported_features`
+  before using it. Otherwise test the depth
+  manually in shader, for example with `Node<f32>::depth_test_by(compare, stored_depth)` and a read
+  only depth attachment (see `frame-pass-assemble`), and guard the side effects by `if_by` instead of
+  relying on `discard`.
+
+### Cross pipeline depth invariance
+
+- Different pipelines that share the same position computation are **not** guaranteed to produce
+  bit exact depth (the compiler may optimize differently when vertex outputs or fragment logic differ).
+- If a multi pass technique relies on exact depth equality between passes (depth pre pass + equal
+  test, OIT depth list matching), call `builder.mark_position_invariant()` in the vertex stage of all
+  relative pipelines, for example in `post_build`:
+  `builder.vertex(|builder, _| builder.mark_position_invariant());`
 
 
 ## Reference Examples

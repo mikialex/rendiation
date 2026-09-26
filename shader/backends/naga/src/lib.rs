@@ -552,6 +552,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.module.entry_points[0].workgroup_size = [size.0, size.1, size.2]
   }
 
+  fn set_early_depth_test(&mut self, test: ShaderEarlyDepthTest) {
+    self.module.entry_points[0].early_depth_test = Some(map_early_depth_test(test));
+  }
+
   fn barrier(&mut self, scope: BarrierScope) {
     let b = map_barrier(scope);
     self.push_top_statement(naga::Statement::ControlBarrier(b));
@@ -748,11 +752,11 @@ impl ShaderAPI for ShaderAPINagaImpl {
     )
   }
 
-  fn define_vertex_position_output(&mut self) -> ShaderNodeRawHandle {
+  fn define_vertex_position_output(&mut self, invariant: bool) -> ShaderNodeRawHandle {
     self.define_out(
       PrimitiveShaderValueType::vector(VectorSize::Quad, ScalarType::F32),
       String::from("vertex_point_out"),
-      ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::VertexPositionOut),
+      ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::VertexPositionOut { invariant }),
     )
   }
 

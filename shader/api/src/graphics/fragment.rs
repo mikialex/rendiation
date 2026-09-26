@@ -92,6 +92,42 @@ pub struct ShaderFragmentBuilder {
   pub(crate) errors: ErrorSink,
 }
 
+/// Normally, the depth stencil test is performed after the fragment shading. As an optimization,
+/// most drivers move the test before the shading if it has no observable consequence, which is
+/// disabled if the fragment shader discards, writes depth, or has side effects (for example
+/// storage buffer write or atomic operation). In the last case, the side effects still happen for
+/// the fragment that fails the test.
+///
+/// This controls whether the depth stencil test can be performed before the fragment shading
+/// regardless of the above conditions.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+pub enum ShaderEarlyDepthTest {
+  /// The depth stencil test must be performed before the fragment shading, and the test after the
+  /// shading is disabled. The fragment that fails the test will not execute the shader, so its
+  /// side effects never happen. Discard or depth write in shader has no effect on the depth
+  /// stencil test and the depth written into the depth buffer.
+  Force,
+  /// Allow an additional depth stencil test before the fragment shading, it's up to the driver to
+  /// decide whether to perform it. The test after the shading is still performed.
+  Allow {
+    /// The restriction of the depth written by shader, which helps the driver to decide.
+    conservative: ShaderConservativeDepth,
+  },
+}
+
+/// The restriction on the depth written by shader, compared with the depth that would have been
+/// written without the shader modification. The comparison is on the raw depth value, so whether
+/// it means nearer or further depends on if the reverse z is used.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+pub enum ShaderConservativeDepth {
+  /// The shader may only write the depth greater than or equal to the fixed function one.
+  GreaterEqual,
+  /// The shader may only write the depth less than or equal to the fixed function one.
+  LessEqual,
+  /// The shader will not modify the depth.
+  Unchanged,
+}
+
 pub struct FragmentOutputPort {
   node: ShaderNodeRawHandle,
   pub ty: ShaderSizedValueType,
@@ -171,6 +207,15 @@ impl ShaderFragmentBuilder {
 
   pub fn discard(&self) {
     call_shader_api(|g| g.discard())
+  }
+
+  /// Config the early depth stencil test behavior of this fragment shader, see
+  /// [ShaderEarlyDepthTest] for details.
+  ///
+  /// This requires the device feature `SHADER_EARLY_DEPTH_TEST`(currently only supported on
+  /// vulkan and gles backend), the caller should check the feature support before calling it.
+  pub fn set_early_depth_test(&self, test: ShaderEarlyDepthTest) {
+    call_shader_api(|g| g.set_early_depth_test(test))
   }
 
   #[track_caller]

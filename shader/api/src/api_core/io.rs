@@ -38,7 +38,11 @@ impl ShaderInputNode {
 pub enum ShaderBuiltInDecorator {
   VertexIndex,
   VertexInstanceIndex,
-  VertexPositionOut,
+  /// invariant means the result is computed identically across different pipelines that use the
+  /// same position computation, see [AbstractShaderVertexBuilder::mark_position_invariant]
+  VertexPositionOut {
+    invariant: bool,
+  },
   FragPositionIn,
   FragFrontFacing,
   FragDepth,
@@ -73,7 +77,7 @@ impl ShaderBuiltInDecorator {
     match self {
       VertexIndex => u32,
       VertexInstanceIndex => u32,
-      VertexPositionOut => vec4_f32,
+      VertexPositionOut { .. } => vec4_f32,
       FragPositionIn => vec4_f32,
       FragFrontFacing => bool,
       FragDepth => f32,

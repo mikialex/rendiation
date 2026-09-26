@@ -32,4 +32,24 @@ impl Node<f32> {
       self.greater_equal_than(depth)
     }
   }
+
+  /// Evaluate the fixed function depth test in shader, self is the incoming fragment depth, and
+  /// the stored is the depth in depth buffer. Return true if the test passes.
+  pub fn depth_test_by(
+    &self,
+    compare: wgpu_types::CompareFunction,
+    stored: Node<f32>,
+  ) -> Node<bool> {
+    use wgpu_types::CompareFunction::*;
+    match compare {
+      Never => val(false),
+      Less => self.less_than(stored),
+      Equal => self.equals(stored),
+      LessEqual => self.less_equal_than(stored),
+      Greater => self.greater_than(stored),
+      NotEqual => self.not_equals(stored),
+      GreaterEqual => self.greater_equal_than(stored),
+      Always => val(true),
+    }
+  }
 }

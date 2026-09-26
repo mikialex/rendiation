@@ -206,6 +206,10 @@ impl MeshShaderVertexHelper {
     self.io_mapping.sync_fragment_out(fragment);
   }
 
+  pub fn mark_position_invariant(&mut self) {
+    self.io_mapping.position_invariant = true;
+  }
+
   pub fn set_vertex_out_impl(
     &mut self,
     ty_id: TypeId,
@@ -249,7 +253,9 @@ pub fn create_output_struct_for_mesh_vertices_output(
     })
     .collect();
 
-  let p = ShaderBuiltInDecorator::VertexPositionOut;
+  let p = ShaderBuiltInDecorator::VertexPositionOut {
+    invariant: io_mapping.position_invariant,
+  };
   fields.push(ShaderStructFieldMetaInfo {
     name: "position".into(),
     ty: ShaderSizedValueType::Primitive(p.data_ty().unwrap()),

@@ -94,15 +94,29 @@ impl OitLoop32RendererInstance {
       .2
       .clone();
 
+    // The fragments that fail the depth test (occluded by the opaque objects) must not be
+    // inserted into the A-buffer. Because the insertion has side effects, the depth test is
+    // performed after the fragment shader by default, so the early depth test is forced if
+    // supported. Otherwise, the depth pre pass does the depth test manually by reading the depth
+    // buffer, and the occluded fragment still runs in the color pass, but it will not be found in
+    // the stored layers, so it goes into the tail blend path which is rejected by depth test.
+    let early_depth_test = ctx
+      .gpu
+      .info()
+      .supported_features
+      .contains(Features::SHADER_EARLY_DEPTH_TEST);
+
     {
       let dispatch = Loop32DepthPrePass {
         oit_depth_layers: self.depth.clone(),
         reverse_depth,
+        manual_depth_test: (!early_depth_test).then(|| depth.clone()),
       };
       let mut draw_content = use_transparent_pass_content.get_pass_content(camera, &dispatch);
 
+      // the depth pre pass never writes depth, and the depth may be read in shader at same time
       pass("loop32 oit depth pre pass")
-        .with_depth(depth, load_and_store(), load_and_store())
+        .with_depth(depth, None, None)
         .render_ctx(ctx)
         .by(&mut draw_content);
     }
@@ -112,6 +126,7 @@ impl OitLoop32RendererInstance {
         oit_depth_layers: self.depth.clone(),
         oit_color_layers: self.color.clone(),
         reverse_depth,
+        early_depth_test,
         tail_blend_channel_index: target_desc_without_final_color
           .push_color(final_color_target, load_and_store()),
       };
@@ -128,7 +143,6 @@ impl OitLoop32RendererInstance {
 
     pass("loop32 oit resolve pass")
       .with_color(final_color_target, load_and_store())
-      .with_depth(depth, load_and_store(), load_and_store())
       .render_ctx(ctx)
       .by(
         &mut OitResolvePass {
@@ -141,105 +155,144 @@ impl OitLoop32RendererInstance {
   }
 }
 
+/// Only used in the depth pre pass to skip the unnecessary insertion work. The color pass
+/// always checks if the fragment is in the stored layers, which is required for correctness.
 const USE_EARLY_DEPTH: bool = false;
 const OIT_TAILBLEND: bool = true;
 
 struct Loop32DepthPrePass {
   oit_depth_layers: AtomicImageDowngrade,
   reverse_depth: bool,
+  /// if provided, do the depth test manually by reading this depth buffer, else the early depth
+  /// test is forced.
+  manual_depth_test: Option<RenderTargetView>,
 }
 
 impl ShaderHashProvider for Loop32DepthPrePass {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(self.reverse_depth);
+    hasher.hash(self.manual_depth_test.as_ref().map(|d| d.sample_count()));
   }
 }
 impl GraphicsShaderProvider for Loop32DepthPrePass {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    // the depth must be exactly same as the color pass to find the stored layer
+    builder.vertex(|builder, _| builder.mark_position_invariant());
     builder.fragment(|cx, binding| {
       only_first_sample(cx);
 
-      cx.depth_stencil.as_mut().unwrap().depth_write_enabled = Some(false);
+      if self.manual_depth_test.is_none() {
+        cx.set_early_depth_test(ShaderEarlyDepthTest::Force);
+      }
+
+      let depth_stencil = cx.depth_stencil.as_mut().unwrap();
+      depth_stencil.depth_write_enabled = Some(false);
+      let depth_compare = depth_stencil
+        .depth_compare
+        .unwrap_or(CompareFunction::Always);
 
       let oit_layers = self.oit_depth_layers.build(binding);
-      let layer_count = oit_layers.info.layer_count();
 
       let depth = cx.query::<FragmentPosition>().z();
       let coord = cx.query::<FragmentPosition>().xy().into_u32();
 
-      // Insert the floating-point depth (reinterpreted as an uint) into the list of depths
-      let z_current = depth.bitcast::<u32>().make_local_var();
-      let i = val(0_u32).make_local_var(); // Current position in the array
-
-      if USE_EARLY_DEPTH {
-        if self.reverse_depth {
-          // Do some early tests to minimize the amount of insertion-sorting work we
-          // have to do.
-          // If the fragment is further away than the last depth fragment, skip it:
-          let pretest = oit_layers.atomic_load(coord, layer_count - val(1));
-          if_by(z_current.load().less_than(pretest), || {
-            cx.discard();
-          });
-          // Check to see if the fragment can be inserted in the latter half of the
-          // depth array:
-          let pretest = oit_layers.atomic_load(coord, layer_count / val(2));
-          if_by(z_current.load().less_than(pretest), || {
-            i.store(layer_count / val(2));
-          });
-        } else {
-          let pretest = oit_layers.atomic_load(coord, layer_count - val(1));
-          if_by(z_current.load().greater_than(pretest), || {
-            cx.discard();
-          });
-          let pretest = oit_layers.atomic_load(coord, layer_count / val(2));
-          if_by(z_current.load().greater_than(pretest), || {
-            i.store(layer_count / val(2));
-          });
-        }
+      if let Some(scene_depth) = &self.manual_depth_test {
+        let scene_depth = load_first_sample_depth(scene_depth, binding, coord);
+        // not using discard here, to make sure the side effects never happen
+        if_by(depth.depth_test_by(depth_compare, scene_depth), || {
+          insert_depth_layer(cx, &oit_layers, coord, depth, self.reverse_depth);
+        });
+      } else {
+        insert_depth_layer(cx, &oit_layers, coord, depth, self.reverse_depth);
       }
-
-      // Try to insert z_current in the place of the first element of the array that
-      // is greater than or equal to it. In the former case, shift all of
-      // remaining elements in the array down.
-      ForRange::ranged((i.load(), layer_count).into()).for_each(|i, cx| {
-        if self.reverse_depth {
-          let z_test = oit_layers.atomic_max(coord, i, z_current.load());
-          if_by(
-            z_test
-              .equals(val::<u32>(0_f32.to_bits()))
-              .or(z_test.equals(z_current.load())),
-            || {
-              cx.do_break();
-            },
-          );
-          z_current.store(z_test.min(z_current.load()));
-        } else {
-          let z_test = oit_layers.atomic_min(coord, i, z_current.load());
-          if_by(
-            z_test
-              .equals(val::<u32>(1_f32.to_bits()))
-              .or(z_test.equals(z_current.load())),
-            || {
-              cx.do_break();
-            },
-          );
-          z_current.store(z_test.max(z_current.load()));
-        }
-      });
     })
   }
 }
 impl ShaderPassBuilder for Loop32DepthPrePass {
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.oit_depth_layers.bind(&mut ctx.binding);
+    if let Some(scene_depth) = &self.manual_depth_test {
+      bind_first_sample_depth(scene_depth, &mut ctx.binding);
+    }
   }
+}
+
+fn insert_depth_layer(
+  cx: &ShaderFragmentBuilderView,
+  oit_layers: &AtomicImageInvocationDowngrade,
+  coord: Node<Vec2<u32>>,
+  depth: Node<f32>,
+  reverse_depth: bool,
+) {
+  let layer_count = oit_layers.info.layer_count();
+
+  // Insert the floating-point depth (reinterpreted as an uint) into the list of depths
+  let z_current = depth.bitcast::<u32>().make_local_var();
+  let i = val(0_u32).make_local_var(); // Current position in the array
+
+  if USE_EARLY_DEPTH {
+    if reverse_depth {
+      // Do some early tests to minimize the amount of insertion-sorting work we
+      // have to do.
+      // If the fragment is further away than the last depth fragment, skip it:
+      let pretest = oit_layers.atomic_load(coord, layer_count - val(1));
+      if_by(z_current.load().less_than(pretest), || {
+        cx.discard();
+      });
+      // Check to see if the fragment can be inserted in the latter half of the
+      // depth array:
+      let pretest = oit_layers.atomic_load(coord, layer_count / val(2));
+      if_by(z_current.load().less_than(pretest), || {
+        i.store(layer_count / val(2));
+      });
+    } else {
+      let pretest = oit_layers.atomic_load(coord, layer_count - val(1));
+      if_by(z_current.load().greater_than(pretest), || {
+        cx.discard();
+      });
+      let pretest = oit_layers.atomic_load(coord, layer_count / val(2));
+      if_by(z_current.load().greater_than(pretest), || {
+        i.store(layer_count / val(2));
+      });
+    }
+  }
+
+  // Try to insert z_current in the place of the first element of the array that
+  // is greater than or equal to it. In the former case, shift all of
+  // remaining elements in the array down.
+  ForRange::ranged((i.load(), layer_count).into()).for_each(|i, cx| {
+    if reverse_depth {
+      let z_test = oit_layers.atomic_max(coord, i, z_current.load());
+      if_by(
+        z_test
+          .equals(val::<u32>(0_f32.to_bits()))
+          .or(z_test.equals(z_current.load())),
+        || {
+          cx.do_break();
+        },
+      );
+      z_current.store(z_test.min(z_current.load()));
+    } else {
+      let z_test = oit_layers.atomic_min(coord, i, z_current.load());
+      if_by(
+        z_test
+          .equals(val::<u32>(1_f32.to_bits()))
+          .or(z_test.equals(z_current.load())),
+        || {
+          cx.do_break();
+        },
+      );
+      z_current.store(z_test.max(z_current.load()));
+    }
+  });
 }
 
 struct OitColorPass {
   oit_depth_layers: AtomicImageDowngrade,
   oit_color_layers: AtomicImageDowngrade,
   reverse_depth: bool,
+  early_depth_test: bool,
   tail_blend_channel_index: usize,
 }
 
@@ -247,13 +300,22 @@ impl ShaderHashProvider for OitColorPass {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(self.reverse_depth);
+    hasher.hash(self.early_depth_test);
     hasher.hash(self.tail_blend_channel_index);
   }
 }
 impl GraphicsShaderProvider for OitColorPass {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    // the depth must be exactly same as the depth pre pass to find the stored layer
+    builder.vertex(|builder, _| builder.mark_position_invariant());
     builder.fragment(|cx, binding| {
       only_first_sample(cx);
+
+      // not required for correctness, the occluded fragment is not in the stored layers and
+      // its tail blend output is rejected by depth test, this is to skip the unnecessary shading.
+      if self.early_depth_test {
+        cx.set_early_depth_test(ShaderEarlyDepthTest::Force);
+      }
 
       let oit_depth_layers = self.oit_depth_layers.build(binding);
       let oit_color_layers = self.oit_color_layers.build(binding);
@@ -269,64 +331,54 @@ impl GraphicsShaderProvider for OitColorPass {
 
       let output_color = val(Vec4::<f32>::zero()).make_local_var();
 
-      let skip = val(false).make_local_var();
+      // Use binary search to determine which index this depth value corresponds to
+      // At each step, we know that it'll be in the closed interval [start, end].
+      let start = val(0_u32).make_local_var();
+      let end = (layer_count - val(1)).make_local_var();
 
-      if USE_EARLY_DEPTH {
-        // If this fragment was behind the front most OIT_LAYERS fragments, it didn't
-        // make it in, so tail blend it:
-        let depth = oit_depth_layers.atomic_load(coord, layer_count - val(1));
+      loop_by(|cx| {
+        if_by(start.load().greater_equal_than(end.load()), || {
+          cx.do_break()
+        });
+
+        let mid = (start.load() + end.load()) / val(2);
+        let z_test = oit_depth_layers.atomic_load(coord, mid);
+
         let cond = if self.reverse_depth {
-          depth.greater_than(z_current)
+          z_test.greater_than(z_current)
         } else {
-          depth.less_than(z_current)
+          z_test.less_than(z_current)
         };
+
         if_by(cond, || {
-          skip.store(val(true));
-          if OIT_TAILBLEND {
-            // Premultiply alpha
-            output_color.store(vec4_node((
-              srgb_color.xyz() * srgb_color.w(),
-              srgb_color.w(),
-            )))
-          } else {
-            cx.discard();
-          }
+          start.store(mid + val(1));
+        })
+        .else_by(|| {
+          end.store(mid);
         });
-      }
+      });
 
-      if_by(skip.load().not(), || {
-        // Use binary search to determine which index this depth value corresponds to
-        // At each step, we know that it'll be in the closed interval [start, end].
-        let start = val(0_u32).make_local_var();
-        let end = (layer_count - val(1)).make_local_var();
+      // We now have start == end. Only if the depth stored at this index exactly matches, this
+      // fragment is one of the front most layers, then insert the packed color into the A-buffer
+      // at this index. Otherwise this fragment didn't make it in (for example it's behind all
+      // the stored layers), storing it will overwrite the color of another layer and makes
+      // different fragments race on the same slot, so tail blend it.
+      let index = start.load();
+      let is_stored_layer = oit_depth_layers.atomic_load(coord, index).equals(z_current);
 
-        loop_by(|cx| {
-          if_by(start.load().greater_equal_than(end.load()), || {
-            cx.do_break()
-          });
-
-          let mid = (start.load() + end.load()) / val(2);
-          let z_test = oit_depth_layers.atomic_load(coord, mid);
-
-          let cond = if self.reverse_depth {
-            z_test.greater_than(z_current)
-          } else {
-            z_test.less_than(z_current)
-          };
-
-          if_by(cond, || {
-            start.store(mid + val(1));
-          })
-          .else_by(|| {
-            end.store(mid);
-          });
-        });
-
-        // We now have start == end. Insert the packed color into the A-buffer at
-        // this index.
+      if_by(is_stored_layer, || {
         // todo, how to use store without atomic here? we can just use common texture?
         // https://github.com/gpuweb/gpuweb/issues/5071#issuecomment-2714533005
-        oit_color_layers.atomic_store(coord, start.load(), srgb_color.pack4x8unorm());
+        oit_color_layers.atomic_store(coord, index, srgb_color.pack4x8unorm());
+      })
+      .else_by(|| {
+        if OIT_TAILBLEND {
+          // Premultiply alpha, the tail blend is performed in linear space
+          output_color.store(vec4_node((
+            color_output.xyz() * color_output.w(),
+            color_output.w(),
+          )));
+        }
       });
 
       cx.store_fragment_out_vec4f(self.tail_blend_channel_index, output_color.load());
@@ -347,6 +399,31 @@ fn only_first_sample(builder: &mut ShaderFragmentBuilderView) {
   if_by(builder.query::<FragmentSampleIndex>().not_equals(0), || {
     builder.discard();
   });
+}
+
+/// the oit only considers the first sample, see [only_first_sample]
+fn load_first_sample_depth(
+  depth: &RenderTargetView,
+  binding: &mut ShaderBindGroupBuilder,
+  coord: Node<Vec2<u32>>,
+) -> Node<f32> {
+  if depth.sample_count() > 1 {
+    let depth = depth.expect_texture_view::<MultiSampleOf<TextureSampleDepth>>();
+    binding
+      .bind_by(&depth)
+      .load_texel_multi_sample_index(coord, val(0_u32))
+  } else {
+    let depth = depth.expect_texture_view::<TextureSampleDepth>();
+    binding.bind_by(&depth).load_texel(coord, val(0_u32))
+  }
+}
+
+fn bind_first_sample_depth(depth: &RenderTargetView, binding: &mut BindingBuilder) {
+  if depth.sample_count() > 1 {
+    binding.bind(&depth.expect_texture_view::<MultiSampleOf<TextureSampleDepth>>());
+  } else {
+    binding.bind(&depth.expect_texture_view::<TextureSampleDepth>());
+  }
 }
 
 struct OitResolvePass {
@@ -372,15 +449,11 @@ impl GraphicsShaderProvider for OitResolvePass {
 
       let background = if self.reverse_depth { val(0.) } else { val(1.) }.bitcast::<u32>();
 
-      // Count the number of fragments for this pixel
+      // Count the number of fragments for this pixel. All the stored fragments have passed the
+      // depth test, so no depth test is required here.
       let fragments = val(0_u32).make_local_var();
-      let nearest_depth = val(0_u32).make_local_var(); // init value not used
       ForRange::ranged((val(0), layer_count).into()).for_each(|i, cx| {
         let depth = oit_depth_layers.load(coord, i);
-
-        if_by(i.equals(0), || {
-          nearest_depth.store(depth);
-        });
 
         if_by(depth.not_equals(background), || {
           fragments.store(fragments.load() + val(1));
@@ -396,17 +469,6 @@ impl GraphicsShaderProvider for OitResolvePass {
       });
 
       cx.store_fragment_out_vec4f(0, out_color.load());
-
-      cx.register::<FragmentDepthOutput>(nearest_depth.load().bitcast::<f32>());
-
-      if let Some(depth_stencil) = &mut cx.depth_stencil {
-        depth_stencil.depth_write_enabled = Some(false); // todo, this should be synced with global transparent depth behavior?
-        depth_stencil.depth_compare = Some(if self.reverse_depth {
-          CompareFunction::Greater
-        } else {
-          CompareFunction::Less
-        })
-      }
     });
   }
 }

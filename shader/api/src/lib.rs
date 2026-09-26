@@ -69,6 +69,8 @@ impl<T> DebugLabelMarkExt for Node<T> {
 /// because the upper layer user may well handled error that not expect panic.
 pub trait ShaderAPI {
   fn set_workgroup_size(&mut self, size: (u32, u32, u32));
+  /// only valid in fragment stage, require Features::SHADER_EARLY_DEPTH_TEST
+  fn set_early_depth_test(&mut self, test: ShaderEarlyDepthTest);
   fn barrier(&mut self, scope: BarrierScope);
 
   fn define_mesh_info(&mut self, mesh_info: MeshStageInfo);
@@ -82,7 +84,7 @@ pub trait ShaderAPI {
     ty: PrimitiveShaderValueType,
     interpolation: Option<ShaderInterpolation>,
   ) -> ShaderNodeRawHandle;
-  fn define_vertex_position_output(&mut self) -> ShaderNodeRawHandle;
+  fn define_vertex_position_output(&mut self, invariant: bool) -> ShaderNodeRawHandle;
   fn define_frag_depth_output(&mut self) -> ShaderNodeRawHandle;
   fn define_const(
     &mut self,

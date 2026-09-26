@@ -37,6 +37,9 @@ impl<'a> AbstractShaderVertexBuilder for ShaderVertexBuilder<'a> {
   fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder) {
     self.internal.sync_fragment_out(fragment);
   }
+  fn mark_position_invariant(&mut self) {
+    self.internal.mark_position_invariant();
+  }
 
   fn set_vertex_out_impl(
     &mut self,
@@ -107,8 +110,9 @@ impl ShaderRawVertexBuilder {
   /// this behavior will be changed in the future;
   pub fn finalize_position_write(&mut self) {
     let position = self.query_or_insert_default::<ClipPosition>();
+    let invariant = self.io_mapping.position_invariant;
     call_shader_api(|api| {
-      let target = api.define_vertex_position_output();
+      let target = api.define_vertex_position_output(invariant);
       api.store(position.handle(), target)
     });
   }
@@ -170,6 +174,8 @@ impl ShaderRawVertexBuilder {
 pub struct ShapeFragmentIOMapping {
   pub vertex_out: FastHashMap<TypeId, (VertexIOInfo, ShaderInterpolation)>,
   pub vertex_out_not_synced_to_fragment: FastHashSet<TypeId>,
+  /// see [AbstractShaderVertexBuilder::mark_position_invariant]
+  pub position_invariant: bool,
 }
 
 impl ShapeFragmentIOMapping {
@@ -235,6 +241,9 @@ impl AbstractShaderVertexBuilder for ShaderRawVertexBuilder {
   }
   fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder) {
     self.io_mapping.sync_fragment_out(fragment);
+  }
+  fn mark_position_invariant(&mut self) {
+    self.io_mapping.position_invariant = true;
   }
 
   fn set_vertex_out_impl(
