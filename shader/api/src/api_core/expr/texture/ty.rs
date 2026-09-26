@@ -5,6 +5,7 @@ impl<D, F> ShaderNodeSingleType for ShaderTexture<D, F>
 where
   D: ShaderTextureDimension,
   F: ShaderTextureKind,
+  Self: ValidShaderTextureType,
 {
   fn single_ty() -> ShaderValueSingleType {
     ShaderValueSingleType::Texture {
@@ -18,6 +19,7 @@ impl<D, F> ShaderNodeType for ShaderTexture<D, F>
 where
   D: ShaderTextureDimension,
   F: ShaderTextureKind,
+  Self: ValidShaderTextureType,
 {
   fn ty() -> ShaderValueType {
     ShaderValueType::Single(Self::single_ty())
@@ -44,22 +46,28 @@ impl ShaderTextureDimension for TextureDimension1 {
 impl SingleLayerTarget for TextureDimension1 {}
 impl D1LikeTextureType for TextureDimension1 {}
 impl DirectAccessTarget for TextureDimension1 {}
+impl StorageTextureDimension for TextureDimension1 {}
 
 texture_dimension_impl!(TextureDimension2, TextureViewDimension::D2, Vec2);
 impl SingleLayerTarget for TextureDimension2 {}
 impl D2LikeTextureType for TextureDimension2 {}
 impl DirectAccessTarget for TextureDimension2 {}
 impl TextureOffsetTarget for TextureDimension2 {}
+impl DepthTextureDimension for TextureDimension2 {}
+impl StorageTextureDimension for TextureDimension2 {}
 
 texture_dimension_impl!(TextureDimension2Array, TextureViewDimension::D2Array, Vec2);
 impl ArrayLayerTarget for TextureDimension2Array {}
 impl D2LikeTextureType for TextureDimension2Array {}
 impl DirectAccessTarget for TextureDimension2Array {}
 impl TextureOffsetTarget for TextureDimension2Array {}
+impl DepthTextureDimension for TextureDimension2Array {}
+impl StorageTextureDimension for TextureDimension2Array {}
 
 texture_dimension_impl!(TextureDimensionCube, TextureViewDimension::Cube, Vec3);
 impl SingleLayerTarget for TextureDimensionCube {}
 impl D2LikeTextureType for TextureDimensionCube {}
+impl DepthTextureDimension for TextureDimensionCube {}
 
 texture_dimension_impl!(
   TextureDimensionCubeArray,
@@ -68,11 +76,13 @@ texture_dimension_impl!(
 );
 impl ArrayLayerTarget for TextureDimensionCubeArray {}
 impl D2LikeTextureType for TextureDimensionCubeArray {}
+impl DepthTextureDimension for TextureDimensionCubeArray {}
 
 texture_dimension_impl!(TextureDimension3, TextureViewDimension::D3, Vec3);
 impl SingleLayerTarget for TextureDimension3 {}
 impl D3LikeTextureType for TextureDimension3 {}
 impl DirectAccessTarget for TextureDimension3 {}
+impl StorageTextureDimension for TextureDimension3 {}
 
 impl ShaderTextureKind for f32 {
   const SAMPLING_TYPE: TextureSampleType = TextureSampleType::Float { filterable: true };
@@ -116,8 +126,9 @@ impl SamplerSampleTarget for TextureSampleDepth {
   type ExplicitLevel = u32;
 }
 
+/// the inner kind must be single sampled, so the nested multi sample is not able to be expressed
 pub struct MultiSampleOf<T>(T);
-impl<T: ShaderTextureKind> ShaderTextureKind for MultiSampleOf<T> {
+impl<T: ShaderTextureKind + SingleSampleTarget> ShaderTextureKind for MultiSampleOf<T> {
   const SAMPLING_TYPE: TextureSampleType = T::SAMPLING_TYPE;
   const IS_MULTI_SAMPLE: bool = true;
   type ChannelOutput = T::ChannelOutput;

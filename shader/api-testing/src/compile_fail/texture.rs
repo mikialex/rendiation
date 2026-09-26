@@ -64,3 +64,52 @@ pub struct GatherCompareResultType;
 /// }
 /// ```
 pub struct StorageTextureDimensionLevel;
+
+/// WGSL has no 3d depth texture
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// <ShaderTexture<TextureDimension3, TextureSampleDepth> as ShaderNodeType>::ty();
+/// ```
+pub struct DepthTexture3D;
+
+/// WGSL has no 1d depth texture
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// <ShaderTexture<TextureDimension1, TextureSampleDepth> as ShaderNodeType>::ty();
+/// ```
+pub struct DepthTexture1D;
+
+/// multisampled texture can only be 2d
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// <ShaderTexture<TextureDimensionCube, MultiSampleOf<f32>> as ShaderNodeType>::ty();
+/// ```
+pub struct MultiSampledCubeTexture;
+
+/// multisampled texture can only be 2d
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// <ShaderTexture<TextureDimension2Array, MultiSampleOf<f32>> as ShaderNodeType>::ty();
+/// ```
+pub struct MultiSampled2DArrayTexture;
+
+/// the multi sample can not be nested
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// <ShaderTexture<TextureDimension2, MultiSampleOf<MultiSampleOf<f32>>> as ShaderNodeType>::ty();
+/// ```
+pub struct NestedMultiSampledTexture;
+
+/// WGSL has no cube storage texture
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// <ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimensionCube, f32> as ShaderNodeType>::ty();
+/// ```
+pub struct StorageCubeTexture;
+
+/// the storage texture channel type can only be f32, u32 or i32
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// <ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, bool> as ShaderNodeType>::ty();
+/// ```
+pub struct StorageTextureBoolChannel;

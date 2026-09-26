@@ -73,6 +73,7 @@ impl<D, F> ShaderBindingProvider for GPUTypedTextureView<D, F>
 where
   D: ShaderTextureDimension,
   F: ShaderTextureKind,
+  ShaderTexture<D, F>: ShaderNodeType,
 {
   type Node = ShaderBinding<ShaderTexture<D, F>>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {

@@ -10,9 +10,9 @@ pub trait StorageTextureWriteable: StorageTextureAccessMarker {}
 pub struct ShaderStorageTexture<A, D, F>(A, D, F);
 impl<A, D, F> ShaderNodeSingleType for ShaderStorageTexture<A, D, F>
 where
-  D: ShaderTextureDimension,
+  D: StorageTextureDimension,
   A: StorageTextureAccessMarker,
-  F: 'static,
+  F: StorageTextureChannelType,
 {
   fn single_ty() -> ShaderValueSingleType {
     ShaderValueSingleType::StorageTexture {
@@ -25,9 +25,9 @@ where
 
 impl<A, D, F> ShaderNodeType for ShaderStorageTexture<A, D, F>
 where
-  D: ShaderTextureDimension,
+  D: StorageTextureDimension,
   A: StorageTextureAccessMarker,
-  F: 'static,
+  F: StorageTextureChannelType,
 {
   fn ty() -> ShaderValueType {
     ShaderValueType::Single(Self::single_ty())

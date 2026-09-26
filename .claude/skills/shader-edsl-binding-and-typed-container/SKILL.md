@@ -193,9 +193,12 @@ let value = binding.bind_single_by(&self.config).load();
 
 ### Non-filterable texture
 
+`DisableFiltering` wraps the binding provider (not the texture kind), it marks the texture binding
+as unfilterable float and the sampler binding as non-filtering in the layout, the shader type is unchanged.
+
 ```rust
-let tex: BindingNode<ShaderTexture<TextureDimension2, DisableFiltering<f32>>> =
-    binding.bind_by(&self.non_filter_tex);
+let tex: BindingNode<ShaderTexture2D> = binding.bind_by(&DisableFiltering(&self.depth));
+let sampler = binding.bind_by(&DisableFiltering(ImmediateGPUSamplerViewBind));
 ```
 
 ### Cross-stage binding (vertex + fragment shared)

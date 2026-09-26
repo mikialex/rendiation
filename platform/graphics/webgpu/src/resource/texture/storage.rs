@@ -72,11 +72,9 @@ impl<A, D, F> CacheAbleBindingSource for StorageTextureView<A, D, F> {
 impl<A, D, F> ShaderBindingProvider for StorageTextureView<A, D, F>
 where
   A: StorageTextureAccessMarker,
-  D: ShaderTextureDimension,
-  F: ShaderTextureKind,
+  D: StorageTextureDimension,
+  F: StorageTextureChannelType,
 {
-  /// note: multi sampled F is not valid, but we have already rejected at runtime.
-  /// so this is sound.
   type Node = ShaderBinding<ShaderStorageTexture<A, D, F>>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
     node

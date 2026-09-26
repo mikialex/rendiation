@@ -423,6 +423,9 @@ storage_tex.write_texel_index(coord, index, value); // array layer
 | `ShaderStorageTextureR2D` | `ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, f32>` |
 | `ShaderStorageTextureW2D` | `ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, f32>` |
 
+Only the valid WGSL texture types implement `ShaderNodeType` (checked by `ValidShaderTextureType`),
+so an invalid texture type can not be bound
+
 ### Texture metadata queries
 
 ```rust

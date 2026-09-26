@@ -113,7 +113,10 @@ impl<F: 'static, V: 'static> ShaderHashProvider for CommonTextureFastDownSamplin
   }
 }
 
-impl<V, F: ShaderTextureKind> FastDownSamplingIO<V> for CommonTextureFastDownSamplingSource<F, V> {
+impl<V, F> FastDownSamplingIO<V> for CommonTextureFastDownSamplingSource<F, V>
+where
+  F: ShaderTextureKind + StorageTextureChannelType,
+{
   fn root_size(&self) -> (u32, u32) {
     let input_size = self.target.desc.size;
     (input_size.width, input_size.height)

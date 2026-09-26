@@ -26,6 +26,43 @@ pub trait D1LikeTextureType: ShaderTextureDimension {}
 pub trait D2LikeTextureType: ShaderTextureDimension {}
 pub trait D3LikeTextureType: ShaderTextureDimension {}
 
+/// The dimensions of the depth texture, WGSL has no 1d or 3d depth texture.
+#[diagnostic::on_unimplemented(
+  message = "`{Self}` is not a valid depth texture dimension, WGSL has no 1d or 3d depth texture"
+)]
+pub trait DepthTextureDimension: ShaderTextureDimension {}
+
+/// The dimensions of the storage texture, WGSL has no cube storage texture.
+#[diagnostic::on_unimplemented(
+  message = "`{Self}` is not a valid storage texture dimension, WGSL has no cube storage texture"
+)]
+pub trait StorageTextureDimension: ShaderTextureDimension {}
+
+/// The channel type of the storage texture, the texel type is `vec4<Self>`.
+#[diagnostic::on_unimplemented(
+  message = "`{Self}` is not a valid storage texture channel type, only f32, u32 and i32 are allowed"
+)]
+pub trait StorageTextureChannelType: ShaderScalarType {}
+impl StorageTextureChannelType for f32 {}
+impl StorageTextureChannelType for u32 {}
+impl StorageTextureChannelType for i32 {}
+
+/// The valid combinations of the texture dimension and kind in WGSL, only the valid ones are
+/// able to be used as a shader value(implement [ShaderNodeType]):
+/// - `texture_1d/2d/2d_array/3d/cube/cube_array<f32|u32|i32>`
+/// - `texture_depth_2d/2d_array/cube/cube_array`
+/// - `texture_multisampled_2d<f32|u32|i32>`, `texture_depth_multisampled_2d`
+#[diagnostic::on_unimplemented(message = "`{Self}` is not a valid WGSL texture type")]
+pub trait ValidShaderTextureType {}
+impl<D: ShaderTextureDimension> ValidShaderTextureType for ShaderTexture<D, f32> {}
+impl<D: ShaderTextureDimension> ValidShaderTextureType for ShaderTexture<D, u32> {}
+impl<D: ShaderTextureDimension> ValidShaderTextureType for ShaderTexture<D, i32> {}
+impl<D: DepthTextureDimension> ValidShaderTextureType for ShaderTexture<D, TextureSampleDepth> {}
+impl<T> ValidShaderTextureType for ShaderTexture<TextureDimension2, MultiSampleOf<T>> where
+  T: ShaderTextureKind + SingleSampleTarget
+{
+}
+
 pub trait ShaderTextureKind: 'static {
   const SAMPLING_TYPE: TextureSampleType;
   const IS_MULTI_SAMPLE: bool;
@@ -37,6 +74,7 @@ pub type TexelOutputOf<T> = <T as ShaderTextureKind>::TexelOutput;
 pub type ChannelOutputOf<T> = <T as ShaderTextureKind>::ChannelOutput;
 
 pub trait DirectAccessTarget {}
+#[diagnostic::on_unimplemented(message = "`{Self}` is not a single sampled texture kind")]
 pub trait SingleSampleTarget {}
 pub trait MultiSampleTarget {}
 

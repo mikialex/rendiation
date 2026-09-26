@@ -37,10 +37,29 @@ pub fn keep<T: ShaderSizedValueNodeType>(v: Node<T>) {
 
 /// Create a binding in the bind group 0 without any GPU resource container.
 pub fn fake_binding<T: ShaderNodeType>(entry_index: usize) -> Node<T> {
+  fake_binding_by_ty(entry_index, T::ty())
+}
+
+/// Create a storage texture binding like [fake_binding], the storage format is not expressed in
+/// the shader type, so it must be given here to match the channel type.
+pub fn fake_storage_texture_binding<T: ShaderNodeType>(
+  entry_index: usize,
+  storage_format: StorageFormat,
+) -> Node<T> {
+  let mut ty = T::ty();
+  ty.mutate_single(|ty| {
+    if let ShaderValueSingleType::StorageTexture { format, .. } = ty {
+      *format = storage_format;
+    }
+  });
+  fake_binding_by_ty(entry_index, ty)
+}
+
+fn fake_binding_by_ty<T: ShaderNodeType>(entry_index: usize, ty: ShaderValueType) -> Node<T> {
   ShaderInputNode::Binding {
     desc: ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,
-      ty: T::ty(),
+      ty,
       writeable_if_storage: false,
       has_dynamic_offset: false,
     },
