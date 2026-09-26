@@ -13,6 +13,7 @@ pub fn map_stage(stage: ShaderStage) -> naga::ShaderStage {
 pub fn map_barrier(scope: BarrierScope) -> naga::Barrier {
   match scope {
     BarrierScope::Storage => naga::Barrier::STORAGE,
+    BarrierScope::Texture => naga::Barrier::TEXTURE,
     BarrierScope::WorkGroup => naga::Barrier::WORK_GROUP,
     BarrierScope::SubGroup => naga::Barrier::SUB_GROUP,
   }
@@ -360,13 +361,24 @@ pub fn map_math_function(f: ShaderBuiltInFunction) -> naga::MathFunction {
     ShaderBuiltInFunction::ReverseBits => naga::MathFunction::ReverseBits,
     ShaderBuiltInFunction::ExtractBits => naga::MathFunction::ExtractBits,
     ShaderBuiltInFunction::InsertBits => naga::MathFunction::InsertBits,
+    ShaderBuiltInFunction::FirstTrailingBit => naga::MathFunction::FirstTrailingBit,
+    ShaderBuiltInFunction::FirstLeadingBit => naga::MathFunction::FirstLeadingBit,
+    ShaderBuiltInFunction::QuantizeToF16 => naga::MathFunction::QuantizeToF16,
+    ShaderBuiltInFunction::Dot4U8Packed => naga::MathFunction::Dot4U8Packed,
+    ShaderBuiltInFunction::Dot4I8Packed => naga::MathFunction::Dot4I8Packed,
     ShaderBuiltInFunction::Pack4x8snorm => naga::MathFunction::Pack4x8snorm,
     ShaderBuiltInFunction::Pack4x8unorm => naga::MathFunction::Pack4x8unorm,
+    ShaderBuiltInFunction::Pack4xI8 => naga::MathFunction::Pack4xI8,
+    ShaderBuiltInFunction::Pack4xU8 => naga::MathFunction::Pack4xU8,
+    ShaderBuiltInFunction::Pack4xI8Clamp => naga::MathFunction::Pack4xI8Clamp,
+    ShaderBuiltInFunction::Pack4xU8Clamp => naga::MathFunction::Pack4xU8Clamp,
     ShaderBuiltInFunction::Pack2x16snorm => naga::MathFunction::Pack2x16snorm,
     ShaderBuiltInFunction::Pack2x16unorm => naga::MathFunction::Pack2x16unorm,
     ShaderBuiltInFunction::Pack2x16float => naga::MathFunction::Pack2x16float,
     ShaderBuiltInFunction::Unpack4x8snorm => naga::MathFunction::Unpack4x8snorm,
     ShaderBuiltInFunction::Unpack4x8unorm => naga::MathFunction::Unpack4x8unorm,
+    ShaderBuiltInFunction::Unpack4xI8 => naga::MathFunction::Unpack4xI8,
+    ShaderBuiltInFunction::Unpack4xU8 => naga::MathFunction::Unpack4xU8,
     ShaderBuiltInFunction::Unpack2x16snorm => naga::MathFunction::Unpack2x16snorm,
     ShaderBuiltInFunction::Unpack2x16unorm => naga::MathFunction::Unpack2x16unorm,
     ShaderBuiltInFunction::Unpack2x16float => naga::MathFunction::Unpack2x16float,
@@ -475,5 +487,11 @@ pub fn map_subgroup_gather_mode(
     SubgroupGatherMode::ShuffleDown(handle) => naga::GatherMode::ShuffleDown(resolve(handle)),
     SubgroupGatherMode::ShuffleUp(handle) => naga::GatherMode::ShuffleUp(resolve(handle)),
     SubgroupGatherMode::ShuffleXor(handle) => naga::GatherMode::ShuffleXor(resolve(handle)),
+    SubgroupGatherMode::QuadBroadcast(handle) => naga::GatherMode::QuadBroadcast(resolve(handle)),
+    SubgroupGatherMode::QuadSwap(direction) => naga::GatherMode::QuadSwap(match direction {
+      QuadSwapDirection::X => naga::Direction::X,
+      QuadSwapDirection::Y => naga::Direction::Y,
+      QuadSwapDirection::Diagonal => naga::Direction::Diagonal,
+    }),
   }
 }

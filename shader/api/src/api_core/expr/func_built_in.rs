@@ -75,15 +75,27 @@ pub enum ShaderBuiltInFunction {
   ReverseBits,
   ExtractBits,
   InsertBits,
+  FirstTrailingBit,
+  FirstLeadingBit,
+  // computational extra
+  QuantizeToF16,
+  Dot4U8Packed,
+  Dot4I8Packed,
   // data packing
   Pack4x8snorm,
   Pack4x8unorm,
+  Pack4xI8,
+  Pack4xU8,
+  Pack4xI8Clamp,
+  Pack4xU8Clamp,
   Pack2x16snorm,
   Pack2x16unorm,
   Pack2x16float,
   // data unpacking
   Unpack4x8snorm,
   Unpack4x8unorm,
+  Unpack4xI8,
+  Unpack4xU8,
   Unpack2x16snorm,
   Unpack2x16unorm,
   Unpack2x16float,
@@ -119,9 +131,14 @@ pub fn make_builtin_call_with_ty_helper<T: ShaderNodeType>(
   }
   .insert_api()
 }
+/// WGSL has no isNan/isInf built-in function, and the implementation may assume the float values
+/// are finite (the finite math assumption) when doing arithmetic, so we check the bit pattern.
 impl Node<f32> {
   pub fn is_nan(&self) -> Node<bool> {
-    make_builtin_call(ShaderBuiltInFunction::IsNan, [self.handle()])
+    (self.bitcast::<u32>() & val(0x7fff_ffff_u32)).greater_than(val(0x7f80_0000_u32))
+  }
+  pub fn is_inf(&self) -> Node<bool> {
+    (self.bitcast::<u32>() & val(0x7fff_ffff_u32)).equals(val(0x7f80_0000_u32))
   }
 }
 
@@ -134,10 +151,19 @@ where
     make_builtin_call(ShaderBuiltInFunction::Normalize, [self.handle()])
   }
 
-  pub fn dot(self, other: impl Into<Self>) -> Node<T::Item> {
+  /// Returns self if `dot(incident_direction, reference)` is negative, and `-self` otherwise.
+  pub fn face_forward(
+    self,
+    incident_direction: impl Into<Self>,
+    reference: impl Into<Self>,
+  ) -> Self {
     make_builtin_call(
-      ShaderBuiltInFunction::Dot,
-      [self.handle(), other.into().handle()],
+      ShaderBuiltInFunction::FaceForward,
+      [
+        self.handle(),
+        incident_direction.into().handle(),
+        reference.into().handle(),
+      ],
     )
   }
 
@@ -167,6 +193,19 @@ where
   }
 }
 
+impl<T> Node<T>
+where
+  T: ShaderVec + PrimitiveShaderNodeType,
+  T::Item: ShaderNumericScalarType,
+{
+  pub fn dot(self, other: impl Into<Self>) -> Node<T::Item> {
+    make_builtin_call(
+      ShaderBuiltInFunction::Dot,
+      [self.handle(), other.into().handle()],
+    )
+  }
+}
+
 impl<T: ShaderFloatType> Node<Vec3<T>> {
   pub fn cross(self, other: impl Into<Self>) -> Node<Vec3<T>> {
     make_builtin_call(
@@ -182,7 +221,7 @@ where
   T::Item: ShaderFloatType,
 {
   /// Evaluates to the absolute value of self if T is scalar.
-  pub fn length(self) -> Node<f32> {
+  pub fn length(self) -> Node<T::Item> {
     make_builtin_call(ShaderBuiltInFunction::Length, [self.handle()])
   }
 
@@ -218,10 +257,6 @@ where
       [self.handle(), min.into().handle(), max.into().handle()],
     )
   }
-  /// `self.clamp(0.0, 1.0)`
-  pub fn saturate(self) -> Self {
-    make_builtin_call(ShaderBuiltInFunction::Saturate, [self.handle()])
-  }
 }
 
 impl<T> Node<T>
@@ -243,6 +278,25 @@ where
   }
   pub fn trunc(self) -> Node<T> {
     make_builtin_call(ShaderBuiltInFunction::Trunc, [self.handle()])
+  }
+  /// `self.clamp(0.0, 1.0)`
+  pub fn saturate(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Saturate, [self.handle()])
+  }
+  /// convert radians to degrees
+  pub fn degrees(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Degrees, [self.handle()])
+  }
+  /// convert degrees to radians
+  pub fn radians(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Radians, [self.handle()])
+  }
+  /// `self * b + c`
+  pub fn fma(self, b: impl Into<Self>, c: impl Into<Self>) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Fma,
+      [self.handle(), b.into().handle(), c.into().handle()],
+    )
   }
 
   pub fn smoothstep_per_channel(self, low: impl Into<Self>, high: impl Into<Self>) -> Self {
@@ -288,11 +342,9 @@ impl<T> Node<T>
 where
   T: ShaderFloatType,
 {
-  pub fn smoothstep<V>(self, low: impl Into<Node<V>>, high: impl Into<Node<V>>) -> Node<V>
-  where
-    V: ShaderScalarOrVec,
-    V::Item: ShaderFloatType,
-  {
+  /// For vector, use [Node::smoothstep_per_channel], WGSL has no overload that mixes scalar x with
+  /// vector edges.
+  pub fn smoothstep(self, low: impl Into<Self>, high: impl Into<Self>) -> Self {
     make_builtin_call(
       ShaderBuiltInFunction::SmoothStep,
       [low.into().handle(), high.into().handle(), self.handle()],
@@ -301,8 +353,7 @@ where
 
   pub fn mix<V>(self, low: impl Into<Node<V>>, high: impl Into<Node<V>>) -> Node<V>
   where
-    V: ShaderScalarOrVec,
-    V::Item: ShaderFloatType,
+    V: ShaderScalarOrVec<Item = T>,
   {
     make_builtin_call(
       ShaderBuiltInFunction::Mix,
@@ -337,6 +388,9 @@ where
 {
   pub fn transpose(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Transpose, [self.handle()])
+  }
+  pub fn determinant(self) -> Node<f32> {
+    make_builtin_call(ShaderBuiltInFunction::Determinant, [self.handle()])
   }
 }
 
@@ -502,9 +556,12 @@ where
     make_builtin_call(ShaderBuiltInFunction::Atanh, [self.handle()])
   }
 
-  /// Returns 1.0 if edge ≤ x, and 0.0 otherwise
-  pub fn step(self, edge: Node<T>) -> Node<T> {
-    make_builtin_call(ShaderBuiltInFunction::Step, [self.handle(), edge.handle()])
+  /// Returns 1.0 if edge ≤ self, and 0.0 otherwise
+  pub fn step(self, edge: impl Into<Node<T>>) -> Node<T> {
+    make_builtin_call(
+      ShaderBuiltInFunction::Step,
+      [edge.into().handle(), self.handle()],
+    )
   }
 }
 
@@ -530,6 +587,28 @@ where
       ],
     )
   }
+  pub fn count_leading_zeros(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::CountLeadingZeros, [self.handle()])
+  }
+  pub fn count_trailing_zeros(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::CountTrailingZeros, [self.handle()])
+  }
+  pub fn count_one_bits(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::CountOneBits, [self.handle()])
+  }
+  pub fn reverse_bits(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::ReverseBits, [self.handle()])
+  }
+  /// For signed type, the bit position of the most significant bit that differs from the sign bit,
+  /// for unsigned type, the bit position of the most significant 1 bit. Returns -1(or u32::MAX) if
+  /// such bit not exist.
+  pub fn first_leading_bit(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::FirstLeadingBit, [self.handle()])
+  }
+  /// The bit position of the least significant 1 bit, returns -1(or u32::MAX) if self is zero.
+  pub fn first_trailing_bit(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::FirstTrailingBit, [self.handle()])
+  }
 }
 
 impl<T> Node<T>
@@ -537,7 +616,11 @@ where
   T: ShaderScalarOrVec,
   T::Item: ShaderFloatType,
 {
-  pub fn frexp(self) -> (Node<T::Shape<T::Item>>, Node<i32>) {
+  /// return (fract, exp), where `self = fract * 2^exp`
+  pub fn frexp(self) -> (Node<T>, Node<T::Shape<i32>>)
+  where
+    T::Shape<i32>: ShaderNodeType,
+  {
     let raw = make_builtin_call_with_ty_helper::<AnyType>(
       ShaderBuiltInFunction::Frexp,
       T::primitive_ty(),
@@ -550,6 +633,40 @@ where
       let exp = index_access_field(raw, 1).into_node();
       (fr, exp)
     }
+  }
+
+  /// return (fract, whole), the fractional and whole parts of self, both have the same sign as self
+  pub fn modf(self) -> (Node<T>, Node<T>) {
+    let raw = make_builtin_call_with_ty_helper::<AnyType>(
+      ShaderBuiltInFunction::Modf,
+      T::primitive_ty(),
+      vec![self.handle()],
+    )
+    .handle();
+
+    unsafe {
+      let fract = index_access_field(raw, 0).into_node();
+      let whole = index_access_field(raw, 1).into_node();
+      (fract, whole)
+    }
+  }
+
+  /// `self * 2^exp`
+  pub fn ldexp(self, exp: impl Into<Node<T::Shape<i32>>>) -> Node<T>
+  where
+    T::Shape<i32>: ShaderNodeType,
+  {
+    make_builtin_call(
+      ShaderBuiltInFunction::Ldexp,
+      [self.handle(), exp.into().handle()],
+    )
+  }
+}
+
+impl<T: ShaderScalarOrVec<Item = f32>> Node<T> {
+  /// Quantizes a 32-bit floating point value as if it were converted to f16 and back to f32
+  pub fn quantize_to_f16(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::QuantizeToF16, [self.handle()])
   }
 }
 
@@ -596,6 +713,28 @@ impl Node<Vec4<f32>> {
   }
 }
 
+impl Node<Vec4<i32>> {
+  /// pack the lower 8 bits of each component
+  pub fn pack4x_i8(self) -> Node<u32> {
+    make_builtin_call(ShaderBuiltInFunction::Pack4xI8, [self.handle()])
+  }
+  /// clamp each component to [-128, 127] then pack
+  pub fn pack4x_i8_clamp(self) -> Node<u32> {
+    make_builtin_call(ShaderBuiltInFunction::Pack4xI8Clamp, [self.handle()])
+  }
+}
+
+impl Node<Vec4<u32>> {
+  /// pack the lower 8 bits of each component
+  pub fn pack4x_u8(self) -> Node<u32> {
+    make_builtin_call(ShaderBuiltInFunction::Pack4xU8, [self.handle()])
+  }
+  /// clamp each component to [0, 255] then pack
+  pub fn pack4x_u8_clamp(self) -> Node<u32> {
+    make_builtin_call(ShaderBuiltInFunction::Pack4xU8Clamp, [self.handle()])
+  }
+}
+
 impl Node<Vec2<f32>> {
   pub fn pack2x16snorm(self) -> Node<u32> {
     make_builtin_call(ShaderBuiltInFunction::Pack2x16snorm, [self.handle()])
@@ -614,6 +753,28 @@ impl Node<u32> {
   }
   pub fn unpack4x8unorm(self) -> Node<Vec4<f32>> {
     make_builtin_call(ShaderBuiltInFunction::Unpack4x8unorm, [self.handle()])
+  }
+  /// sign extend each 8 bits component
+  pub fn unpack4x_i8(self) -> Node<Vec4<i32>> {
+    make_builtin_call(ShaderBuiltInFunction::Unpack4xI8, [self.handle()])
+  }
+  /// zero extend each 8 bits component
+  pub fn unpack4x_u8(self) -> Node<Vec4<u32>> {
+    make_builtin_call(ShaderBuiltInFunction::Unpack4xU8, [self.handle()])
+  }
+  /// the dot product of the two packed 4x8 unsigned integer vectors
+  pub fn dot4_u8_packed(self, other: impl Into<Self>) -> Node<u32> {
+    make_builtin_call(
+      ShaderBuiltInFunction::Dot4U8Packed,
+      [self.handle(), other.into().handle()],
+    )
+  }
+  /// the dot product of the two packed 4x8 signed integer vectors
+  pub fn dot4_i8_packed(self, other: impl Into<Self>) -> Node<i32> {
+    make_builtin_call(
+      ShaderBuiltInFunction::Dot4I8Packed,
+      [self.handle(), other.into().handle()],
+    )
   }
 
   pub fn unpack2x16snorm(self) -> Node<Vec2<f32>> {

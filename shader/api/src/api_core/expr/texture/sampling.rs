@@ -18,6 +18,16 @@ pub trait ShaderArrayTextureSampleIndexType {}
 impl ShaderArrayTextureSampleIndexType for u32 {}
 impl ShaderArrayTextureSampleIndexType for i32 {}
 
+fn check_sample_offset(offset: Vec2<i32>) {
+  let range = -8..=7;
+  assert!(
+    range.contains(&offset.x) && range.contains(&offset.y),
+    "texture sample offset component must be in the range [-8, 7], got ({}, {})",
+    offset.x,
+    offset.y
+  );
+}
+
 #[derive(Clone, Copy)]
 pub struct TextureSamplingAction<D, F> {
   tex: PhantomData<(D, F)>,
@@ -37,12 +47,29 @@ where
     self
   }
 
-  pub fn with_level(mut self, level: Node<f32>) -> Self {
+  /// the level type is f32 for float texture and u32 for depth texture
+  pub fn with_level(mut self, level: Node<F::ExplicitLevel>) -> Self
+  where
+    F: SamplerSampleTarget,
+  {
     self.info.level = SampleLevel::Exact(level.handle());
     self
   }
 
-  pub fn with_level_bias(mut self, level: Node<f32>) -> Self {
+  /// sample the base level, valid in any shader stage
+  pub fn with_zero_level(mut self) -> Self
+  where
+    F: SamplerSampleTarget,
+  {
+    self.info.level = SampleLevel::Zero;
+    self
+  }
+
+  /// only valid in fragment stage
+  pub fn with_level_bias(mut self, level: Node<f32>) -> Self
+  where
+    F: SamplerBiasGradSampleTarget,
+  {
     self.info.level = SampleLevel::Bias(level.handle());
     self
   }
@@ -51,7 +78,10 @@ where
     mut self,
     x: Node<TextureSampleInputOf<D, f32>>,
     y: Node<TextureSampleInputOf<D, f32>>,
-  ) -> Self {
+  ) -> Self
+  where
+    F: SamplerBiasGradSampleTarget,
+  {
     self.info.level = SampleLevel::Gradient {
       x: x.handle(),
       y: y.handle(),
@@ -59,21 +89,38 @@ where
     self
   }
 
-  pub fn with_offset(mut self, offset: Vec2<i32>) -> Self {
+  /// each component of the offset must be in the range [-8, 7]
+  pub fn with_offset(mut self, offset: Vec2<i32>) -> Self
+  where
+    D: TextureOffsetTarget,
+  {
+    check_sample_offset(offset);
     self.info.offset = Some(offset);
     self
   }
 
-  pub fn sample(self) -> Node<TexelOutputOf<F>> {
+  /// if the level is not specified, the implicit level is used, which is only valid in fragment stage
+  pub fn sample(self) -> Node<TexelOutputOf<F>>
+  where
+    F: SamplerSampleTarget,
+  {
     ShaderNodeExpr::TextureSampling(self.info).insert_api()
   }
 
-  /// do texture gather, the level will be override as zero
+  /// do texture gather, the level will be override as zero.
+  ///
+  /// for depth texture, the channel must be [GatherChannel::X]
   pub fn gather(mut self, channel: GatherChannel) -> Node<Vec4<ChannelOutputOf<F>>>
   where
     D: D2LikeTextureType,
     Vec4<ChannelOutputOf<F>>: ShaderSizedValueNodeType,
   {
+    if matches!(F::SAMPLING_TYPE, TextureSampleType::Depth) {
+      assert!(
+        matches!(channel, GatherChannel::X),
+        "depth texture gather channel must be X"
+      );
+    }
     // gather level can only be zero
     self.info.level = SampleLevel::Zero;
     self.info.gather_channel = Some(channel);
@@ -82,14 +129,14 @@ where
 }
 
 impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<D, F>> {
-  /// just for shortcut
+  /// just for shortcut, the implicit level is used, which is only valid in fragment stage
   pub fn sample(
     &self,
     sampler: BindingNode<ShaderSampler>,
     position: impl Into<Node<TextureSampleInputOf<D, f32>>>,
   ) -> Node<TexelOutputOf<F>>
   where
-    F: SingleSampleTarget,
+    F: SamplerSampleTarget,
   {
     self.build_sample_call(sampler, position).sample()
   }
@@ -100,11 +147,11 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
     position: impl Into<Node<TextureSampleInputOf<D, f32>>>,
   ) -> Node<TexelOutputOf<F>>
   where
-    F: SingleSampleTarget,
+    F: SamplerSampleTarget,
   {
     self
       .build_sample_call(sampler, position)
-      .with_level(val(0.))
+      .with_zero_level()
       .sample()
   }
 
@@ -185,8 +232,32 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
         reference: None,
         offset: None,
         gather_channel: None,
+        clamp_to_edge: false,
       },
     }
+  }
+}
+
+impl BindingNode<ShaderTexture<TextureDimension2, f32>> {
+  /// textureSampleBaseClampToEdge, sample the base level with the coordinates clamped to
+  /// [half_texel, 1 - half_texel], so the sampling will never wrap to the opposite edge.
+  pub fn sample_base_clamp_to_edge(
+    &self,
+    sampler: BindingNode<ShaderSampler>,
+    position: impl Into<Node<Vec2<f32>>>,
+  ) -> Node<Vec4<f32>> {
+    ShaderNodeExpr::TextureSampling(ShaderTextureSampling {
+      texture: self.handle(),
+      sampler: sampler.handle(),
+      position: position.into().handle(),
+      array_index: None,
+      level: SampleLevel::Zero,
+      reference: None,
+      offset: None,
+      gather_channel: None,
+      clamp_to_edge: true,
+    })
+    .insert_api()
   }
 }
 
@@ -204,12 +275,24 @@ impl<D, F> DepthTextureSamplingAction<D, F> {
     self.info.array_index = Some(index.handle());
     self
   }
-  pub fn with_offset(mut self, offset: Vec2<i32>) -> Self {
+  /// each component of the offset must be in the range [-8, 7]
+  pub fn with_offset(mut self, offset: Vec2<i32>) -> Self
+  where
+    D: TextureOffsetTarget,
+  {
+    check_sample_offset(offset);
     self.info.offset = Some(offset);
     self
   }
+  /// textureSampleCompareLevel, compare with the base level, this is the default behavior and it
+  /// is valid in any shader stage
   pub fn with_zero_level(mut self) -> Self {
     self.info.level = SampleLevel::Zero;
+    self
+  }
+  /// textureSampleCompare, compare with the implicit level, only valid in fragment stage
+  pub fn with_implicit_level(mut self) -> Self {
+    self.info.level = SampleLevel::Auto;
     self
   }
   pub fn sample(self) -> Node<f32> {
@@ -217,15 +300,14 @@ impl<D, F> DepthTextureSamplingAction<D, F> {
   }
   /// do texture gather compare, fetch the compare result of the four texels around
   /// the sample position, the level will be override as zero
-  pub fn gather<C>(mut self, channel: GatherChannel) -> Node<Vec4<C>>
+  pub fn gather(mut self) -> Node<Vec4<f32>>
   where
     D: D2LikeTextureType,
-    C: ShaderNodeType,
-    Vec4<C>: ShaderNodeType,
   {
     // gather level can only be zero
     self.info.level = SampleLevel::Zero;
-    self.info.gather_channel = Some(channel);
+    // depth texture gather has no component parameter, it is always the first one.
+    self.info.gather_channel = Some(GatherChannel::X);
     ShaderNodeExpr::TextureSampling(self.info).insert_api()
   }
 }
@@ -236,7 +318,10 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
     sampler: BindingNode<ShaderCompareSampler>,
     position: impl Into<Node<TextureSampleInputOf<D, f32>>>,
     reference: Node<f32>,
-  ) -> DepthTextureSamplingAction<D, F> {
+  ) -> DepthTextureSamplingAction<D, F>
+  where
+    F: DepthSampleTarget,
+  {
     DepthTextureSamplingAction {
       tex: PhantomData,
       info: ShaderTextureSampling {
@@ -248,6 +333,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
         reference: reference.handle().into(),
         offset: None,
         gather_channel: None,
+        clamp_to_edge: false,
       },
     }
   }
@@ -262,7 +348,8 @@ impl<D: ShaderTextureDimension, F> BindingNode<ShaderTexture<D, F>> {
   }
   pub fn texture_number_layers(&self) -> Node<u32>
   where
-    D: ArrayLayerTarget + SingleSampleTarget,
+    D: ArrayLayerTarget,
+    F: SingleSampleTarget,
   {
     ShaderNodeExpr::TextureQuery(self.handle(), TextureQuery::NumLayers).insert_api()
   }

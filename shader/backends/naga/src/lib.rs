@@ -948,7 +948,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
                       size,
                       scalar: naga::Scalar {
                         kind: naga::ScalarKind::Float,
-                        width: ty_help_info.size_of_self(StructLayoutTarget::Packed) as u8,
+                        width: ty_help_info.scalar().byte_count() as u8,
                       },
                     });
 
@@ -963,7 +963,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
                       size,
                       scalar: naga::Scalar {
                         kind: naga::ScalarKind::Float,
-                        width: ty_help_info.size_of_self(StructLayoutTarget::Packed) as u8,
+                        width: ty_help_info.scalar().byte_count() as u8,
                       },
                     });
 
@@ -1001,6 +1001,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           reference,
           offset,
           gather_channel,
+          clamp_to_edge,
         }) => naga::Expression::ImageSample {
           image: self.get_expression(texture),
           sampler: self.get_expression(sampler),
@@ -1020,7 +1021,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           }),
           level: map_sample_level(level, |handle| self.get_expression(handle)),
           depth_ref: reference.map(|r| self.get_expression(r)),
-          clamp_to_edge: false,
+          clamp_to_edge,
         },
         ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
           texture,

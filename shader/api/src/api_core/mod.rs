@@ -32,7 +32,11 @@ pub fn shader_unreachable() {
   if !ENABLE_SHADER_ASSERTION {
     return;
   }
-  loop_by(|_| {})
+  // the never taken break is required by the WGSL behavior analysis, a loop that never exits has
+  // empty behavior which is a shader creation error.
+  loop_by(|cx| {
+    if_by(val(false), || cx.do_break());
+  })
 }
 
 pub fn shader_assert(cond: Node<bool>) {

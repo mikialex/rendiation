@@ -1,7 +1,11 @@
 //! corresponding spec: https://www.w3.org/TR/WGSL/#subgroup-builtin-functions
 use crate::*;
 
-impl<T: ShaderScalarOrVec> Node<T> {
+impl<T> Node<T>
+where
+  T: ShaderScalarOrVec,
+  T::Item: ShaderNumericScalarType,
+{
   /// Returns the sum of self among all active invocations in the subgroup
   pub fn subgroup_add(&self) -> Self {
     make_subgroup_collective_op(
@@ -79,6 +83,10 @@ impl<T: ShaderScalarOrVec> Node<T> {
   ///
   /// id must in the range [0, 128).
   pub fn subgroup_broadcast(&self, id: u32) -> Self {
+    assert!(
+      id < 128,
+      "subgroup broadcast id must be in the range [0, 128)"
+    );
     make_subgroup_gather_op(
       SubgroupGatherMode::Broadcast(val(id).handle()),
       self.handle(),
@@ -122,6 +130,55 @@ impl<T: ShaderScalarOrVec> Node<T> {
   pub fn subgroup_shuffle_down(&self, delta: impl Into<Node<u32>>) -> Self {
     make_subgroup_gather_op(
       SubgroupGatherMode::ShuffleDown(delta.into().handle()),
+      self.handle(),
+      T::primitive_ty(),
+    )
+  }
+
+  /// Returns self from the invocation whose subgroup invocation ID
+  /// matches subgroup_invocation_id ^ mask for the current invocation.
+  ///
+  /// mask should be in the range [0, 128), and uniform
+  pub fn subgroup_shuffle_xor(&self, mask: impl Into<Node<u32>>) -> Self {
+    make_subgroup_gather_op(
+      SubgroupGatherMode::ShuffleXor(mask.into().handle()),
+      self.handle(),
+      T::primitive_ty(),
+    )
+  }
+
+  /// Returns the value of self from the invocation whose quad invocation ID matches id
+  /// in the quad to all active invocations in the quad.
+  ///
+  /// id must in the range [0, 4).
+  pub fn quad_broadcast(&self, id: u32) -> Self {
+    assert!(id < 4, "quad broadcast id must be in the range [0, 4)");
+    make_subgroup_gather_op(
+      SubgroupGatherMode::QuadBroadcast(val(id).handle()),
+      self.handle(),
+      T::primitive_ty(),
+    )
+  }
+  /// Returns the value of self from the invocation in the quad sharing the same Y dimension.
+  pub fn quad_swap_x(&self) -> Self {
+    make_subgroup_gather_op(
+      SubgroupGatherMode::QuadSwap(QuadSwapDirection::X),
+      self.handle(),
+      T::primitive_ty(),
+    )
+  }
+  /// Returns the value of self from the invocation in the quad sharing the same X dimension.
+  pub fn quad_swap_y(&self) -> Self {
+    make_subgroup_gather_op(
+      SubgroupGatherMode::QuadSwap(QuadSwapDirection::Y),
+      self.handle(),
+      T::primitive_ty(),
+    )
+  }
+  /// Returns the value of self from the invocation in the quad that is diagonal to current one.
+  pub fn quad_swap_diagonal(&self) -> Self {
+    make_subgroup_gather_op(
+      SubgroupGatherMode::QuadSwap(QuadSwapDirection::Diagonal),
       self.handle(),
       T::primitive_ty(),
     )
@@ -250,6 +307,15 @@ pub enum SubgroupGatherMode {
   ShuffleDown(ShaderNodeRawHandle),
   ShuffleUp(ShaderNodeRawHandle),
   ShuffleXor(ShaderNodeRawHandle),
+  QuadBroadcast(ShaderNodeRawHandle),
+  QuadSwap(QuadSwapDirection),
+}
+
+#[derive(Clone, Copy)]
+pub enum QuadSwapDirection {
+  X,
+  Y,
+  Diagonal,
 }
 
 #[repr(u32)]

@@ -45,6 +45,7 @@ pub type DynamicShaderAPI = Box<dyn ShaderAPI>;
 
 pub enum BarrierScope {
   Storage,
+  Texture,
   WorkGroup,
   SubGroup,
 }

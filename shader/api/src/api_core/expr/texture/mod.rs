@@ -42,6 +42,22 @@ pub trait MultiSampleTarget {}
 
 pub trait DepthSampleTarget {}
 
+/// The texture kind that could be sampled by the non comparison sampler(textureSample,
+/// textureSampleLevel), which are the float and depth textures. The integer textures can only be
+/// loaded or gathered.
+pub trait SamplerSampleTarget: ShaderTextureKind + SingleSampleTarget {
+  /// the level type of textureSampleLevel, f32 for float texture, u32 for depth texture
+  type ExplicitLevel: ShaderNodeType;
+}
+
+/// The texture kind that support textureSampleBias and textureSampleGrad, which is the float
+/// texture only.
+pub trait SamplerBiasGradSampleTarget: SamplerSampleTarget {}
+
+/// The texture dimension that support the sampling offset. WGSL also support 3d texture offset by
+/// `vec3<i32>`, but it is not supported yet here.
+pub trait TextureOffsetTarget: ShaderTextureDimension {}
+
 // these are commonly used type
 
 pub type ShaderTexture1D = ShaderTexture<TextureDimension1, f32>;

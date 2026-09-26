@@ -35,7 +35,12 @@ macro_rules! texture_dimension_impl {
   };
 }
 
-texture_dimension_impl!(TextureDimension1, TextureViewDimension::D1, Vec2);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct TextureDimension1;
+impl ShaderTextureDimension for TextureDimension1 {
+  const DIMENSION: TextureViewDimension = TextureViewDimension::D1;
+  type Input<T> = T;
+}
 impl SingleLayerTarget for TextureDimension1 {}
 impl D1LikeTextureType for TextureDimension1 {}
 impl DirectAccessTarget for TextureDimension1 {}
@@ -44,11 +49,13 @@ texture_dimension_impl!(TextureDimension2, TextureViewDimension::D2, Vec2);
 impl SingleLayerTarget for TextureDimension2 {}
 impl D2LikeTextureType for TextureDimension2 {}
 impl DirectAccessTarget for TextureDimension2 {}
+impl TextureOffsetTarget for TextureDimension2 {}
 
 texture_dimension_impl!(TextureDimension2Array, TextureViewDimension::D2Array, Vec2);
 impl ArrayLayerTarget for TextureDimension2Array {}
 impl D2LikeTextureType for TextureDimension2Array {}
 impl DirectAccessTarget for TextureDimension2Array {}
+impl TextureOffsetTarget for TextureDimension2Array {}
 
 texture_dimension_impl!(TextureDimensionCube, TextureViewDimension::Cube, Vec3);
 impl SingleLayerTarget for TextureDimensionCube {}
@@ -74,6 +81,10 @@ impl ShaderTextureKind for f32 {
   type TexelOutput = Vec4<f32>;
 }
 impl SingleSampleTarget for f32 {}
+impl SamplerSampleTarget for f32 {
+  type ExplicitLevel = f32;
+}
+impl SamplerBiasGradSampleTarget for f32 {}
 
 impl ShaderTextureKind for u32 {
   const SAMPLING_TYPE: TextureSampleType = TextureSampleType::Uint;
@@ -101,6 +112,9 @@ impl ShaderTextureKind for TextureSampleDepth {
 }
 impl DepthSampleTarget for TextureSampleDepth {}
 impl SingleSampleTarget for TextureSampleDepth {}
+impl SamplerSampleTarget for TextureSampleDepth {
+  type ExplicitLevel = u32;
+}
 
 pub struct MultiSampleOf<T>(T);
 impl<T: ShaderTextureKind> ShaderTextureKind for MultiSampleOf<T> {

@@ -39,9 +39,12 @@ use rendiation_shader_api::*;
 
 ```rust
 storage_barrier();     // storage memory barrier
+texture_barrier();     // read_write storage texture barrier
 workgroup_barrier();   // workgroup memory barrier
 subgroup_barrier();    // subgroup barrier (requires SUBGROUP_BARRIER feature)
 ```
+
+Barriers are only valid in the compute stage (not checked by the EDSL yet).
 
 
 ## Workgroup Shared & Private Memory

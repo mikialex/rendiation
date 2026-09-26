@@ -48,6 +48,25 @@ let slot = val(Vec3::new(1.0, 0.0, 0.0)).make_local_var();
 let arr: ShaderPtrOf<[f32; 16]> = make_local_var::<[f32; 16]>();
 ```
 
+### Operators
+
+The `std::ops` overloads follow the WGSL operator overload table, they do not reuse the math
+library's operator impls (which contain WGSL-invalid ones like the homogeneous `Mat4 * Vec3`).
+
+| Operator | Valid operands |
+|----------|----------------|
+| `+ -` | same type numeric scalar/vector (`ShaderAddSubType`), same type f32 matrix |
+| `/ %` | same type numeric scalar/vector (`ShaderComponentWiseArithmeticType`) |
+| `*` | see `ShaderMul<Rhs>`: same type numeric scalar/vector, `vec * scalar`, `scalar * vec`, `mat * f32`, `f32 * mat`, `matCxR * vecC -> vecR`, `vecR * matCxR -> vecC`, `matKxR * matCxK -> matCxR` |
+| unary `-` | i32/f32 scalar or vector (unsigned, bool and matrix are rejected) |
+| `& \|` | integer or bool scalar/vector (non short circuit for bool) |
+| `^ << >>`, `.bitwise_not()` | integer scalar/vector |
+| `.and(v) .or(v)` | `Node<bool>`, short circuit |
+| `.not()` | `Node<bool>` and `Node<VecN<bool>>` |
+
+`vec ± scalar` and `vec / scalar` are not supported yet, splat the scalar first. Matrix element
+type must be `f32`.
+
 ### Array types and indexing
 
 | Array type | Indexed by | `.index(idx)` returns | Example |
@@ -304,41 +323,76 @@ samples
 // Basic sampling (implicit LOD)
 let color: Node<Vec4<f32>> = texture.sample(sampler, uv);
 
-// Zero-level sampling (no mipmap or explicit level 0)
+// Zero-level sampling (no mipmap or explicit level 0), valid in any stage
 let color = texture.sample_zero_level(sampler, uv);
 
-// With explicit LOD
+// With explicit LOD, level is Node<f32> for float texture, Node<u32> for depth texture
 let color = texture
     .build_sample_call(sampler, uv)
     .with_level(level)
     .sample();
 
-// With LOD bias
+// With LOD bias (float texture only, fragment stage only)
 let color = texture
     .build_sample_call(sampler, uv)
     .with_level_bias(bias)
     .sample();
 
-// With gradients
+// With gradients (float texture only)
 let color = texture
     .build_sample_call(sampler, uv)
     .with_level_grad(ddx, ddy)
     .sample();
 
-// Gather (fetch four texels)
+// Offset (2D and 2D array only, each component in [-8, 7])
+let color = texture
+    .build_sample_call(sampler, uv)
+    .with_offset(Vec2::new(1, -1))
+    .with_zero_level()
+    .sample();
+
+// Gather (fetch four texels), also works for integer texture. Depth texture only allows channel X
 let gathered = texture
     .build_sample_call(sampler, uv)
-    .gather(GatherChannel::Red);
+    .gather(GatherChannel::X);
+
+// textureSampleBaseClampToEdge (ShaderTexture2D only)
+let color = texture.sample_base_clamp_to_edge(sampler, uv);
+```
+
+- `sample`/`with_level`/`sample_zero_level` require `F: SamplerSampleTarget` (f32 and depth
+  texture), integer textures can only be loaded or gathered.
+- `with_level_bias`/`with_level_grad` require `F: SamplerBiasGradSampleTarget` (f32 texture).
+- 1D texture coordinates are scalar (`Node<f32>` for sampling, `Node<u32>` for load).
+
+### Depth comparison sampling
+
+```rust
+// requires a depth texture and ShaderCompareSampler
+let visibility: Node<f32> = depth_texture
+    .build_compare_sample_call(compare_sampler, uv, reference_depth)
+    .sample(); // textureSampleCompareLevel, compare with base level by default
+
+// textureSampleCompare (implicit level, fragment stage only)
+let visibility = depth_texture
+    .build_compare_sample_call(compare_sampler, uv, reference_depth)
+    .with_implicit_level()
+    .sample();
+
+// textureGatherCompare, the four compare results
+let results: Node<Vec4<f32>> = depth_texture
+    .build_compare_sample_call(compare_sampler, uv, reference_depth)
+    .gather();
 ```
 
 ### Direct load (sampler-less texel access)
 
 ```rust
-// 2D texture
-let value = texture.load_texel(coord);
+// 2D texture, the level is required
+let value = texture.load_texel(coord, level);
 
 // 2D array
-let value = texture.load_texel_layer(coord, layer);
+let value = texture.load_texel_layer(coord, layer, level);
 
 // Multisample
 let value = texture.load_texel_multi_sample_index(coord, sample_index);
@@ -372,9 +426,12 @@ storage_tex.write_texel_index(coord, index, value); // array layer
 ### Texture metadata queries
 
 ```rust
-let layers: Node<u32> = texture.texture_number_layers();
+let layers: Node<u32> = array_texture.texture_number_layers(); // array texture only
 let levels: Node<u32> = texture.texture_number_levels();
 let dims: Node<Vec2<u32>> = texture.texture_dimension_2d(None);  // None means base level
+
+// storage texture has no mip level parameter
+let dims: Node<Vec2<u32>> = storage_texture.texture_dimension_2d();
 ```
 
 
@@ -400,10 +457,17 @@ let old = atomic_ptr.atomic_and(val(0xFF));
 let old = atomic_ptr.atomic_or(val(0x01));
 let old = atomic_ptr.atomic_xor(val(0xFF));
 
+// Compare exchange, store 1 if current value is 0, may spuriously fail
+let (old, exchanged): (Node<u32>, Node<bool>) = atomic_ptr.atomic_compare_exchange_weak(val(0), val(1));
 ```
+
+Atomics are only valid in workgroup memory or read_write storage buffers.
 
 
 ## Subgroup Operations
+
+Subgroup and quad operations are only valid in the fragment and compute stages. The arithmetic and
+communication operations require numeric scalar/vector (bool is rejected).
 
 ### Collective Reduce
 
@@ -426,10 +490,21 @@ let incl_mul: Node<f32> = value.subgroup_inclusive_mul();
 ### Communication
 
 ```rust
-let val: Node<f32> = value.subgroup_broadcast(id);       // broadcast to all
+let val: Node<f32> = value.subgroup_broadcast(3);        // broadcast to all, id: u32 in [0, 128)
+let first: Node<f32> = value.subgroup_broadcast_first(); // from the lowest active invocation
 let shuffled: Node<f32> = value.subgroup_shuffle(id);     // shuffle
 let up: Node<f32> = value.subgroup_shuffle_up(delta);     // shuffle up
 let down: Node<f32> = value.subgroup_shuffle_down(delta); // shuffle down
+let xor: Node<f32> = value.subgroup_shuffle_xor(mask);    // shuffle xor
+```
+
+### Quad
+
+```rust
+let v: Node<f32> = value.quad_broadcast(1); // id: u32 in [0, 4)
+let x: Node<f32> = value.quad_swap_x();
+let y: Node<f32> = value.quad_swap_y();
+let d: Node<f32> = value.quad_swap_diagonal();
 ```
 
 ### Boolean
@@ -502,11 +577,15 @@ All methods are called directly on `Node<T>`.
 | `.min(v)` | Minimum |
 | `.max(v)` | Maximum |
 | `.clamp(low, high)` | Clamp |
-| `.saturate()` | Clamp to [0, 1] |
+| `.saturate()` | Clamp to [0, 1] (float only) |
 | `.sign()` | Sign |
-| `.step(edge)` | Step |
-| `.smoothstep(low, high)` | Smooth step |
-| `.mix(a, b, t)` | Mix (a, b same Node type, t is factor) |
+| `.step(edge)` | 1.0 if edge <= self, else 0.0 |
+| `.smoothstep(low, high)` | Smooth step, scalar only |
+| `.smoothstep_per_channel(low, high)` | Smooth step, low/high/self same type (scalar or vector) |
+| `t.mix(a, b)` | Mix, t is f32 factor, a and b are the same scalar/vector type |
+| `t.mix_per_channel(a, b)` | Mix, t/a/b same type |
+| `.fma(b, c)` | `self * b + c` |
+| `.degrees()` / `.radians()` | Angle conversion |
 | `.equals(v)` | Equal |
 | `.less_than(v)` | Less than |
 | `.greater_than(v)` | Greater than |
@@ -516,19 +595,21 @@ All methods are called directly on `Node<T>`.
 
 | Method | Description |
 |--------|-------------|
-| `.dot(v)` | Dot product |
+| `.dot(v)` | Dot product (float or integer vector) |
 | `.cross(v)` | Cross product (Vec3 only) |
 | `.normalize()` | Normalize |
 | `.length()` | Length |
 | `.distance(v)` | Distance |
-| `.reflect(n)` | Reflect |
-| `.refract(n, eta)` | Refract |
+| `n.reflect(i)` | Reflect incident direction `i` by normal `n` |
+| `n.refract(i, eta)` | Refract |
+| `n.face_forward(i, n_ref)` | `n` if `dot(i, n_ref) < 0`, else `-n` |
 
 ### Matrix
 
 | Method | Description |
 |--------|-------------|
-| `.transpose()` | Matrix transpose |
+| `.transpose()` | Matrix transpose (square matrix only) |
+| `.determinant()` | Determinant (square matrix only) |
 
 ### Math functions
 
@@ -536,7 +617,21 @@ All methods are called directly on `Node<T>`.
 `.sinh()`, `.cosh()`, `.tanh()`,
 `.exp()`, `.exp2()`, `.ln()` (log_e), `.log2()`,
 `.pow(exp)`, `.sqrt()`, `.inverse_sqrt()`,
-`.floor()`, `.ceil()`, `.round()`, `.fract()`, `.trunc()`
+`.floor()`, `.ceil()`, `.round()`, `.fract()`, `.trunc()`,
+`.frexp()` -> `(fract, exp)`, `.modf()` -> `(fract, whole)`, `.ldexp(exp)`, `.quantize_to_f16()`,
+`.is_nan()`, `.is_inf()` (scalar f32, implemented by bit pattern check because WGSL has no such built-in)
+
+### Integer bit functions
+
+`.count_leading_zeros()`, `.count_trailing_zeros()`, `.count_one_bits()`, `.reverse_bits()`,
+`.first_leading_bit()`, `.first_trailing_bit()`, `.extract_bits(offset, count)`,
+`.insert_bits(new_bits, offset, count)`
+
+### Packing
+
+`pack4x8snorm`, `pack4x8unorm`, `pack2x16snorm`, `pack2x16unorm`, `pack2x16float` (float vector to u32),
+`pack4x_i8`, `pack4x_i8_clamp` (`Vec4<i32>`), `pack4x_u8`, `pack4x_u8_clamp` (`Vec4<u32>`),
+and the `unpack*` counterparts on `Node<u32>`, plus `dot4_u8_packed` / `dot4_i8_packed`
 
 ### Boolean / Selection
 
@@ -563,7 +658,8 @@ let w: Node<Vec3<f32>> = value.fwidth();  // fwidth
 let f: Node<f32> = int_val.into_f32();
 let u: Node<u32> = float_val.into_u32();
 let i: Node<i32> = float_val.into_i32();
-let bits: Node<u32> = float_val.bitcast::<u32>();
+let b: Node<bool> = float_val.into_bool(); // u32/i32/f32 <-> bool are all supported
+let bits: Node<u32> = float_val.bitcast::<u32>(); // scalar only for now
 ```
 
 ### Vector boolean operations
@@ -583,7 +679,7 @@ let result = mask.select(if_true, if_false);
 // From scalars
 let v3: Node<Vec3<f32>> = val(Vec3::new(1.0, 2.0, 3.0));
 
-// From components
+// From components (f32, u32, i32 and bool)
 let v: Node<Vec4<f32>> = (val(1.0), val(2.0), val(3.0), val(1.0)).into();
 ```
 
@@ -593,17 +689,17 @@ let v: Node<Vec4<f32>> = (val(1.0), val(2.0), val(3.0), val(1.0)).into();
 // Vector swizzle (x/y/z/w components)
 let xy: Node<Vec2<f32>> = vec3.xy();
 let xyz: Node<Vec3<f32>> = vec4.xyz();
-let yx: Node<Vec2<f32>> = vec2.yx();
-let zyx: Node<Vec3<f32>> = vec3.zyx();
+let yz: Node<Vec2<f32>> = vec4.yz();
 let x: Node<f32> = vec4.x();
 
-// Color channels
-let rgb: Node<Vec3<f32>> = vec4.rgb();
-let a: Node<f32> = vec4.a();
-
-// Splat (broadcast)
+// Splat (broadcast), works for any scalar type
 let v4 = val(1.0).splat::<Vec4<f32>>();  // (1, 1, 1, 1)
 ```
+
+Only the shrinking swizzles are implemented: `Vec4 -> Vec3/Vec2` (not starting with `w` for
+`Vec2`), `Vec3 -> Vec2` and single component access. Same size swizzles (`vec2.yx()`,
+`vec3.zyx()`, `vec4.wzyx()`) and the rgba names are not available yet, compose from components
+instead.
 
 ### Matrix construction
 

@@ -35,6 +35,13 @@ pub trait ShaderSignedType: ShaderScalarType {}
 impl ShaderSignedType for i32 {}
 impl ShaderSignedType for f32 {}
 
+/// The scalar types that support the `&` and `|` operators. For integers they are bitwise
+/// operations, for bool they are the non short circuit logical operations.
+pub trait ShaderAndOrScalarType: ShaderScalarType {}
+impl ShaderAndOrScalarType for i32 {}
+impl ShaderAndOrScalarType for u32 {}
+impl ShaderAndOrScalarType for bool {}
+
 pub trait ShaderVec: PrimitiveShaderNodeType {
   type Item: ShaderScalarType;
   type Shape<S: ShaderScalarType>;
@@ -136,6 +143,8 @@ pub struct ShaderTextureSampling {
   pub reference: Option<ShaderNodeRawHandle>,
   pub offset: Option<Vec2<i32>>,
   pub gather_channel: Option<GatherChannel>,
+  /// see textureSampleBaseClampToEdge
+  pub clamp_to_edge: bool,
 }
 
 #[derive(Clone, Copy)]

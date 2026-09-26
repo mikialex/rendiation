@@ -99,46 +99,61 @@ impl SwitchableShaderType for i32 {
   }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum SwitchCaseCondition {
   U32(u32),
   I32(i32),
   Default,
 }
 
-pub struct SwitchBuilder<T>(PhantomData<T>, std::cell::Cell<bool>);
+pub struct SwitchBuilder<T> {
+  phantom: PhantomData<T>,
+  ended: bool,
+  /// the case selector values must be distinct in WGSL
+  cases: Vec<SwitchCaseCondition>,
+}
 
 impl<T> Drop for SwitchBuilder<T> {
   fn drop(&mut self) {
-    if !self.1.get() {
+    if !self.ended {
       panic!("SwitchBuilder dropped without end_with_default")
     }
   }
 }
 
 impl<T: SwitchableShaderType> SwitchBuilder<T> {
-  /// None is the default case
-  pub fn case(self, v: T, scope: impl FnOnce()) -> Self {
-    call_shader_api(|g| g.push_switch_case_scope(v.into_condition()));
+  pub fn case(mut self, v: T, scope: impl FnOnce()) -> Self {
+    let condition = v.into_condition();
+    assert!(
+      !self.cases.contains(&condition),
+      "switch case selector values must be distinct"
+    );
+    self.cases.push(condition);
+    call_shader_api(|g| g.push_switch_case_scope(condition));
     scope();
     call_shader_api(|g| g.pop_scope());
     self
   }
 
-  pub fn end_with_default(self, default: impl FnOnce()) {
+  pub fn end_with_default(mut self, default: impl FnOnce()) {
     call_shader_api(|g| g.push_switch_case_scope(SwitchCaseCondition::Default));
     default();
     call_shader_api(|g| {
       g.pop_scope();
       g.end_switch();
     });
-    self.1.set(true);
+    self.ended = true;
   }
 }
 
 #[must_use]
-pub fn switch_by<T>(selector: Node<T>) -> SwitchBuilder<T> {
+pub fn switch_by<T: SwitchableShaderType>(selector: Node<T>) -> SwitchBuilder<T> {
   call_shader_api(|g| g.begin_switch(selector.handle()));
-  SwitchBuilder(Default::default(), Default::default())
+  SwitchBuilder {
+    phantom: PhantomData,
+    ended: false,
+    cases: Vec::new(),
+  }
 }
 
 pub fn return_value<T>(v: Option<Node<T>>) {

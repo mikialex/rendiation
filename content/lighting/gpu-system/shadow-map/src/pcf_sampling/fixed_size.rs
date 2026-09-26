@@ -194,7 +194,7 @@ fn fixed_size_pcf_kernel<const N: usize>(
           )
           .with_offset((col, row).into())
           .with_array_index(layer)
-          .gather(GatherChannel::X);
+          .gather();
         v1.index(val(ci as u32)).store(gathered);
       } else {
         v1.index(val(ci as u32)).store(val(Vec4::zero()));

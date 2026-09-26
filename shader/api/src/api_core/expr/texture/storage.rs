@@ -140,42 +140,34 @@ where
 {
   pub fn texture_number_layers(&self) -> Node<u32>
   where
-    D: ArrayLayerTarget + SingleSampleTarget,
+    D: ArrayLayerTarget,
   {
     ShaderNodeExpr::TextureQuery(self.handle(), TextureQuery::NumLayers).insert_api()
   }
 
-  /// using None means base level
-  fn texture_dimension(&self, level: Option<Node<u32>>) -> ShaderNodeExpr {
-    ShaderNodeExpr::TextureQuery(
-      self.handle(),
-      TextureQuery::Size {
-        level: level.map(|v| v.handle()),
-      },
-    )
+  /// storage texture has no mipmap, the dimension of the view is returned
+  fn texture_dimension(&self) -> ShaderNodeExpr {
+    ShaderNodeExpr::TextureQuery(self.handle(), TextureQuery::Size { level: None })
   }
 
-  /// using None means base level
-  pub fn texture_dimension_1d(&self, level: Option<Node<u32>>) -> Node<u32>
+  pub fn texture_dimension_1d(&self) -> Node<u32>
   where
     D: D1LikeTextureType,
   {
-    self.texture_dimension(level).insert_api()
+    self.texture_dimension().insert_api()
   }
 
-  /// using None means base level
-  pub fn texture_dimension_2d(&self, level: Option<Node<u32>>) -> Node<Vec2<u32>>
+  pub fn texture_dimension_2d(&self) -> Node<Vec2<u32>>
   where
     D: D2LikeTextureType,
   {
-    self.texture_dimension(level).insert_api()
+    self.texture_dimension().insert_api()
   }
 
-  /// using None means base level
-  pub fn texture_dimension_3d(&self, level: Option<Node<u32>>) -> Node<Vec3<u32>>
+  pub fn texture_dimension_3d(&self) -> Node<Vec3<u32>>
   where
     D: D3LikeTextureType,
   {
-    self.texture_dimension(level).insert_api()
+    self.texture_dimension().insert_api()
   }
 }

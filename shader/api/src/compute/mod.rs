@@ -46,9 +46,9 @@ pub fn storage_barrier() {
   call_shader_api(|api| api.barrier(BarrierScope::Storage))
 }
 
+/// synchronize the read_write storage texture access in the workgroup
 pub fn texture_barrier() {
-  // call_shader_api(|api| api.barrier(BarrierScope::Storage))
-  println!("warning: texture_barrier is not implemented yet, such call will be ignored");
+  call_shader_api(|api| api.barrier(BarrierScope::Texture))
 }
 
 pub fn workgroup_barrier() {

@@ -510,15 +510,22 @@ impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
     }
     .insert_api()
   }
-  pub fn atomic_exchange_weak(&self, v: Node<T>) -> (Node<T>, Node<bool>) {
+  /// atomicCompareExchangeWeak, store v if the current value equals to compare.
+  ///
+  /// return (old_value, exchanged), the exchange may spuriously fail even the value equals.
+  pub fn atomic_compare_exchange_weak(
+    &self,
+    compare: impl Into<Node<T>>,
+    v: impl Into<Node<T>>,
+  ) -> (Node<T>, Node<bool>) {
     let raw = ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
       pointer: self.1.get_self_atomic_ptr(),
       function: AtomicFunction::Exchange {
-        compare: None,
-        weak: false,
+        compare: Some(compare.into().handle()),
+        weak: true,
       },
-      value: v.handle(),
+      value: v.into().handle(),
     }
     .insert_api_raw();
 

@@ -80,12 +80,93 @@ impl OperatorNode {
   }
 }
 
-impl<T, U> Add for Node<T>
-where
-  U: ShaderNodeType,
-  T: ShaderNodeType + Add<Output = U>,
-{
-  type Output = Node<U>;
+/// The operand types of the component-wise arithmetic operators(`+ - * / %` with same type
+/// operands), which are the numeric scalars and the numeric vectors.
+///
+/// see <https://www.w3.org/TR/WGSL/#arithmetic-expr>
+pub trait ShaderComponentWiseArithmeticType: ShaderNodeType {}
+
+/// The operand types of the `+` and `-` operators, which additionally include the float matrices.
+pub trait ShaderAddSubType: ShaderNodeType {}
+
+/// All the valid multiplications in WGSL: the component-wise multiplication, the scalar and vector
+/// (or matrix) mixed multiplication, and the linear algebra matrix multiplication.
+///
+/// The math library's operator implementations are not reused, because they contain operations
+/// that are invalid in WGSL, for example the homogeneous `Mat4 * Vec3`.
+pub trait ShaderMul<Rhs>: ShaderNodeType {
+  type Output: ShaderNodeType;
+}
+
+macro_rules! impl_numeric_arithmetic {
+  ($($ty: ty),+) => {
+    $(
+      impl ShaderComponentWiseArithmeticType for $ty {}
+      impl ShaderAddSubType for $ty {}
+      impl ShaderMul<$ty> for $ty {
+        type Output = $ty;
+      }
+    )+
+  };
+}
+
+macro_rules! impl_shader_mul {
+  ($lhs: ty, $rhs: ty, $output: ty) => {
+    impl ShaderMul<$rhs> for $lhs {
+      type Output = $output;
+    }
+  };
+}
+
+macro_rules! impl_scalar_vector_arithmetic {
+  ($scalar: ty) => {
+    impl_numeric_arithmetic!($scalar, Vec2<$scalar>, Vec3<$scalar>, Vec4<$scalar>);
+    impl_shader_mul!(Vec2<$scalar>, $scalar, Vec2<$scalar>);
+    impl_shader_mul!(Vec3<$scalar>, $scalar, Vec3<$scalar>);
+    impl_shader_mul!(Vec4<$scalar>, $scalar, Vec4<$scalar>);
+    impl_shader_mul!($scalar, Vec2<$scalar>, Vec2<$scalar>);
+    impl_shader_mul!($scalar, Vec3<$scalar>, Vec3<$scalar>);
+    impl_shader_mul!($scalar, Vec4<$scalar>, Vec4<$scalar>);
+  };
+}
+
+impl_scalar_vector_arithmetic!(f32);
+impl_scalar_vector_arithmetic!(u32);
+impl_scalar_vector_arithmetic!(i32);
+
+macro_rules! impl_matrix_scalar_arithmetic {
+  ($($mat: ty),+) => {
+    $(
+      impl ShaderAddSubType for $mat {}
+      impl_shader_mul!($mat, f32, $mat);
+      impl_shader_mul!(f32, $mat, $mat);
+    )+
+  };
+}
+
+impl_matrix_scalar_arithmetic!(Mat2<f32>, Mat3<f32>, Mat4<f32>, Mat4x3<f32>);
+
+// matCxR * vecC -> vecR
+impl_shader_mul!(Mat2<f32>, Vec2<f32>, Vec2<f32>);
+impl_shader_mul!(Mat3<f32>, Vec3<f32>, Vec3<f32>);
+impl_shader_mul!(Mat4<f32>, Vec4<f32>, Vec4<f32>);
+impl_shader_mul!(Mat4x3<f32>, Vec4<f32>, Vec3<f32>);
+
+// vecR * matCxR -> vecC
+impl_shader_mul!(Vec2<f32>, Mat2<f32>, Vec2<f32>);
+impl_shader_mul!(Vec3<f32>, Mat3<f32>, Vec3<f32>);
+impl_shader_mul!(Vec4<f32>, Mat4<f32>, Vec4<f32>);
+impl_shader_mul!(Vec3<f32>, Mat4x3<f32>, Vec4<f32>);
+
+// matKxR * matCxK -> matCxR
+impl_shader_mul!(Mat2<f32>, Mat2<f32>, Mat2<f32>);
+impl_shader_mul!(Mat3<f32>, Mat3<f32>, Mat3<f32>);
+impl_shader_mul!(Mat4<f32>, Mat4<f32>, Mat4<f32>);
+impl_shader_mul!(Mat4x3<f32>, Mat4<f32>, Mat4x3<f32>);
+impl_shader_mul!(Mat3<f32>, Mat4x3<f32>, Mat4x3<f32>);
+
+impl<T: ShaderAddSubType> Add for Node<T> {
+  type Output = Self;
 
   fn add(self, other: Self) -> Self::Output {
     OperatorNode::Binary {
@@ -97,12 +178,8 @@ where
   }
 }
 
-impl<T, U> Sub for Node<T>
-where
-  U: ShaderNodeType,
-  T: ShaderNodeType + Sub<Output = U>,
-{
-  type Output = Node<U>;
+impl<T: ShaderAddSubType> Sub for Node<T> {
+  type Output = Self;
 
   fn sub(self, other: Self) -> Self::Output {
     OperatorNode::Binary {
@@ -114,13 +191,11 @@ where
   }
 }
 
-impl<I, T, U> Mul<Node<I>> for Node<T>
+impl<I, T> Mul<Node<I>> for Node<T>
 where
-  U: ShaderNodeType,
-  T: ShaderNodeType,
-  T: Mul<I, Output = U>,
+  T: ShaderMul<I>,
 {
-  type Output = Node<U>;
+  type Output = Node<T::Output>;
 
   fn mul(self, other: Node<I>) -> Self::Output {
     OperatorNode::Binary {
@@ -132,13 +207,8 @@ where
   }
 }
 
-impl<T, U> Div for Node<T>
-where
-  U: ShaderNodeType,
-  T: ShaderNodeType,
-  T: Div<Output = U>,
-{
-  type Output = Node<U>;
+impl<T: ShaderComponentWiseArithmeticType> Div for Node<T> {
+  type Output = Self;
 
   fn div(self, other: Self) -> Self::Output {
     OperatorNode::Binary {
@@ -150,12 +220,8 @@ where
   }
 }
 
-impl<T> Rem for Node<T>
-where
-  T: Rem<T, Output = T>,
-  T: ShaderNodeType,
-{
-  type Output = Node<T>;
+impl<T: ShaderComponentWiseArithmeticType> Rem for Node<T> {
+  type Output = Self;
 
   fn rem(self, rhs: Self) -> Self::Output {
     OperatorNode::Binary {
@@ -204,7 +270,7 @@ where
 impl<T> BitAnd for Node<T>
 where
   T: ShaderScalarOrVec,
-  T::Item: ShaderIntType,
+  T::Item: ShaderAndOrScalarType,
 {
   type Output = Self;
 
@@ -221,7 +287,7 @@ where
 impl<T> BitOr for Node<T>
 where
   T: ShaderScalarOrVec,
-  T::Item: ShaderIntType,
+  T::Item: ShaderAndOrScalarType,
 {
   type Output = Self;
 
@@ -303,8 +369,11 @@ where
   }
 }
 
-/// todo restrict
-impl<T: ShaderNodeType> Neg for Node<T> {
+impl<T> Neg for Node<T>
+where
+  T: ShaderScalarOrVec,
+  T::Item: ShaderSignedType,
+{
   type Output = Self;
   fn neg(self) -> Self::Output {
     OperatorNode::Unary {
@@ -400,6 +469,18 @@ impl Node<bool> {
     .insert_api()
   }
 
+  #[must_use]
+  pub fn not(&self) -> Self {
+    OperatorNode::Unary {
+      operator: UnaryOperator::LogicalNot,
+      one: self.handle(),
+    }
+    .insert_api()
+  }
+}
+
+impl<T: ShaderVec<Item = bool>> Node<T> {
+  /// component-wise logical negation
   #[must_use]
   pub fn not(&self) -> Self {
     OperatorNode::Unary {

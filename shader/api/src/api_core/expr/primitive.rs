@@ -444,11 +444,12 @@ macro_rules! impl_vector_primitive_node_type {
   };
 }
 
+// matrix element type can only be float in WGSL
 macro_rules! impl_matrix_primitive_node_type {
   ($ty: ident, $columns: ident, $rows: ident) => {
     impl<T> ShaderNodeSingleType for $ty<T>
     where
-      T: ShaderScalarType + Copy + Into<ScalarValue> + 'static,
+      T: ShaderFloatType + Into<ScalarValue>,
     {
       fn single_ty() -> ShaderValueSingleType {
         ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(
@@ -462,7 +463,7 @@ macro_rules! impl_matrix_primitive_node_type {
     }
     impl<T> ShaderNodeType for $ty<T>
     where
-      T: ShaderScalarType + Copy + Into<ScalarValue> + 'static,
+      T: ShaderFloatType + Into<ScalarValue>,
     {
       fn ty() -> ShaderValueType {
         ShaderValueType::Single(Self::single_ty())
@@ -470,7 +471,7 @@ macro_rules! impl_matrix_primitive_node_type {
     }
     impl<T> ShaderSizedValueNodeType for $ty<T>
     where
-      T: ShaderScalarType + Copy + Into<ScalarValue> + 'static,
+      T: ShaderFloatType + Into<ScalarValue>,
     {
       fn sized_ty() -> ShaderSizedValueType {
         ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Matrix {
@@ -485,7 +486,7 @@ macro_rules! impl_matrix_primitive_node_type {
     }
     impl<T> PrimitiveShaderNodeType for $ty<T>
     where
-      T: ShaderScalarType + Copy + Into<ScalarValue> + 'static,
+      T: ShaderFloatType + Into<ScalarValue>,
     {
       fn primitive_ty() -> PrimitiveShaderValueType {
         PrimitiveShaderValueType::Matrix {
@@ -558,17 +559,18 @@ fn swizzle_node<I: ShaderNodeType, T: ShaderNodeType>(n: &Node<I>, ty: &'static 
   ShaderNodeExpr::Swizzle { ty, source }.insert_api()
 }
 
-impl<T> Node<T>
-where
-  T: ShaderNodeType + Scalar,
-{
+impl<T: ShaderScalarType> Node<T> {
   pub fn splat<V>(&self) -> Node<V>
   where
-    V: Vector<T> + ShaderSizedValueNodeType + PrimitiveShaderNodeType,
+    V: ShaderVec<Item = T>,
   {
+    let channel_count = match V::primitive_ty() {
+      PrimitiveShaderValueType::Vector { size, .. } => size as usize,
+      _ => unreachable!("shader vec must be vector type"),
+    };
     ShaderNodeExpr::Compose {
       target: V::sized_ty(),
-      parameters: vec![self.handle(); V::channel_count()],
+      parameters: vec![self.handle(); channel_count],
     }
     .insert_api()
   }
@@ -710,7 +712,7 @@ macro_rules! swizzle_mat {
     paste::item! {
       impl<T> Node<$IVec<T>>
       where
-        T: ShaderScalarType + Copy + Into<ScalarValue> + 'static,
+        T: ShaderFloatType + Into<ScalarValue>,
       {
         pub fn [< $Swi >](&self) -> Node<$OVec<T>> {
           swizzle_node::<_, _>(self, stringify!{$Swi})
@@ -779,6 +781,9 @@ num_convert!(i32, u32);
 num_convert!(u32, bool);
 num_convert!(bool, u32);
 num_convert!(bool, i32);
+num_convert!(i32, bool);
+num_convert!(f32, bool);
+num_convert!(bool, f32);
 
 pub trait DeviceRawBitCast {
   type Value: ShaderScalarType;
@@ -889,6 +894,7 @@ pub fn mat4_node<T>(x: impl Into<Node<Mat4<T>>>) -> Node<Mat4<T>> {
 compose_all_vec!(f32);
 compose_all_vec!(u32);
 compose_all_vec!(i32);
+compose_all_vec!(bool);
 compose_all_mat!(f32);
 
 impl Node<Mat4<f32>> {

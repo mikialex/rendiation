@@ -215,7 +215,7 @@ pub fn compute_pot_enlarged_hierarchy_depth(
         ms_depth: self.msaa_input,
         mip_0: self.base_level,
         scale: self.msaa_input.texture_dimension_2d(None).into_f32()
-          / self.base_level.texture_dimension_2d(None).into_f32(),
+          / self.base_level.texture_dimension_2d().into_f32(),
         reducer: depth_reducer(self.reverse_depth),
       })
     }
