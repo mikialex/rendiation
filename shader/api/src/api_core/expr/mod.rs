@@ -15,6 +15,9 @@ pub use texture::*;
 mod primitive;
 pub use primitive::*;
 
+mod swizzle;
+pub use swizzle::*;
+
 mod func;
 pub use func::*;
 

@@ -4915,6 +4915,7 @@ name = "rendiation-shader-api-testing"
 version = "0.1.0"
 dependencies = [
  "naga",
+ "parking_lot",
  "rendiation-shader-api",
  "rendiation-shader-backend-naga",
  "wgpu-types",

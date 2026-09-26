@@ -27,6 +27,8 @@ mod layout;
 #[cfg(test)]
 mod operator;
 #[cfg(test)]
+mod reference;
+#[cfg(test)]
 mod subgroup;
 #[cfg(test)]
 mod texture;

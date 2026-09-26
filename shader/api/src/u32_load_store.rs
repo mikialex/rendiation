@@ -251,21 +251,36 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
 
   fn field_array_index(&self, index: Node<u32>) -> BoxedShaderPtr {
     let meta = self.meta.read();
-    if let ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &self.ty {
-      // note, the array bound check will be done automatically at outside if enabled.
-      let stride = array_stride_of_element(ty, meta.layout) as u32 / 4;
-      Box::new(Self {
-        ptr: self.ptr.advance(val(stride) * index),
-        ty: ShaderValueSingleType::Sized((**ty).clone()),
-        meta: self.meta.clone(),
-        array_length: None,
-      })
-    } else {
+    let (offset, ty) = match &self.ty {
+      ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) => {
+        // note, the array bound check will be done automatically at outside if enabled.
+        let stride = array_stride_of_element(ty, meta.layout) as u32 / 4;
+        (val(stride) * index, (**ty).clone())
+      }
+      // the runtime indexed vector component or matrix column
+      ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(ty)) => match ty {
+        PrimitiveShaderValueType::Vector { scalar, .. } => (
+          index,
+          ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Scalar(*scalar)),
+        ),
+        PrimitiveShaderValueType::Matrix { rows, scalar, .. } => {
+          let stride = matrix_column_stride(*rows, meta.layout) as u32 / 4;
+          (
+            val(stride) * index,
+            ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(*rows, *scalar)),
+          )
+        }
+        PrimitiveShaderValueType::Scalar(_) => unreachable!("scalar can not be indexed"),
+      },
       // todo, we should support fixed size array, as the rrf shader api allows user do field_array_index on fixed size array
-      // !but not on (mat vec struct). the difference between the field_array_index and field_index is the dynamistic of index.
-      // so the function name should be fixed as well.
-      unreachable!("not an runtime-size array type")
-    }
+      _ => unreachable!("not an runtime-size array, vector or matrix type"),
+    };
+    Box::new(Self {
+      ptr: self.ptr.advance(offset),
+      ty: ShaderValueSingleType::Sized(ty),
+      meta: self.meta.clone(),
+      array_length: None,
+    })
   }
 
   fn array_length(&self) -> Node<u32> {

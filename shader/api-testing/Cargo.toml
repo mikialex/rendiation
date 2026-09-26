@@ -10,6 +10,7 @@ version = "0.1.0"
 rendiation-shader-api = { path = "../api" }
 rendiation-shader-backend-naga = { path = "../backends/naga" }
 naga = { workspace = true }
+parking_lot = { workspace = true }
 wgpu-types = { workspace = true }
 
 [lints]

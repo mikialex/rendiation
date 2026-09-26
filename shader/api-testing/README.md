@@ -43,6 +43,9 @@ Helpers in `src/harness.rs`:
 - `fake_binding(index)`: create texture or sampler bindings without any GPU resource container.
 - `fake_storage_texture_binding(index, format)`: the storage format is not expressed in the shader
   type, so it must be given to match the channel type.
+- `fake_storage_buffer(index)`: a read_write storage buffer binding.
+- `u32_heap_ptr(heap, offset)`: the typed pointer on a u32 heap, which is the pointer
+  implementation of the combined buffer, to test the non native pointer.
 
 The build time checks of the EDSL are tested by `#[should_panic]`.
 

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use naga::valid::{Capabilities, ValidationFlags, Validator};
+use parking_lot::RwLock;
 use rendiation_shader_api::*;
 use rendiation_shader_backend_naga::*;
 
@@ -97,6 +98,49 @@ pub fn keep<T: ShaderSizedValueNodeType>(v: Node<T>) {
 /// Create a binding in the bind group 0 without any GPU resource container.
 pub fn fake_binding<T: ShaderNodeType>(entry_index: usize) -> Node<T> {
   fake_binding_by_ty(entry_index, T::ty())
+}
+
+/// Create a read_write storage buffer binding in the bind group 0 without any GPU resource
+/// container.
+pub fn fake_storage_buffer<T>(entry_index: usize) -> ShaderPtrOf<T>
+where
+  T: ShaderNodeType + ShaderAbstractPtrAccess + ?Sized,
+{
+  let handle = ShaderInputNode::Binding {
+    desc: ShaderBindingDescriptor {
+      should_as_storage_buffer_if_is_buffer_like: true,
+      ty: T::ty(),
+      writeable_if_storage: true,
+      has_dynamic_offset: false,
+    },
+    bindgroup_index: 0,
+    entry_index,
+  }
+  .insert_api_raw();
+  T::create_view_from_raw_ptr(Box::new(handle))
+}
+
+/// The pointer of `T` at the u32 offset of the u32 heap (in std430 layout), the same pointer
+/// implementation of the combined buffer.
+pub fn u32_heap_ptr<T>(heap: ShaderPtrOf<[u32]>, offset: u32) -> ShaderPtrOf<T>
+where
+  T: ShaderNodeType + ShaderAbstractPtrAccess,
+{
+  let ShaderValueType::Single(ty) = T::ty() else {
+    unreachable!("expect single type")
+  };
+  let ptr = U32HeapPtrWithType {
+    ptr: U32HeapPtr {
+      array: U32HeapHeapSource::Common(heap),
+      offset: val(offset),
+    },
+    ty,
+    array_length: None,
+    meta: Arc::new(RwLock::new(ShaderU32StructMetaData::new(
+      StructLayoutTarget::Std430,
+    ))),
+  };
+  T::create_view_from_raw_ptr(Box::new(ptr))
 }
 
 /// Create a storage texture binding like [fake_binding], the storage format is not expressed in

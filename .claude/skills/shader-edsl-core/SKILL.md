@@ -718,7 +718,31 @@ let v4 = val(1.0).splat::<Vec4<f32>>();  // (1, 1, 1, 1)
 All the swizzles of 1 to 4 components are generated for `Vec2`, `Vec3` and `Vec4` of any scalar
 (by `impl_shader_swizzles!` in `rendiation-shader-derives`), they are `#[inline(always)]` wrappers
 of `component` / `swizzle2` / `swizzle3` / `swizzle4`. The single component selection is an index
-access, not a swizzle. Swizzle assignment (`v.xy = ...`) is not supported yet.
+access, not a swizzle.
+
+### Component references and swizzle assignment
+
+```rust
+let v: ShaderPtrOf<Vec4<f32>> = make_local_var();
+v.x().store(val(1.));            // v.x = 1.0, the single component reference is ShaderPtrOf<f32>
+v.index(i).store(val(1.));       // v[i] = 1.0
+v.yz().store(val(Vec2::one()));  // v.yz = vec2(1.0), the swizzle assignment
+let zyx = v.zyx().load();        // same as v.load().zyx()
+
+let m: ShaderPtrOf<Mat4<f32>> = make_local_var();
+m.w().store(val(Vec4::one()));   // m[3] = vec4(1.0), the column reference
+m.index(i).x().store(val(1.));   // m[i].x = 1.0
+```
+
+- Component references exist on both `ShaderPtrOf` and `ShaderReadonlyPtrOf` vector/matrix
+  pointers (and the u32 heap pointers of the combined buffer), `component::<I>()` is the index
+  based one.
+- The multi component swizzle view (`VectorSwizzlePtrView`) only exists on the writable pointer
+  and requires distinct components (`v.xx()` is not generated, `swizzle2::<0, 0>()` is a compile
+  error), for readonly or repeated components, load then swizzle.
+- Like WGSL, the swizzle view read and write access the entire vector (the write is load, replace,
+  store), so concurrently writing the different components of the same shared memory vector by
+  swizzle view is a data race. Swizzle views can not be chained or indexed.
 
 ### Matrix construction
 

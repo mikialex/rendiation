@@ -4,5 +4,6 @@
 pub mod builtin;
 pub mod graphics;
 pub mod operator;
+pub mod reference;
 pub mod subgroup;
 pub mod texture;
