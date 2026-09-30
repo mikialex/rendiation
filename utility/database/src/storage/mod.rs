@@ -54,6 +54,14 @@ pub enum DatabaseSerializedFieldBufferOrForeignKey {
   ForeignKey(RawEntityHandle),
 }
 
+/// Write the foreign key into the value, panic if the value is not a foreign key data.
+pub(crate) fn write_foreign_key_into<T: DataBaseDataType>(value: &mut T, handle: RawEntityHandle) {
+  let value = (value as &mut dyn Any)
+    .downcast_mut::<ForeignKeyComponentData>()
+    .expect("foreign key data can only be written into the foreign key component");
+  *value = Some(handle);
+}
+
 pub trait DynDataBaseDataType {
   fn serialize_to_writer_dyn(&self, target: &mut dyn std::io::Write) -> Option<()>;
   fn deserialize_from_reader_dyn(&mut self, source: &mut dyn std::io::Read) -> Option<()>;
@@ -259,6 +267,12 @@ pub trait ComponentStorageReadWriteView: ComponentStorageReadViewBase {
 
   /// # Safety
   /// ditto [Self::set_value]
+  ///
+  /// # Panics
+  ///
+  /// - The [DatabaseSerializedFieldBufferOrForeignKey::ForeignKey] variant is written into a non
+  ///   foreign key component.
+  /// - The [DatabaseSerializedFieldBufferOrForeignKey::Pod] data can not be deserialized.
   unsafe fn set_value_from_serialize_field_data(
     &mut self,
     idx: u32,
@@ -293,4 +307,46 @@ pub trait ComponentStorageReadWriteView: ComponentStorageReadViewBase {
   ///   that you want to release eagerly instead of waiting for the next mutation (fn call in this trait)
   ///   to overwrite it.
   fn cleanup_possible_old_ptr_transient_object(&mut self);
+}
+
+#[test]
+fn write_foreign_key_by_serialized_data() {
+  declare_entity!(FkTestEntity);
+  declare_component!(FkTestPod, FkTestEntity, u32);
+  declare_foreign_key!(FkTestForeignKey, FkTestEntity, FkTestEntity);
+
+  let handle = RawEntityHandle::create_only_for_testing(3);
+  let write = |storage: &dyn ComponentStorage| unsafe {
+    let mut write_box = storage.create_read_write_view();
+    let w: &mut dyn ComponentStorageReadWriteView = &mut *write_box;
+    w.resize(1);
+    w.set_value_init(0, None);
+    let value = DatabaseSerializedFieldBufferOrForeignKey::ForeignKey(handle);
+    let (new, _, changed) = w.set_value_from_serialize_field_data(0, value);
+    assert!(changed);
+    *(new as *const ForeignKeyComponentData)
+  };
+
+  assert_eq!(
+    write(&init_linear_storage::<FkTestForeignKey>()),
+    Some(handle)
+  );
+  assert_eq!(
+    write(&init_sparse_storage::<FkTestForeignKey>()),
+    Some(handle)
+  );
+
+  let pod_storages: [Box<dyn ComponentStorage>; 2] = [
+    Box::new(init_linear_storage::<FkTestPod>()),
+    Box::new(init_sparse_storage::<FkTestPod>()),
+  ];
+  for storage in pod_storages {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      write(storage.as_ref());
+    }));
+    assert!(
+      result.is_err(),
+      "writing foreign key into non foreign key component should panic"
+    );
+  }
 }

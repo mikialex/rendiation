@@ -210,14 +210,34 @@ impl Table {
 
     self.components_meta_watchers.emit(&com);
 
-    let init_cap = self.allocator.read().capacity();
-    let view = &mut *com.write_untyped().data;
+    // hold the allocator lock during the initialization to keep the living entity set stable
+    let allocator = self.allocator.read();
+    let mut view = com.write_untyped();
     unsafe {
-      view.resize(init_cap as u32);
+      view.data.deref_mut().resize(allocator.capacity() as u32);
+      // the existing entities also have this new component, init them by the default value
+      for (handle, _) in allocator.iter() {
+        view.init(RawEntityHandle(handle), None);
+      }
     }
+    drop(view);
+    drop(allocator);
 
     let previous = components.insert(semantic, com);
     assert!(previous.is_none());
+  }
+
+  /// Wrap the storage with [ValidatedStorage] if the internal validation is enabled.
+  pub(crate) fn wrap_storage(
+    &self,
+    storage: impl ComponentStorage + 'static,
+  ) -> Box<dyn ComponentStorage> {
+    let storage = Box::new(storage);
+    if self.enable_internal_validation {
+      Box::new(ValidatedStorage::new(storage))
+    } else {
+      storage
+    }
   }
 }
 
@@ -260,12 +280,7 @@ impl<E: EntitySemantic> TypedArcTable<E> {
     as_foreign_key: Option<EntityId>,
     storage: impl ComponentStorage + 'static,
   ) -> Self {
-    let storage_impl = Box::new(storage);
-    let data: Box<dyn ComponentStorage> = if self.inner.internal.enable_internal_validation {
-      Box::new(ValidatedStorage::new(storage_impl))
-    } else {
-      storage_impl
-    };
+    let data = self.inner.internal.wrap_storage(storage);
     let com = ComponentUntyped {
       short_name: disqualified::ShortName(S::unique_name()).to_string(),
       name: S::unique_name().to_string(),
@@ -326,5 +341,52 @@ impl<E: EntitySemantic> TypedArcTable<E> {
         std::any::type_name::<S>()
       );
     }
+  }
+}
+
+#[test]
+fn late_declared_component_should_init_existing_entities() {
+  declare_entity!(LateTestEntity);
+  declare_component!(LateTestEarly, LateTestEntity, u32);
+  declare_component!(LateTestLinear, LateTestEntity, u32, 5);
+  declare_component!(LateTestSparse, LateTestEntity, u32, 6);
+
+  for enable_validation in [true, false] {
+    let db = Database::new(enable_validation);
+    let table = db
+      .declare_entity::<LateTestEntity>()
+      .declare_component::<LateTestEarly>();
+
+    let existing = {
+      let mut writer = db.entity_writer::<LateTestEntity>();
+      let deleted = writer.new_entity(|w| w);
+      let existing = writer.new_entity(|w| w);
+      writer.delete_entity(deleted);
+      existing
+    };
+
+    let table = table
+      .declare_component::<LateTestLinear>()
+      .declare_sparse_component::<LateTestSparse>();
+    db.enable_label_for_all_entity();
+
+    let reader = table.entity_reader();
+    assert_eq!(reader.read::<LateTestLinear>(existing), 5);
+    assert_eq!(reader.read::<LateTestSparse>(existing), 6);
+    assert_eq!(reader.read::<LabelOf<LateTestEntity>>(existing), "");
+    drop(reader);
+
+    let mut writer = db.entity_writer::<LateTestEntity>();
+    writer
+      .write::<LateTestLinear>(existing, 1)
+      .write::<LateTestSparse>(existing, 2)
+      .write::<LabelOf<LateTestEntity>>(existing, "label".into());
+    assert_eq!(writer.read::<LateTestLinear>(existing), 1);
+    assert_eq!(writer.read::<LateTestSparse>(existing), 2);
+
+    let created = writer.new_entity(|w| w);
+    assert_eq!(writer.read::<LateTestLinear>(created), 5);
+    writer.delete_entity(existing);
+    writer.delete_entity(created);
   }
 }

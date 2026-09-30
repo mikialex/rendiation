@@ -98,7 +98,7 @@ where
           .deserialize_from_reader(&mut small_vec.as_slice())
           .unwrap(),
         DatabaseSerializedFieldBufferOrForeignKey::ForeignKey(handle) => {
-          value = std::mem::transmute_copy(&Some(handle))
+          write_foreign_key_into(&mut value, handle)
         }
       }
       self.set_value(idx, &value as *const _ as DataPtr)

@@ -73,7 +73,7 @@ Note: referential integrity is NOT enforced by the kernel — it's the applicati
 
 Each column gets its own physical store. Two backends:
 
-- **Linear** (default, `DBLinearStorage<T>`) — Vec-backed, dense. Every row occupies a slot; deleted rows leave holes. Registered via `declare_component::<S>()`.
+- **Linear** (default, `DBLinearStorage<T>`) — Vec-backed, dense. Every row occupies a slot; deleted rows leave holes (the hole is reset to the default value, so the deleted data is not kept alive). Registered via `declare_component::<S>()`.
 - **Sparse** (`DBSparseStorage<T>`) — HashMap-backed, only stores rows that have been written. Registered via `declare_sparse_component::<S>()` for columns that are rarely populated.
 
 The storage backend is selected at registration time (see the Registration section below), not in the `declare_component!` declaration macro.
@@ -104,7 +104,7 @@ declare_entity!(MyEntity);
 
 `EntitySemantic` provides:
 - `entity_id() -> EntityId` — defaults to `TypeId::of::<Self>()`
-- `unique_name() -> &'static str` — defaults to `type_name::<Self>()` (must be stable for serialization)
+- `unique_name() -> &'static str` — defaults to `type_name::<Self>()` (must be stable for serialization). Entity names and component names must each be unique in the db, declaring a duplicated name panics.
 
 ### declare_component! — define a column
 
@@ -154,6 +154,8 @@ global_database()
     .declare_component::<AnotherColumn>()
     .declare_foreign_key::<MyForeignKey>();
 ```
+
+A column can also be declared after the table already has rows: every existing row is initialized with the column's default value (`default_override`).
 
 For larger subsystems, there's typically a `register_xxx_data_model()` function that registers all tables and columns at init time (see [scene/core/src/lib.rs](scene/core/src/lib.rs#L43): `register_scene_core_data_model()`).
 

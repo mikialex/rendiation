@@ -133,7 +133,7 @@ where
           .deserialize_from_reader(&mut small_vec.as_slice())
           .unwrap(),
         DatabaseSerializedFieldBufferOrForeignKey::ForeignKey(handle) => {
-          value = std::mem::transmute_copy(&Some(handle))
+          write_foreign_key_into(&mut value, handle)
         }
       }
       self.set_value(idx, &value as *const _ as DataPtr)
@@ -142,9 +142,11 @@ where
 
   unsafe fn delete(&mut self, idx: u32) -> DataPtr {
     unsafe {
-      let target = self.data.get_unchecked_mut(idx as usize);
-      self.old_value_out = target.clone();
-      &self.old_value_out as *const _ as DataPtr
+      let self_ = self.deref_mut();
+      let target = self_.data.get_unchecked_mut(idx as usize);
+      // reset the slot, so the deleted data will not be kept alive by the storage
+      self_.old_value_out = std::mem::replace(target, self_.default_value.clone());
+      &self_.old_value_out as *const _ as DataPtr
     }
   }
 
@@ -158,4 +160,25 @@ where
     let self_ = self.deref_mut();
     self_.old_value_out = T::default();
   }
+}
+
+#[test]
+fn delete_should_not_keep_the_data_alive() {
+  declare_entity!(DeleteTestEntity);
+  declare_component!(DeleteTestComponent, DeleteTestEntity, ExternalRefPtr<u32>);
+
+  let db = Database::new(true);
+  db.declare_entity::<DeleteTestEntity>()
+    .declare_component::<DeleteTestComponent>();
+
+  let data = Arc::new(1);
+  let mut writer = db.entity_writer::<DeleteTestEntity>();
+  let deleted = writer
+    .new_entity(|w| w.write::<DeleteTestComponent>(&ExternalRefPtr::new_shared(data.clone())));
+  // keep another entity alive, so the deleted slot will not be truncated by the allocator shrink
+  let other = writer.new_entity(|w| w);
+  writer.delete_entity(deleted);
+  // the following mutation releases the transient old value held by the storage
+  writer.write::<DeleteTestComponent>(other, ExternalRefPtr::new(2));
+  assert_eq!(Arc::strong_count(&data), 1);
 }

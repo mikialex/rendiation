@@ -93,13 +93,21 @@ impl DBNameMapping {
   pub fn insert_component(&mut self, c_id: ComponentId, e_id: EntityId, name: String) {
     let occupied_name = self.components.insert(c_id, name.clone());
     assert!(occupied_name.is_none());
-    self.components_inv.insert(name, c_id);
+    let occupied_id = self.components_inv.insert(name.clone(), c_id);
+    assert!(
+      occupied_id.is_none(),
+      "component name `{name}` is not unique in db"
+    );
     self.component_to_entity.insert(c_id, e_id);
   }
   pub fn insert_entity(&mut self, e_id: EntityId, name: String) {
     let occupied_name = self.entities.insert(e_id, name.clone());
     assert!(occupied_name.is_none());
-    self.entities_inv.insert(name, e_id);
+    let occupied_id = self.entities_inv.insert(name.clone(), e_id);
+    assert!(
+      occupied_id.is_none(),
+      "entity name `{name}` is not unique in db"
+    );
   }
 }
 
@@ -155,4 +163,57 @@ fn demo_how_to_use_database_generally() {
 
   // batch write
   // let write_view =  global_entity_component_of::<TestEntityFieldA>().write().write(idx, new)
+}
+
+#[cfg(test)]
+mod name_uniqueness_test {
+  use crate::*;
+
+  declare_entity!(NameTestEntity);
+
+  struct NameTestComponentA;
+  impl EntityAssociateSemantic for NameTestComponentA {
+    type Entity = NameTestEntity;
+    fn unique_name() -> &'static str {
+      "same-name"
+    }
+  }
+  impl ComponentSemantic for NameTestComponentA {
+    type Data = u32;
+  }
+
+  struct NameTestComponentB;
+  impl EntityAssociateSemantic for NameTestComponentB {
+    type Entity = NameTestEntity;
+    fn unique_name() -> &'static str {
+      "same-name"
+    }
+  }
+  impl ComponentSemantic for NameTestComponentB {
+    type Data = u32;
+  }
+
+  struct NameTestEntityB;
+  impl EntitySemantic for NameTestEntityB {
+    fn unique_name() -> &'static str {
+      NameTestEntity::unique_name()
+    }
+  }
+
+  #[test]
+  #[should_panic(expected = "is not unique")]
+  fn duplicated_component_name_should_panic() {
+    Database::new(false)
+      .declare_entity::<NameTestEntity>()
+      .declare_component::<NameTestComponentA>()
+      .declare_component::<NameTestComponentB>();
+  }
+
+  #[test]
+  #[should_panic(expected = "is not unique")]
+  fn duplicated_entity_name_should_panic() {
+    let db = Database::new(false);
+    db.declare_entity::<NameTestEntity>();
+    db.declare_entity::<NameTestEntityB>();
+  }
 }

@@ -40,7 +40,7 @@ impl Table {
   fn add_label_component(&self) {
     let semantic = compute_component_id(self.type_id.0);
 
-    let data = init_sparse_storage_by_data::<String>(Default::default());
+    let data = self.wrap_storage(init_sparse_storage_by_data::<String>(Default::default()));
 
     let display_name = format!("{}-Label", self.name);
 
@@ -51,7 +51,7 @@ impl Table {
       entity_type_id: self.type_id,
       component_type_id: semantic,
       data_meta: data.create_meta(),
-      data: Box::new(data),
+      data,
       allocator: self.allocator.clone(),
       data_watchers: Default::default(),
       binary_to_debug_string: create_binary_to_debug_string::<String>(),
