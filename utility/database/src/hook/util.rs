@@ -159,8 +159,11 @@ impl<T: Query<Key = RawEntityHandle>> Query for SkipGenerationCheck<T> {
 
   fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
     self.inner.iter_key_value().map(|(k, v)| {
-      let handle = self.alloc.get_handle(k.index() as usize).unwrap();
-      (handle.index() as u32, v)
+      debug_assert!(
+        self.alloc.get_handle(k.index() as usize).is_some(),
+        "the key {k} of the inner query is not a living entity of the table"
+      );
+      (k.index(), v)
     })
   }
 

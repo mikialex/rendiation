@@ -137,7 +137,8 @@ impl<E: EntitySemantic> TableWriter<E> {
     self.inner.delete_entity(handle.handle)
   }
 
-  /// shallow clone
+  /// Shallow clone: all the component data (including the foreign keys) are cloned, but the
+  /// entities referenced by the foreign keys are not cloned.
   pub fn clone_entity(&mut self, src: EntityHandle<E>) -> EntityHandle<E> {
     EntityHandle {
       handle: self.inner.clone_entity(src.handle),

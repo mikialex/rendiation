@@ -24,7 +24,7 @@ impl TableReaderUntyped {
   }
 }
 
-/// Holder the all components write lock, optimized for batch entity creation and modification
+/// Holds the read locks of all components of the table, optimized for batch reading
 pub struct TableReader<E: EntitySemantic> {
   phantom: PhantomData<E>, //
   inner: TableReaderUntyped,

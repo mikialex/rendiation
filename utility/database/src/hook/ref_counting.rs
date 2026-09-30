@@ -96,7 +96,7 @@ pub fn use_db_all_foreign_key_change(
 type RefCountChange = FastHashMap<RawEntityHandle, ValueChange<u32>>;
 pub type DBAllEntityRefCountChange = FastHashMap<EntityId, RefCountChange>;
 
-pub const DEBUG: bool = false;
+pub const DEBUG_PRINT_DB_REF_COUNT_CHANGES: bool = false;
 
 pub fn use_db_all_entity_ref_count_change(
   cx: &mut impl DBHookCxLike,
@@ -131,7 +131,7 @@ pub fn use_db_all_entity_ref_count_change(
           update_ref_count(&mut collector, update)
         }
 
-        if DEBUG && !ref_count_changes.is_empty() {
+        if DEBUG_PRINT_DB_REF_COUNT_CHANGES && !ref_count_changes.is_empty() {
           let names = global_database().name_mapping.clone();
           let names = names.read();
           let name = names.entities.get(&refed_e_id).unwrap();

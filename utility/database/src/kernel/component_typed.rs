@@ -97,9 +97,18 @@ pub struct ForeignKeyReadView<T: ForeignKeySemantic> {
 }
 
 impl<T: ForeignKeySemantic> ForeignKeyReadView<T> {
+  /// Get the foreign key of the entity, the returned option indicates if the foreign key is set.
+  ///
+  /// # Panics
+  ///
+  /// Panics if the entity handle is not alive, use [Self::try_get] if the handle may be invalid.
   pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<EntityHandle<T::ForeignEntity>> {
-    self.try_get(idx).unwrap()
+    self
+      .try_get(idx)
+      .expect("the entity handle is not alive, use try_get if the handle may be invalid")
   }
+  /// The outer option is none if the entity handle is not alive, the inner option indicates
+  /// if the foreign key is set.
   pub fn try_get(
     &self,
     idx: EntityHandle<T::Entity>,
@@ -148,4 +157,22 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
     }
     valid
   }
+}
+
+#[test]
+#[should_panic(expected = "the entity handle is not alive")]
+fn foreign_key_get_with_dead_handle_should_panic() {
+  declare_entity!(FkReadTestEntity);
+  declare_foreign_key!(FkReadTestForeignKey, FkReadTestEntity, FkReadTestEntity);
+
+  let db = Database::new(false);
+  db.declare_entity::<FkReadTestEntity>()
+    .declare_foreign_key::<FkReadTestForeignKey>();
+
+  let entity = db.entity_writer::<FkReadTestEntity>().new_entity(|w| w);
+  db.entity_writer::<FkReadTestEntity>().delete_entity(entity);
+
+  let view = db.read_foreign_key::<FkReadTestForeignKey>();
+  assert_eq!(view.try_get(entity), None);
+  view.get(entity);
 }

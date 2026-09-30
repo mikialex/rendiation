@@ -256,10 +256,15 @@ impl<E: EntitySemantic> Clone for TypedArcTable<E> {
 }
 
 impl<E: EntitySemantic> TypedArcTable<E> {
-  pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
+  pub fn new(
+    type_id: EntityId,
+    name: String,
+    name_mapping: Arc<RwLock<DBNameMapping>>,
+    enable_internal_validation: bool,
+  ) -> Self {
     Self {
       phantom: Default::default(),
-      inner: ArcTable::new(type_id, name, name_mapping, cfg!(debug_assertions)),
+      inner: ArcTable::new(type_id, name, name_mapping, enable_internal_validation),
     }
   }
 

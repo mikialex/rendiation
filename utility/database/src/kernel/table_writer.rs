@@ -35,8 +35,7 @@ impl ArcTable {
 pub struct TableWriterUntyped {
   pub(crate) type_id: EntityId,
   pub(crate) allocator: LockWriteGuardHolder<TableAllocator>,
-  /// this change ptr type is ScopedValueChange<()>, the lifetime of the ptr is only valid
-  /// in the callback scope.
+  /// used to emit the entity creation and deletion messages of this table
   entity_watchers: EventSource<EntityChangeMessage>,
   components: smallvec::SmallVec<[(ComponentId, TableWriterImpl); 6]>,
 }
@@ -56,9 +55,15 @@ impl<'a> EntityInitWriteView<'a> {
       .map(|(_, v)| v)
       .expect("unknown component");
 
+    let v = v as *const C::Data as DataPtr;
     unsafe {
-      com.write_init_component_value(self.idx, Some(v as *const C::Data as DataPtr));
-      com.has_write_for_new_entity = true;
+      if com.has_write_for_new_entity {
+        // the component has been initialized by the previous write, so update it
+        com.write_component(self.idx, v);
+      } else {
+        com.write_init_component_value(self.idx, Some(v));
+        com.has_write_for_new_entity = true;
+      }
     }
 
     self
@@ -398,4 +403,53 @@ fn reader_holding_multiple_views_should_not_deadlock_with_table_writer() {
     drop(last_view);
     writer.join().unwrap();
   });
+}
+
+#[test]
+fn write_same_component_twice_when_creating_entity() {
+  declare_entity!(InitTestEntity);
+  declare_component!(InitTestLinear, InitTestEntity, u32);
+  declare_component!(InitTestSparse, InitTestEntity, u32);
+
+  for enable_validation in [true, false] {
+    let db = Database::new(enable_validation);
+    db.declare_entity::<InitTestEntity>()
+      .declare_component::<InitTestLinear>()
+      .declare_sparse_component::<InitTestSparse>();
+
+    let table = db
+      .access_table::<InitTestEntity, _>(|t| t.clone())
+      .into_untyped();
+    let events = Arc::new(RwLock::new(Vec::new()));
+    let events_ = events.clone();
+    table.access_component(InitTestLinear::component_id(), |c| {
+      c.data_watchers.on(move |change| {
+        if let ScopedMessage::Message(change) = change
+          && let ValueChange::Delta((new, _), old) = &change.change
+        {
+          events_
+            .write()
+            .push((old.is_none(), unsafe { *(*new as *const u32) }));
+        }
+        false
+      })
+    });
+
+    let mut writer = db.entity_writer::<InitTestEntity>();
+    let entity = writer.new_entity(|w| {
+      w.write::<InitTestLinear>(&1)
+        .write::<InitTestLinear>(&2)
+        .write::<InitTestSparse>(&1)
+        .write::<InitTestSparse>(&2)
+    });
+    assert_eq!(writer.read::<InitTestLinear>(entity), 2);
+    assert_eq!(writer.read::<InitTestSparse>(entity), 2);
+    // the second write should be an update of the initialized value
+    assert_eq!(*events.read(), vec![(true, 1), (false, 2)]);
+
+    // the written flag should be reset for the next entity
+    let next = writer.new_entity(|w| w.write::<InitTestLinear>(&3));
+    assert_eq!(writer.read::<InitTestLinear>(next), 3);
+    assert_eq!(writer.read::<InitTestSparse>(next), 0);
+  }
 }

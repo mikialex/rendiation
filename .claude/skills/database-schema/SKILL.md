@@ -172,7 +172,7 @@ let handle: EntityHandle<MyEntity> = writer.new_entity(|init| {
 });
 ```
 
-- `new_entity(init)` — inserts a new row. The `init` closure receives an `EntityInitWriteView` for setting initial column values. Columns not explicitly written receive their default value.
+- `new_entity(init)` — inserts a new row. The `init` closure receives an `EntityInitWriteView` for setting initial column values. Columns not explicitly written receive their default value. Writing the same column more than once in the closure is allowed, the later write wins.
 - `clone_entity(source)` — deep-copies all column data from the source row, returns new handle with a new ID.
 - `delete_entity(handle)` — removes a row. Reference integrity is NOT enforced by the kernel.
 
