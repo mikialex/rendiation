@@ -219,11 +219,12 @@ impl TableWriterImpl {
 
   /// # Safety
   ///
-  /// idx must point to living data
+  /// src must point to living data, dst must be a newly allocated slot that not initialized,
+  /// see [ComponentStorageReadWriteView::set_value_init]
   pub unsafe fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
     unsafe {
       let src = self.component.get_unchecked(src);
-      self.write_component(dst, src);
+      self.write_init_component_value(dst, Some(src));
     }
   }
 
@@ -240,5 +241,70 @@ impl TableWriterImpl {
     unsafe {
       self.component.data.deref_mut().resize(max_cap);
     }
+  }
+}
+
+#[test]
+fn clone_entity_should_init_the_new_slot() {
+  declare_entity!(CloneTestEntity);
+  declare_component!(CloneTestLinear, CloneTestEntity, u32);
+  declare_component!(CloneTestSparse, CloneTestEntity, u32);
+
+  for enable_validation in [true, false] {
+    let db = Database::new(enable_validation);
+    db.declare_entity::<CloneTestEntity>()
+      .declare_component::<CloneTestLinear>()
+      .declare_sparse_component::<CloneTestSparse>();
+
+    let (stale, src) = {
+      let mut writer = db.entity_writer::<CloneTestEntity>();
+      let stale =
+        writer.new_entity(|w| w.write::<CloneTestLinear>(&7).write::<CloneTestSparse>(&7));
+      let src = writer.new_entity(|w| w.write::<CloneTestLinear>(&7).write::<CloneTestSparse>(&7));
+      // leave a deleted slot holding the same value as src, the clone will reuse it
+      writer.delete_entity(stale);
+      (stale, src)
+    };
+
+    let table = db
+      .access_table::<CloneTestEntity, _>(|t| t.clone())
+      .into_untyped();
+    let components = [
+      CloneTestLinear::component_id(),
+      CloneTestSparse::component_id(),
+    ];
+    let events = Arc::new(RwLock::new(Vec::new()));
+    for c_id in components {
+      let events = events.clone();
+      table.access_component(c_id, |c| {
+        c.data_watchers.on(move |change| {
+          if let ScopedMessage::Message(change) = change {
+            let record = match &change.change {
+              ValueChange::Delta((new, _), old) => {
+                (c_id, old.is_none(), unsafe { *(*new as *const u32) })
+              }
+              ValueChange::Remove(_) => (c_id, false, 0),
+            };
+            events.write().push(record);
+          }
+          false
+        })
+      });
+    }
+
+    let cloned = db.entity_writer::<CloneTestEntity>().clone_entity(src);
+    assert_eq!(cloned.handle.index(), stale.handle.index());
+
+    let events = events.read();
+    assert_eq!(events.len(), components.len());
+    for c_id in components {
+      assert!(
+        events.contains(&(c_id, true, 7)),
+        "clone should emit init change, validation: {enable_validation}, events: {events:?}"
+      );
+    }
+
+    assert_eq!(db.read::<CloneTestLinear>().get(cloned), Some(&7));
+    assert_eq!(db.read::<CloneTestSparse>().get(cloned), Some(&7));
   }
 }

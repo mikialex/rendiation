@@ -90,14 +90,15 @@ where
     unsafe {
       let self_ = self.deref_mut();
 
-      let source = if let Some(new_value) = init_value {
-        &*(new_value as *const T)
+      // clone before taking the mutable slot, the source may point into this storage
+      let new_value = if let Some(new_value) = init_value {
+        (*(new_value as *const T)).clone()
       } else {
-        &self_.default_value
+        self_.default_value.clone()
       };
 
       let target = self_.data.get_unchecked_mut(idx as usize);
-      *target = (*source).clone();
+      *target = new_value;
 
       target as *const _ as DataPtr
     }
