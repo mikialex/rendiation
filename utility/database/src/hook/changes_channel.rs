@@ -195,6 +195,8 @@ impl<T> FastChangeCollector<T> {
   }
 
   // todo: note the bitmap's size will always increase, this may becomes a problem.
+  /// The returned collector is only used for reading(see the [DataChanges] impl), so the bitmap
+  /// only used in collecting is not carried.
   pub fn take(&mut self) -> Self {
     let removed_keys = std::mem::take(&mut self.removed_keys);
     let new_or_inserts = std::mem::take(&mut self.new_or_inserts);
@@ -207,7 +209,6 @@ impl<T> FastChangeCollector<T> {
 
     let override_mapping = std::mem::take(&mut self.override_mapping);
     let removed_set = self.removed_set.clone();
-    let inserted_set = self.inserted_set.clone();
     let inserted_override_set = self.inserted_override_set.clone();
 
     // todo, only reset what changed
@@ -216,7 +217,7 @@ impl<T> FastChangeCollector<T> {
     self.inserted_set.reset();
 
     Self {
-      inserted_set,
+      inserted_set: Bitmap::with_size(0),
       removed_set,
       inserted_override_set,
       removed_keys,

@@ -102,6 +102,24 @@ where
     );
   }
 
+  // Overwrite a slot holding the default value, old_ptr must point to the default value
+  // rather than any transient object left by previous mutations
+  let (new_ptr, old_ptr, changed) = unsafe { w.set_value(5, ptr_from(first)) };
+  assert!(
+    changed,
+    "overwrite default with different value → changed = true"
+  );
+  assert_eq!(
+    read(new_ptr),
+    *first,
+    "new_ptr should point to the new value"
+  );
+  assert_eq!(
+    read(old_ptr),
+    *default_value,
+    "old_ptr should point to the default value"
+  );
+
   // Multiple independent slots
   unsafe {
     for (i, val) in test_values.iter().enumerate() {

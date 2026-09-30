@@ -21,8 +21,10 @@ impl<T: CValue> Query for IterableComponentReadView<T> {
   type Value = T;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, T)> + '_ {
     self.table.iter_entity_idx().map(|id| unsafe {
+      // as we iterated from the living index set, the slot check can be skipped
       let idx = id.alloc_index();
-      (idx, self.access_ref(&idx).unwrap_unchecked().clone())
+      let value = &*(self.read_view.data.get(idx) as *const T);
+      (idx, value.clone())
     })
   }
 
@@ -77,9 +79,9 @@ impl<T: CValue> Query for IterableComponentReadViewChecked<T> {
   type Value = T;
   fn iter_key_value(&self) -> impl Iterator<Item = (RawEntityHandle, T)> + '_ {
     self.table.iter_entity_idx().map(|id| unsafe {
-      // as we iterated from the correct index set,
-      // this unwrap should be safe
-      (id, self.access_ref(&id).unwrap_unchecked().clone())
+      // as we iterated from the living index set, the generation and slot check can be skipped
+      let value = &*(self.read_view.data.get(id.alloc_index()) as *const T);
+      (id, value.clone())
     })
   }
 

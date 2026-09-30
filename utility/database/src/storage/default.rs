@@ -106,17 +106,16 @@ where
   unsafe fn set_value(&mut self, idx: u32, source: DataPtr) -> (DataPtr, DataPtr, bool) {
     unsafe {
       let self_ = self.deref_mut();
+      // clone before taking the mutable slot, the source may point into this storage
+      let new_value = (*(source as *const T)).clone();
       let target = self_.data.get_unchecked_mut(idx as usize);
 
-      let source = &*(source as *const T);
-
-      self_.old_value_out = target.clone();
-      *target = (*source).clone();
+      self_.old_value_out = std::mem::replace(target, new_value);
 
       let diff = &self_.old_value_out != target;
 
       let new = target as *const _ as DataPtr;
-      let old = &self.old_value_out as *const _ as DataPtr;
+      let old = &self_.old_value_out as *const _ as DataPtr;
       (new, old, diff)
     }
   }

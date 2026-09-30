@@ -142,25 +142,30 @@ where
         let old = &self.old_value_out as *const _ as DataPtr;
         (new, old, diff)
       } else {
-        let old = self_.data.insert(idx, new.clone());
+        let new_value = new.clone();
+        match self_.data.entry(idx) {
+          hash_map::Entry::Occupied(mut entry) => {
+            self_.old_value_out = entry.insert(new_value);
+            let diff = &self_.old_value_out != entry.get();
 
-        let diff = if let Some(old) = old {
-          self_.old_value_out = old;
-          &self_.old_value_out != new
-        } else {
-          true
-        };
-
-        let new = self_.data.get(&idx).unwrap() as *const _ as DataPtr;
-        let old = &self.old_value_out as *const _ as DataPtr;
-        (new, old, diff)
+            let new = entry.get() as *const _ as DataPtr;
+            let old = &self_.old_value_out as *const _ as DataPtr;
+            (new, old, diff)
+          }
+          hash_map::Entry::Vacant(entry) => {
+            let new = entry.insert(new_value) as *const _ as DataPtr;
+            // the slot is not stored in map, so the old value is the default value
+            let old = &self_.default_value as *const _ as DataPtr;
+            (new, old, true)
+          }
+        }
       }
     }
   }
 
   unsafe fn delete(&mut self, idx: u32) -> DataPtr {
     if let Some(target) = self.data.remove(&idx) {
-      self.old_value_out = target.clone();
+      self.old_value_out = target;
       &self.old_value_out as *const _ as DataPtr
     } else {
       &self.default_value as *const _ as DataPtr

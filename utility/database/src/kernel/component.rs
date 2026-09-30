@@ -81,7 +81,8 @@ impl ComponentReadViewUntyped {
     // note, this is required, because the storage itself
     // do not have any information about if an idx has deleted before
     self.allocator.get(idx.0)?;
-    self.get_without_generation_check(idx.alloc_index())
+    // the generation check above has ensured the slot is living
+    unsafe { Some(self.data.get(idx.alloc_index())) }
   }
 
   #[inline]

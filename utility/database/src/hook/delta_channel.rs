@@ -277,6 +277,8 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
     }
   }
 
+  /// The returned collector is only used for reading(see [Self::compute_query]), so the bitmap
+  /// only used in collecting is not carried.
   pub fn take(&mut self) -> Self {
     let has_change = self.has_change();
     let changes = std::mem::take(&mut self.changes);
@@ -292,7 +294,6 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
     }
 
     // not calling std::take for these bitmaps to preserve allocation
-    let has_any_change = self.has_any_change.clone();
     let has_duplicate_changes = self.has_duplicate_changes.clone();
 
     // todo, only reset changed
@@ -300,7 +301,7 @@ impl<T: CValue> FastDeltaChangeCollector<T> {
     self.has_duplicate_changes.reset();
 
     Self {
-      has_any_change,
+      has_any_change: Bitmap::with_size(0),
       has_duplicate_changes,
       changes,
       override_mapping,
