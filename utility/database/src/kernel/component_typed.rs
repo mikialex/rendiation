@@ -24,10 +24,12 @@ impl<'a, C: ComponentSemantic> ComponentCollection<'a, C> {
   }
 
   pub fn write(&self) -> ComponentWriteView<C> {
+    // see [Table::allocator] for the lock order
+    let allocator = self.inner.allocator.make_read_holder();
     ComponentWriteView {
       phantom: PhantomData,
       inner: self.inner.write_untyped(),
-      allocator: self.inner.allocator.make_read_holder(),
+      allocator,
     }
   }
 }

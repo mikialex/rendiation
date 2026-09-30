@@ -85,6 +85,12 @@ The storage backend is selected at registration time (see the Registration secti
 - `ComponentReadView<C>` — read lock on a single column.
 - `ComponentWriteView<C>` — write lock on a single column.
 
+Lock order (see the doc of `Table::allocator` in [utility/database/src/kernel/table.rs](utility/database/src/kernel/table.rs)): every access path acquires the table's components meta lock, then the table's entity allocator lock, then column data locks, then column event locks. The allocator lock is the table level gate: `TableWriter` takes it by write before any column lock, and every column view (read or write) takes it by read before its column lock. So a thread holding column views can keep acquiring more views of the same table even when a `TableWriter` is waiting, because the waiting writer holds no column lock. Any new access path that locks both the allocator and columns must follow this order.
+
+The entity watchers' `ScopedMessage::Start` is emitted after the `TableWriter` has acquired all its locks, and `End` is emitted before they are released, so a listener can never be added in the middle of a write scope.
+
+Do not create a `TableWriter<E>` while the same thread still holds any view of table `E` (or vice versa): the locks are not reentrant for write, this is a self deadlock.
+
 ## Schema definition
 
 ### declare_entity! — define a table

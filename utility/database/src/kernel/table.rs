@@ -149,6 +149,13 @@ pub struct Table {
   pub(crate) name: String,
   pub(crate) short_name: String,
   pub(crate) type_id: EntityId,
+  /// The entity allocator shared by all components of this table.
+  ///
+  /// Its lock also acts as the table level gate. To avoid deadlock, all access paths must
+  /// acquire locks in this order: the components meta lock, then this allocator lock, then the
+  /// component data locks, then the component event locks. Because the reader holds this lock
+  /// by read while holding any component view, the table writer will wait here without holding
+  /// any component lock, so the reader can still acquire more component views freely.
   pub(crate) allocator: Arc<RwLock<TableAllocator>>,
   /// The components of entity
   pub(crate) components: RwLock<FastHashMap<ComponentId, ComponentUntyped>>,

@@ -2,10 +2,9 @@ use crate::*;
 
 impl ArcTable {
   pub fn entity_writer_dyn(&self) -> TableWriterUntyped {
-    let change = ScopedMessage::Start;
-    self.internal.entity_watchers.emit(&change);
-
     let components = self.internal.components.read_recursive();
+    // see [Table::allocator] for the lock order
+    let allocator = self.internal.allocator.make_write_holder();
     let components = components
       .iter()
       .map(|(id, c)| {
@@ -19,11 +18,16 @@ impl ArcTable {
       })
       .collect();
 
+    // the start must be emitted after all locks are acquired, so that the scope between start
+    // and end is exclusive, and no listener can be added in the middle of the scope.
+    let change = ScopedMessage::Start;
+    self.internal.entity_watchers.emit(&change);
+
     TableWriterUntyped {
       type_id: self.internal.type_id,
       components,
       entity_watchers: self.internal.entity_watchers.clone(),
-      allocator: self.internal.allocator.make_write_holder(),
+      allocator,
     }
   }
 }
@@ -307,4 +311,91 @@ fn clone_entity_should_init_the_new_slot() {
     assert_eq!(db.read::<CloneTestLinear>().get(cloned), Some(&7));
     assert_eq!(db.read::<CloneTestSparse>().get(cloned), Some(&7));
   }
+}
+
+#[cfg(test)]
+fn assert_finish_in_time(name: &str, f: impl FnOnce() + Send + 'static) {
+  let (sender, receiver) = std::sync::mpsc::channel();
+  std::thread::spawn(move || {
+    f();
+    let _ = sender.send(());
+  });
+  let finished = receiver
+    .recv_timeout(std::time::Duration::from_secs(5))
+    .is_ok();
+  assert!(finished, "{name} is dead locked");
+}
+
+#[test]
+fn concurrent_table_writers_with_entity_set_listener_should_not_deadlock() {
+  declare_entity!(WriterTestEntity);
+  declare_component!(WriterTestComponent, WriterTestEntity, u32);
+
+  let db = Database::new(true);
+  db.declare_entity::<WriterTestEntity>()
+    .declare_component::<WriterTestComponent>();
+
+  let table = db
+    .access_table::<WriterTestEntity, _>(|t| t.clone())
+    .into_untyped();
+  let receiver = add_entity_set_listen(
+    table.entity_capacity(),
+    ArenaAccess(table.internal.allocator.make_read_holder()),
+    &table.internal.entity_watchers,
+  );
+
+  assert_finish_in_time("concurrent table writers", move || {
+    let mut writer = db.entity_writer::<WriterTestEntity>();
+    let db_ = db.clone();
+    let other_writer = std::thread::spawn(move || {
+      db_.entity_writer::<WriterTestEntity>().new_entity(|w| w);
+    });
+    // make sure the other writer is waiting for the lock
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    writer.new_entity(|w| w);
+    drop(writer);
+    other_writer.join().unwrap();
+  });
+
+  // the start and end of each writer should be paired, and all changes should be collected
+  let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+  let Poll::Ready(Some(changes)) = receiver.poll_impl(&mut cx) else {
+    panic!("entity set listener should receive the changes");
+  };
+  assert_eq!(changes.compute_query().len(), 2);
+}
+
+#[test]
+fn reader_holding_multiple_views_should_not_deadlock_with_table_writer() {
+  declare_entity!(ReaderTestEntity);
+  declare_component!(ReaderTestComponentA, ReaderTestEntity, u32);
+  declare_component!(ReaderTestComponentB, ReaderTestEntity, u32);
+
+  let db = Database::new(true);
+  db.declare_entity::<ReaderTestEntity>()
+    .declare_component::<ReaderTestComponentA>()
+    .declare_component::<ReaderTestComponentB>();
+
+  // the writer acquires the component locks by the map order, so the reader acquires the views
+  // by the reverse order to create the lock order conflict
+  let table = db
+    .access_table::<ReaderTestEntity, _>(|t| t.clone())
+    .into_untyped();
+  let mut order = Vec::new();
+  table.access_components(|components| order.extend(components.keys().copied()));
+  let (first, last) = (order[0], *order.last().unwrap());
+
+  assert_finish_in_time("reader holding multiple views", move || {
+    let last_view = table.access_component(last, |c| c.read_untyped()).unwrap();
+    let db_ = db.clone();
+    let writer = std::thread::spawn(move || {
+      db_.entity_writer::<ReaderTestEntity>().new_entity(|w| w);
+    });
+    // make sure the writer is waiting for the lock
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let first_view = table.access_component(first, |c| c.read_untyped()).unwrap();
+    drop(first_view);
+    drop(last_view);
+    writer.join().unwrap();
+  });
 }
