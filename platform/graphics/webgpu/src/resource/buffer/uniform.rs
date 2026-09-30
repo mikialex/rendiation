@@ -24,6 +24,19 @@ impl<T: Std140> PartialEq for UniformBufferDataView<T> {
 }
 
 impl<T: Std140> UniformBufferDataView<T> {
+  /// Wrap an existing buffer view, e.g. a window of a shared buffer bound
+  /// with a dynamic offset ([`DynamicOffsetBinding`]). `None` if the buffer
+  /// is not a uniform buffer or the view is smaller than `T`.
+  pub fn try_from_raw(gpu: GPUBufferResourceView) -> Option<Self> {
+    let view_size: u64 = gpu.view_byte_size().into();
+    let usable = gpu.resource.desc.usage.contains(gpu::BufferUsages::UNIFORM)
+      && view_size >= std::mem::size_of::<T>() as u64;
+    usable.then_some(Self {
+      gpu,
+      phantom: PhantomData,
+    })
+  }
+
   pub fn create_default(device: &GPUDevice, debug_label: &str) -> Self
   where
     T: Default,
