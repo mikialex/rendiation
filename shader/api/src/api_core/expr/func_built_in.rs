@@ -108,25 +108,7 @@ pub fn make_builtin_call<T: ShaderNodeType>(
   params: impl IntoIterator<Item = ShaderNodeRawHandle>,
 ) -> Node<T> {
   ShaderNodeExpr::FunctionCall {
-    meta: ShaderFunctionType::BuiltIn {
-      ty,
-      ty_help_info: None,
-    },
-    parameters: params.into_iter().collect(),
-  }
-  .insert_api()
-}
-
-pub fn make_builtin_call_with_ty_helper<T: ShaderNodeType>(
-  ty: ShaderBuiltInFunction,
-  ty_help_info: PrimitiveShaderValueType,
-  params: impl IntoIterator<Item = ShaderNodeRawHandle>,
-) -> Node<T> {
-  ShaderNodeExpr::FunctionCall {
-    meta: ShaderFunctionType::BuiltIn {
-      ty,
-      ty_help_info: Some(ty_help_info),
-    },
+    meta: ShaderFunctionType::BuiltIn(ty),
     parameters: params.into_iter().collect(),
   }
   .insert_api()
@@ -625,12 +607,7 @@ where
   where
     T::Shape<i32>: ShaderNodeType,
   {
-    let raw = make_builtin_call_with_ty_helper::<AnyType>(
-      ShaderBuiltInFunction::Frexp,
-      T::primitive_ty(),
-      vec![self.handle()],
-    )
-    .handle();
+    let raw = make_builtin_call::<AnyType>(ShaderBuiltInFunction::Frexp, [self.handle()]).handle();
 
     unsafe {
       let fr = index_access_field(raw, 0).into_node();
@@ -641,12 +618,7 @@ where
 
   /// return (fract, whole), the fractional and whole parts of self, both have the same sign as self
   pub fn modf(self) -> (Node<T>, Node<T>) {
-    let raw = make_builtin_call_with_ty_helper::<AnyType>(
-      ShaderBuiltInFunction::Modf,
-      T::primitive_ty(),
-      vec![self.handle()],
-    )
-    .handle();
+    let raw = make_builtin_call::<AnyType>(ShaderBuiltInFunction::Modf, [self.handle()]).handle();
 
     unsafe {
       let fract = index_access_field(raw, 0).into_node();

@@ -190,13 +190,6 @@ pub fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
   }
 }
 
-pub fn map_primitive_vec_size(t: PrimitiveShaderValueType) -> Option<naga::VectorSize> {
-  match t {
-    PrimitiveShaderValueType::Vector { size, .. } => Some(map_vector_size(size)),
-    _ => None,
-  }
-}
-
 pub fn map_early_depth_test(test: ShaderEarlyDepthTest) -> naga::EarlyDepthTest {
   match test {
     ShaderEarlyDepthTest::Force => naga::EarlyDepthTest::Force,

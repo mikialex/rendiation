@@ -17,11 +17,12 @@ pub struct ShaderAPINagaImpl {
   block: Vec<(Vec<naga::Statement>, BlockBuildingState)>,
   control_structure: Vec<naga::Statement>,
   building_fn: Vec<naga::Function>,
-  fn_mapping: FastHashMap<String, (naga::Handle<naga::Function>, ShaderUserDefinedFunction)>,
+  fn_mapping: FastHashMap<String, naga::Handle<naga::Function>>,
   ty_mapping: FastHashMap<ShaderValueType, naga::Handle<naga::Type>>,
   expression_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Expression>>,
-  outputs_define: Vec<ShaderStructFieldMetaInfo>,
-  outputs: Vec<naga::Handle<naga::Expression>>,
+  outputs: Vec<EntryOutput>,
+  /// the location of the next user defined output, the builtin outputs do not take the location
+  next_output_location: usize,
   /// For the struct that contains explicit padding members, map each member to the field index,
   /// None means it's a padding member.
   padded_structs: FastHashMap<naga::Handle<naga::Type>, Vec<Option<usize>>>,
@@ -33,13 +34,20 @@ pub struct ShaderAPINagaImpl {
   output_mesh_task_size: Option<ShaderNodeRawHandle>,
 }
 
-pub enum BlockBuildingState {
+enum BlockBuildingState {
   Common,
   SwitchCase(SwitchCaseCondition),
   Loop,
   IfAccept,
   Else,
   Function,
+}
+
+struct EntryOutput {
+  meta: ShaderStructFieldMetaInfo,
+  /// the local variable that holds the output value, it is loaded and composed into the output
+  /// struct when the entry function returns
+  var: naga::Handle<naga::Expression>,
 }
 
 const ENTRY_POINT_NAME: &str = "main";
@@ -71,8 +79,8 @@ impl ShaderAPINagaImpl {
       expression_mapping: Default::default(),
       ty_mapping: Default::default(),
       control_structure: Default::default(),
-      outputs_define: Default::default(),
       outputs: Default::default(),
+      next_output_location: 0,
       padded_structs: Default::default(),
       layouter: Default::default(),
       building_fn_typifier: Default::default(),
@@ -94,44 +102,81 @@ impl ShaderAPINagaImpl {
     self.block.last_mut().unwrap().0.push(st);
   }
 
-  fn make_new_handle(&mut self) -> ShaderNodeRawHandle {
+  /// Create a new node that maps to the expression in the building function.
+  fn map_new_node(&mut self, expr: naga::Handle<naga::Expression>) -> ShaderNodeRawHandle {
     self.handle_id += 1;
-    let handle = self.handle_id;
-    ShaderNodeRawHandle { handle }
+    let node = ShaderNodeRawHandle {
+      handle: self.handle_id,
+    };
+    self.expression_mapping.insert(node, expr);
+    node
   }
 
-  fn make_expression_inner_raw(
-    &mut self,
-    expr: naga::Expression,
-    is_global: bool,
-  ) -> naga::Handle<naga::Expression> {
-    if is_global {
-      self.module.global_expressions.append(expr, Span::UNDEFINED)
-    } else {
-      let needs_pre_emit = expr.needs_pre_emit();
-      let handle = self
-        .building_fn
-        .last_mut()
-        .unwrap()
-        .expressions
-        .append(expr, Span::UNDEFINED);
+  fn append_global_expr(&mut self, expr: naga::Expression) -> naga::Handle<naga::Expression> {
+    self.module.global_expressions.append(expr, Span::UNDEFINED)
+  }
 
-      // should we merge these expression emits?
-      if !needs_pre_emit {
-        self.push_top_statement(naga::Statement::Emit(naga::Range::new_from_bounds(
-          handle, handle,
-        )));
-      }
+  /// Append the expression into the building function, and emit it if required.
+  fn append_fn_expr(&mut self, expr: naga::Expression) -> naga::Handle<naga::Expression> {
+    let needs_pre_emit = expr.needs_pre_emit();
+    let handle = self
+      .building_fn
+      .last_mut()
+      .unwrap()
+      .expressions
+      .append(expr, Span::UNDEFINED);
 
-      handle
+    // should we merge these expression emits?
+    if !needs_pre_emit {
+      self.push_top_statement(naga::Statement::Emit(naga::Range::new_from_bounds(
+        handle, handle,
+      )));
     }
+
+    handle
   }
 
   fn make_expression_inner(&mut self, expr: naga::Expression) -> ShaderNodeRawHandle {
-    let handle = self.make_expression_inner_raw(expr, false);
-    let return_handle = self.make_new_handle();
-    self.expression_mapping.insert(return_handle, handle);
-    return_handle
+    let expr = self.append_fn_expr(expr);
+    self.map_new_node(expr)
+  }
+
+  /// Create the node of the result expression produced by the statement, the result expression
+  /// must not be emitted.
+  fn make_statement_result(
+    &mut self,
+    result: naga::Expression,
+    statement: impl FnOnce(&mut Self, naga::Handle<naga::Expression>) -> naga::Statement,
+  ) -> ShaderNodeRawHandle {
+    let result = self
+      .building_fn
+      .last_mut()
+      .unwrap()
+      .expressions
+      .append(result, Span::UNDEFINED);
+    let statement = statement(self, result);
+    self.push_top_statement(statement);
+    self.map_new_node(result)
+  }
+
+  fn declare_global(
+    &mut self,
+    space: naga::AddressSpace,
+    binding: Option<naga::ResourceBinding>,
+    ty: naga::Handle<naga::Type>,
+  ) -> ShaderNodeRawHandle {
+    let global = naga::GlobalVariable {
+      name: None,
+      space,
+      binding,
+      ty,
+      init: None,
+      memory_decorations: MemoryDecorations::empty(),
+    };
+    let global = self.module.global_variables.append(global, Span::UNDEFINED);
+    let node = self.make_expression_inner(naga::Expression::GlobalVariable(global));
+    self.global_var_mapping.insert(node, global);
+    node
   }
 
   // root cause: this works around a bug in naga's spirv backend. when a compose
@@ -171,19 +216,25 @@ impl ShaderAPINagaImpl {
   ) -> naga::Handle<naga::Expression> {
     let expr = self.module.global_expressions[handle].clone();
     match expr {
-      naga::Expression::Literal(_) | naga::Expression::ZeroValue(_) => {
-        self.make_expression_inner_raw(expr, false)
-      }
+      naga::Expression::Literal(_) | naga::Expression::ZeroValue(_) => self.append_fn_expr(expr),
       naga::Expression::Compose { ty, components } => {
         let components = components
           .iter()
           .map(|c| self.copy_global_expr_into_fn(*c))
           .collect();
-        self.make_expression_inner_raw(naga::Expression::Compose { ty, components }, false)
+        self.append_fn_expr(naga::Expression::Compose { ty, components })
       }
       naga::Expression::Constant(c) => self.copy_global_expr_into_fn(self.module.constants[c].init),
       other => unreachable!("unexpected global expression in constant init: {other:?}"),
     }
+  }
+
+  fn register_sized_ty(&mut self, ty: ShaderSizedValueType) -> naga::Handle<naga::Type> {
+    self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(ty)))
+  }
+
+  fn register_primitive_ty(&mut self, ty: PrimitiveShaderValueType) -> naga::Handle<naga::Type> {
+    self.register_sized_ty(ShaderSizedValueType::Primitive(ty))
   }
 
   fn register_ty_impl(&mut self, ty: ShaderValueType) -> naga::Handle<naga::Type> {
@@ -208,9 +259,7 @@ impl ShaderAPINagaImpl {
             inner
           }
           ShaderSizedValueType::FixedSizeArray(ty, size) => {
-            let base = self.register_ty_impl(ShaderValueType::Single(
-              ShaderValueSingleType::Sized(*ty.clone()),
-            ));
+            let base = self.register_sized_ty(*ty.clone());
             naga::TypeInner::Array {
               base,
               size: naga::ArraySize::Constant(NonZeroU32::new(*size as u32).unwrap()),
@@ -220,9 +269,7 @@ impl ShaderAPINagaImpl {
         },
         ShaderValueSingleType::Unsized(ty) => match ty {
           ShaderUnSizedValueType::UnsizedArray(ty) => {
-            let base = self.register_ty_impl(ShaderValueType::Single(
-              ShaderValueSingleType::Sized(*ty.clone()),
-            ));
+            let base = self.register_sized_ty(*ty.clone());
             naga::TypeInner::Array {
               base,
               size: naga::ArraySize::Dynamic,
@@ -312,7 +359,7 @@ impl ShaderAPINagaImpl {
     &mut self,
     ty: naga::Handle<naga::Type>,
     components: Vec<naga::Handle<naga::Expression>>,
-    is_global: bool,
+    append: fn(&mut Self, naga::Expression) -> naga::Handle<naga::Expression>,
   ) -> Vec<naga::Handle<naga::Expression>> {
     let Some(member_fields) = self.padded_structs.get(&ty).cloned() else {
       return components;
@@ -321,10 +368,27 @@ impl ShaderAPINagaImpl {
       .iter()
       .map(|field| match field {
         Some(field_index) => components[*field_index],
-        None => self
-          .make_expression_inner_raw(naga::Expression::Literal(naga::Literal::U32(0)), is_global),
+        None => append(self, naga::Expression::Literal(naga::Literal::U32(0))),
       })
       .collect()
+  }
+
+  /// Resolve the type of the expression in the building function.
+  fn resolve_expr_type(
+    &mut self,
+    expr: naga::Handle<naga::Expression>,
+  ) -> naga::proc::TypeResolution {
+    let function = self.building_fn.last().unwrap();
+    let typifier = self.building_fn_typifier.last_mut().unwrap();
+    let ctx = naga::proc::ResolveContext::with_locals(
+      &self.module,
+      &function.local_variables,
+      &function.arguments,
+    );
+    typifier
+      .grow(expr, &function.expressions, &ctx)
+      .expect("failed to resolve the expression type");
+    typifier[expr].clone()
   }
 
   /// Map the struct field index into the naga struct member index, they are different when the
@@ -338,23 +402,12 @@ impl ShaderAPINagaImpl {
       return field_index as u32;
     }
 
-    let function = self.building_fn.last().unwrap();
-    let typifier = self.building_fn_typifier.last_mut().unwrap();
-    let ctx = naga::proc::ResolveContext::with_locals(
-      &self.module,
-      &function.local_variables,
-      &function.arguments,
-    );
-    typifier
-      .grow(base, &function.expressions, &ctx)
-      .expect("failed to resolve the expression type");
-
-    let struct_ty = match &typifier[base] {
-      naga::proc::TypeResolution::Handle(ty) => match self.module.types[*ty].inner {
+    let struct_ty = match self.resolve_expr_type(base) {
+      naga::proc::TypeResolution::Handle(ty) => match self.module.types[ty].inner {
         naga::TypeInner::Pointer { base, .. } => base,
-        _ => *ty,
+        _ => ty,
       },
-      naga::proc::TypeResolution::Value(naga::TypeInner::Pointer { base, .. }) => *base,
+      naga::proc::TypeResolution::Value(naga::TypeInner::Pointer { base, .. }) => base,
       _ => return field_index as u32,
     };
 
@@ -384,37 +437,50 @@ impl ShaderAPINagaImpl {
     name: String,
     ty_deco: ShaderFieldDecorator,
   ) -> ShaderNodeRawHandle {
-    assert!(self.block.len() == 1); // we should define input in root scope
+    assert!(self.block.len() == 1); // we should define output in root scope
     assert!(self.building_fn.len() == 1);
 
-    self.outputs_define.push(ShaderStructFieldMetaInfo {
-      name,
-      ty: ty.clone(),
-      ty_deco: Some(ty_deco),
+    let node = self.make_local_var(ShaderValueType::Single(ShaderValueSingleType::Sized(
+      ty.clone(),
+    )));
+    self.outputs.push(EntryOutput {
+      meta: ShaderStructFieldMetaInfo {
+        name,
+        ty,
+        ty_deco: Some(ty_deco),
+      },
+      var: self.get_expression(node),
     });
-
-    let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(ty));
-    let r = self.make_local_var(ty);
-    let exp = self.get_expression(r);
-    self.outputs.push(exp);
-    r
+    node
   }
 
-  fn create_primitive_expression(
+  fn define_location_out(
+    &mut self,
+    ty: ShaderSizedValueType,
+    name_prefix: &str,
+    interpolation: Option<ShaderInterpolation>,
+  ) -> ShaderNodeRawHandle {
+    let location = self.next_output_location;
+    self.next_output_location += 1;
+    self.define_out(
+      ty,
+      format!("{name_prefix}_{location}"),
+      ShaderFieldDecorator::Location(location, interpolation),
+    )
+  }
+
+  /// Create the expressions of the primitive value in the global expression arena.
+  fn global_primitive_expr(
     &mut self,
     data: PrimitiveShaderValue,
-    is_global: bool,
   ) -> naga::Handle<naga::Expression> {
     match data {
-      PrimitiveShaderValue::Scalar(v) => self.make_expression_inner_raw(
-        naga::Expression::Literal(scalar_value_to_naga_literal(v)),
-        is_global,
-      ),
-      PrimitiveShaderValue::Vector { size, scalar, data } => self.compose_primitive_expression(
-        PrimitiveShaderValueType::vector(size, scalar),
-        data.iter(),
-        is_global,
-      ),
+      PrimitiveShaderValue::Scalar(v) => {
+        self.append_global_expr(naga::Expression::Literal(scalar_value_to_naga_literal(v)))
+      }
+      PrimitiveShaderValue::Vector { size, scalar, data } => {
+        self.global_compose_scalars(PrimitiveShaderValueType::vector(size, scalar), data.iter())
+      }
       PrimitiveShaderValue::Matrix {
         columns,
         rows,
@@ -425,49 +491,38 @@ impl ShaderAPINagaImpl {
         let column_ty = PrimitiveShaderValueType::vector(rows, scalar);
         let components = data
           .iter()
-          .map(|column| self.compose_primitive_expression(column_ty, column.iter(), is_global))
+          .map(|column| self.global_compose_scalars(column_ty, column.iter()))
           .collect();
-        self.compose_expression(
+        self.global_compose(
           PrimitiveShaderValueType::Matrix {
             columns,
             rows,
             scalar,
           },
           components,
-          is_global,
         )
       }
     }
   }
 
-  fn compose_primitive_expression<'a>(
+  fn global_compose_scalars<'a>(
     &mut self,
     ty: PrimitiveShaderValueType,
     scalars: impl Iterator<Item = &'a ScalarValue>,
-    is_global: bool,
   ) -> naga::Handle<naga::Expression> {
     let components = scalars
-      .map(|v| {
-        self.make_expression_inner_raw(
-          naga::Expression::Literal(scalar_value_to_naga_literal(*v)),
-          is_global,
-        )
-      })
+      .map(|v| self.append_global_expr(naga::Expression::Literal(scalar_value_to_naga_literal(*v))))
       .collect();
-    self.compose_expression(ty, components, is_global)
+    self.global_compose(ty, components)
   }
 
-  fn compose_expression(
+  fn global_compose(
     &mut self,
     ty: PrimitiveShaderValueType,
     components: Vec<naga::Handle<naga::Expression>>,
-    is_global: bool,
   ) -> naga::Handle<naga::Expression> {
-    let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-      ShaderSizedValueType::Primitive(ty),
-    )));
-    let expr = naga::Expression::Compose { ty, components };
-    self.make_expression_inner_raw(expr, is_global)
+    let ty = self.register_primitive_ty(ty);
+    self.append_global_expr(naga::Expression::Compose { ty, components })
   }
 
   fn define_const_global_expr_impl(
@@ -477,7 +532,7 @@ impl ShaderAPINagaImpl {
   ) -> naga::Handle<naga::Expression> {
     match (value, raw_ty) {
       (ShaderStructFieldInitValue::Primitive(init), ShaderSizedValueType::Primitive(_)) => {
-        self.create_primitive_expression(init, true)
+        self.global_primitive_expr(init)
       }
       (ShaderStructFieldInitValue::Struct(init), ShaderSizedValueType::Struct(meta)) => {
         let init: Vec<_> = init
@@ -485,30 +540,17 @@ impl ShaderAPINagaImpl {
           .zip(meta.fields.iter())
           .map(|(v, f_ty)| self.define_const_global_expr_impl(v.clone(), &f_ty.ty))
           .collect();
-        let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-          raw_ty.clone(),
-        )));
-        let init = self.fill_struct_padding_components(ty, init, true);
-        let expr = naga::Expression::Compose {
-          ty,
-          components: init,
-        };
-        self.make_expression_inner_raw(expr, true)
+        let ty = self.register_sized_ty(raw_ty.clone());
+        let components = self.fill_struct_padding_components(ty, init, Self::append_global_expr);
+        self.append_global_expr(naga::Expression::Compose { ty, components })
       }
       (ShaderStructFieldInitValue::Array(init), ShaderSizedValueType::FixedSizeArray(f_ty, _)) => {
-        let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-          raw_ty.clone(),
-        )));
-        let init = init
+        let ty = self.register_sized_ty(raw_ty.clone());
+        let components = init
           .iter()
           .map(|v| self.define_const_global_expr_impl(v.clone(), f_ty))
           .collect();
-
-        let expr = naga::Expression::Compose {
-          ty,
-          components: init,
-        };
-        self.make_expression_inner_raw(expr, true)
+        self.append_global_expr(naga::Expression::Compose { ty, components })
       }
       _ => unreachable!("ty not match"),
     }
@@ -522,7 +564,7 @@ impl ShaderAPINagaImpl {
   ) -> naga::Handle<naga::Expression> {
     let global_expr = self.define_const_global_expr_impl(value, &ty);
 
-    let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(ty)));
+    let ty = self.register_sized_ty(ty);
 
     let constant = self.module.constants.append(
       naga::Constant {
@@ -538,7 +580,55 @@ impl ShaderAPINagaImpl {
       Span::UNDEFINED,
     );
 
-    self.make_expression_inner_raw(naga::Expression::Constant(constant), false)
+    self.append_fn_expr(naga::Expression::Constant(constant))
+  }
+
+  fn lower_builtin_call(
+    &mut self,
+    f: ShaderBuiltInFunction,
+    parameters: &[ShaderNodeRawHandle],
+  ) -> naga::Expression {
+    let args: Vec<_> = parameters.iter().map(|p| self.get_expression(*p)).collect();
+    let relational = |fun| naga::Expression::Relational {
+      fun,
+      argument: args[0],
+    };
+    let math = |fun| naga::Expression::Math {
+      fun,
+      arg: args[0],
+      arg1: args.get(1).copied(),
+      arg2: args.get(2).copied(),
+      arg3: args.get(3).copied(),
+    };
+
+    match f {
+      ShaderBuiltInFunction::Select => naga::Expression::Select {
+        condition: args[2],
+        accept: args[1],
+        reject: args[0],
+      },
+      ShaderBuiltInFunction::All => relational(naga::RelationalFunction::All),
+      ShaderBuiltInFunction::Any => relational(naga::RelationalFunction::Any),
+      ShaderBuiltInFunction::IsNan => relational(naga::RelationalFunction::IsNan),
+      ShaderBuiltInFunction::IsInf => relational(naga::RelationalFunction::IsInf),
+      ShaderBuiltInFunction::ArrayLength => naga::Expression::ArrayLength(args[0]),
+      ShaderBuiltInFunction::Modf | ShaderBuiltInFunction::Frexp => {
+        // the result struct type must be generated before use
+        let arg_ty = self.resolve_expr_type(args[0]);
+        let (size, scalar) = arg_ty
+          .inner_with(&self.module.types)
+          .vector_size_and_scalar()
+          .expect("modf and frexp require float scalar or vector argument");
+        let result_ty = if let ShaderBuiltInFunction::Modf = f {
+          naga::PredeclaredType::ModfResult { size, scalar }
+        } else {
+          naga::PredeclaredType::FrexpResult { size, scalar }
+        };
+        self.module.generate_predeclared_type(result_ty);
+        math(map_math_function(f))
+      }
+      f => math(map_math_function(f)),
+    }
   }
 }
 
@@ -561,13 +651,8 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn define_mesh_info(&mut self, mesh_info: MeshStageInfo) {
-    let vertex_output_type = self.register_ty_impl(ShaderValueType::Single(
-      ShaderValueSingleType::Sized(mesh_info.vertex_output_type),
-    ));
-
-    let primitive_output_type = self.register_ty_impl(ShaderValueType::Single(
-      ShaderValueSingleType::Sized(mesh_info.primitive_output_type),
-    ));
+    let vertex_output_type = self.register_sized_ty(mesh_info.vertex_output_type);
+    let primitive_output_type = self.register_sized_ty(mesh_info.primitive_output_type);
 
     let output_variable = *self
       .global_var_mapping
@@ -601,18 +686,11 @@ impl ShaderAPI for ShaderAPINagaImpl {
         let data_ty = ty
           .data_ty()
           .expect("mesh output relative should defined by shared var");
-        let data_ty = ShaderValueType::Single(ShaderValueSingleType::Sized(
-          ShaderSizedValueType::Primitive(data_ty),
-        ));
-
-        let bt = map_built_in(ty);
-
-        let ty = self.register_ty_impl(data_ty);
-
+        let data_ty = self.register_primitive_ty(data_ty);
         self.add_fn_input_inner(naga::FunctionArgument {
           name: None,
-          ty,
-          binding: naga::Binding::BuiltIn(bt).into(),
+          ty: data_ty,
+          binding: naga::Binding::BuiltIn(map_built_in(ty)).into(),
         })
       }
       ShaderInputNode::Binding {
@@ -620,38 +698,20 @@ impl ShaderAPI for ShaderAPINagaImpl {
         bindgroup_index,
         entry_index,
       } => {
-        let space = desc.get_address_space().unwrap();
-        let space = map_address_space(space);
-
+        let space = map_address_space(desc.get_address_space().unwrap());
         let ty = self.register_ty_impl(desc.ty);
-        let g = naga::GlobalVariable {
-          name: None,
-          space,
-          binding: naga::ResourceBinding {
-            group: bindgroup_index as u32,
-            binding: entry_index as u32,
-          }
-          .into(),
-          ty,
-          init: None,
-          memory_decorations: MemoryDecorations::empty(),
+        let binding = naga::ResourceBinding {
+          group: bindgroup_index as u32,
+          binding: entry_index as u32,
         };
-        let g_h = self.module.global_variables.append(g, Span::UNDEFINED);
-        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g_h), false);
-
-        let return_handle = self.make_new_handle();
-        self.expression_mapping.insert(return_handle, g);
-        self.global_var_mapping.insert(return_handle, g_h);
-        return_handle
+        self.declare_global(space, Some(binding), ty)
       }
       ShaderInputNode::UserDefinedIn {
         ty,
         location,
         interpolation,
       } => {
-        let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-          ShaderSizedValueType::Primitive(ty),
-        )));
+        let ty = self.register_primitive_ty(ty);
         self.add_fn_input_inner(naga::FunctionArgument {
           name: None,
           ty,
@@ -666,77 +726,22 @@ impl ShaderAPI for ShaderAPINagaImpl {
         })
       }
       ShaderInputNode::WorkGroupShared { ty } => {
-        let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(ty)));
-        let g = naga::GlobalVariable {
-          name: None,
-          space: naga::AddressSpace::WorkGroup,
-          binding: None,
-          ty,
-          init: None,
-          memory_decorations: MemoryDecorations::empty(),
-        };
-        let g_h = self.module.global_variables.append(g, Span::UNDEFINED);
-        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g_h), false);
-
-        let return_handle = self.make_new_handle();
-        self.expression_mapping.insert(return_handle, g);
-        self.global_var_mapping.insert(return_handle, g_h);
-        return_handle
+        let ty = self.register_sized_ty(ty);
+        self.declare_global(naga::AddressSpace::WorkGroup, None, ty)
       }
       ShaderInputNode::Private { ty } => {
-        let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(ty)));
-        let g = naga::GlobalVariable {
-          name: None,
-          space: naga::AddressSpace::Private,
-          binding: None,
-          ty,
-          init: None,
-          memory_decorations: MemoryDecorations::empty(),
-        };
-        let g_h = self.module.global_variables.append(g, Span::UNDEFINED);
-        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g_h), false);
-
-        let return_handle = self.make_new_handle();
-        self.expression_mapping.insert(return_handle, g);
-        self.global_var_mapping.insert(return_handle, g_h);
-        return_handle
+        let ty = self.register_sized_ty(ty);
+        self.declare_global(naga::AddressSpace::Private, None, ty)
       }
       ShaderInputNode::TaskPayload { ty } => {
-        let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(ty)));
-        let g = naga::GlobalVariable {
-          name: None,
-          space: naga::AddressSpace::TaskPayload,
-          binding: None,
-          ty,
-          init: None,
-          memory_decorations: MemoryDecorations::empty(),
-        };
-        let g_h = self.module.global_variables.append(g, Span::UNDEFINED);
-        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g_h), false);
-
-        let return_handle = self.make_new_handle();
-        self.expression_mapping.insert(return_handle, g);
-        self.global_var_mapping.insert(return_handle, g_h);
-        return_handle
+        let ty = self.register_sized_ty(ty);
+        self.declare_global(naga::AddressSpace::TaskPayload, None, ty)
       }
     }
   }
 
   fn define_next_frag_out(&mut self, ty: ShaderSizedValueType) -> ShaderNodeRawHandle {
-    assert!(self.block.len() == 1); // we should define input in root scope
-    assert!(self.building_fn.len() == 1);
-
-    self.outputs_define.push(ShaderStructFieldMetaInfo {
-      name: format!("frag_out_{}", self.outputs_define.len()),
-      ty: ty.clone(),
-      ty_deco: ShaderFieldDecorator::Location(self.outputs.len(), None).into(),
-    });
-
-    let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(ty));
-    let r = self.make_local_var(ty);
-    let exp = self.get_expression(r);
-    self.outputs.push(exp);
-    r
+    self.define_location_out(ty, "frag_out", None)
   }
 
   fn define_next_vertex_output(
@@ -744,10 +749,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
     ty: PrimitiveShaderValueType,
     interpolation: Option<ShaderInterpolation>,
   ) -> ShaderNodeRawHandle {
-    self.define_out(
+    self.define_location_out(
       ShaderSizedValueType::Primitive(ty),
-      format!("vertex_out_{}", self.outputs_define.len()),
-      ShaderFieldDecorator::Location(self.outputs.len(), interpolation),
+      "vertex_out",
+      interpolation,
     )
   }
 
@@ -805,13 +810,12 @@ impl ShaderAPI for ShaderAPINagaImpl {
       naga::Expression::FunctionArgument(idx) => {
         top_fn.arguments[*idx as usize].name = Some(name);
       }
+      // the local variable expression is never emitted, so the named expression is not used
+      naga::Expression::LocalVariable(v) => {
+        top_fn.local_variables[*v].name = Some(name);
+      }
       _ => {
-        self
-          .building_fn
-          .last_mut()
-          .unwrap()
-          .named_expressions
-          .insert(handle, name);
+        top_fn.named_expressions.insert(handle, name);
       }
     }
   }
@@ -823,410 +827,259 @@ impl ShaderAPI for ShaderAPINagaImpl {
     inlined: bool,
   ) -> ShaderNodeRawHandle {
     let handle = self.define_const_impl(value, ty, inlined);
-    let return_handle = self.make_new_handle();
-    self.expression_mapping.insert(return_handle, handle);
-    return_handle
+    self.map_new_node(handle)
   }
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle {
-    #[allow(clippy::never_loop)] // we here use loop to early exit match block!
-    let expr = loop {
-      break match expr {
-        ShaderNodeExpr::Fake => return ShaderNodeRawHandle { handle: 0 },
-        ShaderNodeExpr::Zeroed { target } => naga::Expression::ZeroValue(self.register_ty_impl(
-          ShaderValueType::Single(ShaderValueSingleType::Sized(target)),
-        )),
-        ShaderNodeExpr::AtomicCall {
-          ty,
-          pointer,
-          function,
-          value,
-        } => {
-          let mut comparison = false;
-          let compare = match function {
-            AtomicFunction::Exchange { compare, .. } => compare.map(|c| {
-              comparison = true;
-              self.get_expression(c)
-            }),
-            _ => None,
-          };
-          let fun = map_atomic_function(function, compare);
+    let expr = match expr {
+      ShaderNodeExpr::Fake => return ShaderNodeRawHandle { handle: 0 },
+      ShaderNodeExpr::Zeroed { target } => {
+        naga::Expression::ZeroValue(self.register_sized_ty(target))
+      }
+      ShaderNodeExpr::AtomicCall {
+        ty,
+        pointer,
+        function,
+        value,
+      } => {
+        let compare = match function {
+          AtomicFunction::Exchange { compare, .. } => compare.map(|c| self.get_expression(c)),
+          _ => None,
+        };
+        let comparison = compare.is_some();
+        let fun = map_atomic_function(function, compare);
 
+        let ty = if let AtomicFunction::Exchange { weak: true, .. } = function {
+          self.module.generate_predeclared_type(
+            naga::PredeclaredType::AtomicCompareExchangeWeakResult(map_atomic_scalar(ty)),
+          )
+        } else {
           let primitive = match ty {
             ShaderAtomicValueType::I32 => PrimitiveShaderValueType::i32(),
             ShaderAtomicValueType::U32 => PrimitiveShaderValueType::u32(),
           };
+          self.register_primitive_ty(primitive)
+        };
 
-          let ty = if let AtomicFunction::Exchange { weak: true, .. } = function {
-            let scalar_ty = map_atomic_scalar(ty);
-            self.module.generate_predeclared_type(
-              naga::PredeclaredType::AtomicCompareExchangeWeakResult(scalar_ty),
-            )
-          } else {
-            self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-              ShaderSizedValueType::Primitive(primitive),
-            )))
-          };
-
-          // we have to control here not to emit the call exp.
-          let r = self.building_fn.last_mut().unwrap().expressions.append(
-            naga::Expression::AtomicResult { ty, comparison },
-            Span::UNDEFINED,
-          );
-          let r_handle = self.make_new_handle();
-          self.expression_mapping.insert(r_handle, r);
-
-          self.push_top_statement(naga::Statement::Atomic {
-            pointer: self.get_expression(pointer),
+        return self.make_statement_result(
+          naga::Expression::AtomicResult { ty, comparison },
+          |this, result| naga::Statement::Atomic {
+            pointer: this.get_expression(pointer),
             fun,
-            value: self.get_expression(value),
-            result: Some(r),
-          });
-
-          return r_handle;
-        }
-        ShaderNodeExpr::FunctionCall { meta, parameters } => {
-          match meta {
-            ShaderFunctionType::Custom(meta) => {
-              let (fun, _) = *self.fn_mapping.get(&meta.name).unwrap();
-              let fun_desc = self.module.functions.try_get(fun).unwrap();
-              // todo, currently we do not support function without return value
-              assert!(fun_desc.result.is_some());
-              // we have to control here not to emit the call exp.
-              let r = self
-                .building_fn
-                .last_mut()
-                .unwrap()
-                .expressions
-                .append(naga::Expression::CallResult(fun), Span::UNDEFINED);
-              let r_handle = self.make_new_handle();
-              self.expression_mapping.insert(r_handle, r);
-
-              let arguments = parameters.iter().map(|p| self.get_expression(*p)).collect();
-
-              self.push_top_statement(naga::Statement::Call {
-                function: fun,
-                arguments,
-                result: Some(r),
-              });
-
-              return r_handle;
-            }
-            ShaderFunctionType::BuiltIn {
-              ty: f,
-              ty_help_info,
-            } => {
-              let fun = match f {
-                ShaderBuiltInFunction::Select => {
-                  break naga::Expression::Select {
-                    condition: self.get_expression(parameters[2]),
-                    accept: self.get_expression(parameters[1]),
-                    reject: self.get_expression(parameters[0]),
-                  };
-                }
-                ShaderBuiltInFunction::All => {
-                  break naga::Expression::Relational {
-                    fun: naga::RelationalFunction::All,
-                    argument: self.get_expression(parameters[0]),
-                  };
-                }
-                ShaderBuiltInFunction::Any => {
-                  break naga::Expression::Relational {
-                    fun: naga::RelationalFunction::Any,
-                    argument: self.get_expression(parameters[0]),
-                  };
-                }
-                ShaderBuiltInFunction::IsNan => {
-                  break naga::Expression::Relational {
-                    fun: naga::RelationalFunction::IsNan,
-                    argument: self.get_expression(parameters[0]),
-                  };
-                }
-                ShaderBuiltInFunction::IsInf => {
-                  break naga::Expression::Relational {
-                    fun: naga::RelationalFunction::IsInf,
-                    argument: self.get_expression(parameters[0]),
-                  };
-                }
-                ShaderBuiltInFunction::ArrayLength => {
-                  break naga::Expression::ArrayLength(self.get_expression(parameters[0]));
-                }
-                ShaderBuiltInFunction::Modf => {
-                  let ty_help_info = ty_help_info.unwrap();
-                  let size = map_primitive_vec_size(ty_help_info);
-                  self
-                    .module
-                    .generate_predeclared_type(naga::PredeclaredType::ModfResult {
-                      size,
-                      scalar: naga::Scalar {
-                        kind: naga::ScalarKind::Float,
-                        width: ty_help_info.scalar().byte_count() as u8,
-                      },
-                    });
-
-                  map_math_function(f)
-                }
-                ShaderBuiltInFunction::Frexp => {
-                  let ty_help_info = ty_help_info.unwrap();
-                  let size = map_primitive_vec_size(ty_help_info);
-                  self
-                    .module
-                    .generate_predeclared_type(naga::PredeclaredType::FrexpResult {
-                      size,
-                      scalar: naga::Scalar {
-                        kind: naga::ScalarKind::Float,
-                        width: ty_help_info.scalar().byte_count() as u8,
-                      },
-                    });
-
-                  map_math_function(f)
-                }
-                f => map_math_function(f),
-              };
-
-              naga::Expression::Math {
-                fun,
-                arg: self.get_expression(parameters[0]),
-                arg1: parameters.get(1).map(|v| self.get_expression(*v)),
-                arg2: parameters.get(2).map(|v| self.get_expression(*v)),
-                arg3: parameters.get(3).map(|v| self.get_expression(*v)),
-              }
-            }
-          }
-        }
-        ShaderNodeExpr::TextureQuery(texture, info) => {
-          let level = match info {
-            TextureQuery::Size { level } => level.map(|v| self.get_expression(v)),
-            _ => None,
-          };
-          naga::Expression::ImageQuery {
-            image: self.get_expression(texture),
-            query: map_texture_query(info, level),
-          }
-        }
-        ShaderNodeExpr::TextureSampling(ShaderTextureSampling {
-          texture,
-          sampler,
-          position,
-          array_index,
-          level,
-          reference,
-          offset,
-          gather_channel,
-          clamp_to_edge,
-        }) => naga::Expression::ImageSample {
-          image: self.get_expression(texture),
-          sampler: self.get_expression(sampler),
-          gather: gather_channel.map(map_gather_channel),
-          coordinate: self.get_expression(position),
-          array_index: array_index.map(|index| self.get_expression(index)),
-          offset: offset.map(|offset| {
-            let data = PrimitiveShaderValue::from(offset);
-            self.define_const_impl(
-              ShaderStructFieldInitValue::Primitive(data),
-              ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(
-                VectorSize::Bi,
-                ScalarType::I32,
-              )),
-              true,
-            )
-          }),
-          level: map_sample_level(level, |handle| self.get_expression(handle)),
-          depth_ref: reference.map(|r| self.get_expression(r)),
-          clamp_to_edge,
-        },
-        ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
-          texture,
-          position,
-          array_index,
-          level,
-          sample_index,
-        }) => naga::Expression::ImageLoad {
-          image: self.get_expression(texture),
-          coordinate: self.get_expression(position),
-          array_index: array_index.map(|index| self.get_expression(index)),
-          level: level.map(|level| self.get_expression(level)),
-          sample: sample_index.map(|sample_index| self.get_expression(sample_index)),
-        },
-        ShaderNodeExpr::Swizzle {
-          source,
-          size,
-          pattern,
-        } => naga::Expression::Swizzle {
-          size: map_vector_size(size),
-          vector: self.get_expression(source),
-          pattern: pattern.map(|component| match component {
-            0 => naga::SwizzleComponent::X,
-            1 => naga::SwizzleComponent::Y,
-            2 => naga::SwizzleComponent::Z,
-            3 => naga::SwizzleComponent::W,
-            _ => unreachable!("invalid swizzle component"),
-          }),
-        },
-        ShaderNodeExpr::Convert {
-          source,
-          convert_to,
-          convert,
-        } => naga::Expression::As {
-          expr: self.get_expression(source),
-          kind: map_scalar_kind(convert_to),
-          convert,
-        },
-        ShaderNodeExpr::Compose { target, parameters } => {
-          let components: Vec<_> = parameters
-            .iter()
-            .map(|f| self.get_compose_component(*f))
-            .collect();
-
-          let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-            target.clone(),
-          )));
-          let components = self.fill_struct_padding_components(ty, components, false);
-
-          naga::Expression::Compose { ty, components }
-        }
-        ShaderNodeExpr::Derivative { axis, ctrl, source } => naga::Expression::Derivative {
-          axis: map_derivative_axis(axis),
-          ctrl: map_derivative_control(ctrl),
-          expr: self.get_expression(source),
-        },
-        ShaderNodeExpr::Operator(op) => match op {
-          OperatorNode::Unary { one, operator } => naga::Expression::Unary {
-            op: map_unary_operator(operator),
-            expr: self.get_expression(one),
+            value: this.get_expression(value),
+            result: Some(result),
           },
-          OperatorNode::Binary {
-            left,
-            right,
-            operator,
-          } => {
-            let left = self.get_expression(left);
-            let right = self.get_expression(right);
-            let op = map_binary_op(operator);
-            naga::Expression::Binary { op, left, right }
-          }
-          OperatorNode::Index { array, entry } => naga::Expression::Access {
-            base: self.get_expression(array),
-            index: self.get_expression(entry),
+        );
+      }
+      ShaderNodeExpr::FunctionCall {
+        meta: ShaderFunctionType::Custom(meta),
+        parameters,
+      } => {
+        let function = self.fn_mapping[&meta.name];
+        // todo, currently we do not support function without return value
+        assert!(self.module.functions[function].result.is_some());
+        return self.make_statement_result(
+          naga::Expression::CallResult(function),
+          |this, result| naga::Statement::Call {
+            function,
+            arguments: parameters.iter().map(|p| this.get_expression(*p)).collect(),
+            result: Some(result),
           },
+        );
+      }
+      ShaderNodeExpr::FunctionCall {
+        meta: ShaderFunctionType::BuiltIn(f),
+        parameters,
+      } => self.lower_builtin_call(f, &parameters),
+      ShaderNodeExpr::TextureQuery(texture, info) => {
+        let level = match info {
+          TextureQuery::Size { level } => level.map(|v| self.get_expression(v)),
+          _ => None,
+        };
+        naga::Expression::ImageQuery {
+          image: self.get_expression(texture),
+          query: map_texture_query(info, level),
+        }
+      }
+      ShaderNodeExpr::TextureSampling(ShaderTextureSampling {
+        texture,
+        sampler,
+        position,
+        array_index,
+        level,
+        reference,
+        offset,
+        gather_channel,
+        clamp_to_edge,
+      }) => naga::Expression::ImageSample {
+        image: self.get_expression(texture),
+        sampler: self.get_expression(sampler),
+        gather: gather_channel.map(map_gather_channel),
+        coordinate: self.get_expression(position),
+        array_index: array_index.map(|index| self.get_expression(index)),
+        offset: offset.map(|offset| {
+          let data = PrimitiveShaderValue::from(offset);
+          self.define_const_impl(
+            ShaderStructFieldInitValue::Primitive(data),
+            ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(
+              VectorSize::Bi,
+              ScalarType::I32,
+            )),
+            true,
+          )
+        }),
+        level: map_sample_level(level, |handle| self.get_expression(handle)),
+        depth_ref: reference.map(|r| self.get_expression(r)),
+        clamp_to_edge,
+      },
+      ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
+        texture,
+        position,
+        array_index,
+        level,
+        sample_index,
+      }) => naga::Expression::ImageLoad {
+        image: self.get_expression(texture),
+        coordinate: self.get_expression(position),
+        array_index: array_index.map(|index| self.get_expression(index)),
+        level: level.map(|level| self.get_expression(level)),
+        sample: sample_index.map(|sample_index| self.get_expression(sample_index)),
+      },
+      ShaderNodeExpr::Swizzle {
+        source,
+        size,
+        pattern,
+      } => naga::Expression::Swizzle {
+        size: map_vector_size(size),
+        vector: self.get_expression(source),
+        pattern: pattern.map(|component| match component {
+          0 => naga::SwizzleComponent::X,
+          1 => naga::SwizzleComponent::Y,
+          2 => naga::SwizzleComponent::Z,
+          3 => naga::SwizzleComponent::W,
+          _ => unreachable!("invalid swizzle component"),
+        }),
+      },
+      ShaderNodeExpr::Convert {
+        source,
+        convert_to,
+        convert,
+      } => naga::Expression::As {
+        expr: self.get_expression(source),
+        kind: map_scalar_kind(convert_to),
+        convert,
+      },
+      ShaderNodeExpr::Compose { target, parameters } => {
+        let components = parameters
+          .iter()
+          .map(|f| self.get_compose_component(*f))
+          .collect();
+        let ty = self.register_sized_ty(target);
+        let components = self.fill_struct_padding_components(ty, components, Self::append_fn_expr);
+        naga::Expression::Compose { ty, components }
+      }
+      ShaderNodeExpr::Derivative { axis, ctrl, source } => naga::Expression::Derivative {
+        axis: map_derivative_axis(axis),
+        ctrl: map_derivative_control(ctrl),
+        expr: self.get_expression(source),
+      },
+      ShaderNodeExpr::Operator(op) => match op {
+        OperatorNode::Unary { one, operator } => naga::Expression::Unary {
+          op: map_unary_operator(operator),
+          expr: self.get_expression(one),
         },
-        ShaderNodeExpr::IndexStatic {
-          field_index,
-          target: struct_node,
-        } => {
-          let base = self.get_expression(struct_node);
-          let index = self.map_struct_field_index(base, field_index);
-          naga::Expression::AccessIndex { base, index }
+        OperatorNode::Binary {
+          left,
+          right,
+          operator,
+        } => naga::Expression::Binary {
+          op: map_binary_op(operator),
+          left: self.get_expression(left),
+          right: self.get_expression(right),
+        },
+        OperatorNode::Index { array, entry } => naga::Expression::Access {
+          base: self.get_expression(array),
+          index: self.get_expression(entry),
+        },
+      },
+      ShaderNodeExpr::IndexStatic {
+        field_index,
+        target: struct_node,
+      } => {
+        let base = self.get_expression(struct_node);
+        let index = self.map_struct_field_index(base, field_index);
+        naga::Expression::AccessIndex { base, index }
+      }
+      ShaderNodeExpr::RayQueryProceed { ray_query } => {
+        return self.make_statement_result(
+          naga::Expression::RayQueryProceedResult,
+          |this, result| naga::Statement::RayQuery {
+            query: this.get_expression(ray_query),
+            fun: RayQueryFunction::Proceed { result },
+          },
+        );
+      }
+      ShaderNodeExpr::RayQueryGetCandidateIntersection { ray_query } => {
+        self.module.generate_ray_intersection_type();
+        naga::Expression::RayQueryGetIntersection {
+          query: self.get_expression(ray_query),
+          committed: false,
         }
-        ShaderNodeExpr::RayQueryProceed { ray_query } => {
-          let r = self
-            .building_fn
-            .last_mut()
-            .unwrap()
-            .expressions
-            .append(naga::Expression::RayQueryProceedResult, Span::UNDEFINED);
-          let r_handle = self.make_new_handle();
-          self.expression_mapping.insert(r_handle, r);
-
-          self.push_top_statement(naga::Statement::RayQuery {
-            query: self.get_expression(ray_query),
-            fun: RayQueryFunction::Proceed { result: r },
-          });
-
-          return r_handle;
+      }
+      ShaderNodeExpr::RayQueryGetCommittedIntersection { ray_query } => {
+        self.module.generate_ray_intersection_type();
+        naga::Expression::RayQueryGetIntersection {
+          query: self.get_expression(ray_query),
+          committed: true,
         }
-        ShaderNodeExpr::RayQueryGetCandidateIntersection { ray_query } => {
-          self.module.generate_ray_intersection_type();
-          naga::Expression::RayQueryGetIntersection {
-            query: self.get_expression(ray_query),
-            committed: false,
-          }
-        }
-        ShaderNodeExpr::RayQueryGetCommittedIntersection { ray_query } => {
-          self.module.generate_ray_intersection_type();
-          naga::Expression::RayQueryGetIntersection {
-            query: self.get_expression(ray_query),
-            committed: true,
-          }
-        }
-        ShaderNodeExpr::WorkGroupUniformLoad { pointer, ty } => {
-          let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(ty)));
-          let r = self.building_fn.last_mut().unwrap().expressions.append(
-            naga::Expression::WorkGroupUniformLoadResult { ty },
-            Span::UNDEFINED,
-          );
-          let r_handle = self.make_new_handle();
-          self.expression_mapping.insert(r_handle, r);
-
-          self.push_top_statement(naga::Statement::WorkGroupUniformLoad {
-            pointer: self.get_expression(pointer),
-            result: r,
-          });
-
-          return r_handle;
-        }
-        ShaderNodeExpr::SubgroupBallot { predicate } => {
-          let r = self
-            .building_fn
-            .last_mut()
-            .unwrap()
-            .expressions
-            .append(naga::Expression::SubgroupBallotResult, Span::UNDEFINED);
-          let r_handle = self.make_new_handle();
-          self.expression_mapping.insert(r_handle, r);
-
-          self.push_top_statement(naga::Statement::SubgroupBallot {
-            predicate: Some(self.get_expression(predicate)),
-            result: r,
-          });
-
-          return r_handle;
-        }
-        ShaderNodeExpr::SubgroupCollectiveOperation {
-          operation,
-          collective_operation,
-          argument,
-          ty,
-        } => {
-          let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-            ShaderSizedValueType::Primitive(ty),
-          )));
-          let r = self.building_fn.last_mut().unwrap().expressions.append(
-            naga::Expression::SubgroupOperationResult { ty },
-            Span::UNDEFINED,
-          );
-          let r_handle = self.make_new_handle();
-          self.expression_mapping.insert(r_handle, r);
-
-          self.push_top_statement(naga::Statement::SubgroupCollectiveOperation {
+      }
+      ShaderNodeExpr::WorkGroupUniformLoad { pointer, ty } => {
+        let ty = self.register_sized_ty(ty);
+        return self.make_statement_result(
+          naga::Expression::WorkGroupUniformLoadResult { ty },
+          |this, result| naga::Statement::WorkGroupUniformLoad {
+            pointer: this.get_expression(pointer),
+            result,
+          },
+        );
+      }
+      ShaderNodeExpr::SubgroupBallot { predicate } => {
+        return self.make_statement_result(
+          naga::Expression::SubgroupBallotResult,
+          |this, result| naga::Statement::SubgroupBallot {
+            predicate: Some(this.get_expression(predicate)),
+            result,
+          },
+        );
+      }
+      ShaderNodeExpr::SubgroupCollectiveOperation {
+        operation,
+        collective_operation,
+        argument,
+        ty,
+      } => {
+        let ty = self.register_primitive_ty(ty);
+        return self.make_statement_result(
+          naga::Expression::SubgroupOperationResult { ty },
+          |this, result| naga::Statement::SubgroupCollectiveOperation {
             op: map_subgroup_operation(operation),
             collective_op: map_collective_operation(collective_operation),
-            argument: self.get_expression(argument),
-            result: r,
-          });
-
-          return r_handle;
-        }
-        ShaderNodeExpr::SubgroupGather { mode, argument, ty } => {
-          let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-            ShaderSizedValueType::Primitive(ty),
-          )));
-          let r = self.building_fn.last_mut().unwrap().expressions.append(
-            naga::Expression::SubgroupOperationResult { ty },
-            Span::UNDEFINED,
-          );
-          let r_handle = self.make_new_handle();
-          self.expression_mapping.insert(r_handle, r);
-
-          self.push_top_statement(naga::Statement::SubgroupGather {
-            mode: map_subgroup_gather_mode(mode, |handle| self.get_expression(handle)),
-            argument: self.get_expression(argument),
-            result: r,
-          });
-
-          return r_handle;
-        }
-      };
+            argument: this.get_expression(argument),
+            result,
+          },
+        );
+      }
+      ShaderNodeExpr::SubgroupGather { mode, argument, ty } => {
+        let ty = self.register_primitive_ty(ty);
+        return self.make_statement_result(
+          naga::Expression::SubgroupOperationResult { ty },
+          |this, result| naga::Statement::SubgroupGather {
+            mode: map_subgroup_gather_mode(mode, |handle| this.get_expression(handle)),
+            argument: this.get_expression(argument),
+            result,
+          },
+        );
+      }
     };
 
     self.make_expression_inner(expr)
@@ -1287,7 +1140,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
   ) {
     let ray_desc_type = self.module.generate_ray_desc_type();
 
-    let ray_desc_raw = self.make_expression_inner(naga::Expression::Compose {
+    let descriptor = self.append_fn_expr(naga::Expression::Compose {
       ty: ray_desc_type,
       components: vec![
         self.get_expression(ray_desc.flags),
@@ -1303,7 +1156,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
       query: self.get_expression(query),
       fun: RayQueryFunction::Initialize {
         acceleration_structure: self.get_expression(tlas.handle()),
-        descriptor: self.get_expression(ray_desc_raw),
+        descriptor,
       },
     });
   }
@@ -1331,19 +1184,17 @@ impl ShaderAPI for ShaderAPINagaImpl {
         // task stage must return @builtin(mesh_task_size) vec3<u32> directly,
         // unlike other stages which return a composed output struct
         self.do_return(Some(size));
-        let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-          ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vec3::<u32>()),
-        )));
+        let ty = self.register_primitive_ty(PrimitiveShaderValueType::vec3::<u32>());
         let bf = self.building_fn.last_mut().unwrap();
         bf.result = Some(naga::FunctionResult {
           ty,
           binding: Some(naga::Binding::BuiltIn(naga::BuiltIn::MeshTaskSize)),
         });
-      } else if self.building_fn.len() == 1 && !self.outputs_define.is_empty() {
+      } else if self.building_fn.len() == 1 && !self.outputs.is_empty() {
         // empty output is possible, for example depth only render target
         let ty = ShaderStructMetaInfo {
           name: String::from("ModuleOutput"),
-          fields: self.outputs_define.clone(),
+          fields: self.outputs.iter().map(|o| o.meta.clone()).collect(),
           host_layout: None,
         };
         let (ty, _) = gen_struct_define(self, &ty);
@@ -1353,13 +1204,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
         };
         let ty = self.module.types.insert(ty, Span::UNDEFINED);
 
-        let components = self
-          .outputs
-          .clone()
-          .iter()
-          .map(|local| {
-            self.make_expression_inner_raw(naga::Expression::Load { pointer: *local }, false)
-          })
+        let output_vars: Vec<_> = self.outputs.iter().map(|o| o.var).collect();
+        let components = output_vars
+          .into_iter()
+          .map(|pointer| self.append_fn_expr(naga::Expression::Load { pointer }))
           .collect();
 
         let rt = self.make_expression_inner(naga::Expression::Compose { ty, components });
@@ -1416,21 +1264,16 @@ impl ShaderAPI for ShaderAPINagaImpl {
         self.push_top_statement(if_s);
       }
       BlockBuildingState::Function => {
+        let mut bf = self.building_fn.pop().unwrap();
+        self.building_fn_typifier.pop();
+        bf.body = b;
         // is entry
-        if self.building_fn.len() == 1 {
-          let mut bf = self.building_fn.pop().unwrap();
-          self.building_fn_typifier.pop();
-          bf.body = b;
+        if self.building_fn.is_empty() {
           self.module.entry_points[0].function = bf;
         } else {
-          let mut bf = self.building_fn.pop().unwrap();
-          self.building_fn_typifier.pop();
-          bf.body = b;
           let name = bf.name.clone().unwrap();
           let handle = self.module.functions.append(bf, Span::UNDEFINED);
-          self
-            .fn_mapping
-            .insert(name.clone(), (handle, ShaderUserDefinedFunction { name }));
+          self.fn_mapping.insert(name, handle);
         }
       }
     }
@@ -1511,7 +1354,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn get_fn(&mut self, name: String) -> Option<ShaderUserDefinedFunction> {
-    self.fn_mapping.get(&name).map(|v| v.1.clone())
+    self
+      .fn_mapping
+      .contains_key(&name)
+      .then_some(ShaderUserDefinedFunction { name })
   }
 
   fn begin_define_fn(&mut self, name: String, return_ty: Option<ShaderValueType>) {
@@ -1570,7 +1416,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
       ENTRY_POINT_NAME.to_owned(),
       Box::new(NagaModuleBuildResult {
         log_result: self.log_build_result,
-        module: self.module.clone(),
+        module: std::mem::take(&mut self.module),
       }),
     )
   }
@@ -1597,9 +1443,7 @@ impl StructMembers {
     assert!(target >= self.end_offset);
     // all shader types' size are multiple of 4 bytes, so the gap is always able to be filled
     assert!((target - self.end_offset).is_multiple_of(4));
-    let u32_ty = api.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-      ShaderSizedValueType::Primitive(PrimitiveShaderValueType::u32()),
-    )));
+    let u32_ty = api.register_primitive_ty(PrimitiveShaderValueType::u32());
     while self.end_offset < target {
       let padding_index = self.member_fields.iter().filter(|f| f.is_none()).count();
       self.members.push(naga::StructMember {
@@ -1639,9 +1483,7 @@ fn build_struct_members(
   };
 
   for (index, field) in fields.iter().enumerate() {
-    let ty = api.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-      field.ty.clone(),
-    )));
+    let ty = api.register_sized_ty(field.ty.clone());
     let layout = api.natural_layout(ty);
     result.alignment = result.alignment.max(layout.alignment);
     let natural_offset = layout.alignment.round_up(result.end_offset);
