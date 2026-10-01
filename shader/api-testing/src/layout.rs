@@ -606,7 +606,6 @@ async fn compose_by_host_value_gpu() {
 
 /// the matrix composed from the host value by `to_shader_node_by_value`, alone and in a struct
 #[test]
-#[ignore = "bug: the matrix is composed from the scalars instead of the column vectors"]
 fn compose_matrix_by_host_value() {
   check_compute(|builder| {
     let zero = builder.global_invocation_id().x();

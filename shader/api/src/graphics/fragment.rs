@@ -386,6 +386,17 @@ impl ShaderFragmentBuilder {
       });
     }
   }
+  /// like [Self::finalize_depth_write], the FragmentSampleMaskOutput in semantic registry provides
+  /// the final sample mask
+  pub fn finalize_sample_mask_write(&mut self) {
+    let mask = self.try_query::<FragmentSampleMaskOutput>();
+    if let Some(mask) = mask {
+      call_shader_api(|api| {
+        let target = api.define_frag_sample_mask_output();
+        api.store(mask.handle(), target)
+      });
+    }
+  }
   pub fn error(&mut self, err: ShaderBuildError) {
     self.errors.push(err);
   }
@@ -472,8 +483,8 @@ pub fn get_suitable_shader_write_ty_from_texture_format(
     TextureFormat::Rgba16Unorm => vector(Quad, F32),
     TextureFormat::Rgba16Snorm => vector(Quad, F32),
     TextureFormat::Rgba16Float => vector(Quad, F32),
-    TextureFormat::Rgba32Uint => Scalar(U32),
-    TextureFormat::Rgba32Sint => Scalar(I32),
+    TextureFormat::Rgba32Uint => vector(Quad, U32),
+    TextureFormat::Rgba32Sint => vector(Quad, I32),
     TextureFormat::Rgba32Float => vector(Quad, F32),
     TextureFormat::Stencil8 => Scalar(U32),
     TextureFormat::Depth16Unorm => Scalar(F32),

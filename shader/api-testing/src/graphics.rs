@@ -691,7 +691,6 @@ fn fragment_builtin_inputs() {
 
 /// the registered sample mask output is the built-in sample_mask output
 #[test]
-#[ignore = "bug: FragmentSampleMaskOutput is never written to the sample_mask output"]
 fn fragment_sample_mask_output() {
   let [vertex, fragment] = build_graphics(|builder| {
     builder.fragment(|builder, _| {
@@ -709,7 +708,6 @@ fn fragment_sample_mask_output() {
 
 /// the four channel 32 bit integer targets are written by the four component vectors
 #[test]
-#[ignore = "bug: the Rgba32Uint and Rgba32Sint targets map to the scalar output type"]
 fn fragment_rgba32_integer_targets() {
   check_graphics(|builder| {
     builder.fragment(|builder, _| {

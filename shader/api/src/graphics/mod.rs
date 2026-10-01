@@ -327,6 +327,7 @@ impl ShaderRenderPipelineBuilder {
 
     set_current_building(ShaderStage::Fragment.into());
     self.fragment.finalize_depth_write();
+    self.fragment.finalize_sample_mask_write();
     set_current_building(None);
 
     let vertex_layouts = if let Some(raw_vertex) = self.shape.vertex_shader() {

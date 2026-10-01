@@ -219,15 +219,20 @@ impl PrimitiveShaderValue {
           rows,
           scalar,
         });
-        ShaderNodeExpr::Compose {
-          target,
-          parameters: data
-            .iter()
-            .flat_map(|column| column.iter())
-            .map(|v| scalar_raw_node(*v))
-            .collect(),
-        }
-        .insert_api_raw()
+        // the matrix must be composed from the column vectors
+        let column_ty =
+          ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(rows, scalar));
+        let parameters = data
+          .iter()
+          .map(|column| {
+            ShaderNodeExpr::Compose {
+              target: column_ty.clone(),
+              parameters: column.iter().map(|v| scalar_raw_node(*v)).collect(),
+            }
+            .insert_api_raw()
+          })
+          .collect();
+        ShaderNodeExpr::Compose { target, parameters }.insert_api_raw()
       }
     }
   }

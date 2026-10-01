@@ -88,6 +88,8 @@ pub trait ShaderAPI {
   /// define the `array<f32, count>` clip distances output
   fn define_vertex_clip_distances_output(&mut self, count: usize) -> ShaderNodeRawHandle;
   fn define_frag_depth_output(&mut self) -> ShaderNodeRawHandle;
+  /// define the `u32` sample mask output, the builtin is shared with the sample mask input
+  fn define_frag_sample_mask_output(&mut self) -> ShaderNodeRawHandle;
   fn define_const(
     &mut self,
     init_value: ShaderStructFieldInitValue,

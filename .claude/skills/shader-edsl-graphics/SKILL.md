@@ -184,6 +184,7 @@ builder.store_fragment_out(1, another_color);  // write to slot 1
 // Special operations
 builder.discard();                              // discard fragment
 builder.register::<FragmentDepthOutput>(depth); // write depth
+builder.register::<FragmentSampleMaskOutput>(mask); // write sample mask, zero bits discard the samples
 builder.set_early_depth_test(ShaderEarlyDepthTest::Force); // test before shading, see gotchas
 
 // Convenience methods

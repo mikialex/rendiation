@@ -785,6 +785,14 @@ impl ShaderAPI for ShaderAPINagaImpl {
     )
   }
 
+  fn define_frag_sample_mask_output(&mut self) -> ShaderNodeRawHandle {
+    self.define_out(
+      ShaderSizedValueType::Primitive(PrimitiveShaderValueType::u32()),
+      String::from("frag_sample_mask_out"),
+      ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::FragSampleMask),
+    )
+  }
+
   fn mark_handle_debug_name(&mut self, h: ShaderNodeRawHandle, name: String) {
     let Some(handle) = self.expression_mapping.get(&h) else {
       return;
