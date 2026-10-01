@@ -91,13 +91,13 @@ Code locations are given as "file path + symbol name", not line numbers.
 
 ### The host layout is only validated against the WGSL layout rules at shader build time
 
-- Location: `shader/backends/naga/src/lib.rs`: `build_struct_members`, `gen_struct_define`
+- Location: `shader/backends/naga/src/ty.rs`: `build_struct_members`, `gen_struct_define`
 - Problem: the rust layout of a host shareable struct is locked by compile time assertions, but whether it is valid for WGSL (host offset >= natural offset, aligned to the natural alignment) is only checked when a shader using the type is built, and the failure is a panic.
 - Suggestion: add a natural alignment constant to `Std140`/`Std430` (for example `NATURAL_ALIGNMENT`), then `#[shader_struct(std140/std430)]` can assert it at compile time. Every hand written impl needs one more constant.
 
 ### Struct field index remapping depends on the naga typifier
 
-- Location: `shader/backends/naga/src/lib.rs`: `map_struct_field_index`
+- Location: `shader/backends/naga/src/ty.rs`: `map_struct_field_index`
 - Problem: when a struct contains explicit padding members, the field index must be mapped to the member index. The backend resolves the base expression type with `naga::front::Typifier`, which panics if any expression in the function can not be resolved. It is only enabled when the module contains padded structs, and all current tests pass, but it is an implicit dependency on naga internals.
 - Suggestion: let `ShaderNodeExpr::IndexStatic` carry the struct type from the API side, so the backend does not need type resolution. This changes every field access path, so it is a wide change.
 
