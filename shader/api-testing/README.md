@@ -44,7 +44,8 @@ Helpers in `src/harness.rs`:
 - `fake_binding(index)`: create texture or sampler bindings without any GPU resource container.
 - `fake_storage_texture_binding(index, format)`: the storage format is not expressed in the shader
   type, so it must be given to match the channel type.
-- `fake_storage_buffer(index)`: a read_write storage buffer binding.
+- `fake_storage_buffer(index)` / `fake_readonly_storage_buffer(index)`: a read_write or readonly
+  storage buffer binding.
 - `u32_heap_ptr(heap, offset)`: the typed pointer on a u32 heap, which is the pointer
   implementation of the combined buffer, to test the non native pointer.
 
@@ -55,8 +56,9 @@ The build time checks of the EDSL are tested by `#[should_panic]`.
 The validation only proves the shader is valid, when the result values matter (for example the
 iterator semantics), run the shader on the GPU by `gpu_map(input, logic)` in `src/harness.rs`. It
 dispatches one invocation for each input value, runs the `logic` on it and reads back the results
-in the input order. Compare them with the cpu reference logic, and put these tests in the topic file
-as `#[pollster::test]` async tests.
+in the input order. The same shader is also built with the fake bindings and validated, so it is
+covered by the regression check below. Compare the results with the cpu reference logic, and put
+these tests in the topic file as `#[pollster::test]` async tests.
 
 ```rust
 #[pollster::test]
@@ -73,6 +75,25 @@ struct in the uniform buffer, the workgroup variables shared by the invocations,
 without rust type like the unsized struct), `gpu_run_raw_buffers` in `src/binding.rs` binds the
 host bytes as any shader type in any buffer address space and reads back the outputs and the
 buffers, `check_raw_buffers` validates the same logic with the fake bindings.
+
+## Regression check of the generated shader
+
+Every module that passes `validate` (the validation tests and the shaders of `gpu_map`) is written
+to the directory given by the `WGSL_SNAPSHOT_DIR` environment variable, named
+`<test path>_<module index in the test>.wgsl`. The naga WGSL writer does not support the ray query,
+these modules are written as the naga IR (`.naga.txt`) instead. The output is deterministic, so a
+change that should not affect the generated shader (for example a refactor of the naga backend) is
+checked by comparing the output before and after the change. The output is not committed.
+
+```sh
+WGSL_SNAPSHOT_DIR=/tmp/wgsl_before cargo test -p rendiation-shader-api-testing --lib
+# apply the change
+WGSL_SNAPSHOT_DIR=/tmp/wgsl_after cargo test -p rendiation-shader-api-testing --lib
+diff -r /tmp/wgsl_before /tmp/wgsl_after
+```
+
+Use empty directories, the files of the removed or renamed tests are not cleaned. The ignored tests
+are not run, so their shaders are not in the output.
 
 ## When changing the EDSL
 

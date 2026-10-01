@@ -159,6 +159,15 @@ impl ShaderAPINagaImpl {
     self.map_new_node(result)
   }
 
+  /// The WGSL output refers the mesh output variable and the task payload by name in the entry point
+  /// attributes, so they must be named.
+  fn name_global_if_unnamed(&mut self, global: naga::Handle<naga::GlobalVariable>, name: &str) {
+    let var = self.module.global_variables.get_mut(global);
+    if var.name.is_none() {
+      var.name = Some(name.to_owned());
+    }
+  }
+
   fn declare_global(
     &mut self,
     space: naga::AddressSpace,
@@ -658,6 +667,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
       .global_var_mapping
       .get(&mesh_info.output_variable)
       .unwrap();
+    self.name_global_if_unnamed(output_variable, "mesh_output");
 
     self.module.entry_points[0].mesh_info = Some(naga::MeshStageInfo {
       topology: map_mesh_output_topology(mesh_info.topology),
@@ -672,6 +682,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
   fn define_task_payload_io(&mut self, payload: ShaderNodeRawHandle) {
     let output_variable = *self.global_var_mapping.get(&payload).unwrap();
+    self.name_global_if_unnamed(output_variable, "task_payload");
     self.module.entry_points[0].task_payload = Some(output_variable);
   }
 

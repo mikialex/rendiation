@@ -870,6 +870,9 @@ EDSL tests live in `shader/api-testing`, see its README before adding tests.
 When the result values matter (for example the iterator semantics), the test runs the shader on
 the GPU by `gpu_map` of the `shader/api-testing` harness, and compares with the cpu reference logic.
 
+For a change that should not affect the generated shader (like a naga backend refactor), compare the
+WGSL written by the tests before and after the change (`WGSL_SNAPSHOT_DIR`, see the README).
+
 ## Gotchas
 
 - No enum / sum types, Use `Node<bool>` flags + `.select()` / `.select_branched()`, or `switch_by`

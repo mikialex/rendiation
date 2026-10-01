@@ -1,3 +1,5 @@
+use std::cell::Cell;
+use std::path::Path;
 use std::sync::Arc;
 
 use naga::valid::{Capabilities, ValidationFlags, Validator};
@@ -22,11 +24,51 @@ pub fn build_compute(logic: impl FnOnce(&ShaderComputePipelineBuilder)) -> naga:
     .module
 }
 
-/// Validate the module by the naga validator with all the validation flags.
+/// The environment variable of the directory that the validated modules are written to as WGSL,
+/// see the regression check in the README.
+const WGSL_SNAPSHOT_DIR: &str = "WGSL_SNAPSHOT_DIR";
+
+/// Validate the module by the naga validator with all the validation flags. The module is also
+/// written as WGSL if [WGSL_SNAPSHOT_DIR] is set.
 pub fn validate(module: &naga::Module) {
-  Validator::new(ValidationFlags::all(), Capabilities::all())
+  let info = Validator::new(ValidationFlags::all(), Capabilities::all())
     .validate(module)
     .unwrap_or_else(|e| panic!("naga validation failed: {:?}", e.into_inner()));
+  if let Some(dir) = std::env::var_os(WGSL_SNAPSHOT_DIR) {
+    write_wgsl_snapshot(Path::new(&dir), module, &info);
+  }
+}
+
+/// The file is named by the test name and the index of the validated module in the test, so the
+/// same module has the same name in different runs. Each test runs in its own thread named by
+/// the test path.
+fn write_wgsl_snapshot(dir: &Path, module: &naga::Module, info: &naga::valid::ModuleInfo) {
+  thread_local! {
+    static INDEX: Cell<usize> = const { Cell::new(0) };
+  }
+  let index = INDEX.with(|i| i.replace(i.get() + 1));
+  let test = std::thread::current()
+    .name()
+    .unwrap_or("unnamed")
+    .replace("::", "__");
+
+  // the WGSL writer of naga does not support the ray query statement, the IR is written instead
+  let has_ray_query = module
+    .types
+    .iter()
+    .any(|(_, ty)| matches!(ty.inner, naga::TypeInner::RayQuery { .. }));
+  let (content, extension) = if has_ray_query {
+    (format!("{module:#?}"), "naga.txt")
+  } else {
+    let flags = naga::back::wgsl::WriterFlags::empty();
+    let wgsl = naga::back::wgsl::write_string(module, info, flags)
+      .expect("failed to write the module as WGSL");
+    (wgsl, "wgsl")
+  };
+
+  std::fs::create_dir_all(dir).expect("failed to create the WGSL snapshot directory");
+  std::fs::write(dir.join(format!("{test}_{index}.{extension}")), content)
+    .expect("failed to write the WGSL snapshot");
 }
 
 /// Build a compute shader and validate it.
@@ -35,7 +77,8 @@ pub fn check_compute(logic: impl FnOnce(&ShaderComputePipelineBuilder)) {
 }
 
 /// Run the shader logic on the GPU for each input value (one invocation for each value), and read
-/// back the results in the input order. A GPU adapter is required.
+/// back the results in the input order. A GPU adapter is required. The same shader is also built
+/// with the fake bindings and validated like the other tests.
 pub async fn gpu_map<I, O, F>(input: &[I], logic: F) -> Vec<O>
 where
   I: Std430 + ShaderSizedValueNodeType,
@@ -43,6 +86,15 @@ where
   F: Fn(Node<I>) -> Node<O> + 'static,
 {
   const WORKGROUP_SIZE: u32 = 64;
+
+  check_compute(|builder| {
+    builder.config_work_group_size(WORKGROUP_SIZE);
+    let input = fake_readonly_storage_buffer::<[I]>(0);
+    let output = fake_storage_buffer::<[O]>(1);
+    let id = builder.global_invocation_id().x();
+    if_by(id.greater_equal_than(input.array_length()), do_return);
+    output.index(id).store(logic(input.index(id).load()));
+  });
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let input_buffer = create_gpu_readonly_storage(input, &gpu, "gpu_map input");
@@ -152,18 +204,33 @@ pub fn fake_storage_buffer<T>(entry_index: usize) -> ShaderPtrOf<T>
 where
   T: ShaderNodeType + ShaderAbstractPtrAccess + ?Sized,
 {
-  let handle = ShaderInputNode::Binding {
+  T::create_view_from_raw_ptr(Box::new(fake_storage_buffer_handle::<T>(entry_index, true)))
+}
+
+/// Create a readonly storage buffer binding like [fake_storage_buffer].
+pub fn fake_readonly_storage_buffer<T>(entry_index: usize) -> ShaderReadonlyPtrOf<T>
+where
+  T: ShaderNodeType + ShaderAbstractPtrAccess + ?Sized,
+{
+  let handle = fake_storage_buffer_handle::<T>(entry_index, false);
+  T::create_readonly_view_from_raw_ptr(Box::new(handle))
+}
+
+fn fake_storage_buffer_handle<T: ShaderNodeType + ?Sized>(
+  entry_index: usize,
+  writeable: bool,
+) -> ShaderNodeRawHandle {
+  ShaderInputNode::Binding {
     desc: ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
       ty: T::ty(),
-      writeable_if_storage: true,
+      writeable_if_storage: writeable,
       has_dynamic_offset: false,
     },
     bindgroup_index: 0,
     entry_index,
   }
-  .insert_api_raw();
-  T::create_view_from_raw_ptr(Box::new(handle))
+  .insert_api_raw()
 }
 
 /// The pointer of `T` at the u32 offset of the u32 heap (in std430 layout), the same pointer

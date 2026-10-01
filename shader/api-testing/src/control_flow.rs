@@ -372,8 +372,8 @@ fn statements_after_jump() {
   });
 }
 
-/// Validate the shader logic, then run it on the GPU for each input value (one invocation for each
-/// value) and compare with the cpu reference logic.
+/// Run the shader logic on the GPU for each input value (one invocation for each value) and compare
+/// with the cpu reference logic, the shader is validated by [gpu_map].
 async fn check_gpu<I, O>(
   input: &[I],
   shader: impl Fn(Node<I>) -> Node<O> + 'static,
@@ -382,11 +382,6 @@ async fn check_gpu<I, O>(
   I: Std430 + ShaderSizedValueNodeType + Copy,
   O: Std430 + ShaderSizedValueNodeType + PartialEq + std::fmt::Debug,
 {
-  check_compute(|builder| {
-    let id = builder.global_invocation_id().x();
-    let v = fake_storage_buffer::<[I]>(0).index(id).load();
-    fake_storage_buffer::<[O]>(1).index(id).store(shader(v));
-  });
   let expect: Vec<_> = input.iter().map(|v| cpu(*v)).collect();
   assert_eq!(gpu_map(input, shader).await, expect);
 }

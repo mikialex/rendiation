@@ -2,7 +2,7 @@ use rendiation_shader_api::*;
 
 use crate::harness::*;
 
-/// subgroup and quad operations
+/// subgroup and quad operations, and the subgroup barrier
 #[test]
 fn subgroup_and_quad_operations() {
   check_compute(|builder| {
@@ -24,6 +24,7 @@ fn subgroup_and_quad_operations() {
 
     keep(builder.subgroup_id() + builder.num_subgroups());
     keep(builder.subgroup_size() + builder.subgroup_invocation_id());
+    subgroup_barrier();
   });
 }
 
