@@ -68,6 +68,12 @@ async fn iter_gpu_count() {
 }
 ```
 
+When the shader needs other bindings than one input and one output array (for example the std140
+struct in the uniform buffer, the workgroup variables shared by the invocations, or the types
+without rust type like the unsized struct), `gpu_run_raw_buffers` in `src/binding.rs` binds the
+host bytes as any shader type in any buffer address space and reads back the outputs and the
+buffers, `check_raw_buffers` validates the same logic with the fake bindings.
+
 ## When changing the EDSL
 
 When an API bound is changed, add a compile fail case for the rejected usage and a validation case

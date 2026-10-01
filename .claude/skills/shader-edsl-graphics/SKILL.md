@@ -373,8 +373,8 @@ let sum = weights
 
 ### Fragment Output
 
-- Fragment output slots must be **declared before use** (auto-declared on first `store_fragment_out`)
-- Multiple output slots require explicit `define_out_by(channel(format))`
+- Fragment output slots must be **declared before use** by `define_out_by(channel(format))`, the slot index is the declaration order; storing to or loading from an undeclared slot reports `ShaderBuildError::FragmentOutputSlotNotDeclared`
+- In a frame pass, `DefaultPassDispatcher` (platform/graphics/webgpu/src/frame/pass_base.rs) declares one slot for each color target of the pass, so the content only stores to them
 
 ### Vertex → Fragment sync
 

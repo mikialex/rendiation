@@ -20,9 +20,15 @@ pub mod compile_fail;
 mod harness;
 
 #[cfg(test)]
+mod binding;
+#[cfg(test)]
 mod builtin;
 #[cfg(test)]
+mod compute;
+#[cfg(test)]
 mod control_flow;
+#[cfg(test)]
+mod function;
 #[cfg(test)]
 mod graphics;
 #[cfg(test)]
@@ -30,7 +36,11 @@ mod iter;
 #[cfg(test)]
 mod layout;
 #[cfg(test)]
+mod mesh;
+#[cfg(test)]
 mod operator;
+#[cfg(test)]
+mod ray_query;
 #[cfg(test)]
 mod reference;
 #[cfg(test)]
