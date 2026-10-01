@@ -202,7 +202,7 @@ fn else_if_without_end() {
 #[should_panic(expected = "the shader scopes are not balanced when building")]
 fn build_with_unclosed_scope() {
   let mut api = rendiation_shader_backend_naga::ShaderAPINagaImpl::new(ShaderStage::Compute);
-  api.push_scope();
+  api.push_loop_scope();
   api.build();
 }
 

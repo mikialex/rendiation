@@ -735,6 +735,37 @@ fn fn_debug_labels() {
   assert!(!has_named_expression(entry, "v"));
 }
 
+/// the label on the entry function node inside a user function is skipped, the label on the
+/// global variable created in the entry names the global
+#[test]
+fn fn_debug_labels_of_outer_nodes() {
+  let module = build_compute(|builder| {
+    let f = runtime_values(builder).f;
+    let shared = builder.define_workgroup_shared_var::<f32>();
+    let r = get_shader_fn::<f32>("fn_debug_labels_of_outer_nodes".to_string())
+      .or_define(|cx| {
+        f.mark_debug_label("outer");
+        unsafe { shared.raw().get_raw_ptr().into_node::<AnyType>() }.mark_debug_label("shared");
+        cx.do_return(shared.load());
+      })
+      .prepare_parameters()
+      .call();
+    keep(r + f);
+  });
+  validate(&module);
+
+  let labeled = find_fn(&module, "fn_debug_labels_of_outer_nodes");
+  assert!(!has_named_expression(labeled, "outer"));
+  let entry = &module.entry_points[0].function;
+  assert!(!has_named_expression(entry, "outer"));
+  let (_, shared) = module
+    .global_variables
+    .iter()
+    .find(|(_, v)| v.space == naga::AddressSpace::WorkGroup)
+    .unwrap();
+  assert_eq!(shared.name.as_deref(), Some("shared"));
+}
+
 both!(FnVaryingValue, f32);
 
 /// the same function is called in the vertex and the fragment stage, each stage module defines
@@ -898,10 +929,22 @@ fn fn_iter_created_outside() {
   });
 }
 
+/// only the global variables and the constants can be shared between functions, the other node
+/// created in the entry must be passed as a parameter
+#[test]
+#[should_panic(expected = "the shader node is used outside of the function where it is created")]
+fn fn_uses_entry_node() {
+  build_compute(|builder| {
+    let v = runtime_values(builder).u + val(1);
+    get_shader_fn::<u32>("fn_uses_entry_node".to_string()).or_define(|cx| {
+      cx.do_return(v);
+    });
+  });
+}
+
 /// the function reads the storage buffer declared in the entry, WGSL functions can access the
 /// module scope variables
 #[test]
-#[ignore = "bug: the global variable expression only exists in the entry function arena"]
 fn fn_reads_storage_buffer() {
   check_compute(|builder| {
     let u = runtime_values(builder).u;
@@ -920,7 +963,6 @@ fn fn_reads_storage_buffer() {
 
 /// the function writes the workgroup variable declared in the entry
 #[test]
-#[ignore = "bug: the global variable expression only exists in the entry function arena"]
 fn fn_writes_workgroup_variable() {
   check_compute(|builder| {
     let u = runtime_values(builder).u;

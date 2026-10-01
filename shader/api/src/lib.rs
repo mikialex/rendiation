@@ -112,7 +112,6 @@ pub trait ShaderAPI {
   );
   fn ray_query_terminate(&mut self, query: ShaderNodeRawHandle);
 
-  fn push_scope(&mut self);
   fn pop_scope(&mut self);
   fn push_if_scope(&mut self, condition: ShaderNodeRawHandle);
   fn push_else_scope(&mut self);

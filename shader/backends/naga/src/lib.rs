@@ -13,34 +13,217 @@ mod layout_test;
 
 pub struct ShaderAPINagaImpl {
   module: naga::Module,
-  handle_id: usize,
-  block: Vec<(Vec<naga::Statement>, BlockBuildingState)>,
-  control_structure: Vec<naga::Statement>,
-  building_fn: Vec<naga::Function>,
+  /// indexed by [ShaderNodeRawHandle::handle], the handles are sequential and the handle 0 is
+  /// the fake node
+  nodes: Vec<NodeSlot>,
+  /// The functions being built, the first one is the entry function, the last one is the
+  /// building function. A function can be defined while building another one.
+  functions: Vec<FunctionBuilder>,
+  /// the id of the next defined function, see [FunctionBuilder::id]
+  next_fn_id: u32,
+  entry: EntryState,
   fn_mapping: FastHashMap<String, naga::Handle<naga::Function>>,
   ty_mapping: FastHashMap<ShaderValueType, naga::Handle<naga::Type>>,
-  expression_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Expression>>,
-  outputs: Vec<EntryOutput>,
-  /// the location of the next user defined output, the builtin outputs do not take the location
-  next_output_location: usize,
   /// For the struct that contains explicit padding members, map each member to the field index,
   /// None means it's a padding member.
   padded_structs: FastHashMap<naga::Handle<naga::Type>, Vec<Option<usize>>>,
   layouter: naga::proc::Layouter,
-  /// used to resolve the expression type in the building fn, has the same stack as building_fn
-  building_fn_typifier: Vec<naga::front::Typifier>,
   log_build_result: bool,
-  global_var_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::GlobalVariable>>,
-  output_mesh_task_size: Option<ShaderNodeRawHandle>,
 }
 
-enum BlockBuildingState {
-  Common,
-  SwitchCase(SwitchCaseCondition),
+/// What the shader node maps to.
+#[derive(Clone, Copy)]
+enum NodeSlot {
+  Fake,
+  /// the expression in the arena of the function where the node is created, it can only be used
+  /// in that function
+  Expr {
+    fn_id: u32,
+    expr: naga::Handle<naga::Expression>,
+  },
+  /// materialized as Expression::GlobalVariable in each function that uses it
+  Global(naga::Handle<naga::GlobalVariable>),
+  /// materialized as Expression::Constant in each function that uses it, inlined for compose
+  Constant(naga::Handle<naga::Constant>),
+}
+
+struct FunctionBuilder {
+  /// unique in the module, the entry function is 0
+  id: u32,
+  function: naga::Function,
+  /// used to resolve the expression types of the function
+  typifier: naga::front::Typifier,
+  /// the open blocks, frames[0] is the function body
+  frames: Vec<BlockFrame>,
+  /// the expressions of the global variables used in this function
+  global_exprs: FastHashMap<naga::Handle<naga::GlobalVariable>, naga::Handle<naga::Expression>>,
+  /// the expressions of the constants used in this function
+  constant_exprs: FastHashMap<naga::Handle<naga::Constant>, naga::Handle<naga::Expression>>,
+}
+
+struct BlockFrame {
+  statements: Vec<naga::Statement>,
+  kind: FrameKind,
+}
+
+/// The kind of the block frame, it holds the pending control structure which is completed when
+/// the frame is popped.
+enum FrameKind {
+  Body,
+  IfAccept {
+    condition: naga::Handle<naga::Expression>,
+  },
+  Else {
+    condition: naga::Handle<naga::Expression>,
+    accept: naga::Block,
+  },
   Loop,
-  IfAccept,
-  Else,
-  Function,
+  /// Pushed by begin_switch and popped by end_switch, the popped SwitchCase frame appends the
+  /// case here. It does not hold statements, see [FunctionBuilder::statements_mut].
+  Switch {
+    selector: naga::Handle<naga::Expression>,
+    cases: Vec<naga::SwitchCase>,
+  },
+  SwitchCase(naga::SwitchValue),
+}
+
+impl FunctionBuilder {
+  fn new(id: u32, function: naga::Function) -> Self {
+    let mut builder = Self {
+      id,
+      function,
+      typifier: Default::default(),
+      frames: Default::default(),
+      global_exprs: Default::default(),
+      constant_exprs: Default::default(),
+    };
+    builder.push_frame(FrameKind::Body);
+    builder
+  }
+
+  fn push_frame(&mut self, kind: FrameKind) {
+    self.frames.push(BlockFrame {
+      statements: Default::default(),
+      kind,
+    });
+  }
+
+  fn top_frame_mut(&mut self) -> &mut BlockFrame {
+    self.frames.last_mut().unwrap()
+  }
+
+  /// The statements of the innermost frame that holds statements. The switch frame is skipped,
+  /// the statements pushed between its cases go to the enclosing block, in front of the switch.
+  fn statements_mut(&mut self) -> &mut Vec<naga::Statement> {
+    let frame = self
+      .frames
+      .iter_mut()
+      .rev()
+      .find(|frame| !matches!(frame.kind, FrameKind::Switch { .. }))
+      .unwrap();
+    &mut frame.statements
+  }
+
+  /// Append the expression, and emit it if required.
+  fn append_expr(&mut self, expr: naga::Expression) -> naga::Handle<naga::Expression> {
+    let needs_pre_emit = expr.needs_pre_emit();
+    let handle = self.function.expressions.append(expr, Span::UNDEFINED);
+
+    // should we merge these expression emits?
+    if !needs_pre_emit {
+      self
+        .statements_mut()
+        .push(naga::Statement::Emit(naga::Range::new_from_bounds(
+          handle, handle,
+        )));
+    }
+
+    handle
+  }
+
+  /// The expression of the global variable in this function, created on first use. It does not
+  /// need to be emitted.
+  fn global_expr(
+    &mut self,
+    global: naga::Handle<naga::GlobalVariable>,
+  ) -> naga::Handle<naga::Expression> {
+    let expressions = &mut self.function.expressions;
+    *self.global_exprs.entry(global).or_insert_with(|| {
+      expressions.append(naga::Expression::GlobalVariable(global), Span::UNDEFINED)
+    })
+  }
+
+  /// The expression of the constant in this function, created on first use. It does not need to
+  /// be emitted.
+  fn constant_expr(
+    &mut self,
+    constant: naga::Handle<naga::Constant>,
+  ) -> naga::Handle<naga::Expression> {
+    let expressions = &mut self.function.expressions;
+    *self
+      .constant_exprs
+      .entry(constant)
+      .or_insert_with(|| expressions.append(naga::Expression::Constant(constant), Span::UNDEFINED))
+  }
+
+  fn resolve_expr_type(
+    &mut self,
+    module: &naga::Module,
+    expr: naga::Handle<naga::Expression>,
+  ) -> naga::proc::TypeResolution {
+    let ctx = naga::proc::ResolveContext::with_locals(
+      module,
+      &self.function.local_variables,
+      &self.function.arguments,
+    );
+    self
+      .typifier
+      .grow(expr, &self.function.expressions, &ctx)
+      .expect("failed to resolve the expression type");
+    self.typifier[expr].clone()
+  }
+
+  /// Close the function body, the other frames must be closed.
+  fn finish(mut self) -> naga::Function {
+    assert!(
+      self.frames.len() == 1,
+      "the shader scopes are not balanced when finishing the function, some scope is not closed"
+    );
+    let body = self.frames.pop().unwrap();
+    self.function.body = naga::Block::from_vec(body.statements);
+    self.function
+  }
+}
+
+/// The configuration and the outputs of the entry point, the naga entry point is assembled from
+/// it when building, see [ShaderAPINagaImpl::finish_entry_point].
+struct EntryState {
+  stage: naga::ShaderStage,
+  /// zero means not configured, the compute, task and mesh stages must configure it
+  workgroup_size: [u32; 3],
+  early_depth_test: Option<naga::EarlyDepthTest>,
+  mesh_info: Option<naga::MeshStageInfo>,
+  task_payload: Option<naga::Handle<naga::GlobalVariable>>,
+  outputs: Vec<EntryOutput>,
+  /// the location of the next user defined output, the builtin outputs do not take the location
+  next_output_location: usize,
+  /// the task stage returns the mesh task size instead of the outputs
+  mesh_task_size: Option<ShaderNodeRawHandle>,
+}
+
+impl EntryState {
+  fn new(stage: naga::ShaderStage) -> Self {
+    Self {
+      stage,
+      workgroup_size: [0; 3],
+      early_depth_test: None,
+      mesh_info: None,
+      task_payload: None,
+      outputs: Default::default(),
+      next_output_location: 0,
+      mesh_task_size: None,
+    }
+  }
 }
 
 struct EntryOutput {
@@ -54,62 +237,44 @@ const ENTRY_POINT_NAME: &str = "main";
 
 impl ShaderAPINagaImpl {
   pub fn new(stage: ShaderStage) -> Self {
-    let stage = map_stage(stage);
-
-    let mut module = naga::Module::default();
-    let entry = naga::EntryPoint {
-      name: ENTRY_POINT_NAME.to_owned(),
-      stage,
-      early_depth_test: None,
-      workgroup_size: [0, 0, 0],
-      function: Default::default(),
-      workgroup_size_overrides: None,
-      mesh_info: None,
-      task_payload: None,
-      incoming_ray_payload: None,
-    };
-    module.entry_points.push(entry);
-
-    let mut api = Self {
-      module,
-      handle_id: 0,
-      block: Default::default(),
-      building_fn: Default::default(),
+    Self {
+      module: Default::default(),
+      nodes: vec![NodeSlot::Fake],
+      functions: vec![FunctionBuilder::new(0, Default::default())],
+      next_fn_id: 1,
+      entry: EntryState::new(map_stage(stage)),
       fn_mapping: Default::default(),
-      expression_mapping: Default::default(),
       ty_mapping: Default::default(),
-      control_structure: Default::default(),
-      outputs: Default::default(),
-      next_output_location: 0,
       padded_structs: Default::default(),
       layouter: Default::default(),
-      building_fn_typifier: Default::default(),
       log_build_result: false,
-      global_var_mapping: Default::default(),
-      output_mesh_task_size: Default::default(),
-    };
+    }
+  }
 
-    api.building_fn.push(naga::Function::default());
-    api.building_fn_typifier.push(Default::default());
-    api
-      .block
-      .push((Default::default(), BlockBuildingState::Function));
+  fn building_fn(&self) -> &FunctionBuilder {
+    self.functions.last().unwrap()
+  }
 
-    api
+  fn building_fn_mut(&mut self) -> &mut FunctionBuilder {
+    self.functions.last_mut().unwrap()
   }
 
   fn push_top_statement(&mut self, st: naga::Statement) {
-    self.block.last_mut().unwrap().0.push(st);
+    self.building_fn_mut().statements_mut().push(st);
+  }
+
+  fn new_node(&mut self, slot: NodeSlot) -> ShaderNodeRawHandle {
+    let node = ShaderNodeRawHandle {
+      handle: self.nodes.len(),
+    };
+    self.nodes.push(slot);
+    node
   }
 
   /// Create a new node that maps to the expression in the building function.
   fn map_new_node(&mut self, expr: naga::Handle<naga::Expression>) -> ShaderNodeRawHandle {
-    self.handle_id += 1;
-    let node = ShaderNodeRawHandle {
-      handle: self.handle_id,
-    };
-    self.expression_mapping.insert(node, expr);
-    node
+    let fn_id = self.building_fn().id;
+    self.new_node(NodeSlot::Expr { fn_id, expr })
   }
 
   fn append_global_expr(&mut self, expr: naga::Expression) -> naga::Handle<naga::Expression> {
@@ -118,22 +283,7 @@ impl ShaderAPINagaImpl {
 
   /// Append the expression into the building function, and emit it if required.
   fn append_fn_expr(&mut self, expr: naga::Expression) -> naga::Handle<naga::Expression> {
-    let needs_pre_emit = expr.needs_pre_emit();
-    let handle = self
-      .building_fn
-      .last_mut()
-      .unwrap()
-      .expressions
-      .append(expr, Span::UNDEFINED);
-
-    // should we merge these expression emits?
-    if !needs_pre_emit {
-      self.push_top_statement(naga::Statement::Emit(naga::Range::new_from_bounds(
-        handle, handle,
-      )));
-    }
-
-    handle
+    self.building_fn_mut().append_expr(expr)
   }
 
   fn make_expression_inner(&mut self, expr: naga::Expression) -> ShaderNodeRawHandle {
@@ -149,9 +299,8 @@ impl ShaderAPINagaImpl {
     statement: impl FnOnce(&mut Self, naga::Handle<naga::Expression>) -> naga::Statement,
   ) -> ShaderNodeRawHandle {
     let result = self
-      .building_fn
-      .last_mut()
-      .unwrap()
+      .building_fn_mut()
+      .function
       .expressions
       .append(result, Span::UNDEFINED);
     let statement = statement(self, result);
@@ -183,9 +332,18 @@ impl ShaderAPINagaImpl {
       memory_decorations: MemoryDecorations::empty(),
     };
     let global = self.module.global_variables.append(global, Span::UNDEFINED);
-    let node = self.make_expression_inner(naga::Expression::GlobalVariable(global));
-    self.global_var_mapping.insert(node, global);
-    node
+    // the expression is created in the declaring function immediately, so the expression indices
+    // of this function do not depend on where the global is first used
+    self.building_fn_mut().global_expr(global);
+    self.new_node(NodeSlot::Global(global))
+  }
+
+  /// The global variable of the node, the node must be declared by [Self::declare_global].
+  fn get_global(&self, node: ShaderNodeRawHandle) -> naga::Handle<naga::GlobalVariable> {
+    match self.nodes[node.handle] {
+      NodeSlot::Global(global) => global,
+      _ => panic!("the shader node is not a global variable"),
+    }
   }
 
   // root cause: this works around a bug in naga's spirv backend. when a compose
@@ -200,14 +358,9 @@ impl ShaderAPINagaImpl {
     &mut self,
     handle: ShaderNodeRawHandle,
   ) -> naga::Handle<naga::Expression> {
-    let expr = self.get_expression(handle);
-    let constant = match self.building_fn.last().unwrap().expressions.try_get(expr) {
-      Ok(naga::Expression::Constant(c)) => Some(c),
-      _ => None,
-    };
-    match constant {
-      Some(c) => self.inline_constant_value_into_fn(*c),
-      None => expr,
+    match self.nodes[handle.handle] {
+      NodeSlot::Constant(c) => self.inline_constant_value_into_fn(c),
+      _ => self.get_expression(handle),
     }
   }
 
@@ -387,17 +540,8 @@ impl ShaderAPINagaImpl {
     &mut self,
     expr: naga::Handle<naga::Expression>,
   ) -> naga::proc::TypeResolution {
-    let function = self.building_fn.last().unwrap();
-    let typifier = self.building_fn_typifier.last_mut().unwrap();
-    let ctx = naga::proc::ResolveContext::with_locals(
-      &self.module,
-      &function.local_variables,
-      &function.arguments,
-    );
-    typifier
-      .grow(expr, &function.expressions, &ctx)
-      .expect("failed to resolve the expression type");
-    typifier[expr].clone()
+    let function = self.functions.last_mut().unwrap();
+    function.resolve_expr_type(&self.module, expr)
   }
 
   /// Map the struct field index into the naga struct member index, they are different when the
@@ -429,14 +573,29 @@ impl ShaderAPINagaImpl {
     }
   }
 
-  fn get_expression(&self, handle: ShaderNodeRawHandle) -> naga::Handle<naga::Expression> {
-    *self.expression_mapping.get(&handle).unwrap()
+  /// The expression of the node in the building function. The global variables and the constants
+  /// can be used in any function, the other nodes can only be used in the function where they are
+  /// created.
+  fn get_expression(&mut self, handle: ShaderNodeRawHandle) -> naga::Handle<naga::Expression> {
+    match self.nodes[handle.handle] {
+      NodeSlot::Fake => panic!("the fake shader node can not be used as an expression"),
+      NodeSlot::Expr { fn_id, expr } => {
+        assert!(
+          fn_id == self.building_fn().id,
+          "the shader node is used outside of the function where it is created, \
+           pass it to the function as a parameter instead"
+        );
+        expr
+      }
+      NodeSlot::Global(global) => self.building_fn_mut().global_expr(global),
+      NodeSlot::Constant(constant) => self.building_fn_mut().constant_expr(constant),
+    }
   }
 
   fn add_fn_input_inner(&mut self, input: naga::FunctionArgument) -> ShaderNodeRawHandle {
-    let fun = self.building_fn.last_mut().unwrap();
-    let idx = fun.arguments.len() as u32;
-    fun.arguments.push(input);
+    let arguments = &mut self.building_fn_mut().function.arguments;
+    let idx = arguments.len() as u32;
+    arguments.push(input);
     self.make_expression_inner(naga::Expression::FunctionArgument(idx))
   }
 
@@ -446,19 +605,22 @@ impl ShaderAPINagaImpl {
     name: String,
     ty_deco: ShaderFieldDecorator,
   ) -> ShaderNodeRawHandle {
-    assert!(self.block.len() == 1); // we should define output in root scope
-    assert!(self.building_fn.len() == 1);
+    assert!(
+      self.functions.len() == 1 && self.building_fn().frames.len() == 1,
+      "the shader output must be defined in the root scope of the entry function"
+    );
 
     let node = self.make_local_var(ShaderValueType::Single(ShaderValueSingleType::Sized(
       ty.clone(),
     )));
-    self.outputs.push(EntryOutput {
+    let var = self.get_expression(node);
+    self.entry.outputs.push(EntryOutput {
       meta: ShaderStructFieldMetaInfo {
         name,
         ty,
         ty_deco: Some(ty_deco),
       },
-      var: self.get_expression(node),
+      var,
     });
     node
   }
@@ -469,13 +631,89 @@ impl ShaderAPINagaImpl {
     name_prefix: &str,
     interpolation: Option<ShaderInterpolation>,
   ) -> ShaderNodeRawHandle {
-    let location = self.next_output_location;
-    self.next_output_location += 1;
+    let location = self.entry.next_output_location;
+    self.entry.next_output_location += 1;
     self.define_out(
       ty,
       format!("{name_prefix}_{location}"),
       ShaderFieldDecorator::Location(location, interpolation),
     )
+  }
+
+  /// Close the entry function and assemble the entry point into the module, only the entry
+  /// function body can be left open.
+  fn finish_entry_point(&mut self) {
+    assert!(
+      self.functions.len() == 1 && self.building_fn().frames.len() == 1,
+      "the shader scopes are not balanced when building, some scope or function is not closed"
+    );
+    let stage = self.entry.stage;
+    if matches!(
+      stage,
+      naga::ShaderStage::Compute | naga::ShaderStage::Task | naga::ShaderStage::Mesh
+    ) {
+      assert!(
+        self.entry.workgroup_size.iter().all(|v| *v > 0),
+        "the workgroup size of the {stage:?} stage is not configured"
+      );
+    }
+
+    let result = self.return_entry_outputs();
+    let mut function = self.functions.pop().unwrap().finish();
+    function.result = result;
+
+    let entry = &mut self.entry;
+    self.module.entry_points.push(naga::EntryPoint {
+      name: ENTRY_POINT_NAME.to_owned(),
+      stage,
+      early_depth_test: entry.early_depth_test,
+      workgroup_size: entry.workgroup_size,
+      function,
+      workgroup_size_overrides: None,
+      mesh_info: entry.mesh_info.take(),
+      task_payload: entry.task_payload,
+      incoming_ray_payload: None,
+    });
+  }
+
+  /// Return the outputs at the end of the entry function body, and give the entry function
+  /// result. Empty output is possible, for example the depth only render target.
+  fn return_entry_outputs(&mut self) -> Option<naga::FunctionResult> {
+    if let Some(size) = self.entry.mesh_task_size {
+      // task stage must return @builtin(mesh_task_size) vec3<u32> directly,
+      // unlike other stages which return a composed output struct
+      self.do_return(Some(size));
+      let ty = self.register_primitive_ty(PrimitiveShaderValueType::vec3::<u32>());
+      Some(naga::FunctionResult {
+        ty,
+        binding: Some(naga::Binding::BuiltIn(naga::BuiltIn::MeshTaskSize)),
+      })
+    } else if !self.entry.outputs.is_empty() {
+      let ty = ShaderStructMetaInfo {
+        name: String::from("ModuleOutput"),
+        fields: self.entry.outputs.iter().map(|o| o.meta.clone()).collect(),
+        host_layout: None,
+      };
+      let (ty, _) = gen_struct_define(self, &ty);
+      let ty = naga::Type {
+        name: None,
+        inner: ty,
+      };
+      let ty = self.module.types.insert(ty, Span::UNDEFINED);
+
+      let output_vars: Vec<_> = self.entry.outputs.iter().map(|o| o.var).collect();
+      let components = output_vars
+        .into_iter()
+        .map(|pointer| self.append_fn_expr(naga::Expression::Load { pointer }))
+        .collect();
+
+      let rt = self.make_expression_inner(naga::Expression::Compose { ty, components });
+      self.do_return(rt.into());
+
+      Some(naga::FunctionResult { ty, binding: None })
+    } else {
+      None
+    }
   }
 
   /// Create the expressions of the primitive value in the global expression arena.
@@ -565,12 +803,14 @@ impl ShaderAPINagaImpl {
     }
   }
 
+  /// Define the constant, and create its expression in the building function immediately, so the
+  /// expression indices of this function do not depend on where the constant is first used.
   fn define_const_impl(
     &mut self,
     value: ShaderStructFieldInitValue,
     ty: ShaderSizedValueType,
     inlined: bool,
-  ) -> naga::Handle<naga::Expression> {
+  ) -> naga::Handle<naga::Constant> {
     let global_expr = self.define_const_global_expr_impl(value, &ty);
 
     let ty = self.register_sized_ty(ty);
@@ -589,7 +829,8 @@ impl ShaderAPINagaImpl {
       Span::UNDEFINED,
     );
 
-    self.append_fn_expr(naga::Expression::Constant(constant))
+    self.building_fn_mut().constant_expr(constant);
+    constant
   }
 
   fn lower_builtin_call(
@@ -647,11 +888,11 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn set_workgroup_size(&mut self, size: (u32, u32, u32)) {
-    self.module.entry_points[0].workgroup_size = [size.0, size.1, size.2]
+    self.entry.workgroup_size = [size.0, size.1, size.2]
   }
 
   fn set_early_depth_test(&mut self, test: ShaderEarlyDepthTest) {
-    self.module.entry_points[0].early_depth_test = Some(map_early_depth_test(test));
+    self.entry.early_depth_test = Some(map_early_depth_test(test));
   }
 
   fn barrier(&mut self, scope: BarrierScope) {
@@ -663,13 +904,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
     let vertex_output_type = self.register_sized_ty(mesh_info.vertex_output_type);
     let primitive_output_type = self.register_sized_ty(mesh_info.primitive_output_type);
 
-    let output_variable = *self
-      .global_var_mapping
-      .get(&mesh_info.output_variable)
-      .unwrap();
+    let output_variable = self.get_global(mesh_info.output_variable);
     self.name_global_if_unnamed(output_variable, "mesh_output");
 
-    self.module.entry_points[0].mesh_info = Some(naga::MeshStageInfo {
+    self.entry.mesh_info = Some(naga::MeshStageInfo {
       topology: map_mesh_output_topology(mesh_info.topology),
       max_vertices: mesh_info.max_vertices,
       max_vertices_override: None,
@@ -681,17 +919,27 @@ impl ShaderAPI for ShaderAPINagaImpl {
     });
   }
   fn define_task_payload_io(&mut self, payload: ShaderNodeRawHandle) {
-    let output_variable = *self.global_var_mapping.get(&payload).unwrap();
+    let output_variable = self.get_global(payload);
     self.name_global_if_unnamed(output_variable, "task_payload");
-    self.module.entry_points[0].task_payload = Some(output_variable);
+    self.entry.task_payload = Some(output_variable);
   }
 
   fn set_output_mesh_task_size(&mut self, size: ShaderNodeRawHandle) {
-    self.output_mesh_task_size = Some(size);
+    self.entry.mesh_task_size = Some(size);
   }
 
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle {
-    assert!(self.building_fn.len() == 1);
+    // the other inputs are global variables, they can be declared while building any function
+    if matches!(
+      input,
+      ShaderInputNode::BuiltIn(_) | ShaderInputNode::UserDefinedIn { .. }
+    ) {
+      assert!(
+        self.functions.len() == 1,
+        "the built-in input and the user defined input are the entry function arguments, \
+         they can not be defined while building a user function"
+      );
+    }
     match input {
       ShaderInputNode::BuiltIn(ty) => {
         let data_ty = ty
@@ -816,34 +1064,42 @@ impl ShaderAPI for ShaderAPINagaImpl {
     )
   }
 
+  // the label is best effort, the unknown node and the node of another function are skipped
   fn mark_handle_debug_name(&mut self, h: ShaderNodeRawHandle, name: String) {
-    let Some(handle) = self.expression_mapping.get(&h) else {
+    let Some(slot) = self.nodes.get(h.handle).copied() else {
       return;
     };
-    let handle = *handle;
-
-    let Some(top_fn) = self.building_fn.last_mut() else {
-      return;
-    };
-
-    let Ok(expr) = top_fn.expressions.try_get(handle) else {
+    let Some(top_fn) = self.functions.last_mut() else {
       return;
     };
 
-    match expr {
-      naga::Expression::GlobalVariable(g) => {
-        let var = self.module.global_variables.get_mut(*g);
+    let handle = match slot {
+      NodeSlot::Fake => return,
+      NodeSlot::Global(g) => {
+        let var = self.module.global_variables.get_mut(g);
         // avoid override for global var
         if var.name.is_none() {
           var.name = Some(name);
         }
+        return;
       }
+      // only the constant expression that exists in the building function is named
+      NodeSlot::Constant(c) => match top_fn.constant_exprs.get(&c) {
+        Some(expr) => *expr,
+        None => return,
+      },
+      NodeSlot::Expr { fn_id, expr } if fn_id == top_fn.id => expr,
+      NodeSlot::Expr { .. } => return,
+    };
+
+    let top_fn = &mut top_fn.function;
+    match top_fn.expressions[handle] {
       naga::Expression::FunctionArgument(idx) => {
-        top_fn.arguments[*idx as usize].name = Some(name);
+        top_fn.arguments[idx as usize].name = Some(name);
       }
       // the local variable expression is never emitted, so the named expression is not used
       naga::Expression::LocalVariable(v) => {
-        top_fn.local_variables[*v].name = Some(name);
+        top_fn.local_variables[v].name = Some(name);
       }
       _ => {
         top_fn.named_expressions.insert(handle, name);
@@ -857,8 +1113,8 @@ impl ShaderAPI for ShaderAPINagaImpl {
     ty: ShaderSizedValueType,
     inlined: bool,
   ) -> ShaderNodeRawHandle {
-    let handle = self.define_const_impl(value, ty, inlined);
-    self.map_new_node(handle)
+    let constant = self.define_const_impl(value, ty, inlined);
+    self.new_node(NodeSlot::Constant(constant))
   }
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle {
@@ -948,14 +1204,15 @@ impl ShaderAPI for ShaderAPINagaImpl {
         array_index: array_index.map(|index| self.get_expression(index)),
         offset: offset.map(|offset| {
           let data = PrimitiveShaderValue::from(offset);
-          self.define_const_impl(
+          let constant = self.define_const_impl(
             ShaderStructFieldInitValue::Primitive(data),
             ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(
               VectorSize::Bi,
               ScalarType::I32,
             )),
             true,
-          )
+          );
+          self.building_fn_mut().constant_expr(constant)
         }),
         level: map_sample_level(level, |handle| self.get_expression(handle)),
         depth_ref: reference.map(|r| self.get_expression(r)),
@@ -1126,9 +1383,8 @@ impl ShaderAPI for ShaderAPINagaImpl {
       init: None,
     };
     let var = self
-      .building_fn
-      .last_mut()
-      .unwrap()
+      .building_fn_mut()
+      .function
       .local_variables
       .append(v, Span::UNDEFINED);
 
@@ -1169,183 +1425,113 @@ impl ShaderAPI for ShaderAPINagaImpl {
   ) {
     let ray_desc_type = self.module.generate_ray_desc_type();
 
+    let components = [
+      ray_desc.flags,
+      ray_desc.cull_mask,
+      ray_desc.t_min,
+      ray_desc.t_max,
+      ray_desc.origin,
+      ray_desc.dir,
+    ]
+    .into_iter()
+    .map(|v| self.get_expression(v))
+    .collect();
     let descriptor = self.append_fn_expr(naga::Expression::Compose {
       ty: ray_desc_type,
-      components: vec![
-        self.get_expression(ray_desc.flags),
-        self.get_expression(ray_desc.cull_mask),
-        self.get_expression(ray_desc.t_min),
-        self.get_expression(ray_desc.t_max),
-        self.get_expression(ray_desc.origin),
-        self.get_expression(ray_desc.dir),
-      ],
+      components,
     });
 
+    let query = self.get_expression(query);
+    let acceleration_structure = self.get_expression(tlas.handle());
     self.push_top_statement(naga::Statement::RayQuery {
-      query: self.get_expression(query),
+      query,
       fun: RayQueryFunction::Initialize {
-        acceleration_structure: self.get_expression(tlas.handle()),
+        acceleration_structure,
         descriptor,
       },
     });
   }
   fn ray_query_terminate(&mut self, query: ShaderNodeRawHandle) {
+    let query = self.get_expression(query);
     self.push_top_statement(naga::Statement::RayQuery {
-      query: self.get_expression(query),
+      query,
       fun: RayQueryFunction::Terminate,
     });
   }
   // todo ray query confirm hit
 
-  fn push_scope(&mut self) {
-    self
-      .block
-      .push((Default::default(), BlockBuildingState::Common))
-  }
-
   fn pop_scope(&mut self) {
-    // pre check module level
-    let (_, ty) = self.block.last().unwrap();
-    if let BlockBuildingState::Function = ty {
-      if self.building_fn.len() == 1
-        && let Some(size) = self.output_mesh_task_size
-      {
-        // task stage must return @builtin(mesh_task_size) vec3<u32> directly,
-        // unlike other stages which return a composed output struct
-        self.do_return(Some(size));
-        let ty = self.register_primitive_ty(PrimitiveShaderValueType::vec3::<u32>());
-        let bf = self.building_fn.last_mut().unwrap();
-        bf.result = Some(naga::FunctionResult {
-          ty,
-          binding: Some(naga::Binding::BuiltIn(naga::BuiltIn::MeshTaskSize)),
-        });
-      } else if self.building_fn.len() == 1 && !self.outputs.is_empty() {
-        // empty output is possible, for example depth only render target
-        let ty = ShaderStructMetaInfo {
-          name: String::from("ModuleOutput"),
-          fields: self.outputs.iter().map(|o| o.meta.clone()).collect(),
-          host_layout: None,
-        };
-        let (ty, _) = gen_struct_define(self, &ty);
-        let ty = naga::Type {
-          name: None,
-          inner: ty,
-        };
-        let ty = self.module.types.insert(ty, Span::UNDEFINED);
-
-        let output_vars: Vec<_> = self.outputs.iter().map(|o| o.var).collect();
-        let components = output_vars
-          .into_iter()
-          .map(|pointer| self.append_fn_expr(naga::Expression::Load { pointer }))
-          .collect();
-
-        let rt = self.make_expression_inner(naga::Expression::Compose { ty, components });
-        self.do_return(rt.into());
-
-        let bf = self.building_fn.last_mut().unwrap();
-        bf.result = naga::FunctionResult { ty, binding: None }.into();
-      }
-    }
-
-    let (b, ty) = self.block.pop().unwrap();
-    let b = naga::Block::from_vec(b);
-    match ty {
-      BlockBuildingState::Common => self.push_top_statement(naga::Statement::Block(b)),
-      BlockBuildingState::SwitchCase(case) => {
-        let switch = self.control_structure.last_mut().unwrap();
-        if let naga::Statement::Switch { cases, .. } = switch {
-          let value = map_switch_value(case);
-          let case = naga::SwitchCase {
-            value,
-            body: b,
-            fall_through: false,
-          };
-          cases.push(case)
-        } else {
+    let frame = self.building_fn_mut().frames.pop().unwrap();
+    let block = naga::Block::from_vec(frame.statements);
+    let statement = match frame.kind {
+      FrameKind::IfAccept { condition } => naga::Statement::If {
+        condition,
+        accept: block,
+        reject: Default::default(),
+      },
+      FrameKind::Else { condition, accept } => naga::Statement::If {
+        condition,
+        accept,
+        reject: block,
+      },
+      FrameKind::Loop => naga::Statement::Loop {
+        body: block,
+        continuing: Default::default(),
+        break_if: None,
+      },
+      FrameKind::SwitchCase(value) => {
+        let FrameKind::Switch { cases, .. } = &mut self.building_fn_mut().top_frame_mut().kind
+        else {
           panic!("expect switch")
-        }
+        };
+        cases.push(naga::SwitchCase {
+          value,
+          body: block,
+          fall_through: false,
+        });
+        return;
       }
-      BlockBuildingState::Loop => {
-        let mut loop_s = self.control_structure.pop().unwrap();
-        if let naga::Statement::Loop { body, .. } = &mut loop_s {
-          *body = b;
-        } else {
-          panic!("expect loop")
-        }
-        self.push_top_statement(loop_s);
-      }
-      BlockBuildingState::IfAccept => {
-        let mut if_s = self.control_structure.pop().unwrap();
-        if let naga::Statement::If { accept, .. } = &mut if_s {
-          *accept = b;
-        } else {
-          panic!("expect if")
-        }
-        self.push_top_statement(if_s);
-      }
-      BlockBuildingState::Else => {
-        let mut if_s = self.control_structure.pop().unwrap();
-        if let naga::Statement::If { reject, .. } = &mut if_s {
-          *reject = b;
-        } else {
-          panic!("expect if")
-        }
-        self.push_top_statement(if_s);
-      }
-      BlockBuildingState::Function => {
-        let mut bf = self.building_fn.pop().unwrap();
-        self.building_fn_typifier.pop();
-        bf.body = b;
-        // is entry
-        if self.building_fn.is_empty() {
-          self.module.entry_points[0].function = bf;
-        } else {
-          let name = bf.name.clone().unwrap();
-          let handle = self.module.functions.append(bf, Span::UNDEFINED);
-          self.fn_mapping.insert(name, handle);
-        }
-      }
-    }
+      FrameKind::Body => panic!(
+        "the shader scopes are not balanced, pop_scope can not close the function body, \
+         it is closed by end_fn_define or build"
+      ),
+      FrameKind::Switch { .. } => panic!(
+        "the shader scopes are not balanced, pop_scope can not close the switch, \
+         it is closed by end_switch"
+      ),
+    };
+    self.push_top_statement(statement);
   }
 
   fn push_if_scope(&mut self, condition: ShaderNodeRawHandle) {
+    let condition = self.get_expression(condition);
     self
-      .block
-      .push((Default::default(), BlockBuildingState::IfAccept));
-    let if_s = naga::Statement::If {
-      condition: self.get_expression(condition),
-      accept: Default::default(),
-      reject: Default::default(),
-    };
-    self.control_structure.push(if_s);
+      .building_fn_mut()
+      .push_frame(FrameKind::IfAccept { condition });
   }
 
   fn push_else_scope(&mut self) {
     // find last if block in the top level statements
-    let top_statements = &mut self.block.last_mut().unwrap().0;
+    let top_statements = self.building_fn_mut().statements_mut();
     let index = top_statements
       .iter()
-      .rev()
-      .position(|s| matches!(s, naga::Statement::If { .. }))
+      .rposition(|s| matches!(s, naga::Statement::If { .. }))
       .expect("expect if clause");
-    let if_s = top_statements.remove(top_statements.len() - index - 1);
+    // the else block replaces the reject of the if
+    let naga::Statement::If {
+      condition, accept, ..
+    } = top_statements.remove(index)
+    else {
+      unreachable!()
+    };
 
-    self.control_structure.push(if_s);
     self
-      .block
-      .push((Default::default(), BlockBuildingState::Else));
+      .building_fn_mut()
+      .push_frame(FrameKind::Else { condition, accept });
   }
 
   fn push_loop_scope(&mut self) {
-    self
-      .block
-      .push((Default::default(), BlockBuildingState::Loop));
-    let loop_s = naga::Statement::Loop {
-      body: Default::default(),
-      continuing: Default::default(),
-      break_if: None,
-    };
-    self.control_structure.push(loop_s);
+    self.building_fn_mut().push_frame(FrameKind::Loop);
   }
 
   fn do_continue(&mut self) {
@@ -1359,23 +1545,25 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
   fn begin_switch(&mut self, selector: ShaderNodeRawHandle) {
     let selector = self.get_expression(selector);
-    let switch = naga::Statement::Switch {
+    self.building_fn_mut().push_frame(FrameKind::Switch {
       selector,
       cases: Default::default(),
-    };
-    self.control_structure.push(switch);
+    });
   }
 
   fn push_switch_case_scope(&mut self, case: SwitchCaseCondition) {
+    let value = map_switch_value(case);
     self
-      .block
-      .push((Default::default(), BlockBuildingState::SwitchCase(case)));
+      .building_fn_mut()
+      .push_frame(FrameKind::SwitchCase(value));
   }
 
   fn end_switch(&mut self) {
-    let switch = self.control_structure.pop().unwrap();
-    assert!(matches!(switch, naga::Statement::Switch { .. }));
-    self.push_top_statement(switch);
+    let frame = self.building_fn_mut().frames.pop().unwrap();
+    let FrameKind::Switch { selector, cases } = frame.kind else {
+      panic!("the shader scopes are not balanced, end_switch closes a scope that is not a switch")
+    };
+    self.push_top_statement(naga::Statement::Switch { selector, cases });
   }
 
   fn discard(&mut self) {
@@ -1391,7 +1579,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
   fn begin_define_fn(&mut self, name: String, return_ty: ShaderValueType) {
     let name = Some(name);
-    if self.building_fn.iter().any(|f| f.name.eq(&name)) {
+    if self.functions.iter().any(|f| f.function.name.eq(&name)) {
       panic!("recursive fn definition is not allowed")
     }
 
@@ -1409,11 +1597,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
       ..Default::default()
     };
 
-    self.building_fn.push(f);
-    self.building_fn_typifier.push(Default::default());
-    self
-      .block
-      .push((Default::default(), BlockBuildingState::Function));
+    let id = self.next_fn_id;
+    self.next_fn_id += 1;
+    self.functions.push(FunctionBuilder::new(id, f));
   }
 
   fn push_fn_parameter(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle {
@@ -1431,32 +1617,20 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn end_fn_define(&mut self) -> ShaderUserDefinedFunction {
-    let (_, s) = self.block.last().unwrap();
-    let f_name = self.building_fn.last().unwrap().name.clone().unwrap();
-    assert!(matches!(s, BlockBuildingState::Function));
-    self.pop_scope();
-    ShaderUserDefinedFunction { name: f_name }
+    // the entry function is closed by build
+    assert!(
+      self.functions.len() > 1,
+      "end_fn_define is called without begin_define_fn"
+    );
+    let f = self.functions.pop().unwrap().finish();
+    let name = f.name.clone().unwrap();
+    let handle = self.module.functions.append(f, Span::UNDEFINED);
+    self.fn_mapping.insert(name.clone(), handle);
+    ShaderUserDefinedFunction { name }
   }
 
   fn build(&mut self) -> (String, Box<dyn Any>) {
-    // only the entry function body is left open
-    assert!(
-      self.building_fn.len() == 1 && self.block.len() == 1 && self.control_structure.is_empty(),
-      "the shader scopes are not balanced when building, some scope or function is not closed"
-    );
-    let entry = &self.module.entry_points[0];
-    if matches!(
-      entry.stage,
-      naga::ShaderStage::Compute | naga::ShaderStage::Task | naga::ShaderStage::Mesh
-    ) {
-      assert!(
-        entry.workgroup_size.iter().all(|v| *v > 0),
-        "the workgroup size of the {:?} stage is not configured",
-        entry.stage
-      );
-    }
-    self.pop_scope();
-
+    self.finish_entry_point();
     (
       ENTRY_POINT_NAME.to_owned(),
       Box::new(NagaModuleBuildResult {

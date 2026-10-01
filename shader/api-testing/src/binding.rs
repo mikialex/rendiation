@@ -886,7 +886,6 @@ fn call_fn(name: &str, body: impl FnOnce() -> Node<f32>) -> Node<f32> {
 
 /// the storage binding created in the entry function is read and written in a user function
 #[test]
-#[ignore = "bug: the global variable expression only exists in the entry function, the user function refers it as a forward dependency"]
 fn binding_in_function() {
   check_compute(|_| {
     let storage = fake_storage_buffer::<[f32]>(0);
@@ -900,7 +899,6 @@ fn binding_in_function() {
 /// the uniform binding of the padded struct is accessed through the field pointer in a user
 /// function
 #[test]
-#[ignore = "bug: the padded struct field index of the entry function node is resolved by the user function typifier, out of bounds panic"]
 fn padded_uniform_in_function() {
   check_compute(|_| {
     let uniform = typed_readonly_ptr::<Std140C>(&fake_buffer::<Std140C>(0, BufferSpace::Uniform));
@@ -912,7 +910,6 @@ fn padded_uniform_in_function() {
 
 /// the workgroup variable created in the entry function is accessed in a user function
 #[test]
-#[ignore = "bug: the global variable expression only exists in the entry function, the user function refers it as a forward dependency"]
 fn workgroup_var_in_function() {
   check_compute(|builder| {
     let shared = builder.define_workgroup_shared_var::<[f32; 4]>();
@@ -923,9 +920,21 @@ fn workgroup_var_in_function() {
   });
 }
 
+/// the atomic and the workgroup uniform load are called directly on the workgroup variables
+/// created in the entry function, in a user function
+#[test]
+fn workgroup_var_statement_in_function() {
+  check_compute(|builder| {
+    let atomic = builder.define_workgroup_shared_var::<DeviceAtomic<u32>>();
+    let shared = builder.define_workgroup_shared_var::<f32>();
+    keep(call_fn("workgroup_var_statement_in_function", || {
+      atomic.atomic_add(val(1)).into_f32() + workgroup_uniform_load::<f32>(shared)
+    }));
+  });
+}
+
 /// the private variable created in the entry function is accessed in a user function
 #[test]
-#[ignore = "bug: the global variable expression only exists in the entry function, the user function refers it as a forward dependency"]
 fn private_var_in_function() {
   check_compute(|_| {
     let private = private_var::<f32>();
@@ -938,7 +947,6 @@ fn private_var_in_function() {
 
 /// the constant of the padded struct created in the entry function is used in a user function
 #[test]
-#[ignore = "bug: the padded struct field index of the entry function node is resolved by the user function typifier, out of bounds panic"]
 fn constant_in_function() {
   check_compute(|_| {
     let constant = global_const_val(std140_mixed_data().c);
@@ -947,4 +955,84 @@ fn constant_in_function() {
       Std140C::c(constant) + Std140A::x(Std140B::inner(inlined))
     }));
   });
+}
+
+const FN_BUFFER_LEN: usize = 6;
+
+/// The raw buffers are the readonly storage of [FN_BUFFER_LEN] f32, the read_write storage of the
+/// same length and the uniform [Std140C]. They are declared in the entry and accessed in a user
+/// function, which only takes the invocation index as parameter.
+fn bindings_in_function_logic(
+  builder: &ShaderComputePipelineBuilder,
+  buffers: &[BoxedShaderPtr],
+) -> Vec<Node<f32>> {
+  let input = typed_readonly_ptr::<[f32]>(&buffers[0]);
+  let output = typed_ptr::<[f32]>(&buffers[1]);
+  let uniform = typed_readonly_ptr::<Std140C>(&buffers[2]);
+  let id = builder.local_invocation_index();
+  let returned = get_shader_fn::<f32>("bindings_in_function".to_owned())
+    .or_define(|cx| {
+      let id = cx.push_fn_parameter_by(id);
+      let mirrored = input.index(input.array_length() - val(1) - id).load();
+      let v = input.index(id).load() * uniform.b().inner().x().load() + mirrored;
+      output.index(id).store(v);
+      cx.do_return(v + uniform.c().load());
+    })
+    .prepare_parameters()
+    .push(id)
+    .call();
+  vec![returned]
+}
+
+fn bindings_in_function_input() -> Vec<f32> {
+  (0..FN_BUFFER_LEN).map(|i| i as f32 * 1.5 + 1.).collect()
+}
+
+fn bindings_in_function_buffers() -> [RawBuffer; 3] {
+  [
+    RawBuffer {
+      ty: <[f32]>::ty(),
+      space: BufferSpace::Storage,
+      bytes: cast_slice(&bindings_in_function_input()).to_vec(),
+    },
+    RawBuffer {
+      ty: <[f32]>::ty(),
+      space: BufferSpace::ReadWriteStorage,
+      bytes: vec![0; size_of::<f32>() * FN_BUFFER_LEN],
+    },
+    RawBuffer {
+      ty: Std140C::ty(),
+      space: BufferSpace::Uniform,
+      bytes: bytes_of(&std140_mixed_data().c).to_vec(),
+    },
+  ]
+}
+
+/// the storage and the padded uniform bindings declared in the entry are read and written in a
+/// user function
+#[test]
+fn bindings_in_function_body() {
+  check_raw_buffers(&bindings_in_function_buffers(), bindings_in_function_logic);
+}
+
+/// the GPU version of [bindings_in_function_body], one invocation for each item
+#[pollster::test]
+async fn bindings_in_function_body_gpu() {
+  let result = gpu_run_raw_buffers(
+    &bindings_in_function_buffers(),
+    FN_BUFFER_LEN as u32,
+    1,
+    bindings_in_function_logic,
+  )
+  .await;
+
+  let input = bindings_in_function_input();
+  let c = std140_mixed_data().c;
+  let expect: Vec<_> = (0..FN_BUFFER_LEN)
+    .map(|id| input[id] * c.b.inner.x + input[FN_BUFFER_LEN - 1 - id])
+    .collect();
+  assert_eq!(read_pods::<f32>(&result.buffers[1]), expect);
+  for (id, output) in result.output.iter().enumerate() {
+    assert_eq!(output, &[expect[id] + c.c], "invocation {id}");
+  }
 }
