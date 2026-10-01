@@ -126,7 +126,8 @@ pub trait ShaderAPI {
   fn discard(&mut self);
 
   fn get_fn(&mut self, name: String) -> Option<ShaderUserDefinedFunction>;
-  fn begin_define_fn(&mut self, name: String, return_ty: Option<ShaderValueType>);
+  /// the function without return value is not supported
+  fn begin_define_fn(&mut self, name: String, return_ty: ShaderValueType);
   fn push_fn_parameter(&mut self, p: ShaderValueType) -> ShaderNodeRawHandle;
   fn do_return(&mut self, v: Option<ShaderNodeRawHandle>);
   fn end_fn_define(&mut self) -> ShaderUserDefinedFunction;

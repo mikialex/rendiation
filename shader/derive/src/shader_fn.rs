@@ -53,7 +53,11 @@ pub fn shader_api_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStream
     .collect();
 
   let rt_type = match rt {
-    syn::ReturnType::Default => quote::quote! { rendiation_shader_api::AnyType },
+    syn::ReturnType::Default => {
+      return syn::Error::new_spanned(sig, "the shader function must return a value")
+        .to_compile_error()
+        .into();
+    }
     syn::ReturnType::Type(_, ty) => {
       quote::quote! { <#ty as rendiation_shader_api::ProcMacroNodeHelper>::NodeType }
     }

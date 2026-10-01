@@ -225,6 +225,20 @@ fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
 `ctx.binding` is a `BindingBuilder`. The `.bind()` calls must follow the **same order** as the
 shader-side `bind_by()` calls, since both determine bind group index assignment.
 
+## Binding arrays
+
+`BindingResourceArray<T>` binds an array of the same kind of resources with a fixed max length
+(the max length is injected into the shader). `bind_by` returns the binding array node:
+
+- Textures and samplers: `array.index(i)` returns the `BindingNode` of the element.
+- Buffers: the element type must be a struct (asserted when the binding is declared).
+  `array.index_readonly_buffer(i)` returns the readonly pointer, `array.index_buffer(i)` returns the
+  pointer and is only valid for read_write storage buffers. The address space comes from the
+  element container, the array must not be empty when bound (wgpu rejects it).
+- The buffer binding array requires `Features::BUFFER_BINDING_ARRAY`, plus
+  `STORAGE_RESOURCE_BINDING_ARRAY` for storage buffers. On the pass side only the readonly and
+  read_write storage buffer arrays implement `CacheAbleBindingSource`.
+
 ## Dynamic offset buffer binding
 
 `DynamicOffsetBinding<T>` wraps any uniform/storage buffer container (`UniformBufferDataView`,

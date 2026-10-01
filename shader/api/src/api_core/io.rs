@@ -183,25 +183,27 @@ pub struct ShaderBindingDescriptor {
 }
 
 impl ShaderBindingDescriptor {
+  /// the binding array is declared in the address space of its element
   pub fn get_address_space(&self) -> Option<AddressSpace> {
-    match &self.ty {
-      ShaderValueType::Single(ty) => match ty {
-        ShaderValueSingleType::Sized(_) => {
-          if self.should_as_storage_buffer_if_is_buffer_like {
-            AddressSpace::Storage {
-              writeable: self.writeable_if_storage,
-            }
-          } else {
-            AddressSpace::Uniform
-          }
-        }
-        ShaderValueSingleType::Unsized(_) => AddressSpace::Storage {
-          writeable: self.writeable_if_storage,
-        },
-        _ => AddressSpace::Handle,
-      },
-      ShaderValueType::BindingArray { .. } => AddressSpace::Handle,
+    let ty = match &self.ty {
+      ShaderValueType::Single(ty) => ty,
+      ShaderValueType::BindingArray { ty, .. } => ty,
       ShaderValueType::Never => return None,
+    };
+    match ty {
+      ShaderValueSingleType::Sized(_) => {
+        if self.should_as_storage_buffer_if_is_buffer_like {
+          AddressSpace::Storage {
+            writeable: self.writeable_if_storage,
+          }
+        } else {
+          AddressSpace::Uniform
+        }
+      }
+      ShaderValueSingleType::Unsized(_) => AddressSpace::Storage {
+        writeable: self.writeable_if_storage,
+      },
+      _ => AddressSpace::Handle,
     }
     .into()
   }

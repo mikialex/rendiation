@@ -131,9 +131,20 @@ impl LoopCtx {
   }
 }
 
+/// the count is the else scopes opened by else_if, they are closed by else_by or else_over
 pub struct ElseEmitter(usize);
 
+impl Drop for ElseEmitter {
+  fn drop(&mut self) {
+    // avoid the double panic abort when the emitter is dropped by unwinding
+    if self.0 > 0 && !std::thread::panicking() {
+      panic!("the if chain with else_if must be ended by else_by or else_over")
+    }
+  }
+}
+
 impl ElseEmitter {
+  #[must_use = "the if chain with else_if must be ended by else_by or else_over"]
   pub fn else_if(mut self, condition: impl Into<Node<bool>>, logic: impl FnOnce()) -> ElseEmitter {
     let condition = condition.into().handle();
     call_shader_api(|builder| {
@@ -146,14 +157,15 @@ impl ElseEmitter {
     self
   }
 
-  pub fn else_over(self) {
+  pub fn else_over(mut self) {
     // closing outer scope
     for _ in 0..self.0 {
       call_shader_api(|g| g.pop_scope());
     }
+    self.0 = 0;
   }
 
-  pub fn else_by(self, logic: impl FnOnce()) {
+  pub fn else_by(mut self, logic: impl FnOnce()) {
     call_shader_api(|builder| {
       builder.push_else_scope();
     });
@@ -166,6 +178,7 @@ impl ElseEmitter {
     for _ in 0..self.0 {
       call_shader_api(|g| g.pop_scope());
     }
+    self.0 = 0;
   }
 }
 

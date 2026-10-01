@@ -25,6 +25,24 @@ pub struct UnsizedParameter;
 /// ```
 pub struct UnsizedReturn;
 
+/// the function without return value is not supported
+/// ```compile_fail,E0277
+/// use rendiation_shader_api::*;
+/// fn case() {
+///   get_shader_fn::<AnyType>(String::new());
+/// }
+/// ```
+pub struct WithoutReturnValue;
+
+/// the function without return value is not supported, the macro reports it by `compile_error!`
+/// which has no error code
+/// ```compile_fail
+/// use rendiation_shader_api::*;
+/// #[shader_fn]
+/// fn case(a: Node<f32>) {}
+/// ```
+pub struct MacroWithoutReturnValue;
+
 /// the parameters of the macro style function must be nodes
 /// ```compile_fail,E0277
 /// use rendiation_shader_api::*;

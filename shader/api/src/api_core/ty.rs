@@ -91,6 +91,18 @@ impl<T: ShaderNodeType> BindingNode<BindingArray<ShaderBinding<T>>> {
   }
 }
 
+/// the buffer access of the binding array of uniform or storage buffers, the element must be a
+/// struct
+impl<T: ShaderNodeType + ShaderAbstractPtrAccess> BindingNode<BindingArray<ShaderBinding<T>>> {
+  pub fn index_readonly_buffer(&self, index: Node<u32>) -> ShaderReadonlyPtrOf<T> {
+    T::create_readonly_view_from_raw_ptr(Box::new(self.index(index).handle()))
+  }
+  /// only valid for the binding array of read_write storage buffers
+  pub fn index_buffer(&self, index: Node<u32>) -> ShaderPtrOf<T> {
+    T::create_view_from_raw_ptr(Box::new(self.index(index).handle()))
+  }
+}
+
 /// fixed size array in shader compile time, but dyn size in host runtime
 #[derive(Clone, Copy)]
 pub struct HostDynSizeArray<T>(PhantomData<T>);

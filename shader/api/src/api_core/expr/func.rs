@@ -50,7 +50,7 @@ pub enum ShaderFnTryDefineResult<T> {
   AlreadyDefined(ShaderUserDefinedFunction),
 }
 
-impl<T: ShaderNodeType> ShaderFnTryDefineResult<T> {
+impl<T: ShaderSizedValueNodeType> ShaderFnTryDefineResult<T> {
   pub fn or_define(
     self,
     f: impl FnOnce(&FunctionBuildCtx<T>),
@@ -75,7 +75,8 @@ pub fn shader_fn_name<T>(f: T) -> String {
 
 // todo check T match returned meta
 // todo, shader fn macro should check code not use rust return!
-pub fn get_shader_fn<T: ShaderNodeType>(name: String) -> ShaderFnTryDefineResult<T> {
+/// the shader function must return a value, the function without return value is not supported
+pub fn get_shader_fn<T: ShaderSizedValueNodeType>(name: String) -> ShaderFnTryDefineResult<T> {
   let info = call_shader_api(|g| g.get_fn(name.clone()));
 
   match info {
@@ -84,14 +85,9 @@ pub fn get_shader_fn<T: ShaderNodeType>(name: String) -> ShaderFnTryDefineResult
   }
 }
 
-impl<T: ShaderNodeType> FunctionBuildCtx<T> {
+impl<T: ShaderSizedValueNodeType> FunctionBuildCtx<T> {
   pub fn begin(name: String) -> Self {
-    let ty = T::ty();
-    let ty = match ty {
-      ShaderValueType::Never => None,
-      _ => Some(ty),
-    };
-    call_shader_api(|g| g.begin_define_fn(name, ty));
+    call_shader_api(|g| g.begin_define_fn(name, T::ty()));
     push_function_control_scope();
     Self(Default::default())
   }
@@ -104,11 +100,8 @@ impl<T: ShaderNodeType> FunctionBuildCtx<T> {
   }
 
   pub fn do_return(&self, r: impl Into<Node<T>>) {
-    let handle = match T::ty() {
-      ShaderValueType::Never => None,
-      _ => Some(r.into().handle()),
-    };
-    call_shader_api(|g| g.do_return(handle))
+    let handle = r.into().handle();
+    call_shader_api(|g| g.do_return(Some(handle)))
   }
 
   pub fn end_fn_define(self) -> ShaderUserDefinedFunction {

@@ -188,13 +188,22 @@ fn switch_without_default() {
 /// the if chain with else_if must be closed by else_by or else_over, otherwise the else scopes are
 /// never closed
 #[test]
-#[should_panic]
-#[ignore = "bug: ElseEmitter dropped after else_if is not checked, the else scope is never popped and the entry function body is silently lost"]
+#[should_panic(expected = "the if chain with else_if must be ended by else_by or else_over")]
 fn else_if_without_end() {
   build_compute(|builder| {
     let u = runtime_values(builder).u;
+    #[allow(unused_must_use)]
     if_by(u.equals(0), || {}).else_if(u.equals(1), || {});
   });
+}
+
+/// the backend rejects building the shader when some scope is not closed
+#[test]
+#[should_panic(expected = "the shader scopes are not balanced when building")]
+fn build_with_unclosed_scope() {
+  let mut api = rendiation_shader_backend_naga::ShaderAPINagaImpl::new(ShaderStage::Compute);
+  api.push_scope();
+  api.build();
 }
 
 /// all the forms of the if chain: several else_if, else_over without the final else, empty

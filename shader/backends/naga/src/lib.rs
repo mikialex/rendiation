@@ -699,6 +699,18 @@ impl ShaderAPI for ShaderAPINagaImpl {
         entry_index,
       } => {
         let space = map_address_space(desc.get_address_space().unwrap());
+        if let ShaderValueType::BindingArray { ty, .. } = &desc.ty
+          && space != naga::AddressSpace::Handle
+        {
+          assert!(
+            matches!(
+              ty,
+              ShaderValueSingleType::Sized(ShaderSizedValueType::Struct(_))
+                | ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedStruct(_))
+            ),
+            "the element of the buffer binding array must be a struct, got: {ty:?}"
+          );
+        }
         let ty = self.register_ty_impl(desc.ty);
         let binding = naga::ResourceBinding {
           group: bindgroup_index as u32,
@@ -884,8 +896,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
         parameters,
       } => {
         let function = self.fn_mapping[&meta.name];
-        // todo, currently we do not support function without return value
-        assert!(self.module.functions[function].result.is_some());
         return self.make_statement_result(
           naga::Expression::CallResult(function),
           |this, result| naga::Statement::Call {
@@ -1368,7 +1378,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
       .then_some(ShaderUserDefinedFunction { name })
   }
 
-  fn begin_define_fn(&mut self, name: String, return_ty: Option<ShaderValueType>) {
+  fn begin_define_fn(&mut self, name: String, return_ty: ShaderValueType) {
     let name = Some(name);
     if self.building_fn.iter().any(|f| f.name.eq(&name)) {
       panic!("recursive fn definition is not allowed")
@@ -1380,8 +1390,8 @@ impl ShaderAPI for ShaderAPINagaImpl {
     );
 
     let f = naga::Function {
-      result: return_ty.map(|ty| naga::FunctionResult {
-        ty: self.register_ty_impl(ty),
+      result: Some(naga::FunctionResult {
+        ty: self.register_ty_impl(return_ty),
         binding: None,
       }),
       name,
@@ -1418,6 +1428,11 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn build(&mut self) -> (String, Box<dyn Any>) {
+    // only the entry function body is left open
+    assert!(
+      self.building_fn.len() == 1 && self.block.len() == 1 && self.control_structure.is_empty(),
+      "the shader scopes are not balanced when building, some scope or function is not closed"
+    );
     self.pop_scope();
 
     (

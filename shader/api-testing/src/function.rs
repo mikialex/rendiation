@@ -938,23 +938,6 @@ fn fn_writes_workgroup_variable() {
   });
 }
 
-/// the function without return value
-#[test]
-#[ignore = "bug: calling a function without return value panics in the naga backend"]
-fn fn_without_return_value() {
-  check_compute(|builder| {
-    let u = runtime_values(builder).u;
-    get_shader_fn::<AnyType>("fn_without_return_value".to_string())
-      .or_define(|cx| {
-        let x = cx.push_fn_parameter_by(u);
-        keep(x);
-      })
-      .prepare_parameters()
-      .push(u)
-      .call();
-  });
-}
-
 /// Run the shader logic on the GPU for each input value, and compare with the cpu reference logic.
 async fn check_fn<O>(shader: impl Fn(Node<u32>) -> Node<O> + 'static, cpu: impl Fn(u32) -> O)
 where

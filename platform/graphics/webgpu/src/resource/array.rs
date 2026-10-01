@@ -116,9 +116,14 @@ where
       *count = self.max_binding_length as usize;
     }
 
+    // the buffer address space is decided by the element. the binding array can not be empty when
+    // bound (wgpu rejects the zero length binding array), so the element is available when used
+    let element = self.bindings.first().map(|v| v.binding_desc());
     ShaderBindingDescriptor {
-      should_as_storage_buffer_if_is_buffer_like: false,
-      writeable_if_storage: false,
+      should_as_storage_buffer_if_is_buffer_like: element
+        .as_ref()
+        .is_some_and(|v| v.should_as_storage_buffer_if_is_buffer_like),
+      writeable_if_storage: element.is_some_and(|v| v.writeable_if_storage),
       has_dynamic_offset: false,
       ty,
     }

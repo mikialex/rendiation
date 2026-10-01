@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
@@ -724,19 +726,153 @@ fn binding_array_of_textures() {
   });
 }
 
-/// the binding array of readonly storage buffers of a struct (naga requires the struct element),
-/// the indexed binding has no typed buffer access, so the raw pointer is used
+/// Create a binding array of buffers in the address space without any GPU resource container.
+fn fake_buffer_binding_array<T: ShaderNodeSingleType>(
+  entry_index: usize,
+  count: usize,
+  space: BufferSpace,
+) -> BindingNode<BindingArray<ShaderBinding<T>>> {
+  let ty = ShaderValueType::BindingArray {
+    count,
+    ty: T::single_ty(),
+  };
+  ShaderInputNode::Binding {
+    desc: buffer_binding_desc(ty, space),
+    bindgroup_index: 0,
+    entry_index,
+  }
+  .insert_api()
+}
+
+/// the binding arrays of readonly storage, read_write storage and uniform buffers of the padded
+/// structs, the fields are accessed through the indexed buffer
 #[test]
-#[ignore = "bug: the binding array of buffers is declared in the handle address space"]
-fn binding_array_of_storage_buffers() {
+fn binding_array_of_buffers() {
   check_compute(|builder| {
     let u = runtime_values(builder).u;
-    let buffers = fake_binding_array::<Std430Inner>(0, 2, true);
-    let buffer = buffers.index(u);
-    let buffer = Std430Inner::create_readonly_view_from_raw_ptr(Box::new(buffer.handle()));
+
+    let readonly = fake_buffer_binding_array::<Std430Inner>(0, 2, BufferSpace::Storage);
+    let buffer = readonly.index_readonly_buffer(u);
     keep(buffer.a().load());
     keep(buffer.v().load());
+
+    let read_write = fake_buffer_binding_array::<Std430Inner>(1, 2, BufferSpace::ReadWriteStorage);
+    let buffer = read_write.index_buffer(u);
+    buffer.a().store(buffer.v().load().z());
+
+    let uniform = fake_buffer_binding_array::<Std140C>(2, 2, BufferSpace::Uniform);
+    let buffer = uniform.index_readonly_buffer(val(1));
+    keep(buffer.b().inner().x().load());
+    keep(buffer.c().load());
   });
+}
+
+/// the element of the buffer binding array must be a struct
+#[test]
+#[should_panic(expected = "the element of the buffer binding array must be a struct")]
+fn binding_array_of_non_struct_buffers() {
+  build_compute(|_| {
+    fake_buffer_binding_array::<Vec4<f32>>(0, 2, BufferSpace::Storage);
+  });
+}
+
+type StorageBufferArray = BindingResourceArray<StorageBufferReadonlyDataView<Std430Inner>>;
+
+/// Read the fields of each buffer of the binding array, and write them to the output.
+fn read_storage_buffer_array(
+  builder: &mut ShaderComputePipelineBuilder,
+  array: &StorageBufferArray,
+  output: &StorageBufferDataView<[f32]>,
+) {
+  let array = builder.bind_by(array);
+  let output = builder.bind_by(output);
+  for i in 0..2 {
+    let buffer = array.index_readonly_buffer(val(i));
+    output
+      .index(val(i))
+      .store(buffer.a().load() + buffer.v().load().z());
+  }
+}
+
+/// the binding array container of readonly storage buffers declares the readonly storage binding
+/// in the shader and the layout, and the indexed buffers are read on the GPU if the device supports
+/// the buffer binding array
+#[pollster::test]
+async fn binding_array_of_storage_buffers_gpu() {
+  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let items = [
+    std430_inner(1., Vec3::new(2., 3., 4.)),
+    std430_inner(5., Vec3::new(6., 7., 8.)),
+  ];
+  let buffers = items
+    .iter()
+    .map(|item| create_gpu_readonly_storage(item, &gpu, "binding array element"))
+    .collect();
+  let array = BindingResourceArray::new(Arc::new(buffers), 2, &gpu.device);
+  let output = create_gpu_read_write_storage::<[f32]>(
+    ZeroedArrayByArrayLength(items.len()),
+    &gpu,
+    "binding array output",
+  );
+
+  let desc = array.binding_desc();
+  assert!(desc.should_as_storage_buffer_if_is_buffer_like && !desc.writeable_if_storage);
+  let entry = map_shader_value_ty_to_binding_layout_type(&desc, 0, ShaderStages::COMPUTE);
+  assert_eq!(entry.count, std::num::NonZeroU32::new(2));
+  assert!(matches!(
+    entry.ty,
+    BindingType::Buffer {
+      ty: BufferBindingType::Storage { read_only: true },
+      ..
+    }
+  ));
+
+  let mut builder = ShaderComputePipelineBuilder::new(
+    &|stage| {
+      Box::new(rendiation_shader_backend_naga::ShaderAPINagaImpl::new(
+        stage,
+      ))
+    },
+    ShaderRuntimeChecks::default(),
+  );
+  read_storage_buffer_array(&mut builder, &array, &output);
+  let result = builder.build().expect("failed to build shader");
+  validate(
+    &result
+      .shader
+      .1
+      .downcast::<rendiation_shader_backend_naga::NagaModuleBuildResult>()
+      .unwrap()
+      .module,
+  );
+
+  let required = Features::BUFFER_BINDING_ARRAY | Features::STORAGE_RESOURCE_BINDING_ARRAY;
+  if !gpu.info().supported_features.contains(required) {
+    println!("the GPU execution is skipped, the buffer binding array is not supported");
+    return;
+  }
+
+  let hasher = shader_hasher_from_marker_ty!(BufferBindingArray);
+  let pipeline = gpu
+    .device
+    .get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+      builder = builder.with_config_work_group_size(1);
+      read_storage_buffer_array(&mut builder, &array, &output);
+      builder
+    });
+
+  let mut encoder = gpu.create_encoder().with_compute_pass_scoped(|mut pass| {
+    BindingBuilder::default()
+      .with_bind(&array)
+      .with_bind(&output)
+      .setup_compute_pass(&mut pass, &gpu.device, &pipeline);
+    pass.dispatch_workgroups(1, 1, 1);
+  });
+  let result = encoder.read_buffer(&gpu.device, &output);
+  gpu.submit_encoder(encoder);
+  let result = result.await.unwrap();
+  let result = <[f32]>::from_bytes_into_boxed(&result.read_raw()).into_vec();
+  assert_eq!(result, [5., 13.]);
 }
 
 /// Define and call a user function without parameter, its body captures the nodes created in the
