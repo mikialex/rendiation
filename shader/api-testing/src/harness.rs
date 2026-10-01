@@ -167,24 +167,22 @@ where
 }
 
 /// The pointer of `T` at the u32 offset of the u32 heap (in std430 layout), the same pointer
-/// implementation of the combined buffer.
+/// implementation of the combined buffer. The type is registered like the combined buffer does, so
+/// the struct field offsets are known.
 pub fn u32_heap_ptr<T>(heap: ShaderPtrOf<[u32]>, offset: u32) -> ShaderPtrOf<T>
 where
-  T: ShaderNodeType + ShaderAbstractPtrAccess,
+  T: ShaderSizedValueNodeType + ShaderAbstractPtrAccess,
 {
-  let ShaderValueType::Single(ty) = T::ty() else {
-    unreachable!("expect single type")
-  };
+  let mut meta = ShaderU32StructMetaData::new(StructLayoutTarget::Std430);
+  meta.register_ty(&MaybeUnsizedValueType::Sized(T::sized_ty()));
   let ptr = U32HeapPtrWithType {
     ptr: U32HeapPtr {
       array: U32HeapHeapSource::Common(heap),
       offset: val(offset),
     },
-    ty,
+    ty: ShaderValueSingleType::Sized(T::sized_ty()),
     array_length: None,
-    meta: Arc::new(RwLock::new(ShaderU32StructMetaData::new(
-      StructLayoutTarget::Std430,
-    ))),
+    meta: Arc::new(RwLock::new(meta)),
   };
   T::create_view_from_raw_ptr(Box::new(ptr))
 }

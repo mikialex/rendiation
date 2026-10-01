@@ -24,16 +24,27 @@ impl ShaderTaskMeshBuilderGroup {
     }
   }
 
+  /// the previous building stage is restored after the call
   pub fn expect_task_shader(&mut self, f: impl FnOnce(&mut ShaderTaskBuilder)) {
+    let previous = get_current_stage();
     set_current_building(ShaderStage::Task.into());
     f(self.task.as_mut().unwrap());
-    set_current_building(None);
+    set_current_building(previous);
   }
 
+  /// the previous building stage is restored after the call
   pub fn mesh_shader(&mut self, f: impl FnOnce(&mut ShaderMeshBuilder)) {
+    let previous = get_current_stage();
     set_current_building(ShaderStage::Mesh.into());
     f(&mut self.mesh);
-    set_current_building(None);
+    set_current_building(previous);
+  }
+
+  /// set the mesh stage as the current building stage, for the
+  /// [AbstractShaderVertexBuilder::set_current_building] implementation of the mesh pipeline, so the
+  /// vertex logic is built in the mesh stage by default
+  pub fn set_mesh_as_current_building(&self) {
+    set_current_building(ShaderStage::Mesh.into());
   }
 }
 
@@ -47,6 +58,13 @@ impl ShaderTaskBuilder {
 
   pub fn set_output_mesh_task_size(&mut self, size: Node<Vec3<u32>>) {
     call_shader_api(|api| api.set_output_mesh_task_size(size.handle()));
+  }
+
+  /// the task stage is compute like, the workgroup size must be configured
+  ///
+  /// assume called in task scope
+  pub fn config_work_group_size(&mut self, size: impl IntoWorkgroupSize) {
+    call_shader_api(|api| api.set_workgroup_size(size.into_size()));
   }
 }
 
@@ -65,6 +83,13 @@ fn define_task_payload<P: ShaderSizedValueNodeType>() -> ShaderPtrOf<P> {
 }
 
 impl ShaderMeshBuilder {
+  /// the mesh stage is compute like, the workgroup size must be configured
+  ///
+  /// assume called in mesh scope
+  pub fn config_work_group_size(&mut self, size: impl IntoWorkgroupSize) {
+    call_shader_api(|api| api.set_workgroup_size(size.into_size()));
+  }
+
   /// the P must match the task shader defined output
   ///
   /// assume called in mesh scope
@@ -93,27 +118,29 @@ impl ShaderMeshBuilder {
       host_layout: None,
     });
 
-    let primitive_output_type = ShaderSizedValueType::FixedSizeArray(
-      Box::new(primitive_output_type),
-      max_primitives as usize,
-    );
-
     let vertex_output_type = ShaderSizedValueType::Struct(vertex_output_type);
 
-    let vertex_output_type =
-      ShaderSizedValueType::FixedSizeArray(Box::new(vertex_output_type), max_vertices as usize);
+    // the output variable holds the arrays, the mesh stage info describes their element types
+    let primitive_output_array = ShaderSizedValueType::FixedSizeArray(
+      Box::new(primitive_output_type.clone()),
+      max_primitives as usize,
+    );
+    let vertex_output_array = ShaderSizedValueType::FixedSizeArray(
+      Box::new(vertex_output_type.clone()),
+      max_vertices as usize,
+    );
 
     let mesh_shader_output_all_ty = ShaderSizedValueType::Struct(ShaderStructMetaInfo {
       name: "MeshShaderOutput".into(),
       fields: vec![
         ShaderStructFieldMetaInfo {
           name: "vertices".into(),
-          ty: vertex_output_type.clone(),
+          ty: vertex_output_array,
           ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::MeshVerticesOutput).into(),
         },
         ShaderStructFieldMetaInfo {
           name: "primitives".into(),
-          ty: primitive_output_type.clone(),
+          ty: primitive_output_array,
           ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::MeshPrimitiveOutput)
             .into(),
         },
@@ -187,8 +214,9 @@ impl MeshShaderVertexHelper {
       let mut parameters =
         vec![ShaderNodeRawHandle { handle: usize::MAX }; self.io_mapping.vertex_out.len()];
 
+      // the vertex outputs are stored in the local variables, see set_vertex_out_impl
       for (node, _) in self.io_mapping.vertex_out.values() {
-        parameters[node.location] = node.node;
+        parameters[node.location] = api.load(node.node);
       }
       parameters.push(clip_position);
 

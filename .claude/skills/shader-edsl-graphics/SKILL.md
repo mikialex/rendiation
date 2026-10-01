@@ -370,6 +370,27 @@ let sum = weights
 ```
 
 
+## Task / Mesh Shading
+
+The mesh pipeline replaces the vertex stage by an optional task stage and the mesh stage, the
+pipeline builder takes a `MeshShaderLogic` (a full sample is the test implementation in
+`shader/api-testing/src/mesh.rs`):
+
+- `create_abstract_vertex_shader_cx` receives the `ShaderTaskMeshBuilderGroup` and returns the
+  `AbstractShaderVertexBuilder` used by `builder.vertex(..)`, its `set_current_building` must call
+  `group.set_mesh_as_current_building()`, so the vertex logic is built in the mesh stage.
+- The stage specific logic runs in `group.expect_task_shader(|task| ..)` and
+  `group.mesh_shader(|mesh| ..)`, the previous building stage is restored after the call.
+- The task and mesh stages are compute like, call `config_work_group_size` of `ShaderTaskBuilder` /
+  `ShaderMeshBuilder`, building without it panics.
+- Task: `define_task_payload_output::<P>()` and `set_output_mesh_task_size(size)`. Mesh:
+  `expect_task_input_input::<P>()` reads the payload, `define_mesh_output_info(topology,
+  max_vertices, max_primitives, vertex_ty)` declares and returns the output variable (the vertices
+  and primitives arrays, the vertex and primitive counts).
+- `MeshShaderVertexHelper` implements the vertex outputs (`set_vertex_out_impl`, `finalize_write`,
+  `sync_fragment_out`), `create_output_struct_for_mesh_vertices_output` gives the vertex output
+  struct. The user defined per primitive output is not supported yet.
+
 ## Gotchas (Graphics-specific)
 
 ### Fragment Output

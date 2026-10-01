@@ -252,8 +252,9 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
   fn field_array_index(&self, index: Node<u32>) -> BoxedShaderPtr {
     let meta = self.meta.read();
     let (offset, ty) = match &self.ty {
-      ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) => {
-        // note, the array bound check will be done automatically at outside if enabled.
+      // note, the array bound check will be done automatically at outside if enabled.
+      ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty))
+      | ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray(ty, _)) => {
         let stride = array_stride_of_element(ty, meta.layout) as u32 / 4;
         (val(stride) * index, (**ty).clone())
       }
@@ -272,8 +273,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
         }
         PrimitiveShaderValueType::Scalar(_) => unreachable!("scalar can not be indexed"),
       },
-      // todo, we should support fixed size array, as the rrf shader api allows user do field_array_index on fixed size array
-      _ => unreachable!("not an runtime-size array, vector or matrix type"),
+      _ => unreachable!("not an array, vector or matrix type"),
     };
     Box::new(Self {
       ptr: self.ptr.advance(offset),

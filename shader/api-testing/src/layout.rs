@@ -615,27 +615,6 @@ fn compose_matrix_by_host_value() {
   });
 }
 
-/// The struct pointer at the u32 offset of the u32 heap (the pointer implementation of the
-/// combined buffer), like `u32_heap_ptr` of the harness, but the struct type is registered so the
-/// field offsets are known.
-fn u32_heap_struct_ptr<T: ShaderSizedValueNodeType>(
-  heap: ShaderPtrOf<[u32]>,
-  offset: u32,
-) -> ShaderPtrOf<T> {
-  let mut meta = ShaderU32StructMetaData::new(StructLayoutTarget::Std430);
-  meta.register_ty(&MaybeUnsizedValueType::Sized(T::sized_ty()));
-  let ptr = U32HeapPtrWithType {
-    ptr: U32HeapPtr {
-      array: U32HeapHeapSource::Common(heap),
-      offset: val(offset),
-    },
-    ty: ShaderValueSingleType::Sized(T::sized_ty()),
-    array_length: None,
-    meta: std::sync::Arc::new(parking_lot::RwLock::new(meta)),
-  };
-  T::create_view_from_raw_ptr(Box::new(ptr))
-}
-
 const U32_HEAP_OFFSET: u32 = 4;
 const STD140_MIXED_U32_SIZE: u32 = (size_of::<Std140Mixed>() / 4) as u32;
 
@@ -648,16 +627,18 @@ fn std140_u32_heap_logic(
 ) -> Vec<Node<f32>> {
   let zero = builder.global_invocation_id().x();
   let heap = |i: usize| typed_ptr::<[u32]>(&buffers[i]);
-  let source = u32_heap_struct_ptr::<Std140Mixed>(heap(0), U32_HEAP_OFFSET);
+  let source = u32_heap_ptr::<Std140Mixed>(heap(0), U32_HEAP_OFFSET);
   let source = as_readonly(&source);
-  let by_fields = u32_heap_struct_ptr::<Std140Mixed>(heap(1), U32_HEAP_OFFSET);
+  let by_fields = u32_heap_ptr::<Std140Mixed>(heap(1), U32_HEAP_OFFSET);
   let whole_offset = U32_HEAP_OFFSET + STD140_MIXED_U32_SIZE;
-  let whole = u32_heap_struct_ptr::<Std140Mixed>(heap(1), whole_offset);
+  let whole = u32_heap_ptr::<Std140Mixed>(heap(1), whole_offset);
 
-  let mut r = std140_mixed_ptr_leaves(&source, zero, ArrayAccess::Whole);
+  // the fixed size arrays are indexed, except reading back the field by field written struct, which
+  // covers loading the whole array
+  let mut r = std140_mixed_ptr_leaves(&source, zero, ArrayAccess::Index);
   let loaded = source.load();
   r.extend(std140_mixed_value_leaves(loaded, zero));
-  std140_mixed_store_by_fields(&by_fields, &source, zero, ArrayAccess::Whole);
+  std140_mixed_store_by_fields(&by_fields, &source, zero, ArrayAccess::Index);
   whole.store(loaded);
   r.extend(std140_mixed_ptr_leaves(
     &as_readonly(&by_fields),
@@ -667,7 +648,7 @@ fn std140_u32_heap_logic(
   r.extend(std140_mixed_ptr_leaves(
     &as_readonly(&whole),
     zero,
-    ArrayAccess::Whole,
+    ArrayAccess::Index,
   ));
   r
 }
@@ -724,11 +705,10 @@ async fn std140_padded_struct_u32_heap_gpu() {
 
 /// the fixed size array field is indexed through the u32 heap pointer
 #[test]
-#[ignore = "bug: the u32 heap pointer does not support the fixed size array index"]
 fn u32_heap_fixed_size_array_index() {
   check_compute(|builder| {
     let u = runtime_values(builder).u;
-    let ptr = u32_heap_struct_ptr::<Std140Mixed>(fake_storage_buffer::<[u32]>(0), 0);
+    let ptr = u32_heap_ptr::<Std140Mixed>(fake_storage_buffer::<[u32]>(0), 0);
     keep(ptr.b_arr().index(u).inner().x().load());
     keep(ptr.v4_arr().index(u).load());
   });

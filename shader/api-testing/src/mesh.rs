@@ -1,7 +1,6 @@
 use std::any::TypeId;
 
 use rendiation_shader_api::*;
-use rendiation_shader_backend_naga::*;
 
 use crate::graphics::*;
 use crate::harness::*;
@@ -28,9 +27,11 @@ const WORKGROUP_SIZE: u32 = 3;
 
 /// The mesh shading logic of the tests. Each mesh invocation writes one vertex and one triangle,
 /// the indices, the triangle and the clip position are given by the registered semantics, and
-/// the vertex outputs are set like the vertex stage.
+/// the vertex outputs are set like the vertex stage. The mesh workgroup size is configured if
+/// given.
 struct TestMeshShading {
   task: bool,
+  workgroup_size: Option<u32>,
 }
 
 impl MeshShaderLogic for TestMeshShading {
@@ -43,7 +44,12 @@ impl MeshShaderLogic for TestMeshShading {
     mut group: ShaderTaskMeshBuilderGroup,
   ) -> Box<dyn AbstractShaderVertexBuilder> {
     let mut counts = None;
-    group.mesh_shader(|_| counts = Some((val(MAX_VERTICES), val(MAX_PRIMITIVES))));
+    group.mesh_shader(|mesh| {
+      if let Some(size) = self.workgroup_size {
+        mesh.config_work_group_size(size);
+      }
+      counts = Some((val(MAX_VERTICES), val(MAX_PRIMITIVES)));
+    });
     let (vertices, primitives) = counts.unwrap();
     Box::new(TestMeshBuilder {
       group,
@@ -70,9 +76,9 @@ impl AbstractShaderVertexBuilder for TestMeshBuilder {
     None
   }
 
-  // the current building stage can not be set outside of the shader api crate, every shader
-  // api call is wrapped by `ShaderTaskMeshBuilderGroup::mesh_shader` instead
-  fn set_current_building(&mut self) {}
+  fn set_current_building(&mut self) {
+    self.group.set_mesh_as_current_building();
+  }
 
   fn finalize_write(&mut self) {
     let position = self.try_query::<ClipPosition>();
@@ -149,11 +155,10 @@ impl MeshPipelineModules {
 }
 
 fn build_mesh_pipeline_by(
-  task: bool,
+  shading: TestMeshShading,
   logic: impl Fn(&mut ShaderRenderPipelineBuilder),
-  api: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
 ) -> MeshPipelineModules {
-  let result = build_graphics_pipeline(logic, Some(&TestMeshShading { task }), api);
+  let result = build_graphics_pipeline(logic, Some(&shading), &naga_stage_api);
   let VertexOrTaskMesh::TaskMesh { task, mesh } = result.shape_shader else {
     unreachable!("expect mesh pipeline")
   };
@@ -164,24 +169,18 @@ fn build_mesh_pipeline_by(
   }
 }
 
-/// The EDSL has no api to config the workgroup size of the task and mesh stage, so it is set when
-/// the stage api is created.
-fn mesh_stage_api(stage: ShaderStage) -> DynamicShaderAPI {
-  let mut api = ShaderAPINagaImpl::new(stage);
-  if matches!(stage, ShaderStage::Task | ShaderStage::Mesh) {
-    api.set_workgroup_size((WORKGROUP_SIZE, 1, 1));
-  }
-  Box::new(api)
-}
-
 fn build_mesh_pipeline(
   task: bool,
   logic: impl Fn(&mut ShaderRenderPipelineBuilder),
 ) -> MeshPipelineModules {
-  build_mesh_pipeline_by(task, logic, &mesh_stage_api)
+  let shading = TestMeshShading {
+    task,
+    workgroup_size: Some(WORKGROUP_SIZE),
+  };
+  build_mesh_pipeline_by(shading, logic)
 }
 
-/// Run the logic in the mesh stage.
+/// Run the logic with the mesh stage builder.
 fn in_mesh_stage<T>(
   builder: &mut ShaderVertexBuilder,
   logic: impl FnOnce(&mut ShaderMeshBuilder) -> T,
@@ -217,6 +216,7 @@ fn write_task_payload_and_size(builder: &mut ShaderVertexBuilder) {
     .task_mesh_shader()
     .unwrap()
     .expect_task_shader(|task| {
+      task.config_work_group_size(WORKGROUP_SIZE);
       let colors = fake_storage_buffer::<[Vec4<f32>]>(0);
       let payload = task.define_task_payload_output::<TestTaskPayload>();
       let index = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::CompWorkgroupId)
@@ -260,11 +260,8 @@ fn task_stage() {
       write_mesh_vertex_and_triangle(builder);
     });
   });
+  modules.validate();
   let task = modules.task.as_ref().unwrap();
-  validate(task);
-  validate(&modules.fragment);
-  // the mesh module is not validated here, it is blocked by the bug, see
-  // `mesh_pipeline_without_task`
 
   let entry = &task.entry_points[0];
   assert_eq!(entry.stage, naga::ShaderStage::Task);
@@ -298,7 +295,6 @@ fn task_stage() {
 /// the task, mesh and fragment pipeline with the task payload and the vertex outputs (including
 /// the one added by the fragment stage), the vertex output locations match the fragment inputs
 #[test]
-#[ignore = "bug: MeshShaderVertexHelper composes the vertex output from the local variable pointers, and the MeshStageInfo output type bug"]
 fn mesh_pipeline_with_task() {
   let modules = build_mesh_pipeline(true, |builder| {
     builder.vertex(|builder, _| {
@@ -357,7 +353,6 @@ fn mesh_pipeline_with_task() {
 /// the mesh and fragment pipeline without the task stage and user defined vertex output, the
 /// mesh output info describes the output variable
 #[test]
-#[ignore = "bug: MeshStageInfo vertex and primitive output types are the array types instead of the element types"]
 fn mesh_pipeline_without_task() {
   let modules = build_mesh_pipeline(false, |builder| {
     builder.vertex(|builder, _| {
@@ -396,21 +391,19 @@ fn mesh_pipeline_without_task() {
   assert_eq!(builtin_members(members), [naga::BuiltIn::TriangleIndices]);
 }
 
-/// the task and mesh stage are compute like, the workgroup size must be configured
+/// the mesh stage is compute like, building without the workgroup size config is rejected
 #[test]
-#[ignore = "bug: no api to config the workgroup size of the task and mesh stage"]
-fn mesh_pipeline_workgroup_size() {
-  let modules = build_mesh_pipeline_by(
-    true,
-    |builder| {
-      builder.vertex(|builder, _| {
-        write_task_payload_and_size(builder);
-        write_mesh_vertex_and_triangle(builder);
-      });
-    },
-    &naga_stage_api,
-  );
-  modules.validate();
+#[should_panic(expected = "the workgroup size of the Mesh stage is not configured")]
+fn mesh_pipeline_without_workgroup_size() {
+  let shading = TestMeshShading {
+    task: false,
+    workgroup_size: None,
+  };
+  build_mesh_pipeline_by(shading, |builder| {
+    builder.vertex(|builder, _| {
+      write_mesh_vertex_and_triangle(builder);
+    });
+  });
 }
 
 /// the vertex stage only ability is not available in the mesh pipeline

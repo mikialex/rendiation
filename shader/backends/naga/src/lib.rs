@@ -1433,6 +1433,17 @@ impl ShaderAPI for ShaderAPINagaImpl {
       self.building_fn.len() == 1 && self.block.len() == 1 && self.control_structure.is_empty(),
       "the shader scopes are not balanced when building, some scope or function is not closed"
     );
+    let entry = &self.module.entry_points[0];
+    if matches!(
+      entry.stage,
+      naga::ShaderStage::Compute | naga::ShaderStage::Task | naga::ShaderStage::Mesh
+    ) {
+      assert!(
+        entry.workgroup_size.iter().all(|v| *v > 0),
+        "the workgroup size of the {:?} stage is not configured",
+        entry.stage
+      );
+    }
     self.pop_scope();
 
     (
