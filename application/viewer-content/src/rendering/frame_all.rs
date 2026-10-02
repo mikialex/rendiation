@@ -554,7 +554,12 @@ impl Viewer3dRenderingCtx {
       .init_only
       .using_texture_as_storage_buffer_for_indirect_rendering
     {
-      Box::new(rendiation_webgpu_texture_as_buffer::TextureAsStorageAllocator(self.gpu.clone()))
+      // the incremental scene updates are sparse and fragmented by nature
+      Box::new(
+        rendiation_webgpu_texture_as_buffer::TextureAsStorageAllocator::new_with_host_backup(
+          &self.gpu,
+        ),
+      )
     } else {
       Box::new(DefaultStorageAllocator)
     }

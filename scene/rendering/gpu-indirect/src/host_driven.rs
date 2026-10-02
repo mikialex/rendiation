@@ -76,7 +76,8 @@ impl IndirectSceneRenderer {
           _ => unreachable!(),
         };
 
-        let alloc = rendiation_webgpu_texture_as_buffer::TextureAsStorageAllocator(ctx.gpu.clone());
+        // the buffers are written once after creation, so the host backup is not required
+        let alloc = rendiation_webgpu_texture_as_buffer::TextureAsStorageAllocator::new(ctx.gpu);
         let (helper, cmd) =
           rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count_host_driven(
             batch, ctx.gpu, &alloc,

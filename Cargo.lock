@@ -5391,13 +5391,11 @@ dependencies = [
 name = "rendiation-webgpu-texture-as-buffer"
 version = "0.1.0"
 dependencies = [
- "bytemuck",
- "dyn-clone",
- "fast-hash-collection",
- "log",
  "parking_lot",
+ "pollster",
  "rendiation-shader-api",
  "rendiation-webgpu",
+ "rendiation-webgpu-virtual-typed-combine-buffer",
 ]
 
 [[package]]
