@@ -1,13 +1,19 @@
 use crate::*;
 
-/// the array length stored in the header, only Some if the content type is a runtime sized array
+/// the length of the runtime sized array, for the unsized struct it is the length of the last
+/// field, return None for the sized type
 pub(crate) fn runtime_array_length(ty_desc: &MaybeUnsizedValueType, byte_size: u64) -> Option<u32> {
-  if let MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = ty_desc {
-    let stride = array_stride_of_element(ty, StructLayoutTarget::Std430) as u64;
-    Some((byte_size / stride) as u32)
-  } else {
-    None
-  }
+  let layout = StructLayoutTarget::Std430;
+  let (array_offset, ty) = match ty_desc {
+    MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) => (0, ty),
+    MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedStruct(ty)) => {
+      let (array_offset, _) = ty.runtime_array_layout(layout);
+      (array_offset as u64, &ty.last_dynamic_array_field.1)
+    }
+    MaybeUnsizedValueType::Sized(_) => return None,
+  };
+  let stride = array_stride_of_element(ty, layout) as u64;
+  Some((byte_size.saturating_sub(array_offset) / stride) as u32)
 }
 
 pub(crate) fn bind_heap_texture_shader(
@@ -19,26 +25,22 @@ pub(crate) fn bind_heap_texture_shader(
   let heap = TextureAsU32Heap {
     texture,
     width: texture.texture_dimension_2d(None).x(),
-    length_from_header: false,
+    length_from_last_texel: false,
   };
-
-  let runtime_array_ty =
-    if let MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = ty_desc {
-      Some(ty)
-    } else {
-      None
-    };
 
   // the u32 array is the heap itself, the typed wrapper is not required. this also avoids the
   // nested u32 heap access when the combined buffer is built on top of this.
-  if runtime_array_ty.is_some_and(|ty| **ty == u32::sized_ty()) {
+  if let MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = ty_desc
+    && **ty == u32::sized_ty()
+  {
     return Box::new(TextureAsU32Heap {
-      length_from_header: true,
+      length_from_last_texel: true,
       ..heap
     });
   }
 
-  let array_length = runtime_array_ty.map(|_| heap.header());
+  let is_unsized = matches!(ty_desc, MaybeUnsizedValueType::Unsized(_));
+  let array_length = is_unsized.then(|| heap.last_texel());
 
   let mut meta = ShaderU32StructMetaData::new(StructLayoutTarget::Std430);
   meta.register_ty(ty_desc);
@@ -56,22 +58,24 @@ pub(crate) fn bind_heap_texture_shader(
   })
 }
 
-/// The readonly `[u32]` view of the texture, the index skips the header texel.
+/// The readonly `[u32]` view of the texture.
 #[derive(Clone)]
 struct TextureAsU32Heap {
   texture: BindingNode<ShaderTexture<TextureDimension2, u32>>,
   /// cache the texture dimension call result
   width: Node<u32>,
-  /// if true, the array length is read from the header, otherwise it is the u32 capacity. the
+  /// if true, the array length is read from the last texel, otherwise it is the u32 capacity. the
   /// former is used when the content type is `[u32]`, the latter is used when the heap is wrapped by
   /// the typed u32 heap ptr, which compares the u32 offset with the array length when the bound
   /// check is enabled.
-  length_from_header: bool,
+  length_from_last_texel: bool,
 }
 
 impl TextureAsU32Heap {
-  fn header(&self) -> Node<u32> {
-    self.texture.load_texel(val(Vec2::zero()), 0).x()
+  fn last_texel(&self) -> Node<u32> {
+    let size = self.texture.texture_dimension_2d(None);
+    let position = (size.x() - val(1), size.y() - val(1)).into();
+    self.texture.load_texel(position, 0).x()
   }
 }
 
@@ -81,7 +85,6 @@ impl AbstractShaderPtr for TextureAsU32Heap {
   }
 
   fn field_array_index(&self, index: Node<u32>) -> BoxedShaderPtr {
-    let index = index + val(1);
     let x = index % self.width;
     let y = index / self.width;
     Box::new(TextureAsU32HeapPosition {
@@ -91,8 +94,8 @@ impl AbstractShaderPtr for TextureAsU32Heap {
   }
 
   fn array_length(&self) -> Node<u32> {
-    if self.length_from_header {
-      self.header()
+    if self.length_from_last_texel {
+      self.last_texel()
     } else {
       let height = self.texture.texture_dimension_2d(None).y();
       self.width * height - val(1)

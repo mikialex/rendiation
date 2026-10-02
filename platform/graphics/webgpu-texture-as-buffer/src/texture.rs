@@ -2,9 +2,12 @@ use crate::*;
 
 /// The R32Uint texture that stores the u32 heap in row major order.
 ///
-/// The first texel is the header, it stores the array length if the content type is a runtime
-/// sized array. The header is only written by the queue, and the copies recorded in encoder never
-/// touch it, so the header writes always take effect in the issue order, even if the encoder that
+/// The data starts from the first texel. The last texel stores the length of the runtime sized
+/// array, for the unsized struct it is the length of the last field. As the extent is padded, the
+/// last texel is usually in the padding and costs nothing.
+///
+/// The length is only written by the queue, and the copies recorded in encoder only touch the data
+/// part, so the length writes always take effect in the issue order, even if the encoder that
 /// contains the copies is submitted later.
 #[derive(Clone)]
 pub(crate) struct TextureU32Heap {
@@ -42,6 +45,15 @@ impl TextureU32Heap {
       width: size.width,
       height: size.height,
     }
+  }
+
+  /// the max u32 count of the data, the last texel is reserved for the array length
+  pub fn data_capacity(&self) -> u64 {
+    self.extent().texel_count() - 1
+  }
+
+  pub fn write_array_length(&self, queue: &GPUQueue, length: u32) {
+    self.write(queue, self.data_capacity(), bytes_of(&length));
   }
 
   fn gpu_texture(&self) -> &raw_gpu::Texture {

@@ -19,12 +19,14 @@ pub struct TextureAsReadonlyStorageBufferWithHost {
 }
 
 struct HostBackupInternal {
-  /// the heap content including the header. the length never shrinks, and the part beyond the
-  /// byte size is kept zeroed, so the grow within the length does not require upload.
+  /// the data content. the length never shrinks, and the part beyond the byte size is kept
+  /// zeroed, so the grow within the length does not require upload.
   host: Vec<u8>,
   byte_size: u64,
   dirty: DirtyTexelRanges,
-  /// the content is same as the host except the dirty part
+  /// the array length is not stored in host, it is written to the texture when flush
+  array_length_dirty: bool,
+  /// the data part is same as the host except the dirty part
   texture: TextureU32Heap,
 }
 
@@ -39,13 +41,13 @@ impl TextureAsReadonlyStorageBufferWithHost {
   ) -> Self {
     let meta = HeapMeta::new(ty_desc, label, limit);
     let extent = meta.required_extent_or_panic(byte_size);
-    let mut internal = HostBackupInternal {
-      host: vec![0; 4 + byte_size as usize],
+    let internal = HostBackupInternal {
+      host: vec![0; byte_size as usize],
       byte_size,
       dirty: Default::default(),
+      array_length_dirty: true,
       texture: TextureU32Heap::new(extent, label, &gpu.device),
     };
-    internal.write_header(&meta);
 
     Self {
       internal: Arc::new(RwLock::new(internal)),
@@ -68,45 +70,32 @@ struct RelocationSnapshot {
 }
 
 impl HostBackupInternal {
-  fn write_host(&mut self, data: &[u8], host_offset: usize) {
-    self.host[host_offset..host_offset + data.len()].copy_from_slice(data);
-    self
-      .dirty
-      .push(host_offset / 4..(host_offset + data.len()) / 4);
-  }
-
   fn write(&mut self, data: &[u8], byte_offset: u64) {
     check_range(byte_offset, data.len() as u64, self.byte_size);
-    self.write_host(data, 4 + byte_offset as usize);
+    let start = byte_offset as usize;
+    self.host[start..start + data.len()].copy_from_slice(data);
+    self.dirty.push(start / 4..(start + data.len()) / 4);
   }
 
   fn read(&self, byte_offset: u64, byte_count: u64) -> &[u8] {
     check_range(byte_offset, byte_count, self.byte_size);
-    let start = 4 + byte_offset as usize;
+    let start = byte_offset as usize;
     &self.host[start..start + byte_count as usize]
   }
 
-  fn write_header(&mut self, meta: &HeapMeta) {
-    if let Some(header) = meta.header(self.byte_size) {
-      self.write_host(bytes_of(&header), 0);
-    }
-  }
-
-  fn resize(&mut self, new_byte_size: u64, meta: &HeapMeta) {
-    let old_byte_size = self.byte_size;
-    if new_byte_size < old_byte_size {
+  fn resize(&mut self, new_byte_size: u64) {
+    let (old, new) = (self.byte_size as usize, new_byte_size as usize);
+    if new < old {
       // keep the part beyond the byte size zeroed
-      let truncated = 4 + new_byte_size as usize..4 + old_byte_size as usize;
-      self.host[truncated.clone()].fill(0);
-      self.dirty.push(truncated.start / 4..truncated.end / 4);
+      self.host[new..old].fill(0);
+      self.dirty.push(new / 4..old / 4);
     }
 
-    let len = 4 + new_byte_size as usize;
-    if self.host.len() < len {
-      self.host.resize(len, 0);
+    if self.host.len() < new {
+      self.host.resize(new, 0);
     }
     self.byte_size = new_byte_size;
-    self.write_header(meta);
+    self.array_length_dirty = true;
   }
 
   fn snapshot_relocations(
@@ -140,9 +129,9 @@ impl HostBackupInternal {
 
   fn flush(&mut self, meta: &HeapMeta, gpu: &GPU) {
     // the host length is checked when resize
-    let required = TexelExtent::required(self.host.len() as u64 / 4, meta.limit).unwrap();
+    let required = meta.required_extent(self.host.len() as u64).unwrap();
     let reallocate = !self.texture.extent().contains(&required);
-    if !reallocate && self.dirty.is_empty() {
+    if !reallocate && self.dirty.is_empty() && !self.array_length_dirty {
       return;
     }
 
@@ -151,7 +140,8 @@ impl HostBackupInternal {
       // the old content is submitted immediately, so the later queue writes to the new texture
       // will not be overwritten by it.
       let mut encoder = gpu.create_encoder();
-      let count = self.texture.extent().texel_count();
+      // the old array length is not copied, it is rewritten below
+      let count = self.texture.data_capacity();
       self
         .texture
         .copy_to(&new_texture, 0, 0, count, &mut encoder);
@@ -162,6 +152,13 @@ impl HostBackupInternal {
     for range in self.dirty.take() {
       let data = &self.host[range.start * 4..range.end * 4];
       self.texture.write(&gpu.queue, range.start as u64, data);
+    }
+
+    if reallocate || self.array_length_dirty {
+      if let Some(length) = meta.array_length(self.byte_size) {
+        self.texture.write_array_length(&gpu.queue, length);
+      }
+      self.array_length_dirty = false;
     }
   }
 }
@@ -185,7 +182,7 @@ impl AbstractBuffer for TextureAsReadonlyStorageBufferWithHost {
     let mut internal = self.internal.write();
     // the relocation sources refer to the content before resize
     let relocations = relocations.map(|iter| internal.snapshot_relocations(iter));
-    internal.resize(new_byte_size, &self.meta);
+    internal.resize(new_byte_size);
     if let Some(relocations) = relocations {
       internal.apply_relocations(relocations);
     }

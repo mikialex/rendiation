@@ -137,18 +137,18 @@ async fn fragmented_write() {
   }
 }
 
+fn pick_component(v: Node<Vec4<u32>>, c: Node<u32>) -> Node<u32> {
+  c.equals(val(0)).select(
+    v.x(),
+    c.equals(val(1))
+      .select(v.y(), c.equals(val(2)).select(v.z(), v.w())),
+  )
+}
+
 #[pollster::test]
 async fn typed_access() {
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   for (name, alloc) in allocators(&gpu) {
-    let pick = |v: Node<Vec4<u32>>, c: Node<u32>| {
-      c.equals(val(0)).select(
-        v.x(),
-        c.equals(val(1))
-          .select(v.y(), c.equals(val(2)).select(v.z(), v.w())),
-      )
-    };
-
     let data: Vec<_> = (0..5_u32)
       .map(|i| Vec4::new(i * 4, i * 4 + 1, i * 4 + 2, i * 4 + 3))
       .collect();
@@ -161,7 +161,7 @@ async fn typed_access() {
       |input, id| {
         let is_len = id.equals(val(0));
         let index = is_len.select(val(0), id - val(1));
-        let item = pick(input.index(index / val(4)).load(), index % val(4));
+        let item = pick_component(input.index(index / val(4)).load(), index % val(4));
         is_len.select(input.array_length(), item)
       },
     )
@@ -171,10 +171,74 @@ async fn typed_access() {
 
     let sized = alloc.allocate_readonly_init(&Vec4::new(1_u32, 2, 3, 4), &gpu, "sized");
     let r = read_by_shader(&gpu, &sized, 4, "sized vec4", |input, id| {
-      pick(input.load(), id)
+      pick_component(input.load(), id)
     })
     .await;
     assert_eq!(r, vec![1, 2, 3, 4], "{name}");
+  }
+}
+
+/// a u32 field followed by a runtime sized vec4 array, the array starts at the 4th u32 in std430
+fn unsized_struct_ty() -> MaybeUnsizedValueType {
+  let ty: &'static _ = Box::leak(Box::new(ShaderUnSizedStructMetaInfo {
+    name: "TextureAsBufferTestUnsizedStruct".into(),
+    sized_fields: vec![ShaderStructFieldMetaInfo {
+      name: "count".into(),
+      ty: u32::sized_ty(),
+      ty_deco: None,
+    }],
+    last_dynamic_array_field: ("data".into(), Box::new(Vec4::<u32>::sized_ty())),
+  }));
+  MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedStruct(ty))
+}
+
+/// return the array length of the last field, the sized field, and the array content
+async fn read_unsized_struct(
+  gpu: &GPU,
+  buffer: &BoxedAbstractBuffer,
+  array_len: usize,
+  hash_key: &str,
+) -> (u32, u32, Vec<u32>) {
+  let r = read_by_shader(gpu, buffer, 2 + array_len * 4, hash_key, |ptr, id| {
+    let array = ptr.field_index(1);
+    let count: Node<u32> = unsafe { ptr.field_index(0).load().into_node() };
+    let index = id.less_than(val(2)).select(val(0), id - val(2));
+    let item = unsafe { array.field_array_index(index / val(4)).load().into_node() };
+    let item = pick_component(item, index % val(4));
+    let rest = id.equals(val(1)).select(count, item);
+    id.equals(val(0)).select(array.array_length(), rest)
+  })
+  .await;
+  (r[0], r[1], r[2..].to_vec())
+}
+
+#[pollster::test]
+async fn unsized_struct_array_length() {
+  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  for (name, alloc) in allocators(&gpu) {
+    let combine =
+      CombinedStorageBufferAllocator::new(&gpu, "combine", false, true, Box::new(alloc.clone()));
+    let cases: [(&str, &dyn AbstractStorageAllocator); 2] =
+      [("texture", &alloc), ("combine", &combine)];
+
+    for (case, allocator) in cases {
+      let content: Vec<_> = [7, 0, 0, 0].into_iter().chain(100..112).collect();
+      let mut buffer =
+        allocator.allocate_dyn_ty(16 + 3 * 16, &gpu.device, unsized_struct_ty(), true, "test");
+      buffer.write(cast_slice(&content), 0, &gpu.queue);
+
+      let key = format!("{case} unsized struct");
+      let mut expect = content[4..].to_vec();
+      let r = read_unsized_struct(&gpu, &buffer, 3, &key).await;
+      assert_eq!(r, (3, 7, expect.clone()), "{name} {case}");
+
+      let mut encoder = gpu.create_encoder();
+      assert!(buffer.resize_gpu(&mut encoder, &gpu.device, 16 + 5 * 16, None));
+      gpu.submit_encoder(encoder);
+      expect.resize(20, 0);
+      let r = read_unsized_struct(&gpu, &buffer, 5, &key).await;
+      assert_eq!(r, (5, 7, expect), "{name} {case}");
+    }
   }
 }
 

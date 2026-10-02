@@ -34,8 +34,8 @@ impl TextureAsReadonlyStorageBuffer {
     let meta = HeapMeta::new(ty_desc, label, limit);
     let extent = meta.required_extent_or_panic(byte_size);
     let texture = TextureU32Heap::new(extent, label, &gpu.device);
-    if let Some(header) = meta.header(byte_size) {
-      texture.write(&gpu.queue, 0, bytes_of(&header));
+    if let Some(length) = meta.array_length(byte_size) {
+      texture.write_array_length(&gpu.queue, length);
     }
 
     Self {
@@ -77,10 +77,10 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
     if !grow_in_place {
       let new_texture = TextureU32Heap::new(extent, &self.meta.label, device);
       let keep_count = old_byte_size.min(new_byte_size) / 4;
-      // the header is skipped, see TextureU32Heap
+      // only the data part is copied, see TextureU32Heap
       internal
         .texture
-        .copy_to(&new_texture, 1, 1, keep_count, encoder);
+        .copy_to(&new_texture, 0, 0, keep_count, encoder);
 
       // same as the gpu buffer, the relocation copies from the old content to the new texture
       if let Some(relocations) = relocations {
@@ -88,8 +88,8 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
           check_relocation(&r, old_byte_size, new_byte_size);
           internal.texture.copy_to(
             &new_texture,
-            1 + r.self_offset / 4,
-            1 + r.target_offset / 4,
+            r.self_offset / 4,
+            r.target_offset / 4,
             r.count / 4,
             encoder,
           );
@@ -99,8 +99,8 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
     }
 
     internal.byte_size = new_byte_size;
-    if let Some(header) = self.meta.header(new_byte_size) {
-      internal.texture.write(&self.queue, 0, bytes_of(&header));
+    if let Some(length) = self.meta.array_length(new_byte_size) {
+      internal.texture.write_array_length(&self.queue, length);
     }
     true
   }
@@ -108,7 +108,7 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
     let internal = self.internal.read();
     check_range(offset, content.len() as u64, internal.byte_size);
-    internal.texture.write(queue, 1 + offset / 4, content);
+    internal.texture.write(queue, offset / 4, content);
   }
 
   fn batch_self_relocate(
@@ -130,14 +130,10 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
 
     // the texture can not be copied to itself, so the rows that cover the relocation sources are
     // copied into a snapshot first, this also handles the overlapped relocations.
-    let start = relocations
-      .iter()
-      .map(|r| 1 + r.self_offset / 4)
-      .min()
-      .unwrap();
+    let start = relocations.iter().map(|r| r.self_offset / 4).min().unwrap();
     let end = relocations
       .iter()
-      .map(|r| 1 + (r.self_offset + r.count) / 4)
+      .map(|r| (r.self_offset + r.count) / 4)
       .max()
       .unwrap();
 
@@ -154,8 +150,8 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
     texture.copy_to(&snapshot, base, 0, row_count * width, encoder);
 
     for r in relocations {
-      let src = 1 + r.self_offset / 4 - base;
-      snapshot.copy_to(texture, src, 1 + r.target_offset / 4, r.count / 4, encoder);
+      let src = r.self_offset / 4 - base;
+      snapshot.copy_to(texture, src, r.target_offset / 4, r.count / 4, encoder);
     }
   }
 
@@ -183,8 +179,8 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
 
     src.texture.copy_to(
       &dst.texture,
-      1 + self_offset / 4,
-      1 + target_offset / 4,
+      self_offset / 4,
+      target_offset / 4,
       count / 4,
       encoder,
     );

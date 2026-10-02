@@ -128,7 +128,7 @@ impl HeapMeta {
   /// return None if the size exceeds the limit
   fn required_extent(&self, byte_size: u64) -> Option<TexelExtent> {
     assert!(byte_size.is_multiple_of(4));
-    // one more texel for the header
+    // one more texel for the array length
     TexelExtent::required(byte_size / 4 + 1, self.limit)
   }
 
@@ -143,7 +143,7 @@ impl HeapMeta {
     })
   }
 
-  fn header(&self, byte_size: u64) -> Option<u32> {
+  fn array_length(&self, byte_size: u64) -> Option<u32> {
     runtime_array_length(&self.ty_desc, byte_size)
   }
 }

@@ -61,7 +61,9 @@ where
 pub struct U32HeapPtrWithType {
   pub ptr: U32HeapPtr,
   pub ty: ShaderValueSingleType,
-  pub array_length: Option<Node<u32>>, // only Some when it is a runtime-size array
+  /// only Some when it is a runtime-size array, or the unsized struct whose last field is a
+  /// runtime-size array, in the latter case it is the length of that array.
+  pub array_length: Option<Node<u32>>,
   pub meta: Arc<RwLock<ShaderU32StructMetaData>>,
 }
 
@@ -229,18 +231,18 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
         ShaderUnSizedValueType::UnsizedArray(_) => unreachable!("{err}"),
         ShaderUnSizedValueType::UnsizedStruct(ty) => {
           let offset = meta.get_struct_sub_field_u32_offset(&ty.name, field_index);
-          let ty = if field_index == ty.sized_fields.len() {
-            ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(
-              ty.last_dynamic_array_field.1.clone(),
-            ))
+          let (ty, array_length) = if field_index == ty.sized_fields.len() {
+            let ty = ShaderUnSizedValueType::UnsizedArray(ty.last_dynamic_array_field.1.clone());
+            (ShaderValueSingleType::Unsized(ty), self.array_length)
           } else {
-            ShaderValueSingleType::Sized(ty.sized_fields[field_index].ty.clone())
+            let ty = ShaderValueSingleType::Sized(ty.sized_fields[field_index].ty.clone());
+            (ty, None)
           };
           Self {
             ptr: self.ptr.advance(offset),
             ty,
             meta: self.meta.clone(),
-            array_length: None,
+            array_length,
           }
         }
       },

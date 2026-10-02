@@ -334,17 +334,32 @@ impl CombinedBufferAllocatorInternal {
     let ptr = U32HeapPtr { array, offset };
     let ty = ty_desc.clone().into_shader_single_ty();
 
-    let array_length =
-      if let ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &ty {
-        // we assume the host side will always write length in u32, so we get it from i32 by bitcast if needed
-        let sub_buffer_count = ptr.array.bitcast_read_u32_at(0);
-        let size_info_position = val(1) + sub_buffer_count + buffer_bind_index;
-        let sub_buffer_u32_length = ptr.array.bitcast_read_u32_at(size_info_position);
-        let width = array_stride_of_element(ty, meta.read().layout) as u32 / 4;
-        Some(sub_buffer_u32_length / val(width))
+    // the u32 offset and element type of the runtime array
+    let runtime_array = match &ty {
+      ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) => Some((0, ty)),
+      ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedStruct(ty)) => {
+        // the runtime array is the last field, its offset is registered at the sized field count
+        let offset = meta
+          .read()
+          .get_struct_sub_field_u32_offset(&ty.name, ty.sized_fields.len());
+        Some((offset, &ty.last_dynamic_array_field.1))
+      }
+      _ => None,
+    };
+
+    let array_length = runtime_array.map(|(array_u32_offset, ty)| {
+      // we assume the host side will always write length in u32, so we get it from i32 by bitcast if needed
+      let sub_buffer_count = ptr.array.bitcast_read_u32_at(0);
+      let size_info_position = val(1) + sub_buffer_count + buffer_bind_index;
+      let sub_buffer_u32_length = ptr.array.bitcast_read_u32_at(size_info_position);
+      let array_u32_length = if array_u32_offset == 0 {
+        sub_buffer_u32_length
       } else {
-        None
+        sub_buffer_u32_length - val(array_u32_offset)
       };
+      let width = array_stride_of_element(ty, meta.read().layout) as u32 / 4;
+      array_u32_length / val(width)
+    });
 
     let ptr = U32HeapPtrWithType {
       ptr,
