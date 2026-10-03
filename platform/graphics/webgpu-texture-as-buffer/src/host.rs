@@ -39,7 +39,7 @@ impl TextureAsReadonlyStorageBufferWithHost {
     limit: TexelExtent,
     label: &str,
   ) -> Self {
-    let meta = HeapMeta::new(ty_desc, label, limit);
+    let meta = HeapMeta::new(ty_desc, label, limit, 4);
     let extent = meta.required_extent_or_panic(byte_size);
     let internal = HostBackupInternal {
       host: vec![0; byte_size as usize],
@@ -228,7 +228,7 @@ impl AbstractBuffer for TextureAsReadonlyStorageBufferWithHost {
 
   fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr {
     let internal = self.internal.read();
-    bind_heap_texture_shader(bind_builder, &internal.texture.view, &self.meta.ty_desc)
+    bind_heap_texture_shader(bind_builder, &internal.texture.view, &self.meta.ty_desc, 1)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {

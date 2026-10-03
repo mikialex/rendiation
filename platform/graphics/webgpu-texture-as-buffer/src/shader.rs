@@ -16,15 +16,19 @@ pub(crate) fn runtime_array_length(ty_desc: &MaybeUnsizedValueType, byte_size: u
   Some((byte_size.saturating_sub(array_offset) / stride) as u32)
 }
 
+/// `u32_per_texel` is 1 for the R32Uint texture, and 4 for the Rgba32Uint texture
 pub(crate) fn bind_heap_texture_shader(
   bind_builder: &mut ShaderBindGroupBuilder,
   texture: &GPUTypedTextureView<TextureDimension2, u32>,
   ty_desc: &MaybeUnsizedValueType,
+  u32_per_texel: u32,
 ) -> BoxedShaderPtr {
+  assert!(u32_per_texel == 1 || u32_per_texel == 4);
   let texture = bind_builder.bind_by(texture);
   let heap = TextureAsU32Heap {
     texture,
     width: texture.texture_dimension_2d(None).x(),
+    u32_per_texel,
     length_from_last_texel: false,
   };
 
@@ -64,6 +68,7 @@ struct TextureAsU32Heap {
   texture: BindingNode<ShaderTexture<TextureDimension2, u32>>,
   /// cache the texture dimension call result
   width: Node<u32>,
+  u32_per_texel: u32,
   /// if true, the array length is read from the last texel, otherwise it is the u32 capacity. the
   /// former is used when the content type is `[u32]`, the latter is used when the heap is wrapped by
   /// the typed u32 heap ptr, which compares the u32 offset with the array length when the bound
@@ -85,11 +90,18 @@ impl AbstractShaderPtr for TextureAsU32Heap {
   }
 
   fn field_array_index(&self, index: Node<u32>) -> BoxedShaderPtr {
-    let x = index % self.width;
-    let y = index / self.width;
+    let (texel, component) = if self.u32_per_texel == 1 {
+      (index, None)
+    } else {
+      let u32_per_texel = val(self.u32_per_texel);
+      (index / u32_per_texel, Some(index % u32_per_texel))
+    };
+    let x = texel % self.width;
+    let y = texel / self.width;
     Box::new(TextureAsU32HeapPosition {
       texture: self.texture,
       position: (x, y).into(),
+      component,
     })
   }
 
@@ -98,7 +110,7 @@ impl AbstractShaderPtr for TextureAsU32Heap {
       self.last_texel()
     } else {
       let height = self.texture.texture_dimension_2d(None).y();
-      self.width * height - val(1)
+      (self.width * height - val(1)) * val(self.u32_per_texel)
     }
   }
 
@@ -123,6 +135,8 @@ impl AbstractShaderPtr for TextureAsU32Heap {
 struct TextureAsU32HeapPosition {
   texture: BindingNode<ShaderTexture<TextureDimension2, u32>>,
   position: Node<Vec2<u32>>,
+  /// None for the single component texel
+  component: Option<Node<u32>>,
 }
 
 impl AbstractShaderPtr for TextureAsU32HeapPosition {
@@ -139,7 +153,12 @@ impl AbstractShaderPtr for TextureAsU32HeapPosition {
   }
 
   fn load(&self) -> ShaderNodeRawHandle {
-    self.texture.load_texel(self.position, 0).x().handle()
+    let texel = self.texture.load_texel(self.position, 0);
+    let value = match self.component {
+      Some(component) => texel.index(component),
+      None => texel.x(),
+    };
+    value.handle()
   }
 
   fn store(&self, _: ShaderNodeRawHandle) {

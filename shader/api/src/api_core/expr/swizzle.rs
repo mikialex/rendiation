@@ -59,6 +59,16 @@ impl<V: ShaderVec> Node<V> {
     unsafe { index_access_field(self.handle(), I as usize).into_node() }
   }
 
+  /// the component selected by the runtime index, `v[i]`
+  #[inline(always)]
+  pub fn index(&self, index: impl Into<Node<u32>>) -> Node<V::Item> {
+    OperatorNode::Index {
+      array: self.handle(),
+      entry: index.into().handle(),
+    }
+    .insert_api()
+  }
+
   /// `v.swizzle2::<1, 0>()` is `v.yx`
   #[inline(always)]
   pub fn swizzle2<const A: u8, const B: u8>(&self) -> Node<Vec2<V::Item>> {

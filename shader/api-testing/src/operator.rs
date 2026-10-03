@@ -202,5 +202,49 @@ fn component_selection_and_swizzle() {
     keep(v3.component::<2>());
     keep(v4.swizzle2::<3, 0>() + v4.swizzle3::<1, 1, 2>().xy());
     keep(v2.swizzle4::<1, 0, 1, 0>());
+
+    // the component selected by the runtime index
+    keep(v2.index(u));
+    keep(v3.index(u));
+    keep(v4.index(u));
+    keep(b4.index(u));
   });
+}
+
+/// the component selected by the runtime index, `v[i]`
+#[pollster::test]
+async fn vector_runtime_index_gpu() {
+  let input: Vec<u32> = (0..12).collect();
+
+  let result = gpu_map(&input, |v: Node<u32>| {
+    let vec: Node<Vec4<u32>> = (v + val(100), v + val(200), v + val(300), v + val(400)).into();
+    vec.index(v % val(4))
+  })
+  .await;
+  let expect: Vec<u32> = input.iter().map(|v| v + (v % 4 + 1) * 100).collect();
+  assert_eq!(result, expect);
+
+  let result = gpu_map(&input, |v: Node<u32>| {
+    let f = v.into_f32();
+    let vec: Node<Vec3<f32>> = (f, f * val(2.), f * val(3.)).into();
+    vec.index(v % val(3))
+  })
+  .await;
+  let expect: Vec<f32> = input
+    .iter()
+    .map(|v| *v as f32 * (v % 3 + 1) as f32)
+    .collect();
+  assert_eq!(result, expect);
+
+  let result = gpu_map(&input, |v: Node<u32>| {
+    let i = v.into_i32();
+    let vec: Node<Vec2<i32>> = (val(0) - i, i).into();
+    vec.index(v % val(2))
+  })
+  .await;
+  let expect: Vec<i32> = input
+    .iter()
+    .map(|v| if v % 2 == 0 { -(*v as i32) } else { *v as i32 })
+    .collect();
+  assert_eq!(result, expect);
 }

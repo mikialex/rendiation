@@ -1,20 +1,21 @@
 use crate::*;
 
-/// The R32Uint texture that stores the u32 heap in row major order.
+pub(crate) const RGBA_TEXEL_BYTE_SIZE: u64 = 16;
+
+/// The Rgba32Uint texture that stores the u32 heap in row major order, each texel stores 4 u32.
 ///
-/// The data starts from the first texel. The last texel stores the length of the runtime sized
-/// array, for the unsized struct it is the length of the last field. As the extent is padded, the
-/// last texel is usually in the padding and costs nothing.
+/// The data starts from the first texel. The x component of the last texel stores the length of
+/// the runtime sized array, for the unsized struct it is the length of the last field.
 ///
 /// The length is only written by the queue, and the copies recorded in encoder only touch the data
 /// part, so the length writes always take effect in the issue order, even if the encoder that
 /// contains the copies is submitted later.
 #[derive(Clone)]
-pub(crate) struct TextureU32Heap {
+pub(crate) struct TextureU32x4Heap {
   pub view: GPUTypedTextureView<TextureDimension2, u32>,
 }
 
-impl TextureU32Heap {
+impl TextureU32x4Heap {
   /// the content is zero initialized
   pub fn new(extent: TexelExtent, label: &str, device: &GPUDevice) -> Self {
     let desc: raw_gpu::TextureDescriptor<'static> = TextureDescriptor {
@@ -27,7 +28,7 @@ impl TextureU32Heap {
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureDimension::D2,
-      format: TextureFormat::R32Uint,
+      format: TextureFormat::Rgba32Uint,
       usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::COPY_SRC,
       view_formats: &[],
     };
@@ -47,36 +48,38 @@ impl TextureU32Heap {
     }
   }
 
-  /// the max u32 count of the data, the last texel is reserved for the array length
-  pub fn data_capacity(&self) -> u64 {
+  /// the max texel count of the data, the last texel is reserved for the array length
+  pub fn data_texel_capacity(&self) -> u64 {
     self.extent().texel_count() - 1
   }
 
   pub fn write_array_length(&self, queue: &GPUQueue, length: u32) {
-    self.write(queue, self.data_capacity(), bytes_of(&length));
+    let texel = [length, 0, 0, 0];
+    self.write(queue, self.data_texel_capacity(), cast_slice(&texel));
   }
 
   fn gpu_texture(&self) -> &raw_gpu::Texture {
     self.view.resource.gpu_resource()
   }
 
-  /// write the data to the linear texel range that starts at `texel_offset`
+  /// write the whole texels to the linear texel range that starts at `texel_offset`
   pub fn write(&self, queue: &GPUQueue, texel_offset: u64, data: &[u8]) {
-    assert!(data.len().is_multiple_of(4));
-    let count = data.len() as u64 / 4;
+    assert!((data.len() as u64).is_multiple_of(RGBA_TEXEL_BYTE_SIZE));
+    let count = data.len() as u64 / RGBA_TEXEL_BYTE_SIZE;
     assert!(texel_offset + count <= self.extent().texel_count());
 
     let texture = self.gpu_texture();
     split_linear_range(texel_offset, self.extent().width, count, |rect| {
-      let start = rect.linear_offset as usize * 4;
-      let len = rect.width as usize * rect.height as usize * 4;
+      let texel_bytes = RGBA_TEXEL_BYTE_SIZE as usize;
+      let start = rect.linear_offset as usize * texel_bytes;
+      let len = rect.width as usize * rect.height as usize * texel_bytes;
       queue.write_texture(
         texel_copy_info(texture, rect.dst),
         &data[start..start + len],
         TexelCopyBufferLayout {
           offset: 0,
           // write_texture does not require the row alignment
-          bytes_per_row: Some(rect.width * 4),
+          bytes_per_row: Some(rect.width * RGBA_TEXEL_BYTE_SIZE as u32),
           rows_per_image: None,
         },
         rect_extent(&rect),
@@ -112,25 +115,5 @@ impl TextureU32Heap {
         );
       },
     );
-  }
-}
-
-pub(crate) fn texel_copy_info(
-  texture: &raw_gpu::Texture,
-  (x, y): (u32, u32),
-) -> raw_gpu::TexelCopyTextureInfo<'_> {
-  TexelCopyTextureInfo {
-    texture,
-    mip_level: 0,
-    origin: Origin3d { x, y, z: 0 },
-    aspect: TextureAspect::All,
-  }
-}
-
-pub(crate) fn rect_extent(rect: &TexelCopyRect) -> Extent3d {
-  Extent3d {
-    width: rect.width,
-    height: rect.height,
-    depth_or_array_layers: 1,
   }
 }

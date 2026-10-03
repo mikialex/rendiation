@@ -2,16 +2,19 @@
 //! the indirect rendering with MIDC downgrade and the combined buffer) on the platforms that can
 //! not use storage buffer in vertex shader, for example gles and webgl2.
 //!
-//! The data is stored as a u32 heap in a R32Uint 2D texture, and is accessed in shader by the
-//! `AbstractShaderPtr` mechanism. Two containers are provided, they share the same texture layout
-//! and shader access:
+//! The data is stored as a u32 heap in a 2D texture, and is accessed in shader by the
+//! `AbstractShaderPtr` mechanism. The data starts from the first texel, and the last texel stores
+//! the array length. The containers:
 //!
-//! - [TextureAsReadonlyStorageBuffer] directly operates on the texture. The behavior mirrors the
-//!   gpu buffer implementation, suitable for the data that is written in bulk.
-//! - [TextureAsReadonlyStorageBufferWithHost] keeps a full host backup and uploads the merged dirty
-//!   ranges before binding, suitable for the large amount of fragmented writes.
+//! - [TextureAsReadonlyStorageBuffer] uses R32Uint and directly operates on the texture. The
+//!   behavior mirrors the gpu buffer implementation, suitable for the data that is written in bulk.
+//! - [TextureAsReadonlyStorageBufferWithHost] uses R32Uint and keeps a full host backup, the merged
+//!   dirty ranges are uploaded before binding, suitable for the large amount of fragmented writes.
+//! - [RgbaTextureAsReadonlyStorageBuffer] uses Rgba32Uint, the capacity is 4 times of R32Uint
+//!   under the same texture size limit, but the writes and copies must be 16 bytes aligned, so it
+//!   is suitable for the large data that is written in whole.
 //!
-//! [TextureAsStorageAllocator] allocates either of them by config.
+//! [TextureAsStorageAllocator] allocates either of the R32Uint containers by config.
 
 use std::sync::Arc;
 
@@ -23,6 +26,8 @@ mod direct;
 mod dirty;
 mod host;
 mod layout;
+mod rgba;
+mod rgba_texture;
 mod shader;
 mod texture;
 
@@ -30,6 +35,8 @@ pub use direct::*;
 use dirty::*;
 pub use host::*;
 pub use layout::*;
+pub use rgba::*;
+use rgba_texture::*;
 use shader::*;
 use texture::*;
 
@@ -114,14 +121,22 @@ struct HeapMeta {
   ty_desc: Arc<MaybeUnsizedValueType>,
   label: Arc<str>,
   limit: TexelExtent,
+  /// 4 for R32Uint, 16 for Rgba32Uint
+  texel_byte_size: u64,
 }
 
 impl HeapMeta {
-  fn new(ty_desc: MaybeUnsizedValueType, label: &str, limit: TexelExtent) -> Self {
+  fn new(
+    ty_desc: MaybeUnsizedValueType,
+    label: &str,
+    limit: TexelExtent,
+    texel_byte_size: u64,
+  ) -> Self {
     Self {
       ty_desc: Arc::new(ty_desc),
       label: label.into(),
       limit,
+      texel_byte_size,
     }
   }
 
@@ -129,7 +144,7 @@ impl HeapMeta {
   fn required_extent(&self, byte_size: u64) -> Option<TexelExtent> {
     assert!(byte_size.is_multiple_of(4));
     // one more texel for the array length
-    TexelExtent::required(byte_size / 4 + 1, self.limit)
+    TexelExtent::required(byte_size.div_ceil(self.texel_byte_size) + 1, self.limit)
   }
 
   fn required_extent_or_panic(&self, byte_size: u64) -> TexelExtent {
@@ -138,7 +153,7 @@ impl HeapMeta {
         "texture as storage buffer <{}> exceeds the texture size limit, requested {} bytes, the limit is {} bytes",
         self.label,
         byte_size,
-        (self.limit.texel_count() - 1) * 4
+        (self.limit.texel_count() - 1) * self.texel_byte_size
       )
     })
   }

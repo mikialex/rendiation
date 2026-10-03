@@ -2,6 +2,8 @@ use rendiation_webgpu_virtual_typed_combine_buffer::CombinedStorageBufferAllocat
 
 use crate::*;
 
+mod rgba;
+
 /// a small width to cover the multi row cases
 const TEST_WIDTH: u32 = 8;
 

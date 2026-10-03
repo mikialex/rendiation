@@ -31,7 +31,7 @@ impl TextureAsReadonlyStorageBuffer {
     limit: TexelExtent,
     label: &str,
   ) -> Self {
-    let meta = HeapMeta::new(ty_desc, label, limit);
+    let meta = HeapMeta::new(ty_desc, label, limit, 4);
     let extent = meta.required_extent_or_panic(byte_size);
     let texture = TextureU32Heap::new(extent, label, &gpu.device);
     if let Some(length) = meta.array_length(byte_size) {
@@ -188,7 +188,7 @@ impl AbstractBuffer for TextureAsReadonlyStorageBuffer {
 
   fn bind_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> BoxedShaderPtr {
     let internal = self.internal.read();
-    bind_heap_texture_shader(bind_builder, &internal.texture.view, &self.meta.ty_desc)
+    bind_heap_texture_shader(bind_builder, &internal.texture.view, &self.meta.ty_desc, 1)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {

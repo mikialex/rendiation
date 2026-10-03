@@ -806,6 +806,9 @@ let x: Node<f32> = vec4.x();
 let z: Node<f32> = vec4.component::<2>();
 let wx: Node<Vec2<f32>> = vec4.swizzle2::<3, 0>();
 
+// By the runtime index, v[i]
+let c: Node<f32> = vec4.index(i);
+
 // Splat (broadcast), works for any scalar type
 let v4 = val(1.0).splat::<Vec4<f32>>();  // (1, 1, 1, 1)
 ```
