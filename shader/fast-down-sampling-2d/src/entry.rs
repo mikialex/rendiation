@@ -213,11 +213,12 @@ pub fn compute_pot_enlarged_hierarchy_depth(
 
   impl FastDownSamplingIOFirstStageInvocation<f32> for MsaaDownSampleFirstPass {
     fn get_root_loader_with_possible_write(&self) -> Box<dyn SourceImageLoader<f32>> {
+      let depth_size = self.msaa_input.texture_dimension_2d(None);
       Box::new(MultisampleDepthInitLoader {
         ms_depth: self.msaa_input,
-        mip_0: self.base_level,
-        scale: self.msaa_input.texture_dimension_2d(None).into_f32()
-          / self.base_level.texture_dimension_2d().into_f32(),
+        mip_0: SplatWriter(self.base_level),
+        scale: depth_size.into_f32() / self.base_level.texture_dimension_2d().into_f32(),
+        depth_size,
         reducer: depth_reducer(self.reverse_depth),
       })
     }
@@ -228,25 +229,36 @@ pub fn compute_pot_enlarged_hierarchy_depth(
   }
 
   struct MultisampleDepthInitLoader {
-    mip_0: BindingNode<ShaderStorageTextureW2D>,
+    mip_0: SplatWriter,
     ms_depth: BindingNode<ShaderMultiSampleDepthTexture2D>,
     scale: Node<Vec2<f32>>,
+    depth_size: Node<Vec2<u32>>,
     reducer: &'static dyn QuadReducer<f32>,
   }
 
   impl SourceImageLoader<f32> for MultisampleDepthInitLoader {
-    fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
-      let depth_coord = coord.into_f32() * self.scale;
-      let depth_coord = depth_coord.round().into_u32();
+    fn size(&self) -> Node<Vec2<u32>> {
+      self.mip_0.size()
+    }
+
+    fn load_in_bounds(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
+      let depth_coord = (coord.into_f32() * self.scale).round().into_u32();
+      let depth_coord = clamp_load_coord(depth_coord, self.depth_size);
 
       let d1 = self.ms_depth.load_texel_multi_sample_index(depth_coord, 0);
       let d2 = self.ms_depth.load_texel_multi_sample_index(depth_coord, 1);
       let d3 = self.ms_depth.load_texel_multi_sample_index(depth_coord, 2);
       let d4 = self.ms_depth.load_texel_multi_sample_index(depth_coord, 3);
 
-      let v = self.reducer.reduce([d1, d2, d3, d4]);
-      self.mip_0.write_texel(coord, v.splat());
-      v
+      self.reducer.reduce([d1, d2, d3, d4])
+    }
+
+    /// The level 0 is written by the original coord, so the replicated edge texels are not
+    /// written repeatedly.
+    fn load(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
+      let value = self.load_in_bounds(clamp_load_coord(coord, self.size()));
+      self.mip_0.write(coord, value);
+      value
     }
   }
 }

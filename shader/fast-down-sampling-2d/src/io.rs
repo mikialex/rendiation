@@ -207,58 +207,134 @@ impl<V, F> FastDownSamplingIOSecondStageInvocation<V>
   }
 }
 
-pub trait SourceImageLoader<V: ShaderSizedValueNodeType> {
-  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<V>;
+/// Clamp the out of bounds load coord to the edge in the shader code, instead of relying on the
+/// out of bounds behavior of the shader runtime check.
+///
+/// Disabling this is not recommended, even if the wgpu shader runtime check is enabled. The WGSL
+/// spec allows an out of bounds load to return any texel inside of the texture, or zero, and the
+/// actual behavior differs across backends. With the runtime check enabled (as of wgpu 29), Metal
+/// and Vulkan without robust image access clamp the coord to the edge, while Vulkan with robust
+/// image access, DX12 and GL return zero, and GLES is not checked at all. In the browser it
+/// depends on the implementation, Firefox follows the wgpu backend above, Chrome usually clamps.
+///
+/// The out of bounds lanes contribute to the valid output when one dimension has shrunk to 1
+/// before the other (the tail levels of a non square pyramid), so without this check the result is
+/// not consistent across backends. For the max reducer zero is harmless, for the min reducer
+/// (reverse z depth) zero means the farthest depth, the result is still conservative but these
+/// levels lose the culling ability, for the average reducer the result is wrong.
+const ENABLE_LOAD_BOUND_CHECK: bool = true;
 
+/// Skip the out of bounds write in the shader code, instead of relying on the out of bounds
+/// behavior of the shader runtime check.
+///
+/// It is recommended to disable this when the wgpu shader runtime check is enabled (it is always
+/// enabled in the browser). The WGSL spec guarantees that an out of bounds textureStore is not
+/// executed, and naga documents that all the platforms it supports already discard out of bounds
+/// image stores, so naga never injects any check for them. Disabling this saves a compare and a
+/// branch for each write.
+const ENABLE_WRITE_BOUND_CHECK: bool = true;
+
+/// Clamp the load coord into the image if [ENABLE_LOAD_BOUND_CHECK], the size must be at least 1
+/// in each dimension.
+pub(crate) fn clamp_load_coord(coord: Node<Vec2<u32>>, size: Node<Vec2<u32>>) -> Node<Vec2<u32>> {
+  if ENABLE_LOAD_BOUND_CHECK {
+    coord.min(size - val(vec2(1, 1)))
+  } else {
+    coord
+  }
+}
+
+/// The bound check is done by this crate itself, see `ENABLE_LOAD_BOUND_CHECK` and
+/// `ENABLE_WRITE_BOUND_CHECK` for the reason and the switch.
+pub trait SourceImageLoader<V: ShaderSizedValueNodeType> {
+  /// The size of the image, it is at least 1 in each dimension.
+  fn size(&self) -> Node<Vec2<u32>>;
+  /// The coord is inside of the image if `ENABLE_LOAD_BOUND_CHECK`, otherwise it may be out of
+  /// bounds and the shader runtime check takes over.
+  fn load_in_bounds(&self, coord: Node<Vec2<u32>>) -> Node<V>;
+
+  /// If `ENABLE_LOAD_BOUND_CHECK`, the coord outside of the image is clamped to the edge, so the
+  /// edge texels are replicated.
+  fn load(&self, coord: Node<Vec2<u32>>) -> Node<V> {
+    self.load_in_bounds(clamp_load_coord(coord, self.size()))
+  }
+
+  /// The input order of the reducer follows [QuadReducer].
   fn down_sample_quad(&self, coord: Node<Vec2<u32>>, reducer: &dyn QuadReducer<V>) -> Node<V> {
-    let loads = [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)].map(|offset| {
-      // todo, boundary check?
-      self.load_tex(coord + val(offset))
-    });
+    let loads =
+      [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)].map(|offset| self.load(coord + val(offset)));
     reducer.reduce(loads)
   }
 }
 
+/// See [SourceImageLoader] for the bound check.
 pub trait SourceImageWriter<V: ShaderSizedValueNodeType> {
-  fn write(&self, coord: Node<Vec2<u32>>, value: Node<V>);
+  /// The size of the image, it is at least 1 in each dimension.
+  fn size(&self) -> Node<Vec2<u32>>;
+  /// The coord is inside of the image if `ENABLE_WRITE_BOUND_CHECK`, otherwise it may be out of
+  /// bounds and the shader runtime check takes over.
+  fn write_in_bounds(&self, coord: Node<Vec2<u32>>, value: Node<V>);
+
+  /// The write outside of the image is skipped.
+  fn write(&self, coord: Node<Vec2<u32>>, value: Node<V>) {
+    if ENABLE_WRITE_BOUND_CHECK {
+      if_by(coord.less_than(self.size()).all(), || {
+        self.write_in_bounds(coord, value);
+      });
+    } else {
+      self.write_in_bounds(coord, value);
+    }
+  }
 }
 
 impl<D, F> SourceImageLoader<TexelOutputOf<F>> for BindingNode<ShaderTexture<D, F>>
 where
-  D: ShaderTextureDimension + SingleLayerTarget + DirectAccessTarget,
+  D: ShaderTextureDimension + SingleLayerTarget + D2LikeTextureType + DirectAccessTarget,
   F: ShaderTextureKind + SingleSampleTarget,
   Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
 {
-  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<TexelOutputOf<F>> {
+  fn size(&self) -> Node<Vec2<u32>> {
+    self.texture_dimension_2d(None)
+  }
+  fn load_in_bounds(&self, coord: Node<Vec2<u32>>) -> Node<TexelOutputOf<F>> {
     self.load_texel(coord.into(), 0)
   }
 }
 
 impl<A, D> SourceImageLoader<Vec4<f32>> for BindingNode<ShaderStorageTexture<A, D, f32>>
 where
-  D: ShaderTextureDimension + SingleLayerTarget + DirectAccessTarget,
+  D: ShaderTextureDimension + SingleLayerTarget + D2LikeTextureType + DirectAccessTarget,
   A: StorageTextureReadable,
   Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
 {
-  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<Vec4<f32>> {
+  fn size(&self) -> Node<Vec2<u32>> {
+    self.texture_dimension_2d()
+  }
+  fn load_in_bounds(&self, coord: Node<Vec2<u32>>) -> Node<Vec4<f32>> {
     self.load_texel(coord.into())
   }
 }
 
 impl<A, D> SourceImageWriter<Vec4<f32>> for BindingNode<ShaderStorageTexture<A, D, f32>>
 where
-  D: ShaderTextureDimension + SingleLayerTarget + DirectAccessTarget,
+  D: ShaderTextureDimension + SingleLayerTarget + D2LikeTextureType + DirectAccessTarget,
   A: StorageTextureWriteable,
   Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
 {
-  fn write(&self, coord: Node<Vec2<u32>>, value: Node<Vec4<f32>>) {
+  fn size(&self) -> Node<Vec2<u32>> {
+    self.texture_dimension_2d()
+  }
+  fn write_in_bounds(&self, coord: Node<Vec2<u32>>, value: Node<Vec4<f32>>) {
     self.write_texel(coord.into(), value);
   }
 }
 
 pub struct FirstChannelLoader(pub BindingNode<ShaderStorageTextureR2D>);
 impl SourceImageLoader<f32> for FirstChannelLoader {
-  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
+  fn size(&self) -> Node<Vec2<u32>> {
+    self.0.texture_dimension_2d()
+  }
+  fn load_in_bounds(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
     self.0.load_texel(coord).x()
   }
 }
@@ -266,7 +342,10 @@ impl SourceImageLoader<f32> for FirstChannelLoader {
 pub struct SplatWriter(pub BindingNode<ShaderStorageTextureW2D>);
 
 impl SourceImageWriter<f32> for SplatWriter {
-  fn write(&self, coord: Node<Vec2<u32>>, value: Node<f32>) {
-    self.0.write(coord, value.splat());
+  fn size(&self) -> Node<Vec2<u32>> {
+    self.0.texture_dimension_2d()
+  }
+  fn write_in_bounds(&self, coord: Node<Vec2<u32>>, value: Node<f32>) {
+    self.0.write_texel(coord, value.splat());
   }
 }

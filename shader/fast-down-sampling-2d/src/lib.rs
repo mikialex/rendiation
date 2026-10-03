@@ -39,7 +39,7 @@ pub fn fast_down_sampling<V>(
   // we can not read from the texture meta in shader, because we want
   // the mip_count for full texture size
   let mip_count_buffer = create_uniform(
-    Vec4::new(mip_level_count as f32, width as f32, height as f32, 0.),
+    Vec4::new(mip_level_count, 0, 0, 0),
     device,
     "fast_down_sampling mip_count_info",
   );
@@ -60,9 +60,7 @@ pub fn fast_down_sampling<V>(
       let y = coord.y() + (local_id >> val(7)) * val(8);
       let coord = (x, y).into();
 
-      let info = ctx.bind_by(&mip_count_buffer).load();
-      let mip_level_count = info.x().into_u32();
-      let mip_0_size: Node<Vec2<u32>> = (info.y().into_u32(), info.z().into_u32()).into();
+      let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
 
       let stage_one_io = io.bind_first_stage_shader(&mut ctx);
 
@@ -73,7 +71,6 @@ pub fn fast_down_sampling<V>(
         group_id,
         local_invocation_index: local_id,
         mip_level_count,
-        mip_0_size,
       };
 
       down_sample_mips_0_and_1(
@@ -132,9 +129,7 @@ pub fn fast_down_sampling<V>(
       let y = coord.y() + (local_id >> val(7)) * val(8);
       let coord = (x, y).into();
 
-      let info = ctx.bind_by(&mip_count_buffer).load();
-      let mip_level_count = info.x().into_u32();
-      let mip_0_size: Node<Vec2<u32>> = (info.y().into_u32(), info.z().into_u32()).into();
+      let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
 
       let stage_two_io = io.bind_second_stage_shader(&mut ctx);
 
@@ -145,7 +140,6 @@ pub fn fast_down_sampling<V>(
         group_id,
         local_invocation_index: local_id,
         mip_level_count,
-        mip_0_size,
       };
 
       down_sample_mips_6_and_7(
@@ -193,7 +187,6 @@ struct SampleCtx {
   pub group_id: Vec2<u32>,
   pub local_invocation_index: u32,
   pub mip_level_count: u32,
-  pub mip_0_size: Vec2<u32>,
 }
 
 /// remap to 8 x 8 grid point
@@ -208,40 +201,6 @@ fn remap_for_wave_reduction(a: Node<u32>) -> Node<Vec2<u32>> {
     .insert_bits(n, val(0), val(2));
 
   (x, y).into()
-}
-
-/// Perform quad downsampling with bounds-safe coordinate clamping.
-/// Clamps the base read coordinate so that the full 2x2 quad stays within the texture.
-/// This ensures out-of-bounds reads at texture edges are handled correctly by
-/// replicating edge texels rather than reading garbage.
-fn safe_down_sample_quad<V: ShaderSizedValueNodeType>(
-  loader: &dyn SourceImageLoader<V>,
-  base_coord: Node<Vec2<u32>>,
-  mip_size: Node<Vec2<u32>>,
-  reducer: &dyn QuadReducer<V>,
-) -> Node<V> {
-  let limit = vec2_node((mip_size.x() - val(2_u32), mip_size.y() - val(2_u32)));
-  let safe_coord: Node<Vec2<u32>> =
-    (base_coord.x().min(limit.x()), base_coord.y().min(limit.y())).into();
-  loader.down_sample_quad(safe_coord, reducer)
-}
-
-/// Quad downsampling with read clamping, then unconditional write.
-/// Clamps the read coordinate so the 2×2 quad stays within the source texture
-/// (edge replication), then writes the reduced value.
-fn safe_write_down_sample_quad<V: ShaderSizedValueNodeType>(
-  loader: &dyn SourceImageLoader<V>,
-  writer: &dyn SourceImageWriter<V>,
-  base_coord: Node<Vec2<u32>>,
-  write_coord: Node<Vec2<u32>>,
-  mip_size: Node<Vec2<u32>>,
-  reducer: &dyn QuadReducer<V>,
-) -> Node<V> {
-  let safe = safe_down_sample_quad(loader, base_coord, mip_size, reducer);
-  // todo, currently we rely on webgpu/wgpu to bound the writing
-  // this is wrong as we can disable it in wgpu
-  writer.write(write_coord, safe);
-  safe
 }
 
 /// Return from the entry if the given mip level does not exist.
@@ -367,19 +326,16 @@ fn down_sample_mips_6_and_7<N>(
   let ENode::<SampleCtx> {
     coord,
     mip_level_count,
-    mip_0_size,
     ..
   } = sample_ctx;
-
-  let mip_6_size: Node<Vec2<u32>> =
-    (mip_0_size.x() / val(64_u32), mip_0_size.y() / val(64_u32)).into();
 
   return_if_level_not_exist(mip_level_count, val(7));
 
   let reduced = [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)].map(|offset| {
     let pix = coord * val(2) + val(offset);
-    let source_coord = pix * val(2);
-    safe_write_down_sample_quad(image_sampler, l_7, source_coord, pix, mip_6_size, reducer)
+    let reduced = image_sampler.down_sample_quad(pix * val(2), reducer);
+    l_7.write(pix, reduced);
+    reduced
   });
 
   return_if_level_not_exist(mip_level_count, val(8));
