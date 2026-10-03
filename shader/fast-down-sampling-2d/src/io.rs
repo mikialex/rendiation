@@ -211,7 +211,7 @@ pub trait SourceImageLoader<V: ShaderSizedValueNodeType> {
   fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<V>;
 
   fn down_sample_quad(&self, coord: Node<Vec2<u32>>, reducer: &dyn QuadReducer<V>) -> Node<V> {
-    let loads = [vec2(0, 0), vec2(0, 1), vec2(1, 0), vec2(1, 1)].map(|offset| {
+    let loads = [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)].map(|offset| {
       // todo, boundary check?
       self.load_tex(coord + val(offset))
     });

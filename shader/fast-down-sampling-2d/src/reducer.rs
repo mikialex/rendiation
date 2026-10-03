@@ -1,5 +1,11 @@
 use crate::*;
 
+/// Reduce a 2x2 quad into one value.
+///
+/// The input is in row major order of the quad: (0, 0), (1, 0), (0, 1), (1, 1), where the first
+/// component is x. All the quad reductions in this crate follow this order, so a reducer that is
+/// not symmetric (for example a weighted filter) can rely on it. When used to reduce the multi
+/// sample depth, the input is in sample index order.
 pub trait QuadReducer<T>: std::any::Any {
   fn reduce(&self, v: [Node<T>; 4]) -> Node<T>;
 }

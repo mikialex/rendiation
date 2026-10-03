@@ -119,6 +119,8 @@ pub fn compute_pot_enlarged_hierarchy_depth(
 
     compute_hierarchy_depth_from_depth_texture(&mut pass, device, output_target, reverse_depth);
   } else {
+    // the multi sample depth loader reduces exactly 4 samples
+    assert_eq!(input_depth.resource.desc.sample_count, 4);
     let input_depth = GPU2DMultiSampleDepthTextureView::try_from(input_depth).unwrap();
 
     let internal = CommonTextureFastDownSamplingSource::new(

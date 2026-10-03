@@ -244,6 +244,14 @@ fn safe_write_down_sample_quad<V: ShaderSizedValueNodeType>(
   safe
 }
 
+/// Return from the entry if the given mip level does not exist.
+///
+/// The `mip_level_count` is the full level count including level 0. The views of the not existing
+/// levels are clamped to the last level, so writing them will overwrite the last level.
+fn return_if_level_not_exist(mip_level_count: Node<u32>, level: Node<u32>) {
+  if_by(mip_level_count.less_equal_than(level), do_return);
+}
+
 struct SharedMemoryDownSampler<T> {
   shared: ShaderPtrOf<SharedMemory<T>>,
 }
@@ -306,7 +314,7 @@ fn down_sample_mips_0_and_1<N>(
     l_1.write(pix, reduced);
   }
 
-  if_by(mip_level_count.less_equal_than(val(1)), do_return);
+  return_if_level_not_exist(mip_level_count, val(2));
 
   4.into_shader_iter().for_each(|i, _| {
     shared_sampler.store(coord, sub_tile_reduced.index(i).load());
@@ -330,7 +338,8 @@ fn down_sample_mips_0_and_1<N>(
       sub_tile_reduced.index(i).store(reduced);
     });
 
-    // is this required?
+    // required, the store at the start of the next iteration overwrites the shared memory cells
+    // that the first 64 invocations are reading in this iteration
     workgroup_barrier();
   });
 
@@ -365,7 +374,7 @@ fn down_sample_mips_6_and_7<N>(
   let mip_6_size: Node<Vec2<u32>> =
     (mip_0_size.x() / val(64_u32), mip_0_size.y() / val(64_u32)).into();
 
-  if_by(mip_level_count.less_equal_than(val(7)), do_return);
+  return_if_level_not_exist(mip_level_count, val(7));
 
   let reduced = [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)].map(|offset| {
     let pix = coord * val(2) + val(offset);
@@ -373,13 +382,15 @@ fn down_sample_mips_6_and_7<N>(
     safe_write_down_sample_quad(image_sampler, l_7, source_coord, pix, mip_6_size, reducer)
   });
 
-  if_by(mip_level_count.less_equal_than(val(8)), do_return);
+  return_if_level_not_exist(mip_level_count, val(8));
 
   let l_8_local = reducer.reduce(reduced);
   l_8.write(coord, l_8_local);
   shared_sampler.store(coord, l_8_local);
 }
 
+/// The `base_mip` is the last level that has already been written, this function writes the level
+/// `base_mip + 1` to `base_mip + 4`.
 fn down_sample_next_four<N>(
   sampler: &SharedMemoryDownSampler<N>,
   l_3: &dyn SourceImageWriter<N>,
@@ -400,7 +411,7 @@ fn down_sample_next_four<N>(
     ..
   } = sample_ctx;
 
-  if_by(mip_level_count.less_equal_than(base_mip), do_return);
+  return_if_level_not_exist(mip_level_count, base_mip + val(1));
   workgroup_barrier();
 
   if_by(local_invocation_index.less_than(val(TILE_SIZE)), || {
@@ -420,10 +431,7 @@ fn down_sample_next_four<N>(
     sampler.shared.index(x).index(y).store(reduced);
     l_3.write(group_id * val(TILE_SIZE / 8) + coord, reduced);
   });
-  if_by(
-    mip_level_count.less_equal_than(base_mip + val(1)),
-    do_return,
-  );
+  return_if_level_not_exist(mip_level_count, base_mip + val(2));
   workgroup_barrier();
 
   if_by(local_invocation_index.less_than(val(TILE_SIZE / 4)), || {
@@ -444,10 +452,7 @@ fn down_sample_next_four<N>(
     l_4.write(group_id * val(TILE_SIZE / 16) + coord, reduced);
   });
 
-  if_by(
-    mip_level_count.less_equal_than(base_mip + val(2)),
-    do_return,
-  );
+  return_if_level_not_exist(mip_level_count, base_mip + val(3));
 
   workgroup_barrier();
 
@@ -470,10 +475,7 @@ fn down_sample_next_four<N>(
       l_5.write(group_id * val(TILE_SIZE / 32) + coord, reduced);
     },
   );
-  if_by(
-    mip_level_count.less_equal_than(base_mip + val(4)),
-    do_return,
-  );
+  return_if_level_not_exist(mip_level_count, base_mip + val(4));
   workgroup_barrier();
 
   if_by(
