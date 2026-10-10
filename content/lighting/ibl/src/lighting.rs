@@ -62,19 +62,22 @@ impl LightingComputeInvocation for IBLLighting {
     shading: &dyn LightableSurfaceShading,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult> {
-    let shading = shading
-      .as_any()
-      .downcast_ref::<ENode<ShaderPhysicalShading>>();
-    if shading.is_none() {
-      return zeroed_val::<ShaderLightingResult>().expand();
-    }
+    shading.resolve_as::<ENode<ShaderPhysicalShading>>(|shading| self.compute(shading, geom_ctx))
+  }
+}
 
+impl IBLLighting {
+  fn compute(
+    &self,
+    shading: &ENode<ShaderPhysicalShading>,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderLightingResult> {
     let ENode::<ShaderPhysicalShading> {
       albedo,
       perceptual_roughness,
       f0,
       ..
-    } = shading.cloned().unwrap();
+    } = *shading;
 
     let uniform = self.uniform.load().expand();
 

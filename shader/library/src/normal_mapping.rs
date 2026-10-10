@@ -25,6 +25,12 @@ pub fn perturb_normal_2_arb(
   (t * (map_norm.x() * scale) + b * (map_norm.y() * scale) + n * map_norm.z()).normalize()
 }
 
+/// the scale only applies to the xy components, as the glTF normal texture scale defines
+fn decode_normal_map_sample(sample: Node<Vec3<f32>>, scale: Node<f32>) -> Node<Vec3<f32>> {
+  let normal = sample * val(Vec3::splat(2.)) - val(Vec3::one());
+  (normal.xy() * scale, normal.z()).into()
+}
+
 pub fn apply_normal_mapping(
   builder: &mut ShaderFragmentBuilderView,
   normal_map_sample: Node<Vec3<f32>>,
@@ -34,8 +40,7 @@ pub fn apply_normal_mapping(
   let normal = builder.get_or_compute_fragment_normal();
   let position = builder.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
 
-  let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
-  let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
+  let normal_adjust = decode_normal_map_sample(normal_map_sample, scale);
 
   let face = builder.query::<FragmentFrontFacing>().select(1., -1.);
 
@@ -61,8 +66,7 @@ pub fn apply_normal_mapping_conditional(
   let position = builder.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
 
   if_by(enabled, || {
-    let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
-    let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
+    let normal_adjust = decode_normal_map_sample(normal_map_sample, scale);
 
     let face = builder.query::<FragmentFrontFacing>().select(1., -1.);
 
@@ -96,8 +100,7 @@ pub fn apply_normal_mapping_conditional_uniform_cfg(
   let st1 = uv.dpdy();
 
   if_by(enabled, || {
-    let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
-    let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
+    let normal_adjust = decode_normal_map_sample(normal_map_sample, scale);
 
     let face = builder.query::<FragmentFrontFacing>().select(1., -1.);
 

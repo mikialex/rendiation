@@ -154,7 +154,30 @@ pub trait LightableSurfaceShading {
     ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult>;
 
+  /// call the compute with the concrete surface. The concrete surface simply calls it with self,
+  /// the surface that selects the shading model at runtime (for example the defer lighting
+  /// decoder) should resolve the selected surface in each branch, so the lighting that requires
+  /// the concrete surface parameters (for example the ibl and the ltc area lighting) could
+  /// downcast it by [Self::as_any].
+  fn resolve(
+    &self,
+    compute: &dyn Fn(&dyn LightableSurfaceShading) -> ENode<ShaderLightingResult>,
+  ) -> ENode<ShaderLightingResult>;
+
   fn as_any(&self) -> &dyn std::any::Any;
+}
+
+impl dyn LightableSurfaceShading + '_ {
+  /// compute the lighting if the resolved surface is T, otherwise the result is zero
+  pub fn resolve_as<T: 'static>(
+    &self,
+    compute: impl Fn(&T) -> ENode<ShaderLightingResult>,
+  ) -> ENode<ShaderLightingResult> {
+    self.resolve(&|shading| match shading.as_any().downcast_ref::<T>() {
+      Some(shading) => compute(shading),
+      None => zeroed_val::<ShaderLightingResult>().expand(),
+    })
+  }
 }
 
 #[shader_struct]

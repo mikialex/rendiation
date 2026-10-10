@@ -91,7 +91,7 @@ pub fn generate_pre_filter_map(
       let config = create_uniform(
         SpecularGenerationConfig {
           direction,
-          roughness: (level as f32) / (mip_level_count as f32 - 1.0).clamp(0.001, 1.0),
+          roughness: level as f32 / (mip_level_count as f32 - 1.0).max(1.0),
           sample_count: config.specular_sample_count,
           ..Default::default()
         },
@@ -145,7 +145,7 @@ fn create_cube(device: &GPUDevice, resolution: u32, level: MipLevelCount) -> GPU
       mip_level_count: level.get_level_count_wgpu(size_),
       sample_count: 1,
       dimension: TextureDimension::D2,
-      format: TextureFormat::Rgba8UnormSrgb,
+      format: TextureFormat::Rgba16Float,
       usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
       view_formats: &[],
     },
@@ -165,15 +165,25 @@ fn create_cube(device: &GPUDevice, resolution: u32, level: MipLevelCount) -> GPU
   GPUCubeTextureView::try_from(output_view).unwrap()
 }
 
+/// the returned matrix maps the face local coordinate (s, t, 1) to the sample direction, s and t
+/// are in [-1, 1], s points to the right and t points down in the face image. The columns are the
+/// s axis, the t axis and the major axis, which follow the WebGPU cube face selection table, so the
+/// generated face matches the hardware cube sampling.
 fn face_direction_iter() -> impl Iterator<Item = (usize, Mat4<f32>)> {
-  let eye = Vec3::new(0., 0., 0.);
+  let w = [0., 0., 0., 1.];
   [
-    Mat4::lookat(eye, Vec3::new(1., 0., 0.), Vec3::new(0., 1., 0.)), // positive x
-    Mat4::lookat(eye, Vec3::new(-1., 0., 0.), Vec3::new(0., 1., 0.)), // negative x
-    Mat4::lookat(eye, Vec3::new(0., 1., 0.), Vec3::new(0., 0., 1.)), // positive y
-    Mat4::lookat(eye, Vec3::new(0., -1., 0.), Vec3::new(0., 0., -1.)), // negative y
-    Mat4::lookat(eye, Vec3::new(0., 0., 1.), Vec3::new(0., 1., 0.)), // positive z
-    Mat4::lookat(eye, Vec3::new(0., 0., -1.), Vec3::new(0., 1., 0.)), // negative z
+    // positive x
+    Mat4::new_from_column([0., 0., -1., 0.], [0., -1., 0., 0.], [1., 0., 0., 0.], w),
+    // negative x
+    Mat4::new_from_column([0., 0., 1., 0.], [0., -1., 0., 0.], [-1., 0., 0., 0.], w),
+    // positive y
+    Mat4::new_from_column([1., 0., 0., 0.], [0., 0., 1., 0.], [0., 1., 0., 0.], w),
+    // negative y
+    Mat4::new_from_column([1., 0., 0., 0.], [0., 0., -1., 0.], [0., -1., 0., 0.], w),
+    // positive z
+    Mat4::new_from_column([1., 0., 0., 0.], [0., -1., 0., 0.], [0., 0., 1., 0.], w),
+    // negative z
+    Mat4::new_from_column([-1., 0., 0., 0.], [0., -1., 0., 0.], [0., 0., -1., 0.], w),
   ]
   .into_iter()
   .enumerate()

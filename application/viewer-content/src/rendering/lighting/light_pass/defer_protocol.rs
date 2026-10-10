@@ -228,6 +228,14 @@ impl LightableSurfaceShading for MultiMaterialUberDecoder {
     direct_light: &ENode<ShaderIncidentLight>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult> {
+    self.resolve(&|shading| shading.compute_lighting_by_incident(direct_light, ctx))
+  }
+
+  /// decode the surface of the current material type and resolve it
+  fn resolve(
+    &self,
+    compute: &dyn Fn(&dyn LightableSurfaceShading) -> ENode<ShaderLightingResult>,
+  ) -> ENode<ShaderLightingResult> {
     let diffuse = val(Vec3::<f32>::zero()).make_local_var();
     let specular = val(Vec3::<f32>::zero()).make_local_var();
 
@@ -235,7 +243,7 @@ impl LightableSurfaceShading for MultiMaterialUberDecoder {
     for (i, logic) in self.registry.decoders.iter().enumerate() {
       switch = switch.case(i as u32, || {
         if let DeferLightingSurfaceReadBack::Lightable(shading) = logic(&self.data) {
-          let r = shading.compute_lighting_by_incident(direct_light, ctx);
+          let r = shading.resolve(compute);
           diffuse.store(r.diffuse);
           specular.store(r.specular);
         }

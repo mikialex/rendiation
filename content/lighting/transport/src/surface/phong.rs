@@ -63,6 +63,13 @@ impl LightableSurfaceShading for ShaderPhongShadingShaderAPIInstance {
     }
   }
 
+  fn resolve(
+    &self,
+    compute: &dyn Fn(&dyn LightableSurfaceShading) -> ENode<ShaderLightingResult>,
+  ) -> ENode<ShaderLightingResult> {
+    compute(self)
+  }
+
   fn as_any(&self) -> &dyn std::any::Any {
     self
   }

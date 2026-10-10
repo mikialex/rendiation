@@ -31,22 +31,16 @@ impl LightingComputeInvocation for LTCRectLightingCompute {
     shading: &dyn LightableSurfaceShading,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult> {
-    let shading = shading
-      .as_any()
-      .downcast_ref::<ENode<ShaderPhysicalShading>>();
-    if shading.is_none() {
-      return zeroed_val::<ShaderLightingResult>().expand();
-    }
-    let shading = shading.unwrap();
-
-    LTCxLightEval {
-      light: self.light,
-      diffuse_color: shading.albedo,
-      specular_color: shading.f0,
-      roughness: shading.perceptual_roughness,
-      geom: *geom_ctx,
-      lut: self.lut,
-    }
-    .eval()
+    shading.resolve_as::<ENode<ShaderPhysicalShading>>(|shading| {
+      LTCxLightEval {
+        light: self.light,
+        diffuse_color: shading.albedo,
+        specular_color: shading.f0,
+        roughness: shading.perceptual_roughness,
+        geom: *geom_ctx,
+        lut: self.lut,
+      }
+      .eval()
+    })
   }
 }

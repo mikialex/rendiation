@@ -77,6 +77,13 @@ impl LightableSurfaceShading for ShaderPhysicalShadingShaderAPIInstance {
     physical_shading_fn(direct_light.construct(), ctx.construct(), self.construct()).expand()
   }
 
+  fn resolve(
+    &self,
+    compute: &dyn Fn(&dyn LightableSurfaceShading) -> ENode<ShaderLightingResult>,
+  ) -> ENode<ShaderLightingResult> {
+    compute(self)
+  }
+
   fn as_any(&self) -> &dyn std::any::Any {
     self
   }

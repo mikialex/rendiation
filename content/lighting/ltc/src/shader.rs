@@ -202,18 +202,18 @@ pub fn ltc_evaluate_disk(
   let t1 = t1.normalize();
   let t2 = n.cross(t1);
 
-  // rotate area light in (T1, T2, N) basis
+  // rotate area light in (T1, T2, N) basis, the min_v is applied to the ellipse below
   let m = mat3_node((t1, t2, n));
-  let base = min_v * m.transpose();
+  let rotation = m.transpose();
 
   let p1 = hpt_sub_hpt(l.p1, camera_world_position);
   let p2 = hpt_sub_hpt(l.p2, camera_world_position);
   let p3 = hpt_sub_hpt(l.p3, camera_world_position);
 
   // polygon
-  let l1 = base * (p1 - p);
-  let l2 = base * (p2 - p);
-  let l3 = base * (p3 - p);
+  let l1 = rotation * (p1 - p);
+  let l2 = rotation * (p2 - p);
+  let l3 = rotation * (p3 - p);
 
   // init ellipse
   let C = val(0.5) * (l1 + l3);

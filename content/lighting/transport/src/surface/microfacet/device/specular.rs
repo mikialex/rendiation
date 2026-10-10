@@ -204,8 +204,11 @@ impl ShaderMicroFacetGeometricShadow for ShaderSmithGGXCorrelatedGeometryShadow 
     let n_dot_v = v.dot(n).max(EPSILON_SHADING);
     let roughness2 = self.roughness * self.roughness;
 
-    let vis_smith_v = n_dot_v * (n_dot_v * (n_dot_v - n_dot_v * roughness2) + roughness2).sqrt();
-    let vis_smith_l = n_dot_l * (n_dot_l * (n_dot_l - n_dot_l * roughness2) + roughness2).sqrt();
+    // the n_dot_l and n_dot_v multipliers are intentionally swapped: the lambda term of v is
+    // sqrt(..) / n_dot_v, dividing g by 4 * n_dot_l * n_dot_v cancels the n_dot_v and leaves
+    // n_dot_l as its multiplier (same for l)
+    let vis_smith_v = n_dot_l * (n_dot_v * (n_dot_v - n_dot_v * roughness2) + roughness2).sqrt();
+    let vis_smith_l = n_dot_v * (n_dot_l * (n_dot_l - n_dot_l * roughness2) + roughness2).sqrt();
     let g = val(0.5) / (vis_smith_v + vis_smith_l);
 
     // the above code has already divided by 4 * n_dot_l * n_dot_v for optimization(see pdf)
