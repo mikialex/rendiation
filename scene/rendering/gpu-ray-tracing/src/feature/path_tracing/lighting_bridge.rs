@@ -1,4 +1,6 @@
-use rendiation_lighting_punctual::punctual_light_intensity_to_illuminance_factor_fn;
+use rendiation_lighting_punctual::{
+  punctual_light_intensity_to_illuminance_factor_fn, spot_light_angle_attenuation_fn,
+};
 
 use crate::*;
 
@@ -140,7 +142,7 @@ impl DevicePathTracingLightingInvocation for SpotLightStorageShaderAPIInstance {
 impl ShaderLightSource for SpotLightStorageShaderAPIInstance {
   /// the spotlight falloff fn is smoothstep(a polynomial), which is integrable
   fn radiant_power(&self) -> Node<Vec3<f32>> {
-    let cos_falloff_start = self.half_penumbra_cos;
+    let cos_falloff_start = self.half_inner_cone_cos;
     let cos_falloff_end = self.half_cone_cos;
     let ratio = (val(1.) - cos_falloff_start) + (cos_falloff_start - cos_falloff_end) / val(2.);
     val(2. * f32::PI()) * self.luminance_intensity * ratio
@@ -177,7 +179,8 @@ impl ShaderLightSource for SpotLightStorageShaderAPIInstance {
     // the sampling direction is from surface to light, while the cone is defined in the
     // light to surface direction, so negate it here
     let angle_cos = (sampling_dir / distance).dot(self.direction) * val(-1.0);
-    let angle_factor = angle_cos.smoothstep(self.half_cone_cos, self.half_penumbra_cos);
+    let angle_factor =
+      spot_light_angle_attenuation_fn(angle_cos, self.half_cone_cos, self.half_inner_cone_cos);
     self.luminance_intensity * (distance_factor * angle_factor)
   }
 

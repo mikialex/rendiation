@@ -28,10 +28,21 @@ pub fn register_area_lighting_data_model() {
 declare_entity!(AreaLightEntity);
 declare_foreign_key!(AreaLightRefScene, AreaLightEntity, SceneEntity);
 declare_foreign_key!(AreaLightRefNode, AreaLightEntity, SceneNodeEntity);
-declare_component!(AreaLightSize, AreaLightEntity, Vec2<f32>, Vec2::one()); // in meter
-declare_component!(AreaLightIntensity, AreaLightEntity, Vec3<f32>, Vec3::one());
-declare_component!(AreaLightIsRound, AreaLightEntity, bool, false); // in meter
-declare_component!(AreaLightIsDoubleSide, AreaLightEntity, bool, false); // in meter
+declare_component!(
+  /// The full width and height of the light shape in the local xy plane of the light node, in
+  /// meters. The round light is the ellipse inscribed in this rectangle.
+  AreaLightSize, AreaLightEntity, Vec2<f32>, Vec2::one());
+declare_component!(
+  /// The emitted radiance, in [nit](https://en.wikipedia.org/wiki/Candela_per_square_metre)
+  /// (cd/m²), uniform over the light shape.
+  AreaLightIntensity, AreaLightEntity, Vec3<f32>, Vec3::one());
+declare_component!(
+  /// Use the ellipse shape instead of the rectangle, see [AreaLightSize].
+  AreaLightIsRound, AreaLightEntity, bool, false);
+declare_component!(
+  /// The single side light only emits toward the local -z of the light node (the same forward
+  /// direction as the camera and the other lights), the double side light emits toward both sides.
+  AreaLightIsDoubleSide, AreaLightEntity, bool, false);
 
 pub struct AreaLightDataView {
   pub size: Vec2<f32>,

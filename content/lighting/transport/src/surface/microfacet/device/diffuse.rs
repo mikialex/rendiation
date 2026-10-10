@@ -17,8 +17,17 @@ impl ShaderPhysicalDiffuse for ShaderLambertian {
 }
 
 impl ShaderLightTransportSurface for ShaderLambertian {
-  fn bsdf(&self, _: Node<Vec3<f32>>, _: Node<Vec3<f32>>, _: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-    self.albedo / val(Vec3::splat(PI))
+  fn bsdf(
+    &self,
+    _: Node<Vec3<f32>>,
+    light_dir: Node<Vec3<f32>>,
+    normal: Node<Vec3<f32>>,
+  ) -> Node<Vec3<f32>> {
+    // the light below the surface has no contribution
+    light_dir
+      .dot(normal)
+      .greater_than(0.)
+      .select(self.albedo / val(Vec3::splat(PI)), val(Vec3::zero()))
   }
 
   fn sample_light_dir_use_bsdf_importance_impl(
@@ -31,7 +40,7 @@ impl ShaderLightTransportSurface for ShaderLambertian {
     let sample = concentric_sample_disk_device_fn(sampler.next_2d());
     let x = sample.x();
     let y = sample.y();
-    let z = (val(1.0) - x * x - y * y).sqrt();
+    let z = (val(1.0) - x * x - y * y).max(0.).sqrt();
     tbn_fn(normal) * (x, y, z).into()
   }
 

@@ -110,7 +110,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
         |_| true,
         |world_mat| {
           let half_cone_angle = get_db_view::<SpotLightHalfConeAngle>();
-          let half_penumbra_angle = get_db_view::<SpotLightHalfPenumbraAngle>();
+          let half_inner_cone_angle = get_db_view::<SpotLightHalfInnerConeAngle>();
           let cutoff = get_db_view::<SpotLightCutOffDistance>();
           let light_ref_node = get_db_view::<SpotLightRefNode>();
 
@@ -125,7 +125,7 @@ pub fn use_scene_light_helper(cx: &mut ViewerCx) {
               create_debug_line_mesh_spot_light(
                 &mut line_buffer,
                 half_cone_angle,
-                half_penumbra_angle.access(&id).unwrap(),
+                half_inner_cone_angle.access(&id).unwrap(),
                 cutoff.access(&id).unwrap(),
                 world_mat.access(&node_id).unwrap().into_f32(),
               )
@@ -229,7 +229,7 @@ fn create_debug_line_mesh_point_light(lines: &mut LineBuffer, radius: f32, world
 fn create_debug_line_mesh_spot_light(
   lines: &mut LineBuffer,
   half_angle: f32,
-  half_penumbra: f32,
+  half_inner_cone: f32,
   cutoff: f32,
   world_mat: Mat4<f32>,
 ) {
@@ -254,7 +254,7 @@ fn create_debug_line_mesh_spot_light(
   }
 
   build_cone(half_angle, cutoff, world_mat, lines);
-  build_cone(half_penumbra, cutoff, world_mat, lines);
+  build_cone(half_inner_cone, cutoff, world_mat, lines);
 }
 
 fn create_circle(radius: f32, offset: f32) -> impl ParametricCurve3D {

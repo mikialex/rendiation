@@ -9,7 +9,7 @@ pub struct SpotLightUniform {
   pub direction: Vec3<f32>,
   pub cutoff_distance: f32,
   pub half_cone_cos: f32,
-  pub half_penumbra_cos: f32,
+  pub half_inner_cone_cos: f32,
 }
 
 pub fn use_spot_per_scene_uniform_array_buffers(
@@ -42,7 +42,7 @@ pub fn create_spot_light_uniform(
   let intensity = get_db_view::<SpotLightIntensity>();
   let cutoff = get_db_view::<SpotLightCutOffDistance>();
   let half_cone = get_db_view::<SpotLightHalfConeAngle>();
-  let half_penumbra = get_db_view::<SpotLightHalfPenumbraAngle>();
+  let half_inner_cone = get_db_view::<SpotLightHalfInnerConeAngle>();
   let enabled = get_db_view::<SpotLightEnabled>();
 
   let iter_lights = light_ref_scene.iter_key_value().filter_map(|(light, s)| {
@@ -61,7 +61,7 @@ pub fn create_spot_light_uniform(
       position,
       direction,
       half_cone_cos: half_cone.access(&light)?.cos(),
-      half_penumbra_cos: half_penumbra.access(&light)?.cos(),
+      half_inner_cone_cos: half_inner_cone.access(&light)?.cos(),
       ..Default::default()
     };
 

@@ -155,8 +155,8 @@ pub fn inspect_selected(ui: &mut egui::Ui, selection: &mut ViewerSelectionStates
       0.0..=(f32::PI() / 4.0),
     );
 
-    ui.label("spotlight penumbra angle:");
-    modify_ranged_value_like_slider_com::<SpotLightHalfPenumbraAngle>(
+    ui.label("spotlight inner cone angle:");
+    modify_ranged_value_like_slider_com::<SpotLightHalfInnerConeAngle>(
       ui,
       w,
       target,

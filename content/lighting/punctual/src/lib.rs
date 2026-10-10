@@ -90,7 +90,7 @@ pub struct SpotLightShaderInfo {
   pub direction: Vec3<f32>,
   pub cutoff_distance: f32,
   pub half_cone_cos: f32,
-  pub half_penumbra_cos: f32,
+  pub half_inner_cone_cos: f32,
 }
 
 impl PunctualShaderLight for Node<SpotLightShaderInfo> {
@@ -115,7 +115,8 @@ impl PunctualShaderLight for ENode<SpotLightShaderInfo> {
 
     let direction = direction.normalize();
     let angle_cos = direction.dot(self.direction);
-    let angle_factor = angle_cos.smoothstep(self.half_cone_cos, self.half_penumbra_cos);
+    let angle_factor =
+      spot_light_angle_attenuation_fn(angle_cos, self.half_cone_cos, self.half_inner_cone_cos);
 
     let intensity_factor = distance_factor * angle_factor;
 
@@ -124,6 +125,21 @@ impl PunctualShaderLight for ENode<SpotLightShaderInfo> {
       direction,
     }
   }
+}
+
+/// The attenuation goes from 1 at the fully lit inner cone to 0 at the outer cone. The
+/// smoothstep is undefined when its two edges are equal, which is the default and is allowed by
+/// gltf, so the inner edge is kept slightly inside, which gives a hard edge. Note the gltf
+/// reference uses the squared linear interpolation of the cosine instead of the smoothstep, so
+/// the edge of the imported gltf spot light is slightly different.
+#[shader_fn]
+pub fn spot_light_angle_attenuation(
+  angle_cos: Node<f32>,
+  half_cone_cos: Node<f32>,
+  half_inner_cone_cos: Node<f32>,
+) -> Node<f32> {
+  let inner_cos = half_inner_cone_cos.max(half_cone_cos + val(0.0001));
+  angle_cos.smoothstep(half_cone_cos, inner_cos)
 }
 
 /// based upon Frostbite 3 Moving to Physically-based Rendering

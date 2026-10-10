@@ -173,7 +173,7 @@ All share the pattern: FK → `SceneEntity` (belongs to scene) + FK → `SceneNo
 | Type | Unique components |
 |------|-------------------|
 | PointLight | `PointLightIntensity: Vec3<f32>` (cd), `PointLightCutOffDistance: f32` |
-| SpotLight | `SpotLightIntensity: Vec3<f32>`, `SpotLightCutOffDistance: f32`, `SpotLightHalfConeAngle: f32`, `SpotLightHalfPenumbraAngle: f32` |
+| SpotLight | `SpotLightIntensity: Vec3<f32>`, `SpotLightCutOffDistance: f32`, `SpotLightHalfConeAngle: f32`, `SpotLightHalfInnerConeAngle: f32` |
 | DirectionalLight | `DirectionalLightIlluminance: Vec3<f32>` (lux) |
 
 ### Materials

@@ -72,7 +72,7 @@ pub struct SpotLightDataView {
   pub intensity: Vec3<f32>,
   pub cutoff_distance: f32,
   pub half_cone_angle: f32,
-  pub half_penumbra_angle: f32,
+  pub half_inner_cone_angle: f32,
   pub node: EntityHandle<SceneNodeEntity>,
   pub scene: EntityHandle<SceneEntity>,
 }
@@ -82,7 +82,7 @@ impl SpotLightDataView {
     writer.new_entity(|w| {
       w.write::<SpotLightCutOffDistance>(&self.cutoff_distance)
         .write::<SpotLightHalfConeAngle>(&self.half_cone_angle)
-        .write::<SpotLightHalfPenumbraAngle>(&self.half_penumbra_angle)
+        .write::<SpotLightHalfInnerConeAngle>(&self.half_inner_cone_angle)
         .write::<SpotLightIntensity>(&self.intensity)
         .write::<SpotLightRefNode>(&self.node.some_handle())
         .write::<SpotLightRefScene>(&self.scene.some_handle())
@@ -111,11 +111,13 @@ declare_component!(
   DEFAULT_CUTOFF_DISTANCE
 );
 declare_component!(
-  /// The half angle of the light cone, in radians.
+  /// The half angle of the outer light cone, in radians. There is no light outside of it.
   SpotLightHalfConeAngle, SpotLightEntity, f32, 0.5);
 declare_component!(
-  /// The half angle of the penumbra, in radians.
-  SpotLightHalfPenumbraAngle, SpotLightEntity, f32, 0.5);
+  /// The half angle of the fully lit inner cone, in radians, same as the gltf inner cone angle.
+  /// The light fades out between this and the [SpotLightHalfConeAngle]. It should not be larger
+  /// than the half cone angle, the equal value (the default) gives a hard edge.
+  SpotLightHalfInnerConeAngle, SpotLightEntity, f32, 0.5);
 declare_component!(
   /// The intensity of the light source, in [cd](https://en.wikipedia.org/wiki/Candela).
   SpotLightIntensity,
@@ -130,7 +132,7 @@ pub fn register_spot_light_data_model() {
     .declare_component::<SpotLightEnabled>()
     .declare_component::<SpotLightCutOffDistance>()
     .declare_component::<SpotLightHalfConeAngle>()
-    .declare_component::<SpotLightHalfPenumbraAngle>()
+    .declare_component::<SpotLightHalfInnerConeAngle>()
     .declare_component::<SpotLightIntensity>()
     .declare_foreign_key::<SpotLightRefScene>()
     .declare_foreign_key::<SpotLightRefNode>();

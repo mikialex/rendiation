@@ -32,10 +32,14 @@ where
 
     let d = self.normal_distribution_model.d(n, h);
 
-    let n_dot_l = l.dot(n).max(EPSILON_SHADING);
+    let n_dot_l = l.dot(n);
     let n_dot_v = v.dot(n).max(EPSILON_SHADING);
 
-    (d * g * f) / (val(4.0) * n_dot_l * n_dot_v)
+    // the light below the surface has no contribution. The view side is only clamped, because the
+    // shading normal (normal map or interpolated normal) may face away from the view at the
+    // silhouette, the forward shading should not lose the specular there.
+    let specular = (d * g * f) / (val(4.0) * n_dot_l.max(EPSILON_SHADING) * n_dot_v);
+    n_dot_l.greater_than(0.).select(specular, val(Vec3::zero()))
   }
 
   fn sample_light_dir_use_bsdf_importance_impl(
@@ -177,7 +181,8 @@ impl ShaderMicroFacetNormalDistribution for ShaderBeckmann {
 pub struct ShaderSchlick;
 impl ShaderMicroFacetFresnel for ShaderSchlick {
   fn f(&self, v: Node<Vec3<f32>>, h: Node<Vec3<f32>>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-    f0 + (val(Vec3::splat(1.0)) - f0) * (val(1.0) - v.dot(h)).pow(5.)
+    // the float error may make v dot h slightly larger than 1, the pow of negative is undefined
+    f0 + (val(Vec3::splat(1.0)) - f0) * (val(1.0) - v.dot(h)).saturate().pow(5.)
   }
 }
 

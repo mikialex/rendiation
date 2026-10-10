@@ -9,7 +9,7 @@ pub struct SpotLightStorage {
   pub direction: Vec3<f32>,
   pub cutoff_distance: f32,
   pub half_cone_cos: f32,
-  pub half_penumbra_cos: f32,
+  pub half_inner_cone_cos: f32,
 }
 
 pub fn use_spot_light_storage(
@@ -28,9 +28,9 @@ pub fn use_spot_light_storage(
     .map_changes(|rad| rad.cos())
     .update_storage_array(cx, light, offset_of!(SpotLightStorage, half_cone_cos));
 
-  cx.use_changes::<SpotLightHalfPenumbraAngle>()
+  cx.use_changes::<SpotLightHalfInnerConeAngle>()
     .map_changes(|rad| rad.cos())
-    .update_storage_array(cx, light, offset_of!(SpotLightStorage, half_penumbra_cos));
+    .update_storage_array(cx, light, offset_of!(SpotLightStorage, half_inner_cone_cos));
 
   let (fanout, fanout_) = use_global_node_world_mat(cx)
     .fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>(), cx)
@@ -72,7 +72,7 @@ pub fn make_spot_light_storage_component(
         direction: light.direction,
         cutoff_distance: light.cutoff_distance,
         half_cone_cos: light.half_cone_cos,
-        half_penumbra_cos: light.half_penumbra_cos,
+        half_inner_cone_cos: light.half_inner_cone_cos,
       }
       .construct()
     },

@@ -54,7 +54,7 @@ pub fn load_default_scene_lighting_test(
       intensity: Vec3::new(1., 0., 0.) * 1800.,
       cutoff_distance: 10.,
       half_cone_angle: Deg::by(60. / 2.).to_rad(),
-      half_penumbra_angle: Deg::by(50. / 2.).to_rad(),
+      half_inner_cone_angle: Deg::by(50. / 2.).to_rad(),
       node: spot_light_node,
       scene,
     }

@@ -35,7 +35,13 @@ where
 
     let d = self.normal_distribution_model.d(n, h);
 
-    (d * g * f) / (4.0 * n.dot(l) * n.dot(v))
+    // the light below the surface has no contribution and the view
+    // side is only clamped
+    let n_dot_l = n.dot(l);
+    if n_dot_l <= 0.0 {
+      return Vec3::zero();
+    }
+    (d * g * f) / (4.0 * n_dot_l * n.dot(v).max(0.0001))
   }
 
   pub fn sample_light_dir_use_bsdf_importance_impl(

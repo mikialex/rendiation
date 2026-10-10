@@ -296,7 +296,7 @@ fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
           intensity,
           cutoff_distance,
           half_cone_angle: outer_cone_angle,
-          half_penumbra_angle: inner_cone_angle,
+          half_inner_cone_angle: inner_cone_angle,
           node,
           scene: ctx.target_scene,
         }

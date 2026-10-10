@@ -213,7 +213,7 @@ SpotLightDataView {
     intensity: Vec3::new(1., 0., 0.) * 1800.,
     cutoff_distance: 10.,
     half_cone_angle: Deg::by(30.).to_rad(),
-    half_penumbra_angle: Deg::by(25.).to_rad(),
+    half_inner_cone_angle: Deg::by(25.).to_rad(),
     node,
     scene,
 }

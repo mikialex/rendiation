@@ -996,7 +996,7 @@ void set_spot_light_cutoff_distance(ViewerEntityHandle node, float distance);
 
 void set_spot_light_half_cone_angle(ViewerEntityHandle node, float angle);
 
-void set_spot_light_half_penumbra_angle(ViewerEntityHandle node, float angle);
+void set_spot_light_half_inner_cone_angle(ViewerEntityHandle node, float angle);
 
 void drop_spot_light(ViewerEntityHandle handle);
 

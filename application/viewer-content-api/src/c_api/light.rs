@@ -113,8 +113,8 @@ pub extern "C" fn set_spot_light_half_cone_angle(node: ViewerEntityHandle, angle
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn set_spot_light_half_penumbra_angle(node: ViewerEntityHandle, angle: f32) {
-  write_global_db_component::<SpotLightHalfPenumbraAngle>().write(node.into(), angle);
+pub extern "C" fn set_spot_light_half_inner_cone_angle(node: ViewerEntityHandle, angle: f32) {
+  write_global_db_component::<SpotLightHalfInnerConeAngle>().write(node.into(), angle);
 }
 
 #[unsafe(no_mangle)]

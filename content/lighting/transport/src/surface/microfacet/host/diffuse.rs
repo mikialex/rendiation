@@ -18,9 +18,13 @@ impl LightTransportSurface for Lambertian {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3<f32>,
-    _light_dir: NormalizedVec3<f32>,
-    _normal: NormalizedVec3<f32>,
+    light_dir: NormalizedVec3<f32>,
+    normal: NormalizedVec3<f32>,
   ) -> Vec3<f32> {
+    // the light below the surface has no contribution
+    if light_dir.dot(normal) <= 0.0 {
+      return Vec3::zero();
+    }
     PhysicalDiffuse::albedo(self) / Vec3::splat(PI)
   }
 
@@ -34,7 +38,7 @@ impl LightTransportSurface for Lambertian {
     let sample = concentric_sample_disk(sampler.next_vec2());
     let x = sample.x;
     let y = sample.y;
-    let z = (1.0 - x * x - y * y).sqrt();
+    let z = (1.0 - x * x - y * y).max(0.0).sqrt();
     (normal.local_to_world() * Vec3::new(x, y, z)).into_normalized()
   }
 

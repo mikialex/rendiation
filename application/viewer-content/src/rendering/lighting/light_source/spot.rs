@@ -229,7 +229,7 @@ impl LightingComputeInvocation for SpotLightInvocation {
           direction: uniform.direction,
           cutoff_distance: uniform.cutoff_distance,
           half_cone_cos: uniform.half_cone_cos,
-          half_penumbra_cos: uniform.half_penumbra_cos,
+          half_inner_cone_cos: uniform.half_inner_cone_cos,
         }
         .construct();
         let incident = light.compute_incident_light(geom_ctx);
