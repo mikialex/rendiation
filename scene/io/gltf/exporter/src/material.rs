@@ -19,7 +19,7 @@ pub fn build_material(
             material.color.x,
             material.color.y,
             material.color.z,
-            1.,
+            material.alpha.alpha,
           ]),
           base_color_texture: material
             .color_alpha_tex
@@ -44,7 +44,7 @@ pub fn build_material(
         extensions: Some(gltf_json::extensions::material::Material {
           pbr_specular_glossiness: Some(gltf_json::extensions::material::PbrSpecularGlossiness {
             diffuse_factor: gltf_json::extensions::material::PbrDiffuseFactor(
-              material.albedo.expand_with_one().into(),
+              material.albedo.expand_with(material.alpha.alpha).into(),
             ),
             diffuse_texture: material
               .albedo_texture
@@ -62,6 +62,15 @@ pub fn build_material(
           }),
           ..Default::default()
         }),
+        normal_texture: material
+          .normal_texture
+          .as_ref()
+          .and_then(|t| get_normal_texture_info(t, reader, textures)),
+        emissive_texture: material
+          .emissive_texture
+          .as_ref()
+          .and_then(|t| get_texture2d_info(t, 0, reader, textures)),
+        emissive_factor: gltf_json::material::EmissiveFactor(material.emissive.into()),
         ..Default::default()
       }
     }),
@@ -74,7 +83,7 @@ pub fn build_material(
         )),
         pbr_metallic_roughness: gltf_json::material::PbrMetallicRoughness {
           base_color_factor: gltf_json::material::PbrBaseColorFactor(
-            material.base_color.expand_with_one().into(),
+            material.base_color.expand_with(material.alpha.alpha).into(),
           ),
           base_color_texture: material
             .base_color_texture
@@ -88,19 +97,10 @@ pub fn build_material(
             .and_then(|t| get_texture2d_info(t, 0, reader, textures)),
           ..Default::default()
         },
-        normal_texture: material.normal_texture.as_ref().and_then(|t| {
-          gltf_json::material::NormalTexture {
-            index: {
-              let sampler_content = reader.read_sampler(t.content.sampler);
-              textures.get(&(t.content.texture, sampler_content))
-            },
-            scale: t.scale,
-            tex_coord: 0,
-            extensions: Default::default(),
-            extras: Default::default(),
-          }
-          .into()
-        }),
+        normal_texture: material
+          .normal_texture
+          .as_ref()
+          .and_then(|t| get_normal_texture_info(t, reader, textures)),
         emissive_texture: material
           .emissive_texture
           .as_ref()
@@ -110,6 +110,22 @@ pub fn build_material(
       }
     }),
     _ => return None,
+  }
+  .into()
+}
+
+fn get_normal_texture_info(
+  t: &NormalMappingDataView,
+  reader: &SceneReader,
+  textures: &Resource<(EntityHandle<SceneTexture2dEntity>, TextureSampler), gltf_json::Texture>,
+) -> Option<gltf_json::material::NormalTexture> {
+  let sampler_content = reader.read_sampler(t.content.sampler);
+  gltf_json::material::NormalTexture {
+    index: textures.get(&(t.content.texture, sampler_content)),
+    scale: t.scale,
+    tex_coord: 0,
+    extensions: Default::default(),
+    extras: Default::default(),
   }
   .into()
 }

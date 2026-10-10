@@ -78,8 +78,12 @@ fn into_rff_material(
   if let Some(diffuse) = m.diffuse {
     mat.albedo = Vec3::new(diffuse[0], diffuse[1], diffuse[2]);
   }
-  if let Some(specular) = m.specular {
-    mat.specular = Vec3::new(specular[0], specular[1], specular[2]);
+  // the obj Ks is the phong specular intensity rather than the f0, using it as the f0 makes the
+  // surface look like metal and darkens the diffuse by 1 - max(f0), so the obj material is
+  // treated as dielectric
+  mat.specular = Vec3::splat(0.04);
+  if let Some(shininess) = m.shininess {
+    mat.glossiness = phong_shininess_to_glossiness(shininess);
   }
   if let Some(diffuse_texture) = &m.diffuse_texture {
     let diffuse_texture = load_tex(diffuse_texture);
@@ -89,7 +93,8 @@ fn into_rff_material(
       .into();
   }
   if let Some(specular_texture) = &m.specular_texture {
-    // the glossiness channel will default to one and that's ok
+    // the specular map modulates the dielectric f0, and the glossiness channel will default to
+    // one and that's ok
     let specular_texture = load_tex(specular_texture);
     mat.specular_glossiness_texture = writer
       .texture_sample_pair_writer()
@@ -97,7 +102,9 @@ fn into_rff_material(
       .into();
   }
   if let Some(normal_texture) = &m.normal_texture {
-    let normal_texture = load_tex(normal_texture);
+    let mut normal_texture = load_tex(normal_texture);
+    // the normal map stores the direction rather than the color
+    normal_texture.format = normal_texture.format.remove_srgb_suffix();
     mat.normal_texture = Some(NormalMappingDataView {
       scale: 1.0,
       content: writer
@@ -106,6 +113,39 @@ fn into_rff_material(
     });
   }
   mat
+}
+
+/// the phong exponent maps to the alpha roughness by sqrt(2 / (n + 2)) (Walter et al. 2007), the
+/// glossiness is one minus the perceptual roughness, which is the sqrt of the alpha roughness
+fn phong_shininess_to_glossiness(shininess: f32) -> f32 {
+  let alpha = (2. / (shininess.max(0.) + 2.)).sqrt();
+  1. - alpha.sqrt()
+}
+
+/// the area weighted vertex normal, the cross product length is twice the face area
+fn compute_vertex_normals(positions: &[f32], indices: &[u32]) -> Vec<Vec3<f32>> {
+  let position = |i: u32| {
+    let i = i as usize * 3;
+    Vec3::new(positions[i], positions[i + 1], positions[i + 2])
+  };
+  let mut normals = vec![Vec3::<f32>::zero(); positions.len() / 3];
+  for face in indices.as_chunks::<3>().0 {
+    let a = position(face[0]);
+    let face_normal = (position(face[1]) - a).cross(position(face[2]) - a);
+    for i in face {
+      normals[*i as usize] += face_normal;
+    }
+  }
+  normals
+    .into_iter()
+    .map(|n| {
+      if n.length2() > 0. {
+        n.normalize()
+      } else {
+        Vec3::new(0., 0., 1.)
+      }
+    })
+    .collect()
 }
 
 fn create_attribute_mesh_from_obj_mesh(mesh: &tobj::Mesh) -> AttributesMesh {
@@ -125,10 +165,12 @@ fn create_attribute_mesh_from_obj_mesh(mesh: &tobj::Mesh) -> AttributesMesh {
       AttributeAccessor::create_owned(mesh.normals.clone(), 3 * 4),
     ));
   } else {
-    // should we make this behavior configurable?
     attributes.push((
       AttributeSemantic::Normals,
-      AttributeAccessor::create_owned(vec![Vec3::<f32>::new(1., 0., 0.); vertices_count], 3 * 4),
+      AttributeAccessor::create_owned(
+        compute_vertex_normals(&mesh.positions, &mesh.indices),
+        3 * 4,
+      ),
     ));
   }
   if !mesh.texcoords.is_empty() {

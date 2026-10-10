@@ -18,6 +18,9 @@ use convert_utils::*;
 mod material;
 use material::*;
 
+mod light;
+use light::*;
+
 mod buffer_inliner;
 use buffer_inliner::*;
 
@@ -42,6 +45,8 @@ pub fn build_scene_to_gltf(
 ) -> Result<(), GltfExportErr> {
   fs::create_dir_all(folder_path).map_err(GltfExportErr::IO)?;
 
+  let lights = collect_scene_lights(scene);
+
   // write nodes
   let mut target_nodes = Resource::default();
   let mut root_nodes = Vec::default();
@@ -52,6 +57,9 @@ pub fn build_scene_to_gltf(
     let mut batch_writes = Vec::default();
     for (_, model_info) in reader.std_models(&scene) {
       all_nodes.insert(model_info.node);
+    }
+    for (node, _) in &lights {
+      all_nodes.insert(*node);
     }
     let first_batch = all_nodes.iter().copied().collect::<Vec<_>>();
     batch_writes.push(first_batch);
@@ -97,6 +105,7 @@ pub fn build_scene_to_gltf(
   let mut all_material_to_write = FastHashSet::default();
 
   let mut has_sg_material = false;
+  let mut has_unlit_material = false;
 
   for (_, model_info) in reader.std_models(&scene) {
     let std_model = reader.read_std_model(model_info.model);
@@ -104,6 +113,7 @@ pub fn build_scene_to_gltf(
 
     match std_model.material {
       SceneMaterialDataView::UnlitMaterial(m) => {
+        has_unlit_material = true;
         all_material_to_write.insert(std_model.material);
         let m = reader.read_unlit_material(m);
         if let Some(t) = m.color_alpha_tex {
@@ -188,23 +198,13 @@ pub fn build_scene_to_gltf(
   }
 
   for (model, model_info) in reader.std_models(&scene) {
-    let idx = *target_nodes.mapping.get(&model_info.node).unwrap();
-    let node = target_nodes.collected.get_mut(idx.value()).unwrap();
-    let targe_node_idx = if node.mesh.is_some() {
-      let extra_node = build_node(&mut target_nodes, reader, model_info.node);
-      if let Some(parent) = reader.read_node_parent(model_info.node) {
-        let parent_idx = target_nodes.get(&parent);
-        target_nodes.collected[parent_idx.value()]
-          .children
-          .get_or_insert_default()
-          .push(extra_node);
-      } else {
-        root_nodes.push(extra_node);
-      }
-      extra_node
-    } else {
-      idx
-    };
+    let targe_node_idx = get_or_create_content_node(
+      &mut target_nodes,
+      &mut root_nodes,
+      reader,
+      model_info.node,
+      |node| node.mesh.is_some(),
+    );
 
     let node = target_nodes
       .collected
@@ -221,6 +221,25 @@ pub fn build_scene_to_gltf(
       model,
       model_info,
     );
+  }
+
+  let mut gltf_lights = Vec::new();
+  for (node, light) in lights {
+    let target_node_idx =
+      get_or_create_content_node(&mut target_nodes, &mut root_nodes, reader, node, |node| {
+        node
+          .extensions
+          .as_ref()
+          .is_some_and(|e| e.khr_lights_punctual.is_some())
+      });
+    let light_idx = gltf_json::Index::new(gltf_lights.len() as u32);
+    gltf_lights.push(light);
+    let extension = gltf_json::extensions::scene::Node {
+      khr_lights_punctual: Some(
+        gltf_json::extensions::scene::khr_lights_punctual::KhrLightsPunctual { light: light_idx },
+      ),
+    };
+    target_nodes.collected[target_node_idx.value()].extensions = Some(extension);
   }
 
   buffer_builder.finalize();
@@ -245,6 +264,17 @@ pub fn build_scene_to_gltf(
   if has_sg_material {
     extensions_used.push(String::from("KHR_materials_pbrSpecularGlossiness"));
   }
+  if has_unlit_material {
+    extensions_used.push(String::from("KHR_materials_unlit"));
+  }
+  let extensions = (!gltf_lights.is_empty()).then(|| {
+    extensions_used.push(String::from("KHR_lights_punctual"));
+    gltf_json::extensions::root::Root {
+      khr_lights_punctual: Some(gltf_json::extensions::root::KhrLightsPunctual {
+        lights: gltf_lights,
+      }),
+    }
+  });
 
   let json = gltf_json::Root {
     accessors: accessors.collected,
@@ -253,7 +283,7 @@ pub fn build_scene_to_gltf(
     buffers: buffers.collected,
     buffer_views: buffer_views.collected,
     scene: Default::default(),
-    extensions: Default::default(),
+    extensions,
     extras: Default::default(),
     extensions_used,
     extensions_required: Default::default(),
@@ -346,6 +376,33 @@ fn build_inline_accessor(
     normalized,
     sparse: Default::default(),
   })
+}
+
+/// the gltf node can only attach one mesh and one light, so the content is attached to a new
+/// sibling node with the same transform when the slot of the node is occupied
+fn get_or_create_content_node(
+  target_nodes: &mut Resource<EntityHandle<SceneNodeEntity>, gltf_json::Node>,
+  root_nodes: &mut Vec<gltf_json::Index<gltf_json::Node>>,
+  reader: &SceneReader,
+  node: EntityHandle<SceneNodeEntity>,
+  is_occupied: impl Fn(&gltf_json::Node) -> bool,
+) -> gltf_json::Index<gltf_json::Node> {
+  let idx = target_nodes.get(&node);
+  if !is_occupied(&target_nodes.collected[idx.value()]) {
+    return idx;
+  }
+
+  let extra_node = build_node(target_nodes, reader, node);
+  if let Some(parent) = reader.read_node_parent(node) {
+    let parent_idx = target_nodes.get(&parent);
+    target_nodes.collected[parent_idx.value()]
+      .children
+      .get_or_insert_default()
+      .push(extra_node);
+  } else {
+    root_nodes.push(extra_node);
+  }
+  extra_node
 }
 
 fn build_node(
