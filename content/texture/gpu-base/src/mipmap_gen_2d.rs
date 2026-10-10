@@ -66,12 +66,14 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
   ) {
     for write_level in 1..texture.desc.mip_level_count {
       for face in 0..texture.desc.size.depth_or_array_layers {
+        // the dimension defaults to None which defaults to cube type, and the layer count
+        // defaults to the remaining layers, so both of them must be given
         let write_view: GPU2DTextureView = texture
           .create_view(TextureViewDescriptor {
             base_mip_level: write_level,
             mip_level_count: Some(1),
             base_array_layer: face,
-            // it defaults to None which defaults to cube type
+            array_layer_count: Some(1),
             dimension: Some(TextureViewDimension::D2),
             ..Default::default()
           })
@@ -84,6 +86,8 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
             base_mip_level: read_level,
             mip_level_count: Some(1),
             base_array_layer: face,
+            array_layer_count: Some(1),
+            dimension: Some(TextureViewDimension::D2),
             ..Default::default()
           })
           .try_into()

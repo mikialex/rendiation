@@ -34,7 +34,7 @@ impl LightingComputeComponent for IBLLightingComponent {
     ctx.bind(&self.prefiltered.diffuse);
     ctx.bind(&self.prefiltered.specular);
     ctx.bind(&self.brdf_lut);
-    ctx.bind_immediate_sampler(&TextureSampler::default().with_double_linear().into_gpu());
+    ctx.bind_immediate_sampler(&TextureSampler::default().with_tri_linear().into_gpu());
     ctx.bind(&self.uniform);
   }
 }

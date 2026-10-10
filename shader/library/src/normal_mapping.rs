@@ -22,7 +22,10 @@ pub fn perturb_normal_2_arb(
 
   let scale = det.equals(0.0).select(0.0, face_dir * det.inverse_sqrt());
 
-  (t * (map_norm.x() * scale) + b * (map_norm.y() * scale) + n * map_norm.z()).normalize()
+  // t and b point to +u and +v when the screen y goes up (the glsl dFdy), the wgsl dpdy goes down
+  // so both of them are reversed here. The normal map +y points to the image top which is -v as
+  // gltf defines, so it matches the reversed b, and only the x needs to be reversed back.
+  (t * (-map_norm.x() * scale) + b * (map_norm.y() * scale) + n * map_norm.z()).normalize()
 }
 
 /// the scale only applies to the xy components, as the glTF normal texture scale defines

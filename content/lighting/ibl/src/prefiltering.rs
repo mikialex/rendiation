@@ -211,7 +211,8 @@ impl ShaderPassBuilder for PreFilterSpecularTask {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.config);
     ctx.binding.bind(&self.input);
-    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
+    // the source mip is selected by the sample pdf
+    ctx.bind_immediate_sampler(&TextureSampler::default().with_tri_linear().into_gpu());
   }
 }
 
@@ -222,7 +223,6 @@ impl GraphicsShaderProvider for PreFilterSpecularTask {
       let input = binder.bind_by(&self.input);
       let sampler = binder.bind_by(&ImmediateGPUSamplerViewBind);
 
-      let resolution = builder.query::<ViewportRenderBufferSize>().x();
       let uv = builder.query::<FragmentUv>();
       let cube_face_local = uv * val(2.0) - val(Vec2::one());
       let cube_face = config.direction.shrink_to_3() * (cube_face_local, val(1.)).into();
@@ -233,7 +233,6 @@ impl GraphicsShaderProvider for PreFilterSpecularTask {
         input,
         sampler,
         pixel_center_direction,
-        resolution,
         config.roughness,
         config.sample_count,
       );
@@ -243,49 +242,58 @@ impl GraphicsShaderProvider for PreFilterSpecularTask {
   }
 }
 
+/// the roughness is the perceptual roughness. The source mip is selected by the sample pdf to
+/// reduce the noise, so the env should have the mipmap.
 pub fn prefilter_specular(
   env: BindingNode<ShaderTextureCube>,
   sampler: BindingNode<ShaderSampler>,
   normal: Node<Vec3<f32>>,
-  resolution: Node<f32>,
   roughness: Node<f32>,
   sampler_count: Node<u32>,
 ) -> Node<Vec3<f32>> {
-  let tbn = tbn_fn(normal);
-  let roughness2 = roughness * roughness;
+  // the ggx lobe is a delta at zero roughness, the pdf below is nan in this case
+  roughness.equals(0.).select_branched(
+    || env.sample_zero_level(sampler, normal).xyz(),
+    || {
+      let tbn = tbn_fn(normal);
+      let alpha = roughness * roughness;
 
-  let result = sampler_count
-    .into_shader_iter()
-    .map(|index| {
-      let random = hammersley_2d_fn(index, sampler_count);
-      let half = tbn * hemisphere_importance_sample_dggx(random, roughness2);
-      let n_dot_h = normal.dot(half);
-      let light = (val(2.) * n_dot_h * half - normal).normalize();
-      let n_dot_l = normal.dot(light).max(0.);
+      // solid angle covered by one source pixel
+      let source_resolution = env.texture_dimension_2d(None).x().into_f32();
+      let omega_p = val(4. * f32::PI()) / (val(6.0) * source_resolution * source_resolution);
 
-      n_dot_l.greater_than(0.).select_branched(
-        || {
-          let pdf = ShaderGGX { roughness }.d(normal, half) / val(4.) + val(0.0001);
-          // solid angle by this sample
-          let omega_s = val(1.0) / (sampler_count.into_f32() * pdf);
-          // solid angle covered by one pixel
-          let omega_p = val(4. * f32::PI()) / (val(6.0) * resolution * resolution);
-          let mip_level = (val(0.5) * (omega_s / omega_p).log2() + val(1.)).max(0.);
+      let result = sampler_count
+        .into_shader_iter()
+        .map(|index| {
+          let random = hammersley_2d_fn(index, sampler_count);
+          let half = tbn * hemisphere_importance_sample_dggx(random, alpha);
+          let n_dot_h = normal.dot(half);
+          let light = (val(2.) * n_dot_h * half - normal).normalize();
+          let n_dot_l = normal.dot(light).max(0.);
 
-          let sample = env
-            .build_sample_call(sampler, light)
-            .with_level(mip_level)
-            .sample()
-            .xyz()
-            * n_dot_l;
-          vec4_node((sample, n_dot_l))
-        },
-        || val(Vec4::zero()),
-      )
-    })
-    .sum();
+          n_dot_l.greater_than(0.).select_branched(
+            || {
+              let pdf = ShaderGGX { roughness: alpha }.d(normal, half) / val(4.) + val(0.0001);
+              // solid angle by this sample
+              let omega_s = val(1.0) / (sampler_count.into_f32() * pdf);
+              let mip_level = (val(0.5) * (omega_s / omega_p).log2() + val(1.)).max(0.);
 
-  result.xyz() / result.w()
+              let sample = env
+                .build_sample_call(sampler, light)
+                .with_level(mip_level)
+                .sample()
+                .xyz()
+                * n_dot_l;
+              vec4_node((sample, n_dot_l))
+            },
+            || val(Vec4::zero()),
+          )
+        })
+        .sum();
+
+      result.xyz() / result.w()
+    },
+  )
 }
 
 struct PreFilterDiffuseTask {

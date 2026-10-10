@@ -202,7 +202,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
 
     let physical_desc = physical_desc.load().expand();
 
-    let alpha_roughness = physical_desc.perceptual_roughness * physical_desc.perceptual_roughness;
+    let alpha_roughness = brdf_alpha_roughness(physical_desc.perceptual_roughness);
     let specular = ShaderSpecular {
       f0: physical_desc.f0,
       normal_distribution_model: ShaderGGX {

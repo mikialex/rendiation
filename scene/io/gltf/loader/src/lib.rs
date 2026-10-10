@@ -243,6 +243,11 @@ fn create_node_recursive(
   }
 }
 
+/// KHR_lights_punctual defines the missing range as infinite. The light cutoff (and the point
+/// light shadow far plane) requires a finite range, so a large one is used, the window function
+/// attenuation error is less than 1% within 250 meters.
+const GLTF_INFINITE_LIGHT_RANGE: f32 = 1000.;
+
 fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
   let node = *ctx.result.node_map.get(gltf_node.index());
 
@@ -256,7 +261,7 @@ fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
     let intensity = light.intensity();
     let color = light.color();
     let intensity = Vec3::from(color) * intensity;
-    let cutoff_distance = light.range().unwrap_or(DEFAULT_CUTOFF_DISTANCE);
+    let cutoff_distance = light.range().unwrap_or(GLTF_INFINITE_LIGHT_RANGE);
     match light.kind() {
       gltf::khr_lights_punctual::Kind::Directional => {
         let scene_light = DirectionalLightDataView {
@@ -679,7 +684,6 @@ fn build_material_internal(material: gltf::Material, ctx: &mut Context) -> Scene
 }
 
 // i assume all gpu use little endian?
-const F16_BYTES: [u8; 2] = half::f16::from_f32_const(1.0).to_le_bytes();
 const F32_BYTES: [u8; 4] = 1.0_f32.to_le_bytes();
 
 fn build_image(
@@ -687,42 +691,67 @@ fn build_image(
   data_input: gltf::image::Data,
   require_srgb: bool,
 ) -> EntityHandle<SceneTexture2dEntity> {
-  let mut format = match data_input.format {
-    gltf::image::Format::R8 => TextureFormat::R8Unorm,
-    gltf::image::Format::R8G8 => TextureFormat::Rg8Unorm,
-    gltf::image::Format::R8G8B8 => TextureFormat::Rgba8Unorm, // padding
-    gltf::image::Format::R8G8B8A8 => TextureFormat::Rgba8Unorm,
-    gltf::image::Format::R16 => TextureFormat::R16Float,
-    gltf::image::Format::R16G16 => TextureFormat::Rg16Float,
-    gltf::image::Format::R16G16B16 => TextureFormat::Rgba16Float, // padding
-    gltf::image::Format::R16G16B16A16 => TextureFormat::Rgba16Float,
-    gltf::image::Format::R32G32B32FLOAT => TextureFormat::Rgba32Float, // padding
-    gltf::image::Format::R32G32B32A32FLOAT => TextureFormat::Rgba32Float,
+  use gltf::image::Format;
+  // the gray image is expanded to rgb so it samples as gray, and the 16 bit unsigned integer image
+  // is converted to 8 bit, because the 16 bit unorm format requires a device feature and the
+  // texture pool only supports rgba8
+  let gltf::image::Data {
+    pixels,
+    format,
+    width,
+    height,
+  } = data_input;
+  let (mut format, data) = match format {
+    Format::R8 => (TextureFormat::Rgba8Unorm, convert_to_rgba8(&pixels, 1, 1)),
+    Format::R8G8 => (TextureFormat::Rgba8Unorm, convert_to_rgba8(&pixels, 2, 1)),
+    Format::R8G8B8 => (TextureFormat::Rgba8Unorm, convert_to_rgba8(&pixels, 3, 1)),
+    Format::R8G8B8A8 => (TextureFormat::Rgba8Unorm, pixels),
+    Format::R16 => (TextureFormat::Rgba8Unorm, convert_to_rgba8(&pixels, 1, 2)),
+    Format::R16G16 => (TextureFormat::Rgba8Unorm, convert_to_rgba8(&pixels, 2, 2)),
+    Format::R16G16B16 => (TextureFormat::Rgba8Unorm, convert_to_rgba8(&pixels, 3, 2)),
+    Format::R16G16B16A16 => (TextureFormat::Rgba8Unorm, convert_to_rgba8(&pixels, 4, 2)),
+    Format::R32G32B32FLOAT => (
+      TextureFormat::Rgba32Float,
+      create_padding_buffer(&pixels, 3 * 4, F32_BYTES.as_slice()),
+    ),
+    Format::R32G32B32A32FLOAT => (TextureFormat::Rgba32Float, pixels),
   };
 
   if require_srgb {
     format = format.add_srgb_suffix();
   }
 
-  let data = if let Some((read_bytes, pad_bytes)) = match data_input.format {
-    gltf::image::Format::R8G8B8 => (3, [255].as_slice()).into(),
-    gltf::image::Format::R16G16B16 => (3 * 2, F16_BYTES.as_slice()).into(),
-    gltf::image::Format::R32G32B32FLOAT => (3 * 2, F32_BYTES.as_slice()).into(),
-    _ => None,
-  } {
-    create_padding_buffer(&data_input.pixels, read_bytes, pad_bytes)
-  } else {
-    data_input.pixels
-  };
-
-  let size =
-    rendiation_texture_core::Size::from_u32_pair_min_one((data_input.width, data_input.height));
+  let size = rendiation_texture_core::Size::from_u32_pair_min_one((width, height));
 
   let image = std::sync::Arc::new(GPUBufferImage { data, format, size });
   let image = MaybeUriData::Living(image);
   let image = ExternalRefPtr::new(image);
   io.tex_writer
     .new_entity(|w| w.write::<SceneTexture2dEntityDirectContent>(&image.into()))
+}
+
+/// the gray channel is expanded to rgb and the missing alpha is opaque, the 16 bit channel is in
+/// native endian as the gltf crate decodes
+fn convert_to_rgba8(pixels: &[u8], channel_count: usize, channel_bytes: usize) -> Vec<u8> {
+  pixels
+    .chunks_exact(channel_count * channel_bytes)
+    .flat_map(|pixel| {
+      let channel = |i: usize| {
+        let bytes = &pixel[i * channel_bytes..];
+        if channel_bytes == 2 {
+          ((u16::from_ne_bytes([bytes[0], bytes[1]]) as u32 + 128) / 257) as u8
+        } else {
+          bytes[0]
+        }
+      };
+      match channel_count {
+        1 => [channel(0), channel(0), channel(0), 255],
+        2 => [channel(0), channel(0), channel(0), channel(1)],
+        3 => [channel(0), channel(1), channel(2), 255],
+        _ => [channel(0), channel(1), channel(2), channel(3)],
+      }
+    })
+    .collect()
 }
 
 fn build_texture(

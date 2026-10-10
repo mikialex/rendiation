@@ -17,6 +17,10 @@ impl TextureSampler {
     self.min_filter = FilterMode::Linear;
     self
   }
+  pub fn with_tri_linear(mut self) -> Self {
+    self.mipmap_filter = FilterMode::Linear;
+    self.with_double_linear()
+  }
   pub fn tri_linear_repeat() -> Self {
     Self {
       address_mode_u: AddressMode::Repeat,

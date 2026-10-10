@@ -77,6 +77,7 @@ pub struct DeferLightingMaterialRegistry {
     Vec<fn(&mut ShaderFragmentBuilderView, &FrameGeneralMaterialChannelIndices) -> bool>,
   pub decoders: Vec<fn(&FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack>,
   pub alpha_decoders: Vec<fn(&FrameGeneralMaterialBufferReadValue) -> Node<f32>>,
+  pub emissive_decoders: Vec<fn(&FrameGeneralMaterialBufferReadValue) -> Node<Vec3<f32>>>,
 }
 
 pub enum DeferLightingSurfaceReadBack {
@@ -95,6 +96,8 @@ pub trait DeferLightingMaterialBufferReadWrite: 'static {
   // although the alpha is not used in typical defer lighting, some times in
   // defer rendering it's useful
   fn decode_alpha(instance: &FrameGeneralMaterialBufferReadValue) -> Node<f32>;
+  /// the emissive is added to the lighting result in the light pass
+  fn decode_emissive(instance: &FrameGeneralMaterialBufferReadValue) -> Node<Vec3<f32>>;
 }
 
 impl DeferLightingMaterialRegistry {
@@ -103,6 +106,7 @@ impl DeferLightingMaterialRegistry {
     self.encoders.push(M::encode);
     self.decoders.push(M::decode);
     self.alpha_decoders.push(M::decode_alpha);
+    self.emissive_decoders.push(M::decode_emissive);
     self
   }
 }
@@ -187,6 +191,7 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
     };
 
     let alpha = val(1.).make_local_var();
+    let emissive = zeroed_val::<Vec3<f32>>().make_local_var();
     let has_none_lightable_surface_ldr = val(false).make_local_var();
     let none_lightable_surface_ldr = zeroed_val::<Vec3<f32>>().make_local_var();
 
@@ -194,6 +199,7 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
     for (i, logic) in self.registry.decoders.iter().enumerate() {
       switch = switch.case(i as u32, || {
         alpha.store(self.registry.alpha_decoders[i](&values));
+        emissive.store(self.registry.emissive_decoders[i](&values));
         if let DeferLightingSurfaceReadBack::Direct(ldr) = logic(&values) {
           none_lightable_surface_ldr.store(ldr);
           has_none_lightable_surface_ldr.store(true);
@@ -203,6 +209,7 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
     switch.end_with_default(|| {});
 
     builder.register::<AlphaChannel>(alpha.load());
+    builder.register::<EmissiveChannel>(emissive.load());
     builder.register::<LDRLightResult>(none_lightable_surface_ldr.load());
     builder.register::<ShouldUsePreSetLDRResult>(has_none_lightable_surface_ldr.load());
 
@@ -299,26 +306,32 @@ impl DeferLightingMaterialBufferReadWrite for PbrSurfaceEncodeDecode {
     emissive_yz_alpha.z()
   }
 
+  fn decode_emissive(instance: &FrameGeneralMaterialBufferReadValue) -> Node<Vec3<f32>> {
+    decode_emissive_in_b_w_c_xy(instance)
+  }
+
   fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack {
     let albedo_roughness = instance.channel_a;
     let f0_emissive_x = instance.channel_b;
-    let emissive_yz_alpha = instance.channel_c;
-
-    let emissive = vec3_node((
-      f0_emissive_x.w(),
-      emissive_yz_alpha.x(),
-      emissive_yz_alpha.y(),
-    ));
 
     let surface = Box::new(ENode::<ShaderPhysicalShading> {
       albedo: albedo_roughness.xyz(),
       perceptual_roughness: albedo_roughness.w(),
       f0: f0_emissive_x.xyz(),
-      emissive,
+      emissive: decode_emissive_in_b_w_c_xy(instance),
     });
 
     DeferLightingSurfaceReadBack::Lightable(surface)
   }
+}
+
+/// the pbr and phong surface both encode the emissive in channel_b.w and channel_c.xy
+fn decode_emissive_in_b_w_c_xy(instance: &FrameGeneralMaterialBufferReadValue) -> Node<Vec3<f32>> {
+  vec3_node((
+    instance.channel_b.w(),
+    instance.channel_c.x(),
+    instance.channel_c.y(),
+  ))
 }
 
 pub struct UnlitSurfaceEncodeDecode;
@@ -343,6 +356,10 @@ impl DeferLightingMaterialBufferReadWrite for UnlitSurfaceEncodeDecode {
 
   fn decode_alpha(instance: &FrameGeneralMaterialBufferReadValue) -> Node<f32> {
     instance.channel_a.w()
+  }
+
+  fn decode_emissive(_: &FrameGeneralMaterialBufferReadValue) -> Node<Vec3<f32>> {
+    val(Vec3::zero())
   }
 }
 
@@ -380,18 +397,16 @@ impl DeferLightingMaterialBufferReadWrite for PhongSurfaceEncodeDecode {
     instance.channel_a.w()
   }
 
-  fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack {
-    let emissive = vec3_node((
-      instance.channel_a.w(),
-      instance.channel_b.x(),
-      instance.channel_b.y(),
-    ));
+  fn decode_emissive(instance: &FrameGeneralMaterialBufferReadValue) -> Node<Vec3<f32>> {
+    decode_emissive_in_b_w_c_xy(instance)
+  }
 
+  fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack {
     let surface = Box::new(ENode::<ShaderPhongShading> {
       diffuse: instance.channel_a.xyz(),
       shininess: val(30.), // todo
       specular: instance.channel_b.xyz(),
-      emissive,
+      emissive: decode_emissive_in_b_w_c_xy(instance),
     });
 
     DeferLightingSurfaceReadBack::Lightable(surface)

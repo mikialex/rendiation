@@ -3,6 +3,7 @@ use std::sync::Arc;
 use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
 use rendiation_lighting_ibl::*;
+use rendiation_texture_gpu_base::{DefaultMipmapReducer, Mipmap2dReducerImpl};
 
 use crate::*;
 
@@ -71,7 +72,8 @@ impl LightSystemSceneProvider for IBLLightingComponentProvider {
 type CubeMapResults = FastHashMap<RawEntityHandle, PreFilterMapGenerationResult>;
 
 pub fn use_prefilter_cube_maps(cx: &mut QueryGPUHookCx) -> Arc<RwLock<CubeMapResults>> {
-  let (env_background_map_gpu, changes) = use_gpu_texture_cubes(cx, false);
+  // the prefilter selects the source mip by the sample pdf, so the mipmap is required
+  let (env_background_map_gpu, changes) = use_gpu_texture_cubes(cx, true);
 
   let _cube_map = cx.use_sharable_plain_state(CubeMapResults::default);
 
@@ -93,6 +95,8 @@ pub fn use_prefilter_cube_maps(cx: &mut QueryGPUHookCx) -> Arc<RwLock<CubeMapRes
 
     for k in changes.changed_keys.iter() {
       let cube = cubes.get(k).unwrap();
+      let texture = cube.resource.clone().try_into().unwrap();
+      DefaultMipmapReducer.generate_cube_faces(cx.gpu, &mut encoder, &texture);
 
       let result = generate_pre_filter_map(&mut encoder, cx.gpu, cube, &config);
       cube_map.insert(*k, result);

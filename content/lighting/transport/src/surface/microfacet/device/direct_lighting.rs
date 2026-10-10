@@ -114,7 +114,7 @@ fn physical_shading_fn(
       }
       .bsdf(geometry.view_dir, -light.direction, geometry.normal);
 
-      let alpha_roughness = shading.perceptual_roughness * shading.perceptual_roughness;
+      let alpha_roughness = brdf_alpha_roughness(shading.perceptual_roughness);
       let direct_specular_brdf = ShaderSpecular {
         f0: shading.f0,
         normal_distribution_model: ShaderGGX {
@@ -146,6 +146,16 @@ pub struct ShaderPhysicalShading {
   pub perceptual_roughness: f32,
   pub f0: Vec3<f32>,
   pub emissive: Vec3<f32>,
+}
+
+/// same as filament in fp32, the zero roughness makes the analytic ggx distribution zero or nan
+pub const MIN_PERCEPTUAL_ROUGHNESS: f32 = 0.045;
+
+/// the alpha roughness used by the analytic microfacet brdf. The ibl and ltc lookups use the
+/// perceptual roughness directly because their zero roughness result is well defined.
+pub fn brdf_alpha_roughness(perceptual_roughness: Node<f32>) -> Node<f32> {
+  let perceptual_roughness = perceptual_roughness.clamp(MIN_PERCEPTUAL_ROUGHNESS, 1.);
+  perceptual_roughness * perceptual_roughness
 }
 
 pub fn bias_n_dot_l(n_dot_l: Node<f32>) -> Node<f32> {

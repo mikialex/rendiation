@@ -4704,7 +4704,6 @@ dependencies = [
  "database",
  "fast-hash-collection",
  "gltf",
- "half",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
