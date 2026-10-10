@@ -164,12 +164,18 @@ impl DeviceReferencePathTracingRenderer {
       .clone()
       .into_storage_texture_view_readwrite()
       .unwrap();
+    let display_buffer = state
+      .display_buffer
+      .clone()
+      .into_storage_texture_view_writeonly()
+      .unwrap();
 
     let ray_gen = build_ray_gen_shader(
       &trace_base_builder,
       PTRayGenCtx {
         camera,
-        result_buffer: radiance_buffer,
+        radiance_buffer,
+        display_buffer,
         config: state.config.clone(),
         tonemap: tonemap.clone(),
       },
@@ -231,7 +237,7 @@ impl DeviceReferencePathTracingRenderer {
     );
 
     state.next_sample(frame.gpu);
-    state.radiance_buffer.clone()
+    state.display_buffer.clone()
   }
 }
 
