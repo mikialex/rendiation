@@ -98,6 +98,18 @@ pub trait MicroFacetFresnel {
   fn f(&self, v: NormalizedVec3<f32>, h: NormalizedVec3<f32>, f0: Vec3<f32>) -> Vec3<f32>;
 }
 
+/// the azimuth is uniformly sampled around the normal
+fn micro_surface_normal_by_theta(
+  normal: NormalizedVec3<f32>,
+  theta: f32,
+  azimuth_sample: f32,
+) -> NormalizedVec3<f32> {
+  let (sin_t, cos_t) = theta.sin_cos();
+  let (sin_p, cos_p) = (2.0 * PI * azimuth_sample).sin_cos();
+  let h = Vec3::new(cos_p * sin_t, sin_p * sin_t, cos_t);
+  (normal.local_to_world() * h).into_normalized()
+}
+
 #[derive(Clone)]
 pub struct BlinnPhong {
   pub roughness: f32,
@@ -120,13 +132,7 @@ impl MicroFacetNormalDistribution for BlinnPhong {
     let power = 2.0 / roughness_2 - 2.;
     let theta = sampler.next().powf(1.0 / (power + 1.0)).acos();
 
-    let (sin_t, cos_t) = theta.sin_cos();
-    // Generate halfway vector by sampling azimuth uniformly
-    let sample = concentric_sample_disk(sampler.next_vec2());
-    let x = sample.x;
-    let y = sample.y;
-    let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
-    (normal.local_to_world() * h).into_normalized()
+    micro_surface_normal_by_theta(normal, theta, sampler.next())
   }
 
   fn surface_normal_pdf(
@@ -162,13 +168,7 @@ impl MicroFacetNormalDistribution for Beckmann {
     let m2 = self.roughness * self.roughness;
     let theta = (m2 * -sampler.next().ln()).sqrt().atan();
 
-    let (sin_t, cos_t) = theta.sin_cos();
-    // Generate halfway vector by sampling azimuth uniformly
-    let sample = concentric_sample_disk(sampler.next_vec2());
-    let x = sample.x;
-    let y = sample.y;
-    let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
-    (normal.local_to_world() * h).into_normalized()
+    micro_surface_normal_by_theta(normal, theta, sampler.next())
   }
 
   fn surface_normal_pdf(
@@ -206,13 +206,7 @@ impl MicroFacetNormalDistribution for GGX {
     let sample = sampler.next();
     let theta = (self.roughness * (sample / (1.0 - sample)).sqrt()).atan();
 
-    let (sin_t, cos_t) = theta.sin_cos();
-    // Generate halfway vector by sampling azimuth uniformly
-    let sample = concentric_sample_disk(sampler.next_vec2());
-    let x = sample.x;
-    let y = sample.y;
-    let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
-    (normal.local_to_world() * h).into_normalized()
+    micro_surface_normal_by_theta(normal, theta, sampler.next())
   }
 
   fn surface_normal_pdf(

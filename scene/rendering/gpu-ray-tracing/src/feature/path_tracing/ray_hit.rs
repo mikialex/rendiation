@@ -78,14 +78,22 @@ pub fn build_ray_hit_shader(
       let out_ray_origin = closest_hit_ctx.hit_world_position();
       let out_ray_origin = offset_ray_hit_fn(out_ray_origin, geometry_normal);
 
+      // the brdf is only defined in the upper hemisphere of the shading normal
+      let view_above = shading_normal.dot(view_dir).greater_than(0.);
+
       let light_sample_result = light_sample_result.expand();
       let direct_light_sample_brdf =
         surface.eval_brdf(view_dir, light_sample_result.light_sample_dir);
-      let light_dot = shading_normal
-        .dot(light_sample_result.light_sample_dir)
-        .abs();
+      let light_dot = shading_normal.dot(light_sample_result.light_sample_dir);
       // note, the lighting pdf has already applied in radiance
-      let sampled_radiance = light_dot * direct_light_sample_brdf * light_sample_result.radiance;
+      let sampled_radiance = view_above.and(light_dot.greater_than(0.)).select(
+        light_dot * direct_light_sample_brdf * light_sample_result.radiance,
+        zeroed_val(),
+      );
+
+      // the zero pdf terminates the path when the sampled direction is below the surface
+      let sample_above = view_above.and(shading_normal.dot(sampling_dir).greater_than(0.));
+      let pdf = sample_above.select(pdf, val(0.));
 
       let payload = ctx.expect_payload::<CorePathPayload>();
       payload.next_ray_origin().store(out_ray_origin);

@@ -1,4 +1,4 @@
-use rendiation_shader_library::sampling::{concentric_sample_disk_device_fn, tbn_fn};
+use rendiation_shader_library::sampling::tbn_fn;
 
 use crate::*;
 
@@ -116,17 +116,7 @@ impl ShaderMicroFacetNormalDistribution for ShaderGGX {
     normal: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
   ) -> Node<Vec3<f32>> {
-    let sample = sampler.next();
-    let theta = (self.roughness * (sample / (val(1.0) - sample)).sqrt()).atan();
-
-    let sin_t = theta.sin();
-    let cos_t = theta.cos();
-    // Generate halfway vector by sampling azimuth uniformly
-    let sample = concentric_sample_disk_device_fn(sampler.next_2d());
-    let x = sample.x();
-    let y = sample.y();
-    let h = (x * sin_t, y * sin_t, cos_t).into();
-    tbn_fn(normal) * h
+    tbn_fn(normal) * hemisphere_importance_sample_dggx(sampler.next_2d(), self.roughness)
   }
 
   fn surface_normal_pdf(
@@ -164,10 +154,8 @@ impl ShaderMicroFacetNormalDistribution for ShaderBeckmann {
     let sin_t = theta.sin();
     let cos_t = theta.cos();
     // Generate halfway vector by sampling azimuth uniformly
-    let sample = concentric_sample_disk_device_fn(sampler.next_2d());
-    let x = sample.x();
-    let y = sample.y();
-    let h = (x * sin_t, y * sin_t, cos_t).into();
+    let phi = val(2. * f32::PI()) * sampler.next();
+    let h = (phi.cos() * sin_t, phi.sin() * sin_t, cos_t).into();
     tbn_fn(normal) * h
   }
 

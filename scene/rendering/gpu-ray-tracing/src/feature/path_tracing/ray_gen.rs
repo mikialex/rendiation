@@ -134,11 +134,18 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
       if_by(missed.into_bool(), || {
         // mark this path as terminated
         current_depth.store(max_depth);
-        let output_radiance = throughput * sampled_radiance + surface_radiance + radiance.load();
+        // the miss shader writes the environment radiance into the sampled radiance
+        let output_radiance = throughput * sampled_radiance + radiance.load();
         radiance.store(output_radiance);
         self.radiance.abstract_store(output_radiance);
       })
       .else_by(|| {
+        // the direct lighting and the emission of this hit are weighted by the throughput
+        // that reaches this hit, the bsdf sample weight only applies to the next bounce
+        let output_radiance = throughput * (sampled_radiance + surface_radiance) + radiance.load();
+        radiance.store(output_radiance);
+        self.radiance.abstract_store(output_radiance);
+
         current_depth.store(current_depth.load() + val(1));
         ray_origin.store(next_ray_origin);
         ray_dir.store(next_ray_dir);
@@ -147,10 +154,6 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
         let pdf = pdf.max(0.0001);
         let throughput = throughput * cos * brdf / pdf;
         self.current_throughput.abstract_store(throughput);
-
-        let output_radiance = throughput * sampled_radiance + radiance.load();
-        radiance.store(output_radiance);
-        self.radiance.abstract_store(output_radiance);
       });
     });
 

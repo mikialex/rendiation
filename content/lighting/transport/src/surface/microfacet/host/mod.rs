@@ -27,9 +27,7 @@ where
   ) -> Vec3<f32> {
     let specular = self.specular.bsdf(view_dir, light_dir, normal);
     let diffuse = self.diffuse.bsdf(view_dir, light_dir, normal);
-
-    let estimate = self.specular.specular_estimate();
-    specular + (1.0 - estimate) * diffuse
+    diffuse + specular
   }
 
   fn sample_light_dir_use_bsdf_importance_impl(

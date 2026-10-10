@@ -103,9 +103,9 @@ impl ShaderLightSource for PointLightStorageShaderAPIInstance {
     let sampling_dir = self.position.expand().f1 - surface_position;
     let distance = sampling_dir.length();
     // although we are compute radiance here, but it's a dirac distribution, so we have to do
-    // the distance factor
+    // the distance factor, which already contains the inverse square falloff
     let factor = punctual_light_intensity_to_illuminance_factor_fn(distance, self.cutoff_distance);
-    self.luminance_intensity * factor / (distance * distance)
+    self.luminance_intensity * factor
   }
 
   /// override the default because it's dirac distributed
@@ -171,14 +171,14 @@ impl ShaderLightSource for SpotLightStorageShaderAPIInstance {
     let sampling_dir = self.position.expand().f1 - surface_position;
     let distance = sampling_dir.length();
     // although we are compute radiance here, but it's a dirac distribution, so we have to do
-    // the distance factor
+    // the distance factor, which already contains the inverse square falloff
     let distance_factor =
       punctual_light_intensity_to_illuminance_factor_fn(distance, self.cutoff_distance);
     // the sampling direction is from surface to light, while the cone is defined in the
     // light to surface direction, so negate it here
-    let angle_cos = sampling_dir.dot(self.direction) * val(-1.0);
+    let angle_cos = (sampling_dir / distance).dot(self.direction) * val(-1.0);
     let angle_factor = angle_cos.smoothstep(self.half_cone_cos, self.half_penumbra_cos);
-    self.luminance_intensity * (distance_factor * angle_factor) / (distance * distance)
+    self.luminance_intensity * (distance_factor * angle_factor)
   }
 
   /// override the default because it's dirac distributed
