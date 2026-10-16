@@ -221,9 +221,9 @@ impl RenderingRoot {
         let mut ui = UiWithChangeInfo(ui, false);
 
         current_swapchain.write(|surface| {
-          let mut is_hdr = surface.config().format == TextureFormat::Rgba16Float;
+          let mut is_hdr = surface.render_format() == TextureFormat::Rgba16Float;
           ui.collapsing("Swapchain config", |ui| {
-            ui.label(format!("{:?}", surface.config().format));
+            ui.label(format!("{:?}", surface.render_format()));
 
             let support_hdr = surface.is_format_supported(TextureFormat::Rgba16Float);
 
@@ -235,7 +235,7 @@ impl RenderingRoot {
             let format = if is_hdr {
               TextureFormat::Rgba16Float
             } else {
-              get_default_preferred_format(surface.capabilities())
+              surface.default_render_format()
             };
             if let Err(err) = surface.set_format(format) {
               log::warn!("{err}");

@@ -1,9 +1,22 @@
+//! Measure the minimal cpu-gpu round trip latency: submit a trivial compute work, and wait until
+//! the cpu receives its result.
+//!
+//! The gpu can not encode commands by itself, so when the next gpu work depends on the result
+//! of previous gpu work (and can not be expressed by indirect draw/dispatch), the cpu has to read
+//! back the result, then encode and submit the following work. The latency measured here is the
+//! lower bound of such a round trip, which decides whether this kind of cpu-gpu interleaved
+//! algorithm is affordable, for example how many round trips can fit into one frame.
+//!
+//! The spin polling is enabled to exclude the delay introduced by the default interval polling of
+//! the instance poller, so the result reflects the latency of the driver and the gpu itself.
+
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
 #[pollster::main]
 pub async fn main() {
   let gpu = GPU::new(Default::default()).await.unwrap();
+  // see the module doc for why spin polling is required
   gpu.instance.enable_spin_polling();
 
   let workgroup_size: u32 = 1;
@@ -29,8 +42,9 @@ pub async fn main() {
     });
     let result = encoder.read_buffer(&gpu.device, &output);
 
-    gpu.submit_encoder(encoder);
     let submit_time = std::time::Instant::now();
+    // move submit inside to take zero(almost) content submit cost into account.
+    gpu.submit_encoder(encoder);
 
     let _ = result.await.unwrap();
     let get_result_time = std::time::Instant::now();

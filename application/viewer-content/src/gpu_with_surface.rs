@@ -87,7 +87,7 @@ impl SurfaceWrapper {
   }
 
   pub fn is_hdr(&self) -> bool {
-    self.read(|surface| surface.config().format == TextureFormat::Rgba16Float)
+    self.read(|surface| surface.render_format() == TextureFormat::Rgba16Float)
   }
 
   pub fn read<R>(&self, f: impl FnOnce(&GPUSurface) -> R) -> R {
