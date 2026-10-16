@@ -1,58 +1,23 @@
 use crate::*;
 
-pub type AttachmentPool = ReuseKVPool<PooledTextureKey, RenderViewContent>;
-pub type Attachment = ReuseableItem<PooledTextureKey, RenderViewContent>;
+const BASIC_TEXTURE_USAGE_FOR_TEXTURE_POOL: TextureUsages = TextureUsages::TEXTURE_BINDING
+  .union(TextureUsages::COPY_DST)
+  .union(TextureUsages::COPY_SRC)
+  .union(TextureUsages::RENDER_ATTACHMENT);
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct PooledTextureKey {
-  pub size: Size,
-  pub format: gpu::TextureFormat,
-  pub sample_count: u32,
-  pub require_mipmaps: bool,
-  pub usage: TextureUsages,
+pub trait AttachmentKeyFrameExt {
+  fn request(self, ctx: &FrameCtx) -> RenderTargetView;
 }
 
-const BASIC_TEXTURE_USAGE_FOR_TEXTURE_POOL: TextureUsages = gpu::TextureUsages::TEXTURE_BINDING
-  .union(gpu::TextureUsages::COPY_DST)
-  .union(gpu::TextureUsages::COPY_SRC)
-  .union(gpu::TextureUsages::RENDER_ATTACHMENT);
-
-impl PooledTextureKey {
-  pub fn request(self, ctx: &FrameCtx) -> RenderTargetView {
+impl AttachmentKeyFrameExt for PooledTextureKey {
+  fn request(self, ctx: &FrameCtx) -> RenderTargetView {
     ctx.pool.request(&self).into()
-  }
-  pub fn create_directly(self, gpu: &GPU) -> RenderViewContent {
-    let mip_level_count = if self.require_mipmaps {
-      MipLevelCount::BySize.get_level_count_wgpu(self.size)
-    } else {
-      1
-    };
-    let texture = GPUTexture::create(
-      gpu::TextureDescriptor {
-        label: None,
-        size: map_size_gpu(self.size),
-        dimension: gpu::TextureDimension::D2,
-        format: self.format,
-        view_formats: &[],
-        usage: self.usage,
-        mip_level_count,
-        sample_count: self.sample_count,
-      },
-      &gpu.device,
-    );
-    let render_view = texture.create_view(gpu::TextureViewDescriptor {
-      base_mip_level: 0,
-      mip_level_count: Some(1),
-      ..Default::default()
-    });
-
-    RenderViewContent::from_texture_view(render_view)
   }
 }
 
 pub fn attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
-    format: gpu::TextureFormat::Rgba8UnormSrgb,
+    format: TextureFormat::Rgba8UnormSrgb,
     sample_count: 1,
     sizer: default_sizer(),
     require_mipmaps: false,
@@ -62,7 +27,7 @@ pub fn attachment() -> AttachmentDescriptor {
 
 pub fn depth_attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
-    format: gpu::TextureFormat::Depth32Float,
+    format: TextureFormat::Depth32Float,
     sample_count: 1,
     sizer: default_sizer(),
     require_mipmaps: false,
@@ -72,7 +37,7 @@ pub fn depth_attachment() -> AttachmentDescriptor {
 
 #[derive(Clone)]
 pub struct AttachmentDescriptor {
-  pub format: gpu::TextureFormat,
+  pub format: TextureFormat,
   pub sample_count: u32,
   pub sizer: Arc<dyn Fn(Size) -> Size>,
   pub require_mipmaps: bool,
@@ -101,7 +66,7 @@ impl AttachmentDescriptor {
   }
 
   #[must_use]
-  pub fn format(mut self, format: gpu::TextureFormat) -> Self {
+  pub fn format(mut self, format: TextureFormat) -> Self {
     self.format = format;
     self
   }
@@ -146,9 +111,4 @@ impl AttachmentDescriptor {
     }
     .request(ctx)
   }
-}
-
-pub fn init_attachment_pool(gpu: &GPU) -> AttachmentPool {
-  let gpu = gpu.clone();
-  ReuseKVPool::new(move |k: &PooledTextureKey| k.create_directly(&gpu))
 }

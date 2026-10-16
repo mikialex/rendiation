@@ -10,6 +10,7 @@ pub use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
 use rendiation_shader_library::*;
 use rendiation_webgpu::*;
+use rendiation_webgpu_frame::*;
 use rendiation_webgpu_hook_utils::*;
 use rendiation_webgpu_midc_downgrade::*;
 use serde::*;

@@ -1,11 +1,12 @@
 mod atomic_image_downgrade;
+mod attachment_pool;
 mod binding;
 mod device;
 mod encoder;
-mod frame;
 mod indirect;
 mod instance_poller;
 mod pass;
+mod pass_desc;
 mod pipeline;
 mod query;
 mod queue;
@@ -18,7 +19,6 @@ mod types;
 use core::fmt::Debug;
 use core::num::NonZeroUsize;
 use core::{marker::PhantomData, num::NonZeroU64};
-use std::mem::ManuallyDrop;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU32;
 use std::{
@@ -31,6 +31,7 @@ use std::{
 };
 
 pub use atomic_image_downgrade::*;
+pub use attachment_pool::*;
 pub use binding::*;
 use bytemuck::*;
 pub use device::*;
@@ -38,9 +39,7 @@ use dyn_clone::DynClone;
 pub use encoder::*;
 use event_source::*;
 use fast_hash_collection::*;
-pub use frame::*;
 use futures::{Future, FutureExt};
-use gpu::RenderPassTimestampWrites;
 // note: we can not just use * because it will cause core conflict
 pub use gpu::{
   AccelerationStructureFlags, AccelerationStructureGeometryFlags, AccelerationStructureUpdateMode,
@@ -56,11 +55,11 @@ pub use gpu::{
   util::DeviceExt, vertex_attr_array,
 };
 use heap_tools::*;
-use hook::*;
 pub use indirect::*;
 pub use instance_poller::GPUInstance;
 use parking_lot::RwLock;
 pub use pass::*;
+pub use pass_desc::*;
 pub use pipeline::*;
 pub use query::*;
 pub use queue::*;
@@ -68,7 +67,6 @@ pub use read::*;
 pub use rendering::*;
 use rendiation_shader_api::*;
 use rendiation_shader_api::{Std430, Std430MaybeUnsized};
-use rendiation_shader_library::*;
 pub use rendiation_texture_types::*;
 pub use resource::*;
 use reuse_pool::*;

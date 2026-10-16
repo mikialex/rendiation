@@ -10,6 +10,7 @@ use dyn_clone::DynClone;
 use hook::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
+use rendiation_webgpu_frame::*;
 
 mod abstract_component;
 pub use abstract_component::*;

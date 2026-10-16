@@ -1,0 +1,22 @@
+[package]
+authors = ["MikiAlex <miikiialexx@gmail.com>"]
+edition = "2024"
+name = "rendiation-webgpu-frame"
+version = "0.1.0"
+
+[dependencies]
+bytemuck = { workspace = true }
+disqualified = { workspace = true }
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+futures = { workspace = true }
+hook = { path = "../../../utility/hook" }
+parking_lot = { workspace = true }
+rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-shader-library = { path = "../../../shader/library" }
+rendiation-webgpu = { path = "../webgpu" }
+
+[dev-dependencies]
+pollster = { workspace = true }
+
+[lints]
+workspace = true

@@ -96,7 +96,7 @@ impl RenderingRoot {
 
     let statistics = self
       .enable_statistic_collect
-      .then(|| self.statistics.create_resolver(self.frame_index));
+      .then(|| self.statistics.create_frame_recorder(self.frame_index));
 
     let render_process_memory = self.render_process_memory.entry(surface_id).or_default();
 
@@ -362,7 +362,7 @@ fn time_graph(
   ui: &mut UiWithChangeInfo,
   stat_frame_time_in_ms: &StatisticStore<f32>,
   last_frame_cpu_time: f32,
-  average_frame_cpu_time: f32,
+  average_frame_cpu_time: Option<f32>,
 ) {
   ui.collapsing("time graph", |ui| {
     let ui = &mut ui.0;
@@ -371,10 +371,12 @@ fn time_graph(
       last_frame_cpu_time
     ));
 
-    ui.label(format!(
-      "average cpu time: {:.2} ms",
-      average_frame_cpu_time
-    ));
+    if let Some(average_frame_cpu_time) = average_frame_cpu_time {
+      ui.label(format!(
+        "average cpu time: {:.2} ms",
+        average_frame_cpu_time
+      ));
+    }
     if let Some((t, _)) = stat_frame_time_in_ms.get_latest() {
       ui.label(format!(
         "last frame time: {:.2} ms, fps: {:.2}",
@@ -382,12 +384,13 @@ fn time_graph(
         1000. / t
       ));
     }
-    let t = stat_frame_time_in_ms.history_average();
-    ui.label(format!(
-      "average frame time: {:.2} ms, fps: {:.2}",
-      t,
-      1000. / t
-    ));
+    if let Some(t) = stat_frame_time_in_ms.history_average() {
+      ui.label(format!(
+        "average frame time: {:.2} ms, fps: {:.2}",
+        t,
+        1000. / t
+      ));
+    }
     if let Some(times) = stat_frame_time_in_ms.iter_history_from_oldest_latest() {
       let graph_height = 200.;
       let graph_width = 300.;

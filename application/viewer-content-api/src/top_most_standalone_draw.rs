@@ -1,6 +1,7 @@
 use rendiation_occ_style_draw_control::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
+use rendiation_webgpu_frame::*;
 
 use crate::*;
 

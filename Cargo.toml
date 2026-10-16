@@ -75,6 +75,7 @@ members = [
   "scene/geometry-query",
   "platform/event-input",
   "platform/graphics/webgpu",
+  "platform/graphics/webgpu-frame",
   "platform/graphics/webgpu-hook-utils",
   "platform/graphics/webgpu-virtual-typed-combine-buffer",
   "platform/graphics/webgpu-midc-downgrade",

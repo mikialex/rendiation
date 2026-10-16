@@ -2,7 +2,6 @@ use crate::*;
 
 pub struct GPUCommandEncoder {
   pub(crate) encoder: gpu::CommandEncoder,
-  active_pass_target_holder: Option<RenderPassDescription>,
   placeholder_bg: gpu::BindGroup,
   deferred_explicit_destroy: CommandBufferDeferExplicitDestroyFlusher,
   pub(crate) on_submit: EventSource<()>,
@@ -33,7 +32,6 @@ impl GPUCommandEncoder {
     Self {
       encoder,
       placeholder_bg: device.inner.placeholder_bg.clone(),
-      active_pass_target_holder: Default::default(),
       on_submit: Default::default(),
       deferred_explicit_destroy: device.inner.deferred_explicit_destroy.new_command_buffer(),
     }
@@ -68,37 +66,13 @@ impl GPUCommandEncoder {
     }
   }
 
-  pub fn begin_render_pass_with_info(
-    &mut self,
-    des: RenderPassDescription,
-    gpu: GPU,
-    enable_time_measuring: bool,
-    pass_info_pool: PassInfoPool,
-  ) -> FrameRenderPass {
-    let buffer_size = des.buffer_size();
-    let pass_info = pass_info_pool.get_pass_info(buffer_size, &gpu.device);
-
-    let time_query =
-      enable_time_measuring.then(|| TimeQuery::create_query_without_start(&gpu.device));
-
-    let ctx = self.begin_render_pass(des, time_query);
-
-    let c = GPURenderPassCtx::new(ctx, gpu);
-
-    FrameRenderPass {
-      ctx: c,
-      pass_info,
-      pass_info_pool,
-    }
-  }
-
+  /// the attachments are kept alive by the underlayer render pass, so the description is not
+  /// required to outlive the returned pass.
   pub fn begin_render_pass(
     &mut self,
-    des: RenderPassDescription,
-    start_time_query: Option<TimeQuery>,
+    des: &RenderPassDescription,
+    timestamp_writes: Option<gpu::RenderPassTimestampWrites>,
   ) -> GPURenderPass {
-    self.active_pass_target_holder.replace(des);
-    let des = self.active_pass_target_holder.as_ref().unwrap();
     let mut size = None;
 
     let color_attachments: Vec<_> = des
@@ -152,14 +126,6 @@ impl GPUCommandEncoder {
       }
     }
 
-    let timestamp_writes = start_time_query
-      .as_ref()
-      .map(|t| RenderPassTimestampWrites {
-        query_set: &t.query_set,
-        beginning_of_pass_write_index: Some(0),
-        end_of_pass_write_index: Some(1),
-      });
-
     let desc = gpu::RenderPassDescriptor {
       label: des.name.as_str().into(),
       color_attachments: color_attachments.as_slice(),
@@ -194,7 +160,6 @@ impl GPUCommandEncoder {
       placeholder_bg: self.placeholder_bg.clone(),
       size: size.expect("attachment should exists"),
       formats,
-      time_measuring: start_time_query,
     }
   }
 

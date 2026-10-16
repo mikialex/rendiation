@@ -2,6 +2,7 @@ use rendiation_lighting_transport::*;
 use rendiation_shader_api::*;
 use rendiation_shader_library::*;
 use rendiation_webgpu::*;
+use rendiation_webgpu_frame::*;
 
 mod prefiltering;
 pub use prefiltering::*;

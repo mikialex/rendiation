@@ -14,6 +14,7 @@ rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" 
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-shader-library = { path = "../../shader/library" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+rendiation-webgpu-frame = { path = "../../platform/graphics/webgpu-frame" }
 rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
 
 [lints]

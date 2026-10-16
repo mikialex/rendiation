@@ -4161,6 +4161,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
  "rendiation-webgpu-hook-utils",
 ]
 
@@ -4205,6 +4206,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-derives",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
 ]
 
 [[package]]
@@ -4274,6 +4276,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
 ]
 
 [[package]]
@@ -4343,6 +4346,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
 ]
 
 [[package]]
@@ -4382,6 +4386,7 @@ dependencies = [
  "rendiation-texture-gpu-base",
  "rendiation-texture-loader",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
 ]
 
 [[package]]
@@ -4423,6 +4428,7 @@ dependencies = [
  "rendiation-texture-core",
  "rendiation-texture-packer",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
  "rendiation-webgpu-hook-utils",
 ]
 
@@ -4567,6 +4573,7 @@ dependencies = [
  "rendiation-shader-library",
  "rendiation-texture-core",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
 ]
 
 [[package]]
@@ -4578,6 +4585,7 @@ dependencies = [
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
 ]
 
 [[package]]
@@ -4607,6 +4615,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
  "rendiation-webgpu-hook-utils",
 ]
 
@@ -4783,6 +4792,7 @@ dependencies = [
  "rendiation-texture-gpu-system",
  "rendiation-texture-packer",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
  "thiserror 2.0.18",
@@ -4807,6 +4817,7 @@ dependencies = [
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
  "rendiation-webgpu-hook-utils",
  "thiserror 2.0.18",
  "tracing",
@@ -4836,6 +4847,7 @@ dependencies = [
  "rendiation-shader-library",
  "rendiation-texture-core",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
  "rendiation-webgpu-texture-as-buffer",
@@ -4870,6 +4882,7 @@ dependencies = [
  "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-process",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
  "rendiation-webgpu-hook-utils",
  "tracing",
 ]
@@ -5036,6 +5049,7 @@ dependencies = [
  "rendiation-shader-library",
  "rendiation-texture-core",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
 ]
 
 [[package]]
@@ -5049,6 +5063,7 @@ dependencies = [
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
 ]
 
 [[package]]
@@ -5228,6 +5243,7 @@ dependencies = [
  "rendiation-texture-loader",
  "rendiation-viewer-content",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
  "rfd",
  "rmp-serde",
  "serde",
@@ -5313,6 +5329,7 @@ dependencies = [
  "rendiation-uri-streaming",
  "rendiation-view-dependent-transform",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
  "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-texture-as-buffer",
  "rendiation-webgpu-virtual-typed-combine-buffer",
@@ -5337,7 +5354,6 @@ dependencies = [
  "futures",
  "growable-range-allocator",
  "heap-tools",
- "hook",
  "log",
  "naga",
  "parking_lot",
@@ -5345,13 +5361,28 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-shader-api",
  "rendiation-shader-backend-naga",
- "rendiation-shader-library",
  "rendiation-texture-types",
  "reuse-pool",
  "slab",
  "thiserror 2.0.18",
  "wgpu",
  "wgpu-types",
+]
+
+[[package]]
+name = "rendiation-webgpu-frame"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "disqualified",
+ "fast-hash-collection",
+ "futures",
+ "hook",
+ "parking_lot",
+ "pollster",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-webgpu",
 ]
 
 [[package]]
@@ -6467,6 +6498,7 @@ dependencies = [
  "rendiation-texture-gpu-process",
  "rendiation-viewer-content",
  "rendiation-webgpu",
+ "rendiation-webgpu-frame",
  "rmp-serde",
  "serde",
  "viewer-content-api-trace-info",

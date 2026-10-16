@@ -1,38 +1,6 @@
-use std::mem::ManuallyDrop;
-
 use rendiation_algebra::*;
 
 use crate::*;
-
-pub struct FrameRenderPass {
-  pub ctx: GPURenderPassCtx,
-  pub pass_info_pool: PassInfoPool,
-  /// access pass_info_pool requires locking, so we keep here to reduce the locking to pass level
-  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
-}
-
-impl FrameRenderPass {
-  pub fn set_viewport(&mut self, x: f32, y: f32, w: f32, h: f32, min_depth: f32, max_depth: f32) {
-    self.ctx.pass.set_viewport(x, y, w, h, min_depth, max_depth);
-    self.pass_info = self
-      .pass_info_pool
-      .get_pass_info((w, h).into(), &self.ctx.gpu.device);
-  }
-}
-
-impl std::ops::Deref for FrameRenderPass {
-  type Target = GPURenderPass;
-
-  fn deref(&self) -> &Self::Target {
-    &self.ctx.pass
-  }
-}
-
-impl std::ops::DerefMut for FrameRenderPass {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.ctx.pass
-  }
-}
 
 /// Create a pass descriptor with given name. The provide name is used for debug purpose, not
 /// required to be unique
@@ -62,15 +30,26 @@ pub struct RenderPassDescription {
 }
 
 impl RenderPassDescription {
+  /// the first color attachment or the depth attachment, all attachments should have the same
+  /// size and sample count
+  fn first_attachment(&self) -> Option<&RenderTargetView> {
+    self
+      .channels
+      .first()
+      .map(|c| &c.1)
+      .or_else(|| self.depth_stencil_target.as_ref().map(|c| &c.2))
+  }
+
   pub fn sample_count(&self) -> Option<u32> {
-    if let Some(first) = self.channels.first() {
-      Some(first.1.sample_count())
-    } else {
-      self
-        .depth_stencil_target
-        .as_ref()
-        .map(|d| d.2.sample_count())
-    }
+    self.first_attachment().map(|v| v.sample_count())
+  }
+
+  pub fn buffer_size(&self) -> Vec2<f32> {
+    let size = self
+      .first_attachment()
+      .expect("render pass should have at least one attachment")
+      .size();
+    Vec2::from(size.into_usize()).map(|v| v as f32)
   }
 
   pub fn make_all_channel_and_depth_into_load_op(&mut self) {
@@ -84,16 +63,6 @@ impl RenderPassDescription {
     {
       op.load = gpu::LoadOp::Load;
     }
-  }
-
-  pub fn buffer_size(&self) -> Vec2<f32> {
-    self
-      .channels
-      .first()
-      .map(|c| &c.1)
-      .or_else(|| self.depth_stencil_target.as_ref().map(|c| &c.2))
-      .map(|c| Vec2::from(c.size().into_usize()).map(|v| v as f32))
-      .unwrap()
   }
 
   #[must_use]
@@ -172,107 +141,6 @@ impl RenderPassDescription {
     self
       .depth_stencil_target
       .replace((depth_op.into(), stencil_op.into(), attachment.clone()));
-  }
-
-  #[must_use]
-  pub fn render_ctx(self, ctx: &mut FrameCtx) -> ActiveRenderPass {
-    self.render(
-      &mut ctx.encoder,
-      ctx.gpu,
-      ctx.statistics.as_ref(),
-      Some(ctx.pass_info_pool.clone()),
-    )
-  }
-
-  #[must_use]
-  pub fn render(
-    self,
-    encoder: &mut GPUCommandEncoder,
-    gpu: &GPU,
-    measurement_resolver: Option<&FrameStaticInfoResolver>,
-    pass_info_pool: Option<PassInfoPool>,
-  ) -> ActiveRenderPass {
-    let mut pass = encoder.begin_render_pass_with_info(
-      self.clone(),
-      gpu.clone(),
-      measurement_resolver
-        .and_then(|r| r.time_query_supported.then_some(()))
-        .is_some(),
-      pass_info_pool.unwrap_or_default(),
-    );
-
-    let measurement = measurement_resolver.map(|m| m.create_defer_logic(&mut pass, gpu));
-
-    ActiveRenderPass {
-      desc: self,
-      pass: ManuallyDrop::new(pass),
-      measurement,
-    }
-  }
-}
-
-pub trait PassContent {
-  // the pass content will be scoped with this debug name
-  // the implementation can override this name
-  fn debug_label(&self) -> String {
-    disqualified::ShortName::of::<Self>().to_string()
-  }
-  fn render_with_scope_label(&mut self, pass: &mut FrameRenderPass) {
-    pass.push_debug_group(&self.debug_label());
-    self.render(pass);
-    pass.pop_debug_group();
-  }
-  fn render(&mut self, pass: &mut FrameRenderPass);
-}
-impl PassContent for Box<dyn PassContent + '_> {
-  fn debug_label(&self) -> String {
-    (**self).debug_label()
-  }
-  fn render(&mut self, pass: &mut FrameRenderPass) {
-    (**self).render(pass);
-  }
-}
-
-pub struct ActiveRenderPass {
-  pub pass: ManuallyDrop<FrameRenderPass>,
-  pub desc: RenderPassDescription,
-  pub measurement: Option<PassMeasurementDeferLogic>,
-}
-
-impl Drop for ActiveRenderPass {
-  fn drop(&mut self) {
-    if let Some(measurement) = self.measurement.as_mut() {
-      measurement.resolve_pipeline_stat(&mut self.pass, &self.desc);
-    }
-    let time = self.pass.time_measuring.take();
-    unsafe { ManuallyDrop::drop(&mut self.pass) };
-    if let Some(measurement) = self.measurement.as_mut() {
-      measurement.resolve_pass_timing(time, &self.desc);
-    }
-  }
-}
-
-impl ActiveRenderPass {
-  pub fn by_if(self, renderable: &mut Option<impl PassContent>) -> Self {
-    if let Some(renderable) = renderable {
-      return self.by(renderable);
-    }
-    self
-  }
-
-  pub fn by(mut self, renderable: &mut impl PassContent) -> Self {
-    // when we are debug build, enable label scope writing
-    #[cfg(debug_assertions)]
-    {
-      renderable.render_with_scope_label(&mut self.pass);
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-      renderable.render(&mut self.pass);
-    }
-
-    self
   }
 }
 

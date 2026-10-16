@@ -396,7 +396,7 @@ pipeline builder takes a `MeshShaderLogic` (a full sample is the test implementa
 ### Fragment Output
 
 - Fragment output slots must be **declared before use** by `define_out_by(channel(format))`, the slot index is the declaration order; storing to or loading from an undeclared slot reports `ShaderBuildError::FragmentOutputSlotNotDeclared`
-- In a frame pass, `DefaultPassDispatcher` (platform/graphics/webgpu/src/frame/pass_base.rs) declares one slot for each color target of the pass, so the content only stores to them
+- In a frame pass, `DefaultPassDispatcher` (platform/graphics/webgpu-frame/src/pass_base.rs) declares one slot for each color target of the pass, so the content only stores to them
 
 ### Vertex → Fragment sync
 

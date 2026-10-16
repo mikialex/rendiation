@@ -66,6 +66,7 @@ rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 rendiation-texture-loader = { path = "../../content/texture/loader" }
 rendiation-texture-exporter = { path = "../../content/texture/exporter" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+rendiation-webgpu-frame = { path = "../../platform/graphics/webgpu-frame" }
 rendiation-area-lighting = { path = "../../extension/area-lighting" }
 rendiation-text-3d = { path = "../../extension/text-3d" }
 rendiation-wide-line = { path = "../../extension/wide-line" }

@@ -58,6 +58,7 @@ rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 rendiation-texture-loader = { path = "../../content/texture/loader" }
 rendiation-texture-exporter = { path = "../../content/texture/exporter" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+rendiation-webgpu-frame = { path = "../../platform/graphics/webgpu-frame" }
 rendiation-viewer-content ={ path = "../viewer-content" }
 rfd = "0.15.4"
 tracing = { workspace = true }

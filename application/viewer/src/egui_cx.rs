@@ -134,9 +134,7 @@ impl EguiContext {
     };
 
     let mut rpass = encoder.begin_render_pass(
-      RenderPassDescription::default()
-        .with_name("egui main render pass")
-        .with_color(&w_target, load_and_store()),
+      &pass("egui main render pass").with_color(&w_target, load_and_store()),
       None,
     );
     renderer.render(&mut rpass.pass, &tris, &screen_descriptor);

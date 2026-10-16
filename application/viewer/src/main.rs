@@ -38,6 +38,7 @@ use app_loop::*;
 use egui_cx::use_egui_cx;
 use rendiation_texture_core::*;
 use rendiation_webgpu::*;
+use rendiation_webgpu_frame::*;
 use tracing::*;
 pub use viewer::*;
 

@@ -9,18 +9,26 @@ description: >
   see fundamental-gpu-component-model.
 metadata:
   version: "1.0"
-  updated: "2026-05-16"
+  updated: "2026-10-17"
 ---
 
 Multi-pass rendering frame assembly in rendiation. The API is a functional/chainable builder for composing GPU render passes. Key files:
 
 | File | Purpose |
 |------|---------|
-| [platform/graphics/webgpu/src/frame/pass.rs](platform/graphics/webgpu/src/frame/pass.rs) | `pass()`, `RenderPassDescription`, `ActiveRenderPass`, `PassContent`, `FrameRenderPass` |
-| [platform/graphics/webgpu/src/frame/attachment.rs](platform/graphics/webgpu/src/frame/attachment.rs) | `attachment()`, `AttachmentDescriptor`, `PooledTextureKey` |
-| [platform/graphics/webgpu/src/frame/mod.rs](platform/graphics/webgpu/src/frame/mod.rs) | `FrameCtx` |
-| [platform/graphics/webgpu/src/frame/quad.rs](platform/graphics/webgpu/src/frame/quad.rs) | `UseQuadDraw`, `QuadDraw<T>` |
+| [platform/graphics/webgpu/src/pass_desc.rs](platform/graphics/webgpu/src/pass_desc.rs) | `pass()`, `RenderPassDescription`, load/store op helpers |
+| [platform/graphics/webgpu/src/attachment_pool.rs](platform/graphics/webgpu/src/attachment_pool.rs) | `PooledTextureKey`, `AttachmentPool` |
+| [platform/graphics/webgpu-frame/src/pass.rs](platform/graphics/webgpu-frame/src/pass.rs) | `RenderPassDescriptionFrameExt` (`render_ctx`/`render`), `ActiveRenderPass`, `PassContent`, `FrameRenderPass` |
+| [platform/graphics/webgpu-frame/src/attachment.rs](platform/graphics/webgpu-frame/src/attachment.rs) | `attachment()`, `AttachmentDescriptor`, `AttachmentKeyFrameExt` |
+| [platform/graphics/webgpu-frame/src/lib.rs](platform/graphics/webgpu-frame/src/lib.rs) | `FrameCtx` |
+| [platform/graphics/webgpu-frame/src/quad.rs](platform/graphics/webgpu-frame/src/quad.rs) | `UseQuadDraw`, `QuadDraw<T>` |
+| [platform/graphics/webgpu-frame/src/statistics.rs](platform/graphics/webgpu-frame/src/statistics.rs) | `FramePassStatistics`, per frame pass time and pipeline statistics query |
 | [platform/graphics/webgpu/src/pass.rs](platform/graphics/webgpu/src/pass.rs) | `RenderTargetView`, `GPURenderPassCtx` |
+
+The frame level abstractions live in the `rendiation-webgpu-frame` crate (depends on `hook`), import
+it by `use rendiation_webgpu_frame::*;` beside `rendiation_webgpu`. The plain pass description and
+the attachment key stay in `rendiation-webgpu`, whose `GPUCommandEncoder::begin_render_pass` can be
+used directly when the frame utils are not needed.
 
 For `RenderComponent`, `ShaderHashProvider`, `ShaderPassBuilder` and convenience wrappers, see `fundamental-gpu-component-model`.
 
@@ -167,6 +175,16 @@ let mut compose = pass("compose")
     .by_if(&mut self.tonemap)      // optional tone mapping
     .by_if(&mut self.highlight);   // optional highlight overlay
 ```
+
+
+## Pass statistics
+
+When `FrameCtx` is created with a `FramePassStatisticsRecorder` (from
+`FramePassStatistics::create_frame_recorder`), every pass started by `render_ctx()` records the
+timestamp and pipeline statistics queries (if the features are supported). The queries of all passes
+are written into query sets shared in the frame, then resolved and read back once when `FrameCtx`
+drops. `FramePassStatistics::poll` collects the results, and the passes with the same name in one
+frame are summed together.
 
 
 ## PassContent trait

@@ -17,6 +17,7 @@ rendiation-texture-core = { path = "../../../texture/core" }
 rendiation-texture-packer = { path = "../../../texture/packer" }
 
 rendiation-webgpu = { path = "../../../../platform/graphics/webgpu" }
+rendiation-webgpu-frame = { path = "../../../../platform/graphics/webgpu-frame" }
 rendiation-webgpu-hook-utils = { path = "../../../../platform/graphics/webgpu-hook-utils" }
 
 [lints]

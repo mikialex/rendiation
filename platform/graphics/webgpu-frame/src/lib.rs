@@ -1,3 +1,13 @@
+use std::mem::ManuallyDrop;
+use std::sync::Arc;
+
+use fast_hash_collection::*;
+use hook::*;
+use parking_lot::RwLock;
+use rendiation_shader_api::*;
+use rendiation_shader_library::*;
+use rendiation_webgpu::*;
+
 mod pass;
 pub use pass::*;
 
@@ -16,17 +26,13 @@ pub use pass_base::*;
 mod pass_info;
 pub use pass_info::*;
 
-use crate::*;
-
 pub struct FrameCtx<'a> {
   pub gpu: &'a GPU,
   /// note, wrap in manually drop enable us do submitting in drop fn
   pub encoder: ManuallyDrop<GPUCommandEncoder>,
   pool: &'a AttachmentPool,
-  /// currently we recreate pool every frame, this can be improved
-  /// to avoid unnecessary bindgroup invalidation.
   pass_info_pool: &'a PassInfoPool,
-  statistics: Option<FrameStaticInfoResolver>,
+  statistics: Option<FramePassStatisticsRecorder>,
   /// if we are in the ctx of viewport, the frame size is the viewport frame size
   pub frame_size: Size,
   pub memory: &'a mut FunctionMemory,
@@ -66,8 +72,15 @@ unsafe impl HooksCxLike for FrameCtx<'_> {
 
 impl Drop for FrameCtx<'_> {
   fn drop(&mut self) {
+    // the encoder may be in a broken state when panicking, submitting it may cause another
+    // panic which hides the original one.
+    if std::thread::panicking() {
+      unsafe { ManuallyDrop::drop(&mut self.encoder) };
+      return;
+    }
+
     if let Some(statistics) = &mut self.statistics {
-      statistics.resolve(self.gpu, &mut self.encoder);
+      statistics.resolve(&self.gpu.device, &mut self.encoder);
     }
 
     let encoder = unsafe { ManuallyDrop::take(&mut self.encoder) };
@@ -82,7 +95,7 @@ impl<'a> FrameCtx<'a> {
     frame_size: Size,
     pool: &'a AttachmentPool,
     pass_info_pool: &'a PassInfoPool,
-    statistics: Option<FrameStaticInfoResolver>,
+    statistics: Option<FramePassStatisticsRecorder>,
   ) -> Self {
     let encoder = ManuallyDrop::new(gpu.create_encoder());
 

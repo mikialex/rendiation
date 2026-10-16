@@ -23,7 +23,7 @@ Key files:
 | [platform/graphics/webgpu/src/rendering.rs](platform/graphics/webgpu/src/rendering.rs) | `RenderComponent`, wrappers |
 | [platform/graphics/webgpu/src/pass.rs](platform/graphics/webgpu/src/pass.rs) | `ShaderPassBuilder`, `GPURenderPassCtx`, `GPURenderPass` |
 | [platform/graphics/webgpu/src/device.rs](platform/graphics/webgpu/src/device.rs) | `ShaderHashProvider`, `PipelineHasher`, pipeline cache |
-| [platform/graphics/webgpu/src/frame/pass_base.rs](platform/graphics/webgpu/src/frame/pass_base.rs) | `DefaultPassDispatcher` |
+| [platform/graphics/webgpu-frame/src/pass_base.rs](platform/graphics/webgpu-frame/src/pass_base.rs) | `DefaultPassDispatcher` |
 | [shader/api/src/graphics/mod.rs](shader/api/src/graphics/mod.rs) | `GraphicsShaderProvider` |
 
 
@@ -288,7 +288,7 @@ via `as_slice()`.
 
 ## DefaultPassDispatcher — per-pass base component
 
-**File**: [platform/graphics/webgpu/src/frame/pass_base.rs](platform/graphics/webgpu/src/frame/pass_base.rs)
+**File**: [platform/graphics/webgpu-frame/src/pass_base.rs](platform/graphics/webgpu-frame/src/pass_base.rs)
 **Constructor**: `default_dispatcher(pass: &FrameRenderPass, reversed_depth: bool) -> DefaultPassDispatcher`
 
 Every render pass typically includes this as its first component. It:

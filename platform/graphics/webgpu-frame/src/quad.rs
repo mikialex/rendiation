@@ -7,36 +7,19 @@ pub struct QuadVertexOut {
   pub uv: Vec2<f32>,
 }
 
+/// generate the full screen quad by vertex index 0..4, in triangle strip topology
 pub fn generate_quad(vertex_index: Node<u32>, depth: f32) -> Node<QuadVertexOut> {
-  let left = -1.0;
-  let right = 1.0;
-  let top = 1.0;
-  let bottom = -1.0;
+  // vertex index 0, 1, 2, 3 maps to uv (0, 0), (1, 0), (0, 1), (1, 1)
+  let u = (vertex_index & val(1)).into_f32();
+  let v = (vertex_index >> val(1)).into_f32();
 
-  let position = val(Vec4::<f32>::default()).make_local_var();
-  let uv = val(Vec2::<f32>::default()).make_local_var();
-
-  switch_by(vertex_index)
-    .case(0, || {
-      position.store(Vec4::new(left, top, depth, 1.));
-      uv.store(Vec2::new(0., 0.));
-    })
-    .case(1, || {
-      position.store(Vec4::new(right, top, depth, 1.));
-      uv.store(Vec2::new(1., 0.));
-    })
-    .case(2, || {
-      position.store(Vec4::new(left, bottom, depth, 1.));
-      uv.store(Vec2::new(0., 1.));
-    })
-    .end_with_default(|| {
-      position.store(Vec4::new(right, bottom, depth, 1.));
-      uv.store(Vec2::new(1., 1.));
-    });
+  // uv y axis is flipped compare to the ndc
+  let x = u * val(2.) - val(1.);
+  let y = val(1.) - v * val(2.);
 
   ENode::<QuadVertexOut> {
-    position: position.load(),
-    uv: uv.load(),
+    position: (x, y, val(depth), val(1.)).into(),
+    uv: (u, v).into(),
   }
   .construct()
 }
@@ -136,6 +119,7 @@ where
   T: RenderComponent,
 {
   fn render(&mut self, pass: &mut FrameRenderPass) {
+    let previous_viewport = pass.viewport();
     if let Some(viewport) = self.viewport {
       let [x, y, w, h] = viewport.into();
       pass.set_viewport(x, y, w, h, 0., 1.);
@@ -147,8 +131,7 @@ where
     RenderArray(components).render(&mut pass.ctx, RenderMethod::TraditionalDraw(QUAD_DRAW_CMD));
 
     if self.viewport.is_some() {
-      let (w, h) = pass.size().into_f32();
-      pass.set_viewport(0., 0., w, h, 0., 1.);
+      pass.restore_viewport(previous_viewport);
     }
   }
 }
