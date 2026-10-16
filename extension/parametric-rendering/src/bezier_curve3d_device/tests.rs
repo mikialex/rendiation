@@ -59,7 +59,7 @@ fn test_curve_deg14() -> RationalBezierCurve3d<f32> {
 }
 
 async fn run_gpu_test(curve: &RationalBezierCurve3d<f32>, sample_count: u32, eps: f32) {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let total_samples = sample_count as usize;
 
   let info = create_gpu_readonly_storage(&curve.to_gpu_info(), &gpu, "info");

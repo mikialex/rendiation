@@ -23,7 +23,6 @@ reuse-pool = { path = "../../../utility/reuse-pool" }
 thiserror = { workspace = true }
 wgpu = { workspace = true }
 wgpu-types = { workspace = true }
-winit = { workspace = true }
 growable-range-allocator = { path = "../../../utility/growable-range-allocator" }
 slab = { workspace = true }
 log = { workspace = true }
@@ -35,10 +34,6 @@ support-webgl = ["wgpu/webgl"]
 pipeline-label = []
 
 # default = ["pipeline-label"]
-
-[target.'cfg(target_arch= "wasm32")'.dependencies]
-web-sys = "0.3"
-
 
 [lints]
 workspace = true

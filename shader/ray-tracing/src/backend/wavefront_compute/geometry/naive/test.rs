@@ -239,7 +239,7 @@ fn test_cpu_triangle() {
   // const GEOMETRY_IDX_MAX: u32 = 1;
   const PRIMITIVE_IDX_MAX: u32 = 12;
 
-  let (gpu, _) = futures::executor::block_on(GPU::new(Default::default())).unwrap();
+  let gpu = futures::executor::block_on(GPU::new(Default::default())).unwrap();
   let system = NaiveSahBVHSystem::new(gpu);
   init_default_acceleration_structure(&system);
 
@@ -308,7 +308,7 @@ fn test_gpu_triangle_naive() {
 
   let dummy_array = vec![0u32; H * W];
 
-  let (gpu, _) = futures::executor::block_on(GPU::new(Default::default())).unwrap();
+  let gpu = futures::executor::block_on(GPU::new(Default::default())).unwrap();
   let mut encoder = gpu.create_encoder();
   let mut mem = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut mem);

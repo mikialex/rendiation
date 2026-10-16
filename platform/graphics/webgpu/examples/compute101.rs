@@ -3,7 +3,7 @@ use rendiation_webgpu::*;
 
 #[pollster::main]
 pub async fn main() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
 
   let workgroup_size: u32 = 64;
 

@@ -27,7 +27,7 @@ fn test_gpu_triangle() {
 
   let dummy_array = vec![0u32; H * W];
 
-  let (gpu, _) = futures::executor::block_on(GPU::new(Default::default())).unwrap();
+  let gpu = futures::executor::block_on(GPU::new(Default::default())).unwrap();
 
   if !gpu
     .info

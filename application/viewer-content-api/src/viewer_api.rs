@@ -29,8 +29,7 @@ impl ViewerCanvas {
 }
 
 pub struct ViewerAPICore {
-  gpu_and_main_surface: WGPUAndInitSurface,
-  /// the api supports multiple surface, the main surfaces also stored(cloned) here
+  gpu: GPU,
   surfaces: FastHashMap<u32, ViewerCanvas>,
   next_new_surface_id: u32,
   pub(crate) viewer: Viewer,
@@ -140,7 +139,7 @@ impl ViewerAPI {
   pub fn create_surface(&mut self, init: ViewerAPIInit, width: u32, height: u32) -> u32 {
     let init_size = Size::from_u32_pair_min_one((width, height));
 
-    let gpu = &self.core.gpu_and_main_surface.gpu;
+    let gpu = &self.core.gpu;
 
     let surface = match init {
       ViewerAPIInit::Offscreen => {
@@ -159,28 +158,20 @@ impl ViewerAPI {
         // display handle in windows is always default.
         let display_handle =
           raw_gpu::rwh::RawDisplayHandle::Windows(raw_gpu::rwh::WindowsDisplayHandle::new());
+        // here we pray the caller not drop the window!
         let surface = unsafe {
-          self
-            .core
-            .gpu_and_main_surface
-            .gpu
-            .instance
-            .create_surface_unsafe(raw_gpu::SurfaceTargetUnsafe::RawHandle {
+          gpu.create_surface_unsafe(
+            raw_gpu::SurfaceTargetUnsafe::RawHandle {
               raw_display_handle: Some(display_handle),
               raw_window_handle: window_handle,
-            })
+            },
+            init_size,
+          )
         }
         .unwrap();
 
-        let surface = GPUSurface::new(
-          &self.core.gpu_and_main_surface.gpu.adaptor,
-          &self.core.gpu_and_main_surface.gpu.device,
-          surface,
-          init_size,
-        );
-
-        // here we pray the caller not drop the window!
-        let surface = SurfaceWrapper::new(surface, Arc::new(hwnd));
+        let surface = SurfaceWrapper::new(surface);
+        surface.set_present_mode_or_warn(self.core.viewer.rendering.init_config().present_mode);
         ViewerCanvas::Surface(surface)
       }
     };
@@ -264,7 +255,7 @@ impl ViewerAPI {
       return None;
     };
 
-    let gpu = &self.core.gpu_and_main_surface.gpu;
+    let gpu = &self.core.gpu;
     let target: GPU2DTextureView = target.expect_texture_view();
     let mut encoder = gpu.create_encoder();
     let fut = encoder.read_texture_2d(
@@ -321,19 +312,18 @@ impl ViewerAPI {
   pub fn new(init_config: ViewerInitConfig) -> Self {
     let gpu_platform_config = init_config.make_gpu_platform_config();
 
-    let gpu_config = gpu_platform_config.make_gpu_create_config(None);
+    let gpu_config = gpu_platform_config.make_gpu_create_config();
 
-    let (gpu, _) = pollster::block_on(GPU::new(gpu_config)).unwrap();
-    let gpu_and_surface = WGPUAndInitSurface { gpu, surface: None };
+    let gpu = pollster::block_on(GPU::new(gpu_config)).unwrap();
 
     let worker = TaskSpawner::new("viewer-api", init_config.init_only.thread_pool_thread_count);
 
-    let viewer = Viewer::new(gpu_and_surface.gpu.clone(), &init_config, worker.clone());
+    let viewer = Viewer::new(gpu.clone(), &init_config, worker.clone());
 
     let data_source = ViewerDataScheduler::new(None);
 
     let core = ViewerAPICore {
-      gpu_and_main_surface: gpu_and_surface,
+      gpu,
       surfaces: Default::default(),
       next_new_surface_id: 0,
       viewer,
@@ -376,7 +366,7 @@ impl ViewerAPI {
         height: new_height,
       });
     if let Some(surface) = self.core.surfaces.get_mut(&surface_id) {
-      let gpu = &self.core.gpu_and_main_surface.gpu;
+      let gpu = &self.core.gpu;
       surface.set_size(gpu, Size::from_u32_pair_min_one((new_width, new_height)));
     } else {
       log::warn!("unable to find surface")
@@ -470,12 +460,15 @@ impl ViewerAPI {
     if let Some(surface) = core.surfaces.get(&surface_id) {
       let target = match surface {
         ViewerCanvas::Surface(surface) => surface
-          .get_current_frame_with_render_target_view(&core.gpu_and_main_surface.gpu.device)
-          .map(|r| (Some(r.0), r.1)),
-        ViewerCanvas::Offscreen(target) => Some((None, target.clone())),
+          .acquire_frame(&core.gpu.device)
+          .inspect_err(|err| log::error!("surface error: {err}"))
+          .ok()
+          .flatten()
+          .map(|frame| (frame.target.clone(), Some(frame))),
+        ViewerCanvas::Offscreen(target) => Some((target.clone(), None)),
       };
 
-      if let Some((canvas, target)) = target {
+      if let Some((target, frame)) = target {
         unsafe {
           core
             .dyn_cx
@@ -510,8 +503,8 @@ impl ViewerAPI {
           core.dyn_cx.unregister_cx::<ViewerDataScheduler>();
         };
 
-        if let Some(canvas) = canvas {
-          canvas.present();
+        if let Some(frame) = frame {
+          frame.present();
         }
       }
     }

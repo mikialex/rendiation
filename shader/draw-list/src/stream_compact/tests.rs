@@ -93,7 +93,7 @@ async fn read_storage_scalar_u32(
 
 #[pollster::test]
 async fn test_predicate_mask_noop() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
@@ -114,7 +114,7 @@ async fn test_predicate_mask_noop() {
 
 #[pollster::test]
 async fn test_draw_list_culling_noop() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
@@ -157,7 +157,7 @@ async fn test_draw_list_culling_noop() {
 
 #[pollster::test]
 async fn test_draw_list_culling_partial() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
@@ -258,7 +258,7 @@ fn build_test_draw_list_with_empty_first_sub_list(gpu: &GPU) -> DeviceDrawList {
 
 #[pollster::test]
 async fn test_draw_list_culling_empty_first_sub_list_noop() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
@@ -304,7 +304,7 @@ async fn test_draw_list_culling_empty_first_sub_list_noop() {
 
 #[pollster::test]
 async fn test_draw_list_culling_empty_first_sub_list_partial() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
@@ -396,7 +396,7 @@ fn build_test_draw_list_with_two_empty_first_sub_lists(gpu: &GPU) -> DeviceDrawL
 
 #[pollster::test]
 async fn test_draw_list_culling_two_empty_first_sub_lists_noop() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
@@ -438,7 +438,7 @@ async fn test_draw_list_culling_two_empty_first_sub_lists_noop() {
 
 #[pollster::test]
 async fn test_draw_list_culling_two_empty_first_sub_lists_partial() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
@@ -527,7 +527,7 @@ fn build_test_draw_list_with_empty_middle_sub_list(gpu: &GPU) -> DeviceDrawList 
 
 #[pollster::test]
 async fn test_draw_list_culling_empty_middle_sub_list_noop() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
@@ -573,7 +573,7 @@ async fn test_draw_list_culling_empty_middle_sub_list_noop() {
 
 #[pollster::test]
 async fn test_draw_list_culling_empty_middle_sub_list_partial() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
@@ -670,7 +670,7 @@ fn build_test_draw_list_with_consecutive_empty_middle_sub_lists(gpu: &GPU) -> De
 
 #[pollster::test]
 async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_noop() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
@@ -721,7 +721,7 @@ async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_noop() {
 
 #[pollster::test]
 async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_partial() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);

@@ -5350,10 +5350,8 @@ dependencies = [
  "reuse-pool",
  "slab",
  "thiserror 2.0.18",
- "web-sys",
  "wgpu",
  "wgpu-types",
- "winit",
 ]
 
 [[package]]

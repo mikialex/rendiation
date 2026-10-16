@@ -96,7 +96,7 @@ where
     output.index(id).store(logic(input.index(id).load()));
   });
 
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let input_buffer = create_gpu_readonly_storage(input, &gpu, "gpu_map input");
   let output_buffer = create_gpu_read_write_storage::<[O]>(
     ZeroedArrayByArrayLength(input.len()),

@@ -145,7 +145,7 @@ impl Viewer {
     let mut config = ViewerInitConfig::default();
     self.rendering.setup_init_config(&mut config);
 
-    config.present_mode = surface.internal(|v| v.config.present_mode);
+    config.present_mode = surface.read(|v| v.config().present_mode);
     config.use_scene_bvh = self.use_scene_bvh;
     config
   }

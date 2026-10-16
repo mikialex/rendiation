@@ -87,13 +87,8 @@ pub struct GPU {
   pub queue: GPUQueue,
 }
 
-pub struct GPUCreateConfig<'a> {
+pub struct GPUInstanceConfig {
   pub backends: Backends,
-  pub power_preference: PowerPreference,
-  pub surface_for_compatible_check_init: Option<(&'a (dyn SurfaceProvider + 'a), Size)>,
-  pub minimal_required_features: Features,
-  pub minimal_required_limits: Limits,
-  pub default_shader_checks: ShaderRuntimeChecks,
   /// if None, then using wgpu default behavior (on when debug build)
   pub enable_debug_info: Option<bool>,
   /// if None, then using wgpu default behavior (on when debug build)
@@ -104,15 +99,10 @@ pub struct GPUCreateConfig<'a> {
   pub display: Option<Box<dyn WgpuHasDisplayHandle>>,
 }
 
-impl Default for GPUCreateConfig<'_> {
+impl Default for GPUInstanceConfig {
   fn default() -> Self {
     Self {
       backends: Backends::all(),
-      power_preference: PowerPreference::HighPerformance,
-      surface_for_compatible_check_init: None,
-      minimal_required_features: Features::empty(),
-      minimal_required_limits: Default::default(),
-      default_shader_checks: ShaderRuntimeChecks::checked(),
       enable_backend_validation: None,
       enable_debug_info: None,
       dx_compiler_dll_path: None,
@@ -121,12 +111,36 @@ impl Default for GPUCreateConfig<'_> {
   }
 }
 
+pub struct GPUDeviceConfig {
+  pub power_preference: PowerPreference,
+  pub minimal_required_features: Features,
+  pub minimal_required_limits: Limits,
+  pub default_shader_checks: ShaderRuntimeChecks,
+}
+
+impl Default for GPUDeviceConfig {
+  fn default() -> Self {
+    Self {
+      power_preference: PowerPreference::HighPerformance,
+      minimal_required_features: Features::empty(),
+      minimal_required_limits: Default::default(),
+      default_shader_checks: ShaderRuntimeChecks::checked(),
+    }
+  }
+}
+
+#[derive(Default)]
+pub struct GPUCreateConfig {
+  pub instance: GPUInstanceConfig,
+  pub device: GPUDeviceConfig,
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum GPUCreateFailure {
   #[error("Failed to request adapter")]
   AdapterRequestFailed(#[from] RequestAdapterError),
-  #[error("Failed to request adapter, because failed to create test compatible surface")]
-  AdapterRequestFailedByUnableCreateTestCompatibleSurface(#[from] CreateSurfaceError),
+  #[error("Failed to request adapter, note WebGL backend requires a compatible surface")]
+  AdapterRequestFailedWithoutCompatibleSurface(RequestAdapterError),
   #[error(
     "Failed to create device because the the adaptor can not meet the minimal feature requirement"
   )]
@@ -139,12 +153,8 @@ pub enum GPUCreateFailure {
   DeviceQueueCreateFailedUnknownReason(#[from] RequestDeviceError),
 }
 
-impl GPU {
-  /// in some backend for example WebGL, the surface is required to create the instance, we have to
-  /// return the init surface with the gpu itself
-  pub async fn new(
-    config: GPUCreateConfig<'_>,
-  ) -> Result<(Self, Option<GPUSurface<'_>>), GPUCreateFailure> {
+impl GPUInstance {
+  pub fn create(config: GPUInstanceConfig) -> Self {
     let instance = gpu::Instance::new(gpu::InstanceDescriptor {
       backends: config.backends,
       flags: {
@@ -179,18 +189,41 @@ impl GPU {
       memory_budget_thresholds: Default::default(),
       display: config.display,
     });
-    let init_surface = config
-      .surface_for_compatible_check_init
-      .map(|s| s.0.create_surface(&instance))
-      .transpose()?;
+    Self::new(instance)
+  }
+}
 
+impl GPU {
+  /// create gpu without any compatible surface, mainly used in headless case.
+  ///
+  /// to create gpu with surface, create the instance by [GPUInstance::create] first, then create the
+  /// raw surface by the instance, and use [GPU::new_with_instance] with the raw surface as the
+  /// compatible surface, and finally create the [GPUSurface] by [GPUSurface::new]. The compatible
+  /// surface is required in some backend, for example WebGL.
+  pub async fn new(config: GPUCreateConfig) -> Result<Self, GPUCreateFailure> {
+    let instance = GPUInstance::create(config.instance);
+    Self::new_with_instance(instance, config.device, None).await
+  }
+
+  pub async fn new_with_instance(
+    instance: GPUInstance,
+    config: GPUDeviceConfig,
+    compatible_surface: Option<&gpu::Surface<'_>>,
+  ) -> Result<Self, GPUCreateFailure> {
     let adaptor = instance
       .request_adapter(&gpu::RequestAdapterOptions {
         power_preference: config.power_preference,
-        compatible_surface: init_surface.as_ref(),
+        compatible_surface,
         force_fallback_adapter: false,
       })
-      .await?;
+      .await
+      .map_err(|err| {
+        if cfg!(target_family = "wasm") && compatible_surface.is_none() {
+          GPUCreateFailure::AdapterRequestFailedWithoutCompatibleSurface(err)
+        } else {
+          GPUCreateFailure::AdapterRequestFailed(err)
+        }
+      })?;
 
     let supported_features = adaptor.features();
     let supported_limits = adaptor.limits();
@@ -232,26 +265,13 @@ impl GPU {
     let device = GPUDevice::new(device, info.clone(), config.default_shader_checks);
     let queue = GPUQueue::new(queue);
 
-    let surface = init_surface.map(|init_surface| {
-      GPUSurface::new(
-        &adaptor,
-        &device,
-        init_surface,
-        config.surface_for_compatible_check_init.as_ref().unwrap().1,
-      )
-    });
-
-    let instance = GPUInstance::new(instance);
-
-    let gpu = Self {
+    Ok(Self {
       instance,
       adaptor,
       info: Arc::new(info),
       device,
       queue,
-    };
-
-    Ok((gpu, surface))
+    })
   }
 
   pub fn info(&self) -> &GPUInfo {
@@ -272,18 +292,26 @@ impl GPU {
     self.device.clear_resource_cache();
   }
 
-  pub fn create_another_surface<'a>(
+  /// the target is usually `Arc<Window>` to make sure the surface is `'static`
+  pub fn create_surface(
     &self,
-    provider: &'a dyn SurfaceProvider,
+    target: impl Into<gpu::SurfaceTarget<'static>>,
     init_resolution: Size,
-  ) -> Result<GPUSurface<'a>, CreateSurfaceError> {
-    let surface = provider.create_surface(&self.instance)?;
-    Ok(GPUSurface::new(
-      &self.adaptor,
-      &self.device,
-      surface,
-      init_resolution,
-    ))
+  ) -> Result<GPUSurface, CreateSurfaceError> {
+    let surface = self.instance.create_surface(target)?;
+    Ok(GPUSurface::new(self, surface, init_resolution))
+  }
+
+  /// # Safety
+  ///
+  /// see [gpu::Instance::create_surface_unsafe]
+  pub unsafe fn create_surface_unsafe(
+    &self,
+    target: gpu::SurfaceTargetUnsafe,
+    init_resolution: Size,
+  ) -> Result<GPUSurface, CreateSurfaceError> {
+    let surface = unsafe { self.instance.create_surface_unsafe(target) }?;
+    Ok(GPUSurface::new(self, surface, init_resolution))
   }
 
   pub fn create_encoder(&self) -> GPUCommandEncoder {

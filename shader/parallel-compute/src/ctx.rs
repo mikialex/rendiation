@@ -244,7 +244,7 @@ impl FrameCtxParallelComputeExt for FrameCtx<'_> {
 #[macro_export]
 macro_rules! gpu_cx {
   ($name: tt) => {
-    let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+    let gpu = GPU::new(Default::default()).await.unwrap();
     let mut encoder = gpu.create_encoder();
     let mut memory = Default::default();
     let mut $name = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);

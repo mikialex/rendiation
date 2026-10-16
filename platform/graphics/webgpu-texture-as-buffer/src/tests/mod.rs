@@ -110,7 +110,7 @@ fn relocate_model(model: &mut [u32], relocations: &[(usize, usize, usize)]) {
 
 #[pollster::test]
 async fn fragmented_write() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   for (name, alloc) in allocators(&gpu) {
     for len in [0, 1, 6, 7, 8, 9, 15, 23, 40] {
       let buffer = alloc.allocate_readonly::<[u32]>(len as u64 * 4, &gpu.device, "test");
@@ -149,7 +149,7 @@ fn pick_component(v: Node<Vec4<u32>>, c: Node<u32>) -> Node<u32> {
 
 #[pollster::test]
 async fn typed_access() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   for (name, alloc) in allocators(&gpu) {
     let data: Vec<_> = (0..5_u32)
       .map(|i| Vec4::new(i * 4, i * 4 + 1, i * 4 + 2, i * 4 + 3))
@@ -216,7 +216,7 @@ async fn read_unsized_struct(
 
 #[pollster::test]
 async fn unsized_struct_array_length() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   for (name, alloc) in allocators(&gpu) {
     let combine =
       CombinedStorageBufferAllocator::new(&gpu, "combine", false, true, Box::new(alloc.clone()));
@@ -246,7 +246,7 @@ async fn unsized_struct_array_length() {
 
 #[pollster::test]
 async fn resize_and_relocate() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   for (name, alloc) in allocators(&gpu) {
     let mut buffer = alloc.allocate_readonly::<[u32]>(5 * 4, &gpu.device, "test");
     let mut model: Vec<_> = (1..=5).collect();
@@ -319,7 +319,7 @@ async fn resize_and_relocate() {
 
 #[pollster::test]
 async fn grow_with_far_write() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   for (name, alloc) in allocators(&gpu) {
     let mut buffer = alloc.allocate_readonly::<[u32]>(10 * 4, &gpu.device, "test");
     let mut model: Vec<_> = (0..10).map(|i| i + 1).collect();
@@ -345,7 +345,7 @@ async fn grow_with_far_write() {
 
 #[pollster::test]
 async fn copy_between_buffers() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   for (name, alloc) in allocators(&gpu) {
     let src = alloc.allocate_readonly::<[u32]>(20 * 4, &gpu.device, "src");
     let dst = alloc.allocate_readonly::<[u32]>(30 * 4, &gpu.device, "dst");
@@ -367,7 +367,7 @@ async fn copy_between_buffers() {
 
 #[pollster::test]
 async fn combined_buffer_on_texture() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   for (name, alloc) in allocators(&gpu) {
     let combine =
       CombinedStorageBufferAllocator::new(&gpu, "combine", false, true, Box::new(alloc));

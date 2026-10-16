@@ -6,27 +6,29 @@ pub struct GPUPlatformConfig {
   pub enable_backend_validation: Option<bool>,
   pub enable_hal_debug_info: Option<bool>,
   pub dx_compiler_dll_path: Option<String>,
+  pub present_mode: PresentMode,
 }
 
 impl GPUPlatformConfig {
-  pub fn make_gpu_create_config<'a>(
-    &self,
-    surface_for_compatible_check_init: Option<(&'a (dyn SurfaceProvider + 'a), Size)>,
-  ) -> GPUCreateConfig<'a> {
+  pub fn make_gpu_create_config(&self) -> GPUCreateConfig {
     GPUCreateConfig {
-      surface_for_compatible_check_init,
-      backends: self.preferred_backends.unwrap_or(Backends::all()),
-      default_shader_checks: ShaderRuntimeChecks {
-        bounds_checks: self.checks.bounds_checks,
-        force_loop_bounding: self.checks.force_loop_bounding,
-        ray_query_initialization_tracking: true,
-        task_shader_dispatch_tracking: true,
-        mesh_shader_primitive_indices_clamp: true,
+      instance: GPUInstanceConfig {
+        backends: self.preferred_backends.unwrap_or(Backends::all()),
+        enable_backend_validation: self.enable_backend_validation,
+        enable_debug_info: self.enable_hal_debug_info,
+        dx_compiler_dll_path: self.dx_compiler_dll_path.clone(),
+        ..Default::default()
       },
-      enable_backend_validation: self.enable_backend_validation,
-      enable_debug_info: self.enable_hal_debug_info,
-      dx_compiler_dll_path: self.dx_compiler_dll_path.clone(),
-      ..Default::default()
+      device: GPUDeviceConfig {
+        default_shader_checks: ShaderRuntimeChecks {
+          bounds_checks: self.checks.bounds_checks,
+          force_loop_bounding: self.checks.force_loop_bounding,
+          ray_query_initialization_tracking: true,
+          task_shader_dispatch_tracking: true,
+          mesh_shader_primitive_indices_clamp: true,
+        },
+        ..Default::default()
+      },
     }
   }
 }
@@ -39,6 +41,7 @@ impl ViewerInitConfig {
       enable_backend_validation: self.init_only.enable_backend_validation,
       enable_hal_debug_info: self.init_only.enable_hal_debug_info,
       dx_compiler_dll_path: self.init_only.dx_compiler_dll_path.clone(),
+      present_mode: self.present_mode,
     }
   }
 }
@@ -49,77 +52,75 @@ pub struct WGPUAndSurface {
 }
 
 impl WGPUAndSurface {
-  pub async fn new<'a>(config: GPUCreateConfig<'a>, surface_holder: Arc<dyn Any>) -> Self {
-    let (gpu, surface) = GPU::new(config).await.unwrap();
-    let surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
-    let surface = SurfaceWrapper::new(surface, surface_holder);
-    WGPUAndSurface { gpu, surface }
+  /// the surface is created before the adapter and used as the compatible surface, which is
+  /// required by WebGL backend.
+  pub async fn new(
+    config: GPUCreateConfig,
+    target: impl Into<raw_gpu::SurfaceTarget<'static>>,
+    init_resolution: Size,
+  ) -> Self {
+    let instance = GPUInstance::create(config.instance);
+    let surface = instance
+      .create_surface(target)
+      .expect("failed to create surface");
+    let gpu = GPU::new_with_instance(instance, config.device, Some(&surface))
+      .await
+      .expect("failed to create gpu");
+    let surface = GPUSurface::new(&gpu, surface, init_resolution);
+    WGPUAndSurface {
+      surface: SurfaceWrapper::new(surface),
+      gpu,
+    }
   }
-}
-
-pub struct WGPUAndInitSurface {
-  pub surface: Option<SurfaceWrapper>,
-  pub gpu: GPU,
 }
 
 #[derive(Clone)]
 pub struct SurfaceWrapper {
-  surface: Arc<RwLock<GPUSurface<'static>>>,
-  // we somehow hold the surface to make sure it won't be dropped when we have gpu surface
-  _surface_holder: Arc<dyn Any>,
+  surface: Arc<RwLock<GPUSurface>>,
 }
 
 impl SurfaceWrapper {
-  pub fn new(surface: GPUSurface<'static>, surface_holder: Arc<dyn Any>) -> Self {
+  pub fn new(surface: GPUSurface) -> Self {
     Self {
       surface: Arc::new(RwLock::new(surface)),
-      _surface_holder: surface_holder,
     }
   }
 
   pub fn is_hdr(&self) -> bool {
-    self.internal(|surface| surface.config.format == TextureFormat::Rgba16Float)
+    self.read(|surface| surface.config().format == TextureFormat::Rgba16Float)
   }
 
-  pub fn internal<R>(&self, v: impl FnOnce(&mut GPUSurface) -> R) -> R {
-    let mut s = self.surface.write();
-    v(&mut s)
+  pub fn read<R>(&self, f: impl FnOnce(&GPUSurface) -> R) -> R {
+    f(&self.surface.read())
   }
 
-  pub fn set_size(&mut self, size: Size) {
+  pub fn write<R>(&self, f: impl FnOnce(&mut GPUSurface) -> R) -> R {
+    f(&mut self.surface.write())
+  }
+
+  pub fn set_size(&self, size: Size) {
     self.surface.write().set_size(size)
   }
 
-  pub fn get_current_frame_with_render_target_view(
-    &self,
-    device: &GPUDevice,
-  ) -> Option<(SurfaceTexture, RenderTargetView)> {
-    self.surface.write().re_config_if_changed(device);
-    match self
-      .surface
-      .write()
-      .get_current_frame_with_render_target_view(device)
-    {
-      Ok(r) => match r {
-        SurfaceNext::Occluded => None,
-        SurfaceNext::Timeout => {
-          log::warn!("surface frame target failed to get(timeout)");
-          None
+  pub fn set_present_mode_or_warn(&self, mode: PresentMode) {
+    if let Err(err) = self.surface.write().set_present_mode(mode) {
+      log::warn!("{err}, fallback to current present mode");
+    }
+  }
+
+  /// return None if current frame should be skipped
+  pub fn acquire_frame(&self, device: &GPUDevice) -> Result<Option<SurfaceFrame>, SurfaceError> {
+    match self.surface.write().acquire_frame(device)? {
+      SurfaceAcquire::Frame(frame) => {
+        if frame.is_sub_optimal {
+          log::warn!("surface frame target is suboptimal")
         }
-        SurfaceNext::Success {
-          raw,
-          target,
-          is_sub_optimal,
-        } => {
-          if is_sub_optimal {
-            log::warn!("surface frame target is suboptimal")
-          }
-          Some((raw, target))
-        }
-      },
-      Err(err) => {
-        log::error!("surface error: {:?}", err);
-        None
+        Ok(Some(frame))
+      }
+      SurfaceAcquire::Occluded => Ok(None),
+      SurfaceAcquire::Timeout => {
+        log::warn!("surface frame target failed to get(timeout)");
+        Ok(None)
       }
     }
   }

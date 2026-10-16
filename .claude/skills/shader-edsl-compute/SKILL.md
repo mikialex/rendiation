@@ -186,7 +186,7 @@ use rendiation_webgpu::*;
 
 #[pollster::test]
 async fn my_compute_test() {
-    let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+    let gpu = GPU::new(Default::default()).await.unwrap();
     // upload data, build pipeline, dispatch, readback, verify
 }
 ```
@@ -247,7 +247,7 @@ fn build_add_pipeline(
 
 #[pollster::test]
 async fn one_plus_one() {
-    let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+    let gpu = GPU::new(Default::default()).await.unwrap();
 
     let output = create_gpu_read_write_storage::<[f32]>(
         ZeroedArrayByArrayLength(1), &gpu,

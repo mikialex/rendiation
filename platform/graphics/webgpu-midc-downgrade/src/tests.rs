@@ -75,7 +75,7 @@ fn build_test_input(gpu: &GPU) -> MIDCListPoolInput {
 
 #[pollster::test]
 async fn test_downgrade_list_pool_basic() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
@@ -126,7 +126,7 @@ async fn test_downgrade_list_pool_basic() {
 
 #[pollster::test]
 async fn test_downgrade_list_pool_single_sub_list() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);

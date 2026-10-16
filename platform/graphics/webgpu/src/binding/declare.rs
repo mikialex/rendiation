@@ -233,7 +233,7 @@ mod sample {
 
   #[pollster::test]
   async fn test_binding_declare_sample() {
-    let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+    let gpu = GPU::new(Default::default()).await.unwrap();
     assert_eq!(
       render_first_pixel(&gpu, false).await,
       vec![255, 128, 0, 255]

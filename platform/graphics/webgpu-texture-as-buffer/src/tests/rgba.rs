@@ -38,7 +38,7 @@ async fn read_u32_heap(gpu: &GPU, buffer: &BoxedAbstractBuffer) -> (u32, Vec<u32
 
 #[pollster::test]
 async fn rgba_whole_write() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   // around the texel boundary, and the extent that is exactly filled by the data and the length
   for len in [0, 1, 3, 4, 5, 27, 28, 29, 32, 60, 61, 100] {
     let buffer = create_u32_array(&gpu, len);
@@ -51,7 +51,7 @@ async fn rgba_whole_write() {
 
 #[pollster::test]
 async fn rgba_chunked_write() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let len = 50;
   let buffer = create_u32_array(&gpu, len);
   let mut model: Vec<_> = (0..len as u32).map(|i| i * 3 + 1).collect();
@@ -68,7 +68,7 @@ async fn rgba_chunked_write() {
 
 #[pollster::test]
 async fn rgba_typed_access() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
 
   let data: Vec<_> = (0..5_u32)
     .map(|i| Vec4::new(i * 4, i * 4 + 1, i * 4 + 2, i * 4 + 3))
@@ -105,7 +105,7 @@ async fn rgba_typed_access() {
 
 #[pollster::test]
 async fn rgba_resize_and_relocate() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut buffer = create_u32_array(&gpu, 5);
   let mut model: Vec<_> = (1..=5).collect();
   write(&buffer, &model, 0, &gpu);
@@ -176,7 +176,7 @@ async fn rgba_resize_and_relocate() {
 
 #[pollster::test]
 async fn rgba_copy_between_buffers() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
 
   let src = create_u32_array(&gpu, 20);
   let dst = create_u32_array(&gpu, 30);
@@ -210,7 +210,7 @@ async fn rgba_copy_between_buffers() {
 #[pollster::test]
 #[should_panic(expected = "write offset must be 16 bytes aligned")]
 async fn rgba_unaligned_write_offset() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let buffer = create_u32_array(&gpu, 8);
   write(&buffer, &[1], 1, &gpu);
 }
@@ -218,7 +218,7 @@ async fn rgba_unaligned_write_offset() {
 #[pollster::test]
 #[should_panic(expected = "write end, unless it equals the byte size, must be 16 bytes aligned")]
 async fn rgba_unaligned_write_end() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let buffer = create_u32_array(&gpu, 8);
   write(&buffer, &[1], 0, &gpu);
 }
@@ -226,7 +226,7 @@ async fn rgba_unaligned_write_end() {
 #[pollster::test]
 #[should_panic(expected = "copy source offset must be 16 bytes aligned")]
 async fn rgba_unaligned_copy_offset() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let src = create_u32_array(&gpu, 8);
   let dst = create_u32_array(&gpu, 8);
   let mut encoder = gpu.create_encoder();
@@ -236,7 +236,7 @@ async fn rgba_unaligned_copy_offset() {
 #[pollster::test]
 #[should_panic(expected = "copy byte count, unless the copy reaches the end of both side,")]
 async fn rgba_unaligned_copy_count() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let src = create_u32_array(&gpu, 8);
   let dst = create_u32_array(&gpu, 8);
   let mut encoder = gpu.create_encoder();
@@ -246,7 +246,7 @@ async fn rgba_unaligned_copy_count() {
 #[pollster::test]
 #[should_panic(expected = "relocation source offset must be 16 bytes aligned")]
 async fn rgba_unaligned_relocation() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let buffer = create_u32_array(&gpu, 16);
   let mut encoder = gpu.create_encoder();
   buffer.batch_self_relocate(
@@ -259,7 +259,7 @@ async fn rgba_unaligned_relocation() {
 #[pollster::test]
 #[should_panic(expected = "shrink target size must be 16 bytes aligned")]
 async fn rgba_unaligned_shrink() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let mut buffer = create_u32_array(&gpu, 8);
   resize(&mut buffer, 5, &gpu);
 }

@@ -150,7 +150,7 @@ fn test_surface_deg14x14() -> RationalBezierSurface<f32> {
 }
 
 async fn run_gpu_test(surface: &RationalBezierSurface<f32>, sample_count: u32, eps: f32) {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let total_samples = (sample_count * sample_count) as usize;
 
   let info = create_gpu_readonly_storage(&surface.to_gpu_info(), &gpu, "info");

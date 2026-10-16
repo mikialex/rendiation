@@ -5,7 +5,7 @@ async fn test_wavefront_compute() {
   let canvas_size = 256;
 
   use crate::*;
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
 
   let texture_io_system = RayTracingTextureIO::default();
 

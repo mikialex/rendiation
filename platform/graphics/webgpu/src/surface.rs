@@ -1,67 +1,5 @@
 use crate::*;
 
-pub trait SurfaceProvider {
-  fn create_surface<'a>(
-    &'a self,
-    instance: &gpu::Instance,
-  ) -> Result<gpu::Surface<'a>, CreateSurfaceError>;
-  fn size(&self) -> Size;
-}
-
-impl SurfaceProvider for winit::window::Window {
-  fn create_surface<'a>(
-    &'a self,
-    instance: &gpu::Instance,
-  ) -> Result<gpu::Surface<'a>, CreateSurfaceError> {
-    instance.create_surface(self)
-  }
-
-  fn size(&self) -> Size {
-    let size = self.inner_size();
-    Size::from_u32_pair_min_one((size.width, size.height))
-  }
-}
-
-#[cfg(target_arch = "wasm32")]
-impl SurfaceProvider for web_sys::HtmlCanvasElement {
-  fn create_surface<'a>(
-    &'a self,
-    instance: &wgpu::Instance,
-  ) -> Result<wgpu::Surface<'a>, CreateSurfaceError> {
-    let surface_target = wgpu::SurfaceTarget::Canvas(self.clone());
-    instance.create_surface(surface_target)
-  }
-
-  fn size(&self) -> Size {
-    Size::from_u32_pair_min_one((self.width(), self.height()))
-  }
-}
-
-pub enum SurfaceNext {
-  Occluded,
-  Timeout,
-  Success {
-    raw: gpu::SurfaceTexture,
-    target: RenderTargetView,
-    is_sub_optimal: bool,
-  },
-}
-
-#[derive(Debug)]
-pub enum SurfaceError {
-  SurfaceLost,
-  Validation,
-  ReconfiguredSurfaceDirectlyOutdated,
-  ReconfiguredSurfaceDirectlyLost,
-}
-
-pub struct GPUSurface<'a> {
-  surface: gpu::Surface<'a>,
-  synced_config: gpu::SurfaceConfiguration,
-  pub config: gpu::SurfaceConfiguration,
-  capabilities: gpu::SurfaceCapabilities,
-}
-
 pub fn get_default_preferred_format(capabilities: &gpu::SurfaceCapabilities) -> gpu::TextureFormat {
   *capabilities
     .formats
@@ -71,39 +9,101 @@ pub fn get_default_preferred_format(capabilities: &gpu::SurfaceCapabilities) -> 
     .expect("none supported format exist in surface capabilities")
 }
 
-impl<'a> GPUSurface<'a> {
-  pub fn new(
-    adapter: &gpu::Adapter,
-    device: &GPUDevice,
-    surface: gpu::Surface<'a>,
-    init_resolution: Size,
-  ) -> Self {
-    let capabilities = surface.get_capabilities(adapter);
-    let swapchain_format = get_default_preferred_format(&capabilities);
+#[derive(thiserror::Error, Debug)]
+pub enum SurfaceConfigUnsupported {
+  #[error("surface format {0:?} is not supported")]
+  Format(gpu::TextureFormat),
+  #[error("surface present mode {0:?} is not supported")]
+  PresentMode(gpu::PresentMode),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum SurfaceError {
+  /// the raw surface must be recreated, see [GPUSurface::replace_raw_surface]
+  #[error("surface lost")]
+  Lost,
+  #[error("surface validation error")]
+  Validation,
+  #[error("surface still outdated after reconfigure")]
+  ReconfiguredStillOutdated,
+}
+
+pub enum SurfaceAcquire {
+  Frame(SurfaceFrame),
+  Occluded,
+  Timeout,
+}
+
+pub struct SurfaceFrame {
+  raw: gpu::SurfaceTexture,
+  pub target: RenderTargetView,
+  pub is_sub_optimal: bool,
+}
+
+impl SurfaceFrame {
+  pub fn present(self) {
+    self.raw.present();
+  }
+}
+
+/// The swapchain abstraction.
+///
+/// The config changes are lazily applied in next [GPUSurface::acquire_frame] call.
+///
+/// Note, in WebGL backend, the gpu device is bound to the canvas of the compatible surface used
+/// in gpu creation, so creating another surface for different canvas is not supported.
+pub struct GPUSurface {
+  surface: gpu::Surface<'static>,
+  capabilities: gpu::SurfaceCapabilities,
+  config: gpu::SurfaceConfiguration,
+  require_reconfigure: bool,
+}
+
+impl GPUSurface {
+  pub fn new(gpu: &GPU, surface: gpu::Surface<'static>, init_resolution: Size) -> Self {
+    let capabilities = surface.get_capabilities(&gpu.adaptor);
+    let (width, height) = init_resolution.into_u32();
 
     let config = gpu::SurfaceConfiguration {
       usage: gpu::TextureUsages::RENDER_ATTACHMENT,
-      format: swapchain_format,
+      format: get_default_preferred_format(&capabilities),
       view_formats: vec![],
-      width: Into::<usize>::into(init_resolution.width) as u32,
-      height: Into::<usize>::into(init_resolution.height) as u32,
+      width,
+      height,
       present_mode: gpu::PresentMode::AutoVsync,
       alpha_mode: gpu::CompositeAlphaMode::Auto,
       desired_maximum_frame_latency: 2,
     };
 
-    surface.configure(device, &config);
+    surface.configure(&gpu.device, &config);
 
     Self {
-      synced_config: config.clone(),
-      capabilities,
       surface,
+      capabilities,
       config,
+      require_reconfigure: false,
     }
+  }
+
+  /// Used to recover from [SurfaceError::Lost]. The current config is kept if still supported.
+  pub fn replace_raw_surface(&mut self, gpu: &GPU, surface: gpu::Surface<'static>) {
+    self.capabilities = surface.get_capabilities(&gpu.adaptor);
+    if !self.is_format_supported(self.config.format) {
+      self.config.format = get_default_preferred_format(&self.capabilities);
+    }
+    if !self.is_present_mode_supported(self.config.present_mode) {
+      self.config.present_mode = gpu::PresentMode::AutoVsync;
+    }
+    self.surface = surface;
+    self.require_reconfigure = true;
   }
 
   pub fn capabilities(&self) -> &gpu::SurfaceCapabilities {
     &self.capabilities
+  }
+
+  pub fn config(&self) -> &gpu::SurfaceConfiguration {
+    &self.config
   }
 
   pub fn size(&self) -> Size {
@@ -111,50 +111,87 @@ impl<'a> GPUSurface<'a> {
   }
 
   pub fn set_size(&mut self, size: Size) {
-    self.config.width = Into::<usize>::into(size.width) as u32;
-    self.config.height = Into::<usize>::into(size.height) as u32;
-  }
-
-  pub fn re_config_if_changed(&mut self, device: &GPUDevice) {
-    if self.config == self.synced_config {
-      return;
+    let (width, height) = size.into_u32();
+    if self.config.width != width || self.config.height != height {
+      self.config.width = width;
+      self.config.height = height;
+      self.require_reconfigure = true;
     }
-    self.surface.configure(device, &self.config);
-    self.synced_config = self.config.clone();
   }
 
-  pub fn get_current_frame_with_render_target_view(
-    &self,
-    device: &GPUDevice,
-  ) -> Result<SurfaceNext, SurfaceError> {
+  pub fn is_format_supported(&self, format: gpu::TextureFormat) -> bool {
+    self.capabilities.formats.contains(&format)
+  }
+
+  pub fn set_format(&mut self, format: gpu::TextureFormat) -> Result<(), SurfaceConfigUnsupported> {
+    if !self.is_format_supported(format) {
+      return Err(SurfaceConfigUnsupported::Format(format));
+    }
+    if self.config.format != format {
+      self.config.format = format;
+      self.require_reconfigure = true;
+    }
+    Ok(())
+  }
+
+  pub fn is_present_mode_supported(&self, mode: gpu::PresentMode) -> bool {
+    // the auto modes always have fallback
+    matches!(
+      mode,
+      gpu::PresentMode::AutoVsync | gpu::PresentMode::AutoNoVsync
+    ) || self.capabilities.present_modes.contains(&mode)
+  }
+
+  pub fn set_present_mode(
+    &mut self,
+    mode: gpu::PresentMode,
+  ) -> Result<(), SurfaceConfigUnsupported> {
+    if !self.is_present_mode_supported(mode) {
+      return Err(SurfaceConfigUnsupported::PresentMode(mode));
+    }
+    if self.config.present_mode != mode {
+      self.config.present_mode = mode;
+      self.require_reconfigure = true;
+    }
+    Ok(())
+  }
+
+  fn configure(&mut self, device: &GPUDevice) {
+    self.surface.configure(device, &self.config);
+    self.require_reconfigure = false;
+  }
+
+  pub fn acquire_frame(&mut self, device: &GPUDevice) -> Result<SurfaceAcquire, SurfaceError> {
     use wgpu::CurrentSurfaceTexture;
+
+    if self.require_reconfigure {
+      self.configure(device);
+    }
 
     let mut is_sub_optimal = false;
 
     let frame = match self.surface.get_current_texture() {
       CurrentSurfaceTexture::Success(frame) => frame,
-      CurrentSurfaceTexture::Timeout => return Ok(SurfaceNext::Timeout),
-      CurrentSurfaceTexture::Occluded => return Ok(SurfaceNext::Occluded),
+      CurrentSurfaceTexture::Timeout => return Ok(SurfaceAcquire::Timeout),
+      CurrentSurfaceTexture::Occluded => return Ok(SurfaceAcquire::Occluded),
       // If the surface is outdated or suboptimal, reconfigure and retry.
       CurrentSurfaceTexture::Suboptimal(_) | CurrentSurfaceTexture::Outdated => {
-        self.surface.configure(device, &self.config);
+        self.configure(device);
         match self.surface.get_current_texture() {
           CurrentSurfaceTexture::Success(frame) => frame,
           CurrentSurfaceTexture::Suboptimal(frame) => {
             is_sub_optimal = true;
             frame
           }
-          CurrentSurfaceTexture::Timeout => return Ok(SurfaceNext::Timeout),
-          CurrentSurfaceTexture::Occluded => return Ok(SurfaceNext::Occluded),
-          CurrentSurfaceTexture::Outdated => {
-            return Err(SurfaceError::ReconfiguredSurfaceDirectlyOutdated);
-          }
-          CurrentSurfaceTexture::Lost => return Err(SurfaceError::ReconfiguredSurfaceDirectlyLost),
+          CurrentSurfaceTexture::Timeout => return Ok(SurfaceAcquire::Timeout),
+          CurrentSurfaceTexture::Occluded => return Ok(SurfaceAcquire::Occluded),
+          CurrentSurfaceTexture::Outdated => return Err(SurfaceError::ReconfiguredStillOutdated),
+          CurrentSurfaceTexture::Lost => return Err(SurfaceError::Lost),
           CurrentSurfaceTexture::Validation => return Err(SurfaceError::Validation),
         }
       }
       CurrentSurfaceTexture::Validation => return Err(SurfaceError::Validation),
-      CurrentSurfaceTexture::Lost => return Err(SurfaceError::SurfaceLost),
+      CurrentSurfaceTexture::Lost => return Err(SurfaceError::Lost),
     };
 
     let view = frame
@@ -166,16 +203,16 @@ impl<'a> GPUSurface<'a> {
 
     let target = RenderTargetView::SurfaceTexture {
       view,
-      size: self.size(),
-      format: self.config.format,
+      size: Size::from_u32_pair_min_one((frame.texture.width(), frame.texture.height())),
+      format: frame.texture.format(),
       view_id,
       binding_dropper: Arc::new(device.get_binding_cache().create_dropper(view_id)),
     };
 
-    Ok(SurfaceNext::Success {
+    Ok(SurfaceAcquire::Frame(SurfaceFrame {
       raw: frame,
       target,
       is_sub_optimal,
-    })
+    }))
   }
 }

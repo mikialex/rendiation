@@ -117,7 +117,7 @@ pub async fn gpu_run_raw_buffers(
   output_len: usize,
   logic: RawBufferLogic,
 ) -> RawBufferResult {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
 
   let raw_buffers: Vec<_> = buffers
     .iter()
@@ -799,7 +799,7 @@ fn read_storage_buffer_array(
 /// the buffer binding array
 #[pollster::test]
 async fn binding_array_of_storage_buffers_gpu() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
   let items = [
     std430_inner(1., Vec3::new(2., 3., 4.)),
     std430_inner(5., Vec3::new(6., 7., 8.)),

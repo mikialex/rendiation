@@ -1,16 +1,14 @@
-use parking_lot::RwLock;
-
 use crate::*;
 
 struct WindowWithWGPUSurface {
-  window: Arc<RwLock<winit::window::Window>>,
+  window: Arc<winit::window::Window>,
   gpu: GPUOrGPUCreateFuture,
 }
 
 pub struct ApplicationCx<'a> {
   pub memory: &'a mut FunctionMemory,
   pub dyn_cx: &'a mut DynCx,
-  pub window: &'a mut Window,
+  pub window: &'a Window,
   pub input: &'a WindowEventStates,
   /// current window
   pub gpu_and_surface: &'a WGPUAndSurface,
@@ -131,43 +129,26 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         window_state.window_state.physical_size = (width as f32, height as f32);
       }
 
-      let window = Arc::new(RwLock::new(window));
+      let window = Arc::new(window);
 
-      let window_ref_ = window.read();
-      let window_ref = &*window_ref_;
-      // this should be safe, as no one mutate window if gpu and surface not created
-      let window_ref: &'static Window = unsafe { std::mem::transmute(window_ref) };
-      drop(window_ref_);
-      let config = GPUCreateConfig {
-        surface_for_compatible_check_init: Some((
-          window_ref,
-          Size::from_u32_pair_min_one((width, height)),
-        )),
-        backends: self.config.preferred_backends.unwrap_or(Backends::all()),
-        default_shader_checks: ShaderRuntimeChecks {
-          bounds_checks: self.config.checks.bounds_checks,
-          force_loop_bounding: self.config.checks.force_loop_bounding,
-          ray_query_initialization_tracking: true,
-          task_shader_dispatch_tracking: true,
-          mesh_shader_primitive_indices_clamp: true,
-        },
-        enable_backend_validation: self.config.enable_backend_validation,
-        dx_compiler_dll_path: self.config.dx_compiler_dll_path.clone(),
-        display: Some(Box::new(event_loop.owned_display_handle())),
-        ..Default::default()
-      };
+      let mut config = self.config.make_gpu_create_config();
+      config.instance.display = Some(Box::new(event_loop.owned_display_handle()));
 
       #[cfg(feature = "support-webgl")]
-      let config = if config.backends.contains(Backends::GL) {
-        let mut config = config;
-        config.minimal_required_limits = Limits::downlevel_webgl2_defaults();
-        config
-      } else {
-        config
-      };
+      if config.instance.backends.contains(Backends::GL) {
+        config.device.minimal_required_limits = Limits::downlevel_webgl2_defaults();
+      }
 
-      let extra_window_holder = Arc::new(window.clone());
-      let fut = WGPUAndSurface::new(config, extra_window_holder);
+      let init_resolution = Size::from_u32_pair_min_one((width, height));
+      let present_mode = self.config.present_mode;
+      let surface_target = window.clone();
+      let fut = async move {
+        let gpu_and_surface = WGPUAndSurface::new(config, surface_target, init_resolution).await;
+        gpu_and_surface
+          .surface
+          .set_present_mode_or_warn(present_mode);
+        gpu_and_surface
+      };
       let gpu = GPUOrGPUCreateFuture::Creating(Box::pin(fut));
 
       let window = WindowWithWGPUSurface { window, gpu };
@@ -202,9 +183,8 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
     if let Some((surface_id, WindowWithWGPUSurface { window, gpu })) =
       &mut self.windows.get_mut(&window_id)
     {
-      // safety depend on that we don't replace the entire window in our application logic
-      let mut window_ = window.write();
-      let window = &mut *window_;
+      let window_handle = window.clone();
+      let window = &**window;
       if let Some(mut gpu_and_surface) = gpu.poll_gpu() {
         let WGPUAndSurface { surface, gpu } = &mut gpu_and_surface;
         let window_state = self
@@ -231,11 +211,23 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
             physical_size.height,
           ))),
           WindowEvent::RedrawRequested => {
-            // when window resize to zero, the surface will be outdated.
-            // but when should we deal with the surface lost case?
-            if let Some((output, canvas)) =
-              surface.get_current_frame_with_render_target_view(&gpu.device)
-            {
+            let frame = match surface.acquire_frame(&gpu.device) {
+              Ok(frame) => frame,
+              Err(SurfaceError::Lost) => {
+                log::warn!("surface lost, try recreate");
+                match gpu.instance.create_surface(window_handle) {
+                  Ok(raw) => surface.write(|s| s.replace_raw_surface(gpu, raw)),
+                  Err(err) => log::error!("failed to recreate surface: {err}"),
+                }
+                None
+              }
+              Err(err) => {
+                log::error!("surface error: {err}");
+                None
+              }
+            };
+
+            if let Some(frame) = frame {
               let mut cx = DynCx::default();
 
               let window_state = self
@@ -248,7 +240,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
                 memory: &mut self.memory,
                 dyn_cx: &mut cx,
                 input: window_state,
-                draw_target_canvas: canvas,
+                draw_target_canvas: frame.target.clone(),
                 gpu_and_surface,
                 surface_id: *surface_id,
               }
@@ -256,7 +248,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
 
               window_state.end_frame();
 
-              output.present();
+              frame.present();
             }
           }
           _ => {}

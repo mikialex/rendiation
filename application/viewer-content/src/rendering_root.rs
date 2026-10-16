@@ -218,49 +218,45 @@ impl RenderingRoot {
       .open(show_frame_info)
       .vscroll(true)
       .show(ui, |ui| {
-        let mut is_hdr = false;
         let mut ui = UiWithChangeInfo(ui, false);
 
-        current_swapchain.internal(|surface| {
-          is_hdr = surface.config.format == TextureFormat::Rgba16Float;
+        current_swapchain.write(|surface| {
+          let mut is_hdr = surface.config().format == TextureFormat::Rgba16Float;
           ui.collapsing("Swapchain config", |ui| {
-            ui.label(format!("{:?}", surface.config.format));
+            ui.label(format!("{:?}", surface.config().format));
 
-            let cap = surface.capabilities();
-            let default_none_hdr_format = get_default_preferred_format(cap);
-            let support_hdr = cap.formats.contains(&TextureFormat::Rgba16Float);
+            let support_hdr = surface.is_format_supported(TextureFormat::Rgba16Float);
 
             ui.add_enabled_ui(support_hdr, |ui| {
               ui.checkbox(&mut is_hdr, "enable hdr rendering")
                 .on_disabled_hover_text("current platform does not support hdr rendering");
-              if is_hdr {
-                surface.config.format = TextureFormat::Rgba16Float;
-              } else {
-                surface.config.format = default_none_hdr_format;
-              }
             });
 
-            let current = surface.config.present_mode;
+            let format = if is_hdr {
+              TextureFormat::Rgba16Float
+            } else {
+              get_default_preferred_format(surface.capabilities())
+            };
+            if let Err(err) = surface.set_format(format) {
+              log::warn!("{err}");
+            }
 
-            let cap = surface.capabilities().present_modes.clone();
+            let mut present_mode = surface.config().present_mode;
 
             let present_mode_ui = |ui: &mut UiWithChangeInfo,
                                    mode: PresentMode,
                                    name: &str,
                                    config: &mut PresentMode| {
-              let supported = cap.contains(&mode)
-                || mode == PresentMode::AutoVsync
-                || mode == PresentMode::AutoNoVsync;
-              ui.add_enabled_ui(supported, |ui| {
+              ui.add_enabled_ui(surface.is_present_mode_supported(mode), |ui| {
                 ui.selectable_value(config, mode, name)
                   .on_disabled_hover_text("not supported");
               })
             };
 
             egui::ComboBox::from_label("present mode")
-              .selected_text(format!("{:?}", current))
+              .selected_text(format!("{:?}", present_mode))
               .show_ui_changed(ui, |ui| {
-                let target = &mut surface.config.present_mode;
+                let target = &mut present_mode;
                 present_mode_ui(ui, PresentMode::AutoVsync, "AutoVsync", target);
                 present_mode_ui(ui, PresentMode::AutoNoVsync, "AutoNoVsync", target);
                 present_mode_ui(ui, PresentMode::Fifo, "Fifo", target);
@@ -268,6 +264,10 @@ impl RenderingRoot {
                 present_mode_ui(ui, PresentMode::Immediate, "Immediate", target);
                 present_mode_ui(ui, PresentMode::Mailbox, "Mailbox", target);
               });
+
+            if let Err(err) = surface.set_present_mode(present_mode) {
+              log::warn!("{err}");
+            }
           });
         });
 

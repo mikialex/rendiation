@@ -79,7 +79,7 @@ fn build_test_shader(
 /// in this case the layout is recomputed from the member types and the offsets in naga IR are
 /// dropped.
 async fn run_layout_test(via_wgsl_text: bool) {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
 
   let input = create_uniform(test_data(), &gpu, "layout test input");
   let output = create_gpu_read_write_storage::<[f32]>(

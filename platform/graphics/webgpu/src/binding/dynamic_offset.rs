@@ -114,7 +114,7 @@ impl<T: Std140> UniformBufferDynamicOffsetArray<T> {
 
 #[pollster::test]
 async fn test_uniform_dynamic_offset_binding() {
-  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let gpu = GPU::new(Default::default()).await.unwrap();
 
   let count = 3;
   let uniforms = UniformBufferDynamicOffsetArray::<Vec4<u32>>::create(&gpu.device, count, "test");
