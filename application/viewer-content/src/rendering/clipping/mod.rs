@@ -110,7 +110,7 @@ impl ViewerClippingRenderer {
               forward_lighting,
               &draw,
             ])
-            .draw_quad();
+            .draw_full_screen();
             pass.render_ctx(frame_ctx).by(&mut draw);
           }
           ClipFillType::Defer(_) => todo!(),

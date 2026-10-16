@@ -150,7 +150,7 @@ impl OitLoop32RendererInstance {
           oit_color_layers: self.color.clone(),
           reverse_depth,
         }
-        .draw_quad_with_blend(Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING)),
+        .draw_full_screen_with_blend(Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING)),
       );
   }
 }

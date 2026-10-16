@@ -44,7 +44,7 @@ pub fn compute_sdf(
       &mut JumpFloodingInit {
         mask_source: mask_input.clone(),
       }
-      .draw_quad(),
+      .draw_full_screen(),
     );
 
   for i in 0..num_steps {
@@ -62,7 +62,7 @@ pub fn compute_sdf(
           source: source.clone(),
           step,
         }
-        .draw_quad(),
+        .draw_full_screen(),
       );
 
     // ping pong;

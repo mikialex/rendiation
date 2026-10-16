@@ -216,7 +216,7 @@ pub fn use_render_lighting_scene_content(
               .with_color(scene_result, color_ops)
               .render_ctx(ctx)
               .by(&mut background)
-              .by(&mut lighting.draw_quad());
+              .by(&mut lighting.draw_full_screen());
           });
 
           let mut pass_base = pass("scene forward transparent in defer mode");

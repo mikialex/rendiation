@@ -337,7 +337,7 @@ impl VsmMapGenerator {
       )
       .render_ctx(ctx);
     convert.pass.ctx.pass.set_viewport(x, y, w, h, 0., 1.);
-    convert.by(&mut convert_task.draw_quad());
+    convert.by(&mut convert_task.draw_full_screen());
 
     // the horizontal blur pass, reads the vsm atlas layer and writes the temp view
     let blur_h_task = VsmBlurTask {
@@ -353,7 +353,7 @@ impl VsmMapGenerator {
       )
       .render_ctx(ctx);
     blur_h.pass.ctx.pass.set_viewport(x, y, w, h, 0., 1.);
-    blur_h.by(&mut blur_h_task.draw_quad());
+    blur_h.by(&mut blur_h_task.draw_full_screen());
 
     // the vertical blur pass, reads the temp view and writes back the vsm atlas layer
     let blur_v_task = VsmBlurTask {
@@ -369,6 +369,6 @@ impl VsmMapGenerator {
       )
       .render_ctx(ctx);
     blur_v.pass.ctx.pass.set_viewport(x, y, w, h, 0., 1.);
-    blur_v.by(&mut blur_v_task.draw_quad());
+    blur_v.by(&mut blur_v_task.draw_full_screen());
   }
 }

@@ -7,7 +7,7 @@ impl ShaderHashProvider for CopyFrame {
 }
 
 pub fn copy_frame(source: RenderTargetView, blend: Option<BlendState>) -> impl PassContent {
-  CopyFrame(source).draw_quad_with_blend(blend)
+  CopyFrame(source).draw_full_screen_with_blend(blend)
 }
 
 impl ShaderPassBuilder for CopyFrame {

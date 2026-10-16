@@ -25,7 +25,7 @@ pub fn generate_brdf_lut(encoder: &mut GPUCommandEncoder, gpu: &GPU, target: GPU
   pass("brdf lut generate")
     .with_color(&RenderTargetView::from(target), store_full_frame())
     .render(encoder, gpu, None, None)
-    .by(&mut BrdfLUTGenerator.draw_quad());
+    .by(&mut BrdfLUTGenerator.draw_full_screen());
 }
 
 #[derive(Clone)]
@@ -72,7 +72,7 @@ pub fn generate_pre_filter_map(
           input: input.clone(),
           config,
         }
-        .draw_quad(),
+        .draw_full_screen(),
       );
   }
 
@@ -107,7 +107,7 @@ pub fn generate_pre_filter_map(
             input: input.clone(),
             config,
           }
-          .draw_quad(),
+          .draw_full_screen(),
         );
     }
   }

@@ -2,7 +2,7 @@
 name: frame-pass-assemble
 description: >
   Reference for building multi-pass rendering frames in rendiation. Covers pass(), attachment(),
-  render_ctx(), by(), by_if(), FrameCtx, PassContent, UseQuadDraw, and color/depth load-store
+  render_ctx(), by(), by_if(), FrameCtx, PassContent, UseFullScreenDraw, and color/depth load-store
   operations. Use when wiring render passes in a frame — composing geometry, post-processing,
   MSAA resolves, and frame copies into a complete GPU frame.
   For the sub layer abstractions and impls (RenderComponent, ShaderHashProvider, ShaderPassBuilder, convenience wrappers)
@@ -21,7 +21,7 @@ Multi-pass rendering frame assembly in rendiation. The API is a functional/chain
 | [platform/graphics/webgpu-frame/src/pass.rs](platform/graphics/webgpu-frame/src/pass.rs) | `RenderPassDescriptionFrameExt` (`render_ctx`/`render`), `ActiveRenderPass`, `PassContent`, `FrameRenderPass` |
 | [platform/graphics/webgpu-frame/src/attachment.rs](platform/graphics/webgpu-frame/src/attachment.rs) | `attachment()`, `AttachmentDescriptor`, `AttachmentKeyFrameExt` |
 | [platform/graphics/webgpu-frame/src/lib.rs](platform/graphics/webgpu-frame/src/lib.rs) | `FrameCtx` |
-| [platform/graphics/webgpu-frame/src/quad.rs](platform/graphics/webgpu-frame/src/quad.rs) | `UseQuadDraw`, `QuadDraw<T>` |
+| [platform/graphics/webgpu-frame/src/full_screen.rs](platform/graphics/webgpu-frame/src/full_screen.rs) | `UseFullScreenDraw`, `FullScreenDraw<T>`, `generate_full_screen_triangle` |
 | [platform/graphics/webgpu-frame/src/statistics.rs](platform/graphics/webgpu-frame/src/statistics.rs) | `FramePassStatistics`, per frame pass time and pipeline statistics query |
 | [platform/graphics/webgpu/src/pass.rs](platform/graphics/webgpu/src/pass.rs) | `RenderTargetView`, `GPURenderPassCtx` |
 
@@ -194,11 +194,11 @@ type name); `render_with_scope_label()` wraps `render()` in a named debug group,
 `debug_label()` to rename that scope. Two main paths:
 
 ```rust
-// 1. QuadDraw<T> — fullscreen quad (most common for post-processing)
-//    Any RenderComponent gets .draw_quad() for free via blanket impl:
-my_post_processor.draw_quad()
-my_shader.draw_quad_with_alpha_blending()
-my_shader.draw_quad_with_blend(Some(my_blend_state))
+// 1. FullScreenDraw<T> — full screen triangle draw (most common for post-processing)
+//    Any RenderComponent gets .draw_full_screen() for free via blanket impl:
+my_post_processor.draw_full_screen()
+my_shader.draw_full_screen_with_alpha_blending()
+my_shader.draw_full_screen_with_blend(Some(my_blend_state))
 
 // 2. Geometry draw — RenderComponent wrapped in RenderVec/RenderSlice
 //    Draws with vertex/index buffers via DrawCommand
@@ -221,8 +221,8 @@ The two traits address different levels of granularity:
 
 A `PassContent` implementation typically assembles a `DefaultPassDispatcher` (per-pass state) plus
 one or more `RenderComponent`s, calls `RenderComponent::render()` for each draw, and controls the
-draw sequence. `QuadDraw<T>` is one example of `PassContent` — it wraps a single `RenderComponent`
-in a fullscreen quad — but any multi-draw pattern (geometry pass with skybox + main + transparents,
+draw sequence. `FullScreenDraw<T>` is one example of `PassContent` — it wraps a single `RenderComponent`
+in a full screen triangle draw — but any multi-draw pattern (geometry pass with skybox + main + transparents,
 OIT with depth pre-pass + color + resolve) is also a `PassContent`.
 
 For details on the component model (`ShaderHashProvider`, `ShaderPassBuilder`, `GraphicsShaderProvider`,
@@ -270,7 +270,7 @@ fn render(&mut self, ctx: &mut FrameCtx) {
         .render_ctx(ctx)
         .by(&mut PostProcess {
             input: simple_sample,
-        }.draw_quad());
+        }.draw_full_screen());
 }
 ```
 
@@ -287,4 +287,4 @@ fn render(&mut self, ctx: &mut FrameCtx) {
 | `PassContent` | Trait: anything renderable into a pass |
 | `GPURenderPassCtx` | Per-pass render state (bindings, pipeline) |
 | `RenderComponent` | Shader + hash + setup = renderable entity |
-| `UseQuadDraw` | Blanket: any T → `QuadDraw<T>` for fullscreen quad |
+| `UseFullScreenDraw` | Blanket: any T → `FullScreenDraw<T>` for full screen draw |

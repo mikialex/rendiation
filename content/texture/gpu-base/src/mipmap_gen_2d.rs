@@ -47,7 +47,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
         view: read_view,
         reducer: self,
       }
-      .draw_quad();
+      .draw_full_screen();
 
       pass("mip-gen-2d")
         .with_color(&RenderTargetView::from(write_view), store_full_frame())
@@ -97,7 +97,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
           view: read_view,
           reducer: self,
         }
-        .draw_quad();
+        .draw_full_screen();
 
         pass("mip-gen-cube-face")
           .with_color(&RenderTargetView::from(write_view), store_full_frame())

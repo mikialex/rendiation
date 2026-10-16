@@ -148,7 +148,7 @@ pub fn draw_bilateral_blur(
   pass("bilateral blur")
     .with_color(&dst, store_full_frame())
     .render_ctx(ctx)
-    .by(&mut task.draw_quad());
+    .by(&mut task.draw_full_screen());
 
   dst
 }

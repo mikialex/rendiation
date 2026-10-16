@@ -329,7 +329,7 @@ impl Viewer3dViewportRenderingCtx {
         .render_ctx(ctx)
         .by(
           &mut CopyFrame(cached_frame.clone())
-            .draw_quad()
+            .draw_full_screen()
             .with_viewport(viewport.viewport),
         );
 
@@ -399,7 +399,7 @@ impl Viewer3dViewportRenderingCtx {
         .render_ctx(ctx)
         .by(
           &mut CopyFrame(render_target.clone())
-            .draw_quad()
+            .draw_full_screen()
             .with_viewport(viewport.viewport),
         );
     }
@@ -664,7 +664,7 @@ impl Viewer3dViewportRenderingCtx {
           &mut FXAA {
             source: &maybe_aa_result,
           }
-          .draw_quad(),
+          .draw_full_screen(),
         );
 
       fxaa_target
@@ -684,7 +684,7 @@ impl Viewer3dViewportRenderingCtx {
         config: &self.post,
         target_is_srgb: render_target.format().is_srgb(),
       }
-      .draw_quad()
+      .draw_full_screen()
     });
 
     let highlight_dispatch = RenderArray([
@@ -729,7 +729,7 @@ impl Viewer3dViewportRenderingCtx {
             outline_color: &self.outline_color,
           },
         }
-        .draw_quad_with_alpha_blending(),
+        .draw_full_screen_with_alpha_blending(),
       );
     }
 

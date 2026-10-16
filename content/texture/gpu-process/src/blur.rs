@@ -155,7 +155,7 @@ pub fn draw_linear_blur(
   pass("blur")
     .with_color(&dst, store_full_frame())
     .render_ctx(ctx)
-    .by(&mut task.draw_quad());
+    .by(&mut task.draw_full_screen());
 
   dst
 }

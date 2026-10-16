@@ -110,7 +110,7 @@ impl TAA {
           new_depth,
           reproject,
         }
-        .draw_quad(),
+        .draw_full_screen(),
       );
 
     // note, if the history size is different from current, it's still works fine

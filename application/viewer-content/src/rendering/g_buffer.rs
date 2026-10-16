@@ -104,7 +104,9 @@ impl FrameGeometryBuffer {
       pass_builder = pass_builder.with_color(target, clear_and_store(MAX_U32_ID_BACKGROUND));
     }
 
-    pass_builder.render_ctx(ctx).by(&mut resolver.draw_quad());
+    pass_builder
+      .render_ctx(ctx)
+      .by(&mut resolver.draw_full_screen());
 
     Self {
       depth: new_depth,

@@ -129,7 +129,7 @@ impl SceneBackgroundRenderer {
           camera,
           tonemap,
         }
-        .draw_quad(),
+        .draw_full_screen(),
       )
     } else if let Some(Some(_)) = self.gradient_background.get(scene) {
       BackGroundDrawPassContent::Gradient(
@@ -141,7 +141,7 @@ impl SceneBackgroundRenderer {
             .clone(),
           camera,
         }
-        .draw_quad(),
+        .draw_full_screen(),
       )
     } else {
       BackGroundDrawPassContent::Solid
@@ -151,8 +151,8 @@ impl SceneBackgroundRenderer {
 
 enum BackGroundDrawPassContent<'a> {
   Solid,
-  Gradient(QuadDraw<GradientBackgroundComponent<'a>>),
-  CubeEnv(QuadDraw<CubeEnvComponent<'a>>),
+  Gradient(FullScreenDraw<GradientBackgroundComponent<'a>>),
+  CubeEnv(FullScreenDraw<CubeEnvComponent<'a>>),
 }
 
 impl PassContent for BackGroundDrawPassContent<'_> {

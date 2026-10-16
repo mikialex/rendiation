@@ -17,8 +17,8 @@ pub use attachment::*;
 mod statistics;
 pub use statistics::*;
 
-mod quad;
-pub use quad::*;
+mod full_screen;
+pub use full_screen::*;
 
 mod pass_base;
 pub use pass_base::*;

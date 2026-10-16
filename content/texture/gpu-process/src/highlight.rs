@@ -39,7 +39,7 @@ impl HighLighter {
   ) -> impl PassContent + use<'a> {
     let sdf = compute_sdf_for_frame_render(ctx, mask, Some(self.data.get().width));
 
-    HighLightComputer { sdf, lighter: self }.draw_quad_with_alpha_blending()
+    HighLightComputer { sdf, lighter: self }.draw_full_screen_with_alpha_blending()
   }
 
   /// the passed in content should draw by `HighLightMaskDispatcher`

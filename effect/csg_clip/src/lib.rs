@@ -152,7 +152,7 @@ impl CSGClippingRenderer {
       reverse_depth: reverse_z,
     };
 
-    let mut draw = RenderArray([root, &draw]).draw_quad();
+    let mut draw = RenderArray([root, &draw]).draw_full_screen();
 
     let fill_depth = depth_attachment().request(frame_ctx);
 

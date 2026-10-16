@@ -92,7 +92,7 @@ pub fn draw_weighted_oit(
         accumulates: accumulate_buffer_resolved,
         reveal: reveal_buffer_resolved,
       }
-      .draw_quad(),
+      .draw_full_screen(),
     );
 }
 

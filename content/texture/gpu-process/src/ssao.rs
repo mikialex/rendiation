@@ -295,7 +295,7 @@ impl SSAO {
           parameter: self,
           reverse_depth,
         }
-        .draw_quad(),
+        .draw_full_screen(),
       );
 
     if apply_blur {

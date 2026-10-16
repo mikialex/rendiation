@@ -1,6 +1,6 @@
 use crate::*;
 
-pub const PLANE_DRAW_CMD: DrawCommand = QUAD_DRAW_CMD;
+pub const PLANE_DRAW_CMD: DrawCommand = FULL_SCREEN_TRIANGLE_DRAW_CMD;
 
 pub fn ground_like_shader_plane() -> ShaderPlaneUniform {
   ShaderPlaneUniform::new(Vec3::new(0., 1., 0.), 0.)
@@ -32,12 +32,12 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
     self.camera.build(builder);
 
     builder.vertex(|builder, _| {
-      let out = generate_quad(builder.query::<VertexIndex>(), 0.).expand();
+      let out = generate_full_screen_triangle(builder.query::<VertexIndex>(), 0.).expand();
       builder.set_vertex_out::<FragmentUv>(out.uv);
       builder.register::<ClipPosition>((out.position.xyz(), val(1.)));
 
       *builder.primitive_state() = PrimitiveState {
-        topology: PrimitiveTopology::TriangleStrip,
+        topology: PrimitiveTopology::TriangleList,
         front_face: FrontFace::Cw,
         ..Default::default()
       };

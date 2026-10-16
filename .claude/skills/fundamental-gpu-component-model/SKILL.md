@@ -304,8 +304,8 @@ Usage inside `PassContent::render`:
 fn render(&mut self, pass: &mut FrameRenderPass) {
     let mut base = default_dispatcher(pass, false);
     base.auto_write = false;  // I'll write my own output
-    let components: [&dyn RenderComponent; 3] = [&base, &self.quad, &self.content];
-    RenderArray(components).render(&mut pass.ctx, RenderMethod::TraditionalDraw(QUAD_DRAW_CMD));
+    let components: [&dyn RenderComponent; 3] = [&base, &self.triangle, &self.content];
+    RenderArray(components).render(&mut pass.ctx, RenderMethod::TraditionalDraw(FULL_SCREEN_TRIANGLE_DRAW_CMD));
 }
 ```
 
@@ -346,7 +346,7 @@ impl ShaderPassBuilder for MyEffect {
 pass("effect")
     .with_color(&target, store_full_frame())
     .render_ctx(ctx)
-    .by(&mut MyEffect { input }.draw_quad());
+    .by(&mut MyEffect { input }.draw_full_screen());
 ```
 
 ### DrawCommand variants
@@ -355,7 +355,7 @@ pass("effect")
 
 | Variant | Use |
 |---------|-----|
-| `DrawCommand::Array { vertices, instances }` | Non-indexed draw (used by fullscreen quads: `0..4, 0..1`) |
+| `DrawCommand::Array { vertices, instances }` | Non-indexed draw (used by full screen triangle: `0..3, 0..1`) |
 | `DrawCommand::Indexed { indices, instances, base_vertex }` | Indexed draw with vertex/index buffers |
 | `DrawCommand::Indirect { ... }` | GPU-driven indirect draw |
 | `DrawCommand::MultiIndirect { ... }` | Multi-draw indirect |

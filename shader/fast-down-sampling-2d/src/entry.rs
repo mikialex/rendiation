@@ -112,7 +112,7 @@ pub fn compute_pot_enlarged_hierarchy_depth(
         &mut CopyDepthFrame {
           source: input_depth.try_into().unwrap(),
         }
-        .draw_quad(),
+        .draw_full_screen(),
       );
 
     let mut pass = cx.encoder.begin_compute_pass();
