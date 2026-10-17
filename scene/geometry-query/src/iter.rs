@@ -39,6 +39,9 @@ pub fn pick_models_all(
       for _ in len..results.len() {
         models_results.push(m);
       }
+    } else {
+      // keep results and models_results aligned if the picker pushed partial results before failing
+      results.truncate(len);
     }
   }
 }

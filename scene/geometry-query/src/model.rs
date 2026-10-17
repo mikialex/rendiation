@@ -200,26 +200,29 @@ impl AttributeMeshPicker {
     let position = AttributeFastPickView { buffer: position? };
 
     let index =
-      self
-        .index_buffer
-        .read_view_bytes(mesh, &self.buffer)
-        .map(|(buffer, index_count)| {
-          count = index_count as usize;
-          let byte_per_item = buffer.len() / index_count as usize;
-          if byte_per_item == 4 {
-            let index: &[u32] = cast_slice(buffer);
-            DynIndexRef::Uint32(index)
-          } else {
-            let index: &[u16] = cast_slice(buffer);
-            DynIndexRef::Uint16(index)
-          }
-        });
+      if let Some((buffer, index_count)) = self.index_buffer.read_view_bytes(mesh, &self.buffer) {
+        count = index_count as usize;
+        if count == 0 {
+          return None;
+        }
+        let index = match buffer.len() / count {
+          4 => DynIndexRef::Uint32(try_cast_slice(buffer).ok()?),
+          2 => DynIndexRef::Uint16(try_cast_slice(buffer).ok()?),
+          _ => return None,
+        };
+        Some(index)
+      } else {
+        None
+      };
+
+    // strip topology shares vertices between adjacent primitives
+    let primitive_count = (count + mode.step()).saturating_sub(mode.stride()) / mode.step();
 
     AttributesMeshEntityAbstractMeshReadView {
       mode,
       vertices: position,
       indices: index,
-      count: count / mode.stride(),
+      count: primitive_count,
     }
     .into()
   }

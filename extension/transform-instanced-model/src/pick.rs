@@ -128,11 +128,16 @@ impl<T: SceneModelPicker> SceneModelPicker for TransformInstancedMeshPicker<T> {
         ..request
       });
 
+      // none means this instance is not hit (for example the bounding test failed),
+      // drop any partial results and continue testing other instances
+      if internal_test.is_none() {
+        request.results.truncate(start);
+        continue;
+      }
+
       for r in &mut request.results[start..] {
         r.primitive_index = i;
       }
-
-      internal_test?;
     }
     Some(())
   }

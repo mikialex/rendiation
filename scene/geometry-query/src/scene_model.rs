@@ -277,35 +277,33 @@ impl<T: LocalModelPicker> SceneModelPicker for SceneModelPickerBaseImpl<T> {
       .apply_matrix_into(mat.inverse_or_identity()) // todo, cache inverse mat
       .into_f32();
 
-    let hit = self
-      .internal
-      .ray_query_local_nearest(LocalRayQueryRequest {
-        idx,
-        local_ray,
-        local_tolerance,
-        extra_screen_space_tolerance: ctx.extra_screen_space_tolerance,
-        world_mat: &mat,
-        camera_ctx: &ctx.camera_ctx,
-      })?;
-
-    let position = hit.hit.position.into_f64();
-    let world_hit_position = position.apply_matrix_into(mat);
-
-    let point = MeshBufferHitPoint {
-      hit: HitPoint {
-        position: world_hit_position,
-        distance: ctx.world_ray.origin.distance_to(world_hit_position),
-      },
-      primitive_index: hit.primitive_index,
+    let local_request = LocalRayQueryRequest {
+      idx,
+      local_ray,
+      local_tolerance,
+      extra_screen_space_tolerance: ctx.extra_screen_space_tolerance,
+      world_mat: &mat,
+      camera_ctx: &ctx.camera_ctx,
     };
 
-    if let Some(filter) = ctx.filter.as_ref()
-      && !filter(&point, idx)
-    {
-      return None;
+    if let Some(filter) = ctx.filter.as_ref() {
+      // the nearest hit may be filtered out while a farther hit is still valid,
+      // so we have to test all hits and pick the nearest one that passes the filter
+      let mut local_results = Vec::new();
+      self.internal.ray_query_local_all(LocalRayAllQueryRequest {
+        internal: local_request,
+        results: &mut local_results,
+      })?;
+
+      return local_results
+        .into_iter()
+        .map(|r| transform_hit_point_to_world(r, mat, ctx.world_ray.origin))
+        .filter(|r| filter(r, idx))
+        .min_by(|a, b| a.hit.distance.total_cmp(&b.hit.distance));
     }
 
-    point.into()
+    let hit = self.internal.ray_query_local_nearest(local_request)?;
+    transform_hit_point_to_world(hit, mat, ctx.world_ray.origin).into()
   }
 
   fn ray_query_all(&self, request: SceneModelRayAllQueryRequest) -> Option<()> {
