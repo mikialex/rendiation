@@ -261,20 +261,24 @@ impl ResolvedIndirectModelRenderer for ResolvedTransformInstancedModelIndirectRe
     )))
   }
 
-  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_> {
-    Box::new(Override {
-      instance_buffer: self.base.instance_buffer.clone(),
-      instance_meta: self.base.instance_meta.clone(),
-      model_to_instance: self.base.model_to_instance.clone(),
-      internal: self.internal.model_info_injector(),
-    })
+  fn model_info_injector<'a>(&'a self, alloc: &'a dyn Allocator) -> RenderComponentBox<'a> {
+    Box::new_in(
+      Override {
+        instance_buffer: self.base.instance_buffer.clone(),
+        instance_meta: self.base.instance_meta.clone(),
+        model_to_instance: self.base.model_to_instance.clone(),
+        internal: self.internal.model_info_injector(alloc),
+      },
+      alloc,
+    )
   }
 
   fn shape_renderable_indirect<'a>(
     &'a self,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
-    self.internal.shape_renderable_indirect(cx)
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
+    self.internal.shape_renderable_indirect(cx, alloc)
   }
 
   fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
@@ -285,8 +289,9 @@ impl ResolvedIndirectModelRenderer for ResolvedTransformInstancedModelIndirectRe
   fn material_renderable_indirect<'a>(
     &'a self,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
-    self.internal.material_renderable_indirect(cx)
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
+    self.internal.material_renderable_indirect(cx, alloc)
   }
 }
 
@@ -302,7 +307,7 @@ struct Override<'a> {
   instance_buffer: AbstractReadonlyStorageBuffer<[NodeStorage]>,
   instance_meta: AbstractReadonlyStorageBuffer<[InstanceMetaData]>,
   model_to_instance: AbstractReadonlyStorageBuffer<[u32]>,
-  internal: Box<dyn RenderComponent + 'a>,
+  internal: RenderComponentBox<'a>,
 }
 
 impl<'a> ShaderHashProvider for Override<'a> {

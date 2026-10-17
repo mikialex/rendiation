@@ -1,3 +1,5 @@
+use std::alloc::Allocator;
+
 use rendiation_shader_api::*;
 use rendiation_shader_backend_naga::ShaderAPINagaImpl;
 
@@ -109,13 +111,18 @@ impl GraphicsShaderProvider for &dyn RenderComponent {
     (*self).post_build(builder)
   }
 }
-impl ShaderHashProvider for Box<dyn RenderComponent + '_> {
+/// The render component allocated in the given allocator, usually a scratch allocator that only
+/// lives during the render call.
+pub type RenderComponentBox<'a> = Box<dyn RenderComponent + 'a, &'a dyn Allocator>;
+
+impl<A: Allocator> ShaderHashProvider for Box<dyn RenderComponent + '_, A> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     (**self).hash_pipeline_with_type_info(hasher);
   }
+  // the allocator is not hashed, so the pipeline hash is not affected by where it is allocated
   shader_hash_type_id! {Box<dyn RenderComponent>}
 }
-impl ShaderPassBuilder for Box<dyn RenderComponent + '_> {
+impl<A: Allocator> ShaderPassBuilder for Box<dyn RenderComponent + '_, A> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     (**self).setup_pass(ctx);
   }
@@ -124,7 +131,7 @@ impl ShaderPassBuilder for Box<dyn RenderComponent + '_> {
     (**self).post_setup_pass(ctx);
   }
 }
-impl GraphicsShaderProvider for Box<dyn RenderComponent + '_> {
+impl<A: Allocator> GraphicsShaderProvider for Box<dyn RenderComponent + '_, A> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     (**self).build(builder)
   }

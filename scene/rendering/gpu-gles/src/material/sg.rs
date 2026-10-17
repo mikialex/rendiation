@@ -67,30 +67,34 @@ impl PbrSGMaterialGlesRenderer {
     &'a self,
     idx: EntityHandle<PbrSGMaterialEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError> {
+    alloc: &'a dyn Allocator,
+  ) -> Result<RenderComponentBox<'a>, SceneModelRenderDataError> {
     let err = SceneModelRenderDataError;
-    Ok(Box::new(PhysicalSpecularGlossinessMaterialGPU {
-      uniform: self
-        .uniforms
-        .get(&idx.alloc_index())
-        .ok_or(err("pbr sg material uniform"))?,
-      alpha_mode: self
-        .alpha_mode
-        .get_value(idx)
-        .ok_or(err("pbr sg material alpha mode"))?,
-      albedo_alpha_tex_sampler: self.albedo_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      specular_glossiness_tex_sampler: self
-        .specular_glossiness_tex_sampler
-        .get_pair(idx)
-        .unwrap_or(EMPTY_H),
-      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      texture_uniforms: self
-        .tex_uniforms
-        .get(&idx.alloc_index())
-        .ok_or(err("pbr sg material texture uniform"))?,
-      binding_sys: cx,
-    }))
+    Ok(Box::new_in(
+      PhysicalSpecularGlossinessMaterialGPU {
+        uniform: self
+          .uniforms
+          .get(&idx.alloc_index())
+          .ok_or(err("pbr sg material uniform"))?,
+        alpha_mode: self
+          .alpha_mode
+          .get_value(idx)
+          .ok_or(err("pbr sg material alpha mode"))?,
+        albedo_alpha_tex_sampler: self.albedo_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+        specular_glossiness_tex_sampler: self
+          .specular_glossiness_tex_sampler
+          .get_pair(idx)
+          .unwrap_or(EMPTY_H),
+        emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+        normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+        texture_uniforms: self
+          .tex_uniforms
+          .get(&idx.alloc_index())
+          .ok_or(err("pbr sg material texture uniform"))?,
+        binding_sys: cx,
+      },
+      alloc,
+    ))
   }
 }
 
@@ -99,9 +103,10 @@ impl GLESModelMaterialRenderImpl for PbrSGMaterialGlesRenderer {
     &'a self,
     idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError>> {
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<RenderComponentBox<'a>, SceneModelRenderDataError>> {
     let idx = self.material_access.get(idx)?;
-    Some(self.create_component(idx, cx))
+    Some(self.create_component(idx, cx, alloc))
   }
 }
 

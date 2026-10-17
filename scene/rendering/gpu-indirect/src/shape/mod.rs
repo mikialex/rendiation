@@ -71,7 +71,7 @@ pub trait ResolvedIndirectModelShapeRenderer {
 
   fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError>;
 
-  fn make_component_indirect(&self) -> Box<dyn RenderComponent + '_>;
+  fn make_component_indirect<'a>(&'a self, alloc: &'a dyn Allocator) -> RenderComponentBox<'a>;
 
   /// If the indirect shape implementation using index buffer, then it's buffer must also has
   /// storage usage and can be accessed here. This api is to expose the ability to convert the

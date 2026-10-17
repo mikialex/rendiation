@@ -105,24 +105,21 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     self.scratch.scope(|alloc| {
       let model = self.resolve(any_id, alloc)?;
 
-      let model_info = model.model_info_injector();
+      let model_info = model.model_info_injector(alloc);
       let model_info = model_info.as_ref();
 
-      let shape = model.shape_renderable_indirect(tex);
+      let shape = model.shape_renderable_indirect(tex, alloc);
       let shape = shape.as_ref();
 
-      let material = model.material_renderable_indirect(tex);
+      let material = model.material_renderable_indirect(tex, alloc);
       let material = material.as_ref();
 
-      let midc_index_downgrade = if self.enable_midc_downgrade {
+      let midc_index_downgrade = OptionRender(self.enable_midc_downgrade.then(|| {
         let index = model.get_index_storage_buffer();
-        let override_ = MidcDowngradeWrapperForIndirectMeshSystem {
+        MidcDowngradeWrapperForIndirectMeshSystem {
           index: index.map(|v| (v.buffer, v.should_access_as_u16)),
-        };
-        OptionRender(Some(Box::new(override_) as Box<dyn RenderComponent>))
-      } else {
-        OptionRender(None)
-      };
+        }
+      }));
       let midc_index_downgrade = &midc_index_downgrade as &dyn RenderComponent;
 
       let camera = camera as &dyn RenderComponent;
@@ -144,8 +141,7 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
         material.into_assign_binding_index(2),
       ];
 
-      let render = Box::new(RenderArray(contents)) as Box<dyn RenderComponent>;
-      render.render(cx, RenderMethod::TraditionalDraw(command));
+      RenderArray(contents).render(cx, RenderMethod::TraditionalDraw(command));
       Ok(())
     })
   }

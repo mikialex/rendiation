@@ -166,8 +166,8 @@ impl ResolvedIndirectModelRenderer for ResolvedText3dIndirectRenderer<'_> {
     Ok(DrawCommandBuilder::NoneIndexed(Box::new(creator)))
   }
 
-  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_> {
-    Box::new(())
+  fn model_info_injector<'a>(&'a self, alloc: &'a dyn Allocator) -> RenderComponentBox<'a> {
+    Box::new_in((), alloc)
   }
 
   fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
@@ -177,22 +177,27 @@ impl ResolvedIndirectModelRenderer for ResolvedText3dIndirectRenderer<'_> {
   fn shape_renderable_indirect<'a>(
     &'a self,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
     let renderer = self.renderer;
-    Box::new(Text3dIndirectRender {
-      curves: &renderer.curves,
-      bands: &renderer.bands,
-      vertices: &renderer.vertices,
-      text_meta: &renderer.text_meta,
-      sm_to_text3d_device: &renderer.sm_to_text3d_device,
-    })
+    Box::new_in(
+      Text3dIndirectRender {
+        curves: &renderer.curves,
+        bands: &renderer.bands,
+        vertices: &renderer.vertices,
+        text_meta: &renderer.text_meta,
+        sm_to_text3d_device: &renderer.sm_to_text3d_device,
+      },
+      alloc,
+    )
   }
 
   fn material_renderable_indirect<'a>(
     &'a self,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
-    Box::new(()) // no material
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
+    Box::new_in((), alloc) // no material
   }
 }
 

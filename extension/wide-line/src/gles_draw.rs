@@ -1,3 +1,5 @@
+use std::alloc::Allocator;
+
 use crate::*;
 
 pub fn use_widen_line_gles_renderer(cx: &mut QueryGPUHookCx) -> Option<WideLineModelGLESRenderer> {
@@ -78,6 +80,7 @@ impl WideLineModelGLESRenderer {
   fn create_components<'a>(
     &'a self,
     model_idx: EntityHandle<WideLineModelEntity>,
+    alloc: &'a dyn Allocator,
   ) -> Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError> {
     let err = SceneModelRenderDataError;
     let uniform = self
@@ -98,25 +101,28 @@ impl WideLineModelGLESRenderer {
       indices: 0..18,
     };
 
-    let shape = Box::new(WideLineGPU {
-      uniform,
-      vertex_buffer: &self.vertex_buffer,
-      index_buffer: &self.index_buffer,
-      instance_buffer,
-      enabled_depth: self
-        .states
-        .get_value(model_idx)
-        .ok_or(err("wide line depth state"))?,
-      transparent: self
-        .transparent
-        .get_value(model_idx)
-        .ok_or(err("wide line transparent"))?,
-    });
+    let shape = Box::new_in(
+      WideLineGPU {
+        uniform,
+        vertex_buffer: &self.vertex_buffer,
+        index_buffer: &self.index_buffer,
+        instance_buffer,
+        enabled_depth: self
+          .states
+          .get_value(model_idx)
+          .ok_or(err("wide line depth state"))?,
+        transparent: self
+          .transparent
+          .get_value(model_idx)
+          .ok_or(err("wide line transparent"))?,
+      },
+      alloc,
+    );
     Ok(GLESModelRenderComponents {
       shape,
       draw,
       // no material
-      material: Box::new(()),
+      material: Box::new_in((), alloc),
     })
   }
 }
@@ -126,9 +132,10 @@ impl GLESModelRenderImpl for WideLineModelGLESRenderer {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
+    alloc: &'a dyn Allocator,
   ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>> {
     let model_idx = self.model_access.get(idx)?;
-    Some(self.create_components(model_idx))
+    Some(self.create_components(model_idx, alloc))
   }
 }
 

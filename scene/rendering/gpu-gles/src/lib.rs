@@ -1,3 +1,6 @@
+#![feature(allocator_api)]
+
+use std::alloc::Allocator;
 use std::sync::Arc;
 
 use database::*;

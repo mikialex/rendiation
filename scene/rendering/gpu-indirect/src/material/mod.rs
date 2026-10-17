@@ -146,5 +146,6 @@ pub trait ResolvedIndirectModelMaterialRenderer {
   fn make_component_indirect<'a>(
     &'a self,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a>;
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a>;
 }

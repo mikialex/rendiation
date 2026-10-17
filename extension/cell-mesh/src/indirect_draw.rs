@@ -156,13 +156,16 @@ impl ResolvedIndirectModelShapeRenderer for ResolvedCellMeshRenderer<'_> {
     Ok(DrawCommandBuilder::NoneIndexed(Box::new(creator)))
   }
 
-  fn make_component_indirect(&self) -> Box<dyn RenderComponent + '_> {
+  fn make_component_indirect<'a>(&'a self, alloc: &'a dyn Allocator) -> RenderComponentBox<'a> {
     let renderer = self.renderer;
-    Box::new(CellMeshShape {
-      units: renderer.units.clone(),
-      params: renderer.params.clone(),
-      std_model_to_cell_mesh_device: renderer.std_model_to_cell_mesh_device.clone(),
-    })
+    Box::new_in(
+      CellMeshShape {
+        units: renderer.units.clone(),
+        params: renderer.params.clone(),
+        std_model_to_cell_mesh_device: renderer.std_model_to_cell_mesh_device.clone(),
+      },
+      alloc,
+    )
   }
 
   fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {

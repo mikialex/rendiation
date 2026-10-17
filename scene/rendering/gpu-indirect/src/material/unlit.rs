@@ -86,13 +86,17 @@ impl ResolvedIndirectModelMaterialRenderer for ResolvedUnlitMaterialIndirectRend
   fn make_component_indirect<'a>(
     &'a self,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
-    Box::new(UnlitMaterialStorageGPU {
-      buffer: self.renderer.storages.clone(),
-      alpha_mode: self.alpha_mode,
-      texture_handles: self.renderer.texture_handles.clone(),
-      binding_sys: cx,
-    })
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
+    Box::new_in(
+      UnlitMaterialStorageGPU {
+        buffer: self.renderer.storages.clone(),
+        alpha_mode: self.alpha_mode,
+        texture_handles: self.renderer.texture_handles.clone(),
+        binding_sys: cx,
+      },
+      alloc,
+    )
   }
 }
 

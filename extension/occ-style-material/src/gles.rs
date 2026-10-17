@@ -1,3 +1,5 @@
+use std::alloc::Allocator;
+
 use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
@@ -80,7 +82,8 @@ impl OccStyleMaterialGlesRenderer {
     &'a self,
     idx: EntityHandle<OccStyleMaterialEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError> {
+    alloc: &'a dyn Allocator,
+  ) -> Result<RenderComponentBox<'a>, SceneModelRenderDataError> {
     let err = SceneModelRenderDataError;
     let effect = self
       .effect_access
@@ -90,24 +93,27 @@ impl OccStyleMaterialGlesRenderer {
       .shade_type
       .get_value(effect)
       .ok_or(err("occ style material shade type"))?;
-    Ok(Box::new(OccStyleMaterialGPU {
-      uniform: self
-        .uniforms
-        .get(&idx.alloc_index())
-        .ok_or(err("occ style material uniform"))?,
-      tex_uniform: self
-        .tex_uniforms
-        .get(&idx.alloc_index())
-        .ok_or(err("occ style material texture uniform"))?,
-      diffuse_tex_sampler: self.diffuse_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      binding_sys: cx,
-      shade_type,
-      reverse_z: self.reverse_z,
-      states: self
-        .states
-        .get(effect)
-        .ok_or(err("occ style material states"))?,
-    }))
+    Ok(Box::new_in(
+      OccStyleMaterialGPU {
+        uniform: self
+          .uniforms
+          .get(&idx.alloc_index())
+          .ok_or(err("occ style material uniform"))?,
+        tex_uniform: self
+          .tex_uniforms
+          .get(&idx.alloc_index())
+          .ok_or(err("occ style material texture uniform"))?,
+        diffuse_tex_sampler: self.diffuse_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+        binding_sys: cx,
+        shade_type,
+        reverse_z: self.reverse_z,
+        states: self
+          .states
+          .get(effect)
+          .ok_or(err("occ style material states"))?,
+      },
+      alloc,
+    ))
   }
 }
 
@@ -116,9 +122,10 @@ impl GLESModelMaterialRenderImpl for OccStyleMaterialGlesRenderer {
     &'a self,
     idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError>> {
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<RenderComponentBox<'a>, SceneModelRenderDataError>> {
     let idx = self.material_access.get(idx)?;
-    Some(self.create_component(idx, cx))
+    Some(self.create_component(idx, cx, alloc))
   }
 }
 

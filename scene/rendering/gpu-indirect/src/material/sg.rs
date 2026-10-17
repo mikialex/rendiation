@@ -108,13 +108,17 @@ impl ResolvedIndirectModelMaterialRenderer for ResolvedPbrSGMaterialIndirectRend
   fn make_component_indirect<'a>(
     &'a self,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
-    Box::new(PhysicalSpecularGlossinessMaterialGPU {
-      storage: &self.renderer.storages,
-      alpha_mode: self.alpha_mode,
-      texture_storages: &self.renderer.tex_storages,
-      binding_sys: cx,
-    })
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
+    Box::new_in(
+      PhysicalSpecularGlossinessMaterialGPU {
+        storage: &self.renderer.storages,
+        alpha_mode: self.alpha_mode,
+        texture_storages: &self.renderer.tex_storages,
+        binding_sys: cx,
+      },
+      alloc,
+    )
   }
 }
 

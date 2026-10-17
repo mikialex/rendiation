@@ -1,3 +1,5 @@
+#![feature(allocator_api)]
+
 mod atomic_image_downgrade;
 mod attachment_pool;
 mod binding;

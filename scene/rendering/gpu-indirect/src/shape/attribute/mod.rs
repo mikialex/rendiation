@@ -645,12 +645,15 @@ impl ResolvedIndirectModelShapeRenderer for ResolvedAttributeMeshIndirectRendere
     Ok(builder)
   }
 
-  fn make_component_indirect(&self) -> Box<dyn RenderComponent + '_> {
-    Box::new(AttributeMeshIndirectRasterDispatcher {
-      internal: self.renderer.make_dispatcher(),
-      topology: map_topology(self.topology),
-      indices_ty: self.indices_ty,
-    })
+  fn make_component_indirect<'a>(&'a self, alloc: &'a dyn Allocator) -> RenderComponentBox<'a> {
+    Box::new_in(
+      AttributeMeshIndirectRasterDispatcher {
+        internal: self.renderer.make_dispatcher(),
+        topology: map_topology(self.topology),
+        indices_ty: self.indices_ty,
+      },
+      alloc,
+    )
   }
 
   fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {

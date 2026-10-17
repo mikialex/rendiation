@@ -22,6 +22,7 @@ pub fn use_gles_scene_model_renderer(
       model_impl: model_impl.unwrap(),
       node: read_global_db_foreign_key(),
       node_render: node.unwrap(),
+      scratch: Default::default(),
     }) as Box<_>
   })
 }
@@ -33,6 +34,8 @@ pub struct GLESPreferredComOrderRenderer {
   model_impl: Box<dyn GLESModelRenderImpl>,
   node_render: Box<dyn GLESNodeRenderImpl>,
   node: ForeignKeyReadView<SceneModelRefNode>,
+  /// the render components of one scene model are allocated in it, it is reset after each model
+  scratch: ScratchAllocator,
 }
 
 struct SceneModelIdWriter<'a> {
@@ -88,39 +91,40 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
     let id = &id as &dyn RenderComponent;
 
     let node = self.node.get(idx).ok_or(E::NodeAccessFailed(idx))?;
-    let node = self
-      .node_render
-      .make_component(node, idx)
-      .ok_or(E::NodeGPUAccessFailed(node))?;
-    let node = node.as_ref();
 
-    let camera = &camera as &dyn RenderComponent;
+    self.scratch.scope(|alloc| {
+      let node = self
+        .node_render
+        .make_component(node, idx, alloc)
+        .ok_or(E::NodeGPUAccessFailed(node))?;
+      let node = node.as_ref();
 
-    let components = self
-      .model_impl
-      .make_components(idx, tex)
-      .ok_or(UnableToRenderSceneModelError::UnableToFindImpl { model_id: idx })?
-      .map_err(|e| UnableToRenderSceneModelError::FoundImplButUnableToRender(Box::new(e)))?;
-    let shape = components.shape.as_ref();
-    let material = components.material.as_ref();
-    let draw = components.draw;
+      let camera = &camera as &dyn RenderComponent;
 
-    let pass = pass as &dyn RenderComponent;
-    let tex = &GPUTextureSystemAsRenderComponent(tex) as &dyn RenderComponent;
+      let components = self
+        .model_impl
+        .make_components(idx, tex, alloc)
+        .ok_or(UnableToRenderSceneModelError::UnableToFindImpl { model_id: idx })?
+        .map_err(|e| UnableToRenderSceneModelError::FoundImplButUnableToRender(Box::new(e)))?;
+      let shape = components.shape.as_ref();
+      let material = components.material.as_ref();
+      let draw = components.draw;
 
-    let contents: [BindingController<&dyn RenderComponent>; 7] = [
-      pass.into_assign_binding_index(0),
-      tex.into_assign_binding_index(0),
-      id.into_assign_binding_index(2),
-      shape.into_assign_binding_index(2),
-      node.into_assign_binding_index(2),
-      camera.into_assign_binding_index(1),
-      material.into_assign_binding_index(2),
-    ];
+      let pass = pass as &dyn RenderComponent;
+      let tex = &GPUTextureSystemAsRenderComponent(tex) as &dyn RenderComponent;
 
-    let render = Box::new(RenderArray(contents)) as Box<dyn RenderComponent>;
+      let contents: [BindingController<&dyn RenderComponent>; 7] = [
+        pass.into_assign_binding_index(0),
+        tex.into_assign_binding_index(0),
+        id.into_assign_binding_index(2),
+        shape.into_assign_binding_index(2),
+        node.into_assign_binding_index(2),
+        camera.into_assign_binding_index(1),
+        material.into_assign_binding_index(2),
+      ];
 
-    render.render(cx, RenderMethod::TraditionalDraw(draw));
-    Ok(())
+      RenderArray(contents).render(cx, RenderMethod::TraditionalDraw(draw));
+      Ok(())
+    })
   }
 }

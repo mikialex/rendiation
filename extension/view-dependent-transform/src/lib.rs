@@ -1,3 +1,5 @@
+#![feature(allocator_api)]
+
 use std::hash::Hash;
 use std::sync::Arc;
 

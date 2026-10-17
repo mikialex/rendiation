@@ -1,3 +1,5 @@
+use std::alloc::Allocator;
+
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_scene_rendering_gpu_gles::{GLESModelRenderComponents, GLESModelRenderImpl};
 
@@ -45,6 +47,7 @@ impl Text3dGlesRenderer {
   fn create_components<'a>(
     &'a self,
     model_idx: EntityHandle<Text3dEntity>,
+    alloc: &'a dyn Allocator,
   ) -> Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError> {
     let err = SceneModelRenderDataError;
     let text_gpu = self
@@ -56,18 +59,21 @@ impl Text3dGlesRenderer {
 
     let draw = text_gpu.draw_command();
 
-    let shape = Box::new(Draw {
-      data: text_gpu,
-      uniform: self
-        .uniform
-        .get(&model_idx.alloc_index())
-        .ok_or(err("text uniform"))?,
-    });
+    let shape = Box::new_in(
+      Draw {
+        data: text_gpu,
+        uniform: self
+          .uniform
+          .get(&model_idx.alloc_index())
+          .ok_or(err("text uniform"))?,
+      },
+      alloc,
+    );
     Ok(GLESModelRenderComponents {
       shape,
       draw,
       // no material
-      material: Box::new(()),
+      material: Box::new_in((), alloc),
     })
   }
 }
@@ -77,9 +83,10 @@ impl GLESModelRenderImpl for Text3dGlesRenderer {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
+    alloc: &'a dyn Allocator,
   ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>> {
     let model_idx = self.access.get(idx)?;
-    Some(self.create_components(model_idx))
+    Some(self.create_components(model_idx, alloc))
   }
 }
 

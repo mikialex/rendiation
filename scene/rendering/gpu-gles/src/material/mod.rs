@@ -80,7 +80,8 @@ pub trait GLESModelMaterialRenderImpl {
     &'a self,
     idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError>>;
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<RenderComponentBox<'a>, SceneModelRenderDataError>>;
 }
 
 impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
@@ -88,10 +89,11 @@ impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
     &'a self,
     idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError>> {
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<RenderComponentBox<'a>, SceneModelRenderDataError>> {
     self
       .iter()
-      .find_map(|provider| provider.make_component(idx, cx))
+      .find_map(|provider| provider.make_component(idx, cx, alloc))
   }
 }
 pub struct TextureSamplerIdView<T: TextureWithSamplingForeignKeys> {

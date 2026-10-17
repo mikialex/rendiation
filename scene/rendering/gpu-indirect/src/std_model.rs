@@ -96,13 +96,14 @@ pub trait ResolvedIndirectModelRenderer {
   fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError>;
 
   /// This component impl often provide id inject logic, if it is not necessary, the
-  /// implementation is still required to return Box::new(()) as the return value.
-  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_>;
+  /// implementation is still required to return `Box::new_in((), alloc)` as the return value.
+  fn model_info_injector<'a>(&'a self, alloc: &'a dyn Allocator) -> RenderComponentBox<'a>;
 
   fn shape_renderable_indirect<'a>(
     &'a self,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a>;
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a>;
 
   /// see [ResolvedIndirectModelShapeRenderer::get_index_storage_buffer]
   fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo>;
@@ -110,7 +111,8 @@ pub trait ResolvedIndirectModelRenderer {
   fn material_renderable_indirect<'a>(
     &'a self,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a>;
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a>;
 }
 
 pub fn use_std_model_renderer(
@@ -239,7 +241,7 @@ impl ResolvedIndirectModelRenderer for ResolvedSceneStdModelIndirectRenderer<'_>
     self.shape.make_draw_command_builder()
   }
 
-  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_> {
+  fn model_info_injector<'a>(&'a self, alloc: &'a dyn Allocator) -> RenderComponentBox<'a> {
     struct SceneStdModelIdInjector<'a> {
       std_model: AbstractReadonlyStorageBuffer<[SceneStdModelStorage]>,
       sm_to_std_model_device: AbstractReadonlyStorageBuffer<[u32]>,
@@ -279,18 +281,22 @@ impl ResolvedIndirectModelRenderer for ResolvedSceneStdModelIndirectRenderer<'_>
       }
     }
 
-    Box::new(SceneStdModelIdInjector {
-      std_model: self.renderer.std_model.clone(),
-      states: &self.states,
-      sm_to_std_model_device: self.renderer.sm_to_std_model_device.clone(),
-    })
+    Box::new_in(
+      SceneStdModelIdInjector {
+        std_model: self.renderer.std_model.clone(),
+        states: &self.states,
+        sm_to_std_model_device: self.renderer.sm_to_std_model_device.clone(),
+      },
+      alloc,
+    )
   }
 
   fn shape_renderable_indirect<'a>(
     &'a self,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
-    self.shape.make_component_indirect()
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
+    self.shape.make_component_indirect(alloc)
   }
 
   fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
@@ -300,8 +306,9 @@ impl ResolvedIndirectModelRenderer for ResolvedSceneStdModelIndirectRenderer<'_>
   fn material_renderable_indirect<'a>(
     &'a self,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
-    self.material.make_component_indirect(cx)
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
+    self.material.make_component_indirect(cx, alloc)
   }
 }
 

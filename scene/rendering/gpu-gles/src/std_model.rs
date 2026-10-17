@@ -1,9 +1,9 @@
 use crate::*;
 
 pub struct GLESModelRenderComponents<'a> {
-  pub shape: Box<dyn RenderComponent + 'a>,
+  pub shape: RenderComponentBox<'a>,
   pub draw: DrawCommand,
-  pub material: Box<dyn RenderComponent + 'a>,
+  pub material: RenderComponentBox<'a>,
 }
 
 pub trait GLESModelRenderImpl {
@@ -14,6 +14,7 @@ pub trait GLESModelRenderImpl {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
+    alloc: &'a dyn Allocator,
   ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>>;
 }
 
@@ -22,10 +23,11 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
+    alloc: &'a dyn Allocator,
   ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>> {
     self
       .iter()
-      .find_map(|provider| provider.make_components(idx, cx))
+      .find_map(|provider| provider.make_components(idx, cx, alloc))
   }
 }
 
@@ -63,12 +65,13 @@ impl SceneStdModelRenderer {
     &'a self,
     model: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
+    alloc: &'a dyn Allocator,
   ) -> Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError> {
     let err = SceneModelRenderDataError;
 
     let (base_shape, draw) = self
       .shapes
-      .make_component(model)
+      .make_component(model, alloc)
       .ok_or(err("no shape impl"))??;
     let state = self.states.get_gpu(model).ok_or(err("state override"))?;
 
@@ -77,22 +80,21 @@ impl SceneStdModelRenderer {
         .skin_gpu
         .get_bone_provider(skin)
         .ok_or(err("skin bone matrices"))?;
-      let bones = Box::new(bones) as Box<dyn RenderComponent>;
       let render = RenderArray([
-        bones,
+        Box::new_in(bones, alloc) as RenderComponentBox,
         base_shape,
-        Box::new(state),
-        Box::new(SkinVertexTransform),
+        Box::new_in(state, alloc),
+        Box::new_in(SkinVertexTransform, alloc),
       ]);
 
-      Box::new(render)
+      Box::new_in(render, alloc)
     } else {
       base_shape
     };
 
     let material = self
       .materials
-      .make_component(model, cx)
+      .make_component(model, cx, alloc)
       .ok_or(err("no material impl"))??;
 
     Ok(GLESModelRenderComponents {
@@ -108,8 +110,9 @@ impl GLESModelRenderImpl for SceneStdModelRenderer {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
+    alloc: &'a dyn Allocator,
   ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>> {
     let model = self.model.get(idx)?;
-    Some(self.create_components(model, cx))
+    Some(self.create_components(model, cx, alloc))
   }
 }

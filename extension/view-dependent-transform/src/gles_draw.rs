@@ -1,3 +1,5 @@
+use std::alloc::Allocator;
+
 use rendiation_scene_rendering_gpu_gles::{GLESNodeRenderImpl, NodeGPUUniform, NodeUniform};
 
 use crate::*;
@@ -53,15 +55,16 @@ impl GLESNodeRenderImpl for OverrideNodeGlesGPU {
     &'a self,
     idx: EntityHandle<SceneNodeEntity>,
     sm: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    alloc: &'a dyn Allocator,
+  ) -> Option<RenderComponentBox<'a>> {
     if let Some(current_view) = self.current_view.get() {
       if let Some(ubo) = self.overrides.get(&(current_view, sm.into_raw())) {
-        Some(Box::new(NodeGPUUniform { ubo }))
+        Some(Box::new_in(NodeGPUUniform { ubo }, alloc))
       } else {
-        self.internal.make_component(idx, sm)
+        self.internal.make_component(idx, sm, alloc)
       }
     } else {
-      self.internal.make_component(idx, sm)
+      self.internal.make_component(idx, sm, alloc)
     }
   }
 }

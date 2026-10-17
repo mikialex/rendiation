@@ -214,8 +214,8 @@ impl ResolvedIndirectModelShapeRenderer for ResolvedAttributeLODMeshIndirectRend
     Ok(builder)
   }
 
-  fn make_component_indirect(&self) -> Box<dyn RenderComponent + '_> {
-    self.internal.make_component_indirect()
+  fn make_component_indirect<'a>(&'a self, alloc: &'a dyn Allocator) -> RenderComponentBox<'a> {
+    self.internal.make_component_indirect(alloc)
   }
 
   fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {

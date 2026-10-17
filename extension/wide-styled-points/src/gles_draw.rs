@@ -1,3 +1,5 @@
+use std::alloc::Allocator;
+
 use rendiation_scene_rendering_gpu_gles::*;
 
 use crate::*;
@@ -62,6 +64,7 @@ impl WidePointModelGLESRenderer {
     &'a self,
     model_idx: EntityHandle<WideStyledPointsEntity>,
     cx: &'a GPUTextureBindingSystem,
+    alloc: &'a dyn Allocator,
   ) -> Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError> {
     let err = SceneModelRenderDataError;
     let uniform = self
@@ -82,24 +85,27 @@ impl WidePointModelGLESRenderer {
       indices: 0..6,
     };
 
-    let shape = Box::new(WidePointGPU {
-      uniform,
-      vertex_buffer: &self.vertex_buffer,
-      index_buffer: &self.index_buffer,
-      instance_buffer,
-      color_alpha_tex_sampler: self.tex.get_pair(model_idx).unwrap_or(EMPTY_H),
-      binding_sys: cx,
-      depth_test_enable: self
-        .states
-        .get_value(model_idx)
-        .ok_or(err("wide points depth state"))?,
-      rev_z: self.rev_z,
-    });
+    let shape = Box::new_in(
+      WidePointGPU {
+        uniform,
+        vertex_buffer: &self.vertex_buffer,
+        index_buffer: &self.index_buffer,
+        instance_buffer,
+        color_alpha_tex_sampler: self.tex.get_pair(model_idx).unwrap_or(EMPTY_H),
+        binding_sys: cx,
+        depth_test_enable: self
+          .states
+          .get_value(model_idx)
+          .ok_or(err("wide points depth state"))?,
+        rev_z: self.rev_z,
+      },
+      alloc,
+    );
     Ok(GLESModelRenderComponents {
       shape,
       draw,
       // no material
-      material: Box::new(()),
+      material: Box::new_in((), alloc),
     })
   }
 }
@@ -109,9 +115,10 @@ impl GLESModelRenderImpl for WidePointModelGLESRenderer {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
+    alloc: &'a dyn Allocator,
   ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>> {
     let model_idx = self.model_access.get(idx)?;
-    Some(self.create_components(model_idx, cx))
+    Some(self.create_components(model_idx, cx, alloc))
   }
 }
 

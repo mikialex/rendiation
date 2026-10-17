@@ -252,8 +252,8 @@ impl ResolvedIndirectModelRenderer for ResolvedWideLineModelIndirectRenderer<'_>
     Ok(DrawCommandBuilder::NoneIndexed(Box::new(creator)))
   }
 
-  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_> {
-    Box::new(())
+  fn model_info_injector<'a>(&'a self, alloc: &'a dyn Allocator) -> RenderComponentBox<'a> {
+    Box::new_in((), alloc)
   }
 
   fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
@@ -263,24 +263,29 @@ impl ResolvedIndirectModelRenderer for ResolvedWideLineModelIndirectRenderer<'_>
   fn shape_renderable_indirect<'a>(
     &'a self,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
     let renderer = self.renderer;
-    Box::new(WideLineIndirectDrawComponent {
-      segments: renderer.segments.clone(),
-      params: renderer.params.clone(),
-      sm_to_wide_line_device: renderer.sm_to_wide_line_device.clone(),
-      bind_state: Default::default(),
-      enabled_depth: self.enabled_depth,
-      transparent: self.transparent,
-      use_native_line: self.use_native_line,
-    })
+    Box::new_in(
+      WideLineIndirectDrawComponent {
+        segments: renderer.segments.clone(),
+        params: renderer.params.clone(),
+        sm_to_wide_line_device: renderer.sm_to_wide_line_device.clone(),
+        bind_state: Default::default(),
+        enabled_depth: self.enabled_depth,
+        transparent: self.transparent,
+        use_native_line: self.use_native_line,
+      },
+      alloc,
+    )
   }
 
   fn material_renderable_indirect<'a>(
     &'a self,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
-    Box::new(())
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
+    Box::new_in((), alloc)
   }
 }
 

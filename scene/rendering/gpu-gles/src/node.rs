@@ -5,7 +5,8 @@ pub trait GLESNodeRenderImpl {
     &'a self,
     idx: EntityHandle<SceneNodeEntity>,
     sm: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + 'a>>;
+    alloc: &'a dyn Allocator,
+  ) -> Option<RenderComponentBox<'a>>;
 }
 
 pub fn use_node_uniforms(cx: &mut QueryGPUHookCx) -> Option<Box<dyn GLESNodeRenderImpl>> {
@@ -25,15 +26,16 @@ pub fn use_node_uniforms(cx: &mut QueryGPUHookCx) -> Option<Box<dyn GLESNodeRend
 pub struct GLESNodeRenderer(LockReadGuardHolder<SceneNodeUniforms>);
 
 impl GLESNodeRenderImpl for GLESNodeRenderer {
-  fn make_component(
-    &self,
+  fn make_component<'a>(
+    &'a self,
     idx: EntityHandle<SceneNodeEntity>,
     _sm: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+    alloc: &'a dyn Allocator,
+  ) -> Option<RenderComponentBox<'a>> {
     let node = NodeGPUUniform {
       ubo: self.0.get(&idx.into_raw())?,
     };
-    Some(Box::new(node))
+    Some(Box::new_in(node, alloc))
   }
 }
 

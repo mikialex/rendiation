@@ -65,10 +65,11 @@ pub struct GLESAttributesMeshRenderer {
 }
 
 impl GLESAttributesMeshRenderer {
-  fn create_component(
-    &self,
+  fn create_component<'a>(
+    &'a self,
     mesh_id: EntityHandle<AttributesMeshEntity>,
-  ) -> Result<(Box<dyn RenderComponent + '_>, DrawCommand), SceneModelRenderDataError> {
+    alloc: &'a dyn Allocator,
+  ) -> Result<(RenderComponentBox<'a>, DrawCommand), SceneModelRenderDataError> {
     let err = SceneModelRenderDataError;
 
     let index = if self.index_ref.get(mesh_id).is_some() {
@@ -108,17 +109,18 @@ impl GLESAttributesMeshRenderer {
 
     let cmd = gpu.draw_command();
 
-    Ok((Box::new(gpu), cmd))
+    Ok((Box::new_in(gpu, alloc), cmd))
   }
 }
 
 impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
-  fn make_component(
-    &self,
+  fn make_component<'a>(
+    &'a self,
     idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Result<(Box<dyn RenderComponent + '_>, DrawCommand), SceneModelRenderDataError>> {
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<(RenderComponentBox<'a>, DrawCommand), SceneModelRenderDataError>> {
     let mesh_id = self.mesh_access.get(idx)?;
-    Some(self.create_component(mesh_id))
+    Some(self.create_component(mesh_id, alloc))
   }
 }
 

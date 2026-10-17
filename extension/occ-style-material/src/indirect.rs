@@ -149,16 +149,20 @@ impl ResolvedIndirectModelMaterialRenderer for ResolvedOccStyleMaterialIndirectR
   fn make_component_indirect<'a>(
     &'a self,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
     let renderer = self.renderer;
-    Box::new(OccStyleMaterialStorageGPU {
-      buffer: renderer.storages.clone(),
-      texture_handles: renderer.texture_handles.clone(),
-      binding_sys: cx,
-      states: self.states,
-      shade_type: self.shade_type,
-      reverse_z: renderer.reverse_z,
-    })
+    Box::new_in(
+      OccStyleMaterialStorageGPU {
+        buffer: renderer.storages.clone(),
+        texture_handles: renderer.texture_handles.clone(),
+        binding_sys: cx,
+        states: self.states,
+        shade_type: self.shade_type,
+        reverse_z: renderer.reverse_z,
+      },
+      alloc,
+    )
   }
 }
 

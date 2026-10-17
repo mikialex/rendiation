@@ -188,8 +188,8 @@ impl ResolvedIndirectModelRenderer for ResolvedWideStyledPointsIndirectRenderer<
     Ok(DrawCommandBuilder::NoneIndexed(Box::new(creator)))
   }
 
-  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_> {
-    Box::new(())
+  fn model_info_injector<'a>(&'a self, alloc: &'a dyn Allocator) -> RenderComponentBox<'a> {
+    Box::new_in((), alloc)
   }
 
   fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
@@ -199,23 +199,28 @@ impl ResolvedIndirectModelRenderer for ResolvedWideStyledPointsIndirectRenderer<
   fn shape_renderable_indirect<'a>(
     &'a self,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
     let renderer = self.renderer;
-    Box::new(WidePointsIndirectDrawComponent {
-      points: &renderer.points,
-      params: &renderer.params,
-      sm_to_wide_points_device: &renderer.sm_to_wide_points_device,
-      binding_sys: cx,
-      depth_test_enable: self.depth_test_enable,
-      rev_z: renderer.rev_z,
-    })
+    Box::new_in(
+      WidePointsIndirectDrawComponent {
+        points: &renderer.points,
+        params: &renderer.params,
+        sm_to_wide_points_device: &renderer.sm_to_wide_points_device,
+        binding_sys: cx,
+        depth_test_enable: self.depth_test_enable,
+        rev_z: renderer.rev_z,
+      },
+      alloc,
+    )
   }
 
   fn material_renderable_indirect<'a>(
     &'a self,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Box<dyn RenderComponent + 'a> {
-    Box::new(())
+    alloc: &'a dyn Allocator,
+  ) -> RenderComponentBox<'a> {
+    Box::new_in((), alloc)
   }
 }
 
