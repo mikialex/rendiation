@@ -270,15 +270,11 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
         if use_cpu_pick {
           if is_request_list_pick {
-            let (results, result_ids) = measure_and_log_time("cpu pick list", || {
+            let results = measure_and_log_time("cpu pick list", || {
               picker.pick_models_list_all(pointer_ctx.world_ray, *scene)
             });
             if enable_hit_debug_log {
-              log::info!(
-                "cpu picked list result {:#?}, ids: {:#?}",
-                results,
-                result_ids
-              );
+              log::info!("cpu picked list result {:#?}", results);
             }
           } else {
             let _hit = measure_and_log_time("cpu pick nearest", || {
@@ -290,7 +286,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
               if enable_hit_debug_log {
                 log::info!("cpu pick nearest result {:#?}", hit);
               }
-              cx.viewer.selection.selected_model.add_select(hit.1);
+              cx.viewer.selection.selected_model.add_select(hit.model);
             }
           }
         }

@@ -81,7 +81,8 @@ pub fn use_immediate_helper_model(
           let model = model.model();
           if let Some(pick_result) = picker.pick_model_nearest(model, ptr_cx.0.world_ray) {
             let offsets = offsets.as_ref().unwrap();
-            let idx = match offsets.binary_search_by(|v| v.1.cmp(&pick_result.primitive_index)) {
+            let idx = match offsets.binary_search_by(|v| v.1.cmp(&(pick_result.primitive as usize)))
+            {
               Ok(idx) => idx,
               Err(idx) => idx - 1,
             };

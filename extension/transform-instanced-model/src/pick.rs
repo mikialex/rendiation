@@ -1,8 +1,14 @@
+use std::ops::ControlFlow;
+
 use rendiation_scene_geometry_query::*;
 
 use crate::*;
 
-/// compare to [SceneModelPickerBaseImpl], we do not do instance buffer entire bbox check.
+/// If the model is an instanced model, query the source model once per instance with the instance
+/// matrix, hits and events are tagged with the instance index. Otherwise the request is forwarded
+/// to the internal picker unchanged.
+///
+/// compare to [SceneModelPickerBaseImpl], we do not do instance buffer entire bbox check for ray.
 /// this may be improved in the future
 pub struct TransformInstancedMeshPicker<T> {
   pub internal: T,
@@ -17,17 +23,16 @@ impl<T> TransformInstancedMeshPicker<T> {
   fn get_view(
     &self,
     idx: EntityHandle<SceneModelEntity>,
+    instance_model: EntityHandle<TransformInstancedModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
     ignore_pre_check: bool,
   ) -> Option<TransformPickView<'_>> {
     let node = self.util.pre_check(idx, ignore_pre_check)?;
-    let instance_own_transform = if let Some(mat) = override_world_mat {
-      *mat
-    } else {
-      self.util.get_mat_and_world_aabb(node, idx)?.0
-    };
+    let instance_own_transform = self
+      .util
+      .resolve_mat_and_world_aabb(idx, node, override_world_mat)?
+      .0;
 
-    let instance_model = self.instance_model.get(idx)?;
     let source_model = self.source_model.get(instance_model)?;
     let per_unit_transform = self.per_unit_transform.get(instance_model)?;
     let transforms = self.transform_buffer.get(instance_model)?.as_ref();
@@ -62,171 +67,69 @@ impl<'a> TransformPickView<'a> {
 }
 
 impl<T: SceneModelPicker> SceneModelPicker for TransformInstancedMeshPicker<T> {
-  fn ray_query_nearest(
-    &self,
-    request: SceneModelRayNearestQueryRequest,
-  ) -> Option<MeshBufferHitPoint<f64>> {
-    if let Some(internal) = self.internal.ray_query_nearest(request) {
-      return Some(internal);
-    }
-    let view = self.get_view(
-      request.idx,
-      request.override_world_mat,
-      request.ignore_pre_check,
-    )?;
+  fn ray_query(&self, req: SceneModelRayQuery, v: &mut dyn RayHitVisitor) -> ControlFlow<()> {
+    let Some(instance_model) = self.instance_model.get(req.idx) else {
+      return self.internal.ray_query(req, v);
+    };
+    let Some(view) = self.get_view(
+      req.idx,
+      instance_model,
+      req.override_world_mat,
+      req.ignore_pre_check,
+    ) else {
+      return ControlFlow::Continue(());
+    };
 
-    let mut nearest: Option<MeshBufferHitPoint<f64>> = None;
     for (i, m) in view.iter_mats().enumerate() {
-      if let Some(mut h) = self
-        .internal
-        .ray_query_nearest(SceneModelRayNearestQueryRequest {
-          idx: view.source_model,
-          override_world_mat: Some(&m),
-          ctx: request.ctx,
-          ignore_pre_check: true,
-        })
-      {
-        h.primitive_index = i;
-        let hit = h.hit;
-        if let Some(n) = nearest {
-          if hit.is_near_than(&n.hit) {
-            nearest = Some(h);
-          }
-        } else {
-          nearest = Some(h);
-        }
-      }
-    }
-    nearest
-  }
-
-  fn ray_query_all(&self, request: SceneModelRayAllQueryRequest) -> Option<()> {
-    if self
-      .internal
-      .ray_query_all(SceneModelRayAllQueryRequest {
-        results: request.results,
-        local_result_scratch: request.local_result_scratch,
-        ..request
-      })
-      .is_some()
-    {
-      return Some(());
-    }
-    let view = self.get_view(
-      request.idx,
-      request.override_world_mat,
-      request.ignore_pre_check,
-    )?;
-    for (i, m) in view.iter_mats().enumerate() {
-      let start = request.results.len();
-      let internal_test = self.internal.ray_query_all(SceneModelRayAllQueryRequest {
+      let source_req = SceneModelRayQuery {
         idx: view.source_model,
         override_world_mat: Some(&m),
-        results: request.results,
-        local_result_scratch: request.local_result_scratch,
+        ctx: req.ctx,
         ignore_pre_check: true,
-        ..request
-      });
-
-      // none means this instance is not hit (for example the bounding test failed),
-      // drop any partial results and continue testing other instances
-      if internal_test.is_none() {
-        request.results.truncate(start);
-        continue;
-      }
-
-      for r in &mut request.results[start..] {
-        r.primitive_index = i;
-      }
+      };
+      let mut tagged = RayHitInstanceTag {
+        inner: &mut *v,
+        model: req.idx,
+        instance: i as u32,
+      };
+      self.internal.ray_query(source_req, &mut tagged)?;
     }
-    Some(())
+    ControlFlow::Continue(())
   }
 
-  fn frustum_query(&self, request: SceneModelFrustumQueryRequest) -> Option<bool> {
-    if let Some(internal) = self.internal.frustum_query(request) {
-      return Some(internal);
-    }
-
-    let view = self.get_view(
-      request.idx,
-      request.override_world_mat,
-      request.ignore_pre_check,
-    )?;
-
-    match request.policy {
-      ObjectTestPolicy::Intersect => {
-        for m in view.iter_mats() {
-          {
-            let intersected = self.internal.frustum_query(SceneModelFrustumQueryRequest {
-              idx: view.source_model,
-              override_world_mat: Some(&m),
-              policy: ObjectTestPolicy::Intersect,
-              ignore_pre_check: true,
-              ..request
-            })?;
-            if intersected {
-              return Some(true);
-            }
-          }
-        }
-        Some(false)
-      }
-      ObjectTestPolicy::Contains => {
-        for m in view.iter_mats() {
-          {
-            let contains = self.internal.frustum_query(SceneModelFrustumQueryRequest {
-              idx: view.source_model,
-              override_world_mat: Some(&m),
-              policy: ObjectTestPolicy::Contains,
-              ignore_pre_check: true,
-              ..request
-            })?;
-            if !contains {
-              return Some(false);
-            }
-          }
-        }
-        Some(true)
-      }
-    }
-  }
-
-  fn frustum_query_sub_primitives(
+  fn frustum_query(
     &self,
-    request: SceneModelFrustumSubPrimitiveQueryRequest,
-  ) -> Option<()> {
-    if let Some(internal) =
-      self
-        .internal
-        .frustum_query_sub_primitives(SceneModelFrustumSubPrimitiveQueryRequest {
-          results: request.results,
-          ..request
-        })
-    {
-      return Some(internal);
-    }
-
-    let view = self.get_view(
-      request.idx,
-      request.override_world_mat,
-      request.ignore_pre_check,
-    )?;
+    req: SceneModelFrustumQuery,
+    v: &mut dyn FrustumPrimitiveVisitor,
+  ) -> ControlFlow<()> {
+    let Some(instance_model) = self.instance_model.get(req.idx) else {
+      return self.internal.frustum_query(req, v);
+    };
+    let Some(view) = self.get_view(
+      req.idx,
+      instance_model,
+      req.override_world_mat,
+      req.ignore_pre_check,
+    ) else {
+      return ControlFlow::Continue(());
+    };
 
     for (i, m) in view.iter_mats().enumerate() {
-      {
-        let positive = self.internal.frustum_query(SceneModelFrustumQueryRequest {
-          idx: view.source_model,
-          override_world_mat: Some(&m),
-          policy: request.policy,
-          ignore_pre_check: true,
-          frustum: request.frustum,
-        })?;
-        if positive {
-          request.results.push(i as u32);
-        }
-      }
+      // if the whole instanced model is inside, every instance is
+      let source_req = SceneModelFrustumQuery {
+        idx: view.source_model,
+        override_world_mat: Some(&m),
+        frustum: req.frustum,
+        policy: req.policy,
+        known_inside: req.known_inside,
+        ignore_pre_check: true,
+      };
+      let mut tagged = FrustumInstanceTag {
+        inner: &mut *v,
+        instance: i as u32,
+      };
+      self.internal.frustum_query(source_req, &mut tagged)?;
     }
-
-    Some(())
+    ControlFlow::Continue(())
   }
 }

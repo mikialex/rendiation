@@ -308,3 +308,60 @@ fn compute_frustum_corners<T: Scalar>(f: &Frustum<T>) -> Option<[Vec3<T>; 8]> {
     Plane::intersect_three(&p[4], &p[0], &p[3])?, // far right bottom
   ])
 }
+
+#[derive(PartialEq, Eq, Debug)]
+pub enum IntersectResult {
+  Outside,
+  Inside,
+  /// The AABB intersects the frustum but is not fully inside.
+  ///
+  /// When `helper` is `None` (degenerate frustum or precise test disabled),
+  /// this variant may contain **false positives** — some AABBs reported as
+  /// `Intersect` may actually be outside. This is because the fallback is a
+  /// conservative p-vertex test that only rejects AABBs entirely behind a
+  /// single frustum plane.
+  Intersect,
+}
+
+pub fn f_intersect_exact<T: Scalar>(
+  helper: Option<&FrustumIntersectionTestHelper<T>>,
+  f: &Frustum<T>,
+  box3: &Box3<T>,
+) -> IntersectResult {
+  if box3.is_empty() {
+    return IntersectResult::Outside;
+  }
+
+  // fast Inside check via n-vertex (exact for convex frustum)
+  let mut inside = true;
+  for p in &f.planes {
+    if p.distance_to(&box3.min_corner(*p.normal)) <= T::zero() {
+      inside = false;
+      break;
+    }
+  }
+  if inside {
+    return IntersectResult::Inside;
+  }
+
+  if frustum_intersect_aabb(helper, f, box3) {
+    IntersectResult::Intersect
+  } else {
+    IntersectResult::Outside
+  }
+}
+
+/// Transform a world space frustum into the local space of a model.
+///
+/// A plane transforms with the inverse transpose of the point transform. The point transform here
+/// is the inverse of the world matrix, so the plane transform is just the transpose of the world
+/// matrix, no inverse is required.
+pub fn transform_frustum_world_to_local(f: &Frustum<f64>, world_mat: &Mat4<f64>) -> Frustum<f64> {
+  let transform = world_mat.transpose();
+  Frustum {
+    planes: f.planes.map(|p| {
+      let v = transform * Vec4::new(p.normal.x, p.normal.y, p.normal.z, p.constant);
+      Plane::from_components(v.x, v.y, v.z, v.w)
+    }),
+  }
+}

@@ -361,9 +361,10 @@ pub fn use_interactive_ui_widget_model(
 
       let mut current_frame_hitting = None;
       if let Some(interaction_cx) = event.interaction_cx
-        && let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest
+        && let Some(hit) = interaction_cx.world_ray_intersected_nearest
       {
-        current_frame_hitting = (model == target.model).then_some(hit);
+        current_frame_hitting =
+          (hit.model == target.model).then_some(HitPoint3D::new(hit.position, hit.t));
       }
 
       if let Some(hitting) = current_frame_hitting {

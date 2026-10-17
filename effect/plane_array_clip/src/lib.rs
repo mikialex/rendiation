@@ -349,8 +349,8 @@ impl ArrayClipPickFilter {
   pub fn create_filter(
     &self,
     scene: EntityHandle<SceneEntity>,
-  ) -> impl Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool + '_ {
-    move |hit_point: &MeshBufferHitPoint<f64>, sm_id| {
+  ) -> impl Fn(Vec3<f64>, EntityHandle<SceneModelEntity>) -> bool + '_ {
+    move |hit_position: Vec3<f64>, sm_id| {
       if self.sm_skip_clip.get(sm_id) == Some(&true) {
         return true;
       }
@@ -360,7 +360,7 @@ impl ArrayClipPickFilter {
         for plane in iter {
           let plane = unsafe { EntityHandle::from_raw(plane) };
           let plane = self.planes.get(plane).unwrap();
-          if hit_point.hit.position.into_f32().dot(plane.xyz()) + plane.w() > 0. {
+          if hit_position.into_f32().dot(plane.xyz()) + plane.w() > 0. {
             should_clip = true;
             break;
           }

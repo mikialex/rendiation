@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use rendiation_geometry::*;
 use rendiation_mesh_core::{AbstractMesh, AbstractMeshIntersectionExt};
 use rendiation_scene_geometry_query::*;
@@ -92,64 +94,49 @@ impl<'a> AbstractMesh for CellMeshPickView<'a> {
 }
 
 impl LocalModelPicker for CellMeshPicker {
-  fn bounding_enlarge_tolerance(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IntersectTolerance>> {
-    let _ = self.mesh_view(idx)?;
-    Some(None)
-  }
-
-  fn ray_query_local_nearest(&self, request: LocalRayQueryRequest) -> Option<MeshBufferHitPoint> {
-    let LocalRayQueryRequest { idx, local_ray, .. } = request;
-    // todo extra_screen_space_tolerance
-    *self
-      .mesh_view(idx)?
-      .ray_intersect_nearest(local_ray, &FaceSide::Double)
-  }
-
-  fn ray_query_local_all(&self, request: LocalRayAllQueryRequest) -> Option<()> {
-    let LocalRayAllQueryRequest { internal, results } = request;
-    // todo extra_screen_space_tolerance
+  fn is_applicable(&self, idx: EntityHandle<SceneModelEntity>) -> bool {
     self
-      .mesh_view(internal.idx)?
-      .ray_intersect_all(internal.local_ray, &FaceSide::Double, results);
-    Some(())
+      .sm_to_std_model
+      .get(idx)
+      .and_then(|std_model| self.std_model_to_cell_mesh.get(std_model))
+      .is_some()
   }
 
-  fn frustum_query_local(&self, request: LocalFrustumQueryRequest) -> Option<bool> {
-    let LocalFrustumQueryRequest {
-      idx,
-      local_frustum,
-      helper,
-      policy,
-      ..
-    } = request;
+  fn tolerance(&self, _: EntityHandle<SceneModelEntity>) -> Option<IntersectTolerance> {
+    None
+  }
+
+  fn primitive_count(&self, idx: EntityHandle<SceneModelEntity>) -> u32 {
+    self
+      .mesh_view(idx)
+      .map(|view| view.lines.len() as u32)
+      .unwrap_or(0)
+  }
+
+  fn ray_query_local(&self, req: LocalRayQuery, v: &mut dyn LocalRayHitVisitor) -> ControlFlow<()> {
+    let Some(view) = self.mesh_view(req.idx) else {
+      return ControlFlow::Continue(());
+    };
     // todo extra_screen_space_tolerance
-    let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |t| {
-      frustum_test_tri(helper, local_frustum, &t, policy)
-    });
-
-    Some(r)
+    let hits = view.ray_intersect_iter(req.local_ray, &FaceSide::Double);
+    visit_mesh_ray_hits(&req.local_ray, hits, |i| (i / 2) as u32, v)
   }
 
-  fn frustum_query_local_sub_primitives(
+  fn frustum_query_local(
     &self,
-    request: LocalFrustumSubPrimitiveQueryRequest,
-  ) -> Option<()> {
-    let LocalFrustumSubPrimitiveQueryRequest { internal, results } = request;
-    let view = self.mesh_view(internal.idx)?;
-
-    frustum_test_abstract_mesh_as_quad_all(
-      &view,
-      internal.policy,
-      internal.helper,
-      internal.local_frustum,
-      |i| {
-        results.push(i as u32);
-      },
-    );
-
-    Some(())
+    req: LocalFrustumQuery,
+    v: &mut dyn FrustumPrimitiveVisitor,
+  ) -> ControlFlow<()> {
+    let Some(view) = self.mesh_view(req.idx) else {
+      return ControlFlow::Continue(());
+    };
+    // todo extra_screen_space_tolerance
+    visit_frustum_quads(
+      view.primitive_iter(),
+      req.policy,
+      req.helper,
+      req.local_frustum,
+      v,
+    )
   }
 }

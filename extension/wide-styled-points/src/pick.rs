@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use rendiation_geometry::*;
 use rendiation_scene_geometry_query::*;
 
@@ -69,95 +71,56 @@ impl WidePointsPicker {
 }
 
 impl LocalModelPicker for WidePointsPicker {
-  fn bounding_enlarge_tolerance(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IntersectTolerance>> {
+  fn is_applicable(&self, idx: EntityHandle<SceneModelEntity>) -> bool {
+    self.relation.get(idx).is_some()
+  }
+
+  fn tolerance(&self, idx: EntityHandle<SceneModelEntity>) -> Option<IntersectTolerance> {
     let point = self.relation.get(idx)?;
     let size = self.max_size.access(point.raw_handle_ref())?;
-    Some(Some(IntersectTolerance::new(
-      size,
-      ToleranceType::ScreenSpace,
-    )))
+    Some(IntersectTolerance::new(size, ToleranceType::ScreenSpace))
   }
 
-  fn ray_query_local_nearest(&self, request: LocalRayQueryRequest) -> Option<MeshBufferHitPoint> {
-    let mut nearest = OptionalNearest::none();
-    let view = self.create_view(request.idx)?;
+  fn primitive_count(&self, idx: EntityHandle<SceneModelEntity>) -> u32 {
+    self
+      .create_view(idx)
+      .map(|view| view.points.len() as u32)
+      .unwrap_or(0)
+  }
+
+  fn ray_query_local(&self, req: LocalRayQuery, v: &mut dyn LocalRayHitVisitor) -> ControlFlow<()> {
+    let Some(view) = self.create_view(req.idx) else {
+      return ControlFlow::Continue(());
+    };
     let mesh = view.into_tri_mesh(
-      request.world_mat,
-      request.camera_ctx,
-      request.extra_screen_space_tolerance,
+      req.world_mat,
+      req.camera_ctx,
+      req.extra_screen_space_tolerance,
     );
-
-    for (tri_index, tri) in mesh.primitive_iter().enumerate() {
-      if let Some(hit) = request.local_ray.intersect(&tri, &FaceSide::Double).0 {
-        nearest.refresh_nearest(OptionalNearest::some(MeshBufferHitPoint {
-          hit,
-          primitive_index: tri_index / 2,
-        }));
-      }
-    }
-
-    *nearest
+    let hits = mesh.ray_intersect_iter(req.local_ray, &FaceSide::Double);
+    visit_mesh_ray_hits(&req.local_ray, hits, |i| (i / 2) as u32, v)
   }
 
-  fn ray_query_local_all(&self, request: LocalRayAllQueryRequest) -> Option<()> {
-    let view = self.create_view(request.idx)?;
-    let mesh = view.into_tri_mesh(
-      request.world_mat,
-      request.camera_ctx,
-      request.extra_screen_space_tolerance,
-    );
-
-    for (tri_index, tri) in mesh.primitive_iter().enumerate() {
-      if let Some(hit) = request.local_ray.intersect(&tri, &FaceSide::Double).0 {
-        request.results.push(MeshBufferHitPoint {
-          hit,
-          primitive_index: tri_index / 2,
-        });
-      }
-    }
-
-    Some(())
-  }
-
-  fn frustum_query_local(&self, request: LocalFrustumQueryRequest) -> Option<bool> {
-    let view = self.create_view(request.idx)?;
-    let mesh = view.into_tri_mesh(
-      request.world_mat,
-      request.camera_ctx,
-      request.extra_screen_space_tolerance,
-    );
-    let r = frustum_test_abstract_mesh(&mesh, request.policy, |t| {
-      frustum_test_tri(request.helper, request.local_frustum, &t, request.policy)
-    });
-
-    Some(r)
-  }
-
-  fn frustum_query_local_sub_primitives(
+  fn frustum_query_local(
     &self,
-    request: LocalFrustumSubPrimitiveQueryRequest,
-  ) -> Option<()> {
-    let view = self.create_view(request.idx)?;
+    req: LocalFrustumQuery,
+    v: &mut dyn FrustumPrimitiveVisitor,
+  ) -> ControlFlow<()> {
+    let Some(view) = self.create_view(req.idx) else {
+      return ControlFlow::Continue(());
+    };
     let mesh = view.into_tri_mesh(
-      request.world_mat,
-      request.camera_ctx,
-      request.extra_screen_space_tolerance,
+      req.world_mat,
+      req.camera_ctx,
+      req.extra_screen_space_tolerance,
     );
-
-    frustum_test_abstract_mesh_as_quad_all(
-      &mesh,
-      request.policy,
-      request.helper,
-      request.local_frustum,
-      |i| {
-        request.results.push(i as u32);
-      },
-    );
-
-    Some(())
+    visit_frustum_quads(
+      mesh.primitive_iter(),
+      req.policy,
+      req.helper,
+      req.local_frustum,
+      v,
+    )
   }
 }
 

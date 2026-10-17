@@ -12,75 +12,50 @@ impl ViewerPickerWithCtx {
     frustum: &SceneFrustumQuery,
     ty: ObjectTestPolicy,
   ) -> Vec<EntityHandle<SceneModelEntity>> {
-    let mut iter = self
-      .picker_impl
-      .scene_model_iter_provider
-      .create_frustum_scene_model_iter(scene, frustum);
     let mut results = Vec::default();
-    range_pick_models(
-      &self.picker_impl.model_picker,
-      &mut iter,
-      frustum,
-      ty,
-      &mut |r| results.push(r),
-      false,
-    );
+    self
+      .picker_impl
+      .range_pick_models(scene, frustum, ty, &mut results);
     results
+  }
+
+  fn create_ray_query(
+    &self,
+    world_ray: Ray3<f64>,
+  ) -> Option<(SceneRayQuery, EntityHandle<SceneEntity>)> {
+    let (pointer_ctx, scene) = self.pointer_ctx.as_ref()?;
+    let mut query = create_ray_query_ctx_from_vpc(pointer_ctx, 0.);
+    query.world_ray = world_ray;
+    Some((query, *scene))
   }
 
   pub fn pick_model_nearest_all(
     &self,
     world_ray: Ray3<f64>,
     scene: EntityHandle<SceneEntity>,
-  ) -> Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> {
-    let ctx = self.pointer_ctx.as_ref()?;
-    let filter = self.picker_impl.clip_filter.create_filter(ctx.1);
-    let mut ctx = create_ray_query_ctx_from_vpc(&ctx.0, 0., Some(&filter));
-    ctx.world_ray = world_ray;
-
-    let mut iter = self
+  ) -> Option<SceneRayHit> {
+    let (query, _) = self.create_ray_query(world_ray)?;
+    let mut v = NearestRayHit::default();
+    self
       .picker_impl
-      .scene_model_iter_provider
-      .create_ray_scene_model_iter(scene, &ctx);
-    pick_models_nearest(&self.picker_impl.model_picker, &mut iter, &ctx, false)
+      .ray_query_scene(scene, &query, true, &mut v);
+    v.nearest
   }
 
+  /// all hits sorted by distance
   pub fn pick_models_list_all(
     &self,
     world_ray: Ray3<f64>,
     scene: EntityHandle<SceneEntity>,
-  ) -> (
-    Vec<MeshBufferHitPoint<f64>>,
-    Vec<EntityHandle<SceneModelEntity>>,
-  ) {
-    let ctx = self.pointer_ctx.as_ref();
-    if ctx.is_none() {
-      return (Vec::new(), Vec::new());
-    }
-    let ctx = ctx.unwrap();
-    let filter = self.picker_impl.clip_filter.create_filter(ctx.1);
-    let mut ctx = create_ray_query_ctx_from_vpc(&ctx.0, 0., Some(&filter));
-    ctx.world_ray = world_ray;
-
-    let mut results = Vec::default();
-    let mut models_results = Vec::default();
-    let mut local_result_scratch = Vec::default();
-
-    let mut iter = self
+  ) -> Vec<SceneRayHit> {
+    let Some((query, _)) = self.create_ray_query(world_ray) else {
+      return Vec::new();
+    };
+    let mut v = AllRayHits::default();
+    self
       .picker_impl
-      .scene_model_iter_provider
-      .create_ray_scene_model_iter(scene, &ctx);
-
-    pick_models_all(
-      &self.picker_impl.model_picker,
-      &mut iter,
-      &ctx,
-      &mut results,
-      &mut models_results,
-      &mut local_result_scratch,
-      false,
-    );
-    (results, models_results)
+      .ray_query_scene(scene, &query, true, &mut v);
+    v.into_sorted()
   }
 }
 
@@ -121,94 +96,18 @@ pub fn use_viewer_scene_model_picker(cx: &mut ViewerCx) -> Option<ViewerPickerWi
   }
 }
 
-// todo, remove duplication
 impl Picker3d for ViewerPickerWithCtx {
-  fn pick_model_nearest(
+  fn ray_query_models(
     &self,
-    model: EntityHandle<SceneModelEntity>,
+    models: &[EntityHandle<SceneModelEntity>],
     world_ray: Ray3<f64>,
-  ) -> Option<MeshBufferHitPoint<f64>> {
-    let ctx = self.pointer_ctx.as_ref()?;
-    let filter = self.picker_impl.clip_filter.create_filter(ctx.1);
-    let mut ctx = create_ray_query_ctx_from_vpc(&ctx.0, 0., Some(&filter));
-    ctx.world_ray = world_ray;
-    self
-      .picker_impl
-      .model_picker
-      .ray_query_nearest(SceneModelRayNearestQueryRequest {
-        idx: model,
-        override_world_mat: None,
-        ctx: &ctx,
-        ignore_pre_check: false,
-      })
-  }
-
-  fn pick_model_all(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    world_ray: Ray3<f64>,
-    results: &mut Vec<MeshBufferHitPoint<f64>>,
-    local_result_scratch: &mut Vec<MeshBufferHitPoint<f32>>,
-  ) -> Option<()> {
-    let ctx = self.pointer_ctx.as_ref()?;
-    let filter = self.picker_impl.clip_filter.create_filter(ctx.1);
-    let mut ctx = create_ray_query_ctx_from_vpc(&ctx.0, 0., Some(&filter));
-    ctx.world_ray = world_ray;
-    self
-      .picker_impl
-      .model_picker
-      .ray_query_all(SceneModelRayAllQueryRequest {
-        idx,
-        override_world_mat: None,
-        ctx: &ctx,
-        results,
-        local_result_scratch,
-        ignore_pre_check: false,
-      })
-  }
-
-  fn pick_models_all(
-    &self,
-    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    world_ray: Ray3<f64>,
-  ) -> (
-    Vec<MeshBufferHitPoint<f64>>,
-    Vec<EntityHandle<SceneModelEntity>>,
+    v: &mut dyn RayHitVisitor,
   ) {
-    let ctx = self.pointer_ctx.as_ref();
-    if ctx.is_none() {
-      return (Vec::new(), Vec::new());
+    if let Some((query, scene)) = self.create_ray_query(world_ray) {
+      self
+        .picker_impl
+        .ray_query_models(models, scene, &query, true, v);
     }
-    let ctx = ctx.unwrap();
-    let filter = self.picker_impl.clip_filter.create_filter(ctx.1);
-    let mut ctx = create_ray_query_ctx_from_vpc(&ctx.0, 0., Some(&filter));
-    ctx.world_ray = world_ray;
-
-    let mut results = Vec::default();
-    let mut models_results = Vec::default();
-    let mut local_result_scratch = Vec::default();
-    pick_models_all(
-      &self.picker_impl.model_picker,
-      models,
-      &ctx,
-      &mut results,
-      &mut models_results,
-      &mut local_result_scratch,
-      false,
-    );
-    (results, models_results)
-  }
-
-  fn pick_models_nearest(
-    &self,
-    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    world_ray: Ray3<f64>,
-  ) -> Option<(HitPoint3D<f64>, EntityHandle<SceneModelEntity>)> {
-    let ctx = self.pointer_ctx.as_ref()?;
-    let filter = self.picker_impl.clip_filter.create_filter(ctx.1);
-    let mut ctx = create_ray_query_ctx_from_vpc(&ctx.0, 0., Some(&filter));
-    ctx.world_ray = world_ray;
-    pick_models_nearest(&self.picker_impl.model_picker, models, &ctx, false)
   }
 }
 
@@ -217,8 +116,8 @@ pub fn prepare_picking_state<'a>(
   g: &WidgetSceneModelIntersectionGroupConfig,
 ) -> Option<Interaction3dCtx<'a>> {
   let pointer_ctx = picker.pointer_ctx.as_ref()?;
-  let world_ray_intersected_nearest =
-    picker.pick_models_nearest(&mut g.group.iter().copied(), pointer_ctx.0.world_ray);
+  let group: Vec<_> = g.group.iter().copied().collect();
+  let world_ray_intersected_nearest = picker.pick_models_nearest(&group, pointer_ctx.0.world_ray);
 
   Some(Interaction3dCtx {
     picker: picker as &dyn Picker3d,

@@ -1,4 +1,34 @@
 #![feature(iter_array_chunks)]
+//! Scene geometry query (picking).
+//!
+//! Every query is split into a hit producer and a hit consumer:
+//!
+//! - producers (TLAS candidate provider, scene model pickers, local model pickers) only know how
+//!   to enumerate hits, they push hits into a visitor and never decide how hits are reduced.
+//! - consumers (visitors) decide the reduction: nearest, all, any, k nearest, filtered, model level
+//!   intersect or contains, sub primitives. They are written once and shared by every producer.
+//!
+//! Ray query visitors expose `t_max`, producers use it to prune BVH nodes, model boundings and
+//! primitives. A filter visitor forwards `t_max` from its inner visitor, so a rejected hit never
+//! shrinks the bound, which makes "nearest hit that passes the filter" correct without collecting
+//! all hits first.
+//!
+//! Frustum query visitors receive per primitive pass or fail events. Model level verdicts are
+//! reductions over these events (any pass for intersect, all pass for contains). Events carry a
+//! primitive range so that a producer can report a whole model with a single event when its
+//! bounding is fully inside the frustum.
+//!
+//! The layers are:
+//!
+//! - [SceneModelCandidateProvider]: the TLAS, enumerates candidate scene models of a scene.
+//! - [SceneModelPicker]: scene model level, usually a decorator stack (view dependent transform,
+//!   instancing) around [SceneModelPickerBaseImpl], which transforms the query into local space.
+//! - [LocalModelPicker]: works in model local space for one kind of model data (attribute mesh,
+//!   wide line, text, ...), selected by [LocalModelPickerSelector].
+//! - query drivers in [query](crate::query) combine the above with a visitor.
+
+use std::ops::{ControlFlow, Range};
+
 use bytemuck::try_cast_slice;
 use database::*;
 use rendiation_algebra::*;
@@ -8,33 +38,44 @@ pub use rendiation_mesh_core::{IntersectTolerance, MeshBufferHitPoint, Tolerance
 use rendiation_scene_core::*;
 use rendiation_texture_core::Size;
 
-mod model;
-pub use model::*;
+mod ray;
+pub use ray::*;
 
 mod frustum;
 pub use frustum::*;
 
-mod scene_model;
-pub use scene_model::*;
+mod frustum_query;
+pub use frustum_query::*;
 
-mod iter;
-pub use iter::*;
+mod picker;
+pub use picker::*;
+
+mod base;
+pub use base::*;
+
+mod local;
+pub use local::*;
+
+mod attribute;
+pub use attribute::*;
+
+mod candidate;
+pub use candidate::*;
+
+pub mod query;
 
 declare_component!(SceneModelSelectable, SceneModelEntity, bool, true);
 pub fn register_selectable_data_model() {
   global_entity_of::<SceneModelEntity>().declare_component::<SceneModelSelectable>();
 }
 
-pub struct SceneRayQuery<'a> {
+/// The scene level ray query context. Filtering is done by wrapping the visitor with
+/// [FilteredRayHits].
+pub struct SceneRayQuery {
   pub world_ray: Ray3<f64>,
   pub camera_ctx: CameraQueryCtx,
   pub extra_screen_space_tolerance: f32,
-  pub filter: Option<&'a SceneModelPickFilter<'a>>,
 }
-
-/// keep result if return true
-pub type SceneModelPickFilter<'a> =
-  dyn Fn(&MeshBufferHitPoint<f64>, EntityHandle<SceneModelEntity>) -> bool + 'a;
 
 pub struct SceneFrustumQuery {
   pub world_frustum: Frustum<f64>,
@@ -75,3 +116,6 @@ impl CameraQueryCtx {
     local_tolerance
   }
 }
+
+#[cfg(test)]
+mod test;

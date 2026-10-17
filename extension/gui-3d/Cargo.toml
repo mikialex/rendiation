@@ -10,6 +10,7 @@ rendiation-geometry = { path = "../../math/geometry" }
 rendiation-scene-core = { path = "../../scene/core" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
+rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
 hook = { path = "../../utility/hook" }
 database = { path = "../../utility/database" }

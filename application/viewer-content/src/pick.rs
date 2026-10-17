@@ -1,8 +1,10 @@
+use std::ops::ControlFlow;
+
 use crate::*;
 
 pub struct ViewerPicker {
   pub model_picker: SceneModelPickerWithViewDep<Box<dyn SceneModelPicker>>,
-  pub scene_model_iter_provider: Box<dyn SceneModelIterProvider>,
+  pub candidate_provider: Box<dyn SceneModelCandidateProvider>,
   pub scene_bvh: Option<SceneBVHResultView>,
   pub camera_transforms: BoxedDynQuery<RawEntityHandle, CameraTransform>,
   pub clip_filter: ArrayClipPickFilter,
@@ -17,41 +19,121 @@ impl ViewerPicker {
     let bvh_view = self.scene_bvh.as_ref()?;
     bvh_view.bvh.generate_bvh_debug_wireframe(scene.into_raw())
   }
+
+  /// ray query the whole scene, hits removed by the scene's clipping planes are skipped if
+  /// `remove_clipped` is true
+  pub fn ray_query_scene(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    query: &SceneRayQuery,
+    remove_clipped: bool,
+    v: &mut dyn RayHitVisitor,
+  ) {
+    self.ray_query_with_candidates(
+      self.candidate_provider.as_ref(),
+      scene,
+      query,
+      remove_clipped,
+      v,
+    );
+  }
+
+  /// ray query the given models, see [Self::ray_query_scene]
+  pub fn ray_query_models(
+    &self,
+    models: &[EntityHandle<SceneModelEntity>],
+    scene: EntityHandle<SceneEntity>,
+    query: &SceneRayQuery,
+    remove_clipped: bool,
+    v: &mut dyn RayHitVisitor,
+  ) {
+    let candidates = ModelListCandidates(models);
+    self.ray_query_with_candidates(&candidates, scene, query, remove_clipped, v);
+  }
+
+  fn ray_query_with_candidates(
+    &self,
+    candidates: &dyn SceneModelCandidateProvider,
+    scene: EntityHandle<SceneEntity>,
+    query: &SceneRayQuery,
+    remove_clipped: bool,
+    v: &mut dyn RayHitVisitor,
+  ) {
+    if remove_clipped {
+      let clip_filter = self.clip_filter.create_filter(scene);
+      let mut v = FilteredRayHits {
+        inner: v,
+        filter: |hit: &SceneRayHit| clip_filter(hit.position, hit.model),
+      };
+      let _ = query::ray_query_scene(&self.model_picker, candidates, scene, query, &mut v);
+    } else {
+      let _ = query::ray_query_scene(&self.model_picker, candidates, scene, query, v);
+    }
+  }
+
+  pub fn range_pick_models(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    frustum: &SceneFrustumQuery,
+    policy: ObjectTestPolicy,
+    results: &mut Vec<EntityHandle<SceneModelEntity>>,
+  ) {
+    query::range_pick_models(
+      &self.model_picker,
+      self.candidate_provider.as_ref(),
+      scene,
+      frustum,
+      policy,
+      results,
+    );
+  }
 }
 
-pub struct NaiveSceneModelIterProvider {
+pub struct NaiveSceneModelCandidateProvider {
   pub scene_ref_scene_model: RevRefForeignKeyRead,
 }
 
-impl NaiveSceneModelIterProvider {
-  fn create_full_scene_iter(
+impl NaiveSceneModelCandidateProvider {
+  fn for_each_model(
     &self,
     scene: EntityHandle<SceneEntity>,
-  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
+    mut f: impl FnMut(EntityHandle<SceneModelEntity>) -> ControlFlow<()>,
+  ) -> ControlFlow<()> {
     if let Some(iter) = self.scene_ref_scene_model.access_multi(&scene.into_raw()) {
-      let iter = iter.map(|v| unsafe { EntityHandle::from_raw(v) });
-      Box::new(iter)
-    } else {
-      Box::new([].into_iter())
+      for model in iter {
+        f(unsafe { EntityHandle::from_raw(model) })?;
+      }
     }
+    ControlFlow::Continue(())
   }
 }
 
-impl SceneModelIterProvider for NaiveSceneModelIterProvider {
-  fn create_ray_scene_model_iter(
+impl SceneModelCandidateProvider for NaiveSceneModelCandidateProvider {
+  fn traverse_ray(
     &self,
     scene: EntityHandle<SceneEntity>,
-    _ctx: &SceneRayQuery,
-  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
-    self.create_full_scene_iter(scene)
+    _query: &SceneRayQuery,
+    _t_max: f64,
+    f: &mut dyn FnMut(RayCandidate) -> ControlFlow<(), f64>,
+  ) -> ControlFlow<()> {
+    self.for_each_model(scene, |model| {
+      f(RayCandidate { model, t_enter: 0. })?;
+      ControlFlow::Continue(())
+    })
   }
 
-  fn create_frustum_scene_model_iter<'a>(
-    &'a self,
+  fn traverse_frustum(
+    &self,
     scene: EntityHandle<SceneEntity>,
-    _frustum: &SceneFrustumQuery,
-  ) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + 'a> {
-    self.create_full_scene_iter(scene)
+    _query: &SceneFrustumQuery,
+    f: &mut dyn FnMut(FrustumCandidate) -> ControlFlow<()>,
+  ) -> ControlFlow<()> {
+    self.for_each_model(scene, |model| {
+      f(FrustumCandidate {
+        model,
+        known_inside: false,
+      })
+    })
   }
 }
 
@@ -207,21 +289,21 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
 
     let mut scene_bvh = None;
 
-    let scene_model_iter_provider = if let Some(qbvh) = qbvh {
+    let candidate_provider = if let Some(qbvh) = qbvh {
       scene_bvh = Some(qbvh.clone());
-      let iter_provider =
-        rendiation_dynamic_bvh_scene::SceneDynamicBvhIterProvider { internal: qbvh };
-      Box::new(iter_provider) as Box<dyn SceneModelIterProvider>
+      let provider =
+        rendiation_dynamic_bvh_scene::SceneDynamicBvhCandidateProvider { internal: qbvh };
+      Box::new(provider) as Box<dyn SceneModelCandidateProvider>
     } else {
-      let iter_provider = NaiveSceneModelIterProvider {
+      let provider = NaiveSceneModelCandidateProvider {
         scene_ref_scene_model: sms.expect_resolve_stage(),
       };
-      Box::new(iter_provider)
+      Box::new(provider)
     };
 
     ViewerPicker {
       model_picker: scene_model_picker,
-      scene_model_iter_provider,
+      candidate_provider,
       camera_transforms: camera_transforms.expect_resolve_stage(),
       scene_bvh,
       ndc,
@@ -302,16 +384,14 @@ pub fn read_common_proj_from_db(
     .or_else(|| po.get_value(camera).flatten().map(CommonProjection::Orth))
 }
 
-pub fn create_ray_query_ctx_from_vpc<'a>(
+pub fn create_ray_query_ctx_from_vpc(
   ctx: &ViewportPointerCtx,
   extra_screen_space_tolerance: f32,
-  filter: Option<&'a SceneModelPickFilter>,
-) -> SceneRayQuery<'a> {
+) -> SceneRayQuery {
   SceneRayQuery {
     world_ray: ctx.world_ray,
     camera_ctx: create_camera_query_ctx_from_vpc(ctx),
     extra_screen_space_tolerance,
-    filter,
   }
 }
 

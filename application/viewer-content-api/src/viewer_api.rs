@@ -583,43 +583,24 @@ impl ViewerQueryAPI {
         y,
         extra_screen_space_tolerance,
       });
-    let mut results = Vec::new();
-    let mut model_results = Vec::new();
-    let mut local_result_scratch = Vec::new();
+    let mut hits = AllRayHits::default();
     let surface_content = viewer.surfaces_content.get(&self.surface_id).unwrap();
     let ctx =
       create_viewport_pointer_ctx(surface_content, (x, y), &self.picker_impl.camera_transforms);
 
     if let Some((ctx, scene)) = ctx {
-      let filter = remove_clipped.then(|| self.picker_impl.clip_filter.create_filter(scene));
-
-      let cx = create_ray_query_ctx_from_vpc(
-        &ctx,
-        extra_screen_space_tolerance,
-        filter.as_ref().map(|v| v as &SceneModelPickFilter),
-      );
-
-      let mut iter = self
+      let query = create_ray_query_ctx_from_vpc(&ctx, extra_screen_space_tolerance);
+      self
         .picker_impl
-        .scene_model_iter_provider
-        .create_ray_scene_model_iter(scene, &cx);
-
-      pick_models_all(
-        &self.picker_impl.model_picker,
-        &mut iter,
-        &cx,
-        &mut results,
-        &mut model_results,
-        &mut local_result_scratch,
-        false,
-      );
+        .ray_query_scene(scene, &query, remove_clipped, &mut hits);
     }
 
-    for (r, mr) in results.iter().zip(model_results.iter()) {
+    for hit in hits.hits {
       output_results.push(ViewerRayPickResult {
-        primitive_index: r.primitive_index as u32,
-        hit_position: r.hit.position.into_f32().into(),
-        scene_model_handle: (*mr).into(),
+        // keep the api behavior: instanced model reports the instance index
+        primitive_index: hit.instance.unwrap_or(hit.primitive),
+        hit_position: hit.position.into_f32().into(),
+        scene_model_handle: hit.model.into(),
       })
     }
   }
@@ -675,25 +656,20 @@ impl ViewerQueryAPI {
       let mut sub_results = Vec::new();
       for &item in items_to_range_pick {
         sub_results.clear();
-        let idx: EntityHandle<SceneModelEntity> = item.into();
-        if self
-          .picker_impl
-          .model_picker
-          .frustum_query_sub_primitives(SceneModelFrustumSubPrimitiveQueryRequest {
-            internal: SceneModelFrustumQueryRequest {
-              idx,
-              override_world_mat: None,
-              frustum: &frustum,
-              policy,
-              ignore_pre_check: false,
-            },
-            results: &mut sub_results,
-          })
-          .is_some()
-        {
-          for &primitive_index in sub_results.iter() {
-            output_results.push((item, primitive_index));
-          }
+        let req = SceneModelFrustumQuery {
+          idx: item.into(),
+          override_world_mat: None,
+          frustum: &frustum,
+          policy,
+          known_inside: false,
+          ignore_pre_check: false,
+        };
+        // keep the api behavior: instanced model reports the selected instance indices
+        let mut v = InstanceOrSubPrimitiveVisitor::new(policy);
+        let _ = self.picker_impl.model_picker.frustum_query(req, &mut v);
+        v.finish(&mut sub_results);
+        for &primitive_index in sub_results.iter() {
+          output_results.push((item, primitive_index));
         }
       }
     }
@@ -736,24 +712,20 @@ impl ViewerQueryAPI {
       precise_intersection_test,
       extra_screen_space_tolerance,
     ) {
-      let mut iter = self
+      let policy = if contain {
+        ObjectTestPolicy::Contains
+      } else {
+        ObjectTestPolicy::Intersect
+      };
+      let mut results = Vec::new();
+      self
         .picker_impl
-        .scene_model_iter_provider
-        .create_frustum_scene_model_iter(scene, &frustum);
-
-      range_pick_models(
-        &self.picker_impl.model_picker,
-        &mut iter,
-        &frustum,
-        if contain {
-          ObjectTestPolicy::Contains
-        } else {
-          ObjectTestPolicy::Intersect
-        },
-        &mut |r| output_results.push(r.into_raw().into()),
-        false,
+        .range_pick_models(scene, &frustum, policy, &mut results);
+      output_results.extend(
+        results
+          .into_iter()
+          .map(|r| ViewerEntityHandle::from(r.into_raw())),
       );
-      //
     }
   }
 }

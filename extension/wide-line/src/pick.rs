@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use rendiation_geometry::*;
 use rendiation_scene_geometry_query::*;
 
@@ -57,99 +59,48 @@ impl WideLinePicker {
 }
 
 impl LocalModelPicker for WideLinePicker {
-  fn bounding_enlarge_tolerance(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IntersectTolerance>> {
+  fn is_applicable(&self, idx: EntityHandle<SceneModelEntity>) -> bool {
+    self.relation.get(idx).is_some()
+  }
+
+  fn tolerance(&self, idx: EntityHandle<SceneModelEntity>) -> Option<IntersectTolerance> {
     let line = self.relation.get(idx)?;
     let line_width = self.line_width.get_value(line)?;
-    let pick_line_tolerance = IntersectTolerance::new(line_width / 2., ToleranceType::ScreenSpace);
-    Some(Some(pick_line_tolerance))
+    Some(IntersectTolerance::new(
+      line_width / 2.,
+      ToleranceType::ScreenSpace,
+    ))
   }
 
-  fn ray_query_local_nearest(&self, request: LocalRayQueryRequest) -> Option<MeshBufferHitPoint> {
-    let LocalRayQueryRequest {
-      idx,
-      local_ray,
-      local_tolerance,
-      ..
-    } = request;
-    // todo extra_screen_space_tolerance
-    *self
-      .mesh_view(idx)?
-      .ray_intersect_nearest(local_ray, &local_tolerance)
-  }
-
-  fn ray_query_local_all(&self, request: LocalRayAllQueryRequest) -> Option<()> {
-    let LocalRayAllQueryRequest {
-      internal:
-        LocalRayQueryRequest {
-          idx,
-          local_ray,
-          local_tolerance,
-          ..
-        },
-      results,
-    } = request;
-    // todo extra_screen_space_tolerance
+  fn primitive_count(&self, idx: EntityHandle<SceneModelEntity>) -> u32 {
     self
-      .mesh_view(idx)?
-      .ray_intersect_all(local_ray, &local_tolerance, results);
-    Some(())
+      .mesh_view(idx)
+      .map(|view| view.primitive_count() as u32)
+      .unwrap_or(0)
   }
 
-  fn frustum_query_local(&self, request: LocalFrustumQueryRequest) -> Option<bool> {
-    let LocalFrustumQueryRequest {
-      idx,
-      local_frustum: f,
-      helper,
-      policy,
-      ..
-    } = request;
-    // todo extra_screen_space_tolerance
-    let r = frustum_test_abstract_mesh(&self.mesh_view(idx)?, policy, |line| {
-      frustum_test_line(line, policy, f, helper)
-    });
-
-    Some(r)
+  fn ray_query_local(&self, req: LocalRayQuery, v: &mut dyn LocalRayHitVisitor) -> ControlFlow<()> {
+    let Some(view) = self.mesh_view(req.idx) else {
+      return ControlFlow::Continue(());
+    };
+    let hits = view.ray_intersect_iter(req.local_ray, &req.local_tolerance);
+    visit_mesh_ray_hits(&req.local_ray, hits, |i| i as u32, v)
   }
 
-  fn frustum_query_local_sub_primitives(
+  fn frustum_query_local(
     &self,
-    request: LocalFrustumSubPrimitiveQueryRequest,
-  ) -> Option<()> {
-    let LocalFrustumSubPrimitiveQueryRequest {
-      internal:
-        LocalFrustumQueryRequest {
-          idx,
-          local_frustum: frustum,
-          helper,
-          policy,
-          ..
-        },
-      results,
-    } = request;
-    let view = self.mesh_view(idx)?;
-
-    for (i, line) in view.primitive_iter().enumerate() {
-      if frustum_test_line(line, policy, frustum, helper) {
-        results.push(i as u32);
-      }
-    }
-
-    Some(())
-  }
-}
-
-fn frustum_test_line(
-  line: LineSegment3D,
-  policy: ObjectTestPolicy,
-  f: &Frustum,
-  helper: Option<&FrustumIntersectionTestHelper<f32>>,
-) -> bool {
-  match policy {
-    ObjectTestPolicy::Intersect => frustum_intersect_line_segment(helper, f, line.start, line.end),
-    ObjectTestPolicy::Contains => f.contains(&line.start) && f.contains(&line.end),
+    req: LocalFrustumQuery,
+    v: &mut dyn FrustumPrimitiveVisitor,
+  ) -> ControlFlow<()> {
+    let Some(view) = self.mesh_view(req.idx) else {
+      return ControlFlow::Continue(());
+    };
+    // todo extra_screen_space_tolerance
+    visit_frustum_primitives(
+      view.primitive_iter(),
+      |line| frustum_test_line_segment(req.helper, req.local_frustum, line, req.policy),
+      v,
+    )
   }
 }
 
