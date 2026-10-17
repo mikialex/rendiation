@@ -238,7 +238,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     let text_picker = text_picker.unwrap();
     let cell_mesh_picker = cell_mesh_picker.unwrap();
 
-    let local_model_pickers: Vec<Box<dyn LocalModelPicker>> = vec![
+    let local_model_pickers: Vec<Box<dyn LocalModelPickerResolver>> = vec![
       Box::new(attribute_mesh_picker),
       Box::new(wide_line_picker),
       Box::new(wide_point_picker),
@@ -270,6 +270,7 @@ pub fn use_viewer_scene_model_picker_impl<Cx: DBHookCxLike>(
     let scene_model_picker = SceneModelPickerBaseImpl {
       internal: local_model_pickers,
       util: util.clone(),
+      scratch: Default::default(),
     };
 
     let scene_model_picker = TransformInstancedMeshPicker {

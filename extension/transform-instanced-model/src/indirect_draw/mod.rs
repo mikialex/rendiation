@@ -1,4 +1,4 @@
-use std::{any::TypeId, hash::Hash};
+use std::{alloc::Allocator, any::TypeId, hash::Hash};
 
 use fast_hash_collection::fast_hash_scope;
 use rendiation_scene_batch_extractor::SceneModelGroupKey;
@@ -161,52 +161,70 @@ pub struct TransformInstancedModelIndirectRenderer<T> {
   pub base: TransformInstancedModelIndirectRendererBase,
 }
 
-impl<T: DrawCommandBuilderCreator> DrawCommandBuilderCreator
-  for TransformInstancedModelIndirectRenderer<T>
-{
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    let instance_model = self.base.instance_model.get(id)?;
-    let source_model = self.base.source_model.get(instance_model)?;
-
+impl<T: IndirectModelRendererResolver> TransformInstancedModelIndirectRenderer<T> {
+  fn resolve_instance<'a>(
+    &'a self,
+    instance_model: EntityHandle<TransformInstancedModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    let source_model = self
+      .base
+      .source_model
+      .get(instance_model)
+      .ok_or(err("instance source model"))?;
     let internal = self
       .internal
-      .make_draw_command_builder(source_model.into_raw())?;
+      .resolve(source_model, alloc)
+      .ok_or(err("no source model impl"))??;
 
-    let internal = match internal {
-      DrawCommandBuilder::Indexed { .. } => assert_none_indexed(),
-      DrawCommandBuilder::NoneIndexed(r) => r,
+    let resolved = ResolvedTransformInstancedModelIndirectRenderer {
+      base: &self.base,
+      source_model,
+      internal,
     };
-
-    Some(DrawCommandBuilder::NoneIndexed(Box::new(
-      InstanceDrawCommandBuilder {
-        internal,
-        instance_meta: self.base.instance_meta.clone(),
-        model_to_instance_host: self.base.instance_model.clone(),
-        source_model_host: self.base.source_model.clone(),
-        model_to_instance: self.base.model_to_instance.clone(),
-        instance_meta_host: self.base.instance_meta_host.clone(),
-      },
-    )))
+    Ok(Box::new_in(resolved, alloc))
   }
 }
 
-impl<T: IndirectDrawProviderCreator + DrawCommandBuilderCreator> IndirectDrawProviderCreator
+impl<T: IndirectModelRendererResolver> IndirectModelRendererResolver
   for TransformInstancedModelIndirectRenderer<T>
 {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    let instance_model = self.base.instance_model.get(id)?;
-    let source_model = self.base.source_model.get(instance_model)?;
-    let source_hash = self
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError>> {
+    let instance_model = self.base.instance_model.get(idx)?;
+    Some(self.resolve_instance(instance_model, alloc))
+  }
+}
+
+struct ResolvedTransformInstancedModelIndirectRenderer<'a> {
+  base: &'a TransformInstancedModelIndirectRendererBase,
+  source_model: EntityHandle<SceneModelEntity>,
+  internal: ResolvedIndirectModelRendererBox<'a>,
+}
+
+impl ResolvedIndirectModelRenderer for ResolvedTransformInstancedModelIndirectRenderer<'_> {
+  fn resolver_type_id(&self) -> TypeId {
+    TypeId::of::<TransformInstancedModelIndirectRenderer<()>>()
+  }
+
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher) {
+    self
       .internal
-      .get_impl_distinguish_key_by_impl_select_id(source_model.into_raw())?;
+      .hash_shader_group_key_with_self_type_info(hasher);
+    self.base.assert_base_model_count(self.source_model);
+  }
+
+  fn impl_distinguish_key(&self) -> u64 {
+    let source_hash = self.internal.impl_distinguish_key();
     fast_hash_scope(|hasher| {
-      TypeId::of::<TransformInstancedModelIndirectRenderer<()>>().hash(hasher);
-      source_model.hash(hasher);
+      self.resolver_type_id().hash(hasher);
+      self.source_model.hash(hasher);
       source_hash.hash(hasher);
     })
-    .into()
   }
 
   fn use_create_or_update_indirect_draw_providers(
@@ -214,86 +232,61 @@ impl<T: IndirectDrawProviderCreator + DrawCommandBuilderCreator> IndirectDrawPro
     cx: &mut rendiation_device_parallel_compute::DeviceParallelComputeCtx,
     list: &DeviceDrawList,
     dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    let cmd_builder = self.make_draw_command_builder(id)?;
-    use_and_create_default_indirect_draw_provider(
+  ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError> {
+    Ok(use_and_create_default_indirect_draw_provider(
       list,
       dispatch_info_device_offset_compacted,
-      cmd_builder,
+      self.make_draw_command_builder()?,
       cx,
       self.base.used_in_midc_downgrade,
-    )
-    .into()
-  }
-}
-
-impl<T> IndirectModelRenderImpl for TransformInstancedModelIndirectRenderer<T>
-where
-  T: IndirectModelRenderImpl + 'static,
-{
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<SceneModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    let instance_model = self.base.instance_model.get(any_id)?;
-    let source_model = self.base.source_model.get(instance_model)?;
-    self.internal.hash_shader_group_key(source_model, hasher)?;
-    self.base.assert_base_model_count(source_model);
-    hasher.hash_type::<TransformInstancedModelIndirectRenderer<()>>();
-    Some(())
+    ))
   }
 
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    let instance_model = self.base.instance_model.get(any_idx)?;
-    let _ = self.base.source_model.get(instance_model)?;
-    // as we force use draw array, return none in any case
-    Some(None)
+  fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError> {
+    let internal = match self.internal.make_draw_command_builder()? {
+      DrawCommandBuilder::Indexed { .. } => assert_none_indexed(),
+      DrawCommandBuilder::NoneIndexed(r) => r,
+    };
+
+    let base = self.base;
+    Ok(DrawCommandBuilder::NoneIndexed(Box::new(
+      InstanceDrawCommandBuilder {
+        internal,
+        instance_meta: base.instance_meta.clone(),
+        model_to_instance_host: base.instance_model.clone(),
+        source_model_host: base.source_model.clone(),
+        model_to_instance: base.model_to_instance.clone(),
+        instance_meta_host: base.instance_meta_host.clone(),
+      },
+    )))
   }
 
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
-  }
-
-  fn model_info_injector(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    let instance_model = self.base.instance_model.get(any_idx)?;
-    let source_model = self.base.source_model.get(instance_model)?;
-    let internal = self.internal.model_info_injector(source_model)?;
-
-    Some(Box::new(Override {
+  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_> {
+    Box::new(Override {
       instance_buffer: self.base.instance_buffer.clone(),
       instance_meta: self.base.instance_meta.clone(),
       model_to_instance: self.base.model_to_instance.clone(),
-      internal,
-    }))
+      internal: self.internal.model_info_injector(),
+    })
   }
 
   fn shape_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    let instance_model = self.base.instance_model.get(any_idx)?;
-    let source_model = self.base.source_model.get(instance_model)?;
-    self.internal.shape_renderable_indirect(source_model, cx)
+  ) -> Box<dyn RenderComponent + 'a> {
+    self.internal.shape_renderable_indirect(cx)
+  }
+
+  fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
+    // as we force use draw array, return none in any case
+    None
   }
 
   fn material_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    let instance_model = self.base.instance_model.get(any_idx)?;
-    let source_model = self.base.source_model.get(instance_model)?;
-
-    self.internal.material_renderable_indirect(source_model, cx)
+  ) -> Box<dyn RenderComponent + 'a> {
+    self.internal.material_renderable_indirect(cx)
   }
 }
 

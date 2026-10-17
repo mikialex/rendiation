@@ -2,310 +2,122 @@ use std::sync::Arc;
 
 use crate::*;
 
-pub trait IndirectModelRenderImpl: IndirectDrawProviderCreator + DrawCommandBuilderCreator {
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<SceneModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()>;
-  fn hash_shader_group_key_with_self_type_info(
-    &self,
-    any_id: EntityHandle<SceneModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    self.hash_shader_group_key(any_id, hasher).map(|_| {
-      hasher.hash(self.as_any().type_id());
-    })
-  }
+pub type ResolvedIndirectModelRendererBox<'a> =
+  Box<dyn ResolvedIndirectModelRenderer + 'a, &'a dyn Allocator>;
 
-  fn as_any(&self) -> &dyn Any;
-
-  /// This component impl often provide id inject logic, is not necessary the implementation is still
-  /// required to return Some(Box::new(())) as the return value.
-  fn model_info_injector(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>>;
-
-  fn shape_renderable_indirect<'a>(
+/// Resolve the indirect renderer of a scene model for one kind of model (std model, wide line,
+/// text, ...).
+///
+/// A list of resolvers is also a resolver, it selects the first one responsible for the model.
+pub trait IndirectModelRendererResolver {
+  /// Return None if this resolver is not responsible for the model. The responsibility is decided
+  /// by the kind of the model only, so the resolvers are mutually exclusive. Once selected,
+  /// missing or invalid data is reported as error instead of falling back to other resolvers.
+  fn resolve<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
-    cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>>;
-
-  /// see [IndirectModelShapeRenderImpl::get_index_storage_buffer]
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>>;
-
-  fn material_renderable_indirect<'a>(
-    &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
-    cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>>;
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError>>;
 }
 
-impl IndirectDrawProviderCreator for Vec<Box<dyn IndirectModelRenderImpl>> {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    for provider in self {
-      if let Some(v) = provider.get_impl_distinguish_key_by_impl_select_id(id) {
-        return Some(v);
-      }
-    }
-    None
+impl IndirectModelRendererResolver for [Box<dyn IndirectModelRendererResolver>] {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError>> {
+    self
+      .iter()
+      .find_map(|resolver| resolver.resolve(idx, alloc))
+  }
+}
+
+impl IndirectModelRendererResolver for Vec<Box<dyn IndirectModelRendererResolver>> {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError>> {
+    self.as_slice().resolve(idx, alloc)
+  }
+}
+
+impl<T: IndirectModelRendererResolver + ?Sized> IndirectModelRendererResolver for Box<T> {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError>> {
+    (**self).resolve(idx, alloc)
+  }
+}
+
+impl<T: IndirectModelRendererResolver + ?Sized> IndirectModelRendererResolver for Arc<T> {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError>> {
+    (**self).resolve(idx, alloc)
+  }
+}
+
+/// The indirect renderer resolved for one scene model.
+pub trait ResolvedIndirectModelRenderer {
+  /// The type id of the resolver, it is hashed into the shader group key to make sure different
+  /// impls never produce the same group key.
+  fn resolver_type_id(&self) -> TypeId;
+
+  /// see [IndirectBatchSceneModelRenderer::hash_shader_group_key]
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher);
+  fn hash_shader_group_key_with_self_type_info(&self, hasher: &mut PipelineHasher) {
+    self.hash_shader_group_key(hasher);
+    hasher.hash(self.resolver_type_id());
   }
 
+  /// The sub lists whose impl select models have the same impl distinguish key are merged and
+  /// share the draw providers created by
+  /// [ResolvedIndirectModelRenderer::use_create_or_update_indirect_draw_providers].
+  ///
+  /// The key must contain the type identity of the impl (for example by hashing
+  /// [ResolvedIndirectModelRenderer::resolver_type_id]), because the hook states of the draw
+  /// providers are isolated only by the scope keyed by this key.
+  fn impl_distinguish_key(&self) -> u64;
+
+  /// This is a hook, it must be called in the scope keyed by the impl distinguish key. The sub
+  /// lists's impl select model's impl distinguish key must be all same as this model's.
   fn use_create_or_update_indirect_draw_providers(
     &self,
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
     dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    cx.next_scope_index();
-    for (i, provider) in self.iter().enumerate() {
-      if let Some(v) = cx.keyed_scope(&i, |cx| {
-        provider.use_create_or_update_indirect_draw_providers(
-          cx,
-          list,
-          dispatch_info_device_offset_compacted,
-          id,
-        )
-      }) {
-        return Some(v);
-      }
-    }
-    None
-  }
-}
+  ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError>;
 
-impl DrawCommandBuilderCreator for Vec<Box<dyn IndirectModelRenderImpl>> {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    for provider in self {
-      if let Some(v) = provider.make_draw_command_builder(id) {
-        return Some(v);
-      }
-    }
-    None
-  }
-}
+  fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError>;
 
-impl IndirectDrawProviderCreator for Box<dyn IndirectModelRenderImpl> {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    (**self).get_impl_distinguish_key_by_impl_select_id(id)
-  }
-
-  fn use_create_or_update_indirect_draw_providers(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-    list: &DeviceDrawList,
-    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    (**self).use_create_or_update_indirect_draw_providers(
-      cx,
-      list,
-      dispatch_info_device_offset_compacted,
-      id,
-    )
-  }
-}
-
-impl DrawCommandBuilderCreator for Box<dyn IndirectModelRenderImpl> {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    (**self).make_draw_command_builder(id)
-  }
-}
-
-impl IndirectModelRenderImpl for Box<dyn IndirectModelRenderImpl> {
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<SceneModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    (**self).hash_shader_group_key(any_id, hasher)
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-
-  fn model_info_injector(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    (**self).model_info_injector(any_idx)
-  }
+  /// This component impl often provide id inject logic, if it is not necessary, the
+  /// implementation is still required to return Box::new(()) as the return value.
+  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_>;
 
   fn shape_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    (**self).shape_renderable_indirect(any_idx, cx)
-  }
+  ) -> Box<dyn RenderComponent + 'a>;
 
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    (**self).get_index_storage_buffer(any_idx)
-  }
+  /// see [ResolvedIndirectModelShapeRenderer::get_index_storage_buffer]
+  fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo>;
 
   fn material_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    (**self).material_renderable_indirect(any_idx, cx)
-  }
-}
-
-impl<T: IndirectDrawProviderCreator> IndirectDrawProviderCreator for Arc<T> {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    (**self).get_impl_distinguish_key_by_impl_select_id(id)
-  }
-
-  fn use_create_or_update_indirect_draw_providers(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-    list: &DeviceDrawList,
-    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    (**self).use_create_or_update_indirect_draw_providers(
-      cx,
-      list,
-      dispatch_info_device_offset_compacted,
-      id,
-    )
-  }
-}
-
-impl<T: DrawCommandBuilderCreator> DrawCommandBuilderCreator for Arc<T> {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    (**self).make_draw_command_builder(id)
-  }
-}
-
-impl<T: IndirectModelRenderImpl + 'static> IndirectModelRenderImpl for Arc<T> {
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<SceneModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    (**self).hash_shader_group_key(any_id, hasher)
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-
-  fn model_info_injector(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    (**self).model_info_injector(any_idx)
-  }
-
-  fn shape_renderable_indirect<'a>(
-    &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
-    cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    (**self).shape_renderable_indirect(any_idx, cx)
-  }
-
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    (**self).get_index_storage_buffer(any_idx)
-  }
-
-  fn material_renderable_indirect<'a>(
-    &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
-    cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    (**self).material_renderable_indirect(any_idx, cx)
-  }
-}
-
-impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
-  fn model_info_injector(
-    &self,
-    any_id: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    for provider in self {
-      if let Some(v) = provider.model_info_injector(any_id) {
-        return Some(v);
-      }
-    }
-    None
-  }
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<SceneModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    for provider in self {
-      if let Some(v) = provider.hash_shader_group_key_with_self_type_info(any_id, hasher) {
-        return Some(v);
-      }
-    }
-    None
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-
-  fn shape_renderable_indirect<'a>(
-    &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
-    cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    for provider in self {
-      if let Some(v) = provider.shape_renderable_indirect(any_idx, cx) {
-        return Some(v);
-      }
-    }
-    None
-  }
-
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    for provider in self {
-      if let Some(v) = provider.get_index_storage_buffer(any_idx) {
-        return Some(v);
-      }
-    }
-    None
-  }
-
-  fn material_renderable_indirect<'a>(
-    &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
-    cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    for provider in self {
-      if let Some(v) = provider.material_renderable_indirect(any_idx, cx) {
-        return Some(v);
-      }
-    }
-    None
-  }
+  ) -> Box<dyn RenderComponent + 'a>;
 }
 
 pub fn use_std_model_renderer(
   cx: &mut QueryGPUHookCx,
-  materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
+  materials: Option<Box<dyn IndirectModelMaterialRendererResolver>>,
   material_key: UseResult<impl DataChanges<Key = u32, Value = u32> + 'static>,
-  shapes: Option<Box<dyn IndirectModelShapeRenderImpl>>,
+  shapes: Option<Box<dyn IndirectModelShapeRendererResolver>>,
   revere_z: bool,
 ) -> Option<SceneStdModelIndirectRenderer> {
   let sm_to_std_model_device = use_db_device_foreign_key::<SceneModelStdModelRenderPayload>(cx);
@@ -343,18 +155,71 @@ pub struct SceneStdModelIndirectRenderer {
   model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   std_model: AbstractReadonlyStorageBuffer<[SceneStdModelStorage]>,
   sm_to_std_model_device: AbstractReadonlyStorageBuffer<[u32]>,
-  materials: Box<dyn IndirectModelMaterialRenderImpl>,
-  shapes: Box<dyn IndirectModelShapeRenderImpl>,
+  materials: Box<dyn IndirectModelMaterialRendererResolver>,
+  shapes: Box<dyn IndirectModelShapeRendererResolver>,
   states: StateOverrides,
 }
 
-impl IndirectDrawProviderCreator for SceneStdModelIndirectRenderer {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    let model = self.model.get(id)?;
-    self
+impl SceneStdModelIndirectRenderer {
+  fn resolve_std_model<'a>(
+    &'a self,
+    model: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    let shape = self
       .shapes
-      .get_impl_distinguish_key_by_impl_select_id(model.into_raw())
+      .resolve(model, alloc)
+      .ok_or(err("no shape impl"))??;
+    let material = self
+      .materials
+      .resolve(model, alloc)
+      .ok_or(err("no material impl"))??;
+    let states = self.states.get_gpu(model).ok_or(err("state override"))?;
+
+    let resolved = ResolvedSceneStdModelIndirectRenderer {
+      renderer: self,
+      shape,
+      material,
+      states,
+    };
+    Ok(Box::new_in(resolved, alloc))
+  }
+}
+
+impl IndirectModelRendererResolver for SceneStdModelIndirectRenderer {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError>> {
+    let model = self.model.get(idx)?;
+    Some(self.resolve_std_model(model, alloc))
+  }
+}
+
+struct ResolvedSceneStdModelIndirectRenderer<'a> {
+  renderer: &'a SceneStdModelIndirectRenderer,
+  shape: ResolvedIndirectModelShapeRendererBox<'a>,
+  material: ResolvedIndirectModelMaterialRendererBox<'a>,
+  states: StateGPUImpl<'a>,
+}
+
+impl ResolvedIndirectModelRenderer for ResolvedSceneStdModelIndirectRenderer<'_> {
+  fn resolver_type_id(&self) -> TypeId {
+    TypeId::of::<SceneStdModelIndirectRenderer>()
+  }
+
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher) {
+    self
+      .material
+      .hash_shader_group_key_with_self_type_info(hasher);
+    self.shape.hash_shader_group_key_with_self_type_info(hasher);
+    self.states.hash_pipeline(hasher);
+  }
+
+  fn impl_distinguish_key(&self) -> u64 {
+    self.shape.impl_distinguish_key()
   }
 
   fn use_create_or_update_indirect_draw_providers(
@@ -362,55 +227,23 @@ impl IndirectDrawProviderCreator for SceneStdModelIndirectRenderer {
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
     dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    let model = self.model.get(id)?;
-    self.shapes.use_create_or_update_indirect_draw_providers(
+  ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError> {
+    self.shape.use_create_or_update_indirect_draw_providers(
       cx,
       list,
       dispatch_info_device_offset_compacted,
-      model.into_raw(),
     )
   }
-}
 
-impl DrawCommandBuilderCreator for SceneStdModelIndirectRenderer {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    let model = self.model.get(id)?;
-    self.shapes.make_draw_command_builder(model.into_raw())
-  }
-}
-
-impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<SceneModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    let model = self.model.get(any_id)?;
-    self
-      .materials
-      .hash_shader_group_key_with_self_type_info(model, hasher)?;
-    self
-      .shapes
-      .hash_shader_group_key_with_self_type_info(model, hasher)?;
-    self.states.get_gpu(model)?.hash_pipeline(hasher);
-    Some(())
-  }
-  fn as_any(&self) -> &dyn Any {
-    self
+  fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError> {
+    self.shape.make_draw_command_builder()
   }
 
-  fn model_info_injector(
-    &self,
-    sm: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_> {
     struct SceneStdModelIdInjector<'a> {
       std_model: AbstractReadonlyStorageBuffer<[SceneStdModelStorage]>,
       sm_to_std_model_device: AbstractReadonlyStorageBuffer<[u32]>,
-      states: StateGPUImpl<'a>,
+      states: &'a StateGPUImpl<'a>,
     }
 
     impl<'a> ShaderHashProvider for SceneStdModelIdInjector<'a> {
@@ -446,38 +279,29 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
       }
     }
 
-    let model = self.model.get(sm)?;
-    Some(Box::new(SceneStdModelIdInjector {
-      std_model: self.std_model.clone(),
-      states: self.states.get_gpu(model)?,
-      sm_to_std_model_device: self.sm_to_std_model_device.clone(),
-    }))
+    Box::new(SceneStdModelIdInjector {
+      std_model: self.renderer.std_model.clone(),
+      states: &self.states,
+      sm_to_std_model_device: self.renderer.sm_to_std_model_device.clone(),
+    })
   }
 
   fn shape_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    let model = self.model.get(any_idx)?;
-    self.shapes.make_component_indirect(model)
+  ) -> Box<dyn RenderComponent + 'a> {
+    self.shape.make_component_indirect()
+  }
+
+  fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
+    self.shape.get_index_storage_buffer()
   }
 
   fn material_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    let model = self.model.get(any_idx)?;
-    self.materials.make_component_indirect(model, cx)
-  }
-
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    let model_id = self.model.get(any_idx)?;
-    self.shapes.get_index_storage_buffer(model_id)
+  ) -> Box<dyn RenderComponent + 'a> {
+    self.material.make_component_indirect(cx)
   }
 }
 

@@ -64,36 +64,42 @@ pub struct GLESAttributesMeshRenderer {
   foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderRawVertexBuilder)>,
 }
 
-impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
-  // todo, if return None, the mesh is not error(unloaded). we should distinguish this case
-  fn make_component(
+impl GLESAttributesMeshRenderer {
+  fn create_component(
     &self,
-    idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
-    let mesh_id = self.mesh_access.get(idx)?;
+    mesh_id: EntityHandle<AttributesMeshEntity>,
+  ) -> Result<(Box<dyn RenderComponent + '_>, DrawCommand), SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
 
     let index = if self.index_ref.get(mesh_id).is_some() {
-      {
-        let index_buffer = self.index.access_ref(&mesh_id.into_raw())?;
-        let count = self.count.get_value(mesh_id).unwrap() as u64;
-        let stride = u64::from(index_buffer.view_byte_size()) / count;
-        let fmt = match stride {
-          4 => AttributeIndexFormat::Uint32,
-          2 => AttributeIndexFormat::Uint16,
-          _ => unreachable!("invalid index format, computed stride size {}", stride),
-        };
-        (fmt, count as u32, index_buffer).into()
-      }
+      let index_buffer = self
+        .index
+        .access_ref(&mesh_id.into_raw())
+        .ok_or(err("index buffer"))?;
+      let count = self.count.get_value(mesh_id).ok_or(err("index count"))? as u64;
+      let stride = u64::from(index_buffer.view_byte_size())
+        .checked_div(count)
+        .ok_or(err("index count"))?;
+      let fmt = match stride {
+        4 => AttributeIndexFormat::Uint32,
+        2 => AttributeIndexFormat::Uint16,
+        _ => return Err(err("index format")),
+      };
+      (fmt, count as u32, index_buffer).into()
     } else {
       None
     };
 
     for vertex_info_id in self.vertex.multi_access.access_multi_value(&mesh_id) {
-      self.vertex.vertex.access_ref(&vertex_info_id.into_raw())?;
+      self
+        .vertex
+        .vertex
+        .access_ref(&vertex_info_id.into_raw())
+        .ok_or(err("vertex buffer"))?;
     }
 
     let gpu = AttributesMeshGPU {
-      mode: self.mode.get_value(mesh_id)?,
+      mode: self.mode.get_value(mesh_id).ok_or(err("mesh topology"))?,
       index,
       mesh_id,
       vertex: &self.vertex,
@@ -102,7 +108,17 @@ impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
 
     let cmd = gpu.draw_command();
 
-    Some((Box::new(gpu), cmd))
+    Ok((Box::new(gpu), cmd))
+  }
+}
+
+impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
+  fn make_component(
+    &self,
+    idx: EntityHandle<StandardModelEntity>,
+  ) -> Option<Result<(Box<dyn RenderComponent + '_>, DrawCommand), SceneModelRenderDataError>> {
+    let mesh_id = self.mesh_access.get(idx)?;
+    Some(self.create_component(mesh_id))
   }
 }
 

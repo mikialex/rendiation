@@ -65,10 +65,6 @@ pub enum GLESPreferredComOrderRendererRenderError {
   NodeAccessFailed(EntityHandle<SceneModelEntity>),
   #[error("failed to get node renderer from node idx:{0}")]
   NodeGPUAccessFailed(EntityHandle<SceneNodeEntity>),
-  #[error("failed to get shape renderer from sm idx{0}")]
-  ShapeGPUAccessFailed(EntityHandle<SceneModelEntity>),
-  #[error("failed to get material renderer from sm idx{0}")]
-  MaterialGPUAccessFailed(EntityHandle<SceneModelEntity>),
 }
 impl From<GLESPreferredComOrderRendererRenderError> for UnableToRenderSceneModelError {
   fn from(value: GLESPreferredComOrderRendererRenderError) -> Self {
@@ -100,17 +96,14 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
 
     let camera = &camera as &dyn RenderComponent;
 
-    let (shape, draw) = self
+    let components = self
       .model_impl
-      .shape_renderable(idx, tex)
-      .ok_or(E::ShapeGPUAccessFailed(idx))?;
-    let shape = shape.as_ref();
-
-    let material = self
-      .model_impl
-      .material_renderable(idx, tex)
-      .ok_or(E::MaterialGPUAccessFailed(idx))?;
-    let material = material.as_ref();
+      .make_components(idx, tex)
+      .ok_or(UnableToRenderSceneModelError::UnableToFindImpl { model_id: idx })?
+      .map_err(|e| UnableToRenderSceneModelError::FoundImplButUnableToRender(Box::new(e)))?;
+    let shape = components.shape.as_ref();
+    let material = components.material.as_ref();
+    let draw = components.draw;
 
     let pass = pass as &dyn RenderComponent;
     let tex = &GPUTextureSystemAsRenderComponent(tex) as &dyn RenderComponent;

@@ -13,6 +13,7 @@ rendiation-scene-core = { path = "../core" }
 database = { path = "../../utility/database" }
 bytemuck = { workspace = true }
 log = { workspace = true }
+thiserror = { workspace = true }
 
 [lints]
 workspace = true

@@ -1,4 +1,4 @@
-use std::{any::Any, hash::Hash};
+use std::{alloc::Allocator, any::TypeId, hash::Hash};
 
 use fast_hash_collection::fast_hash_scope;
 use rendiation_scene_batch_extractor::SceneModelGroupKey;
@@ -164,17 +164,65 @@ struct WideLineVertexStorage {
   pub color: u32,
 }
 
-impl IndirectDrawProviderCreator for WideLineModelIndirectRenderer {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    let line = self.model_access.get(id)?;
-    let param = self.params_host.get(line.alloc_index())?;
-    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
-    fast_hash_scope(|hasher| {
-      self.type_id().hash(hasher);
-      use_native_line.hash(hasher)
+impl WideLineModelIndirectRenderer {
+  fn read_line(
+    &self,
+    line: EntityHandle<WideLineModelEntity>,
+  ) -> Result<ResolvedWideLineModelIndirectRenderer<'_>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    let param = self
+      .params_host
+      .get(line.alloc_index())
+      .ok_or(err("wide line parameters"))?;
+    Ok(ResolvedWideLineModelIndirectRenderer {
+      renderer: self,
+      enabled_depth: self
+        .states
+        .get_value(line)
+        .ok_or(err("wide line depth state"))?,
+      transparent: self
+        .transparent
+        .get_value(line)
+        .ok_or(err("wide line transparent"))?,
+      use_native_line: self.use_native_line_for_one_width_line && param.width == 1.0,
     })
-    .into()
+  }
+}
+
+impl IndirectModelRendererResolver for WideLineModelIndirectRenderer {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError>> {
+    let line = self.model_access.get(idx)?;
+    Some(self.read_line(line).map(|r| Box::new_in(r, alloc) as _))
+  }
+}
+
+struct ResolvedWideLineModelIndirectRenderer<'a> {
+  renderer: &'a WideLineModelIndirectRenderer,
+  enabled_depth: bool,
+  transparent: bool,
+  use_native_line: bool,
+}
+
+impl ResolvedIndirectModelRenderer for ResolvedWideLineModelIndirectRenderer<'_> {
+  fn resolver_type_id(&self) -> TypeId {
+    TypeId::of::<WideLineModelIndirectRenderer>()
+  }
+
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.enabled_depth);
+    hasher.hash(self.use_native_line);
+    hasher.hash(self.transparent);
+  }
+
+  fn impl_distinguish_key(&self) -> u64 {
+    fast_hash_scope(|hasher| {
+      self.resolver_type_id().hash(hasher);
+      self.use_native_line.hash(hasher)
+    })
   }
 
   fn use_create_or_update_indirect_draw_providers(
@@ -182,101 +230,57 @@ impl IndirectDrawProviderCreator for WideLineModelIndirectRenderer {
     cx: &mut rendiation_device_parallel_compute::DeviceParallelComputeCtx,
     list: &DeviceDrawList,
     dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    let cmd_builder = self.make_draw_command_builder(id)?;
-    use_and_create_default_indirect_draw_provider(
+  ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError> {
+    Ok(use_and_create_default_indirect_draw_provider(
       list,
       dispatch_info_device_offset_compacted,
-      cmd_builder,
+      self.make_draw_command_builder()?,
       cx,
-      self.used_in_midc_downgrade,
-    )
-    .into()
+      self.renderer.used_in_midc_downgrade,
+    ))
   }
-}
 
-impl DrawCommandBuilderCreator for WideLineModelIndirectRenderer {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    let line = self.model_access.get(id)?;
-    let param = self.params_host.get(line.alloc_index())?;
-    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
+  fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError> {
+    let renderer = self.renderer;
     let creator = WideLineDrawCreator {
-      params: self.params.clone(),
-      params_host: self.params_host.clone(),
-      sm_to_wide_line_device: self.sm_to_wide_line_device.clone(),
-      sm_to_wide: self.model_access.clone(),
-      use_native_line,
+      params: renderer.params.clone(),
+      params_host: renderer.params_host.clone(),
+      sm_to_wide_line_device: renderer.sm_to_wide_line_device.clone(),
+      sm_to_wide: renderer.model_access.clone(),
+      use_native_line: self.use_native_line,
     };
-    DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
-  }
-}
-
-impl IndirectModelRenderImpl for WideLineModelIndirectRenderer {
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<SceneModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    let wide_line_id = self.model_access.get(any_id)?;
-    let depth_enabled = self.states.get_value(wide_line_id)?;
-    let param = self.params_host.get(wide_line_id.alloc_index())?;
-    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
-    hasher.hash(depth_enabled);
-    hasher.hash(use_native_line);
-    let transparent = self.transparent.get_value(wide_line_id)?;
-    hasher.hash(transparent);
-    Some(())
+    Ok(DrawCommandBuilder::NoneIndexed(Box::new(creator)))
   }
 
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
+  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_> {
+    Box::new(())
   }
 
-  fn model_info_injector(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    self.model_access.get(any_idx)?;
-    Some(Box::new(()))
-  }
-
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    self.model_access.get(any_idx)?;
-    Some(None)
+  fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
+    None
   }
 
   fn shape_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    let line = self.model_access.get(any_idx)?;
-    let param = self.params_host.get(line.alloc_index())?;
-    let use_native_line = self.use_native_line_for_one_width_line && param.width == 1.0;
-
-    Some(Box::new(WideLineIndirectDrawComponent {
-      segments: self.segments.clone(),
-      params: self.params.clone(),
-      sm_to_wide_line_device: self.sm_to_wide_line_device.clone(),
+  ) -> Box<dyn RenderComponent + 'a> {
+    let renderer = self.renderer;
+    Box::new(WideLineIndirectDrawComponent {
+      segments: renderer.segments.clone(),
+      params: renderer.params.clone(),
+      sm_to_wide_line_device: renderer.sm_to_wide_line_device.clone(),
       bind_state: Default::default(),
-      enabled_depth: self.states.get_value(line)?,
-      transparent: self.transparent.get_value(line)?,
-      use_native_line,
-    }))
+      enabled_depth: self.enabled_depth,
+      transparent: self.transparent,
+      use_native_line: self.use_native_line,
+    })
   }
 
   fn material_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    self.model_access.get(any_idx)?;
-    Some(Box::new(()))
+  ) -> Box<dyn RenderComponent + 'a> {
+    Box::new(())
   }
 }
 

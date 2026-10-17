@@ -62,25 +62,43 @@ pub struct PbrMRMaterialGlesRenderer {
   normal_tex_sampler: TextureSamplerIdView<NormalTexSamplerOf<PbrMRMaterialNormalInfo>>,
 }
 
+impl PbrMRMaterialGlesRenderer {
+  fn create_component<'a>(
+    &'a self,
+    idx: EntityHandle<PbrMRMaterialEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    Ok(Box::new(PhysicalMetallicRoughnessMaterialGPU {
+      uniform: self
+        .uniforms
+        .get(&idx.alloc_index())
+        .ok_or(err("pbr mr material uniform"))?,
+      alpha_mode: self
+        .alpha_mode
+        .get_value(idx)
+        .ok_or(err("pbr mr material alpha mode"))?,
+      base_color_alpha_tex_sampler: self.base_color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      mr_tex_sampler: self.mr_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      texture_uniforms: self
+        .tex_uniforms
+        .get(&idx.alloc_index())
+        .ok_or(err("pbr mr material texture uniform"))?,
+      binding_sys: cx,
+    }))
+  }
+}
+
 impl GLESModelMaterialRenderImpl for PbrMRMaterialGlesRenderer {
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
+  ) -> Option<Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError>> {
     let idx = self.material_access.get(idx)?;
-    let r = PhysicalMetallicRoughnessMaterialGPU {
-      uniform: self.uniforms.get(&idx.alloc_index())?,
-      alpha_mode: self.alpha_mode.get_value(idx)?,
-      base_color_alpha_tex_sampler: self.base_color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      mr_tex_sampler: self.mr_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      texture_uniforms: self.tex_uniforms.get(&idx.alloc_index())?,
-      binding_sys: cx,
-    };
-    let r = Box::new(r) as Box<dyn RenderComponent + '_>;
-    Some(r)
+    Some(self.create_component(idx, cx))
   }
 }
 

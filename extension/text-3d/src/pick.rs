@@ -1,4 +1,4 @@
-use std::ops::ControlFlow;
+use std::{alloc::Allocator, ops::ControlFlow};
 
 use rendiation_geometry::Triangle;
 use rendiation_geometry::*;
@@ -29,56 +29,69 @@ pub struct TextPicker {
 }
 
 impl TextPicker {
-  fn mesh_view(&self, idx: EntityHandle<SceneModelEntity>) -> Option<TextPickView> {
-    let text = self.relation.get(idx)?;
-    let buffer = self.text.access(text.raw_handle_ref())?;
-    let mat = *self.mat.get(text)?;
-
-    Some(TextPickView { buffer, mat })
+  fn read_view(
+    &self,
+    text: EntityHandle<Text3dEntity>,
+  ) -> Result<TextPickView, LocalModelPickDataError> {
+    let err = LocalModelPickDataError;
+    let buffer = self
+      .text
+      .access(text.raw_handle_ref())
+      .ok_or(err("text layout buffer"))?;
+    let mat = *self.mat.get(text).ok_or(err("text local transform"))?;
+    Ok(TextPickView { buffer, mat })
   }
 }
 
-impl LocalModelPicker for TextPicker {
-  fn is_applicable(&self, idx: EntityHandle<SceneModelEntity>) -> bool {
-    self.relation.get(idx).is_some()
+impl LocalModelPickerResolver for TextPicker {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedLocalModelPickerBox<'a>, LocalModelPickDataError>> {
+    let text = self.relation.get(idx)?;
+    let view = self.read_view(text);
+    Some(view.map(|view| Box::new_in(view, alloc) as _))
   }
+}
 
-  fn tolerance(&self, _: EntityHandle<SceneModelEntity>) -> Option<IntersectTolerance> {
+impl ResolvedLocalModelPicker for TextPickView {
+  fn tolerance(&self) -> Option<IntersectTolerance> {
     None
   }
 
-  fn primitive_count(&self, idx: EntityHandle<SceneModelEntity>) -> u32 {
-    self
-      .mesh_view(idx)
-      .map(|view| view.buffer.hit_boxes.len() as u32)
-      .unwrap_or(0)
+  fn primitive_count(&self) -> Result<u32, LocalModelPickDataError> {
+    Ok(self.buffer.hit_boxes.len() as u32)
   }
 
-  fn ray_query_local(&self, req: LocalRayQuery, v: &mut dyn LocalRayHitVisitor) -> ControlFlow<()> {
-    let Some(view) = self.mesh_view(req.idx) else {
-      return ControlFlow::Continue(());
-    };
+  fn ray_query_local(
+    &self,
+    req: LocalRayQuery,
+    v: &mut dyn LocalRayHitVisitor,
+  ) -> Result<ControlFlow<()>, LocalModelPickDataError> {
     // todo extra_screen_space_tolerance
-    let hits = view.ray_intersect_iter(req.local_ray, &FaceSide::Double);
-    visit_mesh_ray_hits(&req.local_ray, hits, |i| (i / 2) as u32, v)
+    let hits = self.ray_intersect_iter(req.local_ray, &FaceSide::Double);
+    Ok(visit_mesh_ray_hits(
+      &req.local_ray,
+      hits,
+      |i| (i / 2) as u32,
+      v,
+    ))
   }
 
   fn frustum_query_local(
     &self,
     req: LocalFrustumQuery,
     v: &mut dyn FrustumPrimitiveVisitor,
-  ) -> ControlFlow<()> {
-    let Some(view) = self.mesh_view(req.idx) else {
-      return ControlFlow::Continue(());
-    };
+  ) -> Result<ControlFlow<()>, LocalModelPickDataError> {
     // todo extra_screen_space_tolerance
-    visit_frustum_quads(
-      view.primitive_iter(),
+    Ok(visit_frustum_quads(
+      self.primitive_iter(),
       req.policy,
       req.helper,
       req.local_frustum,
       v,
-    )
+    ))
   }
 }
 

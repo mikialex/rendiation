@@ -8,126 +8,75 @@ pub struct IndicesBufferInfo {
   pub should_access_as_u16: bool,
 }
 
-pub trait IndirectModelShapeRenderImpl:
-  IndirectDrawProviderCreator + DrawCommandBuilderCreator
-{
-  fn make_component_indirect(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>>;
+pub type ResolvedIndirectModelShapeRendererBox<'a> =
+  Box<dyn ResolvedIndirectModelShapeRenderer + 'a, &'a dyn Allocator>;
 
-  /// If the indirect shape implementation using index buffer, then it's buffer must also has
-  /// storage usage and can be accessed here. This api is to expose the ability to convert the
-  /// draw index call into draw array in some case.
-  ///
-  /// Return None if the id not matched
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>>;
-
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()>;
-  fn hash_shader_group_key_with_self_type_info(
-    &self,
-    any_id: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    self.hash_shader_group_key(any_id, hasher).map(|_| {
-      hasher.hash(self.as_any().type_id());
-    })
-  }
-
-  fn as_any(&self) -> &dyn Any;
+/// Resolve the indirect shape renderer of a standard model for one kind of shape (attribute
+/// mesh, cell mesh, ...).
+///
+/// A list of resolvers is also a resolver, it selects the first one responsible for the model.
+pub trait IndirectModelShapeRendererResolver {
+  /// see [IndirectModelRendererResolver::resolve]
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelShapeRendererBox<'a>, SceneModelRenderDataError>>;
 }
 
-impl IndirectDrawProviderCreator for Vec<Box<dyn IndirectModelShapeRenderImpl>> {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    for provider in self {
-      if let Some(v) = provider.get_impl_distinguish_key_by_impl_select_id(id) {
-        return Some(v);
-      }
-    }
-    None
+impl IndirectModelShapeRendererResolver for [Box<dyn IndirectModelShapeRendererResolver>] {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelShapeRendererBox<'a>, SceneModelRenderDataError>> {
+    self
+      .iter()
+      .find_map(|resolver| resolver.resolve(idx, alloc))
+  }
+}
+
+impl IndirectModelShapeRendererResolver for Vec<Box<dyn IndirectModelShapeRendererResolver>> {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelShapeRendererBox<'a>, SceneModelRenderDataError>> {
+    self.as_slice().resolve(idx, alloc)
+  }
+}
+
+/// The indirect shape renderer resolved for one standard model.
+pub trait ResolvedIndirectModelShapeRenderer {
+  /// see [ResolvedIndirectModelRenderer::resolver_type_id]
+  fn resolver_type_id(&self) -> TypeId;
+
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher);
+  fn hash_shader_group_key_with_self_type_info(&self, hasher: &mut PipelineHasher) {
+    self.hash_shader_group_key(hasher);
+    hasher.hash(self.resolver_type_id());
   }
 
+  /// see [ResolvedIndirectModelRenderer::impl_distinguish_key], the key must contain the type
+  /// identity of the impl.
+  fn impl_distinguish_key(&self) -> u64;
+
+  /// see [ResolvedIndirectModelRenderer::use_create_or_update_indirect_draw_providers]
   fn use_create_or_update_indirect_draw_providers(
     &self,
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
     dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    cx.next_scope_index();
-    for (i, provider) in self.iter().enumerate() {
-      if let Some(v) = cx.keyed_scope(&i, |cx| {
-        provider.use_create_or_update_indirect_draw_providers(
-          cx,
-          list,
-          dispatch_info_device_offset_compacted,
-          id,
-        )
-      }) {
-        return Some(v);
-      }
-    }
-    None
-  }
-}
+  ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError>;
 
-impl DrawCommandBuilderCreator for Vec<Box<dyn IndirectModelShapeRenderImpl>> {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    for provider in self {
-      if let Some(v) = provider.make_draw_command_builder(id) {
-        return Some(v);
-      }
-    }
-    None
-  }
-}
+  fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError>;
 
-impl IndirectModelShapeRenderImpl for Vec<Box<dyn IndirectModelShapeRenderImpl>> {
-  fn make_component_indirect(
-    &self,
-    idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    for provider in self {
-      if let Some(com) = provider.make_component_indirect(idx) {
-        return Some(com);
-      }
-    }
-    None
-  }
+  fn make_component_indirect(&self) -> Box<dyn RenderComponent + '_>;
 
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    for provider in self {
-      if let Some(v) = provider.hash_shader_group_key_with_self_type_info(any_id, hasher) {
-        return Some(v);
-      }
-    }
-    None
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    for provider in self {
-      if let Some(v) = provider.get_index_storage_buffer(any_idx) {
-        return Some(v);
-      }
-    }
-    None
-  }
+  /// If the indirect shape implementation using index buffer, then it's buffer must also has
+  /// storage usage and can be accessed here. This api is to expose the ability to convert the
+  /// draw index call into draw array in some case.
+  ///
+  /// Return None if the shape is not indexed
+  fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo>;
 }

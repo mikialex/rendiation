@@ -40,20 +40,40 @@ pub struct UnlitMaterialGlesRender {
   alpha_mode: ComponentReadView<AlphaModeOf<UnlitMaterialAlphaConfig>>,
 }
 
+impl UnlitMaterialGlesRender {
+  fn create_component<'a>(
+    &'a self,
+    idx: EntityHandle<UnlitMaterialEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    Ok(Box::new(UnlitMaterialGPU {
+      uniform: self
+        .uniforms
+        .get(&idx.alloc_index())
+        .ok_or(err("unlit material uniform"))?,
+      alpha_mode: self
+        .alpha_mode
+        .get_value(idx)
+        .ok_or(err("unlit material alpha mode"))?,
+      binding_sys: cx,
+      tex_uniform: self
+        .texture_uniforms
+        .get(&idx.alloc_index())
+        .ok_or(err("unlit material texture uniform"))?,
+      color_alpha_tex_sampler: self.color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+    }))
+  }
+}
+
 impl GLESModelMaterialRenderImpl for UnlitMaterialGlesRender {
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
+  ) -> Option<Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError>> {
     let idx = self.material_access.get(idx)?;
-    Some(Box::new(UnlitMaterialGPU {
-      uniform: self.uniforms.get(&idx.alloc_index())?,
-      alpha_mode: self.alpha_mode.get_value(idx)?,
-      binding_sys: cx,
-      tex_uniform: self.texture_uniforms.get(&idx.alloc_index())?,
-      color_alpha_tex_sampler: self.color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-    }))
+    Some(self.create_component(idx, cx))
   }
 }
 

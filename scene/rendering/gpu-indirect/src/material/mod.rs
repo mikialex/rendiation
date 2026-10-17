@@ -95,55 +95,56 @@ pub fn use_tex_watcher_with_host<T, TexStorage>(
     .update_storage_array_with_host(cx, storage, offset + sam_offset);
 }
 
-pub trait IndirectModelMaterialRenderImpl: Any {
-  fn make_component_indirect<'a>(
+pub type ResolvedIndirectModelMaterialRendererBox<'a> =
+  Box<dyn ResolvedIndirectModelMaterialRenderer + 'a, &'a dyn Allocator>;
+
+/// Resolve the indirect material renderer of a standard model for one kind of material.
+///
+/// A list of resolvers is also a resolver, it selects the first one responsible for the model.
+pub trait IndirectModelMaterialRendererResolver {
+  /// see [IndirectModelRendererResolver::resolve]
+  fn resolve<'a>(
     &'a self,
-    any_idx: EntityHandle<StandardModelEntity>,
-    cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>>;
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()>;
-  fn as_any(&self) -> &dyn Any;
-  fn hash_shader_group_key_with_self_type_info(
-    &self,
-    any_id: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    self.hash_shader_group_key(any_id, hasher).map(|_| {
-      hasher.hash(self.as_any().type_id());
-    })
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelMaterialRendererBox<'a>, SceneModelRenderDataError>>;
+}
+
+impl IndirectModelMaterialRendererResolver for [Box<dyn IndirectModelMaterialRendererResolver>] {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelMaterialRendererBox<'a>, SceneModelRenderDataError>> {
+    self
+      .iter()
+      .find_map(|resolver| resolver.resolve(idx, alloc))
   }
 }
 
-impl IndirectModelMaterialRenderImpl for Vec<Box<dyn IndirectModelMaterialRenderImpl>> {
+impl IndirectModelMaterialRendererResolver for Vec<Box<dyn IndirectModelMaterialRendererResolver>> {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelMaterialRendererBox<'a>, SceneModelRenderDataError>> {
+    self.as_slice().resolve(idx, alloc)
+  }
+}
+
+/// The indirect material renderer resolved for one standard model.
+pub trait ResolvedIndirectModelMaterialRenderer {
+  /// see [ResolvedIndirectModelRenderer::resolver_type_id]
+  fn resolver_type_id(&self) -> TypeId;
+
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher);
+  fn hash_shader_group_key_with_self_type_info(&self, hasher: &mut PipelineHasher) {
+    self.hash_shader_group_key(hasher);
+    hasher.hash(self.resolver_type_id());
+  }
+
   fn make_component_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    for provider in self {
-      if let Some(com) = provider.make_component_indirect(any_idx, cx) {
-        return Some(com);
-      }
-    }
-    None
-  }
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    for provider in self {
-      if let Some(v) = provider.hash_shader_group_key_with_self_type_info(any_id, hasher) {
-        return Some(v);
-      }
-    }
-    None
-  }
+  ) -> Box<dyn RenderComponent + 'a>;
 }

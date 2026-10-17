@@ -64,33 +64,57 @@ pub struct PbrMRMaterialIndirectRenderer {
   alpha_mode: ComponentReadView<AlphaModeOf<PbrMRMaterialAlphaConfig>>,
 }
 
-impl IndirectModelMaterialRenderImpl for PbrMRMaterialIndirectRenderer {
+impl PbrMRMaterialIndirectRenderer {
+  fn read_material(
+    &self,
+    idx: EntityHandle<PbrMRMaterialEntity>,
+  ) -> Result<ResolvedPbrMRMaterialIndirectRenderer<'_>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    Ok(ResolvedPbrMRMaterialIndirectRenderer {
+      renderer: self,
+      alpha_mode: self
+        .alpha_mode
+        .get_value(idx)
+        .ok_or(err("pbr mr material alpha mode"))?,
+    })
+  }
+}
+
+impl IndirectModelMaterialRendererResolver for PbrMRMaterialIndirectRenderer {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelMaterialRendererBox<'a>, SceneModelRenderDataError>> {
+    let idx = self.material_access.get(idx)?;
+    Some(self.read_material(idx).map(|r| Box::new_in(r, alloc) as _))
+  }
+}
+
+struct ResolvedPbrMRMaterialIndirectRenderer<'a> {
+  renderer: &'a PbrMRMaterialIndirectRenderer,
+  alpha_mode: AlphaMode,
+}
+
+impl ResolvedIndirectModelMaterialRenderer for ResolvedPbrMRMaterialIndirectRenderer<'_> {
+  fn resolver_type_id(&self) -> TypeId {
+    TypeId::of::<PbrMRMaterialIndirectRenderer>()
+  }
+
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.alpha_mode);
+  }
+
   fn make_component_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    let idx = self.material_access.get(any_idx)?;
-    let r = PhysicalMetallicRoughnessMaterialIndirectGPU {
-      storage: &self.storages,
-      alpha_mode: self.alpha_mode.get_value(idx)?,
-      texture_storages: &self.tex_storages,
+  ) -> Box<dyn RenderComponent + 'a> {
+    Box::new(PhysicalMetallicRoughnessMaterialIndirectGPU {
+      storage: &self.renderer.storages,
+      alpha_mode: self.alpha_mode,
+      texture_storages: &self.renderer.tex_storages,
       binding_sys: cx,
-    };
-    let r = Box::new(r) as Box<dyn RenderComponent + '_>;
-    Some(r)
-  }
-  fn hash_shader_group_key(
-    &self,
-    idx: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    let idx = self.material_access.get(idx)?;
-    hasher.hash(self.alpha_mode.get_value(idx)?);
-    Some(())
-  }
-  fn as_any(&self) -> &dyn Any {
-    self
+    })
   }
 }
 

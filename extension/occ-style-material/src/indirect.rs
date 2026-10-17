@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{alloc::Allocator, any::TypeId};
 
 use rendiation_scene_batch_extractor::*;
 use rendiation_scene_rendering_gpu_indirect::*;
@@ -95,42 +95,70 @@ pub struct OccStyleMaterialIndirectRenderer {
   reverse_z: bool,
 }
 
-impl IndirectModelMaterialRenderImpl for OccStyleMaterialIndirectRenderer {
+impl OccStyleMaterialIndirectRenderer {
+  fn read_material(
+    &self,
+    m: EntityHandle<OccStyleMaterialEntity>,
+  ) -> Result<ResolvedOccStyleMaterialIndirectRenderer<'_>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    let effect = self
+      .effect_access
+      .get(m)
+      .ok_or(err("occ style material effect"))?;
+    Ok(ResolvedOccStyleMaterialIndirectRenderer {
+      renderer: self,
+      shade_type: self
+        .shade_type
+        .get_value(effect)
+        .ok_or(err("occ style material shade type"))?,
+      states: self
+        .states
+        .get(effect)
+        .ok_or(err("occ style material states"))?,
+    })
+  }
+}
+
+impl IndirectModelMaterialRendererResolver for OccStyleMaterialIndirectRenderer {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelMaterialRendererBox<'a>, SceneModelRenderDataError>> {
+    let m = self.material_access.get(idx)?;
+    Some(self.read_material(m).map(|r| Box::new_in(r, alloc) as _))
+  }
+}
+
+struct ResolvedOccStyleMaterialIndirectRenderer<'a> {
+  renderer: &'a OccStyleMaterialIndirectRenderer,
+  shade_type: OccStyleEffectType,
+  states: &'a Option<RasterizationStates>,
+}
+
+impl ResolvedIndirectModelMaterialRenderer for ResolvedOccStyleMaterialIndirectRenderer<'_> {
+  fn resolver_type_id(&self) -> TypeId {
+    TypeId::of::<OccStyleMaterialIndirectRenderer>()
+  }
+
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.shade_type);
+    hasher.hash(self.states);
+  }
+
   fn make_component_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    let m = self.material_access.get(any_idx)?;
-    let effect = self.effect_access.get(m)?;
-    let shade_type = self.shade_type.get_value(effect)?;
-    let states = self.states.get(effect)?;
-    Some(Box::new(OccStyleMaterialStorageGPU {
-      buffer: self.storages.clone(),
-      texture_handles: self.texture_handles.clone(),
+  ) -> Box<dyn RenderComponent + 'a> {
+    let renderer = self.renderer;
+    Box::new(OccStyleMaterialStorageGPU {
+      buffer: renderer.storages.clone(),
+      texture_handles: renderer.texture_handles.clone(),
       binding_sys: cx,
-      states,
-      shade_type,
-      reverse_z: self.reverse_z,
-    }))
-  }
-
-  fn hash_shader_group_key(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    let m = self.material_access.get(any_idx)?;
-    let effect = self.effect_access.get(m)?;
-    let shade_type = self.shade_type.get_value(effect)?;
-    let states = self.states.get(effect)?;
-    hasher.hash(shade_type);
-    hasher.hash(states);
-    Some(())
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
+      states: self.states,
+      shade_type: self.shade_type,
+      reverse_z: renderer.reverse_z,
+    })
   }
 }
 

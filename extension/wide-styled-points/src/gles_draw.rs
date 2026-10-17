@@ -57,46 +57,61 @@ pub struct WidePointModelGLESRenderer {
   rev_z: bool,
 }
 
-impl GLESModelRenderImpl for WidePointModelGLESRenderer {
-  fn shape_renderable<'a>(
+impl WidePointModelGLESRenderer {
+  fn create_components<'a>(
     &'a self,
-    idx: EntityHandle<SceneModelEntity>,
+    model_idx: EntityHandle<WideStyledPointsEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-    let model_idx = self.model_access.get(idx)?;
-    let uniform = self.uniforms.get(&model_idx.alloc_index()).unwrap();
+  ) -> Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    let uniform = self
+      .uniforms
+      .get(&model_idx.alloc_index())
+      .ok_or(err("wide points uniform"))?;
     let instance_buffer = self
       .instance_buffers
       .access_ref(&model_idx.alloc_index())
-      .unwrap();
+      .ok_or(err("wide points instance buffer"))?;
 
     let instance_count = u64::from(instance_buffer.view_byte_size()) as usize
       / std::mem::size_of::<WideStyledPointVertex>();
 
-    let draw_command = DrawCommand::Indexed {
+    let draw = DrawCommand::Indexed {
       instances: 0..instance_count as u32,
       base_vertex: 0,
       indices: 0..6,
     };
 
-    let com = Box::new(WidePointGPU {
+    let shape = Box::new(WidePointGPU {
       uniform,
       vertex_buffer: &self.vertex_buffer,
       index_buffer: &self.index_buffer,
       instance_buffer,
       color_alpha_tex_sampler: self.tex.get_pair(model_idx).unwrap_or(EMPTY_H),
       binding_sys: cx,
-      depth_test_enable: self.states.get_value(model_idx)?,
+      depth_test_enable: self
+        .states
+        .get_value(model_idx)
+        .ok_or(err("wide points depth state"))?,
       rev_z: self.rev_z,
     });
-    Some((com, draw_command))
+    Ok(GLESModelRenderComponents {
+      shape,
+      draw,
+      // no material
+      material: Box::new(()),
+    })
   }
-  fn material_renderable<'a>(
+}
+
+impl GLESModelRenderImpl for WidePointModelGLESRenderer {
+  fn make_components<'a>(
     &'a self,
-    _idx: EntityHandle<SceneModelEntity>,
-    _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    Some(Box::new(())) // no material
+    idx: EntityHandle<SceneModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>> {
+    let model_idx = self.model_access.get(idx)?;
+    Some(self.create_components(model_idx, cx))
   }
 }
 

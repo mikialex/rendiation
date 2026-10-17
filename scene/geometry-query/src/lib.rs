@@ -1,4 +1,5 @@
 #![feature(iter_array_chunks)]
+#![feature(allocator_api)]
 //! Scene geometry query (picking).
 //!
 //! Every query is split into a hit producer and a hit consumer:
@@ -23,11 +24,15 @@
 //! - [SceneModelCandidateProvider]: the TLAS, enumerates candidate scene models of a scene.
 //! - [SceneModelPicker]: scene model level, usually a decorator stack (view dependent transform,
 //!   instancing) around [SceneModelPickerBaseImpl], which transforms the query into local space.
-//! - [LocalModelPicker]: works in model local space for one kind of model data (attribute mesh,
-//!   wide line, text, ...), selected by [LocalModelPickerSelector].
+//! - [LocalModelPickerResolver]: selects and resolves the [ResolvedLocalModelPicker] of a model,
+//!   which works in model local space for one kind of model data (attribute mesh, wide line,
+//!   text, ...).
 //! - query drivers in [query](crate::query) combine the above with a visitor.
 
-use std::ops::{ControlFlow, Range};
+use std::{
+  alloc::Allocator,
+  ops::{ControlFlow, Range},
+};
 
 use bytemuck::try_cast_slice;
 use database::*;

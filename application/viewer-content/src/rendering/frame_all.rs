@@ -293,11 +293,11 @@ impl Viewer3dRenderingCtx {
 
         let materials = cx.when_render(|| {
           Box::new(vec![
-            Box::new(unlit_material.unwrap()) as Box<dyn IndirectModelMaterialRenderImpl>,
+            Box::new(unlit_material.unwrap()) as Box<dyn IndirectModelMaterialRendererResolver>,
             Box::new(pbr_mr_material.unwrap()),
             Box::new(pbr_sg_material.unwrap()),
             Box::new(occ_material.unwrap()),
-          ]) as Box<dyn IndirectModelMaterialRenderImpl>
+          ]) as Box<dyn IndirectModelMaterialRendererResolver>
         });
 
         if self.rtx_renderer_enabled {
@@ -308,9 +308,9 @@ impl Viewer3dRenderingCtx {
 
         let mesh = cx.when_render(|| {
           Box::new(vec![
-            Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRenderImpl>,
+            Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRendererResolver>,
             cell_mesh.unwrap(),
-          ]) as Box<dyn IndirectModelShapeRenderImpl>
+          ]) as Box<dyn IndirectModelShapeRendererResolver>
         });
 
         let model_buffer_merge = model_buffer_merge.restart(cx);
@@ -338,11 +338,11 @@ impl Viewer3dRenderingCtx {
 
         let model_support = cx.when_render(|| {
           Box::new(vec![
-            Box::new(std_model.unwrap()) as Box<dyn IndirectModelRenderImpl>,
+            Box::new(std_model.unwrap()) as Box<dyn IndirectModelRendererResolver>,
             Box::new(wide_line.unwrap()),
             Box::new(wide_point.unwrap()),
             Box::new(text3d.unwrap()),
-          ]) as Box<dyn IndirectModelRenderImpl>
+          ]) as Box<dyn IndirectModelRendererResolver>
         });
 
         let model_buffer_merge = model_buffer_merge.restart(cx);
@@ -369,9 +369,9 @@ impl Viewer3dRenderingCtx {
             };
 
           Box::new(vec![
-            Box::new(internal) as Box<dyn IndirectModelRenderImpl>,
+            Box::new(internal) as Box<dyn IndirectModelRendererResolver>,
             Box::new(instanced),
-          ]) as Box<dyn IndirectModelRenderImpl>
+          ]) as Box<dyn IndirectModelRendererResolver>
         });
 
         let scene_model = use_indirect_scene_model(

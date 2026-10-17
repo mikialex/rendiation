@@ -75,24 +75,50 @@ pub struct OccStyleMaterialGlesRenderer {
   reverse_z: bool,
 }
 
+impl OccStyleMaterialGlesRenderer {
+  fn create_component<'a>(
+    &'a self,
+    idx: EntityHandle<OccStyleMaterialEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    let effect = self
+      .effect_access
+      .get(idx)
+      .ok_or(err("occ style material effect"))?;
+    let shade_type = self
+      .shade_type
+      .get_value(effect)
+      .ok_or(err("occ style material shade type"))?;
+    Ok(Box::new(OccStyleMaterialGPU {
+      uniform: self
+        .uniforms
+        .get(&idx.alloc_index())
+        .ok_or(err("occ style material uniform"))?,
+      tex_uniform: self
+        .tex_uniforms
+        .get(&idx.alloc_index())
+        .ok_or(err("occ style material texture uniform"))?,
+      diffuse_tex_sampler: self.diffuse_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      binding_sys: cx,
+      shade_type,
+      reverse_z: self.reverse_z,
+      states: self
+        .states
+        .get(effect)
+        .ok_or(err("occ style material states"))?,
+    }))
+  }
+}
+
 impl GLESModelMaterialRenderImpl for OccStyleMaterialGlesRenderer {
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
+  ) -> Option<Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError>> {
     let idx = self.material_access.get(idx)?;
-    let effect = self.effect_access.get(idx)?;
-    let shade_type = self.shade_type.get_value(effect)?;
-    Some(Box::new(OccStyleMaterialGPU {
-      uniform: self.uniforms.get(&idx.alloc_index())?,
-      tex_uniform: self.tex_uniforms.get(&idx.alloc_index())?,
-      diffuse_tex_sampler: self.diffuse_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      binding_sys: cx,
-      shade_type,
-      reverse_z: self.reverse_z,
-      states: self.states.get(effect)?,
-    }))
+    Some(self.create_component(idx, cx))
   }
 }
 

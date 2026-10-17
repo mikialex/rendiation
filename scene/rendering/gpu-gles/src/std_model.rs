@@ -1,43 +1,31 @@
 use crate::*;
 
+pub struct GLESModelRenderComponents<'a> {
+  pub shape: Box<dyn RenderComponent + 'a>,
+  pub draw: DrawCommand,
+  pub material: Box<dyn RenderComponent + 'a>,
+}
+
 pub trait GLESModelRenderImpl {
-  fn shape_renderable<'a>(
+  /// Return None if this impl is not responsible for the model. The responsibility is decided by
+  /// the kind of the model only, so the impls are mutually exclusive. Once selected, missing or
+  /// invalid data is reported as error.
+  fn make_components<'a>(
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)>;
-  fn material_renderable<'a>(
-    &'a self,
-    idx: EntityHandle<SceneModelEntity>,
-    cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>>;
+  ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>>;
 }
 
 impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
-  fn shape_renderable<'a>(
+  fn make_components<'a>(
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-    for provider in self {
-      if let Some(v) = provider.shape_renderable(idx, cx) {
-        return Some(v);
-      }
-    }
-    None
-  }
-
-  fn material_renderable<'a>(
-    &'a self,
-    idx: EntityHandle<SceneModelEntity>,
-    cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    for provider in self {
-      if let Some(v) = provider.material_renderable(idx, cx) {
-        return Some(v);
-      }
-    }
-    None
+  ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>> {
+    self
+      .iter()
+      .find_map(|provider| provider.make_components(idx, cx))
   }
 }
 
@@ -70,19 +58,25 @@ pub struct SceneStdModelRenderer {
   states: StateOverrides,
 }
 
-impl GLESModelRenderImpl for SceneStdModelRenderer {
-  fn shape_renderable<'a>(
+impl SceneStdModelRenderer {
+  fn create_components<'a>(
     &'a self,
-    idx: EntityHandle<SceneModelEntity>,
-    _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-    let model = self.model.get(idx)?;
+    model: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
 
-    let (base_shape, cmd) = self.shapes.make_component(model)?;
-    let state = self.states.get_gpu(model)?;
+    let (base_shape, draw) = self
+      .shapes
+      .make_component(model)
+      .ok_or(err("no shape impl"))??;
+    let state = self.states.get_gpu(model).ok_or(err("state override"))?;
 
     let shape = if let Some(skin) = self.skin.get(model) {
-      let bones = self.skin_gpu.get_bone_provider(skin).unwrap();
+      let bones = self
+        .skin_gpu
+        .get_bone_provider(skin)
+        .ok_or(err("skin bone matrices"))?;
       let bones = Box::new(bones) as Box<dyn RenderComponent>;
       let render = RenderArray([
         bones,
@@ -96,15 +90,26 @@ impl GLESModelRenderImpl for SceneStdModelRenderer {
       base_shape
     };
 
-    (shape, cmd).into()
-  }
+    let material = self
+      .materials
+      .make_component(model, cx)
+      .ok_or(err("no material impl"))??;
 
-  fn material_renderable<'a>(
+    Ok(GLESModelRenderComponents {
+      shape,
+      draw,
+      material,
+    })
+  }
+}
+
+impl GLESModelRenderImpl for SceneStdModelRenderer {
+  fn make_components<'a>(
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
+  ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>> {
     let model = self.model.get(idx)?;
-    self.materials.make_component(model, cx)
+    Some(self.create_components(model, cx))
   }
 }

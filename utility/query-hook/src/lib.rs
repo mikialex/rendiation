@@ -18,12 +18,14 @@ use parking_lot::RwLock;
 pub use query::*;
 
 mod frame_allocator;
+mod scratch_allocator;
 mod task_pool;
 mod use_result;
 mod wake_util;
 
 pub use frame_allocator::*;
 pub use hook::*;
+pub use scratch_allocator::*;
 pub use task_pool::*;
 pub use use_result::*;
 pub use wake_util::*;

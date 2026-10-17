@@ -1,4 +1,4 @@
-use std::{any::Any, hash::Hash};
+use std::{alloc::Allocator, any::TypeId, hash::Hash};
 
 use rendiation_scene_batch_extractor::SceneModelGroupKey;
 use rendiation_scene_rendering_gpu_indirect::*;
@@ -113,11 +113,31 @@ pub struct Text3dIndirectRenderer {
   used_in_midc_downgrade: bool,
 }
 
-impl IndirectDrawProviderCreator for Text3dIndirectRenderer {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    self.access.get(id)?;
-    fast_hash_scope(|hasher| self.type_id().hash(hasher)).into()
+impl IndirectModelRendererResolver for Text3dIndirectRenderer {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError>> {
+    self.access.get(idx)?;
+    let resolved = ResolvedText3dIndirectRenderer { renderer: self };
+    Some(Ok(Box::new_in(resolved, alloc)))
+  }
+}
+
+struct ResolvedText3dIndirectRenderer<'a> {
+  renderer: &'a Text3dIndirectRenderer,
+}
+
+impl ResolvedIndirectModelRenderer for ResolvedText3dIndirectRenderer<'_> {
+  fn resolver_type_id(&self) -> TypeId {
+    TypeId::of::<Text3dIndirectRenderer>()
+  }
+
+  fn hash_shader_group_key(&self, _hasher: &mut PipelineHasher) {}
+
+  fn impl_distinguish_key(&self) -> u64 {
+    fast_hash_scope(|hasher| self.resolver_type_id().hash(hasher))
   }
 
   fn use_create_or_update_indirect_draw_providers(
@@ -125,89 +145,54 @@ impl IndirectDrawProviderCreator for Text3dIndirectRenderer {
     cx: &mut rendiation_device_parallel_compute::DeviceParallelComputeCtx,
     list: &DeviceDrawList,
     dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    let cmd_builder = self.make_draw_command_builder(id)?;
-    use_and_create_default_indirect_draw_provider(
+  ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError> {
+    Ok(use_and_create_default_indirect_draw_provider(
       list,
       dispatch_info_device_offset_compacted,
-      cmd_builder,
+      self.make_draw_command_builder()?,
       cx,
-      self.used_in_midc_downgrade,
-    )
-    .into()
+      self.renderer.used_in_midc_downgrade,
+    ))
   }
-}
 
-impl DrawCommandBuilderCreator for Text3dIndirectRenderer {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    self.access.get(id)?;
+  fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError> {
+    let renderer = self.renderer;
     let creator = Text3dDrawCreator {
-      params: self.text_meta.clone(),
-      params_host: self.text_meta_host.clone(),
-      sm_to_text_device: self.sm_to_text3d_device.clone(),
-      sm_to_text: self.access.clone(),
+      params: renderer.text_meta.clone(),
+      params_host: renderer.text_meta_host.clone(),
+      sm_to_text_device: renderer.sm_to_text3d_device.clone(),
+      sm_to_text: renderer.access.clone(),
     };
-    DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
-  }
-}
-
-impl IndirectModelRenderImpl for Text3dIndirectRenderer {
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<SceneModelEntity>,
-    _hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    self.access.get(any_id)?;
-    Some(())
+    Ok(DrawCommandBuilder::NoneIndexed(Box::new(creator)))
   }
 
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
+  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_> {
+    Box::new(())
   }
 
-  fn model_info_injector(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    self.access.get(any_idx)?;
-    Some(Box::new(()))
-  }
-
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    self.access.get(any_idx)?;
-    Some(None)
+  fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
+    None
   }
 
   fn shape_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    self.access.get(any_idx)?;
-
-    let c = Text3dIndirectRender {
-      curves: &self.curves,
-      bands: &self.bands,
-      vertices: &self.vertices,
-      text_meta: &self.text_meta,
-      sm_to_text3d_device: &self.sm_to_text3d_device,
-    };
-
-    Some(Box::new(c))
+  ) -> Box<dyn RenderComponent + 'a> {
+    let renderer = self.renderer;
+    Box::new(Text3dIndirectRender {
+      curves: &renderer.curves,
+      bands: &renderer.bands,
+      vertices: &renderer.vertices,
+      text_meta: &renderer.text_meta,
+      sm_to_text3d_device: &renderer.sm_to_text3d_device,
+    })
   }
 
   fn material_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    self.access.get(any_idx)?;
-    Some(Box::new(())) // no material
+  ) -> Box<dyn RenderComponent + 'a> {
+    Box::new(()) // no material
   }
 }
 

@@ -74,44 +74,61 @@ pub struct WideLineModelGLESRenderer {
   transparent: ComponentReadView<WideLineTransparent>,
 }
 
-impl GLESModelRenderImpl for WideLineModelGLESRenderer {
-  fn shape_renderable<'a>(
+impl WideLineModelGLESRenderer {
+  fn create_components<'a>(
     &'a self,
-    idx: EntityHandle<SceneModelEntity>,
-    _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-    let model_idx = self.model_access.get(idx)?;
-    let uniform = self.uniforms.get(&model_idx.alloc_index()).unwrap();
+    model_idx: EntityHandle<WideLineModelEntity>,
+  ) -> Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    let uniform = self
+      .uniforms
+      .get(&model_idx.alloc_index())
+      .ok_or(err("wide line uniform"))?;
     let instance_buffer = self
       .instance_buffers
       .access_ref(&model_idx.alloc_index())
-      .unwrap();
+      .ok_or(err("wide line instance buffer"))?;
 
     let instance_count = u64::from(instance_buffer.view_byte_size()) as usize
       / std::mem::size_of::<WideLineSegmentInstance>();
 
-    let draw_command = DrawCommand::Indexed {
+    let draw = DrawCommand::Indexed {
       instances: 0..instance_count as u32,
       base_vertex: 0,
       indices: 0..18,
     };
 
-    let com = Box::new(WideLineGPU {
+    let shape = Box::new(WideLineGPU {
       uniform,
       vertex_buffer: &self.vertex_buffer,
       index_buffer: &self.index_buffer,
       instance_buffer,
-      enabled_depth: self.states.get_value(model_idx)?,
-      transparent: self.transparent.get_value(model_idx)?,
+      enabled_depth: self
+        .states
+        .get_value(model_idx)
+        .ok_or(err("wide line depth state"))?,
+      transparent: self
+        .transparent
+        .get_value(model_idx)
+        .ok_or(err("wide line transparent"))?,
     });
-    Some((com, draw_command))
+    Ok(GLESModelRenderComponents {
+      shape,
+      draw,
+      // no material
+      material: Box::new(()),
+    })
   }
-  fn material_renderable<'a>(
+}
+
+impl GLESModelRenderImpl for WideLineModelGLESRenderer {
+  fn make_components<'a>(
     &'a self,
-    _idx: EntityHandle<SceneModelEntity>,
+    idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    Some(Box::new(())) // no material
+  ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>> {
+    let model_idx = self.model_access.get(idx)?;
+    Some(self.create_components(model_idx))
   }
 }
 

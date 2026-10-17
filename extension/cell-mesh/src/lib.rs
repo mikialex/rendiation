@@ -1,3 +1,5 @@
+#![feature(allocator_api)]
+
 use database::*;
 use rendiation_algebra::*;
 use rendiation_scene_core::*;

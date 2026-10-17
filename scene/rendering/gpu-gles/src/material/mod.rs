@@ -73,11 +73,14 @@ pub fn use_tex_watcher<T, TexUniform>(
 }
 
 pub trait GLESModelMaterialRenderImpl {
+  /// Return None if this impl is not responsible for the model. The responsibility is decided by
+  /// the kind of the material only, so the impls are mutually exclusive. Once selected, missing or
+  /// invalid data is reported as error.
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>>;
+  ) -> Option<Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError>>;
 }
 
 impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
@@ -85,16 +88,12 @@ impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
     &'a self,
     idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    for provider in self {
-      if let Some(com) = provider.make_component(idx, cx) {
-        return Some(com);
-      }
-    }
-    None
+  ) -> Option<Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError>> {
+    self
+      .iter()
+      .find_map(|provider| provider.make_component(idx, cx))
   }
 }
-
 pub struct TextureSamplerIdView<T: TextureWithSamplingForeignKeys> {
   pub texture: ForeignKeyReadView<SceneTexture2dRefOf<T>>,
   pub sampler: ForeignKeyReadView<SceneSamplerRefOf<T>>,

@@ -1,4 +1,6 @@
-use std::{any::Any, hash::Hash, sync::Arc};
+#![feature(allocator_api)]
+
+use std::{alloc::Allocator, any::TypeId, hash::Hash, sync::Arc};
 
 use database::*;
 use fast_hash_collection::*;
@@ -129,19 +131,77 @@ pub struct AttributeLODMeshIndirectRenderer {
   pub internal: AttributeMeshIndirectRenderer,
 }
 
-impl DrawCommandBuilderCreator for AttributeLODMeshIndirectRenderer {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    let (internal, is_indexed) = self.internal.make_draw_command_builder_impl(id)?;
+impl IndirectModelShapeRendererResolver for AttributeLODMeshIndirectRenderer {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelShapeRendererBox<'a>, SceneModelRenderDataError>> {
+    let internal = self.internal.resolve_attribute_mesh(idx)?;
+    Some(internal.map(|internal| {
+      let resolved = ResolvedAttributeLODMeshIndirectRenderer {
+        renderer: self,
+        internal,
+      };
+      Box::new_in(resolved, alloc) as _
+    }))
+  }
+}
 
-    if is_indexed {
+struct ResolvedAttributeLODMeshIndirectRenderer<'a> {
+  renderer: &'a AttributeLODMeshIndirectRenderer,
+  internal: ResolvedAttributeMeshIndirectRenderer<'a>,
+}
+
+impl ResolvedIndirectModelShapeRenderer for ResolvedAttributeLODMeshIndirectRenderer<'_> {
+  fn resolver_type_id(&self) -> TypeId {
+    TypeId::of::<AttributeLODMeshIndirectRenderer>()
+  }
+
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher) {
+    self.internal.hash_shader_group_key(hasher)
+  }
+
+  fn impl_distinguish_key(&self) -> u64 {
+    fast_hash_scope(|hasher| {
+      self.resolver_type_id().hash(hasher);
+      // index type not matters
+      self.internal.indices_ty.is_some().hash(hasher);
+    })
+  }
+
+  fn use_create_or_update_indirect_draw_providers(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    list: &DeviceDrawList,
+    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
+  ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError> {
+    Ok(use_and_create_default_indirect_draw_provider(
+      list,
+      dispatch_info_device_offset_compacted,
+      self.make_draw_command_builder()?,
+      cx,
+      self.renderer.internal.used_in_midc_downgrade,
+    ))
+  }
+
+  fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    let (internal, is_indexed) = self.internal.make_draw_command_builder_impl();
+    let renderer = self.renderer;
+
+    let builder = if is_indexed {
       let creator = AttributeLODMeshIndirectDrawCreator {
         internal,
-        level_meta: self.level_meta.clone(),
-        level_meta_host: self.level_meta_host.clone(),
-        lod_levels: self.lod_levels.clone(),
-        sm_node_info: self.sm_node_info.make_component_indirect().unwrap().clone(),
-        sm_world_aabb_info: self.sm_world_aabb_info.clone(),
-        lod_camera_info: self
+        level_meta: renderer.level_meta.clone(),
+        level_meta_host: renderer.level_meta_host.clone(),
+        lod_levels: renderer.lod_levels.clone(),
+        sm_node_info: renderer
+          .sm_node_info
+          .make_component_indirect()
+          .ok_or(err("lod node info"))?,
+        sm_world_aabb_info: renderer.sm_world_aabb_info.clone(),
+        lod_camera_info: renderer
           .current_lod_camera
           .get()
           .expect("active_lod_camera not set"),
@@ -150,69 +210,16 @@ impl DrawCommandBuilderCreator for AttributeLODMeshIndirectRenderer {
       DrawCommandBuilder::Indexed(Box::new(creator))
     } else {
       DrawCommandBuilder::NoneIndexed(Box::new(internal))
-    }
-    .into()
-  }
-}
-
-impl IndirectDrawProviderCreator for AttributeLODMeshIndirectRenderer {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    let mesh_id = self.internal.std_to_mesh.get(id)?;
-    let indices_ty = self.internal.indices_ty.access(mesh_id.raw_handle_ref());
-
-    fast_hash_scope(|hasher| {
-      self.type_id().hash(hasher);
-      // index type not matters
-      indices_ty.is_some().hash(hasher);
-    })
-    .into()
+    };
+    Ok(builder)
   }
 
-  fn use_create_or_update_indirect_draw_providers(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-    list: &DeviceDrawList,
-    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    let cmd_builder = self.make_draw_command_builder(id)?;
-    use_and_create_default_indirect_draw_provider(
-      list,
-      dispatch_info_device_offset_compacted,
-      cmd_builder,
-      cx,
-      self.internal.used_in_midc_downgrade,
-    )
-    .into()
-  }
-}
-
-impl IndirectModelShapeRenderImpl for AttributeLODMeshIndirectRenderer {
-  fn make_component_indirect(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    self.internal.make_component_indirect(any_idx)
+  fn make_component_indirect(&self) -> Box<dyn RenderComponent + '_> {
+    self.internal.make_component_indirect()
   }
 
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    self.internal.get_index_storage_buffer(any_idx)
-  }
-
-  fn hash_shader_group_key(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    self.internal.hash_shader_group_key(any_idx, hasher)
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
+  fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
+    self.internal.get_index_storage_buffer()
   }
 }
 

@@ -1,4 +1,9 @@
-use std::any::Any;
+#![feature(allocator_api)]
+
+use std::{
+  alloc::Allocator,
+  any::{Any, TypeId},
+};
 
 use database::*;
 use fast_hash_collection::*;

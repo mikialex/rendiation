@@ -543,17 +543,80 @@ impl AttributeMeshIndirectRenderer {
   }
 }
 
-impl IndirectDrawProviderCreator for AttributeMeshIndirectRenderer {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    let mesh_id = self.std_to_mesh.get(id)?;
-    let indices_ty = self.indices_ty.access(mesh_id.raw_handle_ref());
-    fast_hash_scope(|hasher| {
-      self.type_id().hash(hasher);
-      // index type not matters
-      indices_ty.is_some().hash(hasher);
+impl AttributeMeshIndirectRenderer {
+  /// resolve the attribute mesh of the standard model, return None if the model is not using
+  /// attribute mesh.
+  pub fn resolve_attribute_mesh(
+    &self,
+    idx: EntityHandle<StandardModelEntity>,
+  ) -> Option<Result<ResolvedAttributeMeshIndirectRenderer<'_>, SceneModelRenderDataError>> {
+    let mesh = self.std_to_mesh.get(idx)?;
+    Some(self.read_mesh(mesh))
+  }
+
+  fn read_mesh(
+    &self,
+    mesh: EntityHandle<AttributesMeshEntity>,
+  ) -> Result<ResolvedAttributeMeshIndirectRenderer<'_>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    Ok(ResolvedAttributeMeshIndirectRenderer {
+      renderer: self,
+      topology: *self.topology.get(mesh).ok_or(err("mesh topology"))?,
+      indices_ty: self.indices_ty.access(mesh.raw_handle_ref()),
     })
-    .into()
+  }
+}
+
+impl IndirectModelShapeRendererResolver for AttributeMeshIndirectRenderer {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelShapeRendererBox<'a>, SceneModelRenderDataError>> {
+    let resolved = self.resolve_attribute_mesh(idx)?;
+    Some(resolved.map(|r| Box::new_in(r, alloc) as _))
+  }
+}
+
+pub struct ResolvedAttributeMeshIndirectRenderer<'a> {
+  pub renderer: &'a AttributeMeshIndirectRenderer,
+  pub topology: MeshPrimitiveTopology,
+  /// None is not indexed
+  pub indices_ty: Option<IndexFormat>,
+}
+
+impl ResolvedAttributeMeshIndirectRenderer<'_> {
+  /// return (draw command creator, is indexed)
+  pub fn make_draw_command_builder_impl(&self) -> (AttributeMeshIndirectDrawCreator, bool) {
+    let renderer = self.renderer;
+    let creator = AttributeMeshIndirectDrawCreator {
+      metadata: renderer.vertex_address_buffer.clone(),
+      sm_to_mesh_device: renderer.sm_to_mesh_device.clone(),
+      sm_to_mesh: renderer.sm_to_mesh.clone(),
+      vertex_address_buffer_host: renderer.vertex_address_buffer_host.clone(),
+      used_in_midc_downgrade: renderer.used_in_midc_downgrade,
+    };
+    (creator, self.indices_ty.is_some())
+  }
+}
+
+impl ResolvedIndirectModelShapeRenderer for ResolvedAttributeMeshIndirectRenderer<'_> {
+  fn resolver_type_id(&self) -> TypeId {
+    TypeId::of::<AttributeMeshIndirectRenderer>()
+  }
+
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.topology);
+    hasher.hash(self.indices_ty);
+    // enable_normal_quantization is not mutable at runtime, so hash can be skipped
+  }
+
+  fn impl_distinguish_key(&self) -> u64 {
+    fast_hash_scope(|hasher| {
+      self.resolver_type_id().hash(hasher);
+      // index type not matters
+      self.indices_ty.is_some().hash(hasher);
+    })
   }
 
   fn use_create_or_update_indirect_draw_providers(
@@ -561,101 +624,39 @@ impl IndirectDrawProviderCreator for AttributeMeshIndirectRenderer {
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
     dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    let cmd_builder = self.make_draw_command_builder(id)?;
-    use_and_create_default_indirect_draw_provider(
+  ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError> {
+    Ok(use_and_create_default_indirect_draw_provider(
       list,
       dispatch_info_device_offset_compacted,
-      cmd_builder,
+      self.make_draw_command_builder()?,
       cx,
-      self.used_in_midc_downgrade,
-    )
-    .into()
+      self.renderer.used_in_midc_downgrade,
+    ))
   }
-}
 
-impl AttributeMeshIndirectRenderer {
-  pub fn make_draw_command_builder_impl(
-    &self,
-    id: RawEntityHandle,
-  ) -> Option<(AttributeMeshIndirectDrawCreator, bool)> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    let mesh_id = self.std_to_mesh.get(id)?;
-    let is_indexed = self.indices_ty.access(mesh_id.raw_handle_ref()).is_some();
+  fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError> {
+    let (creator, is_indexed) = self.make_draw_command_builder_impl();
 
-    let creator = AttributeMeshIndirectDrawCreator {
-      metadata: self.vertex_address_buffer.clone(),
-      sm_to_mesh_device: self.sm_to_mesh_device.clone(),
-      sm_to_mesh: self.sm_to_mesh.clone(),
-      vertex_address_buffer_host: self.vertex_address_buffer_host.clone(),
-      used_in_midc_downgrade: self.used_in_midc_downgrade,
-    };
-    (creator, is_indexed).into()
-  }
-}
-
-impl DrawCommandBuilderCreator for AttributeMeshIndirectRenderer {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    let (creator, is_indexed) = self.make_draw_command_builder_impl(id)?;
-
-    if is_indexed {
+    let builder = if is_indexed {
       DrawCommandBuilder::Indexed(Box::new(creator))
     } else {
       DrawCommandBuilder::NoneIndexed(Box::new(creator))
-    }
-    .into()
-  }
-}
-
-impl IndirectModelShapeRenderImpl for AttributeMeshIndirectRenderer {
-  fn make_component_indirect(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    // check the given model has attributes mesh
-    let mesh = self.std_to_mesh.get(any_idx)?;
-    let indices_ty = self.indices_ty.access(mesh.raw_handle_ref());
-    let topology = self.topology.get(mesh)?;
-
-    let mesh_system = AttributeMeshIndirectRasterDispatcher {
-      internal: self.make_dispatcher(),
-      topology: map_topology(*topology),
-      indices_ty,
     };
-
-    Some(Box::new(mesh_system))
+    Ok(builder)
   }
 
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    let mesh_id = self.std_to_mesh.get(any_idx)?;
-    let indices_ty = self.indices_ty.access(mesh_id.raw_handle_ref());
-    indices_ty
-      .map(|indices_ty| IndicesBufferInfo {
-        buffer: self.indices.clone(),
-        should_access_as_u16: matches!(indices_ty, IndexFormat::Uint16),
-      })
-      .into()
+  fn make_component_indirect(&self) -> Box<dyn RenderComponent + '_> {
+    Box::new(AttributeMeshIndirectRasterDispatcher {
+      internal: self.renderer.make_dispatcher(),
+      topology: map_topology(self.topology),
+      indices_ty: self.indices_ty,
+    })
   }
 
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    let mesh_id = self.std_to_mesh.get(any_id)?;
-    let topology = self.topology.get(mesh_id)?;
-    hasher.hash(topology);
-    let indices_ty = self.indices_ty.access(mesh_id.raw_handle_ref());
-    hasher.hash(indices_ty);
-    // enable_normal_quantization is not mutable at runtime, so hash can be skipped
-    Some(())
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
+  fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
+    self.indices_ty.map(|indices_ty| IndicesBufferInfo {
+      buffer: self.renderer.indices.clone(),
+      should_access_as_u16: matches!(indices_ty, IndexFormat::Uint16),
+    })
   }
 }

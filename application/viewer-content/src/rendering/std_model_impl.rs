@@ -2,8 +2,8 @@ use crate::*;
 
 pub fn use_viewer_std_model_renderer(
   cx: &mut QueryGPUHookCx,
-  materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
-  shapes: Option<Box<dyn IndirectModelShapeRenderImpl>>,
+  materials: Option<Box<dyn IndirectModelMaterialRendererResolver>>,
+  shapes: Option<Box<dyn IndirectModelShapeRendererResolver>>,
   revere_z: bool,
 ) -> Option<SceneStdModelIndirectRenderer> {
   let material_flat = cx.use_changes::<StandardModelRefUnlitMaterial>();

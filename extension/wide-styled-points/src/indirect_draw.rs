@@ -1,4 +1,4 @@
-use std::{any::Any, hash::Hash};
+use std::{alloc::Allocator, any::TypeId, hash::Hash};
 
 use fast_hash_collection::fast_hash_scope;
 use rendiation_scene_batch_extractor::SceneModelGroupKey;
@@ -117,11 +117,49 @@ struct WideStyledPointVertexStorage {
   pub per_point_color_alpha: u32,
 }
 
-impl IndirectDrawProviderCreator for WideStyledPointsIndirectRenderer {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    self.model_access.get(id)?;
-    fast_hash_scope(|hasher| self.type_id().hash(hasher)).into()
+impl WideStyledPointsIndirectRenderer {
+  fn read_points(
+    &self,
+    points: EntityHandle<WideStyledPointsEntity>,
+  ) -> Result<ResolvedWideStyledPointsIndirectRenderer<'_>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    Ok(ResolvedWideStyledPointsIndirectRenderer {
+      renderer: self,
+      depth_test_enable: self
+        .states
+        .get_value(points)
+        .ok_or(err("wide styled points depth test state"))?,
+    })
+  }
+}
+
+impl IndirectModelRendererResolver for WideStyledPointsIndirectRenderer {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelRendererBox<'a>, SceneModelRenderDataError>> {
+    let points = self.model_access.get(idx)?;
+    Some(self.read_points(points).map(|r| Box::new_in(r, alloc) as _))
+  }
+}
+
+struct ResolvedWideStyledPointsIndirectRenderer<'a> {
+  renderer: &'a WideStyledPointsIndirectRenderer,
+  depth_test_enable: bool,
+}
+
+impl ResolvedIndirectModelRenderer for ResolvedWideStyledPointsIndirectRenderer<'_> {
+  fn resolver_type_id(&self) -> TypeId {
+    TypeId::of::<WideStyledPointsIndirectRenderer>()
+  }
+
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.depth_test_enable);
+  }
+
+  fn impl_distinguish_key(&self) -> u64 {
+    fast_hash_scope(|hasher| self.resolver_type_id().hash(hasher))
   }
 
   fn use_create_or_update_indirect_draw_providers(
@@ -129,88 +167,55 @@ impl IndirectDrawProviderCreator for WideStyledPointsIndirectRenderer {
     cx: &mut rendiation_device_parallel_compute::DeviceParallelComputeCtx,
     list: &DeviceDrawList,
     dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    let cmd_builder = self.make_draw_command_builder(id)?;
-    use_and_create_default_indirect_draw_provider(
+  ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError> {
+    Ok(use_and_create_default_indirect_draw_provider(
       list,
       dispatch_info_device_offset_compacted,
-      cmd_builder,
+      self.make_draw_command_builder()?,
       cx,
-      self.used_in_midc_downgrade,
-    )
-    .into()
+      self.renderer.used_in_midc_downgrade,
+    ))
   }
-}
 
-impl DrawCommandBuilderCreator for WideStyledPointsIndirectRenderer {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    self.model_access.get(id)?;
+  fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError> {
+    let renderer = self.renderer;
     let creator = WidePointsDrawCreator {
-      params: self.params.clone(),
-      params_host: self.params_host.clone(),
-      sm_to_wide_points_device: self.sm_to_wide_points_device.clone(),
-      sm_to_wide: self.model_access.clone(),
+      params: renderer.params.clone(),
+      params_host: renderer.params_host.clone(),
+      sm_to_wide_points_device: renderer.sm_to_wide_points_device.clone(),
+      sm_to_wide: renderer.model_access.clone(),
     };
-    DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
-  }
-}
-
-impl IndirectModelRenderImpl for WideStyledPointsIndirectRenderer {
-  fn hash_shader_group_key(
-    &self,
-    any_id: EntityHandle<SceneModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    let idx = self.model_access.get(any_id)?;
-    hasher.hash(self.states.get_value(idx)?);
-    Some(())
+    Ok(DrawCommandBuilder::NoneIndexed(Box::new(creator)))
   }
 
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
+  fn model_info_injector(&self) -> Box<dyn RenderComponent + '_> {
+    Box::new(())
   }
 
-  fn model_info_injector(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    self.model_access.get(any_idx)?;
-    Some(Box::new(()))
-  }
-
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    self.model_access.get(any_idx)?;
-    Some(None)
+  fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
+    None
   }
 
   fn shape_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    let model_idx = self.model_access.get(any_idx)?;
-    Some(Box::new(WidePointsIndirectDrawComponent {
-      points: &self.points,
-      params: &self.params,
-      sm_to_wide_points_device: &self.sm_to_wide_points_device,
+  ) -> Box<dyn RenderComponent + 'a> {
+    let renderer = self.renderer;
+    Box::new(WidePointsIndirectDrawComponent {
+      points: &renderer.points,
+      params: &renderer.params,
+      sm_to_wide_points_device: &renderer.sm_to_wide_points_device,
       binding_sys: cx,
-      depth_test_enable: self.states.get_value(model_idx)?,
-      rev_z: self.rev_z,
-    }))
+      depth_test_enable: self.depth_test_enable,
+      rev_z: renderer.rev_z,
+    })
   }
 
   fn material_renderable_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    self.model_access.get(any_idx)?;
-    Some(Box::new(()))
+  ) -> Box<dyn RenderComponent + 'a> {
+    Box::new(())
   }
 }
 

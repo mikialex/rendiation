@@ -4679,6 +4679,7 @@ dependencies = [
  "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-texture-core",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

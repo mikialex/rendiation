@@ -44,115 +44,148 @@ impl IndexGet for AttributeFastPickView<'_> {
   }
 }
 
+type AttributeMeshReadView<'a> =
+  AttributesMeshEntityAbstractMeshReadView<AttributeFastPickView<'a>, DynIndexRef<'a>>;
+
 impl AttributeMeshPicker {
-  fn query_local_read_view(
+  fn read_mesh_view(
     &self,
-    idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<AttributesMeshEntityAbstractMeshReadView<AttributeFastPickView<'_>, DynIndexRef<'_>>>
-  {
-    let model = self.model_access_std_model.get(idx)?;
-    let mesh = self.std_model_access_mesh.get(model)?;
+    mesh: EntityHandle<AttributesMeshEntity>,
+    mode: MeshPrimitiveTopology,
+  ) -> Result<AttributeMeshReadView<'_>, LocalModelPickDataError> {
+    let err = LocalModelPickDataError;
 
-    let mode = self.mesh_topology.get_value(mesh)?;
-
-    let mut position: Option<&[Vec3<f32>]> = None;
-    let mut count = 0;
-    for att in self.mesh_vertex_refs.access_multi(&mesh.into_raw())? {
+    let mut position = None;
+    let vertex_refs = self
+      .mesh_vertex_refs
+      .access_multi(&mesh.into_raw())
+      .ok_or(err("vertex attributes"))?;
+    for att in vertex_refs {
       let att = unsafe { EntityHandle::from_raw(att) };
-      if let AttributeSemantic::Positions = self.semantic.get_value(att)? {
+      let semantic = self
+        .semantic
+        .get_value(att)
+        .ok_or(err("vertex attribute semantic"))?;
+      if let AttributeSemantic::Positions = semantic {
         let p = self
           .vertex_buffer
-          .read_view_slice::<Vec3<f32>>(att, &self.buffer)?;
+          .read_view_slice::<Vec3<f32>>(att, &self.buffer)
+          .ok_or(err("position buffer"))?;
         position = p.into();
-        count = p.len();
         break;
       }
     }
-    let position = AttributeFastPickView { buffer: position? };
+    let position: &[Vec3<f32>] = position.ok_or(err("position attribute"))?;
+    let mut count = position.len();
+    let position = AttributeFastPickView { buffer: position };
 
-    let index =
-      if let Some((buffer, index_count)) = self.index_buffer.read_view_bytes(mesh, &self.buffer) {
+    let index = match self.index_buffer.read_view_bytes(mesh, &self.buffer) {
+      Some((_, 0)) => {
+        count = 0;
+        None
+      }
+      Some((buffer, index_count)) => {
         count = index_count as usize;
-        if count == 0 {
-          return None;
-        }
         let index = match buffer.len() / count {
-          4 => DynIndexRef::Uint32(try_cast_slice(buffer).ok()?),
-          2 => DynIndexRef::Uint16(try_cast_slice(buffer).ok()?),
-          _ => return None,
+          4 => DynIndexRef::Uint32(try_cast_slice(buffer).map_err(|_| err("index buffer"))?),
+          2 => DynIndexRef::Uint16(try_cast_slice(buffer).map_err(|_| err("index buffer"))?),
+          _ => return Err(err("index format")),
         };
         Some(index)
-      } else {
-        None
-      };
+      }
+      None => None,
+    };
 
     // strip topology shares vertices between adjacent primitives
     let primitive_count = (count + mode.step()).saturating_sub(mode.stride()) / mode.step();
 
-    AttributesMeshEntityAbstractMeshReadView {
+    Ok(AttributesMeshEntityAbstractMeshReadView {
       mode,
       vertices: position,
       indices: index,
       count: primitive_count,
-    }
-    .into()
+    })
   }
 }
 
-impl LocalModelPicker for AttributeMeshPicker {
-  fn is_applicable(&self, idx: EntityHandle<SceneModelEntity>) -> bool {
-    self
-      .model_access_std_model
-      .get(idx)
-      .and_then(|model| self.std_model_access_mesh.get(model))
-      .is_some()
-  }
-
-  fn tolerance(&self, idx: EntityHandle<SceneModelEntity>) -> Option<IntersectTolerance> {
+impl LocalModelPickerResolver for AttributeMeshPicker {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedLocalModelPickerBox<'a>, LocalModelPickDataError>> {
     let model = self.model_access_std_model.get(idx)?;
     let mesh = self.std_model_access_mesh.get(model)?;
-    match self.mesh_topology.get_value(mesh)? {
+
+    let Some(mode) = self.mesh_topology.get_value(mesh) else {
+      return Some(Err(LocalModelPickDataError("mesh topology")));
+    };
+    let tolerance = match mode {
       MeshPrimitiveTopology::PointList => Some(self.pick_point_tolerance),
       MeshPrimitiveTopology::LineList | MeshPrimitiveTopology::LineStrip => {
         Some(self.pick_line_tolerance)
       }
       _ => None,
-    }
-  }
-
-  fn primitive_count(&self, idx: EntityHandle<SceneModelEntity>) -> u32 {
-    self
-      .query_local_read_view(idx)
-      .map(|mesh| mesh.primitive_count() as u32)
-      .unwrap_or(0)
-  }
-
-  fn ray_query_local(&self, req: LocalRayQuery, v: &mut dyn LocalRayHitVisitor) -> ControlFlow<()> {
-    let Some(mesh) = self.query_local_read_view(req.idx) else {
-      return ControlFlow::Continue(());
     };
+    let resolved = ResolvedAttributeMeshPicker {
+      picker: self,
+      mesh,
+      mode,
+      tolerance,
+    };
+    Some(Ok(Box::new_in(resolved, alloc)))
+  }
+}
+
+/// the mesh view is not created in the resolve, because the model may be culled by the bounding
+struct ResolvedAttributeMeshPicker<'a> {
+  picker: &'a AttributeMeshPicker,
+  mesh: EntityHandle<AttributesMeshEntity>,
+  mode: MeshPrimitiveTopology,
+  tolerance: Option<IntersectTolerance>,
+}
+
+impl ResolvedAttributeMeshPicker<'_> {
+  fn mesh_view(&self) -> Result<AttributeMeshReadView<'_>, LocalModelPickDataError> {
+    self.picker.read_mesh_view(self.mesh, self.mode)
+  }
+}
+
+impl ResolvedLocalModelPicker for ResolvedAttributeMeshPicker<'_> {
+  fn tolerance(&self) -> Option<IntersectTolerance> {
+    self.tolerance
+  }
+
+  fn primitive_count(&self) -> Result<u32, LocalModelPickDataError> {
+    Ok(self.mesh_view()?.primitive_count() as u32)
+  }
+
+  fn ray_query_local(
+    &self,
+    req: LocalRayQuery,
+    v: &mut dyn LocalRayHitVisitor,
+  ) -> Result<ControlFlow<()>, LocalModelPickDataError> {
+    let mesh = self.mesh_view()?;
     let config = MeshBufferIntersectConfig {
       tolerance_local: req.local_tolerance,
       triangle_face: FaceSide::Double,
     };
     let hits = mesh.ray_intersect_iter(req.local_ray, &config);
-    visit_mesh_ray_hits(&req.local_ray, hits, |i| i as u32, v)
+    Ok(visit_mesh_ray_hits(&req.local_ray, hits, |i| i as u32, v))
   }
 
   fn frustum_query_local(
     &self,
     req: LocalFrustumQuery,
     v: &mut dyn FrustumPrimitiveVisitor,
-  ) -> ControlFlow<()> {
-    let Some(mesh) = self.query_local_read_view(req.idx) else {
-      return ControlFlow::Continue(());
-    };
+  ) -> Result<ControlFlow<()>, LocalModelPickDataError> {
+    let mesh = self.mesh_view()?;
     // todo extra_screen_space_tolerance and line point tolerance
-    visit_frustum_primitives(
+    Ok(visit_frustum_primitives(
       mesh.primitive_iter(),
       |p| frustum_test_primitive(p, req.helper, req.local_frustum, req.policy),
       v,
-    )
+    ))
   }
 }
 

@@ -1,4 +1,5 @@
 #![feature(impl_trait_in_assoc_type)]
+#![feature(allocator_api)]
 
 use database::*;
 use rendiation_mesh_core::*;

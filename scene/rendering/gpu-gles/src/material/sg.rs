@@ -62,16 +62,22 @@ pub struct PbrSGMaterialGlesRenderer {
   normal_tex_sampler: TextureSamplerIdView<NormalTexSamplerOf<PbrSGMaterialNormalInfo>>,
 }
 
-impl GLESModelMaterialRenderImpl for PbrSGMaterialGlesRenderer {
-  fn make_component<'a>(
+impl PbrSGMaterialGlesRenderer {
+  fn create_component<'a>(
     &'a self,
-    idx: EntityHandle<StandardModelEntity>,
+    idx: EntityHandle<PbrSGMaterialEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    let idx = self.material_access.get(idx)?;
-    let r = PhysicalSpecularGlossinessMaterialGPU {
-      uniform: self.uniforms.get(&idx.alloc_index())?,
-      alpha_mode: self.alpha_mode.get_value(idx)?,
+  ) -> Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    Ok(Box::new(PhysicalSpecularGlossinessMaterialGPU {
+      uniform: self
+        .uniforms
+        .get(&idx.alloc_index())
+        .ok_or(err("pbr sg material uniform"))?,
+      alpha_mode: self
+        .alpha_mode
+        .get_value(idx)
+        .ok_or(err("pbr sg material alpha mode"))?,
       albedo_alpha_tex_sampler: self.albedo_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       specular_glossiness_tex_sampler: self
         .specular_glossiness_tex_sampler
@@ -79,11 +85,23 @@ impl GLESModelMaterialRenderImpl for PbrSGMaterialGlesRenderer {
         .unwrap_or(EMPTY_H),
       emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      texture_uniforms: self.tex_uniforms.get(&idx.alloc_index())?,
+      texture_uniforms: self
+        .tex_uniforms
+        .get(&idx.alloc_index())
+        .ok_or(err("pbr sg material texture uniform"))?,
       binding_sys: cx,
-    };
-    let r = Box::new(r) as Box<dyn RenderComponent + '_>;
-    Some(r)
+    }))
+  }
+}
+
+impl GLESModelMaterialRenderImpl for PbrSGMaterialGlesRenderer {
+  fn make_component<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Result<Box<dyn RenderComponent + 'a>, SceneModelRenderDataError>> {
+    let idx = self.material_access.get(idx)?;
+    Some(self.create_component(idx, cx))
   }
 }
 

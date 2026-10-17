@@ -1,4 +1,4 @@
-use std::ops::ControlFlow;
+use std::{alloc::Allocator, ops::ControlFlow};
 
 use rendiation_geometry::*;
 use rendiation_scene_geometry_query::*;
@@ -60,77 +60,94 @@ pub struct WidePointsPicker {
 }
 
 impl WidePointsPicker {
-  fn create_view(&self, idx: EntityHandle<SceneModelEntity>) -> Option<WidePointPickView<'_>> {
-    let point = self.relation.get(idx)?;
-    let points = self.points.get(point)?;
+  fn read_view(
+    &self,
+    point: EntityHandle<WideStyledPointsEntity>,
+  ) -> Result<WidePointPickView<'_>, LocalModelPickDataError> {
+    let err = LocalModelPickDataError;
+    let points = self.points.get(point).ok_or(err("wide points buffer"))?;
+    let max_size = self
+      .max_size
+      .access(point.raw_handle_ref())
+      .ok_or(err("wide points max size"))?;
 
     // here we assume the buffer is correctly aligned
     let points = cast_slice(points);
-    WidePointPickView { points }.into()
+    Ok(WidePointPickView { points, max_size })
   }
 }
 
-impl LocalModelPicker for WidePointsPicker {
-  fn is_applicable(&self, idx: EntityHandle<SceneModelEntity>) -> bool {
-    self.relation.get(idx).is_some()
-  }
-
-  fn tolerance(&self, idx: EntityHandle<SceneModelEntity>) -> Option<IntersectTolerance> {
+impl LocalModelPickerResolver for WidePointsPicker {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedLocalModelPickerBox<'a>, LocalModelPickDataError>> {
     let point = self.relation.get(idx)?;
-    let size = self.max_size.access(point.raw_handle_ref())?;
-    Some(IntersectTolerance::new(size, ToleranceType::ScreenSpace))
+    let view = self.read_view(point);
+    Some(view.map(|view| Box::new_in(view, alloc) as _))
+  }
+}
+
+impl ResolvedLocalModelPicker for WidePointPickView<'_> {
+  fn tolerance(&self) -> Option<IntersectTolerance> {
+    Some(IntersectTolerance::new(
+      self.max_size,
+      ToleranceType::ScreenSpace,
+    ))
   }
 
-  fn primitive_count(&self, idx: EntityHandle<SceneModelEntity>) -> u32 {
-    self
-      .create_view(idx)
-      .map(|view| view.points.len() as u32)
-      .unwrap_or(0)
+  fn primitive_count(&self) -> Result<u32, LocalModelPickDataError> {
+    Ok(self.points.len() as u32)
   }
 
-  fn ray_query_local(&self, req: LocalRayQuery, v: &mut dyn LocalRayHitVisitor) -> ControlFlow<()> {
-    let Some(view) = self.create_view(req.idx) else {
-      return ControlFlow::Continue(());
-    };
-    let mesh = view.into_tri_mesh(
+  fn ray_query_local(
+    &self,
+    req: LocalRayQuery,
+    v: &mut dyn LocalRayHitVisitor,
+  ) -> Result<ControlFlow<()>, LocalModelPickDataError> {
+    let mesh = self.to_tri_mesh(
       req.world_mat,
       req.camera_ctx,
       req.extra_screen_space_tolerance,
     );
     let hits = mesh.ray_intersect_iter(req.local_ray, &FaceSide::Double);
-    visit_mesh_ray_hits(&req.local_ray, hits, |i| (i / 2) as u32, v)
+    Ok(visit_mesh_ray_hits(
+      &req.local_ray,
+      hits,
+      |i| (i / 2) as u32,
+      v,
+    ))
   }
 
   fn frustum_query_local(
     &self,
     req: LocalFrustumQuery,
     v: &mut dyn FrustumPrimitiveVisitor,
-  ) -> ControlFlow<()> {
-    let Some(view) = self.create_view(req.idx) else {
-      return ControlFlow::Continue(());
-    };
-    let mesh = view.into_tri_mesh(
+  ) -> Result<ControlFlow<()>, LocalModelPickDataError> {
+    let mesh = self.to_tri_mesh(
       req.world_mat,
       req.camera_ctx,
       req.extra_screen_space_tolerance,
     );
-    visit_frustum_quads(
+    Ok(visit_frustum_quads(
       mesh.primitive_iter(),
       req.policy,
       req.helper,
       req.local_frustum,
       v,
-    )
+    ))
   }
 }
 
 struct WidePointPickView<'a> {
   points: &'a [WideStyledPointVertex],
+  max_size: f32,
 }
 
 impl<'a> WidePointPickView<'a> {
-  fn into_tri_mesh(
-    self,
+  fn to_tri_mesh(
+    &self,
     world_mat: &Mat4<f64>,
     camera_ctx: &CameraQueryCtx,
     extra_screen_space_tolerance: f32,

@@ -1,4 +1,4 @@
-//! Helpers for implementing [LocalModelPicker].
+//! Helpers for implementing [ResolvedLocalModelPicker].
 
 use crate::*;
 

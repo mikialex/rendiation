@@ -141,41 +141,22 @@ pub trait SceneModelRenderer {
 pub enum UnableToRenderSceneModelError {
   #[error("unable to access mesh draw command, maybe the mesh buffer is failed to allocate")]
   MeshBufferFailedGetDrawCommand,
-  #[error("failed to find model renderer impl for: {model_id} the sub tries are: {tried:?}")]
+  #[error("failed to find model renderer impl for: {model_id}")]
   UnableToFindImpl {
     model_id: EntityHandle<SceneModelEntity>,
-    tried: Vec<Self>,
   },
   #[error("model renderer impl found but unable to render, the detail is: {0}")]
   FoundImplButUnableToRender(#[from] Box<dyn std::error::Error>),
 }
 
-impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
-  fn render_scene_model(
-    &self,
-    idx: EntityHandle<SceneModelEntity>,
-    camera: &dyn RenderComponent,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) -> Result<(), UnableToRenderSceneModelError> {
-    for r in self {
-      if r.render_scene_model(idx, camera, pass, cx, tex).is_ok() {
-        return Ok(());
-      }
-    }
-    let tried = self
-      .iter()
-      .map(|v| {
-        v.render_scene_model(idx, camera, pass, cx, tex)
-          .unwrap_err()
-      })
-      .collect();
+/// The render impl is selected for the model, but the data it requires is missing or invalid.
+#[derive(thiserror::Error, Debug)]
+#[error("invalid scene model render data: {0}")]
+pub struct SceneModelRenderDataError(pub &'static str);
 
-    Err(UnableToRenderSceneModelError::UnableToFindImpl {
-      model_id: idx,
-      tried,
-    })
+impl From<SceneModelRenderDataError> for UnableToRenderSceneModelError {
+  fn from(value: SceneModelRenderDataError) -> Self {
+    Self::FoundImplButUnableToRender(Box::new(value))
   }
 }
 

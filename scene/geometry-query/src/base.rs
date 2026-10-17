@@ -62,31 +62,52 @@ impl SceneModelPickerBaseImplUtil {
 }
 
 /// The base scene model picker: pre check, bounding test, transform the query into local space
-/// and dispatch it to the selected local model picker.
+/// and dispatch it to the resolved local model picker.
 pub struct SceneModelPickerBaseImpl<T> {
   pub util: SceneModelPickerBaseImplUtil,
   pub internal: T,
+  /// the resolved local model pickers are allocated in it, it is reset after each model query
+  pub scratch: ScratchAllocator,
 }
 
 struct ResolvedModel<'a> {
-  picker: &'a dyn LocalModelPicker,
+  local: ResolvedLocalModelPickerBox<'a>,
   mat: Mat4<f64>,
   /// enlarged by the local tolerance
   world_aabb: Box3<f64>,
   local_tolerance: f32,
 }
 
-impl<T: LocalModelPickerSelector> SceneModelPickerBaseImpl<T> {
-  fn resolve(
-    &self,
+fn log_pick_data_error(idx: EntityHandle<SceneModelEntity>, err: &LocalModelPickDataError) {
+  log::error!("failed to pick scene model {idx:?}: {err}");
+}
+
+fn report_pick_data_error(
+  idx: EntityHandle<SceneModelEntity>,
+  r: Result<ControlFlow<()>, LocalModelPickDataError>,
+) -> ControlFlow<()> {
+  r.unwrap_or_else(|err| {
+    log_pick_data_error(idx, &err);
+    ControlFlow::Continue(())
+  })
+}
+
+impl<T: LocalModelPickerResolver> SceneModelPickerBaseImpl<T> {
+  fn resolve<'a>(
+    &'a self,
     idx: EntityHandle<SceneModelEntity>,
     override_world_mat: Option<&Mat4<f64>>,
     ignore_pre_check: bool,
     camera_ctx: &CameraQueryCtx,
     extra_screen_space_tolerance: f32,
-  ) -> Option<ResolvedModel<'_>> {
+    alloc: &'a dyn Allocator,
+  ) -> Option<ResolvedModel<'a>> {
     let node = self.util.pre_check(idx, ignore_pre_check)?;
-    let picker = self.internal.select(idx)?;
+    let local = self
+      .internal
+      .resolve(idx, alloc)?
+      .inspect_err(|err| log_pick_data_error(idx, err))
+      .ok()?;
     let (mat, mut world_aabb) =
       self
         .util
@@ -94,8 +115,8 @@ impl<T: LocalModelPickerSelector> SceneModelPickerBaseImpl<T> {
 
     let max_scale = mat.max_scale();
     let center = world_aabb.center();
-    let mut local_tolerance = picker
-      .tolerance(idx)
+    let mut local_tolerance = local
+      .tolerance()
       .map(|tolerance| camera_ctx.compute_local_tolerance(tolerance, max_scale, center))
       .unwrap_or(0.);
 
@@ -109,7 +130,7 @@ impl<T: LocalModelPickerSelector> SceneModelPickerBaseImpl<T> {
     }
 
     Some(ResolvedModel {
-      picker,
+      local,
       mat,
       world_aabb,
       local_tolerance,
@@ -117,8 +138,31 @@ impl<T: LocalModelPickerSelector> SceneModelPickerBaseImpl<T> {
   }
 }
 
-impl<T: LocalModelPickerSelector> SceneModelPicker for SceneModelPickerBaseImpl<T> {
+impl<T: LocalModelPickerResolver> SceneModelPicker for SceneModelPickerBaseImpl<T> {
   fn ray_query(&self, req: SceneModelRayQuery, v: &mut dyn RayHitVisitor) -> ControlFlow<()> {
+    self
+      .scratch
+      .scope(|alloc| self.ray_query_impl(req, v, alloc))
+  }
+
+  fn frustum_query(
+    &self,
+    req: SceneModelFrustumQuery,
+    v: &mut dyn FrustumPrimitiveVisitor,
+  ) -> ControlFlow<()> {
+    self
+      .scratch
+      .scope(|alloc| self.frustum_query_impl(req, v, alloc))
+  }
+}
+
+impl<T: LocalModelPickerResolver> SceneModelPickerBaseImpl<T> {
+  fn ray_query_impl(
+    &self,
+    req: SceneModelRayQuery,
+    v: &mut dyn RayHitVisitor,
+    alloc: &dyn Allocator,
+  ) -> ControlFlow<()> {
     let ctx = req.ctx;
     let Some(model) = self.resolve(
       req.idx,
@@ -126,6 +170,7 @@ impl<T: LocalModelPickerSelector> SceneModelPicker for SceneModelPickerBaseImpl<
       req.ignore_pre_check,
       &ctx.camera_ctx,
       ctx.extra_screen_space_tolerance,
+      alloc,
     ) else {
       return ControlFlow::Continue(());
     };
@@ -150,13 +195,17 @@ impl<T: LocalModelPickerSelector> SceneModelPicker for SceneModelPickerBaseImpl<
     };
     let mut adapter =
       LocalToWorldRayHitAdapter::new(v, req.idx, model.mat, ctx.world_ray, &local_ray);
-    model.picker.ray_query_local(local_req, &mut adapter)
+    report_pick_data_error(
+      req.idx,
+      model.local.ray_query_local(local_req, &mut adapter),
+    )
   }
 
-  fn frustum_query(
+  fn frustum_query_impl(
     &self,
     req: SceneModelFrustumQuery,
     v: &mut dyn FrustumPrimitiveVisitor,
+    alloc: &dyn Allocator,
   ) -> ControlFlow<()> {
     let frustum = req.frustum;
     let Some(model) = self.resolve(
@@ -165,14 +214,10 @@ impl<T: LocalModelPickerSelector> SceneModelPicker for SceneModelPickerBaseImpl<
       req.ignore_pre_check,
       &frustum.camera_ctx,
       frustum.extra_screen_space_tolerance,
+      alloc,
     ) else {
       return ControlFlow::Continue(());
     };
-
-    let primitive_count = model.picker.primitive_count(req.idx);
-    if primitive_count == 0 {
-      return ControlFlow::Continue(());
-    }
 
     let coverage = if req.known_inside {
       IntersectResult::Inside
@@ -187,7 +232,14 @@ impl<T: LocalModelPickerSelector> SceneModelPicker for SceneModelPickerBaseImpl<
     match coverage {
       // every standard visitor gives the correct result without any event
       IntersectResult::Outside => ControlFlow::Continue(()),
-      IntersectResult::Inside => v.visit(FrustumPrimitiveEvent::whole(primitive_count, true)),
+      IntersectResult::Inside => {
+        let primitive_count = match model.local.primitive_count() {
+          Ok(0) => return ControlFlow::Continue(()),
+          Ok(count) => count,
+          Err(err) => return report_pick_data_error(req.idx, Err(err)),
+        };
+        v.visit(FrustumPrimitiveEvent::whole(primitive_count, true))
+      }
       IntersectResult::Intersect => {
         let local_frustum =
           transform_frustum_world_to_local(&frustum.world_frustum, &model.mat).into_f32();
@@ -202,7 +254,7 @@ impl<T: LocalModelPickerSelector> SceneModelPicker for SceneModelPickerBaseImpl<
           world_mat: &model.mat,
           camera_ctx: &frustum.camera_ctx,
         };
-        model.picker.frustum_query_local(local_req, v)
+        report_pick_data_error(req.idx, model.local.frustum_query_local(local_req, v))
       }
     }
   }

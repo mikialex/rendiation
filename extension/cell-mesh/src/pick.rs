@@ -1,4 +1,4 @@
-use std::ops::ControlFlow;
+use std::{alloc::Allocator, ops::ControlFlow};
 
 use rendiation_geometry::*;
 use rendiation_mesh_core::{AbstractMesh, AbstractMeshIntersectionExt};
@@ -48,16 +48,36 @@ pub struct CellMeshPicker {
 }
 
 impl CellMeshPicker {
-  fn mesh_view(&self, idx: EntityHandle<SceneModelEntity>) -> Option<CellMeshPickView<'_>> {
-    let std_model = self.sm_to_std_model.get(idx)?;
-    let cell_mesh = self.std_model_to_cell_mesh.get(std_model)?;
-    let units = self.units.get(cell_mesh)?;
-    let units = cast_slice(units);
-    let shrink_ratio = self.shrink_ratio.get_value(cell_mesh)?;
-    Some(CellMeshPickView {
-      lines: units,
+  fn read_view(
+    &self,
+    cell_mesh: EntityHandle<CellMeshEntity>,
+  ) -> Result<CellMeshPickView<'_>, LocalModelPickDataError> {
+    let err = LocalModelPickDataError;
+    let units = self
+      .units
+      .get(cell_mesh)
+      .ok_or(err("cell mesh units buffer"))?;
+    let shrink_ratio = self
+      .shrink_ratio
+      .get_value(cell_mesh)
+      .ok_or(err("cell mesh shrink ratio"))?;
+    Ok(CellMeshPickView {
+      lines: cast_slice(units),
       shrink_ratio,
     })
+  }
+}
+
+impl LocalModelPickerResolver for CellMeshPicker {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedLocalModelPickerBox<'a>, LocalModelPickDataError>> {
+    let std_model = self.sm_to_std_model.get(idx)?;
+    let cell_mesh = self.std_model_to_cell_mesh.get(std_model)?;
+    let view = self.read_view(cell_mesh);
+    Some(view.map(|view| Box::new_in(view, alloc) as _))
   }
 }
 
@@ -93,50 +113,42 @@ impl<'a> AbstractMesh for CellMeshPickView<'a> {
   }
 }
 
-impl LocalModelPicker for CellMeshPicker {
-  fn is_applicable(&self, idx: EntityHandle<SceneModelEntity>) -> bool {
-    self
-      .sm_to_std_model
-      .get(idx)
-      .and_then(|std_model| self.std_model_to_cell_mesh.get(std_model))
-      .is_some()
-  }
-
-  fn tolerance(&self, _: EntityHandle<SceneModelEntity>) -> Option<IntersectTolerance> {
+impl ResolvedLocalModelPicker for CellMeshPickView<'_> {
+  fn tolerance(&self) -> Option<IntersectTolerance> {
     None
   }
 
-  fn primitive_count(&self, idx: EntityHandle<SceneModelEntity>) -> u32 {
-    self
-      .mesh_view(idx)
-      .map(|view| view.lines.len() as u32)
-      .unwrap_or(0)
+  fn primitive_count(&self) -> Result<u32, LocalModelPickDataError> {
+    Ok(self.lines.len() as u32)
   }
 
-  fn ray_query_local(&self, req: LocalRayQuery, v: &mut dyn LocalRayHitVisitor) -> ControlFlow<()> {
-    let Some(view) = self.mesh_view(req.idx) else {
-      return ControlFlow::Continue(());
-    };
+  fn ray_query_local(
+    &self,
+    req: LocalRayQuery,
+    v: &mut dyn LocalRayHitVisitor,
+  ) -> Result<ControlFlow<()>, LocalModelPickDataError> {
     // todo extra_screen_space_tolerance
-    let hits = view.ray_intersect_iter(req.local_ray, &FaceSide::Double);
-    visit_mesh_ray_hits(&req.local_ray, hits, |i| (i / 2) as u32, v)
+    let hits = self.ray_intersect_iter(req.local_ray, &FaceSide::Double);
+    Ok(visit_mesh_ray_hits(
+      &req.local_ray,
+      hits,
+      |i| (i / 2) as u32,
+      v,
+    ))
   }
 
   fn frustum_query_local(
     &self,
     req: LocalFrustumQuery,
     v: &mut dyn FrustumPrimitiveVisitor,
-  ) -> ControlFlow<()> {
-    let Some(view) = self.mesh_view(req.idx) else {
-      return ControlFlow::Continue(());
-    };
+  ) -> Result<ControlFlow<()>, LocalModelPickDataError> {
     // todo extra_screen_space_tolerance
-    visit_frustum_quads(
-      view.primitive_iter(),
+    Ok(visit_frustum_quads(
+      self.primitive_iter(),
       req.policy,
       req.helper,
       req.local_frustum,
       v,
-    )
+    ))
   }
 }

@@ -1,5 +1,5 @@
 use rendiation_scene_rendering_gpu_base::*;
-use rendiation_scene_rendering_gpu_gles::GLESModelRenderImpl;
+use rendiation_scene_rendering_gpu_gles::{GLESModelRenderComponents, GLESModelRenderImpl};
 
 use crate::*;
 
@@ -41,33 +41,45 @@ pub struct Text3dGlesRenderer {
   uniform: LockReadGuardHolder<UniformBufferCollectionRaw<u32, Mat4<f32>>>,
 }
 
+impl Text3dGlesRenderer {
+  fn create_components<'a>(
+    &'a self,
+    model_idx: EntityHandle<Text3dEntity>,
+  ) -> Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    let text_gpu = self
+      .texts
+      .get(model_idx.raw_handle_ref())
+      .ok_or(err("text gpu data"))?;
+    // todo, we should distinguish the not ready case from the error case
+    let text_gpu = text_gpu.as_ref().ok_or(err("text gpu data not ready"))?;
+
+    let draw = text_gpu.draw_command();
+
+    let shape = Box::new(Draw {
+      data: text_gpu,
+      uniform: self
+        .uniform
+        .get(&model_idx.alloc_index())
+        .ok_or(err("text uniform"))?,
+    });
+    Ok(GLESModelRenderComponents {
+      shape,
+      draw,
+      // no material
+      material: Box::new(()),
+    })
+  }
+}
+
 impl GLESModelRenderImpl for Text3dGlesRenderer {
-  fn shape_renderable<'a>(
+  fn make_components<'a>(
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-    let text_id = self.access.get(idx)?;
-    let text_gpu = self.texts.get(text_id.raw_handle_ref()).unwrap();
-    // todo, we should distinguish between this case from the error case
-    let text_gpu = text_gpu.as_ref()?;
-
-    let cmd = text_gpu.draw_command();
-
-    Some((
-      Box::new(Draw {
-        data: text_gpu,
-        uniform: self.uniform.get(&text_id.alloc_index())?,
-      }),
-      cmd,
-    ))
-  }
-  fn material_renderable<'a>(
-    &'a self,
-    _idx: EntityHandle<SceneModelEntity>,
-    _cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    Some(Box::new(())) // no material
+  ) -> Option<Result<GLESModelRenderComponents<'a>, SceneModelRenderDataError>> {
+    let model_idx = self.access.get(idx)?;
+    Some(self.create_components(model_idx))
   }
 }
 

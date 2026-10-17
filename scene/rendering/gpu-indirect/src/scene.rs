@@ -9,9 +9,6 @@ pub struct IndirectSceneRenderer {
   pub gpu: GPU,
 }
 
-#[derive(Debug)]
-struct MissingIndirectGroupKeyError;
-
 impl IndirectSceneRenderer {
   pub fn classify_draws(
     &self,
@@ -21,10 +18,7 @@ impl IndirectSceneRenderer {
 
     for sm in iter {
       let mut hasher = PipelineHasher::default();
-      let re = self
-        .renderer
-        .hash_shader_group_key_with_self_type_info(sm, &mut hasher)
-        .ok_or(MissingIndirectGroupKeyError);
+      let re = self.renderer.hash_shader_group_key(sm, &mut hasher);
 
       self.model_error_state.report_and_filter_error(sm, &re);
 
@@ -111,50 +105,6 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
   }
 }
 
-pub trait IndirectDrawProviderCreator {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64>;
-
-  /// the sub_lists's impl_select_id's impl_distinguish_key must be all same for this list
-  fn use_create_or_update_indirect_draw_providers(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-    list: &DeviceDrawList,
-    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>>;
-}
-
-pub trait DrawCommandBuilderCreator {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder>;
-}
-
-impl DrawCommandBuilderCreator for IndirectSceneRenderer {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    self.renderer.make_draw_command_builder(id)
-  }
-}
-
-impl IndirectDrawProviderCreator for IndirectSceneRenderer {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    self.renderer.get_impl_distinguish_key_by_impl_select_id(id)
-  }
-
-  fn use_create_or_update_indirect_draw_providers(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-    list: &DeviceDrawList,
-    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    self.renderer.use_create_or_update_indirect_draw_providers(
-      cx,
-      list,
-      dispatch_info_device_offset_compacted,
-      id,
-    )
-  }
-}
-
 impl SceneRenderer for IndirectSceneRenderer {
   fn indirect_batch_direct_creator(&self) -> Option<&dyn SceneDeviceBatchDirectCreator> {
     if self.using_host_driven_indirect_draw {
@@ -201,16 +151,15 @@ impl SceneRenderer for IndirectSceneRenderer {
         device_list.impl_select_ids.len()
       );
       for (i, impl_select_id) in device_list.impl_select_ids.iter().enumerate() {
-        if let Some(impl_key) =
-          self.get_impl_distinguish_key_by_impl_select_id(impl_select_id.into_raw())
-        {
-          let (list, list_ids) = classified.entry(impl_key).or_default();
-          let idx = list.len();
-          list.push(i);
-          list_ids.push(*impl_select_id);
-          mappings.push((impl_key, idx, impl_select_id));
-        } else {
-          log::error!("unable to find impl key");
+        match self.renderer.impl_distinguish_key(*impl_select_id) {
+          Ok(impl_key) => {
+            let (list, list_ids) = classified.entry(impl_key).or_default();
+            let idx = list.len();
+            list.push(i);
+            list_ids.push(*impl_select_id);
+            mappings.push((impl_key, idx, impl_select_id));
+          }
+          Err(err) => log::error!("unable to find impl key: {err}"),
         }
       }
 
@@ -222,6 +171,8 @@ impl SceneRenderer for IndirectSceneRenderer {
       ctx.access_parallel_compute(|ctx| {
         ctx.next_scope_index();
         for (impl_key, (selected_sub_list, impl_select_ids)) in &classified {
+          // the impl key contains the impl type identity, so the hook states of different impls
+          // are isolated by this scope
           ctx.keyed_scope(impl_key, |ctx| {
             let (dispatch_info, dispatch_info_offset_compacted) =
               use_compute_selected_sub_list_dispatch_info(
@@ -234,17 +185,18 @@ impl SceneRenderer for IndirectSceneRenderer {
               dispatch_info,
             };
 
-            if let Some(result) = self.use_create_or_update_indirect_draw_providers(
+            match self.renderer.use_create_or_update_indirect_draw_providers(
               ctx,
               &device_list_sub_list,
               &dispatch_info_offset_compacted,
-              impl_select_ids[0].into_raw(),
+              impl_select_ids[0],
             ) {
-              // using map is to avoid IndirectDrawProvider impl clone
-              let map = result.into_iter().enumerate().collect();
-              indirect_draw_providers.insert(*impl_key, map);
-            } else {
-              log::error!("unable to create indirect draw provider");
+              Ok(result) => {
+                // using map is to avoid IndirectDrawProvider impl clone
+                let map = result.into_iter().enumerate().collect();
+                indirect_draw_providers.insert(*impl_key, map);
+              }
+              Err(err) => log::error!("unable to create indirect draw provider: {err}"),
             }
           });
         }
@@ -450,7 +402,7 @@ impl PassContent for IndirectScenePassContent<'_> {
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
     for (content, any_scene_model) in self.content {
-      self.renderer.renderer.render_indirect_batch_models(
+      let re = self.renderer.renderer.render_indirect_batch_models(
         content.as_ref(),
         *any_scene_model,
         &self.camera,
@@ -458,6 +410,10 @@ impl PassContent for IndirectScenePassContent<'_> {
         &p,
         &mut cx.ctx,
       );
+      self
+        .renderer
+        .model_error_state
+        .report_and_filter_error(*any_scene_model, &re);
     }
   }
 }

@@ -1,4 +1,4 @@
-use std::ops::ControlFlow;
+use std::{alloc::Allocator, ops::ControlFlow};
 
 use rendiation_geometry::*;
 use rendiation_scene_geometry_query::*;
@@ -44,69 +44,82 @@ pub struct WideLinePicker {
 }
 
 impl WideLinePicker {
-  fn mesh_view(&self, idx: EntityHandle<SceneModelEntity>) -> Option<WideLinePickView<'_>> {
-    let line = self.relation.get(idx)?;
-    let lines = self.lines.get(line)?;
-    let is_line_strip = self.is_line_strip.get_value(line)?;
+  fn read_view(
+    &self,
+    line: EntityHandle<WideLineModelEntity>,
+  ) -> Result<WideLinePickView<'_>, LocalModelPickDataError> {
+    let err = LocalModelPickDataError;
+    let lines = self.lines.get(line).ok_or(err("wide line buffer"))?;
+    let is_line_strip = self
+      .is_line_strip
+      .get_value(line)
+      .ok_or(err("wide line strip flag"))?;
+    let line_width = self
+      .line_width
+      .get_value(line)
+      .ok_or(err("wide line width"))?;
 
     // here we assume the buffer is correctly aligned
     let lines = cast_slice(lines);
-    Some(WideLinePickView {
+    Ok(WideLinePickView {
       lines,
       is_line_strip,
+      line_width,
     })
   }
 }
 
-impl LocalModelPicker for WideLinePicker {
-  fn is_applicable(&self, idx: EntityHandle<SceneModelEntity>) -> bool {
-    self.relation.get(idx).is_some()
-  }
-
-  fn tolerance(&self, idx: EntityHandle<SceneModelEntity>) -> Option<IntersectTolerance> {
+impl LocalModelPickerResolver for WideLinePicker {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<SceneModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedLocalModelPickerBox<'a>, LocalModelPickDataError>> {
     let line = self.relation.get(idx)?;
-    let line_width = self.line_width.get_value(line)?;
-    Some(IntersectTolerance::new(
-      line_width / 2.,
-      ToleranceType::ScreenSpace,
-    ))
-  }
-
-  fn primitive_count(&self, idx: EntityHandle<SceneModelEntity>) -> u32 {
-    self
-      .mesh_view(idx)
-      .map(|view| view.primitive_count() as u32)
-      .unwrap_or(0)
-  }
-
-  fn ray_query_local(&self, req: LocalRayQuery, v: &mut dyn LocalRayHitVisitor) -> ControlFlow<()> {
-    let Some(view) = self.mesh_view(req.idx) else {
-      return ControlFlow::Continue(());
-    };
-    let hits = view.ray_intersect_iter(req.local_ray, &req.local_tolerance);
-    visit_mesh_ray_hits(&req.local_ray, hits, |i| i as u32, v)
-  }
-
-  fn frustum_query_local(
-    &self,
-    req: LocalFrustumQuery,
-    v: &mut dyn FrustumPrimitiveVisitor,
-  ) -> ControlFlow<()> {
-    let Some(view) = self.mesh_view(req.idx) else {
-      return ControlFlow::Continue(());
-    };
-    // todo extra_screen_space_tolerance
-    visit_frustum_primitives(
-      view.primitive_iter(),
-      |line| frustum_test_line_segment(req.helper, req.local_frustum, line, req.policy),
-      v,
-    )
+    let view = self.read_view(line);
+    Some(view.map(|view| Box::new_in(view, alloc) as _))
   }
 }
 
 struct WideLinePickView<'a> {
   lines: &'a [WideLineVertex],
   is_line_strip: bool,
+  line_width: f32,
+}
+
+impl ResolvedLocalModelPicker for WideLinePickView<'_> {
+  fn tolerance(&self) -> Option<IntersectTolerance> {
+    Some(IntersectTolerance::new(
+      self.line_width / 2.,
+      ToleranceType::ScreenSpace,
+    ))
+  }
+
+  fn primitive_count(&self) -> Result<u32, LocalModelPickDataError> {
+    Ok(AbstractMesh::primitive_count(self) as u32)
+  }
+
+  fn ray_query_local(
+    &self,
+    req: LocalRayQuery,
+    v: &mut dyn LocalRayHitVisitor,
+  ) -> Result<ControlFlow<()>, LocalModelPickDataError> {
+    let hits = self.ray_intersect_iter(req.local_ray, &req.local_tolerance);
+    Ok(visit_mesh_ray_hits(&req.local_ray, hits, |i| i as u32, v))
+  }
+
+  fn frustum_query_local(
+    &self,
+    req: LocalFrustumQuery,
+    v: &mut dyn FrustumPrimitiveVisitor,
+  ) -> Result<ControlFlow<()>, LocalModelPickDataError> {
+    // todo extra_screen_space_tolerance
+    Ok(visit_frustum_primitives(
+      self.primitive_iter(),
+      |line| frustum_test_line_segment(req.helper, req.local_frustum, line, req.policy),
+      v,
+    ))
+  }
 }
 
 impl<'a> AbstractMesh for WideLinePickView<'a> {

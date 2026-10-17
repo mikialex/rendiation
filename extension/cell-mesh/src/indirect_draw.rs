@@ -1,8 +1,4 @@
-use std::{
-  any::{Any, TypeId},
-  hash::Hash,
-  sync::Arc,
-};
+use std::{alloc::Allocator, any::TypeId, hash::Hash, sync::Arc};
 
 use fast_hash_collection::fast_hash_scope;
 use parking_lot::RwLock;
@@ -30,7 +26,7 @@ pub fn use_cell_mesh_group_key(
 pub fn use_cell_mesh_renderer(
   cx: &mut QueryGPUHookCx,
   force_midc_downgrade: bool,
-) -> Option<Box<dyn IndirectModelShapeRenderImpl>> {
+) -> Option<Box<dyn IndirectModelShapeRendererResolver>> {
   let data_source = cx
     .use_dual_query::<CellMeshUnitsBuffer>()
     .map_spawn_stage_in_thread_dual_query(cx, move |source_info| {
@@ -92,7 +88,7 @@ pub fn use_cell_mesh_renderer(
       params: params.get_gpu_buffer(),
       params_host,
       std_model_to_cell_mesh_device: std_model_to_cell_mesh_device.unwrap(),
-    }) as Box<dyn IndirectModelShapeRenderImpl>
+    }) as Box<dyn IndirectModelShapeRendererResolver>
   })
 }
 
@@ -105,28 +101,31 @@ pub struct CellMeshRenderer {
   std_model_to_cell_mesh_device: AbstractReadonlyStorageBuffer<[u32]>,
 }
 
-impl DrawCommandBuilderCreator for CellMeshRenderer {
-  fn make_draw_command_builder(&self, id: RawEntityHandle) -> Option<DrawCommandBuilder> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    let _ = self.std_model_to_cell_mesh_id.get(id)?;
-
-    let creator = CellMeshDrawCreator {
-      params: self.params.clone(),
-      params_host: self.params_host.clone(),
-      std_model_to_cell_mesh_device: self.std_model_to_cell_mesh_device.clone(),
-      std_model_to_cell_mesh_id: self.std_model_to_cell_mesh_id.clone(),
-      sm_to_std_model: read_global_db_foreign_key(),
-    };
-
-    DrawCommandBuilder::NoneIndexed(Box::new(creator)).into()
+impl IndirectModelShapeRendererResolver for CellMeshRenderer {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelShapeRendererBox<'a>, SceneModelRenderDataError>> {
+    self.std_model_to_cell_mesh_id.get(idx)?;
+    let resolved = ResolvedCellMeshRenderer { renderer: self };
+    Some(Ok(Box::new_in(resolved, alloc)))
   }
 }
 
-impl IndirectDrawProviderCreator for CellMeshRenderer {
-  fn get_impl_distinguish_key_by_impl_select_id(&self, id: RawEntityHandle) -> Option<u64> {
-    let id = unsafe { EntityHandle::from_raw(id) };
-    self.std_model_to_cell_mesh_id.get(id)?;
-    fast_hash_scope(|hasher| self.type_id().hash(hasher)).into()
+struct ResolvedCellMeshRenderer<'a> {
+  renderer: &'a CellMeshRenderer,
+}
+
+impl ResolvedIndirectModelShapeRenderer for ResolvedCellMeshRenderer<'_> {
+  fn resolver_type_id(&self) -> TypeId {
+    TypeId::of::<CellMeshRenderer>()
+  }
+
+  fn hash_shader_group_key(&self, _: &mut PipelineHasher) {}
+
+  fn impl_distinguish_key(&self) -> u64 {
+    fast_hash_scope(|hasher| self.resolver_type_id().hash(hasher))
   }
 
   fn use_create_or_update_indirect_draw_providers(
@@ -134,53 +133,40 @@ impl IndirectDrawProviderCreator for CellMeshRenderer {
     cx: &mut rendiation_device_parallel_compute::DeviceParallelComputeCtx,
     list: &DeviceDrawList,
     dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
-    id: RawEntityHandle,
-  ) -> Option<Vec<Box<dyn IndirectDrawProvider>>> {
-    let cmd_builder = self.make_draw_command_builder(id)?;
-    use_and_create_default_indirect_draw_provider(
+  ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError> {
+    Ok(use_and_create_default_indirect_draw_provider(
       list,
       dispatch_info_device_offset_compacted,
-      cmd_builder,
+      self.make_draw_command_builder()?,
       cx,
-      self.used_in_midc_downgrade,
-    )
-    .into()
-  }
-}
-
-impl IndirectModelShapeRenderImpl for CellMeshRenderer {
-  fn make_component_indirect(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    let _ = self.std_model_to_cell_mesh_id.get(any_idx)?;
-
-    Some(Box::new(CellMeshShape {
-      units: self.units.clone(),
-      params: self.params.clone(),
-      std_model_to_cell_mesh_device: self.std_model_to_cell_mesh_device.clone(),
-    }))
+      self.renderer.used_in_midc_downgrade,
+    ))
   }
 
-  fn get_index_storage_buffer(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Option<IndicesBufferInfo>> {
-    let _ = self.std_model_to_cell_mesh_id.get(any_idx)?;
-    Some(None)
+  fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError> {
+    let renderer = self.renderer;
+    let creator = CellMeshDrawCreator {
+      params: renderer.params.clone(),
+      params_host: renderer.params_host.clone(),
+      std_model_to_cell_mesh_device: renderer.std_model_to_cell_mesh_device.clone(),
+      std_model_to_cell_mesh_id: renderer.std_model_to_cell_mesh_id.clone(),
+      sm_to_std_model: read_global_db_foreign_key(),
+    };
+
+    Ok(DrawCommandBuilder::NoneIndexed(Box::new(creator)))
   }
 
-  fn hash_shader_group_key(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-    _: &mut PipelineHasher,
-  ) -> Option<()> {
-    let _ = self.std_model_to_cell_mesh_id.get(any_idx)?;
-    Some(())
+  fn make_component_indirect(&self) -> Box<dyn RenderComponent + '_> {
+    let renderer = self.renderer;
+    Box::new(CellMeshShape {
+      units: renderer.units.clone(),
+      params: renderer.params.clone(),
+      std_model_to_cell_mesh_device: renderer.std_model_to_cell_mesh_device.clone(),
+    })
   }
 
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
+  fn get_index_storage_buffer(&self) -> Option<IndicesBufferInfo> {
+    None
   }
 }
 

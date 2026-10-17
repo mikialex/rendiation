@@ -42,31 +42,57 @@ pub struct UnlitMaterialIndirectRenderer {
   alpha_mode: ComponentReadView<AlphaModeOf<UnlitMaterialAlphaConfig>>,
 }
 
-impl IndirectModelMaterialRenderImpl for UnlitMaterialIndirectRenderer {
+impl UnlitMaterialIndirectRenderer {
+  fn read_material(
+    &self,
+    idx: EntityHandle<UnlitMaterialEntity>,
+  ) -> Result<ResolvedUnlitMaterialIndirectRenderer<'_>, SceneModelRenderDataError> {
+    let err = SceneModelRenderDataError;
+    Ok(ResolvedUnlitMaterialIndirectRenderer {
+      renderer: self,
+      alpha_mode: self
+        .alpha_mode
+        .get_value(idx)
+        .ok_or(err("unlit material alpha mode"))?,
+    })
+  }
+}
+
+impl IndirectModelMaterialRendererResolver for UnlitMaterialIndirectRenderer {
+  fn resolve<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    alloc: &'a dyn Allocator,
+  ) -> Option<Result<ResolvedIndirectModelMaterialRendererBox<'a>, SceneModelRenderDataError>> {
+    let idx = self.material_access.get(idx)?;
+    Some(self.read_material(idx).map(|r| Box::new_in(r, alloc) as _))
+  }
+}
+
+struct ResolvedUnlitMaterialIndirectRenderer<'a> {
+  renderer: &'a UnlitMaterialIndirectRenderer,
+  alpha_mode: AlphaMode,
+}
+
+impl ResolvedIndirectModelMaterialRenderer for ResolvedUnlitMaterialIndirectRenderer<'_> {
+  fn resolver_type_id(&self) -> TypeId {
+    TypeId::of::<UnlitMaterialIndirectRenderer>()
+  }
+
+  fn hash_shader_group_key(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.alpha_mode);
+  }
+
   fn make_component_indirect<'a>(
     &'a self,
-    any_idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
-    let m = self.material_access.get(any_idx)?;
-    Some(Box::new(UnlitMaterialStorageGPU {
-      buffer: self.storages.clone(),
-      alpha_mode: self.alpha_mode.get_value(m)?,
-      texture_handles: self.texture_handles.clone(),
+  ) -> Box<dyn RenderComponent + 'a> {
+    Box::new(UnlitMaterialStorageGPU {
+      buffer: self.renderer.storages.clone(),
+      alpha_mode: self.alpha_mode,
+      texture_handles: self.renderer.texture_handles.clone(),
       binding_sys: cx,
-    }))
-  }
-  fn hash_shader_group_key(
-    &self,
-    any_idx: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
-  ) -> Option<()> {
-    let id = self.material_access.get(any_idx)?;
-    hasher.hash(self.alpha_mode.get_value(id)?);
-    Some(())
-  }
-  fn as_any(&self) -> &dyn Any {
-    self
+    })
   }
 }
 
