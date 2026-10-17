@@ -115,7 +115,6 @@ pub fn use_fill_surface(
         let plane = InfinityShaderPlaneEffect {
           plane: &plane,
           camera: camera_gpu,
-          reversed_depth: reverse_z,
         };
 
         let clip = ClipComponent {

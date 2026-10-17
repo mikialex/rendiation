@@ -16,7 +16,6 @@ impl PassContent for GridGround<'_> {
     let plane = InfinityShaderPlaneEffect {
       plane: self.plane,
       camera: self.camera,
-      reversed_depth: self.reversed_depth,
     };
 
     let grid = GridGroundShading {

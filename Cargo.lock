@@ -4343,7 +4343,6 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-webgpu",
- "rendiation-webgpu-frame",
 ]
 
 [[package]]
