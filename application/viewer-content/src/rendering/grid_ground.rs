@@ -1,5 +1,4 @@
 use rendiation_infinity_primitive::*;
-use rendiation_shader_library::plane::ShaderPlaneUniform;
 
 use crate::*;
 

@@ -100,7 +100,6 @@ impl PassContent for DrawAxis<'_> {
     let line = InfinityShaderLineEffect {
       line: &self.data.line,
       camera: self.camera,
-      reversed_depth: self.reversed_depth,
     };
 
     let shading = LineShading {

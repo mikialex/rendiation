@@ -4339,9 +4339,6 @@ dependencies = [
 name = "rendiation-infinity-primitive"
 version = "0.1.0"
 dependencies = [
- "database",
- "rendiation-algebra",
- "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
  "rendiation-shader-library",

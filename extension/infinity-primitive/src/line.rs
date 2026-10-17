@@ -5,6 +5,8 @@ pub const LINE_DRAW_CMD: DrawCommand = DrawCommand::Array {
   instances: 0..1,
 };
 
+/// a ray start from the point and extend infinitely along the direction. an infinite line can be
+/// drawn by two rays with the same point and opposite direction.
 #[repr(C)]
 #[shader_struct(std140)]
 #[derive(Copy, Clone)]
@@ -26,7 +28,6 @@ impl ShaderLine {
 pub struct InfinityShaderLineEffect<'a> {
   pub line: &'a UniformBufferCachedDataView<ShaderLine>,
   pub camera: &'a dyn RenderComponent,
-  pub reversed_depth: bool,
 }
 
 impl ShaderHashProvider for InfinityShaderLineEffect<'_> {
@@ -34,7 +35,6 @@ impl ShaderHashProvider for InfinityShaderLineEffect<'_> {
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.camera.hash_pipeline(hasher);
-    hasher.hash(self.reversed_depth);
   }
 }
 impl ShaderPassBuilder for InfinityShaderLineEffect<'_> {
@@ -49,57 +49,19 @@ impl GraphicsShaderProvider for InfinityShaderLineEffect<'_> {
     self.camera.build(builder);
 
     builder.vertex(|builder, bind| {
-      let vertex_index = builder.query::<VertexIndex>();
-
       let line = bind.bind_by(&self.line).load().expand();
+      let camera_position = builder.query::<CameraWorldPositionHP>();
+      let origin = hpt_sub_hpt(hpt_uniform_to_hpt(line.point), camera_position);
 
-      builder.register::<WorldNoneTranslationMatrix>(val(Mat4::identity()));
+      // the second vertex is the point at infinity along the direction(w = 0). the linear
+      // interpolation between (origin, 1) and (direction, 0) in homogeneous space covers exactly
+      // the whole ray, so the hardware clipping produces the correct result even if the origin is
+      // behind the camera or the ray is parallel to the near plane.
+      let is_origin = builder.query::<VertexIndex>().equals(0);
+      let position = is_origin.select((origin, val(1.)), (line.direction, val(0.)));
 
-      let (origin_in_ndc, _) =
-        camera_transform_impl(builder, val(Vec3::zero()), hpt_uniform_to_hpt(line.point));
-      let origin_in_ndc = origin_in_ndc.xyz() / origin_in_ndc.w();
-
-      let (test_point_in_ndc, _) =
-        camera_transform_impl(builder, line.direction, hpt_uniform_to_hpt(line.point));
-      let test_point_in_ndc = test_point_in_ndc.xyz() / test_point_in_ndc.w();
-
-      let direction_in_ndc = (test_point_in_ndc - origin_in_ndc).normalize();
-
-      let position = val(Vec3::<f32>::zero()).make_local_var();
-      switch_by(vertex_index)
-        .case(0, || {
-          position.store(origin_in_ndc);
-        })
-        .end_with_default(|| {
-          let mut near_plane = ENode::<ShaderPlane> {
-            normal: val(Vec3::new(0., 0., 1.)),
-            constant: val(0.),
-          };
-          let mut far_plane = ENode::<ShaderPlane> {
-            normal: val(Vec3::new(0., 0., -1.)),
-            constant: val(1.),
-          };
-
-          if self.reversed_depth {
-            std::mem::swap(&mut near_plane, &mut far_plane);
-          }
-
-          let far = ray_plane_intersect(origin_in_ndc, direction_in_ndc, far_plane);
-          let far_hit = far.w().equals(0.).select(origin_in_ndc, far.xyz());
-          let near = ray_plane_intersect(origin_in_ndc, direction_in_ndc, near_plane);
-          let near_hit = near.w().equals(0.).select(origin_in_ndc, near.xyz());
-
-          let far_distance = (far_hit - origin_in_ndc).length();
-          let near_distance = (near_hit - origin_in_ndc).length();
-
-          let hit_choice = far_distance
-            .less_than(near_distance)
-            .select(near_hit, far_hit);
-
-          position.store(hit_choice);
-        });
-
-      builder.register::<ClipPosition>((position.load(), val(1.)));
+      let clip_position = compute_jittered_clip_space_position(builder, position);
+      builder.register::<ClipPosition>(clip_position);
 
       *builder.primitive_state() = PrimitiveState {
         topology: PrimitiveTopology::LineList,
