@@ -15,11 +15,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for WideLineSceneModelLocalBound
     let local_boxes = cx
       .use_dual_query::<WideLineMeshBuffer>()
       .use_dual_query_execute_map(cx, || {
-        |_, buffer| {
-          let buffer: &[WideLineVertex] = cast_slice(&buffer);
-          let box3: Box3<f32> = buffer.iter().map(|v| v.position).collect();
-          box3
-        }
+        |_, buffer| buffer.iter().map(|v| v.position).collect::<Box3<f32>>()
       });
 
     let relation = cx.use_db_rev_ref_tri_view::<SceneModelWideLineRenderPayload>();
@@ -59,10 +55,8 @@ impl WideLinePicker {
       .get_value(line)
       .ok_or(err("wide line width"))?;
 
-    // here we assume the buffer is correctly aligned
-    let lines = cast_slice(lines);
     Ok(WideLinePickView {
-      lines,
+      lines: lines.as_slice(),
       is_line_strip,
       line_width,
     })

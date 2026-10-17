@@ -354,13 +354,13 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
       builder.register::<WideLineStart>(start);
       builder.register::<WideLineEnd>(end);
 
-      let seg_color = seg.color.unpack4x8unorm();
-
       if self.use_native_line {
-        let position = vertex_index.equals(0).select(start, end);
+        let is_start = vertex_index.equals(0);
+        let position = is_start.select(start, end);
         builder.register::<GeometryPosition>(position);
 
-        let color = seg_color * line_param.color;
+        let vertex_color = is_start.select(seg.color, next_seg.color).unpack4x8unorm();
+        let color = vertex_color * line_param.color;
         builder.register::<GeometryColorWithAlpha>(color);
         builder.set_vertex_out::<DefaultDisplay>(color);
 
@@ -373,14 +373,17 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
         let x = v1.less_equal_than(val(2)).select(val(-1.), val(1.));
         let y = v2.less_equal_than(val(2)).select(val(2.), val(1.));
 
+        // the quad rows are 2, 1, 0, -1 for position and 2, 1, -1, -2 for uv, see create_wide_line_quad
         let y = y - dy;
-        let y = y.less_equal_than(0.).select(y - val(1.), y);
+        let uv_y = y.less_equal_than(0.).select(y - val(1.), y);
 
-        let vertex: Node<Vec2<f32>> = (x, y).into();
-        builder.register::<GeometryPosition>(Node::from((vertex, val(0.))));
-        builder.register::<GeometryUV>(vertex);
+        let position: Node<Vec3<f32>> = (x, y, val(0.)).into();
+        builder.register::<GeometryPosition>(position);
+        let uv: Node<Vec2<f32>> = (x, uv_y).into();
+        builder.register::<GeometryUV>(uv);
 
-        let color = seg_color * line_param.color;
+        let vertex_color = wide_line_vertex_color(position, seg.color, next_seg.color);
+        let color = vertex_color * line_param.color;
         builder.register::<GeometryColorWithAlpha>(color);
         builder.set_vertex_out::<DefaultDisplay>(color);
 
@@ -401,9 +404,7 @@ impl GraphicsShaderProvider for WideLineIndirectDrawComponent {
         builder.register::<ClipPosition>(clip);
         builder.register::<VertexRenderPosition>(position_in_render_space);
 
-        let clip_ndc = clip.xy() / clip.w();
-        let viewport_size = builder.query::<ViewportRenderBufferSize>();
-        builder.set_vertex_out::<WideLineScreenCoord>(clip_ndc * viewport_size);
+        set_wide_line_screen_coord(builder, clip);
       } else {
         let uv = builder.query::<GeometryUV>();
         let width = builder.query::<WideLineWidthShader>();
@@ -488,8 +489,8 @@ impl ShaderHashProvider for WideLineDrawCreator {
 
 impl NoneIndexedDrawCommandBuilder for WideLineDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
-    let model = self.sm_to_wide.get(id).unwrap();
-    let param = self.params_host.get(model.alloc_index()).unwrap();
+    let model = self.sm_to_wide.get(id)?;
+    let param = self.params_host.get(model.alloc_index())?;
     let vertex_count = param.data_range.y;
 
     if param.data_range.x == DEVICE_RANGE_ALLOCATE_FAIL_MARKER {

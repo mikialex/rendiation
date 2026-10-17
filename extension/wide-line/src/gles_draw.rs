@@ -199,13 +199,18 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
 
     builder.vertex(|builder, binding| {
       let uv = builder.query::<GeometryUV>();
-      let color_with_alpha = builder.query::<WideLineVertexColor>().unpack4x8unorm();
+      let position = builder.query::<GeometryPosition>();
+      let color_with_alpha = wide_line_vertex_color(
+        position,
+        builder.query::<WideLineStartColor>(),
+        builder.query::<WideLineEndColor>(),
+      );
       let uniform = uniform.using(binding).load().expand();
 
       wide_line_vertex(
         builder.query::<WideLineStart>(),
         builder.query::<WideLineEnd>(),
-        builder.query::<GeometryPosition>(),
+        position,
         builder.query::<ViewportRenderBufferSize>(),
         uniform.width,
         builder,
@@ -263,8 +268,10 @@ struct WideLineSegmentInstance {
   pub start: Vec3<f32>,
   #[semantic(WideLineEnd)]
   pub end: Vec3<f32>,
-  #[semantic(WideLineVertexColor)]
-  pub color: u32,
+  #[semantic(WideLineStartColor)]
+  pub start_color: u32,
+  #[semantic(WideLineEndColor)]
+  pub end_color: u32,
 }
 
 /// expand the vertex list into per-segment instance data
@@ -274,27 +281,18 @@ fn expand_wide_line_segments(
   buffer: &[WideLineVertex],
   is_line_strip: bool,
 ) -> Vec<WideLineSegmentInstance> {
-  let mut expanded = Vec::with_capacity(buffer.len() / 2 + 1);
+  let segment = |a: &WideLineVertex, b: &WideLineVertex| WideLineSegmentInstance {
+    start: a.position,
+    end: b.position,
+    start_color: a.color,
+    end_color: b.color,
+  };
   if is_line_strip {
-    for pair in buffer.windows(2) {
-      expanded.push(WideLineSegmentInstance {
-        start: pair[0].position,
-        end: pair[1].position,
-        color: pair[0].color,
-      });
-    }
+    buffer.windows(2).map(|p| segment(&p[0], &p[1])).collect()
   } else {
-    for pair in buffer.chunks(2) {
-      if let [a, b] = pair {
-        expanded.push(WideLineSegmentInstance {
-          start: a.position,
-          end: b.position,
-          color: a.color,
-        });
-      }
-    }
+    let (pairs, _) = buffer.as_chunks::<2>();
+    pairs.iter().map(|[a, b]| segment(a, b)).collect()
   }
-  expanded
 }
 
 fn create_wide_line_quad() -> IndexedMesh<TriangleList, Vec<CommonVertex>, Vec<u16>> {
