@@ -149,6 +149,40 @@ impl Viewer3dViewportRenderingCtx {
       );
     }
     ui.checkbox(&mut self.enable_ground, "enable ground");
+    if self.enable_ground {
+      ui.collapsing("grid ground", |ui| {
+        self.grid.mutate(|grid| {
+          let mut screen_space = grid.screen_space_line_width.0 != 0;
+          ui.checkbox(&mut screen_space, "screen space line width");
+          grid.screen_space_line_width = screen_space.into();
+          if screen_space {
+            ui.add(
+              egui::Slider::new(&mut grid.line_pixel_width, 0.5..=8.0)
+                .step_by(0.1)
+                .text("line pixel width"),
+            );
+          }
+          let line_width_label = if screen_space {
+            "max line width (cell ratio)"
+          } else {
+            "line width (cell ratio)"
+          };
+          ui.add(
+            egui::Slider::new(&mut grid.line_width.x, 0.001..=0.5)
+              .logarithmic(true)
+              .text(line_width_label),
+          );
+          grid.line_width.y = grid.line_width.x;
+          ui.add(
+            egui::Slider::new(&mut grid.scale.x, 0.125..=16.0)
+              .logarithmic(true)
+              .text("scale"),
+          );
+          grid.scale.y = grid.scale.x;
+          modify_color4_change(ui, &mut grid.color);
+        });
+      });
+    }
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
     if self.enable_ssao {
       ui.checkbox(&mut self.enable_ssao_blur, "enable ssao blur");
@@ -517,6 +551,7 @@ impl Viewer3dViewportRenderingCtx {
 
     self.post.upload_with_diff(&ctx.gpu.queue);
     self.outline_color.upload_with_diff(&ctx.gpu.queue);
+    self.grid.upload_with_diff(&ctx.gpu.queue);
     let is_outline_only_mode = self.is_outline_only_mode();
 
     let camera_gpu = renderer.camera.make_component(camera).unwrap();
