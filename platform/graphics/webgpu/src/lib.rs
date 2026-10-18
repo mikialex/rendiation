@@ -274,6 +274,36 @@ impl GPU {
     })
   }
 
+  /// wrap a device created outside (for example by an app shell that owns the window surface).
+  ///
+  /// the info records what the device was created with (`device.features()` / `device.limits()`),
+  /// not everything the adapter supports.
+  pub fn from_raw(
+    instance: gpu::Instance,
+    adaptor: gpu::Adapter,
+    device: gpu::Device,
+    queue: gpu::Queue,
+    power_preference: PowerPreference,
+    default_shader_checks: ShaderRuntimeChecks,
+  ) -> Self {
+    let info = GPUInfo {
+      adaptor_info: adaptor.get_info(),
+      power_preference,
+      supported_features: device.features(),
+      supported_limits: device.limits(),
+      downgrade_info: adaptor.get_downlevel_capabilities(),
+    };
+    let device = GPUDevice::new(device, info.clone(), default_shader_checks);
+    let queue = GPUQueue::new(queue);
+    Self {
+      instance: GPUInstance::new(instance),
+      adaptor,
+      info: Arc::new(info),
+      device,
+      queue,
+    }
+  }
+
   pub fn info(&self) -> &GPUInfo {
     &self.info
   }
