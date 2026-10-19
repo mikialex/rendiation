@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ruststep::ast::{EntityInstance, SubSuperRecord};
+use ruststep::ast::{EntityInstance, Record, SubSuperRecord};
 
 use crate::entities::*;
 
@@ -53,6 +53,7 @@ pub struct Table {
 
   // topology
   pub vertex_point: HashMap<u64, VertexPointHolder>,
+  pub vertex_loop: HashMap<u64, VertexLoopHolder>,
   pub edge_curve: HashMap<u64, EdgeCurveHolder>,
   pub oriented_edge: HashMap<u64, OrientedEdgeHolder>,
   pub edge_loop: HashMap<u64, EdgeLoopHolder>,
@@ -105,6 +106,15 @@ pub struct Table {
 
   // catch-all
   pub unrecognized: HashMap<u64, UnrecognizedEntityHolder>,
+  /// The raw records of every entity in `unrecognized` (one record for a simple entity, all
+  /// partial records for a complex entity), so consumers can read entities this crate has no
+  /// typed holder for (units, contexts, representation maps...).
+  pub unrecognized_records: HashMap<u64, Vec<Record>>,
+  /// Actual entity type name of instances stored in a table of one of their supertypes (or of a
+  /// sibling with the same attributes), e.g. `FACE_OUTER_BOUND` in `face_bound`, `SEAM_CURVE` in
+  /// `surface_curve`, `CLOSED_SHELL` in `shell`, or the joined record names of a complex
+  /// B-spline instance. Instances whose type matches their table name are not recorded.
+  pub subtype_name: HashMap<u64, String>,
 }
 
 /// A single entity that failed to deserialize during STEP parsing.

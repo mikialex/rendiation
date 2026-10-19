@@ -10,11 +10,7 @@ rendiation-geometry = { path = "../../math/geometry" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-shader-derives = { path = "../../shader/derive" }
-rendiation-step-reader = { path = "../step-reader" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
-fast-hash-collection = { path = "../../utility/fast-hash-collection" }
-serde_json = "1"
-spade = "2.15.1"
 
 [dev-dependencies]
 pollster = { workspace = true }

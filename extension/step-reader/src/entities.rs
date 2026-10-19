@@ -1,31 +1,15 @@
 use ruststep::{
-  ast::{EntityInstance, Name, Parameter, SubSuperRecord},
+  ast::{EntityInstance, Parameter, SubSuperRecord},
   primitive::Logical,
   tables::PlaceHolder,
   Holder,
 };
 use serde::{Deserialize, Serialize};
 
+use crate::complex::*;
 use crate::table::Table;
 
 // ── Internal helpers ──────────────────────────────────────────────────
-
-fn make_clamped_mults(n_cp: usize, degree: usize) -> Vec<i64> {
-  let n_knots = n_cp + degree + 1;
-  let mut mults = vec![1i64; n_knots];
-  mults[0] = (degree + 1) as i64;
-  mults[n_knots - 1] = (degree + 1) as i64;
-  mults
-}
-
-fn make_uniform_knots(n_distinct: usize) -> Vec<f64> {
-  if n_distinct <= 1 {
-    return vec![0.0];
-  }
-  (0..n_distinct)
-    .map(|i| i as f64 / (n_distinct - 1) as f64)
-    .collect()
-}
 
 // ── Enums ────────────────────────────────────────────────────────────
 
@@ -665,6 +649,16 @@ pub struct VertexPoint {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
 #[holder(table = Table)]
+#[holder(field = vertex_loop)]
+#[holder(generate_deserialize)]
+pub struct VertexLoop {
+  pub label: String,
+  #[holder(use_place_holder)]
+  pub loop_vertex: VertexPoint,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Holder)]
+#[holder(table = Table)]
 #[holder(field = edge_curve)]
 #[holder(generate_deserialize)]
 pub struct EdgeCurve {
@@ -1203,20 +1197,33 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
 
       // placements
       // Subtypes: entity name differs from Holder-generated name → use &record.parameter
+      // Optional directions omitted with `$` are replaced by their ISO 10303-42 defaults.
       "AXIS1_PLACEMENT" => {
+        let mut parameter = record.parameter.clone();
+        if let Parameter::List(params) = &mut parameter {
+          default_direction_if_omitted(params, 2, &[0.0, 0.0, 1.0]);
+        }
         table
           .axis1_placement
-          .insert(*id, Deserialize::deserialize(&record.parameter)?);
+          .insert(*id, Deserialize::deserialize(&parameter)?);
       }
       "AXIS2_PLACEMENT_2D" => {
+        let mut parameter = record.parameter.clone();
+        if let Parameter::List(params) = &mut parameter {
+          default_direction_if_omitted(params, 2, &[1.0, 0.0]);
+        }
         table
           .axis2_placement_2d
-          .insert(*id, Deserialize::deserialize(&record.parameter)?);
+          .insert(*id, Deserialize::deserialize(&parameter)?);
       }
       "AXIS2_PLACEMENT_3D" => {
+        let mut parameter = record.parameter.clone();
+        if let Parameter::List(params) = &mut parameter {
+          default_direction_if_omitted(params, 2, &[0.0, 0.0, 1.0]);
+        }
         table
           .axis2_placement_3d
-          .insert(*id, Deserialize::deserialize(&record.parameter)?);
+          .insert(*id, Deserialize::deserialize(&parameter)?);
       }
 
       // curves
@@ -1254,81 +1261,52 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
           .bezier_curve
           .insert(*id, Deserialize::deserialize(record)?);
       }
+      // No explicit knots: the implied knot vector (ISO 10303-42) is made explicit.
       "QUASI_UNIFORM_CURVE" | "UNIFORM_CURVE" => {
-        // These have no explicit knots — construct implied clamped knot vector
-        if let Parameter::List(params) = &record.parameter {
-          if params.len() >= 3 {
-            let label: String = Deserialize::deserialize(&params[0]).unwrap_or_default();
-            let degree: i64 = Deserialize::deserialize(&params[1]).unwrap_or(0);
-            let control_points_list: Vec<PlaceHolder<CartesianPointHolder>> =
-              Deserialize::deserialize(&params[2]).unwrap_or_default();
-            let curve_form: BSplineCurveForm =
-              Deserialize::deserialize(&params[3]).unwrap_or(BSplineCurveForm::Unspecified);
-            let closed_curve: Logical =
-              Deserialize::deserialize(&params[4]).unwrap_or(Logical::False);
-            let self_intersect: Logical =
-              Deserialize::deserialize(&params[5]).unwrap_or(Logical::False);
-
-            let n_cp = control_points_list.len();
-            let p = degree as usize;
-            let n_knots = n_cp + p + 1;
-            let knot_multiplicities: Vec<i64> = vec![(p + 1) as i64]
-              .into_iter()
-              .chain(std::iter::repeat(1i64).take(n_knots - 2 * (p + 1)))
-              .chain(std::iter::once((p + 1) as i64))
-              .collect();
-            let knots: Vec<f64> = (0..knot_multiplicities.len())
-              .map(|i| i as f64 / (knot_multiplicities.len() - 1) as f64)
-              .collect();
-
-            table.b_spline_curve_with_knots.insert(
-              *id,
-              BSplineCurveWithKnotsHolder {
-                label,
-                degree,
-                control_points_list,
-                curve_form,
-                closed_curve,
-                self_intersect,
-                knot_multiplicities,
-                knots,
-                knot_spec: KnotType::QuasiUniformKnots,
-              },
-            );
-          }
-        }
+        let kind = if record.name == "UNIFORM_CURVE" {
+          ImpliedKnots::Uniform
+        } else {
+          ImpliedKnots::QuasiUniform
+        };
+        table
+          .b_spline_curve_with_knots
+          .insert(*id, implied_knot_curve(record, kind)?);
+        table.subtype_name.insert(*id, record.name.clone());
       }
       "TRIMMED_CURVE" => {
-        // Manually deserialize fields: trim_1/trim_2 can fail for
-        // non-standard trim-select values in some STEP exporters.
-        if let Parameter::List(params) = &record.parameter {
-          if params.len() >= 5 {
-            let label: String = Deserialize::deserialize(&params[0]).unwrap_or_default();
-            let basis_curve: PlaceHolder<CurveAnyHolder> = Deserialize::deserialize(&params[1])
-              .unwrap_or_else(|_| PlaceHolder::Ref(Name::Entity(0)));
-            let trim_1: Vec<TrimSelect> = Deserialize::deserialize(&params[2]).unwrap_or_default();
-            let trim_2: Vec<TrimSelect> = Deserialize::deserialize(&params[3]).unwrap_or_default();
-            let sense_agreement: bool = Deserialize::deserialize(&params[4]).unwrap_or(true);
-            let master_representation: TrimmingPreference =
-              Deserialize::deserialize(&params[5]).unwrap_or(TrimmingPreference::Unspecified);
-
-            table.trimmed_curve.insert(
-              *id,
-              TrimmedCurveHolder {
-                label,
-                basis_curve,
-                trim_1,
-                trim_2,
-                sense_agreement,
-                master_representation,
-              },
-            );
-          }
+        // Manually deserialized: trimming selects mix `PARAMETER_VALUE(..)` typed parameters and
+        // point references, which the untagged serde enum can not read.
+        let Parameter::List(params) = &record.parameter else {
+          return Err(ruststep::error::Error::DeserializeFailed(
+            "TRIMMED_CURVE without attribute list".into(),
+          ));
+        };
+        if params.len() != 6 {
+          return Err(ruststep::error::Error::DeserializeFailed(format!(
+            "TRIMMED_CURVE expects 6 attributes, got {}",
+            params.len()
+          )));
         }
+        table.trimmed_curve.insert(
+          *id,
+          TrimmedCurveHolder {
+            label: Deserialize::deserialize(&params[0])?,
+            basis_curve: Deserialize::deserialize(&params[1])?,
+            trim_1: parse_trim_selects(&params[2])?,
+            trim_2: parse_trim_selects(&params[3])?,
+            sense_agreement: Deserialize::deserialize(&params[4])?,
+            master_representation: Deserialize::deserialize(&params[5])?,
+          },
+        );
       }
       "COMPOSITE_CURVE" => {
         table
           .composite_curve
+          .insert(*id, Deserialize::deserialize(record)?);
+      }
+      "COMPOSITE_CURVE_SEGMENT" => {
+        table
+          .composite_curve_segment
           .insert(*id, Deserialize::deserialize(record)?);
       }
       "OFFSET_CURVE_3D" => {
@@ -1344,10 +1322,11 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
           .surface_curve
           .insert(*id, Deserialize::deserialize(record)?);
       }
-      "SEAM_CURVE" => {
+      "SEAM_CURVE" | "INTERSECTION_CURVE" => {
         table
           .surface_curve
           .insert(*id, Deserialize::deserialize(&record.parameter)?);
+        table.subtype_name.insert(*id, record.name.clone());
       }
 
       // surfaces
@@ -1385,50 +1364,15 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
           .insert(*id, Deserialize::deserialize(record)?);
       }
       "QUASI_UNIFORM_SURFACE" | "UNIFORM_SURFACE" => {
-        if let Parameter::List(params) = &record.parameter {
-          if params.len() >= 4 {
-            let label: String = Deserialize::deserialize(&params[0]).unwrap_or_default();
-            let u_degree: i64 = Deserialize::deserialize(&params[1]).unwrap_or(0);
-            let v_degree: i64 = Deserialize::deserialize(&params[2]).unwrap_or(0);
-            let control_points_list: Vec<Vec<PlaceHolder<CartesianPointHolder>>> =
-              Deserialize::deserialize(&params[3]).unwrap_or_default();
-            let surface_form: BSplineSurfaceForm =
-              Deserialize::deserialize(&params[4]).unwrap_or(BSplineSurfaceForm::Unspecified);
-            let u_closed: Logical = Deserialize::deserialize(&params[5]).unwrap_or(Logical::False);
-            let v_closed: Logical = Deserialize::deserialize(&params[6]).unwrap_or(Logical::False);
-            let self_intersect: Logical =
-              Deserialize::deserialize(&params[7]).unwrap_or(Logical::False);
-
-            let u_cp = control_points_list.first().map(|r| r.len()).unwrap_or(0);
-            let v_cp = control_points_list.len();
-            let pu = u_degree as usize;
-            let pv = v_degree as usize;
-
-            let u_km: Vec<i64> = make_clamped_mults(u_cp, pu);
-            let v_km: Vec<i64> = make_clamped_mults(v_cp, pv);
-            let u_k: Vec<f64> = make_uniform_knots(u_km.len());
-            let v_k: Vec<f64> = make_uniform_knots(v_km.len());
-
-            table.b_spline_surface_with_knots.insert(
-              *id,
-              BSplineSurfaceWithKnotsHolder {
-                label,
-                u_degree,
-                v_degree,
-                control_points_list,
-                surface_form,
-                u_closed,
-                v_closed,
-                self_intersect,
-                u_multiplicities: u_km,
-                v_multiplicities: v_km,
-                u_knots: u_k,
-                v_knots: v_k,
-                knot_spec: KnotType::QuasiUniformKnots,
-              },
-            );
-          }
-        }
+        let kind = if record.name == "UNIFORM_SURFACE" {
+          ImpliedKnots::Uniform
+        } else {
+          ImpliedKnots::QuasiUniform
+        };
+        table
+          .b_spline_surface_with_knots
+          .insert(*id, implied_knot_surface(record, kind)?);
+        table.subtype_name.insert(*id, record.name.clone());
       }
       "SURFACE_OF_LINEAR_EXTRUSION" => {
         table
@@ -1450,6 +1394,11 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
       "VERTEX_POINT" => {
         table
           .vertex_point
+          .insert(*id, Deserialize::deserialize(record)?);
+      }
+      "VERTEX_LOOP" => {
+        table
+          .vertex_loop
           .insert(*id, Deserialize::deserialize(record)?);
       }
       "EDGE_CURVE" => {
@@ -1485,6 +1434,7 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
         table
           .face_bound
           .insert(*id, Deserialize::deserialize(&record.parameter)?);
+        table.subtype_name.insert(*id, record.name.clone());
       }
       "FACE_SURFACE" => {
         table
@@ -1495,6 +1445,7 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
         table
           .face_surface
           .insert(*id, Deserialize::deserialize(&record.parameter)?);
+        table.subtype_name.insert(*id, record.name.clone());
       }
       "ORIENTED_FACE" => {
         if let Parameter::List(params) = &record.parameter {
@@ -1510,13 +1461,11 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
           }
         }
       }
-      "OPEN_SHELL" => {
-        table.shell.insert(*id, Deserialize::deserialize(record)?);
-      }
-      "CLOSED_SHELL" => {
+      "OPEN_SHELL" | "CLOSED_SHELL" => {
         table
           .shell
           .insert(*id, Deserialize::deserialize(&record.parameter)?);
+        table.subtype_name.insert(*id, record.name.clone());
       }
       "ORIENTED_OPEN_SHELL" => {
         if let Parameter::List(params) = &record.parameter {
@@ -1529,6 +1478,7 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
                 orientation: Deserialize::deserialize(&params[3])?,
               },
             );
+            table.subtype_name.insert(*id, record.name.clone());
           }
         }
       }
@@ -1543,6 +1493,7 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
                 orientation: Deserialize::deserialize(&params[3])?,
               },
             );
+            table.subtype_name.insert(*id, record.name.clone());
           }
         }
       }
@@ -1568,7 +1519,8 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
       "BREP_WITH_VOIDS" => {
         table
           .manifold_solid_brep
-          .insert(*id, Deserialize::deserialize(record)?);
+          .insert(*id, Deserialize::deserialize(&record.parameter)?);
+        table.subtype_name.insert(*id, record.name.clone());
       }
       "FACETED_BREP" => {
         table
@@ -1651,15 +1603,18 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
           .shape_representation
           .insert(*id, Deserialize::deserialize(record)?);
       }
-      "ADVANCED_BREP_SHAPE_REPRESENTATION" => {
+      "ADVANCED_BREP_SHAPE_REPRESENTATION"
+      | "MECHANICAL_DESIGN_GEOMETRIC_PRESENTATION_REPRESENTATION"
+      | "MANIFOLD_SURFACE_SHAPE_REPRESENTATION"
+      | "FACETED_BREP_SHAPE_REPRESENTATION"
+      | "GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION"
+      | "GEOMETRICALLY_BOUNDED_WIREFRAME_SHAPE_REPRESENTATION"
+      | "EDGE_BASED_WIREFRAME_SHAPE_REPRESENTATION"
+      | "SHELL_BASED_WIREFRAME_SHAPE_REPRESENTATION" => {
         table
           .shape_representation
           .insert(*id, Deserialize::deserialize(&record.parameter)?);
-      }
-      "MECHANICAL_DESIGN_GEOMETRIC_PRESENTATION_REPRESENTATION" => {
-        table
-          .shape_representation
-          .insert(*id, Deserialize::deserialize(&record.parameter)?);
+        table.subtype_name.insert(*id, record.name.clone());
       }
       "CONTEXT_DEPENDENT_SHAPE_REPRESENTATION" => {
         table
@@ -1764,462 +1719,80 @@ pub fn push_instance(table: &mut Table, instance: &EntityInstance) -> ruststep::
           .insert(*id, Deserialize::deserialize(record)?);
       }
 
-      _ => {
-        table.unrecognized.insert(
-          *id,
-          UnrecognizedEntityHolder {
-            entity_name: record.name.to_string(),
-            raw_data: format!("{record:?}"),
-            is_simple: true,
-          },
-        );
-      }
+      _ => push_unrecognized(table, *id, std::slice::from_ref(record), true),
     },
 
     EntityInstance::Complex {
       id,
       subsuper: SubSuperRecord(records),
     } => {
-      use crate::entities::NonRationalBSplineCurveHolder as NRBC;
-      use crate::entities::NonRationalBSplineSurfaceHolder as NRBS;
+      if let Some(r) = push_complex_bspline_curve(table, *id, records)
+        .or_else(|| push_complex_bspline_surface(table, *id, records))
+        .or_else(|| push_complex_surface_curve(table, *id, records))
+      {
+        return r;
+      }
 
-      // ── Assembly Complex Entities (3 records) ──
-      if records.len() == 3 {
-        match (
-          records[0].name.as_str(),
-          &records[0].parameter,
-          records[1].name.as_str(),
-          &records[1].parameter,
-          records[2].name.as_str(),
-          &records[2].parameter,
-        ) {
-          // REPRESENTATION_RELATIONSHIP + WITH_TRANSFORMATION + SHAPE_REPRESENTATION_RELATIONSHIP
-          (
-            "REPRESENTATION_RELATIONSHIP",
-            Parameter::List(rel_params),
-            "REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION",
-            Parameter::List(trans_params),
-            "SHAPE_REPRESENTATION_RELATIONSHIP",
-            _,
-          ) => {
-            let mut params = rel_params.clone();
-            params.extend(trans_params.clone());
-            table
-              .shape_representation_relationship_with_transformation
-              .insert(*id, Deserialize::deserialize(&Parameter::List(params))?);
-          }
-          _ => {
-            table.unrecognized.insert(
-              *id,
-              UnrecognizedEntityHolder {
-                entity_name: records
-                  .iter()
-                  .map(|r| r.name.as_str())
-                  .collect::<Vec<_>>()
-                  .join(" & "),
-                raw_data: format!("{records:?}"),
-                is_simple: false,
-              },
-            );
-          }
+      let rr = records
+        .iter()
+        .find(|r| r.name == "REPRESENTATION_RELATIONSHIP");
+      let rrwt = records
+        .iter()
+        .find(|r| r.name == "REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION");
+      let is_srr = records
+        .iter()
+        .any(|r| r.name == "SHAPE_REPRESENTATION_RELATIONSHIP");
+      match (rr, rrwt) {
+        // REPRESENTATION_RELATIONSHIP + WITH_TRANSFORMATION + SHAPE_REPRESENTATION_RELATIONSHIP
+        (Some(rr), Some(rrwt)) if is_srr => {
+          let (Parameter::List(rel_params), Parameter::List(trans_params)) =
+            (&rr.parameter, &rrwt.parameter)
+          else {
+            push_unrecognized(table, *id, records, false);
+            return Ok(());
+          };
+          let mut params = rel_params.clone();
+          params.extend(trans_params.clone());
+          table
+            .shape_representation_relationship_with_transformation
+            .insert(*id, Deserialize::deserialize(&Parameter::List(params))?);
         }
-      // ── Rational B-Spline Curve Complex Entities (7 records) ──
-      } else if records.len() == 7 {
-        match (
-          records[0].name.as_str(),
-          &records[0].parameter,
-          records[1].name.as_str(),
-          &records[1].parameter,
-          records[2].name.as_str(),
-          &records[2].parameter,
-          records[3].name.as_str(),
-          &records[3].parameter,
-          records[4].name.as_str(),
-          &records[4].parameter,
-          records[5].name.as_str(),
-          &records[5].parameter,
-          records[6].name.as_str(),
-          &records[6].parameter,
-        ) {
-          (
-            "BOUNDED_CURVE",
-            _,
-            "B_SPLINE_CURVE",
-            Parameter::List(bsp_params),
-            "B_SPLINE_CURVE_WITH_KNOTS",
-            Parameter::List(knots_params),
-            "CURVE",
-            _,
-            "GEOMETRIC_REPRESENTATION_ITEM",
-            _,
-            "RATIONAL_B_SPLINE_CURVE",
-            Parameter::List(weights),
-            "REPRESENTATION_ITEM",
-            Parameter::List(label),
-          ) => {
-            let mut params = label.clone();
-            params.extend(bsp_params.clone());
-            params.extend(knots_params.clone());
-            table.rational_b_spline_curve.insert(
-              *id,
-              RationalBSplineCurveHolder {
-                non_rational_b_spline_curve: PlaceHolder::Owned(NRBC::BSplineCurveWithKnots(
-                  Deserialize::deserialize(&Parameter::List(params))?,
-                )),
-                weights_data: Deserialize::deserialize(&weights[0])?,
-              },
-            );
-          }
-          (
-            "BEZIER_CURVE",
-            _,
-            "BOUNDED_CURVE",
-            _,
-            "B_SPLINE_CURVE",
-            Parameter::List(bsp_params),
-            "CURVE",
-            _,
-            "GEOMETRIC_REPRESENTATION_ITEM",
-            _,
-            "RATIONAL_B_SPLINE_CURVE",
-            Parameter::List(weights),
-            "REPRESENTATION_ITEM",
-            Parameter::List(label),
-          ) => {
-            let mut params = label.clone();
-            params.extend(bsp_params.clone());
-            table.rational_b_spline_curve.insert(
-              *id,
-              RationalBSplineCurveHolder {
-                non_rational_b_spline_curve: PlaceHolder::Owned(NRBC::BezierCurve(
-                  Deserialize::deserialize(&Parameter::List(params))?,
-                )),
-                weights_data: Deserialize::deserialize(&weights[0])?,
-              },
-            );
-          }
-          (
-            "BOUNDED_CURVE",
-            _,
-            "B_SPLINE_CURVE",
-            Parameter::List(bsp_params),
-            "B_SPLINE_CURVE_WITH_KNOTS",
-            Parameter::List(knots_params),
-            "CURVE",
-            _,
-            "GEOMETRIC_REPRESENTATION_ITEM",
-            _,
-            "QUASI_UNIFORM_CURVE",
-            _,
-            "REPRESENTATION_ITEM",
-            Parameter::List(label),
-          ) => {
-            let mut params = label.clone();
-            params.extend(bsp_params.clone());
-            params.extend(knots_params.clone());
-            table.rational_b_spline_curve.insert(
-              *id,
-              RationalBSplineCurveHolder {
-                non_rational_b_spline_curve: PlaceHolder::Owned(NRBC::QuasiUniformCurve(
-                  Deserialize::deserialize(&Parameter::List(params))?,
-                )),
-                weights_data: Vec::new(),
-              },
-            );
-          }
-          (
-            "BOUNDED_CURVE",
-            _,
-            "B_SPLINE_CURVE",
-            Parameter::List(bsp_params),
-            "B_SPLINE_CURVE_WITH_KNOTS",
-            Parameter::List(knots_params),
-            "CURVE",
-            _,
-            "GEOMETRIC_REPRESENTATION_ITEM",
-            _,
-            "UNIFORM_CURVE",
-            _,
-            "REPRESENTATION_ITEM",
-            Parameter::List(label),
-          ) => {
-            let mut params = label.clone();
-            params.extend(bsp_params.clone());
-            params.extend(knots_params.clone());
-            table.rational_b_spline_curve.insert(
-              *id,
-              RationalBSplineCurveHolder {
-                non_rational_b_spline_curve: PlaceHolder::Owned(NRBC::UniformCurve(
-                  Deserialize::deserialize(&Parameter::List(params))?,
-                )),
-                weights_data: Vec::new(),
-              },
-            );
-          }
-          // Alternative ordering: GEOMETRIC_REPRESENTATION_ITEM before SURFACE
-          (
-            "BOUNDED_SURFACE",
-            _,
-            "B_SPLINE_SURFACE",
-            Parameter::List(bsp_params),
-            "B_SPLINE_SURFACE_WITH_KNOTS",
-            Parameter::List(knots_params),
-            "GEOMETRIC_REPRESENTATION_ITEM",
-            _,
-            "RATIONAL_B_SPLINE_SURFACE",
-            Parameter::List(weights),
-            "REPRESENTATION_ITEM",
-            Parameter::List(label),
-            "SURFACE",
-            _,
-          ) => {
-            let mut params = label.clone();
-            params.extend(bsp_params.clone());
-            params.extend(knots_params.clone());
-            table.rational_b_spline_surface.insert(
-              *id,
-              RationalBSplineSurfaceHolder {
-                non_rational_b_spline_surface: PlaceHolder::Owned(NRBS::BSplineSurfaceWithKnots(
-                  Deserialize::deserialize(&Parameter::List(params))?,
-                )),
-                weights_data: Deserialize::deserialize(&weights[0])?,
-              },
-            );
-          }
-          _ => {
-            table.unrecognized.insert(
-              *id,
-              UnrecognizedEntityHolder {
-                entity_name: records
-                  .iter()
-                  .map(|r| r.name.as_str())
-                  .collect::<Vec<_>>()
-                  .join(" & "),
-                raw_data: format!("{records:?}"),
-                is_simple: false,
-              },
-            );
-          }
+        // plain complex SHAPE_REPRESENTATION_RELATIONSHIP (for example with
+        // REPRESENTATION_RELATIONSHIP and a subtype without attributes)
+        (Some(rr), None) if is_srr => {
+          table
+            .shape_representation_relationship
+            .insert(*id, Deserialize::deserialize(&rr.parameter)?);
+          table.subtype_name.insert(*id, joined_record_names(records));
         }
-      } else if records.len() == 8 {
-        match (
-          records[0].name.as_str(),
-          &records[0].parameter,
-          records[1].name.as_str(),
-          &records[1].parameter,
-          records[2].name.as_str(),
-          &records[2].parameter,
-          records[3].name.as_str(),
-          &records[3].parameter,
-          records[4].name.as_str(),
-          &records[4].parameter,
-          records[5].name.as_str(),
-          &records[5].parameter,
-          records[6].name.as_str(),
-          &records[6].parameter,
-          records[7].name.as_str(),
-          &records[7].parameter,
-        ) {
-          // ── Rational B-Spline Surface Complex Entities ──
-          (
-            "B_SPLINE_SURFACE",
-            Parameter::List(bsp_params),
-            "B_SPLINE_SURFACE_WITH_KNOTS",
-            Parameter::List(knots_params),
-            "GEOMETRIC_REPRESENTATION_ITEM",
-            _,
-            "RATIONAL_B_SPLINE_SURFACE",
-            Parameter::List(weights),
-            "REPRESENTATION_ITEM",
-            Parameter::List(label),
-            "SURFACE",
-            _,
-            "BOUNDED_SURFACE",
-            _,
-            "FACE_SURFACE",
-            _,
-          )
-          | (
-            "BOUNDED_SURFACE",
-            _,
-            "B_SPLINE_SURFACE",
-            Parameter::List(bsp_params),
-            "B_SPLINE_SURFACE_WITH_KNOTS",
-            Parameter::List(knots_params),
-            "GEOMETRIC_REPRESENTATION_ITEM",
-            _,
-            "RATIONAL_B_SPLINE_SURFACE",
-            Parameter::List(weights),
-            "REPRESENTATION_ITEM",
-            Parameter::List(label),
-            "SURFACE",
-            _,
-            "FACE_SURFACE",
-            _,
-          ) => {
-            let mut params = label.clone();
-            params.extend(bsp_params.clone());
-            params.extend(knots_params.clone());
-            table.rational_b_spline_surface.insert(
-              *id,
-              RationalBSplineSurfaceHolder {
-                non_rational_b_spline_surface: PlaceHolder::Owned(NRBS::BSplineSurfaceWithKnots(
-                  Deserialize::deserialize(&Parameter::List(params))?,
-                )),
-                weights_data: Deserialize::deserialize(&weights[0])?,
-              },
-            );
-          }
-          (
-            "BEZIER_SURFACE",
-            _,
-            "B_SPLINE_SURFACE",
-            Parameter::List(bsp_params),
-            "BOUNDED_SURFACE",
-            _,
-            "GEOMETRIC_REPRESENTATION_ITEM",
-            _,
-            "RATIONAL_B_SPLINE_SURFACE",
-            Parameter::List(weights),
-            "REPRESENTATION_ITEM",
-            Parameter::List(label),
-            "SURFACE",
-            _,
-            "FACE_SURFACE",
-            _,
-          ) => {
-            let mut params = label.clone();
-            params.extend(bsp_params.clone());
-            table.rational_b_spline_surface.insert(
-              *id,
-              RationalBSplineSurfaceHolder {
-                non_rational_b_spline_surface: PlaceHolder::Owned(NRBS::BezierSurface(
-                  Deserialize::deserialize(&Parameter::List(params))?,
-                )),
-                weights_data: Deserialize::deserialize(&weights[0])?,
-              },
-            );
-          }
-          (
-            "B_SPLINE_SURFACE",
-            Parameter::List(bsp_params),
-            "B_SPLINE_SURFACE_WITH_KNOTS",
-            Parameter::List(knots_params),
-            "BOUNDED_SURFACE",
-            _,
-            "GEOMETRIC_REPRESENTATION_ITEM",
-            _,
-            "QUASI_UNIFORM_SURFACE",
-            _,
-            "REPRESENTATION_ITEM",
-            Parameter::List(label),
-            "SURFACE",
-            _,
-            "FACE_SURFACE",
-            _,
-          ) => {
-            let mut params = label.clone();
-            params.extend(bsp_params.clone());
-            params.extend(knots_params.clone());
-            table.rational_b_spline_surface.insert(
-              *id,
-              RationalBSplineSurfaceHolder {
-                non_rational_b_spline_surface: PlaceHolder::Owned(NRBS::QuasiUniformSurface(
-                  Deserialize::deserialize(&Parameter::List(params))?,
-                )),
-                weights_data: Vec::new(),
-              },
-            );
-          }
-          (
-            "B_SPLINE_SURFACE",
-            Parameter::List(bsp_params),
-            "B_SPLINE_SURFACE_WITH_KNOTS",
-            Parameter::List(knots_params),
-            "BOUNDED_SURFACE",
-            _,
-            "GEOMETRIC_REPRESENTATION_ITEM",
-            _,
-            "UNIFORM_SURFACE",
-            _,
-            "REPRESENTATION_ITEM",
-            Parameter::List(label),
-            "SURFACE",
-            _,
-            "FACE_SURFACE",
-            _,
-          ) => {
-            let mut params = label.clone();
-            params.extend(bsp_params.clone());
-            params.extend(knots_params.clone());
-            table.rational_b_spline_surface.insert(
-              *id,
-              RationalBSplineSurfaceHolder {
-                non_rational_b_spline_surface: PlaceHolder::Owned(NRBS::UniformSurface(
-                  Deserialize::deserialize(&Parameter::List(params))?,
-                )),
-                weights_data: Vec::new(),
-              },
-            );
-          }
-
-          // ── Assembly Complex Entities ──
-          (
-            "REPRESENTATION_ITEM",
-            Parameter::List(rep_params),
-            "SHAPE_REPRESENTATION",
-            Parameter::List(shape_params),
-            "SHAPE_REPRESENTATION_RELATIONSHIP",
-            Parameter::List(rel_params8),
-            "SHAPE_REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION",
-            Parameter::List(trans_params8),
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-          ) => {
-            let mut params = rep_params.clone();
-            params.extend(shape_params.clone());
-            params.extend(rel_params8.clone());
-            params.extend(trans_params8.clone());
-            table
-              .shape_representation_relationship_with_transformation
-              .insert(*id, Deserialize::deserialize(&Parameter::List(params))?);
-          }
-          _ => {
-            table.unrecognized.insert(
-              *id,
-              UnrecognizedEntityHolder {
-                entity_name: records
-                  .iter()
-                  .map(|r| r.name.as_str())
-                  .collect::<Vec<_>>()
-                  .join(" & "),
-                raw_data: format!("{records:?}"),
-                is_simple: false,
-              },
-            );
-          }
-        }
-      } else {
-        table.unrecognized.insert(
-          *id,
-          UnrecognizedEntityHolder {
-            entity_name: records
-              .iter()
-              .map(|r| r.name.as_str())
-              .collect::<Vec<_>>()
-              .join(" & "),
-            raw_data: format!("{records:?}"),
-            is_simple: false,
-          },
-        );
+        _ => push_unrecognized(table, *id, records, false),
       }
     }
   }
   Ok(())
+}
+
+fn joined_record_names(records: &[ruststep::ast::Record]) -> String {
+  records
+    .iter()
+    .map(|r| r.name.as_str())
+    .collect::<Vec<_>>()
+    .join(" & ")
+}
+
+fn push_unrecognized(
+  table: &mut Table,
+  id: u64,
+  records: &[ruststep::ast::Record],
+  is_simple: bool,
+) {
+  table.unrecognized.insert(
+    id,
+    UnrecognizedEntityHolder {
+      entity_name: joined_record_names(records),
+      raw_data: format!("{records:?}"),
+      is_simple,
+    },
+  );
+  table.unrecognized_records.insert(id, records.to_vec());
 }

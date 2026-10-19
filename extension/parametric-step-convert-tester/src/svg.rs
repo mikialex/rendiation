@@ -1,81 +1,117 @@
+use std::fmt::Write;
 use std::path::Path;
 
-use rendiation_parametric_rendering::QuadraticBezierCurve2d;
+use rendiation_step_to_bezier::brep::FaceId;
+use rendiation_step_to_bezier::{StepConvertOutput, TrimCurveSource};
 
-pub fn curve_color(idx: usize, total: usize) -> (u8, u8, u8) {
-  let hue = if total <= 1 {
-    0.0
-  } else {
-    (idx as f32 / (total - 1) as f32) * 270.0
-  };
-  let h = hue / 60.0;
-  let c = 0.80 * 0.85;
-  let x = c * (1.0 - (h % 2.0 - 1.0).abs());
-  let m = 0.80 - c;
-  let (r, g, b) = match h as u32 % 6 {
-    0 => (c, x, 0.0),
-    1 => (x, c, 0.0),
-    2 => (0.0, c, x),
-    3 => (0.0, x, c),
-    4 => (x, 0.0, c),
-    _ => (c, 0.0, x),
-  };
-  (
-    ((r + m) * 255.0) as u8,
-    ((g + m) * 255.0) as u8,
-    ((b + m) * 255.0) as u8,
-  )
+/// One SVG per face: every patch drawn in its P space cell, trim curves colored by source
+/// (edges colored per edge id, patch boundaries gray, poles purple), a dot marks each curve
+/// start so the loop direction is visible.
+pub fn write_face_svgs(output: &StepConvertOutput, dir: &Path) -> std::io::Result<usize> {
+  let mut by_face: Vec<(FaceId, Vec<usize>)> = Vec::new();
+  for (i, patch) in output.patches.iter().enumerate() {
+    match by_face.last_mut() {
+      Some((face, list)) if *face == patch.face => list.push(i),
+      _ => by_face.push((patch.face, vec![i])),
+    }
+  }
+  for (face, patch_indices) in &by_face {
+    let step_id = output
+      .report
+      .faces
+      .iter()
+      .find(|f| f.face == *face)
+      .map_or(0, |f| f.step_id);
+    let svg = face_svg(output, patch_indices);
+    std::fs::write(dir.join(format!("face_{step_id}.svg")), svg)?;
+  }
+  Ok(by_face.len())
 }
 
-pub fn write_surface_svg(
-  dir: &Path,
-  label: &str,
-  trim_loops: &[Vec<QuadraticBezierCurve2d<f32>>],
-) -> Result<(), Box<dyn std::error::Error>> {
-  let fname = label.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "-");
-  let path = dir.join(format!("{fname}.svg"));
-  let margin = 20.0;
-  let canvas = 540.0;
-  let scale = canvas - 2.0 * margin;
-  let to_svg = |x: f32, y: f32| -> (f64, f64) {
+fn face_svg(output: &StepConvertOutput, patch_indices: &[usize]) -> String {
+  let cells: Vec<_> = patch_indices
+    .iter()
+    .map(|i| output.patches[*i].cell)
+    .collect();
+  let min_i = cells.iter().map(|c| c.0).min().unwrap_or(0);
+  let max_i = cells.iter().map(|c| c.0).max().unwrap_or(0);
+  let min_j = cells.iter().map(|c| c.1).min().unwrap_or(0);
+  let max_j = cells.iter().map(|c| c.1).max().unwrap_or(0);
+  let (w, h) = ((max_i - min_i + 1) as f64, (max_j - min_j + 1) as f64);
+  let scale = 900. / w.max(h);
+  let margin = 20.;
+  let to_svg = |x: f64, y: f64| {
     (
-      margin + x as f64 * scale as f64,
-      margin + (1.0 - y as f64) * scale as f64,
+      margin + (x - min_i as f64) * scale,
+      margin + (h - (y - min_j as f64)) * scale,
     )
   };
+
   let mut svg = String::new();
-  svg.push_str(&format!(
-    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {canvas} {canvas}" width="{canvas}" height="{canvas}">"#
-  ));
-  svg.push('\n');
-  svg.push_str(&format!(
-    r#"<rect x="0" y="0" width="{canvas}" height="{canvas}" fill="white"/>"#
-  ));
-  svg.push('\n');
-  let (x0, y0) = to_svg(0.0, 0.0);
-  let (x1, y1) = to_svg(1.0, 1.0);
-  svg.push_str(&format!(
-    r#"<rect x="{x0:.1}" y="{y1:.1}" width="{w:.1}" height="{h:.1}" fill="rgb(242,242,242)"/>"#,
-    w = x1 - x0,
-    h = y0 - y1,
-  ));
-  svg.push('\n');
-  let total = trim_loops.iter().map(|l| l.len()).sum::<usize>();
-  let mut ci = 0usize;
-  for loop_curves in trim_loops {
-    for curve in loop_curves {
-      let (sx, sy) = to_svg(curve.start.x, curve.start.y);
-      let (cx, cy) = to_svg(curve.ctrl.x, curve.ctrl.y);
-      let (ex, ey) = to_svg(curve.end.x, curve.end.y);
-      let (r, g, b) = curve_color(ci, total);
-      ci += 1;
-      svg.push_str(&format!(
-        r#"<path d="M {sx:.4} {sy:.4} Q {cx:.4} {cy:.4} {ex:.4} {ey:.4}" stroke="rgb({r},{g},{b})" stroke-width="1.2" fill="none"/>"#
-      ));
-      svg.push('\n');
+  let (width, height) = (w * scale + 2. * margin, h * scale + 2. * margin);
+  let _ = writeln!(
+    svg,
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width:.0} {height:.0}" width="{width:.0}" height="{height:.0}"><rect width="100%" height="100%" fill="white"/>"#
+  );
+  for &index in patch_indices {
+    let patch = &output.patches[index];
+    let (ci, cj) = (patch.cell.0 as f64, patch.cell.1 as f64);
+    let (x0, y1) = to_svg(ci, cj + 1.);
+    let _ = writeln!(
+      svg,
+      r#"<rect x="{x0:.2}" y="{y1:.2}" width="{scale:.2}" height="{scale:.2}" fill="rgb(244,244,244)" stroke="rgb(200,200,200)" stroke-width="0.5"/>"#
+    );
+    for trim_loop in &patch.loops {
+      for curve in &trim_loop.curves {
+        let (color, dash) = match curve.source {
+          TrimCurveSource::Edge { edge, .. } => (edge_color(edge.0), ""),
+          TrimCurveSource::PatchBoundary => {
+            ("rgb(150,150,150)".to_string(), r#" stroke-dasharray="3,2""#)
+          }
+          TrimCurveSource::Pole => ("rgb(160,60,200)".to_string(), ""),
+        };
+        let mut d = String::new();
+        const SAMPLES: usize = 32;
+        for k in 0..=SAMPLES {
+          let p = curve.curve.eval(k as f64 / SAMPLES as f64);
+          let (x, y) = to_svg(ci + p.x, cj + p.y);
+          let _ = write!(d, "{}{x:.2} {y:.2} ", if k == 0 { "M " } else { "L " });
+        }
+        let width = if curve.exact { 1.2 } else { 2.0 };
+        let _ = writeln!(
+          svg,
+          r#"<path d="{d}" stroke="{color}" stroke-width="{width}" fill="none"{dash}/>"#
+        );
+        let start = curve.curve.start();
+        let (sx, sy) = to_svg(ci + start.x, cj + start.y);
+        let _ = writeln!(
+          svg,
+          r#"<circle cx="{sx:.2}" cy="{sy:.2}" r="1.6" fill="{color}"/>"#
+        );
+      }
     }
   }
   svg.push_str("</svg>\n");
-  std::fs::write(&path, svg)?;
-  Ok(())
+  svg
+}
+
+fn edge_color(edge: u32) -> String {
+  let hue = (edge.wrapping_mul(0x9E37_79B9) % 360) as f64;
+  let h = hue / 60.;
+  let c = 0.75;
+  let x = c * (1. - (h % 2. - 1.).abs());
+  let (r, g, b) = match h as u32 {
+    0 => (c, x, 0.),
+    1 => (x, c, 0.),
+    2 => (0., c, x),
+    3 => (0., x, c),
+    4 => (x, 0., c),
+    _ => (c, 0., x),
+  };
+  format!(
+    "rgb({},{},{})",
+    (r * 255.) as u8,
+    (g * 255.) as u8,
+    (b * 255.) as u8
+  )
 }

@@ -1,11 +1,16 @@
-use std::collections::{BTreeMap, HashMap};
+// gltf_json stores primitive attributes in a BTreeMap.
+#![allow(clippy::disallowed_types)]
+
+use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::Path;
 
+use fast_hash_collection::FastHashMap;
 use gltf_json as json;
 use json::validation::{Checked, USize64};
 use rendiation_algebra::*;
-use rendiation_parametric_rendering::mesh::MeshData;
+
+use crate::mesh::MeshData;
 
 pub fn color_for_index(idx: usize) -> [f32; 4] {
   let hue = (idx.wrapping_mul(0x9E37_79B9).wrapping_add(0x7F4A_7C15) % 360) as f32 / 360.0;
@@ -42,8 +47,14 @@ pub struct GltfDoc {
   nodes: Vec<json::Node>,
   root_children: Vec<u32>,
   extensions_used: std::collections::BTreeSet<String>,
-  mesh_cache: HashMap<usize, u32>,
-  curve_mesh_cache: HashMap<usize, u32>,
+  mesh_cache: FastHashMap<usize, u32>,
+  curve_mesh_cache: FastHashMap<usize, u32>,
+}
+
+impl Default for GltfDoc {
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl GltfDoc {
@@ -57,15 +68,15 @@ impl GltfDoc {
       nodes: Vec::new(),
       root_children: Vec::new(),
       extensions_used: std::collections::BTreeSet::new(),
-      mesh_cache: HashMap::new(),
-      curve_mesh_cache: HashMap::new(),
+      mesh_cache: FastHashMap::default(),
+      curve_mesh_cache: FastHashMap::default(),
     }
   }
 
   fn push_bytes(&mut self, bytes: &[u8]) -> (u32, u32) {
     let off = self.bin.len() as u32;
     self.bin.extend_from_slice(bytes);
-    while self.bin.len() % 4 != 0 {
+    while !self.bin.len().is_multiple_of(4) {
       self.bin.push(0);
     }
     (off, bytes.len() as u32)
@@ -307,7 +318,6 @@ impl GltfDoc {
       name: None,
       extensions: Some(json::extensions::material::Material {
         unlit: Some(json::extensions::material::Unlit {}),
-        ..Default::default()
       }),
       extras: Default::default(),
       pbr_metallic_roughness: json::material::PbrMetallicRoughness {

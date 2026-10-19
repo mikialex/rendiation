@@ -104,6 +104,7 @@ members = [
   "effect/csg_clip",
   "effect/plane_array_clip",
   "extension/step-reader",
+  "extension/step-to-bezier",
   "application/viewer-content",
   "application/viewer-content-api",
   "application/viewer",

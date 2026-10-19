@@ -1,137 +1,106 @@
-//! Batch STEP test runner.
-//!
-//! Reads all `.stp` files from `step-generated-sample/`, converts each to
-//! a `.glb` and SVG trim visualization, and writes results to `test-output/`.
+//! Convert STEP files, print per file conversion and validation summaries, optionally write glTF
+//! and per face SVG trim plots.
 //!
 //! ```sh
-//! cargo run -p parametric-step-convert-tester --example batch_test
+//! cargo run --release -p parametric-step-convert-tester --example batch_test -- [--gltf] [--svg] [--out DIR] [PATHS...]
 //! ```
+//!
+//! Paths may be files or directories (searched recursively for .stp / .step). Without paths the
+//! repo test sets are used: `temp/step-test` and `step-generated-sample`.
 
-use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use parametric_step_convert_tester::{read_step, write_glb, write_surface_svg, GltfDoc};
-use rendiation_parametric_rendering::mesh::{
-  tessellate_curve, triangulate_trimmed_surface, TriangulationConfig,
-};
-use rendiation_parametric_rendering::validate_trim_boundary;
+use parametric_step_convert_tester::mesh::TriangulationConfig;
+use parametric_step_convert_tester::*;
+use rendiation_step_to_bezier::ConvertConfig;
+use rendiation_step_to_bezier::validate::validate;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   let crate_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-  let sample_dir = crate_dir.join("step-generated-sample");
-  let out_dir = crate_dir.join("test-output");
-  if out_dir.exists() {
-    fs::remove_dir_all(&out_dir)?;
-  }
-  let gltf_dir = out_dir.join("gltf");
-  let svg_dir = out_dir.join("svg");
-  fs::create_dir_all(&gltf_dir)?;
-  fs::create_dir_all(&svg_dir)?;
-
-  let mut step_files: Vec<PathBuf> = Vec::new();
-  for entry in fs::read_dir(&sample_dir)? {
-    let entry = entry?;
-    let p = entry.path();
-    if p.extension().map_or(false, |e| e == "stp") {
-      step_files.push(p);
+  let mut gltf = false;
+  let mut svg = false;
+  let mut out_dir = crate_dir.join("test-output");
+  let mut inputs = Vec::new();
+  let mut args = std::env::args().skip(1);
+  while let Some(arg) = args.next() {
+    match arg.as_str() {
+      "--gltf" => gltf = true,
+      "--svg" => svg = true,
+      "--out" => out_dir = PathBuf::from(args.next().ok_or("--out needs a directory")?),
+      _ => inputs.push(PathBuf::from(arg)),
     }
   }
-  step_files.sort();
+  if inputs.is_empty() {
+    inputs.push(crate_dir.join("../../temp/step-test"));
+    inputs.push(crate_dir.join("step-generated-sample"));
+  }
+
+  let mut files = Vec::new();
+  for input in &inputs {
+    collect_step_files(input, &mut files);
+  }
+  files.sort();
+
+  let config = ConvertConfig::default();
+  let mut total_faces = 0;
+  let mut total_failed = 0;
+  for file in &files {
+    let name = file
+      .file_stem()
+      .map_or_else(String::new, |s| s.to_string_lossy().to_string());
+    let (session, elapsed) = convert_file(file, &config)?;
+    let validation = validate(&session);
+    print_summary(&name, &session, &validation, elapsed);
+    total_faces += session.output.report.faces.len();
+    total_failed += session
+      .output
+      .report
+      .faces
+      .iter()
+      .filter(|f| f.result.is_err())
+      .count();
+
+    if gltf {
+      std::fs::create_dir_all(&out_dir)?;
+      let tri = TriangulationConfig {
+        chord_tolerance: (session.ctx.tol * 10.).max(1e-4),
+        ..Default::default()
+      };
+      let stats = write_session_glb(&session, &out_dir.join(format!("{name}.glb")), &tri)?;
+      if stats.split_constraints > 0 {
+        println!(
+          "  glTF: {} constraint edges inserted split",
+          stats.split_constraints
+        );
+      }
+    }
+    if svg {
+      let dir = out_dir.join("svg").join(&name);
+      std::fs::create_dir_all(&dir)?;
+      write_face_svgs(&session.output, &dir)?;
+    }
+  }
   println!(
-    "found {} STEP files in {}",
-    step_files.len(),
-    sample_dir.display()
+    "\n{} files, {} faces, {} failed",
+    files.len(),
+    total_faces,
+    total_failed
   );
-
-  let mut total_issues = 0usize;
-  let mut total_surfaces = 0usize;
-
-  for step_path in &step_files {
-    let name = step_path.file_stem().unwrap().to_string_lossy();
-    println!("\n=== {} ===", name);
-
-    let result = read_step(step_path);
-    result.print_errors();
-    let data = &result.data;
-
-    let n_surfaces = data.surfaces.len();
-    total_surfaces += n_surfaces;
-    println!(
-      "  {} surfaces, {} 3D curves",
-      n_surfaces,
-      data.curves_3d.len()
-    );
-
-    // --- glTF ---
-    let glb_path = gltf_dir.join(format!("{name}.glb"));
-    let mut tri_config = TriangulationConfig::default();
-    tri_config.ignore_surface_trim = false;
-    let use_line_list = true;
-
-    let mut doc = GltfDoc::new();
-
-    for (surf_idx, trimmed) in data.surfaces.iter().enumerate() {
-      let mesh = triangulate_trimmed_surface(trimmed, &tri_config);
-      if mesh.indices.is_empty() {
-        continue;
-      }
-      doc.create_surface_mesh(&mesh, &trimmed.debug_label, surf_idx);
-    }
-
-    for (inst_idx, &(surf_idx, matrix)) in data.surfaces_instance.iter().enumerate() {
-      let trimmed = &data.surfaces[surf_idx];
-      let label = format!("{}_inst{}", trimmed.debug_label, inst_idx);
-      doc.add_surface_instance(surf_idx, matrix, &label);
-    }
-
-    for (curve_idx, curve) in data.curves_3d.iter().enumerate() {
-      let pts = tessellate_curve(curve, 1e-3);
-      if pts.len() >= 2 {
-        doc.create_curve_mesh(&pts, curve_idx, use_line_list);
-      }
-    }
-
-    for (inst_idx, &(curve_idx, matrix)) in data.curves_3d_instance.iter().enumerate() {
-      let label = format!("curve_{}_inst{}", curve_idx, inst_idx);
-      doc.add_curve_instance(curve_idx, matrix, &label);
-    }
-
-    let (root, bin) = doc.into_root();
-    write_glb(&glb_path, &root, &bin)?;
-    println!("  wrote {}", glb_path.display());
-
-    // --- SVG ---
-    let step_svg_dir = svg_dir.join(name.as_ref());
-    fs::create_dir_all(&step_svg_dir)?;
-    for s in &data.surfaces {
-      if s.is_trimmed() {
-        let issues = validate_trim_boundary(&s.debug_label, &s.trim_loops);
-        if !issues.is_empty() {
-          total_issues += issues.len();
-        }
-        write_surface_svg(&step_svg_dir, &s.debug_label, &s.trim_loops)?;
-      }
-    }
-    println!(
-      "  wrote {} SVGs to {}",
-      data.surfaces.iter().filter(|s| s.is_trimmed()).count(),
-      step_svg_dir.display()
-    );
-  }
-
-  println!("\n=== DONE ===");
-  println!(
-    "  {} files processed, {} total surfaces",
-    step_files.len(),
-    total_surfaces
-  );
-  if total_issues > 0 {
-    println!(
-      "  {} validation issue(s) — see SVG output for details",
-      total_issues
-    );
-  } else {
-    println!("  0 validation issues");
-  }
   Ok(())
+}
+
+fn collect_step_files(path: &Path, out: &mut Vec<PathBuf>) {
+  if path.is_dir() {
+    if let Ok(entries) = std::fs::read_dir(path) {
+      for entry in entries.flatten() {
+        collect_step_files(&entry.path(), out);
+      }
+    }
+  } else if path
+    .extension()
+    .and_then(|e| e.to_str())
+    .is_some_and(|e| e.eq_ignore_ascii_case("stp") || e.eq_ignore_ascii_case("step"))
+  {
+    out.push(path.to_path_buf());
+  }
 }

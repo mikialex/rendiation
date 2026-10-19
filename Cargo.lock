@@ -3431,10 +3431,12 @@ dependencies = [
 name = "parametric-step-convert-tester"
 version = "0.1.0"
 dependencies = [
+ "fast-hash-collection",
  "gltf-json",
  "rendiation-algebra",
- "rendiation-parametric-rendering",
+ "rendiation-step-to-bezier",
  "serde_json",
+ "spade",
 ]
 
 [[package]]
@@ -4696,17 +4698,13 @@ dependencies = [
 name = "rendiation-parametric-rendering"
 version = "0.1.0"
 dependencies = [
- "fast-hash-collection",
  "pollster",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-generator",
  "rendiation-shader-api",
  "rendiation-shader-derives",
- "rendiation-step-reader",
  "rendiation-webgpu",
- "serde_json",
- "spade",
 ]
 
 [[package]]
@@ -5097,6 +5095,15 @@ dependencies = [
  "ruststep",
  "ruststep-derive",
  "serde",
+]
+
+[[package]]
+name = "rendiation-step-to-bezier"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "rendiation-algebra",
+ "rendiation-step-reader",
 ]
 
 [[package]]
