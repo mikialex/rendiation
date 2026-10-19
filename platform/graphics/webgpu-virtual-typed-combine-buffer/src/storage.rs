@@ -29,6 +29,12 @@ impl AbstractStorageAllocator for CombinedStorageBufferAllocator {
   fn is_readonly(&self) -> bool {
     self.internal.read().readonly
   }
+
+  /// the limit of the combined heap, the sub buffer shares it with the header and other sub buffers,
+  /// so this is only an upper bound.
+  fn max_byte_size(&self, device: &GPUDevice) -> u64 {
+    self.internal.read().alloc.max_byte_size(device)
+  }
 }
 
 fn rule_out_atomic_types(ty: &MaybeUnsizedValueType) {

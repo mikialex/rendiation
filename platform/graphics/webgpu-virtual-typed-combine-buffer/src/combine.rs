@@ -8,7 +8,7 @@ pub struct CombinedBufferAllocatorInternal {
   gpu: GPU,
   guid: u64,
   pub(crate) buffer: Option<Box<dyn AbstractBuffer>>,
-  alloc: Box<dyn AbstractStorageAllocator>,
+  pub(crate) alloc: Box<dyn AbstractStorageAllocator>,
   pending_writes: FastHashMap<usize, PendingWrites>,
   buffer_need_rebuild: bool,
   pub(crate) sub_buffer_u32_size_requirements: Vec<u32>,

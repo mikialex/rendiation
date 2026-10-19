@@ -11,6 +11,9 @@ pub trait AbstractStorageAllocator: DynClone + Send + Sync {
   ) -> BoxedAbstractBuffer;
   fn get_layout(&self) -> StructLayoutTarget;
   fn is_readonly(&self) -> bool;
+  /// the largest byte size one allocation can have on the device, the allocation and the resize
+  /// beyond it fail.
+  fn max_byte_size(&self, device: &GPUDevice) -> u64;
 }
 dyn_clone::clone_trait_object!(AbstractStorageAllocator);
 impl AbstractStorageAllocator for Box<dyn AbstractStorageAllocator> {
@@ -32,6 +35,10 @@ impl AbstractStorageAllocator for Box<dyn AbstractStorageAllocator> {
   fn is_readonly(&self) -> bool {
     (**self).is_readonly()
   }
+
+  fn max_byte_size(&self, device: &GPUDevice) -> u64 {
+    (**self).max_byte_size(device)
+  }
 }
 impl AbstractStorageAllocator for &'_ dyn AbstractStorageAllocator {
   fn allocate_dyn_ty(
@@ -51,6 +58,10 @@ impl AbstractStorageAllocator for &'_ dyn AbstractStorageAllocator {
 
   fn is_readonly(&self) -> bool {
     (**self).is_readonly()
+  }
+
+  fn max_byte_size(&self, device: &GPUDevice) -> u64 {
+    (**self).max_byte_size(device)
   }
 }
 
@@ -159,6 +170,14 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
 
   fn is_readonly(&self) -> bool {
     false
+  }
+
+  /// same as the check of the resize
+  fn max_byte_size(&self, device: &GPUDevice) -> u64 {
+    let limits = &device.info().supported_limits;
+    limits
+      .max_buffer_size
+      .min(limits.max_storage_buffer_binding_size)
   }
 }
 

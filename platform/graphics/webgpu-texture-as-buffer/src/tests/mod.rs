@@ -108,6 +108,29 @@ fn relocate_model(model: &mut [u32], relocations: &[(usize, usize, usize)]) {
   }
 }
 
+/// the allocation of max_byte_size works and its last u32 is readable, one u32 more fails
+#[pollster::test]
+async fn max_byte_size_is_reachable() {
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let rgba = TextureAsStorageAllocator::new_rgba(&gpu).with_max_width(TEST_WIDTH);
+  let mut all = allocators(&gpu).to_vec();
+  all.push(("rgba", rgba));
+  for (name, alloc) in all {
+    let max = alloc.max_byte_size(&gpu.device);
+    let mut buffer = alloc.allocate_readonly::<[u32]>(max, &gpu.device, "test");
+    let len = max as usize / 4;
+    // the whole last texel, so the rgba write is aligned
+    write_u32s(&buffer, &[1, 2, 3, 4], len - 4, &gpu);
+    let last = len as u32 - 1;
+    let r = read_by_shader(&gpu, &buffer, 1, &format!("{name} max"), |input, _| {
+      input.index(val(last)).load()
+    })
+    .await;
+    assert_eq!(r, [4], "{name}");
+    assert!(!resize(&mut buffer, len + 1, &gpu), "{name}");
+  }
+}
+
 #[pollster::test]
 async fn fragmented_write() {
   let gpu = GPU::new(Default::default()).await.unwrap();
