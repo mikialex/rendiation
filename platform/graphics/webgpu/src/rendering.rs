@@ -23,37 +23,21 @@ pub trait MeshComponent: MeshShaderLogic + ShaderHashProvider {
 
 /// RenderComponent is a composable unit for user to express and compose the rendering logic.
 pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderPassBuilder {
+  /// Create and cache the pipeline of a [`RenderMethod::TraditionalDraw`] render of this
+  /// component without drawing, so the first real render hits the cache. Only the types of the
+  /// component's bindings matter; their content is never read.
+  fn preflight_pso(&self, gpu: &GPU) {
+    self.get_or_create_pipeline(gpu, None);
+  }
+
   /// Calling this method to do the real drawcall on given pass. if the implementation is efficient enough to specify a draw logic.
   fn render(&self, ctx: &mut GPURenderPassCtx, draw: RenderMethod) {
-    let mut hasher = PipelineHasher::default();
-    self.hash_pipeline_with_type_info(&mut hasher);
-
-    let (draw_cmd, mesh_shading) = match &draw {
+    let (draw_cmd, mesh) = match &draw {
       RenderMethod::TraditionalDraw(draw_command) => (Some(draw_command), None),
-      RenderMethod::MeshPipelineDraw(mesh_shading_logic) => {
-        mesh_shading_logic.hash_pipeline_with_type_info(&mut hasher);
-        (None, Some(mesh_shading_logic.as_shading_logic()))
-      }
+      RenderMethod::MeshPipelineDraw(mesh) => (None, Some(*mesh)),
     };
 
-    let pipeline = ctx
-      .gpu
-      .device
-      .get_or_cache_create_render_pipeline(hasher, |device, label| {
-        device
-          .build_pipeline_by_shader_api(
-            self
-              .build_self(
-                &|stage| Box::new(ShaderAPINagaImpl::new(stage)),
-                mesh_shading,
-                ctx.gpu.info.clone(),
-                device.inner.default_shader_checks,
-              )
-              .unwrap(),
-            label,
-          )
-          .unwrap()
-      });
+    let pipeline = self.get_or_create_pipeline(&ctx.gpu, mesh);
 
     ctx.binding.reset();
     ctx.reset_vertex_binding_index();
@@ -77,6 +61,40 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
     } else if let RenderMethod::MeshPipelineDraw(draw) = draw {
       ctx.pass.dispatch_mesh_draw_command(draw.dispatch_command())
     }
+  }
+
+  /// The pipeline [`Self::render`] draws with: looked up by the pipeline hash of the component
+  /// (and of the mesh component, for a mesh pipeline draw), built and cached on a miss. It only
+  /// depends on the component and the device, not on the pass.
+  fn get_or_create_pipeline(
+    &self,
+    gpu: &GPU,
+    mesh: Option<&dyn MeshComponent>,
+  ) -> GPURenderPipeline {
+    let mut hasher = PipelineHasher::default();
+    self.hash_pipeline_with_type_info(&mut hasher);
+    if let Some(mesh) = mesh {
+      mesh.hash_pipeline_with_type_info(&mut hasher);
+    }
+    let mesh_shading = mesh.map(|mesh| mesh.as_shading_logic());
+
+    gpu
+      .device
+      .get_or_cache_create_render_pipeline(hasher, |device, label| {
+        device
+          .build_pipeline_by_shader_api(
+            self
+              .build_self(
+                &|stage| Box::new(ShaderAPINagaImpl::new(stage)),
+                mesh_shading,
+                gpu.info.clone(),
+                device.inner.default_shader_checks,
+              )
+              .unwrap(),
+            label,
+          )
+          .unwrap()
+      })
   }
 }
 
