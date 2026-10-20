@@ -96,6 +96,32 @@ impl Camera {
       || min.y > ty * far_depth
       || max.y < -ty * far_depth
   }
+
+  /// The smallest margin of the `culls` comparisons in their short circuit order: the near
+  /// plane relative to `near`, the frustum sides in pixels relative to `pixel_reference`.
+  pub fn cull_margin(&self, min: Vec3<f64>, max: Vec3<f64>, pixel_reference: f64) -> f64 {
+    let far_depth = -min.z;
+    let mut margin = ((far_depth - self.near) / self.near).abs();
+    if far_depth < self.near {
+      return margin;
+    }
+    let tx = self.viewport.x * 0.5 / self.focal_length;
+    let ty = self.viewport.y * 0.5 / self.focal_length;
+    let scale = self.focal_length / far_depth / pixel_reference;
+    let sides = [
+      (min.x, tx * far_depth),
+      (-max.x, tx * far_depth),
+      (min.y, ty * far_depth),
+      (-max.y, ty * far_depth),
+    ];
+    for (value, limit) in sides {
+      margin = margin.min(((value - limit) * scale).abs());
+      if value > limit {
+        break;
+      }
+    }
+    margin
+  }
 }
 
 /// One (instance, patch) occurrence to tessellate.
@@ -112,16 +138,19 @@ pub struct TessellationItem {
 pub const MAX_DEGREE: usize = 14;
 
 /// All instance patches accepted by `filter` in camera space, plus the number of patches
-/// rejected for exceeding `MAX_DEGREE`.
+/// rejected for exceeding `MAX_DEGREE`. The control points are taken relative to their face
+/// origin and mapped by `item_to_camera`, the same data and matrix the GPU version uses in f32.
 pub fn camera_space_items(
   model: &ParametricNormalizedModel,
   camera: &Camera,
   filter: impl Fn(&TrimmedBezierPatch) -> bool,
 ) -> (Vec<TessellationItem>, usize) {
+  let origins = face_origins(model);
   let mut items = Vec::new();
   let mut rejected = 0;
   for (instance_index, instance) in model.instances.iter().enumerate() {
-    let to_camera = camera.view * instance.transform;
+    let origin = origins[instance.face.index()];
+    let to_camera = item_to_camera(camera, instance, origin);
     for patch_index in instance.patches.clone() {
       let patch = &model.patches[patch_index];
       if !filter(patch) {
@@ -134,11 +163,67 @@ pub fn camera_space_items(
       items.push(TessellationItem {
         instance: instance_index as u32,
         patch: patch_index as u32,
-        surface: patch.surface.transform(to_camera),
+        surface: relative_to_origin(&patch.surface, origin).transform(to_camera),
       });
     }
   }
   (items, rejected)
+}
+
+/// Per `FaceId`, the center of the Euclidean control point box of all patches of the face
+/// (zero for faces without patches).
+///
+/// Control points are stored relative to this origin, so the f32 values stay small, and all
+/// patches of a face share it: neighbor patches with bitwise equal boundary control points keep
+/// them bitwise equal after subtracting the origin and applying the same matrix. A per patch
+/// origin would break that.
+pub fn face_origins(model: &ParametricNormalizedModel) -> Vec<Vec3<f64>> {
+  let inf = f64::INFINITY;
+  let mut boxes = vec![(Vec3::new(inf, inf, inf), Vec3::new(-inf, -inf, -inf)); model.faces.len()];
+  for patch in &model.patches {
+    let (min, max) = &mut boxes[patch.face.index()];
+    for p in &patch.surface.control_points {
+      let p = p.to_euclid();
+      *min = min.min(p);
+      *max = max.max(p);
+    }
+  }
+  boxes
+    .into_iter()
+    .map(|(min, max)| {
+      if min.x <= max.x {
+        (min + max) * 0.5
+      } else {
+        Vec3::new(0., 0., 0.)
+      }
+    })
+    .collect()
+}
+
+/// The surface with its control points translated by `-origin` (homogeneous `p·w - o·w`).
+pub fn relative_to_origin(
+  surface: &RationalBezierSurface,
+  origin: Vec3<f64>,
+) -> RationalBezierSurface {
+  let control_points = surface
+    .control_points
+    .iter()
+    .map(|p| {
+      Vec4::new(
+        p.x - origin.x * p.w,
+        p.y - origin.y * p.w,
+        p.z - origin.z * p.w,
+        p.w,
+      )
+    })
+    .collect();
+  RationalBezierSurface::new(surface.degree_u, surface.degree_v, control_points)
+}
+
+/// Face origin relative control points to camera space: `view · instance.transform ·
+/// translate(origin)`, composed in f64.
+pub fn item_to_camera(camera: &Camera, instance: &FaceInstance, origin: Vec3<f64>) -> Mat4<f64> {
+  camera.view * instance.transform * Mat4::translate(origin)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -193,6 +278,8 @@ pub struct Tessellator<'a> {
   camera: Camera,
   config: TessellationConfig,
   states: Vec<PatchState>,
+  /// The smallest decision margin while `decision_margin` runs.
+  margin: Option<f64>,
   pub stats: TessellationStats,
 }
 
@@ -205,6 +292,7 @@ impl<'a> Tessellator<'a> {
       camera,
       config,
       states: items.iter().map(|_| PatchState::default()).collect(),
+      margin: None,
       stats: TessellationStats::default(),
     }
   }
@@ -264,34 +352,112 @@ impl<'a> Tessellator<'a> {
   /// shared with the neighbors, interior vertices are evaluated on the surface.
   pub fn leaf_mesh(&mut self, leaf: &Leaf) -> LeafMesh {
     let mut patch = self.patch(leaf.key.item);
-    let (us, vs) = (leaf.key.u_segment(), leaf.key.v_segment());
     let k = leaf.k;
-    let (du, dv) = (us.length() / k, vs.length() / k);
-    let mut params = Vec::with_capacity(((k + 1) * (k + 1)) as usize);
-    let mut positions = Vec::with_capacity(params.capacity());
-    for j in 0..=k {
-      for i in 0..=k {
-        let (u, v) = (us.start() + i * du, vs.start() + j * dv);
-        let position = if i == 0 || j == 0 || i == k || j == k {
-          let p = patch.position(u, v);
-          let chains = &mut patch.stats.position_chains;
-          if chains.len() <= p.chain as usize {
-            chains.resize(p.chain as usize + 1, 0);
-          }
-          chains[p.chain as usize] += 1;
-          p.position
-        } else {
-          patch.surface.eval(param_to_f64(u), param_to_f64(v))
-        };
-        params.push((u, v));
-        positions.push(position);
+    LeafMesh::grid(leaf, |i, j, u, v| {
+      if i == 0 || j == 0 || i == k || j == k {
+        let p = patch.position(u, v);
+        let chains = &mut patch.stats.position_chains;
+        if chains.len() <= p.chain as usize {
+          chains.resize(p.chain as usize + 1, 0);
+        }
+        chains[p.chain as usize] += 1;
+        p.position
+      } else {
+        patch.surface.eval(param_to_f64(u), param_to_f64(v))
       }
+    })
+  }
+
+  /// The smallest relative margin `|value - threshold| / |threshold|` of the threshold
+  /// decisions taken when classifying `key`: cull (frustum sides in pixels relative to
+  /// `pixel_error`), near plane, grid error and size per tested `k`, and every edge
+  /// linearization test of the flat ancestor search. A tessellation computed with different
+  /// rounding (the f32 GPU version) can only decide differently on keys with a small margin.
+  pub fn decision_margin(&mut self, key: SubPatchKey) -> f64 {
+    self.margin = Some(f64::INFINITY);
+    self.patch(key.item).classify(key);
+    self.margin.take().unwrap()
+  }
+
+  /// The leaf meshes computed like the GPU vertex passes instead of the cached recursion of
+  /// `leaf_mesh`, with the same result bits. Round 0 requests the boundary vertices of all
+  /// leaves. A request inside a linearization piece records the interpolation and requests the
+  /// two piece ends in the next round, any other request is evaluated exactly. The rounds are
+  /// then resolved backwards by interpolation. Also returns the request count per round.
+  pub fn leaf_meshes_by_rounds(&mut self, leaves: &[Leaf]) -> (Vec<LeafMesh>, Vec<usize>) {
+    let mut meshes = Vec::with_capacity(leaves.len());
+    let mut requests = Vec::new();
+    let mut targets = Vec::new();
+    for (index, leaf) in leaves.iter().enumerate() {
+      let surface = &self.items[leaf.key.item as usize].surface;
+      let mesh = LeafMesh::grid(leaf, |i, j, u, v| {
+        if i == 0 || j == 0 || i == leaf.k || j == leaf.k {
+          requests.push((leaf.key.item, u, v));
+          targets.push((index, (j * (leaf.k + 1) + i) as usize));
+          Vec3::new(0., 0., 0.)
+        } else {
+          surface.eval(param_to_f64(u), param_to_f64(v))
+        }
+      });
+      meshes.push(mesh);
     }
-    LeafMesh {
-      k,
-      params,
-      positions,
+
+    let mut records = Vec::new();
+    while !requests.is_empty() {
+      let mut next = Vec::new();
+      let record: Vec<_> = requests
+        .iter()
+        .map(|&(item, u, v)| {
+          let mut patch = self.patch(item);
+          match patch.piece(u, v) {
+            Some(piece) => {
+              next.push((item, piece.a.0, piece.a.1));
+              next.push((item, piece.b.0, piece.b.1));
+              Err((piece.t, next.len() - 2, next.len() - 1))
+            }
+            None => Ok(patch.exact(u, v)),
+          }
+        })
+        .collect();
+      records.push(record);
+      requests = next;
     }
+
+    let mut values: Vec<Vec3<f64>> = Vec::new();
+    for record in records.iter().rev() {
+      values = record
+        .iter()
+        .map(|r| match *r {
+          Ok(p) => p,
+          Err((t, a, b)) => blend(values[a], values[b], t),
+        })
+        .collect();
+    }
+    for ((mesh, vertex), p) in targets.into_iter().zip(values) {
+      meshes[mesh].positions[vertex] = p;
+    }
+    (meshes, records.iter().map(Vec::len).collect())
+  }
+
+  /// Edge linearization piece count of the canonical `segment` of `line`, see
+  /// `linearization` (exposed for comparison with the GPU version, like the next two).
+  pub fn linearization_of(&mut self, item: u32, line: LineKey, segment: Segment) -> Option<u32> {
+    self.patch(item).linearization(line, segment)
+  }
+
+  /// The coarsest linearizable segment containing the canonical `segment` and its piece count.
+  pub fn flat_ancestor_of(
+    &mut self,
+    item: u32,
+    line: LineKey,
+    segment: Segment,
+  ) -> Option<(Segment, u32)> {
+    self.patch(item).flat_ancestor(line, segment)
+  }
+
+  /// The linearization piece of `line` containing canonical parameter `p` in its interior.
+  pub fn locate_on(&mut self, item: u32, line: LineKey, p: u32) -> Option<Segment> {
+    self.patch(item).locate(line, p)
   }
 
   /// The iso line curve in its canonical direction, see `LineCurve`.
@@ -306,6 +472,7 @@ impl<'a> Tessellator<'a> {
       camera: &self.camera,
       config: &self.config,
       state: &mut self.states[item as usize],
+      margin: &mut self.margin,
       stats: &mut self.stats,
     }
   }
@@ -320,6 +487,27 @@ pub struct LeafMesh {
 }
 
 impl LeafMesh {
+  /// The `(k + 1)²` grid of `leaf` with the positions given by `position(i, j, u, v)`.
+  pub fn grid(leaf: &Leaf, mut position: impl FnMut(u32, u32, u32, u32) -> Vec3<f64>) -> Self {
+    let (us, vs) = (leaf.key.u_segment(), leaf.key.v_segment());
+    let k = leaf.k;
+    let (du, dv) = (us.length() / k, vs.length() / k);
+    let mut params = Vec::with_capacity(((k + 1) * (k + 1)) as usize);
+    let mut positions = Vec::with_capacity(params.capacity());
+    for j in 0..=k {
+      for i in 0..=k {
+        let (u, v) = (us.start() + i * du, vs.start() + j * dv);
+        params.push((u, v));
+        positions.push(position(i, j, u, v));
+      }
+    }
+    Self {
+      k,
+      params,
+      positions,
+    }
+  }
+
   /// Two triangles per grid cell, counter clockwise in the parameter domain (so facing
   /// `∂S/∂u × ∂S/∂v`).
   pub fn triangles(&self) -> impl Iterator<Item = [u32; 3]> + '_ {
@@ -422,7 +610,16 @@ struct PatchEval<'a> {
   camera: &'a Camera,
   config: &'a TessellationConfig,
   state: &'a mut PatchState,
+  margin: &'a mut Option<f64>,
   stats: &'a mut TessellationStats,
+}
+
+/// A point inside a linearization piece: `blend(position(a), position(b), t)`, with `a`, `b`
+/// the piece ends in canonical line order.
+struct Piece {
+  t: f64,
+  a: (u32, u32),
+  b: (u32, u32),
 }
 
 impl PatchEval<'_> {
@@ -433,6 +630,12 @@ impl PatchEval<'_> {
       (param_to_f64(vs.start()), param_to_f64(vs.end())),
     );
     let bounds = surface_bounds(&sub);
+    if let Some(margin) = self.margin.as_mut() {
+      let m = self
+        .camera
+        .cull_margin(bounds.min, bounds.max, self.config.pixel_error);
+      *margin = margin.min(m);
+    }
     if self.camera.culls(bounds.min, bounds.max) {
       return Decision::Cull;
     }
@@ -464,23 +667,32 @@ impl PatchEval<'_> {
   }
 
   /// The smallest power of two grid resolution meeting the interior error and size criteria.
-  fn grid_resolution(&self, bounds: &SurfaceBounds) -> Result<u32, SplitReason> {
+  fn grid_resolution(&mut self, bounds: &SurfaceBounds) -> Result<u32, SplitReason> {
     let depth = -bounds.max.z;
-    if depth <= self.camera.near {
+    if self.at_most(depth, self.camera.near) {
       return Err(SplitReason::NearPlane);
     }
     let scale = self.camera.focal_length / depth;
     let tolerance = self.config.interior_tolerance() / scale;
     let k_error = self
       .powers_of_two()
-      .find(|&k| bounds.grid_error(k) <= tolerance)
+      .find(|&k| self.at_most(bounds.grid_error(k), tolerance))
       .ok_or(SplitReason::Interior)?;
     let size = (bounds.max - bounds.min).length() * scale;
+    let max_size = self.config.max_triangle_size;
     let k_size = self
       .powers_of_two()
-      .find(|&k| size / k as f64 <= self.config.max_triangle_size)
+      .find(|&k| self.at_most(size / k as f64, max_size))
       .ok_or(SplitReason::Size)?;
     Ok(k_error.max(k_size))
+  }
+
+  /// `value <= threshold`, recording the decision margin when requested.
+  fn at_most(&mut self, value: f64, threshold: f64) -> bool {
+    if let Some(margin) = self.margin.as_mut() {
+      *margin = margin.min(((value - threshold) / threshold).abs());
+    }
+    value <= threshold
   }
 
   fn powers_of_two(&self) -> impl Iterator<Item = u32> + use<> {
@@ -500,24 +712,27 @@ impl PatchEval<'_> {
   /// Must be a pure function of the line curve and the segment: both sides of an edge rely on
   /// getting the same answer.
   fn linearization(&mut self, line: LineKey, segment: Segment) -> Option<u32> {
-    if let Some(&cached) = self.state.pieces.get(&(line, segment)) {
+    let recording = self.margin.is_some();
+    if let Some(&cached) = self.state.pieces.get(&(line, segment))
+      && !recording
+    {
       return cached;
     }
     let bounds = {
       let curve = &self.line(line).curve;
       curve_bounds(&curve.sub_curve(param_to_f64(segment.start()), param_to_f64(segment.end())))
     };
-    self.stats.edge_tests += 1;
+    self.stats.edge_tests += !recording as usize;
     let depth = -bounds.max.z;
     let mut pieces = None;
-    if depth > self.camera.near {
+    if !self.at_most(depth, self.camera.near) {
       let tolerance = self.config.edge_tolerance() * depth / self.camera.focal_length;
       pieces = self
         .powers_of_two()
-        .find(|&m| bounds.polyline_error(m) <= tolerance);
+        .find(|&m| self.at_most(bounds.polyline_error(m), tolerance));
     }
     if pieces.is_none() && segment.level >= self.config.max_level {
-      self.stats.forced_edge_segments += 1;
+      self.stats.forced_edge_segments += !recording as usize;
       pieces = Some(self.config.k_max);
     }
     self.state.pieces.insert((line, segment), pieces);
@@ -554,32 +769,42 @@ impl PatchEval<'_> {
     if let Some(&cached) = self.state.positions.get(&(u, v)) {
       return cached;
     }
-    let result = self
-      .interpolate_on_line(LineKey::new(Axis::U, u), v)
-      .or_else(|| self.interpolate_on_line(LineKey::new(Axis::V, v), u))
-      .unwrap_or_else(|| VertexPosition {
+    let result = match self.piece(u, v) {
+      Some(piece) => {
+        let pa = self.position(piece.a.0, piece.a.1);
+        let pb = self.position(piece.b.0, piece.b.1);
+        VertexPosition {
+          position: blend(pa.position, pb.position, piece.t),
+          chain: pa.chain.max(pb.chain) + 1,
+        }
+      }
+      None => VertexPosition {
         position: self.exact(u, v),
         chain: 0,
-      });
+      },
+    };
     self.state.positions.insert((u, v), result);
     result
   }
 
-  fn interpolate_on_line(&mut self, line: LineKey, along: u32) -> Option<VertexPosition> {
+  /// The linearization piece containing `(u, v)` in its interior, on the line `u = const`
+  /// first, then on `v = const`.
+  fn piece(&mut self, u: u32, v: u32) -> Option<Piece> {
+    self
+      .piece_on_line(LineKey::new(Axis::U, u), v)
+      .or_else(|| self.piece_on_line(LineKey::new(Axis::V, v), u))
+  }
+
+  fn piece_on_line(&mut self, line: LineKey, along: u32) -> Option<Piece> {
     let curve = self.line(line);
     let p = curve.canonical(along);
     let piece = self.locate(line, p)?;
     let curve = self.line(line);
     let (a, b) = (piece.start(), piece.end());
-    let ((ua, va), (ub, vb)) = (
-      line.point(curve.canonical(a)),
-      line.point(curve.canonical(b)),
-    );
-    let (pa, pb) = (self.position(ua, va), self.position(ub, vb));
-    let t = (p - a) as f64 / (b - a) as f64;
-    Some(VertexPosition {
-      position: blend(pa.position, pb.position, t),
-      chain: pa.chain.max(pb.chain) + 1,
+    Some(Piece {
+      t: (p - a) as f64 / (b - a) as f64,
+      a: line.point(curve.canonical(a)),
+      b: line.point(curve.canonical(b)),
     })
   }
 

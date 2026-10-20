@@ -270,6 +270,70 @@ GPU 计算与绘制之间的接口是每帧的输出 buffer（`TessellationFrame
 风险：FMA 合并等编译差异可能让细分 pass 和顶点 pass 对同一条边的判断不同（影响 k 是否包含所有
 折点），M4 的 watertight 测试专门检查这一项；dispatch 数量和每轮 buffer 带宽在 M3 / M4 实测。
 
+#### 阶段 1 进展
+
+M0–M4、M6 完成（M5 绘制由另一条线做）。实现在 `src/tessellation`：`data`（静态上传、每帧矩阵与
+uniform）、`shader_lib`（与 CPU 逐操作对应的 shader 函数）、`passes`（每帧的全部 compute pass）、
+`tessellator`（`GpuTessellator`、异步统计与扩容、测试用读回）。CPU 参考的补充见
+`parametric-tessellation` 的 README。
+
+```rust
+GpuTessellator::new(&gpu, &model, config);
+t.set_config(config);
+t.set_untrimmed_only(true);
+let output = t.encode_frame(&gpu, &mut encoder, &camera); // 提交后可绘制
+t.last_stats(); // 更早一帧的统计，溢出后下一帧自动扩容
+```
+
+相对上文设计的改动：
+
+- 没有单独的 L.p：L.d 追加子 key 时用 atomic max 直接写下一层的 indirect 参数（每层一个参数 buffer，
+  两组参数：L.a 用 `(x, 子 patch 跨度, 1)`，L.b–L.d 用 `(x, 1, 1)`，L.c 的 workgroup 是 64×4）。
+  顶点轮次同样由上一轮写下一轮的参数。默认配置（`MAX_LEVEL` 10，`K_MAX` 16）每帧 77 次 dispatch。
+- 第 0 轮和之后的轮次用同一条 pipeline（按 uniform 分支取请求），精确求值和 lerp 各只在一条
+  pipeline 的一处代码里，保证共享点逐位一致。Metal 默认开 fast math，不同 pipeline 之间不能假设
+  逐位一致。请求池是一个共享池，每轮的起点由前面各轮的计数求和得到。
+- 子 patch buffer 的单项容量取上传的 patch 里最大的控制点数（steam 为 36），不是 `MAX_GPU_DEGREE`。
+- 法线用 face 原点相对的控制点求偏导再乘实例矩阵的线性部分（相机空间 f32 下远处的小 patch 偏导
+  误差可达 5%）；极点处（偏导数值为零）改在叶子内部 1/64 处取法线。CPU 参考在极点处法线是噪声。
+- CPU 参考也改为 face 原点相对的控制点；watertight 检查只在同一个 instance（face 的一次出现）内
+  识别共享边：不同 face 的边界控制点在 f64 里可能恰好逐位相同，但各自减去不同原点后在 f32 里不同，
+  跨 face 本阶段不处理。
+- 每个 shader stage 最多用 10 个 storage buffer，超过 WebGPU 默认的 8（native 适配器没问题）。
+
+steam-controller，1920×1080，fov 45°，0.5 px，`K_MAX` 16，Apple M5 Pro（叶子不一致数是两侧之和）：
+
+| 视角 | 叶子 CPU / GPU | 不一致叶子（最大裕量） | 共享顶点 / 不一致 | T 型点最大偏离 | 最大误差 | 每帧 |
+| --- | --- | --- | --- | --- | --- | --- |
+| fit | 17471 / 17471 | 14（2.9e-3） | 86933 / 0 | 1.2e-4 px | 0.29 px | 5.3–6.7 ms |
+| fit:4 | 10875 / 10875 | 4（1.6e-3） | 101519 / 0 | 1.3e-4 px | 0.31 px | 6.5–6.7 ms |
+| fit:4 仅未裁剪 | 4052 / 4052 | 4（1.6e-3） | 20163 / 0 | 1.3e-4 px | 0.27 px | 5.3–6.6 ms |
+| fit:20 | 3635 / 3635 | 2（8.6e-4） | 31742 / 0 | 1.6e-4 px | 0.36 px | 5.3–6.6 ms |
+| fit:80 | 3045 / 3045 | 0 | 30270 / 0 | 1.6e-4 px | 0.31 px | 5.3 ms |
+
+每帧时间是 encode + submit + 等待完成的墙钟时间（CPU encode 约 0.1 ms），相机背对模型（第 0 层
+全部剔除）时约 3.3 ms，即 77 次 dispatch 加变换、第 0 层提取和包围盒的固定开销。CPU 参考单线程
+细分约 27 ms（fit:4，不含顶点）。每层工作项数与 CPU 完全一致，k 分布只差不一致的叶子。合成场景（含跨近
+平面、`MAX_LEVEL` 5 的强制叶子、0.2 px / 边份额 0.25 / `K_MAX` 8）叶子集合与 CPU 完全一致。
+
+- 不一致的叶子全部落在相对裕量 < 3e-3 的判定上。f32 的误差主要来自相机空间坐标的抵消（距离 250
+  的 patch 的二阶差分），不是 f32 精度本身。
+- 同一个叶子顶点与 CPU 位置的偏差一般 < 6e-4 px；个别顶点到 0.24 px，是边线性化判定在阈值附近
+  翻转（把 CPU 的阈值改变 1e-3 即得到 GPU 的位置，偏差降到 1e-5 px），在误差预算之内。
+- 细分 pass（L.c）与顶点 pass 对同一条边的判断一致：如果不一致，T 型点会偏离一个边容差量级
+  （约 0.1 px），实测最大 1.6e-4 px，属于 f32 舍入。
+- 溢出：小容量下丢弃写入并置标志，异步读回后扩容（每次至少翻倍），十几帧收敛到与不受限时相同的
+  叶子集合（测试 `overflow_grows_buffers`）。
+
+未解决：
+
+- bound 在相机空间计算，远处 patch 有抵消误差（判定裕量到 3e-3）。可以把差分改在 face 原点相对
+  坐标里算再旋转。
+- 统计读回依赖 `GPU::submit_encoder` 触发；同一次提交前多次 `encode_frame` 会互相覆盖 uniform 与
+  矩阵（queue 写入）。
+- `MAX_LEVEL` 或 `K_MAX` 增大时 dispatch 数增加（每层 4 次，每轮 2 次），20 层时约 120 次。
+- 背面剔除（法线锥）、跨 face watertight、HiZ 仍未做。
+
 ### 阶段 2：接入 viewer
 
 - 像 `gltf_io` 一样，通过拖放或文件对话框加载 `.pnm`。
