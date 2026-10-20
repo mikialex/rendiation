@@ -23,11 +23,17 @@
 //! recursively), or evaluated exactly. Patch boundary lines are evaluated on a direction
 //! canonicalized curve, so neighbor patches with bitwise equal boundary control points agree.
 //!
-//! See `verify` for the checks of the result.
+//! Control points are taken relative to a per face origin (`face_origins`) before the
+//! transform to camera space, like the f32 GPU version, which keeps the shared boundaries of
+//! one face bitwise equal.
+//!
+//! See `verify` for the checks of the result, and `Tessellator::decision_margin` /
+//! `verify::compare_leaf_sets` for comparing a tessellation computed with other rounding.
 
 mod bound;
 mod param;
 mod tessellate;
+pub mod test_scenes;
 pub mod verify;
 
 pub use bound::*;

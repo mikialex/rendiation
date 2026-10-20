@@ -19,11 +19,22 @@ pub struct ErrorReport {
 /// Samples every leaf triangle on a barycentric grid of `resolution` and compares the
 /// interpolated position with the surface at the interpolated parameter.
 pub fn measure_error(t: &mut Tessellator, leaves: &[Leaf], resolution: u32) -> ErrorReport {
+  let meshes: Vec<_> = leaves.iter().map(|leaf| t.leaf_mesh(leaf)).collect();
+  measure_mesh_error(t, leaves, &meshes, resolution)
+}
+
+/// `measure_error` of leaf meshes from another source (for example read back from the GPU),
+/// `meshes[i]` is the grid of `leaves[i]`, its surface is the item surface of `t`.
+pub fn measure_mesh_error(
+  t: &Tessellator,
+  leaves: &[Leaf],
+  meshes: &[LeafMesh],
+  resolution: u32,
+) -> ErrorReport {
   let mut report = ErrorReport::default();
   let threshold = t.config().pixel_error;
   let r = resolution as f64;
-  for leaf in leaves {
-    let mesh = t.leaf_mesh(leaf);
+  for (leaf, mesh) in leaves.iter().zip(meshes) {
     let surface = &t.items()[leaf.key.item as usize].surface;
     for tri in mesh.triangles() {
       let corners = tri.map(|i| {
@@ -100,9 +111,19 @@ struct LineSide {
 /// vertices are bitwise equal and that every vertex of one side lies on the opposite side's
 /// edge polyline.
 pub fn check_watertight(t: &mut Tessellator, leaves: &[Leaf]) -> WatertightReport {
+  let meshes: Vec<_> = leaves.iter().map(|leaf| t.leaf_mesh(leaf)).collect();
+  check_mesh_watertight(t, leaves, &meshes)
+}
+
+/// `check_watertight` of leaf meshes from another source (for example read back from the GPU),
+/// `meshes[i]` is the grid of `leaves[i]`. `t` only identifies the iso lines.
+pub fn check_mesh_watertight(
+  t: &mut Tessellator,
+  leaves: &[Leaf],
+  meshes: &[LeafMesh],
+) -> WatertightReport {
   let mut lines: FastHashMap<GlobalLine, FastHashMap<u64, LineSide>> = FastHashMap::default();
-  for leaf in leaves {
-    let mesh = t.leaf_mesh(leaf);
+  for (leaf, mesh) in leaves.iter().zip(meshes) {
     let k = leaf.k as usize;
     let item = leaf.key.item;
     for (edge, (line, _)) in leaf.key.edges().into_iter().enumerate() {
@@ -206,6 +227,60 @@ pub fn check_watertight(t: &mut Tessellator, leaves: &[Leaf]) -> WatertightRepor
 
 fn bitwise_eq(a: Vec3<f64>, b: Vec3<f64>) -> bool {
   a.x.to_bits() == b.x.to_bits() && a.y.to_bits() == b.y.to_bits() && a.z.to_bits() == b.z.to_bits()
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct LeafSetReport {
+  pub reference_leaves: usize,
+  pub other_leaves: usize,
+  /// Leaves with the same key and `k` in both sets.
+  pub matched: usize,
+  /// Leaves of either set without an equal leaf in the other one.
+  pub mismatched: usize,
+  /// Over the mismatched leaves, the largest of the smallest decision margin (see
+  /// `Tessellator::decision_margin`) along the key path from the root to the leaf. A small
+  /// value means every mismatch is explained by a near threshold decision.
+  pub max_mismatch_margin: f64,
+}
+
+/// Compares the leaf set `other` (for example of the GPU version) with the `reference` leaves
+/// of `t`, see `LeafSetReport`.
+pub fn compare_leaf_sets(t: &mut Tessellator, reference: &[Leaf], other: &[Leaf]) -> LeafSetReport {
+  let as_map = |leaves: &[Leaf]| -> FastHashMap<SubPatchKey, u32> {
+    leaves.iter().map(|leaf| (leaf.key, leaf.k)).collect()
+  };
+  let (reference_map, other_map) = (as_map(reference), as_map(other));
+  let mut report = LeafSetReport {
+    reference_leaves: reference.len(),
+    other_leaves: other.len(),
+    ..Default::default()
+  };
+  let mut margins = FastHashMap::default();
+  for (leaves, opposite) in [(reference, &other_map), (other, &reference_map)] {
+    for leaf in leaves {
+      if opposite.get(&leaf.key) == Some(&leaf.k) {
+        report.matched += 1;
+        continue;
+      }
+      report.mismatched += 1;
+      let mut margin = f64::INFINITY;
+      for level in 0..=leaf.key.level {
+        let shift = leaf.key.level - level;
+        let key = SubPatchKey {
+          item: leaf.key.item,
+          level,
+          ix: leaf.key.ix >> shift,
+          iy: leaf.key.iy >> shift,
+        };
+        let m = *margins.entry(key).or_insert_with(|| t.decision_margin(key));
+        margin = margin.min(m);
+      }
+      report.max_mismatch_margin = report.max_mismatch_margin.max(margin);
+    }
+  }
+  // Matched leaves are counted from both sides.
+  report.matched /= 2;
+  report
 }
 
 #[derive(Debug, Default, Clone, Copy)]

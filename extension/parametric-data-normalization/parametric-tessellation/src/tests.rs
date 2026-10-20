@@ -1,59 +1,9 @@
 use parametric_normalized_model::*;
 use rendiation_algebra::*;
 
+use crate::test_scenes::*;
 use crate::verify::*;
 use crate::*;
-
-pub struct TestRng(pub u64);
-
-impl TestRng {
-  /// Uniform in `[0, 1)`.
-  pub fn next(&mut self) -> f64 {
-    self.0 = self
-      .0
-      .wrapping_mul(6364136223846793005)
-      .wrapping_add(1442695040888963407);
-    (self.0 >> 11) as f64 / (1u64 << 53) as f64
-  }
-
-  pub fn range(&mut self, min: f64, max: f64) -> f64 {
-    min + (max - min) * self.next()
-  }
-}
-
-/// A wavy patch over about `[-2, 2]²` in xy, centered at the origin.
-pub fn random_surface(rng: &mut TestRng, rational: bool) -> RationalBezierSurface {
-  let degrees = [(3, 3), (5, 5), (2, 3), (5, 3), (1, 4)];
-  let (n, m) = degrees[(rng.next() * degrees.len() as f64) as usize];
-  let amplitude = rng.range(0.1, 1.5);
-  let mut cp = Vec::new();
-  for j in 0..=m {
-    for i in 0..=n {
-      let x = 4. * i as f64 / n as f64 - 2. + rng.range(-0.2, 0.2);
-      let y = 4. * j as f64 / m as f64 - 2. + rng.range(-0.2, 0.2);
-      let z = amplitude * rng.range(-1., 1.);
-      let w = if rational { rng.range(0.5, 1.5) } else { 1. };
-      cp.push(Vec4::from_euclid(Vec3::new(x, y, z), w));
-    }
-  }
-  RationalBezierSurface::new(n, m, cp)
-}
-
-fn transpose(s: &RationalBezierSurface) -> RationalBezierSurface {
-  let cp = (0..=s.degree_u)
-    .flat_map(|i| (0..=s.degree_v).map(move |j| s.control_point(i, j)))
-    .collect();
-  RationalBezierSurface::new(s.degree_v, s.degree_u, cp)
-}
-
-fn test_camera() -> Camera {
-  Camera {
-    view: Mat4::identity(),
-    focal_length: 800.,
-    viewport: Vec2::new(1600., 1200.),
-    near: 0.1,
-  }
-}
 
 fn item(surface: RationalBezierSurface, depth: f64, tilt: f64) -> TessellationItem {
   let to_camera = Mat4::translate((0., 0., -depth)) * Mat4::rotate_x(tilt);
@@ -105,13 +55,7 @@ fn near_plane_crossing_terminates() {
 fn watertight_across_patches() {
   let mut rng = TestRng(9);
   for case in 0..12 {
-    let s = random_surface(&mut rng, case % 2 == 0);
-    let parts = [
-      s.sub_patch((0., 0.5), (0., 0.5)),
-      s.sub_patch((1., 0.5), (0., 0.5)),
-      transpose(&s.sub_patch((0., 0.5), (0.5, 1.))),
-      s.sub_patch((0.5, 1.), (0.5, 1.)),
-    ];
+    let parts = split_in_four(&random_surface(&mut rng, case % 2 == 0));
     let (depth, tilt) = (rng.range(3., 10.), rng.range(-1., 1.));
     let items: Vec<_> = parts.into_iter().map(|p| item(p, depth, tilt)).collect();
     let mut t = Tessellator::new(&items, test_camera(), TessellationConfig::default());
@@ -127,4 +71,91 @@ fn watertight_across_patches() {
       "case {case}: {report:?}"
     );
   }
+}
+
+/// The GPU structured rounds give the same bits as the cached recursion.
+#[test]
+fn positions_by_rounds_match() {
+  let model = random_model(21, 9, (3., 12.));
+  let (items, _) = camera_space_items(&model, &test_camera(), |_| true);
+  let mut t = Tessellator::new(&items, test_camera(), TessellationConfig::default());
+  let leaves = t.run();
+  let (meshes, rounds) = t.leaf_meshes_by_rounds(&leaves);
+  assert!(rounds.len() >= 2, "{rounds:?}");
+  assert_eq!(
+    rounds.len(),
+    t.stats.position_chains.len().max(rounds.len())
+  );
+  for (leaf, mesh) in leaves.iter().zip(&meshes) {
+    let reference = t.leaf_mesh(leaf);
+    assert_eq!(reference.params, mesh.params);
+    for (a, b) in reference.positions.iter().zip(&mesh.positions) {
+      assert_eq!(
+        [a.x, a.y, a.z].map(f64::to_bits),
+        [b.x, b.y, b.z].map(f64::to_bits)
+      );
+    }
+  }
+  let report = check_mesh_watertight(&mut t, &leaves, &meshes);
+  assert_eq!(report.mismatched_vertices, 0, "{report:?}");
+  assert!(report.shared_lines > 0, "{report:?}");
+}
+
+/// Rounding the camera space control points to f32 changes the leaf set only where a decision
+/// has a small margin.
+#[test]
+fn rounding_changes_only_small_margin_decisions() {
+  let config = TessellationConfig::default();
+  let mut total_mismatched = 0;
+  for seed in 0..6 {
+    let model = random_model(30 + seed, 12, (2.5, 20.));
+    let (items, _) = camera_space_items(&model, &test_camera(), |_| true);
+    let rounded: Vec<_> = items
+      .iter()
+      .map(|item| {
+        let mut item = item.clone();
+        for p in &mut item.surface.control_points {
+          *p = Vec4::new(p.x as f32, p.y as f32, p.z as f32, p.w as f32).into_f64();
+        }
+        item
+      })
+      .collect();
+    let mut t = Tessellator::new(&items, test_camera(), config);
+    let leaves = t.run();
+    let mut r = Tessellator::new(&rounded, test_camera(), config);
+    let rounded_leaves = r.run();
+    let report = compare_leaf_sets(&mut t, &leaves, &rounded_leaves);
+    assert!(report.max_mismatch_margin < 1e-4, "seed {seed}: {report:?}");
+    assert!(report.matched > 0);
+    total_mismatched += report.mismatched;
+    for leaf in &leaves {
+      let margin = t.decision_margin(leaf.key);
+      assert!(margin > 0. && margin.is_finite(), "{margin}");
+    }
+  }
+  println!("mismatched leaves after f32 rounding: {total_mismatched}");
+}
+
+/// Shared face boundaries stay bitwise equal with the face origin relative control points.
+#[test]
+fn face_origin_keeps_shared_boundaries() {
+  let mut builder = TestModelBuilder::default();
+  let mut rng = TestRng(17);
+  let parts = split_in_four(&random_surface(&mut rng, true));
+  let shift = placement(6., 0.4) * Mat4::translate((1234.5, -987.25, 31.));
+  let face = builder.face(
+    parts
+      .iter()
+      .map(|p| p.transform(Mat4::translate((-1234.5, 987.25, -31.)))),
+  );
+  builder.instance(face, shift, false);
+  let model = builder.model;
+  let origins = face_origins(&model);
+  assert!((origins[0] - Vec3::new(-1234.5, 987.25, -31.)).length() < 3.);
+  let (items, _) = camera_space_items(&model, &test_camera(), |_| true);
+  let mut t = Tessellator::new(&items, test_camera(), TessellationConfig::default());
+  let leaves = t.run();
+  let report = check_watertight(&mut t, &leaves);
+  assert_eq!(report.mismatched_vertices, 0, "{report:?}");
+  assert_eq!(report.open_lines, 8, "{report:?}");
 }

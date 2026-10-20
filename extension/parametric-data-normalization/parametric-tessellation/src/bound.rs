@@ -251,7 +251,7 @@ fn min_weight(cp: &[Vec4<f64>]) -> f64 {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::tests::*;
+  use crate::test_scenes::*;
 
   /// Dense samples of the triangulated grid against the surface stay within the bounds.
   #[test]
@@ -276,7 +276,7 @@ mod tests {
     let mut rng = TestRng(11);
     for case in 0..200 {
       let s = random_surface(&mut rng, case % 2 == 0);
-      let c = s.iso_curve(Axis::U, rng.next());
+      let c = s.iso_curve(Axis::U, rng.unit());
       let b = curve_bounds(&c);
       for m in [1, 2, 4, 8] {
         let mut measured: f64 = 0.;

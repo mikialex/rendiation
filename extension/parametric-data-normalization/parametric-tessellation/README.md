@@ -11,7 +11,17 @@ vertex evaluated from the original control points at exact dyadic parameters.
 - `bound`: rigorous error bounds for rational patches and curves (bilinear / chord bound via
   `(H - L·w) / w_min`, second derivative bound via the quotient rule).
 - `verify`: dense sampled screen space error, edge consistency (bitwise shared vertices, T
-  junction offsets), triangle count of a per patch uniform grid for comparison.
+  junction offsets), triangle count of a per patch uniform grid for comparison. The error and
+  edge checks also take leaf meshes from another source (`measure_mesh_error`,
+  `check_mesh_watertight`), and `compare_leaf_sets` compares another leaf set with the
+  reference, explaining mismatches by `Tessellator::decision_margin` (the smallest relative
+  margin of the threshold decisions of a key). This is how the f32 GPU version is checked.
+- `Tessellator::leaf_meshes_by_rounds`: the vertex positions computed in the structure of the
+  GPU vertex passes (forward request rounds, backward interpolation), same bits as `leaf_mesh`.
+- `camera_space_items` takes the control points relative to their face origin
+  (`face_origins`, `relative_to_origin`) and maps them by `item_to_camera`, the data the GPU
+  uploads in f32. One origin per face keeps shared boundaries bitwise equal.
+- `test_scenes`: synthetic patches and models, also used by the GPU tests.
 
 Differences from the first plan draft, see the crate docs in `src/lib.rs` for the details:
 
