@@ -767,7 +767,11 @@ impl TessPass for DecidePass {
     });
     let size = (k + val(1)) * (k + val(1));
     let vertex_base = atomic(&counters, COUNTER_VERTICES).atomic_add(size);
-    if_by((vertex_base + size).greater_than(u.vertex_capacity), || {
+    // written so that the counter growing past an overflow can not wrap into the capacity
+    let vertex_overflow = size
+      .greater_than(u.vertex_capacity)
+      .or(vertex_base.greater_than(u.vertex_capacity - size));
+    if_by(vertex_overflow, || {
       set_overflow(&counters, OVERFLOW_VERTICES);
       do_return();
     });

@@ -28,6 +28,8 @@ pub struct GpuTessellator {
   pub(crate) frame: TessFrameBuffers,
   stats: Option<GpuTessellationStats>,
   pending_stats: Option<(ReadBufferFromStagingBuffer, TessCapacity)>,
+  /// The frame buffers grew after an overflow and no frame was encoded since.
+  grown: bool,
 }
 
 impl GpuTessellator {
@@ -53,6 +55,7 @@ impl GpuTessellator {
       frame,
       stats: None,
       pending_stats: None,
+      grown: false,
     }
   }
 
@@ -100,7 +103,8 @@ impl GpuTessellator {
       self.pending_stats = None;
       self.rebuild_frame_buffers(TessCapacity::initial(self.active.items.len()));
     }
-    self.poll_stats(gpu);
+    self.poll_stats(gpu, Waker::noop());
+    self.grown = false;
 
     let uniform = TessUniform::new(camera, &self.config).with_sizes(&self.active, &self.capacity);
     self.frame.uniform.write_at(&gpu.queue, &uniform, 0);
@@ -178,13 +182,14 @@ impl GpuTessellator {
   }
 
   /// Polls the pending statistics read without blocking, grows the buffers on overflow. Also
-  /// done by `encode_frame`, call it when frames are drawn without encoding a new one.
-  pub fn poll_stats(&mut self, gpu: &GPU) {
+  /// done by `encode_frame`, call it when frames are drawn without encoding a new one: `waker`
+  /// is woken when the read completes, so a caller drawing on demand gets another frame.
+  pub fn poll_stats(&mut self, gpu: &GPU, waker: &Waker) {
     let Some((pending, capacity)) = &mut self.pending_stats else {
       return;
     };
     gpu.poll(false);
-    let mut cx = Context::from_waker(Waker::noop());
+    let mut cx = Context::from_waker(waker);
     let Poll::Ready(result) = Pin::new(pending).poll(&mut cx) else {
       return;
     };
@@ -199,11 +204,23 @@ impl GpuTessellator {
       capacity: Some(capacity),
       ..GpuTessellationStats::from_counters(&counters, &self.frame, self)
     };
-    // A read from before the last growth may report overflows already handled.
+    // A read from before the last growth may report overflows already handled, and at the
+    // device or dispatch limits the capacity can not grow any further.
     if stats.overflow != 0 && capacity == self.capacity {
-      self.rebuild_frame_buffers(stats.grown_capacity(capacity));
+      let stride = self.active.sub_patch_stride;
+      let grown = device_limited(&self.device, stats.grown_capacity(capacity), stride);
+      if grown != capacity {
+        self.rebuild_frame_buffers(grown);
+        self.grown = true;
+      }
     }
     self.stats = Some(stats);
+  }
+
+  /// The buffers grew after an overflow since the last `encode_frame`, so encoding again would
+  /// produce the full result.
+  pub fn needs_encode(&self) -> bool {
+    self.grown
   }
 
   fn rebuild_frame_buffers(&mut self, capacity: TessCapacity) {

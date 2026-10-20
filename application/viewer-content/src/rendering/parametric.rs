@@ -51,8 +51,12 @@ impl ViewerParametricRendering {
   }
 
   /// The model bounds in world space (control point hull bounds, scaled by the model scale).
+  /// `None` without a model or for a model without any instance.
   pub fn world_bounds(&self) -> Option<Box3<f64>> {
     let bounds = self.model.as_ref()?.bounds;
+    if bounds.is_empty() {
+      return None;
+    }
     let s = self.settings.model_scale;
     Some(Box3::new(bounds.min * s, bounds.max * s))
   }
@@ -414,7 +418,8 @@ pub fn create_tessellation_producer(
 }
 
 /// The work is encoded into the frame encoder before the scene passes that draw the output, and
-/// only when the request changed (or an overflow asks for a retry with the grown buffers).
+/// only when the request changed or the buffers grew after an overflow. The statistics read
+/// wakes the waker when done, so an overflow is retried also when drawing on demand.
 struct GpuTessellationProducer {
   tessellator: GpuTessellator,
   requested: Option<TessellationRequest>,
@@ -461,23 +466,21 @@ impl TessellationProducer for GpuTessellationProducer {
     gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
     request: Option<&TessellationRequest>,
-    _waker: &Waker,
+    waker: &Waker,
   ) -> Option<(&TessellationFrameOutput, Mat4<f64>)> {
-    self.tessellator.poll_stats(gpu);
+    self.tessellator.poll_stats(gpu, waker);
     self.update_stats();
-    let overflowed = self
-      .tessellator
-      .last_stats()
-      .is_some_and(|s| s.overflow != 0);
     // a frozen request keeps the buffers of the last encoded frame
     if let Some(request) = request
-      && (overflowed || self.requested.is_none_or(|r| !r.same_as(request)))
+      && (self.tessellator.needs_encode() || self.requested.is_none_or(|r| !r.same_as(request)))
     {
       self.requested = Some(*request);
       self.tessellator.set_config(request.config);
       self.tessellator.set_untrimmed_only(request.untrimmed_only);
       let output = self.tessellator.encode_frame(gpu, encoder, &request.camera);
       self.last = Some((output.clone(), request.camera.view));
+      // registers the waker on the statistics read started by this frame
+      self.tessellator.poll_stats(gpu, waker);
     }
     self.last.as_ref().map(|(output, view)| (output, *view))
   }
