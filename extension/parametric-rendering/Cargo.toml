@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 parametric-normalized-model = { path = "../parametric-data-normalization/parametric-normalized-model" }
+parametric-tessellation = { path = "../parametric-data-normalization/parametric-tessellation" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }

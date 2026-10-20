@@ -7,5 +7,6 @@ use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
 pub mod device;
+pub mod tessellation;
 
 use device::*;
