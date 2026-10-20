@@ -9,6 +9,12 @@ trimmed patches) and per face SVG plots of the trim loops.
 cargo run --release -p parametric-normalization-cli -- convert in.stp -o out.pnm -o out.glb --svg svg-dir
 cargo run --release -p parametric-normalization-cli -- convert out.pnm -o out.glb
 
+# view dependent adaptive tessellation (parametric-tessellation) instead of the CPU trimmed
+# triangulation: leaves colored by grid resolution k, trimmed patches washed out (trim is not
+# applied), the camera is written into the glb. fit[:ZOOM] or EX,EY,EZ,TX,TY,TZ.
+# --verify prints the measured screen space error and the edge consistency check.
+cargo run --release -p parametric-normalization-cli -- convert out.pnm -o view.glb --camera fit:4 --pixel-error 0.5 --verify
+
 # end to end test over the repo test sets (temp/step-test, step-generated-sample) or given paths:
 # per file conversion and validation summary, optional glTF / SVG / pnm round trip check
 cargo run --release -p parametric-normalization-cli -- batch --gltf --svg --pnm temp/step-test/steam-controller.stp

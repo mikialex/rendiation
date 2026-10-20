@@ -3434,6 +3434,7 @@ dependencies = [
  "fast-hash-collection",
  "gltf-json",
  "parametric-normalized-model",
+ "parametric-tessellation",
  "rendiation-algebra",
  "serde_json",
  "spade",
@@ -3447,6 +3448,15 @@ dependencies = [
  "rendiation-algebra",
  "rmp-serde",
  "serde",
+]
+
+[[package]]
+name = "parametric-tessellation"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "parametric-normalized-model",
+ "rendiation-algebra",
 ]
 
 [[package]]

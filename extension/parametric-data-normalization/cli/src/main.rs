@@ -3,13 +3,18 @@ use std::process::ExitCode;
 
 use parametric_normalization_cli::*;
 use parametric_normalized_model::{PNM_EXTENSION, ParametricNormalizedModel};
+use rendiation_algebra::*;
 use step_to_bezier::ConvertConfig;
 use step_to_bezier::validate::validate;
 
 const USAGE: &str = "\
 usage:
   parametric-normalization-cli convert INPUT -o OUTPUT [-o OUTPUT...] [--svg DIR] [--tolerance T]
+      [--camera fit[:ZOOM]|EX,EY,EZ,TX,TY,TZ] [--viewport WxH] [--fov DEG] [--pixel-error PX]
+      [--edge-share S] [--max-triangle PX] [--k-max K] [--untrimmed-only] [--verify]
       INPUT: .stp / .step / .pnm, OUTPUT: .pnm / .glb
+      --camera makes .glb outputs the view dependent adaptive tessellation (trim ignored,
+      trimmed patches washed out) seen from that camera, --verify checks its error and edges
   parametric-normalization-cli batch [--gltf] [--svg] [--pnm] [--out DIR] [PATHS...]
       convert every .stp / .step under PATHS (default: the repo test sets) and print summaries,
       --pnm also checks that each model survives a .pnm write and read unchanged";
@@ -40,17 +45,42 @@ fn convert(args: &[String]) -> CliResult {
   let mut outputs = Vec::new();
   let mut svg_dir = None;
   let mut config = ConvertConfig::default();
+  let mut view_dependent = false;
+  let mut view_options = ViewOptions::default();
   let mut args = args.iter();
   while let Some(arg) = args.next() {
     match arg.as_str() {
       "-o" | "--output" => outputs.push(PathBuf::from(next_value(&mut args, arg)?)),
       "--svg" => svg_dir = Some(PathBuf::from(next_value(&mut args, arg)?)),
       "--tolerance" => config.tolerance = Some(next_value(&mut args, arg)?.parse()?),
+      "--camera" => {
+        view_options.placement = parse_camera(next_value(&mut args, arg)?)?;
+        view_dependent = true;
+      }
+      "--viewport" => {
+        let value = next_value(&mut args, arg)?;
+        let (w, h) = value
+          .split_once('x')
+          .ok_or(format!("bad viewport {value}"))?;
+        view_options.viewport = Vec2::new(w.parse()?, h.parse()?);
+      }
+      "--fov" => view_options.fov_y_degrees = next_value(&mut args, arg)?.parse()?,
+      "--pixel-error" => view_options.config.pixel_error = next_value(&mut args, arg)?.parse()?,
+      "--edge-share" => {
+        view_options.config.edge_error_share = next_value(&mut args, arg)?.parse()?
+      }
+      "--max-triangle" => {
+        view_options.config.max_triangle_size = next_value(&mut args, arg)?.parse()?
+      }
+      "--k-max" => view_options.config.k_max = next_value(&mut args, arg)?.parse()?,
+      "--untrimmed-only" => view_options.untrimmed_only = true,
+      "--verify" => view_options.verify = true,
       _ if input.is_none() => input = Some(PathBuf::from(arg)),
       _ => return Err(format!("unexpected argument {arg}\n{USAGE}").into()),
     }
   }
   let input = input.ok_or(format!("missing input\n{USAGE}"))?;
+  let view = view_dependent.then_some(view_options);
   if outputs.is_empty() && svg_dir.is_none() {
     return Err(format!("no output given\n{USAGE}").into());
   }
@@ -69,7 +99,10 @@ fn convert(args: &[String]) -> CliResult {
     if has_extension(output, &[PNM_EXTENSION]) {
       model.save_pnm(output)?;
     } else if has_extension(output, &["glb"]) {
-      write_glb_reporting(&model, output)?;
+      match &view {
+        Some(view) => write_view_dependent_glb(&model, output, view)?,
+        None => write_glb_reporting(&model, output)?,
+      }
     } else {
       return Err(format!("unsupported output {}", output.display()).into());
     }
@@ -170,6 +203,21 @@ fn write_glb_reporting(model: &ParametricNormalizedModel, path: &Path) -> CliRes
     );
   }
   Ok(())
+}
+
+fn parse_camera(value: &str) -> CliResult<CameraPlacement> {
+  if let Some(zoom) = value.strip_prefix("fit") {
+    let zoom = zoom.strip_prefix(':').map_or(Ok(1.), str::parse)?;
+    return Ok(CameraPlacement::Fit { zoom });
+  }
+  let v: Vec<f64> = value.split(',').map(str::parse).collect::<Result<_, _>>()?;
+  if v.len() != 6 {
+    return Err(format!("--camera needs fit[:ZOOM] or EX,EY,EZ,TX,TY,TZ, got {value}").into());
+  }
+  Ok(CameraPlacement::LookAt {
+    eye: Vec3::new(v[0], v[1], v[2]),
+    target: Vec3::new(v[3], v[4], v[5]),
+  })
 }
 
 fn next_value<'a>(args: &mut impl Iterator<Item = &'a String>, flag: &str) -> CliResult<&'a str> {

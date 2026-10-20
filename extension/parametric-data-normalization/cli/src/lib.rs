@@ -1,9 +1,11 @@
 //! Command line conversion of CAD files into `ParametricNormalizedModel` (`.pnm`), plus the
-//! inspection outputs: glTF (CPU triangulated trimmed patches) and per face SVG trim plots.
+//! inspection outputs: glTF (CPU triangulated trimmed patches, or the view dependent adaptive
+//! tessellation), and per face SVG trim plots.
 
 mod gltf;
 pub mod mesh;
 mod svg;
+mod view;
 
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -15,6 +17,7 @@ use parametric_normalized_model::ParametricNormalizedModel;
 use step_to_bezier::validate::ValidationReport;
 use step_to_bezier::*;
 pub use svg::*;
+pub use view::*;
 
 pub fn convert_file(
   path: impl AsRef<Path>,

@@ -1,0 +1,604 @@
+use fast_hash_collection::FastHashMap;
+use parametric_normalized_model::*;
+use rendiation_algebra::*;
+
+use crate::*;
+
+#[derive(Debug, Clone, Copy)]
+pub struct TessellationConfig {
+  /// Max screen space deviation of the triangles from the surface, in pixels.
+  pub pixel_error: f64,
+  /// Part of `pixel_error` given to the edge linearization, the rest goes to the leaf grid.
+  /// The bound of a triangle is the grid part plus the edge part per nested edge interpolation
+  /// of its vertices (`TessellationStats::position_chains`), the measured error stays well
+  /// below `pixel_error` with an even share, while a smaller share makes edges need more
+  /// break points than the grid.
+  pub edge_error_share: f64,
+  /// Max projected size of a leaf grid cell, in pixels.
+  pub max_triangle_size: f64,
+  /// Max leaf grid resolution and max pieces of an edge linearization, a power of two.
+  pub k_max: u32,
+  pub max_level: u32,
+}
+
+impl Default for TessellationConfig {
+  fn default() -> Self {
+    Self {
+      pixel_error: 0.5,
+      edge_error_share: 0.5,
+      max_triangle_size: 32.,
+      k_max: 16,
+      max_level: 10,
+    }
+  }
+}
+
+impl TessellationConfig {
+  fn interior_tolerance(&self) -> f64 {
+    self.pixel_error * (1. - self.edge_error_share)
+  }
+
+  fn edge_tolerance(&self) -> f64 {
+    self.pixel_error * self.edge_error_share
+  }
+}
+
+/// Pinhole camera, looking along -z of its own space.
+#[derive(Debug, Clone, Copy)]
+pub struct Camera {
+  /// World to camera.
+  pub view: Mat4<f64>,
+  /// Pixels per length unit at depth 1.
+  pub focal_length: f64,
+  /// Viewport size in pixels.
+  pub viewport: Vec2<f64>,
+  pub near: f64,
+}
+
+impl Camera {
+  pub fn look_at(
+    eye: Vec3<f64>,
+    target: Vec3<f64>,
+    up: Vec3<f64>,
+    fov_y: f64,
+    viewport: Vec2<f64>,
+    near: f64,
+  ) -> Self {
+    Self {
+      view: Mat4::lookat(eye, target, up).inverse_or_identity(),
+      focal_length: viewport.y * 0.5 / (fov_y * 0.5).tan(),
+      viewport,
+      near,
+    }
+  }
+
+  pub fn camera_to_world(&self) -> Mat4<f64> {
+    self.view.inverse_or_identity()
+  }
+
+  pub fn fov_y(&self) -> f64 {
+    2. * (self.viewport.y * 0.5 / self.focal_length).atan()
+  }
+
+  /// Pixels per length unit at camera space position `p`.
+  pub fn pixel_scale(&self, p: Vec3<f64>) -> f64 {
+    self.focal_length / -p.z
+  }
+
+  /// The camera space box is completely outside the view frustum (no far plane).
+  pub fn culls(&self, min: Vec3<f64>, max: Vec3<f64>) -> bool {
+    let far_depth = -min.z;
+    let tx = self.viewport.x * 0.5 / self.focal_length;
+    let ty = self.viewport.y * 0.5 / self.focal_length;
+    far_depth < self.near
+      || min.x > tx * far_depth
+      || max.x < -tx * far_depth
+      || min.y > ty * far_depth
+      || max.y < -ty * far_depth
+  }
+}
+
+/// One (instance, patch) occurrence to tessellate.
+#[derive(Debug, Clone)]
+pub struct TessellationItem {
+  pub instance: u32,
+  pub patch: u32,
+  /// The patch in camera space. Patches of the same instance sharing boundary control points
+  /// keep them bitwise equal, which the cross patch consistency relies on.
+  pub surface: RationalBezierSurface,
+}
+
+/// Same limit as the GPU evaluation (`MAX_GPU_DEGREE` in `rendiation-parametric-rendering`).
+pub const MAX_DEGREE: usize = 14;
+
+/// All instance patches accepted by `filter` in camera space, plus the number of patches
+/// rejected for exceeding `MAX_DEGREE`.
+pub fn camera_space_items(
+  model: &ParametricNormalizedModel,
+  camera: &Camera,
+  filter: impl Fn(&TrimmedBezierPatch) -> bool,
+) -> (Vec<TessellationItem>, usize) {
+  let mut items = Vec::new();
+  let mut rejected = 0;
+  for (instance_index, instance) in model.instances.iter().enumerate() {
+    let to_camera = camera.view * instance.transform;
+    for patch_index in instance.patches.clone() {
+      let patch = &model.patches[patch_index];
+      if !filter(patch) {
+        continue;
+      }
+      if patch.surface.degree_u > MAX_DEGREE || patch.surface.degree_v > MAX_DEGREE {
+        rejected += 1;
+        continue;
+      }
+      items.push(TessellationItem {
+        instance: instance_index as u32,
+        patch: patch_index as u32,
+        surface: patch.surface.transform(to_camera),
+      });
+    }
+  }
+  (items, rejected)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Leaf {
+  pub key: SubPatchKey,
+  /// Grid resolution, the leaf is drawn as `k×k` cells of two triangles.
+  pub k: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SplitReason {
+  /// The control box reaches the near plane.
+  NearPlane,
+  /// The grid error needs more than `k_max`.
+  Interior,
+  /// The projected size needs more than `k_max` to respect `max_triangle_size`.
+  Size,
+  /// An edge has no linearization with at most `k_max` pieces.
+  Edge,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct TessellationStats {
+  /// Work items processed per level.
+  pub work_items: Vec<usize>,
+  pub leaves_per_level: Vec<usize>,
+  /// Leaf count by `log2 k`.
+  pub leaves_per_k: Vec<usize>,
+  pub culled: usize,
+  /// Indexed by `SplitReason as usize`.
+  pub splits: [usize; 4],
+  /// Leaves at `max_level` that did not meet the criteria, output with `k_max`.
+  pub forced_leaves: usize,
+  /// Leaves whose `k` was raised above the grid criteria to contain the edge break points.
+  pub edge_raised_leaves: usize,
+  /// Triangle count if no `k` had been raised for the edges (not watertight).
+  pub triangles_without_edge_raise: usize,
+  /// Edge linearization tests (excluding cache hits).
+  pub edge_tests: usize,
+  /// Edge segments at `max_level` accepted without meeting the criterion.
+  pub forced_edge_segments: usize,
+  /// Leaf boundary vertices by the number of nested edge interpolations their position needed.
+  pub position_chains: Vec<usize>,
+  pub triangles: usize,
+}
+
+/// The CPU reference of the view dependent adaptive tessellation: every (instance, patch) is
+/// split level by level into dyadic sub patches until the leaf grid error, its size and its
+/// edges meet the screen space criteria. See `crate` docs for the edge consistency scheme.
+pub struct Tessellator<'a> {
+  items: &'a [TessellationItem],
+  camera: Camera,
+  config: TessellationConfig,
+  states: Vec<PatchState>,
+  pub stats: TessellationStats,
+}
+
+impl<'a> Tessellator<'a> {
+  pub fn new(items: &'a [TessellationItem], camera: Camera, config: TessellationConfig) -> Self {
+    assert!(config.k_max.is_power_of_two());
+    assert!(config.max_level + config.k_max.trailing_zeros() <= PARAM_BITS);
+    Self {
+      items,
+      camera,
+      config,
+      states: items.iter().map(|_| PatchState::default()).collect(),
+      stats: TessellationStats::default(),
+    }
+  }
+
+  pub fn items(&self) -> &'a [TessellationItem] {
+    self.items
+  }
+
+  pub fn camera(&self) -> &Camera {
+    &self.camera
+  }
+
+  pub fn config(&self) -> &TessellationConfig {
+    &self.config
+  }
+
+  pub fn run(&mut self) -> Vec<Leaf> {
+    let mut queue: Vec<_> = (0..self.items.len() as u32)
+      .map(SubPatchKey::root)
+      .collect();
+    let mut leaves = Vec::new();
+    let k_levels = self.config.k_max.trailing_zeros() as usize + 1;
+    self.stats.leaves_per_k.resize(k_levels, 0);
+    for _ in 0..=self.config.max_level {
+      if queue.is_empty() {
+        break;
+      }
+      self.stats.work_items.push(queue.len());
+      let mut level_leaves = 0;
+      let mut next = Vec::new();
+      for key in queue {
+        match self.patch(key.item).classify(key) {
+          Decision::Cull => self.stats.culled += 1,
+          Decision::Split(reason) => {
+            self.stats.splits[reason as usize] += 1;
+            next.extend(key.children());
+          }
+          Decision::Leaf { k, k_grid, forced } => {
+            self.stats.forced_leaves += forced as usize;
+            self.stats.edge_raised_leaves += (k > k_grid) as usize;
+            self.stats.triangles_without_edge_raise += 2 * (k_grid * k_grid) as usize;
+            self.stats.leaves_per_k[k.trailing_zeros() as usize] += 1;
+            self.stats.triangles += 2 * (k * k) as usize;
+            level_leaves += 1;
+            leaves.push(Leaf { key, k });
+          }
+        }
+      }
+      self.stats.leaves_per_level.push(level_leaves);
+      queue = next;
+    }
+    assert!(queue.is_empty());
+    leaves
+  }
+
+  /// The leaf grid in camera space. Boundary vertices are placed on the edge linearization
+  /// shared with the neighbors, interior vertices are evaluated on the surface.
+  pub fn leaf_mesh(&mut self, leaf: &Leaf) -> LeafMesh {
+    let mut patch = self.patch(leaf.key.item);
+    let (us, vs) = (leaf.key.u_segment(), leaf.key.v_segment());
+    let k = leaf.k;
+    let (du, dv) = (us.length() / k, vs.length() / k);
+    let mut params = Vec::with_capacity(((k + 1) * (k + 1)) as usize);
+    let mut positions = Vec::with_capacity(params.capacity());
+    for j in 0..=k {
+      for i in 0..=k {
+        let (u, v) = (us.start() + i * du, vs.start() + j * dv);
+        let position = if i == 0 || j == 0 || i == k || j == k {
+          let p = patch.position(u, v);
+          let chains = &mut patch.stats.position_chains;
+          if chains.len() <= p.chain as usize {
+            chains.resize(p.chain as usize + 1, 0);
+          }
+          chains[p.chain as usize] += 1;
+          p.position
+        } else {
+          patch.surface.eval(param_to_f64(u), param_to_f64(v))
+        };
+        params.push((u, v));
+        positions.push(position);
+      }
+    }
+    LeafMesh {
+      k,
+      params,
+      positions,
+    }
+  }
+
+  /// The iso line curve in its canonical direction, see `LineCurve`.
+  pub fn line_curve(&mut self, item: u32, line: LineKey) -> &LineCurve {
+    self.patch(item).line(line);
+    &self.states[item as usize].lines[&line]
+  }
+
+  fn patch(&mut self, item: u32) -> PatchEval<'_> {
+    PatchEval {
+      surface: &self.items[item as usize].surface,
+      camera: &self.camera,
+      config: &self.config,
+      state: &mut self.states[item as usize],
+      stats: &mut self.stats,
+    }
+  }
+}
+
+pub struct LeafMesh {
+  pub k: u32,
+  /// `(k + 1)²` grid vertices, u index fastest.
+  pub params: Vec<(u32, u32)>,
+  /// Camera space.
+  pub positions: Vec<Vec3<f64>>,
+}
+
+impl LeafMesh {
+  /// Two triangles per grid cell, counter clockwise in the parameter domain (so facing
+  /// `∂S/∂u × ∂S/∂v`).
+  pub fn triangles(&self) -> impl Iterator<Item = [u32; 3]> + '_ {
+    let row = self.k + 1;
+    (0..self.k).flat_map(move |j| {
+      (0..self.k).flat_map(move |i| {
+        let v00 = j * row + i;
+        let (v10, v01, v11) = (v00 + 1, v00 + row, v00 + row + 1);
+        [[v00, v10, v11], [v00, v11, v01]]
+      })
+    })
+  }
+}
+
+/// An iso line of a patch as a curve in camera space. Patch boundary lines are stored in a
+/// canonical direction (lexicographically smaller control point sequence first), so two
+/// patches sharing the boundary control points derive the same curve and parameters whatever
+/// their own orientation. Interior lines keep the patch direction.
+#[derive(Debug, Clone)]
+pub struct LineCurve {
+  pub curve: RationalBezierCurve3,
+  /// The canonical direction is the reverse of the patch parameter direction.
+  pub reversed: bool,
+}
+
+impl LineCurve {
+  fn new(surface: &RationalBezierSurface, line: LineKey) -> Self {
+    if !line.is_patch_boundary() {
+      return Self {
+        curve: surface.iso_curve(line.axis, param_to_f64(line.coord)),
+        reversed: false,
+      };
+    }
+    let (n, m) = (surface.degree_u, surface.degree_v);
+    let last = line.coord == PARAM_ONE;
+    let mut points: Vec<_> = match line.axis {
+      Axis::U => (0..=m)
+        .map(|j| surface.control_point(if last { n } else { 0 }, j))
+        .collect(),
+      Axis::V => (0..=n)
+        .map(|i| surface.control_point(i, if last { m } else { 0 }))
+        .collect(),
+    };
+    let order = |a: &Vec4<f64>, b: &Vec4<f64>| {
+      [(a.x, b.x), (a.y, b.y), (a.z, b.z), (a.w, b.w)]
+        .into_iter()
+        .map(|(x, y)| x.total_cmp(&y))
+        .find(|o| o.is_ne())
+        .unwrap_or(std::cmp::Ordering::Equal)
+    };
+    let reversed = points
+      .iter()
+      .rev()
+      .zip(points.iter())
+      .map(|(a, b)| order(a, b))
+      .find(|o| o.is_ne())
+      .is_some_and(|o| o.is_lt());
+    if reversed {
+      points.reverse();
+    }
+    Self {
+      curve: RationalBezierCurve::new(points),
+      reversed,
+    }
+  }
+
+  /// Patch parameter along the line to canonical parameter, also the inverse.
+  pub fn canonical(&self, p: u32) -> u32 {
+    if self.reversed { PARAM_ONE - p } else { p }
+  }
+
+  pub fn canonical_segment(&self, s: Segment) -> Segment {
+    if self.reversed { s.reversed() } else { s }
+  }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct VertexPosition {
+  pub position: Vec3<f64>,
+  /// Number of nested edge interpolations.
+  pub chain: u32,
+}
+
+#[derive(Default)]
+struct PatchState {
+  lines: FastHashMap<LineKey, LineCurve>,
+  /// Edge linearization piece count by canonical segment, `None` if not linearizable.
+  pieces: FastHashMap<(LineKey, Segment), Option<u32>>,
+  positions: FastHashMap<(u32, u32), VertexPosition>,
+}
+
+enum Decision {
+  Cull,
+  Split(SplitReason),
+  Leaf { k: u32, k_grid: u32, forced: bool },
+}
+
+struct PatchEval<'a> {
+  surface: &'a RationalBezierSurface,
+  camera: &'a Camera,
+  config: &'a TessellationConfig,
+  state: &'a mut PatchState,
+  stats: &'a mut TessellationStats,
+}
+
+impl PatchEval<'_> {
+  fn classify(&mut self, key: SubPatchKey) -> Decision {
+    let (us, vs) = (key.u_segment(), key.v_segment());
+    let sub = self.surface.sub_patch(
+      (param_to_f64(us.start()), param_to_f64(us.end())),
+      (param_to_f64(vs.start()), param_to_f64(vs.end())),
+    );
+    let bounds = surface_bounds(&sub);
+    if self.camera.culls(bounds.min, bounds.max) {
+      return Decision::Cull;
+    }
+    let result = self.grid_resolution(&bounds).and_then(|k_grid| {
+      let k = key
+        .edges()
+        .into_iter()
+        .try_fold(k_grid, |k, (line, segment)| {
+          let segment = self.line(line).canonical_segment(segment);
+          let (flat, pieces) = self.flat_ancestor(line, segment).ok_or(SplitReason::Edge)?;
+          // The leaf edge must contain every break point of the linearization inside it.
+          Ok(k.max(pieces >> (segment.level - flat.level)))
+        })?;
+      Ok((k, k_grid))
+    });
+    match result {
+      Ok((k, k_grid)) => Decision::Leaf {
+        k,
+        k_grid,
+        forced: false,
+      },
+      Err(reason) if key.level < self.config.max_level => Decision::Split(reason),
+      Err(_) => Decision::Leaf {
+        k: self.config.k_max,
+        k_grid: self.config.k_max,
+        forced: true,
+      },
+    }
+  }
+
+  /// The smallest power of two grid resolution meeting the interior error and size criteria.
+  fn grid_resolution(&self, bounds: &SurfaceBounds) -> Result<u32, SplitReason> {
+    let depth = -bounds.max.z;
+    if depth <= self.camera.near {
+      return Err(SplitReason::NearPlane);
+    }
+    let scale = self.camera.focal_length / depth;
+    let tolerance = self.config.interior_tolerance() / scale;
+    let k_error = self
+      .powers_of_two()
+      .find(|&k| bounds.grid_error(k) <= tolerance)
+      .ok_or(SplitReason::Interior)?;
+    let size = (bounds.max - bounds.min).length() * scale;
+    let k_size = self
+      .powers_of_two()
+      .find(|&k| size / k as f64 <= self.config.max_triangle_size)
+      .ok_or(SplitReason::Size)?;
+    Ok(k_error.max(k_size))
+  }
+
+  fn powers_of_two(&self) -> impl Iterator<Item = u32> + use<> {
+    (0..=self.config.k_max.trailing_zeros()).map(|e| 1 << e)
+  }
+
+  fn line(&mut self, line: LineKey) -> &LineCurve {
+    self
+      .state
+      .lines
+      .entry(line)
+      .or_insert_with(|| LineCurve::new(self.surface, line))
+  }
+
+  /// Number of uniform pieces linearizing the canonical `segment` of `line` within the edge
+  /// tolerance, `None` if more than `k_max` are needed. Segments at `max_level` always succeed.
+  /// Must be a pure function of the line curve and the segment: both sides of an edge rely on
+  /// getting the same answer.
+  fn linearization(&mut self, line: LineKey, segment: Segment) -> Option<u32> {
+    if let Some(&cached) = self.state.pieces.get(&(line, segment)) {
+      return cached;
+    }
+    let bounds = {
+      let curve = &self.line(line).curve;
+      curve_bounds(&curve.sub_curve(param_to_f64(segment.start()), param_to_f64(segment.end())))
+    };
+    self.stats.edge_tests += 1;
+    let depth = -bounds.max.z;
+    let mut pieces = None;
+    if depth > self.camera.near {
+      let tolerance = self.config.edge_tolerance() * depth / self.camera.focal_length;
+      pieces = self
+        .powers_of_two()
+        .find(|&m| bounds.polyline_error(m) <= tolerance);
+    }
+    if pieces.is_none() && segment.level >= self.config.max_level {
+      self.stats.forced_edge_segments += 1;
+      pieces = Some(self.config.k_max);
+    }
+    self.state.pieces.insert((line, segment), pieces);
+    pieces
+  }
+
+  /// The coarsest linearizable segment containing the canonical `segment`, searched from the
+  /// line's root cell down, with its piece count.
+  fn flat_ancestor(&mut self, line: LineKey, segment: Segment) -> Option<(Segment, u32)> {
+    (line.level()..=segment.level).find_map(|level| {
+      let s = segment.ancestor(level);
+      self.linearization(line, s).map(|m| (s, m))
+    })
+  }
+
+  /// The linearization piece containing canonical parameter `p` in its interior, `None` if
+  /// `p` is a break point (or no linearized segment contains it in its interior).
+  fn locate(&mut self, line: LineKey, p: u32) -> Option<Segment> {
+    let mut segment = Segment::containing(line.level(), p)?;
+    loop {
+      if let Some(m) = self.linearization(line, segment) {
+        return Segment::containing(segment.level + m.trailing_zeros(), p);
+      }
+      segment = Segment::containing(segment.level + 1, p)?;
+    }
+  }
+
+  /// Position of a sub patch edge vertex. If the point lies inside a piece of the
+  /// linearization of the iso line through it, it is interpolated between the piece ends
+  /// (themselves positioned recursively), otherwise evaluated exactly. A point can lie inside a
+  /// piece of at most one of its two iso lines, since a piece of the line `u = c` is not
+  /// longer than the cell of the level of `c`.
+  fn position(&mut self, u: u32, v: u32) -> VertexPosition {
+    if let Some(&cached) = self.state.positions.get(&(u, v)) {
+      return cached;
+    }
+    let result = self
+      .interpolate_on_line(LineKey::new(Axis::U, u), v)
+      .or_else(|| self.interpolate_on_line(LineKey::new(Axis::V, v), u))
+      .unwrap_or_else(|| VertexPosition {
+        position: self.exact(u, v),
+        chain: 0,
+      });
+    self.state.positions.insert((u, v), result);
+    result
+  }
+
+  fn interpolate_on_line(&mut self, line: LineKey, along: u32) -> Option<VertexPosition> {
+    let curve = self.line(line);
+    let p = curve.canonical(along);
+    let piece = self.locate(line, p)?;
+    let curve = self.line(line);
+    let (a, b) = (piece.start(), piece.end());
+    let ((ua, va), (ub, vb)) = (
+      line.point(curve.canonical(a)),
+      line.point(curve.canonical(b)),
+    );
+    let (pa, pb) = (self.position(ua, va), self.position(ub, vb));
+    let t = (p - a) as f64 / (b - a) as f64;
+    Some(VertexPosition {
+      position: blend(pa.position, pb.position, t),
+      chain: pa.chain.max(pb.chain) + 1,
+    })
+  }
+
+  /// Patch boundary points are evaluated on the canonical boundary curve so both patches
+  /// sharing it get the same bits.
+  fn exact(&mut self, u: u32, v: u32) -> Vec3<f64> {
+    let boundary = if u == 0 || u == PARAM_ONE {
+      Some((LineKey::new(Axis::U, u), v))
+    } else if v == 0 || v == PARAM_ONE {
+      Some((LineKey::new(Axis::V, v), u))
+    } else {
+      None
+    };
+    match boundary {
+      Some((line, along)) => {
+        let curve = self.line(line);
+        curve.curve.eval(param_to_f64(curve.canonical(along)))
+      }
+      None => self.surface.eval(param_to_f64(u), param_to_f64(v)),
+    }
+  }
+}

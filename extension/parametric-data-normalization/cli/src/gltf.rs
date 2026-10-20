@@ -46,6 +46,7 @@ pub struct GltfDoc {
   materials: Vec<json::Material>,
   nodes: Vec<json::Node>,
   root_children: Vec<u32>,
+  cameras: Vec<json::Camera>,
   extensions_used: std::collections::BTreeSet<String>,
   mesh_cache: FastHashMap<usize, u32>,
   curve_mesh_cache: FastHashMap<usize, u32>,
@@ -67,6 +68,7 @@ impl GltfDoc {
       materials: Vec::new(),
       nodes: Vec::new(),
       root_children: Vec::new(),
+      cameras: Vec::new(),
       extensions_used: std::collections::BTreeSet::new(),
       mesh_cache: FastHashMap::default(),
       curve_mesh_cache: FastHashMap::default(),
@@ -179,6 +181,21 @@ impl GltfDoc {
     )
   }
 
+  fn add_vec4_accessor(&mut self, data: &[Vec4<f32>]) -> json::Index<json::Accessor> {
+    let raw: Vec<f32> = data.iter().flat_map(|v| [v.x, v.y, v.z, v.w]).collect();
+    let bytes = to_f32_bytes(&raw);
+    let (off, len) = self.push_bytes(&bytes);
+    let view_idx = self.make_arr_view(off, len, json::buffer::Target::ArrayBuffer);
+    self.make_accessor(
+      view_idx,
+      data.len() as u32,
+      json::accessor::ComponentType::F32,
+      json::accessor::Type::Vec4,
+      None,
+      None,
+    )
+  }
+
   fn add_u32_index_accessor(&mut self, indices: &[[u32; 3]]) -> json::Index<json::Accessor> {
     let flat: Vec<u32> = indices.iter().flat_map(|t| [t[0], t[1], t[2]]).collect();
     let count = flat.len() as u32;
@@ -278,6 +295,111 @@ impl GltfDoc {
       ]),
       name: None,
       camera: None,
+      skin: None,
+      translation: None,
+      rotation: None,
+      scale: None,
+      weights: None,
+      children: None,
+      extensions: None,
+      extras: Default::default(),
+    });
+    self.root_children.push(node_idx);
+  }
+
+  /// A mesh with per vertex colors (white material) placed once at `matrix`.
+  pub fn add_vertex_colored_mesh(
+    &mut self,
+    mesh: &MeshData,
+    colors: &[Vec4<f32>],
+    matrix: Mat4<f32>,
+  ) {
+    let pos_acc = self.add_vec3_accessor(&mesh.positions);
+    let nrm_acc = self.add_vec3_accessor(&mesh.normals);
+    let color_acc = self.add_vec4_accessor(colors);
+    let idx_acc = self.add_u32_index_accessor(&mesh.indices);
+    let mat_idx = self.materials.len() as u32;
+    self.materials.push(json::Material {
+      name: None,
+      extensions: None,
+      extras: Default::default(),
+      pbr_metallic_roughness: json::material::PbrMetallicRoughness {
+        base_color_factor: json::material::PbrBaseColorFactor([1.0, 1.0, 1.0, 1.0]),
+        metallic_factor: json::material::StrengthFactor(0.0),
+        roughness_factor: json::material::StrengthFactor(0.9),
+        base_color_texture: None,
+        metallic_roughness_texture: None,
+        extensions: None,
+        extras: Default::default(),
+      },
+      normal_texture: None,
+      occlusion_texture: None,
+      emissive_texture: None,
+      emissive_factor: json::material::EmissiveFactor([0.0, 0.0, 0.0]),
+      alpha_mode: Checked::Valid(json::material::AlphaMode::Opaque),
+      alpha_cutoff: Some(json::material::AlphaCutoff(0.5)),
+      double_sided: false,
+    });
+    let mut attrs = BTreeMap::new();
+    attrs.insert(Checked::Valid(json::mesh::Semantic::Positions), pos_acc);
+    attrs.insert(Checked::Valid(json::mesh::Semantic::Normals), nrm_acc);
+    attrs.insert(Checked::Valid(json::mesh::Semantic::Colors(0)), color_acc);
+    self.meshes.push(json::Mesh {
+      primitives: vec![json::mesh::Primitive {
+        attributes: attrs,
+        indices: Some(idx_acc),
+        material: Some(json::Index::new(mat_idx)),
+        mode: Checked::Valid(json::mesh::Mode::Triangles),
+        targets: None,
+        extensions: None,
+        extras: Default::default(),
+      }],
+      weights: None,
+      name: None,
+      extensions: None,
+      extras: Default::default(),
+    });
+    let mesh_idx = (self.meshes.len() - 1) as u32;
+    self.add_node(Some(mesh_idx), None, matrix);
+  }
+
+  /// A perspective camera node, `camera_to_world` looking along its local -z.
+  pub fn add_perspective_camera(
+    &mut self,
+    camera_to_world: Mat4<f32>,
+    yfov: f32,
+    aspect_ratio: f32,
+    znear: f32,
+  ) {
+    let camera_idx = self.cameras.len() as u32;
+    self.cameras.push(json::Camera {
+      name: None,
+      orthographic: None,
+      perspective: Some(json::camera::Perspective {
+        aspect_ratio: Some(aspect_ratio),
+        yfov,
+        zfar: None,
+        znear,
+        extensions: None,
+        extras: Default::default(),
+      }),
+      type_: Checked::Valid(json::camera::Type::Perspective),
+      extensions: None,
+      extras: Default::default(),
+    });
+    self.add_node(None, Some(camera_idx), camera_to_world);
+  }
+
+  fn add_node(&mut self, mesh: Option<u32>, camera: Option<u32>, matrix: Mat4<f32>) {
+    let node_idx = self.nodes.len() as u32;
+    self.nodes.push(json::Node {
+      mesh: mesh.map(json::Index::new),
+      matrix: Some([
+        matrix.a1, matrix.a2, matrix.a3, matrix.a4, matrix.b1, matrix.b2, matrix.b3, matrix.b4,
+        matrix.c1, matrix.c2, matrix.c3, matrix.c4, matrix.d1, matrix.d2, matrix.d3, matrix.d4,
+      ]),
+      name: None,
+      camera: camera.map(json::Index::new),
       skin: None,
       translation: None,
       rotation: None,
@@ -427,7 +549,7 @@ impl GltfDoc {
       images: vec![],
       textures: vec![],
       samplers: vec![],
-      cameras: vec![],
+      cameras: self.cameras,
       skins: vec![],
       animations: vec![],
       extensions: None,
