@@ -436,6 +436,29 @@ async fn steam_controller_gpu_vs_cpu() {
   };
   let gpu = GPU::new(Default::default()).await.unwrap();
   let config = TessellationConfig::default();
+
+  // The fixed cost of a frame: everything culled at level 0.
+  let mut t = GpuTessellator::new(&gpu, &model, config);
+  let away = fit_camera(&model, 1.);
+  let away = Camera {
+    view: Mat4::rotate_y(std::f64::consts::PI) * away.view,
+    ..away
+  };
+  let mut times = Vec::new();
+  for _ in 0..6 {
+    let start = Instant::now();
+    let mut encoder = gpu.create_encoder();
+    t.encode_frame(&gpu, &mut encoder, &away);
+    gpu.submit_encoder(encoder);
+    gpu.poll(true);
+    times.push(start.elapsed().as_secs_f64() * 1e3);
+  }
+  let frame = t.read_back(&gpu).await;
+  println!(
+    "all culled: {} leaves, frame {times:.2?} ms (encode + submit + wait)",
+    frame.leaves.len()
+  );
+
   for (zoom, untrimmed_only) in [
     (1., false),
     (4., false),
