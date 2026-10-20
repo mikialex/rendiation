@@ -177,3 +177,32 @@ pub fn random_model(seed: u64, faces: usize, depth: (f64, f64)) -> ParametricNor
   builder.mark_trimmed(trimmed);
   builder.model
 }
+
+/// The CLI `--camera fit:ZOOM` camera: looking at the model bounds from a fixed diagonal
+/// direction, the distance divided by `zoom`, 1920×1080 with a 45° vertical field of view.
+pub fn fit_camera(model: &ParametricNormalizedModel, zoom: f64) -> Camera {
+  let fov_y = 45f64.to_radians();
+  let mut min = Vec3::new(f64::INFINITY, f64::INFINITY, f64::INFINITY);
+  let mut max = min * -1.;
+  for instance in &model.instances {
+    for patch in &model.patches[instance.patches.clone()] {
+      for p in &patch.surface.control_points {
+        let p = (instance.transform * *p).to_euclid();
+        min = min.min(p);
+        max = max.max(p);
+      }
+    }
+  }
+  let center = (min + max) * 0.5;
+  let radius = ((max - min).length() * 0.5).max(1e-9);
+  let distance = radius / (fov_y * 0.5).sin() / zoom;
+  let direction = Vec3::new(1., 0.8, 1.3).normalize();
+  Camera::look_at(
+    center + direction * distance,
+    center,
+    Vec3::new(0., 1., 0.),
+    fov_y,
+    Vec2::new(1920., 1080.),
+    distance * 1e-3,
+  )
+}

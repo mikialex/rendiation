@@ -90,6 +90,14 @@ pub fn to_euclid(p: Node<Vec4<f32>>) -> Node<Vec3<f32>> {
   p.xyz() / p.w()
 }
 
+pub fn uvec4(a: Node<u32>, b: Node<u32>, c: Node<u32>, d: Node<u32>) -> Node<Vec4<u32>> {
+  (a, b, c, d).into()
+}
+
+pub fn fvec4(a: Node<f32>, b: Node<f32>, c: Node<f32>, d: Node<f32>) -> Node<Vec4<f32>> {
+  (a, b, c, d).into()
+}
+
 pub fn for_range(start: Node<u32>, end: Node<u32>, f: impl FnOnce(Node<u32>, &LoopCtx)) {
   (start..end).into_shader_iter().for_each(f)
 }

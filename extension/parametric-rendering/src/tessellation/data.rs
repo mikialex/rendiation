@@ -2,7 +2,7 @@
 
 use std::num::NonZeroU64;
 
-use parametric_normalized_model::ParametricNormalizedModel;
+use parametric_normalized_model::{FaceInstance, ParametricNormalizedModel};
 use parametric_tessellation::*;
 
 use crate::*;
@@ -50,7 +50,7 @@ pub struct TessUniform {
   pub queue_capacity: u32,
   pub leaf_capacity: u32,
   pub vertex_capacity: u32,
-  pub round_capacity: u32,
+  pub request_capacity: u32,
 }
 
 impl TessUniform {
@@ -81,7 +81,7 @@ impl TessUniform {
       queue_capacity: capacity.queue,
       leaf_capacity: capacity.leaves,
       vertex_capacity: capacity.vertices,
-      round_capacity: capacity.round_requests,
+      request_capacity: capacity.requests,
       ..self
     }
   }
@@ -94,8 +94,8 @@ pub struct TessCapacity {
   pub queue: u32,
   pub leaves: u32,
   pub vertices: u32,
-  /// Position requests per round after round 0.
-  pub round_requests: u32,
+  /// Position requests of all rounds after round 0.
+  pub requests: u32,
 }
 
 /// Indirect dispatches are limited to 65535 workgroups per dimension, the 1D passes use
@@ -110,8 +110,8 @@ impl TessCapacity {
     Self {
       queue: (items * 2).max(4096),
       leaves: (items * 2).max(4096),
-      vertices: (items * 64).max(1 << 16),
-      round_requests: (items * 32).max(1 << 15),
+      vertices: (items * 64).max(1 << 18),
+      requests: (items * 64).max(1 << 18),
     }
     .clamped(item_count)
   }
@@ -121,10 +121,14 @@ impl TessCapacity {
     let subdivision = SUBDIVISION_WORKGROUP * MAX_DISPATCH_WORKGROUPS;
     let vertex = VERTEX_WORKGROUP * MAX_DISPATCH_WORKGROUPS;
     Self {
-      queue: self.queue.max(item_count as u32).min(subdivision),
+      queue: self
+        .queue
+        .max(item_count as u32)
+        .min(subdivision)
+        .next_multiple_of(4),
       leaves: self.leaves.min(subdivision),
       vertices: self.vertices.min(vertex),
-      round_requests: self.round_requests.min(vertex),
+      requests: self.requests.min(vertex) & !1,
     }
   }
 }
@@ -141,6 +145,7 @@ pub struct TessStaticData {
   /// Per camera space control point, its `cp_pool` index and instance.
   pub cp_sources: Vec<Vec2<u32>>,
   pub face_origins: Vec<Vec3<f64>>,
+  pub instances: Vec<FaceInstance>,
   /// Patches (not occurrences) rejected for a degree above `MAX_GPU_DEGREE`.
   pub rejected_patches: usize,
   /// Sub patch buffer slot size, the largest control point count of the items.
@@ -209,18 +214,40 @@ impl TessStaticData {
       patch_cp_offset,
       cp_sources,
       face_origins,
+      instances: model.instances.clone(),
       rejected_patches,
       sub_patch_stride,
     }
   }
 
+  /// The same data without the trimmed items (the item order is kept).
+  pub fn untrimmed(&self) -> Self {
+    let mut cp_sources = Vec::new();
+    let items = self
+      .items
+      .iter()
+      .filter(|item| item.flags & ITEM_FLAG_TRIMMED == 0)
+      .map(|item| {
+        let count = (item.degree_u + 1) * (item.degree_v + 1);
+        let offset = self.patch_cp_offset[item.patch as usize];
+        let camera_cp_offset = cp_sources.len() as u32;
+        cp_sources.extend((0..count).map(|i| Vec2::new(offset + i, item.instance)));
+        TessItem {
+          camera_cp_offset,
+          ..*item
+        }
+      })
+      .collect();
+    Self {
+      items,
+      cp_sources,
+      ..self.clone()
+    }
+  }
+
   /// Per instance, `item_to_camera` composed in f64 then rounded to f32.
-  pub fn instance_matrices(
-    &self,
-    model: &ParametricNormalizedModel,
-    camera: &Camera,
-  ) -> Vec<Mat4<f32>> {
-    model
+  pub fn instance_matrices(&self, camera: &Camera) -> Vec<Mat4<f32>> {
+    self
       .instances
       .iter()
       .map(|instance| {
@@ -241,7 +268,8 @@ pub struct TessDeviceData {
 }
 
 impl TessDeviceData {
-  pub fn new(device: &GPUDevice, data: &TessStaticData, instance_count: usize) -> Self {
+  pub fn new(device: &GPUDevice, data: &TessStaticData) -> Self {
+    let instance_count = data.instances.len();
     let non_empty = |len: usize| len.max(1);
     let items = if data.items.is_empty() {
       vec![TessItem::default()]
