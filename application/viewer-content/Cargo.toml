@@ -82,6 +82,9 @@ rendiation-view-dependent-transform = { path = "../../extension/view-dependent-t
 rendiation-device-parallel-compute = { path = "../../shader/parallel-compute" }
 rendiation-transform-instanced-model = { path = "../../extension/transform-instanced-model" }
 rendiation-cell-mesh = { path = "../../extension/cell-mesh" }
+parametric-normalized-model = { path = "../../extension/parametric-data-normalization/parametric-normalized-model" }
+parametric-tessellation = { path = "../../extension/parametric-data-normalization/parametric-tessellation" }
+rendiation-parametric-rendering = { path = "../../extension/parametric-rendering" }
 tracing = { workspace = true }
 
 egui = { version = "0.34" }

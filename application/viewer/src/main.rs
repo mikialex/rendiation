@@ -65,6 +65,7 @@ fn main() {
 
       use_enable_gltf_io(cx);
       use_enable_obj_io(cx);
+      use_enable_pnm_io(cx);
       use_enable_trace_io(cx);
       use_test_content_panel(cx);
 

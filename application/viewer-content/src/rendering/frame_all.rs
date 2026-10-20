@@ -21,6 +21,9 @@ pub struct Viewer3dRenderingCtx {
   pub enable_clip: bool,
   pub fill_clip_face: bool,
 
+  /// The `.pnm` model, drawn by its own renderer in the main scene pass of each view.
+  pub parametric: ViewerParametricRendering,
+
   // surface id -> view id -> view state
   pub surface_views: FastHashMap<u32, FastHashMap<u64, Viewer3dViewportRenderingCtx>>,
 
@@ -94,6 +97,7 @@ impl Viewer3dRenderingCtx {
       enable_clip: true,
       fill_clip_face: true,
       use_array_clip: init_config.use_array_clip,
+      parametric: Default::default(),
     }
   }
 
@@ -637,6 +641,22 @@ impl Viewer3dRenderingCtx {
       .culling
       .set_should_keep_oc_cull_result(batch_collector.will_collecting());
 
+    // the tessellation follows the first requested view, the other views draw the same output
+    let parametric = requested_render_views
+      .iter()
+      .min_by_key(|(_, idx)| *idx)
+      .and_then(|(_, idx)| {
+        let viewport = &surface_content.viewports[*idx];
+        let camera = renderer.camera_transforms.access(&viewport.camera)?;
+        self.parametric.prepare_frame(
+          ctx.gpu,
+          &mut ctx.encoder,
+          &camera,
+          viewport.viewport.zw(),
+          waker,
+        )
+      });
+
     let size_backup = ctx.frame_size;
     ctx.next_scope_index();
     for (viewport_id, idx) in requested_render_views {
@@ -677,6 +697,7 @@ impl Viewer3dRenderingCtx {
           viewport,
           final_target,
           extension,
+          parametric.as_ref(),
           waker,
         );
         renderer.active_view_control.set(None);

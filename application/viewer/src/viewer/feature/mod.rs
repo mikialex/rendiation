@@ -20,6 +20,8 @@ mod gltf_io;
 pub use gltf_io::*;
 mod obj_io;
 pub use obj_io::*;
+mod pnm_io;
+pub use pnm_io::*;
 mod screenshot;
 pub use screenshot::*;
 mod egui_view;
@@ -42,6 +44,11 @@ pub struct ViewerAppFeaturesConfig {
   pub enable_tracing_and_tracing_write_path: Option<String>,
   pub pick_scene: PickScenePersistConfig,
   pub active_example: Option<String>,
+  /// a `.pnm` parametric model path loaded at startup, the `RENDIATION_VIEWER_PNM` environment
+  /// variable takes precedence
+  ///
+  /// this config is init only
+  pub auto_load_pnm: Option<String>,
 }
 
 const INIT_FILE_NAME: &str = "viewer_app_init_config.toml";

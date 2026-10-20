@@ -167,7 +167,7 @@ fn fit_camera_view_for_viewer(
 
 /// Target_world_aabb should not empty. If the target is unbound, the center point of the passed box
 /// should be logical target center. Return desired camera world matrix
-fn fit_camera_view(
+pub fn fit_camera_view(
   proj: CommonProjection,
   camera_world: Mat4<f64>,
   target_world_aabb: Box3<f64>,

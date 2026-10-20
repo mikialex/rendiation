@@ -7,6 +7,7 @@ mod grid_ground;
 mod lighting;
 mod ndc;
 mod outline;
+mod parametric;
 mod ray_tracing;
 mod transparent;
 
@@ -23,6 +24,7 @@ pub use frame_viewport::*;
 use grid_ground::*;
 pub use lighting::*;
 pub use ndc::*;
+pub use parametric::*;
 pub use post::*;
 
 mod std_model_impl;

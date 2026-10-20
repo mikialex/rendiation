@@ -382,6 +382,7 @@ impl Viewer3dViewportRenderingCtx {
     viewport: &ViewerViewPort,
     final_target: &RenderTargetView,
     extension: &mut dyn ViewerFrameRenderingExtension,
+    parametric: Option<&ParametricFrame>,
     waker: &Waker,
   ) {
     ctx.next_scope_index();
@@ -419,6 +420,7 @@ impl Viewer3dViewportRenderingCtx {
           &render_target,
           viewport,
           selection_info,
+          parametric,
           waker,
         );
       });
@@ -535,6 +537,7 @@ impl Viewer3dViewportRenderingCtx {
     render_target: &RenderTargetView,
     viewport: &ViewerViewPort,
     selection_info: &ViewerSelectionStates,
+    parametric: Option<&ParametricFrame>,
     waker: &Waker,
   ) {
     let camera = viewport.camera;
@@ -607,6 +610,26 @@ impl Viewer3dViewportRenderingCtx {
           &g_buffer,
           is_outline_only_mode,
         );
+
+        if let Some(parametric) = parametric
+          && !is_outline_only_mode
+        {
+          let uniform = create_uniform(
+            parametric.uniform(&camera_transform),
+            &ctx.gpu.device,
+            "parametric model draw",
+          );
+          pass("parametric model")
+            .with_color(&scene_result, load_and_store())
+            .with_depth(&g_buffer.depth, load_and_store(), load_and_store())
+            .render_ctx(ctx)
+            .by(&mut ParametricModelSceneContent {
+              frame: parametric,
+              uniform: &uniform,
+              camera: &camera_gpu,
+              reversed_depth: renderer.reversed_depth,
+            });
+        }
 
         let scene_result = if sample_count > 1 {
           let simple_sample_scene_result = attachment().request(ctx);

@@ -59,6 +59,7 @@ rendiation-texture-exporter = { path = "../../content/texture/exporter" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 rendiation-webgpu-frame = { path = "../../platform/graphics/webgpu-frame" }
 rendiation-viewer-content ={ path = "../viewer-content" }
+parametric-normalized-model = { path = "../../extension/parametric-data-normalization/parametric-normalized-model" }
 rfd = "0.15.4"
 tracing = { workspace = true }
 tracing-subscriber = "0.3.20"
