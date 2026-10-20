@@ -6,8 +6,9 @@ A `.pnm` file (see `extension/parametric-data-normalization`) is loaded by drag 
 load button of the "Parametric Model" window (features menu) or by the `load-pnm [path]` command.
 Set `RENDIATION_VIEWER_PNM=/path/to/model.pnm` (or `auto_load_pnm` in
 `viewer_app_init_config.toml`) to load one at startup. The model is drawn by its own renderer with
-a view dependent tessellation, not as a scene model (no material, lighting or picking). After
-loading the camera is fitted to the model, press P to fit it again.
+a view dependent tessellation, not as a scene model (no material, lighting or picking). The
+tessellation runs on the GPU by default, the window can switch to the CPU reference for comparison.
+After loading the camera is fitted to the model, press P to fit it again.
 
 ## wasm build
 

@@ -1,5 +1,6 @@
 //! Offscreen smoke test of the parametric model rendering in the viewer frame: the model must
-//! cover pixels in front of an empty scene, for the msaa and the taa frame paths.
+//! cover pixels in front of an empty scene, for the msaa and the taa frame paths, and the GPU
+//! tessellation must cover the same pixels as the CPU reference.
 //!
 //! Uses a synthetic model by default, `RENDIATION_VIEWER_PNM` selects a `.pnm` file instead, and
 //! `RENDIATION_TEST_OUTPUT_DIR` writes the rendered images there.
@@ -29,10 +30,15 @@ fn parametric_model_renders_offscreen() {
     },
     ..Default::default()
   };
+  let cpu_reference = ParametricRenderSettings {
+    producer: TessellationProducerKind::CpuReference,
+    ..Default::default()
+  };
   let cases = [
     ("msaa", true, false, ParametricRenderSettings::default()),
     ("taa", false, true, ParametricRenderSettings::default()),
     ("hidden_trimmed", false, false, hidden_trimmed),
+    ("cpu_reference", true, false, cpu_reference),
   ];
 
   let mut coverages = Vec::new();
@@ -74,6 +80,10 @@ fn parametric_model_renders_offscreen() {
   assert!(
     coverages[2] < coverages[0],
     "hidden trimmed patches still drawn"
+  );
+  assert!(
+    (coverages[3] - coverages[0]).abs() < 0.002,
+    "gpu and cpu reference coverage differ: {coverages:?}"
   );
 }
 

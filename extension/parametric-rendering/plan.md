@@ -345,7 +345,7 @@ steam-controller，1920×1080，fov 45°，0.5 px，`K_MAX` 16，Apple M5 Pro（
 
 #### 阶段 2 进展
 
-已接入 viewer，生产者目前只有 CPU 参考：
+已接入 viewer，默认生产者是 GPU 细分器（`GpuTessellationProducer`），也可以切换到 CPU 参考对照：
 
 - 加载：拖放 `.pnm`、"Parametric Model" 窗口的 load 按钮（文件对话框）、`load-pnm [path]` 命令，
   启动时自动加载用环境变量 `RENDIATION_VIEWER_PNM=/path/x.pnm`（或 app 配置 `auto_load_pnm`）。
@@ -359,14 +359,17 @@ steam-controller，1920×1080，fov 45°，0.5 px，`K_MAX` 16，Apple M5 Pro（
   抖动。不写 entity id 和 g-buffer 法线，所以不参与拾取、描边和 SSAO；在透明物体之后绘制。
 - 输出在生产时相机的相机空间，绘制时用 `当前 view · 生产时 view⁻¹`（f64 合成）映射到当前视图，
   所以生产者落后于相机时位置仍然正确，只是细分等级不匹配。多个视口共用第一个视口的细分结果。
-- 生产者抽象 `TessellationProducer`，`create_tessellation_producer` 的 `Gpu` 分支是 GPU 细分的接入点
-  （文档注释里有适配器草稿）。CPU 参考在请求（相机、配置、过滤）变化且没有任务在跑时开一个线程，
-  同时最多一个任务，期间继续画上一次的结果。冻结细分后可以从别的角度检查细分结果。
+- 生产者抽象 `TessellationProducer`（`create_tessellation_producer` 按类型创建）。GPU 生产者在请求
+  （相机、配置、过滤）变化或上次统计报告溢出时把细分编码进帧 encoder，其余帧只轮询统计、继续画上一次
+  的输出。CPU 参考在请求变化且没有任务在跑时开一个线程，同时最多一个任务，期间继续画上一次的结果。
+  冻结细分后可以从别的角度检查细分结果。
 - 正交相机不更新细分（只画上一次的结果）。模型单位不换算，可用 model scale 缩放。
 
 steam-controller（debug 构建，对准后 1600×1200）：17486 叶子、71.4 万三角形，细分约 0.55 s、构建
 输出约 1.6～2.2 s（release 下细分约 20～30 ms）。离屏测试 `application/viewer-content/tests/parametric_offscreen.rs`
-覆盖 MSAA / TAA / 隐藏裁剪 patch 三种情况。
+覆盖 MSAA / TAA / 隐藏裁剪 patch 三种情况（GPU 生产者），以及 CPU 参考，并检查两者的覆盖率一致。
+release 下 steam 用 GPU 生产者：17387 叶子、29.7 万三角形（CPU 参考 29.7 万，差异来自阈值附近的
+判定），覆盖率与 CPU 参考相同。
 
 ### 后续阶段
 

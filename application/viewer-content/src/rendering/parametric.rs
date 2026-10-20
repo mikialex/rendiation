@@ -121,10 +121,7 @@ impl ViewerParametricRendering {
           TessellationProducerKind::CpuReference,
           TessellationProducerKind::Gpu,
         ] {
-          ui.add_enabled_ui(kind.is_available(), |ui| {
-            ui.selectable_value(&mut s.producer, kind, kind.name())
-              .on_disabled_hover_text("not implemented yet");
-          });
+          ui.selectable_value(&mut s.producer, kind, kind.name());
         }
       });
 
@@ -255,7 +252,7 @@ impl Default for ParametricRenderSettings {
   fn default() -> Self {
     Self {
       enabled: true,
-      producer: TessellationProducerKind::CpuReference,
+      producer: TessellationProducerKind::Gpu,
       tessellation: Default::default(),
       untrimmed_only: false,
       freeze: false,
@@ -401,69 +398,92 @@ impl TessellationProducerKind {
       Self::Gpu => "GPU",
     }
   }
-
-  pub fn is_available(self) -> bool {
-    // set to true for Gpu when it is plugged in `create_tessellation_producer`
-    matches!(self, Self::CpuReference)
-  }
 }
 
-/// The plug in spot of the producers.
-///
-/// The GPU tessellator goes into the `Gpu` arm (and `TessellationProducerKind::is_available`),
-/// the adapter is about this (the work is encoded into the frame encoder before the scene passes
-/// that draw the output; the output is a set of reference counted buffer views, so keeping a
-/// clone of it is cheap):
-///
-/// ```ignore
-/// struct GpuTessellationProducer {
-///   tessellator: GpuTessellator,
-///   last: Option<(TessellationFrameOutput, Mat4<f64>)>,
-///   stats: Option<ParametricTessellationStats>,
-/// }
-///
-/// impl TessellationProducer for GpuTessellationProducer {
-///   fn produce(
-///     &mut self,
-///     gpu: &GPU,
-///     encoder: &mut GPUCommandEncoder,
-///     request: Option<&TessellationRequest>,
-///     _waker: &Waker,
-///   ) -> Option<(&TessellationFrameOutput, Mat4<f64>)> {
-///     // a frozen request keeps the buffers of the last encoded frame
-///     if let Some(request) = request {
-///       self.tessellator.set_config(request.config);
-///       self.tessellator.set_untrimmed_only(request.untrimmed_only);
-///       let output = self.tessellator.encode_frame(gpu, encoder, &request.camera);
-///       self.last = Some((output.clone(), request.camera.view));
-///       // convert `self.tessellator.last_stats()` into `self.stats`
-///     }
-///     self.last.as_ref().map(|(output, view)| (output, *view))
-///   }
-///
-///   fn stats(&self) -> Option<&ParametricTessellationStats> {
-///     self.stats.as_ref()
-///   }
-/// }
-///
-/// // the match arm
-/// TessellationProducerKind::Gpu => Some(Box::new(GpuTessellationProducer {
-///   tessellator: GpuTessellator::new(gpu, model, TessellationConfig::default()),
-///   last: None,
-///   stats: None,
-/// })),
-/// ```
 pub fn create_tessellation_producer(
   kind: TessellationProducerKind,
-  _gpu: &GPU,
+  gpu: &GPU,
   model: &Arc<ParametricNormalizedModel>,
 ) -> Option<Box<dyn TessellationProducer>> {
   match kind {
     TessellationProducerKind::CpuReference => Some(Box::new(
       CpuReferenceTessellationProducer::new(model.clone()),
     )),
-    // GPU tessellator plug in spot, see above
-    TessellationProducerKind::Gpu => None,
+    TessellationProducerKind::Gpu => Some(Box::new(GpuTessellationProducer::new(gpu, model))),
+  }
+}
+
+/// The work is encoded into the frame encoder before the scene passes that draw the output, and
+/// only when the request changed (or an overflow asks for a retry with the grown buffers).
+struct GpuTessellationProducer {
+  tessellator: GpuTessellator,
+  requested: Option<TessellationRequest>,
+  /// The output is a set of reference counted buffer views, a clone is cheap.
+  last: Option<(TessellationFrameOutput, Mat4<f64>)>,
+  stats: Option<ParametricTessellationStats>,
+}
+
+impl GpuTessellationProducer {
+  fn new(gpu: &GPU, model: &ParametricNormalizedModel) -> Self {
+    Self {
+      tessellator: GpuTessellator::new(gpu, model, TessellationConfig::default()),
+      requested: None,
+      last: None,
+      stats: None,
+    }
+  }
+
+  fn update_stats(&mut self) {
+    let Some(s) = self.tessellator.last_stats() else {
+      return;
+    };
+    let to_usize = |v: &[u32]| v.iter().map(|&x| x as usize).collect();
+    self.stats = Some(ParametricTessellationStats {
+      producer: TessellationProducerKind::Gpu.name(),
+      items: s.items,
+      rejected_items: s.rejected_patches,
+      leaves: s.leaves as usize,
+      triangles: s.triangles as usize,
+      leaves_per_level: to_usize(&s.leaves_per_level),
+      leaves_per_k: to_usize(&s.leaves_per_k),
+      work_items_per_level: to_usize(&s.work_items),
+      culled: s.culled as usize,
+      forced_leaves: s.forced_leaves as usize,
+      tessellation_ms: 0.,
+      output_ms: 0.,
+    });
+  }
+}
+
+impl TessellationProducer for GpuTessellationProducer {
+  fn produce(
+    &mut self,
+    gpu: &GPU,
+    encoder: &mut GPUCommandEncoder,
+    request: Option<&TessellationRequest>,
+    _waker: &Waker,
+  ) -> Option<(&TessellationFrameOutput, Mat4<f64>)> {
+    self.tessellator.poll_stats(gpu);
+    self.update_stats();
+    let overflowed = self
+      .tessellator
+      .last_stats()
+      .is_some_and(|s| s.overflow != 0);
+    // a frozen request keeps the buffers of the last encoded frame
+    if let Some(request) = request
+      && (overflowed || self.requested.is_none_or(|r| !r.same_as(request)))
+    {
+      self.requested = Some(*request);
+      self.tessellator.set_config(request.config);
+      self.tessellator.set_untrimmed_only(request.untrimmed_only);
+      let output = self.tessellator.encode_frame(gpu, encoder, &request.camera);
+      self.last = Some((output.clone(), request.camera.view));
+    }
+    self.last.as_ref().map(|(output, view)| (output, *view))
+  }
+
+  fn stats(&self) -> Option<&ParametricTessellationStats> {
+    self.stats.as_ref()
   }
 }
 

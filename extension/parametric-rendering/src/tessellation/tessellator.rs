@@ -177,8 +177,9 @@ impl GpuTessellator {
     }
   }
 
-  /// Polls the pending statistics read without blocking, grows the buffers on overflow.
-  fn poll_stats(&mut self, gpu: &GPU) {
+  /// Polls the pending statistics read without blocking, grows the buffers on overflow. Also
+  /// done by `encode_frame`, call it when frames are drawn without encoding a new one.
+  pub fn poll_stats(&mut self, gpu: &GPU) {
     let Some((pending, capacity)) = &mut self.pending_stats else {
       return;
     };
