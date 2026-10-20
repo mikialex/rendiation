@@ -862,6 +862,13 @@ struct ShaderLeafVertex {
 }
 
 impl ShaderLeafVertex {
+  /// The parameter of the leaf center.
+  fn center(&self) -> (Node<f32>, Node<f32>) {
+    let (us, vs) = (self.key.u_segment(), self.key.v_segment());
+    let half = |s: ShaderSegment| (param_to_f32(s.start()) + param_to_f32(s.end())) * val(0.5);
+    (half(us), half(vs))
+  }
+
   fn u(&self) -> Node<u32> {
     let us = self.key.u_segment();
     us.start() + self.i * ((val(1u32) << (val(PARAM_BITS) - us.level)) / self.k)
@@ -1165,7 +1172,12 @@ struct VertexPass;
 impl TessPass for VertexPass {
   const WORKGROUP: (u32, u32, u32) = (VERTEX_WORKGROUP, 1, 1);
   type Bindings<K: BindKind> = (
-    (UniformOut<K>, Out<K, Ro<TessItem>>, Out<K, Rw<Vec4<f32>>>),
+    (UniformOut<K>, Out<K, Ro<TessItem>>),
+    (
+      Out<K, Ro<Vec4<f32>>>,
+      Out<K, Ro<Vec2<u32>>>,
+      Out<K, Ro<Mat4<f32>>>,
+    ),
     (
       Out<K, Rw<TessLeafDraw>>,
       Out<K, Rw<Vec4<u32>>>,
@@ -1176,10 +1188,11 @@ impl TessPass for VertexPass {
   );
   fn declare<B: Binder>(cx: &PassCtx, b: &mut B) -> Self::Bindings<B::Kind> {
     (
+      (b.bind(&cx.frame.uniform), b.bind(&cx.data.items)),
       (
-        b.bind(&cx.frame.uniform),
-        b.bind(&cx.data.items),
-        b.bind(&cx.data.camera_cps),
+        b.bind(&cx.data.cp_pool),
+        b.bind(&cx.data.cp_sources),
+        b.bind(&cx.data.matrices),
       ),
       (
         b.bind(&cx.frame.output.leaves),
@@ -1191,29 +1204,45 @@ impl TessPass for VertexPass {
     )
   }
   fn build(builder: &ShaderComputePipelineBuilder, b: Self::Bindings<ShaderKind>) {
-    let ((u, items, camera_cps), (leaves, leaf_keys, bucket_leaves, counters), rest) = b;
-    let (values, vertices) = rest;
+    let ((u, items), (pool, sources, matrices), leaf_bindings, (values, vertices)) = b;
+    let (leaves, leaf_keys, bucket_leaves, counters) = leaf_bindings;
     let u = u.load().expand();
     let id = builder.global_invocation_id().x();
     let v = leaf_vertex(&u, id, &counters, &bucket_leaves, &leaves, &leaf_keys);
     let item = items.index(v.key.item).load().expand();
-    let cp = item_reader(&camera_cps, &item);
-    let (p, du, dv) = surface_eval_with_partials(
-      &cp,
-      item.degree_u,
-      item.degree_v,
-      param_to_f32(v.u()),
-      param_to_f32(v.v()),
-    );
+    // The partials come from the face origin relative control points (small values, the
+    // camera space ones lose the precision of small patches far from the camera) mapped by
+    // the instance matrix.
+    let pool_offset = sources.index(item.camera_cp_offset).load().x();
+    let row = item.degree_u + val(1);
+    let cp = |i: Node<u32>, j: Node<u32>| pool.index(pool_offset + j * row + i).load();
+    let matrix = matrices.index(item.instance).load();
+    let partials = |pu: Node<f32>, pv: Node<f32>| {
+      let (p, du, dv) = surface_eval_with_partials(&cp, item.degree_u, item.degree_v, pu, pv);
+      let map = |x: Node<Vec3<f32>>, w: f32| (matrix * fvec4(x.x(), x.y(), x.z(), val(w))).xyz();
+      (map(p, 1.), map(du, 0.), map(dv, 0.))
+    };
+    let (pu, pv) = (param_to_f32(v.u()), param_to_f32(v.v()));
+    let (p, du, dv) = partials(pu, pv);
     let position = v.boundary.select(values.index(v.vertex).load().xyz(), p);
-    let normal = du.cross(dv);
+    // At a pole (a numerically zero partial) the normal is taken slightly inside the leaf.
+    let (lu, lv) = (du.length(), dv.length());
+    let degenerate = lu.min(lv).less_equal_than(lu.max(lv) * val(1e-5));
+    let normal = du.cross(dv).make_local_var();
+    if_by(degenerate, || {
+      let (cu, cv) = v.center();
+      let nudge = val(1. / 64.);
+      let (_, du, dv) = partials(pu + (cu - pu) * nudge, pv + (cv - pv) * nudge);
+      normal.store(du.cross(dv));
+    });
+    let normal = normal.load();
     let length = normal.length();
     let normal = length.greater_than(val(0.)).select(normal / length, normal);
     let flip = (item.flags & val(ITEM_FLAG_FLIP_NORMAL)).not_equals(val(0));
     let normal = flip.select(-normal, normal);
     let vertex = ENode::<TessVertex> {
-      position: (position.x(), position.y(), position.z(), val(1.)).into(),
-      normal: (normal.x(), normal.y(), normal.z(), val(0.)).into(),
+      position: fvec4(position.x(), position.y(), position.z(), val(1.)),
+      normal: fvec4(normal.x(), normal.y(), normal.z(), val(0.)),
     }
     .construct();
     vertices.index(v.vertex).store(vertex);

@@ -62,6 +62,10 @@ struct FrameComparison {
   /// pixels.
   max_position_offset: f64,
   max_normal_deviation: f64,
+  /// GPU normals that are not unit length.
+  bad_normals: usize,
+  /// At poles, against the CPU normal slightly inside the leaf.
+  max_pole_normal_deviation: f64,
 }
 
 fn compare_frame(
@@ -84,12 +88,17 @@ fn compare_frame(
 
   let mut max_position_offset: f64 = 0.;
   let mut max_normal_deviation: f64 = 0.;
+  let mut bad_normals = 0;
+  let mut max_pole_normal_deviation: f64 = 0.;
   for ((leaf, mesh), draw) in gpu_leaves.iter().zip(&meshes).zip(&frame.leaves) {
     let reference = t.leaf_mesh(leaf);
     let item = &items[leaf.key.item as usize];
     let patch = &model.patches[item.patch as usize];
     let flip = patch.flip_normal != model.instances[item.instance as usize].flip_normal;
     for (index, (a, b)) in mesh.positions.iter().zip(&reference.positions).enumerate() {
+      let normal = frame.vertices[(draw.vertex_base as usize) + index].normal;
+      bad_normals +=
+        ((Vec3::new(normal.x, normal.y, normal.z).length() - 1.).abs() > 1e-3) as usize;
       // Near threshold edge linearization decisions move a vertex by up to the edge tolerance.
       let offset = (*a - *b).length() * camera.pixel_scale(*b);
       max_position_offset = max_position_offset.max(offset);
@@ -106,6 +115,18 @@ fn compare_frame(
         let gpu = frame.vertices[(draw.vertex_base as usize) + index].normal;
         let gpu = Vec3::new(gpu.x, gpu.y, gpu.z).into_f64();
         max_normal_deviation = max_normal_deviation.max((gpu - n).length());
+      } else if lu.min(lv) <= 1e-6 * lu.max(lv) {
+        // At a pole the GPU takes the normal slightly inside the leaf.
+        let (us, vs) = (leaf.key.u_segment(), leaf.key.v_segment());
+        let center = |s: Segment| (param_to_f64(s.start()) + param_to_f64(s.end())) * 0.5;
+        let (pu, pv) = (param_to_f64(u), param_to_f64(v));
+        let (_, du, dv) = item
+          .surface
+          .eval_with_partials(pu + (center(us) - pu) / 64., pv + (center(vs) - pv) / 64.);
+        let n = du.cross(dv).normalize() * if flip { -1. } else { 1. };
+        let gpu = frame.vertices[(draw.vertex_base as usize) + index].normal;
+        let gpu = Vec3::new(gpu.x, gpu.y, gpu.z).into_f64();
+        max_pole_normal_deviation = max_pole_normal_deviation.max((gpu - n).length());
       }
     }
   }
@@ -123,6 +144,8 @@ fn compare_frame(
     error,
     max_position_offset,
     max_normal_deviation,
+    bad_normals,
+    max_pole_normal_deviation,
   }
 }
 
@@ -146,6 +169,7 @@ fn assert_frame(c: &FrameComparison, config: &TessellationConfig, frame: &GpuFra
   );
   assert!(c.max_position_offset < 1e-2, "{c:#?}");
   assert!(c.max_normal_deviation < 1e-3, "{c:#?}");
+  assert_eq!(c.bad_normals, 0, "{c:#?}");
   for (b, args) in frame.draw_args.iter().enumerate() {
     let k = 1u32 << b;
     assert_eq!(args.vertex_count, 6 * k * k);
@@ -403,7 +427,7 @@ async fn steam_controller_gpu_vs_cpu() {
     let start = Instant::now();
     let c = compare_frame(&model, &camera, config, untrimmed_only, &frame_after, 2);
     println!(
-      "  leaves cpu {} gpu {} | mismatched {} (max margin {:.2e}) | work items cpu {:?} | k cpu {:?} | watertight: shared lines {} open {} non manifold {} shared vertices {} mismatched {} T junctions {} max offset {:.2e} px ({:.2e} relative) uncovered {} | max error {:.4} px over {} samples ({} over) | max position offset {:.2e} px | normal deviation {:.2e} | frame {:.2?} ms (encode + submit + wait), encode {:.2?} ms | check {:.1} s",
+      "  leaves cpu {} gpu {} | mismatched {} (max margin {:.2e}) | work items cpu {:?} | k cpu {:?} | watertight: shared lines {} open {} non manifold {} shared vertices {} mismatched {} T junctions {} max offset {:.2e} px ({:.2e} relative) uncovered {} | max error {:.4} px over {} samples ({} over) | max position offset {:.2e} px | normal deviation {:.2e} (not unit {}, at poles {:.2e}) | frame {:.2?} ms (encode + submit + wait), encode {:.2?} ms | check {:.1} s",
       c.cpu_leaves,
       c.gpu_leaves,
       c.leaf_set.mismatched,
@@ -424,6 +448,8 @@ async fn steam_controller_gpu_vs_cpu() {
       c.error.samples_over_threshold,
       c.max_position_offset,
       c.max_normal_deviation,
+      c.bad_normals,
+      c.max_pole_normal_deviation,
       times,
       encode_times,
       start.elapsed().as_secs_f64(),
