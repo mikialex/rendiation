@@ -43,7 +43,9 @@ let stats = t.last_stats(); // from an earlier frame
 Requirements and limits: up to 10 storage buffers per shader stage (more than the WebGPU
 default of 8, fine on native adapters); patch degrees up to `MAX_GPU_DEGREE` (others are
 rejected at upload and counted); `k_max <= 16`; at most 65535 workgroups per indirect dispatch
-(64 threads per work item dispatch, 256 per vertex dispatch), the capacities are clamped to it.
+(64 threads per work item dispatch, 256 per vertex dispatch), the capacities are clamped to it
+(and to the device buffer binding size), the items to 4.19M and the camera space control
+points to 16.7M.
 
 Tests compare every stage with the CPU reference (`cargo test -p rendiation-parametric-rendering`),
 the steam controller comparison is an ignored test:

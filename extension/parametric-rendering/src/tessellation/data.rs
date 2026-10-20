@@ -288,6 +288,15 @@ pub struct TessDeviceData {
 
 impl TessDeviceData {
   pub fn new(device: &GPUDevice, data: &TessStaticData) -> Self {
+    let dispatch_limit = |workgroup: u32| (workgroup * MAX_DISPATCH_WORKGROUPS) as usize;
+    assert!(
+      data.items.len() <= dispatch_limit(SUBDIVISION_WORKGROUP),
+      "too many items"
+    );
+    assert!(
+      data.cp_sources.len() <= dispatch_limit(VERTEX_WORKGROUP),
+      "too many control points"
+    );
     let instance_count = data.instances.len();
     let non_empty = |len: usize| len.max(1);
     let items = if data.items.is_empty() {

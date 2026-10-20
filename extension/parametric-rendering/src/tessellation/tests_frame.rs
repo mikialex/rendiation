@@ -355,6 +355,54 @@ async fn overflow_grows_buffers() {
   assert_eq!(key(&last), key(&expected));
 }
 
+/// An empty model, a camera looking away, config and filter changes between frames.
+#[pollster::test]
+async fn api_state_changes() {
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let config = TessellationConfig::default();
+
+  let empty = ParametricNormalizedModel::default();
+  let mut t = GpuTessellator::new(&gpu, &empty, config);
+  let frame = run_frame(&gpu, &mut t, &test_camera()).await;
+  assert!(frame.leaves.is_empty());
+  assert!(frame.draw_args.iter().all(|a| a.instance_count == 0));
+
+  let model = random_model(47, 9, (3., 12.));
+  let mut t = GpuTessellator::new(&gpu, &model, config);
+  let away = Camera {
+    view: Mat4::rotate_y(std::f64::consts::PI),
+    ..test_camera()
+  };
+  let frame = run_frame(&gpu, &mut t, &away).await;
+  assert!(frame.leaves.is_empty());
+  assert_eq!(frame.stats.culled as usize, t.items().len());
+
+  let camera = test_camera();
+  let configs = [
+    config,
+    TessellationConfig {
+      k_max: 4,
+      max_level: 7,
+      ..config
+    },
+    TessellationConfig {
+      pixel_error: 1.5,
+      ..config
+    },
+  ];
+  for untrimmed_only in [false, true, false] {
+    t.set_untrimmed_only(untrimmed_only);
+    for config in configs {
+      t.set_config(config);
+      let frame = run_converged_frame(&gpu, &mut t, &camera).await;
+      let c = compare_frame(&model, &camera, config, untrimmed_only, &frame, 2);
+      assert_eq!(c.leaf_set.mismatched, 0, "{c:#?}");
+      assert_eq!(t.dispatch_count(), frame.stats.dispatches);
+      assert_frame(&c, &config, &frame);
+    }
+  }
+}
+
 fn print_stats(label: &str, s: &GpuTessellationStats) {
   println!(
     "{label}: {} items ({} patches rejected) | {} leaves {} triangles {} vertices | work items {:?} | leaves per level {:?} | k {:?} | culled {} splits {:?} forced {} edge raised {} | requests per round {:?} | overflow {:#b} | {} dispatches",

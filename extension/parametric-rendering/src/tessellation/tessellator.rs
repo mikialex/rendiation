@@ -194,7 +194,10 @@ impl GpuTessellator {
     };
     let counters: Vec<u32> = cast_slice(&buffer.read_raw()).to_vec();
     drop(buffer);
-    let stats = GpuTessellationStats::from_counters(&counters, &self.frame, self);
+    let stats = GpuTessellationStats {
+      capacity: Some(capacity),
+      ..GpuTessellationStats::from_counters(&counters, &self.frame, self)
+    };
     // A read from before the last growth may report overflows already handled.
     if stats.overflow != 0 && capacity == self.capacity {
       self.rebuild_frame_buffers(stats.grown_capacity(capacity));
