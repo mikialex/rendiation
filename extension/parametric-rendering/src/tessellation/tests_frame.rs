@@ -58,8 +58,8 @@ struct FrameComparison {
   watertight: WatertightReport,
   cpu_watertight: WatertightReport,
   error: ErrorReport,
-  /// Max distance of a GPU vertex to the CPU reference position of the same leaf vertex,
-  /// relative to its depth.
+  /// Max distance of a GPU vertex to the CPU reference position of the same leaf vertex, in
+  /// pixels.
   max_position_offset: f64,
   max_normal_deviation: f64,
 }
@@ -90,7 +90,9 @@ fn compare_frame(
     let patch = &model.patches[item.patch as usize];
     let flip = patch.flip_normal != model.instances[item.instance as usize].flip_normal;
     for (index, (a, b)) in mesh.positions.iter().zip(&reference.positions).enumerate() {
-      max_position_offset = max_position_offset.max((*a - *b).length() / -b.z);
+      // Near threshold edge linearization decisions move a vertex by up to the edge tolerance.
+      let offset = (*a - *b).length() * camera.pixel_scale(*b);
+      max_position_offset = max_position_offset.max(offset);
       let (u, v) = reference.params[index];
       let (_, du, dv) = item
         .surface
@@ -142,7 +144,7 @@ fn assert_frame(c: &FrameComparison, config: &TessellationConfig, frame: &GpuFra
     c.error.max_pixel_error <= config.pixel_error + 0.02,
     "{c:#?}"
   );
-  assert!(c.max_position_offset < 1e-5, "{c:#?}");
+  assert!(c.max_position_offset < 1e-2, "{c:#?}");
   assert!(c.max_normal_deviation < 1e-3, "{c:#?}");
   for (b, args) in frame.draw_args.iter().enumerate() {
     let k = 1u32 << b;
@@ -246,7 +248,7 @@ async fn frames_match_cpu_on_synthetic_scenes() {
     let frame = run_converged_frame(&gpu, &mut t, &camera).await;
     let c = compare_frame(&model, &camera, config, untrimmed_only, &frame, 4);
     println!(
-      "seed {seed}: leaves cpu {} gpu {} (mismatched {}, max margin {:.2e}) work items cpu {:?} gpu {:?} k cpu {:?} gpu {:?} forced {} | T junctions {} max {:.2e} px | error {:.3} px | offset {:.2e} | rounds {:?}",
+      "seed {seed}: leaves cpu {} gpu {} (mismatched {}, max margin {:.2e}) work items cpu {:?} gpu {:?} k cpu {:?} gpu {:?} forced {} | T junctions {} max {:.2e} px | error {:.3} px | offset {:.2e} px | rounds {:?}",
       c.cpu_leaves,
       c.gpu_leaves,
       c.leaf_set.mismatched,
@@ -263,6 +265,12 @@ async fn frames_match_cpu_on_synthetic_scenes() {
       frame.stats.requests_per_round,
     );
     assert!(c.gpu_leaves > 0);
+    if c.leaf_set.mismatched == 0 {
+      let cpu: Vec<_> = c.cpu_work_items.iter().map(|&n| n as u32).collect();
+      assert_eq!(cpu, c.gpu_work_items);
+      let cpu: Vec<_> = c.cpu_leaves_per_k.iter().map(|&n| n as u32).collect();
+      assert_eq!(cpu[..], c.gpu_leaves_per_k[..cpu.len()]);
+    }
     assert!(c.watertight.shared_lines > 0, "{c:#?}");
     assert_frame(&c, &config, &frame);
   }
@@ -379,10 +387,12 @@ async fn steam_controller_gpu_vs_cpu() {
       frame = run_frame(&gpu, &mut t, &camera).await;
     }
     let mut times = Vec::new();
+    let mut encode_times = Vec::new();
     for _ in 0..5 {
       let start = Instant::now();
       let mut encoder = gpu.create_encoder();
       t.encode_frame(&gpu, &mut encoder, &camera);
+      encode_times.push(start.elapsed().as_secs_f64() * 1e3);
       gpu.submit_encoder(encoder);
       gpu.poll(true);
       times.push(start.elapsed().as_secs_f64() * 1e3);
@@ -393,7 +403,7 @@ async fn steam_controller_gpu_vs_cpu() {
     let start = Instant::now();
     let c = compare_frame(&model, &camera, config, untrimmed_only, &frame_after, 2);
     println!(
-      "  leaves cpu {} gpu {} | mismatched {} (max margin {:.2e}) | work items cpu {:?} | k cpu {:?} | watertight: shared lines {} open {} non manifold {} shared vertices {} mismatched {} T junctions {} max offset {:.2e} px ({:.2e} relative) uncovered {} | max error {:.4} px over {} samples ({} over) | max position offset {:.2e} | normal deviation {:.2e} | frame {:.2?} ms (submit + wait) | check {:.1} s",
+      "  leaves cpu {} gpu {} | mismatched {} (max margin {:.2e}) | work items cpu {:?} | k cpu {:?} | watertight: shared lines {} open {} non manifold {} shared vertices {} mismatched {} T junctions {} max offset {:.2e} px ({:.2e} relative) uncovered {} | max error {:.4} px over {} samples ({} over) | max position offset {:.2e} px | normal deviation {:.2e} | frame {:.2?} ms (encode + submit + wait), encode {:.2?} ms | check {:.1} s",
       c.cpu_leaves,
       c.gpu_leaves,
       c.leaf_set.mismatched,
@@ -415,6 +425,7 @@ async fn steam_controller_gpu_vs_cpu() {
       c.max_position_offset,
       c.max_normal_deviation,
       times,
+      encode_times,
       start.elapsed().as_secs_f64(),
     );
     for m in &c.watertight.mismatches {

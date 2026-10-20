@@ -5,6 +5,7 @@ use std::num::NonZeroU64;
 use parametric_normalized_model::{FaceInstance, ParametricNormalizedModel};
 use parametric_tessellation::*;
 
+use super::*;
 use crate::*;
 
 pub const ITEM_FLAG_FLIP_NORMAL: u32 = 1;
@@ -114,6 +115,24 @@ impl TessCapacity {
       requests: (items * 64).max(1 << 18),
     }
     .clamped(item_count)
+  }
+
+  /// Within `max_binding` bytes per buffer (the sub patches, vertices and the request
+  /// records are the largest).
+  pub fn limited(self, max_binding: u64, sub_patch_stride: u32) -> Self {
+    let elements =
+      |bytes_per_element: u64| (max_binding / bytes_per_element).min(u32::MAX as u64) as u32;
+    let records = elements(16);
+    let vertices = self
+      .vertices
+      .min(elements(size_of::<TessVertex>() as u64))
+      .min(records / 2);
+    Self {
+      queue: self.queue.min(elements(16 * sub_patch_stride as u64)) & !3,
+      leaves: self.leaves,
+      vertices,
+      requests: self.requests.min(records - vertices) & !1,
+    }
   }
 
   /// Within the indirect dispatch limits, the queue holds at least all roots.

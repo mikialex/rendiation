@@ -425,11 +425,15 @@ impl TessPass for InitPass {
   ) {
     let u = u.load().expand();
     let id = builder.global_invocation_id().x();
-    if_by(id.greater_equal_than(u.item_count), do_return);
+    let roots = u.item_count.min(u.queue_capacity);
+    if_by(id.equals(val(0)).and(roots.less_than(u.item_count)), || {
+      set_overflow(&counters, OVERFLOW_QUEUE);
+    });
+    if_by(id.greater_equal_than(roots), do_return);
     queue.index(id).store(uvec4(id, val(0), val(0), val(0)));
     if_by(id.equals(val(0)), || {
-      atomic(&counters, COUNTER_WORK_ITEMS).atomic_store(u.item_count);
-      let x = (u.item_count + val(SUBDIVISION_WORKGROUP - 1)) / val(SUBDIVISION_WORKGROUP);
+      atomic(&counters, COUNTER_WORK_ITEMS).atomic_store(roots);
+      let x = (roots + val(SUBDIVISION_WORKGROUP - 1)) / val(SUBDIVISION_WORKGROUP);
       let values = [x, u.sub_patch_stride, val(1), x, val(1), val(1)];
       for (i, v) in values.into_iter().enumerate() {
         args.index(val(i as u32)).atomic_store(v);

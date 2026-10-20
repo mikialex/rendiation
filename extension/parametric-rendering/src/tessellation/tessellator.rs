@@ -39,6 +39,7 @@ impl GpuTessellator {
     let active = all.clone();
     let device_data = TessDeviceData::new(&gpu.device, &active);
     let capacity = TessCapacity::initial(active.items.len());
+    let capacity = device_limited(&gpu.device, capacity, active.sub_patch_stride);
     let frame = TessFrameBuffers::new(&gpu.device, capacity, &config, active.sub_patch_stride);
     Self {
       device: gpu.device.clone(),
@@ -202,10 +203,19 @@ impl GpuTessellator {
   }
 
   fn rebuild_frame_buffers(&mut self, capacity: TessCapacity) {
-    self.capacity = capacity;
     let stride = self.active.sub_patch_stride;
+    let capacity = device_limited(&self.device, capacity, stride);
+    self.capacity = capacity;
     self.frame = TessFrameBuffers::new(&self.device, capacity, &self.config, stride);
   }
+}
+
+fn device_limited(device: &GPUDevice, capacity: TessCapacity, stride: u32) -> TessCapacity {
+  let limits = device.limits();
+  let max_binding = limits
+    .max_storage_buffer_binding_size
+    .min(limits.max_buffer_size);
+  capacity.limited(max_binding, stride)
 }
 
 fn check_config(config: &TessellationConfig) {
