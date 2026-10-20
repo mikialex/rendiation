@@ -439,6 +439,27 @@ impl<'a> Tessellator<'a> {
     (meshes, records.iter().map(Vec::len).collect())
   }
 
+  /// Edge linearization piece count of the canonical `segment` of `line`, see
+  /// `linearization` (exposed for comparison with the GPU version, like the next two).
+  pub fn linearization_of(&mut self, item: u32, line: LineKey, segment: Segment) -> Option<u32> {
+    self.patch(item).linearization(line, segment)
+  }
+
+  /// The coarsest linearizable segment containing the canonical `segment` and its piece count.
+  pub fn flat_ancestor_of(
+    &mut self,
+    item: u32,
+    line: LineKey,
+    segment: Segment,
+  ) -> Option<(Segment, u32)> {
+    self.patch(item).flat_ancestor(line, segment)
+  }
+
+  /// The linearization piece of `line` containing canonical parameter `p` in its interior.
+  pub fn locate_on(&mut self, item: u32, line: LineKey, p: u32) -> Option<Segment> {
+    self.patch(item).locate(line, p)
+  }
+
   /// The iso line curve in its canonical direction, see `LineCurve`.
   pub fn line_curve(&mut self, item: u32, line: LineKey) -> &LineCurve {
     self.patch(item).line(line);
