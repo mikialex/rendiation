@@ -56,7 +56,7 @@ impl KernelCtx {
 }
 
 fn vec3_to_4(v: Node<Vec3<f32>>, w: Node<f32>) -> Node<Vec4<f32>> {
-  (v.x(), v.y(), v.z(), w).into()
+  fvec4(v.x(), v.y(), v.z(), w)
 }
 
 async fn run_kernel(
@@ -198,20 +198,18 @@ async fn dyadic_ops_are_exact() {
     let b = cx.param(1);
     let s = ShaderSegment::new(a.x(), a.y());
     let (inside, c) = ShaderSegment::containing(b.x(), a.w());
-    let first: Node<Vec4<u32>> = (
+    let first = uvec4(
       s.start(),
       s.end(),
       s.reversed().index,
       s.ancestor(a.z()).index,
-    )
-      .into();
-    let second: Node<Vec4<u32>> = (
+    );
+    let second = uvec4(
       inside.select(val(1u32), val(0)),
       c.index,
       shader_param_level(a.w()),
       shader_param_level(s.start()),
-    )
-      .into();
+    );
     cx.write_u(0, first);
     cx.write_u(1, second);
   })
@@ -292,13 +290,12 @@ async fn curves_match_cpu() {
     let base = MAX_CURVE_POINTS as u32;
     cx.write_f(base, vec3_to_4(bounds.min, val(0.)));
     cx.write_f(base + 1, vec3_to_4(bounds.max, val(0.)));
-    let errors: Node<Vec4<f32>> = (
+    let errors = fvec4(
       bounds.chord_error,
       bounds.polyline_coefficient,
       bounds.polyline_error(val(1)),
       bounds.polyline_error(val(4)),
-    )
-      .into();
+    );
     cx.write_f(base + 2, errors);
     load();
     cx.write_f(base + 3, de_casteljau_in_place(&buf, degree, t));
@@ -449,13 +446,12 @@ async fn sub_patches_and_surfaces_match_cpu() {
     let base = (MAX_CURVE_POINTS * MAX_CURVE_POINTS) as u32;
     cx.write_f(base, vec3_to_4(bounds.min, val(0.)));
     cx.write_f(base + 1, vec3_to_4(bounds.max, val(0.)));
-    let errors: Node<Vec4<f32>> = (
+    let errors = fvec4(
       bounds.quad_error,
       bounds.grid_coefficient,
       bounds.grid_error(val(1)),
       bounds.grid_error(val(4)),
-    )
-      .into();
+    );
     cx.write_f(base + 2, errors);
     let (pu, pv) = (param_to_f32(uv.x()), param_to_f32(uv.y()));
     cx.write_f(base + 3, surface_eval(&cp, n, m, pu, pv));
@@ -569,13 +565,12 @@ async fn line_curves_match_cpu() {
     for_range(val(0), curve.degree + val(1), |i, _| {
       cx.write_f(i, points.index(i).load());
     });
-    let info: Node<Vec4<u32>> = (
+    let info = uvec4(
       curve.degree,
       curve.reversed.select(val(1u32), val(0)),
       curve.level,
       val(0u32),
-    )
-      .into();
+    );
     cx.write_u(MAX_CURVE_POINTS as u32, info);
   })
   .await;
@@ -650,14 +645,13 @@ async fn linearization_queries_match_cpu() {
     let pieces = linearization(&cx.u, &points, curve.degree, segment, &tmp);
     let (flat, flat_pieces) = flat_ancestor(&cx.u, &points, curve, segment, &tmp);
     let (found, piece) = locate(&cx.u, &points, curve, p, &tmp);
-    let first: Node<Vec4<u32>> = (pieces, flat.level, flat.index, flat_pieces).into();
-    let second: Node<Vec4<u32>> = (
+    let first = uvec4(pieces, flat.level, flat.index, flat_pieces);
+    let second = uvec4(
       found.select(val(1u32), val(0)),
       piece.level,
       piece.index,
       val(0u32),
-    )
-      .into();
+    );
     cx.write_u(0, first);
     cx.write_u(1, second);
   })
@@ -673,13 +667,10 @@ async fn linearization_queries_match_cpu() {
     (pieces, flat, located)
   };
   let mut t = Tessellator::new(&items, test_camera(), config);
-  let perturbed: Vec<_> = [0.999, 1.001]
-    .map(|f| TessellationConfig {
-      pixel_error: config.pixel_error * f,
-      ..config
-    })
-    .into_iter()
-    .collect();
+  let perturbed = [0.999, 1.001].map(|f| TessellationConfig {
+    pixel_error: config.pixel_error * f,
+    ..config
+  });
   let mut near_threshold = 0;
   let mut found = 0;
   for (case, &query) in queries.iter().enumerate() {

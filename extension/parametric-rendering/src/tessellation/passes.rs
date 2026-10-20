@@ -738,13 +738,12 @@ impl TessPass for DecidePass {
         do_return();
       });
       for (c, (dx, dy)) in [(0, 0), (1, 0), (0, 1), (1, 1)].into_iter().enumerate() {
-        let child: Node<Vec4<u32>> = (
+        let child = uvec4(
           key.item,
           level + val(1),
           key.ix * val(2) + val(dx),
           key.iy * val(2) + val(dy),
-        )
-          .into();
+        );
         queue_out.index(index + val(c as u32)).store(child);
       }
       let x = (index + val(4) + val(SUBDIVISION_WORKGROUP - 1)) / val(SUBDIVISION_WORKGROUP);
@@ -1045,9 +1044,9 @@ impl TessPass for ForwardPass {
         found.store(val(true));
         t.store((p - a).into_f32() / (b - a).into_f32());
         let (ca, cb) = (curve.canonical(a), curve.canonical(b));
-        let point_a: Node<Vec2<u32>> = (axis_v.select(ca, coord), axis_v.select(coord, ca)).into();
-        let point_b: Node<Vec2<u32>> = (axis_v.select(cb, coord), axis_v.select(coord, cb)).into();
-        ends.store(uvec4(point_a.x(), point_a.y(), point_b.x(), point_b.y()));
+        let point = |c: Node<u32>| (axis_v.select(c, coord), axis_v.select(coord, c));
+        let ((au, av), (bu, bv)) = (point(ca), point(cb));
+        ends.store(uvec4(au, av, bu, bv));
         cx.do_break();
       });
     });
@@ -1074,13 +1073,12 @@ impl TessPass for ForwardPass {
             .index(r + val(1))
             .store(uvec4(item_index, ends.z(), ends.w(), val(0)));
           let child = u.vertex_capacity + r;
-          let record: Node<Vec4<u32>> = (
+          let record = uvec4(
             t.load().bitcast::<u32>(),
             child,
             child + val(1),
             val(RECORD_INTERPOLATE),
-          )
-            .into();
+          );
           records.index(q).store(record);
           let x = (local + val(2) + val(VERTEX_WORKGROUP - 1)) / val(VERTEX_WORKGROUP);
           args.index(val(0)).atomic_max(x);
