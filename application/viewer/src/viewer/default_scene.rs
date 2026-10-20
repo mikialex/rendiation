@@ -11,8 +11,6 @@ pub fn load_default_scene(
   // return;
   // load_text3d_test(writer);
   // test_mesh_lod_graph(writer);
-  // load_parametric_surface_test(writer);
-  // load_parametric_curve_test(writer);
 
   load_transform_instanced_wide_line_test(writer, scene);
 

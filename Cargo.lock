@@ -3428,15 +3428,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "parametric-step-convert-tester"
+name = "parametric-normalization-cli"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
  "gltf-json",
+ "parametric-normalized-model",
  "rendiation-algebra",
- "rendiation-step-to-bezier",
  "serde_json",
  "spade",
+ "step-to-bezier",
+]
+
+[[package]]
+name = "parametric-normalized-model"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rmp-serde",
+ "serde",
 ]
 
 [[package]]
@@ -4698,12 +4708,10 @@ dependencies = [
 name = "rendiation-parametric-rendering"
 version = "0.1.0"
 dependencies = [
+ "parametric-normalized-model",
  "pollster",
  "rendiation-algebra",
- "rendiation-geometry",
- "rendiation-mesh-generator",
  "rendiation-shader-api",
- "rendiation-shader-derives",
  "rendiation-webgpu",
 ]
 
@@ -5089,24 +5097,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-step-reader"
-version = "0.1.0"
-dependencies = [
- "ruststep",
- "ruststep-derive",
- "serde",
-]
-
-[[package]]
-name = "rendiation-step-to-bezier"
-version = "0.1.0"
-dependencies = [
- "fast-hash-collection",
- "rendiation-algebra",
- "rendiation-step-reader",
-]
-
-[[package]]
 name = "rendiation-text-3d"
 version = "0.1.0"
 dependencies = [
@@ -5353,7 +5343,6 @@ dependencies = [
  "rendiation-mesh-generator",
  "rendiation-mesh-segmentation",
  "rendiation-mesh-simplification",
- "rendiation-parametric-rendering",
  "rendiation-scene-geometry-query",
  "rendiation-scene-gltf-exporter",
  "rendiation-scene-gltf-loader",
@@ -6083,6 +6072,25 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "step-reader"
+version = "0.1.0"
+dependencies = [
+ "ruststep",
+ "ruststep-derive",
+ "serde",
+]
+
+[[package]]
+name = "step-to-bezier"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "parametric-normalized-model",
+ "rendiation-algebra",
+ "step-reader",
+]
 
 [[package]]
 name = "storage"

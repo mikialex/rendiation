@@ -1,14 +1,16 @@
 use crate::*;
 
-fn test_curve_deg1() -> RationalBezierCurve3d<f32> {
-  RationalBezierCurve3d::from_unweighted(
-    vec![Vec3::new(-1.0, 0.0, 0.0), Vec3::new(1.0, 0.5, 0.3)],
-    1,
-  )
+fn from_unweighted(points: Vec<Vec3<f64>>, degree: usize) -> RationalBezierCurve3 {
+  assert_eq!(points.len(), degree + 1);
+  RationalBezierCurve3::from_euclid(&points, None)
 }
 
-fn test_curve_deg2() -> RationalBezierCurve3d<f32> {
-  RationalBezierCurve3d::from_unweighted(
+fn test_curve_deg1() -> RationalBezierCurve3 {
+  from_unweighted(vec![Vec3::new(-1.0, 0.0, 0.0), Vec3::new(1.0, 0.5, 0.3)], 1)
+}
+
+fn test_curve_deg2() -> RationalBezierCurve3 {
+  from_unweighted(
     vec![
       Vec3::new(-1.0, 0.0, 0.0),
       Vec3::new(0.0, 1.0, 0.8),
@@ -18,8 +20,8 @@ fn test_curve_deg2() -> RationalBezierCurve3d<f32> {
   )
 }
 
-fn test_curve_deg3() -> RationalBezierCurve3d<f32> {
-  RationalBezierCurve3d::from_unweighted(
+fn test_curve_deg3() -> RationalBezierCurve3 {
+  from_unweighted(
     vec![
       Vec3::new(-1.0, 0.0, 0.0),
       Vec3::new(-0.5, 1.0, 0.3),
@@ -30,35 +32,36 @@ fn test_curve_deg3() -> RationalBezierCurve3d<f32> {
   )
 }
 
-fn test_curve_deg5() -> RationalBezierCurve3d<f32> {
-  let points: Vec<Vec3<f32>> = (0..6)
+fn test_curve_deg5() -> RationalBezierCurve3 {
+  let points: Vec<Vec3<f64>> = (0..6)
     .map(|i| {
-      let x = i as f32 * 0.4 - 1.0;
+      let x = i as f64 * 0.4 - 1.0;
       let z = (x * 1.5).sin() * 0.8;
-      Vec3::new(x, (i % 2) as f32 * 0.6, z)
+      Vec3::new(x, (i % 2) as f64 * 0.6, z)
     })
     .collect();
-  RationalBezierCurve3d::from_unweighted(points, 5)
+  from_unweighted(points, 5)
 }
 
-fn test_curve_deg14() -> RationalBezierCurve3d<f32> {
-  let points: Vec<Vec3<f32>> = (0..15)
+fn test_curve_deg14() -> RationalBezierCurve3 {
+  let points: Vec<Vec3<f64>> = (0..15)
     .map(|i| {
-      let x = i as f32 * 0.14 - 1.0;
-      let y = ((i as f32 - 7.0) * 0.3).sin() * 0.8;
+      let x = i as f64 * 0.14 - 1.0;
+      let y = ((i as f64 - 7.0) * 0.3).sin() * 0.8;
       let z = (-(x * x) * 1.5).exp() * 0.5;
       Vec3::new(x, y, z)
     })
     .collect();
-  RationalBezierCurve3d::from_unweighted(points, 14)
+  from_unweighted(points, 14)
 }
 
-async fn run_gpu_test(curve: &RationalBezierCurve3d<f32>, sample_count: u32, eps: f32) {
+async fn run_gpu_test(curve: &RationalBezierCurve3, sample_count: u32, eps: f32) {
   let gpu = GPU::new(Default::default()).await.unwrap();
   let total_samples = sample_count as usize;
 
-  let info = create_gpu_readonly_storage(&curve.to_gpu_info(), &gpu, "info");
-  let cp = create_gpu_readonly_storage(&curve.to_gpu_control_points(), &gpu, "cp");
+  let (info, cp) = bezier_curve_to_gpu(curve).unwrap();
+  let info = create_gpu_readonly_storage(&info, &gpu, "info");
+  let cp = create_gpu_readonly_storage(&cp, &gpu, "cp");
   let output = create_gpu_read_write_storage::<[Vec4<f32>]>(
     ZeroedArrayByArrayLength(total_samples),
     &gpu,
@@ -93,7 +96,7 @@ async fn run_gpu_test(curve: &RationalBezierCurve3d<f32>, sample_count: u32, eps
       0.5
     };
 
-    let cpu_pt = curve.evaluate(t);
+    let cpu_pt = curve.eval(t as f64).into_f32();
     let gpu_p = Vec3::new(gpu_pt.x, gpu_pt.y, gpu_pt.z);
 
     assert!(

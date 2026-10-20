@@ -40,10 +40,6 @@ pub fn use_test_content_panel(cx: &mut ViewerCx) {
             w.delete_entity(p);
           }
         }
-
-        if ui.button("load parametric draw test").clicked() {
-          load_parametric_curve_test(&mut SceneWriter::from_global(), scene);
-        }
       });
   }
 }

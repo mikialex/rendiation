@@ -31,21 +31,20 @@ impl Default for GpuBezierCurveControlPoints {
   }
 }
 
-impl RationalBezierCurve3d<f32> {
-  /// Export curve metadata for GPU.
-  pub fn to_gpu_info(&self) -> GpuBezierCurveInfo {
-    GpuBezierCurveInfo {
-      degree: self.degree() as u32,
-      ..Default::default()
-    }
+/// Convert a curve for GPU upload. Returns `None` if the degree exceeds `MAX_GPU_DEGREE`.
+pub fn bezier_curve_to_gpu(
+  curve: &RationalBezierCurve3,
+) -> Option<(GpuBezierCurveInfo, GpuBezierCurveControlPoints)> {
+  if curve.control_points.is_empty() || curve.degree() > MAX_GPU_DEGREE {
+    return None;
   }
-
-  /// Export control points to a padded GPU-compatible array.
-  pub fn to_gpu_control_points(&self) -> GpuBezierCurveControlPoints {
-    let mut cp: GpuBezierCurveControlPoints = Default::default();
-    for (i, p) in self.control_points().iter().enumerate() {
-      cp.data[i] = *p;
-    }
-    cp
+  let info = GpuBezierCurveInfo {
+    degree: curve.degree() as u32,
+    ..Default::default()
+  };
+  let mut cp = GpuBezierCurveControlPoints::default();
+  for (dst, src) in cp.data.iter_mut().zip(&curve.control_points) {
+    *dst = src.into_f32();
   }
+  Some((info, cp))
 }

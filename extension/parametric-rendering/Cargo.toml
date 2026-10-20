@@ -5,11 +5,9 @@ name = "rendiation-parametric-rendering"
 version = "0.1.0"
 
 [dependencies]
+parametric-normalized-model = { path = "../parametric-data-normalization/parametric-normalized-model" }
 rendiation-algebra = { path = "../../math/algebra" }
-rendiation-geometry = { path = "../../math/geometry" }
-rendiation-mesh-generator = { path = "../../content/mesh/generator" }
 rendiation-shader-api = { path = "../../shader/api" }
-rendiation-shader-derives = { path = "../../shader/derive" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 
 [dev-dependencies]

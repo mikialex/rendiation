@@ -1,7 +1,20 @@
 use crate::*;
 
-fn test_surface_deg1x1() -> RationalBezierSurface<f32> {
-  RationalBezierSurface::from_unweighted(
+/// Unit weight surface, control points in `points[v * (u_degree + 1) + u]` order.
+fn from_unweighted(
+  points: Vec<Vec3<f64>>,
+  u_degree: usize,
+  v_degree: usize,
+) -> RationalBezierSurface {
+  let control_points = points
+    .into_iter()
+    .map(|p| Vec4::new(p.x, p.y, p.z, 1.))
+    .collect();
+  RationalBezierSurface::new(u_degree, v_degree, control_points)
+}
+
+fn test_surface_deg1x1() -> RationalBezierSurface {
+  from_unweighted(
     vec![
       Vec3::new(-1.0, -1.0, 0.0),
       Vec3::new(1.0, -1.0, 0.0),
@@ -13,8 +26,8 @@ fn test_surface_deg1x1() -> RationalBezierSurface<f32> {
   )
 }
 
-fn test_surface_deg2x2() -> RationalBezierSurface<f32> {
-  RationalBezierSurface::from_unweighted(
+fn test_surface_deg2x2() -> RationalBezierSurface {
+  from_unweighted(
     vec![
       Vec3::new(-1.0, -1.0, 0.0),
       Vec3::new(0.0, -1.0, 0.8),
@@ -31,8 +44,8 @@ fn test_surface_deg2x2() -> RationalBezierSurface<f32> {
   )
 }
 
-fn test_surface_deg1x2() -> RationalBezierSurface<f32> {
-  RationalBezierSurface::from_unweighted(
+fn test_surface_deg1x2() -> RationalBezierSurface {
+  from_unweighted(
     vec![
       Vec3::new(-1.0, -1.0, 0.0),
       Vec3::new(1.0, -1.0, 0.3),
@@ -46,13 +59,13 @@ fn test_surface_deg1x2() -> RationalBezierSurface<f32> {
   )
 }
 
-fn test_surface_deg2x3() -> RationalBezierSurface<f32> {
-  RationalBezierSurface::from_unweighted(
+fn test_surface_deg2x3() -> RationalBezierSurface {
+  from_unweighted(
     (0..4)
       .flat_map(|v| {
         (0..3).map(move |u| {
-          let x = u as f32 * 2.0 - 2.0;
-          let y = v as f32 * 1.33 - 2.0;
+          let x = u as f64 * 2.0 - 2.0;
+          let y = v as f64 * 1.33 - 2.0;
           let z = (x * 0.8).cos() * (y * 0.6).sin() * 0.7;
           Vec3::new(x, y, z)
         })
@@ -63,13 +76,13 @@ fn test_surface_deg2x3() -> RationalBezierSurface<f32> {
   )
 }
 
-fn test_surface_deg3x2() -> RationalBezierSurface<f32> {
-  RationalBezierSurface::from_unweighted(
+fn test_surface_deg3x2() -> RationalBezierSurface {
+  from_unweighted(
     (0..3)
       .flat_map(|v| {
         (0..4).map(move |u| {
-          let x = u as f32 * 1.33 - 2.0;
-          let y = v as f32 * 2.0 - 2.0;
+          let x = u as f64 * 1.33 - 2.0;
+          let y = v as f64 * 2.0 - 2.0;
           let z = (x * 0.6).sin() * (y * 0.8).cos() * 0.7;
           Vec3::new(x, y, z)
         })
@@ -80,8 +93,8 @@ fn test_surface_deg3x2() -> RationalBezierSurface<f32> {
   )
 }
 
-fn test_surface_deg3() -> RationalBezierSurface<f32> {
-  let points: Vec<Vec3<f32>> = vec![
+fn test_surface_deg3() -> RationalBezierSurface {
+  let points: Vec<Vec3<f64>> = vec![
     Vec3::new(-1.0, -1.0, 0.0),
     Vec3::new(-0.3, -1.0, 0.5),
     Vec3::new(0.3, -1.0, 0.5),
@@ -99,57 +112,58 @@ fn test_surface_deg3() -> RationalBezierSurface<f32> {
     Vec3::new(0.3, 1.0, 0.5),
     Vec3::new(1.0, 1.0, 0.0),
   ];
-  RationalBezierSurface::from_unweighted(points, 3, 3)
+  from_unweighted(points, 3, 3)
 }
 
-fn test_surface_deg5() -> RationalBezierSurface<f32> {
-  let points: Vec<Vec3<f32>> = (0..6)
+fn test_surface_deg5() -> RationalBezierSurface {
+  let points: Vec<Vec3<f64>> = (0..6)
     .flat_map(|v| {
       (0..6).map(move |u| {
-        let x = u as f32 * 0.4 - 1.0;
-        let y = v as f32 * 0.4 - 1.0;
+        let x = u as f64 * 0.4 - 1.0;
+        let y = v as f64 * 0.4 - 1.0;
         let z = (x * 1.5).sin() * (y * 1.5).cos() * 0.8;
         Vec3::new(x, y, z)
       })
     })
     .collect();
-  RationalBezierSurface::from_unweighted(points, 5, 5)
+  from_unweighted(points, 5, 5)
 }
 
-fn test_surface_deg4x4() -> RationalBezierSurface<f32> {
-  let points: Vec<Vec3<f32>> = (0..5)
+fn test_surface_deg4x4() -> RationalBezierSurface {
+  let points: Vec<Vec3<f64>> = (0..5)
     .flat_map(|v| {
       (0..5).map(move |u| {
-        let x = u as f32 * 0.5 - 1.0;
-        let y = v as f32 * 0.5 - 1.0;
+        let x = u as f64 * 0.5 - 1.0;
+        let y = v as f64 * 0.5 - 1.0;
         let z = (x * 1.2).cos() * (y * 1.2).sin() * 0.6;
         Vec3::new(x, y, z)
       })
     })
     .collect();
-  RationalBezierSurface::from_unweighted(points, 4, 4)
+  from_unweighted(points, 4, 4)
 }
 
-fn test_surface_deg14x14() -> RationalBezierSurface<f32> {
-  let points: Vec<Vec3<f32>> = (0..15)
+fn test_surface_deg14x14() -> RationalBezierSurface {
+  let points: Vec<Vec3<f64>> = (0..15)
     .flat_map(|v| {
       (0..15).map(move |u| {
-        let x = u as f32 * 0.14 - 1.0;
-        let y = v as f32 * 0.14 - 1.0;
+        let x = u as f64 * 0.14 - 1.0;
+        let y = v as f64 * 0.14 - 1.0;
         let z = (-(x * x + y * y) * 1.5).exp() * 0.8;
         Vec3::new(x, y, z)
       })
     })
     .collect();
-  RationalBezierSurface::from_unweighted(points, 14, 14)
+  from_unweighted(points, 14, 14)
 }
 
-async fn run_gpu_test(surface: &RationalBezierSurface<f32>, sample_count: u32, eps: f32) {
+async fn run_gpu_test(surface: &RationalBezierSurface, sample_count: u32, eps: f32) {
   let gpu = GPU::new(Default::default()).await.unwrap();
   let total_samples = (sample_count * sample_count) as usize;
 
-  let info = create_gpu_readonly_storage(&surface.to_gpu_info(), &gpu, "info");
-  let cp = create_gpu_readonly_storage(&surface.to_gpu_control_points(), &gpu, "cp");
+  let (info, cp) = bezier_surface_to_gpu(surface).unwrap();
+  let info = create_gpu_readonly_storage(&info, &gpu, "info");
+  let cp = create_gpu_readonly_storage(&cp, &gpu, "cp");
   let output = create_gpu_read_write_storage::<[Vec4<f32>]>(
     ZeroedArrayByArrayLength(total_samples),
     &gpu,
@@ -191,7 +205,7 @@ async fn run_gpu_test(surface: &RationalBezierSurface<f32>, sample_count: u32, e
       0.5
     };
 
-    let cpu_pt = surface.evaluate(u, v);
+    let cpu_pt = surface.eval(u as f64, v as f64).into_f32();
     let gpu_p = Vec3::new(gpu_pt.x, gpu_pt.y, gpu_pt.z);
 
     assert!(
@@ -199,8 +213,8 @@ async fn run_gpu_test(surface: &RationalBezierSurface<f32>, sample_count: u32, e
         && (cpu_pt.y - gpu_p.y).abs() < eps
         && (cpu_pt.z - gpu_p.z).abs() < eps,
       "deg({},{}) mismatch at (u={u:.3}, v={v:.3}) idx={idx}: CPU {cpu_pt:?} vs GPU {gpu_p:?}",
-      surface.u_degree(),
-      surface.v_degree(),
+      surface.degree_u,
+      surface.degree_v,
     );
   }
 }

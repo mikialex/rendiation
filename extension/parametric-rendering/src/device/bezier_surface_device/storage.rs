@@ -33,22 +33,21 @@ impl Default for GpuBezierControlPoints {
   }
 }
 
-impl RationalBezierSurface<f32> {
-  /// Export surface metadata for GPU.
-  pub fn to_gpu_info(&self) -> GpuBezierSurfaceInfo {
-    GpuBezierSurfaceInfo {
-      u_degree: self.u_degree() as u32,
-      v_degree: self.v_degree() as u32,
-      ..Default::default()
-    }
+/// Convert a surface for GPU upload. Returns `None` if a degree exceeds `MAX_GPU_DEGREE`.
+pub fn bezier_surface_to_gpu(
+  surface: &RationalBezierSurface,
+) -> Option<(GpuBezierSurfaceInfo, GpuBezierControlPoints)> {
+  if surface.degree_u > MAX_GPU_DEGREE || surface.degree_v > MAX_GPU_DEGREE {
+    return None;
   }
-
-  /// Export control points to a padded GPU-compatible array.
-  pub fn to_gpu_control_points(&self) -> GpuBezierControlPoints {
-    let mut cp: GpuBezierControlPoints = Default::default();
-    for (i, p) in self.control_points().iter().enumerate() {
-      cp.data[i] = *p;
-    }
-    cp
+  let info = GpuBezierSurfaceInfo {
+    u_degree: surface.degree_u as u32,
+    v_degree: surface.degree_v as u32,
+    ..Default::default()
+  };
+  let mut cp = GpuBezierControlPoints::default();
+  for (dst, src) in cp.data.iter_mut().zip(&surface.control_points) {
+    *dst = src.into_f32();
   }
+  Some((info, cp))
 }

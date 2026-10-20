@@ -1,0 +1,14 @@
+[package]
+authors = ["mikialex <miikiialexx@gmail.com>"]
+edition = "2024"
+name = "step-to-bezier"
+version = "0.1.0"
+
+[dependencies]
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+parametric-normalized-model = { path = "../parametric-normalized-model" }
+rendiation-algebra = { path = "../../../math/algebra" }
+step-reader = { path = "../step-reader" }
+
+[lints]
+workspace = true

@@ -251,8 +251,6 @@ pub trait ParametricSurface {
 
 Built-in surfaces: `ParametricPlane`, `UVSphere`, `RotateSweep<T>`, `FixedSweepSurface<T,P>`, `Transformed3D<T>`, `ParametricSurfaceRangeMapping<T>`.
 
-Custom implementations like `NurbsSurface<f32>` and `RationalBezierSurface<f32>` live in `rendiation_parametric_rendering`.
-
 ## Test content module pattern
 
 - Create `application/viewer/src/viewer/test_content/your_test.rs`

@@ -171,8 +171,8 @@ pub fn build_my_pipeline(gpu: &GPU, ...) -> GPUComputePipeline {
 | Ray tracing | [shader/ray-tracing/src/test.rs](shader/ray-tracing/src/test.rs) |
 | Sampling library (`#[shader_fn]`) | [shader/library/src/sampling.rs](shader/library/src/sampling.rs) |
 | Normal mapping | [shader/library/src/normal_mapping.rs](shader/library/src/normal_mapping.rs) |
-| Bezier GPU evaluation | [extension/parametric-rendering/src/bezier_surface_device/compute.rs](extension/parametric-rendering/src/bezier_surface_device/compute.rs) |
-| Full GPU unit tests | [extension/parametric-rendering/src/bezier_surface_device/tests.rs](extension/parametric-rendering/src/bezier_surface_device/tests.rs) |
+| Bezier GPU evaluation | [extension/parametric-rendering/src/device/bezier_surface_device/compute.rs](extension/parametric-rendering/src/device/bezier_surface_device/compute.rs) |
+| Full GPU unit tests | [extension/parametric-rendering/src/device/bezier_surface_device/tests.rs](extension/parametric-rendering/src/device/bezier_surface_device/tests.rs) |
 
 ## GPU Unit Testing
 
