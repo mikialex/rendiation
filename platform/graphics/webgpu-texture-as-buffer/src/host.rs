@@ -168,6 +168,12 @@ impl AbstractBuffer for TextureAsReadonlyStorageBufferWithHost {
     self.internal.read().byte_size
   }
 
+  /// the whole texture: the extent is rounded up, and the last texel holds the array length. a
+  /// resize reallocates the texture at the next flush, until then this is the old texture
+  fn resident_byte_size(&self) -> u64 {
+    self.internal.read().texture.extent().texel_count() * self.meta.texel_byte_size
+  }
+
   fn resize_gpu(
     &mut self,
     _encoder: &mut GPUCommandEncoder,

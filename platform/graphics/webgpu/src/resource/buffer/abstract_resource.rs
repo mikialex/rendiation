@@ -193,6 +193,12 @@ pub struct BufferRelocate {
 /// the clone trait implements ref clone semantic
 pub trait AbstractBuffer: DynClone + Send + Sync {
   fn byte_size(&self) -> u64;
+  /// The bytes of device memory the backing resource holds now. An implementation that rounds
+  /// its allocation up (for example a texture extent) reports the rounded size; one that
+  /// reallocates lazily reports what is allocated so far.
+  fn resident_byte_size(&self) -> u64 {
+    self.byte_size()
+  }
   /// return if resize is success
   #[must_use]
   fn resize_gpu(
@@ -245,6 +251,10 @@ impl AbstractBuffer for BoxedAbstractBuffer {
   }
   fn byte_size(&self) -> u64 {
     (**self).byte_size()
+  }
+
+  fn resident_byte_size(&self) -> u64 {
+    (**self).resident_byte_size()
   }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
@@ -728,6 +738,10 @@ where
 {
   fn byte_size(&self) -> u64 {
     self.buffer.byte_size()
+  }
+
+  fn resident_byte_size(&self) -> u64 {
+    self.buffer.resident_byte_size()
   }
 
   fn resize_gpu(
