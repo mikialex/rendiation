@@ -16,6 +16,9 @@ vertex evaluated from the original control points at exact dyadic parameters.
   `check_mesh_watertight`), and `compare_leaf_sets` compares another leaf set with the
   reference, explaining mismatches by `Tessellator::decision_margin` (the smallest relative
   margin of the threshold decisions of a key). This is how the f32 GPU version is checked.
+  Shared boundaries are only identified within one instance (face occurrence), cross face
+  edges are out of scope (their control points may coincide in f64 but not after the per face
+  origin in f32).
 - `Tessellator::leaf_meshes_by_rounds`: the vertex positions computed in the structure of the
   GPU vertex passes (forward request rounds, backward interpolation), same bits as `leaf_mesh`.
 - `camera_space_items` takes the control points relative to their face origin

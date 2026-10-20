@@ -34,7 +34,9 @@ let stats = t.last_stats(); // from an earlier frame
   arguments, no readback inside a frame. Every append is capacity checked, overflows drop the
   write and set a flag.
 - `tessellator`: `GpuTessellator`, asynchronous statistics (`GpuTessellationStats`) with buffer
-  growth after an overflow, `read_back` for tests and tools.
+  growth after an overflow, `read_back` for tests and tools. Vertex normals come from the
+  partials of the face origin relative control points mapped by the instance matrix (camera
+  space f32 loses the precision of small patches far away), at poles slightly inside the leaf.
 - `output`: `TessellationFrameOutput`, the interface to the draw side (vertex pool, leaf
   records, per `k` bucket leaf lists and `draw_indirect` arguments).
 
