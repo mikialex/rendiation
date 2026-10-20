@@ -252,7 +252,7 @@ impl GpuTessellationStats {
     let triangles = leaves_per_k
       .iter()
       .enumerate()
-      .map(|(b, &n)| 2 * (n as u64) << (2 * b))
+      .map(|(b, &n)| (2 * n as u64) << (2 * b))
       .sum();
     let mut work_items = range(COUNTER_WORK_ITEMS, frame.levels);
     while work_items.last() == Some(&0) {

@@ -835,7 +835,7 @@ impl TessPass for FinalizePass {
       .construct();
       draw_args.index(val(b)).store(args);
       atomic(&counters, COUNTER_VERTEX_PREFIX + b).atomic_store(total);
-      total = total + count * val((k + 1) * (k + 1));
+      total += count * val((k + 1) * (k + 1));
     }
     atomic(&counters, COUNTER_VERTEX_PREFIX + K_BUCKET_COUNT as u32).atomic_store(total);
     vertex_args

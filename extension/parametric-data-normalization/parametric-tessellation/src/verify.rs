@@ -65,7 +65,7 @@ pub fn measure_mesh_error(
   report
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct WatertightReport {
   /// Iso lines with leaf edges from exactly two sides.
   pub shared_lines: usize,
@@ -86,13 +86,42 @@ pub struct WatertightReport {
   pub max_t_junction_relative: f64,
   /// Vertices of one side not covered by an edge of the other side.
   pub uncovered_vertices: usize,
+  /// The first few mismatched vertices, for debugging.
+  pub mismatches: Vec<VertexMismatch>,
+}
+
+/// Two leaf vertices at the same point of a line with different positions: `(item, u, v)` of
+/// both and their positions.
+#[derive(Debug, Clone, Copy)]
+pub struct VertexMismatch {
+  pub a: (u32, u32, u32),
+  pub b: (u32, u32, u32),
+  pub positions: [Vec3<f64>; 2],
+}
+
+/// A leaf vertex on a line: canonical parameter, position, `(item, u, v)`.
+type LineVertex = (u32, Vec3<f64>, (u32, u32, u32));
+
+impl WatertightReport {
+  fn mismatch(&mut self, a: &LineVertex, b: &LineVertex) {
+    self.mismatched_vertices += 1;
+    if self.mismatches.len() < 16 {
+      self.mismatches.push(VertexMismatch {
+        a: a.2,
+        b: b.2,
+        positions: [a.1, b.1],
+      });
+    }
+  }
 }
 
 #[derive(PartialEq, Eq, Hash)]
 enum GlobalLine {
-  /// Identified by the canonical boundary curve control point bits, so patches sharing the
-  /// boundary meet here.
-  Boundary(Vec<[u64; 4]>),
+  /// Identified by the instance (one face occurrence) and the canonical boundary curve control
+  /// point bits, so patches of a face sharing the boundary meet here. Different faces are out
+  /// of scope: their boundary control points can coincide in f64 while the per face origin
+  /// makes them differ in the f32 GPU version.
+  Boundary(u32, Vec<[u64; 4]>),
   Interior {
     item: u32,
     line: LineKey,
@@ -101,8 +130,7 @@ enum GlobalLine {
 
 #[derive(Default)]
 struct LineSide {
-  /// (canonical parameter, position) of every vertex.
-  vertices: Vec<(u32, Vec3<f64>)>,
+  vertices: Vec<LineVertex>,
   /// Consecutive vertex pairs of the leaf edges, ordered by parameter.
   edges: Vec<((u32, Vec3<f64>), (u32, Vec3<f64>))>,
 }
@@ -145,7 +173,8 @@ pub fn check_mesh_watertight(
           .map(|p| [p.x, p.y, p.z, p.w].map(f64::to_bits))
           .collect();
         let side = item as u64 * 2 + (line.coord == PARAM_ONE) as u64;
-        (GlobalLine::Boundary(bits), side)
+        let instance = t.items()[item as usize].instance;
+        (GlobalLine::Boundary(instance, bits), side)
       } else {
         // Leaves on the lower coordinate side have this line as their end edge.
         (GlobalLine::Interior { item, line }, edge as u64 % 2)
@@ -160,12 +189,19 @@ pub fn check_mesh_watertight(
       };
       let mut points: Vec<_> = indices
         .iter()
-        .map(|&i| (along(i), mesh.positions[i]))
+        .map(|&i| {
+          let (u, v) = mesh.params[i];
+          (along(i), mesh.positions[i], (item, u, v))
+        })
         .collect();
       points.sort_by_key(|p| p.0);
       let entry = lines.entry(global).or_default().entry(side).or_default();
       entry.vertices.extend(points.iter().copied());
-      entry.edges.extend(points.windows(2).map(|w| (w[0], w[1])));
+      entry.edges.extend(
+        points
+          .windows(2)
+          .map(|w| ((w[0].0, w[0].1), (w[1].0, w[1].1))),
+      );
     }
   }
 
@@ -177,7 +213,7 @@ pub fn check_mesh_watertight(
       side.vertices.dedup_by(|a, b| {
         a.0 == b.0 && {
           if !bitwise_eq(a.1, b.1) {
-            report.mismatched_vertices += 1;
+            report.mismatch(a, b);
           }
           true
         }
@@ -190,13 +226,14 @@ pub fn check_mesh_watertight(
         report.shared_lines += 1;
         let sides: Vec<_> = sides.values().collect();
         for (a, b) in [(sides[0], sides[1]), (sides[1], sides[0])] {
-          for &(p, position) in &a.vertices {
+          for vertex in &a.vertices {
+            let &(p, position, _) = vertex;
             if let Ok(i) = b.vertices.binary_search_by_key(&p, |v| v.0) {
               // Counted once, from the first side.
               if std::ptr::eq(a, sides[0]) {
                 report.shared_vertices += 1;
                 if !bitwise_eq(position, b.vertices[i].1) {
-                  report.mismatched_vertices += 1;
+                  report.mismatch(vertex, &b.vertices[i]);
                 }
               }
               continue;
