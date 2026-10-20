@@ -279,6 +279,31 @@ GPU 计算与绘制之间的接口是每帧的输出 buffer（`TessellationFrame
   只画未裁剪 patch 的开关；统计（叶子、三角形、每层工作项、溢出）。
 - 生产者可切换：GPU 计算 / CPU 参考（CPU 参考在相机变化时重算并上传，用于对照和兜底）。
 
+#### 阶段 2 进展
+
+已接入 viewer，生产者目前只有 CPU 参考：
+
+- 加载：拖放 `.pnm`、"Parametric Model" 窗口的 load 按钮（文件对话框）、`load-pnm [path]` 命令，
+  启动时自动加载用环境变量 `RENDIATION_VIEWER_PNM=/path/x.pnm`（或 app 配置 `auto_load_pnm`）。
+  解析在 worker 线程，一次一个模型，加载后相机自动对准模型（按钮或 P 键重新对准）。
+- 绘制组件（M5）：`src/tessellation/draw.rs`，每个 k 桶一次 `draw_indirect`，桶号编进管线（5 条管线），
+  不剔除背面（三角形绕向跟随参数域，不跟随面朝向），头灯 lambert 取绝对值双面着色。着色模式：灰、
+  按 k、按叶子、按 patch；带裁剪的 patch 默认调淡，可切换为正常或隐藏（隐藏在 vertex shader 里把
+  顶点移出裁剪空间）。
+- viewer 侧（`application/viewer-content/src/rendering/parametric.rs`）：在主场景 pass 之后、MSAA
+  resolve 之前单独一个 pass，用同一组 color / depth 附件（MSAA、reverse z 与场景一致），加上 TAA
+  抖动。不写 entity id 和 g-buffer 法线，所以不参与拾取、描边和 SSAO；在透明物体之后绘制。
+- 输出在生产时相机的相机空间，绘制时用 `当前 view · 生产时 view⁻¹`（f64 合成）映射到当前视图，
+  所以生产者落后于相机时位置仍然正确，只是细分等级不匹配。多个视口共用第一个视口的细分结果。
+- 生产者抽象 `TessellationProducer`，`create_tessellation_producer` 的 `Gpu` 分支是 GPU 细分的接入点
+  （文档注释里有适配器草稿）。CPU 参考在请求（相机、配置、过滤）变化且没有任务在跑时开一个线程，
+  同时最多一个任务，期间继续画上一次的结果。冻结细分后可以从别的角度检查细分结果。
+- 正交相机不更新细分（只画上一次的结果）。模型单位不换算，可用 model scale 缩放。
+
+steam-controller（debug 构建，对准后 1600×1200）：17486 叶子、71.4 万三角形，细分约 0.55 s、构建
+输出约 1.6～2.2 s（release 下细分约 20～30 ms）。离屏测试 `application/viewer-content/tests/parametric_offscreen.rs`
+覆盖 MSAA / TAA / 隐藏裁剪 patch 三种情况。
+
 ### 后续阶段
 
 - trim：fragment 级裁剪。

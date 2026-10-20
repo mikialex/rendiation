@@ -61,6 +61,11 @@ impl ViewerParametricRendering {
     self.producer.as_ref()?.1.stats()
   }
 
+  /// A tessellation is running asynchronously, the drawn output is older.
+  pub fn is_busy(&self) -> bool {
+    self.producer.as_ref().is_some_and(|(_, p)| p.is_busy())
+  }
+
   /// Update the producer for the camera of the primary view and return what to draw this frame.
   pub fn prepare_frame(
     &mut self,
@@ -188,6 +193,9 @@ impl ViewerParametricRendering {
     );
 
     ui.separator();
+    if self.is_busy() {
+      ui.label("tessellating...");
+    }
     if let Some(stats) = self.stats() {
       stats.egui(ui);
     } else {
@@ -337,7 +345,8 @@ pub struct TessellationRequest {
 }
 
 impl TessellationRequest {
-  fn same_as(&self, other: &Self) -> bool {
+  /// Bitwise equal camera and config.
+  pub fn same_as(&self, other: &Self) -> bool {
     let (a, b) = (&self.camera, &other.camera);
     let (c, d) = (&self.config, &other.config);
     a.view == b.view
@@ -369,6 +378,11 @@ pub trait TessellationProducer {
   ) -> Option<(&TessellationFrameOutput, Mat4<f64>)>;
 
   fn stats(&self) -> Option<&ParametricTessellationStats>;
+
+  /// Work is running asynchronously, see `produce`.
+  fn is_busy(&self) -> bool {
+    false
+  }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -396,40 +410,49 @@ impl TessellationProducerKind {
 
 /// The plug in spot of the producers.
 ///
-/// The GPU tessellator goes into the `Gpu` arm, a sketch of the adapter (the GPU work is
-/// encoded into the frame encoder before the scene passes, so the output is ready for the draw):
+/// The GPU tessellator goes into the `Gpu` arm (and `TessellationProducerKind::is_available`),
+/// the adapter is about this (the work is encoded into the frame encoder before the scene passes
+/// that draw the output; the output is a set of reference counted buffer views, so keeping a
+/// clone of it is cheap):
 ///
 /// ```ignore
 /// struct GpuTessellationProducer {
 ///   tessellator: GpuTessellator,
-///   view: Mat4<f64>,
+///   last: Option<(TessellationFrameOutput, Mat4<f64>)>,
 ///   stats: Option<ParametricTessellationStats>,
 /// }
 ///
 /// impl TessellationProducer for GpuTessellationProducer {
-///   fn produce(&mut self, gpu, encoder, request, _waker) -> Option<(&TessellationFrameOutput, Mat4<f64>)> {
+///   fn produce(
+///     &mut self,
+///     gpu: &GPU,
+///     encoder: &mut GPUCommandEncoder,
+///     request: Option<&TessellationRequest>,
+///     _waker: &Waker,
+///   ) -> Option<(&TessellationFrameOutput, Mat4<f64>)> {
+///     // a frozen request keeps the buffers of the last encoded frame
 ///     if let Some(request) = request {
 ///       self.tessellator.set_config(request.config);
 ///       self.tessellator.set_untrimmed_only(request.untrimmed_only);
-///       self.view = request.camera.view;
-///       // map `last_stats()` (read back asynchronously) into `self.stats` here
-///       return Some((self.tessellator.encode_frame(gpu, encoder, &request.camera), self.view));
+///       let output = self.tessellator.encode_frame(gpu, encoder, &request.camera);
+///       self.last = Some((output.clone(), request.camera.view));
+///       // convert `self.tessellator.last_stats()` into `self.stats`
 ///     }
-///     // frozen: draw the last output without encoding
-///     ...
+///     self.last.as_ref().map(|(output, view)| (output, *view))
+///   }
+///
+///   fn stats(&self) -> Option<&ParametricTessellationStats> {
+///     self.stats.as_ref()
 ///   }
 /// }
 ///
-/// // in the match below:
+/// // the match arm
 /// TessellationProducerKind::Gpu => Some(Box::new(GpuTessellationProducer {
 ///   tessellator: GpuTessellator::new(gpu, model, TessellationConfig::default()),
-///   ..
+///   last: None,
+///   stats: None,
 /// })),
 /// ```
-///
-/// `GpuTessellator::encode_frame` returns a borrow of the tessellator, so a frozen producer needs
-/// a way to get the last output without encoding (or a clone of it, the output is a set of
-/// reference counted buffer views).
 pub fn create_tessellation_producer(
   kind: TessellationProducerKind,
   _gpu: &GPU,
@@ -439,6 +462,7 @@ pub fn create_tessellation_producer(
     TessellationProducerKind::CpuReference => Some(Box::new(
       CpuReferenceTessellationProducer::new(model.clone()),
     )),
+    // GPU tessellator plug in spot, see above
     TessellationProducerKind::Gpu => None,
   }
 }
@@ -570,6 +594,10 @@ impl TessellationProducer for CpuReferenceTessellationProducer {
 
   fn stats(&self) -> Option<&ParametricTessellationStats> {
     self.stats.as_ref()
+  }
+
+  fn is_busy(&self) -> bool {
+    self.job.is_some()
   }
 }
 

@@ -8,7 +8,7 @@ description: >
   and shader-edsl-binding-and-typed-container for resource binding.
 metadata:
   version: "1.0"
-  updated: "2026-08-29"
+  updated: "2026-10-21"
 ---
 
 Rendiation graphics pipeline reference. For the core language see `shader-edsl-core`. For resource binding see `shader-edsl-binding-and-typed-container`. For compute pipelines see `shader-edsl-compute`.
@@ -402,6 +402,13 @@ pipeline builder takes a `MeshShaderLogic` (a full sample is the test implementa
 
 - Vertex outputs auto-sync to Fragment inputs (same `both!` semantic)
 - Use `builder.query_or_interpolate_by::<FragType, VertType>()` to declare the dependency
+
+### Primitive state
+
+- The default primitive state culls back faces (`cull_mode: Some(Face::Back)`, counter clockwise
+  front). For two sided or arbitrarily wound geometry set
+  `builder.primitive_state().cull_mode = None` in the vertex stage (the scene materials set it from
+  `RasterizationStates` by `apply_pipeline_vertex_builder`).
 
 ### Fragment side effects and depth test
 
