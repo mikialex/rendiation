@@ -20,3 +20,6 @@ mod tests_lib;
 
 #[cfg(test)]
 mod tests_frame;
+
+#[cfg(test)]
+mod tests_draw;

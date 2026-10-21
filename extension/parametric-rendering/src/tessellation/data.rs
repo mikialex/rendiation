@@ -117,8 +117,8 @@ impl TessCapacity {
     .clamped(item_count)
   }
 
-  /// Within `max_binding` bytes per buffer (the sub patches, vertices and the request
-  /// records are the largest).
+  /// Within `max_binding` bytes per buffer (the sub patches, vertices, the request records and
+  /// the bucket leaf lists are the largest).
   pub fn limited(self, max_binding: u64, sub_patch_stride: u32) -> Self {
     let elements =
       |bytes_per_element: u64| (max_binding / bytes_per_element).min(u32::MAX as u64) as u32;
@@ -127,9 +127,13 @@ impl TessCapacity {
       .vertices
       .min(elements(size_of::<TessVertex>() as u64))
       .min(records / 2);
+    let leaves = self
+      .leaves
+      .min(elements(size_of::<TessLeafDraw>() as u64))
+      .min(elements(4 * BUCKET_COUNT as u64));
     Self {
       queue: self.queue.min(elements(16 * sub_patch_stride as u64)) & !3,
-      leaves: self.leaves,
+      leaves,
       vertices,
       requests: self.requests.min(records - vertices) & !1,
     }

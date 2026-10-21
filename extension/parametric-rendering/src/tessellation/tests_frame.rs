@@ -170,11 +170,23 @@ fn assert_frame(c: &FrameComparison, config: &TessellationConfig, frame: &GpuFra
   assert!(c.max_position_offset < 1e-2, "{c:#?}");
   assert!(c.max_normal_deviation < 1e-3, "{c:#?}");
   assert_eq!(c.bad_normals, 0, "{c:#?}");
+  assert_eq!(frame.draw_args.len(), BUCKET_COUNT);
   for (b, args) in frame.draw_args.iter().enumerate() {
-    let k = 1u32 << b;
+    let b = b as u32;
+    let k = bucket_k(b);
+    let in_bucket = frame
+      .leaves
+      .iter()
+      .filter(|l| l.k == k && ((l.flags & LEAF_FLAG_TRIMMED) != 0) == bucket_is_trimmed(b))
+      .count();
     assert_eq!(args.vertex_count, 6 * k * k);
-    assert_eq!(args.instance_count, frame.stats.leaves_per_k[b]);
+    assert_eq!(args.instance_count as usize, in_bucket);
   }
+  let trimmed = frame
+    .leaves
+    .iter()
+    .filter(|l| l.flags & LEAF_FLAG_TRIMMED != 0);
+  assert_eq!(frame.stats.trimmed_leaves as usize, trimmed.count());
 }
 
 #[pollster::test]

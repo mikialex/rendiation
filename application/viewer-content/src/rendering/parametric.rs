@@ -147,7 +147,7 @@ impl ViewerParametricRendering {
     );
     let mut k_max_log2 = t.k_max.trailing_zeros();
     ui.add(
-      egui::Slider::new(&mut k_max_log2, 0..=(K_BUCKET_COUNT as u32 - 1))
+      egui::Slider::new(&mut k_max_log2, 0..=(K_RESOLUTION_COUNT as u32 - 1))
         .custom_formatter(|v, _| format!("{}", 1u32 << v as u32))
         .text("k max"),
     );
@@ -163,6 +163,7 @@ impl ViewerParametricRendering {
           TessellationColorMode::ByK,
           TessellationColorMode::ByLeaf,
           TessellationColorMode::ByPatch,
+          TessellationColorMode::Parameter,
         ] {
           ui.selectable_value(&mut s.draw.color_mode, mode, format!("{mode:?}"));
         }
@@ -174,12 +175,16 @@ impl ViewerParametricRendering {
           TrimmedPatchStyle::Normal,
           TrimmedPatchStyle::WashedOut,
           TrimmedPatchStyle::Hidden,
+          TrimmedPatchStyle::Trimmed,
         ] {
           ui.selectable_value(&mut s.draw.trimmed_style, style, format!("{style:?}"));
         }
       })
       .response
-      .on_hover_text("the tessellation ignores trimming, trimmed patches cover their whole cell");
+      .on_hover_text(
+        "the tessellation ignores trimming, trimmed patches cover their whole cell; Trimmed uses \
+         the trimming pipeline, which does not trim yet (drawn like Normal)",
+      );
     let mut color: [f32; 3] = s.draw.base_color.into();
     ui.horizontal(|ui| {
       ui.label("gray mode color");
@@ -272,7 +277,7 @@ impl ParametricRenderSettings {
   }
 }
 
-/// `TessellationConfig` with equality, `k_max` is at most `1 << (K_BUCKET_COUNT - 1)`.
+/// `TessellationConfig` with equality, `k_max` is at most `1 << (K_RESOLUTION_COUNT - 1)`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TessellationParams {
   pub pixel_error: f64,
@@ -289,7 +294,7 @@ impl Default for TessellationParams {
       pixel_error: c.pixel_error,
       edge_error_share: c.edge_error_share,
       max_triangle_size: c.max_triangle_size,
-      k_max: c.k_max.min(1 << (K_BUCKET_COUNT - 1)),
+      k_max: c.k_max.min(1 << (K_RESOLUTION_COUNT - 1)),
       max_level: c.max_level,
     }
   }
@@ -299,7 +304,7 @@ impl TessellationParams {
   pub fn config(&self) -> TessellationConfig {
     let k_max = self
       .k_max
-      .clamp(1, 1 << (K_BUCKET_COUNT - 1))
+      .clamp(1, 1 << (K_RESOLUTION_COUNT - 1))
       .next_power_of_two();
     TessellationConfig {
       pixel_error: self.pixel_error,
@@ -731,10 +736,12 @@ pub struct ParametricModelSceneContent<'a> {
 impl PassContent for ParametricModelSceneContent<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     let base = default_dispatcher(pass, self.reversed_depth);
+    // the trim fragment of the `Trimmed` style is connected in plan-trim T2
     render_tessellation_output(
       &mut pass.ctx,
       &self.frame.output,
       self.uniform,
+      None,
       &[&base, self.camera],
       &[&ApplyCameraJitter],
     );
