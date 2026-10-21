@@ -69,6 +69,24 @@ async fn render_float(
   let target = FloatTarget {
     format: TextureFormat::Rgba32Float,
     counting: false,
+    depth: false,
+  };
+  let raw = render_target(gpu, camera, output, trim, &target).await;
+  cast_slice(&raw).to_vec()
+}
+
+/// With depth test: `(shade, 0, 0, depth)` of the nearest fragment, depth `near / -z` (zero
+/// for the background).
+async fn render_depth(
+  gpu: &GPU,
+  camera: &Camera,
+  output: &TessellationFrameOutput,
+  trim: &dyn TessellationTrimFragment,
+) -> Vec<Vec4<f32>> {
+  let target = FloatTarget {
+    format: TextureFormat::Rgba32Float,
+    counting: false,
+    depth: true,
   };
   let raw = render_target(gpu, camera, output, trim, &target).await;
   cast_slice(&raw).to_vec()
@@ -85,6 +103,7 @@ async fn render_fragment_counts(
   let target = FloatTarget {
     format: TextureFormat::Rgba16Float,
     counting: true,
+    depth: false,
   };
   let raw = render_target(gpu, camera, output, trim, &target).await;
   let half: &[u16] = cast_slice(&raw);
@@ -136,7 +155,13 @@ async fn render_target(
   let uniform = create_uniform(uniform, &gpu.device, "test draw uniform");
 
   let mut encoder = gpu.create_encoder();
-  let desc = pass("parameter test").with_color(&target.clone().into(), clear_and_store(all_zero()));
+  let mut desc =
+    pass("parameter test").with_color(&target.clone().into(), clear_and_store(all_zero()));
+  if float_target.depth {
+    let usage = TextureUsages::RENDER_ATTACHMENT;
+    let depth = create_empty_2d_texture_view(gpu, size, usage, TextureFormat::Depth32Float);
+    desc = desc.with_depth(&depth.into(), clear_and_store(0.), None);
+  }
   let pass = encoder.begin_render_pass(&desc, None);
   let mut ctx = GPURenderPassCtx::new(pass, gpu.clone());
   render_tessellation_output(&mut ctx, output, &uniform, Some(trim), &[float_target], &[]);
@@ -157,16 +182,19 @@ async fn render_target(
 
 /// Declares the single float target and writes `DefaultDisplay` to it. `counting` blends
 /// additively and writes `(0, 1, 0, 0)` for the displays with alpha 1 (the untrimmed buckets),
-/// `(1, 0, 0, 0)` for the others.
+/// `(1, 0, 0, 0)` for the others. `depth` tests and writes a `Depth32Float` attachment (nearest
+/// is greater) and writes `(display.x, 0, 0, depth)`.
 struct FloatTarget {
   format: TextureFormat,
   counting: bool,
+  depth: bool,
 }
 impl ShaderHashProvider for FloatTarget {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(self.format);
     hasher.hash(self.counting);
+    hasher.hash(self.depth);
   }
 }
 impl ShaderPassBuilder for FloatTarget {}
@@ -186,6 +214,15 @@ impl GraphicsShaderProvider for FloatTarget {
         });
       }
       builder.define_out_by(target);
+      if self.depth {
+        builder.depth_stencil = Some(DepthStencilState {
+          format: TextureFormat::Depth32Float,
+          depth_write_enabled: Some(true),
+          depth_compare: Some(CompareFunction::Greater),
+          stencil: Default::default(),
+          bias: Default::default(),
+        });
+      }
     });
   }
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
@@ -197,6 +234,9 @@ impl GraphicsShaderProvider for FloatTarget {
           val(Vec4::new(0., 1., 0., 0.)),
           val(Vec4::new(1., 0., 0., 0.)),
         )
+      } else if self.depth {
+        let depth = builder.query::<FragmentPosition>().z();
+        (display.x(), val(0.), val(0.), depth).into()
       } else {
         display
       };
@@ -263,7 +303,8 @@ async fn trim_fragment_matches_cpu() {
   assert_eq!(frame.stats.overflow, 0);
 
   let windings = render_float(&gpu, &camera, t.output(), &WindingOutput(trims.clone())).await;
-  let trimmed = render_float(&gpu, &camera, t.output(), &TrimFragment { data: trims }).await;
+  let trim = TrimFragment::new(&gpu.device, trims, 0.);
+  let trimmed = render_float(&gpu, &camera, t.output(), &trim).await;
 
   let references: Vec<_> = model
     .patches
@@ -312,6 +353,55 @@ async fn trim_fragment_matches_cpu() {
   );
   assert!(fragments > 20000 && inside > fragments / 4 && inside < fragments * 9 / 10);
   assert_eq!(kernel_mismatched, 0);
+}
+
+/// The dilated trimming keeps every fragment inside the trim loops and only the fragments
+/// outside within the dilation (plus a pixel for the pixel center and the distance estimate).
+#[pollster::test]
+async fn trim_dilation_keeps_near_fragments() {
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let model = trim_grid_model();
+  let camera = Camera {
+    view: Mat4::identity(),
+    focal_length: 500.,
+    viewport: Vec2::new(800., 600.),
+    near: 0.1,
+  };
+  let encoding = encode_trims(&model, &trim_config(), &BandGrid::DEFAULT);
+  let trims = TrimDeviceData::new(&gpu.device, &encoding);
+  let dilation = 2.5;
+  let mut t = GpuTessellator::with_trims(&gpu, &model, trims.clone(), Default::default());
+  t.set_trim_dilation(dilation);
+  let mut encoder = gpu.create_encoder();
+  t.encode_frame(&gpu, &mut encoder, &camera);
+  gpu.submit_encoder(encoder);
+  assert_eq!(t.read_back(&gpu).await.stats.overflow, 0);
+
+  let windings = render_float(&gpu, &camera, t.output(), &WindingOutput(trims.clone())).await;
+  let trim = TrimFragment::new(&gpu.device, trims.clone(), 0.);
+  let exact = render_float(&gpu, &camera, t.output(), &trim).await;
+  trim.set_dilation(&gpu.queue, dilation);
+  let dilated = render_float(&gpu, &camera, t.output(), &trim).await;
+
+  let (width, height) = (camera.viewport.x as usize, camera.viewport.y as usize);
+  let inside: Vec<_> = windings.iter().map(|p| p.z >= 2. && p.w != 0.).collect();
+  let reach = dilation.ceil() as usize + 1;
+  let (mut added, mut lost) = (0, 0);
+  for index in 0..windings.len() {
+    let (kept_exact, kept_dilated) = (exact[index].w != 0., dilated[index].w != 0.);
+    lost += (kept_exact && !kept_dilated) as usize;
+    if kept_dilated && !kept_exact {
+      added += 1;
+      let (x, y) = (index % width, index / width);
+      let near_inside = (y.saturating_sub(reach)..(y + reach + 1).min(height)).any(|ny| {
+        (x.saturating_sub(reach)..(x + reach + 1).min(width)).any(|nx| inside[ny * width + nx])
+      });
+      assert!(near_inside, "pixel ({x}, {y}) kept far from the trim");
+    }
+  }
+  println!("dilation {dilation} px: {added} fragments added, {lost} lost");
+  assert!(added > 1000);
+  assert_eq!(lost, 0);
 }
 
 /// Writes `(u, v, patch + 2, winding)` without discarding.
@@ -404,9 +494,7 @@ async fn steam_trim_fragments() {
           .fold((0., 0.), |(a, b), c| (a + c.x as f64, b + c.y as f64))
       };
       let all = render_fragment_counts(&gpu, &camera, t.output(), &CountTrimmed(None)).await;
-      let kept = CountTrimmed(Some(TrimFragment {
-        data: trims.clone(),
-      }));
+      let kept = CountTrimmed(Some(TrimFragment::new(&gpu.device, trims.clone(), 0.)));
       let kept = render_fragment_counts(&gpu, &camera, t.output(), &kept).await;
       let ((trimmed, untrimmed), (kept, _)) = (sum(&all), sum(&kept));
       println!(
@@ -418,6 +506,156 @@ async fn steam_trim_fragments() {
         trimmed + untrimmed,
         trimmed / (trimmed + untrimmed) * 100.,
         kept / trimmed * 100.,
+      );
+    }
+  }
+}
+
+/// One or two pixel wide gaps: a pixel farther (by more than 2%, or the background) than both
+/// pixels at distance 1 or 2 on a row or a column, with every pixel between them as far.
+fn gap_pixels(depth: &[Vec4<f32>], width: usize, height: usize) -> Vec<bool> {
+  let d = |x: usize, y: usize| depth[y * width + x].w;
+  let mut gaps = vec![false; depth.len()];
+  for y in 2..height - 2 {
+    for x in 2..width - 2 {
+      let here = d(x, y);
+      let nearer = |n: f32| n > 0. && n > here * 1.02;
+      for r in 1..=2 {
+        for (dx, dy) in [(1, 0), (0, 1)] {
+          let a = d(x - dx * r, y - dy * r);
+          let b = d(x + dx * r, y + dy * r);
+          let between_far = (1..r).all(|i| !nearer(d(x - dx * i, y - dy * i)))
+            && (1..r).all(|i| !nearer(d(x + dx * i, y + dy * i)));
+          if nearer(a) && nearer(b) && between_far {
+            gaps[y * width + x] = true;
+          }
+        }
+      }
+    }
+  }
+  gaps
+}
+
+/// Writes the `size`² crop around `(cx, cy)`, magnified 4 times: gray shading, blue background,
+/// red `marks`.
+fn write_crop(
+  path: &std::path::Path,
+  depth: &[Vec4<f32>],
+  marks: &[bool],
+  width: usize,
+  (cx, cy): (usize, usize),
+  size: usize,
+) {
+  let height = depth.len() / width;
+  let (x0, y0) = (
+    cx.saturating_sub(size / 2).min(width - size),
+    cy.saturating_sub(size / 2).min(height - size),
+  );
+  let image = image::RgbImage::from_fn(size as u32 * 4, size as u32 * 4, |x, y| {
+    let index = (y0 + y as usize / 4) * width + x0 + x as usize / 4;
+    let p = depth[index];
+    if marks[index] {
+      image::Rgb([255, 0, 0])
+    } else if p.w > 0. {
+      let g = (p.x.clamp(0., 1.) * 255.) as u8;
+      image::Rgb([g, g, g])
+    } else {
+      image::Rgb([20, 30, 80])
+    }
+  });
+  image.save(path).unwrap();
+}
+
+/// Cracks between neighbor faces on the steam controller model (skipped when the file is
+/// missing) for several trim dilations: gap pixels, coverage growth, and with
+/// `RENDIATION_TEST_OUTPUT_DIR` crops around the gaps: `cargo test --release -p
+/// rendiation-parametric-rendering steam_trim_cracks -- --ignored --nocapture`.
+#[pollster::test]
+#[ignore]
+async fn steam_trim_cracks() {
+  let Ok(model) = ParametricNormalizedModel::load_pnm(super::tests_frame::STEAM_MODEL) else {
+    println!("steam model not found, skipped");
+    return;
+  };
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let trims = TrimDeviceData::new(&gpu.device, &encode_model_trims(&model));
+  let output_dir = std::env::var("RENDIATION_TEST_OUTPUT_DIR").ok();
+  let dilations = [0., 0.5, 1., 1.5, 2.];
+  for zoom in [1., 4., 20.] {
+    let camera = fit_camera(&model, zoom);
+    let (width, height) = (camera.viewport.x as usize, camera.viewport.y as usize);
+    let mut images = Vec::new();
+    for dilation in dilations {
+      let mut t = GpuTessellator::with_trims(&gpu, &model, trims.clone(), Default::default());
+      t.set_trim_dilation(dilation);
+      for _ in 0..8 {
+        let mut encoder = gpu.create_encoder();
+        t.encode_frame(&gpu, &mut encoder, &camera);
+        gpu.submit_encoder(encoder);
+        let frame = t.read_back(&gpu).await;
+        gpu.poll(true);
+        if frame.stats.overflow == 0 {
+          break;
+        }
+      }
+      let trim = TrimFragment::new(&gpu.device, trims.clone(), dilation);
+      images.push(render_depth(&gpu, &camera, t.output(), &trim).await);
+    }
+    let gaps: Vec<_> = images
+      .iter()
+      .map(|image| gap_pixels(image, width, height))
+      .collect();
+    let covered = |image: &[Vec4<f32>]| image.iter().filter(|p| p.w > 0.).count();
+    let base = &images[0];
+    for (i, dilation) in dilations.iter().enumerate() {
+      let image = &images[i];
+      // visible pixels already covered without dilation but showing another depth now
+      let changed = image
+        .iter()
+        .zip(base)
+        .filter(|(a, b)| b.w > 0. && (a.w - b.w).abs() > b.w * 1e-3)
+        .count();
+      let shade_changed = image
+        .iter()
+        .zip(base)
+        .filter(|(a, b)| b.w > 0. && (a.w - b.w).abs() <= b.w * 1e-3 && (a.x - b.x).abs() > 0.05)
+        .count();
+      println!(
+        "fit:{zoom} dilation {dilation}: {} gap pixels, {} covered ({:+}), {changed} covered \
+         pixels changed depth, {shade_changed} changed shade at the same depth",
+        gaps[i].iter().filter(|&&g| g).count(),
+        covered(image),
+        covered(image) as i64 - covered(base) as i64,
+      );
+    }
+    if let Some(dir) = &output_dir {
+      // crops around the first gaps fixed by the dilation of 1 px
+      let fixed: Vec<_> = (0..base.len())
+        .filter(|&i| gaps[0][i] && !gaps[2][i])
+        .collect();
+      let mut centers: Vec<(usize, usize)> = Vec::new();
+      for &i in &fixed {
+        let c = (i % width, i / width);
+        if centers
+          .iter()
+          .all(|p| p.0.abs_diff(c.0) + p.1.abs_diff(c.1) > 100)
+        {
+          centers.push(c);
+        }
+        if centers.len() == 4 {
+          break;
+        }
+      }
+      for (n, &center) in centers.iter().enumerate() {
+        for (i, dilation) in [(0, 0.), (2, 1.)] {
+          let name = format!("crack_fit{zoom}_{n}_dilation{dilation}.png");
+          let path = std::path::Path::new(dir).join(name);
+          write_crop(&path, &images[i], &gaps[i], width, center, 48);
+        }
+      }
+      println!(
+        "fit:{zoom}: {} gap pixels fixed by 1 px, crops at {centers:?}",
+        fixed.len()
       );
     }
   }

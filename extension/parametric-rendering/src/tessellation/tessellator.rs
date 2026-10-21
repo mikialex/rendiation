@@ -33,6 +33,7 @@ pub struct GpuTessellator {
   /// The trim loops of the model, for the leaf classification and the trimming draw.
   trims: TrimDeviceData,
   classify_trims: bool,
+  trim_dilation: f32,
 }
 
 impl GpuTessellator {
@@ -73,7 +74,14 @@ impl GpuTessellator {
       grown: false,
       trims,
       classify_trims: true,
+      trim_dilation: 0.,
     }
+  }
+
+  /// The pixels of the fragment trim dilation (`TrimFragment::set_dilation`), the trim
+  /// classification keeps the sub patches within that distance of the trim loops.
+  pub fn set_trim_dilation(&mut self, pixels: f32) {
+    self.trim_dilation = pixels;
   }
 
   /// Classify the work items of the trimmed patches by their trim loops (on by default): the
@@ -143,6 +151,7 @@ impl GpuTessellator {
     let mut uniform =
       TessUniform::new(camera, &self.config).with_sizes(&self.active, &self.capacity);
     uniform.classify_trims = self.classify_trims as u32;
+    uniform.trim_dilation = self.trim_dilation;
     self.frame.uniform.write_at(&gpu.queue, &uniform, 0);
     let matrices = self.active.instance_matrices(camera);
     self.device_data.write_matrices(&gpu.queue, &matrices);
@@ -210,6 +219,7 @@ impl GpuTessellator {
     GpuFrameReadback {
       stats: GpuTessellationStats::from_counters(&counters, frame, self),
       classifies_trims: self.classify_trims,
+      trim_dilation: self.trim_dilation,
       leaves,
       vertices: vertices.await.unwrap(),
       draw_args: draw_args.await.unwrap(),
@@ -390,6 +400,7 @@ pub struct GpuFrameReadback {
   pub stats: GpuTessellationStats,
   /// The frame was encoded with trim classification.
   pub classifies_trims: bool,
+  pub trim_dilation: f32,
   pub leaves: Vec<TessLeafDraw>,
   pub vertices: Vec<TessVertex>,
   pub draw_args: Vec<DrawIndirectArgsStorage>,

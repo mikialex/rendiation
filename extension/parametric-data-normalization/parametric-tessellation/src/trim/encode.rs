@@ -22,9 +22,15 @@ pub struct EncodedSegment {
 /// The segment only exists to make the winding of an acceleration structure cell correct (not
 /// trim geometry), it takes no part in distance computations.
 pub const SEGMENT_FLAG_AUXILIARY: u32 = 1;
+/// The control points are collinear (in f64, before rounding): the distance takes the chord.
+pub const SEGMENT_FLAG_LINE: u32 = 2;
 
 impl EncodedSegment {
+  /// `SEGMENT_FLAG_LINE` is added for collinear control points.
   pub fn new(q: &TrimQuadratic, flags: u32) -> Self {
+    let [a, b, c] = q.points;
+    let collinear = (b.x - a.x) * (c.y - a.y) == (c.x - a.x) * (b.y - a.y);
+    let flags = flags | if collinear { SEGMENT_FLAG_LINE } else { 0 };
     let p = q.points.map(|p| Vec2::new(p.x as f32, p.y as f32));
     Self {
       p0: p[0],
@@ -85,6 +91,25 @@ pub struct PatchTrimHeader {
   pub kind: u32,
 }
 
+/// The uv margin by which the leaf classification expands a sub patch rectangle when the
+/// fragments dilate the trim by `dilation_px` pixels: `dilation · 2^-level / size_px` (`size_px`
+/// the projected size of the sub patch), rounded up to a power of two in `[2^-22, 1]` by the
+/// float bits so that the f32 GPU version and the CPU reference agree, 0 without dilation.
+/// Approximate: the projected size of the bounds overestimates the size in some directions.
+pub fn dilation_margin(dilation_px: f32, level: u32, size_px: f32) -> f32 {
+  if dilation_px <= 0. {
+    return 0.;
+  }
+  let m = dilation_px * f32::from_bits((127 - level.min(126)) << 23) / size_px;
+  // also for a zero size (infinite m)
+  if size_px <= 0. || m >= 1. || m.is_nan() {
+    return 1.;
+  }
+  let bits = m.to_bits();
+  let exponent = ((bits >> 23) & 0xff) as i32 - 127 + ((bits & 0x7f_ffff) != 0) as i32;
+  f32::from_bits(((exponent.max(-22) + 127) as u32) << 23)
+}
+
 /// A closed rectangle in the patch domain.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TrimRect {
@@ -100,6 +125,13 @@ impl TrimRect {
 
   pub fn center(&self) -> Vec2<f32> {
     (self.min + self.max) * 0.5
+  }
+
+  pub fn expanded(&self, margin: f32) -> Self {
+    Self {
+      min: self.min - Vec2::splat(margin),
+      max: self.max + Vec2::splat(margin),
+    }
   }
 }
 
@@ -259,6 +291,19 @@ impl TrimEncoding {
 
   pub fn is_inside(&self, patch: usize, uv: Vec2<f32>) -> bool {
     self.winding(patch, uv) != 0
+  }
+
+  /// The vector from the (clamped) sample to the approximate nearest point of the trim curves
+  /// (`nearest_point`) over every non auxiliary segment of the patch, `None` without segments.
+  pub fn nearest_vector(&self, patch: usize, uv: Vec2<f32>) -> Option<Vec2<f32>> {
+    let uv = clamp_uv(uv);
+    let view = self.patch_view(patch)?;
+    view
+      .segments
+      .iter()
+      .filter(|s| s.flags & SEGMENT_FLAG_AUXILIARY == 0)
+      .map(|s| nearest_point(s, uv))
+      .min_by(|a, b| a.length2().total_cmp(&b.length2()))
   }
 
   /// Classification of a closed rectangle of the domain (the leaf classification).

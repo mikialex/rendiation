@@ -566,6 +566,7 @@ impl TessPass for InteriorPass {
     let bounds = shader_surface_bounds(&cp, n, m);
 
     let culled = culls(&u, bounds.min, bounds.max);
+    let depth = -bounds.max.z();
     let trimmed_item = (item.flags & val(ITEM_FLAG_TRIMMED)).not_equals(val(0));
     let trim_bits = trimmed_item
       .select(val(STATUS_TRIMMED_BIT), val(0))
@@ -575,9 +576,14 @@ impl TessPass for InteriorPass {
     if_by(classify.and(trimmed_item), || {
       let trims = ShaderTrimData { segments, table };
       let (us, vs) = (key.u_segment(), key.v_segment());
+      let size = depth.greater_than(u.near).select_branched(
+        || (bounds.max - bounds.min).length() * u.focal_length / depth,
+        || val(0.),
+      );
+      let margin = shader_dilation_margin(u.trim_dilation, key.level, size);
       let min: Node<Vec2<f32>> = (param_to_f32(us.start()), param_to_f32(vs.start())).into();
       let max: Node<Vec2<f32>> = (param_to_f32(us.end()), param_to_f32(vs.end())).into();
-      let class = trims.classify_rect(item.patch, min, max);
+      let class = trims.classify_rect(item.patch, min - margin, max + margin);
       trim_class.store(class);
       let has_data = trims
         .header(item.patch)
@@ -594,7 +600,6 @@ impl TessPass for InteriorPass {
     .else_by(|| {});
 
     let status = val(STATUS_OK).make_local_var();
-    let depth = -bounds.max.z();
     if_by(culled, || {
       status.store(val(STATUS_CULL << 8));
     })

@@ -27,8 +27,9 @@ pub struct ViewerParametricRendering {
   model: Option<ParametricModelSource>,
   pub settings: ParametricRenderSettings,
   producer: Option<(TessellationProducerKind, Box<dyn TessellationProducer>)>,
-  /// The trims of the model on the GPU, uploaded with the first frame.
-  trims: Option<TrimDeviceData>,
+  /// The trims of the model on the GPU with the trimming fragment, uploaded with the first
+  /// frame.
+  trims: Option<TrimFragment>,
 }
 
 impl ViewerParametricRendering {
@@ -89,13 +90,18 @@ impl ViewerParametricRendering {
     if !self.settings.enabled {
       return None;
     }
-    let trims = self
+    let dilation = self.settings.trim_dilation;
+    let trim = self
       .trims
-      .get_or_insert_with(|| TrimDeviceData::new(&gpu.device, &source.trims))
+      .get_or_insert_with(|| {
+        let data = TrimDeviceData::new(&gpu.device, &source.trims);
+        TrimFragment::new(&gpu.device, data, dilation)
+      })
       .clone();
+    trim.set_dilation(&gpu.queue, dilation);
     let kind = self.settings.producer;
     if self.producer.as_ref().is_none_or(|(k, _)| *k != kind) {
-      let producer = create_tessellation_producer(kind, gpu, source, &trims)?;
+      let producer = create_tessellation_producer(kind, gpu, source, &trim.data)?;
       self.producer = Some((kind, producer));
     }
     let (_, producer) = self.producer.as_mut()?;
@@ -110,6 +116,7 @@ impl ViewerParametricRendering {
           config: self.settings.tessellation.config(),
           untrimmed_only: self.settings.untrimmed_only,
           classify_trims: self.settings.draw.trimmed_style == TrimmedPatchStyle::Trimmed,
+          trim_dilation: dilation,
         }
       })
     };
@@ -120,7 +127,7 @@ impl ViewerParametricRendering {
       view,
       model_to_world,
       draw: self.settings.draw,
-      trim: TrimFragment { data: trims },
+      trim,
     })
   }
 
@@ -197,6 +204,11 @@ impl ViewerParametricRendering {
         "Trimmed: the fragments outside the trim loops are discarded; the other styles show the \
          whole cell of the trimmed patches",
       );
+    ui.add(egui::Slider::new(&mut s.trim_dilation, 0.0..=4.0).text("trim dilation (px)"))
+      .on_hover_text(
+        "keep the fragments up to this distance outside the trim loops, covers the cracks \
+         between neighbor faces",
+      );
     let mut color: [f32; 3] = s.draw.base_color.into();
     ui.horizontal(|ui| {
       ui.label("gray mode color");
@@ -258,6 +270,9 @@ impl ParametricModelSource {
   }
 }
 
+/// See `ParametricRenderSettings::trim_dilation`, plan-trim T4 for the choice.
+pub const DEFAULT_TRIM_DILATION: f32 = 0.5;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ParametricRenderSettings {
   pub enabled: bool,
@@ -270,6 +285,8 @@ pub struct ParametricRenderSettings {
   /// Uniform scale from model units to world units.
   pub model_scale: f64,
   pub draw: TessellationDrawSettings,
+  /// Pixels the `Trimmed` style keeps outside the trim loops, see `TrimFragment::set_dilation`.
+  pub trim_dilation: f32,
 }
 
 impl Default for ParametricRenderSettings {
@@ -282,6 +299,7 @@ impl Default for ParametricRenderSettings {
       freeze: false,
       model_scale: 1.,
       draw: Default::default(),
+      trim_dilation: DEFAULT_TRIM_DILATION,
     }
   }
 }
@@ -368,6 +386,8 @@ pub struct TessellationRequest {
   /// Cull the parts outside the trim loops and only trim the leaves partially covered (the
   /// `Trimmed` style), otherwise the trimmed patches cover their whole cell.
   pub classify_trims: bool,
+  /// See `ParametricRenderSettings::trim_dilation`.
+  pub trim_dilation: f32,
 }
 
 impl TessellationRequest {
@@ -386,6 +406,7 @@ impl TessellationRequest {
       && c.max_level == d.max_level
       && self.untrimmed_only == other.untrimmed_only
       && self.classify_trims == other.classify_trims
+      && self.trim_dilation == other.trim_dilation
   }
 }
 
@@ -520,6 +541,7 @@ impl TessellationProducer for GpuTessellationProducer {
       self
         .tessellator
         .set_trim_classification(request.classify_trims);
+      self.tessellator.set_trim_dilation(request.trim_dilation);
       let output = self.tessellator.encode_frame(gpu, encoder, &request.camera);
       self.last = Some((output.clone(), request.camera.view));
       // registers the waker on the statistics read started by this frame
@@ -718,7 +740,9 @@ fn run_cpu_tessellation(
   let (items, rejected_items) = camera_space_items(model, &request.camera, filter);
   let mut tessellator = Tessellator::new(&items, request.camera, request.config);
   if request.classify_trims {
-    tessellator = tessellator.with_trims(trims);
+    tessellator = tessellator
+      .with_trims(trims)
+      .with_trim_dilation(request.trim_dilation);
   }
   let leaves = tessellator.run();
   let tessellated = Instant::now();

@@ -111,6 +111,50 @@ fn crossing_generic<T: KernelScalar>(points: [[T; 2]; 3], max_u: T, uv: [T; 2]) 
   winding
 }
 
+/// The approximate nearest point of the segment to `uv`, relative to `uv`, f32 operation by
+/// operation like the shader: Nehab and Hoppe's (Random-Access Rendering of General Vector
+/// Graphics, 2008) projection onto the first order expansion of the implicit form, then the
+/// parameter by inversion clamped to the segment. Lines (`SEGMENT_FLAG_LINE`) and nearly
+/// collinear control points (where the inversion loses its precision) take the chord.
+pub fn nearest_point(segment: &EncodedSegment, uv: Vec2<f32>) -> Vec2<f32> {
+  let det = |a: Vec2<f32>, b: Vec2<f32>| a.x * b.y - b.x * a.y;
+  let (b0, b1, b2) = (segment.p0 - uv, segment.p1 - uv, segment.p2 - uv);
+  let d20 = b2 - b0;
+  let a = det(b0, b2);
+  let b = det(b1, b0) * 2.;
+  let d = det(b2, b1) * 2.;
+  let area4 = a * 2. + b + d;
+  let chord = d20.x * d20.x + d20.y * d20.y;
+  if segment.flags & SEGMENT_FLAG_LINE != 0 || area4.abs() <= chord * NEAR_LINE_RATIO {
+    let t = if chord > 0. {
+      (-(b0.x * d20.x + b0.y * d20.y) / chord).clamp(0., 1.)
+    } else {
+      0.
+    };
+    return b0 + d20 * t;
+  }
+  let f = b * d - a * a;
+  let (d21, d10) = (b2 - b1, b1 - b0);
+  let g = (d21 * b + d10 * d + d20 * a) * 2.;
+  let gradient = Vec2::new(g.y, -g.x);
+  let g2 = gradient.x * gradient.x + gradient.y * gradient.y;
+  let projected = if g2 > 0. {
+    gradient * (-f / g2)
+  } else {
+    Vec2::new(0., 0.)
+  };
+  let d0p = b0 - projected;
+  let ap = det(d0p, d20);
+  let bp = det(d10, d0p) * 2.;
+  let t = ((ap + bp) / area4).clamp(0., 1.);
+  let s = 1. - t;
+  (b0 * s + b1 * t) * s + (b1 * s + b2 * t) * t
+}
+
+/// Below this `|4·area| / |p2 - p0|²` the segment counts as its chord in `nearest_point`. The
+/// chord then deviates from the curve by less than `NEAR_LINE_RATIO / 4` of its length.
+pub const NEAR_LINE_RATIO: f32 = 1e-5;
+
 trait KernelScalar:
   Copy
   + PartialOrd

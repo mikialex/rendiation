@@ -87,11 +87,45 @@ impl TrimDeviceData {
   }
 }
 
-/// The trimming of the trimmed draw buckets (plan-trim T2): discards the fragments whose
-/// parameter is outside the trim loops of their patch.
+#[repr(C)]
+#[shader_struct(std140)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TrimFragmentUniform {
+  /// See `TrimFragment::set_dilation`.
+  pub dilation_px: f32,
+}
+
+/// The trimming of the trimmed draw buckets (plan-trim T2, T4): discards the fragments whose
+/// parameter is outside the trim loops of their patch and farther than the dilation from them.
 #[derive(Clone)]
 pub struct TrimFragment {
   pub data: TrimDeviceData,
+  pub uniform: UniformBufferDataView<TrimFragmentUniform>,
+}
+
+impl TrimFragment {
+  pub fn new(device: &GPUDevice, data: TrimDeviceData, dilation_px: f32) -> Self {
+    let uniform = TrimFragmentUniform {
+      dilation_px,
+      ..Zeroable::zeroed()
+    };
+    Self {
+      data,
+      uniform: create_uniform(uniform, device, "trim fragment uniform"),
+    }
+  }
+
+  /// Keep the fragments outside the trim loops up to `pixels` (screen space, through the
+  /// parameter derivatives) from the trim curves, to cover the cracks between neighbor faces
+  /// trimmed by their own curve approximations. The leaf classification must use the same value
+  /// (`GpuTessellator::set_trim_dilation`) to keep the leaves within that distance.
+  pub fn set_dilation(&self, queue: &GPUQueue, pixels: f32) {
+    let uniform = TrimFragmentUniform {
+      dilation_px: pixels,
+      ..Zeroable::zeroed()
+    };
+    self.uniform.write_at(queue, &uniform, 0);
+  }
 }
 
 impl ShaderHashProvider for TrimFragment {
@@ -101,6 +135,7 @@ impl ShaderHashProvider for TrimFragment {
 impl ShaderPassBuilder for TrimFragment {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.data.bind_pass(&mut ctx.binding);
+    ctx.binding.bind(&self.uniform);
   }
 }
 
@@ -111,11 +146,37 @@ impl TessellationTrimFragment for TrimFragment {
     binding: &mut ShaderBindGroupBuilder,
     input: TessellationFragmentInput,
   ) {
+    // in uniform control flow, before the trim queries branch
+    let (duv_dx, duv_dy) = (input.uv.dpdx(), input.uv.dpdy());
     let trim = self.data.bind_shader(binding);
+    let dilation = binding.bind_by(&self.uniform).load().expand().dilation_px;
     if_by(trim.winding(input.patch, input.uv).equals(val(0)), || {
-      builder.discard()
+      let keep = val(false).make_local_var();
+      if_by(dilation.greater_than(val(0.)), || {
+        let nearest = trim.nearest_vector(input.patch, input.uv);
+        let pixels = uv_to_pixels(duv_dx, duv_dy, nearest).length();
+        keep.store(pixels.less_than(dilation));
+      });
+      if_by(keep.load().not(), || builder.discard());
     });
   }
+}
+
+/// The screen space vector of the parameter space vector `uv` by the inverse of the parameter
+/// derivatives, huge where they are degenerate.
+pub fn uv_to_pixels(
+  duv_dx: Node<Vec2<f32>>,
+  duv_dy: Node<Vec2<f32>>,
+  uv: Node<Vec2<f32>>,
+) -> Node<Vec2<f32>> {
+  let det = duv_dx.x() * duv_dy.y() - duv_dy.x() * duv_dx.y();
+  let x = duv_dy.y() * uv.x() - duv_dy.x() * uv.y();
+  let y = duv_dx.x() * uv.y() - duv_dx.y() * uv.x();
+  let pixels: Node<Vec2<f32>> = (x, y).into();
+  det
+    .abs()
+    .greater_than(val(0.))
+    .select(pixels / det, val(Vec2::splat(f32::MAX)))
 }
 
 /// The shader side of `TrimDeviceData`.
@@ -222,6 +283,35 @@ impl ShaderTrimData {
       })
       .end_with_default(|| {});
     result.load()
+  }
+
+  /// `TrimEncoding::nearest_vector`, a huge vector without segments.
+  pub fn nearest_vector(&self, patch: Node<u32>, uv: Node<Vec2<f32>>) -> Node<Vec2<f32>> {
+    let uv = shader_clamp_uv(uv);
+    let header = self.header(patch);
+    let nearest = val(Vec2::splat(f32::MAX)).make_local_var();
+    let has_segments = header
+      .kind
+      .equals(val(TRIM_KIND_ALL_SEGMENTS))
+      .or(header.kind.equals(val(TRIM_KIND_BAND_GRID)));
+    if_by(has_segments, || {
+      let best = val(f32::MAX).make_local_var();
+      header.segment_count.into_shader_iter().for_each(|i, _| {
+        let s = self.segment(&header, i);
+        if_by(
+          (s.flags & val(SEGMENT_FLAG_AUXILIARY)).equals(val(0)),
+          || {
+            let v = shader_nearest_point(&s, uv);
+            let d = v.dot(v);
+            if_by(d.less_than(best.load()), || {
+              best.store(d);
+              nearest.store(v);
+            });
+          },
+        );
+      });
+    });
+    nearest.load()
   }
 
   /// `PatchTrimView::winding_all`, `uv` clamped.
@@ -478,4 +568,65 @@ pub fn shader_root_code(y0: Node<f32>, y1: Node<f32>, y2: Node<f32>) -> Node<u32
   let sign = |y: Node<f32>| y.bitcast::<u32>() >> val(31);
   let shift = sign(y0) | (sign(y1) << val(1)) | (sign(y2) << val(2));
   (val(0x2E74u32) >> shift) & val(0x0101)
+}
+
+/// `nearest_point`: the approximate nearest point of the segment, relative to `uv`.
+pub fn shader_nearest_point(s: &ShaderTrimSegment, uv: Node<Vec2<f32>>) -> Node<Vec2<f32>> {
+  let det = |a: Node<Vec2<f32>>, b: Node<Vec2<f32>>| a.x() * b.y() - b.x() * a.y();
+  let (b0, b1, b2) = (s.p0 - uv, s.p1 - uv, s.p2 - uv);
+  let d20 = b2 - b0;
+  let a = det(b0, b2);
+  let b = det(b1, b0) * val(2.);
+  let d = det(b2, b1) * val(2.);
+  let area4 = a * val(2.) + b + d;
+  let chord = d20.x() * d20.x() + d20.y() * d20.y();
+  let result = make_local_var::<Vec2<f32>>();
+  let line = (s.flags & val(SEGMENT_FLAG_LINE))
+    .not_equals(val(0))
+    .or(area4.abs().less_equal_than(chord * val(NEAR_LINE_RATIO)));
+  if_by(line, || {
+    let t = chord.greater_than(val(0.)).select_branched(
+      || ((-(b0.x() * d20.x() + b0.y() * d20.y())) / chord).clamp(val(0.), val(1.)),
+      || val(0.),
+    );
+    result.store(b0 + d20 * t);
+  })
+  .else_by(|| {
+    let f = b * d - a * a;
+    let (d21, d10) = (b2 - b1, b1 - b0);
+    let g = (d21 * b + d10 * d + d20 * a) * val(2.);
+    let gradient: Node<Vec2<f32>> = (g.y(), -g.x()).into();
+    let g2 = gradient.x() * gradient.x() + gradient.y() * gradient.y();
+    let projected = g2
+      .greater_than(val(0.))
+      .select_branched(|| gradient * (-f / g2), || val(Vec2::zero()));
+    let d0p = b0 - projected;
+    let ap = det(d0p, d20);
+    let bp = det(d10, d0p) * val(2.);
+    let t = ((ap + bp) / area4).clamp(val(0.), val(1.));
+    let r = val(1.) - t;
+    result.store((b0 * r + b1 * t) * r + (b1 * r + b2 * t) * t);
+  });
+  result.load()
+}
+
+/// `dilation_margin`.
+pub fn shader_dilation_margin(
+  dilation_px: Node<f32>,
+  level: Node<u32>,
+  size_px: Node<f32>,
+) -> Node<f32> {
+  let scale = ((val(127u32) - level.min(val(126))) << val(23)).bitcast::<f32>();
+  let m = dilation_px * scale / size_px;
+  let bits = m.bitcast::<u32>();
+  let exponent = ((bits >> val(23)) & val(0xff)).bitcast::<i32>() - val(127)
+    + (bits & val(0x7f_ffff))
+      .not_equals(val(0))
+      .select(val(1i32), val(0));
+  let margin = ((exponent.max(val(-22)) + val(127)).bitcast::<u32>() << val(23)).bitcast::<f32>();
+  let margin = size_px
+    .greater_than(val(0.))
+    .and(m.less_than(val(1.)))
+    .select(margin, val(1.));
+  dilation_px.greater_than(val(0.)).select(margin, val(0.))
 }

@@ -82,7 +82,7 @@ fn compare_frame(
   let trims = encode_model_trims(model);
   let mut t = Tessellator::new(&items, *camera, config);
   if frame.classifies_trims {
-    t = t.with_trims(&trims);
+    t = t.with_trims(&trims).with_trim_dilation(frame.trim_dilation);
   }
   let leaves = t.run();
   let gpu_leaves = frame.cpu_leaves();
@@ -328,6 +328,22 @@ async fn frames_match_cpu_on_synthetic_scenes() {
     assert!(c.watertight.shared_lines > 0, "{c:#?}");
     assert_frame(&c, &config, &frame);
   }
+
+  // the classification keeps the sub patches within the fragment dilation
+  let model = trimmed_random_model(46, 12, (3., 15.));
+  let camera = test_camera();
+  let mut culled = Vec::new();
+  for dilation in [0., 1.5, 200.] {
+    let mut t = GpuTessellator::new(&gpu, &model, default);
+    t.set_trim_dilation(dilation);
+    let frame = run_converged_frame(&gpu, &mut t, &camera).await;
+    let c = compare_frame(&model, &camera, default, false, &frame, 2);
+    assert_eq!(c.leaf_set.mismatched, 0, "{c:#?}");
+    assert_frame(&c, &default, &frame);
+    culled.push(frame.stats.trim_culled);
+  }
+  println!("trim culled work items by dilation 0, 1.5, 200 px: {culled:?}");
+  assert!(culled[0] >= culled[1] && culled[1] >= culled[2] && culled[0] > culled[2]);
 }
 
 /// Tiny capacities: the overflowing frame drops writes (never out of bounds, wgpu validation

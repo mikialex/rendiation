@@ -176,6 +176,57 @@ async fn trim_rect_class_matches_cpu() {
   }
 }
 
+#[pollster::test]
+async fn trim_nearest_point_matches_cpu() {
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let encoding = scene_encoding(&BandGrid::DEFAULT);
+  let trim = TrimDeviceData::new(&gpu.device, &encoding);
+  let cases = point_cases(&encoding, trim_scenes().len());
+  let result = run_trim_kernel(&gpu, "trim nearest", &trim, &cases, 1, |trim, read| {
+    let c = read(0);
+    let uv: Node<Vec2<f32>> = (c.y().bitcast::<f32>(), c.z().bitcast::<f32>()).into();
+    trim.nearest_vector(c.x(), uv).length().bitcast::<u32>()
+  })
+  .await;
+  let mut max_error = 0f32;
+  for (case, &gpu_distance) in cases.iter().zip(&result) {
+    let cpu = encoding
+      .nearest_vector(case.x as usize, as_uv(*case))
+      .unwrap()
+      .length();
+    let error = (f32::from_bits(gpu_distance) - cpu).abs();
+    max_error = max_error.max(error);
+    assert!(
+      error <= 1e-6 + cpu * 1e-4,
+      "{case:?}: gpu {gpu_distance} cpu {cpu}"
+    );
+  }
+  println!("{} points, max distance error {max_error:e}", cases.len());
+}
+
+#[pollster::test]
+async fn trim_dilation_margin_matches_cpu() {
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let trim = TrimDeviceData::new(&gpu.device, &scene_encoding(&AllSegments));
+  let mut rng = TestRng(41);
+  let mut cases = Vec::new();
+  for _ in 0..20000 {
+    let dilation = [0., 0.5, 1., rng.range(0., 4.) as f32][(rng.unit() * 4.) as usize];
+    let level = (rng.unit() * 22.) as u32;
+    let size = [0., 1., 2048., 10f64.powf(rng.range(-2., 5.)) as f32][(rng.unit() * 4.) as usize];
+    cases.push(Vec4::new(dilation.to_bits(), level, size.to_bits(), 0));
+  }
+  let result = run_trim_kernel(&gpu, "trim margin", &trim, &cases, 1, |_, read| {
+    let c = read(0);
+    shader_dilation_margin(c.x().bitcast::<f32>(), c.y(), c.z().bitcast::<f32>()).bitcast::<u32>()
+  })
+  .await;
+  for (c, &gpu_margin) in cases.iter().zip(&result) {
+    let cpu = dilation_margin(f32::from_bits(c.x), c.y, f32::from_bits(c.z));
+    assert_eq!(cpu.to_bits(), gpu_margin, "{c:?}");
+  }
+}
+
 /// The shader queries against the CPU mirror on every trimmed patch of the steam controller
 /// model (skipped when the file is missing): `cargo test --release -p
 /// rendiation-parametric-rendering steam_trim -- --ignored --nocapture`.

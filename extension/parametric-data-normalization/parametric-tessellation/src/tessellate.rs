@@ -288,6 +288,7 @@ pub struct Tessellator<'a> {
   camera: Camera,
   config: TessellationConfig,
   trims: Option<&'a TrimEncoding>,
+  trim_dilation: f32,
   states: Vec<PatchState>,
   /// The smallest decision margin while `decision_margin` runs.
   margin: Option<f64>,
@@ -303,6 +304,7 @@ impl<'a> Tessellator<'a> {
       camera,
       config,
       trims: None,
+      trim_dilation: 0.,
       states: items.iter().map(|_| PatchState::default()).collect(),
       margin: None,
       stats: TessellationStats::default(),
@@ -314,6 +316,13 @@ impl<'a> Tessellator<'a> {
   /// partially covered get `Leaf::trimmed`.
   pub fn with_trims(mut self, trims: &'a TrimEncoding) -> Self {
     self.trims = Some(trims);
+    self
+  }
+
+  /// The fragments dilate the trim by `pixels` (`dilation_margin`), the classification keeps
+  /// the sub patches within that distance.
+  pub fn with_trim_dilation(mut self, pixels: f32) -> Self {
+    self.trim_dilation = pixels;
     self
   }
 
@@ -507,6 +516,7 @@ impl<'a> Tessellator<'a> {
         .trims
         .filter(|trims| trims.header(patch).kind != TRIM_KIND_INSIDE)
         .map(|trims| (trims, patch)),
+      trim_dilation: self.trim_dilation,
       camera: &self.camera,
       config: &self.config,
       state: &mut self.states[item as usize],
@@ -656,6 +666,7 @@ struct PatchEval<'a> {
   surface: &'a RationalBezierSurface,
   /// The trims and the patch index, only for a patch with trim data (not `TRIM_KIND_INSIDE`).
   trim: Option<(&'a TrimEncoding, usize)>,
+  trim_dilation: f32,
   camera: &'a Camera,
   config: &'a TessellationConfig,
   state: &'a mut PatchState,
@@ -693,7 +704,14 @@ impl PatchEval<'_> {
         min: Vec2::new(param_to_f64(us.start()), param_to_f64(vs.start())).into_f32(),
         max: Vec2::new(param_to_f64(us.end()), param_to_f64(vs.end())).into_f32(),
       };
-      trims.classify_rect(patch, &rect)
+      let depth = -bounds.max.z;
+      let margin = if depth > self.camera.near {
+        let size = (bounds.max - bounds.min).length() * self.camera.focal_length / depth;
+        dilation_margin(self.trim_dilation, key.level, size as f32)
+      } else {
+        dilation_margin(self.trim_dilation, key.level, 0.)
+      };
+      trims.classify_rect(patch, &rect.expanded(margin))
     });
     if trim == Some(RectClass::Outside) {
       return Decision::TrimCull;

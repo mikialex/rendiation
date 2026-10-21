@@ -239,6 +239,40 @@ fn whole_domain_trim_is_downgraded() {
   }
 }
 
+/// The approximate nearest point against the polyline distance of the original curves, near the
+/// curves (the dilation only asks for distances of a few pixels).
+#[test]
+fn nearest_point_near_the_curves() {
+  let scenes = trim_scenes();
+  let band = encode(&scenes, &BandGrid::DEFAULT);
+  let mut rng = TestRng(37);
+  let (mut checked, mut max_relative) = (0, 0f64);
+  for (index, trim) in scenes.iter().enumerate() {
+    let reference = TrimReference::new(trim, 1e-9);
+    let view = band.patch_view(index).unwrap();
+    for _ in 0..20000 {
+      // around a random point of a random segment
+      let s = &view.segments[(rng.unit() * view.segments.len() as f64) as usize];
+      let t = rng.unit() as f32;
+      let on = (s.p0 * (1. - t) + s.p1 * t) * (1. - t) + (s.p1 * (1. - t) + s.p2 * t) * t;
+      let offset = Vec2::new(rng.range(-1., 1.), rng.range(-1., 1.)) * 0.02;
+      let p = clamp_uv(on + offset.into_f32());
+      let expected = reference.distance(p.into_f64());
+      let approximate = band.nearest_vector(index, p).unwrap().into_f64().length();
+      let error = (approximate - expected).abs();
+      assert!(
+        error <= 0.1 * expected + 3. * TRIM_TOLERANCE,
+        "scene {index} at {p:?}: {approximate} against {expected}"
+      );
+      if expected > 1e-3 {
+        max_relative = max_relative.max(error / expected);
+      }
+      checked += 1;
+    }
+  }
+  println!("{checked} points, max relative error {max_relative:.3} beyond 1e-3");
+}
+
 fn percentile<T: Copy + Ord>(values: &[T], p: f64) -> T {
   let mut sorted = values.to_vec();
   sorted.sort();
