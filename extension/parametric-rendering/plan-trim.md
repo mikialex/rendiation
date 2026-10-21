@@ -258,6 +258,48 @@ CPU 参考（`parametric-tessellation`）做同样的分类，叶子集合比对
 - 离屏测试：GPU 裁剪渲染的覆盖率与 CLI 的 CPU 裁剪三角化（`mesh.rs`）渲染结果对比，差异只能出现在
   边界像素上。
 
+#### 管线改造结果
+
+与裁剪数据无关的部分已先做完（T2 和 T3 的绘制侧接口），裁剪数据本身还没有接入：
+
+- `TessLeafDraw` 变为 8 个 u32：`vertex_base, k, item, flags, level, ix, iy, patch`。`(level, ix, iy)` 是
+  子 patch key，`patch` 是 `ParametricNormalizedModel::patches` 的下标（由 L.d 从 item 表读出，CPU
+  参考在 `from_cpu_reference` 里填）。原来单独的 `leaf_keys` buffer 删掉了，顶点 pass 直接从叶子记录
+  读 key，每个顶点 pass 少绑定一个 storage buffer。
+- 分桶：`BUCKET_COUNT = 10`，`bucket_of(log2 k, trimmed) = log2 k + 5·trimmed`，配套 `bucket_k` /
+  `bucket_is_trimmed`。`K_BUCKET_COUNT` 改名为 `K_RESOLUTION_COUNT`（k 的个数，仍为 5）。"是否裁剪"
+  目前是 `LEAF_FLAG_TRIMMED` 的原语义（叶子所属 patch 带裁剪），T3 改成"部分覆盖"时只需改 L.d 和
+  `from_cpu_reference` 里这一个标志。计数器布局随之调整（`COUNTER_BUCKETS` 10 项、
+  `COUNTER_VERTEX_PREFIX` 11 项，其后各段后移，`COUNTER_COUNT` = 104）。`bucket_leaves` 容量为
+  `leaf_capacity × 10`，`TessCapacity::limited` 增加了叶子记录和桶列表的单 binding 大小限制。
+  统计增加 `trimmed_leaves`，`leaves_per_k` 仍按 k 合计两类桶。
+- 绘制 vertex：由 key 和格点下标算出定点参数 `(ix·k + i)·2^(PARAM_BITS − level) / k`，再乘 `2^-PARAM_BITS`
+  得到 f32 uv，与 CPU `param_to_f64` 一致且精确。输出 `TessellationParameter`（透视插值）、
+  `TessellationItemIndex` 和 `TessellationPatchIndex`（整数输出，flat）。新增颜色模式 `Parameter`
+  （uv 作为红绿），方便在 viewer 里检查。
+- 裁剪钩子：`render_tessellation_output(ctx, output, uniform, trim, before, after)` 新增
+  `trim: Option<&dyn TessellationTrimFragment>`，只用于带 `LEAF_FLAG_TRIMMED` 的桶。trait 方法
+  `build_trim(builder, binding, TessellationFragmentInput { uv, item, patch })` 在着色之后运行，可以
+  discard 或覆盖 `DefaultDisplay`；它的资源（T2 的段池和 u32 表）在 `build_trim` 里绑定，并在
+  `setup_pass` 里按同样顺序绑定，排在桶绘制的四个资源之后；pipeline hash 包含它的
+  `hash_pipeline_with_type_info`。没有传 `trim` 时裁剪桶和普通桶只差 pipeline 变体（桶号）。
+- storage buffer：绘制 pipeline 现在用 3 个（顶点、叶子、桶列表），T2 再加段池和 u32 表共 5 个，
+  在 WebGPU 默认每 stage 8 个的限制内。
+- viewer：`TrimmedPatchStyle` 新增 `Trimmed`（界面里为"Trimmed"，悬停提示说明尚未裁剪），默认值
+  仍是 `WashedOut`；viewer 目前传 `trim = None`，`Trimmed` 的效果等同 `Normal`。T2 接入时由 viewer
+  在 `Trimmed` 风格下传入裁剪 fragment，并把默认改为 `Trimmed`。
+
+验证：
+
+- 新测试 `tests_draw::trimmed_fragment_receives_exact_parameter`：随机模型里每隔一个 patch 标记为带
+  裁剪，用测试钩子把 `(u, v, item, patch + 2)` 写进 `Rgba32Float` 目标。对每个裁剪桶的像素，用 CPU 在
+  `(u, v)` 处求曲面点并投影，到像素中心的最大距离 0.22 px（阈值 `pixel_error + 0.05`），item 和 patch
+  与 CPU 的 item 表一致；普通桶的像素不经过钩子。
+- 原有测试全部通过：crate 内 24 个测试；steam 的 GPU / CPU 对比（ignored 测试）各视角叶子数、
+  不一致叶子数、watertight 与改动前一致（例如 fit 17471 / 17471，不一致 14，共享顶点不一致 0）；
+  viewer 离屏测试（合成模型和 steam，MSAA / TAA / 隐藏裁剪 patch / CPU 参考）覆盖率不变，steam
+  17387 叶子、29.7 万三角形。
+
 ### T3：叶子分类
 
 - L.b 分类与剔除，L.d 输出部分覆盖标志，10 个桶。CPU 参考同步实现，叶子集合比对。

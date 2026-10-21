@@ -38,11 +38,14 @@ let stats = t.last_stats(); // from an earlier frame
   partials of the face origin relative control points mapped by the instance matrix (camera
   space f32 loses the precision of small patches far away), at poles slightly inside the leaf.
 - `output`: `TessellationFrameOutput`, the interface to the draw side (vertex pool, leaf
-  records, per `k` bucket leaf lists and `draw_indirect` arguments).
-- `draw`: one `draw_indirect` per k bucket of a
-  `TessellationFrameOutput`, vertices fetched from the storage buffers, two sided headlight shading
-  with color modes (gray, by k, by leaf, by patch) and a style for trimmed patches. The viewer uses it
-  in `application/viewer-content/src/rendering/parametric.rs`.
+  records with their sub patch keys, leaf lists and `draw_indirect` arguments per draw bucket,
+  a bucket is a `(k, trimmed)` pair, see `bucket_of`).
+- `draw`: one `draw_indirect` per bucket of a `TessellationFrameOutput`, vertices fetched from
+  the storage buffers, two sided headlight shading with color modes (gray, by k, by leaf, by
+  patch, parameter) and a style for trimmed patches. The vertex stage outputs the exact patch
+  domain parameter and the item index, the trimmed buckets use a separate pipeline variant that
+  runs an optional `TessellationTrimFragment` (plan-trim T2). The viewer uses it in
+  `application/viewer-content/src/rendering/parametric.rs`.
 
 Requirements and limits: up to 10 storage buffers per shader stage (more than the WebGPU
 default of 8, fine on native adapters); patch degrees up to `MAX_GPU_DEGREE` (others are

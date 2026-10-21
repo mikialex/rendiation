@@ -60,6 +60,9 @@ pub struct TessLeafDraw {
   pub level: u32,
   pub ix: u32,
   pub iy: u32,
+  /// Index into `ParametricNormalizedModel::patches` (the patch of the item), indexes the per
+  /// patch data of the draw side such as the trim loops.
+  pub patch: u32,
 }
 
 impl TessLeafDraw {
@@ -142,6 +145,7 @@ impl TessellationFrameOutput {
         level: leaf.key.level,
         ix: leaf.key.ix,
         iy: leaf.key.iy,
+        patch: item.patch,
         ..Default::default()
       });
       for (&(u, v), p) in mesh.params.iter().zip(&mesh.positions) {

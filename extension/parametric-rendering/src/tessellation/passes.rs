@@ -785,6 +785,7 @@ impl TessPass for DecidePass {
       level: key.level,
       ix: key.ix,
       iy: key.iy,
+      patch: item.patch,
     }
     .construct();
     leaves.index(leaf).store(draw);

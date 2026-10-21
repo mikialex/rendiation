@@ -7,8 +7,8 @@ use parametric_tessellation::*;
 use super::*;
 use crate::*;
 
-/// The parameter and the item received by the fragments of the trimmed buckets: the surface
-/// point of the parameter must project to the pixel center up to the tessellation error.
+/// The parameter, the item and the patch received by the fragments of the trimmed buckets: the
+/// surface point of the parameter must project to the pixel center up to the tessellation error.
 #[pollster::test]
 async fn trimmed_fragment_receives_exact_parameter() {
   let gpu = GPU::new(Default::default()).await.unwrap();
@@ -35,17 +35,18 @@ async fn trimmed_fragment_receives_exact_parameter() {
   let (mut trimmed, mut untrimmed, mut max_offset) = (0, 0, 0f64);
   for (index, p) in pixels.iter().enumerate() {
     match p.w {
+      0. => {}
       1. => untrimmed += 1,
-      2. => {
+      _ => {
         trimmed += 1;
         let item = &items[p.z as usize];
+        assert_eq!(item.patch as f32, p.w - 2.);
         assert!(!model.patches[item.patch as usize].is_untrimmed());
         let s = item.surface.eval(p.x as f64, p.y as f64);
         let pixel = Vec2::new((index % width) as f64, (index / width) as f64) + Vec2::splat(0.5);
         let projected = Vec2::new(s.x, -s.y) * (camera.focal_length / -s.z) + camera.viewport * 0.5;
         max_offset = max_offset.max((projected - pixel).length());
       }
-      _ => {}
     }
   }
   println!("trimmed {trimmed} untrimmed {untrimmed} pixels, max offset {max_offset} px");
@@ -65,8 +66,8 @@ fn half_trimmed(mut model: ParametricNormalizedModel) -> ParametricNormalizedMod
   model
 }
 
-/// Draws `output` into an `Rgba32Float` target, the trimmed buckets write `(u, v, item, 2)`,
-/// the others their shaded color with alpha 1.
+/// Draws `output` into an `Rgba32Float` target, the trimmed buckets write
+/// `(u, v, item, patch + 2)`, the others their shaded color with alpha 1.
 async fn render_parameters(
   gpu: &GPU,
   camera: &Camera,
@@ -154,10 +155,10 @@ impl TessellationTrimFragment for ParameterOutput {
     &self,
     builder: &mut ShaderFragmentBuilderView,
     _: &mut ShaderBindGroupBuilder,
-    uv: Node<Vec2<f32>>,
-    item: Node<u32>,
+    input: TessellationFragmentInput,
   ) {
-    let display: Node<Vec4<f32>> = (uv, item.into_f32(), val(2.)).into();
+    let tag = (input.patch + val(2)).into_f32();
+    let display: Node<Vec4<f32>> = (input.uv, input.item.into_f32(), tag).into();
     builder.register::<DefaultDisplay>(display);
   }
 }
