@@ -24,12 +24,17 @@ vertex evaluated from the original control points at exact dyadic parameters.
 - `camera_space_items` takes the control points relative to their face origin
   (`face_origins`, `relative_to_origin`) and maps them by `item_to_camera`, the data the GPU
   uploads in f32. One origin per face keeps shared boundaries bitwise equal.
-- `test_scenes`: synthetic patches and models, also used by the GPU tests.
+- `test_scenes`: synthetic patches and models, also used by the GPU tests (`test_scenes::trim`:
+  trim loops covering the hard cases of the point classification, `trimmed_random_model`).
 - `trim`: trim preprocessing and the CPU reference of the per fragment trimming
   (`extension/parametric-rendering/plan-trim.md`): conversion to quadratic Béziers, the f32
-  winding kernel (Slug's root eligibility code), exchangeable acceleration structures
-  (`TrimAccel`: `AllSegments`, `BandGrid`), the GPU encoding (`encode_trims`) and a polyline
-  ground truth. The ignored test `steam_statistics` validates and measures a real model.
+  winding kernel (Slug's root eligibility code), the approximate nearest point for the trim
+  dilation (`nearest_point`), exchangeable acceleration structures (`TrimAccel`: `AllSegments`,
+  `BandGrid`), the GPU encoding (`encode_trims`) and a polyline ground truth. The ignored test
+  `steam_statistics` validates and measures a real model.
+- Trim classification of the work items (`Tessellator::with_trims`, `with_trim_dilation`): after
+  the frustum cull, the sub patches outside the trim loops are culled, the leaves partially
+  covered get `Leaf::trimmed` (drawn with per fragment trimming), like the GPU version.
 
 Differences from the first plan draft, see the crate docs in `src/lib.rs` for the details:
 

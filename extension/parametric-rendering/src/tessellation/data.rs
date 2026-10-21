@@ -52,6 +52,11 @@ pub struct TessUniform {
   pub leaf_capacity: u32,
   pub vertex_capacity: u32,
   pub request_capacity: u32,
+  /// Non zero: classify the work items of trimmed patches by their trim loops (plan-trim T3).
+  pub classify_trims: u32,
+  /// The fragment dilation of the trims in pixels, the classification keeps the sub patches
+  /// within it (`dilation_margin`).
+  pub trim_dilation: f32,
 }
 
 impl TessUniform {

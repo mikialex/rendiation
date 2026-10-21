@@ -7,6 +7,7 @@ mod output;
 mod passes;
 mod shader_lib;
 mod tessellator;
+mod trim;
 
 pub use data::*;
 pub use draw::*;
@@ -14,6 +15,7 @@ pub use output::*;
 pub use passes::*;
 pub use shader_lib::*;
 pub use tessellator::*;
+pub use trim::*;
 
 #[cfg(test)]
 mod tests_lib;
@@ -23,3 +25,6 @@ mod tests_frame;
 
 #[cfg(test)]
 mod tests_draw;
+
+#[cfg(test)]
+mod tests_trim;

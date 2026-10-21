@@ -77,11 +77,10 @@ pub enum TrimmedPatchStyle {
   /// The whole cell, the trim loops are ignored.
   Normal,
   /// The whole cell with a lighter color.
-  #[default]
   WashedOut,
   Hidden,
-  /// Trimmed by the `TessellationTrimFragment` passed to the draw. The trim data is not
-  /// connected yet (plan-trim T2), so it is drawn like `Normal` for now.
+  /// Trimmed by the `TessellationTrimFragment` passed to the draw (`TrimFragment`).
+  #[default]
   Trimmed,
 }
 

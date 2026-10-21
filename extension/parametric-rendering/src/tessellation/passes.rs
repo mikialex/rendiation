@@ -12,6 +12,7 @@
 //! Every append is capacity checked, an overflow drops the write and sets a flag in the
 //! counters (read back asynchronously, the buffers grow for a later frame).
 
+use parametric_tessellation::trim::TRIM_KIND_INSIDE;
 use parametric_tessellation::{Camera, PARAM_BITS, PARAM_ONE, TessellationConfig};
 
 use super::*;
@@ -34,7 +35,11 @@ pub const COUNTER_WORK_ITEMS: u32 = 32;
 pub const COUNTER_LEVEL_LEAVES: u32 = 56;
 /// Position requests appended per round (requested, may exceed the capacity).
 pub const COUNTER_ROUNDS: u32 = 80;
-pub const COUNTER_COUNT: u32 = 104;
+/// Work items culled by the trim classification.
+pub const COUNTER_TRIM_CULLED: u32 = 104;
+/// Leaves inside the trim loops of a patch with trim data (drawn without trimming).
+pub const COUNTER_TRIM_INSIDE_LEAVES: u32 = 105;
+pub const COUNTER_COUNT: u32 = 106;
 /// Levels and rounds are limited by `PARAM_BITS`.
 pub const MAX_STEPS: u32 = 21;
 
@@ -45,14 +50,25 @@ pub const OVERFLOW_REQUESTS: u32 = 8;
 /// A position request still inside a piece after the last round (should not happen).
 pub const OVERFLOW_ROUNDS: u32 = 16;
 
-/// Interior criteria result codes, `code << 8 | log2 k_grid`.
+/// Interior criteria result, `trim bits | code << 8 | log2 k_grid`, see `status_code`.
 const STATUS_OK: u32 = 0;
 const STATUS_CULL: u32 = 1;
 /// Followed by `STATUS_SPLIT_NEAR + SplitReason as u32` for the near plane, interior and size.
 const STATUS_SPLIT_NEAR: u32 = 2;
+/// Outside the trim loops.
+const STATUS_TRIM_CULL: u32 = 5;
+/// The work item needs fragment trimming: partially covered by the trim loops, or any work item
+/// of a trimmed patch without trim classification.
+const STATUS_TRIMMED_BIT: u32 = 1 << 16;
+/// Inside the trim loops of a patch with trim data.
+const STATUS_TRIM_INSIDE_BIT: u32 = 1 << 17;
 const SPLIT_REASON_EDGE: u32 = 3;
 const EDGE_FAIL: u32 = u32::MAX;
 const RECORD_INTERPOLATE: u32 = 1;
+
+fn status_code(status: Node<u32>) -> Node<u32> {
+  (status >> val(8)) & val(0xff)
+}
 
 /// The level or round of a per step dispatch.
 #[repr(C)]
@@ -180,13 +196,20 @@ impl TessFrameBuffers {
   }
 
   /// Records all passes of a frame. `uniform` must already hold this frame's values.
-  pub fn encode(&self, device: &GPUDevice, encoder: &mut GPUCommandEncoder, data: &TessDeviceData) {
+  pub fn encode(
+    &self,
+    device: &GPUDevice,
+    encoder: &mut GPUCommandEncoder,
+    data: &TessDeviceData,
+    trims: &TrimDeviceData,
+  ) {
     encoder.clear_buffer(raw_buffer(&self.counters), 0, None);
     for args in self.level_args.iter().chain(&self.round_args) {
       encoder.clear_buffer(raw_buffer(args), 0, None);
     }
     let cx = |step: u32| PassCtx {
       data,
+      trims,
       frame: self,
       step,
     };
@@ -239,6 +262,7 @@ fn identity_camera() -> Camera {
 
 struct PassCtx<'a> {
   data: &'a TessDeviceData,
+  trims: &'a TrimDeviceData,
   frame: &'a TessFrameBuffers,
   step: u32,
 }
@@ -507,6 +531,7 @@ impl TessPass for InteriorPass {
     Out<K, Atomics>,
     Out<K, Rw<Vec4<f32>>>,
     Out<K, Rw<u32>>,
+    (Out<K, Ro<TrimSegmentGpu>>, Out<K, Ro<u32>>),
   );
   fn declare<B: Binder>(cx: &PassCtx, b: &mut B) -> Self::Bindings<B::Kind> {
     (
@@ -517,11 +542,14 @@ impl TessPass for InteriorPass {
       b.bind(&cx.frame.counters),
       b.bind(&cx.frame.sub_patches),
       b.bind(&cx.frame.interior),
+      (b.bind(&cx.trims.segments), b.bind(&cx.trims.table)),
     )
   }
   fn build(
     builder: &ShaderComputePipelineBuilder,
-    (u, step, items, queue, counters, sub_patches, interior): Self::Bindings<ShaderKind>,
+    (u, step, items, queue, counters, sub_patches, interior, (segments, table)): Self::Bindings<
+      ShaderKind,
+    >,
   ) {
     let u = u.load().expand();
     let level = step.load().expand().step;
@@ -537,10 +565,46 @@ impl TessPass for InteriorPass {
     let cp = |i: Node<u32>, j: Node<u32>| sub_patches.index(base + j * (n + val(1)) + i).load();
     let bounds = shader_surface_bounds(&cp, n, m);
 
-    let status = val(STATUS_OK).make_local_var();
+    let culled = culls(&u, bounds.min, bounds.max);
     let depth = -bounds.max.z();
-    if_by(culls(&u, bounds.min, bounds.max), || {
+    let trimmed_item = (item.flags & val(ITEM_FLAG_TRIMMED)).not_equals(val(0));
+    let trim_bits = trimmed_item
+      .select(val(STATUS_TRIMMED_BIT), val(0))
+      .make_local_var();
+    let trim_class = val(TRIM_RECT_INSIDE).make_local_var();
+    let classify = culled.not().and(u.classify_trims.not_equals(val(0)));
+    if_by(classify.and(trimmed_item), || {
+      let trims = ShaderTrimData { segments, table };
+      let (us, vs) = (key.u_segment(), key.v_segment());
+      let size = depth.greater_than(u.near).select_branched(
+        || (bounds.max - bounds.min).length() * u.focal_length / depth,
+        || val(0.),
+      );
+      let margin = shader_dilation_margin(u.trim_dilation, key.level, size);
+      let min: Node<Vec2<f32>> = (param_to_f32(us.start()), param_to_f32(vs.start())).into();
+      let max: Node<Vec2<f32>> = (param_to_f32(us.end()), param_to_f32(vs.end())).into();
+      let class = trims.classify_rect(item.patch, min - margin, max + margin);
+      trim_class.store(class);
+      let has_data = trims
+        .header(item.patch)
+        .kind
+        .not_equals(val(TRIM_KIND_INSIDE));
+      let inside = has_data.and(class.equals(val(TRIM_RECT_INSIDE)));
+      let partial = class.equals(val(TRIM_RECT_PARTIAL));
+      trim_bits.store(
+        partial.select(val(STATUS_TRIMMED_BIT), val(0))
+          | inside.select(val(STATUS_TRIM_INSIDE_BIT), val(0)),
+      );
+    })
+    .else_if(classify, || trim_bits.store(val(0)))
+    .else_by(|| {});
+
+    let status = val(STATUS_OK).make_local_var();
+    if_by(culled, || {
       status.store(val(STATUS_CULL << 8));
+    })
+    .else_if(trim_class.load().equals(val(TRIM_RECT_OUTSIDE)), || {
+      status.store(val(STATUS_TRIM_CULL << 8));
     })
     .else_if(depth.less_equal_than(u.near), || {
       status.store(val(STATUS_SPLIT_NEAR << 8));
@@ -562,7 +626,7 @@ impl TessPass for InteriorPass {
       );
       status.store(result);
     });
-    interior.index(w).store(status.load());
+    interior.index(w).store(status.load() | trim_bits.load());
   }
 }
 
@@ -620,7 +684,7 @@ impl TessPass for EdgePass {
       do_return,
     );
     if_by(
-      (interior.index(w).load() >> val(8)).not_equals(val(STATUS_OK)),
+      status_code(interior.index(w).load()).not_equals(val(STATUS_OK)),
       do_return,
     );
     let key = ShaderKey::new(queue.index(w).load());
@@ -696,9 +760,13 @@ impl TessPass for DecidePass {
     );
     let key = ShaderKey::new(queue.index(w).load());
     let status = interior.index(w).load();
-    let code = status >> val(8);
+    let code = status_code(status);
     if_by(code.equals(val(STATUS_CULL)), || {
       atomic(&counters, COUNTER_CULLED).atomic_add(val(1));
+      do_return();
+    });
+    if_by(code.equals(val(STATUS_TRIM_CULL)), || {
+      atomic(&counters, COUNTER_TRIM_CULLED).atomic_add(val(1));
       do_return();
     });
 
@@ -772,7 +840,13 @@ impl TessPass for DecidePass {
       do_return();
     });
     let item = items.index(key.item).load().expand();
-    let trimmed = (item.flags & val(ITEM_FLAG_TRIMMED)).not_equals(val(0));
+    let trimmed = (status & val(STATUS_TRIMMED_BIT)).not_equals(val(0));
+    if_by(
+      (status & val(STATUS_TRIM_INSIDE_BIT)).not_equals(val(0)),
+      || {
+        atomic(&counters, COUNTER_TRIM_INSIDE_LEAVES).atomic_add(val(1));
+      },
+    );
     let bucket = k.count_trailing_zeros() + trimmed.select(val(K_RESOLUTION_COUNT as u32), val(0));
     let slot = counters
       .index(val(COUNTER_BUCKETS) + bucket)

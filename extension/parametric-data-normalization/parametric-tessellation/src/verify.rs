@@ -270,7 +270,7 @@ fn bitwise_eq(a: Vec3<f64>, b: Vec3<f64>) -> bool {
 pub struct LeafSetReport {
   pub reference_leaves: usize,
   pub other_leaves: usize,
-  /// Leaves with the same key and `k` in both sets.
+  /// Leaves with the same key, `k` and `Leaf::trimmed` in both sets.
   pub matched: usize,
   /// Leaves of either set without an equal leaf in the other one.
   pub mismatched: usize,
@@ -283,8 +283,11 @@ pub struct LeafSetReport {
 /// Compares the leaf set `other` (for example of the GPU version) with the `reference` leaves
 /// of `t`, see `LeafSetReport`.
 pub fn compare_leaf_sets(t: &mut Tessellator, reference: &[Leaf], other: &[Leaf]) -> LeafSetReport {
-  let as_map = |leaves: &[Leaf]| -> FastHashMap<SubPatchKey, u32> {
-    leaves.iter().map(|leaf| (leaf.key, leaf.k)).collect()
+  let as_map = |leaves: &[Leaf]| -> FastHashMap<SubPatchKey, (u32, bool)> {
+    leaves
+      .iter()
+      .map(|leaf| (leaf.key, (leaf.k, leaf.trimmed)))
+      .collect()
   };
   let (reference_map, other_map) = (as_map(reference), as_map(other));
   let mut report = LeafSetReport {
@@ -295,7 +298,7 @@ pub fn compare_leaf_sets(t: &mut Tessellator, reference: &[Leaf], other: &[Leaf]
   let mut margins = FastHashMap::default();
   for (leaves, opposite) in [(reference, &other_map), (other, &reference_map)] {
     for leaf in leaves {
-      if opposite.get(&leaf.key) == Some(&leaf.k) {
+      if opposite.get(&leaf.key) == Some(&(leaf.k, leaf.trimmed)) {
         report.matched += 1;
         continue;
       }

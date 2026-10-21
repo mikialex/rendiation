@@ -13,6 +13,7 @@ rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 
 [dev-dependencies]
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+image = { workspace = true }
 pollster = { workspace = true }
 
 [lints]

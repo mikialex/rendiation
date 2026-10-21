@@ -4719,6 +4719,7 @@ name = "rendiation-parametric-rendering"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
+ "image",
  "parametric-normalized-model",
  "parametric-tessellation",
  "pollster",

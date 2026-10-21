@@ -159,3 +159,68 @@ fn face_origin_keeps_shared_boundaries() {
   assert_eq!(report.mismatched_vertices, 0, "{report:?}");
   assert_eq!(report.open_lines, 8, "{report:?}");
 }
+
+/// Leaf classification by the trim loops: the leaves kept without fragment trimming are inside,
+/// everything removed is outside, and the decisions of the kept keys do not change.
+#[test]
+fn trim_classification_keeps_the_material() {
+  use fast_hash_collection::FastHashMap;
+
+  use crate::test_scenes::trim::*;
+  use crate::trim::*;
+
+  let model = trimmed_random_model(31, 14, (4., 20.));
+  let camera = test_camera();
+  let encoding = encode_trims(&model, &trim_config(), &BandGrid::DEFAULT);
+  let items = camera_space_items(&model, &camera, |_| true).0;
+  let config = TessellationConfig::default();
+  let plain = Tessellator::new(&items, camera, config).run();
+  let mut t = Tessellator::new(&items, camera, config).with_trims(&encoding);
+  let classified = t.run();
+  let s = &t.stats;
+  assert!(s.trim_culled > 0 && s.trim_partial_leaves > 0 && s.trim_inside_leaves > 0);
+
+  let rect_points = |key: SubPatchKey| {
+    let (us, vs) = (key.u_segment(), key.v_segment());
+    let (u0, u1) = (param_to_f64(us.start()), param_to_f64(us.end()));
+    let (v0, v1) = (param_to_f64(vs.start()), param_to_f64(vs.end()));
+    (0..=6).flat_map(move |j| {
+      (0..=6).map(move |i| {
+        let (s, r) = (i as f64 / 6., j as f64 / 6.);
+        Vec2::new((u0 + (u1 - u0) * s) as f32, (v0 + (v1 - v0) * r) as f32)
+      })
+    })
+  };
+  let kept: FastHashMap<_, _> = classified.iter().map(|l| (l.key, *l)).collect();
+  for leaf in &classified {
+    let patch = items[leaf.key.item as usize].patch as usize;
+    if !leaf.trimmed {
+      for p in rect_points(leaf.key) {
+        assert!(encoding.is_inside(patch, p), "{leaf:?} at {p:?}");
+      }
+    }
+  }
+  let mut removed = 0;
+  for leaf in &plain {
+    let patch = items[leaf.key.item as usize].patch as usize;
+    match kept.get(&leaf.key) {
+      Some(other) => assert_eq!(other.k, leaf.k),
+      None => {
+        removed += 1;
+        for p in rect_points(leaf.key) {
+          assert!(!encoding.is_inside(patch, p), "{leaf:?} at {p:?}");
+        }
+      }
+    }
+  }
+  println!(
+    "{} leaves without trim classification, {} with ({removed} removed), trim culled {}, \
+     inside {}, partial {}",
+    plain.len(),
+    classified.len(),
+    s.trim_culled,
+    s.trim_inside_leaves,
+    s.trim_partial_leaves
+  );
+  assert!(removed > 0 && classified.len() + removed == plain.len());
+}

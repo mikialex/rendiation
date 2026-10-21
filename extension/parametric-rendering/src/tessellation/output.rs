@@ -120,6 +120,9 @@ impl TessellationFrameOutput {
   }
 
   /// Fill the output from the CPU reference: the leaves of `t.run()` with their meshes.
+  /// `LEAF_FLAG_TRIMMED` is set like the GPU version: on the leaves partially covered by the
+  /// trims with trim classification (`Tessellator::with_trims`), on every leaf of a trimmed
+  /// patch without.
   pub fn from_cpu_reference(
     device: &GPUDevice,
     model: &ParametricNormalizedModel,
@@ -135,7 +138,12 @@ impl TessellationFrameOutput {
       let flip = patch.flip_normal != model.instances[item.instance as usize].flip_normal;
       let surface = item.surface.clone();
       let mesh = t.leaf_mesh(leaf);
-      let trimmed = !patch.is_untrimmed();
+      // without trim classification every leaf of a trimmed patch covers its whole cell
+      let trimmed = if t.classifies_trims() {
+        leaf.trimmed
+      } else {
+        !patch.is_untrimmed()
+      };
       buckets[bucket_of(leaf.k.trailing_zeros(), trimmed) as usize].push(draws.len() as u32);
       draws.push(TessLeafDraw {
         vertex_base: vertices.len() as u32,
