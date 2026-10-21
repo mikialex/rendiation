@@ -1,11 +1,13 @@
 //! Offscreen smoke test of the parametric model rendering in the viewer frame: the model must
-//! cover pixels in front of an empty scene, for the msaa and the taa frame paths, and the GPU
-//! tessellation must cover the same pixels as the CPU reference.
+//! cover pixels in front of an empty scene, for the msaa and the taa frame paths, the trimmed
+//! draw must cover less than the whole cells and more than the untrimmed patches alone, and the
+//! GPU tessellation must cover the same pixels as the CPU reference.
 //!
 //! Uses a synthetic model by default, `RENDIATION_VIEWER_PNM` selects a `.pnm` file instead, and
 //! `RENDIATION_TEST_OUTPUT_DIR` writes the rendered images there.
 
 use parametric_normalized_model::*;
+use parametric_tessellation::test_scenes::trim::{circle, domain_boundary};
 use rendiation_texture_core::Size;
 use rendiation_viewer_content::*;
 use rendiation_webgpu::*;
@@ -30,6 +32,13 @@ fn parametric_model_renders_offscreen() {
     },
     ..Default::default()
   };
+  let whole_cells = ParametricRenderSettings {
+    draw: TessellationDrawSettings {
+      trimmed_style: TrimmedPatchStyle::Normal,
+      ..Default::default()
+    },
+    ..Default::default()
+  };
   let cpu_reference = ParametricRenderSettings {
     producer: TessellationProducerKind::CpuReference,
     ..Default::default()
@@ -39,6 +48,7 @@ fn parametric_model_renders_offscreen() {
     ("taa", false, true, ParametricRenderSettings::default()),
     ("hidden_trimmed", false, false, hidden_trimmed),
     ("cpu_reference", true, false, cpu_reference),
+    ("whole_cells", true, false, whole_cells),
   ];
 
   let mut coverages = Vec::new();
@@ -81,6 +91,7 @@ fn parametric_model_renders_offscreen() {
     coverages[2] < coverages[0],
     "hidden trimmed patches still drawn"
   );
+  assert!(coverages[0] < coverages[4], "trimmed parts still drawn");
   assert!(
     (coverages[3] - coverages[0]).abs() < 0.002,
     "gpu and cpu reference coverage differ: {coverages:?}"
@@ -242,7 +253,7 @@ fn render(
   }
 }
 
-/// A trimmed and an untrimmed curved patch side by side.
+/// An untrimmed and a trimmed (circular hole) curved patch side by side.
 fn synthetic_model() -> ParametricNormalizedModel {
   let patch = |offset: f64, trimmed: bool| {
     let mut control_points = Vec::new();
@@ -253,23 +264,17 @@ fn synthetic_model() -> ParametricNormalizedModel {
         control_points.push(Vec4::new(x + offset, y, z, 1.));
       }
     }
-    let boundary = |source| TrimLoop {
-      curves: vec![TrimCurve {
-        curve: RationalBezierCurve2::line(Vec2::new(0., 0.), Vec2::new(1., 0.)),
-        source,
-        exact: true,
-      }],
-    };
+    let mut loops = vec![TrimLoop {
+      curves: domain_boundary(),
+    }];
+    if trimmed {
+      loops.push(TrimLoop {
+        curves: circle((0.5, 0.5), 0.3, true),
+      });
+    }
     TrimmedBezierPatch {
       surface: RationalBezierSurface::new(3, 3, control_points),
-      loops: vec![boundary(if trimmed {
-        TrimCurveSource::Edge {
-          edge: EdgeId(0),
-          reversed: false,
-        }
-      } else {
-        TrimCurveSource::PatchBoundary
-      })],
+      loops,
       flip_normal: false,
       face: FaceId(0),
       cell: (0, 0),

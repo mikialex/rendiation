@@ -1,7 +1,10 @@
-//! Draw tests: the fragment inputs of the trimming pipeline variant (plan-trim T2 plumbing).
+//! Draw tests: the fragment inputs of the trimming pipeline variant and the trimming itself
+//! (plan-trim T2).
 
 use parametric_normalized_model::*;
+use parametric_tessellation::test_scenes::trim::*;
 use parametric_tessellation::test_scenes::*;
+use parametric_tessellation::trim::*;
 use parametric_tessellation::*;
 
 use super::*;
@@ -28,7 +31,7 @@ async fn trimmed_fragment_receives_exact_parameter() {
   assert_eq!(frame.stats.overflow, 0);
   assert!(frame.stats.trimmed_leaves > 0 && frame.stats.trimmed_leaves < frame.stats.leaves);
 
-  let pixels = render_parameters(&gpu, &camera, t.output()).await;
+  let pixels = render_float(&gpu, &camera, t.output(), &ParameterOutput).await;
 
   let items = camera_space_items(&model, &camera, |_| true).0;
   let (width, height) = (camera.viewport.x as usize, camera.viewport.y as usize);
@@ -66,12 +69,13 @@ fn half_trimmed(mut model: ParametricNormalizedModel) -> ParametricNormalizedMod
   model
 }
 
-/// Draws `output` into an `Rgba32Float` target, the trimmed buckets write
-/// `(u, v, item, patch + 2)`, the others their shaded color with alpha 1.
-async fn render_parameters(
+/// Draws `output` into an `Rgba32Float` target cleared to zero, without depth test, the
+/// trimmed buckets run `trim`, the others write their shaded color with alpha 1.
+async fn render_float(
   gpu: &GPU,
   camera: &Camera,
   output: &TessellationFrameOutput,
+  trim: &dyn TessellationTrimFragment,
 ) -> Vec<Vec4<f32>> {
   let size = Size::from_u32_pair_min_one((camera.viewport.x as u32, camera.viewport.y as u32));
   let usage = TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC;
@@ -100,15 +104,7 @@ async fn render_parameters(
   let desc = pass("parameter test").with_color(&target.clone().into(), clear_and_store(all_zero()));
   let pass = encoder.begin_render_pass(&desc, None);
   let mut ctx = GPURenderPassCtx::new(pass, gpu.clone());
-  let trim = ParameterOutput;
-  render_tessellation_output(
-    &mut ctx,
-    output,
-    &uniform,
-    Some(&trim),
-    &[&FloatTarget],
-    &[],
-  );
+  render_tessellation_output(&mut ctx, output, &uniform, Some(trim), &[&FloatTarget], &[]);
   drop(ctx);
   let read = encoder.read_texture_2d(
     &gpu.device,
@@ -144,7 +140,7 @@ impl GraphicsShaderProvider for FloatTarget {
   }
 }
 
-/// A trim fragment that only overrides the display with its inputs.
+/// A trim fragment that only overrides the display with its inputs, `(u, v, item, patch + 2)`.
 struct ParameterOutput;
 impl ShaderHashProvider for ParameterOutput {
   shader_hash_type_id! {}
@@ -159,6 +155,121 @@ impl TessellationTrimFragment for ParameterOutput {
   ) {
     let tag = (input.patch + val(2)).into_f32();
     let display: Node<Vec4<f32>> = (input.uv, input.item.into_f32(), tag).into();
+    builder.register::<DefaultDisplay>(display);
+  }
+}
+
+/// Trimmed patches side by side facing the camera (no two cover the same pixel), the loops of
+/// `trim_scenes` in turn.
+fn trim_grid_model() -> ParametricNormalizedModel {
+  let mut rng = TestRng(29);
+  let mut builder = TestModelBuilder::default();
+  let scenes = trim_scenes();
+  for i in 0..10 {
+    let face = builder.face([random_surface(&mut rng, i % 2 == 1)]);
+    let (column, row) = ((i % 5) as f64, (i / 5) as f64);
+    let t = Mat4::translate(((column - 2.) * 5., (row - 0.5) * 5., -30.));
+    builder.instance(face, t, false);
+    builder.model.patches[i].loops = scenes[i % scenes.len()].loops.clone();
+  }
+  builder.model
+}
+
+/// The fragment winding against the CPU f32 mirror at the fragment parameter, and the discarded
+/// fragments against the winding of the original trim curves: they may only differ on the
+/// pixels at the trim boundary.
+#[pollster::test]
+async fn trim_fragment_matches_cpu() {
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let model = trim_grid_model();
+  let camera = Camera {
+    view: Mat4::identity(),
+    focal_length: 500.,
+    viewport: Vec2::new(800., 600.),
+    near: 0.1,
+  };
+  let encoding = encode_trims(&model, &trim_config(), &BandGrid::DEFAULT);
+  let trims = TrimDeviceData::new(&gpu.device, &encoding);
+  let mut t = GpuTessellator::with_trims(&gpu, &model, trims.clone(), Default::default());
+  let mut encoder = gpu.create_encoder();
+  t.encode_frame(&gpu, &mut encoder, &camera);
+  gpu.submit_encoder(encoder);
+  let frame = t.read_back(&gpu).await;
+  assert_eq!(frame.stats.overflow, 0);
+
+  let windings = render_float(&gpu, &camera, t.output(), &WindingOutput(trims.clone())).await;
+  let trimmed = render_float(&gpu, &camera, t.output(), &TrimFragment { data: trims }).await;
+
+  let references: Vec<_> = model
+    .patches
+    .iter()
+    .map(|p| TrimReference::new(p, 1e-9))
+    .collect();
+  let (width, height) = (camera.viewport.x as usize, camera.viewport.y as usize);
+  let expected: Vec<_> = windings
+    .iter()
+    .map(|p| {
+      (p.z >= 2.).then(|| {
+        let uv = clamp_uv(Vec2::new(p.x, p.y)).into_f64();
+        references[p.z as usize - 2].winding(uv) != 0
+      })
+    })
+    .collect();
+  let (mut fragments, mut kernel_mismatched, mut inside, mut boundary_mismatched) = (0, 0, 0, 0);
+  for (index, p) in windings.iter().enumerate() {
+    let Some(expected_inside) = expected[index] else {
+      continue;
+    };
+    fragments += 1;
+    let (patch, uv) = (p.z as usize - 2, Vec2::new(p.x, p.y));
+    if encoding.winding(patch, uv) != p.w as i32 {
+      kernel_mismatched += 1;
+    }
+    let covered = trimmed[index].w != 0.;
+    inside += covered as usize;
+    if covered != expected_inside {
+      // a mismatch must be next to a pixel of the other class
+      let (x, y) = (index % width, index / width);
+      let at_boundary = (y.saturating_sub(1)..(y + 2).min(height)).any(|ny| {
+        (x.saturating_sub(1)..(x + 2).min(width))
+          .any(|nx| expected[ny * width + nx].is_some_and(|e| e != expected_inside))
+      });
+      assert!(
+        at_boundary,
+        "pixel ({x}, {y}) covered {covered}, expected {expected_inside}"
+      );
+      boundary_mismatched += 1;
+    }
+  }
+  println!(
+    "{fragments} trimmed fragments, {inside} kept, {kernel_mismatched} fragment windings differ \
+     from the cpu mirror, {boundary_mismatched} boundary pixels differ from the curves"
+  );
+  assert!(fragments > 20000 && inside > fragments / 4 && inside < fragments * 9 / 10);
+  assert_eq!(kernel_mismatched, 0);
+}
+
+/// Writes `(u, v, patch + 2, winding)` without discarding.
+struct WindingOutput(TrimDeviceData);
+impl ShaderHashProvider for WindingOutput {
+  shader_hash_type_id! {}
+}
+impl ShaderPassBuilder for WindingOutput {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.0.bind_pass(&mut ctx.binding);
+  }
+}
+impl TessellationTrimFragment for WindingOutput {
+  fn build_trim(
+    &self,
+    builder: &mut ShaderFragmentBuilderView,
+    binding: &mut ShaderBindGroupBuilder,
+    input: TessellationFragmentInput,
+  ) {
+    let trim = self.0.bind_shader(binding);
+    let winding = trim.winding(input.patch, input.uv).into_f32();
+    let tag = (input.patch + val(2)).into_f32();
+    let display: Node<Vec4<f32>> = (input.uv, tag, winding).into();
     builder.register::<DefaultDisplay>(display);
   }
 }

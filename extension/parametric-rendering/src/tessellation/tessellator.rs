@@ -30,12 +30,26 @@ pub struct GpuTessellator {
   pending_stats: Option<(ReadBufferFromStagingBuffer, TessCapacity)>,
   /// The frame buffers grew after an overflow and no frame was encoded since.
   grown: bool,
+  /// The trim loops of the model, for the leaf classification and the trimming draw.
+  trims: TrimDeviceData,
 }
 
 impl GpuTessellator {
   /// Static upload of all (instance, patch) items of the model (face origin relative f32
-  /// control points). Patches above `MAX_GPU_DEGREE` are rejected and counted.
+  /// control points) and of its trims (`encode_model_trims`). Patches above `MAX_GPU_DEGREE`
+  /// are rejected and counted.
   pub fn new(gpu: &GPU, model: &ParametricNormalizedModel, config: TessellationConfig) -> Self {
+    let trims = TrimDeviceData::new(&gpu.device, &encode_model_trims(model));
+    Self::with_trims(gpu, model, trims, config)
+  }
+
+  /// `new` with the already uploaded trims of `model`.
+  pub fn with_trims(
+    gpu: &GPU,
+    model: &ParametricNormalizedModel,
+    trims: TrimDeviceData,
+    config: TessellationConfig,
+  ) -> Self {
     check_config(&config);
     let all = TessStaticData::new(model, false);
     let active = all.clone();
@@ -56,7 +70,13 @@ impl GpuTessellator {
       stats: None,
       pending_stats: None,
       grown: false,
+      trims,
     }
+  }
+
+  /// The trims of the model, the draw of the output trims with them (`TrimFragment`).
+  pub fn trims(&self) -> &TrimDeviceData {
+    &self.trims
   }
 
   pub fn set_config(&mut self, config: TessellationConfig) {

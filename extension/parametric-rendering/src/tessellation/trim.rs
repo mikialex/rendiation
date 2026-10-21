@@ -6,6 +6,7 @@
 use parametric_normalized_model::ParametricNormalizedModel;
 use parametric_tessellation::trim::*;
 
+use super::*;
 use crate::*;
 
 /// `EncodedSegment` as uploaded: `(p0, p1)` and `(p2, max_u, bitcast<f32>(flags))`.
@@ -83,6 +84,37 @@ impl TrimDeviceData {
   pub fn bind_pass(&self, binding: &mut BindingBuilder) {
     binding.bind(&self.segments);
     binding.bind(&self.table);
+  }
+}
+
+/// The trimming of the trimmed draw buckets (plan-trim T2): discards the fragments whose
+/// parameter is outside the trim loops of their patch.
+#[derive(Clone)]
+pub struct TrimFragment {
+  pub data: TrimDeviceData,
+}
+
+impl ShaderHashProvider for TrimFragment {
+  shader_hash_type_id! {}
+}
+
+impl ShaderPassBuilder for TrimFragment {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.data.bind_pass(&mut ctx.binding);
+  }
+}
+
+impl TessellationTrimFragment for TrimFragment {
+  fn build_trim(
+    &self,
+    builder: &mut ShaderFragmentBuilderView,
+    binding: &mut ShaderBindGroupBuilder,
+    input: TessellationFragmentInput,
+  ) {
+    let trim = self.data.bind_shader(binding);
+    if_by(trim.winding(input.patch, input.uv).equals(val(0)), || {
+      builder.discard()
+    });
   }
 }
 

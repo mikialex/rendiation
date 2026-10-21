@@ -9,6 +9,7 @@
 //! right place.
 
 use parametric_normalized_model::{ParametricNormalizedModel, TrimmedBezierPatch};
+use parametric_tessellation::trim::TrimEncoding;
 use parametric_tessellation::{
   Camera as TessellationCamera, PARAM_BITS, TessellationConfig, Tessellator, camera_space_items,
 };
@@ -25,6 +26,8 @@ pub struct ViewerParametricRendering {
   model: Option<ParametricModelSource>,
   pub settings: ParametricRenderSettings,
   producer: Option<(TessellationProducerKind, Box<dyn TessellationProducer>)>,
+  /// The trims of the model on the GPU, uploaded with the first frame.
+  trims: Option<TrimDeviceData>,
 }
 
 impl ViewerParametricRendering {
@@ -39,11 +42,13 @@ impl ViewerParametricRendering {
     );
     self.model = Some(source);
     self.producer = None;
+    self.trims = None;
   }
 
   pub fn clear_model(&mut self) {
     self.model = None;
     self.producer = None;
+    self.trims = None;
   }
 
   pub fn model(&self) -> Option<&ParametricModelSource> {
@@ -83,9 +88,13 @@ impl ViewerParametricRendering {
     if !self.settings.enabled {
       return None;
     }
+    let trims = self
+      .trims
+      .get_or_insert_with(|| TrimDeviceData::new(&gpu.device, &source.trims))
+      .clone();
     let kind = self.settings.producer;
     if self.producer.as_ref().is_none_or(|(k, _)| *k != kind) {
-      let producer = create_tessellation_producer(kind, gpu, &source.model)?;
+      let producer = create_tessellation_producer(kind, gpu, source, &trims)?;
       self.producer = Some((kind, producer));
     }
     let (_, producer) = self.producer.as_mut()?;
@@ -109,6 +118,7 @@ impl ViewerParametricRendering {
       view,
       model_to_world,
       draw: self.settings.draw,
+      trim: TrimFragment { data: trims },
     })
   }
 
@@ -182,8 +192,8 @@ impl ViewerParametricRendering {
       })
       .response
       .on_hover_text(
-        "the tessellation ignores trimming, trimmed patches cover their whole cell; Trimmed uses \
-         the trimming pipeline, which does not trim yet (drawn like Normal)",
+        "Trimmed: the fragments outside the trim loops are discarded; the other styles show the \
+         whole cell of the trimmed patches",
       );
     let mut color: [f32; 3] = s.draw.base_color.into();
     ui.horizontal(|ui| {
@@ -220,10 +230,12 @@ pub struct ParametricModelSource {
   /// Bounds of the control points of all instances, in model space.
   pub bounds: Box3<f64>,
   pub untrimmed_patch_count: usize,
+  /// The trim loops converted to quadratics with the default acceleration structure.
+  pub trims: Arc<TrimEncoding>,
 }
 
 impl ParametricModelSource {
-  /// Can be called on a worker thread, it visits all control points.
+  /// Can be called on a worker thread, it visits all control points and encodes the trims.
   pub fn new(model: ParametricNormalizedModel, name: String) -> Self {
     let mut bounds = Box3::empty();
     for instance in &model.instances {
@@ -236,6 +248,7 @@ impl ParametricModelSource {
     }
     Self {
       untrimmed_patch_count: model.patches.iter().filter(|p| p.is_untrimmed()).count(),
+      trims: Arc::new(encode_model_trims(&model)),
       model: Arc::new(model),
       name,
       bounds,
@@ -323,6 +336,8 @@ pub struct ParametricFrame {
   pub view: Mat4<f64>,
   pub model_to_world: Mat4<f64>,
   pub draw: TessellationDrawSettings,
+  /// Used by the `TrimmedPatchStyle::Trimmed` style.
+  pub trim: TrimFragment,
 }
 
 impl ParametricFrame {
@@ -409,16 +424,22 @@ impl TessellationProducerKind {
   }
 }
 
+/// `trims` must be the upload of `source.trims`.
 pub fn create_tessellation_producer(
   kind: TessellationProducerKind,
   gpu: &GPU,
-  model: &Arc<ParametricNormalizedModel>,
+  source: &ParametricModelSource,
+  trims: &TrimDeviceData,
 ) -> Option<Box<dyn TessellationProducer>> {
   match kind {
     TessellationProducerKind::CpuReference => Some(Box::new(
-      CpuReferenceTessellationProducer::new(model.clone()),
+      CpuReferenceTessellationProducer::new(source.model.clone(), source.trims.clone()),
     )),
-    TessellationProducerKind::Gpu => Some(Box::new(GpuTessellationProducer::new(gpu, model))),
+    TessellationProducerKind::Gpu => Some(Box::new(GpuTessellationProducer::new(
+      gpu,
+      &source.model,
+      trims,
+    ))),
   }
 }
 
@@ -434,9 +455,14 @@ struct GpuTessellationProducer {
 }
 
 impl GpuTessellationProducer {
-  fn new(gpu: &GPU, model: &ParametricNormalizedModel) -> Self {
+  fn new(gpu: &GPU, model: &ParametricNormalizedModel, trims: &TrimDeviceData) -> Self {
     Self {
-      tessellator: GpuTessellator::new(gpu, model, TessellationConfig::default()),
+      tessellator: GpuTessellator::with_trims(
+        gpu,
+        model,
+        trims.clone(),
+        TessellationConfig::default(),
+      ),
       requested: None,
       last: None,
       stats: None,
@@ -552,6 +578,7 @@ impl ParametricTessellationStats {
 /// drawn meanwhile.
 pub struct CpuReferenceTessellationProducer {
   model: Arc<ParametricNormalizedModel>,
+  trims: Arc<TrimEncoding>,
   current: Option<(TessellationFrameOutput, Mat4<f64>)>,
   /// The request of the running or the last job.
   requested: Option<TessellationRequest>,
@@ -566,9 +593,10 @@ struct CpuTessellationResult {
 }
 
 impl CpuReferenceTessellationProducer {
-  pub fn new(model: Arc<ParametricNormalizedModel>) -> Self {
+  pub fn new(model: Arc<ParametricNormalizedModel>, trims: Arc<TrimEncoding>) -> Self {
     Self {
       model,
+      trims,
       current: None,
       requested: None,
       job: None,
@@ -736,12 +764,13 @@ pub struct ParametricModelSceneContent<'a> {
 impl PassContent for ParametricModelSceneContent<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     let base = default_dispatcher(pass, self.reversed_depth);
-    // the trim fragment of the `Trimmed` style is connected in plan-trim T2
+    let trimmed = self.frame.draw.trimmed_style == TrimmedPatchStyle::Trimmed;
+    let trim = trimmed.then_some(&self.frame.trim as &dyn TessellationTrimFragment);
     render_tessellation_output(
       &mut pass.ctx,
       &self.frame.output,
       self.uniform,
-      None,
+      trim,
       &[&base, self.camera],
       &[&ApplyCameraJitter],
     );
