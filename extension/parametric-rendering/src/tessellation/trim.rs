@@ -153,7 +153,9 @@ impl TessellationTrimFragment for TrimFragment {
     if_by(trim.winding(input.patch, input.uv).equals(val(0)), || {
       let keep = val(false).make_local_var();
       if_by(dilation.greater_than(val(0.)), || {
-        let nearest = trim.nearest_vector(input.patch, input.uv);
+        // the parameter extent of the dilation disc bounds the candidates
+        let extent = (duv_dx.abs() + duv_dy.abs()) * dilation;
+        let nearest = trim.nearest_vector_within(input.patch, input.uv, extent);
         let pixels = uv_to_pixels(duv_dx, duv_dy, nearest).length();
         keep.store(pixels.less_than(dilation));
       });
@@ -289,29 +291,51 @@ impl ShaderTrimData {
   pub fn nearest_vector(&self, patch: Node<u32>, uv: Node<Vec2<f32>>) -> Node<Vec2<f32>> {
     let uv = shader_clamp_uv(uv);
     let header = self.header(patch);
-    let nearest = val(Vec2::splat(f32::MAX)).make_local_var();
+    let nearest = NearestPoint::new();
     let has_segments = header
       .kind
       .equals(val(TRIM_KIND_ALL_SEGMENTS))
       .or(header.kind.equals(val(TRIM_KIND_BAND_GRID)));
     if_by(has_segments, || {
-      let best = val(f32::MAX).make_local_var();
       header.segment_count.into_shader_iter().for_each(|i, _| {
-        let s = self.segment(&header, i);
-        if_by(
-          (s.flags & val(SEGMENT_FLAG_AUXILIARY)).equals(val(0)),
-          || {
-            let v = shader_nearest_point(&s, uv);
-            let d = v.dot(v);
-            if_by(d.less_than(best.load()), || {
-              best.store(d);
-              nearest.store(v);
-            });
-          },
-        );
+        nearest.visit(&self.segment(&header, i), uv);
       });
     });
-    nearest.load()
+    nearest.vector.load()
+  }
+
+  /// `nearest_vector` where only the result within the parameter `extent` (a box around the
+  /// sample) matters: the band grid visits the bands and segments whose box is within it, the
+  /// other kinds every segment. Farther results are any vector at least as far.
+  pub fn nearest_vector_within(
+    &self,
+    patch: Node<u32>,
+    uv: Node<Vec2<f32>>,
+    extent: Node<Vec2<f32>>,
+  ) -> Node<Vec2<f32>> {
+    let uv = shader_clamp_uv(uv);
+    let header = self.header(patch);
+    let nearest = NearestPoint::new();
+    let (min, max) = (uv - extent, uv + extent);
+    switch_by(header.kind)
+      .case(TRIM_KIND_ALL_SEGMENTS, || {
+        header.segment_count.into_shader_iter().for_each(|i, _| {
+          nearest.visit(&self.segment(&header, i), uv);
+        });
+      })
+      .case(TRIM_KIND_BAND_GRID, || {
+        let layout = self.band_grid_layout(&header);
+        let bands = cell_range(min.y(), max.y(), layout.band_log2);
+        (bands.0..bands.1).into_shader_iter().for_each(|b, _| {
+          layout.band(self, b).for_each(|index, cx| {
+            let s = self.segment(&header, index);
+            if_by(s.max_u.less_than(min.x()), || cx.do_break());
+            if_by(s.box_intersects(min, max), || nearest.visit(&s, uv));
+          });
+        });
+      })
+      .end_with_default(|| {});
+    nearest.vector.load()
   }
 
   /// `PatchTrimView::winding_all`, `uv` clamped.
@@ -461,6 +485,35 @@ impl ShaderTrimData {
       result.store(inside.select(val(TRIM_RECT_INSIDE), val(TRIM_RECT_OUTSIDE)));
     });
     result.load()
+  }
+}
+
+/// The running nearest point of `nearest_vector`.
+struct NearestPoint {
+  vector: ShaderPtrOf<Vec2<f32>>,
+  length2: ShaderPtrOf<f32>,
+}
+
+impl NearestPoint {
+  fn new() -> Self {
+    Self {
+      vector: val(Vec2::splat(f32::MAX)).make_local_var(),
+      length2: val(f32::MAX).make_local_var(),
+    }
+  }
+
+  fn visit(&self, s: &ShaderTrimSegment, uv: Node<Vec2<f32>>) {
+    if_by(
+      (s.flags & val(SEGMENT_FLAG_AUXILIARY)).equals(val(0)),
+      || {
+        let v = shader_nearest_point(s, uv);
+        let d = v.dot(v);
+        if_by(d.less_than(self.length2.load()), || {
+          self.length2.store(d);
+          self.vector.store(v);
+        });
+      },
+    );
   }
 }
 

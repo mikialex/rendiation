@@ -383,8 +383,10 @@ release 下 steam 用 GPU 生产者：17387 叶子、29.7 万三角形（CPU 参
 
 ### 后续阶段
 
-- trim：fragment 级裁剪。
-- 跨 face watertight：trim 边按"边细分"逻辑统一处理。
+- trim：fragment 级裁剪，已完成，见 [plan-trim.md](plan-trim.md)：裁剪曲线转二次、band 加预分类
+  格子、细分时按裁剪环剔除和分类叶子、片元 discard，以及 0.5 px 外扩遮住跨 face 的针孔。覆盖率抗锯齿
+  留作后续。
+- 跨 face watertight：trim 边按"边细分"逻辑统一处理。目前由裁剪外扩掩盖（plan-trim T4）。
 - HiZ 遮挡剔除。
 - 帧间增量（concurrent binary tree 式的拆 / 合）。
 

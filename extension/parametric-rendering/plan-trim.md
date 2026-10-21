@@ -135,9 +135,10 @@ winding(p) = w0 + Σ_{s ∈ 候选} crossing(s, p)
 
 - CPU：`TrimAccelBuilder` 接收一个 patch 的二次段，输出 `u32` 字（追加到共享的 u32 表）。辅助段追加到
   共享的段池。CPU 侧另有一份与 shader 逐操作对应的 f32 查询实现，用于测试。
-- shader：`TrimAccelShader`，提供点查询（返回 `w0`，循环中调用内核回调）和矩形查询。它实现
-  `ShaderHashProvider`，不同结构生成不同的 pipeline。第一版整个模型用同一种结构；以后需要时，可以在
-  patch 裁剪头里加类型标记，按 patch 选择结构（例如简单 patch 用 band、长尾 patch 用格子）。
+- shader：`ShaderTrimData`（`src/tessellation/trim.rs`）按 patch 裁剪头里的 `kind` 在运行时
+  `switch`，点查询、矩形查询和距离查询各有一份与 CPU 镜像逐操作对应的实现。实现时没有做成按结构区分
+  pipeline 的 trait：`kind` 本来就存在每个 patch 的头里，运行时分支让同一个模型可以按 patch 混用结构
+  （例如简单 patch 用 band、长尾 patch 用格子），也不会让 pipeline 数翻倍。
 - 测试：每种实现都和"全部段"参考实现比对。段集合相同时 winding 必须逐位一致；会裁剪段的实现
   （RAVG 格子），只允许在离曲线很近的点上不一致。
 
@@ -171,7 +172,9 @@ winding(p) = w0 + Σ_{s ∈ 候选} crossing(s, p)
 - 内：继续，并标记为不需要裁剪。
 - 部分：继续，标记为需要裁剪。
 - 外扩（T4）时剔除要保守：R 先在 uv 里外扩 δ 像素对应的量。这个量由 L.b 已有的投影尺寸估计：
-  R 的 uv 尺寸除以屏幕尺寸，乘 δ。
+  R 的 uv 尺寸除以屏幕尺寸，乘 δ，再按浮点位向上取整到 2 的幂（`dilation_margin`），这样 GPU 和
+  CPU 参考逐位一致，外扩后的矩形在 f32 里也是精确的。投影尺寸取包围盒对角线，某些方向上偏大，所以
+  外扩是近似的。
 - 不在工作项 key 里记录"父节点全内"，每层重新分类。全内的父节点下，子节点的分类结果必然也是全内，
   每层只多一次查询。
 - 叶子的 `LEAF_FLAG_TRIMMED` 改为"部分覆盖"的含义。"patch 是否带裁剪"仍在 item 的 flag 里，供
@@ -205,12 +208,16 @@ CPU 参考（`parametric-tessellation`）做同样的分类，叶子集合比对
 - 换成像素：用 `dpdx(uv)` / `dpdy(uv)` 组成 2×2 矩阵 J（像素到 uv），距离向量 v 对应的像素长度是
   `|J⁻¹ v|`。参数映射经常各向异性且有斜切，不能像 Slug 那样用 `fwidth` 按轴分开。
 - 判定：winding ≠ 0，或像素距离 < δ 时保留片元。
-- 加速结构要按 δ 对应的 uv 半径收集候选段（见抽象一节中的距离约定）。uv 半径随视角变化，所以结构在
-  预处理时取一个固定的上限 r；片元的 δ 换算成 uv 后超过 r 时，按 r 截断（远处的小 patch 外扩不足，
-  可以接受）。
+- 候选段（实现时修正）：没有用预处理时固定的上限 r。远景下一个像素可以占 patch 参数域的百分之几，
+  固定 r 要么截断外扩，要么让预分类格子几乎全是不确定格。改为片元按 J 算出 δ 像素圆在参数域里的
+  包围盒半宽 `e = (|∂uv/∂x| + |∂uv/∂y|)·δ`，band 结构只访问与 `[v − e_v, v + e_v]` 相交的 band，跳过
+  包围盒不在 `uv ± e` 内的段，遇到 `max_u < u − e_u` 时停止（`nearest_vector_within`）。band 包含所有
+  包围盒与其 v 范围相交的段，所以这样是保守的。`BandGrid::distance_radius` 为 0，表示结构本身不保证
+  任何半径，由查询给出范围。只有中心在环外的片元才计算距离。
 - 副作用：凸棱处轮廓最多外扩 δ 像素；G1 连续的边（大部分倒角）在重叠区深度几乎相同，会有
   z-fighting，但两侧着色相同，预期看不出来，需要实测。
-- 先用 δ = 0 截图记录裂缝的实际表现，再决定 δ 的默认值，或者是否需要外扩。
+- 先用 δ = 0 截图记录裂缝的实际表现，再决定 δ 的默认值，或者是否需要外扩。结果见"T4 结果"，
+  默认值取 0.5 px。
 
 ## 后续：覆盖率抗锯齿
 
@@ -332,6 +339,28 @@ steam-controller（`RENDIATION_TEST_PNM=… cargo test --release -p parametric-t
 - `TrimAccelShader` 和内核放进 `shader_lib`，点查询和矩形查询都与 CPU f32 版本做随机对比测试，
   难例必须完全一致。
 
+#### T1 结果
+
+实现在 `rendiation-parametric-rendering` 的 `src/tessellation/trim.rs`，测试在 `tests_trim.rs`：
+
+- `TrimDeviceData`：`TrimEncoding` 的段池（`TrimSegmentGpu`，两个 vec4）和 u32 表，两个只读 storage
+  buffer。`encode_model_trims` 是默认编码（模型容差、`BandGrid::DEFAULT`）。
+- `ShaderTrimData`：`winding`、`classify_rect`（结果为 `TRIM_RECT_*`）、`nearest_vector` /
+  `nearest_vector_within`（T4），内核 `shader_trim_crossing` / `shader_root_code`。
+- 合成场景从 `parametric-tessellation` 的测试里移到公开的 `test_scenes::trim`（`trim_scenes`、
+  `trim_config`、`sample_points`、`trimmed_random_model`），GPU 测试和 viewer 测试共用。
+
+GPU 与 CPU f32 镜像的对比（Apple M5 Pro）：
+
+| 用例 | 点查询 | 矩形查询 |
+| --- | --- | --- |
+| 合成场景，band 加格子 / 全部段 | 各约 3.2 万点，18 个不一致，全部正好在段端点上 | 各 1.5 万个矩形，0 不一致 |
+| steam，全部带裁剪 patch | 68.8 万点，600 个不一致，到段的距离都不超过 2⁻²⁰ | 7.97 万个矩形，0 不一致 |
+
+不一致的原因：采样点正好在两段的公共端点上（相对坐标 `p2 = (0, 0)`）时，根的 x 是舍入噪声，它的符号
+取决于 FMA 合并和除法精度（Metal 默认 fast math）。点在裁剪边界上时两种结果都合理，所以测试只要求
+不一致的点到段的距离 < 1e-6，矩形查询要求完全一致。
+
 ### T2：片元裁剪
 
 - `TessLeafDraw` 带 key，vertex 输出 uv 和裁剪头下标，裁剪 pipeline 在 fragment 里 discard。
@@ -382,11 +411,57 @@ steam-controller（`RENDIATION_TEST_PNM=… cargo test --release -p parametric-t
   viewer 离屏测试（合成模型和 steam，MSAA / TAA / 隐藏裁剪 patch / CPU 参考）覆盖率不变，steam
   17387 叶子、29.7 万三角形。
 
+#### T2 结果
+
+- `TrimFragment`（`TessellationTrimFragment` 的实现）：winding 为 0 时 discard（T4 加上外扩）。
+  `GpuTessellator::with_trims` 接收已上传的 `TrimDeviceData`，`new` 自己编码。
+- viewer：`ParametricModelSource::trims`（`Arc<TrimEncoding>`，在加载线程上编码，steam 约 32 ms），
+  第一帧上传为 `TrimDeviceData`，GPU 生产者、CPU 参考和绘制共用；`TrimmedPatchStyle::Trimmed`
+  设为默认，界面说明已更新。
+- 验证方式的修正：覆盖率对比没有用 CLI 的 `mesh.rs` 三角化，而是直接用原始有理曲线的 f64 winding
+  逐像素对比（片元的 uv 已知），比三角化更直接，也更严格。
+
+测试：
+
+- `trim_fragment_matches_cpu`：10 个互不重叠、带裁剪的 patch，800×600。每个裁剪片元的 GPU winding
+  与 CPU f32 镜像 0 不一致；discard 的结果与原始曲线的 winding 0 不一致（测试允许边界像素不同，
+  实际为 0）。
+- viewer 离屏测试：原来合成模型的"裁剪"只是一条不闭合的直线，编码后整个 patch 判为环外；改为参数域
+  边界加一个圆孔，并新增 `whole_cells` 用例。覆盖率为隐藏 6.3% < 裁剪 14.0% < 整个 cell 17.0%，
+  GPU 与 CPU 参考一致。steam（640×480）为隐藏 6.1%、裁剪 13.4%、整个 cell 13.6%，渲染图中整个
+  cell 时伸出的鳍片在裁剪后消失。
+
 ### T3：叶子分类
 
 - L.b 分类与剔除，L.d 输出部分覆盖标志，10 个桶。CPU 参考同步实现，叶子集合比对。
 - 统计读回：全外剔除的工作项数、全内叶子数、部分覆盖叶子数。
 - 测量：叶子数、三角形数和帧时间的变化，以及裁剪 pipeline 覆盖的片元比例。
+
+#### T3 结果
+
+- GPU：L.b 在视锥剔除之后用 `classify_rect` 分类工作项的矩形（T4 起先外扩）。状态字增加
+  `STATUS_TRIM_CULL`（代码 5）、`STATUS_TRIMMED_BIT`（部分覆盖）和 `STATUS_TRIM_INSIDE_BIT`，读状态
+  码一律通过 `status_code` 屏蔽这些位。L.d 用这些位设置 `LEAF_FLAG_TRIMMED`，并累加
+  `COUNTER_TRIM_CULLED` / `COUNTER_TRIM_INSIDE_LEAVES`。统计新增 `trim_culled`、`trim_inside_leaves`。
+- CPU 参考：`Tessellator::with_trims`、`Leaf::trimmed`、统计 `trim_culled` / `trim_inside_leaves` /
+  `trim_partial_leaves`；`compare_leaf_sets` 同时比较 `trimmed` 标志。
+- 决策：分类可以关闭（`GpuTessellator::set_trim_classification`，默认开）。viewer 只在 `Trimmed` 风格
+  下开启，其他风格仍画整个 cell，"调淡 / 隐藏"这些调试视图继续有意义。关闭时 `LEAF_FLAG_TRIMMED`
+  保持原语义（叶子所属 patch 带裁剪）。
+- 测试：CPU 测试 `trim_classification_keeps_the_material`（不需裁剪的叶子在环内，被剔除的区域在环外，
+  保留下来的 key 的决策不变）；GPU 与 CPU 在带真实裁剪的合成场景上叶子集合（含标志）完全一致。
+
+steam，1920×1080，0.5 px，分类关 → 开（叶子与三角形数 GPU 与 CPU 一致，不一致叶子同改动前）：
+
+| 视角 | 叶子 | 三角形 | 裁剪叶子 | 剔除 / 全内 | 细分帧时间 | 片元总数 | 走裁剪 pipeline 的片元 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| fit | 17471 → 17468 | 716k → 716k | 10053 → 10019 | 3 / 29 | 5.3 ms 不变 | 80.3 万不变 | 82.8% → 82.4% |
+| fit:4 | 10875 → 10432 | 1.50M → 1.29M | 6823 → 6252 | 294 / 128 | 7.84 → 6.55 ms | 691 万 → 543 万 | 92.9% → 73.4% |
+| fit:20 | 3635 → 3525 | 435k → 381k | 1889 → 1628 | 110 / 151 | 4.0 ms 不变 | 312 万 → 294 万 | 88.9% → 38.0% |
+| fit:80 | 3045 → 2939 | 453k → 400k | 1628 → 1321 | 82 / 201 | 4.0 ms 不变 | | |
+
+片元数用加法混合计数（没有深度测试，含重叠）。fit 视角下效果很小：大部分 patch 在第 0 层就是叶子，
+根矩形是整个参数域，几乎总是部分覆盖。这时约 38% 的裁剪片元被 discard。
 
 ### T4：距离与外扩
 
@@ -394,20 +469,89 @@ steam-controller（`RENDIATION_TEST_PNM=… cargo test --release -p parametric-t
 - 先用 δ = 0 截图记录跨 face 裂缝，再看外扩后裂缝是否消失、凸棱处轮廓的变化，以及 G1 边上
   z-fighting 是否可见。
 
+#### T4 结果
+
+- 近似最近点：`nearest_point`（CPU f32 镜像）和 `shader_nearest_point`，即 RAVG 的隐式形式加参数反演。
+  直线在编码时按 f64 共线性加 `SEGMENT_FLAG_LINE`，近似共线（`|4·面积| ≤ 1e-5·弦长²`，
+  `NEAR_LINE_RATIO`）也取弦，弦与曲线的偏差小于弦长的 2.5e-6。
+  - 精度：合成场景中离曲线 0.02 以内的 10 万个点，与原始曲线折线距离相比，相对误差最大 0.9%（距离
+    > 1e-3 时）。GPU 与 CPU 的距离绝对误差最大 4.9e-7。
+- 片元：中心在环外且 δ > 0 时，用 `nearest_vector_within` 求距离向量，经 J⁻¹（`uv_to_pixels`）换算
+  成像素，长度 < δ 时保留。`TrimFragment::new(device, data, δ)` / `set_dilation` 通过 uniform 设置 δ。
+- 分类：`TessUniform::trim_dilation`，L.b 和 CPU 参考按 `dilation_margin` 外扩矩形。`dilation_margin`
+  在 GPU 与 CPU 上 2 万个随机输入逐位一致。外扩 0 / 1.5 / 200 px 时，GPU 与 CPU 的叶子集合都一致，
+  合成场景剔除的工作项数为 12 / 12 / 0。
+- `trim_dilation_keeps_near_fragments`：外扩 2.5 px 时新增 5432 个片元，全部在环内像素 4 px 以内，
+  原来保留的片元没有一个丢失。
+- 默认值：viewer 的 `DEFAULT_TRIM_DILATION` = 0.5 px，界面里可调；库里 `GpuTessellator` 默认 0。
+
+裂缝评估（`steam_trim_cracks`，1920×1080，深度测试）。间隙像素定义为：在一行或一列上，比相距 1 或 2
+像素的两侧都远（超过 2%，或者是背景）的像素。
+
+| 视角 | δ | 间隙像素 | 覆盖增加 | 深度改变的像素 | 同深度明暗改变 |
+| --- | --- | --- | --- | --- | --- |
+| fit | 0 / 0.5 / 1 / 2 | 212 / 11 / 12 / 13 | 0 / +26 / +71 / +247 | 0 / 288 / 422 / 1010 | 0 / 532 / 1275 / 2308 |
+| fit:4 | 0 / 0.5 / 1 / 2 | 215 / 3 / 3 / 7 | 0 / +5 / +9 / +23 | 0 / 446 / 1010 / 2593 | 0 / 450 / 785 / 2361 |
+| fit:20 | 0 / 0.5 / 1 / 2 | 192 / 3 / 2 / 2 | 0 / +171 / +171 / +171 | 0 / 810 / 2099 / 3422 | 0 / 643 / 707 / 721 |
+
+- 裂缝的形态：局部裁切图（放大 4 倍）中是沿两个 face 交界的零星单像素针孔，没有连续的缝。0.5 px
+  已经消除 95%～98%，再加大 δ 不再减少间隙，只增加重叠。
+- 轮廓外扩：覆盖增加最多是覆盖像素的 0.07%（fit 下 +26 / 25 万），凸棱处的轮廓变化看不出来。
+- 重叠区：外扩出的边缘在同一深度显示另一个 face 时，明暗会变化（尖棱两侧法线不同）。0.5 px 时这样的
+  像素占覆盖像素的 0.02%～0.2%，只在裁切图里检查过裂缝位置，没有专门检查 G1 边上的 z-fighting 图像。
+- 外扩后残留的几个间隙像素没有逐个查明是否为模型本身的窄缝。
+
 ### T5：收尾
 
 - 性能：fit 和近景各测一次，重点看长尾 patch（段数最多的那些）的片元开销，决定要不要补一个备选
   加速结构。
 - 更新 plan.md 和相关 skill 文档。
 
+#### T5 结果
+
+绘制时间（`steam_trim_draw_cost`，1920×1080，深度测试，M5 Pro，每次提交 10 次绘制取平均，再取多次
+提交的中位数，误差约 ±0.1 ms）：
+
+| 视角 | 整个 cell，不分类 | 分类、不裁剪 | band 加格子 | 全部段（无加速） | 最多 64 条 band |
+| --- | --- | --- | --- | --- | --- |
+| fit | 0.53 ms | 0.53 ms | 0.66 ms | 0.89 ms | 0.67～0.77 ms |
+| fit:4 | 1.81 ms | 1.43 ms | 1.93 ms | 2.76 ms | 2.09 ms |
+| fit:20 | 0.53 ms | 0.53 ms | 0.67 ms | 2.13 ms | 0.68 ms |
+| fit:80 | 0.54 ms | 0.54 ms | 0.67 ms | 1.56 ms | 0.68 ms |
+
+- T4 的第一版对环外片元遍历全部段求距离，fit:20 / fit:80 的裁剪绘制分别为 1.43 / 1.17 ms，其中不外扩
+  时只要 0.68 / 0.70 ms。距离开销占了大头，于是改为按外扩范围收集候选段，得到上表的数字。
+- CPU 复现可见裁剪片元（无深度，最后写入者）的点查询访问段数：
+
+  | 视角 | 平均访问段数 | 落在常数格 | 段数 > 32 的 patch 的片元占比 / 平均访问 | 最多 64 条 band 时平均访问 |
+  | --- | --- | --- | --- | --- |
+  | fit | 0.95 | 85% | 18% / 3.9 | 0.46 |
+  | fit:4 | 1.9 | 71% | 14% / 9.7 | 0.91 |
+  | fit:20 | 2.7 | 74% | 20% / 12.2 | 1.03 |
+  | fit:80 | 4.5 | 65% | 24% / 17.0 | 1.67 |
+
+结论：
+
+- 暂不需要备选加速结构（RAVG 格子）。裁剪带来的额外绘制时间不超过约 0.13 ms，只有 fit:4（170 万个
+  可见裁剪片元）多 0.5 ms。长尾 patch 承担了大部分访问，但访问数不是瓶颈：band 增加到 64 条时访问减半，
+  绘制时间不变，表大小却增加 17%（32.9 万 → 38.6 万字），所以保留 16 条。
+- 加速结构的收益主要来自预分类格子（65%～85% 的片元不求交）和距离候选的范围限制。全部段的版本在
+  近景下慢 2～3 倍。
+- 在裁剪更复杂的模型上需要重新评估；那时先试长尾 patch 单独加 band，再考虑 RAVG 格子（有专利问题，
+  见 trim-research.md）。
+
+文档：plan.md 的"后续阶段"、本文件的设计小节、crate README 已更新。skill 文档（`.claude/skills`）里
+没有涉及参数曲面细分或裁剪的内容，不需要更新。
+
 ## 未决问题
 
-- 3D 容差取多少：太松时裁剪边和相邻 face 的边对不上，太紧时长尾 patch 的段数增加。用 T0 的统计和
-  T4 的截图决定。
-- 根判定码的符号约定与本数据的环方向如何对应（T0 测试确认）。
-- 长尾 patch 是否需要备选加速结构：容差 1e-3 时最满的 band 仍有 60 段。看 T5 的测量结果，以及预分类
-  格子能挡掉多少片元。
-- 外扩 δ 的取值、固定上限 r 是否够用，以及外扩与 plan.md 后续"跨 face watertight"的关系：几何上
-  做到 watertight 之后，外扩可能不再需要。
-- 部分覆盖的叶子里环外的面积占比。如果过度光栅化明显，考虑加拆分判据：部分覆盖且环外面积大的
-  叶子继续拆。
+已解决：根判定码的符号约定（T0）；长尾是否需要备选结构（T5：暂不需要）；δ 的取值（T4：0.5 px）；
+固定上限 r（T4：不需要，由片元给出范围）。
+
+- 3D 容差：默认取模型容差，多数 patch 的 uv 容差被上限 1e-3 截住。裂缝裁切图里没有看到由此引起的
+  裁剪边偏移，但没有专门测量裁剪边与相邻 face 的边在屏幕上的偏差。
+- 外扩与 plan.md 后续"跨 face watertight"的关系：几何上做到 watertight 之后，外扩可能不再需要。
+- 远景下部分覆盖的叶子过度光栅化：fit 视角 82% 的片元走裁剪 pipeline，其中约 38% 被 discard，原因是
+  根矩形几乎总是部分覆盖。可以考虑加拆分判据：部分覆盖且环外面积大的叶子继续拆。
+- 覆盖率抗锯齿（见"后续"一节）。
+- 外扩后残留的个别间隙像素的成因，以及 G1 边上的 z-fighting 没有单独的视觉检查。

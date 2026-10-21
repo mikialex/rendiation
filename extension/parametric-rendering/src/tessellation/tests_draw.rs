@@ -1,6 +1,8 @@
 //! Draw tests: the fragment inputs of the trimming pipeline variant and the trimming itself
 //! (plan-trim T2).
 
+use std::time::Instant;
+
 use parametric_normalized_model::*;
 use parametric_tessellation::test_scenes::trim::*;
 use parametric_tessellation::test_scenes::*;
@@ -658,5 +660,176 @@ async fn steam_trim_cracks() {
         fixed.len()
       );
     }
+  }
+}
+
+/// The time of drawing `output` once (with depth test, `trim` on the trimmed buckets) in ms:
+/// the median over a few submissions of `DRAWS` draws each, divided by `DRAWS`.
+fn time_draw(
+  gpu: &GPU,
+  camera: &Camera,
+  output: &TessellationFrameOutput,
+  trim: Option<&dyn TessellationTrimFragment>,
+) -> f64 {
+  let size = Size::from_u32_pair_min_one((camera.viewport.x as u32, camera.viewport.y as u32));
+  let usage = TextureUsages::RENDER_ATTACHMENT;
+  let target = create_empty_2d_texture_view(gpu, size, usage, TextureFormat::Rgba32Float);
+  let depth = create_empty_2d_texture_view(gpu, size, usage, TextureFormat::Depth32Float);
+  let float_target = FloatTarget {
+    format: TextureFormat::Rgba32Float,
+    counting: false,
+    depth: true,
+  };
+  let (sx, sy) = (
+    (camera.focal_length / (camera.viewport.x * 0.5)) as f32,
+    (camera.focal_length / (camera.viewport.y * 0.5)) as f32,
+  );
+  #[rustfmt::skip]
+  let clip = Mat4::new(
+    sx, 0., 0., 0.,
+    0., sy, 0., 0.,
+    0., 0., 0., -1.,
+    0., 0., camera.near as f32, 0.,
+  );
+  let uniform = TessellationDrawUniform::new(clip, Mat4::identity(), &Default::default(), output);
+  let uniform = create_uniform(uniform, &gpu.device, "test draw uniform");
+  const DRAWS: usize = 10;
+  let mut times = Vec::new();
+  for _ in 0..12 {
+    let start = Instant::now();
+    let mut encoder = gpu.create_encoder();
+    for _ in 0..DRAWS {
+      let desc = pass("draw timing")
+        .with_color(&target.clone().into(), clear_and_store(all_zero()))
+        .with_depth(&depth.clone().into(), clear_and_store(0.), None);
+      let pass = encoder.begin_render_pass(&desc, None);
+      let mut ctx = GPURenderPassCtx::new(pass, gpu.clone());
+      render_tessellation_output(&mut ctx, output, &uniform, trim, &[&float_target], &[]);
+    }
+    gpu.submit_encoder(encoder);
+    gpu.poll(true);
+    times.push(start.elapsed().as_secs_f64() * 1e3 / DRAWS as f64);
+  }
+  // the first frames compile the pipelines
+  let mut times = times[4..].to_vec();
+  times.sort_by(f64::total_cmp);
+  times[times.len() / 2]
+}
+
+/// Draw cost of the trimming on the steam controller model (skipped when the file is missing):
+/// the trimmed draw with the band grid and with all segments (no acceleration) against the
+/// whole cells, and the CPU replicated count of the segments a trimmed fragment visits, by the
+/// segment count of its patch: `cargo test --release -p rendiation-parametric-rendering
+/// steam_trim_draw_cost -- --ignored --nocapture`.
+#[pollster::test]
+#[ignore]
+async fn steam_trim_draw_cost() {
+  let Ok(model) = ParametricNormalizedModel::load_pnm(super::tests_frame::STEAM_MODEL) else {
+    println!("steam model not found, skipped");
+    return;
+  };
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let config = TrimQuadraticConfig::for_model(&model);
+  let band = encode_trims(&model, &config, &BandGrid::DEFAULT);
+  let all = encode_trims(&model, &config, &AllSegments);
+  let fine = BandGrid {
+    max_band_log2: 6,
+    ..BandGrid::DEFAULT
+  };
+  let fine_bands = encode_trims(&model, &config, &fine);
+  let band_data = TrimDeviceData::new(&gpu.device, &band);
+  let all_data = TrimDeviceData::new(&gpu.device, &all);
+  let fine_data = TrimDeviceData::new(&gpu.device, &fine_bands);
+  println!(
+    "table words: 16 bands {}, 64 bands {}",
+    band.table.len(),
+    fine_bands.table.len()
+  );
+  for zoom in [1., 4., 20., 80.] {
+    let camera = fit_camera(&model, zoom);
+    let tessellate = |trims: &TrimDeviceData, classify: bool| {
+      let mut t = GpuTessellator::with_trims(&gpu, &model, trims.clone(), Default::default());
+      t.set_trim_classification(classify);
+      t.set_trim_dilation(0.5);
+      for _ in 0..8 {
+        let mut encoder = gpu.create_encoder();
+        t.encode_frame(&gpu, &mut encoder, &camera);
+        gpu.submit_encoder(encoder);
+        gpu.poll(true);
+        let mut encoder = gpu.create_encoder();
+        t.encode_frame(&gpu, &mut encoder, &camera);
+        gpu.submit_encoder(encoder);
+        gpu.poll(true);
+        if t.last_stats().is_some_and(|s| s.overflow == 0) {
+          break;
+        }
+      }
+      t
+    };
+    let whole = tessellate(&band_data, false);
+    let whole_ms = time_draw(&gpu, &camera, whole.output(), None);
+    let t = tessellate(&band_data, true);
+    let untrimmed_ms = time_draw(&gpu, &camera, t.output(), None);
+    let fragment = TrimFragment::new(&gpu.device, band_data.clone(), 0.5);
+    let band_ms = time_draw(&gpu, &camera, t.output(), Some(&fragment));
+    fragment.set_dilation(&gpu.queue, 0.);
+    let exact_ms = time_draw(&gpu, &camera, t.output(), Some(&fragment));
+    let t_all = tessellate(&all_data, true);
+    let all_fragment = TrimFragment::new(&gpu.device, all_data.clone(), 0.5);
+    let all_ms = time_draw(&gpu, &camera, t_all.output(), Some(&all_fragment));
+    let t_fine = tessellate(&fine_data, true);
+    let fine_fragment = TrimFragment::new(&gpu.device, fine_data.clone(), 0.5);
+    let fine_ms = time_draw(&gpu, &camera, t_fine.output(), Some(&fine_fragment));
+    println!(
+      "fit:{zoom}: draw whole cells {whole_ms:.2} ms, classified leaves without trimming \
+       {untrimmed_ms:.2} ms, trimmed with band grid {band_ms:.2} ms (without dilation \
+       {exact_ms:.2} ms, up to 64 bands {fine_ms:.2} ms), with all segments {all_ms:.2} ms"
+    );
+
+    // the visible trimmed fragments (last writer) and the segments their point query visits
+    let windings = render_float(&gpu, &camera, t.output(), &WindingOutput(band_data.clone())).await;
+    let (mut fragments, mut visits, mut constant) = (0usize, 0usize, 0usize);
+    let mut fine_visits = 0usize;
+    let mut by_count = [(0usize, 0usize); 4];
+    let mut max_visits = 0;
+    for p in windings.iter().filter(|p| p.z >= 2.) {
+      let patch = p.z as usize - 2;
+      let Some(view) = band.patch_view(patch) else {
+        continue;
+      };
+      let uv = clamp_uv(Vec2::new(p.x, p.y));
+      let mut n = 0;
+      BandGrid::DEFAULT.point_query(view, uv, &mut |_| n += 1);
+      let mut fine_n = 0;
+      let fine_view = fine_bands.patch_view(patch).unwrap();
+      fine.point_query(fine_view, uv, &mut |_| fine_n += 1);
+      fine_visits += fine_n;
+      fragments += 1;
+      visits += n;
+      constant += (n == 0) as usize;
+      max_visits = max_visits.max(n);
+      let class = match view.segments.len() {
+        0..=8 => 0,
+        9..=16 => 1,
+        17..=32 => 2,
+        _ => 3,
+      };
+      by_count[class].0 += 1;
+      by_count[class].1 += n;
+    }
+    let per =
+      |(f, v): (usize, usize)| format!("{f} fragments {:.2} visits", v as f64 / f.max(1) as f64);
+    println!(
+      "  {fragments} visible trimmed fragments: {:.2} segments visited on average (max \
+       {max_visits}, {:.2} with up to 64 bands), {:.1}% in constant grid cells | by patch \
+       segments <=8: {}, <=16: {}, <=32: {}, more: {}",
+      visits as f64 / fragments.max(1) as f64,
+      fine_visits as f64 / fragments.max(1) as f64,
+      constant as f64 / fragments.max(1) as f64 * 100.,
+      per(by_count[0]),
+      per(by_count[1]),
+      per(by_count[2]),
+      per(by_count[3]),
+    );
   }
 }

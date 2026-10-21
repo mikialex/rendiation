@@ -14,6 +14,7 @@ selection, edge linearization and vertex positioning, in f32), see `plan.md` sta
 ```rust
 let mut t = GpuTessellator::new(&gpu, &model, TessellationConfig::default());
 t.set_untrimmed_only(true); // optional, like the CPU `camera_space_items` filter
+t.set_trim_dilation(0.5); // the dilation of the `TrimFragment` used to draw
 // every frame
 let output = t.encode_frame(&gpu, &mut encoder, &camera); // valid after the submit
 gpu.submit_encoder(encoder);
@@ -46,6 +47,14 @@ let stats = t.last_stats(); // from an earlier frame
   domain parameter and the item index, the trimmed buckets use a separate pipeline variant that
   runs an optional `TessellationTrimFragment` (plan-trim T2). The viewer uses it in
   `application/viewer-content/src/rendering/parametric.rs`.
+- `trim`: the trim loops on the GPU (`plan-trim.md`). `TrimDeviceData` uploads a
+  `parametric_tessellation::trim::TrimEncoding` (`encode_model_trims`), `ShaderTrimData` has the
+  point (winding), rectangle and nearest point queries mirroring the CPU f32 code, and
+  `TrimFragment` discards the fragments of the trimmed buckets outside the trim loops, keeping
+  the ones within the dilation (`set_dilation`, pixels through the parameter derivatives).
+  `GpuTessellator` classifies the work items by the trim loops in L.b (on by default,
+  `set_trim_classification`, `set_trim_dilation`): the sub patches outside are culled and
+  `LEAF_FLAG_TRIMMED` (the trimming buckets) is only set on the leaves partially covered.
 
 Requirements and limits: up to 10 storage buffers per shader stage (more than the WebGPU
 default of 8, fine on native adapters); patch degrees up to `MAX_GPU_DEGREE` (others are
@@ -60,3 +69,8 @@ the steam controller comparison is an ignored test:
 ```sh
 cargo test --release -p rendiation-parametric-rendering steam -- --ignored --nocapture
 ```
+
+This also runs the trim measurements on the steam model: GPU against CPU queries
+(`steam_trim_queries_match_cpu`), the fragments of the trimming pipeline (`steam_trim_fragments`),
+the cracks by trim dilation (`steam_trim_cracks`, crops with `RENDIATION_TEST_OUTPUT_DIR`) and the
+draw cost (`steam_trim_draw_cost`).
