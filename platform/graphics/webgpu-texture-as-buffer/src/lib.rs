@@ -14,7 +14,7 @@
 //!   under the same texture size limit, but the writes and copies must be 16 bytes aligned, so it
 //!   is suitable for the large data that is written in whole.
 //!
-//! [TextureAsStorageAllocator] allocates either of the R32Uint containers by config.
+//! [TextureAsStorageAllocator] allocates any of the containers by config.
 
 use std::sync::Arc;
 
@@ -46,8 +46,15 @@ mod tests;
 #[derive(Clone)]
 pub struct TextureAsStorageAllocator {
   gpu: GPU,
-  host_backup: bool,
+  kind: TextureAsStorageKind,
   max_width: Option<u32>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum TextureAsStorageKind {
+  Direct,
+  HostBackup,
+  Rgba,
 }
 
 impl TextureAsStorageAllocator {
@@ -55,7 +62,7 @@ impl TextureAsStorageAllocator {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       gpu: gpu.clone(),
-      host_backup: false,
+      kind: TextureAsStorageKind::Direct,
       max_width: None,
     }
   }
@@ -63,7 +70,17 @@ impl TextureAsStorageAllocator {
   /// the allocated buffer keeps a host backup, see [TextureAsReadonlyStorageBufferWithHost]
   pub fn new_with_host_backup(gpu: &GPU) -> Self {
     Self {
-      host_backup: true,
+      kind: TextureAsStorageKind::HostBackup,
+      ..Self::new(gpu)
+    }
+  }
+
+  /// the allocated buffer uses the Rgba32Uint texture, see [RgbaTextureAsReadonlyStorageBuffer].
+  /// the writes and copies must be 16 bytes aligned, so this can not be used as the internal
+  /// allocator of the combined buffer.
+  pub fn new_rgba(gpu: &GPU) -> Self {
+    Self {
+      kind: TextureAsStorageKind::Rgba,
       ..Self::new(gpu)
     }
   }
@@ -72,6 +89,13 @@ impl TextureAsStorageAllocator {
   pub fn with_max_width(mut self, max_width: u32) -> Self {
     self.max_width = Some(max_width);
     self
+  }
+
+  fn texel_byte_size(&self) -> u64 {
+    match self.kind {
+      TextureAsStorageKind::Direct | TextureAsStorageKind::HostBackup => 4,
+      TextureAsStorageKind::Rgba => RGBA_TEXEL_BYTE_SIZE,
+    }
   }
 }
 
@@ -86,14 +110,17 @@ impl AbstractStorageAllocator for TextureAsStorageAllocator {
   ) -> BoxedAbstractBuffer {
     assert!(readonly, "texture as storage buffer is readonly");
     let limit = device_texel_limit(device, self.max_width);
-    if self.host_backup {
-      Box::new(TextureAsReadonlyStorageBufferWithHost::new(
-        &self.gpu, byte_size, ty_desc, limit, label,
-      ))
-    } else {
-      Box::new(TextureAsReadonlyStorageBuffer::new(
-        &self.gpu, byte_size, ty_desc, limit, label,
-      ))
+    let gpu = &self.gpu;
+    match self.kind {
+      TextureAsStorageKind::Direct => Box::new(TextureAsReadonlyStorageBuffer::new(
+        gpu, byte_size, ty_desc, limit, label,
+      )),
+      TextureAsStorageKind::HostBackup => Box::new(TextureAsReadonlyStorageBufferWithHost::new(
+        gpu, byte_size, ty_desc, limit, label,
+      )),
+      TextureAsStorageKind::Rgba => Box::new(RgbaTextureAsReadonlyStorageBuffer::new(
+        gpu, byte_size, ty_desc, limit, label,
+      )),
     }
   }
 
@@ -104,6 +131,16 @@ impl AbstractStorageAllocator for TextureAsStorageAllocator {
   fn is_readonly(&self) -> bool {
     true
   }
+
+  fn max_byte_size(&self, device: &GPUDevice) -> u64 {
+    let limit = device_texel_limit(device, self.max_width);
+    heap_max_byte_size(limit, self.texel_byte_size())
+  }
+}
+
+/// the last texel is reserved for the array length
+fn heap_max_byte_size(limit: TexelExtent, texel_byte_size: u64) -> u64 {
+  (limit.texel_count() - 1) * texel_byte_size
 }
 
 /// the max texel extent supported by the device, the width can be further limited
@@ -153,7 +190,7 @@ impl HeapMeta {
         "texture as storage buffer <{}> exceeds the texture size limit, requested {} bytes, the limit is {} bytes",
         self.label,
         byte_size,
-        (self.limit.texel_count() - 1) * self.texel_byte_size
+        heap_max_byte_size(self.limit, self.texel_byte_size)
       )
     })
   }

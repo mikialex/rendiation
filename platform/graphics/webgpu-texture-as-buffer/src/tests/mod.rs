@@ -108,6 +108,29 @@ fn relocate_model(model: &mut [u32], relocations: &[(usize, usize, usize)]) {
   }
 }
 
+/// the allocation of max_byte_size works and its last u32 is readable, one u32 more fails
+#[pollster::test]
+async fn max_byte_size_is_reachable() {
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let rgba = TextureAsStorageAllocator::new_rgba(&gpu).with_max_width(TEST_WIDTH);
+  let mut all = allocators(&gpu).to_vec();
+  all.push(("rgba", rgba));
+  for (name, alloc) in all {
+    let max = alloc.max_byte_size(&gpu.device);
+    let mut buffer = alloc.allocate_readonly::<[u32]>(max, &gpu.device, "test");
+    let len = max as usize / 4;
+    // the whole last texel, so the rgba write is aligned
+    write_u32s(&buffer, &[1, 2, 3, 4], len - 4, &gpu);
+    let last = len as u32 - 1;
+    let r = read_by_shader(&gpu, &buffer, 1, &format!("{name} max"), |input, _| {
+      input.index(val(last)).load()
+    })
+    .await;
+    assert_eq!(r, [4], "{name}");
+    assert!(!resize(&mut buffer, len + 1, &gpu), "{name}");
+  }
+}
+
 #[pollster::test]
 async fn fragmented_write() {
   let gpu = GPU::new(Default::default()).await.unwrap();
@@ -241,6 +264,41 @@ async fn unsized_struct_array_length() {
       let r = read_unsized_struct(&gpu, &buffer, 5, &key).await;
       assert_eq!(r, (5, 7, expect), "{name} {case}");
     }
+  }
+}
+
+/// the resident size is the whole texture: the extent rounded up, with the length texel
+#[pollster::test]
+async fn resident_byte_size_is_the_texture() {
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let rgba = TextureAsStorageAllocator::new_rgba(&gpu).with_max_width(TEST_WIDTH);
+  let mut all: Vec<_> = allocators(&gpu)
+    .into_iter()
+    .map(|(n, a)| (n, a, 4))
+    .collect();
+  all.push(("rgba", rgba, 16));
+  for (name, alloc, texel) in all {
+    let mut buffer = alloc.allocate_readonly::<[u32]>(5 * 4, &gpu.device, "test");
+    // r32: 5 + 1 texels -> a row of 8; rgba: 2 + 1 texels -> a row of 4
+    let one_row = if texel == 4 { 8 } else { 4 };
+    assert_eq!(buffer.resident_byte_size(), one_row * texel, "{name}");
+    assert!(resize(&mut buffer, 20, &gpu));
+    // the host backup reallocates the texture at its flush
+    let inner: &BoxedAbstractBuffer = &buffer;
+    if let Some(host) = inner
+      .as_any()
+      .downcast_ref::<TextureAsReadonlyStorageBufferWithHost>()
+    {
+      assert_eq!(
+        buffer.resident_byte_size(),
+        one_row * texel,
+        "{name} before flush"
+      );
+      host.flush();
+    }
+    // r32: 21 texels -> 3 rows of 8; rgba: 5 + 1 texels -> a row of 8
+    let grown = if texel == 4 { 24 } else { 8 };
+    assert_eq!(buffer.resident_byte_size(), grown * texel, "{name}");
   }
 }
 

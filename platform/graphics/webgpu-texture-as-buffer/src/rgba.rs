@@ -76,6 +76,11 @@ impl AbstractBuffer for RgbaTextureAsReadonlyStorageBuffer {
     self.internal.read().byte_size
   }
 
+  /// the whole texture: the extent is rounded up, and the last texel holds the array length
+  fn resident_byte_size(&self) -> u64 {
+    self.internal.read().texture.extent().texel_count() * self.meta.texel_byte_size
+  }
+
   fn resize_gpu(
     &mut self,
     encoder: &mut GPUCommandEncoder,

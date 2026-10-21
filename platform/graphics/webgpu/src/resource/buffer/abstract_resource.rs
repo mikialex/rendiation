@@ -11,6 +11,9 @@ pub trait AbstractStorageAllocator: DynClone + Send + Sync {
   ) -> BoxedAbstractBuffer;
   fn get_layout(&self) -> StructLayoutTarget;
   fn is_readonly(&self) -> bool;
+  /// the largest byte size one allocation can have on the device, the allocation and the resize
+  /// beyond it fail.
+  fn max_byte_size(&self, device: &GPUDevice) -> u64;
 }
 dyn_clone::clone_trait_object!(AbstractStorageAllocator);
 impl AbstractStorageAllocator for Box<dyn AbstractStorageAllocator> {
@@ -32,6 +35,10 @@ impl AbstractStorageAllocator for Box<dyn AbstractStorageAllocator> {
   fn is_readonly(&self) -> bool {
     (**self).is_readonly()
   }
+
+  fn max_byte_size(&self, device: &GPUDevice) -> u64 {
+    (**self).max_byte_size(device)
+  }
 }
 impl AbstractStorageAllocator for &'_ dyn AbstractStorageAllocator {
   fn allocate_dyn_ty(
@@ -51,6 +58,10 @@ impl AbstractStorageAllocator for &'_ dyn AbstractStorageAllocator {
 
   fn is_readonly(&self) -> bool {
     (**self).is_readonly()
+  }
+
+  fn max_byte_size(&self, device: &GPUDevice) -> u64 {
+    (**self).max_byte_size(device)
   }
 }
 
@@ -160,6 +171,14 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
   fn is_readonly(&self) -> bool {
     false
   }
+
+  /// same as the check of the resize
+  fn max_byte_size(&self, device: &GPUDevice) -> u64 {
+    let limits = &device.info().supported_limits;
+    limits
+      .max_buffer_size
+      .min(limits.max_storage_buffer_binding_size)
+  }
 }
 
 pub type BoxedAbstractBuffer = Box<dyn AbstractBuffer>;
@@ -174,6 +193,12 @@ pub struct BufferRelocate {
 /// the clone trait implements ref clone semantic
 pub trait AbstractBuffer: DynClone + Send + Sync {
   fn byte_size(&self) -> u64;
+  /// The bytes of device memory the backing resource holds now. An implementation that rounds
+  /// its allocation up (for example a texture extent) reports the rounded size; one that
+  /// reallocates lazily reports what is allocated so far.
+  fn resident_byte_size(&self) -> u64 {
+    self.byte_size()
+  }
   /// return if resize is success
   #[must_use]
   fn resize_gpu(
@@ -226,6 +251,10 @@ impl AbstractBuffer for BoxedAbstractBuffer {
   }
   fn byte_size(&self) -> u64 {
     (**self).byte_size()
+  }
+
+  fn resident_byte_size(&self) -> u64 {
+    (**self).resident_byte_size()
   }
 
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
@@ -709,6 +738,10 @@ where
 {
   fn byte_size(&self) -> u64 {
     self.buffer.byte_size()
+  }
+
+  fn resident_byte_size(&self) -> u64 {
+    self.buffer.resident_byte_size()
   }
 
   fn resize_gpu(
