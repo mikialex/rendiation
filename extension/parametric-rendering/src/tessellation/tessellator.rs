@@ -32,6 +32,7 @@ pub struct GpuTessellator {
   grown: bool,
   /// The trim loops of the model, for the leaf classification and the trimming draw.
   trims: TrimDeviceData,
+  classify_trims: bool,
 }
 
 impl GpuTessellator {
@@ -71,7 +72,20 @@ impl GpuTessellator {
       pending_stats: None,
       grown: false,
       trims,
+      classify_trims: true,
     }
+  }
+
+  /// Classify the work items of the trimmed patches by their trim loops (on by default): the
+  /// items outside are culled, and `LEAF_FLAG_TRIMMED` (the trimming draw) is only set on the
+  /// leaves partially covered. Without it every leaf of a trimmed patch has the flag and covers
+  /// its whole cell, for the untrimmed draw styles.
+  pub fn set_trim_classification(&mut self, classify: bool) {
+    self.classify_trims = classify;
+  }
+
+  pub fn classifies_trims(&self) -> bool {
+    self.classify_trims
   }
 
   /// The trims of the model, the draw of the output trims with them (`TrimFragment`).
@@ -126,11 +140,15 @@ impl GpuTessellator {
     self.poll_stats(gpu, Waker::noop());
     self.grown = false;
 
-    let uniform = TessUniform::new(camera, &self.config).with_sizes(&self.active, &self.capacity);
+    let mut uniform =
+      TessUniform::new(camera, &self.config).with_sizes(&self.active, &self.capacity);
+    uniform.classify_trims = self.classify_trims as u32;
     self.frame.uniform.write_at(&gpu.queue, &uniform, 0);
     let matrices = self.active.instance_matrices(camera);
     self.device_data.write_matrices(&gpu.queue, &matrices);
-    self.frame.encode(&gpu.device, encoder, &self.device_data);
+    self
+      .frame
+      .encode(&gpu.device, encoder, &self.device_data, &self.trims);
     if self.pending_stats.is_none() {
       let read = encoder.read_buffer(&gpu.device, &self.frame.counters.gpu);
       self.pending_stats = Some((read, self.capacity));
@@ -191,6 +209,7 @@ impl GpuTessellator {
     leaves.truncate(leaf_count);
     GpuFrameReadback {
       stats: GpuTessellationStats::from_counters(&counters, frame, self),
+      classifies_trims: self.classify_trims,
       leaves,
       vertices: vertices.await.unwrap(),
       draw_args: draw_args.await.unwrap(),
@@ -280,7 +299,11 @@ pub struct GpuTessellationStats {
   pub leaves_per_k: [u32; K_RESOLUTION_COUNT],
   /// Leaves with `LEAF_FLAG_TRIMMED` (drawn by the trimming pipeline variant).
   pub trimmed_leaves: u32,
+  /// Leaves inside the trim loops of a patch with trim data (trim classification only).
+  pub trim_inside_leaves: u32,
   pub culled: u32,
+  /// Work items culled by the trim classification.
+  pub trim_culled: u32,
   /// Indexed by `SplitReason as usize`.
   pub splits: [u32; 4],
   pub forced_leaves: u32,
@@ -325,7 +348,9 @@ impl GpuTessellationStats {
       leaves_per_level,
       leaves_per_k,
       trimmed_leaves,
+      trim_inside_leaves: at(COUNTER_TRIM_INSIDE_LEAVES),
       culled: at(COUNTER_CULLED),
+      trim_culled: at(COUNTER_TRIM_CULLED),
       splits: std::array::from_fn(|i| at(COUNTER_SPLITS + i as u32)),
       forced_leaves: at(COUNTER_FORCED_LEAVES),
       edge_raised_leaves: at(COUNTER_EDGE_RAISED),
@@ -363,13 +388,15 @@ impl GpuTessellationStats {
 /// Buffers of a frame read back for tests and tools.
 pub struct GpuFrameReadback {
   pub stats: GpuTessellationStats,
+  /// The frame was encoded with trim classification.
+  pub classifies_trims: bool,
   pub leaves: Vec<TessLeafDraw>,
   pub vertices: Vec<TessVertex>,
   pub draw_args: Vec<DrawIndirectArgsStorage>,
 }
 
 impl GpuFrameReadback {
-  /// The leaves in the CPU reference form.
+  /// The leaves in the CPU reference form (`Leaf::trimmed` only with trim classification).
   pub fn cpu_leaves(&self) -> Vec<Leaf> {
     self
       .leaves
@@ -377,6 +404,7 @@ impl GpuFrameReadback {
       .map(|leaf| Leaf {
         key: leaf.sub_patch_key(),
         k: leaf.k,
+        trimmed: self.classifies_trims && leaf.flags & LEAF_FLAG_TRIMMED != 0,
       })
       .collect()
   }

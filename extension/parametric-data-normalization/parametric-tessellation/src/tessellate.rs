@@ -2,6 +2,7 @@ use fast_hash_collection::FastHashMap;
 use parametric_normalized_model::*;
 use rendiation_algebra::*;
 
+use crate::trim::*;
 use crate::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -231,6 +232,9 @@ pub struct Leaf {
   pub key: SubPatchKey,
   /// Grid resolution, the leaf is drawn as `k×k` cells of two triangles.
   pub k: u32,
+  /// Partially covered by the trim loops of its patch, so drawn with per fragment trimming.
+  /// Always false without trim classification (`Tessellator::with_trims`).
+  pub trimmed: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -253,6 +257,12 @@ pub struct TessellationStats {
   /// Leaf count by `log2 k`.
   pub leaves_per_k: Vec<usize>,
   pub culled: usize,
+  /// Work items outside the trim loops of their patch (with trim classification).
+  pub trim_culled: usize,
+  /// Leaves inside the trim loops of a patch that has trim data (no fragment trimming).
+  pub trim_inside_leaves: usize,
+  /// Leaves partially covered by the trim loops (`Leaf::trimmed`).
+  pub trim_partial_leaves: usize,
   /// Indexed by `SplitReason as usize`.
   pub splits: [usize; 4],
   /// Leaves at `max_level` that did not meet the criteria, output with `k_max`.
@@ -277,6 +287,7 @@ pub struct Tessellator<'a> {
   items: &'a [TessellationItem],
   camera: Camera,
   config: TessellationConfig,
+  trims: Option<&'a TrimEncoding>,
   states: Vec<PatchState>,
   /// The smallest decision margin while `decision_margin` runs.
   margin: Option<f64>,
@@ -291,10 +302,23 @@ impl<'a> Tessellator<'a> {
       items,
       camera,
       config,
+      trims: None,
       states: items.iter().map(|_| PatchState::default()).collect(),
       margin: None,
       stats: TessellationStats::default(),
     }
+  }
+
+  /// Classify every work item against the trim loops of its patch (`trims` is indexed by
+  /// `TessellationItem::patch`) after the frustum cull: the items outside are culled, the leaves
+  /// partially covered get `Leaf::trimmed`.
+  pub fn with_trims(mut self, trims: &'a TrimEncoding) -> Self {
+    self.trims = Some(trims);
+    self
+  }
+
+  pub fn classifies_trims(&self) -> bool {
+    self.trims.is_some()
   }
 
   pub fn items(&self) -> &'a [TessellationItem] {
@@ -326,18 +350,27 @@ impl<'a> Tessellator<'a> {
       for key in queue {
         match self.patch(key.item).classify(key) {
           Decision::Cull => self.stats.culled += 1,
+          Decision::TrimCull => self.stats.trim_culled += 1,
           Decision::Split(reason) => {
             self.stats.splits[reason as usize] += 1;
             next.extend(key.children());
           }
-          Decision::Leaf { k, k_grid, forced } => {
+          Decision::Leaf {
+            k,
+            k_grid,
+            forced,
+            trim,
+          } => {
+            let trimmed = trim == Some(RectClass::Partial);
+            self.stats.trim_partial_leaves += trimmed as usize;
+            self.stats.trim_inside_leaves += (trim == Some(RectClass::Inside)) as usize;
             self.stats.forced_leaves += forced as usize;
             self.stats.edge_raised_leaves += (k > k_grid) as usize;
             self.stats.triangles_without_edge_raise += 2 * (k_grid * k_grid) as usize;
             self.stats.leaves_per_k[k.trailing_zeros() as usize] += 1;
             self.stats.triangles += 2 * (k * k) as usize;
             level_leaves += 1;
-            leaves.push(Leaf { key, k });
+            leaves.push(Leaf { key, k, trimmed });
           }
         }
       }
@@ -467,8 +500,13 @@ impl<'a> Tessellator<'a> {
   }
 
   fn patch(&mut self, item: u32) -> PatchEval<'_> {
+    let patch = self.items[item as usize].patch as usize;
     PatchEval {
       surface: &self.items[item as usize].surface,
+      trim: self
+        .trims
+        .filter(|trims| trims.header(patch).kind != TRIM_KIND_INSIDE)
+        .map(|trims| (trims, patch)),
       camera: &self.camera,
       config: &self.config,
       state: &mut self.states[item as usize],
@@ -601,12 +639,23 @@ struct PatchState {
 
 enum Decision {
   Cull,
+  /// Outside the trim loops.
+  TrimCull,
   Split(SplitReason),
-  Leaf { k: u32, k_grid: u32, forced: bool },
+  /// `trim` is the trim classification of the leaf, `None` for a patch without trim data or
+  /// without trim classification.
+  Leaf {
+    k: u32,
+    k_grid: u32,
+    forced: bool,
+    trim: Option<RectClass>,
+  },
 }
 
 struct PatchEval<'a> {
   surface: &'a RationalBezierSurface,
+  /// The trims and the patch index, only for a patch with trim data (not `TRIM_KIND_INSIDE`).
+  trim: Option<(&'a TrimEncoding, usize)>,
   camera: &'a Camera,
   config: &'a TessellationConfig,
   state: &'a mut PatchState,
@@ -639,6 +688,16 @@ impl PatchEval<'_> {
     if self.camera.culls(bounds.min, bounds.max) {
       return Decision::Cull;
     }
+    let trim = self.trim.map(|(trims, patch)| {
+      let rect = TrimRect {
+        min: Vec2::new(param_to_f64(us.start()), param_to_f64(vs.start())).into_f32(),
+        max: Vec2::new(param_to_f64(us.end()), param_to_f64(vs.end())).into_f32(),
+      };
+      trims.classify_rect(patch, &rect)
+    });
+    if trim == Some(RectClass::Outside) {
+      return Decision::TrimCull;
+    }
     let result = self.grid_resolution(&bounds).and_then(|k_grid| {
       let k = key
         .edges()
@@ -656,12 +715,14 @@ impl PatchEval<'_> {
         k,
         k_grid,
         forced: false,
+        trim,
       },
       Err(reason) if key.level < self.config.max_level => Decision::Split(reason),
       Err(_) => Decision::Leaf {
         k: self.config.k_max,
         k_grid: self.config.k_max,
         forced: true,
+        trim,
       },
     }
   }

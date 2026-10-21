@@ -52,6 +52,8 @@ pub struct TessUniform {
   pub leaf_capacity: u32,
   pub vertex_capacity: u32,
   pub request_capacity: u32,
+  /// Non zero: classify the work items of trimmed patches by their trim loops (plan-trim T3).
+  pub classify_trims: u32,
 }
 
 impl TessUniform {

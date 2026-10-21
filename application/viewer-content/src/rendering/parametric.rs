@@ -11,7 +11,8 @@
 use parametric_normalized_model::{ParametricNormalizedModel, TrimmedBezierPatch};
 use parametric_tessellation::trim::TrimEncoding;
 use parametric_tessellation::{
-  Camera as TessellationCamera, PARAM_BITS, TessellationConfig, Tessellator, camera_space_items,
+  Camera as TessellationCamera, Leaf, PARAM_BITS, TessellationConfig, Tessellator,
+  camera_space_items,
 };
 use rendiation_parametric_rendering::tessellation::*;
 pub use rendiation_parametric_rendering::tessellation::{
@@ -108,6 +109,7 @@ impl ViewerParametricRendering {
           camera,
           config: self.settings.tessellation.config(),
           untrimmed_only: self.settings.untrimmed_only,
+          classify_trims: self.settings.draw.trimmed_style == TrimmedPatchStyle::Trimmed,
         }
       })
     };
@@ -363,6 +365,9 @@ pub struct TessellationRequest {
   pub camera: TessellationCamera,
   pub config: TessellationConfig,
   pub untrimmed_only: bool,
+  /// Cull the parts outside the trim loops and only trim the leaves partially covered (the
+  /// `Trimmed` style), otherwise the trimmed patches cover their whole cell.
+  pub classify_trims: bool,
 }
 
 impl TessellationRequest {
@@ -380,6 +385,7 @@ impl TessellationRequest {
       && c.k_max == d.k_max
       && c.max_level == d.max_level
       && self.untrimmed_only == other.untrimmed_only
+      && self.classify_trims == other.classify_trims
   }
 }
 
@@ -484,6 +490,9 @@ impl GpuTessellationProducer {
       leaves_per_k: to_usize(&s.leaves_per_k),
       work_items_per_level: to_usize(&s.work_items),
       culled: s.culled as usize,
+      trim_culled: s.trim_culled as usize,
+      trim_inside_leaves: s.trim_inside_leaves as usize,
+      trimmed_leaves: s.trimmed_leaves as usize,
       forced_leaves: s.forced_leaves as usize,
       tessellation_ms: 0.,
       output_ms: 0.,
@@ -508,6 +517,9 @@ impl TessellationProducer for GpuTessellationProducer {
       self.requested = Some(*request);
       self.tessellator.set_config(request.config);
       self.tessellator.set_untrimmed_only(request.untrimmed_only);
+      self
+        .tessellator
+        .set_trim_classification(request.classify_trims);
       let output = self.tessellator.encode_frame(gpu, encoder, &request.camera);
       self.last = Some((output.clone(), request.camera.view));
       // registers the waker on the statistics read started by this frame
@@ -536,6 +548,12 @@ pub struct ParametricTessellationStats {
   pub leaves_per_k: Vec<usize>,
   pub work_items_per_level: Vec<usize>,
   pub culled: usize,
+  /// Work items culled by the trim classification.
+  pub trim_culled: usize,
+  /// Leaves inside the trim loops of a trimmed patch (drawn without trimming).
+  pub trim_inside_leaves: usize,
+  /// Leaves drawn by the trimming pipeline variant.
+  pub trimmed_leaves: usize,
   /// Leaves at the max level that did not meet the criteria.
   pub forced_leaves: usize,
   pub tessellation_ms: f64,
@@ -553,6 +571,10 @@ impl ParametricTessellationStats {
     ui.label(format!(
       "leaves: {}, triangles: {}, forced leaves: {}",
       self.leaves, self.triangles, self.forced_leaves
+    ));
+    ui.label(format!(
+      "trim: culled work items {}, inside leaves {}, trimmed leaves {}",
+      self.trim_culled, self.trim_inside_leaves, self.trimmed_leaves
     ));
     ui.label(format!(
       "work items per level: {:?}",
@@ -641,6 +663,7 @@ impl TessellationProducer for CpuReferenceTessellationProducer {
       self.job = Some(spawn_cpu_tessellation(
         gpu.device.clone(),
         self.model.clone(),
+        self.trims.clone(),
         *request,
         waker.clone(),
       ));
@@ -660,12 +683,13 @@ impl TessellationProducer for CpuReferenceTessellationProducer {
 fn spawn_cpu_tessellation(
   device: GPUDevice,
   model: Arc<ParametricNormalizedModel>,
+  trims: Arc<TrimEncoding>,
   request: TessellationRequest,
   waker: Waker,
 ) -> std::sync::mpsc::Receiver<CpuTessellationResult> {
   let (sender, receiver) = std::sync::mpsc::channel();
   let job = move || {
-    let result = run_cpu_tessellation(&device, &model, &request);
+    let result = run_cpu_tessellation(&device, &model, &trims, &request);
     sender.send(result).ok();
     waker.wake();
   };
@@ -685,6 +709,7 @@ fn spawn_cpu_tessellation(
 fn run_cpu_tessellation(
   device: &GPUDevice,
   model: &ParametricNormalizedModel,
+  trims: &TrimEncoding,
   request: &TessellationRequest,
 ) -> CpuTessellationResult {
   let start = Instant::now();
@@ -692,6 +717,9 @@ fn run_cpu_tessellation(
   let filter = |p: &TrimmedBezierPatch| !untrimmed_only || p.is_untrimmed();
   let (items, rejected_items) = camera_space_items(model, &request.camera, filter);
   let mut tessellator = Tessellator::new(&items, request.camera, request.config);
+  if request.classify_trims {
+    tessellator = tessellator.with_trims(trims);
+  }
   let leaves = tessellator.run();
   let tessellated = Instant::now();
   let output =
@@ -699,6 +727,13 @@ fn run_cpu_tessellation(
   let end = Instant::now();
 
   let s = &tessellator.stats;
+  let trimmed_leaves = if request.classify_trims {
+    s.trim_partial_leaves
+  } else {
+    let trimmed =
+      |leaf: &&Leaf| !model.patches[items[leaf.key.item as usize].patch as usize].is_untrimmed();
+    leaves.iter().filter(trimmed).count()
+  };
   let stats = ParametricTessellationStats {
     producer: TessellationProducerKind::CpuReference.name(),
     items: items.len(),
@@ -709,6 +744,9 @@ fn run_cpu_tessellation(
     leaves_per_k: s.leaves_per_k.clone(),
     work_items_per_level: s.work_items.clone(),
     culled: s.culled,
+    trim_culled: s.trim_culled,
+    trim_inside_leaves: s.trim_inside_leaves,
+    trimmed_leaves,
     forced_leaves: s.forced_leaves,
     tessellation_ms: tessellated.duration_since(start).as_secs_f64() * 1000.,
     output_ms: end.duration_since(tessellated).as_secs_f64() * 1000.,

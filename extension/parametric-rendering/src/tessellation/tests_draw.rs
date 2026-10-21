@@ -15,7 +15,7 @@ use crate::*;
 #[pollster::test]
 async fn trimmed_fragment_receives_exact_parameter() {
   let gpu = GPU::new(Default::default()).await.unwrap();
-  let model = half_trimmed(random_model(11, 12, (3., 15.)));
+  let model = trimmed_random_model(11, 12, (3., 15.));
   let camera = Camera {
     view: Mat4::identity(),
     focal_length: 200.,
@@ -58,17 +58,6 @@ async fn trimmed_fragment_receives_exact_parameter() {
   assert_eq!(pixels.len(), width * height);
 }
 
-/// Every second patch gets a trim loop with an edge curve (the loop stays the patch boundary).
-fn half_trimmed(mut model: ParametricNormalizedModel) -> ParametricNormalizedModel {
-  for patch in model.patches.iter_mut().skip(1).step_by(2) {
-    patch.loops[0].curves[0].source = TrimCurveSource::Edge {
-      edge: EdgeId(0),
-      reversed: false,
-    };
-  }
-  model
-}
-
 /// Draws `output` into an `Rgba32Float` target cleared to zero, without depth test, the
 /// trimmed buckets run `trim`, the others write their shaded color with alpha 1.
 async fn render_float(
@@ -77,9 +66,55 @@ async fn render_float(
   output: &TessellationFrameOutput,
   trim: &dyn TessellationTrimFragment,
 ) -> Vec<Vec4<f32>> {
+  let target = FloatTarget {
+    format: TextureFormat::Rgba32Float,
+    counting: false,
+  };
+  let raw = render_target(gpu, camera, output, trim, &target).await;
+  cast_slice(&raw).to_vec()
+}
+
+/// Fragment counts per pixel: `x` the fragments of the trimmed buckets (all of them when `trim`
+/// writes alpha 0.5, the ones it keeps when it also discards), `y` the other fragments.
+async fn render_fragment_counts(
+  gpu: &GPU,
+  camera: &Camera,
+  output: &TessellationFrameOutput,
+  trim: &dyn TessellationTrimFragment,
+) -> Vec<Vec2<f32>> {
+  let target = FloatTarget {
+    format: TextureFormat::Rgba16Float,
+    counting: true,
+  };
+  let raw = render_target(gpu, camera, output, trim, &target).await;
+  let half: &[u16] = cast_slice(&raw);
+  half
+    .chunks(4)
+    .map(|c| Vec2::new(f16_to_f32(c[0]), f16_to_f32(c[1])))
+    .collect()
+}
+
+/// Exact for the small integers of the fragment counts.
+fn f16_to_f32(h: u16) -> f32 {
+  let exponent = ((h >> 10) & 0x1f) as i32;
+  let mantissa = (h & 0x3ff) as f32;
+  if exponent == 0 {
+    mantissa * 2f32.powi(-24)
+  } else {
+    (1. + mantissa / 1024.) * 2f32.powi(exponent - 15)
+  }
+}
+
+async fn render_target(
+  gpu: &GPU,
+  camera: &Camera,
+  output: &TessellationFrameOutput,
+  trim: &dyn TessellationTrimFragment,
+  float_target: &FloatTarget,
+) -> Vec<u8> {
   let size = Size::from_u32_pair_min_one((camera.viewport.x as u32, camera.viewport.y as u32));
   let usage = TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC;
-  let target = create_empty_2d_texture_view(gpu, size, usage, TextureFormat::Rgba32Float);
+  let target = create_empty_2d_texture_view(gpu, size, usage, float_target.format);
 
   // camera space to clip space, depth `near / -z`
   let (sx, sy) = (
@@ -104,7 +139,7 @@ async fn render_float(
   let desc = pass("parameter test").with_color(&target.clone().into(), clear_and_store(all_zero()));
   let pass = encoder.begin_render_pass(&desc, None);
   let mut ctx = GPURenderPassCtx::new(pass, gpu.clone());
-  render_tessellation_output(&mut ctx, output, &uniform, Some(trim), &[&FloatTarget], &[]);
+  render_tessellation_output(&mut ctx, output, &uniform, Some(trim), &[float_target], &[]);
   drop(ctx);
   let read = encoder.read_texture_2d(
     &gpu.device,
@@ -117,24 +152,54 @@ async fn render_float(
   );
   gpu.submit_encoder(encoder);
   let read = read.await.unwrap();
-  cast_slice(&read.read_into_raw_unpadded_buffer()).to_vec()
+  read.read_into_raw_unpadded_buffer()
 }
 
-/// Declares the single `Rgba32Float` target and writes `DefaultDisplay` to it.
-struct FloatTarget;
+/// Declares the single float target and writes `DefaultDisplay` to it. `counting` blends
+/// additively and writes `(0, 1, 0, 0)` for the displays with alpha 1 (the untrimmed buckets),
+/// `(1, 0, 0, 0)` for the others.
+struct FloatTarget {
+  format: TextureFormat,
+  counting: bool,
+}
 impl ShaderHashProvider for FloatTarget {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.format);
+    hasher.hash(self.counting);
+  }
 }
 impl ShaderPassBuilder for FloatTarget {}
 impl GraphicsShaderProvider for FloatTarget {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      builder.define_out_by(channel(TextureFormat::Rgba32Float));
+      let mut target = channel(self.format);
+      if self.counting {
+        let add = BlendComponent {
+          src_factor: BlendFactor::One,
+          dst_factor: BlendFactor::One,
+          operation: BlendOperation::Add,
+        };
+        target = target.with_blend(BlendState {
+          color: add,
+          alpha: add,
+        });
+      }
+      builder.define_out_by(target);
     });
   }
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
       let display = builder.query::<DefaultDisplay>();
+      let display = if self.counting {
+        let untrimmed = display.w().equals(val(1.));
+        untrimmed.select(
+          val(Vec4::new(0., 1., 0., 0.)),
+          val(Vec4::new(1., 0., 0., 0.)),
+        )
+      } else {
+        display
+      };
       builder.store_fragment_out(0, display);
     });
   }
@@ -271,5 +336,89 @@ impl TessellationTrimFragment for WindingOutput {
     let tag = (input.patch + val(2)).into_f32();
     let display: Node<Vec4<f32>> = (input.uv, tag, winding).into();
     builder.register::<DefaultDisplay>(display);
+  }
+}
+
+/// Writes alpha 0.5 (counted as a trimmed bucket fragment), after the discard of `trim` if any.
+struct CountTrimmed(Option<TrimFragment>);
+impl ShaderHashProvider for CountTrimmed {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    hasher.hash(self.0.is_some());
+  }
+}
+impl ShaderPassBuilder for CountTrimmed {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    if let Some(trim) = &self.0 {
+      trim.setup_pass(ctx);
+    }
+  }
+}
+impl TessellationTrimFragment for CountTrimmed {
+  fn build_trim(
+    &self,
+    builder: &mut ShaderFragmentBuilderView,
+    binding: &mut ShaderBindGroupBuilder,
+    input: TessellationFragmentInput,
+  ) {
+    if let Some(trim) = &self.0 {
+      trim.build_trim(builder, binding, input);
+    }
+    builder.register::<DefaultDisplay>(val(Vec4::new(1., 0., 0., 0.5)));
+  }
+}
+
+/// The fragments of the trimming pipeline variant on the steam controller model (skipped when
+/// the file is missing), with and without trim classification: `cargo test --release -p
+/// rendiation-parametric-rendering steam_trim_fragments -- --ignored --nocapture`.
+#[pollster::test]
+#[ignore]
+async fn steam_trim_fragments() {
+  let Ok(model) = ParametricNormalizedModel::load_pnm(super::tests_frame::STEAM_MODEL) else {
+    println!("steam model not found, skipped");
+    return;
+  };
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let trims = TrimDeviceData::new(&gpu.device, &encode_model_trims(&model));
+  for zoom in [1., 4., 20.] {
+    let camera = fit_camera(&model, zoom);
+    for classify in [false, true] {
+      let mut t = GpuTessellator::with_trims(&gpu, &model, trims.clone(), Default::default());
+      t.set_trim_classification(classify);
+      let mut frame = None;
+      for _ in 0..8 {
+        let mut encoder = gpu.create_encoder();
+        t.encode_frame(&gpu, &mut encoder, &camera);
+        gpu.submit_encoder(encoder);
+        let f = t.read_back(&gpu).await;
+        gpu.poll(true);
+        if f.stats.overflow == 0 {
+          frame = Some(f);
+          break;
+        }
+      }
+      let frame = frame.expect("converged");
+      let sum = |counts: &[Vec2<f32>]| {
+        counts
+          .iter()
+          .fold((0., 0.), |(a, b), c| (a + c.x as f64, b + c.y as f64))
+      };
+      let all = render_fragment_counts(&gpu, &camera, t.output(), &CountTrimmed(None)).await;
+      let kept = CountTrimmed(Some(TrimFragment {
+        data: trims.clone(),
+      }));
+      let kept = render_fragment_counts(&gpu, &camera, t.output(), &kept).await;
+      let ((trimmed, untrimmed), (kept, _)) = (sum(&all), sum(&kept));
+      println!(
+        "fit:{zoom} classify {classify}: {} leaves ({} trimmed) {} triangles | fragments {} of \
+         which {:.1}% run the trimming ({:.1}% of those kept)",
+        frame.stats.leaves,
+        frame.stats.trimmed_leaves,
+        frame.stats.triangles,
+        trimmed + untrimmed,
+        trimmed / (trimmed + untrimmed) * 100.,
+        kept / trimmed * 100.,
+      );
+    }
   }
 }

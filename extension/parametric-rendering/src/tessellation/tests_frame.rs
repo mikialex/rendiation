@@ -3,6 +3,7 @@
 use std::time::Instant;
 
 use parametric_normalized_model::*;
+use parametric_tessellation::test_scenes::trim::trimmed_random_model;
 use parametric_tessellation::test_scenes::*;
 use parametric_tessellation::verify::*;
 use parametric_tessellation::*;
@@ -78,7 +79,11 @@ fn compare_frame(
   error_resolution: u32,
 ) -> FrameComparison {
   let items = cpu_items(model, camera, untrimmed_only);
+  let trims = encode_model_trims(model);
   let mut t = Tessellator::new(&items, *camera, config);
+  if frame.classifies_trims {
+    t = t.with_trims(&trims);
+  }
   let leaves = t.run();
   let gpu_leaves = frame.cpu_leaves();
   let meshes = frame.leaf_meshes();
@@ -250,10 +255,13 @@ async fn data_upload_matches_cpu() {
 async fn frames_match_cpu_on_synthetic_scenes() {
   let gpu = GPU::new(Default::default()).await.unwrap();
   let default = TessellationConfig::default();
+  // seed, faces, depth range, config, untrimmed only, real trim loops
   let cases = [
-    (41, 12, (3., 15.), default, false),
-    (42, 12, (15., 80.), default, false),
-    (43, 8, (1.5, 4.), default, true),
+    (41, 12, (3., 15.), default, false, false),
+    (42, 12, (15., 80.), default, false, false),
+    (43, 8, (1.5, 4.), default, true, false),
+    (46, 12, (3., 15.), default, false, true),
+    (48, 10, (1.5, 6.), default, false, true),
     (
       44,
       6,
@@ -262,6 +270,7 @@ async fn frames_match_cpu_on_synthetic_scenes() {
         max_level: 5,
         ..default
       },
+      false,
       false,
     ),
     (
@@ -275,21 +284,29 @@ async fn frames_match_cpu_on_synthetic_scenes() {
         ..default
       },
       false,
+      true,
     ),
   ];
-  for (seed, faces, depth, config, untrimmed_only) in cases {
-    let model = random_model(seed, faces, depth);
+  for (seed, faces, depth, config, untrimmed_only, trimmed) in cases {
+    let model = if trimmed {
+      trimmed_random_model(seed, faces, depth)
+    } else {
+      random_model(seed, faces, depth)
+    };
     let camera = test_camera();
     let mut t = GpuTessellator::new(&gpu, &model, config);
     t.set_untrimmed_only(untrimmed_only);
     let frame = run_converged_frame(&gpu, &mut t, &camera).await;
     let c = compare_frame(&model, &camera, config, untrimmed_only, &frame, 4);
     println!(
-      "seed {seed}: leaves cpu {} gpu {} (mismatched {}, max margin {:.2e}) work items cpu {:?} gpu {:?} k cpu {:?} gpu {:?} forced {} | T junctions {} max {:.2e} px | error {:.3} px | offset {:.2e} px | rounds {:?}",
+      "seed {seed}: leaves cpu {} gpu {} (mismatched {}, max margin {:.2e}) trim culled {} inside {} partial {} work items cpu {:?} gpu {:?} k cpu {:?} gpu {:?} forced {} | T junctions {} max {:.2e} px | error {:.3} px | offset {:.2e} px | rounds {:?}",
       c.cpu_leaves,
       c.gpu_leaves,
       c.leaf_set.mismatched,
       c.leaf_set.max_mismatch_margin,
+      frame.stats.trim_culled,
+      frame.stats.trim_inside_leaves,
+      frame.stats.trimmed_leaves,
       c.cpu_work_items,
       c.gpu_work_items,
       c.cpu_leaves_per_k,
@@ -418,7 +435,7 @@ async fn api_state_changes() {
 
 fn print_stats(label: &str, s: &GpuTessellationStats) {
   println!(
-    "{label}: {} items ({} patches rejected) | {} leaves {} triangles {} vertices | work items {:?} | leaves per level {:?} | k {:?} | culled {} splits {:?} forced {} edge raised {} | requests per round {:?} | overflow {:#b} | {} dispatches",
+    "{label}: {} items ({} patches rejected) | {} leaves {} triangles {} vertices | work items {:?} | leaves per level {:?} | k {:?} | culled {} splits {:?} forced {} edge raised {} | trim culled {} inside {} trimmed leaves {} | requests per round {:?} | overflow {:#b} | {} dispatches",
     s.items,
     s.rejected_patches,
     s.leaves,
@@ -431,6 +448,9 @@ fn print_stats(label: &str, s: &GpuTessellationStats) {
     s.splits,
     s.forced_leaves,
     s.edge_raised_leaves,
+    s.trim_culled,
+    s.trim_inside_leaves,
+    s.trimmed_leaves,
     s.requests_per_round,
     s.overflow,
     s.dispatches,
@@ -472,16 +492,21 @@ async fn steam_controller_gpu_vs_cpu() {
     frame.leaves.len()
   );
 
-  for (zoom, untrimmed_only) in [
-    (1., false),
-    (4., false),
-    (4., true),
-    (20., false),
-    (80., false),
+  for (zoom, untrimmed_only, classify_trims) in [
+    (1., false, true),
+    (1., false, false),
+    (4., false, true),
+    (4., false, false),
+    (4., true, true),
+    (20., false, true),
+    (20., false, false),
+    (80., false, true),
+    (80., false, false),
   ] {
     let camera = fit_camera(&model, zoom);
     let mut t = GpuTessellator::new(&gpu, &model, config);
     t.set_untrimmed_only(untrimmed_only);
+    t.set_trim_classification(classify_trims);
     // Grow the buffers to fit, then time a few frames (submit and wait).
     let mut frame = run_frame(&gpu, &mut t, &camera).await;
     for _ in 0..8 {
@@ -506,7 +531,7 @@ async fn steam_controller_gpu_vs_cpu() {
       times.push(start.elapsed().as_secs_f64() * 1e3);
     }
     let frame_after = t.read_back(&gpu).await;
-    let label = format!("fit:{zoom} untrimmed only {untrimmed_only}");
+    let label = format!("fit:{zoom} untrimmed only {untrimmed_only} classify {classify_trims}");
     print_stats(&label, &frame_after.stats);
     let start = Instant::now();
     let c = compare_frame(&model, &camera, config, untrimmed_only, &frame_after, 2);
