@@ -161,7 +161,6 @@ impl GpuTessellator {
     let frame = &self.frame;
     let counters = encoder.read_buffer_bytes(&gpu.device, &frame.counters.gpu);
     let leaves = encoder.read_storage_array(&gpu.device, &frame.output.leaves);
-    let keys = encoder.read_storage_array(&gpu.device, &frame.leaf_keys);
     let vertices = encoder.read_storage_array(&gpu.device, &frame.output.vertices);
     let draw_args = encoder.read_storage_array(&gpu.device, &frame.output.draw_args);
     gpu.submit_encoder(encoder);
@@ -169,13 +168,10 @@ impl GpuTessellator {
     let leaf_count =
       (counters[COUNTER_LEAVES as usize] as usize).min(self.capacity.leaves as usize);
     let mut leaves = leaves.await.unwrap();
-    let mut keys = keys.await.unwrap();
     leaves.truncate(leaf_count);
-    keys.truncate(leaf_count);
     GpuFrameReadback {
       stats: GpuTessellationStats::from_counters(&counters, frame, self),
       leaves,
-      keys,
       vertices: vertices.await.unwrap(),
       draw_args: draw_args.await.unwrap(),
     }
@@ -242,7 +238,7 @@ fn device_limited(device: &GPUDevice, capacity: TessCapacity, stride: u32) -> Te
 fn check_config(config: &TessellationConfig) {
   assert!(config.k_max.is_power_of_two());
   assert!(
-    (config.k_max.trailing_zeros() as usize) < K_BUCKET_COUNT,
+    (config.k_max.trailing_zeros() as usize) < K_RESOLUTION_COUNT,
     "k_max above the draw buckets"
   );
   assert!(config.max_level + config.k_max.trailing_zeros() <= PARAM_BITS);
@@ -261,7 +257,9 @@ pub struct GpuTessellationStats {
   pub work_items: Vec<u32>,
   pub leaves_per_level: Vec<u32>,
   /// Leaf count by `log2 k`.
-  pub leaves_per_k: [u32; K_BUCKET_COUNT],
+  pub leaves_per_k: [u32; K_RESOLUTION_COUNT],
+  /// Leaves with `LEAF_FLAG_TRIMMED` (drawn by the trimming pipeline variant).
+  pub trimmed_leaves: u32,
   pub culled: u32,
   /// Indexed by `SplitReason as usize`.
   pub splits: [u32; 4],
@@ -279,7 +277,10 @@ impl GpuTessellationStats {
   fn from_counters(c: &[u32], frame: &TessFrameBuffers, t: &GpuTessellator) -> Self {
     let at = |i: u32| c[i as usize];
     let range = |base: u32, len: u32| (0..len).map(|i| at(base + i)).collect::<Vec<_>>();
-    let leaves_per_k = std::array::from_fn(|b| at(COUNTER_BUCKETS + b as u32));
+    let bucket =
+      |log2_k: usize, trimmed: bool| at(COUNTER_BUCKETS + bucket_of(log2_k as u32, trimmed));
+    let leaves_per_k = std::array::from_fn(|b| bucket(b, false) + bucket(b, true));
+    let trimmed_leaves = (0..K_RESOLUTION_COUNT).map(|b| bucket(b, true)).sum();
     let triangles = leaves_per_k
       .iter()
       .enumerate()
@@ -303,6 +304,7 @@ impl GpuTessellationStats {
       work_items,
       leaves_per_level,
       leaves_per_k,
+      trimmed_leaves,
       culled: at(COUNTER_CULLED),
       splits: std::array::from_fn(|i| at(COUNTER_SPLITS + i as u32)),
       forced_leaves: at(COUNTER_FORCED_LEAVES),
@@ -342,8 +344,6 @@ impl GpuTessellationStats {
 pub struct GpuFrameReadback {
   pub stats: GpuTessellationStats,
   pub leaves: Vec<TessLeafDraw>,
-  /// `(item, level, ix, iy)` per leaf.
-  pub keys: Vec<Vec4<u32>>,
   pub vertices: Vec<TessVertex>,
   pub draw_args: Vec<DrawIndirectArgsStorage>,
 }
@@ -354,14 +354,8 @@ impl GpuFrameReadback {
     self
       .leaves
       .iter()
-      .zip(&self.keys)
-      .map(|(leaf, key)| Leaf {
-        key: SubPatchKey {
-          item: key.x,
-          level: key.y,
-          ix: key.z,
-          iy: key.w,
-        },
+      .map(|leaf| Leaf {
+        key: leaf.sub_patch_key(),
         k: leaf.k,
       })
       .collect()

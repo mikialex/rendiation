@@ -1,10 +1,33 @@
 use parametric_normalized_model::ParametricNormalizedModel;
-use parametric_tessellation::{Leaf, Tessellator, param_to_f64};
+use parametric_tessellation::{Leaf, SubPatchKey, Tessellator, param_to_f64};
 
 use crate::*;
 
-/// Leaf grid resolutions `k = 1, 2, 4, 8, 16`, one draw per bucket.
-pub const K_BUCKET_COUNT: usize = 5;
+/// Leaf grid resolutions `k = 1, 2, 4, 8, 16`.
+pub const K_RESOLUTION_COUNT: usize = 5;
+/// One draw per `(k, trimmed)` pair, see `bucket_of`.
+pub const BUCKET_COUNT: usize = 2 * K_RESOLUTION_COUNT;
+
+/// The draw bucket of a leaf: `log2 k`, plus `K_RESOLUTION_COUNT` for the leaves with
+/// `LEAF_FLAG_TRIMMED`, which are drawn by the trimming pipeline variant.
+pub const fn bucket_of(log2_k: u32, trimmed: bool) -> u32 {
+  log2_k
+    + if trimmed {
+      K_RESOLUTION_COUNT as u32
+    } else {
+      0
+    }
+}
+
+/// The leaf grid resolution `k` of the leaves in `bucket`.
+pub const fn bucket_k(bucket: u32) -> u32 {
+  1 << (bucket % K_RESOLUTION_COUNT as u32)
+}
+
+/// The leaves of `bucket` have `LEAF_FLAG_TRIMMED`.
+pub const fn bucket_is_trimmed(bucket: u32) -> bool {
+  bucket >= K_RESOLUTION_COUNT as u32
+}
 
 /// One leaf grid vertex, camera space.
 #[repr(C)]
@@ -17,12 +40,14 @@ pub struct TessVertex {
   pub normal: Vec4<f32>,
 }
 
+/// The leaf is drawn by the trimming pipeline variant. For now set for every leaf of a trimmed
+/// patch, plan-trim T3 narrows it to the leaves partially covered by the trim loops.
 pub const LEAF_FLAG_TRIMMED: u32 = 1;
 
 /// One leaf to draw. Its `(k + 1)²` vertices are at `vertex_base..`, u index fastest.
 #[repr(C)]
 #[shader_struct(std430)]
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct TessLeafDraw {
   pub vertex_base: u32,
   pub k: u32,
@@ -30,23 +55,43 @@ pub struct TessLeafDraw {
   pub item: u32,
   /// `LEAF_FLAG_*` bits.
   pub flags: u32,
+  /// The sub patch `[ix, ix + 1] / 2^level × [iy, iy + 1] / 2^level` of the patch domain, the
+  /// grid vertex `(i, j)` is at `((ix·k + i) / (k·2^level), (iy·k + j) / (k·2^level))`.
+  pub level: u32,
+  pub ix: u32,
+  pub iy: u32,
+  /// Index into `ParametricNormalizedModel::patches` (the patch of the item), indexes the per
+  /// patch data of the draw side such as the trim loops.
+  pub patch: u32,
+}
+
+impl TessLeafDraw {
+  pub fn sub_patch_key(&self) -> SubPatchKey {
+    SubPatchKey {
+      item: self.item,
+      level: self.level,
+      ix: self.ix,
+      iy: self.iy,
+    }
+  }
 }
 
 /// Per frame result of the adaptive tessellation, the interface between the producer (GPU
 /// compute, or the uploaded CPU reference) and the draw component.
 ///
-/// Drawing: for bucket `b` (`k = 1 << b`) issue one non indexed `draw_indirect` with
-/// `draw_args[b]` (`vertex_count = 6·k²`, `instance_count` = leaves in the bucket). The vertex
-/// shader takes leaf `leaves[bucket_leaves[b * bucket_capacity + instance_index]]`, cell
-/// `vertex_index / 6` (u fastest) and the corner `vertex_index % 6` of the two triangles
-/// `(v00, v10, v11), (v00, v11, v01)`, counter clockwise in the parameter domain.
+/// Drawing: for bucket `b` (`k = bucket_k(b)`, see `bucket_of`) issue one non indexed
+/// `draw_indirect` with `draw_args[b]` (`vertex_count = 6·k²`, `instance_count` = leaves in the
+/// bucket). The vertex shader takes leaf `leaves[bucket_leaves[b * bucket_capacity +
+/// instance_index]]`, cell `vertex_index / 6` (u fastest) and the corner `vertex_index % 6` of
+/// the two triangles `(v00, v10, v11), (v00, v11, v01)`, counter clockwise in the parameter
+/// domain.
 #[derive(Clone)]
 pub struct TessellationFrameOutput {
   pub vertices: StorageBufferDataView<[TessVertex]>,
   pub leaves: StorageBufferDataView<[TessLeafDraw]>,
   pub bucket_leaves: StorageBufferDataView<[u32]>,
   pub bucket_capacity: u32,
-  /// `K_BUCKET_COUNT` entries, the buffer also has `INDIRECT` usage.
+  /// `BUCKET_COUNT` entries, the buffer also has `INDIRECT` usage.
   pub draw_args: StorageBufferDataView<[DrawIndirectArgsStorage]>,
 }
 
@@ -65,7 +110,7 @@ impl TessellationFrameOutput {
         "tessellation leaves",
       ),
       bucket_leaves: create_gpu_read_write_storage::<[u32]>(
-        ZeroedArrayByArrayLength(leaf_capacity.max(1) as usize * K_BUCKET_COUNT),
+        ZeroedArrayByArrayLength(leaf_capacity.max(1) as usize * BUCKET_COUNT),
         device,
         "tessellation bucket leaves",
       ),
@@ -83,23 +128,24 @@ impl TessellationFrameOutput {
   ) -> Self {
     let mut vertices = Vec::new();
     let mut draws = Vec::with_capacity(leaves.len());
-    let mut buckets = vec![Vec::new(); K_BUCKET_COUNT];
+    let mut buckets = vec![Vec::new(); BUCKET_COUNT];
     for leaf in leaves {
       let item = &t.items()[leaf.key.item as usize];
       let patch = &model.patches[item.patch as usize];
       let flip = patch.flip_normal != model.instances[item.instance as usize].flip_normal;
       let surface = item.surface.clone();
       let mesh = t.leaf_mesh(leaf);
-      buckets[leaf.k.trailing_zeros() as usize].push(draws.len() as u32);
+      let trimmed = !patch.is_untrimmed();
+      buckets[bucket_of(leaf.k.trailing_zeros(), trimmed) as usize].push(draws.len() as u32);
       draws.push(TessLeafDraw {
         vertex_base: vertices.len() as u32,
         k: leaf.k,
         item: leaf.key.item,
-        flags: if patch.is_untrimmed() {
-          0
-        } else {
-          LEAF_FLAG_TRIMMED
-        },
+        flags: if trimmed { LEAF_FLAG_TRIMMED } else { 0 },
+        level: leaf.key.level,
+        ix: leaf.key.ix,
+        iy: leaf.key.iy,
+        patch: item.patch,
         ..Default::default()
       });
       for (&(u, v), p) in mesh.params.iter().zip(&mesh.positions) {
@@ -116,7 +162,7 @@ impl TessellationFrameOutput {
     }
 
     let bucket_capacity = buckets.iter().map(Vec::len).max().unwrap_or(0).max(1);
-    let mut bucket_leaves = vec![0; bucket_capacity * K_BUCKET_COUNT];
+    let mut bucket_leaves = vec![0; bucket_capacity * BUCKET_COUNT];
     let mut args = empty_draw_args();
     for (b, bucket) in buckets.iter().enumerate() {
       bucket_leaves[b * bucket_capacity..][..bucket.len()].copy_from_slice(bucket);
@@ -142,9 +188,9 @@ impl TessellationFrameOutput {
   }
 }
 
-fn empty_draw_args() -> [DrawIndirectArgsStorage; K_BUCKET_COUNT] {
+fn empty_draw_args() -> [DrawIndirectArgsStorage; BUCKET_COUNT] {
   std::array::from_fn(|b| {
-    let k = 1u32 << b;
+    let k = bucket_k(b as u32);
     DrawIndirectArgsStorage::new(6 * k * k, 0, 0, 0)
   })
 }

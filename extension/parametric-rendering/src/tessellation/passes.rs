@@ -25,16 +25,16 @@ pub const COUNTER_FORCED_LEAVES: u32 = 4;
 pub const COUNTER_EDGE_RAISED: u32 = 5;
 /// Split counts by `SplitReason` (near plane, interior, size, edge).
 pub const COUNTER_SPLITS: u32 = 6;
-/// Leaves per `k` bucket.
+/// Leaves per draw bucket (see `bucket_of`), `BUCKET_COUNT` entries.
 pub const COUNTER_BUCKETS: u32 = 10;
-/// Vertex dispatch prefix per bucket, `K_BUCKET_COUNT + 1` entries, written by D.
-pub const COUNTER_VERTEX_PREFIX: u32 = 15;
+/// Vertex dispatch prefix per bucket, `BUCKET_COUNT + 1` entries, written by D.
+pub const COUNTER_VERTEX_PREFIX: u32 = 20;
 /// Work items appended per level (requested, may exceed the capacity).
-pub const COUNTER_WORK_ITEMS: u32 = 24;
-pub const COUNTER_LEVEL_LEAVES: u32 = 48;
+pub const COUNTER_WORK_ITEMS: u32 = 32;
+pub const COUNTER_LEVEL_LEAVES: u32 = 56;
 /// Position requests appended per round (requested, may exceed the capacity).
-pub const COUNTER_ROUNDS: u32 = 72;
-pub const COUNTER_COUNT: u32 = 96;
+pub const COUNTER_ROUNDS: u32 = 80;
+pub const COUNTER_COUNT: u32 = 104;
 /// Levels and rounds are limited by `PARAM_BITS`.
 pub const MAX_STEPS: u32 = 21;
 
@@ -86,8 +86,6 @@ pub struct TessFrameBuffers {
   /// Per level, two dispatch arguments: `(x, sub_patch_stride, 1)` for L.a, `(x, 1, 1)`.
   pub level_args: Vec<Atomics>,
   pub counters: Atomics,
-  /// `(item, level, ix, iy)` of every leaf.
-  pub leaf_keys: Rw<Vec4<u32>>,
   /// Dispatch over all leaf vertices, written by D.
   pub vertex_args: Rw<u32>,
   /// Per round, the dispatch over its requests (round 0 uses `vertex_args`).
@@ -170,7 +168,6 @@ impl TessFrameBuffers {
       level_args: (0..=levels).map(|_| indirect_buffer(device, 6)).collect(),
       counters: zeroed::<u32>(device, COUNTER_COUNT, "tessellation counters")
         .into_device_atomic_array(),
-      leaf_keys: zeroed(device, capacity.leaves, "tessellation leaf keys"),
       vertex_args: indirect_buffer(device, 3),
       round_args: (0..=rounds + 1)
         .map(|_| indirect_buffer(device, 3))
@@ -666,11 +663,7 @@ impl TessPass for DecidePass {
     (Out<K, Rw<Vec4<u32>>>, Out<K, Rw<Vec4<u32>>>),
     (Out<K, Rw<u32>>, Out<K, Rw<u32>>),
     (Out<K, Atomics>, Out<K, Atomics>),
-    (
-      Out<K, Rw<TessLeafDraw>>,
-      Out<K, Rw<Vec4<u32>>>,
-      Out<K, Rw<u32>>,
-    ),
+    (Out<K, Rw<TessLeafDraw>>, Out<K, Rw<u32>>),
   );
   fn declare<B: Binder>(cx: &PassCtx, b: &mut B) -> Self::Bindings<B::Kind> {
     (
@@ -687,14 +680,13 @@ impl TessPass for DecidePass {
       ),
       (
         b.bind(&cx.frame.output.leaves),
-        b.bind(&cx.frame.leaf_keys),
         b.bind(&cx.frame.output.bucket_leaves),
       ),
     )
   }
   fn build(builder: &ShaderComputePipelineBuilder, b: Self::Bindings<ShaderKind>) {
     let ((u, step, items), (queue, queue_out), (interior, edges), (counters, args), leaf_out) = b;
-    let (leaves, leaf_keys, bucket_leaves) = leaf_out;
+    let (leaves, bucket_leaves) = leaf_out;
     let u = u.load().expand();
     let level = step.load().expand().step;
     let w = builder.global_invocation_id().x();
@@ -702,8 +694,7 @@ impl TessPass for DecidePass {
       w.greater_equal_than(level_count(&u, &counters, level)),
       do_return,
     );
-    let raw_key = queue.index(w).load();
-    let key = ShaderKey::new(raw_key);
+    let key = ShaderKey::new(queue.index(w).load());
     let status = interior.index(w).load();
     let code = status >> val(8);
     if_by(code.equals(val(STATUS_CULL)), || {
@@ -780,21 +771,24 @@ impl TessPass for DecidePass {
       set_overflow(&counters, OVERFLOW_LEAVES);
       do_return();
     });
-    let bucket = k.count_trailing_zeros();
+    let item = items.index(key.item).load().expand();
+    let trimmed = (item.flags & val(ITEM_FLAG_TRIMMED)).not_equals(val(0));
+    let bucket = k.count_trailing_zeros() + trimmed.select(val(K_RESOLUTION_COUNT as u32), val(0));
     let slot = counters
       .index(val(COUNTER_BUCKETS) + bucket)
       .atomic_add(val(1));
-    let item = items.index(key.item).load().expand();
-    let trimmed = (item.flags & val(ITEM_FLAG_TRIMMED)).not_equals(val(0));
     let draw = ENode::<TessLeafDraw> {
       vertex_base,
       k,
       item: key.item,
       flags: trimmed.select(val(LEAF_FLAG_TRIMMED), val(0)),
+      level: key.level,
+      ix: key.ix,
+      iy: key.iy,
+      patch: item.patch,
     }
     .construct();
     leaves.index(leaf).store(draw);
-    leaf_keys.index(leaf).store(raw_key);
     bucket_leaves
       .index(bucket * u.leaf_capacity + slot)
       .store(leaf);
@@ -828,8 +822,8 @@ impl TessPass for FinalizePass {
   ) {
     let u = u.load().expand();
     let mut total = val(0u32);
-    for b in 0..K_BUCKET_COUNT as u32 {
-      let k = 1u32 << b;
+    for b in 0..BUCKET_COUNT as u32 {
+      let k = bucket_k(b);
       let count = atomic(&counters, COUNTER_BUCKETS + b)
         .atomic_load()
         .min(u.leaf_capacity);
@@ -844,7 +838,7 @@ impl TessPass for FinalizePass {
       atomic(&counters, COUNTER_VERTEX_PREFIX + b).atomic_store(total);
       total += count * val((k + 1) * (k + 1));
     }
-    atomic(&counters, COUNTER_VERTEX_PREFIX + K_BUCKET_COUNT as u32).atomic_store(total);
+    atomic(&counters, COUNTER_VERTEX_PREFIX + BUCKET_COUNT as u32).atomic_store(total);
     vertex_args
       .index(val(0))
       .store((total + val(VERTEX_WORKGROUP - 1)) / val(VERTEX_WORKGROUP));
@@ -890,28 +884,32 @@ fn leaf_vertex(
   counters: &ShaderPtrOf<[DeviceAtomic<u32>]>,
   bucket_leaves: &ShaderPtrOf<[u32]>,
   leaves: &ShaderPtrOf<[TessLeafDraw]>,
-  leaf_keys: &ShaderPtrOf<[Vec4<u32>]>,
 ) -> ShaderLeafVertex {
   let prefix = |b: u32| atomic(counters, COUNTER_VERTEX_PREFIX + b).atomic_load();
   if_by(
-    id.greater_equal_than(prefix(K_BUCKET_COUNT as u32)),
+    id.greater_equal_than(prefix(BUCKET_COUNT as u32)),
     do_return,
   );
   let mut bucket = val(0u32);
-  for b in 1..K_BUCKET_COUNT as u32 {
+  for b in 1..BUCKET_COUNT as u32 {
     bucket = id.greater_equal_than(prefix(b)).select(val(b), bucket);
   }
   let start = counters
     .index(val(COUNTER_VERTEX_PREFIX) + bucket)
     .atomic_load();
-  let k = val(1u32) << bucket;
+  let k = val(1u32) << (bucket % val(K_RESOLUTION_COUNT as u32));
   let row = k + val(1);
   let relative = id - start;
   let slot = relative / (row * row);
   let local = relative % (row * row);
   let leaf = bucket_leaves.index(bucket * u.leaf_capacity + slot).load();
   let draw = leaves.index(leaf).load().expand();
-  let key = ShaderKey::new(leaf_keys.index(leaf).load());
+  let key = ShaderKey {
+    item: draw.item,
+    level: draw.level,
+    ix: draw.ix,
+    iy: draw.iy,
+  };
   let (i, j) = (local % row, local / row);
   let boundary = i
     .equals(val(0))
@@ -968,12 +966,7 @@ impl TessPass for ForwardPass {
       Out<K, Ro<TessItem>>,
       Out<K, Rw<Vec4<f32>>>,
     ),
-    (
-      Out<K, Rw<TessLeafDraw>>,
-      Out<K, Rw<Vec4<u32>>>,
-      Out<K, Rw<u32>>,
-      Out<K, Atomics>,
-    ),
+    (Out<K, Rw<TessLeafDraw>>, Out<K, Rw<u32>>, Out<K, Atomics>),
     (
       Out<K, Rw<Vec4<u32>>>,
       Out<K, Rw<Vec4<u32>>>,
@@ -991,7 +984,6 @@ impl TessPass for ForwardPass {
       ),
       (
         b.bind(&cx.frame.output.leaves),
-        b.bind(&cx.frame.leaf_keys),
         b.bind(&cx.frame.output.bucket_leaves),
         b.bind(&cx.frame.counters),
       ),
@@ -1004,7 +996,7 @@ impl TessPass for ForwardPass {
     )
   }
   fn build(builder: &ShaderComputePipelineBuilder, b: Self::Bindings<ShaderKind>) {
-    let ((u, step, items, camera_cps), (leaves, leaf_keys, bucket_leaves, counters), rest) = b;
+    let ((u, step, items, camera_cps), (leaves, bucket_leaves, counters), rest) = b;
     let (requests, records, values, args) = rest;
     let u = u.load().expand();
     let round = step.load().expand().step;
@@ -1013,7 +1005,7 @@ impl TessPass for ForwardPass {
     let request = zeroed_val::<Vec4<u32>>().make_local_var();
     let index = val(0u32).make_local_var();
     if_by(round.equals(val(0)), || {
-      let v = leaf_vertex(&u, id, &counters, &bucket_leaves, &leaves, &leaf_keys);
+      let v = leaf_vertex(&u, id, &counters, &bucket_leaves, &leaves);
       if_by(v.boundary.not(), do_return);
       request.store(uvec4(v.key.item, v.u(), v.v(), val(0)));
       index.store(v.vertex);
@@ -1121,12 +1113,7 @@ impl TessPass for BackwardPass {
   const WORKGROUP: (u32, u32, u32) = (VERTEX_WORKGROUP, 1, 1);
   type Bindings<K: BindKind> = (
     (UniformOut<K>, StepOut<K>),
-    (
-      Out<K, Rw<TessLeafDraw>>,
-      Out<K, Rw<Vec4<u32>>>,
-      Out<K, Rw<u32>>,
-      Out<K, Atomics>,
-    ),
+    (Out<K, Rw<TessLeafDraw>>, Out<K, Rw<u32>>, Out<K, Atomics>),
     (Out<K, Rw<Vec4<u32>>>, Out<K, Rw<Vec4<f32>>>),
   );
   fn declare<B: Binder>(cx: &PassCtx, b: &mut B) -> Self::Bindings<B::Kind> {
@@ -1134,7 +1121,6 @@ impl TessPass for BackwardPass {
       (b.bind(&cx.frame.uniform), b.bind(cx.step())),
       (
         b.bind(&cx.frame.output.leaves),
-        b.bind(&cx.frame.leaf_keys),
         b.bind(&cx.frame.output.bucket_leaves),
         b.bind(&cx.frame.counters),
       ),
@@ -1142,13 +1128,13 @@ impl TessPass for BackwardPass {
     )
   }
   fn build(builder: &ShaderComputePipelineBuilder, b: Self::Bindings<ShaderKind>) {
-    let ((u, step), (leaves, leaf_keys, bucket_leaves, counters), (records, values)) = b;
+    let ((u, step), (leaves, bucket_leaves, counters), (records, values)) = b;
     let u = u.load().expand();
     let round = step.load().expand().step;
     let id = builder.global_invocation_id().x();
     let index = val(0u32).make_local_var();
     if_by(round.equals(val(0)), || {
-      let v = leaf_vertex(&u, id, &counters, &bucket_leaves, &leaves, &leaf_keys);
+      let v = leaf_vertex(&u, id, &counters, &bucket_leaves, &leaves);
       if_by(v.boundary.not(), do_return);
       index.store(v.vertex);
     })
@@ -1180,12 +1166,7 @@ impl TessPass for VertexPass {
       Out<K, Ro<Vec2<u32>>>,
       Out<K, Ro<Mat4<f32>>>,
     ),
-    (
-      Out<K, Rw<TessLeafDraw>>,
-      Out<K, Rw<Vec4<u32>>>,
-      Out<K, Rw<u32>>,
-      Out<K, Atomics>,
-    ),
+    (Out<K, Rw<TessLeafDraw>>, Out<K, Rw<u32>>, Out<K, Atomics>),
     (Out<K, Rw<Vec4<f32>>>, Out<K, Rw<TessVertex>>),
   );
   fn declare<B: Binder>(cx: &PassCtx, b: &mut B) -> Self::Bindings<B::Kind> {
@@ -1198,7 +1179,6 @@ impl TessPass for VertexPass {
       ),
       (
         b.bind(&cx.frame.output.leaves),
-        b.bind(&cx.frame.leaf_keys),
         b.bind(&cx.frame.output.bucket_leaves),
         b.bind(&cx.frame.counters),
       ),
@@ -1207,10 +1187,10 @@ impl TessPass for VertexPass {
   }
   fn build(builder: &ShaderComputePipelineBuilder, b: Self::Bindings<ShaderKind>) {
     let ((u, items), (pool, sources, matrices), leaf_bindings, (values, vertices)) = b;
-    let (leaves, leaf_keys, bucket_leaves, counters) = leaf_bindings;
+    let (leaves, bucket_leaves, counters) = leaf_bindings;
     let u = u.load().expand();
     let id = builder.global_invocation_id().x();
-    let v = leaf_vertex(&u, id, &counters, &bucket_leaves, &leaves, &leaf_keys);
+    let v = leaf_vertex(&u, id, &counters, &bucket_leaves, &leaves);
     let item = items.index(v.key.item).load().expand();
     // The partials come from the face origin relative control points (small values, the
     // camera space ones lose the precision of small patches far from the camera) mapped by

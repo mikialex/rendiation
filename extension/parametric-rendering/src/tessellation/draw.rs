@@ -1,22 +1,28 @@
 //! Drawing of a `TessellationFrameOutput` (plan stage 1, M5): one non indexed `draw_indirect`
-//! per k bucket, the vertex shader fetches the leaf grid vertices from the storage buffers. The
-//! shading is a two sided headlight lambert, there is no material or lighting integration.
+//! per draw bucket, the vertex shader fetches the leaf grid vertices from the storage buffers.
+//! The shading is a two sided headlight lambert, there is no material or lighting integration.
+//! The buckets of the leaves with `LEAF_FLAG_TRIMMED` are drawn by a separate pipeline variant
+//! that runs the optional `TessellationTrimFragment` (plan-trim T2).
+
+use parametric_tessellation::PARAM_BITS;
 
 use super::*;
 use crate::*;
 
-/// Issue the draws of all k buckets of `output`. `before` (for example the pass dispatcher that
+/// Issue the draws of all buckets of `output`. `before` (for example the pass dispatcher that
 /// declares the target formats and the depth state) and `after` (for example a clip position
-/// jitter) wrap the bucket draw component of each draw.
+/// jitter) wrap the bucket draw component of each draw. `trim` runs in the fragment stage of the
+/// buckets with `LEAF_FLAG_TRIMMED`, see `TessellationTrimFragment`.
 pub fn render_tessellation_output(
   ctx: &mut GPURenderPassCtx,
   output: &TessellationFrameOutput,
   uniform: &UniformBufferDataView<TessellationDrawUniform>,
+  trim: Option<&dyn TessellationTrimFragment>,
   before: &[&dyn RenderComponent],
   after: &[&dyn RenderComponent],
 ) {
-  for bucket in 0..K_BUCKET_COUNT as u32 {
-    let draw = TessellationBucketDraw::new(output, uniform, bucket);
+  for bucket in 0..BUCKET_COUNT as u32 {
+    let draw = TessellationBucketDraw::new(output, uniform, bucket, trim);
     let mut components = before.to_vec();
     components.push(&draw);
     components.extend_from_slice(after);
@@ -24,28 +30,59 @@ pub fn render_tessellation_output(
   }
 }
 
+/// The fragment logic of the trimming pipeline variant, it may discard the fragment or override
+/// `DefaultDisplay`. Its resources (for example the trim segment pool and table) are bound in
+/// `build_trim` and, in the same order, in `setup_pass`, after the resources of the bucket draw.
+/// The pipeline hash includes `hash_pipeline_with_type_info`.
+pub trait TessellationTrimFragment: ShaderHashProvider + ShaderPassBuilder {
+  /// Runs after the shading, see `TessellationFragmentInput`.
+  fn build_trim(
+    &self,
+    builder: &mut ShaderFragmentBuilderView,
+    binding: &mut ShaderBindGroupBuilder,
+    input: TessellationFragmentInput,
+  );
+}
+
+/// The fragment inputs of a leaf (`TessLeafDraw`).
+#[derive(Clone, Copy)]
+pub struct TessellationFragmentInput {
+  /// The perspective interpolated parameter in the patch domain `[0, 1]²`, exact at the leaf
+  /// grid vertices.
+  pub uv: Node<Vec2<f32>>,
+  /// Indexes the tessellation item table.
+  pub item: Node<u32>,
+  /// Indexes `ParametricNormalizedModel::patches`.
+  pub patch: Node<u32>,
+}
+
 /// How the leaves are colored, see `TessellationDrawUniform::color_mode`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TessellationColorMode {
   #[default]
   Gray,
-  /// One palette color per k bucket.
+  /// One palette color per k.
   ByK,
   /// A hashed color per leaf.
   ByLeaf,
   /// A hashed color per tessellation item (one (instance, patch) occurrence).
   ByPatch,
+  /// The patch domain parameter as red and green.
+  Parameter,
 }
 
-/// How the leaves with `LEAF_FLAG_TRIMMED` are drawn. The tessellation ignores the trim loops for
-/// now, so a trimmed patch covers its whole cell.
+/// How the leaves with `LEAF_FLAG_TRIMMED` are drawn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TrimmedPatchStyle {
+  /// The whole cell, the trim loops are ignored.
   Normal,
-  /// Lighter color.
+  /// The whole cell with a lighter color.
   #[default]
   WashedOut,
   Hidden,
+  /// Trimmed by the `TessellationTrimFragment` passed to the draw. The trim data is not
+  /// connected yet (plan-trim T2), so it is drawn like `Normal` for now.
+  Trimmed,
 }
 
 /// The draw settings that do not depend on the camera.
@@ -106,8 +143,8 @@ impl TessellationDrawUniform {
   }
 }
 
-/// The colors of the `ByK` mode, indexed by the bucket (`log2 k`).
-pub const K_BUCKET_PALETTE: [Vec3<f32>; K_BUCKET_COUNT] = [
+/// The colors of the `ByK` mode, indexed by `log2 k`.
+pub const K_BUCKET_PALETTE: [Vec3<f32>; K_RESOLUTION_COUNT] = [
   Vec3::new(0.25, 0.45, 0.9),
   Vec3::new(0.2, 0.75, 0.7),
   Vec3::new(0.45, 0.8, 0.25),
@@ -118,8 +155,13 @@ pub const K_BUCKET_PALETTE: [Vec3<f32>; K_BUCKET_COUNT] = [
 both!(TessellationViewPosition, Vec3<f32>);
 both!(TessellationViewNormal, Vec3<f32>);
 both!(TessellationLeafColor, Vec3<f32>);
+// the patch domain parameter of the fragment, perspective interpolated
+both!(TessellationParameter, Vec2<f32>);
+// the tessellation item and the patch of the fragment, flat as every integer vertex output
+both!(TessellationItemIndex, u32);
+both!(TessellationPatchIndex, u32);
 
-/// The draw component of the bucket `bucket` (`k = 1 << bucket`), the bucket is baked into the
+/// The draw component of the bucket `bucket` (see `bucket_of`), the bucket is baked into the
 /// pipeline. Registers `ClipPosition` in the vertex stage and `DefaultDisplay` in the fragment
 /// stage, the pass dispatcher writes it to the target.
 pub struct TessellationBucketDraw<'a> {
@@ -129,6 +171,8 @@ pub struct TessellationBucketDraw<'a> {
   bucket_leaves: StorageBufferReadonlyDataView<[u32]>,
   draw_args: GPUBufferResourceView,
   bucket: u32,
+  /// Only kept for the buckets with `LEAF_FLAG_TRIMMED`.
+  trim: Option<&'a dyn TessellationTrimFragment>,
 }
 
 impl<'a> TessellationBucketDraw<'a> {
@@ -136,8 +180,9 @@ impl<'a> TessellationBucketDraw<'a> {
     output: &TessellationFrameOutput,
     uniform: &'a UniformBufferDataView<TessellationDrawUniform>,
     bucket: u32,
+    trim: Option<&'a dyn TessellationTrimFragment>,
   ) -> Self {
-    assert!((bucket as usize) < K_BUCKET_COUNT);
+    assert!((bucket as usize) < BUCKET_COUNT);
     Self {
       uniform,
       vertices: output.vertices.clone().into_readonly_view(),
@@ -145,6 +190,7 @@ impl<'a> TessellationBucketDraw<'a> {
       bucket_leaves: output.bucket_leaves.clone().into_readonly_view(),
       draw_args: output.draw_args.gpu.clone(),
       bucket,
+      trim: trim.filter(|_| bucket_is_trimmed(bucket)),
     }
   }
 
@@ -165,6 +211,10 @@ impl ShaderHashProvider for TessellationBucketDraw<'_> {
   shader_hash_type_id! {TessellationBucketDraw<'static>}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     hasher.hash(self.bucket);
+    hasher.hash(self.trim.is_some());
+    if let Some(trim) = self.trim {
+      trim.hash_pipeline_with_type_info(hasher);
+    }
   }
 }
 
@@ -174,12 +224,15 @@ impl ShaderPassBuilder for TessellationBucketDraw<'_> {
     ctx.binding.bind(&self.vertices);
     ctx.binding.bind(&self.leaves);
     ctx.binding.bind(&self.bucket_leaves);
+    if let Some(trim) = self.trim {
+      trim.setup_pass(ctx);
+    }
   }
 }
 
 impl GraphicsShaderProvider for TessellationBucketDraw<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    let k = 1u32 << self.bucket;
+    let k = bucket_k(self.bucket);
     builder.vertex(|builder, binding| {
       // two sided, the winding follows the parameter domain, not the face orientation
       builder.primitive_state().cull_mode = None;
@@ -208,6 +261,15 @@ impl GraphicsShaderProvider for TessellationBucketDraw<'_> {
         .load()
         .expand();
 
+      // dyadic fixed point parameters, exact in f32 like the CPU `param_to_f64`
+      let step = (val(1u32) << (val(PARAM_BITS) - leaf.level)) / val(k);
+      let pu = (leaf.ix * val(k) + i) * step;
+      let pv = (leaf.iy * val(k) + j) * step;
+      let uv: Node<Vec2<f32>> = (param_to_f32(pu), param_to_f32(pv)).into();
+      builder.set_vertex_out::<TessellationParameter>(uv);
+      builder.set_vertex_out::<TessellationItemIndex>(leaf.item);
+      builder.set_vertex_out::<TessellationPatchIndex>(leaf.patch);
+
       let trimmed = (leaf.flags & val(LEAF_FLAG_TRIMMED)).not_equals(val(0));
       let style = uniform.trimmed_style;
       let hidden = trimmed.and(style.equals(val(TrimmedPatchStyle::Hidden as u32)));
@@ -224,7 +286,7 @@ impl GraphicsShaderProvider for TessellationBucketDraw<'_> {
       builder.set_vertex_out::<TessellationViewNormal>(normal);
 
       let mode = uniform.color_mode;
-      let k_color = val(K_BUCKET_PALETTE[self.bucket as usize]);
+      let k_color = val(K_BUCKET_PALETTE[k.trailing_zeros() as usize]);
       let color = mode
         .equals(val(TessellationColorMode::ByK as u32))
         .select(k_color, uniform.base_color.xyz());
@@ -234,11 +296,15 @@ impl GraphicsShaderProvider for TessellationBucketDraw<'_> {
       let color = mode
         .equals(val(TessellationColorMode::ByPatch as u32))
         .select(hash_color(leaf.item), color);
+      let parameter_color: Node<Vec3<f32>> = (uv, val(0.)).into();
+      let color = mode
+        .equals(val(TessellationColorMode::Parameter as u32))
+        .select(parameter_color, color);
       let color = washed.select(val(0.6).mix(color, val(Vec3::one())), color);
       builder.set_vertex_out::<TessellationLeafColor>(color);
     });
 
-    builder.fragment(|builder, _| {
+    builder.fragment(|builder, binding| {
       let position = builder.query::<TessellationViewPosition>();
       let normal = builder.query::<TessellationViewNormal>();
       let color = builder.query::<TessellationLeafColor>();
@@ -253,6 +319,15 @@ impl GraphicsShaderProvider for TessellationBucketDraw<'_> {
       let shade = val(0.15) + val(0.85) * lambert;
       let display: Node<Vec4<f32>> = (color * shade, val(1.)).into();
       builder.register::<DefaultDisplay>(display);
+
+      if let Some(trim) = self.trim {
+        let input = TessellationFragmentInput {
+          uv: builder.query::<TessellationParameter>(),
+          item: builder.query::<TessellationItemIndex>(),
+          patch: builder.query::<TessellationPatchIndex>(),
+        };
+        trim.build_trim(builder, binding, input);
+      }
     });
   }
 }
