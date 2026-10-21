@@ -25,6 +25,11 @@ vertex evaluated from the original control points at exact dyadic parameters.
   (`face_origins`, `relative_to_origin`) and maps them by `item_to_camera`, the data the GPU
   uploads in f32. One origin per face keeps shared boundaries bitwise equal.
 - `test_scenes`: synthetic patches and models, also used by the GPU tests.
+- `trim`: trim preprocessing and the CPU reference of the per fragment trimming
+  (`extension/parametric-rendering/plan-trim.md`): conversion to quadratic Béziers, the f32
+  winding kernel (Slug's root eligibility code), exchangeable acceleration structures
+  (`TrimAccel`: `AllSegments`, `BandGrid`), the GPU encoding (`encode_trims`) and a polyline
+  ground truth. The ignored test `steam_statistics` validates and measures a real model.
 
 Differences from the first plan draft, see the crate docs in `src/lib.rs` for the details:
 

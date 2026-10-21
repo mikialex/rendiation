@@ -244,6 +244,88 @@ CPU 参考（`parametric-tessellation`）做同样的分类，叶子集合比对
 - 统计：steam 的二次段数、band 数和预分类格子分辨率的分布、常数格比例、最满 band。CLI 的 SVG 裁剪图
   可以叠加二次段、band 和格子，供肉眼检查。
 
+#### T0 结果
+
+实现在 `parametric-tessellation` 的 `trim` 模块（`src/trim`，模块文档里有编码布局的总览）。
+
+API：
+
+- 转二次：`TrimQuadraticConfig::for_model(model)`（3D 容差取 `model.tolerance`，换算后的 uv 容差夹到
+  `[1e-6, 1e-3]`），`trim_quadratics(patch, config) -> PatchTrimQuadratics`（段、环区间、uv 容差、
+  失败数），`parametric_speed_bound`，`cubic_piece_count`。
+- 内核：`crossing(&EncodedSegment, uv)`（f32，逐操作对应 shader），`crossing_f64(&TrimQuadratic, uv)`，
+  `root_code`，`clamp_uv`。
+- 加速结构：trait `TrimAccel`（`kind`、`build`、`point_query`、`rect_query`、`distance_radius`），实现
+  `AllSegments`、`BandGrid`；查询看到的数据是 `PatchTrimView`，按存储的类型取实现用 `accel_for_kind`。
+- 编码：`encode_trims(model, config, &dyn TrimAccel) -> TrimEncoding { segments, table, stats }`，
+  `TrimEncoding::{header, patch_view, winding, is_inside, classify_rect}` 是 GPU 解码路径的 CPU 镜像。
+- 真值：`TrimReference`（原始有理曲线的细折线，f64 winding 和距离）。
+
+T1 要解码的布局：
+
+- 段池：每段两个 vec4，`(p0.x, p0.y, p1.x, p1.y)`、`(p2.x, p2.y, max_u, bitcast<f32>(flags))`，
+  `flags` 的 bit 0 是辅助段（目前没有结构生成辅助段）。一个 patch 的段连续存放，按环排列，相邻段端点
+  逐位相等。
+- u32 表：开头是每个 patch（模型里的全部 patch，按 patch 下标）4 个字的头
+  `segment_offset, segment_count, accel_offset, kind`。`kind`：`0` 全内（未裁剪，或裁剪覆盖整个参数域），
+  `1` 全外，`2` 全部段（无数据），`3` band 加预分类格子。
+- `kind = 3` 的数据（从 `accel_offset` 起）：
+  - 字 0：`band_log2 | grid_log2 << 8`。
+  - 接着 `ceil(n² / 16)` 个字的预分类格子（`n = 1 << grid_log2`）：格子 `cy·n + cx` 在第 `cell / 16`
+    个字的 `2·(cell % 16)` 位起，`0` 不确定、`1` 外、`2` 内。样本所在格子是 `floor(uv·n)`。
+  - 接着 `nb = 1 << band_log2` 个 band 字：`start | count << 16`，`start` 相对于 band 字之后的列表起点。
+    样本所在 band 是 `floor(v·nb)`。
+  - 最后是各 band 的列表：patch 内的局部段下标，每个一个 u32，按 `max_u` 降序。
+- 片元：`uv` 夹取后读头；`kind` 为 0 / 1 直接给出结果；`kind = 3` 先查格子，不确定时扫样本所在的 band，
+  遇到 `max_u < u` 停止，对每段累加 `crossing`，winding ≠ 0 即在材料内。
+
+相对计划的修正：
+
+- 根判定码照 Slug 参考实现取符号位（负为 1）：`shift = neg(y0) | neg(y1) << 1 | neg(y2) << 2`，
+  `code = (0x2E74 >> shift) & 0x0101`，bit 0 对应 t1，bit 8 对应 t2。"点分类内核"一节写的 `y > 0` 形式
+  不等价（+0 算作非负）。
+- 符号：t1 贡献 −1，t2 贡献 +1（与 Slug 的 `xcov` 相反），逆时针外环内部 winding 为 +1。测试已确认与
+  本数据的环方向一致。
+- 求根不用 Slug 的 `|a| < 1/65536` 线性分支，因为参数域里的短段的 `a` 经常低于这个固定阈值。改用无抵消
+  形式：`b ≥ 0` 时 `t1 = c / (b + d)`，`b ≤ 0` 时 `t2 = c / (b − d)`，其余用 `(b ∓ d) / a`。判别式 ≤ 0 时两个
+  根都取 `b / a`（与 Slug 相同）。这一点不能省：控制点越过射线而曲线没到达时，两个根都被判定码选中，
+  只有取同一个 t 才能相互抵消。steam 第一次验证时就是这个错误。
+- 内核的定义包含"`max_u < u` 的段贡献 0"，这样 band 的提前退出与扫描全部段逐位一致。
+- 夹取范围改为 `[2⁻²⁰, 1 − 2⁻²⁰]²`。根判定码把正好落在段端点 v 上的射线视为从下方经过，所以 v = 0 的
+  样本会漏掉从 v = 0 开始的边界段，整条底边都被判为外。
+- 位于参数域边上的段（三个控制点的 u 或 v 全为 0 或全为 1）不参与包围盒测试，因为样本到不了那里，
+  但它们仍参与 winding。否则所有贴边的格子都是不确定，覆盖整个参数域的裁剪也无法降级为全内。
+- `Pole` 曲线不能丢：它只在 3D 里退化，在参数域里是环上的一段边界。只丢参数域里退化成点的曲线。
+- 水平段也进 band，矩形查询需要它们，点查询的代价只是一次判定码。
+- 预分类格子固定为 16×16（配置项 `grid_log2`），没有按段数自适应：每个 patch 16 个字，内存可以忽略。
+- 新增 `kind` 0 / 1：未裁剪的 patch，以及裁剪后整个参数域都是材料或都不是材料的 patch，没有段也没有
+  结构数据。
+- 抽象只有一个 trait `TrimAccel`，构建和 CPU 侧的查询都在其中，没有单独的 `TrimAccelBuilder`。
+
+steam-controller（`RENDIATION_TEST_PNM=… cargo test --release -p parametric-tessellation steam --
+--ignored --nocapture`）：
+
+| 项 | 数据 |
+| --- | --- |
+| 模型容差 | 0.0099 |
+| patch / 带裁剪 | 17387 / 9969 |
+| 降级为全内 / 全外 | 2 / 2 |
+| uv 容差 | min 1.5e-4，p50 1e-3（上限），max 1e-3 |
+| 二次段 | 46123，每 patch p50 4 / p90 6 / p99 11 / max 168，近似失败 0 |
+| band 数（1 / 2 / 4 / 8 / 16） | 6879 / 1974 / 361 / 120 / 631 |
+| 最满 band | p50 4，p90 4，p99 6，max 46 |
+| 预分类格子 | 不确定 13.1%，外 26.6%，内 60.2% |
+| 预处理（release） | band 加格子 32 ms，全部段 5 ms |
+| 上传 | u32 表 1285 KiB，段池 1441 KiB |
+| 验证 | 76.7 万个点：band 扫描与全部段 0 不一致；其中 35 万个离曲线超过 2 倍容差的点与真值 0 不一致；随机二进位矩形的分类 0 错误 |
+
+遗留：
+
+- 默认 3D 容差下，多数 patch 的 uv 容差被上限 1e-3 截住。是否合适，留给 T4 的截图判断。
+- f32 内核与 GPU 的结果能否逐位一致，取决于编译器是否合并 FMA，T1 的对比测试会暴露。
+- 长尾：最满 band 最多 46 段，631 个 patch 用满了 16 条 band。
+- 距离约定只有接口（`distance_radius`），没有实现。CLI 的 SVG 叠加图没做。
+
 ### T1：GPU 数据与 shader 分类函数
 
 - 上传段池和 u32 表，读回后与 CPU 逐项比对。
