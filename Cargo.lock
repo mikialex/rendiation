@@ -4718,6 +4718,7 @@ dependencies = [
 name = "rendiation-parametric-rendering"
 version = "0.1.0"
 dependencies = [
+ "fast-hash-collection",
  "parametric-normalized-model",
  "parametric-tessellation",
  "pollster",
