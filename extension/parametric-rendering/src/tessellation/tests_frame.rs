@@ -10,7 +10,8 @@ use parametric_tessellation::*;
 use super::*;
 use crate::*;
 
-const STEAM_MODEL: &str = "/Users/mikialex/dev/rendiation/temp/step-test/steam-controller.pnm";
+pub(super) const STEAM_MODEL: &str =
+  "/Users/mikialex/dev/rendiation/temp/step-test/steam-controller.pnm";
 
 /// Encodes and submits one frame, then reads it back.
 async fn run_frame(gpu: &GPU, t: &mut GpuTessellator, camera: &Camera) -> GpuFrameReadback {

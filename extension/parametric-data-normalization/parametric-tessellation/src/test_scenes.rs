@@ -8,6 +8,8 @@ use rendiation_algebra::*;
 
 use crate::*;
 
+pub mod trim;
+
 /// A tiny deterministic random generator.
 pub struct TestRng(pub u64);
 

@@ -1,209 +1,16 @@
-use std::f64::consts::FRAC_1_SQRT_2;
-
 use parametric_normalized_model::*;
 use rendiation_algebra::*;
 
 use crate::test_scenes::TestRng;
+use crate::test_scenes::trim::*;
 use crate::trim::*;
-
-const TOLERANCE: f64 = 1e-5;
-
-fn config() -> TrimQuadraticConfig {
-  TrimQuadraticConfig {
-    tolerance_3d: TOLERANCE,
-    min_uv_tolerance: 1e-6,
-    max_uv_tolerance: 1e-3,
-  }
-}
-
-/// The unit square in the xy plane, parametric speed 1, so the uv tolerance is `TOLERANCE`.
-fn unit_surface() -> RationalBezierSurface {
-  let p = |x: f64, y: f64| Vec4::new(x, y, 0., 1.);
-  RationalBezierSurface::new(1, 1, vec![p(0., 0.), p(1., 0.), p(0., 1.), p(1., 1.)])
-}
-
-fn curve(curve: RationalBezierCurve2, source: TrimCurveSource) -> TrimCurve {
-  TrimCurve {
-    curve,
-    source,
-    exact: true,
-  }
-}
-
-const EDGE: TrimCurveSource = TrimCurveSource::Edge {
-  edge: EdgeId(0),
-  reversed: false,
-};
-
-fn polygon(points: &[(f64, f64)], source: TrimCurveSource) -> Vec<TrimCurve> {
-  (0..points.len())
-    .map(|i| {
-      let (a, b) = (points[i], points[(i + 1) % points.len()]);
-      curve(
-        RationalBezierCurve::line(Vec2::new(a.0, a.1), Vec2::new(b.0, b.1)),
-        source,
-      )
-    })
-    .collect()
-}
-
-fn domain_boundary() -> Vec<TrimCurve> {
-  polygon(
-    &[(0., 0.), (1., 0.), (1., 1.), (0., 1.)],
-    TrimCurveSource::PatchBoundary,
-  )
-}
-
-/// Four rational quadratic quarter arcs, counter clockwise unless `clockwise`.
-fn circle(center: (f64, f64), r: f64, clockwise: bool) -> Vec<TrimCurve> {
-  let at = |x: f64, y: f64| Vec2::new(center.0 + r * x, center.1 + r * y);
-  let mut curves: Vec<_> = [(1., 0.), (0., 1.), (-1., 0.), (0., -1.)]
-    .iter()
-    .map(|&(x, y)| {
-      let (a, b, c) = (at(x, y), at(x - y, y + x), at(-y, x));
-      curve(
-        RationalBezierCurve::from_euclid(&[a, b, c], Some(&[1., FRAC_1_SQRT_2, 1.])),
-        EDGE,
-      )
-    })
-    .collect();
-  if clockwise {
-    curves.reverse();
-    for c in &mut curves {
-      c.curve = c.curve.reversed();
-    }
-  }
-  curves
-}
-
-fn cubic(points: [(f64, f64); 4]) -> TrimCurve {
-  let p = points.map(|(x, y)| Vec2::new(x, y));
-  curve(RationalBezierCurve::from_euclid(&p, None), EDGE)
-}
-
-fn quadratic(points: [(f64, f64); 3]) -> TrimCurve {
-  let p = points.map(|(x, y)| Vec2::new(x, y));
-  curve(RationalBezierCurve::from_euclid(&p, None), EDGE)
-}
-
-fn patch(loops: Vec<Vec<TrimCurve>>) -> TrimmedBezierPatch {
-  TrimmedBezierPatch {
-    surface: unit_surface(),
-    loops: loops
-      .into_iter()
-      .map(|curves| TrimLoop { curves })
-      .collect(),
-    flip_normal: false,
-    face: FaceId(0),
-    cell: (0, 0),
-  }
-}
-
-/// Synthetic trims covering the hard cases.
-fn scenes() -> Vec<TrimmedBezierPatch> {
-  // Clockwise cubic blob hole.
-  let blob = vec![
-    cubic([(0.7, 0.5), (0.6, 0.52), (0.55, 0.7), (0.7, 0.8)]),
-    cubic([(0.7, 0.8), (0.85, 0.9), (0.95, 0.6), (0.85, 0.55)]),
-    cubic([(0.85, 0.55), (0.8, 0.52), (0.75, 0.48), (0.7, 0.5)]),
-  ];
-  // Vertices sharing v values with horizontal edges, so rays pass exactly through vertices.
-  let star = polygon(
-    &[
-      (0.1, 0.2),
-      (0.4, 0.2),
-      (0.5, 0.05),
-      (0.6, 0.2),
-      (0.9, 0.2),
-      (0.7, 0.5),
-      (0.9, 0.8),
-      (0.6, 0.8),
-      (0.5, 0.95),
-      (0.4, 0.8),
-      (0.1, 0.8),
-      (0.3, 0.5),
-    ],
-    EDGE,
-  );
-  // Joints at horizontal and vertical tangents (rounded diamond of polynomial quadratics).
-  let diamond = vec![
-    quadratic([(0.5, 0.1), (0.9, 0.1), (0.9, 0.5)]),
-    quadratic([(0.9, 0.5), (0.9, 0.9), (0.5, 0.9)]),
-    quadratic([(0.5, 0.9), (0.1, 0.9), (0.1, 0.5)]),
-    quadratic([(0.1, 0.5), (0.1, 0.1), (0.5, 0.1)]),
-  ];
-  // Right side on the patch boundary u = 1.
-  let mut right = polygon(&[(0.4, 0.2), (1., 0.2)], EDGE);
-  right.truncate(1);
-  right.extend(
-    polygon(&[(1., 0.2), (1., 0.9)], TrimCurveSource::PatchBoundary)
-      .into_iter()
-      .take(1),
-  );
-  right.extend(
-    polygon(&[(1., 0.9), (0.4, 0.9), (0.4, 0.2)], EDGE)
-      .into_iter()
-      .take(2),
-  );
-  vec![
-    patch(vec![
-      domain_boundary(),
-      circle((0.3, 0.3), 0.15, true),
-      blob,
-    ]),
-    patch(vec![star]),
-    patch(vec![diamond]),
-    patch(vec![right]),
-    // Nested: island inside a hole.
-    patch(vec![
-      polygon(
-        &[(0.05, 0.05), (0.95, 0.05), (0.95, 0.95), (0.05, 0.95)],
-        EDGE,
-      ),
-      circle((0.5, 0.5), 0.35, true),
-      circle((0.5, 0.5), 0.15, false),
-    ]),
-  ]
-}
 
 fn encode(patches: &[TrimmedBezierPatch], accel: &dyn TrimAccel) -> TrimEncoding {
   let model = ParametricNormalizedModel {
     patches: patches.to_vec(),
     ..Default::default()
   };
-  encode_trims(&model, &config(), accel)
-}
-
-/// Random points (also outside the domain) and points on the critical lines: the v of every
-/// segment end point and band boundary, the u of every `max_u`.
-fn sample_points(
-  encoding: &TrimEncoding,
-  patch: usize,
-  rng: &mut TestRng,
-  random: usize,
-) -> Vec<Vec2<f32>> {
-  let mut points: Vec<_> = (0..random)
-    .map(|_| Vec2::new(rng.range(-0.1, 1.1) as f32, rng.range(-0.1, 1.1) as f32))
-    .collect();
-  let Some(view) = encoding.patch_view(patch) else {
-    return points;
-  };
-  for s in view.segments {
-    for e in [s.p0, s.p2] {
-      points.push(e);
-      points.push(Vec2::new(e.x - 1e-3, e.y));
-      points.push(Vec2::new(e.x + 1e-3, e.y));
-      points.push(Vec2::new(rng.unit() as f32, e.y));
-    }
-    points.push(Vec2::new(s.max_u, rng.unit() as f32));
-  }
-  if view.header.kind == TRIM_KIND_BAND_GRID {
-    let nb = 1 << BandGridLayout::decode(view.data).band_log2;
-    for b in 0..=nb {
-      points.push(Vec2::new(rng.unit() as f32, b as f32 / nb as f32));
-    }
-  }
-  points
+  encode_trims(&model, &trim_config(), accel)
 }
 
 #[test]
@@ -245,7 +52,7 @@ fn cubic_error_within_tolerance() {
     let p = [(); 4].map(|_| (rng.unit(), rng.unit()));
     let tolerance = 10f64.powf(rng.range(-6., -2.));
     let c = cubic(p);
-    let trim = patch(vec![vec![c.clone()]]);
+    let trim = trim_patch(vec![vec![c.clone()]]);
     let config = TrimQuadraticConfig {
       tolerance_3d: tolerance,
       min_uv_tolerance: 0.,
@@ -270,8 +77,8 @@ fn cubic_error_within_tolerance() {
 
 #[test]
 fn segments_chain_bitwise() {
-  for trim in scenes() {
-    let q = trim_quadratics(&trim, &config());
+  for trim in trim_scenes() {
+    let q = trim_quadratics(&trim, &trim_config());
     assert_eq!(q.failures, 0);
     for range in &q.loops {
       let segments: Vec<_> = q.segments[range.clone()]
@@ -289,18 +96,18 @@ fn segments_chain_bitwise() {
 
 #[test]
 fn classification_matches_reference() {
-  let scenes = scenes();
+  let scenes = trim_scenes();
   let all = encode(&scenes, &AllSegments);
   let band = encode(&scenes, &BandGrid::DEFAULT);
   let mut rng = TestRng(7);
   for (index, trim) in scenes.iter().enumerate() {
     let reference = TrimReference::new(trim, 1e-9);
-    let quadratics = trim_quadratics(trim, &config());
+    let quadratics = trim_quadratics(trim, &trim_config());
     let mut checked = 0;
     for p in sample_points(&all, index, &mut rng, 4000) {
       let uv = clamp_uv(p);
       let uv64 = Vec2::new(uv.x as f64, uv.y as f64);
-      if reference.distance(uv64) < 2. * TOLERANCE + 1e-6 {
+      if reference.distance(uv64) < 2. * TRIM_TOLERANCE + 1e-6 {
         continue;
       }
       checked += 1;
@@ -328,7 +135,7 @@ fn classification_matches_reference() {
 
 #[test]
 fn band_scan_matches_all_segments_bitwise() {
-  let scenes = scenes();
+  let scenes = trim_scenes();
   let band = encode(&scenes, &BandGrid::DEFAULT);
   let mut rng = TestRng(9);
   for index in 0..scenes.len() {
@@ -344,7 +151,7 @@ fn band_scan_matches_all_segments_bitwise() {
 
 #[test]
 fn rect_and_grid_conservative() {
-  let scenes = scenes();
+  let scenes = trim_scenes();
   let band = encode(&scenes, &BandGrid::DEFAULT);
   let all = encode(&scenes, &AllSegments);
   let mut rng = TestRng(13);
@@ -390,7 +197,7 @@ fn rect_and_grid_conservative() {
 
 #[test]
 fn domain_boundary_and_out_of_range() {
-  let scenes = scenes();
+  let scenes = trim_scenes();
   let band = encode(&scenes, &BandGrid::DEFAULT);
   // Plate with holes: everything outside the holes is material, also beyond u = 1.
   for (u, v) in [
@@ -416,11 +223,11 @@ fn domain_boundary_and_out_of_range() {
 #[test]
 fn whole_domain_trim_is_downgraded() {
   let trims = [
-    patch(vec![polygon(
+    trim_patch(vec![polygon(
       &[(0., 0.), (1., 0.), (1., 1.), (0., 1.)],
       EDGE,
     )]),
-    patch(vec![domain_boundary()]),
+    trim_patch(vec![domain_boundary()]),
   ];
   for accel in [&AllSegments as &dyn TrimAccel, &BandGrid::DEFAULT] {
     let encoding = encode(&trims, accel);
