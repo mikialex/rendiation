@@ -431,3 +431,180 @@ fn whole_domain_trim_is_downgraded() {
     assert!(encoding.segments.is_empty());
   }
 }
+
+fn percentile<T: Copy + Ord>(values: &[T], p: f64) -> T {
+  let mut sorted = values.to_vec();
+  sorted.sort();
+  sorted[((sorted.len() - 1) as f64 * p).round() as usize]
+}
+
+/// Statistics and validation on a real model, run with
+/// `RENDIATION_TEST_PNM=path cargo test --release -p parametric-tessellation steam -- --ignored
+/// --nocapture` (default path: `temp/step-test/steam-controller.pnm` of the repository).
+#[test]
+#[ignore]
+fn steam_statistics() {
+  let path = std::env::var("RENDIATION_TEST_PNM").unwrap_or_else(|_| {
+    concat!(
+      env!("CARGO_MANIFEST_DIR"),
+      "/../../../temp/step-test/steam-controller.pnm"
+    )
+    .into()
+  });
+  let Ok(model) = ParametricNormalizedModel::load_pnm(&path) else {
+    println!("skipped, no model at {path}");
+    return;
+  };
+  let config = TrimQuadraticConfig::for_model(&model);
+  let band = encode_trims(&model, &config, &BandGrid::DEFAULT);
+  let all = encode_trims(&model, &config, &AllSegments);
+  let s = &band.stats;
+  println!(
+    "model tolerance {}, patches {}, trimmed {}",
+    model.tolerance, s.patches, s.trimmed
+  );
+  println!(
+    "downgraded inside {} outside {}, approximation failures {}",
+    s.downgraded_inside, s.downgraded_outside, s.approximation_failures
+  );
+  let mut tolerances = s.uv_tolerances.clone();
+  tolerances.sort_by(f64::total_cmp);
+  println!(
+    "uv tolerance min {:e} p50 {:e} max {:e}",
+    tolerances[0],
+    tolerances[tolerances.len() / 2],
+    tolerances[tolerances.len() - 1]
+  );
+  let counts = &s.segment_counts;
+  println!(
+    "segments {} (per patch p50 {} p90 {} p99 {} max {})",
+    band.segments.len(),
+    percentile(counts, 0.5),
+    percentile(counts, 0.9),
+    percentile(counts, 0.99),
+    percentile(counts, 1.)
+  );
+  println!(
+    "build: band grid {:?}, all segments {:?}; table {} KiB, segment pool {} KiB",
+    s.build_time,
+    all.stats.build_time,
+    band.table.len() * 4 / 1024,
+    band.segments.len() * 32 / 1024
+  );
+
+  let mut band_counts = [0usize; 9];
+  let mut fullest = Vec::new();
+  let mut cells = [0usize; 3];
+  let encoded: Vec<_> = (0..model.patches.len())
+    .filter(|&i| band.header(i).kind == TRIM_KIND_BAND_GRID)
+    .collect();
+  for &i in &encoded {
+    let view = band.patch_view(i).unwrap();
+    let layout = BandGridLayout::decode(view.data);
+    band_counts[layout.band_log2 as usize] += 1;
+    fullest.push(
+      (0..1 << layout.band_log2)
+        .map(|b| layout.band(view.data, b).len())
+        .max()
+        .unwrap(),
+    );
+    let n = 1 << layout.grid_log2;
+    for cy in 0..n {
+      for cx in 0..n {
+        cells[layout.grid_cell(view.data, cx, cy) as usize] += 1;
+      }
+    }
+  }
+  println!(
+    "band count histogram (1, 2, 4, 8, 16): {:?}",
+    &band_counts[..5]
+  );
+  println!(
+    "fullest band p50 {} p90 {} p99 {} max {}",
+    percentile(&fullest, 0.5),
+    percentile(&fullest, 0.9),
+    percentile(&fullest, 0.99),
+    percentile(&fullest, 1.)
+  );
+  let total = cells.iter().sum::<usize>() as f64;
+  println!(
+    "grid cells: undetermined {:.1}%, outside {:.1}%, inside {:.1}%",
+    cells[0] as f64 / total * 100.,
+    cells[1] as f64 / total * 100.,
+    cells[2] as f64 / total * 100.
+  );
+
+  let mut rng = TestRng(17);
+  let (mut points, mut checked) = (0, 0);
+  let (mut scan_mismatch, mut reference_mismatch, mut rect_mismatch) = (0, 0, 0);
+  for &i in &encoded {
+    let view = band.patch_view(i).unwrap();
+    let patch = &model.patches[i];
+    let reference = TrimReference::new(patch, 1e-7);
+    let exclusion = 2. * config.uv_tolerance(&patch.surface) + 2e-6;
+    for p in sample_points(&band, i, &mut rng, 32) {
+      let uv = clamp_uv(p);
+      points += 1;
+      let mut winding = 0;
+      BandGrid::band_scan(view, uv, &mut |s| winding += crossing(s, uv));
+      if winding != view.winding_all(uv) {
+        scan_mismatch += 1;
+      }
+      let uv64 = Vec2::new(uv.x as f64, uv.y as f64);
+      if reference.distance(uv64) < exclusion {
+        continue;
+      }
+      checked += 1;
+      if band.is_inside(i, p) != (reference.winding(uv64) != 0) {
+        if reference_mismatch < 8 {
+          println!(
+            "mismatch patch {i} at {uv:?}: winding {} (all {}), reference {}, distance {:e}, \
+             loops {}",
+            band.winding(i, p),
+            all.winding(i, p),
+            reference.winding(uv64),
+            reference.distance(uv64),
+            patch.loops.len()
+          );
+        }
+        reference_mismatch += 1;
+      }
+    }
+    for _ in 0..16 {
+      let n = (1u32 << (rng.unit() * 6.) as u32) as f32;
+      let (ix, iy) = (
+        (rng.unit() * n as f64) as u32,
+        (rng.unit() * n as f64) as u32,
+      );
+      let rect = TrimRect {
+        min: Vec2::new(ix as f32 / n, iy as f32 / n),
+        max: Vec2::new((ix + 1) as f32 / n, (iy + 1) as f32 / n),
+      };
+      let class = band.classify_rect(i, &rect);
+      if class == RectClass::Partial {
+        continue;
+      }
+      for t in [
+        (0., 0.),
+        (1., 0.),
+        (0., 1.),
+        (1., 1.),
+        (0.5, 0.5),
+        (0.25, 0.75),
+      ] {
+        let p = rect.min + (rect.max - rect.min) * Vec2::new(t.0, t.1);
+        if (view.winding_all(clamp_uv(p)) != 0) != (class == RectClass::Inside) {
+          rect_mismatch += 1;
+        }
+      }
+    }
+  }
+  println!(
+    "validation: {points} points, band scan vs all mismatches {scan_mismatch}; {checked} points \
+     away from curves, mismatches vs reference {reference_mismatch}; rect mismatches \
+     {rect_mismatch}"
+  );
+  assert_eq!(scan_mismatch, 0);
+  assert_eq!(reference_mismatch, 0);
+  assert_eq!(rect_mismatch, 0);
+}

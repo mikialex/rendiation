@@ -62,8 +62,9 @@ pub struct PatchTrimQuadratics {
   pub failures: usize,
 }
 
-/// Convert the trim loops of `patch`. `Pole` curves and curves collapsed to a point are dropped
-/// (loops stay closed). Lines get the midpoint as middle control point, polynomial quadratics
+/// Convert the trim loops of `patch`. Curves collapsed to a point are dropped (loops stay
+/// closed). `Pole` curves are kept: they are degenerate in model space, not in the parameter
+/// domain, where they are a boundary segment of the loop. Lines get the midpoint as middle control point, polynomial quadratics
 /// are kept, polynomial cubics are split uniformly into the number of pieces given by the
 /// closed form error bound, other curves (rational, higher degree) are subdivided recursively
 /// with a sampled error check. Split points are evaluated once and shared by both pieces.
@@ -81,9 +82,6 @@ pub fn trim_quadratics(
   for trim_loop in &patch.loops {
     let start = result.segments.len();
     for curve in &trim_loop.curves {
-      if curve.source == TrimCurveSource::Pole {
-        continue;
-      }
       result.failures += convert_curve(&curve.curve, uv_tolerance, &mut result.segments);
     }
     if result.segments.len() > start {

@@ -60,7 +60,9 @@ pub fn root_code(negative0: bool, negative1: bool, negative2: bool) -> u32 {
 /// Roots of `a t² - 2b t + c = 0` (`a = p0 - 2p1 + p2`, `b = p0 - p1`, `c = p0`) are computed in
 /// the cancellation free form, `t1 = c / (b + d)` for `b ≥ 0` and `t2 = c / (b - d)` for `b ≤ 0`,
 /// instead of Slug's linear branch below `|a| < 1/65536`: trim segments in `[0, 1]²` are short,
-/// so their `a` is regularly below that fixed threshold.
+/// so their `a` is regularly below that fixed threshold. Without a real crossing (discriminant
+/// `≤ 0`, both roots eligible because a control point is past the ray) both roots are the double
+/// root `b / a` like in Slug, so their contributions cancel.
 fn crossing_generic<T: KernelScalar>(points: [[T; 2]; 3], max_u: T, uv: [T; 2]) -> i32 {
   if max_u < uv[0] {
     return 0;
@@ -79,30 +81,32 @@ fn crossing_generic<T: KernelScalar>(points: [[T; 2]; 3], max_u: T, uv: [T; 2]) 
   let zero = T::from_f64(0.);
   let a = [p0[0] - p1[0] * two + p2[0], p0[1] - p1[1] * two + p2[1]];
   let b = [p0[0] - p1[0], p0[1] - p1[1]];
-  let d = (b[1] * b[1] - a[1] * p0[1]).max_with(zero).sqrt();
-  let x_at = |t: T| (a[0] * t - b[0] * two) * t + p0[0];
-  let quotient = |den: T| if den != zero { p0[1] / den } else { zero };
-
-  let mut winding = 0;
-  if code & 1 != 0 {
+  let discriminant = b[1] * b[1] - a[1] * p0[1];
+  let (t1, t2) = if discriminant > zero {
+    let d = discriminant.sqrt();
     let t1 = if b[1] >= zero {
-      quotient(b[1] + d)
+      p0[1] / (b[1] + d)
     } else {
       (b[1] - d) / a[1]
     };
-    if x_at(t1) > zero {
-      winding -= 1;
-    }
-  }
-  if code > 1 {
     let t2 = if b[1] <= zero {
-      quotient(b[1] - d)
+      p0[1] / (b[1] - d)
     } else {
       (b[1] + d) / a[1]
     };
-    if x_at(t2) > zero {
-      winding += 1;
-    }
+    (t1, t2)
+  } else {
+    let t = if a[1] != zero { b[1] / a[1] } else { zero };
+    (t, t)
+  };
+  let x_at = |t: T| (a[0] * t - b[0] * two) * t + p0[0];
+
+  let mut winding = 0;
+  if code & 1 != 0 && x_at(t1) > zero {
+    winding -= 1;
+  }
+  if code > 1 && x_at(t2) > zero {
+    winding += 1;
   }
   winding
 }
@@ -118,7 +122,6 @@ trait KernelScalar:
   fn from_f64(v: f64) -> Self;
   fn sign_negative(self) -> bool;
   fn sqrt(self) -> Self;
-  fn max_with(self, other: Self) -> Self;
 }
 
 impl KernelScalar for f32 {
@@ -131,9 +134,6 @@ impl KernelScalar for f32 {
   fn sqrt(self) -> Self {
     f32::sqrt(self)
   }
-  fn max_with(self, other: Self) -> Self {
-    self.max(other)
-  }
 }
 
 impl KernelScalar for f64 {
@@ -145,8 +145,5 @@ impl KernelScalar for f64 {
   }
   fn sqrt(self) -> Self {
     f64::sqrt(self)
-  }
-  fn max_with(self, other: Self) -> Self {
-    self.max(other)
   }
 }
