@@ -34,6 +34,7 @@ mod bound;
 mod param;
 mod tessellate;
 pub mod test_scenes;
+pub mod trim;
 pub mod verify;
 
 pub use bound::*;
