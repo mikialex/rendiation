@@ -101,17 +101,8 @@ impl GPUSurface {
       format: Some(format),
       ..Default::default()
     });
-    let view = Arc::new(view);
-
-    let view_id = create_resource_view_guid();
-
-    let target = RenderTargetView::SurfaceTexture {
-      view,
-      size: Size::from_u32_pair_min_one((frame.texture.width(), frame.texture.height())),
-      format,
-      view_id,
-      binding_dropper: Arc::new(device.get_binding_cache().create_dropper(view_id)),
-    };
+    let size = Size::from_u32_pair_min_one((frame.texture.width(), frame.texture.height()));
+    let target = RenderTargetView::from_surface_view(device, view, size, format);
 
     Ok(SurfaceAcquire::Frame(SurfaceFrame {
       raw: frame,

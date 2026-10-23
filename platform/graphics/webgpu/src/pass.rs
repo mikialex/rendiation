@@ -137,6 +137,24 @@ impl RenderTargetView {
     Self::Texture(RenderViewContent::from_texture_view(view))
   }
 
+  /// A view of a texture this crate does not own, such as a surface texture acquired by its own
+  /// surface or by another one sharing the device: only rendered into, never destroyed.
+  pub fn from_surface_view(
+    device: &GPUDevice,
+    view: gpu::TextureView,
+    size: Size,
+    format: gpu::TextureFormat,
+  ) -> Self {
+    let view_id = create_resource_view_guid();
+    Self::SurfaceTexture {
+      view: Arc::new(view),
+      size,
+      format,
+      view_id,
+      binding_dropper: Arc::new(device.get_binding_cache().create_dropper(view_id)),
+    }
+  }
+
   pub fn as_render_view(&self) -> &gpu::TextureView {
     match self {
       RenderTargetView::Texture(t) => &t.render_view,
