@@ -272,33 +272,28 @@ pub struct RenderTargetFormatsInfo {
 }
 
 pub struct GPURenderPass {
-  pub pass: gpu::RenderPass<'static>,
+  pub(crate) pass: gpu::RenderPass<'static>,
   pub(crate) placeholder_bg: gpu::BindGroup,
   pub(crate) size: Size,
   pub(crate) formats: RenderTargetFormatsInfo,
+  pub(crate) counts: GPUCommandCallCounts,
+  pub(crate) counts_sink: PassCallCountSink,
+}
+
+impl Drop for GPURenderPass {
+  fn drop(&mut self) {
+    *self.counts_sink.lock() += &self.counts;
+  }
 }
 
 impl AbstractPassBinding for GPURenderPass {
   fn set_bind_group_placeholder(&mut self, index: u32) {
+    self.counts.set_bind_group += 1;
     self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
   }
 
   fn set_bind_group(&mut self, index: u32, bind_group: &BindGroup, offsets: &[DynamicOffset]) {
-    self.pass.set_bind_group(index, bind_group, offsets);
-  }
-}
-
-impl Deref for GPURenderPass {
-  type Target = gpu::RenderPass<'static>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.pass
-  }
-}
-
-impl DerefMut for GPURenderPass {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.pass
+    GPURenderPass::set_bind_group(self, index, bind_group, offsets);
   }
 }
 
@@ -312,7 +307,7 @@ impl GPURenderPass {
   }
 
   pub fn set_gpu_pipeline(&mut self, pipeline: &GPURenderPipeline) {
-    self.pass.set_pipeline(&pipeline.inner.as_ref().pipeline)
+    self.set_pipeline(&pipeline.inner.as_ref().pipeline)
   }
 
   pub fn set_vertex_buffer_by_buffer_resource_view(
@@ -323,14 +318,12 @@ impl GPURenderPass {
     let buffer = &view.resource.gpu;
     // why this so stupid
     if let Some(size) = view.desc.size {
-      self.pass.set_vertex_buffer(
+      self.set_vertex_buffer(
         slot,
         buffer.slice(view.desc.offset..(view.desc.offset + u64::from(size))),
       )
     } else {
-      self
-        .pass
-        .set_vertex_buffer(slot, buffer.slice(view.desc.offset..))
+      self.set_vertex_buffer(slot, buffer.slice(view.desc.offset..))
     }
   }
 
@@ -342,14 +335,12 @@ impl GPURenderPass {
     let buffer = &view.resource.gpu;
     // why this so stupid
     if let Some(size) = view.desc.size {
-      self.pass.set_index_buffer(
+      self.set_index_buffer(
         buffer.slice(view.desc.offset..(view.desc.offset + u64::from(size))),
         index_format,
       )
     } else {
-      self
-        .pass
-        .set_index_buffer(buffer.slice(view.desc.offset..), index_format)
+      self.set_index_buffer(buffer.slice(view.desc.offset..), index_format)
     }
   }
 
@@ -465,35 +456,30 @@ pub enum DrawCommand {
 pub struct GPUComputePass {
   pub(crate) pass: gpu::ComputePass<'static>,
   pub(crate) placeholder_bg: gpu::BindGroup,
+  pub(crate) counts: GPUCommandCallCounts,
+  pub(crate) counts_sink: PassCallCountSink,
+}
+
+impl Drop for GPUComputePass {
+  fn drop(&mut self) {
+    *self.counts_sink.lock() += &self.counts;
+  }
 }
 
 impl AbstractPassBinding for GPUComputePass {
   fn set_bind_group_placeholder(&mut self, index: u32) {
+    self.counts.set_bind_group += 1;
     self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
   }
 
   fn set_bind_group(&mut self, index: u32, bind_group: &BindGroup, offsets: &[DynamicOffset]) {
-    self.pass.set_bind_group(index, bind_group, offsets);
-  }
-}
-
-impl Deref for GPUComputePass {
-  type Target = gpu::ComputePass<'static>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.pass
-  }
-}
-
-impl DerefMut for GPUComputePass {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.pass
+    GPUComputePass::set_bind_group(self, index, bind_group, offsets);
   }
 }
 
 impl GPUComputePass {
   pub fn set_gpu_pipeline(&mut self, pipeline: &GPUComputePipeline) {
-    self.pass.set_pipeline(&pipeline.inner.as_ref().pipeline)
+    self.set_pipeline(&pipeline.inner.as_ref().pipeline)
   }
 
   pub fn dispatch_workgroups_indirect_by_buffer_resource_view(

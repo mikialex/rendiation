@@ -33,7 +33,7 @@ impl TextureU32x4Heap {
       view_formats: &[],
     };
     let raw = device.create_texture(&desc.map_label(|_| Some(label)));
-    let texture = GPUTexture::create_with_raw(raw, desc, device);
+    let texture = GPUTexture::create_with_raw(GPURawTexture::new(raw, device), desc, device);
 
     Self {
       view: texture.create_default_view().try_into().unwrap(),
@@ -59,7 +59,7 @@ impl TextureU32x4Heap {
   }
 
   fn gpu_texture(&self) -> &raw_gpu::Texture {
-    self.view.resource.gpu_resource()
+    self.view.resource.gpu_resource().gpu()
   }
 
   /// write the whole texels to the linear texel range that starts at `texel_offset`

@@ -133,13 +133,19 @@ pub trait ShaderPassBuilder {
 
 ```rust
 pub struct GPURenderPassCtx {
-    pub pass: GPURenderPass,        // the wgpu render pass (Deref to gpu::RenderPass<'static>)
+    pub pass: GPURenderPass,        // wraps gpu::RenderPass<'static>, counts the calls
     pub gpu: GPU,                   // device + queue access
     pub binding: BindingBuilder,    // accumulate bind groups for this pass
     incremental_vertex_binding_index: u32,
     pub enable_bind_check: bool,
 }
 ```
+
+`GPUDevice`, `GPUQueue`, `GPUCommandEncoder`, `GPURenderPass` and `GPUComputePass` do not Deref to the
+wgpu types. They expose the wgpu api by wrapper methods with the same names, and every call is
+counted (see `GPUCallCountReport` / `GPUCommandCallCounts` in `platform/graphics/webgpu/src/call_count.rs`).
+The `raw_device()` / `raw_queue()` / `raw_encoder()` / `raw_pass()` accessors bypass the counting, only use
+them for third party interop (for example the egui renderer); add a wrapper method for any common usage.
 
 ### Binding contract: setup must match build, post_setup must match post_build
 

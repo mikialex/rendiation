@@ -13,39 +13,51 @@ use std::mem::ManuallyDrop;
 use crate::*;
 
 pub trait ExplicitGPUResourceDestroy: 'static + Send + Sync {
-  fn destroy(&self);
+  /// the implementation should count the actual wgpu destroy call
+  fn destroy(&self, counters: &GPUCallCounters);
 }
 
 impl ExplicitGPUResourceDestroy for GPUBuffer {
-  fn destroy(&self) {
+  fn destroy(&self, counters: &GPUCallCounters) {
+    counters.device.explicit_destroy.inc();
     self.gpu.destroy()
   }
 }
 
-impl ExplicitGPUResourceDestroy for gpu::Texture {
-  fn destroy(&self) {
-    self.destroy()
+impl ExplicitGPUResourceDestroy for GPURawTexture {
+  fn destroy(&self, counters: &GPUCallCounters) {
+    counters.device.explicit_destroy.inc();
+    self.gpu().destroy()
   }
 }
 
 impl ExplicitGPUResourceDestroy for RawSampler {
-  fn destroy(&self) {
+  fn destroy(&self, _: &GPUCallCounters) {
     // no op
   }
 }
 impl ExplicitGPUResourceDestroy for GPUTlasRaw {
-  fn destroy(&self) {
+  fn destroy(&self, _: &GPUCallCounters) {
     // no op
   }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct DeferExplicitDestroy {
   to_drop: Arc<RwLock<Vec<Box<dyn ExplicitGPUResourceDestroy>>>>,
   in_recording_command_buffer_count: Arc<RwLock<usize>>,
+  counters: Arc<GPUCallCounters>,
 }
 
 impl DeferExplicitDestroy {
+  pub(crate) fn new(counters: Arc<GPUCallCounters>) -> Self {
+    Self {
+      to_drop: Default::default(),
+      in_recording_command_buffer_count: Default::default(),
+      counters,
+    }
+  }
+
   pub fn new_command_buffer(&self) -> CommandBufferDeferExplicitDestroyFlusher {
     let mut count = self.in_recording_command_buffer_count.write();
     let count: &mut usize = &mut count;
@@ -87,7 +99,7 @@ impl<T: ExplicitGPUResourceDestroy> Drop for ResourceExplicitDestroy<T> {
     if *count != 0 {
       self.defer_drop.to_drop.write().push(Box::new(resource));
     } else {
-      resource.destroy();
+      resource.destroy(&self.defer_drop.counters);
     }
   }
 
@@ -112,7 +124,7 @@ impl Drop for CommandBufferDeferExplicitDestroyFlusher {
       // we can safely flush here because the counter is protected by lock.
       let mut to_drop = self.inner.to_drop.write();
       for i in to_drop.drain(..) {
-        i.destroy();
+        i.destroy(&self.inner.counters);
       }
     }
   }

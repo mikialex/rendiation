@@ -98,7 +98,7 @@ impl<T: Std140> UniformBufferDynamicOffsetArray<T> {
     self.stride
   }
 
-  pub fn write_at(&self, queue: &gpu::Queue, index: u32, data: &T) {
+  pub fn write_at(&self, queue: &GPUQueue, index: u32, data: &T) {
     assert!(index < self.count);
     let offset = index as u64 * self.stride;
     queue.write_buffer(&self.view.gpu.resource.gpu, offset, data.as_bytes());

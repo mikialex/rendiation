@@ -63,7 +63,7 @@ impl<T: Std140> UniformBufferDataView<T> {
   }
 
   /// the offset is relative to the view
-  pub fn write_at<D: Pod>(&self, queue: &gpu::Queue, data: &D, offset: u64) {
+  pub fn write_at<D: Pod>(&self, queue: &GPUQueue, data: &D, offset: u64) {
     queue.write_buffer(
       &self.gpu.resource.gpu,
       offset + self.gpu.desc.offset,
@@ -167,7 +167,7 @@ impl<T: Std140> UniformBufferCachedDataView<T> {
     state.changed = true;
   }
 
-  pub fn upload(&self, queue: &gpu::Queue) {
+  pub fn upload(&self, queue: &GPUQueue) {
     let mut state = self.diff.write();
     if state.changed {
       let data = state.data;
@@ -177,7 +177,7 @@ impl<T: Std140> UniformBufferCachedDataView<T> {
     }
   }
 
-  pub fn upload_with_diff(&self, queue: &gpu::Queue)
+  pub fn upload_with_diff(&self, queue: &GPUQueue)
   where
     T: PartialEq,
   {

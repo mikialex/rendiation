@@ -92,7 +92,7 @@ impl GPUBuffer {
     Self { gpu }
   }
 
-  pub fn update(&self, queue: &gpu::Queue, bytes: &[u8]) {
+  pub fn update(&self, queue: &GPUQueue, bytes: &[u8]) {
     queue.write_buffer(&self.gpu, 0, bytes)
   }
 

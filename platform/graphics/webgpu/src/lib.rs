@@ -3,11 +3,13 @@
 mod atomic_image_downgrade;
 mod attachment_pool;
 mod binding;
+mod call_count;
 mod device;
 mod encoder;
 mod indirect;
 mod instance_poller;
 mod pass;
+mod pass_api;
 mod pass_desc;
 mod pipeline;
 mod query;
@@ -27,7 +29,7 @@ use std::{
   any::*,
   borrow::Cow,
   hash::{Hash, Hasher},
-  ops::{Deref, DerefMut, Range},
+  ops::{Deref, Range},
   sync::Arc,
   sync::atomic::{AtomicUsize, Ordering},
 };
@@ -36,6 +38,7 @@ pub use atomic_image_downgrade::*;
 pub use attachment_pool::*;
 pub use binding::*;
 use bytemuck::*;
+pub use call_count::*;
 pub use device::*;
 use dyn_clone::DynClone;
 pub use encoder::*;
@@ -263,7 +266,7 @@ impl GPU {
     };
 
     let device = GPUDevice::new(device, info.clone(), config.default_shader_checks);
-    let queue = GPUQueue::new(queue);
+    let queue = GPUQueue::new(queue, &device);
 
     Ok(Self {
       instance,
@@ -294,7 +297,7 @@ impl GPU {
       downgrade_info: adaptor.get_downlevel_capabilities(),
     };
     let device = GPUDevice::new(device, info.clone(), default_shader_checks);
-    let queue = GPUQueue::new(queue);
+    let queue = GPUQueue::new(queue, &device);
     Self {
       instance: GPUInstance::new(instance),
       adaptor,
