@@ -8,10 +8,77 @@ mod check;
 
 use crate::*;
 
-pub type GPUTexture = ResourceRc<gpu::Texture>;
-pub type GPUTextureView = ResourceViewRc<gpu::Texture>;
+pub type GPUTexture = ResourceRc<GPURawTexture>;
+pub type GPUTextureView = ResourceViewRc<GPURawTexture>;
 
-impl Resource for gpu::Texture {
+/// The wgpu texture is wrapped to make sure the view creation is counted, see
+/// [GPUCallCountReport].
+#[derive(Clone)]
+pub struct GPURawTexture {
+  gpu: gpu::Texture,
+  counters: Arc<GPUCallCounters>,
+}
+
+impl GPURawTexture {
+  /// wrap a texture created by the device or outside, for example the texture created by
+  /// [GPUDevice::create_texture]. The creation of the outside texture is not counted.
+  pub fn new(texture: gpu::Texture, device: &GPUDevice) -> Self {
+    Self {
+      gpu: texture,
+      counters: device.inner.counters.clone(),
+    }
+  }
+
+  /// Access the underlying wgpu texture.
+  ///
+  /// The calls made through the raw texture(create_view and destroy) are not counted in
+  /// [GPUCallCountReport]. It's mainly used to build the copy parameters.
+  pub fn gpu(&self) -> &gpu::Texture {
+    &self.gpu
+  }
+
+  pub fn as_image_copy(&self) -> gpu::TexelCopyTextureInfo<'_> {
+    self.gpu.as_image_copy()
+  }
+
+  pub fn size(&self) -> gpu::Extent3d {
+    self.gpu.size()
+  }
+
+  pub fn width(&self) -> u32 {
+    self.gpu.width()
+  }
+
+  pub fn height(&self) -> u32 {
+    self.gpu.height()
+  }
+
+  pub fn depth_or_array_layers(&self) -> u32 {
+    self.gpu.depth_or_array_layers()
+  }
+
+  pub fn mip_level_count(&self) -> u32 {
+    self.gpu.mip_level_count()
+  }
+
+  pub fn sample_count(&self) -> u32 {
+    self.gpu.sample_count()
+  }
+
+  pub fn dimension(&self) -> gpu::TextureDimension {
+    self.gpu.dimension()
+  }
+
+  pub fn format(&self) -> gpu::TextureFormat {
+    self.gpu.format()
+  }
+
+  pub fn usage(&self) -> gpu::TextureUsages {
+    self.gpu.usage()
+  }
+}
+
+impl Resource for GPURawTexture {
   type Descriptor = gpu::TextureDescriptor<'static>;
 
   type View = gpu::TextureView;
@@ -19,13 +86,14 @@ impl Resource for gpu::Texture {
   type ViewDescriptor = gpu::TextureViewDescriptor<'static>;
 
   fn create_view(&self, desc: &Self::ViewDescriptor) -> Self::View {
-    self.create_view(desc)
+    self.counters.device.create_texture_view.inc();
+    self.gpu.create_view(desc)
   }
 }
 
-impl InitResourceByAllocation for gpu::Texture {
+impl InitResourceByAllocation for GPURawTexture {
   fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
-    device.create_texture(desc)
+    Self::new(device.create_texture(desc), device)
   }
 }
 

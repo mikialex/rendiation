@@ -39,7 +39,8 @@ impl GPUSurface {
       desired_maximum_frame_latency: 2,
     };
 
-    surface.configure(&gpu.device, &config);
+    gpu.device.inner.counters.device.surface_configure.inc();
+    surface.configure(gpu.device.raw_device(), &config);
 
     Self {
       surface,
@@ -72,6 +73,8 @@ impl GPUSurface {
 
     let mut is_sub_optimal = false;
 
+    let counters = &device.inner.counters.device;
+    counters.surface_get_current_texture.inc();
     let frame = match self.surface.get_current_texture() {
       CurrentSurfaceTexture::Success(frame) => frame,
       CurrentSurfaceTexture::Timeout => return Ok(SurfaceAcquire::Timeout),
@@ -79,6 +82,7 @@ impl GPUSurface {
       // If the surface is outdated or suboptimal, reconfigure and retry.
       CurrentSurfaceTexture::Suboptimal(_) | CurrentSurfaceTexture::Outdated => {
         self.configure(device);
+        counters.surface_get_current_texture.inc();
         match self.surface.get_current_texture() {
           CurrentSurfaceTexture::Success(frame) => frame,
           CurrentSurfaceTexture::Suboptimal(frame) => {
@@ -97,31 +101,25 @@ impl GPUSurface {
     };
 
     let format = self.render_format();
+    counters.create_texture_view.inc();
     let view = frame.texture.create_view(&gpu::TextureViewDescriptor {
       format: Some(format),
       ..Default::default()
     });
-    let view = Arc::new(view);
-
-    let view_id = create_resource_view_guid();
-
-    let target = RenderTargetView::SurfaceTexture {
-      view,
-      size: Size::from_u32_pair_min_one((frame.texture.width(), frame.texture.height())),
-      format,
-      view_id,
-      binding_dropper: Arc::new(device.get_binding_cache().create_dropper(view_id)),
-    };
+    let size = Size::from_u32_pair_min_one((frame.texture.width(), frame.texture.height()));
+    let target = RenderTargetView::from_surface_view(device, view, size, format);
 
     Ok(SurfaceAcquire::Frame(SurfaceFrame {
       raw: frame,
+      counters: device.inner.counters.clone(),
       target,
       is_sub_optimal,
     }))
   }
 
   fn configure(&mut self, device: &GPUDevice) {
-    self.surface.configure(device, &self.config);
+    device.inner.counters.device.surface_configure.inc();
+    self.surface.configure(device.raw_device(), &self.config);
     self.require_reconfigure = false;
   }
 
@@ -223,12 +221,14 @@ pub enum SurfaceAcquire {
 
 pub struct SurfaceFrame {
   raw: gpu::SurfaceTexture,
+  counters: Arc<GPUCallCounters>,
   pub target: RenderTargetView,
   pub is_sub_optimal: bool,
 }
 
 impl SurfaceFrame {
   pub fn present(self) {
+    self.counters.device.surface_present.inc();
     self.raw.present();
   }
 }

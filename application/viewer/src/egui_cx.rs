@@ -87,7 +87,7 @@ impl EguiContext {
     let (renderer, fmt) = self.renderer.get_or_insert_with(|| {
       let output_color_format = target.format();
       let renderer = egui_wgpu::Renderer::new(
-        &gpu.device,
+        gpu.device.raw_device(),
         output_color_format,
         RendererOptions {
           msaa_samples: 1,
@@ -100,7 +100,12 @@ impl EguiContext {
     });
 
     for (id, image_delta) in &full_output.textures_delta.set {
-      renderer.update_texture(&gpu.device, &gpu.queue, *id, image_delta);
+      renderer.update_texture(
+        gpu.device.raw_device(),
+        gpu.queue.raw_queue(),
+        *id,
+        image_delta,
+      );
     }
 
     // we're not using the window size because it's may reach zero when resizing, the canvas size
@@ -114,9 +119,9 @@ impl EguiContext {
     let mut encoder = gpu.create_encoder();
 
     renderer.update_buffers(
-      &gpu.device,
-      &gpu.queue,
-      &mut encoder,
+      gpu.device.raw_device(),
+      gpu.queue.raw_queue(),
+      encoder.raw_encoder(),
       &tris,
       &screen_descriptor,
     );
@@ -137,7 +142,7 @@ impl EguiContext {
       &pass("egui main render pass").with_color(&w_target, load_and_store()),
       None,
     );
-    renderer.render(&mut rpass.pass, &tris, &screen_descriptor);
+    renderer.render(rpass.raw_pass(), &tris, &screen_descriptor);
     drop(rpass);
 
     if *fmt != target.format() {

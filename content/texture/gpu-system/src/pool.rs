@@ -306,7 +306,7 @@ fn normalize_format(tex: &GPUBufferImage, normalize_srgb: bool) -> Option<Cow<'_
 }
 
 fn copy_tex(
-  encoder: &mut CommandEncoder,
+  encoder: &mut GPUCommandEncoder,
   src: &GPUTexture,
   target: &GPUTexture,
   src_pack: &PackResult2dWithDepth,
@@ -324,7 +324,7 @@ fn copy_tex(
 }
 
 fn copy_tex_level(
-  encoder: &mut CommandEncoder,
+  encoder: &mut GPUCommandEncoder,
   src: &GPUTexture,
   target: &GPUTexture,
   src_pack: &PackResult2dWithDepth,
@@ -332,7 +332,7 @@ fn copy_tex_level(
   mip_level: u32,
 ) {
   let source = TexelCopyTextureInfo {
-    texture: src.gpu_resource(),
+    texture: src.gpu_resource().gpu(),
     mip_level,
     origin: Origin3d {
       x: src_pack.result.range.origin.x as u32 >> mip_level,
@@ -343,7 +343,7 @@ fn copy_tex_level(
   };
 
   let dst = TexelCopyTextureInfo {
-    texture: target.gpu_resource(),
+    texture: target.gpu_resource().gpu(),
     mip_level,
     origin: Origin3d {
       x: pack.result.range.origin.x as u32 >> mip_level,

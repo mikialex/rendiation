@@ -35,7 +35,7 @@ pub fn map_size_gpu(size: Size) -> gpu::Extent3d {
 impl GPU2DTexture {
   pub fn upload(
     &self,
-    queue: &gpu::Queue,
+    queue: &GPUQueue,
     source: &dyn WebGPU2DTextureSource,
     mip_level: usize,
   ) -> &Self {
@@ -45,7 +45,7 @@ impl GPU2DTexture {
   #[must_use]
   pub fn upload_into(
     self,
-    queue: &gpu::Queue,
+    queue: &GPUQueue,
     source: &dyn WebGPU2DTextureSource,
     mip_level: usize,
   ) -> Self {
@@ -55,14 +55,14 @@ impl GPU2DTexture {
 
   pub fn upload_with_origin(
     &self,
-    queue: &gpu::Queue,
+    queue: &GPUQueue,
     source: &dyn WebGPU2DTextureSource,
     mip_level: usize,
     origin: TextureOrigin,
   ) -> &Self {
     queue.write_texture(
       gpu::TexelCopyTextureInfo {
-        texture: &self.texture.inner.resource,
+        texture: self.texture.gpu_resource().gpu(),
         mip_level: mip_level as u32,
         origin: gpu::Origin3d {
           x: origin.x as u32,
@@ -85,7 +85,7 @@ impl GPU2DTexture {
   #[must_use]
   pub fn upload_with_origin_into(
     self,
-    queue: &gpu::Queue,
+    queue: &GPUQueue,
     source: &dyn WebGPU2DTextureSource,
     mip_level: usize,
     origin: TextureOrigin,

@@ -16,6 +16,9 @@ impl GPUDevice {
     info: GPUInfo,
     default_shader_checks: ShaderRuntimeChecks,
   ) -> Self {
+    let counters = Arc::new(GPUCallCounters::default());
+    counters.device.create_bind_group_layout.inc();
+    counters.device.create_bind_group.inc();
     let placeholder_bg = device.create_bind_group(&gpu::BindGroupDescriptor {
       layout: &device.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
         label: "PlaceholderBindgroup".into(),
@@ -27,13 +30,14 @@ impl GPUDevice {
 
     let inner = GPUDeviceImpl {
       device,
+      deferred_explicit_destroy: DeferExplicitDestroy::new(counters.clone()),
+      counters,
       sampler_cache: Default::default(),
       bindgroup_cache: Default::default(),
       bindgroup_layout_cache: Default::default(),
       render_pipeline_cache: Default::default(),
       compute_pipeline_cache: Default::default(),
       placeholder_bg,
-      deferred_explicit_destroy: Default::default(),
       enable_binding_ty_check: AtomicBool::new(cfg!(debug_assertions)),
       default_shader_checks,
       info,
@@ -84,7 +88,15 @@ impl GPUDevice {
   }
 
   pub fn create_encoder(&self) -> GPUCommandEncoder {
-    let encoder = self.create_command_encoder(&gpu::CommandEncoderDescriptor { label: None });
+    self.create_encoder_with_label(None)
+  }
+
+  pub fn create_encoder_with_label(&self, label: Option<&str>) -> GPUCommandEncoder {
+    self.inner.counters.device.create_command_encoder.inc();
+    let encoder = self
+      .inner
+      .device
+      .create_command_encoder(&gpu::CommandEncoderDescriptor { label });
     GPUCommandEncoder::new(encoder, self)
   }
 
@@ -231,6 +243,7 @@ pub(crate) struct GPUDeviceImpl {
   render_pipeline_cache: RwLock<FastHashMap<u64, GPURenderPipeline>>,
   compute_pipeline_cache: RwLock<FastHashMap<u64, GPUComputePipeline>>,
   pub(crate) deferred_explicit_destroy: DeferExplicitDestroy,
+  pub(crate) counters: Arc<GPUCallCounters>,
   pub(crate) placeholder_bg: gpu::BindGroup,
   pub(crate) enable_binding_ty_check: AtomicBool,
   pub(crate) default_shader_checks: ShaderRuntimeChecks,
@@ -238,11 +251,233 @@ pub(crate) struct GPUDeviceImpl {
   info: GPUInfo,
 }
 
-impl Deref for GPUDevice {
-  type Target = gpu::Device;
-
-  fn deref(&self) -> &Self::Target {
+/// The wgpu device api wrapper, the calls are counted, see [GPUCallCountReport].
+impl GPUDevice {
+  /// Access the underlying wgpu device.
+  ///
+  /// The calls made through the raw device are not counted in [GPUCallCountReport]. Only use it
+  /// when the wgpu type is required, for example to integrate the third party renderer. Any common
+  /// usage should use or add the wrapper method in [GPUDevice].
+  pub fn raw_device(&self) -> &gpu::Device {
     &self.inner.device
+  }
+
+  pub fn poll(&self, poll_type: gpu::PollType) -> Result<gpu::PollStatus, gpu::PollError> {
+    self.inner.counters.device.device_poll.inc();
+    self.inner.device.poll(poll_type)
+  }
+
+  pub fn features(&self) -> Features {
+    self.inner.device.features()
+  }
+
+  pub fn limits(&self) -> Limits {
+    self.inner.device.limits()
+  }
+
+  pub fn adapter_info(&self) -> gpu::AdapterInfo {
+    self.inner.device.adapter_info()
+  }
+
+  pub fn create_shader_module(&self, desc: gpu::ShaderModuleDescriptor) -> gpu::ShaderModule {
+    self.inner.counters.device.create_shader_module.inc();
+    self.inner.device.create_shader_module(desc)
+  }
+
+  /// # Safety
+  ///
+  /// see [gpu::Device::create_shader_module_trusted]
+  pub unsafe fn create_shader_module_trusted(
+    &self,
+    desc: gpu::ShaderModuleDescriptor,
+    runtime_checks: ShaderRuntimeChecks,
+  ) -> gpu::ShaderModule {
+    self.inner.counters.device.create_shader_module.inc();
+    unsafe {
+      self
+        .inner
+        .device
+        .create_shader_module_trusted(desc, runtime_checks)
+    }
+  }
+
+  /// # Safety
+  ///
+  /// see [gpu::Device::create_shader_module_passthrough]
+  pub unsafe fn create_shader_module_passthrough(
+    &self,
+    desc: gpu::ShaderModuleDescriptorPassthrough,
+  ) -> gpu::ShaderModule {
+    self.inner.counters.device.create_shader_module.inc();
+    unsafe { self.inner.device.create_shader_module_passthrough(desc) }
+  }
+
+  /// note, the calls on the returned bundle encoder are not counted
+  pub fn create_render_bundle_encoder<'a>(
+    &self,
+    desc: &gpu::RenderBundleEncoderDescriptor,
+  ) -> gpu::RenderBundleEncoder<'a> {
+    self
+      .inner
+      .counters
+      .device
+      .create_render_bundle_encoder
+      .inc();
+    self.inner.device.create_render_bundle_encoder(desc)
+  }
+
+  pub fn create_bind_group(&self, desc: &gpu::BindGroupDescriptor) -> gpu::BindGroup {
+    self.inner.counters.device.create_bind_group.inc();
+    self.inner.device.create_bind_group(desc)
+  }
+
+  pub fn create_bind_group_layout(
+    &self,
+    desc: &gpu::BindGroupLayoutDescriptor,
+  ) -> gpu::BindGroupLayout {
+    self.inner.counters.device.create_bind_group_layout.inc();
+    self.inner.device.create_bind_group_layout(desc)
+  }
+
+  pub fn create_pipeline_layout(
+    &self,
+    desc: &gpu::PipelineLayoutDescriptor,
+  ) -> gpu::PipelineLayout {
+    self.inner.counters.device.create_pipeline_layout.inc();
+    self.inner.device.create_pipeline_layout(desc)
+  }
+
+  pub fn create_render_pipeline(
+    &self,
+    desc: &gpu::RenderPipelineDescriptor,
+  ) -> gpu::RenderPipeline {
+    self.inner.counters.device.create_render_pipeline.inc();
+    self.inner.device.create_render_pipeline(desc)
+  }
+
+  pub fn create_mesh_pipeline(&self, desc: &gpu::MeshPipelineDescriptor) -> gpu::RenderPipeline {
+    self.inner.counters.device.create_mesh_pipeline.inc();
+    self.inner.device.create_mesh_pipeline(desc)
+  }
+
+  pub fn create_compute_pipeline(
+    &self,
+    desc: &gpu::ComputePipelineDescriptor,
+  ) -> gpu::ComputePipeline {
+    self.inner.counters.device.create_compute_pipeline.inc();
+    self.inner.device.create_compute_pipeline(desc)
+  }
+
+  /// # Safety
+  ///
+  /// see [gpu::Device::create_pipeline_cache]
+  pub unsafe fn create_pipeline_cache(
+    &self,
+    desc: &gpu::PipelineCacheDescriptor,
+  ) -> gpu::PipelineCache {
+    self.inner.counters.device.create_pipeline_cache.inc();
+    unsafe { self.inner.device.create_pipeline_cache(desc) }
+  }
+
+  pub fn create_buffer(&self, desc: &gpu::BufferDescriptor) -> gpu::Buffer {
+    let counters = &self.inner.counters.device;
+    counters.create_buffer.inc();
+    counters.create_buffer_bytes.add(desc.size);
+    self.inner.device.create_buffer(desc)
+  }
+
+  /// see [gpu::util::DeviceExt::create_buffer_init]
+  pub fn create_buffer_init(&self, desc: &gpu::util::BufferInitDescriptor) -> gpu::Buffer {
+    let counters = &self.inner.counters.device;
+    counters.create_buffer.inc();
+    // the size is padded to the copy alignment and at least one alignment, same as wgpu does
+    let size = (desc.contents.len() as u64)
+      .max(1)
+      .next_multiple_of(gpu::COPY_BUFFER_ALIGNMENT);
+    counters.create_buffer_bytes.add(size);
+    counters
+      .create_buffer_init_bytes
+      .add(desc.contents.len() as u64);
+    self.inner.device.create_buffer_init(desc)
+  }
+
+  pub fn create_texture(&self, desc: &gpu::TextureDescriptor) -> gpu::Texture {
+    self.inner.counters.device.create_texture.inc();
+    self.inner.device.create_texture(desc)
+  }
+
+  pub fn create_external_texture(
+    &self,
+    desc: &gpu::ExternalTextureDescriptor,
+    planes: &[&gpu::TextureView],
+  ) -> gpu::ExternalTexture {
+    self.inner.counters.device.create_external_texture.inc();
+    self.inner.device.create_external_texture(desc, planes)
+  }
+
+  pub fn create_sampler(&self, desc: &gpu::SamplerDescriptor) -> gpu::Sampler {
+    self.inner.counters.device.create_sampler.inc();
+    self.inner.device.create_sampler(desc)
+  }
+
+  pub fn create_query_set(&self, desc: &gpu::QuerySetDescriptor) -> gpu::QuerySet {
+    self.inner.counters.device.create_query_set.inc();
+    self.inner.device.create_query_set(desc)
+  }
+
+  pub fn create_blas(
+    &self,
+    desc: &gpu::CreateBlasDescriptor,
+    sizes: gpu::BlasGeometrySizeDescriptors,
+  ) -> gpu::Blas {
+    self.inner.counters.device.create_blas.inc();
+    self.inner.device.create_blas(desc, sizes)
+  }
+
+  pub fn create_tlas(&self, desc: &gpu::CreateTlasDescriptor) -> gpu::Tlas {
+    self.inner.counters.device.create_tlas.inc();
+    self.inner.device.create_tlas(desc)
+  }
+
+  pub fn on_uncaptured_error(&self, handler: Arc<dyn gpu::UncapturedErrorHandler>) {
+    self.inner.device.on_uncaptured_error(handler)
+  }
+
+  pub fn push_error_scope(&self, filter: gpu::ErrorFilter) -> gpu::ErrorScopeGuard {
+    self.inner.device.push_error_scope(filter)
+  }
+
+  pub fn set_device_lost_callback(
+    &self,
+    callback: impl Fn(gpu::DeviceLostReason, String) + Send + 'static,
+  ) {
+    self.inner.device.set_device_lost_callback(callback)
+  }
+
+  /// # Safety
+  ///
+  /// see [gpu::Device::start_graphics_debugger_capture]
+  pub unsafe fn start_graphics_debugger_capture(&self) {
+    unsafe { self.inner.device.start_graphics_debugger_capture() }
+  }
+
+  /// # Safety
+  ///
+  /// see [gpu::Device::stop_graphics_debugger_capture]
+  pub unsafe fn stop_graphics_debugger_capture(&self) {
+    unsafe { self.inner.device.stop_graphics_debugger_capture() }
+  }
+
+  pub fn get_internal_counters(&self) -> wgpu_types::InternalCounters {
+    self.inner.device.get_internal_counters()
+  }
+
+  pub fn generate_allocator_report(&self) -> Option<wgpu_types::AllocatorReport> {
+    self.inner.device.generate_allocator_report()
+  }
+
+  pub fn destroy(&self) {
+    self.inner.device.destroy()
   }
 }
 

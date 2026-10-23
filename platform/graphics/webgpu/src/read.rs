@@ -70,16 +70,19 @@ impl ReadableTextureBuffer {
 
 pub struct ReadableBuffer {
   buffer: gpu::Buffer,
+  counters: Arc<GPUCallCounters>,
 }
 
 impl ReadableBuffer {
   pub fn read_raw(&self) -> gpu::BufferView {
+    self.counters.device.buffer_get_mapped_range.inc();
     self.buffer.slice(..).get_mapped_range()
   }
 }
 
 impl Drop for ReadableBuffer {
   fn drop(&mut self) {
+    self.counters.device.buffer_unmap.inc();
     self.buffer.unmap();
   }
 }
@@ -91,12 +94,23 @@ use core::task::Poll;
 
 pub struct ReadBufferTask {
   buffer: Option<gpu::Buffer>,
+  counters: Arc<GPUCallCounters>,
   inner: futures::channel::oneshot::Receiver<Result<(), gpu::BufferAsyncError>>,
 }
 
 impl ReadBufferTask {
-  pub fn new<S: RangeBounds<gpu::BufferAddress>>(buffer: gpu::Buffer, range: S) -> Self {
+  pub fn new<S: RangeBounds<gpu::BufferAddress>>(
+    device: &GPUDevice,
+    buffer: gpu::Buffer,
+    range: S,
+  ) -> Self {
     let buffer_slice = buffer.slice(range);
+    let counters = device.inner.counters.clone();
+    counters.device.buffer_map_async.inc();
+    counters
+      .device
+      .buffer_map_async_bytes
+      .add(buffer_slice.size().get());
     let (sender, receiver) = futures::channel::oneshot::channel();
     // the receiver may be dropped if the read task is canceled, panic here will kill the polling
     // thread, so we just ignore the send error.
@@ -107,6 +121,7 @@ impl ReadBufferTask {
     Self {
       inner: receiver,
       buffer: Some(buffer),
+      counters,
     }
   }
 }
@@ -118,7 +133,10 @@ impl Future for ReadBufferTask {
     match Pin::new(&mut self.inner).poll(cx) {
       Poll::Ready(r) => match r {
         Ok(_) => match self.buffer.take() {
-          Some(buffer) => Poll::Ready(Ok(ReadableBuffer { buffer })),
+          Some(buffer) => Poll::Ready(Ok(ReadableBuffer {
+            buffer,
+            counters: self.counters.clone(),
+          })),
           None => panic!("already resolved"),
         },
         Err(_) => unreachable!("actually not canceled"),
@@ -191,11 +209,12 @@ impl GPUCommandEncoder {
       size,
     );
 
+    let device = device.clone();
     Box::new(
       self
         .on_submit
         .once_future(|_| {})
-        .then(move |_| ReadBufferTask::new(output_buffer, ..)),
+        .then(move |_| ReadBufferTask::new(&device, output_buffer, ..)),
     )
   }
 
@@ -265,7 +284,7 @@ impl GPUCommandEncoder {
 
     self.copy_texture_to_buffer(
       gpu::TexelCopyTextureInfo {
-        texture: texture.resource.gpu_resource(),
+        texture: texture.resource.gpu_resource().gpu(),
         mip_level: texture.desc.base_mip_level,
         origin: gpu::Origin3d {
           x: range.offset_x as u32,
@@ -285,8 +304,9 @@ impl GPUCommandEncoder {
       range.size.into_gpu_size(),
     );
 
+    let device = device.clone();
     Box::new(self.on_submit.once_future(|_| {}).then(move |_| {
-      ReadBufferTask::new(output_buffer, ..).map(move |r| {
+      ReadBufferTask::new(&device, output_buffer, ..).map(move |r| {
         r.map(|buffer| ReadableTextureBuffer {
           info: buffer_dimensions,
           buffer,

@@ -4,7 +4,7 @@ impl GPUCubeTexture {
   #[must_use]
   pub fn upload(
     self,
-    queue: &gpu::Queue,
+    queue: &GPUQueue,
     source: &dyn WebGPU2DTextureSource,
     face: CubeTextureFace,
     mip_level: usize,
@@ -15,7 +15,7 @@ impl GPUCubeTexture {
   #[must_use]
   pub fn upload_with_origin(
     self,
-    queue: &gpu::Queue,
+    queue: &GPUQueue,
     source: &dyn WebGPU2DTextureSource,
     face: CubeTextureFace,
     mip_level: usize,
@@ -24,7 +24,7 @@ impl GPUCubeTexture {
     // validation
     queue.write_texture(
       gpu::TexelCopyTextureInfo {
-        texture: &self.texture,
+        texture: self.texture.gpu_resource().gpu(),
         mip_level: mip_level as u32,
         origin: gpu::Origin3d {
           x: origin.0 as u32,
