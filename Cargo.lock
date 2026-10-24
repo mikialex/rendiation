@@ -5346,7 +5346,6 @@ dependencies = [
  "bytemuck",
  "disqualified",
  "dyn-clone",
- "event-source",
  "fast-hash-collection",
  "futures",
  "heap-tools",

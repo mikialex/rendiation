@@ -42,7 +42,7 @@ impl GPUQueue {
     let index = self.inner.submit(raw);
 
     for (on_submit, _deferred_explicit_destroy) in submitted {
-      on_submit.emit(&());
+      on_submit.notify();
     }
     index
   }

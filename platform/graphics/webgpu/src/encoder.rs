@@ -4,16 +4,38 @@ pub struct GPUCommandEncoder {
   encoder: gpu::CommandEncoder,
   placeholder_bg: gpu::BindGroup,
   deferred_explicit_destroy: CommandBufferDeferExplicitDestroyFlusher,
-  pub(crate) on_submit: EventSource<()>,
+  pub(crate) on_submit: OnSubmitNotifier,
   counts: GPUCommandCallCounts,
   pass_counts: PassCallCountSink,
 }
 
 pub struct GPUCommandBuffer {
   pub(crate) inner: gpu::CommandBuffer,
-  pub(crate) on_submit: EventSource<()>,
+  pub(crate) on_submit: OnSubmitNotifier,
   pub(crate) counts: GPUCommandCallCounts,
   pub(crate) _deferred_explicit_destroy: CommandBufferDeferExplicitDestroyFlusher,
+}
+
+/// Notify the waiters when the command buffer is submitted. If the command buffer is dropped
+/// without submit, the waiters will receive a canceled error.
+#[derive(Default)]
+pub(crate) struct OnSubmitNotifier {
+  senders: Vec<futures::channel::oneshot::Sender<()>>,
+}
+
+impl OnSubmitNotifier {
+  pub fn wait(&mut self) -> futures::channel::oneshot::Receiver<()> {
+    let (sender, receiver) = futures::channel::oneshot::channel();
+    self.senders.push(sender);
+    receiver
+  }
+
+  pub fn notify(self) {
+    for sender in self.senders {
+      // the waiter may be dropped if the read task is canceled
+      sender.send(()).ok();
+    }
+  }
 }
 
 impl GPUCommandBuffer {

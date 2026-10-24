@@ -40,7 +40,6 @@ pub use call_count::*;
 pub use device::*;
 use dyn_clone::DynClone;
 pub use encoder::*;
-use event_source::*;
 use fast_hash_collection::*;
 use futures::{Future, FutureExt};
 // note: we can not just use * because it will cause core conflict

@@ -210,12 +210,10 @@ impl GPUCommandEncoder {
     );
 
     let device = device.clone();
-    Box::new(
-      self
-        .on_submit
-        .once_future(|_| {})
-        .then(move |_| ReadBufferTask::new(&device, output_buffer, ..)),
-    )
+    Box::new(self.on_submit.wait().then(move |r| {
+      r.expect("command encoder dropped before submit");
+      ReadBufferTask::new(&device, output_buffer, ..)
+    }))
   }
 
   pub fn read_buffer_bytes(
@@ -305,7 +303,8 @@ impl GPUCommandEncoder {
     );
 
     let device = device.clone();
-    Box::new(self.on_submit.once_future(|_| {}).then(move |_| {
+    Box::new(self.on_submit.wait().then(move |r| {
+      r.expect("command encoder dropped before submit");
       ReadBufferTask::new(&device, output_buffer, ..).map(move |r| {
         r.map(|buffer| ReadableTextureBuffer {
           info: buffer_dimensions,
