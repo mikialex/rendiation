@@ -154,7 +154,7 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
     label: &str,
   ) -> BoxedAbstractBuffer {
     // this ty mark and read_write mark is useless actually
-    let init = StorageBufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap());
+    let init = StorageBufferInit::Zeroed(buffer_byte_size_or_min(byte_size, Some(label)));
     let buffer = StorageBufferReadonlyDataView::<[u32]>::create_by(device, label, init).gpu;
     let buffer = DynTypedStorageBuffer {
       buffer,
@@ -200,6 +200,11 @@ pub trait AbstractBuffer: DynClone + Send + Sync {
     self.byte_size()
   }
   /// return if resize is success
+  ///
+  /// # Panics
+  ///
+  /// Panics if the underlying buffer view is a sub range view (not covers the entire buffer),
+  /// because the underlying buffer may be shared.
   #[must_use]
   fn resize_gpu(
     &mut self,

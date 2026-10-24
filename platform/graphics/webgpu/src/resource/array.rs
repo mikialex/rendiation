@@ -24,6 +24,9 @@ impl<T> Clone for BindingResourceArray<T> {
 }
 
 impl<T> BindingResourceArray<T> {
+  /// # Panics
+  ///
+  /// Panics if the bindings length is larger than max_binding_length.
   pub fn new(bindings: Arc<Vec<T>>, max_binding_length: u32, device: &GPUDevice) -> Self {
     assert!(max_binding_length >= bindings.len() as u32);
     let pseudo_view_id = get_new_resource_guid();

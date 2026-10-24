@@ -161,6 +161,8 @@ pub fn build_my_pipeline(gpu: &GPU, ...) -> GPUComputePipeline {
 
 `PipelineHasher` implements `std::hash::Hasher`. Write all params that affect the generated shader code (workgroup size, feature flags, etc.). The pipeline is cached by hash in `gpu.device`.
 
+This method panics if the build failed, it's for the shader fully defined by the caller itself. A pipeline composed from user provided shader logic should use `try_get_or_cache_create_compute_pipeline_by`, which returns `Result<GPUComputePipeline, GPUPipelineBuildError>`. The failed result is cached as well.
+
 
 
 ## Reference Examples

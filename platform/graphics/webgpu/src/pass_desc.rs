@@ -44,6 +44,9 @@ impl RenderPassDescription {
     self.first_attachment().map(|v| v.sample_count())
   }
 
+  /// # Panics
+  ///
+  /// Panics if the description has no attachment.
   pub fn buffer_size(&self) -> Vec2<f32> {
     let size = self
       .first_attachment()

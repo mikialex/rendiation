@@ -847,6 +847,7 @@ struct ViewportRenderedResult {
 pub enum ViewerRenderResultReadBackErr {
   Gpu(rendiation_webgpu::BufferAsyncError),
   UnableToReadSurfaceTexture,
+  TextureFormatNotCopyable(rendiation_webgpu::TextureFormatNotCopyable),
 }
 
 impl ViewportRenderedResult {
@@ -866,15 +867,17 @@ impl ViewportRenderedResult {
 
     let tex = GPU2DTextureView::try_from(tex.get_binding_view().clone()).unwrap();
 
-    let buffer = encoder.read_texture_2d::<f32>(
-      &self.device,
-      &tex,
-      ReadRange {
-        size: tex.size(),
-        offset_x: 0,
-        offset_y: 0,
-      },
-    );
+    let buffer = encoder
+      .try_read_texture_2d::<f32>(
+        &self.device,
+        &tex,
+        ReadRange {
+          size: tex.size(),
+          offset_x: 0,
+          offset_y: 0,
+        },
+      )
+      .map_err(ViewerRenderResultReadBackErr::TextureFormatNotCopyable)?;
     self.queue.submit_encoder(encoder);
 
     buffer.await.map_err(ViewerRenderResultReadBackErr::Gpu)

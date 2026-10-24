@@ -16,8 +16,8 @@ pub struct GPUCommandBuffer {
   pub(crate) _deferred_explicit_destroy: CommandBufferDeferExplicitDestroyFlusher,
 }
 
-/// Notify the waiters when the command buffer is submitted. If the command buffer is dropped
-/// without submit, the waiters will receive a canceled error.
+/// Notify the waiters when the command buffer is submitted. If the encoder or command buffer is
+/// dropped without submit, the waiters will receive a canceled error.
 #[derive(Default)]
 pub(crate) struct OnSubmitNotifier {
   senders: Vec<futures::channel::oneshot::Sender<()>>,
@@ -104,6 +104,11 @@ impl GPUCommandEncoder {
 
   /// the attachments are kept alive by the underlayer render pass, so the description is not
   /// required to outlive the returned pass.
+  ///
+  /// # Panics
+  ///
+  /// Panics if the description has no attachment. In debug build, also panics if the sample
+  /// counts of the attachments are not equal.
   pub fn begin_render_pass(
     &mut self,
     des: &RenderPassDescription,
@@ -202,6 +207,10 @@ impl GPUCommandEncoder {
     }
   }
 
+  /// # Panics
+  ///
+  /// Panics if the source format is not copyable, use
+  /// [GPUCommandEncoder::try_copy_source_to_texture_2d] to handle the error.
   pub fn copy_source_to_texture_2d(
     &mut self,
     device: &GPUDevice,
@@ -209,15 +218,25 @@ impl GPUCommandEncoder {
     target: &GPU2DTexture,
     origin: (u32, u32),
   ) -> &mut Self {
-    let (upload_buffer, size) = source.create_upload_buffer(device);
+    expect_copyable(self.try_copy_source_to_texture_2d(device, source, target, origin))
+  }
+
+  pub fn try_copy_source_to_texture_2d(
+    &mut self,
+    device: &GPUDevice,
+    source: impl WebGPU2DTextureSource,
+    target: &GPU2DTexture,
+    origin: (u32, u32),
+  ) -> Result<&mut Self, TextureFormatNotCopyable> {
+    let (upload_buffer, bytes_per_row) = source.create_upload_buffer(device)?;
 
     self.copy_buffer_to_texture(
       gpu::TexelCopyBufferInfo {
         buffer: &upload_buffer,
         layout: gpu::TexelCopyBufferLayout {
           offset: 0,
-          bytes_per_row: Some(Into::<usize>::into(size.width) as u32),
-          rows_per_image: Some(Into::<usize>::into(size.height) as u32),
+          bytes_per_row: Some(bytes_per_row as u32),
+          rows_per_image: Some(source.block_rows() as u32),
         },
       },
       gpu::TexelCopyTextureInfo {
@@ -232,7 +251,7 @@ impl GPUCommandEncoder {
       },
       source.gpu_size(),
     );
-    self
+    Ok(self)
   }
 }
 

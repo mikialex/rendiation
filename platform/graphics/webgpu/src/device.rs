@@ -73,7 +73,13 @@ impl GPUDevice {
         .cached_binding_count(),
       bindgroup_layout_count: self.inner.bindgroup_layout_cache.cache.read().len(),
       sampler_count: self.inner.sampler_cache.cache.read().len(),
-      pipeline_count: self.inner.render_pipeline_cache.read().len(),
+      pipeline_count: self
+        .inner
+        .render_pipeline_cache
+        .read()
+        .values()
+        .filter(|p| p.is_ok())
+        .count(),
     }
   }
 
@@ -113,79 +119,69 @@ impl GPUDevice {
     self.inner.sampler_cache.retrieve(self, desc)
   }
 
+  /// The failed result is also cached, so the creator will not be called again for the same
+  /// hasher until the cache is cleared.
   pub fn get_or_cache_create_render_pipeline(
     &self,
     hasher: PipelineHasher,
-    creator: impl FnOnce(&Self, &str) -> GPURenderPipeline,
-  ) -> GPURenderPipeline {
-    let mut cache = self.inner.render_pipeline_cache.write();
-
-    #[cfg(feature = "pipeline-label")]
-    {
-      let (key, label) = hasher.finish_with_label();
-      cache
-        .entry(key)
-        .or_insert_with(|| creator(self, &label))
-        .clone()
-    }
-    #[cfg(not(feature = "pipeline-label"))]
-    {
-      let key = hasher.finish();
-      cache
-        .entry(key)
-        .or_insert_with(|| creator(self, ""))
-        .clone()
-    }
+    creator: impl FnOnce(&Self, &str) -> GPUPipelineBuildResult<gpu::RenderPipeline>,
+  ) -> GPUPipelineBuildResult<gpu::RenderPipeline> {
+    get_or_cache_create_pipeline(&self.inner.render_pipeline_cache, hasher, |label| {
+      creator(self, label)
+    })
   }
 
+  /// The failed result is also cached, so the creator will not be called again for the same
+  /// hasher until the cache is cleared.
   pub fn get_or_cache_create_compute_pipeline(
     &self,
     hasher: PipelineHasher,
-    creator: impl FnOnce(&Self, &str) -> GPUComputePipeline,
-  ) -> GPUComputePipeline {
-    let mut cache = self.inner.compute_pipeline_cache.write();
-
-    #[cfg(feature = "pipeline-label")]
-    {
-      let (key, label) = hasher.finish_with_label();
-      cache
-        .entry(key)
-        .or_insert_with(|| creator(self, &label))
-        .clone()
-    }
-    #[cfg(not(feature = "pipeline-label"))]
-    {
-      let key = hasher.finish();
-      cache
-        .entry(key)
-        .or_insert_with(|| creator(self, ""))
-        .clone()
-    }
+    creator: impl FnOnce(&Self, &str) -> GPUPipelineBuildResult<gpu::ComputePipeline>,
+  ) -> GPUPipelineBuildResult<gpu::ComputePipeline> {
+    get_or_cache_create_pipeline(&self.inner.compute_pipeline_cache, hasher, |label| {
+      creator(self, label)
+    })
   }
 
+  /// For the shader fully defined by the caller itself, which should always build.
+  ///
+  /// # Panics
+  ///
+  /// Panics if the pipeline build failed, use
+  /// [GPUDevice::try_get_or_cache_create_compute_pipeline_by] to handle the error.
   pub fn get_or_cache_create_compute_pipeline_by(
     &self,
     hasher: PipelineHasher,
     creator: impl FnOnce(ShaderComputePipelineBuilder) -> ShaderComputePipelineBuilder,
   ) -> GPUComputePipeline {
+    self
+      .try_get_or_cache_create_compute_pipeline_by(hasher, creator)
+      .unwrap_or_else(|err| panic!("compute pipeline build failed: {err}"))
+  }
+
+  pub fn try_get_or_cache_create_compute_pipeline_by(
+    &self,
+    hasher: PipelineHasher,
+    creator: impl FnOnce(ShaderComputePipelineBuilder) -> ShaderComputePipelineBuilder,
+  ) -> GPUPipelineBuildResult<gpu::ComputePipeline> {
     self.get_or_cache_create_compute_pipeline(hasher, |device, label| {
       let builder = compute_shader_builder(self);
       let builder = creator(builder);
-      builder.create_compute_pipeline(device, label).unwrap()
+      builder.create_compute_pipeline(device, label)
     })
   }
 
   pub fn create_and_cache_bindgroup_layout<'a>(
     &self,
     iter: impl IntoIterator<Item = (&'a ShaderBindingDescriptor, ShaderStages)> + Clone,
-  ) -> GPUBindGroupLayout {
-    let raw_layouts: Vec<_> = iter
+  ) -> Result<GPUBindGroupLayout, GPUPipelineBuildError> {
+    let raw_layouts = iter
       .into_iter()
       .enumerate()
       .map(|(i, (ty, vis))| map_shader_value_ty_to_binding_layout_type(ty, i, vis))
-      .collect();
+      .collect::<Result<Vec<_>, _>>()?;
 
-    self
+    let layout = self
       .inner
       .bindgroup_layout_cache
       .cache
@@ -201,7 +197,8 @@ impl GPUDevice {
           cache_id: new_bindgroup_layout_id(),
         }
       })
-      .clone()
+      .clone();
+    Ok(layout)
   }
 
   pub(crate) fn get_binding_cache(&self) -> &BindGroupCache {
@@ -240,8 +237,8 @@ pub(crate) struct GPUDeviceImpl {
   sampler_cache: SamplerCache,
   bindgroup_cache: BindGroupCache,
   bindgroup_layout_cache: BindGroupLayoutCache,
-  render_pipeline_cache: RwLock<FastHashMap<u64, GPURenderPipeline>>,
-  compute_pipeline_cache: RwLock<FastHashMap<u64, GPUComputePipeline>>,
+  render_pipeline_cache: PipelineCache<gpu::RenderPipeline>,
+  compute_pipeline_cache: PipelineCache<gpu::ComputePipeline>,
   pub(crate) deferred_explicit_destroy: DeferExplicitDestroy,
   pub(crate) counters: Arc<GPUCallCounters>,
   pub(crate) placeholder_bg: gpu::BindGroup,
@@ -649,4 +646,18 @@ macro_rules! shader_hasher_from_marker_ty {
     struct $ty;
     PipelineHasher::default().with_hash_type::<$ty>()
   }};
+}
+
+type PipelineCache<T> = RwLock<FastHashMap<u64, GPUPipelineBuildResult<T>>>;
+
+fn get_or_cache_create_pipeline<T>(
+  cache: &PipelineCache<T>,
+  hasher: PipelineHasher,
+  creator: impl FnOnce(&str) -> GPUPipelineBuildResult<T>,
+) -> GPUPipelineBuildResult<T> {
+  let mut cache = cache.write();
+
+  let (key, label) = hasher.finish_with_label();
+
+  cache.entry(key).or_insert_with(|| creator(&label)).clone()
 }

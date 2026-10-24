@@ -66,7 +66,8 @@ impl WGPUAndSurface {
     let gpu = GPU::new_with_instance(instance, config.device, Some(&surface))
       .await
       .expect("failed to create gpu");
-    let surface = GPUSurface::new(&gpu, surface, init_resolution);
+    let surface =
+      GPUSurface::new(&gpu, surface, init_resolution).expect("failed to create surface");
     WGPUAndSurface {
       surface: SurfaceWrapper::new(surface),
       gpu,

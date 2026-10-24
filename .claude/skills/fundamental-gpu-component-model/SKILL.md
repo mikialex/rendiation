@@ -223,6 +223,8 @@ happens, the framework executes this sequence:
 - **Pipeline lookup or build** — `ctx.gpu.device.get_or_cache_create_render_pipeline(hasher, |device| { ... })`
   - On cache miss: calls `self.build_self(...)` → triggers `build()` then `post_build()` (onion forward then reverse)
   - On cache hit: returns the cached pipeline
+  - On build failure: the error is logged once, the failed result is cached, and the draw is
+    skipped. Use `get_or_create_pipeline` or `preflight_pso` to get the `GPUPipelineBuildError`
 - **Reset state** — clears `ctx.binding` and resets vertex binding index
 - **Set pipeline** — binds the compiled `GPURenderPipeline` on the wgpu render pass; for
   `RenderMethod::MeshPipelineDraw`, also calls `draw.bind_shader(ctx)`

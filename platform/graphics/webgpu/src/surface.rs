@@ -15,7 +15,12 @@ pub struct GPUSurface {
 }
 
 impl GPUSurface {
-  pub fn new(gpu: &GPU, surface: gpu::Surface<'static>, init_resolution: Size) -> Self {
+  /// Return error if the surface is not compatible with the adapter.
+  pub fn new(
+    gpu: &GPU,
+    surface: gpu::Surface<'static>,
+    init_resolution: Size,
+  ) -> Result<Self, GPUSurfaceCreateError> {
     let capabilities = surface.get_capabilities(&gpu.adaptor);
     let support_view_formats = gpu
       .info
@@ -24,9 +29,12 @@ impl GPUSurface {
       .contains(DownlevelFlags::SURFACE_VIEW_FORMATS);
     let (width, height) = init_resolution.into_u32();
 
-    let render_format = select_default_render_format(&capabilities, support_view_formats);
+    let render_format = select_default_render_format(&capabilities, support_view_formats)
+      .ok_or(GPUSurfaceCreateError::Incompatible)?;
+    // the default render format is always resolvable, so we just fallback to it directly
     let (format, view_format) =
-      resolve_render_format(&capabilities, support_view_formats, render_format).unwrap();
+      resolve_render_format(&capabilities, support_view_formats, render_format)
+        .unwrap_or((render_format, None));
 
     let config = gpu::SurfaceConfiguration {
       usage: gpu::TextureUsages::RENDER_ATTACHMENT,
@@ -42,18 +50,29 @@ impl GPUSurface {
     gpu.device.inner.counters.device.surface_configure.inc();
     surface.configure(gpu.device.raw_device(), &config);
 
-    Self {
+    Ok(Self {
       surface,
       capabilities,
       support_view_formats,
       config,
       require_reconfigure: false,
-    }
+    })
   }
 
   /// Used to recover from [SurfaceError::Lost]. The current config is kept if still supported.
-  pub fn replace_raw_surface(&mut self, gpu: &GPU, surface: gpu::Surface<'static>) {
-    self.capabilities = surface.get_capabilities(&gpu.adaptor);
+  ///
+  /// Return error if the new surface is not compatible with the adapter, in this case self is not
+  /// modified.
+  pub fn replace_raw_surface(
+    &mut self,
+    gpu: &GPU,
+    surface: gpu::Surface<'static>,
+  ) -> Result<(), GPUSurfaceCreateError> {
+    let capabilities = surface.get_capabilities(&gpu.adaptor);
+    if capabilities.formats.is_empty() {
+      return Err(GPUSurfaceCreateError::Incompatible);
+    }
+    self.capabilities = capabilities;
     if !self.is_format_supported(self.render_format()) {
       self.apply_render_format(self.default_render_format());
     }
@@ -62,6 +81,7 @@ impl GPUSurface {
     }
     self.surface = surface;
     self.require_reconfigure = true;
+    Ok(())
   }
 
   pub fn acquire_frame(&mut self, device: &GPUDevice) -> Result<SurfaceAcquire, SurfaceError> {
@@ -157,6 +177,8 @@ impl GPUSurface {
 
   pub fn default_render_format(&self) -> gpu::TextureFormat {
     select_default_render_format(&self.capabilities, self.support_view_formats)
+      // the capabilities is checked to be not empty when creating or replacing the surface
+      .unwrap_or(self.config.format)
   }
 
   pub fn is_format_supported(&self, render_format: gpu::TextureFormat) -> bool {
@@ -245,6 +267,14 @@ pub enum SurfaceError {
 }
 
 #[derive(thiserror::Error, Debug)]
+pub enum GPUSurfaceCreateError {
+  #[error(transparent)]
+  Create(#[from] gpu::CreateSurfaceError),
+  #[error("the surface is not compatible with the adapter, no supported format exists")]
+  Incompatible,
+}
+
+#[derive(thiserror::Error, Debug)]
 pub enum SurfaceConfigUnsupported {
   #[error("surface format {0:?} is not supported")]
   Format(gpu::TextureFormat),
@@ -253,10 +283,12 @@ pub enum SurfaceConfigUnsupported {
 }
 
 /// prefer srgb format, use the srgb view of none srgb format if it's not directly supported.
+///
+/// return None if no format is supported.
 fn select_default_render_format(
   capabilities: &gpu::SurfaceCapabilities,
   support_view_formats: bool,
-) -> gpu::TextureFormat {
+) -> Option<gpu::TextureFormat> {
   let formats = &capabilities.formats;
   formats
     .iter()
@@ -268,7 +300,6 @@ fn select_default_render_format(
       })
     })
     .or(formats.first().copied())
-    .expect("none supported format exist in surface capabilities")
 }
 
 /// return the surface storage format and the optional view format to get the expected render format

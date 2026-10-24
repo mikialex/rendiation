@@ -1,6 +1,7 @@
 use core::ops::RangeBounds;
 
 use futures::FutureExt;
+use futures::future::{Either, ready};
 
 use crate::*;
 
@@ -132,14 +133,16 @@ impl Future for ReadBufferTask {
   fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
     match Pin::new(&mut self.inner).poll(cx) {
       Poll::Ready(r) => match r {
-        Ok(_) => match self.buffer.take() {
+        Ok(Err(err)) => Poll::Ready(Err(err)),
+        Ok(Ok(_)) => match self.buffer.take() {
           Some(buffer) => Poll::Ready(Ok(ReadableBuffer {
             buffer,
             counters: self.counters.clone(),
           })),
           None => panic!("already resolved"),
         },
-        Err(_) => unreachable!("actually not canceled"),
+        // the map callback is dropped without being called, for example the device is lost
+        Err(_) => Poll::Ready(Err(gpu::BufferAsyncError)),
       },
       Poll::Pending => Poll::Pending,
     }
@@ -167,22 +170,21 @@ impl TextReadBufferInfo {
     height: usize,
     format: gpu::TextureFormat,
     aspect: gpu::TextureAspect,
-  ) -> Self {
+  ) -> Result<Self, TextureFormatNotCopyable> {
     let bytes_per_pixel = format
       .block_copy_size(Some(aspect))
-      .unwrap_or_else(|| panic!("texture format {format:?} with {aspect:?} is not copyable"))
-      as usize;
+      .ok_or(TextureFormatNotCopyable { format, aspect })? as usize;
     let unpadded_bytes_per_row = width * bytes_per_pixel;
     let align = gpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
     let padded_bytes_per_row_padding = (align - unpadded_bytes_per_row % align) % align;
     let padded_bytes_per_row = unpadded_bytes_per_row + padded_bytes_per_row_padding;
-    Self {
+    Ok(Self {
       width,
       height,
       unpadded_bytes_per_row,
       padded_bytes_per_row,
       format,
-    }
+    })
   }
 }
 
@@ -209,11 +211,25 @@ impl GPUCommandEncoder {
       size,
     );
 
+    Box::new(self.map_read_after_submit(device, output_buffer))
+  }
+
+  /// the map can only be requested after the copy command is submitted. If the encoder is dropped
+  /// without submit, the read will resolve as an error.
+  fn map_read_after_submit(
+    &mut self,
+    device: &GPUDevice,
+    output_buffer: gpu::Buffer,
+  ) -> impl Future<Output = Result<ReadableBuffer, gpu::BufferAsyncError>> + Send + Sync + Unpin + use<>
+  {
     let device = device.clone();
-    Box::new(self.on_submit.wait().then(move |r| {
-      r.expect("command encoder dropped before submit");
-      ReadBufferTask::new(&device, output_buffer, ..)
-    }))
+    self
+      .on_submit
+      .wait()
+      .then(move |submitted| match submitted {
+        Ok(_) => Either::Left(ReadBufferTask::new(&device, output_buffer, ..)),
+        Err(_) => Either::Right(ready(Err(gpu::BufferAsyncError))),
+      })
   }
 
   pub fn read_buffer_bytes(
@@ -256,12 +272,25 @@ impl GPUCommandEncoder {
       .map(|buffer| buffer.map(|buffer| T::from_bytes(&buffer.read_raw())))
   }
 
+  /// # Panics
+  ///
+  /// Panics if the texture format is not copyable, use [GPUCommandEncoder::try_read_texture_2d]
+  /// to handle the error.
   pub fn read_texture_2d<F>(
     &mut self,
     device: &GPUDevice,
     texture: &GPUTypedTextureView<TextureDimension2, F>,
     range: ReadRange,
   ) -> ReadTextureFromStagingBuffer {
+    expect_copyable(self.try_read_texture_2d(device, texture, range))
+  }
+
+  pub fn try_read_texture_2d<F>(
+    &mut self,
+    device: &GPUDevice,
+    texture: &GPUTypedTextureView<TextureDimension2, F>,
+    range: ReadRange,
+  ) -> Result<ReadTextureFromStagingBuffer, TextureFormatNotCopyable> {
     let (width, height) = range.size.into_usize();
     let format = texture.resource.desc.format;
     // copy requires a single aspect, so we resolve the combined depth stencil format to depth
@@ -271,7 +300,7 @@ impl GPUCommandEncoder {
       }
       aspect => aspect,
     };
-    let buffer_dimensions = TextReadBufferInfo::new(width, height, format, aspect);
+    let buffer_dimensions = TextReadBufferInfo::new(width, height, format, aspect)?;
 
     let output_buffer = device.create_buffer(&gpu::BufferDescriptor {
       label: None,
@@ -302,16 +331,16 @@ impl GPUCommandEncoder {
       range.size.into_gpu_size(),
     );
 
-    let device = device.clone();
-    Box::new(self.on_submit.wait().then(move |r| {
-      r.expect("command encoder dropped before submit");
-      ReadBufferTask::new(&device, output_buffer, ..).map(move |r| {
-        r.map(|buffer| ReadableTextureBuffer {
-          info: buffer_dimensions,
-          buffer,
-        })
-      })
-    }))
+    Ok(Box::new(
+      self
+        .map_read_after_submit(device, output_buffer)
+        .map(move |r| {
+          r.map(|buffer| ReadableTextureBuffer {
+            info: buffer_dimensions,
+            buffer,
+          })
+        }),
+    ))
   }
 }
 
@@ -330,3 +359,17 @@ pub type ReadBufferFromStagingBuffer = Box<
     + Unpin
     + 'static,
 >;
+
+#[cfg(test)]
+#[pollster::test]
+async fn test_read_buffer_with_encoder_dropped() {
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let usage = gpu::BufferUsages::COPY_SRC;
+  let buffer = create_gpu_buffer_zeroed(16, usage, &gpu.device).create_default_view();
+
+  let mut encoder = gpu.create_encoder();
+  let read = encoder.read_buffer(&gpu.device, &buffer);
+  drop(encoder);
+
+  assert!(read.await.is_err());
+}

@@ -4,6 +4,9 @@ use crate::*;
 
 pub trait GPUTextureSize {
   fn into_gpu_size(self) -> gpu::Extent3d;
+  /// # Panics
+  ///
+  /// Panics if any dimension of the size is zero.
   fn from_gpu_size(size: gpu::Extent3d) -> Self;
 }
 

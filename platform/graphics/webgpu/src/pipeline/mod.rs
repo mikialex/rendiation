@@ -8,6 +8,26 @@ pub use container::*;
 #[cfg(test)]
 mod layout_test;
 
+/// The error of building a pipeline from the shader api. Note that the wgpu side validation error
+/// is not included here, it's reported by the device's uncaptured error handler.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum GPUPipelineBuildError {
+  #[error("shader build failed: {0:?}")]
+  ShaderBuild(ShaderBuildError),
+  #[error("shader build failed: {0:?}")]
+  ShaderBuildMultiple(Vec<ShaderBuildError>),
+  #[error("invalid binding declaration: {0}")]
+  InvalidBinding(String),
+}
+
+impl From<ShaderBuildError> for GPUPipelineBuildError {
+  fn from(err: ShaderBuildError) -> Self {
+    Self::ShaderBuild(err)
+  }
+}
+
+pub type GPUPipelineBuildResult<T> = Result<GPUPipeline<T>, GPUPipelineBuildError>;
+
 pub type GPURenderPipeline = GPUPipeline<wgpu::RenderPipeline>;
 pub type GPUComputePipeline = GPUPipeline<wgpu::ComputePipeline>;
 
@@ -66,25 +86,32 @@ pub fn map_shader_value_ty_to_binding_layout_type(
   v: &ShaderBindingDescriptor,
   id: usize,
   visibility: ShaderStages,
-) -> gpu::BindGroupLayoutEntry {
+) -> Result<gpu::BindGroupLayoutEntry, GPUPipelineBuildError> {
   use ShaderValueSingleType::*;
+  let invalid = |msg: &str| GPUPipelineBuildError::InvalidBinding(format!("{msg}: {:#?}", v.ty));
 
   if v.has_dynamic_offset {
     let is_single_buffer = matches!(
       v.ty,
       ShaderValueType::Single(Sized(_)) | ShaderValueType::Single(Unsized(_))
     );
-    assert!(
-      is_single_buffer,
-      "dynamic offset is only supported for single(not binding array) uniform or storage buffer binding, got: {:#?}",
-      v.ty
-    );
+    if !is_single_buffer {
+      return Err(invalid(
+        "dynamic offset is only supported for single(not binding array) uniform or storage buffer binding",
+      ));
+    }
+  }
+
+  if visibility == ShaderStages::empty() {
+    return Err(invalid(
+      "binding visibility is empty, the binding is declared but never used in any stage",
+    ));
   }
 
   let ty = v
     .ty
     .visit_single(|ty| match *ty {
-      Sized(_) => gpu::BindingType::Buffer {
+      Sized(_) => Ok(gpu::BindingType::Buffer {
         ty: if v.should_as_storage_buffer_if_is_buffer_like {
           gpu::BufferBindingType::Storage {
             read_only: !v.writeable_if_storage,
@@ -94,15 +121,15 @@ pub fn map_shader_value_ty_to_binding_layout_type(
         },
         has_dynamic_offset: v.has_dynamic_offset,
         min_binding_size: ty.min_binding_size(),
-      },
-      Unsized(_) => gpu::BindingType::Buffer {
+      }),
+      Unsized(_) => Ok(gpu::BindingType::Buffer {
         ty: gpu::BufferBindingType::Storage {
           read_only: !v.writeable_if_storage,
         },
         has_dynamic_offset: v.has_dynamic_offset,
         min_binding_size: ty.min_binding_size(),
-      },
-      Sampler(ty) => gpu::BindingType::Sampler(ty),
+      }),
+      Sampler(ty) => Ok(gpu::BindingType::Sampler(ty)),
       Texture {
         dimension,
         sample_type,
@@ -113,17 +140,17 @@ pub fn map_shader_value_ty_to_binding_layout_type(
         if multi_sampled && let TextureSampleType::Float { filterable } = &mut sample_type {
           *filterable = false;
         }
-        gpu::BindingType::Texture {
+        Ok(gpu::BindingType::Texture {
           multisampled: multi_sampled,
           sample_type,
           view_dimension: dimension,
-        }
+        })
       }
       StorageTexture {
         dimension,
         format,
         access,
-      } => gpu::BindingType::StorageTexture {
+      } => Ok(gpu::BindingType::StorageTexture {
         access: match access {
           rendiation_shader_api::StorageTextureAccess::Load => gpu::StorageTextureAccess::ReadOnly,
           rendiation_shader_api::StorageTextureAccess::Store => {
@@ -175,31 +202,28 @@ pub fn map_shader_value_ty_to_binding_layout_type(
           StorageFormat::Rgba16Snorm => TextureFormat::Rgba16Snorm,
         },
         view_dimension: dimension,
-      },
-      AccelerationStructure => gpu::BindingType::AccelerationStructure {
+      }),
+      AccelerationStructure => Ok(gpu::BindingType::AccelerationStructure {
         vertex_return: true,
-      },
-      RayQuery => unreachable!(),
+      }),
+      RayQuery => Err(invalid("ray query can not be used as binding")),
     })
-    .unwrap();
+    .ok_or_else(|| invalid("never type can not be used as binding"))??;
 
   let count = match v.ty {
-    ShaderValueType::BindingArray { count, .. } => Some(NonZeroU32::new(count as u32).unwrap()),
+    ShaderValueType::BindingArray { count, .. } => Some(
+      NonZeroU32::new(count as u32)
+        .ok_or_else(|| invalid("binding array count should not be zero"))?,
+    ),
     _ => None,
   };
 
-  assert!(
-    visibility != ShaderStages::empty(),
-    "binding visibility is empty, the binding is declared but never used in any stage: {:#?}",
-    v.ty
-  );
-
-  gpu::BindGroupLayoutEntry {
+  Ok(gpu::BindGroupLayoutEntry {
     binding: id as u32,
     visibility,
     ty,
     count,
-  }
+  })
 }
 
 impl GPUDevice {
@@ -214,8 +238,10 @@ impl GPUDevice {
       println!();
       println!("=== rendiation_shader_api build result ===");
 
-      let shader_str = convert_module_by_wgsl(&naga_module, naga::valid::ValidationFlags::all());
-      println!("{shader_str}",);
+      match convert_module_by_wgsl(&naga_module, naga::valid::ValidationFlags::all()) {
+        Ok(shader_str) => println!("{shader_str}"),
+        Err(err) => println!("failed to convert the shader to wgsl: {err}"),
+      }
 
       println!("=== result output finished ===");
     }
@@ -235,7 +261,7 @@ impl GPUDevice {
     &self,
     builder: ShaderRenderPipelineBuilder,
     label: &str,
-  ) -> Result<GPURenderPipeline, ShaderBuildError> {
+  ) -> Result<GPURenderPipeline, GPUPipelineBuildError> {
     let checks = builder.checks;
     let compile_result = builder.build()?;
 
@@ -278,7 +304,7 @@ impl GPUDevice {
       log::warn!("depth bias is ignored for non-triangle topology");
     }
 
-    let (raw_layouts, layouts, pipeline_layout) = create_layouts(self, &bindings);
+    let (raw_layouts, layouts, pipeline_layout) = create_layouts(self, &bindings)?;
 
     let pipeline = match shape_shader {
       VertexOrTaskMesh::Vertex((vertex_entry, vertex_shader)) => {
@@ -344,33 +370,32 @@ impl GPUDevice {
   }
 }
 
-fn create_layouts(
-  device: &GPUDevice,
-  builder: &ShaderBindGroupBuilder,
-) -> (
+type PipelineLayouts = (
   Vec<GPUBindGroupLayout>,
   Vec<Vec<ShaderBindingDescriptor>>,
   wgpu::PipelineLayout,
-) {
+);
+
+fn create_layouts(
+  device: &GPUDevice,
+  builder: &ShaderBindGroupBuilder,
+) -> Result<PipelineLayouts, GPUPipelineBuildError> {
   let binding = &builder.bindings;
   let last_empty_count = binding
     .iter()
     .rev()
     .take_while(|l| l.bindings.is_empty())
     .count();
+  let binding = &binding[0..binding.len() - last_empty_count];
 
-  let raw_layouts: Vec<_> = binding
-    .get(0..binding.len() - last_empty_count)
-    .unwrap()
+  let raw_layouts = binding
     .iter()
     .map(|b| {
       device.create_and_cache_bindgroup_layout(b.bindings.iter().map(|e| (&e.desc, e.visibility)))
     })
-    .collect();
+    .collect::<Result<Vec<_>, _>>()?;
 
   let layouts: Vec<_> = binding
-    .get(0..binding.len() - last_empty_count)
-    .unwrap()
     .iter()
     .map(|b| b.bindings.iter().map(|e| e.desc.clone()).collect())
     .collect();
@@ -382,17 +407,32 @@ fn create_layouts(
     bind_group_layouts: layouts_ref.as_slice(),
     immediate_size: 0,
   });
-  (raw_layouts, layouts, pipeline_layout)
+  Ok((raw_layouts, layouts, pipeline_layout))
 }
 
-fn convert_module_by_wgsl(module: &naga::Module, v: naga::valid::ValidationFlags) -> String {
+#[derive(Debug, thiserror::Error)]
+pub enum WGSLConvertError {
+  #[error("naga validation failed: {0}")]
+  Validation(Box<naga::WithSpan<naga::valid::ValidationError>>),
+  #[error("wgsl write failed: {0}")]
+  Write(#[from] naga::back::wgsl::Error),
+}
+
+fn convert_module_by_wgsl(
+  module: &naga::Module,
+  v: naga::valid::ValidationFlags,
+) -> Result<String, WGSLConvertError> {
   use naga::back::wgsl;
 
   let info = naga::valid::Validator::new(v, naga::valid::Capabilities::all())
     .validate(module)
-    .unwrap();
+    .map_err(|e| WGSLConvertError::Validation(Box::new(e)))?;
 
-  wgsl::write_string(module, &info, wgsl::WriterFlags::empty()).unwrap()
+  Ok(wgsl::write_string(
+    module,
+    &info,
+    wgsl::WriterFlags::empty(),
+  )?)
 }
 
 pub fn convert_vertex_layout(layout: &ShaderVertexBufferLayout) -> gpu::VertexBufferLayout<'_> {
@@ -415,7 +455,7 @@ pub trait ComputeIntoPipelineExt {
     self,
     device: impl AsRef<GPUDevice>,
     label: &str,
-  ) -> Result<GPUComputePipeline, ShaderBuildError>;
+  ) -> Result<GPUComputePipeline, GPUPipelineBuildError>;
 }
 
 impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
@@ -423,7 +463,7 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
     self,
     device: impl AsRef<GPUDevice>,
     label: &str,
-  ) -> Result<GPUComputePipeline, ShaderBuildError> {
+  ) -> Result<GPUComputePipeline, GPUPipelineBuildError> {
     let checks = self.checks;
     let result = self.build()?;
 
@@ -434,7 +474,7 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
     let naga_compute = shader.downcast::<NagaModuleBuildResult>().unwrap();
     let module = device.create_shader_module_by_shader_api(*naga_compute, checks);
 
-    let (raw_layouts, layouts, pipeline_layout) = create_layouts(device, &result.bindings);
+    let (raw_layouts, layouts, pipeline_layout) = create_layouts(device, &result.bindings)?;
 
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
       label: Some(label),
@@ -450,4 +490,34 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
 
     Ok(GPUPipeline::new(pipeline, raw_layouts, layouts))
   }
+}
+
+#[test]
+fn test_invalid_binding_declaration() {
+  let element = ShaderValueSingleType::Sized(f32::sized_ty());
+  let desc = |ty, has_dynamic_offset| ShaderBindingDescriptor {
+    should_as_storage_buffer_if_is_buffer_like: true,
+    ty,
+    writeable_if_storage: false,
+    has_dynamic_offset,
+  };
+  let check = |desc, visibility| map_shader_value_ty_to_binding_layout_type(&desc, 0, visibility);
+
+  let single = desc(ShaderValueType::Single(element.clone()), false);
+  assert!(check(single.clone(), ShaderStages::COMPUTE).is_ok());
+  assert!(check(single, ShaderStages::empty()).is_err());
+
+  let empty_array = ShaderValueType::BindingArray {
+    count: 0,
+    ty: element.clone(),
+  };
+  assert!(check(desc(empty_array, false), ShaderStages::COMPUTE).is_err());
+
+  let array = ShaderValueType::BindingArray {
+    count: 2,
+    ty: element,
+  };
+  assert!(check(desc(array, true), ShaderStages::COMPUTE).is_err());
+
+  assert!(check(desc(ShaderValueType::Never, false), ShaderStages::COMPUTE).is_err());
 }

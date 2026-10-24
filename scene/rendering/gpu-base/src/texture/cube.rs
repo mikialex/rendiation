@@ -116,7 +116,9 @@ fn use_cube_face_update_impl(
         let gpu_texture = target.entry(k).or_insert_with(create);
         let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
 
-        let _ = gpu_texture.upload(&cx.gpu.queue, &source, face, 0);
+        if let Err(err) = gpu_texture.try_upload(&cx.gpu.queue, &source, face, 0) {
+          log::error!("failed to upload cube texture face: {err}");
+        }
       } else {
         log::warn!("cube texture requires alive source");
         target.remove(&k);

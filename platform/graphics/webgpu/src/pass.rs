@@ -164,6 +164,9 @@ impl RenderTargetView {
     }
   }
 
+  /// # Panics
+  ///
+  /// Panics if the view is a surface texture, which can not be bound.
   pub fn expect_common_texture_view_for_binding(&self) -> &GPUTextureView {
     match self {
       RenderTargetView::Texture(t) => t.get_binding_view(),
@@ -172,6 +175,9 @@ impl RenderTargetView {
     }
   }
 
+  /// # Panics
+  ///
+  /// Panics if the view is a surface texture or the texture format and dimension not match.
   pub fn expect_texture_view<F: TextureFormatDynamicCheck>(
     &self,
   ) -> GPUTypedTextureView<TextureDimension2, F> {

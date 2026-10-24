@@ -128,13 +128,8 @@ pub async fn gpu_run_raw_buffers(
       };
       let usage = space_usage | BufferUsages::COPY_SRC | BufferUsages::COPY_DST;
       let init = BufferInit::WithInit(&buffer.bytes);
-      let desc = GPUBufferDescriptor {
-        size: init.size(),
-        usage,
-      };
-      let raw = GPUBuffer::create(&gpu.device, None, init, usage);
       RawGPUBuffer {
-        view: GPUBufferResource::create_with_raw(raw, desc, &gpu.device).create_default_view(),
+        view: GPUBuffer::create_resource(&gpu.device, None, init, usage).create_default_view(),
         desc: buffer.desc(),
       }
     })
@@ -817,7 +812,7 @@ async fn binding_array_of_storage_buffers_gpu() {
 
   let desc = array.binding_desc();
   assert!(desc.should_as_storage_buffer_if_is_buffer_like && !desc.writeable_if_storage);
-  let entry = map_shader_value_ty_to_binding_layout_type(&desc, 0, ShaderStages::COMPUTE);
+  let entry = map_shader_value_ty_to_binding_layout_type(&desc, 0, ShaderStages::COMPUTE).unwrap();
   assert_eq!(entry.count, std::num::NonZeroU32::new(2));
   assert!(matches!(
     entry.ty,

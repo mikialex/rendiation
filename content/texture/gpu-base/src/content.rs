@@ -10,7 +10,10 @@ pub fn create_gpu_texture2d(cx: &GPU, texture: &GPUBufferImage) -> GPU2DTextureV
   let desc = texture.create_tex2d_desc(MipLevelCount::BySize, cx.info().downgrade_info.flags);
   let gpu_texture = GPUTexture::create(desc, &cx.device);
   let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
-  let gpu_texture = gpu_texture.upload_into(&cx.queue, &texture, 0);
+  // the texture content is left empty if the upload failed
+  if let Err(err) = gpu_texture.try_upload(&cx.queue, &texture, 0) {
+    log::error!("failed to upload texture: {err}");
+  }
 
   gpu_texture.create_default_view().try_into().unwrap()
 }
@@ -25,7 +28,10 @@ pub fn create_gpu_texture2d_with_mipmap(
   let desc = texture.create_tex2d_desc(MipLevelCount::BySize, cx.info().downgrade_info.flags);
   let gpu_texture = GPUTexture::create(desc, &cx.device);
   let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
-  let gpu_texture = gpu_texture.upload_into(&cx.queue, &texture, 0);
+  // the texture content is left empty if the upload failed
+  if let Err(err) = gpu_texture.try_upload(&cx.queue, &texture, 0) {
+    log::error!("failed to upload texture: {err}");
+  }
 
   // if cx.info.downgrade_info.is_webgpu_compliant()
   //   && StorageFormat::try_from(gpu_texture.desc.format).is_ok()

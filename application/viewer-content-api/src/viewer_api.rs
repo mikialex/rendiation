@@ -258,15 +258,17 @@ impl ViewerAPI {
     let gpu = &self.core.gpu;
     let target: GPU2DTextureView = target.expect_texture_view();
     let mut encoder = gpu.create_encoder();
-    let fut = encoder.read_texture_2d(
-      &gpu.device,
-      &target,
-      rendiation_webgpu::ReadRange {
-        size: target.size(),
-        offset_x: 0,
-        offset_y: 0,
-      },
-    );
+    let fut = encoder
+      .try_read_texture_2d(
+        &gpu.device,
+        &target,
+        rendiation_webgpu::ReadRange {
+          size: target.size(),
+          offset_x: 0,
+          offset_y: 0,
+        },
+      )
+      .ok()?;
     gpu.submit_encoder(encoder);
 
     let result = pollster::block_on(fut).ok()?;

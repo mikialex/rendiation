@@ -216,7 +216,11 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
               Err(SurfaceError::Lost) => {
                 log::warn!("surface lost, try recreate");
                 match gpu.instance.create_surface(window_handle) {
-                  Ok(raw) => surface.write(|s| s.replace_raw_surface(gpu, raw)),
+                  Ok(raw) => {
+                    if let Err(err) = surface.write(|s| s.replace_raw_surface(gpu, raw)) {
+                      log::error!("failed to replace surface: {err}");
+                    }
+                  }
                   Err(err) => log::error!("failed to recreate surface: {err}"),
                 }
                 None

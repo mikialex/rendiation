@@ -9,6 +9,9 @@ pub struct AtomicImageDowngrade {
 }
 
 impl AtomicImageDowngrade {
+  /// # Panics
+  ///
+  /// Panics if the layer_count is zero.
   pub fn new(device: &GPUDevice, size: Size, layer_count: u32, label: &str) -> Self {
     assert!(layer_count > 0);
     let (width, height) = size.into_usize();
@@ -34,7 +37,11 @@ impl AtomicImageDowngrade {
     self.size_
   }
 
-  // wgpu does not have fill buffer cmd, so we have to do it manually
+  /// wgpu does not have fill buffer cmd, so we have to do it manually
+  ///
+  /// # Panics
+  ///
+  /// In debug build, panics if the cleared texel offset or count overflows u32.
   pub fn clear(
     &self,
     device: &GPUDevice,

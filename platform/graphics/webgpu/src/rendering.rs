@@ -26,18 +26,23 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
   /// Create and cache the pipeline of a [`RenderMethod::TraditionalDraw`] render of this
   /// component without drawing, so the first real render hits the cache. Only the types of the
   /// component's bindings matter; their content is never read.
-  fn preflight_pso(&self, gpu: &GPU) {
-    self.get_or_create_pipeline(gpu, None);
+  fn preflight_pso(&self, gpu: &GPU) -> Result<(), GPUPipelineBuildError> {
+    self.get_or_create_pipeline(gpu, None).map(|_| ())
   }
 
   /// Calling this method to do the real drawcall on given pass. if the implementation is efficient enough to specify a draw logic.
+  ///
+  /// If the pipeline build failed, the error is logged once and the draw is skipped. Use
+  /// [`Self::get_or_create_pipeline`] or [`Self::preflight_pso`] to get the error.
   fn render(&self, ctx: &mut GPURenderPassCtx, draw: RenderMethod) {
     let (draw_cmd, mesh) = match &draw {
       RenderMethod::TraditionalDraw(draw_command) => (Some(draw_command), None),
       RenderMethod::MeshPipelineDraw(mesh) => (None, Some(*mesh)),
     };
 
-    let pipeline = self.get_or_create_pipeline(&ctx.gpu, mesh);
+    let Ok(pipeline) = self.get_or_create_pipeline(&ctx.gpu, mesh) else {
+      return;
+    };
 
     ctx.binding.reset();
     ctx.reset_vertex_binding_index();
@@ -66,11 +71,13 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
   /// The pipeline [`Self::render`] draws with: looked up by the pipeline hash of the component
   /// (and of the mesh component, for a mesh pipeline draw), built and cached on a miss. It only
   /// depends on the component and the device, not on the pass.
+  ///
+  /// The failed result is cached as well, and the error is logged when the build failed.
   fn get_or_create_pipeline(
     &self,
     gpu: &GPU,
     mesh: Option<&dyn MeshComponent>,
-  ) -> GPURenderPipeline {
+  ) -> Result<GPURenderPipeline, GPUPipelineBuildError> {
     let mut hasher = PipelineHasher::default();
     self.hash_pipeline_with_type_info(&mut hasher);
     if let Some(mesh) = mesh {
@@ -81,19 +88,19 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
     gpu
       .device
       .get_or_cache_create_render_pipeline(hasher, |device, label| {
-        device
-          .build_pipeline_by_shader_api(
-            self
-              .build_self(
-                &|stage| Box::new(ShaderAPINagaImpl::new(stage)),
-                mesh_shading,
-                gpu.info.clone(),
-                device.inner.default_shader_checks,
-              )
-              .unwrap(),
-            label,
+        let result = self
+          .build_self(
+            &|stage| Box::new(ShaderAPINagaImpl::new(stage)),
+            mesh_shading,
+            gpu.info.clone(),
+            device.inner.default_shader_checks,
           )
-          .unwrap()
+          .map_err(GPUPipelineBuildError::ShaderBuildMultiple)
+          .and_then(|builder| device.build_pipeline_by_shader_api(builder, label));
+        if let Err(err) = &result {
+          log::error!("render pipeline <{label}> build failed: {err}");
+        }
+        result
       })
   }
 }

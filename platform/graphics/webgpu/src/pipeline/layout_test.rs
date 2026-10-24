@@ -93,7 +93,7 @@ async fn run_layout_test(via_wgsl_text: bool) {
   let naga_module = shader.downcast::<NagaModuleBuildResult>().unwrap().module;
 
   let module = if via_wgsl_text {
-    let text = convert_module_by_wgsl(&naga_module, naga::valid::ValidationFlags::all());
+    let text = convert_module_by_wgsl(&naga_module, naga::valid::ValidationFlags::all()).unwrap();
     assert!(
       text.contains("padding_"),
       "explicit padding members are expected:\n{text}"
@@ -114,7 +114,8 @@ async fn run_layout_test(via_wgsl_text: bool) {
     )
   };
 
-  let (raw_layouts, layouts, pipeline_layout) = create_layouts(&gpu.device, &result.bindings);
+  let (raw_layouts, layouts, pipeline_layout) =
+    create_layouts(&gpu.device, &result.bindings).unwrap();
   let pipeline = gpu
     .device
     .create_compute_pipeline(&gpu::ComputePipelineDescriptor {

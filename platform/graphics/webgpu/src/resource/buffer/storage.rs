@@ -87,13 +87,7 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadonlyDataView<T> {
       | extra_usage;
 
     let init = source.into_buffer_init();
-    let desc = GPUBufferDescriptor {
-      size: init.size(),
-      usage,
-    };
-    let gpu = GPUBuffer::create(device, Some(label), init, usage);
-
-    let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
+    let gpu = GPUBuffer::create_resource(device, Some(label), init, usage).create_default_view();
 
     Self {
       gpu,
@@ -220,10 +214,11 @@ impl<'a, T: Std430> From<&'a [T]> for StorageBufferInit<'a, [T]> {
 #[derive(Clone, Copy)]
 pub struct ZeroedArrayByArrayLength(pub usize);
 
+/// If the length is zero, a [MIN_BUFFER_BYTE_SIZE] buffer is created instead with a warning.
 impl<T: Std430> From<ZeroedArrayByArrayLength> for StorageBufferInit<'_, [T]> {
   fn from(len: ZeroedArrayByArrayLength) -> Self {
     let byte_len = std::mem::size_of::<T>() * len.0;
-    StorageBufferInit::Zeroed(NonZeroU64::new(byte_len as u64).unwrap())
+    StorageBufferInit::Zeroed(buffer_byte_size_or_min(byte_len as u64, None))
   }
 }
 
@@ -242,10 +237,11 @@ impl<T> Default for StorageBufferSizedZeroed<T> {
     Self(Default::default())
   }
 }
+/// If T is zero sized, a [MIN_BUFFER_BYTE_SIZE] buffer is created instead with a warning.
 impl<T: Std430> From<StorageBufferSizedZeroed<T>> for StorageBufferInit<'_, T> {
   fn from(_: StorageBufferSizedZeroed<T>) -> Self {
     let byte_len = std::mem::size_of::<T>();
-    StorageBufferInit::Zeroed(NonZeroU64::new(byte_len as u64).unwrap())
+    StorageBufferInit::Zeroed(buffer_byte_size_or_min(byte_len as u64, None))
   }
 }
 
@@ -284,13 +280,8 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
       | extra_usage;
 
     let init = source.into_buffer_init();
-    let desc = GPUBufferDescriptor {
-      size: init.size(),
-      usage,
-    };
-
-    let gpu = GPUBuffer::create(device, Some(debug_label), init, usage);
-    let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
+    let gpu =
+      GPUBuffer::create_resource(device, Some(debug_label), init, usage).create_default_view();
 
     Self {
       gpu,

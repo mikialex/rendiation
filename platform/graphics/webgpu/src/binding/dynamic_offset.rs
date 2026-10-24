@@ -62,6 +62,9 @@ pub struct UniformBufferDynamicOffsetArray<T: Std140> {
 }
 
 impl<T: Std140> UniformBufferDynamicOffsetArray<T> {
+  /// # Panics
+  ///
+  /// Panics if the count is zero.
   pub fn create(device: &GPUDevice, count: u32, debug_label: &str) -> Self {
     assert!(count > 0);
     let alignment = device.limits().min_uniform_buffer_offset_alignment;
@@ -98,6 +101,9 @@ impl<T: Std140> UniformBufferDynamicOffsetArray<T> {
     self.stride
   }
 
+  /// # Panics
+  ///
+  /// Panics if the index is out of bound.
   pub fn write_at(&self, queue: &GPUQueue, index: u32, data: &T) {
     assert!(index < self.count);
     let offset = index as u64 * self.stride;
@@ -105,6 +111,10 @@ impl<T: Std140> UniformBufferDynamicOffsetArray<T> {
   }
 
   /// the returned binding could be used in both shader side and pass side.
+  ///
+  /// # Panics
+  ///
+  /// Panics if the index is out of bound.
   pub fn bind_at(&self, index: u32) -> DynamicOffsetBinding<UniformBufferDataView<T>> {
     assert!(index < self.count);
     let offset = index as u64 * self.stride;

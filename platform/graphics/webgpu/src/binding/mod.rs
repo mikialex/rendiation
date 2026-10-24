@@ -69,6 +69,10 @@ impl BindGroupBuilder {
 
   /// the dynamic offset is not a part of bindgroup cache key, so change the offset will reuse the
   /// same bindgroup.
+  ///
+  /// # Panics
+  ///
+  /// In debug build, panics if the binding window with the dynamic offset exceeds the buffer.
   pub fn bind_with_dynamic_offset(
     &mut self,
     source: CacheAbleBindingBuildSource,
@@ -135,6 +139,9 @@ impl BindingBuilder {
     }
   }
 
+  /// # Panics
+  ///
+  /// Panics if the builder is not created by [BindingBuilder::new_with_device].
   pub fn bind_immediate_sampler(
     &mut self,
     sampler: &(impl Into<gpu::SamplerDescriptor<'static>> + Clone),
@@ -158,6 +165,8 @@ impl BindingBuilder {
     self.groups.iter()
   }
 
+  /// Enable the binding layout checking, see [BindingBuilder::check_binding_layout]. When
+  /// enabled, the setup pass call also panics if the binding count is not match the layout.
   pub fn setup_checking_layout(&mut self, layouts: &[Vec<ShaderBindingDescriptor>]) {
     self.checking_layouts = Some(layouts.to_owned());
   }
@@ -205,6 +214,11 @@ impl BindingBuilder {
   /// because the wgpu validation is too late to catch where the miss match happens.
   ///
   /// this should be called before the actual binding.
+  ///
+  /// # Panics
+  ///
+  /// Only when the checking is enabled by [BindingBuilder::setup_checking_layout], panics if the
+  /// binding is not match the layout.
   pub fn check_binding_layout(&self, desc: impl FnOnce() -> ShaderBindingDescriptor) {
     if let Some(checking_layouts) = &self.checking_layouts {
       cold_path();

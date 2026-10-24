@@ -67,7 +67,9 @@ pub use rendiation_view_dependent_transform::{
 };
 pub use rendiation_webgpu::raw_gpu;
 use rendiation_webgpu::*;
-pub use rendiation_webgpu::{CreateSurfaceError, GPU, GPUInstance, GPUSurface};
+pub use rendiation_webgpu::{
+  CreateSurfaceError, GPU, GPUInstance, GPUSurface, GPUSurfaceCreateError,
+};
 use rendiation_webgpu_frame::*;
 use rendiation_webgpu_hook_utils::*;
 use rendiation_webgpu_virtual_typed_combine_buffer::*;

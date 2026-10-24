@@ -21,7 +21,6 @@ where
 }
 
 // consider remove this entirely because it's useless
-// todo, not panic when out bound
 impl<T> LinearStorageDirectAccess for VecWithStorageBuffer<T>
 where
   T: LinearStorageDirectAccess,
@@ -32,18 +31,19 @@ where
     self.set_value(idx, self.none_default)
   }
   fn removes(&mut self, offset: u32, len: u32) -> Option<()> {
-    self.inner.removes(offset, len);
-    for i in offset..(offset + len) {
+    self.inner.removes(offset, len)?;
+    for i in offset..offset.checked_add(len)? {
       self.set_value(i, self.none_default)?;
     }
     Some(())
   }
 
   fn set_value(&mut self, idx: u32, v: Self::Item) -> Option<()> {
-    if self.diff && self.vec[idx as usize] == v {
+    let item = self.vec.get_mut(idx as usize)?;
+    if self.diff && *item == v {
       return Some(());
     }
-    self.vec[idx as usize] = v;
+    *item = v;
     self.inner.set_value(idx, v)
   }
 
@@ -67,7 +67,7 @@ where
 
   fn set_values(&mut self, offset: u32, v: &[Self::Item]) -> Option<()> {
     let idx = offset as usize;
-    let view = self.vec.get_mut(idx..(idx + v.len()))?;
+    let view = self.vec.get_mut(idx..idx.checked_add(v.len())?)?;
     if self.diff && view == v {
       return Some(());
     }

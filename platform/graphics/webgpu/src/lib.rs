@@ -326,9 +326,9 @@ impl GPU {
     &self,
     target: impl Into<gpu::SurfaceTarget<'static>>,
     init_resolution: Size,
-  ) -> Result<GPUSurface, CreateSurfaceError> {
+  ) -> Result<GPUSurface, GPUSurfaceCreateError> {
     let surface = self.instance.create_surface(target)?;
-    Ok(GPUSurface::new(self, surface, init_resolution))
+    GPUSurface::new(self, surface, init_resolution)
   }
 
   /// # Safety
@@ -338,9 +338,9 @@ impl GPU {
     &self,
     target: gpu::SurfaceTargetUnsafe,
     init_resolution: Size,
-  ) -> Result<GPUSurface, CreateSurfaceError> {
+  ) -> Result<GPUSurface, GPUSurfaceCreateError> {
     let surface = unsafe { self.instance.create_surface_unsafe(target) }?;
-    Ok(GPUSurface::new(self, surface, init_resolution))
+    GPUSurface::new(self, surface, init_resolution)
   }
 
   pub fn create_encoder(&self) -> GPUCommandEncoder {
