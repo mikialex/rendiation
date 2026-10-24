@@ -121,7 +121,7 @@ impl Drop for ViewerAPI {
 }
 
 fn create_offscreen_target(gpu: &GPU, size: Size) -> RenderTargetView {
-  let res = rendiation_webgpu::PooledTextureKey {
+  let res = rendiation_webgpu_frame::PooledTextureKey {
     size,
     format: TextureFormat::Rgba8UnormSrgb,
     sample_count: 1,

@@ -7,6 +7,7 @@ use parking_lot::RwLock;
 use rendiation_shader_api::*;
 use rendiation_shader_library::*;
 use rendiation_webgpu::*;
+use reuse_pool::*;
 
 mod pass;
 pub use pass::*;

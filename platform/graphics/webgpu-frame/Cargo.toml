@@ -14,6 +14,7 @@ parking_lot = { workspace = true }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-shader-library = { path = "../../../shader/library" }
 rendiation-webgpu = { path = "../webgpu" }
+reuse-pool = { path = "../../../utility/reuse-pool" }
 
 [dev-dependencies]
 pollster = { workspace = true }

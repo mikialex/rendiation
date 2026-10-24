@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct GPUSlabAllocateMaintainer<T> {
   used_count: u32,
-  allocator: slab::Slab<()>,
+  allocator: ::slab::Slab<()>,
   buffer: T,
 }
 
@@ -10,7 +10,7 @@ impl<T: LinearStorageBase> GPUSlabAllocateMaintainer<T> {
   pub fn new(buffer: T) -> Self {
     Self {
       used_count: 0,
-      allocator: slab::Slab::with_capacity(buffer.max_size() as usize),
+      allocator: ::slab::Slab::with_capacity(buffer.max_size() as usize),
       buffer,
     }
   }

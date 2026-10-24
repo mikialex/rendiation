@@ -95,7 +95,7 @@ impl ShaderPassBuilder for LinearBlurTask<'_> {
   }
 }
 
-pub fn draw_cross_blur<T: AsRef<Attachment>>(
+pub fn draw_cross_blur(
   config: &CrossBlurData,
   input: RenderTargetView,
   ctx: &mut FrameCtx,

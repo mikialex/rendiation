@@ -112,6 +112,7 @@ impl<T: Std140> UniformBufferDynamicOffsetArray<T> {
   }
 }
 
+#[cfg(test)]
 #[pollster::test]
 async fn test_uniform_dynamic_offset_binding() {
   let gpu = GPU::new(Default::default()).await.unwrap();

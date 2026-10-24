@@ -287,6 +287,7 @@ fn test_texel_copy_byte_size() {
   );
 }
 
+#[cfg(test)]
 #[pollster::test]
 async fn test_call_count() {
   let gpu = GPU::new(Default::default()).await.unwrap();

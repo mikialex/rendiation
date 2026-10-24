@@ -4230,6 +4230,7 @@ dependencies = [
  "rendiation-space-algorithm",
  "rendiation-texture-core",
  "rendiation-webgpu",
+ "rendiation-webgpu-buffer-allocator",
  "rendiation-webgpu-virtual-typed-combine-buffer",
 ]
 
@@ -5348,7 +5349,6 @@ dependencies = [
  "event-source",
  "fast-hash-collection",
  "futures",
- "growable-range-allocator",
  "heap-tools",
  "log",
  "naga",
@@ -5358,11 +5358,20 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-backend-naga",
  "rendiation-texture-types",
- "reuse-pool",
- "slab",
  "thiserror 2.0.18",
  "wgpu",
  "wgpu-types",
+]
+
+[[package]]
+name = "rendiation-webgpu-buffer-allocator"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "growable-range-allocator",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "slab",
 ]
 
 [[package]]
@@ -5379,6 +5388,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-webgpu",
+ "reuse-pool",
 ]
 
 [[package]]

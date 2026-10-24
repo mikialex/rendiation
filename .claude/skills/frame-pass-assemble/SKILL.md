@@ -17,13 +17,12 @@ Multi-pass rendering frame assembly in rendiation. The API is a functional/chain
 | File | Purpose |
 |------|---------|
 | [platform/graphics/webgpu/src/pass_desc.rs](platform/graphics/webgpu/src/pass_desc.rs) | `pass()`, `RenderPassDescription`, load/store op helpers |
-| [platform/graphics/webgpu/src/attachment_pool.rs](platform/graphics/webgpu/src/attachment_pool.rs) | `PooledTextureKey`, `AttachmentPool` |
 | [platform/graphics/webgpu-frame/src/pass.rs](platform/graphics/webgpu-frame/src/pass.rs) | `RenderPassDescriptionFrameExt` (`render_ctx`/`render`), `ActiveRenderPass`, `PassContent`, `FrameRenderPass` |
-| [platform/graphics/webgpu-frame/src/attachment.rs](platform/graphics/webgpu-frame/src/attachment.rs) | `attachment()`, `AttachmentDescriptor`, `AttachmentKeyFrameExt` |
+| [platform/graphics/webgpu-frame/src/attachment.rs](platform/graphics/webgpu-frame/src/attachment.rs) | `attachment()`, `AttachmentDescriptor`, `AttachmentKeyFrameExt`, `AttachmentPool`, `Attachment`, `PooledTextureKey` |
 | [platform/graphics/webgpu-frame/src/lib.rs](platform/graphics/webgpu-frame/src/lib.rs) | `FrameCtx` |
 | [platform/graphics/webgpu-frame/src/full_screen.rs](platform/graphics/webgpu-frame/src/full_screen.rs) | `UseFullScreenDraw`, `FullScreenDraw<T>`, `generate_full_screen_triangle` |
 | [platform/graphics/webgpu-frame/src/statistics.rs](platform/graphics/webgpu-frame/src/statistics.rs) | `FramePassStatistics`, per frame pass time and pipeline statistics query |
-| [platform/graphics/webgpu/src/pass.rs](platform/graphics/webgpu/src/pass.rs) | `RenderTargetView`, `GPURenderPassCtx` |
+| [platform/graphics/webgpu/src/pass.rs](platform/graphics/webgpu/src/pass.rs) | `RenderTargetView`, `RenderTargetViewLike`, `GPURenderPassCtx` |
 
 The frame level abstractions live in the `rendiation-webgpu-frame` crate (depends on `hook`), import
 it by `use rendiation_webgpu_frame::*;` beside `rendiation_webgpu`. The plain pass description and

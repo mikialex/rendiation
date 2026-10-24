@@ -80,6 +80,7 @@ members = [
   "platform/graphics/webgpu-virtual-typed-combine-buffer",
   "platform/graphics/webgpu-midc-downgrade",
   "platform/graphics/webgpu-texture-as-buffer",
+  "platform/graphics/webgpu-buffer-allocator",
   "extension/controller",
   "extension/view-override-model",
   "extension/barycentric-solid-line",

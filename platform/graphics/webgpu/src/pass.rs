@@ -81,10 +81,16 @@ impl RenderViewContent {
   }
 }
 
+/// Extension point for render targets whose texture is owned by an external system, for example
+/// a pooled texture that should be returned to the pool when all the views are dropped.
+pub trait RenderTargetViewLike: Send + Sync + 'static {
+  fn content(&self) -> &RenderViewContent;
+}
+
 #[derive(Clone)]
 pub enum RenderTargetView {
   Texture(RenderViewContent),
-  ReusedTexture(Arc<Attachment>),
+  Custom(Arc<dyn RenderTargetViewLike>),
   SurfaceTexture {
     size: Size,
     format: gpu::TextureFormat,
@@ -104,7 +110,7 @@ impl CacheAbleBindingSource for RenderTargetView {
         source: self.get_bindable(),
         view_id: *view_id,
       },
-      RenderTargetView::ReusedTexture(t) => t.item().get_binding_view().get_binding_build_source(),
+      RenderTargetView::Custom(t) => t.content().get_binding_view().get_binding_build_source(),
     }
   }
 }
@@ -116,7 +122,7 @@ impl BindableResourceProvider for RenderTargetView {
       RenderTargetView::SurfaceTexture { view, view_id, .. } => {
         BindingResourceOwned::RawTextureView(view.clone(), *view_id)
       }
-      RenderTargetView::ReusedTexture(t) => t.item().get_binding_view().get_bindable(),
+      RenderTargetView::Custom(t) => t.content().get_binding_view().get_bindable(),
     }
   }
 }
@@ -124,11 +130,6 @@ impl BindableResourceProvider for RenderTargetView {
 impl From<GPU2DTextureView> for RenderTargetView {
   fn from(view: GPU2DTextureView) -> Self {
     Self::from_texture_view(view.texture)
-  }
-}
-impl From<Attachment> for RenderTargetView {
-  fn from(view: Attachment) -> Self {
-    Self::ReusedTexture(Arc::new(view))
   }
 }
 
@@ -159,14 +160,14 @@ impl RenderTargetView {
     match self {
       RenderTargetView::Texture(t) => &t.render_view,
       RenderTargetView::SurfaceTexture { view, .. } => view.as_ref(),
-      RenderTargetView::ReusedTexture(t) => &t.item().render_view,
+      RenderTargetView::Custom(t) => &t.content().render_view,
     }
   }
 
   pub fn expect_common_texture_view_for_binding(&self) -> &GPUTextureView {
     match self {
       RenderTargetView::Texture(t) => t.get_binding_view(),
-      RenderTargetView::ReusedTexture(t) => t.item().get_binding_view(),
+      RenderTargetView::Custom(t) => t.content().get_binding_view(),
       _ => panic!("expect_standalone_texture_view failed"),
     }
   }
@@ -181,20 +182,10 @@ impl RenderTargetView {
       .unwrap()
   }
 
-  pub fn create_attachment_key(&self) -> PooledTextureKey {
-    PooledTextureKey {
-      size: self.size(),
-      format: self.format(),
-      sample_count: self.sample_count(),
-      require_mipmaps: self.has_mipmaps(),
-      usage: self.usage(),
-    }
-  }
-
   pub fn has_mipmaps(&self) -> bool {
     match self {
       RenderTargetView::Texture(t) => t.has_mipmaps(),
-      RenderTargetView::ReusedTexture(t) => t.item().has_mipmaps(),
+      RenderTargetView::Custom(t) => t.content().has_mipmaps(),
       RenderTargetView::SurfaceTexture { .. } => false,
     }
   }
@@ -202,7 +193,7 @@ impl RenderTargetView {
   pub fn usage(&self) -> TextureUsages {
     match self {
       RenderTargetView::Texture(t) => t.usage(),
-      RenderTargetView::ReusedTexture(t) => t.item().usage(),
+      RenderTargetView::Custom(t) => t.content().usage(),
       RenderTargetView::SurfaceTexture { .. } => TextureUsages::RENDER_ATTACHMENT,
     }
   }
@@ -211,7 +202,7 @@ impl RenderTargetView {
     match self {
       RenderTargetView::Texture(t) => t.size(),
       RenderTargetView::SurfaceTexture { size, .. } => *size,
-      RenderTargetView::ReusedTexture(t) => t.item().size(),
+      RenderTargetView::Custom(t) => t.content().size(),
     }
   }
 
@@ -219,7 +210,7 @@ impl RenderTargetView {
     match self {
       RenderTargetView::Texture(t) => t.format(),
       RenderTargetView::SurfaceTexture { format, .. } => *format,
-      RenderTargetView::ReusedTexture(t) => t.item().format(),
+      RenderTargetView::Custom(t) => t.content().format(),
     }
   }
 
@@ -227,7 +218,7 @@ impl RenderTargetView {
     match self {
       RenderTargetView::Texture(t) => t.sample_count(),
       RenderTargetView::SurfaceTexture { .. } => 1,
-      RenderTargetView::ReusedTexture(t) => t.item().sample_count(),
+      RenderTargetView::Custom(t) => t.content().sample_count(),
     }
   }
 }

@@ -853,7 +853,7 @@ impl ViewportRenderedResult {
   async fn read(self) -> Result<ReadableTextureBuffer, ViewerRenderResultReadBackErr> {
     let tex = match self.target {
       RenderTargetView::Texture(tex) => tex.clone(),
-      RenderTargetView::ReusedTexture(tex) => tex.item().clone(),
+      RenderTargetView::Custom(tex) => tex.content().clone(),
       RenderTargetView::SurfaceTexture { .. } => {
         // note: the usage of surface texture could only guarantee contains RENDER_ATTACHMENT,
         // so it's maybe impossible to do any read back from it. the upper layer should be draw

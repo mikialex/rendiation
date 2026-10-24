@@ -1,0 +1,15 @@
+[package]
+authors = ["MikiAlex <miikiialexx@gmail.com>"]
+edition = "2024"
+name = "rendiation-webgpu-buffer-allocator"
+version = "0.1.0"
+
+[dependencies]
+rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-webgpu = { path = "../webgpu" }
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+growable-range-allocator = { path = "../../../utility/growable-range-allocator" }
+slab = { workspace = true }
+
+[lints]
+workspace = true
