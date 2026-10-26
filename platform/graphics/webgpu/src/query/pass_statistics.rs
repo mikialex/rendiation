@@ -1,23 +1,35 @@
+use std::collections::VecDeque;
 use std::pin::Pin;
+use std::sync::atomic::AtomicBool;
+use std::sync::mpsc;
 use std::task::Context;
 use std::task::Poll;
 
-use futures::channel::mpsc::*;
-use futures::{FutureExt, StreamExt};
+use futures::StreamExt;
+use futures::stream::FuturesUnordered;
 
 use crate::*;
 
 /// The persistent pass statistics collector.
 ///
 /// For each frame, a [FramePassStatisticsRecorder] is created to record the queries of all passes
-/// in that frame, the results are read back asynchronously and collected by [FramePassStatistics::poll].
+/// in that frame. Once the GPU completed the frame, the queries are resolved and read back
+/// asynchronously, and the results are collected by [FramePassStatistics::poll].
 ///
 /// The passes with the same name in one frame are merged(summed) together.
 pub struct FramePassStatistics {
-  result_sender: UnboundedSender<FrameMeasureTask>,
-  pending: Pin<Box<dyn futures::Stream<Item = FramePassMeasureResult>>>,
+  gpu: GPU,
+  finished_sender: mpsc::Sender<FinishedFrame>,
+  finished: mpsc::Receiver<FinishedFrame>,
+  /// the finished frames waiting for the GPU to complete them, in the submission order
+  completing: VecDeque<FinishedFrame>,
+  reading: FuturesUnordered<FrameMeasureTask>,
+  /// the frames finished but not collected yet, shared with the recorders
+  pending_frame_count: Arc<AtomicUsize>,
   time_unit_in_nanoseconds: f32,
   pub collected: FastHashMap<String, PassRenderStatistics>,
+  /// the sum of all passes of each frame
+  pub frame_total: PassRenderStatistics,
   pub max_history: usize,
   pub time_query_supported: bool,
   pub pipeline_query_supported: bool,
@@ -39,64 +51,44 @@ impl PassRenderStatistics {
 
 impl FramePassStatistics {
   pub fn new(max_history: usize, gpu: &GPU) -> Self {
-    let (result_sender, receiver) = unbounded();
-    // each frame produces only one task, the limit is the max frame in flight
-    let pending = receiver.buffer_unordered(16).boxed();
+    let (finished_sender, finished) = mpsc::channel();
 
     let features = gpu.info.supported_features;
     Self {
+      gpu: gpu.clone(),
+      finished_sender,
+      finished,
+      completing: Default::default(),
+      reading: Default::default(),
+      pending_frame_count: Default::default(),
       time_unit_in_nanoseconds: gpu.queue.get_timestamp_period(),
-      result_sender,
-      pending,
       collected: FastHashMap::default(),
+      frame_total: PassRenderStatistics::new(max_history),
       max_history,
       time_query_supported: features.contains(Features::TIMESTAMP_QUERY),
       pipeline_query_supported: features.contains(Features::PIPELINE_STATISTICS_QUERY),
     }
   }
 
+  /// resolve the queries of the frames the GPU completed (in an encoder submitted here), and
+  /// collect the results read back. The device must be polled for both to make progress.
   pub fn poll(&mut self, cx: &mut Context) {
-    while let Poll::Ready(Some(result)) = self.pending.poll_next_unpin(cx) {
+    self.completing.extend(self.finished.try_iter());
+    self.resolve_completed_frames();
+
+    while let Poll::Ready(Some(result)) = self.reading.poll_next_unpin(cx) {
       self.collect(result);
     }
   }
 
-  fn collect(&mut self, result: FramePassMeasureResult) {
-    let mut merged = FastHashMap::<&str, (Option<DeviceDrawStatistics>, Option<f64>)>::default();
-    for (i, name) in result.pass_names.iter().enumerate() {
-      let (pipeline, time) = merged.entry(name.as_str()).or_default();
-
-      if let Some(info) = result.pipeline.as_ref().and_then(|v| v.get(i)) {
-        *pipeline = Some(pipeline.map_or(*info, |p| p + *info));
-      }
-
-      if let Some(pair) = result.timestamps.as_ref().and_then(|v| v.get(i)) {
-        let duration = pair.duration_in_ms(self.time_unit_in_nanoseconds);
-        if !duration.is_nan() {
-          *time = Some(time.unwrap_or(0.) + duration);
-        }
-      }
-    }
-
-    for (name, (pipeline, time)) in merged {
-      let max_history = self.max_history;
-      let (_, statistics) = self
-        .collected
-        .raw_entry_mut()
-        .from_key(name)
-        .or_insert_with(|| (name.to_string(), PassRenderStatistics::new(max_history)));
-
-      if let Some(pipeline) = pipeline {
-        statistics.pipeline.insert(pipeline, result.frame_index);
-      }
-      if let Some(time) = time {
-        statistics.time.insert(time, result.frame_index);
-      }
-    }
+  /// the count of the frames finished by their recorders but not collected by [Self::poll] yet.
+  pub fn pending_frame_count(&self) -> usize {
+    self.pending_frame_count.load(Ordering::Relaxed)
   }
 
   pub fn clear_history(&mut self, max_history: usize) {
     self.collected.clear();
+    self.frame_total = PassRenderStatistics::new(max_history);
     self.max_history = max_history;
   }
 
@@ -113,32 +105,94 @@ impl FramePassStatistics {
           1,
         )
       }),
-      result_sender: self.result_sender.clone(),
+      finished_sender: self.finished_sender.clone(),
+      pending_frame_count: self.pending_frame_count.clone(),
     }
   }
-}
 
-type FrameMeasureTask = Pin<Box<dyn Future<Output = FramePassMeasureResult> + Send>>;
+  fn resolve_completed_frames(&mut self) {
+    // the GPU completes the frames in the submission order
+    let completed = self
+      .completing
+      .iter()
+      .take_while(|frame| frame.completed.load(Ordering::Acquire))
+      .count();
+    if completed == 0 {
+      return;
+    }
 
-struct FramePassMeasureResult {
-  frame_index: u64,
-  pass_names: Vec<String>,
-  /// indexed by the pass index
-  timestamps: Option<Vec<TimestampPair>>,
-  /// indexed by the pass index
-  pipeline: Option<Vec<DeviceDrawStatistics>>,
+    let mut encoder = self.gpu.create_encoder();
+    for frame in self.completing.drain(..completed) {
+      let task = frame.resolve_and_read_back(&self.gpu.device, &mut encoder);
+      self.reading.push(task);
+    }
+    self.gpu.submit_encoder(encoder);
+  }
+
+  fn collect(&mut self, result: FramePassMeasureResult) {
+    self.pending_frame_count.fetch_sub(1, Ordering::Relaxed);
+
+    let mut merged = FastHashMap::<&str, (Option<DeviceDrawStatistics>, Option<f64>)>::default();
+    for (i, name) in result.pass_names.iter().enumerate() {
+      let (pipeline, time) = merged.entry(name.as_str()).or_default();
+
+      if let Some(info) = result.pipeline.as_ref().and_then(|v| v.get(i)) {
+        *pipeline = Some(pipeline.map_or(*info, |p| p + *info));
+      }
+
+      if let Some(pair) = result.timestamps.as_ref().and_then(|v| v.get(i)) {
+        let duration = pair.duration_in_ms(self.time_unit_in_nanoseconds);
+        if !duration.is_nan() {
+          *time = Some(time.unwrap_or(0.) + duration);
+        }
+      }
+    }
+
+    let mut total_pipeline = None;
+    let mut total_time = None;
+
+    for (name, (pipeline, time)) in merged {
+      let max_history = self.max_history;
+      let (_, statistics) = self
+        .collected
+        .raw_entry_mut()
+        .from_key(name)
+        .or_insert_with(|| (name.to_string(), PassRenderStatistics::new(max_history)));
+
+      if let Some(pipeline) = pipeline {
+        statistics.pipeline.insert(pipeline, result.frame_index);
+        total_pipeline = Some(total_pipeline.map_or(pipeline, |p| p + pipeline));
+      }
+      if let Some(time) = time {
+        statistics.time.insert(time, result.frame_index);
+        total_time = Some(total_time.unwrap_or(0.) + time);
+      }
+    }
+
+    if let Some(pipeline) = total_pipeline {
+      self
+        .frame_total
+        .pipeline
+        .insert(pipeline, result.frame_index);
+    }
+    if let Some(time) = total_time {
+      self.frame_total.time.insert(time, result.frame_index);
+    }
+  }
 }
 
 /// Record the queries of all passes in one frame.
 ///
 /// The queries are written into the query sets shared by all passes in this frame, and resolved
-/// and read back together at the end of the frame, see [FramePassStatisticsRecorder::resolve].
+/// and read back together after the frame, see [FramePassStatisticsRecorder::finish]. The passes
+/// may be recorded into several encoders(command buffers) of the frame.
 pub struct FramePassStatisticsRecorder {
   frame_index: u64,
   pass_names: Vec<String>,
   timestamp: Option<ChunkedQuerySet>,
   pipeline: Option<ChunkedQuerySet>,
-  result_sender: UnboundedSender<FrameMeasureTask>,
+  finished_sender: mpsc::Sender<FinishedFrame>,
+  pending_frame_count: Arc<AtomicUsize>,
 }
 
 impl FramePassStatisticsRecorder {
@@ -175,14 +229,61 @@ impl FramePassStatisticsRecorder {
     (pass, pipeline_query_active)
   }
 
-  /// resolve and read back the queries of all recorded passes, should be called after all passes
-  /// are ended in the given encoder.
-  pub fn resolve(&mut self, device: &GPUDevice, encoder: &mut GPUCommandEncoder) {
-    let pass_count = self.pass_names.len() as u32;
-    if pass_count == 0 {
+  /// finish the frame, should be called after all passes are ended, with the frame's encoder
+  /// submitted last (which must be submitted). Once the GPU completed it, the queries are resolved
+  /// and read back by [FramePassStatistics::poll]: a resolve recorded right behind the passes may
+  /// not wait for the queries written by them (Metal's timestamp samples).
+  pub fn finish(self, encoder: &mut GPUCommandEncoder) {
+    if self.pass_names.is_empty() {
       return;
     }
 
+    let completed = Arc::new(AtomicBool::new(false));
+    let completed_flag = completed.clone();
+    encoder.on_submitted_work_done(move || completed_flag.store(true, Ordering::Release));
+
+    let frame = FinishedFrame {
+      frame_index: self.frame_index,
+      pass_names: self.pass_names,
+      timestamp: self.timestamp,
+      pipeline: self.pipeline,
+      completed,
+    };
+    // counted before sending, so the collector never sees the result before its count
+    self.pending_frame_count.fetch_add(1, Ordering::Relaxed);
+    if self.finished_sender.send(frame).is_err() {
+      self.pending_frame_count.fetch_sub(1, Ordering::Relaxed);
+    }
+  }
+}
+
+/// The queries of a finished frame, waiting for the GPU to complete it.
+struct FinishedFrame {
+  frame_index: u64,
+  pass_names: Vec<String>,
+  timestamp: Option<ChunkedQuerySet>,
+  pipeline: Option<ChunkedQuerySet>,
+  completed: Arc<AtomicBool>,
+}
+
+type FrameMeasureTask = Pin<Box<dyn Future<Output = FramePassMeasureResult> + Send>>;
+
+struct FramePassMeasureResult {
+  frame_index: u64,
+  pass_names: Vec<String>,
+  /// indexed by the pass index
+  timestamps: Option<Vec<TimestampPair>>,
+  /// indexed by the pass index
+  pipeline: Option<Vec<DeviceDrawStatistics>>,
+}
+
+impl FinishedFrame {
+  fn resolve_and_read_back(
+    self,
+    device: &GPUDevice,
+    encoder: &mut GPUCommandEncoder,
+  ) -> FrameMeasureTask {
+    let pass_count = self.pass_names.len() as u32;
     let timestamps = self
       .timestamp
       .as_ref()
@@ -192,10 +293,10 @@ impl FramePassStatisticsRecorder {
       .as_ref()
       .map(|q| q.resolve_and_read_back::<DeviceDrawStatistics>(pass_count, device, encoder));
 
-    let pass_names = std::mem::take(&mut self.pass_names);
+    let pass_names = self.pass_names;
     let frame_index = self.frame_index;
 
-    let task = async move {
+    Box::pin(async move {
       let timestamps = match timestamps {
         Some(f) => f.await,
         None => None,
@@ -210,8 +311,7 @@ impl FramePassStatisticsRecorder {
         timestamps,
         pipeline,
       }
-    };
-    self.result_sender.unbounded_send(Box::pin(task)).ok();
+    })
   }
 }
 
@@ -329,13 +429,18 @@ impl<T: Clone> StatisticStore<T> {
     let len = self.history.len() as u64;
     self.latest_resolved.as_ref().map(move |(_, latest)| {
       let latest = *latest;
-      (0..len).rev().map(move |offset| {
-        let frame_index = latest.checked_sub(offset)?;
-        let (value, recorded_index) = self.history[(frame_index % len) as usize].as_ref()?;
-        // the slot may be written by the frame before the history window
-        (*recorded_index == frame_index).then_some(value)
-      })
+      (0..len)
+        .rev()
+        .map(move |offset| self.get(latest.checked_sub(offset)?))
     })
+  }
+
+  /// the value of the given frame, None if the frame has no record or is out of the history.
+  pub fn get(&self, frame_index: u64) -> Option<&T> {
+    let len = self.history.len() as u64;
+    let (value, recorded_index) = self.history[(frame_index % len) as usize].as_ref()?;
+    // the slot may be written by the frame before the history window
+    (*recorded_index == frame_index).then_some(value)
   }
 
   pub fn insert(&mut self, value: T, idx: u64) {
@@ -366,62 +471,76 @@ mod test {
   fn test_frame_pass_statistics() {
     let gpu = pollster::block_on(GPU::new(Default::default())).unwrap();
     let mut statistics = FramePassStatistics::new(4, &gpu);
-    let pool = init_attachment_pool(&gpu);
-    let pass_info_pool = PassInfoPool::default();
-    let mut memory = FunctionMemory::default();
+    let target: RenderTargetView = create_empty_2d_texture_view(
+      &gpu,
+      Size::from_u32_pair_min_one((4, 4)),
+      TextureUsages::RENDER_ATTACHMENT,
+      TextureFormat::Rgba8Unorm,
+    )
+    .into();
 
-    // cross the chunk boundary, and the passes with same name should be merged
+    // cross the chunk boundary, the passes with same name should be merged, and the passes are
+    // split into two submitted encoders, the frame finished in the second one
     let pass_count = PASS_COUNT_PER_CHUNK + 6;
     let frame_index = 1;
-    {
-      let recorder = statistics.create_frame_recorder(frame_index);
-      let size = Size::from_u32_pair_min_one((4, 4));
-      let mut ctx = FrameCtx::new(
-        &gpu,
-        &mut memory,
-        size,
-        &pool,
-        &pass_info_pool,
-        Some(recorder),
-      );
-      let target = attachment().request(&ctx);
-      for i in 0..pass_count {
-        let name = if i % 2 == 0 { "even" } else { "odd" };
-        let _ = pass(name)
-          .with_color(&target, store_full_frame())
-          .render_ctx(&mut ctx);
+    let mut recorder = statistics.create_frame_recorder(frame_index);
+    let mut encoder = gpu.create_encoder();
+    for i in 0..pass_count {
+      if i == pass_count / 2 {
+        let first_half = std::mem::replace(&mut encoder, gpu.create_encoder());
+        gpu.submit_encoder(first_half);
+      }
+
+      let name = if i % 2 == 0 { "even" } else { "odd" };
+      let desc = pass(name).with_color(&target, store_full_frame());
+      let (mut pass, pipeline_query_active) = recorder.begin_pass(&desc, &mut encoder, &gpu.device);
+      if pipeline_query_active {
+        pass.end_pipeline_statistics_query();
       }
     }
+    recorder.finish(&mut encoder);
+    gpu.submit_encoder(encoder);
 
     let any_query_supported =
       statistics.time_query_supported || statistics.pipeline_query_supported;
     if !any_query_supported {
+      assert_eq!(statistics.pending_frame_count(), 0);
       return;
     }
+    assert_eq!(statistics.pending_frame_count(), 1);
 
     let waker = futures::task::noop_waker();
     let mut cx = Context::from_waker(&waker);
     let start = Instant::now();
-    while statistics.collected.len() < 2 && start.elapsed() < Duration::from_secs(5) {
+    while statistics.pending_frame_count() > 0 && start.elapsed() < Duration::from_secs(5) {
+      gpu.poll(false);
       statistics.poll(&mut cx);
       std::thread::sleep(Duration::from_millis(1));
     }
 
+    assert_eq!(statistics.pending_frame_count(), 0);
     assert_eq!(statistics.collected.len(), 2);
-    for name in ["even", "odd"] {
-      let s = &statistics.collected[name];
-      if statistics.time_query_supported {
-        let (time, index) = s.time.get_latest().unwrap();
+    if statistics.time_query_supported {
+      let mut sum = 0.;
+      for name in ["even", "odd"] {
+        let (time, index) = statistics.collected[name].time.get_latest().unwrap();
         assert_eq!(*index, frame_index);
-        assert!(*time >= 0.);
+        assert!(time.is_finite() && *time >= 0.);
+        sum += time;
       }
-      if statistics.pipeline_query_supported {
-        let (_, index) = s.pipeline.get_latest().unwrap();
+      let (total, index) = statistics.frame_total.time.get_latest().unwrap();
+      assert_eq!(*index, frame_index);
+      assert!((total - sum).abs() < 1e-9);
+    }
+    if statistics.pipeline_query_supported {
+      for name in ["even", "odd"] {
+        let (_, index) = statistics.collected[name].pipeline.get_latest().unwrap();
         assert_eq!(*index, frame_index);
       }
+      let (_, index) = statistics.frame_total.pipeline.get_latest().unwrap();
+      assert_eq!(*index, frame_index);
     }
   }
-
   #[test]
   fn test_statistic_store() {
     let mut store = StatisticStore::<f32>::new(4);
@@ -445,6 +564,8 @@ mod test {
       .map(|v| v.copied())
       .collect();
     assert_eq!(history, vec![None, Some(3.), None, Some(5.)]);
+    assert_eq!(store.get(3), Some(&3.));
+    assert_eq!(store.get(1), None);
     assert_eq!(store.history_average(), Some(4.));
 
     store.clear();

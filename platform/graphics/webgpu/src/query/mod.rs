@@ -2,6 +2,8 @@ mod time;
 pub use time::*;
 mod pipeline;
 pub use pipeline::*;
+mod pass_statistics;
+pub use pass_statistics::*;
 
 use crate::*;
 
