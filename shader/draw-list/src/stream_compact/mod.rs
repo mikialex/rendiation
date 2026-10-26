@@ -16,11 +16,7 @@ impl DeviceDrawList {
     let gpu = cx.gpu.clone();
 
     let (cx, target_state) = cx.use_plain_state_default::<Option<DeviceDrawList>>();
-    let target = self.create_or_update_compact_culling_write_target(
-      &gpu,
-      target_state,
-      &self.dispatch_info.host_capacity_ranges,
-    );
+    let target = self.create_or_update_compact_culling_write_target(&gpu, target_state);
 
     let output_pool = target.id_pool.clone().into_rw_view();
     let device_ranges = &target.dispatch_info.device_ranges;
@@ -56,7 +52,7 @@ impl DeviceDrawList {
           sub_list_ranges: scatter.output_ranges.into_readonly_view(),
           sum_all_count: scatter.total_count_out.into_readonly_view(),
         },
-        host_capacity_ranges: self.dispatch_info.host_capacity_ranges.clone(),
+        host_capacity_ranges: target.dispatch_info.host_capacity_ranges.clone(),
         total_capacity: target.dispatch_info.total_capacity,
       },
     }

@@ -1,45 +1,74 @@
 use crate::{stream_compact::ListOfListsCullingPredicate, *};
 
-/// Build a DeviceDrawList with 3 sub-lists for testing:
-///
-/// Sub-list 0: [10, 20]  (offset=0, count=2)
-/// Sub-list 1: [30, 40, 50]  (offset=2, count=3)
-/// Sub-list 2: [60, 70]  (offset=5, count=2)
-///
-/// Total: 7 elements, 3 sub-lists
-fn build_test_draw_list(gpu: &GPU) -> DeviceDrawList {
-  let model_ids: Vec<u32> = vec![10, 20, 30, 40, 50, 60, 70];
-  let scene_model_id_pool =
-    create_gpu_readonly_storage(model_ids.as_slice(), gpu, "scene_model_id_pool");
+/// One sub-list of the test input. The ids are the real content, the capacity is the size of
+/// the pool region.
+struct TestSubList {
+  capacity: u32,
+  ids: Vec<u32>,
+}
 
-  let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
-    StorageSubListRangeInfo::new(0, 2, 0),
-    StorageSubListRangeInfo::new(2, 3, 2),
-    StorageSubListRangeInfo::new(5, 2, 5),
-  ];
-  let device_ranges = DeviceMultiRangeDispatchInfo::new(gpu, ranges_vec.as_slice());
+fn sub(capacity: u32, ids: &[u32]) -> TestSubList {
+  assert!(ids.len() as u32 <= capacity);
+  TestSubList {
+    capacity,
+    ids: ids.to_vec(),
+  }
+}
+
+/// Build the draw list from the sub-lists, the pool regions are placed at the given offsets.
+/// The unused capacity is filled by a marker that should never appear in the output.
+fn build_draw_list_with_offsets(
+  gpu: &GPU,
+  sub_lists: &[TestSubList],
+  offsets: &[u32],
+) -> DeviceDrawList {
+  const UNUSED_MARKER: u32 = u32::MAX;
+  let host_capacity_ranges: Vec<_> = sub_lists
+    .iter()
+    .zip(offsets)
+    .map(|(sub_list, &offset)| CapacityRange {
+      capacity: sub_list.capacity,
+      offset,
+    })
+    .collect();
+
+  let pool_size = host_capacity_ranges
+    .iter()
+    .map(|r| r.offset + r.capacity)
+    .max()
+    .unwrap();
+  let mut pool = vec![UNUSED_MARKER; pool_size as usize];
+  for (sub_list, range) in sub_lists.iter().zip(&host_capacity_ranges) {
+    let start = range.offset as usize;
+    pool[start..start + sub_list.ids.len()].copy_from_slice(&sub_list.ids);
+  }
+  let id_pool = create_gpu_readonly_storage(pool.as_slice(), gpu, "scene_model_id_pool");
+
+  let lengths: Vec<_> = sub_lists.iter().map(|s| s.ids.len() as u32).collect();
+  let ranges = prepare_gpu_sub_list_ranges(&host_capacity_ranges, &lengths);
+  let device_ranges = DeviceMultiRangeDispatchInfo::new(gpu, ranges.as_slice());
 
   DeviceDrawList {
-    id_pool: scene_model_id_pool,
+    id_pool,
     dispatch_info: MultiRangeDispatchInfo {
       device_ranges,
-      host_capacity_ranges: vec![
-        CapacityRange {
-          capacity: 2,
-          offset: 0,
-        },
-        CapacityRange {
-          capacity: 3,
-          offset: 2,
-        },
-        CapacityRange {
-          capacity: 2,
-          offset: 5,
-        },
-      ],
-      total_capacity: 7,
+      host_capacity_ranges,
+      total_capacity: lengths.iter().sum(),
     },
   }
+}
+
+fn build_draw_list(gpu: &GPU, sub_lists: &[TestSubList]) -> DeviceDrawList {
+  let capacities: Vec<_> = sub_lists
+    .iter()
+    .map(|s| CapacityRange {
+      capacity: s.capacity,
+      offset: 0,
+    })
+    .collect();
+  let (ranges, _) = compact_capacity_ranges(&capacities);
+  let offsets: Vec<_> = ranges.iter().map(|r| r.offset).collect();
+  build_draw_list_with_offsets(gpu, sub_lists, &offsets)
 }
 
 /// Culler that keeps only elements with id <= 40.
@@ -59,6 +88,13 @@ impl AbstractCullerInvocation for KeepLeq40CullerInvocation {
   fn cull(&self, id: Node<u32>) -> Node<bool> {
     id.greater_than(val(40u32))
   }
+}
+
+fn keep_all(_: u32) -> bool {
+  true
+}
+fn keep_leq_40(id: u32) -> bool {
+  id <= 40
 }
 
 async fn read_storage_u32(
@@ -91,6 +127,67 @@ async fn read_storage_scalar_u32(
   <[u32]>::from_bytes_into_boxed(&fut.await.unwrap().read_raw())[0]
 }
 
+/// Check the culled list matches the cpu reference: the survivors of each sub-list keep their
+/// order and are packed at the start of the sub-list's region, the regions are placed by
+/// [compact_capacity_ranges], and the device offsets equal to the host offsets.
+async fn check_culled_list(
+  cx: &mut DeviceParallelComputeCtx<'_>,
+  result: &DeviceDrawList,
+  input: &[TestSubList],
+  keep: impl Fn(u32) -> bool,
+) {
+  let capacities: Vec<_> = input
+    .iter()
+    .map(|s| CapacityRange {
+      capacity: s.capacity,
+      offset: 0,
+    })
+    .collect();
+  let (expected_layout, _) = compact_capacity_ranges(&capacities);
+  assert_eq!(result.dispatch_info.host_capacity_ranges, expected_layout);
+
+  let survivors: Vec<Vec<u32>> = input
+    .iter()
+    .map(|s| s.ids.iter().copied().filter(|id| keep(*id)).collect())
+    .collect();
+  let lengths: Vec<_> = survivors.iter().map(|s| s.len() as u32).collect();
+  let expected_ranges = prepare_gpu_sub_list_ranges(&expected_layout, &lengths);
+
+  let ranges =
+    read_storage_sub_list_range_info(cx, &result.dispatch_info.device_ranges.sub_list_ranges).await;
+  assert_eq!(ranges, expected_ranges, "sub-list ranges");
+
+  let total = read_storage_scalar_u32(cx, &result.dispatch_info.device_ranges.sum_all_count).await;
+  assert_eq!(total, lengths.iter().sum::<u32>(), "total survivor count");
+
+  let pool = read_storage_u32(cx, &result.id_pool).await;
+  for (i, (range, expected)) in expected_layout.iter().zip(&survivors).enumerate() {
+    let start = range.offset as usize;
+    assert_eq!(
+      &pool[start..start + expected.len()],
+      expected.as_slice(),
+      "survivors of sub-list {i}"
+    );
+  }
+}
+
+async fn run_culling_case(input: Vec<TestSubList>) {
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let mut encoder = gpu.create_encoder();
+  let mut memory = Default::default();
+  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
+
+  let draw_list = build_draw_list(&gpu, &input);
+
+  cx.next_scope_index();
+  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
+  check_culled_list(&mut cx, &result, &input, keep_all).await;
+
+  cx.next_scope_index();
+  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler));
+  check_culled_list(&mut cx, &result, &input, keep_leq_40).await;
+}
+
 #[pollster::test]
 async fn test_predicate_mask_noop() {
   let gpu = GPU::new(Default::default()).await.unwrap();
@@ -98,7 +195,8 @@ async fn test_predicate_mask_noop() {
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
 
-  let draw_list = build_test_draw_list(&gpu);
+  let input = [sub(2, &[10, 20]), sub(3, &[30, 40, 50]), sub(2, &[60, 70])];
+  let draw_list = build_draw_list(&gpu, &input);
   let predicate = ListOfListsCullingPredicate {
     draw_list,
     culler: Box::new(NoopCuller),
@@ -113,658 +211,102 @@ async fn test_predicate_mask_noop() {
 }
 
 #[pollster::test]
-async fn test_draw_list_culling_noop() {
-  let gpu = GPU::new(Default::default()).await.unwrap();
-  let mut encoder = gpu.create_encoder();
-  let mut memory = Default::default();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
+async fn test_draw_list_culling_basic() {
+  run_culling_case(vec![
+    sub(2, &[10, 20]),
+    sub(3, &[30, 40, 50]),
+    sub(2, &[60, 70]),
+  ])
+  .await;
+}
 
-  let draw_list = build_test_draw_list(&gpu);
-  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
-
-  // All 7 elements should survive.
-  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
-  assert_eq!(
-    pool,
-    vec![10, 20, 30, 40, 50, 60, 70],
-    "NoopCuller: all elements should survive"
-  );
-
-  let ranges =
-    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.device_ranges.sub_list_ranges)
-      .await;
-  assert_eq!(ranges.len(), 3);
-  assert_eq!(
-    ranges[0],
-    StorageSubListRangeInfo::new(0, 2, 0),
-    "sub-list 0 ranges"
-  );
-  assert_eq!(
-    ranges[1],
-    StorageSubListRangeInfo::new(2, 3, 2),
-    "sub-list 1 ranges"
-  );
-  assert_eq!(
-    ranges[2],
-    StorageSubListRangeInfo::new(5, 2, 5),
-    "sub-list 2 ranges"
-  );
-
-  let total =
-    read_storage_scalar_u32(&mut cx, &result.dispatch_info.device_ranges.sum_all_count).await;
-  assert_eq!(total, 7, "total survivor count");
+/// mimics the output of a prior culling pass where all elements in the first sub-list were
+/// culled, this triggers u32 underflow without the guard.
+#[pollster::test]
+async fn test_draw_list_culling_empty_first_sub_list() {
+  run_culling_case(vec![sub(2, &[]), sub(3, &[30, 40]), sub(2, &[60, 70])]).await;
 }
 
 #[pollster::test]
-async fn test_draw_list_culling_partial() {
-  let gpu = GPU::new(Default::default()).await.unwrap();
-  let mut encoder = gpu.create_encoder();
-  let mut memory = Default::default();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
-
-  let draw_list = build_test_draw_list(&gpu);
-  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler {}));
-
-  // Elements 50, 60, 70 should be culled (id > 40).
-  // Sub-list 0: [10, 20] → both survive → count=2
-  // Sub-list 1: [30, 40, 50] → 30, 40 survive → count=2
-  // Sub-list 2: [60, 70] → both culled → count=0
-  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
-  // The surviving elements are packed at the beginning of each sub-list's region.
-  // Zeros fill the unused capacity space.
-  assert_eq!(pool[0], 10);
-  assert_eq!(pool[1], 20);
-  assert_eq!(pool[2], 30);
-  assert_eq!(pool[3], 40);
-  // pool[4..7] are garbage/unused in sub-list 1's remaining capacity and sub-list 2's region
-  assert_eq!(pool.len(), 7);
-
-  let ranges =
-    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.device_ranges.sub_list_ranges)
-      .await;
-  assert_eq!(ranges.len(), 3);
-  assert_eq!(
-    ranges[0],
-    StorageSubListRangeInfo::new(0, 2, 0),
-    "sub-list 0: offset=0, count=2, excl=0"
-  );
-  assert_eq!(
-    ranges[1],
-    StorageSubListRangeInfo::new(2, 2, 2),
-    "sub-list 1: offset=2, count=2, excl=2"
-  );
-  assert_eq!(
-    ranges[2],
-    StorageSubListRangeInfo::new(4, 0, 4),
-    "sub-list 2: offset=4, count=0, excl=4"
-  );
-
-  let total =
-    read_storage_scalar_u32(&mut cx, &result.dispatch_info.device_ranges.sum_all_count).await;
-  assert_eq!(total, 4, "total survivor count should be 4");
-}
-
-/// Build a DeviceDrawList with 3 sub-lists where the first is empty.
-/// This mimics the output of a prior culling pass where all elements
-/// in the first sub-list were culled.
-///
-/// Based on the same layout as build_test_draw_list, but after culling
-/// sub-list 0's elements (ids < 30). Sub-list 1 had 1 of 3 culled.
-///
-/// Sub-list 0: empty  (offset=0, count=0)
-/// Sub-list 1: [30, 40]  (offset=2, count=2, originally 3)
-/// Sub-list 2: [60, 70]  (offset=5, count=2)
-///
-/// Total: 4 elements, 3 sub-lists. Sub-list 0 has z=0, y=0 —
-/// the exact case that triggers u32 underflow without the guard.
-fn build_test_draw_list_with_empty_first_sub_list(gpu: &GPU) -> DeviceDrawList {
-  // Pool layout matches original offsets: [0,1]=sub-list0, [2,3,4]=sub-list1, [5,6]=sub-list2
-  // Indices 0,1,4 are unused padding from culled/missing elements
-  let model_ids: Vec<u32> = vec![0, 0, 30, 40, 0, 60, 70];
-  let scene_model_id_pool =
-    create_gpu_readonly_storage(model_ids.as_slice(), gpu, "scene_model_id_pool");
-
-  let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
-    StorageSubListRangeInfo::new(0, 0, 0), // sub-list 0: offset=0, count=0, prefix_sum=0
-    StorageSubListRangeInfo::new(2, 2, 0), // sub-list 1: offset=2, count=2, prefix_sum=0
-    StorageSubListRangeInfo::new(5, 2, 2), // sub-list 2: offset=5, count=2, prefix_sum=2
-  ];
-  let device_ranges = DeviceMultiRangeDispatchInfo::new(gpu, ranges_vec.as_slice());
-
-  DeviceDrawList {
-    id_pool: scene_model_id_pool,
-    dispatch_info: MultiRangeDispatchInfo {
-      device_ranges,
-      // Capacities must match the original capacities (see build_test_draw_list),
-      // not the current survivor counts — offsets are derived from original capacities.
-      host_capacity_ranges: vec![
-        CapacityRange {
-          capacity: 2,
-          offset: 0,
-        },
-        CapacityRange {
-          capacity: 3,
-          offset: 2,
-        },
-        CapacityRange {
-          capacity: 2,
-          offset: 5,
-        },
-      ],
-      total_capacity: 7, // 2+3+2 = total capacity
-    },
-  }
+async fn test_draw_list_culling_two_empty_first_sub_lists() {
+  run_culling_case(vec![sub(2, &[]), sub(3, &[]), sub(2, &[60, 70])]).await;
 }
 
 #[pollster::test]
-async fn test_draw_list_culling_empty_first_sub_list_noop() {
-  let gpu = GPU::new(Default::default()).await.unwrap();
-  let mut encoder = gpu.create_encoder();
-  let mut memory = Default::default();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
-
-  let draw_list = build_test_draw_list_with_empty_first_sub_list(&gpu);
-  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
-
-  // All 4 elements should survive: 30, 40, 60, 70
-  // After compact: sub-list 0 empty → no elements
-  // Sub-list 1: [30, 40] at compact offset 0 → pool[0], pool[1]
-  // Sub-list 2: [60, 70] at compact offset 2 → pool[2], pool[3]
-  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
-  assert_eq!(pool.len(), 7, "pool capacity should be 7 (2+3+2)");
-  assert_eq!(pool[0], 30, "sub-list 1 first survivor");
-  assert_eq!(pool[1], 40, "sub-list 1 second survivor");
-  assert_eq!(pool[2], 60, "sub-list 2 first survivor");
-  assert_eq!(pool[3], 70, "sub-list 2 second survivor");
-
-  let ranges =
-    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.device_ranges.sub_list_ranges)
-      .await;
-  assert_eq!(ranges.len(), 3);
-  assert_eq!(
-    ranges[0],
-    StorageSubListRangeInfo::new(0, 0, 0),
-    "sub-list 0 remains empty"
-  );
-  assert_eq!(
-    ranges[1],
-    StorageSubListRangeInfo::new(0, 2, 0),
-    "sub-list 1: offset=0, 2 survivors, excl=0"
-  );
-  assert_eq!(
-    ranges[2],
-    StorageSubListRangeInfo::new(2, 2, 2),
-    "sub-list 2: offset=2, 2 survivors, excl=2"
-  );
-
-  let total =
-    read_storage_scalar_u32(&mut cx, &result.dispatch_info.device_ranges.sum_all_count).await;
-  assert_eq!(total, 4, "total survivor count should be 4");
+async fn test_draw_list_culling_empty_middle_sub_list() {
+  run_culling_case(vec![sub(2, &[10, 20]), sub(3, &[]), sub(2, &[60, 70])]).await;
 }
 
 #[pollster::test]
-async fn test_draw_list_culling_empty_first_sub_list_partial() {
-  let gpu = GPU::new(Default::default()).await.unwrap();
-  let mut encoder = gpu.create_encoder();
-  let mut memory = Default::default();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
-
-  let draw_list = build_test_draw_list_with_empty_first_sub_list(&gpu);
-
-  // KeepLeq40Culler: culls ids > 40 → 60, 70 are culled.
-  // Survivors: 30, 40 from sub-list 1; sub-list 2 becomes empty.
-  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler {}));
-
-  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
-  assert_eq!(pool.len(), 7);
-  // Sub-list 1: [30, 40] at compact offset 0 → pool[0], pool[1]
-  assert_eq!(pool[0], 30);
-  assert_eq!(pool[1], 40);
-  // Sub-list 2: both culled → no survivors in compact region
-  assert_eq!(pool[2], 0, "sub-list 2 first compact slot should be empty");
-  assert_eq!(pool[3], 0, "sub-list 2 second compact slot should be empty");
-
-  let ranges =
-    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.device_ranges.sub_list_ranges)
-      .await;
-  assert_eq!(ranges.len(), 3);
-  assert_eq!(
-    ranges[0],
-    StorageSubListRangeInfo::new(0, 0, 0),
-    "sub-list 0 still empty"
-  );
-  assert_eq!(
-    ranges[1],
-    StorageSubListRangeInfo::new(0, 2, 0),
-    "sub-list 1: 2 survivors"
-  );
-  assert_eq!(
-    ranges[2],
-    StorageSubListRangeInfo::new(2, 0, 2),
-    "sub-list 2: 0 survivors, excl=2"
-  );
-
-  let total =
-    read_storage_scalar_u32(&mut cx, &result.dispatch_info.device_ranges.sum_all_count).await;
-  assert_eq!(total, 2, "only 30 and 40 survive");
+async fn test_draw_list_culling_consecutive_empty_middle_sub_lists() {
+  run_culling_case(vec![
+    sub(2, &[10, 20]),
+    sub(2, &[]),
+    sub(2, &[]),
+    sub(2, &[30, 40]),
+  ])
+  .await;
 }
 
-/// Build a DeviceDrawList with 3 sub-lists where the first TWO are empty.
-/// This tests the cascading empty sub-list case: p_prev computation for sub-list 2
-/// must walk back through two consecutive empty sub-lists without underflow.
-///
-/// Sub-list 0: empty  (offset=0, count=0)
-/// Sub-list 1: empty  (offset=2, count=0)
-/// Sub-list 2: [60, 70]  (offset=5, count=2)
-///
-/// Total: 2 elements, 3 sub-lists. Both sub-lists 0 and 1 have z=0, y=0.
-fn build_test_draw_list_with_two_empty_first_sub_lists(gpu: &GPU) -> DeviceDrawList {
-  // Pool: [0, 0, 0, 0, 0, 60, 70] — all slots except 5,6 are unused
-  let model_ids: Vec<u32> = vec![0, 0, 0, 0, 0, 60, 70];
-  let scene_model_id_pool =
-    create_gpu_readonly_storage(model_ids.as_slice(), gpu, "scene_model_id_pool");
-
-  let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
-    StorageSubListRangeInfo::new(0, 0, 0), // sub-list 0: empty
-    StorageSubListRangeInfo::new(2, 0, 0), /* sub-list 1: empty, z still 0 (no preceding elements contributed) */
-    StorageSubListRangeInfo::new(5, 2, 0), /* sub-list 2: offset=5, count=2, z=0 (no preceding elements) */
-  ];
-  let device_ranges = DeviceMultiRangeDispatchInfo::new(gpu, ranges_vec.as_slice());
-
-  DeviceDrawList {
-    id_pool: scene_model_id_pool,
-    dispatch_info: MultiRangeDispatchInfo {
-      device_ranges,
-      host_capacity_ranges: vec![
-        CapacityRange {
-          capacity: 2,
-          offset: 0,
-        },
-        CapacityRange {
-          capacity: 3,
-          offset: 2,
-        },
-        CapacityRange {
-          capacity: 2,
-          offset: 5,
-        },
-      ],
-      total_capacity: 7,
-    },
-  }
+/// The sub-list count is larger than the dispatched thread count derived from the element
+/// count, the metadata of every sub-list must still be written.
+#[pollster::test]
+async fn test_draw_list_culling_many_sub_lists_few_elements() {
+  let mut input: Vec<_> = (0..300).map(|_| sub(1, &[])).collect();
+  input.push(sub(2, &[30, 50]));
+  run_culling_case(input).await;
 }
 
 #[pollster::test]
-async fn test_draw_list_culling_two_empty_first_sub_lists_noop() {
-  let gpu = GPU::new(Default::default()).await.unwrap();
-  let mut encoder = gpu.create_encoder();
-  let mut memory = Default::default();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
-
-  let draw_list = build_test_draw_list_with_two_empty_first_sub_lists(&gpu);
-  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
-
-  // Only 2 elements survive: 60, 70
-  // After compact: all preceding sub-lists empty → survivors at offset 0
-  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
-  assert_eq!(pool.len(), 7);
-  assert_eq!(pool[0], 60, "sub-list 2 first survivor");
-  assert_eq!(pool[1], 70, "sub-list 2 second survivor");
-
-  let ranges =
-    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.device_ranges.sub_list_ranges)
-      .await;
-  assert_eq!(ranges.len(), 3);
-  assert_eq!(
-    ranges[0],
-    StorageSubListRangeInfo::new(0, 0, 0),
-    "sub-list 0 remains empty"
-  );
-  assert_eq!(
-    ranges[1],
-    StorageSubListRangeInfo::new(0, 0, 0),
-    "sub-list 1 remains empty"
-  );
-  assert_eq!(
-    ranges[2],
-    StorageSubListRangeInfo::new(0, 2, 0),
-    "sub-list 2: offset=0, 2 survivors, excl=0"
-  );
-
-  let total =
-    read_storage_scalar_u32(&mut cx, &result.dispatch_info.device_ranges.sum_all_count).await;
-  assert_eq!(total, 2, "total survivor count should be 2");
+async fn test_draw_list_culling_many_sparse_sub_lists() {
+  let input = (0..700)
+    .map(|i| match i % 7 {
+      0 => sub(3, &[10, 50, 20]),
+      3 => sub(2, &[60]),
+      _ => sub(1, &[]),
+    })
+    .collect();
+  run_culling_case(input).await;
 }
 
+/// The input regions are not placed compactly (like the sub-lists allocated in a shared pool),
+/// the output is still placed compactly by capacity.
 #[pollster::test]
-async fn test_draw_list_culling_two_empty_first_sub_lists_partial() {
+async fn test_draw_list_culling_none_compact_input() {
   let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
 
-  let draw_list = build_test_draw_list_with_two_empty_first_sub_lists(&gpu);
-
-  // KeepLeq40Culler: culls ids > 40 → 60, 70 are both culled.
-  // Result: all sub-lists become empty.
-  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler {}));
-
-  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
-  assert_eq!(pool.len(), 7);
-  // All sub-lists empty → no survivors in compact region
-  assert_eq!(pool[0], 0, "first compact slot should be empty");
-  assert_eq!(pool[1], 0, "second compact slot should be empty");
-
-  let ranges =
-    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.device_ranges.sub_list_ranges)
-      .await;
-  assert_eq!(ranges.len(), 3);
-  assert_eq!(
-    ranges[0],
-    StorageSubListRangeInfo::new(0, 0, 0),
-    "sub-list 0 empty"
-  );
-  assert_eq!(
-    ranges[1],
-    StorageSubListRangeInfo::new(0, 0, 0),
-    "sub-list 1 empty"
-  );
-  assert_eq!(
-    ranges[2],
-    StorageSubListRangeInfo::new(0, 0, 0),
-    "sub-list 2: 0 survivors, excl still 0 (all preceding empty + current empty)"
-  );
-
-  let total =
-    read_storage_scalar_u32(&mut cx, &result.dispatch_info.device_ranges.sum_all_count).await;
-  assert_eq!(total, 0, "no survivors at all");
+  let input = [sub(2, &[10, 50]), sub(4, &[30, 40, 60]), sub(3, &[70])];
+  let draw_list = build_draw_list_with_offsets(&gpu, &input, &[20, 3, 11]);
+  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler));
+  check_culled_list(&mut cx, &result, &input, keep_leq_40).await;
 }
 
-/// Build a DeviceDrawList where the middle sub-list is empty (z > 0, y = 0).
-/// This tests that the normal path (without guard) correctly handles empty
-/// sub-lists not at the front: since z > 0, `z + y - 1 = z - 1` is safe.
-///
-/// Sub-list 0: [10, 20]  (offset=0, count=2)
-/// Sub-list 1: empty  (offset=2, count=0)
-/// Sub-list 2: [60, 70]  (offset=5, count=2)
-///
-/// Total: 4 elements, sub-list 1 has z=2, y=0.
-fn build_test_draw_list_with_empty_middle_sub_list(gpu: &GPU) -> DeviceDrawList {
-  // Pool: [10, 20, 0, 0, 0, 60, 70] — sub-list 1 slots (2..4) are unused
-  let model_ids: Vec<u32> = vec![10, 20, 0, 0, 0, 60, 70];
-  let scene_model_id_pool =
-    create_gpu_readonly_storage(model_ids.as_slice(), gpu, "scene_model_id_pool");
-
-  let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
-    StorageSubListRangeInfo::new(0, 2, 0), // sub-list 0: offset=0, count=2, prefix_sum=0
-    StorageSubListRangeInfo::new(2, 0, 2), // sub-list 1: empty, z=2 (>0, guard won't trigger)
-    StorageSubListRangeInfo::new(5, 2, 2), // sub-list 2: offset=5, count=2, prefix_sum=2
-  ];
-  let device_ranges = DeviceMultiRangeDispatchInfo::new(gpu, ranges_vec.as_slice());
-
-  DeviceDrawList {
-    id_pool: scene_model_id_pool,
-    dispatch_info: MultiRangeDispatchInfo {
-      device_ranges,
-      host_capacity_ranges: vec![
-        CapacityRange {
-          capacity: 2,
-          offset: 0,
-        },
-        CapacityRange {
-          capacity: 3,
-          offset: 2,
-        },
-        CapacityRange {
-          capacity: 2,
-          offset: 5,
-        },
-      ],
-      total_capacity: 7,
-    },
-  }
-}
-
+/// The culled list is a valid input of another culling.
 #[pollster::test]
-async fn test_draw_list_culling_empty_middle_sub_list_noop() {
+async fn test_draw_list_culling_chained() {
   let gpu = GPU::new(Default::default()).await.unwrap();
   let mut encoder = gpu.create_encoder();
   let mut memory = Default::default();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
 
-  let draw_list = build_test_draw_list_with_empty_middle_sub_list(&gpu);
-  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
+  let input: Vec<_> = (0..400)
+    .map(|i| {
+      if i % 5 == 0 {
+        sub(4, &[50, 10, 60, 20])
+      } else {
+        sub(2, &[70])
+      }
+    })
+    .collect();
+  let draw_list =
+    build_draw_list_with_offsets(&gpu, &input, &(0..400).map(|i| i * 4).collect::<Vec<_>>());
 
-  // 4 survivors: 10, 20, 60, 70
-  // After compact: sub-list 0 at offset 0, sub-list 1 empty, sub-list 2 at offset 2
-  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
-  assert_eq!(pool.len(), 7);
-  assert_eq!(pool[0], 10);
-  assert_eq!(pool[1], 20);
-  // Sub-list 1: empty — no elements in compact region at offset 2
-  // Sub-list 2: [60, 70] at compact offset 2 → pool[2], pool[3]
-  assert_eq!(pool[2], 60);
-  assert_eq!(pool[3], 70);
-
-  let ranges =
-    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.device_ranges.sub_list_ranges)
-      .await;
-  assert_eq!(ranges.len(), 3);
-  assert_eq!(
-    ranges[0],
-    StorageSubListRangeInfo::new(0, 2, 0),
-    "sub-list 0: 2 survivors"
-  );
-  assert_eq!(
-    ranges[1],
-    StorageSubListRangeInfo::new(2, 0, 2),
-    "sub-list 1: still empty, excl=2"
-  );
-  assert_eq!(
-    ranges[2],
-    StorageSubListRangeInfo::new(2, 2, 2),
-    "sub-list 2: 2 survivors, excl=2"
-  );
-
-  let total =
-    read_storage_scalar_u32(&mut cx, &result.dispatch_info.device_ranges.sum_all_count).await;
-  assert_eq!(total, 4, "total survivor count should be 4");
-}
-
-#[pollster::test]
-async fn test_draw_list_culling_empty_middle_sub_list_partial() {
-  let gpu = GPU::new(Default::default()).await.unwrap();
-  let mut encoder = gpu.create_encoder();
-  let mut memory = Default::default();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
-
-  let draw_list = build_test_draw_list_with_empty_middle_sub_list(&gpu);
-
-  // KeepLeq40Culler: keeps only ids <= 40 → culls 60, 70 from sub-list 2.
-  // Survivors: 10, 20 from sub-list 0; sub-list 1 already empty; sub-list 2 becomes empty.
-  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler {}));
-
-  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
-  assert_eq!(pool.len(), 7);
-  assert_eq!(pool[0], 10);
-  assert_eq!(pool[1], 20);
-  // Sub-list 2: both culled → compact slots at offset 2 are empty
-  assert_eq!(pool[2], 0);
-  assert_eq!(pool[3], 0);
-
-  let ranges =
-    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.device_ranges.sub_list_ranges)
-      .await;
-  assert_eq!(ranges.len(), 3);
-  assert_eq!(
-    ranges[0],
-    StorageSubListRangeInfo::new(0, 2, 0),
-    "sub-list 0: 2 survivors"
-  );
-  assert_eq!(
-    ranges[1],
-    StorageSubListRangeInfo::new(2, 0, 2),
-    "sub-list 1: still empty"
-  );
-  assert_eq!(
-    ranges[2],
-    StorageSubListRangeInfo::new(2, 0, 2),
-    "sub-list 2: now also empty, excl=2"
-  );
-
-  let total =
-    read_storage_scalar_u32(&mut cx, &result.dispatch_info.device_ranges.sum_all_count).await;
-  assert_eq!(total, 2, "only 10 and 20 survive");
-}
-
-/// Build a DeviceDrawList with 4 sub-lists where two consecutive middle ones are empty.
-/// This tests that the normal path (z > 0, no guard triggered) handles cascading
-/// empty sub-lists that are not at the front.
-///
-/// Sub-list 0: [10, 20]  (offset=0, count=2)
-/// Sub-list 1: empty  (offset=2, count=0)
-/// Sub-list 2: empty  (offset=4, count=0)
-/// Sub-list 3: [30, 40]  (offset=6, count=2)
-///
-/// Total: 4 elements. Sub-lists 1, 2 both have z=2, y=0.
-fn build_test_draw_list_with_consecutive_empty_middle_sub_lists(gpu: &GPU) -> DeviceDrawList {
-  // Pool: [10, 20, _, _, _, _, 30, 40] (indices 2..5 unused)
-  let model_ids: Vec<u32> = vec![10, 20, 0, 0, 0, 0, 30, 40];
-  let scene_model_id_pool =
-    create_gpu_readonly_storage(model_ids.as_slice(), gpu, "scene_model_id_pool");
-
-  let ranges_vec: Vec<StorageSubListRangeInfo> = vec![
-    StorageSubListRangeInfo::new(0, 2, 0), // sub-list 0: offset=0, count=2, z=0
-    StorageSubListRangeInfo::new(2, 0, 2), // sub-list 1: empty, z=2
-    StorageSubListRangeInfo::new(4, 0, 2), // sub-list 2: empty, z=2 (unchanged, no contribution)
-    StorageSubListRangeInfo::new(6, 2, 2), // sub-list 3: offset=6, count=2, z=2
-  ];
-  let device_ranges = DeviceMultiRangeDispatchInfo::new(gpu, ranges_vec.as_slice());
-
-  DeviceDrawList {
-    id_pool: scene_model_id_pool,
-    dispatch_info: MultiRangeDispatchInfo {
-      device_ranges,
-      host_capacity_ranges: vec![
-        CapacityRange {
-          capacity: 2,
-          offset: 0,
-        },
-        CapacityRange {
-          capacity: 2,
-          offset: 2,
-        },
-        CapacityRange {
-          capacity: 2,
-          offset: 4,
-        },
-        CapacityRange {
-          capacity: 2,
-          offset: 6,
-        },
-      ],
-      total_capacity: 8,
-    },
-  }
-}
-
-#[pollster::test]
-async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_noop() {
-  let gpu = GPU::new(Default::default()).await.unwrap();
-  let mut encoder = gpu.create_encoder();
-  let mut memory = Default::default();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
-
-  let draw_list = build_test_draw_list_with_consecutive_empty_middle_sub_lists(&gpu);
-  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
-
-  // 4 survivors: 10, 20, 30, 40
-  // After compact: sub-list 0 at offset 0, empty sub-lists 1-2, sub-list 3 at offset 2
-  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
-  assert_eq!(pool.len(), 8);
-  assert_eq!(pool[0], 10);
-  assert_eq!(pool[1], 20);
-  // Sub-lists 1, 2: empty → no elements in compact region
-  // Sub-list 3: [30, 40] at compact offset 2 → pool[2], pool[3]
-  assert_eq!(pool[2], 30);
-  assert_eq!(pool[3], 40);
-
-  let ranges =
-    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.device_ranges.sub_list_ranges)
-      .await;
-  assert_eq!(ranges.len(), 4);
-  assert_eq!(
-    ranges[0],
-    StorageSubListRangeInfo::new(0, 2, 0),
-    "sub-list 0: 2 survivors"
-  );
-  assert_eq!(
-    ranges[1],
-    StorageSubListRangeInfo::new(2, 0, 2),
-    "sub-list 1: empty, excl=2"
-  );
-  assert_eq!(
-    ranges[2],
-    StorageSubListRangeInfo::new(2, 0, 2),
-    "sub-list 2: empty, excl=2"
-  );
-  assert_eq!(
-    ranges[3],
-    StorageSubListRangeInfo::new(2, 2, 2),
-    "sub-list 3: 2 survivors, excl=2"
-  );
-
-  let total =
-    read_storage_scalar_u32(&mut cx, &result.dispatch_info.device_ranges.sum_all_count).await;
-  assert_eq!(total, 4, "total survivor count should be 4");
-}
-
-#[pollster::test]
-async fn test_draw_list_culling_consecutive_empty_middle_sub_lists_partial() {
-  let gpu = GPU::new(Default::default()).await.unwrap();
-  let mut encoder = gpu.create_encoder();
-  let mut memory = Default::default();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
-
-  let draw_list = build_test_draw_list_with_consecutive_empty_middle_sub_lists(&gpu);
-
-  // KeepLeq40Culler: keeps ids <= 40 → all 4 elements survive (10, 20, 30, 40 ≤ 40).
-  let result = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler {}));
-
-  let pool = read_storage_u32(&mut cx, &result.id_pool).await;
-  assert_eq!(pool.len(), 8);
-  assert_eq!(pool[0], 10);
-  assert_eq!(pool[1], 20);
-  // Sub-lists 1, 2: empty; sub-list 3 at compact offset 2
-  assert_eq!(pool[2], 30);
-  assert_eq!(pool[3], 40);
-
-  let ranges =
-    read_storage_sub_list_range_info(&mut cx, &result.dispatch_info.device_ranges.sub_list_ranges)
-      .await;
-  assert_eq!(ranges.len(), 4);
-  assert_eq!(
-    ranges[0],
-    StorageSubListRangeInfo::new(0, 2, 0),
-    "sub-list 0: 2 survivors"
-  );
-  assert_eq!(
-    ranges[1],
-    StorageSubListRangeInfo::new(2, 0, 2),
-    "sub-list 1: empty"
-  );
-  assert_eq!(
-    ranges[2],
-    StorageSubListRangeInfo::new(2, 0, 2),
-    "sub-list 2: empty"
-  );
-  assert_eq!(
-    ranges[3],
-    StorageSubListRangeInfo::new(2, 2, 2),
-    "sub-list 3: 2 survivors, excl=2"
-  );
-
-  let total =
-    read_storage_scalar_u32(&mut cx, &result.dispatch_info.device_ranges.sum_all_count).await;
-  assert_eq!(total, 4, "all 4 survive (all ids ≤ 40)");
+  cx.next_scope_index();
+  let first = draw_list.use_culled_list_and_do_culling(&mut cx, Box::new(KeepLeq40Culler));
+  cx.next_scope_index();
+  let second = first.use_culled_list_and_do_culling(&mut cx, Box::new(NoopCuller));
+  check_culled_list(&mut cx, &second, &input, keep_leq_40).await;
 }

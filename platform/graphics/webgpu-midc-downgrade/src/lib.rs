@@ -256,8 +256,9 @@ pub fn use_downgrade_multi_indirect_draw_count_list_pool(
         .unwrap()
         .into();
 
-    let draw_commands =
-      create_command_pool_view(&input.command_pool, info.offset, info.capacity, align_bytes);
+    let command_size = input.command_pool.command_byte_size();
+    debug_assert!((info.offset as u64 * command_size).is_multiple_of(align_bytes));
+    let draw_commands = input.command_pool.sub_view(info.offset, info.capacity);
 
     let helper = DowngradeMultiIndirectDrawCountHelper {
       sub_draw_range_start_prefix_sum: prefix_abstract,
@@ -284,39 +285,6 @@ pub fn use_downgrade_multi_indirect_draw_count_list_pool(
   }
 
   results
-}
-
-fn create_command_pool_view(
-  pool: &StorageDrawCommands,
-  offset: u32,
-  count: u32,
-  align_check: u64,
-) -> StorageDrawCommands {
-  let item_size = match pool {
-    StorageDrawCommands::Indexed(_) => std::mem::size_of::<DrawIndexedIndirectArgsStorage>(),
-    StorageDrawCommands::NoneIndexed(_) => std::mem::size_of::<DrawIndirectArgsStorage>(),
-  } as u64;
-
-  let raw_view = pool.indirect_buffer();
-
-  let offset = offset as u64 * item_size;
-  debug_assert!(offset.is_multiple_of(align_check));
-
-  let cmd_view = raw_view.resource.create_view(GPUBufferViewRange {
-    offset,
-    size: std::num::NonZeroU64::new(count as u64 * item_size),
-  });
-
-  match pool {
-    StorageDrawCommands::Indexed(_) => {
-      let view = StorageBufferReadonlyDataView::try_from_raw(cmd_view).unwrap();
-      StorageDrawCommands::Indexed(view.into())
-    }
-    StorageDrawCommands::NoneIndexed(_) => {
-      let view = StorageBufferReadonlyDataView::try_from_raw(cmd_view).unwrap();
-      StorageDrawCommands::NoneIndexed(view.into())
-    }
-  }
 }
 
 /// downgrade midc into single none-index indirect draw with helper access data.

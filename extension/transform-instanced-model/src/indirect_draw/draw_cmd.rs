@@ -3,7 +3,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct InstanceDrawCommandBuilder {
-  pub internal: Box<dyn NoneIndexedDrawCommandBuilder>,
+  pub internal: Box<dyn TypedDrawCommandBuilder<DrawIndirectArgsStorage>>,
   pub instance_meta: AbstractReadonlyStorageBuffer<[InstanceMetaData]>,
   pub model_to_instance: AbstractReadonlyStorageBuffer<[u32]>,
   pub model_to_instance_host: ForeignKeyReadView<SceneModelTransformInstancedModelPayload>,
@@ -19,12 +19,12 @@ impl ShaderHashProvider for InstanceDrawCommandBuilder {
 }
 
 struct InstanceNoneIndexedInvocation {
-  inner: Box<dyn NoneIndexedDrawCommandBuilderInvocation>,
+  inner: Box<dyn TypedDrawCommandBuilderInvocation<DrawIndirectArgsStorage>>,
   instance_meta: ShaderReadonlyPtrOf<[InstanceMetaData]>,
   model_to_instance: ShaderReadonlyPtrOf<[u32]>,
 }
 
-impl NoneIndexedDrawCommandBuilderInvocation for InstanceNoneIndexedInvocation {
+impl TypedDrawCommandBuilderInvocation<DrawIndirectArgsStorage> for InstanceNoneIndexedInvocation {
   fn generate_draw_command(&self, draw_id: Node<u32>) -> Node<DrawIndirectArgsStorage> {
     let instance_model_id = self.model_to_instance.index(draw_id).load();
     let source_model_id = self
@@ -49,7 +49,7 @@ impl NoneIndexedDrawCommandBuilderInvocation for InstanceNoneIndexedInvocation {
   }
 }
 
-impl NoneIndexedDrawCommandBuilder for InstanceDrawCommandBuilder {
+impl TypedDrawCommandBuilder<DrawIndirectArgsStorage> for InstanceDrawCommandBuilder {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let instance_model_id = self.model_to_instance_host.get(id)?;
     let source_model = self.source_model_host.get(instance_model_id)?;
@@ -82,7 +82,7 @@ impl NoneIndexedDrawCommandBuilder for InstanceDrawCommandBuilder {
   fn build_invocation(
     &self,
     cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn NoneIndexedDrawCommandBuilderInvocation> {
+  ) -> Box<dyn TypedDrawCommandBuilderInvocation<DrawIndirectArgsStorage>> {
     let instance_meta = cx.bind_by(&self.instance_meta);
     let model_to_instance = cx.bind_by(&self.model_to_instance);
 

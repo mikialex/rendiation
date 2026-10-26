@@ -166,11 +166,9 @@ impl ResolvedIndirectModelRenderer for ResolvedWideStyledPointsIndirectRenderer<
     &self,
     cx: &mut rendiation_device_parallel_compute::DeviceParallelComputeCtx,
     list: &DeviceDrawList,
-    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
   ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError> {
     Ok(use_and_create_default_indirect_draw_provider(
       list,
-      dispatch_info_device_offset_compacted,
       self.make_draw_command_builder()?,
       cx,
       self.renderer.used_in_midc_downgrade,
@@ -381,7 +379,7 @@ impl ShaderHashProvider for WidePointsDrawCreator {
   shader_hash_type_id! {}
 }
 
-impl NoneIndexedDrawCommandBuilder for WidePointsDrawCreator {
+impl TypedDrawCommandBuilder<DrawIndirectArgsStorage> for WidePointsDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let model = self.sm_to_wide.get(id).unwrap();
     let param = self.params_host.get(model.alloc_index()).unwrap().range;
@@ -401,7 +399,7 @@ impl NoneIndexedDrawCommandBuilder for WidePointsDrawCreator {
   fn build_invocation(
     &self,
     cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn NoneIndexedDrawCommandBuilderInvocation> {
+  ) -> Box<dyn TypedDrawCommandBuilderInvocation<DrawIndirectArgsStorage>> {
     let params = cx.bind_by(&self.params);
     let sm_to_wide_points_device = cx.bind_by(&self.sm_to_wide_points_device);
     Box::new(DrawCmdBuilderInvocation {
@@ -421,7 +419,7 @@ struct DrawCmdBuilderInvocation {
   sm_to_wide_points_device: ShaderReadonlyPtrOf<[u32]>,
 }
 
-impl NoneIndexedDrawCommandBuilderInvocation for DrawCmdBuilderInvocation {
+impl TypedDrawCommandBuilderInvocation<DrawIndirectArgsStorage> for DrawCmdBuilderInvocation {
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // aka sm id

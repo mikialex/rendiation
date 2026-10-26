@@ -132,11 +132,9 @@ impl ResolvedIndirectModelShapeRenderer for ResolvedCellMeshRenderer<'_> {
     &self,
     cx: &mut rendiation_device_parallel_compute::DeviceParallelComputeCtx,
     list: &DeviceDrawList,
-    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
   ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError> {
     Ok(use_and_create_default_indirect_draw_provider(
       list,
-      dispatch_info_device_offset_compacted,
       self.make_draw_command_builder()?,
       cx,
       self.renderer.used_in_midc_downgrade,
@@ -269,7 +267,7 @@ impl ShaderHashProvider for CellMeshDrawCreator {
   shader_hash_type_id! {}
 }
 
-impl NoneIndexedDrawCommandBuilder for CellMeshDrawCreator {
+impl TypedDrawCommandBuilder<DrawIndirectArgsStorage> for CellMeshDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let std_model_id = self.sm_to_std_model.get(id)?;
     let cell_mesh_id = self.std_model_to_cell_mesh_id.get(std_model_id)?;
@@ -292,7 +290,7 @@ impl NoneIndexedDrawCommandBuilder for CellMeshDrawCreator {
   fn build_invocation(
     &self,
     cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn NoneIndexedDrawCommandBuilderInvocation> {
+  ) -> Box<dyn TypedDrawCommandBuilderInvocation<DrawIndirectArgsStorage>> {
     let params = cx.bind_by(&self.params);
     let std_model_to_cell_mesh_device = cx.bind_by(&self.std_model_to_cell_mesh_device);
     Box::new(CellMeshDrawCmdInvocation {
@@ -312,7 +310,7 @@ struct CellMeshDrawCmdInvocation {
   std_model_to_cell_mesh_device: ShaderReadonlyPtrOf<[u32]>,
 }
 
-impl NoneIndexedDrawCommandBuilderInvocation for CellMeshDrawCmdInvocation {
+impl TypedDrawCommandBuilderInvocation<DrawIndirectArgsStorage> for CellMeshDrawCmdInvocation {
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // standard model id

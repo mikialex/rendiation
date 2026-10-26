@@ -93,6 +93,7 @@ impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
       dispatch_info: MultiRangeDispatchInfo {
         host_capacity_ranges,
         device_ranges,
+        // the real count is known, it's a tighter bound than the capacity sum
         total_capacity: model_counts as u32,
       },
     };
@@ -174,12 +175,11 @@ impl SceneRenderer for IndirectSceneRenderer {
           // the impl key contains the impl type identity, so the hook states of different impls
           // are isolated by this scope
           ctx.keyed_scope(impl_key, |ctx| {
-            let (dispatch_info, dispatch_info_offset_compacted) =
-              use_compute_selected_sub_list_dispatch_info(
-                ctx,
-                &device_list.draw_list,
-                selected_sub_list,
-              );
+            let dispatch_info = use_compute_selected_sub_list_dispatch_info(
+              ctx,
+              &device_list.draw_list,
+              selected_sub_list,
+            );
             let device_list_sub_list = DeviceDrawList {
               id_pool: device_list.draw_list.id_pool.clone(),
               dispatch_info,
@@ -188,7 +188,6 @@ impl SceneRenderer for IndirectSceneRenderer {
             match self.renderer.use_create_or_update_indirect_draw_providers(
               ctx,
               &device_list_sub_list,
-              &dispatch_info_offset_compacted,
               impl_select_ids[0],
             ) {
               Ok(result) => {
@@ -218,63 +217,35 @@ impl SceneRenderer for IndirectSceneRenderer {
   }
 }
 
-// return two dispatch infos, (device offset using origin, device offset compacted)
+/// Select the sub lists from the input list, the selected sub lists share the input's id pool,
+/// so the pool regions(the host capacity ranges) are kept, only the count prefix sum is
+/// recomputed.
 fn use_compute_selected_sub_list_dispatch_info(
   cx: &mut DeviceParallelComputeCtx,
   input: &DeviceDrawList,
   pick_list: &[usize],
-) -> (MultiRangeDispatchInfo, MultiRangeDispatchInfo) {
+) -> MultiRangeDispatchInfo {
   let pick_count = pick_list.len();
   debug_assert!(pick_count > 0, "pick_list should never be empty");
 
-  // Collect host-side sub_list_infos for the selected sub-lists.
-  // Offsets are recalculated as compact cumulative capacities for correct
-  // output buffer layout downstream (prepare_gpu_sub_list_out_ranges and
-  // MIDC downgrade command-pool slicing). The GPU-side sub_list_ranges.x
-  // preserves the original pool offset for correct scene_model_id_pool indexing.
-  let mut compact_offset = 0u32;
-  let mut compact_offsets = Vec::new();
   let selected_infos: Vec<_> = pick_list
     .iter()
-    .map(|&i| {
-      let info = &input.dispatch_info.host_capacity_ranges[i];
-      let new_info = CapacityRange {
-        capacity: info.capacity,
-        offset: compact_offset,
-      };
-      compact_offsets.push(compact_offset);
-      compact_offset += info.capacity;
-      new_info
-    })
+    .map(|&i| input.dispatch_info.host_capacity_ranges[i])
     .collect();
 
-  let compact_offsets_device =
-    cx.use_storage_buffer_array_with_host_data_queue_write_sync(&compact_offsets, "compact_offset");
+  // the capacity sum is the upper bound, the GPU writes the real total into sum_all_count
+  let total_capacity = selected_infos.iter().map(|info| info.capacity).sum();
 
-  // sum_all_count_host is set to the sum of capacities (upper bound);
-  // the GPU writes the real total into sum_all_count at runtime.
-  let total_capacity: u32 = selected_infos.iter().map(|info| info.capacity).sum();
-
-  // Upload pick_list indices to the GPU.
-  let pick_list_u32: Vec<u32> = pick_list.iter().map(|&i| i as u32).collect();
+  let pick_list_u32: Vec<_> = pick_list.iter().map(|&i| i as u32).collect();
   let pick_list_buffer =
     cx.use_storage_buffer_array_with_host_data_queue_write_sync(&pick_list_u32, "pick_list");
 
-  // Output ranges buffer — one StorageSubListRangeInfo per selected sub-list.
   let output_ranges = cx.use_rw_storage_buffer_array_impl::<StorageSubListRangeInfo>(
     pick_count,
     "output_ranges",
     BufferUsages::INDIRECT,
   );
 
-  let output_ranges_offset_compacted = cx
-    .use_rw_storage_buffer_array_impl::<StorageSubListRangeInfo>(
-      pick_count,
-      "output_ranges_offset_compacted",
-      BufferUsages::INDIRECT,
-    );
-
-  // Output sum_all_count — GPU writes the real total count.
   let output_sum_all =
     cx.use_rw_storage_buffer_impl(&0_u32, "output_sum_all", BufferUsages::empty());
 
@@ -286,8 +257,6 @@ fn use_compute_selected_sub_list_dispatch_info(
       let input_ranges = builder.bind_by(&input.dispatch_info.device_ranges.sub_list_ranges);
       let pick_list_storage = builder.bind_by(&pick_list_buffer);
       let output_ranges = builder.bind_by(&output_ranges);
-      let compact_offsets_device = builder.bind_by(&compact_offsets_device);
-      let output_ranges_offset_compacted = builder.bind_by(&output_ranges_offset_compacted);
       let output_sum_all = builder.bind_by(&output_sum_all);
 
       let prefix = val(0u32).make_local_var();
@@ -301,20 +270,10 @@ fn use_compute_selected_sub_list_dispatch_info(
           let src = input_ranges.index(src_idx).load();
           let src = src.expand();
           let count = src.count;
-          let offset = src.offset;
 
           output_ranges.index(i).store(
             ENode::<StorageSubListRangeInfo> {
-              offset,
-              count,
-              count_prefix_sum: prefix.load(),
-            }
-            .construct(),
-          );
-
-          output_ranges_offset_compacted.index(i).store(
-            ENode::<StorageSubListRangeInfo> {
-              offset: compact_offsets_device.index(i).load(),
+              offset: src.offset,
               count,
               count_prefix_sum: prefix.load(),
             }
@@ -333,33 +292,20 @@ fn use_compute_selected_sub_list_dispatch_info(
       .with_bind(&input.dispatch_info.device_ranges.sub_list_ranges)
       .with_bind(&pick_list_buffer)
       .with_bind(&output_ranges)
-      .with_bind(&compact_offsets_device)
-      .with_bind(&output_ranges_offset_compacted)
       .with_bind(&output_sum_all)
       .setup_compute_pass(pass, device, &pipeline);
 
     pass.dispatch_workgroups(1, 1, 1);
   });
 
-  let origin = MultiRangeDispatchInfo {
+  MultiRangeDispatchInfo {
     device_ranges: DeviceMultiRangeDispatchInfo {
       sub_list_ranges: output_ranges.into_readonly_view(),
-      sum_all_count: output_sum_all.clone().into_readonly_view(),
-    },
-    host_capacity_ranges: selected_infos.clone(),
-    total_capacity,
-  };
-
-  let compacted = MultiRangeDispatchInfo {
-    device_ranges: DeviceMultiRangeDispatchInfo {
-      sub_list_ranges: output_ranges_offset_compacted.into_readonly_view(),
       sum_all_count: output_sum_all.into_readonly_view(),
     },
     host_capacity_ranges: selected_infos,
     total_capacity,
-  };
-
-  (origin, compacted)
+  }
 }
 
 pub struct IndirectScenePassContentSource<'a> {

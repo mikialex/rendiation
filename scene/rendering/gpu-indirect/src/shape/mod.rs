@@ -66,7 +66,6 @@ pub trait ResolvedIndirectModelShapeRenderer {
     &self,
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
-    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
   ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError>;
 
   fn make_draw_command_builder(&self) -> Result<DrawCommandBuilder, SceneModelRenderDataError>;

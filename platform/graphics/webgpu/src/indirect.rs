@@ -104,6 +104,39 @@ impl StorageDrawCommands {
     }
   }
 
+  pub fn command_byte_size(&self) -> u64 {
+    match self {
+      Self::Indexed(_) => std::mem::size_of::<DrawIndexedIndirectArgsStorage>() as u64,
+      Self::NoneIndexed(_) => std::mem::size_of::<DrawIndirectArgsStorage>() as u64,
+    }
+  }
+
+  /// Create the view of the commands in `offset..offset + count`, the offset is in command
+  /// count unit and relative to the underlying buffer. The caller should make sure the byte
+  /// offset satisfies the storage buffer offset alignment.
+  pub fn sub_view(&self, offset: u32, count: u32) -> Self {
+    let item_size = self.command_byte_size();
+
+    let cmd_view = self
+      .indirect_buffer()
+      .resource
+      .create_view(GPUBufferViewRange {
+        offset: offset as u64 * item_size,
+        size: std::num::NonZeroU64::new(count as u64 * item_size),
+      });
+
+    match self {
+      Self::Indexed(_) => {
+        let view = StorageBufferReadonlyDataView::try_from_raw(cmd_view).unwrap();
+        Self::Indexed(view.into())
+      }
+      Self::NoneIndexed(_) => {
+        let view = StorageBufferReadonlyDataView::try_from_raw(cmd_view).unwrap();
+        Self::NoneIndexed(view.into())
+      }
+    }
+  }
+
   pub fn bind(&self, builder: &mut BindingBuilder) {
     match self {
       Self::Indexed(v) => builder.bind(v),

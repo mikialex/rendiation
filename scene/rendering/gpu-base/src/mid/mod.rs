@@ -1,18 +1,15 @@
 use crate::*;
 
-mod indexed;
-pub use indexed::*;
-
-mod none_indexed;
-pub use none_indexed::*;
+mod draw_cmd;
+pub use draw_cmd::*;
 
 mod midc_downgrade;
 pub use midc_downgrade::*;
 
 #[derive(Clone)]
 pub enum DrawCommandBuilder {
-  Indexed(Box<dyn IndexedDrawCommandBuilder>),
-  NoneIndexed(Box<dyn NoneIndexedDrawCommandBuilder>),
+  Indexed(Box<dyn TypedDrawCommandBuilder<DrawIndexedIndirectArgsStorage>>),
+  NoneIndexed(Box<dyn TypedDrawCommandBuilder<DrawIndirectArgsStorage>>),
 }
 
 impl DrawCommandBuilder {
@@ -68,251 +65,124 @@ impl GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'_> {
   }
 }
 
-fn prepare_gpu_sub_list_out_ranges(
-  host_capacity_ranges: &[CapacityRange],
-) -> (Vec<Vec2<u32>>, u32) {
-  let sub_count = host_capacity_ranges.len();
-  let mut offset = 0u32;
-  let mut ranges = Vec::with_capacity(sub_count);
-  for info in host_capacity_ranges.iter() {
-    ranges.push(Vec2::new(offset, info.capacity));
-    offset += info.capacity;
-  }
-  (ranges, offset)
-}
-
+/// Generate the draw commands of each sub list and create one draw provider for each sub list.
+///
+/// The draw commands of the sub lists are placed in one pool by [compact_capacity_ranges], so
+/// the command views of each sub list satisfy the storage buffer offset alignment if the sub
+/// list capacity is aligned.
 pub fn use_and_create_default_indirect_draw_provider(
   list: &DeviceDrawList,
-  dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
   draw_command_builder: DrawCommandBuilder,
   cx: &mut DeviceParallelComputeCtx,
   enable_midc_downgrade: bool,
 ) -> Vec<Box<dyn IndirectDrawProvider>> {
   cx.next_scope_index();
 
-  let (output_ranges_host, size_all) =
-    prepare_gpu_sub_list_out_ranges(&list.dispatch_info.host_capacity_ranges);
+  let (cmd_layout, cmd_pool_size) =
+    compact_capacity_ranges(&list.dispatch_info.host_capacity_ranges);
+  let cmd_layout = list.dispatch_info.use_relayout(cx, &cmd_layout);
 
-  let output_ranges =
-    cx.use_storage_buffer_array_with_host_data_queue_write_sync(&output_ranges_host, "ranges");
+  let command_pool = match draw_command_builder {
+    DrawCommandBuilder::Indexed(generator) => {
+      cx.scope(|cx| use_draw_command_pool(cx, list, &cmd_layout, cmd_pool_size, generator))
+    }
+    DrawCommandBuilder::NoneIndexed(generator) => {
+      cx.scope(|cx| use_draw_command_pool(cx, list, &cmd_layout, cmd_pool_size, generator))
+    }
+  };
 
-  match draw_command_builder {
-    DrawCommandBuilder::Indexed(generator) => cx.scope(|cx| {
-      let generator = IndexedDrawCommandGeneratorComponent {
-        scene_models: list.clone().into_boxed(),
-        generator,
+  if enable_midc_downgrade {
+    return cx.scope(|cx| {
+      let midc_input = rendiation_webgpu_midc_downgrade::MIDCListPoolInput {
+        command_pool,
+        list_info: cmd_layout,
       };
 
-      let draw_command_buffer = cx
-        .use_rw_storage_buffer_array_impl::<DrawIndexedIndirectArgsStorage>(
-          size_all as usize,
-          "draw command buffer",
-          BufferUsages::INDIRECT,
-        );
-
-      let dispatch_size = generator.compute_work_size(cx);
-      cx.record_pass(|pass, device| {
-        let mut hasher = shader_hasher_from_marker_ty!(WriteIndexDrawCommandStorageBuffer);
-        generator.hash_pipeline_with_type_info(&mut hasher);
-        let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
-          // todo, move 256 unwrap into parallel compute trait
-          builder.config_work_group_size(generator.requested_workgroup_size().unwrap_or(256));
-          let generator = generator.build_shader(&mut builder);
-          let output_ranges = builder.bind_by(&output_ranges);
-          let input_ranges = builder.bind_by(&list.dispatch_info.device_ranges.sub_list_ranges);
-          let draw_command_buffer = builder.bind_by(&draw_command_buffer);
-
-          let ((cmd, list_index), valid) =
-            generator.invocation_logic(builder.global_invocation_id());
-          if_by(valid, || {
-            let range_write_offset = output_ranges.index(list_index).load().x();
-            let range_base_offset = input_ranges.index(list_index).count_prefix_sum().load();
-            let range_relative_index = builder.global_invocation_id().x() - range_base_offset;
-            let write_index = range_relative_index + range_write_offset;
-            draw_command_buffer.index(write_index).store(cmd);
-          });
-
-          builder
-        });
-
-        BindingBuilder::default()
-          .with_fn(|b| generator.bind_input(b))
-          .with_bind(&output_ranges)
-          .with_bind(&list.dispatch_info.device_ranges.sub_list_ranges)
-          .with_bind(&draw_command_buffer)
-          .setup_compute_pass(pass, device, &pipeline);
-
-        pass.dispatch_workgroups_indirect_by_buffer_resource_view(&dispatch_size.0);
-      });
-
-      let command_pool_ro = draw_command_buffer.into_readonly_view();
-      let counts_views = list.create_indirect_count_views();
-      let cmd_views = create_pool_views(&cx.gpu, command_pool_ro.clone(), &output_ranges_host);
-
-      let origin = counts_views
-        .into_iter()
-        .zip(cmd_views)
-        .map(|(draw_count, cmd)| {
-          let cmd = StorageBufferReadonlyDataView::try_from_raw(cmd).unwrap();
-          MultiIndirectDrawBatch {
-            draw_command_buffer: StorageDrawCommands::Indexed(cmd.into()),
-            draw_count,
-          }
-        });
-
-      if enable_midc_downgrade {
-        cx.scope(|cx| {
-          let command_pool = StorageDrawCommands::Indexed(command_pool_ro.into());
-          let midc_input = rendiation_webgpu_midc_downgrade::MIDCListPoolInput {
-            command_pool,
-            list_info: dispatch_info_device_offset_compacted.clone(),
-          };
-
-          let downgraded =
-            rendiation_webgpu_midc_downgrade::use_downgrade_multi_indirect_draw_count_list_pool(
-              midc_input, cx,
-            );
-
-          downgraded
-            .into_iter()
-            .zip(origin)
-            .map(|((helper, cmd), internal)| {
-              Box::new(MIDCDowngradeBatch {
-                helper,
-                cmd,
-                internal,
-              }) as Box<dyn IndirectDrawProvider>
-            })
-            .collect()
-        })
-      } else {
-        origin
-          .map(|v| Box::new(v) as Box<dyn IndirectDrawProvider>)
-          .collect()
-      }
-    }),
-    DrawCommandBuilder::NoneIndexed(generator) => cx.scope(|cx| {
-      let generator = DrawCommandGeneratorComponent {
-        scene_models: list.clone().into_boxed(),
-        generator,
-      };
-
-      let draw_command_buffer = cx.use_rw_storage_buffer_array_impl::<DrawIndirectArgsStorage>(
-        size_all as usize,
-        "draw command buffer",
-        BufferUsages::INDIRECT,
-      );
-
-      let dispatch_size = generator.compute_work_size(cx);
-      cx.record_pass(|pass, device| {
-        let mut hasher = shader_hasher_from_marker_ty!(WriteDrawCommandStorageBuffer);
-        generator.hash_pipeline_with_type_info(&mut hasher);
-        let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
-          // todo, move 256 unwrap into parallel compute trait
-          builder.config_work_group_size(generator.requested_workgroup_size().unwrap_or(256));
-          let generator = generator.build_shader(&mut builder);
-          let output_ranges = builder.bind_by(&output_ranges);
-          let input_ranges = builder.bind_by(&list.dispatch_info.device_ranges.sub_list_ranges);
-          let draw_command_buffer = builder.bind_by(&draw_command_buffer);
-
-          let ((cmd, list_index), valid) =
-            generator.invocation_logic(builder.global_invocation_id());
-          if_by(valid, || {
-            let range_write_offset = output_ranges.index(list_index).load().x();
-            let range_base_offset = input_ranges.index(list_index).count_prefix_sum().load();
-
-            let range_relative_index = builder.global_invocation_id().x() - range_base_offset;
-            let write_index = range_relative_index + range_write_offset;
-            draw_command_buffer.index(write_index).store(cmd);
-          });
-
-          builder
-        });
-
-        BindingBuilder::default()
-          .with_fn(|b| generator.bind_input(b))
-          .with_bind(&output_ranges)
-          .with_bind(&list.dispatch_info.device_ranges.sub_list_ranges)
-          .with_bind(&draw_command_buffer)
-          .setup_compute_pass(pass, device, &pipeline);
-
-        pass.dispatch_workgroups_indirect_by_buffer_resource_view(&dispatch_size.0);
-      });
-
-      let command_pool_ro = draw_command_buffer.into_readonly_view();
-      let counts_views = list.create_indirect_count_views();
-      let cmd_views = create_pool_views(&cx.gpu, command_pool_ro.clone(), &output_ranges_host);
-
-      let origin = counts_views
-        .into_iter()
-        .zip(cmd_views)
-        .map(|(draw_count, cmd)| {
-          let cmd = StorageBufferReadonlyDataView::try_from_raw(cmd).unwrap();
-          MultiIndirectDrawBatch {
-            draw_command_buffer: StorageDrawCommands::NoneIndexed(cmd.into()),
-            draw_count,
-          }
-        });
-
-      if enable_midc_downgrade {
-        cx.scope(|cx| {
-          let command_pool = StorageDrawCommands::NoneIndexed(command_pool_ro.into());
-          let midc_input = rendiation_webgpu_midc_downgrade::MIDCListPoolInput {
-            command_pool,
-            list_info: dispatch_info_device_offset_compacted.clone(),
-          };
-
-          let downgraded =
-            rendiation_webgpu_midc_downgrade::use_downgrade_multi_indirect_draw_count_list_pool(
-              midc_input, cx,
-            );
-
-          downgraded
-            .into_iter()
-            .zip(origin)
-            .map(|((helper, cmd), internal)| {
-              Box::new(MIDCDowngradeBatch {
-                helper,
-                cmd,
-                internal,
-              }) as Box<dyn IndirectDrawProvider>
-            })
-            .collect()
-        })
-      } else {
-        origin
-          .map(|v| Box::new(v) as Box<dyn IndirectDrawProvider>)
-          .collect()
-      }
-    }),
+      rendiation_webgpu_midc_downgrade::use_downgrade_multi_indirect_draw_count_list_pool(
+        midc_input, cx,
+      )
+      .into_iter()
+      .map(|(helper, cmd)| {
+        Box::new(MIDCDowngradeBatch { helper, cmd }) as Box<dyn IndirectDrawProvider>
+      })
+      .collect()
+    });
   }
-}
 
-/// the pool size is the sum of all sub-lists capacity, but the the sub list if only
-/// reference part of the address space. so the offset should be compted
-/// based on the sub-lists offset
-fn create_pool_views<T: Std430>(
-  gpu: &GPU,
-  pool: StorageBufferReadonlyDataView<[T]>,
-  offset_count: &[Vec2<u32>],
-) -> Vec<GPUBufferResourceView> {
-  let align = gpu
+  let align = cx
+    .gpu
     .info
     .supported_limits
     .min_storage_buffer_offset_alignment as u64;
+  let command_size = command_pool.command_byte_size();
 
-  let mut cmd_views = Vec::with_capacity(offset_count.len());
-  for offset_count in offset_count {
-    let item_size = std::mem::size_of::<T>() as u64;
-    let offset = offset_count.x() as u64 * item_size;
-    assert!(offset.is_multiple_of(align));
-    let view = pool.gpu.resource.create_view(GPUBufferViewRange {
-      offset,
-      size: std::num::NonZeroU64::new(offset_count.y() as u64 * item_size),
+  let draw_counts = cmd_layout.device_ranges.create_indirect_count_views();
+  draw_counts
+    .into_iter()
+    .zip(&cmd_layout.host_capacity_ranges)
+    .map(|(draw_count, range)| {
+      assert!((range.offset as u64 * command_size).is_multiple_of(align));
+      Box::new(MultiIndirectDrawBatch {
+        draw_command_buffer: command_pool.sub_view(range.offset, range.capacity),
+        draw_count,
+      }) as Box<dyn IndirectDrawProvider>
+    })
+    .collect()
+}
+
+/// Write the draw command of each element of the list into the pool placed by the cmd_layout.
+fn use_draw_command_pool<C: DrawCommandStorage>(
+  cx: &mut DeviceParallelComputeCtx,
+  list: &DeviceDrawList,
+  cmd_layout: &MultiRangeDispatchInfo,
+  cmd_pool_size: u32,
+  generator: Box<dyn TypedDrawCommandBuilder<C>>,
+) -> StorageDrawCommands {
+  let generator = DrawCommandGeneratorComponent {
+    scene_models: list.clone().into_boxed(),
+    generator,
+  };
+
+  let draw_command_buffer = cx.use_rw_storage_buffer_array_impl::<C>(
+    cmd_pool_size as usize,
+    "draw command buffer",
+    BufferUsages::INDIRECT,
+  );
+
+  let cmd_ranges = &cmd_layout.device_ranges.sub_list_ranges;
+  let dispatch_size = generator.compute_work_size(cx);
+  cx.record_pass(|pass, device| {
+    let mut hasher = shader_hasher_from_marker_ty!(WriteDrawCommandStorageBuffer);
+    generator.hash_pipeline_with_type_info(&mut hasher);
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+      // todo, move 256 unwrap into parallel compute trait
+      builder.config_work_group_size(generator.requested_workgroup_size().unwrap_or(256));
+      let generator = generator.build_shader(&mut builder);
+      let cmd_ranges = builder.bind_by(cmd_ranges);
+      let draw_command_buffer = builder.bind_by(&draw_command_buffer);
+
+      let global_id = builder.global_invocation_id().x();
+      let ((cmd, list_index), valid) = generator.invocation_logic(builder.global_invocation_id());
+      if_by(valid, || {
+        // the cmd layout has the same count prefix sum as the list, only the offset differs
+        let range = cmd_ranges.index(list_index).load().expand();
+        let write_index = global_id - range.count_prefix_sum + range.offset;
+        draw_command_buffer.index(write_index).store(cmd);
+      });
+
+      builder
     });
-    cmd_views.push(view);
-  }
-  cmd_views
+
+    BindingBuilder::default()
+      .with_fn(|b| generator.bind_input(b))
+      .with_bind(cmd_ranges)
+      .with_bind(&draw_command_buffer)
+      .setup_compute_pass(pass, device, &pipeline);
+
+    pass.dispatch_workgroups_indirect_by_buffer_resource_view(&dispatch_size.0);
+  });
+
+  C::into_storage_draw_commands(draw_command_buffer.into_readonly_view())
 }
 
 struct MultiIndirectDrawBatch {
@@ -338,7 +208,7 @@ impl IndirectDrawProvider for MultiIndirectDrawBatch {
 
   fn draw_command(&self) -> DrawCommand {
     DrawCommand::MultiIndirectCount {
-      indexed: matches!(&self.draw_command_buffer, StorageDrawCommands::Indexed(_)),
+      indexed: self.draw_command_buffer.is_index(),
       indirect_buffer: self.draw_command_buffer.indirect_buffer(),
       indirect_count: self.draw_count.clone(),
       max_count: self.draw_command_buffer.cmd_capacity_count(),

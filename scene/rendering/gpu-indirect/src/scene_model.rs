@@ -51,7 +51,6 @@ pub trait IndirectBatchSceneModelRenderer {
     &self,
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
-    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
     impl_select_id: EntityHandle<SceneModelEntity>,
   ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, UnableToRenderSceneModelError>;
 
@@ -178,17 +177,12 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     &self,
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
-    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
     impl_select_id: EntityHandle<SceneModelEntity>,
   ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, UnableToRenderSceneModelError> {
     self.scratch.scope(|alloc| {
       let providers = self
         .resolve(impl_select_id, alloc)?
-        .use_create_or_update_indirect_draw_providers(
-          cx,
-          list,
-          dispatch_info_device_offset_compacted,
-        )?;
+        .use_create_or_update_indirect_draw_providers(cx, list)?;
       Ok(providers)
     })
   }

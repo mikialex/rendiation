@@ -3,8 +3,76 @@ use crate::*;
 #[derive(Clone)]
 pub struct DeviceMultiRangeDispatchInfo {
   pub sub_list_ranges: StorageBufferReadonlyDataView<[StorageSubListRangeInfo]>,
-  // /// sum of all count field of sub_list_ranges
+  /// sum of all count field of sub_list_ranges
   pub sum_all_count: StorageBufferReadonlyDataView<u32>,
+}
+
+impl MultiRangeDispatchInfo {
+  /// Create a dispatch info that has the same device side content (count and prefix sum) but
+  /// places the sub lists by the given ranges. This is used to write the per element results
+  /// of the list into another pool with a different layout.
+  pub fn use_relayout(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    new_ranges: &[CapacityRange],
+  ) -> Self {
+    let sub_list_count = self.host_capacity_ranges.len();
+    assert_eq!(new_ranges.len(), sub_list_count);
+    for (new, old) in new_ranges.iter().zip(&self.host_capacity_ranges) {
+      assert!(new.capacity >= old.capacity);
+    }
+
+    let offsets: Vec<_> = new_ranges.iter().map(|r| r.offset).collect();
+    let offsets = cx.use_storage_buffer_array_with_host_data_queue_write_sync(&offsets, "offsets");
+    let output = cx.use_rw_storage_buffer_array_impl::<StorageSubListRangeInfo>(
+      sub_list_count,
+      "relayout ranges",
+      BufferUsages::INDIRECT,
+    );
+
+    let input = &self.device_ranges.sub_list_ranges;
+    let workgroup_size = 256;
+    cx.record_pass(|pass, device| {
+      let hasher = shader_hasher_from_marker_ty!(MultiRangeRelayout);
+      let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+        builder.config_work_group_size(workgroup_size);
+        let input = builder.bind_by(input);
+        let offsets = builder.bind_by(&offsets);
+        let output = builder.bind_by(&output);
+
+        let i = builder.global_invocation_id().x();
+        if_by(i.less_than(input.array_length()), || {
+          let range = input.index(i).load().expand();
+          let range = ENode::<StorageSubListRangeInfo> {
+            offset: offsets.index(i).load(),
+            count: range.count,
+            count_prefix_sum: range.count_prefix_sum,
+          };
+          output.index(i).store(range.construct());
+        });
+
+        builder
+      });
+
+      BindingBuilder::default()
+        .with_bind(input)
+        .with_bind(&offsets)
+        .with_bind(&output)
+        .setup_compute_pass(pass, device, &pipeline);
+
+      let dispatch_size = compute_dispatch_size(sub_list_count as u32, workgroup_size);
+      pass.dispatch_workgroups(dispatch_size, 1, 1);
+    });
+
+    Self {
+      device_ranges: DeviceMultiRangeDispatchInfo {
+        sub_list_ranges: output.into_readonly_view(),
+        sum_all_count: self.device_ranges.sum_all_count.clone(),
+      },
+      host_capacity_ranges: new_ranges.to_vec(),
+      total_capacity: self.total_capacity,
+    }
+  }
 }
 
 impl DeviceMultiRangeDispatchInfo {
@@ -42,9 +110,10 @@ impl DeviceMultiRangeDispatchInfo {
     let buffer = &self.sub_list_ranges;
     assert_eq!(buffer.desc.offset, 0); // we could support this case, but we want to keep it simple
     let elem_stride = std::mem::size_of::<StorageSubListRangeInfo>() as u64;
+    let count_offset = std::mem::offset_of!(StorageSubListRangeInfo, count) as u64;
     for i in 0..list_count {
       let view = buffer.resource.create_view(GPUBufferViewRange {
-        offset: elem_stride * i as u64 + 4,
+        offset: elem_stride * i as u64 + count_offset,
         size: std::num::NonZeroU64::new(4),
       });
       views.push(view);
@@ -78,7 +147,7 @@ impl StorageSubListRangeInfo {
 
 pub struct DeviceMultiRangeDispatchInfoInvocation {
   pub sub_list_ranges: ShaderReadonlyPtrOf<[StorageSubListRangeInfo]>,
-  // /// sum of all count field of sub_list_ranges
+  /// sum of all count field of sub_list_ranges
   pub sum_all_count: ShaderReadonlyPtrOf<u32>,
 }
 

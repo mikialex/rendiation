@@ -1,9 +1,10 @@
 use crate::*;
 
 /// Reads the globally prefix-scanned positions and scatters surviving elements into
-/// per-sub-list compact regions of the output pool. Survival is derived from the scan
-/// (positions[i] != positions[i-1]), so no separate mask buffer is needed. Threads
-/// 0..K-1 additionally extract boundary values for per-sub-list metadata.
+/// per-sub-list regions of the output pool, the regions are placed by the capacity of each
+/// sub-list. Survival is derived from the scan (positions[i] != positions[i-1]), so no separate
+/// mask buffer is needed. Threads 0..K-1 additionally extract boundary values for per-sub-list
+/// metadata.
 pub struct SegmentedListScatter {
   pub positions: StorageBufferReadonlyDataView<[u32]>,
   pub sub_list_ranges: StorageBufferReadonlyDataView<[StorageSubListRangeInfo]>,
@@ -143,17 +144,11 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
         },
       );
 
-      let new_count = p_end - p_prev;
-      let new_excl = p_prev;
-
-      self.output_ranges.index(i).store(
-        ENode::<StorageSubListRangeInfo> {
-          offset: new_excl,
-          count: new_count,
-          count_prefix_sum: new_excl,
-        }
-        .construct(),
-      );
+      // the offset field is initialized at host side by the capacity placement, the scatter
+      // pass reads it, so only the count and prefix sum are written here.
+      let output_range = self.output_ranges.index(i);
+      output_range.count().store(p_end - p_prev);
+      output_range.count_prefix_sum().store(p_prev);
 
       // The last sub-list thread also writes the total survivor count.
       let is_last = i.equals(sub_list_count - val(1u32));
@@ -167,42 +162,52 @@ impl DeviceInvocation<Node<u32>> for SegmentedScatterInvocation {
     let model_id = vec2.x();
     let list_idx = vec2.y();
 
-    let p_i = self.positions.index(i).load();
-    // Derive keep from the inclusive prefix scan: keep[i] ⇔ p[i] != p[i-1] (i>0) or p[0]==1 (i=0)
-    let is_first = i.equals(val(0u32));
-    let keep = is_first.select_branched(
-      || p_i.greater_than(val(0u32)),
-      || p_i.greater_than(self.positions.index(i - val(1u32)).load()),
-    );
-
-    if_by(valid.and(keep), || {
-      // seg_start = total survivors in sub-lists before this one.
-      // sub_list_ranges[list_idx].count_prefix_sum gives the number of
-      // input elements before this sub-list. If count_prefix_sum == 0
-      // there are no preceding elements → seg_start = 0.
-      let range = self.sub_list_ranges.index(list_idx).load().expand();
-      let no_prev_elements = list_idx
-        .equals(val(0u32))
-        .or(range.count_prefix_sum.equals(val(0u32)));
-      let seg_start = no_prev_elements.select_branched(
-        || val(0u32),
-        || {
-          let prev_end = range.count_prefix_sum - val(1u32);
-          self.positions.index(prev_end).load()
-        },
+    // the dispatch may be larger than the element count, the positions must only be read
+    // for the valid elements
+    if_by(valid, || {
+      let p_i = self.positions.index(i).load();
+      // Derive keep from the inclusive prefix scan: keep[i] ⇔ p[i] != p[i-1] (i>0) or p[0]==1 (i=0)
+      let is_first = i.equals(val(0u32));
+      let keep = is_first.select_branched(
+        || p_i.greater_than(val(0u32)),
+        || p_i.greater_than(self.positions.index(i - val(1u32)).load()),
       );
 
-      let local_pos = p_i - seg_start - val(1u32);
-      self
-        .output_pool
-        .index(seg_start + local_pos)
-        .store(model_id);
+      if_by(keep, || {
+        // seg_start = total survivors in sub-lists before this one.
+        // sub_list_ranges[list_idx].count_prefix_sum gives the number of
+        // input elements before this sub-list. If count_prefix_sum == 0
+        // there are no preceding elements → seg_start = 0.
+        let range = self.sub_list_ranges.index(list_idx).load().expand();
+        let no_prev_elements = list_idx
+          .equals(val(0u32))
+          .or(range.count_prefix_sum.equals(val(0u32)));
+        let seg_start = no_prev_elements.select_branched(
+          || val(0u32),
+          || {
+            let prev_end = range.count_prefix_sum - val(1u32);
+            self.positions.index(prev_end).load()
+          },
+        );
+
+        let local_pos = p_i - seg_start - val(1u32);
+        let write_offset = self.output_ranges.index(list_idx).offset().load();
+        self
+          .output_pool
+          .index(write_offset + local_pos)
+          .store(model_id);
+      });
     });
 
     (model_id, valid)
   }
 
+  /// The metadata update requires one thread per sub-list, so the dispatch must cover the
+  /// sub-list count even if the element count is smaller. For example, the second pass of the
+  /// occlusion culling may have hundreds of sub-lists but only a few elements.
   fn invocation_size(&self) -> Node<Vec3<u32>> {
-    self.draw_list.invocation_size()
+    let size = self.draw_list.invocation_size();
+    let sub_list_count = self.sub_list_ranges.array_length();
+    (size.x().max(sub_list_count), size.y(), size.z()).into()
   }
 }

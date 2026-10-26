@@ -623,11 +623,9 @@ impl ResolvedIndirectModelShapeRenderer for ResolvedAttributeMeshIndirectRendere
     &self,
     cx: &mut DeviceParallelComputeCtx,
     list: &DeviceDrawList,
-    dispatch_info_device_offset_compacted: &MultiRangeDispatchInfo,
   ) -> Result<Vec<Box<dyn IndirectDrawProvider>>, SceneModelRenderDataError> {
     Ok(use_and_create_default_indirect_draw_provider(
       list,
-      dispatch_info_device_offset_compacted,
       self.make_draw_command_builder()?,
       cx,
       self.renderer.used_in_midc_downgrade,

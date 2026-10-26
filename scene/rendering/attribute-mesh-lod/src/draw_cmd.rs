@@ -22,7 +22,9 @@ pub struct LODCameraInfo {
   pub lod_error_threshold: UniformBufferDataView<Vec4<f32>>,
 }
 
-impl IndexedDrawCommandBuilder for AttributeLODMeshIndirectDrawCreator {
+impl TypedDrawCommandBuilder<DrawIndexedIndirectArgsStorage>
+  for AttributeLODMeshIndirectDrawCreator
+{
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     // the host access only draws the root level(the origin mesh), no lod selection is done here
     // todo, we could do lod selection in future
@@ -55,7 +57,7 @@ impl IndexedDrawCommandBuilder for AttributeLODMeshIndirectDrawCreator {
   fn build_invocation(
     &self,
     cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn IndexedDrawCommandBuilderInvocation> {
+  ) -> Box<dyn TypedDrawCommandBuilderInvocation<DrawIndexedIndirectArgsStorage>> {
     Box::new(AttributeMeshLODIndirectDrawCreatorInvocation {
       metadata: cx.bind_by(&self.internal.metadata),
       level_meta: cx.bind_by(&self.level_meta),
@@ -107,7 +109,9 @@ pub struct AttributeMeshLODIndirectDrawCreatorInvocation {
   used_in_midc_downgrade: bool,
 }
 
-impl IndexedDrawCommandBuilderInvocation for AttributeMeshLODIndirectDrawCreatorInvocation {
+impl TypedDrawCommandBuilderInvocation<DrawIndexedIndirectArgsStorage>
+  for AttributeMeshLODIndirectDrawCreatorInvocation
+{
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // aka sm id

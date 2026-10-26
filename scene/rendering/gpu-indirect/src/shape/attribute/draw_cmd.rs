@@ -9,7 +9,7 @@ pub struct AttributeMeshIndirectDrawCreator {
     LockReadGuardHolder<SparseStorageBufferWithHostRaw<AttributeMeshMeta>>,
   pub used_in_midc_downgrade: bool,
 }
-impl NoneIndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
+impl TypedDrawCommandBuilder<DrawIndirectArgsStorage> for AttributeMeshIndirectDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let mesh_id = self.sm_to_mesh.access(&id.into_raw()).unwrap();
     let address_info = self
@@ -31,7 +31,7 @@ impl NoneIndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
   fn build_invocation(
     &self,
     cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn NoneIndexedDrawCommandBuilderInvocation> {
+  ) -> Box<dyn TypedDrawCommandBuilderInvocation<DrawIndirectArgsStorage>> {
     let metadata = cx.bind_by(&self.metadata);
     let sm_to_mesh_device = cx.bind_by(&self.sm_to_mesh_device);
     Box::new(AttributeMeshIndirectDrawCreatorInvocation {
@@ -47,7 +47,7 @@ impl NoneIndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
   }
 }
 
-impl IndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
+impl TypedDrawCommandBuilder<DrawIndexedIndirectArgsStorage> for AttributeMeshIndirectDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> Option<DrawCommand> {
     let mesh_id = self.sm_to_mesh.access(&id.into_raw()).unwrap();
     let address_info = self
@@ -82,7 +82,7 @@ impl IndexedDrawCommandBuilder for AttributeMeshIndirectDrawCreator {
   fn build_invocation(
     &self,
     cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn IndexedDrawCommandBuilderInvocation> {
+  ) -> Box<dyn TypedDrawCommandBuilderInvocation<DrawIndexedIndirectArgsStorage>> {
     let metadata = cx.bind_by(&self.metadata);
     let sm_to_mesh_device = cx.bind_by(&self.sm_to_mesh_device);
     Box::new(AttributeMeshIndirectDrawCreatorInvocation {
@@ -111,7 +111,9 @@ pub struct AttributeMeshIndirectDrawCreatorInvocation {
   used_in_midc_downgrade: bool,
 }
 
-impl IndexedDrawCommandBuilderInvocation for AttributeMeshIndirectDrawCreatorInvocation {
+impl TypedDrawCommandBuilderInvocation<DrawIndexedIndirectArgsStorage>
+  for AttributeMeshIndirectDrawCreatorInvocation
+{
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // aka sm id
@@ -152,7 +154,9 @@ impl IndexedDrawCommandBuilderInvocation for AttributeMeshIndirectDrawCreatorInv
   }
 }
 
-impl NoneIndexedDrawCommandBuilderInvocation for AttributeMeshIndirectDrawCreatorInvocation {
+impl TypedDrawCommandBuilderInvocation<DrawIndirectArgsStorage>
+  for AttributeMeshIndirectDrawCreatorInvocation
+{
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // aka sm id

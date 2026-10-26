@@ -84,7 +84,7 @@ impl IndirectSceneRenderer {
             batch, ctx.gpu, &alloc,
           );
 
-        let provider = HostDrivenIndirectProvider { helper, cmd };
+        let provider = MIDCDowngradeBatch { helper, cmd };
 
         (Box::new(provider) as Box<dyn IndirectDrawProvider>, *one_id).into()
       })
@@ -94,47 +94,5 @@ impl IndirectSceneRenderer {
       renderer: self,
       content,
     })
-  }
-}
-
-struct HostDrivenIndirectProvider {
-  helper: rendiation_webgpu_midc_downgrade::DowngradeMultiIndirectDrawCountHelper,
-  cmd: DrawCommand,
-}
-
-impl ShaderHashProvider for HostDrivenIndirectProvider {
-  shader_hash_type_id! {}
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.helper.hash_pipeline(hasher);
-  }
-}
-impl ShaderPassBuilder for HostDrivenIndirectProvider {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.helper.bind(&mut ctx.binding);
-  }
-}
-
-impl IndirectDrawProvider for HostDrivenIndirectProvider {
-  fn create_indirect_invocation_source(
-    &self,
-    binding: &mut ShaderBindGroupBuilder,
-  ) -> Box<dyn IndirectBatchInvocationSource> {
-    Box::new(HostDrivenIndirectProviderInv {
-      helper: self.helper.build(binding),
-    })
-  }
-
-  fn draw_command(&self) -> DrawCommand {
-    self.cmd.clone()
-  }
-}
-
-struct HostDrivenIndirectProviderInv {
-  helper: DowngradeMultiIndirectDrawCountHelperInvocation,
-}
-
-impl IndirectBatchInvocationSource for HostDrivenIndirectProviderInv {
-  fn current_invocation_scene_model_id(&self, builder: &mut ShaderVertexBuilder) -> Node<u32> {
-    self.helper.current_invocation_scene_model_id(builder)
   }
 }
