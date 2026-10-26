@@ -95,16 +95,18 @@ where
       .adhoc_invoke_with_self_size(move |shuffle_idx, id| {
         let (read_idx, valid) = shuffle_idx.invocation_logic(id);
 
-        let r = valid.select(input.index(read_idx).load(), zeroed_val());
+        let valid = valid.and(read_idx.less_than(input.array_length()));
+        let r = valid.select_branched(|| input.index(read_idx).load(), zeroed_val);
 
         (r, valid)
       })
       .into_boxed()
   }
 
+  /// the bind order must match the build_shader
   fn bind_input(&self, builder: &mut BindingBuilder) {
-    self.shuffle_idx.bind_input(builder);
     builder.bind(&self.source);
+    self.shuffle_idx.bind_input(builder);
   }
 
   fn work_size(&self) -> Option<u32> {
@@ -130,4 +132,20 @@ async fn test() {
     .shuffle_move(move_target.map(|v| (v, val(true))), cx)
     .run_test(cx, &expect)
     .await
+}
+
+#[pollster::test]
+async fn test_shuffle_access() {
+  gpu_cx!(cx);
+  let source = create_gpu_readonly_storage(&[10_u32, 20, 30, 40][..], &cx.gpu, "source");
+  let shuffle_idx = slice_into_compute(&[3_u32, 2, 1, 0], cx);
+  let expect = [40, 30, 20, 10].to_vec();
+
+  ShuffleAccess {
+    source,
+    shuffle_idx: Box::new(shuffle_idx),
+  }
+  .map(|v| v)
+  .run_test(cx, &expect)
+  .await
 }

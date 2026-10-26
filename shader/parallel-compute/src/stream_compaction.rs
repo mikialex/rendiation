@@ -8,11 +8,12 @@ pub fn use_stream_compaction<T>(
 where
   T: Std430 + ShaderSizedValueNodeType + Debug,
 {
-  let max_width = cx
-    .gpu
-    .info()
-    .supported_limits
-    .max_compute_invocations_per_workgroup;
+  let limits = &cx.gpu.info().supported_limits;
+  let max_width = limits
+    .max_compute_invocations_per_workgroup
+    .min(limits.max_compute_workgroup_size_x);
+  // the prefix scan requires power of two workgroup size
+  let max_width = 1 << max_width.ilog2();
 
   let write_target_positions = filter
     .map(|v| v.select(1_u32, 0))

@@ -9,7 +9,6 @@ pub struct DeviceMapCompute<I, O> {
 
 impl<I: 'static, O: 'static> ShaderHashProvider for DeviceMapCompute<I, O> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    hasher.hash(std::any::type_name_of_val(&self.mapper));
     self
       .mapper_extra_hasher
       .hash_pipeline_with_type_info(hasher);

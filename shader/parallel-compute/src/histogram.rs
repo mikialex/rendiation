@@ -45,11 +45,15 @@ where
   fn requested_workgroup_size(&self) -> Option<u32> {
     Some(self.workgroup_size)
   }
-  // todo, fix out bound access
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
+    // each local invocation is responsible to reset and output one histogram bin
+    assert!(
+      self.workgroup_size >= S::MAX,
+      "histogram workgroup_size must not be smaller than the histogram max"
+    );
     let local_id = builder.local_invocation_id().x();
     let shared = builder.define_workgroup_shared_var_host_size_array::<DeviceAtomic<u32>>(S::MAX);
 
@@ -171,7 +175,7 @@ where
         if_by(workgroup_level_histogram.1, || {
           result
             .index(histogram_idx)
-            .atomic_store(workgroup_level_histogram.0);
+            .atomic_add(workgroup_level_histogram.0);
         });
 
         workgroup_level_histogram
@@ -284,6 +288,54 @@ async fn test_histogram_clamp_behavior() {
 
   input
     .use_histogram::<TestRangedU32>(32, cx)
+    .run_test(cx, &expect)
+    .await
+}
+
+#[pollster::test]
+async fn test_histogram_workgroup_size_larger_than_max() {
+  gpu_cx!(cx);
+  struct TestRangedU32;
+  impl DeviceHistogramMappingLogic for TestRangedU32 {
+    type Data = u32;
+
+    const MAX: u32 = 4;
+
+    fn map(data: Node<Self::Data>) -> Node<u32> {
+      data
+    }
+  }
+
+  let input: Vec<u32> = (0..16).map(|i| i % 4).collect();
+  let expect = [2, 2, 2, 2, 2, 2, 2, 2].to_vec();
+  let input = slice_into_compute(&input, cx);
+
+  input
+    .workgroup_histogram::<TestRangedU32>(8, cx)
+    .run_test(cx, &expect)
+    .await
+}
+
+#[pollster::test]
+async fn test_histogram_multi_workgroup() {
+  gpu_cx!(cx);
+  struct TestRangedU32;
+  impl DeviceHistogramMappingLogic for TestRangedU32 {
+    type Data = u32;
+
+    const MAX: u32 = 4;
+
+    fn map(data: Node<Self::Data>) -> Node<u32> {
+      data
+    }
+  }
+
+  let input: Vec<u32> = (0..8).map(|i| i % 4).collect();
+  let expect = [2, 2, 2, 2].to_vec();
+  let input = slice_into_compute(&input, cx);
+
+  input
+    .use_histogram::<TestRangedU32>(4, cx)
     .run_test(cx, &expect)
     .await
 }

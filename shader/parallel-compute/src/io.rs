@@ -130,17 +130,16 @@ impl<T: Std430> ShaderHashProvider for DeviceMaterializeResult<T> {
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> ComputeComponentIO<T> for DeviceMaterializeResult<T> {
-  fn use_materialize_storage_buffer_into(
+  /// The result is already materialized in self.buffer. Returning self.clone() avoids an
+  /// unnecessary GPU copy. `use_materialize_storage_buffer_into` still writes into the given
+  /// target as its contract requires.
+  fn use_materialize_storage_buffer(
     &self,
-    _target: StorageBufferDataView<[T]>,
     _cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceMaterializeResult<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    // The result is already materialized in self.buffer. Returning self.clone()
-    // avoids an unnecessary GPU copy. Callers that need the data in a specific
-    // buffer should use copy_result_into() instead.
     self.clone()
   }
 }
@@ -223,9 +222,10 @@ where
       .adhoc_invoke_with_self_size(move |inner, id| {
         let r = inner.invocation_logic(id);
 
-        if_by(r.1.and(id.x().less_than(output.array_length())), || {
+        if_by(r.1, || {
           let (target_idx, write) = result_write_idx_mapper(id.x());
-          if_by(write, || {
+          let in_bound = target_idx.less_than(output.array_length());
+          if_by(write.and(in_bound), || {
             output.index(target_idx).store(r.0);
           });
         });

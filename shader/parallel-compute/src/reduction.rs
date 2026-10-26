@@ -33,6 +33,10 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
+    assert!(
+      self.workgroup_size.is_power_of_two(),
+      "workgroup reduction requires power of two workgroup size"
+    );
     let local_id = builder.local_invocation_id().x();
     let shared = builder.define_workgroup_shared_var_host_size_array::<T>(self.workgroup_size);
 
@@ -48,20 +52,28 @@ where
 
         shared.index(local_id).store(input);
 
+        // each step combines adjacent pairs to keep the original order, because the monoid is
+        // not required to be commutative.
+        let combined = S::identity().make_local_var();
         iter.into_shader_iter().for_each(|i, _| {
           workgroup_barrier();
 
-          let stride = val(1) << (val(iter) - i - val(1));
+          let active_count = val(1) << (val(iter) - i - val(1));
+          let is_active = local_id.less_than(active_count);
 
-          if_by(local_id.less_than(stride), || {
-            let a = shared.index(local_id).load();
-            let b = shared.index(local_id + stride).load();
-            let combined = S::combine(a, b);
-            shared.index(local_id).store(combined);
+          if_by(is_active, || {
+            let a = shared.index(local_id * val(2)).load();
+            let b = shared.index(local_id * val(2) + val(1)).load();
+            combined.store(S::combine(a, b));
           });
 
           workgroup_barrier();
+
+          if_by(is_active, || {
+            shared.index(local_id).store(combined.load());
+          });
         });
+        workgroup_barrier();
 
         let result = local_id
           .equals(0)
@@ -136,6 +148,43 @@ async fn test2() {
 
   input
     .segmented_reduction::<AdditionMonoid<_>>(workgroup_size, workgroup_size, cx)
+    .run_test(cx, &expect)
+    .await
+}
+
+/// affine map composition: (a, b) represents x * a + b, apply left first. It is associative but
+/// not commutative.
+#[cfg(test)]
+#[derive(Default)]
+struct TestAffineComposeMonoid;
+#[cfg(test)]
+impl DeviceMonoidLogic for TestAffineComposeMonoid {
+  type Data = Vec2<u32>;
+  fn identity() -> Node<Vec2<u32>> {
+    val(Vec2::new(1, 0))
+  }
+  fn combine(a: Node<Vec2<u32>>, b: Node<Vec2<u32>>) -> Node<Vec2<u32>> {
+    (a.x() * b.x(), a.y() * b.x() + b.y()).into()
+  }
+}
+
+#[pollster::test]
+async fn test_reduction_non_commutative() {
+  gpu_cx!(cx);
+  let input: Vec<_> = (0..8).map(|i| Vec2::new(i + 2, i)).collect();
+
+  let combined = input.iter().fold(Vec2::new(1_u32, 0), |a, b| {
+    Vec2::new(
+      a.x.wrapping_mul(b.x),
+      a.y.wrapping_mul(b.x).wrapping_add(b.y),
+    )
+  });
+  let mut expect = vec![Vec2::zero(); 8];
+  expect[0] = combined;
+
+  let input = slice_into_compute(&input, cx);
+  input
+    .workgroup_scope_reduction::<TestAffineComposeMonoid>(8, cx)
     .run_test(cx, &expect)
     .await
 }

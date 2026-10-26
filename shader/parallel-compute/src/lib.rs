@@ -164,20 +164,16 @@ where
       }
     }
 
-    cx.force_indirect_dispatch = false;
-    let (_, size, result) = self.read_back_host(cx).await.unwrap();
-    check(expect, &result);
-    if let (Some(size), Some(expect_size)) = (size, expect_size) {
-      assert_eq!(size, expect_size);
+    let previous_force_indirect_dispatch = cx.force_indirect_dispatch;
+    for force_indirect_dispatch in [false, true] {
+      cx.force_indirect_dispatch = force_indirect_dispatch;
+      let (_, size, result) = self.read_back_host(cx).await.unwrap();
+      check(expect, &result);
+      if let (Some(size), Some(expect_size)) = (size, expect_size) {
+        assert_eq!(size, expect_size);
+      }
     }
-
-    cx.force_indirect_dispatch = true;
-    let (_, size, result) = self.read_back_host(cx).await.unwrap();
-
-    check(expect, &result);
-    if let (Some(size), Some(expect_size)) = (size, expect_size) {
-      assert_eq!(size, expect_size);
-    }
+    cx.force_indirect_dispatch = previous_force_indirect_dispatch;
   }
 
   async fn read_back_host(
@@ -273,7 +269,10 @@ where
     S: DeviceMonoidLogic<Data = T> + 'static,
     T: ShaderScalarOrVec,
   {
-    // assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
+    // todo, the device side work size is not checked
+    if let Some(work_size) = self.work_size() {
+      assert!(work_size <= first_stage_workgroup_size * second_stage_workgroup_size);
+    }
 
     self
       .workgroup_scope_reduction::<S>(first_stage_workgroup_size, cx)
@@ -303,8 +302,6 @@ where
   }
 
   /// perform device scope histogram compute by workgroup level atomic array and global atomic array
-  ///
-  /// the entire work size should not exceed workgroup_privatization * 1024
   ///
   /// the entire histogram should be able to hold in workgroup
   /// workgroup_size should larger than histogram max
@@ -409,8 +406,10 @@ where
     S: DeviceMonoidLogic<Data = T> + 'static,
     T: ShaderScalarType,
   {
-    // todo, impl another way to check if it's ok to run compute
-    // assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
+    // todo, the device side work size is not checked
+    if let Some(work_size) = self.work_size() {
+      assert!(work_size <= first_stage_workgroup_size * second_stage_workgroup_size);
+    }
 
     let per_workgroup_scanned =
       self.use_workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size, cx);
@@ -429,7 +428,7 @@ where
 
     per_workgroup_scanned
       .zip(block_wise_scanned)
-      .map(|(block_scan, workgroup_scan)| S::combine(block_scan, workgroup_scan))
+      .map(|(workgroup_scan, block_prefix)| S::combine(block_prefix, workgroup_scan))
       .use_materialize_storage_buffer(cx) // todo,remove and  fix compatibility issue
   }
 

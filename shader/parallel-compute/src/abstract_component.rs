@@ -67,7 +67,7 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
     StorageBufferDataView<DispatchIndirectArgsStorage>,
     StorageBufferDataView<Vec4<u32>>,
   ) {
-    struct SizeWriter<'a, T: ?Sized>(&'a T);
+    struct SizeWriter<'a, T: ?Sized>(&'a T, u32);
     impl<T: ShaderHashProvider + ?Sized> ShaderHashProvider for SizeWriter<'_, T> {
       fn hash_type_info(&self, hasher: &mut PipelineHasher) {
         struct SizeWriterTypeMarker;
@@ -76,7 +76,8 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
       }
 
       fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-        self.0.hash_pipeline(hasher)
+        self.0.hash_pipeline(hasher);
+        hasher.hash(self.1);
       }
     }
 
@@ -95,22 +96,13 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
 
     // requested_workgroup_size should always be respected
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
-    let label = "workgroup_size info";
-    let (cx, (workgroup_size_buffer, workgroup_size_cache)) = cx.use_plain_state(|| {
-      let buffer = create_gpu_readonly_storage(&workgroup_size, gpu.device, label).into_rw_view();
-      (buffer, workgroup_size)
-    });
-    if *workgroup_size_cache != workgroup_size {
-      *workgroup_size_buffer =
-        create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device, label).into_rw_view();
-    }
 
-    let pipeline = cx.get_or_create_compute_pipeline(&SizeWriter(self), |cx| {
-      cx.config_work_group_size(workgroup_size);
+    // the size writer only produce one result, so a single invocation is enough
+    let pipeline = cx.get_or_create_compute_pipeline(&SizeWriter(self, workgroup_size), |cx| {
+      cx.config_work_group_size(1);
 
       let size_output = cx.bind_by(size_output);
       let work_size_output = cx.bind_by(work_size_output);
-      let workgroup_size = cx.bind_by(workgroup_size_buffer);
 
       let size = self.build_shader(cx).invocation_size();
       let size: Node<Vec4<u32>> = (size, val(0)).into();
@@ -118,7 +110,7 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
       work_size_output.store(size);
 
       let size = ENode::<DispatchIndirectArgsStorage> {
-        x: device_compute_dispatch_size(size.x(), workgroup_size.load()),
+        x: device_compute_dispatch_size(size.x(), val(workgroup_size)),
         y: size.y().max(1),
         z: size.z().max(1),
       }
@@ -131,7 +123,6 @@ pub trait ComputeComponent<T>: ShaderHashProvider + DynClone {
       BindingBuilder::default()
         .with_bind(size_output)
         .with_bind(work_size_output)
-        .with_bind(workgroup_size_buffer)
         .with_fn(|bb| self.bind_input(bb))
         .setup_compute_pass(pass, device, &pipeline);
       pass.dispatch_workgroups(1, 1, 1);
@@ -152,7 +143,6 @@ pub trait ComputeComponentIO<T>: ComputeComponent<Node<T>> {
   ) -> DeviceMaterializeResult<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
-    Self: Sized,
   {
     let output = cx.use_rw_storage_buffer_array(
       self.result_size() as usize,
@@ -260,6 +250,16 @@ impl<T: 'static> ComputeComponent<Node<T>> for Box<dyn ComputeComponentIO<T>> {
 }
 
 impl<T: 'static> ComputeComponentIO<T> for Box<dyn ComputeComponentIO<T>> {
+  fn use_materialize_storage_buffer(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    (**self).use_materialize_storage_buffer(cx)
+  }
+
   fn use_materialize_storage_buffer_into(
     &self,
     target: StorageBufferDataView<[T]>,
@@ -267,7 +267,6 @@ impl<T: 'static> ComputeComponentIO<T> for Box<dyn ComputeComponentIO<T>> {
   ) -> DeviceMaterializeResult<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
-    Self: Sized,
   {
     (**self).use_materialize_storage_buffer_into(target, cx)
   }

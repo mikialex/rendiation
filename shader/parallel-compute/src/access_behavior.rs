@@ -71,9 +71,11 @@ where
     source: &dyn DeviceInvocation<Node<T>>,
     current: Node<Vec3<u32>>,
   ) -> (Node<T>, Node<bool>) {
-    let size = source.invocation_size().x().into_i32();
+    let source_size = source.invocation_size().x();
+    let size = source_size.into_i32();
 
     let current = current.x(); // todo three dimension
+    let valid = current.less_than(source_size + val(self.size_expand));
     let current = current.into_i32(); // todo overflow check
     let target = current + val(self.offset);
 
@@ -90,8 +92,9 @@ where
       output.store(source.invocation_logic(_target).0)
     });
 
-    // todo, should return inner valid
-    (output.load(), val(true))
+    // the source element is always accessible (or replaced by out bound behavior) for any
+    // invocation inside the resized scope.
+    (output.load(), valid)
   }
 
   fn resize_scope(&self, size: Node<Vec3<u32>>) -> Node<Vec3<u32>> {
@@ -217,6 +220,21 @@ async fn test3() {
 
   input
     .offset_access(-2, OutBoundsBehavior::from_const(|| val(6)), 0)
+    .run_test(cx, &expect)
+    .await
+}
+
+#[pollster::test]
+async fn test_out_of_scope_invocation_is_invalid() {
+  gpu_cx!(cx);
+  let input = vec![1_u32; 6];
+  let expect = vec![6, 0, 0, 0, 0, 0];
+
+  let input = slice_into_compute(&input, cx);
+
+  input
+    .offset_access(0, OutBoundsBehavior::ClampBorder, 0)
+    .workgroup_scope_reduction::<AdditionMonoid<u32>>(8, cx)
     .run_test(cx, &expect)
     .await
 }

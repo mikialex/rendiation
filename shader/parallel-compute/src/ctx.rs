@@ -64,6 +64,9 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     }
   }
 
+  /// The backing buffer may be reused across frames and be larger than `size_require`, but the
+  /// returned view always exactly covers `size_require` items, so the view's item count can be
+  /// trusted as the logical length.
   pub fn use_rw_storage_buffer_array_impl<T: Std430>(
     &mut self,
     size_require: usize,
@@ -71,28 +74,43 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     extra_usage: BufferUsages,
   ) -> StorageBufferDataView<[T]> {
     let gpu = self.gpu.clone();
-    let (_, cached) = self.use_plain_state(|| {
+    let create_backing = || {
       let init = ZeroedArrayByArrayLength(size_require);
-      StorageBufferDataView::create_by_with_extra_usage(
+      StorageBufferDataView::<[T]>::create_by_with_extra_usage(
         gpu.device.as_ref(),
         StorageBufferInit::from(init),
         extra_usage,
         label,
       )
+    };
+    let (_, (backing, view)) = self.use_plain_state(|| {
+      let backing = create_backing();
+      (backing.clone(), backing)
     });
 
-    let current_size = cached.item_count() as usize;
-    if current_size < size_require || current_size > size_require * 2 {
-      let init = ZeroedArrayByArrayLength(size_require);
-      *cached = StorageBufferDataView::create_by_with_extra_usage(
-        gpu.device.as_ref(),
-        StorageBufferInit::from(init),
-        extra_usage,
-        label,
-      )
+    let backing_size = backing.item_count() as usize;
+    let should_shrink = size_require > 0 && backing_size > size_require * 2;
+    if backing_size < size_require || should_shrink {
+      *backing = create_backing();
+      *view = backing.clone();
     }
 
-    cached.clone()
+    if view.item_count() as usize != size_require {
+      let byte_size = (size_require * std::mem::size_of::<T>()) as u64;
+      // zero sized binding is not allowed, so we keep the full view in this case
+      *view = match std::num::NonZeroU64::new(byte_size) {
+        Some(size) if size_require != backing_size => {
+          let sub_view = backing.gpu.resource.create_view(GPUBufferViewRange {
+            offset: 0,
+            size: Some(size),
+          });
+          StorageBufferDataView::try_from_raw(sub_view).unwrap()
+        }
+        _ => backing.clone(),
+      };
+    }
+
+    view.clone()
   }
 
   pub fn use_rw_storage_buffer_impl<T: Std430MaybeUnsized + 'static>(
@@ -250,4 +268,18 @@ macro_rules! gpu_cx {
     let mut $name = DeviceParallelComputeCtx::new(&gpu, &mut encoder, &mut memory);
     let $name = &mut $name;
   };
+}
+
+#[pollster::test]
+async fn test_reused_buffer_has_exact_length() {
+  gpu_cx!(cx);
+  let big = slice_into_compute(&[1_u32; 100], cx);
+  let small = slice_into_compute(&[2_u32; 60], cx);
+
+  let big = cx.execute(|cx| big.map(|v| v + val(1)).use_materialize_storage_buffer(cx));
+  let small = cx.execute(|cx| small.map(|v| v + val(1)).use_materialize_storage_buffer(cx));
+  assert_eq!(big.buffer.item_count(), 100);
+  assert_eq!(small.buffer.item_count(), 60);
+
+  small.run_test(cx, &[3_u32; 60]).await
 }

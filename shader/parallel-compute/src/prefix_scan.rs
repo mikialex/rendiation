@@ -65,6 +65,10 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
+    assert!(
+      self.workgroup_size.is_power_of_two(),
+      "kogge stone scan requires power of two workgroup size"
+    );
     let local_id = builder.local_invocation_id().x();
     let shared = builder.define_workgroup_shared_var_host_size_array::<T>(self.workgroup_size);
 
@@ -85,9 +89,9 @@ where
           workgroup_barrier();
 
           if_by(local_id.greater_equal_than(val(1) << i), || {
-            let a = value.load();
-            let b = shared.index(local_id - (val(1) << i)).load();
-            let combined = S::combine(a, b);
+            // the monoid is not required to be commutative, the earlier one must be on the left
+            let earlier = shared.index(local_id - (val(1) << i)).load();
+            let combined = S::combine(earlier, value.load());
             value.store(combined)
           });
 
@@ -167,6 +171,47 @@ async fn test_prefix_sum_kogge_stone() {
   let input = slice_into_compute(&input, cx);
   input
     .use_segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size, cx)
+    .run_test(cx, &expect)
+    .await
+}
+
+/// associative but not commutative: keep the right most non sentinel value
+#[cfg(test)]
+#[derive(Default)]
+struct TestLastValueMonoid;
+#[cfg(test)]
+impl DeviceMonoidLogic for TestLastValueMonoid {
+  type Data = u32;
+  fn identity() -> Node<u32> {
+    val(u32::MAX)
+  }
+  fn combine(a: Node<u32>, b: Node<u32>) -> Node<u32> {
+    b.equals(val(u32::MAX)).select(a, b)
+  }
+}
+
+#[pollster::test]
+async fn test_workgroup_prefix_scan_non_commutative() {
+  gpu_cx!(cx);
+  let input = vec![1_u32, 2, 3, 4];
+  let expect = input.clone();
+
+  let input = slice_into_compute(&input, cx);
+  input
+    .use_workgroup_scope_prefix_scan_kogge_stone::<TestLastValueMonoid>(4, cx)
+    .run_test(cx, &expect)
+    .await
+}
+
+#[pollster::test]
+async fn test_segmented_prefix_scan_non_commutative() {
+  gpu_cx!(cx);
+  let input: Vec<u32> = (1..=10).collect();
+  let expect = input.clone();
+
+  let input = slice_into_compute(&input, cx);
+  input
+    .use_segmented_prefix_scan_kogge_stone::<TestLastValueMonoid>(4, 4, cx)
     .run_test(cx, &expect)
     .await
 }

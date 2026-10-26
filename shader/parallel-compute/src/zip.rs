@@ -51,11 +51,16 @@ impl<A: 'static, B: 'static> ComputeComponent<(A, B)> for DeviceComputeZip<A, B>
     self.source_b.bind_input(builder);
   }
   fn requested_workgroup_size(&self) -> Option<u32> {
-    assert_eq!(
+    match (
       self.source_a.requested_workgroup_size(),
-      self.source_b.requested_workgroup_size()
-    );
-    self.source_a.requested_workgroup_size()
+      self.source_b.requested_workgroup_size(),
+    ) {
+      (Some(a), Some(b)) => {
+        assert_eq!(a, b, "zip sources request different workgroup size");
+        Some(a)
+      }
+      (a, b) => a.or(b),
+    }
   }
 
   fn work_size(&self) -> Option<u32> {
@@ -87,4 +92,17 @@ async fn test() {
     .map(|(a, b)| a + b)
     .run_test(cx, &expect)
     .await;
+}
+
+#[pollster::test]
+async fn test_zip_with_unspecified_workgroup_size() {
+  gpu_cx!(cx);
+  let a = slice_into_compute(&[1_u32; 8], cx);
+  let b = slice_into_compute(&[1_u32; 8], cx);
+  let reduction = WorkGroupReductionCompute::<u32, AdditionMonoid<u32>> {
+    workgroup_size: 4,
+    reduction_logic: Default::default(),
+    upstream: Box::new(a),
+  };
+  assert_eq!(reduction.zip(b).requested_workgroup_size(), Some(4));
 }
