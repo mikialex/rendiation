@@ -96,6 +96,12 @@ pub struct CommonVertex {
 
 `#[semantic(X)]` associates a field with a built-in semantic. `#[derive(ShaderVertex)]` generates the `ShaderVertexInProvider` impl.
 
+The attributes are tightly packed in the field order, so the derive asserts at compile time that the
+rust layout has no padding (the struct must be `#[repr(C)]`). `AttributesListBuilder::build` reports
+`ShaderBuildError::InvalidVertexBufferLayout` when the layout violates the WebGPU rules: the array
+stride must be a multiple of 4 and each attribute offset a multiple of `min(4, format size)`, which
+matters for the 2 bytes `f16` attribute (for example a single `f16` vertex buffer is invalid).
+
 ### Query vertex inputs
 
 ```rust
@@ -122,7 +128,8 @@ Like `ClipPosition`, the clip distances are written at the end of the vertex sha
 value in the root scope.
 
 The value type of the vertex outputs and vertex inputs must be `ShaderLocationIOType`, which is the
-numeric scalar or numeric vector (f32, u32, i32), bool and matrix are rejected at compile time.
+numeric scalar or numeric vector (f32, u32, i32, f16), bool and matrix are rejected at compile time.
+The f16 vertex inputs use `Float16`, `Float16x2` and `Float16x4` (no `Vec3<f16>` vertex input).
 Integer outputs are always flat interpolated. A `Mat4<f32>` vertex attribute is supported by
 `push_single_vertex_layout`, which splits it into four vec4 attributes.
 
