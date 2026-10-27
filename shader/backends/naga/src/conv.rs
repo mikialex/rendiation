@@ -253,7 +253,12 @@ fn workaround_f32_max(f: f32) -> f32 {
 pub fn scalar_value_to_naga_literal(v: ScalarValue) -> naga::Literal {
   match v {
     ScalarValue::F32(v) => naga::Literal::F32(workaround_f32_max(v)),
-    ScalarValue::F16(v) => naga::Literal::F16(v),
+    ScalarValue::F16(v) => {
+      // naga validates the f32 literal is finite but not the f16 one, the WGSL and HLSL output
+      // of the non finite f16 literal is invalid
+      assert!(v.is_finite(), "the f16 constant must be finite, got {v}");
+      naga::Literal::F16(v)
+    }
     ScalarValue::U32(v) => naga::Literal::U32(v),
     ScalarValue::I32(v) => naga::Literal::I32(v),
     ScalarValue::Bool(v) => naga::Literal::Bool(v),

@@ -45,6 +45,13 @@ impl<T: Std140> UniformBufferDataView<T> {
   }
 
   pub fn create(device: &GPUDevice, data: T, debug_label: &str) -> Self {
+    const {
+      assert!(
+        size_of::<T>().is_multiple_of(4),
+        "the uniform buffer size must be a multiple of 4 to be written by the queue, \
+         pad the data (for example the f16 scalar or Vec3<f16>)"
+      )
+    };
     let usage = gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST;
 
     let init = BufferInit::WithInit(data.as_bytes());

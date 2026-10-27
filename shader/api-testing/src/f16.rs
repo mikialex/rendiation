@@ -270,6 +270,25 @@ fn f16_subgroup() {
   });
 }
 
+/// WGSL has no inf and nan literal, the f16 value out of range is rounded to infinity
+#[test]
+#[should_panic(expected = "the f16 constant must be finite")]
+fn f16_non_finite_constant() {
+  check_compute(|builder| keep(val_f16(70000.) + runtime_f16(builder)));
+}
+
+/// the shader buffer size must be a multiple of 4, the odd length f16 array is rejected instead of
+/// being padded silently (the runtime array length would be wrong)
+#[pollster::test]
+#[should_panic(expected = "is not a multiple of 4")]
+async fn f16_odd_length_storage_buffer() {
+  let gpu = rendiation_webgpu::GPU::new(Default::default())
+    .await
+    .unwrap();
+  let data = [h(1.), h(2.), h(3.)];
+  rendiation_webgpu::create_gpu_readonly_storage(&data[..], &gpu, "odd f16");
+}
+
 /// the u32 heap maps each scalar to one u32, the f16 can not be represented
 #[test]
 #[should_panic(expected = "f16 is not supported in the u32 heap")]

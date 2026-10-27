@@ -910,6 +910,11 @@ let unpacked: Node<Vec2<f16>> = packed.unpack2x_f16();
 - The u32 heap (the combined buffer) and the u32 serialization (`StructLayoutTarget::Packed`) map
   each scalar to one u32, a type containing f16 panics at shader build time there, pack the data
   into u32 manually.
+- The whole buffer size must be a multiple of 4 (WebGPU binding and copy rule): the uniform type
+  size is checked at compile time (`create_uniform(f16)` is rejected), the storage buffer size is
+  checked at creation (for example the odd length `[f16]` panics), pad the data manually.
+- WGSL has no inf or nan literal, the non finite f16 constant (for example `val_f16(70000.)`, out
+  of the f16 range) panics at shader build time.
 - The Metal compiler is in the fast math mode by default and may evaluate an f16 expression in f32
   without the intermediate rounding, only the value stored as f16 is guaranteed to be f16.
 

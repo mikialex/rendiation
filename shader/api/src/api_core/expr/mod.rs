@@ -310,13 +310,14 @@ where
   })
 }
 
-#[must_use]
 /// The f16 constant, the f32 value is rounded to the nearest f16, because rust has no stable f16
-/// literal.
+/// literal. The value out of the f16 range becomes infinity, which is rejected when building.
+#[must_use]
 pub fn val_f16(v: f32) -> Node<f16> {
   val(f16::from_f32(v))
 }
 
+#[must_use]
 pub fn zeroed_val<T>() -> Node<T>
 where
   T: ShaderSizedValueNodeType,

@@ -119,3 +119,14 @@ pub struct F16Vec3VertexInput;
 /// }
 /// ```
 pub struct VertexStructPadding;
+
+/// the uniform buffer size must be a multiple of 4 to be written by the queue
+/// ```compile_fail,E0080
+/// use rendiation_shader_api::*;
+/// use rendiation_webgpu::*;
+/// fn case(device: &GPUDevice) {
+///   create_uniform(Vec3::<f16>::default(), device, "case");
+/// }
+/// let case: fn(&GPUDevice) = case;
+/// ```
+pub struct F16UniformSize;
