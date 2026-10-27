@@ -97,6 +97,26 @@ unsafe impl Std140 for Mat3x4<f32> {
   const ALIGNMENT: usize = 16;
 }
 
+// The f16 types require `Features::SHADER_F16`. The f16 matrices are not supported in std140, the
+// naga backends that have different uniform packing rules (for example the HLSL constant buffer)
+// are not verified for them.
+
+unsafe impl Std140 for f16 {
+  const ALIGNMENT: usize = 2;
+}
+
+unsafe impl Std140 for Vec2<f16> {
+  const ALIGNMENT: usize = 4;
+}
+
+unsafe impl Std140 for Vec3<f16> {
+  const ALIGNMENT: usize = 8;
+}
+
+unsafe impl Std140 for Vec4<f16> {
+  const ALIGNMENT: usize = 8;
+}
+
 /// Referencing the ALIGNMENT in a monomorphized fn body forces it to be evaluated, the layout
 /// checks are embedded in ALIGNMENT's const expr.
 pub const fn assert_layout_alignment(alignment: usize) {
@@ -331,6 +351,49 @@ unsafe impl Std430 for Mat2x4<f32> {
 
 unsafe impl Std430 for Mat3x4<f32> {
   const ALIGNMENT: usize = 16;
+}
+
+// The f16 types require `Features::SHADER_F16`. Like the f32 ones, the matCx3 is not supported, the
+// column stride is 6 bytes in rust but 8 bytes in WGSL.
+
+unsafe impl Std430 for f16 {
+  const ALIGNMENT: usize = 2;
+}
+
+unsafe impl Std430 for Vec2<f16> {
+  const ALIGNMENT: usize = 4;
+}
+
+unsafe impl Std430 for Vec3<f16> {
+  const ALIGNMENT: usize = 8;
+}
+
+unsafe impl Std430 for Vec4<f16> {
+  const ALIGNMENT: usize = 8;
+}
+
+unsafe impl Std430 for Mat2<f16> {
+  const ALIGNMENT: usize = 4;
+}
+
+unsafe impl Std430 for Mat3x2<f16> {
+  const ALIGNMENT: usize = 4;
+}
+
+unsafe impl Std430 for Mat4x2<f16> {
+  const ALIGNMENT: usize = 4;
+}
+
+unsafe impl Std430 for Mat4<f16> {
+  const ALIGNMENT: usize = 8;
+}
+
+unsafe impl Std430 for Mat2x4<f16> {
+  const ALIGNMENT: usize = 8;
+}
+
+unsafe impl Std430 for Mat3x4<f16> {
+  const ALIGNMENT: usize = 8;
 }
 
 unsafe impl<T: Std430, const U: usize> Std430 for [T; U]

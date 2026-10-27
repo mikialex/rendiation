@@ -3,6 +3,7 @@
 
 pub mod binding;
 pub mod builtin;
+pub mod f16;
 pub mod function;
 pub mod graphics;
 pub mod iter;

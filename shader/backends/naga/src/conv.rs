@@ -149,7 +149,7 @@ pub fn map_scalar_kind(t: ScalarType) -> naga::ScalarKind {
   match t {
     ScalarType::U32 => naga::ScalarKind::Uint,
     ScalarType::I32 => naga::ScalarKind::Sint,
-    ScalarType::F32 => naga::ScalarKind::Float,
+    ScalarType::F32 | ScalarType::F16 => naga::ScalarKind::Float,
     ScalarType::Bool => naga::ScalarKind::Bool,
   }
 }
@@ -157,6 +157,7 @@ pub fn map_scalar_kind(t: ScalarType) -> naga::ScalarKind {
 pub fn map_scalar_type(t: ScalarType) -> naga::Scalar {
   match t {
     ScalarType::F32 => naga::Scalar::F32,
+    ScalarType::F16 => naga::Scalar::F16,
     ScalarType::U32 => naga::Scalar::U32,
     ScalarType::I32 => naga::Scalar::I32,
     ScalarType::Bool => naga::Scalar::BOOL,
@@ -252,6 +253,7 @@ fn workaround_f32_max(f: f32) -> f32 {
 pub fn scalar_value_to_naga_literal(v: ScalarValue) -> naga::Literal {
   match v {
     ScalarValue::F32(v) => naga::Literal::F32(workaround_f32_max(v)),
+    ScalarValue::F16(v) => naga::Literal::F16(v),
     ScalarValue::U32(v) => naga::Literal::U32(v),
     ScalarValue::I32(v) => naga::Literal::I32(v),
     ScalarValue::Bool(v) => naga::Literal::Bool(v),

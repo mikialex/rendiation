@@ -1,5 +1,3 @@
-use rendiation_algebra::SquareMatrix;
-
 use crate::*;
 
 #[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
@@ -121,6 +119,16 @@ impl Node<f32> {
   }
   pub fn is_inf(&self) -> Node<bool> {
     (self.bitcast::<u32>() & val(0x7fff_ffff_u32)).equals(val(0x7f80_0000_u32))
+  }
+}
+/// naga IR can not bitcast f16, the f16 to f32 conversion is exact and keeps the nan and inf, so
+/// the check is done on the converted f32.
+impl Node<f16> {
+  pub fn is_nan(&self) -> Node<bool> {
+    self.into_f32().is_nan()
+  }
+  pub fn is_inf(&self) -> Node<bool> {
+    self.into_f32().is_inf()
   }
 }
 
@@ -371,29 +379,36 @@ impl<T: ShaderMatrixType> Node<T> {
   }
 }
 
-impl<T> Node<T>
-where
-  T: SquareMatrix<f32> + PrimitiveShaderNodeType,
-{
-  pub fn determinant(self) -> Node<f32> {
-    make_builtin_call(ShaderBuiltInFunction::Determinant, [self.handle()])
-  }
+macro_rules! impl_determinant {
+  ($($ty: ident),+) => {
+    $(
+      impl<T: ShaderFloatType> Node<$ty<T>> {
+        pub fn determinant(self) -> Node<T> {
+          make_builtin_call(ShaderBuiltInFunction::Determinant, [self.handle()])
+        }
+      }
+    )+
+  };
 }
+impl_determinant!(Mat2, Mat3, Mat4);
 
-impl Node<Mat4<f32>> {
-  pub fn position(self) -> Node<Vec3<f32>> {
+impl<T: ShaderFloatType> Node<Mat4<T>> {
+  pub fn position(self) -> Node<Vec3<T>> {
     self.nth_colum(3).xyz()
   }
-  pub fn forward(self) -> Node<Vec3<f32>> {
+  pub fn forward(self) -> Node<Vec3<T>> {
     self.nth_colum(2).xyz()
   }
-  pub fn scale(self) -> Node<Vec3<f32>> {
+  pub fn scale(self) -> Node<Vec3<T>>
+  where
+    Node<Vec3<T>>: From<(Node<T>, Node<T>, Node<T>)>,
+  {
     let x = self.nth_colum(0).length();
     let y = self.nth_colum(1).length();
     let z = self.nth_colum(2).length();
     (x, y, z).into()
   }
-  pub fn nth_colum(self, n: u32) -> Node<Vec4<f32>> {
+  pub fn nth_colum(self, n: u32) -> Node<Vec4<T>> {
     unsafe { index_access_field(self.handle(), n as usize).into_node() }
   }
 }
@@ -599,8 +614,7 @@ where
 
 impl<T> Node<T>
 where
-  T: ShaderScalarOrVec,
-  T::Item: ShaderFloatType,
+  T: ShaderScalarOrVec<Item = f32>,
 {
   /// return (fract, exp), where `self = fract * 2^exp`
   pub fn frexp(self) -> (Node<T>, Node<T::Shape<i32>>)
@@ -615,7 +629,37 @@ where
       (fr, exp)
     }
   }
+}
 
+/// naga generates the i16 exponent for the f16 frexp, but WGSL requires i32, so it is computed in
+/// f32. The conversions are exact, the fract of f16 is representable in f16.
+macro_rules! impl_f16_frexp {
+  ($($ty: ident),*) => {
+    impl Node<f16> {
+      /// return (fract, exp), where `self = fract * 2^exp`
+      pub fn frexp(self) -> (Node<f16>, Node<i32>) {
+        let (fract, exp) = self.into_f32().frexp();
+        (fract.into_f16(), exp)
+      }
+    }
+    $(
+      impl Node<$ty<f16>> {
+        /// return (fract, exp), where `self = fract * 2^exp`
+        pub fn frexp(self) -> (Node<$ty<f16>>, Node<$ty<i32>>) {
+          let (fract, exp) = self.into_f32().frexp();
+          (fract.into_f16(), exp)
+        }
+      }
+    )*
+  };
+}
+impl_f16_frexp!(Vec2, Vec3, Vec4);
+
+impl<T> Node<T>
+where
+  T: ShaderScalarOrVec,
+  T::Item: ShaderFloatType,
+{
   /// return (fract, whole), the fractional and whole parts of self, both have the same sign as self
   pub fn modf(self) -> (Node<T>, Node<T>) {
     let raw = make_builtin_call::<AnyType>(ShaderBuiltInFunction::Modf, [self.handle()]).handle();
@@ -711,6 +755,15 @@ impl Node<Vec4<u32>> {
   }
 }
 
+/// WGSL has no f16 packing built-in and naga IR can not bitcast f16, so the f16 data is packed
+/// through f32, the conversions between f16 and f32 are exact.
+impl Node<Vec2<f16>> {
+  /// pack the two f16 into u32, the x component is in the lower 16 bits, same as `pack2x16float`
+  pub fn pack2x_f16(self) -> Node<u32> {
+    self.into_f32().pack2x16float()
+  }
+}
+
 impl Node<Vec2<f32>> {
   pub fn pack2x16snorm(self) -> Node<u32> {
     make_builtin_call(ShaderBuiltInFunction::Pack2x16snorm, [self.handle()])
@@ -761,5 +814,9 @@ impl Node<u32> {
   }
   pub fn unpack2x16float(self) -> Node<Vec2<f32>> {
     make_builtin_call(ShaderBuiltInFunction::Unpack2x16float, [self.handle()])
+  }
+  /// the reverse of [Node::pack2x_f16]
+  pub fn unpack2x_f16(self) -> Node<Vec2<f16>> {
+    self.unpack2x16float().into_f16()
   }
 }

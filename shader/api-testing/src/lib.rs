@@ -28,6 +28,8 @@ mod compute;
 #[cfg(test)]
 mod control_flow;
 #[cfg(test)]
+mod f16;
+#[cfg(test)]
 mod function;
 #[cfg(test)]
 mod graphics;

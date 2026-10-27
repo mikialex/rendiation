@@ -406,6 +406,7 @@ impl_primitive_direct!(bool);
 impl_primitive_direct!(i32);
 impl_primitive_direct!(u32);
 impl_primitive_direct!(f32);
+impl_primitive_direct!(f16);
 impl_primitive_compound_direct!(Vec2);
 impl_primitive_compound_direct!(Vec3);
 impl_primitive_compound_direct!(Vec4);

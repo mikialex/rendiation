@@ -128,6 +128,7 @@ impl ShaderU32StructMetaData {
     });
   }
   fn register_sized(&mut self, ty: &ShaderSizedValueType) {
+    ty.assert_u32_heap_compatible();
     match ty {
       ShaderSizedValueType::Struct(ty) => self.register_struct(ty),
       ShaderSizedValueType::FixedSizeArray(ty, _) => self.register_sized(ty),
@@ -193,7 +194,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
               PrimitiveShaderValueType::Scalar(*scalar),
             ),
             PrimitiveShaderValueType::Matrix { rows, scalar, .. } => {
-              let stride = matrix_column_stride(*rows, meta.layout) as u32 / 4;
+              let stride = matrix_column_stride(*rows, *scalar, meta.layout) as u32 / 4;
               (
                 stride * field_index as u32,
                 PrimitiveShaderValueType::vector(*rows, *scalar),
@@ -267,7 +268,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
           ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Scalar(*scalar)),
         ),
         PrimitiveShaderValueType::Matrix { rows, scalar, .. } => {
-          let stride = matrix_column_stride(*rows, meta.layout) as u32 / 4;
+          let stride = matrix_column_stride(*rows, *scalar, meta.layout) as u32 / 4;
           (
             val(stride) * index,
             ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(*rows, *scalar)),

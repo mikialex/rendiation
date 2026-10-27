@@ -116,7 +116,7 @@ pub trait ShaderDivRem<Rhs>: ShaderComponentWiseOperands<Rhs> {}
 /// that are invalid in WGSL, for example the homogeneous `Mat4 * Vec3`.
 #[diagnostic::on_unimplemented(
   message = "`{Self}` can not be multiplied by `{Rhs}` in shader",
-  note = "see the WGSL arithmetic expression overloads, the matrix element type must be f32 and the matrix vector dimensions must match"
+  note = "see the WGSL arithmetic expression overloads, the matrix element type must be f32 or f16, the operands must have the same scalar type and the matrix vector dimensions must match"
 )]
 pub trait ShaderMul<Rhs>: ShaderNodeType {
   type Output: ShaderNodeType;
@@ -187,60 +187,69 @@ macro_rules! impl_scalar_vector_arithmetic {
 }
 
 impl_scalar_vector_arithmetic!(f32);
+impl_scalar_vector_arithmetic!(f16);
 impl_scalar_vector_arithmetic!(u32);
 impl_scalar_vector_arithmetic!(i32);
 
-// the f32 vecN type
+// the vecN type of the scalar s
 macro_rules! vec_ty {
-  (2) => { Vec2<f32> };
-  (3) => { Vec3<f32> };
-  (4) => { Vec4<f32> };
+  ($s: ty, 2) => { Vec2<$s> };
+  ($s: ty, 3) => { Vec3<$s> };
+  ($s: ty, 4) => { Vec4<$s> };
 }
 
-// the f32 matCxR type, C columns and R rows
+// the matCxR type of the scalar s, C columns and R rows
 macro_rules! mat_ty {
-  (2, 2) => { Mat2<f32> };
-  (2, 3) => { Mat2x3<f32> };
-  (2, 4) => { Mat2x4<f32> };
-  (3, 2) => { Mat3x2<f32> };
-  (3, 3) => { Mat3<f32> };
-  (3, 4) => { Mat3x4<f32> };
-  (4, 2) => { Mat4x2<f32> };
-  (4, 3) => { Mat4x3<f32> };
-  (4, 4) => { Mat4<f32> };
+  ($s: ty, 2, 2) => { Mat2<$s> };
+  ($s: ty, 2, 3) => { Mat2x3<$s> };
+  ($s: ty, 2, 4) => { Mat2x4<$s> };
+  ($s: ty, 3, 2) => { Mat3x2<$s> };
+  ($s: ty, 3, 3) => { Mat3<$s> };
+  ($s: ty, 3, 4) => { Mat3x4<$s> };
+  ($s: ty, 4, 2) => { Mat4x2<$s> };
+  ($s: ty, 4, 3) => { Mat4x3<$s> };
+  ($s: ty, 4, 4) => { Mat4<$s> };
 }
 
 macro_rules! impl_matrix_arithmetic {
-  ($(($c: tt, $r: tt)),+) => {
+  ($s: ty, $(($c: tt, $r: tt)),+) => {
     $(
-      impl_same_type_operands!(mat_ty!($c, $r));
-      impl_shader_mul!(mat_ty!($c, $r), f32, mat_ty!($c, $r));
-      impl_shader_mul!(f32, mat_ty!($c, $r), mat_ty!($c, $r));
+      impl_same_type_operands!(mat_ty!($s, $c, $r));
+      impl_shader_mul!(mat_ty!($s, $c, $r), $s, mat_ty!($s, $c, $r));
+      impl_shader_mul!($s, mat_ty!($s, $c, $r), mat_ty!($s, $c, $r));
 
       // matCxR * vecC -> vecR
-      impl_shader_mul!(mat_ty!($c, $r), vec_ty!($c), vec_ty!($r));
+      impl_shader_mul!(mat_ty!($s, $c, $r), vec_ty!($s, $c), vec_ty!($s, $r));
       // vecR * matCxR -> vecC
-      impl_shader_mul!(vec_ty!($r), mat_ty!($c, $r), vec_ty!($c));
+      impl_shader_mul!(vec_ty!($s, $r), mat_ty!($s, $c, $r), vec_ty!($s, $c));
 
       // matCxR * matNxC -> matNxR
-      impl_shader_mul!(mat_ty!($c, $r), mat_ty!(2, $c), mat_ty!(2, $r));
-      impl_shader_mul!(mat_ty!($c, $r), mat_ty!(3, $c), mat_ty!(3, $r));
-      impl_shader_mul!(mat_ty!($c, $r), mat_ty!(4, $c), mat_ty!(4, $r));
+      impl_shader_mul!(mat_ty!($s, $c, $r), mat_ty!($s, 2, $c), mat_ty!($s, 2, $r));
+      impl_shader_mul!(mat_ty!($s, $c, $r), mat_ty!($s, 3, $c), mat_ty!($s, 3, $r));
+      impl_shader_mul!(mat_ty!($s, $c, $r), mat_ty!($s, 4, $c), mat_ty!($s, 4, $r));
     )+
   };
 }
 
-impl_matrix_arithmetic!(
-  (2, 2),
-  (2, 3),
-  (2, 4),
-  (3, 2),
-  (3, 3),
-  (3, 4),
-  (4, 2),
-  (4, 3),
-  (4, 4)
-);
+macro_rules! impl_all_matrix_arithmetic {
+  ($s: ty) => {
+    impl_matrix_arithmetic!(
+      $s,
+      (2, 2),
+      (2, 3),
+      (2, 4),
+      (3, 2),
+      (3, 3),
+      (3, 4),
+      (4, 2),
+      (4, 3),
+      (4, 4)
+    );
+  };
+}
+
+impl_all_matrix_arithmetic!(f32);
+impl_all_matrix_arithmetic!(f16);
 
 fn component_wise_binary<T, R>(
   lhs: Node<T>,

@@ -131,6 +131,17 @@ where
   <[O]>::from_bytes_into_boxed(&result.read_raw()).into_vec()
 }
 
+/// Whether the GPU adapter supports the optional features, the GPU tests that require them are
+/// skipped when unsupported.
+pub async fn gpu_supports(features: wgpu_types::Features) -> bool {
+  let gpu = GPU::new(Default::default()).await.unwrap();
+  let supported = gpu.info.supported_features.contains(features);
+  if !supported {
+    println!("the GPU test is skipped, the adapter does not support {features:?}");
+  }
+  supported
+}
+
 /// Build a graphics shader by the naga backend, return the vertex and fragment shader module.
 pub fn build_graphics(logic: impl Fn(&mut ShaderRenderPipelineBuilder)) -> [naga::Module; 2] {
   struct Logic<F>(F);

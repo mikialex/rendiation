@@ -12,14 +12,14 @@ pub struct MatrixOfInteger;
 /// ```
 pub struct MatrixOfBool;
 
-/// negation only applies to i32 and f32 scalar or vector
+/// negation only applies to i32, f32 and f16 scalar or vector
 /// ```compile_fail,E0600
 /// use rendiation_shader_api::*;
 /// let v = -val(1_u32);
 /// ```
 pub struct NegateUnsigned;
 
-/// negation only applies to i32 and f32 scalar or vector
+/// negation only applies to i32, f32 and f16 scalar or vector
 /// ```compile_fail,E0600
 /// use rendiation_shader_api::*;
 /// let v = -val(true);

@@ -29,6 +29,7 @@ pub use ray_query::*;
 
 pub trait ShaderFloatType: ShaderScalarType {}
 impl ShaderFloatType for f32 {}
+impl ShaderFloatType for f16 {}
 
 pub trait ShaderIntType: ShaderScalarType {}
 impl ShaderIntType for i32 {}
@@ -37,6 +38,7 @@ impl ShaderIntType for u32 {}
 pub trait ShaderSignedType: ShaderScalarType {}
 impl ShaderSignedType for i32 {}
 impl ShaderSignedType for f32 {}
+impl ShaderSignedType for f16 {}
 
 /// The scalar types that support the `&` and `|` operators. For integers they are bitwise
 /// operations, for bool they are the non short circuit logical operations.
@@ -309,6 +311,12 @@ where
 }
 
 #[must_use]
+/// The f16 constant, the f32 value is rounded to the nearest f16, because rust has no stable f16
+/// literal.
+pub fn val_f16(v: f32) -> Node<f16> {
+  val(f16::from_f32(v))
+}
+
 pub fn zeroed_val<T>() -> Node<T>
 where
   T: ShaderSizedValueNodeType,
