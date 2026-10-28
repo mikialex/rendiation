@@ -46,6 +46,31 @@ impl GPUQueue {
     }
     index
   }
+
+  /// Hand `cmd` to a submit this queue does not make, for example a third party renderer that
+  /// submits it with its own command buffers in one wgpu submit call. Its calls count as
+  /// submitted now. Keep the returned guard until that submit happened: dropping it notifies the
+  /// buffer's submit waiters, and on the web runs the destroys deferred while it recorded.
+  pub fn hand_over(&self, cmd: GPUCommandBuffer) -> (gpu::CommandBuffer, HandedOverCommandBuffer) {
+    self.counters.submitted_commands.merge(&cmd.counts);
+    let guard = HandedOverCommandBuffer {
+      on_submit: cmd.on_submit,
+      _deferred_explicit_destroy: cmd._deferred_explicit_destroy,
+    };
+    (cmd.inner, guard)
+  }
+}
+
+/// What a command buffer handed over by [`GPUQueue::hand_over`] holds until its submit.
+pub struct HandedOverCommandBuffer {
+  on_submit: OnSubmitNotifier,
+  _deferred_explicit_destroy: CommandBufferDeferExplicitDestroyFlusher,
+}
+
+impl Drop for HandedOverCommandBuffer {
+  fn drop(&mut self) {
+    std::mem::take(&mut self.on_submit).notify();
+  }
 }
 
 /// The wgpu queue api wrapper, the calls are counted, see [GPUCallCountReport].
