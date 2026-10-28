@@ -185,43 +185,71 @@ impl PrimitiveShaderValueType {
   /// for type that not host-shareable (e.g. bool related), assume u32 equivalent is used.
   pub fn align_of_self(&self, target: StructLayoutTarget) -> usize {
     if target == StructLayoutTarget::Packed {
+      assert_packed_layout_scalar(self.scalar());
       return 4;
     }
     match self {
-      PrimitiveShaderValueType::Scalar(_) => 4,
-      PrimitiveShaderValueType::Vector {
-        size: VectorSize::Bi,
-        ..
-      } => 8,
-      PrimitiveShaderValueType::Vector { .. } => 16,
-      PrimitiveShaderValueType::Matrix { rows, .. } => match rows {
-        VectorSize::Bi => 8,
-        VectorSize::Tri | VectorSize::Quad => 16,
-      },
+      PrimitiveShaderValueType::Scalar(scalar) => scalar_layout_width(*scalar),
+      PrimitiveShaderValueType::Vector { size, scalar } => vector_align(*size, *scalar),
+      PrimitiveShaderValueType::Matrix { rows, scalar, .. } => vector_align(*rows, *scalar),
     }
   }
 
   pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
+    if target == StructLayoutTarget::Packed {
+      assert_packed_layout_scalar(self.scalar());
+    }
     match self {
-      PrimitiveShaderValueType::Scalar(_) => 4,
-      PrimitiveShaderValueType::Vector { size, .. } => 4 * *size as usize,
-      PrimitiveShaderValueType::Matrix { columns, rows, .. } => {
-        *columns as usize * matrix_column_stride(*rows, target)
+      PrimitiveShaderValueType::Scalar(scalar) => scalar_layout_width(*scalar),
+      PrimitiveShaderValueType::Vector { size, scalar } => {
+        scalar_layout_width(*scalar) * *size as usize
       }
+      PrimitiveShaderValueType::Matrix {
+        columns,
+        rows,
+        scalar,
+      } => *columns as usize * matrix_column_stride(*rows, *scalar, target),
     }
   }
 }
 
+/// The byte size of the scalar in the buffer layout, bool is assumed to be u32 equivalent.
+fn scalar_layout_width(scalar: ScalarType) -> usize {
+  match scalar {
+    ScalarType::F16 => 2,
+    ScalarType::F32 | ScalarType::U32 | ScalarType::I32 | ScalarType::Bool => 4,
+  }
+}
+
+/// vec2 is aligned to its size, vec3 and vec4 are aligned to the size of vec4
+fn vector_align(size: VectorSize, scalar: ScalarType) -> usize {
+  let width = scalar_layout_width(scalar);
+  match size {
+    VectorSize::Bi => 2 * width,
+    VectorSize::Tri | VectorSize::Quad => 4 * width,
+  }
+}
+
+/// The packed layout maps each scalar to one u32, so the 16 bit scalar can not be represented.
+fn assert_packed_layout_scalar(scalar: ScalarType) {
+  assert!(
+    scalar != ScalarType::F16,
+    "f16 is not supported in the packed layout(the u32 heap and the u32 serialization), \
+     pack the f16 data into u32 manually, for example by `pack2x16float`"
+  );
+}
+
 /// The byte distance between adjacent columns of a matrix, the matrix is treated as an array of
 /// column vectors, so for example the column of mat3x3 is padded to 16 bytes (except packed).
-pub fn matrix_column_stride(rows: VectorSize, target: StructLayoutTarget) -> usize {
-  let column_size = 4 * rows as usize;
+pub fn matrix_column_stride(
+  rows: VectorSize,
+  scalar: ScalarType,
+  target: StructLayoutTarget,
+) -> usize {
   if target == StructLayoutTarget::Packed {
-    return column_size;
+    assert_packed_layout_scalar(scalar);
+    return 4 * rows as usize;
   }
-  let column_align = match rows {
-    VectorSize::Bi => 8,
-    VectorSize::Tri | VectorSize::Quad => 16,
-  };
-  round_up(column_align, column_size)
+  let column_size = scalar_layout_width(scalar) * rows as usize;
+  round_up(vector_align(rows, scalar), column_size)
 }

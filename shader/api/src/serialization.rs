@@ -14,7 +14,7 @@ impl PrimitiveShaderValueType {
   pub fn mat_row_info(&self, target: StructLayoutTarget) -> Option<(usize, ShaderSizedValueType)> {
     match self {
       PrimitiveShaderValueType::Matrix { rows, scalar, .. } => Some((
-        matrix_column_stride(*rows, target) / 4,
+        matrix_column_stride(*rows, *scalar, target) / 4,
         ShaderSizedValueType::Primitive(PrimitiveShaderValueType::vector(*rows, *scalar)),
       )),
       _ => None,
@@ -24,7 +24,28 @@ impl PrimitiveShaderValueType {
 
 impl ShaderSizedValueType {
   pub fn u32_size_count(&self, layout: StructLayoutTarget) -> u32 {
+    self.assert_u32_heap_compatible();
     self.size_of_self(layout) as u32 / 4
+  }
+
+  /// The u32 heap (the combined buffer) and the u32 serialization map each scalar to one u32, so
+  /// the type contains f16 is not supported, the f16 data should be packed into u32 manually, for
+  /// example by `pack2x16float`.
+  pub fn assert_u32_heap_compatible(&self) {
+    assert!(
+      !self.contains_f16(),
+      "f16 is not supported in the u32 heap(the combined buffer) and the u32 serialization, \
+       pack the f16 data into u32 manually, for example by `pack2x16float`. type: {self:?}"
+    );
+  }
+
+  pub fn contains_f16(&self) -> bool {
+    match self {
+      ShaderSizedValueType::Atomic(_) => false,
+      ShaderSizedValueType::Primitive(p) => p.scalar() == ScalarType::F16,
+      ShaderSizedValueType::Struct(meta) => meta.fields.iter().any(|f| f.ty.contains_f16()),
+      ShaderSizedValueType::FixedSizeArray(ty, _) => ty.contains_f16(),
+    }
   }
 
   pub fn load_from_u32_buffer(

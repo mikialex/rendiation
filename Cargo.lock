@@ -4911,6 +4911,7 @@ dependencies = [
  "disqualified",
  "dyn-clone",
  "fast-hash-collection",
+ "half",
  "once_cell",
  "parking_lot",
  "paste",

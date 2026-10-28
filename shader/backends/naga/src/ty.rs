@@ -141,11 +141,22 @@ impl ShaderAPINagaImpl {
     let Some(member_fields) = self.padded_structs.get(&ty).cloned() else {
       return components;
     };
+    let naga::TypeInner::Struct { members, .. } = &self.module.types[ty].inner else {
+      unreachable!("padded type must be struct")
+    };
+    let padding_literals: Vec<_> = members
+      .iter()
+      .map(|member| match self.module.types[member.ty].inner {
+        naga::TypeInner::Scalar(naga::Scalar::F16) => naga::Literal::F16(f16::ZERO),
+        _ => naga::Literal::U32(0),
+      })
+      .collect();
     member_fields
       .iter()
-      .map(|field| match field {
+      .zip(padding_literals)
+      .map(|(field, padding)| match field {
         Some(field_index) => components[*field_index],
-        None => append(self, naga::Expression::Literal(naga::Literal::U32(0))),
+        None => append(self, naga::Expression::Literal(padding)),
       })
       .collect()
   }
@@ -191,22 +202,28 @@ struct StructMembers {
 }
 
 impl StructMembers {
-  /// Append u32 padding members until the end offset reaches the target offset.
+  /// Append padding members until the end offset reaches the target offset. The u32 is used when
+  /// the gap is 4 bytes aligned, otherwise the f16 is used to fill the 2 bytes gap, which only
+  /// happens when the struct contains f16.
   fn pad_to(&mut self, api: &mut ShaderAPINagaImpl, target: u32) {
     assert!(target >= self.end_offset);
-    // all shader types' size are multiple of 4 bytes, so the gap is always able to be filled
-    assert!((target - self.end_offset).is_multiple_of(4));
-    let u32_ty = api.register_primitive_ty(PrimitiveShaderValueType::u32());
+    // all shader types' size are multiple of 2 bytes, so the gap is always able to be filled
+    assert!((target - self.end_offset).is_multiple_of(2));
     while self.end_offset < target {
+      let (ty, size) = if self.end_offset.is_multiple_of(4) && target - self.end_offset >= 4 {
+        (PrimitiveShaderValueType::u32(), 4)
+      } else {
+        (PrimitiveShaderValueType::Scalar(ScalarType::F16), 2)
+      };
       let padding_index = self.member_fields.iter().filter(|f| f.is_none()).count();
       self.members.push(naga::StructMember {
         name: format!("padding_{padding_index}").into(),
-        ty: u32_ty,
+        ty: api.register_primitive_ty(ty),
         binding: None,
         offset: self.end_offset,
       });
       self.member_fields.push(None);
-      self.end_offset += 4;
+      self.end_offset += size;
     }
   }
 }

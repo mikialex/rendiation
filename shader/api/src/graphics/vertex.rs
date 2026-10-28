@@ -329,12 +329,21 @@ impl AttributesListBuilder {
     self.byte_size_all += size;
   }
 
+  /// The attributes are tightly packed in the push order. The layout that violates the WebGPU
+  /// rules is reported as [ShaderBuildError::InvalidVertexBufferLayout]: the array stride must be
+  /// a multiple of 4, and the attribute offset must be a multiple of `min(4, format size)`.
   pub fn build(self, builder: &mut ShaderRawVertexBuilder, step_mode: VertexStepMode) {
     let layout = ShaderVertexBufferLayout {
       array_stride: self.byte_size_all,
       step_mode,
       attributes: self.inner,
     };
+    let attribute_aligned = |a: &VertexAttribute| a.offset.is_multiple_of(a.format.size().min(4));
+    if !layout.array_stride.is_multiple_of(4) || !layout.attributes.iter().all(attribute_aligned) {
+      builder
+        .errors
+        .push(ShaderBuildError::InvalidVertexBufferLayout(layout.clone()));
+    }
     builder.push_vertex_layout(layout);
   }
 }
@@ -365,6 +374,11 @@ vertex_input_node_impl!(f32, VertexFormat::Float32);
 vertex_input_node_impl!(Vec2<f32>, VertexFormat::Float32x2);
 vertex_input_node_impl!(Vec3<f32>, VertexFormat::Float32x3);
 vertex_input_node_impl!(Vec4<f32>, VertexFormat::Float32x4);
+
+// requires `Features::SHADER_F16`, there is no 3 components f16 vertex format
+vertex_input_node_impl!(f16, VertexFormat::Float16);
+vertex_input_node_impl!(Vec2<f16>, VertexFormat::Float16x2);
+vertex_input_node_impl!(Vec4<f16>, VertexFormat::Float16x4);
 
 vertex_input_node_impl!(u32, VertexFormat::Uint32);
 vertex_input_node_impl!(Vec2<u32>, VertexFormat::Uint32x2);

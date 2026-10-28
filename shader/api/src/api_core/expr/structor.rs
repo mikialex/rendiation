@@ -72,6 +72,19 @@ shader_field_ty_mapper!(Mat3x4<f32>);
 shader_field_ty_mapper!(Mat4x2<f32>);
 shader_field_ty_mapper!(Mat4x3<f32>);
 shader_field_ty_mapper!(Bool);
+shader_field_ty_mapper!(f16);
+shader_field_ty_mapper!(Vec2<f16>);
+shader_field_ty_mapper!(Vec3<f16>);
+shader_field_ty_mapper!(Vec4<f16>);
+shader_field_ty_mapper!(Mat2<f16>);
+shader_field_ty_mapper!(Mat3<f16>);
+shader_field_ty_mapper!(Mat4<f16>);
+shader_field_ty_mapper!(Mat2x3<f16>);
+shader_field_ty_mapper!(Mat2x4<f16>);
+shader_field_ty_mapper!(Mat3x2<f16>);
+shader_field_ty_mapper!(Mat3x4<f16>);
+shader_field_ty_mapper!(Mat4x2<f16>);
+shader_field_ty_mapper!(Mat4x3<f16>);
 
 // std140
 impl ShaderFieldTypeMapper for Shader16PaddedMat3 {

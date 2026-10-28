@@ -124,6 +124,7 @@ disqualified = "1.0.0"
 image = "0.25.8"
 env_logger = "0.11.8"
 bytemuck = { version = "1.4.1", features = ["derive"] }
+half = { version = "2.7", features = ["bytemuck"] }
 dyn-clone = "1.0.5"
 walkdir = "2"
 futures = "0.3.25"

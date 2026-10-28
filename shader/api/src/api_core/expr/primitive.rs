@@ -3,6 +3,8 @@ use crate::*;
 #[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub enum ScalarType {
   F32,
+  /// requires `Features::SHADER_F16`
+  F16,
   U32,
   I32,
   Bool,
@@ -12,6 +14,7 @@ impl ScalarType {
   pub fn byte_count(self) -> u32 {
     match self {
       ScalarType::Bool => 1,
+      ScalarType::F16 => 2,
       ScalarType::F32 | ScalarType::U32 | ScalarType::I32 => 4,
     }
   }
@@ -96,7 +99,9 @@ impl PrimitiveShaderValueType {
   pub fn vertex_out_could_interpolated(self) -> bool {
     match self {
       PrimitiveShaderValueType::Scalar(scalar)
-      | PrimitiveShaderValueType::Vector { scalar, .. } => scalar == ScalarType::F32,
+      | PrimitiveShaderValueType::Vector { scalar, .. } => {
+        matches!(scalar, ScalarType::F32 | ScalarType::F16)
+      }
       PrimitiveShaderValueType::Matrix { .. } => false,
     }
   }
@@ -105,6 +110,7 @@ impl PrimitiveShaderValueType {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ScalarValue {
   F32(f32),
+  F16(f16),
   U32(u32),
   I32(i32),
   Bool(bool),
@@ -114,6 +120,7 @@ impl ScalarValue {
   pub fn ty(self) -> ScalarType {
     match self {
       ScalarValue::F32(_) => ScalarType::F32,
+      ScalarValue::F16(_) => ScalarType::F16,
       ScalarValue::U32(_) => ScalarType::U32,
       ScalarValue::I32(_) => ScalarType::I32,
       ScalarValue::Bool(_) => ScalarType::Bool,
@@ -194,6 +201,7 @@ impl PrimitiveShaderValue {
         ScalarValue::U32(v) => val(v).handle(),
         ScalarValue::I32(v) => val(v).handle(),
         ScalarValue::F32(v) => val(v).handle(),
+        ScalarValue::F16(v) => val(v).handle(),
       }
     }
 
@@ -267,12 +275,18 @@ impl ShaderScalarType for f32 {
     ScalarType::F32
   }
 }
+impl ShaderScalarType for f16 {
+  fn scalar_type() -> ScalarType {
+    ScalarType::F16
+  }
+}
 
 /// marker trait for numeric scalar types, excluding bool
 pub trait ShaderNumericScalarType: ShaderScalarType {}
 impl ShaderNumericScalarType for u32 {}
 impl ShaderNumericScalarType for i32 {}
 impl ShaderNumericScalarType for f32 {}
+impl ShaderNumericScalarType for f16 {}
 
 impl From<bool> for ScalarValue {
   fn from(v: bool) -> Self {
@@ -294,6 +308,11 @@ impl From<f32> for ScalarValue {
     ScalarValue::F32(v)
   }
 }
+impl From<f16> for ScalarValue {
+  fn from(v: f16) -> Self {
+    ScalarValue::F16(v)
+  }
+}
 
 impl From<bool> for PrimitiveShaderValue {
   fn from(v: bool) -> Self {
@@ -312,6 +331,11 @@ impl From<i32> for PrimitiveShaderValue {
 }
 impl From<f32> for PrimitiveShaderValue {
   fn from(v: f32) -> Self {
+    PrimitiveShaderValue::Scalar(v.into())
+  }
+}
+impl From<f16> for PrimitiveShaderValue {
+  fn from(v: f16) -> Self {
     PrimitiveShaderValue::Scalar(v.into())
   }
 }
@@ -527,6 +551,7 @@ impl_scalar_primitive_node_type!(bool, Bool);
 impl_scalar_primitive_node_type!(u32, U32);
 impl_scalar_primitive_node_type!(i32, I32);
 impl_scalar_primitive_node_type!(f32, F32);
+impl_scalar_primitive_node_type!(f16, F16);
 impl_vector_primitive_node_type!(Vec2, Bi);
 impl_vector_primitive_node_type!(Vec3, Tri);
 impl_vector_primitive_node_type!(Vec4, Quad);
@@ -645,6 +670,14 @@ num_convert!(bool, i32);
 num_convert!(i32, bool);
 num_convert!(f32, bool);
 num_convert!(bool, f32);
+num_convert!(f16, f32);
+num_convert!(f32, f16);
+num_convert!(f16, u32);
+num_convert!(u32, f16);
+num_convert!(f16, i32);
+num_convert!(i32, f16);
+num_convert!(f16, bool);
+num_convert!(bool, f16);
 
 /// The 32 bit numeric scalar types, their scalars or vectors can be bitcast to each other.
 ///
@@ -748,7 +781,9 @@ compose_all_vec!(f32);
 compose_all_vec!(u32);
 compose_all_vec!(i32);
 compose_all_vec!(bool);
+compose_all_vec!(f16);
 compose_all_mat!(f32);
+compose_all_mat!(f16);
 
 impl Node<Mat4<f32>> {
   pub fn shrink_to_3(self) -> Node<Mat3<f32>> {

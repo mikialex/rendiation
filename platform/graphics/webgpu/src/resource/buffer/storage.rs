@@ -251,11 +251,22 @@ pub enum StorageBufferInit<'a, T: Std430MaybeUnsized + ?Sized> {
 }
 
 impl<'a, T: Std430MaybeUnsized + ?Sized> StorageBufferInit<'a, T> {
+  /// The size must be a multiple of 4, which is required by the WebGPU storage binding and buffer
+  /// copy, otherwise the buffer is padded and the runtime array length is wrong. Only the f16 data
+  /// can break it, for example the odd length f16 array, the data should be padded by the user.
   pub fn into_buffer_init(self) -> BufferInit<'a> {
-    match self {
+    let init = match self {
       StorageBufferInit::WithInit(data) => BufferInit::WithInit(data.bytes()),
       StorageBufferInit::Zeroed(size) => BufferInit::Zeroed(size),
+    };
+    if let Some(size) = init.size() {
+      assert!(
+        size.get().is_multiple_of(4),
+        "the storage buffer size {size} is not a multiple of 4, pad the data \
+         (for example the odd length f16 array)"
+      );
     }
+    init
   }
 }
 

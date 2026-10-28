@@ -19,6 +19,9 @@ pub enum ShaderBuildError {
   FragmentOutputSlotNotDeclared,
   FailedDowncastShaderValueFromInput,
   SemanticNotSupported,
+  /// the vertex buffer layout violates the WebGPU rules, for example the f16 scalar attribute
+  /// makes the array stride not a multiple of 4
+  InvalidVertexBufferLayout(ShaderVertexBufferLayout),
 }
 
 pub struct ShaderRenderPipelineBuilder {
@@ -184,7 +187,8 @@ macro_rules! impl_location_io_type {
     )+
   };
 }
-impl_location_io_type!(f32, u32, i32);
+// f16 requires `Features::SHADER_F16`
+impl_location_io_type!(f32, u32, i32, f16);
 
 pub trait AbstractShaderVertexBuilderTypedExt {
   fn register<T: SemanticVertexShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>);

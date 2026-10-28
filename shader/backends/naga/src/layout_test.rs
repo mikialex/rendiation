@@ -5,15 +5,18 @@ use super::*;
 #[test]
 fn primitive_std430_layout_matches_naga_natural_layout() {
   let sizes = [VectorSize::Bi, VectorSize::Tri, VectorSize::Quad];
-  let mut primitives = vec![PrimitiveShaderValueType::f32()];
-  for size in sizes {
-    primitives.push(PrimitiveShaderValueType::vector(size, ScalarType::F32));
-    for rows in sizes {
-      primitives.push(PrimitiveShaderValueType::Matrix {
-        columns: size,
-        rows,
-        scalar: ScalarType::F32,
-      });
+  let mut primitives = Vec::new();
+  for scalar in [ScalarType::F32, ScalarType::F16] {
+    primitives.push(PrimitiveShaderValueType::Scalar(scalar));
+    for size in sizes {
+      primitives.push(PrimitiveShaderValueType::vector(size, scalar));
+      for rows in sizes {
+        primitives.push(PrimitiveShaderValueType::Matrix {
+          columns: size,
+          rows,
+          scalar,
+        });
+      }
     }
   }
 

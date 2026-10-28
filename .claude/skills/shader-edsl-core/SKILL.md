@@ -55,17 +55,18 @@ library's operator impls (which contain WGSL-invalid ones like the homogeneous `
 
 | Operator | Valid operands |
 |----------|----------------|
-| `+ -` | see `ShaderAddSub<Rhs>`: same type numeric scalar/vector, `vec ± scalar`, `scalar ± vec`, same type f32 matrix |
+| `+ -` | see `ShaderAddSub<Rhs>`: same type numeric scalar/vector, `vec ± scalar`, `scalar ± vec`, same type float matrix |
 | `/ %` | see `ShaderDivRem<Rhs>`: same type numeric scalar/vector, `vec / scalar`, `scalar / vec` (same for `%`) |
-| `*` | see `ShaderMul<Rhs>`: same type numeric scalar/vector, `vec * scalar`, `scalar * vec`, `mat * f32`, `f32 * mat`, `matCxR * vecC -> vecR`, `vecR * matCxR -> vecC`, `matCxR * matNxC -> matNxR` |
-| unary `-` | i32/f32 scalar or vector (unsigned, bool and matrix are rejected) |
+| `*` | see `ShaderMul<Rhs>`: same type numeric scalar/vector, `vec * scalar`, `scalar * vec`, `mat * scalar`, `scalar * mat`, `matCxR * vecC -> vecR`, `vecR * matCxR -> vecC`, `matCxR * matNxC -> matNxR` |
+| unary `-` | i32/f32/f16 scalar or vector (unsigned, bool and matrix are rejected) |
 | `& \|` | integer or bool scalar/vector (non short circuit for bool) |
 | `^ << >>`, `.bitwise_not()` | integer scalar/vector |
 | `.and(v) .or(v)` | `Node<bool>`, short circuit |
 | `.not()` | `Node<bool>` and `Node<VecN<bool>>` |
 
 In the mixed vector and scalar form the scalar must be the vector component type, it applies to
-every component, There is no need to `.splat()` the scalar operand manually. Matrix element type must be `f32`.
+every component, There is no need to `.splat()` the scalar operand manually. Matrix element type must be `f32` or `f16`, and
+the operands of one operation must have the same scalar type (f16 and f32 never mix implicitly).
 
 The compound assignments `+= -= *= /=` accept any right operand as long as the result type is the
 left operand type, for example `v += s`, `v *= m` (vector times matrix), `m *= s`.
@@ -197,6 +198,7 @@ The macro must be placed before `#[derive(...)]`, because it inserts private pad
 - use `Shader16PaddedMat3` instead of `Mat3<f32>` for std140-compatible mat3
 - use `Shader140Array<T, N>` instead of `[T, N]` for std140-compatible fixed-size array; the element stride must be a multiple of 16 (`Vec4`, `Vec3`, structs, `Mat4` are fine; `f32`/`u32`/`Vec2` are rejected at compile time, pack them into `Vec4`)
 - std430 fixed-size arrays and runtime arrays (`[T; N]`, `[T]`) can not use `Vec3` as element (rust stride 12 vs WGSL stride 16), rejected at compile time
+- f16 (see the f16 section): std140 supports `f16` and `Vec2/3/4<f16>`, std430 additionally supports the f16 matrices whose rows are 2 or 4 (`Mat2`, `Mat3x2`, `Mat4x2`, `Mat4`, `Mat2x4`, `Mat3x4`). The alignment is the WGSL one (`Vec3<f16>`/`Vec4<f16>` align 8, `Vec2<f16>` align 4), so the derive inserts the paddings, the f16 matCx3 and `[Vec3<f16>; N]` are rejected like the f32 ones
 - `#[shader_struct(std140)]` and `#[shader_struct(std430)]` require `#[repr(C)]` only (no `align`/`packed`), named public fields, no generics. Every field offset, the struct size and alignment are asserted at compile time, so a layout mismatch is always a compile error
 - The rust layout is the source of truth: `#[shader_struct(std140)]`/`#[shader_struct(std430)]` attaches the rust field offsets to the struct meta info (`ShaderStructHostLayout`), the naga backend and the u32 serialization(std430) use them directly and inserts explicit padding members so the generated IR is always the natural WGSL layout (required by backends that ignore IR offsets, like WGSL text output for browser WebGPU and GLSL). Hand written host types should attach it by `ShaderStructMetaInfo::with_host_layout`
 
@@ -769,6 +771,9 @@ let b: Node<bool> = float_val.into_bool(); // u32/i32/f32 <-> bool are all suppo
 // 32 bit numeric (f32/u32/i32) scalar or vector, the shape must be the same
 let bits: Node<u32> = float_val.bitcast::<u32>();
 let bits: Node<Vec3<u32>> = float_vec3.bitcast::<Vec3<u32>>();
+// f16 <-> f32/u32/i32/bool, scalar or vector
+let h: Node<Vec3<f16>> = float_vec3.into_f16();
+let f: Node<Vec3<f32>> = h.into_f32();
 ```
 
 ### Vector boolean operations
@@ -877,6 +882,41 @@ the GPU by `gpu_map` of the `shader/api-testing` harness, and compares with the 
 
 For a change that should not affect the generated shader (like a naga backend refactor), compare the
 WGSL written by the tests before and after the change (`WGSL_SNAPSHOT_DIR`, see the README).
+
+## f16
+
+`f16` (re-exported `half::f16`, the host type) is a float scalar like `f32`, the shader requires
+`Features::SHADER_F16` (not checked by the EDSL, wgpu rejects the shader module when the device
+lacks it). `Vec2/3/4<f16>` and all the `MatCxR<f16>` are available, `ShaderFloatType`,
+`ShaderSignedType` and `ShaderNumericScalarType` include it, so the generic float functions and
+the operators work as f32.
+
+```rust
+let a: Node<f16> = val_f16(1.5); // rust has no stable f16 literal, the f32 is rounded to f16
+let b = val(f16::from_f32(2.)); // same as above
+let v: Node<Vec3<f16>> = val(Vec3::new(f16::ONE, f16::ZERO, f16::ONE)) * a;
+let packed: Node<u32> = v.xy().pack2x_f16(); // x in the lower 16 bits, same as pack2x16float
+let unpacked: Node<Vec2<f16>> = packed.unpack2x_f16();
+```
+
+- f32 only (WGSL rule): the derivatives, `quantize_to_f16`, the `pack*`/`unpack*` built-ins.
+- naga IR can not bitcast f16 (WGSL `bitcast<u32>(vec2<f16>)` changes the shape), so there is no
+  f16 `bitcast`, use `pack2x_f16`/`unpack2x_f16` (exact, done through f32).
+- naga generates the i16 exponent for the f16 frexp, so the f16 `frexp` is computed through f32
+  (exact), `is_nan`/`is_inf` are checked on the converted f32.
+- No f16 texture, atomic or fragment output (wgpu requires the f32 output for the float formats).
+- Vertex input: `f16`, `Vec2<f16>`, `Vec4<f16>` (`Float16`, `Float16x2`, `Float16x4`, there is no
+  3 components format), and the f16 inter stage variables are interpolated like f32.
+- The u32 heap (the combined buffer) and the u32 serialization (`StructLayoutTarget::Packed`) map
+  each scalar to one u32, a type containing f16 panics at shader build time there, pack the data
+  into u32 manually.
+- The whole buffer size must be a multiple of 4 (WebGPU binding and copy rule): the uniform type
+  size is checked at compile time (`create_uniform(f16)` is rejected), the storage buffer size is
+  checked at creation (for example the odd length `[f16]` panics), pad the data manually.
+- WGSL has no inf or nan literal, the non finite f16 constant (for example `val_f16(70000.)`, out
+  of the f16 range) panics at shader build time.
+- The Metal compiler is in the fast math mode by default and may evaluate an f16 expression in f32
+  without the intermediate rounding, only the value stored as f16 is guaranteed to be f16.
 
 ## Gotchas
 

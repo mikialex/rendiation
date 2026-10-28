@@ -20,6 +20,11 @@ use vertex::*;
 /// and inject semantic shader value in rendiation_shader_api.
 ///
 /// ## The memory layout should be compact
+///
+/// The fields are tightly packed attributes in the declaration order, so the rust layout must have
+/// no padding, which is checked at compile time. The WebGPU vertex layout rules (the array stride is
+/// a multiple of 4, the attribute offset is a multiple of `min(4, format size)`) are checked when
+/// building the shader.
 #[proc_macro_derive(ShaderVertex, attributes(semantic))]
 pub fn derive_vertex(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);

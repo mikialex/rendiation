@@ -33,6 +33,8 @@ pub use bytemuck::*;
 pub use compute::*;
 use fast_hash_collection::*;
 pub use graphics::*;
+/// the host side type of the WGSL f16, using it in shader requires `Features::SHADER_F16`
+pub use half::f16;
 pub use layout::*;
 use parking_lot::RwLock;
 pub use re_export::*;
